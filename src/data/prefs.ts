@@ -9,12 +9,24 @@
  * 少这一步的表现是「字号 400px，整页一个字」。
  * ============================================================ */
 
-export type ThemeName = 'auto' | 'paper' | 'ink' | 'parchment' | 'moss' | 'night';
+/**
+ * 书页配色：只有一档「跟随 Obsidian」。
+ *
+ * 以前给过纸/墨/羊皮/苔/夜五套自持色板，装进 Obsidian 后全是噪音——
+ * 用户换主题、切明暗，唯独阅读区还压着一块暖色，像贴了张别的软件的截图。
+ * 现在底色与正文色直接取宿主的 --background-primary / --text-normal，
+ * 明暗跟着宿主走；想区分「书」和「笔记」，靠的应该是强调色与版式，不是底色。
+ */
+export type ThemeName = 'auto';
+/** 强调色：默认跟随宿主 accent，其余几档是自持色（明暗各一档） */
+export type AccentName = 'auto' | 'copper' | 'vermilion' | 'indigo' | 'moss';
 export type FontFamilyName = 'book' | 'serif' | 'sans';
 export type TextAlign = 'left' | 'justify';
 /** 竖排（writing-mode: vertical-rl）是东亚长文阅读的一等需求，不是装饰 */
 export type LayoutMode = 'horizontal' | 'vertical';
 export type ColumnCount = 1 | 2;
+/** 脚注行为：上方浮窗先看一行注释，还是老实地跳到章末 */
+export type FootnoteMode = 'popup' | 'jump';
 
 export interface ReaderPrefs {
   fontSize: number;
@@ -23,10 +35,14 @@ export interface ReaderPrefs {
   fontFamily: FontFamilyName;
   align: TextAlign;
   theme: ThemeName;
+  /** 强调色：章题短线、首字下沉、壳层选中态与滑杆都用它 */
+  accent: AccentName;
   /** 排版方向。竖排只影响书页内容，界面照旧横排 */
   layout: LayoutMode;
   /** 分页栏数。竖排时引擎强制单栏（竖排双栏的扫描顺序没人看得懂） */
   columns: ColumnCount;
+  /** 点注释号：上方浮窗（默认，高级功能）或直接跳到章末 */
+  footnote: FootnoteMode;
 }
 
 export const DEFAULT_PREFS: ReaderPrefs = {
@@ -36,8 +52,10 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   fontFamily: 'book',
   align: 'justify',
   theme: 'auto',
+  accent: 'auto',
   layout: 'horizontal',
   columns: 1,
+  footnote: 'popup',
 };
 
 export const FONT_SIZE_RANGE = { min: 14, max: 30, step: 1 } as const;
@@ -52,26 +70,30 @@ export const FONT_FAMILIES: Array<{ value: FontFamilyName; label: string; css: s
 ];
 
 /**
- * 主题六档（原型 reader-v2 的色板）：纸 / 墨 / 羊皮 / 苔 / 夜 / 跟随。
- * 纸是宣纸不是纯白、墨是暖炭不是冷黑——阅读器的高级感一半在这两块底色上。
- * bg/fg 同时用于：注入 iframe 的正文配色、阅读区栏框（--rear-*）、书摘卡片底色。
+ * 强调色档位。
+ *
+ * 默认档不写死颜色，读宿主的 --interactive-accent——换 Obsidian 主题时
+ * 阅读器的章题短线、首字、选中态跟着变，不会出现「紫主题配铜线」。
+ * 自持的几档都给明暗两色：同一支朱砂在白底和炭底上不是一个明度。
  */
-export const THEME_OPTIONS: Array<{ value: ThemeName; label: string; bg: string; fg: string }> = [
-  { value: 'paper', label: '纸', bg: '#f5efdf', fg: '#2c2519' },
-  { value: 'ink', label: '墨', bg: '#211c15', fg: '#ede4d4' },
-  { value: 'parchment', label: '羊皮', bg: '#e9dcc0', fg: '#332b1f' },
-  { value: 'moss', label: '苔', bg: '#1c2420', fg: '#d6e0d4' },
-  { value: 'night', label: '夜', bg: '#0f1418', fg: '#c2cad2' },
-  { value: 'auto', label: '跟随 Obsidian', bg: '', fg: '' },
+export const ACCENT_OPTIONS: Array<{ value: AccentName; label: string; css: string; dark: string }> = [
+  { value: 'auto', label: '跟随 Obsidian', css: '', dark: '' },
+  { value: 'copper', label: '铜金', css: '#9a7434', dark: '#c8a464' },
+  { value: 'vermilion', label: '朱砂', css: '#b0452f', dark: '#d9705a' },
+  { value: 'indigo', label: '黛蓝', css: '#3f5b8f', dark: '#8aa7d6' },
+  { value: 'moss', label: '苔青', css: '#4c6b52', dark: '#93b79a' },
 ];
 
-/** 旧版主题名 → 新名（旧值还躺在用户的 JSON 里，直接作废会静默跳回默认） */
-const THEME_MIGRATE: Record<string, ThemeName> = {
-  light: 'paper',
-  sepia: 'parchment',
-  green: 'moss',
-  dark: 'ink',
-};
+/**
+ * 旧书页主题名 → 'auto'。
+ *
+ * 这些值还躺在用户的 bz-reader.json 里。以前是「不认识就跳默认」，
+ * 现在默认就是 auto，所以只需要认出来别当成脏数据。留着这张表，
+ * 是为了将来再加档时不用重蹈覆辙。
+ */
+export const LEGACY_THEMES: ReadonlySet<string> = new Set([
+  'paper', 'ink', 'parchment', 'moss', 'night', 'light', 'sepia', 'green', 'dark',
+]);
 
 function clamp(n: unknown, min: number, max: number, fallback: number): number {
   const v = typeof n === 'number' && Number.isFinite(n) ? n : fallback;
@@ -80,8 +102,8 @@ function clamp(n: unknown, min: number, max: number, fallback: number): number {
 
 export function normalizePrefs(raw: unknown): ReaderPrefs {
   const p = (raw ?? {}) as Partial<ReaderPrefs>;
-  const rawTheme = typeof p.theme === 'string' && p.theme in THEME_MIGRATE ? THEME_MIGRATE[p.theme] : p.theme;
-  const theme = THEME_OPTIONS.some((t) => t.value === rawTheme) ? (rawTheme as ThemeName) : DEFAULT_PREFS.theme;
+  // 旧主题值（纸/墨/羊皮/苔/夜）不再辨认，统一并进 auto——见 LEGACY_THEMES
+  const accent = ACCENT_OPTIONS.some((a) => a.value === p.accent) ? (p.accent as AccentName) : DEFAULT_PREFS.accent;
   const family = FONT_FAMILIES.some((f) => f.value === p.fontFamily)
     ? (p.fontFamily as FontFamilyName)
     : DEFAULT_PREFS.fontFamily;
@@ -91,8 +113,10 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     margin: Math.round(clamp(p.margin, MARGIN_RANGE.min, MARGIN_RANGE.max, DEFAULT_PREFS.margin)),
     fontFamily: family,
     align: p.align === 'left' ? 'left' : 'justify',
-    theme,
+    theme: 'auto',
+    accent,
     layout: p.layout === 'vertical' ? 'vertical' : 'horizontal',
     columns: p.columns === 2 ? 2 : 1,
+    footnote: p.footnote === 'jump' ? 'jump' : 'popup',
   };
 }

@@ -1,0 +1,1281 @@
+/* ==========================================================
+   弹层 / 浮层 / Toast
+   遮罩压在壳内（absolute），与原型一致：弹窗留在阅读上下文里，
+   不跳到宿主窗口，避免"应用里套应用"。
+   ========================================================== */
+
+.bzs-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  background: var(--overlay);
+  backdrop-filter: blur(3px);
+  display: grid;
+  place-items: center;
+  padding: 28px;
+}
+
+.bzs-modal {
+  width: min(560px, 100%);
+  max-height: min(720px, 88%);
+  display: flex;
+  flex-direction: column;
+  background: var(--glass);
+  backdrop-filter: blur(26px) saturate(1.25);
+  border: 1px solid var(--glass-line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.bzs-modal.wide {
+  width: min(760px, 100%);
+}
+
+.bzs-modal.tall {
+  max-height: min(820px, 92%);
+}
+
+/* ── 浮层：没有遮罩、不吃正文点击 ──
+   排版面板与划线卡走这条。遮罩一压，正文就糊了，「边调边看」也就没了，
+   所以这两件事不能再借用居中弹窗的外壳。 */
+.bzs-float {
+  position: absolute;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  width: 320px;
+  max-height: calc(100vh - 120px);
+  pointer-events: auto;
+  background: var(--glass);
+  backdrop-filter: blur(26px) saturate(1.25);
+  border: 1px solid var(--glass-line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: bzs-float-in .16s ease-out;
+}
+
+/* 排版：贴右上角，避开阅读页的悬浮工具条 */
+.bzs-float.is-corner {
+  top: 60px;
+  right: 18px;
+}
+
+.bzs-float.is-anchored {
+  max-height: min(420px, calc(100vh - 160px));
+}
+
+@keyframes bzs-float-in {
+  from { opacity: 0; }
+}
+
+.bzs-float .bzs-mbody {
+  padding: 14px 16px;
+}
+
+/* 脚注正文：短、衬线、行距放宽——它本来就是正文的旁注，不该长得像元数据 */
+.bzs-fntext {
+  font-family: var(--serif);
+  font-size: 13px;
+  line-height: 1.95;
+  color: var(--t2);
+  max-height: 220px;
+  overflow: auto;
+}
+
+@media (max-width: 640px) {
+  /* 手机上右上一个 320px 的浮层等于半屏，改成贴着底部的一整条 */
+  .bzs-float.is-corner {
+    top: auto;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-height: 62vh;
+  }
+}
+
+.bzs-mhead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.bzs-mhead b {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: .08em;
+}
+
+.bzs-mhead .n {
+  font-size: 10.5px;
+  color: var(--t3);
+  letter-spacing: .14em;
+}
+
+.bzs-mhead .sp {
+  flex: 1;
+}
+
+.bzs-mhead .x {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--t3);
+  font-size: 17px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  padding: 0;
+  line-height: 1;
+}
+
+.bzs-mhead .x:hover {
+  color: var(--t1);
+  background: var(--copper-soft);
+}
+
+.bzs-mbody {
+  padding: 18px 20px;
+  overflow: auto;
+  flex: 1;
+}
+
+.bzs-mfoot {
+  display: flex;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.bzs-mfoot .sp {
+  flex: 1;
+}
+
+/* ── 搜索 ── */
+.bzs-search-in {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 11px;
+  background: var(--sunken);
+  padding: 11px 14px;
+  margin-bottom: 12px;
+}
+
+.bzs-search-in input {
+  flex: 1;
+  border: 0;
+  background: none;
+  color: var(--t1);
+  font-size: 14px;
+  outline: 0;
+  box-shadow: none;
+  min-width: 0;
+}
+
+.bzs-hit {
+  display: block;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--t2);
+  font-size: 12.5px;
+  line-height: 1.9;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.bzs-hit:hover {
+  background: var(--copper-soft);
+}
+
+.bzs-hit .loc {
+  display: block;
+  font-size: 10px;
+  color: var(--t3);
+  letter-spacing: .1em;
+  margin-bottom: 3px;
+}
+
+.bzs-hit em {
+  font-style: normal;
+  color: var(--copper);
+  border-bottom: 1px solid var(--copper-line);
+}
+
+.bzs-hitgroup {
+  font-size: 10px;
+  letter-spacing: .26em;
+  color: var(--copper);
+  padding: 14px 10px 4px;
+}
+
+/* ── 导入 ── */
+.bzs-drop {
+  border: 1px dashed var(--line-2);
+  border-radius: 14px;
+  padding: 44px 20px;
+  text-align: center;
+  color: var(--t3);
+  font-size: 12.5px;
+  line-height: 2;
+  transition: .2s;
+}
+
+.bzs-drop.over {
+  border-color: var(--copper);
+  background: var(--copper-soft);
+  color: var(--copper);
+}
+
+.bzs-drop b {
+  display: block;
+  font-family: var(--serif);
+  font-size: 17px;
+  color: var(--t1);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+/* ── Markdown 预览 ── */
+.bzs-md {
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  font: 12px/1.9 var(--ui);
+  color: var(--t2);
+  white-space: pre-wrap;
+  max-height: 340px;
+  overflow: auto;
+}
+
+/* ── 页面导览 ── */
+.bzs-tour {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.bzs-tour button {
+  display: flex;
+  align-items: center;
+  text-align: left;
+  appearance: none;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--t2);
+  border-radius: 10px;
+  padding: 11px 13px;
+  font-size: 12px;
+  transition: .2s;
+}
+
+.bzs-tour button:hover {
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+  color: var(--t1);
+}
+
+.bzs-tour button span {
+  font-size: 10px;
+  color: var(--t3);
+  display: block;
+  margin-top: 2px;
+}
+
+/* ── AI ── */
+.bzs-ai-tag {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 4px;
+}
+
+.bzs-ai-tag .seal {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--copper-soft);
+  border: 1px solid var(--copper-line);
+  color: var(--copper);
+  display: grid;
+  place-items: center;
+  font-family: var(--serif);
+  font-size: 13px;
+}
+
+.bzs-ai-tag b {
+  font-size: 11px;
+  letter-spacing: .24em;
+  color: var(--copper);
+}
+
+.bzs-ai-quote {
+  margin: 12px 0;
+  padding: 2px 0 2px 13px;
+  border-left: 2px solid var(--copper-line);
+  font-family: var(--serif);
+  font-size: 12.5px;
+  line-height: 1.9;
+  color: var(--t2);
+}
+
+.bzs-ai-body {
+  font-size: 13px;
+  line-height: 1.95;
+  color: var(--ink-2);
+}
+
+.bzs-ai-src {
+  font-size: 10.5px;
+  color: var(--t3);
+  letter-spacing: .06em;
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.bzs-ai-acts {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+/* ── 书摘卡 ── */
+.bzs-qcard {
+  position: relative;
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  padding: 20px 22px;
+  background: var(--surface);
+  border-left: 3px solid var(--copper);
+}
+
+.bzs-qcard .q {
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 2;
+  color: var(--ink);
+}
+
+.bzs-qcard .q::before {
+  content: "「";
+  color: var(--copper);
+}
+
+.bzs-qcard .q::after {
+  content: "」";
+  color: var(--copper);
+}
+
+.bzs-qcard .loc {
+  font-size: 11px;
+  color: var(--t3);
+  margin-top: 14px;
+  letter-spacing: .08em;
+}
+
+.bzs-qcard .stamp {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  font-family: var(--serif);
+  font-size: 11px;
+  color: var(--copper);
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 2px 6px;
+  letter-spacing: .08em;
+}
+
+/* ── 想法类型 ── */
+.bzs-types {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+
+.bzs-types button {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--t3);
+  border-radius: 99px;
+  padding: 6px 13px;
+  font-size: 11.5px;
+}
+
+.bzs-types button.on {
+  border-color: var(--copper-line);
+  color: var(--copper);
+  background: var(--copper-soft);
+}
+
+.bzs-shell textarea.idea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.8;
+  font-size: 12.5px;
+}
+
+/* ── 词典 ── */
+.bzs-dict .w {
+  font-family: var(--serif);
+  font-size: 26px;
+  color: var(--t1);
+  letter-spacing: .1em;
+}
+
+.bzs-dict .py {
+  font-size: 11px;
+  color: var(--copper);
+  letter-spacing: .2em;
+  margin: 4px 0 16px;
+}
+
+.bzs-dict .df {
+  font-size: 12.5px;
+  line-height: 2;
+  color: var(--t2);
+}
+
+/* ── Book Map ── */
+.bzs-bmap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bzs-bmap .row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+}
+
+.bzs-bmap .row:hover {
+  background: var(--copper-soft);
+  border-color: var(--copper-line);
+}
+
+.bzs-bmap .row .no {
+  font-family: var(--serif);
+  font-size: 11px;
+  color: var(--copper);
+  width: 26px;
+  flex-shrink: 0;
+}
+
+.bzs-bmap .row .nm {
+  font-size: 12.5px;
+  color: var(--t1);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bzs-bmap .row .strip {
+  flex: 1;
+  height: 5px;
+  background: var(--line);
+  border-radius: 3px;
+  position: relative;
+  max-width: 180px;
+}
+
+.bzs-bmap .row .strip i {
+  position: absolute;
+  top: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 1px;
+  background: var(--copper);
+  transform: rotate(45deg);
+}
+
+.bzs-bmap .row .strip u {
+  position: absolute;
+  top: 0;
+  height: 5px;
+  background: var(--c);
+  border-radius: 2px;
+}
+
+/* ── 页面浏览器（胶片） ── */
+.bzs-film {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.bzs-film button {
+  aspect-ratio: 3 / 4;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px;
+  text-align: left;
+  color: var(--t3);
+  font: 10px/1.7 var(--serif);
+  overflow: hidden;
+  transition: .2s;
+}
+
+.bzs-film button:hover {
+  border-color: var(--copper-line);
+  color: var(--t2);
+}
+
+.bzs-film button.on {
+  border-color: var(--copper);
+  background: var(--copper-soft);
+}
+
+.bzs-film button b {
+  display: block;
+  font-family: var(--serif);
+  font-size: 11px;
+  color: var(--copper);
+  margin-bottom: 6px;
+}
+
+/* ── 年度海报 ── */
+.bzs-poster {
+  background: linear-gradient(150deg, var(--surface), var(--bg-3));
+  border: 1px solid var(--copper-line);
+  border-radius: 14px;
+  padding: 34px;
+  text-align: center;
+}
+
+.bzs-poster .yr {
+  font-size: 10px;
+  letter-spacing: .5em;
+  color: var(--copper);
+}
+
+.bzs-poster h2 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 38px;
+  margin: 14px 0 6px;
+}
+
+.bzs-poster .big {
+  font-family: var(--serif);
+  font-size: 66px;
+  color: var(--copper);
+  line-height: 1.1;
+}
+
+.bzs-poster .sub {
+  font-size: 12px;
+  color: var(--t2);
+  line-height: 2;
+  margin-top: 10px;
+}
+
+/* ── 划词浮层 ── */
+.bzs-selbar {
+  position: absolute;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 9px;
+  border-radius: 13px;
+  background: var(--glass);
+  backdrop-filter: blur(22px) saturate(1.3);
+  border: 1px solid var(--glass-line);
+  box-shadow: var(--shadow-lg);
+  transform: translate(-50%, -100%);
+  white-space: nowrap;
+}
+
+.bzs-pendot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, .3);
+  transition: .15s;
+  display: block;
+  flex-shrink: 0;
+}
+
+.bzs-pendot:hover {
+  transform: scale(1.15);
+}
+
+.bzs-pendot.on::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 1px solid var(--t2);
+  border-radius: 50%;
+}
+
+.bzs-selbar .div {
+  width: 1px;
+  height: 18px;
+  background: var(--line-2);
+  margin: 0 3px;
+  flex-shrink: 0;
+}
+
+.bzs-sbtn {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--t2);
+  font: 11.5px var(--ui);
+  padding: 7px 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+  letter-spacing: .04em;
+}
+
+.bzs-sbtn:hover {
+  color: var(--copper);
+  background: var(--copper-soft);
+}
+
+/* ── Toast ── */
+.bzs-toast {
+  position: absolute;
+  left: 50%;
+  bottom: 38px;
+  transform: translate(-50%, 12px);
+  z-index: 60;
+  background: var(--glass);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--glass-line);
+  color: var(--t1);
+  font-size: 12px;
+  letter-spacing: .08em;
+  padding: 10px 20px;
+  border-radius: 99px;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: .3s;
+  white-space: nowrap;
+}
+
+.bzs-toast.on {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ==========================================================
+   壳层补充：原型里没有、真实插件必需的三样
+   1. 全屏弹层容器（挂 body，不再挂在某个视图里）
+   2. 色点（chips 与设置页共用）
+   3. 想法输入框与章节缩览（原型用 <textarea class="idea"> 直接排版）
+   ========================================================== */
+
+/* 容器带 .bzs-shell 是为了拿设计令牌，背景必须透明，
+   否则它会把整个 Obsidian 窗口染成一块底色 */
+.bzs-shell.bzs-overlay-root {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  height: 100vh;
+  width: 100vw;
+  background: transparent;
+  pointer-events: none;
+  display: block;
+}
+
+.bzs-overlay-root:empty {
+  display: none;
+}
+
+.bzs-overlay-root > * {
+  pointer-events: auto;
+}
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+textarea.idea {
+  width: 100%;
+  min-height: 116px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--sunken);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 13.5px;
+  line-height: 1.9;
+  padding: 12px 14px;
+  outline: 0;
+  margin-top: 12px;
+}
+
+textarea.idea:focus {
+  border-color: var(--copper-line);
+}
+
+.bzs-types {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.bzs-types button {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--t3);
+  border-radius: 99px;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  transition: .15s;
+}
+
+.bzs-types button.on {
+  color: var(--copper);
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+}
+
+.bzs-film {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 10px;
+}
+
+.bzs-film button {
+  appearance: none;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--t3);
+  border-radius: 10px;
+  padding: 11px 12px;
+  font-size: 11px;
+  line-height: 1.75;
+  transition: .18s;
+}
+
+.bzs-film button:hover {
+  border-color: var(--copper-line);
+  color: var(--t2);
+}
+
+.bzs-film button.on {
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+  color: var(--t1);
+}
+
+.bzs-film button b {
+  display: block;
+  font-family: var(--serif);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.bzs-bmap .row .no {
+  font-family: var(--serif);
+  font-size: 10.5px;
+  color: var(--t3);
+  width: 24px;
+  flex-shrink: 0;
+}
+
+.bzs-bmap .row .nm {
+  font-size: 12px;
+  color: var(--t1);
+  width: 120px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bzs-bmap .row .strip {
+  flex: 1;
+  height: 8px;
+  position: relative;
+  background: var(--sunken);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  padding: 0 2px;
+}
+
+.bzs-bmap .row .strip u {
+  display: block;
+  width: 12px;
+  height: 4px;
+  border-radius: 2px;
+}
+
+/* ==========================================================
+   排版面板（阅读页按 t）
+   —— 三支滑杆 + 三组单选 + 一张方向预览。没有主题行：
+      皮肤已收敛成「跟随 Obsidian / 明亮」两套，在这里放色板
+      只会和设置页打架。
+   ========================================================== */
+
+.bzs-typo .bzs-setrow {
+  padding: 9px 0;
+  gap: 12px;
+}
+
+.bzs-typo .bzs-setrow > label {
+  width: 58px;
+  flex-shrink: 0;
+}
+
+.bzs-typo .bzs-seg {
+  flex: 1;
+}
+
+.bzs-typo .bzs-seg button {
+  flex: 1;
+  padding: 8px 6px;
+  font-size: 12px;
+}
+
+/* 滑轨：左侧铜金走到当前值，右侧留在发丝线色 */
+.bzs-typo input[type="range"] {
+  flex: 1;
+  height: 18px;
+}
+
+.bzs-typo input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--copper) 0 var(--fill, 50%),
+    var(--line-2) var(--fill, 50%) 100%
+  );
+}
+
+.bzs-typo input[type="range"]::-webkit-slider-thumb {
+  width: 15px;
+  height: 15px;
+  margin-top: -6px;
+  background: var(--surface);
+  border: 1.5px solid var(--copper);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .28);
+}
+
+.bzs-typo .bzs-setrow .val {
+  min-width: 46px;
+  font-family: var(--serif);
+  font-size: 14px;
+  color: var(--ink);
+  text-align: right;
+}
+
+/* 方向：两张可点的预览卡，直接用正在读的这本书的书名 */
+.bzs-setrow-dir {
+  align-items: flex-start;
+}
+
+.bzs-dirpick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  flex: 1;
+}
+
+.bzs-dircard {
+  appearance: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 112px;
+  padding: 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  /* 预览卡里放的是真实书名，长书名（尤其是竖排）会漏出卡片边界 */
+  overflow: hidden;
+  transition: .18s;
+}
+
+.bzs-dircard:hover {
+  border-color: var(--line-2);
+  background: var(--surface-2);
+}
+
+.bzs-dircard.on {
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+}
+
+.bzs-dircard .t {
+  font-family: var(--serif);
+  font-size: 17px;
+  letter-spacing: .1em;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.bzs-dircard .t.is-v {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-size: 15px;
+  letter-spacing: .16em;
+  max-height: 88px;
+}
+
+.bzs-dircard .l {
+  font-size: 10.5px;
+  letter-spacing: .22em;
+  color: var(--t3);
+}
+
+.bzs-dircard.on .l {
+  color: var(--copper);
+}
+
+/* ── 解锁弹层 ──
+   出现的时机永远是「用户刚想做一件事被拦下」，所以先给他想做的事，
+   价格与按钮放后面。一行价格、两个出口、一个激活码框，不要更多。 */
+.bzs-unlock {
+  display: grid;
+  gap: 14px;
+}
+
+.bzs-unlock-hero .kick {
+  font-size: 11px;
+  letter-spacing: .28em;
+  color: var(--copper);
+  margin-bottom: 6px;
+}
+
+.bzs-unlock-hero h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.bzs-unlock-state {
+  font-size: 12.5px;
+  color: var(--ink);
+  opacity: .72;
+}
+
+.bzs-unlock-state.off {
+  color: var(--vermilion);
+  opacity: .9;
+}
+
+.bzs-unlock-state.ok {
+  color: var(--copper);
+  opacity: 1;
+}
+
+.bzs-unlock-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.bzs-unlock-list li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink);
+  opacity: .86;
+}
+
+.bzs-unlock-list li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: .66em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--copper);
+  opacity: .7;
+}
+
+.bzs-unlock-state .tail {
+  opacity: .7;
+}
+
+/* 功能对照表：两列定宽，右边两列表头与勾位对齐 */
+.bzs-plan {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.bzs-plan-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px 72px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--line);
+}
+
+.bzs-plan-row:first-child {
+  border-top: 0;
+}
+
+.bzs-plan-row.head {
+  background: var(--sunken);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  color: var(--ink);
+  opacity: .66;
+}
+
+.bzs-plan-row span {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink);
+  opacity: .9;
+}
+
+.bzs-plan-row span em {
+  font-style: normal;
+  margin-left: 6px;
+  font-size: 10.5px;
+  opacity: .55;
+}
+
+.bzs-plan-row b {
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .06em;
+}
+
+.bzs-plan-row i {
+  text-align: center;
+  font-style: normal;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.bzs-plan-row i.y {
+  color: var(--copper);
+}
+
+.bzs-plan-row i.p {
+  font-size: 10.5px;
+  color: var(--ink);
+  opacity: .58;
+}
+
+.bzs-plan-row i.n {
+  color: var(--ink);
+  opacity: .26;
+}
+
+.bzs-unlock-buy {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--copper-line);
+  border-radius: 10px;
+  background: var(--copper-soft);
+}
+
+.bzs-unlock-buy .bzs-btn {
+  background: var(--bg);
+}
+
+/* 主按钮在铜色底上会糊成一片，这里给它实心底 */
+.bzs-unlock-buy .bzs-btn.pri {
+  background: var(--copper);
+  border-color: var(--copper);
+  color: var(--bg);
+}
+
+.bzs-unlock-buy .bzs-btn.pri:hover {
+  color: var(--bg);
+  filter: brightness(1.08);
+}
+
+.bzs-unlock-buy .bzs-mini {
+  margin-left: auto;
+  text-align: right;
+  line-height: 1.5;
+}
+
+/* ── 迁移数据目录 ── */
+.bzs-move {
+  display: grid;
+  gap: 12px;
+}
+
+.bzs-move-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.bzs-move-row b {
+  flex: none;
+  width: 64px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--ink);
+  opacity: .6;
+}
+
+.bzs-move-row code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--sunken);
+  color: var(--ink);
+  word-break: break-all;
+}
+
+.bzs-move-row.to code {
+  border: 1px solid var(--copper-line);
+  color: var(--copper);
+  background: var(--copper-soft);
+}
+
+.bzs-unlock-act {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 放在页脚时占满左侧剩余宽度，输入框才不会被压成一条缝 */
+.bzs-mfoot .bzs-unlock-act {
+  flex: 1;
+  min-width: 0;
+}
+
+.bzs-unlock-act label {
+  font-size: 12px;
+  color: var(--ink);
+  opacity: .68;
+  white-space: nowrap;
+}
+
+.bzs-unlock-act input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  font-family: var(--ui);
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+
+/* ── 读完仪式 ──
+   一张卡只放三样：书名、星星、一句话。多一样都会变成表单。 */
+.bzs-finish {
+  display: grid;
+  gap: 10px;
+  padding: 4px 2px 2px;
+}
+
+.bzs-finish .kick {
+  font-size: 10px;
+  letter-spacing: .3em;
+  color: var(--copper);
+}
+
+.bzs-finish h3 {
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0;
+  letter-spacing: .04em;
+  line-height: 1.4;
+}
+
+.bzs-finish .sub {
+  font-size: 11.5px;
+  color: var(--t3);
+  letter-spacing: .06em;
+}
+
+.bzs-stars {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0 2px;
+}
+
+.bzs-star {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 2px;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--line-2);
+  cursor: pointer;
+  transition: .15s;
+}
+
+.bzs-star:hover {
+  color: var(--copper-line);
+}
+
+.bzs-star.on {
+  color: var(--copper);
+}
+
+.bzs-finish textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 68px;
+  font-family: var(--serif);
+  font-size: 13px;
+  line-height: 1.8;
+}
+

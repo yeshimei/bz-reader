@@ -11,5 +11,8 @@ release/
 .scratch/
 tmp/
 
+# CDP 截图与一次性诊断脚本（每次调试随手生成，不进仓库）
+.shots/
+
 # 发行私钥：泄露 = 任何人能签激活码，永远不进 git
 /scripts/keys/

@@ -1,0 +1,552 @@
+/* ==========================================================
+   左侧栏 · 书的坐标
+   顶行「‹ 书架」+ 书名 + 换书；页签：目录 / 书签 / 划线 / AI
+   目录用衬线序号给节奏，当前章一条铜金短竖线；
+   书签是串在发丝竖线上的菱形驿站；划线以章为卷。
+   ========================================================== */
+
+.bzs-side {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* ── 顶行：返回书架 + 收起 ── */
+.bzs-side-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px 0 10px;
+  flex-shrink: 0;
+}
+
+.bzs-side-back {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--t3);
+  font-family: var(--serif);
+  font-size: 11.5px;
+  letter-spacing: .12em;
+  padding: 5px 7px 5px 2px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  transition: .15s;
+  white-space: nowrap;
+}
+
+.bzs-side-back:hover {
+  color: var(--copper);
+  background: var(--copper-soft);
+}
+
+.bzs-side-head .sp {
+  flex: 1;
+}
+
+/* ── 书名行 ── */
+.bzs-sbhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 0;
+  flex-shrink: 0;
+}
+
+.bzs-sbhead b {
+  font-family: var(--serif);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: .06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.bzs-sbhead .sp {
+  flex: 1;
+}
+
+/* 换书下拉：做成一个极简文字钮 */
+.bzs-swap {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--t3);
+  font-size: 10.5px;
+  letter-spacing: .06em;
+  border-radius: 6px;
+  padding: 3px 7px;
+  flex-shrink: 0;
+  transition: .15s;
+}
+
+.bzs-swap:hover {
+  color: var(--copper);
+  border-color: var(--copper-line);
+}
+
+/* ── 页签行：四等分，铜金下划线 ── */
+.bzs-sbtabs {
+  display: flex;
+  gap: 0;
+  justify-content: space-between;
+  padding: 0 14px;
+  margin-top: 10px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.bzs-sbtab {
+  appearance: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  position: relative;
+  padding: 8px 0 10px;
+  font-family: var(--serif);
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  color: var(--t3);
+  flex: 1;
+  text-align: center;
+}
+
+.bzs-sbtab .n {
+  font-size: 9.5px;
+  color: var(--t3);
+  vertical-align: super;
+  margin-left: 3px;
+}
+
+.bzs-sbtab.on {
+  color: var(--t1);
+}
+
+.bzs-sbtab.on .n {
+  color: var(--copper);
+}
+
+.bzs-sbtab.on::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--copper);
+}
+
+/* ── 内容区 ── */
+.bzs-sbbody {
+  flex: 1;
+  overflow: auto;
+  padding: 8px 10px 24px;
+}
+
+.bzs-sbbody::-webkit-scrollbar {
+  width: 0;
+}
+
+.bzs-sbsec {
+  font-size: 10px;
+  letter-spacing: .28em;
+  color: var(--t3);
+  padding: 12px 6px 8px;
+}
+
+/* ── 目录行 ── */
+.bzs-chaprow {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 10px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: .15s;
+}
+
+.bzs-chaprow:hover {
+  background: var(--copper-soft);
+}
+
+.bzs-chaprow .no {
+  font-family: var(--serif);
+  font-size: 10.5px;
+  color: var(--t3);
+  width: 24px;
+  flex-shrink: 0;
+  letter-spacing: .08em;
+}
+
+.bzs-chaprow .t {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--t2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: .03em;
+}
+
+.bzs-chaprow .pc {
+  font-family: var(--serif);
+  font-size: 10px;
+  color: var(--t3);
+  flex-shrink: 0;
+}
+
+.bzs-chaprow.on {
+  background: var(--copper-soft);
+}
+
+.bzs-chaprow.on::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 2px;
+  background: var(--copper);
+}
+
+.bzs-chaprow.on .t {
+  color: var(--t1);
+}
+
+.bzs-chaprow.on .no,
+.bzs-chaprow.on .pc {
+  color: var(--copper);
+}
+
+/* 二级章节：左缩进、序号收窄 */
+.bzs-chaprow.d1 {
+  padding-left: 30px;
+}
+
+.bzs-chaprow.d1 .no {
+  width: 16px;
+  font-size: 10px;
+}
+
+/* ── 书签行：菱形铜点串在发丝竖线上 ── */
+.bzs-timeline {
+  position: relative;
+}
+
+.bzs-timeline::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 16px;
+  bottom: 16px;
+  width: 1px;
+  background: var(--line-2);
+}
+
+.bzs-mkrow {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 12px 24px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.bzs-mkrow::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  background: var(--copper);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.bzs-mkrow:hover {
+  background: var(--copper-soft);
+}
+
+.bzs-mkrow .tt {
+  font-size: 12.5px;
+  color: var(--t1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bzs-mkrow .pc {
+  font-family: var(--serif);
+  font-size: 10px;
+  color: var(--t3);
+}
+
+.bzs-mkrow .sp {
+  flex: 1;
+}
+
+.bzs-mkrow em {
+  font-style: normal;
+  font-family: var(--serif);
+  font-size: 10.5px;
+  color: var(--t3);
+}
+
+.bzs-mkrow .x {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--t3);
+  opacity: 0;
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.bzs-mkrow:hover .x {
+  opacity: 1;
+}
+
+.bzs-mkrow .x:hover {
+  color: var(--vermilion);
+}
+
+/* ── 划线：以章为卷 ── */
+.bzs-hlgroup {
+  margin-bottom: 8px;
+}
+
+.bzs-hlg-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 6px 6px;
+  font-size: 10px;
+  letter-spacing: .26em;
+  color: var(--t3);
+}
+
+.bzs-hlg-h .n {
+  font-family: var(--serif);
+  font-size: 10.5px;
+  color: var(--copper);
+}
+
+.bzs-hlg-h .ln {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.bzs-hlit {
+  position: relative;
+  padding: 10px 24px 10px 12px;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+  border-radius: 0 8px 8px 0;
+}
+
+.bzs-hlit:hover {
+  background: var(--copper-soft);
+}
+
+.bzs-hlit::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  background: var(--c);
+  border-radius: 1px;
+}
+
+.bzs-hlit .tx {
+  font-family: var(--serif);
+  font-size: 12.5px;
+  line-height: 1.85;
+  color: var(--ink);
+  display: block;
+}
+
+.bzs-hlit .cm {
+  display: flex;
+  gap: 7px;
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--t2);
+}
+
+.bzs-hlit .cm b {
+  font-size: 9.5px;
+  letter-spacing: .24em;
+  color: var(--copper);
+  font-weight: 400;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.bzs-hlit .x {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--t3);
+  opacity: 0;
+  position: absolute;
+  right: 4px;
+  top: 9px;
+  font-size: 13px;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.bzs-hlit:hover .x {
+  opacity: 1;
+}
+
+.bzs-hlit .x:hover {
+  color: var(--vermilion);
+}
+
+/* ── AI 对话 ── */
+.bzs-aichat {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 4px;
+}
+
+.bzs-aibubble {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.85;
+  color: var(--t2);
+}
+
+.bzs-aibubble.me {
+  background: var(--copper-soft);
+  color: var(--t1);
+  align-self: flex-end;
+  max-width: 88%;
+  border-color: var(--copper-line);
+}
+
+.bzs-aibubble .tag {
+  font-size: 9.5px;
+  letter-spacing: .24em;
+  color: var(--copper);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.bzs-aiask {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.bzs-aiask input {
+  flex: 1;
+  border: 1px solid var(--line);
+  background: var(--sunken);
+  color: var(--t1);
+  border-radius: 8px;
+  padding: 8px 10px;
+  outline: 0;
+  font-size: 12px;
+  min-width: 0;
+}
+
+/* ── 页签带图标 ──
+   五个页签挤在 ~300px 的侧栏里，纯文字认位太快、认意太慢；
+   图标不占额外宽度（12px），但扫一眼就能定位「书架还是目录」。 */
+.bzs-sbtab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 11px;
+  letter-spacing: .04em;
+}
+
+.bzs-sbtab svg {
+  width: 12px;
+  height: 12px;
+  opacity: .7;
+  flex-shrink: 0;
+}
+
+.bzs-sbtab.on svg {
+  opacity: 1;
+}
+
+.bzs-sbtabs {
+  padding: 0 8px;
+}
+
+/* ── 书架页：侧栏里的一整块 ──
+   它自带外壳（页签 + 搜索 + 导入 + 页体），这里只给它一个
+   撑满剩余高度的容器，滚动交给内部的 .bzs-stubody。 */
+.bzs-shelfview {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bzs-shelfview .bzs-studio {
+  flex: 1;
+  min-height: 0;
+}
+
+/* 旧书架 tab 的占位（老工作区里还留着 bzs-study 的 leaf） */
+.bzs-moved {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 100%;
+  text-align: center;
+  padding: 40px 24px;
+}
+
+.bzs-moved .kick {
+  font-size: 10px;
+  letter-spacing: .3em;
+  color: var(--copper);
+}
+
+.bzs-moved .big {
+  font-family: var(--serif);
+  font-size: 20px;
+  letter-spacing: .12em;
+  color: var(--t1);
+}
+
+.bzs-moved .bzs-mini {
+  max-width: 30em;
+  line-height: 1.9;
+}

@@ -1147,6 +1147,7 @@ export class Paginator extends HTMLElement {
 
         // NOTE: needs `requestAnimationFrame` in Chromium
         requestAnimationFrame(() => {
+            if (!this.#view) return
             this.#replaceBackground(this.#view.docBackground, this.columnCount)
         })
 

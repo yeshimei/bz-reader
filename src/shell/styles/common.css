@@ -1,0 +1,347 @@
+/* ==========================================================
+   墨与铜 · 通用件
+   按钮 / 输入井 / 卡片 / 封面 / 章节标题 / 键值行 / 空态
+   书架、左侧栏、弹层共用这一套，保证同一种东西只长一个样。
+   ========================================================== */
+
+/* ── 壳层根 ──
+   这里以前没有规则：一切都靠「子元素 flex:1」撑着。桌面 tab 里
+   contentEl 是 flex 容器，勉强能用；但手机上的书架装在 Modal 里，
+   父级高度是 auto，flex:1 立刻失效，书架会塌成内容高度、底部页签
+   跟着内容跑。根节点自己给一个 100% 高度 + 纵向 flex，两处都稳。 */
+.bzs-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  color: var(--t1);
+  /* 容器查询的查询对象：窄不窄看「这一块自己有多宽」，不看窗口。
+     侧栏 300px 与手机 390px 用同一套缩排，桌面里把侧栏拖宽也能跟着变。 */
+  container-type: inline-size;
+  container-name: bzs;
+}
+
+/* 包裹层（ItemView 的 contentEl / Modal 的 contentEl）同样撑满 */
+.bzs-shell-wrap {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 图标钮：方形、无底、悬停泛铜 ── */
+.bzs-cbtn {
+  width: 30px;
+  height: 30px;
+  appearance: none;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--t2);
+  border-radius: 8px;
+  font-family: var(--serif);
+  font-size: 13.5px;
+  display: grid;
+  place-items: center;
+  transition: .2s;
+  padding: 0;
+  line-height: 1;
+}
+
+.bzs-cbtn:hover {
+  color: var(--copper);
+  border-color: var(--line-2);
+  background: var(--copper-soft);
+}
+
+.bzs-cbtn.on {
+  color: var(--copper);
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+}
+
+.bzs-cbtn.wide {
+  width: auto;
+  padding: 0 12px;
+  gap: 6px;
+  font-size: 12px;
+  font-family: var(--ui);
+  letter-spacing: .1em;
+  display: flex;
+  align-items: center;
+}
+
+/* ── 页头：小标签 + 衬线大题 ── */
+.bzs-ph {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.bzs-ph .kicker {
+  font-size: 10.5px;
+  letter-spacing: .3em;
+  color: var(--copper);
+}
+
+.bzs-ph h1 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 26px;
+  letter-spacing: .04em;
+  margin: 8px 0 0;
+}
+
+.bzs-ph p {
+  margin: 0 0 4px;
+  color: var(--t2);
+  font-size: 12.5px;
+  line-height: 1.8;
+  max-width: 520px;
+}
+
+.bzs-ph .sp {
+  flex: 1;
+}
+
+/* ── 按钮 ── */
+.bzs-btn {
+  appearance: none;
+  border: 1px solid var(--line-2);
+  background: transparent;
+  color: var(--t2);
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-size: 12.5px;
+  letter-spacing: .08em;
+  transition: .2s;
+  white-space: nowrap;
+}
+
+.bzs-btn:hover {
+  color: var(--t1);
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+}
+
+.bzs-btn.pri {
+  color: var(--copper);
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+}
+
+.bzs-btn.pri:hover {
+  color: var(--t1);
+}
+
+.bzs-btn.sm {
+  padding: 6px 11px;
+  font-size: 11.5px;
+  border-radius: 8px;
+}
+
+.bzs-btn.danger:hover {
+  color: var(--vermilion);
+  border-color: var(--vermilion);
+  background: transparent;
+}
+
+/* ── 筛选胶囊 ── */
+.bzs-chip {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--t3);
+  border-radius: 99px;
+  padding: 6px 13px;
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  transition: .2s;
+  white-space: nowrap;
+}
+
+.bzs-chip:hover {
+  color: var(--t2);
+}
+
+.bzs-chip.on {
+  color: var(--copper);
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+}
+
+/* ── 卡片 ── */
+.bzs-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 20px 22px;
+}
+
+.bzs-card.hair {
+  border-top: 2px solid var(--copper-line);
+}
+
+/* ── 段落小标题：字距拉开 + 发丝线收尾 ── */
+.bzs-sect-h {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10.5px;
+  letter-spacing: .3em;
+  color: var(--t3);
+  margin: 26px 0 14px;
+}
+
+.bzs-sect-h .ln {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.bzs-sect-h b {
+  font-family: var(--serif);
+  font-weight: 500;
+  color: var(--copper);
+  letter-spacing: .1em;
+  font-size: 12px;
+}
+
+/* ── 空态 ── */
+.bzs-empty {
+  color: var(--t3);
+  font-size: 13px;
+  line-height: 2;
+  padding: 40px 8px;
+  text-align: center;
+}
+
+/* ── 小徽记 / 小字 / 键值行 ── */
+.bzs-badge {
+  font-family: var(--serif);
+  font-size: 10px;
+  color: var(--copper);
+  border: 1px solid var(--copper-line);
+  border-radius: 99px;
+  padding: 1px 7px;
+  letter-spacing: .06em;
+}
+
+.bzs-mini {
+  font-size: 10.5px;
+  color: var(--t3);
+  letter-spacing: .08em;
+}
+
+.bzs-kv {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.bzs-kv:last-child {
+  border-bottom: 0;
+}
+
+.bzs-kv b {
+  font-weight: 500;
+  color: var(--t1);
+}
+
+.bzs-kv span {
+  color: var(--t3);
+}
+
+/* ── 封面：竖排书名 + 书脊高光 ── */
+.bzs-cov {
+  border-radius: 5px;
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+.bzs-cov::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 4px 0 9px rgba(0, 0, 0, .32);
+}
+
+.bzs-cov .ct {
+  font-family: var(--serif);
+  writing-mode: vertical-rl;
+  letter-spacing: .3em;
+  font-size: 15px;
+  opacity: .94;
+  z-index: 1;
+}
+
+.bzs-cov .spine {
+  position: absolute;
+  left: 5px;
+  top: 12%;
+  bottom: 12%;
+  width: 1px;
+  background: rgba(255, 255, 255, .18);
+  z-index: 1;
+}
+
+/* ── 输入井：下沉一档，比容器更暗 ── */
+.bzs-well {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--line);
+  background: var(--sunken);
+  border-radius: 10px;
+  padding: 9px 13px;
+  min-width: 210px;
+}
+
+.bzs-well input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  outline: 0;
+  color: var(--t1);
+  font-size: 12.5px;
+  box-shadow: none;
+}
+
+.bzs-well input::placeholder {
+  color: var(--t3);
+}
+
+.bzs-well svg {
+  color: var(--t3);
+  flex-shrink: 0;
+}
+
+/* ── 原生控件（在壳内统一外观） ── */
+.bzs-shell select,
+.bzs-shell input[type="text"],
+.bzs-shell input[type="password"],
+.bzs-shell textarea {
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  color: var(--t1);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  outline: 0;
+  box-shadow: none;
+}
+
+.bzs-shell select:focus,
+.bzs-shell input:focus,
+.bzs-shell textarea:focus {
+  border-color: var(--copper-line);
+  box-shadow: none;
+}

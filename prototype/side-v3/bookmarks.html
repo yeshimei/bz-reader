@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="ink">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bz 阅读 · 侧栏原型 · 叁 书签</title>
+<style>
+/* ==========================================================
+   bz 阅读 · 侧栏四页原型 v3 —— 叁 · 书签
+   本页主张：书签是「旅程中的驿站」——
+     菱形铜点串在一条发丝竖线上；衬线日期标着何时到过；
+     删除的动作藏进悬停，列表是拿来看的。
+   ========================================================== */
+:root{
+  --bg:#141110; --bg-2:#181412;
+  --glass:rgba(30,25,21,.78); --glass-line:rgba(233,214,181,.10);
+  --surface:#1e1915; --sunken:#0f0d0b;
+  --line:rgba(233,214,181,.09); --line-2:rgba(233,214,181,.16);
+  --t1:#ede4d4; --t2:#a2937d; --t3:#6b5f4e;
+  --copper:#c8a464; --copper-soft:rgba(200,164,100,.14); --copper-line:rgba(200,164,100,.35);
+  --ink:#f0e8d8; --vermilion:#c25e4a;
+  --ui:"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --serif:Georgia,"Times New Roman","STZhongsong","SimSun","Songti SC",serif;
+  --shadow:0 18px 50px rgba(0,0,0,.5);
+}
+html[data-theme="paper"]{
+  --bg:#efe9db; --bg-2:#e9e2d2;
+  --glass:rgba(247,243,234,.82); --glass-line:rgba(60,48,32,.10);
+  --surface:#f7f3ea; --sunken:#e4dccb;
+  --line:rgba(60,48,32,.11); --line-2:rgba(60,48,32,.20);
+  --t1:#332b1f; --t2:#7d7057; --t3:#a3967c;
+  --copper:#9a7434; --copper-soft:rgba(154,116,52,.12); --copper-line:rgba(154,116,52,.4);
+  --ink:#2c2519; --vermilion:#a84a38;
+  --shadow:0 18px 44px rgba(80,60,30,.18);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--t1);font-family:var(--ui);-webkit-font-smoothing:antialiased;transition:background .35s ease,color .35s ease}
+.board{max-width:1160px;margin:0 auto;padding:52px 48px 110px}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.kicker{display:flex;align-items:center;gap:10px;font-size:11px;letter-spacing:.24em;color:var(--t3)}
+.kicker i{width:6px;height:6px;border-radius:50%;background:var(--copper)}
+.themeswitch{display:flex;border:1px solid var(--line-2);border-radius:99px;overflow:hidden}
+.themeswitch button{appearance:none;border:0;background:transparent;color:var(--t3);font:12px/1 var(--ui);padding:8px 16px;cursor:pointer;letter-spacing:.1em}
+.themeswitch button.on{background:var(--copper-soft);color:var(--copper)}
+.hero .no{font-family:var(--serif);color:var(--copper);font-size:13px;letter-spacing:.32em}
+.hero h1{font-family:var(--serif);font-size:34px;font-weight:500;margin:10px 0 12px;letter-spacing:.04em}
+.hero p{color:var(--t2);font-size:13.5px;line-height:1.9;max-width:660px;margin:0}
+.stage{display:flex;gap:46px;margin-top:44px;align-items:flex-start}
+.col-note{flex:1;min-width:0;padding-top:10px}
+.note{border-top:1px solid var(--line);padding:15px 0 0;margin-bottom:24px}
+.note b{display:flex;align-items:center;gap:9px;font-family:var(--serif);font-weight:500;font-size:14.5px;margin-bottom:8px;letter-spacing:.03em}
+.note b i{width:5px;height:5px;background:var(--copper);transform:rotate(45deg);flex-shrink:0}
+.note span{font-size:12.5px;color:var(--t2);line-height:1.85;display:block}
+.col-leaf{flex-shrink:0}
+.leaf-frame{width:360px;height:784px;border:1px solid var(--line-2);border-radius:18px;background:var(--bg-2);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;position:relative}
+.leaf-tab{height:34px;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid var(--line);color:var(--t3);font-size:11px;letter-spacing:.22em;flex-shrink:0}
+.leaf-tab i{margin-left:auto;font-style:normal;opacity:.55;font-size:12px}
+.lv{flex:1;display:flex;flex-direction:column;min-height:0}
+.lv-body{flex:1;overflow-y:auto;padding:4px 12px 26px;min-height:0}
+.lv-body::-webkit-scrollbar{width:0}
+.lv-head{padding:14px 18px 0;flex-shrink:0}
+.hr1{display:flex;align-items:center;gap:10px;min-width:0}
+.back{appearance:none;border:1px solid var(--line);background:transparent;color:var(--t2);font:12px/1 var(--ui);padding:7px 12px 7px 9px;border-radius:99px;cursor:pointer;letter-spacing:.05em;transition:.2s;flex-shrink:0}
+.back:hover{color:var(--copper);border-color:var(--copper-line);background:var(--copper-soft)}
+.btitle{font-family:var(--serif);font-size:16px;font-weight:500;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bauthor{font-size:11px;color:var(--t3);letter-spacing:.06em;white-space:nowrap;flex-shrink:0}
+.sp{flex:1}
+.act{appearance:none;border:0;background:transparent;color:var(--t3);font:12px/1 var(--ui);padding:7px 4px;cursor:pointer;letter-spacing:.14em;flex-shrink:0;transition:.2s}
+.act:hover{color:var(--copper)}
+.tabs{display:flex;gap:26px;margin-top:12px;border-bottom:1px solid var(--line)}
+.tab{appearance:none;background:none;border:0;cursor:pointer;position:relative;padding:10px 2px 12px;font-family:var(--serif);font-size:13px;letter-spacing:.2em;color:var(--t3);transition:.2s}
+.tab .n{font-family:var(--serif);font-size:10px;color:var(--t3);vertical-align:super;margin-left:4px;letter-spacing:0}
+.tab:hover{color:var(--t2)}
+.tab.on{color:var(--t1)}
+.tab.on .n{color:var(--copper)}
+.tab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--copper)}
+
+/* ── 时间线：菱形串在一条线上 ── */
+.tl{position:relative;margin:14px 6px 0 12px}
+.tl::before{content:"";position:absolute;left:7px;top:18px;bottom:12px;width:1px;background:var(--line-2)}
+.mkrow{position:relative;display:flex;align-items:baseline;gap:9px;padding:14px 6px 14px 26px;cursor:pointer;border-radius:10px;transition:.15s;width:100%;text-align:left;appearance:none;background:none;border:0;font-family:var(--ui)}
+.mkrow::before{content:"";position:absolute;left:4px;top:50%;width:7px;height:7px;background:var(--copper);transform:translateY(-50%) rotate(45deg);border-radius:1px;transition:.2s}
+.mkrow:hover{background:var(--copper-soft)}
+.mkrow:hover::before{box-shadow:0 0 0 4px var(--copper-soft)}
+.mkrow .tt{font-size:13px;color:var(--t1);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mkrow .pc{font-family:var(--serif);font-size:10.5px;color:var(--t3);flex-shrink:0}
+.mkrow .sp{flex:1;min-width:8px}
+.mkrow em{font-style:normal;font-family:var(--serif);font-size:11px;color:var(--t3);letter-spacing:.05em;flex-shrink:0}
+.mkrow .x{position:absolute;right:6px;top:50%;transform:translate(0,-50%);width:22px;height:22px;border-radius:7px;border:0;background:none;color:var(--t3);font-size:13px;cursor:pointer;opacity:0;transition:.2s;display:grid;place-items:center}
+.mkrow:hover .x{opacity:1}
+.mkrow .x:hover{color:var(--vermilion);background:var(--line)}
+/* 同章双签：第二枚点更小、更淡，线是同一条旅程 */
+.mkrow.more::before{width:5px;height:5px;opacity:.65}
+/* 分月小签 */
+.tl-m{font-size:10.5px;letter-spacing:.3em;color:var(--t3);margin:20px 0 0 26px;padding-bottom:2px}
+.tl-m:first-child{margin-top:16px}
+
+.tstm{position:absolute;left:50%;bottom:20px;transform:translateX(-50%) translateY(8px);background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--glass-line);color:var(--t2);font-size:12px;letter-spacing:.06em;padding:9px 16px;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;z-index:20;white-space:nowrap}
+.tstm.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.pager{display:flex;gap:12px;margin-top:48px;border-top:1px solid var(--line);padding-top:22px;align-items:center}
+.pager a{text-decoration:none;color:var(--t2);border:1px solid var(--line);border-radius:99px;padding:9px 18px;font-size:12px;letter-spacing:.1em;transition:.2s}
+.pager a:hover{color:var(--copper);border-color:var(--copper-line);background:var(--copper-soft)}
+.pager .cur{color:var(--copper);border-color:var(--copper-line);background:var(--copper-soft)}
+html.bare .board{display:none}
+html.bare body{display:grid;place-items:center;min-height:100vh;padding:16px}
+</style>
+</head>
+<body>
+<div class="board">
+  <div class="top">
+    <div class="kicker"><i></i>BZ 阅读 · 侧栏四页原型 · 墨与铜</div>
+    <div class="themeswitch">
+      <button class="on" onclick="setTheme('ink',this)">墨（暗）</button>
+      <button onclick="setTheme('paper',this)">纸（亮）</button>
+    </div>
+  </div>
+  <div class="hero">
+    <div class="no">叁</div>
+    <h1>书签</h1>
+    <p>旅程中的驿站。菱形铜点串在一条发丝竖线上，衬线日期标着何时到过；按书中先后排布，同一章的双签共用一枚小点。删除的动作被藏进悬停。</p>
+  </div>
+  <div class="stage">
+    <div class="col-note">
+      <div class="note"><b><i></i>菱形串在一条线上</b><span>左侧一条发丝竖线自上而下，每枚书签是一粒菱形铜点——书签不是一堆按钮，是一段旅程里的驿站，先后即位置。</span></div>
+      <div class="note"><b><i></i>日期是衬线的</b><span>行尾一枚衬线小字「11月1日」：什么时候记下的，一眼可考。侧栏里日期是记忆的坐标，不是档案编号，所以只留月与日。</span></div>
+      <div class="note"><b><i></i>同章双签</b><span>同一章里记了两笔，第二枚点更小更淡——线还是那条线，旅程不因重复而断裂。悬停时菱形外泛起一圈淡铜晕。</span></div>
+      <div class="note"><b><i></i>删除藏在悬停</b><span>× 平时隐形，行上悬停才现身，再悬它一下转朱砂。列表是拿来看的，不是拿来删的。</span></div>
+    </div>
+    <div class="col-leaf">
+      <div class="leaf-frame">
+        <div class="leaf-tab">阅 读<i>×</i></div>
+        <div class="lv">
+          <div class="lv-head">
+            <div class="hr1">
+              <button class="back" onclick="location.href='shelf.html'">‹ 书库</button>
+              <b class="btitle">山月记</b>
+              <span class="bauthor">中岛敦</span>
+              <span class="sp"></span>
+              <button class="act">导出</button>
+            </div>
+            <div class="tabs">
+              <button class="tab" onclick="goto('toc.html')">目录<b class="n">22</b></button>
+              <button class="tab on" onclick="void 0">书签<b class="n">5</b></button>
+              <button class="tab" onclick="goto('highlights.html')">划线<b class="n">8</b></button>
+            </div>
+          </div>
+          <div class="lv-body">
+            <div class="tl" id="tl">
+              <div class="tl-m">十 月</div>
+              <button class="mkrow" onclick="jump('山月记 · 二二%')"><span class="tt">山月记</span><span class="pc">22%</span><span class="sp"></span><em>10月28日</em><button class="x" title="删除书签" onclick="bye(event,this)">×</button></button>
+              <button class="mkrow" onclick="jump('名人传 · 四七%')"><span class="tt">名人传</span><span class="pc">47%</span><span class="sp"></span><em>10月21日</em><button class="x" title="删除书签" onclick="bye(event,this)">×</button></button>
+              <button class="mkrow" onclick="jump('李陵 · 九一%')"><span class="tt">李陵 · 之三</span><span class="pc">91%</span><span class="sp"></span><em>10月14日</em><button class="x" title="删除书签" onclick="bye(event,this)">×</button></button>
+              <div class="tl-m">十一月</div>
+              <button class="mkrow" onclick="jump('弟子 · 五八%')"><span class="tt">弟子</span><span class="pc">58%</span><span class="sp"></span><em>11月1日</em><button class="x" title="删除书签" onclick="bye(event,this)">×</button></button>
+              <button class="mkrow more" onclick="jump('弟子 · 六三%')"><span class="tt">弟子</span><span class="pc">63%</span><span class="sp"></span><em>11月2日</em><button class="x" title="删除书签" onclick="bye(event,this)">×</button></button>
+            </div>
+          </div>
+        </div>
+        <div class="tstm" id="tstm"></div>
+      </div>
+    </div>
+  </div>
+  <div class="pager">
+    <a href="shelf.html">壹 · 书库</a>
+    <a href="toc.html">贰 · 目录</a>
+    <a class="cur" href="bookmarks.html">叁 · 书签</a>
+    <a href="highlights.html">肆 · 划线</a>
+    <a href="index.html" style="margin-left:auto">‹ 总览</a>
+  </div>
+</div>
+
+<script>
+if(new URLSearchParams(location.search).has('bare'))document.documentElement.classList.add('bare');
+function setTheme(t,b){document.documentElement.dataset.theme=t;document.querySelectorAll('.themeswitch button').forEach(x=>x.classList.toggle('on',x===b));}
+function goto(u){location.href=u;}
+function jump(loc){toast('跳到 '+loc);}
+function bye(ev,btn){
+  ev.stopPropagation();
+  const row=btn.closest('.mkrow');
+  row.style.transition='.3s';row.style.opacity='0';row.style.transform='translateX(10px)';
+  setTimeout(()=>{row.remove();toast('书签已删');if(!document.querySelector('.mkrow'))document.getElementById('tl').innerHTML='<p style="color:var(--t3);font-size:12.5px;padding:30px 8px;line-height:2">还没有书签。<br>阅读时点头栏的书签图标，把这一页记下来。</p>';},320);
+}
+</script>
+</body>
+</html>

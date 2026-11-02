@@ -1,0 +1,193 @@
+/* ==========================================================
+   壳层令牌（墨与铜 · 壳层）
+
+   **只有一套皮肤。** 背景、文字、边框、分隔线全部读 Obsidian 的 CSS 变量：
+   用户换主题、切明暗，书架和阅读栏就跟着变。以前那几档自持色板（纸/墨/
+   羊皮/苔/夜）装进宿主后总有一块暖色贴在界面上，像别的软件的截图，已撤掉。
+   书页（iframe 里的正文）同理，见 engine/theme.ts。
+
+   想区分「书」和「笔记」靠强调色，不靠底色：data-bzaccent 切档，
+   auto 读 --interactive-accent，其余四支各给明暗两色。
+
+   作用域约定：
+   - 全部变量挂在 .bzs-shell 上，不写 :root，避免污染宿主与其它插件。
+   - 变量名沿用原型（--bg / --t1 / --copper …），便于把原型 app.css 的
+     选择器与数值近乎原样搬过来。
+   ========================================================== */
+
+.bzs-shell {
+  /* 字体三层：衬线管书，无衬线管事 */
+  --ui: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --serif: Georgia, "Times New Roman", "STZhongsong", "SimSun", "Songti SC", serif;
+  --sans: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+
+  /* 正文排版的运行时值，由 applySettings 写入 */
+  --rd-size: 18.5px;
+  --rd-leading: 2.05;
+  --rd-width: 680px;
+  --rd-gap: 1.55em;
+  --rd-align: justify;
+  --rd-font: var(--serif);
+}
+
+/* ── 颜色：一律读宿主 ── */
+.bzs-shell {
+  --bg: var(--background-primary, #ffffff);
+  --bg-2: var(--background-secondary, #f6f6f7);
+  --bg-3: var(--background-primary-alt, #fafafa);
+  --glass: var(--background-secondary, rgba(250, 250, 250, .9));
+  --glass-line: var(--background-modifier-border, rgba(0, 0, 0, .1));
+  --surface: var(--background-secondary, #f6f6f7);
+  --surface-2: var(--background-modifier-hover, rgba(0, 0, 0, .04));
+  --sunken: var(--background-primary-alt, #f2f2f4);
+  --line: var(--background-modifier-border, rgba(0, 0, 0, .1));
+  --line-2: var(--background-modifier-border-hover, rgba(0, 0, 0, .18));
+  --t1: var(--text-normal, #1f1f23);
+  --t2: var(--text-muted, #5a5a63);
+  --t3: var(--text-faint, #93939c);
+  --ink: var(--text-normal, #141416);
+  --ink-2: var(--text-muted, #4a4a52);
+
+  /* 强调色默认跟随宿主；自持档位在下面覆盖 --copper */
+  --copper: var(--interactive-accent, var(--text-accent, #7856d6));
+  --copper-soft: color-mix(in srgb, var(--interactive-accent, #7856d6) 12%, transparent);
+  --copper-line: color-mix(in srgb, var(--interactive-accent, #7856d6) 38%, transparent);
+  --vermilion: var(--text-error, #c0392b);
+  --shadow: 0 12px 32px var(--background-modifier-box-shadow, rgba(0, 0, 0, .16));
+  --shadow-lg: 0 28px 70px var(--background-modifier-box-shadow, rgba(0, 0, 0, .24));
+  --overlay: rgba(0, 0, 0, .42);
+}
+
+/* ── 强调色四支 ──
+   明暗各一档：同一支朱砂在白底和炭底上不是一个明度，暗底压暗色等于没画。
+   挂 body.theme-dark 而不是 @media (prefers-color-scheme)：Obsidian 的
+   明暗是给 body 加类，跟系统偏好不一定一致。 */
+.bzs-shell[data-bzaccent="copper"] { --copper: #9a7434; }
+.bzs-shell[data-bzaccent="vermilion"] { --copper: #b0452f; }
+.bzs-shell[data-bzaccent="indigo"] { --copper: #3f5b8f; }
+.bzs-shell[data-bzaccent="moss"] { --copper: #4c6b52; }
+
+body.theme-dark .bzs-shell[data-bzaccent="copper"] { --copper: #c8a464; }
+body.theme-dark .bzs-shell[data-bzaccent="vermilion"] { --copper: #d9705a; }
+body.theme-dark .bzs-shell[data-bzaccent="indigo"] { --copper: #8aa7d6; }
+body.theme-dark .bzs-shell[data-bzaccent="moss"] { --copper: #93b79a; }
+
+/* 半透明档位跟着 --copper 走：自持色没有宿主 accent 可混，就地混出来 */
+.bzs-shell[data-bzaccent]:not([data-bzaccent="auto"]) {
+  --copper-soft: color-mix(in srgb, var(--copper) 12%, transparent);
+  --copper-line: color-mix(in srgb, var(--copper) 38%, transparent);
+}
+
+/* ── 基础：只在本壳内生效 ── */
+.bzs-shell,
+.bzs-shell * {
+  box-sizing: border-box;
+}
+
+.bzs-shell {
+  background: var(--bg);
+  color: var(--t1);
+  font-family: var(--ui);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  transition: background .35s ease, color .35s ease;
+}
+
+.bzs-shell button,
+.bzs-shell input,
+.bzs-shell select,
+.bzs-shell textarea {
+  font-family: inherit;
+}
+
+.bzs-shell button {
+  cursor: pointer;
+}
+
+.bzs-shell ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.bzs-shell ::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: 9px;
+}
+
+.bzs-shell ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Obsidian 会把视图内容包在 .view-content 里，去掉它的内边距与滚动，
+   由各页面自己管滚动，否则会出现两道滚动条 */
+.workspace-leaf-content[data-type="bzs-study"] .view-content,
+.workspace-leaf-content[data-type="bzr-reader-view"] .view-content {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* ── 表单控件：宿主默认是浅色输入框，在墨/夜棕主题下非常刺眼 ── */
+.bzs-shell input[type="text"],
+.bzs-shell input[type="password"],
+.bzs-shell input[type="search"],
+.bzs-shell input:not([type]),
+.bzs-shell select,
+.bzs-shell textarea {
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  color: var(--t1);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  box-shadow: none;
+}
+
+.bzs-shell input:focus,
+.bzs-shell select:focus,
+.bzs-shell textarea:focus {
+  border-color: var(--copper-line);
+  outline: 0;
+  box-shadow: 0 0 0 2px var(--copper-soft);
+}
+
+.bzs-shell input::placeholder,
+.bzs-shell textarea::placeholder {
+  color: var(--t3);
+}
+
+/* 滑杆只留一条细线，值由右侧衬线数字负责 */
+.bzs-shell input[type="range"] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.bzs-shell input[type="range"]::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--line-2);
+  border-radius: 2px;
+}
+
+.bzs-shell input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--copper);
+  margin-top: -4.5px;
+  border: 0;
+  box-shadow: 0 0 0 3px var(--copper-soft);
+}
+
+.bzs-shell input[type="checkbox"] {
+  accent-color: var(--copper);
+}

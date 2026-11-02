@@ -1,7 +1,8 @@
 /* ============================================================
  * bz-reader · 数据落盘（data/store.ts）
  *
- * 单一 JSON：`<插件目录>/storage/bz-reader.json`。
+ * 单一 JSON：`<数据目录>/bz-reader.json`，数据目录默认 `bz 阅读/`
+ * （库根目录，用户可在设置里改，见 core/plugin-path.ts）。
  *
  * 两条设计约束：
  *  1. **原子写**：先写 `.tmp` → `rename` 覆盖。直接 `adapter.write` 是
@@ -13,6 +14,7 @@
 import type { App } from 'obsidian';
 import { notify } from '../core/notice';
 import { pluginVaultPath, storageDirOf } from '../core/plugin-path';
+import { copyTree } from './migrate';
 import { EMPTY_DATA, type ReaderData } from './schema';
 
 const DATA_FILE = 'bz-reader.json';
@@ -25,6 +27,10 @@ function looksValid(v: unknown): v is ReaderData {
   return !!d && typeof d === 'object' && Array.isArray((d as ReaderData).books);
 }
 
+function isMissing(e: unknown): boolean {
+  return /not exist|ENOENT|no such file/i.test((e as Error)?.message || '');
+}
+
 export class ReaderStore {
   private data: ReaderData = EMPTY_DATA;
   private timer: number | null = null;
@@ -33,31 +39,73 @@ export class ReaderStore {
 
   constructor(private app: App) {}
 
+  /** 数据目录变了以后文件路径跟着变，所以每次都现算，别缓存 */
   private filePath(): string {
-    return pluginVaultPath(this.app, `storage/${DATA_FILE}`);
+    return `${storageDirOf(this.app)}/${DATA_FILE}`;
   }
 
   private tmpPath(): string {
     return `${this.filePath()}${TMP_SUFFIX}`;
   }
 
+  /** 老版本位置：`<插件目录>/storage/`。只在首次升级时读一次 */
+  private legacyDir(): string {
+    return pluginVaultPath(this.app, 'storage');
+  }
+
+  /**
+   * 把老版本 `storage/` 里的数据搬到当前数据目录。
+   *
+   * 只在「新目录还没有 JSON」时执行，所以最多跑一次；失败了也不抛，
+   * 上层按空库启动，用户至少还能用插件。
+   */
+  private async adoptLegacy(): Promise<boolean> {
+    const adapter = this.app.vault.adapter;
+    const legacy = this.legacyDir();
+    if (legacy === storageDirOf(this.app)) return false;
+    try {
+      await adapter.stat(`${legacy}/${DATA_FILE}`);
+    } catch {
+      return false; // 老目录也没有，就是全新用户
+    }
+    const res = await copyTree(this.app, legacy, storageDirOf(this.app));
+    if (res.failed.length) {
+      console.warn('[bz-reader] 老数据搬迁未完成，已跳过：', res.failed.slice(0, 3));
+      return false;
+    }
+    console.info(`[bz-reader] 已把老数据搬到 ${storageDirOf(this.app)}/（${res.files} 个文件）`);
+    return true;
+  }
+
   /** 读盘。文件不存在 / 坏形 / 读失败 → 空库（不抛，插件要能起来） */
   async load(): Promise<ReaderData> {
     const adapter = this.app.vault.adapter;
+    const file = this.filePath();
+    await adapter.mkdir(storageDirOf(this.app)).catch(() => undefined);
+
+    let text: string | null = null;
     try {
-      await adapter.mkdir(storageDirOf(this.app)).catch(() => undefined);
-      const text = await adapter.read(this.filePath());
-      const parsed = JSON.parse(text);
-      if (!looksValid(parsed)) throw new Error('数据结构不符');
-      this.data = parsed;
+      text = await adapter.read(file);
     } catch (e) {
-      const msg = (e as Error)?.message || '';
-      // 「不存在」是首次安装的正常态，不打扰用户
-      if (!/not exist|ENOENT|no such file/i.test(msg)) {
-        console.warn('[bz-reader] 读取数据失败，按空库启动：', msg);
+      // 「不存在」是首次安装的正常态，顺带看看是不是从老版本升上来的
+      if (!isMissing(e)) console.warn('[bz-reader] 读取数据失败：', (e as Error)?.message || e);
+      if (await this.adoptLegacy()) {
+        text = await adapter.read(file).catch(() => null);
       }
-      this.data = { ...EMPTY_DATA, books: [] };
     }
+
+    if (text !== null) {
+      try {
+        const parsed = JSON.parse(text);
+        if (!looksValid(parsed)) throw new Error('数据结构不符');
+        this.data = parsed;
+        return this.data;
+      } catch (e) {
+        console.warn('[bz-reader] 数据文件坏形，按空库启动：', (e as Error)?.message || e);
+      }
+    }
+
+    this.data = { ...EMPTY_DATA, books: [] };
     return this.data;
   }
 

@@ -12,11 +12,11 @@
  * 改一项立刻生效（不点确定）：排版是看着调的，不是填表。
  * ============================================================ */
 import {
+  ACCENT_OPTIONS,
   FONT_FAMILIES,
   FONT_SIZE_RANGE,
   LINE_HEIGHT_RANGE,
   MARGIN_RANGE,
-  THEME_OPTIONS,
   type ReaderPrefs,
 } from '../data/prefs';
 import { el, seg, swatches, trackRow } from './dom';
@@ -129,17 +129,19 @@ export function createPrefsPanel(initial: ReaderPrefs, onChange: (patch: Partial
   const fontRow = el('div', 'bzr-track-row');
   fontRow.append(el('span', 'bzr-track-label', '字体'), fontSeg);
 
-  const themeRow = el('div', 'bzr-track-row');
-  themeRow.append(
-    el('span', 'bzr-track-label', '主题'),
+  /* 纸色不在这里选了：底色跟随 Obsidian。留得下的只有强调色——
+     它是阅读页唯一自持的色，改了立刻能在章题短线上看见。 */
+  const accentRow = el('div', 'bzr-track-row');
+  accentRow.append(
+    el('span', 'bzr-track-label', '强调'),
     swatches(
-      THEME_OPTIONS.map((t) => ({
-        value: t.value,
-        label: t.label,
-        bg: t.bg || 'linear-gradient(135deg,#f5efdf 50%,#211c15 50%)',
+      ACCENT_OPTIONS.map((a) => ({
+        value: a.value,
+        label: a.label,
+        bg: a.css || 'var(--interactive-accent, #7856d6)',
       })),
-      initial.theme,
-      (v) => onChange({ theme: v }),
+      initial.accent,
+      (v) => onChange({ accent: v }),
     ),
   );
 
@@ -163,7 +165,7 @@ export function createPrefsPanel(initial: ReaderPrefs, onChange: (patch: Partial
     );
     rows.push(layoutRow, columnsRow);
   }
-  rows.push(themeRow);
+  rows.push(accentRow);
   root.append(...rows);
 
   return {

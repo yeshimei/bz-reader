@@ -29,13 +29,80 @@ function htmlFor() {
   return "";
 }
 
-/** 样式组合：设计令牌 + 域样式，产物里不留 @import（Obsidian 只加载一个 styles.css） */
+/**
+ * 样式组合：设计令牌 + 域样式 + 壳层，产物里不留 @import（Obsidian 只加载一个 styles.css）。
+ * 壳层（src/shell/styles）是原型 1:1 移植，全部选择器限定在 .bzs-shell 内，
+ * 放在最后，确保不被旧域样式意外覆盖。
+ */
+/* mobile.css 必须排在最后：它是覆盖层，同特异性靠顺序取胜 */
+const SHELL_STYLES = ["tokens.css", "common.css", "study.css", "sidebar.css", "reader.css", "overlay.css", "mobile.css"];
+
+/**
+ * 给壳层样式加作用域前缀。
+ *
+ * 为什么需要：壳层沿用了 `bzr-` 前缀（为了避开 Obsidian 自己的类名），
+ * 但 `bzr-` 早就是本插件的既有命名空间——旧统计面板里也有 `.bzr-heat`、
+ * `.bzr-btn`、`.bzr-qcard`。两套同名规则一撞，后者（旧域样式，写在更前面
+ * 但特异性相同、又带 background）就把壳层的样子盖了：热力图变成一块白底
+ * 就是这条。
+ *
+ * 解法不是改名（那要动 3000 行 CSS 加全部模板字符串），而是把壳层的每条
+ * 选择器限定在 `.bzs-shell` 下：特异性从 (0,1,0) 升到 (0,2,0)，同名也赢，
+ * 而且顺带保证样式绝不外泄到宿主。
+ *
+ * 三种行必须原样放过：
+ *   · 已带 .bzs-shell 的（tokens.css 里全是，幂等）
+ *   · 宿主选择器（.workspace-leaf-content[…] 这两条是故意写宿主的）
+ *   · @keyframes 的帧（`0%` / `from` / `to`）
+ */
+function scopeShellStyles(css) {
+  return css
+    .split("\n")
+    .map((line) => {
+      const brace = line.indexOf("{");
+      if (brace < 0) return line;
+      const head = line.slice(0, brace);
+      const tail = line.slice(brace);
+      const trimmed = head.trim();
+      if (!trimmed || trimmed.startsWith("/*") || trimmed.startsWith("@")) return line;
+      const parts = head.split(",").map((raw) => {
+        const s = raw.trim();
+        if (!s) return raw;
+        if (s.startsWith(".bzs-shell")) return raw;
+        if (s.startsWith(".workspace-leaf-content")) return raw;
+        if (/^(\d|from$|to$)/.test(s)) return raw;
+        /**
+         * `.bzs-` 开头的选择器已经是本插件专属命名空间，不再套 `.bzs-shell `。
+         *
+         * 这一条是踩出来的：根元素本身就同时带 `bzs-shell` 与 `bzs-reader`，
+         * 一旦改写成 `.bzs-shell .bzs-reader`（后代），根元素自己就匹配不上了——
+         * 表现是 `.bzs-reader{position:relative}` 失效，悬浮工具条按最近的
+         * 定位祖先飞到 tab 栏上去了。弹层根 `.bzs-shell.bzs-overlay-root` 同理。
+         *
+         * 只给裸元素选择器（input / select / textarea / .dot 之类）加作用域，
+         * 那才是真会和宿主撞的地方。
+         */
+        if (s.startsWith(".bzs-")) return raw;
+        return `.bzs-shell ${s}`;
+      });
+      return parts.join(",") + tail;
+    })
+    .join("\n");
+}
+
 function buildStyles() {
-  const parts = [path.join(process.cwd(), "src/core/ui/tokens.css"), path.join(process.cwd(), "src/styles.css")];
-  const css = parts
+  const legacy = [
+    path.join(process.cwd(), "src/core/ui/tokens.css"),
+    path.join(process.cwd(), "src/styles.css"),
+  ]
     .filter((p) => fs.existsSync(p))
-    .map((p) => fs.readFileSync(p, "utf8"))
-    .join("\n\n");
+    .map((p) => fs.readFileSync(p, "utf8"));
+
+  const shell = SHELL_STYLES.map((f) => path.join(process.cwd(), "src/shell/styles", f))
+    .filter((p) => fs.existsSync(p))
+    .map((p) => scopeShellStyles(fs.readFileSync(p, "utf8")));
+
+  const css = [...legacy, ...shell].join("\n\n");
   fs.writeFileSync(path.join(process.cwd(), "styles.css"), css, "utf8");
   return css;
 }

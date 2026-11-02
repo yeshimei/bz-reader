@@ -66,6 +66,15 @@ export interface ReadingStats {
   completedTime?: number;
   /** 第一次打开时间 */
   startReadTime?: number;
+  /**
+   * 读完时的打分（1..5）与一句话感受。
+   *
+   * 这是 bz 侧没有的扩展字段：bz 读到不认识的键会忽略，重写时可能丢，
+   * 所以读完那一刻同时会写进导出的 Markdown frontmatter——
+   * 数据可以丢，沉淀下来的文字不能丢。
+   */
+  rating?: number;
+  review?: string;
 }
 
 /** 一次阅读会话。`start` 必须是可解析的毫秒戳，缺了就等于这条数据不存在。 */

@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="ink" data-page-node-id="KZwl5dkwE5p1TrMYXIDNpz">
+<head data-page-node-id="GQoVeDbf094G2kqXfcCi7f">
+<meta charset="utf-8" data-page-node-id="AbWU9TNOsSHEF2qFdmLiny">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="ALpgWXN7JOwJRhQqH6HDLW">
+<title>bz 阅读 · 侧栏原型 · 肆 划线</title>
+<style>
+/* ==========================================================
+   bz 阅读 · 侧栏四页原型 v3 —— 肆 · 划线
+   本页主张：划线是「一本书里被反复看的地方」——
+     以章为卷、以笔色为语义（琥珀/朱红/松绿/黛蓝）；
+     衬线引文、无衬线想法，两种声音两种字体；顶行色点可筛。
+   ========================================================== */
+:root{
+  --bg:#141110; --bg-2:#181412;
+  --glass:rgba(30,25,21,.78); --glass-line:rgba(233,214,181,.10);
+  --surface:#1e1915; --sunken:#0f0d0b;
+  --line:rgba(233,214,181,.09); --line-2:rgba(233,214,181,.16);
+  --t1:#ede4d4; --t2:#a2937d; --t3:#6b5f4e;
+  --copper:#c8a464; --copper-soft:rgba(200,164,100,.14); --copper-line:rgba(200,164,100,.35);
+  --ink:#f0e8d8; --vermilion:#c25e4a;
+  --ui:"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --serif:Georgia,"Times New Roman","STZhongsong","SimSun","Songti SC",serif;
+  --shadow:0 18px 50px rgba(0,0,0,.5);
+}
+html[data-theme="paper"]{
+  --bg:#efe9db; --bg-2:#e9e2d2;
+  --glass:rgba(247,243,234,.82); --glass-line:rgba(60,48,32,.10);
+  --surface:#f7f3ea; --sunken:#e4dccb;
+  --line:rgba(60,48,32,.11); --line-2:rgba(60,48,32,.20);
+  --t1:#332b1f; --t2:#7d7057; --t3:#a3967c;
+  --copper:#9a7434; --copper-soft:rgba(154,116,52,.12); --copper-line:rgba(154,116,52,.4);
+  --ink:#2c2519; --vermilion:#a84a38;
+  --shadow:0 18px 44px rgba(80,60,30,.18);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--t1);font-family:var(--ui);-webkit-font-smoothing:antialiased;transition:background .35s ease,color .35s ease}
+.board{max-width:1160px;margin:0 auto;padding:52px 48px 110px}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.kicker{display:flex;align-items:center;gap:10px;font-size:11px;letter-spacing:.24em;color:var(--t3)}
+.kicker i{width:6px;height:6px;border-radius:50%;background:var(--copper)}
+.themeswitch{display:flex;border:1px solid var(--line-2);border-radius:99px;overflow:hidden}
+.themeswitch button{appearance:none;border:0;background:transparent;color:var(--t3);font:12px/1 var(--ui);padding:8px 16px;cursor:pointer;letter-spacing:.1em}
+.themeswitch button.on{background:var(--copper-soft);color:var(--copper)}
+.hero .no{font-family:var(--serif);color:var(--copper);font-size:13px;letter-spacing:.32em}
+.hero h1{font-family:var(--serif);font-size:34px;font-weight:500;margin:10px 0 12px;letter-spacing:.04em}
+.hero p{color:var(--t2);font-size:13.5px;line-height:1.9;max-width:660px;margin:0}
+.stage{display:flex;gap:46px;margin-top:44px;align-items:flex-start}
+.col-note{flex:1;min-width:0;padding-top:10px}
+.note{border-top:1px solid var(--line);padding:15px 0 0;margin-bottom:24px}
+.note b{display:flex;align-items:center;gap:9px;font-family:var(--serif);font-weight:500;font-size:14.5px;margin-bottom:8px;letter-spacing:.03em}
+.note b i{width:5px;height:5px;background:var(--copper);transform:rotate(45deg);flex-shrink:0}
+.note span{font-size:12.5px;color:var(--t2);line-height:1.85;display:block}
+.col-leaf{flex-shrink:0}
+.leaf-frame{width:360px;height:784px;border:1px solid var(--line-2);border-radius:18px;background:var(--bg-2);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;position:relative}
+.leaf-tab{height:34px;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid var(--line);color:var(--t3);font-size:11px;letter-spacing:.22em;flex-shrink:0}
+.leaf-tab i{margin-left:auto;font-style:normal;opacity:.55;font-size:12px}
+.lv{flex:1;display:flex;flex-direction:column;min-height:0}
+.lv-body{flex:1;overflow-y:auto;padding:4px 14px 26px;min-height:0}
+.lv-body::-webkit-scrollbar{width:0}
+.lv-head{padding:14px 18px 0;flex-shrink:0}
+.hr1{display:flex;align-items:center;gap:10px;min-width:0}
+.back{appearance:none;border:1px solid var(--line);background:transparent;color:var(--t2);font:12px/1 var(--ui);padding:7px 12px 7px 9px;border-radius:99px;cursor:pointer;letter-spacing:.05em;transition:.2s;flex-shrink:0}
+.back:hover{color:var(--copper);border-color:var(--copper-line);background:var(--copper-soft)}
+.btitle{font-family:var(--serif);font-size:16px;font-weight:500;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bauthor{font-size:11px;color:var(--t3);letter-spacing:.06em;white-space:nowrap;flex-shrink:0}
+.sp{flex:1}
+.act{appearance:none;border:0;background:transparent;color:var(--t3);font:12px/1 var(--ui);padding:7px 4px;cursor:pointer;letter-spacing:.14em;flex-shrink:0;transition:.2s}
+.act:hover{color:var(--copper)}
+.tabs{display:flex;gap:26px;margin-top:12px;border-bottom:1px solid var(--line)}
+.tab{appearance:none;background:none;border:0;cursor:pointer;position:relative;padding:10px 2px 12px;font-family:var(--serif);font-size:13px;letter-spacing:.2em;color:var(--t3);transition:.2s}
+.tab .n{font-family:var(--serif);font-size:10px;color:var(--t3);vertical-align:super;margin-left:4px;letter-spacing:0}
+.tab:hover{color:var(--t2)}
+.tab.on{color:var(--t1)}
+.tab.on .n{color:var(--copper)}
+.tab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--copper)}
+
+/* ── 笔色筛选行 ── */
+.pens{display:flex;align-items:center;gap:10px;padding:12px 4px 12px;border-bottom:1px solid var(--line)}
+.pall{appearance:none;border:1px solid var(--line);background:transparent;color:var(--t3);font:11px/1 var(--ui);padding:6px 12px;border-radius:99px;cursor:pointer;letter-spacing:.14em;transition:.2s}
+.pall:hover,.pall.on{border-color:var(--copper-line);color:var(--copper);background:var(--copper-soft)}
+.pd{width:15px;height:15px;border-radius:50%;cursor:pointer;position:relative;border:1px solid rgba(0,0,0,.28);opacity:.8;transition:.2s}
+.pd:hover{opacity:1;transform:scale(1.1)}
+.pd.on{opacity:1}
+.pd.on::after{content:"";position:absolute;inset:-4.5px;border:1px solid var(--t2);border-radius:50%}
+.pens .cnt{margin-left:auto;font-family:var(--serif);font-size:11px;color:var(--t3);letter-spacing:.08em}
+
+/* ── 卷（按章分组） ── */
+.hlg-h{display:flex;align-items:center;gap:9px;margin:22px 2px 2px;font-size:10.5px;letter-spacing:.32em;color:var(--t3)}
+.hlg-h .no{font-family:var(--serif);font-size:11px;color:var(--copper);letter-spacing:.1em}
+.hlg-h .n{font-family:var(--serif);font-size:11px;color:var(--t3);letter-spacing:0}
+.hlg-h .ln{flex:1;height:1px;background:var(--line)}
+
+/* ── 划线条目 ── */
+.hlit{position:relative;padding:12px 26px 12px 14px;border-top:1px solid var(--line);cursor:pointer;transition:.15s;border-radius:0 10px 10px 0}
+.hlit:first-of-type{border-top:0}
+.hlit:hover{background:var(--copper-soft)}
+.hlit::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:2px;background:var(--c);border-radius:1px}
+.hlit .tx{font-family:var(--serif);font-size:13px;line-height:1.95;color:var(--ink);display:block;letter-spacing:.015em}
+.hlit .cm{display:flex;gap:9px;margin-top:7px;font-size:12px;line-height:1.8;color:var(--t2)}
+.hlit .cm b{flex-shrink:0;font-weight:400;font-size:10px;letter-spacing:.3em;color:var(--copper);padding-top:3px;writing-mode:horizontal-tb}
+.hlit .x{position:absolute;right:5px;top:10px;width:22px;height:22px;border-radius:7px;border:0;background:none;color:var(--t3);font-size:13px;cursor:pointer;opacity:0;transition:.2s;display:grid;place-items:center}
+.hlit:hover .x{opacity:1}
+.hlit .x:hover{color:var(--vermilion);background:var(--line)}
+
+.tstm{position:absolute;left:50%;bottom:20px;transform:translateX(-50%) translateY(8px);background:var(--glass);backdrop-filter:blur(14px);border:1px solid var(--glass-line);color:var(--t2);font-size:12px;letter-spacing:.06em;padding:9px 16px;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;z-index:20;white-space:nowrap}
+.tstm.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.pager{display:flex;gap:12px;margin-top:48px;border-top:1px solid var(--line);padding-top:22px;align-items:center}
+.pager a{text-decoration:none;color:var(--t2);border:1px solid var(--line);border-radius:99px;padding:9px 18px;font-size:12px;letter-spacing:.1em;transition:.2s}
+.pager a:hover{color:var(--copper);border-color:var(--copper-line);background:var(--copper-soft)}
+.pager .cur{color:var(--copper);border-color:var(--copper-line);background:var(--copper-soft)}
+html.bare .board{display:none}
+html.bare body{display:grid;place-items:center;min-height:100vh;padding:16px}
+</style>
+</head>
+<body data-page-node-id="mz4iBYCRmRC8rfSqEREYJ6">
+<div class="board" data-page-node-id="9DbYwThWEGHPmuf7IBuhGr">
+  <div class="top" data-page-node-id="kkOtc3FWgWnO6MsOuFyOBJ">
+    <div class="kicker" data-page-node-id="oOhdsGd0FASDL7h7olRlqz"><i data-page-node-id="LCPNwcUJ6UMw6Xrp4SV3NY"></i>BZ 阅读 · 侧栏四页原型 · 墨与铜</div>
+    <div class="themeswitch" data-page-node-id="llkYBQJnwBZFtlDej1QBTD">
+      <button class="on" onclick="setTheme('ink',this)" data-page-node-id="fkQixJATjzm7e1NYHG3uRo">墨（暗）</button>
+      <button onclick="setTheme('paper',this)" data-page-node-id="DiDFMd4kzlcUeeDrHtphjM">纸（亮）</button>
+    </div>
+  </div>
+  <div class="hero" data-page-node-id="8xjW6glaYNDIcQvURuMwII">
+    <div class="no" data-page-node-id="hHUO7rr7CGndgtYzMAqNJv">肆</div>
+    <h1 data-page-node-id="tvV0ZYgjQicCRbVvvCFYnG">划线</h1>
+    <p data-page-node-id="CWl10JJXrAWf3apnjavl9C">一本书里被反复看的地方。以章为卷、以笔色为语义——琥珀、朱红、松绿、黛蓝各司其职；衬线的引文与无衬线的想法是两种声音，顶行一枚色点即可只看一种笔。</p>
+  </div>
+  <div class="stage" data-page-node-id="yEYUDGN6vcjBjDEIuf3EYR">
+    <div class="col-note" data-page-node-id="eZvrWAuT2LCKcd4slZfgpX">
+      <div class="note" data-page-node-id="6969XFu0GNu3npzmSHV47Q"><b data-page-node-id="oSJC8ulfJzsQGeW3o6reIe"><i data-page-node-id="WN0sisKEqRJlbvPB8WX5xA"></i>以章为卷</b><span data-page-node-id="L6LEQIVQLrRtNl1qxSY2yf">划线按章分卷：卷头是字距拉开的章名、铜金序号与计数，右接一段发丝线。想找一段话，先想起它住在哪一章。</span></div>
+      <div class="note" data-page-node-id="23mqMW3nYK2tAghI9MVoLx"><b data-page-node-id="2qswEjDeE9UqfuYRdCXxP8"><i data-page-node-id="aMQ8KgiepPNZ1Ih7cbL6HQ"></i>笔色即语义</b><span data-page-node-id="4AlHCF26EOChOgHwSI603C">条目左缘一枚笔色竖线——琥珀是共鸣、朱红是异议、松绿是方法、黛蓝是存疑；颜色跟正文里的笔刷同源同值。顶行色点可筛，只看一种笔。</span></div>
+      <div class="note" data-page-node-id="LwDd7UbabfFOOAKmY9f9tm"><b data-page-node-id="aYYXV6GIbYWSxkXKbgzFPH"><i data-page-node-id="hsnmH2effcItNRx7PL6UvS"></i>两种声音两种字体</b><span data-page-node-id="L3YWZ6vss9ErsQksjksBYp">引文用衬线，是书里的话；想法前缀一枚「想 法」铜金小签、用无衬线，是自己说的话。一眼分清谁在说。</span></div>
+      <div class="note" data-page-node-id="VyyUZSwPfR3INBUAzsdNMa"><b data-page-node-id="4B55HqZCdDwtFwHDw9lNNg"><i data-page-node-id="PrPYDgWJ9clGEtZGEvmlZc"></i>删除藏在悬停</b><span data-page-node-id="G4PLJq3B4j0xkxKAGTNVmQ">× 平时隐形，悬停现身；点它条目向右滑出——删除永远是一个不挡视线的动作。</span></div>
+    </div>
+    <div class="col-leaf" data-page-node-id="JKH7phFuGpDUfo7W38VYra">
+      <div class="leaf-frame" data-page-node-id="lKaNtoNyGcSkOA8Is0IQCN">
+        <div class="leaf-tab" data-page-node-id="MC5oBV7RbxA8iE1HK0lB8X">阅 读<i data-page-node-id="HpNOHeDbRdjHHD9DnbA3sm">×</i></div>
+        <div class="lv" data-page-node-id="5WBibFS5JrdaKiHc8iVYaK">
+          <div class="lv-head" data-page-node-id="E3xBIfeZNgpJweA0OHBA1I">
+            <div class="hr1" data-page-node-id="xhQRGXZABbJSTDkOVLhdjR">
+              <button class="back" onclick="location.href='shelf.html'" data-page-node-id="BJXaz2qaYFstEUbbHVC9Gt">‹ 书库</button>
+              <b class="btitle" data-page-node-id="EgWCCG9KVIQrhMAqCgeeLY">山月记</b>
+              <span class="bauthor" data-page-node-id="hvEA4CHZkDFXweQC8x5h1D">中岛敦</span>
+              <span class="sp" data-page-node-id="MFKC7GPr0eIKK3yZBKQ4pq"></span>
+              <button class="act" data-page-node-id="0IlSibczk3cWnydQQHq9BR">导出</button>
+            </div>
+            <div class="tabs" data-page-node-id="qx9YOChcCY9IwsQTA3HDFL">
+              <button class="tab" onclick="goto('toc.html')" data-page-node-id="05kXD7oprIbyHHWqlqQ6iL">目录<b class="n" data-page-node-id="SOZjoA4GTIYs6BNeL8edIN">22</b></button>
+              <button class="tab" onclick="goto('bookmarks.html')" data-page-node-id="vMqp00gcDMLLr0r4Xad2jX">书签<b class="n" data-page-node-id="wxWbxOc9jkAYFFFo7xkYvF">5</b></button>
+              <button class="tab on" onclick="void 0" data-page-node-id="CBQqPPqlEEb3N7p0ittb00">划线<b class="n" data-page-node-id="A0XOF2ishrTeNjJAcTr69x">8</b></button>
+            </div>
+          </div>
+          <div class="lv-body" data-page-node-id="InJI22OcBPPHP9WpBbG0Pi">
+            <div class="pens" id="pens" data-page-node-id="oh3NHcGFa3QnUyfx0EOGBQ">
+              <button class="pall on" onclick="filter('',this)" data-page-node-id="iabvdCJJsBgMyarWuoHJof">全部</button>
+              <span class="pd" data-c="amber"    style="background:#e8b53a" title="琥珀 · 共鸣" onclick="filter('amber',this)" data-page-node-id="uSNSE6OHjgDytQFp2PWTJ2"></span>
+              <span class="pd" data-c="vermilion" style="background:#e2571c" title="朱红 · 异议" onclick="filter('vermilion',this)" data-page-node-id="o8hxespYwfM0Wy5J5BQv0E"></span>
+              <span class="pd" data-c="green"    style="background:#4f9a63" title="松绿 · 方法" onclick="filter('green',this)" data-page-node-id="0eekKuTv0EuJQKRtmAPICi"></span>
+              <span class="pd" data-c="blue"     style="background:#4a83d0" title="黛蓝 · 存疑" onclick="filter('blue',this)" data-page-node-id="XguZs0z6Qgru8fKAzbLpkd"></span>
+              <span class="cnt" id="cnt" data-page-node-id="pe2gLOEBdl2tAVta8MOfYL">8 条</span>
+            </div>
+            <div id="groups" data-page-node-id="oUGIytx0MAiPPcgGb0QqDb"></div>
+          </div>
+        </div>
+        <div class="tstm" id="tstm" data-page-node-id="P0ifJf581wJhkLoZi0zpMk"></div>
+      </div>
+    </div>
+  </div>
+  <div class="pager" data-page-node-id="0ZPNZYec688yxD5H1anbQq">
+    <a href="shelf.html" data-page-node-id="cbU6PD5KSjmUDzp6sAmEeT">壹 · 书库</a>
+    <a href="toc.html" data-page-node-id="nZzavwjX2ipj7PkzZPHwTL">贰 · 目录</a>
+    <a href="bookmarks.html" data-page-node-id="QdJkOZtja6Yw4aT03tBqEl">叁 · 书签</a>
+    <a class="cur" href="highlights.html" data-page-node-id="ngPtnQjAXnQbmF4KyO4vvr">肆 · 划线</a>
+    <a href="index.html" style="margin-left:auto" data-page-node-id="BN7PCKsOFJ1cgkdoaWSro7">‹ 总览</a>
+  </div>
+</div>
+
+<script>
+if(new URLSearchParams(location.search).has('bare'))document.documentElement.classList.add('bare');
+function setTheme(t,b){document.documentElement.dataset.theme=t;document.querySelectorAll('.themeswitch button').forEach(x=>x.classList.toggle('on',x===b));}
+function goto(u){location.href=u;}
+
+const DATA=[
+ {ch:'壹 · 山月记',items:[
+   {c:'amber',  tx:'不甘以贱吏为伍，不久便辞官归田，闭门绝交，专心于诗作。',cm:'自恃才高者的孤绝，是从拒绝同流开始的。'},
+   {c:'blue',   tx:'世间原本也不是非黑即白，人心明暗之间，原就没有清楚的界限。'},
+   {c:'amber',  tx:'深深沁入骨髓的自卑，与不肯认输的自尊，在他体内日夜厮磨。',cm:'自卑与自尊原是一体两面。'},
+ ]},
+ {ch:'叁 · 弟子',items:[
+   {c:'vermilion',tx:'子贡在廊下立了很久，直到烛火燃尽。',cm:'子贡的笨，是一种忠诚。'},
+   {c:'green', tx:'一味求快，反而什么都没有留下。',cm:'做事的节奏感，比聪明要紧。'},
+   {c:'blue',  tx:'汝器也。曰：何器也？曰：瑚琏也。'},
+ ]},
+ {ch:'肆 · 李陵',items:[
+   {c:'amber', tx:'五千步卒，当单于八万骑。',cm:'明知不可为而为之的惨烈。'},
+   {c:'blue',  tx:'人之相知，贵相知心。'},
+ ]},
+];
+const C={amber:'#e8b53a',vermilion:'#e2571c',green:'#4f9a63',blue:'#4a83d0'};
+
+function render(filterC){
+  let n=0;
+  const html=DATA.map(g=>{
+    const items=g.items.filter(it=>!filterC||it.c===filterC);
+    if(!items.length)return'';
+    n+=items.length;
+    return `<div class="hlg" data-ch="${g.ch}">
+      <div class="hlg-h"><span class="no">${g.ch.split(' · ')[0]}</span><span>${g.ch.split(' · ')[1]}</span><span class="n">${items.length}</span><span class="ln"></span></div>
+      ${items.map(it=>`<div class="hlit" style="--c:${C[it.c]}" onclick="jump(this)">
+        <span class="tx">${it.tx}</span>
+        ${it.cm?`<span class="cm"><b>想法</b><span>${it.cm}</span></span>`:''}
+        <button class="x" title="删除这条划线" onclick="bye(event,this)">×</button>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+  document.getElementById('groups').innerHTML=html||'<p style="color:var(--t3);font-size:12.5px;padding:30px 8px;line-height:2">这种笔还没有落下过。</p>';
+  document.getElementById('cnt').textContent=n+' 条';
+}
+function filter(c,el){
+  document.querySelectorAll('.pd,.pall').forEach(x=>x.classList.remove('on'));
+  el.classList.add('on');
+  render(c);
+}
+function jump(row){const t=row.querySelector('.tx').textContent.slice(0,14);toast('跳到原文 · '+t+'…');}
+function bye(ev,btn){
+  ev.stopPropagation();
+  const row=btn.closest('.hlit');
+  row.style.transition='.3s';row.style.opacity='0';row.style.transform='translateX(10px)';
+  setTimeout(()=>{row.remove();toast('划线已删');},320);
+}
+render('');
+</script>
+</body>
+</html>

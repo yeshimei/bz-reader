@@ -726,6 +726,25 @@ export class EngineHost {
     await this.view?.prev();
   }
 
+  /**
+   * 当前渲染出的正文纯文本（朗读用）。
+   *
+   * 只取 renderer 里已经挂上去的那几个 section 文档——分页模式下通常
+   * 就是屏幕上这一两页；不另开 section 去解压整章，那会让「按下朗读」
+   * 卡上几百毫秒。取不到就返回空串，由调用方提示。
+   */
+  currentText(): string {
+    const contents = this.view?.renderer?.getContents?.() ?? [];
+    const parts: string[] = [];
+    for (const c of contents) {
+      const body = c.doc?.body;
+      if (!body) continue;
+      const t = (body.textContent ?? '').replace(/\s+/g, ' ').trim();
+      if (t) parts.push(t);
+    }
+    return parts.join(' ').trim();
+  }
+
   /** 跳到 TOC 项（href 由 foliate 解析成章节 + 锚点） */
   async goToHref(href: string): Promise<void> {
     await this.view?.goTo(href);

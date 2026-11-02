@@ -9,7 +9,7 @@
  * 注入走 `paginator.setStyles(css)`，不用 document.createElement('style')——
  * 后者在重排时会累积成多个标签，越读越慢。
  * ============================================================ */
-import { FONT_FAMILIES, THEME_OPTIONS, type ReaderPrefs, type ThemeName } from '../data/prefs';
+import { ACCENT_OPTIONS, FONT_FAMILIES, type AccentName, type ReaderPrefs } from '../data/prefs';
 
 export interface ResolvedTheme {
   textColor: string;
@@ -17,24 +17,45 @@ export interface ResolvedTheme {
   dark: boolean;
 }
 
-const DARK_THEMES: ReadonlySet<ThemeName> = new Set(['ink', 'moss', 'night']);
+/** 宿主没给令牌时的兜底：不猜某个具体主题，只取中性明暗两档 */
+const FALLBACK_LIGHT = { text: '#2e3338', bg: '#ffffff' };
+const FALLBACK_DARK = { text: '#dcddde', bg: '#1e1e1e' };
 
-/** 铜金：暗主题亮一档，纸面压深一档。正文里的章题短线与首字下沉用它。 */
-export function copperOf(dark: boolean): string {
-  return dark ? '#c8a464' : '#9a7434';
+function hostVar(style: CSSStyleDeclaration, ...names: string[]): string {
+  for (const n of names) {
+    const v = style.getPropertyValue(n).trim();
+    if (v) return v;
+  }
+  return '';
 }
 
-/** 主题名 → 实际颜色。auto 读宿主令牌（跟随 Obsidian 明暗）。 */
-export function resolveTheme(name: ThemeName): ResolvedTheme {
+/**
+ * 书页配色 = 宿主配色。
+ *
+ * 唯一一处「书页不再自持颜色」的地方：正文底、正文色都读 Obsidian 的
+ * --background-primary / --text-normal，明暗由 body.theme-dark 判定。
+ * 自己写死颜色会跟用户的主题（尤其是社区主题）打架，读起来像嵌了个异类。
+ */
+export function resolveTheme(): ResolvedTheme {
   const dark = document.body.classList.contains('theme-dark');
-  if (name === 'auto') {
-    const style = getComputedStyle(document.body);
-    const text = style.getPropertyValue('--bzr-text-1').trim() || (dark ? '#ede4d4' : '#2c2519');
-    const bg = style.getPropertyValue('--bzr-surface-0').trim() || (dark ? '#211c15' : '#f5efdf');
-    return { textColor: text, bgColor: bg, dark };
+  const style = getComputedStyle(document.body);
+  const f = dark ? FALLBACK_DARK : FALLBACK_LIGHT;
+  const text = hostVar(style, '--text-normal', '--bzr-text-1') || f.text;
+  const bg = hostVar(style, '--background-primary', '--bzr-surface-0') || f.bg;
+  return { textColor: text, bgColor: bg, dark };
+}
+
+/**
+ * 强调色 → 实际颜色。auto 读宿主的 --interactive-accent；
+ * 自持档位按明暗取两档，暗底上不压暗色（那等于没画）。
+ */
+export function accentColor(accent: AccentName, dark: boolean): string {
+  const opt = ACCENT_OPTIONS.find((a) => a.value === accent);
+  if (!opt || opt.value === 'auto') {
+    const v = getComputedStyle(document.body).getPropertyValue('--interactive-accent').trim();
+    return v || (dark ? '#c8a464' : '#9a7434');
   }
-  const opt = THEME_OPTIONS.find((t) => t.value === name) ?? THEME_OPTIONS[1];
-  return { textColor: opt.fg, bgColor: opt.bg, dark: DARK_THEMES.has(name) };
+  return dark ? opt.dark : opt.css;
 }
 
 /**
@@ -44,17 +65,17 @@ export function resolveTheme(name: ThemeName): ResolvedTheme {
  * 不加的话「换主题没反应」——用户看到的是书没变，实际是我们被书压住了。
  *
  * 版式（原型 reader-v2「书是主角」一套）：
- *   - 章题（h1）居中、衬线字距，下面一条 34px 铜金短线——整章唯一的装饰
+ *   - 章题（h1）居中、衬线字距，下面一条 34px 强调色短线——整章唯一的装饰
  *   - 次级标题（h2/h3）居中但不出线
  *   - 正文加 0.015em 字距（汉字可读性贴着排印下限给）
- *   - 横排时首段首字下沉（铜金）；竖排的 writing-mode 下 float 行为不可控，跳过
+ *   - 横排时首段首字下沉（强调色）；竖排的 writing-mode 下 float 行为不可控，跳过
  */
 export function buildChapterCSS(prefs: ReaderPrefs): string {
-  const theme = resolveTheme(prefs.theme);
+  const theme = resolveTheme();
+  const accent = accentColor(prefs.accent, theme.dark);
   const family = FONT_FAMILIES.find((f) => f.value === prefs.fontFamily)?.css || '';
   const familyDecl = family ? `font-family: ${family} !important;` : '';
   const imgFilter = theme.dark ? 'filter: invert(1) hue-rotate(180deg);' : '';
-  const copper = copperOf(theme.dark);
   // 竖排写在 html 上，body 继承。foliate 引擎在每次章节装载时读 body 的
   // computed writing-mode 判定横竖（paginator.js 的 getDirection），而注入
   // 恰好发生在那次读取之前——所以竖排不需要任何引擎侧配合，改 prefs 重注即可。
@@ -73,7 +94,7 @@ body > p:first-of-type::first-letter {
   font-size: 2.6em !important;
   line-height: 0.9 !important;
   padding: 0.05em 0.14em 0 0 !important;
-  color: ${copper} !important;
+  color: ${accent} !important;
   font-weight: 500 !important;
 }`;
   }
@@ -130,7 +151,7 @@ h1::after {
   width: 34px !important;
   height: 1px !important;
   margin: 1.1em auto 0 !important;
-  background: ${copper} !important;
+  background: ${accent} !important;
   opacity: 0.7;
 }
 h2, h3 {

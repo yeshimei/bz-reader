@@ -4,8 +4,9 @@
  *
  *   node scripts/issue-license.mjs --name 包仔 [--days 365]
  *   node scripts/issue-license.mjs --name 包仔 --until 2027-12-31
+ *   node scripts/issue-license.mjs --name 包仔 --plan lifetime --id BZR-2026-0001
  *
- * 输出形如 BZR1.<payload>.<sig> 的激活码，粘贴到 设置 → bz 阅读 → 授权。
+ * 输出形如 BZR2.<payload>.<sig> 的激活码，粘贴到 设置 → 授权。
  * 需要 scripts/keys/private.pem（gen-keys.mjs 生成）。
  *
  * 签名 = ECDSA P-256 + SHA-256，**IEEE-P1363 裸格式（r||s 各 32 字节）**：
@@ -32,6 +33,14 @@ const arg = (name) => {
 const name = arg('name');
 const days = Number(arg('days') || 0);
 const until = arg('until');
+const plan = arg('plan') || (days > 0 || until ? 'year' : 'lifetime');
+/** 码号用本地日期（UTC 会在凌晨差一天，给客服对账添麻烦） */
+function stamp() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
+}
+const id = arg('id') || `BZR-${stamp()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 
 let exp = 0;
 if (until) exp = new Date(`${until}T23:59:59`).getTime();
@@ -41,7 +50,9 @@ if (Number.isNaN(exp)) {
   process.exit(1);
 }
 
-const payload = { v: 1, ...(name ? { name } : {}), ...(exp ? { exp } : {}) };
+/* v2：带 id 与 plan。id 是码号/订单号，将来上「吊销名单」和查「谁泄露了」都靠它。
+   v1 老码仍能验，但新发的一律 v2。 */
+const payload = { v: 2, id, ...(name ? { name } : {}), plan, ...(exp ? { exp } : {}) };
 const payloadBytes = Buffer.from(JSON.stringify(payload), 'utf8');
 
 /** DER 签名（SEQUENCE{r INTEGER, s INTEGER}）→ IEEE-P1363 裸 r||s，各 32 字节 */
@@ -74,7 +85,9 @@ const der = signer.sign({ key: privateKeyPem, dsaEncoding: 'der' });
 const sig = derToP1363(der);
 
 const b64url = (buf) => buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-const code = `BZR1.${b64url(payloadBytes)}.${b64url(sig)}`;
+const code = `BZR2.${b64url(payloadBytes)}.${b64url(sig)}`;
 
 console.log(code);
-console.error(`--- ${name || '未署名'} · ${exp ? new Date(exp).toLocaleDateString() : '永久'}`);
+console.error(
+  `--- ${name || '未署名'} · ${plan} · ${id} · ${exp ? new Date(exp).toLocaleDateString() : '永久'}`,
+);
