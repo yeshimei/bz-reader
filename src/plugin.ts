@@ -31,6 +31,8 @@ import { openImport } from './ui/import-panel';
 import { ReaderView, VIEW_TYPE_READER, type ReaderHostApi } from './view/reader-view';
 import { SideView, VIEW_TYPE_TOC } from './view/side-view';
 import { ReaderSettingTab } from './ui/settings-tab';
+import { verifyLicense, licenseSummary } from './data/license';
+import { normalizeSettings } from './data/settings';
 
 export interface PluginConfig {
   /** 高级版构建为 true。基础版为 false，且高级模块根本不在包里。 */
@@ -59,7 +61,18 @@ export function createPlugin(cfg: PluginConfig) {
 
       // 基础版没有可配项（字号主题都在阅读界面上），设置页只在 pro 里注册
       if (__BZ_READER_PRO__) {
-        this.addSettingTab(new ReaderSettingTab({ app: this.app, plugin: this, store: this.store }));
+        this.addSettingTab(
+          new ReaderSettingTab({
+            app: this.app,
+            plugin: this,
+            store: this.store,
+            activate: async (code) => {
+              const res = await verifyLicense(code);
+              return { ok: res.ok, message: res.message };
+            },
+            licenseInfo: () => licenseSummary(normalizeSettings(this.store.get().settings ?? undefined).license),
+          }),
+        );
       }
 
       this.addRibbonIcon('book-open', 'bz 阅读：打开书架', () => this.openShelf());

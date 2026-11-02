@@ -10,3 +10,6 @@ release/
 /styles.css
 .scratch/
 tmp/
+
+# 发行私钥：泄露 = 任何人能签激活码，永远不进 git
+/scripts/keys/
