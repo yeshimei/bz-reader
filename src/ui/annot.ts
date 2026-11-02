@@ -67,6 +67,24 @@ export function createAnnotLayer(deps: AnnotDeps): AnnotLayer {
   let commentTimer: number | null = null;
   /** 当前划词条对应的原文（展开「想法」时要把它显示出来） */
   let selectedText = '';
+  /** 键盘避让：手机上 textarea 一聚焦，visualViewport 被顶上去，
+   *  浮层还按老坐标挂着就藏在键盘后面。监听期间把整层挪到可视区。 */
+  let vvDetach: (() => void) | null = null;
+
+  function watchKeyboard(): void {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const apply = (): void => {
+      root.style.transform = vv.offsetTop > 0 ? `translateY(${-vv.offsetTop}px)` : '';
+    };
+    vv.addEventListener('resize', apply);
+    vv.addEventListener('scroll', apply);
+    vvDetach = () => {
+      vv.removeEventListener('resize', apply);
+      vv.removeEventListener('scroll', apply);
+      root.style.transform = '';
+    };
+  }
 
   const dots = (value: HighlightColorName, onPick: (c: HighlightColorName) => void): HTMLElement => {
     const box = el('div', 'bzr-annot-dots');
@@ -106,6 +124,7 @@ export function createAnnotLayer(deps: AnnotDeps): AnnotLayer {
     mode = kind;
     root.classList.add('is-open'); // 先进 DOM 才能量到尺寸
     place();
+    watchKeyboard();
   }
 
   function hide(): void {
@@ -120,6 +139,8 @@ export function createAnnotLayer(deps: AnnotDeps): AnnotLayer {
       window.clearTimeout(commentTimer);
       commentTimer = null;
     }
+    vvDetach?.();
+    vvDetach = null;
     mode = null;
     current = null;
     host = null;

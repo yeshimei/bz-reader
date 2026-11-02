@@ -12,6 +12,7 @@
     "build:base": "node esbuild.config.mjs once --target base",
     "build:pro": "node esbuild.config.mjs once --target pro",
     "release": "node esbuild.config.mjs production",
+    "test": "vitest run",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit"
   },
   "devDependencies": {
@@ -19,6 +20,7 @@
     "construct-style-sheets-polyfill": "^3.1.0",
     "esbuild": "^0.21.5",
     "obsidian": "latest",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^5.0.5"
   }
 }
