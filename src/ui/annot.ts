@@ -16,7 +16,16 @@
 import type { Rect, SelectionInfo } from '../engine/host';
 import type { Highlight } from '../data/schema';
 import { HIGHLIGHT_COLORS, type HighlightColorName } from '../data/notes';
+import type { AiTask } from '../data/ai';
 import { clear, el } from './dom';
+
+export interface AnnotAi {
+  /** 三样齐了才算配好（settings.aiReady 的口径，由上层接好） */
+  ready: () => boolean;
+  /** 没配好时给引导：上层负责把人带到设置页，别让按钮点了没反应 */
+  onNeedConfig: () => void;
+  run: (task: AiTask, text: string) => Promise<{ text: string }>;
+}
 
 export interface AnnotDeps {
   /** 划词条里点了颜色 */
@@ -25,6 +34,8 @@ export interface AnnotDeps {
   onChangeComment: (id: string, comment: string) => void;
   onRemove: (id: string) => void;
   onClose: () => void;
+  /** AI 是可选钩子：只有高级版且传入时划词条才长出 AI 钮 */
+  ai?: AnnotAi;
 }
 
 export interface AnnotLayer {
@@ -150,8 +161,89 @@ export function createAnnotLayer(deps: AnnotDeps): AnnotLayer {
       compose();
     });
     bar.appendChild(think);
+    // AI 三连（摘 / 释 / 译）：直接对选中文本干活，结果展开成卡片
+    if (deps.ai) {
+      const tasks: Array<{ task: AiTask; label: string; title: string }> = [
+        { task: 'summarize', label: '摘', title: 'AI 摘要' },
+        { task: 'explain', label: '释', title: 'AI 解释名词' },
+        { task: 'translate', label: '译', title: 'AI 翻译' },
+      ];
+      for (const { task, label, title } of tasks) {
+        const b = el('button', 'bzr-annot-ai', label);
+        b.type = 'button';
+        b.title = title;
+        b.setAttribute('aria-label', title);
+        b.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          void runAi(task);
+        });
+        bar.appendChild(b);
+      }
+    }
     bar.addEventListener('pointerdown', (ev) => ev.stopPropagation());
     mount(bar, 'create');
+  }
+
+  /**
+   * AI 动作：划词条原地展开成结果卡。没配好就交给上层引导去设置页，
+   * 绝不静默失败——「点了没反应」用户只会以为是按钮坏了。
+   */
+  async function runAi(task: AiTask): Promise<void> {
+    const ai = deps.ai;
+    const text = selectedText.trim();
+    if (!ai || !text) return;
+    if (!ai.ready()) {
+      hide();
+      ai.onNeedConfig();
+      return;
+    }
+    picked = 'amber';
+    const card = el('div', 'bzr-annot-card');
+    const quote = el('blockquote', 'bzr-annot-quote', text);
+    const out = el('div', 'bzr-annot-ai-out', '正在请求 AI…');
+    const foot = el('div', 'bzr-annot-foot');
+    foot.appendChild(el('span', 'bzr-annot-sp'));
+    const copy = el('button', 'bzr-annot-btn', '复制');
+    copy.type = 'button';
+    copy.disabled = true;
+    copy.addEventListener('click', () => {
+      void navigator.clipboard?.writeText(out.textContent ?? '');
+    });
+    const keep = el('button', 'bzr-annot-btn is-primary', '存为想法');
+    keep.type = 'button';
+    keep.disabled = true;
+    keep.title = '把结果作为一条划线想法存下来';
+    keep.addEventListener('click', () => {
+      const result = out.textContent ?? '';
+      const color = picked;
+      hide();
+      deps.onCreate({ color, comment: result });
+    });
+    const cancel = el('button', 'bzr-annot-btn', '关闭');
+    cancel.type = 'button';
+    cancel.addEventListener('click', () => hide());
+    foot.append(copy, keep, cancel);
+    card.append(quote, out, foot);
+    card.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+    card.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape') {
+        ev.stopPropagation();
+        hide();
+      }
+    });
+    mount(card, 'create');
+    root.classList.add('is-card');
+    try {
+      const res = await ai.run(task, text);
+      out.textContent = res.text;
+      copy.disabled = false;
+      keep.disabled = false;
+    } catch (e) {
+      out.textContent = `${(e as Error)?.message || 'AI 请求失败了'}。可以到 设置 → bz 阅读 → AI 检查配置。`;
+      out.classList.add('is-error');
+      copy.disabled = true;
+      keep.disabled = true;
+    }
   }
 
   /** 划词条 → 「写想法」的展开态：同一块浮层里长出输入框，不另开一个 */

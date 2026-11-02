@@ -2430,6 +2430,39 @@
   background: color-mix(in srgb, var(--rear-fg) 9%, transparent);
   color: var(--rear-fg);
 }
+/* AI 三连（摘/释/译）：单字小钮，跟「想法」同一档语言 */
+.bzr-annot-ai {
+  height: 24px;
+  width: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--rear-fg-2);
+  font-family: inherit;
+  font-size: 11.5px;
+  line-height: 1;
+  cursor: pointer;
+}
+.bzr-annot-ai:hover {
+  background: color-mix(in srgb, var(--rear-fg) 9%, transparent);
+  color: var(--rear-fg);
+}
+
+/* AI 结果区：等宽高自然撑开，出错时用语义红压一行 */
+.bzr-annot-ai-out {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--rear-fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 180px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.bzr-annot-ai-out.is-error {
+  color: var(--bzr-danger);
+}
 
 /* 原文引用：衬线 + 左侧一条品牌色，和侧栏里的划线条目同一套语言 */
 .bzr-annot-quote {

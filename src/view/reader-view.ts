@@ -46,6 +46,9 @@ import { ActivityTracker } from '../engine/activity';
 import { EngineHost, type Rect, type RelocateInfo, type SelectionInfo } from '../engine/host';
 import { resolveTheme } from '../engine/theme';
 import { notify } from '../core/notice';
+import { PLUGIN_ID } from '../core/plugin-path';
+import { aiAsk } from '../data/ai';
+import { aiReady } from '../data/settings';
 import { bookmarkIcon, durationLabel, el, fullscreenIcon, searchIcon, tocIcon, trackRow } from '../ui/dom';
 import { createAnnotLayer, type AnnotLayer } from '../ui/annot';
 import { createFootnoteLayer, type FootnoteLayer } from '../ui/footnote';
@@ -315,6 +318,19 @@ export class ReaderView extends ItemView {
         onChangeComment: (id, text) => this.applyHighlightComment(id, text),
         onRemove: (id) => this.deleteHighlight(id),
         onClose: () => undefined,
+        // AI 三连（摘/释/译）：没配好不静默失败，直接把人送到设置页
+        ai: {
+          ready: () => aiReady(normalizeSettings(this.api.store.get().settings ?? undefined)),
+          onNeedConfig: () => {
+            notify('先用 AI 需要：设置 → bz 阅读 → AI，填好接口地址、Key 和模型', 'info', 4000);
+            const setting = (this.app as unknown as {
+              setting?: { open?: () => void; openTabById?: (id: string) => void };
+            }).setting;
+            setting?.open?.();
+            setting?.openTabById?.(PLUGIN_ID);
+          },
+          run: (task, text) => aiAsk(normalizeSettings(this.api.store.get().settings ?? undefined), task, text),
+        },
       });
       root.appendChild(this.annot.root);
     }
@@ -725,7 +741,10 @@ export class ReaderView extends ItemView {
     const book = this.book;
     const sel = this.selection;
     if (!book || !sel) return;
-    if (Date.now() - this.selectionAt > 10_000) {
+    // 卡片态（写想法 / AI 结果卡）豁免 10s 时限：用户盯着浮层打字的那段选区
+    // 一直是他眼前的原文，超时作废等于「想法写到一半保存，静默全丢」。
+    // 短时限只防「划词条还挂着但选区早已塌掉」的陈旧引用。
+    if (!this.annot?.isCard() && Date.now() - this.selectionAt > 10_000) {
       this.selection = null;
       return;
     }
