@@ -62,7 +62,9 @@ export class ReaderView extends ItemView {
   private prefs: ReaderPrefs;
   private stage: HTMLElement | null = null;
   private rootEl: HTMLElement | null = null;
-  private titleEl: HTMLElement | null = null;
+  // 注意：不能叫 titleEl —— 那是 View 基类的页签标题元素，子类同名字段会把它覆盖成 null，
+  // Obsidian 的 ItemView.load() 里 this.titleEl.setText(...) 就会炸成「打不开视图」。
+  private bookTitleEl: HTMLElement | null = null;
   private chapterEl: HTMLElement | null = null;
   private percentEl: HTMLElement | null = null;
   private remainEl: HTMLElement | null = null;
@@ -235,7 +237,7 @@ export class ReaderView extends ItemView {
 
     this.rootEl = root;
     this.stage = stage;
-    this.titleEl = title;
+    this.bookTitleEl = title;
     this.chapterEl = chapter;
     this.percentEl = percent;
     this.remainEl = remain;
@@ -419,6 +421,12 @@ export class ReaderView extends ItemView {
 
   /* ─────────────────── 装载书 ─────────────────── */
 
+  /** 书名出来之后刷新页签标题（ItemView 自己不会重新读 getDisplayText） */
+  private syncTabTitle(): void {
+    const leaf = this.leaf as unknown as { updateHeader?: () => void };
+    leaf.updateHeader?.();
+  }
+
   private async maybeMount(): Promise<void> {
     // setState 可能先于 onOpen 到达：骨架还没建，等 onOpen 再挂
     if (!this.stage) return;
@@ -437,9 +445,9 @@ export class ReaderView extends ItemView {
     this.book = book;
     this.prefs = normalizePrefs(this.api.store.get().prefs ?? undefined);
     this.applyChrome();
-    if (this.titleEl) {
-      this.titleEl.textContent = book.meta.title;
-      this.titleEl.title = book.meta.title;
+    if (this.bookTitleEl) {
+      this.bookTitleEl.textContent = book.meta.title;
+      this.bookTitleEl.title = book.meta.title;
     }
     this.updateFoot(book.reading.position.percent || 0, 0);
     if (this.chapterEl && book.reading.position.chapterTitle) {
@@ -460,13 +468,14 @@ export class ReaderView extends ItemView {
           if (m.title) book.meta.title = m.title;
           if (m.author) book.meta.author = m.author;
           if (m.wordCount) book.meta.wordCount = m.wordCount;
-          if (this.titleEl) {
-            this.titleEl.textContent = book.meta.title;
-            this.titleEl.title = book.meta.title;
+          if (this.bookTitleEl) {
+            this.bookTitleEl.textContent = book.meta.title;
+            this.bookTitleEl.title = book.meta.title;
           }
           this.toc?.setItems(this.host.toc());
-          // tab 标题跟着书名走
-          this.app.workspace.trigger('layout-change');
+          // 页签标题跟着书名走。用 leaf 自己的 updateHeader（内部 API，没有就跳过）；
+          // 不要 trigger('layout-change')——那会让 Obsidian 在视图还没装完时重排整块布局
+          this.syncTabTitle();
           this.api.store.touch();
         },
       });

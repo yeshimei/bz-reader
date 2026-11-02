@@ -84,4 +84,5 @@ prototype/ui.html   界面原型（桌面 8 屏 + 移动 7 屏）
 - **阅读 = 原生 ItemView，书库 = 弹窗**。别把阅读退回 Modal：弹窗会盖住笔记，也就丢掉了「一边读一边对照写」这个原生视图唯一的理由。
 - **输入归引擎**：点击三区、滚轮、拖拽、捏合的判定都在 `engine/host.ts`，因为它才知道 iframe 的 document 什么时候被换掉。视图层只接收语义事件（`onTap` / `onTurn` / `onFontSize`）。
 - **关书结算顺序**：结算会话 → 落最后位置 → flush → destroy 引擎。反了会丢最后一页进度。
+- **继承 Obsidian 基类时，绝不声明与基类同名的字段**。`View` 有 `app` / `icon` / `navigation` / `leaf` / `containerEl` / `scope`，`ItemView` 有 `contentEl` / `titleEl`。子类字段用定义语义写进实例，会把基类构造时赋好的值覆盖成 `null` —— 表现是点开书只报 `Cannot read properties of null (reading 'setText')`，因为 `ItemView.load()` 里第一句就是 `this.titleEl.setText(this.getDisplayText())`。阅读视图里那个书名元素叫 `bookTitleEl`，就是为了躲开它。
 - 新增弹窗先看 `styles.css` 里 `.bzr-*-popup` 的写法，别裸用 `uiModal`（默认 400px 窄卡 + 82vh 限高）。
