@@ -26,16 +26,32 @@ import type { ReaderBook } from '../data/schema';
 import type { ReaderStore } from '../data/store';
 import type { BookRepo } from '../data/book-repo';
 import { normalizePrefs, type ReaderPrefs } from '../data/prefs';
+import {
+  addHighlight,
+  bookmarkAt,
+  bookmarksOf,
+  colorCss,
+  findHighlight,
+  highlightsOf,
+  removeBookmark,
+  removeHighlight,
+  setHighlightColor,
+  setHighlightComment,
+  toggleBookmark,
+  type HighlightColorName,
+} from '../data/notes';
 import { ActivityTracker } from '../engine/activity';
-import { EngineHost, type RelocateInfo } from '../engine/host';
+import { EngineHost, type Rect, type RelocateInfo, type SelectionInfo } from '../engine/host';
 import { resolveTheme } from '../engine/theme';
 import { notify } from '../core/notice';
-import { durationLabel, el, searchIcon, tocIcon, trackRow } from '../ui/dom';
+import { bookmarkIcon, durationLabel, el, searchIcon, tocIcon, trackRow } from '../ui/dom';
+import { createAnnotLayer, type AnnotLayer } from '../ui/annot';
 import { createTocPanel } from '../ui/toc';
 import { createPrefsPanel } from '../ui/prefs-panel';
 import { createSearchPanel } from '../ui/search-panel';
 import { clearToc, patchToc, setToc } from './toc-state';
-import { VIEW_TYPE_TOC } from './toc-view';
+import { clearNotes, getNotes, setNotes } from './notes-state';
+import { VIEW_TYPE_TOC } from './side-view';
 
 export const VIEW_TYPE_READER = 'bz-reader-view';
 
@@ -81,6 +97,17 @@ export class ReaderView extends ItemView {
   private progressRemain: HTMLElement | null = null;
   private progressSlider: ReturnType<typeof trackRow> | null = null;
   private tapHandler: (zone: 'left' | 'middle' | 'right') => void = () => undefined;
+
+  /* 标注（高级版）：书签按钮、划词浮层、当前这一页的定位 */
+  private annot: AnnotLayer | null = null;
+  private bookmarkBtn: HTMLButtonElement | null = null;
+  private selection: SelectionInfo | null = null;
+  /** 上次划词的时间：点色点的瞬间，iframe 里的选区长按会先塌掉，
+   *  这条时间戳让「刚选的那段」还能被用上（超过 10s 就当失效） */
+  private selectionAt = 0;
+  private lastCfi = '';
+  private lastPercent = 0;
+  private lastChapterTitle = '';
 
   constructor(leaf: WorkspaceLeaf, api: ReaderHostApi) {
     super(leaf);
@@ -173,6 +200,19 @@ export class ReaderView extends ItemView {
     const headEl = el('div', 'bzr-rhead');
     headEl.append(back, title, chapter, el('div', 'bzr-rspacer'), tocBtn, searchBtn, prefsBtn);
 
+    // 书签按钮排在目录左边：它是「对当前这一页做点什么」，和目录/搜索/排版
+    // 那组「打开一块面板」分开站。
+    if (__BZ_READER_PRO__) {
+      const mark = el('button', 'bzr-ric bzr-ric-mark') as HTMLButtonElement;
+      mark.type = 'button';
+      mark.title = '加书签';
+      mark.setAttribute('aria-label', '加书签');
+      mark.appendChild(bookmarkIcon());
+      mark.addEventListener('click', () => this.toggleBookmark());
+      headEl.insertBefore(mark, tocBtn);
+      this.bookmarkBtn = mark;
+    }
+
     /* 正文区 */
     const stage = el('div', 'bzr-stage');
     const flipPrev = el('button', 'bzr-flip is-prev', '‹');
@@ -214,9 +254,13 @@ export class ReaderView extends ItemView {
     rail.appendChild(railFill);
 
     /* 面板 */
-    const toc = createTocPanel((href) => {
-      void this.host.goToHref(href);
-    });
+    const toc = createTocPanel(
+      (href) => {
+        void this.host.goToHref(href);
+      },
+      // 基础版不给 notes：抽屉里就只长目录一个页签
+      __BZ_READER_PRO__ ? { notes: () => getNotes() } : {},
+    );
     const search = createSearchPanel({
       search: async (q) => {
         const hits = await this.host.search(q, { chapterOnly: true });
@@ -237,6 +281,16 @@ export class ReaderView extends ItemView {
       root.appendChild(sheet.root);
       this.progressSheet = sheet.root;
     }
+    if (__BZ_READER_PRO__) {
+      this.annot = createAnnotLayer({
+        onCreate: (input) => this.createHighlight(input),
+        onChangeColor: (id, color) => this.applyHighlightColor(id, color),
+        onChangeComment: (id, text) => this.applyHighlightComment(id, text),
+        onRemove: (id) => this.deleteHighlight(id),
+        onClose: () => undefined,
+      });
+      root.appendChild(this.annot.root);
+    }
     this.contentEl.appendChild(root);
 
     this.rootEl = root;
@@ -253,11 +307,16 @@ export class ReaderView extends ItemView {
     this.applyChrome();
 
     const anyPanelOpen = (): boolean =>
-      toc.isOpen() || search.isOpen() || prefsPanel.isOpen() || !!this.progressSheet?.classList.contains('is-open');
+      toc.isOpen() ||
+      search.isOpen() ||
+      prefsPanel.isOpen() ||
+      !!this.annot?.isOpen() ||
+      !!this.progressSheet?.classList.contains('is-open');
     const closePanels = (): void => {
       toc.hide();
       search.hide();
       prefsPanel.hide();
+      this.annot?.hide();
       this.progressSheet?.classList.remove('is-open');
     };
     const openToc = (): void => {
@@ -505,6 +564,9 @@ export class ReaderView extends ItemView {
           void p.then(() => this.tracker.touch());
         },
         onFontSize: (size) => this.applyPrefs({ fontSize: size }),
+        // 基础版不接划词：连监听都不挂，选区变化照旧归浏览器
+        onSelect: __BZ_READER_PRO__ ? (info) => this.handleSelection(info) : undefined,
+        onAnnotTap: __BZ_READER_PRO__ ? (info) => this.openHighlight(info) : undefined,
         onReady: (_b, m) => {
           if (m.title) book.meta.title = m.title;
           if (m.author) book.meta.author = m.author;
@@ -526,6 +588,9 @@ export class ReaderView extends ItemView {
       if (!book.reading.stats.startReadTime) book.reading.stats.startReadTime = Date.now();
       this.api.store.touch();
       this.updateFoot(book.reading.position.percent || 0, 0);
+      this.refreshAnnotations();
+      this.publishNotes();
+      this.syncBookmarkBtn();
       this.mounted = true;
     } catch (e) {
       this.mounting = false;
@@ -567,6 +632,9 @@ export class ReaderView extends ItemView {
     if (!book) return;
     book.reading.position.percent = info.percent;
     if (info.cfi) book.reading.position.cfi = info.cfi;
+    this.lastPercent = info.percent;
+    if (info.cfi) this.lastCfi = info.cfi;
+    if (info.chapterTitle) this.lastChapterTitle = info.chapterTitle;
     book.reading.position.chapterIndex = info.chapterIndex;
     book.reading.position.chapterTitle = info.chapterTitle;
     book.reading.stats.lastReadTime = Date.now();
@@ -582,14 +650,175 @@ export class ReaderView extends ItemView {
     }
     this.updateFoot(info.percent, info.remainingSeconds);
     this.tracker.touch(info.percent);
+    this.syncBookmarkBtn();
     this.api.store.touch();
+  }
+
+  /* ─────────────────── 标注 · 书签 ─────────────────── */
+
+  /**
+   * 划词回调。选区消失时传 null —— 那时浮层必须收掉，
+   * 否则用户点了别处，浮层还挂在半空中等着他。
+   */
+  private handleSelection(info: SelectionInfo | null): void {
+    if (!__BZ_READER_PRO__) return;
+    if (!info) {
+      // 只收那条小色条：鼠标按住色点那一下，iframe 的选区会先塌。
+      // 卡片形态（正在写想法）绝不能因为选区塌了就跟着消失——点一下输入框
+      // 本身就会让 iframe 失焦，那样用户打到一半的批注当场没。
+      if (this.annot?.isOpen() && !this.annot.isCard()) this.annot.hide();
+      return;
+    }
+    this.selection = info;
+    this.selectionAt = Date.now();
+    this.annot?.showForSelection(info);
+  }
+
+  private createHighlight(input: { color: HighlightColorName; comment?: string }): void {
+    if (!__BZ_READER_PRO__) return;
+    const book = this.book;
+    const sel = this.selection;
+    if (!book || !sel) return;
+    if (Date.now() - this.selectionAt > 10_000) {
+      this.selection = null;
+      return;
+    }
+    addHighlight(book, {
+      text: sel.text,
+      cfiRange: sel.cfiRange,
+      chapterIndex: sel.chapterIndex,
+      chapterTitle: this.lastChapterTitle || book.reading.position.chapterTitle,
+      color: input.color,
+      comment: input.comment,
+    });
+    this.selection = null;
+    this.host.clearSelection();
+    this.refreshAnnotations();
+    this.publishNotes();
+    this.api.store.touch();
+  }
+
+  private applyHighlightColor(id: string, color: HighlightColorName): void {
+    if (!__BZ_READER_PRO__) return;
+    const book = this.book;
+    if (!book) return;
+    if (!setHighlightColor(book, id, color)) return;
+    this.refreshAnnotations();
+    this.publishNotes();
+    this.api.store.touch();
+  }
+
+  private applyHighlightComment(id: string, comment: string): void {
+    if (!__BZ_READER_PRO__) return;
+    const book = this.book;
+    if (!book) return;
+    if (!setHighlightComment(book, id, comment)) return;
+    this.publishNotes();
+    this.api.store.touch();
+  }
+
+  private deleteHighlight(id: string): void {
+    if (!__BZ_READER_PRO__) return;
+    const book = this.book;
+    if (!book) return;
+    if (!removeHighlight(book, id)) return;
+    this.refreshAnnotations();
+    this.publishNotes();
+    this.api.store.touch();
+  }
+
+  /** 点中已有划线：把那条数据找出来，交给浮层展示 */
+  private openHighlight(info: { cfiRange: string; anchor: Rect }): void {
+    if (!__BZ_READER_PRO__) return;
+    const book = this.book;
+    if (!book) return;
+    const h = findHighlight(book, info.cfiRange);
+    if (!h) return;
+    this.selection = null;
+    this.annot?.showForHighlight(h, info.anchor);
+  }
+
+  /**
+   * 书签开关。cfi 用的是最近一次 relocate 的定位——就是「当前这一页的左上角那行」。
+   * 所以书签是**页级的**：同一页再回来能高亮，翻过去就知道这里存过一条。
+   */
+  private toggleBookmark(): void {
+    if (!__BZ_READER_PRO__) return;
+    const book = this.book;
+    if (!book) return;
+    if (!this.lastCfi) {
+      notify('这一页还没定位好，翻一下再试', 'info');
+      return;
+    }
+    const added = toggleBookmark(book, {
+      cfi: this.lastCfi,
+      percent: this.lastPercent,
+      chapterTitle: this.lastChapterTitle,
+    });
+    this.syncBookmarkBtn();
+    this.publishNotes();
+    this.api.store.touch();
+    notify(added ? '已加书签' : '已移除书签', 'info', 1600);
+  }
+
+  private syncBookmarkBtn(): void {
+    if (!__BZ_READER_PRO__) return;
+    const btn = this.bookmarkBtn;
+    const book = this.book;
+    if (!btn || !book) return;
+    const on = !!bookmarkAt(book, this.lastCfi);
+    btn.classList.toggle('is-on', on);
+    btn.title = on ? '移除书签' : '加书签';
+    btn.setAttribute('aria-label', btn.title);
+  }
+
+  /** 把书里的划线全量交给引擎重画（引擎只重画当前章节，其余等翻到再补） */
+  private refreshAnnotations(): void {
+    if (!__BZ_READER_PRO__) return;
+    const book = this.book;
+    if (!book) return;
+    this.host.setAnnotations(
+      highlightsOf(book)
+        .filter((h) => !!h.cfiRange)
+        .map((h) => ({ cfiRange: h.cfiRange as string, color: colorCss(h.color), chapterIndex: h.chapterIndex })),
+    );
+  }
+
+  /** 侧栏的标注页数据。数组要复制一份新的引用，否则侧栏以为没变 */
+  private publishNotes(): void {
+    if (!__BZ_READER_PRO__) return;
+    const book = this.book;
+    if (!book) return;
+    setNotes({
+      bookId: book.id,
+      bookTitle: book.meta.title,
+      highlights: highlightsOf(book),
+      bookmarks: bookmarksOf(book),
+      jump: (cfi) => {
+        void this.host.goToCfi(cfi);
+        this.tracker.touch();
+      },
+      removeHighlight: (id) => this.deleteHighlight(id),
+      removeBookmark: (id) => {
+        const b = this.book;
+        if (!b) return;
+        if (!removeBookmark(b, id)) return;
+        this.syncBookmarkBtn();
+        this.publishNotes();
+        this.api.store.touch();
+      },
+    });
+    this.toc?.refresh();
   }
 
   private async settle(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
-    // 书关了，左侧栏的目录跟着回到空态（保留 leaf，下次开书直接复用）
+    // 书关了，左侧栏的目录与标注跟着回到空态（保留 leaf，下次开书直接复用）
     clearToc();
+    clearNotes();
+    this.annot?.reset();
+    this.selection = null;
     const book = this.book;
     if (book) {
       const session = this.tracker.end();

@@ -6,9 +6,13 @@
  *   entry/base.ts → createPlugin({ pro: false })
  *   entry/pro.ts  → createPlugin({ pro: true })
  *
- * 为什么用两个入口而不是 `define` 摇树：define 只能删掉
- * `if (false) { ... }` 里的代码，静态 import 的模块仍会进 bundle。
- * 两个入口是物理隔离——基础版的 main.js 里真的没有高级代码。
+ * 两版共用一个工厂，高级功能按 `__BZ_READER_PRO__` 分叉：esbuild 会把
+ * `if (false) { … }` 的整块删掉，所以标注的浮层、列表、引擎接线在 base 包里
+ * 一行都不剩（`grep bzr-annot dist/base/main.js` = 0）。
+ *
+ * 唯一漏网的是 `data/notes.ts` 那几个纯函数：它们被类方法引用着，摇不掉。
+ * 不执行、不碰界面，只是占几 KB；等激活码机制落地、把 pro 拆成 ReaderView
+ * 的子类时一起切干净。
  *
  * 两个面的分工（2026-11-02 定）：
  *   书架 = 弹窗（入口 + 管理，不需要占 tab）
@@ -25,7 +29,7 @@ import type { BookFormat, ReaderBook } from './data/schema';
 import { openShelf as openShelfModal } from './ui/shelf';
 import { openImport } from './ui/import-panel';
 import { ReaderView, VIEW_TYPE_READER, type ReaderHostApi } from './view/reader-view';
-import { TocView, VIEW_TYPE_TOC } from './view/toc-view';
+import { SideView, VIEW_TYPE_TOC } from './view/side-view';
 
 export interface PluginConfig {
   /** 高级版构建为 true。基础版为 false，且高级模块根本不在包里。 */
@@ -50,7 +54,7 @@ export function createPlugin(cfg: PluginConfig) {
       this.repo = new BookRepo(this.store.get().books);
 
       this.registerView(VIEW_TYPE_READER, (leaf) => new ReaderView(leaf, this));
-      this.registerView(VIEW_TYPE_TOC, (leaf) => new TocView(leaf));
+      this.registerView(VIEW_TYPE_TOC, (leaf) => new SideView(leaf));
 
       this.addRibbonIcon('book-open', 'bz 阅读：打开书架', () => this.openShelf());
 

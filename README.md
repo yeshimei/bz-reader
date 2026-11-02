@@ -37,7 +37,20 @@ Obsidian 插件：EPUB / TXT 阅读器，与 [bz](../bz) 生态联动。独立�
 
 **界面按 [`prototype/ui.html`](prototype/ui.html) 一比一落地**：桌面 5 屏（书架 / 阅读 / 三块面板 / 导入）+ 移动 3 屏（书架 / 阅读 / 面板 / 导入）。移动端是独立骨架，不是同一套缩窄：书架走「大标题 + 继续阅读卡 + 三列 + 悬浮胶囊」，阅读默认无工具栏、点中间浮出上下两条。
 
-**还没做（按顺序）**：书签、划线批注、全屏/双栏、移动端键盘避让、`bz-reader.json` 与 bz 书架/读书报告的对接。
+**还没做（按顺序）**：全书搜索、标注导出到笔记、全屏/双栏、移动端键盘避让、`bz-reader.json` 与 bz 书架/读书报告的对接、激活码。
+
+## 高级版做了什么
+
+| 能力 | 状态 |
+|---|---|
+| 书签 | ✅ 头栏书签钮开关「当前这一页」；侧栏按进度列，点了跳回去；同一页再回来图标是实心的 |
+| 划线 | ✅ 划词浮出四色条（琥珀/朱红/松绿/黛蓝），松手即落；浅底走 multiply、深底走 normal，麻不麻眼由主题决定 |
+| 想法 | ✅ 划词条上的「想法」展开成输入框；也可点已有划线再补；边打边存，不等保存按钮 |
+| 改色 / 删除 | ✅ 点划线换色、删线；侧栏条目右侧也有 × |
+| 侧栏三页签 | ✅ 目录 / 书签 / 划线：桌面是 Obsidian 左侧栏，移动端是整屏抽屉（同一套列表渲染，两处都不缺） |
+| 数据 | ✅ 落在 `notes.highlights / excerpts / bookmarks`，与 bz 同构；excerpt 是 highlight 的镜像（bz 侧「想法数」读的是它） |
+
+高级版的代码按 `__BZ_READER_PRO__` 分叉：标注的界面、浮层、引擎接线在 base 包里被 DCE 掉（`grep bzr-annot dist/base/main.js` 应为 0）。数据层那几个纯函数还在包里——它们不执行，也读不到界面；等激活码机制落地时把 pro 视图拆成 `ReaderView` 的子类，连这几 KB 一起切掉。
 
 ## 命令
 
@@ -62,14 +75,18 @@ src/
 ├─ core/            壳层：弹窗、通知、ESC、遮罩、层级、焦点、路径
 │  └─ ui/           设计令牌 + 居中模态（前缀 bzr-，与 bz 的 bz- 不撞）
 ├─ view/            原生视图
-│  └─ reader-view.ts  阅读页签（ItemView），一个书 id 一个页面
+│  ├─ reader-view.ts  阅读页签（ItemView），一个书 id 一个页面
+│  ├─ side-view.ts    左侧栏 leaf（bz-reader-toc）：目录 / 书签 / 划线三页签
+│  ├─ toc-state.ts    目录快照（阅读写、侧栏读）
+│  └─ notes-state.ts  标注快照（同上）
 ├─ engine/          引擎层，零 UI
 │  ├─ foliate.ts    全仓唯一 import vendor 的地方（类型在此收口）
 │  ├─ host.ts       装载 · 渲染 · 翻页 · 手势 · 销毁
 │  ├─ theme.ts      章节样式（iframe 文档内注入，全仓唯一 style 注入点）
 │  └─ activity.ts   有效阅读计时
-├─ data/            schema · 原子写存储 · 书架仓储 · 偏好 · 导入 · 封面
-├─ ui/              书架弹窗 / 导入面板 / 目录抽屉（移动端）/ 排版 / 搜索
+├─ data/            schema · 原子写存储 · 书架仓储 · 偏好 · 导入 · 封面 · 标注（notes）
+├─ ui/              书架弹窗 / 导入面板 / 导航抽屉（移动端）/ 排版 / 搜索
+│                   / 标注浮层（annot）/ 标注列表（note-list，桌面与移动共用）
 ├─ types/           foliate 接口类型 · 全局声明
 └─ vendor/foliate/  上游内核（勿在业务代码里直接引用）
 prototype/ui.html   界面原型（桌面 8 屏 + 移动 7 屏）
@@ -84,6 +101,10 @@ prototype/ui.html   界面原型（桌面 8 屏 + 移动 7 屏）
 - **阅读 = 原生 ItemView，书架 = 弹窗**。别把阅读退回 Modal：弹窗会盖住笔记，也就丢掉了「一边读一边对照写」这个原生视图唯一的理由。
 - **输入归引擎**：点击三区、滚轮、拖拽、捏合的判定都在 `engine/host.ts`，因为它才知道 iframe 的 document 什么时候被换掉。视图层只接收语义事件（`onTap` / `onTurn` / `onFontSize`）。
 - **目录 = Obsidian 左侧栏里的 leaf（`bz-reader-toc`），不是阅读视图里的浮层**。桌面开书自动展开，移动端仍用整屏抽屉。目录与阅读视图之间只通过 `view/toc-state.ts` 的单向快照通信：阅读写、目录读，谁先 onOpen 都不会错。
+- **标注只写 `notes`，颜色只存名字**（`amber` / `vermilion` / …）。存十六进制等于把「深色主题下该淡一点」这件事焊死在写数据那一刻；名字到色值的映射在 `data/notes.ts` 的 `colorCss()`。
+- **highlight 是主本，excerpt 是镜像**：增删改都要同步（`mirrorExcerpt`）。bz 侧「想法数」读的是 `notes.excerpts[]`，漏同步的表现是「明明划了五条，报告里是零」。
+- **点中标注不许翻页**：`engine/host.ts` 的点击三区先过 `hitsAnnotation()`（用 overlayer 的命中矩形），否则点划线看批注会顺手翻走一页，而且用户根本不知道自己翻页了。
+- **覆盖层是延后挂的，重画要等它**：`load` 事件比 `create-overlay` 早，在 `load` 里画等于往空气里画。重画挂在 `create-overlay` 的微任务里（`#emit` 同步派发、`attach` 紧随其后，微任务必然在 attach 之后）。
 - **关书结算顺序**：结算会话 → 落最后位置 → flush → destroy 引擎。反了会丢最后一页进度。
 - **继承 Obsidian 基类时，绝不声明与基类同名的字段**。`View` 有 `app` / `icon` / `navigation` / `leaf` / `containerEl` / `scope`，`ItemView` 有 `contentEl` / `titleEl`。子类字段用定义语义写进实例，会把基类构造时赋好的值覆盖成 `null` —— 表现是点开书只报 `Cannot read properties of null (reading 'setText')`，因为 `ItemView.load()` 里第一句就是 `this.titleEl.setText(this.getDisplayText())`。阅读视图里那个书名元素叫 `bookTitleEl`，就是为了躲开它。
 - 新增弹窗先看 `styles.css` 里 `.bzr-*-popup` 的写法，别裸用 `uiModal`（默认 400px 窄卡 + 82vh 限高）。

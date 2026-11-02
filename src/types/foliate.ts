@@ -58,9 +58,20 @@ export interface FoliateLocation {
   reason?: string;
 }
 
+/** 一个已加载章节的视图上下文。`overlayer` 是画标注的那层 SVG（可能还没建） */
+export interface FoliateContent {
+  doc: Document;
+  index: number;
+  overlayer?: {
+    /** 命中测试：给 iframe 视口坐标，返回落在哪条标注上 */
+    hitTest: (point: { x: number; y: number }) => [string | undefined, Range | undefined];
+    redraw: () => void;
+  };
+}
+
 export interface FoliateRenderer extends HTMLElement {
   setStyles: (styles: string | [string, string]) => void;
-  getContents: () => Array<{ doc: Document; index: number }>;
+  getContents: () => FoliateContent[];
   goTo: (target: unknown) => Promise<void>;
   destroy: () => void;
 }
@@ -68,6 +79,35 @@ export interface FoliateRenderer extends HTMLElement {
 export interface FoliateSearchItem {
   cfi: string;
   excerpt: string;
+}
+
+/* ── 标注 ── */
+
+/** 覆盖层绘制函数：把一批矩形画成一坨 SVG */
+export type OverlayerDrawer = (
+  rects: Array<{ left: number; top: number; height: number; width: number }>,
+  options?: { color?: string; padding?: number; width?: number },
+) => SVGElement;
+
+/** 交给 `view.addAnnotation` 的标注。`value` 就是 CFI 范围字符串 */
+export interface FoliateAnnotation {
+  value: string;
+  [key: string]: unknown;
+}
+
+/** `draw-annotation` 事件：view 已经把范围解析好，只等我们决定画成什么样 */
+export interface DrawAnnotationDetail {
+  draw: (func: OverlayerDrawer, opts?: { color?: string; padding?: number }) => void;
+  annotation: FoliateAnnotation;
+  doc: Document;
+  range: Range;
+}
+
+/** `show-annotation` 事件：点中了某条已有标注 */
+export interface ShowAnnotationDetail {
+  value: string;
+  index: number;
+  range: Range;
 }
 
 export interface FoliateView extends HTMLElement {
@@ -88,6 +128,10 @@ export interface FoliateView extends HTMLElement {
   resolveNavigation(target: unknown): unknown;
   select(target: unknown): Promise<void>;
   deselect(): void;
+  /** 画一条标注（内部会按 CFI 解析出章节，再派发 draw-annotation） */
+  addAnnotation(annotation: FoliateAnnotation, remove?: boolean): Promise<{ index: number; label: string } | undefined>;
+  deleteAnnotation(annotation: FoliateAnnotation): Promise<unknown>;
+  showAnnotation(annotation: FoliateAnnotation): Promise<void>;
   getCFI(index: number, range: Range): string;
   getSectionFractions(): number[];
   search(opts: { query: string; index?: number }): AsyncGenerator<

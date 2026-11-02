@@ -120,6 +120,11 @@ export function searchIcon(): HTMLElement {
   return el('span', 'bzr-i-search');
 }
 
+/** 书签（下沿一个 V 形缺口，用 clip-path 切，不额外占节点） */
+export function bookmarkIcon(): HTMLElement {
+  return el('span', 'bzr-i-mark');
+}
+
 /**
  * 滑杆行：标签 / 轨道 / 读数。
  * 轨道用背景渐变画（--p 控制品牌色走多远），所以 -webkit-slider-runnable-track

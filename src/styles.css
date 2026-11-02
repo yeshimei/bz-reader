@@ -1939,20 +1939,46 @@
   min-height: 0;
   font-family: var(--bzr-font-ui);
 }
+/* 页签行：目录 / 书签 / 划线。三块都是「这本书里的位置索引」，
+   所以用页签而不是三个 leaf —— 三个 leaf 很快会排成一列没人看的页签。 */
 .bzr-tocv-h {
   display: flex;
-  align-items: baseline;
-  gap: 7px;
-  padding: 12px 14px 8px;
+  align-items: center;
+  padding: 8px 10px 6px;
   flex: none;
 }
-.bzr-tocv-t {
-  font-size: 13px;
-  font-weight: var(--bzr-weight-semibold);
-  color: var(--bzr-text-1);
+.bzr-side-tabs {
+  display: flex;
+  gap: 2px;
 }
-.bzr-tocv-n {
-  font-size: 10.5px;
+.bzr-side-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--bzr-text-3);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: var(--bzr-weight-regular);
+  line-height: 1;
+  cursor: pointer;
+}
+.bzr-side-tab:hover {
+  background: var(--bzr-surface-hover);
+  color: var(--bzr-text-2);
+}
+.bzr-side-tab.is-on {
+  background: var(--bzr-surface-3);
+  color: var(--bzr-text-1);
+  font-weight: var(--bzr-weight-medium);
+}
+.bzr-side-tab .n {
+  font-size: 10px;
+  font-weight: var(--bzr-weight-regular);
   color: var(--bzr-text-3);
   font-variant-numeric: tabular-nums;
 }
@@ -2014,6 +2040,333 @@
   color: var(--bzr-text-3);
   max-width: 420px;
   line-height: 1.75;
+}
+
+/* ═══════════ ⑫ 标注 · 书签（高级版） ═══════════
+ * 浮层挂在阅读根节点上（.bzr-reader 是 position: relative），坐标由 ui/annot.ts
+ * 用 translate 写进去。层本身铺满但不吃事件，只有里面的条/卡片吃——
+ * 这样它盖在正文上也不会把翻页手势和划词一起吞掉。
+ *
+ * 配色一律从 --rear-* 派生（不是 --bzr-surface-*）：浮层浮在正文上，
+ * 底色必须跟当前纸张同一个色系。米黄主题上蹦出一个纯白卡片，是最明显的破功点。
+ */
+.bzr-annot {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+}
+.bzr-annot > * {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity var(--bzr-dur-fast) var(--bzr-ease-out);
+}
+.bzr-annot.is-open > * {
+  opacity: 1;
+}
+
+.bzr-annot-bar,
+.bzr-annot-card {
+  background: color-mix(in srgb, var(--rear-fg) 7%, var(--rear-bg));
+  border: 1px solid color-mix(in srgb, var(--rear-fg) 14%, transparent);
+  box-shadow: var(--bzr-shadow-float);
+  color: var(--rear-fg);
+  font-family: var(--bzr-font-ui);
+}
+.bzr-annot-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 9px;
+  border-radius: 10px;
+}
+.bzr-annot-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 300px;
+  padding: 11px 12px 10px;
+  border-radius: 12px;
+}
+.bzr-annot.is-card > * {
+  width: 300px;
+}
+
+/* 四个色点：颜色本身就是内容，所以不加装饰，只保证深浅底上都压得住 */
+.bzr-annot-dots {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.bzr-annot-dots button {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  transition: transform var(--bzr-dur-fast) var(--bzr-ease-out);
+}
+.bzr-annot-dots button:hover {
+  transform: scale(1.14);
+}
+.bzr-annot-dots button.is-on {
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+    0 0 0 2px var(--rear-bg),
+    0 0 0 3.5px var(--c);
+}
+.bzr-annot-sep {
+  width: 1px;
+  height: 14px;
+  background: color-mix(in srgb, var(--rear-fg) 16%, transparent);
+}
+.bzr-annot-think {
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--rear-fg-2);
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.bzr-annot-think:hover {
+  background: color-mix(in srgb, var(--rear-fg) 9%, transparent);
+  color: var(--rear-fg);
+}
+
+/* 原文引用：衬线 + 左侧一条品牌色，和侧栏里的划线条目同一套语言 */
+.bzr-annot-quote {
+  margin: 0;
+  padding-left: 9px;
+  border-left: 2px solid var(--bzr-brand);
+  font-family: var(--bzr-font-serif);
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--rear-fg-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.bzr-annot-ta {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  padding: 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--rear-fg) 12%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--rear-fg) 5%, transparent);
+  color: var(--rear-fg);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.65;
+  outline: none;
+}
+.bzr-annot-ta::placeholder {
+  color: color-mix(in srgb, var(--rear-fg) 35%, transparent);
+}
+.bzr-annot-ta:focus {
+  border-color: var(--bzr-brand);
+}
+.bzr-annot-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bzr-annot-sp {
+  flex: 1;
+}
+.bzr-annot-btn {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--rear-fg) 14%, transparent);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--rear-fg-2);
+  font-family: inherit;
+  font-size: 11.5px;
+  line-height: 1;
+  cursor: pointer;
+}
+.bzr-annot-btn:hover {
+  color: var(--rear-fg);
+  border-color: color-mix(in srgb, var(--rear-fg) 26%, transparent);
+}
+.bzr-annot-btn.is-primary {
+  border-color: transparent;
+  background: var(--bzr-brand);
+  color: var(--bzr-on-brand);
+}
+.bzr-annot-btn.is-primary:hover {
+  background: var(--bzr-brand-hover);
+  color: var(--bzr-on-brand);
+}
+.bzr-annot-btn.is-danger {
+  color: var(--bzr-danger);
+  border-color: color-mix(in srgb, var(--bzr-danger) 38%, transparent);
+}
+.bzr-annot-btn.is-danger:hover {
+  background: color-mix(in srgb, var(--bzr-danger) 12%, transparent);
+  color: var(--bzr-danger);
+}
+
+/* 头栏书签图标：填充式（线条版在 9px 里认不出是书签），靠不透明度区分开/关 */
+.bzr-i-mark {
+  width: 9px;
+  height: 12px;
+  background: currentColor;
+  opacity: 0.5;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+}
+.bzr-ric.is-on {
+  color: var(--rear-fg);
+}
+.bzr-ric.is-on .bzr-i-mark {
+  opacity: 1;
+}
+
+/* ── 侧栏里的书签 / 划线条目 ── */
+.bzr-mark-row {
+  display: flex;
+  align-items: center;
+  border-radius: 5px;
+}
+.bzr-mark-row:hover {
+  background: var(--bzr-surface-hover);
+}
+.bzr-mark-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 8px 4px 8px 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bzr-mark-main .pc {
+  flex: none;
+  width: 28px;
+  font-size: 10.5px;
+  color: var(--bzr-text-3);
+  font-variant-numeric: tabular-nums;
+}
+.bzr-mark-main .tt {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--bzr-text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bzr-mark-x,
+.bzr-hl-x {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-right: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--bzr-text-3);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.bzr-mark-x:hover,
+.bzr-hl-x:hover {
+  background: var(--bzr-surface-active);
+  color: var(--bzr-text-1);
+}
+
+.bzr-hl-g {
+  margin-bottom: 8px;
+}
+.bzr-hl-gh {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 10px 4px;
+}
+.bzr-hl-gh .t {
+  flex: 1;
+  min-width: 0;
+  font-size: 10.5px;
+  color: var(--bzr-text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bzr-hl-gh .n {
+  font-size: 10px;
+  color: var(--bzr-text-3);
+  font-variant-numeric: tabular-nums;
+}
+.bzr-hl-i {
+  display: flex;
+  align-items: flex-start;
+  border-radius: 5px;
+}
+.bzr-hl-i:hover {
+  background: var(--bzr-surface-hover);
+}
+.bzr-hl-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 7px 4px 7px 9px;
+  border: 0;
+  border-left: 2px solid var(--c);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bzr-hl-main .tx {
+  font-family: var(--bzr-font-serif);
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--bzr-text-1);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.bzr-hl-main .cm {
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--bzr-text-2);
+  padding-left: 7px;
+  border-left: 1px solid var(--bzr-border-strong);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 手机上卡片不能比屏幕宽：300px 在 320px 的机器上会顶到边 */
+.bzr-reader.is-mobile .bzr-annot-card,
+.bzr-reader.is-mobile .bzr-annot.is-card > * {
+  width: min(300px, calc(100vw - 28px));
 }
 
 /* ═══════════ 窄窗口兜底：桌面被压到 760 以下时，书架掉成四列 ═══════════ */

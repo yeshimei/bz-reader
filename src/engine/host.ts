@@ -17,11 +17,38 @@
  *     一律让给书籍本身处理。
  * ============================================================ */
 import type { App } from 'obsidian';
-import { makeBook, View } from './foliate';
-import type { FoliateBook, FoliateTOCItem, FoliateView } from '../types/foliate';
+import { makeBook, Overlayer, View } from './foliate';
+import type { DrawAnnotationDetail, FoliateBook, FoliateTOCItem, FoliateView, ShowAnnotationDetail } from '../types/foliate';
 import { buildChapterCSS } from './theme';
 import { makeTxtBook, countWords } from './txt';
 import { DEFAULT_PREFS, FONT_SIZE_RANGE, type ReaderPrefs } from '../data/prefs';
+
+/** 宿主坐标系里的矩形（左上角 + 宽高，单位 CSS px） */
+export interface Rect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/** 一次划词：文字 + CFI 范围 + 摆浮层要用的位置 */
+export interface SelectionInfo {
+  text: string;
+  cfiRange: string;
+  chapterIndex: number;
+  /** 选区第一行的矩形——浮层优先贴在它上方，比贴整个选区准 */
+  anchor: Rect;
+  /** 整个选区的外接矩形（判断上边放不放得下时用） */
+  bounds: Rect;
+}
+
+/** 交给引擎去画的标注（宿主只认 CFI 范围与颜色） */
+export interface HostAnnotation {
+  cfiRange: string;
+  color?: string;
+  /** 章节序号：只重画当前章节的，省得每次翻页解析几百条 CFI */
+  chapterIndex?: number;
+}
 
 export interface RelocateInfo {
   /** 整书进度 0..1 */
@@ -50,6 +77,10 @@ export interface MountOptions {
   onTurn?: (dir: 'prev' | 'next') => void;
   /** 两指捏合或 Ctrl+滚轮要求改字号 */
   onFontSize?: (size: number) => void;
+  /** 划词（选区消失时回调 null）。移动端也一样，只是浮层位置不同 */
+  onSelect?: (info: SelectionInfo | null) => void;
+  /** 点中一条已画好的标注 */
+  onAnnotTap?: (info: { cfiRange: string; anchor: Rect }) => void;
 }
 
 /** 滚轮累计到多少才翻一页（像素）。触控板一次轻扫约 30–60，鼠标滚轮一格约 100。 */
@@ -81,6 +112,15 @@ export class EngineHost {
   /** 两指捏合起始距离与基准字号 */
   private pinchStart = 0;
   private pinchBase = 0;
+
+  /** 当前渲染的章节序号（load 事件给的），用来只重画这一章的标注 */
+  private sectionIndex = 0;
+  /** 待画标注 + CFI → 颜色索引（draw-annotation 回调只能拿到 value） */
+  private annots: HostAnnotation[] = [];
+  private annotColors = new Map<string, string>();
+  /** 选区检查的防抖句柄与「上一次已报告过哪一段」 */
+  private selTimer: number | null = null;
+  private lastSelKey = '';
 
   constructor(app: App) {
     this.app = app;
@@ -161,9 +201,38 @@ export class EngineHost {
 
     // 每次换章都会来一个 load：手势监听挂在当前文档上，旧文档随 iframe 一起丢弃
     view.addEventListener('load', (e) => {
-      const { doc } = (e as CustomEvent).detail as { doc: Document };
+      const { doc, index } = (e as CustomEvent).detail as { doc: Document; index: number };
+      this.sectionIndex = index;
       this.unbindDocGestures();
       this.bindGestures(doc);
+    });
+
+    // 标注：view 只负责按 CFI 解析出 Range，画成什么样由我们决定
+    view.addEventListener('draw-annotation', (e) => {
+      const d = (e as CustomEvent).detail as DrawAnnotationDetail;
+      const color = this.annotColors.get(d.annotation.value);
+      if (color === undefined) return;
+      try {
+        d.draw(Overlayer.highlight, { color });
+      } catch (err) {
+        // 跨段落的选区偶尔解析成空 Range：画不出来就算了，别打断阅读
+        console.warn('[bz-reader] 标注画不出来：', err);
+      }
+    });
+
+    // 覆盖层是延后挂到 iframe 上的：等它挂好再补画这一章的标注
+    view.addEventListener('create-overlay', () => {
+      queueMicrotask(() => this.redrawAnnotations());
+    });
+
+    // 点中已有标注
+    view.addEventListener('show-annotation', (e) => {
+      const d = (e as CustomEvent).detail as ShowAnnotationDetail;
+      if (!this.annotColors.has(d.value)) return;
+      const rects = Array.from(d.range.getClientRects()).filter((r) => r.width > 0 && r.height > 0);
+      const doc = d.range.startContainer.ownerDocument;
+      const anchor = doc && rects.length ? this.toHostRect(rects[0] as DOMRect, doc) : { left: 0, top: 0, width: 0, height: 0 };
+      this.opts.onAnnotTap?.({ cfiRange: d.value, anchor });
     });
 
     container.appendChild(view);
@@ -258,6 +327,8 @@ export class EngineHost {
       if (sel && !sel.isCollapsed) return;
       const target = ev.target as HTMLElement | null;
       if (target?.closest('a[href], [data-bzr-skip-tap]')) return;
+      // 点在划线上是要看那条标注，不是要翻页——否则「点一下划线」会顺手翻走一页
+      if (this.hitsAnnotation(ev)) return;
       const width = doc.documentElement.clientWidth || 1;
       const x = ev.clientX;
       const zone = x < width * 0.3 ? 'left' : x > width * 0.7 ? 'right' : 'middle';
@@ -319,25 +390,178 @@ export class EngineHost {
       if (ev.touches.length < 2) this.pinchStart = 0;
     };
 
+    // ⑤ 划词：桌面拖选、移动端长按拖选都会走 selectionchange。
+    //    这里防抖 140ms —— 拖动过程中每动一下都是新选区，实时上报会让浮层
+    //    跟着手指抖，还会把一次划词记成几十条
+    const onSelectionChange = (): void => this.scheduleSelection(doc, 140);
+    const onPointerUpAny = (): void => this.scheduleSelection(doc, 0);
+    const onKeyUp = (ev: KeyboardEvent): void => {
+      // Shift + 方向键 / Ctrl+A 也算划词
+      if (ev.shiftKey || ev.key === 'a' || ev.key === 'A') this.scheduleSelection(doc, 0);
+    };
+
     doc.addEventListener('click', onClick);
     doc.addEventListener('wheel', onWheel, { passive: false });
     doc.addEventListener('pointerdown', onPointerDown);
     doc.addEventListener('pointerup', onPointerUp);
+    doc.addEventListener('pointerup', onPointerUpAny);
     doc.addEventListener('touchstart', onTouchStart, { passive: true });
     doc.addEventListener('touchmove', onTouchMove, { passive: false });
     doc.addEventListener('touchend', onTouchEnd);
     doc.addEventListener('touchcancel', onTouchEnd);
+    doc.addEventListener('selectionchange', onSelectionChange);
+    doc.addEventListener('keyup', onKeyUp);
 
     this.docDetachers.push(() => {
       doc.removeEventListener('click', onClick);
       doc.removeEventListener('wheel', onWheel);
       doc.removeEventListener('pointerdown', onPointerDown);
       doc.removeEventListener('pointerup', onPointerUp);
+      doc.removeEventListener('pointerup', onPointerUpAny);
       doc.removeEventListener('touchstart', onTouchStart);
       doc.removeEventListener('touchmove', onTouchMove);
       doc.removeEventListener('touchend', onTouchEnd);
       doc.removeEventListener('touchcancel', onTouchEnd);
+      doc.removeEventListener('selectionchange', onSelectionChange);
+      doc.removeEventListener('keyup', onKeyUp);
     });
+  }
+
+  /** 选区检查（防抖）。同一段选区只上报一次，避免浮层被重复 show 打断输入 */
+  private scheduleSelection(doc: Document, delay: number): void {
+    if (!this.opts.onSelect) return;
+    if (this.selTimer !== null) window.clearTimeout(this.selTimer);
+    this.selTimer = window.setTimeout(() => {
+      this.selTimer = null;
+      const info = this.readSelection(doc);
+      const key = info?.cfiRange ?? '';
+      if (key === this.lastSelKey) return;
+      this.lastSelKey = key;
+      this.opts.onSelect?.(info);
+    }, delay);
+  }
+
+  private readSelection(doc: Document): SelectionInfo | null {
+    const view = this.view;
+    const sel = doc.getSelection();
+    if (!view || !sel || sel.isCollapsed || sel.rangeCount === 0) return null;
+    const text = sel.toString().replace(/\s+/g, ' ').trim();
+    if (!text) return null;
+    const range = sel.getRangeAt(0);
+    let cfiRange = '';
+    try {
+      cfiRange = view.getCFI(this.sectionIndex, range);
+    } catch {
+      return null;
+    }
+    if (!cfiRange) return null;
+    const rects = Array.from(range.getClientRects()).filter((r) => r.width > 1 && r.height > 1);
+    if (!rects.length) return null;
+    const first = rects[0] as DOMRect;
+    let left = Infinity;
+    let top = Infinity;
+    let right = -Infinity;
+    let bottom = -Infinity;
+    for (const r of rects) {
+      left = Math.min(left, r.left);
+      top = Math.min(top, r.top);
+      right = Math.max(right, r.right);
+      bottom = Math.max(bottom, r.bottom);
+    }
+    const g = this.frameGeom(doc);
+    return {
+      text: text.slice(0, 5000),
+      cfiRange,
+      chapterIndex: this.sectionIndex,
+      anchor: {
+        left: g.left + first.left * g.scale,
+        top: g.top + first.top * g.scale,
+        width: first.width * g.scale,
+        height: first.height * g.scale,
+      },
+      bounds: {
+        left: g.left + left * g.scale,
+        top: g.top + top * g.scale,
+        width: (right - left) * g.scale,
+        height: (bottom - top) * g.scale,
+      },
+    };
+  }
+
+  /** iframe 在宿主视口里的位置与缩放（被 CSS 缩放时 getClientRects 不跟着变，得自己乘） */
+  private frameGeom(doc: Document): { left: number; top: number; scale: number } {
+    const frame = (doc.defaultView?.frameElement as HTMLElement | null) ?? null;
+    if (!frame) return { left: 0, top: 0, scale: 1 };
+    const box = frame.getBoundingClientRect();
+    return { left: box.left, top: box.top, scale: frame.clientWidth ? box.width / frame.clientWidth : 1 };
+  }
+
+  /** iframe 内的视口坐标 → 宿主坐标 */
+  private toHostRect(r: DOMRect, doc: Document): Rect {
+    const g = this.frameGeom(doc);
+    return {
+      left: g.left + r.left * g.scale,
+      top: g.top + r.top * g.scale,
+      width: r.width * g.scale,
+      height: r.height * g.scale,
+    };
+  }
+
+  /** 点是否落在某条我们画过的标注里（overlayer 用命中矩形判断，和渲染同源） */
+  private hitsAnnotation(ev: MouseEvent): boolean {
+    const contents = this.view?.renderer?.getContents?.() ?? [];
+    for (const c of contents) {
+      const overlayer = c.overlayer;
+      if (!overlayer) continue;
+      const [value] = overlayer.hitTest({ x: ev.clientX, y: ev.clientY });
+      if (value && this.annotColors.has(value)) return true;
+    }
+    return false;
+  }
+
+  /* ─────────────────── 标注 ─────────────────── */
+
+  /** 全量替换待画标注（打开书、增删改之后调）。当前章节的立刻重画 */
+  setAnnotations(list: HostAnnotation[]): void {
+    const view = this.view;
+    const prev = [...this.annotColors.keys()];
+    this.annots = list.filter((a) => !!a.cfiRange);
+    this.annotColors = new Map();
+    for (const a of this.annots) this.annotColors.set(a.cfiRange, a.color ?? '');
+    if (!view) return;
+    // 先删旧的再画新的：删掉一条划线时，覆盖层里那块 SVG 不会自己消失，
+    // 少了这一步就是「侧栏删了，书页上还留着一条」。
+    // 串行做是刻意的——删除和重画都是异步的，交错跑会把刚画上的又删掉。
+    void (async () => {
+      for (const value of prev) {
+        if (this.annotColors.has(value)) continue;
+        await view.deleteAnnotation({ value }).catch(() => undefined);
+      }
+      this.redrawAnnotations();
+    })();
+  }
+
+  /**
+   * 重画当前章节的标注。
+   * 只重画这一章：`addAnnotation` 每条都要解析一次 CFI，整本书几百条逐个跑
+   * 会在翻页时卡一下。其它章节会在它自己 load 完的那一刻补上（见 create-overlay）。
+   */
+  private redrawAnnotations(): void {
+    const view = this.view;
+    if (!view) return;
+    for (const a of this.annots) {
+      if (a.chapterIndex != null && a.chapterIndex !== this.sectionIndex) continue;
+      void view.addAnnotation({ value: a.cfiRange }).catch((err: unknown) => {
+        console.warn('[bz-reader] 标注定位失败：', err);
+      });
+    }
+  }
+
+  /** 清掉书里的选区（画完线、点走浮层之后调，否则菜单会一直挂着） */
+  clearSelection(): void {
+    const sel = this.view?.renderer?.getContents?.()[0]?.doc?.getSelection?.();
+    sel?.removeAllRanges();
+    this.lastSelKey = '';
   }
 
   private unbindDocGestures(): void {
@@ -412,6 +636,14 @@ export class EngineHost {
     for (const off of this.outerDetachers.splice(0)) off();
     this.wheelAcc = 0;
     this.pinchStart = 0;
+    if (this.selTimer !== null) {
+      window.clearTimeout(this.selTimer);
+      this.selTimer = null;
+    }
+    this.annots = [];
+    this.annotColors.clear();
+    this.lastSelKey = '';
+    this.sectionIndex = 0;
     const view = this.view;
     this.view = null;
     const book = this.book;

@@ -72,5 +72,11 @@ ${imgFilter ? `img, svg, video { ${imgFilter} }` : ''}
 a { color: inherit !important; text-decoration: underline !important; }
 /* 书里写死的窄栏宽会让字号放大后只剩一行两个字 */
 body > div, body > section { max-width: none !important; }
+/* 标注覆盖层（overlayer.js 读这两个变量）：
+   浅底用 multiply，像真马克笔压过纸；深底必须 normal，multiply 在暗色上等于没画 */
+:root {
+  --overlayer-highlight-opacity: ${theme.dark ? '0.34' : '0.42'};
+  --overlayer-highlight-blend-mode: ${theme.dark ? 'normal' : 'multiply'};
+}
 `;
 }

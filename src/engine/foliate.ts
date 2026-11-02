@@ -6,7 +6,9 @@
  * 在这里一次性 cast 成 types/foliate.ts 的形状，业务侧只认这份。
  * ============================================================ */
 import * as viewModule from '../vendor/foliate/view.js';
+import * as overlayerModule from '../vendor/foliate/overlayer.js';
 import type { FoliateBook, FoliateView } from '../types/foliate';
+import type { OverlayerDrawer } from '../types/foliate';
 
 export type { FoliateBook, FoliateTOCItem, FoliateView, FoliateLocation } from '../types/foliate';
 
@@ -19,3 +21,17 @@ export const makeBook = (viewModule as unknown as {
 export const View = (viewModule as unknown as {
   View: CustomElementConstructor & (new () => FoliateView);
 }).View;
+
+/**
+ * 标注的画法。`Overlayer.highlight` / `underline` / `outline` 都是
+ * `(rects, options) => SVGElement`，交给 `view.addAnnotation` 派发出来的
+ * `draw(func, opts)` 调用。业务侧只要「高亮」一种，但接口留全，将来做
+ * 波浪线（生词）/ 下划线（金句）不用再动这道门面。
+ */
+export const Overlayer = (overlayerModule as unknown as {
+  Overlayer: {
+    highlight: OverlayerDrawer;
+    underline: OverlayerDrawer;
+    outline: OverlayerDrawer;
+  };
+}).Overlayer;
