@@ -2,21 +2,26 @@
  * bz-reader · 引擎宿主（engine/host.ts）
  *
  * 把 foliate-js 包成一件事：给一个 vault 路径，出来一个能翻页的书。
- * 上层（阅读弹窗）不认识 foliate，只认识这里的方法与回调。
+ * 上层（阅读视图）不认识 foliate，只认识这里的方法与回调。
  *
- * 四条纪律：
+ * 六条纪律：
  *  1. **引擎不碰数据层**：这里只回调进度，存不存、存哪由上层决定。
  *  2. **一次只开一本**：换书先 destroy，否则 iframe 与 ResizeObserver 会叠。
  *  3. **错误就地降级**：解析失败抛出去由上层弹提示，不静默吞成白屏。
- *  4. **点击翻页归宿主**：分页器只管手势滑动，点哪儿翻页是阅读器的事，
- *     写在这儿是因为只有它知道 iframe 的 document 什么时候换过。
+ *  4. **输入归宿主**：分页器只管触摸滑动，点哪儿翻页、滚轮算不算翻页、
+ *     两指捏合改不改字号，都是阅读器的事，写在这儿是因为只有它知道
+ *     iframe 的 document 什么时候换过。
+ *  5. **一次手势只翻一页**：滚轮有累计阈值 + 时间闸，触摸滑动交给 foliate 的
+ *     snap（它自己按速度吸附），两者都别叠成「滚一下翻三页」。
+ *  6. **选字优先**：选区非空、点在链接上、被 `data-bzr-skip-tap` 标记，
+ *     一律让给书籍本身处理。
  * ============================================================ */
 import type { App } from 'obsidian';
 import { makeBook, View } from './foliate';
 import type { FoliateBook, FoliateTOCItem, FoliateView } from '../types/foliate';
 import { buildChapterCSS } from './theme';
 import { makeTxtBook, countWords } from './txt';
-import { DEFAULT_PREFS, type ReaderPrefs } from '../data/prefs';
+import { DEFAULT_PREFS, FONT_SIZE_RANGE, type ReaderPrefs } from '../data/prefs';
 
 export interface RelocateInfo {
   /** 整书进度 0..1 */
@@ -26,7 +31,7 @@ export interface RelocateInfo {
   chapterTitle: string;
   sectionCurrent: number;
   sectionTotal: number;
-  /** 剩余阅读时间（秒，foliate 按 1500 字节/秒估） */
+  /** 剩余阅读时间（秒，foliate 按 1500 字节/秒 估） */
   remainingSeconds: number;
 }
 
@@ -39,9 +44,20 @@ export interface MountOptions {
   prefs: ReaderPrefs;
   onRelocate?: (info: RelocateInfo) => void;
   onReady?: (book: FoliateBook, meta: { title: string; author: string; wordCount: number }) => void;
-  /** 单指点击正文：左 / 中 / 右 */
+  /** 单指轻触正文：左 / 中 / 右 */
   onTap?: (zone: 'left' | 'middle' | 'right') => void;
+  /** 任何手势要求翻页（滚轮 / 双指横滑 / 按钮） */
+  onTurn?: (dir: 'prev' | 'next') => void;
+  /** 两指捏合或 Ctrl+滚轮要求改字号 */
+  onFontSize?: (size: number) => void;
 }
+
+/** 滚轮累计到多少才翻一页（像素）。触控板一次轻扫约 30–60，鼠标滚轮一格约 100。 */
+const WHEEL_TURN_THRESHOLD = 42;
+/** 两次翻页之间的最小间隔，挡住「惯性滚一串」。 */
+const WHEEL_COOLDOWN = 300;
+/** 拖拽/滑动超过这个距离才算要翻页，短线抖动不算。 */
+const SWIPE_MIN = 48;
 
 export class EngineHost {
   private app: App;
@@ -52,7 +68,19 @@ export class EngineHost {
   private opts: MountOptions = { prefs: DEFAULT_PREFS };
   private chapterIndex = 0;
   private chapterTitle = '';
-  private detachTap: (() => void) | null = null;
+  /** 文档级监听（每换一章重建）与容器级监听（整本书只建一次）分开存，
+   *  否则换章时顺手把容器滚轮也解掉了 */
+  private docDetachers: Array<() => void> = [];
+  private outerDetachers: Array<() => void> = [];
+
+  /** 滚轮累计位移与上次翻页时间（一次手势只翻一页） */
+  private wheelAcc = 0;
+  private lastTurnAt = 0;
+  /** 拖拽翻页期间抑制紧随其后的 click */
+  private suppressClickUntil = 0;
+  /** 两指捏合起始距离与基准字号 */
+  private pinchStart = 0;
+  private pinchBase = 0;
 
   constructor(app: App) {
     this.app = app;
@@ -131,13 +159,17 @@ export class EngineHost {
       });
     });
 
-    // 每次换章都会来一个 load：点击翻页的监听挂在当前文档上，旧文档随 iframe 一起丢弃
+    // 每次换章都会来一个 load：手势监听挂在当前文档上，旧文档随 iframe 一起丢弃
     view.addEventListener('load', (e) => {
       const { doc } = (e as CustomEvent).detail as { doc: Document };
-      this.bindTap(doc);
+      this.unbindDocGestures();
+      this.bindGestures(doc);
     });
 
     container.appendChild(view);
+
+    // iframe 之外的空白（页码栏、边距）也要吃滚轮
+    this.bindOuterWheel(container);
 
     try {
       await view.open(book);
@@ -174,11 +206,54 @@ export class EngineHost {
     }
   }
 
-  /** 左右三区点击：左 30% 上一页、右 30% 下一页、中间唤出/收起工具栏 */
-  private bindTap(doc: Document): void {
-    this.detachTap?.();
+  /* ─────────────────── 输入 ─────────────────── */
+
+  private turn(dir: 'prev' | 'next'): void {
+    const now = Date.now();
+    if (now - this.lastTurnAt < WHEEL_COOLDOWN) return;
+    this.lastTurnAt = now;
+    this.opts.onTurn?.(dir);
+  }
+
+  /**
+   * 滚轮翻页。`deltaMode` 1 = 行（Firefox 鼠标滚轮报的是行数，一格约 3），
+   * 2 = 页。统一折算成像素再比阈值，否则 Firefox 上永远翻不动。
+   */
+  private handleWheel(ev: WheelEvent): void {
+    const unit = ev.deltaMode === 1 ? 32 : ev.deltaMode === 2 ? 800 : 1;
+    const dy = ev.deltaY * unit;
+    const dx = ev.deltaX * unit;
+    const main = Math.abs(dy) >= Math.abs(dx) ? dy : dx;
+    if (!main) return;
+
+    // Ctrl/⌘ + 滚轮：改字号。桌面端这是最顺手的缩放，比去开面板快
+    if (ev.ctrlKey || ev.metaKey) {
+      ev.preventDefault();
+      const step = main > 0 ? -1 : 1;
+      const next = Math.min(FONT_SIZE_RANGE.max, Math.max(FONT_SIZE_RANGE.min, this.prefs.fontSize + step));
+      if (next !== this.prefs.fontSize) this.opts.onFontSize?.(next);
+      return;
+    }
+
+    ev.preventDefault();
+    this.wheelAcc += main;
+    if (Math.abs(this.wheelAcc) < WHEEL_TURN_THRESHOLD) return;
+    const dir = this.wheelAcc > 0 ? 'next' : 'prev';
+    this.wheelAcc = 0;
+    this.turn(dir);
+  }
+
+  private bindOuterWheel(container: HTMLElement): void {
+    const onWheel = (ev: WheelEvent): void => this.handleWheel(ev);
+    container.addEventListener('wheel', onWheel, { passive: false });
+    this.outerDetachers.push(() => container.removeEventListener('wheel', onWheel));
+  }
+
+  /** 绑到 iframe 当前文档：点击三区 / 滚轮 / 鼠标拖拽 / 双指捏合 */
+  private bindGestures(doc: Document): void {
+    // ① 点击三区
     const onClick = (ev: MouseEvent): void => {
-      // 正在选字 / 点的是链接、脚注，一律让给书籍本身处理
+      if (Date.now() < this.suppressClickUntil) return;
       const sel = doc.getSelection();
       if (sel && !sel.isCollapsed) return;
       const target = ev.target as HTMLElement | null;
@@ -188,8 +263,85 @@ export class EngineHost {
       const zone = x < width * 0.3 ? 'left' : x > width * 0.7 ? 'right' : 'middle';
       this.opts.onTap?.(zone);
     };
+
+    // ② 滚轮：iframe 内也要拦（外层的 wheel 传不进来）
+    const onWheel = (ev: WheelEvent): void => this.handleWheel(ev);
+
+    // ③ 鼠标拖拽横移 → 翻页。起手若落在选区上就不接管，避免和「划词」抢
+    let dragX = 0;
+    let dragY = 0;
+    let dragging = false;
+    const onPointerDown = (ev: PointerEvent): void => {
+      if (ev.pointerType !== 'mouse' || ev.button !== 0) return;
+      const sel = doc.getSelection();
+      if (sel && !sel.isCollapsed) return;
+      dragX = ev.clientX;
+      dragY = ev.clientY;
+      dragging = true;
+    };
+    const onPointerUp = (ev: PointerEvent): void => {
+      if (!dragging) return;
+      dragging = false;
+      if (ev.pointerType !== 'mouse') return;
+      const sel = doc.getSelection();
+      if (sel && !sel.isCollapsed) return; // 拖出选区 = 想划词，不是想翻页
+      const dx = ev.clientX - dragX;
+      const dy = ev.clientY - dragY;
+      if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+      this.suppressClickUntil = Date.now() + 320;
+      this.opts.onTurn?.(dx < 0 ? 'next' : 'prev');
+    };
+
+    // ④ 两指捏合改字号。foliate 自己的 touchmove 在两指时直接 return，
+    //    所以这里不必担心和它的滑动逻辑打架
+    const distance = (t: TouchList): number => {
+      const a = t[0];
+      const b = t[1];
+      if (!a || !b) return 0;
+      return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    };
+    const onTouchStart = (ev: TouchEvent): void => {
+      if (ev.touches.length !== 2) return;
+      this.pinchStart = distance(ev.touches);
+      this.pinchBase = this.prefs.fontSize;
+    };
+    const onTouchMove = (ev: TouchEvent): void => {
+      if (ev.touches.length !== 2 || !this.pinchStart) return;
+      ev.preventDefault();
+      const ratio = distance(ev.touches) / this.pinchStart;
+      const next = Math.min(
+        FONT_SIZE_RANGE.max,
+        Math.max(FONT_SIZE_RANGE.min, Math.round(this.pinchBase * ratio)),
+      );
+      if (next !== this.prefs.fontSize) this.opts.onFontSize?.(next);
+    };
+    const onTouchEnd = (ev: TouchEvent): void => {
+      if (ev.touches.length < 2) this.pinchStart = 0;
+    };
+
     doc.addEventListener('click', onClick);
-    this.detachTap = () => doc.removeEventListener('click', onClick);
+    doc.addEventListener('wheel', onWheel, { passive: false });
+    doc.addEventListener('pointerdown', onPointerDown);
+    doc.addEventListener('pointerup', onPointerUp);
+    doc.addEventListener('touchstart', onTouchStart, { passive: true });
+    doc.addEventListener('touchmove', onTouchMove, { passive: false });
+    doc.addEventListener('touchend', onTouchEnd);
+    doc.addEventListener('touchcancel', onTouchEnd);
+
+    this.docDetachers.push(() => {
+      doc.removeEventListener('click', onClick);
+      doc.removeEventListener('wheel', onWheel);
+      doc.removeEventListener('pointerdown', onPointerDown);
+      doc.removeEventListener('pointerup', onPointerUp);
+      doc.removeEventListener('touchstart', onTouchStart);
+      doc.removeEventListener('touchmove', onTouchMove);
+      doc.removeEventListener('touchend', onTouchEnd);
+      doc.removeEventListener('touchcancel', onTouchEnd);
+    });
+  }
+
+  private unbindDocGestures(): void {
+    for (const off of this.docDetachers.splice(0)) off();
   }
 
   /** 主题/字号/行距变化时调，只换样式不重开书 */
@@ -248,8 +400,10 @@ export class EngineHost {
   }
 
   async destroy(): Promise<void> {
-    this.detachTap?.();
-    this.detachTap = null;
+    this.unbindDocGestures();
+    for (const off of this.outerDetachers.splice(0)) off();
+    this.wheelAcc = 0;
+    this.pinchStart = 0;
     const view = this.view;
     this.view = null;
     const book = this.book;
@@ -263,5 +417,6 @@ export class EngineHost {
       view.remove();
     }
     book?.destroy?.();
+    this.container = null;
   }
 }

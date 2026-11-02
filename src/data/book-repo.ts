@@ -13,6 +13,11 @@ import { emptyNotes, emptyReading, type BookFormat, type ReaderBook } from './sc
 export const BASE_FORMATS: BookFormat[] = ['epub', 'txt'];
 export const PRO_FORMATS: BookFormat[] = ['epub', 'txt', 'mobi', 'azw3', 'fb2', 'cbz'];
 
+/** 给文案用的格式枚举：「EPUB / TXT」 */
+export function BOOK_FORMATS_LABEL(formats: BookFormat[]): string {
+  return formats.map((f) => f.toUpperCase()).join(' / ');
+}
+
 const EXT_TO_FORMAT: Record<string, BookFormat> = {
   epub: 'epub',
   txt: 'txt',

@@ -1,0 +1,989 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bz 阅读 · 界面原型</title>
+<style>
+/* ==========================================================
+   bz 阅读 · 界面原型
+   桌面 8 屏 / 移动 7 屏。配色与令牌取自 bz 主插件 tokens.css：
+   近黑三层表面、1px 发丝边、暖橙单一强调色，不加装饰性渐变与阴影。
+   ========================================================== */
+:root{
+  --bg:#0a0a0d;
+  --panel-1:#0d0d12;
+  --panel:#101014;
+  --panel-2:#16161c;
+  --panel-3:#1e1e26;
+  --panel-4:#26262f;
+  --line:rgba(255,255,255,.08);
+  --line-2:rgba(255,255,255,.16);
+  --line-3:rgba(255,255,255,.28);
+  --t1:#e8e8ec;
+  --t2:#9a9aa5;
+  --t3:#5f5f6b;
+  --brand:#e67341;
+  --brand-soft:rgba(230,115,65,.16);
+  --ui:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --serif:"Songti SC","Source Han Serif SC","Noto Serif CJK SC",Georgia,serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --paper:#f5f0e6;
+  --paper-ink:#2b2620;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--t1);
+  font-family:var(--ui);
+  -webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(900px 500px at 22% -8%,rgba(230,115,65,.07),transparent 65%);
+  background-repeat:no-repeat;
+}
+.wrap{max-width:1440px;margin:0 auto;padding:76px 44px 140px}
+
+/* ── 头部 ── */
+.hero{margin-bottom:20px}
+.kicker{display:flex;align-items:center;gap:10px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--t3);margin-bottom:26px}
+.kicker i{width:6px;height:6px;border-radius:50%;background:var(--brand);display:block}
+.hero h1{font-size:62px;line-height:1.04;letter-spacing:-.035em;font-weight:600;margin:0 0 22px}
+.hero h1 em{font-style:normal;color:var(--brand)}
+.hero p{max-width:620px;margin:0;color:var(--t2);font-size:15px;line-height:1.85}
+.facts{display:flex;gap:44px;margin-top:44px;padding-top:26px;border-top:1px solid var(--line);flex-wrap:wrap}
+.fact dt{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--t3);margin-bottom:7px}
+.fact dd{margin:0;font-size:13px;color:var(--t1)}
+.fact dd small{display:block;color:var(--t3);font-size:11px;margin-top:3px}
+
+/* ── 板块 ── */
+.board{padding:64px 0 10px;border-top:1px solid var(--line);margin-top:48px}
+.bhead{display:flex;align-items:flex-start;gap:18px;margin-bottom:30px}
+.bnum{font-family:var(--mono);font-size:12px;color:var(--brand);padding-top:7px;letter-spacing:.06em}
+.bhead h2{font-size:25px;font-weight:600;margin:0;letter-spacing:-.015em}
+.bhead .lede{color:var(--t2);font-size:13.5px;line-height:1.75;margin:7px 0 0;max-width:560px}
+.tagline{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;padding-top:6px}
+.tag{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);border:1px solid var(--line);border-radius:999px;padding:4px 9px;white-space:nowrap}
+
+/* ── 通用 ── */
+.pair{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:34px;align-items:start}
+.wide{display:grid;grid-template-columns:minmax(0,1fr);gap:34px}
+.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
+@media (max-width:1180px){
+  .pair{grid-template-columns:1fr}
+  .row3{grid-template-columns:1fr}
+  .hero h1{font-size:44px}
+}
+.cap{display:flex;align-items:center;gap:9px;margin-top:14px;font-size:11px;color:var(--t3);letter-spacing:.05em}
+.cap b{color:var(--t2);font-weight:500;letter-spacing:.1em;font-size:10px;text-transform:uppercase}
+.cap s{flex:1;height:1px;background:var(--line);text-decoration:none}
+
+/* ══════════ 桌面画布 ══════════ */
+.dframe{
+  position:relative;display:flex;
+  aspect-ratio:16/10;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:13px;
+  overflow:hidden;
+  font-size:13px;
+  box-shadow:0 40px 80px -46px rgba(0,0,0,.95),0 0 0 1px rgba(0,0,0,.4);
+}
+.dframe .ribbon{width:40px;flex:none;border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:14px;padding:12px 0;background:#0c0c10}
+.ribbon .rd{width:18px;height:18px;border-radius:5px;background:var(--panel-3);border:1px solid var(--line)}
+.ribbon .rd.on{background:var(--brand-soft);border-color:rgba(230,115,65,.45);box-shadow:inset 0 0 0 3px rgba(230,115,65,.28)}
+.ribbon .gap{flex:1}
+.dframe .side{width:196px;flex:none;border-right:1px solid var(--line);background:#0d0d12;padding:11px 9px;display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.side .sd-h{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3);padding:3px 6px 9px}
+.side .sf{display:flex;align-items:center;gap:7px;padding:5px 6px;border-radius:5px;color:var(--t3);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side .sf.on{background:var(--panel-3);color:var(--t1)}
+.side .sf i{width:5px;height:5px;border-radius:1px;background:currentColor;opacity:.5;flex:none}
+.side .sd-split{height:1px;background:var(--line);margin:8px 6px}
+.dframe .stage{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--panel-2)}
+.tabs{display:flex;align-items:center;gap:1px;height:36px;flex:none;background:#0d0d12;border-bottom:1px solid var(--line);padding:0 8px}
+.tab{display:flex;align-items:center;gap:7px;height:27px;padding:0 10px;border-radius:5px;font-size:11.5px;color:var(--t3);white-space:nowrap;max-width:190px;overflow:hidden}
+.tab.on{background:var(--panel-2);color:var(--t1);box-shadow:inset 0 0 0 1px var(--line)}
+.tab .tx{opacity:.45;font-size:13px;margin-left:2px}
+.tab .tb{width:11px;height:11px;border-radius:2px;background:var(--brand);opacity:.75;flex:none}
+
+/* 笔记页（阅读屏的背景，证明「书是原生 tab」） */
+.note-pane{padding:26px 38px;overflow:hidden;color:var(--t3);font-size:12px;line-height:2.1}
+.note-pane h3{font-size:19px;color:var(--t2);margin:0 0 14px;font-weight:600}
+.note-pane .ln{height:9px;border-radius:3px;background:rgba(255,255,255,.045);margin-bottom:11px}
+.note-pane .ln.s{width:62%}
+.note-pane .ln.m{width:84%}
+.note-pane .tagline-row{display:flex;gap:6px;margin-bottom:18px}
+.note-pane .tg{font-size:10px;border:1px solid var(--line);border-radius:999px;padding:2px 8px;color:var(--t3)}
+
+/* ══════════ 阅读视图 ══════════ */
+.reader{flex:1;min-height:0;display:flex;flex-direction:column;position:relative;background:var(--panel-2)}
+.rhead{display:flex;align-items:center;gap:10px;height:44px;flex:none;padding:0 14px;border-bottom:1px solid var(--line)}
+.rback{width:26px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:17px;line-height:1}
+.rtitle{font-size:12.5px;color:var(--t1);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rchap{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rspacer{flex:1}
+.ric{width:26px;height:26px;border-radius:5px;display:flex;align-items:center;justify-content:center;color:var(--t2);border:1px solid transparent;font-size:11px;letter-spacing:-.02em}
+.ric:hover{background:var(--panel-3)}
+/* 线条图标 */
+.i-toc{display:flex;flex-direction:column;gap:3px;width:13px}
+.i-toc span{height:1px;background:currentColor;display:block}
+.i-toc span:nth-child(2){width:72%}
+.i-search{width:12px;height:12px;border:1.5px solid currentColor;border-radius:50%;position:relative}
+.i-search:after{content:"";position:absolute;right:-3px;bottom:-3px;width:5px;height:1.5px;background:currentColor;transform:rotate(45deg);border-radius:2px}
+.rbody{flex:1;min-height:0;overflow:hidden;display:flex;justify-content:center;padding:26px 40px 10px}
+.rtext{max-width:520px;width:100%;font-family:var(--serif);font-size:13px;line-height:2.15;color:#c9c9d1;text-align:justify}
+.rtext h4{font-size:14.5px;font-weight:600;color:#dcdce2;margin:0 0 18px;letter-spacing:.04em;text-align:left}
+.rtext p{margin:0 0 .35em;text-indent:2em}
+.rfoot{display:flex;align-items:center;gap:12px;height:34px;flex:none;padding:0 6px 0 8px;border-top:1px solid var(--line)}
+.rnav{height:22px;padding:0 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel-3);color:var(--t2);font-size:10.5px;display:flex;align-items:center;white-space:nowrap}
+.rmeta{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;font-size:10.5px;color:var(--t3)}
+.rmeta b{color:var(--t2);font-weight:500;font-variant-numeric:tabular-nums}
+.rrail{position:absolute;left:0;right:0;bottom:0;height:2px;background:rgba(255,255,255,.04)}
+.rrail i{display:block;height:100%;background:var(--brand);opacity:.6}
+.flip{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:56px;border-radius:9px;background:var(--panel-4);border:1px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:15px;box-shadow:0 8px 20px -8px rgba(0,0,0,.8)}
+.flip.l{left:12px}
+.flip.r{right:12px}
+
+/* ══════════ 面板 ══════════ */
+.drawer{position:absolute;top:0;bottom:0;left:0;width:246px;background:var(--panel-3);border-right:1px solid var(--line-2);box-shadow:24px 0 60px -20px rgba(0,0,0,.8);display:flex;flex-direction:column;z-index:4}
+.drawer-h{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;border-bottom:1px solid var(--line);font-size:12.5px;font-weight:600;flex:none}
+.drawer-h span.x{color:var(--t3);font-size:14px}
+.drawer-b{flex:1;overflow:hidden;padding:7px 0}
+.toc-i{display:block;padding:6px 14px;font-size:11.5px;color:var(--t2);line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.toc-i.d1{padding-left:26px;color:var(--t3);font-size:11px}
+.toc-i.d2{padding-left:38px;color:var(--t3);font-size:11px}
+.toc-i.on{color:var(--brand);font-weight:500;background:rgba(230,115,65,.07);box-shadow:inset 2px 0 0 var(--brand)}
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:3}
+
+.prefs{position:absolute;right:14px;bottom:48px;width:280px;background:var(--panel-3);border:1px solid var(--line-2);border-radius:11px;box-shadow:0 24px 50px -18px rgba(0,0,0,.9);padding:14px;display:flex;flex-direction:column;gap:13px;z-index:4}
+.prefs .pr{display:flex;align-items:center;gap:10px}
+.prefs .pl{width:44px;flex:none;font-size:11px;color:var(--t2)}
+.prefs .track{flex:1;height:3px;border-radius:2px;background:var(--line-2);position:relative}
+.prefs .track i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--brand)}
+.prefs .track em{position:absolute;top:50%;width:11px;height:11px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.5)}
+.prefs .pv{width:34px;text-align:right;font-size:10.5px;color:var(--t3);font-variant-numeric:tabular-nums}
+.seg{display:flex;gap:5px}
+.seg b{flex:1;text-align:center;font-size:10.5px;font-weight:400;color:var(--t2);border:1px solid var(--line);border-radius:5px;padding:4px 0}
+.seg b.on{background:var(--panel-1);border-color:var(--line-3);color:var(--t1)}
+.swatches{display:flex;gap:6px}
+.swatches i{width:22px;height:22px;border-radius:6px;border:1px solid var(--line-2);display:block}
+.swatches i.on{box-shadow:0 0 0 2px var(--panel-3),0 0 0 3.5px var(--brand)}
+
+.searchbox{position:absolute;top:0;left:0;right:0;background:var(--panel-3);border-bottom:1px solid var(--line-2);box-shadow:0 18px 40px -22px rgba(0,0,0,.9);z-index:4;display:flex;flex-direction:column;max-height:72%}
+.sb-bar{display:flex;align-items:center;gap:9px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.sb-input{flex:1;height:26px;border-radius:5px;border:1px solid var(--line-2);background:var(--panel-1);display:flex;align-items:center;padding:0 9px;font-size:11.5px;color:var(--t1)}
+.sb-input .caret{width:1px;height:13px;background:var(--brand);margin-left:1px}
+.sb-status{font-size:10px;color:var(--t3);padding:5px 13px}
+.sb-hits{overflow:hidden}
+.sb-hit{padding:7px 13px;border-top:1px solid var(--line);font-size:11px;color:var(--t2);line-height:1.6}
+.sb-hit em{font-style:normal;color:var(--t1);background:var(--brand-soft);border-radius:2px;padding:0 1px}
+.sb-hit .loc{display:block;font-size:9.5px;color:var(--t3);margin-top:2px}
+
+/* ══════════ 书架弹窗 ══════════ */
+.mask{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:26px;z-index:6}
+.shelf{width:100%;max-width:640px;height:100%;max-height:420px;background:var(--panel-3);border:1px solid var(--line-2);border-radius:12px;box-shadow:0 40px 90px -30px #000;display:flex;flex-direction:column;overflow:hidden}
+.sh-head{display:flex;align-items:center;gap:9px;padding:13px 16px;border-bottom:1px solid var(--line);flex:none}
+.sh-title{font-size:14px;font-weight:600}
+.sh-count{font-size:10.5px;color:var(--t3)}
+.sh-sp{flex:1}
+.sh-search{width:118px;height:24px;border:1px solid var(--line);border-radius:5px;background:var(--panel-1);display:flex;align-items:center;padding:0 8px;font-size:10.5px;color:var(--t3)}
+.sh-tool{height:24px;padding:0 9px;border:1px solid var(--line);border-radius:5px;background:var(--panel-1);color:var(--t2);font-size:10.5px;display:flex;align-items:center}
+.sh-tool.pri{border-color:transparent;background:var(--brand);color:#fff}
+.sh-chips{display:flex;gap:6px;padding:10px 16px 0;flex:none}
+.chip{height:21px;padding:0 10px;border:1px solid var(--line);border-radius:999px;font-size:10px;color:var(--t2);display:flex;align-items:center;gap:4px}
+.chip.on{background:var(--panel-1);border-color:var(--line-3);color:var(--t1)}
+.chip u{text-decoration:none;color:var(--t3);font-variant-numeric:tabular-nums}
+.sh-body{flex:1;min-height:0;padding:12px 16px;overflow:hidden}
+.cont{display:flex;align-items:center;gap:9px;padding:8px 11px;border:1px solid var(--line);border-radius:9px;background:var(--panel-2);margin-bottom:13px}
+.cont .lb{font-size:10px;color:var(--brand);flex:none}
+.cont .tt{flex:1;font-size:11.5px;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cont .pc{font-size:10px;color:var(--t3);font-variant-numeric:tabular-nums}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:13px}
+.bk{position:relative;aspect-ratio:2/3;border-radius:5px;overflow:hidden;display:flex;justify-content:center;padding:13% 7%;border:1px solid rgba(255,255,255,.09);background:linear-gradient(158deg,color-mix(in srgb,var(--c) 82%,#fff 18%),color-mix(in srgb,var(--c) 88%,#000 12%))}
+.bk .bt{writing-mode:vertical-rl;font-family:var(--serif);font-size:10.5px;letter-spacing:.14em;color:rgba(255,255,255,.94);text-shadow:0 1px 2px rgba(0,0,0,.25)}
+.bk .ba{position:absolute;right:7%;bottom:7%;writing-mode:vertical-rl;font-size:7px;color:rgba(255,255,255,.55)}
+.bk .prog{position:absolute;left:0;right:0;bottom:0;height:2px;background:rgba(0,0,0,.35)}
+.bk .prog i{display:block;height:100%;background:rgba(255,255,255,.85)}
+.bk .done{position:absolute;left:0;right:0;bottom:0;height:2px;background:rgba(255,255,255,.7)}
+.meta{display:flex;flex-direction:column;gap:3px;margin-top:7px}
+.meta .mt{font-size:10.5px;color:var(--t1);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.meta .ma{font-size:9px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta .mp{font-size:9px;color:var(--t3);font-variant-numeric:tabular-nums}
+.bitem{display:flex;flex-direction:column}
+
+/* ══════════ 导入 ══════════ */
+.imp{width:100%;max-width:470px;max-height:400px;background:var(--panel-3);border:1px solid var(--line-2);border-radius:12px;box-shadow:0 40px 90px -30px #000;display:flex;flex-direction:column;overflow:hidden}
+.imp-h{padding:15px 18px 11px;font-size:14px;font-weight:600;flex:none}
+.imp-b{flex:1;min-height:0;padding:0 18px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+.imp-sec{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--t3);flex:none}
+.imp-tools{display:flex;gap:9px;align-items:center;flex:none}
+.imp-filter{flex:1;height:26px;border:1px solid var(--line);border-radius:5px;background:var(--panel-1);display:flex;align-items:center;padding:0 9px;font-size:10.5px;color:var(--t3)}
+.imp-link{font-size:10px;color:var(--brand)}
+.imp-hint{font-size:10px;color:var(--t3);line-height:1.6;flex:none}
+.imp-list{flex:1;min-height:0;border:1px solid var(--line);border-radius:8px;background:var(--panel-2);overflow:hidden}
+.imp-row{display:flex;align-items:center;gap:9px;padding:7px 10px;border-bottom:1px solid var(--line)}
+.imp-row:last-child{border-bottom:0}
+.cb{width:11px;height:11px;border:1px solid var(--line-3);border-radius:3px;flex:none;position:relative}
+.cb.on{background:var(--brand);border-color:var(--brand)}
+.cb.on:after{content:"";position:absolute;left:2.5px;top:.5px;width:4px;height:7px;border:solid #fff;border-width:0 1.5px 1.5px 0;transform:rotate(42deg)}
+.cb.dis{border-style:dashed;opacity:.4}
+.imp-t{flex:1;min-width:0}
+.imp-t .n{font-size:11px;color:var(--t1);display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden}
+.imp-t .p{font-size:9px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.badge{font-size:8px;padding:1px 5px;border:1px solid var(--line);border-radius:999px;color:var(--t3);flex:none}
+.imp-m{font-size:9px;color:var(--t3);flex:none;font-variant-numeric:tabular-nums}
+.imp-local{display:flex;align-items:center;gap:10px;border:1px dashed var(--line-2);border-radius:8px;padding:9px 11px;flex:none}
+.imp-local .d{flex:1;font-size:9.5px;color:var(--t3);line-height:1.6}
+.btn{height:25px;padding:0 11px;border:1px solid var(--line);border-radius:5px;background:var(--panel-1);color:var(--t1);font-size:10.5px;display:flex;align-items:center;white-space:nowrap;flex:none}
+.btn.pri{background:var(--brand);border-color:transparent;color:#fff}
+.imp-f{padding:11px 18px 15px;display:flex;justify-content:flex-end;flex:none}
+
+/* ══════════ 移动画布 ══════════ */
+.mframe{width:340px;height:690px;background:#000;border-radius:38px;padding:9px;border:1px solid var(--line-2);box-shadow:0 46px 90px -40px #000,inset 0 0 0 1px rgba(255,255,255,.05)}
+.mscreen{position:relative;width:100%;height:100%;border-radius:30px;overflow:hidden;background:var(--panel);display:flex;flex-direction:column}
+.mstatus{height:26px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:9px;color:var(--t3);letter-spacing:.02em}
+.mstatus .dots{display:flex;gap:3px;align-items:center}
+.mstatus .dots i{width:3px;height:3px;border-radius:50%;background:var(--t3);display:block}
+.mstatus .bat{width:15px;height:7px;border:1px solid var(--t3);border-radius:2px;position:relative}
+.mstatus .bat:after{content:"";position:absolute;left:1px;top:1px;bottom:1px;width:9px;background:var(--t3);border-radius:1px}
+
+/* 移动书架 */
+.mshelf{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.ms-h{padding:16px 20px 12px;display:flex;align-items:center;gap:10px;flex:none}
+.ms-h h1{font-size:26px;font-weight:600;letter-spacing:-.02em;margin:0}
+.ms-h .n{font-size:10px;color:var(--t3);padding-top:9px}
+.ms-h .sp{flex:1}
+.ms-act{width:28px;height:28px;border-radius:8px;background:var(--panel-3);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--t2)}
+.ms-body{flex:1;min-height:0;overflow:hidden;padding:0 20px}
+.ms-cont{display:flex;gap:12px;padding:12px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(120deg,rgba(230,115,65,.12),rgba(230,115,65,.03));margin-bottom:18px}
+.ms-cont .cc{width:38px;height:54px;border-radius:4px;background:linear-gradient(158deg,#3d4d5f,#26313d);flex:none;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:7px;writing-mode:vertical-rl;color:rgba(255,255,255,.85);letter-spacing:.1em}
+.ms-cont .ci{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:5px}
+.ms-cont .cl{font-size:9px;color:var(--brand);letter-spacing:.08em}
+.ms-cont .ct{font-size:13px;color:var(--t1);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ms-cont .cp{height:2px;border-radius:2px;background:rgba(255,255,255,.12);margin-top:2px}
+.ms-cont .cp i{display:block;height:100%;border-radius:2px;background:var(--brand)}
+.ms-cont .cn{font-size:9px;color:var(--t3);font-variant-numeric:tabular-nums}
+.ms-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px 13px}
+.ms-grid .bk .bt{font-size:9.5px}
+.ms-grid .meta .mt{font-size:10px}
+.mtabbar{margin:0 16px 12px;height:46px;border-radius:14px;background:rgba(30,30,38,.92);border:1px solid var(--line);display:flex;align-items:center;justify-content:space-around;flex:none}
+.mtabbar b{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:8.5px;font-weight:400;color:var(--t3)}
+.mtabbar b.on{color:var(--brand)}
+.mtabbar b i{width:15px;height:15px;border-radius:4px;border:1.4px solid currentColor;display:block}
+.mtabbar b.on i{background:var(--brand-soft)}
+
+/* 移动阅读 */
+.mread{flex:1;min-height:0;position:relative;display:flex;flex-direction:column;background:var(--paper);color:var(--paper-ink)}
+.mread.dark{background:#141418;color:#c6c6cf}
+.mrb{flex:1;min-height:0;overflow:hidden;padding:30px 30px 12px}
+.mrb h4{font-family:var(--serif);font-size:15px;font-weight:600;margin:0 0 16px;letter-spacing:.06em}
+.mrb p{font-family:var(--serif);font-size:12.5px;line-height:2.05;margin:0 0 .3em;text-indent:2em;text-align:justify;color:inherit;opacity:.92}
+.mrb .hang{text-indent:0;font-size:10px;color:rgba(0,0,0,.35);margin-top:14px;letter-spacing:.06em}
+.mread.dark .mrb .hang{color:rgba(255,255,255,.3)}
+.mrfoot{padding:0 30px 20px;display:flex;align-items:center;justify-content:space-between;font-size:9.5px;color:rgba(0,0,0,.4);font-variant-numeric:tabular-nums}
+.mread.dark .mrfoot{color:rgba(255,255,255,.3)}
+.mrbar{position:absolute;left:0;right:0;bottom:0;height:2px;background:rgba(0,0,0,.07)}
+.mrbar i{display:block;height:100%;background:var(--brand);opacity:.7}
+.mtop{position:absolute;top:0;left:0;right:0;height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;background:var(--paper);border-bottom:1px solid rgba(0,0,0,.07);z-index:5}
+.mread.dark .mtop{background:#141418;border-bottom-color:rgba(255,255,255,.08)}
+.mtop .tx{flex:1;min-width:0}
+.mtop .t1{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mtop .t2{font-size:9px;opacity:.45;margin-top:1px}
+.mbot{position:absolute;bottom:0;left:0;right:0;height:56px;display:flex;align-items:center;justify-content:space-around;background:var(--paper);border-top:1px solid rgba(0,0,0,.07);z-index:5;padding-bottom:4px}
+.mread.dark .mbot{background:#141418;border-top-color:rgba(255,255,255,.08)}
+.mbot b{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:8px;font-weight:400;opacity:.5}
+.mbot b i{width:14px;height:14px;border:1.4px solid currentColor;border-radius:3px;display:block}
+
+/* 移动抽屉 / 面板 */
+.msheet{position:absolute;left:0;right:0;bottom:0;background:var(--panel-3);border-radius:18px 18px 0 0;border-top:1px solid var(--line-2);box-shadow:0 -20px 50px -20px rgba(0,0,0,.9);z-index:6;padding-bottom:8px}
+.msheet .grab{width:34px;height:3px;border-radius:2px;background:var(--line-3);margin:8px auto 4px}
+.msheet .sh{font-size:12px;font-weight:600;padding:8px 20px 12px}
+.mfull{position:absolute;inset:0;background:var(--panel);z-index:6;display:flex;flex-direction:column}
+.mfull .fh{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);flex:none}
+.mfull .fh .x{font-size:16px;color:var(--t2)}
+.mfull .fh .t{font-size:14px;font-weight:600;flex:1}
+.mfull .fb{flex:1;min-height:0;overflow:hidden;padding:8px 0}
+.mfull .toc-i{padding:10px 18px;font-size:12.5px}
+.mfull .toc-i.d1{padding-left:32px;font-size:11.5px}
+.msheet .pr{display:flex;align-items:center;gap:12px;padding:9px 20px}
+.msheet .pl{width:40px;flex:none;font-size:11px;color:var(--t2)}
+.msheet .track{flex:1;height:3px;border-radius:2px;background:var(--line-2);position:relative}
+.msheet .track i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--brand)}
+.msheet .track em{position:absolute;top:50%;width:13px;height:13px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.6)}
+.msheet .pv{width:32px;text-align:right;font-size:10.5px;color:var(--t3)}
+.msheet .row{display:flex;gap:7px;padding:7px 20px}
+.msheet .row b{flex:1;text-align:center;font-size:11px;font-weight:400;border:1px solid var(--line);border-radius:7px;padding:8px 0;color:var(--t2)}
+.msheet .row b.on{background:var(--panel-1);border-color:var(--line-3);color:var(--t1)}
+.msheet .sw{display:flex;gap:9px;padding:9px 20px 14px}
+.msheet .sw i{width:30px;height:30px;border-radius:8px;border:1px solid var(--line-2);display:block}
+.msheet .sw i.on{box-shadow:0 0 0 2px var(--panel-3),0 0 0 3.5px var(--brand)}
+
+/* 移动搜索 */
+.msearch{position:absolute;inset:0;background:var(--panel);z-index:6;display:flex;flex-direction:column}
+.ms-bar{display:flex;align-items:center;gap:9px;padding:12px 16px;border-bottom:1px solid var(--line);flex:none}
+.ms-in{flex:1;height:32px;border-radius:9px;background:var(--panel-3);border:1px solid var(--line);display:flex;align-items:center;padding:0 11px;font-size:12px;color:var(--t1)}
+.ms-in .c{width:1px;height:14px;background:var(--brand);margin-left:1px}
+.ms-cancel{font-size:12px;color:var(--t3);flex:none}
+.ms-res{flex:1;overflow:hidden}
+.ms-hit{padding:12px 18px;border-bottom:1px solid var(--line)}
+.ms-hit .h{font-size:11.5px;line-height:1.7;color:var(--t2)}
+.ms-hit .h em{font-style:normal;color:var(--t1);background:var(--brand-soft);padding:0 1px;border-radius:2px}
+.ms-hit .l{font-size:9px;color:var(--t3);margin-top:4px}
+
+/* 移动导入 */
+.mimp{flex:1;display:flex;flex-direction:column;min-height:0}
+.mimp .mh{padding:14px 18px 10px;flex:none}
+.mimp .mh h2{font-size:20px;margin:0 0 4px;font-weight:600}
+.mimp .mh p{margin:0;font-size:10px;color:var(--t3);line-height:1.6}
+.mimp .body{flex:1;min-height:0;padding:0 18px;display:flex;flex-direction:column;gap:9px;overflow:hidden}
+.mimp .list{flex:1;min-height:0;border:1px solid var(--line);border-radius:11px;background:var(--panel-2);overflow:hidden}
+.mimp .row{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--line)}
+.mimp .foot{padding:12px 18px 18px;flex:none}
+.mimp .foot .btn{width:100%;height:40px;justify-content:center;border-radius:11px;font-size:13px}
+
+/* 局部放大：只画面板本身 */
+.iso{background:var(--panel-2);border:1px solid var(--line);border-radius:13px;padding:26px;min-height:250px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.iso .lg{transform:scale(1.32);transform-origin:center}
+.iso .label{position:absolute;left:14px;top:12px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--t3)}
+.iso .paneldrawer{width:246px;height:214px;background:var(--panel-3);border:1px solid var(--line-2);border-radius:10px;display:flex;flex-direction:column;overflow:hidden}
+.iso .paneldrawer .drawer-h{padding:10px 12px;font-size:11.5px}
+.iso .paneldrawer .toc-i{font-size:10.5px;padding:4px 12px}
+.iso .paneldrawer .toc-i.d1{font-size:10px;padding-left:22px}
+.iso .prefs{position:static;bottom:auto;right:auto;width:262px}
+.iso .searchbox{position:static;max-height:none;border-radius:10px;border:1px solid var(--line-2);overflow:hidden}
+
+footer{margin-top:90px;padding-top:26px;border-top:1px solid var(--line);display:flex;gap:20px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--t3)}
+footer .dot{width:5px;height:5px;border-radius:50%;background:var(--brand)}
+footer .sp{flex:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="kicker"><i></i>bz 阅读 · 界面原型</div>
+    <h1>一本书，<br>两套<em>屏</em>。</h1>
+    <p>
+      桌面端把书放进 Obsidian 自己的页签里，和笔记并排；移动端退到只剩正文，
+      点一下中间才浮出工具栏。两侧共用一套令牌：近黑三层表面、1px 发丝边、
+      暖橙是唯一的强调色。
+    </p>
+    <dl class="facts">
+      <div class="fact">
+        <dt>桌面</dt>
+        <dd>1280 × 800<small>原生 ItemView · 可拖侧栏</small></dd>
+      </div>
+      <div class="fact">
+        <dt>移动</dt>
+        <dd>390 × 844<small>沉浸阅读 · 手势翻页</small></dd>
+      </div>
+      <div class="fact">
+        <dt>色彩</dt>
+        <dd>#101014 / #E67341<small>跟随 Obsidian 明暗</small></dd>
+      </div>
+      <div class="fact">
+        <dt>字体</dt>
+        <dd>Songti / PingFang<small>正文衬线，界面无衬线</small></dd>
+      </div>
+      <div class="fact">
+        <dt>屏数</dt>
+        <dd>8 桌面 · 7 移动<small>含空态与面板态</small></dd>
+      </div>
+    </dl>
+  </header>
+
+  <!-- ══════════ 01 桌面书架 ══════════ -->
+  <section class="board">
+    <div class="bhead">
+      <div class="bnum">01</div>
+      <div>
+        <h2>书架 · 桌面</h2>
+        <p class="lede">书库是一个浮在笔记上的弹窗，不是页签——它是一次「找书」的短暂动作，找到就关。顶部只留四件事：搜索、视图切换、导入、数量。</p>
+      </div>
+      <div class="tagline"><span class="tag">网格 / 列表</span><span class="tag">筛选带计数</span><span class="tag">继续阅读</span></div>
+    </div>
+    <div class="wide">
+      <div class="dframe">
+        <div class="ribbon">
+          <div class="rd on"></div><div class="rd"></div><div class="rd"></div><div class="rd"></div><div class="rd"></div>
+          <div class="gap"></div><div class="rd"></div>
+        </div>
+        <div class="side">
+          <div class="sd-h">我的笔记</div>
+          <div class="sf"><i></i>读书笔记</div>
+          <div class="sf"><i></i>日记</div>
+          <div class="sf"><i></i>项目</div>
+          <div class="sd-split"></div>
+          <div class="sd-h">书库</div>
+          <div class="sf on"><i></i>红楼梦.epub</div>
+          <div class="sf"><i></i>我的天才女友.epub</div>
+          <div class="sf"><i></i>局外人.epub</div>
+        </div>
+        <div class="stage">
+          <div class="tabs">
+            <div class="tab on"><span class="tb"></span>读书笔记<span class="tx">×</span></div>
+            <div class="tab">日记<span class="tx">×</span></div>
+          </div>
+          <div class="note-pane">
+            <h3>十月读书记</h3>
+            <div class="tagline-row"><span class="tg">#阅读</span><span class="tg">#月记</span></div>
+            <div class="ln m"></div><div class="ln"></div><div class="ln s"></div>
+            <div class="ln"></div><div class="ln m"></div><div class="ln s"></div>
+            <div class="ln"></div><div class="ln"></div><div class="ln s"></div>
+          </div>
+
+          <div class="mask">
+            <div class="shelf">
+              <div class="sh-head">
+                <div class="sh-title">书库</div>
+                <div class="sh-count">8 本</div>
+                <div class="sh-sp"></div>
+                <div class="sh-search">搜索书名</div>
+                <div class="sh-tool">列表</div>
+                <div class="sh-tool pri">导入</div>
+              </div>
+              <div class="sh-chips">
+                <div class="chip on">全部 <u>8</u></div>
+                <div class="chip">在读 <u>3</u></div>
+                <div class="chip">未读 <u>4</u></div>
+                <div class="chip">读完 <u>1</u></div>
+              </div>
+              <div class="sh-body">
+                <div class="cont">
+                  <span class="lb">继续阅读</span>
+                  <span class="tt">我的天才女友</span>
+                  <span class="pc">68%</span>
+                </div>
+                <div class="grid">
+                  <div class="bitem">
+                    <div class="bk" style="--c:#2f3d4d"><span class="bt">红楼梦</span><span class="ba">曹雪芹</span><span class="prog"><i style="width:32%"></i></span></div>
+                    <div class="meta"><div class="mt">红楼梦</div><div class="ma">曹雪芹</div><div class="mp">32%</div></div>
+                  </div>
+                  <div class="bitem">
+                    <div class="bk" style="--c:#7a4a3c"><span class="bt">我的天才女友</span><span class="ba">费兰特</span><span class="prog"><i style="width:68%"></i></span></div>
+                    <div class="meta"><div class="mt">我的天才女友</div><div class="ma">埃莱娜·费兰特</div><div class="mp">68%</div></div>
+                  </div>
+                  <div class="bitem">
+                    <div class="bk" style="--c:#3b4a3a"><span class="bt">卡拉马佐夫兄弟</span><span class="ba">陀思妥耶夫斯基</span></div>
+                    <div class="meta"><div class="mt">卡拉马佐夫兄弟</div><div class="ma">陀思妥耶夫斯基</div><div class="mp">未读</div></div>
+                  </div>
+                  <div class="bitem">
+                    <div class="bk" style="--c:#4a4458"><span class="bt">局外人</span><span class="ba">加缪</span><span class="done"></span></div>
+                    <div class="meta"><div class="mt">局外人</div><div class="ma">阿尔贝·加缪</div><div class="mp">已读完</div></div>
+                  </div>
+                  <div class="bitem">
+                    <div class="bk" style="--c:#5c4a2e"><span class="bt">漫长的告别</span><span class="ba">钱德勒</span></div>
+                    <div class="meta"><div class="mt">漫长的告别</div><div class="ma">雷蒙德·钱德勒</div><div class="mp">未读</div></div>
+                  </div>
+                  <div class="bitem">
+                    <div class="bk" style="--c:#2c4451"><span class="bt">人类简史</span><span class="ba">赫拉利</span><span class="prog"><i style="width:12%"></i></span></div>
+                    <div class="meta"><div class="mt">人类简史</div><div class="ma">尤瓦尔·赫拉利</div><div class="mp">12%</div></div>
+                  </div>
+                  <div class="bitem">
+                    <div class="bk" style="--c:#4b3a2c"><span class="bt">挪威的森林</span><span class="ba">村上春树</span></div>
+                    <div class="meta"><div class="mt">挪威的森林</div><div class="ma">村上春树</div><div class="mp">未读</div></div>
+                  </div>
+                  <div class="bitem">
+                    <div class="bk" style="--c:#3a3a42"><span class="bt">城与不城</span><span class="ba">卡尔维诺</span></div>
+                    <div class="meta"><div class="mt">城与不城</div><div class="ma">伊塔洛·卡尔维诺</div><div class="mp">未读</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="cap"><b>Desktop</b><s></s>书库弹窗 · 网格视图 · 5 列</div>
+    </div>
+  </section>
+
+  <!-- ══════════ 02 桌面阅读 ══════════ -->
+  <section class="board">
+    <div class="bhead">
+      <div class="bnum">02</div>
+      <div>
+        <h2>阅读 · 桌面</h2>
+        <p class="lede">书是一个真正的页签。左边笔记、右边书，中间不隔一层遮罩；关掉页签就回到打开之前那一页。头栏只放三个开关：目录、搜索、排版。</p>
+      </div>
+      <div class="tagline"><span class="tag">原生页签</span><span class="tag">点三区翻页</span><span class="tag">滚轮 / ⌘+滚轮</span></div>
+    </div>
+    <div class="wide">
+      <div class="dframe">
+        <div class="ribbon">
+          <div class="rd on"></div><div class="rd"></div><div class="rd"></div><div class="rd"></div><div class="rd"></div>
+          <div class="gap"></div><div class="rd"></div>
+        </div>
+        <div class="side">
+          <div class="sd-h">我的笔记</div>
+          <div class="sf"><i></i>读书笔记</div>
+          <div class="sf"><i></i>日记</div>
+          <div class="sd-split"></div>
+          <div class="sd-h">书库</div>
+          <div class="sf on"><i></i>红楼梦.epub</div>
+          <div class="sf"><i></i>我的天才女友.epub</div>
+          <div class="sf"><i></i>局外人.epub</div>
+          <div class="sf"><i></i>人类简史.epub</div>
+        </div>
+        <div class="stage">
+          <div class="tabs">
+            <div class="tab on"><span class="tb"></span>红楼梦<span class="tx">×</span></div>
+            <div class="tab">读书笔记<span class="tx">×</span></div>
+          </div>
+          <div class="reader">
+            <div class="rhead">
+              <div class="rback">‹</div>
+              <div class="rtitle">红楼梦</div>
+              <div class="rchap">第三回 · 贾雨村夤缘复旧职</div>
+              <div class="rspacer"></div>
+              <div class="ric"><span class="i-toc"><span></span><span></span><span></span></span></div>
+              <div class="ric"><span class="i-search"></span></div>
+              <div class="ric">Aa</div>
+            </div>
+            <div class="rbody">
+              <div class="rtext">
+                <h4>第三回　贾雨村夤缘复旧职　林黛玉抛父进京都</h4>
+                <p>黛玉方进入房时，只见两个人搀着一位鬓发如银的老母迎上来，黛玉便知是他外祖母。方欲拜见时，早被他外祖母一把搂入怀中，心肝儿肉叫着大哭起来。当下地下侍立之人，无不掩面涕泣，黛玉也哭个不住。</p>
+                <p>一时众人慢慢解劝住了，黛玉方拜见了外祖母。此即冷子兴所云之史氏太君，贾赦贾政之母也。当下贾母一一指与黛玉：“这是你大舅母，这是你二舅母，这是你先珠大哥的媳妇珠大嫂子。”黛玉一一拜见过。</p>
+                <p>贾母又说：“请姑娘们来。今日远客才来，可以不必上学去了。”众人答应了一声，便去了两个。不一时，只见三个奶嬷嬷并五六个丫鬟，簇拥着三个姊妹来了。</p>
+                <p>第一个肌肤微丰，合中身材，腮凝新荔，鼻腻鹅脂，温柔沉默，观之可亲。第二个削肩细腰，长挑身材，鸭蛋脸面，俊眼修眉，顾盼神飞，文彩精华，见之忘俗。第三个身量未足，形容尚小。</p>
+              </div>
+            </div>
+            <div class="flip l">‹</div>
+            <div class="flip r">›</div>
+            <div class="rfoot">
+              <div class="rnav">上一页</div>
+              <div class="rmeta"><b>32%</b><span>剩 6 小时 12 分</span></div>
+              <div class="rnav">下一页</div>
+            </div>
+            <div class="rrail"><i style="width:32%"></i></div>
+          </div>
+        </div>
+      </div>
+      <div class="cap"><b>Desktop</b><s></s>阅读页签 · 底边 2px 进度线 · 两侧悬停出箭头</div>
+    </div>
+  </section>
+
+  <!-- ══════════ 03 桌面面板 ══════════ -->
+  <section class="board">
+    <div class="bhead">
+      <div class="bnum">03</div>
+      <div>
+        <h2>三块面板 · 桌面</h2>
+        <p class="lede">目录从左边滑出，排版从右下浮起，搜索从顶上压下来——三个方向各不相同，因为它们的用途不同：找章节是横向浏览，调字号是原地微调，搜索是自上而下地扫。</p>
+      </div>
+      <div class="tagline"><span class="tag">互斥打开</span><span class="tag">即时生效</span><span class="tag">Esc 收起</span></div>
+    </div>
+    <div class="row3">
+      <div class="iso">
+        <div class="label">目录 · 左侧滑出</div>
+        <div class="lg">
+          <div class="paneldrawer">
+            <div class="drawer-h"><span>目录</span><span class="x">×</span></div>
+            <div class="drawer-b">
+              <div class="toc-i">第一回　甄士隐梦幻识通灵</div>
+              <div class="toc-i">第二回　贾夫人仙逝扬州城</div>
+              <div class="toc-i on">第三回　贾雨村夤缘复旧职</div>
+              <div class="toc-i d1">一、黛玉进府</div>
+              <div class="toc-i d1">二、宝黛初见</div>
+              <div class="toc-i">第四回　薄命女偏逢薄命郎</div>
+              <div class="toc-i">第五回　游幻境指迷十二钗</div>
+              <div class="toc-i">第六回　贾宝玉初试云雨情</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="iso">
+        <div class="label">排版 · 右下浮层</div>
+        <div class="lg">
+          <div class="prefs">
+            <div class="pr"><span class="pl">字号</span><span class="track"><i style="width:40%"></i><em style="left:40%"></em></span><span class="pv">18px</span></div>
+            <div class="pr"><span class="pl">行距</span><span class="track"><i style="width:44%"></i><em style="left:44%"></em></span><span class="pv">1.8</span></div>
+            <div class="pr"><span class="pl">页边距</span><span class="track"><i style="width:36%"></i><em style="left:36%"></em></span><span class="pv">32</span></div>
+            <div class="pr"><span class="pl">字体</span><span class="seg"><b class="on">跟随</b><b>宋</b><b>黑</b></span></div>
+            <div class="pr"><span class="pl">主题</span><span class="swatches">
+              <i class="on" style="background:linear-gradient(140deg,#1a1a20,#101014)"></i>
+              <i style="background:#fff"></i>
+              <i style="background:#f6ecd8"></i>
+              <i style="background:#e2efe2"></i>
+              <i style="background:#17191d"></i>
+            </span></div>
+          </div>
+        </div>
+      </div>
+      <div class="iso">
+        <div class="label">搜索 · 顶部压入</div>
+        <div class="lg" style="width:300px">
+          <div class="searchbox">
+            <div class="sb-bar"><span class="i-search" style="color:var(--t3)"></span><div class="sb-input">黛玉<span class="caret"></span></div><span style="font-size:10px;color:var(--t3)">12</span></div>
+            <div class="sb-status">本章 12 处</div>
+            <div class="sb-hits">
+              <div class="sb-hit"><em>黛玉</em>方进入房时，只见两个人搀着一位鬓发如银的老母迎上来<span class="loc">第三回 · 62%</span></div>
+              <div class="sb-hit">当下地下侍立之人，无不掩面涕泣，<em>黛玉</em>也哭个不住<span class="loc">第三回 · 64%</span></div>
+              <div class="sb-hit">一时众人慢慢解劝住了，<em>黛玉</em>方拜见了外祖母<span class="loc">第三回 · 66%</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><b>Desktop</b><s></s>三块面板互斥：开一个必关另两个</div>
+  </section>
+
+  <!-- ══════════ 04 桌面导入 ══════════ -->
+  <section class="board">
+    <div class="bhead">
+      <div class="bnum">04</div>
+      <div>
+        <h2>导入 · 桌面</h2>
+        <p class="lede">两条来源分开写，因为语义不同：库里的书只是「还没登记」，一行勾选就够；库外的书要先写进 vault，所以单独给一个明确按钮，并说清它会复制。</p>
+      </div>
+      <div class="tagline"><span class="tag">库内登记</span><span class="tag">库外写入 Books/</span></div>
+    </div>
+    <div class="wide">
+      <div class="dframe">
+        <div class="ribbon">
+          <div class="rd on"></div><div class="rd"></div><div class="rd"></div>
+          <div class="gap"></div><div class="rd"></div>
+        </div>
+        <div class="side">
+          <div class="sd-h">我的笔记</div>
+          <div class="sf"><i></i>读书笔记</div>
+          <div class="sf"><i></i>日记</div>
+          <div class="sd-split"></div>
+          <div class="sd-h">书库</div>
+          <div class="sf on"><i></i>红楼梦.epub</div>
+          <div class="sf"><i></i>我的天才女友.epub</div>
+        </div>
+        <div class="stage">
+          <div class="tabs"><div class="tab on">读书笔记<span class="tx">×</span></div></div>
+          <div class="note-pane">
+            <h3>十月读书记</h3>
+            <div class="ln m"></div><div class="ln"></div><div class="ln s"></div><div class="ln"></div>
+          </div>
+          <div class="mask">
+            <div class="imp">
+              <div class="imp-h">导入书籍</div>
+              <div class="imp-b">
+                <div class="imp-sec">在笔记库里找到的书</div>
+                <div class="imp-tools"><div class="imp-filter">筛选书名或路径</div><span class="imp-link">全选未加入</span></div>
+                <div class="imp-hint">共 8 本，其中 5 本还没加入书架。文件留在原地，不会复制。</div>
+                <div class="imp-list">
+                  <div class="imp-row"><span class="cb on"></span><span class="imp-t"><span class="n">城与不城</span><span class="p">书库/卡尔维诺/城与不城.epub</span></span><span class="imp-m">1.2 MB</span></div>
+                  <div class="imp-row"><span class="cb on"></span><span class="imp-t"><span class="n">挪威的森林</span><span class="p">书库/村上春树/挪威的森林.epub</span></span><span class="imp-m">860 KB</span></div>
+                  <div class="imp-row"><span class="cb on"></span><span class="imp-t"><span class="n">漫长的告别</span><span class="p">书库/推理/漫长的告别.epub</span></span><span class="imp-m">1.8 MB</span></div>
+                  <div class="imp-row"><span class="cb on"></span><span class="imp-t"><span class="n">排版测试</span><span class="p">书库/排版测试.txt</span></span><span class="imp-m">8 KB</span></div>
+                  <div class="imp-row"><span class="cb dis"></span><span class="imp-t"><span class="n">红楼梦 <span class="badge">已在书架</span></span><span class="p">书库/红楼梦.epub</span></span><span class="imp-m">3.2 MB</span></div>
+                  <div class="imp-row"><span class="cb dis"></span><span class="imp-t"><span class="n">局外人 <span class="badge">已在书架</span></span><span class="p">书库/局外人.epub</span></span><span class="imp-m">420 KB</span></div>
+                </div>
+                <div class="imp-sec">从本地文件导入</div>
+                <div class="imp-local">
+                  <span class="d">文件会被复制进库里，之后由笔记库统一管理。支持 EPUB / TXT。</span>
+                  <span class="btn">选择本地文件…</span>
+                </div>
+              </div>
+              <div class="imp-f"><span class="btn pri">加入书架（4）</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="cap"><b>Desktop</b><s></s>导入弹窗 · 已有条目虚线勾选框 + 灰徽标</div>
+    </div>
+  </section>
+
+  <!-- ══════════ 05 移动书架 ══════════ -->
+  <section class="board">
+    <div class="bhead">
+      <div class="bnum">05</div>
+      <div>
+        <h2>书架 · 移动</h2>
+        <p class="lede">一屏只回答一个问题：接下来读哪本。「继续阅读」做成一张带封面色晕的卡片，其余按三列平铺；底部一条悬浮胶囊承担导航，不占满宽度。</p>
+      </div>
+      <div class="tagline"><span class="tag">3 列</span><span class="tag">继续阅读卡</span><span class="tag">底部胶囊</span></div>
+    </div>
+    <div class="pair">
+      <div class="wide" style="max-width:640px">
+        <div class="mframe" style="margin:0 auto">
+          <div class="mscreen">
+            <div class="mstatus"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span><span class="bat"></span></div>
+            <div class="mshelf">
+              <div class="ms-h">
+                <h1>书架</h1><span class="n">8 本</span><span class="sp"></span>
+                <span class="ms-act"><span class="i-search"></span></span>
+                <span class="ms-act">＋</span>
+              </div>
+              <div class="ms-body">
+                <div class="ms-cont">
+                  <div class="cc">红楼梦</div>
+                  <div class="ci">
+                    <div class="cl">继续阅读</div>
+                    <div class="ct">红楼梦</div>
+                    <div class="cp"><i style="width:32%"></i></div>
+                    <div class="cn">第三回 · 32% · 剩 6 小时</div>
+                  </div>
+                </div>
+                <div class="ms-grid">
+                  <div class="bitem"><div class="bk" style="--c:#7a4a3c"><span class="bt">我的天才女友</span><span class="ba">费兰特</span><span class="prog"><i style="width:68%"></i></span></div><div class="meta"><div class="mt">我的天才女友</div></div></div>
+                  <div class="bitem"><div class="bk" style="--c:#3b4a3a"><span class="bt">卡拉马佐夫兄弟</span><span class="ba">陀思妥耶夫斯基</span></div><div class="meta"><div class="mt">卡拉马佐夫兄弟</div></div></div>
+                  <div class="bitem"><div class="bk" style="--c:#4a4458"><span class="bt">局外人</span><span class="ba">加缪</span><span class="done"></span></div><div class="meta"><div class="mt">局外人</div></div></div>
+                  <div class="bitem"><div class="bk" style="--c:#5c4a2e"><span class="bt">漫长的告别</span><span class="ba">钱德勒</span></div><div class="meta"><div class="mt">漫长的告别</div></div></div>
+                  <div class="bitem"><div class="bk" style="--c:#2c4451"><span class="bt">人类简史</span><span class="ba">赫拉利</span><span class="prog"><i style="width:12%"></i></span></div><div class="meta"><div class="mt">人类简史</div></div></div>
+                  <div class="bitem"><div class="bk" style="--c:#4b3a2c"><span class="bt">挪威的森林</span><span class="ba">村上春树</span></div><div class="meta"><div class="mt">挪威的森林</div></div></div>
+                </div>
+              </div>
+              <div class="mtabbar">
+                <b class="on"><i></i>书架</b>
+                <b><i></i>导入</b>
+                <b><i></i>统计</b>
+                <b><i></i>设置</b>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>Mobile</b><s></s>书架首页 · 三列网格</div>
+      </div>
+      <div>
+        <div class="iso" style="min-height:690px;align-items:flex-start;padding:26px">
+          <div class="label">排版意图</div>
+          <div style="font-size:12px;line-height:2;color:var(--t2);margin-top:16px">
+            <p style="margin:0 0 14px"><b style="color:var(--t1)">为什么是胶囊而不是通栏底栏</b><br>
+            通栏底栏在 iPhone 上会和 Home Indicator 打架，也把「沉浸」这件事提前破坏掉了。做成悬浮胶囊，四边留出空隙，像贴在纸上的一张标签。</p>
+            <p style="margin:0 0 14px"><b style="color:var(--t1)">为什么封面不下载真图</b><br>
+            EPUB 抽封面要解 zip、导图、存附件，成本不低而收益有限。用「书名竖排 + 单一色相」生成封面，颜色由书名哈希决定，同一本书永远是同一个颜色。</p>
+            <p style="margin:0"><b style="color:var(--t1)">为什么只留四件事</b><br>
+            搜索、导入、统计、设置。多一个都得靠猜。导入放在第二位，因为它是新用户唯一会主动找的动作。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 06 移动阅读 ══════════ -->
+  <section class="board">
+    <div class="bhead">
+      <div class="bnum">06</div>
+      <div>
+        <h2>阅读 · 移动</h2>
+        <p class="lede">默认没有工具栏。左三分之一上一页，右三分之一下一页，中间一下才浮出上下两条——浮出的东西盖在正文上，正文一毫米都不挪。左图是沉浸态，右图是点开中间之后。</p>
+      </div>
+      <div class="tagline"><span class="tag">沉浸</span><span class="tag">轻触三区</span><span class="tag">左右滑动</span><span class="tag">双指调字号</span></div>
+    </div>
+    <div class="row3">
+      <div>
+        <div class="mframe" style="margin:0 auto">
+          <div class="mscreen">
+            <div class="mstatus"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span><span class="bat"></span></div>
+            <div class="mread">
+              <div class="mrb">
+                <h4>第三回</h4>
+                <p>黛玉方进入房时，只见两个人搀着一位鬓发如银的老母迎上来，黛玉便知是他外祖母。方欲拜见时，早被他外祖母一把搂入怀中，心肝儿肉叫着大哭起来。</p>
+                <p>当下地下侍立之人，无不掩面涕泣，黛玉也哭个不住。一时众人慢慢解劝住了，黛玉方拜见了外祖母。</p>
+                <p>贾母又说：“请姑娘们来。今日远客才来，可以不必上学去了。”众人答应了一声，便去了两个。</p>
+                <p>不一时，只见三个奶嬷嬷并五六个丫鬟，簇拥着三个姊妹来了。第一个肌肤微丰，合中身材，腮凝新荔，鼻腻鹅脂，温柔沉默，观之可亲。</p>
+              </div>
+              <div class="mrfoot"><span>32%</span><span>第三回 · 贾雨村夤缘复旧职</span></div>
+              <div class="mrbar"><i style="width:32%"></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>Mobile</b><s></s>沉浸态 · 纸白主题</div>
+      </div>
+      <div>
+        <div class="mframe" style="margin:0 auto">
+          <div class="mscreen">
+            <div class="mstatus"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span><span class="bat"></span></div>
+            <div class="mread">
+              <div class="mtop">
+                <span style="font-size:17px;opacity:.7">‹</span>
+                <span class="tx"><div class="t1">红楼梦</div><div class="t2">第三回 · 贾雨村夤缘复旧职</div></span>
+                <span class="i-search" style="opacity:.6"></span>
+                <span class="i-toc" style="opacity:.6"><span></span><span></span><span></span></span>
+                <span style="font-size:11px;opacity:.6">Aa</span>
+              </div>
+              <div class="mrb" style="padding-top:68px">
+                <h4>第三回</h4>
+                <p>黛玉方进入房时，只见两个人搀着一位鬓发如银的老母迎上来，黛玉便知是他外祖母。方欲拜见时，早被他外祖母一把搂入怀中，心肝儿肉叫着大哭起来。</p>
+                <p>当下地下侍立之人，无不掩面涕泣，黛玉也哭个不住。一时众人慢慢解劝住了，黛玉方拜见了外祖母。</p>
+                <p>贾母又说：“请姑娘们来。今日远客才来，可以不必上学去了。”众人答应了一声，便去了两个。</p>
+              </div>
+              <div class="mbot">
+                <b><i></i>目录</b>
+                <b><i></i>进度</b>
+                <b><i></i>搜索</b>
+                <b><i></i>排版</b>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>Mobile</b><s></s>工具栏态 · 点中间呼出</div>
+      </div>
+      <div>
+        <div class="iso" style="min-height:690px;align-items:flex-start;padding:26px">
+          <div class="label">手势表</div>
+          <table style="width:100%;border-collapse:collapse;font-size:11.5px;margin-top:16px;color:var(--t2)">
+            <tr><td style="padding:7px 0;border-bottom:1px solid var(--line);color:var(--t1);width:44%">轻触左 30%</td><td style="padding:7px 0;border-bottom:1px solid var(--line)">上一页</td></tr>
+            <tr><td style="padding:7px 0;border-bottom:1px solid var(--line);color:var(--t1)">轻触右 30%</td><td style="padding:7px 0;border-bottom:1px solid var(--line)">下一页</td></tr>
+            <tr><td style="padding:7px 0;border-bottom:1px solid var(--line);color:var(--t1)">轻触中间</td><td style="padding:7px 0;border-bottom:1px solid var(--line)">收放工具栏</td></tr>
+            <tr><td style="padding:7px 0;border-bottom:1px solid var(--line);color:var(--t1)">左右滑动</td><td style="padding:7px 0;border-bottom:1px solid var(--line)">翻页（跟手 + 吸附）</td></tr>
+            <tr><td style="padding:7px 0;border-bottom:1px solid var(--line);color:var(--t1)">双指捏合</td><td style="padding:7px 0;border-bottom:1px solid var(--line)">调字号 14–30</td></tr>
+            <tr><td style="padding:7px 0;border-bottom:1px solid var(--line);color:var(--t1)">长按</td><td style="padding:7px 0;border-bottom:1px solid var(--line)">选字（高级版接标注）</td></tr>
+            <tr><td style="padding:7px 0;color:var(--t1)">拖出选区时</td><td style="padding:7px 0">一律让给选字，不翻页</td></tr>
+          </table>
+          <p style="font-size:10.5px;color:var(--t3);line-height:1.8;margin-top:14px">桌面同一套逻辑换皮：滚轮累计 42px 翻一页，⌘/Ctrl + 滚轮调字号，鼠标横拖也翻页。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 07 移动面板 ══════════ -->
+  <section class="board">
+    <div class="bhead">
+      <div class="bnum">07</div>
+      <div>
+        <h2>三块面板 · 移动</h2>
+        <p class="lede">目录占满，因为章节多、要滚；排版做成底部 sheet，因为它是一组滑块，从下方长出来最顺手；搜索占满，因为结果列表需要长度。</p>
+      </div>
+      <div class="tagline"><span class="tag">全屏目录</span><span class="tag">底部 sheet</span><span class="tag">全屏搜索</span></div>
+    </div>
+    <div class="row3">
+      <div>
+        <div class="mframe" style="margin:0 auto">
+          <div class="mscreen">
+            <div class="mstatus"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span><span class="bat"></span></div>
+            <div class="mfull">
+              <div class="fh"><span class="x">×</span><span class="t">目录</span><span style="font-size:10px;color:var(--t3)">108 回</span></div>
+              <div class="fb">
+                <div class="toc-i">第一回　甄士隐梦幻识通灵</div>
+                <div class="toc-i">第二回　贾夫人仙逝扬州城</div>
+                <div class="toc-i on">第三回　贾雨村夤缘复旧职</div>
+                <div class="toc-i d1">一、黛玉进府</div>
+                <div class="toc-i d1">二、宝黛初见</div>
+                <div class="toc-i d1">三、梨香院</div>
+                <div class="toc-i">第四回　薄命女偏逢薄命郎</div>
+                <div class="toc-i">第五回　游幻境指迷十二钗</div>
+                <div class="toc-i">第六回　贾宝玉初试云雨情</div>
+                <div class="toc-i">第七回　送宫花贾琏戏熙凤</div>
+                <div class="toc-i">第八回　比通灵金莺微露意</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>Mobile</b><s></s>目录 · 当前章高亮</div>
+      </div>
+      <div>
+        <div class="mframe" style="margin:0 auto">
+          <div class="mscreen">
+            <div class="mstatus"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span><span class="bat"></span></div>
+            <div class="mread" style="filter:brightness(.62)">
+              <div class="mrb"><h4>第三回</h4><p>黛玉方进入房时，只见两个人搀着一位鬓发如银的老母迎上来，黛玉便知是他外祖母。</p><p>当下地下侍立之人，无不掩面涕泣，黛玉也哭个不住。</p><p>贾母又说：“请姑娘们来。今日远客才来，可以不必上学去了。”</p></div>
+            </div>
+            <div class="msheet">
+              <div class="grab"></div>
+              <div class="sh">排版</div>
+              <div class="pr"><span class="pl">字号</span><span class="track"><i style="width:40%"></i><em style="left:40%"></em></span><span class="pv">18</span></div>
+              <div class="pr"><span class="pl">行距</span><span class="track"><i style="width:44%"></i><em style="left:44%"></em></span><span class="pv">1.8</span></div>
+              <div class="pr"><span class="pl">页边距</span><span class="track"><i style="width:36%"></i><em style="left:36%"></em></span><span class="pv">32</span></div>
+              <div class="row"><b class="on">跟随</b><b>宋体</b><b>黑体</b><b>两端</b></div>
+              <div class="sw">
+                <i class="on" style="background:linear-gradient(140deg,#1a1a20,#101014)"></i>
+                <i style="background:#fff"></i><i style="background:#f6ecd8"></i><i style="background:#e2efe2"></i><i style="background:#17191d"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>Mobile</b><s></s>排版 · 底部 sheet</div>
+      </div>
+      <div>
+        <div class="mframe" style="margin:0 auto">
+          <div class="mscreen">
+            <div class="mstatus"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span><span class="bat"></span></div>
+            <div class="msearch">
+              <div class="ms-bar"><div class="ms-in">黛玉<span class="c"></span></div><span class="ms-cancel">取消</span></div>
+              <div style="font-size:9.5px;color:var(--t3);padding:6px 18px">本章 12 处</div>
+              <div class="ms-res">
+                <div class="ms-hit"><div class="h"><em>黛玉</em>方进入房时，只见两个人搀着一位鬓发如银的老母迎上来</div><div class="l">第三回 · 62%</div></div>
+                <div class="ms-hit"><div class="h">当下地下侍立之人，无不掩面涕泣，<em>黛玉</em>也哭个不住</div><div class="l">第三回 · 64%</div></div>
+                <div class="ms-hit"><div class="h">一时众人慢慢解劝住了，<em>黛玉</em>方拜见了外祖母</div><div class="l">第三回 · 66%</div></div>
+                <div class="ms-hit"><div class="h">贾母一一指与<em>黛玉</em>：“这是你大舅母……”</div><div class="l">第三回 · 71%</div></div>
+                <div class="ms-hit"><div class="h"><em>黛玉</em>一一拜见过</div><div class="l">第三回 · 72%</div></div>
+                <div class="ms-hit"><div class="h">第三个身量未足，形容尚小，<em>黛玉</em>忙起身迎上来见礼</div><div class="l">第三回 · 78%</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>Mobile</b><s></s>搜索 · 只搜本章</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 08 移动导入 ══════════ -->
+  <section class="board">
+    <div class="bhead">
+      <div class="bnum">08</div>
+      <div>
+        <h2>导入 · 移动</h2>
+        <p class="lede">手机上不做两个 tab——库内和库外混在一个列表里，靠来源标记区分，底部一个按钮收口。少一层切换，少一次犹豫。</p>
+      </div>
+      <div class="tagline"><span class="tag">单列表</span><span class="tag">贴底按钮</span></div>
+    </div>
+    <div class="pair">
+      <div class="wide" style="max-width:640px">
+        <div class="mframe" style="margin:0 auto">
+          <div class="mscreen">
+            <div class="mstatus"><span>9:41</span><span class="dots"><i></i><i></i><i></i></span><span class="bat"></span></div>
+            <div class="mimp">
+              <div class="mh">
+                <h2>导入</h2>
+                <p>库里找到 8 本书，其中 5 本还没上架。文件留在原地。</p>
+              </div>
+              <div class="body">
+                <div style="display:flex;gap:8px;align-items:center">
+                  <div style="flex:1;height:30px;border-radius:9px;background:var(--panel-3);border:1px solid var(--line);display:flex;align-items:center;padding:0 10px;font-size:11px;color:var(--t3)">筛选书名或路径</div>
+                  <span style="font-size:10.5px;color:var(--brand)">全选</span>
+                </div>
+                <div class="list">
+                  <div class="row"><span class="cb on"></span><span class="imp-t"><span class="n">城与不城</span><span class="p">书库/卡尔维诺/城与不城.epub</span></span><span class="imp-m">1.2M</span></div>
+                  <div class="row"><span class="cb on"></span><span class="imp-t"><span class="n">挪威的森林</span><span class="p">书库/村上春树/挪威的森林.epub</span></span><span class="imp-m">860K</span></div>
+                  <div class="row"><span class="cb on"></span><span class="imp-t"><span class="n">漫长的告别</span><span class="p">书库/推理/漫长的告别.epub</span></span><span class="imp-m">1.8M</span></div>
+                  <div class="row"><span class="cb on"></span><span class="imp-t"><span class="n">排版测试</span><span class="p">书库/排版测试.txt</span></span><span class="imp-m">8K</span></div>
+                  <div class="row"><span class="cb dis"></span><span class="imp-t"><span class="n">红楼梦 <span class="badge">已上架</span></span><span class="p">书库/红楼梦.epub</span></span><span class="imp-m">3.2M</span></div>
+                  <div class="row"><span class="cb dis"></span><span class="imp-t"><span class="n">局外人 <span class="badge">已上架</span></span><span class="p">书库/局外人.epub</span></span><span class="imp-m">420K</span></div>
+                </div>
+                <div class="imp-local">
+                  <span class="d">从手机或电脑的文件里选，会复制进笔记库。</span>
+                  <span class="btn" style="height:30px;border-radius:8px;justify-content:center">选择本地文件</span>
+                </div>
+              </div>
+              <div class="foot"><span class="btn pri">加入书架（4）</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap"><b>Mobile</b><s></s>导入 · 单列表 + 贴底按钮</div>
+      </div>
+      <div>
+        <div class="iso" style="min-height:690px;align-items:flex-start;padding:26px">
+          <div class="label">视觉规则</div>
+          <div style="font-size:12px;line-height:2;color:var(--t2);margin-top:16px">
+            <p style="margin:0 0 16px"><b style="color:var(--t1)">表面只有三层</b><br>
+            #101014 底 / #16161C 卡片 / #1E1E26 浮层。层级靠「亮一档 + 1px 边框」，不用阴影堆深度。</p>
+            <p style="margin:0 0 16px"><b style="color:var(--t1)">强调色只做一件事</b><br>
+            橙 #E67341 只出现在：当前进度、当前章节、主按钮、焦点环。别处一律中性，所以它每次出现都意味着「这里」。</p>
+            <p style="margin:0 0 16px"><b style="color:var(--t1)">圆角按层级递增</b><br>
+            4 小控件 / 8 按钮 / 12 弹窗 / 16 抽屉。iOS 上再加 2px，因为手指比鼠标粗。</p>
+            <p style="margin:0"><b style="color:var(--t1)">正文不用界面字体</b><br>
+            界面全无衬线，书里的正文全衬线，字距 +0.02em、行高 2.0 起。这条界线一破，阅读器就变成了「一个能滚的面板」。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span class="dot"></span>
+    <span>bz 阅读 · 界面原型 v1</span>
+    <span>2026-11-02</span>
+    <span class="sp"></span>
+    <span>桌面 8 屏 · 移动 7 屏</span>
+    <span>令牌对齐 bz/tokens.css</span>
+  </footer>
+
+</div>
+</body>
+</html>

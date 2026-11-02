@@ -9,6 +9,10 @@
  * 为什么用两个入口而不是 `define` 摇树：define 只能删掉
  * `if (false) { ... }` 里的代码，静态 import 的模块仍会进 bundle。
  * 两个入口是物理隔离——基础版的 main.js 里真的没有高级代码。
+ *
+ * 两个面的分工（2026-11-02 定）：
+ *   书库 = 弹窗（入口 + 管理，不需要占 tab）
+ *   阅读 = 原生 ItemView（能并排开笔记、能被布局记住、能拖到侧栏）
  * ============================================================ */
 import { Plugin } from 'obsidian';
 import { setApp } from './core/app';
@@ -16,11 +20,11 @@ import { setPluginRelDir, PLUGIN_ID } from './core/plugin-path';
 import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
 import { BookRepo, BASE_FORMATS, PRO_FORMATS } from './data/book-repo';
-import { pickAndImport } from './data/importer';
 import { ReaderStore } from './data/store';
-import type { BookFormat } from './data/schema';
-import { openShelf } from './ui/shelf';
-import { openReader } from './ui/reader';
+import type { BookFormat, ReaderBook } from './data/schema';
+import { openShelf as openShelfModal } from './ui/shelf';
+import { openImport } from './ui/import-panel';
+import { ReaderView, VIEW_TYPE_READER, type ReaderHostApi } from './view/reader-view';
 
 export interface PluginConfig {
   /** 高级版构建为 true。基础版为 false，且高级模块根本不在包里。 */
@@ -28,7 +32,7 @@ export interface PluginConfig {
 }
 
 export function createPlugin(cfg: PluginConfig) {
-  return class BzReaderPlugin extends Plugin {
+  return class BzReaderPlugin extends Plugin implements ReaderHostApi {
     store!: ReaderStore;
     repo!: BookRepo;
 
@@ -44,6 +48,8 @@ export function createPlugin(cfg: PluginConfig) {
       await this.store.load();
       this.repo = new BookRepo(this.store.get().books);
 
+      this.registerView(VIEW_TYPE_READER, (leaf) => new ReaderView(leaf, this));
+
       this.addRibbonIcon('book-open', 'bz 阅读：打开书库', () => this.openShelf());
 
       this.addCommand({
@@ -55,16 +61,16 @@ export function createPlugin(cfg: PluginConfig) {
       this.addCommand({
         id: 'continue',
         name: '继续阅读最近一本',
-        callback: () => this.continueReading(),
+        callback: () => void this.continueReading(),
       });
 
       this.addCommand({
         id: 'import',
         name: '导入书籍',
-        callback: () => void this.importBooks(),
+        callback: () => this.openImportPanel(),
       });
 
-      // 布局就绪后再放调试直达：目标弹窗依赖 workspace 初始化
+      // 布局就绪后再放调试直达：目标视图依赖 workspace 初始化
       this.app.workspace.onLayoutReady(() => {
         void this.autoOpenIfRequested();
       });
@@ -72,51 +78,66 @@ export function createPlugin(cfg: PluginConfig) {
 
     onunload(): void {
       closeAllModals();
+      // 原生视图不保证走 onClose，这里兜底结算一次（幂等，settle 内部已改完数据后 await flush）
+      for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_READER)) {
+        void (leaf.view as ReaderView).forceClose();
+      }
       void this.store?.destroy();
     }
 
-    private openShelf(): void {
-      openShelf({
+    /* ── 对外（ReaderView 用） ── */
+
+    openShelf(): void {
+      openShelfModal({
         app: this.app,
         repo: this.repo,
         store: this.store,
         formats: this.formats(),
-        onOpen: (book) => {
-          openReader({
-            app: this.app,
-            store: this.store,
-            book,
-            // 关书回书架：进度刚变过，书架要重画一次才对得上
-            onClose: () => this.openShelf(),
-          });
-        },
+        onOpen: (book) => void this.openBook(book),
       });
     }
 
-    private continueReading(): void {
+    /**
+     * 打开一本书。已经在某个 tab 里开着就切过去，不重复开——
+     * 重复开会得到两个 iframe、两份会话计时，关掉其中一个还会把进度写乱。
+     */
+    async openBook(book: ReaderBook): Promise<void> {
+      const opened = this.app.workspace
+        .getLeavesOfType(VIEW_TYPE_READER)
+        .find((l) => (l.view as ReaderView).currentBookId === book.id);
+      if (opened) {
+        await this.app.workspace.revealLeaf(opened);
+        return;
+      }
+      const leaf = this.app.workspace.getLeaf('tab');
+      await leaf.setViewState({
+        type: VIEW_TYPE_READER,
+        active: true,
+        state: { bookId: book.id },
+      });
+      await this.app.workspace.revealLeaf(leaf);
+    }
+
+    /* ── 内部 ── */
+
+    private async continueReading(): Promise<void> {
       const recent = this.repo.recent(1)[0];
       if (!recent) {
         notify('还没有读过的书', 'info');
         this.openShelf();
         return;
       }
-      openReader({
-        app: this.app,
-        store: this.store,
-        book: recent,
-        onClose: () => this.openShelf(),
-      });
+      await this.openBook(recent);
     }
 
-    /** 从文件选择框导入，写完刷新书架 */
-    private async importBooks(): Promise<void> {
-      try {
-        const written = await pickAndImport(this.app, this.formats());
-        if (written && written.length) notify(`已导入 ${written.length} 本`, 'success');
-      } catch (e) {
-        notify(`导入失败：${(e as Error)?.message || '未知错误'}`, 'error');
-      }
-      this.openShelf();
+    private openImportPanel(): void {
+      openImport({
+        app: this.app,
+        repo: this.repo,
+        store: this.store,
+        formats: this.formats(),
+        onDone: () => undefined,
+      });
     }
 
     /** 调试入口：storage/debug-open.json 里写 {"command":"open"} 时启动即执行（开发用） */
@@ -126,9 +147,13 @@ export function createPlugin(cfg: PluginConfig) {
         if (!dir) return;
         const path = `${dir}/storage/debug-open.json`;
         if (!(await this.app.vault.adapter.exists(path))) return;
-        const raw = JSON.parse(await this.app.vault.adapter.read(path)) as { command?: string };
+        const raw = JSON.parse(await this.app.vault.adapter.read(path)) as { command?: string; bookId?: string };
         if (raw.command === 'open') this.openShelf();
-        else if (raw.command === 'continue') this.continueReading();
+        else if (raw.command === 'continue') await this.continueReading();
+        else if (raw.command === 'book' && raw.bookId) {
+          const book = this.repo.byId(raw.bookId);
+          if (book) await this.openBook(book);
+        }
       } catch {
         /* 调试入口失败不影响正常启动 */
       }

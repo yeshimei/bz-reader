@@ -10,10 +10,9 @@
 import type { App } from 'obsidian';
 import type { BookFormat, ReaderBook } from '../data/schema';
 import { BookRepo, formatOf, scanVault, titleFromPath } from '../data/book-repo';
-import { pickAndImport } from '../data/importer';
+import { openImport } from './import-panel';
 import type { ReaderStore } from '../data/store';
 import { uiModal } from '../core/ui/modal';
-import { notify } from '../core/notice';
 import { clear, durationLabel, el, percentLabel } from './dom';
 
 export interface ShelfDeps {
@@ -235,22 +234,16 @@ export function openShelf(deps: ShelfDeps): ShelfHandle {
   });
 
   importBtn.addEventListener('click', () => {
-    if (importBtn.disabled) return;
-    importBtn.disabled = true;
-    void (async () => {
-      try {
-        const written = await pickAndImport(app, formats);
-        if (written && written.length) {
-          syncFromVault();
-          render();
-          notify(`已导入 ${written.length} 本`, 'success');
-        }
-      } catch (e) {
-        notify(`导入失败：${(e as Error)?.message || '未知错误'}`, 'error');
-      } finally {
-        importBtn.disabled = false;
-      }
-    })();
+    openImport({
+      app,
+      repo,
+      store,
+      formats,
+      onDone: () => {
+        syncFromVault();
+        render();
+      },
+    });
   });
 
   syncFromVault();
