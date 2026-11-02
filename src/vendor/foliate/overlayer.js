@@ -177,20 +177,55 @@ export class Overlayer {
         }
         return g
     }
+    // [bz] 原版把整行文字糊成一块 30% 透明度的色块，压在正文上像荧光笔事故。
+    // 改成原型 reader-v2 的划线：只在文字**下半段**铺一层软色（笔刷wash），
+    // 底部压一条 1px 实线——颜色还在内容上，但正文透得出来。
+    // 竖排（writing-mode: vertical-*）笔刷落在右半、实线压右缘。
+    // wash 的浓度/混合模式走 --overlayer-highlight-*（theme.ts 按明暗注入），
+    // 实线浓度走 --overlayer-highlight-line-opacity（缺省 .8）。
     static highlight(rects, options = {}) {
-        const { color = 'red', padding = 0 } = options
+        const { color = 'red', padding = 0, writingMode } = options
         const g = createSVGElement('g')
-        g.setAttribute('fill', color)
-        g.style.opacity = 'var(--overlayer-highlight-opacity, .3)'
-        g.style.mixBlendMode = 'var(--overlayer-highlight-blend-mode, normal)'
-        for (const { left, top, height, width } of rects) {
-            const el = createSVGElement('rect')
-            el.setAttribute('x', left - padding)
-            el.setAttribute('y', top - padding)
-            el.setAttribute('height', height + padding * 2)
-            el.setAttribute('width', width + padding * 2)
-            g.append(el)
+        const wash = createSVGElement('g')
+        wash.setAttribute('fill', color)
+        wash.style.opacity = 'var(--overlayer-highlight-opacity, .3)'
+        wash.style.mixBlendMode = 'var(--overlayer-highlight-blend-mode, normal)'
+        const line = createSVGElement('g')
+        line.setAttribute('fill', color)
+        line.style.opacity = 'var(--overlayer-highlight-line-opacity, .8)'
+        const vertical = writingMode === 'vertical-rl' || writingMode === 'vertical-lr'
+        for (const { left, top, right, bottom, width, height } of rects) {
+            if (vertical) {
+                const w = Math.max(2, width * 0.42)
+                const washRect = createSVGElement('rect')
+                washRect.setAttribute('x', right - w - padding)
+                washRect.setAttribute('y', top - padding)
+                washRect.setAttribute('width', w + padding * 2)
+                washRect.setAttribute('height', height + padding * 2)
+                wash.append(washRect)
+                const lineRect = createSVGElement('rect')
+                lineRect.setAttribute('x', right - 1 - padding)
+                lineRect.setAttribute('y', top - padding)
+                lineRect.setAttribute('width', 1 + padding * 2)
+                lineRect.setAttribute('height', height + padding * 2)
+                line.append(lineRect)
+            } else {
+                const h = Math.max(2, height * 0.42)
+                const washRect = createSVGElement('rect')
+                washRect.setAttribute('x', left - padding)
+                washRect.setAttribute('y', bottom - h - padding)
+                washRect.setAttribute('width', width + padding * 2)
+                washRect.setAttribute('height', h + padding * 2)
+                wash.append(washRect)
+                const lineRect = createSVGElement('rect')
+                lineRect.setAttribute('x', left - padding)
+                lineRect.setAttribute('y', bottom - 1 - padding)
+                lineRect.setAttribute('width', width + padding * 2)
+                lineRect.setAttribute('height', 1 + padding * 2)
+                line.append(lineRect)
+            }
         }
+        g.append(wash, line)
         return g
     }
     static outline(rects, options = {}) {

@@ -42,7 +42,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
 
 export const FONT_SIZE_RANGE = { min: 14, max: 30, step: 1 } as const;
 export const LINE_HEIGHT_RANGE = { min: 1.4, max: 2.4, step: 0.1 } as const;
-export const MARGIN_RANGE = { min: 8, max: 72, step: 4 } as const;
+export const MARGIN_RANGE = { min: 8, max: 120, step: 4 } as const;
 
 /** 字体选项：值 → 注入 iframe 的 font-family；book = 不覆盖，跟随书自带 */
 export const FONT_FAMILIES: Array<{ value: FontFamilyName; label: string; css: string }> = [

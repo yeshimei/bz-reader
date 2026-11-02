@@ -3,7 +3,7 @@
 来源：`foliate-js@1.0.1`（npm registry 原包，作者 John Factotum，MIT）。
 `LICENSE` 随文件保留，**不要删**。
 
-## 本地改动（只有这 5 处）
+## 本地改动（只有这 7 处）
 
 | 文件 | 改了什么 | 为什么 |
 |---|---|---|
@@ -12,6 +12,8 @@
 | `fixed-layout.js` | 同上（`foliate-fxl`） | 同上 |
 | `quote-image.js` | 同上（`foliate-quoteimage`） | 同上 |
 | `paginator.js` | `--_max-column-count: 2` 改为 `var(--_column-count, 2)` | 栏数要做成用户偏好（单栏/双栏）。#top 的 shadow 规则直接声明了 2，宿主元素上设同名变量进不去（继承只在无直接声明时生效）；换成 var() 引用宿主变量，缺省仍是 2，不设变量时行为与上游逐字一致 |
+| `overlayer.js` | `static highlight` 从「整块色块 rect」改成「下半段软色 wash + 底部 1px 实线」，支持 `options.writingMode`（竖排右半 wash + 右缘线） | 原版整块 30% 色块糊在正文上，和原型 reader-v2 的划线（下半笔刷 + 铜线）完全对不上。浓度/混合模式仍走 `--overlayer-highlight-*` 变量，新增 `--overlayer-highlight-line-opacity`（缺省 .8）。`hitTest` 用的是 add() 存的原始 rects，不受绘制改动影响 |
+| `paginator.js` | `columnize()` 横排的 documentElement padding 从 `0 gap/2` 改为 `var(--_pad-top, 0px) gap/2 var(--_pad-bottom, 0px)` | 分页模式下 foliate 用内联 !important 把上下 padding 覆成 0，宿主注入的 body padding 只对章首页生效——章中页文字顶到悬浮头栏（2026-11-03 用户反馈）。宿主（host.ts）按桌面/移动写入这两个变量补足到设计值；不设变量时与上游逐字一致 |
 
 前四处都是「已注册就跳过」，不改任何行为语义；除此外与上游逐字一致，升级时可用新版本文件整体替换后再打这 5 个补丁。
 

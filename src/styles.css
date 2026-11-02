@@ -2759,11 +2759,79 @@
   --copper-soft: rgba(154, 116, 52, 0.11);
   --copper-line: rgba(154, 116, 52, 0.42);
 }
-.bzr-tocv-h {
+/* 头行：书库页是「衬线大题 + 计数」，书页是「返回 + 书名」两行 */
+.bzr-tocv-h.is-shelf {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 14px 12px 8px;
+}
+.bzr-tocv-title {
+  font-family: var(--bzr-font-serif);
+  font-size: 15px;
+  font-weight: var(--bzr-weight-medium);
+  letter-spacing: 0.14em;
+  color: var(--bzr-text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bzr-tocv-count {
+  margin-left: auto;
+  flex: none;
+  font-size: 10.5px;
+  color: var(--bzr-text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 书页头：两行（返回行 + 页签行），头行变列 */
+.bzr-tocv-h.is-book {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 8px 10px 6px;
+}
+.bzr-tocv-hr {
   display: flex;
   align-items: center;
-  padding: 10px 12px 8px;
+  gap: 8px;
+  min-height: 24px;
+}
+.bzr-tocv-hr .bzr-tocv-title {
+  flex: 1;
+  font-size: 13.5px;
+}
+.bzr-tocv-hr .bzr-tocv-count {
+  margin-left: 0;
+  max-width: 30%;
+}
+.bzr-tocv-back {
   flex: none;
+  height: 22px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--copper);
+  font-family: var(--bzr-font-serif);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  cursor: pointer;
+}
+.bzr-tocv-back:hover {
+  background: var(--copper-soft);
+}
+.bzr-tocv-back.is-act {
+  color: var(--bzr-text-3);
+  font-family: var(--bzr-font-ui);
+  font-size: 11px;
+}
+.bzr-tocv-back.is-act:hover {
+  color: var(--bzr-text-1);
+  background: var(--bzr-surface-hover);
 }
 .bzr-side-tabs {
   display: flex;
@@ -2805,38 +2873,40 @@
   opacity: 0.75;
 }
 /* 头行动作区：全文/统计/导入（书库页）与导出（书签划线页） */
-.bzr-tocv-acts {
+/* 页脚：导入 / 统计 / 全文 沉底（书库页专属；书页没有页脚） */
+.bzr-tocv-f {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: auto;
+  gap: 8px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--bzr-border);
+  flex: none;
+  background: var(--bzr-surface-sunken);
 }
-.bzr-tocv-act {
-  height: 22px;
-  padding: 0 9px;
+.bzr-tocv-f.is-empty {
+  display: none;
+}
+.bzr-tocv-fact {
+  flex: 1;
+  height: 28px;
   border: 1px solid var(--bzr-border);
-  border-radius: 99px;
+  border-radius: 8px;
   background: transparent;
-  color: var(--bzr-text-3);
+  color: var(--bzr-text-2);
   font-family: inherit;
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
   line-height: 1;
   cursor: pointer;
 }
-.bzr-tocv-act:hover {
+.bzr-tocv-fact:hover {
   color: var(--copper);
   border-color: var(--copper-line);
   background: var(--copper-soft);
 }
-.bzr-tocv-act:disabled {
+.bzr-tocv-fact:disabled {
   opacity: 0.4;
   cursor: default;
-}
-.bzr-tocv-act:disabled:hover {
-  color: var(--bzr-text-3);
-  border-color: var(--bzr-border);
-  background: transparent;
 }
 .bzr-tocv-b {
   flex: 1 1 auto;
@@ -2977,7 +3047,17 @@
   font-weight: var(--bzr-weight-medium);
   letter-spacing: 0.03em;
   color: var(--bzr-text-1);
-  margin-bottom: 7px;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 书名的第二行：作者或文件名——同名导入的书靠它分清 */
+.bzr-bkrow .bi .sub {
+  display: block;
+  font-size: 10.5px;
+  color: var(--bzr-text-3);
+  margin-bottom: 6px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

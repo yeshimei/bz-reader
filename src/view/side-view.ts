@@ -1,9 +1,13 @@
 /* ============================================================
  * bz-reader · 阅读侧栏（view/side-view.ts）
  *
- * 书库、目录、书签、划线四块都在 Obsidian 自己的左侧栏里，一个 leaf
- * 四个页签。做成一个 leaf 而不是四个：它们都是「阅读的坐标」——书库是
- * 书之间挪，其余三块是书里挪；分成四个 leaf，用户很快会有一列没人看的页签。
+ * 两级页面，住 Obsidian 左侧栏的一个 leaf：
+ *   ① 书库页（默认）：衬线大题 + 搜索井 + 书列；导入/统计/全文沉在页脚，
+ *      头行不再挤一排动作钮（2026-11-03 用户反馈：顶栏挤 + 动作该在下面）。
+ *   ② 书页：点书行进来——顶部「‹ 书库」返回 + 书名，下面目录/书签/划线
+ *      三页签；进书页的同时书会在阅读视图打开（点书 = 进书）。
+ * 它们都是「阅读的坐标」：书库是书之间挪，其余三块是书里挪。分成四个
+ * leaf 用户很快会有一列没人看的页签，所以一个 leaf 内部换页。
  *
  * 它不 import 引擎、不 import pro 面板：
  *   - 目录/划线认两份快照（toc-state / notes-state）；
@@ -26,22 +30,32 @@ import { renderBookmarkList, renderHighlightList } from '../ui/note-list';
 
 export const VIEW_TYPE_TOC = 'bz-reader-toc';
 
+/** 对外语义：书库 / 书内三块。setTab 保留这套入参（ribbon / 命令 / 阅读页在用） */
 export type SideTab = 'shelf' | 'toc' | 'bookmarks' | 'highlights';
 
-interface TabDef {
-  key: SideTab;
-  label: string;
-}
+type BookTab = Exclude<SideTab, 'shelf'>;
+
+const BOOK_TABS: Array<{ key: BookTab; label: string }> = [
+  { key: 'toc', label: '目录' },
+  { key: 'bookmarks', label: '书签' },
+  { key: 'highlights', label: '划线' },
+];
 
 export class SideView extends ItemView {
-  private tabsEl: HTMLElement | null = null;
-  private listEl: HTMLElement | null = null;
-  private actsEl: HTMLElement | null = null;
-  private tab: SideTab = 'toc';
-  private tabNodes = new Map<SideTab, HTMLButtonElement>();
+  /** 当前页：书库 or 某本书 */
+  private page: 'shelf' | 'book' = 'shelf';
+  /** 书页内的页签 */
+  private tab: BookTab = 'toc';
+  /** 书页在讲哪本书（书行点击时记下；setTab 进来时从快照取） */
+  private bookId = '';
+  private headEl: HTMLElement | null = null;
+  private bodyEl: HTMLElement | null = null;
+  private footEl: HTMLElement | null = null;
+  private tabNodes = new Map<BookTab, HTMLButtonElement>();
+  private exportBtn: HTMLButtonElement | null = null;
   private rows: Array<{ label: string; node: HTMLElement }> = [];
   private lastTocRef: FoliateTOCItem[] | null = null;
-  private lastBookId = '';
+  private lastRenderedBook = '';
   private lastActive = '';
   private shelfKeyword = '';
   /** 书库封面惰性加载：滚到哪解到哪（解一本要开一次 zip，50 本全解首屏会卡） */
@@ -63,10 +77,17 @@ export class SideView extends ItemView {
     return 'list';
   }
 
-  /** 外部（ribbon / 命令 / 阅读页的回书架）指定页签；没开着的 leaf 也会被传进来 */
+  /** 外部（ribbon / 命令 / 阅读页的回书架）指定落点；没开着的 leaf 也会被传进来 */
   setTab(tab: SideTab): void {
-    this.tab = tab;
-    if (this.tabsEl) this.render();
+    if (tab === 'shelf') {
+      this.page = 'shelf';
+    } else {
+      this.page = 'book';
+      this.tab = tab;
+      // 外部指名书内页签但本视图还没有书的上下文时，从快照里认领
+      if (!this.bookId) this.bookId = getToc()?.bookId ?? getNotes()?.bookId ?? '';
+    }
+    if (this.bodyEl) this.render();
   }
 
   async onOpen(): Promise<void> {
@@ -81,126 +102,73 @@ export class SideView extends ItemView {
   private buildShell(): void {
     this.contentEl.empty();
     const root = el('div', 'bzr-tocv');
-    const head = el('div', 'bzr-tocv-h');
-    const tabs = el('div', 'bzr-side-tabs');
-    const defs: TabDef[] = __BZ_READER_PRO__
-      ? [
-          { key: 'shelf', label: '书库' },
-          { key: 'toc', label: '目录' },
-          { key: 'bookmarks', label: '书签' },
-          { key: 'highlights', label: '划线' },
-        ]
-      : [
-          { key: 'shelf', label: '书库' },
-          { key: 'toc', label: '目录' },
-        ];
-    for (const def of defs) {
-      const b = el('button', 'bzr-side-tab', def.label) as HTMLButtonElement;
-      b.type = 'button';
-      b.dataset.tab = def.key;
-      b.addEventListener('click', () => {
-        if (this.tab === def.key) return;
-        this.tab = def.key;
-        this.render();
-      });
-      this.tabNodes.set(def.key, b);
-      tabs.appendChild(b);
-    }
-    head.appendChild(tabs);
-    const acts = el('div', 'bzr-tocv-acts');
-    head.appendChild(acts);
-    const body = el('div', 'bzr-tocv-b');
-    root.append(head, body);
+    this.headEl = el('div', 'bzr-tocv-h');
+    this.bodyEl = el('div', 'bzr-tocv-b');
+    this.footEl = el('div', 'bzr-tocv-f');
+    root.append(this.headEl, this.bodyEl, this.footEl);
     this.contentEl.appendChild(root);
-    this.tabsEl = tabs;
-    this.actsEl = acts;
-    this.listEl = body;
   }
 
   /* ─────────────────── 渲染 ─────────────────── */
 
   private render(): void {
-    const list = this.listEl;
-    const acts = this.actsEl;
-    if (!list || !acts) return;
-    for (const [key, node] of this.tabNodes) node.classList.toggle('is-on', key === this.tab);
-    this.renderActions(acts);
+    const head = this.headEl;
+    const body = this.bodyEl;
+    const foot = this.footEl;
+    if (!head || !body || !foot) return;
     this.stopWatchingCovers();
-
-    if (this.tab === 'shelf') this.renderShelf(list);
-    else if (this.tab === 'toc') this.renderToc(list);
-    else if (this.tab === 'bookmarks') this.renderBookmarks(list);
-    else this.renderHighlights(list);
-    this.paintCounts();
-  }
-
-  /** 头行动作钮：按当前页签长出来（目录页没有动作，区里是空的） */
-  private renderActions(acts: HTMLElement): void {
-    clear(acts);
-    if (this.tab === 'shelf') {
-      const source = getShelfSource();
-      if (getShelfPro()) {
-        // pro 动作由 plugin 注入（base 里这个 if 整块不存在，模块也摇掉了）
-        const xs = el('button', 'bzr-tocv-act', '全文') as HTMLButtonElement;
-        xs.type = 'button';
-        xs.title = '在全部书里搜索';
-        xs.addEventListener('click', () => getShelfPro()?.openCrossSearch());
-        const stats = el('button', 'bzr-tocv-act', '统计') as HTMLButtonElement;
-        stats.type = 'button';
-        stats.title = '阅读统计';
-        stats.addEventListener('click', () => getShelfPro()?.openStats());
-        acts.append(xs, stats);
-      }
-      const imp = el('button', 'bzr-tocv-act', '导入') as HTMLButtonElement;
-      imp.type = 'button';
-      imp.title = '把书导入书库';
-      imp.addEventListener('click', () => getShelfSource()?.openImport());
-      acts.appendChild(imp);
-      if (!source) imp.disabled = true;
-    } else if (this.tab !== 'toc' && __BZ_READER_PRO__) {
-      const btn = el('button', 'bzr-tocv-act', '导出') as HTMLButtonElement;
-      btn.type = 'button';
-      btn.title = '把这本书的划线导出成一份笔记';
-      btn.addEventListener('click', () => exportNotes());
-      acts.appendChild(btn);
+    if (this.page === 'shelf') {
+      this.renderShelfHead(head);
+      this.renderShelf(body);
+      this.renderShelfFoot(foot);
+    } else {
+      this.renderBookHead(head, foot);
+      this.renderBookBody(body);
     }
   }
 
-  private paintCounts(): void {
-    const toc = getToc();
-    const notes = __BZ_READER_PRO__ ? getNotes() : null;
+  /* ─────────────────── ① 书库页 ─────────────────── */
+
+  private renderShelfHead(head: HTMLElement): void {
+    clear(head);
+    head.classList.remove('is-book');
+    head.classList.add('is-shelf');
     const source = getShelfSource();
-    const counts: Partial<Record<SideTab, number>> = {
-      shelf: source?.repo.all().length ?? 0,
-      toc: toc ? countToc(toc.items) : 0,
-      bookmarks: notes?.bookmarks.length ?? 0,
-      highlights: notes?.highlights.length ?? 0,
-    };
-    for (const [key, node] of this.tabNodes) {
-      const n = counts[key] ?? 0;
-      // 书库页签挂数量是噪音（谁都知道自己有几本书），只给书内三块挂
-      if (key === 'shelf' || !n) {
-        node.querySelector<HTMLElement>('.n')?.remove();
-        continue;
-      }
-      let badge = node.querySelector<HTMLElement>('.n');
-      if (!badge) {
-        badge = el('span', 'n');
-        node.appendChild(badge);
-      }
-      badge.textContent = String(n);
+    const n = source ? allCount(source.repo) : 0;
+    const title = el('b', 'bzr-tocv-title', '书 库');
+    title.addEventListener('click', () => {
+      // 点题回顶：长书列滚到底再点题，不该一动不动
+      this.bodyEl?.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    head.append(title, el('span', 'bzr-tocv-count', n ? `${n} 本` : ''));
+  }
+
+  /** 页脚：导入 / 统计 / 全文 沉底（原型把全局动作放页脚，头行只留标题） */
+  private renderShelfFoot(foot: HTMLElement): void {
+    clear(foot);
+    foot.classList.remove('is-empty');
+    foot.classList.add('is-shelf');
+    const source = getShelfSource();
+    const pro = getShelfPro();
+    if (pro) {
+      // pro 动作由 plugin 注入（base 里这个 if 整块不存在，模块也摇掉了）
+      const xs = el('button', 'bzr-tocv-fact', '全 文') as HTMLButtonElement;
+      xs.type = 'button';
+      xs.title = '在全部书里搜索';
+      xs.addEventListener('click', () => getShelfPro()?.openCrossSearch());
+      const stats = el('button', 'bzr-tocv-fact', '统 计') as HTMLButtonElement;
+      stats.type = 'button';
+      stats.title = '阅读统计';
+      stats.addEventListener('click', () => getShelfPro()?.openStats());
+      foot.append(stats, xs);
     }
+    const imp = el('button', 'bzr-tocv-fact', '导 入') as HTMLButtonElement;
+    imp.type = 'button';
+    imp.title = '把书导入书库';
+    imp.addEventListener('click', () => getShelfSource()?.openImport());
+    imp.disabled = !source;
+    foot.appendChild(imp);
   }
-
-  private emptyState(list: HTMLElement, text: string): void {
-    clear(list);
-    this.rows = [];
-    this.lastTocRef = null;
-    this.lastBookId = '';
-    list.appendChild(el('div', 'bzr-tocv-empty', text));
-  }
-
-  /* ─────────────────── 书库页 ─────────────────── */
 
   private renderShelf(list: HTMLElement): void {
     const source = getShelfSource();
@@ -212,19 +180,12 @@ export class SideView extends ItemView {
     source.syncVault();
     const all = source.repo.all();
     const kw = this.shelfKeyword.trim().toLowerCase();
-    const books = source.repo.recent().filter((b) => {
-      if (!kw) return true;
-      return (
-        b.meta.title.toLowerCase().includes(kw) ||
-        (b.meta.author || '').toLowerCase().includes(kw) ||
-        b.fileRef.vaultPath.toLowerCase().includes(kw)
-      );
-    });
+    const books = booksOf(this.shelfKeyword, all);
 
     clear(list);
     this.rows = [];
     this.lastTocRef = null;
-    this.lastBookId = '';
+    this.lastRenderedBook = '';
 
     const wrap = el('div', 'bzr-shv');
     const well = el('div', 'bzr-shv-well');
@@ -257,7 +218,7 @@ export class SideView extends ItemView {
       body.appendChild(this.continueRow(recent));
     }
     if (!books.length) {
-      body.appendChild(el('div', 'bzr-tocv-empty', allCount(repo) ? '没有匹配的书' : `书架是空的。把 epub / txt 放进笔记库，或点头栏「导入」`));
+      body.appendChild(el('div', 'bzr-tocv-empty', allCount(repo) ? '没有匹配的书' : `书架是空的。把 epub / txt 放进笔记库，或点页脚「导入」`));
       return;
     }
     const rows = el('div', 'bzr-bkl');
@@ -266,7 +227,7 @@ export class SideView extends ItemView {
     this.watchCovers(rows);
   }
 
-  /** 继续阅读：最近一本读到一半的书（原型 .bkrow 的加高版） */
+  /** 继续阅读：最近一本读到一半的书（原型 .bkrow 的加高版）。点 = 进书页 + 打开 */
   private continueRow(book: ReaderBook): HTMLElement {
     const pct = book.reading.position.percent || 0;
     const row = el('button', 'bzr-bkrow is-cont');
@@ -274,6 +235,7 @@ export class SideView extends ItemView {
     row.appendChild(this.coverBox(book));
     const info = el('div', 'bi');
     info.appendChild(el('b', '', book.meta.title));
+    this.rowSub(info, book);
     const bar = el('div', 'bar');
     const fill = el('i');
     fill.style.width = `${Math.round(pct * 100)}%`;
@@ -281,11 +243,11 @@ export class SideView extends ItemView {
     info.appendChild(bar);
     row.appendChild(info);
     row.appendChild(el('span', 'pct', `${Math.round(pct * 100)}%`));
-    row.addEventListener('click', () => getShelfSource()?.openBook(book));
+    row.addEventListener('click', () => this.enterBook(book));
     return row;
   }
 
-  /** 书行：小封面 + 书名 + 细进度线 + 衬线百分数（原型 .bkrow） */
+  /** 书行：小封面 + 书名 + 出处小字 + 细进度线 + 衬线百分数（原型 .bkrow） */
   private shelfRow(book: ReaderBook): HTMLElement {
     const pct = book.reading.position.percent || 0;
     const missing = !!(book.fileRef as { fileMissing?: boolean }).fileMissing;
@@ -295,6 +257,7 @@ export class SideView extends ItemView {
     row.appendChild(this.coverBox(book));
     const info = el('div', 'bi');
     info.appendChild(el('b', '', book.meta.title));
+    this.rowSub(info, book);
     const bar = el('div', 'bar');
     const fill = el('i');
     fill.style.width = `${Math.round(pct * 100)}%`;
@@ -304,9 +267,27 @@ export class SideView extends ItemView {
     row.appendChild(el('span', 'pct', pct > 0 ? `${Math.round(pct * 100)}%` : '—'));
     row.addEventListener('click', () => {
       if (missing) return;
-      getShelfSource()?.openBook(book);
+      this.enterBook(book);
     });
     return row;
+  }
+
+  /** 书名的第二行：作者；没有作者就退到文件名——同名导入的两本书靠它分清 */
+  private rowSub(info: HTMLElement, book: ReaderBook): void {
+    const sub =
+      book.meta.author?.trim() ||
+      book.fileRef.vaultPath.split('/').pop() ||
+      '';
+    if (sub) info.appendChild(el('span', 'sub', sub));
+  }
+
+  /** 点书 = 进书：阅读视图打开这本书，侧栏切到它的书页 */
+  private enterBook(book: ReaderBook): void {
+    this.bookId = book.id;
+    this.page = 'book';
+    this.tab = 'toc';
+    getShelfSource()?.openBook(book);
+    this.render();
   }
 
   private coverBox(book: ReaderBook): HTMLElement {
@@ -350,21 +331,114 @@ export class SideView extends ItemView {
     this.coverObserver = null;
   }
 
-  /* ─────────────────── 目录页 ─────────────────── */
+  /* ─────────────────── ② 书页（目录 / 书签 / 划线） ─────────────────── */
+
+  private bookInCharge(): ReaderBook | null {
+    const source = getShelfSource();
+    if (!source) return null;
+    return source.repo.byId(this.bookId) ?? null;
+  }
+
+  private renderBookHead(head: HTMLElement, foot: HTMLElement): void {
+    clear(head);
+    clear(foot);
+    foot.classList.remove('is-shelf');
+    foot.classList.add('is-empty'); // 书页没有全局页脚
+    head.classList.remove('is-shelf');
+    head.classList.add('is-book');
+    const book = this.bookInCharge();
+    const snap = getToc();
+    if (!book && snap && snap.bookId) this.bookId = snap.bookId;
+
+    // 头两行：①返回 + 书名 + 作者/导出 ②目录/书签/划线页签
+    const row = el('div', 'bzr-tocv-hr');
+    const back = el('button', 'bzr-tocv-back', '‹ 书库') as HTMLButtonElement;
+    back.type = 'button';
+    back.title = '返回书库';
+    back.addEventListener('click', () => {
+      this.page = 'shelf';
+      this.render();
+    });
+    row.appendChild(back);
+    row.appendChild(el('b', 'bzr-tocv-title', book ? book.meta.title : '阅读'));
+    if (book?.meta.author?.trim()) {
+      row.appendChild(el('span', 'bzr-tocv-count', book.meta.author.trim()));
+    }
+    if (__BZ_READER_PRO__) {
+      this.exportBtn = el('button', 'bzr-tocv-back is-act', '导出') as HTMLButtonElement;
+      this.exportBtn.type = 'button';
+      this.exportBtn.title = '把这本书的划线导出成一份笔记';
+      this.exportBtn.addEventListener('click', () => exportNotes());
+      row.appendChild(this.exportBtn);
+    }
+    const tabs = el('div', 'bzr-side-tabs');
+    this.tabNodes.clear();
+    // 基础版只有目录；书签/划线是高级版页签，不给它长出来（点了也是空态）
+    const defs = __BZ_READER_PRO__ ? BOOK_TABS : BOOK_TABS.filter((t) => t.key === 'toc');
+    for (const def of defs) {
+      const b = el('button', 'bzr-side-tab', def.label) as HTMLButtonElement;
+      b.type = 'button';
+      b.addEventListener('click', () => {
+        if (this.tab === def.key) return;
+        this.tab = def.key;
+        this.renderBookBody(this.bodyEl!);
+      });
+      this.tabNodes.set(def.key, b);
+      tabs.appendChild(b);
+    }
+    head.append(row, tabs);
+  }
+
+  private paintTabStates(): void {
+    const counts: Partial<Record<BookTab, number>> = {};
+    const toc = getToc();
+    const notes = __BZ_READER_PRO__ ? getNotes() : null;
+    counts.toc = toc && (!this.bookId || toc.bookId === this.bookId) ? countToc(toc.items) : 0;
+    counts.bookmarks =
+      notes && (!this.bookId || notes.bookId === this.bookId) ? notes.bookmarks.length : 0;
+    counts.highlights =
+      notes && (!this.bookId || notes.bookId === this.bookId) ? notes.highlights.length : 0;
+    for (const [key, node] of this.tabNodes) {
+      node.classList.toggle('is-on', key === this.tab);
+      const n = counts[key] ?? 0;
+      if (!n) {
+        node.querySelector<HTMLElement>('.n')?.remove();
+        continue;
+      }
+      let badge = node.querySelector<HTMLElement>('.n');
+      if (!badge) {
+        badge = el('span', 'n');
+        node.appendChild(badge);
+      }
+      badge.textContent = String(n);
+    }
+    // 导出只对书签/划线有意义：目录页签下收起来
+    if (this.exportBtn) this.exportBtn.style.display = this.tab === 'toc' ? 'none' : '';
+  }
+
+  private renderBookBody(list: HTMLElement): void {
+    if (!list) return;
+    this.paintTabStates();
+    if (this.tab === 'toc') this.renderToc(list);
+    else if (this.tab === 'bookmarks') this.renderBookmarks(list);
+    else this.renderHighlights(list);
+  }
+
+  /* ── 目录 ── */
 
   private renderToc(list: HTMLElement): void {
     const snap = getToc();
-    if (!snap) {
+    if (!snap || (this.bookId && snap.bookId !== this.bookId)) {
       this.emptyState(list, '打开一本书，目录会出现在这里');
       return;
     }
     // 同一本书、同一份目录：只挪高亮，别重建——重建会把正在滚的列表弹回顶部
-    if (snap.bookId === this.lastBookId && snap.items === this.lastTocRef) {
+    if (snap.bookId === this.lastRenderedBook && snap.items === this.lastTocRef) {
       this.lastActive = ''; // 强制重设，否则同 label 时会被提前 return
       this.setActive(snap.activeLabel);
       return;
     }
-    this.lastBookId = snap.bookId;
+    this.lastRenderedBook = snap.bookId;
     this.lastTocRef = snap.items;
     this.rows = [];
     clear(list);
@@ -406,18 +480,18 @@ export class SideView extends ItemView {
     for (const row of this.rows) row.node.classList.toggle('is-on', !!label && row.label === label);
   }
 
-  /* ─────────────────── 书签 / 划线页 ─────────────────── */
+  /* ── 书签 / 划线 ── */
 
   private renderBookmarks(list: HTMLElement): void {
     // 守卫必须是 if 包裹式：早退式（if (!PRO) return; …）后面的代码在 esbuild
     // 的引用图里仍算「被引用」，note-list 会漏进 base 包（实测 0.21.5）
     if (__BZ_READER_PRO__) {
       this.lastTocRef = null;
-      this.lastBookId = '';
+      this.lastRenderedBook = '';
       clear(list);
       this.rows = [];
       const snap = getNotes();
-      if (!snap) {
+      if (!snap || (this.bookId && snap.bookId !== this.bookId)) {
         list.appendChild(el('div', 'bzr-tocv-empty', '打开一本书，书签会出现在这里'));
         return;
       }
@@ -431,11 +505,11 @@ export class SideView extends ItemView {
   private renderHighlights(list: HTMLElement): void {
     if (__BZ_READER_PRO__) {
       this.lastTocRef = null;
-      this.lastBookId = '';
+      this.lastRenderedBook = '';
       clear(list);
       this.rows = [];
       const snap = getNotes();
-      if (!snap) {
+      if (!snap || (this.bookId && snap.bookId !== this.bookId)) {
         list.appendChild(el('div', 'bzr-tocv-empty', '打开一本书，划线会出现在这里'));
         return;
       }
@@ -444,6 +518,14 @@ export class SideView extends ItemView {
         onRemove: snap.removeHighlight,
       });
     }
+  }
+
+  private emptyState(list: HTMLElement, text: string): void {
+    clear(list);
+    this.rows = [];
+    this.lastTocRef = null;
+    this.lastRenderedBook = '';
+    list.appendChild(el('div', 'bzr-tocv-empty', text));
   }
 }
 

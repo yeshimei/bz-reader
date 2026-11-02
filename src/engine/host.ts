@@ -278,7 +278,9 @@ export class EngineHost {
       const color = this.annotColors.get(d.annotation.value);
       if (color === undefined) return;
       try {
-        d.draw(Overlayer.highlight, { color });
+        // writingMode 要跟着章节文档走：竖排的划线笔刷落在右半、线压右缘，
+        // 横排落在下半、线压底缘（overlayer.highlight 读这个字段分流）
+        d.draw(Overlayer.highlight, { color, writingMode: getComputedStyle(d.doc.body).writingMode });
       } catch (err) {
         // 跨段落的选区偶尔解析成空 Range：画不出来就算了，别打断阅读
         console.warn('[bz-reader] 标注画不出来：', err);
@@ -695,6 +697,14 @@ export class EngineHost {
     // 挂在 paginator 元素上，自定义属性会继承进 shadow 树
     const pag = this.view?.renderer as unknown as (HTMLElement & { render?: () => void }) | undefined;
     pag?.style?.setProperty('--_column-count', String(prefs.columns));
+    // 分页模式下 foliate 用内联 !important 把 documentElement 的 padding 覆成
+    // 「左右列距、上下 0」（columnize()），注入的 body padding 只对章首页生效——
+    // 章中页顶端只剩 shadow 的 48px 边距行，文字顶到悬浮头栏（2026-11-03 用户反馈）。
+    // vendor 补丁把上下 padding 接成 var(--_pad-top/bottom)，这里补足到设计值
+    // （桌面 92/110、移动 68/60，减去 shadow 那 48px）。
+    const mobile = document.body.classList.contains('is-mobile') || document.body.classList.contains('is-phone');
+    pag?.style?.setProperty('--_pad-top', mobile ? '20px' : '44px');
+    pag?.style?.setProperty('--_pad-bottom', mobile ? '12px' : '62px');
     if (!this.view || !prev) return;
     if (prev.layout !== prefs.layout) {
       // 竖排切换必须重新装载章节：引擎只在 load 时读一次 writing-mode，

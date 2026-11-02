@@ -311,7 +311,9 @@ class View {
             ...(vertical
                 ? { 'width': `${width}px` }
                 : { 'height': `${height}px` }),
-            'padding': vertical ? `${margin / 2}px ${gap}px` : `0 ${gap / 2}px`,
+            'padding': vertical
+                ? `${margin / 2}px ${gap}px`
+                : `var(--_pad-top, 0px) ${gap / 2}px var(--_pad-bottom, 0px)`,
             'overflow': 'hidden',
             // force wrap long words
             'overflow-wrap': 'break-word',

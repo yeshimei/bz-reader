@@ -86,7 +86,7 @@ export interface FoliateSearchItem {
 /** 覆盖层绘制函数：把一批矩形画成一坨 SVG */
 export type OverlayerDrawer = (
   rects: Array<{ left: number; top: number; height: number; width: number }>,
-  options?: { color?: string; padding?: number; width?: number },
+  options?: { color?: string; padding?: number; width?: number; writingMode?: string },
 ) => SVGElement;
 
 /** 交给 `view.addAnnotation` 的标注。`value` 就是 CFI 范围字符串 */
@@ -97,7 +97,7 @@ export interface FoliateAnnotation {
 
 /** `draw-annotation` 事件：view 已经把范围解析好，只等我们决定画成什么样 */
 export interface DrawAnnotationDetail {
-  draw: (func: OverlayerDrawer, opts?: { color?: string; padding?: number }) => void;
+  draw: (func: OverlayerDrawer, opts?: { color?: string; padding?: number; writingMode?: string }) => void;
   annotation: FoliateAnnotation;
   doc: Document;
   range: Range;

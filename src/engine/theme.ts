@@ -78,6 +78,12 @@ body > p:first-of-type::first-letter {
 }`;
   }
 
+  // 上下留白跟着平台走：桌面照原型 reader-v① 的 page（92 / 110），给悬浮的
+  // 毛玻璃头脚栏让出呼吸空间；手机屏幕金贵，维持 68 / 60。
+  const mobile = document.body.classList.contains('is-mobile') || document.body.classList.contains('is-phone');
+  const padTop = mobile ? '68px' : '92px';
+  const padBottom = mobile ? '60px' : '110px';
+
   return `
 html, body {
   background: ${theme.bgColor} !important;
@@ -93,8 +99,8 @@ ${verticalDecl}
 body {
   /* 顶栏底栏是悬浮毛玻璃条（原型①：工具悬浮在正文上），上下留白由正文
      自己让出来——竖排时这是块方向留白，同样成立 */
-  padding-top: 68px !important;
-  padding-bottom: 60px !important;
+  padding-top: ${padTop} !important;
+  padding-bottom: ${padBottom} !important;
   padding-left: ${prefs.margin}px !important;
   padding-right: ${prefs.margin}px !important;
   box-sizing: border-box !important;

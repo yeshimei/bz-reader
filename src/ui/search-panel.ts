@@ -29,6 +29,10 @@ export interface SearchPanelDeps {
   ) => Promise<SearchHitline[]>;
   onPick: (cfi: string) => void;
   onClose: () => void;
+  /** 当前章名：本章范围的命中行要标「在哪一章」（原型 .hit .loc） */
+  chapterLabel?: () => string;
+  /** 当前书名：面板头行的范围说明（原型 .p-head .n =「山月记 · 全书」） */
+  title?: () => string;
 }
 
 export interface SearchPanel {
@@ -66,16 +70,34 @@ function withMarks(text: string, query: string): DocumentFragment {
 
 export function createSearchPanel(deps: SearchPanelDeps): SearchPanel {
   const root = el('div', 'bzr-sb');
-  const bar = el('div', 'bzr-sb-bar');
+
+  /* 头行（原型 .p-head）：衬线「搜 索」+ 范围说明 + ✕。
+     排版面板同款头行，两个面板一左一右才像一个户口生出来的 */
+  const head = el('div', 'bzr-sb-head');
+  const whereEl = el('span', 'n', '');
+  const headX = el('button', 'x', '✕') as HTMLButtonElement;
+  headX.type = 'button';
+  headX.setAttribute('aria-label', '关闭搜索');
+  headX.addEventListener('click', () => hide());
+  head.append(el('b', '', '搜 索'), whereEl, el('span', 'sp'), headX);
+
+  const well = el('div', 'bzr-sb-input');
   const input = el('input');
   input.type = 'search';
   input.spellcheck = false;
-  const well = el('div', 'bzr-sb-input');
-  well.appendChild(input);
-  const count = el('span', 'bzr-sb-count', '');
-  const cancel = el('button', 'bzr-sb-cancel', '取消');
+  const clearBtn = el('button', 'bzr-sb-clear', '✕') as HTMLButtonElement;
+  clearBtn.type = 'button';
+  clearBtn.setAttribute('aria-label', '清空');
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    void run('');
+    input.focus();
+  });
+  well.append(searchIcon(), input, clearBtn);
+  const cancel = el('button', 'bzr-sb-cancel', '取消') as HTMLButtonElement;
   cancel.type = 'button';
-  bar.append(searchIcon(), well, count, cancel);
+  const bar = el('div', 'bzr-sb-bar');
+  bar.append(well, cancel);
 
   /* 范围切换：只有高级版才长出来 */
   let scope: SearchScope = 'chapter';
@@ -93,6 +115,7 @@ export function createSearchPanel(deps: SearchPanelDeps): SearchPanel {
       if (__BZ_READER_PRO__ && key === 'book') hint = '在全书中搜索';
       input.placeholder = hint;
       for (const it of scopeBtns) it.node.classList.toggle('is-on', it.key === scope);
+      paintWhere();
       if (input.value.trim()) void run(input.value);
       else input.focus();
     });
@@ -109,9 +132,17 @@ export function createSearchPanel(deps: SearchPanelDeps): SearchPanel {
 
   const status = el('div', 'bzr-sb-status', '');
   const hits = el('div', 'bzr-sb-hits');
-  root.append(bar);
+  root.append(head, bar);
   if (__BZ_READER_PRO__) root.appendChild(scopeBar);
   root.append(status, hits);
+
+  /** 头行范围说明：书名 · 本章/全书（原型 .p-head .n） */
+  function paintWhere(): void {
+    const t = deps.title?.() ?? '';
+    let s = t;
+    if (__BZ_READER_PRO__) s = `${t ? `${t} · ` : ''}${scope === 'book' ? '全书' : '本章'}`;
+    whereEl.textContent = s;
+  }
 
   let timer: number | null = null;
   let seq = 0;
@@ -128,15 +159,14 @@ export function createSearchPanel(deps: SearchPanelDeps): SearchPanel {
     const mySeq = ++seq;
     const usedScope = scope;
     clear(hits);
+    clearBtn.classList.toggle('is-show', !!q);
     if (!q.trim()) {
       status.textContent = '';
-      count.textContent = '';
       return;
     }
     let searching = '搜索中…';
     if (__BZ_READER_PRO__ && usedScope === 'book') searching = '全书搜索中…';
     status.textContent = searching;
-    count.textContent = '';
 
     // 全书结果按章节分段：几百条命中平铺在一起，人没法在上面找东西
     let group: HTMLElement | null = null;
@@ -156,15 +186,15 @@ export function createSearchPanel(deps: SearchPanelDeps): SearchPanel {
       }
       const row = el('button', 'bzr-sb-hit');
       row.type = 'button';
+      // 命中行带一条小字 loc（原型 .hit .loc）：「这句话出自哪」不用点就知道。
+      // 本章范围下 host 不给章名，用脚栏正在显示的当前章名补上
+      let loc = hit.chapterLabel || '';
+      if (!__BZ_READER_PRO__ || usedScope === 'chapter') loc = deps.chapterLabel?.() || loc;
+      if (loc) row.appendChild(el('span', 'bzr-sb-loc', loc));
       row.appendChild(withMarks(hit.excerpt || '（无摘录）', q));
-      // 本章范围下章节名全是同一个，标出来只是噪音
-      if (__BZ_READER_PRO__ && usedScope === 'book' && hit.chapterLabel && !group) {
-        row.appendChild(el('span', 'bzr-sb-loc', hit.chapterLabel));
-      }
       row.addEventListener('click', () => deps.onPick(hit.cfi));
       (group ?? hits).appendChild(row);
       n += 1;
-      count.textContent = String(n);
       let live = '搜索中…';
       if (__BZ_READER_PRO__ && usedScope === 'book') live = `全书已找到 ${n} 处…`;
       status.textContent = live;
@@ -184,7 +214,6 @@ export function createSearchPanel(deps: SearchPanelDeps): SearchPanel {
     if (mySeq !== seq) return; // 后一次输入已经覆盖，丢掉这次结果
     // 增量回调已经把结果挂完了；这里是「一条都没收到」时的兜底（引擎不给 onHit 的情况）
     if (!n) for (const hit of found) appendHit(hit);
-    count.textContent = found.length ? String(found.length) : '';
     status.textContent = statusText(found.length);
   }
 
@@ -202,6 +231,7 @@ export function createSearchPanel(deps: SearchPanelDeps): SearchPanel {
   cancel.addEventListener('click', () => hide());
 
   function show(): void {
+    paintWhere();
     root.classList.add('is-open');
     window.setTimeout(() => {
       input.focus();
