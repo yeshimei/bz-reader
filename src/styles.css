@@ -55,7 +55,7 @@
    uiModal 把 content 塞进 .bzr-dialog-body，那一层没有 flex 撑高，
    不加这条阅读区与书架都是「0 高度」——表现是弹窗开着但一片空白。 */
 .bzr-overlay-popup.bzr-shelf-popup .bzr-dialog-body,
-.bzr-overlay-popup.bzr-reader-popup .bzr-dialog-body {
+.bzr-overlay-popup.bzr-import-popup .bzr-dialog-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
