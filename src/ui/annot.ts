@@ -207,6 +207,13 @@ export function createAnnotLayer(deps: AnnotDeps): AnnotLayer {
     mount(bar, 'create');
   }
 
+  /** AI 结果卡的铜印头行：一枚衬线单字印 + 任务名（原型 reader-v2 肆） */
+  const aiTasks: Record<AiTask, { label: string; title: string }> = {
+    summarize: { label: '摘', title: 'AI 摘要' },
+    explain: { label: '释', title: 'AI 释文' },
+    translate: { label: '译', title: 'AI 译文' },
+  };
+
   /**
    * AI 动作：划词条原地展开成结果卡。没配好就交给上层引导去设置页，
    * 绝不静默失败——「点了没反应」用户只会以为是按钮坏了。
@@ -221,7 +228,10 @@ export function createAnnotLayer(deps: AnnotDeps): AnnotLayer {
       return;
     }
     picked = 'amber';
-    const card = el('div', 'bzr-annot-card');
+    const seal = aiTasks[task];
+    const card = el('div', 'bzr-annot-card bzr-annot-ai-card');
+    const tag = el('div', 'bzr-annot-ai-tag');
+    tag.append(el('span', 'bzr-annot-ai-seal', seal.label), el('b', '', seal.title));
     const quote = el('blockquote', 'bzr-annot-quote', text);
     const out = el('div', 'bzr-annot-ai-out', '正在请求 AI…');
     const foot = el('div', 'bzr-annot-foot');
@@ -246,7 +256,7 @@ export function createAnnotLayer(deps: AnnotDeps): AnnotLayer {
     cancel.type = 'button';
     cancel.addEventListener('click', () => hide());
     foot.append(copy, keep, cancel);
-    card.append(quote, out, foot);
+    card.append(tag, quote, out, foot);
     card.addEventListener('pointerdown', (ev) => ev.stopPropagation());
     card.addEventListener('keydown', (ev) => {
       if (ev.key === 'Escape') {

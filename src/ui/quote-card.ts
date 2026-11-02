@@ -32,7 +32,8 @@ export interface QuoteCardInput {
   dark: boolean;
 }
 
-const BRAND = '#e67341';
+/** 铜金：卡面上唯一的强调色（左缘条、引号、想法区、印） */
+const BRAND = '#c8a464';
 
 /** 换行拆分：连续 ASCII（词/数字/标点）整段算一个 token，中文逐字 */
 function tokenize(text: string): string[] {
@@ -131,50 +132,83 @@ export function renderQuoteCard(input: QuoteCardInput): HTMLCanvasElement {
   // 底
   ctx.fillStyle = input.bg;
   ctx.fillRect(0, 0, W, h);
-  // 左缘品牌色窄条：只这一处强调色
+  // 左缘铜金窄条：只这一处强调色
   ctx.fillStyle = BRAND;
-  ctx.fillRect(0, 0, 5, h);
+  ctx.fillRect(0, 0, 4, h);
 
-  let y = PAD + 8;
-  // 头行：书名 · 作者
-  ctx.fillStyle = softFg;
-  ctx.font = uiFont(13);
-  const head = [input.bookTitle, input.author?.trim()].filter(Boolean).join(' · ');
-  ctx.fillText(head, PAD, y, contentW);
+  let y = PAD + 10;
+  // 头行：书名（衬线，压轴）+ 作者（小字距拉开），右侧章节
+  ctx.font = serifFont(24);
+  ctx.fillStyle = input.fg;
+  ctx.fillText(input.bookTitle, PAD, y, contentW * 0.6);
+  const headW = Math.min(contentW * 0.6, ctx.measureText(input.bookTitle).width);
+  if (input.author?.trim()) {
+    ctx.font = uiFont(12);
+    ctx.fillStyle = softFg;
+    ctx.fillText(input.author.trim().split('').join(' '), PAD + headW + 14, y - 1, contentW / 3);
+  }
   if (input.chapter?.trim()) {
+    ctx.font = uiFont(12);
+    ctx.fillStyle = softFg;
     ctx.textAlign = 'right';
-    ctx.fillText(input.chapter.trim(), W - PAD, y, contentW / 2);
+    ctx.fillText(input.chapter.trim(), W - PAD, y - 1, contentW / 3);
     ctx.textAlign = 'left';
   }
-  y += headH - 20;
+  y += headH - 12;
 
-  // 原文：衬线
+  // 原文：衬线 + 「」引号（铜金），原型书摘卡的签名件
   ctx.font = serifFont(22);
   ctx.fillStyle = input.fg;
   for (const line of quoteLines) {
-    ctx.fillText(line, PAD + 18, y + quoteLH - 8);
+    ctx.fillText(line, PAD + 20, y + quoteLH - 8);
     y += quoteLH;
   }
-  // 想法：左侧品牌线 + 无衬线
+
+  // 想法区：一条虚线与正文分开，「想 法」小字距标签起头
   if (commentLines.length) {
-    y += 10;
+    y += 8;
+    ctx.strokeStyle = BRAND;
+    ctx.globalAlpha = 0.45;
+    ctx.setLineDash([5, 6]);
+    ctx.beginPath();
+    ctx.moveTo(PAD, y);
+    ctx.lineTo(W - PAD, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    y += 26;
+    ctx.font = uiFont(11);
     ctx.fillStyle = BRAND;
-    ctx.fillRect(PAD, y - 14, 3, commentLines.length * commentLH + 8);
+    ctx.fillText('想  法', PAD, y);
+    y += 24;
     ctx.font = uiFont(17);
     ctx.fillStyle = softFg;
     for (const line of commentLines) {
-      ctx.fillText(line, PAD + 16, y + commentLH - 12);
+      ctx.fillText(line, PAD, y + commentLH - 12);
       y += commentLH;
     }
   }
 
-  // 脚行：日期 · 出处
+  // 脚行：日期 · 出处，右侧一枚「印」字方框（衬线，铜金描边）
   const d = new Date(input.createdAt);
   const pad2 = (n: number): string => (n < 10 ? `0${n}` : String(n));
-  const date = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-  ctx.font = uiFont(13);
+  const date = `${d.getFullYear()} · ${pad2(d.getMonth() + 1)} · ${pad2(d.getDate())}`;
+  ctx.font = uiFont(12);
   ctx.fillStyle = softFg;
-  ctx.fillText(`${date} · bz 阅读`, PAD, h - PAD);
+  ctx.fillText(date, PAD, h - PAD);
+  if (input.chapter?.trim()) {
+    ctx.textAlign = 'right';
+    ctx.fillText(input.chapter.trim().slice(0, 18), W - PAD - 44, h - PAD, contentW / 3);
+    ctx.textAlign = 'left';
+  }
+  ctx.strokeStyle = BRAND;
+  ctx.globalAlpha = 0.8;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(W - PAD - 32, h - PAD - 15, 26, 21);
+  ctx.globalAlpha = 1;
+  ctx.font = serifFont(14);
+  ctx.fillStyle = BRAND;
+  ctx.fillText('印', W - PAD - 25, h - PAD);
   return canvas;
 }
 

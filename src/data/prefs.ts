@@ -9,7 +9,7 @@
  * 少这一步的表现是「字号 400px，整页一个字」。
  * ============================================================ */
 
-export type ThemeName = 'auto' | 'light' | 'sepia' | 'green' | 'dark';
+export type ThemeName = 'auto' | 'paper' | 'ink' | 'parchment' | 'moss' | 'night';
 export type FontFamilyName = 'book' | 'serif' | 'sans';
 export type TextAlign = 'left' | 'justify';
 /** 竖排（writing-mode: vertical-rl）是东亚长文阅读的一等需求，不是装饰 */
@@ -31,7 +31,7 @@ export interface ReaderPrefs {
 
 export const DEFAULT_PREFS: ReaderPrefs = {
   fontSize: 18,
-  lineHeight: 1.8,
+  lineHeight: 2.0,
   margin: 32,
   fontFamily: 'book',
   align: 'justify',
@@ -51,13 +51,27 @@ export const FONT_FAMILIES: Array<{ value: FontFamilyName; label: string; css: s
   { value: 'sans', label: '黑体 / 无衬线', css: '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif' },
 ];
 
+/**
+ * 主题六档（原型 reader-v2 的色板）：纸 / 墨 / 羊皮 / 苔 / 夜 / 跟随。
+ * 纸是宣纸不是纯白、墨是暖炭不是冷黑——阅读器的高级感一半在这两块底色上。
+ * bg/fg 同时用于：注入 iframe 的正文配色、阅读区栏框（--rear-*）、书摘卡片底色。
+ */
 export const THEME_OPTIONS: Array<{ value: ThemeName; label: string; bg: string; fg: string }> = [
+  { value: 'paper', label: '纸', bg: '#f5efdf', fg: '#2c2519' },
+  { value: 'ink', label: '墨', bg: '#211c15', fg: '#ede4d4' },
+  { value: 'parchment', label: '羊皮', bg: '#e9dcc0', fg: '#332b1f' },
+  { value: 'moss', label: '苔', bg: '#1c2420', fg: '#d6e0d4' },
+  { value: 'night', label: '夜', bg: '#0f1418', fg: '#c2cad2' },
   { value: 'auto', label: '跟随 Obsidian', bg: '', fg: '' },
-  { value: 'light', label: '纸白', bg: '#ffffff', fg: '#1f1f1f' },
-  { value: 'sepia', label: '米黄', bg: '#f6ecd8', fg: '#3b3226' },
-  { value: 'green', label: '护眼', bg: '#e2efe2', fg: '#26382a' },
-  { value: 'dark', label: '暗夜', bg: '#17191d', fg: '#c8ccd2' },
 ];
+
+/** 旧版主题名 → 新名（旧值还躺在用户的 JSON 里，直接作废会静默跳回默认） */
+const THEME_MIGRATE: Record<string, ThemeName> = {
+  light: 'paper',
+  sepia: 'parchment',
+  green: 'moss',
+  dark: 'ink',
+};
 
 function clamp(n: unknown, min: number, max: number, fallback: number): number {
   const v = typeof n === 'number' && Number.isFinite(n) ? n : fallback;
@@ -66,7 +80,8 @@ function clamp(n: unknown, min: number, max: number, fallback: number): number {
 
 export function normalizePrefs(raw: unknown): ReaderPrefs {
   const p = (raw ?? {}) as Partial<ReaderPrefs>;
-  const theme = THEME_OPTIONS.some((t) => t.value === p.theme) ? (p.theme as ThemeName) : DEFAULT_PREFS.theme;
+  const rawTheme = typeof p.theme === 'string' && p.theme in THEME_MIGRATE ? THEME_MIGRATE[p.theme] : p.theme;
+  const theme = THEME_OPTIONS.some((t) => t.value === rawTheme) ? (rawTheme as ThemeName) : DEFAULT_PREFS.theme;
   const family = FONT_FAMILIES.some((f) => f.value === p.fontFamily)
     ? (p.fontFamily as FontFamilyName)
     : DEFAULT_PREFS.fontFamily;

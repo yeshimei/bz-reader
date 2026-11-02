@@ -136,6 +136,7 @@ export function fullscreenIcon(): HTMLElement {
  * 滑杆行：标签 / 轨道 / 读数。
  * 轨道用背景渐变画（--p 控制品牌色走多远），所以 -webkit-slider-runnable-track
  * 必须透明——两层都画会得到一根双色错位的轨道。
+ * `ticks` 给了就在轨道下沿铺一排档位刻度（原型：先看得清档位再拖）。
  */
 export function trackRow(opts: {
   label: string;
@@ -144,6 +145,7 @@ export function trackRow(opts: {
   step: number;
   value: number;
   format?: (v: number) => string;
+  ticks?: number;
   onInput: (v: number) => void;
 }): { row: HTMLElement; input: HTMLInputElement; set: (v: number) => void } {
   const fmt = opts.format ?? ((v: number) => String(v));
@@ -171,7 +173,14 @@ export function trackRow(opts: {
   });
 
   paint(opts.value);
-  row.append(label, input, value);
+  const well = el('div', 'bzr-track-well');
+  well.appendChild(input);
+  if (opts.ticks && opts.ticks > 1) {
+    const ticks = el('div', 'bzr-track-ticks');
+    for (let i = 0; i < opts.ticks; i++) ticks.appendChild(el('i'));
+    well.appendChild(ticks);
+  }
+  row.append(label, well, value);
   return { row, input, set: paint };
 }
 
@@ -201,7 +210,8 @@ export function seg<T extends string | number>(
   return box;
 }
 
-/** 主题色块。`on` 项套一圈品牌色描边（用 box-shadow 做，不占布局）。 */
+/** 主题纸样圆。`on` 项外套一圈铜环（box-shadow 画，不占布局），
+ *  半透明底的主题（跟随 Obsidian）用对半渐变示意「两边都可能」。 */
 export function swatches<T extends string>(
   options: Array<{ value: T; label: string; bg: string }>,
   value: T,

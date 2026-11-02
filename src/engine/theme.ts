@@ -17,17 +17,24 @@ export interface ResolvedTheme {
   dark: boolean;
 }
 
+const DARK_THEMES: ReadonlySet<ThemeName> = new Set(['ink', 'moss', 'night']);
+
+/** 铜金：暗主题亮一档，纸面压深一档。正文里的章题短线与首字下沉用它。 */
+export function copperOf(dark: boolean): string {
+  return dark ? '#c8a464' : '#9a7434';
+}
+
 /** 主题名 → 实际颜色。auto 读宿主令牌（跟随 Obsidian 明暗）。 */
 export function resolveTheme(name: ThemeName): ResolvedTheme {
   const dark = document.body.classList.contains('theme-dark');
   if (name === 'auto') {
     const style = getComputedStyle(document.body);
-    const text = style.getPropertyValue('--bzr-text-1').trim() || (dark ? '#c8ccd2' : '#1f1f1f');
-    const bg = style.getPropertyValue('--bzr-surface-0').trim() || (dark ? '#17191d' : '#ffffff');
+    const text = style.getPropertyValue('--bzr-text-1').trim() || (dark ? '#ede4d4' : '#2c2519');
+    const bg = style.getPropertyValue('--bzr-surface-0').trim() || (dark ? '#211c15' : '#f5efdf');
     return { textColor: text, bgColor: bg, dark };
   }
   const opt = THEME_OPTIONS.find((t) => t.value === name) ?? THEME_OPTIONS[1];
-  return { textColor: opt.fg, bgColor: opt.bg, dark: name === 'dark' };
+  return { textColor: opt.fg, bgColor: opt.bg, dark: DARK_THEMES.has(name) };
 }
 
 /**
@@ -35,12 +42,19 @@ export function resolveTheme(name: ThemeName): ResolvedTheme {
  *
  * 全部 `!important`：EPUB 里 `p { color: #333 }` 这类写法极常见，
  * 不加的话「换主题没反应」——用户看到的是书没变，实际是我们被书压住了。
+ *
+ * 版式（原型 reader-v2「书是主角」一套）：
+ *   - 章题（h1）居中、衬线字距，下面一条 34px 铜金短线——整章唯一的装饰
+ *   - 次级标题（h2/h3）居中但不出线
+ *   - 正文加 0.015em 字距（汉字可读性贴着排印下限给）
+ *   - 横排时首段首字下沉（铜金）；竖排的 writing-mode 下 float 行为不可控，跳过
  */
 export function buildChapterCSS(prefs: ReaderPrefs): string {
   const theme = resolveTheme(prefs.theme);
   const family = FONT_FAMILIES.find((f) => f.value === prefs.fontFamily)?.css || '';
   const familyDecl = family ? `font-family: ${family} !important;` : '';
   const imgFilter = theme.dark ? 'filter: invert(1) hue-rotate(180deg);' : '';
+  const copper = copperOf(theme.dark);
   // 竖排写在 html 上，body 继承。foliate 引擎在每次章节装载时读 body 的
   // computed writing-mode 判定横竖（paginator.js 的 getDirection），而注入
   // 恰好发生在那次读取之前——所以竖排不需要任何引擎侧配合，改 prefs 重注即可。
@@ -49,6 +63,19 @@ export function buildChapterCSS(prefs: ReaderPrefs): string {
   let verticalDecl = '';
   if (__BZ_READER_PRO__ && prefs.layout === 'vertical') {
     verticalDecl = 'html { writing-mode: vertical-rl !important; }';
+  }
+  // 首字下沉只给横排：竖排里 float 会把字提到整页最上头，没法用
+  let dropCapDecl = '';
+  if (prefs.layout !== 'vertical' || !__BZ_READER_PRO__) {
+      dropCapDecl = `
+body > p:first-of-type::first-letter {
+  float: left !important;
+  font-size: 2.6em !important;
+  line-height: 0.9 !important;
+  padding: 0.05em 0.14em 0 0 !important;
+  color: ${copper} !important;
+  font-weight: 500 !important;
+}`;
   }
 
   return `
@@ -59,10 +86,15 @@ html, body {
   line-height: ${prefs.lineHeight} !important;
   font-size: ${prefs.fontSize}px !important;
   text-align: ${prefs.align} !important;
+  letter-spacing: 0.015em !important;
   -webkit-font-smoothing: antialiased;
 }
 ${verticalDecl}
 body {
+  /* 顶栏底栏是悬浮毛玻璃条（原型①：工具悬浮在正文上），上下留白由正文
+     自己让出来——竖排时这是块方向留白，同样成立 */
+  padding-top: 68px !important;
+  padding-bottom: 60px !important;
   padding-left: ${prefs.margin}px !important;
   padding-right: ${prefs.margin}px !important;
   box-sizing: border-box !important;
@@ -78,6 +110,29 @@ h1, h2, h3, h4, h5, h6 {
   color: ${theme.textColor} !important;
   ${familyDecl}
 }
+h1 {
+  text-align: center !important;
+  font-size: 1.5em !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.08em !important;
+  margin-top: 1.4em !important;
+  margin-bottom: 1.5em !important;
+}
+h1::after {
+  content: "" !important;
+  display: block !important;
+  width: 34px !important;
+  height: 1px !important;
+  margin: 1.1em auto 0 !important;
+  background: ${copper} !important;
+  opacity: 0.7;
+}
+h2, h3 {
+  text-align: center !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.06em !important;
+}
+${dropCapDecl}
 ${imgFilter ? `img, svg, video { ${imgFilter} }` : ''}
 a { color: inherit !important; text-decoration: underline !important; }
 /* 书里写死的窄栏宽会让字号放大后只剩一行两个字 */

@@ -44,7 +44,7 @@ import {
 } from '../data/notes';
 import { ActivityTracker } from '../engine/activity';
 import { EngineHost, type Rect, type RelocateInfo, type SelectionInfo } from '../engine/host';
-import { resolveTheme } from '../engine/theme';
+import { copperOf, resolveTheme } from '../engine/theme';
 import { notify } from '../core/notice';
 import { PLUGIN_ID } from '../core/plugin-path';
 import { aiAsk } from '../data/ai';
@@ -95,10 +95,16 @@ export class ReaderView extends ItemView {
   // 注意：不能叫 titleEl —— 那是 View 基类的页签标题元素，子类同名字段会把它覆盖成 null，
   // Obsidian 的 ItemView.load() 里 this.titleEl.setText(...) 就会炸成「打不开视图」。
   private bookTitleEl: HTMLElement | null = null;
+  private authorEl: HTMLElement | null = null;
   private chapterEl: HTMLElement | null = null;
   private percentEl: HTMLElement | null = null;
   private remainEl: HTMLElement | null = null;
   private railFill: HTMLElement | null = null;
+  /** 脚栏进度线（可点可拖）：填充与旋钮同步走同一个百分比 */
+  private trackFill: HTMLElement | null = null;
+  private trackKnob: HTMLElement | null = null;
+  /** 全屏态左下角的幽灵进度（点+百分数），工具栏全隐时只剩它 */
+  private ghostPct: HTMLElement | null = null;
   private toc: ReturnType<typeof createTocPanel> | null = null;
   private search: ReturnType<typeof createSearchPanel> | null = null;
   private prefsPanel: ReturnType<typeof createPrefsPanel> | null = null;
@@ -202,13 +208,16 @@ export class ReaderView extends ItemView {
     // 手机上默认沉浸：两条栏浮在上面，点一下中间才出来
     if (mobile) root.classList.add('is-bare');
 
-    /* 头栏 */
+    /* 头栏：原型 reader-v2 的毛玻璃细条。书名衬线大一点，作者小字距拉开；
+       章节名不站头栏（头栏只回答「我在读哪本书」），挪进脚栏跟进度作伴 */
     const back = el('button', 'bzr-rback', '‹');
     back.type = 'button';
     back.setAttribute('aria-label', '返回笔记');
     back.title = '返回笔记';
-    const title = el('div', 'bzr-rtitle', '');
-    const chapter = el('div', 'bzr-rchap', '');
+    const metaBox = el('div', 'bzr-rhead-meta');
+    const title = el('b', 'bzr-rhead-name', '');
+    const author = el('span', 'bzr-rhead-author', '');
+    metaBox.append(title, author);
     const tocBtn = el('button', 'bzr-ric');
     tocBtn.type = 'button';
     tocBtn.title = '目录';
@@ -224,7 +233,7 @@ export class ReaderView extends ItemView {
     prefsBtn.title = '排版';
     prefsBtn.setAttribute('aria-label', '排版');
     const headEl = el('div', 'bzr-rhead');
-    headEl.append(back, title, chapter, el('div', 'bzr-rspacer'), tocBtn, searchBtn, prefsBtn);
+    headEl.append(back, metaBox, el('div', 'bzr-rspacer'), tocBtn, searchBtn, prefsBtn);
 
     // 全屏（两版都有）：工具栏全部藏掉，正文吃满。再点中间或 Esc 回来。
     // 移动端默认就是沉浸态（is-bare），点中间本来就收放，不重复给按钮。
@@ -262,17 +271,17 @@ export class ReaderView extends ItemView {
     const bodyEl = el('div', 'bzr-rbody');
     bodyEl.append(stage, flipPrev, flipNext);
 
-    /* 脚栏（桌面） */
-    const prevBtn = el('button', 'bzr-rnav', '上一页');
-    prevBtn.type = 'button';
-    const nextBtn = el('button', 'bzr-rnav', '下一页');
-    nextBtn.type = 'button';
-    const percent = el('b', '', '0%');
-    const remain = el('span', '', '');
-    const meta = el('div', 'bzr-rmeta');
-    meta.append(percent, remain);
+    /* 脚栏（桌面）：章节名 ——— 可拖进度线 ——— 百分比（衬线） ——— 剩余时间。
+       上下页按钮没了：点正文两侧 / 方向键 / 悬停箭头三条路都在，底栏留干净 */
+    const chapter = el('span', 'bzr-rfoot-chap', '');
+    const track = el('div', 'bzr-rfoot-track');
+    const trackFill = el('i', 'is-fill');
+    const trackKnob = el('i', 'is-knob');
+    track.append(trackFill, trackKnob);
+    const percent = el('b', 'bzr-rfoot-pct', '0%');
+    const remain = el('span', 'bzr-rfoot-left', '');
     const footEl = el('div', 'bzr-rfoot');
-    footEl.append(prevBtn, meta, nextBtn);
+    footEl.append(chapter, track, percent, remain);
 
     /* 底栏（移动）：目录 / 进度 / 搜索 / 排版 */
     const mb = el('div', 'bzr-mbot');
@@ -290,6 +299,11 @@ export class ReaderView extends ItemView {
     const rail = el('div', 'bzr-rrail');
     const railFill = el('i');
     rail.appendChild(railFill);
+
+    /* 全屏态幽灵进度：工具栏全隐时左下角只剩一枚铜点 + 百分数 */
+    const ghost = el('div', 'bzr-rghost');
+    const ghostPct = el('b', '', '0%');
+    ghost.appendChild(ghostPct);
 
     /* 面板 */
     const toc = createTocPanel(
@@ -383,10 +397,14 @@ export class ReaderView extends ItemView {
     this.rootEl = root;
     this.stage = stage;
     this.bookTitleEl = title;
+    this.authorEl = author;
     this.chapterEl = chapter;
     this.percentEl = percent;
     this.remainEl = remain;
     this.railFill = railFill;
+    this.trackFill = trackFill;
+    this.trackKnob = trackKnob;
+    this.ghostPct = ghostPct;
     this.toc = toc;
     this.search = search;
     this.prefsPanel = prefsPanel;
@@ -444,8 +462,27 @@ export class ReaderView extends ItemView {
       void p.then(() => this.tracker.touch());
     };
 
-    prevBtn.addEventListener('click', () => turn('prev'));
-    nextBtn.addEventListener('click', () => turn('next'));
+    /* 脚栏进度线：点哪跳哪，按住拖就实时跟手，松手才真正跳转
+       （拖动过程每帧重排整本书会卡成幻灯片——移动端进度 sheet 的老结论） */
+    let dragging = false;
+    const pctFromEvent = (ev: PointerEvent): number => {
+      const r = track.getBoundingClientRect();
+      return Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width));
+    };
+    track.addEventListener('pointerdown', (ev) => {
+      dragging = true;
+      track.setPointerCapture(ev.pointerId);
+      this.paintFoot(pctFromEvent(ev));
+    });
+    track.addEventListener('pointermove', (ev) => {
+      if (dragging) this.paintFoot(pctFromEvent(ev));
+    });
+    track.addEventListener('pointerup', (ev) => {
+      if (!dragging) return;
+      dragging = false;
+      void this.host.goToPercent(pctFromEvent(ev)).then(() => this.tracker.touch());
+    });
+
     flipPrev.addEventListener('click', () => turn('prev'));
     flipNext.addEventListener('click', () => turn('next'));
     mToc.addEventListener('click', openToc);
@@ -570,13 +607,19 @@ export class ReaderView extends ItemView {
 
   private lastRemaining = 0;
 
-  /** 栏框跟随阅读主题：只改根节点上的两个变量，全树跟着走 */
+  /** 栏框跟随阅读主题：只改根节点上的变量，全树跟着走。
+   *  阅读区的强调色统一换成铜金（主题给档），书架仍是原强调色——
+   *  覆盖写在 .bzr-reader 作用域内，不外溢到别的界面。 */
   private applyChrome(): void {
     const root = this.rootEl;
     if (!root) return;
     const theme = resolveTheme(this.prefs.theme);
     root.style.setProperty('--rear-bg', theme.bgColor);
     root.style.setProperty('--rear-fg', theme.textColor);
+    const copper = copperOf(theme.dark);
+    root.style.setProperty('--bzr-brand', copper);
+    root.style.setProperty('--bzr-brand-hover', copper);
+    root.style.setProperty('--bzr-brand-soft', theme.dark ? 'rgba(200, 164, 100, 0.16)' : 'rgba(154, 116, 52, 0.13)');
   }
 
   private applyPrefs(patch: Partial<ReaderPrefs>): void {
@@ -647,6 +690,7 @@ export class ReaderView extends ItemView {
       this.bookTitleEl.textContent = book.meta.title;
       this.bookTitleEl.title = book.meta.title;
     }
+    if (this.authorEl) this.authorEl.textContent = book.meta.author || '';
     this.updateFoot(book.reading.position.percent || 0, 0);
     if (this.chapterEl && book.reading.position.chapterTitle) {
       this.chapterEl.textContent = book.reading.position.chapterTitle;
@@ -681,6 +725,7 @@ export class ReaderView extends ItemView {
             this.bookTitleEl.textContent = book.meta.title;
             this.bookTitleEl.title = book.meta.title;
           }
+          if (this.authorEl) this.authorEl.textContent = book.meta.author || '';
           this.toc?.setItems(this.host.toc());
           this.publishToc();
           // 页签标题跟着书名走。用 leaf 自己的 updateHeader（内部 API，没有就跳过）；
@@ -723,15 +768,23 @@ export class ReaderView extends ItemView {
 
   /* ─────────────────── 进度与会话 ─────────────────── */
 
+  /** 只刷「视觉上的」进度：拖动中途用，不落数据不触发跳转 */
+  private paintFoot(p: number): void {
+    const pct = Math.max(0, Math.min(1, p));
+    if (this.percentEl) this.percentEl.textContent = `${Math.round(pct * 100)}%`;
+    if (this.trackFill) this.trackFill.style.width = `${pct * 100}%`;
+    if (this.trackKnob) this.trackKnob.style.left = `${pct * 100}%`;
+    if (this.railFill) this.railFill.style.width = `${pct * 100}%`;
+    if (this.ghostPct) this.ghostPct.textContent = `${Math.round(pct * 100)}%`;
+  }
+
   private updateFoot(percent: number, remainingSeconds: number): void {
     this.lastRemaining = remainingSeconds;
-    const p = Math.max(0, Math.min(1, percent));
-    if (this.percentEl) this.percentEl.textContent = `${Math.round(p * 100)}%`;
+    this.paintFoot(percent);
     if (this.remainEl) {
       this.remainEl.textContent =
         remainingSeconds > 60 ? `剩 ${durationLabel(remainingSeconds)}` : '';
     }
-    if (this.railFill) this.railFill.style.width = `${p * 100}%`;
   }
 
   private saveRelocate(info: RelocateInfo): void {

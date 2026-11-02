@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="ink" data-page-node-id="p5FirPQG0VE9dcHc9Qynoe">
+<head data-page-node-id="1LJ4BoHSvksVGCF93Wj0Bh">
+<meta charset="utf-8" data-page-node-id="hvxsDdVr3ki0rxZ4TyRKvM">
+<meta name="viewport" content="width=device-width, initial-scale=1" data-page-node-id="DnizI5GzAHRAwaUETr139a">
+<title>bz 阅读 · 阅读 UI 重设计 v2</title>
+<style>
+/* ==========================================================
+   bz 阅读 · 阅读 UI 重设计（v2 原型）
+   方向：墨与铜 —— 暖炭/宣纸双主题，衬线书名，铜金单一强调。
+   原则：① 工具栏退成毛玻璃细条，正文永远是主角
+         ② 一个强调色（铜金），划线色自成体系但只出现在内容上
+         ③ 数字与书名用衬线，操作用无衬线，节奏靠字重与间距
+   ========================================================== */
+:root{
+  /* 暗主题（默认）：暖炭，不是冷黑 */
+  --bg:#141110;
+  --bg-2:#181412;
+  --glass:rgba(30,25,21,.78);
+  --glass-line:rgba(233,214,181,.10);
+  --surface:#1e1915;
+  --surface-2:#251f19;
+  --line:rgba(233,214,181,.09);
+  --line-2:rgba(233,214,181,.16);
+  --t1:#ede4d4;
+  --t2:#a2937d;
+  --t3:#6b5f4e;
+  --copper:#c8a464;
+  --copper-soft:rgba(200,164,100,.14);
+  --copper-line:rgba(200,164,100,.35);
+  --ink:#f0e8d8;          /* 正文色（暗主题下是暖白） */
+  --ink-2:#c9bda6;
+  --vermilion:#c25e4a;    /* 朱砂：删除/警示 */
+  --ui:"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --serif:Georgia,"Times New Roman","STZhongsong","SimSun","Songti SC",serif;
+  --shadow:0 18px 50px rgba(0,0,0,.5);
+}
+html[data-theme="paper"]{
+  --bg:#efe9db;
+  --bg-2:#e9e2d2;
+  --glass:rgba(247,243,234,.82);
+  --glass-line:rgba(60,48,32,.10);
+  --surface:#f7f3ea;
+  --surface-2:#efeadf;
+  --line:rgba(60,48,32,.11);
+  --line-2:rgba(60,48,32,.20);
+  --t1:#332b1f;
+  --t2:#7d7057;
+  --t3:#a3967c;
+  --copper:#9a7434;
+  --copper-soft:rgba(154,116,52,.12);
+  --copper-line:rgba(154,116,52,.4);
+  --ink:#2c2519;
+  --ink-2:#5c5140;
+  --vermilion:#a84a38;
+  --shadow:0 18px 44px rgba(80,60,30,.18);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--t1);
+  font-family:var(--ui);
+  -webkit-font-smoothing:antialiased;
+  transition:background .35s ease,color .35s ease;
+}
+.wrap{max-width:1480px;margin:0 auto;padding:72px 44px 160px}
+
+/* ── 页眉 ── */
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.kicker{display:flex;align-items:center;gap:10px;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--t3)}
+.kicker i{width:6px;height:6px;border-radius:50%;background:var(--copper)}
+.themeswitch{display:flex;border:1px solid var(--line-2);border-radius:99px;overflow:hidden}
+.themeswitch button{appearance:none;border:0;background:transparent;color:var(--t3);font:12px/1 var(--ui);padding:8px 16px;cursor:pointer;letter-spacing:.1em}
+.themeswitch button.on{background:var(--copper-soft);color:var(--copper)}
+.hero h1{font-family:var(--serif);font-size:56px;font-weight:500;letter-spacing:.01em;margin:18px 0 16px;line-height:1.1}
+.hero h1 em{font-style:normal;color:var(--copper)}
+.hero p{max-width:640px;margin:0;color:var(--t2);font-size:14.5px;line-height:1.9}
+.principles{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:40px}
+.principles div{background:var(--bg);padding:22px 24px}
+.principles b{display:block;font-family:var(--serif);font-size:17px;font-weight:500;margin-bottom:8px}
+.principles span{font-size:12.5px;color:var(--t2);line-height:1.8}
+.swatches{display:flex;gap:10px;margin-top:40px;align-items:flex-end}
+.sw{width:64px}
+.sw i{display:block;height:44px;border-radius:8px;border:1px solid var(--line)}
+.sw small{display:block;font-size:10px;color:var(--t3);margin-top:7px;letter-spacing:.06em}
+
+/* ── 板块 ── */
+.board{margin-top:96px}
+.bhead{display:flex;align-items:baseline;gap:16px;margin-bottom:8px}
+.bhead .no{font-family:var(--serif);color:var(--copper);font-size:15px;letter-spacing:.14em}
+.bhead h2{font-family:var(--serif);font-size:27px;font-weight:500;margin:0;letter-spacing:.02em}
+.bhead p{margin:0;color:var(--t3);font-size:13px}
+.bnote{color:var(--t2);font-size:13px;line-height:1.85;max-width:660px;margin:6px 0 26px}
+
+/* ── 桌面帧：阅读器整体 ── */
+.frame{
+  border:1px solid var(--line-2);border-radius:18px;overflow:hidden;
+  background:var(--bg-2);box-shadow:var(--shadow);position:relative;
+}
+.frame .bar{position:absolute;inset:0 0 auto 0;z-index:5}
+
+/* 毛玻璃顶栏 */
+.rhead{
+  position:absolute;top:0;left:0;right:0;z-index:6;
+  display:flex;align-items:center;gap:14px;padding:14px 22px;
+  background:var(--glass);backdrop-filter:blur(18px) saturate(1.2);
+  border-bottom:1px solid var(--glass-line);
+}
+.rhead .back{width:30px;height:30px;border-radius:9px;border:1px solid var(--line);display:grid;place-items:center;color:var(--t2);font-size:15px}
+.rhead .meta{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rhead .meta b{font-family:var(--serif);font-weight:500;font-size:15px;letter-spacing:.03em;white-space:nowrap}
+.rhead .meta span{font-size:11px;color:var(--t3);letter-spacing:.05em}
+.rhead .sp{flex:1}
+.ib{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;color:var(--t2);cursor:pointer;border:1px solid transparent;font-size:14px;position:relative}
+.ib:hover{color:var(--t1);border-color:var(--line);background:var(--copper-soft)}
+.ib.on{color:var(--copper);border-color:var(--copper-line);background:var(--copper-soft)}
+
+/* 毛玻璃底栏：进度即导航 */
+.rfoot{
+  position:absolute;bottom:0;left:0;right:0;z-index:6;
+  display:flex;align-items:center;gap:18px;padding:16px 26px 18px;
+  background:var(--glass);backdrop-filter:blur(18px) saturate(1.2);
+  border-top:1px solid var(--glass-line);
+}
+.rfoot .chap{font-size:12px;color:var(--t2);white-space:nowrap;letter-spacing:.04em}
+.rfoot .track{flex:1;position:relative;height:22px;cursor:pointer}
+.rfoot .track::before{content:"";position:absolute;left:0;right:0;top:10.5px;height:1px;background:var(--line-2)}
+.rfoot .fill{position:absolute;left:0;top:10px;height:2px;width:62%;background:linear-gradient(90deg,transparent,var(--copper))}
+.rfoot .knob{
+  position:absolute;left:62%;top:11px;width:9px;height:9px;border-radius:50%;
+  background:var(--copper);transform:translate(-50%,-50%);
+  box-shadow:0 0 0 4px var(--copper-soft);
+}
+.rfoot .pct{font-family:var(--serif);font-size:13px;color:var(--t1);letter-spacing:.06em;min-width:44px;text-align:right}
+.rfoot .left{font-size:11px;color:var(--t3);white-space:nowrap}
+
+/* 正文 */
+.page{padding:92px 118px 110px;position:relative}
+.page .chapter-head{text-align:center;margin-bottom:44px}
+.page .chapter-head .vol{font-size:11px;letter-spacing:.5em;color:var(--copper);margin-bottom:14px}
+.page .chapter-head h3{font-family:var(--serif);font-weight:500;font-size:30px;margin:0;letter-spacing:.08em}
+.page .chapter-head .rule{width:34px;height:1px;background:var(--copper);margin:22px auto 0;opacity:.7}
+.page p{font-family:var(--serif);font-size:18.5px;line-height:2.05;color:var(--ink);text-align:justify;margin:0 0 1.6em;letter-spacing:.015em}
+.page p:first-of-type::first-letter{font-size:52px;line-height:1;float:left;padding:8px 12px 0 0;color:var(--copper)}
+.page p.dim{opacity:.55}
+.hl{background:linear-gradient(transparent 58%,var(--copper-soft) 58%);box-shadow:inset 0 -1px 0 var(--copper-line);border-bottom:1px solid var(--copper-line);cursor:pointer}
+.hl.u{background:none;border-bottom:1px solid var(--copper-line);box-shadow:none}
+.hl .note-ico{font-size:12px;color:var(--copper);vertical-align:super;margin-left:2px}
+
+/* ── 浮层面板公共 ── */
+.panel{
+  position:absolute;z-index:8;background:var(--glass);backdrop-filter:blur(24px) saturate(1.25);
+  border:1px solid var(--glass-line);border-radius:16px;box-shadow:var(--shadow);
+}
+.p-head{display:flex;align-items:center;gap:12px;padding:16px 18px 14px;border-bottom:1px solid var(--line)}
+.p-head b{font-family:var(--serif);font-weight:500;font-size:15px;letter-spacing:.06em}
+.p-head .n{font-size:11px;color:var(--t3)}
+.p-head .sp{flex:1}
+.p-head .x{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;color:var(--t3);font-size:12px;border:1px solid transparent;cursor:pointer}
+.p-head .x:hover{color:var(--t1);border-color:var(--line)}
+
+/* 排版面板 */
+.prefs{right:26px;top:64px;width:318px}
+.prefs .grp{padding:18px;border-bottom:1px solid var(--line)}
+.prefs .grp:last-child{border-bottom:0}
+.prow{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.prow label{font-size:12px;color:var(--t2);letter-spacing:.08em}
+.prow .val{font-family:var(--serif);font-size:13px;color:var(--t1)}
+.slider{position:relative;height:26px;cursor:pointer}
+.slider::before{content:"";position:absolute;left:2px;right:2px;top:12.5px;height:1px;background:var(--line-2)}
+.slider .f{position:absolute;left:2px;top:12px;height:2px;background:var(--copper);width:44%}
+.slider .k{position:absolute;left:44%;top:13px;width:11px;height:11px;border-radius:50%;background:var(--surface);border:1.5px solid var(--copper);transform:translate(-50%,-50%)}
+.slider .ticks{position:absolute;left:2px;right:2px;top:16px;height:5px;display:flex;justify-content:space-between}
+.slider .ticks i{width:1px;height:5px;background:var(--line);display:block}
+.seg{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;appearance:none;border:0;background:transparent;color:var(--t3);font:12px/1 var(--ui);padding:8px 0;border-radius:7px;cursor:pointer;letter-spacing:.06em}
+.seg button.on{background:var(--copper-soft);color:var(--copper)}
+.theme-dots{display:flex;gap:12px}
+.td{width:34px;height:34px;border-radius:50%;cursor:pointer;position:relative;border:1px solid var(--line-2)}
+.td.on::after{content:"";position:absolute;inset:-5px;border:1px solid var(--copper);border-radius:50%}
+.td small{position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);font-size:9.5px;color:var(--t3);white-space:nowrap}
+.dir-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dir{border:1px solid var(--line);border-radius:11px;padding:12px 8px 8px;text-align:center;cursor:pointer;background:var(--surface)}
+.dir.on{border-color:var(--copper-line);background:var(--copper-soft)}
+.dir .demo{height:34px;display:grid;place-items:center;color:var(--t2);font-size:12px;font-family:var(--serif)}
+.dir.vert .demo{writing-mode:vertical-rl;letter-spacing:.28em;font-size:10.5px}
+.dir span{display:block;font-size:10.5px;color:var(--t3);margin-top:5px}
+.dir.on span{color:var(--copper)}
+
+/* 目录面板 */
+.toc{left:26px;top:64px;bottom:74px;width:340px;display:flex;flex-direction:column}
+.toc .list{overflow:auto;padding:8px 0;flex:1}
+.toc .list::-webkit-scrollbar{width:0}
+.chaprow{display:flex;align-items:center;gap:14px;padding:12px 20px;cursor:pointer;position:relative}
+.chaprow:hover{background:var(--copper-soft)}
+.chaprow .no{font-family:var(--serif);font-size:11px;color:var(--t3);width:26px;letter-spacing:.08em}
+.chaprow .t{flex:1;font-size:13.5px;color:var(--t2);letter-spacing:.03em}
+.chaprow .pc{font-family:var(--serif);font-size:11px;color:var(--t3)}
+.chaprow.on{background:var(--copper-soft)}
+.chaprow.on::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:2px;background:var(--copper)}
+.chaprow.on .t{color:var(--t1)}
+.chaprow.on .no,.chaprow.on .pc{color:var(--copper)}
+.toc .marks{border-top:1px solid var(--line);padding:12px 20px 14px}
+.toc .marks b{font-size:11px;letter-spacing:.2em;color:var(--t3)}
+.toc .marks .mk{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:12.5px;color:var(--t2)}
+.toc .marks .mk i{width:7px;height:7px;background:var(--copper);display:block;transform:rotate(45deg);border-radius:1px}
+.toc .marks .mk .sp{flex:1}
+.toc .marks .mk em{font-style:normal;font-family:var(--serif);font-size:11px;color:var(--t3)}
+
+/* 搜索面板 */
+.search{right:26px;top:64px;width:420px}
+.search .in{display:flex;align-items:center;gap:10px;margin:14px 16px 12px;border:1px solid var(--line-2);border-radius:11px;padding:10px 14px;background:var(--surface)}
+.search .in input{flex:1;border:0;background:transparent;color:var(--t1);font:13.5px var(--ui);outline:0}
+.search .in input::placeholder{color:var(--t3)}
+.search .scopes{display:flex;gap:6px;padding:0 16px 12px}
+.scope{appearance:none;border:1px solid var(--line);background:transparent;color:var(--t3);font:11.5px/1 var(--ui);padding:7px 13px;border-radius:99px;cursor:pointer;letter-spacing:.05em}
+.scope.on{border-color:var(--copper-line);color:var(--copper);background:var(--copper-soft)}
+.search .hits{max-height:300px;overflow:auto;padding:2px 8px 10px}
+.hit{display:block;width:100%;text-align:left;appearance:none;border:0;background:transparent;color:var(--t2);font:12.5px/1.9 var(--ui);padding:10px 12px;border-radius:10px;cursor:pointer}
+.hit:hover{background:var(--copper-soft)}
+.hit em{font-style:normal;color:var(--copper);border-bottom:1px solid var(--copper-line);padding-bottom:1px}
+.hit .loc{display:block;font-size:10.5px;color:var(--t3);margin-bottom:3px;letter-spacing:.06em}
+
+/* 划词浮层 */
+.annotbar{
+  position:absolute;z-index:9;display:flex;align-items:center;gap:4px;
+  padding:7px 9px;border-radius:13px;
+  background:var(--glass);backdrop-filter:blur(22px) saturate(1.3);
+  border:1px solid var(--glass-line);box-shadow:var(--shadow);
+}
+.dots{display:flex;align-items:center;gap:5px;padding-right:8px;border-right:1px solid var(--line)}
+.cd{width:19px;height:19px;border-radius:50%;cursor:pointer;position:relative;border:1px solid rgba(0,0,0,.25)}
+.cd.on::after{content:"";position:absolute;inset:-4px;border:1px solid var(--t2);border-radius:50%}
+.wbtn{appearance:none;border:0;background:transparent;color:var(--t2);font:12.5px/1 var(--ui);padding:8px 9px;border-radius:8px;cursor:pointer;letter-spacing:.04em}
+.wbtn:hover{color:var(--t1);background:var(--copper-soft)}
+.aichar{font-family:var(--serif);font-size:13.5px;padding:7px 8px}
+
+/* AI 结果卡 */
+.aicard{left:50%;top:200px;transform:translateX(-50%);width:430px;z-index:9}
+.aicard .tag{display:flex;align-items:center;gap:9px;padding:14px 18px 0}
+.aicard .tag .seal{
+  width:26px;height:26px;border-radius:7px;background:var(--copper-soft);border:1px solid var(--copper-line);
+  color:var(--copper);display:grid;place-items:center;font-family:var(--serif);font-size:13px;
+}
+.aicard .tag b{font-size:12.5px;letter-spacing:.14em;color:var(--copper)}
+.aicard .quote{margin:12px 18px;padding:2px 0 2px 14px;border-left:2px solid var(--copper-line);font-size:12px;color:var(--t3);line-height:1.8}
+.aicard .body{margin:0 18px;padding:6px 0 14px;font-size:13.5px;line-height:1.95;color:var(--ink-2)}
+.aicard .acts{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--line)}
+.abtn{flex:1;appearance:none;border:1px solid var(--line-2);background:transparent;color:var(--t2);font:12px/1 var(--ui);padding:10px 0;border-radius:10px;cursor:pointer;letter-spacing:.06em}
+.abtn:hover{color:var(--t1);border-color:var(--copper-line)}
+.abtn.pri{background:var(--copper-soft);border-color:var(--copper-line);color:var(--copper)}
+
+/* 标注卡（点已有划线） */
+.acard{position:absolute;z-index:9;width:300px}
+.acard .hd{display:flex;align-items:center;gap:8px;padding:13px 14px;border-bottom:1px solid var(--line)}
+.acard .hd .dots{border:0;padding:0}
+.acard .hd .sp{flex:1}
+.acard .orig{margin:12px 14px 4px;padding:2px 0 2px 12px;border-left:2px solid var(--copper-line);font-family:var(--serif);font-size:12.5px;line-height:1.9;color:var(--t2)}
+.acard .cmt{margin:10px 14px 14px;font-size:13px;line-height:1.85;color:var(--ink-2)}
+.acard .cmt .ph{color:var(--t3);font-style:italic}
+.acard .ft{display:flex;gap:8px;padding:11px 13px;border-top:1px solid var(--line)}
+.abtn.danger:hover{color:var(--vermilion);border-color:var(--vermilion)}
+
+/* 书摘卡 */
+.qcardstage{display:flex;gap:36px;align-items:flex-start;flex-wrap:wrap}
+.qcard{
+  width:340px;border-radius:14px;padding:34px 30px 26px;position:relative;overflow:hidden;
+  background:#211c15;color:#ece2cd;border:1px solid rgba(233,214,181,.14);
+}
+.qcard.paperish{background:#f5efdf;color:#31291a;border-color:rgba(60,48,32,.16)}
+.qcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--copper)}
+.qcard .qt{font-family:var(--serif);font-size:20px;font-weight:500;letter-spacing:.04em;margin-bottom:4px}
+.qcard .qa{font-size:11px;opacity:.55;letter-spacing:.18em;margin-bottom:22px}
+.qcard .qtext{font-family:var(--serif);font-size:15.5px;line-height:2.05;letter-spacing:.02em}
+.qcard .qtext::before{content:"「";color:var(--copper);margin-right:2px}
+.qcard .qtext::after{content:"」";color:var(--copper);margin-left:2px}
+.qcard .qcmt{margin-top:16px;padding-top:14px;border-top:1px dashed rgba(200,164,100,.3);font-size:12.5px;line-height:1.9;opacity:.82}
+.qcard .qcmt b{font-size:10px;letter-spacing:.3em;color:var(--copper);display:block;margin-bottom:6px;font-weight:400}
+.qcard .qfoot{display:flex;justify-content:space-between;align-items:flex-end;margin-top:26px;padding-top:14px;border-top:1px solid rgba(200,164,100,.18);font-size:10px;letter-spacing:.14em;opacity:.5}
+.qcard .qfoot .stamp{font-family:var(--serif);font-size:13px;opacity:1;letter-spacing:0;border:1px solid currentColor;border-radius:4px;padding:2px 5px;color:var(--copper)}
+
+/* 统计 */
+.stats-stage{display:grid;grid-template-columns:380px 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.stats-l{background:var(--bg-2);padding:30px 30px 26px}
+.stats-l .big{font-family:var(--serif);font-size:46px;line-height:1;letter-spacing:.01em}
+.stats-l .big small{font-size:15px;color:var(--t3);margin-left:6px;letter-spacing:.1em}
+.stats-l .cap{font-size:11px;letter-spacing:.24em;color:var(--t3);margin:8px 0 26px}
+.strow{display:flex;align-items:baseline;justify-content:space-between;padding:11px 0;border-top:1px solid var(--line)}
+.strow b{font-family:var(--serif);font-size:19px;font-weight:500}
+.strow b i{font-style:normal;font-size:12px;color:var(--t3);margin-left:3px}
+.strow span{font-size:11.5px;color:var(--t3);letter-spacing:.1em}
+.streak{display:flex;align-items:center;gap:8px;margin-top:22px;padding:12px 14px;border:1px solid var(--copper-line);background:var(--copper-soft);border-radius:12px}
+.streak .fl{font-size:17px}
+.streak div b{display:block;font-family:var(--serif);font-size:14px;color:var(--copper)}
+.streak div span{font-size:10.5px;color:var(--t3);letter-spacing:.08em}
+.stats-r{background:var(--bg-2);padding:30px}
+.stats-r h5{margin:0 0 16px;font-size:11px;letter-spacing:.24em;color:var(--t3);font-weight:400}
+.heatmap{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,11px);gap:3.5px}
+.heatmap i{width:11px;height:11px;border-radius:2.5px;background:var(--line)}
+.heatmap i.l1{background:rgba(200,164,100,.25)}
+.heatmap i.l2{background:rgba(200,164,100,.5)}
+.heatmap i.l3{background:rgba(200,164,100,.75)}
+.heatmap i.l4{background:var(--copper)}
+.hm-legend{display:flex;align-items:center;gap:5px;justify-content:flex-end;margin-top:14px;font-size:10px;color:var(--t3)}
+.hm-legend i{width:10px;height:10px;border-radius:2.5px;display:block}
+.bkrow{display:flex;align-items:center;gap:14px;padding:12px 0;border-top:1px solid var(--line)}
+.bkrow .cv{width:34px;height:48px;border-radius:4px;flex-shrink:0;position:relative;overflow:hidden}
+.bkrow .cv::after{content:"";position:absolute;inset:0;box-shadow:inset 3px 0 6px rgba(0,0,0,.28)}
+.bkrow .bi{flex:1;min-width:0}
+.bkrow .bi b{display:block;font-size:13px;font-weight:500;letter-spacing:.03em;margin-bottom:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bkrow .bar{height:2px;background:var(--line);border-radius:2px;position:relative}
+.bkrow .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--copper);border-radius:2px}
+.bkrow .pct{font-family:var(--serif);font-size:12px;color:var(--t2);width:40px;text-align:right}
+
+/* ── 移动端 ── */
+.m-stage{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start}
+.phone{
+  width:392px;height:800px;border-radius:44px;border:1px solid var(--line-2);
+  background:var(--bg-2);box-shadow:var(--shadow);overflow:hidden;position:relative;flex-shrink:0;
+}
+.phone .notch{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:110px;height:26px;border-radius:14px;background:rgba(0,0,0,.35);z-index:20}
+.phone .mstatus{display:flex;justify-content:space-between;padding:16px 30px 6px;font-size:11px;color:var(--t3);letter-spacing:.04em}
+.mpage{padding:44px 30px 30px;height:100%;overflow:hidden}
+.mpage p{font-family:var(--serif);font-size:16.5px;line-height:2.1;color:var(--ink);text-align:justify;margin:0 0 1.5em}
+.mpage .mchap{text-align:center;font-size:11px;letter-spacing:.4em;color:var(--t3);margin-bottom:26px}
+.mhud{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:16px;padding:9px 18px;border-radius:99px;background:var(--glass);backdrop-filter:blur(20px);border:1px solid var(--glass-line);box-shadow:var(--shadow);white-space:nowrap}
+.mhud .mp{font-family:var(--serif);font-size:12px;color:var(--copper)}
+.mhud .sep{width:1px;height:12px;background:var(--line-2)}
+.mhud .t{font-size:11px;color:var(--t3)}
+.mtab{
+  position:absolute;bottom:0;left:0;right:0;display:flex;background:var(--glass);backdrop-filter:blur(22px);
+  border-top:1px solid var(--glass-line);padding:10px 8px 22px;
+}
+.mtab .ti{flex:1;text-align:center;color:var(--t3);font-size:10.5px;letter-spacing:.08em}
+.mtab .ti i{display:block;font-style:normal;font-size:17px;margin-bottom:4px}
+.mtab .ti.on{color:var(--copper)}
+.msheet{position:absolute;bottom:0;left:0;right:0;border-radius:22px 22px 0 0;background:var(--glass);backdrop-filter:blur(26px) saturate(1.3);border:1px solid var(--glass-line);border-bottom:0;box-shadow:var(--shadow);z-index:15}
+.msheet .grab{width:36px;height:4px;border-radius:4px;background:var(--line-2);margin:10px auto 4px}
+.msheet .grp{padding:14px 22px 6px}
+.msheet .grp .prow{margin-bottom:2px}
+.msheet .grp .slider{height:30px}
+.msheet .scopes{display:flex;gap:6px;padding:6px 22px 18px}
+.mannot{
+  position:absolute;top:318px;left:50%;transform:translateX(-50%);z-index:12;
+  display:flex;align-items:center;gap:4px;padding:8px 10px;border-radius:14px;
+  background:var(--glass);backdrop-filter:blur(22px);border:1px solid var(--glass-line);box-shadow:var(--shadow);
+}
+
+/* 说明卡 */
+.spec{border:1px solid var(--line);border-radius:14px;padding:18px 20px;background:var(--bg-2);font-size:12.5px;color:var(--t2);line-height:1.9;max-width:380px}
+.spec b{color:var(--t1);font-weight:500}
+.spec .k{color:var(--copper);font-family:var(--serif)}
+ul.clean{margin:8px 0 0;padding:0 0 0 16px}
+ul.clean li{margin:5px 0}
+</style>
+</head>
+<body data-page-node-id="koHvaQEhq0E7TET5rkX95T">
+<div class="wrap" data-page-node-id="t8KtMIYABV7LIV59rZKNgq">
+
+  <div class="top" data-page-node-id="ekUkcmmt1wS1Ov4IF1qJuE">
+    <div class="kicker" data-page-node-id="5d4lNSoeR8aOhpYWRBNsae"><i data-page-node-id="aF2oNFDrfJ3097C9BEK2h0"></i>BZ READER · 阅读 UI 重设计 · V2 原型</div>
+    <div class="themeswitch" data-page-node-id="1hB0PAZKZT4n0DxKgu8NDB">
+      <button class="on" onclick="setTheme('ink',this)" data-page-node-id="kp2leeZ8my4iEBrtPzmjjW">墨（暗）</button>
+      <button onclick="setTheme('paper',this)" data-page-node-id="dzmH4Q78hOytmu5XQjzea9">纸（亮）</button>
+    </div>
+  </div>
+
+  <div class="hero" data-page-node-id="JJBx1bC0qfYzEvu49jIpPf">
+    <h1 data-page-node-id="H1kZrrs3Lf5KXlqDnLeGjX">墨与铜<em data-page-node-id="ExvAg6CnDSUg1Kfcys5AFn">。</em>书是主角，工具退后。</h1>
+    <p data-page-node-id="QTDd8S6w1NbgHGuHVHq61W">这版把阅读界面从「软件工具栏」改成「书房细件」：顶栏底栏换成悬浮毛玻璃细条，书名与章节用衬线，进度是一条可以点的铜金细线。全界面只允许一个强调色——铜金；划线五色只在正文里出现。暗主题是暖炭不是冷黑，亮主题是宣纸不是纯白。</p>
+    <div class="principles" data-page-node-id="D0MH8r0xtoNFbpHUV5tlFk">
+      <div data-page-node-id="f4VnwtOrJHgiuoOzHoaEkK"><b data-page-node-id="hq8AiPSGQqGcwweR3BSAqm">毛玻璃细条</b><span data-page-node-id="16emMfzgyLUQnOEJkTh8g5">顶栏底栏脱离「框架」，悬浮在正文上，滚动到边才现身；全屏态整条隐去，正文即全部。</span></div>
+      <div data-page-node-id="BOWJu2QpmUqNHhW9EmSW7X"><b data-page-node-id="EM27oYXd606tGDUFC3eU9D">衬线承担身份</b><span data-page-node-id="H0NOn4hPM5rX93EUzR9r6R">书名、章节名、数字、AI 单字钮一律衬线；操作文字无衬线小字距——一眼分得清「书」和「工具」。</span></div>
+      <div data-page-node-id="z2moEmPfX7aTRSUlf3ERaC"><b data-page-node-id="wQniGwEKMiPj47irMXg32v">一色铜金</b><span data-page-node-id="izizWzHuoHr2du2FLNVGFr">进度、选中态、当前章节、引用竖线，全部同一种铜金。朱砂只留给删除。没有第二强调色。</span></div>
+    </div>
+    <div class="swatches" data-page-node-id="tpI8g8YXHfEeIihmpsDFwx">
+      <div class="sw" data-page-node-id="UiwKtiXLCs9LAIHV1F6qwz"><i style="background:#c8a464" data-page-node-id="SWi8KA035ESsbo47kd5aEl"></i><small data-page-node-id="FIeA8IocNoEsaHAausruAP">铜金 · 强调</small></div>
+      <div class="sw" data-page-node-id="XPAMqaAUOIUH1dFXJRqXIG"><i style="background:#1e1915" data-page-node-id="vv3U9OXtPwfv5TjFZA5Ay9"></i><small data-page-node-id="orKCGaqqSBibgYcG4jqNWE">暖炭 · 面</small></div>
+      <div class="sw" data-page-node-id="0ILGfNAVca0Q1nmIFDc7s2"><i style="background:#f5efdf" data-page-node-id="vN0YFzDMmfR1RIjIjLQAYa"></i><small data-page-node-id="VeMq2mf7V3C9DGASZ9gpPW">宣纸 · 亮面</small></div>
+      <div class="sw" data-page-node-id="GTJCNhZlp45lDQRyAFpIUR"><i style="background:#c25e4a" data-page-node-id="VLSyRNUxVxER8kxBzowrcM"></i><small data-page-node-id="vFKkKYjqozbdYPXP9CWuOg">朱砂 · 删除</small></div>
+      <div class="sw" data-page-node-id="nks6UM7HEpeUeY1QlylMBE"><i style="background:linear-gradient(140deg,#e0b96b,#caa05a)" data-page-node-id="HVqUZhaoUnwkT591uempg5"></i><small data-page-node-id="OfYXriJ8K0Alng5AzCPeW5">琥珀 · 划线①</small></div>
+      <div class="sw" data-page-node-id="rxF4ZeS9wPtqzQ2HfVcMgE"><i style="background:linear-gradient(140deg,#8fae8b,#6f9472)" data-page-node-id="ARfeWdYaSDPuk1VevDmYve"></i><small data-page-node-id="BGWCYGV1gvbY8MEk28fFo7">苔绿 · 划线②</small></div>
+      <div class="sw" data-page-node-id="Zf3900ocIiEVWz4hLYrshA"><i style="background:linear-gradient(140deg,#8ba3c4,#6d87ad)" data-page-node-id="KtRPnwxx9vZ5wYgGSXjAyv"></i><small data-page-node-id="iSe1BXi2tdUYauZJCbbhCF">黛蓝 · 划线③</small></div>
+      <div class="sw" data-page-node-id="ZkfvwbuFuJsjbojb6cJjZJ"><i style="background:linear-gradient(140deg,#c98d9b,#a96b7e)" data-page-node-id="48BynUlrisdrx9aAbLN6Ck"></i><small data-page-node-id="3ZmSXWBleAF1CkBRuXUnK5">绯粉 · 划线④</small></div>
+    </div>
+  </div>
+
+  <!-- ① 阅读主界面 -->
+  <div class="board" data-page-node-id="bfmFCgPTAwrGyxAmXTVb99">
+    <div class="bhead" data-page-node-id="bkCblhTIGFbtP2kiXPMERl"><span class="no" data-page-node-id="vPQMPiMp2cCtR9Mh1ze1qy">壹</span><h2 data-page-node-id="B8MBGHjf96yHvDO0AP1S0n">阅读主界面</h2><p data-page-node-id="vDgiLE5TvkTLwq5MHCYve4">桌面 · 顶栏底栏均为悬浮毛玻璃</p></div>
+    <p class="bnote" data-page-node-id="fM5TNyJBC70sPQQMBtO39V">章节头做了居中版式：卷号小字距拉满、章题衬线、一条 34px 铜金短线收束。首段首字下沉两行，铜金——这是整页唯一的装饰。底栏的进度线本身可点可拖，左右分别是章节名与百分比，剩余时间收进百分比右侧的小字。</p>
+    <div class="frame" style="height:640px" data-page-node-id="SyCgwPbsQEGu2J6zTLacvq">
+      <div class="rhead" data-page-node-id="NvdxEN4BXZYVBkXKUBXulO">
+        <div class="back" data-page-node-id="LbzJ3bO0rN92h4JAtAtmVW">‹</div>
+        <div class="meta" data-page-node-id="1DxJNmFmRQBMcsyn1NDzHi"><b data-page-node-id="rrR1yOBeAE4ICFXgElAd6B">山月记</b><span data-page-node-id="hoTjBekVMo539gSCBagbnC">中岛敦 · 一九四二</span></div>
+        <div class="sp" data-page-node-id="YSUbi9WfrzfOfhqKhRzLCI"></div>
+        <div class="ib" title="目录" data-page-node-id="mgXUyeDGrHkvxqtPbeDgxM">☰</div>
+        <div class="ib" title="搜索" data-page-node-id="AXSdTvqoImgwGs89N2doRT">⌕</div>
+        <div class="ib on" title="排版" data-page-node-id="X5koWKgLDWwX45ZrBwC74O">Aa</div>
+        <div class="ib" title="全屏" data-page-node-id="LCkD3BZa2ImOTi4Mr7FmwK">⤢</div>
+      </div>
+      <div class="page" data-page-node-id="mED8nAdhbODspelgxyhWZH">
+        <div class="chapter-head" data-page-node-id="cdfTJh2Ae8JDmHIr5Q6avX">
+          <div class="vol" data-page-node-id="s1ZM0dCCrrMGAoTymj4rhi">第 一 卷</div>
+          <h3 data-page-node-id="QnrM6kEXlsYRNN2oTDwBzA">山 月 记</h3>
+          <div class="rule" data-page-node-id="eJWSoS3qszgqPV5ueXCBru"></div>
+        </div>
+        <p data-page-node-id="a8AuZR8TITZ6VpCYqif54f">陇西的李征，博学才颖，天宝末年以名进士登第，补江南尉。性狷介，自恃甚高，<span class="hl" data-page-node-id="bdCsMurHrTK5xcri9K4LUm">不甘以贱吏为伍，不久便辞官归田，闭门绝交，专心于诗作<span class="note-ico" data-page-node-id="lQQojZOKWOQMFYvU26sJbb">✎</span></span>。他认为与其在官场屈膝低眉，不如以诗名流芳百世。</p>
+        <p data-page-node-id="Js6k8OBfz0Ls3Nl6Qc7itJ">然而，文名早扬于辈流之间，而进士及第之后，科举之路却再无进境。岁月蹉跎，郁郁不得志，焦躁之情日甚一日。容色亦渐憔悴消瘦，昂然之气亦荡然无存。</p>
+        <p class="dim" data-page-node-id="5FaV4ZDTzP2yogffjiJZRI">其后数年，为生计所迫，不得不复官东宫之属，接受了江南的职衔。这是因为他终究不能安于贫困的缘故……</p>
+      </div>
+      <div class="rfoot" data-page-node-id="G0HJvhoSdMqwnyDG8hgje1">
+        <span class="chap" data-page-node-id="BW7SOzSUMfvabsSy6KtZvM">第一卷 · 山月记</span>
+        <div class="track" data-page-node-id="39cXm7Su04tGBO7csdi6Gq"><div class="fill" data-page-node-id="tHBHdVTjGjn1brOkEhXLic"></div><div class="knob" data-page-node-id="dP5x12BBLvL41tiQx9eXyV"></div></div>
+        <span class="pct" data-page-node-id="bi0T9uMeetJt1iFUp5MPGN">62%</span>
+        <span class="left" data-page-node-id="ldL7tPVFOCW2NBOWIMzIhN">剩 1 小时 40 分</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 排版面板 -->
+  <div class="board" data-page-node-id="eRZh1OWgC8UTk9lxBTfeEM">
+    <div class="bhead" data-page-node-id="1S2BO2hoRBcXDpYFINDwoX"><span class="no" data-page-node-id="nZI0OEAucNQ6WKauUrZ0oR">贰</span><h2 data-page-node-id="zHZ6L4fNXnzzZLs2CoyO6l">排版面板</h2><p data-page-node-id="5rvMTp8P0gq1jkCN2igfC2">右上下浮 · 滑条带刻度 · 方向用示意格</p></div>
+    <p class="bnote" data-page-node-id="qLhNrU0kmd9sunGXp392i4">滑条改成「细轨 + 刻度 + 空心铜环」：拖动前先看得清档位。方向选择不再用文字按钮，直接画一小格竖排示意——横竖排的区别不用读字就知道。主题色板换成纸样圆，选中的圆外一圈铜环。</p>
+    <div class="frame" style="height:560px" data-page-node-id="q7PgJcgk5EDLw7Jt7SZWK3">
+      <div class="rhead" data-page-node-id="8umEynjp4dwEWJ6URKPASg">
+        <div class="back" data-page-node-id="M2Rf0RyZMn4iNUzmL6fLQJ">‹</div>
+        <div class="meta" data-page-node-id="yOkLMzhWXDAjB2sHF87WRs"><b data-page-node-id="2J4iXDo7vEF6ddlEoeRBVc">山月记</b><span data-page-node-id="8HmRUNhgvlTDprrKBQ3XMT">第一卷 · 山月记</span></div>
+        <div class="sp" data-page-node-id="2xRrOqoYwJ9HNKLKNYH9zI"></div>
+        <div class="ib" data-page-node-id="mbUMB14D7g9eDFNvIqf90C">☰</div><div class="ib" data-page-node-id="DXxnygnrFXVUeQQ6fjCFYC">⌕</div><div class="ib on" data-page-node-id="R9mCyKXecEp3BLICrsxXgS">Aa</div><div class="ib" data-page-node-id="u9uYbYsv4I8UdsvK7IeSAh">⤢</div>
+      </div>
+      <div class="page dim-page" data-page-node-id="gYzxMEHQUTrmLV051Ho3dK">
+        <div class="chapter-head" data-page-node-id="u94DsSQBllQQ8FcBymG4t6"><div class="vol" data-page-node-id="aHcht8XMMRSfBOZIHxvSVT">第 一 卷</div><h3 data-page-node-id="J0L4gges6SK6Ytnst3zrPe">山 月 记</h3><div class="rule" data-page-node-id="dH7k2UjYhqDnLzXf31mkXO"></div></div>
+        <p class="dim" data-page-node-id="BKaOBsjh8g0LoZoD0lShAM">陇西的李征，博学才颖，天宝末年以名进士登第……</p>
+        <p class="dim" data-page-node-id="0dJPBRQAPGxMdwVswzz0Kk">然而，文名早扬于辈流之间，而进士及第之后，科举之路却再无进境……</p>
+      </div>
+      <div class="panel prefs" data-page-node-id="JQMdfRoI1PFj4G9CSnfMWQ">
+        <div class="p-head" data-page-node-id="Cg0FKaOIpjmft0mSqViCMQ"><b data-page-node-id="nsQsFAtGLcsTGxW1ZUJDPA">排 版</b><span class="n" data-page-node-id="LE5lrK8r0vG2bgI5UmXcGb">改动立即生效</span><span class="sp" data-page-node-id="NWX8gxAwcAfVggw1TGoNAu"></span><span class="x" data-page-node-id="BxapbVNJgBa23uF7LiAFVo">✕</span></div>
+        <div class="grp" data-page-node-id="GAcU27qBL1nKBbrdwj3PWJ">
+          <div class="prow" data-page-node-id="bDq97IwYNbz2G9SbXY0HcE"><label data-page-node-id="uSExDQuWHY3yJoClBKJwH8">字号</label><span class="val" data-page-node-id="JxDe1zeZPeYWjhdnS5ASYe">18.5</span></div>
+          <div class="slider" data-page-node-id="F7yfkBraHkPg2GaPNYtZNa"><div class="f" style="width:46%" data-page-node-id="564eD8sMdE5PjPrUIA7TaH"></div><div class="k" style="left:46%" data-page-node-id="q0gBNuzYu1uvTAoGBwkbEV"></div><div class="ticks" data-page-node-id="uNuSCsWgd9BLNOBaP3rqbe"><i data-page-node-id="km3bEsMEe5l0W5sslBnBaD"></i><i data-page-node-id="WyYFQDNMPs6sfeSZOdZrGR"></i><i data-page-node-id="gCwYPgnwU36ULgJgT3ImTK"></i><i data-page-node-id="HHab7ePPv30H7t7NtNvRhj"></i><i data-page-node-id="Bh19i0hkBd6SxeaasdJMpf"></i><i data-page-node-id="KAWJqvqRjIPigFR9ZA1OEX"></i><i data-page-node-id="Vp0Q0fGFTFGAjixErtRrc8"></i></div></div>
+          <div class="prow" style="margin-top:14px" data-page-node-id="4ZzDjHuRwP6XL5DfVO3AB4"><label data-page-node-id="3aNXxXF8p0K1B1SNNcnE7b">行距</label><span class="val" data-page-node-id="ECsdXPkrJ3EEvsy3tUQPDF">2.05</span></div>
+          <div class="slider" data-page-node-id="HcCIRUpkkEidFt8BkF4JqH"><div class="f" style="width:62%" data-page-node-id="5fPeNIdcxHEVtOipGnlEJd"></div><div class="k" style="left:62%" data-page-node-id="5WNL4Acx9hsbyveQj6fjrK"></div><div class="ticks" data-page-node-id="cBd5RwAqKQHXECtwRXqFNi"><i data-page-node-id="XS3peJtdW3V6EN2MUQN2Q2"></i><i data-page-node-id="JXgvtQoXM3w6DbynmuH7t1"></i><i data-page-node-id="4mqifLY6UAd2Q9zYEzTMOT"></i><i data-page-node-id="LYMU6FQDX4NdUWYBaCZmt5"></i><i data-page-node-id="qUzSA7EhaM08KlzGBIkq02"></i></div></div>
+          <div class="prow" style="margin-top:14px" data-page-node-id="sNae5j9SWqNXhkf7Oz4y9H"><label data-page-node-id="2ww6EK7E1BAu1d2WXDQCif">页边距</label><span class="val" data-page-node-id="u28fLjteWWWFQGGKMypfnB">118</span></div>
+          <div class="slider" data-page-node-id="YBuu6pxekYS4vWPYp61bAd"><div class="f" style="width:38%" data-page-node-id="UaSW6VZfFc8x9tWKbixlAt"></div><div class="k" style="left:38%" data-page-node-id="V7bHD3AB9fuIFIs5MwFTEz"></div><div class="ticks" data-page-node-id="PEjOAUQ7N6Z9nswwCcWwcs"><i data-page-node-id="1Fqn6ECp0WxkAwGNhlMgs9"></i><i data-page-node-id="w6vDFESaXAOJpSZBCpM967"></i><i data-page-node-id="aRo3I7GowVcjyULOkA1qHR"></i><i data-page-node-id="RwUZvLq30CqQZNHBboBTby"></i><i data-page-node-id="AqTFxUK0NndZru4kudRLbt"></i></div></div>
+        </div>
+        <div class="grp" style="display:grid;grid-template-columns:1fr 1fr;gap:14px" data-page-node-id="RuaeI2Kr8pesMJLYJ8Fbyt">
+          <div data-page-node-id="MhnP16f5pO1H4spWS5Rxjr"><div class="prow" style="margin-bottom:9px" data-page-node-id="va3t9aoXOeKdDoXvhXYHMZ"><label data-page-node-id="VlNMRGHx5ZlFTmcjFAayne">字体</label></div>
+            <div class="seg" data-page-node-id="UW1SBWIOtTMSllHUXuDEmY"><button data-page-node-id="OHqQIfRT19A8seK3sSDnAR">宋</button><button class="on" data-page-node-id="512v9OBzZCLtTdYsbFIaGs">书籍</button><button data-page-node-id="Gl2BrTSsHEAGyzQ05NB018">黑</button></div></div>
+          <div data-page-node-id="AwHeDqkYPSu5QqJxSS1BBB"><div class="prow" style="margin-bottom:9px" data-page-node-id="N1O7BRbbiOcxQ0W2P91ulE"><label data-page-node-id="UGBgIcxYz6D35FtjPZrs0l">对齐</label></div>
+            <div class="seg" data-page-node-id="cPH6epDZ1EUhjBQ1W2dRM5"><button data-page-node-id="5jMhvlc0MAgFkm4Pn5GEgu">左</button><button class="on" data-page-node-id="Tb47Me1o9boB6GtfEzPhoc">两端</button></div></div>
+          <div data-page-node-id="43W3oFJ3dq8fVbvUgS0F6K"><div class="prow" style="margin-bottom:9px" data-page-node-id="SqAfQUFffoUjcFyvPHEBwL"><label data-page-node-id="OgOAiWdyXeH61nRLs7I4Zq">方向</label></div>
+            <div class="dir-grid" data-page-node-id="9KeG0igiRjTkc80mNwxuES">
+              <div class="dir on" data-page-node-id="S85aBxfG16Di16eUAlblQa"><div class="demo" data-page-node-id="6EAZCSz2w1Y0p6azZMQGRf">山月记</div><span data-page-node-id="jlx2k1wbMm9xDXGuzep4Bb">横排</span></div>
+              <div class="dir vert" data-page-node-id="uD9pcgIAKgdGMjTzJYRhQM"><div class="demo" data-page-node-id="KOfJjIs6CNlPRdQyEopWkw">山月记</div><span data-page-node-id="r9g1SVqWzqYPeUQOB7UVxn">竖排</span></div>
+            </div></div>
+          <div data-page-node-id="80HEiJxxTEY2HtDUs8OmJU"><div class="prow" style="margin-bottom:9px" data-page-node-id="ECExNWcZki6akGOi5boKxA"><label data-page-node-id="xZu2fRG1jpqMmQ5Y6G1sE1">栏数</label></div>
+            <div class="seg" data-page-node-id="kXKbkN7lWUk6aAjK2cU2X2"><button class="on" data-page-node-id="TuWdJ5EN0z5h5QdXHPcZ3C">单栏</button><button data-page-node-id="VJykIeKdOkdYBESuyyrLIT">双栏</button></div></div>
+        </div>
+        <div class="grp" data-page-node-id="LjuZCL9vyDJZrAN0dlPbRf">
+          <div class="prow" style="margin-bottom:14px" data-page-node-id="LEHuu6AUS0TXh9R8xZupYr"><label data-page-node-id="qp6aRiGpHwiCTPx2qDvxhs">主题</label></div>
+          <div class="theme-dots" style="padding-bottom:16px" data-page-node-id="GYx0IM4K91u9jAGuoef165">
+            <div class="td" style="background:#f5efdf" title="纸" data-page-node-id="INdh4bEYmEiE7elLIHcgcy"></div>
+            <div class="td on" style="background:#211c15" title="墨" data-page-node-id="k26UrWExvmdOamhJGvHmvt"></div>
+            <div class="td" style="background:#e9dcc0" title="羊皮" data-page-node-id="zaPiJSbaYMHw3XLGdwo3L9"></div>
+            <div class="td" style="background:#1c2420" title="苔" data-page-node-id="Zn0b83kT319qPlUlqYO7vV"></div>
+            <div class="td" style="background:#0f1418" title="夜" data-page-node-id="Wih2HjIGp0l7TzOINZLpvJ"></div>
+            <div class="td" style="background:linear-gradient(135deg,#f5efdf 50%,#211c15 50%)" title="跟随系统" data-page-node-id="5nKPU8lOBbKiJCxrF2uwF4"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ 目录 + 搜索 -->
+  <div class="board" data-page-node-id="WgjHqLNMIrkAL1nTSW7OCp">
+    <div class="bhead" data-page-node-id="pSqXr0zvGyHG8ARpB10OcT"><span class="no" data-page-node-id="tnWa9iEb7Uaoh8TIW5NXad">叁</span><h2 data-page-node-id="r3v4dsoIQITBSLrKvrTqxH">目录 · 搜索</h2><p data-page-node-id="xBWdXF2M3d9CIh0c5el5fo">左右对开 · 章节序号衬线 · 命中句铜金划线</p></div>
+    <p class="bnote" data-page-node-id="ablxbUroSYH5vNTIxnM3uD">目录从左侧出、搜索从右侧出，互不打架。目录条目加了章序号与所在页百分比；当前章左侧一条铜金短竖线，不再用整块高亮糊脸。搜索命中句里的关键词用铜金细下划线，扫一眼就能锁位置。</p>
+    <div class="frame" style="height:560px" data-page-node-id="8IkeBAmErAU6rrtuA8wXhk">
+      <div class="rhead" data-page-node-id="lajEA5vPlRFvUOSwHu1r49">
+        <div class="back" data-page-node-id="r3gRVsnL4lRSvmD7cZlan4">‹</div>
+        <div class="meta" data-page-node-id="eRbzVnesFtIwf8NbDANkps"><b data-page-node-id="xF07g33wovalbBckt9WxUx">山月记</b><span data-page-node-id="otALj91AVAmNOrY3g4r5Ve">第一卷 · 山月记</span></div>
+        <div class="sp" data-page-node-id="BQHk2tGKGkfk4ZGENfblvS"></div>
+        <div class="ib on" data-page-node-id="uf16NchXauwj6rRrjKw5z6">☰</div><div class="ib on" data-page-node-id="2uTdHILO6XeaFVaAvdFQCt">⌕</div><div class="ib" data-page-node-id="UiYTcLDSbO4fLBdPbQBrvd">Aa</div><div class="ib" data-page-node-id="SJNRHtazG4kxfgFzijq9k3">⤢</div>
+      </div>
+      <div class="page" data-page-node-id="8MeOsvXt2DSa7va2eZ1sMk">
+        <div class="chapter-head" data-page-node-id="0AtYFp6OBZpnYrT8cet1yw"><div class="vol" data-page-node-id="wwweCHTAfAmQeFqUHODYw0">第 一 卷</div><h3 data-page-node-id="NjzxQti6NLhS4Q00zYiJob">山 月 记</h3><div class="rule" data-page-node-id="IHZ7ZYHySEnx4jkqDgVQue"></div></div>
+        <p class="dim" data-page-node-id="JChcvHQ9bEbNQiZHv4LfQj">陇西的李征，博学才颖，天宝末年以名进士登第……</p>
+      </div>
+      <div class="panel toc" data-page-node-id="yaQh5FuPa4haiefAKQBC63">
+        <div class="p-head" data-page-node-id="8IzHCvi8d8IN1QhT9DKDIa"><b data-page-node-id="uwW1kmgdM1BDH4s8F2cqJr">目 录</b><span class="n" data-page-node-id="0BJH4eHktQYHbooS6izbAt">六章 · 两枚书签</span><span class="sp" data-page-node-id="Sfe2ZIAyvdn0P0V0QlrT6Q"></span><span class="x" data-page-node-id="psIByDuX3yAiu2slgiugPP">✕</span></div>
+        <div class="list" data-page-node-id="KtOHh9yJX6cD0vdtZiJdVQ">
+          <div class="chaprow" data-page-node-id="TWaAVBYsS8R8cPlFKprlrt"><span class="no" data-page-node-id="HYShkCatc5zRbuElS3wcmB">壹</span><span class="t" data-page-node-id="8ck79VFm9kQU8CRFkccpC7">山月记</span><span class="pc" data-page-node-id="nYUK8GD6B9wYNNsJ5DMM3E">62%</span></div>
+          <div class="chaprow" data-page-node-id="hpRPDnSf2pjYiDq4sR97DL"><span class="no" data-page-node-id="0k7WBvS9Cv76y0rhgbSmtV">贰</span><span class="t" data-page-node-id="VO7a9o3Jx5rqeBiKdXB5xD">名人传</span><span class="pc" data-page-node-id="epxwGq4uqwsXMjECZ3CEeD">—</span></div>
+          <div class="chaprow" data-page-node-id="Xp4Zm8PQkbd227G8ZGYyBA"><span class="no" data-page-node-id="r5EFy3SVe90oSFyRgnpacv">叁</span><span class="t" data-page-node-id="lwBSAMPdKi0AX7xYyVDmPK">弟子</span><span class="pc" data-page-node-id="kGL67DTUfEk5szO5SIx26x">—</span></div>
+          <div class="chaprow" data-page-node-id="YMr0Dcv2PkZO04KorYTJ4N"><span class="no" data-page-node-id="GzzD5pWUPGybXgHrewyKn2">肆</span><span class="t" data-page-node-id="cvP6pZaRKNz7oEo3JaCYcH">李陵</span><span class="pc" data-page-node-id="03pG4jCmafsMFPzbe77MxJ">—</span></div>
+          <div class="chaprow" data-page-node-id="88UEGXRExKRsyOwQfQV0Qc"><span class="no" data-page-node-id="1lyoQ7HBLigVAXZ0qOuI7G">伍</span><span class="t" data-page-node-id="NILcXGcoSTylAxe0j1WAG8">夫妇</span><span class="pc" data-page-node-id="njCuSpzrhi5K8AWFn4bSSp">—</span></div>
+          <div class="chaprow" data-page-node-id="4lh6udcbTewLK7r89hJZvT"><span class="no" data-page-node-id="yi5MQ4XxC207NHVmsyZ1mf">陆</span><span class="t" data-page-node-id="6I1Csz0I5wnqWvmYGGrb8Z">文字问答</span><span class="pc" data-page-node-id="PetiGo2OztHck0vCgsdNRF">—</span></div>
+        </div>
+        <div class="marks" data-page-node-id="WuDKjapucy34ZGWaCMlRGx">
+          <b data-page-node-id="5x27CVDGT7Xjcval05mqs7">书 签</b>
+          <div class="mk" data-page-node-id="5cHVzAi5haS2SE43fmlLjd"><i data-page-node-id="pjlNF4ou1va8mg21fv8LOt"></i>开卷 · 进士及第<span class="sp" data-page-node-id="QHFynAsPNMYPEjfsj4q0Zg"></span><em data-page-node-id="yDlOBhNlqrKRQWTA2jFh7D">11月1日</em></div>
+          <div class="mk" data-page-node-id="qHhzeQhWYLyyvGQJo7gay7"><i data-page-node-id="3kFkQZrmGqBNuA3yVDOlv0"></i>辞官归田段<span class="sp" data-page-node-id="V58w1Dy7lCohUzPPXryifc"></span><em data-page-node-id="6s6ismT8SzTfCnUN0Wkh6I">11月2日</em></div>
+        </div>
+      </div>
+      <div class="panel search" data-page-node-id="urK317IXVVDSm7ZPFis9qG">
+        <div class="p-head" data-page-node-id="9N2jqDFEArSDjKsYw0VeZG"><b data-page-node-id="S3QY3lC9WDgTG3T09l3gyD">搜 索</b><span class="n" data-page-node-id="xI0lTfP6WBHdsRp643NwDC">山月记 · 全书</span><span class="sp" data-page-node-id="M84L3N77BACFFBLq4D97Au"></span><span class="x" data-page-node-id="0hpazB4H8zDczLCBkhlTEx">✕</span></div>
+        <div class="in" data-page-node-id="OF8hg86B1IXoWtaibBAG0x"><span style="color:var(--t3)" data-page-node-id="IzCfxZW43USEl8NckqwR7k">⌕</span><input value="进士" placeholder="在本章内搜索" data-page-node-id="6mHZWaB35gmtFIdeK5Myn3"><span class="x" data-page-node-id="UbC4RHVpCtB5vbG9s9Ymrw">✕</span></div>
+        <div class="scopes" data-page-node-id="HDnAzDQ9ybclltCZCZqan5"><button class="scope" data-page-node-id="POCNWIawapiTkA0QWzz1Y6">本章</button><button class="scope on" data-page-node-id="d5JVEeAQcYfUaPlPKlOhLr">全书</button></div>
+        <div class="hits" data-page-node-id="jV7qmZEj1FMJcq5Q4rsS1V">
+          <div class="hit" data-page-node-id="kaFXqdCBjmTg19GfDuNIrA"><span class="loc" data-page-node-id="PRwkPskZ1abeo4xLRHkxFY">山月记 · 第一卷</span>天宝末年以名<em data-page-node-id="u4TTseEdh8oYN8imyiFNLv">进士</em>登第，补江南尉……</div>
+          <div class="hit" data-page-node-id="bm80cyCkgoL631xN1lddZD"><span class="loc" data-page-node-id="RlGq9FxUZrY0ba5sTODFVq">山月记 · 第一卷</span>然而，文名早扬于辈流之间，而<em data-page-node-id="hgECZJpUEOs10cjCZN00oA">进士</em>及第之后……</div>
+          <div class="hit" data-page-node-id="GnOAZIOlohdFGky02Ah1ki"><span class="loc" data-page-node-id="EaxluYJexYajK9m3RnVeel">弟子 · 第三章</span>子贡出身于<em data-page-node-id="vebE8ULGWMVDAuoJ9Niry6">进士</em>之家，货殖累金……</div>
+          <div class="hit" style="color:var(--t3)" data-page-node-id="lB8iJMRyb48uQD2vHA5HQn">还有 2 处 · 按回车展开</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ 划词与标注 -->
+  <div class="board" data-page-node-id="q3VGxG2ItBbBwOMB6iD2QK">
+    <div class="bhead" data-page-node-id="rMiBEGCOfFqjXuOjvtAloy"><span class="no" data-page-node-id="gqc7xqaRjCIe55OBWlFFKO">肆</span><h2 data-page-node-id="7MSiixdCWv5d8rRJmWJkHh">划词 · 标注 · AI</h2><p data-page-node-id="4joJatp941Zpteu0ft1JoZ">一个浮层三种形态 · AI 单字衬线钮</p></div>
+    <p class="bnote" data-page-node-id="Z5WJG6rQkESgLisj6jMVSS">划词条是细长胶囊：左边五个划线色点，竖线隔开，右边「想法」加 AI 三个衬线单字钮（摘 / 释 / 译）。选中色点直接落划线；点已有划线浮出的是标注卡——原文引用 + 想法 + 卡片/删除；AI 结果卡带一枚铜金小「印」，引用原文压在左侧竖线里。</p>
+    <div class="frame" style="height:600px" data-page-node-id="1lJs1lo7aSrDAKo5BplzMF">
+      <div class="page" style="padding:72px 110px" data-page-node-id="Vm0uMbT2yFPBsYm8GS9v1v">
+        <div class="chapter-head" data-page-node-id="Duloy1FiffI4DPC7ClhrW0"><div class="vol" data-page-node-id="hjEBc2IK07KBI372dxnm5P">第 一 卷</div><h3 data-page-node-id="mPNEtu4J0LEwN8ou2y2fHi">山 月 记</h3><div class="rule" data-page-node-id="lV3MdLSGJ0GBbiBfWWCScu"></div></div>
+        <p data-page-node-id="cGEVqboJXAOApoTceAA8jL">陇西的李征，博学才颖，<span class="hl" data-page-node-id="XBgqeqKmVY1YkNVrXArogB">天宝末年以名进士登第</span>，补江南尉。性狷介，自恃甚高，<span class="hl u" data-page-node-id="DoR2MtEBPOLYtcg2aR0clx">不甘以贱吏为伍<span class="note-ico" data-page-node-id="WrnIhz9cxo9H6HBGttMA29">✎</span></span>，不久便辞官归田。</p>
+        <p data-page-node-id="vFTM2a05mtdP8RQrMjXXkM">然而，文名早扬于辈流之间，岁月蹉跎，郁郁不得志，焦躁之情日甚一日。</p>
+      </div>
+
+      <!-- 划词条 -->
+      <div class="annotbar" style="top:172px;left:38%" data-page-node-id="dYYDfD5FaeaEPloZWnthSO">
+        <div class="dots" data-page-node-id="5dOdrlWEIv4nR88hFnMM5Q">
+          <span class="cd on" style="background:linear-gradient(140deg,#e0b96b,#caa05a)" data-page-node-id="9dhbp05tV0QVSk8uL282ga"></span>
+          <span class="cd" style="background:linear-gradient(140deg,#8fae8b,#6f9472)" data-page-node-id="5Wa3xZ111Xb2HAnkNoPQbk"></span>
+          <span class="cd" style="background:linear-gradient(140deg,#8ba3c4,#6d87ad)" data-page-node-id="dsBODPonZL4cbvbwtkxMjS"></span>
+          <span class="cd" style="background:linear-gradient(140deg,#c98d9b,#a96b7e)" data-page-node-id="DCzavf48w3uSf6iHfz7bnu"></span>
+          <span class="cd" style="background:linear-gradient(140deg,#9a94a8,#7c7690)" data-page-node-id="pqJMUYnhLyWhkvBF4kxxvb"></span>
+        </div>
+        <button class="wbtn" data-page-node-id="AxxwDbjLPyF3OsiuF7sHcS">想法</button>
+        <span class="dots" style="border:0;padding:0 2px 0 0" data-page-node-id="1ui1TTuAcQ1ptaLMMRhdzg"></span>
+        <button class="wbtn aichar" title="AI 摘要" data-page-node-id="iCbTwbEYAsUdJbXCC0RVD9">摘</button>
+        <button class="wbtn aichar" title="AI 名词解释" data-page-node-id="9JNWglZHUpWF20hSRkhUFE">释</button>
+        <button class="wbtn aichar" title="AI 翻译" data-page-node-id="KVB4O4pdKCTkSaph8fpcub">译</button>
+      </div>
+
+      <!-- 标注卡 -->
+      <div class="panel acard" style="top:352px;left:70px" data-page-node-id="dkKY4CzF1kTSBu3dO4VrsF">
+        <div class="hd" data-page-node-id="rN847A3BkLCAVvo2mPrAk5">
+          <div class="dots" data-page-node-id="1zGGf7tYV5DmYhHTyB6Ddl">
+            <span class="cd" style="background:linear-gradient(140deg,#e0b96b,#caa05a)" data-page-node-id="eYnnPvndh5Ww4lP6UlZonq"></span>
+            <span class="cd on" style="background:linear-gradient(140deg,#8fae8b,#6f9472)" data-page-node-id="uxQDWIW4CYVCCNIks4AWQy"></span>
+            <span class="cd" style="background:linear-gradient(140deg,#8ba3c4,#6d87ad)" data-page-node-id="ulBZamDREK4AamxPZBdK2R"></span>
+            <span class="cd" style="background:linear-gradient(140deg,#c98d9b,#a96b7e)" data-page-node-id="ell1z7nGuVQGbCzVKTXFjL"></span>
+            <span class="cd" style="background:linear-gradient(140deg,#9a94a8,#7c7690)" data-page-node-id="fGvXAMtHEJjECBSUCafG9s"></span>
+          </div>
+          <span class="sp" data-page-node-id="HsfEVVYxZtRUzECoNEzif4"></span>
+          <button class="wbtn" style="font-size:11.5px" data-page-node-id="hcmrbVvb8x2DD3Xox6YG1y">卡片</button>
+        </div>
+        <div class="orig" data-page-node-id="789tv852YmACYbw6OZNvCB">不甘以贱吏为伍，不久便辞官归田，闭门绝交。</div>
+        <div class="cmt" data-page-node-id="MF5bHLjCyctivqMHneNfCV">狷介不是清高，是不肯把才华折价。<span class="ph" style="opacity:0" data-page-node-id="ku74hzagnOM9o6nKGDRSpK">…</span></div>
+        <div class="ft" data-page-node-id="5kzc43cI5H0eAcFYTJkvFn">
+          <button class="abtn" data-page-node-id="APT4avlYBRrSdReLwt2fwN">想法</button>
+          <button class="abtn" data-page-node-id="Tqz0aZjOshfyOS41wJnfwU">卡片</button>
+          <button class="abtn danger" data-page-node-id="ypSx2cDinvujUwXqxyFe7N">删除</button>
+        </div>
+      </div>
+
+      <!-- AI 结果卡 -->
+      <div class="panel aicard" style="top:352px;left:auto;right:70px;transform:none;width:400px" data-page-node-id="cHOnvmL23sr51Bo2HDV3AE">
+        <div class="tag" data-page-node-id="65E4CUtbt79joSBtQLbq76"><span class="seal" data-page-node-id="gua0pmtLYh4bsacJyAGfjl">译</span><b data-page-node-id="xziSk5KOcTND6TxHDKfqLl">AI 译 文</b></div>
+        <div class="quote" data-page-node-id="Se8xo3Gv2WsHK41O0iHbTm">不甘以贱吏为伍，不久便辞官归田，闭门绝交。</div>
+        <div class="body" data-page-node-id="Ny3QyRqgnDtvuOR11oxGk7">He could not bear to bow among petty officials, and soon resigned his post, withdrawing to his study and cutting off all correspondence.</div>
+        <div class="acts" data-page-node-id="n80HiDXtw4zDxORRpBgHRR"><button class="abtn" data-page-node-id="uoCApg0pPyqXbQ80ERv7TS">复制</button><button class="abtn pri" data-page-node-id="980OTHOchygyFu1Mf1Clr9">存为想法</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑤ 书摘卡片 -->
+  <div class="board" data-page-node-id="zziNOmh88BWD69Yxsmm46y">
+    <div class="bhead" data-page-node-id="AvLHAC7pcocwFcEPQPcAFG"><span class="no" data-page-node-id="vfxwSGNPmieQz5xazI31dW">伍</span><h2 data-page-node-id="jIzQXWOX7Efviu6rzbkrs7">书摘卡片</h2><p data-page-node-id="2bA44LVvCqivWgQNwNN3C7">墨 / 纸双底 · 左缘铜金 · 落款带印</p></div>
+    <p class="bnote" data-page-node-id="nlvGPqH7zADJTWX06sCsYJ">卡片本身即成品：书名衬线居左上，作者小字距拉开；原文带「」引号，想法区用一条虚线与正文分开，右上角小段「印」字落款。导出 2x 分辨率，左缘那条 3px 铜金是卡面上唯一的装饰。</p>
+    <div class="qcardstage" data-page-node-id="5y8xUGSfF32KkBPkkQ5XzX">
+      <div class="qcard" data-page-node-id="AcUOrkDtFM2KF7K9Poo3BY">
+        <div class="qt" data-page-node-id="GdQWsmoQ9ONb8XBr1mEQHR">山月记</div>
+        <div class="qa" data-page-node-id="mAErmh8StQxi5aymwmNW0M">中岛敦 · 1942</div>
+        <div class="qtext" data-page-node-id="HM3LRIDlnU5JJZrZ12O5eI">性狷介，自恃甚高，不甘以贱吏为伍，不久便辞官归田，闭门绝交，专心于诗作。</div>
+        <div class="qcmt" data-page-node-id="lrLl0xfx911ATSCNmPRcha"><b data-page-node-id="OCUT9voBbH8P9eifZBYk0E">想 法</b>狷介不是清高，是不肯把才华折价卖掉。</div>
+        <div class="qfoot" data-page-node-id="E4XKP62Px6DDNKJlPrqKed"><span data-page-node-id="M4QBBKK28FXqErjQYww1ZM">2026 · 11 · 02</span><span data-page-node-id="YeDmgwj4XPTne3JQaVzhzv">第一卷 · 山月记</span><span class="stamp" data-page-node-id="5FWK4VrbyR4nVUSkTXGBwJ">印</span></div>
+      </div>
+      <div class="qcard paperish" data-page-node-id="zJLEYXoQK6o4oRNc6aBgPt">
+        <div class="qt" style="color:#31291a" data-page-node-id="0nEGTzBJCmYd2QkvjpRMbs">弟子</div>
+        <div class="qa" data-page-node-id="xHHDLmNXUalxeR1SATtAoX">中岛敦 · 1942</div>
+        <div class="qtext" data-page-node-id="cWAC4pHZmEHK5YNXTmN8dB">子贡出身于进士之家，货殖累金，然其志不在财，而在圣人一言。</div>
+        <div class="qcmt" style="border-color:rgba(154,116,52,.35)" data-page-node-id="fC9uYW9EmS38CELUyvBEIQ"><b style="color:#9a7434" data-page-node-id="pWqrgmFNKCA25nB5D9trA5">想 法</b>有钱人里最早想明白「复利在人心」的那个。</div>
+        <div class="qfoot" style="border-color:rgba(60,48,32,.16)" data-page-node-id="9AHYiQcP8pJ4tfpCcU8kRB"><span data-page-node-id="E86X0a2nG3mcXY3qg2NJos">2026 · 11 · 02</span><span data-page-node-id="y9yLUISttjvJvqA0amUHld">第三章</span><span class="stamp" data-page-node-id="FVNq7Sv1l7W65fB6YGofTx">印</span></div>
+      </div>
+      <div class="spec" data-page-node-id="RU8WuU1c5FUEu0iZbN2fCf">
+        <b data-page-node-id="qx6a1LuoF3WV23kndqgpag">导出规格</b>
+        <ul class="clean" data-page-node-id="gzR6TXiIq0O7wXBtsj8XdR">
+          <li data-page-node-id="Ac37W9KByo6AZCH8RAFdsx">逻辑宽 <span class="k" data-page-node-id="jsE4VbBHjlhkCxgW4z87uv">340</span>，绘制 <span class="k" data-page-node-id="dJ26qQEoINwshPcKRfqHp2">2x（680px）</span></li>
+          <li data-page-node-id="6f0usg7ZMg89VlIR668iqO">底色跟随当前阅读主题，另给「纸」一档手动切换</li>
+          <li data-page-node-id="Z931kWn8TvWcCcTfl3Fg8M">保存到 <span class="k" data-page-node-id="b8gYm70NwP2YkcteU0AcV9">书摘/</span> 目录，同名自动让开；或直接进剪贴板</li>
+          <li data-page-node-id="xGgxYNT4we3guLFfP34ECt">原文超 16 行、想法超 5 行截断，末行接省略号</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑥ 统计 -->
+  <div class="board" data-page-node-id="N2KfpJiK6uw03q5F5lKGgR">
+    <div class="bhead" data-page-node-id="se9UpbKJ7TLJj62IsCLTmt"><span class="no" data-page-node-id="BdKek0OVTZGbw7khFCVw8Y">陆</span><h2 data-page-node-id="UsjGIdgNHJQaW7ZfQ8dVmY">阅读统计</h2><p data-page-node-id="cHiLue25Q0eDbuUhjIvxyH">大数字衬线 · 热力图铜金四档 · 书脊进度</p></div>
+    <p class="bnote" data-page-node-id="nJNaU4ov5TJRPJdPCgxGHw">左边是三行数字：总时长、本周、日均，衬线大数字配小字距标签；连续天数做成一条铜金描边的「火漆」条。右边近半年热力图，四档铜金由浅到深；书目进度条底下配 2px 细线，封面用色块示意真实比例。</p>
+    <div class="stats-stage" data-page-node-id="rZA1NqYO6jaOp2iEJrJ9tI">
+      <div class="stats-l" data-page-node-id="wgoXg6M3mL2Sh3N6PZenFx">
+        <div class="big" data-page-node-id="6GifKALhUjuGfxKUV8rGzO">126<small data-page-node-id="c8azB6cRdysjY2QamC0FGP">小时</small></div>
+        <div class="cap" data-page-node-id="wDuApsCCfKPnuHitGFGbO8">累 计 阅 读</div>
+        <div class="strow" data-page-node-id="v9i6bZ4lHYEH1I9GNtgNrP"><b data-page-node-id="19oOHw2RHxgJdFWmdGntdL">18.5<i data-page-node-id="d6G6IPp9EvJ6MFf5EY4rcR">时</i></b><span data-page-node-id="utZzrX8zmFDdgSOWBPEJU3">本 周</span></div>
+        <div class="strow" data-page-node-id="Qc3r8pkjr2ZjA5gvRSQtWx"><b data-page-node-id="O0TtjKmPPG7eRy0WgbHi7w">42<i data-page-node-id="jFZ4KVCDCQOm2nhNAdtpdL">分</i></b><span data-page-node-id="y0LlSxYvX7gGVFE3Bb3iEF">日 均</span></div>
+        <div class="strow" data-page-node-id="SuPkN3d7WLDoHDDRP9tmSM"><b data-page-node-id="TYmikB0ONympingkdm1uA9">63<i data-page-node-id="TqQwZ8wx40bnbyeTAGHUt7">%</i></b><span data-page-node-id="rulz8Hu4t5ESs1MIcG1Xdq">在 读 · 山月记</span></div>
+        <div class="streak" data-page-node-id="G4upqCeJUj54zSacFIODOE"><span class="fl" data-page-node-id="meJ1lXgZP4eFU7nOzMlPcv">🔥</span><div data-page-node-id="jB6sCDpFJVgqXAJqeEMn9I"><b data-page-node-id="SbvKVi83TWyfO7YHVFDTlU">连续 21 天</b><span data-page-node-id="eVHPBSKfdiyRPD0hfALR8x">自 10 月 12 日起</span></div></div>
+      </div>
+      <div class="stats-r" data-page-node-id="uPHRwTRCny6QOjKZx6Yg1n">
+        <h5 data-page-node-id="OdvTJNyvuSF5AT1PrCZk1Q">近 半 年 · 每 日 时 长</h5>
+        <div class="heatmap" id="hm" data-page-node-id="ywLrhT5jnYbuN8xrcuCAne"></div>
+        <div class="hm-legend" data-page-node-id="LtK466rI1GU58ukE7FX6W7">少 <i style="background:var(--line)" data-page-node-id="GMGiEFcFnIDYj09oQwmgcv"></i><i class="l1" style="background:rgba(200,164,100,.25)" data-page-node-id="fwnYAMHRg5aFCEBSQ3p0vk"></i><i style="background:rgba(200,164,100,.5)" data-page-node-id="EcL1kFGYuMCKQ7XnE6Oi5G"></i><i style="background:rgba(200,164,100,.75)" data-page-node-id="f5igecT6qc3vbcoUCpDeCx"></i><i style="background:var(--copper)" data-page-node-id="Fchd505tvDmvdF5Hvj3b3x"></i> 多</div>
+        <h5 style="margin-top:26px" data-page-node-id="66c7wEoxAyEASDxo4Gz8RI">书 架 进 度</h5>
+        <div class="bkrow" data-page-node-id="pQqRmrVfo5gya9e7GHOII0">
+          <div class="cv" style="background:linear-gradient(160deg,#2c2620,#4a3d2a)" data-page-node-id="GjBgaBBug0PxIat0Rdk6il"></div>
+          <div class="bi" data-page-node-id="vBXTC27bIs8CnQyx6iZNJi"><b data-page-node-id="fsPmWYnQiZ5EYS8VubLZ2W">山月记</b><div class="bar" data-page-node-id="nTf018z3D1FlCzBnXP8y5M"><i style="width:63%" data-page-node-id="HVpjIKTBc652innspZ0gnE"></i></div></div>
+          <span class="pct" data-page-node-id="oihQkKC9leqNAQ06JD6kWy">63%</span>
+        </div>
+        <div class="bkrow" data-page-node-id="8SJYQZRdWnVYmttTttpWcV">
+          <div class="cv" style="background:linear-gradient(160deg,#26302a,#3d5245)" data-page-node-id="hWPIUYsA4AdbCjDlWWD8mA"></div>
+          <div class="bi" data-page-node-id="RgGBeCyhvKZk2h0G2ztmsH"><b data-page-node-id="GkFwYpYHpnBVmU2pHIinvo">弟子</b><div class="bar" data-page-node-id="OTiykAhDx1plf0ELIAwHF3"><i style="width:31%" data-page-node-id="hpKsQiQ2Xs07LszNDxK1YN"></i></div></div>
+          <span class="pct" data-page-node-id="MeN27uR8i0zQSDR2s0v6GH">31%</span>
+        </div>
+        <div class="bkrow" data-page-node-id="u9JkrJGBNsCKoDR7JkCiSz">
+          <div class="cv" style="background:linear-gradient(160deg,#2b2833,#46405a)" data-page-node-id="57QcAgtZUbMQpIs5tBP2y9"></div>
+          <div class="bi" data-page-node-id="Db7LqfOZtnYsGZrPG1qybn"><b data-page-node-id="MMPhjpAjVCXhyHAbebPiiu">李陵</b><div class="bar" data-page-node-id="TIq8QfDsEoG1nkfiCnNp4Q"><i style="width:12%" data-page-node-id="cMb2z1XT8rCprbbEyNEzGK"></i></div></div>
+          <span class="pct" data-page-node-id="LI5YQE5XpgzoYGHaHP8k0J">12%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑦ 移动端 -->
+  <div class="board" data-page-node-id="g8V3MvDRukTGEyp0otdGhU">
+    <div class="bhead" data-page-node-id="tYGF7lRkM4Le0CDhEcjlei"><span class="no" data-page-node-id="AH7c7mvH3gb03XoX4J1ICj">柒</span><h2 data-page-node-id="mPhYwU4ZaN9d30LjCBjqEe">移动端</h2><p data-page-node-id="rmMsNKXwdYLrM3F5KK9Rlu">默认沉浸 · 轻量 HUD · 底部玻璃 sheet</p></div>
+    <p class="bnote" data-page-node-id="RGDrWH1dVYKYIM4fingAHk">手机上默认全沉浸：没有常驻工具栏，只有底部一枚胶囊 HUD（进度 + 时间），点正文即收放。排版从底部 sheet 升起，划词条浮在选区上方，同桌面但更紧凑。</p>
+    <div class="m-stage" data-page-node-id="Ery7efuZ6GlC5bKFEcHJf4">
+      <div class="phone" data-page-node-id="yh1O6wxy62RqVdyuCs90nW">
+        <div class="notch" data-page-node-id="JTL9bGJxcfnOpViXCODtPY"></div>
+        <div class="mstatus" data-page-node-id="5TLNq0R51a27l3zWJ4R6ik"><span data-page-node-id="MIHLqVX8xZCVtvoA5si2Hg">22:04</span><span data-page-node-id="mzRWEXBzviWHZsQH75KSiQ">▮▮▮ ⌁</span></div>
+        <div class="mpage" data-page-node-id="DEkar9UP17Vds4njrvTTLu">
+          <div class="mchap" data-page-node-id="YuJXObXgSC6JkzAIy71ljS">第 一 卷 · 山 月 记</div>
+          <p data-page-node-id="KNIgYq11InrZ1tjXyDfWXA">陇西的李征，博学才颖，<span class="hl" data-page-node-id="7HeRKNceu91soNljaSSQqe">天宝末年以名进士登第</span>，补江南尉。性狷介，自恃甚高，不甘以贱吏为伍，不久便辞官归田，闭门绝交，专心于诗作。</p>
+          <p data-page-node-id="j1NWzfiwbwS68nO1hx7vCn">然而，文名早扬于辈流之间，而进士及第之后，科举之路却再无进境。岁月蹉跎，郁郁不得志。</p>
+          <p class="dim" data-page-node-id="WWfOFLjPxb9PbD0rSBv45w">其后数年，为生计所迫，不得不复官东宫之属……</p>
+        </div>
+        <div class="mhud" data-page-node-id="HAclTkEBmEfwoSqXSfNy6r"><span class="mp" data-page-node-id="yrSVnQvzjhHdQurCV6YWfr">62%</span><span class="sep" data-page-node-id="9Gnftz2C2nnc8lidEZ9fR6"></span><span class="t" data-page-node-id="haDBYCjdc6RvsH3RYvfK6A">山月记 · 第一卷</span><span class="sep" data-page-node-id="59LPN8I5Kukn9JOGZZ879B"></span><span class="t" data-page-node-id="DbTRPixGVp9hoKRKgTiR6y">22:04</span></div>
+      </div>
+      <div class="phone" data-page-node-id="oQsDYJWXwhcSAqAcAlfHuR">
+        <div class="notch" data-page-node-id="YSG0lVDDo3Exhl6yf9VF5n"></div>
+        <div class="mstatus" data-page-node-id="YpdAsoWjAuOrJ8XLNkAHfw"><span data-page-node-id="6BBIrVBeVJEqLGj1aJqcgl">22:04</span><span data-page-node-id="QryxdRzml6ZHABUuN00zb5">▮▮▮ ⌁</span></div>
+        <div class="mpage" data-page-node-id="1bG3SbzWPhOIAgLGTi4CdE">
+          <div class="mchap" data-page-node-id="DCi17XJaJjUdNvGue0LIFJ">第 一 卷 · 山 月 记</div>
+          <p data-page-node-id="wGalRFEeOU1qHVCeuSBwky">陇西的李征，博学才颖，<span class="hl" data-page-node-id="VO4oCvFKQDXtT1bC0Nr5Ir">天宝末年以名进士登第</span>，补江南尉。性狷介，自恃甚高，不甘以贱吏为伍。</p>
+          <p class="dim" data-page-node-id="n6foWlQHR9Aes3OY71pTkO">然而，文名早扬于辈流之间……</p>
+        </div>
+        <div class="mannot" data-page-node-id="dNeIgPIopDWQoB6LocDE9O">
+          <div class="dots" data-page-node-id="FckUqO4ib6rZMtBSk2cm46">
+            <span class="cd on" style="background:linear-gradient(140deg,#e0b96b,#caa05a)" data-page-node-id="kGThDSf7OnhCXWZGMtbdwS"></span>
+            <span class="cd" style="background:linear-gradient(140deg,#8fae8b,#6f9472)" data-page-node-id="8qer3QeomQBLPAbNfBX5Pd"></span>
+            <span class="cd" style="background:linear-gradient(140deg,#8ba3c4,#6d87ad)" data-page-node-id="e2Is0N0NiuAhSXfWl3gp1n"></span>
+            <span class="cd" style="background:linear-gradient(140deg,#c98d9b,#a96b7e)" data-page-node-id="97zXqUo4WHdWxcfanFEI8W"></span>
+            <span class="cd" style="background:linear-gradient(140deg,#9a94a8,#7c7690)" data-page-node-id="ctkZGACbbxAxP7kz94KyUF"></span>
+          </div>
+          <button class="wbtn" data-page-node-id="EjfQWXtKAjPz8Xsr71TDbf">想法</button>
+          <button class="wbtn aichar" data-page-node-id="k6Ef9S2Cbp75EhNPpKt7A8">摘</button>
+          <button class="wbtn aichar" data-page-node-id="Cublzlw68EFTbQMQjtxCiM">释</button>
+          <button class="wbtn aichar" data-page-node-id="OLsPVXmssEteBAoY2Zt2gW">译</button>
+        </div>
+        <div class="mtab" data-page-node-id="YgTAoKqAN6wQnrhKJ9JcWN">
+          <div class="ti on" data-page-node-id="XJqwCR7zvNMGi4hrBRsmFY"><i data-page-node-id="KM6OrR2mCHv1nIGiWqpiJg">▦</i>书架</div>
+          <div class="ti" data-page-node-id="RDcd0zFXH9xi1wmTnY8z1F"><i data-page-node-id="pGq0xlIHncggDDnjVUsoo1">↓</i>导入</div>
+          <div class="ti" data-page-node-id="tabLkdeR2tsNA9TjFE9XFE"><i data-page-node-id="kADitEhqduIM3ijUV3oZKd">◔</i>统计</div>
+          <div class="ti" data-page-node-id="9y9Ky7l1BxSWEBO50h3Rgq"><i data-page-node-id="SnOxgKGFpUMggxj8HheC6z">⚙</i>设置</div>
+        </div>
+      </div>
+      <div class="phone" data-page-node-id="SOh4DsIkQEZ8cMVBASKITY">
+        <div class="notch" data-page-node-id="gnv2Jye1MuirTQmyltdJN2"></div>
+        <div class="mstatus" data-page-node-id="Q3sF1faCrf1W4woBkiOE7s"><span data-page-node-id="AN7NXNPzy0SCohQUq80bMY">22:04</span><span data-page-node-id="tooGslOmLv2PG2z2aIXfd4">▮▮▮ ⌁</span></div>
+        <div class="mpage" data-page-node-id="wZYArBaFXpVW0p3CdbMVl8">
+          <div class="mchap" data-page-node-id="9F4EQjGTM6qaj7MerPyMiR">第 一 卷 · 山 月 记</div>
+          <p class="dim" data-page-node-id="7taWuFPhwamACzDzO34g8C">陇西的李征，博学才颖，天宝末年以名进士登第，补江南尉……</p>
+        </div>
+        <div class="msheet" data-page-node-id="WE6FuatVxxfBEMi2fywgQt">
+          <div class="grab" data-page-node-id="ZDALrpUCK5EHjulGiU8jHq"></div>
+          <div class="grp" data-page-node-id="MOWSQfjkqPfZ4HmCYD4CWB">
+            <div class="prow" data-page-node-id="pNexZhQbyZkSFy06FlJvgE"><label data-page-node-id="bFmUdXv1XRnBqL0BAQQP2z">字号</label><span class="val" data-page-node-id="1Drb7pdyhuTyWaHrTQShZp">18.5</span></div>
+            <div class="slider" data-page-node-id="HPKac0jsMNxzz6fHtDpi1l"><div class="f" style="width:46%" data-page-node-id="JqmBRpcMjMP6Dkng5faK8E"></div><div class="k" style="left:46%" data-page-node-id="1qgCyxM9BtoUKA9wec7PXd"></div></div>
+            <div class="prow" style="margin-top:12px" data-page-node-id="YN2zT0kZv9hKxIJidSwXQf"><label data-page-node-id="hSYOhxL8bzs9czBvzHYFds">行距</label><span class="val" data-page-node-id="O0Qufi8XyP1FEdOc2Ss9me">2.05</span></div>
+            <div class="slider" data-page-node-id="Vra1LcJwxkIHdIytbfjQL4"><div class="f" style="width:62%" data-page-node-id="T4tZw96oAIpPslBaaR8Y3i"></div><div class="k" style="left:62%" data-page-node-id="pAl8qmpMiD1qDryEngpYBT"></div></div>
+          </div>
+          <div class="grp" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;padding-bottom:12px" data-page-node-id="NXC1M2UVDBRCH7PAtLCYoH">
+            <div data-page-node-id="5W3fpTjgx9SBqHyI15bizO"><div class="prow" style="margin-bottom:9px" data-page-node-id="19ebSZIGxCmzVsUUx1wgHk"><label data-page-node-id="FAESwFn94pktdEAisGWRf9">方向</label></div>
+              <div class="dir-grid" data-page-node-id="jDq3iUH8C06UKxOhb8f8CI"><div class="dir on" data-page-node-id="BeKZvLqxhBD72UP67LrXLK"><div class="demo" data-page-node-id="3RFyStik7lkjL7hNApTCNT">山月记</div><span data-page-node-id="N0PIalBEflJFBHLTZ7CPuG">横排</span></div><div class="dir vert" data-page-node-id="9VpKrfP1KlyjUHIega4lYr"><div class="demo" data-page-node-id="rSI8TIgI91pjmQyR2j85Rx">山月记</div><span data-page-node-id="j7FMZ8Vq7GtCjRUDWeyGyM">竖排</span></div></div></div>
+            <div data-page-node-id="TaKllUoA3aBWx0ufwPslMl"><div class="prow" style="margin-bottom:9px" data-page-node-id="ylvuU0IsZ0KbW3WOt8iQs3"><label data-page-node-id="Ok4YRIAS3198r1pntLKc8i">栏数</label></div>
+              <div class="seg" data-page-node-id="sVdz06xPZbbtHgei6OACgi"><button class="on" data-page-node-id="uJb9jDdmO4oe2oOoEA8VdU">单栏</button><button data-page-node-id="KJWPyHDaF8CjLzprLyiBPu">双栏</button></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="spec" style="align-self:stretch" data-page-node-id="NxJ70cUSYBTGlO9thmfqrd">
+        <b data-page-node-id="HXsZIr8HpCNlGxRs2Dy7TS">移动端三态</b>
+        <ul class="clean" data-page-node-id="Yk8kNVvnlOCuRJQ7bhq1Ai">
+          <li data-page-node-id="qCAzmYm7MkEiPLcaUH8bLb"><span class="k" data-page-node-id="BM9L90OouJm9ZkCklu52OV">沉浸</span>（默认）：只有 HUD 胶囊，点中间收放</li>
+          <li data-page-node-id="7dhByzWj27HWK4TLtzZpa3"><span class="k" data-page-node-id="a8mJ56OFz7iHCL2XMPtoly">操作</span>：点出 tabbar；排版 sheet 从底部升起</li>
+          <li data-page-node-id="MLsnxKu8uVJb4FWNLPKCDt"><span class="k" data-page-node-id="NLZHmHWWJXtxLIpCgyjn6U">键盘</span>：想法输入时 visualViewport 跟随，浮层不被键盘盖住</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑧ 全屏态 -->
+  <div class="board" data-page-node-id="lWiinHB92Kd5rvMi0UhJ8K">
+    <div class="bhead" data-page-node-id="PenIDgp9nFuecBvMgK0BAS"><span class="no" data-page-node-id="BWQ5abJjcJahJv2YbmhGdm">捌</span><h2 data-page-node-id="tROVcNvpu4P7YCECYYPrY1">全屏态</h2><p data-page-node-id="yJPRArxuFbEtZcPaQVtWgl">is-bare · 一切工具消失</p></div>
+    <p class="bnote" data-page-node-id="filRnMUBwCMx4vBNVAHX2z">点中间或按 Esc：顶栏底栏整条滑出视野，正文铺满 leaf。左下角只剩一枚 10px 的幽灵进度点，鼠标移近边缘才显形——安静到只剩书。</p>
+    <div class="frame" style="height:420px" data-page-node-id="ZCLSzkJPxWF1A87W8F7LbZ">
+      <div class="page" style="padding:76px 150px 90px" data-page-node-id="gEDARmeHrlJgMZUDtQeRlv">
+        <div class="chapter-head" data-page-node-id="7AJctKAD7bQVwCDlk15RY9"><div class="vol" data-page-node-id="ZSKx6uQWcmhN5R8t65odC9">第 一 卷</div><h3 data-page-node-id="kEKlrKTXxvVlAzg7UCPhd7">山 月 记</h3><div class="rule" data-page-node-id="8QPz97Dpzk2VLFEJrwfK5h"></div></div>
+        <p data-page-node-id="xEDapYTb7d64S2AkkBzy3z">陇西的李征，博学才颖，天宝末年以名进士登第，补江南尉。性狷介，自恃甚高，不甘以贱吏为伍，不久便辞官归田，闭门绝交，专心于诗作。</p>
+        <p class="dim" data-page-node-id="AUzcsOGhYkUtH8DY6Usasz">然而，文名早扬于辈流之间，而进士及第之后，科举之路却再无进境……</p>
+      </div>
+      <div style="position:absolute;left:26px;bottom:20px;display:flex;align-items:center;gap:8px;opacity:.45" data-page-node-id="dEdD80g3EX0Kgml92DW5hk">
+        <span style="width:5px;height:5px;border-radius:50%;background:var(--copper);display:block" data-page-node-id="VE8wvXR17HnJyJmbgZ4T6o"></span>
+        <span style="font-family:var(--serif);font-size:10px;color:var(--t3);letter-spacing:.14em" data-page-node-id="HsrZKxBj9uoSA7OajCQiDu">62%</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+function setTheme(t, btn){
+  document.documentElement.dataset.theme = t;
+  document.querySelectorAll('.themeswitch button').forEach(b => b.classList.toggle('on', b === btn));
+}
+/* 热力图：26 周 x 7，伪随机但看着自然 */
+const hm = document.getElementById('hm');
+let seed = 7;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+for (let i = 0; i < 26 * 7; i++){
+  const r = rnd();
+  const lv = r < .34 ? '' : r < .58 ? 'l1' : r < .76 ? 'l2' : r < .9 ? 'l3' : 'l4';
+  const cell = document.createElement('i');
+  if (lv) cell.className = lv;
+  hm.appendChild(cell);
+}
+</script>
+</body>
+</html>
