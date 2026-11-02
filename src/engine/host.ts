@@ -67,6 +67,20 @@ export interface SearchHit {
   excerpt: string;
 }
 
+/**
+ * 上游 search.js 的 excerpt 是 {pre, match, post} 对象（不是字符串），
+ * 直接传给 UI 层会在文本处理时炸成 TypeError——拍平成一段话。
+ */
+function excerptText(x: unknown): string {
+  if (typeof x === 'string') return x;
+  if (x && typeof x === 'object') {
+    const e = x as { pre?: unknown; match?: unknown; post?: unknown };
+    const seg = (v: unknown): string => (typeof v === 'string' ? v : '');
+    return `${seg(e.pre)}${seg(e.match)}${seg(e.post)}`;
+  }
+  return '';
+}
+
 /** 一条脚注：点正文里的注释号之后，从目标章节抓出来的那段文本 */
 export interface FootnoteInfo {
   /** 脚注正文（空白已压平） */
@@ -770,12 +784,12 @@ export class EngineHost {
       if (item === 'done') break;
       if (item.subitems?.length) {
         for (const sub of item.subitems) {
-          const hit = { cfi: sub.cfi, excerpt: sub.excerpt, chapterIndex: item.index ?? 0, chapterLabel: item.label ?? '' };
+          const hit = { cfi: sub.cfi, excerpt: excerptText(sub.excerpt), chapterIndex: item.index ?? 0, chapterLabel: item.label ?? '' };
           out.push(hit);
           opts.onHit?.(hit);
         }
       } else if (item.cfi) {
-        const hit = { cfi: item.cfi, excerpt: item.excerpt ?? '', chapterIndex: this.chapterIndex, chapterLabel: '' };
+        const hit = { cfi: item.cfi, excerpt: excerptText(item.excerpt), chapterIndex: this.chapterIndex, chapterLabel: '' };
         out.push(hit);
         opts.onHit?.(hit);
       }

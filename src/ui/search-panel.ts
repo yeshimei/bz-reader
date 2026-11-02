@@ -170,7 +170,17 @@ export function createSearchPanel(deps: SearchPanelDeps): SearchPanel {
       status.textContent = live;
     };
 
-    const found = await deps.search(q, usedScope, appendHit).catch(() => []);
+    // 搜索出错不能静默成「没有匹配」——那是把 bug 化妆成空结果，
+    // 用户会以为书里真没有（2026-11-03 的教训：excerpt 对象炸了被吞，查了一小时）
+    let found: SearchHitline[];
+    try {
+      found = await deps.search(q, usedScope, appendHit);
+    } catch (e) {
+      console.error('bz-reader 搜索失败', e);
+      if (mySeq !== seq) return;
+      status.textContent = '搜索出错，详见控制台';
+      return;
+    }
     if (mySeq !== seq) return; // 后一次输入已经覆盖，丢掉这次结果
     // 增量回调已经把结果挂完了；这里是「一条都没收到」时的兜底（引擎不给 onHit 的情况）
     if (!n) for (const hit of found) appendHit(hit);

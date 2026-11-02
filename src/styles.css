@@ -2327,10 +2327,6 @@
   font-weight: var(--bzr-weight-semibold);
   letter-spacing: 0.04em;
 }
-/* 段头已经有一条分隔线了，段内第一条命中不要再压一条 */
-.bzr-sb-group > .bzr-sb-hit:first-of-type {
-  border-top: 0;
-}
 .bzr-sb-status {
   font-size: 10px;
   color: var(--rear-fg-3);
@@ -2349,9 +2345,9 @@
 .bzr-sb-hit {
   display: block;
   width: 100%;
-  padding: 9px 14px;
+  padding: 9px 12px;
   border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--rear-fg) 7%, transparent);
+  border-radius: 10px;
   background: transparent;
   font-size: 12px;
   color: var(--rear-fg-2);
@@ -2360,7 +2356,7 @@
   cursor: pointer;
 }
 .bzr-sb-hit:hover {
-  background: var(--rear-hover);
+  background: var(--bzr-brand-soft);
 }
 /* 命中词：铜金细下划线（不糊底色，扫一眼就能锁位置） */
 .bzr-sb-hit em {
