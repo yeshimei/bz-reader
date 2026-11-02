@@ -22,6 +22,9 @@ import { notify } from '../core/notice';
 import { clear, coverColors, durationLabel, el, bookCover, percentLabel, searchIcon, setCoverImage } from './dom';
 import { createPrefsPanel } from './prefs-panel';
 import { coverUrl } from '../data/cover';
+// 统计是高级版能力：这个 import 只被下面 if (__BZ_READER_PRO__) 的分支引用，
+// base 构建时分支被删、模块整体摇掉（grep 统计弹窗的类名应为 0）
+import { openStats } from './stats-panel';
 
 export interface ShelfDeps {
   app: App;
@@ -73,6 +76,14 @@ export function openShelf(deps: ShelfDeps): ShelfHandle {
   const importBtn = el('button', 'bzr-tool is-primary', '导入');
   importBtn.type = 'button';
   head.append(el('div', 'bzr-shelf-title', '书架'), count, el('div', 'bzr-shelf-spacer'), search, viewBtn, importBtn);
+  // 统计入口只在高级版长出来：写进 if 而不是三元，dev 构建不开 minify，
+  // 三元里的分支字符串会原样留在 base 包里（历史坑 #3）
+  if (__BZ_READER_PRO__) {
+    const statsBtn = el('button', 'bzr-tool', '统计');
+    statsBtn.type = 'button';
+    statsBtn.addEventListener('click', () => openStats(store));
+    head.insertBefore(statsBtn, importBtn);
+  }
 
   const chips = el('div', 'bzr-shelf-chips');
   const body = el('div', 'bzr-shelf-body');
@@ -176,11 +187,15 @@ export function openShelf(deps: ShelfDeps): ShelfHandle {
       b.addEventListener('click', action);
       return b;
     };
+    // 统计：高级版真打开；基础版没有这个能力，点一次说明一次。
+    // 动作走 if 赋值而不是三元——理由同上（dev 不 minify，字符串会漏进 base 包）。
+    let statsAction: () => void;
+    if (__BZ_READER_PRO__) statsAction = () => openStats(store);
+    else statsAction = () => notify('阅读统计是高级版功能', 'info');
     bar.append(
       item('书架', true, () => mBody.scrollTo({ top: 0, behavior: 'smooth' })),
       item('导入', false, openImportPanel),
-      // 统计是高级版能力：基础版不藏入口，点一次说明一次
-      item('统计', false, () => notify('阅读统计是高级版功能', 'info')),
+      item('统计', false, statsAction),
       item('设置', false, openShelfPrefs),
     );
     return bar;

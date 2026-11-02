@@ -925,6 +925,179 @@
   background: var(--bzr-brand-soft);
 }
 
+/* ═══════════ ④.5 阅读统计（高级版，书架的二级弹窗） ═══════════ */
+.bzr-overlay-popup.bzr-stats-popup {
+  width: 560px;
+  max-width: calc(100vw - 32px);
+}
+.bzr-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  font-family: var(--bzr-font-ui);
+}
+.bzr-stats.is-mobile {
+  padding: 16px;
+}
+.bzr-stats.is-mobile .bzr-heat-months {
+  grid-template-columns: repeat(22, 13px);
+}
+.bzr-stats-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.bzr-stat-card {
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--bzr-surface-1);
+  border: 1px solid var(--bzr-border);
+  border-radius: 8px;
+}
+.bzr-stat-card b {
+  display: block;
+  font-size: 13.5px;
+  font-weight: var(--bzr-weight-semibold);
+  color: var(--bzr-text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bzr-stat-card span {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--bzr-font-caption);
+  color: var(--bzr-text-3);
+}
+
+/* 热力图：列 = 周，行 = 周一…周日；档位用品牌色打 opacity，两套主题共用 */
+.bzr-heat {
+  padding: 12px;
+  background: var(--bzr-surface-1);
+  border: 1px solid var(--bzr-border);
+  border-radius: 8px;
+}
+.bzr-heat-months {
+  display: grid;
+  grid-template-columns: repeat(26, 13px);
+  margin-bottom: 4px;
+  font-size: 10px;
+  color: var(--bzr-text-3);
+  line-height: 1;
+}
+.bzr-heat-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 10px);
+  gap: 3px;
+  justify-content: start;
+}
+.bzr-heat-grid i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--bzr-surface-3);
+}
+.bzr-heat-grid i.lv1 { background: var(--bzr-brand); opacity: 0.25; }
+.bzr-heat-grid i.lv2 { background: var(--bzr-brand); opacity: 0.45; }
+.bzr-heat-grid i.lv3 { background: var(--bzr-brand); opacity: 0.7; }
+.bzr-heat-grid i.lv4 { background: var(--bzr-brand); }
+.bzr-heat-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 10.5px;
+  color: var(--bzr-text-3);
+}
+.bzr-heat-legend {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.bzr-heat-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--bzr-surface-3);
+}
+.bzr-heat-legend i.lv1 { background: var(--bzr-brand); opacity: 0.25; }
+.bzr-heat-legend i.lv2 { background: var(--bzr-brand); opacity: 0.45; }
+.bzr-heat-legend i.lv3 { background: var(--bzr-brand); opacity: 0.7; }
+.bzr-heat-legend i.lv4 { background: var(--bzr-brand); }
+
+/* 每本书 */
+.bzr-stats-sec {
+  margin-bottom: 8px;
+  font-size: var(--bzr-font-caption);
+  color: var(--bzr-text-3);
+}
+.bzr-stats-books {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bzr-stats-book {
+  padding: 10px 12px;
+  background: var(--bzr-surface-1);
+  border: 1px solid var(--bzr-border);
+  border-radius: 8px;
+}
+.bzr-stats-book .t {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--bzr-font-meta);
+  color: var(--bzr-text-1);
+}
+.bzr-stats-book .name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bzr-stats-book .sec {
+  flex: none;
+  color: var(--bzr-text-2);
+}
+.bzr-stats-book .bar {
+  margin-top: 8px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--bzr-surface-3);
+  overflow: hidden;
+}
+.bzr-stats-book .bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--bzr-brand);
+}
+.bzr-stats-book .meta {
+  margin-top: 6px;
+  font-size: var(--bzr-font-caption);
+  color: var(--bzr-text-3);
+}
+
+/* 空态 */
+.bzr-stats-empty {
+  padding: 36px 16px;
+  text-align: center;
+}
+.bzr-stats-empty-t {
+  font-size: var(--bzr-font-emphasis);
+  color: var(--bzr-text-1);
+}
+.bzr-stats-empty-d {
+  margin-top: 6px;
+  font-size: var(--bzr-font-meta);
+  color: var(--bzr-text-3);
+}
+
 /* ═══════════ ⑤ 阅读 · 桌面 ═══════════ *//* 阅读是 workspace 里的一个 leaf：拆掉宿主外壳，由 .bzr-reader 自己承担整块区域。
    颜色跟随当前阅读主题（--rear-* 由 view 层按 prefs 写入），正文与栏框同色，
    这样「翻页时界面不动，只有字在换」。
