@@ -369,6 +369,14 @@ export class EngineHost {
     await this.view?.goTo(cfi);
   }
 
+  /** 整书百分比跳转（移动端进度滑杆松手时用） */
+  async goToPercent(fraction: number): Promise<void> {
+    const view = this.view;
+    if (!view) return;
+    const f = Math.min(1, Math.max(0, fraction));
+    await view.goToFraction(f).catch(() => undefined);
+  }
+
   /**
    * 搜索。`chapterOnly` 只搜当前章节（基础版能力），关掉是全书（高级版）。
    * 底层是同一个 foliate 接口，区别只在传不传 index。

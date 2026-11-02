@@ -1,8 +1,10 @@
 /* ============================================================
- * bz-reader · 阅读设置面板（ui/prefs-panel.ts）
+ * bz-reader · 排版面板（ui/prefs-panel.ts）
  *
- * 右下角弹出的小面板：字号 / 行距 / 页边距 / 字体 / 对齐 / 主题。
- * 改一项立刻生效（不点确定）—— 排版是看着调的，不是填表。
+ * 桌面从右下浮起（280px 小卡），移动端从底部长出来（sheet + 抓手）。
+ * 同一个 DOM，两套皮——因为它调的是同一组值，拆两份没有意义。
+ *
+ * 改一项立刻生效（不点确定）：排版是看着调的，不是填表。
  * ============================================================ */
 import {
   FONT_FAMILIES,
@@ -12,7 +14,7 @@ import {
   THEME_OPTIONS,
   type ReaderPrefs,
 } from '../data/prefs';
-import { el, segmented, slider } from './dom';
+import { el, seg, swatches, trackRow } from './dom';
 
 export interface PrefsPanel {
   root: HTMLElement;
@@ -25,69 +27,85 @@ export interface PrefsPanel {
 
 export function createPrefsPanel(initial: ReaderPrefs, onChange: (patch: Partial<ReaderPrefs>) => void): PrefsPanel {
   const root = el('div', 'bzr-prefs');
+  // 抓手与标题只在移动 sheet 形态下显示（CSS 控制，不在这里判断平台）
+  root.append(el('div', 'bzr-msheet-grab'), el('div', 'bzr-msheet-title', '排版'));
 
-  const fontSlider = slider({
+  const fontSlider = trackRow({
     label: '字号',
     ...FONT_SIZE_RANGE,
     value: initial.fontSize,
     format: (v) => `${v}px`,
     onInput: (v) => onChange({ fontSize: v }),
   });
-  const lineSlider = slider({
+  const lineSlider = trackRow({
     label: '行距',
     ...LINE_HEIGHT_RANGE,
     value: initial.lineHeight,
     format: (v) => v.toFixed(1),
     onInput: (v) => onChange({ lineHeight: v }),
   });
-  const marginSlider = slider({
+  const marginSlider = trackRow({
     label: '页边距',
     ...MARGIN_RANGE,
     value: initial.margin,
-    format: (v) => `${v}px`,
+    format: (v) => `${v}`,
     onInput: (v) => onChange({ margin: v }),
   });
 
-  const themeBox = el('div', 'bzr-prefs-row');
-  themeBox.appendChild(el('span', 'bzr-slider-label', '主题'));
-  const themeHolder = el('div', 'bzr-prefs-holder');
-  themeHolder.appendChild(
-    segmented(
-      THEME_OPTIONS.map((t) => ({ value: t.value, label: t.label, swatch: t.bg || undefined })),
+  /* 字体：跟随 / 宋 / 黑。移动端这一行末尾再挂一个「两端」，和原型一致 */
+  let align: ReaderPrefs['align'] = initial.align;
+
+  /* 对齐：桌面单列一行；移动端并进字体那行（只留一个切换钮） */
+  const alignSeg = seg(
+    [
+      { value: 'justify' as const, label: '两端对齐' },
+      { value: 'left' as const, label: '左对齐' },
+    ],
+    initial.align,
+    (v) => {
+      align = v;
+      alignToggle.textContent = v === 'left' ? '左对齐' : '两端';
+      onChange({ align: v });
+    },
+  );
+  const alignRow = el('div', 'bzr-prefs-align-row');
+  alignRow.append(el('span', 'bzr-track-label', '对齐'), alignSeg);
+
+  const fontSeg = seg(
+    FONT_FAMILIES.map((f) => ({ value: f.value, label: f.label.replace(' / 衬线', '').replace(' / 无衬线', '') })),
+    initial.fontFamily,
+    (v) => onChange({ fontFamily: v }),
+  );
+  const alignToggle = el('button', 'bzr-prefs-align-inline', initial.align === 'left' ? '左对齐' : '两端');
+  alignToggle.type = 'button';
+  alignToggle.title = '切换对齐方式';
+  alignToggle.addEventListener('click', () => {
+    align = align === 'justify' ? 'left' : 'justify';
+    alignToggle.textContent = align === 'left' ? '左对齐' : '两端';
+    const buttons = Array.from(alignSeg.querySelectorAll('button'));
+    buttons[0]?.classList.toggle('is-on', align === 'justify');
+    buttons[1]?.classList.toggle('is-on', align === 'left');
+    onChange({ align });
+  });
+  fontSeg.appendChild(alignToggle);
+  const fontRow = el('div', 'bzr-track-row');
+  fontRow.append(el('span', 'bzr-track-label', '字体'), fontSeg);
+
+  const themeRow = el('div', 'bzr-track-row');
+  themeRow.append(
+    el('span', 'bzr-track-label', '主题'),
+    swatches(
+      THEME_OPTIONS.map((t) => ({
+        value: t.value,
+        label: t.label,
+        bg: t.bg || 'linear-gradient(140deg,#2a2a32,#16161c)',
+      })),
       initial.theme,
       (v) => onChange({ theme: v }),
     ),
   );
-  themeBox.appendChild(themeHolder);
 
-  const fontBox = el('div', 'bzr-prefs-row');
-  fontBox.appendChild(el('span', 'bzr-slider-label', '字体'));
-  const fontHolder = el('div', 'bzr-prefs-holder');
-  fontHolder.appendChild(
-    segmented(
-      FONT_FAMILIES.map((f) => ({ value: f.value, label: f.label })),
-      initial.fontFamily,
-      (v) => onChange({ fontFamily: v }),
-    ),
-  );
-  fontBox.appendChild(fontHolder);
-
-  const alignBox = el('div', 'bzr-prefs-row');
-  alignBox.appendChild(el('span', 'bzr-slider-label', '对齐'));
-  const alignHolder = el('div', 'bzr-prefs-holder');
-  alignHolder.appendChild(
-    segmented(
-      [
-        { value: 'justify' as const, label: '两端对齐' },
-        { value: 'left' as const, label: '左对齐' },
-      ],
-      initial.align,
-      (v) => onChange({ align: v }),
-    ),
-  );
-  alignBox.appendChild(alignHolder);
-
-  root.append(themeBox, fontSlider.row, lineSlider.row, marginSlider.row, fontBox, alignBox);
+  root.append(fontSlider.row, lineSlider.row, marginSlider.row, fontRow, alignRow, themeRow);
 
   return {
     root,

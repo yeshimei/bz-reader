@@ -5,10 +5,16 @@
  * 关掉再开能回到原处。不再是 Modal —— 弹窗会盖住笔记，读完想对照
  * 一眼原文得先关书；改成原生视图之后，书和笔记可以并排开着。
  *
- * 一屏 = 三条横栏 + 中间正文：
- *   头：返回 / 书名·章节 / 目录 · 搜索 · 排版
+ * 一屏 = 三条横栏 + 中间正文（桌面）：
+ *   头 44px：‹ / 书名 / 章节 / 目录 · 搜索 · Aa
  *   中：foliate 渲染区（点左 30% 上一页、右 30% 下一页、中间收放工具栏）
- *   脚：上一页 / 进度 + 剩余时间 / 下一页
+ *   脚 34px：上一页 / 32% · 剩 6 小时 / 下一页，最下沿一条 2px 进度线
+ *
+ * 移动端是另一套：默认没工具栏，点中间浮出上下两条（浮在正文之上，
+ * 正文一毫米都不挪），底栏四项：目录 / 进度 / 搜索 / 排版。
+ *
+ * 栏框颜色跟随当前阅读主题（--rear-* 写在根节点上），这样「翻页时
+ * 界面不动、只有字在换」——白底书忽然顶着一条黑栏是最刺眼的破功点。
  *
  * 关书时的结算顺序不能反：
  *   先结算会话 → 再落最后位置 → 再 flush 落盘 → 最后 destroy 引擎。
@@ -22,8 +28,9 @@ import type { BookRepo } from '../data/book-repo';
 import { normalizePrefs, type ReaderPrefs } from '../data/prefs';
 import { ActivityTracker } from '../engine/activity';
 import { EngineHost, type RelocateInfo } from '../engine/host';
+import { resolveTheme } from '../engine/theme';
 import { notify } from '../core/notice';
-import { durationLabel, el, percentLabel } from '../ui/dom';
+import { durationLabel, el, searchIcon, tocIcon, trackRow } from '../ui/dom';
 import { createTocPanel } from '../ui/toc';
 import { createPrefsPanel } from '../ui/prefs-panel';
 import { createSearchPanel } from '../ui/search-panel';
@@ -41,22 +48,6 @@ export interface ReaderHostApi {
 
 const COMPLETE_THRESHOLD = 0.99;
 
-const ICON_BACK = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>';
-const ICON_TOC = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h10M4 18h13"/></svg>';
-const ICON_SEARCH = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>';
-const ICON_TYPE = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h10M9 6v12M15 11h5M17.5 11v7"/></svg>';
-const ICON_CHEVRON_L = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>';
-const ICON_CHEVRON_R = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m10 6 6 6-6 6"/></svg>';
-
-function iconBtn(label: string, svg: string, extra = ''): HTMLButtonElement {
-  const b = el('button', 'bzr-icon-btn' + (extra ? ' ' + extra : ''));
-  b.type = 'button';
-  b.setAttribute('aria-label', label);
-  b.title = label;
-  b.innerHTML = svg;
-  return b;
-}
-
 export class ReaderView extends ItemView {
   private api: ReaderHostApi;
   private bookId = '';
@@ -70,14 +61,19 @@ export class ReaderView extends ItemView {
   private tracker = new ActivityTracker();
   private prefs: ReaderPrefs;
   private stage: HTMLElement | null = null;
+  private rootEl: HTMLElement | null = null;
   private titleEl: HTMLElement | null = null;
   private chapterEl: HTMLElement | null = null;
-  private progressText: HTMLElement | null = null;
-  private remainText: HTMLElement | null = null;
+  private percentEl: HTMLElement | null = null;
+  private remainEl: HTMLElement | null = null;
   private railFill: HTMLElement | null = null;
   private toc: ReturnType<typeof createTocPanel> | null = null;
   private search: ReturnType<typeof createSearchPanel> | null = null;
   private prefsPanel: ReturnType<typeof createPrefsPanel> | null = null;
+  private progressSheet: HTMLElement | null = null;
+  private progressPercent: HTMLElement | null = null;
+  private progressRemain: HTMLElement | null = null;
+  private progressSlider: ReturnType<typeof trackRow> | null = null;
   private tapHandler: (zone: 'left' | 'middle' | 'right') => void = () => undefined;
 
   constructor(leaf: WorkspaceLeaf, api: ReaderHostApi) {
@@ -141,82 +137,145 @@ export class ReaderView extends ItemView {
     this.contentEl.addClass('bzr-view-content');
     this.contentEl.empty();
 
-    const root = el('div', 'bzr-reader');
+    const mobile = Platform.isMobile;
+    const root = el('div', 'bzr-reader' + (mobile ? ' is-mobile' : ''));
     root.tabIndex = -1;
-    // 手机上默认沉浸：头尾栏浮在上面，点一下中间才出来
-    if (Platform.isMobile) root.classList.add('is-bare');
+    // 手机上默认沉浸：两条栏浮在上面，点一下中间才出来
+    if (mobile) root.classList.add('is-bare');
 
-    const head = el('div', 'bzr-reader-head');
-    const back = iconBtn('返回笔记', ICON_BACK, 'bzr-reader-back');
-    const titles = el('div', 'bzr-reader-titles');
-    const title = el('div', 'bzr-reader-title', '');
-    const chapter = el('div', 'bzr-reader-chapter', '');
-    titles.append(title, chapter);
-    const spacer = el('div', 'bzr-reader-spacer');
-    const tocBtn = iconBtn('目录', ICON_TOC);
-    const searchBtn = iconBtn('搜索本章', ICON_SEARCH);
-    const prefsBtn = iconBtn('排版', ICON_TYPE);
-    head.append(back, titles, spacer, tocBtn, searchBtn, prefsBtn);
+    /* 头栏 */
+    const back = el('button', 'bzr-rback', '‹');
+    back.type = 'button';
+    back.setAttribute('aria-label', '返回笔记');
+    back.title = '返回笔记';
+    const title = el('div', 'bzr-rtitle', '');
+    const chapter = el('div', 'bzr-rchap', '');
+    const tocBtn = el('button', 'bzr-ric');
+    tocBtn.type = 'button';
+    tocBtn.title = '目录';
+    tocBtn.setAttribute('aria-label', '目录');
+    tocBtn.appendChild(tocIcon());
+    const searchBtn = el('button', 'bzr-ric');
+    searchBtn.type = 'button';
+    searchBtn.title = '搜索本章';
+    searchBtn.setAttribute('aria-label', '搜索本章');
+    searchBtn.appendChild(searchIcon());
+    const prefsBtn = el('button', 'bzr-ric', 'Aa');
+    prefsBtn.type = 'button';
+    prefsBtn.title = '排版';
+    prefsBtn.setAttribute('aria-label', '排版');
+    const headEl = el('div', 'bzr-rhead');
+    headEl.append(back, title, chapter, el('div', 'bzr-rspacer'), tocBtn, searchBtn, prefsBtn);
 
-    const stage = el('div', 'bzr-reader-stage');
-    const rail = el('div', 'bzr-reader-rail');
-    const railFill = el('div', 'bzr-reader-rail-fill');
-    rail.appendChild(railFill);
-    stage.appendChild(rail);
+    /* 正文区 */
+    const stage = el('div', 'bzr-stage');
+    const flipPrev = el('button', 'bzr-flip is-prev', '‹');
+    flipPrev.type = 'button';
+    flipPrev.setAttribute('aria-label', '上一页');
+    const flipNext = el('button', 'bzr-flip is-next', '›');
+    flipNext.type = 'button';
+    flipNext.setAttribute('aria-label', '下一页');
+    const bodyEl = el('div', 'bzr-rbody');
+    bodyEl.append(stage, flipPrev, flipNext);
 
-    // 桌面端鼠标翻页：左右边缘的半透明箭头，hover 淡入（触屏设备隐藏）
-    const flipPrev = iconBtn('上一页', ICON_CHEVRON_L, 'bzr-flip bzr-flip-prev');
-    const flipNext = iconBtn('下一页', ICON_CHEVRON_R, 'bzr-flip bzr-flip-next');
-    stage.append(flipPrev, flipNext);
-
-    const foot = el('div', 'bzr-reader-foot');
-    const prevBtn = el('button', 'bzr-reader-nav', '上一页');
+    /* 脚栏（桌面） */
+    const prevBtn = el('button', 'bzr-rnav', '上一页');
     prevBtn.type = 'button';
-    const meta = el('div', 'bzr-reader-meta');
-    const progressText = el('span', 'bzr-reader-progress-text', '');
-    const remainText = el('span', 'bzr-reader-remain', '');
-    meta.append(progressText, remainText);
-    const nextBtn = el('button', 'bzr-reader-nav', '下一页');
+    const nextBtn = el('button', 'bzr-rnav', '下一页');
     nextBtn.type = 'button';
-    foot.append(prevBtn, meta, nextBtn);
+    const percent = el('b', '', '0%');
+    const remain = el('span', '', '');
+    const meta = el('div', 'bzr-rmeta');
+    meta.append(percent, remain);
+    const footEl = el('div', 'bzr-rfoot');
+    footEl.append(prevBtn, meta, nextBtn);
 
-    root.append(head, stage, foot);
-    this.contentEl.appendChild(root);
+    /* 底栏（移动）：目录 / 进度 / 搜索 / 排版 */
+    const mb = el('div', 'bzr-mbot');
+    const mItem = (label: string): HTMLElement => {
+      const b = el('b');
+      b.append(el('i'), document.createTextNode(label));
+      return b;
+    };
+    const mToc = mItem('目录');
+    const mProgress = mItem('进度');
+    const mSearch = mItem('搜索');
+    const mPrefs = mItem('排版');
+    mb.append(mToc, mProgress, mSearch, mPrefs);
 
-    this.stage = stage;
-    this.titleEl = title;
-    this.chapterEl = chapter;
-    this.progressText = progressText;
-    this.remainText = remainText;
-    this.railFill = railFill;
+    const rail = el('div', 'bzr-rrail');
+    const railFill = el('i');
+    rail.appendChild(railFill);
 
-    const prefsPanel = createPrefsPanel(this.prefs, (patch) => {
-      this.prefs = normalizePrefs({ ...this.prefs, ...patch });
-      this.host.applyPrefs(this.prefs);
-      this.api.store.get().prefs = this.prefs;
-      this.api.store.touch();
-    });
-    const search = createSearchPanel({
-      search: (q) => this.host.search(q, { chapterOnly: true }),
-      onPick: (cfi) => {
-        void this.host.goToCfi(cfi);
-        search.hide();
-      },
-      onClose: () => undefined,
-    });
+    /* 面板 */
     const toc = createTocPanel((href) => {
       void this.host.goToHref(href);
     });
-    root.append(toc.root, search.root, prefsPanel.root);
+    const search = createSearchPanel({
+      search: async (q) => {
+        const hits = await this.host.search(q, { chapterOnly: true });
+        return hits.map((h) => ({ cfi: h.cfi, excerpt: h.excerpt, chapterLabel: h.chapterLabel }));
+      },
+      onPick: (cfi) => {
+        void this.host.goToCfi(cfi);
+        search.hide();
+        this.tracker.touch();
+      },
+      onClose: () => undefined,
+    });
+    const prefsPanel = createPrefsPanel(this.prefs, (patch) => this.applyPrefs({ ...this.prefs, ...patch }));
+
+    root.append(headEl, bodyEl, footEl, mb, rail, toc.scrim, toc.root, search.root, prefsPanel.root);
+    if (mobile) {
+      const sheet = this.buildProgressSheet();
+      root.appendChild(sheet.root);
+      this.progressSheet = sheet.root;
+    }
+    this.contentEl.appendChild(root);
+
+    this.rootEl = root;
+    this.stage = stage;
+    this.titleEl = title;
+    this.chapterEl = chapter;
+    this.percentEl = percent;
+    this.remainEl = remain;
+    this.railFill = railFill;
     this.toc = toc;
     this.search = search;
     this.prefsPanel = prefsPanel;
 
-    const anyPanelOpen = (): boolean => toc.isOpen() || search.isOpen() || prefsPanel.isOpen();
+    this.applyChrome();
+
+    const anyPanelOpen = (): boolean =>
+      toc.isOpen() || search.isOpen() || prefsPanel.isOpen() || !!this.progressSheet?.classList.contains('is-open');
     const closePanels = (): void => {
       toc.hide();
       search.hide();
       prefsPanel.hide();
+      this.progressSheet?.classList.remove('is-open');
+    };
+    const openToc = (): void => {
+      const open = toc.isOpen();
+      closePanels();
+      if (!open) toc.show();
+    };
+    const openSearch = (): void => {
+      const open = search.isOpen();
+      closePanels();
+      if (!open) search.show();
+    };
+    const openPrefs = (): void => {
+      const open = prefsPanel.isOpen();
+      closePanels();
+      if (!open) prefsPanel.show();
+    };
+    const openProgress = (): void => {
+      const open = !!this.progressSheet?.classList.contains('is-open');
+      closePanels();
+      if (!open) {
+        this.syncProgressSheet();
+        this.progressSheet?.classList.add('is-open');
+      }
     };
 
     const turn = (dir: 'prev' | 'next'): void => {
@@ -228,27 +287,19 @@ export class ReaderView extends ItemView {
     nextBtn.addEventListener('click', () => turn('next'));
     flipPrev.addEventListener('click', () => turn('prev'));
     flipNext.addEventListener('click', () => turn('next'));
+    mToc.addEventListener('click', openToc);
+    mSearch.addEventListener('click', openSearch);
+    mPrefs.addEventListener('click', openPrefs);
+    mProgress.addEventListener('click', openProgress);
 
     back.addEventListener('click', () => {
       // 原生视图的「返回」= 关掉这个 tab，回到打开书之前的那一页
       this.leaf.detach();
     });
 
-    tocBtn.addEventListener('click', () => {
-      const open = toc.isOpen();
-      closePanels();
-      if (!open) toc.show();
-    });
-    searchBtn.addEventListener('click', () => {
-      const open = search.isOpen();
-      closePanels();
-      if (!open) search.show();
-    });
-    prefsBtn.addEventListener('click', () => {
-      const open = prefsPanel.isOpen();
-      closePanels();
-      if (!open) prefsPanel.show();
-    });
+    tocBtn.addEventListener('click', openToc);
+    searchBtn.addEventListener('click', openSearch);
+    prefsBtn.addEventListener('click', openPrefs);
 
     this.teardown = () => {
       closePanels();
@@ -277,9 +328,7 @@ export class ReaderView extends ItemView {
       } else if (e.key === 't' || e.key === 'T') {
         if (e.ctrlKey || e.metaKey) return;
         e.preventDefault();
-        const open = toc.isOpen();
-        closePanels();
-        if (!open) toc.show();
+        openToc();
       }
     };
     document.addEventListener('keydown', onKey, true);
@@ -299,6 +348,73 @@ export class ReaderView extends ItemView {
       else if (zone === 'right') turn('next');
       else root.classList.toggle('is-bare');
     };
+
+    // Obsidian 明暗切换时，跟随主题的阅读栏框要跟着变
+    this.registerEvent(this.api.app.workspace.on('css-change', () => this.applyChrome()));
+  }
+
+  /** 移动端进度 sheet：整书跳转（章内定位靠翻页，不靠滑杆） */
+  private buildProgressSheet(): { root: HTMLElement } {
+    const root = el('div', 'bzr-prefs bzr-progress-sheet');
+    const grab = el('div', 'bzr-msheet-grab');
+    const title = el('div', 'bzr-msheet-title', '进度');
+    const big = el('div', 'bzr-progress-big');
+    const pct = el('b', '', '0%');
+    const remain = el('span', '', '');
+    big.append(pct, remain);
+
+    const slider = trackRow({
+      label: '位置',
+      min: 0,
+      max: 100,
+      step: 1,
+      value: 0,
+      format: (v) => `${v}%`,
+      onInput: (v) => {
+        if (pct) pct.textContent = `${v}%`;
+      },
+    });
+    // 松手才跳：拖动过程中每帧重排整本书，会卡成幻灯片
+    slider.input.addEventListener('change', () => {
+      void this.host.goToPercent(Number(slider.input.value) / 100);
+      root.classList.remove('is-open');
+    });
+
+    root.append(grab, title, big, slider.row);
+    this.progressPercent = pct;
+    this.progressRemain = remain;
+    this.progressSlider = slider;
+    return { root };
+  }
+
+  private syncProgressSheet(): void {
+    const p = this.book?.reading.position.percent || 0;
+    const v = Math.round(p * 100);
+    if (this.progressPercent) this.progressPercent.textContent = `${v}%`;
+    if (this.progressRemain) {
+      this.progressRemain.textContent = this.lastRemaining > 60 ? `剩 ${durationLabel(this.lastRemaining)}` : '';
+    }
+    this.progressSlider?.set(v);
+  }
+
+  private lastRemaining = 0;
+
+  /** 栏框跟随阅读主题：只改根节点上的两个变量，全树跟着走 */
+  private applyChrome(): void {
+    const root = this.rootEl;
+    if (!root) return;
+    const theme = resolveTheme(this.prefs.theme);
+    root.style.setProperty('--rear-bg', theme.bgColor);
+    root.style.setProperty('--rear-fg', theme.textColor);
+  }
+
+  private applyPrefs(patch: Partial<ReaderPrefs>): void {
+    this.prefs = normalizePrefs({ ...this.prefs, ...patch });
+    this.host.applyPrefs(this.prefs);
+    this.api.store.get().prefs = this.prefs;
+    this.api.store.touch();
+    this.prefsPanel?.refresh(this.prefs);
+    this.applyChrome();
   }
 
   /* ─────────────────── 装载书 ─────────────────── */
@@ -320,6 +436,7 @@ export class ReaderView extends ItemView {
     this.mounting = true;
     this.book = book;
     this.prefs = normalizePrefs(this.api.store.get().prefs ?? undefined);
+    this.applyChrome();
     if (this.titleEl) {
       this.titleEl.textContent = book.meta.title;
       this.titleEl.title = book.meta.title;
@@ -338,13 +455,7 @@ export class ReaderView extends ItemView {
           const p = dir === 'prev' ? this.host.prev() : this.host.next();
           void p.then(() => this.tracker.touch());
         },
-        onFontSize: (size) => {
-          this.prefs = normalizePrefs({ ...this.prefs, fontSize: size });
-          this.host.applyPrefs(this.prefs);
-          this.api.store.get().prefs = this.prefs;
-          this.api.store.touch();
-          this.prefsPanel?.refresh(this.prefs);
-        },
+        onFontSize: (size) => this.applyPrefs({ fontSize: size }),
         onReady: (_b, m) => {
           if (m.title) book.meta.title = m.title;
           if (m.author) book.meta.author = m.author;
@@ -390,9 +501,14 @@ export class ReaderView extends ItemView {
   /* ─────────────────── 进度与会话 ─────────────────── */
 
   private updateFoot(percent: number, remainingSeconds: number): void {
-    if (this.progressText) this.progressText.textContent = percentLabel(percent);
-    if (this.remainText) this.remainText.textContent = remainingSeconds > 0 ? `剩 ${durationLabel(remainingSeconds)}` : '';
-    if (this.railFill) this.railFill.style.width = `${Math.max(0, Math.min(100, percent * 100))}%`;
+    this.lastRemaining = remainingSeconds;
+    const p = Math.max(0, Math.min(1, percent));
+    if (this.percentEl) this.percentEl.textContent = `${Math.round(p * 100)}%`;
+    if (this.remainEl) {
+      this.remainEl.textContent =
+        remainingSeconds > 60 ? `剩 ${durationLabel(remainingSeconds)}` : '';
+    }
+    if (this.railFill) this.railFill.style.width = `${p * 100}%`;
   }
 
   private saveRelocate(info: RelocateInfo): void {

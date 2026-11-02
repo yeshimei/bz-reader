@@ -8,10 +8,10 @@
  *   ② 从本地文件导入 —— 文件在 vault 外面，需要**写进** vault 才能被
  *      阅读器读到（foliate 走 vault adapter 读字节）。落到 Books/。
  *
- * 不做「导入即复制到统一书库」：那会在用户库里留一堆副本，
- * 违背「文件即数据」的直觉，也会让同步方案多传一份。
+ * 勾选框是自绘的方框（.bzr-cb），真 input 压成 0×0 留在 label 里——
+ * 原生 checkbox 一上一下两套外观，和这套界面放一起就是「另一个软件的控件」。
  * ============================================================ */
-import type { App } from 'obsidian';
+import { Platform, type App } from 'obsidian';
 import type { BookFormat } from '../data/schema';
 import { BOOK_FORMATS_LABEL, formatOf, scanVault, titleFromPath } from '../data/book-repo';
 import type { BookRepo } from '../data/book-repo';
@@ -37,6 +37,8 @@ interface Row {
   title: string;
   inShelf: boolean;
   checked: boolean;
+  node?: HTMLElement;
+  box?: HTMLElement;
 }
 
 function sizeLabel(bytes: number): string {
@@ -47,52 +49,51 @@ function sizeLabel(bytes: number): string {
 
 export function openImport(deps: ImportDeps): void {
   const { app, repo, store, formats, onDone } = deps;
+  const mobile = Platform.isMobile;
 
-  const root = el('div', 'bzr-import');
-  const listWrap = el('div', 'bzr-import-list');
-  const toolbar = el('div', 'bzr-import-toolbar');
-  const filterInput = el('input', 'bzr-import-filter');
+  const root = el('div', 'bzr-imp' + (mobile ? ' is-mobile' : ''));
+  const desc = el('p', 'bzr-imp-desc', '');
+  const headBox = el('div', 'bzr-imp-h', '导入');
+  headBox.appendChild(desc);
+
+  const filterInput = el('input', 'bzr-imp-filter');
   filterInput.type = 'search';
   filterInput.placeholder = '筛选书名或路径';
-  const selectAll = el('button', 'bzr-link-btn', '全选未加入');
+  const selectAll = el('button', 'bzr-link', '全选未加入');
   selectAll.type = 'button';
-  toolbar.append(filterInput, selectAll);
+  const tools = el('div', 'bzr-imp-tools');
+  tools.append(filterInput, selectAll);
 
-  const hint = el('div', 'bzr-import-hint', '');
+  const hint = el('div', 'bzr-imp-hint', '');
+  const listWrap = el('div', 'bzr-imp-list');
+
   const grabBtn = el('button', 'bzr-btn', '选择本地文件…');
   grabBtn.type = 'button';
-  const grab = el('div', 'bzr-import-local');
-  grab.append(
-    el(
-      'div',
-      'bzr-import-local-desc',
-      `文件会被复制进库里，之后由笔记库统一管理。支持 ${BOOK_FORMATS_LABEL(formats)}。`,
-    ),
-    grabBtn,
-  );
+  const grab = el('div', 'bzr-imp-local');
+  grab.append(el('span', 'd', `文件会被复制进库里，之后由笔记库统一管理。支持 ${BOOK_FORMATS_LABEL(formats)}。`), grabBtn);
 
-  const confirmBtn = el('button', 'bzr-btn bzr-btn-primary', '加入书架');
+  const confirmBtn = el('button', 'bzr-btn is-primary', '加入书架');
   confirmBtn.type = 'button';
-  const footBar = el('div', 'bzr-import-foot');
-  footBar.appendChild(confirmBtn);
+  const foot = el('div', 'bzr-imp-f');
+  foot.appendChild(confirmBtn);
 
-  root.append(
-    el('div', 'bzr-import-section-title', '在笔记库里找到的书'),
-    toolbar,
+  const bodyBox = el('div', 'bzr-imp-b');
+  bodyBox.append(
+    el('div', 'bzr-imp-sec', '在笔记库里找到的书'),
+    tools,
     hint,
     listWrap,
-    el('div', 'bzr-import-section-title', '从本地文件导入'),
+    el('div', 'bzr-imp-sec', '从本地文件导入'),
     grab,
-    footBar,
   );
+  root.append(headBox, bodyBox, foot);
 
   let keyword = '';
   let rows: Row[] = [];
 
   const { close } = uiModal({
     content: root,
-    className: 'bzr-import-popup',
-    maxWidth: 620,
+    className: 'bzr-import-popup' + (mobile ? ' is-mobile' : ''),
     autofocus: false,
     onClose: () => {
       void store.flush();
@@ -117,39 +118,47 @@ export function openImport(deps: ImportDeps): void {
     return rows.filter((r) => r.title.toLowerCase().includes(k) || r.path.toLowerCase().includes(k));
   }
 
+  function buildRow(row: Row): HTMLElement {
+    const item = el('label', 'bzr-imp-row' + (row.inShelf ? ' is-in' : ''));
+    const box = el('span', 'bzr-cb' + (row.inShelf ? ' is-dis' : row.checked ? ' is-on' : ''));
+    const native = el('input', 'bzr-cb-native');
+    native.type = 'checkbox';
+    native.checked = row.checked;
+    native.disabled = row.inShelf;
+    native.tabIndex = -1;
+    native.addEventListener('change', () => {
+      row.checked = native.checked;
+      box.classList.toggle('is-on', native.checked);
+      syncConfirm();
+    });
+
+    const text = el('span', 'bzr-imp-t');
+    const name = el('span', 'n', row.title);
+    if (row.inShelf) name.appendChild(el('span', 'bzr-badge', '已在书架'));
+    text.append(name, el('span', 'p', row.path));
+
+    item.append(box, native, text, el('span', 'bzr-imp-m', sizeLabel(row.size)));
+    row.node = item;
+    row.box = box;
+    return item;
+  }
+
   function render(): void {
     const vis = visible();
     const fresh = rows.filter((r) => !r.inShelf).length;
     hint.textContent = rows.length
       ? `共 ${rows.length} 本，其中 ${fresh} 本还没加入书架。文件留在原地，不会复制。`
       : `笔记库里没有找到 ${BOOK_FORMATS_LABEL(formats)} 文件。可以从下面选本地文件。`;
-
+    desc.textContent = `库里找到 ${rows.length} 本书，其中 ${fresh} 本还没上架。文件留在原地。`;
     selectAll.style.display = fresh ? '' : 'none';
 
     clear(listWrap);
     if (!vis.length) {
-      const empty = el('div', 'bzr-import-empty', rows.length ? '没有匹配项' : '库里的书都已经在书架上了');
-      listWrap.appendChild(empty);
+      listWrap.appendChild(
+        el('div', 'bzr-imp-empty', rows.length ? '没有匹配项' : '库里的书都已经在书架上了'),
+      );
     } else {
-      for (const row of vis) {
-        const item = el('label', 'bzr-import-row' + (row.inShelf ? ' is-in' : ''));
-        const box = el('input', 'bzr-import-check');
-        box.type = 'checkbox';
-        box.checked = row.checked;
-        box.disabled = row.inShelf;
-        box.addEventListener('change', () => {
-          row.checked = box.checked;
-          syncConfirm();
-        });
-        const body = el('div', 'bzr-import-row-body');
-        const line = el('div', 'bzr-import-row-title');
-        line.append(el('span', '', row.title));
-        if (row.inShelf) line.appendChild(el('span', 'bzr-import-badge', '已在书架'));
-        body.append(line, el('div', 'bzr-import-row-path', row.path));
-        const meta = el('div', 'bzr-import-row-meta', [row.format.toUpperCase(), sizeLabel(row.size)].filter(Boolean).join(' · '));
-        item.append(box, body, meta);
-        listWrap.appendChild(item);
-      }
+      for (const row of vis) listWrap.appendChild(buildRow(row));
     }
     syncConfirm();
   }

@@ -1,5 +1,9 @@
-/* bz-reader · DOM 小工具（ui/dom.ts）
- * 只有几个最常用的：建元素、设属性、清空、按钮、分段选择。刻意不做虚拟 DOM。 */
+/* ============================================================
+ * bz-reader · DOM 小工具（ui/dom.ts）
+ *
+ * 只有几个最常用的：建元素、封面、滑杆、分段选择。刻意不做虚拟 DOM。
+ * 图标一律用 CSS 画（和原型一致）：随 currentColor 变色，不占包体。
+ * ============================================================ */
 
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -10,13 +14,6 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   if (cls) node.className = cls;
   if (text !== undefined) node.textContent = text;
   return node;
-}
-
-export function setAttrs(node: HTMLElement, attrs: Record<string, string | undefined>): void {
-  for (const [k, v] of Object.entries(attrs)) {
-    if (v === undefined) node.removeAttribute(k);
-    else node.setAttribute(k, v);
-  }
 }
 
 export function clear(node: HTMLElement): void {
@@ -41,43 +38,67 @@ export function durationLabel(seconds: number): string {
   return rest ? `${h} 小时 ${rest} 分` : `${h} 小时`;
 }
 
-export function iconButton(label: string, icon: string, cls = ''): HTMLButtonElement {
-  const b = el('button', `bzr-icon-btn ${cls}`.trim());
-  b.type = 'button';
-  b.setAttribute('aria-label', label);
-  b.title = label;
-  b.innerHTML = icon;
-  return b;
+/**
+ * 书名 → 封面色。色相由 djb2 哈希决定，同一本书永远同一个颜色。
+ * 明度压到 22–31%：封面要能托住白字，又不能抢界面里唯一那个强调色。
+ */
+export function coverColors(seed: string): { c1: string; c2: string } {
+  let h = 5381;
+  for (let i = 0; i < seed.length; i++) h = ((h << 5) + h + seed.charCodeAt(i)) | 0;
+  const n = h >>> 0;
+  const hue = n % 360;
+  const sat = 16 + ((n >> 7) % 10);
+  const light = 28 + ((n >> 13) % 5);
+  return { c1: `hsl(${hue} ${sat}% ${light}%)`, c2: `hsl(${hue} ${sat + 3}% ${light - 7}%)` };
 }
 
-/** 分段选择（主题色块 / 对齐方式这类二到五项互斥选择）。返回容器，项点击回调 value。 */
-export function segmented<T extends string>(
-  options: Array<{ value: T; label: string; swatch?: string }>,
-  value: T,
-  onPick: (v: T) => void,
-): HTMLElement {
-  const box = el('div', 'bzr-seg');
-  for (const opt of options) {
-    const b = el('button', 'bzr-seg-item' + (opt.value === value ? ' is-on' : ''));
-    b.type = 'button';
-    b.textContent = opt.label;
-    if (opt.swatch) {
-      const dot = el('span', 'bzr-seg-dot');
-      dot.style.background = opt.swatch;
-      b.prepend(dot);
-    }
-    b.addEventListener('click', () => {
-      for (const child of Array.from(box.children)) child.classList.remove('is-on');
-      b.classList.add('is-on');
-      onPick(opt.value);
-    });
-    box.appendChild(b);
+export interface CoverOpts {
+  title: string;
+  author?: string;
+  percent?: number;
+  done?: boolean;
+}
+
+/** 生成封面：竖排书名 + 竖排作者 + 底边 2px 进度（读完变白条） */
+export function bookCover(opts: CoverOpts): HTMLElement {
+  const { c1, c2 } = coverColors(opts.title);
+  const box = el('div', 'bzr-cover');
+  box.style.setProperty('--c1', c1);
+  box.style.setProperty('--c2', c2);
+  box.appendChild(el('span', 'bt', opts.title));
+  if (opts.author) box.appendChild(el('span', 'ba', opts.author));
+
+  const pct = opts.percent ?? 0;
+  if (opts.done || pct >= 0.999) {
+    box.appendChild(el('span', 'done'));
+  } else if (pct > 0) {
+    const prog = el('span', 'prog');
+    const fill = el('i');
+    fill.style.width = `${Math.min(100, Math.round(pct * 100))}%`;
+    prog.appendChild(fill);
+    box.appendChild(prog);
   }
   return box;
 }
 
-/** 带数值回显的滑杆（字号 18 这种）。返回 { row, set } */
-export function slider(opts: {
+/** 线条图标：三横（目录） */
+export function tocIcon(): HTMLElement {
+  const box = el('span', 'bzr-i-toc');
+  box.append(el('i'), el('i'), el('i'));
+  return box;
+}
+
+/** 线条图标：放大镜（搜索） */
+export function searchIcon(): HTMLElement {
+  return el('span', 'bzr-i-search');
+}
+
+/**
+ * 滑杆行：标签 / 轨道 / 读数。
+ * 轨道用背景渐变画（--p 控制品牌色走多远），所以 -webkit-slider-runnable-track
+ * 必须透明——两层都画会得到一根双色错位的轨道。
+ */
+export function trackRow(opts: {
   label: string;
   min: number;
   max: number;
@@ -85,28 +106,82 @@ export function slider(opts: {
   value: number;
   format?: (v: number) => string;
   onInput: (v: number) => void;
-}): { row: HTMLElement; set: (v: number) => void } {
-  const row = el('div', 'bzr-slider');
-  const label = el('span', 'bzr-slider-label', opts.label);
-  const input = el('input', 'bzr-slider-input');
+}): { row: HTMLElement; input: HTMLInputElement; set: (v: number) => void } {
+  const fmt = opts.format ?? ((v: number) => String(v));
+  const row = el('div', 'bzr-track-row');
+  const label = el('span', 'bzr-track-label', opts.label);
+  const input = el('input', 'bzr-track-input');
   input.type = 'range';
   input.min = String(opts.min);
   input.max = String(opts.max);
   input.step = String(opts.step);
-  input.value = String(opts.value);
-  const fmt = opts.format ?? ((v: number) => String(v));
-  const value = el('span', 'bzr-slider-value', fmt(opts.value));
+  const value = el('span', 'bzr-track-value', '');
+
+  const paint = (v: number): void => {
+    input.value = String(v);
+    value.textContent = fmt(v);
+    const span = opts.max - opts.min || 1;
+    const p = ((v - opts.min) / span) * 100;
+    input.style.setProperty('--p', `${Math.max(0, Math.min(100, p))}%`);
+  };
+
   input.addEventListener('input', () => {
     const v = Number(input.value);
-    value.textContent = fmt(v);
+    paint(v);
     opts.onInput(v);
   });
+
+  paint(opts.value);
   row.append(label, input, value);
-  return {
-    row,
-    set: (v: number) => {
-      input.value = String(v);
-      value.textContent = fmt(v);
-    },
-  };
+  return { row, input, set: paint };
+}
+
+export interface SegOption<T extends string> {
+  value: T;
+  label: string;
+}
+
+/** 分段选择（字体 / 对齐）。返回容器，点一项即切换高亮并回调。 */
+export function seg<T extends string>(
+  options: SegOption<T>[],
+  value: T,
+  onPick: (v: T) => void,
+): HTMLElement {
+  const box = el('div', 'bzr-seg');
+  const buttons = new Map<T, HTMLButtonElement>();
+  for (const opt of options) {
+    const b = el('button', opt.value === value ? 'is-on' : '', opt.label);
+    b.type = 'button';
+    b.addEventListener('click', () => {
+      for (const [key, btn] of buttons) btn.classList.toggle('is-on', key === opt.value);
+      onPick(opt.value);
+    });
+    buttons.set(opt.value, b);
+    box.appendChild(b);
+  }
+  return box;
+}
+
+/** 主题色块。`on` 项套一圈品牌色描边（用 box-shadow 做，不占布局）。 */
+export function swatches<T extends string>(
+  options: Array<{ value: T; label: string; bg: string }>,
+  value: T,
+  onPick: (v: T) => void,
+): HTMLElement {
+  const box = el('div', 'bzr-swatches');
+  const buttons: Array<{ v: T; b: HTMLButtonElement }> = [];
+  for (const opt of options) {
+    const b = el('button', opt.value === value ? 'is-on' : '');
+    b.type = 'button';
+    b.setAttribute('aria-label', opt.label);
+    b.title = opt.label;
+    b.style.background = opt.bg;
+    b.addEventListener('click', () => {
+      for (const item of buttons) item.b.classList.toggle('is-on', item.v === opt.value);
+      onPick(opt.value);
+    });
+    buttons.push({ v: opt.value, b });
+    box.appendChild(b);
+  }
+  return box;
 }

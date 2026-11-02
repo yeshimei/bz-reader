@@ -56,6 +56,15 @@
   --bzr-head-h: 44px;
   --bzr-head-h-lg: 50px;    /* 高档：剪藏本 */
 
+  /* 下沉面：输入框、滑轨底槽这类「比容器更低一层」的底，比 surface-0 再暗一档 */
+  /* （值在主题段里给，明暗不同） */
+
+  /* 浮层阴影四档：卡片 / 浮层 / 抽屉 / 弹窗。原型里没有「叠阴影」，只有这一层 */
+  --bzr-shadow-float: 0 18px 40px -22px rgba(0, 0, 0, 0.9);
+  --bzr-shadow-drawer: 24px 0 60px -20px rgba(0, 0, 0, 0.8);
+  --bzr-shadow-dialog: 0 40px 90px -30px rgba(0, 0, 0, 0.95);
+  --bzr-shadow-sheet: 0 -20px 50px -20px rgba(0, 0, 0, 0.9);
+
   /* 阴影三档（透明黑、表达抬升） */
   --bzr-shadow-sm:
     0 1px 2px -2px rgba(0, 0, 0, 0.16),
@@ -90,6 +99,8 @@
   /* 字体 */
   --bzr-font-ui: -apple-system, "Segoe UI", system-ui, "PingFang SC",
     "Microsoft YaHei", sans-serif;
+  --bzr-font-serif: "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC",
+    "SimSun", Georgia, serif;
   --bzr-font-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
 
   /* 通用品牌黄（影视星轨、评分高亮；两主题同值） */
@@ -120,6 +131,7 @@
   --bzr-surface-2: #1e1e26;
   --bzr-surface-3: #26262f;
   --bzr-surface-4: #2d2d37;   /* 浮层：菜单/dropdown/popover */
+  --bzr-surface-sunken: #0d0d12; /* 下沉：输入框/滑轨槽 */
   --bzr-surface-hover: #2c2c36;
   --bzr-surface-active: #33333e;
   --bzr-overlay: rgba(0, 0, 0, 0.6);
@@ -165,6 +177,7 @@
   --bzr-surface-2: #ffffff;
   --bzr-surface-3: #ffffff;
   --bzr-surface-4: #ffffff;
+  --bzr-surface-sunken: #f4f4f6;
   --bzr-surface-hover: #ececf0;
   --bzr-surface-active: #e0e0e6;
   --bzr-overlay: rgba(0, 0, 0, 0.35);
