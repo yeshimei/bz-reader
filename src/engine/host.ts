@@ -203,7 +203,9 @@ export class EngineHost {
     const pick = (v: unknown): string => (typeof v === 'function' ? String((v as () => string)()) : typeof v === 'string' ? v : '');
     const title = pick(md.title) || name;
     const author = pick(md.author);
-    const wordCount = book.sections.reduce((sum, s) => sum + (s.size ?? 0), 0);
+    // 漫画（cbz）的 section size 是图片字节数——按字数累加会得出「三百多万字」，
+    // 书架上吓人。漫画没有字数，直接给 0。
+    const wordCount = /\.cbz$/i.test(vaultPath) ? 0 : book.sections.reduce((sum, s) => sum + (s.size ?? 0), 0);
     return { book, meta: { title, author, wordCount } };
   }
 
