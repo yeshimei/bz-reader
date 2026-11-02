@@ -25,13 +25,14 @@ import { coverUrl } from '../data/cover';
 // 统计是高级版能力：这个 import 只被下面 if (__BZ_READER_PRO__) 的分支引用，
 // base 构建时分支被删、模块整体摇掉（grep 统计弹窗的类名应为 0）
 import { openStats } from './stats-panel';
+import { openCrossSearch } from './cross-search-panel';
 
 export interface ShelfDeps {
   app: App;
   repo: BookRepo;
   store: ReaderStore;
   formats: BookFormat[];
-  onOpen: (book: ReaderBook) => void;
+  onOpen: (book: ReaderBook, cfi?: string) => void;
 }
 
 export interface ShelfHandle {
@@ -76,13 +77,31 @@ export function openShelf(deps: ShelfDeps): ShelfHandle {
   const importBtn = el('button', 'bzr-tool is-primary', '导入');
   importBtn.type = 'button';
   head.append(el('div', 'bzr-shelf-title', '书架'), count, el('div', 'bzr-shelf-spacer'), search, viewBtn, importBtn);
-  // 统计入口只在高级版长出来：写进 if 而不是三元，dev 构建不开 minify，
-  // 三元里的分支字符串会原样留在 base 包里（历史坑 #3）
+  // 统计/全文入口只在高级版长出来：写进 if 而不是三元，dev 构建不开 minify，
+  // 三元里的分支字符串会原样留在 base 包里（历史坑 #3）。
+  // 注意必须在 if 块里**直接调用** openStats / openCrossSearch——中间隔一层
+  // 本地函数会让 esbuild 的摇树传播断掉，整个面板模块漏进 base 包（实测 0.21.5）。
   if (__BZ_READER_PRO__) {
+    const openXs = (): void => {
+      openCrossSearch({
+        app,
+        store,
+        books: repo.all().filter((b) => !isMissing(b)),
+        onJump: (book, cfi) => {
+          close();
+          onOpen(book, cfi);
+        },
+      });
+    };
     const statsBtn = el('button', 'bzr-tool', '统计');
     statsBtn.type = 'button';
     statsBtn.addEventListener('click', () => openStats(store));
     head.insertBefore(statsBtn, importBtn);
+    const xsBtn = el('button', 'bzr-tool', '全文');
+    xsBtn.type = 'button';
+    xsBtn.title = '在全部书里搜索';
+    xsBtn.addEventListener('click', openXs);
+    head.insertBefore(xsBtn, statsBtn);
   }
 
   const chips = el('div', 'bzr-shelf-chips');
@@ -97,6 +116,24 @@ export function openShelf(deps: ShelfDeps): ShelfHandle {
   mSearch.type = 'search';
   mSearch.placeholder = '搜索书名';
   mSearchRow.appendChild(mSearch);
+  // 跨书全文搜索挂在搜索行旁边：搜索行展开时才可见（高级版）。
+  // 与桌面块同因：openCrossSearch 必须在 if 块的作用域里直接出现，别经中间层
+  if (__BZ_READER_PRO__) {
+    const mXs = el('button', 'bzr-ms-act', '全文');
+    mXs.type = 'button';
+    mXs.addEventListener('click', () => {
+      openCrossSearch({
+        app,
+        store,
+        books: repo.all().filter((b) => !isMissing(b)),
+        onJump: (book, cfi) => {
+          close();
+          onOpen(book, cfi);
+        },
+      });
+    });
+    mSearchRow.appendChild(mXs);
+  }
   const mBody = el('div', 'bzr-ms-body');
   const mshelf = el('div', 'bzr-mshelf');
   if (mobile) {

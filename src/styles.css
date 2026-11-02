@@ -1138,6 +1138,101 @@
   color: var(--bzr-text-3);
 }
 
+/* ═══════════ ④.6 跨书全文搜索（高级版，书架的二级弹窗） ═══════════ */
+.bzr-overlay-popup.bzr-xs-popup {
+  width: 560px;
+  max-width: calc(100vw - 32px);
+}
+.bzr-xs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px 20px;
+  min-height: 260px;
+  max-height: calc(100vh - 160px);
+  font-family: var(--bzr-font-ui);
+}
+.bzr-xs-bar {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+.bzr-xs-bar input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--bzr-border);
+  border-radius: 6px;
+  background: var(--bzr-surface-sunken);
+  color: var(--bzr-text-1);
+  font-size: 12px;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.bzr-xs-bar input:focus {
+  border-color: var(--bzr-border-hover);
+}
+.bzr-xs-bar .bzr-btn {
+  height: 30px;
+}
+.bzr-xs-status {
+  flex: none;
+  font-size: var(--bzr-font-caption);
+  color: var(--bzr-text-3);
+  min-height: 14px;
+}
+.bzr-xs-hits {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.bzr-xs-group {
+  margin-bottom: 12px;
+}
+.bzr-xs-group-t {
+  display: block;
+  margin-bottom: 6px;
+  font-size: var(--bzr-font-caption);
+  color: var(--bzr-text-3);
+}
+.bzr-xs-hit {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  margin-bottom: 4px;
+  border: 1px solid var(--bzr-border);
+  border-radius: 6px;
+  background: var(--bzr-surface-1);
+  color: var(--bzr-text-1);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bzr-xs-hit:hover {
+  border-color: var(--bzr-border-strong);
+  background: var(--bzr-surface-hover);
+}
+.bzr-xs-loc {
+  margin-right: 8px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bzr-brand-soft);
+  color: var(--bzr-brand);
+  font-size: 10.5px;
+}
+.bzr-xs-more {
+  padding: 2px 10px;
+  font-size: var(--bzr-font-caption);
+  color: var(--bzr-text-3);
+}
+
 /* ═══════════ ⑤ 阅读 · 桌面 ═══════════ *//* 阅读是 workspace 里的一个 leaf：拆掉宿主外壳，由 .bzr-reader 自己承担整块区域。
    颜色跟随当前阅读主题（--rear-* 由 view 层按 prefs 写入），正文与栏框同色，
    这样「翻页时界面不动，只有字在换」。

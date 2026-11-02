@@ -105,7 +105,7 @@ export function createPlugin(cfg: PluginConfig) {
         repo: this.repo,
         store: this.store,
         formats: this.formats(),
-        onOpen: (book) => void this.openBook(book),
+        onOpen: (book, cfi) => void this.openBook(book, cfi),
       });
     }
 
@@ -133,12 +133,14 @@ export function createPlugin(cfg: PluginConfig) {
     /**
      * 打开一本书。已经在某个 tab 里开着就切过去，不重复开——
      * 重复开会得到两个 iframe、两份会话计时，关掉其中一个还会把进度写乱。
+     * 带 cfi 时（跨书搜索的跳转）直接落到那一页。
      */
-    async openBook(book: ReaderBook): Promise<void> {
+    async openBook(book: ReaderBook, cfi?: string): Promise<void> {
       const opened = this.app.workspace
         .getLeavesOfType(VIEW_TYPE_READER)
         .find((l) => (l.view as ReaderView).currentBookId === book.id);
       if (opened) {
+        if (cfi) void (opened.view as ReaderView).jumpTo(cfi);
         await this.app.workspace.revealLeaf(opened);
         return;
       }
@@ -146,7 +148,7 @@ export function createPlugin(cfg: PluginConfig) {
       await leaf.setViewState({
         type: VIEW_TYPE_READER,
         active: true,
-        state: { bookId: book.id },
+        state: { bookId: book.id, ...(cfi ? { cfi } : {}) },
       });
       await this.app.workspace.revealLeaf(leaf);
     }

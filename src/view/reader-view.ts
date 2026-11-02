@@ -77,6 +77,8 @@ const COMPLETE_THRESHOLD = 0.99;
 export class ReaderView extends ItemView {
   private api: ReaderHostApi;
   private bookId = '';
+  /** 跨书搜索跳转带的定位：开书后落到这里，用一次即清（不然刷新又跳） */
+  private pendingCfi = '';
   private book: ReaderBook | null = null;
   private mounted = false;
   private mounting = false;
@@ -148,10 +150,24 @@ export class ReaderView extends ItemView {
   }
 
   async setState(state: unknown, result: { history: boolean }): Promise<void> {
-    const s = (state ?? {}) as { bookId?: string };
+    const s = (state ?? {}) as { bookId?: string; cfi?: string };
     if (typeof s.bookId === 'string') this.bookId = s.bookId;
+    if (typeof s.cfi === 'string' && s.cfi) this.pendingCfi = s.cfi;
     await super.setState(state, result);
     await this.maybeMount();
+  }
+
+  /** 已开着这本书时的跨书搜索跳转：定位过去，不重开 tab */
+  jumpTo(cfi: string): void {
+    if (!cfi) return;
+    if (this.bookId && this.book) {
+      void this.host.goToCfi(cfi);
+      this.tracker.touch();
+      return;
+    }
+    // 书还没装好：存下来等 maybeMount 落
+    this.pendingCfi = cfi;
+    void this.maybeMount();
   }
 
   async onOpen(): Promise<void> {
@@ -645,7 +661,8 @@ export class ReaderView extends ItemView {
           this.api.store.touch();
         },
       });
-      await this.host.start(book.reading.position.cfi, book.reading.position.percent || 0);
+      await this.host.start(this.pendingCfi || book.reading.position.cfi, this.pendingCfi ? 0 : book.reading.position.percent || 0);
+      this.pendingCfi = '';
       this.tracker.begin(book.reading.position.percent);
       if (!book.reading.stats.startReadTime) book.reading.stats.startReadTime = Date.now();
       this.api.store.touch();
