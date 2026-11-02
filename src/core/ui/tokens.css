@@ -1,0 +1,197 @@
+/* ============================================================
+ * bz design tokens（自绘，不依赖 Obsidian 变量）
+ * 三层：
+ *   1) :root           结构令牌（间距/圆角/字号/阴影/控件高/动效/字体）——明暗无关
+ *   2) .bzr-theme-*     色彩令牌（表面/文字/品牌/语义/边框）——跟随明暗
+ * 挂载：Obsidian 在 <body> 挂 theme-dark / theme-light。
+ * 命名规范：--bzr-<组>-<档>；组件只消费本文件变量。
+ * ============================================================ */
+
+/* ═══════════ 结构令牌（明暗无关） ═══════════ */
+:root {
+  /* 间距：4 倍数档位（块级 8 步进 / 行内 4 步进） */
+  --bzr-space-xs: 4px;
+  --bzr-space-sm: 8px;
+  --bzr-space-md: 12px;
+  --bzr-space-lg: 16px;
+  --bzr-space-xl: 24px;
+  --bzr-space-2xl: 32px;
+
+  /* 圆角：层级越大越圆 */
+  --bzr-radius-xs: 4px;    /* 图标按钮、小控件 */
+  --bzr-radius-sm: 8px;    /* 按钮、输入框、菜单项 */
+  --bzr-radius-md: 12px;   /* 弹窗、卡片 */
+  --bzr-radius-lg: 16px;   /* 抽屉、大卡片 */
+  --bzr-radius-full: 999px;/* 胶囊 */
+
+  /* 字号阶梯（caption/meta/body/emphasis/title/display） */
+  --bzr-font-caption: 11px;
+  --bzr-font-meta: 12px;
+  --bzr-font-label: 13px;  /* 按钮、输入、菜单项 */
+  --bzr-font-body: 14px;   /* 默认正文 */
+  --bzr-font-emphasis: 15px; /* 列表标题、弹窗标题 */
+  --bzr-font-title: 17px;  /* 主窗口/对话框标题 */
+  --bzr-font-display: 20px; /* 大数字、主展示 */
+
+  /* 字重 */
+  --bzr-weight-regular: 400;
+  --bzr-weight-medium: 500;
+  --bzr-weight-semibold: 600;
+  --bzr-weight-bold: 700;
+
+  /* 行高 */
+  --bzr-leading-tight: 1.25; /* 单行控件 */
+  --bzr-leading-normal: 1.5; /* 正文 */
+
+  /* 控件高度（桌面紧凑） */
+  --bzr-control-h: 32px;    /* 按钮/输入/选择 */
+  --bzr-control-h-sm: 24px;
+  --bzr-control-h-md: 30px; /* 中档：主头行主钮/收藏排序钮 */
+  --bzr-control-h-lg: 40px;
+  --bzr-icon-btn-w: 22px;   /* 桌面头行图标钮 */
+  --bzr-icon-btn-h: 26px;
+  --bzr-icon-btn-lg: 32px;  /* 触控档 */
+
+  /* 面板头行高度（影院式整宽头行） */
+  --bzr-head-h: 44px;
+  --bzr-head-h-lg: 50px;    /* 高档：剪藏本 */
+
+  /* 阴影三档（透明黑、表达抬升） */
+  --bzr-shadow-sm:
+    0 1px 2px -2px rgba(0, 0, 0, 0.16),
+    0 3px 6px 0 rgba(0, 0, 0, 0.12);
+  --bzr-shadow-md:
+    0 3px 6px -4px rgba(0, 0, 0, 0.12),
+    0 6px 16px 0 rgba(0, 0, 0, 0.08),
+    0 9px 28px 8px rgba(0, 0, 0, 0.05);
+  --bzr-shadow-lg:
+    0 6px 16px -8px rgba(0, 0, 0, 0.08),
+    0 9px 28px 0 rgba(0, 0, 0, 0.05),
+    0 12px 48px 16px rgba(0, 0, 0, 0.03);
+
+  /* 交互态（透明叠加，M3 state layer） */
+  --bzr-state-hover: 0.08;
+  --bzr-state-focus: 0.1;
+  --bzr-state-pressed: 0.1;
+  --bzr-state-dragged: 0.16;
+  --bzr-state-disabled-content: 0.38;
+  --bzr-state-disabled-container: 0.12;
+
+  /* 焦点环 */
+  --bzr-focus-ring: 2px solid var(--bzr-brand);
+
+  /* 动效（时长 ≤0.45s） */
+  --bzr-dur-fast: 0.15s;
+  --bzr-dur-base: 0.2s;
+  --bzr-dur-slow: 0.3s;
+  --bzr-ease-out: cubic-bezier(0.33, 1, 0.68, 1);
+  --bzr-ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1); /* toast bounce */
+
+  /* 字体 */
+  --bzr-font-ui: -apple-system, "Segoe UI", system-ui, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --bzr-font-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+
+  /* 通用品牌黄（影视星轨、评分高亮；两主题同值） */
+  --bzr-star: #f0b429;
+
+  /* 深色遮罩/图片浮层上的文字（两主题同值白） */
+  --bzr-on-overlay: #ffffff;
+
+  /* 遮罩增强：灯箱等全屏黑底（两主题同值） */
+  --bzr-scrim: rgba(0, 0, 0, 0.92);
+
+  /* 遮罩毛玻璃模糊半径（两主题同值；全仓遮罩 backdrop-filter 单源消费） */
+  --bzr-overlay-blur: 8px;
+
+  /* 媒体比例 */
+  --bzr-ratio-square: 1 / 1;
+  --bzr-ratio-4-3: 4 / 3;
+  --bzr-ratio-16-9: 16 / 9;
+}
+
+/* ── 暗色（默认）── */
+.theme-dark {
+  color-scheme: dark;
+
+  /* 表面：以近黑为底、逐层抬升 */
+  --bzr-surface-0: #101014;
+  --bzr-surface-1: #16161c;
+  --bzr-surface-2: #1e1e26;
+  --bzr-surface-3: #26262f;
+  --bzr-surface-4: #2d2d37;   /* 浮层：菜单/dropdown/popover */
+  --bzr-surface-hover: #2c2c36;
+  --bzr-surface-active: #33333e;
+  --bzr-overlay: rgba(0, 0, 0, 0.6);
+
+  /* 文字 */
+  --bzr-text-1: #e8e8ec;
+  --bzr-text-2: #9a9aa5;
+  --bzr-text-3: #5f5f6b;
+  --bzr-text-invert: #141418;
+
+  /* 品牌（默认中性暖橙） */
+  --bzr-brand: #e67341;
+  --bzr-brand-hover: #ef8352;
+  --bzr-brand-soft: rgba(230, 115, 65, 0.16);
+  --bzr-on-brand: #ffffff;
+
+  /* 语义 */
+  --bzr-success: #3fb96a;
+  --bzr-warning: #d9a13c;
+  --bzr-danger: #e5534b;
+  --bzr-on-danger: #ffffff;
+  --bzr-info: #58a6ff;
+
+  /* 边框 */
+  --bzr-border: rgba(255, 255, 255, 0.09);
+  --bzr-border-strong: rgba(255, 255, 255, 0.18);
+  --bzr-border-hover: rgba(255, 255, 255, 0.28);
+
+  /* 控件底（toggle 轨道等） */
+  --bzr-track: rgba(255, 255, 255, 0.14);
+  --bzr-thumb: #ffffff;
+  --bzr-thumb-soft: #b9b9c4;
+  --bzr-code-bg: rgba(255, 255, 255, 0.07);
+  --bzr-mark-bg: rgba(230, 115, 65, 0.28);
+}
+
+/* ── 亮色 ── */
+.theme-light {
+  color-scheme: light;
+
+  --bzr-surface-0: #f2f2f4;
+  --bzr-surface-1: #fafafa;
+  --bzr-surface-2: #ffffff;
+  --bzr-surface-3: #ffffff;
+  --bzr-surface-4: #ffffff;
+  --bzr-surface-hover: #ececf0;
+  --bzr-surface-active: #e0e0e6;
+  --bzr-overlay: rgba(0, 0, 0, 0.35);
+
+  --bzr-text-1: #1c1c21;
+  --bzr-text-2: #5c5c66;
+  --bzr-text-3: #9a9aa5;
+  --bzr-text-invert: #ffffff;
+
+  --bzr-brand: #e2571c;
+  --bzr-brand-hover: #cc4a12;
+  --bzr-brand-soft: rgba(226, 87, 28, 0.12);
+  --bzr-on-brand: #ffffff;
+
+  --bzr-success: #1f9d4d;
+  --bzr-warning: #b57c13;
+  --bzr-danger: #d43d31;
+  --bzr-on-danger: #ffffff;
+  --bzr-info: #0f6fdc;
+
+  --bzr-border: rgba(20, 20, 24, 0.1);
+  --bzr-border-strong: rgba(20, 20, 24, 0.2);
+  --bzr-border-hover: rgba(20, 20, 24, 0.35);
+
+  --bzr-track: rgba(20, 20, 24, 0.16);
+  --bzr-thumb: #ffffff;
+  --bzr-thumb-soft: #9a9aa5;
+  --bzr-code-bg: rgba(20, 20, 24, 0.06);
+  --bzr-mark-bg: rgba(226, 87, 28, 0.22);
+}

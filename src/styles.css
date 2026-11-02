@@ -1,0 +1,335 @@
+/* ============================================================
+ * bz-reader · 样式（src/styles.css）
+ *
+ * 令牌来自 core/ui/tokens.css（构建时拼到本文件前面，产物只有一个 styles.css）。
+ * 观感对齐 bz 主插件：灰底卡片、1px 边框、圆角、不加装饰性动效。
+ *
+ * 全仓只有这一处样式源。唯一的例外是 engine/theme.ts 往 iframe 文档里注入的
+ * 章节样式——那个作用域在书的内容里，与本文件互不可见。
+ * ============================================================ */
+
+/* ═══════════ 弹窗壳（core/ui/modal.ts） ═══════════ */
+.bzr-overlay-mask {
+  position: fixed;
+  inset: 0;
+  background: var(--bzr-overlay);
+  backdrop-filter: blur(var(--bzr-overlay-blur));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.bzr-overlay-popup {
+  background: var(--bzr-surface-3);
+  border-radius: var(--bzr-radius-md);
+  border: 1px solid var(--bzr-border);
+  box-shadow: var(--bzr-shadow-lg);
+  min-width: 320px;
+  max-width: calc(100vw - 32px);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--bzr-space-lg);
+  overflow-y: auto;
+}
+.bzr-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+.bzr-dialog-title {
+  font-size: var(--bzr-font-emphasis);
+  font-weight: var(--bzr-weight-semibold);
+  color: var(--bzr-text-1);
+}
+.bzr-dialog-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* 弹壳的 padding 归零后，内容要自己吃掉整个高度：
+   uiModal 把 content 塞进 .bzr-dialog-body，那一层没有 flex 撑高，
+   不加这条阅读区与书架都是「0 高度」——表现是弹窗开着但一片空白。 */
+.bzr-overlay-popup.bzr-shelf-popup .bzr-dialog-body,
+.bzr-overlay-popup.bzr-reader-popup .bzr-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ═══════════ 书架 ═══════════ */
+.bzr-overlay-popup.bzr-shelf-popup {
+  width: min(1120px, 92vw);
+  height: 88vh;
+  max-height: 88vh;
+  padding: 0;
+  overflow: hidden;
+}
+.bzr-shelf {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.bzr-shelf-head {
+  display: flex;
+  align-items: center;
+  gap: var(--bzr-space-md);
+  padding: var(--bzr-space-lg) var(--bzr-space-xl);
+  border-bottom: 1px solid var(--bzr-border);
+  flex: none;
+}
+.bzr-shelf-title {
+  font-size: var(--bzr-font-title);
+  font-weight: var(--bzr-weight-semibold);
+  color: var(--bzr-text-1);
+}
+.bzr-shelf-count {
+  font-size: var(--bzr-font-meta);
+  color: var(--bzr-text-3);
+}
+.bzr-shelf-spacer {
+  flex: 1;
+}
+.bzr-shelf-search {
+  width: 220px;
+  height: var(--bzr-control-h-md);
+  padding: 0 var(--bzr-space-md);
+  border: 1px solid var(--bzr-border);
+  border-radius: var(--bzr-radius-sm);
+  background: var(--bzr-surface-1);
+  color: var(--bzr-text-1);
+  font-size: var(--bzr-font-ui);
+  outline: none;
+}
+.bzr-shelf-search:focus {
+  border-color: var(--bzr-border-strong);
+}
+.bzr-shelf-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--bzr-space-xl);
+}
+.bzr-book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: var(--bzr-space-lg);
+}
+.bzr-book-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bzr-space-sm);
+  cursor: pointer;
+  border-radius: var(--bzr-radius-md);
+  padding: var(--bzr-space-sm);
+  transition: background var(--bzr-dur-fast) var(--bzr-ease-out);
+}
+.bzr-book-card:hover {
+  background: var(--bzr-surface-hover);
+}
+.bzr-book-card.is-missing {
+  opacity: 0.45;
+  cursor: default;
+}
+.bzr-book-card:focus-visible {
+  outline: 2px solid var(--bzr-focus-ring);
+  outline-offset: 2px;
+}
+.bzr-book-cover {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--bzr-radius-sm);
+  border: 1px solid var(--bzr-border);
+  background: var(--bzr-surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--bzr-space-md);
+  overflow: hidden;
+}
+.bzr-book-cover-title {
+  font-size: var(--bzr-font-label);
+  line-height: 1.5;
+  color: var(--bzr-text-2);
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.bzr-book-cover-badge {
+  position: absolute;
+  left: var(--bzr-space-sm);
+  right: var(--bzr-space-sm);
+  bottom: var(--bzr-space-sm);
+  font-size: var(--bzr-font-caption);
+  color: var(--bzr-text-3);
+  text-align: center;
+}
+.bzr-book-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bzr-book-title {
+  font-size: var(--bzr-font-ui);
+  font-weight: var(--bzr-weight-medium);
+  color: var(--bzr-text-1);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.bzr-book-author {
+  font-size: var(--bzr-font-meta);
+  color: var(--bzr-text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bzr-book-progress {
+  height: 3px;
+  border-radius: var(--bzr-radius-full);
+  background: var(--bzr-track);
+  overflow: hidden;
+  margin-top: 2px;
+}
+.bzr-book-progress-fill {
+  height: 100%;
+  background: var(--bzr-brand);
+  border-radius: inherit;
+}
+.bzr-book-percent {
+  font-size: var(--bzr-font-caption);
+  color: var(--bzr-text-3);
+}
+.bzr-shelf-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bzr-space-sm);
+  text-align: center;
+}
+.bzr-shelf-empty-title {
+  font-size: var(--bzr-font-emphasis);
+  color: var(--bzr-text-2);
+}
+.bzr-shelf-empty-desc {
+  font-size: var(--bzr-font-meta);
+  color: var(--bzr-text-3);
+  max-width: 420px;
+  line-height: 1.6;
+}
+
+/* ═══════════ 阅读器 ═══════════ */
+.bzr-overlay-popup.bzr-reader-popup {
+  width: min(1200px, 94vw);
+  height: 90vh;
+  max-height: 90vh;
+  padding: 0;
+  overflow: hidden;
+}
+.bzr-reader {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.bzr-reader-head {
+  display: flex;
+  align-items: center;
+  gap: var(--bzr-space-md);
+  padding: var(--bzr-space-sm) var(--bzr-space-lg);
+  border-bottom: 1px solid var(--bzr-border);
+  flex: none;
+  min-height: var(--bzr-head-h);
+}
+.bzr-reader-back,
+.bzr-reader-nav {
+  height: var(--bzr-control-h-sm);
+  padding: 0 var(--bzr-space-md);
+  border: 1px solid var(--bzr-border);
+  border-radius: var(--bzr-radius-sm);
+  background: var(--bzr-surface-1);
+  color: var(--bzr-text-2);
+  font-size: var(--bzr-font-meta);
+  cursor: pointer;
+}
+.bzr-reader-back:hover,
+.bzr-reader-nav:hover {
+  background: var(--bzr-surface-hover);
+  color: var(--bzr-text-1);
+}
+.bzr-reader-title {
+  font-size: var(--bzr-font-ui);
+  color: var(--bzr-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bzr-reader-spacer {
+  flex: 1;
+}
+.bzr-reader-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  background: var(--bzr-surface-0);
+}
+.bzr-view,
+.bzr-reader-stage foliate-view {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.bzr-reader-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--bzr-space-md);
+  padding: var(--bzr-space-sm) var(--bzr-space-lg);
+  border-top: 1px solid var(--bzr-border);
+  flex: none;
+}
+.bzr-reader-progress-text {
+  flex: 1;
+  text-align: center;
+  font-size: var(--bzr-font-meta);
+  color: var(--bzr-text-3);
+}
+
+/* ═══════════ 移动端：全屏、圆角归零、无边框 ═══════════ */
+@media (max-width: 720px) {
+  .bzr-overlay-mask {
+    padding: 0;
+  }
+  .bzr-overlay-popup.bzr-shelf-popup,
+  .bzr-overlay-popup.bzr-reader-popup {
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    max-width: none;
+    border-radius: 0;
+    border: none;
+  }
+  .bzr-shelf-head {
+    padding: var(--bzr-space-md);
+  }
+  .bzr-shelf-search {
+    width: 140px;
+  }
+  .bzr-shelf-body {
+    padding: var(--bzr-space-md);
+  }
+  .bzr-book-grid {
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: var(--bzr-space-md);
+  }
+}
