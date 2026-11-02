@@ -125,6 +125,13 @@ export function bookmarkIcon(): HTMLElement {
   return el('span', 'bzr-i-mark');
 }
 
+/** 线条图标：全屏（四角括号） */
+export function fullscreenIcon(): HTMLElement {
+  const box = el('span', 'bzr-i-full');
+  box.append(el('i'), el('i'));
+  return box;
+}
+
 /**
  * 滑杆行：标签 / 轨道 / 读数。
  * 轨道用背景渐变画（--p 控制品牌色走多远），所以 -webkit-slider-runnable-track
@@ -168,13 +175,13 @@ export function trackRow(opts: {
   return { row, input, set: paint };
 }
 
-export interface SegOption<T extends string> {
+export interface SegOption<T extends string | number> {
   value: T;
   label: string;
 }
 
-/** 分段选择（字体 / 对齐）。返回容器，点一项即切换高亮并回调。 */
-export function seg<T extends string>(
+/** 分段选择（字体 / 对齐 / 栏数）。返回容器，点一项即切换高亮并回调。 */
+export function seg<T extends string | number>(
   options: SegOption<T>[],
   value: T,
   onPick: (v: T) => void,

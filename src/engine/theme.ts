@@ -41,6 +41,15 @@ export function buildChapterCSS(prefs: ReaderPrefs): string {
   const family = FONT_FAMILIES.find((f) => f.value === prefs.fontFamily)?.css || '';
   const familyDecl = family ? `font-family: ${family} !important;` : '';
   const imgFilter = theme.dark ? 'filter: invert(1) hue-rotate(180deg);' : '';
+  // 竖排写在 html 上，body 继承。foliate 引擎在每次章节装载时读 body 的
+  // computed writing-mode 判定横竖（paginator.js 的 getDirection），而注入
+  // 恰好发生在那次读取之前——所以竖排不需要任何引擎侧配合，改 prefs 重注即可。
+  // 用 if 赋值而不是三元：dev 构建不开 minify，三元里的分支字符串会原样
+  // 留在 base 包里，看起来像基础版漏了高级功能（历史坑 #3）。竖排是 pro 能力。
+  let verticalDecl = '';
+  if (__BZ_READER_PRO__ && prefs.layout === 'vertical') {
+    verticalDecl = 'html { writing-mode: vertical-rl !important; }';
+  }
 
   return `
 html, body {
@@ -52,6 +61,7 @@ html, body {
   text-align: ${prefs.align} !important;
   -webkit-font-smoothing: antialiased;
 }
+${verticalDecl}
 body {
   padding-left: ${prefs.margin}px !important;
   padding-right: ${prefs.margin}px !important;

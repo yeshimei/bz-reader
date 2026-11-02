@@ -156,6 +156,8 @@ export class EngineHost {
 
   /** 当前渲染的章节序号（load 事件给的），用来只重画这一章的标注 */
   private sectionIndex = 0;
+  /** 最近一次 relocate 的 CFI：竖排/布局切换重载章节时靠它回到原处 */
+  private lastLocationCfi = '';
   /** 待画标注 + CFI → 颜色索引（draw-annotation 回调只能拿到 value） */
   private annots: HostAnnotation[] = [];
   private annotColors = new Map<string, string>();
@@ -246,6 +248,12 @@ export class EngineHost {
       this.sectionIndex = index;
       this.unbindDocGestures();
       this.bindGestures(doc);
+    });
+
+    // 记录最近一次定位（relocate 的 CFI）：竖排切换重载章节时靠它回到原处
+    view.addEventListener('relocate', (e) => {
+      const cfi = (e as CustomEvent).detail as { cfi?: string };
+      if (cfi?.cfi) this.lastLocationCfi = cfi.cfi;
     });
 
     // 标注：view 只负责按 CFI 解析出 Range，画成什么样由我们决定
@@ -394,6 +402,11 @@ export class EngineHost {
 
   /** 绑到 iframe 当前文档：点击三区 / 滚轮 / 鼠标拖拽 / 双指捏合 */
   private bindGestures(doc: Document): void {
+    // 竖排感知：注入的 writing-mode 在引擎判定方向前就已生效，这里读到的是准的。
+    // 竖排从右往左读，「下一页」在左边——点击与拖拽的方向映射全部反过来。
+    const writingMode = doc.defaultView?.getComputedStyle(doc.body).writingMode ?? '';
+    this.verticalContent = writingMode.startsWith('vertical');
+
     // ① 点击三区
     const onClick = (ev: MouseEvent): void => {
       if (Date.now() < this.suppressClickUntil) return;
@@ -434,7 +447,11 @@ export class EngineHost {
       const dy = ev.clientY - dragY;
       if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 1.2) return;
       this.suppressClickUntil = Date.now() + 320;
-      this.opts.onTurn?.(dx < 0 ? 'next' : 'prev');
+      // 竖排内容往左流：把纸往左拉是往回翻，与横排相反
+      const dir: 'next' | 'prev' = this.verticalContent
+        ? (dx < 0 ? 'prev' : 'next')
+        : (dx < 0 ? 'next' : 'prev');
+      this.opts.onTurn?.(dir);
     };
 
     // ④ 两指捏合改字号。foliate 自己的 touchmove 在两指时直接 return，
@@ -642,11 +659,37 @@ export class EngineHost {
     for (const off of this.docDetachers.splice(0)) off();
   }
 
+  /**
+   * 当前章节内容是不是竖排。每次章节装载时从文档 computed style 读一次——
+   * 注入的 writing-mode 在 foliate 判定方向之前就已生效，所以读到的就是我们写的值。
+   * 视图层用它把「点左边 = 上一页」这类物理方向映射反转过来。
+   */
+  get contentVertical(): boolean {
+    return this.verticalContent;
+  }
+  private verticalContent = false;
+
   /** 主题/字号/行距变化时调，只换样式不重开书 */
   applyPrefs(prefs: ReaderPrefs): void {
+    const prev = this.prefs;
     this.prefs = prefs;
     const renderer = this.view?.renderer as unknown as { setStyles?: (css: string) => void } | undefined;
     renderer?.setStyles?.(buildChapterCSS(prefs));
+    // 栏数走 CSS 变量进 shadow 的 #top（vendor 补丁把它接成了 var(--_column-count, 2)）；
+    // 挂在 paginator 元素上，自定义属性会继承进 shadow 树
+    const pag = this.view?.renderer as unknown as (HTMLElement & { render?: () => void }) | undefined;
+    pag?.style?.setProperty('--_column-count', String(prefs.columns));
+    if (!this.view || !prev) return;
+    if (prev.layout !== prefs.layout) {
+      // 竖排切换必须重新装载章节：引擎只在 load 时读一次 writing-mode，
+      // 中途改注入不会重排。goTo 当前位置会让同章节重新 load，落回原处。
+      if (this.lastLocationCfi) {
+        void this.view.goTo(this.lastLocationCfi).catch(() => undefined);
+      }
+    } else if (prev.columns !== prefs.columns) {
+      // 栏数不用重新 load：重算布局即可，锚点自己会回到原处
+      pag?.render?.();
+    }
   }
 
   async next(): Promise<void> {

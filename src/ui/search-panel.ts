@@ -87,7 +87,11 @@ export function createSearchPanel(deps: SearchPanelDeps): SearchPanel {
     b.addEventListener('click', () => {
       if (scope === key) return;
       scope = key;
-      input.placeholder = key === 'book' ? '在全书中搜索' : '在本章内搜索';
+      // 用 if 赋值而不是三元：production 才开 minify 也会把三元两个分支都算进来，
+      // 「在全书中搜索」会漏进 base 包（坑 #3 的实锤案例，2026-11-02 修）
+      let hint = '在本章内搜索';
+      if (__BZ_READER_PRO__ && key === 'book') hint = '在全书中搜索';
+      input.placeholder = hint;
       for (const it of scopeBtns) it.node.classList.toggle('is-on', it.key === scope);
       if (input.value.trim()) void run(input.value);
       else input.focus();

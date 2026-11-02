@@ -46,7 +46,7 @@ import { ActivityTracker } from '../engine/activity';
 import { EngineHost, type Rect, type RelocateInfo, type SelectionInfo } from '../engine/host';
 import { resolveTheme } from '../engine/theme';
 import { notify } from '../core/notice';
-import { bookmarkIcon, durationLabel, el, searchIcon, tocIcon, trackRow } from '../ui/dom';
+import { bookmarkIcon, durationLabel, el, fullscreenIcon, searchIcon, tocIcon, trackRow } from '../ui/dom';
 import { createAnnotLayer, type AnnotLayer } from '../ui/annot';
 import { createFootnoteLayer, type FootnoteLayer } from '../ui/footnote';
 import { createTocPanel } from '../ui/toc';
@@ -204,6 +204,18 @@ export class ReaderView extends ItemView {
     prefsBtn.setAttribute('aria-label', '排版');
     const headEl = el('div', 'bzr-rhead');
     headEl.append(back, title, chapter, el('div', 'bzr-rspacer'), tocBtn, searchBtn, prefsBtn);
+
+    // 全屏（两版都有）：工具栏全部藏掉，正文吃满。再点中间或 Esc 回来。
+    // 移动端默认就是沉浸态（is-bare），点中间本来就收放，不重复给按钮。
+    if (!mobile) {
+      const fullBtn = el('button', 'bzr-ric') as HTMLButtonElement;
+      fullBtn.type = 'button';
+      fullBtn.title = '全屏';
+      fullBtn.setAttribute('aria-label', '全屏');
+      fullBtn.appendChild(fullscreenIcon());
+      fullBtn.addEventListener('click', () => root.classList.toggle('is-bare'));
+      headEl.insertBefore(fullBtn, prefsBtn);
+    }
 
     // 书签按钮排在目录左边：它是「对当前这一页做点什么」，和目录/搜索/排版
     // 那组「打开一块面板」分开站。
@@ -408,14 +420,17 @@ export class ReaderView extends ItemView {
           e.stopPropagation();
           closePanels();
         }
+        // 全屏也归 Esc 收：桌面 is-bare = 工具栏全隐藏（移动端按不到键盘，不影响它的默认沉浸态）
+        root.classList.remove('is-bare');
         return;
       }
       if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
         e.preventDefault();
-        turn('prev');
+        // 竖排从右往左读，「往左」是下一页——方向键跟内容走，不跟屏幕走
+        turn(this.host.contentVertical ? 'next' : 'prev');
       } else if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
         e.preventDefault();
-        turn('next');
+        turn(this.host.contentVertical ? 'prev' : 'next');
       } else if (e.key === 't' || e.key === 'T') {
         if (e.ctrlKey || e.metaKey) return;
         e.preventDefault();
@@ -429,15 +444,20 @@ export class ReaderView extends ItemView {
       document.removeEventListener('keydown', onKey, true);
     };
 
-    // 点正文：左右翻页，中间收放工具栏；任何面板开着时点击先关面板
+    // 点正文：左右翻页，中间收放工具栏；任何面板开着时点击先关面板。
+    // 竖排从右往左读，下一页在左边——zone 到方向的映射跟着内容走。
     this.tapHandler = (zone) => {
       if (anyPanelOpen()) {
         closePanels();
         return;
       }
-      if (zone === 'left') turn('prev');
-      else if (zone === 'right') turn('next');
-      else root.classList.toggle('is-bare');
+      if (zone === 'middle') {
+        root.classList.toggle('is-bare');
+        return;
+      }
+      const nextIsLeft = this.host.contentVertical;
+      if (zone === 'left') turn(nextIsLeft ? 'next' : 'prev');
+      else turn(nextIsLeft ? 'prev' : 'next');
     };
 
     // Obsidian 明暗切换时，跟随主题的阅读栏框要跟着变

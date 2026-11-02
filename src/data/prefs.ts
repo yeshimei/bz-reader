@@ -12,6 +12,9 @@
 export type ThemeName = 'auto' | 'light' | 'sepia' | 'green' | 'dark';
 export type FontFamilyName = 'book' | 'serif' | 'sans';
 export type TextAlign = 'left' | 'justify';
+/** 竖排（writing-mode: vertical-rl）是东亚长文阅读的一等需求，不是装饰 */
+export type LayoutMode = 'horizontal' | 'vertical';
+export type ColumnCount = 1 | 2;
 
 export interface ReaderPrefs {
   fontSize: number;
@@ -20,6 +23,10 @@ export interface ReaderPrefs {
   fontFamily: FontFamilyName;
   align: TextAlign;
   theme: ThemeName;
+  /** 排版方向。竖排只影响书页内容，界面照旧横排 */
+  layout: LayoutMode;
+  /** 分页栏数。竖排时引擎强制单栏（竖排双栏的扫描顺序没人看得懂） */
+  columns: ColumnCount;
 }
 
 export const DEFAULT_PREFS: ReaderPrefs = {
@@ -29,6 +36,8 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   fontFamily: 'book',
   align: 'justify',
   theme: 'auto',
+  layout: 'horizontal',
+  columns: 1,
 };
 
 export const FONT_SIZE_RANGE = { min: 14, max: 30, step: 1 } as const;
@@ -68,5 +77,7 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     fontFamily: family,
     align: p.align === 'left' ? 'left' : 'justify',
     theme,
+    layout: p.layout === 'vertical' ? 'vertical' : 'horizontal',
+    columns: p.columns === 2 ? 2 : 1,
   };
 }

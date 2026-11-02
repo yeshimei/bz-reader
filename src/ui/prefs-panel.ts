@@ -105,7 +105,37 @@ export function createPrefsPanel(initial: ReaderPrefs, onChange: (patch: Partial
     ),
   );
 
-  root.append(fontSlider.row, lineSlider.row, marginSlider.row, fontRow, alignRow, themeRow);
+  const rows: HTMLElement[] = [fontSlider.row, lineSlider.row, marginSlider.row, fontRow, alignRow];
+  // 方向与栏数是高级版能力：写进 if 而不是三元，base 构建时连字符串一起被删
+  if (__BZ_READER_PRO__) {
+    const layoutRow = el('div', 'bzr-track-row');
+    layoutRow.append(
+      el('span', 'bzr-track-label', '方向'),
+      seg(
+        [
+          { value: 'horizontal' as const, label: '横排' },
+          { value: 'vertical' as const, label: '竖排' },
+        ],
+        initial.layout,
+        (v) => onChange({ layout: v }),
+      ),
+    );
+    const columnsRow = el('div', 'bzr-track-row');
+    columnsRow.append(
+      el('span', 'bzr-track-label', '栏数'),
+      seg(
+        [
+          { value: 1 as const, label: '单栏' },
+          { value: 2 as const, label: '双栏' },
+        ],
+        initial.columns,
+        (v) => onChange({ columns: v }),
+      ),
+    );
+    rows.push(layoutRow, columnsRow);
+  }
+  rows.push(themeRow);
+  root.append(...rows);
 
   return {
     root,

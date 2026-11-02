@@ -387,6 +387,46 @@
   transform: rotate(45deg);
   border-radius: 2px;
 }
+/* 全屏：四角括号，两个伪元素画上角、两个 i 画下角 */
+.bzr-i-full {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+.bzr-i-full::before,
+.bzr-i-full::after,
+.bzr-i-full i {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border: 1.4px solid currentColor;
+}
+.bzr-i-full::before {
+  left: 0;
+  top: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
+.bzr-i-full::after {
+  right: 0;
+  top: 0;
+  border-left: 0;
+  border-bottom: 0;
+}
+.bzr-i-full i:nth-child(1) {
+  left: 0;
+  bottom: 0;
+  border-right: 0;
+  border-top: 0;
+}
+.bzr-i-full i:nth-child(2) {
+  right: 0;
+  bottom: 0;
+  border-left: 0;
+  border-top: 0;
+}
 .bzr-empty-line {
   padding: 24px 16px;
   text-align: center;
