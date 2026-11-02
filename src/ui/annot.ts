@@ -176,7 +176,6 @@ export function createAnnotLayer(deps: AnnotDeps): AnnotLayer {
         deps.onCreate({ color: c });
       }),
     );
-    bar.appendChild(el('span', 'bzr-annot-sep'));
     const think = el('button', 'bzr-annot-think', '想法');
     think.type = 'button';
     think.addEventListener('click', (ev) => {
@@ -234,7 +233,8 @@ export function createAnnotLayer(deps: AnnotDeps): AnnotLayer {
     tag.append(el('span', 'bzr-annot-ai-seal', seal.label), el('b', '', seal.title));
     const quote = el('blockquote', 'bzr-annot-quote', text);
     const out = el('div', 'bzr-annot-ai-out', '正在请求 AI…');
-    const foot = el('div', 'bzr-annot-foot');
+    // 等宽三钮一行（原型 .aicard .acts）：复制 / 存为想法 / 关闭
+    const foot = el('div', 'bzr-annot-foot bzr-annot-acts');
     foot.appendChild(el('span', 'bzr-annot-sp'));
     const copy = el('button', 'bzr-annot-btn', '复制');
     copy.type = 'button';
@@ -329,6 +329,16 @@ export function createAnnotLayer(deps: AnnotDeps): AnnotLayer {
     picked = (highlight.color as HighlightColorName) ?? 'amber';
 
     const card = el('div', 'bzr-annot-card');
+    // 头行（原型 .acard .hd）：色点在顶上一排，右角留给「卡片」；
+    // 原文引用和想法从第二行开始，卡片的层次和划词条对得上
+    const hd = el('div', 'bzr-annot-hd');
+    hd.appendChild(
+      dots(picked, (c) => {
+        picked = c;
+        deps.onChangeColor(highlight.id, c);
+      }),
+    );
+    hd.appendChild(el('span', 'bzr-annot-sp'));
     const quote = el('blockquote', 'bzr-annot-quote', highlight.text);
     const ta = el('textarea', 'bzr-annot-ta');
     ta.placeholder = '写点想法…';
@@ -342,21 +352,15 @@ export function createAnnotLayer(deps: AnnotDeps): AnnotLayer {
       }, 600);
     });
 
-    const foot = el('div', 'bzr-annot-foot');
-    foot.appendChild(
-      dots(picked, (c) => {
-        picked = c;
-        deps.onChangeColor(highlight.id, c);
-      }),
-    );
-    foot.appendChild(el('span', 'bzr-annot-sp'));
+    // 卡片/删除：等宽两钮一行（原型 .acard .ft 的 abtn 节奏）
+    const foot = el('div', 'bzr-annot-foot bzr-annot-acts');
     if (deps.onCard) {
-      const card = el('button', 'bzr-annot-btn', '卡片');
-      card.type = 'button';
-      card.title = '生成书摘卡片';
-      card.setAttribute('aria-label', '生成书摘卡片');
-      card.addEventListener('click', () => deps.onCard?.(highlight));
-      foot.appendChild(card);
+      const cardBtn = el('button', 'bzr-annot-btn', '卡片');
+      cardBtn.type = 'button';
+      cardBtn.title = '生成书摘卡片';
+      cardBtn.setAttribute('aria-label', '生成书摘卡片');
+      cardBtn.addEventListener('click', () => deps.onCard?.(highlight));
+      foot.appendChild(cardBtn);
     }
     const del = el('button', 'bzr-annot-btn is-danger', '删除');
     del.type = 'button';
@@ -366,7 +370,7 @@ export function createAnnotLayer(deps: AnnotDeps): AnnotLayer {
       deps.onRemove(id);
     });
     foot.appendChild(del);
-    card.append(quote, ta, foot);
+    card.append(hd, quote, ta, foot);
     card.addEventListener('pointerdown', (ev) => ev.stopPropagation());
     card.addEventListener('keydown', (ev) => {
       if (ev.key === 'Escape') {

@@ -135,10 +135,12 @@ export function createTocPanel(onPick: (href: string) => void, deps: NavPanelDep
         rebuild();
       },
     };
-    if (tab === 'bookmarks') {
+    // 书签/划线只在高级版存在（deps.notes 由阅读视图按 pro 传或不传）；
+    // 守卫写死在这里，note-list 的渲染函数才能从 base 包里摇干净
+    if (__BZ_READER_PRO__ && tab === 'bookmarks') {
       renderBookmarkList(body, snap.bookmarks, handlers);
       count.textContent = snap.bookmarks.length ? `${snap.bookmarks.length} 条` : '';
-    } else {
+    } else if (__BZ_READER_PRO__) {
       renderHighlightList(body, snap.highlights, handlers);
       count.textContent = snap.highlights.length ? `${snap.highlights.length} 条` : '';
     }

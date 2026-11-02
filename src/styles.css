@@ -2247,6 +2247,49 @@
 .bzr-sb.is-open {
   display: flex;
 }
+/* 头行（原型 .p-head）：衬线「搜 索」+ 范围说明 + ✕，和排版面板一个模子 */
+.bzr-sb-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 11px;
+  border-bottom: 1px solid color-mix(in srgb, var(--rear-fg) 9%, transparent);
+  flex: none;
+}
+.bzr-sb-head b {
+  font-family: var(--bzr-font-serif);
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: 0.22em;
+  color: var(--rear-fg);
+}
+.bzr-sb-head .n {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--rear-fg-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bzr-sb-head .sp {
+  flex: 1;
+}
+.bzr-sb-head .x {
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--rear-fg-3);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  flex: none;
+}
+.bzr-sb-head .x:hover {
+  color: var(--rear-fg);
+  border-color: color-mix(in srgb, var(--rear-fg) 14%, transparent);
+}
 .bzr-sb-bar {
   display: flex;
   align-items: center;
@@ -2264,6 +2307,7 @@
   background: color-mix(in srgb, var(--rear-fg) 4%, transparent);
   display: flex;
   align-items: center;
+  gap: 7px;
   padding: 0 11px;
 }
 .bzr-sb-input input {
@@ -2282,11 +2326,27 @@
 .bzr-sb-input input::placeholder {
   color: var(--rear-fg-3);
 }
-.bzr-sb-count {
-  font-size: 10px;
+/* 输入井里的清空钮：有字才现身（原型 .in 的 ✕） */
+.bzr-sb-clear {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
   color: var(--rear-fg-3);
-  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
   flex: none;
+  visibility: hidden;
+}
+.bzr-sb-clear.is-show {
+  visibility: visible;
+}
+.bzr-sb-clear:hover {
+  color: var(--rear-fg);
+  background: color-mix(in srgb, var(--rear-fg) 10%, transparent);
 }
 .bzr-sb-scope {
   display: flex;
@@ -2664,98 +2724,120 @@
   font-size: 13px;
 }
 
-/* ═══════════ ⑪ 目录侧栏（Obsidian 原生左侧栏里的 leaf） ═══════════
+/* ═══════════ ⑪ 阅读侧栏（Obsidian 原生左侧栏里的 leaf） ═══════════
+ * 书库 / 目录 / 书签 / 划线四个页签住一个 leaf——它们都是「阅读的坐标」。
  * 和抽屉（⑦）的区别不是外观，是归属：这里完全是 Obsidian 的叶子视图，
  * 有自己的页签、能被拖到右侧栏、能被布局记住。所以样式只管「内容」，
  * 外壳交给 Obsidian。
  *
- * 滚动条藏起来是刻意的：目录是「一列字」，右侧挂一根灰条既割裂又占地，
- * 触控板/滚轮照样能滚。只藏视觉，不锁滚动。
+ * 侧栏里没有 .bzr-reader 那层 remap，铜金要自己带一档：跟随 Obsidian
+ * 明暗给墨/纸两套铜色（原型 --copper 的值）。
+ * 滚动条藏起来是刻意的：目录是「一列字」，右侧挂一根灰条既割裂又占地。
  */
-/* 用 data-type 起手而不是只压类名：Obsidian 自己的 .view-content 也带 padding，
-   插件样式表虽然后注入，但同一特异度谁后谁赢不牢靠，加一层祖先选择器才稳。 */
 .workspace-leaf-content[data-type='bz-reader-toc'] .view-content.bzr-tocv-content {
   padding: 0;
   overflow: hidden;
 }
 .bzr-tocv {
+  --copper: #c8a464;
+  --copper-soft: rgba(200, 164, 100, 0.13);
+  --copper-line: rgba(200, 164, 100, 0.4);
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
   font-family: var(--bzr-font-ui);
 }
-/* 页签行：目录 / 书签 / 划线。三块都是「这本书里的位置索引」，
-   所以用页签而不是三个 leaf —— 三个 leaf 很快会排成一列没人看的页签。 */
+.theme-light .bzr-tocv {
+  --copper: #9a7434;
+  --copper-soft: rgba(154, 116, 52, 0.11);
+  --copper-line: rgba(154, 116, 52, 0.42);
+}
 .bzr-tocv-h {
   display: flex;
   align-items: center;
-  padding: 8px 10px 6px;
+  padding: 10px 12px 8px;
   flex: none;
 }
 .bzr-side-tabs {
   display: flex;
   gap: 2px;
 }
-/* 导出：只在书签/划线页签出现，平时不占位置（目录没东西可导） */
-.bzr-tocv-export {
-  display: none;
-  margin-left: auto;
-  height: 22px;
-  padding: 0 9px;
-  border: 1px solid var(--bzr-border);
-  border-radius: 5px;
-  background: transparent;
-  color: var(--bzr-text-3);
-  font-family: inherit;
-  font-size: 11px;
-  line-height: 1;
-  cursor: pointer;
-}
-.bzr-tocv-export.is-on {
-  display: block;
-}
-.bzr-tocv-export:hover {
-  background: var(--bzr-surface-hover);
-  color: var(--bzr-text-1);
-}
+/* 页签：衬线双字（原型 .p-head b 的声部），选中铜金不糊底 */
 .bzr-side-tab {
   display: flex;
   align-items: center;
   gap: 5px;
-  height: 24px;
+  height: 26px;
   padding: 0 9px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 6px;
   background: transparent;
   color: var(--bzr-text-3);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: var(--bzr-weight-regular);
+  font-family: var(--bzr-font-serif);
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
   line-height: 1;
   cursor: pointer;
 }
 .bzr-side-tab:hover {
-  background: var(--bzr-surface-hover);
   color: var(--bzr-text-2);
+  background: var(--bzr-surface-hover);
 }
 .bzr-side-tab.is-on {
-  background: var(--bzr-surface-3);
-  color: var(--bzr-text-1);
-  font-weight: var(--bzr-weight-medium);
+  color: var(--copper);
+  background: var(--copper-soft);
 }
 .bzr-side-tab .n {
+  font-family: var(--bzr-font-ui);
   font-size: 10px;
-  font-weight: var(--bzr-weight-regular);
   color: var(--bzr-text-3);
   font-variant-numeric: tabular-nums;
+}
+.bzr-side-tab.is-on .n {
+  color: var(--copper);
+  opacity: 0.75;
+}
+/* 头行动作区：全文/统计/导入（书库页）与导出（书签划线页） */
+.bzr-tocv-acts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.bzr-tocv-act {
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid var(--bzr-border);
+  border-radius: 99px;
+  background: transparent;
+  color: var(--bzr-text-3);
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  cursor: pointer;
+}
+.bzr-tocv-act:hover {
+  color: var(--copper);
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+}
+.bzr-tocv-act:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.bzr-tocv-act:disabled:hover {
+  color: var(--bzr-text-3);
+  border-color: var(--bzr-border);
+  background: transparent;
 }
 .bzr-tocv-b {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0 8px 16px;
+  padding: 0 8px 18px;
   /* 隐藏滚动条（Chrome / Firefox / 旧 Edge 三条都要写，否则总有一个露出来） */
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -2771,20 +2853,225 @@
   font-size: 11.5px;
   color: var(--bzr-text-3);
   line-height: 1.7;
+  white-space: pre-line;
 }
-/* 行基础样式复用抽屉那套（.bzr-toc-i），这里只调侧栏里的字号与内边距 */
-.bzr-tocv .bzr-toc-i {
+
+/* ── 书库页 ── */
+.bzr-shv {
+  padding: 4px 4px 0;
+}
+/* 搜索井（原型 .search .in 的窄栏版）：下沉底、线条放大镜 */
+.bzr-shv-well {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 7px 10px;
-  border-radius: 5px;
+  border: 1px solid var(--bzr-border);
+  border-radius: 9px;
+  background: var(--bzr-surface-sunken);
+}
+.bzr-shv-well input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--bzr-text-1);
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+}
+.bzr-shv-well input::placeholder {
+  color: var(--bzr-text-3);
+}
+.bzr-shv-glyph {
+  position: relative;
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border: 1px solid var(--bzr-text-3);
+  border-radius: 50%;
+}
+.bzr-shv-glyph::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  bottom: -2px;
+  width: 5px;
+  height: 1px;
+  background: var(--bzr-text-3);
+  transform: rotate(45deg);
+}
+.bzr-shv-body {
+  padding-top: 8px;
+}
+/* 书行（原型 .bkrow）：小封面 + 书名 + 2px 进度线 + 衬线百分数 */
+.bzr-bkl {
+  display: flex;
+  flex-direction: column;
+}
+.bzr-bkrow {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 9px 6px;
+  border: 0;
+  border-top: 1px solid var(--bzr-border);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bzr-bkrow:first-child {
+  border-top: 0;
+}
+.bzr-bkrow:hover {
+  background: var(--copper-soft);
+}
+.bzr-bkrow.is-missing {
+  opacity: 0.45;
+  cursor: default;
+}
+/* 继续阅读条：加高一档，书名下挪到进度线上面 */
+.bzr-bkrow.is-cont {
+  padding: 11px 6px;
+  border: 1px solid var(--bzr-border);
+  border-radius: 11px;
+  margin-bottom: 4px;
+}
+.bzr-bkrow.is-cont:hover {
+  border-color: var(--copper-line);
+}
+/* 书墙封面在小行里缩成 34×48 书脊 */
+.bzr-bkrow .bzr-cover {
+  width: 34px;
+  height: 48px;
+  border-radius: 3px;
+  flex: none;
+}
+.bzr-bkrow .bzr-cover .bt {
+  font-size: 8.5px;
+  padding: 3px 2px;
+}
+.bzr-bkrow .bzr-cover .ba {
+  display: none;
+}
+.bzr-bkrow .bzr-cover .prog {
+  height: 2px;
+}
+.bzr-bkrow .bi {
+  flex: 1;
+  min-width: 0;
+}
+.bzr-bkrow .bi b {
+  display: block;
   font-size: 12.5px;
+  font-weight: var(--bzr-weight-medium);
+  letter-spacing: 0.03em;
+  color: var(--bzr-text-1);
+  margin-bottom: 7px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.bzr-tocv .bzr-toc-i.d1 {
-  padding-left: 22px;
-  font-size: 12px;
+.bzr-bkrow .bar {
+  height: 2px;
+  border-radius: 2px;
+  background: var(--bzr-border);
+  position: relative;
+  overflow: hidden;
 }
-.bzr-tocv .bzr-toc-i.d2 {
-  padding-left: 34px;
-  font-size: 12px;
+.bzr-bkrow .bar i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 2px;
+  background: var(--copper);
+}
+.bzr-bkrow .pct {
+  flex: none;
+  width: 36px;
+  text-align: right;
+  font-family: var(--bzr-font-serif);
+  font-size: 11.5px;
+  color: var(--bzr-text-3);
+  font-variant-numeric: tabular-nums;
+}
+.bzr-bkrow.is-cont .pct {
+  color: var(--copper);
+}
+
+/* ── 目录页（原型 .chaprow）：章序号衬线，当前章左缘一条铜金短竖线 ── */
+.bzr-chap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bzr-chap:hover {
+  background: var(--copper-soft);
+}
+.bzr-chap .no {
+  flex: none;
+  width: 20px;
+  font-family: var(--bzr-font-serif);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--bzr-text-3);
+  font-variant-numeric: tabular-nums;
+}
+.bzr-chap .t {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  letter-spacing: 0.03em;
+  color: var(--bzr-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bzr-chap.d1 {
+  padding-left: 24px;
+}
+.bzr-chap.d1 .no {
+  width: 16px;
+  font-size: 10px;
+}
+.bzr-chap.d2 {
+  padding-left: 38px;
+}
+.bzr-chap.d2 .no {
+  display: none;
+}
+.bzr-chap.is-on {
+  background: var(--copper-soft);
+}
+.bzr-chap.is-on::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 2px;
+  background: var(--copper);
+}
+.bzr-chap.is-on .t {
+  color: var(--bzr-text-1);
+}
+.bzr-chap.is-on .no {
+  color: var(--copper);
 }
 
 /* ═══════════ ⑪ 错误页 ═══════════ */
@@ -2836,87 +3123,107 @@
   opacity: 1;
 }
 
+/* 玻璃底（原型 .panel）：浮在正文上，底色跟当前纸张同源，再糊一层毛玻璃 */
 .bzr-annot-bar,
 .bzr-annot-card {
-  background: color-mix(in srgb, var(--rear-fg) 7%, var(--rear-bg));
-  border: 1px solid color-mix(in srgb, var(--rear-fg) 14%, transparent);
-  box-shadow: var(--bzr-shadow-float);
+  background: color-mix(in srgb, var(--rear-bg) 72%, transparent);
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  border: 1px solid color-mix(in srgb, var(--rear-fg) 12%, transparent);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
   color: var(--rear-fg);
   font-family: var(--bzr-font-ui);
 }
+/* 划词条（原型 .annotbar）：细长胶囊——色点 | 想法 | AI 三字 */
 .bzr-annot-bar {
   display: flex;
   align-items: center;
-  gap: 7px;
-  height: 38px;
-  padding: 0 9px;
-  border-radius: 10px;
+  gap: 4px;
+  height: 40px;
+  padding: 0 8px;
+  border-radius: 13px;
 }
 .bzr-annot-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   width: 300px;
-  padding: 11px 12px 10px;
-  border-radius: 12px;
+  padding: 0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.bzr-annot-ai-card {
+  width: 340px;
 }
 .bzr-annot.is-card > * {
   width: 300px;
 }
+.bzr-annot.is-card > .bzr-annot-ai-card {
+  width: 340px;
+}
 
-/* 四个色点：颜色本身就是内容，所以不加装饰，只保证深浅底上都压得住 */
+/* 色点（原型 .cd）：19px 渐变球，选中外套一圈细环；竖线分隔在点的右侧 */
 .bzr-annot-dots {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
+  padding-right: 9px;
+  border-right: 1px solid color-mix(in srgb, var(--rear-fg) 12%, transparent);
 }
 .bzr-annot-dots button {
-  width: 16px;
-  height: 16px;
+  position: relative;
+  width: 19px;
+  height: 19px;
   padding: 0;
-  border: 0;
+  border: 1px solid rgba(0, 0, 0, 0.25);
   border-radius: 50%;
-  background: var(--c);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+  background: linear-gradient(140deg, color-mix(in srgb, var(--c) 68%, #fff), var(--c));
   cursor: pointer;
-  transition: transform var(--bzr-dur-fast) var(--bzr-ease-out);
 }
 .bzr-annot-dots button:hover {
-  transform: scale(1.14);
+  transform: scale(1.1);
 }
-.bzr-annot-dots button.is-on {
-  box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.18),
-    0 0 0 2px var(--rear-bg),
-    0 0 0 3.5px var(--c);
+.bzr-annot-dots button.is-on::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 1px solid var(--rear-fg-2);
+  border-radius: 50%;
 }
-.bzr-annot-sep {
-  width: 1px;
-  height: 14px;
-  background: color-mix(in srgb, var(--rear-fg) 16%, transparent);
+/* 卡片头行（原型 .acard .hd）：色点一排，底边一条发丝线 */
+.bzr-annot-hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--rear-fg) 10%, transparent);
 }
+.bzr-annot-hd .bzr-annot-dots {
+  border-right: 0;
+  padding-right: 0;
+}
+/* 想法（原型 .wbtn）：文字钮，hover 铜金软底 */
 .bzr-annot-think {
-  height: 24px;
-  padding: 0 8px;
+  height: 26px;
+  padding: 0 9px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 8px;
   background: transparent;
   color: var(--rear-fg-2);
   font-family: inherit;
-  font-size: 11.5px;
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
   cursor: pointer;
 }
 .bzr-annot-think:hover {
-  background: color-mix(in srgb, var(--rear-fg) 9%, transparent);
-  color: var(--rear-fg);
+  background: var(--bzr-brand-soft);
+  color: var(--bzr-brand);
 }
-/* AI 三连（摘/释/译）：衬线单字小钮——和书名一个声部 */
+/* AI 三连（摘/释/译）：衬线单字小钮——和书名一个声部（原型 .aichar） */
 .bzr-annot-ai {
   height: 26px;
-  width: 26px;
-  padding: 0;
+  padding: 0 8px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 8px;
   background: transparent;
   color: var(--rear-fg-2);
   font-family: var(--bzr-font-serif);
@@ -2925,19 +3232,20 @@
   cursor: pointer;
 }
 .bzr-annot-ai:hover {
-  background: color-mix(in srgb, var(--rear-fg) 9%, transparent);
-  color: var(--rear-fg);
+  background: var(--bzr-brand-soft);
+  color: var(--bzr-brand);
 }
 
-/* AI 结果卡的铜印头行：一枚衬线单字印 + 任务名（原型 reader-v2 肆） */
+/* AI 结果卡的铜印头行：一枚衬线单字印 + 任务名（原型 .aicard .tag） */
 .bzr-annot-ai-tag {
   display: flex;
   align-items: center;
   gap: 9px;
+  padding: 13px 15px 0;
 }
 .bzr-annot-ai-seal {
-  width: 25px;
-  height: 25px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
   border-radius: 7px;
@@ -2949,20 +3257,21 @@
   flex: none;
 }
 .bzr-annot-ai-tag b {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: var(--bzr-weight-medium);
-  letter-spacing: 0.18em;
+  letter-spacing: 0.14em;
   color: var(--bzr-brand);
 }
 
-/* AI 结果区：等宽高自然撑开，出错时用语义红压一行 */
+/* AI 结果区（原型 .aicard .body）：行高放开，字比引用大一档 */
 .bzr-annot-ai-out {
-  font-size: 12px;
-  line-height: 1.7;
-  color: var(--rear-fg);
+  margin: 10px 16px 12px;
+  font-size: 13px;
+  line-height: 1.95;
+  color: color-mix(in srgb, var(--rear-fg) 88%, transparent);
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 180px;
+  max-height: 200px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -2970,80 +3279,92 @@
   color: var(--bzr-danger);
 }
 
-/* 原文引用：衬线 + 左侧一条品牌色，和侧栏里的划线条目同一套语言 */
+/* 原文引用（原型 .acard .orig / .aicard .quote）：衬线 + 左缘铜金细线 */
 .bzr-annot-quote {
-  margin: 0;
-  padding-left: 9px;
-  border-left: 2px solid var(--bzr-brand);
+  margin: 12px 15px 0;
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid color-mix(in srgb, var(--bzr-brand) 45%, transparent);
   font-family: var(--bzr-font-serif);
   font-size: 12.5px;
-  line-height: 1.75;
+  line-height: 1.9;
   color: var(--rear-fg-2);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* 想法输入（原型 .acard .cmt）：无边框，写起字来像在纸上落笔 */
 .bzr-annot-ta {
-  width: 100%;
-  box-sizing: border-box;
+  display: block;
+  width: auto;
+  margin: 10px 15px 12px;
   resize: none;
-  padding: 7px 8px;
-  border: 1px solid color-mix(in srgb, var(--rear-fg) 12%, transparent);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--rear-fg) 5%, transparent);
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--rear-fg);
   font-family: inherit;
-  font-size: 12px;
-  line-height: 1.65;
+  font-size: 12.5px;
+  line-height: 1.85;
   outline: none;
 }
 .bzr-annot-ta::placeholder {
   color: color-mix(in srgb, var(--rear-fg) 35%, transparent);
+  font-style: italic;
 }
-.bzr-annot-ta:focus {
-  border-color: var(--bzr-brand);
-}
+/* 卡片动作行（原型 .ft / .acts）：顶边发丝线，按钮等宽铺开 */
 .bzr-annot-foot {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  padding: 10px 13px 11px;
+  border-top: 1px solid color-mix(in srgb, var(--rear-fg) 10%, transparent);
 }
 .bzr-annot-sp {
   flex: 1;
 }
+.bzr-annot-acts {
+  padding: 11px 13px;
+}
+.bzr-annot-acts .bzr-annot-btn {
+  flex: 1;
+  padding: 9px 0;
+}
 .bzr-annot-btn {
-  height: 26px;
-  padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--rear-fg) 14%, transparent);
-  border-radius: 6px;
+  flex: none;
+  height: auto;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--rear-fg) 16%, transparent);
+  border-radius: 9px;
   background: transparent;
   color: var(--rear-fg-2);
   font-family: inherit;
-  font-size: 11.5px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
   line-height: 1;
   cursor: pointer;
 }
 .bzr-annot-btn:hover {
   color: var(--rear-fg);
-  border-color: color-mix(in srgb, var(--rear-fg) 26%, transparent);
+  border-color: color-mix(in srgb, var(--bzr-brand) 45%, transparent);
 }
 .bzr-annot-btn.is-primary {
-  border-color: transparent;
-  background: var(--bzr-brand);
-  color: var(--bzr-on-brand);
+  border-color: color-mix(in srgb, var(--bzr-brand) 40%, transparent);
+  background: var(--bzr-brand-soft);
+  color: var(--bzr-brand);
 }
 .bzr-annot-btn.is-primary:hover {
-  background: var(--bzr-brand-hover);
-  color: var(--bzr-on-brand);
+  border-color: var(--bzr-brand);
+  background: var(--bzr-brand-soft);
+  color: var(--bzr-brand);
 }
 .bzr-annot-btn.is-danger {
-  color: var(--bzr-danger);
-  border-color: color-mix(in srgb, var(--bzr-danger) 38%, transparent);
+  color: var(--rear-fg-2);
 }
 .bzr-annot-btn.is-danger:hover {
-  background: color-mix(in srgb, var(--bzr-danger) 12%, transparent);
   color: var(--bzr-danger);
+  border-color: color-mix(in srgb, var(--bzr-danger) 45%, transparent);
+  background: transparent;
 }
 
 /* 头栏书签图标：填充式（线条版在 9px 里认不出是书签），靠不透明度区分开/关 */
@@ -3061,104 +3382,117 @@
   opacity: 1;
 }
 
-/* ── 侧栏里的书签 / 划线条目 ── */
-.bzr-mark-row {
+/* ── 侧栏里的书签 / 划线条目（原型 .mk 与划线分组） ── */
+/* 书签：菱形铜点 + 章名 + 衬线日期；删除钮平时藏着，hover 行才现身 */
+.bzr-bmk {
   display: flex;
   align-items: center;
-  border-radius: 5px;
-}
-.bzr-mark-row:hover {
-  background: var(--bzr-surface-hover);
-}
-.bzr-mark-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: baseline;
-  gap: 9px;
-  padding: 8px 4px 8px 10px;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
   border: 0;
+  border-radius: 0;
   background: transparent;
   color: inherit;
   font-family: inherit;
   text-align: left;
   cursor: pointer;
 }
-.bzr-mark-main .pc {
-  flex: none;
-  width: 28px;
-  font-size: 10.5px;
-  color: var(--bzr-text-3);
-  font-variant-numeric: tabular-nums;
+.bzr-bmk:hover {
+  background: var(--copper-soft);
 }
-.bzr-mark-main .tt {
-  flex: 1;
-  min-width: 0;
+.bzr-bmk i {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  background: var(--copper, var(--bzr-brand));
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
+.bzr-bmk .tt {
+  flex: none;
+  max-width: 55%;
   font-size: 12.5px;
-  color: var(--bzr-text-1);
+  color: var(--bzr-text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.bzr-mark-x,
-.bzr-hl-x {
+.bzr-bmk .sp {
+  flex: 1;
+}
+.bzr-bmk em {
   flex: none;
-  width: 22px;
-  height: 22px;
-  margin-right: 4px;
+  font-style: normal;
+  font-family: var(--bzr-font-serif);
+  font-size: 11px;
+  color: var(--bzr-text-3);
+  font-variant-numeric: tabular-nums;
+}
+/* 删除钮：列表是拿来看的，不是拿来删的——hover 才现身 */
+.bzr-note-x {
+  flex: none;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: 5px;
   background: transparent;
   color: var(--bzr-text-3);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
   cursor: pointer;
+  opacity: 0;
 }
-.bzr-mark-x:hover,
-.bzr-hl-x:hover {
+.bzr-bmk:hover .bzr-note-x,
+.bzr-hlit:hover .bzr-note-x {
+  opacity: 1;
+}
+.bzr-note-x:hover {
   background: var(--bzr-surface-active);
-  color: var(--bzr-text-1);
+  color: var(--bzr-danger);
 }
 
+/* 划线：按章分组；条目左缘一条划线色竖线，引文衬线，想法缩在下面 */
 .bzr-hl-g {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .bzr-hl-gh {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  padding: 8px 10px 4px;
+  padding: 10px 10px 2px;
 }
 .bzr-hl-gh .t {
   flex: 1;
   min-width: 0;
   font-size: 10.5px;
+  letter-spacing: 0.14em;
   color: var(--bzr-text-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .bzr-hl-gh .n {
+  font-family: var(--bzr-font-serif);
   font-size: 10px;
   color: var(--bzr-text-3);
   font-variant-numeric: tabular-nums;
 }
-.bzr-hl-i {
+.bzr-hlit {
   display: flex;
   align-items: flex-start;
-  border-radius: 5px;
 }
-.bzr-hl-i:hover {
-  background: var(--bzr-surface-hover);
+.bzr-hlit:hover {
+  background: var(--copper-soft);
 }
-.bzr-hl-main {
+.bzr-hlit-main {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 7px 4px 7px 9px;
+  padding: 8px 4px 8px 10px;
   border: 0;
   border-left: 2px solid var(--c);
   border-radius: 0;
@@ -3168,19 +3502,19 @@
   text-align: left;
   cursor: pointer;
 }
-.bzr-hl-main .tx {
+.bzr-hlit-main .tx {
   font-family: var(--bzr-font-serif);
   font-size: 12.5px;
-  line-height: 1.65;
+  line-height: 1.75;
   color: var(--bzr-text-1);
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.bzr-hl-main .cm {
+.bzr-hlit-main .cm {
   font-size: 11.5px;
-  line-height: 1.65;
+  line-height: 1.7;
   color: var(--bzr-text-2);
   padding-left: 7px;
   border-left: 1px solid var(--bzr-border-strong);
