@@ -557,7 +557,7 @@
   opacity: 0;
   transition: opacity 0.18s ease;
 }
-.bzr-cover.has-img .bzr-cover-img {
+.has-img .bzr-cover-img {
   opacity: 1;
 }
 /* 真封面在位时，竖排书名/作者让位（不然会压在图上） */
@@ -811,6 +811,7 @@
   cursor: pointer;
 }
 .bzr-ms-cont .cc {
+  position: relative;
   width: 38px;
   height: 54px;
   border-radius: 4px;
@@ -825,6 +826,10 @@
   color: rgba(255, 255, 255, 0.85);
   letter-spacing: 0.1em;
   overflow: hidden;
+}
+/* 真封面到位后，色块上的竖排书名让位（图盖住了它，不藏会透出来） */
+.bzr-ms-cont .cc.has-img {
+  color: transparent;
 }
 .bzr-ms-cont .ci {
   flex: 1;

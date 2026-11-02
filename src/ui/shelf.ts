@@ -320,6 +320,15 @@ export function openShelf(deps: ShelfDeps): ShelfHandle {
       const cover = el('div', 'cc', book.meta.title);
       cover.style.setProperty('--c1', c1);
       cover.style.setProperty('--c2', c2);
+      const coverImg = el('img', 'bzr-cover-img');
+      coverImg.alt = '';
+      coverImg.decoding = 'async';
+      cover.appendChild(coverImg);
+      if (!isMissing(book)) {
+        void coverUrl(app, book).then((url) => {
+          if (url) setCoverImage(cover, url);
+        });
+      }
       const info = el('div', 'ci');
       const line = el('div', 'cp');
       const fill = el('i');
