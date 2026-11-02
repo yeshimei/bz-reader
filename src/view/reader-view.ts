@@ -327,6 +327,9 @@ export class ReaderView extends ItemView {
         this.tracker.touch();
       },
       onClose: () => undefined,
+      // 命中行的「出自哪一章」与头行的范围说明（原型 .hit .loc / .p-head .n）
+      chapterLabel: () => chapter.textContent ?? '',
+      title: () => title.textContent ?? '',
     });
     const prefsPanel = createPrefsPanel(this.prefs, (patch) => this.applyPrefs({ ...this.prefs, ...patch }));
     const footnote = createFootnoteLayer({
@@ -829,11 +832,31 @@ export class ReaderView extends ItemView {
       if (this.annot?.isOpen() && !this.annot.isCard()) this.annot.hide();
       return;
     }
+    if (this.annot?.isCard()) {
+      this.selection = info;
+      this.selectionAt = Date.now();
+      this.annot.showForSelection(info);
+      return;
+    }
+    // 摇树规矩：合并逻辑在模块级函数里，这里用包裹式 if(PRO){} 引用——
+    // esbuild 不摇类方法，但摇得到「引用只在 if(false) 分支里」的模块级函数
+    if (__BZ_READER_PRO__) {
+      const merged = mergeSelections(this.selection, this.selectionAt, info);
+      if (merged) info = merged;
+    }
     this.selection = info;
     this.selectionAt = Date.now();
     this.annot?.showForSelection(info);
   }
 
+  /**
+   * 拖选越过列边界时 foliate 会翻页跟进（paginator 的 checkPointerSelection），
+   * 翻页瞬间浏览器把旧选区截断——用户明明从段落头拖到段落尾，存下来的
+   * 划线永远只有最后一页内的那截，书摘卡片于是「缺头少尾」（2026-11-03
+   * 用户反馈「卡片隐藏了文字」的根源；存储里几条划线全是 30~36 字、断点
+   * 都落在列边界，CFI 佐证）。同一元素内前后相接的两次捕获在几秒内
+   * 合并回一个完整选区。实现挪到模块级 mergeSelections（摇树规矩）。
+   */
   private createHighlight(input: { color: HighlightColorName; comment?: string }): void {
     if (!__BZ_READER_PRO__) return;
     const book = this.book;
@@ -1026,4 +1049,71 @@ export class ReaderView extends ItemView {
     await this.api.store.flush().catch(() => undefined);
     await this.host.destroy().catch(() => undefined);
   }
+}
+
+
+/* ── 范围 CFI 的小工具（合并被翻页截断的选区用，见 mergeTruncatedSelection）──
+ * 形如 epubcfi(/6/4!/4/6,/1:9,/1:45)：path 是元素路径，两端各带 text:偏移。
+ * 只认 epubcfi；其它格式（pdf 之类）原样放行、不参与合并。 */
+
+interface RangeCfiParts {
+  path: string;
+  startRaw: string;
+  endRaw: string;
+  start: number;
+  end: number;
+}
+
+function parseRangeCfi(cfi: string): RangeCfiParts | null {
+  const m = /^epubcfi\((.+),([^,]+),([^,]+)\)$/.exec(cfi);
+  if (!m) return null;
+  const off = (raw: string): number | null => {
+    const n = /:(\d+)$/.exec(raw);
+    return n ? Number(n[1]) : null;
+  };
+  const start = off(m[2]);
+  const end = off(m[3]);
+  if (start === null || end === null) return null;
+  return { path: m[1], startRaw: m[2], endRaw: m[3], start, end };
+}
+
+function buildRangeCfi(parts: RangeCfiParts, start: number, end: number): string {
+  const swap = (raw: string, offset: number): string => raw.replace(/:(\d+)$/, ':' + offset);
+  return 'epubcfi(' + parts.path + ',' + swap(parts.startRaw, start) + ',' + swap(parts.endRaw, end) + ')';
+}
+
+/**
+ * 合并被翻页截断的选区（见 handleSelection 处的注释）。prev 为空 / 超时 /
+ * 不同元素 / 不相接时返回 null（不合并）。
+ */
+function mergeSelections(
+  prev: SelectionInfo | null,
+  prevAt: number,
+  info: SelectionInfo,
+): SelectionInfo | null {
+  if (!prev) return null;
+  if (Date.now() - prevAt > 5_000) return null;
+  const a = parseRangeCfi(prev.cfiRange);
+  const b = parseRangeCfi(info.cfiRange);
+  // 不同段落/元素各是各的选区，不相接就别硬并
+  if (!a || !b || a.path !== b.path) return null;
+  if (b.start > a.end || a.start > b.end) return null;
+  const start = Math.min(a.start, b.start);
+  const end = Math.max(a.end, b.end);
+  if (start === a.start && end === a.end) return null; // 新捕获没带来新内容
+  let text = prev.text;
+  if (b.end > a.end) {
+    // 尾部在长：把新文本里旧端点之后的段接上（两段偏移在同一文本节点内逐字对应）
+    text += info.text.slice(Math.max(0, a.end - b.start));
+  }
+  if (b.start < a.start) {
+    // 头部在长（反向拖 / 翻页回拖）：新文本头上缺的段补回来
+    text = info.text.slice(0, Math.max(0, a.start - b.start)) + text;
+  }
+  return {
+    ...info,
+    text: text.slice(0, 5000),
+    cfiRange: buildRangeCfi(b, start, end),
+    chapterIndex: prev.chapterIndex,
+  };
 }

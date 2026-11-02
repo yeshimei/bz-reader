@@ -42,8 +42,9 @@ export interface QuoteCardInput {
   dark: boolean;
 }
 
-/** 铜金：卡面上唯一的强调色（左缘条、引号、想法区、印） */
-const BRAND = '#c8a464';
+/** 铜金：卡面上唯一的强调色（左缘条、引号、想法区、印）。按明暗给两档 */
+const BRAND_DARK = '#c8a464';
+const BRAND_LIGHT = '#9a7434';
 
 /** 换行拆分：连续 ASCII（词/数字/标点）整段算一个 token，中文逐字 */
 function tokenize(text: string): string[] {
@@ -108,6 +109,7 @@ export function renderQuoteCard(input: QuoteCardInput): HTMLCanvasElement {
   if (!ctx) return canvas;
 
   const contentW = W - PAD * 2;
+  const copper = input.dark ? BRAND_DARK : BRAND_LIGHT;
   const softFg = input.dark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)';
   const uiFont = (size: number): string => `${size}px -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif`;
   const serifFont = (size: number): string => `${size}px "Songti SC", "Noto Serif CJK SC", "SimSun", Georgia, serif`;
@@ -142,7 +144,7 @@ export function renderQuoteCard(input: QuoteCardInput): HTMLCanvasElement {
   ctx.fillStyle = input.bg;
   ctx.fillRect(0, 0, W, h);
   // 左缘铜金窄条：卡面上唯一的装饰
-  ctx.fillStyle = BRAND;
+  ctx.fillStyle = copper;
   ctx.fillRect(0, 0, 6, h);
 
   let y = PAD + 4;
@@ -167,7 +169,7 @@ export function renderQuoteCard(input: QuoteCardInput): HTMLCanvasElement {
   // 原文：衬线 + 「」引号（铜金）——原型书摘卡的签名件
   ctx.font = serifFont(F_QUOTE);
   const qIndent = 44;
-  ctx.fillStyle = BRAND;
+  ctx.fillStyle = copper;
   ctx.fillText('「', PAD, y + QUOTE_LH - 18);
   ctx.fillStyle = input.fg;
   for (const line of quoteLines) {
@@ -176,13 +178,13 @@ export function renderQuoteCard(input: QuoteCardInput): HTMLCanvasElement {
   }
   // 」贴在末行末尾，铜金
   const lastW = ctx.measureText(quoteLines[quoteLines.length - 1] || '').width;
-  ctx.fillStyle = BRAND;
+  ctx.fillStyle = copper;
   ctx.fillText('」', PAD + qIndent + lastW + 6, y - 18);
 
   // 想法区：一条虚线与正文分开，「想 法」小字距标签起头
   if (commentLines.length) {
     y += 24;
-    ctx.strokeStyle = BRAND;
+    ctx.strokeStyle = copper;
     ctx.globalAlpha = 0.45;
     ctx.setLineDash([5, 6]);
     ctx.beginPath();
@@ -193,7 +195,7 @@ export function renderQuoteCard(input: QuoteCardInput): HTMLCanvasElement {
     ctx.globalAlpha = 1;
     y += 40;
     ctx.font = uiFont(20);
-    ctx.fillStyle = BRAND;
+    ctx.fillStyle = copper;
     ctx.fillText('想  法', PAD, y);
     y += 40;
     ctx.font = uiFont(F_COMMENT);
@@ -206,7 +208,7 @@ export function renderQuoteCard(input: QuoteCardInput): HTMLCanvasElement {
 
   // 脚行：一条铜金发丝线压顶，日期左 · 出处右邻印章 · 「印」字方框收尾
   y += 56;
-  ctx.strokeStyle = BRAND;
+  ctx.strokeStyle = copper;
   ctx.globalAlpha = 0.35;
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -225,13 +227,13 @@ export function renderQuoteCard(input: QuoteCardInput): HTMLCanvasElement {
     ctx.fillText(input.chapter.trim().slice(0, 18), W - PAD - 72, baseY, contentW / 3);
     ctx.textAlign = 'left';
   }
-  ctx.strokeStyle = BRAND;
+  ctx.strokeStyle = copper;
   ctx.globalAlpha = 0.8;
   ctx.lineWidth = 2;
   ctx.strokeRect(W - PAD - 56, baseY - 30, 46, 40);
   ctx.globalAlpha = 1;
   ctx.font = serifFont(26);
-  ctx.fillStyle = BRAND;
+  ctx.fillStyle = copper;
   ctx.fillText('印', W - PAD - 46, baseY);
   return canvas;
 }
@@ -303,7 +305,7 @@ export function openQuoteCard(deps: QuoteCardDeps): void {
   copy.type = 'button';
   foot.append(save, copy);
   root.append(holder, foot);
-  uiModal({
+  const { popup } = uiModal({
     content: root,
     className: 'bzr-qcard-popup',
     title: '书摘卡片',
@@ -311,6 +313,24 @@ export function openQuoteCard(deps: QuoteCardDeps): void {
     maxWidth: 420,
     autofocus: false,
   });
+  /* 弹窗外壳跟卡面同一个主题：弹窗挂在 body 下，不在 .bzr-reader 里，
+   * 拿到的是 Obsidian 明暗的令牌——墨主题下会白一块，和卡面两个世界。
+   * 直接把卡面同款色写到弹窗的令牌上，风格才算闭合（2026-11-03 用户反馈）。 */
+  const input = deps.input;
+  const dim = input.dark ? '237,228,212' : '44,37,25';
+  const copper = input.dark ? BRAND_DARK : BRAND_LIGHT;
+  const set = (name: string, value: string): void => popup.style.setProperty(name, value);
+  set('--bzr-surface-2', input.bg);
+  set('--bzr-surface-3', `rgba(${dim},0.08)`);
+  set('--bzr-surface-sunken', `rgba(${dim},0.05)`);
+  set('--bzr-border', `rgba(${dim},0.16)`);
+  set('--bzr-border-strong', `rgba(${dim},0.3)`);
+  set('--bzr-text-1', input.fg);
+  set('--bzr-text-2', `rgba(${dim},0.75)`);
+  set('--bzr-text-3', `rgba(${dim},0.5)`);
+  set('--bzr-brand', copper);
+  set('--bzr-brand-hover', input.dark ? '#d8b576' : '#8a6630');
+  set('--bzr-on-brand', '#211c15');
   save.addEventListener('click', () => {
     void saveQuoteCard(deps.app, deps.book, deps.settings, canvas)
       .then((path) => deps.onSaved?.(path))

@@ -168,15 +168,19 @@ export function createPlugin(cfg: PluginConfig) {
     openTocSidebar(tab?: SideTab): void {
       const ws = this.app.workspace;
       const opened = ws.getLeavesOfType(VIEW_TYPE_TOC)[0];
-      if (opened) {
-        if (tab) (opened.view as SideView).setTab(tab);
+      if (opened && opened.view instanceof SideView) {
+        if (tab) opened.view.setTab(tab);
         ws.leftSplit?.expand?.();
         return;
       }
+      // leaf 在但视图不是当前 SideView——插件热重载/版本更替后，Obsidian 恢复的
+      // 工作区里可能还挂着旧类实例（没有 setTab），直接调就是 TypeError
+      // （2026-11-03「打开书架」报错就是这个）。旧 leaf 换掉再开新的。
+      if (opened) opened.detach();
       const leaf = ws.getLeftLeaf(true);
       if (!leaf) return;
       void leaf.setViewState({ type: VIEW_TYPE_TOC, active: true }).then(() => {
-        if (tab) (leaf.view as SideView).setTab(tab);
+        if (tab && leaf.view instanceof SideView) leaf.view.setTab(tab);
       });
       ws.leftSplit?.expand?.();
     }

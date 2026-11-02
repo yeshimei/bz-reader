@@ -1304,6 +1304,12 @@
   width: 420px;
   max-width: calc(100vw - 32px);
 }
+/* 弹窗标题与「书是主角」一个声部：衬线 + 字距（颜色跟阅读主题，见 quote-card.ts） */
+.bzr-qcard-popup .bzr-dialog-title {
+  font-family: var(--bzr-font-serif);
+  font-size: 13px;
+  letter-spacing: 0.35em;
+}
 .bzr-qcard {
   display: flex;
   flex-direction: column;
