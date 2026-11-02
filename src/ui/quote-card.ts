@@ -17,7 +17,17 @@ import { uiModal } from '../core/ui/modal';
 
 const SCALE = 2;
 const W = 720;
-const PAD = 56;
+const PAD = 58;
+
+/* 原型卡 340 逻辑宽的字号等比放大（×2.1）：
+ * 题 20→42 · 作者 11→23 · 正文 15.5→32 · 想法 12.5→26 · 脚 10→21 */
+const F_TITLE = 42;
+const F_META = 23;
+const F_QUOTE = 32;
+const F_COMMENT = 26;
+const F_FOOT = 21;
+const QUOTE_LH = Math.round(F_QUOTE * 2.0);
+const COMMENT_LH = Math.round(F_COMMENT * 1.8);
 
 export interface QuoteCardInput {
   bookTitle: string;
@@ -96,33 +106,32 @@ export function renderQuoteCard(input: QuoteCardInput): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) return canvas;
-  ctx.scale(SCALE, SCALE);
 
   const contentW = W - PAD * 2;
   const softFg = input.dark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)';
   const uiFont = (size: number): string => `${size}px -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif`;
   const serifFont = (size: number): string => `${size}px "Songti SC", "Noto Serif CJK SC", "SimSun", Georgia, serif`;
 
-  // 先量后排：原文行数 → 想法行数 → 总高
+  // 先量后排：原文行数 → 想法行数 → 总高。原文收窄 72 是给「」留位
   const quoteLines = (() => {
-    ctx.font = serifFont(22);
+    ctx.font = serifFont(F_QUOTE);
     const raw = input.text.trim().split('\n');
-    const lines = raw.flatMap((seg) => wrap(ctx, seg, contentW - 18));
-    return ellipsize(ctx, lines, 16, contentW - 18);
+    const lines = raw.flatMap((seg) => wrap(ctx, seg, contentW - 72));
+    return ellipsize(ctx, lines, 16, contentW - 72);
   })();
   const commentLines = (() => {
     if (!input.comment?.trim()) return [] as string[];
-    ctx.font = uiFont(17);
-    return ellipsize(ctx, wrap(ctx, input.comment.trim(), contentW - 26), 5, contentW - 26);
+    ctx.font = uiFont(F_COMMENT);
+    return ellipsize(ctx, wrap(ctx, input.comment.trim(), contentW - 10), 5, contentW - 10);
   })();
 
-  const quoteLH = 22 * 1.9;
-  const commentLH = 17 * 1.7;
-  const headH = 46;
-  const quoteH = quoteLines.length * quoteLH;
-  const commentH = commentLines.length ? commentLines.length * commentLH + 22 : 0;
-  const footH = 54;
-  const h = Math.round(headH + quoteH + commentH + footH + PAD * 1.4);
+  const headH = 118;
+  const quoteH = quoteLines.length * QUOTE_LH;
+  // 想法块：24 压距 + 40 虚线后 + 40 标签行 + 正文
+  const commentH = commentLines.length ? commentLines.length * COMMENT_LH + 104 : 0;
+  // 脚块：56 压距 + 发丝线 + 34 + 基线区
+  const footH = 156;
+  const h = Math.round(headH + quoteH + commentH + footH);
 
   canvas.width = W * SCALE;
   canvas.height = h * SCALE;
@@ -132,41 +141,47 @@ export function renderQuoteCard(input: QuoteCardInput): HTMLCanvasElement {
   // 底
   ctx.fillStyle = input.bg;
   ctx.fillRect(0, 0, W, h);
-  // 左缘铜金窄条：只这一处强调色
+  // 左缘铜金窄条：卡面上唯一的装饰
   ctx.fillStyle = BRAND;
-  ctx.fillRect(0, 0, 4, h);
+  ctx.fillRect(0, 0, 6, h);
 
-  let y = PAD + 10;
-  // 头行：书名（衬线，压轴）+ 作者（小字距拉开），右侧章节
-  ctx.font = serifFont(24);
+  let y = PAD + 4;
+  // 头部：书名衬线独占一行，作者小字距一行（原型 .qt / .qa），章节挂右侧
+  ctx.font = serifFont(F_TITLE);
   ctx.fillStyle = input.fg;
-  ctx.fillText(input.bookTitle, PAD, y, contentW * 0.6);
-  const headW = Math.min(contentW * 0.6, ctx.measureText(input.bookTitle).width);
-  if (input.author?.trim()) {
-    ctx.font = uiFont(12);
-    ctx.fillStyle = softFg;
-    ctx.fillText(input.author.trim().split('').join(' '), PAD + headW + 14, y - 1, contentW / 3);
-  }
+  ctx.fillText(input.bookTitle, PAD, y + 40, contentW * 0.62);
   if (input.chapter?.trim()) {
-    ctx.font = uiFont(12);
+    ctx.font = uiFont(F_META - 2);
     ctx.fillStyle = softFg;
     ctx.textAlign = 'right';
-    ctx.fillText(input.chapter.trim(), W - PAD, y - 1, contentW / 3);
+    ctx.fillText(input.chapter.trim().slice(0, 24), W - PAD, y + 37, contentW * 0.3);
     ctx.textAlign = 'left';
   }
-  y += headH - 12;
+  if (input.author?.trim()) {
+    ctx.font = uiFont(F_META - 2);
+    ctx.fillStyle = softFg;
+    ctx.fillText(input.author.trim().split('').join(' '), PAD, y + 76, contentW * 0.72);
+  }
+  y += headH;
 
-  // 原文：衬线 + 「」引号（铜金），原型书摘卡的签名件
-  ctx.font = serifFont(22);
+  // 原文：衬线 + 「」引号（铜金）——原型书摘卡的签名件
+  ctx.font = serifFont(F_QUOTE);
+  const qIndent = 44;
+  ctx.fillStyle = BRAND;
+  ctx.fillText('「', PAD, y + QUOTE_LH - 18);
   ctx.fillStyle = input.fg;
   for (const line of quoteLines) {
-    ctx.fillText(line, PAD + 20, y + quoteLH - 8);
-    y += quoteLH;
+    ctx.fillText(line, PAD + qIndent, y + QUOTE_LH - 18);
+    y += QUOTE_LH;
   }
+  // 」贴在末行末尾，铜金
+  const lastW = ctx.measureText(quoteLines[quoteLines.length - 1] || '').width;
+  ctx.fillStyle = BRAND;
+  ctx.fillText('」', PAD + qIndent + lastW + 6, y - 18);
 
   // 想法区：一条虚线与正文分开，「想 法」小字距标签起头
   if (commentLines.length) {
-    y += 8;
+    y += 24;
     ctx.strokeStyle = BRAND;
     ctx.globalAlpha = 0.45;
     ctx.setLineDash([5, 6]);
@@ -176,39 +191,48 @@ export function renderQuoteCard(input: QuoteCardInput): HTMLCanvasElement {
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
-    y += 26;
-    ctx.font = uiFont(11);
+    y += 40;
+    ctx.font = uiFont(20);
     ctx.fillStyle = BRAND;
     ctx.fillText('想  法', PAD, y);
-    y += 24;
-    ctx.font = uiFont(17);
+    y += 40;
+    ctx.font = uiFont(F_COMMENT);
     ctx.fillStyle = softFg;
     for (const line of commentLines) {
-      ctx.fillText(line, PAD, y + commentLH - 12);
-      y += commentLH;
+      ctx.fillText(line, PAD, y + COMMENT_LH - 14);
+      y += COMMENT_LH;
     }
   }
 
-  // 脚行：日期 · 出处，右侧一枚「印」字方框（衬线，铜金描边）
+  // 脚行：一条铜金发丝线压顶，日期左 · 出处右邻印章 · 「印」字方框收尾
+  y += 56;
+  ctx.strokeStyle = BRAND;
+  ctx.globalAlpha = 0.35;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(PAD, y);
+  ctx.lineTo(W - PAD, y);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  const baseY = y + 36;
   const d = new Date(input.createdAt);
   const pad2 = (n: number): string => (n < 10 ? `0${n}` : String(n));
-  const date = `${d.getFullYear()} · ${pad2(d.getMonth() + 1)} · ${pad2(d.getDate())}`;
-  ctx.font = uiFont(12);
+  ctx.font = uiFont(F_FOOT);
   ctx.fillStyle = softFg;
-  ctx.fillText(date, PAD, h - PAD);
+  ctx.fillText(`${d.getFullYear()} · ${pad2(d.getMonth() + 1)} · ${pad2(d.getDate())}`, PAD, baseY);
   if (input.chapter?.trim()) {
     ctx.textAlign = 'right';
-    ctx.fillText(input.chapter.trim().slice(0, 18), W - PAD - 44, h - PAD, contentW / 3);
+    ctx.fillText(input.chapter.trim().slice(0, 18), W - PAD - 72, baseY, contentW / 3);
     ctx.textAlign = 'left';
   }
   ctx.strokeStyle = BRAND;
   ctx.globalAlpha = 0.8;
-  ctx.lineWidth = 1;
-  ctx.strokeRect(W - PAD - 32, h - PAD - 15, 26, 21);
+  ctx.lineWidth = 2;
+  ctx.strokeRect(W - PAD - 56, baseY - 30, 46, 40);
   ctx.globalAlpha = 1;
-  ctx.font = serifFont(14);
+  ctx.font = serifFont(26);
   ctx.fillStyle = BRAND;
-  ctx.fillText('印', W - PAD - 25, h - PAD);
+  ctx.fillText('印', W - PAD - 46, baseY);
   return canvas;
 }
 

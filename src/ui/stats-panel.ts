@@ -136,7 +136,7 @@ function sideSection(summary: StatsSummary): HTMLElement {
     row(summary.activeDays ? `${summary.activeDays} 天` : '—', '有 阅 读'),
   );
 
-  if (summary.streakDays > 1) {
+  if (summary.streakDays > 0) {
     const streak = el('div', 'bzr-stats-streak');
     streak.append(el('span', 'fl', '🔥'), el('b', '', `连续 ${summary.streakDays} 天`));
     side.appendChild(streak);
