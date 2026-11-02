@@ -136,6 +136,8 @@ export interface ReaderBook {
 export interface ReaderData {
   version: 1;
   books: ReaderBook[];
+  /** 全局阅读偏好（字号/行距/主题），缺省见 data/prefs.ts */
+  prefs?: unknown;
 }
 
 export const EMPTY_DATA: ReaderData = { version: 1, books: [] };

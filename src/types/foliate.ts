@@ -26,6 +26,12 @@ export interface FoliateSection {
   linear?: string;
   size?: number;
   mediaOverlay?: unknown;
+  /** 返回可交给 iframe 的 src（EPUB 是 blob url，TXT 也造成 blob url） */
+  load?: () => Promise<string>;
+  /** 供搜索用；foliate 的 search 直接遍历它 */
+  createDocument?: () => Promise<Document>;
+  unload?: () => void;
+  resolveHref?: (href: string) => string;
 }
 
 export interface FoliateBook {
@@ -33,8 +39,10 @@ export interface FoliateBook {
   toc?: FoliateTOCItem[];
   sections: FoliateSection[];
   rendition?: { layout?: string };
-  splitTOCHref?: (href: string) => Promise<[string, string] | null>;
+  dir?: 'ltr' | 'rtl';
+  splitTOCHref?: (href: string) => Promise<[string, string | null] | null>;
   getTOCFragment?: (doc: Document, id: string) => Node | null;
+  resolveHref?: (href: string) => { index: number; anchor?: unknown };
   isExternal?: (href: string) => boolean;
   destroy?: () => void;
 }
@@ -57,6 +65,11 @@ export interface FoliateRenderer extends HTMLElement {
   destroy: () => void;
 }
 
+export interface FoliateSearchItem {
+  cfi: string;
+  excerpt: string;
+}
+
 export interface FoliateView extends HTMLElement {
   book: FoliateBook;
   renderer: FoliateRenderer;
@@ -77,7 +90,12 @@ export interface FoliateView extends HTMLElement {
   deselect(): void;
   getCFI(index: number, range: Range): string;
   getSectionFractions(): number[];
-  search(opts: { query: string; index?: number }): AsyncGenerator<unknown, void, unknown>;
+  search(opts: { query: string; index?: number }): AsyncGenerator<
+    | { cfi?: string; excerpt?: string; progress?: number; index?: number; subitems?: FoliateSearchItem[]; label?: string }
+    | 'done',
+    void,
+    unknown
+  >;
   clearSearch(): void;
   history: unknown;
 }

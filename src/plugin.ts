@@ -16,6 +16,7 @@ import { setPluginRelDir, PLUGIN_ID } from './core/plugin-path';
 import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
 import { BookRepo, BASE_FORMATS, PRO_FORMATS } from './data/book-repo';
+import { pickAndImport } from './data/importer';
 import { ReaderStore } from './data/store';
 import type { BookFormat } from './data/schema';
 import { openShelf } from './ui/shelf';
@@ -57,6 +58,12 @@ export function createPlugin(cfg: PluginConfig) {
         callback: () => this.continueReading(),
       });
 
+      this.addCommand({
+        id: 'import',
+        name: '导入书籍',
+        callback: () => void this.importBooks(),
+      });
+
       // 布局就绪后再放调试直达：目标弹窗依赖 workspace 初始化
       this.app.workspace.onLayoutReady(() => {
         void this.autoOpenIfRequested();
@@ -79,7 +86,8 @@ export function createPlugin(cfg: PluginConfig) {
             app: this.app,
             store: this.store,
             book,
-            onClose: () => undefined,
+            // 关书回书架：进度刚变过，书架要重画一次才对得上
+            onClose: () => this.openShelf(),
           });
         },
       });
@@ -92,7 +100,23 @@ export function createPlugin(cfg: PluginConfig) {
         this.openShelf();
         return;
       }
-      openReader({ app: this.app, store: this.store, book: recent });
+      openReader({
+        app: this.app,
+        store: this.store,
+        book: recent,
+        onClose: () => this.openShelf(),
+      });
+    }
+
+    /** 从文件选择框导入，写完刷新书架 */
+    private async importBooks(): Promise<void> {
+      try {
+        const written = await pickAndImport(this.app, this.formats());
+        if (written && written.length) notify(`已导入 ${written.length} 本`, 'success');
+      } catch (e) {
+        notify(`导入失败：${(e as Error)?.message || '未知错误'}`, 'error');
+      }
+      this.openShelf();
     }
 
     /** 调试入口：storage/debug-open.json 里写 {"command":"open"} 时启动即执行（开发用） */

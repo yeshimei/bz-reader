@@ -4,26 +4,19 @@
  * 把 foliate-js 包成一件事：给一个 vault 路径，出来一个能翻页的书。
  * 上层（阅读弹窗）不认识 foliate，只认识这里的方法与回调。
  *
- * 三条纪律：
+ * 四条纪律：
  *  1. **引擎不碰数据层**：这里只回调进度，存不存、存哪由上层决定。
  *  2. **一次只开一本**：换书先 destroy，否则 iframe 与 ResizeObserver 会叠。
  *  3. **错误就地降级**：解析失败抛出去由上层弹提示，不静默吞成白屏。
+ *  4. **点击翻页归宿主**：分页器只管手势滑动，点哪儿翻页是阅读器的事，
+ *     写在这儿是因为只有它知道 iframe 的 document 什么时候换过。
  * ============================================================ */
 import type { App } from 'obsidian';
 import { makeBook, View } from './foliate';
 import type { FoliateBook, FoliateTOCItem, FoliateView } from '../types/foliate';
-import { buildChapterCSS, themeFromHost, type ReaderTheme } from './theme';
-
-let viewDefined = false;
-
-/** foliate 的 View 是自定义元素，全局只能 define 一次（重复 define 会抛） */
-function ensureViewDefined(): void {
-  if (viewDefined) return;
-  if (!customElements.get('foliate-view')) {
-    customElements.define('foliate-view', View as unknown as CustomElementConstructor);
-  }
-  viewDefined = true;
-}
+import { buildChapterCSS } from './theme';
+import { makeTxtBook, countWords } from './txt';
+import { DEFAULT_PREFS, type ReaderPrefs } from '../data/prefs';
 
 export interface RelocateInfo {
   /** 整书进度 0..1 */
@@ -37,11 +30,17 @@ export interface RelocateInfo {
   remainingSeconds: number;
 }
 
+export interface SearchHit {
+  cfi: string;
+  excerpt: string;
+}
+
 export interface MountOptions {
+  prefs: ReaderPrefs;
   onRelocate?: (info: RelocateInfo) => void;
-  onReady?: (book: FoliateBook) => void;
-  /** 书内链接被点（章节跳转由引擎自己处理过了，这里只收外链） */
-  onExternalLink?: (href: string) => void;
+  onReady?: (book: FoliateBook, meta: { title: string; author: string; wordCount: number }) => void;
+  /** 单指点击正文：左 / 中 / 右 */
+  onTap?: (zone: 'left' | 'middle' | 'right') => void;
 }
 
 export class EngineHost {
@@ -49,21 +48,24 @@ export class EngineHost {
   private view: FoliateView | null = null;
   private book: FoliateBook | null = null;
   private container: HTMLElement | null = null;
-  private theme: ReaderTheme;
-  private opts: MountOptions = {};
+  private prefs: ReaderPrefs = DEFAULT_PREFS;
+  private opts: MountOptions = { prefs: DEFAULT_PREFS };
   private chapterIndex = 0;
   private chapterTitle = '';
+  private detachTap: (() => void) | null = null;
 
-  constructor(app: App, theme?: Partial<ReaderTheme>) {
+  constructor(app: App) {
     this.app = app;
-    this.theme = { ...themeFromHost(), fontSize: 18, lineHeight: 1.8, margin: 32, fontFamily: '', ...theme };
   }
 
   get isOpen(): boolean {
     return !!this.view;
   }
 
-  /** 当前书的 TOC（打开前返回空） */
+  get currentChapterIndex(): number {
+    return this.chapterIndex;
+  }
+
   toc(): FoliateTOCItem[] {
     return this.book?.toc ?? [];
   }
@@ -75,32 +77,52 @@ export class EngineHost {
     return new File([buf], name);
   }
 
-  async mount(container: HTMLElement, vaultPath: string, opts: MountOptions = {}): Promise<FoliateBook> {
-    ensureViewDefined();
-    await this.destroy();
-
-    this.opts = opts;
-    this.container = container;
+  private async buildBook(vaultPath: string): Promise<{ book: FoliateBook; meta: { title: string; author: string; wordCount: number } }> {
+    const name = (vaultPath.split('/').pop() || 'book').replace(/\.[^.]+$/, '');
+    if (/\.txt$/i.test(vaultPath)) {
+      const raw = await this.app.vault.adapter.read(vaultPath);
+      const text = raw.replace(/^\uFEFF/, '');
+      const book = makeTxtBook(text, { title: name });
+      return { book, meta: { title: name, author: '', wordCount: countWords(text) } };
+    }
 
     const file = await this.readAsFile(vaultPath);
     const book = await makeBook(file);
+    const md = book.metadata ?? {};
+    const pick = (v: unknown): string => (typeof v === 'function' ? String((v as () => string)()) : typeof v === 'string' ? v : '');
+    const title = pick(md.title) || name;
+    const author = pick(md.author);
+    const wordCount = book.sections.reduce((sum, s) => sum + (s.size ?? 0), 0);
+    return { book, meta: { title, author, wordCount } };
+  }
+
+  async mount(container: HTMLElement, vaultPath: string, opts: MountOptions): Promise<void> {
+    await this.destroy();
+
+    this.opts = opts;
+    this.prefs = opts.prefs;
+    this.container = container;
+
+    const { book, meta } = await this.buildBook(vaultPath);
     this.book = book;
 
     const view = document.createElement('foliate-view') as unknown as FoliateView;
     view.className = 'bzr-view';
+
     view.addEventListener('relocate', (e) => {
       const d = (e as CustomEvent).detail as {
         fraction?: number;
         section?: { current: number; total: number };
         time?: { total: number };
         tocItem?: FoliateTOCItem | null;
+        cfi?: string;
       };
       const percent = typeof d.fraction === 'number' ? Math.min(1, Math.max(0, d.fraction)) : 0;
-      this.chapterIndex = d.section?.current ?? 0;
+      this.chapterIndex = d.section?.current ?? this.chapterIndex;
       this.chapterTitle = d.tocItem?.label ?? this.chapterTitle;
       this.opts.onRelocate?.({
         percent,
-        cfi: view.lastLocation?.cfi ?? '',
+        cfi: d.cfi ?? '',
         chapterIndex: this.chapterIndex,
         chapterTitle: this.chapterTitle,
         sectionCurrent: d.section?.current ?? 0,
@@ -109,40 +131,72 @@ export class EngineHost {
       });
     });
 
+    // 每次换章都会来一个 load：点击翻页的监听挂在当前文档上，旧文档随 iframe 一起丢弃
+    view.addEventListener('load', (e) => {
+      const { doc } = (e as CustomEvent).detail as { doc: Document };
+      this.bindTap(doc);
+    });
+
     container.appendChild(view);
 
     try {
       await view.open(book);
-    } catch (e) {
+    } catch (err) {
       view.remove();
       this.view = null;
       this.book = null;
-      throw new Error(`这本书打不开：${(e as Error)?.message || '格式不受支持'}`);
+      throw new Error(`这本书打不开：${(err as Error)?.message || '格式不受支持'}`);
     }
 
     this.view = view;
-    this.applyTheme();
-    this.opts.onReady?.(book);
-    return book;
+    this.applyPrefs(this.prefs);
+    opts.onReady?.(book, meta);
   }
 
-  /** 打开后定位（首次打开用上次的 CFI；没有就从头开始） */
-  async start(cfi?: string): Promise<void> {
+  /**
+   * 打开后定位。优先 CFI；CFI 解析不出来（换过文件、TXT 的 CFI 形状不同）
+   * 就退回百分比——宁可差几页，也别每次打开都回到第一页。
+   */
+  async start(cfi?: string, fraction = 0): Promise<void> {
     const view = this.view;
     if (!view) return;
-    await view.init({ lastLocation: cfi || undefined, showTextStart: !cfi });
+
+    if (cfi) {
+      const resolved = view.resolveNavigation(cfi);
+      if (resolved) {
+        await view.init({ lastLocation: cfi });
+        return;
+      }
+    }
+    await view.init({ showTextStart: true });
+    if (fraction > 0.002) {
+      await view.goToFraction(Math.min(1, fraction)).catch(() => undefined);
+    }
+  }
+
+  /** 左右三区点击：左 30% 上一页、右 30% 下一页、中间唤出/收起工具栏 */
+  private bindTap(doc: Document): void {
+    this.detachTap?.();
+    const onClick = (ev: MouseEvent): void => {
+      // 正在选字 / 点的是链接、脚注，一律让给书籍本身处理
+      const sel = doc.getSelection();
+      if (sel && !sel.isCollapsed) return;
+      const target = ev.target as HTMLElement | null;
+      if (target?.closest('a[href], [data-bzr-skip-tap]')) return;
+      const width = doc.documentElement.clientWidth || 1;
+      const x = ev.clientX;
+      const zone = x < width * 0.3 ? 'left' : x > width * 0.7 ? 'right' : 'middle';
+      this.opts.onTap?.(zone);
+    };
+    doc.addEventListener('click', onClick);
+    this.detachTap = () => doc.removeEventListener('click', onClick);
   }
 
   /** 主题/字号/行距变化时调，只换样式不重开书 */
-  applyTheme(patch?: Partial<ReaderTheme>): void {
-    if (patch) this.theme = { ...this.theme, ...patch };
-    const view = this.view;
-    if (!view?.renderer) return;
-    view.renderer.setStyles(buildChapterCSS(this.theme));
-  }
-
-  getTheme(): ReaderTheme {
-    return this.theme;
+  applyPrefs(prefs: ReaderPrefs): void {
+    this.prefs = prefs;
+    const renderer = this.view?.renderer as unknown as { setStyles?: (css: string) => void } | undefined;
+    renderer?.setStyles?.(buildChapterCSS(prefs));
   }
 
   async next(): Promise<void> {
@@ -153,26 +207,61 @@ export class EngineHost {
     await this.view?.prev();
   }
 
-  /** 跳转到整书百分比 */
-  async goToFraction(frac: number): Promise<void> {
-    await this.view?.goToFraction(Math.min(1, Math.max(0, frac)));
-  }
-
-  /** 跳到 TOC 项 */
+  /** 跳到 TOC 项（href 由 foliate 解析成章节 + 锚点） */
   async goToHref(href: string): Promise<void> {
     await this.view?.goTo(href);
   }
 
+  async goToCfi(cfi: string): Promise<void> {
+    if (!cfi) return;
+    await this.view?.goTo(cfi);
+  }
+
+  /**
+   * 搜索。`chapterOnly` 只搜当前章节（基础版能力），关掉是全书（高级版）。
+   * 底层是同一个 foliate 接口，区别只在传不传 index。
+   */
+  async search(
+    query: string,
+    opts: { chapterOnly?: boolean } = {},
+  ): Promise<Array<SearchHit & { chapterIndex: number; chapterLabel: string }>> {
+    const view = this.view;
+    const q = query.trim();
+    if (!view || !q) return [];
+    const out: Array<SearchHit & { chapterIndex: number; chapterLabel: string }> = [];
+    const iter = view.search(opts.chapterOnly ? { query: q, index: this.chapterIndex } : { query: q });
+    for await (const item of iter) {
+      if (item === 'done') break;
+      if (item.subitems?.length) {
+        for (const sub of item.subitems) {
+          out.push({ cfi: sub.cfi, excerpt: sub.excerpt, chapterIndex: item.index ?? 0, chapterLabel: item.label ?? '' });
+        }
+      } else if (item.cfi) {
+        out.push({ cfi: item.cfi, excerpt: item.excerpt ?? '', chapterIndex: this.chapterIndex, chapterLabel: '' });
+      }
+    }
+    return out;
+  }
+
+  clearSearch(): void {
+    this.view?.clearSearch();
+  }
+
   async destroy(): Promise<void> {
+    this.detachTap?.();
+    this.detachTap = null;
     const view = this.view;
     this.view = null;
+    const book = this.book;
     this.book = null;
-    if (!view) return;
-    try {
-      view.close();
-    } catch {
-      /* 已卸载的书再 close 会抛，忽略 */
+    if (view) {
+      try {
+        view.close();
+      } catch {
+        /* 已卸载的书再 close 会抛，忽略 */
+      }
+      view.remove();
     }
-    view.remove();
+    book?.destroy?.();
   }
 }

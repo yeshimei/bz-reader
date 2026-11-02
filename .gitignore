@@ -8,3 +8,4 @@ release/
 # 构建产物（src/styles.css 是源文件，别误伤，所以用根锚定）
 /main.js
 /styles.css
+.scratch/
