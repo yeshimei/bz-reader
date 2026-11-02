@@ -57,12 +57,6 @@ export function createPlugin(cfg: PluginConfig) {
         callback: () => this.continueReading(),
       });
 
-      this.addCommand({
-        id: 'import',
-        name: '导入书籍',
-        callback: () => this.openShelf(),
-      });
-
       // 布局就绪后再放调试直达：目标弹窗依赖 workspace 初始化
       this.app.workspace.onLayoutReady(() => {
         void this.autoOpenIfRequested();
