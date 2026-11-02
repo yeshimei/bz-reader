@@ -1926,7 +1926,9 @@
  * 滚动条藏起来是刻意的：目录是「一列字」，右侧挂一根灰条既割裂又占地，
  * 触控板/滚轮照样能滚。只藏视觉，不锁滚动。
  */
-.bzr-tocv-content {
+/* 用 data-type 起手而不是只压类名：Obsidian 自己的 .view-content 也带 padding，
+   插件样式表虽然后注入，但同一特异度谁后谁赢不牢靠，加一层祖先选择器才稳。 */
+.workspace-leaf-content[data-type='bz-reader-toc'] .view-content.bzr-tocv-content {
   padding: 0;
   overflow: hidden;
 }
