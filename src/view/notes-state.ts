@@ -19,6 +19,8 @@ export interface NotesSnapshot {
   jump: (cfi: string) => void;
   removeHighlight: (id: string) => void;
   removeBookmark: (id: string) => void;
+  /** 把这本书的划线/书签导出成一份笔记（写文件、弹结果提示都由阅读视图做） */
+  exportNotes: () => void;
 }
 
 let snapshot: NotesSnapshot | null = null;
@@ -57,4 +59,9 @@ export function subscribeNotes(cb: () => void): () => void {
 /** 侧栏点书签/划线时调；书已经关了就是空操作 */
 export function jumpToCfi(cfi: string): void {
   snapshot?.jump(cfi);
+}
+
+/** 侧栏底部「导出」用；书已经关了就是空操作 */
+export function exportNotes(): void {
+  snapshot?.exportNotes();
 }

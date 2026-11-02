@@ -67,6 +67,18 @@ export interface SearchHit {
   excerpt: string;
 }
 
+/** 一条脚注：点正文里的注释号之后，从目标章节抓出来的那段文本 */
+export interface FootnoteInfo {
+  /** 脚注正文（空白已压平） */
+  text: string;
+  /** 书内 href，用于「跳到原文」 */
+  href: string;
+  /** 目标章节序号 */
+  chapterIndex: number;
+  /** 被点击那个 <a> 在宿主坐标系里的位置 */
+  anchor: Rect;
+}
+
 export interface MountOptions {
   prefs: ReaderPrefs;
   onRelocate?: (info: RelocateInfo) => void;
@@ -81,6 +93,8 @@ export interface MountOptions {
   onSelect?: (info: SelectionInfo | null) => void;
   /** 点中一条已画好的标注 */
   onAnnotTap?: (info: { cfiRange: string; anchor: Rect }) => void;
+  /** 点到脚注引用（给了才弹预览；没给就退回 foliate 的「直接跳过去」） */
+  onFootnote?: (info: FootnoteInfo | null) => void;
 }
 
 /** 滚轮累计到多少才翻一页（像素）。触控板一次轻扫约 30–60，鼠标滚轮一格约 100。 */
@@ -89,6 +103,33 @@ const WHEEL_TURN_THRESHOLD = 42;
 const WHEEL_COOLDOWN = 300;
 /** 拖拽/滑动超过这个距离才算要翻页，短线抖动不算。 */
 const SWIPE_MIN = 48;
+
+/** EPUB 3 的 epub:type 命名空间 */
+const OPS_NS = 'http://www.idpf.org/2007/ops';
+/** 整章文本超过这个长度就不当脚注看了——那是章节互链，不是注释 */
+const FOOTNOTE_MAX = 4000;
+
+/**
+ * 这个 <a> 是不是脚注引用？
+ *
+ * 三档判据，从硬到软：
+ *  1. `<a epub:type="noteref">` / `role="doc-noteref"` —— 规范写法，最可靠；
+ *  2. 被 `<sup>` 包着（或者自己就是 sup 里的 a）—— 老书最常见的写法；
+ *  3. 链接文字就是「[1]」「①」「*」这种纯标记 —— 没有 type 也没有 sup 时的兜底。
+ *
+ * 判错了的代价不对称：误判成脚注 = 点章节互链弹出一小窗文字（还带「跳到原文」，
+ * 点一下照样能过去）；漏判 = 点注释号直接跳走，读者回不来。
+ */
+function isFootnoteRef(a: HTMLAnchorElement | null): boolean {
+  if (!a) return false;
+  const type = a.getAttributeNS(OPS_NS, 'type') ?? '';
+  if (/noteref|footnote|endnote|rearnote|\bnote\b/.test(type)) return true;
+  const role = a.getAttribute('role') ?? '';
+  if (/doc-noteref|doc-footnote|doc-endnote|doc-glossref|doc-biblioref/.test(role)) return true;
+  if (a.closest('sup')) return true;
+  const label = (a.textContent ?? '').replace(/\s+/g, '');
+  return label.length > 0 && label.length <= 6 && /^[[(（【]?[\d*†‡§①-⑳ivxlcdmIVXLCDM]{1,4}[\])）】]?$/.test(label);
+}
 
 export class EngineHost {
   private app: App;
@@ -233,6 +274,39 @@ export class EngineHost {
       const doc = d.range.startContainer.ownerDocument;
       const anchor = doc && rects.length ? this.toHostRect(rects[0] as DOMRect, doc) : { left: 0, top: 0, width: 0, height: 0 };
       this.opts.onAnnotTap?.({ cfiRange: d.value, anchor });
+    });
+
+    /**
+     * 链接。foliate 自带一套处理：外部链接 `globalThis.open`，书内链接 `goTo`。
+     * 它这两条都不问我们，所以我们只在真正要插手的时候 preventDefault 截下来，
+     * 其余原样放行——
+     *   · 脚注：弹小窗预览，而不是把人甩到书末再让他自己找回来；
+     *   · 外链：只放 http(s)。书是外部文件，里面写 `javascript:` 不稀奇，
+     *     跟着 open 一次等于把 Electron 的上下文交出去。
+     */
+    view.addEventListener('link', (e) => {
+      const d = (e as CustomEvent).detail as { a?: HTMLAnchorElement | null; href?: string };
+      const href = d?.href;
+      if (!href || !this.opts.onFootnote) return;
+      if (!isFootnoteRef(d.a ?? null)) return;
+      e.preventDefault();
+      const a = d.a ?? null;
+      const doc = a?.ownerDocument ?? null;
+      const anchor = a && doc ? this.toHostRect(a.getBoundingClientRect(), doc) : { left: 0, top: 0, width: 0, height: 0 };
+      void this.readFootnote(href)
+        .then((info) => this.opts.onFootnote?.(info ? { ...info, anchor } : null))
+        .catch(() => this.opts.onFootnote?.(null));
+    });
+
+    view.addEventListener('external-link', (e) => {
+      const d = (e as CustomEvent).detail as { href?: string };
+      e.preventDefault();
+      const href = d?.href ?? '';
+      if (!/^https?:\/\//i.test(href)) {
+        console.warn('[bz-reader] 拦下非 http(s) 链接：', href.slice(0, 80));
+        return;
+      }
+      window.open(href, '_blank', 'noopener,noreferrer');
     });
 
     container.appendChild(view);
@@ -593,6 +667,35 @@ export class EngineHost {
     await this.view?.goTo(cfi);
   }
 
+  /**
+   * 把一条脚注的正文从目标章节里抓出来。
+   *
+   * 不开第二个 `foliate-view`（foliate 自带的 FootnoteHandler 是那么做的：为了
+   * 看两行注释，把整本书重新 open 一遍），而是直接让 section 造一份 Document，
+   * 按 `resolveHref` 给的 anchor 找元素取文本。抓到的文本超过 FOOTNOTE_MAX
+   * 说明这是章节互链而不是注释——那种情况返回 null，交回 foliate 直接跳过去。
+   */
+  private async readFootnote(href: string): Promise<Omit<FootnoteInfo, 'anchor'> | null> {
+    const book = this.book;
+    if (!book) return null;
+    const target = book.resolveHref?.(href) ?? null;
+    if (!target || typeof target.index !== 'number' || target.index < 0) return null;
+    const section = book.sections[target.index];
+    if (!section?.createDocument) return null;
+    let doc: Document;
+    try {
+      doc = await section.createDocument();
+    } catch {
+      return null;
+    }
+    const anchorFn = target.anchor;
+    const el = typeof anchorFn === 'function' ? (anchorFn as (d: Document) => Node | null)(doc) : null;
+    if (!el) return null;
+    const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+    if (!text || text.length > FOOTNOTE_MAX) return null;
+    return { text, href, chapterIndex: target.index };
+  }
+
   /** 整书百分比跳转（移动端进度滑杆松手时用） */
   async goToPercent(fraction: number): Promise<void> {
     const view = this.view;
@@ -604,10 +707,14 @@ export class EngineHost {
   /**
    * 搜索。`chapterOnly` 只搜当前章节（基础版能力），关掉是全书（高级版）。
    * 底层是同一个 foliate 接口，区别只在传不传 index。
+   *
+   * 全书搜索要遍历整本书的每一章，几秒很正常。`onHit` 是给界面用的：
+   * 搜到一条报一条，结果列表边搜边长——否则用户面对一块空白等三秒，
+   * 会以为插件卡死了。
    */
   async search(
     query: string,
-    opts: { chapterOnly?: boolean } = {},
+    opts: { chapterOnly?: boolean; onHit?: (hit: SearchHit & { chapterIndex: number; chapterLabel: string }) => void } = {},
   ): Promise<Array<SearchHit & { chapterIndex: number; chapterLabel: string }>> {
     const view = this.view;
     const q = query.trim();
@@ -618,10 +725,14 @@ export class EngineHost {
       if (item === 'done') break;
       if (item.subitems?.length) {
         for (const sub of item.subitems) {
-          out.push({ cfi: sub.cfi, excerpt: sub.excerpt, chapterIndex: item.index ?? 0, chapterLabel: item.label ?? '' });
+          const hit = { cfi: sub.cfi, excerpt: sub.excerpt, chapterIndex: item.index ?? 0, chapterLabel: item.label ?? '' };
+          out.push(hit);
+          opts.onHit?.(hit);
         }
       } else if (item.cfi) {
-        out.push({ cfi: item.cfi, excerpt: item.excerpt ?? '', chapterIndex: this.chapterIndex, chapterLabel: '' });
+        const hit = { cfi: item.cfi, excerpt: item.excerpt ?? '', chapterIndex: this.chapterIndex, chapterLabel: '' };
+        out.push(hit);
+        opts.onHit?.(hit);
       }
     }
     return out;

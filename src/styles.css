@@ -1600,6 +1600,47 @@
   font-variant-numeric: tabular-nums;
   flex: none;
 }
+.bzr-sb-scope {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px 8px;
+  flex: none;
+}
+.bzr-sb-scope button {
+  height: 22px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--bzr-text-3);
+  font-family: inherit;
+  font-size: 10.5px;
+  line-height: 1;
+  cursor: pointer;
+}
+.bzr-sb-scope button:hover {
+  background: var(--bzr-surface-hover);
+}
+.bzr-sb-scope button.is-on {
+  background: var(--bzr-brand-soft);
+  color: var(--bzr-text-1);
+}
+.bzr-sb-group-t {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: block;
+  padding: 6px 13px 5px;
+  border-top: 1px solid var(--bzr-border);
+  background: var(--bzr-surface-2);
+  color: var(--bzr-text-3);
+  font-size: 10px;
+  font-weight: var(--bzr-weight-semibold);
+}
+/* 段头已经有一条分隔线了，段内第一条命中不要再压一条 */
+.bzr-sb-group > .bzr-sb-hit:first-of-type {
+  border-top: 0;
+}
 .bzr-sb-status {
   font-size: 10px;
   color: var(--bzr-text-3);
@@ -1690,6 +1731,18 @@
 .bzr-reader.is-mobile .bzr-sb-loc {
   font-size: 9px;
   margin-top: 4px;
+}
+.bzr-reader.is-mobile .bzr-sb-scope {
+  padding: 0 16px 10px;
+}
+.bzr-reader.is-mobile .bzr-sb-scope button {
+  height: 26px;
+  padding: 0 12px;
+  font-size: 11.5px;
+}
+.bzr-reader.is-mobile .bzr-sb-group-t {
+  padding: 8px 18px 6px;
+  font-size: 10.5px;
 }
 
 /* ═══════════ ⑩ 导入 ═══════════ */
@@ -1950,6 +2003,28 @@
 .bzr-side-tabs {
   display: flex;
   gap: 2px;
+}
+/* 导出：只在书签/划线页签出现，平时不占位置（目录没东西可导） */
+.bzr-tocv-export {
+  display: none;
+  margin-left: auto;
+  height: 22px;
+  padding: 0 9px;
+  border: 1px solid var(--bzr-border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--bzr-text-3);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+.bzr-tocv-export.is-on {
+  display: block;
+}
+.bzr-tocv-export:hover {
+  background: var(--bzr-surface-hover);
+  color: var(--bzr-text-1);
 }
 .bzr-side-tab {
   display: flex;
@@ -2367,6 +2442,103 @@
 .bzr-reader.is-mobile .bzr-annot-card,
 .bzr-reader.is-mobile .bzr-annot.is-card > * {
   width: min(300px, calc(100vw - 28px));
+}
+
+/* ═══════════ ⑬ 脚注（基础能力，两版都有） ═══════════ */
+.bzr-fn {
+  position: absolute;
+  inset: 0;
+  z-index: 34;
+  pointer-events: none;
+}
+.bzr-fn > * {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity var(--bzr-dur-fast) var(--bzr-ease-out);
+}
+.bzr-fn.is-open > * {
+  opacity: 1;
+}
+.bzr-fn-card {
+  display: flex;
+  flex-direction: column;
+  width: 342px;
+  max-width: calc(100vw - 28px);
+  max-height: 42vh;
+  padding: 9px 12px 10px;
+  border: 1px solid color-mix(in srgb, var(--rear-fg) 14%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--rear-fg) 6%, var(--rear-bg));
+  box-shadow: var(--bzr-shadow-float);
+  color: var(--rear-fg);
+  font-family: var(--bzr-font-ui);
+}
+.bzr-fn-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 18px;
+}
+.bzr-fn-tag {
+  font-size: 10.5px;
+  font-weight: var(--bzr-weight-semibold);
+  letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--rear-fg) 52%, transparent);
+}
+.bzr-fn-x {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: color-mix(in srgb, var(--rear-fg) 52%, transparent);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.bzr-fn-x:hover {
+  background: color-mix(in srgb, var(--rear-fg) 9%, transparent);
+  color: var(--rear-fg);
+}
+.bzr-fn-text {
+  margin-top: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* 原生细条，不自绘 thumb。内容长的时候得让人看出来还能往下滚 */
+  scrollbar-width: thin;
+  font-family: var(--bzr-font-serif);
+  font-size: 13px;
+  line-height: 1.78;
+  color: color-mix(in srgb, var(--rear-fg) 88%, transparent);
+  user-select: text;
+}
+.bzr-fn-foot {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 9px;
+}
+.bzr-fn-btn {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--rear-fg) 16%, transparent);
+  border-radius: 6px;
+  background: transparent;
+  color: color-mix(in srgb, var(--rear-fg) 78%, transparent);
+  font-family: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.bzr-fn-btn:hover {
+  background: color-mix(in srgb, var(--rear-fg) 8%, transparent);
+  color: var(--rear-fg);
 }
 
 /* ═══════════ 窄窗口兜底：桌面被压到 760 以下时，书架掉成四列 ═══════════ */

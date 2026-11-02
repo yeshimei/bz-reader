@@ -15,7 +15,7 @@ import { ItemView, type WorkspaceLeaf } from 'obsidian';
 import type { FoliateTOCItem } from '../types/foliate';
 import { clear, el } from '../ui/dom';
 import { getToc, jumpTo, subscribeToc } from './toc-state';
-import { getNotes, jumpToCfi, subscribeNotes } from './notes-state';
+import { exportNotes, getNotes, jumpToCfi, subscribeNotes } from './notes-state';
 import { renderBookmarkList, renderHighlightList } from '../ui/note-list';
 
 export const VIEW_TYPE_TOC = 'bz-reader-toc';
@@ -36,6 +36,8 @@ export class SideView extends ItemView {
   private lastTocRef: FoliateTOCItem[] | null = null;
   private lastBookId = '';
   private lastActive = '';
+  /** 「导出」按钮：只在书签/划线页签出现——目录没什么可导的 */
+  private exportBtn: HTMLButtonElement | null = null;
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
@@ -86,6 +88,14 @@ export class SideView extends ItemView {
       tabs.appendChild(b);
     }
     head.appendChild(tabs);
+    if (__BZ_READER_PRO__) {
+      const btn = el('button', 'bzr-tocv-export', '导出') as HTMLButtonElement;
+      btn.type = 'button';
+      btn.title = '把这本书的划线导出成一份笔记';
+      btn.addEventListener('click', () => exportNotes());
+      head.appendChild(btn);
+      this.exportBtn = btn;
+    }
     const body = el('div', 'bzr-tocv-b');
     root.append(head, body);
     this.contentEl.appendChild(root);
@@ -99,6 +109,8 @@ export class SideView extends ItemView {
     const list = this.listEl;
     if (!list) return;
     for (const [key, node] of this.tabNodes) node.classList.toggle('is-on', key === this.tab);
+
+    if (this.exportBtn) this.exportBtn.classList.toggle('is-on', this.tab !== 'toc');
 
     if (this.tab === 'toc') this.renderToc(list);
     else if (this.tab === 'bookmarks') this.renderBookmarks(list);

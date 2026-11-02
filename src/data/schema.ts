@@ -138,6 +138,8 @@ export interface ReaderData {
   books: ReaderBook[];
   /** 全局阅读偏好（字号/行距/主题），缺省见 data/prefs.ts */
   prefs?: unknown;
+  /** 插件设置（导出、AI、激活码），缺省见 data/settings.ts */
+  settings?: unknown;
 }
 
 export const EMPTY_DATA: ReaderData = { version: 1, books: [] };

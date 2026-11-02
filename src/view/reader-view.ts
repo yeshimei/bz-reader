@@ -26,6 +26,8 @@ import type { ReaderBook } from '../data/schema';
 import type { ReaderStore } from '../data/store';
 import type { BookRepo } from '../data/book-repo';
 import { normalizePrefs, type ReaderPrefs } from '../data/prefs';
+import { normalizeSettings } from '../data/settings';
+import { exportBookNotes } from '../data/export';
 import {
   addHighlight,
   bookmarkAt,
@@ -46,6 +48,7 @@ import { resolveTheme } from '../engine/theme';
 import { notify } from '../core/notice';
 import { bookmarkIcon, durationLabel, el, searchIcon, tocIcon, trackRow } from '../ui/dom';
 import { createAnnotLayer, type AnnotLayer } from '../ui/annot';
+import { createFootnoteLayer, type FootnoteLayer } from '../ui/footnote';
 import { createTocPanel } from '../ui/toc';
 import { createPrefsPanel } from '../ui/prefs-panel';
 import { createSearchPanel } from '../ui/search-panel';
@@ -96,6 +99,8 @@ export class ReaderView extends ItemView {
   private progressPercent: HTMLElement | null = null;
   private progressRemain: HTMLElement | null = null;
   private progressSlider: ReturnType<typeof trackRow> | null = null;
+  /** 脚注浮层：基础能力，两版都有 */
+  private footnote: FootnoteLayer | null = null;
   private tapHandler: (zone: 'left' | 'middle' | 'right') => void = () => undefined;
 
   /* 标注（高级版）：书签按钮、划词浮层、当前这一页的定位 */
@@ -190,8 +195,8 @@ export class ReaderView extends ItemView {
     tocBtn.appendChild(tocIcon());
     const searchBtn = el('button', 'bzr-ric');
     searchBtn.type = 'button';
-    searchBtn.title = '搜索本章';
-    searchBtn.setAttribute('aria-label', '搜索本章');
+    searchBtn.title = __BZ_READER_PRO__ ? '搜索（本章 / 全书）' : '搜索本章';
+    searchBtn.setAttribute('aria-label', searchBtn.title);
     searchBtn.appendChild(searchIcon());
     const prefsBtn = el('button', 'bzr-ric', 'Aa');
     prefsBtn.type = 'button';
@@ -262,8 +267,11 @@ export class ReaderView extends ItemView {
       __BZ_READER_PRO__ ? { notes: () => getNotes() } : {},
     );
     const search = createSearchPanel({
-      search: async (q) => {
-        const hits = await this.host.search(q, { chapterOnly: true });
+      search: async (q, scope, onHit) => {
+        const hits = await this.host.search(q, {
+          chapterOnly: scope === 'chapter',
+          onHit: (h) => onHit({ cfi: h.cfi, excerpt: h.excerpt, chapterLabel: h.chapterLabel }),
+        });
         return hits.map((h) => ({ cfi: h.cfi, excerpt: h.excerpt, chapterLabel: h.chapterLabel }));
       },
       onPick: (cfi) => {
@@ -274,8 +282,15 @@ export class ReaderView extends ItemView {
       onClose: () => undefined,
     });
     const prefsPanel = createPrefsPanel(this.prefs, (patch) => this.applyPrefs({ ...this.prefs, ...patch }));
+    const footnote = createFootnoteLayer({
+      onClose: () => undefined,
+      onJump: (href) => {
+        void this.host.goToHref(href);
+        this.tracker.touch();
+      },
+    });
 
-    root.append(headEl, bodyEl, footEl, mb, rail, toc.scrim, toc.root, search.root, prefsPanel.root);
+    root.append(headEl, bodyEl, footEl, mb, rail, toc.scrim, toc.root, search.root, prefsPanel.root, footnote.root);
     if (mobile) {
       const sheet = this.buildProgressSheet();
       root.appendChild(sheet.root);
@@ -303,6 +318,7 @@ export class ReaderView extends ItemView {
     this.toc = toc;
     this.search = search;
     this.prefsPanel = prefsPanel;
+    this.footnote = footnote;
 
     this.applyChrome();
 
@@ -311,12 +327,14 @@ export class ReaderView extends ItemView {
       search.isOpen() ||
       prefsPanel.isOpen() ||
       !!this.annot?.isOpen() ||
+      !!this.footnote?.isOpen() ||
       !!this.progressSheet?.classList.contains('is-open');
     const closePanels = (): void => {
       toc.hide();
       search.hide();
       prefsPanel.hide();
       this.annot?.hide();
+      this.footnote?.hide();
       this.progressSheet?.classList.remove('is-open');
     };
     const openToc = (): void => {
@@ -567,6 +585,14 @@ export class ReaderView extends ItemView {
         // 基础版不接划词：连监听都不挂，选区变化照旧归浏览器
         onSelect: __BZ_READER_PRO__ ? (info) => this.handleSelection(info) : undefined,
         onAnnotTap: __BZ_READER_PRO__ ? (info) => this.openHighlight(info) : undefined,
+        // 脚注两版都给：注释号点了没反应属于「坏了」，不是「付费功能」
+        onFootnote: (info) => {
+          if (!info) {
+            this.footnote?.hide();
+            return;
+          }
+          this.footnote?.show(info);
+        },
         onReady: (_b, m) => {
           if (m.title) book.meta.title = m.title;
           if (m.author) book.meta.author = m.author;
@@ -807,8 +833,34 @@ export class ReaderView extends ItemView {
         this.publishNotes();
         this.api.store.touch();
       },
+      exportNotes: () => void this.exportNotes(),
     });
     this.toc?.refresh();
+  }
+
+  /**
+   * 把这本书的划线/书签导出成一份笔记。
+   *
+   * 导完不自动打开文件：用户可能只是想同步一下，突然被拽走一个 tab
+   * 比什么都不发生更烦。要的是路径——提示里给全，想看自己点。
+   */
+  private async exportNotes(): Promise<void> {
+    if (!__BZ_READER_PRO__) return;
+    const book = this.book;
+    if (!book) return;
+    const settings = normalizeSettings(this.api.store.get().settings ?? undefined);
+    try {
+      const res = await exportBookNotes(this.api.app, book, settings);
+      if (!res) {
+        notify('这本书还没有划线或书签', 'info');
+        return;
+      }
+      // 写盘之后立刻落一次数据：导出不改数据，但用户刚做过动作，顺手把待写的改动压下去
+      void this.api.store.flush();
+      notify(`已导出 ${res.highlights} 条划线 → ${res.path}`, 'success');
+    } catch (e) {
+      notify(`导出失败：${(e as Error)?.message || '写文件出错'}`, 'error');
+    }
   }
 
   private async settle(): Promise<void> {
