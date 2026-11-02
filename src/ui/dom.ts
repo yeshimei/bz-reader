@@ -59,12 +59,25 @@ export interface CoverOpts {
   done?: boolean;
 }
 
-/** 生成封面：竖排书名 + 竖排作者 + 底边 2px 进度（读完变白条） */
+/** 生成封面：真封面图（异步到位）+ 竖排书名 + 竖排作者 + 底边 2px 进度。
+ *  真图没到时显示的是哈希色块，两者叠在同一个盒子里，图一到就淡入、文字让位。 */
 export function bookCover(opts: CoverOpts): HTMLElement {
   const { c1, c2 } = coverColors(opts.title);
   const box = el('div', 'bzr-cover');
   box.style.setProperty('--c1', c1);
   box.style.setProperty('--c2', c2);
+
+  const img = el('img', 'bzr-cover-img');
+  img.alt = '';
+  img.decoding = 'async';
+  img.loading = 'lazy';
+  // 图裂了就把盒子退回色块，别留一个破图标
+  img.addEventListener('error', () => {
+    box.classList.remove('has-img');
+    img.removeAttribute('src');
+  });
+  box.appendChild(img);
+
   box.appendChild(el('span', 'bt', opts.title));
   if (opts.author) box.appendChild(el('span', 'ba', opts.author));
 
@@ -79,6 +92,20 @@ export function bookCover(opts: CoverOpts): HTMLElement {
     box.appendChild(prog);
   }
   return box;
+}
+
+/** 真封面到位后换上（image 解码完再切 class，避免闪一下半张图） */
+export function setCoverImage(box: HTMLElement, url: string): void {
+  const img = box.querySelector<HTMLImageElement>('img.bzr-cover-img');
+  if (!img) return;
+  img.addEventListener(
+    'load',
+    () => {
+      box.classList.add('has-img');
+    },
+    { once: true },
+  );
+  img.src = url;
 }
 
 /** 线条图标：三横（目录） */

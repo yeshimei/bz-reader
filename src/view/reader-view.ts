@@ -34,6 +34,8 @@ import { durationLabel, el, searchIcon, tocIcon, trackRow } from '../ui/dom';
 import { createTocPanel } from '../ui/toc';
 import { createPrefsPanel } from '../ui/prefs-panel';
 import { createSearchPanel } from '../ui/search-panel';
+import { clearToc, patchToc, setToc } from './toc-state';
+import { VIEW_TYPE_TOC } from './toc-view';
 
 export const VIEW_TYPE_READER = 'bz-reader-view';
 
@@ -42,8 +44,10 @@ export interface ReaderHostApi {
   app: App;
   store: ReaderStore;
   repo: BookRepo;
-  /** 书内「返回书库」用 */
+  /** 书内「返回书架」用 */
   openShelf: () => void;
+  /** 桌面端：把目录放进 Obsidian 左侧栏（已开则只切过去） */
+  openTocSidebar: () => void;
 }
 
 const COMPLETE_THRESHOLD = 0.99;
@@ -103,7 +107,7 @@ export class ReaderView extends ItemView {
   }
 
   /** 状态里只存书 id：路径会因改名而变，id 是 djb2(路径)，改名后同样会变，
-   *  但至少书库记录与之一致。靠 id 找不到时上层会退回最近在读。 */
+   *  但至少书架记录与之一致。靠 id 找不到时上层会退回最近在读。 */
   getState(): Record<string, unknown> {
     return { bookId: this.bookId };
   }
@@ -257,6 +261,12 @@ export class ReaderView extends ItemView {
       this.progressSheet?.classList.remove('is-open');
     };
     const openToc = (): void => {
+      // 桌面：目录在 Obsidian 左侧栏里，不遮正文；移动：整屏抽屉（左侧栏在手机上是
+      // 滑出式抽屉，翻长目录太费劲，不如直接铺满）
+      if (!Platform.isMobile) {
+        this.api.openTocSidebar();
+        return;
+      }
       const open = toc.isOpen();
       closePanels();
       if (!open) toc.show();
@@ -309,8 +319,10 @@ export class ReaderView extends ItemView {
 
     const onKey = (e: KeyboardEvent): void => {
       if (this.closed) return;
-      // 只在阅读视图是当前活动叶子时接管键盘，否则会抢掉别的笔记里的方向键
-      if (this.api.app.workspace.getActiveViewOfType(ReaderView) !== this) return;
+      // 只在「阅读视图或它的目录侧栏」是当前活动叶子时接管键盘，否则会抢掉
+      // 别的笔记里的方向键。目录也算进来是因为：从侧栏点完章节，手还在方向键上，
+      // 这时候按 ← → 必须还能翻页。
+      if (!this.ownsKeyboard()) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       if (e.key === 'Escape') {
@@ -421,10 +433,39 @@ export class ReaderView extends ItemView {
 
   /* ─────────────────── 装载书 ─────────────────── */
 
+  /** 键盘归谁：自己这条 leaf，或自己的目录侧栏（点完章节接着按方向键要还得翻页） */
+  private ownsKeyboard(): boolean {
+    const ws = this.api.app.workspace;
+    const active = ws.activeLeaf as unknown as { view?: { getViewType?: () => string } } | null;
+    if (!active) return false;
+    if (active === (this.leaf as unknown as typeof active)) return true;
+    return active.view?.getViewType?.() === VIEW_TYPE_TOC;
+  }
+
   /** 书名出来之后刷新页签标题（ItemView 自己不会重新读 getDisplayText） */
   private syncTabTitle(): void {
     const leaf = this.leaf as unknown as { updateHeader?: () => void };
     leaf.updateHeader?.();
+  }
+
+  /**
+   * 把目录交给左侧栏。桌面端开书后自动展开一次——目录是阅读的一等公民，
+   * 每本书都要手动点一次才出来，等于默认没有。
+   */
+  private publishToc(): void {
+    const book = this.book;
+    if (!book) return;
+    setToc({
+      bookId: book.id,
+      bookTitle: book.meta.title,
+      items: this.host.toc(),
+      activeLabel: book.reading.position.chapterTitle || '',
+      jump: (href) => {
+        void this.host.goToHref(href);
+        this.tracker.touch();
+      },
+    });
+    if (!Platform.isMobile) this.api.openTocSidebar();
   }
 
   private async maybeMount(): Promise<void> {
@@ -433,11 +474,11 @@ export class ReaderView extends ItemView {
     if (this.mounted || this.mounting || !this.bookId) return;
     const book = this.api.repo.byId(this.bookId);
     if (!book) {
-      this.renderFault('这本书不在书库里', '它可能被移出书架了。回书库重新打开一次。');
+      this.renderFault('这本书不在书架上', '它可能被移出书架了。回书架重新打开一次。');
       return;
     }
     if ((book.fileRef as { fileMissing?: boolean }).fileMissing) {
-      this.renderFault('找不到这本书的文件', `书库记录还在，但 ${book.fileRef.vaultPath} 已经不在了。`);
+      this.renderFault('找不到这本书的文件', `书架记录还在，但 ${book.fileRef.vaultPath} 已经不在了。`);
       return;
     }
 
@@ -473,6 +514,7 @@ export class ReaderView extends ItemView {
             this.bookTitleEl.title = book.meta.title;
           }
           this.toc?.setItems(this.host.toc());
+          this.publishToc();
           // 页签标题跟着书名走。用 leaf 自己的 updateHeader（内部 API，没有就跳过）；
           // 不要 trigger('layout-change')——那会让 Obsidian 在视图还没装完时重排整块布局
           this.syncTabTitle();
@@ -500,7 +542,7 @@ export class ReaderView extends ItemView {
     stage.empty();
     const box = el('div', 'bzr-view-fault');
     box.append(el('div', 'bzr-view-fault-title', title), el('div', 'bzr-view-fault-desc', desc));
-    const back = el('button', 'bzr-btn', '回书库');
+    const back = el('button', 'bzr-btn', '回书架');
     back.type = 'button';
     back.addEventListener('click', () => this.api.openShelf());
     box.appendChild(back);
@@ -536,6 +578,7 @@ export class ReaderView extends ItemView {
     if (info.chapterTitle && this.chapterEl) {
       this.chapterEl.textContent = info.chapterTitle;
       this.toc?.setActive(info.chapterTitle);
+      patchToc({ activeLabel: info.chapterTitle });
     }
     this.updateFoot(info.percent, info.remainingSeconds);
     this.tracker.touch(info.percent);
@@ -545,6 +588,8 @@ export class ReaderView extends ItemView {
   private async settle(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
+    // 书关了，左侧栏的目录跟着回到空态（保留 leaf，下次开书直接复用）
+    clearToc();
     const book = this.book;
     if (book) {
       const session = this.tracker.end();

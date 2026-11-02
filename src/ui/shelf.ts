@@ -1,7 +1,7 @@
 /* ============================================================
  * bz-reader · 书架（ui/shelf.ts）
  *
- * 书库是一个浮在笔记上的弹窗，不是页签——它是一次「找书」的短暂动作，
+ * 书架是一个浮在笔记上的弹窗，不是页签——它是一次「找书」的短暂动作，
  * 找到就关。顶部只留四件事：搜索、视图切换、导入、数量。
  *
  * 桌面与移动是两套排版（不是同一套缩窄）：
@@ -19,8 +19,9 @@ import type { ReaderStore } from '../data/store';
 import { normalizePrefs } from '../data/prefs';
 import { uiModal } from '../core/ui/modal';
 import { notify } from '../core/notice';
-import { clear, coverColors, durationLabel, el, bookCover, percentLabel, searchIcon } from './dom';
+import { clear, coverColors, durationLabel, el, bookCover, percentLabel, searchIcon, setCoverImage } from './dom';
 import { createPrefsPanel } from './prefs-panel';
+import { coverUrl } from '../data/cover';
 
 export interface ShelfDeps {
   app: App;
@@ -71,7 +72,7 @@ export function openShelf(deps: ShelfDeps): ShelfHandle {
   viewBtn.type = 'button';
   const importBtn = el('button', 'bzr-tool is-primary', '导入');
   importBtn.type = 'button';
-  head.append(el('div', 'bzr-shelf-title', '书库'), count, el('div', 'bzr-shelf-spacer'), search, viewBtn, importBtn);
+  head.append(el('div', 'bzr-shelf-title', '书架'), count, el('div', 'bzr-shelf-spacer'), search, viewBtn, importBtn);
 
   const chips = el('div', 'bzr-shelf-chips');
   const body = el('div', 'bzr-shelf-body');
@@ -124,6 +125,8 @@ export function openShelf(deps: ShelfDeps): ShelfHandle {
     className: 'bzr-shelf-popup' + (mobile ? ' is-mobile' : ''),
     autofocus: false,
     onClose: () => {
+      coverObserver?.disconnect();
+      coverObserver = null;
       void store.flush();
     },
   });
@@ -237,10 +240,45 @@ export function openShelf(deps: ShelfDeps): ShelfHandle {
     });
   }
 
+  /**
+   * 真封面按「进视野才解」加载。
+   *
+   * 解一本要 zip 解压整本书，是有代价的操作；书架一开就把 50 本全解完，
+   * 首屏会卡住好几百毫秒。用 IntersectionObserver 盯着：滚到哪解到哪，
+   * 图到位之后把色块换成真图（.has-img），没到就继续显示色块——不会空一块。
+   */
+  let coverObserver: IntersectionObserver | null = null;
+
+  function watchCovers(scope: HTMLElement): void {
+    coverObserver?.disconnect();
+    if (typeof IntersectionObserver === 'undefined') return;
+    coverObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const box = entry.target as HTMLElement;
+          coverObserver?.unobserve(box);
+          const id = box.dataset.coverBook;
+          const book = id ? repo.byId(id) : null;
+          if (!book || isMissing(book)) continue;
+          void coverUrl(app, book).then((url) => {
+            if (url) setCoverImage(box, url);
+          });
+        }
+      },
+      { rootMargin: '240px' },
+    );
+    for (const box of Array.from(scope.querySelectorAll<HTMLElement>('[data-cover-book]'))) {
+      coverObserver.observe(box);
+    }
+  }
+
   function bookCard(book: ReaderBook, withMeta: boolean): HTMLElement {
     const card = el('div', 'bzr-book' + (isMissing(book) ? ' is-missing' : ''));
     card.tabIndex = 0;
-    card.appendChild(coverFor(book));
+    const cover = coverFor(book);
+    cover.dataset.coverBook = book.id;
+    card.appendChild(cover);
     if (withMeta) card.appendChild(metaBlock(book));
     card.addEventListener('click', () => openBook(book));
     card.addEventListener('keydown', (e) => {
@@ -303,7 +341,7 @@ export function openShelf(deps: ShelfDeps): ShelfHandle {
   function emptyBox(): HTMLElement {
     const empty = el('div', 'bzr-shelf-empty');
     empty.append(
-      el('div', 'bzr-shelf-empty-title', repo.all().length ? '没有匹配的书' : '书库是空的'),
+      el('div', 'bzr-shelf-empty-title', repo.all().length ? '没有匹配的书' : '书架是空的'),
       el(
         'div',
         'bzr-shelf-empty-desc',
@@ -334,6 +372,7 @@ export function openShelf(deps: ShelfDeps): ShelfHandle {
       const grid = el('div', 'bzr-ms-grid');
       for (const book of list) grid.appendChild(bookCard(book, true));
       mBody.appendChild(grid);
+      watchCovers(grid);
       return;
     }
 
@@ -351,6 +390,7 @@ export function openShelf(deps: ShelfDeps): ShelfHandle {
       const grid = el('div', 'bzr-grid');
       for (const book of list) grid.appendChild(bookCard(book, true));
       body.appendChild(grid);
+      watchCovers(grid);
     } else {
       const rows = el('div', 'bzr-rows');
       for (const book of list) rows.appendChild(bookRow(book));

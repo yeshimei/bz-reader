@@ -2,7 +2,7 @@
  * bz-reader · 阅读偏好（data/prefs.ts）
  *
  * 全局一份，不按书分（用户调字号不是为了这一本书调的）。
- * 存进 ReaderData.prefs，跟书库同一个 JSON。
+ * 存进 ReaderData.prefs，跟书架同一份 JSON。
  *
  * 所有取值都夹在范围内再落盘：滑块拖出来的值、手改坏的 JSON、
  * 旧版本留下的字段，一律经过 normalizePrefs 才进系统——
