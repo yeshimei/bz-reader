@@ -36,6 +36,8 @@ export interface AnnotDeps {
   onClose: () => void;
   /** AI 是可选钩子：只有高级版且传入时划词条才长出 AI 钮 */
   ai?: AnnotAi;
+  /** 高级版：把这条划线渲染成分享图（书摘卡片） */
+  onCard?: (highlight: Highlight) => void;
 }
 
 export interface AnnotLayer {
@@ -317,6 +319,14 @@ export function createAnnotLayer(deps: AnnotDeps): AnnotLayer {
       }),
     );
     foot.appendChild(el('span', 'bzr-annot-sp'));
+    if (deps.onCard) {
+      const card = el('button', 'bzr-annot-btn', '卡片');
+      card.type = 'button';
+      card.title = '生成书摘卡片';
+      card.setAttribute('aria-label', '生成书摘卡片');
+      card.addEventListener('click', () => deps.onCard?.(highlight));
+      foot.appendChild(card);
+    }
     const del = el('button', 'bzr-annot-btn is-danger', '删除');
     del.type = 'button';
     del.addEventListener('click', () => {

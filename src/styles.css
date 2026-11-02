@@ -1233,6 +1233,39 @@
   color: var(--bzr-text-3);
 }
 
+/* ═══════════ ④.7 书摘卡片（高级版，划线卡片的二级弹窗） ═══════════ */
+.bzr-overlay-popup.bzr-qcard-popup {
+  width: 420px;
+  max-width: calc(100vw - 32px);
+}
+.bzr-qcard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px 18px;
+  font-family: var(--bzr-font-ui);
+}
+.bzr-qcard-view {
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.bzr-qcard-view canvas {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+.bzr-qcard-foot {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+.bzr-qcard-foot .bzr-btn {
+  height: 30px;
+  font-size: 12px;
+}
+
 /* ═══════════ ⑤ 阅读 · 桌面 ═══════════ *//* 阅读是 workspace 里的一个 leaf：拆掉宿主外壳，由 .bzr-reader 自己承担整块区域。
    颜色跟随当前阅读主题（--rear-* 由 view 层按 prefs 写入），正文与栏框同色，
    这样「翻页时界面不动，只有字在换」。

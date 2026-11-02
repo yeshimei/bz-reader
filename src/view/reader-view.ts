@@ -49,6 +49,8 @@ import { notify } from '../core/notice';
 import { PLUGIN_ID } from '../core/plugin-path';
 import { aiAsk } from '../data/ai';
 import { aiReady } from '../data/settings';
+import { openQuoteCard as openQuoteCardDialog } from '../ui/quote-card';
+import type { Highlight } from '../data/schema';
 import { bookmarkIcon, durationLabel, el, fullscreenIcon, searchIcon, tocIcon, trackRow } from '../ui/dom';
 import { createAnnotLayer, type AnnotLayer } from '../ui/annot';
 import { createFootnoteLayer, type FootnoteLayer } from '../ui/footnote';
@@ -346,6 +348,32 @@ export class ReaderView extends ItemView {
             setting?.openTabById?.(PLUGIN_ID);
           },
           run: (task, text) => aiAsk(normalizeSettings(this.api.store.get().settings ?? undefined), task, text),
+        },
+        onCard: (h) => {
+          // 直接内联在 pro 块里：包成类方法的话 openQuoteCardDialog 的引用
+          // 不会被 DCE 删掉，quote-card 模块会漏进 base 包（摇树教训）
+          const b = this.book;
+          if (!b) return;
+          const settings = normalizeSettings(this.api.store.get().settings ?? undefined);
+          const theme = resolveTheme(this.prefs.theme);
+          openQuoteCardDialog({
+            app: this.api.app,
+            book: b,
+            settings,
+            input: {
+              bookTitle: b.meta.title,
+              author: b.meta.author,
+              chapter: h.chapterTitle,
+              text: h.text,
+              comment: h.comment,
+              createdAt: h.createdAt,
+              fg: theme.textColor,
+              bg: theme.bgColor,
+              dark: theme.dark,
+            },
+            onSaved: (path) => notify(path ? `已保存 → ${path}` : '图片已复制到剪贴板', 'success'),
+            onError: (msg) => notify(msg, 'error'),
+          });
         },
       });
       root.appendChild(this.annot.root);
