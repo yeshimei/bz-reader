@@ -38,7 +38,9 @@ Obsidian 插件：EPUB / TXT 阅读器，与 [bz](../bz) 生态联动。独立�
 
 **界面按 [`prototype/ui.html`](prototype/ui.html) 一比一落地**：桌面 5 屏（书架 / 阅读 / 三块面板 / 导入）+ 移动 3 屏（书架 / 阅读 / 面板 / 导入）。移动端是独立骨架，不是同一套缩窄：书架走「大标题 + 继续阅读卡 + 三列 + 悬浮胶囊」，阅读默认无工具栏、点中间浮出上下两条。
 
-**还没做（按顺序）**：移动端键盘避让、补测试。
+**还没做**：base 包清理（ReaderView 拆 pro 子类，把 `data/notes.ts` 的死代码连这几 KB 一起切掉——激活码已落地，随时可做，但要单独一轮小心动阅读核心）。mobi / azw3 没有可程序化生成的最小样本，仍未实测；fb2 / cbz 已造测试书在测试库书库。
+
+测试：`pnpm test`（vitest，notes 镜像 / 导出格式 / license 验签三组）。
 
 （`bz-reader.json` 与 bz 书架 / 读书报告的对接、激活码分发，等 bz 那边一起动，暂缓。）
 
@@ -55,6 +57,8 @@ Obsidian 插件：EPUB / TXT 阅读器，与 [bz](../bz) 生态联动。独立�
 | 全书搜索 | ✅ 搜索面板多一个「本章 / 全书」切换，全书命中按章节分组，点了跳过去 |
 | 跨书搜索 | ✅ 书架「全文」入口：逐本开临时引擎扫（不建索引），按书分组、边扫边出，点命中直接落到那本书那一页 |
 | AI 摘要 / 释 / 译 | ✅ 划词条尾部三个单字钮，走 OpenAI 兼容接口（设置页配 baseUrl / Key / 模型）；没配好直接引导去设置页，结果可复制或存为想法 |
+| 书摘卡片 | ✅ 划线卡片「卡片」钮：canvas 渲染分享图（跟阅读主题），存书摘目录或复制剪贴板 |
+| 激活码 | ✅ `BZR1.<payload>.<sig>`，ECDSA P-256 离线验签；签发脚本在 `scripts/`（私钥不进 git） |
 | 竖排 / 双栏 | ✅ 排版面板「方向 / 栏数」；竖排注入 `writing-mode: vertical-rl`，点击/拖拽/方向键跟着内容反向；栏数经 `--_column-count` 变量进引擎（vendor 补丁 #5） |
 | 阅读统计 | ✅ 书架「统计」入口：总时长 / 今日 / 连续 / 累计天数 + 近半年热力图 + 每本书进度；口径统一走 `sessions[]` 汇总 |
 | 标注导出 | ✅ 侧栏在书签/划线页签时出「导出」：写一份 Markdown 到设置里的目录，按书中章节组织，带 frontmatter 与 `<!-- bz-reader:export -->` 标记 |
@@ -69,6 +73,7 @@ pnpm install
 node esbuild.config.mjs once      # 出 dist/base + dist/pro，并同步当前激活版到测试库
 node esbuild.config.mjs          # watch
 node node_modules/typescript/bin/tsc --noEmit
+pnpm test                        # vitest（notes 镜像 / 导出格式 / license 验签）
 ```
 
 环境变量：
