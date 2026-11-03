@@ -594,16 +594,61 @@ export function resolveFootnoteText(target: FNode | null, label = ''): string | 
  *
  * 只读取不修改；`attributes` 遍历时把名字压成小写（HTML 解析下是
  * `epub:type`，XML 下 `getAttributeNS` 才有值，两条路都收）。
+ *
+ * `context: true` 时先向上取几层（不越过 body），把注文容器和兄弟一起转进来，
+ * 再沿 childNodes 索引下钻回目标节点。**必须这么做**：注文的正文往往不在
+ * 目标元素里——《红楼梦》的 `[42]` 指向的是空锚点 `<a id="m42"></a>`，
+ * 正文在同级的下一个 `<a>` 和文本里；只转目标自己的子树时 parent 是空的，
+ * 候选池只有一个空锚点，`resolveFootnoteText` 只能返回 null。
  */
-export function domToFNode(el: Element, opts: { ancestors?: string[] } = {}): FNode {
-  const node = convertDomNode(el);
+export function domToFNode(el: Element, opts: { ancestors?: string[]; context?: boolean } = {}): FNode {
+  const { root, path } = opts.context ? contextRootOf(el) : { root: el, path: [] as number[] };
+  let node = convertDomNode(root);
+  for (const index of path) {
+    const next = node.children?.[index];
+    if (!next) break;
+    node = next;
+  }
   if (opts.ancestors?.length) node.ancestors = opts.ancestors.map((tag) => tag.toLowerCase());
   return node;
+}
+
+/** context 模式最多向上取几层：注文目标是空锚点时，容器通常在 3 层以内 */
+const CONTEXT_DEPTH = 4;
+
+/**
+ * 向上找转换根。用 `childNodes` 索引记录路径（不是 `children`）：
+ * 转换时注释节点会保留成空文本节点，两边索引才一一对应。
+ */
+function contextRootOf(el: Element): { root: Element; path: number[] } {
+  let root = el;
+  const path: number[] = [];
+  for (let depth = 0; depth < CONTEXT_DEPTH; depth += 1) {
+    const parent = root.parentElement;
+    if (!parent) break;
+    const tag = (parent.tagName ?? '').toLowerCase();
+    if (tag === 'body' || tag === 'html') break;
+    const nodes = parent.childNodes;
+    let index = -1;
+    for (let i = 0; i < nodes.length; i += 1) {
+      if (nodes[i] === root) {
+        index = i;
+        break;
+      }
+    }
+    if (index < 0) break;
+    path.unshift(index);
+    root = parent;
+  }
+  return { root, path };
 }
 
 function convertDomNode(node: Node | null): FNode {
   if (!node) return { tag: TEXT_TAG, text: '' };
   if (node.nodeType === 3) return { tag: TEXT_TAG, text: node.nodeValue ?? '' };
+  /* 注释 / 处理指令也占一个空文本节点：childNodes 与 children 必须 1:1，
+     context 模式按索引下钻才不会错位 */
+  if (node.nodeType !== 1) return { tag: TEXT_TAG, text: '' };
   const el = node as Element;
   const attrs: Record<string, string> = {};
   const list = el.attributes as unknown as ArrayLike<{ name: string; value: string }> | undefined;

@@ -1233,10 +1233,23 @@ export class EngineHost {
       currentIndex: this.chapterIndex,
       resolvedIndex,
     });
+    dlog('footnote.start', {
+      href,
+      path,
+      fragment,
+      sections: sections.length,
+      current: this.chapterIndex,
+      resolvedIndex,
+      index,
+    });
 
     if (index >= 0) {
       const target = await this.loadFootnoteTarget(sections[index], fragment, anchorFn);
-      if (target) return this.buildFootnoteInfo(target, href, index, label);
+      if (target) {
+        const info = this.buildFootnoteInfo(target, href, index, label);
+        if (info) return info;
+        dlog('footnote.empty', { index, tag: target.tagName });
+      }
     }
 
     const found = await this.findFootnoteAcrossSections(fragment);
@@ -1250,15 +1263,23 @@ export class EngineHost {
     fragment: string,
     anchorFn: ((doc: Document) => Node | null) | null,
   ): Promise<Element | null> {
-    if (!section?.createDocument) return null;
+    if (!section?.createDocument) {
+      dlog('footnote.doc', { ok: false, why: 'no-createDocument' });
+      return null;
+    }
     let doc: Document;
     try {
       doc = await section.createDocument();
     } catch {
+      dlog('footnote.doc', { ok: false, why: 'throw' });
       return null;
     }
+    const elements = typeof doc.getElementsByTagName === 'function' ? doc.getElementsByTagName('*').length : -1;
+    const byId = fragment && typeof doc.getElementById === 'function' ? !!doc.getElementById(fragment) : false;
+    dlog('footnote.doc', { ok: true, elements, byId });
     if (fragment) {
       const el = findFragmentTarget(doc, fragment);
+      dlog('footnote.frag', { fragment, found: !!el, tag: el?.tagName ?? '' });
       if (el) return el;
     }
     if (!anchorFn) return null;
@@ -1294,6 +1315,8 @@ export class EngineHost {
     }
     const deadline = Date.now() + 4000;
     let tried = 0;
+    let failures = 0;
+    let hit: { index: number; element: Element } | null = null;
     for (const i of order) {
       if (tried >= 120 || Date.now() > deadline) break;
       const section = sections[i];
@@ -1302,12 +1325,16 @@ export class EngineHost {
       try {
         const doc = await section.createDocument();
         const el = findFragmentTarget(doc, fragment);
-        if (el) return { index: i, element: el };
+        if (el) {
+          hit = { index: i, element: el };
+          break;
+        }
       } catch {
-        /* 单章解析失败继续下一章 */
+        failures += 1;
       }
     }
-    return null;
+    dlog('footnote.scan', { tried, failures, found: !!hit, index: hit?.index ?? -1 });
+    return hit;
   }
 
   private buildFootnoteInfo(
@@ -1316,7 +1343,11 @@ export class EngineHost {
     index: number,
     label: string,
   ): Omit<FootnoteInfo, 'anchor'> | null {
-    const text = resolveFootnoteText(domToFNode(el), label);
+    /* context: true —— 注文正文往往不在目标元素里（目标常是空锚点），
+       要把父容器与兄弟一起转进来，候选评分才有东西可挑 */
+    const node = domToFNode(el, { context: true });
+    const text = resolveFootnoteText(node, label);
+    dlog('footnote.text', { tag: el.tagName, kids: el.childNodes.length, chars: text?.length ?? 0 });
     if (!text) return null;
     return { text, href, chapterIndex: index };
   }

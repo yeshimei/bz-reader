@@ -232,6 +232,18 @@ describe('resolveFootnoteText：从目标元素里抠出注文', () => {
     expect(text).not.toContain('注文二');
   });
 
+  it('红楼梦式结构：空锚点 <a id="m42"> + [42] 回链 + 注文（真机回归）', () => {
+    const note = el(
+      'p',
+      { class: 'note' },
+      el('a', { id: 'm42' }),
+      el('a', { href: 'part0011.xhtml#w42' }, '[42]'),
+      ' 运隆祚永——国运兴隆，皇位传世久远。',
+    );
+    const target = note.children![0];
+    expect(resolveFootnoteText(target, '[42]')).toBe('运隆祚永——国运兴隆，皇位传世久远。');
+  });
+
   it('去掉注文前面的序号（含括号与点号）', () => {
     const li = el('li', {}, el('p', {}, '1. 注文内容'));
     expect(resolveFootnoteText(li, '1')).toBe('注文内容');
@@ -279,6 +291,16 @@ describe('resolveFootnoteText：从目标元素里抠出注文', () => {
 });
 
 describe('domToFNode：真实元素转成可测的节点树', () => {
+  type FakeDomEl = {
+    nodeType: number;
+    tagName: string;
+    parentElement: FakeDomEl | null;
+    childNodes: unknown[];
+    attributes: Array<{ name: string; value: string }>;
+    getAttribute(name: string): string | null;
+    getAttributeNS(): string | null;
+  };
+
   function fakeEl(tag: string, attrs: Record<string, string>, children: unknown[] = []): unknown {
     return {
       nodeType: 1,
@@ -294,6 +316,31 @@ describe('domToFNode：真实元素转成可测的节点树', () => {
     };
   }
 
+  function domEl(tag: string, attrs: Record<string, string> = {}, ...children: Array<FakeDomEl | string>): FakeDomEl {
+    const el: FakeDomEl = {
+      nodeType: 1,
+      tagName: tag.toUpperCase(),
+      parentElement: null,
+      childNodes: [],
+      attributes: Object.entries(attrs).map(([name, value]) => ({ name, value })),
+      getAttribute(name: string) {
+        return attrs[name] ?? null;
+      },
+      getAttributeNS() {
+        return null;
+      },
+    };
+    for (const child of children) {
+      if (typeof child === 'string') {
+        el.childNodes.push({ nodeType: 3, nodeValue: child, parentElement: el });
+      } else {
+        child.parentElement = el;
+        el.childNodes.push(child);
+      }
+    }
+    return el;
+  }
+
   it('保留属性（小写）、文本子节点与结构', () => {
     const textNode = { nodeType: 3, nodeValue: '1' };
     const dom = fakeEl('A', { HREF: 'notes.xhtml#fn1' }, [textNode]);
@@ -307,5 +354,45 @@ describe('domToFNode：真实元素转成可测的节点树', () => {
     const dom = fakeEl('A', { href: '#x' }, [{ nodeType: 3, nodeValue: '甲' }]);
     const node = domToFNode(dom as Element, { ancestors: ['sup'] });
     expect(node.ancestors).toEqual(['sup']);
+  });
+
+  it('不传 context 时只有目标自己的子树——空锚点抠不出正文（真机 bug 的形态）', () => {
+    const anchorEl = domEl('a', { id: 'm42' });
+    const note = domEl(
+      'p',
+      { class: 'note' },
+      anchorEl,
+      domEl('a', { href: 'part0011.xhtml#w42' }, '[42]'),
+      ' 运隆祚永——国运兴隆，皇位传世久远。',
+    );
+    domEl('div', { class: 'notes' }, note);
+    const lone = domToFNode(anchorEl as unknown as Element);
+    expect(resolveFootnoteText(lone, '[42]')).toBeNull();
+  });
+
+  it('context 模式：向上带上注文容器与兄弟，正文抠得出来（红楼梦中点 [42]）', () => {
+    const anchorEl = domEl('a', { id: 'm42' });
+    const note = domEl(
+      'p',
+      { class: 'note' },
+      anchorEl,
+      domEl('a', { href: 'part0011.xhtml#w42' }, '[42]'),
+      ' 运隆祚永——国运兴隆，皇位传世久远。',
+    );
+    const wrap = domEl('div', { class: 'notes' }, note);
+    domEl('body', {}, wrap);
+
+    const node = domToFNode(anchorEl as unknown as Element, { context: true });
+    expect(node.parent?.tag).toBe('p');
+    expect(resolveFootnoteText(node, '[42]')).toBe('运隆祚永——国运兴隆，皇位传世久远。');
+  });
+
+  it('context 模式不越过 body（不会把整章正文当候选）', () => {
+    const anchorEl = domEl('a', { id: 'm1' });
+    const note = domEl('p', { class: 'note' }, anchorEl, '注文');
+    const body = domEl('body', {}, domEl('div', {}, domEl('section', {}, note)));
+    const node = domToFNode(anchorEl as unknown as Element, { context: true });
+    expect(node.parent?.tag).toBe('p');
+    expect(body.parentElement).toBeNull();
   });
 });
