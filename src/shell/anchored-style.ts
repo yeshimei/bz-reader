@@ -1,14 +1,85 @@
 /**
- * 文字浮层的定位串（纯函数，只读 window.innerWidth）。
+ * 文字浮层的落点（纯函数，可在 node 里直接测）。
  *
- * 单独成文件是为了能被 node 里的单测直接 import——overlay.ts 会带进
- * foliate 的 DOM 依赖，测试环境跑不起来。
+ * 只有一条硬约束：**紧挨着文字**。
+ *   · 移动端优先在文字下方，桌面端优先在文字上方；
+ *   · 那一侧放不下才翻到另一侧；
+ *   · 最后夹在可视区内（含键盘弹起后的 visualViewport）。
+ *
+ * 以前这里用固定阈值（top > 280）猜上下、再给 14/26px 的偏移，
+ * 手机上的贴底卡更是直接写死 bottom:10px——落点与文字差出半屏，
+ * 用户看到的就是「偏移特别远」。
  */
-export function anchoredStyle(a?: { left: number; top: number }): string {
-  const vw = window.innerWidth;
-  const w = Math.min(360, vw - 24);
-  if (!a || (!a.left && !a.top)) return `left:50%;top:72px;width:${w}px;transform:translateX(-50%)`;
-  const left = Math.min(vw - w / 2 - 12, Math.max(w / 2 + 12, a.left));
-  const above = a.top > 280;
-  return `left:${Math.round(left)}px;top:${Math.round(above ? a.top - 14 : a.top + 26)}px;width:${w}px;transform:translate(-50%,${above ? '-100%' : '0'})`;
+
+export interface AnchorRect {
+  left: number;
+  top: number;
+  width?: number;
+  height?: number;
+}
+
+export interface PanelBox {
+  width: number;
+  height: number;
+}
+
+export interface ViewBox {
+  width: number;
+  height: number;
+  /** 可视区顶边（键盘弹起时 visualViewport.offsetTop；没有键盘就是 0） */
+  top?: number;
+}
+
+export type AnchoredSide = 'above' | 'below';
+
+export interface Placement {
+  left: number;
+  top: number;
+}
+
+/** 浮层与文字之间的间距：贴着，但不压住字 */
+export const ANCHOR_GAP = 6;
+
+/** 离可视区边缘的最小距离 */
+const VIEW_MARGIN = 8;
+
+function clamp(v: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, v));
+}
+
+/**
+ * 算出浮层左上角该放哪儿。
+ *
+ * @param anchor 文字矩形；`height` 缺省按 0 算（比如只拿到一个点）
+ * @param panel  浮层自身尺寸（渲染后量出来的）
+ * @param view   可视区（`top` 供键盘弹起时使用）
+ * @param prefer 期望在哪一侧：移动端 below、桌面端 above
+ */
+export function anchoredPlacement(
+  anchor: AnchorRect,
+  panel: PanelBox,
+  view: ViewBox,
+  prefer: AnchoredSide,
+): Placement {
+  const viewTop = view.top ?? 0;
+  const viewBottom = viewTop + view.height;
+
+  const left = clamp(
+    anchor.left + (anchor.width ?? 0) / 2 - panel.width / 2,
+    VIEW_MARGIN,
+    Math.max(VIEW_MARGIN, view.width - panel.width - VIEW_MARGIN),
+  );
+
+  const belowTop = anchor.top + (anchor.height ?? 0) + ANCHOR_GAP;
+  const aboveTop = anchor.top - ANCHOR_GAP - panel.height;
+  const fitsBelow = belowTop + panel.height <= viewBottom - VIEW_MARGIN;
+  const fitsAbove = aboveTop >= viewTop + VIEW_MARGIN;
+
+  let top: number;
+  if (prefer === 'below') top = fitsBelow || !fitsAbove ? belowTop : aboveTop;
+  else top = fitsAbove || !fitsBelow ? aboveTop : belowTop;
+
+  top = clamp(top, viewTop + VIEW_MARGIN, Math.max(viewTop + VIEW_MARGIN, viewBottom - panel.height - VIEW_MARGIN));
+
+  return { left: Math.round(left), top: Math.round(top) };
 }

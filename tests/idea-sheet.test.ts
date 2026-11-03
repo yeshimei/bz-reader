@@ -1,45 +1,44 @@
 import { describe, expect, it } from 'vitest';
 import { ideaSheetActsHtml, ideaSheetBodyHtml, ideaSheetHtml } from '../src/shell/idea-sheet';
 
-const base = { quote: '这些微小的虫子，会让我们的母亲、祖母像恶狗一样易怒。', markId: 'm1', bookId: 'b1' };
+/**
+ * 写想法弹窗：**只有一个输入框和一个保存按钮**。
+ *
+ * 不重复原文、不放章节、没有取消（点外面就关），已有想法直接预填
+ * 进输入框——再点「写想法」就是修改。
+ */
+const base = { markId: 'm1', bookId: 'b1' };
 
 describe('ideaSheetBodyHtml', () => {
-  it('带上被划的原文', () => {
-    expect(ideaSheetBodyHtml(base)).toContain('这些微小的虫子');
+  it('只有一个输入框', () => {
+    expect(ideaSheetBodyHtml(base).match(/<textarea/g)?.length).toBe(1);
   });
 
-  it('超长原文被截断，不把卡片撑爆', () => {
-    const long = '字'.repeat(200);
-    const html = ideaSheetBodyHtml({ ...base, quote: long });
-    expect(html).toContain('…');
-    expect(html.length).toBeLessThan(long.length + 400);
-  });
-
-  it('只有一个输入框，且带已有想法', () => {
+  it('已有想法预填进输入框（再点写想法 = 修改）', () => {
     const html = ideaSheetBodyHtml({ ...base, value: '我想到了外婆' });
-    expect(html.match(/<textarea/g)?.length).toBe(1);
     expect(html).toContain('我想到了外婆');
   });
 
-  it('不再出现解释性长文案（章节名 / 会出现在哪里）', () => {
+  it('不展示选中的原文与章节（没有 quote / mini）', () => {
     const html = ideaSheetBodyHtml(base);
-    expect(html).not.toContain('想法会跟着划线');
+    expect(html).not.toContain('bzs-sheet-quote');
+    expect(html).not.toContain('这些微小的虫子');
     expect(html).not.toContain('bzs-mini');
   });
 
-  it('原文里的 HTML 被转义', () => {
-    const html = ideaSheetBodyHtml({ ...base, quote: '<b>x</b>' });
+  it('输入框内容里的 HTML 被转义', () => {
+    const html = ideaSheetBodyHtml({ ...base, value: '<b>x</b>' });
     expect(html).toContain('&lt;b&gt;');
     expect(html).not.toContain('<b>x</b>');
   });
 });
 
 describe('ideaSheetActsHtml', () => {
-  it('只有取消与保存两个按钮', () => {
+  it('只有一个保存按钮，没有取消', () => {
     const html = ideaSheetActsHtml(base);
-    expect(html.match(/<button/g)?.length).toBe(2);
-    expect(html).toContain('取消');
+    expect(html.match(/<button/g)?.length).toBe(1);
     expect(html).toContain('保存');
+    expect(html).not.toContain('取消');
   });
 
   it('保存按钮带着标注 id 与书 id（保存链路要用）', () => {
@@ -51,14 +50,10 @@ describe('ideaSheetActsHtml', () => {
 });
 
 describe('ideaSheetHtml', () => {
-  it('按钮自带 flex 容器（壳的 footer 不是 flex，否则会竖排）', () => {
-    expect(ideaSheetActsHtml(base)).toContain('bzs-sheet-foot');
-  });
-
-  it('整卡包含主体与按钮，且带专门的类名', () => {
+  it('整卡只有主体与保存行，且带专门的类名', () => {
     const html = ideaSheetHtml(base);
     expect(html).toContain('bzs-sheet');
-    expect(html).toContain('bzs-sheet-quote');
+    expect(html).toContain('bzs-sheet-input');
     expect(html).toContain('bzs-sheet-foot');
   });
 });

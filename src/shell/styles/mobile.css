@@ -41,23 +41,10 @@
 
 @container bzs (max-width: 820px) {
   /* 自绘的头/底两条栏已撤（动作进了宿主头栏，进度看目录），
-     这里只剩选字条与朗读条的贴底位置。 */
-
-  /* 选区工具条：桌面浮在选字上方，手机上改贴底，避开拇指遮挡 */
-  .bzs-selbar {
-    left: 50% !important;
-    top: auto !important;
-    bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
-    transform: translateX(-50%);
-    max-width: calc(100vw - 24px);
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-
-  .bzs-selbar button {
-    min-width: 38px;
-    min-height: 34px;
-  }
+     这里只剩朗读条的贴底位置。
+     划词条不在这里定位：它由 reader-view 按选区算 left/top（移动端下方、
+     桌面端上方）。以前这里用 !important 把它钉在 bottom:56px，
+     无论选区在哪都弹在屏幕底部——用户看到的「偏移特别远」就是它。 */
 
   /* 朗读条：贴着底部导航条之上 */
   .bzs-ttsbar {
@@ -565,11 +552,23 @@
   }
 }
 
-/* ── 文字类浮层（想法 / 书摘 / 划线）：移动端一律贴底小卡 ──
-   浮层本体由 overlay.ts 渲染，这里只改「壳」的位置与尺寸：
-   贴底、左右各留 10px、避让键盘与安全区，内部不再滚动嵌套。 */
+/* ── 文字工具框：手机上给足触摸面积 ──
+   仍是一排（不换行），只把色点与文字按钮放大到能点准。 */
 @media (max-width: 820px) {
-  .bzs-float.is-anchored,
+  .bzs-hltools .bzs-pendot {
+    width: 22px;
+    height: 22px;
+  }
+
+  .bzs-hltools .bzs-sbtn {
+    padding: 8px;
+  }
+}
+
+/* ── 无锚点的文字浮层（从侧栏打开）：移动端贴底小卡 ──
+   正文里的工具条 / 想法框都带锚点，一律贴字弹（overlay.ts 算 left/top），
+   这里绝不能再把它们拉到底部——那正是「点划线弹抽屉、离文字很远」的来源。 */
+@media (max-width: 820px) {
   .bzs-float.is-sheet {
     left: 10px !important;
     right: 10px !important;
@@ -579,20 +578,6 @@
     max-height: 62vh;
     transform: none !important;
     border-radius: 16px;
-  }
-
-  .bzs-float.is-anchored textarea.idea {
-    min-height: 84px;
-    max-height: 28vh;
-  }
-
-  /* 卡片里的长说明在手机上没地方放，收掉——只留引用、输入框、两个按钮 */
-  .bzs-float.is-anchored .bzs-mini {
-    display: none;
-  }
-
-  .bzs-float.is-anchored .bzs-float-head {
-    padding-bottom: 4px;
   }
 }
 
@@ -632,6 +617,11 @@
   align-items: center;
   gap: 10px;
   margin-top: 10px;
+}
+
+/* 保存按钮靠右：和划词条的「取消 / 保存」同一种读法 */
+.bzs-sheet-foot .sp {
+  flex: 1;
 }
 
 /* ── 划词条：移动端强制一行、缩小尺寸 ──

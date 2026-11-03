@@ -12,7 +12,7 @@
  * 这一版只有一条界面语言，不再有第二套。
  * ============================================================ */
 import { ItemView, Menu, setIcon, type WorkspaceLeaf } from 'obsidian';
-import { EngineHost, type FootnoteInfo, type RelocateInfo, type SelectionInfo } from '../engine/host';
+import { EngineHost, type FootnoteInfo, type Rect, type RelocateInfo, type SelectionInfo } from '../engine/host';
 import { resolveTheme } from '../engine/theme';
 import { normalizePrefs, type ReaderPrefs } from '../data/prefs';
 import type { ReaderBook } from '../data/schema';
@@ -42,12 +42,15 @@ import { VIEW_TYPE_TOC } from './side-view';
    不是壳层状态。壳层那套必须用下面这两个别名，否则会静默拿错对象
    （表现：主题不跟随、侧栏与排版面板以为没打开书）。 */
 import {
+  closeOverlay,
   getState as getShellState,
+  isFloatOverlay,
   setState as setShellState,
   subscribe,
   notify as notifyShell,
 } from '../shell/state';
 import { openOverlay } from '../shell/state';
+import { anchoredPlacement } from '../shell/anchored-style';
 import { RT, onNotesChanged } from '../shell/runtime';
 import { getShellSource } from '../shell/source';
 import { dispatchAction, createMark, requireCap } from '../shell/actions';
@@ -289,6 +292,14 @@ export class ReaderView extends ItemView {
     /* 点正文：移动端左右翻页；两指同时按切换沉浸（判定在引擎侧）。
        翻页延后由 host 的队列保证，这里只管按区定方向。 */
     this.tapHandler = (zone, info) => {
+      /* 浮层开着时，点正文只关浮层，不翻页。
+         iframe 里的点按不冒泡到宿主文档，document 级收口收不到，
+         必须在阅读视图这一层补上——否则「点任何地方关掉」在手机上不成立。 */
+      const shown = getShellState().overlay;
+      if (shown && isFloatOverlay(shown.kind)) {
+        closeOverlay();
+        return;
+      }
       const now = Date.now();
       this.tapCount += 1;
       dlog('tap', {
@@ -868,7 +879,14 @@ export class ReaderView extends ItemView {
     const book = this.book;
     if (!book) return;
     RT.sel = {
-      anchor: { left: info.anchor.left, top: info.anchor.top },
+      /* 整段选区的矩形：想法 / 书摘贴的是「整段文字」，不是第一行——
+         跨行时用第一行会把下面几行盖住；宽高也带上，贴边才贴得准。 */
+      anchor: {
+        left: info.bounds.left,
+        top: info.bounds.top,
+        width: info.bounds.width,
+        height: info.bounds.height,
+      },
       text: info.text,
       bookId: book.id,
       chapterTitle: this.lastChapterTitle || book.reading.position.chapterTitle || '',
@@ -940,23 +958,27 @@ export class ReaderView extends ItemView {
 
     root.appendChild(bar);
 
-    /* 定位：优先贴在选区第一行上方、左右夹在可视区内；上面放不下就放到选区下方。
-       以前直接用 anchor 的视口坐标减 rootRect，选区靠近顶部时条子会跑到屏幕外，
-       看起来就是「偏移很远」。 */
+    /* 定位：移动端贴整段选区的下方，桌面端贴上方；左右夹在可视区内，
+       那一侧放不下就翻到另一侧。坐标全部换成阅读区本地坐标——
+       .bzs-reader 必须是定位祖先（reader.css），否则 absolute 的条子会
+       相对 tab 栏定位，看起来就是「偏移特别远」。
+       另外 CSS 里不能再有 translateY：以前它会在算好的 top 上再抬一整条，
+       移动端想放下方、实际却浮在上方。 */
     const rootRect = root.getBoundingClientRect();
     const barRect = bar.getBoundingClientRect();
-    const cx = info.anchor.left - rootRect.left + info.anchor.width / 2;
-    const half = barRect.width / 2 + 6;
-    const left = Math.max(half, Math.min(rootRect.width - half, cx));
-    const aboveTop = info.anchor.top - rootRect.top - 10;
-    const belowTop = info.bounds.top - rootRect.top + info.bounds.height + 10;
-    /* 移动端放选区正下方（手指与手柄都在上方，不挡）；桌面放正上方。
-       两者都夹在可视区内，避免顶到屏幕外。 */
-    const preferBelow = isMobileShell();
-    const raw = preferBelow ? belowTop : aboveTop - barRect.height;
-    const top = Math.max(6, Math.min(rootRect.height - barRect.height - 6, raw));
-    bar.style.left = `${Math.round(left)}px`;
-    bar.style.top = `${Math.round(top)}px`;
+    const pos = anchoredPlacement(
+      {
+        left: info.bounds.left - rootRect.left,
+        top: info.bounds.top - rootRect.top,
+        width: info.bounds.width,
+        height: info.bounds.height,
+      },
+      { width: barRect.width, height: barRect.height },
+      { width: rootRect.width, height: rootRect.height },
+      isMobileShell() ? 'below' : 'above',
+    );
+    bar.style.left = `${pos.left}px`;
+    bar.style.top = `${pos.top}px`;
     this.selbar = bar;
   }
 
@@ -1061,6 +1083,9 @@ export class ReaderView extends ItemView {
           this.selection = info;
           this.selectionAt = Date.now();
           this.setSel(info);
+          /* 开始新的划词 = 离开上一段交互：浮层（写想法 / 工具条）收掉，
+             再把划词条贴到新选区下方。 */
+          if (isFloatOverlay(getShellState().overlay?.kind)) closeOverlay();
           /* 选中不立刻落笔：移动端要留着系统选区与两端手柄，让用户先把范围
              调准，再点颜色。以前「选中即划」会在长按结束的瞬间落一条，
              想改范围就只能撤销重来。 */
@@ -1209,14 +1234,14 @@ export class ReaderView extends ItemView {
     notifyShell();
   }
 
-  /** 点中已有划线：交给全局弹层层显示标注卡 */
-  private openHighlight(info: { cfiRange: string; anchor: { left: number; top: number } }): void {
+  /** 点中已有划线：贴着这条线弹出文字工具框（章节/原文都不重复） */
+  private openHighlight(info: { cfiRange: string; anchor: Rect }): void {
     const book = this.book;
     if (!book) return;
     const h = findHighlight(book, info.cfiRange);
     if (!h) return;
     this.hideSelbar();
-    openOverlay({ kind: 'hlcard', markId: h.id, bookId: book.id, anchor: info.anchor });
+    openOverlay({ kind: 'hltools', markId: h.id, bookId: book.id, anchor: info.anchor });
   }
 
   /**

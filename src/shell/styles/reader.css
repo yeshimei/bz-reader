@@ -18,9 +18,12 @@
   height: 100%;
   min-height: 0;
   display: flex;
+  /* 划词条是 absolute 的：定位祖先必须是阅读区本身。
+     少了这一行，条子会相对 tab 栏 / 整个窗口定位，
+     算出来的本地坐标对不上，看起来就是「偏移特别远」。 */
+  position: relative;
   flex-direction: column;
   background: var(--bg-2);
-  position: relative;
 }
 
 /* 卷面容器：没有悬浮栏之后不再需要上下留白 */

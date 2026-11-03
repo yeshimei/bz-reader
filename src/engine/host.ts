@@ -21,6 +21,7 @@ import { makeBook, Overlayer, View } from './foliate';
 import type { DrawAnnotationDetail, FoliateBook, FoliateTOCItem, FoliateView, ShowAnnotationDetail } from '../types/foliate';
 import { buildChapterCSS } from './theme';
 import { makeTxtBook, countWords } from './txt';
+import { unionClientRects } from './selection-rect';
 import { DEFAULT_PREFS, FONT_SIZE_RANGE, type ReaderPrefs } from '../data/prefs';
 import { dlog } from '../core/debug-log';
 
@@ -37,7 +38,7 @@ export interface SelectionInfo {
   text: string;
   cfiRange: string;
   chapterIndex: number;
-  /** 选区第一行的矩形——浮层优先贴在它上方，比贴整个选区准 */
+  /** 选区第一行的矩形（备用；贴浮层现在用整段 bounds） */
   anchor: Rect;
   /** 整个选区的外接矩形（判断上边放不放得下时用） */
   bounds: Rect;
@@ -394,7 +395,9 @@ export class EngineHost {
       if (!this.annotColors.has(d.value)) return;
       const rects = Array.from(d.range.getClientRects()).filter((r) => r.width > 0 && r.height > 0);
       const doc = d.range.startContainer.ownerDocument;
-      const anchor = doc && rects.length ? this.toHostRect(rects[0] as DOMRect, doc) : { left: 0, top: 0, width: 0, height: 0 };
+      /* 整条划线的外接矩形：手机端浮层贴在最后一行下方，桌面端贴第一行上方。
+         只取 rects[0] 时多行划线会把下面几行盖住。 */
+      const anchor = doc && rects.length ? unionClientRects(rects, this.frameGeom(doc)) : { left: 0, top: 0, width: 0, height: 0 };
       this.opts.onAnnotTap?.({ cfiRange: d.value, anchor });
     });
 
@@ -865,17 +868,8 @@ export class EngineHost {
     const rects = Array.from(range.getClientRects()).filter((r) => r.width > 1 && r.height > 1);
     if (!rects.length) return null;
     const first = rects[0] as DOMRect;
-    let left = Infinity;
-    let top = Infinity;
-    let right = -Infinity;
-    let bottom = -Infinity;
-    for (const r of rects) {
-      left = Math.min(left, r.left);
-      top = Math.min(top, r.top);
-      right = Math.max(right, r.right);
-      bottom = Math.max(bottom, r.bottom);
-    }
     const g = this.frameGeom(doc);
+    const bounds = unionClientRects(rects, g);
     dlog('sel', {
       gl: Math.round(g.left),
       gt: Math.round(g.top),
@@ -897,12 +891,7 @@ export class EngineHost {
         width: first.width * g.scale,
         height: first.height * g.scale,
       },
-      bounds: {
-        left: g.left + left * g.scale,
-        top: g.top + top * g.scale,
-        width: (right - left) * g.scale,
-        height: (bottom - top) * g.scale,
-      },
+      bounds,
     };
   }
 

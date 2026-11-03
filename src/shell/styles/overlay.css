@@ -67,8 +67,83 @@
   padding-top: 12px;
 }
 
+/* 贴字的浮层：位置由 overlay.ts 量完尺寸后写 left/top（移动端下方、桌面端上方）。
+   这里的 top/left 只是 JS 还没落位时的兜底，不是最终位置。 */
 .bzs-float.is-anchored {
+  top: 72px;
+  left: 50%;
+  width: min(360px, calc(100vw - 24px));
+  transform: translateX(-50%);
   max-height: min(420px, calc(100vh - 160px));
+}
+
+/* 没有锚点的浮层（从侧栏打开）：桌面居中靠上；手机在 mobile.css 里改成贴底。 */
+.bzs-float.is-sheet {
+  top: 72px;
+  left: 50%;
+  width: min(360px, calc(100vw - 24px));
+  transform: translateX(-50%);
+}
+
+/* ── 文字工具框：点划线后的一排控件 ──
+   只有色点 / 写想法 / 删除；有想法时在下面原样显示那段文字。
+   不重复原文、不带章节与日期——UI 数量与文字量都压到最低。 */
+.bzs-float.is-anchored.bzs-hltools-panel {
+  width: max-content;
+  max-width: min(360px, calc(100vw - 24px));
+}
+
+.bzs-hltools {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bzs-hltools-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+}
+
+.bzs-hltools-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: var(--line-2);
+  flex: none;
+}
+
+.bzs-hltools .bzs-sbtn {
+  padding: 6px 7px;
+}
+
+.bzs-hltools .bzs-sbtn.danger:hover {
+  color: var(--vermilion);
+}
+
+.bzs-hltools-thought {
+  padding: 0 11px 9px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--t2);
+  max-height: 5.1em;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── 写想法：一个输入框 + 一个保存按钮，没有标题和取消 ── */
+.bzs-float.is-anchored.bzs-idea-panel {
+  width: min(360px, calc(100vw - 24px));
+}
+
+.bzs-float.bzs-idea-panel {
+  padding: 10px;
+}
+
+.bzs-idea-panel .bzs-sheet-input {
+  display: block;
 }
 
 @keyframes bzs-float-in {
@@ -632,7 +707,6 @@
   backdrop-filter: blur(22px) saturate(1.3);
   border: 1px solid var(--glass-line);
   box-shadow: var(--shadow-lg);
-  transform: translate(-50%, -100%);
   white-space: nowrap;
 }
 

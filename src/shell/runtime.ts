@@ -10,8 +10,8 @@
  * ============================================================ */
 
 export interface SelectionPayload {
-  /** 选区在宿主坐标系里的位置：想法/书摘卡贴着它弹，而不是跑到屏幕中间 */
-  anchor?: { left: number; top: number };
+  /** 整段选区在宿主坐标系里的矩形：想法 / 书摘贴着它弹，而不是跑到屏幕中间 */
+  anchor?: { left: number; top: number; width?: number; height?: number };
   text: string;
   bookId: string;
   chapterTitle: string;

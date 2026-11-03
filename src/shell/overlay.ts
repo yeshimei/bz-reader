@@ -10,18 +10,19 @@
  * 它的背景被覆盖成透明，所以不会给整屏染色。
  * ============================================================ */
 import { isMobileShell } from '../core/mobile';
-import { anchoredStyle } from './anchored-style';
+import { anchoredPlacement } from './anchored-style';
 import { sheetLift } from './keyboard-inset';
 import { ideaSheetActsHtml, ideaSheetBodyHtml } from './idea-sheet';
 import { highlightSheetActsHtml, highlightSheetBodyHtml } from './highlight-sheet';
+import { textToolbarHtml } from './text-toolbar';
 import { HIGHLIGHT_COLORS } from '../data/notes';
 import { aiAsk, type AiTask } from '../data/ai';
 import type { ReaderBook } from '../data/schema';
 import { collectStats } from '../data/stats';
 import { cn, esc, coverHtml, ico, MAG } from './render/html';
-import { bmksOf, fmtMinutes, fmtWhen, marksOf, penLabel } from './domain';
+import { bmksOf, fmtMinutes, fmtWhen, marksOf } from './domain';
 import { noteCardHtml } from './render/notes';
-import { closeOverlay, getState } from './state';
+import { closeOverlay, getState, isFloatOverlay } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
@@ -297,46 +298,46 @@ function overlayQuote(text?: string, bookId?: string, chapterTitle?: string): st
 }
 
 /**
- * 写想法：划线上方的小浮窗。
+ * 写想法：贴着划线的极简输入框。
  *
- * 以前是居中弹窗 + 一排「笔记 / 灵感 / 准备实践 / 反复看 / 疑问」的分类
- * chips。实际数据里想法没有分类字段，那排 chips 存不进去，只是摆着好看，
- * 还把输入框挤小了；现在只留「引文 + 输入框 + 保存」。
+ * 只有一个输入框和一个保存按钮；不重复原文、不放章节与说明。
+ * 已有想法会预填，所以再点一次「写想法」就是修改。
  * 无遮罩：想法常常要对照正文写，遮住半页反而写不出来。
  */
 function overlayIdea(markId?: string, bookId?: string): string {
   const found = markById(markId, bookId);
-  const anchor = anchoredStyle(getState().overlay?.anchor);
-  if (!found) {
-    return floatPanel('写想法', '', '<div class="bzs-empty">这条标注已不存在。</div>', '<button class="bzs-btn" data-act="close">关闭</button>', 'is-anchored', anchor);
-  }
+  if (!found) return bareFloat('<div class="bzs-empty">这条标注已不存在。</div>', 'bzs-idea-panel');
+  const payload = { value: found.mark.comment ?? '', markId: found.mark.id, bookId: found.book.id };
+  return bareFloat(`${ideaSheetBodyHtml(payload)}${ideaSheetActsHtml(payload)}`, 'bzs-idea-panel');
+}
+
+/**
+ * 文字工具框：点中已有划线时贴字弹出。
+ *
+ * 一排控件（色点 / 写想法 / 删除）；有想法就在下面原样展示。
+ * 不重复原文，也不带章节、日期、笔色说明——这些对正在操作这条线的人都是噪音。
+ */
+function overlayHltools(markId?: string, bookId?: string): string {
+  const found = markById(markId, bookId);
+  if (!found) return '';
   const { book, mark } = found;
-  /* 移动端用重写后的轻量卡：只有引用 + 输入框 + 取消/保存。
-     桌面保留原来的标题与配色说明，那边空间不紧张。 */
-  const payload = { quote: mark.text, value: mark.comment ?? '', markId: mark.id, bookId: book.id };
-  const body = isMobileShell()
-    ? ideaSheetBodyHtml(payload)
-    : `<div class="bzs-ai-quote">「${esc(mark.text)}」</div>
-    <textarea class="idea" data-role="idea" placeholder="这一句让你想到了什么…">${esc(mark.comment ?? '')}</textarea>
-    <div class="bzs-mini" style="margin-top:8px">想法会跟着划线出现在左侧栏、笔记页与导出稿里。</div>`;
-  const foot = isMobileShell()
-    ? ideaSheetActsHtml(payload)
-    : `<button class="bzs-btn pri" data-act="ideasave" data-id="${mark.id}" data-book="${book.id}">保存想法</button><span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>`;
-  return floatPanel(
-    isMobileShell() ? '' : '写想法',
-    isMobileShell() ? '' : `${penLabel(mark.color)} · ${esc(mark.chapterTitle ?? '')}`,
-    body,
-    foot,
-    'is-anchored',
-    anchor,
+  return bareFloat(
+    textToolbarHtml({
+      markId: mark.id,
+      bookId: book.id,
+      color: mark.color ?? 'amber',
+      colors: HIGHLIGHT_COLORS,
+      comment: mark.comment ?? '',
+    }),
+    'bzs-hltools-panel',
   );
 }
 
 /**
  * 划线卡的面板 HTML（不含弹窗外壳）。
  *
- * 点正文里的划线，打开的是阅读页顶部的浮层——不遮正文、不用关弹窗才能
- * 继续读。命令面板等没有阅读视图在场的场合才退回居中弹层，用同一份内容。
+ * 侧栏 / 命令面板打开时用（没有选区锚点）。正文里点划线走 hltools：
+ * 那里不重复原文，也不带章节与日期。
  */
 export function hlcardPanelHtml(markId?: string, bookId?: string): string | null {
   const found = markById(markId, bookId);
@@ -385,14 +386,22 @@ export function hlcardActsHtml(markId?: string, bookId?: string): string {
 /**
  * 浮层外壳：**没有遮罩**，也不吃正文上的点击。
  *
- * 只有两处用它——排版面板与划线卡。这两件事都得「一边看正文一边操作」：
- * 遮罩一压，正文糊掉，用户只能调完再关掉看效果，等于还是弹窗。
- * 所以浮层直接挂在 fixed 容器里，正文照旧可点可滚。
+ * 排版面板、划线卡、脚注与想法都得「一边看正文一边操作」：遮罩一压，
+ * 正文糊掉，用户只能调完再关掉看效果，等于还是弹窗。所以浮层直接挂在
+ * fixed 容器里，正文照旧可点可滚。
  *
- * @param anchor 给了坐标就贴在划线上方（左/上都是宿主视口坐标）
+ * 定位不写 inline style：由 paint() 量完实际尺寸后按锚点摆放；
+ * 没有锚点的（从侧栏打开）退回 CSS 里的居中/贴底。
  */
-function floatPanel(title: string, sub: string, body: string, foot = '', cls = '', style = ''): string {
-  return `<div class="bzs-float ${cls}" data-role="float"${style ? ` style="${style}"` : ''}>
+function floatPanel(
+  title: string,
+  sub: string,
+  body: string,
+  foot = '',
+  cls = '',
+  anchor?: { left: number; top: number },
+): string {
+  return `<div class="bzs-float ${cls} ${anchor ? 'is-anchored' : 'is-sheet'}" data-role="float">
     <div class="bzs-mhead"><b>${title}</b>${sub ? `<span class="n">${sub}</span>` : ''}<span class="sp"></span>
       <button class="x" data-act="close" title="关闭">${ico('x')}</button></div>
     <div class="bzs-mbody">${body}</div>
@@ -400,20 +409,20 @@ function floatPanel(title: string, sub: string, body: string, foot = '', cls = '
   </div>`;
 }
 
-/** 当前弹层是不是「浮层」（无遮罩、点外面关闭） */
-function isFloatKind(): boolean {
-  const k = getState().overlay?.kind;
-  return k === 'typography' || k === 'hlcard' || k === 'footnote' || k === 'idea';
+/**
+ * 无头浮层：只有内容，没有标题与关闭按钮。
+ * 关掉靠点外面（OverlayLayer 的文档级收口），不再多一枚 ✕。
+ */
+function bareFloat(body: string, cls: string): string {
+  return `<div class="bzs-float ${cls} is-anchored" data-role="float">${body}</div>`;
 }
 
 /**
- * 划线上方定位。
+ * 侧栏 / 命令面板打开的划线卡（带原文与全部动作）。
  *
- * 卡片底边离那行字 14px；上方放不下（贴着屏幕顶）就翻到下方——
- * 比强行顶出视口好，用户至少还看得见。宽度固定、不随文字变：
- * 一条短划线和一条长段落点开应该是同一张卡。
+ * 正文里点划线走的是 hltools（极简工具条）；这里保留完整卡片，
+ * 因为从侧栏点进来时列表里虽然有原文，但换色、书摘、双向链接还在卡上。
  */
-
 function overlayHlcard(markId?: string, bookId?: string): string {
   const found = markById(markId, bookId);
   const sheet = found
@@ -430,7 +439,7 @@ function overlayHlcard(markId?: string, bookId?: string): string {
   const body = useSheet ? highlightSheetBodyHtml(sheet) : hlcardPanelHtml(markId, bookId) ?? '<div class="bzs-empty">这条标注已不存在。</div>';
   const foot = useSheet ? highlightSheetActsHtml(sheet) : hlcardActsHtml(markId, bookId);
   const anchor = getState().overlay?.anchor;
-  return floatPanel('标注', esc(found?.mark.chapterTitle ?? ''), body, foot, 'is-anchored', anchoredStyle(anchor));
+  return floatPanel('标注', esc(found?.mark.chapterTitle ?? ''), body, foot, '', anchor);
 }
 
 /**
@@ -440,7 +449,7 @@ function overlayHlcard(markId?: string, bookId?: string): string {
 function overlayFootnote(text?: string, href?: string): string {
   const body = `<div class="bzs-fntext">${esc(text ?? '')}</div>`;
   const foot = href ? `<button class="bzs-btn" data-act="jumpch" data-href="${esc(href)}">跳到原文</button><span class="sp"></span><button class="bzs-btn" data-act="close">关闭</button>` : '';
-  return floatPanel('脚注', '', body, foot, 'is-anchored', anchoredStyle(getState().overlay?.anchor));
+  return floatPanel('脚注', '', body, foot, '', getState().overlay?.anchor);
 }
 
 const AI_MODES: Array<{ key: AiTask; label: string }> = [
@@ -785,6 +794,8 @@ export function overlayHtml(): string {
       return overlayQuote(o.text, o.bookId, o.chapterTitle);
     case 'idea':
       return overlayIdea(o.markId, o.bookId);
+    case 'hltools':
+      return overlayHltools(o.markId, o.bookId);
     case 'hlcard':
       return overlayHlcard(o.markId, o.bookId);
     case 'footnote':
@@ -854,29 +865,24 @@ export class OverlayLayer {
    * 用捕获阶段的 pointerdown，且**不阻断**事件——点正文照样能选字、翻页。
    */
   private onDocPointer = (e: PointerEvent): void => {
-    if (!isFloatKind()) return;
+    if (!isFloatOverlay(getState().overlay?.kind)) return;
     const t = e.target as Node | null;
     if (t && this.root.contains(t)) return;
     closeOverlay();
   };
 
   private onDocKey = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape' && isFloatKind()) closeOverlay();
+    if (e.key === 'Escape' && isFloatOverlay(getState().overlay?.kind)) closeOverlay();
   };
 
   constructor(private onAction: (act: string, el: HTMLElement) => void) {
     this.root = document.createElement('div');
     this.root.className = 'bzs-shell bzs-overlay-root';
-    /* 键盘弹起时把贴底卡抬到键盘之上：安卓 WebView 不一定缩小 layout viewport，
-       单靠 CSS bottom 会被键盘盖住（输入框看不见但焦点在）。 */
+    /* 视口一变（手机键盘弹起 / 桌面改窗口大小）就重新摆位：
+       锚点浮层贴着文字，贴底卡抬到键盘之上。 */
+    const sync = (): void => this.syncPosition();
     const vv = window.visualViewport;
     if (vv && isMobileShell()) {
-      const sync = (): void => {
-        const lift = sheetLift({ innerHeight: window.innerHeight, visualHeight: vv.height });
-        for (const el of Array.from(this.root.querySelectorAll<HTMLElement>('.bzs-float.is-anchored'))) {
-          el.style.setProperty('bottom', `calc(${10 + lift}px + env(safe-area-inset-bottom, 0px))`, 'important');
-        }
-      };
       vv.addEventListener('resize', sync);
       vv.addEventListener('scroll', sync);
       this.disposers.push(() => {
@@ -884,6 +890,8 @@ export class OverlayLayer {
         vv.removeEventListener('scroll', sync);
       });
     }
+    window.addEventListener('resize', sync);
+    this.disposers.push(() => window.removeEventListener('resize', sync));
     document.body.appendChild(this.root);
     document.addEventListener('pointerdown', this.onDocPointer, true);
     document.addEventListener('keydown', this.onDocKey, true);
@@ -939,11 +947,52 @@ export class OverlayLayer {
     this.paint();
   }
 
+  /**
+   * 把浮层摆到文字旁边。
+   *
+   * 量的是渲染后的真实尺寸（想法框会因为内容变高），再交给纯函数算：
+   * 移动端贴文字下方、桌面端贴上方，放不下才翻边。
+   * 尺寸拿不到（还没布局）时保留 CSS 兜底位置，不会闪到屏幕角上。
+   */
+  private placeAnchored(): void {
+    const anchor = getState().overlay?.anchor;
+    if (!anchor) return;
+    const el = this.root.querySelector<HTMLElement>('.bzs-float.is-anchored');
+    if (!el) return;
+    const vv = window.visualViewport;
+    const view =
+      isMobileShell() && vv
+        ? { width: vv.width, height: vv.height, top: vv.offsetTop }
+        : { width: window.innerWidth, height: window.innerHeight };
+    const pos = anchoredPlacement(
+      anchor,
+      { width: el.offsetWidth, height: el.offsetHeight },
+      view,
+      isMobileShell() ? 'below' : 'above',
+    );
+    el.style.left = `${pos.left}px`;
+    el.style.top = `${pos.top}px`;
+    el.style.transform = 'none';
+  }
+
+  /** 视口变化后的统一收口：锚点浮层重新贴字，贴底小卡避让键盘 */
+  private syncPosition(): void {
+    this.placeAnchored();
+    const vv = window.visualViewport;
+    if (!isMobileShell() || !vv) return;
+    const lift = sheetLift({ innerHeight: window.innerHeight, visualHeight: vv.height });
+    for (const el of Array.from(this.root.querySelectorAll<HTMLElement>('.bzs-float.is-sheet'))) {
+      el.style.setProperty('bottom', `calc(${10 + lift}px + env(safe-area-inset-bottom, 0px))`, 'important');
+    }
+  }
+
   private paint(): void {
     this.setAccent(shellPrefs().accent);
     this.root.innerHTML = overlayHtml();
     if (!this.root.innerHTML) this.lastKind = '';
     const o = getState().overlay;
+    /* 先摆位再聚焦：聚焦可能让键盘立刻弹起，位置要在那之前是对的 */
+    this.placeAnchored();
     if (o?.kind === 'search') {
       const input = this.root.querySelector<HTMLInputElement>('[data-role="searchkw"]');
       input?.focus();
@@ -969,6 +1018,8 @@ export class OverlayLayer {
   destroy(): void {
     document.removeEventListener('pointerdown', this.onDocPointer, true);
     document.removeEventListener('keydown', this.onDocKey, true);
+    for (const off of this.disposers) off();
+    this.disposers = [];
     this.root.remove();
   }
 }
