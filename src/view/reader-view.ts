@@ -103,7 +103,7 @@ export class ReaderView extends ItemView {
   private lastKeyBefore = '';
   private lastKeyAfter = '';
   /** 每次发版手动改，和 manifest 一起确认手机跑的是哪一版 */
-  private static readonly BUILD_TAG = '0.1.4+1320';
+  private static readonly BUILD_TAG = '0.1.5+1357';
 
   /* 并排对照：副卷自己一套引擎，主卷的进度与标注一概不受影响 */
   private parallelOn = false;
