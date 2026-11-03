@@ -12,7 +12,7 @@
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { anchoredPlacement } from './anchored-style';
 import { sheetLift } from './keyboard-inset';
-import { ideaSheetBodyHtml } from './idea-sheet';
+import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
 import { textToolbarHtml } from './text-toolbar';
 import { aiCardHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, quoteCardHtml } from './reader-cards';
 import { HIGHLIGHT_COLORS } from '../data/notes';
@@ -23,7 +23,7 @@ import { cn, esc, coverHtml, ico, MAG } from './render/html';
 import { bmksOf, fmtMinutes, fmtWhen, marksOf } from './domain';
 import { noteCardHtml } from './render/notes';
 import { searchFormHtml, searchResultsHtml } from './render/search';
-import { closeOverlay, dismissesOnOutside, getState, markIdeaDirty, setState } from './state';
+import { closeOverlay, dismissesOnTap, getState, markIdeaDirty, setState, setIdeaDraft } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
@@ -275,12 +275,16 @@ function overlayQuote(text?: string, bookId?: string, chapterTitle?: string): st
  * 只有一个输入区和一颗发送键；不重复原文、不放章节与说明。
  * 已有想法会预填，所以再点一次「写想法」就是修改。
  * 无遮罩：想法常常要对照正文写，遮住半页反而写不出来。
- * 有未保存内容时按 Esc / 点外面，先出二次确认（state.ideaDirty）。
+ * 有未保存内容时点外面 / 按 Esc，先出二次确认（state.ideaDirty）。
  */
 function overlayIdea(markId?: string, bookId?: string): string {
   const found = markById(markId, bookId);
   if (!found) return bareFloat('<div class="bzs-empty">这条标注已不存在。</div>', 'bzs-idea-panel');
-  const payload = { value: found.mark.comment ?? '', markId: found.mark.id, bookId: found.book.id };
+  const payload = {
+    value: ideaValue(getState().ideaDraft, found.mark.comment),
+    markId: found.mark.id,
+    bookId: found.book.id,
+  };
   const confirm = getState().ideaConfirm ? ideaConfirmHtml() : '';
   return bareFloat(`${ideaSheetBodyHtml(payload)}${confirm}`, 'bzs-idea-panel');
 }
@@ -773,12 +777,15 @@ export class OverlayLayer {
   private lastKind = '';
 
   /**
-   * 浮层（排版 / 工具条 / 脚注）没有遮罩，所以「点空白处关闭」得自己在
-   * 文档级收：用捕获阶段的 pointerdown，且**不阻断**事件——点正文照样能选字、翻页。
-   * 写想法不在这条路上：它是有内容要保护输入框，只认取消 / 保存 / Esc。
+   * 浮层（排版 / 工具条 / 脚注 / 书摘 / AI / 想法）没有遮罩，所以「点空白处
+   * 关闭」得自己在文档级收：用捕获阶段的 pointerdown，且**不阻断**事件——
+   * 点正文照样能选字、翻页。
+   *
+   * 写想法也走这条路：空着直接关，有字先亮确认条（判断在 closeOverlay 里）。
+   * 唯一的例外是点浮层自己——那一下是用户在操作这张卡。
    */
   private onDocPointer = (e: PointerEvent): void => {
-    if (!dismissesOnOutside(getState().overlay?.kind)) return;
+    if (!dismissesOnTap(getState().overlay?.kind)) return;
     const t = e.target as Node | null;
     if (t && this.root.contains(t)) return;
     closeOverlay();
@@ -834,10 +841,14 @@ export class OverlayLayer {
       const t = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
       const role = t?.dataset?.role;
       if (!role) return;
-      /* 想法：打过字才需要关闭前确认。初始预填的旧想法不算「未保存」，
-         否则每次点开再点关都要问一遍。 */
+      /* 想法：记下正在打的字（重绘时要放回去），并判断有没有改动。
+         「有改动」比「非空」准确：打开一条已有想法、什么都不改就点别处，
+         不该被问一遍；把旧想法整条删掉反而是改动，必须问。 */
       if (role === 'idea') {
-        markIdeaDirty(t.value.trim() !== '');
+        const o = getState().overlay;
+        const found = o ? markById(o.markId, o.bookId) : null;
+        setIdeaDraft(t.value);
+        markIdeaDirty(t.value.trim() !== (found?.mark.comment ?? '').trim());
         return;
       }
       // 搜索框就地更新命中列表：重绘会把输入框换掉，手指还在打就被打断
@@ -865,13 +876,11 @@ export class OverlayLayer {
   sync(): void {
     const o = getState().overlay;
     const kind = o?.kind ?? '';
-    // 同一种弹层只重画一次；关闭时清空
-    if (kind === this.lastKind && kind !== '') {
-      this.paint();
-      return;
-    }
+    /* 同一种弹层重画不算「打开」：亮确认条、点「继续写」都会走到这里，
+       重新聚焦会把手机键盘再顶起来一次，而用户的手刚离开输入框。 */
+    const opening = kind !== this.lastKind;
     this.lastKind = kind;
-    this.paint();
+    this.paint(opening);
   }
 
   /**
@@ -915,7 +924,7 @@ export class OverlayLayer {
     }
   }
 
-  private paint(): void {
+  private paint(refocus = true): void {
     this.setAccent(shellPrefs().accent);
     this.root.innerHTML = overlayHtml();
     if (!this.root.innerHTML) this.lastKind = '';
@@ -933,8 +942,9 @@ export class OverlayLayer {
       input?.setSelectionRange(len, len);
     }
     if (o?.kind === 'ai' || o?.kind === 'translate') void runAiForOverlay();
-    // 想法浮窗：打开就把光标放进输入框，少一次点击
-    if (o?.kind === 'idea') this.root.querySelector<HTMLTextAreaElement>('[data-role="idea"]')?.focus();
+    /* 想法浮窗：打开就把光标放进输入框，少一次点击。
+       之后的重画（亮确认条）不再抢焦点——手刚离开输入框。 */
+    if (o?.kind === 'idea' && refocus) this.root.querySelector<HTMLTextAreaElement>('[data-role="idea"]')?.focus();
     if (o?.kind === 'rename') {
       const input = this.root.querySelector<HTMLInputElement>('[data-role="rename"]');
       input?.focus();

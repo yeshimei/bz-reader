@@ -72,13 +72,23 @@ export function isFloatOverlay(kind?: OverlayKind | null): boolean {
 }
 
 /**
- * 点「别处」要不要把它关掉。
+ * 点一下「别处」，算不算一次关闭请求。
  *
- * 写想法是唯一例外：它是**有内容要保护**的输入框，点正文、点遮罩、
- * 划到另一条划线都可能发生在打字途中，关掉就等于内容丢失。
- * 出口只留取消 / 保存 / Esc 三条。
+ * 写想法也算：输入框空着就直接关，有字就由 closeOverlay 先亮确认条。
+ * 以前这里把 idea 排除掉，结果不是「保护输入」而是「根本关不掉」——
+ * 关闭请求压根发不出去，ESC 之外没有任何出口，手机还变成点一下就翻页。
  */
-export function dismissesOnOutside(kind?: OverlayKind | null): boolean {
+export function dismissesOnTap(kind?: OverlayKind | null): boolean {
+  return isFloatOverlay(kind);
+}
+
+/**
+ * 开始一段新划词，算不算一次关闭请求。
+ *
+ * 写想法仍然例外：选一段正文粘进想法是常用操作，一选就收等于把正在
+ * 写的字丢了。这里的「别处」不是一次点击，用户没有表达要离开。
+ */
+export function dismissesOnSelect(kind?: OverlayKind | null): boolean {
   return isFloatOverlay(kind) && kind !== 'idea';
 }
 
@@ -122,6 +132,20 @@ export function overlayKey(o?: OverlayState | null): string {
   ].join('|');
 }
 
+/**
+ * 浮层「要不要重画」的键。
+ *
+ * 比 overlayKey 多一笔**同一弹层内部的可见状态**：写想法的确认条。
+ * 它不是换一种弹层，只是同一张卡片下面多一行字——只比 overlayKey 的话
+ * 订阅方认为「内容没变」直接跳过，确认条就永远不出现；而状态里其实已经
+ * 置了「已确认」，下一下点击就把用户写了一半的字丢掉。
+ */
+export function overlayRenderKey(s: { overlay: OverlayState | null; ideaConfirm: boolean }): string {
+  const base = overlayKey(s.overlay);
+  if (!base) return '';
+  return s.overlay?.kind === 'idea' && s.ideaConfirm ? `${base}|confirm` : base;
+}
+
 export interface ShellState {
   /* 承载 */
   studyPage: StudyPage;
@@ -155,6 +179,13 @@ export interface ShellState {
   ideaDirty: boolean;
   /** 二次确认那一条正在显示（再按一次关闭才真的关） */
   ideaConfirm: boolean;
+  /**
+   * 正在写、还没保存的想法正文（null = 没动过输入框，显示书里存的那条）。
+   *
+   * 必须存一份：亮确认条 / 点「继续写」都会重绘浮层，输入框是重建的，
+   * 只从已保存的标注里取值的话，用户打了一半的字会在这一刻被抹掉。
+   */
+  ideaDraft: string | null;
   /* 真实数据里没有、但书库需要 */
   favIds: string[];
   shelves: Record<string, string>;
@@ -183,6 +214,7 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   overlay: null,
   ideaDirty: false,
   ideaConfirm: false,
+  ideaDraft: null,
   favIds: [],
   shelves: {},
 };
@@ -247,7 +279,7 @@ export function mutateState(fn: (s: ShellState) => void): void {
 
 function persist(): void {
   try {
-    const { overlay, libKw, noteKw, searchKw, ...rest } = state;
+    const { overlay, libKw, noteKw, searchKw, ideaDraft, ...rest } = state;
     // 浮层与输入框内容不落盘：下次打开还停在上次的弹窗上很怪
     window.localStorage.setItem(LS_KEY, JSON.stringify(rest));
   } catch {
@@ -277,19 +309,22 @@ export function openOverlay(o: OverlayState): void {
     s.overlay = o;
     s.ideaDirty = false;
     s.ideaConfirm = false;
+    s.ideaDraft = null;
   });
 }
 
 /**
  * 关浮层。
  *
- * 写想法是唯一需要拦一下的：里面可能有一段没保存的字。第一次关闭只把
- * 二次确认条亮出来（「还有没保存的内容，要丢弃吗？」），再关一次才真的丢。
- * 用「已经确认过」当判据而不是再弹一个模态——输入内容全程都在，看得见。
+ * 写想法要先问一句：里可能有没保存的字。第一次关闭只把确认条亮出来，
+ * 再关一次才真的丢。用「已经确认过」当判据而不是再弹一个模态——输入
+ * 内容全程都在，看得见。
+ *
+ * `force` 给「保存」用：用户点了发送键，意思就是要这条，不该再问。
  */
-export function closeOverlay(): void {
+export function closeOverlay(opts?: { force?: boolean }): void {
   const o = state.overlay;
-  if (o?.kind === 'idea' && state.ideaDirty && !state.ideaConfirm) {
+  if (!opts?.force && o?.kind === 'idea' && state.ideaDirty && !state.ideaConfirm) {
     mutateState((s) => {
       s.ideaConfirm = true;
     });
@@ -299,6 +334,7 @@ export function closeOverlay(): void {
     s.overlay = null;
     s.ideaDirty = false;
     s.ideaConfirm = false;
+    s.ideaDraft = null;
   });
 }
 
@@ -306,6 +342,16 @@ export function closeOverlay(): void {
 export function markIdeaDirty(dirty: boolean): void {
   if (state.ideaDirty === dirty) return;
   state.ideaDirty = dirty;
+}
+
+/**
+ * 记下正在打的字，不广播。
+ *
+ * 用 setStateQuiet：每敲一个字都重绘的话输入框会被换掉、光标丢、
+ * 中文输入法还会被打断。真正需要它的是之后那次重绘（亮确认条）。
+ */
+export function setIdeaDraft(value: string): void {
+  state.ideaDraft = value;
 }
 
 /** 「继续写」：收掉确认条，输入框原样留着 */

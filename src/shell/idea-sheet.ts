@@ -25,6 +25,17 @@ function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
 }
 
+/**
+ * 输入框里该显示什么。
+ *
+ * `draft === null` 表示用户还没动过输入框，显示书里存的那条想法；
+ * 一旦动过（哪怕是清空），就以草稿为准——否则把旧想法删掉再点别处，
+ * 重绘一次它又长回来了。
+ */
+export function ideaValue(draft: string | null | undefined, saved: string | undefined): string {
+  return draft ?? saved ?? '';
+}
+
 /** 纸飞机：点一下就存，不叫「保存」也不叫「确定」 */
 const SEND_ICON =
   '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-7-7 16-2-7z"/></svg>';

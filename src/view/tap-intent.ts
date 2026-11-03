@@ -6,7 +6,7 @@
  *
  * 优先级：划词条 > 浮层 > 翻页。
  */
-import { dismissesOnOutside, isFloatOverlay, type OverlayKind } from '../shell/state';
+import { dismissesOnTap, isFloatOverlay, type OverlayKind } from '../shell/state';
 
 export type TapIntent = 'dismiss-selbar' | 'dismiss-overlay' | 'turn' | 'idle';
 
@@ -23,8 +23,10 @@ export function tapIntent(ctx: TapContext): TapIntent {
   /* 划词条不是 overlay：它挂在阅读视图里，选区塌了要等 320ms 才收。
      不在这里拦，点正文会先翻页、条子随后才消失。 */
   if (ctx.selbar) return 'dismiss-selbar';
+  /* 浮层开着时，这一下是关闭请求（写想法也是，只是它自己会先问一句），
+     绝不能同时翻页——手机上一划就是掉内容。 */
   if (isFloatOverlay(ctx.overlayKind)) {
-    return dismissesOnOutside(ctx.overlayKind) ? 'dismiss-overlay' : 'idle';
+    return dismissesOnTap(ctx.overlayKind) ? 'dismiss-overlay' : 'idle';
   }
   return ctx.mobile ? 'turn' : 'idle';
 }

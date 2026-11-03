@@ -1083,7 +1083,8 @@ function saveIdea(markId?: string, bookId?: string): void {
   const text = ta?.value.trim() ?? '';
   if (setHighlightComment(book, markId, text)) {
     getShellSource()?.store.touch();
-    closeOverlay();
+    /* force：用户已经点了发送键，这一条就是他要的结果，不该再问「要丢弃吗」 */
+    closeOverlay({ force: true });
     repaint();
     emitNotesChanged();
     notify(text ? '想法已保存' : '想法已清空');

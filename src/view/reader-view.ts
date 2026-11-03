@@ -46,7 +46,7 @@ import { VIEW_TYPE_TOC } from './side-view';
    （表现：主题不跟随、侧栏与排版面板以为没打开书）。 */
 import {
   closeOverlay,
-  dismissesOnOutside,
+  dismissesOnSelect,
   getState as getShellState,
   setState as setShellState,
   subscribe,
@@ -1161,7 +1161,7 @@ export class ReaderView extends ItemView {
           /* 开始新的划词 = 离开上一段交互：浮层（工具条 / 脚注）收掉，
              再把划词条贴到新选区下方。写想法不收——选一段原文再粘进想法
              是常见操作，收掉就等于把正在写的内容丢了。 */
-          if (dismissesOnOutside(getShellState().overlay?.kind)) closeOverlay();
+          if (dismissesOnSelect(getShellState().overlay?.kind)) closeOverlay();
           /* 选中不立刻落笔：移动端要留着系统选区与两端手柄，让用户先把范围
              调准，再点颜色。以前「选中即划」会在长按结束的瞬间落一条，
              想改范围就只能撤销重来。 */

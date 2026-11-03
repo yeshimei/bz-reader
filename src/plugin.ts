@@ -44,7 +44,7 @@ import { openCrossSearch } from './ui/cross-search-panel';
 import { StudyView, VIEW_TYPE_STUDY } from './shell/study-view';
 import { OverlayLayer } from './shell/overlay';
 import { dispatchAction } from './shell/actions';
-import { isStudyTab, loadShellState, notify as notifyShell, overlayKey, setState, getState, subscribe, type ShellState, type StudyPage } from './shell/state';
+import { isStudyTab, loadShellState, notify as notifyShell, overlayRenderKey, setState, getState, subscribe, type ShellState, type StudyPage } from './shell/state';
 import { setShellSource, shellPrefs } from './shell/source';
 
 export interface PluginConfig {
@@ -328,8 +328,9 @@ export function createPlugin(cfg: PluginConfig) {
       let last = '';
       const sync = (): void => {
         const s = getState();
-        // 内容键含 text/href/anchor：同 kind 换一条内容（第二次点脚注）也要重画
-        const key = overlayKey(s.overlay);
+        // 内容键含 text/href/anchor：同 kind 换一条内容（第二次点脚注）也要重画；
+        // 含写想法的确认条：那是同一张卡里的可见变化，漏了它确认条不会出现
+        const key = overlayRenderKey(s);
         // 强调色不进 key：改档只换 CSS 变量，不需要重画弹层内容
         this.overlay?.setAccent(shellPrefs().accent);
         if (key !== last) {

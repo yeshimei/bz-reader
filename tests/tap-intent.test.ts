@@ -21,8 +21,11 @@ describe('tapIntent', () => {
     expect(tapIntent({ selbar: false, mobile: true, overlayKind: 'ai' })).toBe('dismiss-overlay');
   });
 
-  it('写想法开着：不关也不翻（内容是正在打的字）', () => {
-    expect(tapIntent({ selbar: false, mobile: true, overlayKind: 'idea' })).toBe('idle');
+  /* 写想法也是「点别处就关」，只是关之前要问一句。问不问由 closeOverlay
+     根据输入框内容决定；点这一下本身必须先变成关闭请求，否则永远关不掉。 */
+  it('写想法开着：点别处是关闭请求，不翻页', () => {
+    expect(tapIntent({ selbar: false, mobile: true, overlayKind: 'idea' })).toBe('dismiss-overlay');
+    expect(tapIntent({ selbar: false, mobile: false, overlayKind: 'idea' })).toBe('dismiss-overlay');
   });
 
   it('移动端没有浮层：翻页', () => {

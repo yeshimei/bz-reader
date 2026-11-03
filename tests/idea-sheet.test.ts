@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ideaSheetBodyHtml, ideaSheetHtml } from '../src/shell/idea-sheet';
+import { ideaSheetBodyHtml, ideaSheetHtml, ideaValue } from '../src/shell/idea-sheet';
 
 /**
  * 写想法 = 一条输入框 + 一颗发送键（S10 定稿）。
@@ -58,6 +58,22 @@ describe('ideaSheetBodyHtml · 发送键', () => {
     const html = ideaSheetBodyHtml(base);
     expect(html).toContain('<svg');
     expect(html).toContain('class="send"');
+  });
+});
+
+describe('ideaValue', () => {
+  it('没动过输入框：用书里存的那条', () => {
+    expect(ideaValue(null, '旧想法')).toBe('旧想法');
+  });
+
+  it('动过：用草稿，哪怕被清空（用户就是要清空）', () => {
+    expect(ideaValue('', '旧想法')).toBe('');
+    expect(ideaValue('新的', '旧想法')).toBe('新的');
+  });
+
+  it('两边都没有：空串', () => {
+    expect(ideaValue(null, undefined)).toBe('');
+    expect(ideaValue(undefined, undefined)).toBe('');
   });
 });
 
