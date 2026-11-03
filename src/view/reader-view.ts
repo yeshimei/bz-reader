@@ -36,6 +36,7 @@ import { envSummary, probeBlobIframe } from '../core/diagnose';
 import { el } from '../ui/dom';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
 import { headerActionIds, headerActionSpec, headerActive } from './header-actions';
+import { selActions } from '../shell/text-toolbar';
 import { VIEW_TYPE_TOC } from './side-view';
 
 /* 注意：本类为了给 Obsidian 存 view 状态，重写了 getState()。
@@ -1005,11 +1006,9 @@ export class ReaderView extends ItemView {
       });
       return b;
     };
-    bar.append(mk('想法', 'selidea'), mk('书摘', 'selquote'));
-    /* AI 属于高级能力：基础版构建里连按钮都不出现，
-       不做成灰的锁标——那是每次划词都提醒一次「你没买」。 */
-    if (can('ai')) bar.appendChild(mk('AI 解释', 'selai'));
-    bar.appendChild(mk('复制', 'selcopy'));
+    /* 顺序与文案见 selActions()：想法 / 书摘 / AI / 复制。
+       AI 属于高级能力，基础版构建里整颗不出现（不是灰锁）。 */
+    for (const a of selActions(can('ai'))) bar.appendChild(mk(a.label, a.act));
 
     /* 点工具条不能把系统的选区和手柄清掉：pointerdown 默认会让 iframe 失焦，
        选区一塌，后面所有动作都拿不到文本了。 */

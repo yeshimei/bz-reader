@@ -11,6 +11,7 @@
  *   3. 失败要说人话（notify），不要静默——用户点一下没反应比报错更难受。
  * ============================================================ */
 import { Menu } from 'obsidian';
+import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
 import { aiAsk } from '../data/ai';
 import {
@@ -36,7 +37,7 @@ import { linkInline, linkQuote, rawUrl, targetOfMark, wikiLink } from '../data/d
 import { exportBookNotes } from '../data/export';
 import { jumpTo, getToc } from '../view/toc-state';
 import type { OverlayKind, StudyPage } from './state';
-import { closeOverlay, getState, mutateState, openOverlay, setState, toggleFav } from './state';
+import { closeOverlay, cancelIdeaClose, getState, mutateState, openOverlay, setState, toggleFav } from './state';
 import { RT, emitNotesChanged, pushAi } from './runtime';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 
@@ -62,6 +63,26 @@ function repaint(): void {
 
 function overlay(kind: OverlayKind, extra: Record<string, unknown> = {}): void {
   openOverlay({ kind, ...extra });
+}
+
+/**
+ * 追加一段进导出目录里这本书的笔记（书摘「存笔记」与 AI「存为笔记」共用）。
+ *
+ * 不覆盖已有内容：同一本书可以连着存好几段，路径与导出功能一致
+ * （设置里的导出目录 + 书名），用户之后手动整理也在同一处。
+ */
+async function appendToExport(app: App, book: ReaderBook | undefined, block: string): Promise<void> {
+  const dir = (shellSettings().exportDir || '书摘').replace(/^\/+|\/+$/g, '') || '书摘';
+  const name = book?.meta.title || '零散片段';
+  const path = `${dir}/${name}.md`;
+  try {
+    if (!(await app.vault.adapter.exists(dir))) await app.vault.adapter.mkdir(dir);
+    const head = (await app.vault.adapter.exists(path)) ? await app.vault.adapter.read(path) : `# ${name}\n`;
+    await app.vault.adapter.write(path, `${head.trimEnd()}\n\n${block}\n`);
+    notify(`已存进 ${path}`);
+  } catch (e) {
+    notify(`存笔记失败：${(e as Error).message}`);
+  }
 }
 
 /* ─────────── 书签 / 标注 ─────────── */
@@ -744,7 +765,14 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
     case 'selquote':
       // 字段名必须是 chapterTitle：OverlayState 上没有 chapter，
       // 传过去会被丢掉，书摘卡就只能退回 RT.sel，某些路径下章节名是空的
-      if (RT.sel) overlay('quote', { text: RT.sel.text, bookId: RT.sel.bookId, chapterTitle: RT.sel.chapterTitle });
+      if (RT.sel)
+        overlay('quote', {
+          text: RT.sel.text,
+          bookId: RT.sel.bookId,
+          chapterTitle: RT.sel.chapterTitle,
+          /* 书摘是贴选区的浮卡（不是居中弹窗），锚点必须带上 */
+          anchor: RT.sel.anchor,
+        });
       break;
     case 'seldict':
       if (RT.sel) overlay('dict', { word: RT.sel.text.slice(0, 8) });
@@ -753,7 +781,8 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       if (RT.sel && requireCap('ai')) overlay('translate', { text: RT.sel.text });
       break;
     case 'selai':
-      if (RT.sel && requireCap('ai')) overlay('ai', { text: RT.sel.text, mode: 'explain' });
+      if (RT.sel && requireCap('ai'))
+        overlay('ai', { text: RT.sel.text, mode: 'explain', anchor: RT.sel.anchor });
       break;
     case 'selcopy':
       if (RT.sel) void copyText(RT.sel.text);
@@ -787,13 +816,56 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       notify('界面状态已重置');
       break;
 
-    /* ── AI 回答存为笔记：直接落到剪贴板，不伪造一条没有出处的标注 ── */
-    case 'aisave': {
+    /* ── AI 卡上的三个动作（S10 定稿） ── */
+    case 'aicopy': {
       const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
       const answer = node?.textContent?.trim() || '';
       if (answer) void copyText(answer);
       break;
     }
+    /* 重试：结果回填到卡里，不关卡——失败原因还留在上面 */
+    case 'airetry': {
+      const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
+      const text = getState().overlay?.text || RT.sel?.text || '';
+      if (node) node.textContent = '正在请求…';
+      void aiAsk(shellSettings(), 'explain', text)
+        .then((res) => {
+          if (node) node.textContent = res.text;
+        })
+        .catch((e: Error) => {
+          if (node) node.textContent = e.message;
+        });
+      break;
+    }
+    /* 存为笔记：落进导出目录，不伪造一条没有出处的标注 */
+    case 'aisave': {
+      const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
+      const answer = node?.textContent?.trim() || '';
+      const app = getShellSource()?.app;
+      const book = currentBook();
+      if (!answer || !app) break;
+      void appendToExport(app, book, `## AI 回答\n\n${answer}\n`);
+      break;
+    }
+
+    /* ── 书摘卡：存笔记 ── */
+    case 'quotesave': {
+      const app = getShellSource()?.app;
+      const book = currentBook();
+      if (!app || !book) break;
+      void exportBookNotes(app, book, shellSettings()).then((res) => {
+        notify(res ? `已存进 ${res.path}` : '这本书还没有可存的标注');
+      });
+      break;
+    }
+
+    /* ── 写想法：关闭前的二次确认 ── */
+    case 'ideakeep':
+      cancelIdeaClose();
+      break;
+    case 'ideadiscard':
+      closeOverlay();
+      break;
 
     /* ── 其它 ── */
     case 'addbookmark': {

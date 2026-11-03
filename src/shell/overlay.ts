@@ -12,8 +12,9 @@
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { anchoredPlacement } from './anchored-style';
 import { sheetLift } from './keyboard-inset';
-import { ideaSheetActsHtml, ideaSheetBodyHtml } from './idea-sheet';
+import { ideaSheetBodyHtml } from './idea-sheet';
 import { textToolbarHtml } from './text-toolbar';
+import { aiCardHtml, footnoteCardHtml, ideaConfirmHtml, quoteCardHtml } from './reader-cards';
 import { HIGHLIGHT_COLORS } from '../data/notes';
 import { aiAsk, type AiTask } from '../data/ai';
 import type { ReaderBook } from '../data/schema';
@@ -22,7 +23,7 @@ import { cn, esc, coverHtml, ico, MAG } from './render/html';
 import { bmksOf, fmtMinutes, fmtWhen, marksOf } from './domain';
 import { noteCardHtml } from './render/notes';
 import { searchFormHtml, searchResultsHtml } from './render/search';
-import { closeOverlay, dismissesOnOutside, getState, setState } from './state';
+import { closeOverlay, dismissesOnOutside, getState, markIdeaDirty, setState } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
@@ -236,38 +237,36 @@ function overlayBookmap(): string {
   return modal('全书鸟瞰', '全书一屏鸟瞰', body, closeBtn(), 'wide tall');
 }
 
+/**
+ * 书摘卡（S10 定稿）：贴在选区上方的双栏浮卡，不是居中弹窗。
+ *
+ * 左栏引文 + 出处，右栏两颗按钮。做成浮卡是因为「摘下来」之后最常做的事
+ * 是把引文复制进正在写的东西里——一遮屏就看不见自己要粘到哪了。
+ */
 function overlayQuote(text?: string, bookId?: string, chapterTitle?: string): string {
   const book = bookById(bookId ?? getState().bookId);
   const t = text || RT.sel?.text || '';
   const ch = chapterTitle || RT.sel?.chapterTitle || '未命名章节';
-  const body = `<div class="bzs-qcard">
-      <div class="q">${esc(t)}</div>
-      <div class="loc">${esc(book?.meta.title ?? '未命名')} · ${esc(book?.meta.author ?? '佚名')} · ${esc(ch)}</div>
-      <div class="stamp">bz 阅读</div>
-    </div>
-    <div class="bzs-mini" style="margin-top:12px;line-height:1.9">复制后粘到任何笔记里，定位串能带你回到同一段。</div>`;
-  const quoteMd = `「${t}」\n— ${book?.meta.title ?? ''} · ${book?.meta.author ?? ''} · ${ch}`;
-  return modal(
-    '书摘卡',
-    '引文 · 出处 · 定位',
-    body,
-    `<button class="bzs-btn" data-act="copytext" data-text="${esc(quoteMd)}">复制为引用</button>${closeBtn()}`,
-    'wide',
+  return bareFloat(
+    quoteCardHtml({ text: t, title: book?.meta.title, author: book?.meta.author, chapter: ch }),
+    'bzs-quote-panel',
   );
 }
 
 /**
- * 写想法：贴着划线的极简输入框。
+ * 写想法：贴着划线的输入条（S10 定稿）。
  *
- * 只有一个输入框和一个保存按钮；不重复原文、不放章节与说明。
+ * 只有一个输入区和一颗发送键；不重复原文、不放章节与说明。
  * 已有想法会预填，所以再点一次「写想法」就是修改。
  * 无遮罩：想法常常要对照正文写，遮住半页反而写不出来。
+ * 有未保存内容时按 Esc / 点外面，先出二次确认（state.ideaDirty）。
  */
 function overlayIdea(markId?: string, bookId?: string): string {
   const found = markById(markId, bookId);
   if (!found) return bareFloat('<div class="bzs-empty">这条标注已不存在。</div>', 'bzs-idea-panel');
   const payload = { value: found.mark.comment ?? '', markId: found.mark.id, bookId: found.book.id };
-  return bareFloat(`${ideaSheetBodyHtml(payload)}${ideaSheetActsHtml(payload)}`, 'bzs-idea-panel');
+  const confirm = getState().ideaConfirm ? ideaConfirmHtml() : '';
+  return bareFloat(`${ideaSheetBodyHtml(payload)}${confirm}`, 'bzs-idea-panel');
 }
 
 /**
@@ -325,21 +324,6 @@ function overlayConfirmDel(markId?: string, bookId?: string): string {
  * 定位不写 inline style：由 paint() 量完实际尺寸后按锚点摆放；
  * 没有锚点的（从侧栏打开）退回 CSS 里的居中/贴底。
  */
-function floatPanel(
-  title: string,
-  sub: string,
-  body: string,
-  foot = '',
-  cls = '',
-  anchor?: { left: number; top: number },
-): string {
-  return `<div class="bzs-float ${cls} ${anchor ? 'is-anchored' : 'is-sheet'}" data-role="float">
-    <div class="bzs-mhead"><b>${title}</b>${sub ? `<span class="n">${sub}</span>` : ''}<span class="sp"></span>
-      <button class="x" data-act="close" title="关闭">${ico('x')}</button></div>
-    <div class="bzs-mbody">${body}</div>
-    ${foot ? `<div class="bzs-mfoot">${foot}</div>` : ''}
-  </div>`;
-}
 
 /**
  * 无头浮层：只有内容，没有标题与关闭按钮。
@@ -350,47 +334,31 @@ function bareFloat(body: string, cls: string): string {
 }
 
 /**
- * 脚注浮窗：注释号上方一小块，读完继续读，不用跳到章末再找回来。
- * 想看上下文再点「跳到原文」——那才是真的跳。
+ * 脚注浮窗（S10 定稿）：左侧一枚「注」小印，其余全是注文。
+ *
+ * 不写标题「脚注」、也不摆「跳到原文 / 关闭」：注是正文的一句旁白，
+ * 抬头与按钮会把它变成一份需要处理的文件。点外面就收。
+ * 跨章脚注的回头路在正文里的链接上，不在这张卡里。
  */
-function overlayFootnote(text?: string, href?: string): string {
-  const body = `<div class="bzs-fntext">${esc(text ?? '')}</div>`;
-  const foot = href ? `<button class="bzs-btn" data-act="jumpch" data-href="${esc(href)}">跳到原文</button><span class="sp"></span><button class="bzs-btn" data-act="close">关闭</button>` : '';
-  return floatPanel('脚注', '', body, foot, '', getState().overlay?.anchor);
+function overlayFootnote(text?: string): string {
+  return bareFloat(footnoteCardHtml(text ?? ''), 'bzs-fn-panel');
 }
 
-const AI_MODES: Array<{ key: AiTask; label: string }> = [
-  { key: 'explain', label: '解释' },
-  { key: 'translate', label: '翻译' },
-  { key: 'summarize', label: '摘要' },
-];
-
-function overlayAi(text?: string, mode?: string): string {
+/**
+ * AI 卡（S10 定稿）：只有结果与三个动作。
+ *
+ * 没有模式切换（解释 / 翻译 / 摘要已经各自是入口，卡里再摆一排等于让用户
+ * 先选一次再等一次），没有模型名标签、没有免责说明。
+ * 失败时把原因留在 body 里，「重试」就在下面——不要一句话把弹层关掉。
+ */
+function overlayAi(): string {
   /* 整段包在 if 里而不是提前 return：esbuild 会连模板一起删掉，
      base 包里就不会留下「AI 助手」的界面文案。 */
   let html = '';
   if (__BZ_READER_PRO__) {
-  const t = text || RT.sel?.text || '';
-  const task = (AI_MODES.find((m) => m.key === mode)?.key ?? 'explain') as AiTask;
-  const s = shellSettings();
-  const ready = !!s.ai.baseUrl && !!s.ai.apiKey && !!s.ai.model;
-  const body = `<div class="bzs-ai-tag"><span class="seal">${ico('sparkle')}</span><b>${esc(
-    s.ai.model || '未配置模型',
-  )} · ${
-    AI_MODES.find((m) => m.key === task)?.label
-  }</b></div>
-    <div class="bzs-ai-quote">「${esc(t)}」</div>
-    <div class="bzs-ai-body" data-role="aibody">${ready ? '正在请求…' : '还没有配置 AI 服务。到 书架 · 设置 里填好服务商、模型与密钥。'}</div>
-    <div class="bzs-ai-acts">${AI_MODES.map(
-      (m) => `<button class="bzs-chip${task === m.key ? ' on' : ''}" data-act="aimode" data-v="${m.key}" data-text="${esc(t)}">${m.label}</button>`,
-    ).join('')}</div>`;
-  html = modal(
-    'AI 助手',
-    '只发送选中的这一段',
-    body,
-    `<button class="bzs-btn" data-act="aisave" data-text="${esc(t)}">存为笔记</button>${closeBtn()}`,
-    'wide',
-  );
+    const s = shellSettings();
+    const ready = !!s.ai.baseUrl && !!s.ai.apiKey && !!s.ai.model;
+    html = bareFloat(aiCardHtml({ ready }), 'bzs-ai-panel');
   }
   return html;
 }
@@ -704,9 +672,9 @@ export function overlayHtml(): string {
     case 'confirmdel':
       return overlayConfirmDel(o.markId, o.bookId);
     case 'footnote':
-      return overlayFootnote(o.text, o.href);
+      return overlayFootnote(o.text);
     case 'ai':
-      return overlayAi(o.text, o.mode);
+      return overlayAi();
     case 'dict':
       return overlayDict(o.word);
     case 'translate':
@@ -827,6 +795,12 @@ export class OverlayLayer {
       const t = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
       const role = t?.dataset?.role;
       if (!role) return;
+      /* 想法：打过字才需要关闭前确认。初始预填的旧想法不算「未保存」，
+         否则每次点开再点关都要问一遍。 */
+      if (role === 'idea') {
+        markIdeaDirty(t.value.trim() !== '');
+        return;
+      }
       // 搜索框就地更新命中列表：重绘会把输入框换掉，手指还在打就被打断
       if (role === 'searchkw') {
         /* 输入过程不整页重绘：重绘会把输入框换掉，手指还在打就被打断。

@@ -136,6 +136,10 @@ export interface ShellState {
   pen: string;
   /* 浮层 */
   overlay: OverlayState | null;
+  /** 写想法里「有未保存内容」：关闭前要二次确认 */
+  ideaDirty: boolean;
+  /** 二次确认那一条正在显示（再按一次关闭才真的关） */
+  ideaConfirm: boolean;
   /* 真实数据里没有、但书库需要 */
   favIds: string[];
   shelves: Record<string, string>;
@@ -161,6 +165,8 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   bookId: null,
   pen: 'amber',
   overlay: null,
+  ideaDirty: false,
+  ideaConfirm: false,
   favIds: [],
   shelves: {},
 };
@@ -253,12 +259,43 @@ export function notify(): void {
 export function openOverlay(o: OverlayState): void {
   mutateState((s) => {
     s.overlay = o;
+    s.ideaDirty = false;
+    s.ideaConfirm = false;
   });
 }
 
+/**
+ * 关浮层。
+ *
+ * 写想法是唯一需要拦一下的：里面可能有一段没保存的字。第一次关闭只把
+ * 二次确认条亮出来（「还有没保存的内容，要丢弃吗？」），再关一次才真的丢。
+ * 用「已经确认过」当判据而不是再弹一个模态——输入内容全程都在，看得见。
+ */
 export function closeOverlay(): void {
+  const o = state.overlay;
+  if (o?.kind === 'idea' && state.ideaDirty && !state.ideaConfirm) {
+    mutateState((s) => {
+      s.ideaConfirm = true;
+    });
+    return;
+  }
   mutateState((s) => {
     s.overlay = null;
+    s.ideaDirty = false;
+    s.ideaConfirm = false;
+  });
+}
+
+/** 想法里的字变了：只有真的打了字才算「未保存」 */
+export function markIdeaDirty(dirty: boolean): void {
+  if (state.ideaDirty === dirty) return;
+  state.ideaDirty = dirty;
+}
+
+/** 「继续写」：收掉确认条，输入框原样留着 */
+export function cancelIdeaClose(): void {
+  mutateState((s) => {
+    s.ideaConfirm = false;
   });
 }
 

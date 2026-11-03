@@ -72,4 +72,8 @@ describe('anchoredPlacement', () => {
     expect(below.top - (anchor.top + anchor.height)).toBe(ANCHOR_GAP);
     expect(anchor.top - (above.top + panel.height)).toBe(ANCHOR_GAP);
   });
+
+  it('间距钉在定稿的 4px（showcase-read 的 Placement 一栏）', () => {
+    expect(ANCHOR_GAP).toBe(4);
+  });
 });

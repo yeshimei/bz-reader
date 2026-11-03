@@ -37,8 +37,13 @@ export interface Placement {
   top: number;
 }
 
-/** 浮层与文字之间的间距：贴着，但不压住字 */
-export const ANCHOR_GAP = 6;
+/**
+ * 浮层与文字之间的间距：贴着，但不压住字。
+ *
+ * 4px 是定稿量出来的（showcase-read 的 Placement 一栏：「桌面：胶囊在选区上方
+ * 4px，卡片再往上 10px」）。改大会让胶囊看起来悬在段落中间。
+ */
+export const ANCHOR_GAP = 4;
 
 /** 离可视区边缘的最小距离 */
 const VIEW_MARGIN = 8;

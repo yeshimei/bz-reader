@@ -600,22 +600,30 @@
    放在普通媒体查询里，不放 @container：容器查询在部分真机 WebView 上不生效，
    之前就是「改了样式但完全没变化」。 */
 @media (max-width: 820px) {
+  /* 手机上胶囊必然压到下一行正文，实心会像盖了块色板——换回磨砂 */
   .bzs-selbar {
     max-width: calc(100vw - 16px);
     flex-wrap: nowrap !important;
-    padding: 6px 8px;
-    gap: 4px;
+    padding: 4px 11px;
+    gap: 7px;
     white-space: nowrap;
+    background: rgba(53, 50, 44, .78);
+    backdrop-filter: blur(18px) saturate(1.25);
+    -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  }
+
+  body.theme-light .bzs-selbar {
+    background: rgba(255, 255, 255, .84);
   }
 
   .bzs-selbar .bzs-sbtn {
-    padding: 7px;
-    font-size: 13px;
+    padding: 2px 6px;
+    font-size: 12px;
   }
 
   .bzs-selbar .bzs-pendot {
-    width: 22px;
-    height: 22px;
+    width: 13px;
+    height: 13px;
     margin: 0;
   }
 
