@@ -51,6 +51,10 @@ describe('ideaSheetActsHtml', () => {
 });
 
 describe('ideaSheetHtml', () => {
+  it('按钮自带 flex 容器（壳的 footer 不是 flex，否则会竖排）', () => {
+    expect(ideaSheetActsHtml(base)).toContain('bzs-sheet-foot');
+  });
+
   it('整卡包含主体与按钮，且带专门的类名', () => {
     const html = ideaSheetHtml(base);
     expect(html).toContain('bzs-sheet');

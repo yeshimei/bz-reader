@@ -11,6 +11,7 @@
  * ============================================================ */
 import { isMobileShell } from '../core/mobile';
 import { anchoredStyle } from './anchored-style';
+import { sheetLift } from './keyboard-inset';
 import { ideaSheetActsHtml, ideaSheetBodyHtml } from './idea-sheet';
 import { highlightSheetActsHtml, highlightSheetBodyHtml } from './highlight-sheet';
 import { HIGHLIGHT_COLORS } from '../data/notes';
@@ -843,6 +844,8 @@ export async function runAiForOverlay(): Promise<void> {
  */
 export class OverlayLayer {
   readonly root: HTMLElement;
+  /** 卸载时要撤掉的监听（键盘补偿等） */
+  private disposers: Array<() => void> = [];
   private accent = '';
   private lastKind = '';
 
@@ -864,6 +867,23 @@ export class OverlayLayer {
   constructor(private onAction: (act: string, el: HTMLElement) => void) {
     this.root = document.createElement('div');
     this.root.className = 'bzs-shell bzs-overlay-root';
+    /* 键盘弹起时把贴底卡抬到键盘之上：安卓 WebView 不一定缩小 layout viewport，
+       单靠 CSS bottom 会被键盘盖住（输入框看不见但焦点在）。 */
+    const vv = window.visualViewport;
+    if (vv && isMobileShell()) {
+      const sync = (): void => {
+        const lift = sheetLift({ innerHeight: window.innerHeight, visualHeight: vv.height });
+        for (const el of Array.from(this.root.querySelectorAll<HTMLElement>('.bzs-float.is-anchored'))) {
+          el.style.setProperty('bottom', `calc(${10 + lift}px + env(safe-area-inset-bottom, 0px))`, 'important');
+        }
+      };
+      vv.addEventListener('resize', sync);
+      vv.addEventListener('scroll', sync);
+      this.disposers.push(() => {
+        vv.removeEventListener('resize', sync);
+        vv.removeEventListener('scroll', sync);
+      });
+    }
     document.body.appendChild(this.root);
     document.addEventListener('pointerdown', this.onDocPointer, true);
     document.addEventListener('keydown', this.onDocKey, true);

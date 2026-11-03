@@ -36,9 +36,10 @@ export function ideaSheetBodyHtml(input: IdeaSheetInput): string {
 
 /** 底部按钮：只有取消与保存 */
 export function ideaSheetActsHtml(input: IdeaSheetInput): string {
-  return `<button class="bzs-btn" data-act="close">取消</button><span class="sp"></span><button class="bzs-btn pri" data-act="ideasave" data-id="${esc(
+  /* 自带 flex 容器：浮层壳的 footer 不是 flex，直接塞按钮会变成竖排 */
+  return `<div class="bzs-sheet-foot"><button class="bzs-btn" data-act="close">取消</button><span class="sp"></span><button class="bzs-btn pri" data-act="ideasave" data-id="${esc(
     input.markId,
-  )}" data-book="${esc(input.bookId)}">保存</button>`;
+  )}" data-book="${esc(input.bookId)}">保存</button></div>`;
 }
 
 /** 整卡（测试与预览用；真实渲染由 overlay.ts 套壳） */

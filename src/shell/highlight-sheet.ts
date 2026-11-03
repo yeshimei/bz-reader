@@ -36,8 +36,8 @@ export function highlightSheetActsHtml(input: HighlightSheetInput): string {
         )}" data-book="${esc(input.bookId)}" data-v="${esc(c.value)}" aria-label="${esc(c.label)}"></button>`,
     )
     .join('');
-  return `<div class="bzs-sheet-dots">${dots}</div>
+  return `<div class="bzs-sheet-foot"><div class="bzs-sheet-dots">${dots}</div>
     <span class="sp"></span>
     <button class="bzs-btn" data-act="hlquote" data-id="${esc(input.markId)}" data-book="${esc(input.bookId)}">复制</button>
-    <button class="bzs-btn" data-act="hldel" data-id="${esc(input.markId)}" data-book="${esc(input.bookId)}">删除</button>`;
+    <button class="bzs-btn" data-act="hldel" data-id="${esc(input.markId)}" data-book="${esc(input.bookId)}">删除</button></div>`;
 }
