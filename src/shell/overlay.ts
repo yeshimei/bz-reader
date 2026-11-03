@@ -9,7 +9,9 @@
  * 容器本身带 .bzs-shell + data-bzaccent，为的是拿到同一套设计令牌；
  * 它的背景被覆盖成透明，所以不会给整屏染色。
  * ============================================================ */
+import { isMobileShell } from '../core/mobile';
 import { anchoredStyle } from './anchored-style';
+import { ideaSheetActsHtml, ideaSheetBodyHtml } from './idea-sheet';
 import { HIGHLIGHT_COLORS } from '../data/notes';
 import { aiAsk, type AiTask } from '../data/ai';
 import type { ReaderBook } from '../data/schema';
@@ -307,14 +309,22 @@ function overlayIdea(markId?: string, bookId?: string): string {
     return floatPanel('写想法', '', '<div class="bzs-empty">这条标注已不存在。</div>', '<button class="bzs-btn" data-act="close">关闭</button>', 'is-anchored', anchor);
   }
   const { book, mark } = found;
-  const body = `<div class="bzs-ai-quote">「${esc(mark.text)}」</div>
+  /* 移动端用重写后的轻量卡：只有引用 + 输入框 + 取消/保存。
+     桌面保留原来的标题与配色说明，那边空间不紧张。 */
+  const payload = { quote: mark.text, value: mark.comment ?? '', markId: mark.id, bookId: book.id };
+  const body = isMobileShell()
+    ? ideaSheetBodyHtml(payload)
+    : `<div class="bzs-ai-quote">「${esc(mark.text)}」</div>
     <textarea class="idea" data-role="idea" placeholder="这一句让你想到了什么…">${esc(mark.comment ?? '')}</textarea>
     <div class="bzs-mini" style="margin-top:8px">想法会跟着划线出现在左侧栏、笔记页与导出稿里。</div>`;
+  const foot = isMobileShell()
+    ? ideaSheetActsHtml(payload)
+    : `<button class="bzs-btn pri" data-act="ideasave" data-id="${mark.id}" data-book="${book.id}">保存想法</button><span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>`;
   return floatPanel(
-    '写想法',
-    `${penLabel(mark.color)} · ${esc(mark.chapterTitle ?? '')}`,
+    isMobileShell() ? '' : '写想法',
+    isMobileShell() ? '' : `${penLabel(mark.color)} · ${esc(mark.chapterTitle ?? '')}`,
     body,
-    `<button class="bzs-btn pri" data-act="ideasave" data-id="${mark.id}" data-book="${book.id}">保存想法</button><span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>`,
+    foot,
     'is-anchored',
     anchor,
   );

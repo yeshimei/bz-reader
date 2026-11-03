@@ -595,3 +595,41 @@
     padding-bottom: 4px;
   }
 }
+
+/* ── 想法输入卡（重写版）：引用 + 输入框 + 取消/保存 ── */
+.bzs-sheet-quote {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--t3);
+  border-left: 2px solid var(--copper-line);
+  padding: 2px 0 2px 10px;
+  margin-bottom: 10px;
+  max-height: 3.4em;
+  overflow: hidden;
+}
+
+.bzs-sheet-input {
+  width: 100%;
+  min-height: 78px;
+  max-height: 26vh;
+  box-sizing: border-box;
+  resize: none;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--sunken);
+  color: var(--ink);
+  font: 14px/1.6 var(--ui);
+  padding: 8px 10px;
+}
+
+.bzs-sheet-input:focus {
+  outline: none;
+  border-color: var(--copper-line);
+}
+
+.bzs-sheet-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
