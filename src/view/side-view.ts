@@ -38,6 +38,10 @@ export class SideView extends ItemView {
   private scrollTops: Record<string, number> = {};
   /** 全量重绘会换掉输入框，焦点与光标要还回去（设置页在侧栏里，边打字边丢焦点很难受） */
   private focusMemo: FocusMemo | null = null;
+  /** 上一次全量渲染时的目录快照（判断「只是换高亮」还是「整棵树变了」） */
+  private paintedItems: FoliateTOCItem[] | null = null;
+  private paintedBook = '';
+  private paintedActive = '';
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
@@ -66,7 +70,7 @@ export class SideView extends ItemView {
     this.bind();
     this.render();
     this.unsubs.push(subscribe(() => this.render()));
-    this.unsubs.push(subscribeToc(() => this.render()));
+    this.unsubs.push(subscribeToc(() => this.onTocChange()));
   }
 
   async onClose(): Promise<void> {
@@ -142,6 +146,33 @@ export class SideView extends ItemView {
     }
   }
 
+  /**
+   * TOC 变更：只有「当前章」变了就只切高亮，不重建整棵树。
+   *
+   * 每次 relocate（翻一页）都会 patchToc({activeLabel})，而全量 render 会把
+   * 目录 + 划线 + AI 气泡一起重建——手机上每翻一页掉一次帧，正在输入的关键词
+   * 也要靠 focusMemo 抢回来。目录内容本身变了（换书/重新解析）才走全量。
+   */
+  private onTocChange(): void {
+    const snap = getToc();
+    const active = snap?.activeLabel ?? '';
+    const sameTree =
+      (snap?.items ?? null) === this.paintedItems && (snap?.bookId ?? '') === this.paintedBook;
+    if (sameTree && active !== this.paintedActive && getState().sideTab === 'toc' && this.root) {
+      this.paintedActive = active;
+      this.patchActiveRow(this.root, active);
+      return;
+    }
+    this.render();
+  }
+
+  /** 只切 `.on`：目录行的 data-label 是原始 label（显示的可能是剥过序号的） */
+  private patchActiveRow(root: HTMLElement, active: string): void {
+    for (const el of Array.from(root.querySelectorAll<HTMLElement>('.bzs-chaprow'))) {
+      el.classList.toggle('on', el.dataset.label === active);
+    }
+  }
+
   private render(): void {
     const root = this.root;
     if (!root) return;
@@ -165,6 +196,9 @@ export class SideView extends ItemView {
       aiProvider: settings.ai.model || '未配置',
       aiEnabled: can('ai'),
     });
+    this.paintedItems = snap?.items ?? null;
+    this.paintedBook = snap?.bookId ?? '';
+    this.paintedActive = snap?.activeLabel ?? '';
 
     const scroller = root.querySelector<HTMLElement>('.bzs-sbbody');
     if (scroller) scroller.scrollTop = this.scrollTops[state.sideTab] ?? 0;

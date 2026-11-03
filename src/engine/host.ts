@@ -603,8 +603,11 @@ export class EngineHost {
          减掉窗口自己的 screenX 就回到应用坐标，再减阅读区左边界即可。 */
       /* 阅读区的位置每次点按都重新量：挂载时量的那一次可能是抽屉/侧栏还开着
          （真机上量到 left≈170，于是所有点按都被算到偏左，整屏都成了“上一页”）。 */
-      const appDoc = frame?.ownerDocument ?? null;
-      const stageRect = appDoc?.querySelector<HTMLElement>('.bzs-stage')?.getBoundingClientRect();
+      /* 阅读区只量**自己这份**：以前在主文档里全局查 `.bzs-stage`，两个阅读
+         tab 并存时命中另一个（后台 leaf 的 rect 全 0），于是 withinY 恒等于 1，
+         每次点按都判成「下一页」。frame.closest 拿到的是本视图的舞台。 */
+      const stageEl = (frame?.closest('.bzs-stage') as HTMLElement | null) ?? this.container ?? null;
+      const stageRect = stageEl?.getBoundingClientRect() ?? null;
       const stageLeft = stageRect ? Math.round(stageRect.left) : this.viewportLeft;
       const liveWidth = stageRect ? Math.round(stageRect.width) : 0;
       const live = liveWidth > 0 ? liveWidth : width;
@@ -1023,12 +1026,16 @@ export class EngineHost {
    *
    * 超时不抛错：调用点大多是 `void host.xxx()`，抛出去只会变成
    * unhandledrejection，用户照样什么都看不见。改走 onStall 让上层提示。
+   *
+   * 返回值给调用方判断「这次导航到底完成了没有」：超时/异常之后底层操作
+   * 可能还在跑，此时再叠一次兜底跳转，就会和未完成的那次并发、
+   * 出现「点一下跳一章」。
    */
   private async navigate(
     run: () => Promise<unknown> | undefined,
     what: string,
     timeoutMs = LOCATE_TIMEOUT,
-  ): Promise<void> {
+  ): Promise<'ok' | 'timeout' | 'error'> {
     let timer = 0;
     const timeout = new Promise<'timeout'>((r) => {
       timer = window.setTimeout(() => r('timeout'), timeoutMs);
@@ -1038,11 +1045,14 @@ export class EngineHost {
       if (done === 'timeout') {
         dlog('nav.timeout', { what, timeoutMs });
         this.opts.onStall?.(what);
+        return 'timeout';
       }
+      return 'ok';
     } catch {
       /* 引擎自己的错误已经有地方报了（读文件/解包在 mount 里），这里只管「不结算」 */
       dlog('nav.error', { what });
       this.opts.onStall?.(what);
+      return 'error';
     } finally {
       window.clearTimeout(timer);
     }
@@ -1084,7 +1094,7 @@ export class EngineHost {
     /* 翻页的等待上限要短：分页器在换章时会短暂上锁，那次 next() 可能
        永不结算；用 20 秒的定位超时会让整条导航队列卡死，后面每次点击
        都像「没反应」。3 秒足够一次翻页，超时就当它没动，走下面的跨章兜底。 */
-    await this.navigate(
+    const result = await this.navigate(
       () => (dir === 'next' ? this.view?.next() : this.view?.prev()),
       dir === 'next' ? '翻到下一页' : '翻回上一页',
       TURN_TIMEOUT,
@@ -1093,6 +1103,10 @@ export class EngineHost {
        立刻比对会误判成「没翻动」，接着又跳一次相邻章——一次点击翻两页就是这么来的。
        等一次 relocate（或 600ms）再判定。 */
     await this.waitRelocate(seqBefore, 600);
+    /* 超时/异常时，底层这次 next() 可能还在推进。此时再叠加一次跨章 goTo，
+       两条导航并发，结果就是「点一下跳过整章」。只对「真的完成了但没动」
+       的情况走章末兜底。 */
+    if (result !== 'ok') return;
     if (this.lastRelocateCfi !== cfiBefore || this.pageKey !== before) return;
     /* 章末/章首：分页器把「下一页」判成 false，页面一动不动，用户看到的就是
        「点了没反应」。这里显式翻到相邻章。 */
@@ -1107,22 +1121,44 @@ export class EngineHost {
   }
 
   /**
-   * 当前渲染出的正文纯文本（朗读用）。
+   * 当前屏幕上的正文纯文本（朗读用）。
    *
-   * 只取 renderer 里已经挂上去的那几个 section 文档——分页模式下通常
-   * 就是屏幕上这一两页；不另开 section 去解压整章，那会让「按下朗读」
-   * 卡上几百毫秒。取不到就返回空串，由调用方提示。
+   * `renderer.getContents()` 返回的是**整章**的文档（分页器把一个 section 的
+   * 所有页都排在一个 document 里），所以直接取 body.textContent 会从本章第一句
+   * 开始念——翻到第 20 页再按朗读又回到开头。这里用 caretRangeFromPoint 取
+   * 可见区左上/右下两个点，拼成一段 Range 只取屏幕上这一页；取不到才退回整章。
    */
   currentText(): string {
     const contents = this.view?.renderer?.getContents?.() ?? [];
     const parts: string[] = [];
     for (const c of contents) {
-      const body = c.doc?.body;
-      if (!body) continue;
-      const t = (body.textContent ?? '').replace(/\s+/g, ' ').trim();
+      const doc = c.doc;
+      if (!doc?.body) continue;
+      const visible = this.visibleText(doc);
+      const t = (visible || doc.body.textContent || '').replace(/\s+/g, ' ').trim();
       if (t) parts.push(t);
     }
     return parts.join(' ').trim();
+  }
+
+  /** 可见区文字：两点 Range（拿不到返回空串，由调用方退回整章） */
+  private visibleText(doc: Document): string {
+    const win = doc.defaultView;
+    if (!win || typeof doc.caretRangeFromPoint !== 'function') return '';
+    try {
+      const w = win.innerWidth || doc.documentElement.clientWidth || 0;
+      const h = win.innerHeight || doc.documentElement.clientHeight || 0;
+      if (w < 8 || h < 8) return '';
+      const start = doc.caretRangeFromPoint(2, 2);
+      const end = doc.caretRangeFromPoint(w - 4, h - 4);
+      if (!start || !end) return '';
+      const range = doc.createRange();
+      range.setStart(start.startContainer, start.startOffset);
+      range.setEnd(end.endContainer, end.endOffset);
+      return range.cloneContents().textContent ?? '';
+    } catch {
+      return '';
+    }
   }
 
   /** 跳到 TOC 项（href 由 foliate 解析成章节 + 锚点） */
@@ -1130,9 +1166,16 @@ export class EngineHost {
     await this.navigate(() => this.view?.goTo(href), '跳到这一章');
   }
 
-  async goToCfi(cfi: string): Promise<void> {
-    if (!cfi) return;
-    await this.navigate(() => this.view?.goTo(cfi), '定位到这一页');
+  /**
+   * 定位到 CFI，返回**是否真的完成**。
+   *
+   * 以前返回 void，而 navigate() 会吞掉超时与异常；`locateFromLink` 的
+   * try/catch 因此永远不进，CFI 失效时也报成功，后面「原文片段 → 百分比」
+   * 两级兜底全成了死代码。
+   */
+  async goToCfi(cfi: string): Promise<boolean> {
+    if (!cfi) return false;
+    return (await this.navigate(() => this.view?.goTo(cfi), '定位到这一页')) === 'ok';
   }
 
   /**

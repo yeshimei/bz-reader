@@ -25,6 +25,8 @@ export class ShelfPanel {
   private scrollTop = 0;
   private focusMemo: FocusMemo | null = null;
   private painted = false;
+  /** 上一次渲染的页；换页要重置滚动位置 */
+  private lastPage: StudyPage | null = null;
 
   /** @param host 挂载点，ItemView 传 contentEl */
   constructor(private host: HTMLElement) {}
@@ -97,6 +99,9 @@ export class ShelfPanel {
     if (!root || !getShellSource()) return;
 
     const state = getState();
+    /* 只有同一页内重绘才恢复滚动；换页要回到顶部。
+       以前只判 `painted`（永不复位），从书库滚到一半切设置页会停在中间。 */
+    const pageChanged = this.lastPage !== state.studyPage;
     this.memoScroll();
     this.memoFocus();
 
@@ -108,10 +113,10 @@ export class ShelfPanel {
 
     const scroller = root.querySelector<HTMLElement>('.bzs-stubody');
     if (scroller) {
-      // 只有同一页内重绘才恢复滚动；换页回到顶部
-      if (this.painted && this.scrollTop > 0) scroller.scrollTop = this.scrollTop;
+      if (!pageChanged && this.scrollTop > 0) scroller.scrollTop = this.scrollTop;
       else scroller.scrollTop = 0;
     }
+    this.lastPage = state.studyPage;
     this.painted = true;
     this.restoreFocus();
     // 封面是异步的：先出的是色块，真封面到了就地换图（不重绘，否则滚动位置会跳）

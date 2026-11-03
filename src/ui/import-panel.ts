@@ -168,7 +168,7 @@ export function openImport(deps: ImportDeps): void {
   }
 
   function syncConfirm(): void {
-    const n = rows.filter((r) => r.checked && !r.inShelf).length;
+    const n = visible().filter((r) => r.checked && !r.inShelf).length;
     confirmBtn.disabled = n === 0;
     confirmBtn.textContent = n ? `加入书架（${n}）` : '加入书架';
   }
@@ -179,13 +179,16 @@ export function openImport(deps: ImportDeps): void {
   });
 
   selectAll.addEventListener('click', () => {
-    const target = !rows.filter((r) => !r.inShelf).every((r) => r.checked);
-    for (const r of rows) if (!r.inShelf) r.checked = target;
+    /* 只对屏幕上看得见的行生效：以前遍历全部 rows，筛出 3 本却把 42 本一起选了 */
+    const vis = visible().filter((r) => !r.inShelf);
+    const target = !vis.every((r) => r.checked);
+    for (const r of vis) r.checked = target;
     render();
   });
 
   confirmBtn.addEventListener('click', () => {
-    const picked = rows.filter((r) => r.checked && !r.inShelf);
+    /* 同理：加入的只能是用户眼前勾中的那些 */
+    const picked = visible().filter((r) => r.checked && !r.inShelf);
     if (!picked.length) return;
     for (const r of picked) repo.ensure(r.path, formatOf(r.path) ?? r.format, r.size);
     store.touch();

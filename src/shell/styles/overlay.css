@@ -694,7 +694,10 @@
   margin-top: 10px;
 }
 
-/* ── 划词浮层 ── */
+/* ── 划词浮层 ──
+   位置全部由 reader-view 的 showSelbar() 算好（left/top 已是最终坐标），
+   这里**不能再加 translate**：CSS 再抬 100% 会把工具条顶到选区两倍高度处，
+   选区在首行时整条飞出屏幕上边框。手机端的贴底规则自己带 translateX。 */
 .bzs-selbar {
   position: absolute;
   z-index: var(--z-float);

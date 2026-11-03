@@ -84,7 +84,9 @@ function tocBody(toc: FoliateTOCItem[], activeLabel: string): string {
       /* 序号列（原 .no）去掉了：侧栏只有 300px，那一列吃掉 24px + 10px 间距，
          长章节名被截在最难认的位置。层级靠缩进（.d1）表达就够了。
          高亮比对用原始 label，显示用剥过序号的。 */
-      return `<button class="bzs-chaprow${depth ? ' d1' : ''}${on ? ' on' : ''}" data-act="jumpch" data-href="${esc(item.href)}">
+      return `<button class="bzs-chaprow${depth ? ' d1' : ''}${on ? ' on' : ''}" data-act="jumpch" data-href="${esc(
+        item.href,
+      )}" data-label="${esc(item.label)}">
         <span class="t">${esc(stripTocLabel(item.label))}</span>
         <span class="pc">${pct}%</span>
       </button>`;

@@ -20,6 +20,31 @@ const TICK_MS = 15_000;
 const IDLE_MS = 60_000;
 /** 短于这个时长的会话不记（误触/闪进闪出会把分布打散） */
 const MIN_SESSION_MS = 30_000;
+/** 两次 tick 之间最多认多少：定时器被系统挂起后回来，不能把整段都算成阅读 */
+const MAX_SPAN_MS = TICK_MS * 2;
+
+/**
+ * 这一拍该记多少（纯函数）。
+ *
+ * 以前写的是 `accumulated += min(TICK, now - lastActive)`——记的是「距上次活动
+ * 有多久」，不是这一拍的长度。翻页频繁时（每 2-5 秒一次）每个 15 秒 tick 只加
+ * 2-5 秒，一小时真实阅读能少记成十几分钟。正确口径是「这一拍内用户是活跃的
+ * （距上次活动 < IDLE），就记这一拍的时长」。
+ */
+export function accrueTick(input: {
+  now: number;
+  lastTickAt: number;
+  lastActive: number;
+  idleMs?: number;
+  tickMs?: number;
+}): number {
+  const idle = input.idleMs ?? IDLE_MS;
+  const cap = input.tickMs ?? TICK_MS;
+  const span = input.now - input.lastTickAt;
+  if (!Number.isFinite(span) || span <= 0) return 0;
+  if (input.now - input.lastActive >= idle) return 0;
+  return Math.min(span, cap, MAX_SPAN_MS);
+}
 
 export interface SessionResult {
   start: number;
@@ -30,6 +55,7 @@ export interface SessionResult {
 export class ActivityTracker {
   private sessionStart = 0;
   private lastActive = 0;
+  private lastTickAt = 0;
   private accumulated = 0;
   private timer: number | null = null;
   private lastPercent = 0;
@@ -40,6 +66,7 @@ export class ActivityTracker {
     if (this.running) this.end();
     this.sessionStart = Date.now();
     this.lastActive = this.sessionStart;
+    this.lastTickAt = this.sessionStart;
     this.accumulated = 0;
     this.lastPercent = percent;
     this.running = true;
@@ -56,10 +83,8 @@ export class ActivityTracker {
   private tick(): void {
     if (!this.running) return;
     const now = Date.now();
-    if (now - this.lastActive < IDLE_MS) {
-      // 这一拍用户还在看（距上次活动不超过 IDLE），计入
-      this.accumulated += Math.min(TICK_MS, now - this.lastActive);
-    }
+    this.accumulated += accrueTick({ now, lastTickAt: this.lastTickAt, lastActive: this.lastActive });
+    this.lastTickAt = now;
   }
 
   /** 结算一次会话。太短或没读到时长 → null（不产生垃圾数据）。 */
@@ -71,10 +96,8 @@ export class ActivityTracker {
       this.timer = null;
     }
     const now = Date.now();
-    // 收尾补最后一段：距上次活动仍在 IDLE 内就把尾巴算上
-    if (now - this.lastActive < IDLE_MS) {
-      this.accumulated += Math.min(now - this.lastActive, TICK_MS);
-    }
+    // 收尾补最后一段：距上次活动仍在 IDLE 内就把「上次 tick 到现在」算上
+    this.accumulated += accrueTick({ now, lastTickAt: this.lastTickAt, lastActive: this.lastActive });
     if (this.accumulated < MIN_SESSION_MS) return null;
     return {
       start: this.sessionStart,

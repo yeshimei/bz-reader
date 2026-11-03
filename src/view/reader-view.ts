@@ -52,6 +52,7 @@ import {
 import { openOverlay } from '../shell/state';
 import { anchoredPlacement } from '../shell/anchored-style';
 import { RT, onNotesChanged } from '../shell/runtime';
+import { shouldNotifyRelocate } from './relocate-notify';
 import { getShellSource } from '../shell/source';
 import { dispatchAction, createMark, requireCap } from '../shell/actions';
 
@@ -102,6 +103,9 @@ export class ReaderView extends ItemView {
   private tapCount = 0;
   private lastZone = '-';
   private lastPct = 0;
+  /** 上次 notifyShell 的时间与百分比（翻页节流，见 view/relocate-notify.ts） */
+  private lastNotifyAt = 0;
+  private lastNotifiedPct = 0;
   private lastTurnAt = 0;
   private lastKeyBefore = '';
   private lastKeyAfter = '';
@@ -203,12 +207,12 @@ export class ReaderView extends ItemView {
     if (!this.book) return false;
 
     if (t.cfi) {
-      try {
-        await this.host.goToCfi(t.cfi);
+      /* goToCfi 现在会返回「是否真的完成」：以前它永不抛，这里的 catch 是死代码，
+         CFI 失效时也报成功，后面的碎片搜索与百分比兜底永远不执行。 */
+      const ok = await this.host.goToCfi(t.cfi);
+      if (ok) {
         this.tracker.touch();
         return true;
-      } catch {
-        /* CFI 认不出，往下兜 */
       }
     }
 
@@ -217,9 +221,11 @@ export class ReaderView extends ItemView {
         const hits = await this.host.search(t.text);
         const cfi = hits.find((h) => !!h.cfi)?.cfi;
         if (cfi) {
-          await this.host.goToCfi(cfi);
-          this.tracker.touch();
-          return true;
+          const ok = await this.host.goToCfi(cfi);
+          if (ok) {
+            this.tracker.touch();
+            return true;
+          }
         }
       } catch {
         /* 搜不到，继续 */
@@ -1079,6 +1085,9 @@ export class ReaderView extends ItemView {
       await this.host.mount(this.stage as HTMLElement, book.fileRef.vaultPath, {
         prefs: this.prefs,
         onRelocate: (info) => this.saveRelocate(info),
+        /* 导航超时/异常时给一句人话：以前 onStall 声明了却没人接，
+           所有「点了没反应」都是静默的。 */
+        onStall: (what) => notify(`${what}没有完成，请再试一次`, 'info'),
         onTap: (zone, info) => this.tapHandler(zone, info),
         /* 两指同时轻按 = 沉浸/还原。手势判定在引擎侧（只有它拿得到 iframe
            里的触摸序列），这里只接结果。 */
@@ -1202,6 +1211,7 @@ export class ReaderView extends ItemView {
   private saveRelocate(info: RelocateInfo): void {
     const book = this.book;
     if (!book) return;
+    const chapterChanged = !!info.chapterTitle && info.chapterTitle !== this.lastChapterTitle;
     book.reading.position.percent = info.percent;
     if (info.cfi) book.reading.position.cfi = info.cfi;
     this.lastPercent = info.percent;
@@ -1226,7 +1236,22 @@ export class ReaderView extends ItemView {
     this.renderProbe();
     this.tracker.touch(info.percent);
     this.api.store.touch();
-    notifyShell();
+    /* 每翻一页都广播会让侧栏与书架全量重建（书架是整面封面墙），手机上掉帧。
+       换章/百分比变化且过节流窗口才通知；落盘仍然每次都做。 */
+    const now = Date.now();
+    if (
+      shouldNotifyRelocate({
+        now,
+        lastAt: this.lastNotifyAt,
+        lastPct: this.lastNotifiedPct,
+        pct: info.percent,
+        chapterChanged,
+      })
+    ) {
+      this.lastNotifyAt = now;
+      this.lastNotifiedPct = info.percent;
+      notifyShell();
+    }
   }
 
   /* ─────────────────── 标注 · 书签 ─────────────────── */
