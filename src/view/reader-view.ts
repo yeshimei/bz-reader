@@ -1136,6 +1136,7 @@ export class ReaderView extends ItemView {
         setShellState({ overlay: { kind: 'finish', bookId: book.id } });
       }
     }
+    if (info.chapterTitle) dlog('relocate', { key: this.host.pageKey, pct: Math.round(info.percent * 100) });
     book.updatedAt = Date.now();
     if (info.chapterTitle) patchToc({ activeLabel: info.chapterTitle });
     this.lastPct = info.percent;

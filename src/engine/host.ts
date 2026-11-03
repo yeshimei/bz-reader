@@ -207,6 +207,7 @@ export class EngineHost {
   /** 阅读视图在挂载与尺寸变化时调用 */
   setViewportWidth(width: number): void {
     if (Number.isFinite(width) && width > 0) this.viewportWidth = Math.round(width);
+    dlog('viewport', { w: this.viewportWidth });
   }
 
   /** 装载到哪一步了。出错时告诉用户卡在哪，而不是「打不开」三个字 */
