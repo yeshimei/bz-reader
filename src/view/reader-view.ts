@@ -947,9 +947,13 @@ export class ReaderView extends ItemView {
     const cx = info.anchor.left - rootRect.left + info.anchor.width / 2;
     const half = barRect.width / 2 + 6;
     const left = Math.max(half, Math.min(rootRect.width - half, cx));
-    const aboveTop = info.anchor.top - rootRect.top - 8;
-    const belowTop = info.bounds.top - rootRect.top + info.bounds.height + 8;
-    const top = aboveTop - barRect.height >= 4 ? aboveTop : belowTop;
+    const aboveTop = info.anchor.top - rootRect.top - 10;
+    const belowTop = info.bounds.top - rootRect.top + info.bounds.height + 10;
+    /* 移动端放选区正下方（手指与手柄都在上方，不挡）；桌面放正上方。
+       两者都夹在可视区内，避免顶到屏幕外。 */
+    const preferBelow = isMobileShell();
+    const raw = preferBelow ? belowTop : aboveTop - barRect.height;
+    const top = Math.max(6, Math.min(rootRect.height - barRect.height - 6, raw));
     bar.style.left = `${Math.round(left)}px`;
     bar.style.top = `${Math.round(top)}px`;
     this.selbar = bar;

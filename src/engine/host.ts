@@ -876,6 +876,17 @@ export class EngineHost {
       bottom = Math.max(bottom, r.bottom);
     }
     const g = this.frameGeom(doc);
+    dlog('sel', {
+      gl: Math.round(g.left),
+      gt: Math.round(g.top),
+      gs: +g.scale.toFixed(3),
+      rl: Math.round(first.left),
+      rt: Math.round(first.top),
+      rh: Math.round(first.height),
+      al: Math.round(g.left + first.left * g.scale),
+      at: Math.round(g.top + first.top * g.scale),
+      sy: Math.round(doc.defaultView?.scrollY ?? 0),
+    });
     return {
       text: text.slice(0, 5000),
       cfiRange,
