@@ -471,6 +471,11 @@ export class ReaderView extends ItemView {
   private mountTitleInHeader(header: HTMLElement): void {
     const book = this.book;
     if (!book) return;
+    /* 标记「书名已经由我们画了」：宿主原生的 .view-header-title 要收起来。
+       以前只靠 `body.is-mobile` 隐藏标题容器——桌面开 force-mobile 验收时
+       两个书名会同时出现（左边「红楼梦」、中间「阅读」）。
+       类挂在 leaf-content 上，且选择器带 data-type：切到别的视图后自动失效。 */
+    header.closest('.workspace-leaf-content')?.classList.add('bzr-head-title-on');
     if (!this.headTitleEl || !this.headTitleEl.isConnected) {
       const el0 = document.createElement('div');
       el0.className = 'bzr-head-title';

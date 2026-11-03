@@ -942,8 +942,11 @@ body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .view-header
   padding: 0;
 }
 
-/* 原生标题容器在移动端收起，避免出现两个书名 */
-body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .view-header-title-container {
+/* 书名已经由 .bzr-head-title 画出来时，宿主原生标题容器收起，避免两个书名。
+   判据挂在 leaf-content 的类上而不是 `body.is-mobile`：桌面开 force-mobile
+   验收时同样走这条分支，只靠 is-mobile 会漏掉，屏幕上就多出一个「阅读」。
+   选择器带 data-type，切到别的视图后规则自动失效，不会把别人的标题也藏了。 */
+.workspace-leaf-content[data-type='bzr-reader-view'].bzr-head-title-on .view-header-title-container {
   display: none;
 }
 
