@@ -1,0 +1,30 @@
+/**
+ * 点正文这一下该干什么（纯函数，node 里可直接测）。
+ *
+ * 为什么单独抽出来：判断分散在 reader-view 的两处（桌面一次、移动端一次），
+ * 新加一个「划词条」状态时两边都没补，真机上就变成「点别处先翻一页」。
+ *
+ * 优先级：划词条 > 浮层 > 翻页。
+ */
+import { dismissesOnOutside, isFloatOverlay, type OverlayKind } from '../shell/state';
+
+export type TapIntent = 'dismiss-selbar' | 'dismiss-overlay' | 'turn' | 'idle';
+
+export interface TapContext {
+  /** 划词条（.bzs-selbar）现在挂着 */
+  selbar: boolean;
+  /** 当前浮层（没有就是空） */
+  overlayKind?: OverlayKind | null;
+  /** 真实移动端布局 */
+  mobile: boolean;
+}
+
+export function tapIntent(ctx: TapContext): TapIntent {
+  /* 划词条不是 overlay：它挂在阅读视图里，选区塌了要等 320ms 才收。
+     不在这里拦，点正文会先翻页、条子随后才消失。 */
+  if (ctx.selbar) return 'dismiss-selbar';
+  if (isFloatOverlay(ctx.overlayKind)) {
+    return dismissesOnOutside(ctx.overlayKind) ? 'dismiss-overlay' : 'idle';
+  }
+  return ctx.mobile ? 'turn' : 'idle';
+}

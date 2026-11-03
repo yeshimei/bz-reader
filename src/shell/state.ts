@@ -55,7 +55,17 @@ export type OverlayKind =
  * 以前这个判断写在 overlay.ts 里（还漏掉了新加的工具条），
  * 导致点正文时浮层不关、页面先翻走了。
  */
-const FLOAT_KINDS: readonly OverlayKind[] = ['typography', 'hltools', 'footnote', 'idea'];
+const FLOAT_KINDS: readonly OverlayKind[] = [
+  'typography',
+  'hltools',
+  'footnote',
+  'idea',
+  /* 书摘与 AI 是 S10 加的两张无遮罩浮卡。漏进这张表的后果是双向的：
+     桌面点空白关不掉，手机点正文不关、还先翻了一页（阅读视图的
+     tapHandler 也读这份判断）。 */
+  'quote',
+  'ai',
+];
 
 export function isFloatOverlay(kind?: OverlayKind | null): boolean {
   return !!kind && FLOAT_KINDS.includes(kind);
@@ -76,6 +86,8 @@ export interface OverlayState {
   kind: OverlayKind;
   bookId?: string;
   markId?: string;
+  /** 删除确认卡：删的是书签时用它（删划线走 markId） */
+  bookmarkId?: string;
   text?: string;
   /** 引文出处用的章节名（真实数据里章节是字符串，不是页码） */
   chapterTitle?: string;
@@ -100,6 +112,7 @@ export function overlayKey(o?: OverlayState | null): string {
     o.kind,
     o.bookId ?? '',
     o.markId ?? '',
+    o.bookmarkId ?? '',
     o.mode ?? '',
     o.text ?? '',
     o.href ?? '',
@@ -120,6 +133,8 @@ export interface ShellState {
   libSort: LibSort;
   libShelf: string;
   libKw: string;
+  /** 窄屏书库：搜索框展开成整行（桌面恒展开，不看这个） */
+  libSearchOpen: boolean;
   /* 搜索（书架整页与阅读页浮层共用一份，切页不丢词） */
   searchKw: string;
   searchScope: 'book' | 'all';
@@ -155,6 +170,7 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   libSort: 'recent',
   libShelf: '全部',
   libKw: '',
+  libSearchOpen: false,
   searchKw: '',
   searchScope: 'book',
   noteFilter: 'all',

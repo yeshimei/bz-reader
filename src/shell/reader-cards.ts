@@ -31,22 +31,28 @@ export interface QuoteCardInput {
   title?: string;
   author?: string;
   chapter?: string;
+  /** 高级能力位 cap:'card'：把这张卡画成图片复制 */
+  canImage?: boolean;
 }
 
 /**
  * ② 书摘：左引文右动作的双栏卡。
  *
- * 右栏是固定 108px 的一条：两个按钮竖着排，宽度写死，
+ * 右栏是固定 108px 的一条：按钮竖着排，宽度写死，
  * 引文再长也不会把按钮挤成两行。
  */
 export function quoteCardHtml(input: QuoteCardInput): string {
   const from = [input.title, input.author, input.chapter].filter(Boolean).join(' · ');
   const md = `「${input.text}」${from ? `\n— ${from}` : ''}`;
+  /* 「复制图片」只在解锁「书摘卡片」之后出现：卡转图要读 canvas，
+     没有这项能力的人给它一颗点了报错的按钮没有意义。 */
+  const img = input.canImage ? `<button class="bzs-btn" data-act="quotecopyimg">复制图片</button>` : '';
   return `<div class="bzs-quote-card">
     <div class="main"><p class="q">${esc(input.text)}</p><div class="from">${esc(from)}</div></div>
     <div class="side">
       <button class="bzs-btn pri" data-act="copytext" data-text="${esc(md)}">复制引用</button>
       <button class="bzs-btn" data-act="quotesave">存笔记</button>
+      ${img}
     </div>
   </div>`;
 }
@@ -101,4 +107,33 @@ export function ideaConfirmHtml(): string {
  */
 export function markBubbleHtml(comment: string): string {
   return `<div class="bzs-mark-bubble">${esc(comment)}</div>`;
+}
+
+export interface BookmarkDeleteInput {
+  id: string;
+  bookId: string;
+  /** 书签名（用户自己写的或章节名兜底） */
+  label: string;
+  /** 目录名，可能为空 */
+  chapter?: string;
+  bookTitle?: string;
+}
+
+/**
+ * ⑥ 删除书签的确认卡。
+ *
+ * 和删除划线同一套：把要删的东西摊开写清楚，而不是「再点一次」。
+ * 划线那版的正文是原文摘录；书签没有原文，能拿出来的是
+ * 「书名 · 目录名」和它自己的名字。
+ */
+export function bookmarkDeleteHtml(input: BookmarkDeleteInput): { body: string; foot: string } {
+  const where = [input.bookTitle, input.chapter].filter((s) => !!s && s.trim()).join(' · ');
+  const body = `<div class="bzs-qcard"><div class="q">${esc(input.label)}</div>
+      ${where ? `<div class="loc">${esc(where)}</div>` : ''}</div>
+    <div class="bzs-mini" style="margin-top:12px;line-height:1.9">这枚书签会删掉，不能撤销。划线与想法不受影响。</div>`;
+  const foot = `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
+     <button class="bzs-btn danger" data-act="delbmkdo" data-id="${esc(input.id)}" data-book="${esc(
+       input.bookId,
+     )}">删除</button>`;
+  return { body, foot };
 }

@@ -20,6 +20,7 @@ import { viewNotes } from './render/notes';
 import { viewStats, viewStatsLocked } from './render/stats';
 import { KEY_COMMANDS, viewSettings } from './render/settings';
 import { readHotkeys } from '../core/hotkeys';
+import { isMobileShell } from '../core/mobile';
 
 export interface ShelfPage {
   body: string;
@@ -65,7 +66,13 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[]): ShelfPag
       };
     default:
       return {
-        body: viewLibrary({ rows: shown, state, libraryKey: state.libShelf + state.libFilter + state.libView }),
+        body: viewLibrary({
+          rows: shown,
+          total: books.length,
+          state,
+          libraryKey: state.libShelf + state.libFilter + state.libView,
+          mobile: isMobileShell(),
+        }),
         counts,
       };
   }

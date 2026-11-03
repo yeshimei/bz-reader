@@ -124,17 +124,37 @@ describe('目录折叠', () => {
 });
 
 describe('书签列表', () => {
-  it('书签的百分比保留（书签是「读到这里」的坐标，有用）', () => {
+  function withBookmark(percent = 0.42): ReaderBook {
     const b = book();
     b.notes.bookmarks.push({
       id: 'k1',
       cfi: 'epubcfi(/6/4!/2/2,/1:0,/1:6)',
-      percent: 0.42,
+      percent,
       chapterTitle: '第一回',
-      label: '第一回',
+      label: '葬花',
       createdAt: 1,
     });
-    const html = view({ tab: 'bookmarks' }, b);
+    return b;
+  }
+
+  it('书签的百分比保留（书签是「读到这里」的坐标，有用）', () => {
+    const html = view({ tab: 'bookmarks' }, withBookmark());
     expect(html).toContain('42%');
+  });
+
+  /* 真机反馈：书名、百分比、目录名挤在同一行，300px 的侧栏里三个都被截。
+     目录名挪到第二行，第一行只留「书签名 + 百分比 + 删除」。 */
+  it('目录名单独一行：第一行闭合的 .hd 之后才是 em', () => {
+    const html = view({ tab: 'bookmarks' }, withBookmark());
+    const row = html.slice(html.indexOf('class="bzs-mkrow"'));
+    expect(row).toMatch(/class="hd"[\s\S]*?<\/div>\s*<em>/);
+  });
+
+  it('目录名不在第一行里', () => {
+    const html = view({ tab: 'bookmarks' }, withBookmark());
+    const row = html.slice(html.indexOf('class="bzs-mkrow"'));
+    const head = row.slice(0, row.indexOf('</div>'));
+    expect(head).not.toContain('第一回');
+    expect(head).toContain('葬花');
   });
 });

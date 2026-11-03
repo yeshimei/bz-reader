@@ -333,10 +333,13 @@
   color: var(--t3);
 }
 
-/* ⑤ 点已有划线：先出想法气泡，下面是换色与删线的胶囊 */
+/* ⑤ 点已有划线：先出想法气泡，下面是换色与删线的胶囊。
+   气泡按内容宽收缩，不写死宽度：只有六个字的想法不该占满 430px，
+   更不该把下面那条胶囊一起拉宽（浮层是 flex column，默认 stretch）。 */
 .bzs-mark-bubble {
   box-sizing: border-box;
-  width: min(430px, calc(100vw - 24px));
+  width: max-content;
+  max-width: min(430px, calc(100vw - 24px));
   background: var(--surface);
   border-radius: 10px;
   padding: 10px 13px;
@@ -358,6 +361,17 @@
   background: #fff;
   border-radius: 999px;
   box-shadow: 0 16px 36px rgba(40, 32, 20, .2), 0 3px 8px rgba(40, 32, 20, .1), 0 0 0 1px rgba(60, 48, 28, .07);
+}
+
+/* 只有胶囊一个（没有想法气泡）时不留那 16px：它是气泡与胶囊之间的缝，
+   不是胶囊自己的外边距——留着会让工具条离选中的字远一截。 */
+.bzs-hlbar:first-child {
+  margin-top: 0;
+}
+
+/* 胶囊按内容宽，与气泡同一个中心线 */
+.bzs-hltools-panel {
+  align-items: center;
 }
 
 body.theme-dark .bzs-hlbar {

@@ -14,7 +14,7 @@ import { anchoredPlacement } from './anchored-style';
 import { sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml } from './idea-sheet';
 import { textToolbarHtml } from './text-toolbar';
-import { aiCardHtml, footnoteCardHtml, ideaConfirmHtml, quoteCardHtml } from './reader-cards';
+import { aiCardHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, quoteCardHtml } from './reader-cards';
 import { HIGHLIGHT_COLORS } from '../data/notes';
 import { aiAsk, type AiTask } from '../data/ai';
 import type { ReaderBook } from '../data/schema';
@@ -61,6 +61,16 @@ function markById(id?: string | null, bookId?: string | null) {
     if (bookId && b.id !== bookId) continue;
     const h = (b.notes?.highlights ?? []).find((x) => x.id === id);
     if (h) return { book: b, mark: h };
+  }
+  return null;
+}
+
+function bookmarkById(id?: string | null, bookId?: string | null) {
+  const books = liveBooks();
+  for (const b of books) {
+    if (bookId && b.id !== bookId) continue;
+    const k = (b.notes?.bookmarks ?? []).find((x) => x.id === id);
+    if (k) return { book: b, bookmark: k };
   }
   return null;
 }
@@ -248,7 +258,13 @@ function overlayQuote(text?: string, bookId?: string, chapterTitle?: string): st
   const t = text || RT.sel?.text || '';
   const ch = chapterTitle || RT.sel?.chapterTitle || '未命名章节';
   return bareFloat(
-    quoteCardHtml({ text: t, title: book?.meta.title, author: book?.meta.author, chapter: ch }),
+    quoteCardHtml({
+      text: t,
+      title: book?.meta.title,
+      author: book?.meta.author,
+      chapter: ch,
+      canImage: __BZ_READER_PRO__ && can('card'),
+    }),
     'bzs-quote-panel',
   );
 }
@@ -292,13 +308,26 @@ function overlayHltools(markId?: string, bookId?: string): string {
 }
 
 /**
- * 删除确认：侧栏划线行右上角那颗 × 点下去先问一句。
+ * 删除确认：侧栏行的 × 点下去先问一句。
  *
- * 以前是「再点一次才删」（toast 提示），但在侧栏里连点两下和「一次没点准
- * 又补一下」几乎分不出来；换成一张小卡，把删掉的是哪一段摊开写清楚。
- * 删除不可撤销，所以这里不给「不再提示」。
+ * 两种东西共用这张卡：划线（markId）与书签（bookmarkId）。
+ * 以前都是「再点一次才删」（toast 提示），但在侧栏里连点两下和
+ * 「一次没点准又补一下」几乎分不出来。删除不可撤销，所以不给「不再提示」。
  */
-function overlayConfirmDel(markId?: string, bookId?: string): string {
+function overlayConfirmDel(markId?: string, bookId?: string, bookmarkId?: string): string {
+  if (bookmarkId) {
+    const found = bookmarkById(bookmarkId, bookId);
+    if (!found) return modal('删除书签', '', '<div class="bzs-empty">这枚书签已经不在了。</div>', closeBtn());
+    const { book, bookmark } = found;
+    const { body, foot } = bookmarkDeleteHtml({
+      id: bookmark.id,
+      bookId: book.id,
+      label: bookmark.label || bookmark.chapterTitle || '书签',
+      chapter: bookmark.chapterTitle,
+      bookTitle: book.meta.title,
+    });
+    return modal('删除这枚书签？', esc(bookmark.chapterTitle ?? ''), body, foot);
+  }
   const found = markById(markId, bookId);
   if (!found) return modal('删除划线', '', '<div class="bzs-empty">这条标注已经不在了。</div>', closeBtn());
   const { book, mark } = found;
@@ -680,7 +709,7 @@ export function overlayHtml(): string {
     case 'hltools':
       return overlayHltools(o.markId, o.bookId);
     case 'confirmdel':
-      return overlayConfirmDel(o.markId, o.bookId);
+      return overlayConfirmDel(o.markId, o.bookId, o.bookmarkId);
     case 'footnote':
       return overlayFootnote(o.text);
     case 'ai':
@@ -722,7 +751,7 @@ export async function runAiForOverlay(): Promise<void> {
   const task: AiTask = o.kind === 'translate' ? 'translate' : ((o.mode as AiTask) || 'explain');
   const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
   try {
-    const res = await aiAsk(s, task, text);
+    const res = await aiAsk(s, { task, text });
     if (node) node.textContent = res.text;
     pushAi(false, `AI · ${s.ai.model}`, res.text);
   } catch (e) {

@@ -94,7 +94,8 @@ function actBar(): string {
 
 /* ─────────── 书库 ─────────── */
 
-const FILTERS: Array<[ShellState['libFilter'], string]> = [
+/** 分类下拉与桌面的 chip 排共用这一张表（actions 里的 libfiltermenu 也读它） */
+export const LIB_FILTERS: Array<[ShellState['libFilter'], string]> = [
   ['all', '全部'],
   ['reading', '在读'],
   ['done', '已读'],
@@ -111,13 +112,32 @@ const SORT_LABEL: Record<ShellState['libSort'], string> = {
 
 export interface LibraryView {
   rows: BookRow[];
+  /**
+   * 库里一共有几本（过滤前）。
+   *
+   * 「一本都没导入」和「筛选后没匹配」是两种状态：前者要收起整条
+   * 搜索/分类栏（没有东西可筛），后者要留着让用户改条件。
+   */
+  total?: number;
   state: ShellState;
   /** 书库在加载真实封面时会重排，给一个稳定的 key 让滚动位置不丢 */
   libraryKey: string;
+  /** 窄屏：筛选栏收成三颗下拉、搜索按需展开（390px 放不下整排 chip） */
+  mobile?: boolean;
 }
 
 export function viewLibrary(v: LibraryView): string {
   const { rows, state } = v;
+  const mobile = v.mobile === true;
+
+  /* 空库：整页只留一句空态。
+     以前把搜索框、五个分类 chip、书架名一起画出来，下面再补一句
+     「没有匹配的书」——库里一本书都没有时，这两句话互相矛盾，
+     而且满屏控件全是死的（真机图一）。 */
+  if (!(v.total ?? rows.length)) {
+    return `<div class="bzs-empty">书库还是空的。点右上「导入」放一本 epub 进来，或把书直接拖进笔记库。</div>`;
+  }
+
   const recent = continueRow(rows);
   const shown = v.rows;
   const shelves = shelfNames(rows);
@@ -138,21 +158,43 @@ export function viewLibrary(v: LibraryView): string {
           <button class="bzs-btn" data-act="detail" data-id="${recent.id}">书籍详情</button>
         </div>
       </div>`
-    : `<div class="bzs-empty">书库还是空的。点右上「导入」放一本 epub 进来，或把书直接拖进笔记库。</div>`;
+    : '';
 
-  const filters = `<div class="bzs-filters">
+  const filterLabel = LIB_FILTERS.find((f) => f[0] === state.libFilter)?.[1] ?? '全部';
+
+  /* 窄屏：一行放「搜索 / 分类 / 排序 / 视图」四颗，搜索展开后独占一行。
+     桌面保持原样——那里 1200px 宽，摊开比点两下快。 */
+  const filters = mobile
+    ? state.libSearchOpen
+      ? `<div class="bzs-filters is-mb is-search">
+          <div class="bzs-well">${MAG}<input data-role="libkw" placeholder="搜索书名 / 作者 / 分类" value="${esc(state.libKw)}"></div>
+          <button class="bzs-chip" data-act="libsearchtoggle">收起</button>
+        </div>`
+      : `<div class="bzs-filters is-mb">
+          <button class="bzs-chip bzs-icon-chip${state.libKw ? ' on' : ''}" data-act="libsearchtoggle" aria-label="搜索" title="搜索">${MAG}</button>
+          <button class="bzs-chip" data-act="libfiltermenu">${filterLabel}${ico('chevron')}</button>
+          <button class="bzs-chip bzs-sort" data-act="libsortmenu" aria-label="排序">${SORT_LABEL[state.libSort]}${ico(
+            'chevron',
+          )}</button>
+          <span class="sp"></span>
+          <button class="bzs-chip" data-act="libview" data-v="${state.libView === 'grid' ? 'list' : 'grid'}">${
+            state.libView === 'grid' ? '列表' : '封面墙'
+          }</button>
+        </div>`
+    : `<div class="bzs-filters">
       <div class="bzs-well">${MAG}<input data-role="libkw" placeholder="搜索书名 / 作者 / 分类" value="${esc(state.libKw)}"></div>
-      ${FILTERS.map(
+      ${LIB_FILTERS.map(
         (f) => `<button class="bzs-chip${state.libFilter === f[0] ? ' on' : ''}" data-act="libfilter" data-v="${f[0]}">${f[1]}</button>`,
       ).join('')}
       <span style="flex:1"></span>
       <button class="bzs-chip bzs-sort" data-act="libsortmenu" aria-label="排序">${SORT_LABEL[state.libSort]} ${ico(
-        'chevron-down',
+        'chevron',
       )}</button>
       <button class="bzs-chip${state.libView === 'grid' ? ' on' : ''}" data-act="libview" data-v="grid">封面墙</button>
       <button class="bzs-chip${state.libView === 'list' ? ' on' : ''}" data-act="libview" data-v="list">列表</button>
-    </div>
-    <div class="bzs-shelfline">
+    </div>`;
+
+  const shelfline = `<div class="bzs-shelfline">
       <span class="bzs-mini" style="margin-right:4px">书架</span>
       ${shelves.map((s) => `<button class="bzs-chip${state.libShelf === s ? ' on' : ''}" data-act="shelf" data-v="${esc(s)}">${esc(s)}</button>`).join('')}
       <span class="sp"></span><span class="bzs-mini">${shown.length} 本</span>
@@ -193,5 +235,5 @@ export function viewLibrary(v: LibraryView): string {
       .join('')}</div>`;
   }
 
-  return `${cont}${filters}${body}`;
+  return `${cont}${filters}${shelfline}${body}`;
 }

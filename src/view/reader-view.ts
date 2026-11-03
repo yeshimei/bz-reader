@@ -48,12 +48,12 @@ import {
   closeOverlay,
   dismissesOnOutside,
   getState as getShellState,
-  isFloatOverlay,
   setState as setShellState,
   subscribe,
   notify as notifyShell,
 } from '../shell/state';
 import { openOverlay } from '../shell/state';
+import { tapIntent } from './tap-intent';
 import { anchoredPlacement } from '../shell/anchored-style';
 import { RT, onNotesChanged } from '../shell/runtime';
 import { shouldNotifyRelocate } from './relocate-notify';
@@ -318,17 +318,21 @@ export class ReaderView extends ItemView {
       void p.then(() => this.tracker.touch());
     };
 
-    /* 点正文：移动端左右翻页；两指同时按切换沉浸（判定在引擎侧）。
+    /* 点正文：移动端上下分区翻页；两指同时按切换沉浸（判定在引擎侧）。
        翻页延后由 host 的队列保证，这里只管按区定方向。 */
     this.tapHandler = (zone, info) => {
-      /* 浮层开着时，点正文只关浮层，不翻页。
-         iframe 里的点按不冒泡到宿主文档，document 级收口收不到，
-         必须在阅读视图这一层补上——否则「点任何地方关掉」在手机上不成立。 */
-      const shown = getShellState().overlay;
-      if (shown && isFloatOverlay(shown.kind)) {
-        /* 写想法是有内容要保护的输入框：点正文不关它（也不翻页，翻走之后
-           锚点会错位）。其余浮层点一下就收。 */
-        if (dismissesOnOutside(shown.kind)) closeOverlay();
+      /* 这一下该干什么，全交给 tapIntent：划词条 > 浮层 > 翻页。
+         iframe 里的点按不冒泡到宿主文档，document 级的收口收不到，
+         所以「先收条子、再关浮层、最后才翻页」只能在这里兜住。 */
+      const intent = tapIntent({
+        selbar: !!this.selbar,
+        overlayKind: getShellState().overlay?.kind,
+        mobile: isMobileShell(),
+      });
+      if (intent !== 'turn') {
+        if (intent === 'dismiss-selbar') this.hideSelbar();
+        if (intent === 'dismiss-overlay') closeOverlay();
+        this.renderProbe();
         return;
       }
       const now = Date.now();
@@ -347,17 +351,6 @@ export class ReaderView extends ItemView {
       this.lastZone = zone === 'prev' ? 'U' : 'D';
       /* 连点就连续翻：去重已经在引擎侧按手势做过，这里不再压时间窗 */
       this.lastTurnAt = now;
-      if (!isMobileShell()) {
-        this.renderProbe();
-        return;
-      }
-      /* 浮层开着时点正文 = 关掉浮层，不翻页。浮层在宿主层、正文在 iframe 里，
-         document 级 pointerdown 收不到 iframe 内的事件，只能在这里兜住。 */
-      if (isFloatOverlay(getShellState().overlay?.kind)) {
-        if (dismissesOnOutside(getShellState().overlay?.kind)) closeOverlay();
-        this.renderProbe();
-        return;
-      }
       /* 上面 = 上一页，下面 = 下一页（分区在引擎侧按屏幕纵坐标判） */
       const dir: 'prev' | 'next' = zone;
       this.lastKeyBefore = this.host.pageKey;
@@ -878,6 +871,11 @@ export class ReaderView extends ItemView {
   }
 
   /* ─────────────────── 朗读 ─────────────────── */
+
+  /** 当前这一屏的正文纯文本（朗读与 AI 问答共用同一条取文口径） */
+  pageText(): string {
+    return this.host.currentText();
+  }
 
   private toggleTts(): void {
     // 停止永远放行，避免读起来之后关不掉

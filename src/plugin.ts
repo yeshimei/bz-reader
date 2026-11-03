@@ -273,6 +273,7 @@ export function createPlugin(cfg: PluginConfig) {
         setPrefs: (patch) => this.setPrefs(patch),
         settings: () => normalizeSettings(this.store.get().settings ?? undefined),
         setSettings: (patch) => this.setSettings(patch),
+        currentText: () => this.activeReader()?.pageText() ?? '',
         activate: (code) => this.activateLicense(code),
         dataDir: () => dataDirOf(),
         migrateDataDir: (dir) => this.migrateDataDir(dir),

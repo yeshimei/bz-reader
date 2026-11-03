@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { focusSelector } from '../src/shell/focus-memo';
-import { confirmDelete, DELETE_CONFIRM_MS } from '../src/shell/delete-guard';
 import { searchHits, type SearchTarget } from '../src/shell/search-hits';
 
 describe('focusSelector', () => {
@@ -10,32 +9,6 @@ describe('focusSelector', () => {
 
   it('没有 k 时退回只按 role（搜索框这类只有一个的控件）', () => {
     expect(focusSelector('libkw')).toBe('[data-role="libkw"]');
-  });
-});
-
-describe('confirmDelete', () => {
-  it('第一次只上膛，不删', () => {
-    const r = confirmDelete(null, 'm1', 1000);
-    expect(r.remove).toBe(false);
-    expect(r.next).toEqual({ id: 'm1', at: 1000 });
-  });
-
-  it('窗口内同 id 再点一次才删，并清空上膛状态', () => {
-    const r = confirmDelete({ id: 'm1', at: 1000 }, 'm1', 1000 + DELETE_CONFIRM_MS);
-    expect(r.remove).toBe(true);
-    expect(r.next).toBeNull();
-  });
-
-  it('超时后不算确认，重新上膛', () => {
-    const r = confirmDelete({ id: 'm1', at: 1000 }, 'm1', 1000 + DELETE_CONFIRM_MS + 1);
-    expect(r.remove).toBe(false);
-    expect(r.next?.at).toBe(1000 + DELETE_CONFIRM_MS + 1);
-  });
-
-  it('换了一条标注不算确认（避免误删上一条）', () => {
-    const r = confirmDelete({ id: 'm1', at: 1000 }, 'm2', 1100);
-    expect(r.remove).toBe(false);
-    expect(r.next).toEqual({ id: 'm2', at: 1100 });
   });
 });
 

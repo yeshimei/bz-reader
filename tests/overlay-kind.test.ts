@@ -10,10 +10,17 @@ import { dismissesOnOutside, isFloatOverlay } from '../src/shell/state';
  * 点外面一律不关，只认取消 / 保存 / Esc。
  */
 describe('isFloatOverlay', () => {
-  it('划线工具条 / 想法 / 脚注 / 排版都是浮层', () => {
-    for (const kind of ['hltools', 'idea', 'footnote', 'typography'] as const) {
+  it('划线工具条 / 想法 / 脚注 / 排版 / 书摘 / AI 都是浮层', () => {
+    for (const kind of ['hltools', 'idea', 'footnote', 'typography', 'quote', 'ai'] as const) {
       expect(isFloatOverlay(kind)).toBe(true);
     }
+  });
+
+  /* 真机反馈：书摘卡与 AI 卡是 S10 新加的两张无遮罩浮卡，但没进这张表。
+     后果是双向的——桌面点空白处关不掉，手机点正文不但不关，还先翻了一页。 */
+  it('书摘与 AI 点外面要能关掉', () => {
+    expect(dismissesOnOutside('quote')).toBe(true);
+    expect(dismissesOnOutside('ai')).toBe(true);
   });
 
   it('搜索 / 解锁 / 详情这类带遮罩的弹层不是浮层', () => {

@@ -51,6 +51,13 @@ export interface ShellSource {
   settings: () => ReaderSettings;
   setSettings: (patch: Partial<ReaderSettings>) => void;
   /**
+   * 当前这一屏的正文纯文本。
+   *
+   * 给 AI 问答当上下文用：整本书塞不进 token，而且用户问的通常是
+   * 「刚读到的这段」。没开书 / 还没分页时返回空串，调用方要处理。
+   */
+  currentText: () => string;
+  /**
    * 激活码：验签 → 写 entitlement → 同步 settings → 重绘。
    * 原生设置页与解锁弹层都必须走它，否则会出现「显示已激活、功能锁死」。
    */

@@ -26,7 +26,6 @@ import {
   toggleBookmark,
 } from '../data/notes';
 import { notify } from '../core/notice';
-import { confirmDelete } from './delete-guard';
 import { bookMenuItems } from './book-menu';
 import { flipSetting, type ToggleState } from './settings-toggle';
 import { rangeFill } from './range-fill';
@@ -37,6 +36,8 @@ import { normalizeDataDir } from '../core/plugin-path';
 import { linkInline, linkQuote, rawUrl, targetOfMark, wikiLink } from '../data/deeplink';
 import { exportBookNotes } from '../data/export';
 import { jumpTo, getToc } from '../view/toc-state';
+import { LIB_FILTERS } from './render/study';
+import { copyQuoteCardImage } from './card-image';
 import type { OverlayKind, StudyPage } from './state';
 import { closeOverlay, cancelIdeaClose, getState, mutateState, openOverlay, setState, toggleFav } from './state';
 import { RT, emitNotesChanged, pushAi } from './runtime';
@@ -408,6 +409,32 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
     case 'libview':
       if (d.v) setState({ libView: d.v as never });
       break;
+    /* 窄屏书库：搜索框按需展开。展开后把光标放进输入井——
+       点这一下的全部目的就是打字，还要再点一次输入框就白做了。 */
+    case 'libsearchtoggle': {
+      const open = !getState().libSearchOpen;
+      setState({ libSearchOpen: open });
+      if (open) {
+        window.setTimeout(() => {
+          document.querySelector<HTMLInputElement>('[data-role="libkw"]')?.focus();
+        }, 0);
+      }
+      break;
+    }
+    case 'libfiltermenu': {
+      const box = el.getBoundingClientRect();
+      const menu = new Menu();
+      for (const [value, label] of LIB_FILTERS) {
+        menu.addItem((item) =>
+          item
+            .setTitle(label)
+            .setChecked(getState().libFilter === value)
+            .onClick(() => setState({ libFilter: value })),
+        );
+      }
+      menu.showAtPosition({ x: box.left, y: box.bottom + 4 });
+      break;
+    }
     case 'libsortmenu': {
       /* 排序原来是一个原生 <select>：展开是系统的白底蓝条，和旁边的纸色
          chip 完全两套长相。改成一颗 chip + 宿主自己的菜单——跟主题走，
@@ -708,20 +735,21 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       }
       break;
     }
-    case 'delbmk': {
+    case 'delbmk':
+      /* 和删除划线同一套：先出一张确认卡。
+         原来走「再点一次」——侧栏里连点两下和「一次没点准又补一下」
+         几乎分不出来，而删除不可撤销。 */
+      if (!d.id) break;
+      overlay('confirmdel', { bookmarkId: d.id, bookId: d.book || getState().bookId || '' });
+      break;
+    case 'delbmkdo': {
       const book = currentBook();
       if (book && d.id) {
-        const gate = confirmDelete(RT.deleteArm, d.id, Date.now());
-        RT.deleteArm = gate.next;
-        if (!gate.remove) {
-          notify('再点一次删除这枚书签', 'info');
-          break;
-        }
         removeBookmark(book, d.id);
         getShellSource()?.store.touch();
         repaint();
-        notify('书签已删');
       }
+      closeOverlay();
       break;
     }
     case 'delmark': {
@@ -806,11 +834,6 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       if (!requireCap('ai')) break;
       void askAi(el);
       break;
-    case 'aimode': {
-      const s = getState();
-      if (s.overlay) setState({ overlay: { ...s.overlay, mode: d.v } });
-      break;
-    }
 
     /* ── 搜索 ── */
     case 'searchscope':
@@ -841,7 +864,7 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
       const text = getState().overlay?.text || RT.sel?.text || '';
       if (node) node.textContent = '正在请求…';
-      void aiAsk(shellSettings(), 'explain', text)
+      void aiAsk(shellSettings(), { task: 'explain', text })
         .then((res) => {
           if (node) node.textContent = res.text;
         })
@@ -869,6 +892,25 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       void exportBookNotes(app, book, shellSettings()).then((res) => {
         notify(res ? `已存进 ${res.path}` : '这本书还没有可存的标注');
       });
+      break;
+    }
+
+    /* 书摘卡转图片：canvas 手绘，直接写剪贴板。
+       这是高级版能力位 cap:'card'，按钮本身由 overlayQuote 按权限决定出不出现；
+       这里再判一次是因为动作入口也能被脚本触发。 */
+    case 'quotecopyimg': {
+      if (!requireCap('card')) break;
+      const text = getState().overlay?.text || RT.sel?.text || '';
+      if (!text) break;
+      const book = currentBook();
+      void copyQuoteCardImage({
+        text,
+        title: book?.meta.title,
+        author: book?.meta.author,
+        chapter: getState().overlay?.chapterTitle || RT.sel?.chapterTitle,
+      })
+        .then(() => notify('书摘卡已复制为图片'))
+        .catch((e: Error) => notify(e.message || '复制图片失败', 'error'));
       break;
     }
 
@@ -1048,6 +1090,13 @@ function saveIdea(markId?: string, bookId?: string): void {
   }
 }
 
+/**
+ * 侧栏 AI 页签的「问这本书」。
+ *
+ * 与划线的 AI 解释是两条链路：这里带当前这一屏的正文、带最近几轮问答，
+ * 走 ask 任务。原来复用 explain 的 prompt 且不传正文，问「讲了什么」
+ * 会被当成一段要解释的名词。
+ */
 async function askAi(el: HTMLElement): Promise<void> {
   const scope = el.closest('.bzs-aiask, .bzs-aichat');
   const input = scope?.querySelector<HTMLInputElement>('[data-role="aiask"]');
@@ -1056,11 +1105,22 @@ async function askAi(el: HTMLElement): Promise<void> {
   const src = getShellSource();
   if (!src) return;
   const settings = shellSettings();
+  const book = currentBook();
+  /* 先把自己这条提问放进日志（界面立刻有反馈），再取历史时要把它排除——
+     buildMessages 会把 text 作为最后一条 user 追加。 */
+  const history = RT.aiLog.map((m) => ({ role: m.me ? ('user' as const) : ('assistant' as const), content: m.text }));
   pushAi(true, '我', q);
   if (input) input.value = '';
   repaint();
   try {
-    const res = await aiAsk(settings, 'explain', q);
+    const res = await aiAsk(settings, {
+      task: 'ask',
+      text: q,
+      title: book?.meta.title,
+      chapter: book?.reading.position.chapterTitle,
+      context: src.currentText(),
+      history,
+    });
     pushAi(false, `AI · ${settings.ai.model || '模型'}`, res.text);
   } catch (e) {
     pushAi(false, 'AI', (e as Error).message || '请求失败');
