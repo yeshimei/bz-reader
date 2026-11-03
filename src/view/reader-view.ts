@@ -36,6 +36,7 @@ import { envSummary, probeBlobIframe } from '../core/diagnose';
 import { el } from '../ui/dom';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
 import { headerActionIds, headerActionSpec, headerActive } from './header-actions';
+import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { selActions } from '../shell/text-toolbar';
 import { VIEW_TYPE_TOC } from './side-view';
 
@@ -1214,44 +1215,51 @@ export class ReaderView extends ItemView {
     this.mounting = false;
   }
 
+  /**
+   * 失败态：标题说结论、第二行说原因、动作最多两个，自检信息收在下面。
+   *
+   * 环境自检那几行是给真机排查用的：手机上最常见的白屏是 iframe 加载不了
+   * blob 地址，而那种失败连一条报错都没有。把结论写在这里，截图就能定位。
+   */
   private renderFault(title: string, desc: string): void {
     const stage = this.stage;
     if (!stage) return;
     stage.empty();
-    const box = el('div', 'bzs-empty');
-    box.append(el('div', '', title), el('div', 'bzs-mini', desc));
-    /* 环境自检：手机上最常见的白屏是 iframe 加载不了 blob 地址，
-       而那种失败连一条报错都没有。把结论写在这里，真机截图就能定位。 */
-    const diag = el('div', 'bzs-mini bzr-diag');
-    diag.style.opacity = '.7';
-    for (const line of envSummary(this.host.loadPhase)) diag.appendChild(el('div', '', line));
-    const probeLine = el('div', '', 'iframe·blob：探测中…');
-    diag.appendChild(probeLine);
-    void probeBlobIframe().then((r) => {
-      probeLine.textContent = `iframe·blob：${r}`;
+    const diag: FaultDiagLine[] = envSummary(this.host.loadPhase).map((line) => {
+      const i = line.indexOf('：');
+      return i > 0 ? { k: line.slice(0, i), v: line.slice(i + 1) } : { k: '信息', v: line };
     });
-    box.appendChild(diag);
-    const back = el('button', 'bzs-btn', '回书架');
-    back.type = 'button';
-    back.addEventListener('click', () => getShellSource()?.openStudy('library'));
-    box.appendChild(back);
-    const retry = el('button', 'bzs-btn', '重试');
-    retry.type = 'button';
-    retry.addEventListener('click', () => {
+    diag.push({ k: 'iframe·blob', v: '探测中…' });
+    const box = el('div', '');
+    box.innerHTML = faultHtml({
+      icon: 'alert',
+      title,
+      desc,
+      diag,
+      actions: [
+        { label: '重试', act: 'retry', primary: true },
+        { label: '回书架', act: 'back' },
+      ],
+    });
+    box.querySelector('[data-act="back"]')?.addEventListener('click', () => getShellSource()?.openStudy('library'));
+    box.querySelector('[data-act="retry"]')?.addEventListener('click', () => {
       this.mounted = false;
       void this.maybeMount();
     });
-    box.appendChild(retry);
+    const probeRow = box.querySelector<HTMLElement>('[data-k="iframe·blob"]');
+    void probeBlobIframe().then((r) => {
+      if (probeRow) probeRow.innerHTML = `<span class="k">iframe·blob</span>${r}`;
+    });
     stage.appendChild(box);
   }
 
-  /** 解包与渲染期间的占位：说明在忙，不是坏了 */
+  /** 解包与渲染期间的占位：说明在忙，不是坏了（不编造百分比） */
   private renderLoading(title: string): void {
     const stage = this.stage;
     if (!stage) return;
     stage.empty();
-    const box = el('div', 'bzs-empty');
-    box.append(el('div', 'bzs-mini', `正在打开《${title}》…`));
+    const box = el('div', '');
+    box.innerHTML = loadingHtml(title);
     stage.appendChild(box);
   }
 
