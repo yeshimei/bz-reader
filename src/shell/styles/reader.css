@@ -69,18 +69,19 @@
   min-width: 0;
 }
 
+/* 副栏书名：定稿是**左对齐**的一行铜色小字，压在副栏正文上方留白里。
+   居中会把它读成「这一屏的标题」，而它只是「右边这本是谁」。 */
 .bzs-plabel {
   position: absolute;
   top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 18px;
   z-index: var(--z-sticky);
   font-size: 11px;
   letter-spacing: 0;
   color: var(--copper);
   white-space: nowrap;
   pointer-events: none;
-  max-width: 80%;
+  max-width: calc(100% - 36px);
   overflow: hidden;
   text-overflow: ellipsis;
 }

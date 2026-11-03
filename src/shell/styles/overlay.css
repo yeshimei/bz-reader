@@ -1405,4 +1405,28 @@ textarea.idea:focus {
   line-height: 1.8;
 }
 
+/* ── 重置界面状态：两行对照 + 一句数据位置（S8 定稿） ──
+   两个标签用两种颜色区分「会重置」（铜）与「不会动」（正文色），
+   光靠「会 / 不会」四个字扫读时分不出来。 */
+.bzs-reset {
+  font-size: 13px;
+  line-height: 2;
+  color: var(--t2);
+}
+
+.bzs-reset .k {
+  color: var(--copper);
+  font-weight: 500;
+}
+
+.bzs-reset .k2 {
+  color: var(--t1);
+  font-weight: 500;
+}
+
+.bzs-reset .bzs-mini {
+  margin-top: 8px;
+}
+
+
 

@@ -779,6 +779,11 @@ export class ReaderView extends ItemView {
           })
       );
     }
+    /* 最多列 12 本：再多就让人先去筛书架，不在菜单里塞一块滚动区 */
+    if (books.length > 12) {
+      menu.addSeparator();
+      menu.addItem((i) => i.setTitle(`还有 ${books.length - 12} 本，先筛书架`).setDisabled(true));
+    }
     /* 没有坐标时不能落在 (0,0)：手机上会被状态栏/刘海裁掉一半，
        看起来像「点了没反应」。退回阅读区右上方。 */
     const fallback = (): { x: number; y: number } => {
@@ -832,6 +837,9 @@ export class ReaderView extends ItemView {
           void (dir === 'prev' ? host2.prev() : host2.next());
         },
       });
+      /* mount 只建视图，start 才真的装书——漏了这一步副栏是一块空白，
+         看起来像「并排打开了但右边什么都没有」。副卷从它自己的进度起。 */
+      await host2.start(other.reading.position.cfi || '', other.reading.position.percent || 0);
       this.parallelOn = true;
     } catch (e) {
       this.host2 = null;

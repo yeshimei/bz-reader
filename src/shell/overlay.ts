@@ -419,13 +419,23 @@ function overlayGoal(): string {
   return modal('年度目标', '按自己的节奏来', body, closeBtn());
 }
 
+/**
+ * 重置界面状态：把「会重置」与「不会动」分成两行对照。
+ *
+ * 最后一句必须点出**真正的数据位置**（可配置，见设置页的「数据目录」）：
+ * 否则用户会以为「重置」等于清空数据，或者反过来以为数据没了。
+ * 「纸色」那一档已经撤掉（底色跟宿主），文案里不能再提。
+ */
 function overlayReset(): string {
+  const dir = dataDirOf();
   return modal(
     '重置界面状态',
     '只清书架的界面设置，不动你的书与笔记',
-    `<div style="font-size:13px;line-height:2;color:var(--t2)">会重置：书库视图与筛选、纸色、年度目标、默认笔色。<br>
-     不会动：书、阅读进度、划线、书签、AI 配置。<br>
-     阅读数据在 storage/bz-reader.json 里，要清它请直接删那个文件。</div>`,
+    `<div class="bzs-reset">
+      <div><b class="k">会重置</b>：书库视图与筛选、年度目标、默认笔色。</div>
+      <div><b class="k2">不会动</b>：书、阅读进度、划线、书签、AI 配置。</div>
+      <div class="bzs-mini">阅读数据在 ${esc(dir)}/bz-reader.json 里，要清它请直接删那个文件。</div>
+    </div>`,
     `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
      <button class="bzs-btn danger" data-act="resetui">确认重置</button>`,
   );
