@@ -27,6 +27,7 @@ import {
 } from '../data/notes';
 import { notify } from '../core/notice';
 import { confirmDelete } from './delete-guard';
+import { bookMenuItems } from './book-menu';
 import { flipSetting, type ToggleState } from './settings-toggle';
 import { rangeFill } from './range-fill';
 import { openHotkeySettings } from '../core/hotkeys';
@@ -309,31 +310,43 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       const book = liveBooks().find((b) => b.id === id);
       if (!book) break;
       const done = !!book.reading.stats.completedTime || (book.reading.position.percent || 0) >= 0.99;
+      const items = bookMenuItems({
+        done,
+        fav: getState().favIds.includes(id),
+        missing: !!(book.fileRef as { fileMissing?: boolean }).fileMissing,
+      });
       const menu = new Menu();
-      menu.addItem((i) => i.setTitle('阅读').setIcon('book-open').onClick(() => openBookById(id)));
-      menu.addItem((i) => i.setTitle('书籍详情').setIcon('info').onClick(() => overlay('detail', { bookId: id })));
-      menu.addItem((i) =>
-        i
-          .setTitle(getState().favIds.includes(id) ? '取消收藏' : '收藏')
-          .setIcon('star')
-          .onClick(() => {
-            const on = toggleFav(id);
-            notify(on ? '已收藏' : '已取消收藏');
-            rerender();
-          }),
-      );
-      menu.addItem((i) =>
-        i
-          .setTitle(done ? '标为在读' : '标为读完')
-          .setIcon('check')
-          .onClick(() => toggleDone(id)),
-      );
-      menu.addSeparator();
-      menu.addItem((i) => i.setTitle('改名').setIcon('pencil').onClick(() => overlay('rename', { bookId: id })));
-      menu.addItem((i) =>
-        i.setTitle('移除书库').setIcon('trash').onClick(() => overlay('removebook', { bookId: id })),
-      );
+      for (const it of items) {
+        if (it.sepBefore) menu.addSeparator();
+        menu.addItem((i) => {
+          i.setTitle(it.title).setIcon(it.icon);
+          /* 文件丢了就禁用「阅读」，其余照旧：书还在，用户要知道点不动的原因 */
+          if (it.disabled) i.setDisabled(true);
+          if (it.act === 'open') i.onClick(() => openBookById(id));
+          if (it.act === 'detail') i.onClick(() => overlay('detail', { bookId: id }));
+          if (it.act === 'fav')
+            i.onClick(() => {
+              const on = toggleFav(id);
+              notify(on ? '已收藏' : '已取消收藏');
+              rerender();
+            });
+          if (it.act === 'done') i.onClick(() => toggleDone(id));
+          if (it.act === 'rename') i.onClick(() => overlay('rename', { bookId: id }));
+          if (it.act === 'remove') i.onClick(() => overlay('removebook', { bookId: id }));
+        });
+      }
       menu.showAtPosition({ x: Number(d.x) || 0, y: Number(d.y) || 0 });
+      /* 原生 Menu 不给「染红一个条目」的 API：弹出之后按顺序把危险项
+         标出来。菜单是宿主 DOM（不在 .bzs-shell 里），样式见 common.css
+         的 .bzs-menu-danger。`dom` 没进类型声明，运行时才有。 */
+      const menuDom = (menu as unknown as { dom?: HTMLElement }).dom;
+      const rows = menuDom?.querySelectorAll<HTMLElement>('.menu-item');
+      if (rows?.length) {
+        const dangerIdx = items.map((i) => !!i.danger);
+        rows.forEach((row: HTMLElement, i: number) => {
+          if (dangerIdx[i]) row.classList.add('bzs-menu-danger');
+        });
+      }
       break;
     }
     case 'rename':

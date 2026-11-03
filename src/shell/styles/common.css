@@ -380,3 +380,17 @@
   border-color: var(--copper-line);
   box-shadow: none;
 }
+
+/* ── 书卡右键菜单里的危险项 ──
+   菜单是宿主原生 Menu（挂在 body 上，不在 .bzs-shell 里），而宿主没有
+   「把某一条染红」的 API：弹出后由 actions.ts 按顺序补上这个类。
+   选择器以 .bzs- 开头，构建时的壳层作用域会原样放过它。 */
+.bzs-menu-danger.menu-item {
+  color: var(--text-error, #c0392b);
+}
+
+.bzs-menu-danger.menu-item:hover {
+  color: var(--text-error, #c0392b);
+  background: color-mix(in srgb, var(--text-error, #c0392b) 12%, transparent);
+}
+
