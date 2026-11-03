@@ -208,3 +208,20 @@
   --bzr-code-bg: rgba(20, 20, 24, 0.06);
   --bzr-mark-bg: rgba(226, 87, 28, 0.22);
 }
+
+/* ── 移动端字号 ──
+   桌面档（11 / 12 / 13 / 14 / 15 / 17）是按「一臂距离 + 鼠标」定的：
+   11px 的中文在手机上就是蚂蚁。真机统一抬一档，旧面板（导入 / 统计 /
+   跨书搜索）里吃 var(--bzr-font-*) 的地方自动跟着变，不用逐条改。
+   触发条件与 shell/styles/mobile.css 的第七节一致：窄屏或触摸屏。 */
+@media (max-width: 820px), (hover: none) {
+  :root {
+    --bzr-font-caption: 12px;
+    --bzr-font-meta: 13px;
+    --bzr-font-label: 15px;
+    --bzr-font-body: 15px;
+    --bzr-font-emphasis: 17px;
+    --bzr-font-title: 19px;
+    --bzr-font-display: 22px;
+  }
+}

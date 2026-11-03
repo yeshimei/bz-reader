@@ -213,6 +213,18 @@
 .bzr-stats.is-mobile .bzr-stats-main {
   grid-template-columns: 1fr;
 }
+/* 真机字号：这一页几乎全是 11/12px 的账目字，手机上等于看不清 */
+.bzr-stats.is-mobile .bzr-stats-cap,
+.bzr-stats.is-mobile .bzr-stats-row span,
+.bzr-stats.is-mobile .bzr-stats-sec,
+.bzr-stats.is-mobile .bzr-heat-months,
+.bzr-stats.is-mobile .bzr-heat-foot {
+  font-size: 12px;
+}
+.bzr-stats.is-mobile .bzr-stats-book .name,
+.bzr-stats.is-mobile .bzr-stats-book .pct {
+  font-size: 13px;
+}
 .bzr-stats-main {
   display: grid;
   grid-template-columns: 218px 1fr;
@@ -526,6 +538,19 @@
   font-size: var(--bzr-font-caption);
   color: var(--bzr-text-3);
 }
+/* 真机字号：输入框 16px 是 iOS 聚焦不放大页面的下限，结果行抬到 15px */
+.bzr-xs.is-mobile .bzr-xs-bar input {
+  font-size: 16px;
+}
+.bzr-xs.is-mobile .bzr-xs-bar .bzr-btn {
+  font-size: 14px;
+}
+.bzr-xs.is-mobile .bzr-xs-hit {
+  font-size: 15px;
+}
+.bzr-xs.is-mobile .bzr-xs-loc {
+  font-size: 12px;
+}
 
 /* ═══════════ ④.7 书摘卡片（高级版，划线卡片的二级弹窗） ═══════════ */
 .bzr-overlay-popup.bzr-qcard-popup {
@@ -788,6 +813,7 @@
 .bzr-imp.is-mobile .bzr-imp-desc {
   display: block;
   margin-top: 4px;
+  font-size: 13px;
 }
 .bzr-imp.is-mobile .bzr-imp-sec {
   display: none;
@@ -799,11 +825,12 @@
   height: 30px;
   border-radius: var(--r-card);
   background: var(--bzr-surface-2);
-  font-size: 11px;
+  /* 16px 是 iOS 聚焦不自动放大页面的下限，比桌面档大一档正好 */
+  font-size: 16px;
 }
 .bzr-imp.is-mobile .bzr-imp-link,
 .bzr-imp.is-mobile .bzr-link {
-  font-size: 11px;
+  font-size: 14px;
 }
 .bzr-imp.is-mobile .bzr-imp-list {
   border-radius: var(--r-card);
@@ -813,10 +840,23 @@
   padding: 11px 12px;
 }
 .bzr-imp.is-mobile .bzr-imp-t .n {
+  font-size: 15px;
+}
+.bzr-imp.is-mobile .bzr-imp-t .p {
+  font-size: 13px;
+}
+.bzr-imp.is-mobile .bzr-badge {
   font-size: 12px;
 }
 .bzr-imp.is-mobile .bzr-imp-m {
-  font-size: 11px;
+  font-size: 12px;
+}
+.bzr-imp.is-mobile .bzr-imp-hint,
+.bzr-imp.is-mobile .bzr-imp-local .d {
+  font-size: 13px;
+}
+.bzr-imp.is-mobile .bzr-imp-empty {
+  font-size: 14px;
 }
 .bzr-imp.is-mobile .bzr-imp-local {
   flex-direction: column;
@@ -828,6 +868,7 @@
 .bzr-imp.is-mobile .bzr-imp-local .bzr-btn {
   height: 30px;
   border-radius: var(--r-ctl);
+  font-size: 14px;
 }
 .bzr-imp.is-mobile .bzr-imp-f {
   padding: 12px 18px calc(18px + env(safe-area-inset-bottom, 0px));
@@ -836,7 +877,7 @@
   width: 100%;
   height: 40px;
   border-radius: var(--r-card);
-  font-size: 13px;
+  font-size: 15px;
 }
 .bzr-tocv {
   --copper: #c8a464;
@@ -884,6 +925,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-normal);
+}
+
+/* 真机：书名是头栏上唯一要读的字，跟着抬一档 */
+@media (max-width: 820px), (hover: none) {
+  .bzr-head-title {
+    font-size: 17px;
+  }
 }
 
 /* 阅读时头栏图标缩到 36px：真机默认那颗有 44~48px，三颗就把书名挤没了 */

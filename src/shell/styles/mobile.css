@@ -626,7 +626,7 @@
 
   .bzs-selbar .bzs-sbtn {
     padding: 7px;
-    font-size: 11.5px;
+    font-size: 13px;
   }
 
   .bzs-selbar .bzs-pendot {
@@ -637,5 +637,510 @@
 
   .bzs-selbar .div {
     margin: 0 1px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   七、字号：移动端整体抬一档
+   -----------------------------------------------------------
+   桌面那套 11 / 12 / 13 / 15 / 18 是按「一臂距离 + 鼠标」定的：
+   11px 的中文在 27 寸屏上是角标，在 390px 的手机上就是蚂蚁。
+   手机一屏本来就装不下多少东西（三本书、五行目录），把字抬上去
+   不会让界面变挤，只会变清楚。
+
+   抬法是「按角色」，不是「按原值」：
+     角标 / 时间 / 计数         11 → 12
+     次要行 / 副标题 / 元信息    12 → 13
+     正文 / 列表 / 按钮         12~13 → 15
+     卡片标题 / 弹层标题         15~16 → 17
+     页面标题                  17 → 19
+
+   触发条件「窄屏 或 触摸屏」：
+     - 手机竖屏命中 max-width；
+     - 手机横屏（844 / 932px）与 iPad 靠 hover:none 兜住——宽度过了
+       820，但依然是手指在点；
+     - 桌面把窗口拖窄到 820 以下同样受益（那时本来就是手机布局）。
+   桌面鼠标环境一个字都不动。
+
+   只动字号，不动行高、盒模型与固定宽度：按钮、色点、进度条的尺寸
+   在别处定义，字大了由 flex / padding 自己消化。
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 820px), (hover: none) {
+  /* 尺度令牌跟着抬。眼下没几处消费它们，但以后谁按 tokens.css 的
+     约定写 var(--fs-body)，不会再掉回桌面档。 */
+  :root {
+    --fs-caption: 12px;
+    --fs-mini: 13px;
+    --fs-body: 15px;
+    --fs-strong: 17px;
+    --fs-title: 19px;
+  }
+
+  /* ── 原子件（common.css） ── */
+  .bzs-btn {
+    font-size: 15px;
+  }
+
+  .bzs-btn.sm {
+    font-size: 13px;
+  }
+
+  .bzs-chip {
+    font-size: 14px;
+  }
+
+  .bzs-cbtn.wide {
+    font-size: 13px;
+  }
+
+  .bzs-kv {
+    font-size: 14px;
+  }
+
+  .bzs-empty {
+    font-size: 15px;
+  }
+
+  .bzs-mini {
+    font-size: 12px;
+  }
+
+  .bzs-sect-h {
+    font-size: 12px;
+  }
+
+  .bzs-sect-h b {
+    font-size: 13px;
+  }
+
+  /* 输入框 16px 是 iOS 聚焦不自动放大页面的下限。
+     上一段那个 `.bzs-shell input`（0,1,1）特异性打不过 tokens.css 的
+     `.bzs-shell input[type="text"]`（0,2,1）——真机上文本框一直是 12px，
+     这条以前等于没生效。这里把 type 写全，同级再靠顺序赢。 */
+  .bzs-shell input[type="text"],
+  .bzs-shell input[type="password"],
+  .bzs-shell input[type="search"],
+  .bzs-shell input:not([type]),
+  .bzs-shell select,
+  .bzs-shell textarea,
+  .bzs-shell textarea.idea,
+  .bzs-well input,
+  .bzs-search-in input,
+  .bzs-aiask input,
+  .bzs-unlock-act input {
+    font-size: 16px;
+  }
+
+  /* ── 书架：头行与页签 ── */
+  .bzs-stuhead h1 {
+    font-size: 19px;
+  }
+
+  .bzs-stunav button {
+    font-size: 15px;
+  }
+
+  .bzs-stunav button .n {
+    font-size: 12px;
+  }
+
+  /* ── 书库 ── */
+  .bzs-cont2 .ci .kick {
+    font-size: 12px;
+  }
+
+  .bzs-cont2 .ci h2 {
+    font-size: 19px;
+  }
+
+  .bzs-cont2 .ci .sub {
+    font-size: 13px;
+  }
+
+  .bzs-cont2 .prog b {
+    font-size: 16px;
+  }
+
+  .bzs-bkcard .bi b {
+    font-size: 16px;
+  }
+
+  .bzs-bkcard .bi .sub {
+    font-size: 12px;
+  }
+
+  .bzs-bkcard .meta {
+    font-size: 12px;
+  }
+
+  .bzs-bkcard .flag {
+    font-size: 12px;
+  }
+
+  .bzs-bkrow2 .bi b {
+    font-size: 15px;
+  }
+
+  .bzs-bkrow2 .bi .sub {
+    font-size: 12px;
+  }
+
+  .bzs-bkrow2 .pct {
+    font-size: 13px;
+  }
+
+  .bzs-bkrow2 .dt {
+    font-size: 12px;
+  }
+
+  .bzs-detail .au {
+    font-size: 13px;
+  }
+
+  .bzs-detail .desc {
+    font-size: 15px;
+  }
+
+  /* ── 笔记 ── */
+  .bzs-nbook-h b {
+    font-size: 17px;
+  }
+
+  .bzs-ncard .tx {
+    font-size: 15px;
+  }
+
+  .bzs-ncard .cm {
+    font-size: 14px;
+  }
+
+  .bzs-ncard .cm b {
+    font-size: 12px;
+  }
+
+  .bzs-ncard .loc {
+    font-size: 12px;
+  }
+
+  .bzs-ncard .acts2,
+  .bzs-ncard .acts2 button {
+    font-size: 12px;
+  }
+
+  .bzs-review .kick {
+    font-size: 12px;
+  }
+
+  .bzs-review h3 {
+    font-size: 18px;
+  }
+
+  .bzs-review .q {
+    font-size: 15px;
+  }
+
+  .bzs-review .idx {
+    font-size: 12px;
+  }
+
+  /* ── 统计 ── */
+  .bzs-kpis .k span {
+    font-size: 12px;
+  }
+
+  .bzs-goal .gi b {
+    font-size: 18px;
+  }
+
+  .bzs-goal .gi span {
+    font-size: 13px;
+  }
+
+  .bzs-heat-axis {
+    font-size: 12px;
+  }
+
+  .bzs-bars .b span {
+    font-size: 12px;
+  }
+
+  .bzs-rank .r {
+    font-size: 14px;
+  }
+
+  /* ── 设置 ── */
+  .bzs-setgrp h3 {
+    font-size: 17px;
+  }
+
+  .bzs-setgrp .hint {
+    font-size: 12px;
+  }
+
+  .bzs-setrow {
+    font-size: 15px;
+  }
+
+  .bzs-setrow .val {
+    font-size: 13px;
+  }
+
+  .bzs-seg button {
+    font-size: 13px;
+  }
+
+  .bzs-keys .bzs-keyrow {
+    font-size: 14px;
+  }
+
+  .bzs-keys kbd {
+    font-size: 12px;
+  }
+
+  .bzs-srcnote {
+    font-size: 12px;
+  }
+
+  /* ── 侧栏：目录 / 书签 / 划线 / AI ── */
+  .bzs-sbhead b {
+    font-size: 17px;
+  }
+
+  .bzs-sbtab {
+    font-size: 13px;
+  }
+
+  .bzs-sbtab .n {
+    font-size: 12px;
+  }
+
+  .bzs-sbsec {
+    font-size: 12px;
+  }
+
+  .bzs-chaprow .t {
+    font-size: 15px;
+  }
+
+  .bzs-chaprow .pc {
+    font-size: 12px;
+  }
+
+  .bzs-chaprow.d1 .no {
+    font-size: 12px;
+  }
+
+  .bzs-mkrow .tt {
+    font-size: 14px;
+  }
+
+  .bzs-mkrow .pc {
+    font-size: 12px;
+  }
+
+  .bzs-mkrow em {
+    font-size: 12px;
+  }
+
+  .bzs-hlg-h,
+  .bzs-hlg-h .n {
+    font-size: 12px;
+  }
+
+  .bzs-hlit .tx {
+    font-size: 14px;
+  }
+
+  .bzs-hlit .cm {
+    font-size: 13px;
+  }
+
+  .bzs-hlit .cm b {
+    font-size: 12px;
+  }
+
+  .bzs-aibubble {
+    font-size: 14px;
+  }
+
+  .bzs-aibubble .tag {
+    font-size: 12px;
+  }
+
+  /* ── 弹层：标题与列表 ── */
+  .bzs-mhead b {
+    font-size: 17px;
+  }
+
+  .bzs-mhead .n {
+    font-size: 12px;
+  }
+
+  .bzs-hit {
+    font-size: 15px;
+  }
+
+  .bzs-hit .loc {
+    font-size: 12px;
+  }
+
+  .bzs-hitgroup {
+    font-size: 12px;
+  }
+
+  .bzs-drop {
+    font-size: 14px;
+  }
+
+  .bzs-drop b {
+    font-size: 18px;
+  }
+
+  .bzs-md {
+    font-size: 14px;
+  }
+
+  /* ── 弹层：AI / 书摘 / 词典 / Book Map ── */
+  .bzs-ai-tag b {
+    font-size: 12px;
+  }
+
+  .bzs-ai-quote {
+    font-size: 14px;
+  }
+
+  .bzs-ai-body {
+    font-size: 15px;
+  }
+
+  .bzs-ai-src {
+    font-size: 12px;
+  }
+
+  .bzs-qcard .q {
+    font-size: 17px;
+  }
+
+  .bzs-qcard .loc,
+  .bzs-qcard .stamp {
+    font-size: 12px;
+  }
+
+  .bzs-dict .py {
+    font-size: 12px;
+  }
+
+  .bzs-dict .df {
+    font-size: 14px;
+  }
+
+  .bzs-bmap .row .no {
+    font-size: 12px;
+  }
+
+  .bzs-bmap .row .nm {
+    font-size: 13px;
+  }
+
+  .bzs-poster .yr {
+    font-size: 12px;
+  }
+
+  .bzs-poster .sub {
+    font-size: 13px;
+  }
+
+  /* ── 弹层：排版面板 / 解锁 / 迁移 / 读完 ── */
+  .bzs-typo .bzs-seg button {
+    font-size: 13px;
+  }
+
+  .bzs-typo .bzs-setrow .val {
+    font-size: 16px;
+  }
+
+  .bzs-dircard .t {
+    font-size: 18px;
+  }
+
+  .bzs-dircard .t.is-v {
+    font-size: 16px;
+  }
+
+  .bzs-dircard .l {
+    font-size: 12px;
+  }
+
+  .bzs-plan-row.head,
+  .bzs-plan-row span em,
+  .bzs-plan-row b,
+  .bzs-plan-row i.p {
+    font-size: 12px;
+  }
+
+  .bzs-plan-row span {
+    font-size: 13px;
+  }
+
+  .bzs-unlock-list li {
+    font-size: 15px;
+  }
+
+  .bzs-move-row b,
+  .bzs-move-row code {
+    font-size: 13px;
+  }
+
+  .bzs-unlock-act label {
+    font-size: 13px;
+  }
+
+  .bzs-finish .kick {
+    font-size: 12px;
+  }
+
+  .bzs-finish .sub {
+    font-size: 13px;
+  }
+
+  .bzs-finish textarea {
+    font-size: 16px;
+  }
+
+  /* ── 贴字的浮层：划词条 / 想法卡 / 脚注 ── */
+  .bzs-sbtn {
+    font-size: 13px;
+  }
+
+  .bzs-hltools-thought {
+    font-size: 13px;
+  }
+
+  .bzs-fntext {
+    font-size: 15px;
+  }
+
+  .bzs-sheet-quote {
+    font-size: 13px;
+  }
+
+  /* ── 阅读画布 ── */
+  .bzs-plabel {
+    font-size: 12px;
+  }
+}
+
+/* 320px 小屏兜底：
+   划词条是一排 nowrap，13px 加四个色点会顶出屏幕；
+   书架四个页签加计数也差几个像素。各收一档，宁小勿溢出。 */
+@media (max-width: 360px) {
+  .bzs-selbar .bzs-sbtn {
+    padding: 7px 5px;
+    font-size: 12px;
+  }
+
+  .bzs-stunav {
+    gap: 12px;
   }
 }
