@@ -100,7 +100,7 @@ export interface MountOptions {
   onReady?: (book: FoliateBook, meta: { title: string; author: string; wordCount: number }) => void;
   /** 单指轻触正文：左 / 中 / 右 */
   onTap?: (
-    zone: 'left' | 'middle' | 'right',
+    zone: 'prev' | 'next',
     info: {
       x: number;
       y: number;
@@ -574,6 +574,7 @@ export class EngineHost {
       target: EventTarget | null,
       source: string,
       screenX = 0,
+      screenY = 0,
     ): void => {
       const now = Date.now();
       if (now < this.suppressClickUntil) return;
@@ -597,13 +598,30 @@ export class EngineHost {
       /* 坐标换算：真机上 clientX 会带上整章的平移量（同一位置连着翻页时 x 每页
          加一个页宽），桌面上却又是视口坐标。screenX 两边都是「屏幕上的位置」，
          减掉窗口自己的 screenX 就回到应用坐标，再减阅读区左边界即可。 */
-      const rect = frame?.getBoundingClientRect();
+      /* 阅读区的位置每次点按都重新量：挂载时量的那一次可能是抽屉/侧栏还开着
+         （真机上量到 left≈170，于是所有点按都被算到偏左，整屏都成了“上一页”）。 */
+      const appDoc = frame?.ownerDocument ?? null;
+      const stageRect = appDoc?.querySelector<HTMLElement>('.bzs-stage')?.getBoundingClientRect();
+      const stageLeft = stageRect ? Math.round(stageRect.left) : this.viewportLeft;
+      const liveWidth = stageRect ? Math.round(stageRect.width) : 0;
+      const live = liveWidth > 0 ? liveWidth : width;
       const winLeft = win?.screenX ?? 0;
       const screenRel = screenX > 0 ? screenX - winLeft : x;
+      const rect = frame?.getBoundingClientRect();
       const scrollLeft = rect ? rect.left : 0;
-      const within = Math.max(0, Math.min(width, screenRel - this.viewportLeft));
-      const zone = within < width * 0.3 ? 'left' : within > width * 0.7 ? 'right' : 'middle';
-      this.opts.onTap?.(zone, { x, y, width, source, scrollLeft, within, screenX });
+      const within = Math.max(0, Math.min(live, screenRel - stageLeft));
+      /* 分区是**上下**，不是左右：屏幕下方 = 下一页，上方 = 上一页。
+         真机上手指的横向位置本来就随意，按左右分区会让同一个点忽左忽右，
+         方向就来回翻。纵向比例稳定得多，也和同目录 weave 的
+         resolveTapZone(clientY, frameHeight) 一致（上 40% 上一页）。 */
+      const stageTop = stageRect ? Math.round(stageRect.top) : 0;
+      const liveH = stageRect ? Math.round(stageRect.height) : 0;
+      const winTop = win?.screenY ?? 0;
+      const screenRelY = screenY > 0 ? screenY - winTop : y;
+      const withinY = Math.max(0, Math.min(liveH || 1, screenRelY - stageTop));
+      const zone: 'prev' | 'next' = withinY < (liveH || 1) * 0.4 ? 'prev' : 'next';
+      dlog('tap.zone', { withinY, liveH, stageTop, screenY, zone, within, live, stageLeft });
+      this.opts.onTap?.(zone, { x, y, width: live, source, scrollLeft, within, screenX });
     };
 
     // ② 滚轮：iframe 内也要拦（外层的 wheel 传不进来）
@@ -671,7 +689,7 @@ export class EngineHost {
       const held = Date.now() - tapAt;
       tapId = -1;
       if (tapMoved || held > TAP_LONG_PRESS_MS) return;
-      emitTap(ev.clientX, ev.clientY, ev.target, 'pointer', ev.screenX);
+      emitTap(ev.clientX, ev.clientY, ev.target, 'pointer', ev.screenX, ev.screenY);
     };
     const onPointerCancel = (): void => {
       tapPointers = 0;
@@ -750,7 +768,7 @@ export class EngineHost {
           Date.now() - state.at < TAP_LONG_PRESS_MS &&
           state.moved < TAP_MOVE_PX
         ) {
-          emitTap(t.clientX, t.clientY, ev.target, 'touch-fallback', t.screenX);
+          emitTap(t.clientX, t.clientY, ev.target, 'touch-fallback', t.screenX, t.screenY);
         }
       }
     };
@@ -766,7 +784,7 @@ export class EngineHost {
       if (tap.moved >= TAP_MOVE_PX) return;
       if (!this.pointerWorks) {
         const t = ev.changedTouches[0];
-        if (t) emitTap(t.clientX, t.clientY, ev.target, 'touch', t.screenX);
+        if (t) emitTap(t.clientX, t.clientY, ev.target, 'touch', t.screenX, t.screenY);
       }
       /* 拦下这一条，分页器就收不到 touchend，不会跑零速度吸附 */
       dlog('tap.blockSnap', { moved: Math.round(tap.moved), ms: Date.now() - tap.at, pointerWorks: this.pointerWorks });

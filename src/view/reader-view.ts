@@ -115,7 +115,7 @@ export class ReaderView extends ItemView {
   private voice: SpeakHandle | null = null;
 
   private tapHandler: (
-    zone: 'left' | 'middle' | 'right',
+    zone: 'prev' | 'next',
     info?: {
       x: number;
       y: number;
@@ -301,16 +301,15 @@ export class ReaderView extends ItemView {
         key: this.host.pageKey,
         vertical: this.host.contentVertical,
       });
-      this.lastZone = zone === 'left' ? 'L' : zone === 'right' ? 'R' : 'M';
+      this.lastZone = zone === 'prev' ? 'U' : 'D';
       /* 连点就连续翻：去重已经在引擎侧按手势做过，这里不再压时间窗 */
       this.lastTurnAt = now;
-      if (!isMobileShell() || zone === 'middle') {
+      if (!isMobileShell()) {
         this.renderProbe();
         return;
       }
-      const vertical = this.host.contentVertical;
-      const dir: 'prev' | 'next' =
-        zone === 'left' ? (vertical ? 'next' : 'prev') : vertical ? 'prev' : 'next';
+      /* 上面 = 上一页，下面 = 下一页（分区在引擎侧按屏幕纵坐标判） */
+      const dir: 'prev' | 'next' = zone;
       this.lastKeyBefore = this.host.pageKey;
       this.lastKeyAfter = '';
       this.stopTts();
@@ -752,10 +751,7 @@ export class ReaderView extends ItemView {
       await host2.mount(inner, other.fileRef.vaultPath, {
         prefs: this.prefs,
         onTap: (zone) => {
-          if (zone === 'middle') return;
-          const vertical = host2.contentVertical;
-          const toNext = zone === 'left' ? vertical : !vertical;
-          void (toNext ? host2.next() : host2.prev());
+          void (zone === 'prev' ? host2.prev() : host2.next());
         },
         onTurn: (dir) => {
           void (dir === 'prev' ? host2.prev() : host2.next());
