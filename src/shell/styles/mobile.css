@@ -61,7 +61,7 @@
   .bzs-rtool .bzs-cbtn {
     width: 36px;
     height: 36px;
-    border-radius: 9px;
+    border-radius: var(--r-card);
   }
 
   .bzs-rtool .bzs-cbtn.is-aux {
@@ -160,7 +160,7 @@
   .bzs-stuhead h1 {
     margin: 0;
     font-size: 17px;
-    letter-spacing: .2em;
+    letter-spacing: 0;
   }
 
   .bzs-stuhead .sp {
@@ -189,7 +189,7 @@
   .bzs-stunav button {
     padding: 7px 0 11px;
     font-size: 12px;
-    letter-spacing: .14em;
+    letter-spacing: 0;
     white-space: nowrap;
   }
 
@@ -397,7 +397,7 @@
   .bzs-modal.tall {
     width: 100%;
     max-height: 92%;
-    border-radius: 18px 18px 0 0;
+    border-radius: var(--r-card) var(--r-card) 0 0;
     border-bottom: 0;
   }
 
@@ -503,7 +503,7 @@
   }
 
   .bzs-sbhead b {
-    font-size: 14px;
+    font-size: 15px;
   }
 
   .bzs-sbtabs {
@@ -529,7 +529,7 @@
 
   /* 目录行：右侧百分比在窄屏上反而挤占标题，只留标题与页码 */
   .bzs-chaprow .pc {
-    font-size: 10px;
+    font-size: 11px;
   }
 }
 

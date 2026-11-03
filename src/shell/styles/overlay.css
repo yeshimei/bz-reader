@@ -7,7 +7,7 @@
 .bzs-scrim {
   position: absolute;
   inset: 0;
-  z-index: 40;
+  z-index: var(--z-float);
   background: var(--overlay);
   backdrop-filter: blur(3px);
   display: grid;
@@ -23,7 +23,7 @@
   background: var(--glass);
   backdrop-filter: blur(26px) saturate(1.25);
   border: 1px solid var(--glass-line);
-  border-radius: 16px;
+  border-radius: var(--r-card);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
@@ -41,7 +41,7 @@
    所以这两件事不能再借用居中弹窗的外壳。 */
 .bzs-float {
   position: absolute;
-  z-index: 45;
+  z-index: var(--z-float);
   display: flex;
   flex-direction: column;
   width: 320px;
@@ -50,7 +50,7 @@
   background: var(--glass);
   backdrop-filter: blur(26px) saturate(1.25);
   border: 1px solid var(--glass-line);
-  border-radius: 16px;
+  border-radius: var(--r-card);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   animation: bzs-float-in .16s ease-out;
@@ -106,16 +106,16 @@
 }
 
 .bzs-mhead b {
-  font-family: var(--serif);
+  font-family: var(--ui);
   font-size: 16px;
   font-weight: 500;
   letter-spacing: .08em;
 }
 
 .bzs-mhead .n {
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--t3);
-  letter-spacing: .14em;
+  letter-spacing: 0;
 }
 
 .bzs-mhead .sp {
@@ -127,12 +127,19 @@
   border: 0;
   background: none;
   color: var(--t3);
-  font-size: 17px;
   width: 26px;
   height: 26px;
-  border-radius: 7px;
+  border-radius: var(--r-ctl);
   padding: 0;
   line-height: 1;
+  /* svg 不吃 font-size，尺寸只能在这里给 */
+  display: grid;
+  place-items: center;
+}
+
+.bzs-mhead .x svg {
+  width: 15px;
+  height: 15px;
 }
 
 .bzs-mhead .x:hover {
@@ -165,7 +172,7 @@
   align-items: center;
   gap: 10px;
   border: 1px solid var(--line-2);
-  border-radius: 11px;
+  border-radius: var(--r-card);
   background: var(--sunken);
   padding: 11px 14px;
   margin-bottom: 12px;
@@ -176,7 +183,7 @@
   border: 0;
   background: none;
   color: var(--t1);
-  font-size: 14px;
+  font-size: 15px;
   outline: 0;
   box-shadow: none;
   min-width: 0;
@@ -190,10 +197,10 @@
   border: 0;
   background: none;
   color: var(--t2);
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.9;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--r-card);
   cursor: pointer;
 }
 
@@ -203,9 +210,9 @@
 
 .bzs-hit .loc {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--t3);
-  letter-spacing: .1em;
+  letter-spacing: 0;
   margin-bottom: 3px;
 }
 
@@ -216,8 +223,8 @@
 }
 
 .bzs-hitgroup {
-  font-size: 10px;
-  letter-spacing: .26em;
+  font-size: 11px;
+  letter-spacing: 0;
   color: var(--copper);
   padding: 14px 10px 4px;
 }
@@ -225,11 +232,11 @@
 /* ── 导入 ── */
 .bzs-drop {
   border: 1px dashed var(--line-2);
-  border-radius: 14px;
+  border-radius: var(--r-card);
   padding: 44px 20px;
   text-align: center;
   color: var(--t3);
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 2;
   transition: .2s;
 }
@@ -253,7 +260,7 @@
 .bzs-md {
   background: var(--sunken);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-card);
   padding: 16px;
   font: 12px/1.9 var(--ui);
   color: var(--t2);
@@ -277,7 +284,7 @@
   border: 1px solid var(--line);
   background: none;
   color: var(--t2);
-  border-radius: 10px;
+  border-radius: var(--r-card);
   padding: 11px 13px;
   font-size: 12px;
   transition: .2s;
@@ -290,7 +297,7 @@
 }
 
 .bzs-tour button span {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--t3);
   display: block;
   margin-top: 2px;
@@ -307,19 +314,22 @@
 .bzs-ai-tag .seal {
   width: 26px;
   height: 26px;
-  border-radius: 7px;
+  border-radius: var(--r-ctl);
   background: var(--copper-soft);
   border: 1px solid var(--copper-line);
   color: var(--copper);
   display: grid;
   place-items: center;
-  font-family: var(--serif);
-  font-size: 13px;
+}
+
+.bzs-ai-tag .seal svg {
+  width: 14px;
+  height: 14px;
 }
 
 .bzs-ai-tag b {
   font-size: 11px;
-  letter-spacing: .24em;
+  letter-spacing: 0;
   color: var(--copper);
 }
 
@@ -328,7 +338,7 @@
   padding: 2px 0 2px 13px;
   border-left: 2px solid var(--copper-line);
   font-family: var(--serif);
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.9;
   color: var(--t2);
 }
@@ -340,7 +350,7 @@
 }
 
 .bzs-ai-src {
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--t3);
   letter-spacing: .06em;
   margin-top: 12px;
@@ -359,7 +369,7 @@
 .bzs-qcard {
   position: relative;
   border: 1px solid var(--line-2);
-  border-radius: 12px;
+  border-radius: var(--r-card);
   padding: 20px 22px;
   background: var(--surface);
   border-left: 3px solid var(--copper);
@@ -397,7 +407,7 @@
   font-size: 11px;
   color: var(--copper);
   border: 1px solid currentColor;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   padding: 2px 6px;
   letter-spacing: .08em;
 }
@@ -415,9 +425,9 @@
   border: 1px solid var(--line);
   background: none;
   color: var(--t3);
-  border-radius: 99px;
+  border-radius: var(--r-pill);
   padding: 6px 13px;
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .bzs-types button.on {
@@ -431,7 +441,7 @@
   min-height: 96px;
   resize: vertical;
   line-height: 1.8;
-  font-size: 12.5px;
+  font-size: 12px;
 }
 
 /* ── 词典 ── */
@@ -439,18 +449,18 @@
   font-family: var(--serif);
   font-size: 26px;
   color: var(--t1);
-  letter-spacing: .1em;
+  letter-spacing: 0;
 }
 
 .bzs-dict .py {
   font-size: 11px;
   color: var(--copper);
-  letter-spacing: .2em;
+  letter-spacing: 0;
   margin: 4px 0 16px;
 }
 
 .bzs-dict .df {
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 2;
   color: var(--t2);
 }
@@ -468,7 +478,7 @@
   gap: 12px;
   cursor: pointer;
   padding: 8px 10px;
-  border-radius: 9px;
+  border-radius: var(--r-card);
   border: 1px solid var(--line);
 }
 
@@ -478,7 +488,7 @@
 }
 
 .bzs-bmap .row .no {
-  font-family: var(--serif);
+  font-family: var(--ui);
   font-size: 11px;
   color: var(--copper);
   width: 26px;
@@ -486,7 +496,7 @@
 }
 
 .bzs-bmap .row .nm {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--t1);
   flex: 1;
   min-width: 0;
@@ -499,7 +509,7 @@
   flex: 1;
   height: 5px;
   background: var(--line);
-  border-radius: 3px;
+  border-radius: var(--r-chip);
   position: relative;
   max-width: 180px;
 }
@@ -509,7 +519,7 @@
   top: -2px;
   width: 9px;
   height: 9px;
-  border-radius: 1px;
+  border-radius: var(--r-book);
   background: var(--copper);
   transform: rotate(45deg);
 }
@@ -519,7 +529,7 @@
   top: 0;
   height: 5px;
   background: var(--c);
-  border-radius: 2px;
+  border-radius: var(--r-book);
 }
 
 /* ── 页面浏览器（胶片） ── */
@@ -532,7 +542,7 @@
 .bzs-film button {
   aspect-ratio: 3 / 4;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r-ctl);
   background: var(--surface);
   padding: 12px;
   text-align: left;
@@ -554,7 +564,7 @@
 
 .bzs-film button b {
   display: block;
-  font-family: var(--serif);
+  font-family: var(--ui);
   font-size: 11px;
   color: var(--copper);
   margin-bottom: 6px;
@@ -564,14 +574,14 @@
 .bzs-poster {
   background: linear-gradient(150deg, var(--surface), var(--bg-3));
   border: 1px solid var(--copper-line);
-  border-radius: 14px;
+  border-radius: var(--r-card);
   padding: 34px;
   text-align: center;
 }
 
 .bzs-poster .yr {
-  font-size: 10px;
-  letter-spacing: .5em;
+  font-size: 11px;
+  letter-spacing: 0;
   color: var(--copper);
 }
 
@@ -599,12 +609,12 @@
 /* ── 划词浮层 ── */
 .bzs-selbar {
   position: absolute;
-  z-index: 30;
+  z-index: var(--z-float);
   display: flex;
   align-items: center;
   gap: 5px;
   padding: 7px 9px;
-  border-radius: 13px;
+  border-radius: var(--r-card);
   background: var(--glass);
   backdrop-filter: blur(22px) saturate(1.3);
   border: 1px solid var(--glass-line);
@@ -652,7 +662,7 @@
   color: var(--t2);
   font: 11.5px var(--ui);
   padding: 7px 8px;
-  border-radius: 8px;
+  border-radius: var(--r-ctl);
   white-space: nowrap;
   letter-spacing: .04em;
 }
@@ -668,7 +678,7 @@
   left: 50%;
   bottom: 38px;
   transform: translate(-50%, 12px);
-  z-index: 60;
+  z-index: var(--z-float);
   background: var(--glass);
   backdrop-filter: blur(18px);
   border: 1px solid var(--glass-line);
@@ -676,7 +686,7 @@
   font-size: 12px;
   letter-spacing: .08em;
   padding: 10px 20px;
-  border-radius: 99px;
+  border-radius: var(--r-pill);
   box-shadow: var(--shadow);
   opacity: 0;
   pointer-events: none;
@@ -701,7 +711,7 @@
 .bzs-shell.bzs-overlay-root {
   position: fixed;
   inset: 0;
-  z-index: 9000;
+  z-index: var(--z-toast);
   height: 100vh;
   width: 100vw;
   background: transparent;
@@ -731,11 +741,11 @@ textarea.idea {
   min-height: 116px;
   resize: vertical;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-card);
   background: var(--sunken);
   color: var(--ink);
   font-family: var(--serif);
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1.9;
   padding: 12px 14px;
   outline: 0;
@@ -757,9 +767,9 @@ textarea.idea:focus {
   border: 1px solid var(--line);
   background: none;
   color: var(--t3);
-  border-radius: 99px;
+  border-radius: var(--r-pill);
   padding: 5px 12px;
-  font-size: 11.5px;
+  font-size: 12px;
   transition: .15s;
 }
 
@@ -781,7 +791,7 @@ textarea.idea:focus {
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--t3);
-  border-radius: 10px;
+  border-radius: var(--r-card);
   padding: 11px 12px;
   font-size: 11px;
   line-height: 1.75;
@@ -801,16 +811,16 @@ textarea.idea:focus {
 
 .bzs-film button b {
   display: block;
-  font-family: var(--serif);
-  font-size: 12.5px;
+  font-family: var(--ui);
+  font-size: 12px;
   font-weight: 500;
   color: var(--ink);
   margin-bottom: 6px;
 }
 
 .bzs-bmap .row .no {
-  font-family: var(--serif);
-  font-size: 10.5px;
+  font-family: var(--ui);
+  font-size: 11px;
   color: var(--t3);
   width: 24px;
   flex-shrink: 0;
@@ -831,7 +841,7 @@ textarea.idea:focus {
   height: 8px;
   position: relative;
   background: var(--sunken);
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   overflow: hidden;
   display: flex;
   gap: 2px;
@@ -843,7 +853,7 @@ textarea.idea:focus {
   display: block;
   width: 12px;
   height: 4px;
-  border-radius: 2px;
+  border-radius: var(--r-book);
 }
 
 /* ==========================================================
@@ -873,35 +883,17 @@ textarea.idea:focus {
   font-size: 12px;
 }
 
-/* 滑轨：左侧铜金走到当前值，右侧留在发丝线色 */
+/* 滑轨样式统一在 tokens.css：以前这里另有一套 3px 轨 / 15px 球，
+   和设置页的滑块粗细不一致，看着像两个软件。这里只留布局。 */
 .bzs-typo input[type="range"] {
   flex: 1;
   height: 18px;
 }
 
-.bzs-typo input[type="range"]::-webkit-slider-runnable-track {
-  height: 3px;
-  border-radius: 2px;
-  background: linear-gradient(
-    to right,
-    var(--copper) 0 var(--fill, 50%),
-    var(--line-2) var(--fill, 50%) 100%
-  );
-}
-
-.bzs-typo input[type="range"]::-webkit-slider-thumb {
-  width: 15px;
-  height: 15px;
-  margin-top: -6px;
-  background: var(--surface);
-  border: 1.5px solid var(--copper);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, .28);
-}
-
 .bzs-typo .bzs-setrow .val {
   min-width: 46px;
-  font-family: var(--serif);
-  font-size: 14px;
+  font-family: var(--ui);
+  font-size: 15px;
   color: var(--ink);
   text-align: right;
 }
@@ -929,7 +921,7 @@ textarea.idea:focus {
   min-height: 112px;
   padding: 12px 10px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-card);
   background: var(--surface);
   /* 预览卡里放的是真实书名，长书名（尤其是竖排）会漏出卡片边界 */
   overflow: hidden;
@@ -949,7 +941,7 @@ textarea.idea:focus {
 .bzs-dircard .t {
   font-family: var(--serif);
   font-size: 17px;
-  letter-spacing: .1em;
+  letter-spacing: 0;
   color: var(--ink);
   line-height: 1.4;
 }
@@ -958,13 +950,13 @@ textarea.idea:focus {
   writing-mode: vertical-rl;
   text-orientation: upright;
   font-size: 15px;
-  letter-spacing: .16em;
+  letter-spacing: 0;
   max-height: 88px;
 }
 
 .bzs-dircard .l {
-  font-size: 10.5px;
-  letter-spacing: .22em;
+  font-size: 11px;
+  letter-spacing: 0;
   color: var(--t3);
 }
 
@@ -982,7 +974,7 @@ textarea.idea:focus {
 
 .bzs-unlock-hero .kick {
   font-size: 11px;
-  letter-spacing: .28em;
+  letter-spacing: 0;
   color: var(--copper);
   margin-bottom: 6px;
 }
@@ -995,7 +987,7 @@ textarea.idea:focus {
 }
 
 .bzs-unlock-state {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--ink);
   opacity: .72;
 }
@@ -1046,7 +1038,7 @@ textarea.idea:focus {
 /* 功能对照表：两列定宽，右边两列表头与勾位对齐 */
 .bzs-plan {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-card);
   overflow: hidden;
 }
 
@@ -1065,14 +1057,14 @@ textarea.idea:focus {
 
 .bzs-plan-row.head {
   background: var(--sunken);
-  font-size: 10.5px;
-  letter-spacing: .14em;
+  font-size: 11px;
+  letter-spacing: 0;
   color: var(--ink);
   opacity: .66;
 }
 
 .bzs-plan-row span {
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.55;
   color: var(--ink);
   opacity: .9;
@@ -1081,13 +1073,13 @@ textarea.idea:focus {
 .bzs-plan-row span em {
   font-style: normal;
   margin-left: 6px;
-  font-size: 10.5px;
+  font-size: 11px;
   opacity: .55;
 }
 
 .bzs-plan-row b {
   text-align: center;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: .06em;
 }
@@ -1101,10 +1093,16 @@ textarea.idea:focus {
 
 .bzs-plan-row i.y {
   color: var(--copper);
+  display: inline-flex;
+}
+
+.bzs-plan-row i.y svg {
+  width: 14px;
+  height: 14px;
 }
 
 .bzs-plan-row i.p {
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--ink);
   opacity: .58;
 }
@@ -1120,7 +1118,7 @@ textarea.idea:focus {
   gap: 10px;
   padding: 12px 14px;
   border: 1px solid var(--copper-line);
-  border-radius: 10px;
+  border-radius: var(--r-card);
   background: var(--copper-soft);
 }
 
@@ -1161,7 +1159,7 @@ textarea.idea:focus {
 .bzs-move-row b {
   flex: none;
   width: 64px;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--ink);
   opacity: .6;
@@ -1171,7 +1169,7 @@ textarea.idea:focus {
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
   font-size: 12px;
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: var(--r-ctl);
   background: var(--sunken);
   color: var(--ink);
   word-break: break-all;
@@ -1211,7 +1209,7 @@ textarea.idea:focus {
   color: var(--ink);
   background: var(--sunken);
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: var(--r-ctl);
 }
 
 
@@ -1224,8 +1222,8 @@ textarea.idea:focus {
 }
 
 .bzs-finish .kick {
-  font-size: 10px;
-  letter-spacing: .3em;
+  font-size: 11px;
+  letter-spacing: 0;
   color: var(--copper);
 }
 
@@ -1239,7 +1237,7 @@ textarea.idea:focus {
 }
 
 .bzs-finish .sub {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--t3);
   letter-spacing: .06em;
 }
@@ -1255,11 +1253,17 @@ textarea.idea:focus {
   border: 0;
   background: none;
   padding: 2px;
-  font-size: 26px;
   line-height: 1;
   color: var(--line-2);
   cursor: pointer;
   transition: .15s;
+  display: grid;
+  place-items: center;
+}
+
+.bzs-star svg {
+  width: 22px;
+  height: 22px;
 }
 
 .bzs-star:hover {
@@ -1268,6 +1272,11 @@ textarea.idea:focus {
 
 .bzs-star.on {
   color: var(--copper);
+}
+
+/* 选中的星要实心：描边星在「已评分」这件事上太轻 */
+.bzs-star.on svg {
+  fill: currentColor;
 }
 
 .bzs-finish textarea {

@@ -28,6 +28,53 @@
   --rd-gap: 1.55em;
   --rd-align: justify;
   --rd-font: var(--serif);
+
+}
+
+/* ── 尺度 ──
+   之前每个组件各写各的：字号 19 档（8px 到 66px，中间还夹着 10.5 / 11.5 / 12.5）、
+   圆角 20 多档（2 到 99）、padding 88 种写法。混用的后果不是「不够精致」，
+   是整片界面一直在轻微抖动——同一层的两个标签差 0.5px 单看看不出来，
+   一屏看过去就是廉价感。下面这些是唯一允许的值，
+   新增样式只许引用变量，不许再写裸数字。
+
+   挂在 :root 而不是 .bzs-shell：有一批旧域样式（阅读视图的 chrome）的元素
+   不在 .bzs-shell 作用域内，但它们同样要遵守这套尺度。这些变量**只定义不
+   应用**，不含任何颜色与背景，不会给宿主或其它插件造成视觉影响。 */
+:root {
+  --fs-caption: 11px; /* 角标、计数、时间戳。低于这个值中文在 Windows 上发虚 */
+  --fs-mini: 12px; /* 副标题、次要行 */
+  --fs-body: 13px; /* 正文、列表项 */
+  --fs-strong: 15px; /* 卡片标题、分区标题 */
+  --fs-title: 18px; /* 页面标题 */
+
+  --r-book: 2px; /* 书封、书脊：书是直角的 */
+  --r-chip: 4px; /* 徽记、进度条 */
+  --r-ctl: 6px; /* 输入框、按钮 */
+  --r-card: 10px; /* 卡片、浮层、面板 */
+  --r-pill: 999px; /* 胶囊 */
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  /* 两级阴影：卡片只要一层极浅的抬升 + 1px 边框，大阴影留给浮层。
+     以前把 0 12px 32px 贴在 200px 宽的书封上，是网页弹窗味。 */
+  --sh-card: 0 1px 2px rgba(0, 0, 0, .06);
+  --sh-float: 0 12px 32px rgba(0, 0, 0, .16);
+
+  --dur: 0.16s; /* 颜色 / 边框 */
+  --dur-move: 0.18s; /* 位移 */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* 五档层级，别再手写 9000 */
+  --z-sticky: 10;
+  --z-float: 100;
+  --z-modal: 500;
+  --z-toast: 1000;
 }
 
 /* ── 颜色：一律读宿主 ── */
@@ -88,6 +135,8 @@ body.theme-dark .bzs-shell[data-bzaccent="moss"] { --copper: #93b79a; }
   background: var(--bg);
   color: var(--t1);
   font-family: var(--ui);
+  /* 等宽数字：统计值、进度百分比、时间戳刷新时不再左右跳 */
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
   height: 100%;
@@ -109,6 +158,33 @@ body.theme-dark .bzs-shell[data-bzaccent="moss"] { --copper: #93b79a; }
   cursor: pointer;
 }
 
+/* ── 键盘焦点与禁用态 ──
+   之前这两个态一处都没有：tab 过去没有任何反馈，禁用按钮和可用按钮长得
+   一模一样。缺了它们，界面就会给人一种「还没做完」的感觉。 */
+.bzs-shell button:focus-visible,
+.bzs-shell [role='button']:focus-visible,
+.bzs-shell select:focus-visible,
+.bzs-shell input:focus-visible,
+.bzs-shell textarea:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 2px var(--copper);
+}
+
+.bzs-shell button:disabled,
+.bzs-shell button[disabled],
+.bzs-shell input:disabled,
+.bzs-shell select:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.bzs-shell button:disabled:hover,
+.bzs-shell button[disabled]:hover {
+  background: none;
+  box-shadow: none;
+  color: var(--t2);
+}
+
 .bzs-shell ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -116,7 +192,7 @@ body.theme-dark .bzs-shell[data-bzaccent="moss"] { --copper: #93b79a; }
 
 .bzs-shell ::-webkit-scrollbar-thumb {
   background: var(--line-2);
-  border-radius: 9px;
+  border-radius: var(--r-card);
 }
 
 .bzs-shell ::-webkit-scrollbar-track {
@@ -141,9 +217,9 @@ body.theme-dark .bzs-shell[data-bzaccent="moss"] { --copper: #93b79a; }
   background: var(--sunken);
   border: 1px solid var(--line);
   color: var(--t1);
-  border-radius: 8px;
+  border-radius: var(--r-ctl);
   padding: 7px 10px;
-  font-size: 12.5px;
+  font-size: 12px;
   box-shadow: none;
 }
 
@@ -170,10 +246,18 @@ body.theme-dark .bzs-shell[data-bzaccent="moss"] { --copper: #93b79a; }
   appearance: none;
 }
 
+/* 滑轨：左侧铜金走到当前值，右侧留在发丝线色。
+   --fill 由 dispatchInput 就地写（纯 CSS 画不出「填充到当前值」）。
+   排版浮层以前自己留了一套 3px 轨 / 15px 球，和设置页的粗细对不上，
+   现在两处都走这一份。 */
 .bzs-shell input[type="range"]::-webkit-slider-runnable-track {
   height: 2px;
-  background: var(--line-2);
-  border-radius: 2px;
+  border-radius: var(--r-book);
+  background: linear-gradient(
+    to right,
+    var(--copper) 0 var(--fill, 50%),
+    var(--line-2) var(--fill, 50%) 100%
+  );
 }
 
 .bzs-shell input[type="range"]::-webkit-slider-thumb {

@@ -28,10 +28,10 @@
   background: none;
   color: var(--t3);
   font-family: var(--serif);
-  font-size: 11.5px;
-  letter-spacing: .12em;
+  font-size: 12px;
+  letter-spacing: 0;
   padding: 5px 7px 5px 2px;
-  border-radius: 6px;
+  border-radius: var(--r-ctl);
   display: flex;
   align-items: center;
   gap: 3px;
@@ -59,7 +59,7 @@
 
 .bzs-sbhead b {
   font-family: var(--serif);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   letter-spacing: .06em;
   white-space: nowrap;
@@ -79,9 +79,9 @@
   border: 1px solid var(--line);
   background: none;
   color: var(--t3);
-  font-size: 10.5px;
+  font-size: 11px;
   letter-spacing: .06em;
-  border-radius: 6px;
+  border-radius: var(--r-ctl);
   padding: 3px 7px;
   flex-shrink: 0;
   transition: .15s;
@@ -111,15 +111,15 @@
   position: relative;
   padding: 8px 0 10px;
   font-family: var(--serif);
-  font-size: 11.5px;
-  letter-spacing: .1em;
+  font-size: 12px;
+  letter-spacing: 0;
   color: var(--t3);
   flex: 1;
   text-align: center;
 }
 
 .bzs-sbtab .n {
-  font-size: 9.5px;
+  font-size: 11px;
   color: var(--t3);
   vertical-align: super;
   margin-left: 3px;
@@ -155,8 +155,8 @@
 }
 
 .bzs-sbsec {
-  font-size: 10px;
-  letter-spacing: .28em;
+  font-size: 11px;
+  letter-spacing: 0;
   color: var(--t3);
   padding: 12px 6px 8px;
 }
@@ -173,7 +173,7 @@
   border: 0;
   background: none;
   padding: 10px 8px;
-  border-radius: 8px;
+  border-radius: var(--r-ctl);
   cursor: pointer;
   transition: .15s;
 }
@@ -182,19 +182,10 @@
   background: var(--copper-soft);
 }
 
-.bzs-chaprow .no {
-  font-family: var(--serif);
-  font-size: 10.5px;
-  color: var(--t3);
-  width: 24px;
-  flex-shrink: 0;
-  letter-spacing: .08em;
-}
-
 .bzs-chaprow .t {
   flex: 1;
   min-width: 0;
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--t2);
   white-space: nowrap;
   overflow: hidden;
@@ -203,8 +194,8 @@
 }
 
 .bzs-chaprow .pc {
-  font-family: var(--serif);
-  font-size: 10px;
+  font-family: var(--ui);
+  font-size: 11px;
   color: var(--t3);
   flex-shrink: 0;
 }
@@ -239,7 +230,7 @@
 
 .bzs-chaprow.d1 .no {
   width: 16px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 /* ── 书签行：菱形铜点串在发丝竖线上 ── */
@@ -264,7 +255,7 @@
   gap: 8px;
   padding: 12px 24px;
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: var(--r-ctl);
 }
 
 .bzs-mkrow::before {
@@ -283,7 +274,7 @@
 }
 
 .bzs-mkrow .tt {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--t1);
   white-space: nowrap;
   overflow: hidden;
@@ -291,8 +282,8 @@
 }
 
 .bzs-mkrow .pc {
-  font-family: var(--serif);
-  font-size: 10px;
+  font-family: var(--ui);
+  font-size: 11px;
   color: var(--t3);
 }
 
@@ -303,7 +294,7 @@
 .bzs-mkrow em {
   font-style: normal;
   font-family: var(--serif);
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--t3);
 }
 
@@ -317,9 +308,17 @@
   right: 4px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 13px;
   padding: 2px 5px;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
+  display: grid;
+  place-items: center;
+}
+
+/* svg 不吃 font-size：删除叉原来是字符，尺寸靠字号，现在显式给 */
+.bzs-mkrow .x svg,
+.bzs-hlit .x svg {
+  width: 13px;
+  height: 13px;
 }
 
 .bzs-mkrow:hover .x {
@@ -340,14 +339,14 @@
   align-items: center;
   gap: 8px;
   padding: 12px 6px 6px;
-  font-size: 10px;
-  letter-spacing: .26em;
+  font-size: 11px;
+  letter-spacing: 0;
   color: var(--t3);
 }
 
 .bzs-hlg-h .n {
   font-family: var(--serif);
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--copper);
 }
 
@@ -362,7 +361,7 @@
   padding: 10px 24px 10px 12px;
   border-top: 1px solid var(--line);
   cursor: pointer;
-  border-radius: 0 8px 8px 0;
+  border-radius: 0 var(--r-ctl) var(--r-ctl) 0;
 }
 
 .bzs-hlit:hover {
@@ -377,12 +376,12 @@
   bottom: 10px;
   width: 2px;
   background: var(--c);
-  border-radius: 1px;
+  border-radius: var(--r-book);
 }
 
 .bzs-hlit .tx {
   font-family: var(--serif);
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.85;
   color: var(--ink);
   display: block;
@@ -392,14 +391,14 @@
   display: flex;
   gap: 7px;
   margin-top: 6px;
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.7;
   color: var(--t2);
 }
 
 .bzs-hlit .cm b {
-  font-size: 9.5px;
-  letter-spacing: .24em;
+  font-size: 11px;
+  letter-spacing: 0;
   color: var(--copper);
   font-weight: 400;
   flex-shrink: 0;
@@ -415,9 +414,17 @@
   position: absolute;
   right: 4px;
   top: 9px;
-  font-size: 13px;
   padding: 2px 5px;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
+  display: grid;
+  place-items: center;
+}
+
+/* svg 不吃 font-size：删除叉原来是字符，尺寸靠字号，现在显式给 */
+.bzs-mkrow .x svg,
+.bzs-hlit .x svg {
+  width: 13px;
+  height: 13px;
 }
 
 .bzs-hlit:hover .x {
@@ -438,7 +445,7 @@
 
 .bzs-aibubble {
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-card);
   padding: 12px 14px;
   font-size: 12px;
   line-height: 1.85;
@@ -454,8 +461,8 @@
 }
 
 .bzs-aibubble .tag {
-  font-size: 9.5px;
-  letter-spacing: .24em;
+  font-size: 11px;
+  letter-spacing: 0;
   color: var(--copper);
   display: block;
   margin-bottom: 6px;
@@ -472,7 +479,7 @@
   border: 1px solid var(--line);
   background: var(--sunken);
   color: var(--t1);
-  border-radius: 8px;
+  border-radius: var(--r-ctl);
   padding: 8px 10px;
   outline: 0;
   font-size: 12px;
@@ -534,15 +541,15 @@
 }
 
 .bzs-moved .kick {
-  font-size: 10px;
-  letter-spacing: .3em;
+  font-size: 11px;
+  letter-spacing: 0;
   color: var(--copper);
 }
 
 .bzs-moved .big {
   font-family: var(--serif);
   font-size: 20px;
-  letter-spacing: .12em;
+  letter-spacing: 0;
   color: var(--t1);
 }
 
