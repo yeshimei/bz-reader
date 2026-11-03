@@ -27,9 +27,9 @@ import {
 import { notify } from '../core/notice';
 import { openHotkeySettings } from '../core/hotkeys';
 import { folderLabel, pickFolder } from '../core/folder-pick';
-import { CAP_LABEL, GROUP_URL, PURCHASE_URL, can, type Cap } from '../data/entitlement';
+import { CAP_LABEL, GROUP_URL, PURCHASE_URL, can, setLicense, type Cap } from '../data/entitlement';
 import { normalizeDataDir } from '../core/plugin-path';
-import { activateCode } from '../data/activate';
+import { verifyLicense } from '../data/license';
 import { linkInline, linkQuote, rawUrl, targetOfMark, wikiLink } from '../data/deeplink';
 import { exportBookNotes } from '../data/export';
 import { jumpTo, getToc } from '../view/toc-state';
@@ -497,12 +497,13 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       const box = document.querySelector<HTMLInputElement>('[data-role="license"]');
       const code = (box?.value || '').trim();
       void (async () => {
-        const res = await activateCode(code, getShellSource()?.version() ?? '');
+        const res = await verifyLicense(code);
         if (!res.ok) {
           // 不重绘：重绘会把用户刚粘进去的那一长串码清掉，重来一遍很烦
           notify(res.message, 'error');
           return;
         }
+        setLicense(code);
         // 同步一份到 settings，原生设置页与 bz 侧都读得到
         getShellSource()?.setSettings({ license: code });
         notify(res.message);

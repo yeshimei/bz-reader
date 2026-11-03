@@ -22,14 +22,7 @@
  * 否则误伤之后没人能解释为什么试用没了。
  * ============================================================ */
 
-import {
-  parseLicense,
-  parseToken,
-  verifyLicense,
-  verifyToken,
-  type LicensePayload,
-  type TokenPayload,
-} from './license';
+import { parseLicense, verifyLicense, type LicensePayload } from './license';
 
 /** 高级能力。只有能判断的地方才列进来，别造没人问的开关。 */
 export type Cap =
@@ -89,16 +82,6 @@ interface Ent {
   license: string;
   /** 上次验签时间，0 = 从没验过 */
   checkedTs: number;
-  /**
-   * 设备令牌原文（BZR3 码联网核销后拿到）。
-   *
-   * 和激活码同一条原则：只存原文、不存结论。kind / exp / iid 每次现解；
-   * 启动时 verifyToken() 真验一次——手写一段 base64 塞进 localStorage 的
-   * 假令牌会在那一步被清掉，退回基础版。
-   */
-  token: string;
-  /** 令牌上次验签时间，0 = 没验过 */
-  tokenCheckedTs: number;
 }
 
 export interface EntitlementView {
@@ -113,10 +96,6 @@ export interface EntitlementView {
   exp: number;
   name?: string;
   license: string;
-  /** 设备令牌原文；没有就是 '' */
-  token: string;
-  /** 令牌类型：通用码（试用）还是付费码 */
-  kind?: 'universal' | 'paid';
   /** 试用是否因时钟异常被作废 */
   trialVoid: boolean;
   installId: string;
@@ -164,18 +143,6 @@ function payloadOf(code: string): LicensePayload | null {
   return parsed;
 }
 
-/** 令牌 → payload 缓存，理由同上：can() 是同步的，每次重绘都会走到 */
-const tokenCache = new Map<string, TokenPayload | null>();
-
-function tokenOf(token: string): TokenPayload | null {
-  if (!token) return null;
-  const hit = tokenCache.get(token);
-  if (hit !== undefined) return hit;
-  const parsed = parseToken(token);
-  tokenCache.set(token, parsed);
-  return parsed;
-}
-
 function newInstallId(): string {
   // crypto.randomUUID 在桌面与移动端 Obsidian 都有；没有就退化成时间戳 + 随机
   try {
@@ -194,8 +161,6 @@ function defaults(): Ent {
     trialVoid: false,
     license: '',
     checkedTs: 0,
-    token: '',
-    tokenCheckedTs: 0,
   };
 }
 
@@ -215,8 +180,6 @@ function load(): Ent {
       if (p.trialVoid === true) d.trialVoid = true;
       if (typeof p.license === 'string') d.license = p.license;
       if (typeof p.checkedTs === 'number') d.checkedTs = p.checkedTs;
-      if (typeof p.token === 'string') d.token = p.token;
-      if (typeof p.tokenCheckedTs === 'number') d.tokenCheckedTs = p.tokenCheckedTs;
     } catch {
       /* 坏 JSON 就当没存过：宁可让老用户重新试用，也不要读出半条状态 */
     }
@@ -227,11 +190,6 @@ function load(): Ent {
 
 function save(): void {
   if (cache) writeLS(JSON.stringify(cache));
-}
-
-/** 本机安装标识。核销时随请求发给服务端，用来去重与计数。 */
-export function installId(): string {
-  return load().installId;
 }
 
 /** 本地时区的 YYYY-MM-DD */
@@ -269,50 +227,29 @@ export function entitlement(now = Date.now()): EntitlementView {
   const days = e.activeDays;
   const used = days.length;
 
-  /* 三条来源，按优先级：
-     1. v3 设备令牌（服务端签）——付费码给 paid，通用码给 trial
-     2. v1/v2 老码（纯离线）——paid，已发出的码不作废
-     3. 活跃日试用（TRIAL_ACTIVE，当前关闭，只留代码）
-
-     同步判定只拆 payload，不验签；真验在启动时各做一次。
-     所以「改 localStorage 伪造」挡不住同步读，但下次加载会被清掉。 */
+  /* 计划类型、到期、署名全部从码里现解。parseLicense 只拆 payload 不验签，
+     真正的验签在激活那一刻做过一次；这里要的是「结论无法被外部改写」，
+     而不是「每次都重验」——后者是异步的，can() 是同步的。 */
   const payload = payloadOf(e.license);
-  const codeExp = payload?.exp ?? 0;
-  const codePaid = !!payload && payload.v !== 3 && e.checkedTs > 0 && (codeExp === 0 || codeExp > now);
-
-  const tok = tokenOf(e.token);
-  const tokenAlive =
-    !!tok && e.tokenCheckedTs > 0 && tok.iid === e.installId && (tok.exp === 0 || tok.exp > now);
-  const tokenPaid = tokenAlive && tok?.kind === 'paid';
-  const tokenTrial = tokenAlive && tok?.kind === 'universal';
+  const exp = payload?.exp ?? 0;
+  const paid = !!payload && e.checkedTs > 0 && (exp === 0 || exp > now);
 
   // 第 1..TRIAL_DAYS 个活跃日都在试用内；第 TRIAL_DAYS+1 天开始结束
   // TRIAL_ACTIVE=false 时这一支永远不成立（试用不发放，但记录照旧）
   const trialAlive = TRIAL_ACTIVE && !e.trialVoid && used <= TRIAL_DAYS;
-  const paid = codePaid || tokenPaid;
-  const tier: Tier = paid ? 'paid' : tokenTrial || trialAlive ? 'trial' : 'free';
+  const tier: Tier = paid ? 'paid' : trialAlive ? 'trial' : 'free';
 
-  /* 令牌试用按「到 exp 还剩几天」算；活跃日试用按已用天数算 */
-  const left =
-    tokenTrial && tok && tok.exp > 0
-      ? Math.max(0, Math.ceil((tok.exp - now) / 86_400_000))
-      : used <= 0
-        ? TRIAL_DAYS
-        : Math.max(0, TRIAL_DAYS - used + 1);
-
-  const exp = tokenAlive && tok ? tok.exp : codeExp;
+  const left = used <= 0 ? TRIAL_DAYS : Math.max(0, TRIAL_DAYS - used + 1);
 
   return {
     tier,
     unlocked: tier !== 'free',
     trialLeft: tier === 'trial' ? left : 0,
     trialUsed: used,
-    plan: tokenAlive && tok ? (tok.kind === 'paid' ? 'lifetime' : 'trial') : payload?.plan,
+    plan: payload?.plan,
     exp,
     name: payload?.name,
     license: e.license,
-    token: e.token,
-    kind: tokenAlive && tok ? tok.kind : undefined,
     trialVoid: e.trialVoid,
     installId: e.installId,
     days,
@@ -337,16 +274,9 @@ export function can(_cap: Cap): boolean {
 /** 验签成功后写入。只存码——结论全部由码派生 */
 export function setLicense(code: string): void {
   const e = load();
-  const next = code.trim();
-  /* 换了一枚码：旧令牌作废。同一枚码重新核销则保留，等 setToken 覆盖 */
-  if (next !== e.license) {
-    tokenCache.delete(e.token);
-    e.token = '';
-    e.tokenCheckedTs = 0;
-  }
-  e.license = next;
-  e.checkedTs = next ? Date.now() : 0;
-  payloadCache.delete(next);
+  e.license = code.trim();
+  e.checkedTs = e.license ? Date.now() : 0;
+  payloadCache.delete(e.license);
   save();
 }
 
@@ -368,14 +298,13 @@ export async function revalidateLicense(): Promise<boolean> {
   const e = load();
   if (!e.license) return false;
   const res = await verifyLicense(e.license);
-  /* v3 码的 needRedeem 是正常状态（还没核销），不是「码坏了」——不能清 */
-  if (res.ok || res.needRedeem) return false;
-  clearCode();
+  if (res.ok) return false;
+  clearLicense();
   return true;
 }
 
-/** 只清激活码，不动令牌：v3 码过了兑换期，已发出的令牌还能走完 7 天 */
-function clearCode(): void {
+/** 清掉激活码（退回免费判定） */
+export function clearLicense(): void {
   const e = load();
   payloadCache.delete(e.license);
   e.license = '';
@@ -383,63 +312,12 @@ function clearCode(): void {
   save();
 }
 
-/** 清掉激活码与令牌（退回免费判定） */
-export function clearLicense(): void {
-  clearCode();
-  const e = load();
-  tokenCache.delete(e.token);
-  e.token = '';
-  e.tokenCheckedTs = 0;
-  save();
-}
-
-/** 核销成功后写入令牌。只存原文——结论全部由令牌派生 */
-export function setToken(token: string): void {
-  const e = load();
-  tokenCache.delete(e.token);
-  e.token = token.trim();
-  e.tokenCheckedTs = e.token ? Date.now() : 0;
-  save();
-}
-
-/** 清掉令牌（激活码留着，下次还能重新核销） */
-export function clearToken(): void {
-  const e = load();
-  tokenCache.delete(e.token);
-  e.token = '';
-  e.tokenCheckedTs = 0;
-  save();
-}
-
-/**
- * 启动时真验一遍令牌。理由同 revalidateLicense：
- * 同步判定只能拆 payload，手写的假令牌要在这里清掉。
- */
-export async function revalidateToken(): Promise<boolean> {
-  const e = load();
-  if (!e.token) return false;
-  const res = await verifyToken(e.token);
-  if (res.ok) {
-    /* 老版本或手工写入的状态可能没有 tokenCheckedTs：验过就补上，否则同步判定会当成没验过 */
-    if (!e.tokenCheckedTs) {
-      e.tokenCheckedTs = Date.now();
-      save();
-    }
-    return false;
-  }
-  clearToken();
-  return true;
-}
-
-/** 报错用的人话。 */
+/** 报错用的人话。对外只有两种状态——试用相关信息一律不出现。 */
 export function tierText(v: EntitlementView = entitlement()): string {
   if (v.tier === 'paid') {
     const who = v.name ? `（${v.name}）` : '';
     const until = v.exp ? `有效期到 ${new Date(v.exp).toLocaleDateString()}` : '永久有效';
     return `高级版已激活${who} · ${until}`;
-  }
-  if (v.tier === 'trial') {
-    return v.trialLeft > 0 ? `试用中 · 还剩 ${v.trialLeft} 天` : '试用今天到期';
   }
   return '基础版';
 }

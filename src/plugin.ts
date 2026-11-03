@@ -31,17 +31,9 @@ import { ReaderView, VIEW_TYPE_READER, type ReaderCommand, type ReaderHostApi } 
 import { SideView, VIEW_TYPE_TOC, type SideTab } from './view/side-view';
 import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-state';
 import { ReaderSettingTab } from './ui/settings-tab';
-import { activateCode } from './data/activate';
+import { verifyLicense, licenseSummary } from './data/license';
 import { releaseCovers } from './data/cover';
-import {
-  can,
-  entitlement,
-  recordActivity,
-  revalidateLicense,
-  revalidateToken,
-  setProBuild,
-  tierText,
-} from './data/entitlement';
+import { can, recordActivity, revalidateLicense, setProBuild } from './data/entitlement';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
 import { installBlobSrcdocPatches } from './engine/blob-srcdoc';
 import { initDebugLog } from './core/debug-log';
@@ -114,10 +106,6 @@ export function createPlugin(cfg: PluginConfig) {
       void revalidateLicense().then((cleaned) => {
         if (cleaned) notifyShell();
       });
-      /* 令牌也要真验一次：同步判定只拆 payload，手写的假令牌在这一步被清掉 */
-      void revalidateToken().then((cleaned) => {
-        if (cleaned) notifyShell();
-      });
       loadShellState();
 
       this.store = new ReaderStore(this.app);
@@ -172,8 +160,11 @@ export function createPlugin(cfg: PluginConfig) {
           plugin: this,
           store: this.store,
           openSettings: () => this.openStudy('settings'),
-          activate: (code) => activateCode(code, this.manifest.version),
-          licenseInfo: () => tierText(entitlement()),
+          activate: async (code) => {
+            const res = await verifyLicense(code);
+            return { ok: res.ok, message: res.message };
+          },
+          licenseInfo: () => licenseSummary(normalizeSettings(this.store.get().settings ?? undefined).license),
         }),
       );
 
@@ -272,7 +263,6 @@ export function createPlugin(cfg: PluginConfig) {
         app: this.app,
         repo: this.repo,
         store: this.store,
-        version: () => this.manifest.version,
         openBook: (book, cfi) => void this.openBook(book, cfi),
         openImport: () => this.openImportPanel(),
         openStudy: (page) => this.openStudy(page),

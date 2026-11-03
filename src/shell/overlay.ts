@@ -668,7 +668,7 @@ function overlayUnlock(mode?: string): string {
   // 激活框独占页脚整行：输入框与按钮挨着，眼睛不用在两端来回找
   const foot = `<div class="bzs-unlock-act">
       <label>已有激活码</label>
-      <input data-role="license" placeholder="BZR3.…" value="${esc(v.license)}" spellcheck="false">
+      <input data-role="license" placeholder="BZR2.…" value="${esc(v.license)}" spellcheck="false">
       <button class="bzs-btn sm pri" data-act="activate">激活</button>
     </div>`;
 

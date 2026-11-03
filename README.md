@@ -40,7 +40,7 @@ Obsidian 插件：EPUB / TXT 阅读器，与 [bz](../bz) 生态联动。独立�
 
 **还没做**：base 包清理（ReaderView 拆 pro 子类，把 `data/notes.ts` 的死代码连这几 KB 一起切掉——激活码已落地，随时可做，但要单独一轮小心动阅读核心）。mobi / azw3 没有可程序化生成的最小样本，仍未实测；fb2 / cbz 已造测试书在测试库书库。
 
-测试：`pnpm test`（vitest，notes 镜像 / 导出格式 / 激活码与核销）。
+测试：`pnpm test`（vitest，notes 镜像 / 导出格式 / license 验签三组）。
 
 （`bz-reader.json` 与 bz 书架 / 读书报告的对接、激活码分发，等 bz 那边一起动，暂缓。）
 
@@ -58,53 +58,13 @@ Obsidian 插件：EPUB / TXT 阅读器，与 [bz](../bz) 生态联动。独立�
 | 跨书搜索 | ✅ 书架「全文」入口：逐本开临时引擎扫（不建索引），按书分组、边扫边出，点命中直接落到那本书那一页 |
 | AI 摘要 / 释 / 译 | ✅ 划词条尾部三个单字钮，走 OpenAI 兼容接口（设置页配 baseUrl / Key / 模型）；没配好直接引导去设置页，结果可复制或存为想法 |
 | 书摘卡片 | ✅ 划线卡片「卡片」钮：canvas 渲染分享图（跟阅读主题），存书摘目录或复制剪贴板 |
-| 激活码 | ✅ `BZR3` 通用码 / 付费码：联网核销一次换设备令牌，之后离线；老 `BZR1/BZR2` 码仍纯离线可用 |
+| 激活码 | ✅ `BZR1.<payload>.<sig>`，ECDSA P-256 离线验签；签发脚本在 `scripts/`（私钥不进 git） |
 | 竖排 / 双栏 | ✅ 排版面板「方向 / 栏数」；竖排注入 `writing-mode: vertical-rl`，点击/拖拽/方向键跟着内容反向；栏数经 `--_column-count` 变量进引擎（vendor 补丁 #5） |
 | 阅读统计 | ✅ 书架「统计」入口：总时长 / 今日 / 连续 / 累计天数 + 近半年热力图 + 每本书进度；口径统一走 `sessions[]` 汇总 |
 | 标注导出 | ✅ 侧栏在书签/划线页签时出「导出」：写一份 Markdown 到设置里的目录，按书中章节组织，带 frontmatter 与 `<!-- bz-reader:export -->` 标记 |
 | 数据 | ✅ 落在 `notes.highlights / excerpts / bookmarks`，与 bz 同构；excerpt 是 highlight 的镜像（bz 侧「想法数」读的是它） |
 
 高级版的代码按 `__BZ_READER_PRO__` 分叉：标注的界面、浮层、引擎接线在 base 包里被 DCE 掉（`grep bzr-annot dist/base/main.js` 应为 0）。数据层那几个纯函数还在包里——它们不执行，也读不到界面；等激活码机制落地时把 pro 视图拆成 `ReaderView` 的子类，连这几 KB 一起切掉。
-
-## 激活与联网
-
-两种码，一套服务（`server/`，Cloudflare Worker + D1）：
-
-| 码 | 用途 | 规则 | 联网 |
-|---|---|---|---|
-| 通用码 `BZR3.…` | QQ 群福利 | 不限名额，激活后 7 天，可随时撤回 | 激活时一次 |
-| 付费码 `BZR3.…` | 买断 | 永久，最多激活 N 台（按 installId 计数，重复激活不重复算） | 激活时一次 |
-| 老码 `BZR1/BZR2.…` | 已发出的码 | 纯离线，不核销 | 不联网 |
-
-```
-BZR3 码（离线私钥签）→ POST /v1/redeem → BZRT 设备令牌（服务端签）→ 之后离线
-```
-
-码本身**不解锁任何功能**，它只是兑换券；解锁判定是「持有 installId 匹配、未过期的令牌」。
-撤回 = 服务端 `revoked=1`，只拦新激活，已发出的令牌走完有效期。
-
-```bash
-node scripts/gen-keys.mjs          # 发行密钥（只一次，私钥不进 git）
-node scripts/gen-token-keys.mjs    # 令牌密钥（只一次）
-node scripts/issue-license.mjs --kind universal --days 7 --redeem-by 2026-12-03
-node scripts/issue-license.mjs --kind paid --max-act 5 --name 张三
-node server/dev-server.mjs         # 本地核销服务 127.0.0.1:8787
-node scripts/license-admin.mjs --list
-```
-
-端点常量在 `src/data/redeem.ts` 的 `DEFAULT_ENDPOINT`；本地联调在控制台写
-`localStorage.setItem('bzs-license-endpoint', 'http://127.0.0.1:8787/v1/redeem')`。
-部署与撤回命令见 [`server/README.md`](server/README.md)。
-
-### 网络披露（上架必写）
-
-插件只在两种情况下联网：
-
-1. **激活码核销**（仅在你点击「激活」时）：`POST /v1/redeem`，发送 `code + installId + version`，
-   用途是确认码有效 / 未被停用、记录该码已激活的设备数。
-2. **AI 功能**（仅在你填了自己的 API Key 并主动调用时）：请求你自己配置的 baseUrl。
-
-**不发送**书名、笔记、划线、阅读时长或任何 vault 内容；无客户端遥测，不自动更新，不在后台轮询。
 
 ## 命令
 
@@ -113,7 +73,7 @@ pnpm install
 node esbuild.config.mjs once      # 出 dist/base + dist/pro，并同步当前激活版到测试库
 node esbuild.config.mjs          # watch
 node node_modules/typescript/bin/tsc --noEmit
-pnpm test                        # vitest（notes 镜像 / 导出格式 / 激活码与核销）
+pnpm test                        # vitest（notes 镜像 / 导出格式 / license 验签）
 ```
 
 环境变量：

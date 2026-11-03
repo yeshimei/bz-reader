@@ -140,7 +140,7 @@ export function viewSettings(v: SettingsView): string {
       <h3>授权</h3>
       <div class="bzs-setrow"><label>状态</label><span class="bzs-mini" style="flex:1">${esc(tierText(ent))}</span></div>
       <div class="bzs-setrow"><label>激活码</label>
-        <input data-role="license" placeholder="BZR3.… 或 BZR2.…" value="${esc(ent.license)}" spellcheck="false" style="flex:1">
+        <input data-role="license" placeholder="BZR2.… 或 BZR1.…" value="${esc(ent.license)}" spellcheck="false" style="flex:1">
         <button class="bzs-btn sm pri" data-act="activate">激活</button></div>
       <div class="bzs-setrow"><label>高级版</label>
         <span class="bzs-mini" style="flex:1">${ent.tier === 'paid' ? '已解锁全部功能' : '导出、统计、跨书搜索、多格式等'}</span>
@@ -182,7 +182,7 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-keys">${keyRows}</div>
       <div class="bzs-srcnote"><b>关于这一版</b><br>
         书籍、进度、标注与设置都留在本地笔记库里（<code>${esc(dir)}/bz-reader.json</code>），不联网、不上传。
-        激活码离线验签；BZR3 码首次激活需联网核销一次，之后离线可用。其余时间不联网。
+        激活码离线校验，只认签名不认设备。
       </div>
     </div>`;
 
