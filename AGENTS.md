@@ -4,29 +4,21 @@
 
 ---
 
-## 1. 两条发布线：base / pro
+## 1. 只有一个包：完整功能版
 
-同一个源码出两个包，物理隔离（不是 define 摇树）：
-
-| 入口 | 产物 | 谁用 |
-|---|---|---|
-| `src/entry/base.ts` | `createPlugin({ pro: false })` | 免费版 |
-| `src/entry/pro.ts` | `createPlugin({ pro: true })` | 高级版（授权码解锁） |
+**没有 base / pro 两条线了。** 代码全部打进一个包，功能是否可用由**激活码**
+在运行期决定（`can()` → `entitlement().unlocked`）。
 
 ```powershell
-# 默认出 base（免费版）
-node esbuild.config.mjs once
-
-# 高级版（部署到用户的库必须用它）
-$env:BZ_READER_ACTIVE='pro'; node esbuild.config.mjs once
-
-# 部署到哪个库（缺省测试库）
+node esbuild.config.mjs once                      # 出包到 dist/pro 并同步到测试库
 $env:BZ_READER_VAULT='E:/Obsidian/叫我包仔/.obsidian/plugins/bz-reader'
+node esbuild.config.mjs once                      # 同步到主库
 ```
 
-**踩过的坑**：授权码有效但高级功能全不可用，是因为推了 base 包。
-`can()` 的第一行就是 `if (!proBuild) return false`，proBuild 由入口决定。
-**给用户部署一律用 pro。**
+**踩过的坑**：以前有两个入口，用户装到 base 包时 `proBuild=false`，
+`can()` 第一行就返回 false——授权有效但高级功能全不可用。现在不存在这个可能。
+
+`dist/base` 是历史产物，不要再往里写东西。
 
 ---
 
@@ -35,7 +27,7 @@ $env:BZ_READER_VAULT='E:/Obsidian/叫我包仔/.obsidian/plugins/bz-reader'
 ```powershell
 node node_modules/typescript/bin/tsc --noEmit   # 1. 类型
 node node_modules/vitest/vitest.mjs run         # 2. 全量测试
-node esbuild.config.mjs once                    # 3. 构建（base 与 pro 都要能出包）
+node esbuild.config.mjs once                    # 3. 构建（现在只有一个包）
 ```
 
 三条全绿才 `git commit`。**只跑 tsc 不算过门**——历史上「设置页开关点了不刷新」

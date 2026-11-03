@@ -2,26 +2,21 @@ import esbuild from "esbuild";
 import fs from "fs";
 import path from "path";
 
-// 构建两个包：base（基础版）与 pro（高级版）。
-// 不用 define 摇树而是两个入口：define 只能删掉 if(false){...} 里的代码，
-// 静态 import 的模块仍会进 bundle；两个入口是物理隔离，不必赌 sideEffects 配置。
+// 只出一个包：完整功能版（等价于原来的 pro）。
+// 功能是否可用由激活码在运行期判定（can() → entitlement().unlocked），
+// 不再有「基础版把高级模块换成空实现」这条线——两个包曾经导致
+// 「授权有效但高级功能全不可用」，因为用户装到了 base 包。
 const args = process.argv.slice(2);
 const mode = args.includes("production") ? "production" : args.includes("once") ? "once" : "watch";
 const prod = mode === "production";
-const only = (() => {
-  const i = args.indexOf("--target");
-  const v = i >= 0 ? args[i + 1] : "";
-  return v === "base" || v === "pro" ? v : "";
-})();
+const TARGETS = ["pro"];
 
-const TARGETS = only ? [only] : ["base", "pro"];
-
-// 产物直出 vault 插件目录（安装即用）。只有「当前激活的那一版」会被同步过去，
-// 默认 base；装 pro 时用 BZ_READER_ACTIVE=pro。缺省落「测试库」——开发时用可造数据的
-// 库，别把半成品推给主库；要装到主库就 BZ_READER_VAULT="E:/Obsidian/叫我包仔/.obsidian/plugins/bz-reader"。
+// 产物直出 vault 插件目录（安装即用）。缺省落「测试库」——开发时用可造数据的库，
+// 别把半成品推给主库；要装到主库就
+// BZ_READER_VAULT="E:/Obsidian/叫我包仔/.obsidian/plugins/bz-reader"。
 const VAULT_PLUGIN_DIR =
   process.env.BZ_READER_VAULT || "E:/Obsidian/测试/.obsidian/plugins/bz-reader";
-const ACTIVE = process.env.BZ_READER_ACTIVE === "pro" ? "pro" : "base";
+const ACTIVE = "pro";
 
 const DIST = path.join(process.cwd(), "dist");
 
@@ -174,8 +169,7 @@ for (const target of TARGETS) {
     treeShaking: true,
     minify: prod,
     charset: "utf8",
-    define: { __BZ_READER_PRO__: target === "pro" ? "true" : "false" },
-    plugins: stubProModules(target),
+    define: { __BZ_READER_PRO__: "true" },
     outfile: path.join(outDir, "main.js"),
   });
   contexts.push({ ctx, outDir, target });

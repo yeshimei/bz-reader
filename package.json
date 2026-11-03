@@ -9,13 +9,10 @@
   "scripts": {
     "build": "node esbuild.config.mjs once",
     "watch": "node esbuild.config.mjs",
-    "build:base": "node esbuild.config.mjs once --target base",
-    "build:pro": "node esbuild.config.mjs once --target pro",
     "release": "node esbuild.config.mjs production",
     "test": "vitest run",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
-    "verify": "npm run typecheck && npm test",
-    "build:all": "node esbuild.config.mjs once --target base && node esbuild.config.mjs once --target pro"
+    "verify": "npm run typecheck && npm test"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",
