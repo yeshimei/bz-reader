@@ -279,11 +279,7 @@ export class ReaderView extends ItemView {
       const now = Date.now();
       this.tapCount += 1;
       this.lastZone = zone === 'left' ? 'L' : zone === 'right' ? 'R' : 'M';
-      /* 同一次手势可能派发两次事件：320ms 内只认第一次 */
-      if (now - this.lastTurnAt < 320) {
-        this.renderProbe();
-        return;
-      }
+      /* 连点就连续翻：去重已经在引擎侧按手势做过，这里不再压时间窗 */
       this.lastTurnAt = now;
       if (!isMobileShell() || zone === 'middle') {
         this.renderProbe();
@@ -982,6 +978,9 @@ export class ReaderView extends ItemView {
         prefs: this.prefs,
         onRelocate: (info) => this.saveRelocate(info),
         onTap: (zone) => this.tapHandler(zone),
+        /* 两指同时轻按 = 沉浸/还原。手势判定在引擎侧（只有它拿得到 iframe
+           里的触摸序列），这里只接结果。 */
+        onTwoFingerTap: () => this.toggleImmersive(),
         onTurn: (dir) => {
           const p = dir === 'prev' ? this.host.prev() : this.host.next();
           void p.then(() => this.tracker.touch());

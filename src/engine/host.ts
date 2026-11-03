@@ -134,6 +134,8 @@ const OPEN_TIMEOUT = 15000;
  * （「章节渲染超时」「章节排版失败」），这里只是最后一道闸。
  */
 const LOCATE_TIMEOUT = 20000;
+/** 一次翻页最多等多久（超时就当没动，交给跨章兜底，别让导航队列卡住） */
+const TURN_TIMEOUT = 3000;
 
 /** EPUB 3 的 epub:type 命名空间 */
 const OPS_NS = 'http://www.idpf.org/2007/ops';
@@ -187,6 +189,8 @@ export class EngineHost {
   /** 两指轻按的判定：按下时间 + 两指间距的最大变化 */
   private twoFingerAt = 0;
   private twoFingerMove = 0;
+  /** 这个 iframe 里 pointer 事件是否可用（可用就只认 pointer，避免重复计数） */
+  private pointerWorks = false;
 
   /** 装载到哪一步了。出错时告诉用户卡在哪，而不是「打不开」三个字 */
   private phase: 'idle' | 'read' | 'parse' | 'render' | 'locate' | 'ready' = 'idle';
@@ -505,18 +509,27 @@ export class EngineHost {
     this.verticalContent = writingMode.startsWith('vertical');
 
     /* ① 点按三区。
-       不用 `click`：移动端一次触摸可能合成两次 click（一次给 iframe，一次给
-       应用），一次点按被记成两次翻页，「翻过去又翻回来」就是这么来的。
-       改成 pointerdown/up 的位移+时长判定：位移 < 12px、按住 < 500ms 才算点按。
-       同目录 weave 用的就是这套（reader-tap-zones.ts）。 */
+       不用 `click`：移动端一次触摸可能合成两次 click（一次给 iframe、一次给
+       应用），一次点按被记成两次翻页——「翻过去又翻回来」就是它。
+       也不用「只看 pointer」：部分 WebView 在 preventDefault 过的 iframe 里
+       干脆不派发 pointer 事件，那样真机上会完全没反应。所以 pointer 与 touch
+       两条路都听，最后都汇到 emitTap，用时间戳去重，一次手势只算一次。 */
     const TAP_MOVE_PX = 12;
     const TAP_LONG_PRESS_MS = 500;
-    let tapId = -1;
-    let tapX = 0;
-    let tapY = 0;
-    let tapAt = 0;
-    let tapMoved = false;
-    let tapPointers = 0;
+
+    const emitTap = (x: number, y: number, target: EventTarget | null): void => {
+      const now = Date.now();
+      if (now < this.suppressClickUntil) return;
+      const sel = doc.getSelection();
+      if (sel && !sel.isCollapsed) return;
+      const node = target as HTMLElement | null;
+      if (node?.closest?.('a[href], [data-bzr-skip-tap]')) return;
+      /* 点在划线上是要看那条标注，不是要翻页 */
+      if (this.hitsAnnotation({ clientX: x, clientY: y })) return;
+      const width = doc.documentElement.clientWidth || 1;
+      const zone = x < width * 0.3 ? 'left' : x > width * 0.7 ? 'right' : 'middle';
+      this.opts.onTap?.(zone);
+    };
 
     // ② 滚轮：iframe 内也要拦（外层的 wheel 传不进来）
     const onWheel = (ev: WheelEvent): void => this.handleWheel(ev);
@@ -525,6 +538,13 @@ export class EngineHost {
     let dragX = 0;
     let dragY = 0;
     let dragging = false;
+    let tapId = -1;
+    let tapX = 0;
+    let tapY = 0;
+    let tapAt = 0;
+    let tapMoved = false;
+    let tapPointers = 0;
+
     const onPointerDown = (ev: PointerEvent): void => {
       tapPointers += 1;
       if (tapPointers > 1) {
@@ -549,6 +569,9 @@ export class EngineHost {
       if (Math.hypot(ev.clientX - tapX, ev.clientY - tapY) > TAP_MOVE_PX) tapMoved = true;
     };
     const onPointerUp = (ev: PointerEvent): void => {
+      /* 走完一次完整的 pointerup 才认定 pointer 可用：有的 WebView 只发
+         pointerdown 不发 pointerup，那种情况下还要靠触摸兜底 */
+      this.pointerWorks = true;
       tapPointers = Math.max(0, tapPointers - 1);
       /* 鼠标拖拽（原有桌面行为） */
       if (dragging && ev.pointerId === tapId) {
@@ -561,8 +584,8 @@ export class EngineHost {
             if (Math.abs(dx) >= SWIPE_MIN && Math.abs(dx) >= Math.abs(dy) * 1.2) {
               this.suppressClickUntil = Date.now() + 320;
               const dir: 'next' | 'prev' = this.verticalContent
-                ? dx < 0 ? 'prev' : 'next'
-                : dx < 0 ? 'next' : 'prev';
+                ? (dx < 0 ? 'prev' : 'next')
+                : (dx < 0 ? 'next' : 'prev');
               this.opts.onTurn?.(dir);
               tapMoved = true;
             }
@@ -573,16 +596,7 @@ export class EngineHost {
       const held = Date.now() - tapAt;
       tapId = -1;
       if (tapMoved || held > TAP_LONG_PRESS_MS) return;
-      if (Date.now() < this.suppressClickUntil) return;
-      const sel = doc.getSelection();
-      if (sel && !sel.isCollapsed) return;
-      const target = ev.target as HTMLElement | null;
-      if (target?.closest('a[href], [data-bzr-skip-tap]')) return;
-      // 点在划线上是要看那条标注，不是要翻页
-      if (this.hitsAnnotation(ev)) return;
-      const width = doc.documentElement.clientWidth || 1;
-      const zone = ev.clientX < width * 0.3 ? 'left' : ev.clientX > width * 0.7 ? 'right' : 'middle';
-      this.opts.onTap?.(zone);
+      emitTap(ev.clientX, ev.clientY, ev.target);
     };
     const onPointerCancel = (): void => {
       tapPointers = 0;
@@ -591,15 +605,22 @@ export class EngineHost {
       dragging = false;
     };
 
-    // ④ 两指捏合改字号。foliate 自己的 touchmove 在两指时直接 return，
-    //    所以这里不必担心和它的滑动逻辑打架
+    // ④ 触摸：单指点按兜底 + 两指捏合改字号 + 两指轻按
     const distance = (t: TouchList): number => {
       const a = t[0];
       const b = t[1];
       if (!a || !b) return 0;
       return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
     };
+    let touchTap: { x: number; y: number; at: number; moved: number; fingers: number } | null = null;
+
     const onTouchStart = (ev: TouchEvent): void => {
+      if (ev.touches.length === 1) {
+        const t = ev.touches[0];
+        touchTap = { x: t.clientX, y: t.clientY, at: Date.now(), moved: 0, fingers: 1 };
+      } else if (touchTap) {
+        touchTap.fingers = ev.touches.length;
+      }
       if (ev.touches.length !== 2) return;
       this.pinchStart = distance(ev.touches);
       this.pinchBase = this.prefs.fontSize;
@@ -607,6 +628,16 @@ export class EngineHost {
       this.twoFingerMove = 0;
     };
     const onTouchMove = (ev: TouchEvent): void => {
+      if (touchTap) {
+        if (ev.touches.length > 1) touchTap.fingers = ev.touches.length;
+        const t = ev.touches[0];
+        if (t) {
+          touchTap.moved = Math.max(
+            touchTap.moved,
+            Math.hypot(t.clientX - touchTap.x, t.clientY - touchTap.y),
+          );
+        }
+      }
       if (ev.touches.length !== 2 || !this.pinchStart) return;
       ev.preventDefault();
       const span = distance(ev.touches);
@@ -619,18 +650,33 @@ export class EngineHost {
       if (next !== this.prefs.fontSize) this.opts.onFontSize?.(next);
     };
     const onTouchEnd = (ev: TouchEvent): void => {
-      if (ev.touches.length >= 2) return;
-      const startedAt = this.twoFingerAt;
-      const moved = this.twoFingerMove;
-      this.pinchStart = 0;
-      this.twoFingerAt = 0;
-      this.twoFingerMove = 0;
-      if (!startedAt) return;
       /* 两指轻按：时间短、两指间距几乎没变。捏合会改字号，这里不拦。 */
-      if (Date.now() - startedAt < 400 && moved < 14) {
-        /* 吞掉同一手势末尾合成的那次 click，免得顺带翻一页 */
-        this.suppressClickUntil = Date.now() + 500;
-        this.opts.onTwoFingerTap?.();
+      if (ev.touches.length < 2 && this.twoFingerAt) {
+        const startedAt = this.twoFingerAt;
+        const moved = this.twoFingerMove;
+        this.pinchStart = 0;
+        this.twoFingerAt = 0;
+        this.twoFingerMove = 0;
+        if (Date.now() - startedAt < 400 && moved < 14) {
+          /* 吞掉同一手势末尾合成的那次 click，免得顺带翻一页 */
+          this.suppressClickUntil = Date.now() + 500;
+          this.opts.onTwoFingerTap?.();
+        }
+      }
+      /* 单指点按兜底：只在 pointer 事件根本不来时才用（少数 WebView）。
+         pointer 一旦可用就走 pointer，两条都用会把一次点按算两次。 */
+      if (!this.pointerWorks && touchTap && ev.touches.length === 0) {
+        const state = touchTap;
+        touchTap = null;
+        const t = ev.changedTouches[0];
+        if (
+          state.fingers === 1 &&
+          t &&
+          Date.now() - state.at < TAP_LONG_PRESS_MS &&
+          state.moved < TAP_MOVE_PX
+        ) {
+          emitTap(t.clientX, t.clientY, ev.target);
+        }
       }
     };
 
@@ -754,12 +800,12 @@ export class EngineHost {
   }
 
   /** 点是否落在某条我们画过的标注里（overlayer 用命中矩形判断，和渲染同源） */
-  private hitsAnnotation(ev: MouseEvent): boolean {
+  private hitsAnnotation(point: { clientX: number; clientY: number }): boolean {
     const contents = this.view?.renderer?.getContents?.() ?? [];
     for (const c of contents) {
       const overlayer = c.overlayer;
       if (!overlayer) continue;
-      const [value] = overlayer.hitTest({ x: ev.clientX, y: ev.clientY });
+      const [value] = overlayer.hitTest({ x: point.clientX, y: point.clientY });
       if (value && this.annotColors.has(value)) return true;
     }
     return false;
@@ -863,10 +909,14 @@ export class EngineHost {
    * 超时不抛错：调用点大多是 `void host.xxx()`，抛出去只会变成
    * unhandledrejection，用户照样什么都看不见。改走 onStall 让上层提示。
    */
-  private async navigate(run: () => Promise<unknown> | undefined, what: string): Promise<void> {
+  private async navigate(
+    run: () => Promise<unknown> | undefined,
+    what: string,
+    timeoutMs = LOCATE_TIMEOUT,
+  ): Promise<void> {
     let timer = 0;
     const timeout = new Promise<'timeout'>((r) => {
-      timer = window.setTimeout(() => r('timeout'), LOCATE_TIMEOUT);
+      timer = window.setTimeout(() => r('timeout'), timeoutMs);
     });
     try {
       const done = await Promise.race([Promise.resolve(run()).then(() => 'ok' as const), timeout]);
@@ -910,9 +960,13 @@ export class EngineHost {
 
   private async turnOnce(dir: 'next' | 'prev'): Promise<void> {
     const before = this.pageKey;
+    /* 翻页的等待上限要短：分页器在换章时会短暂上锁，那次 next() 可能
+       永不结算；用 20 秒的定位超时会让整条导航队列卡死，后面每次点击
+       都像「没反应」。3 秒足够一次翻页，超时就当它没动，走下面的跨章兜底。 */
     await this.navigate(
       () => (dir === 'next' ? this.view?.next() : this.view?.prev()),
       dir === 'next' ? '翻到下一页' : '翻回上一页',
+      TURN_TIMEOUT,
     );
     if (this.pageKey !== before) return;
     /* 章末/章首：分页器把「下一页」判成 false，页面一动不动，用户看到的就是
@@ -923,6 +977,7 @@ export class EngineHost {
     await this.navigate(
       () => this.view?.goTo(idx),
       dir === 'next' ? '翻到下一章' : '翻回上一章',
+      TURN_TIMEOUT,
     );
   }
 
