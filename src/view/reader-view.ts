@@ -868,6 +868,7 @@ export class ReaderView extends ItemView {
     const book = this.book;
     if (!book) return;
     RT.sel = {
+      anchor: { left: info.anchor.left, top: info.anchor.top },
       text: info.text,
       bookId: book.id,
       chapterTitle: this.lastChapterTitle || book.reading.position.chapterTitle || '',

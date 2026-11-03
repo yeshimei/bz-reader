@@ -649,7 +649,7 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       const id = RT.selMarkId || createMark(d.v || getState().pen, { silent: true });
       if (id) {
         RT.selMarkId = id;
-        overlay('idea', { markId: id, bookId: RT.sel?.bookId || '' });
+        overlay('idea', { markId: id, bookId: RT.sel?.bookId || '', anchor: RT.sel?.anchor });
       }
       break;
     }
