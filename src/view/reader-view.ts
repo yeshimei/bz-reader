@@ -31,6 +31,7 @@ import { can } from '../data/entitlement';
 import { speak, type SpeakHandle } from '../core/speak';
 import { notify } from '../core/notice';
 import { isMobileShell } from '../core/mobile';
+import { envSummary, probeBlobIframe } from '../core/diagnose';
 import { el } from '../ui/dom';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
 import { VIEW_TYPE_TOC } from './side-view';
@@ -922,6 +923,10 @@ export class ReaderView extends ItemView {
       this.chapterEl.textContent = book.reading.position.chapterTitle;
     }
 
+    /* 手机上解一本大书要好几秒，这段时间是空的——先说清楚在干什么，
+       别让人以为点错了（host.mount 建好视图时会把这个占位清掉） */
+    this.renderLoading(book.meta.title);
+
     try {
       await this.host.mount(this.stage as HTMLElement, book.fileRef.vaultPath, {
         prefs: this.prefs,
@@ -991,8 +996,9 @@ export class ReaderView extends ItemView {
       this.mounted = true;
     } catch (e) {
       this.mounting = false;
-      this.renderFault('这本书打不开', (e as Error)?.message || '格式不受支持');
-      notify((e as Error)?.message || '这本书打不开', 'error');
+      const why = (e as Error)?.message || '格式不受支持';
+      this.renderFault('这本书打不开', why);
+      notify(why, 'error');
       return;
     }
     this.mounting = false;
@@ -1004,10 +1010,38 @@ export class ReaderView extends ItemView {
     stage.empty();
     const box = el('div', 'bzs-empty');
     box.append(el('div', '', title), el('div', 'bzs-mini', desc));
+    /* 环境自检：手机上最常见的白屏是 iframe 加载不了 blob 地址，
+       而那种失败连一条报错都没有。把结论写在这里，真机截图就能定位。 */
+    const diag = el('div', 'bzs-mini bzr-diag');
+    diag.style.opacity = '.7';
+    for (const line of envSummary(this.host.loadPhase)) diag.appendChild(el('div', '', line));
+    const probeLine = el('div', '', 'iframe·blob：探测中…');
+    diag.appendChild(probeLine);
+    void probeBlobIframe().then((r) => {
+      probeLine.textContent = `iframe·blob：${r}`;
+    });
+    box.appendChild(diag);
     const back = el('button', 'bzs-btn', '回书架');
     back.type = 'button';
     back.addEventListener('click', () => getShellSource()?.openStudy('library'));
     box.appendChild(back);
+    const retry = el('button', 'bzs-btn', '重试');
+    retry.type = 'button';
+    retry.addEventListener('click', () => {
+      this.mounted = false;
+      void this.maybeMount();
+    });
+    box.appendChild(retry);
+    stage.appendChild(box);
+  }
+
+  /** 解包与渲染期间的占位：说明在忙，不是坏了 */
+  private renderLoading(title: string): void {
+    const stage = this.stage;
+    if (!stage) return;
+    stage.empty();
+    const box = el('div', 'bzs-empty');
+    box.append(el('div', 'bzs-mini', `正在打开《${title}》…`));
     stage.appendChild(box);
   }
 

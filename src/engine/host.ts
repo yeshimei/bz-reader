@@ -117,6 +117,8 @@ const WHEEL_TURN_THRESHOLD = 42;
 const WHEEL_COOLDOWN = 300;
 /** 拖拽/滑动超过这个距离才算要翻页，短线抖动不算。 */
 const SWIPE_MIN = 48;
+/** 首章渲染的耐心（毫秒）。手机解一本几十 MB 的书慢，但超过这个数基本就是卡死了 */
+const OPEN_TIMEOUT = 30000;
 
 /** EPUB 3 的 epub:type 命名空间 */
 const OPS_NS = 'http://www.idpf.org/2007/ops';
@@ -168,6 +170,9 @@ export class EngineHost {
   private pinchStart = 0;
   private pinchBase = 0;
 
+  /** 装载到哪一步了。出错时告诉用户卡在哪，而不是「打不开」三个字 */
+  private phase: 'idle' | 'read' | 'parse' | 'render' | 'ready' = 'idle';
+
   /** 当前渲染的章节序号（load 事件给的），用来只重画这一章的标注 */
   private sectionIndex = 0;
   /** 最近一次 relocate 的 CFI：竖排/布局切换重载章节时靠它回到原处 */
@@ -189,6 +194,11 @@ export class EngineHost {
 
   get currentChapterIndex(): number {
     return this.chapterIndex;
+  }
+
+  /** 装载阶段（read 读文件 / parse 解包 / render 渲染首章）。出错文案要用 */
+  get loadPhase(): string {
+    return this.phase;
   }
 
   toc(): FoliateTOCItem[] {
@@ -230,8 +240,13 @@ export class EngineHost {
     this.prefs = opts.prefs;
     this.container = container;
 
+    this.phase = 'read';
     const { book, meta } = await this.buildBook(vaultPath);
     this.book = book;
+
+    /* 上层可能先画了「正在打开」占位；foliate 要独占这个容器 */
+    container.empty();
+    this.phase = 'parse';
 
     const view = document.createElement('foliate-view') as unknown as FoliateView;
     view.className = 'bzr-view';
@@ -340,16 +355,28 @@ export class EngineHost {
     // iframe 之外的空白（页码栏、边距）也要吃滚轮
     this.bindOuterWheel(container);
 
+    /* 首章渲染必须有出口。
+       foliate 的分页器给 iframe 喂的是 blob 地址，且只监听 `load` 不监听
+       `error`：地址加载不了时（典型是宿主页面源不透明，blob:null 的 iframe
+       永远不发 load）这个 Promise 既不 resolve 也不 reject，界面就停在白屏。
+       所以这里自己掐表——超时也当失败处理，好过让用户对着空白猜。 */
+    this.phase = 'render';
     try {
-      await view.open(book);
+      const opened = await Promise.race([
+        view.open(book).then(() => 'ok' as const),
+        new Promise<'timeout'>((r) => window.setTimeout(() => r('timeout'), OPEN_TIMEOUT)),
+      ]);
+      if (opened === 'timeout') throw new Error(`渲染首章 ${OPEN_TIMEOUT / 1000}s 无响应`);
     } catch (err) {
       view.remove();
       this.view = null;
       this.book = null;
+      this.phase = 'idle';
       throw new Error(`这本书打不开：${(err as Error)?.message || '格式不受支持'}`);
     }
 
     this.view = view;
+    this.phase = 'ready';
     this.applyPrefs(this.prefs);
     opts.onReady?.(book, meta);
   }

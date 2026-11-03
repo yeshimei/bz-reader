@@ -12,7 +12,7 @@
 import { isMobileShell } from '../core/mobile';
 import { dispatchAction, dispatchInput } from './actions';
 import { getState, setState, subscribe, type StudyPage } from './state';
-import { getShellSource, liveBooks, shellPrefs } from './source';
+import { getShellSource, liveBooks, shellPrefs, subscribeShellSource } from './source';
 import { studyShell } from './render/study';
 import { buildShelfPage } from './shelf-page';
 import { hydrateCovers } from './covers';
@@ -26,6 +26,7 @@ interface FocusMemo {
 export class ShelfPanel {
   private root: HTMLElement | null = null;
   private unsubscribe: (() => void) | null = null;
+  private offSource: (() => void) | null = null;
   private scrollTop = 0;
   private focusMemo: FocusMemo | null = null;
   private painted = false;
@@ -39,11 +40,17 @@ export class ShelfPanel {
     this.bind();
     this.render();
     this.unsubscribe = subscribe(() => this.render());
+    /* 视图可能比插件先活：Obsidian 恢复布局时插件还没注入数据源，
+       那一次 render 是空跑，而状态订阅此后未必再被触发——书架就一直空着。
+       数据源一到就得自己补画一次。 */
+    this.offSource = subscribeShellSource(() => this.render());
   }
 
   destroy(): void {
     this.unsubscribe?.();
     this.unsubscribe = null;
+    this.offSource?.();
+    this.offSource = null;
     this.root = null;
     this.host.empty();
   }
