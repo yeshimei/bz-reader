@@ -45,12 +45,21 @@ function str(v: unknown, fallback = ''): string {
   return typeof v === 'string' ? v : fallback;
 }
 
-/** 去掉目录首尾斜杠，避免拼出 `//书摘//书.md` 这种路径；'/' 保留为库根目录 */
+/**
+ * 去掉目录首尾斜杠，避免拼出 `//书摘//书.md` 这种路径；'/' 保留为库根目录。
+ *
+ * 与 core/plugin-path.ts 的 normalizeDataDir 同口径：按段过滤 `..` / `.` /
+ * 点开头的隐藏目录。exportDir 是自由文本框，不拦的话 `../x` 会把笔记写到
+ * 数据目录之外（随库同步来的 bz-reader.json 也能触发）。
+ */
 function cleanDir(v: string, fallback = DEFAULT_SETTINGS.exportDir): string {
   const s = v.replace(/\\/g, '/').trim();
   if (s === '/') return '/';
-  const t = s.replace(/^\/+|\/+$/g, '');
-  return t || fallback;
+  const segs = s
+    .split('/')
+    .map((x) => x.trim())
+    .filter((x) => !!x && x !== '.' && x !== '..' && !x.startsWith('.'));
+  return segs.join('/') || fallback;
 }
 
 function cleanUrl(v: string): string {

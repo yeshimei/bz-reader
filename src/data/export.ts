@@ -44,9 +44,18 @@ function stamp(ts: number): string {
   return `${ymd(ts)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** YAML 双引号值：反斜杠与双引号转义掉，其余原样 */
+/**
+ * YAML 双引号值。
+ *
+ * 换行必须压平：dc:title / dc:creator 来自导入的 EPUB（外部文件，不可信），
+ * `title: "x"\n恶意键: 1` 能截断引号串、注入 frontmatter，甚至用 `---` 提前
+ * 结束整个头部。书名里的换行本来也没有保留意义。
+ */
 function yamlStr(v: string): string {
-  return `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  const one = String(v ?? '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/\n+/g, ' ');
+  return `"${one.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
 /** 文件名里不能出现的字符。斜杠留着会变成目录，必须换掉 */
@@ -90,10 +99,10 @@ export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, n
   lines.push('---');
   lines.push(MARK);
   lines.push('');
-  lines.push(`# ${book.meta.title}`);
+  lines.push(`# ${oneLine(book.meta.title)}`);
   lines.push('');
 
-  const sub = [author, `读到 ${percent}%`, `${highlights.length} 条划线`, bookmarks.length ? `${bookmarks.length} 个书签` : '']
+  const sub = [oneLine(author || ''), `读到 ${percent}%`, `${highlights.length} 条划线`, bookmarks.length ? `${bookmarks.length} 个书签` : '']
     .filter(Boolean)
     .join(' · ');
   lines.push(`> ${sub}`);

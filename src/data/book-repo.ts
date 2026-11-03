@@ -106,6 +106,13 @@ export class BookRepo {
     }
   }
 
+  /** 书在磁盘上换了位置：只改路径，id / 进度 / 划线全部保留 */
+  relocate(book: ReaderBook, to: string): void {
+    book.fileRef.vaultPath = to;
+    (book.fileRef as { fileMissing?: boolean }).fileMissing = false;
+    book.updatedAt = Date.now();
+  }
+
   remove(id: string): boolean {
     const i = this.books.findIndex((b) => b.id === id);
     if (i < 0) return false;
@@ -123,4 +130,45 @@ export class BookRepo {
     });
     return limit > 0 ? sorted.slice(0, limit) : sorted;
   }
+}
+
+export interface ScannedFile {
+  path: string;
+  format: BookFormat;
+  size: number;
+}
+
+export interface Relocation {
+  book: ReaderBook;
+  to: string;
+}
+
+/**
+ * 认出「书被改名/移动」：文件还在，只是路径变了。
+ *
+ * 判据只有两条——同格式、同字节数，且旧路径已经不在扫描结果里。不做这一步的
+ * 话，改个文件名就等于换了一本书：新记录从零开始，旧记录被 markMissing 标成
+ * 幽灵，划线与进度还挂在旧 id 上（深链一起失效）。
+ *
+ * 保守起见，`size` 为 0（未知）不参与匹配，避免把所有 0 字节文件认成同一本；
+ * 同一批里一本书只能认领一次，两个同大小候选按加入时间从新到旧配。
+ */
+export function planRelocations(books: ReaderBook[], files: ScannedFile[]): Relocation[] {
+  const nowPaths = new Set(files.map((f) => f.path));
+  const candidates = books.filter((b) => !nowPaths.has(b.fileRef.vaultPath) && !!b.fileRef.size);
+  if (!candidates.length) return [];
+
+  const taken = new Set<string>();
+  const out: Relocation[] = [];
+  for (const f of files) {
+    if (!f.size) continue;
+    if (books.some((b) => b.fileRef.vaultPath === f.path)) continue;
+    const hit = candidates.find(
+      (b) => !taken.has(b.id) && b.fileRef.format === f.format && b.fileRef.size === f.size,
+    );
+    if (!hit) continue;
+    taken.add(hit.id);
+    out.push({ book: hit, to: f.path });
+  }
+  return out;
 }

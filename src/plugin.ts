@@ -20,9 +20,9 @@ import { setPluginRelDir, dataDirOf, normalizeDataDir, setDataDir, PLUGIN_ID } f
 import { isMobileShell } from './core/mobile';
 import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
-import { BookRepo, BASE_FORMATS, PRO_FORMATS, formatOf, scanVault } from './data/book-repo';
+import { BookRepo, BASE_FORMATS, PRO_FORMATS, formatOf, planRelocations, scanVault } from './data/book-repo';
 import { ReaderStore } from './data/store';
-import { copyTree, removeTree } from './data/migrate';
+import { copyTree, dirHasFiles, removeTree } from './data/migrate';
 import { normalizePrefs, type ReaderPrefs } from './data/prefs';
 import { normalizeSettings, type ReaderSettings } from './data/settings';
 import type { BookFormat, ReaderBook } from './data/schema';
@@ -31,9 +31,9 @@ import { ReaderView, VIEW_TYPE_READER, type ReaderCommand, type ReaderHostApi } 
 import { SideView, VIEW_TYPE_TOC, type SideTab } from './view/side-view';
 import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-state';
 import { ReaderSettingTab } from './ui/settings-tab';
-import { verifyLicense, licenseSummary } from './data/license';
+import { licenseSummary } from './data/license';
 import { releaseCovers } from './data/cover';
-import { can, recordActivity, revalidateLicense, setProBuild } from './data/entitlement';
+import { activateLicense as applyLicense, can, recordActivity, revalidateLicense, setProBuild } from './data/entitlement';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
 import { installBlobSrcdocPatches } from './engine/blob-srcdoc';
 import { initDebugLog } from './core/debug-log';
@@ -160,10 +160,7 @@ export function createPlugin(cfg: PluginConfig) {
           plugin: this,
           store: this.store,
           openSettings: () => this.openStudy('settings'),
-          activate: async (code) => {
-            const res = await verifyLicense(code);
-            return { ok: res.ok, message: res.message };
-          },
+          activate: (code) => this.activateLicense(code),
           licenseInfo: () => licenseSummary(normalizeSettings(this.store.get().settings ?? undefined).license),
         }),
       );
@@ -273,6 +270,7 @@ export function createPlugin(cfg: PluginConfig) {
         setPrefs: (patch) => this.setPrefs(patch),
         settings: () => normalizeSettings(this.store.get().settings ?? undefined),
         setSettings: (patch) => this.setSettings(patch),
+        activate: (code) => this.activateLicense(code),
         dataDir: () => dataDirOf(),
         migrateDataDir: (dir) => this.migrateDataDir(dir),
       });
@@ -291,6 +289,11 @@ export function createPlugin(cfg: PluginConfig) {
 
       const srcHasData = await this.app.vault.adapter.exists(`${from}/bz-reader.json`).catch(() => false);
       await this.store.flush();
+      /* 目标目录必须先空着：A→B 成功后再 B→A（A 可能残留或被云同步回填）时，
+         直接合会拿另一份库的 bz-reader.json 覆盖这一份。 */
+      if (await dirHasFiles(this.app, to)) {
+        return { ok: false, message: `「${to}」里已经有文件，为避免覆盖请先清空或换一个目录` };
+      }
 
       const res = await copyTree(this.app, from, to);
       if (res.failed.length) {
@@ -352,6 +355,22 @@ export function createPlugin(cfg: PluginConfig) {
       this.store.get().settings = next;
       this.store.touch();
       notifyShell();
+    }
+
+    /**
+     * 激活码的唯一入口（原生设置页 / 壳层解锁层共用）。
+     *
+     * 顺序：验签 → 通过才写 entitlement（can() 的真相）→ 同步一份到
+     * settings（原生页的状态行与导出稿读它）→ 重绘所有壳层。
+     * 只写 settings 不写 entitlement 就是「显示已激活、功能全锁死」。
+     */
+    async activateLicense(code: string): Promise<{ ok: boolean; message: string }> {
+      const res = await applyLicense(code);
+      if (res.ok) {
+        this.setSettings({ license: code.trim() });
+        notifyShell();
+      }
+      return res;
     }
 
     /* ── 承载入口 ── */
@@ -489,6 +508,12 @@ export function createPlugin(cfg: PluginConfig) {
          否则一旦没解锁，mobi 书会直接从书架上消失——用户会以为书被插件删了。
          真正的门控放在 openBook：看得见、点得开提示，比凭空少几本书好得多。 */
       const files = scanVault(this.app, cfg.pro ? PRO_FORMATS : BASE_FORMATS);
+      /* 先认「改名/移动」：同格式、同字节数、当前路径已消失的旧记录，就地换路径。
+         不做这一步的话，改个文件名就等于换了一本书——进度、划线、深链全留在
+         那条被标成 fileMissing 的幽灵记录上。 */
+      for (const move of planRelocations(this.repo.all(), files)) {
+        this.repo.relocate(move.book, move.to);
+      }
       const existing = new Set(files.map((f) => f.path));
       for (const f of files) {
         const fmt = formatOf(f.path) as BookFormat;

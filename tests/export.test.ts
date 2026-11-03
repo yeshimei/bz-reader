@@ -57,4 +57,16 @@ describe('标注导出成 Markdown', () => {
     const md = buildNotesMarkdown(book, DEFAULT_SETTINGS);
     expect(md).toContain('> 她转过身，没有回头');
   });
+
+  it('书名/作者里的换行不能注入 frontmatter', () => {
+    const { book } = bookWithNotes();
+    book.meta.title = '正常书名"\nmalicious: 1\n---';
+    book.meta.author = '作者\n注入';
+    const md = buildNotesMarkdown(book, DEFAULT_SETTINGS);
+    /* 换行压平后整串仍在同一个引号里——不能变成新的 YAML 键或提前结束头部 */
+    expect(md).toContain('title: "正常书名\\" malicious: 1 ---"');
+    const front = md.slice(0, md.indexOf('\n---', 4));
+    expect(front.split('\n').some((line) => line.startsWith('malicious:'))).toBe(false);
+    expect(md.split('\n').some((line) => line.startsWith('注入'))).toBe(false);
+  });
 });

@@ -1318,7 +1318,9 @@ export class ReaderView extends ItemView {
       }
       book.updatedAt = Date.now();
     }
-    await this.api.store.flush().catch(() => undefined);
+    /* 强制写：这段会话是刚刚在内存里加的，没有经过 touch()；用普通 flush
+       会因 `!dirty` 早退，最后一段阅读时长就永远落不了盘。 */
+    await this.api.store.flush(true).catch(() => undefined);
     await this.host.destroy().catch(() => undefined);
   }
 

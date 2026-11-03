@@ -28,9 +28,8 @@ import { notify } from '../core/notice';
 import { flipSetting, type ToggleState } from './settings-toggle';
 import { openHotkeySettings } from '../core/hotkeys';
 import { folderLabel, pickFolder } from '../core/folder-pick';
-import { CAP_LABEL, GROUP_URL, PURCHASE_URL, can, setLicense, type Cap } from '../data/entitlement';
+import { CAP_LABEL, GROUP_URL, PURCHASE_URL, can, type Cap } from '../data/entitlement';
 import { normalizeDataDir } from '../core/plugin-path';
-import { verifyLicense } from '../data/license';
 import { linkInline, linkQuote, rawUrl, targetOfMark, wikiLink } from '../data/deeplink';
 import { exportBookNotes } from '../data/export';
 import { jumpTo, getToc } from '../view/toc-state';
@@ -495,18 +494,22 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       window.open(GROUP_URL, '_blank');
       break;
     case 'activate': {
-      const box = document.querySelector<HTMLInputElement>('[data-role="license"]');
+      /* 取当前弹层里的那个输入框：设置页也有一枚 data-role="license"，
+         全局 querySelector 会先命中它，于是从解锁层粘贴的码永远读不到。 */
+      const inLayer = el.closest<HTMLElement>('.bzs-modal, .bzs-float');
+      const box =
+        inLayer?.querySelector<HTMLInputElement>('[data-role="license"]') ??
+        document.querySelector<HTMLInputElement>('[data-role="license"]');
       const code = (box?.value || '').trim();
+      const src = getShellSource();
       void (async () => {
-        const res = await verifyLicense(code);
+        if (!src) return;
+        const res = await src.activate(code);
         if (!res.ok) {
           // 不重绘：重绘会把用户刚粘进去的那一长串码清掉，重来一遍很烦
           notify(res.message, 'error');
           return;
         }
-        setLicense(code);
-        // 同步一份到 settings，原生设置页与 bz 侧都读得到
-        getShellSource()?.setSettings({ license: code });
         notify(res.message);
         rerender();
       })();

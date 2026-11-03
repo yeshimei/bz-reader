@@ -42,6 +42,11 @@ export interface ShellSource {
   /** 插件设置（导出、AI） */
   settings: () => ReaderSettings;
   setSettings: (patch: Partial<ReaderSettings>) => void;
+  /**
+   * 激活码：验签 → 写 entitlement → 同步 settings → 重绘。
+   * 原生设置页与解锁弹层都必须走它，否则会出现「显示已激活、功能锁死」。
+   */
+  activate: (code: string) => Promise<{ ok: boolean; message: string }>;
   /** 当前数据目录（vault 相对路径，默认 `bz 阅读`） */
   dataDir: () => string;
   /**
