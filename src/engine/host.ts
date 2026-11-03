@@ -101,7 +101,7 @@ export interface MountOptions {
   /** 单指轻触正文：左 / 中 / 右 */
   onTap?: (
     zone: 'left' | 'middle' | 'right',
-    info: { x: number; y: number; width: number; source: string },
+    info: { x: number; y: number; width: number; source: string; scrollLeft: number; within: number },
   ) => void;
   /** 任何手势要求翻页（滚轮 / 双指横滑 / 按钮） */
   onTurn?: (dir: 'prev' | 'next') => void;
@@ -203,6 +203,23 @@ export class EngineHost {
    * 宿主自己知道的这一块画布宽度，由阅读视图量好传进来。
    */
   private viewportWidth = 0;
+
+  /** relocate 序号与最近一次定位的 cfi：换页是否真的发生，看这两个 */
+  private relocateSeq = 0;
+  private lastRelocateCfi = '';
+  private relocateWaiters: Array<() => void> = [];
+
+  /** 等一次 relocate（最多 ms 毫秒），用来替代「立刻比对页码」那种竞态判断 */
+  private waitRelocate(since: number, ms: number): Promise<boolean> {
+    if (this.relocateSeq !== since) return Promise.resolve(true);
+    return new Promise<boolean>((resolve) => {
+      const timer = window.setTimeout(() => resolve(false), ms);
+      this.relocateWaiters.push(() => {
+        window.clearTimeout(timer);
+        resolve(true);
+      });
+    });
+  }
 
   /** 阅读视图在挂载与尺寸变化时调用 */
   setViewportWidth(width: number): void {
@@ -310,6 +327,11 @@ export class EngineHost {
       if (this.phase !== 'ready') this.phase = 'ready';
       this.chapterIndex = d.section?.current ?? this.chapterIndex;
       this.chapterTitle = d.tocItem?.label ?? this.chapterTitle;
+      this.relocateSeq += 1;
+      this.lastRelocateCfi = d.cfi ?? this.lastRelocateCfi;
+      const waiters = this.relocateWaiters;
+      this.relocateWaiters = [];
+      for (const w of waiters) w();
       this.opts.onRelocate?.({
         percent,
         cfi: d.cfi ?? '',
@@ -552,8 +574,13 @@ export class EngineHost {
       const frame = (win?.frameElement ?? null) as HTMLIFrameElement | null;
       /* 分母用阅读区可见宽度（见 viewportWidth 注释）；没有就退回帧宽 */
       const width = this.viewportWidth || frame?.clientWidth || win?.innerWidth || 1;
-      const zone = x < width * 0.3 ? 'left' : x > width * 0.7 ? 'right' : 'middle';
-      this.opts.onTap?.(zone, { x, y, width, source });
+      /* 真机上 clientX 会带上滚动偏移（同一位置连着翻页时 x 每页加一个页宽），
+         所以先减掉 scrollLeft 才是「在这一页里的位置」。没滚动时它本来就是 0。 */
+      const scroller = (doc.scrollingElement ?? doc.documentElement) as HTMLElement | null;
+      const scrollLeft = scroller?.scrollLeft ?? 0;
+      const within = Math.max(0, Math.min(width, x - scrollLeft));
+      const zone = within < width * 0.3 ? 'left' : within > width * 0.7 ? 'right' : 'middle';
+      this.opts.onTap?.(zone, { x, y, width, source, scrollLeft, within });
     };
 
     // ② 滚轮：iframe 内也要拦（外层的 wheel 传不进来）
@@ -1011,6 +1038,8 @@ export class EngineHost {
 
   private async turnOnce(dir: 'next' | 'prev'): Promise<void> {
     const before = this.pageKey;
+    const cfiBefore = this.lastRelocateCfi;
+    const seqBefore = this.relocateSeq;
     /* 翻页的等待上限要短：分页器在换章时会短暂上锁，那次 next() 可能
        永不结算；用 20 秒的定位超时会让整条导航队列卡死，后面每次点击
        都像「没反应」。3 秒足够一次翻页，超时就当它没动，走下面的跨章兜底。 */
@@ -1019,7 +1048,11 @@ export class EngineHost {
       dir === 'next' ? '翻到下一页' : '翻回上一页',
       TURN_TIMEOUT,
     );
-    if (this.pageKey !== before) return;
+    /* 分页器的 replace 与 relocate 是异步的：刚 await 完 next() 时页码往往还是旧的，
+       立刻比对会误判成「没翻动」，接着又跳一次相邻章——一次点击翻两页就是这么来的。
+       等一次 relocate（或 600ms）再判定。 */
+    await this.waitRelocate(seqBefore, 600);
+    if (this.lastRelocateCfi !== cfiBefore || this.pageKey !== before) return;
     /* 章末/章首：分页器把「下一页」判成 false，页面一动不动，用户看到的就是
        「点了没反应」。这里显式翻到相邻章。 */
     const count = this.book?.sections.length ?? 0;

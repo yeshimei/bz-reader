@@ -116,7 +116,7 @@ export class ReaderView extends ItemView {
 
   private tapHandler: (
     zone: 'left' | 'middle' | 'right',
-    info?: { x: number; y: number; width: number; source: string },
+    info?: { x: number; y: number; width: number; source: string; scrollLeft: number; within: number },
   ) => void = () => undefined;
 
   private selection: SelectionInfo | null = null;
@@ -287,6 +287,8 @@ export class ReaderView extends ItemView {
         src: info?.source ?? '?',
         x: info ? Math.round(info.x) : -1,
         w: info ? Math.round(info.width) : -1,
+        sx: info ? Math.round(info.scrollLeft) : -1,
+        in: info ? Math.round(info.within) : -1,
         key: this.host.pageKey,
         vertical: this.host.contentVertical,
       });
