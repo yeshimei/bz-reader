@@ -50,7 +50,7 @@ import {
   subscribe,
   notify as notifyShell,
 } from '../shell/state';
-import { openOverlay } from '../shell/state';
+import { openOverlay, getState } from '../shell/state';
 import { anchoredPlacement } from '../shell/anchored-style';
 import { selbarActions } from '../shell/selbar';
 import { RT, onNotesChanged } from '../shell/runtime';
@@ -373,64 +373,17 @@ export class ReaderView extends ItemView {
       this.renderProbe();
     };
 
-    const onKey = (e: KeyboardEvent): void => {
-      if (this.closed || !this.ownsKeyboard()) return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-      if (e.ctrlKey || e.metaKey) return;
-      switch (e.key) {
-        case 'Escape':
-          if (this.immersive) this.toggleImmersive(false);
-          this.hideSelbar();
-          break;
-        case 'ArrowLeft':
-        case 'PageUp':
-          e.preventDefault();
-          turn(this.host.contentVertical ? 'next' : 'prev');
-          break;
-        case 'ArrowRight':
-        case 'PageDown':
-        case ' ':
-          e.preventDefault();
-          turn(this.host.contentVertical ? 'prev' : 'next');
-          break;
-        case 'f':
-          e.preventDefault();
-          this.toggleImmersive();
-          break;
-        case 'b':
-          e.preventDefault();
-          this.toggleBookmark();
-          break;
-        case 't':
-          e.preventDefault();
-          dispatchAction('typography', this.rootEl ?? document.body);
-          break;
-        case 'm':
-          e.preventDefault();
-          dispatchAction('bookmap', this.rootEl ?? document.body);
-          break;
-        case 's':
-          e.preventDefault();
-          this.api.openTocSidebar('toc');
-          break;
-        case 'r':
-          e.preventDefault();
-          this.toggleTts();
-          break;
-        case 'g':
-          e.preventDefault();
-          getShellSource()?.openStudy('library');
-          break;
-        default:
-          break;
-      }
-    };
+    const onKey = (e: KeyboardEvent): void => this.handleKey(e);
     document.addEventListener('keydown', onKey, true);
     this.teardown = () => document.removeEventListener('keydown', onKey, true);
 
-    /* 皮肤跟着壳层状态走：跟随宿主时宿主换主题，这里也重画 */
-    const syncTheme = (): void => this.applyChrome();
+    /* 皮肤跟着壳层状态走：跟随宿主时宿主换主题，这里也重画。
+       顺带在搜索浮层关掉时清掉书里的搜索高亮——`clearSearch()` 以前
+       全仓没有调用方，搜过一次之后黄色高亮就永远留在正文里（P3-20）。 */
+    const syncTheme = (): void => {
+      this.applyChrome();
+      this.syncSearchHighlight();
+    };
     this.offShell = subscribe(syncTheme);
     this.offNotes = onNotesChanged(() => this.refreshAfterNotesChange());
     /* 宿主换主题：壳层的强调色跟着换，书页的底色/字色也要重注入——
@@ -641,6 +594,59 @@ export class ReaderView extends ItemView {
    * 「快捷键」里改键），命令最终落回这里——与按键走同一套实现，
    * 免得「按 f 有用、点命令没用」这种两套行为。
    */
+  /**
+   * 搜索浮层关掉时清书里的高亮（P3-20）。
+   *
+   * `host.clearSearch()` 以前全仓没有调用方：搜过一次之后，那些黄色高亮
+   * 就永远留在正文里，翻到哪章都在，用户以为是自己画的线。
+   */
+  private searchOpen = false;
+
+  private syncSearchHighlight(): void {
+    const open = getState().overlay?.kind === 'search';
+    if (this.searchOpen && !open) this.host.clearSearch();
+    this.searchOpen = open;
+  }
+
+  /**
+   * 键盘处理：主窗口 document 与正文 iframe 共用同一份规则。
+   *
+   * 2026-11-04 起**不再硬编码单字母**（P2-03）：`f/b/t/m/s/r/g` 全部交给
+   * Obsidian 的快捷键系统（`addCommand` 里已注册「阅读：专注模式」等），
+   * 用户能改、能关。以前同一个键被两条路径处理：把「专注模式」改到别的键，
+   * 按 `f` 仍然生效；把别的命令绑到 `f`，沉浸会切两次——等于没反应。
+   *
+   * 留在硬编码里的只有翻页与 Esc：它们没有「改成别的键」的需求，
+   * 而且 Obsidian 几乎不占用方向键 / 空格 / PageUp / PageDown。
+   *
+   * 带 Ctrl / Cmd / Alt 的一律放行：那些是宿主与系统的快捷键。
+   */
+  handleKey(e: KeyboardEvent): void {
+    if (this.closed || !this.ownsKeyboard()) return;
+    const t = e.target as HTMLElement | null;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    switch (e.key) {
+      case 'Escape':
+        if (this.immersive) this.toggleImmersive(false);
+        this.hideSelbar();
+        break;
+      case 'ArrowLeft':
+      case 'PageUp':
+        e.preventDefault();
+        this.runCommand(this.host.contentVertical ? 'next' : 'prev');
+        break;
+      case 'ArrowRight':
+      case 'PageDown':
+      case ' ':
+        e.preventDefault();
+        this.runCommand(this.host.contentVertical ? 'prev' : 'next');
+        break;
+      default:
+        break;
+    }
+  }
+
   runCommand(kind: ReaderCommand): void {
     switch (kind) {
       case 'next':
@@ -1138,6 +1144,9 @@ export class ReaderView extends ItemView {
           void p.then(() => this.tracker.touch());
         },
         onFontSize: (size) => this.applyPrefs({ fontSize: size }),
+        /* 正文 iframe 里的键盘转出来（P2-04）。不接的话，点过正文之后
+           方向键、空格、Escape 全部失灵，只能先点头栏把焦点抢回来。 */
+        onKeyDown: (ev) => this.handleKey(ev),
         onSelect: (info) => {
           if (!info) {
             // 选区塌了只收色点条；正在写想法时不受影响（弹层在 body 上）

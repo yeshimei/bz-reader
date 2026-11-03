@@ -146,6 +146,16 @@ export interface MountOptions {
   onStall?: (what: string) => void;
   /** 两指同时轻按（不是捏合）。移动端用来切换沉浸 */
   onTwoFingerTap?: () => void;
+  /**
+   * iframe 里的键盘事件转发（P2-04）。
+   *
+   * 正文是 iframe，keydown 不会冒泡到主窗口的 document。不转的话，
+   * 「在正文里点一下」之后方向键、空格、PageUp 全部失灵，连 Obsidian
+   * 自己的命令热键也失效，只能先点头栏把焦点抢回来。
+   *
+   * 只转发 keydown；`keyup` 那边已经用于划词检测，别重复。
+   */
+  onKeyDown?: (ev: KeyboardEvent) => void;
 }
 
 /** 滚轮累计到多少才翻一页（像素）。触控板一次轻扫约 30–60，鼠标滚轮一格约 100。 */
@@ -154,6 +164,14 @@ const WHEEL_TURN_THRESHOLD = 42;
 const WHEEL_COOLDOWN = 300;
 /** 拖拽/滑动超过这个距离才算要翻页，短线抖动不算。 */
 const SWIPE_MIN = 48;
+/**
+ * 找脚注时最多解析几章（P2-16）。
+ *
+ * 以前是 120：锚点写错的书上，每点一次注释号就在主线程解析上百章 XHTML，
+ * 手机上直接卡住。8 章覆盖「注文页排在正文后面几章」这个真实布局，
+ * 再找不到就明确告诉用户没找到，比冻住界面好。
+ */
+const MAX_FOOTNOTE_SCAN = 8;
 /** 建立渲染器的耐心（毫秒）。这一步只解包/建视图，不画正文，通常几十毫秒 */
 const OPEN_TIMEOUT = 15000;
 /**
@@ -194,6 +212,18 @@ export class EngineHost {
   /** 两指捏合起始距离与基准字号 */
   private pinchStart = 0;
   private pinchBase = 0;
+  /**
+   * 捏合时的字号节流（P2-19）。
+   *
+   * 以前 `touchmove` 里每次两指距离变化都回调 `onFontSize`，上层
+   * `applyPrefs` 会重新生成整份 CSS（`resolveTheme` + `accentColor` 各来一次
+   * `getComputedStyle(document.body)`）再 `setStyles` 进 iframe。捏一次缩放
+   * 就是几十次全量重算，手机上直接卡成幻灯片。
+   *
+   * 现在 80ms 合并一次，松手时再补最后一次。
+   */
+  private pinchPending: number | null = null;
+  private pinchTimer: number | null = null;
   /** 两指轻按的判定：按下时间 + 两指间距的最大变化 */
   private twoFingerAt = 0;
   private twoFingerMove = 0;
@@ -470,7 +500,16 @@ export class EngineHost {
       if (opened === 'timeout') throw new Error(`渲染首章 ${OPEN_TIMEOUT / 1000}s 无响应`);
       if (this.container !== container) throw new Error('开书已取消');
     } catch (err) {
+      /* 首章失败：把 foliate 视图和 book 一起拆掉（P3-21）。
+         只 remove() 视图的话，book 里那些已经解出来的章节/资源（blob URL）
+         会一直挂着——打开一本坏书就等于漏一次内存。 */
+      try {
+        view.close();
+      } catch {
+        /* 没 open 成功的视图再 close 会抛，忽略 */
+      }
       view.remove();
+      book?.destroy?.();
       this.view = null;
       this.book = null;
       this.phase = 'idle';
@@ -763,9 +802,11 @@ export class EngineHost {
         FONT_SIZE_RANGE.max,
         Math.max(FONT_SIZE_RANGE.min, Math.round(this.pinchBase * ratio)),
       );
-      if (next !== this.prefs.fontSize) this.opts.onFontSize?.(next);
+      this.queueFontSize(next);
     };
     const onTouchEnd = (ev: TouchEvent): void => {
+      /* 松手时把节流里最后那一档字号补上，否则停在中途的那一档就丢了 */
+      if (ev.touches.length < 2) this.flushFontSize();
       /* 两指轻按：时间短、两指间距几乎没变。捏合会改字号，这里不拦。 */
       if (ev.touches.length < 2 && this.twoFingerAt) {
         const startedAt = this.twoFingerAt;
@@ -823,6 +864,9 @@ export class EngineHost {
       // Shift + 方向键 / Ctrl+A 也算划词
       if (ev.shiftKey || ev.key === 'a' || ev.key === 'A') this.scheduleSelection(doc, 0);
     };
+    /* 正文 iframe 里的键盘不会冒泡到宿主 document：点过正文之后所有快捷键
+       全哑（P2-04）。这里转一份出去，由阅读视图按同一套规则处理。 */
+    const onKeyDown = (ev: KeyboardEvent): void => this.opts.onKeyDown?.(ev);
 
     doc.addEventListener('wheel', onWheel, { passive: false });
     doc.addEventListener('pointerdown', onPointerDown);
@@ -838,6 +882,7 @@ export class EngineHost {
     doc.addEventListener('touchcancel', onTouchEnd);
     doc.addEventListener('selectionchange', onSelectionChange);
     doc.addEventListener('keyup', onKeyUp);
+    doc.addEventListener('keydown', onKeyDown);
 
     this.docDetachers.push(() => {
       doc.removeEventListener('wheel', onWheel);
@@ -854,11 +899,32 @@ export class EngineHost {
       doc.removeEventListener('touchcancel', onTouchEnd);
       doc.removeEventListener('selectionchange', onSelectionChange);
       doc.removeEventListener('keyup', onKeyUp);
+      doc.removeEventListener('keydown', onKeyDown);
     });
   }
 
-  /** 选区检查（防抖）。同一段选区只上报一次，避免浮层被重复 show 打断输入 */
-  private scheduleSelection(doc: Document, delay: number): void {
+  /** 捏合字号：80ms 合并，只把最后一档交出去（P2-19） */
+  private queueFontSize(next: number): void {
+    this.pinchPending = next;
+    if (this.pinchTimer !== null) return;
+    this.pinchTimer = window.setTimeout(() => {
+      this.pinchTimer = null;
+      this.flushFontSize();
+    }, 80);
+  }
+
+  /** 立刻提交待发的字号（松手 / 销毁时调） */
+  private flushFontSize(): void {
+    if (this.pinchTimer !== null) {
+      window.clearTimeout(this.pinchTimer);
+      this.pinchTimer = null;
+    }
+    const next = this.pinchPending;
+    this.pinchPending = null;
+    if (next !== null && next !== this.prefs.fontSize) this.opts.onFontSize?.(next);
+  }
+
+  /** 选区检查（防抖）。同一段选区只上报一次，避免浮层被重复 show 打断输入 */  private scheduleSelection(doc: Document, delay: number): void {
     if (!this.opts.onSelect) return;
     if (this.selTimer !== null) window.clearTimeout(this.selTimer);
     this.selTimer = window.setTimeout(() => {
@@ -1092,11 +1158,15 @@ export class EngineHost {
   }
 
   /**
-   * 所有会动 iframe 的导航都排成一条队。
+   * 所有会动 iframe 的导航都排成一条队（P1-15）。
    *
    * 两次翻页并发时，后一次会在分页器 `#locked` 期间被吞掉，或者两次各跳一节、
    * 互相把 iframe 顶掉——表现就是「点一下前进、再点一下退回」。串行化之后
    * 每次点按都对应一次完整导航。同目录 weave 的 `enqueueNavigation` 同理。
+   *
+   * 2026-11-04 之前只有 next / prev 走这里，跳章、跳 CFI、拖进度条全部绕开：
+   * 「点完翻页立刻点目录」时两次导航同时改同一个渲染器，最后停在哪一章
+   * 取决于谁后完成，而且不报错。现在四处都进队。
    */
   private navChain: Promise<unknown> = Promise.resolve();
 
@@ -1190,7 +1260,7 @@ export class EngineHost {
 
   /** 跳到 TOC 项（href 由 foliate 解析成章节 + 锚点） */
   async goToHref(href: string): Promise<void> {
-    await this.navigate(() => this.view?.goTo(href), '跳到这一章');
+    await this.enqueue(() => this.navigate(() => this.view?.goTo(href), '跳到这一章'));
   }
 
   /**
@@ -1202,7 +1272,7 @@ export class EngineHost {
    */
   async goToCfi(cfi: string): Promise<boolean> {
     if (!cfi) return false;
-    return (await this.navigate(() => this.view?.goTo(cfi), '定位到这一页')) === 'ok';
+    return (await this.enqueue(() => this.navigate(() => this.view?.goTo(cfi), '定位到这一页'))) === 'ok';
   }
 
   /**
@@ -1308,8 +1378,15 @@ export class EngineHost {
    * 全书中找 fragment。
    *
    * 尾注页可能不在 spine 里（index = -1），或 href 路径与 section.id 对不上。
-   * 先扫「看着像注文页」的章节，再扫其余；封顶 120 章 / 4 秒，别为一条注释
-   * 把整本书解析一遍卡住界面。
+   * 先扫「看着像注文页」的章节，再扫其余。
+   *
+   * 上限从 120 章降到 8 章（P2-16）：有些书的注释锚点就是找不到（id 写错、
+   * 注文页不在 spine），这时每次点注释号都会在主线程连续解析上百个章节的
+   * XHTML——单章解析本身就可能几百毫秒，4 秒的 deadline 只在**两次解析之间**
+   * 检查，用户看到的是「点了没反应、界面卡住」，然后可能被甩到书末。
+   *
+   * 8 章足够覆盖「注文页排在正文后面几章」这个真实布局；真找不到就走
+   * 下面那句人话提示，而不是把手机卡死。
    */
   private async findFootnoteAcrossSections(
     fragment: string,
@@ -1328,7 +1405,7 @@ export class EngineHost {
     let failures = 0;
     let hit: { index: number; element: Element } | null = null;
     for (const i of order) {
-      if (tried >= 120 || Date.now() > deadline) break;
+      if (tried >= MAX_FOOTNOTE_SCAN || Date.now() > deadline) break;
       const section = sections[i];
       if (!section?.createDocument) continue;
       tried += 1;
@@ -1362,12 +1439,18 @@ export class EngineHost {
     return { text, href, chapterIndex: index };
   }
 
-  /** 整书百分比跳转（移动端进度滑杆松手时用） */
+  /**
+   * 整书百分比跳转（移动端进度滑杆松手时用）。
+   *
+   * 2026-11-04 两处改：
+   *   - 进导航队列（P1-15），不再和翻页/跳章并发改同一个 iframe；
+   *   - 去掉内层 `.catch(() => undefined)`（P2-21）。它让 navigate 只看到
+   *     「成功」，于是 `locateFromLink` 的「按百分比兜底」永远返回 true、
+   *     `start()` 恢复上次进度失败也静默回第一页。错误要能传上去。
+   */
   async goToPercent(fraction: number): Promise<void> {
-    const view = this.view;
-    if (!view) return;
     const f = Math.min(1, Math.max(0, fraction));
-    await this.navigate(() => view.goToFraction(f).catch(() => undefined), '跳到这个进度');
+    await this.enqueue(() => this.navigate(() => this.view?.goToFraction(f), '跳到这个进度'));
   }
 
   /**
@@ -1411,8 +1494,16 @@ export class EngineHost {
   async destroy(): Promise<void> {
     this.unbindDocGestures();
     for (const off of this.outerDetachers.splice(0)) off();
+    /* 等排队的导航收口再拆 iframe（P1-15）：不等的话，正在跑的 goTo 会在
+       view 已经置空之后继续操作一个被 remove 掉的容器。 */
+    await this.navChain.catch(() => undefined);
     this.wheelAcc = 0;
     this.pinchStart = 0;
+    if (this.pinchTimer !== null) {
+      window.clearTimeout(this.pinchTimer);
+      this.pinchTimer = null;
+    }
+    this.pinchPending = null;
     if (this.selTimer !== null) {
       window.clearTimeout(this.selTimer);
       this.selTimer = null;

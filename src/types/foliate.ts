@@ -76,9 +76,23 @@ export interface FoliateRenderer extends HTMLElement {
   destroy: () => void;
 }
 
+/**
+ * foliate 的搜索命中。
+ *
+ * `excerpt` **不是字符串**：foliate 给的是 `{ pre, match, post }` 三段，
+ * 拆开是为了让界面能只把匹配词加粗。以前这里声明成 `string`，运行时
+ * 拿到的是对象，`excerptText()` 只能靠 `typeof` 兜——类型对不上就没人
+ * 敢改它，也没人知道界面到底收到的是什么形状。
+ */
+export interface FoliateSearchExcerpt {
+  pre: string;
+  match: string;
+  post: string;
+}
+
 export interface FoliateSearchItem {
   cfi: string;
-  excerpt: string;
+  excerpt: FoliateSearchExcerpt | string;
 }
 
 /* ── 标注 ── */

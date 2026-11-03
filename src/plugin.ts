@@ -34,7 +34,7 @@ import { releaseCovers } from './data/cover';
 import { activateLicense as applyLicense, can, recordActivity, revalidateLicense, setEntBackend, setProBuild } from './data/entitlement';
 import { normalizePluginData, type PluginDataFile } from './data/plugin-data';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
-import { installBlobSrcdocPatches } from './engine/blob-srcdoc';
+import { installBlobSrcdocPatches, uninstallBlobSrcdocPatches } from './engine/blob-srcdoc';
 import { initDebugLog, shutdownDebugLog } from './core/debug-log';
 import { openStats } from './ui/stats-panel';
 import { openCrossSearch } from './ui/cross-search-panel';
@@ -258,6 +258,9 @@ export function createPlugin(cfg: PluginConfig) {
         leaf.detach();
       }
       releaseCovers(); // 封面 objectURL 不释放会一直占着内存里的整张图
+      /* 两个全局函数（createObjectURL / iframe.src）是我们改的，要还回去，
+         否则禁用插件后它们还在收别的插件造的 Blob（P2-13） */
+      uninstallBlobSrcdocPatches();
       /* 日志的 window 监听要摘、缓冲区要 flush：否则禁用→再启用叠一层监听 */
       shutdownDebugLog();
       /* 书架就是中心 tab 里的一个视图（VIEW_TYPE_STUDY），跟阅读视图一样是用户

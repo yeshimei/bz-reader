@@ -90,6 +90,14 @@ export function makeTxtBook(raw: string, meta: { title: string; author?: string 
   const sections: FoliateSection[] = chapters.map((c, i) => {
     const href = `${i}.xhtml`;
     const html = htmlDoc(c.title, `<h2>${escapeHtml(c.title)}</h2>${toParagraphs(c.text)}`);
+    /**
+     * 这个 section 最近一次造出来的 blob URL。
+     *
+     * 以前 `unload` 是空实现、`urls` 只增不减：来回翻几百章之后，整本书
+     * 每一章的 HTML Blob 都还活着，手机上内存一路涨（还会被 blob-srcdoc
+     * 的全局表钉住）。现在 foliate 卸章时就把这一章那份还回去（P2-20）。
+     */
+    let current: string | null = null;
     return {
       id: `txt-${i}`,
       href,
@@ -98,10 +106,23 @@ export function makeTxtBook(raw: string, meta: { title: string; author?: string 
       load: async () => {
         const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
         urls.push(url);
+        current = url;
         return url;
       },
       createDocument: async () => new DOMParser().parseFromString(html, 'text/html'),
-      unload: () => undefined,
+      unload: () => {
+        const url = current;
+        current = null;
+        if (!url) return;
+        // 从 destroy 的清单里摘掉，免得收尾时重复 revoke
+        const at = urls.indexOf(url);
+        if (at >= 0) urls.splice(at, 1);
+        try {
+          URL.revokeObjectURL(url);
+        } catch {
+          /* 已经回收过就算了 */
+        }
+      },
       resolveHref: () => href,
     };
   });
@@ -130,7 +151,13 @@ export function makeTxtBook(raw: string, meta: { title: string; author?: string 
     },
     isExternal: (href: string) => /^https?:/i.test(href),
     destroy: () => {
-      for (const url of urls.splice(0)) URL.revokeObjectURL(url);
+      for (const url of urls.splice(0)) {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {
+          /* 单条回收失败不该拦住整本收尾 */
+        }
+      }
     },
   };
 
