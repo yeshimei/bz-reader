@@ -16,8 +16,10 @@ export interface TocSnapshot {
   bookId: string;
   bookTitle: string;
   items: FoliateTOCItem[];
-  /** 当前章节标题（与 items[].label 同源，靠它比对高亮） */
+  /** 当前章节标题（显示用；高亮别只靠它，同名章节会一起亮） */
   activeLabel: string;
+  /** 当前章节 href：目录里 label 会重复，高亮以它为准 */
+  activeHref: string;
   /** 点章节时怎么跳——由阅读视图注入，目录视图不需要认识引擎 */
   jump: (href: string) => void;
 }

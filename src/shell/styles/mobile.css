@@ -706,6 +706,10 @@
     font-size: 12px;
   }
 
+  .bzs-pickdir {
+    font-size: 13px;
+  }
+
   .bzs-sect-h {
     font-size: 12px;
   }
@@ -895,10 +899,6 @@
   }
 
   .bzs-keys kbd {
-    font-size: 12px;
-  }
-
-  .bzs-srcnote {
     font-size: 12px;
   }
 

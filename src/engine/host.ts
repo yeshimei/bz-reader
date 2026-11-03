@@ -58,6 +58,11 @@ export interface RelocateInfo {
   cfi: string;
   chapterIndex: number;
   chapterTitle: string;
+  /**
+   * 当前章节的目录 href。目录里 label 会重复（每个部分下都有「-1-」），
+   * 只有 href 能唯一确定是哪一行——目录高亮靠它，别拿 title 比。
+   */
+  chapterHref: string;
   sectionCurrent: number;
   sectionTotal: number;
   /** 剩余阅读时间（秒，foliate 按 1500 字节/秒 估） */
@@ -186,6 +191,7 @@ export class EngineHost {
   private opts: MountOptions = { prefs: DEFAULT_PREFS };
   private chapterIndex = 0;
   private chapterTitle = '';
+  private chapterHref = '';
   /** 文档级监听（每换一章重建）与容器级监听（整本书只建一次）分开存，
    *  否则换章时顺手把容器滚轮也解掉了 */
   private docDetachers: Array<() => void> = [];
@@ -274,6 +280,11 @@ export class EngineHost {
     return this.book?.toc ?? [];
   }
 
+  /** 当前章节的目录 href；还没 relocate 过就是空串（目录高亮用它定位唯一一行） */
+  currentChapterHref(): string {
+    return this.chapterHref;
+  }
+
   /** 读 vault 文件 → File。必须整份读进内存：foliate 的 zip loader 需要 seek。 */
   private async readAsFile(vaultPath: string): Promise<File> {
     const buf = await this.app.vault.adapter.readBinary(vaultPath);
@@ -339,6 +350,7 @@ export class EngineHost {
       if (this.phase !== 'ready') this.phase = 'ready';
       this.chapterIndex = d.section?.current ?? this.chapterIndex;
       this.chapterTitle = d.tocItem?.label ?? this.chapterTitle;
+      this.chapterHref = d.tocItem?.href ?? this.chapterHref;
       this.relocateSeq += 1;
       this.lastRelocateCfi = d.cfi ?? this.lastRelocateCfi;
       const waiters = this.relocateWaiters;
@@ -349,6 +361,7 @@ export class EngineHost {
         cfi: d.cfi ?? '',
         chapterIndex: this.chapterIndex,
         chapterTitle: this.chapterTitle,
+        chapterHref: this.chapterHref,
         sectionCurrent: d.section?.current ?? 0,
         sectionTotal: d.section?.total ?? 0,
         remainingSeconds: Math.round(d.time?.total ?? 0),

@@ -30,7 +30,9 @@ import { hydrateCovers } from './covers';
 import { CAP_LABEL, GROUP_URL, PLAN_TABLE, PURCHASE_URL, can, entitlement, tierText, type Cap, type PlanCell } from '../data/entitlement';
 import { protocolUrl } from '../data/deeplink';
 import { dataDirOf, normalizeDataDir } from '../core/plugin-path';
+import { bindMaskDismiss } from '../core/mask-dismiss';
 import { RT, pushAi } from './runtime';
+import { rangeFill } from './range-fill';
 import { dispatchInput } from './actions';
 
 /* ─────────── 小工具 ─────────── */
@@ -132,7 +134,7 @@ export function typographyFormHtml(): string {
 
   const rng = (k: string, label: string, val: number, min: number, max: number, step: number, unit: string): string => {
     return `<div class="bzs-setrow"><label>${label}</label>
-      <input type="range" data-role="pref" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${val}">
+      <input type="range" data-role="pref" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${val}" style="--fill:${rangeFill(min, max, val)}">
       <span class="val">${k === 'lineHeight' ? val.toFixed(1) : val + unit}</span></div>`;
   };
 
@@ -543,7 +545,7 @@ function overlayGoal(): string {
   const done = liveBooks().filter((b) => b.reading.stats.completedTime || b.reading.position.percent >= 0.99).length;
   const body = `<div class="bzs-setgrp flat">
       <div class="bzs-setrow"><label>今年读</label>
-        <input type="range" data-role="goal" min="5" max="100" step="1" value="${st.goal}">
+        <input type="range" data-role="goal" min="5" max="100" step="1" value="${st.goal}" style="--fill:${rangeFill(5, 100, st.goal)}">
         <span class="val" id="bzs-goalval">${st.goal} 本</span></div>
       <div class="bzs-mini" style="margin-top:12px;line-height:1.9">已完成 ${done} 本。目标只影响仪表盘上的那圈铜线。</div>
     </div>`;
@@ -910,11 +912,9 @@ export class OverlayLayer {
 
     this.root.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
-      // 点遮罩空白处关闭；点弹窗内部不关
-      if (target.dataset.role === 'scrim') {
-        closeOverlay();
-        return;
-      }
+      /* 遮罩关闭交给 bindMaskDismiss（挂在 paint 里那层 scrim 上）：
+         以前这里判 `target.dataset.role === 'scrim'`，在弹窗里选字、鼠标滑到
+         遮罩上松手时 click 的 target 就是遮罩，面板被误关。 */
       const hit = target.closest<HTMLElement>('[data-act]');
       if (!hit) return;
       e.preventDefault();
@@ -1004,6 +1004,10 @@ export class OverlayLayer {
     this.setAccent(shellPrefs().accent);
     this.root.innerHTML = overlayHtml();
     if (!this.root.innerHTML) this.lastKind = '';
+    /* 点遮罩空白关闭：判据交给 bindMaskDismiss（起点在遮罩 + 位移不超容差），
+       在弹窗里选字拖到遮罩上松手不会再误关。每次重画都是新的遮罩元素。 */
+    const scrim = this.root.querySelector<HTMLElement>('[data-role="scrim"]');
+    if (scrim) bindMaskDismiss(scrim, () => closeOverlay());
     const o = getState().overlay;
     /* 先摆位再聚焦：聚焦可能让键盘立刻弹起，位置要在那之前是对的 */
     this.placeAnchored();

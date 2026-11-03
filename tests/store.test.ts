@@ -161,4 +161,52 @@ describe('落盘', () => {
     await store.flush(true);
     expect(adapter.files.get(FILE)).toContain('auto');
   });
+
+  it('rename 不覆盖目标、旧 .bak 还在：第三次落盘仍然成功', async () => {
+    /* 移动端真机上的事故：第一次失败留下 .bak，之后 rename(正本 → .bak)
+       因为目标已存在而失败，退路从此走不通——每翻一页弹一次「保存失败」。
+       这里模拟 SAF 的 rename 语义，连写三次。 */
+    const adapter = new FakeAdapter({ renameNoOverwrite: true });
+    const store = makeStore(adapter);
+    await store.load();
+
+    for (const title of ['第一版', '第二版', '第三版']) {
+      store.get().books = [
+        {
+          id: 'b1',
+          meta: { title },
+          fileRef: { vaultPath: '书/a.epub', format: 'epub', size: 1 },
+          reading: { position: { percent: 0 }, stats: { totalReadTime: 0, lastReadTime: 0 }, sessions: [] },
+          notes: { highlights: [], excerpts: [], bookmarks: [] },
+          addedAt: 1,
+          updatedAt: 1,
+        },
+      ];
+      await store.flush(true);
+    }
+
+    expect(adapter.files.get(FILE)).toContain('第三版');
+    expect(adapter.files.has(TMP)).toBe(false);
+  });
+
+  it('平台完全不支持 rename：退回就地覆盖正本，数据仍然保存', async () => {
+    const adapter = new FakeAdapter({ renameAlwaysFails: true });
+    const store = makeStore(adapter);
+    await store.load();
+    store.get().books = [
+      {
+        id: 'b1',
+        meta: { title: '就地写' },
+        fileRef: { vaultPath: '书/a.epub', format: 'epub', size: 1 },
+        reading: { position: { percent: 0 }, stats: { totalReadTime: 0, lastReadTime: 0 }, sessions: [] },
+        notes: { highlights: [], excerpts: [], bookmarks: [] },
+        addedAt: 1,
+        updatedAt: 1,
+      },
+    ];
+    await store.flush(true);
+
+    expect(adapter.files.get(FILE)).toContain('就地写');
+    expect(adapter.files.has(TMP)).toBe(false);
+  });
 });

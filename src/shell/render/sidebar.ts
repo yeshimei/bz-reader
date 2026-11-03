@@ -13,6 +13,7 @@ import type { FoliateTOCItem } from '../../types/foliate';
 import type { BmkRow, MarkRow } from '../domain';
 import { bmksOf, groupByChapter, marksOf } from '../domain';
 import type { SideTab } from '../state';
+import { isTocItemActive, type TocActiveRef } from '../toc-active';
 import { esc, ico } from './html';
 
 export interface AiLogItem {
@@ -26,6 +27,8 @@ export interface SidebarView {
   tab: SideTab;
   toc: FoliateTOCItem[] | null;
   activeLabel: string;
+  /** 当前章节的 href：目录里 label 会重复，只有它能把高亮落到唯一一行 */
+  activeHref: string;
   /** 未开书时各页签统一空态 */
   aiLog: AiLogItem[];
   aiReady: boolean;
@@ -67,7 +70,7 @@ export function stripTocLabel(label: string): string {
 }
 
 /** 目录：目录项没有百分比，用「第几项 / 共几项」估一个位置，够用且不撒谎 */
-function tocBody(toc: FoliateTOCItem[], activeLabel: string): string {
+function tocBody(toc: FoliateTOCItem[], active: TocActiveRef): string {
   const flat: Array<{ item: FoliateTOCItem; depth: number }> = [];
   const walk = (items: FoliateTOCItem[], depth: number): void => {
     for (const it of items) {
@@ -79,7 +82,7 @@ function tocBody(toc: FoliateTOCItem[], activeLabel: string): string {
 
   return `<div class="bzs-sbsec">共 ${flat.length} 节</div>${flat
     .map(({ item, depth }, i) => {
-      const on = item.label === activeLabel;
+      const on = isTocItemActive(item, active);
       const pct = Math.round((i / Math.max(1, flat.length)) * 100);
       /* 序号列（原 .no）去掉了：侧栏只有 300px，那一列吃掉 24px + 10px 间距，
          长章节名被截在最难认的位置。层级靠缩进（.d1）表达就够了。
@@ -178,7 +181,9 @@ export function viewSidebar(v: SidebarView): string {
   if (!book) {
     body = `<div class="bzs-empty">左侧栏跟着阅读走。<br>在书架点开一本书，目录、书签与划线就会出现在这里。</div>`;
   } else if (v.tab === 'toc') {
-    body = v.toc?.length ? tocBody(v.toc, v.activeLabel) : `<div class="bzs-empty">这本书还没有解析出目录。<br>翻一页之后会重新试一次。</div>`;
+    body = v.toc?.length
+      ? tocBody(v.toc, { label: v.activeLabel, href: v.activeHref })
+      : `<div class="bzs-empty">这本书还没有解析出目录。<br>翻一页之后会重新试一次。</div>`;
   } else if (v.tab === 'bookmarks') {
     body = bookmarksBody(bmksOf(book));
   } else if (v.tab === 'highlights') {

@@ -121,26 +121,31 @@
   --bzr-ratio-16-9: 16 / 9;
 }
 
-/* ── 暗色（默认）── */
+/* ── 暗色（默认）──
+ * 表面 / 文字 / 边框一律读宿主变量：导入、统计、跨书搜索这些旧面板
+ * 以前自持一套偏蓝的深色，贴在 Obsidian 里像另一个软件（真机反馈第 3 条）。
+ * 品牌色与语义色仍自持（它们本来就不该被主题改掉）。
+ * 括号里是兜底值，宿主变量缺失时退回原来的色。
+ */
 .theme-dark {
   color-scheme: dark;
 
-  /* 表面：以近黑为底、逐层抬升 */
-  --bzr-surface-0: #101014;
-  --bzr-surface-1: #16161c;
-  --bzr-surface-2: #1e1e26;
-  --bzr-surface-3: #26262f;
-  --bzr-surface-4: #2d2d37;   /* 浮层：菜单/dropdown/popover */
-  --bzr-surface-sunken: #0d0d12; /* 下沉：输入框/滑轨槽 */
-  --bzr-surface-hover: #2c2c36;
-  --bzr-surface-active: #33333e;
-  --bzr-overlay: rgba(0, 0, 0, 0.6);
+  /* 表面：与宿主同一个底，靠边框分层 */
+  --bzr-surface-0: var(--background-primary, #101014);
+  --bzr-surface-1: var(--background-primary, #16161c);
+  --bzr-surface-2: var(--background-primary, #1e1e26);
+  --bzr-surface-3: var(--background-primary-alt, #26262f);
+  --bzr-surface-4: var(--background-primary, #2d2d37);   /* 浮层：菜单/dropdown/popover */
+  --bzr-surface-sunken: var(--background-primary-alt, #0d0d12); /* 下沉：输入框/滑轨槽 */
+  --bzr-surface-hover: var(--background-modifier-hover, #2c2c36);
+  --bzr-surface-active: var(--background-modifier-active-hover, #33333e);
+  --bzr-overlay: var(--background-modifier-cover, rgba(0, 0, 0, 0.6));
 
   /* 文字 */
-  --bzr-text-1: #e8e8ec;
-  --bzr-text-2: #9a9aa5;
-  --bzr-text-3: #5f5f6b;
-  --bzr-text-invert: #141418;
+  --bzr-text-1: var(--text-normal, #e8e8ec);
+  --bzr-text-2: var(--text-muted, #9a9aa5);
+  --bzr-text-3: var(--text-faint, #5f5f6b);
+  --bzr-text-invert: var(--text-on-accent, #141418);
 
   /* 品牌（默认中性暖橙） */
   --bzr-brand: #e67341;
@@ -156,9 +161,9 @@
   --bzr-info: #58a6ff;
 
   /* 边框 */
-  --bzr-border: rgba(255, 255, 255, 0.09);
-  --bzr-border-strong: rgba(255, 255, 255, 0.18);
-  --bzr-border-hover: rgba(255, 255, 255, 0.28);
+  --bzr-border: var(--background-modifier-border, rgba(255, 255, 255, 0.09));
+  --bzr-border-strong: var(--background-modifier-border-hover, rgba(255, 255, 255, 0.18));
+  --bzr-border-hover: var(--background-modifier-border-focus, rgba(255, 255, 255, 0.28));
 
   /* 控件底（toggle 轨道等） */
   --bzr-track: rgba(255, 255, 255, 0.14);
@@ -172,20 +177,20 @@
 .theme-light {
   color-scheme: light;
 
-  --bzr-surface-0: #f2f2f4;
-  --bzr-surface-1: #fafafa;
-  --bzr-surface-2: #ffffff;
-  --bzr-surface-3: #ffffff;
-  --bzr-surface-4: #ffffff;
-  --bzr-surface-sunken: #f4f4f6;
-  --bzr-surface-hover: #ececf0;
-  --bzr-surface-active: #e0e0e6;
-  --bzr-overlay: rgba(0, 0, 0, 0.35);
+  --bzr-surface-0: var(--background-primary, #f2f2f4);
+  --bzr-surface-1: var(--background-primary, #fafafa);
+  --bzr-surface-2: var(--background-primary, #ffffff);
+  --bzr-surface-3: var(--background-primary-alt, #ffffff);
+  --bzr-surface-4: var(--background-primary, #ffffff);
+  --bzr-surface-sunken: var(--background-primary-alt, #f4f4f6);
+  --bzr-surface-hover: var(--background-modifier-hover, #ececf0);
+  --bzr-surface-active: var(--background-modifier-active-hover, #e0e0e6);
+  --bzr-overlay: var(--background-modifier-cover, rgba(0, 0, 0, 0.35));
 
-  --bzr-text-1: #1c1c21;
-  --bzr-text-2: #5c5c66;
-  --bzr-text-3: #9a9aa5;
-  --bzr-text-invert: #ffffff;
+  --bzr-text-1: var(--text-normal, #1c1c21);
+  --bzr-text-2: var(--text-muted, #5c5c66);
+  --bzr-text-3: var(--text-faint, #9a9aa5);
+  --bzr-text-invert: var(--text-on-accent, #ffffff);
 
   --bzr-brand: #e2571c;
   --bzr-brand-hover: #cc4a12;
@@ -198,9 +203,9 @@
   --bzr-on-danger: #ffffff;
   --bzr-info: #0f6fdc;
 
-  --bzr-border: rgba(20, 20, 24, 0.1);
-  --bzr-border-strong: rgba(20, 20, 24, 0.2);
-  --bzr-border-hover: rgba(20, 20, 24, 0.35);
+  --bzr-border: var(--background-modifier-border, rgba(20, 20, 24, 0.1));
+  --bzr-border-strong: var(--background-modifier-border-hover, rgba(20, 20, 24, 0.2));
+  --bzr-border-hover: var(--background-modifier-border-focus, rgba(20, 20, 24, 0.35));
 
   --bzr-track: rgba(20, 20, 24, 0.16);
   --bzr-thumb: #ffffff;

@@ -77,14 +77,19 @@
   --z-toast: 1000;
 }
 
-/* ── 颜色：一律读宿主 ── */
+/* ── 颜色：一律读宿主 ──
+   背景只有**一种**：宿主的 --background-primary。书架页、侧栏、弹层、
+   卡片全部同色，靠 1px 边框分层——这是 Obsidian 自己的做法（设置页、
+   文件列表都是平的）。以前页面用 --background-secondary、卡片再用一档，
+   在深色主题里像「应用里套了另一块深色面板」，怎么调都不像同一个软件
+   （真机反馈第 3 条）。--sunken 只留给输入框与滑轨底槽，那才是真该下沉的。 */
 .bzs-shell {
   --bg: var(--background-primary, #ffffff);
-  --bg-2: var(--background-secondary, #f6f6f7);
-  --bg-3: var(--background-primary-alt, #fafafa);
-  --glass: var(--background-secondary, rgba(250, 250, 250, .9));
+  --bg-2: var(--background-primary, #ffffff);
+  --bg-3: var(--background-primary, #ffffff);
+  --glass: var(--background-primary, #ffffff);
   --glass-line: var(--background-modifier-border, rgba(0, 0, 0, .1));
-  --surface: var(--background-secondary, #f6f6f7);
+  --surface: var(--background-primary, #ffffff);
   --surface-2: var(--background-modifier-hover, rgba(0, 0, 0, .04));
   --sunken: var(--background-primary-alt, #f2f2f4);
   --line: var(--background-modifier-border, rgba(0, 0, 0, .1));
@@ -253,7 +258,8 @@ body.theme-dark .bzs-shell[data-bzaccent="moss"] { --copper: #93b79a; }
 }
 
 /* 滑轨：占满框高，线本身用背景画在正中——左侧铜金走到当前值，右侧留在发丝线色。
-   --fill 由 dispatchInput 就地写（纯 CSS 画不出「填充到当前值」）。
+   --fill 在渲染时就写进 style（shell/range-fill.ts），拖动时由 dispatchInput 更新
+   （纯 CSS 画不出「填充到当前值」；只在拖动时写，首次渲染会停在缺省的 50%）。
    排版浮层与设置页走同一份，粗细永远一致。 */
 .bzs-shell input[type="range"]::-webkit-slider-runnable-track {
   height: 16px !important;
@@ -272,6 +278,11 @@ body.theme-dark .bzs-shell[data-bzaccent="moss"] { --copper: #93b79a; }
   border-radius: 50%;
   background: var(--copper) !important;
   margin-top: 2px !important; /* (16-12)/2，与线正中重合 */
+  /* 宿主默认给 thumb 挂了 `position: relative; top: var(--slider-thumb-y)`
+     （深色默认 -6px、移动端 -9px），是按它自己 3px 细轨算的。我们的轨是 16px，
+     不把 top 归零，圆点就会整体浮在线上方——真机反馈第 6 条。 */
+  position: static !important;
+  top: 0 !important;
   border: 0;
   box-shadow: 0 0 0 3px var(--copper-soft);
 }

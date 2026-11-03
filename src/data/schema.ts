@@ -24,6 +24,12 @@ export type BookFormat = 'epub' | 'txt' | 'mobi' | 'azw3' | 'fb2' | 'cbz';
 
 export interface BookMeta {
   title: string;
+  /**
+   * 用户在书架上改过名。改过之后打开书时不再用文件里的书名回填，
+   * 否则「改名 → 重开 → 变回旧名」（真机反馈第 4 条）。
+   * bz 侧读到不认识的键会忽略，不影响数据同构。
+   */
+  titleEdited?: boolean;
   author?: string;
   publisher?: string;
   language?: string;

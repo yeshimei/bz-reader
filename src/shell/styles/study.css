@@ -963,6 +963,12 @@
   font-size: 12px;
 }
 
+/* 设置行里的文本框要能被挤窄：input 默认 min-width:auto（约 170px），
+   「输入框 + 选择 + 迁移」三个并排时会顶出卡片右缘（真机反馈第 7 条）。 */
+.bzs-setrow input:not([type="range"]) {
+  min-width: 0;
+}
+
 .bzs-setrow label {
   color: var(--t2);
   min-width: 86px;
@@ -1109,19 +1115,5 @@
   padding: 2px 7px;
   background: var(--copper-soft);
   box-shadow: none;
-}
-
-.bzs-srcnote {
-  font-size: 11px;
-  color: var(--t3);
-  line-height: 1.9;
-  margin-top: 18px;
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
-}
-
-.bzs-srcnote b {
-  color: var(--copper);
-  font-weight: 500;
 }
 

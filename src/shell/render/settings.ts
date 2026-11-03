@@ -17,6 +17,7 @@ import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
 import { can, entitlement, tierText } from '../../data/entitlement';
 import { DEFAULT_DATA_DIR, dataDirOf } from '../../core/plugin-path';
 import type { HotkeyRow } from '../../core/hotkeys';
+import { rangeFill } from '../range-fill';
 import { RT } from '../runtime';
 import { esc, ico } from './html';
 
@@ -58,8 +59,9 @@ function seg(name: string, opts: Array<[string, string]>, cur: string, act = 'se
 }
 
 function range(k: string, label: string, val: number, min: number, max: number, step: number, fmt: (v: number) => string): string {
+  /* --fill 必须在渲染时就写：缺省 50% 会让「已填充」段和圆点对不上 */
   return `<div class="bzs-setrow"><label>${label}</label>
-    <input type="range" data-role="pref" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${val}">
+    <input type="range" data-role="pref" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${val}" style="--fill:${rangeFill(min, max, val)}">
     <span class="val">${fmt(val)}</span></div>`;
 }
 
@@ -111,7 +113,10 @@ export function viewSettings(v: SettingsView): string {
         (c) =>
           `<button class="${v.pen === c.value ? 'on' : ''}" data-act="setpen" data-v="${c.value}"><span class="dot" style="background:${c.css}"></span>${c.label}</button>`,
       ).join('')}</div></div>
-      <div class="bzs-setrow"><label>导出目录</label><input data-role="setting" data-k="exportDir" value="${esc(s.exportDir)}" style="flex:1"></div>
+      <div class="bzs-setrow"><label>导出目录</label>
+        <button class="bzs-pickdir" data-act="pickexportdir" title="从文件夹清单里选">
+          <span>${esc(s.exportDir)}/</span>${ico('folder') || ''}<i>选择…</i>
+        </button></div>
       ${toggle('exportComments', s.exportComments, '导出时带上想法')}
       <div class="bzs-setrow"><label>摘录链接</label><span class="bzs-mini" style="flex:1">复制为 obsidian:// 链接，粘进笔记点一下跳回原句</span></div>
     </div>`;
@@ -155,7 +160,7 @@ export function viewSettings(v: SettingsView): string {
     </div>`;
 
   const dir = dataDirOf();
-  /* 导入位置只给选择器，不给输入框：vault 路径有口径（分隔符、首尾斜杠、
+  /* 目录一律只给选择器，不给输入框：vault 路径有口径（分隔符、首尾斜杠、
      大小写），手打死角很多，错了还不报错——文件会写进别处。 */
   const importDir = s.importDir || 'Books';
   const data = `<div class="bzs-setgrp">
@@ -165,7 +170,9 @@ export function viewSettings(v: SettingsView): string {
           <span>${esc(importDir)}/</span>${ico('folder') || ''}<i>选择…</i>
         </button></div>
       <div class="bzs-setrow"><label>数据目录</label>
-        <input data-role="datadir" value="${esc(RT.dataDirDraft || dir)}" placeholder="${esc(DEFAULT_DATA_DIR)}" spellcheck="false" style="flex:1">
+        <button class="bzs-pickdir" data-act="pickdatadir" title="从文件夹清单里选">
+          <span>${esc(RT.dataDirDraft || dir)}/</span>${ico('folder') || ''}<i>选择…</i>
+        </button>
         <button class="bzs-btn sm" data-act="datadirmove">迁移</button></div>
       <div class="bzs-mini" style="margin-top:10px;line-height:1.9">
         导入的书复制到「书籍导入位置」；数据默认放在库根目录的 <code>${esc(DEFAULT_DATA_DIR)}</code>。
@@ -187,10 +194,6 @@ export function viewSettings(v: SettingsView): string {
   const keys = `<div class="bzs-setgrp wide">
       <h3>快捷键</h3>
       <div class="bzs-keys">${keyRows}</div>
-      <div class="bzs-srcnote"><b>关于这一版</b><br>
-        书籍、进度、标注与设置都留在本地笔记库里（<code>${esc(dir)}/bz-reader.json</code>），不联网、不上传。
-        激活码离线校验，只认签名不认设备。
-      </div>
     </div>`;
 
   return `<div class="bzs-set-grid">${layout}${look}${marks}${data}${ai}${lic}${keys}</div>`;

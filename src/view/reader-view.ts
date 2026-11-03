@@ -28,6 +28,7 @@ import {
 } from '../data/notes';
 import { ActivityTracker } from '../engine/activity';
 import { can } from '../data/entitlement';
+import { applyEngineMeta } from '../data/book-meta';
 import { speak, type SpeakHandle } from '../core/speak';
 import { notify } from '../core/notice';
 import { isMobileShell } from '../core/mobile';
@@ -1050,6 +1051,9 @@ export class ReaderView extends ItemView {
       bookTitle: book.meta.title,
       items: this.host.toc(),
       activeLabel: book.reading.position.chapterTitle || '',
+      /* 切回阅读页时 publishToc 会重放一次：href 取引擎里的当前值，
+         不然这一瞬间目录会退回按 label 比对，同名章节又一起亮。 */
+      activeHref: this.host.currentChapterHref(),
       jump: (href) => {
         void this.host.goToHref(href);
         this.tracker.touch();
@@ -1144,9 +1148,8 @@ export class ReaderView extends ItemView {
            自己调 goTo，保证两种模式只有一处判断。 */
         onFootnote: (info) => this.handleFootnote(info),
         onReady: (_b, m) => {
-          if (m.title) book.meta.title = m.title;
-          if (m.author) book.meta.author = m.author;
-          if (m.wordCount) book.meta.wordCount = m.wordCount;
+          /* 用户改过名就不再拿文件里的书名覆盖（见 data/book-meta.ts） */
+          applyEngineMeta(book, m);
           this.mountHeader();
           this.publishToc();
           this.syncTabTitle();
@@ -1251,7 +1254,11 @@ export class ReaderView extends ItemView {
     }
     if (info.chapterTitle) dlog('relocate', { key: this.host.pageKey, pct: Math.round(info.percent * 100) });
     book.updatedAt = Date.now();
-    if (info.chapterTitle) patchToc({ activeLabel: info.chapterTitle });
+    /* href 是唯一能定位目录行的字段：label 会重复（每个部分下都有「-1-」），
+       只传 label 会让同名章节一起亮。 */
+    if (info.chapterTitle || info.chapterHref) {
+      patchToc({ activeLabel: info.chapterTitle, activeHref: info.chapterHref });
+    }
     this.lastPct = info.percent;
     this.renderProbe();
     this.tracker.touch(info.percent);

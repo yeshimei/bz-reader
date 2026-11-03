@@ -27,6 +27,7 @@ import {
 import { notify } from '../core/notice';
 import { confirmDelete } from './delete-guard';
 import { flipSetting, type ToggleState } from './settings-toggle';
+import { rangeFill } from './range-fill';
 import { openHotkeySettings } from '../core/hotkeys';
 import { folderLabel, pickFolder } from '../core/folder-pick';
 import { CAP_LABEL, GROUP_URL, PURCHASE_URL, can, type Cap } from '../data/entitlement';
@@ -323,6 +324,8 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
         break;
       }
       book.meta.title = next;
+      /* 打过这个标记，打开书时引擎不再用文件里的书名覆盖（data/book-meta.ts） */
+      book.meta.titleEdited = true;
       book.updatedAt = Date.now();
       getShellSource()?.store.touch();
       closeOverlay();
@@ -527,6 +530,39 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
         if (picked === null) return;
         src.setSettings({ importDir: picked });
         notify(`书籍导入位置：${folderLabel(picked)}`);
+        rerender();
+      });
+      break;
+    }
+    case 'pickexportdir': {
+      /* 导出目录也可以从文件夹清单里挑：手打路径错了不会报错，笔记会写进别处 */
+      const src = getShellSource();
+      if (!src) break;
+      const cur = shellSettings().exportDir || '书摘';
+      void pickFolder(src.app, cur).then((picked) => {
+        if (picked === null) return;
+        if (picked === '/') {
+          notify('导出目录不能是库根目录，请选一个文件夹', 'error');
+          return;
+        }
+        src.setSettings({ exportDir: picked });
+        notify(`导出目录：${folderLabel(picked)}`);
+        rerender();
+      });
+      break;
+    }
+    case 'pickdatadir': {
+      /* 只改草稿：真正搬家要点「迁移」并二次确认 */
+      const src = getShellSource();
+      if (!src) break;
+      const cur = RT.dataDirDraft || src.dataDir();
+      void pickFolder(src.app, cur).then((picked) => {
+        if (picked === null) return;
+        if (picked === '/') {
+          notify('数据目录不能是库根目录，请选一个文件夹', 'error');
+          return;
+        }
+        RT.dataDirDraft = picked;
         rerender();
       });
       break;
@@ -954,20 +990,15 @@ export function dispatchInput(target: HTMLInputElement | HTMLSelectElement | HTM
     const max = Number(target.getAttribute('max') ?? 100);
     const now = Number(value);
     if (Number.isFinite(min) && Number.isFinite(max) && max > min && Number.isFinite(now)) {
-      target.style.setProperty('--fill', `${(((now - min) / (max - min)) * 100).toFixed(1)}%`);
+      target.style.setProperty('--fill', rangeFill(min, max, now));
     }
-    return;
-  }
-  if (role === 'datadir') {
-    // 只记草稿：指针要等「迁移」确认后由插件层改写
-    RT.dataDirDraft = value;
     return;
   }
   if (role === 'setting' && k) {
     const src = getShellSource();
     if (!src) return;
-    if (k === 'exportDir') src.setSettings({ exportDir: value });
-    else if (k === 'ai.baseUrl' || k === 'ai.model' || k === 'ai.apiKey') {
+    /* 目录类设置已经没有输入框了（只走文件夹选择器），这里只剩 AI 三个字段 */
+    if (k === 'ai.baseUrl' || k === 'ai.model' || k === 'ai.apiKey') {
       src.setSettings({ ai: { ...shellSettings().ai, [k.slice(3)]: value } });
     }
     return;

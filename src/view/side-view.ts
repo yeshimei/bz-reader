@@ -24,6 +24,7 @@ import { liveBooks, shellPrefs, shellSettings } from '../shell/source';
 import { RT } from '../shell/runtime';
 import { viewSidebar } from '../shell/render/sidebar';
 import { focusSelector, type FocusMemo } from '../shell/focus-memo';
+import { isTocItemActive, type TocActiveRef } from '../shell/toc-active';
 import { getToc, subscribeToc } from './toc-state';
 
 /** 保留旧值：已保存的工作区布局按这个字符串恢复 leaf */
@@ -42,6 +43,7 @@ export class SideView extends ItemView {
   private paintedItems: FoliateTOCItem[] | null = null;
   private paintedBook = '';
   private paintedActive = '';
+  private paintedActiveHref = '';
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
@@ -155,21 +157,25 @@ export class SideView extends ItemView {
    */
   private onTocChange(): void {
     const snap = getToc();
-    const active = snap?.activeLabel ?? '';
+    const activeLabel = snap?.activeLabel ?? '';
+    const activeHref = snap?.activeHref ?? '';
     const sameTree =
       (snap?.items ?? null) === this.paintedItems && (snap?.bookId ?? '') === this.paintedBook;
-    if (sameTree && active !== this.paintedActive && getState().sideTab === 'toc' && this.root) {
-      this.paintedActive = active;
-      this.patchActiveRow(this.root, active);
+    const moved = activeLabel !== this.paintedActive || activeHref !== this.paintedActiveHref;
+    if (sameTree && moved && getState().sideTab === 'toc' && this.root) {
+      this.paintedActive = activeLabel;
+      this.paintedActiveHref = activeHref;
+      this.patchActiveRow(this.root, { label: activeLabel, href: activeHref });
       return;
     }
     this.render();
   }
 
-  /** 只切 `.on`：目录行的 data-label 是原始 label（显示的可能是剥过序号的） */
-  private patchActiveRow(root: HTMLElement, active: string): void {
+  /** 只切 `.on`：按 href 定位唯一一行；href 缺失才退回 data-label（老快照） */
+  private patchActiveRow(root: HTMLElement, active: TocActiveRef): void {
     for (const el of Array.from(root.querySelectorAll<HTMLElement>('.bzs-chaprow'))) {
-      el.classList.toggle('on', el.dataset.label === active);
+      const item = { label: el.dataset.label ?? '', href: el.dataset.href ?? '' };
+      el.classList.toggle('on', isTocItemActive(item, active));
     }
   }
 
@@ -191,6 +197,7 @@ export class SideView extends ItemView {
       tab: state.sideTab,
       toc: snap?.items ?? ([] as FoliateTOCItem[]),
       activeLabel: snap?.activeLabel ?? '',
+      activeHref: snap?.activeHref ?? '',
       aiLog: RT.aiLog,
       aiReady: !!settings.ai.baseUrl && !!settings.ai.apiKey && !!settings.ai.model,
       aiProvider: settings.ai.model || '未配置',
@@ -199,6 +206,7 @@ export class SideView extends ItemView {
     this.paintedItems = snap?.items ?? null;
     this.paintedBook = snap?.bookId ?? '';
     this.paintedActive = snap?.activeLabel ?? '';
+    this.paintedActiveHref = snap?.activeHref ?? '';
 
     const scroller = root.querySelector<HTMLElement>('.bzs-sbbody');
     if (scroller) scroller.scrollTop = this.scrollTops[state.sideTab] ?? 0;

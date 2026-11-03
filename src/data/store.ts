@@ -9,7 +9,8 @@
  *     「打开正本、截断、写入」，中间任何一拍出事（崩溃 / 盘满 / 杀软锁文件）
  *     磁盘上就留半截 JSON，下次启动整个书架读不出来。rename 要么旧要么新。
  *  2. **失败可恢复**：rename 不覆盖目标的平台（部分移动端）退回「正本 → .bak，
- *     再改名 tmp」。任何一步失败都还剩一份完整文件，绝不像以前那样先删正本。
+ *     再改名 tmp」；连 rename 都不支持时退回就地覆盖正本。任何一步失败都还剩
+ *     一份完整文件，绝不像以前那样先删正本。
  *  3. **写盘防抖**：翻页会改 percent，每页都落盘等于每翻一页一次 IO。
  *     500ms 合并，外加 unload / 关书时 `flush(true)` 强制写。
  * ============================================================ */
@@ -87,6 +88,8 @@ export class ReaderStore {
   private timer: number | null = null;
   private writing: Promise<void> = Promise.resolve();
   private dirty = false;
+  /** 写盘失败只报一次，避免翻页时每 500ms 弹一条 */
+  private saveWarned = false;
 
   constructor(private app: App) {}
 
@@ -251,20 +254,49 @@ export class ReaderStore {
       const text = JSON.stringify(this.data);
       await adapter.mkdir(storageDirOf(this.app)).catch(() => undefined);
       await adapter.write(tmp, text);
-      try {
-        await adapter.rename(tmp, target);
-      } catch {
-        /* 某些平台 rename 不覆盖目标。**先备份正本，不删**：
-           以前是 remove(target) 再改名，第二次失败就只剩 tmp；而 load()
-           不认 tmp，用户看到的就是空书架。 */
-        await adapter.rename(target, `${target}${BAK_SUFFIX}`).catch(() => undefined);
-        await adapter.rename(tmp, target);
-      }
+      await this.replaceTarget(tmp, target, text);
+      this.saveWarned = false;
     } catch (e) {
       this.dirty = true; // 没写成就别丢标记，下次还会试
-      notify('保存阅读数据失败，请检查磁盘空间', 'error');
+      /* 只报一次：翻页会一直 touch，写盘失败时每次都弹一条，界面就没法用了 */
+      if (!this.saveWarned) {
+        this.saveWarned = true;
+        notify('保存阅读数据失败，请检查磁盘空间', 'error');
+      }
       console.warn('[bz-reader] 写盘失败：', (e as Error)?.message || e);
     }
+  }
+
+  /**
+   * 用写好的 tmp 顶替正本，三层退路。
+   *
+   * 1) 直接 rename：桌面端（原子）。
+   * 2) 正本 → .bak，再改名 tmp：移动端 rename 不覆盖目标时走这条。
+   *    **必须先把旧 .bak 删掉**——这是移动端「翻页一直弹保存失败」的根因：
+   *    第一次失败留下 .bak，之后每次 `rename(target, .bak)` 都因为目标已存在
+   *    而失败，紧接着 `rename(tmp, target)` 也失败，退路从此永远走不通。
+   * 3) 就地写正本：连 rename 都不支持的平台。不原子，但比每次保存都失败好；
+   *    写成功后 tmp 是垃圾，顺手删掉。
+   */
+  private async replaceTarget(tmp: string, target: string, text: string): Promise<void> {
+    const adapter = this.app.vault.adapter;
+    try {
+      await adapter.rename(tmp, target);
+      return;
+    } catch {
+      /* 落到下一层 */
+    }
+    const bak = `${target}${BAK_SUFFIX}`;
+    try {
+      await adapter.remove(bak).catch(() => undefined);
+      await adapter.rename(target, bak);
+      await adapter.rename(tmp, target);
+      return;
+    } catch {
+      /* 落到下一层 */
+    }
+    await adapter.write(target, text);
+    await adapter.remove(tmp).catch(() => undefined);
   }
 
   /** 卸载收口：清定时器 + 强制写 */

@@ -11,7 +11,16 @@ export class FakeAdapter {
   writes: string[] = [];
   renames: Array<[string, string]> = [];
 
-  constructor(private opts: { renameFails?: number } = {}) {}
+  constructor(
+    private opts: {
+      /** 前 N 次 rename 抛错（模拟「rename 不覆盖目标」） */
+      renameFails?: number;
+      /** rename 不覆盖已存在的目标（移动端 SAF 的真实行为） */
+      renameNoOverwrite?: boolean;
+      /** rename 一律失败（模拟完全不支持 rename 的平台） */
+      renameAlwaysFails?: boolean;
+    } = {},
+  ) {}
 
   async exists(path: string): Promise<boolean> {
     return this.files.has(path) || this.dirs.has(path);
@@ -47,9 +56,14 @@ export class FakeAdapter {
   }
 
   async rename(from: string, to: string): Promise<void> {
+    if (this.opts.renameAlwaysFails) throw new Error('EPERM: rename not supported');
     if (this.opts.renameFails && this.opts.renameFails > 0) {
       this.opts.renameFails -= 1;
       throw new Error('EPERM: rename not supported');
+    }
+    /* 移动端（Capacitor / SAF）的 rename 不覆盖已存在的目标 */
+    if (this.opts.renameNoOverwrite && this.files.has(to)) {
+      throw new Error(`EEXIST: file already exists, ${to}`);
     }
     const v = this.files.get(from);
     if (v === undefined) throw new Error(`ENOENT: no such file or directory, ${from}`);
