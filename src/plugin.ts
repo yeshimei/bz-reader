@@ -44,7 +44,7 @@ import { openCrossSearch } from './ui/cross-search-panel';
 import { StudyView, VIEW_TYPE_STUDY } from './shell/study-view';
 import { OverlayLayer } from './shell/overlay';
 import { dispatchAction } from './shell/actions';
-import { loadShellState, notify as notifyShell, setState, getState, subscribe, type StudyPage } from './shell/state';
+import { loadShellState, notify as notifyShell, overlayKey, setState, getState, subscribe, type StudyPage } from './shell/state';
 import { setShellSource, shellPrefs } from './shell/source';
 
 export interface PluginConfig {
@@ -324,7 +324,8 @@ export function createPlugin(cfg: PluginConfig) {
       let last = '';
       const sync = (): void => {
         const s = getState();
-        const key = `${s.overlay?.kind ?? ''}|${s.overlay?.markId ?? ''}|${s.overlay?.mode ?? ''}`;
+        // 内容键含 text/href/anchor：同 kind 换一条内容（第二次点脚注）也要重画
+        const key = overlayKey(s.overlay);
         // 强调色不进 key：改档只换 CSS 变量，不需要重画弹层内容
         this.overlay?.setAccent(shellPrefs().accent);
         if (key !== last) {

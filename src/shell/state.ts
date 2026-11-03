@@ -60,6 +60,28 @@ export interface OverlayState {
   href?: string;
 }
 
+/**
+ * 弹层内容键。
+ *
+ * 只比 `kind` 是不够的：脚注浮窗换一条（text/href 变了）、划线卡换一条
+ * （markId 变了）、排版面板换了书，都是同 kind 不同内容。调用方靠这个键
+ * 判断「要不要重画」，否则第二次点开还是上一条的内容。
+ */
+export function overlayKey(o?: OverlayState | null): string {
+  if (!o) return '';
+  return [
+    o.kind,
+    o.bookId ?? '',
+    o.markId ?? '',
+    o.mode ?? '',
+    o.text ?? '',
+    o.href ?? '',
+    o.word ?? '',
+    o.chapterTitle ?? '',
+    o.anchor ? `${o.anchor.left},${o.anchor.top}` : '',
+  ].join('|');
+}
+
 export interface ShellState {
   /* 承载 */
   studyPage: StudyPage;

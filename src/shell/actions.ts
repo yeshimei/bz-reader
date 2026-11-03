@@ -25,6 +25,7 @@ import {
   toggleBookmark,
 } from '../data/notes';
 import { notify } from '../core/notice';
+import { confirmDelete } from './delete-guard';
 import { flipSetting, type ToggleState } from './settings-toggle';
 import { openHotkeySettings } from '../core/hotkeys';
 import { folderLabel, pickFolder } from '../core/folder-pick';
@@ -605,6 +606,12 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
     case 'delbmk': {
       const book = currentBook();
       if (book && d.id) {
+        const gate = confirmDelete(RT.deleteArm, d.id, Date.now());
+        RT.deleteArm = gate.next;
+        if (!gate.remove) {
+          notify('再点一次删除这枚书签', 'info');
+          break;
+        }
         removeBookmark(book, d.id);
         getShellSource()?.store.touch();
         repaint();
@@ -619,9 +626,18 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       if (!d.id) break;
       overlay('hlcard', { markId: d.id, bookId: d.book || getState().bookId || '' });
       break;
-    case 'delmark':
+    case 'delmark': {
+      if (!d.id) break;
+      /* 删除不可撤销，触摸屏上又容易误触：先上膛，同一条再点一次才删。 */
+      const gate = confirmDelete(RT.deleteArm, d.id, Date.now());
+      RT.deleteArm = gate.next;
+      if (!gate.remove) {
+        notify('再点一次删除这条划线', 'info');
+        break;
+      }
       deleteMark(d.id, d.book);
       break;
+    }
 
     /* ── 标注弹层内的动作 ── */
     case 'hlcolor':
@@ -866,7 +882,7 @@ function quoteFromMark(markId?: string, bookId?: string): void {
   const book = findBookOfMark(markId, bookId);
   const h = book?.notes?.highlights.find((x) => x.id === markId);
   if (!book || !h) return;
-  overlay('quote', { text: h.text, bookId: book.id, chapter: h.chapterTitle, markId: h.id });
+  overlay('quote', { text: h.text, bookId: book.id, chapterTitle: h.chapterTitle, markId: h.id });
 }
 
 function saveIdea(markId?: string, bookId?: string): void {

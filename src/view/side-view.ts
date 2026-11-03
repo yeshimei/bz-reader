@@ -23,18 +23,13 @@ import { getState, setState, subscribe, type SideTab } from '../shell/state';
 import { liveBooks, shellPrefs, shellSettings } from '../shell/source';
 import { RT } from '../shell/runtime';
 import { viewSidebar } from '../shell/render/sidebar';
+import { focusSelector, type FocusMemo } from '../shell/focus-memo';
 import { getToc, subscribeToc } from './toc-state';
 
 /** 保留旧值：已保存的工作区布局按这个字符串恢复 leaf */
 export const VIEW_TYPE_TOC = 'bz-reader-toc';
 
 export type { SideTab };
-
-interface FocusMemo {
-  role: string;
-  start: number;
-  end: number;
-}
 
 export class SideView extends ItemView {
   private root: HTMLElement | null = null;
@@ -127,6 +122,7 @@ export class SideView extends ItemView {
     const input = el as HTMLInputElement;
     this.focusMemo = {
       role,
+      k: el.dataset.k,
       start: input.selectionStart ?? input.value.length,
       end: input.selectionEnd ?? input.value.length,
     };
@@ -136,7 +132,7 @@ export class SideView extends ItemView {
     const memo = this.focusMemo;
     this.focusMemo = null;
     if (!memo) return;
-    const el = this.root?.querySelector<HTMLInputElement>(`[data-role="${memo.role}"]`);
+    const el = this.root?.querySelector<HTMLInputElement>(focusSelector(memo.role, memo.k));
     if (!el) return;
     el.focus();
     try {

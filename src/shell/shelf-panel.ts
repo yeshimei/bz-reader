@@ -16,12 +16,7 @@ import { getShellSource, liveBooks, shellPrefs, subscribeShellSource } from './s
 import { studyShell } from './render/study';
 import { buildShelfPage } from './shelf-page';
 import { hydrateCovers } from './covers';
-
-interface FocusMemo {
-  role: string;
-  start: number;
-  end: number;
-}
+import { focusSelector, type FocusMemo } from './focus-memo';
 
 export class ShelfPanel {
   private root: HTMLElement | null = null;
@@ -70,6 +65,9 @@ export class ShelfPanel {
     const input = el as HTMLInputElement;
     this.focusMemo = {
       role,
+      /* 设置页有四个 data-role="setting"，必须带上 data-k 才能找回同一个框；
+         只按 role 会命中导出目录，AI 输入框就打不进第二个字。 */
+      k: el.dataset.k,
       start: input.selectionStart ?? input.value.length,
       end: input.selectionEnd ?? input.value.length,
     };
@@ -79,7 +77,7 @@ export class ShelfPanel {
     const memo = this.focusMemo;
     this.focusMemo = null;
     if (!memo) return;
-    const el = this.root?.querySelector<HTMLInputElement>(`[data-role="${memo.role}"]`);
+    const el = this.root?.querySelector<HTMLInputElement>(focusSelector(memo.role, memo.k));
     if (!el) return;
     el.focus();
     try {

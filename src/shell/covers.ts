@@ -12,6 +12,7 @@
 import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
 import { coverUrl } from '../data/cover';
+import { esc } from './render/html';
 
 /**
  * 把 root 里所有带 data-cid 的封面占位换成真封面。
@@ -36,7 +37,10 @@ export function hydrateCovers(app: App | null | undefined, books: ReaderBook[], 
       // 拿不到封面就留着色块——色块比一张破图体面
       if (!url || !node.isConnected) return;
       node.dataset.cover = '1';
-      node.innerHTML = `<img class="bzs-covimg" src="${url}" alt="${node.dataset.title ?? ''}" loading="lazy">`;
+      /* dataset.title 是浏览器**解码后**的原始书名（写入时虽然 esc 过，读回来
+         已经还原），这里重拼 innerHTML 必须再转义一次：书名里一个引号就能
+         闭合属性，书名来自导入的 EPUB，属不可信输入。 */
+      node.innerHTML = `<img class="bzs-covimg" src="${esc(url)}" alt="${esc(node.dataset.title ?? '')}" loading="lazy">`;
     });
   }
 }

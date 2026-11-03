@@ -249,6 +249,10 @@ export class ReaderView extends ItemView {
     this.teardown = () => undefined;
     this.offShell?.();
     this.offShell = null;
+    /* 标注变更订阅也要解：以前只解了 offShell，每开一本书就多一个永不释放的
+       监听，关书后 emitNotesChanged 还会打到已经 destroy 的 host 上。 */
+    this.offNotes?.();
+    this.offNotes = null;
     this.stopTts();
     await this.closeParallel();
     await this.settle();
@@ -317,6 +321,13 @@ export class ReaderView extends ItemView {
       /* 连点就连续翻：去重已经在引擎侧按手势做过，这里不再压时间窗 */
       this.lastTurnAt = now;
       if (!isMobileShell()) {
+        this.renderProbe();
+        return;
+      }
+      /* 浮层开着时点正文 = 关掉浮层，不翻页。浮层在宿主层、正文在 iframe 里，
+         document 级 pointerdown 收不到 iframe 内的事件，只能在这里兜住。 */
+      if (isFloatOverlay(getShellState().overlay?.kind)) {
+        closeOverlay();
         this.renderProbe();
         return;
       }
@@ -516,9 +527,10 @@ export class ReaderView extends ItemView {
       this.headerEls.set(item.id, btn);
       fresh.push(btn);
     }
-    /* 三个整体插到最前面：视觉顺序 = 我们的三个，然后宿主的 ⋮ */
+    /* 全部动作插到最前面：视觉顺序 = 我们的动作，然后宿主的 ⋮。
+       手机上放 3 个（横向像素最贵），桌面 5 个（排版 / 并排对照也要可见）。 */
     if (fresh.length) box.prepend(...fresh);
-    this.trimHeaderActions(box, 3);
+    this.trimHeaderActions(box, isMobileShell() ? 3 : 5);
   }
 
   /**
@@ -672,7 +684,7 @@ export class ReaderView extends ItemView {
       i
         .setTitle(`对照书籍：${other?.meta.title ?? '未选'}`)
         .setIcon('book')
-        .onClick(() => this.openParallelPicker()),
+        .onClick((evt) => this.openParallelPicker(evt instanceof MouseEvent ? evt : undefined)),
     );
     menu.addItem((i) =>
       i
@@ -722,7 +734,13 @@ export class ReaderView extends ItemView {
           })
       );
     }
-    menu.showAtPosition(ev ? { x: ev.clientX, y: ev.clientY } : { x: 0, y: 0 });
+    /* 没有坐标时不能落在 (0,0)：手机上会被状态栏/刘海裁掉一半，
+       看起来像「点了没反应」。退回阅读区右上方。 */
+    const fallback = (): { x: number; y: number } => {
+      const r = this.rootEl?.getBoundingClientRect();
+      return { x: (r?.left ?? 0) + (r?.width ?? 320) - 24, y: (r?.top ?? 0) + 72 };
+    };
+    menu.showAtPosition(ev ? { x: ev.clientX, y: ev.clientY } : fallback());
   }
 
   /* ─────────────────── 并排对照 ─────────────────── */

@@ -50,6 +50,11 @@ export const RT = {
    * 边打字边改指针会让人输到一半就发现书库空了。
    */
   dataDirDraft: '',
+  /**
+   * 删除的「上膛」状态：侧栏的删除按钮在触摸屏上容易误触，
+   * 同一个 id 在 4 秒内再点一次才真删（见 shell/delete-guard.ts）。
+   */
+  deleteArm: null as { id: string; at: number } | null,
 };
 
 export function pushAi(me: boolean, tag: string, text: string): void {

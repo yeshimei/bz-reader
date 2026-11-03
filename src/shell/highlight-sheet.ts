@@ -39,6 +39,7 @@ export function highlightSheetActsHtml(input: HighlightSheetInput): string {
     .join('');
   return `<div class="bzs-sheet-foot"><div class="bzs-sheet-dots">${dots}</div>
     <span class="sp"></span>
+    <button class="bzs-btn pri" data-act="ideasave" data-id="${esc(input.markId)}" data-book="${esc(input.bookId)}">保存</button>
     <button class="bzs-btn" data-act="hlquote" data-id="${esc(input.markId)}" data-book="${esc(input.bookId)}">复制</button>
     <button class="bzs-btn" data-act="hldel" data-id="${esc(input.markId)}" data-book="${esc(input.bookId)}">删除</button></div>`;
 }

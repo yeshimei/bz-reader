@@ -44,4 +44,11 @@ describe('划线详情卡 · 动作行', () => {
     expect(html).toContain('data-act="hlquote"');
     expect(html).toContain('data-act="hldel"');
   });
+
+  it('想法输入框有保存出口（否则移动端写的想法必丢）', () => {
+    const html = highlightSheetActsHtml(base);
+    expect(html).toContain('data-act="ideasave"');
+    expect(html).toContain('data-id="m1"');
+    expect(highlightSheetBodyHtml(base)).toContain('data-role="idea"');
+  });
 });

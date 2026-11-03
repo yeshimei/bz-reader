@@ -22,6 +22,7 @@ import { collectStats } from '../data/stats';
 import { cn, esc, coverHtml, ico, MAG } from './render/html';
 import { bmksOf, fmtMinutes, fmtWhen, marksOf } from './domain';
 import { noteCardHtml } from './render/notes';
+import { searchHits } from './search-hits';
 import { closeOverlay, getState, isFloatOverlay } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { glyphOf } from './adapt';
@@ -64,33 +65,44 @@ function markById(id?: string | null, bookId?: string | null) {
 
 /* ─────────── 各弹层 ─────────── */
 
-function overlaySearch(): string {
-  const kw = RT.searchKw.trim();
-  const scope = RT.searchScope;
-  const books = scope === 'book' ? liveBooks().filter((b) => b.id === getState().bookId) : liveBooks();
-  const lower = kw.toLowerCase();
+/**
+ * 搜索命中列表（只这一段随输入替换）。
+ *
+ * 以前 input 里只写 RT.searchKw 就 return，而 `[data-role="hitlist"]` 从没被
+ * 渲染过——用户打字时屏幕毫无变化，必须再点一下「本书 / 全库」才出结果。
+ * 这里把「命中计算」交给纯函数 search-hits，顺便避免整块重绘打断中文输入法。
+ */
+function searchResultsHtml(kw: string, scope: 'book' | 'all'): string {
+  if (!kw.trim()) return `<div class="bzs-empty">输入关键词。想搜正文全文，用 Obsidian 自带的全文搜索更快。</div>`;
+  const books = (scope === 'book' ? liveBooks().filter((b) => b.id === getState().bookId) : liveBooks()).map((b) => ({
+    id: b.id,
+    title: b.meta.title,
+    author: b.meta.author,
+    marks: marksOf(b).map((m) => ({
+      id: m.id,
+      text: m.text,
+      comment: m.comment,
+      chapterTitle: m.chapterTitle,
+    })),
+  }));
+  const { groups, total } = searchHits(books, kw);
+  if (!total) return `<div class="bzs-empty">没有找到「${esc(kw)}」</div>`;
+  return groups
+    .map(
+      (g) =>
+        `<div class="bzs-hitgroup">${esc(g.title)} · ${g.total} 处</div>${g.rows
+          .map((r) =>
+            r.kind === 'book'
+              ? `<button class="bzs-hit" data-act="openbook" data-id="${esc(r.bookId)}"><span class="loc">书籍</span>${esc(r.text)}</button>`
+              : `<button class="bzs-hit" data-act="jumpmark" data-id="${esc(r.id)}" data-book="${esc(r.bookId)}"><span class="loc">${esc(r.label)}</span>${esc(r.text)}</button>`,
+          )
+          .join('')}`,
+    )
+    .join('');
+}
 
-  const hits: string[] = [];
-  let total = 0;
-  for (const b of books) {
-    if (!kw) break;
-    const rows: string[] = [];
-    // 书名 / 作者
-    if ((b.meta.title + (b.meta.author ?? '')).toLowerCase().includes(lower)) {
-      rows.push(`<button class="bzs-hit" data-act="openbook" data-id="${b.id}">
-        <span class="loc">书籍</span>${esc(b.meta.title)} · ${esc(b.meta.author ?? '佚名')}</button>`);
-    }
-    // 标注
-    for (const m of marksOf(b)) {
-      if (!(m.text + m.comment).toLowerCase().includes(lower)) continue;
-      rows.push(`<button class="bzs-hit" data-act="jumpmark" data-id="${m.id}" data-book="${b.id}">
-        <span class="loc">${esc(m.chapterTitle)}</span>${esc(m.text.slice(0, 80))}</button>`);
-    }
-    if (rows.length) {
-      total += rows.length;
-      hits.push(`<div class="bzs-hitgroup">${esc(b.meta.title)} · ${rows.length} 处</div>${rows.slice(0, 10).join('')}`);
-    }
-  }
+function overlaySearch(): string {
+  const scope = RT.searchScope;
 
   const body = `<div class="bzs-search-in">${MAG}
       <input data-role="searchkw" placeholder="搜书名、作者、章节名或标注里的字…" value="${esc(RT.searchKw)}"></div>
@@ -99,13 +111,7 @@ function overlaySearch(): string {
       <button class="bzs-chip${scope === 'all' ? ' on' : ''}" data-act="searchscope" data-v="all">全库 · ${liveBooks().length} 本</button>
       <span class="bzs-mini" style="margin-left:auto">搜的是已建索引的内容：书名、作者、标注与想法</span>
     </div>
-    ${
-      !kw
-        ? `<div class="bzs-empty">输入关键词。想搜正文全文，用 Obsidian 自带的全文搜索更快。</div>`
-        : total
-          ? hits.join('')
-          : `<div class="bzs-empty">没有找到「${esc(kw)}」</div>`
-    }`;
+    <div data-role="hitlist">${searchResultsHtml(RT.searchKw, scope)}</div>`;
 
   return modal('搜索', '本书 / 全库', body, '', 'wide tall');
 }
@@ -205,7 +211,7 @@ function overlayExport(bookId?: string): string {
   const md = buildPreview(book);
   return modal(
     '导出摘录',
-    book ? book.meta.title : '全部书籍',
+    book ? esc(book.meta.title) : '全部书籍',
     `<div class="bzs-md">${esc(md)}</div>
      <div class="bzs-mini" style="margin-top:10px;line-height:1.9">每条引文都带章节与定位；导出到「${esc(
        shellSettings().exportDir,
@@ -872,7 +878,13 @@ export class OverlayLayer {
   };
 
   private onDocKey = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape' && isFloatOverlay(getState().overlay?.kind)) closeOverlay();
+    if (e.key !== 'Escape') return;
+    /* 以前只关 4 种浮层，搜索/导入/导出/解锁这些有遮罩的弹层按 Esc 毫无反应。
+       壳层弹层不是 Obsidian Modal，escManager 管不到这里。 */
+    if (!getState().overlay) return;
+    closeOverlay();
+    e.preventDefault();
+    e.stopImmediatePropagation();
   };
 
   constructor(private onAction: (act: string, el: HTMLElement) => void) {
@@ -907,8 +919,10 @@ export class OverlayLayer {
       if (!hit) return;
       e.preventDefault();
       this.onAction(hit.dataset.act || '', hit);
-      // 动作改完状态后重画一次（遮罩内没有视图订阅）
-      if (getState().overlay) this.paint();
+      /* 动作改完状态后重画一次（遮罩内没有视图订阅）。
+         rate 例外：它只改星星的 class，紧接着重画会按「还没保存的 rating」
+         重建 DOM，星星立刻熄灭、保存下来是 0 星。 */
+      if (getState().overlay && hit.dataset.act !== 'rate') this.paint();
     });
 
     this.root.addEventListener('input', (e) => {
@@ -919,7 +933,7 @@ export class OverlayLayer {
       if (role === 'searchkw') {
         RT.searchKw = t.value;
         const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
-        if (list) list.innerHTML = '';
+        if (list) list.innerHTML = searchResultsHtml(RT.searchKw, RT.searchScope);
         return;
       }
       // 排版滑块（pref）、年度目标（goal）、设置项（setting）走与书架同一条链路。

@@ -359,12 +359,12 @@
   }
 
   /* 功能对照表：表头与行都要能在窄屏显示，把「备注」列折到第二行 */
-  .bzs-planrows {
+  .bzs-plan-row {
     grid-template-columns: 1fr 54px 54px !important;
     row-gap: 0;
   }
 
-  .bzs-planrows .note {
+  .bzs-plan-row .note {
     grid-column: 1 / -1;
     padding-top: 0;
     padding-bottom: 8px;
@@ -524,6 +524,13 @@
 
   .bzs-chaprow:hover {
     background: none;
+  }
+
+  /* 侧栏的删除叉原本只在 hover 时出现（opacity:0）。触摸屏没有 hover，
+     按钮看不见却仍可点——误触即丢一条划线。触摸设备上常显。 */
+  .bzs-mkrow .x,
+  .bzs-hlit .x {
+    opacity: 1;
   }
 }
 
