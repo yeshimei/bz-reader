@@ -73,6 +73,15 @@ function scopeShellStyles(css) {
         // 尺度变量挂在 :root（有一批旧域样式的元素不在 .bzs-shell 里），
         // 加前缀就变成「.bzs-shell :root」，永远匹配不上
         if (s.startsWith(":root")) return raw;
+        /**
+         * `body.theme-dark …` / `body.theme-light …` 也不能加前缀。
+         *
+         * 它们本来就写成「body 上的主题类 + 后代」，加了前缀变成
+         * `.bzs-shell body.theme-dark …`——body 是 .bzs-shell 的祖先，
+         * 不是后代，这十来个深色规则因此**全部失效**：深色下强调色、
+         * 划词条、工具条还是浅色那份，浅色下胶囊又变成深色。
+         */
+        if (s.startsWith("body.")) return raw;
         if (/^(\d|from$|to$)/.test(s)) return raw;
         /**
          * `.bzs-` 开头的选择器已经是本插件专属命名空间，不再套 `.bzs-shell `。
