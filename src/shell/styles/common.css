@@ -42,7 +42,7 @@
   font-size: 13px;
   display: grid;
   place-items: center;
-  transition: .2s;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
   padding: 0;
   line-height: 1;
 }
@@ -114,7 +114,7 @@
   padding: 9px 16px;
   font-size: 12px;
   letter-spacing: .08em;
-  transition: .2s;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
   white-space: nowrap;
   /* 收藏按钮里带一枚星：svg 不吃字号，尺寸在这里给，基线靠 vertical-align 压下去 */
   display: inline-flex;
@@ -166,7 +166,7 @@
   padding: 6px 13px;
   font-size: 12px;
   letter-spacing: 0;
-  transition: .2s;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
   white-space: nowrap;
 }
 

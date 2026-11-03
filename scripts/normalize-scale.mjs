@@ -15,6 +15,9 @@
  *   3. 字距：≥ .1em 的装饰性字距归零（中文是方块字，拉开就是散的）。
  *   4. 衬线：UI 控件（徽记、按钮、表头、元信息）改用无衬线，
  *      书名 / 引文 / 正文保留衬线。
+ *   5. 过渡：裸写 `transition: .2s` 的是**全属性**过渡，hover 时边框、
+ *      阴影、位移一起动，就是果冻味。统一成逐属性 + 同一条 easing。
+ *   6. 层级：z-index 十档并到 10 / 100 / 1000 三档。
  *
  * **不动间距**：padding / gap / margin 一旦改错就是挤压和溢出，
  * 必须看着界面调，脚本不做这种 blind edit。
@@ -124,7 +127,31 @@ function isUiSelector(sel) {
   return UI_HINTS.some((h) => s.includes(h));
 }
 
-const stats = { fontSize: 0, radius: 0, tracking: 0, serif: 0, files: 0 };
+/* 全属性过渡 → 逐属性。列全了是为了不丢现有动效：
+   有的元素在过渡 transform（卡片抬升），有的在过渡 box-shadow / opacity，
+   只写三个颜色属性的话这些动效会直接消失（不是变慢，是不动）。 */
+const TRANSITION =
+  'transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);';
+
+const Z_MAP = {
+  '1': 'var(--z-sticky)',
+  '2': 'var(--z-sticky)',
+  '3': 'var(--z-sticky)',
+  '4': 'var(--z-sticky)',
+  '5': 'var(--z-sticky)',
+  '6': 'var(--z-sticky)',
+  '8': 'var(--z-sticky)',
+  '9': 'var(--z-sticky)',
+  '30': 'var(--z-float)',
+  '34': 'var(--z-float)',
+  '40': 'var(--z-float)',
+  '45': 'var(--z-float)',
+  '60': 'var(--z-float)',
+  '500': 'var(--z-modal)',
+  '9000': 'var(--z-toast)',
+};
+
+const stats = { fontSize: 0, radius: 0, tracking: 0, serif: 0, transition: 0, z: 0, files: 0 };
 
 for (const rel of FILES) {
   const file = path.join(ROOT, rel);
@@ -167,6 +194,18 @@ for (const rel of FILES) {
       return `letter-spacing: ${to};`;
     });
 
+    out = out.replace(/transition:\s*\.[0-9]+s\s*;/g, () => {
+      stats.transition++;
+      return TRANSITION;
+    });
+
+    out = out.replace(/z-index:\s*([0-9]+);/g, (m, v) => {
+      const to = Z_MAP[v];
+      if (!to) return m;
+      stats.z++;
+      return `z-index: ${to};`;
+    });
+
     if (sel && isUiSelector(sel)) {
       out = out.replace(/font-family:\s*var\(--serif\);/g, () => {
         stats.serif++;
@@ -202,6 +241,7 @@ if (fs.existsSync(heatFile)) {
 }
 
 console.log(
-  `\n字号 ${stats.fontSize} · 圆角 ${stats.radius} · 字距 ${stats.tracking} · 衬线 ${stats.serif} · 文件 ${stats.files}`,
+  `\n字号 ${stats.fontSize} · 圆角 ${stats.radius} · 字距 ${stats.tracking} · 衬线 ${stats.serif}` +
+    ` · 过渡 ${stats.transition} · 层级 ${stats.z} · 文件 ${stats.files}`,
 );
 if (DRY) console.log('（dry run，没有写盘）');

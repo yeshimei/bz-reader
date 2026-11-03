@@ -52,7 +52,7 @@
   font-size: 12px;
   letter-spacing: 0;
   padding: 9px 2px 13px;
-  transition: .15s;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
   /* 图标 + 文字一行：图标只是定位锚，不参与字距 */
   display: inline-flex;
   align-items: center;
@@ -257,14 +257,14 @@
   position: relative;
   display: block;
   width: 100%;
-  transition: .2s;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
 }
 
 .bzs-bkcard .bzs-cov {
   width: 100%;
   aspect-ratio: 2 / 3;
   box-shadow: var(--shadow);
-  transition: .2s;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
 }
 
 .bzs-bkcard:hover .bzs-cov {
@@ -354,7 +354,7 @@
   display: flex;
   gap: 5px;
   opacity: 0;
-  transition: .2s;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
   z-index: var(--z-sticky);
 }
 
@@ -395,7 +395,7 @@
   padding: 12px 6px;
   border-bottom: 1px solid var(--line);
   cursor: pointer;
-  transition: .15s;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
 }
 
 .bzs-bkrow2:hover {
@@ -1023,7 +1023,7 @@
   position: relative;
   flex-shrink: 0;
   appearance: none;
-  transition: .2s;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
 }
 
 .bzs-switch::after {
@@ -1035,7 +1035,7 @@
   height: 14px;
   border-radius: 50%;
   background: var(--t3);
-  transition: .2s;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
 }
 
 .bzs-switch.on {
@@ -1070,7 +1070,7 @@
   padding: 8px 2px;
   text-align: left;
   cursor: pointer;
-  transition: .15s;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
 }
 
 .bzs-keys .bzs-keyrow:hover {
