@@ -89,6 +89,8 @@ export function createPlugin(cfg: PluginConfig) {
      */
     private cfg: PluginDataFile = normalizePluginData(null);
     private cfgTimer: number | null = null;
+    /** 正在打开的书的 id：双击书卡 / 连点结果时防重复开（P1-14） */
+    private opening = new Set<string>();
     private overlay: OverlayLayer | null = null;
     private offShell: (() => void) | null = null;
 
@@ -615,31 +617,45 @@ export function createPlugin(cfg: PluginConfig) {
         setState({ overlay: { kind: 'unlock', mode: 'fullFormats', text: book.fileRef.format } });
         return;
       }
-      setState({ bookId: book.id });
-      const ws = this.app.workspace;
-      const all = ws.getLeavesOfType(VIEW_TYPE_READER);
-      const opened = all.find((l) => (l.view as ReaderView).currentBookId === book.id);
-      if (opened) {
-        if (cfi) void (opened.view as ReaderView).jumpTo(cfi);
-        await ws.revealLeaf(opened);
-        // 书已经有 tab 在：阅读视图不会重发 relocate，目录得手动切过来
-        (opened.view as ReaderView).activate();
-        return;
+      /* 双击书卡 / 连点搜索结果会开两次（P1-14）：EPUB 被解析两遍（手机上内存
+         直接翻倍），两个视图往同一份 book 对象写进度和 sessions——进度来回跳、
+         阅读时长重复计。按 bookId 去重，第二次直接忽略。 */
+      if (this.opening.has(book.id)) return;
+      this.opening.add(book.id);
+      try {
+        setState({ bookId: book.id });
+        const ws = this.app.workspace;
+        const all = ws.getLeavesOfType(VIEW_TYPE_READER);
+        const opened = all.find(
+          (l) => l.view instanceof ReaderView && l.view.currentBookId === book.id,
+        );
+        if (opened) {
+          if (cfi) void (opened.view as ReaderView).jumpTo(cfi);
+          await ws.revealLeaf(opened);
+          // 书已经有 tab 在：阅读视图不会重发 relocate，目录得手动切过来
+          (opened.view as ReaderView).activate();
+          return;
+        }
+        /* 工作区里可能留着一个还没绑定书目的阅读 leaf（上次会话 / 插件重载留下的空壳）。
+           这种空壳不能直接复用：对「同类型」的 leaf 再 setViewState，Obsidian 会
+           认为类型没变而不再把 state 交给视图，结果就是开着 tab 却什么也没挂上。
+           干脆把它收掉，下面开一个新的。
+           **必须判 instanceof**：以前用 `as ReaderView` 强转后直接读
+           `currentBookId`，后台延迟视图（DeferredView）根本没有这个字段，
+           falsy 就被 detach——用户上次会话恢复出来的阅读 tab 就这么静默关掉了。 */
+        for (const l of all) {
+          if (l.view instanceof ReaderView && !l.view.currentBookId) l.detach();
+        }
+        const leaf = ws.getLeaf('tab');
+        await leaf.setViewState({
+          type: VIEW_TYPE_READER,
+          active: true,
+          state: { bookId: book.id, ...(cfi ? { cfi } : {}) },
+        });
+        await ws.revealLeaf(leaf);
+      } finally {
+        this.opening.delete(book.id);
       }
-      /* 工作区里可能留着一个还没绑定书目的阅读 leaf（上次会话 / 插件重载留下的空壳）。
-         这种空壳不能直接复用：对「同类型」的 leaf 再 setViewState，Obsidian 会
-         认为类型没变而不再把 state 交给视图，结果就是开着 tab 却什么也没挂上。
-         干脆把它收掉，下面开一个新的。 */
-      for (const l of all) {
-        if (!(l.view as ReaderView).currentBookId) l.detach();
-      }
-      const leaf = ws.getLeaf('tab');
-      await leaf.setViewState({
-        type: VIEW_TYPE_READER,
-        active: true,
-        state: { bookId: book.id, ...(cfi ? { cfi } : {}) },
-      });
-      await ws.revealLeaf(leaf);
     }
 
     /**

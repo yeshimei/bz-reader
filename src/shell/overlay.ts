@@ -785,6 +785,16 @@ export function overlayHtml(): string {
   }
 }
 
+/**
+ * 上一次真正发出 AI 请求的键（`kind|task|text`）。
+ *
+ * 以前 `paint()` 里无条件调 `runAiForOverlay()`，而**点击弹层里任何按钮
+ * 都会 `paint()`**：想点「存为笔记」，正文立刻变回「正在请求…」，刚看到的
+ * 答案被抹掉并重新发一次（花的是用户的钱）；点一次模式切换会在同一 tick
+ * 发两条，一条写进已经被替换掉的旧节点，纯浪费（P1-08）。
+ */
+let aiRequestedFor = '';
+
 /** AI 请求：弹层打开后自己发一次，结果回填到 [data-role="aibody"] */
 export async function runAiForOverlay(): Promise<void> {
   const o = getState().overlay;
@@ -793,6 +803,9 @@ export async function runAiForOverlay(): Promise<void> {
   if (!s.ai.baseUrl || !s.ai.apiKey || !s.ai.model) return;
   const text = o.text || RT.sel?.text || '';
   const task: AiTask = o.kind === 'translate' ? 'translate' : ((o.mode as AiTask) || 'explain');
+  const key = `${o.kind}|${task}|${text}`;
+  if (key === aiRequestedFor) return;
+  aiRequestedFor = key;
   const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
   try {
     const res = await aiAsk(s, task, text);
@@ -814,7 +827,6 @@ export class OverlayLayer {
   /** 卸载时要撤掉的监听（键盘补偿等） */
   private disposers: Array<() => void> = [];
   private accent = '';
-  private lastKind = '';
 
   /**
    * 浮层（排版 / 工具条 / 脚注）没有遮罩，所以「点空白处关闭」得自己在
@@ -887,8 +899,16 @@ export class OverlayLayer {
       }
       // 排版滑块（pref）、年度目标（goal）、设置项（setting）走与书架同一条链路。
       // 之前这里只认 searchkw，三个排版滑块拖了没有任何反应。
-      dispatchInput(t);
+      dispatchInput(t, e);
     });
+    /* 松手 / 输入法上屏之后收口一次：input 期间走的是静默写入，不重绘（P1-09）。
+       以前只有 input 一个监听，重绘就发生在拖动途中。 */
+    const settle = (e: Event): void => {
+      const t = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+      if (t?.dataset?.role) dispatchInput(t, e);
+    };
+    this.root.addEventListener('change', settle);
+    this.root.addEventListener('compositionend', settle);
   }
 
   /** 强调色换档：弹层拿的是同一套令牌，改档不必重画内容 */
@@ -898,15 +918,15 @@ export class OverlayLayer {
     this.root.dataset.bzaccent = accent;
   }
 
+  /**
+   * 跟着壳层状态重画。
+   *
+   * 调用方（`plugin.registerShellSync`）已经按 `overlayKey` 判过「内容变了」，
+   * 这里直接画就行（P3-02）。以前这里还维护一个 `lastKind`，两个分支都
+   * `paint()`——注释里「同一种弹层只重画一次」根本不成立，等于每次 sync
+   * 都全量重建一次弹层 DOM。
+   */
   sync(): void {
-    const o = getState().overlay;
-    const kind = o?.kind ?? '';
-    // 同一种弹层只重画一次；关闭时清空
-    if (kind === this.lastKind && kind !== '') {
-      this.paint();
-      return;
-    }
-    this.lastKind = kind;
     this.paint();
   }
 
@@ -952,9 +972,16 @@ export class OverlayLayer {
   }
 
   private paint(): void {
+    /* 重画前把激活码输入框的现值记下来（P2-08）：粘贴一枚长码 → 点「激活」→
+       同步 paint() 按旧 entitlement 重建 DOM，输入框回到空——再点一次「激活」
+       发出去的是空码。 */
+    const keepLicense = this.root.querySelector<HTMLInputElement>('[data-role="license"]')?.value ?? '';
     this.setAccent(shellPrefs().accent);
     this.root.innerHTML = overlayHtml();
-    if (!this.root.innerHTML) this.lastKind = '';
+    if (keepLicense) {
+      const box = this.root.querySelector<HTMLInputElement>('[data-role="license"]');
+      if (box && !box.value) box.value = keepLicense;
+    }
     /* 点遮罩空白关闭：判据交给 bindMaskDismiss（起点在遮罩 + 位移不超容差），
        在弹窗里选字拖到遮罩上松手不会再误关。每次重画都是新的遮罩元素。 */
     const scrim = this.root.querySelector<HTMLElement>('[data-role="scrim"]');
@@ -968,7 +995,12 @@ export class OverlayLayer {
       const len = input?.value.length ?? 0;
       input?.setSelectionRange(len, len);
     }
-    if (o?.kind === 'ai' || o?.kind === 'translate') void runAiForOverlay();
+    if (o?.kind === 'ai' || o?.kind === 'translate') {
+      void runAiForOverlay();
+    } else {
+      // 离开 AI 弹层就清掉「已请求过」的记号，下次打开同一段还要再问一次
+      aiRequestedFor = '';
+    }
     // 想法浮窗：打开就把光标放进输入框，少一次点击
     if (o?.kind === 'idea') this.root.querySelector<HTMLTextAreaElement>('[data-role="idea"]')?.focus();
     if (o?.kind === 'rename') {

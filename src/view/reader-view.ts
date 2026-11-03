@@ -95,6 +95,8 @@ export class ReaderView extends ItemView {
   private book: ReaderBook | null = null;
   private mounted = false;
   private mounting = false;
+  /** resize 监听只挂一次（重试时不重复挂，P3-18） */
+  private resizeBound = false;
   private closed = false;
   private teardown = (): void => undefined;
 
@@ -202,7 +204,11 @@ export class ReaderView extends ItemView {
 
   jumpTo(cfi: string): void {
     if (!cfi) return;
-    if (this.bookId && this.book) {
+    /* 判 `mounted` 而不是 `book`（P1-13）：`book` 在 `await host.mount()` **之前**
+       就被赋值了，那几秒里引擎的 `view` 还是 null，`goToCfi` 对 undefined
+       也返回 'ok'——于是「点了书签什么都没发生，还当成功返回」。
+       没挂好就把 CFI 记下来，mount 完由 start() 用 pendingCfi 定位。 */
+    if (this.mounted) {
       void this.host.goToCfi(cfi);
       this.tracker.touch();
       return;
@@ -221,7 +227,10 @@ export class ReaderView extends ItemView {
    * 全失败才返回 false，由调用方给一句「已停在上次的位置」。
    */
   async locateFromLink(t: LinkTarget): Promise<boolean> {
-    if (!this.book) return false;
+    /* 书还在解包时不要直接判 false（P1-13）：那会让深链跳转误报
+       「没找到原句」，其实只是还没挂好。等一次 mount 再说。 */
+    if (!this.mounted) await this.maybeMount();
+    if (!this.mounted) return false;
 
     if (t.cfi) {
       /* goToCfi 现在会返回「是否真的完成」：以前它永不抛，这里的 catch 是死代码，
@@ -1052,13 +1061,22 @@ export class ReaderView extends ItemView {
 
   /* ─────────────────── 装载书 ─────────────────── */
 
+  /**
+   * 这个视图现在该不该响应键盘（P1-12）。
+   *
+   * 以前只要活动 leaf 是目录侧栏，**每一个** ReaderView 都返回 true：A、B
+   * 两个阅读 tab 都开着时，焦点在目录里按一次 → 两本书同时翻页，两边的进度
+   * 和阅读时长一起被写脏；按 f 沉浸被切两次（等于没反应）。
+   *
+   * 现在目录侧栏归「最近激活的那一本」（`activeReaderId`），别的视图不接。
+   */
   private ownsKeyboard(): boolean {
     const ws = this.api.app.workspace;
     const active = ws.activeLeaf as unknown as { view?: { getViewType?: () => string } } | null;
     if (!active) return false;
     if (active === (this.leaf as unknown as typeof active)) return true;
-    // 目录侧栏是阅读页的延伸：焦点在那儿时快捷键同样归这本书
-    return active.view?.getViewType?.() === VIEW_TYPE_TOC;
+    if (active.view?.getViewType?.() !== VIEW_TYPE_TOC) return false;
+    return getShellState().activeReaderId === this.bookId;
   }
 
   private syncTabTitle(): void {
@@ -1096,7 +1114,11 @@ export class ReaderView extends ItemView {
   activate(): void {
     const book = this.book;
     if (!book) return;
-    if (getShellState().bookId !== book.id) setShellState({ bookId: book.id });
+    /* activeReaderId 决定「焦点在目录侧栏时键盘归谁」（P1-12）。
+       没有它，两本书会一起翻页。 */
+    if (getShellState().bookId !== book.id || getShellState().activeReaderId !== book.id) {
+      setShellState({ bookId: book.id, activeReaderId: book.id });
+    }
     this.publishToc(false);
   }
 
@@ -1189,12 +1211,17 @@ export class ReaderView extends ItemView {
         (this.stage as HTMLElement).clientWidth,
         (this.stage as HTMLElement).getBoundingClientRect().left,
       );
-      this.registerEvent(
-        this.api.app.workspace.on('resize', () => {
-          const box = this.stage;
-          if (box) this.host.setViewportWidth(box.clientWidth, box.getBoundingClientRect().left);
-        }),
-      );
+      /* 重试一次就多挂一条 resize 监听（P3-18）：`registerEvent` 只在 onClose
+         时统一摘，重试期间旧监听还在，于是每重试一次就多一次重复回调。 */
+      if (!this.resizeBound) {
+        this.resizeBound = true;
+        this.registerEvent(
+          this.api.app.workspace.on('resize', () => {
+            const box = this.stage;
+            if (box) this.host.setViewportWidth(box.clientWidth, box.getBoundingClientRect().left);
+          }),
+        );
+      }
       await this.host.start(
         this.pendingCfi || book.reading.position.cfi,
         this.pendingCfi ? 0 : book.reading.position.percent || 0,
@@ -1207,6 +1234,9 @@ export class ReaderView extends ItemView {
       this.mounted = true;
     } catch (e) {
       this.mounting = false;
+      /* 关掉 tab 时才失败（大书解包要几秒）是正常操作，不该弹一条 6 秒红色
+         「开书已取消」让人以为出故障（P2-14）。 */
+      if (this.closed) return;
       const why = (e as Error)?.message || '格式不受支持';
       this.renderFault('这本书打不开', why);
       notify(why, 'error');

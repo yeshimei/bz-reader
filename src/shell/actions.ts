@@ -200,12 +200,20 @@ export interface ActionEnv {
   repaint?: () => void;
 }
 
-export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}): void {
+export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {}): void {
   const d = el.dataset;
-  const rerender = (): void => {
-    repaint();
-    env.repaint?.();
-  };
+  /**
+   * 重绘出口（P2-07）。
+   *
+   * 所有视图（书架、侧栏、弹层）都订阅了壳层状态，`repaint()` 一次广播就够了。
+   * 以前这里还叠一个 `env.repaint?.()`：点一次卡片，`repaint()` 广播一次、
+   * `env.repaint()` 又直接 `render()` 一次——同一帧里整页 `innerHTML` 重建
+   * 两遍（还带 `toRows + allMarks + 封面回填`）。
+   *
+   * `env.repaint` 参数保留在类型里，只给「不订阅广播的局部重画」用；
+   * 目前没有这种调用方。
+   */
+  const rerender = (): void => repaint();
 
   switch (act) {
     /* ── 承载 ── */
@@ -542,7 +550,12 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
           return;
         }
         notify(res.message);
-        rerender();
+        /* 激活成功后强制重画一次弹层（P2-08）：`kind` / `mode` 都没变，
+           `overlayKey` 不变，弹层本来完全不动——用户只看到一条 toast，
+           界面上还是「未激活」。rev +1 让 key 变化，触发 sync()。 */
+        const o = getState().overlay;
+        if (o) setState({ overlay: { ...o, rev: (o.rev ?? 0) + 1 } });
+        else rerender();
       })();
       break;
     }
@@ -618,7 +631,6 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
         if (res.ok) {
           RT.dataDirDraft = to;
           closeOverlay();
-          env.repaint?.();
         }
       })();
       break;
@@ -801,7 +813,7 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       if (d.v === 'all' && !requireCap('crossSearch')) break;
       if (d.v === 'book' || d.v === 'all') {
         RT.searchScope = d.v;
-        env.repaint?.();
+        repaint();
       }
       break;
 
@@ -883,7 +895,15 @@ function toggleDone(id?: string): void {
   repaint();
 }
 
-function setPref(k: string | undefined, v: string | undefined): void {
+/**
+ * 改排版偏好。
+ *
+ * `silent`（P1-09）：滑块拖动途中只写值、不重绘。以前 `input` 事件里直接
+ * 调这个函数，结尾的 `repaint()` 会把整页 `<input type=range>` 重建掉——
+ * 拖到一半手指还按着，拖动会话就断了，只能一格一格点。`change` / 松手时
+ * 才补一次重绘。
+ */
+function setPref(k: string | undefined, v: string | undefined, opts: { silent?: boolean } = {}): void {
   const src = getShellSource();
   if (!src || !k || v === undefined) return;
   const p = shellPrefs();
@@ -922,7 +942,7 @@ function setPref(k: string | undefined, v: string | undefined): void {
     default:
       break;
   }
-  repaint();
+  if (!opts.silent) repaint();
 }
 
 function findBookOfMark(markId?: string, bookId?: string): ReaderBook | undefined {
@@ -1010,10 +1030,24 @@ async function askAi(el: HTMLElement): Promise<void> {
 
 /* ─────────── 输入与快捷键 ─────────── */
 
-export function dispatchInput(target: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): void {
+export function dispatchInput(
+  target: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+  ev?: Event,
+): void {
+  /* 中文输入法：拼音还没上屏就把 DOM 重建掉，候选框消失、刚打的字丢了（P1-10）。
+     `core/ui/modal.ts` 早就判了 isComposing，壳层这一层一直没判。
+     `compositionend` 之后浏览器会再补一次 input，那条会正常走到下面。 */
+  if ((ev as InputEvent | undefined)?.isComposing) return;
   const role = target.dataset.role;
   const k = target.dataset.k;
   const value = target.value;
+  /**
+   * 拖动中（input）只写值、不重绘；松手（change）才收口（P1-09）。
+   *
+   * 以前拖字号滑块，拖到一半 `<input type=range>` 被整页重建换掉，
+   * 拖动会话直接中断，只能一格一格点。
+   */
+  const dragging = ev?.type === 'input';
 
   if (role === 'libkw') {
     mutateState((s) => {
@@ -1034,7 +1068,7 @@ export function dispatchInput(target: HTMLInputElement | HTMLSelectElement | HTM
     return;
   }
   if (role === 'pref' && k) {
-    setPref(k, value);
+    setPref(k, value, { silent: dragging });
     // 滑块的数值标签就地更新，避免整页重绘时手指还在拖
     const label = target.parentElement?.querySelector('.val');
     if (label) label.textContent = labelFor(k, value);
@@ -1057,7 +1091,7 @@ export function dispatchInput(target: HTMLInputElement | HTMLSelectElement | HTM
     return;
   }
   if (role === 'goal') {
-    setGoal(Math.max(1, Number(value) || 1));
+    setGoal(Math.max(1, Number(value) || 1), { silent: dragging });
     const label = document.getElementById('bzs-goalval');
     if (label) label.textContent = `${value} 本`;
     return;

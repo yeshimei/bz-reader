@@ -71,6 +71,14 @@ export interface OverlayState {
   anchor?: { left: number; top: number; width?: number; height?: number };
   /** 书内链接（脚注浮窗的「跳到原文」用） */
   href?: string;
+  /**
+   * 内容版本号。
+   *
+   * 同一个 kind、同样内容，但底层状态变了需要强制重画时 +1（P2-08）：
+   * 激活成功后 `can()` 变 true，而 `kind` / `mode` 都没变，弹层本来不会刷新，
+   * 用户只看到一条 toast，界面上还是「未激活」。
+   */
+  rev?: number;
 }
 
 /**
@@ -92,6 +100,7 @@ export function overlayKey(o?: OverlayState | null): string {
     o.word ?? '',
     o.chapterTitle ?? '',
     o.anchor ? `${o.anchor.left},${o.anchor.top}` : '',
+    String(o.rev ?? 0),
   ].join('|');
 }
 
@@ -113,6 +122,14 @@ export interface ShellState {
   /* 阅读上下文 */
   sideTab: SideTab;
   bookId: string | null;
+  /**
+   * 最近激活的阅读视图（用 bookId 标识）。
+   *
+   * 焦点落在目录侧栏时，键盘该归哪本书（P1-12）。以前 `ownsKeyboard()` 只要
+   * 看到活动 leaf 是目录就返回 true，于是两个阅读 tab 各翻各的——一次方向键
+   * 两本书一起走，进度和阅读时长都被写脏。
+   */
+  activeReaderId: string | null;
   /** 默认笔色（划词时第一个动作、想法编辑器用） */
   pen: string;
   /* 浮层 */
@@ -137,6 +154,7 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   goal: 20,
   sideTab: 'toc',
   bookId: null,
+  activeReaderId: null,
   pen: 'amber',
   overlay: null,
   favIds: [],
@@ -161,6 +179,9 @@ export function loadShellState(): ShellState {
       if (typeof d.goal === 'number' && d.goal > 0) state.goal = Math.min(200, Math.round(d.goal));
       if (typeof d.pen === 'string') state.pen = d.pen;
       if (typeof d.bookId === 'string' || d.bookId === null) state.bookId = d.bookId ?? null;
+      if (typeof d.activeReaderId === 'string' || d.activeReaderId === null) {
+        state.activeReaderId = d.activeReaderId ?? null;
+      }
       if (Array.isArray(d.favIds)) state.favIds = d.favIds.filter((x) => typeof x === 'string');
       if (d.shelves && typeof d.shelves === 'object') state.shelves = d.shelves;
     }
@@ -249,8 +270,19 @@ export function toggleFav(id: string): boolean {
   return on;
 }
 
-export function setGoal(books: number): void {
+/**
+ * 改年度目标。
+ *
+ * `silent`（P1-09）：拖动目标滑块时只写值、不广播。广播会让统计页整块重绘，
+ * 手指还按在 `<input type=range>` 上就被换掉了，拖动中断。
+ */
+export function setGoal(books: number, opts: { silent?: boolean } = {}): void {
   const n = Math.min(200, Math.max(1, Math.round(books)));
+  if (opts.silent) {
+    state.goal = n;
+    getShellSource()?.setGoal(n);
+    return;
+  }
   mutateState((s) => {
     s.goal = n;
   });

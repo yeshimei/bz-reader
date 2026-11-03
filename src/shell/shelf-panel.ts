@@ -191,10 +191,12 @@ export class ShelfPanel {
     const onEdit = (e: Event): void => {
       const t = e.target as HTMLElement;
       if (!t?.dataset?.role) return;
-      dispatchInput(t as HTMLInputElement);
+      dispatchInput(t as HTMLInputElement, e);
     };
     el.addEventListener('input', onEdit);
     el.addEventListener('change', onEdit);
+    /* 输入法上屏后补一次：input 期间 isComposing 为真会被跳过（P1-10） */
+    el.addEventListener('compositionend', onEdit);
     el.addEventListener('scroll', () => this.memoScroll(), true);
   }
 }

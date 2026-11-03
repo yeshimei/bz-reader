@@ -93,10 +93,12 @@ export class SideView extends ItemView {
     const onEdit = (e: Event): void => {
       const t = e.target as HTMLElement;
       if (!t?.dataset?.role) return;
-      dispatchInput(t as HTMLInputElement);
+      dispatchInput(t as HTMLInputElement, e);
     };
     el.addEventListener('input', onEdit);
     el.addEventListener('change', onEdit);
+    /* 输入法上屏后补一次：input 期间 isComposing 为真会被跳过（P1-10） */
+    el.addEventListener('compositionend', onEdit);
 
     el.addEventListener('keydown', (e) => {
       const t = e.target as HTMLInputElement;
@@ -149,11 +151,18 @@ export class SideView extends ItemView {
   }
 
   /**
-   * TOC 变更：只有「当前章」变了就只切高亮，不重建整棵树。
+   * TOC 变更：目录树没变就只切高亮，不重建整棵树。
    *
    * 每次 relocate（翻一页）都会 patchToc({activeLabel})，而全量 render 会把
    * 目录 + 划线 + AI 气泡一起重建——手机上每翻一页掉一次帧，正在输入的关键词
    * 也要靠 focusMemo 抢回来。目录内容本身变了（换书/重新解析）才走全量。
+   *
+   * 2026-11-04 修条件写反（P1-11）：以前是 `sameTree && moved`，于是
+   *   · 同章内翻页（高亮没变，moved=false）→ 走全量 render，最该走快路径的
+   *     那条路反而最贵；
+   *   · 换章（高亮真的变了）→ 走快路径。
+   * 现在只要「同一棵树 + 目录页签 + 已渲染」就走快路径，内部再按 moved
+   * 决定要不要动 DOM。
    */
   private onTocChange(): void {
     const snap = getToc();
@@ -162,7 +171,8 @@ export class SideView extends ItemView {
     const sameTree =
       (snap?.items ?? null) === this.paintedItems && (snap?.bookId ?? '') === this.paintedBook;
     const moved = activeLabel !== this.paintedActive || activeHref !== this.paintedActiveHref;
-    if (sameTree && moved && getState().sideTab === 'toc' && this.root) {
+    if (sameTree && getState().sideTab === 'toc' && this.root) {
+      if (!moved) return; // 高亮没变，DOM 一行都不用动
       this.paintedActive = activeLabel;
       this.paintedActiveHref = activeHref;
       this.patchActiveRow(this.root, { label: activeLabel, href: activeHref });
