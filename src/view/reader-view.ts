@@ -64,6 +64,19 @@ export type ReaderCommand = 'next' | 'prev' | 'focus' | 'fullscreen' | 'bookmark
 /** 读到 99% 以上就算读完，不必真翻到最后一页的最后一个字 */
 const COMPLETE_THRESHOLD = 0.99;
 
+/**
+ * 真机诊断角标开关：默认关闭。
+ * 以前没有开关，每一台手机的每一页左下角都挂着版本号与点按计数。
+ * 排查时在控制台执行 `localStorage['bz-reader:debug-probe']='1'` 再重开书。
+ */
+function probeEnabled(): boolean {
+  try {
+    return window.localStorage?.getItem('bz-reader:debug-probe') === '1';
+  } catch {
+    return false;
+  }
+}
+
 /** 阅读视图对外暴露给插件的能力（开书、开侧栏、拿 store） */
 export interface ReaderHostApi {
   app: import('obsidian').App;
@@ -109,8 +122,8 @@ export class ReaderView extends ItemView {
   private lastTurnAt = 0;
   private lastKeyBefore = '';
   private lastKeyAfter = '';
-  /** 每次发版手动改，和 manifest 一起确认手机跑的是哪一版 */
-  private static readonly BUILD_TAG = '0.1.5+1357';
+  /** 构建时注入（manifest 版本 + 时间戳），见 esbuild.config.mjs 的 __BZ_BUILD_TAG__ */
+  private static readonly BUILD_TAG = __BZ_BUILD_TAG__;
 
   /* 并排对照：副卷自己一套引擎，主卷的进度与标注一概不受影响 */
   private parallelOn = false;
@@ -567,9 +580,16 @@ export class ReaderView extends ItemView {
     });
   }
 
-  /** 真机角标（临时诊断）：版本、头栏探针、上一次点击的章页变化 */
+  /** 真机角标（默认关闭，排查时 `localStorage['bz-reader:debug-probe']='1'`） */
   private renderProbe(): void {
-    if (!isMobileShell() || !this.rootEl) return;
+    if (!isMobileShell() || !this.rootEl || !probeEnabled()) {
+      /* 关掉后把已经挂上去的角标收走，不留一个空 div 在正文上 */
+      if (this.probeEl) {
+        this.probeEl.remove();
+        this.probeEl = null;
+      }
+      return;
+    }
     if (!this.probeEl) {
       const box = document.createElement('div');
       box.className = 'bzr-probe';

@@ -295,3 +295,18 @@ body.theme-dark .bzs-shell[data-bzaccent="moss"] { --copper: #93b79a; }
 .bzs-shell input[type="checkbox"] {
   accent-color: var(--copper);
 }
+
+/* ── 动效偏好 ──
+   以前全仓 0 处 prefers-reduced-motion：朗读波形是无限动画，各处 transition
+   也不短。系统开了「减少动态效果」就必须收掉——这不是审美，是前庭敏感人群
+   真的会不适。只作用在壳内，不动宿主。 */
+@media (prefers-reduced-motion: reduce) {
+  .bzs-shell *,
+  .bzs-shell *::before,
+  .bzs-shell *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

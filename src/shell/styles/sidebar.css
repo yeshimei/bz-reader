@@ -13,41 +13,6 @@
   background: var(--bg);
 }
 
-/* ── 顶行：返回书架 + 收起 ── */
-.bzs-side-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 8px 0 10px;
-  flex-shrink: 0;
-}
-
-.bzs-side-back {
-  appearance: none;
-  border: 0;
-  background: none;
-  color: var(--t3);
-  font-family: var(--serif);
-  font-size: 12px;
-  letter-spacing: 0;
-  padding: 5px 7px 5px 2px;
-  border-radius: var(--r-ctl);
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
-  white-space: nowrap;
-}
-
-.bzs-side-back:hover {
-  color: var(--copper);
-  background: var(--copper-soft);
-}
-
-.bzs-side-head .sp {
-  flex: 1;
-}
-
 /* ── 书名行 ── */
 .bzs-sbhead {
   display: flex;
@@ -71,25 +36,6 @@
 
 .bzs-sbhead .sp {
   flex: 1;
-}
-
-/* 换书下拉：做成一个极简文字钮 */
-.bzs-swap {
-  appearance: none;
-  border: 1px solid var(--line);
-  background: none;
-  color: var(--t3);
-  font-size: 11px;
-  letter-spacing: .06em;
-  border-radius: var(--r-ctl);
-  padding: 3px 7px;
-  flex-shrink: 0;
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
-}
-
-.bzs-swap:hover {
-  color: var(--copper);
-  border-color: var(--copper-line);
 }
 
 /* ── 页签行：四等分，铜金下划线 ── */
@@ -424,12 +370,7 @@
   place-items: center;
 }
 
-/* svg 不吃 font-size：删除叉原来是字符，尺寸靠字号，现在显式给 */
-.bzs-mkrow .x svg,
-.bzs-hlit .x svg {
-  width: 13px;
-  height: 13px;
-}
+/* （svg 尺寸在 320 行那一处定义，别在这里再写一份） */
 
 .bzs-hlit:hover .x {
   opacity: 1;
@@ -530,31 +471,6 @@
 .bzs-shelfview .bzs-studio {
   flex: 1;
   min-height: 0;
-}
-
-/* 旧书架 tab 的占位（老工作区里还留着 bzs-study 的 leaf） */
-.bzs-moved {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  height: 100%;
-  text-align: center;
-  padding: 40px 24px;
-}
-
-.bzs-moved .kick {
-  font-size: 11px;
-  letter-spacing: 0;
-  color: var(--copper);
-}
-
-.bzs-moved .big {
-  font-family: var(--serif);
-  font-size: 20px;
-  letter-spacing: 0;
-  color: var(--t1);
 }
 
 .bzs-moved .bzs-mini {

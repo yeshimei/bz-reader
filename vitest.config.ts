@@ -6,6 +6,7 @@ export default defineConfig({
   // 否则任何走到 `if (__BZ_READER_PRO__)` 的模块都会在 node 里抛 ReferenceError。
   define: {
     __BZ_READER_PRO__: 'true',
+    __BZ_BUILD_TAG__: '"test"',
   },
   resolve: {
     // obsidian 只有类型没有运行时（main 为空），运行时 import 它会解析失败。

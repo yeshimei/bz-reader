@@ -43,11 +43,20 @@ export function probeBlobIframe(): Promise<string> {
     probeIframe({ src: url, sandbox: true }),
     probeIframe({ srcdoc: '<!doctype html><b>ok</b>' }),
     probeFetch(url),
-  ]).then(
-    ([plain, boxed, srcdoc, fetched]) =>
-      `blob ${plain}｜blob+沙箱 ${boxed}｜srcdoc ${srcdoc}｜fetch ${fetched}` +
-      (opaque ? '（透明源）' : ''),
-  );
+  ])
+    .then(
+      ([plain, boxed, srcdoc, fetched]) =>
+        `blob ${plain}｜blob+沙箱 ${boxed}｜srcdoc ${srcdoc}｜fetch ${fetched}` +
+        (opaque ? '（透明源）' : ''),
+    )
+    .finally(() => {
+      /* 诊断用的 blob 也要释放：真机上反复试开书会累积常驻内存 */
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        /* 已释放 */
+      }
+    });
   return probeResult;
 }
 
@@ -101,7 +110,14 @@ export function traceText(): string {
 
 /** 同步能给的那部分：开书失败时立刻显示，不等异步探测 */
 export function envSummary(phase: string): string[] {
-  const { opaque } = blobUrl();
+  const { url, opaque } = blobUrl();
+  if (url) {
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      /* 已释放 */
+    }
+  }
   const ua = navigator.userAgent;
   const chromium = /Chrome\/(\d+)/.exec(ua)?.[1] ?? '?';
   const named: Record<string, string> = {

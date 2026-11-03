@@ -20,9 +20,14 @@ const ACTIVE = "pro";
 
 const DIST = path.join(process.cwd(), "dist");
 
-function htmlFor() {
-  return "";
-}
+/* 版本号只有一个来源：manifest.json。构建时再拼上时间戳，
+   真机角标/日志里读到的就是「这一包到底是哪次构建」，不用手改常量。 */
+const MANIFEST = JSON.parse(fs.readFileSync(path.join(process.cwd(), "manifest.json"), "utf8"));
+const BUILD_TAG = `${MANIFEST.version}+${new Date()
+  .toISOString()
+  .slice(0, 16)
+  .replace(/[-:]/g, "")
+  .replace("T", ".")}`;
 
 /**
  * 样式组合：设计令牌 + 域样式 + 壳层，产物里不留 @import（Obsidian 只加载一个 styles.css）。
@@ -105,50 +110,9 @@ function buildStyles() {
   return css;
 }
 
-/* ── 基础版物理剔除高级模块 ──
- *
- * define（__BZ_READER_PRO__）只能让 `if (false) { … }` 这块代码消失，
- * 静态 import 进来的模块照样躺在 bundle 里——pro 与 base 之前只差 182 字节，
- * 就是因为 AI / 朗读 / 统计 / 跨书搜索全是静态 import，运行时 if 拦不住。
- *
- * 要真的不留代码就得在解析阶段换文件：base 构建时把这几个模块替换成同签名的
- * 空实现，包里连一句 speechSynthesis、一个 AI endpoint 都不会有。
- * 调用方拿到的 null / 空对象就是「这个包没有这项功能」。
- */
-const PRO_ONLY_STUBS = {
-  "src/core/speak.ts": `
-    export function speak() { return null; }
-    export function stopSpeaking() {}
-  `,
-  "src/data/ai.ts": `
-    export const AI_TASK_LABELS = { summarize: '', explain: '', translate: '' };
-    export async function aiAsk() { return { text: '' }; }
-  `,
-  "src/ui/stats-panel.ts": `
-    export function openStats() {}
-  `,
-  "src/ui/cross-search-panel.ts": `
-    export function openCrossSearch() {}
-  `,
-};
-
-function stubProModules(target) {
-  if (target === "pro") return [];
-  const root = process.cwd();
-  return [
-    {
-      name: "stub-pro-modules",
-      setup(build) {
-        build.onLoad({ filter: /\.ts$/ }, (args) => {
-          const rel = path.relative(root, args.path).replace(/\\/g, "/");
-          const stub = PRO_ONLY_STUBS[rel];
-          if (!stub) return null;
-          return { contents: stub, loader: "js", resolveDir: path.dirname(args.path) };
-        });
-      },
-    },
-  ];
-}
+/* 只有一个包：完整功能版。以前这里的「base 构建把高级模块换成空实现」
+   （PRO_ONLY_STUBS / stubProModules）已经随双包一起撤掉；留着只会让下一个人
+   以为还有两条产线。能力门控在运行期由激活码决定（data/entitlement.ts）。 */
 
 const contexts = [];
 
@@ -169,7 +133,7 @@ for (const target of TARGETS) {
     treeShaking: true,
     minify: prod,
     charset: "utf8",
-    define: { __BZ_READER_PRO__: "true" },
+    define: { __BZ_READER_PRO__: "true", __BZ_BUILD_TAG__: JSON.stringify(BUILD_TAG) },
     outfile: path.join(outDir, "main.js"),
   });
   contexts.push({ ctx, outDir, target });

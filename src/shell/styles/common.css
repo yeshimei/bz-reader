@@ -70,40 +70,6 @@
   align-items: center;
 }
 
-/* ── 页头：小标签 + 衬线大题 ── */
-.bzs-ph {
-  display: flex;
-  align-items: flex-end;
-  gap: 18px;
-  margin-bottom: 22px;
-}
-
-.bzs-ph .kicker {
-  font-size: 11px;
-  letter-spacing: 0;
-  color: var(--copper);
-}
-
-.bzs-ph h1 {
-  font-family: var(--serif);
-  font-weight: 500;
-  font-size: 26px;
-  letter-spacing: .04em;
-  margin: 8px 0 0;
-}
-
-.bzs-ph p {
-  margin: 0 0 4px;
-  color: var(--t2);
-  font-size: 12px;
-  line-height: 1.8;
-  max-width: 520px;
-}
-
-.bzs-ph .sp {
-  flex: 1;
-}
-
 /* ── 按钮 ── */
 .bzs-btn {
   appearance: none;
@@ -226,17 +192,6 @@
   text-align: center;
 }
 
-/* ── 小徽记 / 小字 / 键值行 ── */
-.bzs-badge {
-  font-family: var(--ui);
-  font-size: 11px;
-  color: var(--copper);
-  border: 1px solid var(--copper-line);
-  border-radius: var(--r-pill);
-  padding: 1px 7px;
-  letter-spacing: .06em;
-}
-
 .bzs-mini {
   font-size: 11px;
   color: var(--t3);
@@ -281,6 +236,17 @@
   position: absolute;
   inset: 0;
   box-shadow: inset 4px 0 9px rgba(0, 0, 0, .32);
+}
+
+/* 真封面。以前全仓没有这条规则：<img> 按原图尺寸布局、被 overflow:hidden
+   裁成「封面正中间的一小块」，有封面的书反而比色块还难看。 */
+.bzs-covimg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .bzs-cov .ct {

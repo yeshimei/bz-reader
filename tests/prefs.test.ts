@@ -35,11 +35,14 @@ describe('normalizePrefs', () => {
     expect(p.layout).toBe(DEFAULT_PREFS.layout);
   });
 
-  it('旧主题名被迁移到新配色', () => {
-    const legacy = [...LEGACY_THEMES][0];
-    if (legacy) {
-      const p = normalizePrefs({ theme: legacy } as unknown as Record<string, unknown>);
-      expect(LEGACY_THEMES.has(String(p.theme))).toBe(false);
+  it('旧主题名（已撤掉的五套皮肤）不会被当成脏数据', () => {
+    /* ReaderPrefs 已经没有 theme 字段了，所谓迁移其实是「不认识的值一律回落到
+       默认」。这里断言真实行为：带旧 theme 的旧配置仍能正常归一化，其余字段不丢。 */
+    for (const legacy of LEGACY_THEMES) {
+      const p = normalizePrefs({ theme: legacy, fontSize: 22 } as unknown as Record<string, unknown>);
+      expect(p.fontSize).toBe(22);
+      expect(p.accent).toBe(DEFAULT_PREFS.accent);
+      expect(Object.keys(p)).not.toContain('theme');
     }
   });
 

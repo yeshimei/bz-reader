@@ -742,9 +742,14 @@
   display: block;
 }
 
+/* 热力图按 GitHub 口径排：**每列一周**（7 行），从左到右是 20 周。
+   140 格 ÷ 20 列 = 7 行；如果按默认的行优先填充，每行是连续 20 天，
+   列根本不是周，横轴「20 周前 → 今天」也就成了假话。 */
 .bzs-heat {
   display: grid;
   grid-template-columns: repeat(20, 1fr);
+  grid-template-rows: repeat(7, 1fr);
+  grid-auto-flow: column;
   gap: 3px;
   margin-top: 12px;
 }
@@ -908,7 +913,7 @@
   max-width: 980px;
 }
 
-@media (max-width: 760px) {
+@container bzs (max-width: 760px) {
   .bzs-set-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1097,7 +1102,7 @@
 }
 
 .bzs-keys kbd {
-  font: 10.5px var(--ui);
+  font: 11px var(--ui);
   color: var(--copper);
   border: 1px solid var(--copper-line);
   border-radius: var(--r-chip);
@@ -1119,3 +1124,4 @@
   color: var(--copper);
   font-weight: 500;
 }
+

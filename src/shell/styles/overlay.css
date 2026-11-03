@@ -164,7 +164,7 @@
   overflow: auto;
 }
 
-@media (max-width: 640px) {
+@container bzs (max-width: 640px) {
   /* 手机上右上一个 320px 的浮层等于半屏，改成贴着底部的一整条 */
   .bzs-float.is-corner {
     top: auto;
@@ -357,40 +357,6 @@
   overflow: auto;
 }
 
-/* ── 页面导览 ── */
-.bzs-tour {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 9px;
-}
-
-.bzs-tour button {
-  display: flex;
-  align-items: center;
-  text-align: left;
-  appearance: none;
-  border: 1px solid var(--line);
-  background: none;
-  color: var(--t2);
-  border-radius: var(--r-card);
-  padding: 11px 13px;
-  font-size: 12px;
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
-}
-
-.bzs-tour button:hover {
-  border-color: var(--copper-line);
-  background: var(--copper-soft);
-  color: var(--t1);
-}
-
-.bzs-tour button span {
-  font-size: 11px;
-  color: var(--t3);
-  display: block;
-  margin-top: 2px;
-}
-
 /* ── AI ── */
 .bzs-ai-tag {
   display: flex;
@@ -500,29 +466,7 @@
   letter-spacing: .08em;
 }
 
-/* ── 想法类型 ── */
-.bzs-types {
-  display: flex;
-  gap: 7px;
-  flex-wrap: wrap;
-  margin: 12px 0;
-}
-
-.bzs-types button {
-  appearance: none;
-  border: 1px solid var(--line);
-  background: none;
-  color: var(--t3);
-  border-radius: var(--r-pill);
-  padding: 6px 13px;
-  font-size: 12px;
-}
-
-.bzs-types button.on {
-  border-color: var(--copper-line);
-  color: var(--copper);
-  background: var(--copper-soft);
-}
+/* （想想类型胶囊的样式见文件后半段的「壳层补充」一处定义，别在这儿再写一份） */
 
 .bzs-shell textarea.idea {
   width: 100%;
@@ -575,89 +519,8 @@
   border-color: var(--copper-line);
 }
 
-.bzs-bmap .row .no {
-  font-family: var(--ui);
-  font-size: 11px;
-  color: var(--copper);
-  width: 26px;
-  flex-shrink: 0;
-}
-
-.bzs-bmap .row .nm {
-  font-size: 12px;
-  color: var(--t1);
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.bzs-bmap .row .strip {
-  flex: 1;
-  height: 5px;
-  background: var(--line);
-  border-radius: var(--r-chip);
-  position: relative;
-  max-width: 180px;
-}
-
-.bzs-bmap .row .strip i {
-  position: absolute;
-  top: -2px;
-  width: 9px;
-  height: 9px;
-  border-radius: var(--r-book);
-  background: var(--copper);
-  transform: rotate(45deg);
-}
-
-.bzs-bmap .row .strip u {
-  position: absolute;
-  top: 0;
-  height: 5px;
-  background: var(--c);
-  border-radius: var(--r-book);
-}
-
-/* ── 页面浏览器（胶片） ── */
-.bzs-film {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
-
-.bzs-film button {
-  aspect-ratio: 3 / 4;
-  border: 1px solid var(--line);
-  border-radius: var(--r-ctl);
-  background: var(--surface);
-  padding: 12px;
-  text-align: left;
-  color: var(--t3);
-  font: 10px/1.7 var(--serif);
-  overflow: hidden;
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
-}
-
-.bzs-film button:hover {
-  border-color: var(--copper-line);
-  color: var(--t2);
-}
-
-.bzs-film button.on {
-  border-color: var(--copper);
-  background: var(--copper-soft);
-}
-
-.bzs-film button b {
-  display: block;
-  font-family: var(--ui);
-  font-size: 11px;
-  color: var(--copper);
-  margin-bottom: 6px;
-}
-
+/* 行内的序号 / 书名 / 彩条样式在文件后半段「壳层补充」里，只有一处定义
+   （以前这里还有一份更早的版本，被后面那份整段覆盖）。 */
 /* ── 年度海报 ── */
 .bzs-poster {
   background: linear-gradient(150deg, var(--surface), var(--bg-3));
@@ -750,7 +613,7 @@
   border: 0;
   background: none;
   color: var(--t2);
-  font: 11.5px var(--ui);
+  font: 11px var(--ui);
   padding: 7px 8px;
   border-radius: var(--r-ctl);
   white-space: nowrap;
@@ -762,33 +625,6 @@
   background: var(--copper-soft);
 }
 
-/* ── Toast ── */
-.bzs-toast {
-  position: absolute;
-  left: 50%;
-  bottom: 38px;
-  transform: translate(-50%, 12px);
-  z-index: var(--z-float);
-  background: var(--glass);
-  backdrop-filter: blur(18px);
-  border: 1px solid var(--glass-line);
-  color: var(--t1);
-  font-size: 12px;
-  letter-spacing: .08em;
-  padding: 10px 20px;
-  border-radius: var(--r-pill);
-  box-shadow: var(--shadow);
-  opacity: 0;
-  pointer-events: none;
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
-  white-space: nowrap;
-}
-
-.bzs-toast.on {
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-
 /* ==========================================================
    壳层补充：原型里没有、真实插件必需的三样
    1. 全屏弹层容器（挂 body，不再挂在某个视图里）
@@ -797,13 +633,13 @@
    ========================================================== */
 
 /* 容器带 .bzs-shell 是为了拿设计令牌，背景必须透明，
-   否则它会把整个 Obsidian 窗口染成一块底色 */
+   否则它会把整个 Obsidian 窗口染成一块底色。
+   尺寸只写 inset：inset:0 已经是视口大小；再写 width:100vw 会把滚动条宽度
+   也算进去（桌面多出 8px 横向溢出），height:100vh 在移动端键盘弹起时不收缩。 */
 .bzs-shell.bzs-overlay-root {
   position: fixed;
   inset: 0;
   z-index: var(--z-toast);
-  height: 100vh;
-  width: 100vw;
   background: transparent;
   pointer-events: none;
   display: block;
@@ -844,68 +680,6 @@ textarea.idea {
 
 textarea.idea:focus {
   border-color: var(--copper-line);
-}
-
-.bzs-types {
-  display: flex;
-  gap: 7px;
-  flex-wrap: wrap;
-}
-
-.bzs-types button {
-  appearance: none;
-  border: 1px solid var(--line);
-  background: none;
-  color: var(--t3);
-  border-radius: var(--r-pill);
-  padding: 5px 12px;
-  font-size: 12px;
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
-}
-
-.bzs-types button.on {
-  color: var(--copper);
-  border-color: var(--copper-line);
-  background: var(--copper-soft);
-}
-
-.bzs-film {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
-  gap: 10px;
-}
-
-.bzs-film button {
-  appearance: none;
-  text-align: left;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--t3);
-  border-radius: var(--r-card);
-  padding: 11px 12px;
-  font-size: 11px;
-  line-height: 1.75;
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
-}
-
-.bzs-film button:hover {
-  border-color: var(--copper-line);
-  color: var(--t2);
-}
-
-.bzs-film button.on {
-  border-color: var(--copper-line);
-  background: var(--copper-soft);
-  color: var(--t1);
-}
-
-.bzs-film button b {
-  display: block;
-  font-family: var(--ui);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--ink);
-  margin-bottom: 6px;
 }
 
 .bzs-bmap .row .no {
@@ -1060,36 +834,6 @@ textarea.idea:focus {
   gap: 14px;
 }
 
-.bzs-unlock-hero .kick {
-  font-size: 11px;
-  letter-spacing: 0;
-  color: var(--copper);
-  margin-bottom: 6px;
-}
-
-.bzs-unlock-hero h3 {
-  margin: 0 0 8px;
-  font-size: 17px;
-  font-weight: 500;
-  color: var(--ink);
-}
-
-.bzs-unlock-state {
-  font-size: 12px;
-  color: var(--ink);
-  opacity: .72;
-}
-
-.bzs-unlock-state.off {
-  color: var(--vermilion);
-  opacity: .9;
-}
-
-.bzs-unlock-state.ok {
-  color: var(--copper);
-  opacity: 1;
-}
-
 .bzs-unlock-list {
   margin: 0;
   padding: 0;
@@ -1116,10 +860,6 @@ textarea.idea:focus {
   height: 5px;
   border-radius: 50%;
   background: var(--copper);
-  opacity: .7;
-}
-
-.bzs-unlock-state .tail {
   opacity: .7;
 }
 
@@ -1388,4 +1128,5 @@ textarea.idea:focus {
   font-size: 13px;
   line-height: 1.8;
 }
+
 

@@ -47,51 +47,10 @@
   min-height: 0;
 }
 
-/* ── 首屏占位 / 首屏诊断 ──
-   出字之前铺在舞台上：不吃指针事件（照样能翻页），只在视觉上说明「在忙」。
-   20 秒还没出字时切到诊断态，那时才允许交互（重试按钮）。 */
-.bzs-rpending {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 24px;
-  text-align: center;
-  pointer-events: none;
-  color: var(--t3);
-}
-
-.bzs-rpending .t {
-  font-family: var(--serif);
-  font-size: 14px;
-  letter-spacing: .08em;
-  color: var(--t2);
-}
-
-.bzs-rpending .d {
-  font-size: 11px;
-  line-height: 1.8;
-  max-width: 380px;
-}
-
 /* 占位整体不吃指针，但「查看诊断」入口要能点 */
 .bzs-rpending .bzs-btn {
   pointer-events: auto;
   margin-top: 6px;
-}
-
-.bzs-rpending.is-diag {
-  pointer-events: auto;
-  justify-content: flex-start;
-  padding-top: 48px;
-  background: var(--surface);
-}
-
-.bzs-rpending.is-diag .t {
-  color: var(--ink);
 }
 
 .bzs-rpending.is-diag .bzs-btn {
@@ -126,65 +85,9 @@
   text-overflow: ellipsis;
 }
 
-/* ── 朗读条：贴着底部（手机给它让出宿主导航条的位置） ── */
-.bzs-ttsbar {
-  position: absolute;
-  left: 50%;
-  bottom: 64px;
-  transform: translateX(-50%);
-  z-index: var(--z-sticky);
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 9px 18px;
-  border-radius: var(--r-pill);
-  background: var(--glass);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-line);
-  box-shadow: var(--shadow);
-  font-size: 12px;
-  color: var(--t2);
-  letter-spacing: .08em;
-  white-space: nowrap;
-}
-
-.bzs-ttsbar button {
-  appearance: none;
-  border: 0;
-  background: none;
-  color: var(--copper);
-  font-size: 12px;
-  padding: 2px 4px;
-}
-
-.bzs-ttsbar .wave {
-  display: flex;
-  gap: 2px;
-  align-items: center;
-  height: 14px;
-}
-
-.bzs-ttsbar .wave i {
-  width: 2px;
-  background: var(--copper);
-  display: block;
-  animation: bzs-wv 1s ease-in-out infinite alternate;
-}
-
-.bzs-ttsbar .wave i:nth-child(1) { height: 6px; animation-delay: 0s; }
-.bzs-ttsbar .wave i:nth-child(2) { height: 12px; animation-delay: .2s; }
-.bzs-ttsbar .wave i:nth-child(3) { height: 8px; animation-delay: .4s; }
-.bzs-ttsbar .wave i:nth-child(4) { height: 14px; animation-delay: .1s; }
-.bzs-ttsbar .wave i:nth-child(5) { height: 5px; animation-delay: .3s; }
-
 @keyframes bzs-wv {
   to {
     height: 3px;
     opacity: .5;
   }
-}
-
-.bzs-ttsbar.paused .wave i {
-  animation-play-state: paused;
-  opacity: .4;
 }
