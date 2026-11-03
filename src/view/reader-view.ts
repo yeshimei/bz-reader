@@ -1316,15 +1316,13 @@ export class ReaderView extends ItemView {
 
   /**
    * 脚注。两条路，一处判断：
-   *   popup（默认，高级版）→ 注释号上方开浮窗，附一个「跳到原文」
-   *   jump               → 直接跳过去，就是 foliate 原来的行为
-   * 抓不到正文（章节互链、超长段落）时退回跳转，别让人点了没反应。
+   *   popup（默认）→ 注释号上方开浮窗，附一个「跳到原文」
+   *   jump         → 直接跳过去，就是 foliate 原来的行为
+   * 抓不到正文（章节互链、结构太怪）时引擎自己退回跳转，不再回调 null；
+   * 这里的 null 分支只作防御，别重复提示。
    */
   private handleFootnote(info: FootnoteInfo | null): void {
-    if (!info) {
-      notify('这处注释读不出正文，可能指向另一章', 'info');
-      return;
-    }
+    if (!info) return;
     /* 脚注浮窗已并入基础版：不再按能力位拦截，只看用户偏好 */
     if (this.prefs.footnote === 'jump') {
       void this.host.goToHref(info.href);

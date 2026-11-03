@@ -18,10 +18,25 @@
  * ============================================================ */
 import type { App } from 'obsidian';
 import { makeBook, Overlayer, View } from './foliate';
-import type { DrawAnnotationDetail, FoliateBook, FoliateTOCItem, FoliateView, ShowAnnotationDetail } from '../types/foliate';
+import type {
+  DrawAnnotationDetail,
+  FoliateBook,
+  FoliateSection,
+  FoliateTOCItem,
+  FoliateView,
+  ShowAnnotationDetail,
+} from '../types/foliate';
 import { buildChapterCSS } from './theme';
 import { makeTxtBook, countWords } from './txt';
 import { unionClientRects } from './selection-rect';
+import {
+  chooseSectionIndex,
+  domToFNode,
+  findFragmentTarget,
+  isFootnoteRef,
+  resolveFootnoteText,
+  splitFootnoteHref,
+} from './footnote';
 import { DEFAULT_PREFS, FONT_SIZE_RANGE, type ReaderPrefs } from '../data/prefs';
 import { dlog } from '../core/debug-log';
 
@@ -155,32 +170,6 @@ const LOCATE_TIMEOUT = 20000;
 /** 一次翻页最多等多久（超时就当没动，交给跨章兜底，别让导航队列卡住） */
 const TURN_TIMEOUT = 3000;
 
-/** EPUB 3 的 epub:type 命名空间 */
-const OPS_NS = 'http://www.idpf.org/2007/ops';
-/** 整章文本超过这个长度就不当脚注看了——那是章节互链，不是注释 */
-const FOOTNOTE_MAX = 4000;
-
-/**
- * 这个 <a> 是不是脚注引用？
- *
- * 三档判据，从硬到软：
- *  1. `<a epub:type="noteref">` / `role="doc-noteref"` —— 规范写法，最可靠；
- *  2. 被 `<sup>` 包着（或者自己就是 sup 里的 a）—— 老书最常见的写法；
- *  3. 链接文字就是「[1]」「①」「*」这种纯标记 —— 没有 type 也没有 sup 时的兜底。
- *
- * 判错了的代价不对称：误判成脚注 = 点章节互链弹出一小窗文字（还带「跳到原文」，
- * 点一下照样能过去）；漏判 = 点注释号直接跳走，读者回不来。
- */
-function isFootnoteRef(a: HTMLAnchorElement | null): boolean {
-  if (!a) return false;
-  const type = a.getAttributeNS(OPS_NS, 'type') ?? '';
-  if (/noteref|footnote|endnote|rearnote|\bnote\b/.test(type)) return true;
-  const role = a.getAttribute('role') ?? '';
-  if (/doc-noteref|doc-footnote|doc-endnote|doc-glossref|doc-biblioref/.test(role)) return true;
-  if (a.closest('sup')) return true;
-  const label = (a.textContent ?? '').replace(/\s+/g, '');
-  return label.length > 0 && label.length <= 6 && /^[[(（【]?[\d*†‡§①-⑳ivxlcdmIVXLCDM]{1,4}[\])）】]?$/.test(label);
-}
 
 export class EngineHost {
   private app: App;
@@ -425,15 +414,30 @@ export class EngineHost {
     view.addEventListener('link', (e) => {
       const d = (e as CustomEvent).detail as { a?: HTMLAnchorElement | null; href?: string };
       const href = d?.href;
-      if (!href || !this.opts.onFootnote) return;
-      if (!isFootnoteRef(d.a ?? null)) return;
+      const a = d?.a ?? null;
+      if (!href || !a || !this.opts.onFootnote) return;
+      /* `<sup><a>1</a></sup>` 是老书最常见的写法：锚点自己看不到 sup，
+         转换时把祖先标签带上，判定才是完整的 */
+      const ancestors = a.closest('sup') ? ['sup'] : [];
+      if (!isFootnoteRef(domToFNode(a, { ancestors }))) return;
       e.preventDefault();
-      const a = d.a ?? null;
-      const doc = a?.ownerDocument ?? null;
-      const anchor = a && doc ? this.toHostRect(a.getBoundingClientRect(), doc) : { left: 0, top: 0, width: 0, height: 0 };
-      void this.readFootnote(href)
-        .then((info) => this.opts.onFootnote?.(info ? { ...info, anchor } : null))
-        .catch(() => this.opts.onFootnote?.(null));
+      const doc = a.ownerDocument ?? null;
+      const anchor = doc ? this.toHostRect(a.getBoundingClientRect(), doc) : { left: 0, top: 0, width: 0, height: 0 };
+      const label = (a.textContent ?? '').replace(/\s+/g, ' ').trim();
+      dlog('footnote.ref', { href, label });
+      void this.readFootnote(href, label)
+        .then((info) => {
+          if (info) {
+            dlog('footnote.ok', { href, chars: info.text.length, section: info.chapterIndex });
+            this.opts.onFootnote?.({ ...info, anchor });
+            return;
+          }
+          /* 抓不到正文（结构太怪 / 跨章互链）：退回 foliate 原来的行为，
+             直接跳过去，别让人点了没反应。 */
+          dlog('footnote.miss', { href });
+          void this.goToHref(href);
+        })
+        .catch(() => void this.goToHref(href));
     });
 
     view.addEventListener('external-link', (e) => {
@@ -1196,15 +1200,56 @@ export class EngineHost {
    *
    * 不开第二个 `foliate-view`（foliate 自带的 FootnoteHandler 是那么做的：为了
    * 看两行注释，把整本书重新 open 一遍），而是直接让 section 造一份 Document，
-   * 按 `resolveHref` 给的 anchor 找元素取文本。抓到的文本超过 FOOTNOTE_MAX
-   * 说明这是章节互链而不是注释——那种情况返回 null，交回 foliate 直接跳过去。
+   * 再按 fragment 找元素。四步兜底，缺一步都会出现「点注释号读不出正文」：
+   *
+   *  1. 按 href 路径对 `book.sections`，**不用** resolveHref 的 index：
+   *     foliate 的 sections 是 spine 过滤过的，下标会错位；
+   *  2. 路径对不上（href 是相对路径 / 编码不同）时，用 resolveHref 的 anchor；
+   *  3. 目标文档里 `getElementById` / `name` / `xml:id` 都试一遍；
+   *  4. 还找不到，就按「注文页优先」扫全书——尾注常被拆成独立章节。
    */
-  private async readFootnote(href: string): Promise<Omit<FootnoteInfo, 'anchor'> | null> {
+  private async readFootnote(href: string, label: string): Promise<Omit<FootnoteInfo, 'anchor'> | null> {
     const book = this.book;
     if (!book) return null;
-    const target = book.resolveHref?.(href) ?? null;
-    if (!target || typeof target.index !== 'number' || target.index < 0) return null;
-    const section = book.sections[target.index];
+    const sections = book.sections ?? [];
+    const { path, fragment } = splitFootnoteHref(href);
+
+    /* foliate 的 anchor 只在同章节锚点时可靠；spine 下标则可能因 spine 过滤错位 */
+    let anchorFn: ((doc: Document) => Node | null) | null = null;
+    let resolvedIndex = -1;
+    try {
+      const resolved = book.resolveHref?.(href) ?? null;
+      if (resolved && typeof resolved.anchor === 'function') {
+        anchorFn = resolved.anchor as (doc: Document) => Node | null;
+      }
+      if (resolved && typeof resolved.index === 'number') resolvedIndex = resolved.index;
+    } catch {
+      /* resolveHref 失败不影响后面的路径匹配 */
+    }
+
+    const index = chooseSectionIndex({
+      sections,
+      path,
+      currentIndex: this.chapterIndex,
+      resolvedIndex,
+    });
+
+    if (index >= 0) {
+      const target = await this.loadFootnoteTarget(sections[index], fragment, anchorFn);
+      if (target) return this.buildFootnoteInfo(target, href, index, label);
+    }
+
+    const found = await this.findFootnoteAcrossSections(fragment);
+    if (!found) return null;
+    return this.buildFootnoteInfo(found.element, href, found.index, label);
+  }
+
+  /** 在一章里找 fragment 指向的元素；找不到再用 foliate 的 anchor */
+  private async loadFootnoteTarget(
+    section: FoliateSection | undefined,
+    fragment: string,
+    anchorFn: ((doc: Document) => Node | null) | null,
+  ): Promise<Element | null> {
     if (!section?.createDocument) return null;
     let doc: Document;
     try {
@@ -1212,12 +1257,68 @@ export class EngineHost {
     } catch {
       return null;
     }
-    const anchorFn = target.anchor;
-    const el = typeof anchorFn === 'function' ? (anchorFn as (d: Document) => Node | null)(doc) : null;
-    if (!el) return null;
-    const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
-    if (!text || text.length > FOOTNOTE_MAX) return null;
-    return { text, href, chapterIndex: target.index };
+    if (fragment) {
+      const el = findFragmentTarget(doc, fragment);
+      if (el) return el;
+    }
+    if (!anchorFn) return null;
+    try {
+      const node = anchorFn(doc);
+      if (!node) return null;
+      if (node.nodeType === 1) return node as Element;
+      const parentNode = node.parentNode;
+      return parentNode && parentNode.nodeType === 1 ? (parentNode as Element) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * 全书中找 fragment。
+   *
+   * 尾注页可能不在 spine 里（index = -1），或 href 路径与 section.id 对不上。
+   * 先扫「看着像注文页」的章节，再扫其余；封顶 120 章 / 4 秒，别为一条注释
+   * 把整本书解析一遍卡住界面。
+   */
+  private async findFootnoteAcrossSections(
+    fragment: string,
+  ): Promise<{ index: number; element: Element } | null> {
+    const sections = this.book?.sections ?? [];
+    if (!fragment || !sections.length) return null;
+    const order: number[] = [];
+    sections.forEach((section, i) => {
+      if (/notes?|footnote|endnote/i.test(section?.id ?? '')) order.push(i);
+    });
+    for (let i = 0; i < sections.length; i += 1) {
+      if (!order.includes(i)) order.push(i);
+    }
+    const deadline = Date.now() + 4000;
+    let tried = 0;
+    for (const i of order) {
+      if (tried >= 120 || Date.now() > deadline) break;
+      const section = sections[i];
+      if (!section?.createDocument) continue;
+      tried += 1;
+      try {
+        const doc = await section.createDocument();
+        const el = findFragmentTarget(doc, fragment);
+        if (el) return { index: i, element: el };
+      } catch {
+        /* 单章解析失败继续下一章 */
+      }
+    }
+    return null;
+  }
+
+  private buildFootnoteInfo(
+    el: Element,
+    href: string,
+    index: number,
+    label: string,
+  ): Omit<FootnoteInfo, 'anchor'> | null {
+    const text = resolveFootnoteText(domToFNode(el), label);
+    if (!text) return null;
+    return { text, href, chapterIndex: index };
   }
 
   /** 整书百分比跳转（移动端进度滑杆松手时用） */
