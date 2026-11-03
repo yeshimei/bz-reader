@@ -86,6 +86,7 @@ export class ReaderView extends ItemView {
   private rootEl: HTMLElement | null = null;
   private stage: HTMLElement | null = null;
   private selbar: HTMLElement | null = null;
+  private selbarHideTimer: number | null = null;
   private pagesEl: HTMLElement | null = null;
   /** 挂进宿主头栏的动作（按 id 索引，重画时复用） */
   private headerEls = new Map<string, HTMLElement>();
@@ -840,7 +841,21 @@ export class ReaderView extends ItemView {
 
   /* ─────────────────── 划词条 ─────────────────── */
 
+  /** 选区消失后延迟收起：点工具条会让 iframe 失焦、选区塌掉，立刻收会把点击吞掉 */
+  private scheduleSelbarHide(): void {
+    if (!this.selbar) return;
+    if (this.selbarHideTimer !== null) window.clearTimeout(this.selbarHideTimer);
+    this.selbarHideTimer = window.setTimeout(() => {
+      this.selbarHideTimer = null;
+      this.hideSelbar();
+    }, 320);
+  }
+
   private hideSelbar(): void {
+    if (this.selbarHideTimer !== null) {
+      window.clearTimeout(this.selbarHideTimer);
+      this.selbarHideTimer = null;
+    }
     this.selbar?.remove();
     this.selbar = null;
     this.selection = null;
@@ -915,10 +930,28 @@ export class ReaderView extends ItemView {
     if (can('ai')) bar.appendChild(mk('AI 解释', 'selai'));
     bar.appendChild(mk('复制', 'selcopy'));
 
-    const rootRect = root.getBoundingClientRect();
-    bar.style.left = `${info.anchor.left - rootRect.left + info.anchor.width / 2}px`;
-    bar.style.top = `${info.anchor.top - rootRect.top - 8}px`;
+    /* 点工具条不能把系统的选区和手柄清掉：pointerdown 默认会让 iframe 失焦，
+       选区一塌，后面所有动作都拿不到文本了。 */
+    bar.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+    });
+
     root.appendChild(bar);
+
+    /* 定位：优先贴在选区第一行上方、左右夹在可视区内；上面放不下就放到选区下方。
+       以前直接用 anchor 的视口坐标减 rootRect，选区靠近顶部时条子会跑到屏幕外，
+       看起来就是「偏移很远」。 */
+    const rootRect = root.getBoundingClientRect();
+    const barRect = bar.getBoundingClientRect();
+    const cx = info.anchor.left - rootRect.left + info.anchor.width / 2;
+    const half = barRect.width / 2 + 6;
+    const left = Math.max(half, Math.min(rootRect.width - half, cx));
+    const aboveTop = info.anchor.top - rootRect.top - 8;
+    const belowTop = info.bounds.top - rootRect.top + info.bounds.height + 8;
+    const top = aboveTop - barRect.height >= 4 ? aboveTop : belowTop;
+    bar.style.left = `${Math.round(left)}px`;
+    bar.style.top = `${Math.round(top)}px`;
     this.selbar = bar;
   }
 
@@ -1017,24 +1050,16 @@ export class ReaderView extends ItemView {
               this.suppressSelClear = false;
               return;
             }
-            this.hideSelbar();
+            this.scheduleSelbarHide();
             return;
           }
           this.selection = info;
           this.selectionAt = Date.now();
           this.setSel(info);
-          /* 手机上「选中即划」：长按选完直接按上次的颜色落下一条，
-             工具条退居二线只管改色/写想法。桌面仍保留「选色才落笔」，
-             因为鼠标拖选常常只是复制，不该往书里存东西。 */
-          const auto = isMobileShell()
-            ? createMark(getShellState().pen, { silent: true }) ?? undefined
-            : undefined;
-          if (auto) {
-            // 划完就收掉系统选区：留下的该是一道线，不是一片蓝
-            this.suppressSelClear = true;
-            this.host.clearSelection();
-          }
-          this.showSelbar(info, auto);
+          /* 选中不立刻落笔：移动端要留着系统选区与两端手柄，让用户先把范围
+             调准，再点颜色。以前「选中即划」会在长按结束的瞬间落一条，
+             想改范围就只能撤销重来。 */
+          this.showSelbar(info);
         },
         onAnnotTap: (info) => this.openHighlight(info),
         /* 脚注：默认在注释号上方开一小块浮窗，读完接着读。
