@@ -27,6 +27,8 @@ export function ico(name: string): string {
     ai: '<path d="M12 3.5l1.9 5.4 5.4 1.9-5.4 1.9L12 18.1l-1.9-5.4L4.7 10.8l5.4-1.9z"/>',
     read: '<path d="M3 5.5A1.5 1.5 0 014.5 4H9a3 3 0 013 3v12a2.5 2.5 0 00-2.5-2.5H3zM21 5.5A1.5 1.5 0 0019.5 4H15a3 3 0 00-3 3v12a2.5 2.5 0 012.5-2.5H21z"/>',
     search: '<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5.5 5.5"/>',
+    /* 子页头栏的返回键 */
+    back: '<path d="M14.5 5.5L8 12l6.5 6.5"/>',
     import: '<path d="M12 3v11M8 10l4 4 4-4M4 18v2h16v-2"/>',
     folder: '<path d="M3 6.5h6l1.6 2H21v10.5H3z"/>',
     theme: '<circle cx="12" cy="12" r="8"/><path d="M12 4v16"/>',

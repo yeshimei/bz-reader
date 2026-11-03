@@ -26,10 +26,10 @@ import { copyTree, dirHasFiles, removeTree } from './data/migrate';
 import { normalizePrefs, type ReaderPrefs } from './data/prefs';
 import { normalizeSettings, type ReaderSettings } from './data/settings';
 import type { BookFormat, ReaderBook } from './data/schema';
-import { openImport } from './ui/import-panel';
 import { ReaderView, VIEW_TYPE_READER, type ReaderCommand, type ReaderHostApi } from './view/reader-view';
 import { SideView, VIEW_TYPE_TOC, type SideTab } from './view/side-view';
 import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-state';
+import { mountImport } from './ui/import-panel';
 import { ReaderSettingTab } from './ui/settings-tab';
 import { licenseSummary } from './data/license';
 import { releaseCovers } from './data/cover';
@@ -44,7 +44,7 @@ import { openCrossSearch } from './ui/cross-search-panel';
 import { StudyView, VIEW_TYPE_STUDY } from './shell/study-view';
 import { OverlayLayer } from './shell/overlay';
 import { dispatchAction } from './shell/actions';
-import { loadShellState, notify as notifyShell, overlayKey, setState, getState, subscribe, type StudyPage } from './shell/state';
+import { isStudyTab, loadShellState, notify as notifyShell, overlayKey, setState, getState, subscribe, type ShellState, type StudyPage } from './shell/state';
 import { setShellSource, shellPrefs } from './shell/source';
 
 export interface PluginConfig {
@@ -264,6 +264,7 @@ export function createPlugin(cfg: PluginConfig) {
         store: this.store,
         openBook: (book, cfi) => void this.openBook(book, cfi),
         openImport: () => this.openImportPanel(),
+        mountImport: (host) => this.mountImportPage(host),
         openStudy: (page) => this.openStudy(page),
         closeStudy: () => this.app.workspace.leftSplit?.collapse?.(),
         openSidebar: (tab) => this.openTocSidebar(tab),
@@ -386,7 +387,19 @@ export function createPlugin(cfg: PluginConfig) {
      * 而且从书架点进书之后还得再收一层弹窗。
      */
     openStudy(page: StudyPage = 'library'): void {
-      setState({ studyPage: page });
+      /* 进页规则只写一处，四个入口共用：
+           · 页签页 → 返回目标指向自己
+           · 子页   → 返回目标停在上一个页签页
+           · 搜索   → 清空上次的词，范围按权限落到「全库 / 本书」 */
+      const cur = getState().studyPage;
+      const patch: Partial<ShellState> = { studyPage: page };
+      if (isStudyTab(page)) patch.studyBack = page;
+      else if (isStudyTab(cur)) patch.studyBack = cur;
+      if (page === 'search') {
+        patch.searchKw = '';
+        patch.searchScope = can('crossSearch') ? 'all' : 'book';
+      }
+      setState(patch);
       const ws = this.app.workspace;
       const opened = ws.getLeavesOfType(VIEW_TYPE_STUDY)[0];
       if (opened && opened.view instanceof StudyView) {
@@ -493,8 +506,14 @@ export function createPlugin(cfg: PluginConfig) {
       await this.openBook(recent);
     }
 
+    /** 导入也是一整页（S1 定稿）：旧 modal 与浮层里那套已经合并掉了 */
     private openImportPanel(): void {
-      openImport({
+      this.openStudy('import');
+    }
+
+    /** 书架页把导入页挂进来；返回的拆卸函数由 ShelfPanel 在换页时调用 */
+    private mountImportPage(host: HTMLElement): () => void {
+      return mountImport(host, {
         app: this.app,
         repo: this.repo,
         store: this.store,
@@ -503,6 +522,7 @@ export function createPlugin(cfg: PluginConfig) {
           notifyShelf();
           notifyShell();
         },
+        onExit: () => this.openStudy('library'),
       });
     }
 

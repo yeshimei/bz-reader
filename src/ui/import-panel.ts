@@ -8,6 +8,10 @@
  *   ② 从本地文件导入 —— 文件在 vault 外面，需要**写进** vault 才能被
  *      阅读器读到（foliate 走 vault adapter 读字节）。落到 Books/。
  *
+ * 承载方式：它现在是书架里的**一整页**（S1 定稿），不是弹窗。
+ * 页面体由 shelf-page 给出一个空容器，这里往里挂；离开页面时调用
+ * 返回的 teardown，不留下监听和 DOM。
+ *
  * 勾选框是自绘的方框（.bzr-cb），真 input 压成 0×0 留在 label 里——
  * 原生 checkbox 一上一下两套外观，和这套界面放一起就是「另一个软件的控件」。
  * ============================================================ */
@@ -18,7 +22,6 @@ import type { BookRepo } from '../data/book-repo';
 import { importFolderOf, pickAndImport } from '../data/importer';
 import { normalizeSettings } from '../data/settings';
 import type { ReaderStore } from '../data/store';
-import { uiModal } from '../core/ui/modal';
 import { notify } from '../core/notice';
 import { clear, el } from './dom';
 
@@ -27,8 +30,10 @@ export interface ImportDeps {
   repo: BookRepo;
   store: ReaderStore;
   formats: BookFormat[];
-  /** 面板里改完书架后通知外层刷新（书架弹窗） */
+  /** 面板里改完书架后通知外层刷新（书架页 / 侧栏） */
   onDone?: () => void;
+  /** 导入完成或用户按返回：退出这一页，回到书库 */
+  onExit?: () => void;
 }
 
 interface Row {
@@ -48,17 +53,20 @@ function sizeLabel(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export function openImport(deps: ImportDeps): void {
-  const { app, repo, store, formats, onDone } = deps;
+/**
+ * 把导入页挂进 `host`，返回拆卸函数。
+ *
+ * 没有 headBox：「导入书籍」这四个字已经由子页头栏给了，
+ * 页内再写一遍就是同一句话说两次。
+ */
+export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
+  const { app, repo, store, formats, onDone, onExit } = deps;
   const mobile = Platform.isMobile;
   // 本地文件写进哪个文件夹，由设置页统一决定（「数据 · 书籍导入位置」）
   const folder = importFolderOf(normalizeSettings(store.get().settings).importDir);
   const folderText = folder || '库根目录';
 
-  const root = el('div', 'bzr-imp' + (mobile ? ' is-mobile' : ''));
-  const desc = el('p', 'bzr-imp-desc', '');
-  const headBox = el('div', 'bzr-imp-h', '导入');
-  headBox.appendChild(desc);
+  const root = el('div', 'bzr-imp is-page' + (mobile ? ' is-mobile' : ''));
 
   const filterInput = el('input', 'bzr-imp-filter');
   filterInput.type = 'search';
@@ -90,19 +98,11 @@ export function openImport(deps: ImportDeps): void {
     el('div', 'bzr-imp-sec', '从本地文件导入'),
     grab,
   );
-  root.append(headBox, bodyBox, foot);
+  root.append(bodyBox, foot);
+  host.appendChild(root);
 
   let keyword = '';
   let rows: Row[] = [];
-
-  const { close } = uiModal({
-    content: root,
-    className: 'bzr-import-popup' + (mobile ? ' is-mobile' : ''),
-    autofocus: false,
-    onClose: () => {
-      void store.flush();
-    },
-  });
 
   function load(): void {
     const found = scanVault(app, formats);
@@ -153,14 +153,11 @@ export function openImport(deps: ImportDeps): void {
     hint.textContent = rows.length
       ? `共 ${rows.length} 本，其中 ${fresh} 本还没加入书架。文件留在原地，不会复制。`
       : `笔记库里没有找到 ${BOOK_FORMATS_LABEL(formats)} 文件。可以从下面选本地文件。`;
-    desc.textContent = `库里找到 ${rows.length} 本书，其中 ${fresh} 本还没上架。文件留在原地。`;
     selectAll.style.display = fresh ? '' : 'none';
 
     clear(listWrap);
     if (!vis.length) {
-      listWrap.appendChild(
-        el('div', 'bzr-imp-empty', rows.length ? '没有匹配项' : '库里的书都已经在书架上了'),
-      );
+      listWrap.appendChild(el('div', 'bzr-imp-empty', rows.length ? '没有匹配项' : '库里的书都已经在书架上了'));
     } else {
       for (const row of vis) listWrap.appendChild(buildRow(row));
     }
@@ -195,7 +192,9 @@ export function openImport(deps: ImportDeps): void {
     void store.flush();
     notify(`已加入 ${picked.length} 本`, 'success');
     onDone?.();
-    close();
+    /* 加完就回书库：这一刻用户想看到的是新书出现在架子上，
+       留在一张「已全部加入」的空列表前面没有意义。 */
+    onExit?.();
   });
 
   grabBtn.addEventListener('click', () => {
@@ -228,4 +227,9 @@ export function openImport(deps: ImportDeps): void {
 
   load();
   render();
+
+  return () => {
+    void store.flush();
+    root.remove();
+  };
 }

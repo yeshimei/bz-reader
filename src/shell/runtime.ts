@@ -26,9 +26,6 @@ export interface AiLogItem {
 }
 
 export const RT = {
-  /** 搜索面板关键词（本书 / 全库共用） */
-  searchKw: '',
-  searchScope: 'book' as 'book' | 'all',
   /** AI 对话（侧栏 AI 页签与 AI 弹层共用一份） */
   aiLog: [] as AiLogItem[],
   /** 当前划词 */

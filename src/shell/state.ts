@@ -15,8 +15,24 @@
 /* 壳层没有「皮肤」这个状态了：底色、文字、边框全部读宿主的 CSS 变量，
    强调色存在 ReaderPrefs.accent 里（那是阅读偏好，跟着书走）。 */
 
-/** 书架四页。设置也在这里，不用 Obsidian 原生设置页。 */
-export type StudyPage = 'library' | 'notes' | 'stats' | 'settings';
+/**
+ * 书架的各页。
+ *
+ * 只有 library / notes 占页签位置；stats / settings / search / import
+ * 是「子页」，从右上四颗图标进去，头栏换成「← 返回 + 标题」。
+ * 分成两类是因为页签栏一长就变成一排小字，扫不动。
+ */
+export type StudyPage = 'library' | 'notes' | 'stats' | 'settings' | 'search' | 'import';
+
+/** 占页签的两页 */
+export type StudyTab = 'library' | 'notes';
+
+/** 子页：进来前的页记在 studyBack，返回键回到那儿 */
+export const STUDY_SUB_PAGES = ['stats', 'settings', 'search', 'import'] as const;
+
+export function isStudyTab(page: StudyPage): page is StudyTab {
+  return page === 'library' || page === 'notes';
+}
 
 /** 左侧栏四页签：书的坐标（书架是中心 tab，不在这里） */
 export type SideTab = 'toc' | 'bookmarks' | 'highlights' | 'ai';
@@ -96,12 +112,17 @@ export function overlayKey(o?: OverlayState | null): string {
 export interface ShellState {
   /* 承载 */
   studyPage: StudyPage;
+  /** 子页的返回目标：进搜索/导入/统计/设置之前停在哪一页 */
+  studyBack: StudyTab;
   /* 书库 */
   libView: LibView;
   libFilter: LibFilter;
   libSort: LibSort;
   libShelf: string;
   libKw: string;
+  /* 搜索（书架整页与阅读页浮层共用一份，切页不丢词） */
+  searchKw: string;
+  searchScope: 'book' | 'all';
   /* 笔记 */
   noteFilter: string;
   noteKw: string;
@@ -124,11 +145,14 @@ const LS_KEY = 'bzs-shell-v1';
 
 export const DEFAULT_SHELL_STATE: ShellState = {
   studyPage: 'library',
+  studyBack: 'library',
   libView: 'grid',
   libFilter: 'all',
   libSort: 'recent',
   libShelf: '全部',
   libKw: '',
+  searchKw: '',
+  searchScope: 'book',
   noteFilter: 'all',
   noteKw: '',
   reviewIdx: 0,
@@ -150,7 +174,9 @@ export function loadShellState(): ShellState {
     const raw = window.localStorage.getItem(LS_KEY);
     if (raw) {
       const d = JSON.parse(raw) as Partial<ShellState>;
-      if (d.studyPage && ['library', 'notes', 'stats', 'settings'].includes(d.studyPage)) state.studyPage = d.studyPage;
+      /* 只恢复页签两页：子页是「进来干一件事」的，重开 Obsidian 还停在
+         导入页会让人以为插件坏了。 */
+      if (d.studyPage === 'library' || d.studyPage === 'notes') state.studyPage = d.studyPage;
       if (d.libView === 'grid' || d.libView === 'list') state.libView = d.libView;
       if (d.libFilter) state.libFilter = d.libFilter;
       if (d.libSort) state.libSort = d.libSort;
@@ -179,6 +205,17 @@ export function setState(patch: Partial<ShellState>): void {
   notify();
 }
 
+/**
+ * 写状态但不广播。
+ *
+ * 只给「用户正在打字」这类场景用：搜索框每敲一个字都整页重绘的话，
+ * 输入框会被换掉、光标丢、中文输入法还会被打断。值本身是真的写进
+ * 状态的，下一个真正的广播（切页、点按钮）会带着它一起生效。
+ */
+export function setStateQuiet(patch: Partial<ShellState>): void {
+  Object.assign(state, patch);
+}
+
 /** 读当前状态 → 改 → 写回。适合「先读旧值再改」的场景（筛选切换、收藏） */
 export function mutateState(fn: (s: ShellState) => void): void {
   fn(state);
@@ -188,7 +225,7 @@ export function mutateState(fn: (s: ShellState) => void): void {
 
 function persist(): void {
   try {
-    const { overlay, libKw, noteKw, ...rest } = state;
+    const { overlay, libKw, noteKw, searchKw, ...rest } = state;
     // 浮层与输入框内容不落盘：下次打开还停在上次的弹窗上很怪
     window.localStorage.setItem(LS_KEY, JSON.stringify(rest));
   } catch {

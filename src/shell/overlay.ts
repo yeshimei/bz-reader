@@ -21,8 +21,8 @@ import { collectStats } from '../data/stats';
 import { cn, esc, coverHtml, ico, MAG } from './render/html';
 import { bmksOf, fmtMinutes, fmtWhen, marksOf } from './domain';
 import { noteCardHtml } from './render/notes';
-import { searchHits } from './search-hits';
-import { closeOverlay, dismissesOnOutside, getState } from './state';
+import { searchFormHtml, searchResultsHtml } from './render/search';
+import { closeOverlay, dismissesOnOutside, getState, setState } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
@@ -73,48 +73,15 @@ function markById(id?: string | null, bookId?: string | null) {
  * 渲染过——用户打字时屏幕毫无变化，必须再点一下「本书 / 全库」才出结果。
  * 这里把「命中计算」交给纯函数 search-hits，顺便避免整块重绘打断中文输入法。
  */
-function searchResultsHtml(kw: string, scope: 'book' | 'all'): string {
-  if (!kw.trim()) return `<div class="bzs-empty">输入关键词。想搜正文全文，用 Obsidian 自带的全文搜索更快。</div>`;
-  const books = (scope === 'book' ? liveBooks().filter((b) => b.id === getState().bookId) : liveBooks()).map((b) => ({
-    id: b.id,
-    title: b.meta.title,
-    author: b.meta.author,
-    marks: marksOf(b).map((m) => ({
-      id: m.id,
-      text: m.text,
-      comment: m.comment,
-      chapterTitle: m.chapterTitle,
-    })),
-  }));
-  const { groups, total } = searchHits(books, kw);
-  if (!total) return `<div class="bzs-empty">没有找到「${esc(kw)}」</div>`;
-  return groups
-    .map(
-      (g) =>
-        `<div class="bzs-hitgroup">${esc(g.title)} · ${g.total} 处</div>${g.rows
-          .map((r) =>
-            r.kind === 'book'
-              ? `<button class="bzs-hit" data-act="openbook" data-id="${esc(r.bookId)}"><span class="loc">书籍</span>${esc(r.text)}</button>`
-              : `<button class="bzs-hit" data-act="jumpmark" data-id="${esc(r.id)}" data-book="${esc(r.bookId)}"><span class="loc">${esc(r.label)}</span>${esc(r.text)}</button>`,
-          )
-          .join('')}`,
-    )
-    .join('');
-}
-
 function overlaySearch(): string {
-  const scope = RT.searchScope;
-
-  const body = `<div class="bzs-search-in">${MAG}
-      <input data-role="searchkw" placeholder="搜书名、作者、章节名或标注里的字…" value="${esc(RT.searchKw)}"></div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
-      <button class="bzs-chip${scope === 'book' ? ' on' : ''}" data-act="searchscope" data-v="book">本书</button>
-      <button class="bzs-chip${scope === 'all' ? ' on' : ''}" data-act="searchscope" data-v="all">全库 · ${liveBooks().length} 本</button>
-      <span class="bzs-mini" style="margin-left:auto">搜的是已建索引的内容：书名、作者、标注与想法</span>
-    </div>
-    <div data-role="hitlist">${searchResultsHtml(RT.searchKw, scope)}</div>`;
-
-  return modal('搜索', '本书 / 全库', body, '', 'wide tall');
+  const { searchKw, searchScope } = getState();
+  return modal(
+    '搜索',
+    '本书 / 全库',
+    `${searchFormHtml()}<div data-role="hitlist">${searchResultsHtml(searchKw, searchScope)}</div>`,
+    '',
+    'wide tall',
+  );
 }
 
 /**
@@ -190,21 +157,6 @@ function overlayTypography(): string {
   return `<div class="bzs-float is-corner no-head" data-role="float">
     <div class="bzs-mbody">${typographyFormHtml()}</div>
   </div>`;
-}
-
-function overlayImport(): string {
-  const body = `<div class="bzs-drop" data-role="drop"><b>把书拖到这里</b>也可以直接放进笔记库，再回书库刷新<br>
-      <span class="bzs-mini">文件留在笔记库里，卸载插件也读得到</span></div>
-    <div class="bzs-sect-h"><b>支持的格式</b><span class="ln"></span></div>
-    <div class="bzs-kv"><b>EPUB / TXT</b><span>封面、目录、分页与标注</span></div>
-    <div class="bzs-kv"><b>MOBI / AZW3 / FB2 / CBZ</b><span>导入后自动转换</span></div>
-    <div class="bzs-mini" style="margin-top:12px;line-height:1.9">点下面的按钮会用 Obsidian 原生文件选择器，导入后自动重扫书库。</div>`;
-  return modal(
-    '导入书籍',
-    'epub · txt · mobi · azw3 · fb2',
-    body,
-    `<button class="bzs-btn pri" data-act="import">选择文件…</button>${closeBtn()}`,
-  );
 }
 
 function overlayExport(bookId?: string): string {
@@ -737,8 +689,6 @@ export function overlayHtml(): string {
   switch (o.kind) {
     case 'search':
       return overlaySearch();
-    case 'import':
-      return overlayImport();
     case 'typography':
       return overlayTypography();
     case 'export':
@@ -879,9 +829,11 @@ export class OverlayLayer {
       if (!role) return;
       // 搜索框就地更新命中列表：重绘会把输入框换掉，手指还在打就被打断
       if (role === 'searchkw') {
-        RT.searchKw = t.value;
+        /* 输入过程不整页重绘：重绘会把输入框换掉，手指还在打就被打断。
+           只把新词写进状态，命中列表就地换 innerHTML。 */
+        setState({ searchKw: t.value });
         const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
-        if (list) list.innerHTML = searchResultsHtml(RT.searchKw, RT.searchScope);
+        if (list) list.innerHTML = searchResultsHtml(t.value, getState().searchScope);
         return;
       }
       // 排版滑块（pref）、年度目标（goal）、设置项（setting）走与书架同一条链路。

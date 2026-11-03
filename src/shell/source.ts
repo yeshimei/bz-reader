@@ -25,8 +25,16 @@ export interface ShellSource {
   store: ReaderStore;
   /** 打开一本书（带 cfi 落到那一页）；已有同书 tab 就复用 */
   openBook: (book: ReaderBook, cfi?: string) => void;
-  /** 打开导入面板 */
+  /** 打开导入页（整页，S1 定稿） */
   openImport: () => void;
+  /**
+   * 把导入页挂进给定容器，返回拆卸函数。
+   *
+   * 导入是命令式的（扫描 / 勾选 / 写盘都有内部状态），做成纯 HTML
+   * 要么把状态全搬进 ShellState，要么每次重绘丢一次勾选。挂载更省事，
+   * 也让「导入」这套逻辑只存在一份。
+   */
+  mountImport: (host: HTMLElement) => () => void;
   /** 打开书架 tab（单例），可指定页。移动端是全屏弹窗 */
   openStudy: (page?: StudyPage) => void;
   /** 关掉书架。移动端是关闭全屏弹窗；桌面没有「关书架」这回事，实现为空 */

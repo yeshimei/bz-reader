@@ -209,11 +209,15 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
   switch (act) {
     /* ── 承载 ── */
     case 'study': {
+      /* 进页的统一规则（返回目标、搜索范围）在 plugin.openStudy 里，
+         这里只把页码递过去——四个入口（页签、图标、命令、协议）共用一套。 */
       const page = (d.p as StudyPage) || 'library';
-      setState({ studyPage: page });
       getShellSource()?.openStudy(page);
       break;
     }
+    case 'studyback':
+      getShellSource()?.openStudy(getState().studyBack);
+      break;
     case 'gostudy':
       getShellSource()?.openStudy();
       break;
@@ -771,7 +775,7 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       // 本书搜索免费，跨书搜索属于高级版；切换时拦，不要在结果里悄悄少几本
       if (d.v === 'all' && !requireCap('crossSearch')) break;
       if (d.v === 'book' || d.v === 'all') {
-        RT.searchScope = d.v;
+        setState({ searchScope: d.v });
         env.repaint?.();
       }
       break;
@@ -1034,7 +1038,7 @@ export function dispatchInput(target: HTMLInputElement | HTMLSelectElement | HTM
     return;
   }
   if (role === 'searchkw') {
-    RT.searchKw = value;
+    setState({ searchKw: value });
     return;
   }
   if (role === 'aiask') return;

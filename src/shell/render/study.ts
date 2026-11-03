@@ -10,7 +10,7 @@
  * ============================================================ */
 import type { BookRow } from '../adapt';
 import { continueRow, shelfNames } from '../adapt';
-import type { ShellState, StudyPage } from '../state';
+import { isStudyTab, type ShellState, type StudyPage } from '../state';
 import { MAG, barHtml, coverHtml, esc, ico } from './html';
 
 export interface StudyPageDef {
@@ -20,12 +20,32 @@ export interface StudyPageDef {
   icon: string;
 }
 
-export const STUDY_PAGES: StudyPageDef[] = [
+/** 占页签位置的两页。统计与设置不在这里——它们退到右上图标 */
+export const STUDY_TABS: StudyPageDef[] = [
   { value: 'library', label: '书库', icon: 'library' },
   { value: 'notes', label: '笔记', icon: 'note' },
+];
+
+/**
+ * 右上四颗。顺序即定稿：搜索、统计、导入、设置。
+ *
+ * 统计与设置从前是页签，摆在书库/笔记旁边意味着「同一层级的事」；
+ * 实际上它们是低频的设置类入口，占着页签位置反而让高频的两页变小。
+ */
+export const STUDY_ACTS: StudyPageDef[] = [
+  { value: 'search', label: '搜索', icon: 'search' },
   { value: 'stats', label: '统计', icon: 'chart' },
+  { value: 'import', label: '导入书籍', icon: 'import' },
   { value: 'settings', label: '设置', icon: 'gear' },
 ];
+
+/** 子页标题：头栏那一行字 */
+const SUB_TITLE: Record<string, string> = {
+  search: '搜索',
+  import: '导入书籍',
+  stats: '统计',
+  settings: '设置',
+};
 
 /** 页签上的计数徽记：书库给本数，笔记给条数，统计与设置不给 */
 export interface StudyCounts {
@@ -37,28 +57,39 @@ export interface StudyCounts {
  * 书架整页外壳。`body` 是内部某一页的 HTML。
  *
  * 它占一个中心 tab（VIEW_TYPE_STUDY），不是侧栏——侧栏留给目录/书签/划线。
- * 头行压成一行：四页签（带图标）+ 搜索/导入；大题「书 架」去掉了——
- * 页签本身已经说明这是哪，一行大字只吃竖向空间。
+ * 两种头栏：
+ *   · 页签页（书库/笔记）：两页签 + 右侧四颗图标
+ *   · 子页（搜索/导入/统计/设置）：一颗返回 + 标题，不再有页签
+ * 子页不留右上四颗：正在做一件事的时候，旁边摆四个「去别处」的按钮
+ * 只会让人分心，要换页先退出来。
  */
 export function studyShell(page: StudyPage, body: string, counts: StudyCounts): string {
-  const nav = STUDY_PAGES.map((p) => {
-    const n = p.value === 'library' ? counts.books : p.value === 'notes' ? counts.notes : 0;
+  const head = isStudyTab(page)
+    ? `<div class="bzs-stuhead">${tabNav(page, counts)}<span class="sp"></span>${actBar()}</div>`
+    : `<div class="bzs-stuhead is-sub"><button class="bzs-back" data-act="studyback" title="返回" aria-label="返回">${ico(
+        'back',
+      )}</button><span class="bzs-subtitle">${esc(SUB_TITLE[page] || '')}</span></div>`;
+
+  return `<div class="bzs-studio">${head}<div class="bzs-stubody">${body}</div></div>`;
+}
+
+function tabNav(page: StudyPage, counts: StudyCounts): string {
+  const nav = STUDY_TABS.map((p) => {
+    const n = p.value === 'library' ? counts.books : counts.notes;
     return `<button class="${page === p.value ? 'on' : ''}" data-act="study" data-p="${p.value}" title="${p.label}">${ico(
       p.icon,
     )}<span>${p.label}</span>${n ? `<span class="n">${n}</span>` : ''}</button>`;
   }).join('');
+  return `<nav class="bzs-stunav">${nav}</nav>`;
+}
 
-  return `<div class="bzs-studio">
-    <div class="bzs-stuhead">
-      <nav class="bzs-stunav">${nav}</nav>
-      <span class="sp"></span>
-      <div class="bzs-stuacts">
-        <button class="bzs-cbtn" data-act="search" title="搜索（命令面板里也能搜到）" aria-label="搜索">${ico('search')}</button>
-        <button class="bzs-cbtn" data-act="import" title="导入书籍" aria-label="导入">${ico('import')}</button>
-      </div>
-    </div>
-    <div class="bzs-stubody">${body}</div>
-  </div>`;
+function actBar(): string {
+  return `<div class="bzs-stuacts">${STUDY_ACTS.map(
+    (a) =>
+      `<button class="bzs-cbtn" data-act="study" data-p="${a.value}" title="${a.label}" aria-label="${a.label}">${ico(
+        a.icon,
+      )}</button>`,
+  ).join('')}</div>`;
 }
 
 /* ─────────── 书库 ─────────── */
