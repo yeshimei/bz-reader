@@ -95,6 +95,8 @@ export function installDomStub(): () => void {
     getSelection: () => null,
   };
   const g = globalThis as unknown as Record<string, unknown>;
+  const hadWindow = 'window' in g;
+  (g as { window?: unknown }).window = { innerWidth: 390, innerHeight: 844 };
   const hadDoc = 'document' in g;
   const hadGcs = 'getComputedStyle' in g;
   g.document = stub;
@@ -102,5 +104,6 @@ export function installDomStub(): () => void {
   return () => {
     if (!hadDoc) delete g.document;
     if (!hadGcs) delete g.getComputedStyle;
+    if (!hadWindow) delete (g as { window?: unknown }).window;
   };
 }

@@ -9,6 +9,7 @@
  * 容器本身带 .bzs-shell + data-bzaccent，为的是拿到同一套设计令牌；
  * 它的背景被覆盖成透明，所以不会给整屏染色。
  * ============================================================ */
+import { anchoredStyle } from './anchored-style';
 import { HIGHLIGHT_COLORS } from '../data/notes';
 import { aiAsk, type AiTask } from '../data/ai';
 import type { ReaderBook } from '../data/schema';
@@ -400,14 +401,6 @@ function isFloatKind(): boolean {
  * 比强行顶出视口好，用户至少还看得见。宽度固定、不随文字变：
  * 一条短划线和一条长段落点开应该是同一张卡。
  */
-function anchoredStyle(a?: { left: number; top: number }): string {
-  const vw = window.innerWidth;
-  const w = Math.min(360, vw - 24);
-  if (!a || (!a.left && !a.top)) return `left:50%;top:72px;width:${w}px;transform:translateX(-50%)`;
-  const left = Math.min(vw - w / 2 - 12, Math.max(w / 2 + 12, a.left));
-  const above = a.top > 280;
-  return `left:${Math.round(left)}px;top:${Math.round(above ? a.top - 14 : a.top + 26)}px;width:${w}px;transform:translate(-50%,${above ? '-100%' : '0'})`;
-}
 
 function overlayHlcard(markId?: string, bookId?: string): string {
   const found = markById(markId, bookId);

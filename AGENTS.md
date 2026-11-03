@@ -22,7 +22,31 @@ node esbuild.config.mjs once                      # 同步到主库
 
 ---
 
-## 2. 提交前必须跑的三道门（缺一不可）
+## 2. 铁律：测试驱动（TDD）
+
+**任何一次代码修改都必须先有/同时有测试。没有测试的提交不许进主干。**
+
+顺序固定，不许颠倒：
+
+1. 先写（或改）`tests/<模块>.test.ts`，让它**红**；
+2. 再改实现，让它**绿**；
+3. 最后跑三道门（下面第 3 节），全绿才 commit。
+
+具体要求：
+
+- 修 bug：先写一条**能复现该 bug 的断言**，再修。修完这条测试永久留在仓库里。
+- 加功能：先写行为断言（输入 → 期望输出/状态），再写实现。
+- 纯逻辑抽不出来就先抽：`src/shell/anchored-style.ts` 就是从 overlay.ts 里
+  拆出来才测得动的（overlay.ts 拖进 foliate 的 DOM 依赖，node 里 import 就炸）。
+- 测试文件与实现文件**同一提交**进入 git；提交信息里写清测试覆盖了什么。
+- 允许例外只有一种：纯样式（CSS）改动。此时必须在提交信息里写明
+  「无逻辑变更，走真机冒烟」并说明冒烟了什么。
+
+违反这条的提交，一律回滚重做。
+
+---
+
+## 3. 提交前必须跑的三道门（缺一不可）
 
 ```powershell
 node node_modules/typescript/bin/tsc --noEmit   # 1. 类型
@@ -35,7 +59,7 @@ node esbuild.config.mjs once                    # 3. 构建（现在只有一个
 
 ---
 
-## 3. 测试规范
+## 4. 测试规范
 
 - 测试放 `tests/`，命名 `tests/<模块名>.test.ts`，一模块一文件。
 - **新增/修改一个模块，同一次提交里必须带它的测试。**
@@ -61,7 +85,7 @@ node esbuild.config.mjs once                    # 3. 构建（现在只有一个
 
 ---
 
-## 4. 真机问题的排查方式
+## 5. 真机问题的排查方式
 
 不要靠用户截图猜。插件会往**库根目录**写 `bz-reader-debug.md`：
 
@@ -78,7 +102,7 @@ boot / viewport / tap / turn / tap.blockSnap / paginator.* / relocate / nav.time
 
 ---
 
-## 5. 交互约定（移动端）
+## 6. 交互约定（移动端）
 
 - 点正文：**下方 = 下一页，上方 = 上一页**（纵向分区，不看左右）。
 - 两指同时轻按：切换沉浸（藏宿主上下两条栏）。
@@ -87,7 +111,7 @@ boot / viewport / tap / turn / tap.blockSnap / paginator.* / relocate / nav.time
 
 ---
 
-## 6. 不要做的事
+## 7. 不要做的事
 
 - 不要提交 `.scratch*` 临时脚本、`dist/`、库里的调试日志。
 - 不要为了修一个 bug 顺手重构无关模块。
