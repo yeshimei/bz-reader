@@ -48,7 +48,7 @@
 | Original and translation side by side | — | ✓ |
 | Book map | — | ✓ |
 
-Enter your license key in **Settings → bz Reader → 授权 (License)** to unlock — verified locally, no network required.
+Enter your license key in **Shelf → Settings → 授权 (License)** to unlock — verified locally, no network required.
 
 ## FAQ
 

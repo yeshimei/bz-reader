@@ -283,8 +283,8 @@ export function setLicense(code: string): void {
 /**
  * 激活一个码：验签 → 通过才落盘。
  *
- * 原生设置页与壳层解锁层都必须走这一个入口。以前两条路各写各的：
- * 壳层会 setLicense，原生设置页只把码写进 settings，于是「界面显示已激活、
+ * 书架设置页与壳层解锁层都必须走这一个入口。以前两条路各写各的：
+ * 壳层会 setLicense，另一条只把码写进 settings，于是「界面显示已激活、
  * can() 仍为 false」——用户装好先去的那个入口恰好是坏的。
  */
 export async function activateLicense(code: string): Promise<{ ok: boolean; message: string }> {

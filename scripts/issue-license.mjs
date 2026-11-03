@@ -6,7 +6,7 @@
  *   node scripts/issue-license.mjs --name 包仔 --until 2027-12-31
  *   node scripts/issue-license.mjs --name 包仔 --plan lifetime --id BZR-2026-0001
  *
- * 输出形如 BZR2.<payload>.<sig> 的激活码，粘贴到 设置 → 授权。
+ * 输出形如 BZR2.<payload>.<sig> 的激活码，粘贴到 书架 → 设置 → 授权。
  * 需要 scripts/keys/private.pem（gen-keys.mjs 生成）。
  *
  * 签名 = ECDSA P-256 + SHA-256，**IEEE-P1363 裸格式（r||s 各 32 字节）**：

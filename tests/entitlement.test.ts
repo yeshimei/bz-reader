@@ -45,7 +45,7 @@ function issue(payload: object): string {
 }
 
 /**
- * 回归目标：**原生设置页那条路也要真的解锁**。
+ * 回归目标：**激活入口那条路也要真的解锁**。
  *
  * 以前的 bug 是 verifyLicense 通过后只把码写进 settings，entitlement 里仍然是
  * 空的，于是界面显示「已激活」、can() 恒 false。这里从激活入口一路断言到 can()。

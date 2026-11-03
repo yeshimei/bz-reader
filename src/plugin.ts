@@ -30,8 +30,6 @@ import { openImport } from './ui/import-panel';
 import { ReaderView, VIEW_TYPE_READER, type ReaderCommand, type ReaderHostApi } from './view/reader-view';
 import { SideView, VIEW_TYPE_TOC, type SideTab } from './view/side-view';
 import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-state';
-import { ReaderSettingTab } from './ui/settings-tab';
-import { licenseSummary } from './data/license';
 import { releaseCovers } from './data/cover';
 import { activateLicense as applyLicense, can, recordActivity, revalidateLicense, setProBuild } from './data/entitlement';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
@@ -153,17 +151,8 @@ export function createPlugin(cfg: PluginConfig) {
         },
       });
 
-      // 原生设置页只留一个「迁到书架」的说明与跳转；真正的设置在书架第四页
-      this.addSettingTab(
-        new ReaderSettingTab({
-          app: this.app,
-          plugin: this,
-          store: this.store,
-          openSettings: () => this.openStudy('settings'),
-          activate: (code) => this.activateLicense(code),
-          licenseInfo: () => licenseSummary(normalizeSettings(this.store.get().settings ?? undefined).license),
-        }),
-      );
+      /* 不注册 Obsidian 原生设置页：设置只有一处——书架 · 设置。
+         两处能改同一个值就会「在这边改了、那边还显示旧的」。 */
 
       /* 位置双链：笔记里的 obsidian://bz-reader?book=…&cfi=… 从这里落回原文 */
       this.registerObsidianProtocolHandler(PROTOCOL, (params) => {
@@ -361,10 +350,10 @@ export function createPlugin(cfg: PluginConfig) {
     }
 
     /**
-     * 激活码的唯一入口（原生设置页 / 壳层解锁层共用）。
+     * 激活码的唯一入口（书架设置页 / 壳层解锁层共用）。
      *
      * 顺序：验签 → 通过才写 entitlement（can() 的真相）→ 同步一份到
-     * settings（原生页的状态行与导出稿读它）→ 重绘所有壳层。
+     * settings（导出稿等读它）→ 重绘所有壳层。
      * 只写 settings 不写 entitlement 就是「显示已激活、功能全锁死」。
      */
     async activateLicense(code: string): Promise<{ ok: boolean; message: string }> {

@@ -40,4 +40,13 @@ describe('设置页渲染', () => {
     const out = html();
     expect(out).toMatch(/data-k="fontSize"[^>]*--fill:\d/);
   });
+
+  /* 插件已不再注册 Obsidian 原生设置页，这里是填激活码的唯一入口。
+     一旦这组被删或改名，用户就无处可激活——所以钉死输入框与按钮。 */
+  it('未激活时给出激活码输入框与激活按钮', () => {
+    const out = html();
+    expect(out).toContain('<h3>授权</h3>');
+    expect(out).toContain('data-role="license"');
+    expect(out).toContain('data-act="activate"');
+  });
 });
