@@ -16,7 +16,7 @@ import type { BookFormat } from '../data/schema';
 import { BOOK_FORMATS_LABEL, formatOf, scanVault, titleFromPath } from '../data/book-repo';
 import type { BookRepo } from '../data/book-repo';
 import { importFolderOf, pickAndImport } from '../data/importer';
-import { normalizeSettings } from '../data/settings';
+import { shellSettings } from '../shell/source';
 import type { ReaderStore } from '../data/store';
 import { uiModal } from '../core/ui/modal';
 import { notify } from '../core/notice';
@@ -52,7 +52,7 @@ export function openImport(deps: ImportDeps): void {
   const { app, repo, store, formats, onDone } = deps;
   const mobile = Platform.isMobile;
   // 本地文件写进哪个文件夹，由设置页统一决定（「数据 · 书籍导入位置」）
-  const folder = importFolderOf(normalizeSettings(store.get().settings).importDir);
+  const folder = importFolderOf(shellSettings().importDir);
   const folderText = folder || '库根目录';
 
   const root = el('div', 'bzr-imp' + (mobile ? ' is-mobile' : ''));

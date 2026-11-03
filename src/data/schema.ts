@@ -146,6 +146,21 @@ export interface ReaderBook {
   notes: BookNotes;
   addedAt: number;
   updatedAt: number;
+  /**
+   * 收藏（书架上那颗星）。
+   *
+   * 2026-11-04 从 localStorage 搬进业务数据：以前换台电脑，书在、进度在、
+   * 划线在，收藏星标没了——README 承诺的「跟着走」只兑现了一半。
+   * bz 侧读到不认识的键会忽略，不影响数据同构。
+   */
+  favorite?: boolean;
+  /**
+   * 书架分组名（用户自己起的中文书架名）。
+   *
+   * 与 `meta.subjects` 分开：那是 EPUB 自带的英文分类，只当默认值。
+   * 以前分组也存在 localStorage，换设备后整排书退回「未分类」。
+   */
+  shelf?: string;
 }
 
 export interface ReaderData {
@@ -153,8 +168,20 @@ export interface ReaderData {
   books: ReaderBook[];
   /** 全局阅读偏好（字号/行距/主题），缺省见 data/prefs.ts */
   prefs?: unknown;
-  /** 插件设置（导出、AI、激活码），缺省见 data/settings.ts */
-  settings?: unknown;
+  /**
+   * 年度阅读目标（本）。
+   *
+   * 以前只活在 localStorage 里，换设备就回到 20 本。现在跟着业务数据走，
+   * 统计页那圈铜线和「还差几本」才不会自相矛盾。
+   */
+  goal?: number;
+  /**
+   * 数据目录的镜像（vault 相对路径）。
+   *
+   * 真相在 `data.json`（它不会被清浏览器缓存干掉）；这里镜像一份是为了
+   * 「把库整个拷到另一台电脑、但没带 .obsidian」时还能看出原来放在哪。
+   */
+  dataDir?: string;
 }
 
 export const EMPTY_DATA: ReaderData = { version: 1, books: [] };

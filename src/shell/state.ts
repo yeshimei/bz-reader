@@ -7,10 +7,12 @@
  *   2. 变更广播：任何写入都 notify()，各视图订阅后各自重绘
  *
  * 与 ReaderStore 的分工：
- *   ReaderStore  = 业务数据（书、进度、标注），落盘 JSON
- *   ShellState   = 界面状态（你正看哪一页），落盘 localStorage
+ *   ReaderStore  = 业务数据（书、进度、标注、收藏、分组、目标），落盘 JSON
+ *   ShellState   = 界面状态（你正看哪一页、筛了哪个架），落盘 localStorage
  *     —— 界面状态丢了不算数据丢失，不值得占用业务 JSON 的写盘预算
  * ============================================================ */
+
+import { getShellSource } from './source';
 
 /* 壳层没有「皮肤」这个状态了：底色、文字、边框全部读宿主的 CSS 变量，
    强调色存在 ReaderPrefs.accent 里（那是阅读偏好，跟着书走）。 */
@@ -225,7 +227,15 @@ export function closeOverlay(): void {
   });
 }
 
-/* ── 收藏（真实数据里没有这个字段，存在壳层） ── */
+/* ── 收藏 / 分组 / 目标 ──
+ * 2026-11-04 起这三样的**真相在业务数据**（book.favorite / book.shelf /
+ * data.goal），ShellState 里这几个字段退化成界面缓存：
+ *   - 启动 / 重扫后用 hydrateLibrary() 从书里灌回来；
+ *   - 用户操作时先改缓存（界面立刻响应），再写业务数据（换设备才跟得走）。
+ *
+ * 为什么不能只留一份：只放 localStorage → 换设备全丢（P2-01）；
+ * 只放 store → 每次渲染都要扫一遍 books 建索引，而渲染在翻页路径上。
+ */
 export function isFav(id: string): boolean {
   return state.favIds.includes(id);
 }
@@ -235,5 +245,33 @@ export function toggleFav(id: string): boolean {
   mutateState((s) => {
     s.favIds = on ? [...s.favIds, id] : s.favIds.filter((x) => x !== id);
   });
+  getShellSource()?.setFavorite(id, on);
   return on;
+}
+
+export function setGoal(books: number): void {
+  const n = Math.min(200, Math.max(1, Math.round(books)));
+  mutateState((s) => {
+    s.goal = n;
+  });
+  getShellSource()?.setGoal(n);
+}
+
+/**
+ * 从业务数据把收藏 / 分组 / 目标灌回界面缓存。
+ *
+ * 调用点：onload、syncVault 之后、迁移数据目录之后、一键恢复之后。
+ * 不调用的话，同步进来的 `favorite: true` 在界面上永远不显示星标。
+ */
+export function hydrateLibrary(
+  books: ReadonlyArray<{ id: string; favorite?: boolean; shelf?: string }>,
+  goal?: number,
+): void {
+  state.favIds = books.filter((b) => b.favorite === true).map((b) => b.id);
+  const shelves: Record<string, string> = {};
+  for (const b of books) if (typeof b.shelf === 'string' && b.shelf) shelves[b.id] = b.shelf;
+  state.shelves = shelves;
+  if (typeof goal === 'number' && goal > 0) state.goal = Math.min(200, Math.round(goal));
+  persist();
+  notify();
 }

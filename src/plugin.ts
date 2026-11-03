@@ -16,13 +16,13 @@
  * ============================================================ */
 import { Plugin, type WorkspaceLeaf } from 'obsidian';
 import { setApp } from './core/app';
-import { setPluginRelDir, dataDirOf, normalizeDataDir, setDataDir, PLUGIN_ID } from './core/plugin-path';
+import { setPluginRelDir, dataDirOf, normalizeDataDir, setDataDir, DEFAULT_DATA_DIR, PLUGIN_ID } from './core/plugin-path';
 import { isMobileShell } from './core/mobile';
 import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
 import { BookRepo, BASE_FORMATS, PRO_FORMATS, formatOf, planRelocations, scanVault } from './data/book-repo';
-import { ReaderStore } from './data/store';
-import { copyTree, dirHasFiles, removeTree } from './data/migrate';
+import { ReaderStore, verifyCopiedJson } from './data/store';
+import { copyTree, dirHasFiles, findDataDirs, removeTree } from './data/migrate';
 import { normalizePrefs, type ReaderPrefs } from './data/prefs';
 import { normalizeSettings, type ReaderSettings } from './data/settings';
 import type { BookFormat, ReaderBook } from './data/schema';
@@ -43,7 +43,7 @@ import { openCrossSearch } from './ui/cross-search-panel';
 import { StudyView, VIEW_TYPE_STUDY } from './shell/study-view';
 import { OverlayLayer } from './shell/overlay';
 import { dispatchAction } from './shell/actions';
-import { loadShellState, notify as notifyShell, overlayKey, setState, getState, subscribe, type StudyPage } from './shell/state';
+import { loadShellState, notify as notifyShell, overlayKey, setState, getState, subscribe, hydrateLibrary, DEFAULT_SHELL_STATE, type StudyPage } from './shell/state';
 import { setShellSource, shellPrefs } from './shell/source';
 
 export interface PluginConfig {
@@ -113,6 +113,9 @@ export function createPlugin(cfg: PluginConfig) {
         },
       });
       setDataDir(this.cfg.dataDir);
+      /* 指针可能是空的（清过缓存 / 只拷了书没带 .obsidian）：扫一遍库根找回来，
+         否则下面 load() 会另建一份空库，用户以为书全丢了。 */
+      await this.resolveDataDir();
 
       /* 移动端保命补丁：宿主 CSP 挡 blob 帧，章节必须以 srcdoc 落地。
          必须早于任何一次开书（拦 URL.createObjectURL 与 iframe.src）。 */
@@ -132,6 +135,11 @@ export function createPlugin(cfg: PluginConfig) {
       this.store = new ReaderStore(this.app);
       await this.store.load();
       this.repo = new BookRepo(this.store.get().books);
+      /* 老版本把 AI 配置和激活码写进业务 JSON；搬到 data.json 之后把残留清掉，
+         否则用户把 bz-reader.json 发给别人时会顺手把自己的 Key 也发出去。 */
+      this.adoptLegacySettings();
+      /* 老版本把收藏 / 分组 / 目标存在 localStorage；搬进业务数据一次 */
+      this.adoptLegacyLibrary();
 
       this.registerView(VIEW_TYPE_READER, (leaf) => new ReaderView(leaf, this));
       this.registerView(VIEW_TYPE_TOC, (leaf) => new SideView(leaf));
@@ -309,52 +317,188 @@ export function createPlugin(cfg: PluginConfig) {
         activate: (code) => this.activateLicense(code),
         dataDir: () => dataDirOf(),
         migrateDataDir: (dir) => this.migrateDataDir(dir),
+        setFavorite: (id, on) => this.patchBook(id, (b) => {
+          if (on) b.favorite = true;
+          else delete b.favorite;
+        }),
+        setGoal: (n) => {
+          this.store.get().goal = n;
+          this.store.touch();
+        },
       });
     }
 
     /**
-     * 换数据目录：落盘 → 复制 → 校验 → 切指针 → 重新加载 → 删旧。
+     * 改一本书上的某个字段：顺手更新 updatedAt 并排一次落盘。
+     *
+     * `updatedAt` 不能漏：P0-01 的外部修改合并是按它取新的那一份，
+     * 少了这一行，用户在电脑上点的收藏会被同步来的旧记录覆盖回去。
+     */
+    private patchBook(id: string, fn: (b: ReaderBook) => void): void {
+      const b = this.repo.byId(id);
+      if (!b) return;
+      fn(b);
+      b.updatedAt = Date.now();
+      this.store.touch();
+    }
+
+    /** 把老版本塞在业务 JSON 里的 settings 搬进 data.json，然后删掉残留 */
+    private adoptLegacySettings(): void {
+      const legacy = (this.store.get() as { settings?: unknown }).settings;
+      if (!legacy || typeof legacy !== 'object') return;
+      const old = normalizeSettings(legacy);
+      // data.json 里已经有值就不覆盖（用户可能在新版本里改过）
+      this.cfg.settings = normalizeSettings({
+        ...old,
+        ...this.cfg.settings,
+        ai: {
+          baseUrl: this.cfg.settings.ai.baseUrl || old.ai.baseUrl,
+          apiKey: this.cfg.settings.ai.apiKey || old.ai.apiKey,
+          model: this.cfg.settings.ai.model || old.ai.model,
+        },
+      });
+      delete (this.store.get() as { settings?: unknown }).settings;
+      this.store.touch();
+      void this.flushCfg();
+    }
+
+    /**
+     * 老版本的收藏 / 分组 / 目标只在 localStorage 里。升级后搬进业务数据一次，
+     * 之后就以业务数据为准（换设备、同步都跟着走）。
+     *
+     * 判据是「业务数据里一条都没有」：只要有一条，说明这台机器已经在用新
+     * 存储，不能拿 localStorage 里的旧快照把它覆盖回去。
+     */
+    private adoptLegacyLibrary(): void {
+      const st = getState();
+      const books = this.repo.all();
+      const data = this.store.get();
+      let touched = false;
+      if (st.favIds.length && !books.some((b) => b.favorite)) {
+        for (const id of st.favIds) {
+          const b = this.repo.byId(id);
+          if (b) {
+            b.favorite = true;
+            touched = true;
+          }
+        }
+      }
+      if (Object.keys(st.shelves).length && !books.some((b) => b.shelf)) {
+        for (const [id, name] of Object.entries(st.shelves)) {
+          const b = this.repo.byId(id);
+          if (b && name) {
+            b.shelf = name;
+            touched = true;
+          }
+        }
+      }
+      if (data.goal === undefined && st.goal !== DEFAULT_SHELL_STATE.goal) {
+        data.goal = st.goal;
+        touched = true;
+      }
+      if (touched) this.store.touch();
+      data.dataDir = dataDirOf();
+      hydrateLibrary(books, data.goal);
+    }
+
+    /**
+     * 换数据目录：落盘 → 复制 → **真解析校验** → 切指针 → 重新加载 → 删旧。
      *
      * 顺序不能改：先落盘是因为 debounce 里可能还有没写的页码；先复制后删
-     * 是因为用户几百条划线只有一份。任一步失败都保持原目录，返回失败原因。
+     * 是因为用户几百条划线只有一份。
+     *
+     * 2026-11-04 补的三条（都是「复制完就删旧目录」这条路上的坑）：
+     *   - 校验不是 `exists()`：副本恰好是半截 JSON 时，exists 为真、load()
+     *     把它隔离成坏文件、然后旧目录被删——用户得到「迁移成功」和一个空书架。
+     *     现在真的 JSON.parse + 条数比对。
+     *   - 拒绝迁到自己的父级/子级：A→A/B 会把 B 复制进自己，删 A 时连 B 一起没。
+     *   - 整段 try/catch：任一步 reject 都把指针指回原目录并给人话，调用方
+     *     不会再看到「正在迁移…」之后一片安静。
      */
     async migrateDataDir(dir: string): Promise<{ ok: boolean; message: string }> {
       const from = dataDirOf();
       const to = normalizeDataDir(dir);
       if (to === from) return { ok: false, message: '新目录和当前目录相同' };
-
-      const srcHasData = await this.app.vault.adapter.exists(`${from}/bz-reader.json`).catch(() => false);
-      await this.store.flush();
-      /* 目标目录必须先空着：A→B 成功后再 B→A（A 可能残留或被云同步回填）时，
-         直接合会拿另一份库的 bz-reader.json 覆盖这一份。 */
-      if (await dirHasFiles(this.app, to)) {
-        return { ok: false, message: `「${to}」里已经有文件，为避免覆盖请先清空或换一个目录` };
+      if (to.startsWith(`${from}/`) || from.startsWith(`${to}/`)) {
+        return { ok: false, message: '不能迁到当前目录的上级或下级文件夹' };
       }
 
-      const res = await copyTree(this.app, from, to);
-      if (res.failed.length) {
-        return { ok: false, message: `有 ${res.failed.length} 个文件没复制成功，已留在原目录` };
-      }
-      if (srcHasData) {
-        const ok = await this.app.vault.adapter
-          .exists(`${to}/bz-reader.json`)
-          .catch(() => false);
-        if (!ok) return { ok: false, message: '复制后没找到数据文件，已留在原目录' };
-      }
+      try {
+        const srcHasData = await this.app.vault.adapter.exists(`${from}/bz-reader.json`).catch(() => false);
+        const beforeBooks = this.store.get().books.length;
+        await this.store.flush();
+        /* 目标目录必须先空着：A→B 成功后再 B→A（A 可能残留或被云同步回填）时，
+           直接合会拿另一份库的 bz-reader.json 覆盖这一份。 */
+        if (await dirHasFiles(this.app, to)) {
+          return { ok: false, message: `「${to}」里已经有文件，为避免覆盖请先清空或换一个目录` };
+        }
 
-      setDataDir(to);
-      this.cfg.dataDir = to;
+        const res = await copyTree(this.app, from, to);
+        if (res.failed.length) {
+          return { ok: false, message: `有 ${res.failed.length} 个文件没复制成功，已留在原目录` };
+        }
+
+        /* 复制出来的 JSON 必须能真的解析，且书数不能少。
+           少了就说明复制被截断——这时绝不能往下走去删旧目录。 */
+        if (srcHasData) {
+          const check = await this.verifyCopy(`${to}/bz-reader.json`, beforeBooks);
+          if (!check.ok) {
+            await removeTree(this.app, to); // 半截副本留着只会挡住下次重试
+            return { ok: false, message: check.message };
+          }
+        }
+
+        setDataDir(to);
+        this.store.get().dataDir = to;
+        const fresh = await this.store.load();
+        // repo 持有的是 books 数组引用，就地换内容，外面拿到的引用仍然有效
+        const books = this.repo.all();
+        books.length = 0;
+        books.push(...fresh.books);
+        hydrateLibrary(books, fresh.goal);
+
+        const removed = await removeTree(this.app, from);
+        this.cfg.dataDir = to;
+        void this.flushCfg();
+        notifyShell();
+        const moved = `已迁移 ${res.files} 个文件到「${to}」`;
+        return { ok: true, message: removed ? moved : `${moved}（旧目录清理失败，可手动删除「${from}」）` };
+      } catch (e) {
+        // 指针已经切走的话要指回来，否则下次启动读的是空目录
+        setDataDir(from);
+        this.cfg.dataDir = from;
+        void this.flushCfg();
+        return { ok: false, message: `迁移失败：${(e as Error)?.message || '未知错误'}，数据仍在原目录` };
+      }
+    }
+
+    /** 校验复制出来的数据文件：能解析、且书数不少于迁移前 */
+    private async verifyCopy(path: string, minBooks: number): Promise<{ ok: boolean; message: string }> {
+      const text = await this.app.vault.adapter.read(path).catch(() => null);
+      return verifyCopiedJson(text, minBooks);
+    }
+
+    /**
+     * 数据目录找回来（P1-07）。
+     *
+     * localStorage 被清、删插件目录重装、或只把 `bz 阅读/` 拷到新电脑时，
+     * 指针会回落到默认的 `bz 阅读/`。它要是空的，插件就会另建一份空库——
+     * 用户看起来是「书还在，进度和划线全没了」，其实旧文件就在隔壁目录。
+     *
+     * 只在当前是**默认目录**时才猜：用户显式设过别的目录，说明他知道自己
+     * 在干什么，扫出来的东西不一定是他要的。
+     */
+    private async resolveDataDir(): Promise<void> {
+      if (dataDirOf() !== DEFAULT_DATA_DIR) return;
+      const adapter = this.app.vault.adapter;
+      if (await adapter.exists(`${DEFAULT_DATA_DIR}/bz-reader.json`).catch(() => false)) return;
+      const found = (await findDataDirs(this.app)).filter((d) => d && d !== DEFAULT_DATA_DIR);
+      if (!found.length) return; // 全新用户，正常
+      const pick = found.find((d) => d === this.cfg.dataDir) ?? found[0]!;
+      setDataDir(pick);
+      this.cfg.dataDir = pick;
       void this.flushCfg();
-      const fresh = await this.store.load();
-      // repo 持有的是 books 数组引用，就地换内容，外面拿到的引用仍然有效
-      const books = this.repo.all();
-      books.length = 0;
-      books.push(...fresh.books);
-
-      const removed = await removeTree(this.app, from);
-      notifyShell();
-      const moved = `已迁移 ${res.files} 个文件到「${to}」`;
-      return { ok: true, message: removed ? moved : `${moved}（旧目录清理失败，可手动删除「${from}」）` };
+      notify(`数据目录找回来了：「${pick}」`, 'info');
     }
 
     /** 壳层状态一变，弹层层与主题就跟着走 */
@@ -559,6 +703,9 @@ export function createPlugin(cfg: PluginConfig) {
       }
       this.repo.markMissing(existing);
       this.store.touch();
+      /* 重扫之后收藏/分组要从书里重新灌一遍：同步来的新书可能带 favorite，
+         只靠启动那一次 hydrate 会让它到下次重启才显示星标。 */
+      hydrateLibrary(this.repo.all(), this.store.get().goal);
       notifyShell();
     }
 

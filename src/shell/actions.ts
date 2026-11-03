@@ -36,7 +36,7 @@ import { linkInline, linkOfMark, linkOfText, linkQuote, rawUrl, targetOfMark } f
 import { exportBookNotes } from '../data/export';
 import { jumpTo, getToc } from '../view/toc-state';
 import type { OverlayKind, StudyPage } from './state';
-import { closeOverlay, getState, mutateState, openOverlay, setState, toggleFav } from './state';
+import { closeOverlay, getState, mutateState, openOverlay, setGoal, setState, toggleFav } from './state';
 import { RT, emitNotesChanged, pushAi } from './runtime';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { copyGroupIdForTrial } from './group';
@@ -627,7 +627,7 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
     /* ── 统计 ── */
     case 'goal': {
       const v = Number(d.v);
-      if (Number.isFinite(v) && v > 0) setState({ goal: Math.round(v) });
+      if (Number.isFinite(v) && v > 0) setGoal(Math.round(v));
       break;
     }
 
@@ -1057,7 +1057,7 @@ export function dispatchInput(target: HTMLInputElement | HTMLSelectElement | HTM
     return;
   }
   if (role === 'goal') {
-    setState({ goal: Math.max(1, Number(value) || 1) });
+    setGoal(Math.max(1, Number(value) || 1));
     const label = document.getElementById('bzs-goalval');
     if (label) label.textContent = `${value} 本`;
     return;

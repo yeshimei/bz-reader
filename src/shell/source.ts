@@ -43,10 +43,14 @@ export interface ShellSource {
   settings: () => ReaderSettings;
   setSettings: (patch: Partial<ReaderSettings>) => void;
   /**
-   * 激活码：验签 → 写 entitlement → 同步 settings → 重绘。
+   * 激活码：验签 → 写 entitlement（data.json）→ 重绘。
    * 书架设置页与解锁弹层都必须走它，否则会出现「显示已激活、功能锁死」。
    */
   activate: (code: string) => Promise<{ ok: boolean; message: string }>;
+  /** 收藏 / 取消收藏。写进业务数据（book.favorite），换设备跟着走 */
+  setFavorite: (id: string, on: boolean) => void;
+  /** 改年度目标（本）。写进业务数据（data.goal） */
+  setGoal: (n: number) => void;
   /** 当前数据目录（vault 相对路径，默认 `bz 阅读`） */
   dataDir: () => string;
   /**
@@ -59,7 +63,8 @@ export interface ShellSource {
 let source: ShellSource | null = null;
 const listeners = new Set<() => void>();
 
-export function setShellSource(next: ShellSource): void {
+/** 注入（传 null 卸载：插件禁用后视图还活着时不至于拿到半个能力包） */
+export function setShellSource(next: ShellSource | null): void {
   source = next;
   emit();
 }
@@ -91,8 +96,8 @@ export function shellPrefs(): ReaderPrefs {
 }
 
 export function shellSettings(): ReaderSettings {
-  const raw = source?.store.get().settings;
-  return normalizeSettings(raw ?? undefined);
+  // 设置现在住在 data.json，由插件持有；store 里那份是老版本的残留
+  return source?.settings() ?? normalizeSettings(null);
 }
 
 export function allBooks(): ReaderBook[] {

@@ -122,6 +122,33 @@ export function sanitizeData(v: unknown): ReaderData | null {
 }
 
 /**
+ * 校验「刚复制出来的那份 JSON 能不能用」（迁移用，P1-04）。
+ *
+ * 为什么不能用 `exists()` 代替：副本恰好是半截 JSON 时 exists 为真，
+ * 流程会切指针 → load() 把新位置的坏文件隔离 → 删掉旧目录。
+ * 用户得到「迁移成功」和一个空书架，原来那份好数据没了。
+ */
+export function verifyCopiedJson(
+  text: string | null,
+  minBooks: number,
+): { ok: boolean; message: string; books: number } {
+  if (text === null) return { ok: false, message: '复制后没找到数据文件，已留在原目录', books: 0 };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { ok: false, message: '复制出来的数据文件是半截 JSON，已留在原目录', books: 0 };
+  }
+  const clean = sanitizeDataDetailed(parsed);
+  if (!clean) return { ok: false, message: '复制出来的数据文件结构不对，已留在原目录', books: 0 };
+  const books = clean.data.books.length;
+  if (books < minBooks) {
+    return { ok: false, message: `复制后只有 ${books} 本书（原有 ${minBooks} 本），已留在原目录`, books };
+  }
+  return { ok: true, message: '', books };
+}
+
+/**
  * 把磁盘上那份（可能来自另一台设备）合进内存这份。
  *
  * 按 `id` 对齐，同一本取 `updatedAt` 大的——这是唯一能跨设备比较的字段。

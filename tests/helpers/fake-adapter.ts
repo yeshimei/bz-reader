@@ -91,7 +91,8 @@ export class FakeAdapter {
   }
 
   async list(path: string): Promise<{ files: string[]; folders: string[] }> {
-    const prefix = `${path.replace(/\/+$/, '')}/`;
+    const base = path.replace(/^\/+|\/+$/g, '');
+    const prefix = base ? `${base}/` : '';
     const files: string[] = [];
     const folders = new Set<string>();
     for (const p of this.files.keys()) {

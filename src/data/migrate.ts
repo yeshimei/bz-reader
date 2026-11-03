@@ -85,3 +85,32 @@ export async function dirHasFiles(app: App, dir: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * 在库根找「哪些目录里有 bz-reader.json」。
+ *
+ * 用在 P1-07：localStorage 被清、删插件目录重装、或换设备只同步了书之后，
+ * 数据目录指针丢了，插件会回落到默认的 `bz 阅读/` → 读不到 → 空库 →
+ * 按文件路径重建书单（每本书进度归零、划线全空），还会顺手写出一份新的空
+ * JSON。旧库文件还在，但插件再也不会去读它。
+ *
+ * 只扫库根和它的一层子目录：再深就不是用户会自己建的布局了，扫全库在
+ * 大库上会卡住启动。返回的路径都是 vault 相对路径，库根是空串。
+ */
+export async function findDataDirs(app: App, fileName = 'bz-reader.json'): Promise<string[]> {
+  const adapter = app.vault.adapter;
+  const out: string[] = [];
+  if (await adapter.exists(fileName).catch(() => false)) out.push('');
+  let listing: { files: string[]; folders: string[] };
+  try {
+    listing = await adapter.list('/');
+  } catch {
+    return out;
+  }
+  for (const raw of listing.folders) {
+    const name = raw.replace(/^\/+|\/+$/g, '');
+    if (!name || name.startsWith('.')) continue; // .obsidian / .trash 不猜
+    if (await adapter.exists(`${name}/${fileName}`).catch(() => false)) out.push(name);
+  }
+  return out;
+}
