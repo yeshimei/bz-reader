@@ -136,15 +136,22 @@ export function viewSettings(v: SettingsView): string {
   }
 
   const ent = entitlement();
+  /* 激活之后这组变成「凭证」：码只读，激活按钮与「高级版 / 查看功能对照」整行都不再出现。
+     那两样是给没解锁的人看的，已付费用户看到只会以为还要再操作一次。 */
+  const paid = ent.tier === 'paid';
   const lic = `<div class="bzs-setgrp">
       <h3>授权</h3>
       <div class="bzs-setrow"><label>状态</label><span class="bzs-mini" style="flex:1">${esc(tierText(ent))}</span></div>
       <div class="bzs-setrow"><label>激活码</label>
-        <input data-role="license" placeholder="BZR2.… 或 BZR1.…" value="${esc(ent.license)}" spellcheck="false" style="flex:1">
-        <button class="bzs-btn sm pri" data-act="activate">激活</button></div>
-      <div class="bzs-setrow"><label>高级版</label>
-        <span class="bzs-mini" style="flex:1">${ent.tier === 'paid' ? '已解锁全部功能' : '导出、统计、跨书搜索、多格式等'}</span>
-        <button class="bzs-btn sm" data-act="unlock" data-mode="export">查看功能对照</button></div>
+        <input data-role="license" placeholder="BZR2.… 或 BZR1.…" value="${esc(ent.license)}" spellcheck="false" style="flex:1"${paid ? ' readonly' : ''}>
+        ${paid ? '' : '<button class="bzs-btn sm pri" data-act="activate">激活</button>'}</div>
+      ${
+        paid
+          ? ''
+          : `<div class="bzs-setrow"><label>高级版</label>
+        <span class="bzs-mini" style="flex:1">导出、统计、跨书搜索、多格式等</span>
+        <button class="bzs-btn sm" data-act="unlock" data-mode="export">查看功能对照</button></div>`
+      }
     </div>`;
 
   const dir = dataDirOf();
