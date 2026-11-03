@@ -53,6 +53,7 @@ import {
 } from '../shell/state';
 import { openOverlay } from '../shell/state';
 import { anchoredPlacement } from '../shell/anchored-style';
+import { selbarActions } from '../shell/selbar';
 import { RT, onNotesChanged } from '../shell/runtime';
 import { shouldNotifyRelocate } from './relocate-notify';
 import { getShellSource } from '../shell/source';
@@ -1005,11 +1006,11 @@ export class ReaderView extends ItemView {
       });
       return b;
     };
-    bar.append(mk('想法', 'selidea'), mk('书摘', 'selquote'));
-    /* AI 属于高级能力：基础版构建里连按钮都不出现，
+    /* 按钮顺序由纯函数定义（想法 / 书摘 / AI / 双链 / 复制），
+       测试直接从 selbarActions 断言，不必把整个视图塞进 node。
+       AI 属于高级能力：基础版构建里连按钮都不出现，
        不做成灰的锁标——那是每次划词都提醒一次「你没买」。 */
-    if (can('ai')) bar.appendChild(mk('AI 解释', 'selai'));
-    bar.appendChild(mk('复制', 'selcopy'));
+    for (const a of selbarActions({ ai: can('ai') })) bar.appendChild(mk(a.label, a.act));
 
     /* 点工具条不能把系统的选区和手柄清掉：pointerdown 默认会让 iframe 失焦，
        选区一塌，后面所有动作都拿不到文本了。 */

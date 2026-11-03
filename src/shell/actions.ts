@@ -32,7 +32,7 @@ import { openHotkeySettings } from '../core/hotkeys';
 import { folderLabel, pickFolder } from '../core/folder-pick';
 import { CAP_LABEL, GROUP_URL, PURCHASE_URL, can, type Cap } from '../data/entitlement';
 import { normalizeDataDir } from '../core/plugin-path';
-import { linkInline, linkQuote, rawUrl, targetOfMark, wikiLink } from '../data/deeplink';
+import { linkInline, linkQuote, rawUrl, targetOfMark, wikiLink, wikiLinkFor } from '../data/deeplink';
 import { exportBookNotes } from '../data/export';
 import { jumpTo, getToc } from '../view/toc-state';
 import type { OverlayKind, StudyPage } from './state';
@@ -713,6 +713,17 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
     case 'hlquote':
       quoteFromMark(d.id, d.book);
       break;
+    case 'hlcopy': {
+      /* 复制划线原文：文字已经存在数据里，不重复塞进 DOM 的 data-text */
+      const book = findBookOfMark(d.id, d.book);
+      const h = book?.notes?.highlights.find((x) => x.id === d.id);
+      if (!book || !h) {
+        notify('没找到这条划线', 'error');
+        break;
+      }
+      void copyText(h.text);
+      break;
+    }
     case 'hldel':
       deleteMark(d.id, d.book);
       closeOverlay();
@@ -751,6 +762,19 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
     case 'selai':
       if (RT.sel && requireCap('ai')) overlay('ai', { text: RT.sel.text, mode: 'explain' });
       break;
+    case 'selbilink': {
+      /* 还没落下标注，只能拿选区 + 当前章名拼双链；地址与笔记页的
+         「双向链接」按钮同源（data/deeplink.ts 的 wikiLinkFor）。 */
+      if (!requireCap('bilink')) break;
+      const sel = RT.sel;
+      const book = sel ? liveBooks().find((b) => b.id === sel.bookId) : undefined;
+      if (!sel || !book) {
+        notify('没有可复制的选区', 'error');
+        break;
+      }
+      void copyText(wikiLinkFor(book, sel.chapterTitle, sel.text));
+      break;
+    }
     case 'selcopy':
       if (RT.sel) void copyText(RT.sel.text);
       break;
