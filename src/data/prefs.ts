@@ -17,7 +17,6 @@
  * 现在底色与正文色直接取宿主的 --background-primary / --text-normal，
  * 明暗跟着宿主走；想区分「书」和「笔记」，靠的应该是强调色与版式，不是底色。
  */
-export type ThemeName = 'auto';
 /** 强调色：默认跟随宿主 accent，其余几档是自持色（明暗各一档） */
 export type AccentName = 'auto' | 'copper' | 'vermilion' | 'indigo' | 'moss';
 export type FontFamilyName = 'book' | 'serif' | 'sans';
@@ -34,14 +33,19 @@ export interface ReaderPrefs {
   margin: number;
   fontFamily: FontFamilyName;
   align: TextAlign;
-  theme: ThemeName;
+  /* 这里曾经有 theme：五套皮肤撤掉之后它只剩 'auto' 一个值，
+     normalizePrefs 也只会写 'auto'。留着它就等于留一个永远是假的开关。 */
   /** 强调色：章题短线、首字下沉、壳层选中态与滑杆都用它 */
   accent: AccentName;
   /** 排版方向。竖排只影响书页内容，界面照旧横排 */
   layout: LayoutMode;
   /** 分页栏数。竖排时引擎强制单栏（竖排双栏的扫描顺序没人看得懂） */
   columns: ColumnCount;
-  /** 点注释号：上方浮窗（默认，高级功能）或直接跳到章末 */
+  /**
+   * 点注释号：上方浮窗（高级功能）或直接跳到章末。
+   * 默认 **jump**：浮窗是高级版能力，默认选一个基础版做不到的方式，
+   * 设置页就会显示「上方浮窗」被选中、实际却跳走——口径必须和默认值一致。
+   */
   footnote: FootnoteMode;
 }
 
@@ -51,11 +55,10 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   margin: 32,
   fontFamily: 'book',
   align: 'justify',
-  theme: 'auto',
   accent: 'auto',
   layout: 'horizontal',
   columns: 1,
-  footnote: 'popup',
+  footnote: 'jump',
 };
 
 export const FONT_SIZE_RANGE = { min: 14, max: 30, step: 1 } as const;
@@ -113,7 +116,6 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     margin: Math.round(clamp(p.margin, MARGIN_RANGE.min, MARGIN_RANGE.max, DEFAULT_PREFS.margin)),
     fontFamily: family,
     align: p.align === 'left' ? 'left' : 'justify',
-    theme: 'auto',
     accent,
     layout: p.layout === 'vertical' ? 'vertical' : 'horizontal',
     columns: p.columns === 2 ? 2 : 1,

@@ -70,6 +70,9 @@ function scopeShellStyles(css) {
         if (!s) return raw;
         if (s.startsWith(".bzs-shell")) return raw;
         if (s.startsWith(".workspace-leaf-content")) return raw;
+        // 尺度变量挂在 :root（有一批旧域样式的元素不在 .bzs-shell 里），
+        // 加前缀就变成「.bzs-shell :root」，永远匹配不上
+        if (s.startsWith(":root")) return raw;
         if (/^(\d|from$|to$)/.test(s)) return raw;
         /**
          * `.bzs-` 开头的选择器已经是本插件专属命名空间，不再套 `.bzs-shell `。
@@ -107,6 +110,51 @@ function buildStyles() {
   return css;
 }
 
+/* ── 基础版物理剔除高级模块 ──
+ *
+ * define（__BZ_READER_PRO__）只能让 `if (false) { … }` 这块代码消失，
+ * 静态 import 进来的模块照样躺在 bundle 里——pro 与 base 之前只差 182 字节，
+ * 就是因为 AI / 朗读 / 统计 / 跨书搜索全是静态 import，运行时 if 拦不住。
+ *
+ * 要真的不留代码就得在解析阶段换文件：base 构建时把这几个模块替换成同签名的
+ * 空实现，包里连一句 speechSynthesis、一个 AI endpoint 都不会有。
+ * 调用方拿到的 null / 空对象就是「这个包没有这项功能」。
+ */
+const PRO_ONLY_STUBS = {
+  "src/core/speak.ts": `
+    export function speak() { return null; }
+    export function stopSpeaking() {}
+  `,
+  "src/data/ai.ts": `
+    export const AI_TASK_LABELS = { summarize: '', explain: '', translate: '' };
+    export async function aiAsk() { return { text: '' }; }
+  `,
+  "src/ui/stats-panel.ts": `
+    export function openStats() {}
+  `,
+  "src/ui/cross-search-panel.ts": `
+    export function openCrossSearch() {}
+  `,
+};
+
+function stubProModules(target) {
+  if (target === "pro") return [];
+  const root = process.cwd();
+  return [
+    {
+      name: "stub-pro-modules",
+      setup(build) {
+        build.onLoad({ filter: /\.ts$/ }, (args) => {
+          const rel = path.relative(root, args.path).replace(/\\/g, "/");
+          const stub = PRO_ONLY_STUBS[rel];
+          if (!stub) return null;
+          return { contents: stub, loader: "js", resolveDir: path.dirname(args.path) };
+        });
+      },
+    },
+  ];
+}
+
 const contexts = [];
 
 for (const target of TARGETS) {
@@ -127,6 +175,7 @@ for (const target of TARGETS) {
     minify: prod,
     charset: "utf8",
     define: { __BZ_READER_PRO__: target === "pro" ? "true" : "false" },
+    plugins: stubProModules(target),
     outfile: path.join(outDir, "main.js"),
   });
   contexts.push({ ctx, outDir, target });

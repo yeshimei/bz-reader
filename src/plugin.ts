@@ -14,7 +14,7 @@
  * 快捷键：键盘上能做的动作全部注册成命令，用户可以去 Obsidian 的
  * 「快捷键」里改键；壳层设置页只负责把它们读出来显示、点一下跳过去。
  * ============================================================ */
-import { Plugin } from 'obsidian';
+import { Plugin, type WorkspaceLeaf } from 'obsidian';
 import { setApp } from './core/app';
 import { setPluginRelDir, dataDirOf, normalizeDataDir, setDataDir, PLUGIN_ID } from './core/plugin-path';
 import { isMobileShell } from './core/mobile';
@@ -32,6 +32,7 @@ import { SideView, VIEW_TYPE_TOC, type SideTab } from './view/side-view';
 import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-state';
 import { ReaderSettingTab } from './ui/settings-tab';
 import { verifyLicense, licenseSummary } from './data/license';
+import { releaseCovers } from './data/cover';
 import { can, recordActivity, revalidateLicense, setProBuild } from './data/entitlement';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
 import { openStats } from './ui/stats-panel';
@@ -47,6 +48,32 @@ import { setShellSource, shellPrefs } from './shell/source';
 export interface PluginConfig {
   /** 高级版构建为 true。基础版为 false，且高级模块根本不在包里。 */
   pro: boolean;
+}
+
+/**
+ * 把 leaf 挪到所在侧栏的第一格。
+ *
+ * Obsidian 没有公开的重排 API——新 leaf 一律追加到左栏底部，于是「打开书
+ * 就切目录」会变成「目录在文件树、搜索、书签下面，得往下滑才看得见」。
+ * 这里用内部的 removeChild / insertChild，两个方法都在运行时存在但不在
+ * d.ts 里；**整个函数包在 try 里**：内部一变就放弃置顶，绝不能让
+ * 「打开目录」这件事本身失败。
+ */
+function moveLeafToTop(leaf: WorkspaceLeaf): void {
+  try {
+    const parent = leaf.parent as unknown as {
+      children?: WorkspaceLeaf[];
+      removeChild?: (l: WorkspaceLeaf, resize?: boolean) => void;
+      insertChild?: (i: number, l: WorkspaceLeaf, resize?: boolean) => void;
+    } | null;
+    if (!parent) return;
+    if (typeof parent.removeChild !== 'function' || typeof parent.insertChild !== 'function') return;
+    if (parent.children && parent.children[0] === leaf) return; // 已经在最上面
+    parent.removeChild(leaf, false);
+    parent.insertChild(0, leaf, false);
+  } catch {
+    /* 内部 API 变了就维持原顺序：位置是锦上添花，开不了侧栏才是 bug */
+  }
 }
 
 export function createPlugin(cfg: PluginConfig) {
@@ -101,20 +128,21 @@ export function createPlugin(cfg: PluginConfig) {
       });
       setShelfProActions({
         openStats: () => {
-          if (can('stats')) openStats(this.store);
+          // 基础版包里没有 openStats（构建时被换成空实现），只能走解锁层
+          if (__BZ_READER_PRO__ && can('stats')) openStats(this.store);
           else setState({ overlay: { kind: 'unlock', mode: 'stats' } });
         },
         openCrossSearch: () => {
-          if (!can('crossSearch')) {
+          if (__BZ_READER_PRO__ && can('crossSearch')) {
+            openCrossSearch({
+              app: this.app,
+              store: this.store,
+              books: this.repo.all().filter((b) => !(b.fileRef as { fileMissing?: boolean }).fileMissing),
+              onJump: (book, cfi) => void this.openBook(book, cfi),
+            });
+          } else {
             setState({ overlay: { kind: 'unlock', mode: 'crossSearch' } });
-            return;
           }
-          openCrossSearch({
-            app: this.app,
-            store: this.store,
-            books: this.repo.all().filter((b) => !(b.fileRef as { fileMissing?: boolean }).fileMissing),
-            onJump: (book, cfi) => void this.openBook(book, cfi),
-          });
         },
       });
 
@@ -124,6 +152,7 @@ export function createPlugin(cfg: PluginConfig) {
           app: this.app,
           plugin: this,
           store: this.store,
+          openSettings: () => this.openStudy('settings'),
           activate: async (code) => {
             const res = await verifyLicense(code);
             return { ok: res.ok, message: res.message };
@@ -205,8 +234,10 @@ export function createPlugin(cfg: PluginConfig) {
            所以卸载时把这些 leaf 收掉，重新加载后由用户（或自动打开）重新开。 */
         leaf.detach();
       }
-      /* 老版本的书架是一个中心 tab，这里顺手清掉；新版本书架在左栏，不用动 */
-      this.app.workspace.detachLeavesOfType(VIEW_TYPE_STUDY);
+      releaseCovers(); // 封面 objectURL 不释放会一直占着内存里的整张图
+      /* 书架就是中心 tab 里的一个视图（VIEW_TYPE_STUDY），跟阅读视图一样是用户
+         自己打开的——插件重载不该替他关掉。Obsidian 在插件停用时自己会把这些
+         leaf 换成占位，我们 detach 只会让人丢掉布局。 */
       void this.store?.destroy();
     }
 
@@ -362,6 +393,7 @@ export function createPlugin(cfg: PluginConfig) {
       if (!leaf) return;
       void leaf.setViewState({ type: VIEW_TYPE_TOC, active: true }).then(() => {
         if (tab && leaf.view instanceof SideView) leaf.view.setTab(tab);
+        moveLeafToTop(leaf);
       });
       ws.leftSplit?.expand?.();
     }
@@ -468,6 +500,9 @@ export function createPlugin(cfg: PluginConfig) {
         const path = `${dir}/storage/debug-open.json`;
         if (!(await this.app.vault.adapter.exists(path))) return;
         const raw = JSON.parse(await this.app.vault.adapter.read(path)) as { command?: string; bookId?: string };
+        // 调试入口读一次就删：留着的话每次启动都会替你开书 / 开书架，
+        // 想正常启动还得去插件目录里手动删文件
+        await this.app.vault.adapter.remove(path);
         if (raw.command === 'open') this.openStudy();
         else if (raw.command === 'continue') await this.continueReading();
         else if (raw.command === 'book' && raw.bookId) {

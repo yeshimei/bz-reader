@@ -12,18 +12,6 @@ export function esc(s: unknown): string {
     .replace(/"/g, '&quot;');
 }
 
-/** 中文数字：章节序号用，只在 1..99 上有意义 */
-export function cn(n: number): string {
-  const d = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
-  if (n <= 10) return d[n - 1] || String(n);
-  if (n < 20) return '十' + (d[n - 11] || '');
-  if (n < 100) {
-    const t = Math.floor(n / 10);
-    const r = n % 10;
-    return d[t - 1] + '十' + (r ? d[r - 1] : '');
-  }
-  return String(n);
-}
 
 /** 线描图标：16px、1.5 描边、圆头圆角，与原型同一套 */
 export function ico(name: string): string {
@@ -43,20 +31,55 @@ export function ico(name: string): string {
     theme: '<circle cx="12" cy="12" r="8"/><path d="M12 4v16"/>',
     gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M4.4 7.6l2 1.2M17.6 15.2l2 1.2M4.4 16.4l2-1.2M17.6 8.8l2-1.2"/>',
     help: '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 114 2.1c-.9.7-1.6 1.2-1.6 2.4"/><circle cx="12" cy="17" r=".7" fill="currentColor"/>',
+    /* 下面几枚是替掉字符图标的：★ ☆ ✦ ✓ ✕ 🔥 的粗细和基线全由字体决定，
+       换一台机器就对不齐，是最典型的廉价信号。 */
+    x: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    star:
+      '<path d="M12 3.6l2.6 5.4 5.9.8-4.3 4.2 1 5.9-5.2-2.8-5.2 2.8 1-5.9L3.5 9.8l5.9-.8z"/>',
+    check: '<path d="M4.5 12.5l5 5 10-11"/>',
+    sparkle: '<path d="M12 3.5l1.9 5.4 5.4 1.9-5.4 1.9L12 18.1l-1.9-5.4L4.7 10.8l5.4-1.9z"/>',
+    flame: '<path d="M12 22a6 6 0 006-6c0-4.2-3.2-6.2-4.2-9.2C11.8 8.4 11 10 11 10s-1-1.2-1.2-3C8.4 8.6 6 11 6 16a6 6 0 006 6z"/>',
   };
   const p = paths[name] || '';
   return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 }
 
+/** 中文数字：Book Map / 章节缩览的章节序号用，只在 1..99 上有意义。
+ *  侧栏目录已经不用它了（那 24px 宁可留给章节名）。 */
+export function cn(n: number): string {
+  const d = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+  if (n <= 10) return d[n - 1] || String(n);
+  if (n < 20) return '十' + (d[n - 11] || '');
+  if (n < 100) {
+    const t = Math.floor(n / 10);
+    const r = n % 10;
+    return d[t - 1] + '十' + (r ? d[r - 1] : '');
+  }
+  return String(n);
+}
+
 /** 小放大镜：输入井左侧那枚 */
 export const MAG = '<svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.4" stroke="currentColor" stroke-width="1.2"/><path d="M9.4 9.4L12.6 12.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
 
-/** 竖排题签封面 / 真实封面图，两种形态一处出 */
-export function coverHtml(r: { coverUrl: string | null; bg: string; fg: string; glyph: string; title: string }, cls = ''): string {
+/**
+ * 竖排题签封面 / 真实封面图，两种形态一处出。
+ *
+ * id 非空就在节点上留 data-cid：真封面是异步来的（要解 epub），
+ * 由 shell/covers.ts 的 hydrateCovers 就地换图，不走重绘。
+ */
+export function coverHtml(
+  r: { coverUrl: string | null; bg: string; fg: string; glyph: string; title: string; id?: string },
+  cls = '',
+): string {
+  const cid = r.id ? ` data-cid="${esc(r.id)}" data-title="${esc(r.title)}"` : '';
   if (r.coverUrl) {
-    return `<div class="bzs-cov ${cls}" style="background:${r.bg}"><img class="bzs-covimg" src="${esc(r.coverUrl)}" alt="${esc(r.title)}" loading="lazy"></div>`;
+    return `<div class="bzs-cov ${cls}"${cid} style="background:${r.bg}"><img class="bzs-covimg" src="${esc(
+      r.coverUrl,
+    )}" alt="${esc(r.title)}" loading="lazy"></div>`;
   }
-  return `<div class="bzs-cov ${cls}" style="background:${r.bg};color:${r.fg}"><span class="spine"></span><span class="ct">${esc(r.glyph)}</span></div>`;
+  return `<div class="bzs-cov ${cls}"${cid} style="background:${r.bg};color:${r.fg}"><span class="spine"></span><span class="ct">${esc(
+    r.glyph,
+  )}</span></div>`;
 }
 
 /** 进度条：0..100，同一个样式在书卡、继续阅读、列表里复用 */

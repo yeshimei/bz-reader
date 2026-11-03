@@ -13,7 +13,7 @@ import type { FoliateTOCItem } from '../../types/foliate';
 import type { BmkRow, MarkRow } from '../domain';
 import { bmksOf, groupByChapter, marksOf } from '../domain';
 import type { SideTab } from '../state';
-import { cn, esc, ico } from './html';
+import { esc, ico } from './html';
 
 export interface AiLogItem {
   me: boolean;
@@ -64,8 +64,9 @@ function tocBody(toc: FoliateTOCItem[], activeLabel: string): string {
     .map(({ item, depth }, i) => {
       const on = item.label === activeLabel;
       const pct = Math.round((i / Math.max(1, flat.length)) * 100);
+      /* 序号列（原 .no）去掉了：侧栏只有 300px，那一列吃掉 24px + 10px 间距，
+         长章节名被截在最难认的位置。层级靠缩进（.d1）表达就够了。 */
       return `<button class="bzs-chaprow${depth ? ' d1' : ''}${on ? ' on' : ''}" data-act="jumpch" data-href="${esc(item.href)}">
-        <span class="no">${depth ? '·' : cn(i + 1)}</span>
         <span class="t">${esc(item.label)}</span>
         <span class="pc">${pct}%</span>
       </button>`;
@@ -80,7 +81,7 @@ function bookmarksBody(rows: BmkRow[]): string {
       (k) => `<div class="bzs-mkrow" data-act="jumpbmk" data-id="${k.id}">
         <span class="tt">${esc(k.label)}</span><span class="pc">${k.percent}%</span><span class="sp"></span>
         <em>${esc(k.chapterTitle)}</em>
-        <button class="x" data-act="delbmk" data-id="${k.id}" title="删除">×</button>
+        <button class="x" data-act="delbmk" data-id="${k.id}" title="删除">${ico('x')}</button>
       </div>`,
     )
     .join('')}</div>`;
@@ -97,7 +98,7 @@ function highlightsBody(rows: MarkRow[]): string {
             (m) => `<div class="bzs-hlit" style="--c:${m.css}" data-act="hlcard" data-id="${m.id}">
               <span class="tx">${esc(m.text)}</span>
               ${m.comment ? `<span class="cm"><b>想 法</b>${esc(m.comment)}</span>` : ''}
-              <button class="x" data-act="delmark" data-id="${m.id}" title="删除">×</button>
+              <button class="x" data-act="delmark" data-id="${m.id}" title="删除">${ico('x')}</button>
             </div>`,
           )
           .join('')}

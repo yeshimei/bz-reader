@@ -28,10 +28,12 @@ import {
 } from '../data/notes';
 import { ActivityTracker } from '../engine/activity';
 import { can } from '../data/entitlement';
+import { speak, type SpeakHandle } from '../core/speak';
 import { notify } from '../core/notice';
 import { isMobileShell } from '../core/mobile';
 import { el } from '../ui/dom';
-import { setToc, clearToc, patchToc } from './toc-state';
+import { setToc, clearToc, getToc, patchToc } from './toc-state';
+import { VIEW_TYPE_TOC } from './side-view';
 
 /* 注意：本类为了给 Obsidian 存 view 状态，重写了 getState()。
    所以在类内部直接写 getState() 拿到的是**视图自己的** {bookId}，
@@ -103,7 +105,7 @@ export class ReaderView extends ItemView {
 
   /* 朗读：交给系统语音，不额外引依赖。翻页即停，避免「翻过去了还在念上一页」 */
   private speaking = false;
-  private voice: SpeechSynthesisUtterance | null = null;
+  private voice: SpeakHandle | null = null;
 
   private tapHandler: (zone: 'left' | 'middle' | 'right') => void = () => undefined;
 
@@ -722,38 +724,32 @@ export class ReaderView extends ItemView {
       return;
     }
     if (!requireCap('tts')) return;
-    const synth = window.speechSynthesis;
-    if (!synth) {
-      notify('这个环境不支持语音朗读');
-      return;
-    }
     const text = this.host.currentText();
     if (!text) {
       notify('这一页没有可朗读的文字');
       return;
     }
-    synth.cancel();
-    const u = new SpeechSynthesisUtterance(text.slice(0, 4000));
-    u.lang = 'zh-CN';
-    u.rate = 1;
     const done = (): void => {
       this.speaking = false;
       this.voice = null;
       this.syncToolState();
     };
-    u.onend = done;
-    u.onerror = done;
-    this.voice = u;
+    // 基础版包里 speak() 是空实现，返回 null —— 那就是「这个包没有朗读」
+    const handle = speak(text, done);
+    if (!handle) {
+      notify('这个环境不支持语音朗读');
+      return;
+    }
+    this.voice = handle;
     this.speaking = true;
-    synth.speak(u);
     this.syncToolState();
   }
 
   private stopTts(): void {
     if (!this.speaking) return;
     this.speaking = false;
+    this.voice?.stop();
     this.voice = null;
-    window.speechSynthesis?.cancel();
     this.syncToolState();
   }
 
@@ -855,7 +851,8 @@ export class ReaderView extends ItemView {
     const active = ws.activeLeaf as unknown as { view?: { getViewType?: () => string } } | null;
     if (!active) return false;
     if (active === (this.leaf as unknown as typeof active)) return true;
-    return active.view?.getViewType?.() === 'bzr-toc';
+    // 目录侧栏是阅读页的延伸：焦点在那儿时快捷键同样归这本书
+    return active.view?.getViewType?.() === VIEW_TYPE_TOC;
   }
 
   private syncTabTitle(): void {
@@ -1154,7 +1151,9 @@ export class ReaderView extends ItemView {
   async settle(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
-    clearToc();
+    /* 两本书各开一个 tab 时，关掉 A 不该把 B 的目录一起清空——
+       目录快照是全局一份，只认自己那本。 */
+    if (this.book && getToc()?.bookId === this.book.id) clearToc();
     this.hideSelbar();
     const book = this.book;
     if (book) {
@@ -1183,8 +1182,4 @@ export class ReaderView extends ItemView {
     this.updatePrefs(normalizePrefs({ ...this.prefs, ...patch }));
   }
 
-  /** 读到的主题（供旧 quote-card 之类还引用它时用；新界面不用） */
-  themeOf(): ReturnType<typeof resolveTheme> {
-    return resolveTheme();
-  }
 }

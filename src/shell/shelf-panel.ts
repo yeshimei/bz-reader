@@ -15,6 +15,7 @@ import { getState, setState, subscribe, type StudyPage } from './state';
 import { getShellSource, liveBooks, shellPrefs } from './source';
 import { studyShell } from './render/study';
 import { buildShelfPage } from './shelf-page';
+import { hydrateCovers } from './covers';
 
 interface FocusMemo {
   role: string;
@@ -108,6 +109,8 @@ export class ShelfPanel {
     }
     this.painted = true;
     this.restoreFocus();
+    // 封面是异步的：先出的是色块，真封面到了就地换图（不重绘，否则滚动位置会跳）
+    hydrateCovers(getShellSource()?.app, books, root);
   }
 
   private bind(): void {

@@ -85,7 +85,12 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>对齐</label>${seg('align', [['justify', '两端'], ['left', '居左']], p.align)}</div>
       <div class="bzs-setrow"><label>方向</label>${seg('layout', [['horizontal', '横排'], ['vertical', '竖排']], p.layout)}</div>
       <div class="bzs-setrow"><label>分栏</label>${seg('columns', [['1', '单栏'], ['2', '双栏']], String(p.columns))}</div>
-      <div class="bzs-setrow"><label>脚注</label>${seg('footnote', [['popup', '上方浮窗'], ['jump', '跳到章末']], p.footnote)}</div>
+      <div class="bzs-setrow"><label>脚注</label>${seg(
+        'footnote',
+        // 浮窗是高级版能力：基础版就把话写在选项上，别让人选了才发现不生效
+        can('footnote') ? [['popup', '上方浮窗'], ['jump', '跳到章末']] : [['popup', '上方浮窗（高级版）'], ['jump', '跳到章末']],
+        p.footnote,
+      )}</div>
     </div>`;
 
   /* 外观只剩强调色一项：底色与文字跟随 Obsidian，不再有皮肤可挑。
@@ -113,9 +118,14 @@ export function viewSettings(v: SettingsView): string {
     </div>`;
 
   /* AI 组只在能用的时候出现。基础版构建里 can('ai') 恒为 false——
-     与其摆一排「未解锁」的输入框，不如整组不出现。 */
-  const ai = can('ai')
-    ? `<div class="bzs-setgrp">
+     与其摆一排「未解锁」的输入框，不如整组不出现。
+     __BZ_READER_PRO__ 是构建期常量：base 包里这段模板连字符串都不会留下，
+     pro 包里它恒为 true，等于只看 can('ai')。 */
+  /* 写成 if 而不是三元：esbuild 会把 `if (false) {…}` 连同里面的模板字符串
+     一起删掉，三元表达式的两个分支它会原样留着（试过，模板照样进包）。 */
+  let ai = '';
+  if (__BZ_READER_PRO__ && can('ai')) {
+    ai = `<div class="bzs-setgrp">
       <h3>AI 助手</h3>
       <div class="bzs-setrow"><label>服务商</label><input data-role="setting" data-k="ai.baseUrl" placeholder="https://api.deepseek.com/v1" value="${esc(s.ai.baseUrl)}" style="flex:1"></div>
       <div class="bzs-setrow"><label>模型</label><input data-role="setting" data-k="ai.model" placeholder="deepseek-chat" value="${esc(s.ai.model)}" style="flex:1"></div>
@@ -123,8 +133,8 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>状态</label><span class="bzs-mini" style="flex:1">${
         s.ai.baseUrl && s.ai.apiKey && s.ai.model ? '已配置 · 划词浮层里的「AI 解释」可用' : '未配置 · 划词浮层里不会出现 AI 按钮'
       }</span></div>
-    </div>`
-    : '';
+    </div>`;
+  }
 
   const ent = entitlement();
   const lic = `<div class="bzs-setgrp">

@@ -255,7 +255,16 @@ export function entitlement(now = Date.now()): EntitlementView {
   };
 }
 
-/** 高级能力是否可用。基础版构建永远 false（包里也没有高级代码）。 */
+/**
+ * 高级能力是否可用。
+ *
+ * 参数是「哪一样能力」，但**现在不按它细分**：卖的是买断制，付过一次就
+ * 全部解锁，结论只看 `proBuild` + 授权状态。参数留着不是摆设——Cap 这张表
+ * 本身在四处被用：设置页取名字、解锁层取文案、功能对照表取档位、动作取门槛
+ * （`requireCap`）。真要按能力分级那天，改这一个函数就够。
+ *
+ * 基础版构建永远 false：包里根本没有高级模块（构建时就被换成空实现）。
+ */
 export function can(_cap: Cap): boolean {
   if (!proBuild) return false;
   return entitlement().unlocked;
@@ -354,7 +363,10 @@ export const PLAN_TABLE: PlanRow[] = [
   { name: 'EPUB / TXT 阅读、翻页与排版', free: 'yes', pro: 'yes' },
   { name: '目录、书签、四色划线与想法', free: 'yes', pro: 'yes' },
   { name: '书内搜索（本章 / 全书）', free: 'yes', pro: 'yes' },
-  { name: '划线复制为双向链接（反链可见）', free: 'part', pro: 'yes', note: '仅单条', cap: 'bilink' },
+  /* 双向链接整条是高级版能力（copylink 走 requireCap('bilink')）。
+     以前这里写「基础版：部分（仅单条）」，但那条免费路径 copylinkurl
+     没有任何 UI 入口——表里承诺了，界面上找不到，比不给更糟。 */
+  { name: '划线复制为双向链接（反链可见）', free: 'no', pro: 'yes', cap: 'bilink' },
   { name: '导出结构化 Markdown（按章节 + frontmatter）', free: 'no', pro: 'yes', cap: 'export' },
   { name: '书摘卡片（可分享图片）', free: 'no', pro: 'yes', cap: 'card' },
   { name: '阅读统计、热力图与每本进度', free: 'no', pro: 'yes', cap: 'stats' },

@@ -11,7 +11,7 @@
  * 热力图是 DOM 格子不是 canvas：26 周 × 7 天 ≈ 180 个 10px 的方块，
  * DOM 完全扛得住，还能白拿 title 提示。档位沿用品牌色 opacity 四档。
  * ============================================================ */
-import { Platform } from 'obsidian';
+import { Platform, setIcon } from 'obsidian';
 import type { ReaderStore } from '../data/store';
 import { collectStats, dayKey, type StatsSummary } from '../data/stats';
 import { coverColors, durationLabel, el, percentLabel } from './dom';
@@ -138,7 +138,11 @@ function sideSection(summary: StatsSummary): HTMLElement {
 
   if (summary.streakDays > 0) {
     const streak = el('div', 'bzr-stats-streak');
-    streak.append(el('span', 'fl', '🔥'), el('b', '', `连续 ${summary.streakDays} 天`));
+    /* 火焰原来是 emoji 字符：粗细和基线全由字体决定，换台机器就对不齐。
+       换成 lucide 的 16px SVG。 */
+    const fl = el('span', 'fl');
+    setIcon(fl, 'flame');
+    streak.append(fl, el('b', '', `连续 ${summary.streakDays} 天`));
     side.appendChild(streak);
   }
   return side;

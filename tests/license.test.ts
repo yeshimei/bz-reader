@@ -42,16 +42,17 @@ const embeds = readFileSync(join(here, '..', 'src', 'data', 'license.ts'), 'utf8
 const PUB = /PUBKEY_SPKI_B64 =\s*'([^']+)'/;
 
 describe('激活码解析', () => {
-  it('三段式 + BZR1 前缀 + v1 payload 才算认识', () => {
+  it('三段式 + BZR1/BZR2 前缀 + v1/v2 payload 才算认识', () => {
     expect(parseLicense('BZR1.eyJ2IjoxfQ.aGVsbG8')).toBeTruthy();
-    expect(parseLicense('BZR2.eyJ2IjoxfQ.aGVsbG8')).toBeNull();
+    expect(parseLicense('BZR2.eyJ2IjoyfQ.aGVsbG8')).toBeTruthy();
+    expect(parseLicense('BZR3.eyJ2IjoyfQ.aGVsbG8')).toBeNull(); // 未知前缀
     expect(parseLicense('BZR1.not-base64!!?.aGVsbG8')).toBeNull();
     expect(parseLicense('')).toBeNull();
   });
 
   it('坏 payload（不是 JSON / 版本不对）拒绝', () => {
     expect(parseLicense('BZR1.aGVsbG8.aGVsbG8')).toBeNull(); // "hello" 不是对象
-    expect(parseLicense(`BZR1.${b64url(Buffer.from('{"v":2}'))}.aGVsbG8`)).toBeNull();
+    expect(parseLicense(`BZR1.${b64url(Buffer.from('{"v":3}'))}.aGVsbG8`)).toBeNull();
   });
 });
 

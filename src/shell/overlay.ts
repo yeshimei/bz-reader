@@ -13,22 +13,25 @@ import { HIGHLIGHT_COLORS, colorCss } from '../data/notes';
 import { aiAsk, type AiTask } from '../data/ai';
 import type { ReaderBook } from '../data/schema';
 import { collectStats } from '../data/stats';
-import { cn, esc, coverHtml, MAG } from './render/html';
+import { cn, esc, coverHtml, ico, MAG } from './render/html';
 import { bmksOf, fmtMinutes, fmtWhen, marksOf, penLabel } from './domain';
 import { noteCardHtml } from './render/notes';
 import { closeOverlay, getState } from './state';
-import { liveBooks, shellPrefs, shellSettings } from './source';
+import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
+import { glyphOf } from './adapt';
+import { hydrateCovers } from './covers';
 import { CAP_LABEL, GROUP_URL, PLAN_TABLE, PURCHASE_URL, entitlement, tierText, type Cap, type PlanCell } from '../data/entitlement';
 import { protocolUrl } from '../data/deeplink';
 import { dataDirOf, normalizeDataDir } from '../core/plugin-path';
 import { RT, pushAi } from './runtime';
+import { dispatchInput } from './actions';
 
 /* ─────────── 小工具 ─────────── */
 
 function modal(title: string, sub: string, body: string, foot = '', cls = ''): string {
   return `<div class="bzs-scrim" data-role="scrim"><div class="bzs-modal ${cls}">
     <div class="bzs-mhead"><b>${title}</b><span class="n">${sub}</span><span class="sp"></span>
-      <button class="x" data-act="close" title="关闭">×</button></div>
+      <button class="x" data-act="close" title="关闭">${ico('x')}</button></div>
     <div class="bzs-mbody">${body}</div>
     ${foot ? `<div class="bzs-mfoot">${foot}</div>` : ''}
   </div></div>`;
@@ -407,7 +410,7 @@ export function hlcardActsHtml(markId?: string, bookId?: string): string {
 function floatPanel(title: string, sub: string, body: string, foot = '', cls = '', style = ''): string {
   return `<div class="bzs-float ${cls}" data-role="float"${style ? ` style="${style}"` : ''}>
     <div class="bzs-mhead"><b>${title}</b>${sub ? `<span class="n">${sub}</span>` : ''}<span class="sp"></span>
-      <button class="x" data-act="close" title="关闭">×</button></div>
+      <button class="x" data-act="close" title="关闭">${ico('x')}</button></div>
     <div class="bzs-mbody">${body}</div>
     ${foot ? `<div class="bzs-mfoot">${foot}</div>` : ''}
   </div>`;
@@ -460,11 +463,17 @@ const AI_MODES: Array<{ key: AiTask; label: string }> = [
 ];
 
 function overlayAi(text?: string, mode?: string): string {
+  /* 整段包在 if 里而不是提前 return：esbuild 会连模板一起删掉，
+     base 包里就不会留下「AI 助手」的界面文案。 */
+  let html = '';
+  if (__BZ_READER_PRO__) {
   const t = text || RT.sel?.text || '';
   const task = (AI_MODES.find((m) => m.key === mode)?.key ?? 'explain') as AiTask;
   const s = shellSettings();
   const ready = !!s.ai.baseUrl && !!s.ai.apiKey && !!s.ai.model;
-  const body = `<div class="bzs-ai-tag"><span class="seal">✦</span><b>${esc(s.ai.model || '未配置模型')} · ${
+  const body = `<div class="bzs-ai-tag"><span class="seal">${ico('sparkle')}</span><b>${esc(
+    s.ai.model || '未配置模型',
+  )} · ${
     AI_MODES.find((m) => m.key === task)?.label
   }</b></div>
     <div class="bzs-ai-quote">「${esc(t)}」</div>
@@ -472,13 +481,15 @@ function overlayAi(text?: string, mode?: string): string {
     <div class="bzs-ai-acts">${AI_MODES.map(
       (m) => `<button class="bzs-chip${task === m.key ? ' on' : ''}" data-act="aimode" data-v="${m.key}" data-text="${esc(t)}">${m.label}</button>`,
     ).join('')}</div>`;
-  return modal(
+  html = modal(
     'AI 助手',
     '只发送选中的这一段',
     body,
     `<button class="bzs-btn" data-act="aisave" data-text="${esc(t)}">存为笔记</button>${closeBtn()}`,
     'wide',
   );
+  }
+  return html;
 }
 
 function overlayDict(word?: string): string {
@@ -568,7 +579,9 @@ function overlayFinish(bookId?: string): string {
   const stars = [1, 2, 3, 4, 5]
     .map(
       (i) =>
-        `<button class="bzs-star${rated >= i ? ' on' : ''}" data-act="rate" data-v="${i}" aria-label="${i} 星">★</button>`,
+        `<button class="bzs-star${rated >= i ? ' on' : ''}" data-act="rate" data-v="${i}" aria-label="${i} 星">${ico(
+          'star',
+        )}</button>`,
     )
     .join('');
 
@@ -597,18 +610,21 @@ function overlayDetail(bookId?: string): string {
   const bks = bmksOf(b);
   const percent = Math.round((b.reading.position.percent || 0) * 100);
   const body = `<div class="bzs-detail">${coverHtml({
-    coverUrl: null,
+    coverUrl: null, // 真封面异步回填（paint 末尾 hydrateCovers），这里只出占位色块
     bg: 'linear-gradient(150deg,#4a3a28,#2c2115)',
     fg: '#e9dcc3',
-    glyph: (b.meta.title || '无题').slice(0, 2),
+    glyph: glyphOf(b.meta.title || '无题'),
     title: b.meta.title || '',
+    id: b.id,
   })}<div>
       <h2>${esc(b.meta.title || '未命名')}</h2>
       <div class="au">${esc(b.meta.author || '佚名')}</div>
       <div class="desc">${esc(b.meta.description || '这本书还没有简介。')}</div>
       <div class="acts">
         <button class="bzs-btn pri" data-act="openbook" data-id="${b.id}">开始阅读 ›</button>
-        <button class="bzs-btn" data-act="fav" data-id="${b.id}">${getState().favIds.includes(b.id) ? '★ 已收藏' : '☆ 收藏'}</button>
+        <button class="bzs-btn" data-act="fav" data-id="${b.id}">${ico('star')} ${
+          getState().favIds.includes(b.id) ? '已收藏' : '收藏'
+        }</button>
         <button class="bzs-btn" data-act="done" data-id="${b.id}">${
           b.reading.stats.completedTime ? '标为在读' : '标为读完'
         }</button>
@@ -645,7 +661,7 @@ function overlayDetail(bookId?: string): string {
  * 只在商店页标价，这里只负责把人送过去。
  */
 function planCell(kind: 'free' | 'pro', v: PlanCell): string {
-  if (v === 'yes') return `<i class="y">✓</i>`;
+  if (v === 'yes') return `<i class="y">${ico('check')}</i>`;
   if (v === 'part') return `<i class="p">部分</i>`;
   return `<i class="n">—</i>`;
 }
@@ -835,15 +851,19 @@ export class OverlayLayer {
     });
 
     this.root.addEventListener('input', (e) => {
-      const t = e.target as HTMLInputElement;
-      if (t?.dataset?.role) {
-        // 搜索框与目标滑块就地处理，避免重绘打断输入
-        if (t.dataset.role === 'searchkw') {
-          RT.searchKw = t.value;
-          const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
-          if (list) list.innerHTML = '';
-        }
+      const t = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+      const role = t?.dataset?.role;
+      if (!role) return;
+      // 搜索框就地更新命中列表：重绘会把输入框换掉，手指还在打就被打断
+      if (role === 'searchkw') {
+        RT.searchKw = t.value;
+        const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
+        if (list) list.innerHTML = '';
+        return;
       }
+      // 排版滑块（pref）、年度目标（goal）、设置项（setting）走与书架同一条链路。
+      // 之前这里只认 searchkw，三个排版滑块拖了没有任何反应。
+      dispatchInput(t);
     });
   }
 
@@ -878,6 +898,8 @@ export class OverlayLayer {
       input?.setSelectionRange(len, len);
     }
     if (o?.kind === 'ai' || o?.kind === 'translate') void runAiForOverlay();
+    // 书籍详情的封面：占位色块先出，真封面到了就地换图
+    hydrateCovers(getShellSource()?.app, liveBooks(), this.root);
   }
 
   destroy(): void {

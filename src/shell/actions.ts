@@ -521,7 +521,10 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       break;
     }
     case 'hlcard':
-      if (!d.id || !requireCap('card')) break;
+      /* 打开划线卡不设门槛：阅读页点划线走的是 openOverlay，不经过这里，
+         侧栏也拦就会变成「同一张卡，从这儿点要钱、从那儿点不要」。
+         真正属于高级版的是卡里的「生成书摘图片」，由 poster 动作自己拦。 */
+      if (!d.id) break;
       overlay('hlcard', { markId: d.id, bookId: d.book || getState().bookId || '' });
       break;
     case 'delmark':
@@ -571,7 +574,9 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       break;
     }
     case 'selquote':
-      if (RT.sel) overlay('quote', { text: RT.sel.text, bookId: RT.sel.bookId, chapter: RT.sel.chapterTitle });
+      // 字段名必须是 chapterTitle：OverlayState 上没有 chapter，
+      // 传过去会被丢掉，书摘卡就只能退回 RT.sel，某些路径下章节名是空的
+      if (RT.sel) overlay('quote', { text: RT.sel.text, bookId: RT.sel.bookId, chapterTitle: RT.sel.chapterTitle });
       break;
     case 'seldict':
       if (RT.sel) overlay('dict', { word: RT.sel.text.slice(0, 8) });

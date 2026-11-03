@@ -36,8 +36,8 @@ export interface StudyCounts {
 /**
  * 书架整页外壳。`body` 是内部某一页的 HTML。
  *
- * 2026-11-03 起它不再占一个中心 tab，而是原生侧栏的第一页，
- * 所以头行压成一行：衬线小题「书 架」+ 四页签（带图标）+ 搜索/导入。
+ * 它占一个中心 tab（VIEW_TYPE_STUDY），不是侧栏——侧栏留给目录/书签/划线。
+ * 头行压成一行：衬线小题「书 架」+ 四页签（带图标）+ 搜索/导入。
  * 窄到放不下时由 CSS 折成两行（页签换到第二行满宽）。
  */
 export function studyShell(page: StudyPage, body: string, counts: StudyCounts): string {
