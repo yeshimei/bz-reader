@@ -30,16 +30,16 @@ describe('overlayKey', () => {
 });
 
 describe('isFloatOverlay', () => {
-  it('四种无遮罩浮层为真', () => {
-    for (const kind of ['typography', 'hlcard', 'footnote', 'idea'] as const) {
-      expect(isFloatOverlay({ kind })).toBe(true);
+  it('无遮罩浮层（含阅读页工具条）为真', () => {
+    for (const kind of ['typography', 'hlcard', 'hltools', 'footnote', 'idea'] as const) {
+      expect(isFloatOverlay(kind)).toBe(true);
     }
   });
 
   it('有遮罩的弹层为假（点正文不该关它）', () => {
     for (const kind of ['search', 'import', 'unlock', 'finish'] as const) {
-      expect(isFloatOverlay({ kind })).toBe(false);
+      expect(isFloatOverlay(kind)).toBe(false);
     }
-    expect(isFloatOverlay(null)).toBe(false);
+    expect(isFloatOverlay(undefined)).toBe(false);
   });
 });
