@@ -652,6 +652,15 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
         jumpTo(d.href);
       }
       break;
+    case 'toctoggle': {
+      /* 目录折叠：只记 href（label 会重名），点一下切换，重绘由 state 广播带走 */
+      const href = d.href;
+      if (!href) break;
+      if (RT.tocCollapsed.has(href)) RT.tocCollapsed.delete(href);
+      else RT.tocCollapsed.add(href);
+      repaint();
+      break;
+    }
     case 'jumpbmk': {
       const book = currentBook();
       const k = (book?.notes?.bookmarks ?? []).find((x) => x.id === d.id);

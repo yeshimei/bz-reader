@@ -1005,12 +1005,22 @@ export class EngineHost {
   }
   private verticalContent = false;
 
+  /**
+   * 宿主换主题（明暗 / 社区主题）时重注入章节样式。
+   *
+   * 书页的底色、字色是打开那一刻算出来的，不重注就会一直是旧主题：
+   * 用户在深色模式下打开一本白页书，切到浅色再切回来，页面也不会动。
+   */
+  refreshTheme(): void {
+    const renderer = this.view?.renderer as unknown as { setStyles?: (css: string) => void } | undefined;
+    renderer?.setStyles?.(buildChapterCSS(this.prefs));
+  }
+
   /** 主题/字号/行距变化时调，只换样式不重开书 */
   applyPrefs(prefs: ReaderPrefs): void {
     const prev = this.prefs;
     this.prefs = prefs;
-    const renderer = this.view?.renderer as unknown as { setStyles?: (css: string) => void } | undefined;
-    renderer?.setStyles?.(buildChapterCSS(prefs));
+    this.refreshTheme();
     // 栏数走 CSS 变量进 shadow 的 #top（vendor 补丁把它接成了 var(--_column-count, 2)）；
     // 挂在 paginator 元素上，自定义属性会继承进 shadow 树
     const pag = this.view?.renderer as unknown as (HTMLElement & { render?: () => void }) | undefined;

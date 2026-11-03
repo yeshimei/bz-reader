@@ -35,6 +35,8 @@ export interface SidebarView {
   aiProvider: string;
   /** AI 属于高级能力：基础版构建里这个页签整个不出现，不给「锁着」的假入口 */
   aiEnabled?: boolean;
+  /** 被折叠的父章节 href（见 runtime.tocCollapsed）；缺省 = 全部展开 */
+  collapsed?: ReadonlySet<string>;
 }
 
 /**
@@ -47,6 +49,9 @@ export const SIDE_TABS: Array<{ value: SideTab; label: string; icon: string }> =
   { value: 'highlights', label: '划线', icon: 'pen' },
   { value: 'ai', label: 'AI', icon: 'ai' },
 ];
+
+/** 没有折叠状态时的空集：省掉每次渲染都新建一个 Set */
+const EMPTY_COLLAPSED: ReadonlySet<string> = new Set();
 
 export function sideTabs(aiEnabled = true): typeof SIDE_TABS {
   return aiEnabled ? SIDE_TABS : SIDE_TABS.filter((t) => t.value !== 'ai');
@@ -74,30 +79,47 @@ export function stripTocLabel(label: string): string {
  *
  * 行尾不再画百分比：它是「第几项 / 共几项」估出来的，不是真实阅读进度，
  * 放在每一行反而让人以为翻页有误差（真机反馈）。要进度看书架与书签页。
+ *
+ * 折叠：有子项的父章节前面放一枚箭头，点它收起整支子树（`collapsed` 里记 href）。
+ * 默认全展开——一进来就只看见几个大部头，等于把「目录」变成「目录的目录」。
  */
-function tocBody(toc: FoliateTOCItem[], active: TocActiveRef): string {
-  const flat: Array<{ item: FoliateTOCItem; depth: number }> = [];
+function tocBody(toc: FoliateTOCItem[], active: TocActiveRef, collapsed: ReadonlySet<string>): string {
+  let total = 0;
+  const count = (items: FoliateTOCItem[]): void => {
+    for (const it of items) {
+      total += 1;
+      if (it.subitems?.length) count(it.subitems);
+    }
+  };
+  count(toc);
+
+  const rows: string[] = [];
   const walk = (items: FoliateTOCItem[], depth: number): void => {
     for (const it of items) {
-      flat.push({ item: it, depth });
-      if (it.subitems?.length) walk(it.subitems, depth + 1);
+      const on = isTocItemActive(it, active);
+      const kids = it.subitems?.length ? it.subitems : null;
+      const isCollapsed = !!kids && collapsed.has(it.href);
+      /* 序号列（原 .no）去掉了：侧栏只有 300px，那一列吃掉 24px + 10px 间距，
+         长章节名被截在最难认的位置。层级靠缩进（.d1）表达就够了。
+         高亮比对用原始 label，显示用剥过序号的。 */
+      rows.push(`<div class="bzs-chaprow${depth ? ' d1' : ''}${on ? ' on' : ''}${
+        isCollapsed ? ' is-collapsed' : ''
+      }" data-act="jumpch" data-href="${esc(it.href)}" data-label="${esc(it.label)}" role="button" tabindex="0">
+        ${
+          kids
+            ? `<span class="tw" data-act="toctoggle" data-href="${esc(it.href)}" title="${
+                isCollapsed ? '展开' : '折叠'
+              }">${ico('chevron')}</span>`
+            : `<span class="tw is-empty"></span>`
+        }
+        <span class="t">${esc(stripTocLabel(it.label))}</span>
+      </div>`);
+      if (kids && !isCollapsed) walk(kids, depth + 1);
     }
   };
   walk(toc, 0);
 
-  return `<div class="bzs-sbsec">共 ${flat.length} 节</div>${flat
-    .map(({ item, depth }) => {
-      const on = isTocItemActive(item, active);
-      /* 序号列（原 .no）去掉了：侧栏只有 300px，那一列吃掉 24px + 10px 间距，
-         长章节名被截在最难认的位置。层级靠缩进（.d1）表达就够了。
-         高亮比对用原始 label，显示用剥过序号的。 */
-      return `<button class="bzs-chaprow${depth ? ' d1' : ''}${on ? ' on' : ''}" data-act="jumpch" data-href="${esc(
-        item.href,
-      )}" data-label="${esc(item.label)}">
-        <span class="t">${esc(stripTocLabel(item.label))}</span>
-      </button>`;
-    })
-    .join('')}`;
+  return `<div class="bzs-sbsec">共 ${total} 节</div>${rows.join('')}`;
 }
 
 function bookmarksBody(rows: BmkRow[]): string {
@@ -185,7 +207,7 @@ export function viewSidebar(v: SidebarView): string {
     body = `<div class="bzs-empty">左侧栏跟着阅读走。<br>在书架点开一本书，目录、书签与划线就会出现在这里。</div>`;
   } else if (v.tab === 'toc') {
     body = v.toc?.length
-      ? tocBody(v.toc, { label: v.activeLabel, href: v.activeHref })
+      ? tocBody(v.toc, { label: v.activeLabel, href: v.activeHref }, v.collapsed ?? EMPTY_COLLAPSED)
       : `<div class="bzs-empty">这本书还没有解析出目录。<br>翻一页之后会重新试一次。</div>`;
   } else if (v.tab === 'bookmarks') {
     body = bookmarksBody(bmksOf(book));

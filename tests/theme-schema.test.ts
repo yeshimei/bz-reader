@@ -63,4 +63,28 @@ describe('buildChapterCSS', () => {
     const css = buildChapterCSS({ ...DEFAULT_PREFS, layout: 'vertical' });
     expect(css).toContain('vertical');
   });
+
+  /**
+   * 书页背景不是 body 画的：分页器把 body 背景抓走、设成 none，
+   * 再在 shadow 的 #background 里按列重铺（paginator.js #replaceBackground）。
+   * 它只认 `--theme-bg-color` 这一个变量——不写它，深色主题下书页永远是
+   * 打开时那张白纸（真机反馈：深色模式阅读界面未跟随）。
+   */
+  it('把底色写进 --theme-bg-color（分页器的背景层读它）', () => {
+    const css = buildChapterCSS(DEFAULT_PREFS);
+    expect(css).toMatch(/--theme-bg-color:\s*#|--theme-bg-color:\s*rgb/);
+  });
+
+  it('深色主题：底色是深色，不是白纸', () => {
+    document.body.classList.add('theme-dark');
+    try {
+      const css = buildChapterCSS(DEFAULT_PREFS);
+      const m = css.match(/--theme-bg-color:\s*([^;]+)/);
+      expect(m?.[1]?.trim()).toBeTruthy();
+      expect(m?.[1]?.trim().toLowerCase()).not.toBe('#ffffff');
+      expect(css).toContain('background: #1e1e1e !important');
+    } finally {
+      document.body.classList.remove('theme-dark');
+    }
+  });
 });

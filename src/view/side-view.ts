@@ -203,6 +203,7 @@ export class SideView extends ItemView {
       aiReady: !!settings.ai.baseUrl && !!settings.ai.apiKey && !!settings.ai.model,
       aiProvider: settings.ai.model || '未配置',
       aiEnabled: can('ai'),
+      collapsed: RT.tocCollapsed,
     });
     this.paintedItems = snap?.items ?? null;
     this.paintedBook = snap?.bookId ?? '';

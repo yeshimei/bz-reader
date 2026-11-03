@@ -433,7 +433,14 @@ export class ReaderView extends ItemView {
     const syncTheme = (): void => this.applyChrome();
     this.offShell = subscribe(syncTheme);
     this.offNotes = onNotesChanged(() => this.refreshAfterNotesChange());
-    this.registerEvent(this.api.app.workspace.on('css-change', () => this.applyChrome()));
+    /* 宿主换主题：壳层的强调色跟着换，书页的底色/字色也要重注入——
+       只改 data-bzaccent 的话，深色模式下书页还是那张白纸。 */
+    this.registerEvent(
+      this.api.app.workspace.on('css-change', () => {
+        this.applyChrome();
+        this.host.refreshTheme();
+      }),
+    );
     /* 宿主重建头栏 / 换 tab 时，书名与动作都会掉，得补一遍 */
     this.registerEvent(this.api.app.workspace.on('layout-change', () => this.mountHeader()));
     this.registerEvent(

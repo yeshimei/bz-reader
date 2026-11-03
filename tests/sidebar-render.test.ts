@@ -84,6 +84,45 @@ describe('目录行', () => {
   });
 });
 
+describe('目录折叠', () => {
+  const tree: FoliateTOCItem[] = [
+    {
+      label: '第一卷',
+      href: 'a#1',
+      subitems: [
+        { label: '第一章 甄士隐梦幻识通灵', href: 'a#1-1' },
+        { label: '第二章 贾夫人仙逝扬州城', href: 'a#1-2' },
+      ],
+    },
+    { label: '第二卷', href: 'a#2' },
+  ];
+
+  it('有子目录的行带折叠按钮', () => {
+    expect(view({ toc: tree })).toContain('data-act="toctoggle"');
+  });
+
+  it('没有子目录的行不显示折叠按钮（不留空位）', () => {
+    expect(view({ toc: [{ label: '单章', href: 'a#9' }] })).not.toContain('data-act="toctoggle"');
+  });
+
+  it('默认展开：子章节都渲染出来', () => {
+    const html = view({ toc: tree });
+    expect(html).toContain('第一章 甄士隐梦幻识通灵');
+    expect(html).toContain('第二章 贾夫人仙逝扬州城');
+  });
+
+  it('折叠后只藏子项，父项还在（还能点回去）', () => {
+    const html = view({ toc: tree, collapsed: new Set(['a#1']) });
+    expect(html).not.toContain('第一章 甄士隐梦幻识通灵');
+    expect(html).toContain('第一卷');
+  });
+
+  it('折叠状态跟着 href 走，不误伤同名章节', () => {
+    const html = view({ toc: tree, collapsed: new Set(['a#2']) });
+    expect(html).toContain('第一章 甄士隐梦幻识通灵');
+  });
+});
+
 describe('书签列表', () => {
   it('书签的百分比保留（书签是「读到这里」的坐标，有用）', () => {
     const b = book();

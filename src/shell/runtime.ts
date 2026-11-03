@@ -51,6 +51,14 @@ export const RT = {
    */
   dataDirDraft: '',
   /**
+   * 侧栏目录里被折叠起来的父章节 href。
+   *
+   * 按 href 记而不是 label：目录里的标题会重名（每个部分下都有「-1-」），
+   * 用 label 折叠一个会连带折掉同名的那几支。不落盘——重新打开书时
+   * 回到「全部展开」，用户不必记着自己上次折了哪一支。
+   */
+  tocCollapsed: new Set<string>(),
+  /**
    * 删除的「上膛」状态：侧栏的删除按钮在触摸屏上容易误触，
    * 同一个 id 在 4 秒内再点一次才真删（见 shell/delete-guard.ts）。
    */

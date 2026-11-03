@@ -154,6 +154,10 @@ body > div, body > section { max-width: none !important; }
 /* 标注覆盖层（overlayer.js 读这两个变量）：
    浅底用 multiply，像真马克笔压过纸；深底必须 normal，multiply 在暗色上等于没画 */
 :root {
+  /* 书页背景其实不是 body 画的：paginator 在装载时把 body 背景抓走、
+     设成 none，再在 shadow 的 #background 里按列重铺（#replaceBackground）。
+     它只认这个变量——不写它，深色主题下书页永远是打开时那张白纸。 */
+  --theme-bg-color: ${theme.bgColor};
   --overlayer-highlight-opacity: ${theme.dark ? '0.34' : '0.42'};
   --overlayer-highlight-blend-mode: ${theme.dark ? 'normal' : 'multiply'};
 }
