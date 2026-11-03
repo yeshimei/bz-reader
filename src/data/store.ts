@@ -13,6 +13,16 @@
  *     一份完整文件，绝不像以前那样先删正本。
  *  3. **写盘防抖**：翻页会改 percent，每页都落盘等于每翻一页一次 IO。
  *     500ms 合并，外加 unload / 关书时 `flush(true)` 强制写。
+ *
+ * 2026-11-04 补的三条（都是「防御代码写了但没接上」）：
+ *  4. **外部修改先合并再写**：load() 之后 Obsidian Sync / 另一个窗口 /
+ *     手改都可能动过文件。写盘前比对 stat 签名，变了就重读并按每本书的
+ *     updatedAt 合并。不改这条，同步进来的划线会被本机旧快照整份覆盖。
+ *  5. **`.bak` 要读**：以前只写不读，于是「正本坏、备份好」这个最该救的
+ *     场景恰好救不回来。现在解析失败先试 .bak，能解析就恢复并回写。
+ *  6. **留档失败就只读**：`quarantine()` 失败说明这台机器连 rename 都不
+ *     支持，此时若继续写盘，第一次 touch() 就会用空库覆盖那份还躺在原地
+ *     的真数据。宁可本次会话不保存，也不能覆盖。
  * ============================================================ */
 import type { App } from 'obsidian';
 import { notify } from '../core/notice';
@@ -30,31 +40,51 @@ function stamp(): string {
   return new Date().toISOString().replace(/[:.]/g, '-');
 }
 
+export interface SanitizeResult {
+  data: ReaderData;
+  /** 被丢掉的原始条目。写进 `bz-reader.dropped-*.json`，让用户还能捞回来 */
+  dropped: unknown[];
+}
+
+function isObj(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object';
+}
+
 /**
  * 结构校验 + 补缺省。
  *
  * 只检查 `books` 是数组是不够的：`{"books":[{"id":"x"}]}` 这种半截记录会被
  * 原样收下，随后统计页读 `reading.sessions`、书架读 `reading.stats` 全部
  * TypeError，整页空白。这里逐本补齐，补不出来的（没有 id / 没有路径）丢掉。
+ *
+ * 丢掉的**不静默**：条目原样放进 `dropped`，由 load() 另存一份
+ * `bz-reader.dropped-*.json`。云同步截断、手改、`relocate` 传空路径都会
+ * 走到这里——以前整本书连同几百条划线就这么没了，还没人知道。
  */
-export function sanitizeData(v: unknown): ReaderData | null {
+export function sanitizeDataDetailed(v: unknown): SanitizeResult | null {
   const d = v as Partial<ReaderData> | null;
   if (!d || typeof d !== 'object' || !Array.isArray(d.books)) return null;
   const now = Date.now();
   const books: ReaderBook[] = [];
+  const dropped: unknown[] = [];
   for (const raw of d.books) {
     const b = raw as Partial<ReaderBook> | null;
-    if (!b || typeof b !== 'object') continue;
-    if (typeof b.id !== 'string' || !b.id) continue;
+    if (!isObj(b) || typeof b.id !== 'string' || !b.id) {
+      dropped.push(raw);
+      continue;
+    }
     const ref = b.fileRef as ReaderBook['fileRef'] | undefined;
-    if (!ref || typeof ref.vaultPath !== 'string' || !ref.vaultPath) continue;
+    if (!isObj(ref) || typeof ref.vaultPath !== 'string' || !ref.vaultPath) {
+      dropped.push(raw);
+      continue;
+    }
     const base = emptyReading();
     const reading = (b.reading ?? {}) as Partial<ReaderBook['reading']>;
     const notes = (b.notes ?? {}) as Partial<ReaderBook['notes']>;
     books.push({
       id: b.id,
       meta: {
-        ...(b.meta && typeof b.meta === 'object' ? b.meta : {}),
+        ...(isObj(b.meta) ? b.meta : {}),
         title: String(b.meta?.title ?? ''),
       },
       fileRef: { ...ref },
@@ -64,19 +94,55 @@ export function sanitizeData(v: unknown): ReaderData | null {
         /* 反复强调过的口径：sessions[].start 缺失/≤0 的条目连 bz 都会丢，
            这里先丢，免得它进统计 */
         sessions: Array.isArray(reading.sessions)
-          ? reading.sessions.filter((s) => !!s && typeof s.start === 'number' && s.start > 0)
+          ? reading.sessions.filter((s) => isObj(s) && typeof s.start === 'number' && s.start > 0)
           : [],
       },
       notes: {
-        highlights: Array.isArray(notes.highlights) ? notes.highlights : [],
-        excerpts: Array.isArray(notes.excerpts) ? notes.excerpts : [],
-        bookmarks: Array.isArray(notes.bookmarks) ? notes.bookmarks : [],
+        /* 只保证是数组还不够：`[null]` 会让笔记页读 h.text 时 TypeError */
+        highlights: Array.isArray(notes.highlights)
+          ? notes.highlights.filter((h) => isObj(h) && typeof h.id === 'string' && !!h.id)
+          : [],
+        excerpts: Array.isArray(notes.excerpts)
+          ? notes.excerpts.filter((x) => isObj(x) && typeof x.id === 'string' && !!x.id)
+          : [],
+        bookmarks: Array.isArray(notes.bookmarks)
+          ? notes.bookmarks.filter((m) => isObj(m) && typeof m.id === 'string' && !!m.id)
+          : [],
       },
       addedAt: typeof b.addedAt === 'number' ? b.addedAt : now,
       updatedAt: typeof b.updatedAt === 'number' ? b.updatedAt : now,
     });
   }
-  return { ...(d as ReaderData), version: 1, books };
+  return { data: { ...(d as ReaderData), version: 1, books }, dropped };
+}
+
+/** 旧签名：只要数据、不要丢弃记录（大部分调用方只需要这个） */
+export function sanitizeData(v: unknown): ReaderData | null {
+  return sanitizeDataDetailed(v)?.data ?? null;
+}
+
+/**
+ * 把磁盘上那份（可能来自另一台设备）合进内存这份。
+ *
+ * 按 `id` 对齐，同一本取 `updatedAt` 大的——这是唯一能跨设备比较的字段。
+ * 顺序保持「本地的在前」，磁盘上新增的追加在后面，书架自己的排序不受影响。
+ *
+ * 已知取舍：本地删掉的书如果磁盘上还有，会回来。宁可多一本（用户能再删），
+ * 也不要少一本（用户找不回来）。
+ */
+export function mergeData(local: ReaderData, disk: ReaderData): ReaderData {
+  const diskById = new Map<string, ReaderBook>();
+  for (const b of disk.books) diskById.set(b.id, b);
+  const out: ReaderBook[] = [];
+  const seen = new Set<string>();
+  for (const b of local.books) {
+    const other = diskById.get(b.id);
+    const newer = other && (other.updatedAt ?? 0) > (b.updatedAt ?? 0) ? other : b;
+    out.push(newer);
+    seen.add(b.id);
+  }
+  for (const b of disk.books) if (!seen.has(b.id)) out.push(b);
+  return { ...disk, ...local, books: out };
 }
 
 function isMissing(e: unknown): boolean {
@@ -90,6 +156,15 @@ export class ReaderStore {
   private dirty = false;
   /** 写盘失败只报一次，避免翻页时每 500ms 弹一条 */
   private saveWarned = false;
+  /**
+   * 上次读/写时磁盘文件的签名（`mtime:size`）。
+   *
+   * 写盘前比一次：变了就说明有别的进程动过（Sync / 另一个窗口 / 手改），
+   * 必须先读回来合并，否则这次写盘就是拿旧快照整份覆盖。
+   */
+  private diskSig = '';
+  /** 留档失败后置位：本次会话禁止任何写盘，绝不用空库覆盖真数据 */
+  private readOnly = false;
 
   constructor(private app: App) {}
 
@@ -102,6 +177,10 @@ export class ReaderStore {
     return `${this.filePath()}${TMP_SUFFIX}`;
   }
 
+  private bakPath(): string {
+    return `${this.filePath()}${BAK_SUFFIX}`;
+  }
+
   /** 坏文件的留档路径：解析失败时把原文件挪到这里，绝不直接覆盖 */
   private brokenPath(): string {
     return `${storageDirOf(this.app)}/bz-reader.broken-${stamp()}.json`;
@@ -110,6 +189,35 @@ export class ReaderStore {
   /** 老版本位置：`<插件目录>/storage/`。只在首次升级时读一次 */
   private legacyDir(): string {
     return pluginVaultPath(this.app, 'storage');
+  }
+
+  /** 磁盘签名：拿不到（文件不存在）返回空串，空串表示「还没有可比对的基线」 */
+  private async sig(): Promise<string> {
+    const st = await this.app.vault.adapter.stat(this.filePath()).catch(() => null);
+    return st ? `${st.mtime}:${st.size}` : '';
+  }
+
+  private async markDisk(): Promise<void> {
+    this.diskSig = await this.sig();
+  }
+
+  /** 解析一段文本；坏 JSON / 结构不符都返回 null，由调用方决定退路 */
+  private parseText(text: string): SanitizeResult | null {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch (e) {
+      console.warn('[bz-reader] 数据文件不是合法 JSON：', (e as Error)?.message || e);
+      return null;
+    }
+    const clean = sanitizeDataDetailed(parsed);
+    if (!clean) console.warn('[bz-reader] 数据文件结构不符');
+    return clean;
+  }
+
+  private async readDisk(): Promise<SanitizeResult | null> {
+    const text = await this.app.vault.adapter.read(this.filePath()).catch(() => null);
+    return text === null ? null : this.parseText(text);
   }
 
   /**
@@ -145,24 +253,57 @@ export class ReaderStore {
     const tmp = this.tmpPath();
     try {
       if (!(await adapter.exists(tmp))) return null;
-      const clean = sanitizeData(JSON.parse(await adapter.read(tmp)));
+      const clean = this.parseText(await adapter.read(tmp));
       if (!clean) return null;
       await adapter.rename(tmp, this.filePath()).catch(() => undefined);
       console.info('[bz-reader] 已从 .tmp 恢复数据文件');
       this.dirty = true;
-      return clean;
+      return clean.data;
     } catch {
       return null;
     }
   }
 
-  /** 坏 JSON 留档：原文件改名保留，下一次写盘才不会把它覆盖掉 */
-  private async quarantine(): Promise<void> {
+  /**
+   * 正本解析失败时试 `.bak`。
+   *
+   * 这条路径以前根本不存在：`.bak` 每次写盘都会更新（replaceTarget 第二层），
+   * 却从来没有一个读它的地方。于是「正本写成半截、旁边躺着完好备份」——
+   * 最该救回来的场景，实际结果是隔离成空库。
+   */
+  private async recoverBak(): Promise<SanitizeResult | null> {
+    const text = await this.app.vault.adapter.read(this.bakPath()).catch(() => null);
+    if (text === null) return null;
+    const clean = this.parseText(text);
+    if (!clean) return null;
+    console.info('[bz-reader] 正本读不出来，已从 .bak 恢复');
+    return clean;
+  }
+
+  /**
+   * 坏 JSON 留档：原文件改名保留，下一次写盘才不会把它覆盖掉。
+   * 返回是否留档成功——失败意味着这台机器连 rename 都不支持，此后禁止写盘。
+   */
+  private async quarantine(): Promise<boolean> {
     try {
       await this.app.vault.adapter.rename(this.filePath(), this.brokenPath());
       notify('数据文件读不出来，已留档为 bz-reader.broken-*.json', 'error');
+      return true;
     } catch {
-      /* 留档失败就算了，至少不要因此阻断启动 */
+      notify('数据文件读不出来，也没能留档；本次会话不再保存，避免覆盖原文件', 'error');
+      return false;
+    }
+  }
+
+  /** 被 sanitize 丢掉的条目另存一份：用户还能手动捞回来 */
+  private async saveDropped(dropped: unknown[]): Promise<void> {
+    if (!dropped.length) return;
+    const path = `${storageDirOf(this.app)}/bz-reader.dropped-${stamp()}.json`;
+    try {
+      await this.app.vault.adapter.write(path, JSON.stringify({ at: Date.now(), dropped }, null, 2));
+      notify(`有 ${dropped.length} 条书记录缺文件路径，已另存为 bz-reader.dropped-*.json`, 'info');
+    } catch {
+      /* 存不下就算了：至少不要因此阻断启动 */
     }
   }
 
@@ -189,29 +330,37 @@ export class ReaderStore {
       const recovered = await this.recoverTmp();
       if (recovered) {
         this.data = recovered;
+        await this.markDisk();
         return this.data;
       }
     }
 
     if (text !== null) {
-      let parsed: unknown;
-      let ok = false;
-      try {
-        parsed = JSON.parse(text);
-        ok = true;
-      } catch (e) {
-        console.warn('[bz-reader] 数据文件不是合法 JSON：', (e as Error)?.message || e);
-      }
-      const clean = ok ? sanitizeData(parsed) : null;
+      const clean = this.parseText(text);
       if (clean) {
-        this.data = clean;
+        this.data = clean.data;
+        if (clean.dropped.length) await this.saveDropped(clean.dropped);
+        await this.markDisk();
         return this.data;
       }
+
+      // 正本读不出来：先试 .bak，再考虑放弃
+      const bak = await this.recoverBak();
+      if (bak) {
+        this.data = bak.data;
+        if (bak.dropped.length) await this.saveDropped(bak.dropped);
+        await this.quarantine(); // 坏正本挪走，别让下一次写盘覆盖
+        this.dirty = true; // 下次 flush 把恢复出来的数据写回正本
+        await this.markDisk();
+        return this.data;
+      }
+
       console.warn('[bz-reader] 数据文件结构不符，按空库启动；原文件已留档');
-      await this.quarantine();
+      if (!(await this.quarantine())) this.readOnly = true;
     }
 
     this.data = { ...EMPTY_DATA, books: [] };
+    await this.markDisk();
     return this.data;
   }
 
@@ -247,15 +396,30 @@ export class ReaderStore {
   }
 
   private async writeOnce(): Promise<void> {
+    if (this.readOnly) return;
     const adapter = this.app.vault.adapter;
     const tmp = this.tmpPath();
     const target = this.filePath();
     try {
+      /* 外部修改检测：只有拿得到基线（load 或上次写盘留下的签名）才比。
+         比中了就读回来合并——合并本身失败不拦写盘，否则一次坏文件会让
+         整个会话再也存不下东西。 */
+      if (this.diskSig) {
+        const now = await this.sig();
+        if (now && now !== this.diskSig) {
+          const disk = await this.readDisk();
+          if (disk) {
+            this.data = mergeData(this.data, disk.data);
+            if (disk.dropped.length) void this.saveDropped(disk.dropped);
+          }
+        }
+      }
       const text = JSON.stringify(this.data);
       await adapter.mkdir(storageDirOf(this.app)).catch(() => undefined);
       await adapter.write(tmp, text);
       await this.replaceTarget(tmp, target, text);
       this.saveWarned = false;
+      await this.markDisk();
     } catch (e) {
       this.dirty = true; // 没写成就别丢标记，下次还会试
       /* 只报一次：翻页会一直 touch，写盘失败时每次都弹一条，界面就没法用了 */
@@ -286,7 +450,7 @@ export class ReaderStore {
     } catch {
       /* 落到下一层 */
     }
-    const bak = `${target}${BAK_SUFFIX}`;
+    const bak = this.bakPath();
     try {
       await adapter.remove(bak).catch(() => undefined);
       await adapter.rename(target, bak);
@@ -304,4 +468,3 @@ export class ReaderStore {
     await this.flush(true);
   }
 }
-

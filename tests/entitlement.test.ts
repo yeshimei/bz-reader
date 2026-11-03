@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { createSign } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -11,6 +11,8 @@ import {
   can,
   clearLicense,
   entitlement,
+  revalidateLicense,
+  setEntBackend,
   setProBuild,
 } from '../src/data/entitlement';
 
@@ -122,5 +124,116 @@ describe('界面文案', () => {
     const ai = PLAN_TABLE.find((r) => r.cap === 'ai');
     for (const word of ['回答', '摘要', '解释', '翻译']) expect(ai?.name).toContain(word);
     expect(CAP_LABEL.ai).toContain('回答');
+  });
+});
+
+/* ───────────── 授权存哪（P1-05 / P1-06） ───────────── */
+
+function snapshot(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    installId: 'i-test',
+    activeDays: [],
+    lastSeenTs: 1,
+    clockAnomaly: 0,
+    trialVoid: false,
+    license: '',
+    checkedTs: 0,
+    ...over,
+  };
+}
+
+afterEach(() => setEntBackend(null));
+
+describe('授权存 data.json 而不是 localStorage（P1-06）', () => {
+  it('后端里有码就直接认，不必等 localStorage', () => {
+    setProBuild(true);
+    setEntBackend({ read: () => snapshot({ license: 'BZR1.a.b', checkedTs: 5 }), write: () => undefined });
+    expect(entitlement().license).toBe('BZR1.a.b');
+  });
+
+  it('激活成功后码写进后端（宿主落盘 data.json），不碰业务设置', async () => {
+    if (!hasKey) return;
+    setProBuild(true);
+    let written: unknown = null;
+    setEntBackend({
+      read: () => snapshot(),
+      write: (raw) => {
+        written = raw;
+      },
+    });
+    const res = await activateLicense(issue({ v: 1, name: '包仔' }));
+    expect(res.ok).toBe(true);
+    expect((written as { license?: string })?.license).toBeTruthy();
+    expect(entitlement().tier).toBe('paid');
+  });
+
+  it('后端为空时才用 localStorage 镜像兜底', () => {
+    const g = globalThis as { window?: { localStorage?: unknown } };
+    const store = new Map<string, string>();
+    g.window = {
+      localStorage: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+      },
+    };
+    store.set('bzs-entitlement-v1', JSON.stringify(snapshot({ license: 'BZR1.mirror.b', checkedTs: 7 })));
+    setProBuild(true);
+    setEntBackend({ read: () => null, write: () => undefined });
+    expect(entitlement().license).toBe('BZR1.mirror.b');
+    delete g.window;
+  });
+});
+
+describe.runIf(hasKey)('到期不清码（P1-05）', () => {
+  it('过期码：验签不过但码留着，只是降级——续费后不用重新找码', async () => {
+    setProBuild(true);
+    const code = issue({ v: 1, name: '包仔', exp: Date.now() - 86_400_000 });
+    setEntBackend({ read: () => snapshot({ license: code, checkedTs: 1 }), write: () => undefined });
+
+    const r = await revalidateLicense();
+    expect(r.changed).toBe(false);
+    expect(r.reason).toBe('expired');
+    expect(entitlement().license).toBe(code); // 码还在
+    expect(entitlement().tier).toBe('free'); // 但功能锁上
+  });
+
+  it('伪造码：验签不过就清掉，不给「已激活但功能全锁」的错觉', async () => {
+    setProBuild(true);
+    const forged = `BZR1.${b64url(Buffer.from('{"v":1,"name":"冒充"}'))}.${b64url(Buffer.alloc(64))}`;
+    let cleared = false;
+    setEntBackend({
+      read: () => snapshot({ license: forged, checkedTs: 1 }),
+      write: (raw) => {
+        cleared = !(raw as { license?: string }).license;
+      },
+    });
+
+    const r = await revalidateLicense();
+    expect(r.changed).toBe(true);
+    expect(r.reason).toBe('invalid');
+    expect(cleared).toBe(true);
+    expect(entitlement().license).toBe('');
+  });
+
+  it('验签环境异常（WebCrypto 抛错）：完全不动，沿用上次结论', async () => {
+    setProBuild(true);
+    const code = issue({ v: 1, name: '包仔' });
+    setEntBackend({ read: () => snapshot({ license: code, checkedTs: 1 }), write: () => undefined });
+
+    const real = globalThis.crypto;
+    Object.defineProperty(globalThis, 'crypto', {
+      value: { subtle: { verify: () => Promise.reject(new Error('boom')), importKey: real.subtle.importKey.bind(real.subtle) } },
+      configurable: true,
+      writable: true,
+    });
+    try {
+      const r = await revalidateLicense();
+      expect(r.changed).toBe(false);
+      expect(r.reason).toBe('env-error');
+      expect(entitlement().license).toBe(code);
+      expect(entitlement().tier).toBe('paid'); // 上次的结论还在
+    } finally {
+      Object.defineProperty(globalThis, 'crypto', { value: real, configurable: true, writable: true });
+    }
   });
 });

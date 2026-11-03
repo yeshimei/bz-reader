@@ -11,18 +11,24 @@
  *   自然日会因为出差、周末、生病白烧掉两三天，用户体感是「我还没怎么用
  *   就过期了」。活跃日只数「真的打开过的日子」，7 天就是 7 次真实使用。
  *
- * 为什么授权状态存 localStorage 而不是 storage/bz-reader.json：
- *   1. 插件目录是 per-vault 的，存 JSON 等于每个 vault 各试用一次；
- *   2. localStorage 跟插件目录无关，卸载重装插件不会清零（比重装就重置
- *      的试用更诚实）；
- *   3. 不污染 weave-data 同构的业务数据。
+ * 为什么授权状态存插件目录的 `data.json` 而不是业务 JSON（2026-11-04 改）：
+ *   1. **不能进随库同步的那份**：一份码跟着库走到所有设备 = 一份授权无限
+ *      复制，也违背 README 的「换电脑重新填一次激活码」。
+ *   2. **不能只放 localStorage**：清缓存 / 重装 / iOS 回收存储都会把它
+ *      干掉，付费用户某天打开发现变回基础版，还得翻邮件找码。文件不会
+ *      被浏览器回收。
+ *   3. 不污染 weave-data 同构的业务数据——`bz 阅读/bz-reader.json` 是
+ *      用户会自己打开、复制、发给别人看的东西。
+ *
+ * localStorage 仍然写一份**镜像**：删掉插件目录重装时，data.json 没了而
+ * 镜像还在。读取以 data.json 为准，只有它为空时才看镜像（见 load()）。
  *
  * 时钟回拨只做轻量识别：调时区、改系统时间都可能触发，所以要求
  * 「回拨超过 7 天」或「反复 3 次」才作废试用。规则要在设置页写出来，
  * 否则误伤之后没人能解释为什么试用没了。
  * ============================================================ */
 
-import { parseLicense, verifyLicense, type LicensePayload } from './license';
+import { parseLicense, verifyLicense, type LicenseFail, type LicensePayload } from './license';
 
 /** 高级能力。只有能判断的地方才列进来，别造没人问的开关。 */
 export type Cap =
@@ -105,6 +111,33 @@ export interface EntitlementView {
 let proBuild = false;
 let cache: Ent | null = null;
 
+/**
+ * 存储后端。由 plugin.onload 注入，指向 `data.json` 的 `entitlement` 字段。
+ *
+ * 两个方法都是**同步**的：`entitlement()` 在每次重绘里被调用，等不了 await。
+ * 宿主的做法是启动时 `await loadData()` 把整份配置读进内存，之后
+ * `write()` 只改内存对象，真正的落盘由宿主自己防抖。
+ */
+export interface EntBackend {
+  /** 读原始快照（对象或 JSON 字符串都行；null / 坏数据由这里兜） */
+  read(): unknown;
+  /** 写原始快照。宿主负责落盘，这里不 await */
+  write(raw: unknown): void;
+}
+
+let backend: EntBackend | null = null;
+
+/**
+ * 换后端（也用来在测试里隔离）。
+ *
+ * 传 null 退回「只写 localStorage」的老行为——基础版构建和纯函数测试用得上。
+ */
+export function setEntBackend(b: EntBackend | null): void {
+  backend = b;
+  cache = null;
+  payloadCache.clear();
+}
+
 /** 由 plugin.onload 注入：当前构建是不是 pro 包 */
 export function setProBuild(v: boolean): void {
   proBuild = v;
@@ -164,32 +197,66 @@ function defaults(): Ent {
   };
 }
 
+/**
+ * 把一份原始快照灌进 `d`。读到东西返回 true。
+ *
+ * 兼容三种来源：data.json 里的对象、localStorage 里的 JSON 字符串、
+ * 以及手改坏了的半截数据。任何一个字段类型不对就单独忽略，不整体丢弃——
+ * 「码还在但活跃日坏了」不该让用户重新激活。
+ */
+function applyEnt(d: Ent, raw: unknown): boolean {
+  if (raw === null || raw === undefined || raw === '') return false;
+  let p: Partial<Ent> | null = null;
+  try {
+    p = (typeof raw === 'string' ? JSON.parse(raw) : raw) as Partial<Ent>;
+  } catch {
+    return false;
+  }
+  if (!p || typeof p !== 'object') return false;
+  if (typeof p.installId === 'string' && p.installId) d.installId = p.installId;
+  if (Array.isArray(p.activeDays)) {
+    d.activeDays = p.activeDays.filter((x): x is string => typeof x === 'string').sort().slice(-MAX_DAYS);
+  }
+  if (typeof p.lastSeenTs === 'number' && p.lastSeenTs > 0) d.lastSeenTs = p.lastSeenTs;
+  if (typeof p.clockAnomaly === 'number') d.clockAnomaly = Math.max(0, p.clockAnomaly);
+  if (p.trialVoid === true) d.trialVoid = true;
+  if (typeof p.license === 'string') d.license = p.license;
+  if (typeof p.checkedTs === 'number') d.checkedTs = p.checkedTs;
+  return true;
+}
+
+/**
+ * 读状态。优先 `data.json`，它为空时才看 localStorage 镜像。
+ *
+ * 顺序不能反：镜像可能是一年前的旧码（用户换了码、重装过），
+ * 拿它覆盖文件里的真值等于把「已续费」回滚成「已过期」。
+ */
 function load(): Ent {
   if (cache) return cache;
   const d = defaults();
-  const raw = readLS();
-  if (raw) {
-    try {
-      const p = JSON.parse(raw) as Partial<Ent>;
-      if (typeof p.installId === 'string' && p.installId) d.installId = p.installId;
-      if (Array.isArray(p.activeDays)) {
-        d.activeDays = p.activeDays.filter((x): x is string => typeof x === 'string').sort().slice(-MAX_DAYS);
-      }
-      if (typeof p.lastSeenTs === 'number' && p.lastSeenTs > 0) d.lastSeenTs = p.lastSeenTs;
-      if (typeof p.clockAnomaly === 'number') d.clockAnomaly = Math.max(0, p.clockAnomaly);
-      if (p.trialVoid === true) d.trialVoid = true;
-      if (typeof p.license === 'string') d.license = p.license;
-      if (typeof p.checkedTs === 'number') d.checkedTs = p.checkedTs;
-    } catch {
-      /* 坏 JSON 就当没存过：宁可让老用户重新试用，也不要读出半条状态 */
-    }
+  const fromFile = backend ? applyEnt(d, backend.read()) : false;
+  if (!fromFile) {
+    // data.json 里没有（全新用户 / 删了插件目录重装）：镜像兜一次
+    const raw = readLS();
+    if (raw) applyEnt(d, raw);
   }
   cache = d;
   return d;
 }
 
+/**
+ * 存状态。**两边都写**：data.json 是真相，localStorage 是删插件目录
+ * 重装后的兜底。写文件失败不抛——宿主那边还有自己的告警。
+ */
 function save(): void {
-  if (cache) writeLS(JSON.stringify(cache));
+  if (!cache) return;
+  const snap: Ent = { ...cache, activeDays: [...cache.activeDays] };
+  try {
+    backend?.write(snap);
+  } catch {
+    /* 宿主写内存失败不该拦住翻页 */
+  }
+  writeLS(JSON.stringify(snap));
 }
 
 /** 本地时区的 YYYY-MM-DD */
@@ -301,19 +368,30 @@ export async function activateLicense(code: string): Promise<{ ok: boolean; mess
  * 于是「fake 一段 base64 的 {"v":2} 塞进 localStorage」就能骗过同步判定——
  * 这条不堵，前面那句「只存码不存结论」只是把门槛从改三个字段换成改一个字段。
  *
- * 堵法：每次加载异步真验一次。跑不过就清掉码，退回基础版。
- * 因为 localStorage 只在加载时读一次（之后走内存 cache），
- * 运行期改 localStorage 不会生效；要生效就得重载插件，而重载又会再验一次。
+ * 堵法：每次加载异步真验一次。
+ * 因为授权状态只在加载时读一次（之后走内存 cache），运行期改
+ * data.json / localStorage 不会生效；要生效就得重载插件，而重载又会再验一次。
+ *
+ * **失败不能一律清码**（2026-11-04 改）：
+ *   invalid / format / no-pubkey → 这枚码本身是假的，清掉
+ *   expired                     → 签名是真的，只是到期。保留码只降级
+ *                                 （entitlement() 自己按 exp 算），续费后
+ *                                 不用重新找码
+ *   env-error                   → 验签环境抖了（WebCrypto 缺失 / 抛错），
+ *                                 完全不动，沿用上次结论
  *
  * 返回值给插件用来决定要不要通知界面重绘。
  */
-export async function revalidateLicense(): Promise<boolean> {
+export async function revalidateLicense(): Promise<{ changed: boolean; reason?: LicenseFail }> {
   const e = load();
-  if (!e.license) return false;
+  if (!e.license) return { changed: false };
   const res = await verifyLicense(e.license);
-  if (res.ok) return false;
-  clearLicense();
-  return true;
+  if (res.ok) return { changed: false };
+  if (res.reason === 'invalid' || res.reason === 'format' || res.reason === 'no-pubkey') {
+    clearLicense();
+    return { changed: true, reason: res.reason };
+  }
+  return { changed: false, reason: res.reason };
 }
 
 /** 清掉激活码（退回免费判定） */

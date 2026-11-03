@@ -3,7 +3,13 @@
  *
  * 与 prefs 分开：prefs 是「读的时候怎么显示」，改一次立刻见效、跟书无关；
  * settings 是「插件怎么工作」，属于配置而不是操作，改完不必马上重排版面。
- * 两者都在同一份 bz-reader.json 里，少一个文件少一个丢的地方。
+ *
+ * 落点也不一样（2026-11-04 改）：
+ *   settings → `.obsidian/plugins/bz-reader/data.json`（设备本地配置）
+ *   prefs    → `bz 阅读/bz-reader.json`（跟着库走，换设备还想保持手感）
+ *
+ * 为什么 AI Key 不进业务 JSON：用户会把 `bz 阅读/bz-reader.json` 发给
+ * 别人看划线，顺手把自己的 API Key 一起发出去就不妙了。
  *
  * 所有取值同样过 normalizeSettings：手改坏的 JSON、旧版本留下的字段、
  * 空字符串，一律夹回可用范围——一个 baseUrl 少个 https:// 的代价是
@@ -25,8 +31,14 @@ export interface ReaderSettings {
   /** 本地文件导入时写进哪个文件夹（vault 相对路径；'/' = 库根目录） */
   importDir: string;
   ai: AiSettings;
-  /** 激活码原文（pro 版才看它） */
-  license: string;
+  /*
+   * 这里**故意没有** license。
+   *
+   * 2026-11-04 之前它同时写进 localStorage 和这份设置，但没有任何读取方，
+   * 而 clearLicense() 只清前者——于是设置页输入框里还显示着激活码、状态行
+   * 还写着「已激活」，can() 却是 false。授权只有一个真相：
+   * data/entitlement.ts 的 Ent.license（存 data.json）。
+   */
 }
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
@@ -38,7 +50,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     apiKey: '',
     model: '',
   },
-  license: '',
 };
 
 function str(v: unknown, fallback = ''): string {
@@ -80,7 +91,6 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
       apiKey: str(ai.apiKey).trim(),
       model: str(ai.model).trim(),
     },
-    license: str(s.license).trim(),
   };
 }
 

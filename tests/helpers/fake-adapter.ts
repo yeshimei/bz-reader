@@ -10,6 +10,9 @@ export class FakeAdapter {
   dirs = new Set<string>();
   writes: string[] = [];
   renames: Array<[string, string]> = [];
+  /** 每个文件的 mtime，模拟「外部修改」用；每次 write/rename 递增 */
+  mtimes = new Map<string, number>();
+  private clock = 0;
 
   constructor(
     private opts: {
@@ -21,6 +24,12 @@ export class FakeAdapter {
       renameAlwaysFails?: boolean;
     } = {},
   ) {}
+
+  /** 模拟「另一个进程改了文件」：内容由调用方写，这里只把 mtime 往前推 */
+  bump(path: string): void {
+    this.clock += 1;
+    this.mtimes.set(path, this.clock);
+  }
 
   async exists(path: string): Promise<boolean> {
     return this.files.has(path) || this.dirs.has(path);
@@ -35,6 +44,7 @@ export class FakeAdapter {
   async write(path: string, data: string): Promise<void> {
     this.writes.push(path);
     this.files.set(path, data);
+    this.bump(path);
   }
 
   async readBinary(path: string): Promise<ArrayBuffer> {
@@ -45,6 +55,7 @@ export class FakeAdapter {
 
   async writeBinary(path: string, data: ArrayBuffer): Promise<void> {
     this.files.set(path, new TextDecoder().decode(data));
+    this.bump(path);
   }
 
   async mkdir(path: string): Promise<void> {
@@ -70,12 +81,13 @@ export class FakeAdapter {
     this.files.delete(from);
     this.files.set(to, v);
     this.renames.push([from, to]);
+    this.bump(to);
   }
 
   async stat(path: string): Promise<{ size: number; mtime: number; ctime: number; type: 'file' }> {
     const v = this.files.get(path);
     if (v === undefined) throw new Error(`ENOENT: no such file or directory, ${path}`);
-    return { size: v.length, mtime: 0, ctime: 0, type: 'file' };
+    return { size: v.length, mtime: this.mtimes.get(path) ?? 0, ctime: 0, type: 'file' };
   }
 
   async list(path: string): Promise<{ files: string[]; folders: string[] }> {

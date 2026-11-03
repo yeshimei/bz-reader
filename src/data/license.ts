@@ -37,10 +37,28 @@ export interface LicensePayload {
   exp?: number;
 }
 
+/**
+ * 验签失败的原因分类。
+ *
+ * 调用方靠它决定「这枚码还能不能留」——早先只有 ok / !ok 两态，于是
+ * 「到期」和「验签环境抖动」走同一条 `clearLicense()`：年费用户到期当天
+ * 启动一次，码就被抹了，续费后还得翻邮件；移动端 WebView 偶发一次
+ * `crypto.subtle` 异常，付费用户当场掉回基础版。
+ *
+ *   empty      没填
+ *   format     三段式都对不上（手输错、复制不全）
+ *   no-pubkey  发行方没配公钥（开发期）
+ *   invalid    签名不对 / 内容被改 —— 只有这种才该清码
+ *   expired    签名是对的，只是到期 —— 保留码、只降级
+ *   env-error  WebCrypto 不可用 / 抛错 —— 完全不动，沿用上次结论
+ */
+export type LicenseFail = 'empty' | 'format' | 'no-pubkey' | 'invalid' | 'expired' | 'env-error';
+
 export interface LicenseCheck {
   ok: boolean;
   message: string;
   payload?: LicensePayload;
+  reason?: LicenseFail;
 }
 
 function b64urlToBytes(s: string): Uint8Array {
@@ -83,10 +101,14 @@ function dateText(ms: number): string {
  * 成功后把 plan / exp / name 交给调用方写进 entitlement。
  */
 export async function verifyLicense(code: string): Promise<LicenseCheck> {
-  if (!code.trim()) return { ok: false, message: '还没有填激活码。' };
-  if (!PUBKEY_SPKI_B64) return { ok: false, message: '发行方还没配置公钥（开发阶段先用签发脚本自测）。' };
+  if (!code.trim()) return { ok: false, reason: 'empty', message: '还没有填激活码。' };
+  if (!PUBKEY_SPKI_B64) {
+    return { ok: false, reason: 'no-pubkey', message: '发行方还没配置公钥（开发阶段先用签发脚本自测）。' };
+  }
   const parsed = parseLicense(code);
-  if (!parsed) return { ok: false, message: '激活码格式不对：应为 BZR1 / BZR2 开头的三段式。' };
+  if (!parsed) {
+    return { ok: false, reason: 'format', message: '激活码格式不对：应为 BZR1 / BZR2 开头的三段式。' };
+  }
   try {
     const key = await spkiToCryptoKey(
       Uint8Array.from(atob(PUBKEY_SPKI_B64), (c) => c.charCodeAt(0)).buffer as ArrayBuffer,
@@ -97,16 +119,20 @@ export async function verifyLicense(code: string): Promise<LicenseCheck> {
       parsed.sig.buffer as ArrayBuffer,
       parsed.payloadBytes.buffer as ArrayBuffer,
     );
-    if (!ok) return { ok: false, message: '激活码验签失败：内容或签名被改过。' };
+    if (!ok) return { ok: false, reason: 'invalid', message: '激活码验签失败：内容或签名被改过。' };
     const exp = parsed.payload.exp ?? 0;
     if (exp && Date.now() > exp) {
-      return { ok: false, message: `激活码已于 ${dateText(exp)} 过期。` };
+      return { ok: false, reason: 'expired', message: `激活码已于 ${dateText(exp)} 过期。` };
     }
     const who = parsed.payload.name ? `，${parsed.payload.name}` : '';
     const until = exp ? `有效期到 ${dateText(exp)}` : '永久有效';
     return { ok: true, message: `已激活${who}，${until}。`, payload: parsed.payload };
   } catch (e) {
-    return { ok: false, message: `验签出错：${(e as Error)?.message || '环境不支持 WebCrypto'}` };
+    return {
+      ok: false,
+      reason: 'env-error',
+      message: `验签出错：${(e as Error)?.message || '环境不支持 WebCrypto'}`,
+    };
   }
 }
 

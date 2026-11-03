@@ -31,7 +31,8 @@ import { ReaderView, VIEW_TYPE_READER, type ReaderCommand, type ReaderHostApi } 
 import { SideView, VIEW_TYPE_TOC, type SideTab } from './view/side-view';
 import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-state';
 import { releaseCovers } from './data/cover';
-import { activateLicense as applyLicense, can, recordActivity, revalidateLicense, setProBuild } from './data/entitlement';
+import { activateLicense as applyLicense, can, recordActivity, revalidateLicense, setEntBackend, setProBuild } from './data/entitlement';
+import { normalizePluginData, type PluginDataFile } from './data/plugin-data';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
 import { installBlobSrcdocPatches } from './engine/blob-srcdoc';
 import { initDebugLog, shutdownDebugLog } from './core/debug-log';
@@ -80,6 +81,14 @@ export function createPlugin(cfg: PluginConfig) {
   return class BzReaderPlugin extends Plugin implements ReaderHostApi {
     store!: ReaderStore;
     repo!: BookRepo;
+    /**
+     * 插件配置（`data.json`）。设置、授权、数据目录指针都在这里。
+     *
+     * 内存里始终有一份完整对象：`entitlement()` 是同步的，等不了 await；
+     * 真正的落盘走 `persistCfg()` 防抖，卸载时 `flushCfg()` 强制写。
+     */
+    private cfg: PluginDataFile = normalizePluginData(null);
+    private cfgTimer: number | null = null;
     private overlay: OverlayLayer | null = null;
     private offShell: (() => void) | null = null;
 
@@ -92,6 +101,19 @@ export function createPlugin(cfg: PluginConfig) {
     async onload(): Promise<void> {
       setApp(this.app);
       setPluginRelDir(this.manifest.dir);
+
+      /* 配置先读：设置、授权、数据目录全在 data.json 里，而且 store 要知道
+         数据目录在哪才能 load()。顺序反了就会「设置读到了、书架是空的」。 */
+      this.cfg = normalizePluginData(await this.loadData().catch(() => null));
+      setEntBackend({
+        read: () => this.cfg.entitlement,
+        write: (raw) => {
+          this.cfg.entitlement = raw;
+          this.persistCfg();
+        },
+      });
+      setDataDir(this.cfg.dataDir);
+
       /* 移动端保命补丁：宿主 CSP 挡 blob 帧，章节必须以 srcdoc 落地。
          必须早于任何一次开书（拦 URL.createObjectURL 与 iframe.src）。 */
       installBlobSrcdocPatches();
@@ -101,9 +123,9 @@ export function createPlugin(cfg: PluginConfig) {
       setProBuild(cfg.pro);
       recordActivity();
       /* 启动即真验一次码：同步判定只能拆 payload，验签得在这里做。
-         跑不过就清码（改 localStorage 伪造的假码在这一步被拦下）。 */
-      void revalidateLicense().then((cleaned) => {
-        if (cleaned) notifyShell();
+         只对「码本身是假的」清码；过期保留、环境异常不动（见 revalidateLicense）。 */
+      void revalidateLicense().then((r) => {
+        if (r.changed) notifyShell();
       });
       loadShellState();
 
@@ -234,6 +256,28 @@ export function createPlugin(cfg: PluginConfig) {
          自己打开的——插件重载不该替他关掉。Obsidian 在插件停用时自己会把这些
          leaf 换成占位，我们 detach 只会让人丢掉布局。 */
       void this.store?.destroy();
+      /* 配置（含激活码）最后写一次：刚激活就禁用插件的场景不能丢码 */
+      void this.flushCfg();
+    }
+
+    /** 配置防抖落盘。改设置、激活、换数据目录都走它。 */
+    private persistCfg(): void {
+      if (this.cfgTimer !== null) return;
+      this.cfgTimer = window.setTimeout(() => {
+        this.cfgTimer = null;
+        void this.saveData(this.cfg).catch((e) => {
+          console.warn('[bz-reader] 配置保存失败：', (e as Error)?.message || e);
+        });
+      }, 300);
+    }
+
+    /** 立即落盘（卸载 / 换目录前调） */
+    private flushCfg(): Promise<void> {
+      if (this.cfgTimer !== null) {
+        window.clearTimeout(this.cfgTimer);
+        this.cfgTimer = null;
+      }
+      return this.saveData(this.cfg).catch(() => undefined);
     }
 
     /** 命令面板要「对当前这本书下手」：优先活动 leaf，其次任意一个阅读 leaf */
@@ -260,7 +304,7 @@ export function createPlugin(cfg: PluginConfig) {
         syncVault: () => this.syncShelf(),
         prefs: () => normalizePrefs(this.store.get().prefs ?? undefined),
         setPrefs: (patch) => this.setPrefs(patch),
-        settings: () => normalizeSettings(this.store.get().settings ?? undefined),
+        settings: () => this.cfg.settings,
         setSettings: (patch) => this.setSettings(patch),
         activate: (code) => this.activateLicense(code),
         dataDir: () => dataDirOf(),
@@ -299,6 +343,8 @@ export function createPlugin(cfg: PluginConfig) {
       }
 
       setDataDir(to);
+      this.cfg.dataDir = to;
+      void this.flushCfg();
       const fresh = await this.store.load();
       // repo 持有的是 books 数组引用，就地换内容，外面拿到的引用仍然有效
       const books = this.repo.all();
@@ -344,23 +390,22 @@ export function createPlugin(cfg: PluginConfig) {
     }
 
     setSettings(patch: Partial<ReaderSettings>): void {
-      const next = normalizeSettings({ ...normalizeSettings(this.store.get().settings ?? undefined), ...patch });
-      this.store.get().settings = next;
-      this.store.touch();
+      this.cfg.settings = normalizeSettings({ ...this.cfg.settings, ...patch });
+      this.persistCfg();
       notifyShell();
     }
 
     /**
      * 激活码的唯一入口（书架设置页 / 壳层解锁层共用）。
      *
-     * 顺序：验签 → 通过才写 entitlement（can() 的真相）→ 同步一份到
-     * settings（导出稿等读它）→ 重绘所有壳层。
-     * 只写 settings 不写 entitlement 就是「显示已激活、功能全锁死」。
+     * 顺序：验签 → 通过才写 entitlement（can() 的真相）→ 落盘 data.json。
+     * 2026-11-04 起**不再**同步一份进业务 JSON：那份从来没人读，
+     * 却让「设置页显示已激活、can() 为 false」这个 bug 活了很久。
      */
     async activateLicense(code: string): Promise<{ ok: boolean; message: string }> {
       const res = await applyLicense(code);
       if (res.ok) {
-        this.setSettings({ license: code.trim() });
+        await this.flushCfg();
         notifyShell();
       }
       return res;
