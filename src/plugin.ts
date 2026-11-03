@@ -36,7 +36,7 @@ import { releaseCovers } from './data/cover';
 import { activateLicense as applyLicense, can, recordActivity, revalidateLicense, setProBuild } from './data/entitlement';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
 import { installBlobSrcdocPatches } from './engine/blob-srcdoc';
-import { initDebugLog } from './core/debug-log';
+import { initDebugLog, shutdownDebugLog } from './core/debug-log';
 import { openStats } from './ui/stats-panel';
 import { openCrossSearch } from './ui/cross-search-panel';
 
@@ -238,6 +238,8 @@ export function createPlugin(cfg: PluginConfig) {
         leaf.detach();
       }
       releaseCovers(); // 封面 objectURL 不释放会一直占着内存里的整张图
+      /* 日志的 window 监听要摘、缓冲区要 flush：否则禁用→再启用叠一层监听 */
+      shutdownDebugLog();
       /* 书架就是中心 tab 里的一个视图（VIEW_TYPE_STUDY），跟阅读视图一样是用户
          自己打开的——插件重载不该替他关掉。Obsidian 在插件停用时自己会把这些
          leaf 换成占位，我们 detach 只会让人丢掉布局。 */
