@@ -22,6 +22,7 @@ import type { DrawAnnotationDetail, FoliateBook, FoliateTOCItem, FoliateView, Sh
 import { buildChapterCSS } from './theme';
 import { makeTxtBook, countWords } from './txt';
 import { DEFAULT_PREFS, FONT_SIZE_RANGE, type ReaderPrefs } from '../data/prefs';
+import { dlog } from '../core/debug-log';
 
 /** 宿主坐标系里的矩形（左上角 + 宽高，单位 CSS px） */
 export interface Rect {
@@ -98,7 +99,10 @@ export interface MountOptions {
   onRelocate?: (info: RelocateInfo) => void;
   onReady?: (book: FoliateBook, meta: { title: string; author: string; wordCount: number }) => void;
   /** 单指轻触正文：左 / 中 / 右 */
-  onTap?: (zone: 'left' | 'middle' | 'right') => void;
+  onTap?: (
+    zone: 'left' | 'middle' | 'right',
+    info: { x: number; y: number; width: number; source: string },
+  ) => void;
   /** 任何手势要求翻页（滚轮 / 双指横滑 / 按钮） */
   onTurn?: (dir: 'prev' | 'next') => void;
   /** 两指捏合或 Ctrl+滚轮要求改字号 */
@@ -191,6 +195,19 @@ export class EngineHost {
   private twoFingerMove = 0;
   /** 这个 iframe 里 pointer 事件是否可用（可用就只认 pointer，避免重复计数） */
   private pointerWorks = false;
+  /**
+   * 阅读区可见宽度（CSS px）。
+   *
+   * 分页器把整章按列排开，iframe 的 documentElement 会比屏幕宽出一个数量级，
+   * 用任何「文档宽度」当分母都会把手指位置判成最左边。真正能用的分母只有
+   * 宿主自己知道的这一块画布宽度，由阅读视图量好传进来。
+   */
+  private viewportWidth = 0;
+
+  /** 阅读视图在挂载与尺寸变化时调用 */
+  setViewportWidth(width: number): void {
+    if (Number.isFinite(width) && width > 0) this.viewportWidth = Math.round(width);
+  }
 
   /** 装载到哪一步了。出错时告诉用户卡在哪，而不是「打不开」三个字 */
   private phase: 'idle' | 'read' | 'parse' | 'render' | 'locate' | 'ready' = 'idle';
@@ -517,7 +534,7 @@ export class EngineHost {
     const TAP_MOVE_PX = 12;
     const TAP_LONG_PRESS_MS = 500;
 
-    const emitTap = (x: number, y: number, target: EventTarget | null): void => {
+    const emitTap = (x: number, y: number, target: EventTarget | null, source: string): void => {
       const now = Date.now();
       if (now < this.suppressClickUntil) return;
       const sel = doc.getSelection();
@@ -526,9 +543,16 @@ export class EngineHost {
       if (node?.closest?.('a[href], [data-bzr-skip-tap]')) return;
       /* 点在划线上是要看那条标注，不是要翻页 */
       if (this.hitsAnnotation({ clientX: x, clientY: y })) return;
-      const width = doc.documentElement.clientWidth || 1;
+      /* 分母必须是「一页有多宽」，不是 html 元素的宽。
+         分页器把整章按列排开，documentElement.clientWidth 会是整章的宽度
+         （实测 14611px），拿它当分母时手指点哪儿都判成最左边，
+         于是每次点按都往「上一页」翻——用户看到的「点一下往上翻」就是它。 */
+      const win = doc.defaultView;
+      const frame = (win?.frameElement ?? null) as HTMLIFrameElement | null;
+      /* 分母用阅读区可见宽度（见 viewportWidth 注释）；没有就退回帧宽 */
+      const width = this.viewportWidth || frame?.clientWidth || win?.innerWidth || 1;
       const zone = x < width * 0.3 ? 'left' : x > width * 0.7 ? 'right' : 'middle';
-      this.opts.onTap?.(zone);
+      this.opts.onTap?.(zone, { x, y, width, source });
     };
 
     // ② 滚轮：iframe 内也要拦（外层的 wheel 传不进来）
@@ -596,7 +620,7 @@ export class EngineHost {
       const held = Date.now() - tapAt;
       tapId = -1;
       if (tapMoved || held > TAP_LONG_PRESS_MS) return;
-      emitTap(ev.clientX, ev.clientY, ev.target);
+      emitTap(ev.clientX, ev.clientY, ev.target, 'pointer');
     };
     const onPointerCancel = (): void => {
       tapPointers = 0;
@@ -675,7 +699,7 @@ export class EngineHost {
           Date.now() - state.at < TAP_LONG_PRESS_MS &&
           state.moved < TAP_MOVE_PX
         ) {
-          emitTap(t.clientX, t.clientY, ev.target);
+          emitTap(t.clientX, t.clientY, ev.target, 'touch-fallback');
         }
       }
     };
@@ -691,8 +715,10 @@ export class EngineHost {
       if (tap.moved >= TAP_MOVE_PX) return;
       if (!this.pointerWorks) {
         const t = ev.changedTouches[0];
-        if (t) emitTap(t.clientX, t.clientY, ev.target);
+        if (t) emitTap(t.clientX, t.clientY, ev.target, 'touch');
       }
+      /* 拦下这一条，分页器就收不到 touchend，不会跑零速度吸附 */
+      dlog('tap.blockSnap', { moved: Math.round(tap.moved), ms: Date.now() - tap.at, pointerWorks: this.pointerWorks });
       ev.stopImmediatePropagation();
     };
 
@@ -940,9 +966,13 @@ export class EngineHost {
     });
     try {
       const done = await Promise.race([Promise.resolve(run()).then(() => 'ok' as const), timeout]);
-      if (done === 'timeout') this.opts.onStall?.(what);
+      if (done === 'timeout') {
+        dlog('nav.timeout', { what, timeoutMs });
+        this.opts.onStall?.(what);
+      }
     } catch {
       /* 引擎自己的错误已经有地方报了（读文件/解包在 mount 里），这里只管「不结算」 */
+      dlog('nav.error', { what });
       this.opts.onStall?.(what);
     } finally {
       window.clearTimeout(timer);

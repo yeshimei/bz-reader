@@ -31,6 +31,7 @@ import { can } from '../data/entitlement';
 import { speak, type SpeakHandle } from '../core/speak';
 import { notify } from '../core/notice';
 import { isMobileShell } from '../core/mobile';
+import { dlog } from '../core/debug-log';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
 import { el } from '../ui/dom';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
@@ -101,7 +102,7 @@ export class ReaderView extends ItemView {
   private lastKeyBefore = '';
   private lastKeyAfter = '';
   /** 每次发版手动改，和 manifest 一起确认手机跑的是哪一版 */
-  private static readonly BUILD_TAG = '0.1.3+1305';
+  private static readonly BUILD_TAG = '0.1.4+1320';
 
   /* 并排对照：副卷自己一套引擎，主卷的进度与标注一概不受影响 */
   private parallelOn = false;
@@ -113,7 +114,10 @@ export class ReaderView extends ItemView {
   private speaking = false;
   private voice: SpeakHandle | null = null;
 
-  private tapHandler: (zone: 'left' | 'middle' | 'right') => void = () => undefined;
+  private tapHandler: (
+    zone: 'left' | 'middle' | 'right',
+    info?: { x: number; y: number; width: number; source: string },
+  ) => void = () => undefined;
 
   private selection: SelectionInfo | null = null;
   private selectionAt = 0;
@@ -275,9 +279,17 @@ export class ReaderView extends ItemView {
 
     /* 点正文：移动端左右翻页；两指同时按切换沉浸（判定在引擎侧）。
        翻页延后由 host 的队列保证，这里只管按区定方向。 */
-    this.tapHandler = (zone) => {
+    this.tapHandler = (zone, info) => {
       const now = Date.now();
       this.tapCount += 1;
+      dlog('tap', {
+        zone,
+        src: info?.source ?? '?',
+        x: info ? Math.round(info.x) : -1,
+        w: info ? Math.round(info.width) : -1,
+        key: this.host.pageKey,
+        vertical: this.host.contentVertical,
+      });
       this.lastZone = zone === 'left' ? 'L' : zone === 'right' ? 'R' : 'M';
       /* 连点就连续翻：去重已经在引擎侧按手势做过，这里不再压时间窗 */
       this.lastTurnAt = now;
@@ -292,9 +304,11 @@ export class ReaderView extends ItemView {
       this.lastKeyAfter = '';
       this.stopTts();
       /* 只翻一次：turn() 和这里各发一次的话，一按就是两页 */
+      dlog('turn', { dir, from: this.lastKeyBefore });
       const p = dir === 'prev' ? this.host.prev() : this.host.next();
       void p.then(() => {
         this.lastKeyAfter = this.host.pageKey;
+        dlog('turn.done', { dir, to: this.lastKeyAfter });
         this.tracker.touch();
         this.renderProbe();
       });
@@ -536,6 +550,7 @@ export class ReaderView extends ItemView {
   /** 沉浸：藏掉宿主的上头栏与下导航条，再按一次还原 */
   private toggleImmersive(force?: boolean): void {
     this.immersive = force ?? !this.immersive;
+    dlog('immersive', { on: this.immersive });
     document.body.classList.toggle('bzr-immersive', this.immersive);
   }
 
@@ -979,7 +994,7 @@ export class ReaderView extends ItemView {
       await this.host.mount(this.stage as HTMLElement, book.fileRef.vaultPath, {
         prefs: this.prefs,
         onRelocate: (info) => this.saveRelocate(info),
-        onTap: (zone) => this.tapHandler(zone),
+        onTap: (zone, info) => this.tapHandler(zone, info),
         /* 两指同时轻按 = 沉浸/还原。手势判定在引擎侧（只有它拿得到 iframe
            里的触摸序列），这里只接结果。 */
         onTwoFingerTap: () => this.toggleImmersive(),
@@ -1030,6 +1045,14 @@ export class ReaderView extends ItemView {
           notifyShell();
         },
       });
+      /* 点按分区要用「可见宽度」当分母：分页器的文档宽度比屏幕大一个量级 */
+      this.host.setViewportWidth((this.stage as HTMLElement).clientWidth);
+      this.registerEvent(
+        this.api.app.workspace.on('resize', () => {
+          const box = this.stage;
+          if (box) this.host.setViewportWidth(box.clientWidth);
+        }),
+      );
       await this.host.start(
         this.pendingCfi || book.reading.position.cfi,
         this.pendingCfi ? 0 : book.reading.position.percent || 0,

@@ -44,6 +44,7 @@ import {
 } from './data/entitlement';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
 import { installBlobSrcdocPatches } from './engine/blob-srcdoc';
+import { initDebugLog } from './core/debug-log';
 import { openStats } from './ui/stats-panel';
 import { openCrossSearch } from './ui/cross-search-panel';
 
@@ -103,6 +104,8 @@ export function createPlugin(cfg: PluginConfig) {
       /* 移动端保命补丁：宿主 CSP 挡 blob 帧，章节必须以 srcdoc 落地。
          必须早于任何一次开书（拦 URL.createObjectURL 与 iframe.src）。 */
       installBlobSrcdocPatches();
+      /* 真机排查：关键动作落到库根目录的 bz-reader-debug.md */
+      initDebugLog(this.app);
       // 构建期能力 + 记一次活跃日（试用按「真的打开过的日子」算）
       setProBuild(cfg.pro);
       recordActivity();
