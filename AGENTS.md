@@ -59,7 +59,84 @@ node esbuild.config.mjs once                    # 3. 构建（现在只有一个
 
 ---
 
-## 4. 测试规范
+## 4. 改动走 worktree（仓库外，从最新 master 分叉）
+
+主仓只负责「随时能构建、能发布」。功能、修复、整库 review 都在 worktree 里做，
+做完再合回来；主仓工作区在别人干活期间必须保持干净。
+
+**建**
+
+```powershell
+cd D:\Obsidian\bz-reader
+git worktree add -b fix/<主题> D:\Obsidian\bz-reader-wt-<主题> master
+# node_modules 不进 git，也不在 worktree 里重装：
+# 用目录联接指回主仓（离线/无网也能跑门禁）
+New-Item -ItemType Junction `
+  -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules `
+  -Target D:\Obsidian\bz-reader\node_modules
+```
+
+- 命名：目录 `bz-reader-wt-<主题>`，分支 `feat/…` 或 `fix/…`，两边主题一致。
+- 纯文档（`README.md` / `AGENTS.md`）改动可以直接在主仓提交，不必为它开 worktree。
+- junction 当**只读**用：不要在它下面 `pnpm install`、不要新建文件；
+  node 直接跑 `node node_modules/...` 即可。
+- 写文件前先确认路径在 worktree 下——用绝对路径最容易误写进主仓。
+- 不要动别的 worktree（`bz-reader-offline`、`bz-reader-fix-mobile` 等）正在改的文件。
+
+**建完先对基线**
+
+```powershell
+cd D:\Obsidian\bz-reader-wt-<主题>
+node node_modules/typescript/bin/tsc --noEmit
+node node_modules/vitest/vitest.mjs run
+```
+
+**门禁（同第 3 节，但在 worktree 内跑）**
+
+构建会把产物同步到 vault 插件目录，worktree 里只验产物、别污染正在用的库：
+
+```powershell
+$env:BZ_READER_VAULT='D:/Obsidian/__nonexistent__'   # 目录不存在 → 构建跳过同步
+node esbuild.config.mjs once
+```
+
+真机冒烟/部署的构建回主仓做（见第 1 节）。**测试库只管「人眼看效果」，不算验证**；
+通过与否只看三道门。
+
+**合回**
+
+```powershell
+cd D:\Obsidian\bz-reader
+git merge --ff-only fix/<主题>          # 干净快进，不留 merge commit
+```
+
+- 合并前 worktree 工作区必须干净（`git status --porcelain` 为空），三道门最后一次
+  全绿要跑在**当前 HEAD** 上。
+- master 在这期间前进过：先在 worktree 里 `git rebase master`，解冲突后**重跑三道门**，
+  再回主仓 `--ff-only`。
+- 有远端时才 `git push`；本仓目前没有 remote，合并即结束。
+
+**收尾（顺序不能反）**
+
+```powershell
+cmd /c rmdir "D:\Obsidian\bz-reader-wt-<主题>\node_modules"   # 先摘 junction
+git worktree remove D:\Obsidian\bz-reader-wt-<主题>
+git branch -d fix/<主题>
+```
+
+> 不要直接 `Remove-Item -Recurse` 删 worktree：删联接可能穿透到主仓 `node_modules`。
+
+**踩过的坑**
+
+- 主仓和 worktree 同时改同一批文件，合并冲突会翻倍；动手前先
+  `git -C D:\Obsidian\bz-reader status` 看主仓有没有人在改。
+- 两个 worktree 的构建产物会出现「模块路径注释」之类的假差异（随构建位置变化），
+  比对产物只比行为，不比字节。
+- 构建 tag 由 `manifest.version` + 构建时间注入，同一版不同 worktree 的 tag 不同是正常的。
+
+---
+
+## 5. 测试规范
 
 - 测试放 `tests/`，命名 `tests/<模块名>.test.ts`，一模块一文件。
 - **新增/修改一个模块，同一次提交里必须带它的测试。**
@@ -77,15 +154,31 @@ node esbuild.config.mjs once                    # 3. 构建（现在只有一个
 |---|---|
 | `data/prefs.ts` | `tests/prefs.test.ts` |
 | `data/schema.ts` / `engine/theme.ts` | `tests/theme-schema.test.ts` |
-| `data/license.ts` | `tests/license.test.ts` |
+| `data/license.ts` / `data/entitlement.ts` | `tests/license.test.ts`、`tests/entitlement.test.ts` |
+| `data/store.ts` | `tests/store.test.ts` |
+| `data/book-repo.ts` | `tests/book-repo.test.ts` |
+| `data/settings.ts` | `tests/settings.test.ts` |
+| `data/migrate.ts` | `tests/migrate.test.ts` |
 | `data/notes.ts`、导出 | `tests/notes.test.ts`、`tests/export.test.ts` |
+| `engine/activity.ts` | `tests/activity.test.ts` |
+| `engine/selection-rect.ts` | `tests/selection-rect.test.ts` |
+| `shell/anchored-style.ts` | `tests/overlay-anchor.test.ts` |
+| `shell/state.ts`（overlayKey / isFloatOverlay） | `tests/overlay-state.test.ts`、`tests/overlay-kind.test.ts` |
+| `shell/delete-guard.ts` / `focus-memo.ts` / `search-hits.ts` | `tests/shell-helpers.test.ts` |
+| `shell/highlight-sheet.ts` | `tests/highlight-sheet.test.ts` |
+| `shell/idea-sheet.ts` | `tests/idea-sheet.test.ts` |
+| `shell/keyboard-inset.ts` | `tests/keyboard-inset.test.ts` |
+| `shell/settings-toggle.ts` | `tests/settings-toggle.test.ts` |
+| `shell/text-toolbar.ts` | `tests/text-toolbar.test.ts` |
+| `view/relocate-notify.ts` | `tests/relocate-notify.test.ts` |
 
-**还没覆盖**（改到哪个就补哪个）：`shell/*`（settings/actions/overlay/state）、
-`ui/*`、`engine/host.ts`、`view/reader-view.ts`。
+**还没覆盖**（改到哪个就补哪个）：`shell/overlay.ts`、`shell/actions.ts`、
+`shell/render/*`、`shell/shelf-panel.ts`、`ui/*`、`engine/host.ts`、
+`view/reader-view.ts`、`view/side-view.ts`。
 
 ---
 
-## 5. 真机问题的排查方式
+## 6. 真机问题的排查方式
 
 不要靠用户截图猜。插件会往**库根目录**写 `bz-reader-debug.md`：
 
@@ -102,7 +195,7 @@ boot / viewport / tap / turn / tap.blockSnap / paginator.* / relocate / nav.time
 
 ---
 
-## 6. 交互约定（移动端）
+## 7. 交互约定（移动端）
 
 - 点正文：**下方 = 下一页，上方 = 上一页**（纵向分区，不看左右）。
 - 两指同时轻按：切换沉浸（藏宿主上下两条栏）。
@@ -111,7 +204,7 @@ boot / viewport / tap / turn / tap.blockSnap / paginator.* / relocate / nav.time
 
 ---
 
-## 7. 不要做的事
+## 8. 不要做的事
 
 - 不要提交 `.scratch*` 临时脚本、`dist/`、库里的调试日志。
 - 不要为了修一个 bug 顺手重构无关模块。
