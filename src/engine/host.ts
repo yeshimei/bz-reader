@@ -101,7 +101,15 @@ export interface MountOptions {
   /** 单指轻触正文：左 / 中 / 右 */
   onTap?: (
     zone: 'left' | 'middle' | 'right',
-    info: { x: number; y: number; width: number; source: string },
+    info: {
+      x: number;
+      y: number;
+      width: number;
+      source: string;
+      scrollLeft: number;
+      within: number;
+      screenX: number;
+    },
   ) => void;
   /** 任何手势要求翻页（滚轮 / 双指横滑 / 按钮） */
   onTurn?: (dir: 'prev' | 'next') => void;
@@ -203,11 +211,31 @@ export class EngineHost {
    * 宿主自己知道的这一块画布宽度，由阅读视图量好传进来。
    */
   private viewportWidth = 0;
+  /** 阅读区左边界（应用坐标系），用来把 iframe 里的坐标换算回屏幕位置 */
+  private viewportLeft = 0;
+
+  /** relocate 序号与最近一次定位的 cfi：换页是否真的发生，看这两个 */
+  private relocateSeq = 0;
+  private lastRelocateCfi = '';
+  private relocateWaiters: Array<() => void> = [];
+
+  /** 等一次 relocate（最多 ms 毫秒），用来替代「立刻比对页码」那种竞态判断 */
+  private waitRelocate(since: number, ms: number): Promise<boolean> {
+    if (this.relocateSeq !== since) return Promise.resolve(true);
+    return new Promise<boolean>((resolve) => {
+      const timer = window.setTimeout(() => resolve(false), ms);
+      this.relocateWaiters.push(() => {
+        window.clearTimeout(timer);
+        resolve(true);
+      });
+    });
+  }
 
   /** 阅读视图在挂载与尺寸变化时调用 */
-  setViewportWidth(width: number): void {
+  setViewportWidth(width: number, left = 0): void {
     if (Number.isFinite(width) && width > 0) this.viewportWidth = Math.round(width);
-    dlog('viewport', { w: this.viewportWidth });
+    if (Number.isFinite(left)) this.viewportLeft = Math.round(left);
+    dlog('viewport', { w: this.viewportWidth, left: this.viewportLeft });
   }
 
   /** 装载到哪一步了。出错时告诉用户卡在哪，而不是「打不开」三个字 */
@@ -310,6 +338,11 @@ export class EngineHost {
       if (this.phase !== 'ready') this.phase = 'ready';
       this.chapterIndex = d.section?.current ?? this.chapterIndex;
       this.chapterTitle = d.tocItem?.label ?? this.chapterTitle;
+      this.relocateSeq += 1;
+      this.lastRelocateCfi = d.cfi ?? this.lastRelocateCfi;
+      const waiters = this.relocateWaiters;
+      this.relocateWaiters = [];
+      for (const w of waiters) w();
       this.opts.onRelocate?.({
         percent,
         cfi: d.cfi ?? '',
@@ -535,7 +568,13 @@ export class EngineHost {
     const TAP_MOVE_PX = 12;
     const TAP_LONG_PRESS_MS = 500;
 
-    const emitTap = (x: number, y: number, target: EventTarget | null, source: string): void => {
+    const emitTap = (
+      x: number,
+      y: number,
+      target: EventTarget | null,
+      source: string,
+      screenX = 0,
+    ): void => {
       const now = Date.now();
       if (now < this.suppressClickUntil) return;
       const sel = doc.getSelection();
@@ -552,8 +591,19 @@ export class EngineHost {
       const frame = (win?.frameElement ?? null) as HTMLIFrameElement | null;
       /* 分母用阅读区可见宽度（见 viewportWidth 注释）；没有就退回帧宽 */
       const width = this.viewportWidth || frame?.clientWidth || win?.innerWidth || 1;
-      const zone = x < width * 0.3 ? 'left' : x > width * 0.7 ? 'right' : 'middle';
-      this.opts.onTap?.(zone, { x, y, width, source });
+      /* 真机的 clientX 会带上整章的平移量（同一位置连着翻页时 x 每页加一个页宽），
+         直接当屏幕位置用会把整章后段全部判成最右边。这里把 iframe 的坐标先换算回
+         应用坐标系（加上帧自身的 left），再减掉阅读区左边界，才是「点在可见区的哪儿」。 */
+      /* 坐标换算：真机上 clientX 会带上整章的平移量（同一位置连着翻页时 x 每页
+         加一个页宽），桌面上却又是视口坐标。screenX 两边都是「屏幕上的位置」，
+         减掉窗口自己的 screenX 就回到应用坐标，再减阅读区左边界即可。 */
+      const rect = frame?.getBoundingClientRect();
+      const winLeft = win?.screenX ?? 0;
+      const screenRel = screenX > 0 ? screenX - winLeft : x;
+      const scrollLeft = rect ? rect.left : 0;
+      const within = Math.max(0, Math.min(width, screenRel - this.viewportLeft));
+      const zone = within < width * 0.3 ? 'left' : within > width * 0.7 ? 'right' : 'middle';
+      this.opts.onTap?.(zone, { x, y, width, source, scrollLeft, within, screenX });
     };
 
     // ② 滚轮：iframe 内也要拦（外层的 wheel 传不进来）
@@ -621,7 +671,7 @@ export class EngineHost {
       const held = Date.now() - tapAt;
       tapId = -1;
       if (tapMoved || held > TAP_LONG_PRESS_MS) return;
-      emitTap(ev.clientX, ev.clientY, ev.target, 'pointer');
+      emitTap(ev.clientX, ev.clientY, ev.target, 'pointer', ev.screenX);
     };
     const onPointerCancel = (): void => {
       tapPointers = 0;
@@ -700,7 +750,7 @@ export class EngineHost {
           Date.now() - state.at < TAP_LONG_PRESS_MS &&
           state.moved < TAP_MOVE_PX
         ) {
-          emitTap(t.clientX, t.clientY, ev.target, 'touch-fallback');
+          emitTap(t.clientX, t.clientY, ev.target, 'touch-fallback', t.screenX);
         }
       }
     };
@@ -716,7 +766,7 @@ export class EngineHost {
       if (tap.moved >= TAP_MOVE_PX) return;
       if (!this.pointerWorks) {
         const t = ev.changedTouches[0];
-        if (t) emitTap(t.clientX, t.clientY, ev.target, 'touch');
+        if (t) emitTap(t.clientX, t.clientY, ev.target, 'touch', t.screenX);
       }
       /* 拦下这一条，分页器就收不到 touchend，不会跑零速度吸附 */
       dlog('tap.blockSnap', { moved: Math.round(tap.moved), ms: Date.now() - tap.at, pointerWorks: this.pointerWorks });
@@ -1011,6 +1061,8 @@ export class EngineHost {
 
   private async turnOnce(dir: 'next' | 'prev'): Promise<void> {
     const before = this.pageKey;
+    const cfiBefore = this.lastRelocateCfi;
+    const seqBefore = this.relocateSeq;
     /* 翻页的等待上限要短：分页器在换章时会短暂上锁，那次 next() 可能
        永不结算；用 20 秒的定位超时会让整条导航队列卡死，后面每次点击
        都像「没反应」。3 秒足够一次翻页，超时就当它没动，走下面的跨章兜底。 */
@@ -1019,7 +1071,11 @@ export class EngineHost {
       dir === 'next' ? '翻到下一页' : '翻回上一页',
       TURN_TIMEOUT,
     );
-    if (this.pageKey !== before) return;
+    /* 分页器的 replace 与 relocate 是异步的：刚 await 完 next() 时页码往往还是旧的，
+       立刻比对会误判成「没翻动」，接着又跳一次相邻章——一次点击翻两页就是这么来的。
+       等一次 relocate（或 600ms）再判定。 */
+    await this.waitRelocate(seqBefore, 600);
+    if (this.lastRelocateCfi !== cfiBefore || this.pageKey !== before) return;
     /* 章末/章首：分页器把「下一页」判成 false，页面一动不动，用户看到的就是
        「点了没反应」。这里显式翻到相邻章。 */
     const count = this.book?.sections.length ?? 0;

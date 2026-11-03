@@ -116,7 +116,15 @@ export class ReaderView extends ItemView {
 
   private tapHandler: (
     zone: 'left' | 'middle' | 'right',
-    info?: { x: number; y: number; width: number; source: string },
+    info?: {
+      x: number;
+      y: number;
+      width: number;
+      source: string;
+      scrollLeft: number;
+      within: number;
+      screenX: number;
+    },
   ) => void = () => undefined;
 
   private selection: SelectionInfo | null = null;
@@ -287,6 +295,9 @@ export class ReaderView extends ItemView {
         src: info?.source ?? '?',
         x: info ? Math.round(info.x) : -1,
         w: info ? Math.round(info.width) : -1,
+        sx: info ? Math.round(info.scrollLeft) : -1,
+        in: info ? Math.round(info.within) : -1,
+        scr: info ? Math.round(info.screenX) : -1,
         key: this.host.pageKey,
         vertical: this.host.contentVertical,
       });
@@ -1046,11 +1057,14 @@ export class ReaderView extends ItemView {
         },
       });
       /* 点按分区要用「可见宽度」当分母：分页器的文档宽度比屏幕大一个量级 */
-      this.host.setViewportWidth((this.stage as HTMLElement).clientWidth);
+      this.host.setViewportWidth(
+        (this.stage as HTMLElement).clientWidth,
+        (this.stage as HTMLElement).getBoundingClientRect().left,
+      );
       this.registerEvent(
         this.api.app.workspace.on('resize', () => {
           const box = this.stage;
-          if (box) this.host.setViewportWidth(box.clientWidth);
+          if (box) this.host.setViewportWidth(box.clientWidth, box.getBoundingClientRect().left);
         }),
       );
       await this.host.start(
