@@ -15,7 +15,7 @@
 </div>
 
 <p align="center">
-  <img src="docs/images/shelf-desktop-light.webp" alt="Shelf: continue reading, filters, groups, and the cover wall (light on the left, dark on the right)">
+  <img src="docs/images/shelf-desktop-light.webp" alt="Shelf: continue reading, filter bar, shelf groups, and the cover wall (light on the left, dark on the right)">
 </p>
 
 <p align="center">
@@ -35,8 +35,8 @@
 | EPUB / TXT reading, pagination, and typography | ✓ | ✓ |
 | Contents, bookmarks, four-color highlights, and notes | ✓ | ✓ |
 | In-book search | ✓ | ✓ |
-| Footnote preview | ✓ | ✓ |
-| Highlights copied as backlinks | — | ✓ |
+| Footnote preview in a popover | ✓ | ✓ |
+| Copy highlights as backlinks | — | ✓ |
 | Structured Markdown export | — | ✓ |
 | Highlight cards | — | ✓ |
 | Reading stats, heatmap, and per-book progress | — | ✓ |
@@ -48,12 +48,12 @@
 | Original and translation side by side | — | ✓ |
 | Book map | — | ✓ |
 
-Pro unlocks with a license key in **Settings → License**. The key is verified offline.
+Enter your license key in **Settings → bz Reader → 授权 (License)** to unlock — verified locally, no network required.
 
 ## FAQ
 
 - **Which formats?** EPUB and TXT out of the box; mobi, azw3, fb2, and comics with Pro.
-- **Does it conflict with other plugins?** The reader is a native Obsidian view, contents live in a sidebar tab, and links use standard `[[ ]]`. No index is built.
+- **Does it conflict with other plugins?** The reader is a native Obsidian view, the contents are a tab in the left sidebar, and backlinks use the standard `[[ ]]` — no separate index is built.
 - **Switching computers?** Your vault carries the shelf, progress, and annotations. Re-enter the license key on the new device.
 - **Do I pay again on mobile?** No. One build covers desktop and mobile.
 
@@ -61,7 +61,7 @@ Pro unlocks with a license key in **Settings → License**. The key is verified 
 
 1. Open **Settings → Community plugins** and turn off Restricted mode.
 2. Click **Browse**, search for **bz Reader**, and install.
-3. Enable it — a library icon appears in the left ribbon.
+3. Enable it — a bz icon appears in the left ribbon; start from the shelf.
 
 ## License
 
