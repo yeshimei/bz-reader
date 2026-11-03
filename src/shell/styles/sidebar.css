@@ -5,12 +5,21 @@
    书签是串在发丝竖线上的菱形驿站；划线以章为卷。
    ========================================================== */
 
+/* 侧栏的壳层根：背景透明，露出宿主 `.view-content` 的 secondary 底。
+   `.bzs-shell` 默认铺 --bg（= primary），在侧栏里就是一块贴上去的白纸。 */
+.bzs-shell.is-side {
+  background: transparent;
+}
+
 .bzs-side {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
+  /* 背景透明：侧栏是宿主的 `.view-content`，它的底色是 secondary，
+     这里再铺一层 primary 就会在整块侧栏上多出一张白纸（真机反馈）。
+     融入宿主 = 不画自己的底。 */
+  background: transparent;
 }
 
 /* ── 书名行 ── */
@@ -141,13 +150,6 @@
   letter-spacing: .03em;
 }
 
-.bzs-chaprow .pc {
-  font-family: var(--ui);
-  font-size: 11px;
-  color: var(--t3);
-  flex-shrink: 0;
-}
-
 .bzs-chaprow.on {
   background: var(--copper-soft);
 }
@@ -166,8 +168,7 @@
   color: var(--t1);
 }
 
-.bzs-chaprow.on .no,
-.bzs-chaprow.on .pc {
+.bzs-chaprow.on .no {
   color: var(--copper);
 }
 

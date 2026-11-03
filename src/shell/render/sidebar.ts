@@ -69,7 +69,12 @@ export function stripTocLabel(label: string): string {
   return stripped || s;
 }
 
-/** 目录：目录项没有百分比，用「第几项 / 共几项」估一个位置，够用且不撒谎 */
+/**
+ * 目录。
+ *
+ * 行尾不再画百分比：它是「第几项 / 共几项」估出来的，不是真实阅读进度，
+ * 放在每一行反而让人以为翻页有误差（真机反馈）。要进度看书架与书签页。
+ */
 function tocBody(toc: FoliateTOCItem[], active: TocActiveRef): string {
   const flat: Array<{ item: FoliateTOCItem; depth: number }> = [];
   const walk = (items: FoliateTOCItem[], depth: number): void => {
@@ -81,9 +86,8 @@ function tocBody(toc: FoliateTOCItem[], active: TocActiveRef): string {
   walk(toc, 0);
 
   return `<div class="bzs-sbsec">共 ${flat.length} 节</div>${flat
-    .map(({ item, depth }, i) => {
+    .map(({ item, depth }) => {
       const on = isTocItemActive(item, active);
-      const pct = Math.round((i / Math.max(1, flat.length)) * 100);
       /* 序号列（原 .no）去掉了：侧栏只有 300px，那一列吃掉 24px + 10px 间距，
          长章节名被截在最难认的位置。层级靠缩进（.d1）表达就够了。
          高亮比对用原始 label，显示用剥过序号的。 */
@@ -91,7 +95,6 @@ function tocBody(toc: FoliateTOCItem[], active: TocActiveRef): string {
         item.href,
       )}" data-label="${esc(item.label)}">
         <span class="t">${esc(stripTocLabel(item.label))}</span>
-        <span class="pc">${pct}%</span>
       </button>`;
     })
     .join('')}`;
@@ -118,7 +121,7 @@ function highlightsBody(rows: MarkRow[]): string {
         <div class="bzs-hlg-h"><span>${esc(g.title)}</span><span class="n">${g.items.length}</span><span class="ln"></span></div>
         ${g.items
           .map(
-            (m) => `<div class="bzs-hlit" style="--c:${m.css}" data-act="hlcard" data-id="${m.id}">
+            (m) => `<div class="bzs-hlit" style="--c:${m.css}" data-act="hljump" data-id="${m.id}">
               <span class="tx"><i class="dot" style="background:${m.css}"></i>${esc(m.text)}</span>
               ${m.comment ? `<span class="cm"><b>想 法</b>${esc(m.comment)}</span>` : ''}
               <button class="x" data-act="delmark" data-id="${m.id}" title="删除">${ico('x')}</button>

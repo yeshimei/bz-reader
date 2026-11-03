@@ -370,6 +370,28 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
     case 'libview':
       if (d.v) setState({ libView: d.v as never });
       break;
+    case 'libsortmenu': {
+      /* 排序原来是一个原生 <select>：展开是系统的白底蓝条，和旁边的纸色
+         chip 完全两套长相。改成一颗 chip + 宿主自己的菜单——跟主题走，
+         手机上还是原生的底部动作面板。 */
+      const box = el.getBoundingClientRect();
+      const menu = new Menu();
+      const opts = [
+        ['recent', '最近阅读'],
+        ['title', '书名'],
+        ['progress', '进度'],
+      ] as const;
+      for (const [value, label] of opts) {
+        menu.addItem((item) =>
+          item
+            .setTitle(label)
+            .setChecked(getState().libSort === value)
+            .onClick(() => setState({ libSort: value })),
+        );
+      }
+      menu.showAtPosition({ x: box.left, y: box.bottom + 4 });
+      break;
+    }
     case 'shelf':
       if (d.v) setState({ libShelf: d.v });
       break;
@@ -655,25 +677,18 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       }
       break;
     }
-    case 'hlcard':
-      /* 打开划线卡不设门槛：阅读页点划线走的是 openOverlay，不经过这里，
-         侧栏也拦就会变成「同一张卡，从这儿点要钱、从那儿点不要」。
-         真正属于高级版的是卡里的「生成书摘图片」，由 poster 动作自己拦。 */
-      if (!d.id) break;
-      overlay('hlcard', { markId: d.id, bookId: d.book || getState().bookId || '' });
-      break;
     case 'delmark': {
+      /* 删除不可撤销：先开一张确认卡，把要删的那段摊开写清楚。
+         以前是「再点一次才删」（toast 提示），侧栏里连点两下和「一次没点准
+         又补一下」几乎分不出来。 */
       if (!d.id) break;
-      /* 删除不可撤销，触摸屏上又容易误触：先上膛，同一条再点一次才删。 */
-      const gate = confirmDelete(RT.deleteArm, d.id, Date.now());
-      RT.deleteArm = gate.next;
-      if (!gate.remove) {
-        notify('再点一次删除这条划线', 'info');
-        break;
-      }
-      deleteMark(d.id, d.book);
+      overlay('confirmdel', { markId: d.id, bookId: d.book || getState().bookId || '' });
       break;
     }
+    case 'delmarkdo':
+      deleteMark(d.id, d.book);
+      closeOverlay();
+      break;
 
     /* ── 标注弹层内的动作 ── */
     case 'hlcolor':

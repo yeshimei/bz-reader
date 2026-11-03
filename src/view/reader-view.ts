@@ -24,18 +24,18 @@ import {
   addHighlight,
   findHighlight,
   toggleBookmark,
-  bookmarkAt,
 } from '../data/notes';
 import { ActivityTracker } from '../engine/activity';
 import { can } from '../data/entitlement';
 import { applyEngineMeta } from '../data/book-meta';
 import { speak, type SpeakHandle } from '../core/speak';
 import { notify } from '../core/notice';
-import { isMobileShell } from '../core/mobile';
+import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { dlog } from '../core/debug-log';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
 import { el } from '../ui/dom';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
+import { headerActionIds, headerActionSpec, headerActive } from './header-actions';
 import { VIEW_TYPE_TOC } from './side-view';
 
 /* 注意：本类为了给 Obsidian 存 view 状态，重写了 getState()。
@@ -44,6 +44,7 @@ import { VIEW_TYPE_TOC } from './side-view';
    （表现：主题不跟随、侧栏与排版面板以为没打开书）。 */
 import {
   closeOverlay,
+  dismissesOnOutside,
   getState as getShellState,
   isFloatOverlay,
   setState as setShellState,
@@ -174,7 +175,9 @@ export class ReaderView extends ItemView {
   }
 
   getDisplayText(): string {
-    return this.book?.meta.title || '阅读';
+    /* 书还没解析出来时留空，不写「阅读」：宿主会把它同时放进 tab 与头栏，
+       而头栏左边已经有书名（或本来就不该多一个词）。 */
+    return this.book?.meta.title || '';
   }
 
   getIcon(): string {
@@ -321,7 +324,9 @@ export class ReaderView extends ItemView {
          必须在阅读视图这一层补上——否则「点任何地方关掉」在手机上不成立。 */
       const shown = getShellState().overlay;
       if (shown && isFloatOverlay(shown.kind)) {
-        closeOverlay();
+        /* 写想法是有内容要保护的输入框：点正文不关它（也不翻页，翻走之后
+           锚点会错位）。其余浮层点一下就收。 */
+        if (dismissesOnOutside(shown.kind)) closeOverlay();
         return;
       }
       const now = Date.now();
@@ -347,7 +352,7 @@ export class ReaderView extends ItemView {
       /* 浮层开着时点正文 = 关掉浮层，不翻页。浮层在宿主层、正文在 iframe 里，
          document 级 pointerdown 收不到 iframe 内的事件，只能在这里兜住。 */
       if (isFloatOverlay(getShellState().overlay?.kind)) {
-        closeOverlay();
+        if (dismissesOnOutside(getShellState().overlay?.kind)) closeOverlay();
         this.renderProbe();
         return;
       }
@@ -480,16 +485,20 @@ export class ReaderView extends ItemView {
     }
   }
 
-  /** 桌面：书名顶上原生标题（「阅读」只是书还没解析出来时的兜底） */
+  /**
+   * 桌面：书名顶上原生标题。
+   *
+   * 书还没解析出来时把标题**留空**，不写「阅读」——那是宿主的兜底文案，
+   * 在头栏里等于多一个没有信息量的词（真机反馈：左边已经有书名了）。
+   * 也不再调 updateHeader()：它会用 getDisplayText() 把刚写进去的书名盖回
+   * 「阅读」，这正是以前「改了标题又变回去」的原因。
+   */
   private applyHeaderTitle(header: HTMLElement): void {
-    const title = this.book?.meta.title;
-    if (!title) return;
+    const title = this.book?.meta.title || '';
     const el0 = header.querySelector<HTMLElement>('.view-header-title');
     if (!el0 || el0.textContent === title) return;
     el0.textContent = title;
     el0.setAttribute('title', title);
-    /* 只在文本真的不一致时调，避免 updateHeader → layout-change → 这里 的循环 */
-    (this.leaf as unknown as { updateHeader?: () => void }).updateHeader?.();
   }
 
   /**
@@ -498,34 +507,26 @@ export class ReaderView extends ItemView {
    * 手机 3 个（目录/搜索/书签），插在宿主 ⋮ 所在容器的开头，⋮ 保持在最右；
    * 其他插件（Commander 等）的图标由 CSS 在阅读时隐藏，关掉书自动恢复。
    * 桌面 5 个，走 .view-actions。
+   *
+   * 数量只看**真实承载**（isMobileEnv）：桌面验收时开 force-mobile 只是把
+   * 布局按手机跑，不该连「放得下却折起来」也一起复制过去。
    */
   private ensureHeaderActions(header: HTMLElement): void {
-    const mobile = isMobileShell();
+    const mobile = isMobileEnv();
     const box =
       header.querySelector<HTMLElement>('.view-actions') ??
       header.querySelector<HTMLElement>('.nav-buttons-container') ??
       header;
     if (!box) return;
 
-    const spec: Array<{ id: string; icon: string; label: string; run: () => void }> = [
-      { id: 'toc', icon: 'list', label: '目录（s）', run: () => this.api.openTocSidebar('toc') },
-      {
-        id: 'search',
-        icon: 'search',
-        label: '搜索',
-        run: () => dispatchAction('search', this.rootEl ?? document.body),
-      },
-      { id: 'mark', icon: 'bookmark', label: '记书签（b）', run: () => this.toggleBookmark() },
-    ];
-    if (!mobile) {
-      spec.push({
-        id: 'type',
-        icon: 'type',
-        label: '排版（t）',
-        run: () => dispatchAction('typography', this.rootEl ?? document.body),
-      });
-      spec.push({ id: 'para', icon: 'columns-2', label: '并排对照', run: () => void this.toggleParallel() });
-    }
+    const run: Record<string, () => void> = {
+      toc: () => this.api.openTocSidebar('toc'),
+      search: () => dispatchAction('search', this.rootEl ?? document.body),
+      mark: () => this.toggleBookmark(),
+      type: () => dispatchAction('typography', this.rootEl ?? document.body),
+      para: () => void this.toggleParallel(),
+    };
+    const spec = headerActionIds(mobile).map((id) => ({ ...headerActionSpec(id), run: run[id] }));
 
     const fresh: HTMLElement[] = [];
     for (const item of spec) {
@@ -550,7 +551,7 @@ export class ReaderView extends ItemView {
     /* 全部动作插到最前面：视觉顺序 = 我们的动作，然后宿主的 ⋮。
        手机上放 3 个（横向像素最贵），桌面 5 个（排版 / 并排对照也要可见）。 */
     if (fresh.length) box.prepend(...fresh);
-    this.trimHeaderActions(box, isMobileShell() ? 3 : 5);
+    this.trimHeaderActions(box, spec.length);
   }
 
   /**
@@ -661,7 +662,11 @@ export class ReaderView extends ItemView {
   /** 开关类动作的「亮着」状态只有一处真相，别在各处手动加 class */
   private syncToolState(): void {
     const root = this.rootEl;
-    this.headerEls.get('para')?.classList.toggle('is-active', this.parallelOn);
+    const on = headerActive(this.book, this.lastCfi, this.parallelOn);
+    this.headerEls.get('para')?.classList.toggle('is-active', on.para);
+    /* 翻到已经签过的那一页，书签图标要亮：以前这段判断写了却没接到 DOM 上，
+       图标永远是一副「这一页没签」的样子。 */
+    this.headerEls.get('mark')?.classList.toggle('is-active', on.mark);
     root?.classList.toggle('is-parallel', this.parallelOn);
   }
 
@@ -721,7 +726,7 @@ export class ReaderView extends ItemView {
     );
     menu.addItem((i) =>
       i
-        .setTitle('Book Map')
+        .setTitle('全书鸟瞰')
         .setIcon('map')
         .onClick(() => dispatchAction('bookmap', this.rootEl ?? document.body)),
     );
@@ -1020,7 +1025,8 @@ export class ReaderView extends ItemView {
       },
       { width: barRect.width, height: barRect.height },
       { width: rootRect.width, height: rootRect.height },
-      isMobileShell() ? 'below' : 'above',
+      /* 桌面贴文字上方、手机贴下方；只看真实承载，不看 force-mobile 的验收开关 */
+      isMobileEnv() ? 'below' : 'above',
     );
     bar.style.left = `${pos.left}px`;
     bar.style.top = `${pos.top}px`;
@@ -1134,9 +1140,10 @@ export class ReaderView extends ItemView {
           this.selection = info;
           this.selectionAt = Date.now();
           this.setSel(info);
-          /* 开始新的划词 = 离开上一段交互：浮层（写想法 / 工具条）收掉，
-             再把划词条贴到新选区下方。 */
-          if (isFloatOverlay(getShellState().overlay?.kind)) closeOverlay();
+          /* 开始新的划词 = 离开上一段交互：浮层（工具条 / 脚注）收掉，
+             再把划词条贴到新选区下方。写想法不收——选一段原文再粘进想法
+             是常见操作，收掉就等于把正在写的内容丢了。 */
+          if (dismissesOnOutside(getShellState().overlay?.kind)) closeOverlay();
           /* 选中不立刻落笔：移动端要留着系统选区与两端手柄，让用户先把范围
              调准，再点颜色。以前「选中即划」会在长按结束的瞬间落一条，
              想改范围就只能撤销重来。 */
@@ -1261,6 +1268,8 @@ export class ReaderView extends ItemView {
     }
     this.lastPct = info.percent;
     this.renderProbe();
+    /* 每翻一页都可能换到「有书签 / 没书签」的页：图标亮不亮得跟着走 */
+    this.syncToolState();
     this.tracker.touch(info.percent);
     this.api.store.touch();
     /* 每翻一页都广播会让侧栏与书架全量重建（书架是整面封面墙），手机上掉帧。
@@ -1344,6 +1353,8 @@ export class ReaderView extends ItemView {
       chapterTitle: this.lastChapterTitle,
     });
     this.api.store.touch();
+    /* 图标立刻跟着亮 / 灭：不能等下一次 relocate，那一页可能翻很久 */
+    this.syncToolState();
     notify(added ? '已加书签' : '已移除书签', 'info', 1600);
     notifyShell();
   }
@@ -1362,11 +1373,7 @@ export class ReaderView extends ItemView {
   /** 供 shell/actions 在标注增删后回调（删划线要立刻从书页上消失） */
   refreshAfterNotesChange(): void {
     this.refreshAnnotations();
-    const book = this.book;
-    if (book && this.lastCfi) {
-      const on = !!bookmarkAt(book, this.lastCfi);
-      void on;
-    }
+    this.syncToolState();
   }
 
   async settle(): Promise<void> {

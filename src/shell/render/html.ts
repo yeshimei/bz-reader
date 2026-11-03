@@ -35,6 +35,8 @@ export function ico(name: string): string {
     /* 下面几枚是替掉字符图标的：★ ☆ ✦ ✓ ✕ 🔥 的粗细和基线全由字体决定，
        换一台机器就对不齐，是最典型的廉价信号。 */
     x: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    /* 下拉指示：书架排序按钮用，替掉原生 select 的箭头 */
+    chevron: '<path d="M6 9.5l6 6 6-6"/>',
     star:
       '<path d="M12 3.6l2.6 5.4 5.9.8-4.3 4.2 1 5.9-5.2-2.8-5.2 2.8 1-5.9L3.5 9.8l5.9-.8z"/>',
     check: '<path d="M4.5 12.5l5 5 10-11"/>',
@@ -45,7 +47,7 @@ export function ico(name: string): string {
   return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 }
 
-/** 中文数字：Book Map 的章节序号用，只在 1..99 上有意义。
+/** 中文数字：全书鸟瞰的章节序号用，只在 1..99 上有意义。
  *  侧栏目录已经不用它了（那 24px 宁可留给章节名）。 */
 export function cn(n: number): string {
   const d = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];

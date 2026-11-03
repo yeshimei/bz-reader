@@ -163,18 +163,20 @@ git branch -d fix/<主题>
 | `engine/activity.ts` | `tests/activity.test.ts` |
 | `engine/selection-rect.ts` | `tests/selection-rect.test.ts` |
 | `shell/anchored-style.ts` | `tests/overlay-anchor.test.ts` |
-| `shell/state.ts`（overlayKey / isFloatOverlay） | `tests/overlay-state.test.ts`、`tests/overlay-kind.test.ts` |
+| `shell/state.ts`（overlayKey / isFloatOverlay / dismissesOnOutside） | `tests/overlay-state.test.ts`、`tests/overlay-kind.test.ts` |
 | `shell/delete-guard.ts` / `focus-memo.ts` / `search-hits.ts` | `tests/shell-helpers.test.ts` |
-| `shell/highlight-sheet.ts` | `tests/highlight-sheet.test.ts` |
 | `shell/idea-sheet.ts` | `tests/idea-sheet.test.ts` |
 | `shell/keyboard-inset.ts` | `tests/keyboard-inset.test.ts` |
+| `shell/render/sidebar.ts` | `tests/sidebar-render.test.ts` |
+| `shell/render/study.ts` | `tests/study-render.test.ts` |
 | `shell/settings-toggle.ts` | `tests/settings-toggle.test.ts` |
 | `shell/text-toolbar.ts` | `tests/text-toolbar.test.ts` |
+| `view/header-actions.ts` | `tests/header-actions.test.ts` |
 | `view/relocate-notify.ts` | `tests/relocate-notify.test.ts` |
 
 **还没覆盖**（改到哪个就补哪个）：`shell/overlay.ts`、`shell/actions.ts`、
-`shell/render/*`、`shell/shelf-panel.ts`、`ui/*`、`engine/host.ts`、
-`view/reader-view.ts`、`view/side-view.ts`。
+`shell/render/notes.ts`、`shell/render/stats.ts`、`shell/shelf-panel.ts`、`ui/*`、
+`engine/host.ts`、`view/reader-view.ts`、`view/side-view.ts`。
 
 ---
 

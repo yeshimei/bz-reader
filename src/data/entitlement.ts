@@ -346,7 +346,7 @@ export const CAP_LABEL: Record<Cap, string> = {
   vertical: '竖排与双栏',
   tts: '朗读',
   parallel: '原文与译文并排',
-  bookmap: 'Book Map 全书鸟瞰',
+  bookmap: '全书鸟瞰',
   bilink: '把划线复制成双向链接',
 };
 
@@ -390,5 +390,5 @@ export const PLAN_TABLE: PlanRow[] = [
   { name: '朗读（TTS）', free: 'no', pro: 'yes', cap: 'tts' },
   { name: '原文与译文并排', free: 'no', pro: 'yes', cap: 'parallel' },
   { name: '脚注浮窗预览（不离开当前页）', free: 'yes', pro: 'yes' },
-  { name: 'Book Map 全书鸟瞰', free: 'no', pro: 'yes', cap: 'bookmap' },
+  { name: '全书鸟瞰', free: 'no', pro: 'yes', cap: 'bookmap' },
 ];

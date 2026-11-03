@@ -3,7 +3,15 @@ import { createSign } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { activateLicense, can, clearLicense, entitlement, setProBuild } from '../src/data/entitlement';
+import {
+  CAP_LABEL,
+  PLAN_TABLE,
+  activateLicense,
+  can,
+  clearLicense,
+  entitlement,
+  setProBuild,
+} from '../src/data/entitlement';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const keyPath = join(here, '..', 'scripts', 'keys', 'private.pem');
@@ -79,5 +87,14 @@ describe.runIf(hasKey)('激活入口（端到端，需要 scripts/keys 私钥）
     expect(res.ok).toBe(false);
     expect(res.message).toContain('过期');
     expect(entitlement().tier).toBe('free');
+  });
+});
+
+describe('界面文案', () => {
+  it('全书鸟瞰不再混英文（Book Map 只在代码里当标识）', () => {
+    expect(CAP_LABEL.bookmap).not.toMatch(/Book\s*Map/i);
+    const row = PLAN_TABLE.find((r) => r.cap === 'bookmap');
+    expect(row?.name).not.toMatch(/Book\s*Map/i);
+    expect(row?.name).toContain('全书鸟瞰');
   });
 });

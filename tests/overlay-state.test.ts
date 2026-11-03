@@ -13,13 +13,13 @@ describe('overlayKey', () => {
     expect(a).not.toBe(b);
   });
 
-  it('同 kind 换标注（划线卡）也要换键', () => {
-    expect(overlayKey({ kind: 'hlcard', markId: 'm1' })).not.toBe(overlayKey({ kind: 'hlcard', markId: 'm2' }));
+  it('同 kind 换标注（文字工具框）也要换键', () => {
+    expect(overlayKey({ kind: 'hltools', markId: 'm1' })).not.toBe(overlayKey({ kind: 'hltools', markId: 'm2' }));
   });
 
   it('锚点变化也算内容变化（卡片要跟着挪）', () => {
-    const a = overlayKey({ kind: 'hlcard', markId: 'm1', anchor: { left: 10, top: 20 } });
-    const b = overlayKey({ kind: 'hlcard', markId: 'm1', anchor: { left: 11, top: 20 } });
+    const a = overlayKey({ kind: 'hltools', markId: 'm1', anchor: { left: 10, top: 20 } });
+    const b = overlayKey({ kind: 'hltools', markId: 'm1', anchor: { left: 11, top: 20 } });
     expect(a).not.toBe(b);
   });
 
@@ -31,7 +31,7 @@ describe('overlayKey', () => {
 
 describe('isFloatOverlay', () => {
   it('无遮罩浮层（含阅读页工具条）为真', () => {
-    for (const kind of ['typography', 'hlcard', 'hltools', 'footnote', 'idea'] as const) {
+    for (const kind of ['typography', 'hltools', 'footnote', 'idea'] as const) {
       expect(isFloatOverlay(kind)).toBe(true);
     }
   });

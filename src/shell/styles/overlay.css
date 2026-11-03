@@ -497,7 +497,7 @@
   color: var(--t2);
 }
 
-/* ── Book Map ── */
+/* ── 全书鸟瞰 ── */
 .bzs-bmap {
   display: flex;
   flex-direction: column;

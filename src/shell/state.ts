@@ -28,21 +28,32 @@ export type LibSort = 'recent' | 'title' | 'progress';
 /** 浮层：同一时刻只开一个 */
 export type OverlayKind =
   | 'search' | 'import' | 'typography' | 'export' | 'bookmap'
-  | 'quote' | 'idea' | 'hlcard' | 'hltools' | 'ai' | 'dict' | 'translate' | 'poster'
+  | 'quote' | 'idea' | 'hltools' | 'ai' | 'dict' | 'translate' | 'poster'
   | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedata' | 'finish' | 'footnote'
-  | 'rename' | 'removebook';
+  | 'rename' | 'removebook' | 'confirmdel';
 
 /**
- * 哪些弹层算「浮层」：无遮罩、点外面关闭、贴在文字旁。
+ * 哪些弹层算「浮层」：无遮罩、贴在文字旁。
  *
  * 阅读视图也读这一份：浮层开着时点正文 = 关浮层，不翻页。
  * 以前这个判断写在 overlay.ts 里（还漏掉了新加的工具条），
  * 导致点正文时浮层不关、页面先翻走了。
  */
-const FLOAT_KINDS: readonly OverlayKind[] = ['typography', 'hlcard', 'hltools', 'footnote', 'idea'];
+const FLOAT_KINDS: readonly OverlayKind[] = ['typography', 'hltools', 'footnote', 'idea'];
 
 export function isFloatOverlay(kind?: OverlayKind | null): boolean {
   return !!kind && FLOAT_KINDS.includes(kind);
+}
+
+/**
+ * 点「别处」要不要把它关掉。
+ *
+ * 写想法是唯一例外：它是**有内容要保护**的输入框，点正文、点遮罩、
+ * 划到另一条划线都可能发生在打字途中，关掉就等于内容丢失。
+ * 出口只留取消 / 保存 / Esc 三条。
+ */
+export function dismissesOnOutside(kind?: OverlayKind | null): boolean {
+  return isFloatOverlay(kind) && kind !== 'idea';
 }
 
 export interface OverlayState {

@@ -71,6 +71,13 @@ const FILTERS: Array<[ShellState['libFilter'], string]> = [
   ['fav', '收藏'],
 ];
 
+/** 排序按钮上显示的字：与 actions.ts 的 libsortmenu 菜单同一套 */
+const SORT_LABEL: Record<ShellState['libSort'], string> = {
+  recent: '最近阅读',
+  title: '书名',
+  progress: '进度',
+};
+
 export interface LibraryView {
   rows: BookRow[];
   state: ShellState;
@@ -108,11 +115,9 @@ export function viewLibrary(v: LibraryView): string {
         (f) => `<button class="bzs-chip${state.libFilter === f[0] ? ' on' : ''}" data-act="libfilter" data-v="${f[0]}">${f[1]}</button>`,
       ).join('')}
       <span style="flex:1"></span>
-      <select data-role="libsort">
-        <option value="recent"${state.libSort === 'recent' ? ' selected' : ''}>最近阅读</option>
-        <option value="title"${state.libSort === 'title' ? ' selected' : ''}>书名</option>
-        <option value="progress"${state.libSort === 'progress' ? ' selected' : ''}>进度</option>
-      </select>
+      <button class="bzs-chip bzs-sort" data-act="libsortmenu" aria-label="排序">${SORT_LABEL[state.libSort]} ${ico(
+        'chevron-down',
+      )}</button>
       <button class="bzs-chip${state.libView === 'grid' ? ' on' : ''}" data-act="libview" data-v="grid">封面墙</button>
       <button class="bzs-chip${state.libView === 'list' ? ' on' : ''}" data-act="libview" data-v="list">列表</button>
     </div>

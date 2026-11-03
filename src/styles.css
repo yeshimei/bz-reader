@@ -959,7 +959,9 @@ body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .view-action
   display: grid !important;
 }
 
-/* 沉浸：按 f 或调色板命令时藏掉宿主的上头栏与下导航条 */
+/* 沉浸：按 f 或调色板命令时藏掉宿主的上头栏与下导航条。
+   桌面端以前只藏了 view-header，tab 栏、状态栏还在，正文上下各被切掉一条，
+   看起来不像「全屏阅读」——所以这里把桌面那两圈边框也一起收掉。 */
 body.bzr-immersive .workspace-leaf-content[data-type='bzr-reader-view'] .view-header {
   display: none !important;
 }
@@ -967,12 +969,18 @@ body.bzr-immersive .mobile-navbar,
 body.bzr-immersive .status-bar {
   display: none !important;
 }
+/* 桌面：tab 栏收掉（切 tab 用快捷键或先退出沉浸），上下不再留白 */
+body.bzr-immersive .workspace-tab-header-container {
+  display: none !important;
+}
 body.bzr-immersive .workspace-leaf-content[data-type='bzr-reader-view'] {
   --view-top-spacing: 0px;
   --view-bottom-spacing: 0px;
+  --view-header-height: 0px;
 }
 body.bzr-immersive .workspace-leaf-content[data-type='bzr-reader-view'] .view-content {
   margin-top: 0;
+  padding-top: 0;
 }
 
 /* 真机诊断角标（临时）：版本 + 头栏探针 + 上一次点击的章页变化 */

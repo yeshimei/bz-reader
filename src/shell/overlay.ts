@@ -9,11 +9,10 @@
  * 容器本身带 .bzs-shell + data-bzaccent，为的是拿到同一套设计令牌；
  * 它的背景被覆盖成透明，所以不会给整屏染色。
  * ============================================================ */
-import { isMobileShell } from '../core/mobile';
+import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { anchoredPlacement } from './anchored-style';
 import { sheetLift } from './keyboard-inset';
 import { ideaSheetActsHtml, ideaSheetBodyHtml } from './idea-sheet';
-import { highlightSheetActsHtml, highlightSheetBodyHtml } from './highlight-sheet';
 import { textToolbarHtml } from './text-toolbar';
 import { HIGHLIGHT_COLORS } from '../data/notes';
 import { aiAsk, type AiTask } from '../data/ai';
@@ -23,7 +22,7 @@ import { cn, esc, coverHtml, ico, MAG } from './render/html';
 import { bmksOf, fmtMinutes, fmtWhen, marksOf } from './domain';
 import { noteCardHtml } from './render/notes';
 import { searchHits } from './search-hits';
-import { closeOverlay, getState, isFloatOverlay } from './state';
+import { closeOverlay, dismissesOnOutside, getState } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
@@ -256,7 +255,7 @@ function buildPreview(book?: ReaderBook): string {
 
 function overlayBookmap(): string {
   const book = bookById(getState().bookId) ?? liveBooks()[0];
-  if (!book) return modal('Book Map', '全书一屏鸟瞰', '<div class="bzs-empty">还没有打开的书。</div>', closeBtn(), 'wide');
+  if (!book) return modal('全书鸟瞰', '全书一屏鸟瞰', '<div class="bzs-empty">还没有打开的书。</div>', closeBtn(), 'wide');
   const marks = marksOf(book);
   const bks = bmksOf(book);
   const chapters = new Map<string, { marks: number; bks: number }>();
@@ -282,7 +281,7 @@ function overlayBookmap(): string {
     chapters.size
   } 个有标注的章节 · ${bks.length} 枚书签 · ${marks.length} 条划线。点一行跳到那一章。</div>
     <div class="bzs-bmap">${rows || '<div class="bzs-empty">这本书还没有书签或划线。</div>'}</div>`;
-  return modal('Book Map', '全书一屏鸟瞰', body, closeBtn(), 'wide tall');
+  return modal('全书鸟瞰', '全书一屏鸟瞰', body, closeBtn(), 'wide tall');
 }
 
 function overlayQuote(text?: string, bookId?: string, chapterTitle?: string): string {
@@ -342,53 +341,26 @@ function overlayHltools(markId?: string, bookId?: string): string {
 }
 
 /**
- * 划线卡的面板 HTML（不含弹窗外壳）。
+ * 删除确认：侧栏划线行右上角那颗 × 点下去先问一句。
  *
- * 侧栏 / 命令面板打开时用（没有选区锚点）。正文里点划线走 hltools：
- * 那里不重复原文，也不带章节与日期。
+ * 以前是「再点一次才删」（toast 提示），但在侧栏里连点两下和「一次没点准
+ * 又补一下」几乎分不出来；换成一张小卡，把删掉的是哪一段摊开写清楚。
+ * 删除不可撤销，所以这里不给「不再提示」。
  */
-export function hlcardPanelHtml(markId?: string, bookId?: string): string | null {
+function overlayConfirmDel(markId?: string, bookId?: string): string {
   const found = markById(markId, bookId);
-  if (!found) return null;
+  if (!found) return modal('删除划线', '', '<div class="bzs-empty">这条标注已经不在了。</div>', closeBtn());
   const { book, mark } = found;
-  /* 笔色不再用卡片侧边的一条竖线表示（整块 UI 里那排彩条太吵），
-     改成出处行前的一颗小色点：同色、同值，但不抢正文。 */
-  const pen = HIGHLIGHT_COLORS.find((c) => c.value === mark.color);
-  return `<div class="bzs-qcard">
-      <div class="q">${esc(mark.text)}</div>
-      <div class="loc">${
-        pen ? `<span class="dot" style="background:${pen.css}"></span>${esc(pen.label)} · ` : ''
-      }${esc(book.meta.title || '')} · ${esc(mark.chapterTitle ?? '')} · ${fmtWhen(mark.createdAt)}</div>
-    </div>
-    ${
-      mark.comment
-        ? `<div class="bzs-card" style="margin-top:14px"><div class="bzs-mini" style="letter-spacing:.24em;color:var(--copper)">想 法</div>
-           <div style="font-size:13px;line-height:1.9;color:var(--ink-2);margin-top:8px">${esc(mark.comment)}</div></div>`
-        : ''
-    }
-    <div class="bzs-sect-h"><b>换一支笔</b><span class="ln"></span></div>
-    <div style="display:flex;gap:9px;flex-wrap:wrap">${HIGHLIGHT_COLORS.map(
-      (c) =>
-        `<button class="bzs-chip${mark.color === c.value ? ' on' : ''}" data-act="hlcolor" data-id="${mark.id}" data-book="${book.id}" data-v="${c.value}"><span class="dot" style="background:${c.css}"></span>${c.label}</button>`,
-    ).join('')}</div>`;
-}
-
-/** 划线卡的按钮组：浮层与弹层共用一个写法 */
-export function hlcardActsHtml(markId?: string, bookId?: string): string {
-  const found = markById(markId, bookId);
-  if (!found) return '';
-  const { book, mark } = found;
-  /* 双向链接是高级版的主打能力：基础版不把按钮藏起来，而是挂一枚「高级」小标。
-     藏起来 = 用户不知道有这回事；标出来再点一下看到对照表，才是卖点。 */
-  const bilink = can('bilink')
-    ? `<button class="bzs-btn" data-act="copylink" data-id="${mark.id}" data-book="${book.id}">双向链接</button>`
-    : `<button class="bzs-btn" data-act="copylink" data-id="${mark.id}" data-book="${book.id}">双向链接<i class="pro">高级</i></button>`;
-  return `<button class="bzs-btn" data-act="hljump" data-id="${mark.id}" data-book="${book.id}">回到原文</button>
-    <button class="bzs-btn" data-act="hlidea" data-id="${mark.id}" data-book="${book.id}">写想法</button>
-    <button class="bzs-btn" data-act="hlquote" data-id="${mark.id}" data-book="${book.id}">做成书摘</button>
-    ${bilink}
-    <span class="sp"></span>
-    <button class="bzs-btn danger" data-act="hldel" data-id="${mark.id}" data-book="${book.id}">删除</button>`;
+  const body = `<div class="bzs-qcard"><div class="q">${esc(mark.text)}</div>
+      <div class="loc">${esc(book.meta.title || '')} · ${esc(mark.chapterTitle ?? '')}</div></div>
+    <div class="bzs-mini" style="margin-top:12px;line-height:1.9">这条划线与它的想法会一起删掉，不能撤销。</div>`;
+  return modal(
+    '删除这条划线？',
+    esc(mark.chapterTitle ?? ''),
+    body,
+    `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
+     <button class="bzs-btn danger" data-act="delmarkdo" data-id="${mark.id}" data-book="${book.id}">删除</button>`,
+  );
 }
 
 /**
@@ -423,31 +395,6 @@ function floatPanel(
  */
 function bareFloat(body: string, cls: string): string {
   return `<div class="bzs-float ${cls} is-anchored" data-role="float">${body}</div>`;
-}
-
-/**
- * 侧栏 / 命令面板打开的划线卡（带原文与全部动作）。
- *
- * 正文里点划线走的是 hltools（极简工具条）；这里保留完整卡片，
- * 因为从侧栏点进来时列表里虽然有原文，但换色、书摘、双向链接还在卡上。
- */
-function overlayHlcard(markId?: string, bookId?: string): string {
-  const found = markById(markId, bookId);
-  const sheet = found
-    ? {
-        quote: found.mark.text,
-        comment: found.mark.comment ?? '',
-        markId: found.mark.id,
-        bookId: found.book.id,
-        color: found.mark.color ?? 'yellow',
-        colors: HIGHLIGHT_COLORS.map((c) => ({ value: c.value, label: c.label })),
-      }
-    : null;
-  const useSheet = isMobileShell() && sheet !== null;
-  const body = useSheet ? highlightSheetBodyHtml(sheet) : hlcardPanelHtml(markId, bookId) ?? '<div class="bzs-empty">这条标注已不存在。</div>';
-  const foot = useSheet ? highlightSheetActsHtml(sheet) : hlcardActsHtml(markId, bookId);
-  const anchor = getState().overlay?.anchor;
-  return floatPanel('标注', esc(found?.mark.chapterTitle ?? ''), body, foot, '', anchor);
 }
 
 /**
@@ -804,8 +751,8 @@ export function overlayHtml(): string {
       return overlayIdea(o.markId, o.bookId);
     case 'hltools':
       return overlayHltools(o.markId, o.bookId);
-    case 'hlcard':
-      return overlayHlcard(o.markId, o.bookId);
+    case 'confirmdel':
+      return overlayConfirmDel(o.markId, o.bookId);
     case 'footnote':
       return overlayFootnote(o.text, o.href);
     case 'ai':
@@ -869,11 +816,12 @@ export class OverlayLayer {
   private lastKind = '';
 
   /**
-   * 浮层（排版 / 划线卡）没有遮罩，所以「点空白处关闭」得自己在文档级收：
-   * 用捕获阶段的 pointerdown，且**不阻断**事件——点正文照样能选字、翻页。
+   * 浮层（排版 / 工具条 / 脚注）没有遮罩，所以「点空白处关闭」得自己在
+   * 文档级收：用捕获阶段的 pointerdown，且**不阻断**事件——点正文照样能选字、翻页。
+   * 写想法不在这条路上：它是有内容要保护输入框，只认取消 / 保存 / Esc。
    */
   private onDocPointer = (e: PointerEvent): void => {
-    if (!isFloatOverlay(getState().overlay?.kind)) return;
+    if (!dismissesOnOutside(getState().overlay?.kind)) return;
     const t = e.target as Node | null;
     if (t && this.root.contains(t)) return;
     closeOverlay();
@@ -982,7 +930,9 @@ export class OverlayLayer {
       anchor,
       { width: el.offsetWidth, height: el.offsetHeight },
       view,
-      isMobileShell() ? 'below' : 'above',
+      /* 上下只看真实承载：桌面验收时开 force-mobile 不该把「工具条在文字下方」
+         也一起模拟过去——用户在桌面上要的就是鼠标习惯（贴上方）。 */
+      isMobileEnv() ? 'below' : 'above',
     );
     el.style.left = `${pos.left}px`;
     el.style.top = `${pos.top}px`;

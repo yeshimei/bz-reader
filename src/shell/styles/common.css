@@ -146,6 +146,20 @@
   background: var(--copper-soft);
 }
 
+/* 排序胶囊：文字 + 一枚小箭头，和旁边「封面墙 / 列表」同一套外形。
+   箭头是 16px 的线描图标，在 12px 字旁边要缩一档，否则整颗被撑高。 */
+.bzs-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bzs-sort svg {
+  width: 12px;
+  height: 12px;
+  opacity: .7;
+}
+
 /* ── 文件夹选择钮：「路径 + 选择…」 ──
    以前没有任何样式，渲染出来就是浏览器默认按钮：文字、图标挤在一起，
    还紧贴标签左侧（真机反馈第 7 条）。这里让它靠右、限宽、超长路径省略。 */

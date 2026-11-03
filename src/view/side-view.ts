@@ -68,7 +68,8 @@ export class SideView extends ItemView {
 
   async onOpen(): Promise<void> {
     this.contentEl.addClass('bzs-shell-wrap');
-    this.root = this.contentEl.createDiv({ cls: `bzs-shell${isMobileShell() ? ' is-mobile' : ''}` });
+    /* is-side：侧栏不铺自己的底色（宿主侧栏是 secondary，铺 primary 会多一张白纸） */
+    this.root = this.contentEl.createDiv({ cls: `bzs-shell is-side${isMobileShell() ? ' is-mobile' : ''}` });
     this.bind();
     this.render();
     this.unsubs.push(subscribe(() => this.render()));

@@ -448,11 +448,6 @@
   .bzs-sbbody {
     padding: 10px 8px 24px;
   }
-
-  /* 目录行：右侧百分比在窄屏上反而挤占标题，只留标题与页码 */
-  .bzs-chaprow .pc {
-    font-size: 11px;
-  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -569,18 +564,7 @@
   }
 }
 
-/* ── 想法输入卡（重写版）：引用 + 输入框 + 取消/保存 ── */
-.bzs-sheet-quote {
-  font-size: 12.5px;
-  line-height: 1.7;
-  color: var(--t3);
-  border-left: 2px solid var(--copper-line);
-  padding: 2px 0 2px 10px;
-  margin-bottom: 10px;
-  max-height: 3.4em;
-  overflow: hidden;
-}
-
+/* ── 想法输入卡：一个输入框 + 取消/保存 ── */
 .bzs-sheet-input {
   width: 100%;
   min-height: 78px;
@@ -923,10 +907,6 @@
     font-size: 15px;
   }
 
-  .bzs-chaprow .pc {
-    font-size: 12px;
-  }
-
   .bzs-chaprow.d1 .no {
     font-size: 12px;
   }
@@ -1001,7 +981,7 @@
     font-size: 14px;
   }
 
-  /* ── 弹层：AI / 书摘 / 词典 / Book Map ── */
+  /* ── 弹层：AI / 书摘 / 词典 / 全书鸟瞰 ── */
   .bzs-ai-tag b {
     font-size: 12px;
   }
@@ -1119,10 +1099,6 @@
 
   .bzs-fntext {
     font-size: 15px;
-  }
-
-  .bzs-sheet-quote {
-    font-size: 13px;
   }
 
   /* ── 阅读画布 ── */
