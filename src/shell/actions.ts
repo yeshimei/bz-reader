@@ -930,14 +930,14 @@ export function dispatchInput(target: HTMLInputElement | HTMLSelectElement | HTM
     mutateState((s) => {
       s.libKw = value;
     });
-    restoreFocus('libkw');
+    /* 焦点由 ShelfPanel 的 focusMemo 按 role+k 还回去（含光标位置）；这里再
+       调一次 restoreFocus 会把光标推到行尾，在中间插字就跳走。 */
     return;
   }
   if (role === 'notekw') {
     mutateState((s) => {
       s.noteKw = value;
     });
-    restoreFocus('notekw');
     return;
   }
   if (role === 'libsort') {
@@ -983,15 +983,6 @@ export function dispatchInput(target: HTMLInputElement | HTMLSelectElement | HTM
     return;
   }
   if (role === 'aiask') return;
-}
-
-/** 重绘会把 input 换掉，焦点要还回去，否则打一个字跳一次 */
-function restoreFocus(role: string): void {
-  const el = document.querySelector<HTMLInputElement>(`[data-role="${role}"]`);
-  if (!el) return;
-  el.focus();
-  const len = el.value.length;
-  el.setSelectionRange(len, len);
 }
 
 export function labelFor(k: string, v: string): string {
