@@ -12,6 +12,7 @@
 import { isMobileShell } from '../core/mobile';
 import { anchoredStyle } from './anchored-style';
 import { ideaSheetActsHtml, ideaSheetBodyHtml } from './idea-sheet';
+import { highlightSheetActsHtml, highlightSheetBodyHtml } from './highlight-sheet';
 import { HIGHLIGHT_COLORS } from '../data/notes';
 import { aiAsk, type AiTask } from '../data/ai';
 import type { ReaderBook } from '../data/schema';
@@ -414,8 +415,19 @@ function isFloatKind(): boolean {
 
 function overlayHlcard(markId?: string, bookId?: string): string {
   const found = markById(markId, bookId);
-  const body = hlcardPanelHtml(markId, bookId) ?? '<div class="bzs-empty">这条标注已不存在。</div>';
-  const foot = hlcardActsHtml(markId, bookId);
+  const sheet = found
+    ? {
+        quote: found.mark.text,
+        comment: found.mark.comment ?? '',
+        markId: found.mark.id,
+        bookId: found.book.id,
+        color: found.mark.color ?? 'yellow',
+        colors: HIGHLIGHT_COLORS.map((c) => ({ value: c.value, label: c.label })),
+      }
+    : null;
+  const useSheet = isMobileShell() && sheet !== null;
+  const body = useSheet ? highlightSheetBodyHtml(sheet) : hlcardPanelHtml(markId, bookId) ?? '<div class="bzs-empty">这条标注已不存在。</div>';
+  const foot = useSheet ? highlightSheetActsHtml(sheet) : hlcardActsHtml(markId, bookId);
   const anchor = getState().overlay?.anchor;
   return floatPanel('标注', esc(found?.mark.chapterTitle ?? ''), body, foot, 'is-anchored', anchoredStyle(anchor));
 }

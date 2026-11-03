@@ -25,6 +25,7 @@ import {
   toggleBookmark,
 } from '../data/notes';
 import { notify } from '../core/notice';
+import { flipSetting, type ToggleState } from './settings-toggle';
 import { openHotkeySettings } from '../core/hotkeys';
 import { folderLabel, pickFolder } from '../core/folder-pick';
 import { CAP_LABEL, GROUP_URL, PURCHASE_URL, can, setLicense, type Cap } from '../data/entitlement';
@@ -572,9 +573,13 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       break;
     case 'toggle': {
       const src = getShellSource();
-      const s = shellSettings();
       if (!src) break;
-      if (d.k === 'exportComments') src.setSettings({ exportComments: !s.exportComments });
+      const patch = flipSetting(shellSettings() as unknown as ToggleState, d.k ?? '');
+      if (!patch) break;
+      src.setSettings(patch as never);
+      /* 必须自己重绘：setSettings 只落盘 + notifyShell，设置页那块的 DOM
+         不会因为状态变了就重建，开关会停在旧位置（用户报的「点了不实时显示」）。 */
+      repaint();
       break;
     }
 
