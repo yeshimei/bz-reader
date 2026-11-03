@@ -148,6 +148,7 @@
   flex: 1;
   overflow: auto;
   padding: 8px 10px 24px;
+  scrollbar-width: none;
 }
 
 .bzs-sbbody::-webkit-scrollbar {
@@ -161,18 +162,19 @@
   padding: 12px 6px 8px;
 }
 
-/* ── 目录行 ── */
+/* ── 目录行 ──
+   侧栏只有 300px：行距与间距都压到下限，把宽度留给章节名本身 */
 .bzs-chaprow {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   width: 100%;
   text-align: left;
   appearance: none;
   border: 0;
   background: none;
-  padding: 10px 8px;
+  padding: 7px 6px;
   border-radius: var(--r-ctl);
   cursor: pointer;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
@@ -368,15 +370,17 @@
   background: var(--copper-soft);
 }
 
-.bzs-hlit::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 2px;
-  background: var(--c);
-  border-radius: var(--r-book);
+/* 笔色用行首的小圆点表示（见 .tx .dot）。以前这里是一条 2px 竖线
+   （::before 画在 left:0），一列划线看下来就是一排彩色条，很吵。 */
+.bzs-hlit .tx .dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: 1.5px;
+  background: var(--c, var(--t3));
+  flex: none;
 }
 
 .bzs-hlit .tx {

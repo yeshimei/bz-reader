@@ -12,13 +12,13 @@
  * ============================================================ */
 import type { ReaderPrefs } from '../../data/prefs';
 import { ACCENT_OPTIONS, FONT_FAMILIES, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARGIN_RANGE } from '../../data/prefs';
-import type { ReaderSettings } from '../../data/settings';
 import { HIGHLIGHT_COLORS } from '../../data/notes';
+import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
 import { can, entitlement, tierText } from '../../data/entitlement';
 import { DEFAULT_DATA_DIR, dataDirOf } from '../../core/plugin-path';
 import type { HotkeyRow } from '../../core/hotkeys';
 import { RT } from '../runtime';
-import { esc } from './html';
+import { esc, ico } from './html';
 
 export interface SettingsView {
   prefs: ReaderPrefs;
@@ -49,7 +49,6 @@ export const KEY_COMMANDS: Array<Omit<HotkeyRow, 'keys'>> = [
   { id: 'bz-reader:bookmap', label: '全书鸟瞰', builtin: 'm' },
   { id: 'bz-reader:tts', label: '朗读开关', builtin: 'r' },
   { id: 'bz-reader:continue', label: '继续阅读最近一本' },
-  { id: 'bz-reader:help', label: '帮助', builtin: '?' },
 ];
 
 function seg(name: string, opts: Array<[string, string]>, cur: string, act = 'setpref'): string {
@@ -87,8 +86,8 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>分栏</label>${seg('columns', [['1', '单栏'], ['2', '双栏']], String(p.columns))}</div>
       <div class="bzs-setrow"><label>脚注</label>${seg(
         'footnote',
-        // 浮窗是高级版能力：基础版就把话写在选项上，别让人选了才发现不生效
-        can('footnote') ? [['popup', '上方浮窗'], ['jump', '跳到章末']] : [['popup', '上方浮窗（高级版）'], ['jump', '跳到章末']],
+        // 浮窗已并入基础版：两个选项都是真实可用的
+        [['popup', '上方浮窗'], ['jump', '跳到章末']],
         p.footnote,
       )}</div>
     </div>`;
@@ -141,7 +140,7 @@ export function viewSettings(v: SettingsView): string {
       <h3>授权</h3>
       <div class="bzs-setrow"><label>状态</label><span class="bzs-mini" style="flex:1">${esc(tierText(ent))}</span></div>
       <div class="bzs-setrow"><label>激活码</label>
-        <input data-role="license" placeholder="BZR2.… 或 BZR1.…" value="${esc(ent.license)}" spellcheck="false" style="flex:1">
+        <input data-role="license" placeholder="BZR3.… 或 BZR2.…" value="${esc(ent.license)}" spellcheck="false" style="flex:1">
         <button class="bzs-btn sm pri" data-act="activate">激活</button></div>
       <div class="bzs-setrow"><label>高级版</label>
         <span class="bzs-mini" style="flex:1">${ent.tier === 'paid' ? '已解锁全部功能' : '导出、统计、跨书搜索、多格式等'}</span>
@@ -149,14 +148,21 @@ export function viewSettings(v: SettingsView): string {
     </div>`;
 
   const dir = dataDirOf();
+  /* 导入位置只给选择器，不给输入框：vault 路径有口径（分隔符、首尾斜杠、
+     大小写），手打死角很多，错了还不报错——文件会写进别处。 */
+  const importDir = s.importDir || 'Books';
   const data = `<div class="bzs-setgrp">
       <h3>数据</h3>
+      <div class="bzs-setrow"><label>书籍导入位置</label>
+        <button class="bzs-pickdir" data-act="pickimportdir" title="选择一个文件夹">
+          <span>${esc(importDir)}/</span>${ico('folder') || ''}<i>选择…</i>
+        </button></div>
       <div class="bzs-setrow"><label>数据目录</label>
         <input data-role="datadir" value="${esc(RT.dataDirDraft || dir)}" placeholder="${esc(DEFAULT_DATA_DIR)}" spellcheck="false" style="flex:1">
         <button class="bzs-btn sm" data-act="datadirmove">迁移</button></div>
       <div class="bzs-mini" style="margin-top:10px;line-height:1.9">
-        默认放在库根目录的 <code>${esc(DEFAULT_DATA_DIR)}</code>。改目录要先确认，确认后整体迁移；
-        复制与校验都成功才会删除旧目录，失败一律保留原样。
+        导入的书复制到「书籍导入位置」；数据默认放在库根目录的 <code>${esc(DEFAULT_DATA_DIR)}</code>。
+        改数据目录要先确认，确认后整体迁移；复制与校验都成功才会删除旧目录，失败一律保留原样。
       </div>
     </div>`;
 
@@ -176,7 +182,7 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-keys">${keyRows}</div>
       <div class="bzs-srcnote"><b>关于这一版</b><br>
         书籍、进度、标注与设置都留在本地笔记库里（<code>${esc(dir)}/bz-reader.json</code>），不联网、不上传。
-        激活码离线校验，只认签名不认设备。
+        激活码离线验签；BZR3 码首次激活需联网核销一次，之后离线可用。其余时间不联网。
       </div>
     </div>`;
 

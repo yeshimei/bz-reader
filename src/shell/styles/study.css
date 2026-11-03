@@ -12,28 +12,15 @@
   background: var(--bg-2);
 }
 
-/* ── 头行 ── */
+/* ── 头行 ──
+   「书 架」大题去掉了：四页签已经说明位置，一行衬线大字只吃竖向空间。 */
 .bzs-stuhead {
   flex-shrink: 0;
   display: flex;
   align-items: flex-end;
   gap: 24px;
-  padding: 20px 32px 0;
+  padding: 12px 32px 0;
   border-bottom: 1px solid var(--line);
-}
-
-.bzs-stuhead .kick {
-  font-size: 11px;
-  letter-spacing: 0;
-  color: var(--copper);
-}
-
-.bzs-stuhead h1 {
-  font-family: var(--serif);
-  font-weight: 500;
-  font-size: 24px;
-  letter-spacing: 0;
-  margin: 6px 0 0;
 }
 
 .bzs-stunav {
@@ -568,7 +555,20 @@
   padding: 14px 16px;
   background: var(--surface);
   position: relative;
-  border-left: 2px solid var(--c);
+}
+
+/* 笔色改成一个小圆点，不再用卡片左缘那条竖线。
+   竖线的问题：一张卡只为了标一个颜色就整条边被染色，卡片一多，
+   整页就变成一排彩色条——颜色本来只是次要信息，却抢走了全部注意力。 */
+.bzs-ncard .tx .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: 1.5px;
+  background: var(--c, var(--t3));
+  flex: none;
 }
 
 .bzs-ncard .tx {
@@ -897,15 +897,21 @@
   flex-shrink: 0;
 }
 
-/* ═══════════ 设置（书架内，自适应多列卡片） ═══════════
-   以前写死 `1fr 1fr`：窗口一窄，第二列被挤出可视区、右边直接切掉。
-   改成 auto-fill + minmax(min(320px,100%), 1fr)——宽了自动并排，
-   窄了自动单列，侧栏里（300 上下）就是干净的一列。 */
+/* ═══════════ 设置（书架内，两列平铺，窄时一列） ═══════════
+   auto-fill 在宽窗口会排出三四列，每块只剩巴掌大。改成明确的两列、
+   限一个最大宽度；窗口放不下两列（侧栏 / 窄窗）就退回一列。 */
 .bzs-set-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   align-items: start;
+  max-width: 980px;
+}
+
+@media (max-width: 760px) {
+  .bzs-set-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .bzs-setgrp {
@@ -973,7 +979,6 @@
 .bzs-setrow input[type="range"] {
   flex: 1;
   accent-color: var(--copper);
-  height: 2px;
   box-shadow: none;
   background: transparent;
   border: 0;

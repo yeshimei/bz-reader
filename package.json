@@ -13,7 +13,10 @@
     "build:pro": "node esbuild.config.mjs once --target pro",
     "release": "node esbuild.config.mjs production",
     "test": "vitest run",
-    "typecheck": "node node_modules/typescript/bin/tsc --noEmit"
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
+    "license:issue": "node scripts/issue-license.mjs",
+    "license:dev": "node server/dev-server.mjs",
+    "license:admin": "node scripts/license-admin.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",

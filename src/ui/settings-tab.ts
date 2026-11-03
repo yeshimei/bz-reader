@@ -77,7 +77,7 @@ export class ReaderSettingTab extends PluginSettingTab {
       .setName('激活码')
       .addText((t) =>
         t
-          .setPlaceholder('BZR1.…')
+          .setPlaceholder('BZR3.…')
           .setValue(this.current.license)
           .onChange((v) => {
             input = v.trim();

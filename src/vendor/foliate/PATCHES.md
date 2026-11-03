@@ -3,7 +3,7 @@
 来源：`foliate-js@1.0.1`（npm registry 原包，作者 John Factotum，MIT）。
 `LICENSE` 随文件保留，**不要删**。
 
-## 本地改动（只有这 7 处）
+## 本地改动（按文件逐条列）
 
 | 文件 | 改了什么 | 为什么 |
 |---|---|---|
@@ -15,6 +15,11 @@
 | `overlayer.js` | `static highlight` 从「整块色块 rect」改成「下半段软色 wash + 底部 1px 实线」，支持 `options.writingMode`（竖排右半 wash + 右缘线） | 原版整块 30% 色块糊在正文上，和原型 reader-v2 的划线（下半笔刷 + 铜线）完全对不上。浓度/混合模式仍走 `--overlayer-highlight-*` 变量，新增 `--overlayer-highlight-line-opacity`（缺省 .8）。`hitTest` 用的是 add() 存的原始 rects，不受绘制改动影响 |
 | `paginator.js` | `columnize()` 横排的 documentElement padding 从 `0 gap/2` 改为 `var(--_pad-top, 0px) gap/2 var(--_pad-bottom, 0px)` | 分页模式下 foliate 用内联 !important 把上下 padding 覆成 0，宿主注入的 body padding 只对章首页生效——章中页文字顶到悬浮头栏（2026-11-03 用户反馈）。宿主（host.ts）按桌面/移动写入这两个变量补足到设计值；不设变量时与上游逐字一致 |
 | `paginator.js` | `columnize()` 里 `requestAnimationFrame` 回调前加 `if (!this.#view) return` | 视图销毁后那一帧仍会跑，`this.#view.docBackground` 直接抛 `Cannot read properties of null`。触发场景：快速关书后立刻从位置链接重开另一本（`#mediaQueryListener` 上游已有同样的判空，这一处漏了） |
+| `paginator.js` | `load()` 三条改造：①不用 `display:none` 等 load，改成 `visibility:hidden`（安卓 WebView 对不可见 iframe 可能干脆不加载）；②不依赖 `load` 事件——每 200ms 轮询 `contentDocument`，正文一出现就挂载；③8s 没动静再按 blob 原文重试、15s 仍失败就 `reject` | 上游只挂 `load`、不挂 `error`，地址加载失败时 Promise 既不 resolve 也不 reject，上层 `await` 永远悬着——白屏且无报错，恢复工作区时还会把 Obsidian 钉在「加载工作区中…」 |
+
+> 移动端 `blob:` 帧被宿主 CSP 挡掉的问题**不在 vendor 里修**：`engine/blob-srcdoc.ts`
+> 在运行时拦 `iframe.src`，把 blob 读成原文、内联 CSS/图片后写 `srcdoc`。
+> 这样四种格式（epub/fb2/txt/mobi）共用一条路，vendor 不需要知道。
 
 前四处都是「已注册就跳过」，不改任何行为语义；除此外与上游逐字一致，升级时可用新版本文件整体替换后再打这 5 个补丁。
 

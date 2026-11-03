@@ -68,7 +68,7 @@ export function accentColor(accent: AccentName, dark: boolean): string {
  *   - 章题（h1）居中、衬线字距，下面一条 34px 强调色短线——整章唯一的装饰
  *   - 次级标题（h2/h3）居中但不出线
  *   - 正文加 0.015em 字距（汉字可读性贴着排印下限给）
- *   - 横排时首段首字下沉（强调色）；竖排的 writing-mode 下 float 行为不可控，跳过
+ *   - 首字下沉撤掉了（2026-11-03）：那是章题的装饰，不该替用户决定正文的第一个字长什么样
  */
 export function buildChapterCSS(prefs: ReaderPrefs): string {
   const theme = resolveTheme();
@@ -85,25 +85,13 @@ export function buildChapterCSS(prefs: ReaderPrefs): string {
   if (__BZ_READER_PRO__ && prefs.layout === 'vertical') {
     verticalDecl = 'html { writing-mode: vertical-rl !important; }';
   }
-  // 首字下沉只给横排：竖排里 float 会把字提到整页最上头，没法用
-  let dropCapDecl = '';
-  if (prefs.layout !== 'vertical' || !__BZ_READER_PRO__) {
-      dropCapDecl = `
-body > p:first-of-type::first-letter {
-  float: left !important;
-  font-size: 2.6em !important;
-  line-height: 0.9 !important;
-  padding: 0.05em 0.14em 0 0 !important;
-  color: ${accent} !important;
-  font-weight: 500 !important;
-}`;
-  }
 
-  // 上下留白跟着平台走：桌面照原型 reader-v① 的 page（92 / 110），给悬浮的
-  // 毛玻璃头脚栏让出呼吸空间；手机屏幕金贵，维持 68 / 60。
+  // 上下留白：2026-11-03 起自绘的头/底悬浮栏撤了（动作进了宿主头栏、进度看目录），
+  // 所以不再需要给毛玻璃条让位，只留一点呼吸边。手机底部多留一些，
+  // 免得最后一行被宿主的悬浮导航条压住。
   const mobile = document.body.classList.contains('is-mobile') || document.body.classList.contains('is-phone');
-  const padTop = mobile ? '68px' : '92px';
-  const padBottom = mobile ? '60px' : '110px';
+  const padTop = mobile ? '18px' : '28px';
+  const padBottom = mobile ? '48px' : '40px';
 
   return `
 html, body {
@@ -159,7 +147,6 @@ h2, h3 {
   font-weight: 500 !important;
   letter-spacing: 0.06em !important;
 }
-${dropCapDecl}
 ${imgFilter ? `img, svg, video { ${imgFilter} }` : ''}
 a { color: inherit !important; text-decoration: underline !important; }
 /* 书里写死的窄栏宽会让字号放大后只剩一行两个字 */

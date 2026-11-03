@@ -1,12 +1,21 @@
 /* ==========================================================
    阅读画布（宿主侧）
-   悬浮工具条 + 底部进度条 + 容器留白
+   ----------------------------------------------------------
+   2026-11-03：自绘的顶栏与底栏都撤了。
+     · 动作挂进 Obsidian 原生头栏（和 Commander 同一排，放不下的进宿主 ⋯）；
+     · 进度看左侧栏目录；
+     · 纵向像素全部给正文——原来两条栏加起来吃掉 90px 左右。
    正文本身在 foliate 的 shadow DOM 内，由 engine/theme.ts 构建，
-   这里只管"壳"：玻璃条、进度轨、并排与竖排的容器变换。
+   这里只管"壳"：画布、并排、朗读条、首屏占位与诊断页。
    ========================================================== */
 
+/* 高度必须两条腿都有：
+   `flex:1` 只在上层是 flex 容器时有效，而 Obsidian 的 `.view-content` 在移动端
+   不是 flex（桌面端碰巧是），于是整块阅读区高度塌成 0 —— 中间正文一个像素
+   都没有，表现为「打开书一片空白」。 */
 .bzs-reader {
   flex: 1;
+  height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -14,202 +23,107 @@
   position: relative;
 }
 
-/* ── 顶部悬浮工具条 ── */
-.bzs-rtool {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  z-index: var(--z-sticky);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 8px 14px;
-  background: var(--glass);
-  backdrop-filter: blur(20px) saturate(1.2);
-  border-bottom: 1px solid var(--glass-line);
-}
-
-.bzs-rtool .meta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  margin-right: 4px;
-}
-
-.bzs-rtool .meta b {
-  font-family: var(--ui);
-  font-weight: 500;
-  font-size: 15px;
-  letter-spacing: .05em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.bzs-rtool .meta span {
-  font-size: 11px;
-  color: var(--t3);
-  letter-spacing: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.bzs-rtool .sp {
-  flex: 1;
-}
-
-.bzs-rtool .bzs-cbtn {
-  width: 27px;
-  height: 27px;
-  font-size: 13px;
-  border-radius: var(--r-ctl);
-}
-
-/* 工具条用 Obsidian 图标而不是汉字：统一 15px，跟宿主 ribbon 同一个密度 */
-.bzs-rtool .bzs-cbtn svg {
-  width: 15px;
-  height: 15px;
-  stroke-width: 1.7;
-}
-
-.bzs-rtool select {
-  max-width: 120px;
-  padding: 6px 8px;
-  font-size: 11px;
-}
-
-/* ── 卷面容器：给悬浮条让出上下留白 ── */
+/* 卷面容器：没有悬浮栏之后不再需要上下留白 */
 .bzs-rpages {
   flex: 1;
   min-height: 0;
-  overflow: auto;
-  padding: 74px 40px 88px;
+  overflow: hidden;
+  display: block;
+}
+
+.bzs-stage {
+  position: relative;
+  height: 100%;
+  /* 万一外层高度又塌了，至少把「打不开」的提示留在屏幕上——
+     全灰一片是最难查的样子：既不像在加载，也不像出错 */
+  min-height: 200px;
+}
+
+.bzs-stage-in {
+  height: 100%;
+  min-height: 0;
+}
+
+/* ── 首屏占位 / 首屏诊断 ──
+   出字之前铺在舞台上：不吃指针事件（照样能翻页），只在视觉上说明「在忙」。
+   20 秒还没出字时切到诊断态，那时才允许交互（重试按钮）。 */
+.bzs-rpending {
+  position: absolute;
+  inset: 0;
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  pointer-events: none;
+  color: var(--t3);
+}
+
+.bzs-rpending .t {
+  font-family: var(--serif);
+  font-size: 14px;
+  letter-spacing: .08em;
+  color: var(--t2);
+}
+
+.bzs-rpending .d {
+  font-size: 11px;
+  line-height: 1.8;
+  max-width: 380px;
+}
+
+/* 占位整体不吃指针，但「查看诊断」入口要能点 */
+.bzs-rpending .bzs-btn {
+  pointer-events: auto;
+  margin-top: 6px;
+}
+
+.bzs-rpending.is-diag {
+  pointer-events: auto;
+  justify-content: flex-start;
+  padding-top: 48px;
+  background: var(--surface);
+}
+
+.bzs-rpending.is-diag .t {
+  color: var(--ink);
+}
+
+.bzs-rpending.is-diag .bzs-btn {
+  margin-top: 8px;
+}
+
+/* ── 并排对照：两卷之间一条发丝线 ── */
+.bzs-rpages.is-hosted.is-parallel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0;
 }
 
-.bzs-reader.vertical .bzs-rpages {
-  padding-top: 78px;
+.bzs-rpages.is-parallel > .bzs-stage-2 {
+  border-left: 1px solid var(--line);
+  min-width: 0;
 }
 
-/* 分页模式下 foliate 自己撑满，不要再加内边距 */
-.bzs-rpages.is-hosted {
-  padding: 0;
-  display: block;
-  overflow: hidden;
-}
-
-/* ── 底部进度条 ── */
-.bzs-rfoot {
+.bzs-plabel {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: var(--z-sticky);
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 11px 20px 13px;
-  background: var(--glass);
-  backdrop-filter: blur(20px) saturate(1.2);
-  border-top: 1px solid var(--glass-line);
-}
-
-.bzs-rfoot .chap {
-  font-size: 12px;
-  color: var(--t2);
-  letter-spacing: .06em;
+  font-size: 11px;
+  letter-spacing: 0;
+  color: var(--copper);
   white-space: nowrap;
-  min-width: 130px;
+  pointer-events: none;
+  max-width: 80%;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.bzs-rfoot .track {
-  flex: 1;
-  position: relative;
-  height: 20px;
-  cursor: pointer;
-}
-
-.bzs-rfoot .track::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 10px;
-  height: 1px;
-  background: var(--line-2);
-}
-
-.bzs-rfoot .fill {
-  position: absolute;
-  left: 0;
-  top: 9px;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--copper));
-}
-
-.bzs-rfoot .knob {
-  position: absolute;
-  top: 10px;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--copper);
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 0 4px var(--copper-soft);
-}
-
-.bzs-rfoot .pct {
-  font-family: var(--ui);
-  font-size: 13px;
-  color: var(--t1);
-  min-width: 48px;
-  text-align: right;
-  letter-spacing: .04em;
-}
-
-.bzs-rfoot .left {
-  font-size: 11px;
-  color: var(--t3);
-  white-space: nowrap;
-  min-width: 74px;
-  text-align: right;
-}
-
-.bzs-rfoot .nav {
-  appearance: none;
-  border: 1px solid var(--line);
-  background: none;
-  color: var(--t2);
-  width: 27px;
-  height: 27px;
-  border-radius: var(--r-ctl);
-  font-size: 13px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-}
-
-.bzs-rfoot .nav:hover {
-  color: var(--copper);
-  border-color: var(--copper-line);
-}
-
-/* 侧栏收起后，右侧浮出的展开钮 */
-.bzs-reopen {
-  position: absolute;
-  right: 12px;
-  top: 52px;
-  z-index: var(--z-sticky);
-}
-
-/* ── 朗读条 ── */
+/* ── 朗读条：贴着底部（手机给它让出宿主导航条的位置） ── */
 .bzs-ttsbar {
   position: absolute;
   left: 50%;
@@ -270,68 +184,4 @@
 .bzs-ttsbar.paused .wave i {
   animation-play-state: paused;
   opacity: .4;
-}
-
-/* ── 并排对照：两卷之间一条发丝线 ──
-   正文由 foliate 渲染，所以并排是「两个 stage 各挂一套引擎」，
-   不是原型里那种两块静态 .bzs-sheet。 */
-.bzs-stage {
-  position: relative;
-  height: 100%;
-  min-height: 0;
-}
-
-.bzs-stage-in {
-  height: 100%;
-  min-height: 0;
-}
-
-.bzs-rpages.is-hosted.is-parallel {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-}
-
-.bzs-rpages.is-parallel > .bzs-stage-2 {
-  border-left: 1px solid var(--line);
-  min-width: 0;
-}
-
-.bzs-plabel {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: var(--z-sticky);
-  font-size: 11px;
-  letter-spacing: 0;
-  color: var(--copper);
-  white-space: nowrap;
-  pointer-events: none;
-  max-width: 80%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 并排时的选书下拉：只在并排时出现，样式跟工具条同一档 */
-.bzs-rtool .bzs-rpara {
-  max-width: 118px;
-  height: 27px;
-  padding: 0 6px;
-  font-size: 11px;
-  border-radius: var(--r-ctl);
-}
-
-/* ── 专注模式：只留正文 ── */
-.bzs-shell.is-focus .bzs-rtool,
-.bzs-shell.is-focus .bzs-rfoot {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .25s;
-}
-
-.bzs-shell.is-focus:hover .bzs-rtool,
-.bzs-shell.is-focus:hover .bzs-rfoot {
-  opacity: 1;
-  pointer-events: auto;
 }

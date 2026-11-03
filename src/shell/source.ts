@@ -23,6 +23,8 @@ export interface ShellSource {
   app: App;
   repo: BookRepo;
   store: ReaderStore;
+  /** 插件版本号：核销请求里带一份，服务端只用于排障 */
+  version: () => string;
   /** 打开一本书（带 cfi 落到那一页）；已有同书 tab 就复用 */
   openBook: (book: ReaderBook, cfi?: string) => void;
   /** 打开导入面板 */

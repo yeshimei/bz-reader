@@ -240,38 +240,158 @@ class View {
     get document() {
         return this.#iframe.contentDocument
     }
+    /**
+     * 装载一章。
+     *
+     * bz-reader 补丁：原版只挂 `load`、不挂 `error`。地址加载不了时这个 Promise
+     * 既不 resolve 也不 reject，上层 `await` 永远悬着——表现是正文空白且无报错，
+     * 恢复工作区时还会把 Obsidian 钉死在「加载工作区中…」。
+     *
+     * 现在有三条出口：
+     *   1. 正常 load；
+     *   2. load 迟迟不来（或 load 了但 document 拿不到）→ 用 srcdoc 把 HTML
+     *      直接写进 iframe 重试一次（绕开 blob 地址；书内相对资源会失效，
+     *      但正文能读，比白屏强）；
+     *   3. 到点仍失败 → reject，让上层画错误页。
+     */
     async load(src, afterLoad, beforeRender) {
         if (typeof src !== 'string') throw new Error(`${src} is not string`)
-        return new Promise(resolve => {
-            this.#iframe.addEventListener('load', () => {
-                const doc = this.document
-                afterLoad?.(doc)
+        const RETRY_MS = 8000
+        const FAIL_MS = 15000
+        const trace = (m) => {
+            const t = (globalThis.__bzrTrace ??= [])
+            t.push(m)
+            if (t.length > 24) t.shift()
+        }
+        return new Promise((resolve, reject) => {
+            const t0 = Date.now()
+            let settled = false
+            let running = false
+            let triedSrcdoc = false
+            let retryTimer = 0
+            let failTimer = 0
+            let pumpTimer = 0
+            const settle = () => {
+                if (settled) return false
+                settled = true
+                if (retryTimer) clearTimeout(retryTimer)
+                if (failTimer) clearTimeout(failTimer)
+                if (pumpTimer) clearInterval(pumpTimer)
+                this.#iframe.removeEventListener('load', onLoad)
+                return true
+            }
+            const fail = (why) => {
+                trace('fail:' + why)
+                if (!settle()) return
+                reject(new Error(why))
+            }
+            /* 直接写文档：连 srcdoc 导航都不走，about:blank 的 document 总是可写的。
+               某些安卓 WebView 上 srcdoc 设了不生效、也不发 load，这是最后一条硬路。 */
+            const writeDocument = (html) => {
+                try {
+                    const doc = this.#iframe.contentDocument
+                    if (!doc) return false
+                    doc.open()
+                    doc.write(html)
+                    doc.close()
+                    trace('write ' + html.length)
+                    return true
+                } catch (e) {
+                    trace('write fail ' + (e?.message ?? e))
+                    return false
+                }
+            }
+            const retryWithSrcdoc = async () => {
+                if (settled || triedSrcdoc || running) return
+                triedSrcdoc = true
+                if (!src.startsWith('blob:')) return fail('章节地址不是 blob，无法回退')
+                try {
+                    const html = await (await fetch(src)).text()
+                    if (settled || running) return
+                    trace('fetch ' + html.length)
+                    if (!html) return fail('章节内容为空')
+                    this.#iframe.srcdoc = html
+                    writeDocument(html)
+                } catch (e) {
+                    fail(`章节内容读不出来：${e?.message ?? e}`)
+                }
+            }
+            /** 文档就绪后真正挂载。load 事件和下面的轮询都走这里，只跑一次。 */
+            const start = (doc) => {
+                if (running || settled) return
+                running = true
+                try {
+                    afterLoad?.(doc)
 
-                // it needs to be visible for Firefox to get computed style
-                this.#iframe.style.display = 'block'
-                const { vertical, rtl } = getDirection(doc)
-                this.docBackground = getBackground(doc)
-                doc.body.style.background = 'none'
-                const background = this.docBackground
-                this.#iframe.style.display = 'none'
+                    // it needs to be visible for Firefox to get computed style
+                    this.#iframe.style.display = 'block'
+                    const { vertical, rtl } = getDirection(doc)
+                    this.docBackground = getBackground(doc)
+                    doc.body.style.background = 'none'
+                    const background = this.docBackground
+                    this.#iframe.style.display = 'none'
 
-                this.#vertical = vertical
-                this.#rtl = rtl
+                    this.#vertical = vertical
+                    this.#rtl = rtl
 
-                this.#contentRange.selectNodeContents(doc.body)
-                const layout = beforeRender?.({ vertical, rtl, background })
-                this.#iframe.style.display = 'block'
-                this.render(layout)
-                this.#observer.observe(doc.body)
+                    this.#contentRange.selectNodeContents(doc.body)
+                    const layout = beforeRender?.({ vertical, rtl, background })
+                    this.#iframe.style.display = 'block'
+                    this.#iframe.style.visibility = 'visible'
+                    this.render(layout)
+                    this.#observer.observe(doc.body)
 
-                // the resize observer above doesn't work in Firefox
-                // (see https://bugzilla.mozilla.org/show_bug.cgi?id=1832939)
-                // until the bug is fixed we can at least account for font load
-                doc.fonts.ready.then(() => this.expand())
-
+                    // the resize observer above doesn't work in Firefox
+                    // (see https://bugzilla.mozilla.org/show_bug.cgi?id=1832939)
+                    // until the bug is fixed we can at least account for font load
+                    doc.fonts.ready.then(() => this.expand())
+                } catch (e) {
+                    running = false
+                    fail(`章节排版失败：${e?.message ?? e}`)
+                    return
+                }
+                trace('render ok')
+                if (!settle()) return
                 resolve()
-            }, { once: true })
+            }
+            /* 轮询兜底：不依赖 load 事件。判断标准是「文档里已经有元素」；
+               若 readyState 还在 loading，最多再等 2 秒就强行挂载——
+               宁可排版略糙，也别永远空白。 */
+            const pump = () => {
+                if (settled || running) return
+                const doc = this.document
+                if (!doc || !doc.body || !doc.body.childElementCount) return
+                if (doc.readyState === 'loading' && Date.now() - t0 < 2000) return
+                trace('pump ' + doc.URL)
+                start(doc)
+            }
+            const onLoad = () => {
+                if (settled || running) return
+                const doc = this.document
+                /* 跨源 / 拿不到文档：换成直接写 */
+                if (!doc) {
+                    void retryWithSrcdoc()
+                    return
+                }
+                trace('load ' + doc.URL)
+                start(doc)
+            }
+
+            trace('begin ' + src.slice(0, 18))
+            /* 关键：不要用 display:none 等 load——部分安卓 WebView 对不可见的
+               iframe 干脆不加载文档（既不 load 也不 error）。改成「可见但透明」，
+               布局照算、屏幕上不闪。 */
+            this.#iframe.style.display = 'block'
+            this.#iframe.style.visibility = 'hidden'
+            this.#iframe.addEventListener('load', onLoad)
+            /* 地址照旧交给 foliate 设：`src` 的 setter 已被 engine/blob-srcdoc.ts
+               接管，blob 地址在那里被读成原文、内联资源后改成 srcdoc。 */
             this.#iframe.src = src
+            pumpTimer = setInterval(pump, 200)
+            retryTimer = setTimeout(() => {
+                if (!settled && !running) void retryWithSrcdoc()
+            }, RETRY_MS)
+            failTimer = setTimeout(() => fail('章节渲染超时'), FAIL_MS)
         })
     }
     render(layout) {
@@ -672,7 +792,9 @@ export class Paginator extends HTMLElement {
     }
     #replaceBackground(background, columnCount) {
         const doc = this.#view?.document
-        if (!doc) return
+        /* bz-reader：换章/换文档的瞬间 documentElement 会是 null，
+           原来的 getComputedStyle 会抛 TypeError，把整次 render 打断。 */
+        if (!doc || !doc.documentElement || !doc.defaultView || !this.#background) return
         const htmlStyle = doc.defaultView.getComputedStyle(doc.documentElement)
         const themeBgColor = htmlStyle.getPropertyValue('--theme-bg-color')
         if (background && themeBgColor) {
@@ -854,7 +976,7 @@ export class Paginator extends HTMLElement {
         this.#touchState = {
             x: touch?.screenX, y: touch?.screenY,
             t: e.timeStamp,
-            vx: 0, xy: 0,
+            vx: 0, vy: 0, moved: 0,
         }
     }
     #onTouchMove(e) {
@@ -881,6 +1003,9 @@ export class Paginator extends HTMLElement {
         state.t = e.timeStamp
         state.vx = dx / dt
         state.vy = dy / dt
+        /* bz-reader：累计位移。手指点按时 1~3px 的抖动也会派发 touchmove，
+           只看「有没有 touchmove」会把点按当拖拽，snap 就又回来了。 */
+        state.moved = (state.moved ?? 0) + Math.hypot(dx, dy)
         this.#touchScrolled = true
         if (Math.abs(dx) >= Math.abs(dy)) {
             this.scrollBy(dx, 0)
@@ -889,8 +1014,15 @@ export class Paginator extends HTMLElement {
         }
     }
     #onTouchEnd() {
+        /* bz-reader：点按不吸附。
+           一次点按原本有两个翻页者——宿主的三区点击 + 这里的 snap()。
+           零速度的 snap 会按「当前页内偏移」吸到最近的页边界，于是
+           「翻到下一页 → 被吸回上一页」无限往返。
+           判据用累计位移而不是「有没有 touchmove」：点按本身也带 1~3px 抖动。 */
+        const movedDistance = this.#touchState?.moved ?? 0
+        const tapOnly = !this.#touchScrolled || movedDistance < 12
         this.#touchScrolled = false
-        if (this.scrolled) return
+        if (this.scrolled || tapOnly) return
 
         // XXX: Firefox seems to report scale as 1... sometimes...?
         // at this point I'm basically throwing `requestAnimationFrame` at

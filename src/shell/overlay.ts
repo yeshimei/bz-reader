@@ -9,7 +9,7 @@
  * 容器本身带 .bzs-shell + data-bzaccent，为的是拿到同一套设计令牌；
  * 它的背景被覆盖成透明，所以不会给整屏染色。
  * ============================================================ */
-import { HIGHLIGHT_COLORS, colorCss } from '../data/notes';
+import { HIGHLIGHT_COLORS } from '../data/notes';
 import { aiAsk, type AiTask } from '../data/ai';
 import type { ReaderBook } from '../data/schema';
 import { collectStats } from '../data/stats';
@@ -20,7 +20,7 @@ import { closeOverlay, getState } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
-import { CAP_LABEL, GROUP_URL, PLAN_TABLE, PURCHASE_URL, entitlement, tierText, type Cap, type PlanCell } from '../data/entitlement';
+import { CAP_LABEL, GROUP_URL, PLAN_TABLE, PURCHASE_URL, can, entitlement, tierText, type Cap, type PlanCell } from '../data/entitlement';
 import { protocolUrl } from '../data/deeplink';
 import { dataDirOf, normalizeDataDir } from '../core/plugin-path';
 import { RT, pushAi } from './runtime';
@@ -167,45 +167,16 @@ export function typographyFormHtml(): string {
   </div>`;
 }
 
-/** 排版面板：右上角贴边浮层，改一项正文立刻重排（没有遮罩，边调边看） */
+/**
+ * 排版面板：右上角贴边浮层，改一项正文立刻重排（没有遮罩，边调边看）。
+ *
+ * 没有标题头：浮层挂在工具栏下面，自己的头部会把上一行的按钮压住；
+ * 关闭靠点外面或 Esc（浮层统一走 document 级收口），不需要一枚 ✕。
+ */
 function overlayTypography(): string {
-  return floatPanel('排版', '', typographyFormHtml(), '', 'is-corner');
-}
-
-function overlayHelp(): string {
-  const tour: Array<[string, string, string]> = [
-    ['library', '书库', '书架 · 封面墙 / 列表 / 书架 / 继续阅读'],
-    ['notes', '笔记', '书架 · 跨书划线想法 / 每日回顾 / 导出'],
-    ['stats', '统计', '书架 · 连续天数 / 热力图 / 年度海报'],
-    ['settings', '设置', '书架 · 版式 / 外观 / 标注 / AI'],
-    ['toc', '左侧栏', '目录 / 书签 / 划线 / AI 四个页签'],
-    ['reader', '阅读', '中心 tab · 分页 / 双栏 / 竖排 / 悬浮栏'],
-    ['search', '搜索', '本书 / 全库 · 命中跳转'],
-    ['import', '导入', '拖入 epub / txt，或直接放进笔记库'],
-    ['bookmap', 'Book Map', '章节 / 书签 / 划线的一屏鸟瞰'],
-    ['film', '章节缩览', '像胶片一样翻全书'],
-    ['quote', '书摘卡', '引文 + 出处 + 可回溯的深链'],
-    ['ai-demo', 'AI 问答', '解释 / 翻译 / 摘要，只引用当前位置之前'],
-  ];
-  const body = `<div class="bzs-sect-h" style="margin-top:0"><b>承载位置与工具</b><span class="ln"></span></div>
-    <div class="bzs-tour">${tour
-      .map(
-        ([go, name, desc]) =>
-          `<button data-act="tour" data-go="${go}"><div>${name}<span>${esc(desc)}</span></div></button>`,
-      )
-      .join('')}</div>
-    <div class="bzs-sect-h"><b>快捷键</b><span class="ln"></span></div>
-    <div class="bzs-keys">
-      <div><span>翻上一页 / 下一页</span><kbd>← / →</kbd></div>
-      <div><span>搜索</span><kbd>⌘ / Ctrl + F</kbd></div>
-      <div><span>专注模式</span><kbd>f</kbd></div>
-      <div><span>记一枚书签</span><kbd>b</kbd></div>
-      <div><span>排版面板</span><kbd>t</kbd></div>
-      <div><span>收起 / 展开左侧栏</span><kbd>s</kbd></div>
-      <div><span>书架 ⇄ 阅读</span><kbd>g</kbd></div>
-      <div><span>Book Map</span><kbd>m</kbd></div>
-    </div>`;
-  return modal('帮助', '功能地图', body, closeBtn(), 'wide tall');
+  return `<div class="bzs-float is-corner no-head" data-role="float">
+    <div class="bzs-mbody">${typographyFormHtml()}</div>
+  </div>`;
 }
 
 function overlayImport(): string {
@@ -300,23 +271,6 @@ function overlayBookmap(): string {
   return modal('Book Map', '全书一屏鸟瞰', body, closeBtn(), 'wide tall');
 }
 
-function overlayFilm(): string {
-  const book = bookById(getState().bookId) ?? liveBooks()[0];
-  if (!book) return modal('章节缩览', '', '<div class="bzs-empty">还没有打开的书。</div>', closeBtn(), 'wide');
-  const marks = marksOf(book);
-  const chapters = [...new Set(marks.map((m) => m.chapterTitle))];
-  const body = chapters.length
-    ? `<div class="bzs-film">${chapters
-        .map((t, i) => {
-          const items = marks.filter((m) => m.chapterTitle === t);
-          return `<button data-act="chaptersnap" data-title="${esc(t)}">
-            <b>第 ${cn(i + 1)} 节 · ${esc(t)}</b>${esc(items[0]?.text.slice(0, 30) ?? '')}…</button>`;
-        })
-        .join('')}</div>`
-    : `<div class="bzs-empty">还没有标注。读几段、划几条，这里就能按章缩览。</div>`;
-  return modal('章节缩览', '像胶片一样翻全书', body, closeBtn(), 'wide tall');
-}
-
 function overlayQuote(text?: string, bookId?: string, chapterTitle?: string): string {
   const book = bookById(bookId ?? getState().bookId);
   const t = text || RT.sel?.text || '';
@@ -337,23 +291,31 @@ function overlayQuote(text?: string, bookId?: string, chapterTitle?: string): st
   );
 }
 
+/**
+ * 写想法：划线上方的小浮窗。
+ *
+ * 以前是居中弹窗 + 一排「笔记 / 灵感 / 准备实践 / 反复看 / 疑问」的分类
+ * chips。实际数据里想法没有分类字段，那排 chips 存不进去，只是摆着好看，
+ * 还把输入框挤小了；现在只留「引文 + 输入框 + 保存」。
+ * 无遮罩：想法常常要对照正文写，遮住半页反而写不出来。
+ */
 function overlayIdea(markId?: string, bookId?: string): string {
   const found = markById(markId, bookId);
-  if (!found) return modal('想法', '', '<div class="bzs-empty">这条标注已不存在。</div>', closeBtn());
+  const anchor = anchoredStyle(getState().overlay?.anchor);
+  if (!found) {
+    return floatPanel('写想法', '', '<div class="bzs-empty">这条标注已不存在。</div>', '<button class="bzs-btn" data-act="close">关闭</button>', 'is-anchored', anchor);
+  }
   const { book, mark } = found;
-  const types = ['笔记', '灵感', '准备实践', '反复看', '疑问'];
   const body = `<div class="bzs-ai-quote">「${esc(mark.text)}」</div>
-    <div class="bzs-types">${types
-      .map((t) => `<button class="${RT.ideaType === t ? 'on' : ''}" data-act="ideatype" data-v="${t}">${t}</button>`)
-      .join('')}</div>
     <textarea class="idea" data-role="idea" placeholder="这一句让你想到了什么…">${esc(mark.comment ?? '')}</textarea>
-    <div class="bzs-mini" style="margin-top:8px">想法会跟着划线一起出现在左侧栏、笔记页与导出稿里。</div>`;
-  return modal(
+    <div class="bzs-mini" style="margin-top:8px">想法会跟着划线出现在左侧栏、笔记页与导出稿里。</div>`;
+  return floatPanel(
     '写想法',
     `${penLabel(mark.color)} · ${esc(mark.chapterTitle ?? '')}`,
     body,
-    `<button class="bzs-btn pri" data-act="ideasave" data-id="${mark.id}" data-book="${book.id}">保存想法</button>${closeBtn()}`,
-    'wide',
+    `<button class="bzs-btn pri" data-act="ideasave" data-id="${mark.id}" data-book="${book.id}">保存想法</button><span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>`,
+    'is-anchored',
+    anchor,
   );
 }
 
@@ -367,10 +329,14 @@ export function hlcardPanelHtml(markId?: string, bookId?: string): string | null
   const found = markById(markId, bookId);
   if (!found) return null;
   const { book, mark } = found;
-  const css = colorCss(mark.color);
-  return `<div class="bzs-qcard" style="border-left-color:${css}">
+  /* 笔色不再用卡片侧边的一条竖线表示（整块 UI 里那排彩条太吵），
+     改成出处行前的一颗小色点：同色、同值，但不抢正文。 */
+  const pen = HIGHLIGHT_COLORS.find((c) => c.value === mark.color);
+  return `<div class="bzs-qcard">
       <div class="q">${esc(mark.text)}</div>
-      <div class="loc">${esc(book.meta.title || '')} · ${esc(mark.chapterTitle ?? '')} · ${fmtWhen(mark.createdAt)}</div>
+      <div class="loc">${
+        pen ? `<span class="dot" style="background:${pen.css}"></span>${esc(pen.label)} · ` : ''
+      }${esc(book.meta.title || '')} · ${esc(mark.chapterTitle ?? '')} · ${fmtWhen(mark.createdAt)}</div>
     </div>
     ${
       mark.comment
@@ -390,10 +356,15 @@ export function hlcardActsHtml(markId?: string, bookId?: string): string {
   const found = markById(markId, bookId);
   if (!found) return '';
   const { book, mark } = found;
+  /* 双向链接是高级版的主打能力：基础版不把按钮藏起来，而是挂一枚「高级」小标。
+     藏起来 = 用户不知道有这回事；标出来再点一下看到对照表，才是卖点。 */
+  const bilink = can('bilink')
+    ? `<button class="bzs-btn" data-act="copylink" data-id="${mark.id}" data-book="${book.id}">双向链接</button>`
+    : `<button class="bzs-btn" data-act="copylink" data-id="${mark.id}" data-book="${book.id}">双向链接<i class="pro">高级</i></button>`;
   return `<button class="bzs-btn" data-act="hljump" data-id="${mark.id}" data-book="${book.id}">回到原文</button>
     <button class="bzs-btn" data-act="hlidea" data-id="${mark.id}" data-book="${book.id}">写想法</button>
     <button class="bzs-btn" data-act="hlquote" data-id="${mark.id}" data-book="${book.id}">做成书摘</button>
-    <button class="bzs-btn" data-act="copylink" data-id="${mark.id}" data-book="${book.id}">双向链接</button>
+    ${bilink}
     <span class="sp"></span>
     <button class="bzs-btn danger" data-act="hldel" data-id="${mark.id}" data-book="${book.id}">删除</button>`;
 }
@@ -419,7 +390,7 @@ function floatPanel(title: string, sub: string, body: string, foot = '', cls = '
 /** 当前弹层是不是「浮层」（无遮罩、点外面关闭） */
 function isFloatKind(): boolean {
   const k = getState().overlay?.kind;
-  return k === 'typography' || k === 'hlcard' || k === 'footnote';
+  return k === 'typography' || k === 'hlcard' || k === 'footnote' || k === 'idea';
 }
 
 /**
@@ -697,7 +668,7 @@ function overlayUnlock(mode?: string): string {
   // 激活框独占页脚整行：输入框与按钮挨着，眼睛不用在两端来回找
   const foot = `<div class="bzs-unlock-act">
       <label>已有激活码</label>
-      <input data-role="license" placeholder="BZR2.…" value="${esc(v.license)}" spellcheck="false">
+      <input data-role="license" placeholder="BZR3.…" value="${esc(v.license)}" spellcheck="false">
       <button class="bzs-btn sm pri" data-act="activate">激活</button>
     </div>`;
 
@@ -711,6 +682,53 @@ function overlayUnlock(mode?: string): string {
  * 把「从哪到哪」摊开写清楚，并且说明失败会保留原目录——用户点确认前
  * 得知道最坏结果是什么。
  */
+/**
+ * 改名：只改书架上显示的名字。
+ *
+ * 不去重命名笔记库里的文件——那会影响用户自己的 wiki 链接与备份，
+ * 而且同一个文件可能在别处被引用。改名只落在 bz 的元数据里。
+ */
+function overlayRename(bookId?: string): string {
+  const b = bookById(bookId);
+  if (!b) return modal('改名', '', '<div class="bzs-empty">这本书已不在书库。</div>', closeBtn());
+  const body = `<div class="bzs-setgrp flat">
+      <div class="bzs-setrow"><label>书名</label>
+        <input data-role="rename" value="${esc(b.meta.title || '')}" spellcheck="false" style="flex:1"></div>
+      <div class="bzs-mini" style="margin-top:10px;line-height:1.9">只改书架上显示的名字，笔记库里的文件名不动，
+        进度、划线、书签也都不会丢。</div>
+    </div>`;
+  return modal(
+    '改名',
+    esc(b.fileRef.format.toUpperCase()),
+    body,
+    `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
+     <button class="bzs-btn pri" data-act="renamesave" data-id="${b.id}">保存</button>`,
+  );
+}
+
+/**
+ * 移除书库：删记录与标注，不删文件。
+ *
+ * 这两件事的后果差很远——删文件是不可逆的，用户点「移除」多半只是想
+ * 让它从书架上消失。所以文案里把边界写死，确认按钮也只做这一件事。
+ */
+function overlayRemoveBook(bookId?: string): string {
+  const b = bookById(bookId);
+  if (!b) return modal('移除书库', '', '<div class="bzs-empty">这本书已不在书库。</div>', closeBtn());
+  const marks = marksOf(b).length;
+  const body = `<div style="font-size:13px;line-height:2;color:var(--t2)">
+      会把《${esc(b.meta.title || '未命名')}》从书架移除：阅读进度、${marks} 条划线、书签与想法一起删掉。<br>
+      笔记库里的原文件 <code>${esc(b.fileRef.vaultPath)}</code> <b>不会</b>被删除，之后还能重新导入。
+    </div>`;
+  return modal(
+    '移除书库',
+    esc(b.meta.title || '未命名'),
+    body,
+    `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
+     <button class="bzs-btn danger" data-act="removebookdo" data-id="${b.id}">确认移除</button>`,
+  );
+}
+
 function overlayMoveData(raw: string): string {
   const from = dataDirOf();
   const to = normalizeDataDir(raw);
@@ -743,14 +761,10 @@ export function overlayHtml(): string {
       return overlayImport();
     case 'typography':
       return overlayTypography();
-    case 'help':
-      return overlayHelp();
     case 'export':
       return overlayExport(o.bookId);
     case 'bookmap':
       return overlayBookmap();
-    case 'film':
-      return overlayFilm();
     case 'quote':
       return overlayQuote(o.text, o.bookId, o.chapterTitle);
     case 'idea':
@@ -779,6 +793,10 @@ export function overlayHtml(): string {
       return overlayUnlock(o.mode);
     case 'movedata':
       return overlayMoveData(o.text || '');
+    case 'rename':
+      return overlayRename(o.bookId);
+    case 'removebook':
+      return overlayRemoveBook(o.bookId);
     default:
       return '';
   }
@@ -898,6 +916,17 @@ export class OverlayLayer {
       input?.setSelectionRange(len, len);
     }
     if (o?.kind === 'ai' || o?.kind === 'translate') void runAiForOverlay();
+    // 想法浮窗：打开就把光标放进输入框，少一次点击
+    if (o?.kind === 'idea') this.root.querySelector<HTMLTextAreaElement>('[data-role="idea"]')?.focus();
+    if (o?.kind === 'rename') {
+      const input = this.root.querySelector<HTMLInputElement>('[data-role="rename"]');
+      input?.focus();
+      input?.select();
+    }
+    // 解锁表：被拦下的那一行可能在一长串功能下面，把它滚到可见范围里
+    if (o?.kind === 'unlock') {
+      this.root.querySelector<HTMLElement>('.bzs-plan-row.is-cap')?.scrollIntoView({ block: 'center' });
+    }
     // 书籍详情的封面：占位色块先出，真封面到了就地换图
     hydrateCovers(getShellSource()?.app, liveBooks(), this.root);
   }

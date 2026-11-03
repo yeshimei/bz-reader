@@ -10,6 +10,7 @@
  *   2. 任何写数据之后都 commit()（store.touch），否则关掉 Obsidian 就丢。
  *   3. 失败要说人话（notify），不要静默——用户点一下没反应比报错更难受。
  * ============================================================ */
+import { Menu } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
 import { aiAsk } from '../data/ai';
 import {
@@ -25,15 +26,16 @@ import {
 } from '../data/notes';
 import { notify } from '../core/notice';
 import { openHotkeySettings } from '../core/hotkeys';
-import { CAP_LABEL, GROUP_URL, PURCHASE_URL, can, setLicense, type Cap } from '../data/entitlement';
+import { folderLabel, pickFolder } from '../core/folder-pick';
+import { CAP_LABEL, GROUP_URL, PURCHASE_URL, can, type Cap } from '../data/entitlement';
 import { normalizeDataDir } from '../core/plugin-path';
-import { verifyLicense } from '../data/license';
+import { activateCode } from '../data/activate';
 import { linkInline, linkQuote, rawUrl, targetOfMark, wikiLink } from '../data/deeplink';
 import { exportBookNotes } from '../data/export';
 import { jumpTo, getToc } from '../view/toc-state';
 import type { OverlayKind, StudyPage } from './state';
 import { closeOverlay, getState, mutateState, openOverlay, setState, toggleFav } from './state';
-import { RT, pushAi } from './runtime';
+import { RT, emitNotesChanged, pushAi } from './runtime';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 
 /** 当前上下文里的书：优先状态里记住的那本，否则取书库第一本 */
@@ -102,6 +104,7 @@ export function createMark(color: string, opts: { silent?: boolean } = {}): stri
   });
   getShellSource()?.store.touch();
   repaint();
+  emitNotesChanged();
   // 选中即划这条路每选一次就弹一条提示会盖住正文，交给调用方决定
   if (!opts.silent) notify(`已用${isHighlightColor(color) ? colorLabel(color) : '默认'}色划线`);
   return h.id;
@@ -116,6 +119,7 @@ function recolorMark(id: string, color: string): boolean {
   if (!ok) return false;
   getShellSource()?.store.touch();
   repaint();
+  emitNotesChanged();
   notify(`换成${colorLabel(color)}`,'info');
   return true;
 }
@@ -242,18 +246,12 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
     case 'import':
       getShellSource()?.openImport();
       break;
-    case 'help':
-      overlay('help');
-      break;
     case 'typography':
       overlay('typography');
       break;
     case 'bookmap':
       if (!requireCap('bookmap')) break;
       overlay('bookmap');
-      break;
-    case 'film':
-      overlay('film');
       break;
     case 'poster':
       if (!requireCap('card')) break;
@@ -274,6 +272,79 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
     case 'detail':
       if (d.id) overlay('detail', { bookId: d.id });
       break;
+
+    /* ── 书卡右键菜单 ──
+       书卡上原来钉着「阅读 / 收藏 / 标为读完」三颗按钮，每张卡都被
+       这三颗占掉一行，封面墙反而看不清书。改成右键（手机长按）菜单，
+       顺带把「改名」「移除书库」这两个真正需要入口的动作放进去。 */
+    case 'bookmenu': {
+      const id = d.id || '';
+      const book = liveBooks().find((b) => b.id === id);
+      if (!book) break;
+      const done = !!book.reading.stats.completedTime || (book.reading.position.percent || 0) >= 0.99;
+      const menu = new Menu();
+      menu.addItem((i) => i.setTitle('阅读').setIcon('book-open').onClick(() => openBookById(id)));
+      menu.addItem((i) => i.setTitle('书籍详情').setIcon('info').onClick(() => overlay('detail', { bookId: id })));
+      menu.addItem((i) =>
+        i
+          .setTitle(getState().favIds.includes(id) ? '取消收藏' : '收藏')
+          .setIcon('star')
+          .onClick(() => {
+            const on = toggleFav(id);
+            notify(on ? '已收藏' : '已取消收藏');
+            rerender();
+          }),
+      );
+      menu.addItem((i) =>
+        i
+          .setTitle(done ? '标为在读' : '标为读完')
+          .setIcon('check')
+          .onClick(() => toggleDone(id)),
+      );
+      menu.addSeparator();
+      menu.addItem((i) => i.setTitle('改名').setIcon('pencil').onClick(() => overlay('rename', { bookId: id })));
+      menu.addItem((i) =>
+        i.setTitle('移除书库').setIcon('trash').onClick(() => overlay('removebook', { bookId: id })),
+      );
+      menu.showAtPosition({ x: Number(d.x) || 0, y: Number(d.y) || 0 });
+      break;
+    }
+    case 'rename':
+      if (d.id) overlay('rename', { bookId: d.id });
+      break;
+    case 'renamesave': {
+      const book = liveBooks().find((b) => b.id === (d.id || ''));
+      const input = document.querySelector<HTMLInputElement>('[data-role="rename"]');
+      const next = (input?.value ?? '').trim();
+      if (!book) break;
+      if (!next) {
+        notify('书名不能为空', 'error');
+        break;
+      }
+      book.meta.title = next;
+      book.updatedAt = Date.now();
+      getShellSource()?.store.touch();
+      closeOverlay();
+      rerender();
+      notify('书名已改');
+      break;
+    }
+    case 'removebook':
+      if (d.id) overlay('removebook', { bookId: d.id });
+      break;
+    case 'removebookdo': {
+      const id = d.id || '';
+      const src = getShellSource();
+      const book = liveBooks().find((b) => b.id === id);
+      if (!src || !book) break;
+      src.repo.remove(id);
+      src.store.touch();
+      if (getState().bookId === id) setState({ bookId: null });
+      closeOverlay();
+      rerender();
+      notify(`已从书架移除《${book.meta.title || '未命名'}》`);
+      break;
+    }
     case 'openbook':
       // 书籍详情是个弹层：点了「开始阅读」就该把它收掉，
       // 否则书在底下打开、详情盖在上面，看着像没反应
@@ -426,13 +497,12 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       const box = document.querySelector<HTMLInputElement>('[data-role="license"]');
       const code = (box?.value || '').trim();
       void (async () => {
-        const res = await verifyLicense(code);
+        const res = await activateCode(code, getShellSource()?.version() ?? '');
         if (!res.ok) {
           // 不重绘：重绘会把用户刚粘进去的那一长串码清掉，重来一遍很烦
           notify(res.message, 'error');
           return;
         }
-        setLicense(code);
         // 同步一份到 settings，原生设置页与 bz 侧都读得到
         getShellSource()?.setSettings({ license: code });
         notify(res.message);
@@ -442,6 +512,19 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
     }
 
     /* ── 数据目录 ── */
+    case 'pickimportdir': {
+      // 只挑不输：弹出 vault 文件夹清单，选完即生效
+      const src = getShellSource();
+      if (!src) break;
+      const cur = shellSettings().importDir || 'Books';
+      void pickFolder(src.app, cur).then((picked) => {
+        if (picked === null) return;
+        src.setSettings({ importDir: picked });
+        notify(`书籍导入位置：${folderLabel(picked)}`);
+        rerender();
+      });
+      break;
+    }
     case 'datadirmove': {
       const src = getShellSource();
       if (!src) break;
@@ -539,7 +622,8 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       jumpToMark(d.id, d.book);
       break;
     case 'hlidea':
-      overlay('idea', { markId: d.id, bookId: d.book || getState().bookId || '' });
+      // 浮窗要贴着原来那条划线展开，锚点沿用标注卡的位置
+      overlay('idea', { markId: d.id, bookId: d.book || getState().bookId || '', anchor: getState().overlay?.anchor });
       break;
     case 'hlquote':
       quoteFromMark(d.id, d.book);
@@ -551,11 +635,6 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
     case 'ideasave':
       saveIdea(d.id, d.book);
       break;
-    case 'ideatype':
-      RT.ideaType = d.v || '想法';
-      env.repaint?.();
-      break;
-
     /* ── 划词浮层 ── */
     case 'selpen': {
       // 手机上选中即已划上一条，色点只改它的颜色；桌面上是「选色才落笔」
@@ -612,32 +691,12 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       }
       break;
 
-    /* ── 页面导览 ── */
-    case 'tour':
-      closeOverlay();
-      tourTo(d.go);
-      break;
-
     /* ── 重置界面状态（不动书与笔记） ── */
     case 'resetui':
       resetUiState();
       closeOverlay();
       notify('界面状态已重置');
       break;
-
-    /* ── 章节缩览：跳到同名章 ── */
-    case 'chaptersnap': {
-      const title = d.title || '';
-      const snap = getToc();
-      const hit = snap?.items.find((it) => it.label === title);
-      if (hit?.href) {
-        closeOverlay();
-        jumpTo(hit.href);
-      } else {
-        notify('这一章还没有解析出跳转位置', 'info');
-      }
-      break;
-    }
 
     /* ── AI 回答存为笔记：直接落到剪贴板，不伪造一条没有出处的标注 ── */
     case 'aisave': {
@@ -660,37 +719,6 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
 }
 
 /* ─────────── 导航与重置 ─────────── */
-
-function tourTo(go?: string): void {
-  const src = getShellSource();
-  switch (go) {
-    case 'library':
-    case 'notes':
-    case 'stats':
-    case 'settings':
-      src?.openStudy(go as StudyPage);
-      break;
-    case 'toc':
-    case 'bookmarks':
-    case 'highlights':
-    case 'ai':
-      src?.openSidebar(go);
-      break;
-    case 'reader':
-      src?.openStudy('library');
-      break;
-    case 'search':
-    case 'import':
-    case 'bookmap':
-    case 'film':
-    case 'quote':
-    case 'ai-demo':
-      overlay(go === 'ai-demo' ? 'ai' : (go as OverlayKind), { text: '' });
-      break;
-    default:
-      break;
-  }
-}
 
 /** 只清界面状态：书、进度、标注、AI 配置一律不动 */
 function resetUiState(): void {
@@ -771,8 +799,7 @@ function setPref(k: string | undefined, v: string | undefined): void {
       src.setPrefs({ columns: v === '2' ? 2 : 1 });
       break;
     case 'footnote':
-      // 浮窗预览是高级能力；退回「跳到章末」永远放行，不能把人锁在付费排版里
-      if (v === 'popup' && !requireCap('footnote')) break;
+      // 浮窗预览已并入基础版（2026-11-03）：两种方式随便选，不再有门槛
       src.setPrefs({ footnote: v === 'jump' ? 'jump' : 'popup' });
       break;
     case 'accent':
@@ -796,6 +823,7 @@ function deleteMark(markId?: string, bookId?: string): void {
   if (removeHighlight(book, markId)) {
     getShellSource()?.store.touch();
     repaint();
+    emitNotesChanged();
     notify('划线已删');
   }
 }
@@ -806,6 +834,7 @@ function changeMarkColor(markId?: string, color?: string, bookId?: string): void
   if (setHighlightColor(book, markId, color)) {
     getShellSource()?.store.touch();
     repaint();
+    emitNotesChanged();
     notify(`换成${colorLabel(color)}`);
   }
 }
@@ -840,6 +869,7 @@ function saveIdea(markId?: string, bookId?: string): void {
     getShellSource()?.store.touch();
     closeOverlay();
     repaint();
+    emitNotesChanged();
     notify(text ? '想法已保存' : '想法已清空');
   }
 }

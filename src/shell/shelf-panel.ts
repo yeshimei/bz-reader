@@ -131,6 +131,60 @@ export class ShelfPanel {
       dispatchAction(hit.dataset.act || '', hit, { repaint: () => this.render() });
     });
 
+    /* 书卡菜单：桌面右键、手机长按。
+       长按用 520ms 的指针计时，手指一动就取消——否则用户想划动书库时
+       会被菜单打断。两端都走同一个 bookmenu 动作，不写两套逻辑。 */
+    let menuAt = 0;
+    const openMenu = (card: HTMLElement, x: number, y: number): void => {
+      menuAt = Date.now();
+      card.dataset.x = String(Math.round(x));
+      card.dataset.y = String(Math.round(y));
+      dispatchAction('bookmenu', card, { repaint: () => this.render() });
+    };
+    const cardOf = (t: EventTarget | null): HTMLElement | null =>
+      t instanceof HTMLElement ? t.closest<HTMLElement>('[data-bookmenu]') : null;
+
+    el.addEventListener('contextmenu', (e) => {
+      const card = cardOf(e.target);
+      if (!card) return;
+      e.preventDefault();
+      if (Date.now() - menuAt < 400) return; // 长按已经开过
+      openMenu(card, e.clientX, e.clientY);
+    });
+
+    let pressTimer: number | null = null;
+    let pressCard: HTMLElement | null = null;
+    let pressX = 0;
+    let pressY = 0;
+    const cancelPress = (): void => {
+      if (pressTimer !== null) {
+        window.clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+      pressCard = null;
+    };
+    el.addEventListener('pointerdown', (e) => {
+      if (!isMobileShell()) return;
+      const card = cardOf(e.target);
+      if (!card) return;
+      pressCard = card;
+      pressX = e.clientX;
+      pressY = e.clientY;
+      if (pressTimer !== null) window.clearTimeout(pressTimer);
+      pressTimer = window.setTimeout(() => {
+        pressTimer = null;
+        const target = pressCard;
+        pressCard = null;
+        if (target) openMenu(target, pressX, pressY);
+      }, 520);
+    });
+    el.addEventListener('pointermove', (e) => {
+      if (!pressCard) return;
+      if (Math.abs(e.clientX - pressX) > 8 || Math.abs(e.clientY - pressY) > 8) cancelPress();
+    });
+    el.addEventListener('pointerup', cancelPress);
+    el.addEventListener('pointercancel', cancelPress);
+
     const onEdit = (e: Event): void => {
       const t = e.target as HTMLElement;
       if (!t?.dataset?.role) return;

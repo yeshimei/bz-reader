@@ -56,10 +56,15 @@
   animation: bzs-float-in .16s ease-out;
 }
 
-/* 排版：贴右上角，避开阅读页的悬浮工具条 */
+/* 排版：贴右上角，避开阅读页的悬浮工具条。
+   no-head：没有标题头，第一行就是控件——少一行，工具栏少被盖一截。 */
 .bzs-float.is-corner {
   top: 60px;
   right: 18px;
+}
+
+.bzs-float.no-head .bzs-mbody {
+  padding-top: 12px;
 }
 
 .bzs-float.is-anchored {
@@ -155,11 +160,19 @@
 
 .bzs-mfoot {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 14px 20px;
   border-top: 1px solid var(--line);
   flex-shrink: 0;
   align-items: center;
+}
+
+/* 浮层（标注卡）比弹窗窄得多，五个按钮一行放不下；
+   换行比溢出好，删掉的那颗「删除」永远留在最后一行的最右。 */
+.bzs-float .bzs-mfoot .sp {
+  flex-basis: 100%;
+  height: 0;
 }
 
 .bzs-mfoot .sp {
@@ -335,8 +348,9 @@
 
 .bzs-ai-quote {
   margin: 12px 0;
-  padding: 2px 0 2px 13px;
-  border-left: 2px solid var(--copper-line);
+  padding: 10px 14px;
+  border-radius: var(--r-ctl);
+  background: var(--sunken);
   font-family: var(--serif);
   font-size: 12px;
   line-height: 1.9;
@@ -372,7 +386,6 @@
   border-radius: var(--r-card);
   padding: 20px 22px;
   background: var(--surface);
-  border-left: 3px solid var(--copper);
 }
 
 .bzs-qcard .q {
@@ -883,11 +896,9 @@ textarea.idea:focus {
   font-size: 12px;
 }
 
-/* 滑轨样式统一在 tokens.css：以前这里另有一套 3px 轨 / 15px 球，
-   和设置页的滑块粗细不一致，看着像两个软件。这里只留布局。 */
+/* 滑轨样式统一在 tokens.css（几何写死，圆点与线永远对齐）。这里只留布局。 */
 .bzs-typo input[type="range"] {
   flex: 1;
-  height: 18px;
 }
 
 .bzs-typo .bzs-setrow .val {
@@ -1110,6 +1121,19 @@ textarea.idea:focus {
 .bzs-plan-row i.n {
   color: var(--ink);
   opacity: .26;
+}
+
+/* 「你刚点的就是这个」：基础版点付费按钮被拦下时，对照表里那一行
+   用铜底 + 一圈铜色细框标出来——不做解释文案，位置自己会说话。
+   用整圈细框而不是左缘竖条：竖条在表里会被读成「这一列有特殊含义」。 */
+.bzs-plan-row.is-cap {
+  background: var(--copper-soft);
+  box-shadow: inset 0 0 0 1px var(--copper-line);
+}
+
+.bzs-plan-row.is-cap span {
+  opacity: 1;
+  font-weight: 500;
 }
 
 .bzs-unlock-buy {

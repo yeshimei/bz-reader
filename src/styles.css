@@ -171,7 +171,7 @@
   background: transparent;
   padding: 0;
   color: var(--bzr-brand);
-  font-size: 11px;
+  font-size: 12.5px;
   line-height: 1;
   cursor: pointer;
   white-space: nowrap;
@@ -233,8 +233,8 @@
 /* 方勾选框（导入列表） */
 .bzr-cb {
   position: relative;
-  width: 11px;
-  height: 11px;
+  width: 15px;
+  height: 15px;
   border: 1px solid var(--bzr-border-hover);
   border-radius: var(--r-chip);
   flex: none;
@@ -246,10 +246,10 @@
 .bzr-cb.is-on::after {
   content: "";
   position: absolute;
-  left: 2.5px;
-  top: 0.5px;
-  width: 4px;
-  height: 7px;
+  left: 3.5px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
   border: solid #fff;
   border-width: 0 1.5px 1.5px 0;
   transform: rotate(42deg);
@@ -2509,10 +2509,12 @@
   font-size: 11px;
 }
 
-/* ═══════════ ⑩ 导入 ═══════════ */
+/* ═══════════ ⑩ 导入 ═══════════
+   以前 470×400、全 11px 字：书名被掐、按钮挤成一团，看着像另一个软件。
+   放到 680px 宽、正文 13px 起，与书架同一档字号。 */
 .bzr-overlay-popup.bzr-import-popup {
-  width: 470px;
-  max-height: 400px;
+  width: min(680px, 94vw);
+  max-height: min(680px, 92vh);
   padding: 0;
 }
 .bzr-imp {
@@ -2523,8 +2525,8 @@
   font-family: var(--bzr-font-ui);
 }
 .bzr-imp-h {
-  padding: 15px 18px 11px;
-  font-size: 15px;
+  padding: 18px 22px 12px;
+  font-size: 17px;
   font-weight: var(--bzr-weight-semibold);
   color: var(--bzr-text-1);
   flex: none;
@@ -2532,7 +2534,7 @@
 .bzr-imp-desc {
   display: none;
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--bzr-text-3);
   line-height: 1.6;
 }
@@ -2541,12 +2543,12 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 9px;
-  padding: 0 18px;
+  gap: 10px;
+  padding: 0 22px;
   overflow: hidden;
 }
 .bzr-imp-sec {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0;
   text-transform: uppercase;
   color: var(--bzr-text-3);
@@ -2554,20 +2556,20 @@
 }
 .bzr-imp-tools {
   display: flex;
-  gap: 9px;
+  gap: 10px;
   align-items: center;
   flex: none;
 }
 .bzr-imp-filter {
   flex: 1;
   min-width: 0;
-  height: 26px;
-  padding: 0 9px;
+  height: 32px;
+  padding: 0 11px;
   border: 1px solid var(--bzr-border);
   border-radius: var(--r-chip);
   background: var(--bzr-surface-sunken);
   color: var(--bzr-text-1);
-  font-size: 11px;
+  font-size: 13px;
   outline: none;
   appearance: none;
   -webkit-appearance: none;
@@ -2576,25 +2578,29 @@
   color: var(--bzr-text-3);
 }
 .bzr-imp-hint {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--bzr-text-3);
   line-height: 1.6;
   flex: none;
 }
 .bzr-imp-list {
   flex: 1;
-  min-height: 60px;
+  min-height: 96px;
   overflow-y: auto;
   overscroll-behavior: contain;
   border: 1px solid var(--bzr-border);
   border-radius: var(--r-ctl);
   background: var(--bzr-surface-1);
+  scrollbar-width: none;
+}
+.bzr-imp-list::-webkit-scrollbar {
+  width: 0;
 }
 .bzr-imp-row {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 7px 10px;
+  gap: 11px;
+  padding: 10px 13px;
   border-bottom: 1px solid var(--bzr-border);
   cursor: pointer;
 }
@@ -2617,54 +2623,54 @@
 .bzr-imp-t .n {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 11px;
+  gap: 7px;
+  font-size: 13.5px;
   color: var(--bzr-text-1);
   white-space: nowrap;
   overflow: hidden;
 }
 .bzr-imp-t .p {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--bzr-text-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 1px;
+  margin-top: 2px;
   direction: rtl;
   text-align: left;
 }
 .bzr-imp-m {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--bzr-text-3);
   flex: none;
   font-variant-numeric: tabular-nums;
 }
 .bzr-imp-empty {
-  padding: 28px 16px;
+  padding: 32px 16px;
   text-align: center;
-  font-size: 11px;
+  font-size: 12.5px;
   color: var(--bzr-text-3);
 }
 .bzr-imp-local {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   border: 1px dashed var(--bzr-border-strong);
   border-radius: var(--r-ctl);
-  padding: 9px 11px;
+  padding: 11px 13px;
   flex: none;
 }
 .bzr-imp-local .d {
   flex: 1;
   min-width: 0;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--bzr-text-3);
   line-height: 1.6;
 }
 .bzr-imp-f {
   display: flex;
   justify-content: flex-end;
-  padding: 11px 18px 15px;
+  padding: 13px 22px 18px;
   flex: none;
 }
 
@@ -3370,11 +3376,12 @@
   color: var(--bzr-danger);
 }
 
-/* 原文引用（原型 .acard .orig / .aicard .quote）：衬线 + 左缘铜金细线 */
+/* 原文引用：衬线 + 一层淡底，不再挂左缘竖线 */
 .bzr-annot-quote {
   margin: 12px 15px 0;
-  padding: 2px 0 2px 12px;
-  border-left: 2px solid color-mix(in srgb, var(--bzr-brand) 45%, transparent);
+  padding: 8px 12px;
+  border-radius: var(--r-ctl);
+  background: color-mix(in srgb, var(--bzr-brand) 8%, transparent);
   font-family: var(--bzr-font-serif);
   font-size: 12px;
   line-height: 1.9;
@@ -3585,7 +3592,6 @@
   gap: 4px;
   padding: 8px 4px 8px 10px;
   border: 0;
-  border-left: 2px solid var(--c);
   border-radius: 0;
   background: transparent;
   color: inherit;
@@ -3727,4 +3733,84 @@
   .bzr-shelf-search {
     width: 96px;
   }
+}
+
+/* ═══════════ 阅读 · 宿主头栏（bz-reader） ═══════════
+   书名与动作都借宿主的头栏显示，阅读区里不再多一行。
+   这些选择器作用在 .bzs-shell 之外，所以必须放在不参与壳层作用域化的这里。 */
+
+/* 手机：书名挂在左侧按钮后面。宿主自己的 .view-header-title 在窄屏会被
+   动作区挤成 0 宽（真机上整块是空白），所以另起一个元素用 flex 抢位置。 */
+.bzr-head-title {
+  flex: 1 1 auto;
+  /* 不吃到 0：右侧图标再多，书名也留住一块 */
+  min-width: 88px;
+  align-self: center;
+  margin-left: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-normal);
+}
+
+/* 阅读时头栏图标缩到 36px：真机默认那颗有 44~48px，三颗就把书名挤没了 */
+body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .view-header .clickable-icon,
+body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .view-header .cmdr {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+}
+
+/* 原生标题容器在移动端收起，避免出现两个书名 */
+body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .view-header-title-container {
+  display: none;
+}
+
+/* 阅读时头栏只留阅读自己的三个动作 + 宿主的 ⋮：
+   其他插件（Commander 等）注入的图标先让位，关掉书回到别的视图自动恢复。 */
+body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .view-actions > .cmdr,
+body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .nav-buttons-container > .cmdr {
+  display: none !important;
+}
+
+/* ⋮ 永远在最右，且必须可见（阅读的全部分组动作都在它里面） */
+body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .view-actions > .clickable-icon:last-child {
+  display: grid !important;
+}
+
+/* 沉浸：按 f 或调色板命令时藏掉宿主的上头栏与下导航条 */
+body.bzr-immersive .workspace-leaf-content[data-type='bzr-reader-view'] .view-header {
+  display: none !important;
+}
+body.bzr-immersive .mobile-navbar,
+body.bzr-immersive .status-bar {
+  display: none !important;
+}
+body.bzr-immersive .workspace-leaf-content[data-type='bzr-reader-view'] {
+  --view-top-spacing: 0px;
+  --view-bottom-spacing: 0px;
+}
+body.bzr-immersive .workspace-leaf-content[data-type='bzr-reader-view'] .view-content {
+  margin-top: 0;
+}
+
+/* 真机诊断角标（临时）：版本 + 头栏探针 + 上一次点击的章页变化 */
+.bzr-probe {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  z-index: 9999;
+  max-width: calc(100% - 12px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 9px/1.4 var(--font-monospace, monospace);
+  color: var(--text-faint);
+  background: color-mix(in srgb, var(--background-primary) 78%, transparent);
+  padding: 2px 5px;
+  border-radius: 3px;
+  pointer-events: none;
 }

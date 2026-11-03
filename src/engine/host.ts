@@ -109,6 +109,10 @@ export interface MountOptions {
   onAnnotTap?: (info: { cfiRange: string; anchor: Rect }) => void;
   /** 点到脚注引用（给了才弹预览；没给就退回 foliate 的「直接跳过去」） */
   onFootnote?: (info: FootnoteInfo | null) => void;
+  /** 某次翻页 / 跳章卡住没有结果。上层据此给一句人话，别让人对着旧页面以为没点到 */
+  onStall?: (what: string) => void;
+  /** 两指同时轻按（不是捏合）。移动端用来切换沉浸 */
+  onTwoFingerTap?: () => void;
 }
 
 /** 滚轮累计到多少才翻一页（像素）。触控板一次轻扫约 30–60，鼠标滚轮一格约 100。 */
@@ -117,8 +121,19 @@ const WHEEL_TURN_THRESHOLD = 42;
 const WHEEL_COOLDOWN = 300;
 /** 拖拽/滑动超过这个距离才算要翻页，短线抖动不算。 */
 const SWIPE_MIN = 48;
-/** 首章渲染的耐心（毫秒）。手机解一本几十 MB 的书慢，但超过这个数基本就是卡死了 */
-const OPEN_TIMEOUT = 30000;
+/** 建立渲染器的耐心（毫秒）。这一步只解包/建视图，不画正文，通常几十毫秒 */
+const OPEN_TIMEOUT = 15000;
+/**
+ * 画第一页 / 每次跳转的耐心（毫秒）。
+ *
+ * 和 OPEN_TIMEOUT 分开：`view.open()` 不认识 iframe，永远挂不住；真正会挂的是
+ * `view.init()` / `goTo()` —— 分页器给 iframe 喂 blob 地址，只监听 `load`
+ * 不监听 `error`，地址加载不了时 Promise 既不 resolve 也不 reject。
+ *
+ * 必须比分页器自己的 FAIL_MS（15s）大：让分页器先失败，它的错误更具体
+ * （「章节渲染超时」「章节排版失败」），这里只是最后一道闸。
+ */
+const LOCATE_TIMEOUT = 20000;
 
 /** EPUB 3 的 epub:type 命名空间 */
 const OPS_NS = 'http://www.idpf.org/2007/ops';
@@ -169,9 +184,12 @@ export class EngineHost {
   /** 两指捏合起始距离与基准字号 */
   private pinchStart = 0;
   private pinchBase = 0;
+  /** 两指轻按的判定：按下时间 + 两指间距的最大变化 */
+  private twoFingerAt = 0;
+  private twoFingerMove = 0;
 
   /** 装载到哪一步了。出错时告诉用户卡在哪，而不是「打不开」三个字 */
-  private phase: 'idle' | 'read' | 'parse' | 'render' | 'ready' = 'idle';
+  private phase: 'idle' | 'read' | 'parse' | 'render' | 'locate' | 'ready' = 'idle';
 
   /** 当前渲染的章节序号（load 事件给的），用来只重画这一章的标注 */
   private sectionIndex = 0;
@@ -242,6 +260,12 @@ export class EngineHost {
 
     this.phase = 'read';
     const { book, meta } = await this.buildBook(vaultPath);
+    /* 解包期间可能已经被关书 / 换书（看门狗、用户点回书架）：这一轮就作废，
+       别把书挂到一个已经不存在的画布上。 */
+    if (this.container !== container) {
+      book.destroy?.();
+      throw new Error('开书已取消');
+    }
     this.book = book;
 
     /* 上层可能先画了「正在打开」占位；foliate 要独占这个容器 */
@@ -260,6 +284,8 @@ export class EngineHost {
         cfi?: string;
       };
       const percent = typeof d.fraction === 'number' ? Math.min(1, Math.max(0, d.fraction)) : 0;
+      /* 正文真的出字了。诊断页靠这个把「卡在读/解包/分页」和「只是在排版」分开 */
+      if (this.phase !== 'ready') this.phase = 'ready';
       this.chapterIndex = d.section?.current ?? this.chapterIndex;
       this.chapterTitle = d.tocItem?.label ?? this.chapterTitle;
       this.opts.onRelocate?.({
@@ -367,6 +393,7 @@ export class EngineHost {
         new Promise<'timeout'>((r) => window.setTimeout(() => r('timeout'), OPEN_TIMEOUT)),
       ]);
       if (opened === 'timeout') throw new Error(`渲染首章 ${OPEN_TIMEOUT / 1000}s 无响应`);
+      if (this.container !== container) throw new Error('开书已取消');
     } catch (err) {
       view.remove();
       this.view = null;
@@ -376,7 +403,8 @@ export class EngineHost {
     }
 
     this.view = view;
-    this.phase = 'ready';
+    /* 这里**不能**写成 ready：正文一行还没画。等第一次 relocate 再翻牌，
+       否则诊断页会把「分页卡死」显示成「已经就绪」，等于没有线索。 */
     this.applyPrefs(this.prefs);
     opts.onReady?.(book, meta);
   }
@@ -384,22 +412,46 @@ export class EngineHost {
   /**
    * 打开后定位。优先 CFI；CFI 解析不出来（换过文件、TXT 的 CFI 形状不同）
    * 就退回百分比——宁可差几页，也别每次打开都回到第一页。
+   *
+   * 这一步才是真正画第一页的地方（`open()` 只挂渲染器，不出字）。分页器等
+   * iframe 的 `load` 却不听 `error`，地址加载不了就一直悬着，所以必须掐表：
+   * 超时抛出去，由阅读视图画错误页——绝不能让它安静地 await 到天荒地老。
    */
   async start(cfi?: string, fraction = 0): Promise<void> {
     const view = this.view;
     if (!view) return;
+    this.phase = 'locate';
 
-    if (cfi) {
-      const resolved = view.resolveNavigation(cfi);
-      if (resolved) {
-        await view.init({ lastLocation: cfi });
-        return;
+    const render = async (): Promise<void> => {
+      if (cfi) {
+        const resolved = view.resolveNavigation(cfi);
+        if (resolved) {
+          await view.init({ lastLocation: cfi });
+          return;
+        }
       }
+      await view.init({ showTextStart: true });
+      if (fraction > 0.002) {
+        await view.goToFraction(Math.min(1, fraction)).catch(() => undefined);
+      }
+    };
+
+    let timer = 0;
+    try {
+      const done = await Promise.race([
+        render().then(() => 'ok' as const),
+        new Promise<'timeout'>((r) => {
+          timer = window.setTimeout(() => r('timeout'), LOCATE_TIMEOUT);
+        }),
+      ]);
+      if (done === 'timeout') throw new Error(`正文 ${LOCATE_TIMEOUT / 1000} 秒没能分页出来`);
+    } catch (err) {
+      this.phase = 'locate';
+      throw err;
+    } finally {
+      window.clearTimeout(timer);
     }
-    await view.init({ showTextStart: true });
-    if (fraction > 0.002) {
-      await view.goToFraction(Math.min(1, fraction)).catch(() => undefined);
-    }
+    this.phase = 'ready';
   }
 
   /* ─────────────────── 输入 ─────────────────── */
@@ -445,27 +497,26 @@ export class EngineHost {
     this.outerDetachers.push(() => container.removeEventListener('wheel', onWheel));
   }
 
-  /** 绑到 iframe 当前文档：点击三区 / 滚轮 / 鼠标拖拽 / 双指捏合 */
+  /** 绑到 iframe 当前文档：点按三区 / 滚轮 / 鼠标拖拽 / 双指 */
   private bindGestures(doc: Document): void {
     // 竖排感知：注入的 writing-mode 在引擎判定方向前就已生效，这里读到的是准的。
     // 竖排从右往左读，「下一页」在左边——点击与拖拽的方向映射全部反过来。
     const writingMode = doc.defaultView?.getComputedStyle(doc.body).writingMode ?? '';
     this.verticalContent = writingMode.startsWith('vertical');
 
-    // ① 点击三区
-    const onClick = (ev: MouseEvent): void => {
-      if (Date.now() < this.suppressClickUntil) return;
-      const sel = doc.getSelection();
-      if (sel && !sel.isCollapsed) return;
-      const target = ev.target as HTMLElement | null;
-      if (target?.closest('a[href], [data-bzr-skip-tap]')) return;
-      // 点在划线上是要看那条标注，不是要翻页——否则「点一下划线」会顺手翻走一页
-      if (this.hitsAnnotation(ev)) return;
-      const width = doc.documentElement.clientWidth || 1;
-      const x = ev.clientX;
-      const zone = x < width * 0.3 ? 'left' : x > width * 0.7 ? 'right' : 'middle';
-      this.opts.onTap?.(zone);
-    };
+    /* ① 点按三区。
+       不用 `click`：移动端一次触摸可能合成两次 click（一次给 iframe，一次给
+       应用），一次点按被记成两次翻页，「翻过去又翻回来」就是这么来的。
+       改成 pointerdown/up 的位移+时长判定：位移 < 12px、按住 < 500ms 才算点按。
+       同目录 weave 用的就是这套（reader-tap-zones.ts）。 */
+    const TAP_MOVE_PX = 12;
+    const TAP_LONG_PRESS_MS = 500;
+    let tapId = -1;
+    let tapX = 0;
+    let tapY = 0;
+    let tapAt = 0;
+    let tapMoved = false;
+    let tapPointers = 0;
 
     // ② 滚轮：iframe 内也要拦（外层的 wheel 传不进来）
     const onWheel = (ev: WheelEvent): void => this.handleWheel(ev);
@@ -475,6 +526,17 @@ export class EngineHost {
     let dragY = 0;
     let dragging = false;
     const onPointerDown = (ev: PointerEvent): void => {
+      tapPointers += 1;
+      if (tapPointers > 1) {
+        /* 多指：这次手势不是点按（两指轻按由 onTwoFingerTap 处理） */
+        tapMoved = true;
+        return;
+      }
+      tapId = ev.pointerId;
+      tapX = ev.clientX;
+      tapY = ev.clientY;
+      tapAt = Date.now();
+      tapMoved = false;
       if (ev.pointerType !== 'mouse' || ev.button !== 0) return;
       const sel = doc.getSelection();
       if (sel && !sel.isCollapsed) return;
@@ -482,21 +544,51 @@ export class EngineHost {
       dragY = ev.clientY;
       dragging = true;
     };
+    const onPointerMove = (ev: PointerEvent): void => {
+      if (ev.pointerId !== tapId) return;
+      if (Math.hypot(ev.clientX - tapX, ev.clientY - tapY) > TAP_MOVE_PX) tapMoved = true;
+    };
     const onPointerUp = (ev: PointerEvent): void => {
-      if (!dragging) return;
-      dragging = false;
-      if (ev.pointerType !== 'mouse') return;
+      tapPointers = Math.max(0, tapPointers - 1);
+      /* 鼠标拖拽（原有桌面行为） */
+      if (dragging && ev.pointerId === tapId) {
+        dragging = false;
+        if (ev.pointerType === 'mouse') {
+          const sel = doc.getSelection();
+          if (!sel || sel.isCollapsed) {
+            const dx = ev.clientX - dragX;
+            const dy = ev.clientY - dragY;
+            if (Math.abs(dx) >= SWIPE_MIN && Math.abs(dx) >= Math.abs(dy) * 1.2) {
+              this.suppressClickUntil = Date.now() + 320;
+              const dir: 'next' | 'prev' = this.verticalContent
+                ? dx < 0 ? 'prev' : 'next'
+                : dx < 0 ? 'next' : 'prev';
+              this.opts.onTurn?.(dir);
+              tapMoved = true;
+            }
+          }
+        }
+      }
+      if (ev.pointerId !== tapId) return;
+      const held = Date.now() - tapAt;
+      tapId = -1;
+      if (tapMoved || held > TAP_LONG_PRESS_MS) return;
+      if (Date.now() < this.suppressClickUntil) return;
       const sel = doc.getSelection();
-      if (sel && !sel.isCollapsed) return; // 拖出选区 = 想划词，不是想翻页
-      const dx = ev.clientX - dragX;
-      const dy = ev.clientY - dragY;
-      if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 1.2) return;
-      this.suppressClickUntil = Date.now() + 320;
-      // 竖排内容往左流：把纸往左拉是往回翻，与横排相反
-      const dir: 'next' | 'prev' = this.verticalContent
-        ? (dx < 0 ? 'prev' : 'next')
-        : (dx < 0 ? 'next' : 'prev');
-      this.opts.onTurn?.(dir);
+      if (sel && !sel.isCollapsed) return;
+      const target = ev.target as HTMLElement | null;
+      if (target?.closest('a[href], [data-bzr-skip-tap]')) return;
+      // 点在划线上是要看那条标注，不是要翻页
+      if (this.hitsAnnotation(ev)) return;
+      const width = doc.documentElement.clientWidth || 1;
+      const zone = ev.clientX < width * 0.3 ? 'left' : ev.clientX > width * 0.7 ? 'right' : 'middle';
+      this.opts.onTap?.(zone);
+    };
+    const onPointerCancel = (): void => {
+      tapPointers = 0;
+      tapId = -1;
+      tapMoved = true;
+      dragging = false;
     };
 
     // ④ 两指捏合改字号。foliate 自己的 touchmove 在两指时直接 return，
@@ -511,11 +603,15 @@ export class EngineHost {
       if (ev.touches.length !== 2) return;
       this.pinchStart = distance(ev.touches);
       this.pinchBase = this.prefs.fontSize;
+      this.twoFingerAt = Date.now();
+      this.twoFingerMove = 0;
     };
     const onTouchMove = (ev: TouchEvent): void => {
       if (ev.touches.length !== 2 || !this.pinchStart) return;
       ev.preventDefault();
-      const ratio = distance(ev.touches) / this.pinchStart;
+      const span = distance(ev.touches);
+      this.twoFingerMove = Math.max(this.twoFingerMove, Math.abs(span - this.pinchStart));
+      const ratio = span / this.pinchStart;
       const next = Math.min(
         FONT_SIZE_RANGE.max,
         Math.max(FONT_SIZE_RANGE.min, Math.round(this.pinchBase * ratio)),
@@ -523,7 +619,19 @@ export class EngineHost {
       if (next !== this.prefs.fontSize) this.opts.onFontSize?.(next);
     };
     const onTouchEnd = (ev: TouchEvent): void => {
-      if (ev.touches.length < 2) this.pinchStart = 0;
+      if (ev.touches.length >= 2) return;
+      const startedAt = this.twoFingerAt;
+      const moved = this.twoFingerMove;
+      this.pinchStart = 0;
+      this.twoFingerAt = 0;
+      this.twoFingerMove = 0;
+      if (!startedAt) return;
+      /* 两指轻按：时间短、两指间距几乎没变。捏合会改字号，这里不拦。 */
+      if (Date.now() - startedAt < 400 && moved < 14) {
+        /* 吞掉同一手势末尾合成的那次 click，免得顺带翻一页 */
+        this.suppressClickUntil = Date.now() + 500;
+        this.opts.onTwoFingerTap?.();
+      }
     };
 
     // ⑤ 划词：桌面拖选、移动端长按拖选都会走 selectionchange。
@@ -536,10 +644,11 @@ export class EngineHost {
       if (ev.shiftKey || ev.key === 'a' || ev.key === 'A') this.scheduleSelection(doc, 0);
     };
 
-    doc.addEventListener('click', onClick);
     doc.addEventListener('wheel', onWheel, { passive: false });
     doc.addEventListener('pointerdown', onPointerDown);
+    doc.addEventListener('pointermove', onPointerMove);
     doc.addEventListener('pointerup', onPointerUp);
+    doc.addEventListener('pointercancel', onPointerCancel);
     doc.addEventListener('pointerup', onPointerUpAny);
     doc.addEventListener('touchstart', onTouchStart, { passive: true });
     doc.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -549,10 +658,11 @@ export class EngineHost {
     doc.addEventListener('keyup', onKeyUp);
 
     this.docDetachers.push(() => {
-      doc.removeEventListener('click', onClick);
       doc.removeEventListener('wheel', onWheel);
       doc.removeEventListener('pointerdown', onPointerDown);
+      doc.removeEventListener('pointermove', onPointerMove);
       doc.removeEventListener('pointerup', onPointerUp);
+      doc.removeEventListener('pointercancel', onPointerCancel);
       doc.removeEventListener('pointerup', onPointerUpAny);
       doc.removeEventListener('touchstart', onTouchStart);
       doc.removeEventListener('touchmove', onTouchMove);
@@ -726,12 +836,10 @@ export class EngineHost {
     pag?.style?.setProperty('--_column-count', String(prefs.columns));
     // 分页模式下 foliate 用内联 !important 把 documentElement 的 padding 覆成
     // 「左右列距、上下 0」（columnize()），注入的 body padding 只对章首页生效——
-    // 章中页顶端只剩 shadow 的 48px 边距行，文字顶到悬浮头栏（2026-11-03 用户反馈）。
-    // vendor 补丁把上下 padding 接成 var(--_pad-top/bottom)，这里补足到设计值
-    // （桌面 92/110、移动 68/60，减去 shadow 那 48px）。
-    const mobile = document.body.classList.contains('is-mobile') || document.body.classList.contains('is-phone');
-    pag?.style?.setProperty('--_pad-top', mobile ? '20px' : '44px');
-    pag?.style?.setProperty('--_pad-bottom', mobile ? '12px' : '62px');
+    // 章中页顶端只剩 shadow 的 48px 边距行。vendor 补丁把上下 padding 接成
+    // var(--_pad-top/bottom)。自绘工具栏撤了之后这里给 0，留白全由 theme.ts 管。
+    pag?.style?.setProperty('--_pad-top', '0px');
+    pag?.style?.setProperty('--_pad-bottom', '8px');
     if (!this.view || !prev) return;
     if (prev.layout !== prefs.layout) {
       // 竖排切换必须重新装载章节：引擎只在 load 时读一次 writing-mode，
@@ -745,12 +853,77 @@ export class EngineHost {
     }
   }
 
+  /**
+   * 一次会触碰 iframe 的翻页 / 跳转。
+   *
+   * 分页器等 iframe 的 `load`，却从不监听 `error`：地址加载不了时 Promise
+   * 永远悬着。翻页、跳章、点目录、拖进度条全走这条链，所以每个入口都得有出口，
+   * 否则表现就是「点了没反应」或「跳过去一片空白」。
+   *
+   * 超时不抛错：调用点大多是 `void host.xxx()`，抛出去只会变成
+   * unhandledrejection，用户照样什么都看不见。改走 onStall 让上层提示。
+   */
+  private async navigate(run: () => Promise<unknown> | undefined, what: string): Promise<void> {
+    let timer = 0;
+    const timeout = new Promise<'timeout'>((r) => {
+      timer = window.setTimeout(() => r('timeout'), LOCATE_TIMEOUT);
+    });
+    try {
+      const done = await Promise.race([Promise.resolve(run()).then(() => 'ok' as const), timeout]);
+      if (done === 'timeout') this.opts.onStall?.(what);
+    } catch {
+      /* 引擎自己的错误已经有地方报了（读文件/解包在 mount 里），这里只管「不结算」 */
+      this.opts.onStall?.(what);
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
+
+  /** 当前「章:页」的位置指纹，用来判断一次翻页到底有没有动 */
+  get pageKey(): string {
+    const r = this.view?.renderer as unknown as { page?: number; pages?: number } | undefined;
+    return `${this.chapterIndex}:${r?.page ?? -1}/${r?.pages ?? 0}`;
+  }
+
+  /**
+   * 所有会动 iframe 的导航都排成一条队。
+   *
+   * 两次翻页并发时，后一次会在分页器 `#locked` 期间被吞掉，或者两次各跳一节、
+   * 互相把 iframe 顶掉——表现就是「点一下前进、再点一下退回」。串行化之后
+   * 每次点按都对应一次完整导航。同目录 weave 的 `enqueueNavigation` 同理。
+   */
+  private navChain: Promise<unknown> = Promise.resolve();
+
+  private enqueue<T>(run: () => Promise<T>): Promise<T> {
+    const next = this.navChain.then(run, run);
+    this.navChain = next.catch(() => undefined);
+    return next;
+  }
+
   async next(): Promise<void> {
-    await this.view?.next();
+    await this.enqueue(() => this.turnOnce('next'));
   }
 
   async prev(): Promise<void> {
-    await this.view?.prev();
+    await this.enqueue(() => this.turnOnce('prev'));
+  }
+
+  private async turnOnce(dir: 'next' | 'prev'): Promise<void> {
+    const before = this.pageKey;
+    await this.navigate(
+      () => (dir === 'next' ? this.view?.next() : this.view?.prev()),
+      dir === 'next' ? '翻到下一页' : '翻回上一页',
+    );
+    if (this.pageKey !== before) return;
+    /* 章末/章首：分页器把「下一页」判成 false，页面一动不动，用户看到的就是
+       「点了没反应」。这里显式翻到相邻章。 */
+    const count = this.book?.sections.length ?? 0;
+    const idx = dir === 'next' ? this.chapterIndex + 1 : this.chapterIndex - 1;
+    if (idx < 0 || idx >= count) return;
+    await this.navigate(
+      () => this.view?.goTo(idx),
+      dir === 'next' ? '翻到下一章' : '翻回上一章',
+    );
   }
 
   /**
@@ -774,12 +947,12 @@ export class EngineHost {
 
   /** 跳到 TOC 项（href 由 foliate 解析成章节 + 锚点） */
   async goToHref(href: string): Promise<void> {
-    await this.view?.goTo(href);
+    await this.navigate(() => this.view?.goTo(href), '跳到这一章');
   }
 
   async goToCfi(cfi: string): Promise<void> {
     if (!cfi) return;
-    await this.view?.goTo(cfi);
+    await this.navigate(() => this.view?.goTo(cfi), '定位到这一页');
   }
 
   /**
@@ -816,7 +989,7 @@ export class EngineHost {
     const view = this.view;
     if (!view) return;
     const f = Math.min(1, Math.max(0, fraction));
-    await view.goToFraction(f).catch(() => undefined);
+    await this.navigate(() => view.goToFraction(f).catch(() => undefined), '跳到这个进度');
   }
 
   /**

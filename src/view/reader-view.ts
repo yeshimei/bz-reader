@@ -47,7 +47,7 @@ import {
   notify as notifyShell,
 } from '../shell/state';
 import { openOverlay } from '../shell/state';
-import { RT } from '../shell/runtime';
+import { RT, onNotesChanged } from '../shell/runtime';
 import { getShellSource } from '../shell/source';
 import { dispatchAction, createMark, requireCap } from '../shell/actions';
 
@@ -84,19 +84,24 @@ export class ReaderView extends ItemView {
 
   private rootEl: HTMLElement | null = null;
   private stage: HTMLElement | null = null;
-  private bookTitleEl: HTMLElement | null = null;
-  private authorEl: HTMLElement | null = null;
-  private chapterEl: HTMLElement | null = null;
-  private percentEl: HTMLElement | null = null;
-  private remainEl: HTMLElement | null = null;
-  private trackFill: HTMLElement | null = null;
-  private trackKnob: HTMLElement | null = null;
   private selbar: HTMLElement | null = null;
   private pagesEl: HTMLElement | null = null;
-  private focusBtn: HTMLButtonElement | null = null;
-  private fullBtn: HTMLButtonElement | null = null;
-  private paraBtn: HTMLButtonElement | null = null;
-  private ttsBtn: HTMLButtonElement | null = null;
+  /** 挂进宿主头栏的动作（按 id 索引，重画时复用） */
+  private headerEls = new Map<string, HTMLElement>();
+  /** 手机上自绘的书名元素（宿主那个在窄屏会被挤成 0 宽） */
+  private headTitleEl: HTMLElement | null = null;
+  /** 沉浸：藏掉宿主上下两条栏 */
+  private immersive = false;
+  /** 真机诊断角标（临时） */
+  private probeEl: HTMLElement | null = null;
+  private tapCount = 0;
+  private lastZone = '-';
+  private lastPct = 0;
+  private lastTurnAt = 0;
+  private lastKeyBefore = '';
+  private lastKeyAfter = '';
+  /** 每次发版手动改，和 manifest 一起确认手机跑的是哪一版 */
+  private static readonly BUILD_TAG = '0.1.2+1236';
 
   /* 并排对照：副卷自己一套引擎，主卷的进度与标注一概不受影响 */
   private parallelOn = false;
@@ -117,8 +122,11 @@ export class ReaderView extends ItemView {
   private lastCfi = '';
   private lastPercent = 0;
   private lastChapterTitle = '';
-  private lastRemaining = 0;
   private offShell: (() => void) | null = null;
+  private offNotes: (() => void) | null = null;
+  /** 双击/两指判定留下的延时翻页句柄（当前实现不再用，留着给手势扩展） */
+  private pendingTurn: number | null = null;
+  private lastTapAt = 0;
 
   constructor(leaf: WorkspaceLeaf, api: ReaderHostApi) {
     super(leaf);
@@ -216,6 +224,12 @@ export class ReaderView extends ItemView {
 
   async onClose(): Promise<void> {
     this.teardown();
+    this.toggleImmersive(false);
+    this.cancelPendingTurn();
+    this.headTitleEl?.remove();
+    this.headTitleEl = null;
+    this.headerEls.forEach((node) => node.remove());
+    this.headerEls.clear();
     this.teardown = () => undefined;
     this.offShell?.();
     this.offShell = null;
@@ -241,158 +255,54 @@ export class ReaderView extends ItemView {
     root.tabIndex = -1;
     root.dataset.bzaccent = this.prefs.accent;
 
-    /* 悬浮工具条：左书名作者，右一排图标动作。
-       不再用汉字当按钮——十来个单字并排会像一排印章，认读反而慢；
-       改用 Obsidian 自带图标（lucide），与宿主其余按钮同一套视觉语言。 */
-    const title = el('b');
-    const author = el('span');
-    const metaBox = el('div', 'meta');
-    metaBox.append(title, author);
-
-    const tool = el('div', 'bzs-rtool');
-    tool.append(metaBox, el('div', 'sp'));
-
-    const btn = (icon: string, titleText: string): HTMLButtonElement => {
-      const b = el('button', 'bzs-cbtn') as HTMLButtonElement;
-      b.type = 'button';
-      b.title = titleText;
-      b.setAttribute('aria-label', titleText);
-      setIcon(b, icon);
-      return b;
-    };
-
-    const tocBtn = btn('list', '目录（s）');
-    tocBtn.addEventListener('click', () => this.api.openTocSidebar('toc'));
-    const markBtn = btn('bookmark', '记书签（b）');
-    markBtn.addEventListener('click', () => this.toggleBookmark());
-    const searchBtn = btn('search', '搜索');
-    searchBtn.addEventListener('click', () => dispatchAction('search', searchBtn));
-    const typeBtn = btn('type', '排版（t）');
-    typeBtn.addEventListener('click', () => dispatchAction('typography', typeBtn));
-
-    /* 并排：按钮旁边挂一个选书下拉，只在并排时出现 */
-    const paraBtn = btn('columns-2', '并排对照');
-    const paraSel = el('select', 'bzs-rpara') as HTMLSelectElement;
-    paraSel.title = '对照的另一本书';
-    paraSel.addEventListener('change', () => {
-      this.parallelId = paraSel.value;
-      if (this.parallelOn) void this.closeParallel().then(() => this.toggleParallel());
-    });
-    paraBtn.addEventListener('click', () => void this.toggleParallel());
-
-    const ttsBtn = btn('volume-2', '朗读（r）');
-    ttsBtn.addEventListener('click', () => this.toggleTts());
-
-    const mapBtn = btn('map', 'Book Map（m）');
-    mapBtn.addEventListener('click', () => dispatchAction('bookmap', mapBtn));
-    const filmBtn = btn('film', '章节缩览');
-    filmBtn.addEventListener('click', () => dispatchAction('film', filmBtn));
-    /* 专注模式 = 收掉所有悬浮件（眼睛图标）；全屏 = 真占满屏幕（maximize）。
-       两件事以前共用一个 maximize 图标，用户点出来发现只是藏了工具栏，
-       自然认为「全屏没实现」。分开之后各自的行为都符合图标暗示。 */
-    const fitBtn = btn('eye', '专注模式（f）');
-    fitBtn.addEventListener('click', () => this.toggleBare());
-    const fullBtn = btn('maximize', '全屏');
-    fullBtn.addEventListener('click', () => void this.toggleFullscreen());
-    const helpBtn = btn('help-circle', '帮助');
-    helpBtn.addEventListener('click', () => dispatchAction('help', helpBtn));
-
-    /* 手机顶栏只放得下 5 个：目录 / 搜索 / 书签 / 排版 / 更多。
-       其余（并排、朗读、BookMap、章节缩览、专注、帮助）打 is-aux，
-       由 mobile.css 在窄屏隐藏，桌面照旧全部显示——不用写两套 DOM。 */
-    for (const b of [paraBtn, ttsBtn, mapBtn, filmBtn, fitBtn, fullBtn, helpBtn]) b.classList.add('is-aux');
-
-    const moreBtn = btn('more-horizontal', '更多');
-    moreBtn.classList.add('is-mobile-only');
-    moreBtn.addEventListener('click', (ev) => this.openMoreMenu(ev));
-
-    tool.append(tocBtn, markBtn, searchBtn, typeBtn, paraBtn, paraSel, ttsBtn, mapBtn, filmBtn, fitBtn, fullBtn, helpBtn, moreBtn);
-    this.focusBtn = fitBtn;
-    this.fullBtn = fullBtn;
-    this.paraBtn = paraBtn;
-    this.ttsBtn = ttsBtn;
-
-    /* Esc 退出全屏由宿主处理，但图标要跟着换：全屏时是 minimize */
-    this.registerDomEvent(document, 'fullscreenchange', () => this.syncFullIcon());
-
-    /* 正文画布。分页模式由 foliate 自己撑满，所以去掉内边距 */
+    /* 头/底两条自绘栏都撤了：动作挂进 Obsidian 原生头栏，进度看侧栏目录，
+       省下来的纵向像素全部给正文。 */
     const stage = el('div', 'bzs-stage');
     const pages = el('div', 'bzs-rpages is-hosted');
     pages.append(stage);
-
-    /* 底栏：章节 — ‹ — 进度轨 — › — 百分比 — 剩余 */
-    const chapter = el('span', 'chap');
-    const track = el('div', 'track');
-    const trackFill = el('i', 'fill');
-    const trackKnob = el('i', 'knob');
-    track.append(trackFill, trackKnob);
-    const percent = el('b', 'pct', '0%');
-    const remain = el('span', 'left', '');
-    const prevBtn = el('button', 'nav', '‹') as HTMLButtonElement;
-    prevBtn.type = 'button';
-    prevBtn.setAttribute('aria-label', '上一页');
-    const nextBtn = el('button', 'nav', '›') as HTMLButtonElement;
-    nextBtn.type = 'button';
-    nextBtn.setAttribute('aria-label', '下一页');
-
-    const foot = el('div', 'bzs-rfoot');
-    foot.append(chapter, prevBtn, track, nextBtn, percent, remain);
-
-    root.append(tool, pages, foot);
+    root.append(pages);
     this.contentEl.appendChild(root);
 
     this.rootEl = root;
     this.stage = stage;
     this.pagesEl = pages;
-    this.bookTitleEl = title;
-    this.authorEl = author;
-    this.chapterEl = chapter;
-    this.percentEl = percent;
-    this.remainEl = remain;
-    this.trackFill = trackFill;
-    this.trackKnob = trackKnob;
 
     const turn = (dir: 'prev' | 'next'): void => {
       this.stopTts();
       const p = dir === 'prev' ? this.host.prev() : this.host.next();
       void p.then(() => this.tracker.touch());
     };
-    prevBtn.addEventListener('click', () => turn('prev'));
-    nextBtn.addEventListener('click', () => turn('next'));
 
-    /* 进度轨：点哪跳哪，按住拖跟手，松手才真跳（拖动时每帧重排整本会卡） */
-    let dragging = false;
-    const pctFromEvent = (ev: PointerEvent): number => {
-      const r = track.getBoundingClientRect();
-      return Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width));
-    };
-    track.addEventListener('pointerdown', (ev) => {
-      dragging = true;
-      track.setPointerCapture(ev.pointerId);
-      this.paintFoot(pctFromEvent(ev));
-    });
-    track.addEventListener('pointermove', (ev) => {
-      if (dragging) this.paintFoot(pctFromEvent(ev));
-    });
-    track.addEventListener('pointerup', (ev) => {
-      if (!dragging) return;
-      dragging = false;
-      void this.host.goToPercent(pctFromEvent(ev)).then(() => this.tracker.touch());
-    });
-
-    /* 点正文：移动端左右翻页（手机没有键盘，这是唯一的手势）；
-       桌面端不翻页——鼠标点一下正文多半是选字、点链接、或者只是想
-       把焦点挪回来，翻过去一页是很重的代价。桌面用 ← → 与两侧按钮。
-       中间区两端都保留「收放工具栏」：那是一个明确的小动作，不会误触。 */
+    /* 点正文：移动端左右翻页；两指同时按切换沉浸（判定在引擎侧）。
+       翻页延后由 host 的队列保证，这里只管按区定方向。 */
     this.tapHandler = (zone) => {
-      if (zone === 'middle') {
-        this.toggleBare();
+      const now = Date.now();
+      this.tapCount += 1;
+      this.lastZone = zone === 'left' ? 'L' : zone === 'right' ? 'R' : 'M';
+      /* 同一次手势可能派发两次事件：320ms 内只认第一次 */
+      if (now - this.lastTurnAt < 320) {
+        this.renderProbe();
         return;
       }
-      if (!isMobileShell()) return;
-      const nextIsLeft = this.host.contentVertical;
-      if (zone === 'left') turn(nextIsLeft ? 'next' : 'prev');
-      else turn(nextIsLeft ? 'prev' : 'next');
+      this.lastTurnAt = now;
+      if (!isMobileShell() || zone === 'middle') {
+        this.renderProbe();
+        return;
+      }
+      const vertical = this.host.contentVertical;
+      const dir: 'prev' | 'next' =
+        zone === 'left' ? (vertical ? 'next' : 'prev') : vertical ? 'prev' : 'next';
+      this.lastKeyBefore = this.host.pageKey;
+      this.lastKeyAfter = '';
+      this.stopTts();
+      /* 只翻一次：turn() 和这里各发一次的话，一按就是两页 */
+      const p = dir === 'prev' ? this.host.prev() : this.host.next();
+      void p.then(() => {
+        this.lastKeyAfter = this.host.pageKey;
+        this.tracker.touch();
+        this.renderProbe();
+      });
+      this.renderProbe();
     };
 
     const onKey = (e: KeyboardEvent): void => {
@@ -402,7 +312,7 @@ export class ReaderView extends ItemView {
       if (e.ctrlKey || e.metaKey) return;
       switch (e.key) {
         case 'Escape':
-          root.classList.remove('is-focus');
+          if (this.immersive) this.toggleImmersive(false);
           this.hideSelbar();
           break;
         case 'ArrowLeft':
@@ -418,7 +328,7 @@ export class ReaderView extends ItemView {
           break;
         case 'f':
           e.preventDefault();
-          this.toggleBare();
+          this.toggleImmersive();
           break;
         case 'b':
           e.preventDefault();
@@ -426,11 +336,11 @@ export class ReaderView extends ItemView {
           break;
         case 't':
           e.preventDefault();
-          dispatchAction('typography', typeBtn);
+          dispatchAction('typography', this.rootEl ?? document.body);
           break;
         case 'm':
           e.preventDefault();
-          dispatchAction('bookmap', mapBtn);
+          dispatchAction('bookmap', this.rootEl ?? document.body);
           break;
         case 's':
           e.preventDefault();
@@ -444,10 +354,6 @@ export class ReaderView extends ItemView {
           e.preventDefault();
           getShellSource()?.openStudy('library');
           break;
-        case '?':
-          e.preventDefault();
-          dispatchAction('help', helpBtn);
-          break;
         default:
           break;
       }
@@ -458,43 +364,187 @@ export class ReaderView extends ItemView {
     /* 皮肤跟着壳层状态走：跟随宿主时宿主换主题，这里也重画 */
     const syncTheme = (): void => this.applyChrome();
     this.offShell = subscribe(syncTheme);
+    this.offNotes = onNotesChanged(() => this.refreshAfterNotesChange());
     this.registerEvent(this.api.app.workspace.on('css-change', () => this.applyChrome()));
+    /* 宿主重建头栏 / 换 tab 时，书名与动作都会掉，得补一遍 */
+    this.registerEvent(this.api.app.workspace.on('layout-change', () => this.mountHeader()));
+    this.registerEvent(
+      this.api.app.workspace.on('active-leaf-change', (leaf) => {
+        if (leaf === this.leaf) this.mountHeader();
+      }),
+    );
 
-    /* 初始状态：并排下拉先藏起来，避免空着一个白框 */
+    this.mountHeader();
     this.syncToolState();
   }
 
-  private toggleBare(): void {
-    this.rootEl?.classList.toggle('is-focus');
-    this.syncToolState();
+  /* ─────────────────── 宿主头栏（书名 / 动作） ─────────────────── */
+
+  /**
+   * 书名与动作都挂在 Obsidian 原生头栏里，阅读区不再多一行。
+   *
+   * 手机：书名放左侧（自绘一个元素，因为宿主那个在窄屏被挤成 0 宽），
+   *       右侧放 3 个动作 + 宿主自己的 ⋮（其余插件图标用 CSS 藏掉）。
+   * 桌面：书名用宿主原生的，动作 5 个塞进 .view-actions。
+   */
+  private mountHeader(): void {
+    const header = this.containerEl.querySelector<HTMLElement>('.view-header');
+    if (!header) {
+      this.renderProbe();
+      return;
+    }
+    if (isMobileShell()) this.mountTitleInHeader(header);
+    else this.applyHeaderTitle(header);
+    this.ensureHeaderActions(header);
+    this.renderProbe();
+  }
+
+  /** 手机：书名挂在左侧按钮后面，用 flex 抢宽度 */
+  private mountTitleInHeader(header: HTMLElement): void {
+    const book = this.book;
+    if (!book) return;
+    if (!this.headTitleEl || !this.headTitleEl.isConnected) {
+      const el0 = document.createElement('div');
+      el0.className = 'bzr-head-title';
+      const left = header.querySelector<HTMLElement>('.view-header-left');
+      if (left) left.insertAdjacentElement('afterend', el0);
+      else header.insertBefore(el0, header.firstElementChild);
+      this.headTitleEl = el0;
+    }
+    if (this.headTitleEl.textContent !== book.meta.title) {
+      this.headTitleEl.textContent = book.meta.title;
+      this.headTitleEl.setAttribute('title', book.meta.title);
+    }
+  }
+
+  /** 桌面：书名顶上原生标题（「阅读」只是书还没解析出来时的兜底） */
+  private applyHeaderTitle(header: HTMLElement): void {
+    const title = this.book?.meta.title;
+    if (!title) return;
+    const el0 = header.querySelector<HTMLElement>('.view-header-title');
+    if (!el0 || el0.textContent === title) return;
+    el0.textContent = title;
+    el0.setAttribute('title', title);
+    /* 只在文本真的不一致时调，避免 updateHeader → layout-change → 这里 的循环 */
+    (this.leaf as unknown as { updateHeader?: () => void }).updateHeader?.();
   }
 
   /**
-   * 真全屏：把阅读视图本身铺满整块屏幕（不是隐藏工具栏，也不是 F11）。
+   * 头栏动作。
    *
-   * 请求挂在 rootEl 上而不是 iframe：铺满之后顶/底悬浮栏仍在，
-   * 还能翻页、还能退出；进了全屏如果只剩正文，用户第一件事就是找不到路出去。
-   * 宿主或系统拒绝（移动端、某些 Linux 窗口管理器）时给一句人话，不静默。
+   * 手机 3 个（目录/搜索/书签），插在宿主 ⋮ 所在容器的开头，⋮ 保持在最右；
+   * 其他插件（Commander 等）的图标由 CSS 在阅读时隐藏，关掉书自动恢复。
+   * 桌面 5 个，走 .view-actions。
    */
-  private async toggleFullscreen(): Promise<void> {
-    const root = this.rootEl;
-    if (!root) return;
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await root.requestFullscreen();
-    } catch {
-      notify('这台设备上无法进入全屏', 'error');
+  private ensureHeaderActions(header: HTMLElement): void {
+    const mobile = isMobileShell();
+    const box =
+      header.querySelector<HTMLElement>('.view-actions') ??
+      header.querySelector<HTMLElement>('.nav-buttons-container') ??
+      header;
+    if (!box) return;
+
+    const spec: Array<{ id: string; icon: string; label: string; run: () => void }> = [
+      { id: 'toc', icon: 'list', label: '目录（s）', run: () => this.api.openTocSidebar('toc') },
+      {
+        id: 'search',
+        icon: 'search',
+        label: '搜索',
+        run: () => dispatchAction('search', this.rootEl ?? document.body),
+      },
+      { id: 'mark', icon: 'bookmark', label: '记书签（b）', run: () => this.toggleBookmark() },
+    ];
+    if (!mobile) {
+      spec.push({
+        id: 'type',
+        icon: 'type',
+        label: '排版（t）',
+        run: () => dispatchAction('typography', this.rootEl ?? document.body),
+      });
+      spec.push({ id: 'para', icon: 'columns-2', label: '并排对照', run: () => void this.toggleParallel() });
     }
-    this.syncFullIcon();
+
+    const fresh: HTMLElement[] = [];
+    for (const item of spec) {
+      const found = box.querySelector<HTMLElement>(`[data-bzr-action="${item.id}"]`);
+      if (found) {
+        this.headerEls.set(item.id, found);
+        continue;
+      }
+      const btn = document.createElement('div');
+      btn.className = 'clickable-icon view-action bzr-action';
+      btn.dataset.bzrAction = item.id;
+      btn.setAttribute('aria-label', item.label);
+      btn.setAttribute('aria-label-position', 'top');
+      setIcon(btn, item.icon);
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        item.run();
+      });
+      this.headerEls.set(item.id, btn);
+      fresh.push(btn);
+    }
+    /* 三个整体插到最前面：视觉顺序 = 我们的三个，然后宿主的 ⋮ */
+    if (fresh.length) box.prepend(...fresh);
+    this.trimHeaderActions(box, 3);
   }
 
-  private syncFullIcon(): void {
-    const b = this.fullBtn;
-    if (!b) return;
-    const on = !!document.fullscreenElement;
-    setIcon(b, on ? 'minimize' : 'maximize');
-    b.title = on ? '退出全屏' : '全屏';
-    b.setAttribute('aria-label', b.title);
+  /**
+   * 头栏右侧：别人的图标收起来，我们的最多 3 颗，⋮ 始终保留。
+   *
+   * 真机上别的插件（Commander 等）也会往这一排塞按钮，谁家的 DOM 都可能变，
+   * 所以不靠猜选择器：挂上自己那三颗，再数「确实可见的其它图标」，
+   * 先尝试把它们收掉（阅读时它们没有用，还挤掉书名），收不掉就按名额
+   * 从右往左裁自己的。⋮ 永远保留——全部折叠动作都在它里面。
+   */
+  private trimHeaderActions(box: HTMLElement, maxIcons: number): void {
+    const kids = Array.from(box.children) as HTMLElement[];
+    const visible = (el: HTMLElement): boolean =>
+      el.offsetParent !== null && getComputedStyle(el).display !== 'none';
+    const isOurs = (el: HTMLElement): boolean => el.classList.contains('bzr-action');
+
+    const othersAll = kids.filter((el) => !isOurs(el) && visible(el));
+    /* 最右那颗是宿主的 ⋮，不占名额，也不能收 */
+    const dots = othersAll[othersAll.length - 1];
+    const others = othersAll.filter((el) => el !== dots);
+    for (const el of others) el.style.display = 'none';
+
+    const stillOthers = others.filter(visible).length;
+    const slots = Math.max(0, maxIcons - stillOthers);
+    const ours = kids.filter(isOurs);
+    ours.forEach((el, i) => {
+      el.style.display = i < slots ? '' : 'none';
+    });
+  }
+
+  /** 真机角标（临时诊断）：版本、头栏探针、上一次点击的章页变化 */
+  private renderProbe(): void {
+    if (!isMobileShell() || !this.rootEl) return;
+    if (!this.probeEl) {
+      const box = document.createElement('div');
+      box.className = 'bzr-probe';
+      this.rootEl.appendChild(box);
+      this.probeEl = box;
+    }
+    const header = this.containerEl.querySelector<HTMLElement>('.view-header');
+    const title = header?.querySelector<HTMLElement>('.view-header-title');
+    const acts = header?.querySelectorAll('.bzr-action').length ?? 0;
+    this.probeEl.textContent =
+      `bz ${ReaderView.BUILD_TAG} · hdr${header ? '✓' : '✗'} ttl${title ? '✓' : '✗'} act${acts}` +
+      ` · tap${this.tapCount}${this.lastZone} ${this.lastKeyBefore || '-'}→${this.lastKeyAfter || '…'}` +
+      ` ${Math.round(this.lastPct * 100)}%`;
+  }
+
+  /** 沉浸：藏掉宿主的上头栏与下导航条，再按一次还原 */
+  private toggleImmersive(force?: boolean): void {
+    this.immersive = force ?? !this.immersive;
+    document.body.classList.toggle('bzr-immersive', this.immersive);
+  }
+
+  private cancelPendingTurn(): void {
+    if (this.pendingTurn === null) return;
+    window.clearTimeout(this.pendingTurn);
+    this.pendingTurn = null;
   }
 
   /**
@@ -513,10 +563,8 @@ export class ReaderView extends ItemView {
         void this.host.prev().then(() => this.tracker.touch());
         break;
       case 'focus':
-        this.toggleBare();
-        break;
       case 'fullscreen':
-        void this.toggleFullscreen();
+        this.toggleImmersive();
         break;
       case 'bookmark':
         this.toggleBookmark();
@@ -536,77 +584,89 @@ export class ReaderView extends ItemView {
     }
   }
 
-  /** 三个开关按钮的「亮着」状态只有一处真相，别在各处手动加 class */
+  /** 开关类动作的「亮着」状态只有一处真相，别在各处手动加 class */
   private syncToolState(): void {
     const root = this.rootEl;
-    this.paraBtn?.classList.toggle('on', this.parallelOn);
-    this.ttsBtn?.classList.toggle('on', this.speaking);
-    this.focusBtn?.classList.toggle('on', !!root?.classList.contains('is-focus'));
+    this.headerEls.get('para')?.classList.toggle('is-active', this.parallelOn);
     root?.classList.toggle('is-parallel', this.parallelOn);
-    const sel = root?.querySelector<HTMLSelectElement>('.bzs-rpara');
-    if (sel) sel.style.display = this.parallelOn ? '' : 'none';
   }
 
   /* ─────────────────── 更多菜单（手机专用） ─────────────────── */
 
   /**
-   * 手机顶栏放不下的动作，收进原生菜单。
+   * 头栏放不下的动作挂进宿主自己的 ⋮ 菜单。
    *
-   * 为什么用 Obsidian 的 Menu 而不是自己画弹层：
-   * 移动端宿主会把它渲染成底部动作面板，带安全区、带滚动手感、
-   * 带返回键关闭；自造一个只会更像外挂，而且要多维护一套样式。
-   *
-   * 桌面不会走到这里（按钮本身 `display:none`），所以菜单里的项
-   * 与顶栏图标是「同一批动作的两个入口」，不存在两套逻辑。
+   * `onPaneMenu` 是 View 的公开钩子：桌面是头栏最右那颗 ⋮，手机是底部动作
+   * 面板（带安全区、返回键关闭）。这样不用自造弹层，也不会和宿主抢层级。
    */
-  private openMoreMenu(ev: MouseEvent): void {
-    const menu = new Menu();
-
+  onPaneMenu(menu: Menu, source: string): void {
+    super.onPaneMenu?.(menu, source);
+    menu.addSeparator();
+    menu.addItem((i) =>
+      i
+        .setTitle('目录')
+        .setIcon('list')
+        .onClick(() => this.api.openTocSidebar('toc')),
+    );
+    menu.addItem((i) =>
+      i
+        .setTitle('搜索')
+        .setIcon('search')
+        .onClick(() => dispatchAction('search', this.rootEl ?? document.body)),
+    );
+    menu.addItem((i) =>
+      i
+        .setTitle('记书签')
+        .setIcon('bookmark')
+        .onClick(() => this.toggleBookmark()),
+    );
+    menu.addItem((i) =>
+      i
+        .setTitle('排版')
+        .setIcon('type')
+        .onClick(() => dispatchAction('typography', this.rootEl ?? document.body)),
+    );
     menu.addItem((i) =>
       i
         .setTitle(this.parallelOn ? '关闭并排对照' : '并排对照')
         .setIcon('columns-2')
-        .onClick(() => void this.toggleParallel())
+        .onClick(() => void this.toggleParallel()),
     );
-
     const other = this.parallelId ? this.api.repo.byId(this.parallelId) : null;
     menu.addItem((i) =>
       i
         .setTitle(`对照书籍：${other?.meta.title ?? '未选'}`)
         .setIcon('book')
-        .onClick(() => this.openParallelPicker(ev))
+        .onClick(() => this.openParallelPicker()),
     );
-
     menu.addItem((i) =>
       i
         .setTitle(this.speaking ? '停止朗读' : '朗读')
         .setIcon('volume-2')
-        .onClick(() => this.toggleTts())
-    );
-
-    menu.addSeparator();
-
-    menu.addItem((i) =>
-      i.setTitle('Book Map').setIcon('map').onClick(() => dispatchAction('bookmap', this.rootEl ?? document.body))
-    );
-    menu.addItem((i) =>
-      i.setTitle('章节缩览').setIcon('film').onClick(() => dispatchAction('film', this.rootEl ?? document.body))
+        .onClick(() => this.toggleTts()),
     );
     menu.addItem((i) =>
       i
-        .setTitle(this.rootEl?.classList.contains('is-focus') ? '退出专注' : '专注模式')
-        .setIcon('maximize')
-        .onClick(() => this.toggleBare())
+        .setTitle('Book Map')
+        .setIcon('map')
+        .onClick(() => dispatchAction('bookmap', this.rootEl ?? document.body)),
     );
     menu.addItem((i) =>
-      i.setTitle('帮助').setIcon('help-circle').onClick(() => dispatchAction('help', this.rootEl ?? document.body))
+      i
+        .setTitle(this.immersive ? '退出沉浸' : '沉浸模式')
+        .setIcon('maximize')
+        .onClick(() => this.toggleImmersive()),
     );
-
-    menu.showAtMouseEvent(ev);
+    menu.addItem((i) =>
+      i
+        .setTitle('返回书架')
+        .setIcon('library')
+        .onClick(() => getShellSource()?.openStudy('library')),
+    );
   }
 
   /** 二级菜单：选对照的另一本书。最多列 12 本，再多让用户先筛书架。 */
-  private openParallelPicker(ev: MouseEvent): void {
+  private openParallelPicker(ev?: MouseEvent): void {
     const books = this.api.store
       .get()
       .books.filter((b) => b.id !== this.bookId && !(b.fileRef as { fileMissing?: boolean }).fileMissing);
@@ -627,7 +687,7 @@ export class ReaderView extends ItemView {
           })
       );
     }
-    menu.showAtPosition({ x: ev.clientX, y: ev.clientY });
+    menu.showAtPosition(ev ? { x: ev.clientX, y: ev.clientY } : { x: 0, y: 0 });
   }
 
   /* ─────────────────── 并排对照 ─────────────────── */
@@ -668,10 +728,7 @@ export class ReaderView extends ItemView {
       await host2.mount(inner, other.fileRef.vaultPath, {
         prefs: this.prefs,
         onTap: (zone) => {
-          if (zone === 'middle') {
-            this.toggleBare();
-            return;
-          }
+          if (zone === 'middle') return;
           const vertical = host2.contentVertical;
           const toNext = zone === 'left' ? vertical : !vertical;
           void (toNext ? host2.next() : host2.prev());
@@ -913,15 +970,8 @@ export class ReaderView extends ItemView {
     if (getShellState().bookId !== book.id) setShellState({ bookId: book.id });
     this.prefs = normalizePrefs(this.api.store.get().prefs ?? undefined);
     this.applyChrome();
-    if (this.bookTitleEl) {
-      this.bookTitleEl.textContent = book.meta.title;
-      this.bookTitleEl.title = book.meta.title;
-    }
-    if (this.authorEl) this.authorEl.textContent = book.meta.author || '';
-    this.updateFoot(book.reading.position.percent || 0, 0);
-    if (this.chapterEl && book.reading.position.chapterTitle) {
-      this.chapterEl.textContent = book.reading.position.chapterTitle;
-    }
+    /* 书名/动作挂在宿主头栏上（自绘那条已经撤了） */
+    this.mountHeader();
 
     /* 手机上解一本大书要好几秒，这段时间是空的——先说清楚在干什么，
        别让人以为点错了（host.mount 建好视图时会把这个占位清掉） */
@@ -972,11 +1022,7 @@ export class ReaderView extends ItemView {
           if (m.title) book.meta.title = m.title;
           if (m.author) book.meta.author = m.author;
           if (m.wordCount) book.meta.wordCount = m.wordCount;
-          if (this.bookTitleEl) {
-            this.bookTitleEl.textContent = book.meta.title;
-            this.bookTitleEl.title = book.meta.title;
-          }
-          if (this.authorEl) this.authorEl.textContent = book.meta.author || '';
+          this.mountHeader();
           this.publishToc();
           this.syncTabTitle();
           this.api.store.touch();
@@ -991,7 +1037,6 @@ export class ReaderView extends ItemView {
       this.tracker.begin(book.reading.position.percent);
       if (!book.reading.stats.startReadTime) book.reading.stats.startReadTime = Date.now();
       this.api.store.touch();
-      this.updateFoot(book.reading.position.percent || 0, 0);
       this.refreshAnnotations();
       this.mounted = true;
     } catch (e) {
@@ -1047,21 +1092,6 @@ export class ReaderView extends ItemView {
 
   /* ─────────────────── 进度与会话 ─────────────────── */
 
-  private paintFoot(p: number): void {
-    const pct = Math.max(0, Math.min(1, p));
-    if (this.percentEl) this.percentEl.textContent = `${Math.round(pct * 100)}%`;
-    if (this.trackFill) this.trackFill.style.width = `${pct * 100}%`;
-    if (this.trackKnob) this.trackKnob.style.left = `${pct * 100}%`;
-  }
-
-  private updateFoot(percent: number, remainingSeconds: number): void {
-    this.lastRemaining = remainingSeconds;
-    this.paintFoot(percent);
-    if (this.remainEl) {
-      this.remainEl.textContent = remainingSeconds > 60 ? `约剩 ${Math.round(remainingSeconds / 60)} 分钟` : '';
-    }
-  }
-
   private saveRelocate(info: RelocateInfo): void {
     const book = this.book;
     if (!book) return;
@@ -1083,11 +1113,9 @@ export class ReaderView extends ItemView {
       }
     }
     book.updatedAt = Date.now();
-    if (info.chapterTitle && this.chapterEl) {
-      this.chapterEl.textContent = info.chapterTitle;
-      patchToc({ activeLabel: info.chapterTitle });
-    }
-    this.updateFoot(info.percent, info.remainingSeconds);
+    if (info.chapterTitle) patchToc({ activeLabel: info.chapterTitle });
+    this.lastPct = info.percent;
+    this.renderProbe();
     this.tracker.touch(info.percent);
     this.api.store.touch();
     notifyShell();
@@ -1137,7 +1165,8 @@ export class ReaderView extends ItemView {
       notify('这处注释读不出正文，可能指向另一章', 'info');
       return;
     }
-    if (!can('footnote') || this.prefs.footnote === 'jump') {
+    /* 脚注浮窗已并入基础版：不再按能力位拦截，只看用户偏好 */
+    if (this.prefs.footnote === 'jump') {
       void this.host.goToHref(info.href);
       return;
     }

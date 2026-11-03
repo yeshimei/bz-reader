@@ -9,6 +9,16 @@ import type { App } from 'obsidian';
 
 export const IMPORT_FOLDER = 'Books';
 
+/**
+ * 目标文件夹 → 实际写入前缀。
+ * '/' 或空串表示库根目录；其余去掉首尾斜杠。返回空串时路径直接拼文件名。
+ */
+export function importFolderOf(raw: string | null | undefined): string {
+  const s = String(raw ?? '').replace(/\\/g, '/').trim();
+  if (!s || s === '/') return '';
+  return s.replace(/^\/+|\/+$/g, '');
+}
+
 function extOf(name: string): string {
   const m = /\.([^.]+)$/.exec(name);
   return m ? m[1].toLowerCase() : '';
@@ -18,17 +28,22 @@ async function uniquePath(app: App, folder: string, name: string): Promise<strin
   const dot = name.lastIndexOf('.');
   const base = dot > 0 ? name.slice(0, dot) : name;
   const ext = dot > 0 ? name.slice(dot) : '';
-  let candidate = `${folder}/${name}`;
+  const join = (n: string): string => (folder ? `${folder}/${n}` : n);
+  let candidate = join(name);
   let n = 2;
   while (await app.vault.adapter.exists(candidate)) {
-    candidate = `${folder}/${base} (${n})${ext}`;
+    candidate = join(`${base} (${n})${ext}`);
     n += 1;
   }
   return candidate;
 }
 
-/** 打开系统文件选择框，把选中的书写进 vault 的 Books/，返回写入后的 vault 路径（取消返回 null） */
-export function pickAndImport(app: App, accept: string[] = ['epub', 'txt']): Promise<string[] | null> {
+/** 打开系统文件选择框，把选中的书写进 vault 的目标文件夹，返回写入后的 vault 路径（取消返回 null） */
+export function pickAndImport(
+  app: App,
+  accept: string[] = ['epub', 'txt'],
+  folderRaw: string = IMPORT_FOLDER,
+): Promise<string[] | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -48,8 +63,8 @@ export function pickAndImport(app: App, accept: string[] = ['epub', 'txt']): Pro
       }
       void (async () => {
         const written: string[] = [];
-        const folder = IMPORT_FOLDER;
-        if (!(await app.vault.adapter.exists(folder))) {
+        const folder = importFolderOf(folderRaw);
+        if (folder && !(await app.vault.adapter.exists(folder))) {
           await app.vault.adapter.mkdir(folder).catch(() => undefined);
         }
         for (const file of files) {

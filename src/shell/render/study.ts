@@ -37,8 +37,8 @@ export interface StudyCounts {
  * 书架整页外壳。`body` 是内部某一页的 HTML。
  *
  * 它占一个中心 tab（VIEW_TYPE_STUDY），不是侧栏——侧栏留给目录/书签/划线。
- * 头行压成一行：衬线小题「书 架」+ 四页签（带图标）+ 搜索/导入。
- * 窄到放不下时由 CSS 折成两行（页签换到第二行满宽）。
+ * 头行压成一行：四页签（带图标）+ 搜索/导入；大题「书 架」去掉了——
+ * 页签本身已经说明这是哪，一行大字只吃竖向空间。
  */
 export function studyShell(page: StudyPage, body: string, counts: StudyCounts): string {
   const nav = STUDY_PAGES.map((p) => {
@@ -50,7 +50,6 @@ export function studyShell(page: StudyPage, body: string, counts: StudyCounts): 
 
   return `<div class="bzs-studio">
     <div class="bzs-stuhead">
-      <h1>书 架</h1>
       <nav class="bzs-stunav">${nav}</nav>
       <span class="sp"></span>
       <div class="bzs-stuacts">
@@ -129,7 +128,10 @@ export function viewLibrary(v: LibraryView): string {
   } else if (state.libView === 'grid') {
     body = `<div class="bzs-grid">${shown
       .map(
-        (b) => `<div class="bzs-bkcard${b.status === 'done' ? ' is-done' : ''}" data-act="detail" data-id="${b.id}" role="button" tabindex="0">
+        /* 卡片上不再钉三颗按钮：右键（手机长按）出菜单，动作都在里面。
+           少了那一行，封面能大一圈，书名也不用为按钮让位。 */
+        (b) => `<div class="bzs-bkcard${b.status === 'done' ? ' is-done' : ''}" data-act="detail" data-id="${b.id}"
+          data-bookmenu="${b.id}" role="button" tabindex="0" title="右键 / 长按更多">
         ${b.status === 'done' ? `<span class="flag">已读完</span>` : b.fav ? `<span class="flag">收藏</span>` : ''}
         ${coverHtml(b)}
         <div class="bi">
@@ -138,18 +140,13 @@ export function viewLibrary(v: LibraryView): string {
           ${barHtml(b.percent)}
           <div class="meta"><span>${b.format} · ${esc(b.lastText)}</span><em>${b.percent > 0 ? b.percent + '%' : '—'}</em></div>
         </div>
-        <div class="rowacts">
-          <button data-act="openbook" data-id="${b.id}">阅读</button>
-          <button data-act="fav" data-id="${b.id}">${b.fav ? '取消收藏' : '收藏'}</button>
-          <button data-act="done" data-id="${b.id}">${b.status === 'done' ? '标为在读' : '标为读完'}</button>
-        </div>
       </div>`,
       )
       .join('')}</div>`;
   } else {
     body = `<div class="bzs-list">${shown
       .map(
-        (b) => `<div class="bzs-bkrow2" data-act="detail" data-id="${b.id}">
+        (b) => `<div class="bzs-bkrow2" data-act="detail" data-id="${b.id}" data-bookmenu="${b.id}" title="右键 / 长按更多">
         ${coverHtml(b)}
         <div class="bi"><b>${esc(b.title)}</b><div class="sub">${esc(b.author)} · ${esc(b.shelf)} · ${b.format}</div></div>
         ${barHtml(b.percent)}

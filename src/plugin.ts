@@ -31,10 +31,19 @@ import { ReaderView, VIEW_TYPE_READER, type ReaderCommand, type ReaderHostApi } 
 import { SideView, VIEW_TYPE_TOC, type SideTab } from './view/side-view';
 import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-state';
 import { ReaderSettingTab } from './ui/settings-tab';
-import { verifyLicense, licenseSummary } from './data/license';
+import { activateCode } from './data/activate';
 import { releaseCovers } from './data/cover';
-import { can, recordActivity, revalidateLicense, setProBuild } from './data/entitlement';
+import {
+  can,
+  entitlement,
+  recordActivity,
+  revalidateLicense,
+  revalidateToken,
+  setProBuild,
+  tierText,
+} from './data/entitlement';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
+import { installBlobSrcdocPatches } from './engine/blob-srcdoc';
 import { openStats } from './ui/stats-panel';
 import { openCrossSearch } from './ui/cross-search-panel';
 
@@ -91,12 +100,19 @@ export function createPlugin(cfg: PluginConfig) {
     async onload(): Promise<void> {
       setApp(this.app);
       setPluginRelDir(this.manifest.dir);
+      /* 移动端保命补丁：宿主 CSP 挡 blob 帧，章节必须以 srcdoc 落地。
+         必须早于任何一次开书（拦 URL.createObjectURL 与 iframe.src）。 */
+      installBlobSrcdocPatches();
       // 构建期能力 + 记一次活跃日（试用按「真的打开过的日子」算）
       setProBuild(cfg.pro);
       recordActivity();
       /* 启动即真验一次码：同步判定只能拆 payload，验签得在这里做。
          跑不过就清码（改 localStorage 伪造的假码在这一步被拦下）。 */
       void revalidateLicense().then((cleaned) => {
+        if (cleaned) notifyShell();
+      });
+      /* 令牌也要真验一次：同步判定只拆 payload，手写的假令牌在这一步被清掉 */
+      void revalidateToken().then((cleaned) => {
         if (cleaned) notifyShell();
       });
       loadShellState();
@@ -153,11 +169,8 @@ export function createPlugin(cfg: PluginConfig) {
           plugin: this,
           store: this.store,
           openSettings: () => this.openStudy('settings'),
-          activate: async (code) => {
-            const res = await verifyLicense(code);
-            return { ok: res.ok, message: res.message };
-          },
-          licenseInfo: () => licenseSummary(normalizeSettings(this.store.get().settings ?? undefined).license),
+          activate: (code) => activateCode(code, this.manifest.version),
+          licenseInfo: () => tierText(entitlement()),
         }),
       );
 
@@ -207,7 +220,6 @@ export function createPlugin(cfg: PluginConfig) {
       onReader('typography', '排版面板', 'typography');
       onReader('bookmap', '全书鸟瞰', 'bookmap');
       onReader('tts', '朗读开关', 'tts');
-      onReader('help', '帮助', 'help');
 
       /* 两个 tab 各开一本书时，切 tab 目录要跟着换：阅读视图不会自己重发
          relocate，这里在 leaf 激活时让它把目录快照重放一遍。 */
@@ -257,6 +269,7 @@ export function createPlugin(cfg: PluginConfig) {
         app: this.app,
         repo: this.repo,
         store: this.store,
+        version: () => this.manifest.version,
         openBook: (book, cfi) => void this.openBook(book, cfi),
         openImport: () => this.openImportPanel(),
         openStudy: (page) => this.openStudy(page),

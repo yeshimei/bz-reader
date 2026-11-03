@@ -8,6 +8,7 @@
  *   3. 每日回顾从「有想法的那几条」里挑，没有就整块不出现
  * ============================================================ */
 import { HIGHLIGHT_COLORS } from '../../data/notes';
+import { can } from '../../data/entitlement';
 import type { MarkRow } from '../domain';
 import { filterMarks, fmtWhen, groupByBook } from '../domain';
 import { MAG, esc } from './html';
@@ -22,14 +23,16 @@ export interface NotesView {
 /** 一条标注卡；`showLoc` 为 false 时是详情弹层里用的紧凑版 */
 export function noteCardHtml(m: MarkRow, showLoc = true): string {
   return `<div class="bzs-ncard" style="--c:${m.css}">
-    <div class="tx">${esc(m.text)}</div>
+    <div class="tx"><span class="dot" style="background:${m.css}"></span>${esc(m.text)}</div>
     ${m.comment ? `<div class="cm"><b>想 法</b>${esc(m.comment)}</div>` : ''}
     ${
       showLoc
         ? `<div class="loc"><span class="src">${esc(m.bookTitle)} · ${esc(m.chapterTitle)}</span></div>
             <div class="acts2">
               <button data-act="jumpmark" data-id="${m.id}" data-book="${m.bookId}">↪ 回到原文</button>
-              <button data-act="copylink" data-id="${m.id}" data-book="${m.bookId}">⧉ 双向链接</button>
+              <button data-act="copylink" data-id="${m.id}" data-book="${m.bookId}">⧉ 双向链接${
+                can('bilink') ? '' : '<i class="pro">高级</i>'
+              }</button>
               <span class="when">${fmtWhen(m.createdAt)}</span>
             </div>`
         : ''

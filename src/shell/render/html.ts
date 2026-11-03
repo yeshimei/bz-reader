@@ -28,6 +28,7 @@ export function ico(name: string): string {
     read: '<path d="M3 5.5A1.5 1.5 0 014.5 4H9a3 3 0 013 3v12a2.5 2.5 0 00-2.5-2.5H3zM21 5.5A1.5 1.5 0 0019.5 4H15a3 3 0 00-3 3v12a2.5 2.5 0 012.5-2.5H21z"/>',
     search: '<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5.5 5.5"/>',
     import: '<path d="M12 3v11M8 10l4 4 4-4M4 18v2h16v-2"/>',
+    folder: '<path d="M3 6.5h6l1.6 2H21v10.5H3z"/>',
     theme: '<circle cx="12" cy="12" r="8"/><path d="M12 4v16"/>',
     gear: '<circle cx="12" cy="12" r="3.2"/><path d="M12 2.8v2.4M12 18.8v2.4M4.4 7.6l2 1.2M17.6 15.2l2 1.2M4.4 16.4l2-1.2M17.6 8.8l2-1.2"/>',
     help: '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.4a2.5 2.5 0 114 2.1c-.9.7-1.6 1.2-1.6 2.4"/><circle cx="12" cy="17" r=".7" fill="currentColor"/>',
@@ -44,7 +45,7 @@ export function ico(name: string): string {
   return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 }
 
-/** 中文数字：Book Map / 章节缩览的章节序号用，只在 1..99 上有意义。
+/** 中文数字：Book Map 的章节序号用，只在 1..99 上有意义。
  *  侧栏目录已经不用它了（那 24px 宁可留给章节名）。 */
 export function cn(n: number): string {
   const d = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];

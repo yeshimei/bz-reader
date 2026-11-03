@@ -49,6 +49,23 @@ export function sideTabs(aiEnabled = true): typeof SIDE_TABS {
   return aiEnabled ? SIDE_TABS : SIDE_TABS.filter((t) => t.value !== 'ai');
 }
 
+/**
+ * 目录项的编号是书自己带的（「一、」「3.」「第十二章 」），不是我们画的。
+ * 侧栏只有 300px，这些序号占掉一成宽度，扫读时还是噪音——显示时剥掉，
+ * 原始 label 不动（高亮比对、章节缩览都还靠它）。
+ *
+ * 只剥「序号 + 顿号/点/冒号/括号」和「第X章/节/回…」两种开头；
+ * 标题本身以数字开头的（如「1984」）不在剥的范围——后面没有分隔符。
+ */
+export function stripTocLabel(label: string): string {
+  const s = label.trim();
+  const stripped = s
+    .replace(/^(第[0-9一二三四五六七八九十百千两零〇]+[章节回卷讲篇部话][、.．:：\s]*)+/, '')
+    .replace(/^[0-9〇零一二三四五六七八九十百千]+[、.．:：)）]\s*/, '')
+    .replace(/^(Chapter|CHAPTER)\s+[0-9IVXivx]+\s*[.:：\-—]?\s*/, '');
+  return stripped || s;
+}
+
 /** 目录：目录项没有百分比，用「第几项 / 共几项」估一个位置，够用且不撒谎 */
 function tocBody(toc: FoliateTOCItem[], activeLabel: string): string {
   const flat: Array<{ item: FoliateTOCItem; depth: number }> = [];
@@ -65,9 +82,10 @@ function tocBody(toc: FoliateTOCItem[], activeLabel: string): string {
       const on = item.label === activeLabel;
       const pct = Math.round((i / Math.max(1, flat.length)) * 100);
       /* 序号列（原 .no）去掉了：侧栏只有 300px，那一列吃掉 24px + 10px 间距，
-         长章节名被截在最难认的位置。层级靠缩进（.d1）表达就够了。 */
+         长章节名被截在最难认的位置。层级靠缩进（.d1）表达就够了。
+         高亮比对用原始 label，显示用剥过序号的。 */
       return `<button class="bzs-chaprow${depth ? ' d1' : ''}${on ? ' on' : ''}" data-act="jumpch" data-href="${esc(item.href)}">
-        <span class="t">${esc(item.label)}</span>
+        <span class="t">${esc(stripTocLabel(item.label))}</span>
         <span class="pc">${pct}%</span>
       </button>`;
     })
@@ -96,7 +114,7 @@ function highlightsBody(rows: MarkRow[]): string {
         ${g.items
           .map(
             (m) => `<div class="bzs-hlit" style="--c:${m.css}" data-act="hlcard" data-id="${m.id}">
-              <span class="tx">${esc(m.text)}</span>
+              <span class="tx"><i class="dot" style="background:${m.css}"></i>${esc(m.text)}</span>
               ${m.comment ? `<span class="cm"><b>想 法</b>${esc(m.comment)}</span>` : ''}
               <button class="x" data-act="delmark" data-id="${m.id}" title="删除">${ico('x')}</button>
             </div>`,

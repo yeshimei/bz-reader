@@ -38,8 +38,6 @@ export const RT = {
    * 点想法/书摘也复用同一条——否则一次划词能在书里叠三四条线。
    */
   selMarkId: '',
-  /** 想法编辑器里选中的类型——真实数据没有分类，先留着不影响渲染 */
-  ideaType: '想法',
   /** 朗读开关（真实 TTS 由阅读视图实现，这里只是界面态） */
   tts: false,
   /** 词典 / 翻译的查询词 */
@@ -60,4 +58,28 @@ export function pushAi(me: boolean, tag: string, text: string): void {
 
 export function resetAi(): void {
   RT.aiLog = [];
+}
+
+/* ─────────── 标注变更广播 ───────────
+ *
+ * 书页上的划线是引擎按 CFI 画的，壳层重绘（书架、侧栏）碰不到它。
+ * 以前改色 / 写想法 / 删划线之后，书页要关掉重开才更新——因为没人
+ * 通知阅读视图「数据变了」。这里放一个极小的订阅：阅读视图在开书时
+ * 挂上，改标注的每个动作广播一次，视图就地重画当前章节。
+ */
+const noteListeners = new Set<() => void>();
+
+export function onNotesChanged(fn: () => void): () => void {
+  noteListeners.add(fn);
+  return () => noteListeners.delete(fn);
+}
+
+export function emitNotesChanged(): void {
+  for (const fn of [...noteListeners]) {
+    try {
+      fn();
+    } catch {
+      /* 单个订阅者出错不连累其余 */
+    }
+  }
 }

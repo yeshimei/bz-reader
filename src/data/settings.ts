@@ -22,6 +22,8 @@ export interface ReaderSettings {
   exportDir: string;
   /** 导出时带上想法 */
   exportComments: boolean;
+  /** 本地文件导入时写进哪个文件夹（vault 相对路径；'/' = 库根目录） */
+  importDir: string;
   ai: AiSettings;
   /** 激活码原文（pro 版才看它） */
   license: string;
@@ -30,6 +32,7 @@ export interface ReaderSettings {
 export const DEFAULT_SETTINGS: ReaderSettings = {
   exportDir: '书摘',
   exportComments: true,
+  importDir: 'Books',
   ai: {
     baseUrl: '',
     apiKey: '',
@@ -42,10 +45,12 @@ function str(v: unknown, fallback = ''): string {
   return typeof v === 'string' ? v : fallback;
 }
 
-/** 去掉目录首尾斜杠，避免拼出 `//书摘//书.md` 这种路径 */
-function cleanDir(v: string): string {
-  const s = v.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '').trim();
-  return s || DEFAULT_SETTINGS.exportDir;
+/** 去掉目录首尾斜杠，避免拼出 `//书摘//书.md` 这种路径；'/' 保留为库根目录 */
+function cleanDir(v: string, fallback = DEFAULT_SETTINGS.exportDir): string {
+  const s = v.replace(/\\/g, '/').trim();
+  if (s === '/') return '/';
+  const t = s.replace(/^\/+|\/+$/g, '');
+  return t || fallback;
 }
 
 function cleanUrl(v: string): string {
@@ -60,6 +65,7 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
   return {
     exportDir: cleanDir(str(s.exportDir, DEFAULT_SETTINGS.exportDir)),
     exportComments: s.exportComments !== false,
+    importDir: cleanDir(str(s.importDir, DEFAULT_SETTINGS.importDir), DEFAULT_SETTINGS.importDir),
     ai: {
       baseUrl: cleanUrl(str(ai.baseUrl)),
       apiKey: str(ai.apiKey).trim(),

@@ -236,38 +236,58 @@ body.theme-dark .bzs-shell[data-bzaccent="moss"] { --copper: #93b79a; }
   color: var(--t3);
 }
 
-/* 滑杆只留一条细线，值由右侧衬线数字负责 */
+/* 滑杆只留一条细线，值由右侧衬线数字负责。
+   几何全部写死：框高 16、球 12、margin-top (16-12)/2=2——圆点与线的
+   对齐只由这道算术决定，宿主主题再怎么改 input 也插不进来。
+   （此前圆点浮在线上方，就是宿主的 thumb 规则赢了层叠。） */
 .bzs-shell input[type="range"] {
   padding: 0;
   border: 0;
+  margin: 0;
+  height: 16px !important;
+  min-height: 0 !important;
   background: transparent;
   box-shadow: none;
   -webkit-appearance: none;
   appearance: none;
 }
 
-/* 滑轨：左侧铜金走到当前值，右侧留在发丝线色。
+/* 滑轨：占满框高，线本身用背景画在正中——左侧铜金走到当前值，右侧留在发丝线色。
    --fill 由 dispatchInput 就地写（纯 CSS 画不出「填充到当前值」）。
-   排版浮层以前自己留了一套 3px 轨 / 15px 球，和设置页的粗细对不上，
-   现在两处都走这一份。 */
+   排版浮层与设置页走同一份，粗细永远一致。 */
 .bzs-shell input[type="range"]::-webkit-slider-runnable-track {
-  height: 2px;
+  height: 16px !important;
+  margin-top: 0 !important;
   border-radius: var(--r-book);
-  background: linear-gradient(
-    to right,
-    var(--copper) 0 var(--fill, 50%),
-    var(--line-2) var(--fill, 50%) 100%
-  );
+  background:
+    linear-gradient(to right, var(--copper) 0 var(--fill, 50%), var(--line-2) var(--fill, 50%) 100%)
+    no-repeat center / 100% 2px;
 }
 
 .bzs-shell input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 11px;
-  height: 11px;
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 50%;
+  background: var(--copper) !important;
+  margin-top: 2px !important; /* (16-12)/2，与线正中重合 */
+  border: 0;
+  box-shadow: 0 0 0 3px var(--copper-soft);
+}
+
+/* Firefox：轨道与球由引擎自己居中，不用算 margin */
+.bzs-shell input[type="range"]::-moz-range-track {
+  height: 2px;
+  border-radius: var(--r-book);
+  background: linear-gradient(to right, var(--copper) 0 var(--fill, 50%), var(--line-2) var(--fill, 50%) 100%);
+}
+
+.bzs-shell input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: var(--copper);
-  margin-top: -4.5px;
   border: 0;
   box-shadow: 0 0 0 3px var(--copper-soft);
 }
