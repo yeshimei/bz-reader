@@ -101,7 +101,7 @@ export class ReaderView extends ItemView {
   private lastKeyBefore = '';
   private lastKeyAfter = '';
   /** 每次发版手动改，和 manifest 一起确认手机跑的是哪一版 */
-  private static readonly BUILD_TAG = '0.1.2+1236';
+  private static readonly BUILD_TAG = '0.1.3+1305';
 
   /* 并排对照：副卷自己一套引擎，主卷的进度与标注一概不受影响 */
   private parallelOn = false;
@@ -525,8 +525,10 @@ export class ReaderView extends ItemView {
     const header = this.containerEl.querySelector<HTMLElement>('.view-header');
     const title = header?.querySelector<HTMLElement>('.view-header-title');
     const acts = header?.querySelectorAll('.bzr-action').length ?? 0;
+    /* pg = 页面里跑的 paginator 是不是打过「点按不吸附」补丁的那一版 */
+    const pg = (globalThis as unknown as { __bzrPaginatorGuard?: boolean }).__bzrPaginatorGuard;
     this.probeEl.textContent =
-      `bz ${ReaderView.BUILD_TAG} · hdr${header ? '✓' : '✗'} ttl${title ? '✓' : '✗'} act${acts}` +
+      `bz ${ReaderView.BUILD_TAG} · pg${pg ? '✓' : '✗'} hdr${header ? '✓' : '✗'} ttl${title ? '✓' : '✗'} act${acts}` +
       ` · tap${this.tapCount}${this.lastZone} ${this.lastKeyBefore || '-'}→${this.lastKeyAfter || '…'}` +
       ` ${Math.round(this.lastPct * 100)}%`;
   }

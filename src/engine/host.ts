@@ -680,6 +680,22 @@ export class EngineHost {
       }
     };
 
+    /* 点按拦截：在捕获阶段吞掉这次 touchend，分页器就收不到它，
+       也就不会跑「零速度吸附」——「翻过去又被吸回来」的另一半源头。
+       这一层不依赖 vendor 补丁是否生效：插件重载后旧的自定义元素还在页面上，
+       补丁不会重新注册，只有这层能兜住。 */
+    const onTouchEndCapture = (ev: TouchEvent): void => {
+      const tap = touchTap;
+      if (!tap || tap.fingers !== 1 || ev.touches.length > 0) return;
+      if (Date.now() - tap.at >= TAP_LONG_PRESS_MS) return;
+      if (tap.moved >= TAP_MOVE_PX) return;
+      if (!this.pointerWorks) {
+        const t = ev.changedTouches[0];
+        if (t) emitTap(t.clientX, t.clientY, ev.target);
+      }
+      ev.stopImmediatePropagation();
+    };
+
     // ⑤ 划词：桌面拖选、移动端长按拖选都会走 selectionchange。
     //    这里防抖 140ms —— 拖动过程中每动一下都是新选区，实时上报会让浮层
     //    跟着手指抖，还会把一次划词记成几十条
@@ -698,6 +714,8 @@ export class EngineHost {
     doc.addEventListener('pointerup', onPointerUpAny);
     doc.addEventListener('touchstart', onTouchStart, { passive: true });
     doc.addEventListener('touchmove', onTouchMove, { passive: false });
+    doc.addEventListener('touchend', onTouchEndCapture, true);
+    doc.addEventListener('touchcancel', onTouchEndCapture, true);
     doc.addEventListener('touchend', onTouchEnd);
     doc.addEventListener('touchcancel', onTouchEnd);
     doc.addEventListener('selectionchange', onSelectionChange);
@@ -712,6 +730,8 @@ export class EngineHost {
       doc.removeEventListener('pointerup', onPointerUpAny);
       doc.removeEventListener('touchstart', onTouchStart);
       doc.removeEventListener('touchmove', onTouchMove);
+      doc.removeEventListener('touchend', onTouchEndCapture, true);
+      doc.removeEventListener('touchcancel', onTouchEndCapture, true);
       doc.removeEventListener('touchend', onTouchEnd);
       doc.removeEventListener('touchcancel', onTouchEnd);
       doc.removeEventListener('selectionchange', onSelectionChange);
