@@ -87,11 +87,11 @@ export function buildChapterCSS(prefs: ReaderPrefs): string {
   }
 
   // 上下留白：2026-11-03 起自绘的头/底悬浮栏撤了（动作进了宿主头栏、进度看目录），
-  // 所以不再需要给毛玻璃条让位，只留一点呼吸边。手机底部多留一些，
-  // 免得最后一行被宿主的悬浮导航条压住。
+  // 所以不再需要给毛玻璃条让位。现在由用户在「版式」里自己调（marginY），
+  // 底部再多留一点——手机上是给宿主的悬浮导航条让位，桌面只是别贴着边缘。
   const mobile = document.body.classList.contains('is-mobile') || document.body.classList.contains('is-phone');
-  const padTop = mobile ? '18px' : '28px';
-  const padBottom = mobile ? '48px' : '40px';
+  const padTop = `${prefs.marginY}px`;
+  const padBottom = `${prefs.marginY + (mobile ? 24 : 12)}px`;
 
   return `
 html, body {

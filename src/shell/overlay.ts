@@ -143,6 +143,7 @@ export function typographyFormHtml(): string {
     ${rng('fontSize', '字号', p.fontSize, 14, 30, 1, 'px')}
     ${rng('lineHeight', '行距', p.lineHeight, 1.4, 2.4, 0.1, '')}
     ${rng('margin', '页边距', p.margin, 8, 120, 4, '')}
+    ${rng('marginY', '上下边距', p.marginY, 0, 120, 4, '')}
     <div class="bzs-setrow"><label>字体</label>${seg(
       'fontFamily',
       [

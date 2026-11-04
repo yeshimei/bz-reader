@@ -53,6 +53,18 @@ describe('buildChapterCSS', () => {
     expect(css).toContain('body');
   });
 
+  it('上下边距自己一档，写进 body 的 padding-top', () => {
+    const css = buildChapterCSS({ ...DEFAULT_PREFS, marginY: 64 });
+    expect(css).toMatch(/padding-top:\s*64px/);
+  });
+
+  it('上下边距调小，padding 跟着变小（不是写死的 18/28）', () => {
+    const tight = buildChapterCSS({ ...DEFAULT_PREFS, marginY: 4 });
+    const loose = buildChapterCSS({ ...DEFAULT_PREFS, marginY: 96 });
+    expect(tight).toMatch(/padding-top:\s*4px/);
+    expect(loose).toMatch(/padding-top:\s*96px/);
+  });
+
   it('不同字号产出的 CSS 不同（避免缓存串味）', () => {
     const a = buildChapterCSS({ ...DEFAULT_PREFS, fontSize: 16 });
     const b = buildChapterCSS({ ...DEFAULT_PREFS, fontSize: 24 });

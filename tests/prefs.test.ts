@@ -5,6 +5,7 @@ import {
   FONT_SIZE_RANGE,
   LINE_HEIGHT_RANGE,
   MARGIN_RANGE,
+  MARGIN_Y_RANGE,
   LEGACY_THEMES,
   gatedPrefs,
   normalizePrefs,
@@ -28,6 +29,13 @@ describe('normalizePrefs', () => {
     expect(normalizePrefs({ lineHeight: 9 }).lineHeight).toBe(LINE_HEIGHT_RANGE.max);
     expect(normalizePrefs({ margin: 1 }).margin).toBe(MARGIN_RANGE.min);
     expect(normalizePrefs({ margin: 999 }).margin).toBe(MARGIN_RANGE.max);
+  });
+
+  it('上下边距单独一档，同样被夹住', () => {
+    expect(normalizePrefs({}).marginY).toBe(DEFAULT_PREFS.marginY);
+    expect(normalizePrefs({ marginY: -40 }).marginY).toBe(MARGIN_Y_RANGE.min);
+    expect(normalizePrefs({ marginY: 999 }).marginY).toBe(MARGIN_Y_RANGE.max);
+    expect(normalizePrefs({ marginY: 33 }).marginY).toBe(33);
   });
 
   it('枚举值非法时回落到默认值', () => {
