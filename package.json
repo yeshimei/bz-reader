@@ -12,7 +12,8 @@
     "release": "node esbuild.config.mjs production",
     "test": "vitest run",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
-    "verify": "npm run typecheck && npm test"
+    "lint:obsidian": "node scripts/lint-obsidian.mjs",
+    "verify": "npm run typecheck && npm test && npm run lint:obsidian"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",

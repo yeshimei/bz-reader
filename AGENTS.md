@@ -24,6 +24,8 @@ node esbuild.config.mjs once                    # 构建
 
 三条全绿才能 commit。只跑 tsc 不算过门。
 
+**上架（打 tag 发 Release）前再加一道：`node scripts/lint-obsidian.mjs`**，见第 10 节。
+
 ## 4. 部署
 
 「部署」= 把**同一份**构建产物同时落到**主仓库**和**测试库**，缺一不算部署。先过三道门（第 3 节），然后在 `D:\Obsidian\bz-reader` 跑：
@@ -117,7 +119,41 @@ New-Item -ItemType Junction -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules
 
 也不要往任何会被 git 跟踪的文件里放码；`docs/afdian-store.md` 只留两行示例就是为这个。
 
-## 10. 不要做的事
+## 10. 上架（Obsidian 社区目录）
+
+上架 = 打 tag 发 Release + 在 [community.obsidian.md](https://community.obsidian.md) 提交。
+**不再走 `obsidian-releases` 的 PR**——那个仓库已禁用 PR，社区目录改成了网页提交
+（要 Obsidian 账号登录并关联 GitHub 验证仓库归属）。
+
+**每次上架前必须跑官方 lint，缺一不可：**
+
+```powershell
+node scripts/lint-obsidian.mjs        # eslint-plugin-obsidianmd recommended
+```
+
+- 必须 **0 error / 0 warning**。规则与社区目录的自动审核同源：error 直接卡审，
+  warning 是审核意见的高频来源。脚本退出码非 0 就停下，不许带着问题打包。
+- 依赖装在仓库外（`%LOCALAPPDATA%\bz-reader-lint`，首次自动安装），**不碰项目
+  `node_modules`**：主仓那份是历史 pnpm 链接，`pnpm add` 会报 UNEXPECTED_VIRTUAL_STORE。
+- 脚本自己生成、跑完删掉 `eslint.config.mjs`；**不要把配置文件提交进仓库**。
+- 唯一豁免是 `@typescript-eslint/no-deprecated`（脚本生成的配置里已关掉并写了
+  理由）：`caretRangeFromPoint` 与 `Workspace.activeLeaf` 在 minAppVersion 1.7.2
+  下没有等价替代。
+
+上架顺序（lint 在最前）：
+
+1. `node scripts/lint-obsidian.mjs` → 0/0
+2. 三道门（第 3 节：tsc / vitest / esbuild once）
+3. `manifest.json` 的 `version`、`versions.json`、README badge 三处同步
+4. `node esbuild.config.mjs production`（落仓库根三件套）
+5. 提交、推送、打 tag——**tag 与 `manifest.version` 逐字相同，不带 `v`**
+6. `gh release create <版本> --notes-file docs/note-v<版本>.md main.js manifest.json styles.css`
+7. community.obsidian.md 提交
+
+目录审核要点：仓库根有 `README.md` / `LICENSE` / `manifest.json`；Release 附三件套；
+README 必须披露「完整功能需付费」与网络访问（两节都已在 README 里）。
+
+## 11. 不要做的事
 
 - 不提交 `.scratch*` 临时脚本、`dist/`、库里的调试日志。
 - 不为修一个 bug 顺手重构无关模块。
