@@ -1123,20 +1123,29 @@
 /* ── 触摸目标（S-03）──
    移动端一半的可点控件小于 44px：开关 36×20、删除叉约 17×23、关闭钮 34×34、
    搜索/导入钮 30×30、笔记卡按钮 padding:0。指腹点不中，删除叉尤其容易误触。
-   这里只**撑开热区**，图标本身尺寸不变——视觉不动，手指舒服。
-   开关整行 label 都可点：.bzs-setrow 里点文字也能切换。 */
+   这里把热区撑到 44px（WCAG 2.5.5 的最小值），图标本身尺寸不变：
+   视觉不动，手指舒服。 */
 @media (max-width: 820px) {
   .bzs-shell .x {
-    min-width: 40px;
-    min-height: 40px;
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .bzs-shell .bzs-btn.sm,
   .bzs-shell .bzs-chip,
   .bzs-shell .bzs-sbtn {
-    min-height: 36px;
+    min-height: 44px;
   }
 
   /* 开关 36×20 的视觉尺寸不动：改成 44 会把设置页整排撑高。
-     真要放大热区得改 DOM（整行 label 可点），那是另一件事。 */
+     用一层透明伪元素把可点区域扩到 44 高（左右各多 12px）。 */
+  .bzs-shell .bzs-switch {
+    position: relative;
+  }
+
+  .bzs-shell .bzs-switch::before {
+    content: "";
+    position: absolute;
+    inset: -12px;
+  }
 }

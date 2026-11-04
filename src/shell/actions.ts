@@ -278,8 +278,14 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       overlay('setgoal');
       break;
     case 'setdailygoal': {
+      if (!requireCap('stats')) break;
       const n = Number(d.v);
-      if (Number.isFinite(n)) getShellSource()?.setDailyGoal(n);
+      if (Number.isFinite(n)) {
+        getShellSource()?.setDailyGoal(n);
+        /* setDailyGoal 只写盘 + toast，不广播；统计页的 chips 和数字
+           要等下一次重绘才会变。这里补一次，点完立刻看到高亮。 */
+        repaint();
+      }
       break;
     }
     case 'reset':
@@ -947,6 +953,18 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
 
     /* ── AI 回答存为笔记：直接落到剪贴板，不伪造一条没有出处的标注 ── */
+    case 'aicancel': {
+      /* 只取消正在跑的那一个：RT.aiAbort 由 runAiForOverlay 持有，
+         取消后按钮点「再来一次」会新建 controller。 */
+      const ctrl = RT.aiAbort;
+      if (ctrl) {
+        RT.aiAbort = null;
+        ctrl.abort();
+      }
+      const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
+      if (node) node.textContent = '已取消';
+      break;
+    }
     case 'aisave': {
       const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
       const answer = node?.textContent?.trim() || '';

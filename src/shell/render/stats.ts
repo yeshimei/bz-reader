@@ -14,7 +14,7 @@ import type { StatsSummary } from '../../data/stats';
 import { dayKey } from '../../data/stats';
 import { fmtMinutes } from '../domain';
 import { esc } from './html';
-import { checkinStats } from '../checkin';
+import { checkinStats, clampDailyGoal } from '../checkin';
 
 const MS_DAY = 86_400_000;
 const HEAT_DAYS = 140;
@@ -87,8 +87,10 @@ export function viewStats(v: StatsView): string {
   const goalPct = Math.min(100, Math.round((done / Math.max(1, v.goal)) * 100));
   const C = 2 * Math.PI * 52;
   const { bars } = weeklyBars(st, now);
-  /* 打卡（新功能）：优先用 checkins 记录，没有就退回热力图那本账 */
-  const dailyGoal = v.dailyGoalMinutes ?? 20;
+  /* 打卡（新功能）：优先用 checkins 记录，没有就退回热力图那本账。
+     目标值走 clampDailyGoal：脏数据里的 0 / 99999 不能直接显示，
+     否则 chip 高亮和真正判据会对不上。 */
+  const dailyGoal = clampDailyGoal(v.dailyGoalMinutes);
   const ck = checkinStats(v.checkins ?? st.days, dailyGoal, now);
 
   const rank = [...st.books]

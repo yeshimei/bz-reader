@@ -386,7 +386,9 @@ export function createPlugin(cfg: PluginConfig) {
       try {
         text = await picked.text();
       } catch (e) {
-        return { ok: false, message: `读不了这个文件：${(e as Error)?.message || '未知错误'}` };
+        const why = `读不了这个文件：${(e as Error)?.message || '未知错误'}`;
+        notify(why, 'error');
+        return { ok: false, message: why };
       }
       const parsed = parseBackup(text);
       if (!parsed.ok) {

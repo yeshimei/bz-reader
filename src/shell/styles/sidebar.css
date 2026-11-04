@@ -494,22 +494,5 @@
   opacity: 1;
 }
 
-/* ── 书架页：侧栏里的一整块 ──
-   它自带外壳（页签 + 搜索 + 导入 + 页体），这里只给它一个
-   撑满剩余高度的容器，滚动交给内部的 .bzs-stubody。 */
-.bzs-shelfview {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.bzs-shelfview .bzs-studio {
-  flex: 1;
-  min-height: 0;
-}
-
-.bzs-moved .bzs-mini {
-  max-width: 30em;
-  line-height: 1.9;
-}
+/* S-08（2026-11-04）：`.bzs-shelfview` / `.bzs-moved` 对应的 DOM 早就不存在了——
+   书架现在是 `.bzs-studio` 自带外壳。整段删除，免得改样式时搜索全是噪音。 */

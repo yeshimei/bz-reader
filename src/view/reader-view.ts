@@ -12,7 +12,7 @@
  * 这一版只有一条界面语言，不再有第二套。
  * ============================================================ */
 import { ItemView, Menu, setIcon, type WorkspaceLeaf } from 'obsidian';
-import { EngineHost, type FootnoteInfo, type Rect, type RelocateInfo, type SelectionInfo } from '../engine/host';
+import { EngineHost, OpenCancelledError, type FootnoteInfo, type Rect, type RelocateInfo, type SelectionInfo } from '../engine/host';
 import { resolveTheme } from '../engine/theme';
 import { normalizePrefs, type ReaderPrefs } from '../data/prefs';
 import type { ReaderBook } from '../data/schema';
@@ -55,7 +55,7 @@ import { anchoredPlacement } from '../shell/anchored-style';
 import { selbarActions } from '../shell/selbar';
 import { RT, onNotesChanged } from '../shell/runtime';
 import { addCheckin } from '../shell/checkin';
-import { toTextHits } from '../shell/text-search';
+import { toTextHits, type TextHit } from '../shell/text-search';
 import { shouldNotifyRelocate } from './relocate-notify';
 import { getShellSource } from '../shell/source';
 import { dispatchAction, createMark, requireCap } from '../shell/actions';
@@ -140,6 +140,11 @@ export class ReaderView extends ItemView {
   /* 朗读：交给系统语音，不额外引依赖。翻页即停，避免「翻过去了还在念上一页」 */
   private speaking = false;
   private voice: SpeakHandle | null = null;
+
+  /* 每日打卡：按 tracker 的已读秒数增量记账。
+     以前只在关 tab 时 addCheckin 一次——开着 tab 读一整天，统计页永远 0。 */
+  private checkinTimer: number | null = null;
+  private lastCheckinElapsed = 0;
 
   private tapHandler: (
     zone: 'prev' | 'next',
@@ -363,7 +368,10 @@ export class ReaderView extends ItemView {
          手指在手机上上下点比左右点自然）。 */
       const desktopDir: 'prev' | 'next' = (() => {
         const box = this.stage?.getBoundingClientRect();
-        const sx = info?.screenX ?? 0;
+        /* info.screenX 是**屏幕**坐标，getBoundingClientRect 是**视口**坐标：
+           直接比，在窗口不最大化时左右会判反（AGENTS.md 的坐标约定）。 */
+        const winX = typeof window !== 'undefined' ? window.screenX || 0 : 0;
+        const sx = (info?.screenX ?? 0) - winX;
         if (!box || !box.width) return zone;
         return sx < box.left + box.width / 2 ? 'prev' : 'next';
       })();
@@ -627,7 +635,7 @@ export class ReaderView extends ItemView {
    * 以前 `host.search()` 只在深链兜底里用过，界面上没有入口：搜索浮层
    * 只能搜「已建索引」的书名/作者/标注，正文里的字搜不到。
    */
-  async searchText(kw: string): Promise<Array<{ cfi: string; excerpt: string; chapterLabel: string; chapterIndex: number }>> {
+  async searchText(kw: string): Promise<TextHit[]> {
     if (!this.mounted) await this.maybeMount();
     if (!this.mounted) return [];
     const hits = await this.host.search(kw);
@@ -937,11 +945,20 @@ export class ReaderView extends ItemView {
           return;
         }
         /* 念完一页自动翻下一页接着念。翻页本身会走导航队列，
-           等它落定再取新页的文字（否则拿到的还是上一页）。 */
-        void this.host.next().then(() => {
-          if (this.closed || !this.speaking) return;
-          this.speakPage();
-        });
+           等它落定再取新页的文字（否则拿到的还是上一页）。
+           书末 next() 不前进：页码没变就停，不然会无限重念同一页。 */
+        const before = this.host.pageKey;
+        void this.host
+          .next()
+          .then(() => {
+            if (this.closed || !this.speaking) return;
+            if (this.host.pageKey === before) {
+              this.stopTts();
+              return;
+            }
+            this.speakPage();
+          })
+          .catch(() => this.stopTts());
       },
     });
     if (!handle) {
@@ -1272,6 +1289,9 @@ export class ReaderView extends ItemView {
         book.reading.stats.totalReadTime += carried.durationSeconds;
         book.reading.stats.lastReadTime = Date.now();
       }
+      /* 打卡按增量记：新会话从 0 起算，每 60 秒（以及每次翻页）把差额写进当天 */
+      this.lastCheckinElapsed = 0;
+      this.startCheckinTimer();
       if (!book.reading.stats.startReadTime) book.reading.stats.startReadTime = Date.now();
       this.api.store.touch();
       this.refreshAnnotations();
@@ -1279,8 +1299,9 @@ export class ReaderView extends ItemView {
     } catch (e) {
       this.mounting = false;
       /* 关掉 tab 时才失败（大书解包要几秒）是正常操作，不该弹一条 6 秒红色
-         「开书已取消」让人以为出故障（P2-14）。 */
-      if (this.closed) return;
+         「开书已取消」让人以为出故障（P2-14）。取消与真失败现在是两种
+         错误类型：OpenCancelledError 静默，其余照常报。 */
+      if (this.closed || e instanceof OpenCancelledError) return;
       const why = (e as Error)?.message || '格式不受支持';
       this.renderFault('这本书打不开', why);
       notify(why, 'error');
@@ -1365,6 +1386,8 @@ export class ReaderView extends ItemView {
     /* 每翻一页都可能换到「有书签 / 没书签」的页：图标亮不亮得跟着走 */
     this.syncToolState();
     this.tracker.touch(info.percent);
+    /* 翻页时顺手结算打卡：不靠 60 秒定时器等，翻得快也能实时涨 */
+    this.flushCheckin();
     this.api.store.touch();
     /* 每翻一页都广播会让侧栏与书架全量重建（书架是整面封面墙），手机上掉帧。
        换章/百分比变化且过节流窗口才通知；落盘仍然每次都做。 */
@@ -1456,6 +1479,7 @@ export class ReaderView extends ItemView {
   async settle(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
+    this.stopCheckinTimer();
     /* 两本书各开一个 tab 时，关掉 A 不该把 B 的目录一起清空——
        目录快照是全局一份，只认自己那本。 */
     if (this.book && getToc()?.bookId === this.book.id) clearToc();
@@ -1467,9 +1491,16 @@ export class ReaderView extends ItemView {
         book.reading.sessions.push({ ...session, percent: book.reading.position.percent });
         book.reading.stats.totalReadTime += session.durationSeconds;
         book.reading.stats.lastReadTime = Date.now();
-        /* 每日打卡（新功能）：把这段会话的秒数记进今天。
-           以前 `goal` 只是统计页那圈铜线的一个数字，不记录、不结算。 */
-        addCheckin(this.api.store.get(), session.durationSeconds);
+      }
+      /* 打卡收尾：把本次会话里还没记进当天的那一段补上。
+         口径是 tracker 的「活跃已读秒数」，与 sessions 统计同源——
+         以前在这里按 session.durationSeconds 记一次，但 session 只在关 tab 时
+         才产生，开着 tab 读一整天，checkins 永远是 0。 */
+      const total = this.tracker.elapsedSeconds;
+      const rest = total - this.lastCheckinElapsed;
+      if (rest > 0) {
+        addCheckin(this.api.store.get(), rest, Date.now());
+        this.lastCheckinElapsed = total;
       }
       book.updatedAt = Date.now();
     }
@@ -1486,6 +1517,31 @@ export class ReaderView extends ItemView {
     this.api.store.get().prefs = this.prefs;
     this.api.store.touch();
     this.applyChrome();
+  }
+
+  /* ─────────────────── 打卡结算 ─────────────────── */
+
+  /** 把「自上次记账以来 tracker 新增的已读秒数」写进当天 */
+  private flushCheckin(): void {
+    if (!this.tracker.isRunning) return;
+    const elapsed = this.tracker.elapsedSeconds;
+    const delta = elapsed - this.lastCheckinElapsed;
+    if (delta < 30) return;
+    addCheckin(this.api.store.get(), delta, Date.now());
+    this.lastCheckinElapsed = elapsed;
+  }
+
+  /** 每 60 秒记一次：停在同一页读很久时，只靠翻页触发会漏记 */
+  private startCheckinTimer(): void {
+    this.stopCheckinTimer();
+    this.checkinTimer = window.setInterval(() => this.flushCheckin(), 60_000);
+  }
+
+  private stopCheckinTimer(): void {
+    if (this.checkinTimer !== null) {
+      window.clearInterval(this.checkinTimer);
+      this.checkinTimer = null;
+    }
   }
 
   private applyPrefs(patch: Partial<ReaderPrefs>): void {

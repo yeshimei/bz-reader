@@ -44,13 +44,31 @@ export interface AiResult {
 /** 一次 AI 请求最多等多久。接口地址填错 / 代理挂掉时，不设上限就是一直转圈。 */
 export const AI_TIMEOUT_MS = 60_000;
 
+export interface AiAskOptions {
+  /** 外部取消（弹层里的「取消请求」）。超时与取消是两条路，提示要分开 */
+  signal?: AbortSignal;
+}
+
 /** 调 OpenAI 兼容的 /chat/completions。失败抛 Error，消息给人看。 */
-export async function aiAsk(settings: ReaderSettings, task: AiTask, text: string): Promise<AiResult> {
+export async function aiAsk(
+  settings: ReaderSettings,
+  task: AiTask,
+  text: string,
+  opts: AiAskOptions = {},
+): Promise<AiResult> {
   const { baseUrl, apiKey, model } = settings.ai;
   if (!baseUrl || !apiKey || !model) throw new Error('还没配置 AI 接口：到 设置 → bz 阅读 → AI 填好地址、Key 和模型');
   const prompt = buildPrompt(task, text);
-  /* 超时用 AbortSignal.timeout（P2-12）：没有它的时候，接口地址填错、代理挂掉，
-     界面就一直「正在请求…」，既没有失败提示也没有取消。 */
+  /* 超时（P2-12）+ 外部取消：没有超时的时候，接口地址填错、代理挂掉，
+     界面就一直「正在请求…」；没有取消，用户只能关掉整个弹层干等。 */
+  let timedOut = false;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ctrl.abort();
+  }, AI_TIMEOUT_MS);
+  const onAbort = (): void => ctrl.abort();
+  opts.signal?.addEventListener('abort', onAbort);
   let res: Response;
   try {
     res = await fetch(`${baseUrl}/chat/completions`, {
@@ -64,14 +82,18 @@ export async function aiAsk(settings: ReaderSettings, task: AiTask, text: string
         temperature: 0.3,
         messages: [{ role: 'user', content: prompt }],
       }),
-      signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+      signal: ctrl.signal,
     });
   } catch (e) {
+    if (opts.signal?.aborted) throw new Error('已取消');
     const name = (e as Error)?.name || '';
-    if (name === 'TimeoutError' || name === 'AbortError') {
+    if (timedOut || name === 'TimeoutError' || name === 'AbortError') {
       throw new Error(`AI 接口 ${AI_TIMEOUT_MS / 1000} 秒没有响应，检查地址与网络后重试`);
     }
     throw new Error(`连不上 AI 接口：${(e as Error)?.message || '网络错误'}`);
+  } finally {
+    clearTimeout(timer);
+    opts.signal?.removeEventListener('abort', onAbort);
   }
   if (!res.ok) {
     // 401/403 多半是 Key；404 多半是 baseUrl 少了 /v1 或多了路径——都直接告诉用户

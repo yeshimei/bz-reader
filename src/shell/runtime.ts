@@ -36,6 +36,8 @@ export const RT = {
   textSearching: false,
   /** 书摘卡上次用的版式（关闭弹层后仍记得，下次打开还是这一版） */
   cardTpl: 'classic' as string,
+  /** 正在跑的 AI 请求（「取消请求」按钮用）；空表示没有在请求 */
+  aiAbort: null as AbortController | null,
   /** AI 对话（侧栏 AI 页签与 AI 弹层共用一份） */
   aiLog: [] as AiLogItem[],
   /** 当前划词 */

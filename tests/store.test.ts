@@ -166,6 +166,28 @@ describe('落盘', () => {
     expect(adapter.files.has(TMP)).toBe(false);
   });
 
+  it('写盘前合并外部修改时 books 数组引用不变（book-repo 不会与 store 分叉）', async () => {
+    /* BookRepo 构造时拿的是 store.get().books 那一个数组。合并如果换成新数组，
+       repo 继续指向旧数组：新导入的书落不了盘、删掉的书重启又回来（P3-07）。 */
+    const adapter = new FakeAdapter();
+    adapter.files.set(FILE, validData());
+    const store = makeStore(adapter);
+    await store.load();
+    const booksRef = store.get().books;
+    expect(booksRef).toHaveLength(1);
+
+    // 另一台设备（或另一个窗口）往磁盘上加了第二本
+    const disk = JSON.parse(validData());
+    disk.books.push({ ...disk.books[0], id: 'b2', meta: { title: '同步来的书' }, updatedAt: 2 });
+    adapter.files.set(FILE, JSON.stringify(disk));
+    adapter.bump(FILE);
+
+    await store.flush(true);
+
+    expect(store.get().books).toBe(booksRef);
+    expect(booksRef.map((b) => b.id).sort()).toEqual(['b1', 'b2']);
+  });
+
   it('JSON.stringify 抛错不会把写盘链永久打死', async () => {
     const adapter = new FakeAdapter();
     const store = makeStore(adapter);

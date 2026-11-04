@@ -47,7 +47,7 @@ export interface CheckinStats {
   todayMinutes: number;
   /** 今天达标了没有 */
   todayDone: boolean;
-  /** 这个月的打卡格：`1` 达标 / `0` 没达标 / `-1` 还没到 / `-2` 在未来 */
+  /** 这个月的打卡格：`1` 达标 / `0` 没达标或还没读 / `-2` 未来 */
   month: number[];
   /** 今天还差多少分钟达标（已达标为 0） */
   leftMinutes: number;

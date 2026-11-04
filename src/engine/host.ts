@@ -48,9 +48,19 @@ export interface Rect {
   height: number;
 }
 
+/**
+ * 开书过程中视图被关掉（`container` 换了）：这不是失败，调用方该静默放弃。
+ * 单独一个错误类型，别再用字符串「开书已取消」去判（P2-14）。
+ */
+export class OpenCancelledError extends Error {
+  constructor() {
+    super('开书已取消');
+    this.name = 'OpenCancelledError';
+  }
+}
+
 /** 一次划词：文字 + CFI 范围 + 摆浮层要用的位置 */
-export interface SelectionInfo {
-  text: string;
+export interface SelectionInfo {  text: string;
   cfiRange: string;
   chapterIndex: number;
   /** 选区第一行的矩形（备用；贴浮层现在用整段 bounds） */
@@ -345,7 +355,7 @@ export class EngineHost {
        别把书挂到一个已经不存在的画布上。 */
     if (this.container !== container) {
       book.destroy?.();
-      throw new Error('开书已取消');
+      throw new OpenCancelledError();
     }
     this.book = book;
 
@@ -498,7 +508,7 @@ export class EngineHost {
         new Promise<'timeout'>((r) => window.setTimeout(() => r('timeout'), OPEN_TIMEOUT)),
       ]);
       if (opened === 'timeout') throw new Error(`渲染首章 ${OPEN_TIMEOUT / 1000}s 无响应`);
-      if (this.container !== container) throw new Error('开书已取消');
+      if (this.container !== container) throw new OpenCancelledError();
     } catch (err) {
       /* 首章失败：把 foliate 视图和 book 一起拆掉（P3-21）。
          只 remove() 视图的话，book 里那些已经解出来的章节/资源（blob URL）

@@ -334,37 +334,8 @@
   backdrop-filter: blur(8px);
 }
 
-.bzs-bkcard .rowacts {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 74px;
-  display: flex;
-  gap: 5px;
-  opacity: 0;
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
-  z-index: var(--z-sticky);
-}
-
-.bzs-bkcard:hover .rowacts {
-  opacity: 1;
-}
-
-.bzs-bkcard .rowacts button {
-  flex: 1;
-  border: 1px solid var(--glass-line);
-  background: var(--glass);
-  backdrop-filter: blur(10px);
-  color: var(--t1);
-  font-size: 11px;
-  padding: 5px 0;
-  border-radius: var(--r-ctl);
-}
-
-.bzs-bkcard .rowacts button:hover {
-  color: var(--copper);
-  border-color: var(--copper-line);
-}
+/* S-08（2026-11-04）：`.bzs-bkcard .rowacts` 的整段样式没有对应 DOM，
+   连带那两处 `backdrop-filter: blur(10px)` 一起删掉。 */
 
 .bzs-bkcard.is-done .bzs-cov {
   filter: saturate(.55);

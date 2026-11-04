@@ -18,6 +18,7 @@ import type { ReaderSettings } from '../data/settings';
 import { normalizeSettings } from '../data/settings';
 import type { ReaderStore } from '../data/store';
 import type { StudyPage } from './state';
+import type { TextHit } from './text-search';
 
 export interface ShellSource {
   app: App;
@@ -57,7 +58,7 @@ export interface ShellSource {
    * 搜当前这一本的正文，返回带 CFI 的命中（新功能「书内搜索的命中定位」）。
    * 没有打开的书时返回空数组。
    */
-  searchText: (kw: string) => Promise<Array<{ cfi: string; excerpt: string; chapterLabel: string; chapterIndex: number }>>;
+  searchText: (kw: string) => Promise<TextHit[]>;
   /** 当前有没有打开着的阅读视图（正文搜索前先问一句，别让用户搜了个寂寞） */
   hasOpenReader: () => boolean;
   /**

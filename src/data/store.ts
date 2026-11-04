@@ -440,7 +440,15 @@ export class ReaderStore {
         if (now && now !== this.diskSig) {
           const disk = await this.readDisk();
           if (disk) {
-            this.data = mergeData(this.data, disk.data);
+            const merged = mergeData(this.data, disk.data);
+            /* 原地改 books 数组，不换引用：BookRepo 在构造时拿的是
+               `store.get().books` 那一个数组（book-repo.ts 的 all() 直接返回它）。
+               直接 `this.data = merged` 会让 repo 继续指向旧数组——
+               合并一发生，新导入的书落不了盘、删掉的书重启又回来（P3-07 的坑）。 */
+            const books = this.data.books;
+            books.length = 0;
+            books.push(...merged.books);
+            this.data = { ...merged, books };
             if (disk.dropped.length) void this.saveDropped(disk.dropped);
           }
         }

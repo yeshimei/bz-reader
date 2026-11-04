@@ -33,6 +33,7 @@ import { dataDirOf, normalizeDataDir } from '../core/plugin-path';
 import { bindMaskDismiss } from '../core/mask-dismiss';
 import { RT, pushAi } from './runtime';
 import { rangeFill } from './range-fill';
+import { getToc } from '../view/toc-state';
 import { dispatchInput } from './actions';
 import { trialButtonHtml } from './group';
 
@@ -297,11 +298,29 @@ function overlayBookmap(): string {
     g.bks += 1;
     chapters.set(k.chapterTitle, g);
   }
+  /* 鸟瞰的章节名来自标注，不是目录项：两者可能差一个「第一章」编号。
+     先用完整名字精确找，再用包含关系兜底；找不到 href 时动作层还有名称回查。 */
+  const toc = getToc()?.items ?? [];
+  const hrefOf = (title: string): string => {
+    const t = title.trim();
+    if (!t) return '';
+    const exact = toc.find((it) => (it.label || '').trim() === t);
+    if (exact?.href) return exact.href;
+    const loose = toc.find((it) => {
+      const l = (it.label || '').trim();
+      return !!l && (l.includes(t) || t.includes(l));
+    });
+    return loose?.href ?? '';
+  };
   const rows = [...chapters.entries()]
     .map(
       /* 行要真的能点（S-05）：样式里早就有 cursor:pointer 和 hover 铜底，
-         但 DOM 上没有 data-act——看着能点、点下去整块是死的。 */
-      ([title, g], i) => `<div class="row" data-act="jumpch" data-label="${esc(title)}" role="button" tabindex="0">
+         但 DOM 上没有 data-act——看着能点、点下去整块是死的。
+         同时补 data-href：review 明确要求带 href，靠章节名回查 TOC 在
+         编号不一致时多半找不到（TOC 的 label 常带「第一章」）。 */
+      ([title, g], i) => `<div class="row" data-act="jumpch" data-label="${esc(title)}"${
+        hrefOf(title) ? ` data-href="${esc(hrefOf(title))}"` : ''
+      } role="button" tabindex="0">
         <span class="no">${cn(i + 1)}</span><span class="nm">${esc(title)}</span>
         <div class="strip">${Array.from({ length: Math.min(12, g.marks) }, () => '<u style="background:var(--copper)"></u>').join('')}</div>
         <span class="bzs-mini">${g.marks} 划 · ${g.bks} 签</span></div>`,
@@ -499,7 +518,8 @@ function overlayAi(text?: string, mode?: string): string {
     'AI 助手',
     '只发送选中的这一段',
     body,
-    `<button class="bzs-btn" data-act="aisave" data-text="${esc(t)}">存为笔记</button>${closeBtn()}`,
+    `<button class="bzs-btn" data-act="aicancel"${ready ? '' : ' disabled'}>取消请求</button>
+     <button class="bzs-btn" data-act="aisave" data-text="${esc(t)}">存为笔记</button>${closeBtn()}`,
     'wide',
   );
   }
@@ -871,11 +891,17 @@ export async function runAiForOverlay(): Promise<void> {
   if (key === aiRequestedFor) return;
   aiRequestedFor = key;
   const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
+  /* 新请求先取消旧的：用户连点两次模式不该两个请求并排跑 */
+  RT.aiAbort?.abort();
+  const ctrl = new AbortController();
+  RT.aiAbort = ctrl;
   try {
-    const res = await aiAsk(s, task, text);
+    const res = await aiAsk(s, task, text, { signal: ctrl.signal });
+    if (RT.aiAbort === ctrl) RT.aiAbort = null;
     if (node) node.textContent = res.text;
     pushAi(false, `AI · ${s.ai.model}`, res.text);
   } catch (e) {
+    if (RT.aiAbort === ctrl) RT.aiAbort = null;
     if (node) node.textContent = (e as Error).message;
   }
 }
