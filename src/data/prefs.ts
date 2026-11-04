@@ -155,10 +155,18 @@ export const LEGACY_THEMES: ReadonlySet<string> = new Set([
  *
  * 老数据只有一份全局 `prefs`——第一次读任一平台时先拿它当初始值，
  * 之后各写各的槽。这样升级不会突然把用户调好的字号清零。
+ *
+ * 「上下边距」是后加的档，老数据里没有：桌面本来就不该凭空多出上下留白
+ * （用户的原话是「桌面端不要给任何默认的上下边距」），所以缺省时桌面取 0、
+ * 手机取一档呼吸位。写过这个值的用户不受影响——哪怕写的就是 0。
  */
 export function pickPrefs(data: unknown, mobile: boolean): ReaderPrefs {
   const d = (data ?? {}) as Record<string, unknown>;
-  return normalizePrefs(d[mobile ? 'prefsMobile' : 'prefsDesktop'] ?? d.prefs ?? undefined);
+  const raw = d[mobile ? 'prefsMobile' : 'prefsDesktop'] ?? d.prefs ?? undefined;
+  const prefs = normalizePrefs(raw);
+  const saved = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).marginY : undefined;
+  if (saved === undefined) prefs.marginY = mobile ? DEFAULT_PREFS.marginY : 0;
+  return prefs;
 }
 
 function clamp(n: unknown, min: number, max: number, fallback: number): number {

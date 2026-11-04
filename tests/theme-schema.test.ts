@@ -60,12 +60,30 @@ describe('buildChapterCSS', () => {
   });
 
   it('分页模式：body 不再留上下 padding（每页留白交给分页器）', () => {
-    /* 分页时 body 的 padding 只对章首页生效，章中页顶到边——留白得由
-       `--_pad-top` / `--_pad-bottom` 管（见 host.applyPrefs）。
+    /* 分页时 body 的 padding 只对章首页生效，章中页顶到边。
        两处都留就会在章首页叠成两倍。 */
     const css = buildChapterCSS({ ...DEFAULT_PREFS, flow: 'paged', marginY: 64 });
     expect(css).toMatch(/padding-top:\s*0px/);
     expect(css).toMatch(/padding-bottom:\s*0px/);
+  });
+
+  /**
+   * 分页器每页的 padding 是 `var(--_pad-top) ... var(--_pad-bottom)`。
+   * 变量必须定义在**书页文档**里：宿主元素上的 CSS 变量跨不进 iframe，
+   * 以前写在 host.setCssProps 上，所以调上下边距从来没反应。
+   */
+  it('把上下边距写进书页文档的 --_pad-top / --_pad-bottom', () => {
+    const css = buildChapterCSS({ ...DEFAULT_PREFS, marginY: 64 });
+    expect(css).toMatch(/--_pad-top:\s*64px/);
+    expect(css).toMatch(/--_pad-bottom:\s*64px/);
+  });
+
+  it('--_pad-* 跟着 marginY 走（不是写死的 0/8）', () => {
+    const tight = buildChapterCSS({ ...DEFAULT_PREFS, marginY: 12 });
+    const loose = buildChapterCSS({ ...DEFAULT_PREFS, marginY: 96 });
+    expect(tight).toMatch(/--_pad-top:\s*12px/);
+    expect(loose).toMatch(/--_pad-top:\s*96px/);
+    expect(loose).toMatch(/--_pad-bottom:\s*96px/);
   });
 
   it('滚动模式调大调小，padding 跟着变（不是写死的 18/28）', () => {

@@ -90,14 +90,21 @@ export function buildChapterCSS(prefs: ReaderPrefs): string {
   // 所以不再需要给毛玻璃条让位。现在只有一档「上下边距」（prefs.marginY），
   // 上下必须一样高——手机全屏时底部多出来的每一分都会变成一块空田。
   //
-  // 分页模式下 body 的 padding 只对章首页生效，章中页顶到边；每页的留白由
-  // 分页器的 --_pad-top / --_pad-bottom 管（见 host.applyPrefs）。这里只在
-  // 滚动模式下写 body padding，否则章首页会叠成两倍。
+  // 分页模式下每页的上下留白由分页器的 `padding: var(--_pad-top) ...
+  // var(--_pad-bottom)` 决定（vendor 补丁）。变量必须定义在**书页文档里**：
+  // 宿主元素上的 CSS 变量不会跨 iframe 继承，以前写在 host.setCssProps 上，
+  // 所以从来没生效过——「调上下边距没反应」就是这么来的。
+  // 这里同时写 body 的 padding：滚动模式没有分页器，留白只能靠它。
   const paged = prefs.flow !== 'scroll';
   const padTop = paged ? '0px' : `${prefs.marginY}px`;
   const padBottom = paged ? '0px' : `${prefs.marginY}px`;
 
   return `
+html {
+  /* 分页器每页的上下留白（columns 的 padding 读这两个变量） */
+  --_pad-top: ${prefs.marginY}px;
+  --_pad-bottom: ${prefs.marginY}px;
+}
 html, body {
   background: ${theme.bgColor} !important;
   color: ${theme.textColor} !important;

@@ -9,6 +9,7 @@ import {
   LEGACY_THEMES,
   gatedPrefs,
   normalizePrefs,
+  pickPrefs,
 } from '../src/data/prefs';
 
 describe('normalizePrefs', () => {
@@ -119,5 +120,26 @@ describe('gatedPrefs', () => {
     const before = JSON.stringify(fancy);
     gatedPrefs(fancy, false);
     expect(JSON.stringify(fancy)).toBe(before);
+  });
+});
+
+/**
+ * 「上下边距」是新加的档，老数据里没有。
+ *
+ * 桌面本来就不该凭空多出上下留白（用户的原话：桌面端不要给任何默认的上下边距），
+ * 手机可以留一档呼吸位。写过这个值的用户原样保留——哪怕写的就是 0。
+ */
+describe('pickPrefs · 上下边距的默认值按平台分', () => {
+  it('桌面没写过这一档就是 0', () => {
+    expect(pickPrefs({ prefsDesktop: { fontSize: 18 } }, false).marginY).toBe(0);
+  });
+
+  it('手机没写过时给一档呼吸位', () => {
+    expect(pickPrefs({ prefsMobile: { fontSize: 18 } }, true).marginY).toBe(DEFAULT_PREFS.marginY);
+  });
+
+  it('写过的值（包括 0）原样保留', () => {
+    expect(pickPrefs({ prefsDesktop: { marginY: 44 } }, false).marginY).toBe(44);
+    expect(pickPrefs({ prefsMobile: { marginY: 0 } }, true).marginY).toBe(0);
   });
 });

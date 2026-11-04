@@ -1,27 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { bottomOverlap } from '../src/view/bottom-gap';
+import { navBottomGap } from '../src/view/bottom-gap';
 
 /**
- * 手机底部导航栏压在正文上。
+ * 手机底部导航栏压在正文上，要给阅读区让出它的高度。
  *
- * 阅读区伸到屏幕最底、分页按容器高度排，栏又是浮着的——最后一行就
- * 正好被它盖住。这里量的是「压住多少」，量到 0 就不动，绝不凭空调白。
+ * 量的是**栏自己的高度**，不是「阅读区底边 − 栏顶边」：那两个坐标经常不在
+ * 同一个参照里，一量就是一整屏，底部凭空多出一大块空白（真机反馈）。
  */
-describe('bottomOverlap', () => {
-  it('阅读区伸到栏下面：量出重叠的高度', () => {
-    expect(bottomOverlap(2400, 2356)).toBe(44);
+describe('navBottomGap', () => {
+  it('按栏自己的高度让位', () => {
+    expect(navBottomGap(44)).toBe(44);
+    expect(navBottomGap(56.4)).toBe(56);
   });
 
-  it('栏在阅读区之下（已经扣过高度）：不加留白', () => {
-    expect(bottomOverlap(2300, 2356)).toBe(0);
+  it('拿不到栏 / 栏被隐藏：不让位', () => {
+    expect(navBottomGap(null)).toBe(0);
+    expect(navBottomGap(undefined)).toBe(0);
+    expect(navBottomGap(0)).toBe(0);
+    expect(navBottomGap(-10)).toBe(0);
   });
 
-  it('拿不到栏就当没有遮挡', () => {
-    expect(bottomOverlap(2400, null)).toBe(0);
-  });
-
-  it('小数取整，别把 0.4px 的缝变成留白', () => {
-    expect(bottomOverlap(2400.4, 2356)).toBe(44);
-    expect(bottomOverlap(2355.6, 2356)).toBe(0);
+  it('命中了一个巨大的容器也不会吃掉整页', () => {
+    expect(navBottomGap(800)).toBe(96);
   });
 });

@@ -58,7 +58,7 @@ import { openOverlay } from '../shell/state';
 import { tapIntent } from './tap-intent';
 import { pagingKeyAction } from './paging-key';
 import { updateImmersiveHolders } from './immersive';
-import { bottomOverlap } from './bottom-gap';
+import { navBottomGap } from './bottom-gap';
 import { destroyQuietly } from '../core/safe-destroy';
 import { anchoredPlacement } from '../shell/anchored-style';
 import { RT, onNotesChanged } from '../shell/runtime';
@@ -726,7 +726,10 @@ export class ReaderView extends ItemView {
    *
    * Obsidian 移动端的导航栏（`< > 🔍 + ☰`）是**浮在内容上**的：阅读区一直
    * 伸到屏幕最底，分页按容器高度排，排满的那一页最后一行就压在栏下。
-   * 只有排满时才看得出来，所以用户觉得是「偶尔」。
+   *
+   * 量的是栏**自己的高度**。以前量「阅读区底边 − 栏顶边」，两个坐标不在
+   * 同一个参照里，真机上动不动就量出一整截，底部凭空多出上百像素——
+   * 用户的原话是「固定下边距还是太多了」。
    *
    * 量到 0 就把变量摘掉，绝不凭空调白——桌面端、栏被隐藏时都不该多一刀。
    */
@@ -738,11 +741,8 @@ export class ReaderView extends ItemView {
       return;
     }
     const nav = document.querySelector<HTMLElement>('.mobile-navbar');
-    /* 全屏（沉浸）时导航栏常常只是 display:none：rect 全 0。
-       不能拿 0 当「栏贴在最顶上」，那样算出来是一整屏的留白。 */
-    const navRect = nav?.getBoundingClientRect();
-    const navTop = navRect && navRect.height > 0 ? navRect.top : null;
-    const gap = bottomOverlap(root.getBoundingClientRect().bottom, navTop);
+    /* 全屏（沉浸）时导航栏常常只是 display:none，rect 高度是 0 → 不让位 */
+    const gap = navBottomGap(nav?.getBoundingClientRect().height);
     if (gap > 0) root.style.setProperty('--bzr-bottom-gap', `${gap}px`);
     else root.style.removeProperty('--bzr-bottom-gap');
   }
