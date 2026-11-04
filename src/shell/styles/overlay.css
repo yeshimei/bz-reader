@@ -106,6 +106,25 @@
   overflow: visible;
 }
 
+/* 书摘浮卡是例外：它整块不透明。
+   模板 chips、引文卡、动作按钮都落在同一块底板上——以前外壳透明、三块各自
+   上色，块与块之间的缝会漏出正文，整张卡看起来像半透明的。 */
+.bzs-float.is-anchored.bzs-quote-panel {
+  width: max-content;
+  max-width: min(480px, calc(100vw - 24px));
+  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-card);
+  box-shadow: 0 18px 40px rgba(40, 32, 20, .18), 0 4px 10px rgba(40, 32, 20, .08);
+  padding: 10px;
+}
+
+/* 经典卡在底板上同色，描边会变成「卡中卡」；只弱化这一版，
+   信笺的虚线框与夜读的深底边框都保留。 */
+.bzs-quote-panel .bzs-qcard:not([class*="tpl-"]) {
+  border-color: transparent;
+}
+
 /* ① 脚注：左侧一枚「注」小印，其余全是注文 */
 .bzs-fncard {
   position: relative;

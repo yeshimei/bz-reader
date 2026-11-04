@@ -66,6 +66,27 @@ describe('划线列表', () => {
   });
 });
 
+describe('页签 · 纯图标', () => {
+  /* 定稿：页签不写字，四颗图标等分居中，名字靠 title / aria-label。
+     文字+图标并排在 300px 的侧栏里要占掉一半宽度，图标反而变小。 */
+  it('只画图标，不画文字标签', () => {
+    const html = view();
+    expect(html).toContain('data-tab="toc"');
+    expect(html).not.toContain('>目录<');
+    expect(html).not.toContain('>书签<');
+  });
+
+  it('图标用 Obsidian 原生那套（bzs-ico-native）', () => {
+    expect(view()).toContain('bzs-ico-native');
+  });
+
+  it('名字仍然留在 title / aria-label 上', () => {
+    const html = view();
+    expect(html).toContain('title="目录"');
+    expect(html).toContain('aria-label="目录"');
+  });
+});
+
 describe('AI 页签', () => {
   /* 入口平权：基础版也保留 AI 页签，点进去是高级版说明/解锁，
      而不是让页签整个消失。 */

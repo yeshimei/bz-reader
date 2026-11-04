@@ -9,7 +9,9 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: var(--bg-2);
+  /* 同阅读画布：不自己上色。--bg-2 是主背景混 2% 文字色，纯白主题下
+     整块书架会比周围多一层灰；透明之后跟着宿主 view-content 走。 */
+  background: transparent;
 }
 
 /* ── 头行 ──

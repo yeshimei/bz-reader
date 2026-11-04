@@ -14,7 +14,7 @@ import type { BmkRow, MarkRow } from '../domain';
 import { bmksOf, groupByChapter, marksOf } from '../domain';
 import type { SideTab } from '../state';
 import { isTocItemActive, type TocActiveRef } from '../toc-active';
-import { esc, ico } from './html';
+import { esc, ico, icoNative } from './html';
 
 export interface AiLogItem {
   me: boolean;
@@ -44,10 +44,10 @@ export interface SidebarView {
  * 入口平权：AI 页签始终存在，基础版点它由 actions 弹高级版对照页。
  */
 export const SIDE_TABS: Array<{ value: SideTab; label: string; icon: string }> = [
-  { value: 'toc', label: '目录', icon: 'board' },
+  { value: 'toc', label: '目录', icon: 'book-open' },
   { value: 'bookmarks', label: '书签', icon: 'bookmark' },
-  { value: 'highlights', label: '划线', icon: 'pen' },
-  { value: 'ai', label: 'AI', icon: 'ai' },
+  { value: 'highlights', label: '划线', icon: 'highlighter' },
+  { value: 'ai', label: 'AI', icon: 'sparkles' },
 ];
 
 /** 没有折叠状态时的空集：省掉每次渲染都新建一个 Set */
@@ -195,9 +195,9 @@ export function viewSidebar(v: SidebarView): string {
   const tabs = SIDE_TABS
     .map((t) => {
       const n = tabCount(t.value);
-      return `<button class="bzs-sbtab${v.tab === t.value ? ' on' : ''}" data-act="sbtab" data-tab="${t.value}" title="${t.label}">${ico(
+      return `<button class="bzs-sbtab${v.tab === t.value ? ' on' : ''}" data-act="sbtab" data-tab="${t.value}" title="${t.label}" aria-label="${t.label}">${icoNative(
         t.icon,
-      )}<span>${t.label}</span>${n ? `<span class="n">${n}</span>` : ''}</button>`;
+      )}${n ? `<span class="n">${n}</span>` : ''}</button>`;
     })
     .join('');
 

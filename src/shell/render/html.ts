@@ -51,6 +51,30 @@ export function ico(name: string): string {
   return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 }
 
+/**
+ * Obsidian 原生图标（lucide 那一套）：24 viewBox、2 描边。
+ *
+ * 与 ico() 的区别只在描边与路径来源：侧栏页签要和宿主自己的标签栏并排，
+ * 1.5 描边的自绘线在 18px 下比宿主图标细一档，一眼能看出是外来的。
+ * 路径与 Obsidian 的 setIcon 同源（lucide-static）。
+ */
+export function icoNative(name: string, size = 18): string {
+  const paths: Record<string, string> = {
+    'book-open':
+      '<path d="M12 5v16"/><path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"/>',
+    bookmark:
+      '<path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z"/>',
+    highlighter:
+      '<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>',
+    sparkles:
+      '<path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/>',
+    'list-tree':
+      '<path d="M8 5h13"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="M3 10a2 2 0 0 0 2 2h3"/><path d="M3 5v12a2 2 0 0 0 2 2h3"/>',
+  };
+  const p = paths[name] || '';
+  return `<svg class="bzs-ico-native" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+}
+
 /** 中文数字：全书鸟瞰的章节序号用，只在 1..99 上有意义。
  *  侧栏目录已经不用它了（那 24px 宁可留给章节名）。 */
 export function cn(n: number): string {

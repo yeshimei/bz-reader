@@ -64,26 +64,25 @@
   border: 0;
   cursor: pointer;
   position: relative;
-  padding: 8px 0 10px;
-  font-family: var(--serif);
-  /* 合并（P3-25）：后面原来还有一条 .bzs-sbtab 把 display / gap 补上、
-     把字号改成 11px——同一条规则定义两遍，前一遍的 font-size 被静默覆盖。 */
-  font-size: 11px;
+  /* 纯图标：四颗等分居中，页签高度给到 44px，手指点得稳 */
+  padding: 12px 0 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
   letter-spacing: 0;
   color: var(--t3);
   flex: 1;
   text-align: center;
 }
 
+/* 计数徽记：贴在图标右上角，不参与排版（不写字之后没有文字行可以挤） */
 .bzs-sbtab .n {
-  font-size: 11px;
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  margin-left: 7px;
+  font: 9px/1 var(--ui);
   color: var(--t3);
-  vertical-align: super;
-  margin-left: 3px;
 }
 
 .bzs-sbtab.on {
@@ -488,13 +487,12 @@
   min-width: 0;
 }
 
-/* ── 页签带图标 ──
-   五个页签挤在 ~300px 的侧栏里，纯文字认位太快、认意太慢；
-   图标不占额外宽度（12px），但扫一眼就能定位「书架还是目录」。 */
+/* ── 页签图标：Obsidian 原生尺寸 ──
+   18px、2 描边，和宿主自己的侧栏按钮同一档；未选中压到 .62 透明。 */
 .bzs-sbtab svg {
-  width: 12px;
-  height: 12px;
-  opacity: .7;
+  width: 18px;
+  height: 18px;
+  opacity: .62;
   flex-shrink: 0;
 }
 
