@@ -71,6 +71,15 @@ describe('设置页渲染', () => {
     expect((out.match(/data-act="headertoggle"/g) ?? []).length).toBe(10);
   });
 
+  it('分组顺序：阅读页图标排在外观之前', () => {
+    const out = html();
+    const headerAt = out.indexOf('<h3>阅读页图标</h3>');
+    const lookAt = out.indexOf('<h3>外观</h3>');
+    expect(headerAt).toBeGreaterThan(0);
+    expect(lookAt).toBeGreaterThan(0);
+    expect(headerAt).toBeLessThan(lookAt);
+  });
+
   it('三个目录的「迁移」按钮已去掉（改由选不同目录时二次确认）', () => {
     const out = html();
     expect(out).not.toContain('datadirmove');

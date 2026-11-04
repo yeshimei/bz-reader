@@ -248,5 +248,5 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-keys">${keyRows}</div>
     </div>`;
 
-  return `<div class="bzs-set-grid">${layout}${look}${header}${tts}${marks}${data}${ai}${lic}${keys}</div>`;
+  return `<div class="bzs-set-grid">${layout}${header}${look}${tts}${marks}${data}${ai}${lic}${keys}</div>`;
 }
