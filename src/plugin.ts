@@ -1044,12 +1044,17 @@ export function createPlugin(cfg: PluginConfig) {
      * 把书文件扩展名绑到阅读视图。
      *
      * 不绑的话，笔记里 `[[书.epub]]` 点下去 Obsidian 只会说「无法打开此文件」。
-     * 每个扩展名单独 try：`.txt` 是 Obsidian 原生的，`.epub` 也可能被别的
-     * 阅读器插件先注册——抢占时 `registerExtensions` 会抛，跳过一个不影响其余。
-     * 抢不到的那个格式退回 obsidian:// 链接（Live Preview 里点不到，阅读视图照常）。
+     *
+     * **`.txt` 故意不绑**：Obsidian 原生就把它当纯文本笔记编辑，抢过来会让用户
+     * 所有 txt 笔记一打开就变阅读器。txt 书的双链在阅读视图里照样由
+     * post-processor 接管，只是 Live Preview 里点不到。
+     *
+     * 其余扩展名逐个 try：也可能被别的阅读器插件先注册，抢占时
+     * `registerExtensions` 会抛，跳过一个不影响其余。
      */
     private registerBookFileExtensions(): void {
       for (const fmt of PRO_FORMATS) {
+        if (fmt === 'txt') continue;
         try {
           this.registerExtensions([fmt], VIEW_TYPE_READER);
         } catch {
