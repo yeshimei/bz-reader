@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_PREFS, type ReaderPrefs } from '../src/data/prefs';
+import { DEFAULT_PREFS } from '../src/data/prefs';
 
 /**
  * host.ts 的引擎行为测试。
@@ -309,82 +309,6 @@ describe('host · 滚动模式（一章滚完自动进下一章）', () => {
     wheel(host, 10);
     wheel(host, 10);
     expect(onTurn).toHaveBeenCalledWith('next');
-  });
-});
-
-/**
- * 上下边距要写到分页器上，不是只写 body。
- *
- * 分页时每页的上下留白由 shadow 里 html 的 padding 决定（vendor 补丁把它接成
- * `--_pad-top` / `--_pad-bottom`），注入的 body padding 只对章首页生效。
- * 只改 body 的话，用户翻到第二页就看不到任何变化——「调了没效果」。
- */
-describe('host · 上下边距（每页留白）', () => {
-  function wirePrefs(marginY: number) {
-    const host = newHost();
-    const fake = fakeView(vi.fn(async () => undefined));
-    const prefs = { ...DEFAULT_PREFS, marginY } as import('../src/data/prefs').ReaderPrefs;
-    Object.assign(host as unknown as Record<string, unknown>, { view: fake.view, prefs, opts: { prefs } });
-    host.applyPrefs(prefs);
-    const props = fake.renderer.setCssProps.mock.calls.map((c) => c[0] as Record<string, string>);
-    return props;
-  }
-
-  it('marginY 写给分页器：上下一样高（用户说的「上下边距」就是这两条）', () => {
-    const props = wirePrefs(64);
-    expect(props.some((p) => p['--_pad-top'] === '64px')).toBe(true);
-    expect(props.some((p) => p['--_pad-bottom'] === '64px')).toBe(true);
-  });
-
-  it('调到 0 时顶部就是 0（不再兜底成别的值）', () => {
-    const props = wirePrefs(0);
-    expect(props.some((p) => p['--_pad-top'] === '0px')).toBe(true);
-  });
-
-  /**
-   * 改了变量不等于改了版式：分页器把每页高度、iframe 高度都按旧的 padding
-   * 算好了，只换 CSS 变量不会重算页数。桌面窗口高、余量足，看起来「生效」；
-   * 手机屏矮，新留白直接把内容挤出 iframe，表现就是「拖了没反应」。
-   */
-  function marginYHost(from: number): {
-    host: InstanceType<EngineHostCtor>;
-    renderer: ReturnType<typeof fakeView>['renderer'];
-    base: ReaderPrefs;
-  } {
-    const host = newHost();
-    const fake = fakeView(vi.fn(async () => undefined));
-    const base = { ...DEFAULT_PREFS, marginY: from } as ReaderPrefs;
-    Object.assign(host as unknown as Record<string, unknown>, { view: fake.view, prefs: base, opts: { prefs: base } });
-    return { host, renderer: fake.renderer, base };
-  }
-
-  it('改上下边距后要让分页器重排（手机上拖滑块不能只改变量）', async () => {
-    const { host, renderer, base } = marginYHost(28);
-
-    host.applyPrefs({ ...base, marginY: 64 });
-    await new Promise((r) => setTimeout(r, 10));
-
-    expect(renderer.render).toHaveBeenCalled();
-  });
-
-  it('只改字号不重排（每拖一格都整章重排会卡）', async () => {
-    const { host, renderer, base } = marginYHost(28);
-
-    host.applyPrefs({ ...base, fontSize: 22 });
-    await new Promise((r) => setTimeout(r, 10));
-
-    expect(renderer.render).not.toHaveBeenCalled();
-  });
-
-  it('连续拖多格只重排一次（合到下一帧）', async () => {
-    const { host, renderer, base } = marginYHost(28);
-
-    host.applyPrefs({ ...base, marginY: 32 });
-    host.applyPrefs({ ...base, marginY: 48 });
-    host.applyPrefs({ ...base, marginY: 64 });
-    await new Promise((r) => setTimeout(r, 10));
-
-    expect(renderer.render).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { installDomStub } from './helpers/dom-stub';
 import { EMPTY_DATA, emptyNotes, emptyReading } from '../src/data/schema';
 import { accentColor, buildChapterCSS } from '../src/engine/theme';
-import { DEFAULT_PREFS, ACCENT_OPTIONS, normalizePrefs } from '../src/data/prefs';
+import { DEFAULT_PREFS, ACCENT_OPTIONS, normalizePrefs, type ReaderPrefs } from '../src/data/prefs';
 
 describe('schema 空值工厂', () => {
   it('EMPTY_DATA 是独立对象', () => {
@@ -53,44 +53,35 @@ describe('buildChapterCSS', () => {
     expect(css).toContain('body');
   });
 
-  it('滚动模式：上下边距写进 body 的 padding，且上下一样', () => {
-    const css = buildChapterCSS({ ...DEFAULT_PREFS, flow: 'scroll', marginY: 64 });
-    expect(css).toMatch(/padding-top:\s*64px/);
-    expect(css).toMatch(/padding-bottom:\s*64px/);
+  it('滚动模式：上下留白回到写死值（桌面 28/40）', () => {
+    const css = buildChapterCSS({ ...DEFAULT_PREFS, flow: 'scroll' });
+    expect(css).toMatch(/padding-top:\s*28px/);
+    expect(css).toMatch(/padding-bottom:\s*40px/);
   });
 
   it('分页模式：body 不再留上下 padding（每页留白交给分页器）', () => {
     /* 分页时 body 的 padding 只对章首页生效，章中页顶到边。
        两处都留就会在章首页叠成两倍。 */
-    const css = buildChapterCSS({ ...DEFAULT_PREFS, flow: 'paged', marginY: 64 });
+    const css = buildChapterCSS({ ...DEFAULT_PREFS, flow: 'paged' });
     expect(css).toMatch(/padding-top:\s*0px/);
     expect(css).toMatch(/padding-bottom:\s*0px/);
   });
 
   /**
    * 分页器每页的 padding 是 `var(--_pad-top) ... var(--_pad-bottom)`。
-   * 变量必须定义在**书页文档**里：宿主元素上的 CSS 变量跨不进 iframe，
-   * 以前写在 host.setCssProps 上，所以调上下边距从来没反应。
+   * 变量必须定义在**书页文档**里（宿主元素上的变量跨不进 iframe）。
+   * 「上下边距」撤档之后，这里就是写死的呼吸边，跟 body 那组同源。
    */
-  it('把上下边距写进书页文档的 --_pad-top / --_pad-bottom', () => {
-    const css = buildChapterCSS({ ...DEFAULT_PREFS, marginY: 64 });
-    expect(css).toMatch(/--_pad-top:\s*64px/);
-    expect(css).toMatch(/--_pad-bottom:\s*64px/);
+  it('分页器的每页留白：--_pad-* 是写死值（桌面 28/40）', () => {
+    const css = buildChapterCSS(DEFAULT_PREFS);
+    expect(css).toMatch(/--_pad-top:\s*28px/);
+    expect(css).toMatch(/--_pad-bottom:\s*40px/);
   });
 
-  it('--_pad-* 跟着 marginY 走（不是写死的 0/8）', () => {
-    const tight = buildChapterCSS({ ...DEFAULT_PREFS, marginY: 12 });
-    const loose = buildChapterCSS({ ...DEFAULT_PREFS, marginY: 96 });
-    expect(tight).toMatch(/--_pad-top:\s*12px/);
-    expect(loose).toMatch(/--_pad-top:\s*96px/);
-    expect(loose).toMatch(/--_pad-bottom:\s*96px/);
-  });
-
-  it('滚动模式调大调小，padding 跟着变（不是写死的 18/28）', () => {
-    const tight = buildChapterCSS({ ...DEFAULT_PREFS, flow: 'scroll', marginY: 4 });
-    const loose = buildChapterCSS({ ...DEFAULT_PREFS, flow: 'scroll', marginY: 96 });
-    expect(tight).toMatch(/padding-top:\s*4px/);
-    expect(loose).toMatch(/padding-top:\s*96px/);
+  it('偏好里再带 marginY 也不影响（这一档已经撤了）', () => {
+    const css = buildChapterCSS({ ...DEFAULT_PREFS, marginY: 120 } as unknown as ReaderPrefs);
+    expect(css).toMatch(/--_pad-top:\s*28px/);
+    expect(css).toMatch(/--_pad-bottom:\s*40px/);
   });
 
   it('不同字号产出的 CSS 不同（避免缓存串味）', () => {

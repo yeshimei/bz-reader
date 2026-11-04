@@ -39,13 +39,7 @@ function drag(k: string, v: string): void {
 }
 
 describe('排版滑块的写入', () => {
-  it('上下边距写进 marginY（数字，不是字符串）', () => {
-    install();
-    drag('marginY', '64');
-    expect(calls).toContainEqual({ marginY: 64 });
-  });
-
-  it('左右页边距仍然是 margin，两边不串', () => {
+  it('左右页边距写进 margin；上下留白已经撤档，不再跟着写', () => {
     install();
     drag('margin', '40');
     expect(calls).toContainEqual({ margin: 40 });

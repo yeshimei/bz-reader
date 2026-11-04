@@ -5,7 +5,6 @@ import {
   FONT_SIZE_RANGE,
   LINE_HEIGHT_RANGE,
   MARGIN_RANGE,
-  MARGIN_Y_RANGE,
   LEGACY_THEMES,
   gatedPrefs,
   normalizePrefs,
@@ -30,13 +29,6 @@ describe('normalizePrefs', () => {
     expect(normalizePrefs({ lineHeight: 9 }).lineHeight).toBe(LINE_HEIGHT_RANGE.max);
     expect(normalizePrefs({ margin: 1 }).margin).toBe(MARGIN_RANGE.min);
     expect(normalizePrefs({ margin: 999 }).margin).toBe(MARGIN_RANGE.max);
-  });
-
-  it('上下边距单独一档，同样被夹住', () => {
-    expect(normalizePrefs({}).marginY).toBe(DEFAULT_PREFS.marginY);
-    expect(normalizePrefs({ marginY: -40 }).marginY).toBe(MARGIN_Y_RANGE.min);
-    expect(normalizePrefs({ marginY: 999 }).marginY).toBe(MARGIN_Y_RANGE.max);
-    expect(normalizePrefs({ marginY: 33 }).marginY).toBe(33);
   });
 
   it('枚举值非法时回落到默认值', () => {
@@ -123,23 +115,35 @@ describe('gatedPrefs', () => {
   });
 });
 
+/** 桌面与移动各读各的槽；老数据只有一份全局 prefs 时两边都拿它当初始值。 */
+describe('pickPrefs · 平台分槽', () => {
+  it('桌面读 prefsDesktop、手机读 prefsMobile', () => {
+    const data = { prefsDesktop: { fontSize: 18 }, prefsMobile: { fontSize: 24 } };
+    expect(pickPrefs(data, false).fontSize).toBe(18);
+    expect(pickPrefs(data, true).fontSize).toBe(24);
+  });
+
+  it('本平台还没写过：退回老的全局 prefs', () => {
+    const data = { prefs: { fontSize: 22 } };
+    expect(pickPrefs(data, false).fontSize).toBe(22);
+    expect(pickPrefs(data, true).fontSize).toBe(22);
+  });
+});
+
 /**
- * 「上下边距」是新加的档，老数据里没有。
+ * 「上下边距」这一档已经撤掉：上下留白回到写死值（见 theme.ts）。
  *
- * 桌面本来就不该凭空多出上下留白（用户的原话：桌面端不要给任何默认的上下边距），
- * 手机可以留一档呼吸位。写过这个值的用户原样保留——哪怕写的就是 0。
+ * 老数据里可能还留着 marginY，读进来必须被丢掉——留着它等于留一个
+ * 永远不会生效的字段，下次有人看见又会以为能调。
  */
-describe('pickPrefs · 上下边距的默认值按平台分', () => {
-  it('桌面没写过这一档就是 0', () => {
-    expect(pickPrefs({ prefsDesktop: { fontSize: 18 } }, false).marginY).toBe(0);
+describe('上下边距已撤档', () => {
+  it('默认偏好里没有 marginY', () => {
+    expect(DEFAULT_PREFS).not.toHaveProperty('marginY');
   });
 
-  it('手机没写过时给一档呼吸位', () => {
-    expect(pickPrefs({ prefsMobile: { fontSize: 18 } }, true).marginY).toBe(DEFAULT_PREFS.marginY);
-  });
-
-  it('写过的值（包括 0）原样保留', () => {
-    expect(pickPrefs({ prefsDesktop: { marginY: 44 } }, false).marginY).toBe(44);
-    expect(pickPrefs({ prefsMobile: { marginY: 0 } }, true).marginY).toBe(0);
+  it('老数据带 marginY：归一化后丢掉，其余字段不受影响', () => {
+    const p = normalizePrefs({ marginY: 64, fontSize: 20 });
+    expect(p).not.toHaveProperty('marginY');
+    expect(p.fontSize).toBe(20);
   });
 });

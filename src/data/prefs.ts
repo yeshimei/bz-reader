@@ -39,14 +39,6 @@ export interface ReaderPrefs {
   lineHeight: number;
   /** 左右页边距：一行有多宽 */
   margin: number;
-  /**
-   * 上下页边距：一页有多满。
-   *
-   * 与 `margin` 分开是有理由的：手机上栏宽由屏幕决定（左右调不出花来），
-   * 真正决定「一屏能放多少行」的是上下留白。以前上下写死在主题里
-   * （桌面 28/40、手机 18/48），谁都觉得不对，但谁也改不了。
-   */
-  marginY: number;
   fontFamily: FontFamilyName;
   align: TextAlign;
   /* 这里曾经有 theme：五套皮肤撤掉之后它只剩 'auto' 一个值，
@@ -90,9 +82,6 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   /* 2.05 是定稿量出来的：2.0 在中文字里太挤，2.1 又散（ui-spec 的「尺寸口径」） */
   lineHeight: 2.05,
   margin: 32,
-  /* 28 是原来桌面写死的那个上边距；手机端由 theme.ts 在底部再加一点，
-     免得最后一行被宿主的悬浮导航条压住 */
-  marginY: 28,
   fontFamily: 'book',
   align: 'justify',
   accent: 'copper',
@@ -110,8 +99,6 @@ export const FONT_SIZE_RANGE = { min: 14, max: 30, step: 1 } as const;
 /* 步长 0.05：定稿默认 2.05 就落在这条线上，step 0.1 会把它四舍五入成 2.1 */
 export const LINE_HEIGHT_RANGE = { min: 1.4, max: 2.4, step: 0.05 } as const;
 export const MARGIN_RANGE = { min: 8, max: 120, step: 4 } as const;
-/* 下限 0：有人就喜欢正文从顶边第一行开始（屏幕小的时候尤其） */
-export const MARGIN_Y_RANGE = { min: 0, max: 120, step: 4 } as const;
 export const TTS_RATE_RANGE = { min: 0.6, max: 2, step: 0.1 } as const;
 
 /** 字体选项：值 → 注入 iframe 的 font-family；book = 不覆盖，跟随书自带 */
@@ -156,17 +143,11 @@ export const LEGACY_THEMES: ReadonlySet<string> = new Set([
  * 老数据只有一份全局 `prefs`——第一次读任一平台时先拿它当初始值，
  * 之后各写各的槽。这样升级不会突然把用户调好的字号清零。
  *
- * 「上下边距」是后加的档，老数据里没有：桌面本来就不该凭空多出上下留白
- * （用户的原话是「桌面端不要给任何默认的上下边距」），所以缺省时桌面取 0、
- * 手机取一档呼吸位。写过这个值的用户不受影响——哪怕写的就是 0。
+ * 「上下边距」撤档后老数据里可能还留着 marginY，normalizePrefs 会丢掉它。
  */
 export function pickPrefs(data: unknown, mobile: boolean): ReaderPrefs {
   const d = (data ?? {}) as Record<string, unknown>;
-  const raw = d[mobile ? 'prefsMobile' : 'prefsDesktop'] ?? d.prefs ?? undefined;
-  const prefs = normalizePrefs(raw);
-  const saved = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).marginY : undefined;
-  if (saved === undefined) prefs.marginY = mobile ? DEFAULT_PREFS.marginY : 0;
-  return prefs;
+  return normalizePrefs(d[mobile ? 'prefsMobile' : 'prefsDesktop'] ?? d.prefs ?? undefined);
 }
 
 function clamp(n: unknown, min: number, max: number, fallback: number): number {
@@ -211,7 +192,6 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     lineHeight:
       Math.round(clamp(p.lineHeight, LINE_HEIGHT_RANGE.min, LINE_HEIGHT_RANGE.max, DEFAULT_PREFS.lineHeight) * 20) / 20,
     margin: Math.round(clamp(p.margin, MARGIN_RANGE.min, MARGIN_RANGE.max, DEFAULT_PREFS.margin)),
-    marginY: Math.round(clamp(p.marginY, MARGIN_Y_RANGE.min, MARGIN_Y_RANGE.max, DEFAULT_PREFS.marginY)),
     fontFamily: family,
     align: p.align === 'left' ? 'left' : 'justify',
     accent,

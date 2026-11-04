@@ -374,9 +374,9 @@
 
   /* 底部只补「底栏会压住的那一块」+ 安全区：
      · 非全屏：底栏浮在内容上，syncBottomGap 量出它压住多少写进 --bzr-bottom-gap；
-       这一段是**固定的机器留白**，不参与用户的「上下边距」。
-     · 全屏：量不到底栏 → 0，只剩用户自己设的上下边距。
-     正文自己的留白由书页里的 --_pad-bottom 给（host.applyPrefs），
+       这一段是**固定的机器留白**，和书页里的呼吸边是两笔账。
+     · 全屏：量不到底栏 → 0，只剩书页里写死的下边距。
+     正文自己的留白由书页里的 --_pad-bottom 给（theme.ts 的固定值），
      这里再写死 8px 就会在全屏时凭空多出一块。 */
   .bzs-rpages {
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--bzr-bottom-gap, 0px));

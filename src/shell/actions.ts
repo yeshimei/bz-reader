@@ -1311,9 +1311,6 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
     case 'margin':
       src.setPrefs({ margin: Number(v) });
       break;
-    case 'marginY':
-      src.setPrefs({ marginY: Number(v) });
-      break;
     case 'ttsRate':
       src.setPrefs({ ttsRate: Number(v) });
       break;

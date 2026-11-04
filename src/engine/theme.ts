@@ -10,6 +10,7 @@
  * 后者在重排时会累积成多个标签，越读越慢。
  * ============================================================ */
 import { ACCENT_OPTIONS, FONT_FAMILIES, type AccentName, type ReaderPrefs } from '../data/prefs';
+import { isMobileEnv } from '../core/mobile';
 
 export interface ResolvedTheme {
   textColor: string;
@@ -86,24 +87,24 @@ export function buildChapterCSS(prefs: ReaderPrefs): string {
     verticalDecl = 'html { writing-mode: vertical-rl !important; }';
   }
 
-  // 上下留白：2026-11-03 起自绘的头/底悬浮栏撤了（动作进了宿主头栏、进度看目录），
-  // 所以不再需要给毛玻璃条让位。现在只有一档「上下边距」（prefs.marginY），
-  // 上下必须一样高——手机全屏时底部多出来的每一分都会变成一块空田。
+  // 上下留白：可调的「上下边距」撤档了（2026-11-05），回到写死的呼吸边——
+  // 桌面 28/40、手机 18/48。手机上底部多留一截，免得最后一行被宿主的悬浮
+  // 导航条压住；分页模式再叠加 .bzs-rpages 的底栏让位，两段各管各的。
   //
   // 分页模式下每页的上下留白由分页器的 `padding: var(--_pad-top) ...
   // var(--_pad-bottom)` 决定（vendor 补丁）。变量必须定义在**书页文档里**：
-  // 宿主元素上的 CSS 变量不会跨 iframe 继承，以前写在 host.setCssProps 上，
-  // 所以从来没生效过——「调上下边距没反应」就是这么来的。
+  // 宿主元素上的 CSS 变量不会跨 iframe 继承。
   // 这里同时写 body 的 padding：滚动模式没有分页器，留白只能靠它。
+  const mobile = isMobileEnv();
+  const padTop = mobile ? '18px' : '28px';
+  const padBottom = mobile ? '48px' : '40px';
   const paged = prefs.flow !== 'scroll';
-  const padTop = paged ? '0px' : `${prefs.marginY}px`;
-  const padBottom = paged ? '0px' : `${prefs.marginY}px`;
 
   return `
 html {
   /* 分页器每页的上下留白（columns 的 padding 读这两个变量） */
-  --_pad-top: ${prefs.marginY}px;
-  --_pad-bottom: ${prefs.marginY}px;
+  --_pad-top: ${padTop};
+  --_pad-bottom: ${padBottom};
 }
 html, body {
   background: ${theme.bgColor} !important;
@@ -118,9 +119,10 @@ html, body {
 ${verticalDecl}
 body {
   /* 顶栏底栏是悬浮毛玻璃条（原型①：工具悬浮在正文上），上下留白由正文
-     自己让出来——竖排时这是块方向留白，同样成立 */
-  padding-top: ${padTop} !important;
-  padding-bottom: ${padBottom} !important;
+     自己让出来——竖排时这是块方向留白，同样成立。分页模式归零：章首页
+     的留白交给分页器，两处都留会叠成两倍 */
+  padding-top: ${paged ? '0px' : padTop} !important;
+  padding-bottom: ${paged ? '0px' : padBottom} !important;
   padding-left: ${prefs.margin}px !important;
   padding-right: ${prefs.margin}px !important;
   box-sizing: border-box !important;

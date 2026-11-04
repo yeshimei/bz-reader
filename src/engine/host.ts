@@ -331,8 +331,6 @@ export class EngineHost {
   /** 选区检查的防抖句柄与「上一次已报告过哪一段」 */
   private selTimer: number | null = null;
   private lastSelKey = '';
-  /** 上下边距变化后的重排句柄：合并到下一帧，拖动滑块时不逐格重排整章 */
-  private reflowFrame = 0;
 
   constructor(app: App) {
     this.app = app;
@@ -1235,22 +1233,6 @@ export class EngineHost {
     renderer?.setStyles?.(buildChapterCSS(eff));
   }
 
-  /**
-   * 下一帧重排一次。
-   *
-   * 上下边距只换 CSS 变量时，分页器按旧 padding 算好的每页高度、iframe 高度
-   * 都不会变：新留白要么看不见，要么把内容挤出页外——手机屏矮，看起来就是
-   * 「拖了没反应」。滑块拖动一次会连着来几十次 setPrefs，逐次整章重排会卡，
-   * 所以合并到下一帧，只按最后那个值排一次。
-   */
-  private queueReflow(pag: { render?: () => void } | undefined): void {
-    if (!pag?.render || this.reflowFrame) return;
-    this.reflowFrame = window.requestAnimationFrame(() => {
-      this.reflowFrame = 0;
-      pag.render?.();
-    });
-  }
-
   /** 主题/字号/行距变化时调，只换样式不重开书 */
   applyPrefs(prefs: ReaderPrefs): void {
     const prev = this.prefs;
@@ -1274,13 +1256,9 @@ export class EngineHost {
       pag.setCssProps?.({ '--_column-count': cols });
       if (pag.getAttribute?.('max-column-count') !== cols) pag.setAttribute?.('max-column-count', cols);
     }
-    // 分页模式下 foliate 用内联 !important 把 documentElement 的 padding 覆成
-    // 「左右列距、上下 0」（columnize()），注入的 body padding 只对章首页生效——
-    // 章中页顶端只剩 shadow 的 48px 边距行。vendor 补丁把上下 padding 接成
-    // var(--_pad-top/bottom)。每页留白只有这一处能生效，所以它必须跟
-    // 「上下边距」同步；上下给同一个值，别再偷偷加余量。
-    pag?.setCssProps?.({ '--_pad-top': `${eff.marginY}px` });
-    pag?.setCssProps?.({ '--_pad-bottom': `${eff.marginY}px` });
+    /* 分页器的每页上下留白（--_pad-top/--_pad-bottom）由注入进书页文档的
+       buildChapterCSS 给，值写死在 theme.ts。宿主元素上的变量跨不进 iframe，
+       所以这里不再写它们——写了也不会生效。 */
     /* 翻页 / 滚动模式（P2-02）：foliate 的 paginator 认 `flow` 属性，
        设成 `scrolled` 之后 `#container` 变成 overflow:auto，滚轮和触控板
        自然滚动，`next()` / `prev()` 也自动改成「滚一屏」。
@@ -1307,11 +1285,6 @@ export class EngineHost {
     } else if (prevEff.columns !== eff.columns) {
       // 栏数不用重新 load：重算布局即可，锚点自己会回到原处
       pag?.render?.();
-    } else if (prevEff.marginY !== eff.marginY) {
-      /* 上下边距必须重排：只改变量的话，分页器还按旧的 padding 算页高和
-         iframe 高度，新留白会被挤出可见区（手机上调了像没调）。
-         滑块拖动会连着来几十次，合并到下一帧排一次，别逐格重排整章。 */
-      this.queueReflow(pag);
     }
   }
 
@@ -1713,10 +1686,6 @@ export class EngineHost {
     if (this.pinchTimer !== null) {
       window.clearTimeout(this.pinchTimer);
       this.pinchTimer = null;
-    }
-    if (this.reflowFrame) {
-      window.cancelAnimationFrame?.(this.reflowFrame);
-      this.reflowFrame = 0;
     }
     this.pinchPending = null;
     if (this.selTimer !== null) {
