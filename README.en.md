@@ -2,7 +2,7 @@
   <img src="docs/images/mark.svg" width="76" height="76" alt="">
   <h1>bz Reader</h1>
   <p><b>Turn Obsidian into a place to read.</b><br>
-  <sub>Desktop and mobile, multiple formats, AI Q&amp;A, wikilinks. All data stored locally.</sub></p>
+  <sub>Desktop and mobile, multiple formats, eight interface languages, AI Q&amp;A, wikilinks. All data stored locally.</sub></p>
 
   <p>
     <a href="https://obsidian.md"><img src="docs/images/badges/obsidian.svg" height="27" alt="Obsidian 1.8.7+"></a>
@@ -47,6 +47,36 @@
 | Text-to-speech | — | ✓ |
 | Original and translation side by side | — | ✓ |
 | Book map | — | ✓ |
+
+## Interface languages
+
+The interface follows Obsidian’s language, and you can also pick one of eight by hand
+under **Shelf → Settings → Interface**. The switch applies immediately; command names
+update after restarting Obsidian (the host registers them at load time).
+
+<details>
+<summary>The eight languages</summary>
+
+| Language | Code |
+|---|---|
+| 简体中文 | `zh` |
+| 繁體中文 | `zh-TW` |
+| English | `en` |
+| 日本語 | `ja` |
+| Deutsch | `de` |
+| Français | `fr` |
+| Español | `es` |
+| Português | `pt` |
+
+- Every language is labelled **in its own language** (Deutsch, 日本語, Português):
+  someone who only reads German can find `Deutsch` in a Chinese interface, whereas
+  “German” would only be legible to those who already read the current language.
+- Traditional Chinese is not a glyph conversion of Simplified: it is a separate pack
+  using Taiwan vocabulary (設定 / 預設 / 匯入 / 匯出 / 檔案).
+- **The changelog is the one exception**: it is written by hand for each release and
+  exists only in Chinese and English; the other six languages show the English entries.
+
+</details>
 
 ## Paid features
 

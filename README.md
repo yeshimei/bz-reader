@@ -2,7 +2,7 @@
   <img src="docs/images/mark.svg" width="76" height="76" alt="">
   <h1>bz Reader</h1>
   <p><b>把 Obsidian 变成一个能读书的地方。</b><br>
-  <sub>桌面端+移动端、多格式支持、AI 问答、双向链接，数据本地。</sub></p>
+  <sub>桌面端+移动端、多格式支持、八种界面语言、AI 问答、双向链接，数据本地。</sub></p>
 
   <p>
     <a href="https://obsidian.md"><img src="docs/images/badges/obsidian.svg" height="27" alt="Obsidian 1.8.7+"></a>
@@ -47,6 +47,33 @@
 | 朗读 | — | ✓ |
 | 原文与译文并排 | — | ✓ |
 | 全书鸟瞰 | — | ✓ |
+
+## 界面语言
+
+界面跟着 Obsidian 的语言走，也可以在 **书架 → 设置 → 界面** 里手动指定八种之一。
+切换后界面立即生效；命令名需要重启 Obsidian 才更新（它由宿主在加载时注册）。
+
+<details>
+<summary>支持哪八种语言</summary>
+
+| 语言 | 语言代码 |
+|---|---|
+| 简体中文 | `zh` |
+| 繁體中文 | `zh-TW` |
+| English | `en` |
+| 日本語 | `ja` |
+| Deutsch | `de` |
+| Français | `fr` |
+| Español | `es` |
+| Português | `pt` |
+
+- 语言名一律用**它自己的语言**书写（Deutsch、日本語、Português）：只会德语的人
+  在中文界面里也找得到 `Deutsch`，写「德语」等于只翻给中文用户看。
+- 繁体不是简体的字形转换，是另一套台湾用语（設定 / 預設 / 匯入 / 匯出 / 檔案）。
+- **更新日志是唯一的例外**：它每次发版手写，只做中文与英文两版；其余六种语言
+  显示英文条目。
+
+</details>
 
 ## 付费说明
 
