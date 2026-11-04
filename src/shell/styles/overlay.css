@@ -565,6 +565,52 @@ body.theme-dark .bzs-tb-more {
   display: block;
 }
 
+/* ── 删除划线的确认条（桌面工具条）──
+   和想法 / 书摘同一列：一条贴工具条上方，不是一张卡。
+   宽度按内容收缩——它只有一句话和两颗按钮，撑满 470px 会像一张空卡；
+   max-width 兜住窄窗口，文字长了就换行。 */
+.bzs-del-panel-body {
+  width: max-content;
+  max-width: min(470px, calc(100vw - 24px));
+  padding: 10px 12px;
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(40, 32, 20, .14), 0 2px 6px rgba(40, 32, 20, .06);
+}
+
+.bzs-del-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 12.5px var(--ui);
+  color: var(--t2);
+}
+
+.bzs-del-bar .sp {
+  flex: 1;
+}
+
+/* 取消是灰字，删除用朱砂：这一条上只有一个破坏性动作，不该有第二颗
+   需要辨认的主按钮。 */
+.bzs-del-bar button {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 4px 8px;
+  font: 12.5px var(--ui);
+  color: var(--copper);
+  white-space: nowrap;
+}
+
+.bzs-del-bar button.ghost {
+  color: var(--t3);
+}
+
+.bzs-del-bar button.danger {
+  color: var(--vermilion);
+  font-weight: 600;
+}
+
 @keyframes bzs-float-in {
   from { opacity: 0; }
 }

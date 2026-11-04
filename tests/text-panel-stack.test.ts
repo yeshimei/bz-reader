@@ -68,17 +68,21 @@ function marked(comment?: string): { book: ReturnType<typeof testBook>; markId: 
   return { book, markId: mark.id };
 }
 
-/** 打开某个浮层并取它渲染出来的 HTML */
-function render(kind: 'hltools' | 'idea' | 'quote' | 'ai' | 'confirmdel', markId = ''): string {
+/** 打开某个浮层并取它渲染出来的 HTML；`anchor` 是「从工具条点出来」的标志 */
+function render(
+  kind: 'hltools' | 'idea' | 'quote' | 'ai' | 'confirmdel',
+  markId = '',
+  anchor?: { left: number; top: number; width?: number; height?: number },
+): string {
   setState({
     ...DEFAULT_SHELL_STATE,
     bookId: 'b1',
     overlay:
       kind === 'quote'
-        ? { kind, text: '划线原文一段', bookId: 'b1', chapterTitle: '第一章', markId }
+        ? { kind, text: '划线原文一段', bookId: 'b1', chapterTitle: '第一章', markId, ...(anchor ? { anchor } : {}) }
         : kind === 'ai'
-          ? { kind, text: '划线原文一段', bookId: 'b1', markId }
-          : { kind, markId, bookId: 'b1' },
+          ? { kind, text: '划线原文一段', bookId: 'b1', markId, ...(anchor ? { anchor } : {}) }
+          : { kind, markId, bookId: 'b1', ...(anchor ? { anchor } : {}) },
   });
   return overlayHtml();
 }
@@ -215,10 +219,54 @@ describe('手机：面板独立成遮罩弹窗，不跟工具条', () => {
   });
 });
 
-describe('桌面：删除确认保持原来的浮卡', () => {
-  it('不套遮罩', () => {
+/**
+ * 桌面端从文字工具框点「删除」：确认改成一条，和想法 / 书摘同一列。
+ *
+ * 以前这里是一张带标题的遮罩大卡（`bzs-modal`），压在正文上、还带一层
+ * 半透明背景；用户点完删除得先关掉它才能继续读。现在是一条贴着工具条
+ * 上方的确认条：位置跟工具条一致，不遮正文。
+ */
+describe('桌面：删除确认改成贴字的一条', () => {
+  const anchor = { left: 100, top: 300, width: 120, height: 20 };
+
+  it('从工具条点删除：确认条在上、工具条在下，整块贴字', () => {
+    const { book, markId } = marked('这条想法');
+    install([book]);
+    const html = render('confirmdel', markId, anchor);
+
+    expect(html).toContain('bzs-tb-stack');
+    expect(html).toContain('bzs-del-bar');
+    expect(html.indexOf('bzs-del-bar')).toBeLessThan(html.indexOf('class="bzs-tb"'));
+    /* 工具条不换位置，还亮着「删除」 */
+    expect(html).toContain('class="bzs-sbtn danger on" data-act="hldel"');
+  });
+
+  it('不再压遮罩、不再是大弹窗', () => {
     const { book, markId } = marked();
     install([book]);
-    expect(render('confirmdel', markId)).not.toContain('bzs-text-scrim');
+    const html = render('confirmdel', markId, anchor);
+
+    expect(html).not.toContain('bzs-scrim');
+    expect(html).not.toContain('bzs-modal');
+  });
+
+  it('没有锚点（侧栏的 ×）仍走原来的确认弹窗', () => {
+    const { book, markId } = marked();
+    install([book]);
+    const html = render('confirmdel', markId);
+
+    expect(html).toContain('bzs-modal');
+    expect(html).not.toContain('bzs-tb-stack');
+  });
+
+  it('书签删除也仍是弹窗：它没有工具条，确认条无处可贴', () => {
+    const { book } = marked();
+    install([book]);
+    setState({
+      ...DEFAULT_SHELL_STATE,
+      bookId: 'b1',
+      overlay: { kind: 'confirmdel', bookmarkId: 'k1', bookId: 'b1' },
+    });
+    expect(overlayHtml()).toContain('bzs-modal');
   });
 });

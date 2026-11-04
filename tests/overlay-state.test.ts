@@ -65,6 +65,12 @@ describe('isFloatOverlay', () => {
     }
     expect(isFloatOverlay(undefined)).toBe(false);
   });
+
+  /* 桌面删除确认从大弹窗改成贴字的一条之后，点正文也得能关掉它——
+     否则卡片留在屏幕上，正文却先翻走了。 */
+  it('删除确认条算浮层', () => {
+    expect(isFloatOverlay('confirmdel')).toBe(true);
+  });
 });
 
 /**

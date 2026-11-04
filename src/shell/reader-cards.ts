@@ -137,3 +137,25 @@ export function bookmarkDeleteHtml(input: BookmarkDeleteInput): { body: string; 
      )}">删除</button>`;
   return { body, foot };
 }
+
+export interface MarkDeleteBarInput {
+  id: string;
+  bookId: string;
+  /** 这条划线是否带着想法：有才提「想法会一起删掉」 */
+  hasIdea?: boolean;
+}
+
+/**
+ * ⑦ 删除划线的确认条（桌面工具条）。
+ *
+ * 一行字 + 两颗按钮，不是一张卡：它贴在工具条上方，和想法 / 书摘同一列，
+ * 高度一多就把工具条挤走。删除不可撤销，所以不提供「不再提示」。
+ */
+export function markDeleteBarHtml(input: MarkDeleteBarInput): string {
+  const tx = input.hasIdea ? '删除这条划线？想法会一起删掉。' : '删除这条划线？';
+  return `<div class="bzs-del-bar">
+    <span class="tx">${tx}</span><span class="sp"></span>
+    <button class="ghost" data-act="close">取消</button>
+    <button class="danger" data-act="delmarkdo" data-id="${esc(input.id)}" data-book="${esc(input.bookId)}">删除</button>
+  </div>`;
+}

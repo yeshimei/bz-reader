@@ -14,7 +14,7 @@ import { anchoredPlacement } from './anchored-style';
 import { sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
 import { MARK_ACTS, SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from './text-toolbar';
-import { aiCardHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, markBubbleHtml } from './reader-cards';
+import { aiCardHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, markBubbleHtml, markDeleteBarHtml } from './reader-cards';
 import { HIGHLIGHT_COLORS } from '../data/notes';
 import { aiAsk, type AiTask } from '../data/ai';
 import type { ReaderBook } from '../data/schema';
@@ -390,11 +390,19 @@ function overlayHltools(markId?: string, bookId?: string): string {
 /**
  * 删除确认：侧栏行的 × 点下去先问一句。
  *
- * 两种东西共用这张卡：划线（markId）与书签（bookmarkId）。
+ * 两种东西共用这套确认：划线（markId）与书签（bookmarkId）。
  * 以前都是「再点一次才删」（toast 提示），但在侧栏里连点两下和
  * 「一次没点准又补一下」几乎分不出来。删除不可撤销，所以不给「不再提示」。
+ *
+ * 划线有两条路：桌面上从文字工具框点「删除」时带锚点，出一张贴字的小条；
+ * 从侧栏的 × 点进来没有锚点，仍走带标题的确认弹窗。
  */
-function overlayConfirmDel(markId?: string, bookId?: string, bookmarkId?: string): string {
+function overlayConfirmDel(
+  markId?: string,
+  bookId?: string,
+  bookmarkId?: string,
+  anchor?: { left: number; top: number; width?: number; height?: number },
+): string {
   /* 手机上删除确认与书摘 / AI 同一张遮罩弹窗：都从工具条上点出来，
      不该一个从底部抽屉来、另一个从中间来。桌面维持原来的浮卡。 */
   const mask = isMobileEnv() ? 'bzs-text-scrim' : '';
@@ -415,6 +423,15 @@ function overlayConfirmDel(markId?: string, bookId?: string, bookmarkId?: string
   const found = markById(markId, bookId);
   if (!found) return modal('删除划线', '', '<div class="bzs-empty">这条标注已经不在了。</div>', closeBtn(), '', mask);
   const { book, mark } = found;
+  /* 桌面工具条：和想法 / 书摘同一列——确认条在上、工具条在下，整块贴着
+     划线。不再压遮罩、不再弹带标题的大卡；工具条位置不动，点完不用重找。 */
+  if (!isMobileEnv() && anchor) {
+    return textPanel(
+      markDeleteBarHtml({ id: mark.id, bookId: book.id, hasIdea: !!mark.comment?.trim() }),
+      'bzs-del-panel',
+      { active: 'del', markId: mark.id, bookId: book.id, color: mark.color },
+    );
+  }
   const body = `<div class="bzs-qcard"><div class="q">${esc(mark.text)}</div>
       <div class="loc">${esc(book.meta.title || '')} · ${esc(mark.chapterTitle ?? '')}</div></div>
     <div class="bzs-mini" style="margin-top:12px;line-height:1.9">这条划线与它的想法会一起删掉，不能撤销。</div>`;
@@ -924,7 +941,7 @@ export function overlayHtml(): string {
     case 'hltools':
       return overlayHltools(o.markId, o.bookId);
     case 'confirmdel':
-      return overlayConfirmDel(o.markId, o.bookId, o.bookmarkId);
+      return overlayConfirmDel(o.markId, o.bookId, o.bookmarkId, o.anchor);
     case 'notedrop':
       return overlayConfirmDrop();
     case 'footnote':

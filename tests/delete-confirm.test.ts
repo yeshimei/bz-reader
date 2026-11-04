@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bookmarkDeleteHtml } from '../src/shell/reader-cards';
+import { bookmarkDeleteHtml, markDeleteBarHtml } from '../src/shell/reader-cards';
 
 /**
  * 删除书签改成和删除划线同一套：先出一张小卡，把要删的东西摊开写清楚。
@@ -35,5 +35,46 @@ describe('删除书签确认卡', () => {
   it('没有目录名时不留下多余的间隔', () => {
     const { body } = bookmarkDeleteHtml({ ...input, chapter: '' });
     expect(body).not.toContain('·  ');
+  });
+});
+
+/**
+ * 桌面端从文字工具框点「删除」：和想法 / 书摘同一列——一条确认条贴在
+ * 工具条上方，不再压一层遮罩、弹一张带标题的大卡。
+ *
+ * 这条形状定下来之后，工具条位置不动（整块底边仍贴着划线），
+ * 用户点完删除不用重新找按钮。
+ */
+describe('桌面删除划线的确认条', () => {
+  const input = { id: 'm1', bookId: 'b1', hasIdea: true };
+
+  it('是一行条，不是一张卡', () => {
+    const html = markDeleteBarHtml(input);
+    expect(html).toContain('bzs-del-bar');
+    expect(html).not.toContain('bzs-qcard');
+  });
+
+  it('说清楚删的是划线、想法会一起删掉', () => {
+    expect(markDeleteBarHtml(input)).toContain('删除这条划线？想法会一起删掉。');
+  });
+
+  it('没有想法时不提想法', () => {
+    const html = markDeleteBarHtml({ ...input, hasIdea: false });
+    expect(html).toContain('删除这条划线？');
+    expect(html).not.toContain('想法');
+  });
+
+  it('取消只是关掉，删除带 delmarkdo 与这条划线的 id', () => {
+    const html = markDeleteBarHtml(input);
+    expect(html).toContain('data-act="close"');
+    expect(html).toContain('data-act="delmarkdo"');
+    expect(html).toContain('data-id="m1"');
+    expect(html).toContain('data-book="b1"');
+  });
+
+  it('删除用危险色、排在最后', () => {
+    const html = markDeleteBarHtml(input);
+    expect(html).toContain('class="danger" data-act="delmarkdo"');
+    expect(html.indexOf('data-act="close"')).toBeLessThan(html.indexOf('data-act="delmarkdo"'));
   });
 });

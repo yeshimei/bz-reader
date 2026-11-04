@@ -67,6 +67,10 @@ const FLOAT_KINDS: readonly OverlayKind[] = [
      tapHandler 也读这份判断）。 */
   'quote',
   'ai',
+  /* 删除确认：桌面从工具条点出来是一条贴字的小条（点正文要能关掉它，
+     不然卡片还在、正文先翻走了）。手机那边仍是遮罩弹窗，遮罩自己会吃掉
+     点击，这里为真不影响它。 */
+  'confirmdel',
 ];
 
 export function isFloatOverlay(kind?: OverlayKind | null): boolean {

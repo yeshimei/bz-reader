@@ -968,8 +968,15 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     }
     case 'hldel':
       /* 正文工具条的「删除」以前直接删（连想法一起），无确认无撤销；
-         侧栏删同一条却要先过确认卡（P2-09）。统一走确认。 */
-      if (d.id) overlay('confirmdel', { markId: d.id, bookId: d.book || getState().bookId || '' });
+         侧栏删同一条却要先过确认卡（P2-09）。统一走确认。
+         带上工具条正贴着的锚点：桌面据此把确认条摆到工具条上方，
+         而不是再压一张遮罩弹窗。 */
+      if (d.id)
+        overlay('confirmdel', {
+          markId: d.id,
+          bookId: d.book || getState().bookId || '',
+          anchor: getState().overlay?.anchor,
+        });
       break;
     case 'ideasave':
       saveIdea(d.id, d.book);
