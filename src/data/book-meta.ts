@@ -106,10 +106,16 @@ export function contributorNames(value: unknown): string[] {
 
 /** 从任意字符串里捞 ISBN（`urn:isbn:` / `isbn:` / 裸 ISBN） */
 function isbnFromText(text: string): string {
-  const m = String(text || '').match(/isbn[\s:_-]*([0-9Xx][0-9Xx-]{8,16})/i);
-  if (!m) return '';
-  const digits = m[1].replace(/-/g, '').toUpperCase();
-  return digits.length >= 10 ? digits : '';
+  const s = String(text || '').trim();
+  const m = s.match(/isbn[\s:_-]*([0-9Xx][0-9Xx-]{8,16})/i);
+  if (m) {
+    const digits = m[1].replace(/-/g, '').toUpperCase();
+    if (digits.length >= 10) return digits;
+  }
+  /* EPUB2 常把 ISBN 直接写在 dc:identifier 里：纯 10 位（末位可为 X）或 13 位数字。
+     weave 的《红楼梦》就是这么存的（identifier = 1619127694）。 */
+  if (/^\d{9}[\dXx]$/.test(s) || /^\d{13}$/.test(s)) return s.toUpperCase();
+  return '';
 }
 
 /**

@@ -95,6 +95,14 @@ describe('isbnOf：从 identifier / altIdentifier 里捞 ISBN', () => {
   it('没有就用空串（不要拿 identifier 乱充）', () => {
     expect(isbnOf({ identifier: 'urn:uuid:3978bb51' })).toBe('');
   });
+
+  it('EPUB2 把 ISBN 直接写在 identifier 里（纯 10 位数字）', () => {
+    expect(isbnOf({ identifier: '1619127694' })).toBe('1619127694');
+  });
+
+  it('13 位纯数字也认（ISBN-13）', () => {
+    expect(isbnOf({ identifier: '9787020002207' })).toBe('9787020002207');
+  });
 });
 
 describe('engineMetaFromBook：打开书时能拿到的全部书目字段', () => {
