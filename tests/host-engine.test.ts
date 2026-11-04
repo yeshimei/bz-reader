@@ -416,6 +416,30 @@ describe('host · 落点高亮（从笔记 / 双链跳回原文）', () => {
     const host = newHost();
     await expect(call(host, 'pulseAt', 'epubcfi(/6/6)')).resolves.toBeUndefined();
   });
+
+  it('一秒后自己撤掉：够看清落点，又不挡阅读', async () => {
+    const { host, add, remove } = wirePulse();
+    const timers: Array<{ fn: () => void; delay?: number }> = [];
+    const w = window as unknown as { setTimeout: unknown; clearTimeout: unknown };
+    const origSet = w.setTimeout;
+    const origClear = w.clearTimeout;
+    w.setTimeout = (fn: () => void, delay?: number) => {
+      timers.push({ fn, delay });
+      return 1;
+    };
+    w.clearTimeout = () => undefined;
+    try {
+      await call(host, 'pulseAt', 'epubcfi(/6/6)');
+      expect(add).toHaveBeenCalledTimes(1);
+      expect(timers).toHaveLength(1);
+      expect(timers[0]?.delay).toBe(1000);
+      timers[0]?.fn();
+      expect(remove).toHaveBeenCalledWith('__bzr-pulse__');
+    } finally {
+      w.setTimeout = origSet;
+      w.clearTimeout = origClear;
+    }
+  });
 });
 
 describe('host · 关书兜底（A-08）', () => {
