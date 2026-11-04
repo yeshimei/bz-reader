@@ -88,16 +88,11 @@ describe('textToolbarHtml · 工具条', () => {
 });
 
 describe('textToolbarHtml · 想法', () => {
-  it('有想法时排在按钮行上方（先读批注，再操作）', () => {
+  it('有想法时跟在工具条下方（先操作，再读批注）', () => {
     const html = textToolbarHtml({ ...base, comment: '这句我想了很久' });
     expect(html).toContain('bzs-mark-bubble');
     expect(html).toContain('这句我想了很久');
-    expect(html.indexOf('bzs-mark-bubble')).toBeLessThan(html.indexOf('bzs-hlbar'));
-  });
-
-  it('想法气泡排在胶囊之前（气泡在上）', () => {
-    const html = textToolbarHtml({ ...base, comment: '想法' });
-    expect(html.indexOf('bzs-mark-bubble')).toBeLessThan(html.indexOf('bzs-hlbar'));
+    expect(html.indexOf('bzs-hlbar')).toBeLessThan(html.indexOf('bzs-mark-bubble'));
   });
 
   it('想法里的 HTML 被转义', () => {

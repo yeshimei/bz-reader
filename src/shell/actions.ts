@@ -1329,7 +1329,15 @@ function quoteFromMark(markId?: string, bookId?: string): void {
     notify('找不到这条标注，可能已经被删掉了', 'info');
     return;
   }
-  overlay('quote', { text: h.text, bookId: book.id, chapterTitle: h.chapterTitle, markId: h.id });
+  overlay('quote', {
+    text: h.text,
+    bookId: book.id,
+    chapterTitle: h.chapterTitle,
+    markId: h.id,
+    /* 从工具条点进来时工具条正贴着那条划线：锚点沿用，书摘卡才不会掉到屏幕角。
+       划词那条路径靠自己传 RT.sel.anchor，两条入口都得带。 */
+    anchor: getState().overlay?.anchor,
+  });
 }
 
 function saveIdea(markId?: string, bookId?: string): void {

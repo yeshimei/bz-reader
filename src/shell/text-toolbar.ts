@@ -41,7 +41,7 @@ function esc(s: string): string {
  * 工具条 + 想法。
  *
  * 返回的是浮层内部内容，外壳（定位、背景）由 overlay.ts 套。
- * 结构照 S10 定稿：想法气泡在上（有想法才出现），换色胶囊在下；
+ * 结构照 S10 定稿：换色胶囊在上（操作优先），想法气泡在下（有想法才出现）；
  * 胶囊与划词那条同形同尺寸（999 圆角、14px 色点、12.5px 文字），
  * 所以「划一段」和「点回一段」看到的是同一个控件。
  * `data-act` 与 data-id / data-book 必须和 actions.ts 里的 case 对上。
@@ -58,14 +58,13 @@ export function textToolbarHtml(input: TextToolbarInput): string {
     )
     .join('');
   const thought = (input.comment ?? '').trim();
-  return `${thought ? markBubbleHtml(thought) : ''}
-  <div class="bzs-hlbar">${dots}<span class="bzs-hlbar-sep"></span>
+  return `<div class="bzs-hlbar">${dots}<span class="bzs-hlbar-sep"></span>
     <button class="bzs-sbtn pri" data-act="hlidea" data-id="${id}" data-book="${book}">写想法</button>
     <button class="bzs-sbtn" data-act="hlquote" data-id="${id}" data-book="${book}">书摘</button>
     <button class="bzs-sbtn" data-act="copylink" data-id="${id}" data-book="${book}">双链</button>
     <button class="bzs-sbtn" data-act="hlcopy" data-id="${id}" data-book="${book}">复制</button>
     <button class="bzs-sbtn danger" data-act="hldel" data-id="${id}" data-book="${book}">删除</button>
-  </div>`;
+  </div>${thought ? markBubbleHtml(thought) : ''}`;
 }
 
 /**
