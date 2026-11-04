@@ -241,28 +241,33 @@ export function createPlugin(cfg: PluginConfig) {
          **用全局捕获，不用 markdown post-processor**：后者只在阅读视图跑，
          Live Preview（编辑模式）里的链接是编辑器装饰器，不经过它——点下去走
          Obsidian 默认处理，把 .epub 打开、替换掉当前笔记，用户回都回不来。
-         捕获阶段在 document 上先手，两种视图都能拦。 */
-      this.registerDomEvent(
-        document,
-        'click',
-        (e: MouseEvent) => {
-          const target = interceptableClick(e.target as Element | null, (p) => this.repo.byPath(p));
-          if (!target) {
-            /* 诊断：点的是书文件的双链却没认出来——把真实 href 打出来。
-               Obsidian 各版本对 data-href 的写法有过出入，格式猜错时靠这一行定位。 */
-            const link = (e.target as Element | null)?.closest?.('[data-href], a[href]') ?? null;
-            const href = link ? (hrefCandidates(link)[0] ?? '') : '';
-            if (/\.(epub|mobi|azw3|fb2|cbz)(#|%23)/i.test(href)) {
-              console.debug('[bz-reader] 双链没认出来：', href);
-            }
-            return;
+
+         click 与 pointerdown 都绑：各版本/各视图里哪个先到不确定，两个都听，
+         500ms 内只认第一次。 */
+      let lastHit = 0;
+      let diagnosed = false;
+      const onLinkClick = (e: MouseEvent | PointerEvent): void => {
+        const target = interceptableClick(e.target as Element | null, (p) => this.repo.byPath(p));
+        if (!target) {
+          /* 诊断：点的是书文件的双链却没认出来——把真实 href 显示一次。
+             各版本对 data-href 的写法有过出入，格式猜错时靠这条定位。 */
+          const link = (e.target as Element | null)?.closest?.('[data-href], a[href]') ?? null;
+          const href = link ? (hrefCandidates(link)[0] ?? '') : '';
+          if (!diagnosed && /\.(epub|mobi|azw3|fb2|cbz)(#|%23)/i.test(href)) {
+            diagnosed = true;
+            notify(`[bz 诊断] ${e.type} · ${href.slice(0, 90)}`, 'info');
           }
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          void this.openFromTarget(target);
-        },
-        true,
-      );
+          return;
+        }
+        const now = Date.now();
+        if (now - lastHit < 500) return;
+        lastHit = now;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        void this.openFromTarget(target);
+      };
+      this.registerDomEvent(document, 'pointerdown', onLinkClick, true);
+      this.registerDomEvent(document, 'click', onLinkClick, true);
 
       this.addRibbonIcon('library', 'bz 阅读：书架', () => this.openStudy());
 

@@ -81,12 +81,23 @@ export interface ParsedWikilink {
 export function parseWikilinkHref(href: string): ParsedWikilink | null {
   const raw = String(href || '').trim();
   if (!raw) return null;
-  const hash = raw.indexOf('#');
-  /* `#` 在 0 位说明没有路径；没有 `#` 说明不是带定位的链接 */
+
+  /* 分隔符可能是 `#`，也可能被编码成 `%23`（app:// 形式的 href）。
+     `t=` 里的 `%23` 在分隔符之后，不会被误切。 */
+  let hash = raw.indexOf('#');
+  let sepLen = 1;
+  if (hash < 0) {
+    hash = raw.indexOf('%23');
+    if (hash < 0) return null;
+    sepLen = 3;
+  }
+  /* 分隔符在 0 位说明没有路径 */
   if (hash <= 0) return null;
 
-  const vaultPath = raw.slice(0, hash);
-  const subpath = raw.slice(hash + 1);
+  const rawPath = raw.slice(0, hash);
+  /* 路径被 URL 编码过（中文文件名常见）时先解回来，否则按路径查不到书 */
+  const vaultPath = rawPath.includes('%') ? safeDecode(rawPath) : rawPath;
+  const subpath = raw.slice(hash + sepLen);
   if (!subpath.startsWith(PREFIX)) return null;
   /* 只认书文件：笔记的 .md、附件的 .png 都不该被当成书 */
   if (!formatOf(vaultPath)) return null;

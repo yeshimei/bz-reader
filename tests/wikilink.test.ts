@@ -117,6 +117,22 @@ describe('parseWikilinkHref · 从链接地址还原定位', () => {
     expect(parseWikilinkHref('#')).toBeNull();
     expect(parseWikilinkHref('#bzr-cfi=')).toBeNull();
   });
+
+  it('Obsidian 把 # 编码成 %23 时也能解析（app:// 形式的 href）', () => {
+    const { book, h } = bookWithHighlight('一句话', '第一章');
+    const { path, subpath } = partsOf(wikilinkOfMark(book, h));
+    const parsed = parseWikilinkHref(`${path}%23${subpath}`);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.vaultPath).toBe('书/测试书.epub');
+    expect(parsed!.target.cfi).toBe('epubcfi(/6/4)');
+  });
+
+  it('路径被 URL 编码时先解码再查书', () => {
+    const { book, h } = bookWithHighlight('一句话', '第一章');
+    const { path, subpath } = partsOf(wikilinkOfMark(book, h));
+    const parsed = parseWikilinkHref(`${encodeURIComponent(path)}#${subpath}`);
+    expect(parsed!.vaultPath).toBe('书/测试书.epub');
+  });
 });
 
 describe('wikilink 转义', () => {
