@@ -22,12 +22,9 @@
    两种都能命中，但漏了「桌面窄窗」，那是我们自己要支持的分屏场景。
    ========================================================== */
 
-/* 手机专属元素（「更多」按钮、书架的关闭钮）：
-   桌面默认隐藏；窄屏媒体查询里按各自的原始 display 放出来。
-   用 display 而不是 visibility——后者会留下一个看不见的空位。 */
-.is-mobile-only {
-  display: none;
-}
+/* 2026-11-04 删（S-08）：这里原来有 `.is-mobile-only { display: none }`，
+   但 DOM 里没有任何元素带这个类——「手机专属元素」现在靠
+   `.bzs-shell.is-mobile` 前缀直接控制，不需要这个开关。 */
 
 /* ═══════════════════════════════════════════════════════════
    一、阅读页
@@ -39,19 +36,13 @@
    但进度条要变大，因为它是唯一的远程跳转手段。
    ═══════════════════════════════════════════════════════════ */
 
-@container bzs (max-width: 820px) {
+@media (max-width: 820px) {
   /* 自绘的头/底两条栏已撤（动作进了宿主头栏，进度看目录），
      这里只剩朗读条的贴底位置。
      划词条不在这里定位：它由 reader-view 按选区算 left/top（移动端下方、
      桌面端上方）。以前这里用 !important 把它钉在 bottom:56px，
      无论选区在哪都弹在屏幕底部——用户看到的「偏移特别远」就是它。 */
 
-  /* 朗读条：贴着底部导航条之上 */
-  .bzs-ttsbar {
-    left: 10px;
-    right: 10px;
-    bottom: calc(52px + env(safe-area-inset-bottom, 0px));
-  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -61,7 +52,7 @@
    页签行铺满整宽，下划线与页签对齐，视觉上反而更像原生 tab。
    ═══════════════════════════════════════════════════════════ */
 
-@container bzs (max-width: 820px) {
+@media (max-width: 820px) {
   .bzs-stuhead {
     flex-wrap: wrap;
     align-items: center;
@@ -219,7 +210,7 @@
   }
 
   .bzs-ncard .loc > span:last-child {
-    margin-left: 0 !important;
+    margin-left: 0;
   }
 
   .bzs-review .q {
@@ -308,7 +299,7 @@
    遮罩的 blur 保留——它让背后的正文退成底噪，视觉上「还在书里」。
    ═══════════════════════════════════════════════════════════ */
 
-@container bzs (max-width: 820px) {
+@media (max-width: 820px) {
   .bzs-scrim {
     align-items: end;
     padding: 0;
@@ -346,11 +337,9 @@
   }
 
   /* 弹层内的两列网格（详情、导入、对照表）一律改单列 */
-  .bzs-detail,
-  .bzs-unlock-grid,
-  .bzs-pairgrid {
-    grid-template-columns: 1fr !important;
-    gap: 16px !important;
+  .bzs-detail {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 
   .bzs-detail .bzs-cov {
@@ -360,7 +349,7 @@
 
   /* 功能对照表：表头与行都要能在窄屏显示，把「备注」列折到第二行 */
   .bzs-plan-row {
-    grid-template-columns: 1fr 54px 54px !important;
+    grid-template-columns: 1fr 54px 54px;
     row-gap: 0;
   }
 
@@ -415,11 +404,7 @@
    320px 屏加间距会刚好溢出）。
    ═══════════════════════════════════════════════════════════ */
 
-@container bzs (max-width: 820px) {
-  .bzs-side-head {
-    padding: 8px 6px 0 8px;
-  }
-
+@media (max-width: 820px) {
   .bzs-sbhead {
     padding: 8px 14px;
   }
@@ -460,10 +445,6 @@
 /* 安全区：iPhone 的刘海与 Home 指示条会吃掉底部 34px */
 .bzs-shell.is-mobile .bzs-stuhead {
   padding-top: calc(12px + env(safe-area-inset-top, 0px));
-}
-
-.bzs-shell.is-mobile .bzs-side-head {
-  padding-top: calc(8px + env(safe-area-inset-top, 0px));
 }
 
 /* 真机上 hover 会在点击后「粘住」：封面一直悬停浮起、
@@ -609,7 +590,7 @@
 @media (max-width: 820px) {
   .bzs-selbar {
     max-width: calc(100vw - 16px);
-    flex-wrap: nowrap !important;
+    flex-wrap: nowrap;
     padding: 6px 8px;
     gap: 4px;
     white-space: nowrap;
@@ -1137,4 +1118,25 @@
   .bzs-stunav {
     gap: 12px;
   }
+}
+
+/* ── 触摸目标（S-03）──
+   移动端一半的可点控件小于 44px：开关 36×20、删除叉约 17×23、关闭钮 34×34、
+   搜索/导入钮 30×30、笔记卡按钮 padding:0。指腹点不中，删除叉尤其容易误触。
+   这里只**撑开热区**，图标本身尺寸不变——视觉不动，手指舒服。
+   开关整行 label 都可点：.bzs-setrow 里点文字也能切换。 */
+@media (max-width: 820px) {
+  .bzs-shell .x {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .bzs-shell .bzs-btn.sm,
+  .bzs-shell .bzs-chip,
+  .bzs-shell .bzs-sbtn {
+    min-height: 36px;
+  }
+
+  /* 开关 36×20 的视觉尺寸不动：改成 44 会把设置页整排撑高。
+     真要放大热区得改 DOM（整行 label 可点），那是另一件事。 */
 }

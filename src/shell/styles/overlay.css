@@ -9,7 +9,6 @@
   inset: 0;
   z-index: var(--z-float);
   background: var(--overlay);
-  backdrop-filter: blur(3px);
   display: grid;
   place-items: center;
   padding: 28px;
@@ -21,7 +20,6 @@
   display: flex;
   flex-direction: column;
   background: var(--glass);
-  backdrop-filter: blur(26px) saturate(1.25);
   border: 1px solid var(--glass-line);
   border-radius: var(--r-card);
   box-shadow: var(--shadow-lg);
@@ -48,7 +46,6 @@
   max-height: calc(100vh - 120px);
   pointer-events: auto;
   background: var(--glass);
-  backdrop-filter: blur(26px) saturate(1.25);
   border: 1px solid var(--glass-line);
   border-radius: var(--r-card);
   box-shadow: var(--shadow-lg);
@@ -197,9 +194,10 @@
   /* 手机上右上一个 320px 的浮层等于半屏，改成贴着底部的一整条 */
   .bzs-float.is-corner {
     top: auto;
-    bottom: 12px;
-    left: 12px;
-    right: 12px;
+    /* 手机底部安全区（S-11）：iPhone 的 Home 指示条占 34px，贴底 12px 会把最下面一排按钮压住 */
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    left: calc(12px + env(safe-area-inset-left, 0px));
+    right: calc(12px + env(safe-area-inset-right, 0px));
     width: auto;
     max-height: 62vh;
   }
@@ -599,7 +597,6 @@
   padding: 7px 9px;
   border-radius: var(--r-card);
   background: var(--glass);
-  backdrop-filter: blur(22px) saturate(1.3);
   border: 1px solid var(--glass-line);
   box-shadow: var(--shadow-lg);
   white-space: nowrap;

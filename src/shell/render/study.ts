@@ -152,7 +152,7 @@ export function viewLibrary(v: LibraryView): string {
   } else {
     body = `<div class="bzs-list">${shown
       .map(
-        (b) => `<div class="bzs-bkrow2" data-act="detail" data-id="${b.id}" data-bookmenu="${b.id}" title="右键 / 长按更多">
+        (b) => `<div class="bzs-bkrow2" data-act="detail" data-id="${b.id}" data-bookmenu="${b.id}" role="button" tabindex="0" title="右键 / 长按更多">
         ${coverHtml(b)}
         <div class="bi"><b>${esc(b.title)}</b><div class="sub">${esc(b.author)} · ${esc(b.shelf)} · ${b.format}</div></div>
         ${barHtml(b.percent)}

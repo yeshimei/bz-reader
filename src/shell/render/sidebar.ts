@@ -122,7 +122,7 @@ function bookmarksBody(rows: BmkRow[]): string {
   if (!rows.length) return `<div class="bzs-empty">还没有书签。<br>读到的地方，点阅读栏「签」记一枚。</div>`;
   return `<div class="bzs-sbsec">按书中先后</div><div class="bzs-timeline">${rows
     .map(
-      (k) => `<div class="bzs-mkrow" data-act="jumpbmk" data-id="${k.id}">
+      (k) => `<div class="bzs-mkrow" data-act="jumpbmk" data-id="${k.id}" role="button" tabindex="0">
         <span class="tt">${esc(k.label)}</span><span class="pc">${k.percent}%</span><span class="sp"></span>
         <em>${esc(k.chapterTitle)}</em>
         <button class="x" data-act="delbmk" data-id="${k.id}" title="删除">${ico('x')}</button>
@@ -139,7 +139,7 @@ function highlightsBody(rows: MarkRow[]): string {
         <div class="bzs-hlg-h"><span>${esc(g.title)}</span><span class="n">${g.items.length}</span><span class="ln"></span></div>
         ${g.items
           .map(
-            (m) => `<div class="bzs-hlit" style="--c:${m.css}" data-act="hljump" data-id="${m.id}">
+            (m) => `<div class="bzs-hlit" style="--c:${m.css}" data-act="hljump" data-id="${m.id}" role="button" tabindex="0">
               <span class="tx"><i class="dot" style="background:${m.css}"></i>${esc(m.text)}</span>
               ${m.comment ? `<span class="cm"><b>想 法</b>${esc(m.comment)}</span>` : ''}
               <button class="x" data-act="delmark" data-id="${m.id}" title="删除">${ico('x')}</button>

@@ -169,26 +169,10 @@
   white-space: nowrap;
 }
 
-/* ═══════════ ③ 书架 · 桌面 ═══════════ */
-.bzr-overlay-popup.bzr-shelf-popup {
-  width: 840px;
-  height: 600px;
-  max-height: calc(100vh - 32px);
-  padding: 0;
-}
-
-/* ═══════════ ④ 书架 · 移动 ═══════════
- * 一屏只回答一个问题：接下来读哪本。继续阅读做成带色晕的卡片，
- * 其余三列平铺；底部悬浮胶囊承担导航，不占满宽度（避开 Home Indicator）。
- */
-.bzr-overlay-popup.bzr-shelf-popup.is-mobile {
-  width: 100vw;
-  height: 100dvh;
-  max-width: none;
-  max-height: none;
-  border: none;
-  border-radius: 0;
-}
+/* ═══════════ ③ 书架 · 桌面 / ④ 书架 · 移动 ═══════════
+ * 2026-11-04 删（S-08）：`.bzr-shelf-popup` 那两段（桌面 840×600、移动满屏）
+ * 对应的 DOM 早就不存在了——书架现在是 Obsidian 侧栏里的 `.bzs-shelfview`，
+ * 不是这个插件的自绘弹窗。留着只会让改样式时的搜索充满噪音。 */
 
 /* ═══════════ ④.5 阅读统计（高级版，书架的二级弹窗） ═══════════
  * 两栏（原型 reader-v2 陆）：左 = 大数字 + 小账 + 火漆条，右 = 热力图 + 书脊。
@@ -554,17 +538,10 @@
   font-size: 12px;
 }
 
-/* ═══════════ ④.7 书摘卡片（高级版，划线卡片的二级弹窗） ═══════════ */
-.bzr-overlay-popup.bzr-qcard-popup {
-  width: 420px;
-  max-width: calc(100vw - 32px);
-}
+/* ═══════════ ④.7 书摘卡片（高级版，划线卡片的二级弹窗） ═══════════
+ * 2026-11-04 删（S-08）：`.bzr-qcard-popup` 那段（420px 宽）已经没有对应 DOM，
+ * 书摘卡走壳层的 `poster` 弹层。 */
 /* 弹窗标题与「书是主角」一个声部：衬线 + 字距（颜色跟阅读主题，见 quote-card.ts） */
-.bzr-qcard-popup .bzr-dialog-title {
-  font-family: var(--bzr-font-serif);
-  font-size: 13px;
-  letter-spacing: 0;
-}
 .bzr-qcard-foot .bzr-btn {
   height: 30px;
   font-size: 12px;
@@ -622,17 +599,8 @@
   width: 100%;
   height: 100%;
 }
-/* 从书架打开的排版弹窗：窄卡，内容就是那组滑杆 */
-.bzr-overlay-popup.bzr-shelf-prefs-popup {
-  width: 320px;
-  padding: 0 16px 16px;
-}
-.bzr-overlay-popup.bzr-shelf-prefs-popup .bzr-dialog-head {
-  padding: 14px 0 10px;
-}
-.bzr-overlay-popup.bzr-shelf-prefs-popup .bzr-dialog-body {
-  overflow: visible;
-}
+/* 从书架打开的排版弹窗（S-08 删）：`.bzr-shelf-prefs-popup` 的三条规则
+   对应的弹窗早就不存在了——排版面板现在是壳层的 `.bzs-float.is-corner`。 */
 
 /* ═══════════ ⑩ 导入 ═══════════
    以前 470×400、全 11px 字：书名被掐、按钮挤成一团，看着像另一个软件。
@@ -881,31 +849,9 @@
   border-radius: var(--r-card);
   font-size: 15px;
 }
-.bzr-tocv {
-  --copper: #c8a464;
-  --copper-soft: rgba(200, 164, 100, 0.13);
-  --copper-line: rgba(200, 164, 100, 0.4);
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-  font-family: var(--bzr-font-ui);
-}
-.theme-light .bzr-tocv {
-  --copper: #9a7434;
-  --copper-soft: rgba(154, 116, 52, 0.11);
-  --copper-line: rgba(154, 116, 52, 0.42);
-}
 
 /* ═══════════ 窄窗口兜底：桌面被压到 760 以下时，书架掉成四列 ═══════════ */
 @media (max-width: 760px) {
-  .bzr-grid {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 14px 12px;
-  }
-  .bzr-shelf-search {
-    width: 96px;
-  }
 }
 
 /* ═══════════ 阅读 · 宿主头栏（bz-reader） ═══════════

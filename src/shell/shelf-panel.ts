@@ -143,6 +143,18 @@ export class ShelfPanel {
       dispatchAction(hit.dataset.act || '', hit, { repaint: () => this.render() });
     });
 
+    /* 键盘可达性（S-02）：书卡与列表行都有 role=button + tabindex=0，
+       但以前只有 click 委托——Tab 得过去、按 Enter/Space 毫无反应。 */
+    el.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const t = e.target as HTMLElement;
+      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) return;
+      const hit = t.closest<HTMLElement>('[data-act]');
+      if (!hit) return;
+      e.preventDefault();
+      dispatchAction(hit.dataset.act || '', hit, { repaint: () => this.render() });
+    });
+
     /* 书卡菜单：桌面右键、手机长按。
        长按用 520ms 的指针计时，手指一动就取消——否则用户想划动书库时
        会被菜单打断。两端都走同一个 bookmenu 动作，不写两套逻辑。 */

@@ -101,11 +101,21 @@ export class SideView extends ItemView {
     el.addEventListener('compositionend', onEdit);
 
     el.addEventListener('keydown', (e) => {
-      const t = e.target as HTMLInputElement;
-      if (e.key === 'Enter' && t?.dataset?.role === 'aiask') {
+      const t = e.target as HTMLElement;
+      if (e.key === 'Enter' && (t as HTMLInputElement)?.dataset?.role === 'aiask') {
         e.preventDefault();
         dispatchAction('aiask', t, { repaint: () => this.render() });
+        return;
       }
+      /* 键盘可达性（S-02）：目录行、书签行、划线行都补了 role=button
+         + tabindex=0，但以前只有 click 委托——Tab 得过去、按 Enter/Space
+         毫无反应。这里把 Enter/Space 转成同一个动作。 */
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) return;
+      const hit = t.closest<HTMLElement>('[data-act]');
+      if (!hit) return;
+      e.preventDefault();
+      dispatchAction(hit.dataset.act || '', hit, { repaint: () => this.render() });
     });
 
     el.addEventListener(

@@ -258,7 +258,9 @@ function overlayBookmap(): string {
   }
   const rows = [...chapters.entries()]
     .map(
-      ([title, g], i) => `<div class="row">
+      /* 行要真的能点（S-05）：样式里早就有 cursor:pointer 和 hover 铜底，
+         但 DOM 上没有 data-act——看着能点、点下去整块是死的。 */
+      ([title, g], i) => `<div class="row" data-act="jumpch" data-label="${esc(title)}" role="button" tabindex="0">
         <span class="no">${cn(i + 1)}</span><span class="nm">${esc(title)}</span>
         <div class="strip">${Array.from({ length: Math.min(12, g.marks) }, () => '<u style="background:var(--copper)"></u>').join('')}</div>
         <span class="bzs-mini">${g.marks} 划 · ${g.bks} 签</span></div>`,

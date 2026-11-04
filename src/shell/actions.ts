@@ -663,12 +663,28 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     }
 
     /* ── 侧栏：目录 / 书签 / 划线 ── */
-    case 'jumpch':
+    case 'jumpch': {
       if (d.href) {
         closeOverlay();
         jumpTo(d.href);
+        break;
+      }
+      /* 全书鸟瞰只拿得到章节名（S-05）：在目录快照里按名字找一条 href。
+         以前那一行有手型光标和 hover 铜底，点下去整块是死的。 */
+      const label = (d.label || '').trim();
+      const hit = label
+        ? getToc()?.items?.find(
+            (it) => (it.label || '').trim() === label || (it.label || '').includes(label),
+          )
+        : undefined;
+      if (hit?.href) {
+        closeOverlay();
+        jumpTo(hit.href);
+      } else {
+        notify('这一章在目录里找不到，可能书换了版本', 'info');
       }
       break;
+    }
     case 'toctoggle': {
       /* 目录折叠：只记 href（label 会重名），点一下切换，重绘由 state 广播带走 */
       const href = d.href;

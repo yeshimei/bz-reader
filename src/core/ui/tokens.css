@@ -154,7 +154,9 @@
   --bzr-brand: #e67341;
   --bzr-brand-hover: #ef8352;
   --bzr-brand-soft: rgba(230, 115, 65, 0.16);
-  --bzr-on-brand: #ffffff;
+  /* 主按钮用深字（S-10）：白字压 #e67341 只有 3.0:1、压 #e2571c 只有 3.8:1，
+     都低于 4.5:1。深字（#1c1c21）对两个橙分别是 5.9:1 / 6.7:1。 */
+  --bzr-on-brand: #1c1c21;
 
   /* 语义 */
   --bzr-success: #3fb96a;
@@ -198,7 +200,9 @@
   --bzr-brand: #e2571c;
   --bzr-brand-hover: #cc4a12;
   --bzr-brand-soft: rgba(226, 87, 28, 0.12);
-  --bzr-on-brand: #ffffff;
+  /* 主按钮用深字（S-10）：白字压 #e67341 只有 3.0:1、压 #e2571c 只有 3.8:1，
+     都低于 4.5:1。深字（#1c1c21）对两个橙分别是 5.9:1 / 6.7:1。 */
+  --bzr-on-brand: #1c1c21;
 
   --bzr-success: #1f9d4d;
   --bzr-warning: #b57c13;

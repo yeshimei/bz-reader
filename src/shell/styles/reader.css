@@ -47,15 +47,9 @@
   min-height: 0;
 }
 
-/* 占位整体不吃指针，但「查看诊断」入口要能点 */
-.bzs-rpending .bzs-btn {
-  pointer-events: auto;
-  margin-top: 6px;
-}
-
-.bzs-rpending.is-diag .bzs-btn {
-  margin-top: 8px;
-}
+/* 2026-11-04 删（S-08）：这里原来有 `.bzs-rpending .bzs-btn` 与
+   `.bzs-rpending.is-diag .bzs-btn` 两条，但 `bzs-rpending` 这个类
+   全仓没有一处 DOM 在用——阅读页的加载/故障占位现在走 `bzr-*` 那套。 */
 
 /* ── 并排对照：两卷之间一条发丝线 ── */
 .bzs-rpages.is-hosted.is-parallel {

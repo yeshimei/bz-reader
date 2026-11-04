@@ -78,7 +78,9 @@
   color: var(--t2);
   border-radius: var(--r-card);
   padding: 9px 16px;
-  font-size: 12px;
+  /* 尺度令牌落地（S-06）：以前这里是裸 12px，与 --fs-mini 同值。
+     移动端整体抬一档字号时，写死的值不跟着走。 */
+  font-size: var(--fs-mini);
   letter-spacing: .08em;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
   white-space: nowrap;
@@ -359,24 +361,30 @@
   flex-shrink: 0;
 }
 
-/* ── 原生控件（在壳内统一外观） ── */
+/* ── 原生控件（在壳内统一外观） ──
+   2026-11-04（P3-16）：这里原来把 tokens.css 里那条一模一样的规则又抄了一遍
+   （背景 / 边框 / 圆角 / 字号 / outline / box-shadow），两处只差 1px padding。
+   重复定义的结果是「改一处、另一处还压着」——搜索框和想法框的字号被压到 12px
+   就是这个原因。现在只留 padding 这一条真正的差异，其余交给 tokens.css。 */
 .bzs-shell select,
 .bzs-shell input[type="text"],
 .bzs-shell input[type="password"],
 .bzs-shell textarea {
-  background: var(--sunken);
-  border: 1px solid var(--line);
-  color: var(--t1);
-  border-radius: var(--r-ctl);
   padding: 8px 10px;
-  font-size: 12px;
-  outline: 0;
-  box-shadow: none;
 }
 
+/* 鼠标聚焦：只换边框色。**别写 `box-shadow: none`**（S-01）：
+   tokens.css 里 `.bzs-shell input:focus-visible` 的 2px 铜色焦点环是同特异性、
+   但加载更早的规则，这一条后到会把焦点环一起清掉——键盘用户 Tab 进搜索框
+   只看得到边框轻微变铜，根本看不见焦点在哪。
+   只在「不是键盘焦点」时才清阴影。 */
 .bzs-shell select:focus,
 .bzs-shell input:focus,
 .bzs-shell textarea:focus {
   border-color: var(--copper-line);
+}
+.bzs-shell select:focus:not(:focus-visible),
+.bzs-shell input:focus:not(:focus-visible),
+.bzs-shell textarea:focus:not(:focus-visible) {
   box-shadow: none;
 }

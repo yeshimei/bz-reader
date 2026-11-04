@@ -52,7 +52,7 @@
   display: flex;
   gap: 0;
   justify-content: space-between;
-  padding: 0 14px;
+  padding: 0 8px;
   margin-top: 10px;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
@@ -66,7 +66,13 @@
   position: relative;
   padding: 8px 0 10px;
   font-family: var(--serif);
-  font-size: 12px;
+  /* 合并（P3-25）：后面原来还有一条 .bzs-sbtab 把 display / gap 补上、
+     把字号改成 11px——同一条规则定义两遍，前一遍的 font-size 被静默覆盖。 */
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   letter-spacing: 0;
   color: var(--t3);
   flex: 1;
@@ -102,7 +108,8 @@
 .bzs-sbbody {
   flex: 1;
   overflow: auto;
-  padding: 8px 10px 24px;
+  /* 底部留出安全区（S-11）：iPhone 上最后一行笔记不该压在 Home 指示条下面 */
+  padding: 8px 10px calc(24px + env(safe-area-inset-bottom, 0px));
   scrollbar-width: none;
 }
 
@@ -412,6 +419,16 @@
   color: var(--vermilion);
 }
 
+/* 键盘焦点与「行里任何元素拿到焦点」时也要显形（S-04）：
+   删除叉默认 opacity:0，只在 hover 时出现。桌面 Tab 会停在按钮上，
+   但按钮和焦点环一起透明——盲操作，很容易误删。 */
+.bzs-mkrow .x:focus-visible,
+.bzs-hlit .x:focus-visible,
+.bzs-mkrow:focus-within .x,
+.bzs-hlit:focus-within .x {
+  opacity: 1;
+}
+
 /* ── AI 对话 ── */
 .bzs-aichat {
   display: flex;
@@ -466,15 +483,6 @@
 /* ── 页签带图标 ──
    五个页签挤在 ~300px 的侧栏里，纯文字认位太快、认意太慢；
    图标不占额外宽度（12px），但扫一眼就能定位「书架还是目录」。 */
-.bzs-sbtab {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  font-size: 11px;
-  letter-spacing: .04em;
-}
-
 .bzs-sbtab svg {
   width: 12px;
   height: 12px;
@@ -484,10 +492,6 @@
 
 .bzs-sbtab.on svg {
   opacity: 1;
-}
-
-.bzs-sbtabs {
-  padding: 0 8px;
 }
 
 /* ── 书架页：侧栏里的一整块 ──

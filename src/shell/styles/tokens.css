@@ -78,18 +78,25 @@
 }
 
 /* ── 颜色：一律读宿主 ──
-   背景只有**一种**：宿主的 --background-primary。书架页、侧栏、弹层、
+   底色只有**一种**：宿主的 --background-primary。书架页、侧栏、弹层、
    卡片全部同色，靠 1px 边框分层——这是 Obsidian 自己的做法（设置页、
    文件列表都是平的）。以前页面用 --background-secondary、卡片再用一档，
    在深色主题里像「应用里套了另一块深色面板」，怎么调都不像同一个软件
-   （真机反馈第 3 条）。--sunken 只留给输入框与滑轨底槽，那才是真该下沉的。 */
+   （真机反馈第 3 条）。--sunken 只留给输入框与滑轨底槽，那才是真该下沉的。
+
+   2026-11-04 补（S-09）：`--bg-2 / --bg-3 / --surface` 以前四个令牌全是同一个
+   颜色，于是 `linear-gradient(var(--surface), var(--bg-3))` 退化成纯色、
+   卡片分层全平。现在它们真的差一档（96% / 98% 主色 + 一点文字色），
+   差值小到不改变「同一个软件」的观感，但分层能看见了。
+   `--glass` 保持不透明：那三处 `backdrop-filter: blur(22–26px)` 已经删掉，
+   背景不透明时模糊结果本来就看不见，只是白烧 GPU。 */
 .bzs-shell {
   --bg: var(--background-primary, #ffffff);
-  --bg-2: var(--background-primary, #ffffff);
-  --bg-3: var(--background-primary, #ffffff);
+  --bg-2: color-mix(in srgb, var(--background-primary, #ffffff) 98%, var(--text-normal, #1f1f23));
+  --bg-3: color-mix(in srgb, var(--background-primary, #ffffff) 96%, var(--text-normal, #1f1f23));
   --glass: var(--background-primary, #ffffff);
   --glass-line: var(--background-modifier-border, rgba(0, 0, 0, .1));
-  --surface: var(--background-primary, #ffffff);
+  --surface: color-mix(in srgb, var(--background-primary, #ffffff) 98%, var(--text-normal, #1f1f23));
   --surface-2: var(--background-modifier-hover, rgba(0, 0, 0, .04));
   --sunken: var(--background-primary-alt, #f2f2f4);
   --line: var(--background-modifier-border, rgba(0, 0, 0, .1));
@@ -224,7 +231,8 @@ body.theme-dark .bzs-shell[data-bzaccent="moss"] { --copper: #93b79a; }
   color: var(--t1);
   border-radius: var(--r-ctl);
   padding: 7px 10px;
-  font-size: 12px;
+  /* 表单控件用 --fs-mini（S-06 / P3-16）：裸 12px 不跟断点走 */
+  font-size: var(--fs-mini);
   box-shadow: none;
 }
 
