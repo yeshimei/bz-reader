@@ -137,7 +137,9 @@ export function viewSettings(v: SettingsView): string {
      九档（auto + 八种）在单行里放不下，用 `bzs-seg-wrap` 折行——强调色那组
      也是八档、也走这个 class，宽度行为已经验过。语言名一律用**自称**
      （Deutsch / 日本語），这几条不走 t()：只会德语的人在中文界面里
-     也得找得到 "Deutsch"。 */
+     也得找得到 "Deutsch"。
+
+     组内没有说明行：2026-11-05 去掉，选择器本身就是全部交互。 */
   const languageOpts: Array<[string, string]> = [
     ['auto', t('settings.language.auto')],
     ...LOCALES.map((l) => [l, LOCALE_NAMES[l]] as [string, string]),
@@ -150,7 +152,6 @@ export function viewSettings(v: SettingsView): string {
             `<button class="${String(s.language) === o[0] ? 'on' : ''}" data-act="setlang" data-k="language" data-v="${o[0]}">${o[1]}</button>`,
         )
         .join('')}</div></div>
-      <div class="bzs-mini" style="margin-top:8px;line-height:1.9">${t('settings.language.hint')}</div>
     </div>`;
 
   const layout = `<div class="bzs-setgrp">
@@ -253,6 +254,8 @@ export function viewSettings(v: SettingsView): string {
       )}</div>
     </div>`;
 
+  /* 标注组只剩能动手的三项：画笔、导出目录、带想法。「摘录链接」那一行没有
+     任何控件，讲的双链能力在复制书摘时本来就有，2026-11-05 整行去掉。 */
   const marks = `<div class="bzs-setgrp">
       <h3>${t('settings.grp.marks')}</h3>
       <div class="bzs-setrow"><label>${t('settings.pen')}</label><div class="bzs-seg">${HIGHLIGHT_COLORS.map(
@@ -264,7 +267,6 @@ export function viewSettings(v: SettingsView): string {
           <span>${esc(s.exportDir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>
         </button></div>
       ${toggle('exportComments', s.exportComments, t('settings.exportComments'))}
-      <div class="bzs-setrow"><label>${t('settings.quoteLink')}</label><span class="bzs-mini" style="flex:1">${t('settings.quoteLink.hint')}</span></div>
     </div>`;
 
   /* 入口平权：AI 组始终出现。基础版整组灰掉、点一下就弹高级功能说明——

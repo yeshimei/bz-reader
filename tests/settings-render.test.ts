@@ -66,9 +66,12 @@ describe('界面语言', () => {
     expect(out).toMatch(/class="on" data-act="setlang" data-k="language" data-v="auto"/);
   });
 
-  it('说明里写清楚「命令名要重启才变」，不让用户以为切换没生效', () => {
+  /* 2026-11-05：语言组底部那行「选跟随 Obsidian 时由宿主语言决定……」整行去掉。
+     语言包里的词条仍留着（其他语言也要有同一个 key），这里只钉界面不再渲染它。 */
+  it('不再渲染语言说明那行（只留选择器本身）', () => {
     const out = html();
-    expect(out).toContain('重启 Obsidian');
+    expect(out).not.toContain('由宿主语言决定');
+    expect(out).not.toContain('命令名需重启 Obsidian 才更新');
   });
 });
 
@@ -402,5 +405,34 @@ describe('设置页 · 两列各自成流', () => {
       '授权',
       '快捷键',
     ]);
+  });
+});
+
+/**
+ * 「摘录链接」一行的回收（2026-11-05）。
+ *
+ * 这一档没有任何可操作项，只是一句说明；它讲的双链能力在复制书摘时本来
+ * 就生效，占着一行反而让人以为有个开关可调。整行删掉，语言包里的词条
+ * 留着（八个包的 key 集合必须一致）。
+ */
+describe('标注组 · 不再有摘录链接说明', () => {
+  /** 截出「标注」组那一段：只看组内，不误判别的组 */
+  function marksGroup(out: string): string {
+    const start = out.indexOf('<h3>标注</h3>');
+    const next = out.indexOf('<h3>', start + 1);
+    return out.slice(start, next < 0 ? undefined : next);
+  }
+
+  it('整行不见：标签与说明都不再渲染', () => {
+    const out = html();
+    expect(out).not.toContain('摘录链接');
+    expect(out).not.toContain('反链面板也看得见');
+  });
+
+  it('同组其余项没被误删：画笔、导出目录、带想法', () => {
+    const g = marksGroup(html());
+    for (const marker of ['data-act="setpen"', 'data-act="pickexportdir"', 'data-k="exportComments"']) {
+      expect(g, marker).toContain(marker);
+    }
   });
 });
