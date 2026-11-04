@@ -305,5 +305,13 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-keys">${keyRows}</div>
     </div>`;
 
-  return `<div class="bzs-set-grid">${aboutBar(v.version || '', paid)}${languageGrp}${layout}${header}${look}${tts}${marks}${data}${ai}${lic}${keys}</div>`;
+  /* 两列各自成流（布局说明见 study.css 的 .bzs-set-page）。
+     切在「阅读页图标 / 外观」之间：左列是界面 + 版式 + 那张十行的图标表，
+     右列是外观 + 其余六组，两列总高接近；DOM 顺序与原来完全一致，窄屏
+     叠成一列时仍是原来的阅读顺序，现有「阅读页图标在 外观之前」的断言
+     也不必改。 */
+  const leftCol = `${languageGrp}${layout}${header}`;
+  const rightCol = `${look}${tts}${marks}${data}${ai}${lic}`;
+
+  return `<div class="bzs-set-page">${aboutBar(v.version || '', paid)}<div class="bzs-set-grid"><div class="bzs-set-col">${leftCol}</div><div class="bzs-set-col">${rightCol}</div></div>${keys}</div>`;
 }

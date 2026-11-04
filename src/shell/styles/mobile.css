@@ -318,9 +318,14 @@
 
   /* ── 设置 ── */
 
+  .bzs-set-page,
+  .bzs-set-grid,
+  .bzs-set-col {
+    gap: 12px;
+  }
+
   .bzs-set-grid {
     grid-template-columns: 1fr;
-    gap: 12px;
   }
 
   .bzs-setgrp {
