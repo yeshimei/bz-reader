@@ -2,11 +2,11 @@
   <img src="docs/images/mark.svg" width="76" height="76" alt="">
   <h1>bz Reader</h1>
   <p><b>Turn Obsidian into a place to read.</b><br>
-  <sub>Desktop and mobile, multiple formats, AI Q&amp;A, source links. All data stored locally.</sub></p>
+  <sub>Desktop and mobile, multiple formats, AI Q&amp;A, wikilinks. All data stored locally.</sub></p>
 
   <p>
     <a href="https://obsidian.md"><img src="docs/images/badges/obsidian.svg" height="27" alt="Obsidian 1.7.2+"></a>
-    <img src="docs/images/badges/version.svg" height="27" alt="version 0.1.1">
+    <img src="docs/images/badges/version.svg" height="27" alt="version 0.2.0">
     <img src="docs/images/badges/platform.svg" height="27" alt="Desktop and mobile">
     <img src="docs/images/badges/license.svg" height="27" alt="MIT">
   </p>
@@ -36,7 +36,7 @@
 | Contents, bookmarks, four-color highlights, and notes | ✓ | ✓ |
 | In-book search | ✓ | ✓ |
 | Footnote preview in a popover | ✓ | ✓ |
-| Copy highlights as source links | — | ✓ |
+| Copy highlights as wikilinks | — | ✓ |
 | Structured Markdown export | — | ✓ |
 | Highlight cards | — | ✓ |
 | Reading stats, heatmap, and per-book progress | — | ✓ |

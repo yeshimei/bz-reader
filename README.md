@@ -2,11 +2,11 @@
   <img src="docs/images/mark.svg" width="76" height="76" alt="">
   <h1>bz Reader</h1>
   <p><b>把 Obsidian 变成一个能读书的地方。</b><br>
-  <sub>桌面端+移动端、多格式支持、AI 问答、原文链接，数据本地。</sub></p>
+  <sub>桌面端+移动端、多格式支持、AI 问答、双向链接，数据本地。</sub></p>
 
   <p>
     <a href="https://obsidian.md"><img src="docs/images/badges/obsidian.svg" height="27" alt="Obsidian 1.7.2+"></a>
-    <img src="docs/images/badges/version.svg" height="27" alt="版本 0.1.2">
+    <img src="docs/images/badges/version.svg" height="27" alt="版本 0.2.0">
     <img src="docs/images/badges/platform.svg" height="27" alt="桌面 + 移动">
     <img src="docs/images/badges/license.svg" height="27" alt="MIT">
   </p>
@@ -36,7 +36,7 @@
 | 目录、书签、四色划线与想法 | ✓ | ✓ |
 | 书内搜索 | ✓ | ✓ |
 | 脚注浮窗预览 | ✓ | ✓ |
-| 划线复制为原文链接 | — | ✓ |
+| 划线复制为双向链接 | — | ✓ |
 | 导出结构化 Markdown | — | ✓ |
 | 书摘卡片 | — | ✓ |
 | 阅读统计、热力图与每本进度 | — | ✓ |

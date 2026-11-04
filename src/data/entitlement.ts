@@ -42,7 +42,7 @@ export type Cap =
   | 'tts' // 朗读
   | 'parallel' // 并排 / 双语
   | 'bookmap' // 全书鸟瞰
-  | 'bilink'; // 划线 → 原文链接
+  | 'bilink'; // 划线 → 双向链接
   // 'footnote' 已并入基础版（2026-11-03）：浮窗代码本来就在共享的 shell 里，
   // 留在 Cap 表里只会让设置页和对照表撒谎。
 
@@ -425,7 +425,7 @@ export const CAP_LABEL: Record<Cap, string> = {
   tts: '朗读',
   parallel: '原文与译文并排',
   bookmap: '全书鸟瞰',
-  bilink: '把划线复制成原文链接',
+  bilink: '把划线复制成双向链接',
 };
 
 /* ─────────── 发行信息（改这里就够了） ───────────
@@ -463,10 +463,10 @@ export const PLAN_TABLE: PlanRow[] = [
   { name: '书内搜索', free: 'yes', pro: 'yes' },
   /* 脚注和上面的书本能力同属基础版，排在一起；别让它跟付费项混在表尾 */
   { name: '脚注浮窗预览', free: 'yes', pro: 'yes' },
-  /* 原文链接整条是高级版能力（copylink 走 requireCap('bilink')）。
+  /* 双向链接整条是高级版能力（copylink 走 requireCap('bilink')）。
      以前这里写「基础版：部分（仅单条）」，但那条免费路径 copylinkurl
      没有任何 UI 入口——表里承诺了，界面上找不到，比不给更糟。 */
-  { name: '划线复制为原文链接', free: 'no', pro: 'yes', cap: 'bilink' },
+  { name: '划线复制为双向链接', free: 'no', pro: 'yes', cap: 'bilink' },
   { name: '导出结构化 Markdown', free: 'no', pro: 'yes', cap: 'export' },
   { name: '书摘卡片', free: 'no', pro: 'yes', cap: 'card' },
   { name: '阅读统计、热力图与每本进度', free: 'no', pro: 'yes', cap: 'stats' },

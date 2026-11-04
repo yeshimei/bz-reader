@@ -12,7 +12,7 @@ import { makeApp, makeStore, testBook } from './helpers/plugin-harness';
  * 三件事必须成立，否则「工具条只有一枚」只是长得像：
  *   · 「AI」在点划线时真能打开 AI 卡（以前这颗按钮根本不存在，点了没反应）；
  *   · 「复制」点完把浮层关掉——不然复制完还压着正文，用户得再点一下空白；
- *   · 「双链」同理（复制原文链接之后浮层也该收）。
+ *   · 「双链」同理（复制双向链接之后浮层也该收）。
  *
  * 复制本身走 navigator.clipboard，这里桩掉，只验「交给剪贴板的内容」和「浮层关了」。
  */
@@ -106,7 +106,7 @@ describe('复制：点完收起浮层', () => {
     await vi.waitFor(() => expect(writes).toEqual(['划线原文一段']));
   });
 
-  it('复制原文链接也关掉工具条', async () => {
+  it('复制双向链接也关掉工具条', async () => {
     const { markId } = setup();
     const writes = stubClipboard();
 

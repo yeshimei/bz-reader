@@ -644,7 +644,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     /* 位置链接：单条复制免费——一次只能拿一条不构成「搬家」，
        但每粘进笔记一次，都是一次广告。 */
     case 'copylink': {
-      // 原文链接是高级能力：基础版点它给对照表，不悄悄降级成另一段文字
+      // 双向链接是高级能力：基础版点它给对照表，不悄悄降级成另一段文字
       if (!requireCap('bilink')) break;
       const b = liveBooks().find((x) => x.id === (d.book || getState().bookId));
       const h = b?.notes?.highlights?.find((x) => x.id === d.id);
@@ -1046,8 +1046,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         overlay('ai', { text: RT.sel.text, mode: 'explain', anchor: RT.sel.anchor });
       break;
     case 'selbilink': {
-      /* 还没落下标注，只能拿选区 + 当前章名拼原文链接；
-         与笔记页的「原文链接」按钮同源（data/deeplink.ts 的 linkOfText）。 */
+      /* 还没落下标注，只能拿选区 + 当前章名拼双向链接；
+         与笔记页的「双向链接」按钮同源（data/wikilink.ts 的 wikilinkOf）。 */
       if (!requireCap('bilink')) break;
       const sel = RT.sel;
       const book = sel ? liveBooks().find((b) => b.id === sel.bookId) : undefined;
