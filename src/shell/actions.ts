@@ -37,7 +37,8 @@ import { folderLabel, pickFolder } from '../core/folder-pick';
 import { CAP_LABEL, PURCHASE_URL, can, type Cap } from '../data/entitlement';
 import { HEADER_ACTION_IDS } from '../view/header-actions';
 import { normalizeDataDir } from '../core/plugin-path';
-import { linkInline, linkOfMark, linkOfText, linkQuote, rawUrl, targetOfMark } from '../data/deeplink';
+import { linkInline, snippet, targetOfMark } from '../data/deeplink';
+import { wikilinkOf, wikilinkOfMark, wikilinkTo } from '../data/wikilink';
 import { exportBookNotes } from '../data/export';
 import { jumpTo, getToc } from '../view/toc-state';
 import { LIB_FILTERS, LIB_SORTS } from './render/study';
@@ -223,7 +224,7 @@ function buildMdFor(book: ReaderBook, withComments: boolean): string {
     for (const h of items) {
       lines.push(`> ${h.text.replace(/\s*\n\s*/g, ' ')}`, '');
       if (withComments && h.comment?.trim()) lines.push(`**想法**：${h.comment.trim()}`, '');
-      if (h.cfiRange) lines.push(`— [在原文中查看](${rawUrl(book, h)})`, '');
+      if (h.cfiRange) lines.push(`— ${wikilinkTo(book, { cfi: h.cfiRange, text: snippet(h.text), chapter: h.chapterTitle }, '在原文中查看')}`, '');
     }
   }
   return lines.join('\n');
@@ -636,7 +637,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         notify('没找到这条划线', 'error');
         break;
       }
-      void copyText(linkOfMark(b, h));
+      void copyText(wikilinkOfMark(b, h));
       /* 与「复制」同一条规矩：拿到东西就把浮层收掉 */
       closeOverlay();
       break;
@@ -1032,7 +1033,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         notify('没有可复制的选区', 'error');
         break;
       }
-      void copyText(linkOfText(book, { text: sel.text, cfiRange: sel.cfiRange, chapterTitle: sel.chapterTitle }));
+      void copyText(wikilinkOf(book, { text: sel.text, cfiRange: sel.cfiRange, chapterTitle: sel.chapterTitle }));
       break;
     }
     case 'selcopy':

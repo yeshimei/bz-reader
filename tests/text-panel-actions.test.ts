@@ -114,6 +114,9 @@ describe('复制：点完收起浮层', () => {
 
     expect(getState().overlay).toBeNull();
     await vi.waitFor(() => expect(writes).toHaveLength(1));
-    expect(writes[0]).toContain('obsidian://');
+    /* 2026-11-05 起产出双链 `[[书.epub#bzr-cfi=…|划线文字]]`：
+       书本来就是 vault 里的文件，`[[]]` 能解析到，反链面板也看得见。
+       obsidian:// 那条路退到「复制概要链接」与老链接兼容。 */
+    expect(writes[0]).toContain('[[书/b1.epub#bzr-cfi=');
   });
 });

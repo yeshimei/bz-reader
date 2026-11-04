@@ -3,11 +3,16 @@
  *
  * 一条划线 → 一个 obsidian:// 链接 → 粘进任何笔记 → 点一下跳回原文那一句。
  *
- * 为什么不生成 `[[书名#章节]]`：
- *   书不是 vault 里的笔记，wiki 链接解析不到。「真双链」需要给每本书
- *   生成一个占位笔记，粒度也只能到章节。通往原文句子的路只有一条：
- *   **obsidian:// 协议 + CFI**。它看起来像链接、点得动、精确到句子，
- *   只是不会出现在反向链接面板里。
+ * 2026-11-05 起双链也能到句子了（data/wikilink.ts 产 `[[书.epub#定位|文字]]`），
+ * 这里保留 obsidian:// 有两个理由：
+ *   1. **Live Preview 里双链接管不了点击**——那条路是编辑器装饰器，不经过
+ *      post-processor，点开只会落到上次阅读位置；
+ *   2. **老链接已经散在用户笔记里**，协议处理器不能撤。
+ * 两条路共用同一套定位参数与三级降级（CFI → 原文片段 → 章节百分比）。
+ *
+ * 早先这里写着「书不是 vault 里的笔记，wiki 链接解析不到」——只对了一半：
+ * `[[]]` 解析的是 vault 里的**文件**，不要求是 .md，书本来就是文件。
+ * 真正缺的只是子路径那一段没人认，靠 shell/link-postprocessor.ts 补上。
  *
  * 定位做了三级降级，因为「同一本书换了个文件」是真实会发生的：
  *   1. CFI 精确跳（99% 命中）
@@ -35,7 +40,9 @@ export interface LinkTarget {
 /** CFI 里塞全文会撑爆链接，20 字足够在章节里唯一定位一次 */
 const SNIPPET = 20;
 
-function snippet(text: string): string {
+/* 双链（data/wikilink.ts）也用这一份：两处各写一套清洗规则，
+   迟早会在「换行怎么压、方括号清不清」上走散。 */
+export function snippet(text: string): string {
   return text.replace(/\s+/g, ' ').trim().slice(0, SNIPPET);
 }
 
@@ -129,17 +136,17 @@ export function linkQuote(book: ReaderBook, h: Highlight): string {
 /**
  * 形式三：原文链接（`[划线文字](obsidian://bz-reader?…)`）。
  *
- * 之前这里生成的是 `[[书名#章节|划线文字]]`（标准双链、反链可见），但
- * wiki 链接只能指向笔记：点它到的是导出稿的章节，永远回不到原文那一句。
- * 现在统一成 Markdown 行内链接，地址就是前两种的 obsidian:// 定位串，
- * 点一下直接落回原文。代价是不进反向链接面板——要反链时仍可导出 Markdown。
+ * 双链（`[[书.epub#定位|文字]]`）已由 data/wikilink.ts 接管，这里留下的是
+ * Live Preview 里仍然更可靠的那条：编辑器不跑 post-processor，双链的子路径
+ * 没人认，点开只会打开书、落到上次位置；obsidian:// 则由协议处理器精确落地。
+ * 老链接也一直走这条路。
  */
 
 /**
  * 链接文字里的方括号要清掉（`]` 会提前闭合 `[文字]`），
  * 其余标点、竖线、井号都原样保留——那是原文的一部分。
  */
-function cleanLabel(v: string): string {
+export function cleanLabel(v: string): string {
   return v
     .replace(/[[\]]/g, ' ')
     /* 中文之间的换行不该变成空格（与 data/export.ts 的 oneLine 同一规则） */
