@@ -2,7 +2,7 @@
   <img src="docs/images/mark.svg" width="76" height="76" alt="">
   <h1>bz Reader</h1>
   <p><b>把 Obsidian 变成一个能读书的地方。</b><br>
-  <sub>桌面端+移动端、多格式支持、原文链接；数据本地，AI 可接自己的接口。</sub></p>
+  <sub>桌面端+移动端、多格式支持、AI 问答、原文链接，数据本地。</sub></p>
 
   <p>
     <a href="https://obsidian.md"><img src="docs/images/badges/obsidian.svg" height="27" alt="Obsidian 1.7.2+"></a>
