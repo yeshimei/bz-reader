@@ -80,7 +80,7 @@ index 86be1a612a782c23f4190a1a28ce61f03d13e5a3..8f4ad14b9ae83ea3e1cb23d7e7001d1e
      }
      static outline(rects, options = {}) {
 diff --git a/paginator.js b/paginator.js
-index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..f34230f2026f22322b42f060f45136288ab1e378 100644
+index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..a519ffb1de2b5176f04d506de853acb6e9379a89 100644
 --- a/paginator.js
 +++ b/paginator.js
 @@ -240,38 +240,158 @@ class View {
@@ -297,15 +297,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..f34230f2026f22322b42f060f4513628
          const htmlStyle = doc.defaultView.getComputedStyle(doc.documentElement)
          const themeBgColor = htmlStyle.getPropertyValue('--theme-bg-color')
          if (background && themeBgColor) {
-@@ -829,6 +953,7 @@ export class Paginator extends HTMLElement {
-     }
- 
-     snap(vx, vy) {
-+        globalThis.__bzrLog && globalThis.__bzrLog("paginator.snap", { vx: +Number(vx).toFixed(2), vy: +Number(vy).toFixed(2), page: this.page })
-         const velocity = this.#vertical ? vy : vx
-         const [offset, a, b] = this.#scrollBounds
-         const { start, end, pages, size } = this
-@@ -852,7 +977,7 @@ export class Paginator extends HTMLElement {
+@@ -852,7 +976,7 @@ export class Paginator extends HTMLElement {
          this.#touchState = {
              x: touch?.screenX, y: touch?.screenY,
              t: e.timeStamp,
@@ -314,7 +306,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..f34230f2026f22322b42f060f4513628
          }
      }
      #onTouchMove(e) {
-@@ -879,6 +1004,9 @@ export class Paginator extends HTMLElement {
+@@ -879,6 +1003,9 @@ export class Paginator extends HTMLElement {
          state.t = e.timeStamp
          state.vx = dx / dt
          state.vy = dy / dt
@@ -324,7 +316,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..f34230f2026f22322b42f060f4513628
          this.#touchScrolled = true
          if (Math.abs(dx) >= Math.abs(dy)) {
              this.scrollBy(dx, 0)
-@@ -887,8 +1015,16 @@ export class Paginator extends HTMLElement {
+@@ -887,8 +1014,15 @@ export class Paginator extends HTMLElement {
          }
      }
      #onTouchEnd() {
@@ -335,26 +327,13 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..f34230f2026f22322b42f060f4513628
 +           判据用累计位移而不是「有没有 touchmove」：点按本身也带 1~3px 抖动。 */
 +        const movedDistance = this.#touchState?.moved ?? 0
 +        const tapOnly = !this.#touchScrolled || movedDistance < 12
-+        globalThis.__bzrLog && globalThis.__bzrLog("paginator.touchend", { moved: Math.round(movedDistance), scrolled: this.#touchScrolled, tapOnly, page: this.page, pages: this.pages })
          this.#touchScrolled = false
 -        if (this.scrolled) return
 +        if (this.scrolled || tapOnly) return
  
          // XXX: Firefox seems to report scale as 1... sometimes...?
          // at this point I'm basically throwing `requestAnimationFrame` at
-@@ -1105,9 +1241,11 @@ export class Paginator extends HTMLElement {
-         this.#locked = false
-     }
-     async prev(distance) {
-+        globalThis.__bzrLog && globalThis.__bzrLog("paginator.prev", { page: this.page, pages: this.pages, atStart: this.atStart })
-         return await this.#turnPage(-1, distance)
-     }
-     async next(distance) {
-+        globalThis.__bzrLog && globalThis.__bzrLog("paginator.next", { page: this.page, pages: this.pages, atEnd: this.atEnd })
-         return await this.#turnPage(1, distance)
-     }
-     prevSection() {
-@@ -1145,6 +1283,7 @@ export class Paginator extends HTMLElement {
+@@ -1145,6 +1279,7 @@ export class Paginator extends HTMLElement {
  
          // NOTE: needs `requestAnimationFrame` in Chromium
          requestAnimationFrame(() => {
@@ -362,7 +341,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..f34230f2026f22322b42f060f4513628
              this.#replaceBackground(this.#view.docBackground, this.columnCount)
          })
  
-@@ -1156,11 +1295,11 @@ export class Paginator extends HTMLElement {
+@@ -1156,11 +1291,11 @@ export class Paginator extends HTMLElement {
      }
      destroy() {
          this.#observer.unobserve(this)

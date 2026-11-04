@@ -21,13 +21,12 @@ const ACTIVE = "pro";
 const DIST = path.join(process.cwd(), "dist");
 
 /* 版本号只有一个来源：manifest.json。构建时再拼上时间戳，
-   真机角标/日志里读到的就是「这一包到底是哪次构建」，不用手改常量。 */
+   真机角标/日志里读到的就是「这一包到底是哪次构建」，不用手改常量。
+   **发布构建必须是确定性的**（Obsidian 审核会用自己的构建核对产物，时间戳会让
+   每次构建的 main.js 都不同，永远对不上）：默认只用版本号；要打临时构建标记
+   就显式给 BZ_BUILD_TAG，不设就不含时间。 */
 const MANIFEST = JSON.parse(fs.readFileSync(path.join(process.cwd(), "manifest.json"), "utf8"));
-const BUILD_TAG = `${MANIFEST.version}+${new Date()
-  .toISOString()
-  .slice(0, 16)
-  .replace(/[-:]/g, "")
-  .replace("T", ".")}`;
+const BUILD_TAG = process.env.BZ_BUILD_TAG || MANIFEST.version;
 
 /**
  * 样式组合：设计令牌 + 域样式 + 壳层，产物里不留 @import（Obsidian 只加载一个 styles.css）。
@@ -154,6 +153,15 @@ function copyStatic() {
     for (const file of ["manifest.json", "styles.css"]) {
       const src = path.join(process.cwd(), file);
       if (fs.existsSync(src)) fs.copyFileSync(src, path.join(outDir, file));
+    }
+  }
+  /* 发布构建额外落到仓库根：Obsidian 的自动审核按根目录的
+     main.js + manifest.json + styles.css 核对构建产物，dist/ 只是本地布局。 */
+  if (prod) {
+    const srcDir = path.join(DIST, ACTIVE);
+    for (const file of ["main.js", "manifest.json", "styles.css"]) {
+      const from = path.join(srcDir, file);
+      if (fs.existsSync(from)) fs.copyFileSync(from, path.join(process.cwd(), file));
     }
   }
   // 同步到 vault：只同步当前激活的那一版

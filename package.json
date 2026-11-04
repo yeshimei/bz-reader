@@ -1,13 +1,13 @@
 {
   "name": "bz-reader",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "EPUB / TXT 阅读器（Obsidian 插件），与 bz 生态联动。",
   "author": "叫我包仔",
   "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node esbuild.config.mjs once",
+    "build": "node esbuild.config.mjs production",
     "watch": "node esbuild.config.mjs",
     "release": "node esbuild.config.mjs production",
     "test": "vitest run",
