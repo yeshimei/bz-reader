@@ -89,6 +89,11 @@ function tocBody(toc: FoliateTOCItem[], active: TocActiveRef, collapsed: Readonl
   };
   count(toc);
 
+  /* 整份目录一层平铺（扫顶层即可：任何层级的子项都挂在顶层某一项下面）时，
+     左边不必为箭头留位——留了就是每行都缩进 22px，标题跟「共 N 节」对不齐。
+     真有两级时仍留同宽占位，同级标题的左边缘才对得齐。 */
+  const foldable = toc.some((it) => !!it.subitems?.length);
+
   const rows: string[] = [];
   const walk = (items: FoliateTOCItem[], depth: number): void => {
     for (const it of items) {
@@ -98,16 +103,17 @@ function tocBody(toc: FoliateTOCItem[], active: TocActiveRef, collapsed: Readonl
       /* 序号列（原 .no）去掉了：侧栏只有 300px，那一列吃掉 24px + 10px 间距，
          长章节名被截在最难认的位置。层级靠缩进（.d1）表达就够了。
          高亮比对用原始 label，显示用剥过序号的。 */
+      const tw = kids
+        ? `<span class="tw" data-act="toctoggle" data-href="${esc(it.href)}" title="${
+            isCollapsed ? '展开' : '折叠'
+          }">${ico('chevron')}</span>`
+        : foldable
+          ? `<span class="tw is-empty"></span>`
+          : '';
       rows.push(`<div class="bzs-chaprow${depth ? ' d1' : ''}${on ? ' on' : ''}${
         isCollapsed ? ' is-collapsed' : ''
       }" data-act="jumpch" data-href="${esc(it.href)}" data-label="${esc(it.label)}" role="button" tabindex="0">
-        ${
-          kids
-            ? `<span class="tw" data-act="toctoggle" data-href="${esc(it.href)}" title="${
-                isCollapsed ? '展开' : '折叠'
-              }">${ico('chevron')}</span>`
-            : `<span class="tw is-empty"></span>`
-        }
+        ${tw}
         <span class="t">${esc(stripTocLabel(it.label))}</span>
       </div>`);
       if (kids && !isCollapsed) walk(kids, depth + 1);

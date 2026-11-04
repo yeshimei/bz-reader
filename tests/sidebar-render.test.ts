@@ -135,6 +135,17 @@ describe('目录折叠', () => {
     expect(view({ toc: [{ label: '单章', href: 'a#9' }] })).not.toContain('data-act="toctoggle"');
   });
 
+  /* 真机反馈：整本书的目录是一层平铺（没有任何可折叠项）时，每行左边还空着
+     一枚隐藏的箭头位，标题整体往右缩，跟上面「共 N 节」的左边对不上。
+     没有可折叠项就不画占位；目录真有两级时仍画——同级标题左边缘靠它对齐。 */
+  it('目录没有任何子项时不画折叠占位（标题与「共 N 节」左对齐）', () => {
+    expect(view({ toc })).not.toContain('class="tw');
+  });
+
+  it('目录里有子项时，无子项的行仍留同宽占位（同级标题左对齐）', () => {
+    expect(view({ toc: tree })).toContain('class="tw is-empty"');
+  });
+
   it('默认展开：子章节都渲染出来', () => {
     const html = view({ toc: tree });
     expect(html).toContain('第一章 甄士隐梦幻识通灵');
