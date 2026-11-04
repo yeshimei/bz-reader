@@ -117,7 +117,9 @@
   --overlay: rgba(0, 0, 0, .42);
 }
 
-/* ── 强调色四支 ──
+/* ── 强调色各支 ──
+   与 data/prefs.ts 的 ACCENT_OPTIONS 逐档对应：少一条不报错，只是回落到
+   宿主 accent，看起来像「选什么都没变」（tests/accent-tiers.test.ts 守着）。
    明暗各一档：同一支朱砂在白底和炭底上不是一个明度，暗底压暗色等于没画。
    挂 body.theme-dark 而不是 @media (prefers-color-scheme)：Obsidian 的
    明暗是给 body 加类，跟系统偏好不一定一致。 */
@@ -125,11 +127,17 @@
 .bzs-shell[data-bzaccent="vermilion"] { --copper: #b0452f; }
 .bzs-shell[data-bzaccent="indigo"] { --copper: #3f5b8f; }
 .bzs-shell[data-bzaccent="moss"] { --copper: #4c6b52; }
+.bzs-shell[data-bzaccent="ink"] { --copper: #2f3338; }
+.bzs-shell[data-bzaccent="plum"] { --copper: #8a3a4a; }
+.bzs-shell[data-bzaccent="celadon"] { --copper: #3f7474; }
 
 body.theme-dark .bzs-shell[data-bzaccent="copper"] { --copper: #c8a464; }
 body.theme-dark .bzs-shell[data-bzaccent="vermilion"] { --copper: #d9705a; }
 body.theme-dark .bzs-shell[data-bzaccent="indigo"] { --copper: #8aa7d6; }
 body.theme-dark .bzs-shell[data-bzaccent="moss"] { --copper: #93b79a; }
+body.theme-dark .bzs-shell[data-bzaccent="ink"] { --copper: #c9d0d8; }
+body.theme-dark .bzs-shell[data-bzaccent="plum"] { --copper: #d98a99; }
+body.theme-dark .bzs-shell[data-bzaccent="celadon"] { --copper: #8fc6c6; }
 
 /* 半透明档位跟着 --copper 走：自持色没有宿主 accent 可混，就地混出来 */
 .bzs-shell[data-bzaccent]:not([data-bzaccent="auto"]) {
