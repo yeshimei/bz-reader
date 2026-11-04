@@ -166,7 +166,7 @@ export function viewSettings(v: SettingsView): string {
           <span>${esc(s.exportDir)}/</span>${ico('folder') || ''}<i>选择…</i>
         </button></div>
       ${toggle('exportComments', s.exportComments, '导出时带上想法')}
-      <div class="bzs-setrow"><label>摘录链接</label><span class="bzs-mini" style="flex:1">复制为 obsidian:// 链接，粘进笔记点一下跳回原句</span></div>
+      <div class="bzs-setrow"><label>摘录链接</label><span class="bzs-mini" style="flex:1">复制成双链 <code>[[书#定位]]</code>，粘进笔记点一下跳回原句，反链面板也看得见</span></div>
     </div>`;
 
   /* 入口平权：AI 组始终出现。基础版整组灰掉、点一下就弹高级功能说明——
