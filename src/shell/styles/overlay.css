@@ -337,13 +337,16 @@ body.theme-dark .bzs-float.is-dialog {
   gap: 10px;
 }
 
+/* 输入区自己是一块浅底：白卡上再放一块白，边界全靠光标才看得出来。
+   色块 + 圆角把「写在这儿」说清楚，也不用再描一圈边。 */
 .bzs-idea-card .txt {
   flex: 1;
   min-width: 0;
-  min-height: 46px;
-  padding: 0;
+  min-height: 34px;
+  padding: 8px 12px;
   border: 0;
-  background: none;
+  border-radius: 10px;
+  background: var(--sunken);
   box-shadow: none;
   outline: 0;
   resize: none;
@@ -552,9 +555,11 @@ body.theme-dark .bzs-tb-more {
 }
 
 /* ── 写想法：一个输入框 + 一个保存按钮，没有标题和取消 ──
-   底板收在这一层：外壳透明之后，输入框不能直接贴在正文上。 */
+   底板收在这一层：外壳透明之后，输入框不能直接贴在正文上。
+   320px 是「一句话」的宽度：想法大多一两行，360 在正文里显得太长，
+   再窄又会把一句话挤成三行。 */
 .bzs-idea-panel-body {
-  width: min(360px, calc(100vw - 24px));
+  width: min(320px, calc(100vw - 24px));
   padding: 10px;
   background: var(--surface);
   border-radius: 12px;
@@ -568,11 +573,11 @@ body.theme-dark .bzs-tb-more {
 /* ── 删除划线的确认条（桌面工具条）──
    和想法 / 书摘同一列：一条贴工具条上方，不是一张卡。
    宽度按内容收缩——它只有一句话和两颗按钮，撑满 470px 会像一张空卡；
-   但给 300px 下限（原型定稿值），太窄会像贴在工具条上的小标签。
+   下限与想法卡同为 320px，两张卡切换时宽度不跳。
    max-width 兜住窄窗口，文字长了就换行。 */
 .bzs-del-panel-body {
   width: max-content;
-  min-width: min(300px, calc(100vw - 24px));
+  min-width: min(320px, calc(100vw - 24px));
   max-width: min(470px, calc(100vw - 24px));
   padding: 10px 12px;
   background: var(--surface);
