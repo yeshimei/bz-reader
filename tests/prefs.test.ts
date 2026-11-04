@@ -5,6 +5,7 @@ import {
   LINE_HEIGHT_RANGE,
   MARGIN_RANGE,
   LEGACY_THEMES,
+  gatedPrefs,
   normalizePrefs,
 } from '../src/data/prefs';
 
@@ -58,5 +59,29 @@ describe('normalizePrefs', () => {
     expect(normalizePrefs({ flow: 'scroll' }).flow).toBe('scroll');
     expect(normalizePrefs({ flow: 'paged' }).flow).toBe('paged');
     expect(normalizePrefs({ flow: 'nope' }).flow).toBe('paged');
+  });
+});
+
+/**
+ * 竖排 / 双栏是高级能力：到期（或从未解锁）后必须落回横排单栏。
+ * 只门控「实际生效的排版」，不改用户存下来的偏好——续费/重新激活后原选择自动回来。
+ */
+describe('gatedPrefs', () => {
+  const vertical = normalizePrefs({ layout: 'vertical', columns: 2 });
+
+  it('未解锁：竖排落回横排，双栏落回单栏', () => {
+    const p = gatedPrefs(vertical, false);
+    expect(p.layout).toBe('horizontal');
+    expect(p.columns).toBe(1);
+  });
+
+  it('已解锁：原样保留', () => {
+    expect(gatedPrefs(vertical, true)).toEqual(vertical);
+  });
+
+  it('不改传入对象（到期后用户存的选择还在）', () => {
+    const before = JSON.stringify(vertical);
+    gatedPrefs(vertical, false);
+    expect(JSON.stringify(vertical)).toBe(before);
   });
 });

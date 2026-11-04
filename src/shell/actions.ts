@@ -578,6 +578,16 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       /* 灰测：只复制群号，7 天试用码由群管理员人工发 */
       void copyGroupIdForTrial();
       break;
+    case 'relicense':
+      /* 已激活的人换码（试用 → 正式版）：直接放开输入框，原码留着方便替换 */
+      setState({ relicense: true });
+      rerender();
+      window.setTimeout(() => {
+        const box = document.querySelector<HTMLInputElement>('[data-role="license"]');
+        box?.focus();
+        box?.select();
+      }, 0);
+      break;
     case 'activate': {
       /* 取当前弹层里的那个输入框：设置页也有一枚 data-role="license"，
          全局 querySelector 会先命中它，于是从解锁层粘贴的码永远读不到。 */
@@ -596,6 +606,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
           return;
         }
         notify(res.message);
+        /* 换码成功：退出「重新激活」态，授权组回到只读凭证 */
+        setState({ relicense: false });
         /* 激活成功后强制重画一次弹层（P2-08）：`kind` / `mode` 都没变，
            `overlayKey` 不变，弹层本来完全不动——用户只看到一条 toast，
            界面上还是「未激活」。rev +1 让 key 变化，触发 sync()。 */

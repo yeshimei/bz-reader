@@ -138,6 +138,11 @@ export interface ShellState {
   pen: string;
   /* 浮层 */
   overlay: OverlayState | null;
+  /**
+   * 授权组是否处于「重新激活」替换态：已激活的人要换码时临时打开输入框。
+   * 不落盘——重开插件就回到只读，避免一直挂着可编辑的授权框。
+   */
+  relicense: boolean;
   /* 真实数据里没有、但书库需要 */
   favIds: string[];
   shelves: Record<string, string>;
@@ -163,6 +168,7 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   activeReaderId: null,
   pen: 'amber',
   overlay: null,
+  relicense: false,
   favIds: [],
   shelves: {},
 };
