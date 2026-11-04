@@ -228,8 +228,8 @@ export function viewSettings(v: SettingsView): string {
         <button class="bzs-btn sm" data-act="backup" title="导出成一份 JSON，存进数据目录">备份</button>
         <button class="bzs-btn sm" data-act="restore" title="从备份文件恢复（合并，不覆盖现有进度）">恢复</button></div>
       <div class="bzs-setrow"><label>更新日志</label>
-        <span class="bzs-mini" style="flex:1">${v.version ? `当前 v${esc(v.version)}` : '当前版本未知'} · 每一版改了什么</span>
-        <button class="bzs-btn sm" data-act="changelog" title="打开更新日志">打开</button></div>
+        <span class="bzs-mini" style="flex:1">${v.version ? `当前 v${esc(v.version)}` : '当前版本未知'}</span>
+        <button class="bzs-btn sm" data-act="changelog" title="看看每一版改了什么">打开</button></div>
       <div class="bzs-mini" style="margin-top:10px;line-height:1.9">
         导入的书复制到「书籍导入位置」；数据默认放在库根目录的 <code>${esc(DEFAULT_DATA_DIR)}</code>。
         改数据目录要先确认，确认后整体迁移；复制与校验都成功才会删除旧目录，失败一律保留原样。<br>
