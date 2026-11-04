@@ -9,6 +9,7 @@
  *     这里换成「今日时长」，同一个位置、同一层信息，但不会说谎。
  *   · 原型有「平均翻页速度」，同理换成「有记录的天数」。
  * ============================================================ */
+import { localeTag, t } from '../../i18n';
 import type { ReaderBook } from '../../data/schema';
 import type { StatsSummary } from '../../data/stats';
 import { dayKey } from '../../data/stats';
@@ -50,7 +51,7 @@ function heatHtml(stats: StatsSummary, now: number): string {
     const sec = stats.days[dayKey(ts)] || 0;
     const lv = heatLevel(sec);
     const d = new Date(ts);
-    const tip = `${d.getMonth() + 1}月${d.getDate()}日 · ${sec ? fmtMinutes(sec) : '没有记录'}`;
+    const tip = `${d.toLocaleDateString(localeTag())} · ${sec ? fmtMinutes(sec) : t('stats.noRecord')}`;
     cells.push(`<i class="l${lv}" title="${esc(tip)}"></i>`);
   }
   return cells.join('');
@@ -73,7 +74,7 @@ function weeklyBars(stats: StatsSummary, now: number): { bars: string; max: numb
   const bars = weeks
     .map((sec, i) => {
       const h = Math.round((sec / max) * 100);
-      const label = i === weeks.length - 1 ? '本周' : `${weeks.length - 1 - i}周前`;
+      const label = i === weeks.length - 1 ? t('stats.thisWeek') : t('stats.weeksAgo', { n: weeks.length - 1 - i });
       return `<div class="b"><i style="height:${h}%" title="${esc(fmtMinutes(sec))}"></i><span>${label}</span></div>`;
     })
     .join('');
@@ -100,17 +101,17 @@ export function viewStats(v: StatsView): string {
       const top = Math.max(...st.books.map((x) => x.seconds), 1);
       return `<div class="r"><span class="nm">${esc(b.title)}</span><div class="bar"><i style="width:${Math.round(
         (b.seconds / top) * 100,
-      )}%"></i></div><em>${Math.round(b.seconds / 60)} 分</em></div>`;
+      )}%"></i></div><em>${t('stats.minutes', { n: Math.round(b.seconds / 60) })}</em></div>`;
     })
     .join('');
 
   const empty = !st.books.length;
 
   return `<div class="bzs-kpis">
-      <div class="k"><b>${st.streakDays}</b><span>连续阅读 · 天</span></div>
-      <div class="k"><b>${done}</b><span>已读完 · 本</span></div>
-      <div class="k"><b>${Math.round(st.totalSeconds / 3600)}</b><span>累计时长 · 小时</span></div>
-      <div class="k"><b>${Math.round(st.todaySeconds / 60)}</b><span>今日 · 分钟</span></div>
+      <div class="k"><b>${st.streakDays}</b><span>${t('stats.kpi.streak')}</span></div>
+      <div class="k"><b>${done}</b><span>${t('stats.kpi.done')}</span></div>
+      <div class="k"><b>${Math.round(st.totalSeconds / 3600)}</b><span>${t('stats.kpi.total')}</span></div>
+      <div class="k"><b>${Math.round(st.todaySeconds / 60)}</b><span>${t('stats.kpi.today')}</span></div>
     </div>
     <div class="bzs-stats-grid">
       <div class="bzs-card bzs-goal">
@@ -119,57 +120,66 @@ export function viewStats(v: StatsView): string {
           <circle cx="65" cy="65" r="52" fill="none" stroke="var(--copper)" stroke-width="8" stroke-linecap="round"
             stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - goalPct / 100)}" transform="rotate(-90 65 65)"/>
           <text x="65" y="62" text-anchor="middle" fill="var(--copper)" font-family="Georgia,serif" font-size="24">${goalPct}%</text>
-          <text x="65" y="84" text-anchor="middle" fill="var(--t3)" font-size="10">年度目标</text>
+          <text x="65" y="84" text-anchor="middle" fill="var(--t3)" font-size="10">${t('stats.goal.caption')}</text>
         </svg>
         <div class="gi">
-          <b>${done} / ${v.goal} 本</b>
+          <b>${t('stats.goal.progress', { done, goal: v.goal })}</b>
           <span>${
-            done >= v.goal
-              ? '目标已经达成。把数字调高一点，或者换一本难啃的。'
-              : `今年还差 ${v.goal - done} 本。目标只影响这圈铜线，不影响别处的统计。`
+            done >= v.goal ? t('stats.goal.reached') : t('stats.goal.remaining', { n: v.goal - done })
           }</span>
           <div style="margin-top:14px">
-            <button class="bzs-btn sm" data-act="setgoal">调整目标</button>
-            <button class="bzs-btn sm" data-act="poster">年度海报</button>
+            <button class="bzs-btn sm" data-act="setgoal">${t('stats.goal.adjust')}</button>
+            <button class="bzs-btn sm" data-act="poster">${t('stats.goal.poster')}</button>
           </div>
         </div>
       </div>
       <div class="bzs-card">
-        <div class="bzs-sect-h" style="margin:0 0 4px"><b>每日打卡</b><span class="ln"></span></div>
-        <div class="bzs-kv"><b>连续</b><span>${ck.streak} 天</span></div>
-        <div class="bzs-kv"><b>今天</b><span>${ck.todayDone ? `已达标 · ${ck.todayMinutes} 分` : `${ck.todayMinutes} 分，还差 ${ck.leftMinutes} 分`}</span></div>
-        <div class="bzs-kv"><b>本月</b><span>${ck.monthDays} 天</span></div>
-        <div class="bzs-kv"><b>每日目标</b><span class="bzs-goalchips">${DAILY_GOAL_CHOICES.map(
+        <div class="bzs-sect-h" style="margin:0 0 4px"><b>${t('stats.checkin')}</b><span class="ln"></span></div>
+        <div class="bzs-kv"><b>${t('stats.checkin.streak')}</b><span>${t('stats.days', { n: ck.streak })}</span></div>
+        <div class="bzs-kv"><b>${t('stats.checkin.today')}</b><span>${
+          ck.todayDone
+            ? t('stats.checkin.reached', { n: ck.todayMinutes })
+            : t('stats.checkin.remaining', { n: ck.todayMinutes, left: ck.leftMinutes })
+        }</span></div>
+        <div class="bzs-kv"><b>${t('stats.checkin.month')}</b><span>${t('stats.days', { n: ck.monthDays })}</span></div>
+        <div class="bzs-kv"><b>${t('stats.checkin.goal')}</b><span class="bzs-goalchips">${DAILY_GOAL_CHOICES.map(
           (n) =>
-            `<button class="bzs-chip${n === dailyGoal ? ' on' : ''}" data-act="setdailygoal" data-v="${n}">${n} 分</button>`,
+            `<button class="bzs-chip${n === dailyGoal ? ' on' : ''}" data-act="setdailygoal" data-v="${n}">${t('stats.minutes', { n })}</button>`,
         ).join('')}</span></div>
-        <div class="bzs-checkin" title="这个月每天的打卡">${ck.month
-          .map((v, i) => `<i class="${v === 1 ? 'on' : v === -2 ? 'future' : ''}" title="${i + 1} 日"></i>`)
+        <div class="bzs-checkin" title="${t('stats.checkin.monthTitle')}">${ck.month
+          .map(
+            (v, i) =>
+              `<i class="${v === 1 ? 'on' : v === -2 ? 'future' : ''}" title="${new Date(
+                new Date().getFullYear(),
+                new Date().getMonth(),
+                i + 1,
+              ).toLocaleDateString(localeTag())}"></i>`,
+          )
           .join('')}</div>
-        <div class="bzs-mini" style="margin-top:10px;line-height:1.9">每天读满 ${dailyGoal} 分钟就算打卡。${
-          ck.todayDone ? '今天已经打上了。' : '还差一点，睡前十分钟就够。'
+        <div class="bzs-mini" style="margin-top:10px;line-height:1.9">${t('stats.checkin.hint', { n: dailyGoal })}${
+          ck.todayDone ? t('stats.checkin.doneToday') : t('stats.checkin.almost')
         }</div>
       </div>
       <div class="bzs-card">
-        <div class="bzs-sect-h" style="margin:0 0 4px"><b>近 20 周</b><span class="ln"></span></div>
+        <div class="bzs-sect-h" style="margin:0 0 4px"><b>${t('stats.heat')}</b><span class="ln"></span></div>
         <div class="bzs-heat">${heatHtml(st, now)}</div>
-        <div class="bzs-heat-axis"><span>20 周前</span><span>今天</span></div>
-        <div class="bzs-mini" style="margin-top:14px;line-height:1.9">格子越亮，那天读得越久。${
-          st.streakDays ? `连续 ${st.streakDays} 天没有断过。` : '还没有连续的记录。'
+        <div class="bzs-heat-axis"><span>${t('stats.heat.oldest')}</span><span>${t('stats.heat.today')}</span></div>
+        <div class="bzs-mini" style="margin-top:14px;line-height:1.9">${t('stats.heat.hint')}${
+          st.streakDays ? t('stats.heat.streak', { n: st.streakDays }) : t('stats.heat.noStreak')
         }</div>
       </div>
       <div class="bzs-card">
-        <div class="bzs-sect-h" style="margin:0 0 4px"><b>每周时长</b><span class="ln"></span></div>
+        <div class="bzs-sect-h" style="margin:0 0 4px"><b>${t('stats.weekly')}</b><span class="ln"></span></div>
         <div class="bzs-bars">${bars}</div>
-        <div class="bzs-kv" style="margin-top:14px"><b>今日时长</b><span>${fmtMinutes(st.todaySeconds)}</span></div>
-        <div class="bzs-kv"><b>有记录的天数</b><span>${st.activeDays} 天</span></div>
+        <div class="bzs-kv" style="margin-top:14px"><b>${t('stats.weekly.today')}</b><span>${fmtMinutes(st.todaySeconds)}</span></div>
+        <div class="bzs-kv"><b>${t('stats.weekly.activeDays')}</b><span>${t('stats.days', { n: st.activeDays })}</span></div>
       </div>
       <div class="bzs-card">
-        <div class="bzs-sect-h" style="margin:0 0 4px"><b>按书时长</b><span class="ln"></span></div>
-        <div class="bzs-rank">${rank || '<div class="bzs-empty">还没有阅读记录。</div>'}</div>
+        <div class="bzs-sect-h" style="margin:0 0 4px"><b>${t('stats.byBook')}</b><span class="ln"></span></div>
+        <div class="bzs-rank">${rank || `<div class="bzs-empty">${t('stats.byBook.empty')}</div>`}</div>
       </div>
     </div>
-    ${empty ? '<div class="bzs-empty" style="margin-top:20px">统计只统计真实的阅读会话。打开一本书读几分钟，这里就会亮起来。</div>' : ''}`;
+    ${empty ? `<div class="bzs-empty" style="margin-top:20px">${t('stats.empty')}</div>` : ''}`;
 }
 
 /**
@@ -182,7 +192,7 @@ export function viewStatsLocked(): string {
   const cells = Array.from({ length: HEAT_DAYS }, () => '<i></i>').join('');
   return `<div class="bzs-lockstat">
       <div class="bzs-lockstat-blur" aria-hidden="true"><div class="bzs-heat">${cells}</div></div>
-      <div class="bzs-empty">阅读统计属于高级版。<br>累计时长、热力图、每本书的进度与读完记录，解锁后都在这里。</div>
-      <div class="bzs-lockstat-act"><button class="bzs-btn pri" data-act="unlock" data-mode="stats">查看高级版功能</button></div>
+      <div class="bzs-empty">${t('stats.locked')}<br>${t('stats.lockedHint')}</div>
+      <div class="bzs-lockstat-act"><button class="bzs-btn pri" data-act="unlock" data-mode="stats">${t('stats.locked.cta')}</button></div>
     </div>`;
 }

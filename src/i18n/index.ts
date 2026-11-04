@@ -232,6 +232,29 @@ export function hostLanguageCode(): string {
 }
 
 /**
+ * 当前语言的 BCP-47 标签，给 `toLocaleDateString` 之类用。
+ *
+ * 我们的 `Locale` 是 ISO 639-1 的短码，`Intl` 认的是地区化的长码：
+ * 传 `'zh'` 会拿到系统默认的地区，传 `'zh-CN'` 才是简体。日期显示的
+ * 顺序（2026/11/5 vs 11/5/2026）就靠这个。
+ */
+const BCP47: Record<Locale, string> = {
+  zh: 'zh-CN',
+  'zh-TW': 'zh-TW',
+  en: 'en',
+  ja: 'ja-JP',
+  de: 'de',
+  fr: 'fr',
+  es: 'es',
+  pt: 'pt-BR',
+};
+
+/** 当前界面语言的 BCP-47 标签（日期、数字格式化用） */
+export function localeTag(): string {
+  return BCP47[current] ?? 'en';
+}
+
+/**
  * 更新日志用哪种语言。
  *
  * **这是全仓唯一的例外**：更新日志每次发版手写，八种语言维护一轮就是八倍的
