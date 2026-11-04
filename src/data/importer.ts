@@ -7,7 +7,7 @@
  * ============================================================ */
 import type { App } from 'obsidian';
 
-export const IMPORT_FOLDER = 'Books';
+export const IMPORT_FOLDER = 'bz-reader/books';
 
 /**
  * 目标文件夹 → 实际写入前缀。

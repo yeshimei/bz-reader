@@ -1,7 +1,7 @@
 /* ============================================================
  * bz-reader · 数据落盘（data/store.ts）
  *
- * 单一 JSON：`<数据目录>/bz-reader.json`，数据目录默认 `bz 阅读/`
+ * 单一 JSON：`<数据目录>/bz-reader.json`，数据目录默认 `bz-reader/storage/`
  * （库根目录，用户可在设置里改，见 core/plugin-path.ts）。
  *
  * 三条设计约束：

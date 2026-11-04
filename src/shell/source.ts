@@ -83,7 +83,7 @@ export interface ShellSource {
   backup: () => Promise<{ ok: boolean; message: string }>;
   /** 从备份文件恢复：合并而不是替换，按 updatedAt 取新的那一份 */
   restore: () => Promise<{ ok: boolean; message: string }>;
-  /** 当前数据目录（vault 相对路径，默认 `bz 阅读`） */
+  /** 当前数据目录（vault 相对路径，默认 `bz-reader/storage`） */
   dataDir: () => string;
   /**
    * 迁移数据目录。内部顺序是「落盘 → 复制 → 校验 → 切指针 → 重新加载 → 删旧」，

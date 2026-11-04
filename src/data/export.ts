@@ -17,7 +17,7 @@
  * ============================================================ */
 import type { App } from 'obsidian';
 import type { ReaderBook } from './schema';
-import type { ReaderSettings } from './settings';
+import { DEFAULT_SETTINGS, type ReaderSettings } from './settings';
 import { bookmarksOf, highlightsOf } from './notes';
 
 /** 导出文件第一行。再次导出靠它判断「这份是不是我们写的」 */
@@ -216,7 +216,7 @@ export async function exportBookNotes(
   const bookmarks = bookmarksOf(book);
   if (!highlights.length && !bookmarks.length) return null;
 
-  const dir = settings.exportDir.replace(/^\/+|\/+$/g, '') || '书摘';
+  const dir = settings.exportDir.replace(/^\/+|\/+$/g, '') || DEFAULT_SETTINGS.exportDir;
   await ensureDir(app, dir);
   const path = await resolveTarget(app, dir, book.meta.title);
   const text = buildNotesMarkdown(book, settings, now);

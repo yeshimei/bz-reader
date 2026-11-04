@@ -6,9 +6,9 @@
  *
  * 落点也不一样（2026-11-04 改）：
  *   settings → `.obsidian/plugins/bz-reader/data.json`（设备本地配置）
- *   prefs    → `bz 阅读/bz-reader.json`（跟着库走，换设备还想保持手感）
+ *   prefs    → `bz-reader/storage/bz-reader.json`（跟着库走，换设备还想保持手感）
  *
- * 为什么 AI Key 不进业务 JSON：用户会把 `bz 阅读/bz-reader.json` 发给
+ * 为什么 AI Key 不进业务 JSON：用户会把 `bz-reader/storage/bz-reader.json` 发给
  * 别人看划线，顺手把自己的 API Key 一起发出去就不妙了。
  *
  * 所有取值同样过 normalizeSettings：手改坏的 JSON、旧版本留下的字段、
@@ -24,11 +24,11 @@ export interface AiSettings {
 }
 
 export interface ReaderSettings {
-  /** 书摘导出目录（vault 相对路径） */
+  /** 书摘导出目录（vault 相对路径，默认 `bz-reader/notes`） */
   exportDir: string;
   /** 导出时带上想法 */
   exportComments: boolean;
-  /** 本地文件导入时写进哪个文件夹（vault 相对路径；'/' = 库根目录） */
+  /** 本地文件导入时写进哪个文件夹（vault 相对路径，默认 `bz-reader/books`；'/' = 库根目录） */
   importDir: string;
   ai: AiSettings;
   /*
@@ -42,9 +42,11 @@ export interface ReaderSettings {
 }
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
-  exportDir: '书摘',
+  /* 三个目录都在库根的 `bz-reader/` 下，各占一个子目录（见 core/plugin-path.ts）。
+     `notes` 是唯一要被用户当笔记编辑的：导出后它就归用户的笔记系统管了。 */
+  exportDir: 'bz-reader/notes',
   exportComments: true,
-  importDir: 'Books',
+  importDir: 'bz-reader/books',
   ai: {
     baseUrl: '',
     apiKey: '',

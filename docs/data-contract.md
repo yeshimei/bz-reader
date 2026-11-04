@@ -8,9 +8,10 @@ bz-reader 的书架、进度、标注全在一个 JSON 里。这份文档是给 
 | 项 | 值 |
 |---|---|
 | 插件配置 | `.obsidian/plugins/bz-reader/data.json`（`settings` / `entitlement` / `dataDir`） |
-| 业务数据 | `<dataDir>/bz-reader.json`，`dataDir` 默认 `bz 阅读`，用户可在「书架 · 设置」里改 |
+| 业务数据 | `<dataDir>/bz-reader.json`，`dataDir` 默认 `bz-reader/storage`，用户可在「书架 · 设置」里改 |
 | 封面缓存 | `<dataDir>/covers/` |
 | 同目录其它文件 | `bz-reader.json.tmp` / `.bak`（原子写残留，不要读）、`bz-reader.broken-*.json`（坏文件留档） |
+| 库根占用的目录 | 只有一个 `bz-reader/`：`storage/`（上面这些）、`books/`（导入的书）、`notes/`（导出的书摘） |
 
 **不要**从 localStorage 猜数据目录；权威值在 `data.json` 的 `dataDir`。
 
@@ -25,7 +26,7 @@ bz-reader 的书架、进度、标注全在一个 JSON 里。这份文档是给 
   "goal": 20,
   "dailyGoalMinutes": 30,
   "checkins": { "2026-11-04": 1830 },
-  "dataDir": "bz 阅读"   // 数据目录的镜像
+  "dataDir": "bz-reader/storage"   // 数据目录的镜像
 }
 ```
 
@@ -50,7 +51,7 @@ bz-reader 的书架、进度、标注全在一个 JSON 里。这份文档是给 
     "subtitle": "彩皮版",
     "wordCount": 879954,
     "chapterCount": 138,       // spine 篇数（整本单文件的书会偏小）
-    "coverPath": "bz 阅读/covers/b1nt0nt7-3263507.jpg"
+    "coverPath": "bz-reader/storage/covers/b1nt0nt7-3263507.jpg"
   },
   "fileRef": {
     "vaultPath": "书库/红楼梦.epub",

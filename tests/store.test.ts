@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { App } from 'obsidian';
 import { ReaderStore, sanitizeData } from '../src/data/store';
+import { DEFAULT_DATA_DIR } from '../src/core/plugin-path';
 import { FakeAdapter } from './helpers/fake-adapter';
 
-const DIR = 'bz 阅读';
+/* 测试环境没有 localStorage，store 会回落到默认数据目录——所以 fixture 的
+   路径必须跟着 DEFAULT_DATA_DIR 走，不能各写一份字符串。 */
+const DIR = DEFAULT_DATA_DIR;
 const FILE = `${DIR}/bz-reader.json`;
 const TMP = `${FILE}.tmp`;
 

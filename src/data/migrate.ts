@@ -2,7 +2,7 @@
  * bz-reader · 数据目录迁移（data/migrate.ts）
  *
  * 两处用到：
- *   1. 老版本的数据在 `<插件>/storage/`，第一次升级时静默搬到 `bz 阅读/`；
+ *   1. 老版本的数据在 `<插件>/storage/`，第一次升级时静默搬到当前数据目录；
  *   2. 用户在设置里换了数据目录，确认后整体搬过去。
  *
  * 迁移只有一条铁律：**先复制、验过、再删旧**。
@@ -87,15 +87,18 @@ export async function dirHasFiles(app: App, dir: string): Promise<boolean> {
 }
 
 /**
- * 在库根找「哪些目录里有 bz-reader.json」。
+ * 在库里找「哪些目录里有 bz-reader.json」。
  *
  * 用在 P1-07：localStorage 被清、删插件目录重装、或换设备只同步了书之后，
- * 数据目录指针丢了，插件会回落到默认的 `bz 阅读/` → 读不到 → 空库 →
+ * 数据目录指针丢了，插件会回落到默认的 `bz-reader/storage/` → 读不到 → 空库 →
  * 按文件路径重建书单（每本书进度归零、划线全空），还会顺手写出一份新的空
  * JSON。旧库文件还在，但插件再也不会去读它。
  *
- * 只扫库根和它的一层子目录：再深就不是用户会自己建的布局了，扫全库在
- * 大库上会卡住启动。返回的路径都是 vault 相对路径，库根是空串。
+ * 扫库根 + 两层子目录：默认位置 `bz-reader/storage/` 自己就是两层，只扫一层
+ * 等于把这个功能对新用户关掉了。再深就不再猜——用户爱把数据放多深是他的事，
+ * 扫全库在大库上会卡住启动。
+ *
+ * 返回的路径都是 vault 相对路径，库根是空串。
  */
 export async function findDataDirs(app: App, fileName = 'bz-reader.json'): Promise<string[]> {
   const adapter = app.vault.adapter;
@@ -110,7 +113,23 @@ export async function findDataDirs(app: App, fileName = 'bz-reader.json'): Promi
   for (const raw of listing.folders) {
     const name = raw.replace(/^\/+|\/+$/g, '');
     if (!name || name.startsWith('.')) continue; // .obsidian / .trash 不猜
-    if (await adapter.exists(`${name}/${fileName}`).catch(() => false)) out.push(name);
+    if (await adapter.exists(`${name}/${fileName}`).catch(() => false)) {
+      out.push(name);
+      continue;
+    }
+    /* 第一层没有再看第二层。只在第一层落空时才 list 一次，绝大多数顶层目录
+       连这一轮都不会走进来。 */
+    let sub: { files: string[]; folders: string[] };
+    try {
+      sub = await adapter.list(name);
+    } catch {
+      continue;
+    }
+    for (const child of sub.folders) {
+      const path = child.replace(/^\/+|\/+$/g, '');
+      if (!path || path.split('/').pop()!.startsWith('.')) continue;
+      if (await adapter.exists(`${path}/${fileName}`).catch(() => false)) out.push(path);
+    }
   }
   return out;
 }

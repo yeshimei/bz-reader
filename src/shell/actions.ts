@@ -54,6 +54,7 @@ import {
 } from './state';
 import { RT, emitNotesChanged, pushAi } from './runtime';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
+import { DEFAULT_SETTINGS } from '../data/settings';
 import { copyGroupIdForTrial } from './group';
 
 /** 当前上下文里的书：优先状态里记住的那本，否则取书库第一本 */
@@ -87,7 +88,8 @@ function overlay(kind: OverlayKind, extra: Record<string, unknown> = {}): void {
  * （设置里的导出目录 + 书名），用户之后手动整理也在同一处。
  */
 async function appendToExport(app: App, book: ReaderBook | undefined, block: string): Promise<void> {
-  const dir = (shellSettings().exportDir || '书摘').replace(/^\/+|\/+$/g, '') || '书摘';
+  const fallback = DEFAULT_SETTINGS.exportDir;
+  const dir = (shellSettings().exportDir || fallback).replace(/^\/+|\/+$/g, '') || fallback;
   const name = book?.meta.title || '零散片段';
   const path = `${dir}/${name}.md`;
   try {
@@ -697,7 +699,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       // 只挑不输：弹出 vault 文件夹清单，选完即生效
       const src = getShellSource();
       if (!src) break;
-      const cur = shellSettings().importDir || 'Books';
+      const cur = shellSettings().importDir || DEFAULT_SETTINGS.importDir;
       void pickFolder(src.app, cur).then((picked) => {
         if (picked === null) return;
         src.setSettings({ importDir: picked });
@@ -710,7 +712,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       /* 导出目录也可以从文件夹清单里挑：手打路径错了不会报错，笔记会写进别处 */
       const src = getShellSource();
       if (!src) break;
-      const cur = shellSettings().exportDir || '书摘';
+      const cur = shellSettings().exportDir || DEFAULT_SETTINGS.exportDir;
       void pickFolder(src.app, cur).then((picked) => {
         if (picked === null) return;
         if (picked === '/') {

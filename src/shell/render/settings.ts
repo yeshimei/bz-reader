@@ -167,7 +167,7 @@ export function viewSettings(v: SettingsView): string {
   const dir = dataDirOf();
   /* 目录一律只给选择器，不给输入框：vault 路径有口径（分隔符、首尾斜杠、
      大小写），手打死角很多，错了还不报错——文件会写进别处。 */
-  const importDir = s.importDir || 'Books';
+  const importDir = s.importDir || DEFAULT_SETTINGS.importDir;
   const data = `<div class="bzs-setgrp">
       <h3>数据</h3>
       <div class="bzs-setrow"><label>书籍导入位置</label>

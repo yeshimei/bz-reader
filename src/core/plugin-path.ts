@@ -41,18 +41,27 @@ export function pluginVaultPath(app: App, rel: string): string {
 }
 
 /* ─────────── 数据根（用户可改） ───────────
- * 书架、标注、封面都放在一个**用户可见的文件夹**里，默认 `bz 阅读/`，
- * 落在库根目录。为什么不再塞进 `.obsidian/plugins/bz-reader/storage`：
- *   1. 用户备份库的时候，`storage` 在 .obsidian 里，很多同步方案默认跳过；
+ * 库根只放一个容器 `bz-reader/`，里面三份东西各占一个子目录：
+ *   storage/  插件私有数据（bz-reader.json + covers/）
+ *   books/    用户导入的书
+ *   notes/    导出的书摘
+ * 分开是因为归属不同：`storage` 删了只是丢进度，`books` 删了是丢用户的藏书，
+ * `notes` 删了是丢笔记。混在一起会让人以为删掉整棵目录的代价是一样的。
+ *
+ * 为什么不再塞进 `.obsidian/plugins/bz-reader/storage`：
+ *   1. 用户备份库的时候，.obsidian 里那块很多同步方案默认跳过；
  *   2. 换插件版本 / 重装插件时，那块目录容易被一起清掉；
  *   3. 用户根本看不见自己的书摘数据在哪，出了问题没法自救。
+ *
+ * 为什么是 `bz-reader` 而不是 `bz 阅读`：空格在同步工具、命令行、URL 编码上
+ * 反复翻车；而且它要和插件 id、仓库名、`.obsidian/plugins/bz-reader` 对齐。
  *
  * 目录指针存 localStorage 而不是存 JSON 本身——这是个先有鸡还是先有蛋的
  * 问题：不知道目录就读不到写着目录的那个文件。JSON 里那份只是镜像。
  */
 
-/** 默认目录：库根目录下的 `bz 阅读` */
-export const DEFAULT_DATA_DIR = 'bz 阅读';
+/** 默认数据目录：库根 `bz-reader/storage` */
+export const DEFAULT_DATA_DIR = 'bz-reader/storage';
 
 const LS_DATA_DIR = 'bzs-data-dir-v1';
 
@@ -96,7 +105,7 @@ export function setDataDir(dir: string): string {
   return next;
 }
 
-/** 数据根：用户指定目录（默认 `bz 阅读/`），书架 JSON 与封面都在里面 */
+/** 数据根：用户指定目录（默认 `bz-reader/storage`），书架 JSON 与封面都在里面 */
 export function storageDirOf(_app?: App): string {
   return dataDirOf();
 }

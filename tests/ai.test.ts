@@ -4,9 +4,9 @@ import type { ReaderSettings } from '../src/data/settings';
 
 function settings(patch: Partial<ReaderSettings['ai']> = {}): ReaderSettings {
   return {
-    exportDir: '书摘',
+    exportDir: 'bz-reader/notes',
     exportComments: true,
-    importDir: 'Books',
+    importDir: 'bz-reader/books',
     ai: { baseUrl: 'https://api.example.com/v1', apiKey: 'sk-test', model: 'test-model', ...patch },
   };
 }

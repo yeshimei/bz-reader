@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { App } from 'obsidian';
 import { ReaderStore, mergeData, sanitizeDataDetailed } from '../src/data/store';
+import { DEFAULT_DATA_DIR } from '../src/core/plugin-path';
 import { FakeAdapter } from './helpers/fake-adapter';
 
-const DIR = 'bz 阅读';
+const DIR = DEFAULT_DATA_DIR;
 const FILE = `${DIR}/bz-reader.json`;
 
 function makeStore(adapter: FakeAdapter): ReaderStore {

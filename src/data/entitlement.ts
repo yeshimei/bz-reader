@@ -17,7 +17,7 @@
  *   2. **不能只放 localStorage**：清缓存 / 重装 / iOS 回收存储都会把它
  *      干掉，付费用户某天打开发现变回基础版，还得翻邮件找码。文件不会
  *      被浏览器回收。
- *   3. 不污染 weave-data 同构的业务数据——`bz 阅读/bz-reader.json` 是
+ *   3. 不污染 weave-data 同构的业务数据——`bz-reader/storage/bz-reader.json` 是
  *      用户会自己打开、复制、发给别人看的东西。
  *
  * localStorage 仍然写一份**镜像**：删掉插件目录重装时，data.json 没了而

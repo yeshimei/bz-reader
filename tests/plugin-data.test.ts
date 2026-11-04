@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { normalizePluginData } from '../src/data/plugin-data';
 import { DEFAULT_SETTINGS } from '../src/data/settings';
+import { DEFAULT_DATA_DIR } from '../src/core/plugin-path';
 
 describe('data.json 收口径', () => {
   it('null / 不是对象 → 全默认值', () => {
     for (const raw of [null, undefined, 42, 'nope', []]) {
       const d = normalizePluginData(raw);
       expect(d.settings).toEqual(DEFAULT_SETTINGS);
-      expect(d.dataDir).toBe('bz 阅读');
+      expect(d.dataDir).toBe(DEFAULT_DATA_DIR);
       expect(d.entitlement).toBeNull();
     }
   });
@@ -20,8 +21,8 @@ describe('data.json 收口径', () => {
   });
 
   it('dataDir 拒绝上跳与隐藏目录，正常目录原样保留', () => {
-    expect(normalizePluginData({ dataDir: '../外面' }).dataDir).toBe('bz 阅读');
-    expect(normalizePluginData({ dataDir: '.obsidian/x' }).dataDir).toBe('bz 阅读');
+    expect(normalizePluginData({ dataDir: '../外面' }).dataDir).toBe(DEFAULT_DATA_DIR);
+    expect(normalizePluginData({ dataDir: '.obsidian/x' }).dataDir).toBe(DEFAULT_DATA_DIR);
     expect(normalizePluginData({ dataDir: '我的书库' }).dataDir).toBe('我的书库');
     expect(normalizePluginData({ dataDir: '/书库/子目录/' }).dataDir).toBe('书库/子目录');
   });

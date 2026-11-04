@@ -116,4 +116,26 @@ describe('findDataDirs（P1-07 数据目录找回）', () => {
     const app = makeApp(new FakeAdapter());
     expect(await findDataDirs(app)).toEqual([]);
   });
+
+  /* ── 默认数据目录改到 `bz-reader/storage/` 之后（两层） ──
+   * 只扫一层的话，新默认位置自己就扫不到——「localStorage 被清 / 换设备只同步
+   * 了库」时，找回逻辑会对着一个和它结构对不上的布局空转。 */
+  it('两层的 bz-reader/storage 也能找到', async () => {
+    const adapter = new FakeAdapter();
+    adapter.files.set('bz-reader/storage/bz-reader.json', '{}');
+    expect(await findDataDirs(makeApp(adapter))).toEqual(['bz-reader/storage']);
+  });
+
+  it('一层的老布局照旧能找到（两层是在一层之外多扫一轮）', async () => {
+    const adapter = new FakeAdapter();
+    adapter.files.set('我的书库/bz-reader.json', '{}');
+    adapter.files.set('bz-reader/storage/bz-reader.json', '{}');
+    expect((await findDataDirs(makeApp(adapter))).sort()).toEqual(['我的书库', 'bz-reader/storage'].sort());
+  });
+
+  it('三层及以下仍然不猜——扫全库会卡住启动', async () => {
+    const adapter = new FakeAdapter();
+    adapter.files.set('a/b/更深/bz-reader.json', '{}');
+    expect(await findDataDirs(makeApp(adapter))).toEqual([]);
+  });
 });
