@@ -29,6 +29,8 @@ export interface SettingsView {
   pen: string;
   /** 命令 → 当前键位（来自宿主，不是我们存的） */
   hotkeys: HotkeyRow[];
+  /** 已激活时点了「重新激活」：临时允许编辑激活码（不落盘） */
+  relicense?: boolean;
 }
 
 /**
@@ -135,15 +137,24 @@ export function viewSettings(v: SettingsView): string {
     </div>`;
 
   const ent = entitlement();
-  /* 激活之后这组变成「凭证」：码只读，激活按钮与「高级版 / 查看功能对照」整行都不再出现。
-     那两样是给没解锁的人看的，已付费用户看到只会以为还要再操作一次。 */
+  /* 激活之后这组变成「凭证」：码只读，日常不让人误改。
+     但**必须留一个换码入口**——先用群里的 7 天试用，再买正式版，
+     如果输入框只读又没有按钮，就变成「买了却填不进去」。
+     点「重新激活」进入一次性的替换态（relicense），取消即回只读。 */
   const paid = ent.tier === 'paid';
+  const editingLicense = paid && !!v.relicense;
   const lic = `<div class="bzs-setgrp">
       <h3>授权</h3>
       <div class="bzs-setrow"><label>状态</label><span class="bzs-mini" style="flex:1">${esc(tierText(ent))}</span></div>
       <div class="bzs-setrow"><label>激活码</label>
-        <input data-role="license" placeholder="BZR2.… 或 BZR1.…" value="${esc(ent.license)}" spellcheck="false" style="flex:1"${paid ? ' readonly' : ''}>
-        ${paid ? '' : '<button class="bzs-btn sm pri" data-act="activate">激活</button>'}</div>
+        <input data-role="license" placeholder="BZR2.… 或 BZR1.…" value="${esc(ent.license)}" spellcheck="false" style="flex:1"${
+          paid && !editingLicense ? ' readonly' : ''
+        }>
+        ${
+          paid && !editingLicense
+            ? '<button class="bzs-btn sm" data-act="relicense">重新激活</button>'
+            : '<button class="bzs-btn sm pri" data-act="activate">激活</button>'
+        }</div>
       ${
         paid
           ? ''

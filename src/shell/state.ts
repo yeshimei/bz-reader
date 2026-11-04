@@ -209,6 +209,11 @@ export interface ShellState {
    * 只从已保存的标注里取值的话，用户打了一半的字会在这一刻被抹掉。
    */
   ideaDraft: string | null;
+  /**
+   * 授权组是否处于「重新激活」替换态：已激活的人要换码时临时打开输入框。
+   * 不落盘——重开插件就回到只读，避免一直挂着可编辑的授权框。
+   */
+  relicense: boolean;
   /* 真实数据里没有、但书库需要 */
   favIds: string[];
   shelves: Record<string, string>;
@@ -241,6 +246,7 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   ideaDirty: false,
   ideaConfirm: false,
   ideaDraft: null,
+  relicense: false,
   favIds: [],
   shelves: {},
 };

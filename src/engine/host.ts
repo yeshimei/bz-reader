@@ -37,7 +37,8 @@ import {
   resolveFootnoteText,
   splitFootnoteHref,
 } from './footnote';
-import { DEFAULT_PREFS, FONT_SIZE_RANGE, type ReaderPrefs } from '../data/prefs';
+import { DEFAULT_PREFS, FONT_SIZE_RANGE, gatedPrefs, type ReaderPrefs } from '../data/prefs';
+import { can } from '../data/entitlement';
 import { dlog } from '../core/debug-log';
 
 /** 宿主坐标系里的矩形（左上角 + 宽高，单位 CSS px） */
@@ -1094,18 +1095,24 @@ export class EngineHost {
    */
   refreshTheme(): void {
     const renderer = this.view?.renderer as unknown as { setStyles?: (css: string) => void } | undefined;
-    renderer?.setStyles?.(buildChapterCSS(this.prefs));
+    const eff = gatedPrefs(this.prefs, can('vertical'));
+    renderer?.setStyles?.(buildChapterCSS(eff));
   }
 
   /** 主题/字号/行距变化时调，只换样式不重开书 */
   applyPrefs(prefs: ReaderPrefs): void {
     const prev = this.prefs;
     this.prefs = prefs;
+    // 竖排 / 双栏是高级能力：到期或未解锁时按横排单栏渲染，
+    // 用户存的选择留在 prefs 里，重新激活后自动恢复。
+    const verticalOk = can('vertical');
+    const eff = gatedPrefs(prefs, verticalOk);
+    const prevEff = gatedPrefs(prev, verticalOk);
     this.refreshTheme();
     // 栏数走 CSS 变量进 shadow 的 #top（vendor 补丁把它接成了 var(--_column-count, 2)）；
     // 挂在 paginator 元素上，自定义属性会继承进 shadow 树
     const pag = this.view?.renderer as unknown as (HTMLElement & { render?: () => void }) | undefined;
-    pag?.style?.setProperty('--_column-count', String(prefs.columns));
+    pag?.style?.setProperty('--_column-count', String(eff.columns));
     // 分页模式下 foliate 用内联 !important 把 documentElement 的 padding 覆成
     // 「左右列距、上下 0」（columnize()），注入的 body padding 只对章首页生效——
     // 章中页顶端只剩 shadow 的 48px 边距行。vendor 补丁把上下 padding 接成
@@ -1119,13 +1126,13 @@ export class EngineHost {
     const flow = prefs.flow === 'scroll' ? 'scrolled' : 'paginated';
     if (pag && pag.getAttribute?.('flow') !== flow) pag.setAttribute?.('flow', flow);
     if (!this.view || !prev) return;
-    if (prev.layout !== prefs.layout) {
+    if (prevEff.layout !== eff.layout) {
       // 竖排切换必须重新装载章节：引擎只在 load 时读一次 writing-mode，
       // 中途改注入不会重排。goTo 当前位置会让同章节重新 load，落回原处。
       if (this.lastLocationCfi) {
         void this.view.goTo(this.lastLocationCfi).catch(() => undefined);
       }
-    } else if (prev.columns !== prefs.columns) {
+    } else if (prevEff.columns !== eff.columns) {
       // 栏数不用重新 load：重算布局即可，锚点自己会回到原处
       pag?.render?.();
     }

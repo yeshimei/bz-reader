@@ -154,3 +154,13 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     flow: p.flow === 'scroll' ? 'scroll' : 'paged',
   };
 }
+
+/**
+ * 授权门控后的排版偏好：竖排 / 双栏是高级能力，没解锁就按横排单栏渲染。
+ *
+ * 只改「实际生效的值」，不动用户存下来的偏好——到期降级后重新激活，
+ * 原来的竖排 / 双栏会自动回来，不用再设一次。
+ */
+export function gatedPrefs(p: ReaderPrefs, unlocked: boolean): ReaderPrefs {
+  return unlocked ? p : { ...p, layout: 'horizontal', columns: 1 };
+}

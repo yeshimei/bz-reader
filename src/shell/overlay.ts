@@ -833,6 +833,8 @@ let aiRequestedFor = '';
 export async function runAiForOverlay(): Promise<void> {
   const o = getState().overlay;
   if (!o || (o.kind !== 'ai' && o.kind !== 'translate')) return;
+  /* 到期 / 未解锁不再发请求：弹层可能是在有码时打开的，跑完再点重试也得拦 */
+  if (!can('ai')) return;
   const s = shellSettings();
   if (!s.ai.baseUrl || !s.ai.apiKey || !s.ai.model) return;
   const text = o.text || RT.sel?.text || '';

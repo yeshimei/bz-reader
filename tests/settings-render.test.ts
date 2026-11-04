@@ -7,7 +7,7 @@ vi.mock('../src/data/entitlement', () => ({
   entitlement: () => ({
     tier: entState.unlocked ? 'paid' : 'free',
     unlocked: entState.unlocked,
-    license: '',
+    license: 'BZR2.old-code',
   }),
   tierText: () => (entState.unlocked ? '高级版已激活' : '当前未激活'),
 }));
@@ -16,8 +16,8 @@ import { DEFAULT_PREFS } from '../src/data/prefs';
 import { DEFAULT_SETTINGS } from '../src/data/settings';
 import { viewSettings } from '../src/shell/render/settings';
 
-const html = (): string =>
-  viewSettings({ prefs: DEFAULT_PREFS, settings: DEFAULT_SETTINGS, pen: 'amber', hotkeys: [] });
+const html = (relicense = false): string =>
+  viewSettings({ prefs: DEFAULT_PREFS, settings: DEFAULT_SETTINGS, pen: 'amber', hotkeys: [], relicense });
 
 describe('设置页渲染', () => {
   it('导出目录与数据目录都有文件夹选择钮', () => {
@@ -93,6 +93,32 @@ describe('设置页渲染', () => {
     const out = html();
     expect(out).not.toMatch(/data-k="ai\.baseUrl"[^>]*readonly/);
     expect(out).not.toContain('data-act="unlock"');
+    entState.unlocked = false;
+  });
+});
+
+/**
+ * 已激活的人也必须能换码：先用群里的 7 天试用，再买正式版——
+ * 如果输入框只读、又没有激活按钮，用户就卡在「买了却填不进去」。
+ */
+describe('授权组 · 重新激活', () => {
+  it('已激活：输入框只读，但给出「重新激活」', () => {
+    entState.unlocked = true;
+    const out = html(false);
+    expect(out).toMatch(/data-role="license"[^>]*readonly/);
+    expect(out).toContain('data-act="relicense"');
+    expect(out).toContain('重新激活');
+    expect(out).not.toContain('data-act="activate"');
+    entState.unlocked = false;
+  });
+
+  it('点了「重新激活」：输入框可编辑，原码保留，只给激活', () => {
+    entState.unlocked = true;
+    const out = html(true);
+    expect(out).not.toMatch(/data-role="license"[^>]*readonly/);
+    expect(out).toContain('data-act="activate"');
+    expect(out).not.toContain('data-act="cancelrelicense"');
+    expect(out).toContain('value="BZR2.old-code"');
     entState.unlocked = false;
   });
 });
