@@ -5,8 +5,8 @@
   <sub>桌面端+移动端、多格式支持、AI 问答、双向链接，数据本地。</sub></p>
 
   <p>
-    <a href="https://obsidian.md"><img src="docs/images/badges/obsidian.svg" height="27" alt="Obsidian 1.7.2+"></a>
-    <img src="docs/images/badges/version.svg" height="27" alt="版本 0.2.0">
+    <a href="https://obsidian.md"><img src="docs/images/badges/obsidian.svg" height="27" alt="Obsidian 1.8.7+"></a>
+    <img src="docs/images/badges/version.svg" height="27" alt="版本 0.3.0">
     <img src="docs/images/badges/platform.svg" height="27" alt="桌面 + 移动">
     <img src="docs/images/badges/license.svg" height="27" alt="MIT">
   </p>

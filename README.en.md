@@ -5,8 +5,8 @@
   <sub>Desktop and mobile, multiple formats, AI Q&amp;A, wikilinks. All data stored locally.</sub></p>
 
   <p>
-    <a href="https://obsidian.md"><img src="docs/images/badges/obsidian.svg" height="27" alt="Obsidian 1.7.2+"></a>
-    <img src="docs/images/badges/version.svg" height="27" alt="version 0.2.0">
+    <a href="https://obsidian.md"><img src="docs/images/badges/obsidian.svg" height="27" alt="Obsidian 1.8.7+"></a>
+    <img src="docs/images/badges/version.svg" height="27" alt="version 0.3.0">
     <img src="docs/images/badges/platform.svg" height="27" alt="Desktop and mobile">
     <img src="docs/images/badges/license.svg" height="27" alt="MIT">
   </p>

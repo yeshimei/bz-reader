@@ -36,7 +36,7 @@ import { collectDataDirCandidates, pickDataDir } from './core/data-dir-pick';
 import { normalizePrefs, pickPrefs, type ReaderPrefs } from './data/prefs';
 import { normalizeSettings, type ReaderSettings } from './data/settings';
 import type { BookFormat, ReaderBook } from './data/schema';
-import { ReaderView, VIEW_TYPE_READER, type ReaderCommand, type ReaderHostApi } from './view/reader-view';
+import { ReaderView, VIEW_TYPE_READER, type ReaderHostApi } from './view/reader-view';
 import { SideView, VIEW_TYPE_TOC, type SideTab } from './view/side-view';
 import { pickActiveReader } from './view/active-reader';
 import { isDeferredViewOf } from './view/leaf-reuse';
