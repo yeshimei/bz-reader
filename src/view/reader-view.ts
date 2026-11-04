@@ -34,7 +34,7 @@ import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
 import { el, setHtml } from '../ui/dom';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
-import { headerActionSpec, headerActionsFor, headerActive, headerOverflowFor, type HeaderActionId } from './header-actions';
+import { headerActionSpec, headerActionsFor, headerActive, type HeaderActionId } from './header-actions';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { selActions } from '../shell/text-toolbar';
 import { VIEW_TYPE_TOC } from './side-view';
@@ -527,11 +527,10 @@ export class ReaderView extends ItemView {
       run: run[id],
     }));
     const ids = spec.map((s) => s.id);
-    const overflow = headerOverflowFor(mobile, { order: this.prefs.headerOrder, hidden: this.prefs.headerHidden });
 
     /* 用户改过顺序 / 隐藏之后，上一版挂上去的旧按钮要收走 */
     for (const [id, el] of [...this.headerEls]) {
-      if (id !== 'more' && !ids.includes(id as HeaderActionId)) {
+      if (!ids.includes(id as HeaderActionId)) {
         el.remove();
         this.headerEls.delete(id);
       }
@@ -558,62 +557,10 @@ export class ReaderView extends ItemView {
       fresh.push(btn);
     }
 
-    /* 被显式隐藏 / 移动端被名额挤出的图标，进自己那颗 ⋮：
-       宿主的 ⋮ 塞不进我们的动作，所以这里单独挂一颗。 */
-    const oldMore = this.headerEls.get('more');
-    if (!overflow.length) {
-      oldMore?.remove();
-      this.headerEls.delete('more');
-    } else if (!oldMore) {
-      const more = createDiv();
-      more.className = 'clickable-icon view-action bzr-more';
-      more.setAttribute('aria-label', '更多');
-      setIcon(more, 'more-horizontal');
-      more.addEventListener('click', (ev) => {
-        ev.preventDefault();
-        const cur = this.prefs;
-        this.showHeaderMenu(
-          more,
-          headerOverflowFor(isMobileEnv(), { order: cur.headerOrder, hidden: cur.headerHidden }),
-        );
-      });
-      this.headerEls.set('more', more);
-      fresh.push(more);
-    }
-
-    /* 全部动作插到最前面：视觉顺序 = 我们的动作，然后宿主的 ⋮。
-       手机上放 3 个（横向像素最贵），桌面按用户配置。 */
+    /* 收起的图标不另建菜单：宿主最右侧的 ⋮ 里本来就有这十项
+       （见 onPaneMenu），再挂一颗自己的 ⋮ 只会变成两个入口。 */
     if (fresh.length) box.prepend(...fresh);
     this.trimHeaderActions(box, spec.length);
-  }
-
-  /** 头栏 ⋮：被隐藏 / 移动端挤出的动作都在这里 */
-  private showHeaderMenu(anchor: HTMLElement, ids: HeaderActionId[]): void {
-    if (!ids.length) return;
-    const run: Record<HeaderActionId, (ev?: MouseEvent) => void> = {
-      toc: () => this.api.openTocSidebar('toc'),
-      search: () => dispatchAction('search', this.rootEl ?? document.body),
-      mark: () => this.toggleBookmark(),
-      type: () => dispatchAction('typography', this.rootEl ?? document.body),
-      para: () => void this.toggleParallel(),
-      paraBook: (ev) => this.openParallelPicker(ev),
-      tts: () => this.toggleTts(),
-      bookmap: () => dispatchAction('bookmap', this.rootEl ?? document.body),
-      immersive: () => this.toggleImmersive(),
-      library: () => getShellSource()?.openStudy('library'),
-    };
-    const menu = new Menu();
-    for (const id of ids) {
-      const spec = headerActionSpec(id);
-      menu.addItem((item) =>
-        item
-          .setTitle(spec.label)
-          .setIcon(spec.icon)
-          .onClick((evt) => run[id](evt instanceof MouseEvent ? evt : undefined)),
-      );
-    }
-    const rect = anchor.getBoundingClientRect();
-    menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });
   }
 
   /**
@@ -628,10 +575,8 @@ export class ReaderView extends ItemView {
     const kids = Array.from(box.children) as HTMLElement[];
     const visible = (el: HTMLElement): boolean =>
       el.offsetParent !== null && getComputedStyle(el).display !== 'none';
-    const isOurs = (el: HTMLElement): boolean =>
-      el.classList.contains('bzr-action') || el.classList.contains('bzr-more');
-    /* 名额只算我们的动作；⋮（bzr-more）既不占名额，也不能被当成别人的收走 */
-    const ours = kids.filter((el) => el.classList.contains('bzr-action'));
+    const isOurs = (el: HTMLElement): boolean => el.classList.contains('bzr-action');
+    const ours = kids.filter(isOurs);
 
     const othersAll = kids.filter((el) => !isOurs(el) && visible(el));
     /* 最右那颗是宿主的 ⋮，不占名额，也不能收 */

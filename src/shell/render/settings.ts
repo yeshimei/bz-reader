@@ -131,7 +131,7 @@ export function viewSettings(v: SettingsView): string {
     .join('');
   const header = `<div class="bzs-setgrp">
       <h3>阅读页图标</h3>
-      <div class="bzs-mini" style="margin:0 0 8px">开关控制显示 / 收起，收起的进右上角 ⋮；移动端最多露 3 颗。</div>
+      <div class="bzs-mini" style="margin:0 0 8px">开关控制显示 / 收起；收起的进最右侧 ⋮（Obsidian 自带的更多菜单）。移动端最多露 3 颗。</div>
       ${headerRows}
     </div>`;
 

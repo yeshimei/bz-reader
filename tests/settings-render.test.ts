@@ -80,6 +80,12 @@ describe('设置页渲染', () => {
     expect(headerAt).toBeLessThan(lookAt);
   });
 
+  it('收起的去向写明是 Obsidian 自带的 ⋮，不是插件自己的菜单', () => {
+    const out = html();
+    expect(out).toContain('最右侧 ⋮');
+    expect(out).not.toContain('进右上角 ⋮');
+  });
+
   it('三个目录的「迁移」按钮已去掉（改由选不同目录时二次确认）', () => {
     const out = html();
     expect(out).not.toContain('datadirmove');
