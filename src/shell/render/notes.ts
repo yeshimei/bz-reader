@@ -7,7 +7,7 @@
  *   2. 一条标注可能没有评论，这时卡片就只是引文
  *   3. 每日回顾从「有想法的那几条」里挑，没有就整块不出现
  * ============================================================ */
-import { HIGHLIGHT_COLORS } from '../../data/notes';
+import { HIGHLIGHT_COLORS, colorLabel } from '../../data/notes';
 import { can } from '../../data/entitlement';
 import type { MarkRow } from '../domain';
 import { filterMarks, fmtWhen, groupByBook } from '../domain';
@@ -89,7 +89,7 @@ export function viewNotes(v: NotesView): string {
     `<button class="bzs-chip${v.filter === 'comment' ? ' on' : ''}" data-act="notefilter" data-v="comment">有想法</button>`,
     ...HIGHLIGHT_COLORS.map(
       (c) =>
-        `<button class="bzs-chip${v.filter === c.value ? ' on' : ''}" data-act="notefilter" data-v="${c.value}"><span class="dot" style="background:${c.css}"></span>${c.label}</button>`,
+        `<button class="bzs-chip${v.filter === c.value ? ' on' : ''}" data-act="notefilter" data-v="${c.value}"><span class="dot" style="background:${c.css}"></span>${colorLabel(c.value)}</button>`,
     ),
   ].join('');
 

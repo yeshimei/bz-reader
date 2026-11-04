@@ -70,6 +70,15 @@ describe('手动切换界面语言', () => {
     expect(locale()).toBe('zh');
   });
 
+  it('八种语言都能选，不是只有中英两档', () => {
+    install();
+    for (const l of ['zh-TW', 'ja', 'de', 'fr', 'es', 'pt'] as const) {
+      pick(l);
+      expect(patches).toContainEqual({ language: l });
+      expect(locale(), l).toBe(l);
+    }
+  });
+
   it('乱来的值一律落 auto，不把不存在的语言存进 data.json', () => {
     install();
     pick('klingon');

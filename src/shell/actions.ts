@@ -29,7 +29,7 @@ import {
 import { allMarks, filterMarks } from './domain';
 import { toggleAll, togglePick } from './note-select';
 import { notify } from '../core/notice';
-import { hostLanguageCode, resolveLocale, setLocale, t, type LanguagePref } from '../i18n';
+import { hostLanguageCode, isLocale, resolveLocale, setLocale, t, type LanguagePref } from '../i18n';
 import { bookMenuItems } from './book-menu';
 import { flipSetting } from './settings-toggle';
 import { rangeFill } from './range-fill';
@@ -831,7 +831,9 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'setlang': {
       const src = getShellSource();
       if (!src) break;
-      const next: LanguagePref = d.v === 'zh' || d.v === 'en' ? d.v : 'auto';
+      /* 八种语言一个都不能丢：data-v 是 DOM 上的字符串，只放行 zh/en 会把
+         日德法西葡葡全部打回 auto，用户选了等于没选。 */
+      const next: LanguagePref = isLocale(d.v) ? d.v : 'auto';
       src.setSettings({ language: next });
       const changed = setLocale(resolveLocale(next, hostLanguageCode()));
       /* 重绘放在通知之前：选中态要跟着动，哪怕语言本身没变

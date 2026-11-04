@@ -12,8 +12,9 @@
  *   · 专有名词照抄，不翻译：bz Reader、Obsidian、GitHub、Markdown、EPUB、TXT
  *
  * 有几条**故意不逐字对应**中文：中文的「已用琥珀色划线」要带颜色名，
- * 英文用 `Highlight added` 收掉，因为 `琥珀` 这类色名还没进语言包，
- * 硬拼出来就是中英混排。等颜色名也走 t() 之后再补回来。
+ * 英文早期用 `Highlight added` 收掉，因为颜色名还没本地化。颜色名现在走
+ * `data/notes.ts` 的 `colorLabel()`（八种语言一张表），所以这里补回了
+ * `{color}`——占位符与中文必须一致，这是 tests/i18n-packs.test.ts 守的。
  */
 
 import type { MsgKey } from './zh';
@@ -59,8 +60,8 @@ export const EN: Record<MsgKey, string> = {
   'notice.bookmark.added': 'Bookmark added',
 
   /* ── Notices: highlights & annotations ──────────────────── */
-  'notice.mark.created': 'Highlight added',
-  'notice.mark.recolored': 'Color changed',
+  'notice.mark.created': '{color} highlight added',
+  'notice.mark.recolored': 'Switched to {color}',
   'notice.mark.notFound': 'Highlight not found',
   'notice.mark.gone': 'That annotation is gone — it may have been deleted',
   'notice.mark.deleted': 'Highlight deleted',

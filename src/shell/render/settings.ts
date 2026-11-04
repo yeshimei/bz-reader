@@ -13,10 +13,11 @@
  * ============================================================ */
 import type { ReaderPrefs } from '../../data/prefs';
 import { ACCENT_OPTIONS, FONT_FAMILIES, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARGIN_RANGE, TTS_RATE_RANGE } from '../../data/prefs';
-import { HIGHLIGHT_COLORS } from '../../data/notes';
+import { HIGHLIGHT_COLORS, colorLabel } from '../../data/notes';
 import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
 import { can, entitlement, GROUP_ID, REPO_URL, tierText } from '../../data/entitlement';
 import { dataDirOf } from '../../core/plugin-path';
+import { LOCALES, LOCALE_NAMES } from '../../i18n';
 import type { HotkeyRow } from '../../core/hotkeys';
 import { HEADER_ACTION_IDS, headerActionSpec, type HeaderActionId } from '../../view/header-actions';
 import { rangeFill } from '../range-fill';
@@ -122,19 +123,24 @@ export function viewSettings(v: SettingsView): string {
 
   /* 界面语言：放最前，因为它是「其他设置长什么样」的前提。
      auto = 跟随 Obsidian；手动选了之后不再看宿主——用户特意选中文，
-     换台英文 Obsidian 不该把界面翻回去。 */
+     换台英文 Obsidian 不该把界面翻回去。
+
+     九档（auto + 八种）在单行里放不下，用 `bzs-seg-wrap` 折行——强调色那组
+     也是八档、也走这个 class，宽度行为已经验过。语言名一律用**自称**
+     （Deutsch / 日本語），这几条不走 t()：只会德语的人在中文界面里
+     也得找得到 "Deutsch"。 */
+  const languageOpts: Array<[string, string]> = [
+    ['auto', '跟随 Obsidian'],
+    ...LOCALES.map((l) => [l, LOCALE_NAMES[l]] as [string, string]),
+  ];
   const languageGrp = `<div class="bzs-setgrp">
       <h3>界面</h3>
-      <div class="bzs-setrow"><label>语言</label>${seg(
-        'language',
-        [
-          ['auto', '跟随 Obsidian'],
-          ['zh', '中文'],
-          ['en', 'English'],
-        ],
-        s.language,
-        'setlang',
-      )}</div>
+      <div class="bzs-setrow"><label>语言</label><div class="bzs-seg bzs-seg-wrap">${languageOpts
+        .map(
+          (o) =>
+            `<button class="${String(s.language) === o[0] ? 'on' : ''}" data-act="setlang" data-k="language" data-v="${o[0]}">${o[1]}</button>`,
+        )
+        .join('')}</div></div>
       <div class="bzs-mini" style="margin-top:8px;line-height:1.9">选「跟随 Obsidian」时由宿主语言决定；手动选择后界面立即生效，命令名需重启 Obsidian 才更新。</div>
     </div>`;
 
@@ -218,7 +224,7 @@ export function viewSettings(v: SettingsView): string {
       <h3>标注</h3>
       <div class="bzs-setrow"><label>默认笔色</label><div class="bzs-seg">${HIGHLIGHT_COLORS.map(
         (c) =>
-          `<button class="${v.pen === c.value ? 'on' : ''}" data-act="setpen" data-v="${c.value}"><span class="dot" style="background:${c.css}"></span>${c.label}</button>`,
+          `<button class="${v.pen === c.value ? 'on' : ''}" data-act="setpen" data-v="${c.value}"><span class="dot" style="background:${c.css}"></span>${colorLabel(c.value)}</button>`,
       ).join('')}</div></div>
       <div class="bzs-setrow"><label>导出目录</label>
         <button class="bzs-pickdir" data-act="pickexportdir" title="从文件夹清单里选">

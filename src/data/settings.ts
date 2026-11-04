@@ -16,7 +16,7 @@
  * 「AI 按钮点了没反应」，而用户不会想到去看设置。
  * ============================================================ */
 
-import type { LanguagePref } from '../i18n';
+import { isLocale, type LanguagePref } from '../i18n';
 
 export interface AiSettings {
   /** OpenAI 兼容根地址，不带结尾斜杠，例如 https://api.openai.com/v1 */
@@ -98,9 +98,9 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     exportDir: cleanDir(str(s.exportDir, DEFAULT_SETTINGS.exportDir)),
     exportComments: s.exportComments !== false,
     importDir: cleanDir(str(s.importDir, DEFAULT_SETTINGS.importDir), DEFAULT_SETTINGS.importDir),
-    /* 只认这三个值：手改坏的 JSON、旧版本没有这个字段、写了别的语言，都退回
-       auto——宁可跟随宿主，也不要钉死一个用户没选过的语言。 */
-    language: s.language === 'zh' || s.language === 'en' ? s.language : 'auto',
+    /* 只认八种语言 + auto：手改坏的 JSON、旧版本没有这个字段、写了别的语言，
+       都退回 auto——宁可跟随宿主，也不要钉死一个用户没选过的语言。 */
+    language: isLocale(s.language) ? s.language : 'auto',
     ai: {
       baseUrl: cleanUrl(str(ai.baseUrl)),
       apiKey: str(ai.apiKey).trim(),

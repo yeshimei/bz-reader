@@ -13,18 +13,80 @@
  *     深色与浅色主题下同一个「琥珀」要取不同的具体值，写死颜色号
  *     等于把这个选择权永久焊死在今天这版配色上。
  * ============================================================ */
+import { locale, type Locale } from '../i18n';
 import type { Bookmark, BookNotes, Excerpt, Highlight, ReaderBook } from './schema';
 
 export const HIGHLIGHT_COLORS = [
-  { value: 'amber', label: '琥珀', css: '#e8b53a' },
-  { value: 'vermilion', label: '朱红', css: '#e2571c' },
-  { value: 'green', label: '松绿', css: '#4f9a63' },
-  { value: 'blue', label: '黛蓝', css: '#4a83d0' },
+  { value: 'amber', css: '#e8b53a' },
+  { value: 'vermilion', css: '#e2571c' },
+  { value: 'green', css: '#4f9a63' },
+  { value: 'blue', css: '#4a83d0' },
 ] as const;
 
 export type HighlightColorName = (typeof HIGHLIGHT_COLORS)[number]['value'];
 
 export const DEFAULT_HIGHLIGHT_COLOR: HighlightColorName = 'amber';
+
+/**
+ * 颜色名 → 各语言的说法。
+ *
+ * **故意不进主语言包**：四个色名是成套的东西，拆进 8 个包以后谁漏翻一个
+ * 没人看得出来（少一条 key 是 tsc 报错，但少一条翻译只是「英文界面里冒出
+ * 一个中文色名」）。集中成一张表，`Record<Locale, string>` 让「八种语言
+ * 都齐」变成类型约束，一次看全也方便对齐语感。
+ *
+ * 西文的色名走各自语言的常用说法，不是音译：德语 Bernstein、法语 Ambre、
+ * 西语 Ámbar、葡语 Âmbar。日语保留汉字色名（琥珀色／朱色／松葉色／藍色）——
+ * 这几个人家本来就这么写。
+ */
+const COLOR_LABELS: Record<HighlightColorName, Record<Locale, string>> = {
+  amber: {
+    zh: '琥珀',
+    'zh-TW': '琥珀',
+    en: 'Amber',
+    ja: '琥珀色',
+    de: 'Bernstein',
+    fr: 'Ambre',
+    es: 'Ámbar',
+    pt: 'Âmbar',
+  },
+  vermilion: {
+    zh: '朱红',
+    'zh-TW': '朱紅',
+    en: 'Vermilion',
+    ja: '朱色',
+    de: 'Zinnober',
+    fr: 'Vermillon',
+    es: 'Bermellón',
+    pt: 'Vermelhão',
+  },
+  green: {
+    zh: '松绿',
+    'zh-TW': '松綠',
+    en: 'Pine green',
+    ja: '松葉色',
+    de: 'Tannengrün',
+    fr: 'Vert pin',
+    es: 'Verde pino',
+    pt: 'Verde-pinho',
+  },
+  blue: {
+    zh: '黛蓝',
+    'zh-TW': '黛藍',
+    en: 'Indigo',
+    ja: '藍色',
+    de: 'Indigo',
+    fr: 'Indigo',
+    es: 'Índigo',
+    pt: 'Anil',
+  },
+};
+
+/** 颜色名 → 当前界面语言的说法（认不出的名字退回琥珀，别在界面上留空） */
+export function colorLabel(name?: string): string {
+  const key = isHighlightColor(name) ? name : DEFAULT_HIGHLIGHT_COLOR;
+  return COLOR_LABELS[key][locale()] ?? COLOR_LABELS[key].zh;
+}
 
 /** 颜色名 → 具体色值（认不出的名字退回琥珀，别在书页里画出一条透明线） */
 export function colorCss(name?: string): string {

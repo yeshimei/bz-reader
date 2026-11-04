@@ -8,7 +8,7 @@
  * 只读：不写 store，不改数据。写操作一律走 data/notes.ts 的纯函数。
  * ============================================================ */
 import type { Bookmark, Highlight, ReaderBook } from '../data/schema';
-import { HIGHLIGHT_COLORS, colorCss } from '../data/notes';
+import { HIGHLIGHT_COLORS, colorCss, colorLabel } from '../data/notes';
 import { getState } from './state';
 
 export interface MarkRow {
@@ -43,7 +43,7 @@ export interface BmkRow {
 const NO_CHAPTER = '未命名章节';
 
 export function penLabel(color?: string): string {
-  return (HIGHLIGHT_COLORS.find((c) => c.value === color) ?? HIGHLIGHT_COLORS[0]).label;
+  return colorLabel(color);
 }
 
 export function penCss(color?: string): string {

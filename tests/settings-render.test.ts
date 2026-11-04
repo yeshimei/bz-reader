@@ -33,22 +33,31 @@ const html = (relicense = false, settings = DEFAULT_SETTINGS): string =>
   });
 
 describe('界面语言', () => {
-  it('三档都在：跟随 Obsidian / 中文 / English', () => {
+  it('九档都在：跟随 Obsidian + 八种语言', () => {
     const out = html();
     expect(out).toContain('data-act="setlang"');
-    for (const v of ['auto', 'zh', 'en']) {
+    for (const v of ['auto', 'zh', 'zh-TW', 'en', 'ja', 'de', 'fr', 'es', 'pt']) {
       expect(out, v).toContain(`data-k="language" data-v="${v}"`);
     }
   });
 
+  it('每种语言用**自称**标注：德语写 Deutsch，写「德语」等于只翻给中文用户看', () => {
+    const out = html();
+    for (const name of ['繁體中文', 'Deutsch', '日本語', 'Français', 'Español', 'Português']) {
+      expect(out, name).toContain(`>${name}<`);
+    }
+    expect(out).not.toContain('>德语<');
+    expect(out).not.toContain('>葡萄牙语<');
+  });
+
   it('语言选择器在设置页里只有一处，不重复渲染', () => {
     const out = html();
-    expect((out.match(/data-act="setlang"/g) ?? []).length).toBe(3);
+    expect((out.match(/data-act="setlang"/g) ?? []).length).toBe(9);
   });
 
   it('当前语言那一档是选中态', () => {
-    const out = html(false, { ...DEFAULT_SETTINGS, language: 'en' });
-    expect(out).toMatch(/class="on" data-act="setlang" data-k="language" data-v="en"/);
+    const out = html(false, { ...DEFAULT_SETTINGS, language: 'ja' });
+    expect(out).toMatch(/class="on" data-act="setlang" data-k="language" data-v="ja"/);
     expect(out).not.toMatch(/class="on" data-act="setlang" data-k="language" data-v="zh"/);
   });
 

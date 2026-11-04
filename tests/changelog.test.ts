@@ -142,12 +142,14 @@ describe('内置更新日志数据', () => {
     expect(seen.size).toBe(CHANGELOG_RELEASES.length);
   });
 
-  it('每一版都有条目，且条目都有域名与文案', () => {
+  it('每一版都有条目，且条目中英两份都有字', () => {
     for (const r of CHANGELOG_RELEASES) {
       expect(releaseEntryCount(r)).toBeGreaterThan(0);
       for (const e of [...(r.added ?? []), ...(r.improved ?? []), ...(r.fixed ?? [])]) {
-        expect(e.domain.trim()).not.toBe('');
-        expect(e.text.trim()).not.toBe('');
+        expect(e.domain.zh.trim()).not.toBe('');
+        expect(e.domain.en.trim()).not.toBe('');
+        expect(e.text.zh.trim()).not.toBe('');
+        expect(e.text.en.trim()).not.toBe('');
       }
     }
   });
@@ -161,8 +163,8 @@ describe('内置更新日志数据', () => {
 
 describe('activeIndex：弹窗先停在哪一版', () => {
   it('命中本次要提示的版本', () => {
-    expect(activeIndex(CHANGELOG_RELEASES, '0.1.1')).toBe(1);
-    expect(activeIndex(CHANGELOG_RELEASES, 'v0.1.2')).toBe(0);
+    expect(activeIndex(CHANGELOG_RELEASES, '0.1.1')).toBe(2);
+    expect(activeIndex(CHANGELOG_RELEASES, 'v0.1.2')).toBe(1);
   });
 
   it('找不到 / 没给 → 停在最新一版（0）', () => {
@@ -173,7 +175,7 @@ describe('activeIndex：弹窗先停在哪一版', () => {
 });
 
 describe('更新日志弹窗的 DOM 结构', () => {
-  const html = changelogNoteHtml(CHANGELOG_RELEASES, '0.1.2');
+  const html = changelogNoteHtml(CHANGELOG_RELEASES, '0.3.0');
 
   it('桌面版有版本时间轴 + 单版正文', () => {
     expect(html).toContain('class="bzs-chgn-rail"');
@@ -190,8 +192,8 @@ describe('更新日志弹窗的 DOM 结构', () => {
   });
 
   it('正文先落在本次要提示的那一版，版本号与日期并排', () => {
-    expect(html).toContain('v0.1.2');
-    expect(html).toContain('2026.11.04');
+    expect(html).toContain('v0.3.0');
+    expect(html).toContain('2026.11.05');
     expect(html).toContain('本次更新');
   });
 
@@ -201,8 +203,8 @@ describe('更新日志弹窗的 DOM 结构', () => {
     expect(html).toContain('修复');
     const first = CHANGELOG_RELEASES[0];
     for (const e of [...(first.added ?? []), ...(first.improved ?? []), ...(first.fixed ?? [])]) {
-      expect(html).toContain(e.domain);
-      expect(html).toContain(e.text);
+      expect(html).toContain(e.domain.zh);
+      expect(html).toContain(e.text.zh);
     }
   });
 
@@ -226,7 +228,11 @@ describe('更新日志弹窗的 DOM 结构', () => {
 
   it('没有条目的一段不画（构造一版只有修复）', () => {
     const only: ChangelogRelease[] = [
-      { version: '0.1.2', date: '2026-11-04', fixed: [{ domain: '安装', text: '修好了' }] },
+      {
+        version: '0.1.2',
+        date: '2026-11-04',
+        fixed: [{ domain: { zh: '安装', en: 'Install' }, text: { zh: '修好了', en: 'Fixed' } }],
+      },
     ];
     const out = changelogNoteHtml(only, '0.1.2');
     expect(out).toContain('修复');
@@ -241,7 +247,13 @@ describe('更新日志弹窗的 DOM 结构', () => {
 
   it('文案里的尖括号会被转义，不会把弹窗撑破', () => {
     const out = changelogNoteHtml(
-      [{ version: '0.1.2', date: '2026-11-04', added: [{ domain: '<b>', text: '</div><script>x</script>' }] }],
+      [
+        {
+          version: '0.1.2',
+          date: '2026-11-04',
+          added: [{ domain: { zh: '<b>', en: '<b>' }, text: { zh: '</div><script>x</script>', en: '</div><script>x</script>' } }],
+        },
+      ],
       '0.1.2',
     );
     expect(out).not.toContain('<script>');

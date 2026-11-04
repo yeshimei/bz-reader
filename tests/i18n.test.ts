@@ -15,9 +15,15 @@ afterEach(() => {
 });
 
 describe('normalizeLocale · 宿主语言代码 → 界面语言', () => {
-  it('简体、繁体、带地区的都归中文', () => {
-    for (const code of ['zh', 'zh-CN', 'zh-TW', 'zh-Hant', 'zh-Hans', 'ZH-TW']) {
+  it('简体中文：zh / zh-CN / zh-Hans / zh-SG', () => {
+    for (const code of ['zh', 'zh-CN', 'zh-SG', 'zh-Hans', 'ZH']) {
       expect(normalizeLocale(code), code).toBe('zh');
+    }
+  });
+
+  it('繁体中文单独一包：zh-TW / zh-HK / zh-MO / zh-Hant', () => {
+    for (const code of ['zh-TW', 'zh-HK', 'zh-MO', 'zh-Hant', 'ZH-TW', 'zh-Hant-HK']) {
+      expect(normalizeLocale(code), code).toBe('zh-TW');
     }
   });
 
@@ -27,8 +33,20 @@ describe('normalizeLocale · 宿主语言代码 → 界面语言', () => {
     }
   });
 
+  it('日德法西葡各归各的，带地区的也归队', () => {
+    expect(normalizeLocale('ja')).toBe('ja');
+    expect(normalizeLocale('ja-JP')).toBe('ja');
+    expect(normalizeLocale('de-AT')).toBe('de');
+    expect(normalizeLocale('de-CH')).toBe('de');
+    expect(normalizeLocale('fr-CA')).toBe('fr');
+    expect(normalizeLocale('es-419')).toBe('es');
+    expect(normalizeLocale('es-MX')).toBe('es');
+    expect(normalizeLocale('pt-BR')).toBe('pt');
+    expect(normalizeLocale('pt-PT')).toBe('pt');
+  });
+
   it('没有对应的语言包就退英文，不假装看得懂', () => {
-    for (const code of ['ja', 'ko', 'fr', 'de', 'ar', 'ru']) {
+    for (const code of ['ko', 'ar', 'ru', 'th', 'it', 'nl', 'vi', 'tr']) {
       expect(normalizeLocale(code), code).toBe('en');
     }
   });
@@ -40,14 +58,16 @@ describe('normalizeLocale · 宿主语言代码 → 界面语言', () => {
     expect(normalizeLocale('   ')).toBe('en');
   });
 
-  it('下划线写法也认（某些平台给 zh_CN）', () => {
+  it('下划线写法也认（某些平台给 zh_CN / pt_BR）', () => {
     expect(normalizeLocale('zh_CN')).toBe('zh');
     expect(normalizeLocale('en_US')).toBe('en');
+    expect(normalizeLocale('pt_BR')).toBe('pt');
   });
 
   it('detectLocale 与 normalizeLocale 同口径', () => {
-    expect(detectLocale('zh-TW')).toBe('zh');
-    expect(detectLocale('ja')).toBe('en');
+    expect(detectLocale('zh-TW')).toBe('zh-TW');
+    expect(detectLocale('ja')).toBe('ja');
+    expect(detectLocale('ko')).toBe('en');
   });
 });
 
@@ -64,9 +84,10 @@ describe('setLocale', () => {
     expect(locale()).toBe('en');
   });
 
-  it('接受宿主那种带地区的代码', () => {
+  it('接受宿主那种带地区的代码，并原样保留地区', () => {
     setLocale('zh-TW');
-    expect(locale()).toBe('zh');
+    expect(locale()).toBe('zh-TW');
+    setLocale('zh');
   });
 });
 

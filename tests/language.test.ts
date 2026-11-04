@@ -13,15 +13,18 @@ import { DEFAULT_SETTINGS, normalizeSettings } from '../src/data/settings';
 
 describe('resolveLocale · 手动偏好与宿主语言', () => {
   it('auto 跟随宿主', () => {
-    expect(resolveLocale('auto', 'zh-TW')).toBe('zh');
+    expect(resolveLocale('auto', 'zh-TW')).toBe('zh-TW');
     expect(resolveLocale('auto', 'zh-CN')).toBe('zh');
     expect(resolveLocale('auto', 'en-US')).toBe('en');
     expect(resolveLocale('auto', 'en-GB')).toBe('en');
+    expect(resolveLocale('auto', 'ja-JP')).toBe('ja');
+    expect(resolveLocale('auto', 'de')).toBe('de');
+    expect(resolveLocale('auto', 'pt-BR')).toBe('pt');
   });
 
   it('auto + 宿主语言没有对应的包 → 英文', () => {
-    expect(resolveLocale('auto', 'ja')).toBe('en');
-    expect(resolveLocale('auto', 'fr')).toBe('en');
+    expect(resolveLocale('auto', 'ko')).toBe('en');
+    expect(resolveLocale('auto', 'ar')).toBe('en');
   });
 
   it('auto + 读不到宿主 → 中文', () => {
@@ -34,6 +37,8 @@ describe('resolveLocale · 手动偏好与宿主语言', () => {
   it('手动选了就不再看宿主', () => {
     expect(resolveLocale('zh', 'en-US')).toBe('zh');
     expect(resolveLocale('en', 'zh-CN')).toBe('en');
+    expect(resolveLocale('ja', 'en-US')).toBe('ja');
+    expect(resolveLocale('zh-TW', 'zh-CN')).toBe('zh-TW');
     expect(resolveLocale('en', '')).toBe('en');
   });
 });
@@ -45,9 +50,10 @@ describe('settings.language', () => {
     expect(normalizeSettings({}).language).toBe('auto');
   });
 
-  it('认得 zh 与 en', () => {
-    expect(normalizeSettings({ language: 'zh' }).language).toBe('zh');
-    expect(normalizeSettings({ language: 'en' }).language).toBe('en');
+  it('八种语言都认得，其余一律 auto', () => {
+    for (const l of ['zh', 'zh-TW', 'en', 'ja', 'de', 'fr', 'es', 'pt']) {
+      expect(normalizeSettings({ language: l }).language, l).toBe(l);
+    }
     expect(normalizeSettings({ language: 'auto' }).language).toBe('auto');
   });
 

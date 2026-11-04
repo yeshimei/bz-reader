@@ -12,9 +12,10 @@
  * 这里全是纯函数：HTML 由调用方塞进壳层，阅读视图与浮层各自负责定位。
  */
 
+import { HIGHLIGHT_COLORS, colorLabel } from '../data/notes';
+
 export interface ToolbarColor {
   value: string;
-  label: string;
   css: string;
 }
 
@@ -191,12 +192,9 @@ function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
 }
 
-const DEFAULT_COLORS: readonly ToolbarColor[] = [
-  { value: 'amber', label: '琥珀', css: '#e8b53a' },
-  { value: 'vermilion', label: '朱红', css: '#e2571c' },
-  { value: 'green', label: '松绿', css: '#4f9a63' },
-  { value: 'blue', label: '黛蓝', css: '#4a83d0' },
-];
+/* 颜色名不再随配置走：`colorLabel()` 按当前界面语言取，语言切了重画就是新的，
+   所以这里只需要色值本身（与 data/notes 的 HIGHLIGHT_COLORS 同源）。 */
+const DEFAULT_COLORS: readonly ToolbarColor[] = HIGHLIGHT_COLORS;
 
 /**
  * 整枚工具条（不含定位外壳）。
@@ -224,8 +222,8 @@ export function toolbarHtml(input: ToolbarHtmlInput): string {
         `<button type="button" class="bzs-pendot${c.value === input.color ? ' on' : ''}" data-act="${esc(
           acts.dot,
         )}" data-v="${esc(c.value)}"${attrs} style="background:${esc(c.css)}" aria-label="${esc(
-          c.label,
-        )}" title="${esc(c.label)}"></button>`,
+          colorLabel(c.value),
+        )}" title="${esc(colorLabel(c.value))}"></button>`,
     )
     .join('');
 

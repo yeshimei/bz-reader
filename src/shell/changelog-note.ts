@@ -13,6 +13,7 @@
  * 关于条里的「更新日志」（随时回看，不记账）。
  * ============================================================ */
 import { uiModal } from '../core/ui/modal';
+import { changelogLang } from '../i18n';
 import { setHtml } from '../ui/dom';
 import { esc, githubIcon } from './render/html';
 import { REPO_URL } from '../data/entitlement';
@@ -21,14 +22,89 @@ import {
   releaseEntryCount,
   type ChangelogEntry,
   type ChangelogRelease,
+  type L10nText,
 } from './changelog';
 
-/** 三段定义：顺序即渲染顺序，措辞与线上更新日志同一套 */
+/**
+ * 框架文案：只有中英两套。
+ *
+ * 跟 `i18n.changelogLang()` 走，而不是八种语言——理由写在 i18n/index.ts
+ * 那个函数上：日志条目本身只有两版，框架要是八种语言，就会出现
+ * 「日语的分段标题 + 中文的条目」这种半翻状态，比全英文更难看懂。
+ */
+interface ChangelogCopy {
+  added: string;
+  improved: string;
+  fixed: string;
+  empty: string;
+  newest: string;
+  older: string;
+  total: (n: number) => string;
+  changes: (n: number) => string;
+  railTitle: string;
+  railCount: (n: number) => string;
+  close: string;
+  done: string;
+  title: string;
+  current: string;
+  github: string;
+  issues: string;
+}
+
+const COPY: Record<'zh' | 'en', ChangelogCopy> = {
+  zh: {
+    added: '新功能',
+    improved: '体验优化',
+    fixed: '修复',
+    empty: '这一版没有记录。',
+    newest: '本次更新',
+    older: '历史版本',
+    total: (n: number) => `共 ${n} 处改动`,
+    changes: (n: number) => `${n} 处改动`,
+    railTitle: '版本历史',
+    railCount: (n: number) => `${n} 版`,
+    close: '关闭更新日志',
+    done: '知道了',
+    title: '更新日志',
+    current: '当前',
+    github: 'GitHub 仓库',
+    issues: '问题反馈',
+  },
+  en: {
+    added: 'New',
+    improved: 'Improved',
+    fixed: 'Fixed',
+    empty: 'No entries for this version.',
+    newest: 'This update',
+    older: 'Earlier version',
+    total: (n: number) => `${n} changes in total`,
+    changes: (n: number) => `${n} changes`,
+    railTitle: 'Version history',
+    railCount: (n: number) => `${n} versions`,
+    close: 'Close changelog',
+    done: 'Got it',
+    title: 'Changelog',
+    current: 'Current',
+    github: 'GitHub repository',
+    issues: 'Report an issue',
+  },
+} as const;
+
+function copy(): ChangelogCopy {
+  return changelogLang() === 'zh' ? COPY.zh : COPY.en;
+}
+
+/** 三段定义：顺序即渲染顺序；label 每次渲染时按当前日志语言取 */
 const SECTIONS = [
-  { key: 'added', label: '新功能', cls: 'add' },
-  { key: 'improved', label: '体验优化', cls: 'imp' },
-  { key: 'fixed', label: '修复', cls: 'fix' },
+  { key: 'added', cls: 'add' },
+  { key: 'improved', cls: 'imp' },
+  { key: 'fixed', cls: 'fix' },
 ] as const;
+
+/** 一条双语文本 → 当前日志语言的那一句 */
+function pick(v: L10nText): string {
+  return changelogLang() === 'zh' ? v.zh : v.en;
+}
 
 const CLOSE_SVG =
   '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" ' +
@@ -72,39 +148,41 @@ function rowsHtml(list: readonly ChangelogEntry[]): string {
     .map(
       (e) =>
         '<div class="bzs-chgn-row">' +
-        `<span class="bzs-chgn-k">${esc(e.domain)}</span>` +
-        `<span class="bzs-chgn-t">${esc(e.text)}</span>` +
+        `<span class="bzs-chgn-k">${esc(pick(e.domain))}</span>` +
+        `<span class="bzs-chgn-t">${esc(pick(e.text))}</span>` +
         '</div>',
     )
     .join('');
 }
 
 function groupsHtml(release: ChangelogRelease): string {
+  const c = copy();
   const out = SECTIONS.map((sec) => {
     const list = release[sec.key] ?? [];
     if (!list.length) return '';
     return (
       '<section class="bzs-chgn-grp">' +
-      `<div class="bzs-chgn-grp-hd"><i class="bzs-chgn-g-${sec.cls}"></i>${sec.label}` +
+      `<div class="bzs-chgn-grp-hd"><i class="bzs-chgn-g-${sec.cls}"></i>${c[sec.key]}` +
       `<span class="bzs-chgn-grp-cnt">${list.length}</span></div>` +
       rowsHtml(list) +
       '</section>'
     );
   }).join('');
-  return out || '<div class="bzs-chgn-empty">这一版没有记录。</div>';
+  return out || `<div class="bzs-chgn-empty">${c.empty}</div>`;
 }
 
 /** 右栏头部：眉标 + 版本号 + 统计（切版本时只换这一块和正文） */
 function headHtml(release: ChangelogRelease, isNewest: boolean): string {
+  const c = copy();
   const total = releaseEntryCount(release);
   const parts = SECTIONS.filter((s) => (release[s.key] ?? []).length).map(
-    (s) => `${s.label} ${(release[s.key] ?? []).length}`,
+    (s) => `${c[s.key]} ${(release[s.key] ?? []).length}`,
   );
-  const meta = [`共 ${total} 处改动`, ...parts]
+  const meta = [c.total(total), ...parts]
     .map((t) => `<span>${esc(t)}</span>`)
     .join('<span class="bzs-chgn-sep"></span>');
   return (
-    `<div class="bzs-chgn-eyebrow">${isNewest ? '本次更新' : '历史版本'}</div>` +
+    `<div class="bzs-chgn-eyebrow">${isNewest ? c.newest : c.older}</div>` +
     `<h1 class="bzs-chgn-ver">v${esc(release.version)}<small>${fmtDate(release.date)}</small></h1>` +
     `<div class="bzs-chgn-meta">${meta}</div>`
   );
@@ -113,19 +191,20 @@ function headHtml(release: ChangelogRelease, isNewest: boolean): string {
 /* ── 移动端：整篇文档流 ───────────────────── */
 
 function mobBlocksHtml(release: ChangelogRelease): string {
+  const c = copy();
   return SECTIONS.map((sec) => {
     const list = release[sec.key] ?? [];
     if (!list.length) return '';
     return (
       '<div class="bzs-chgn-mblk">' +
-      `<div class="bzs-chgn-mblk-t"><i class="bzs-chgn-g-${sec.cls}"></i>${sec.label}` +
+      `<div class="bzs-chgn-mblk-t"><i class="bzs-chgn-g-${sec.cls}"></i>${c[sec.key]}` +
       `<span class="bzs-chgn-mcnt">${list.length}</span></div>` +
       list
         .map(
           (e) =>
             '<div class="bzs-chgn-mit">' +
-            `<span class="bzs-chgn-mdom">${esc(e.domain)}</span>` +
-            `<span class="bzs-chgn-mtxt">${esc(e.text)}</span>` +
+            `<span class="bzs-chgn-mdom">${esc(pick(e.domain))}</span>` +
+            `<span class="bzs-chgn-mtxt">${esc(pick(e.text))}</span>` +
             '</div>',
         )
         .join('') +
@@ -135,11 +214,12 @@ function mobBlocksHtml(release: ChangelogRelease): string {
 }
 
 function mobReleaseHtml(release: ChangelogRelease, newest: boolean): string {
+  const c = copy();
   return (
     '<section class="bzs-chgn-mrel">' +
     '<div class="bzs-chgn-mrel-hd">' +
     `<span class="bzs-chgn-mver">v${esc(release.version)}</span>` +
-    (newest ? '<span class="bzs-chgn-mcur">当前</span>' : '') +
+    (newest ? `<span class="bzs-chgn-mcur">${c.current}</span>` : '') +
     `<span class="bzs-chgn-mdate">${fmtDate(release.date)}</span>` +
     '</div>' +
     mobBlocksHtml(release) +
@@ -150,9 +230,10 @@ function mobReleaseHtml(release: ChangelogRelease, newest: boolean): string {
 /* ── 外链入口（桌面页脚 / 手机底条共用） ───── */
 
 function linksHtml(): string {
+  const c = copy();
   const items = [
-    { href: REPO_URL, label: 'GitHub 仓库', icon: githubIcon(15) },
-    { href: `${REPO_URL}/issues`, label: '问题反馈', icon: FEEDBACK_SVG },
+    { href: REPO_URL, label: c.github, icon: githubIcon(15) },
+    { href: `${REPO_URL}/issues`, label: c.issues, icon: FEEDBACK_SVG },
   ];
   return items
     .map(
@@ -166,6 +247,7 @@ function linksHtml(): string {
 /* ── 桌面：时间轴 + 单版正文 ───────────────── */
 
 function railHtml(list: readonly ChangelogRelease[], active: number): string {
+  const c = copy();
   const items = list
     .map(
       (r, i) =>
@@ -173,14 +255,14 @@ function railHtml(list: readonly ChangelogRelease[], active: number): string {
         `${i === active ? ' aria-current="true"' : ''}>` +
         `<span class="v">v${esc(r.version)}</span>` +
         `<span class="d">${fmtDate(r.date)}</span>` +
-        `<span class="n">${releaseEntryCount(r)} 处改动</span>` +
+        `<span class="n">${esc(c.changes(releaseEntryCount(r)))}</span>` +
         '</button>',
     )
     .join('');
   return (
     '<aside class="bzs-chgn-rail">' +
-    '<div class="bzs-chgn-rail-hd"><b>版本历史</b>' +
-    `<span>${list.length} 版</span></div>` +
+    `<div class="bzs-chgn-rail-hd"><b>${c.railTitle}</b>` +
+    `<span>${esc(c.railCount(list.length))}</span></div>` +
     `<div class="bzs-chgn-rail-list">${items}</div>` +
     '</aside>'
   );
@@ -191,6 +273,7 @@ function railHtml(list: readonly ChangelogRelease[], active: number): string {
  * `expectVersion` 找不到时落在最新一版——手动从设置页打开就走这条。
  */
 export function changelogNoteHtml(releases: readonly ChangelogRelease[], expectVersion = ''): string {
+  const c = copy();
   const list = usable(releases);
   if (!list.length) return '';
   const at = activeIndex(list, expectVersion);
@@ -208,19 +291,19 @@ export function changelogNoteHtml(releases: readonly ChangelogRelease[], expectV
     '</div>' +
     '</main>' +
     `<footer class="bzs-chgn-ft">${linksHtml()}<span class="bzs-chgn-grow"></span>` +
-    '<button class="bzs-chgn-done" type="button" data-role="chgndone">知道了</button>' +
+    `<button class="bzs-chgn-done" type="button" data-role="chgndone">${c.done}</button>` +
     '</footer>' +
-    `<button class="bzs-chgn-close" type="button" aria-label="关闭更新日志" title="关闭">${CLOSE_SVG}</button>` +
+    `<button class="bzs-chgn-close" type="button" aria-label="${c.close}" title="${c.close}">${CLOSE_SVG}</button>` +
     '</div>';
 
   const mobile =
     '<div class="bzs-chgn-m">' +
-    `<div class="bzs-chgn-mbar"><div class="bzs-chgn-mtitle">${CLOCK_SVG}更新日志</div>` +
-    `<button class="bzs-chgn-close" type="button" aria-label="关闭更新日志" title="关闭">${CLOSE_SVG}</button>` +
+    `<div class="bzs-chgn-mbar"><div class="bzs-chgn-mtitle">${CLOCK_SVG}${c.title}</div>` +
+    `<button class="bzs-chgn-close" type="button" aria-label="${c.close}" title="${c.close}">${CLOSE_SVG}</button>` +
     '</div>' +
     `<div class="bzs-chgn-mpage">${list.map((r, i) => mobReleaseHtml(r, i === 0)).join('')}</div>` +
     `<div class="bzs-chgn-mtools">${linksHtml()}` +
-    '<button class="bzs-chgn-done" type="button" data-role="chgndone">知道了</button>' +
+    `<button class="bzs-chgn-done" type="button" data-role="chgndone">${c.done}</button>` +
     '</div>' +
     '</div>';
 
@@ -273,7 +356,7 @@ export function openChangelogNote(
   const modal = uiModal({
     content: html,
     className: 'bzs-chgn-dialog',
-    title: '更新日志',
+    title: copy().title,
     onClose: () => {
       window.removeEventListener('resize', syncFade);
       bodyEl?.removeEventListener('scroll', syncFade);

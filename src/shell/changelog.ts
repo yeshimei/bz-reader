@@ -19,10 +19,22 @@
  *     内部改动写成「包体更小 / 装得更快」，别把 commit message 抄进来。
  * ============================================================ */
 
+/**
+ * 一条日志的双语文本。
+ *
+ * **更新日志是全仓唯一只做两版的文案**（见 `i18n.changelogLang`）：每次发版
+ * 手写，八种语言维护一轮就是八倍工作量。中文给简中与繁中共用，其余六种语言
+ * 读英文——读日志的人本来就知道自己在看什么，这不是「假装看得懂」。
+ */
+export interface L10nText {
+  zh: string;
+  en: string;
+}
+
 /** 一条日志：domain 是左侧那枚域名小标签，text 是一句话 */
 export interface ChangelogEntry {
-  domain: string;
-  text: string;
+  domain: L10nText;
+  text: L10nText;
 }
 
 /** 一个版本的日志块 */
@@ -41,24 +53,101 @@ export interface ChangelogRelease {
  * 发版流程里记得加一条（docs/note-v<版本>.md 与 GitHub Release 用同一批句子，
  * 别在这里另写一版）。条数多了从末尾裁掉最旧的——弹窗只回溯到第一个上架版本，
  * 再往前没有用户走过。
+ *
+ * 英文那半边**不是机翻**：它是给海外用户看的版本，句子按英文习惯重写，
+ * 不是把中文逐字对过去（逐字对过去读起来像说明书）。
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '0.3.0',
+    date: '2026-11-05',
+    added: [
+      {
+        domain: { zh: '语言', en: 'Language' },
+        text: {
+          zh: '界面语言可手动选择：跟随 Obsidian，或指定中文、繁體中文、English、日本語、Deutsch、Français、Español、Português。',
+          en: 'The interface language can now be chosen: follow Obsidian, or pick Chinese, Traditional Chinese, English, Japanese, German, French, Spanish or Portuguese.',
+        },
+      },
+    ],
+    improved: [
+      {
+        domain: { zh: '设置', en: 'Settings' },
+        text: {
+          zh: '设置页新增「界面」一组，语言切换后立即生效；命令名需重启 Obsidian 才更新。',
+          en: 'A new “Interface” group in Settings applies the language immediately; command names update after restarting Obsidian.',
+        },
+      },
+    ],
+  },
+  {
     version: '0.1.2',
     date: '2026-11-04',
-    improved: [{ domain: '安装包', text: '渲染内核改走依赖打包，包体更小、装上更快。' }],
-    fixed: [{ domain: '社区市场', text: '修掉上架审核报的错，现在能搜到并正常安装。' }],
+    improved: [
+      {
+        domain: { zh: '安装包', en: 'Bundle' },
+        text: {
+          zh: '渲染内核改走依赖打包，包体更小、装上更快。',
+          en: 'The rendering core now ships as a bundled dependency — smaller download, faster install.',
+        },
+      },
+    ],
+    fixed: [
+      {
+        domain: { zh: '社区市场', en: 'Marketplace' },
+        text: {
+          zh: '修掉上架审核报的错，现在能搜到并正常安装。',
+          en: 'Fixed the errors from the directory review; the plugin can be found and installed again.',
+        },
+      },
+    ],
   },
   {
     version: '0.1.1',
     date: '2026-11-04',
     added: [
-      { domain: '阅读', text: 'EPUB 与 TXT 开箱即读，桌面和手机是同一个包。' },
-      { domain: '书架', text: '封面墙、继续阅读、分组筛选，一本书读到哪一眼就看到。' },
-      { domain: '标注', text: '四色划线、书签、想法；划过的话能带着定位复制成链接。' },
-      { domain: '排版', text: '字号、行距、页边距、单双栏与竖排，边调边看。' },
-      { domain: '笔记', text: '划线导出成结构化的 Markdown，留在自己的笔记库里。' },
-      { domain: 'AI', text: '接自己的 OpenAI 兼容接口，划词提问、解释、翻译、摘要。' },
+      {
+        domain: { zh: '阅读', en: 'Reading' },
+        text: {
+          zh: 'EPUB 与 TXT 开箱即读，桌面和手机是同一个包。',
+          en: 'EPUB and TXT open out of the box, from a single build for desktop and mobile.',
+        },
+      },
+      {
+        domain: { zh: '书架', en: 'Shelf' },
+        text: {
+          zh: '封面墙、继续阅读、分组筛选，一本书读到哪一眼就看到。',
+          en: 'Cover wall, continue reading and group filters — see where you are in a book at a glance.',
+        },
+      },
+      {
+        domain: { zh: '标注', en: 'Highlights' },
+        text: {
+          zh: '四色划线、书签、想法；划过的话能带着定位复制成链接。',
+          en: 'Four highlight colours, bookmarks and notes; copy a highlight as a link that keeps its position.',
+        },
+      },
+      {
+        domain: { zh: '排版', en: 'Typography' },
+        text: {
+          zh: '字号、行距、页边距、单双栏与竖排，边调边看。',
+          en: 'Font size, line height, margins, one or two columns and vertical text — all adjusted live.',
+        },
+      },
+      {
+        domain: { zh: '笔记', en: 'Notes' },
+        text: {
+          zh: '划线导出成结构化的 Markdown，留在自己的笔记库里。',
+          en: 'Export highlights as structured Markdown that stays in your own vault.',
+        },
+      },
+      {
+        domain: { zh: 'AI', en: 'AI' },
+        text: {
+          zh: '接自己的 OpenAI 兼容接口，划词提问、解释、翻译、摘要。',
+          en: 'Plug in your own OpenAI-compatible endpoint to ask, explain, translate and summarise a selection.',
+        },
+      },
     ],
   },
 ];

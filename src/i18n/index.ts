@@ -7,23 +7,75 @@
  *
  * **默认语言是 zh。** 不是随手定的：现网只有中文用户，语言探测拿不到值时
  * 必须退回中文而不是英文，否则海外环境的探测失败会让中文用户看到英文界面。
- * 测试也靠这条默认值继续断言中文文案（332 处断言一条没改）。
+ * 测试也靠这条默认值继续断言中文文案（300 余处断言一条没改）。
  *
  * key 用语义短名分域（`cmd.open`、`notice.export.done`），中文包是基准包，
- * 它的 key 集合就是类型真源：en 包漏一条，`tsc --noEmit` 直接红。
+ * 它的 key 集合就是类型真源：任何一包漏一条，`tsc --noEmit` 直接红。
+ *
+ * 八种语言：zh 简中（基准）、zh-TW 繁中、en 英、ja 日、de 德、fr 法、es 西、
+ * pt 葡。**只有更新日志是例外**（只做中英两版，见 `changelogLang`）。
  */
 
 import { getLanguage } from 'obsidian';
+import { DE } from './de';
 import { EN } from './en';
+import { ES } from './es';
+import { FR } from './fr';
+import { JA } from './ja';
+import { PT } from './pt';
 import { ZH, type MsgKey } from './zh';
+import { ZH_TW } from './zh-tw';
 
-export type Locale = 'zh' | 'en';
+export type Locale = 'zh' | 'zh-TW' | 'en' | 'ja' | 'de' | 'fr' | 'es' | 'pt';
 export type { MsgKey };
 
 /** 翻译参数。只收字符串与数字，够用且不会被误塞对象 */
 export type MsgParams = Record<string, string | number>;
 
-const PACKS: Record<Locale, Record<string, string>> = { zh: ZH, en: EN };
+/**
+ * 八种语言的固定顺序。
+ *
+ * 设置页按这个顺序铺按钮，测试也钉这个顺序——顺序变了是可见的变化，
+ * 不该悄悄随对象键序漂移。
+ */
+export const LOCALES: readonly Locale[] = ['zh', 'zh-TW', 'en', 'ja', 'de', 'fr', 'es', 'pt'];
+
+/**
+ * 每种语言用**它自己的语言**标注自己。
+ *
+ * 这是界面语言选择器的通行做法（Obsidian 自己的语言列表也这么写）：
+ * 一个只会德语的人，在中文界面里找得到 "Deutsch"，但找不到「德语」。
+ * 这几条**不走 t()**——它们必须与当前界面语言无关。
+ */
+export const LOCALE_NAMES: Record<Locale, string> = {
+  zh: '中文',
+  'zh-TW': '繁體中文',
+  en: 'English',
+  ja: '日本語',
+  de: 'Deutsch',
+  fr: 'Français',
+  es: 'Español',
+  pt: 'Português',
+};
+
+const PACKS: Record<Locale, Record<MsgKey, string>> = {
+  zh: ZH,
+  'zh-TW': ZH_TW,
+  en: EN,
+  ja: JA,
+  de: DE,
+  fr: FR,
+  es: ES,
+  pt: PT,
+};
+
+/** 语言包本体（测试要逐包遍历；运行期取文案用 `t`，不要直接用这个） */
+export const PACK_OF: Record<Locale, Record<MsgKey, string>> = PACKS;
+
+/** 这个值是不是我们支持的语言（`auto` 不算；设置落盘校验用） */
+export function isLocale(v: unknown): v is Locale {
+  return typeof v === 'string' && (LOCALES as readonly string[]).includes(v);
+}
 
 /**
  * 当前语言。
@@ -39,18 +91,39 @@ const listeners = new Set<(l: Locale) => void>();
  * Obsidian 的语言代码 → 我们支持的语言。
  *
  * `getLanguage()` 给的是 ISO 639-1（`zh`、`zh-TW`、`en-GB`、`ja`、`ar`…）。
- * 简体与繁体共用一个中文包：两者文案几乎一致，分开维护只会让两份中文
- * 慢慢漂移，而繁体的正字差异交给社区再补一包更划算。
+ * 繁体与简体**分开两包**：两者文案不是字形转换的关系（設定/设置、檔案/文件、
+ * 匯入/导入），合成一包只会让繁体用户读到大陸用词。
  *
  * 没有对应包的语言一律退英文——英文是国际用户的兜底，不是「假装看得懂」。
  */
 export function normalizeLocale(code: string | null | undefined): Locale {
-  const raw = String(code ?? '').trim().toLowerCase();
+  const raw = String(code ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, '-');
   if (!raw) return 'en';
-  // zh / zh-cn / zh-hans / zh-tw / zh-hant / zh-hk 都归中文
-  if (raw === 'zh' || raw.startsWith('zh-') || raw.startsWith('zh_')) return 'zh';
-  if (raw === 'en' || raw.startsWith('en-') || raw.startsWith('en_')) return 'en';
-  return 'en';
+  const base = raw.split('-')[0];
+  switch (base) {
+    case 'zh':
+      /* 繁体：台湾、香港、澳门，以及脚本标记 Hant。
+         `zh-Hant-CN` 这种「繁体脚本 + 大陆地区」按脚本走——脚本才决定字形。 */
+      if (/^zh-(tw|hk|mo)\b/.test(raw) || raw.includes('hant')) return 'zh-TW';
+      return 'zh';
+    case 'en':
+      return 'en';
+    case 'ja':
+      return 'ja';
+    case 'de':
+      return 'de';
+    case 'fr':
+      return 'fr';
+    case 'es':
+      return 'es';
+    case 'pt':
+      return 'pt';
+    default:
+      return 'en';
+  }
 }
 
 /** 当前界面语言 */
@@ -70,7 +143,7 @@ export function setLocale(next: Locale): boolean {
     try {
       fn(code);
     } catch {
-      /* 一个订阅者抛错不该让其余订阅者收不到通知 */
+      /* 一个订阅者抛错不该让其余订阅者收到通知 */
     }
   }
   return true;
@@ -119,7 +192,7 @@ export function detectLocale(code: string | null | undefined): Locale {
 }
 
 /**
- * 用户的界面语言偏好：跟随宿主，或手动指定。
+ * 用户的界面语言偏好：跟随宿主，或手动指定八种之一。
  *
  * 存在 `settings.language` 里，跟着 data.json（设备本地）。不跟库走：
  * 「这台机器用什么语言」不是书的数据，换台机器该用那台的语言。
@@ -138,7 +211,7 @@ export type LanguagePref = 'auto' | Locale;
  * 「用户有没有表态」。
  */
 export function resolveLocale(pref: LanguagePref, hostCode?: string | null): Locale {
-  if (pref === 'zh' || pref === 'en') return pref;
+  if (pref !== 'auto') return normalizeLocale(pref);
   const code = String(hostCode ?? '').trim();
   return code ? normalizeLocale(code) : 'zh';
 }
@@ -156,4 +229,19 @@ export function hostLanguageCode(): string {
   } catch {
     return '';
   }
+}
+
+/**
+ * 更新日志用哪种语言。
+ *
+ * **这是全仓唯一的例外**：更新日志每次发版手写，八种语言维护一轮就是八倍的
+ * 文案工作量，而读日志的人本来就知道自己在看什么。所以只做中英两版：
+ *   · zh / zh-TW → 中文条目（繁中用户读简体条目读得懂，比读英文强）
+ *   · 其余六种   → 英文条目（英文是国际兜底）
+ *
+ * 弹窗里的框架文案（新功能 / 修复 / 知道了…）也跟这条走，否则会出现
+ * 「日语的章节标题 + 中文的条目」这种半翻状态。
+ */
+export function changelogLang(): 'zh' | 'en' {
+  return current === 'zh' || current === 'zh-TW' ? 'zh' : 'en';
 }
