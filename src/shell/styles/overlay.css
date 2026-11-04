@@ -568,9 +568,11 @@ body.theme-dark .bzs-tb-more {
 /* ── 删除划线的确认条（桌面工具条）──
    和想法 / 书摘同一列：一条贴工具条上方，不是一张卡。
    宽度按内容收缩——它只有一句话和两颗按钮，撑满 470px 会像一张空卡；
+   但给 300px 下限（原型定稿值），太窄会像贴在工具条上的小标签。
    max-width 兜住窄窗口，文字长了就换行。 */
 .bzs-del-panel-body {
   width: max-content;
+  min-width: min(300px, calc(100vw - 24px));
   max-width: min(470px, calc(100vw - 24px));
   padding: 10px 12px;
   background: var(--surface);
