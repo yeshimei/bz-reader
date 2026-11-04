@@ -338,7 +338,8 @@ body.theme-dark .bzs-float.is-dialog {
 }
 
 /* 输入区自己是一块浅底：白卡上再放一块白，边界全靠光标才看得出来。
-   色块 + 圆角把「写在这儿」说清楚，也不用再描一圈边。 */
+   --sunken 在多数主题里只比白深一点（#fafafa），叠一层铜色才看得出是
+   一块「写在这儿」的面。 */
 .bzs-idea-card .txt {
   flex: 1;
   min-width: 0;
@@ -346,7 +347,7 @@ body.theme-dark .bzs-float.is-dialog {
   padding: 8px 12px;
   border: 0;
   border-radius: 10px;
-  background: var(--sunken);
+  background: color-mix(in srgb, var(--copper) 6%, var(--sunken));
   box-shadow: none;
   outline: 0;
   resize: none;
@@ -555,15 +556,12 @@ body.theme-dark .bzs-tb-more {
 }
 
 /* ── 写想法：一个输入框 + 一个保存按钮，没有标题和取消 ──
-   底板收在这一层：外壳透明之后，输入框不能直接贴在正文上。
-   320px 是「一句话」的宽度：想法大多一两行，360 在正文里显得太长，
-   再窄又会把一句话挤成三行。 */
+   底板交给 .bzs-idea-card：这一层再铺白底和阴影，卡片就成了「卡中卡」。
+   宽度也交给卡片自己，这里只负责把卡片和工具条叠成一列。 */
 .bzs-idea-panel-body {
-  width: min(320px, calc(100vw - 24px));
-  padding: 10px;
-  background: var(--surface);
-  border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(40, 32, 20, .05), 0 16px 40px rgba(40, 32, 20, .12);
+  padding: 0;
+  background: none;
+  box-shadow: none;
 }
 
 .bzs-idea-panel-body .bzs-sheet-input {
