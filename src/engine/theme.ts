@@ -87,11 +87,15 @@ export function buildChapterCSS(prefs: ReaderPrefs): string {
   }
 
   // 上下留白：2026-11-03 起自绘的头/底悬浮栏撤了（动作进了宿主头栏、进度看目录），
-  // 所以不再需要给毛玻璃条让位。现在由用户在「版式」里自己调（marginY），
-  // 底部再多留一点——手机上是给宿主的悬浮导航条让位，桌面只是别贴着边缘。
-  const mobile = document.body.classList.contains('is-mobile') || document.body.classList.contains('is-phone');
-  const padTop = `${prefs.marginY}px`;
-  const padBottom = `${prefs.marginY + (mobile ? 24 : 12)}px`;
+  // 所以不再需要给毛玻璃条让位。现在只有一档「上下边距」（prefs.marginY），
+  // 上下必须一样高——手机全屏时底部多出来的每一分都会变成一块空田。
+  //
+  // 分页模式下 body 的 padding 只对章首页生效，章中页顶到边；每页的留白由
+  // 分页器的 --_pad-top / --_pad-bottom 管（见 host.applyPrefs）。这里只在
+  // 滚动模式下写 body padding，否则章首页会叠成两倍。
+  const paged = prefs.flow !== 'scroll';
+  const padTop = paged ? '0px' : `${prefs.marginY}px`;
+  const padBottom = paged ? '0px' : `${prefs.marginY}px`;
 
   return `
 html, body {

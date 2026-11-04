@@ -671,6 +671,9 @@ export class ReaderView extends ItemView {
     /* 只释放自己这一份持有（A-27）：另一个阅读 tab 还沉浸时 class 必须留着 */
     const stillImmersive = updateImmersiveHolders(immersiveHolders, this, this.immersive);
     document.body.classList.toggle('bzr-immersive', stillImmersive);
+    /* 底栏藏起来了：再量一次「底栏压住多少」，全屏时那一段应该是 0。
+       不重量的话，退出全屏会少一截、进入全屏会多一截。 */
+    window.requestAnimationFrame(() => this.syncBottomGap());
   }
 
   /**
@@ -729,7 +732,11 @@ export class ReaderView extends ItemView {
       return;
     }
     const nav = document.querySelector<HTMLElement>('.mobile-navbar');
-    const gap = bottomOverlap(root.getBoundingClientRect().bottom, nav ? nav.getBoundingClientRect().top : null);
+    /* 全屏（沉浸）时导航栏常常只是 display:none：rect 全 0。
+       不能拿 0 当「栏贴在最顶上」，那样算出来是一整屏的留白。 */
+    const navRect = nav?.getBoundingClientRect();
+    const navTop = navRect && navRect.height > 0 ? navRect.top : null;
+    const gap = bottomOverlap(root.getBoundingClientRect().bottom, navTop);
     if (gap > 0) root.style.setProperty('--bzr-bottom-gap', `${gap}px`);
     else root.style.removeProperty('--bzr-bottom-gap');
   }

@@ -1183,9 +1183,10 @@ export class EngineHost {
     // 分页模式下 foliate 用内联 !important 把 documentElement 的 padding 覆成
     // 「左右列距、上下 0」（columnize()），注入的 body padding 只对章首页生效——
     // 章中页顶端只剩 shadow 的 48px 边距行。vendor 补丁把上下 padding 接成
-    // var(--_pad-top/bottom)。自绘工具栏撤了之后这里给 0，留白全由 theme.ts 管。
-    pag?.setCssProps?.({ '--_pad-top': '0px' });
-    pag?.setCssProps?.({ '--_pad-bottom': '8px' });
+    // var(--_pad-top/bottom)。每页留白只有这一处能生效，所以它必须跟
+    // 「上下边距」同步；上下给同一个值，别再偷偷加余量。
+    pag?.setCssProps?.({ '--_pad-top': `${eff.marginY}px` });
+    pag?.setCssProps?.({ '--_pad-bottom': `${eff.marginY}px` });
     /* 翻页 / 滚动模式（P2-02）：foliate 的 paginator 认 `flow` 属性，
        设成 `scrolled` 之后 `#container` 变成 overflow:auto，滚轮和触控板
        自然滚动，`next()` / `prev()` 也自动改成「滚一屏」。

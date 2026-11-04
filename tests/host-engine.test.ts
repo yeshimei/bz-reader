@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_PREFS } from '../src/data/prefs';
 
 /**
  * host.ts 的引擎行为测试。
@@ -308,6 +309,36 @@ describe('host · 滚动模式（一章滚完自动进下一章）', () => {
     wheel(host, 10);
     wheel(host, 10);
     expect(onTurn).toHaveBeenCalledWith('next');
+  });
+});
+
+/**
+ * 上下边距要写到分页器上，不是只写 body。
+ *
+ * 分页时每页的上下留白由 shadow 里 html 的 padding 决定（vendor 补丁把它接成
+ * `--_pad-top` / `--_pad-bottom`），注入的 body padding 只对章首页生效。
+ * 只改 body 的话，用户翻到第二页就看不到任何变化——「调了没效果」。
+ */
+describe('host · 上下边距（每页留白）', () => {
+  function wirePrefs(marginY: number) {
+    const host = newHost();
+    const fake = fakeView(vi.fn(async () => undefined));
+    const prefs = { ...DEFAULT_PREFS, marginY } as import('../src/data/prefs').ReaderPrefs;
+    Object.assign(host as unknown as Record<string, unknown>, { view: fake.view, prefs, opts: { prefs } });
+    host.applyPrefs(prefs);
+    const props = fake.renderer.setCssProps.mock.calls.map((c) => c[0] as Record<string, string>);
+    return props;
+  }
+
+  it('marginY 写给分页器：上下一样高（用户说的「上下边距」就是这两条）', () => {
+    const props = wirePrefs(64);
+    expect(props.some((p) => p['--_pad-top'] === '64px')).toBe(true);
+    expect(props.some((p) => p['--_pad-bottom'] === '64px')).toBe(true);
+  });
+
+  it('调到 0 时顶部就是 0（不再兜底成别的值）', () => {
+    const props = wirePrefs(0);
+    expect(props.some((p) => p['--_pad-top'] === '0px')).toBe(true);
   });
 });
 

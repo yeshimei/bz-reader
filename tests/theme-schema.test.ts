@@ -53,14 +53,24 @@ describe('buildChapterCSS', () => {
     expect(css).toContain('body');
   });
 
-  it('上下边距自己一档，写进 body 的 padding-top', () => {
-    const css = buildChapterCSS({ ...DEFAULT_PREFS, marginY: 64 });
+  it('滚动模式：上下边距写进 body 的 padding，且上下一样', () => {
+    const css = buildChapterCSS({ ...DEFAULT_PREFS, flow: 'scroll', marginY: 64 });
     expect(css).toMatch(/padding-top:\s*64px/);
+    expect(css).toMatch(/padding-bottom:\s*64px/);
   });
 
-  it('上下边距调小，padding 跟着变小（不是写死的 18/28）', () => {
-    const tight = buildChapterCSS({ ...DEFAULT_PREFS, marginY: 4 });
-    const loose = buildChapterCSS({ ...DEFAULT_PREFS, marginY: 96 });
+  it('分页模式：body 不再留上下 padding（每页留白交给分页器）', () => {
+    /* 分页时 body 的 padding 只对章首页生效，章中页顶到边——留白得由
+       `--_pad-top` / `--_pad-bottom` 管（见 host.applyPrefs）。
+       两处都留就会在章首页叠成两倍。 */
+    const css = buildChapterCSS({ ...DEFAULT_PREFS, flow: 'paged', marginY: 64 });
+    expect(css).toMatch(/padding-top:\s*0px/);
+    expect(css).toMatch(/padding-bottom:\s*0px/);
+  });
+
+  it('滚动模式调大调小，padding 跟着变（不是写死的 18/28）', () => {
+    const tight = buildChapterCSS({ ...DEFAULT_PREFS, flow: 'scroll', marginY: 4 });
+    const loose = buildChapterCSS({ ...DEFAULT_PREFS, flow: 'scroll', marginY: 96 });
     expect(tight).toMatch(/padding-top:\s*4px/);
     expect(loose).toMatch(/padding-top:\s*96px/);
   });
