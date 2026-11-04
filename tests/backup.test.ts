@@ -38,6 +38,22 @@ describe('备份文件（数据一键备份）', () => {
     expect(text).not.toContain('apiKey');
   });
 
+  /**
+   * 版式是两个平台槽存的（prefsDesktop / prefsMobile）。以前备份只搬旧的
+   * 全局 prefs，换设备恢复后两份槽都空着 —— 字号、行距全回到默认。
+   */
+  it('桌面 / 手机两套版式一起进备份文件', () => {
+    const text = buildBackup(
+      { ...data(1), prefsDesktop: { fontSize: 16 }, prefsMobile: { fontSize: 23 } } as ReaderData,
+      1,
+    );
+    const parsed = parseBackup(text);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect((parsed.data.prefsMobile as { fontSize: number }).fontSize).toBe(23);
+    expect((parsed.data.prefsDesktop as { fontSize: number }).fontSize).toBe(16);
+  });
+
   it('坏 JSON 给人话，不是「恢复失败」四个字', () => {
     const r = parseBackup('{ 这不是 JSON');
     expect(r.ok).toBe(false);
@@ -126,6 +142,28 @@ describe('恢复 = 合并（mergeRestore）', () => {
     expect(merged.goal).toBe(30);
     expect((merged.prefs as { fontSize: number }).fontSize).toBe(22);
     expect(merged.dailyGoalMinutes).toBe(30);
+  });
+
+  /**
+   * 版式是两个平台槽存的（prefsDesktop / prefsMobile）。以前备份只搬旧的
+   * 全局 prefs，换设备恢复后两份槽都空着 —— 字号、行距全回到默认，
+   * 用户以为自己调好的版式丢了。
+   */
+  it('桌面 / 手机两套版式跟着备份走，恢复时按备份来', () => {
+    const merged = mergeRestore(
+      { version: 1, books: [], prefsMobile: { fontSize: 15 }, prefsDesktop: { fontSize: 16 } },
+      { version: 1, books: [], prefsMobile: { fontSize: 23 }, prefsDesktop: { fontSize: 24 } },
+    );
+    expect((merged.prefsMobile as { fontSize: number }).fontSize).toBe(23);
+    expect((merged.prefsDesktop as { fontSize: number }).fontSize).toBe(24);
+  });
+
+  it('旧备份没有这两个键时，保留本机调好的那份', () => {
+    const merged = mergeRestore(
+      { version: 1, books: [], prefsMobile: { fontSize: 15 } },
+      { version: 1, books: [] },
+    );
+    expect((merged.prefsMobile as { fontSize: number }).fontSize).toBe(15);
   });
 
   it('打卡按天取较大秒数，恢复不会把今天的分钟数减回去', () => {

@@ -46,6 +46,11 @@ export function buildBackup(data: ReaderData, now = Date.now()): string {
       schemaVersion: SCHEMA_VERSION,
       books: data.books,
       prefs: data.prefs,
+      /* 版式是两个平台槽存的（见 data/prefs.ts 的 pickPrefs）。只搬旧的全局
+         prefs 的话，换设备恢复后两份槽都空着，字号行距全回到默认——
+         用户会以为自己调好的版式丢了。 */
+      prefsDesktop: data.prefsDesktop,
+      prefsMobile: data.prefsMobile,
       goal: data.goal,
       /* 打卡与每日目标也是用户攒出来的数据，换电脑后应该跟着走 */
       checkins: data.checkins,
@@ -85,6 +90,9 @@ export function mergeRestore(local: ReaderData, backup: ReaderData): ReaderData 
     ...local,
     books,
     prefs: backup.prefs ?? local.prefs,
+    /* 旧备份里没有这两个键 → 保留本机调好的那份，别把它抹成默认 */
+    prefsDesktop: backup.prefsDesktop ?? local.prefsDesktop,
+    prefsMobile: backup.prefsMobile ?? local.prefsMobile,
     goal: typeof backup.goal === 'number' ? backup.goal : local.goal,
     checkins,
     dailyGoalMinutes:
