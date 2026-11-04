@@ -14,7 +14,7 @@
 import { ItemView, Menu, setIcon, type WorkspaceLeaf } from 'obsidian';
 import { EngineHost, OpenCancelledError, type FootnoteInfo, type Rect, type RelocateInfo, type SelectionInfo } from '../engine/host';
 import { resolveTheme } from '../engine/theme';
-import { normalizePrefs, type ReaderPrefs } from '../data/prefs';
+import { normalizePrefs, pickPrefs, type ReaderPrefs } from '../data/prefs';
 import { recordPosition, type ReaderBook } from '../data/schema';
 import type { LinkTarget } from '../data/deeplink';
 import {
@@ -510,6 +510,10 @@ export class ReaderView extends ItemView {
       header;
     if (!box) return;
 
+    /* 从数据源现读，不用 this.prefs：插件热重载或后台 tab 会错过 updatePrefs，
+       视图里那份副本就停在旧配置，隐藏 / 排序看起来「没生效」。 */
+    const prefs = pickPrefs(this.api.store.get(), mobile);
+
     const run: Record<string, (ev?: MouseEvent) => void> = {
       toc: () => this.api.openTocSidebar('toc'),
       search: () => dispatchAction('search', this.rootEl ?? document.body),
@@ -522,18 +526,22 @@ export class ReaderView extends ItemView {
       immersive: () => this.toggleImmersive(),
       library: () => getShellSource()?.openStudy('library'),
     };
-    const spec = headerActionsFor(mobile, { order: this.prefs.headerOrder, hidden: this.prefs.headerHidden }).map((id) => ({
+    const spec = headerActionsFor(mobile, { order: prefs.headerOrder, hidden: prefs.headerHidden }).map((id) => ({
       ...headerActionSpec(id),
       run: run[id],
     }));
     const ids = spec.map((s) => s.id);
 
-    /* 用户改过顺序 / 隐藏之后，上一版挂上去的旧按钮要收走 */
-    for (const [id, el] of [...this.headerEls]) {
-      if (!ids.includes(id as HeaderActionId)) {
-        el.remove();
-        this.headerEls.delete(id);
-      }
+    /* 收走不该露的按钮：按 DOM 查，不只按 headerEls——视图复用或热重载时，
+       上一版挂的按钮还留在头栏里，而 Map 已经是新的（空的），按 Map 删不到。 */
+    for (const el of Array.from(box.querySelectorAll<HTMLElement>('[data-bzr-action]'))) {
+      const id = el.dataset.bzrAction || '';
+      if (!ids.includes(id as HeaderActionId)) el.remove();
+    }
+    /* 上一版自建的 ⋮（只有 class、没有 data-bzr-action）也要收干净 */
+    for (const el of Array.from(box.querySelectorAll<HTMLElement>('.bzr-more'))) el.remove();
+    for (const id of [...this.headerEls.keys()]) {
+      if (!ids.includes(id as HeaderActionId)) this.headerEls.delete(id);
     }
 
     const fresh: HTMLElement[] = [];
