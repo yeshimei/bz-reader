@@ -307,8 +307,7 @@ function overlayQuote(text?: string, bookId?: string, chapterTitle?: string, tem
       <button class="bzs-btn pri" data-act="copytext" data-text="${esc(quoteMd)}">复制引用</button>
       <button class="bzs-btn" data-act="quotesave">存笔记</button>
       ${__BZ_READER_PRO__ && can('card') ? '<button class="bzs-btn" data-act="quotecopyimg">复制图片</button>' : ''}
-    </div>
-    <div class="bzs-mini" style="margin-top:12px;line-height:1.9">切换版式只改长相，不改内容；定位串能带你回到同一段。</div>`;
+    </div>`;
   return bareFloat(body, 'bzs-quote-panel');
 }
 
