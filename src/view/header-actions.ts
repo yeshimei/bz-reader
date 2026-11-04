@@ -39,7 +39,7 @@ export function headerActionIds(mobile: boolean): HeaderActionId[] {
 }
 
 export function headerActionSpec(id: HeaderActionId): HeaderActionSpec {
-  return SPEC.find((s) => s.id === id) ?? SPEC[0]!;
+  return SPEC.find((s) => s.id === id) ?? SPEC[0];
 }
 
 export interface HeaderActive {

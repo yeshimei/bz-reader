@@ -20,11 +20,20 @@ import { aiAsk, type AiTask } from '../data/ai';
 import type { ReaderBook } from '../data/schema';
 import { collectStats } from '../data/stats';
 import { cn, esc, coverHtml, ico, MAG } from './render/html';
+import { setHtml } from '../ui/dom';
 import { bmksOf, allMarks, fmtMinutes, fmtWhen, marksOf } from './domain';
 import { noteCardHtml } from './render/notes';
-import { cardTemplateChipsHtml, quoteCardHtml } from './render/quote-card';
+import { cardTemplateChipsHtml, quoteCardHtml, quoteRefMarkdown } from './render/quote-card';
 import { searchFormHtml, searchResultsHtml } from './render/search';
-import { closeOverlay, dismissesOnTap, getState, markIdeaDirty, setState, setIdeaDraft } from './state';
+import {
+  closeOverlay,
+  dismissesOnTap,
+  getState,
+  markIdeaDirty,
+  persistShellState,
+  setStateQuiet,
+  setIdeaDraft,
+} from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
@@ -294,7 +303,12 @@ function overlayQuote(text?: string, bookId?: string, chapterTitle?: string, tem
   /* 没用过模板就用 RT.cardTpl 记着的那一版：换过一次版式之后，
      下次从别的划线打开还是同一版，不用每次都重选。 */
   const tpl = template || RT.cardTpl;
-  const quoteMd = `「${t}」\n— ${book?.meta.title ?? ''} · ${book?.meta.author ?? ''} · ${ch}`;
+  const quoteMd = quoteRefMarkdown({
+    text: t,
+    title: book?.meta.title,
+    author: book?.meta.author,
+    chapter: ch,
+  });
   const body = `${cardTemplateChipsHtml(tpl)}
     ${quoteCardHtml({
       text: t,
@@ -906,7 +920,7 @@ export class OverlayLayer {
   };
 
   constructor(private onAction: (act: string, el: HTMLElement) => void) {
-    this.root = document.createElement('div');
+    this.root = createDiv();
     this.root.className = 'bzs-shell bzs-overlay-root';
     /* 视口一变（手机键盘弹起 / 桌面改窗口大小）就重新摆位：
        锚点浮层贴着文字，贴底卡抬到键盘之上。 */
@@ -957,11 +971,13 @@ export class OverlayLayer {
       }
       // 搜索框就地更新命中列表：重绘会把输入框换掉，手指还在打就被打断
       if (role === 'searchkw') {
-        /* 输入过程不整页重绘：重绘会把输入框换掉，手指还在打就被打断。
-           只把新词写进状态，命中列表就地换 innerHTML。 */
-        setState({ searchKw: t.value });
+        /* 输入过程不整页重绘，也不落盘（A-24）：`setState` 每敲一个字都会
+           广播 + 同步写一次 localStorage，中文输入法还会被打断。与书架搜索页
+           （shelf-panel.ts）用同一条 setStateQuiet；关闭浮层时由 closeOverlay
+           走一次正常持久化。 */
+        setStateQuiet({ searchKw: t.value });
         const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
-        if (list) list.innerHTML = searchResultsHtml(t.value, getState().searchScope);
+        if (list) setHtml(list, searchResultsHtml(t.value, getState().searchScope));
         return;
       }
       // 排版滑块（pref）、年度目标（goal）、设置项（setting）走与书架同一条链路。
@@ -998,8 +1014,12 @@ export class OverlayLayer {
     const kind = o?.kind ?? '';
     /* 同一种弹层重画不算「打开」：亮确认条、点「继续写」都会走到这里，
        重新聚焦会把手机键盘再顶起来一次，而用户的手刚离开输入框。 */
-    const opening = kind !== this.lastKind;
+    const prev = this.lastKind;
+    const opening = kind !== prev;
     this.lastKind = kind;
+    /* 搜索词在输入期间是 setStateQuiet 写的（不广播、不落盘）。离开搜索浮层
+       时补一次正常持久化（A-24）——不广播，避免这次关闭再触发一轮重绘。 */
+    if (prev === 'search' && kind !== 'search') persistShellState();
     this.paint(opening);
   }
 
@@ -1028,9 +1048,7 @@ export class OverlayLayer {
          也一起模拟过去——用户在桌面上要的就是鼠标习惯（贴上方）。 */
       isMobileEnv() ? 'below' : 'above',
     );
-    el.style.left = `${pos.left}px`;
-    el.style.top = `${pos.top}px`;
-    el.style.transform = 'none';
+    el.setCssProps({ left: `${pos.left}px`, top: `${pos.top}px`, transform: 'none' });
   }
 
   /** 视口变化后的统一收口：锚点浮层重新贴字，贴底小卡避让键盘 */
@@ -1040,7 +1058,7 @@ export class OverlayLayer {
     if (!isMobileShell() || !vv) return;
     const lift = sheetLift({ innerHeight: window.innerHeight, visualHeight: vv.height });
     for (const el of Array.from(this.root.querySelectorAll<HTMLElement>('.bzs-float.is-sheet'))) {
-      el.style.setProperty('bottom', `calc(${10 + lift}px + env(safe-area-inset-bottom, 0px))`, 'important');
+      el.setCssProps({ bottom: `calc(${10 + lift}px + env(safe-area-inset-bottom, 0px))` });
     }
   }
 
@@ -1050,7 +1068,7 @@ export class OverlayLayer {
        发出去的是空码。 */
     const keepLicense = this.root.querySelector<HTMLInputElement>('[data-role="license"]')?.value ?? '';
     this.setAccent(shellPrefs().accent);
-    this.root.innerHTML = overlayHtml();
+    setHtml(this.root, overlayHtml());
     if (keepLicense) {
       const box = this.root.querySelector<HTMLInputElement>('[data-role="license"]');
       if (box && !box.value) box.value = keepLicense;

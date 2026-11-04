@@ -2,7 +2,7 @@
   "id": "bz-reader",
   "name": "bz Reader",
   "version": "0.1.1",
-  "minAppVersion": "1.4.0",
+  "minAppVersion": "1.7.2",
   "description": "Read EPUB and TXT books in Obsidian with highlights, notes, footnotes, and reading stats saved directly to your vault.",
   "author": "叫我包仔",
   "authorUrl": "https://github.com/yeshimei",

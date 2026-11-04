@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { App } from 'obsidian';
 import { ReaderStore, sanitizeData } from '../src/data/store';
 import { DEFAULT_DATA_DIR } from '../src/core/plugin-path';
@@ -30,6 +30,22 @@ function validData(): string {
       },
     ],
   });
+}
+
+function book(id: string, title: string) {
+  return {
+    id,
+    meta: { title },
+    fileRef: { vaultPath: `书/${id}.epub`, format: 'epub', size: 10 },
+    reading: { position: { percent: 0 }, stats: { totalReadTime: 0, lastReadTime: 0 }, sessions: [] },
+    notes: { highlights: [], excerpts: [], bookmarks: [] },
+    addedAt: 1,
+    updatedAt: 1,
+  };
+}
+
+function payload(books: unknown[]): string {
+  return JSON.stringify({ version: 1, books });
 }
 
 describe('数据形状自愈（sanitizeData）', () => {
@@ -203,6 +219,68 @@ describe('落盘', () => {
     store.get().prefs = { theme: 'auto' };
     await store.flush(true);
     expect(adapter.files.get(FILE)).toContain('auto');
+  });
+
+  it('磁盘签名还是空的时候磁盘上已经有文件：先合并再写，不能拿空库盖掉（A-01）', async () => {
+    const adapter = new FakeAdapter();
+    const store = makeStore(adapter);
+    await store.load(); // 文件不存在，diskSig 留空
+    expect(adapter.files.has(FILE)).toBe(false);
+
+    // 另一个进程（Sync / 另一个窗口）在两次写盘之间创建了文件
+    adapter.files.set(FILE, payload([book('disk', '盘上来的书')]));
+    adapter.bump(FILE);
+
+    store.get().books.push(book('local', '本地新书') as never);
+    await store.flush(true);
+
+    const onDisk = JSON.parse(adapter.files.get(FILE)!) as { books: Array<{ id: string; meta: { title: string } }> };
+    expect(onDisk.books.map((b) => b.id).sort()).toEqual(['disk', 'local']);
+  });
+
+  it('内容没变化时只刷新磁盘签名，不重复写文件（A-21）', async () => {
+    const adapter = new FakeAdapter();
+    adapter.files.set(FILE, validData());
+    const store = makeStore(adapter);
+    await store.load();
+
+    store.get().books[0]!.meta.title = '只改一次';
+    await store.flush(true);
+    const writesAfterFirst = adapter.writes.length;
+    expect(writesAfterFirst).toBeGreaterThan(0);
+
+    await store.flush(true); // 数据没再动，强制 flush 也不该再写
+    expect(adapter.writes.length).toBe(writesAfterFirst);
+    expect(JSON.parse(adapter.files.get(FILE)!).books[0].meta.title).toBe('只改一次');
+  });
+
+  it('touch 之后 2 秒才落盘（A-21 节流）', async () => {
+    vi.useFakeTimers();
+    const g = globalThis as unknown as Record<string, unknown>;
+    const hadWindow = 'window' in g;
+    const oldWindow = g.window;
+    g.window = {
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+    };
+    try {
+      const adapter = new FakeAdapter();
+      adapter.files.set(FILE, validData());
+      const store = makeStore(adapter);
+      await store.load();
+      store.touch();
+
+      await vi.advanceTimersByTimeAsync(1999);
+      expect(adapter.writes).toHaveLength(0);
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(adapter.writes).toContain(TMP);
+      expect(adapter.files.get(FILE)).toContain('测试书');
+    } finally {
+      vi.useRealTimers();
+      if (hadWindow) g.window = oldWindow;
+      else delete g.window;
+    }
   });
 
   it('rename 不覆盖目标、旧 .bak 还在：第三次落盘仍然成功', async () => {

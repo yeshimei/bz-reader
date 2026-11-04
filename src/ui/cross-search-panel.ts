@@ -36,7 +36,7 @@ export function openCrossSearch(deps: CrossSearchDeps): void {
   go.type = 'button';
   const stop = el('button', 'bzr-btn', '停止');
   stop.type = 'button';
-  stop.style.display = 'none';
+  stop.setCssProps({ display: 'none' });
   bar.append(input, go, stop);
 
   const status = el('div', 'bzr-xs-status', '');
@@ -51,8 +51,8 @@ export function openCrossSearch(deps: CrossSearchDeps): void {
     running = on;
     stopFlag = on ? stopFlag : false;
     go.disabled = on;
-    go.style.display = on ? 'none' : '';
-    stop.style.display = on ? '' : 'none';
+    go.setCssProps({ display: on ? 'none' : '' });
+    stop.setCssProps({ display: on ? '' : 'none' });
   }
 
   function groupFor(title: string): HTMLElement {

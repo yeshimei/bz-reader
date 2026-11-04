@@ -204,6 +204,17 @@ export interface ReaderBook {
   addedAt: number;
   updatedAt: number;
   /**
+   * 标注（划线 / 想法 / 书签）最后一次变更的时间。
+   *
+   * 与 `updatedAt` 分两条时间线（A-15）：翻页只动阅读进度，不该刷新
+   * `updatedAt`；否则两台设备（一台在读、一台在写想法）合并时，整本按
+   * `updatedAt` 二选一，刚写的标注会被另一次翻页盖掉。
+   * `mergeData` 对 notes 取这个值大的那份，其余字段仍按 `updatedAt`。
+   * 旧数据没有这个字段时按 0 处理（见 data/store.ts 的 mergeData）。
+   * bz 侧读到不认识的键会忽略，不影响数据同构。
+   */
+  notesUpdatedAt?: number;
+  /**
    * 收藏（书架上那颗星）。
    *
    * 2026-11-04 从 localStorage 搬进业务数据：以前换台电脑，书在、进度在、

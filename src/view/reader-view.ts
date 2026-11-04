@@ -33,7 +33,7 @@ import { notify } from '../core/notice';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { dlog } from '../core/debug-log';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
-import { el } from '../ui/dom';
+import { el, setHtml } from '../ui/dom';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
 import { headerActionIds, headerActionSpec, headerActive } from './header-actions';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
@@ -54,6 +54,9 @@ import {
 } from '../shell/state';
 import { openOverlay } from '../shell/state';
 import { tapIntent } from './tap-intent';
+import { pagingKeyAction } from './paging-key';
+import { updateImmersiveHolders } from './immersive';
+import { destroyQuietly } from '../core/safe-destroy';
 import { anchoredPlacement } from '../shell/anchored-style';
 import { RT, onNotesChanged } from '../shell/runtime';
 import { addCheckin } from '../shell/checkin';
@@ -69,6 +72,15 @@ export type ReaderCommand = 'next' | 'prev' | 'focus' | 'fullscreen' | 'bookmark
 
 /** 读到 99% 以上就算读完，不必真翻到最后一页的最后一个字 */
 const COMPLETE_THRESHOLD = 0.99;
+
+/**
+ * 所有处于沉浸态的阅读视图。
+ *
+ * body 上的 class 是全局的，视图是多实例的：两个 tab 各开一本书时，关掉 A
+ * 不能把 B 的沉浸一起摘掉（A-27）。集合非空才保留 class，onClose 只释放
+ * 自己这一份。
+ */
+const immersiveHolders = new Set<ReaderView>();
 
 /**
  * 真机诊断角标开关：默认关闭。
@@ -290,7 +302,9 @@ export class ReaderView extends ItemView {
     this.offNotes?.();
     this.offNotes = null;
     this.stopTts();
-    await this.closeParallel();
+    /* 副卷收尾失败不能把 settle 卡住（A-29）：这一段会话的阅读时长与
+       打卡只在 settle 里结算，early-return 等于把它们丢掉。 */
+    await this.closeParallel().catch(() => undefined);
     await this.settle();
     this.contentEl.empty();
   }
@@ -463,7 +477,7 @@ export class ReaderView extends ItemView {
        类挂在 leaf-content 上，且选择器带 data-type：切到别的视图后自动失效。 */
     header.closest('.workspace-leaf-content')?.classList.add('bzr-head-title-on');
     if (!this.headTitleEl || !this.headTitleEl.isConnected) {
-      const el0 = document.createElement('div');
+      const el0 = createDiv();
       el0.className = 'bzr-head-title';
       const left = header.querySelector<HTMLElement>('.view-header-left');
       if (left) left.insertAdjacentElement('afterend', el0);
@@ -526,7 +540,7 @@ export class ReaderView extends ItemView {
         this.headerEls.set(item.id, found);
         continue;
       }
-      const btn = document.createElement('div');
+      const btn = createDiv();
       btn.className = 'clickable-icon view-action bzr-action';
       btn.dataset.bzrAction = item.id;
       btn.setAttribute('aria-label', item.label);
@@ -563,13 +577,13 @@ export class ReaderView extends ItemView {
     /* 最右那颗是宿主的 ⋮，不占名额，也不能收 */
     const dots = othersAll[othersAll.length - 1];
     const others = othersAll.filter((el) => el !== dots);
-    for (const el of others) el.style.display = 'none';
+    for (const el of others) el.setCssProps({ display: 'none' });
 
     const stillOthers = others.filter(visible).length;
     const slots = Math.max(0, maxIcons - stillOthers);
     const ours = kids.filter(isOurs);
     ours.forEach((el, i) => {
-      el.style.display = i < slots ? '' : 'none';
+      el.setCssProps({ display: i < slots ? '' : 'none' });
     });
   }
 
@@ -584,7 +598,7 @@ export class ReaderView extends ItemView {
       return;
     }
     if (!this.probeEl) {
-      const box = document.createElement('div');
+      const box = createDiv();
       box.className = 'bzr-probe';
       this.rootEl.appendChild(box);
       this.probeEl = box;
@@ -593,7 +607,7 @@ export class ReaderView extends ItemView {
     const title = header?.querySelector<HTMLElement>('.view-header-title');
     const acts = header?.querySelectorAll('.bzr-action').length ?? 0;
     /* pg = 页面里跑的 paginator 是不是打过「点按不吸附」补丁的那一版 */
-    const pg = (globalThis as unknown as { __bzrPaginatorGuard?: boolean }).__bzrPaginatorGuard;
+    const pg = (window as unknown as { __bzrPaginatorGuard?: boolean }).__bzrPaginatorGuard;
     this.probeEl.textContent =
       `bz ${ReaderView.BUILD_TAG} · pg${pg ? '✓' : '✗'} hdr${header ? '✓' : '✗'} ttl${title ? '✓' : '✗'} act${acts}` +
       ` · tap${this.tapCount}${this.lastZone} ${this.lastKeyBefore || '-'}→${this.lastKeyAfter || '…'}` +
@@ -603,8 +617,10 @@ export class ReaderView extends ItemView {
   /** 沉浸：藏掉宿主的上头栏与下导航条，再按一次还原 */
   private toggleImmersive(force?: boolean): void {
     this.immersive = force ?? !this.immersive;
+    /* 只释放自己这一份持有（A-27）：另一个阅读 tab 还沉浸时 class 必须留着 */
+    const stillImmersive = updateImmersiveHolders(immersiveHolders, this, this.immersive);
     dlog('immersive', { on: this.immersive });
-    document.body.classList.toggle('bzr-immersive', this.immersive);
+    document.body.classList.toggle('bzr-immersive', stillImmersive);
   }
 
   /**
@@ -660,25 +676,22 @@ export class ReaderView extends ItemView {
     const t = e.target as HTMLElement | null;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    switch (e.key) {
-      case 'Escape':
-        if (this.immersive) this.toggleImmersive(false);
-        this.hideSelbar();
-        break;
-      case 'ArrowLeft':
-      case 'PageUp':
-        e.preventDefault();
-        this.runCommand(this.host.contentVertical ? 'next' : 'prev');
-        break;
-      case 'ArrowRight':
-      case 'PageDown':
-      case ' ':
-        e.preventDefault();
-        this.runCommand(this.host.contentVertical ? 'prev' : 'next');
-        break;
-      default:
-        break;
+    if (e.key === 'Escape') {
+      if (this.immersive) this.toggleImmersive(false);
+      this.hideSelbar();
+      return;
     }
+    /* 滚动模式（A-26）：Escape 之后就不再接管键盘——方向键 / 空格交给
+       foliate 的滚动容器。以前这里照旧 preventDefault + 翻页，滚到一半
+       按一下方向键就整页跳走。 */
+    if (this.prefs.flow === 'scroll') return;
+    const dir = pagingKeyAction(e.key, {
+      flow: this.prefs.flow,
+      contentVertical: this.host.contentVertical,
+    });
+    if (!dir) return;
+    e.preventDefault();
+    this.runCommand(dir);
   }
 
   runCommand(kind: ReaderCommand): void {
@@ -881,6 +894,10 @@ export class ReaderView extends ItemView {
       await host2.start(other.reading.position.cfi || '', other.reading.position.percent || 0);
       this.parallelOn = true;
     } catch (e) {
+      /* 副卷可能已经建了 iframe / 挂了监听，只是 start 失败。
+         先销毁引擎再清引用与 DOM（A-28）——反过来清掉 DOM 之后，
+         引擎里残留的 ResizeObserver 还会回调到一个已经不在文档里的节点。 */
+      await destroyQuietly(host2);
       this.host2 = null;
       stage2.remove();
       this.stage2 = null;
@@ -896,7 +913,7 @@ export class ReaderView extends ItemView {
     if (!sel) return;
     sel.empty();
     for (const b of books) {
-      const o = document.createElement('option');
+      const o = createEl('option');
       o.value = b.id;
       o.textContent = b.meta.title;
       if (b.id === id) o.selected = true;
@@ -912,7 +929,7 @@ export class ReaderView extends ItemView {
     this.stage2 = null;
     this.pagesEl?.classList.remove('is-parallel');
     this.syncToolState();
-    await host2?.destroy();
+    await destroyQuietly(host2);
   }
 
   /* ─────────────────── 朗读 ─────────────────── */
@@ -1063,7 +1080,7 @@ export class ReaderView extends ItemView {
     const bar = el('div', 'bzs-selbar');
     if (live) bar.classList.add('is-marked');
     for (const p of HIGHLIGHT_COLORS) {
-      const dot = el('span', 'bzs-pendot') as HTMLElement;
+      const dot = el('span', 'bzs-pendot');
       dot.style.background = colorCss(p.value);
       dot.title = p.label;
       dot.setAttribute('aria-label', p.label);
@@ -1081,7 +1098,7 @@ export class ReaderView extends ItemView {
     bar.appendChild(el('span', 'div'));
 
     const mk = (label: string, act: string): HTMLButtonElement => {
-      const b = el('button', 'bzs-sbtn', label) as HTMLButtonElement;
+      const b = el('button', 'bzs-sbtn', label);
       b.type = 'button';
       b.dataset.act = act;
       b.addEventListener('click', () => {
@@ -1220,7 +1237,7 @@ export class ReaderView extends ItemView {
     this.renderLoading(book.meta.title);
 
     try {
-      await this.host.mount(this.stage as HTMLElement, book.fileRef.vaultPath, {
+      await this.host.mount(this.stage, book.fileRef.vaultPath, {
         prefs: this.prefs,
         onRelocate: (info) => this.saveRelocate(info),
         /* 导航超时/异常时给一句人话：以前 onStall 声明了却没人接，
@@ -1283,8 +1300,8 @@ export class ReaderView extends ItemView {
       });
       /* 点按分区要用「可见宽度」当分母：分页器的文档宽度比屏幕大一个量级 */
       this.host.setViewportWidth(
-        (this.stage as HTMLElement).clientWidth,
-        (this.stage as HTMLElement).getBoundingClientRect().left,
+        (this.stage).clientWidth,
+        (this.stage).getBoundingClientRect().left,
       );
       /* 重试一次就多挂一条 resize 监听（P3-18）：`registerEvent` 只在 onClose
          时统一摘，重试期间旧监听还在，于是每重试一次就多一次重复回调。 */
@@ -1350,16 +1367,19 @@ export class ReaderView extends ItemView {
     });
     diag.push({ k: 'iframe·blob', v: '探测中…' });
     const box = el('div', '');
-    box.innerHTML = faultHtml({
-      icon: 'alert',
-      title,
-      desc,
-      diag,
-      actions: [
-        { label: '重试', act: 'retry', primary: true },
-        { label: '回书架', act: 'back' },
-      ],
-    });
+    setHtml(
+      box,
+      faultHtml({
+        icon: 'alert',
+        title,
+        desc,
+        diag,
+        actions: [
+          { label: '重试', act: 'retry', primary: true },
+          { label: '回书架', act: 'back' },
+        ],
+      }),
+    );
     box.querySelector('[data-act="back"]')?.addEventListener('click', () => getShellSource()?.openStudy('library'));
     box.querySelector('[data-act="retry"]')?.addEventListener('click', () => {
       this.mounted = false;
@@ -1367,7 +1387,7 @@ export class ReaderView extends ItemView {
     });
     const probeRow = box.querySelector<HTMLElement>('[data-k="iframe·blob"]');
     void probeBlobIframe().then((r) => {
-      if (probeRow) probeRow.innerHTML = `<span class="k">iframe·blob</span>${r}`;
+      if (probeRow) setHtml(probeRow, `<span class="k">iframe·blob</span>${r}`);
     });
     stage.appendChild(box);
   }
@@ -1378,7 +1398,7 @@ export class ReaderView extends ItemView {
     if (!stage) return;
     stage.empty();
     const box = el('div', '');
-    box.innerHTML = loadingHtml(title);
+    setHtml(box, loadingHtml(title));
     stage.appendChild(box);
   }
 
@@ -1411,7 +1431,9 @@ export class ReaderView extends ItemView {
       }
     }
     if (info.chapterTitle) dlog('relocate', { key: this.host.pageKey, pct: Math.round(info.percent * 100) });
-    book.updatedAt = Date.now();
+    /* 进度不再写 `book.updatedAt`（A-15）：跨设备合并按 updatedAt 取整本，
+       翻一页就刷新它会让另一台设备刚写的标注整份丢掉。标注改的是
+       `notesUpdatedAt`（data/notes.ts），两条时间线互不覆盖。 */
     /* href 是唯一能定位目录行的字段：label 会重复（每个部分下都有「-1-」），
        只传 label 会让同名章节一起亮。 */
     if (info.chapterTitle || info.chapterHref) {

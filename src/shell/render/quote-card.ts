@@ -27,6 +27,29 @@ export function quoteCardHtml(input: QuoteCardInput): string {
     </div>`;
 }
 
+export interface QuoteRefInput {
+  text: string;
+  title?: string;
+  author?: string;
+  chapter?: string;
+}
+
+/**
+ * 「复制引用」与书摘卡「存笔记」共用的纯文本形态。
+ *
+ * 以前两处各拼一份：浮层里的复制按钮写 `「引文」\n— 书名 · 作者 · 章节`，
+ * 存笔记直接导出整本书。现在只拼**这一条**，两处引用同一份格式，
+ * 用户从剪贴板粘的与落进笔记的不会长得不一样。
+ */
+export function quoteRefMarkdown(input: QuoteRefInput): string {
+  const text = String(input.text ?? '').trim();
+  const title = String(input.title ?? '').trim();
+  const author = String(input.author ?? '').trim();
+  const chapter = String(input.chapter ?? '').trim() || '未命名章节';
+  const from = [title, author, chapter].filter(Boolean).join(' · ');
+  return `「${text}」\n— ${from}`;
+}
+
 /** 版式切换按钮：当前选中的那颗高亮 */
 export function cardTemplateChipsHtml(current?: string): string {
   const now = normalizeCardTemplate(current);

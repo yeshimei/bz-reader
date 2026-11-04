@@ -305,6 +305,16 @@ export function setStateQuiet(patch: Partial<ShellState>): void {
   Object.assign(state, patch);
 }
 
+/**
+ * 只落盘、不广播（A-24）。
+ *
+ * `setStateQuiet` 写的输入（搜索词）不会自己触发 persist；关闭浮层时用它补
+ * 一次正常持久化，避免「关掉浮层再重开插件，搜索词丢了」，又不额外重绘一次。
+ */
+export function persistShellState(): void {
+  persist();
+}
+
 /** 读当前状态 → 改 → 写回。适合「先读旧值再改」的场景（筛选切换、收藏） */
 export function mutateState(fn: (s: ShellState) => void): void {
   fn(state);
@@ -346,6 +356,20 @@ export function openOverlay(o: OverlayState): void {
     s.ideaConfirm = false;
     s.ideaDraft = null;
   });
+}
+
+/**
+ * 强制重画当前浮层（A-09）。
+ *
+ * `overlayKey` 已经包含 `rev`，所以内容没变、但底层数据变了（正文搜索刚
+ * 返回命中）时，把 rev +1 就能让订阅方认为「弹层内容变了」并调 `sync()`。
+ * 直接在 dispatchAction 里 `setState({ overlay: {...} })` 同效，但那一刻
+ * 可能没有弹层，这里统一判空。
+ */
+export function bumpOverlayRev(): void {
+  const o = state.overlay;
+  if (!o) return;
+  setState({ overlay: { ...o, rev: (o.rev ?? 0) + 1 } });
 }
 
 /**

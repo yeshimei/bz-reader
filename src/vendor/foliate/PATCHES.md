@@ -16,6 +16,7 @@
 | `paginator.js` | `columnize()` 横排的 documentElement padding 从 `0 gap/2` 改为 `var(--_pad-top, 0px) gap/2 var(--_pad-bottom, 0px)` | 分页模式下 foliate 用内联 !important 把上下 padding 覆成 0，宿主注入的 body padding 只对章首页生效——章中页文字顶到悬浮头栏（2026-11-03 用户反馈）。宿主（host.ts）按桌面/移动写入这两个变量补足到设计值；不设变量时与上游逐字一致 |
 | `paginator.js` | `columnize()` 里 `requestAnimationFrame` 回调前加 `if (!this.#view) return` | 视图销毁后那一帧仍会跑，`this.#view.docBackground` 直接抛 `Cannot read properties of null`。触发场景：快速关书后立刻从位置链接重开另一本（`#mediaQueryListener` 上游已有同样的判空，这一处漏了） |
 | `paginator.js` | `load()` 三条改造：①不用 `display:none` 等 load，改成 `visibility:hidden`（安卓 WebView 对不可见 iframe 可能干脆不加载）；②不依赖 `load` 事件——每 200ms 轮询 `contentDocument`，正文一出现就挂载；③8s 没动静再按 blob 原文重试、15s 仍失败就 `reject` | 上游只挂 `load`、不挂 `error`，地址加载失败时 Promise 既不 resolve 也不 reject，上层 `await` 永远悬着——白屏且无报错，恢复工作区时还会把 Obsidian 钉在「加载工作区中…」 |
+| `paginator.js` | `destroy()` 里 `this.#view.destroy()` 改为 `this.#view?.destroy()` | `#view` 在从未装载 / 已被上一次 destroy 置空时为 null，原版直接抛 `Cannot read properties of null`。这一抛会把后面的 `sections[index].unload()` 与 `#mediaQuery.removeEventListener` 全部跳过：整本书的 section 引用和 mediaQuery 监听都泄漏（宿主侧 `host.destroy` 里补了「close 失败也断链」的兜底，但根因在这里） |
 
 > 移动端 `blob:` 帧被宿主 CSP 挡掉的问题**不在 vendor 里修**：`engine/blob-srcdoc.ts`
 > 在运行时拦 `iframe.src`，把 blob 读成原文、内联 CSS/图片后写 `srcdoc`。

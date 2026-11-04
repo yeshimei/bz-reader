@@ -41,15 +41,19 @@ import { exportBookNotes } from '../data/export';
 import { jumpTo, getToc } from '../view/toc-state';
 import { LIB_FILTERS } from './render/study';
 import { copyQuoteCardImage } from './card-image';
+import { quoteRefMarkdown } from './render/quote-card';
 import type { OverlayKind, StudyPage } from './state';
 import {
+  bumpOverlayRev,
   cancelIdeaClose,
   closeOverlay,
   getState,
+  hydrateLibrary,
   mutateState,
   openOverlay,
   setGoal,
   setState,
+  setStateQuiet,
   toggleFav,
 } from './state';
 import { RT, emitNotesChanged, pushAi } from './runtime';
@@ -801,9 +805,9 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'toggle': {
       const src = getShellSource();
       if (!src) break;
-      const patch = flipSetting(shellSettings() as unknown as ToggleState, d.k ?? '');
+      const patch = flipSetting(shellSettings(), d.k ?? '');
       if (!patch) break;
-      src.setSettings(patch as never);
+      src.setSettings(patch);
       /* 必须自己重绘：setSettings 只落盘 + notifyShell，设置页那块的 DOM
          不会因为状态变了就重建，开关会停在旧位置（用户报的「点了不实时显示」）。 */
       repaint();
@@ -1021,6 +1025,9 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
           notify(`正文搜索失败：${(e as Error)?.message || '未知错误'}`, 'error');
         } finally {
           RT.textSearching = false;
+          /* 命中列表在弹层里，`repaint()` 广播后订阅方还要过 `overlayKey` 判重：
+             内容键没变就跳过 sync()，结果永远停在「搜索中」。rev +1 强制它重画。 */
+          bumpOverlayRev();
           repaint();
         }
       })();
@@ -1088,14 +1095,27 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
 
-    /* ── 书摘卡：存笔记 ── */
+    /* ── 书摘卡：存笔记 ──
+       只存卡上这一条引文（A-10）。以前这里调 exportBookNotes 把整本书的
+       划线重写进「书摘/书名.md」——点一次「存笔记」等于一次全量导出，
+       用户在别处手改过的内容会被覆盖，也和卡片上看到的「这一条」对不上。 */
     case 'quotesave': {
+      if (!requireCap('export')) break;
       const app = getShellSource()?.app;
       const book = currentBook();
-      if (!app || !book) break;
-      void exportBookNotes(app, book, shellSettings()).then((res) => {
-        notify(res ? `已存进 ${res.path}` : '这本书还没有可存的标注');
+      const overlayState = getState().overlay;
+      const text = (overlayState?.text || RT.sel?.text || '').trim();
+      if (!app || !text) {
+        if (!text) notify('没有可存的引文', 'info');
+        break;
+      }
+      const md = quoteRefMarkdown({
+        text,
+        title: book?.meta.title,
+        author: book?.meta.author,
+        chapter: overlayState?.chapterTitle || RT.sel?.chapterTitle,
       });
+      void appendToExport(app, book, md);
       break;
     }
 
@@ -1140,15 +1160,29 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
 
 /* ─────────── 导航与重置 ─────────── */
 
-/** 只清界面状态：书、进度、标注、AI 配置一律不动 */
-function resetUiState(): void {
+/**
+ * 只清界面状态：书、进度、标注、AI 配置一律不动。
+ *
+ * 2026-11-04 补（A-23）：收藏 / 分组 / 目标在业务数据里各有一份真相。
+ * 以前只把 `favIds` / `shelves` 清空、把 `goal` 写成 20——界面看起来「重置了」，
+ * 但书里的 `favorite` / `shelf` 还在，重启 `hydrateLibrary()` 一灌就全回来；
+ * 目标也只改了内存，下次启动又从业务数据读回旧值。
+ *
+ * 现在的顺序：
+ *   1. 清掉旧版 localStorage 快照（只在 upgrade 时有用，保留原行为）；
+ *   2. 把 20 写进业务数据（setGoal）；
+ *   3. 界面状态静默重置，再从业务数据回灌收藏 / 分组 / 目标，
+ *      由 hydrateLibrary 统一落盘 + 广播一次。
+ */
+export function resetUiState(): void {
   const keep = { bookId: getState().bookId };
   try {
     window.localStorage.removeItem('bzs-shell-v1');
   } catch {
     /* 存不下就算了 */
   }
-  setState({
+  getShellSource()?.setGoal(20);
+  setStateQuiet({
     studyPage: 'library',
     libView: 'grid',
     libFilter: 'all',
@@ -1162,9 +1196,10 @@ function resetUiState(): void {
     pen: DEFAULT_HIGHLIGHT_COLOR,
     sideTab: 'toc',
     bookId: keep.bookId,
-    favIds: [],
-    shelves: {},
   });
+  /* favIds / shelves 不在这里清空：hydrateLibrary 会用书里的 favorite / shelf
+     重建（书是真相，清界面不该连业务数据一起清）。 */
+  hydrateLibrary(liveBooks(), getState().goal);
 }
 
 /* ─────────── 具体业务 ─────────── */

@@ -105,18 +105,23 @@ export function speak(text: string, opts: SpeakOptions = {}): SpeakHandle | null
       opts.onEnd?.();
       return;
     }
-    const u = new SpeechSynthesisUtterance(chunks[i]!);
+    const u = new SpeechSynthesisUtterance(chunks[i]);
     u.lang = lang;
     u.rate = rate;
     u.onstart = () => {
-      if (!stopped) opts.onChunk?.(i, chunks[i]!);
+      if (!stopped) opts.onChunk?.(i, chunks[i]);
     };
     // 单段出错也往下走：某一句念不出来不该让整页静音
     u.onend = () => play(i + 1);
     u.onerror = () => play(i + 1);
     synth.speak(u);
   };
-  play(0);
+  /* 首句必须离开当前调用栈（A-31）：iOS / WKWebView 在 `cancel()` 的同一个
+     宏任务里紧接着 `speak()` 时会把这一句吞掉——用户点了朗读，没有声音，
+     也没有任何报错。放进下一个宏任务之后，cancel 的异步收尾已经跑完。 */
+  window.setTimeout(() => {
+    if (!stopped) play(0);
+  }, 0);
 
   return {
     stop(): void {

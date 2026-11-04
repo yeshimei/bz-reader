@@ -89,6 +89,9 @@ export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, n
   const lines: string[] = [];
   lines.push('---');
   lines.push(`title: ${yamlStr(book.meta.title)}`);
+  /* bookId 是「同名书认领自己那份导出」的唯一依据（A-16）：
+     两本都叫《活着》时，只按书名找文件会让后导出的那本覆盖前一本。 */
+  lines.push(`bookId: ${yamlStr(book.id)}`);
   if (author) lines.push(`author: ${yamlStr(author)}`);
   lines.push(`progress: ${percent}`);
   lines.push(`highlights: ${highlights.length}`);
@@ -167,18 +170,44 @@ export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, n
   return lines.join('\n');
 }
 
-/** 目标路径：`<exportDir>/<书名>.md`；撞上别人的同名笔记就往后让 */
-async function resolveTarget(app: App, dir: string, title: string): Promise<string> {
-  const base = safeName(title);
+/** 取 frontmatter 段；没有头部就是空串（正文里恰好以 bookId: 开头的行不算） */
+function frontmatterOf(text: string): string {
+  if (!text.startsWith('---')) return '';
+  const end = text.indexOf('\n---', 3);
+  return end < 0 ? '' : text.slice(0, end);
+}
+
+/** 从已有导出里读回 bookId；没有就是空串（旧版导出、别人的笔记） */
+function bookIdOf(text: string): string {
+  const m = /^bookId:\s*(.+)$/m.exec(frontmatterOf(text));
+  if (!m) return '';
+  let v = m[1].trim();
+  if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) {
+    v = v.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  } else if (v.length >= 2 && v.startsWith("'") && v.endsWith("'")) {
+    v = v.slice(1, -1).replace(/''/g, "'");
+  }
+  return v;
+}
+
+/**
+ * 目标路径：`<exportDir>/<书名>.md`；同名文件不是这本书的就往后让。
+ *
+ * 判断「是不是这本书的」只认 frontmatter 里的 bookId + 插件标记。
+ * 旧版导出没有 bookId，按「不是同一本」处理——宁可多出一份 `(2)`，
+ * 也不能让两本同名书继续互相覆盖（A-16 的取舍，升级后首次导出会见到一次）。
+ */
+async function resolveTarget(app: App, dir: string, book: ReaderBook): Promise<string> {
+  const base = safeName(book.meta.title);
   const adapter = app.vault.adapter;
   for (let n = 1; n <= 50; n += 1) {
     const name = n === 1 ? base : `${base} (${n})`;
     const path = `${dir}/${name}.md`;
     if (!(await adapter.exists(path))) return path;
-    // 我们自己写的：覆盖。别人的：让开
+    // 这本书自己写的：覆盖。别人的（或认不出是哪本的）：让开
     try {
-      const head = await adapter.read(path);
-      if (head.includes(MARK)) return path;
+      const text = await adapter.read(path);
+      if (text.includes(MARK) && bookIdOf(text) === book.id) return path;
     } catch {
       return path;
     }
@@ -218,7 +247,7 @@ export async function exportBookNotes(
 
   const dir = settings.exportDir.replace(/^\/+|\/+$/g, '') || DEFAULT_SETTINGS.exportDir;
   await ensureDir(app, dir);
-  const path = await resolveTarget(app, dir, book.meta.title);
+  const path = await resolveTarget(app, dir, book);
   const text = buildNotesMarkdown(book, settings, now);
   /* 原子写（P3-19）：直接 `adapter.write` 是「打开正本、截断、写入」，
      中途崩溃/盘满就留半截 Markdown。先写 .tmp 再改名，要么旧要么新。

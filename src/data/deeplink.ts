@@ -107,8 +107,13 @@ function authorPart(book: ReaderBook): string {
 
 /** 形式一：只有一行可点击的链接 */
 export function linkInline(book: ReaderBook, t: LinkTarget): string {
-  const where = t.chapter ? ` · ${t.chapter}` : '';
-  return `[《${displayName(book)}》${where}](${protocolUrl(t)})`;
+  /* 书名与章节名来自 EPUB 元数据（外部文件，不可信）。不清方括号的话，
+     `书名](https://外站)` 会把 Markdown 链接提前闭合，外站地址变成用户
+     笔记里可点的链接（A-20）。 */
+  const title = cleanLabel(displayName(book)) || '未命名';
+  const chapter = t.chapter ? cleanLabel(t.chapter) : '';
+  const where = chapter ? ` · ${chapter}` : '';
+  return `[《${title}》${where}](${protocolUrl(t)})`;
 }
 
 /** 形式二（默认）：引文 + 出处，读书笔记最常见的样子 */
@@ -136,7 +141,7 @@ export function linkQuote(book: ReaderBook, h: Highlight): string {
  */
 function cleanLabel(v: string): string {
   return v
-    .replace(/[\[\]]/g, ' ')
+    .replace(/[[\]]/g, ' ')
     /* 中文之间的换行不该变成空格（与 data/export.ts 的 oneLine 同一规则） */
     .replace(/\s+/g, ' ')
     .replace(/([\u3000-\u303f\u4e00-\u9fff\uff00-\uffef])\s+(?=[\u3000-\u303f\u4e00-\u9fff\uff00-\uffef])/g, '$1')

@@ -28,11 +28,14 @@ import { ReaderStore, verifyCopiedJson } from './data/store';
 import { backupFileName, buildBackup, mergeRestore, parseBackup } from './data/backup';
 import { pickJsonFile } from './core/file-pick';
 import { copyTree, dirHasFiles, findDataDirs, removeTree } from './data/migrate';
+import { collectDataDirCandidates, pickDataDir } from './core/data-dir-pick';
 import { normalizePrefs, type ReaderPrefs } from './data/prefs';
 import { normalizeSettings, type ReaderSettings } from './data/settings';
 import type { BookFormat, ReaderBook } from './data/schema';
 import { ReaderView, VIEW_TYPE_READER, type ReaderCommand, type ReaderHostApi } from './view/reader-view';
 import { SideView, VIEW_TYPE_TOC, type SideTab } from './view/side-view';
+import { pickActiveReader } from './view/active-reader';
+import { isDeferredViewOf } from './view/leaf-reuse';
 import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-state';
 import { mountImport } from './ui/import-panel';
 import { releaseCovers } from './data/cover';
@@ -40,7 +43,7 @@ import { activateLicense as applyLicense, can, recordActivity, revalidateLicense
 import { normalizePluginData, type PluginDataFile } from './data/plugin-data';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
 import { installBlobSrcdocPatches, uninstallBlobSrcdocPatches } from './engine/blob-srcdoc';
-import { initDebugLog, shutdownDebugLog } from './core/debug-log';
+import { initDebugLog, isDebugLogEnabled, shutdownDebugLog } from './core/debug-log';
 import { openStats } from './ui/stats-panel';
 import { openCrossSearch } from './ui/cross-search-panel';
 
@@ -268,28 +271,40 @@ export function createPlugin(cfg: PluginConfig) {
     }
 
     onunload(): void {
-      closeAllModals();
-      this.offShell?.();
-      this.overlay?.destroy();
-      for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_READER)) {
-        void (leaf.view as ReaderView).forceClose();
-        /* 视图类随插件卸载一起失效，留在工作区里就是一个「插件不再活动」的空壳；
-           下次加载时 Obsidian 还会尝试 load() 它，然后抛在 titleEl 上。
-           所以卸载时把这些 leaf 收掉，重新加载后由用户（或自动打开）重新开。 */
-        leaf.detach();
+      /* 整段收尾放在 try/finally：视图收尾、弹层销毁任一步抛错，后面的全局
+         资源（封面 objectURL、iframe 补丁、日志监听、store、data.json）也
+         必须归还——否则禁用插件后它们还挂在这个进程里。 */
+      try {
+        closeAllModals();
+        this.offShell?.();
+        this.overlay?.destroy();
+        for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_READER)) {
+          try {
+            /* 必须是 instanceof：`getLeavesOfType` 在工作区恢复期间可能给出
+               还没实例化的 DeferredView，强转后调 forceClose 会抛在 undefined 上。 */
+            const v = leaf.view;
+            if (v instanceof ReaderView) void v.forceClose();
+          } finally {
+            /* 视图类随插件卸载一起失效，留在工作区里就是一个「插件不再活动」的空壳；
+               下次加载时 Obsidian 还会尝试 load() 它，然后抛在 titleEl 上。
+               所以卸载时把这些 leaf 收掉，重新加载后由用户（或自动打开）重新开。 */
+            leaf.detach();
+          }
+        }
+      } finally {
+        releaseCovers(); // 封面 objectURL 不释放会一直占着内存里的整张图
+        /* 两个全局函数（createObjectURL / iframe.src）是我们改的，要还回去，
+           否则禁用插件后它们还在收别的插件造的 Blob（P2-13） */
+        uninstallBlobSrcdocPatches();
+        /* 日志的 window 监听要摘、缓冲区要 flush：否则禁用→再启用叠一层监听 */
+        shutdownDebugLog();
+        /* 书架就是中心 tab 里的一个视图（VIEW_TYPE_STUDY），跟阅读视图一样是用户
+           自己打开的——插件重载不该替他关掉。Obsidian 在插件停用时自己会把这些
+           leaf 换成占位，我们 detach 只会让人丢掉布局。 */
+        void this.store?.destroy();
+        /* 配置（含激活码）最后写一次：刚激活就禁用插件的场景不能丢码 */
+        void this.flushCfg();
       }
-      releaseCovers(); // 封面 objectURL 不释放会一直占着内存里的整张图
-      /* 两个全局函数（createObjectURL / iframe.src）是我们改的，要还回去，
-         否则禁用插件后它们还在收别的插件造的 Blob（P2-13） */
-      uninstallBlobSrcdocPatches();
-      /* 日志的 window 监听要摘、缓冲区要 flush：否则禁用→再启用叠一层监听 */
-      shutdownDebugLog();
-      /* 书架就是中心 tab 里的一个视图（VIEW_TYPE_STUDY），跟阅读视图一样是用户
-         自己打开的——插件重载不该替他关掉。Obsidian 在插件停用时自己会把这些
-         leaf 换成占位，我们 detach 只会让人丢掉布局。 */
-      void this.store?.destroy();
-      /* 配置（含激活码）最后写一次：刚激活就禁用插件的场景不能丢码 */
-      void this.flushCfg();
     }
 
     /** 配置防抖落盘。改设置、激活、换数据目录都走它。 */
@@ -312,13 +327,22 @@ export function createPlugin(cfg: PluginConfig) {
       return this.saveData(this.cfg).catch(() => undefined);
     }
 
-    /** 命令面板要「对当前这本书下手」：优先活动 leaf，其次任意一个阅读 leaf */
+    /**
+     * 命令面板要「对当前这本书下手」。
+     *
+     * 顺序（A-25）：活动视图 → `activeReaderId` 对应的书 → 第一个真视图。
+     * 以前只看 `activeLeaf`：焦点在目录侧栏时它永远是目录视图，于是落到
+     * 「第一个阅读 leaf」，两个 tab 时命令总打错书。
+     */
     private activeReader(): ReaderView | null {
       const ws = this.app.workspace;
-      const active = ws.activeLeaf?.view;
-      if (active instanceof ReaderView) return active;
-      const leaf = ws.getLeavesOfType(VIEW_TYPE_READER)[0];
-      return leaf ? (leaf.view as ReaderView) : null;
+      const active = ws.getActiveViewOfType?.(ReaderView) ?? null;
+      return pickActiveReader(
+        active,
+        ws.getLeavesOfType(VIEW_TYPE_READER),
+        getState().activeReaderId,
+        (v): v is ReaderView => v instanceof ReaderView,
+      );
     }
 
     /* ── 壳层接线 ── */
@@ -539,6 +563,9 @@ export function createPlugin(cfg: PluginConfig) {
 
         const res = await copyTree(this.app, from, to);
         if (res.failed.length) {
+          /* 半份副本必须清掉（A-22）：下一次迁移会先看目标目录是否为空，
+             残留的 bz-reader.json 会让它永远被「这里已经有文件」挡住。 */
+          await removeTree(this.app, to);
           return { ok: false, message: `有 ${res.failed.length} 个文件没复制成功，已留在原目录` };
         }
 
@@ -603,11 +630,20 @@ export function createPlugin(cfg: PluginConfig) {
       if (await adapter.exists(`${DEFAULT_DATA_DIR}/bz-reader.json`).catch(() => false)) return;
       const found = (await findDataDirs(this.app)).filter((d) => d && d !== DEFAULT_DATA_DIR);
       if (!found.length) return; // 全新用户，正常
-      const pick = found.find((d) => d === this.cfg.dataDir) ?? found[0]!;
-      setDataDir(pick);
-      this.cfg.dataDir = pick;
+      /* 多候选不能盲选（A-30）：数组顺序由 `list('/')` 决定，挑错就等于
+         把指针写到一个空库上。按书数 → 数据文件 mtime 比较；仍并列就
+         让用户去设置里选，绝不写指针。 */
+      const candidates = await collectDataDirCandidates(this.app, found);
+      const pick = pickDataDir(candidates);
+      if (pick.ambiguous) {
+        notify('发现多个数据目录，无法判断该用哪一个；请到设置里选择', 'info');
+        return;
+      }
+      if (!pick.dir) return;
+      setDataDir(pick.dir);
+      this.cfg.dataDir = pick.dir;
       void this.flushCfg();
-      notify(`数据目录找回来了：「${pick}」`, 'info');
+      notify(`数据目录找回来了：「${pick.dir}」`, 'info');
     }
 
     /** 壳层状态一变，弹层层与主题就跟着走 */
@@ -632,15 +668,24 @@ export function createPlugin(cfg: PluginConfig) {
     /**
      * 改排版偏好：写进 store，并让所有已打开的阅读视图立刻重排。
      * 书架设置页与阅读页的排版面板最终都落到这一个入口。
+     *
+     * `notifyShell()` 放 finally（A-11）：写盘/重排哪一步抛错，界面也得
+     * 广播一次——否则设置页滑块停在旧位置，用户以为没改成功。
      */
     setPrefs(patch: Partial<ReaderPrefs>): void {
-      const next = normalizePrefs({ ...normalizePrefs(this.store.get().prefs ?? undefined), ...patch });
-      this.store.get().prefs = next;
-      this.store.touch();
-      for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_READER)) {
-        (leaf.view as ReaderView).updatePrefs(next);
+      try {
+        const next = normalizePrefs({ ...normalizePrefs(this.store.get().prefs ?? undefined), ...patch });
+        this.store.get().prefs = next;
+        this.store.touch();
+        for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_READER)) {
+          /* 必须是 instanceof：DeferredView 上没有 updatePrefs，强转会抛
+             「is not a function」并中断整轮循环（后面的视图收不到新排版）。 */
+          const view = leaf.view;
+          if (view instanceof ReaderView) view.updatePrefs(next);
+        }
+      } finally {
+        notifyShell();
       }
-      notifyShell();
     }
 
     setSettings(patch: Partial<ReaderSettings>): void {
@@ -695,6 +740,17 @@ export function createPlugin(cfg: PluginConfig) {
         void ws.revealLeaf(opened);
         return;
       }
+      /* DeferredView（工作区恢复 / 插件重载后的占位）不是 StudyView 实例，
+         但 getViewType 认得出类型。以前直接 detach，等于把用户上次打开的书架
+         tab 静默关掉；现在就地 setViewState 让它实例化，再 reveal（A-11）。 */
+      if (opened && isDeferredViewOf(opened.view, VIEW_TYPE_STUDY)) {
+        void opened.setViewState({ type: VIEW_TYPE_STUDY, active: true }).then(() => {
+          const view = opened.view;
+          if (view instanceof StudyView) view.setPage(page);
+          void ws.revealLeaf(opened);
+        });
+        return;
+      }
       if (opened) opened.detach(); // 旧类实例（热重载后残留）直接换掉
       const leaf = ws.getLeaf('tab');
       void leaf.setViewState({ type: VIEW_TYPE_STUDY, active: true }).then(() => ws.revealLeaf(leaf));
@@ -714,6 +770,15 @@ export function createPlugin(cfg: PluginConfig) {
       const opened = ws.getLeavesOfType(VIEW_TYPE_TOC)[0];
       if (opened && opened.view instanceof SideView) {
         if (tab) opened.view.setTab(tab);
+        ws.leftSplit?.expand?.();
+        return;
+      }
+      /* 同 openStudy：DeferredView 认类型就复用，不要 detach 重建（A-11） */
+      if (opened && isDeferredViewOf(opened.view, VIEW_TYPE_TOC)) {
+        void opened.setViewState({ type: VIEW_TYPE_TOC, active: true }).then(() => {
+          if (tab && opened.view instanceof SideView) opened.view.setTab(tab);
+          ws.leftSplit?.expand?.();
+        });
         ws.leftSplit?.expand?.();
         return;
       }
@@ -853,6 +918,10 @@ export function createPlugin(cfg: PluginConfig) {
     }
 
     private async autoOpenIfRequested(): Promise<void> {
+      /* 调试钩子只在 debug 日志开关打开时生效（A-11）：它读的是插件目录里的
+         storage/debug-open.json，本来就不该在普通用户启动时执行——误留一份
+         就会「每次启动都替你开书」，而用户找不到原因。 */
+      if (!isDebugLogEnabled()) return;
       try {
         const dir = this.manifest.dir;
         if (!dir) return;

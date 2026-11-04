@@ -18,6 +18,7 @@ import { searchResultsHtml } from './render/search';
 import { buildShelfPage } from './shelf-page';
 import { hydrateCovers } from './covers';
 import { focusSelector, type FocusMemo } from './focus-memo';
+import { setHtml } from '../ui/dom';
 
 export class ShelfPanel {
   private root: HTMLElement | null = null;
@@ -121,7 +122,7 @@ export class ShelfPanel {
     const { body, counts } = buildShelfPage(state, books);
 
     root.dataset.bzaccent = shellPrefs().accent;
-    root.innerHTML = studyShell(state.studyPage, body, counts);
+    setHtml(root, studyShell(state.studyPage, body, counts));
 
     const scroller = root.querySelector<HTMLElement>('.bzs-stubody');
     if (scroller) {
@@ -247,7 +248,7 @@ export class ShelfPanel {
         const v = (t as HTMLInputElement).value;
         setStateQuiet({ searchKw: v });
         const list = this.root?.querySelector<HTMLElement>('[data-role="hitlist"]');
-        if (list) list.innerHTML = searchResultsHtml(v, getState().searchScope);
+        if (list) setHtml(list, searchResultsHtml(v, getState().searchScope));
         return;
       }
       dispatchInput(t as HTMLInputElement, e);

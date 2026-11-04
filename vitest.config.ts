@@ -17,6 +17,8 @@ export default defineConfig({
   },
   test: {
     include: ['tests/**/*.test.ts'],
+    // vendor/foliate 在模块顶层读 NodeFilter 等 DOM 常量，import 前先补上
+    setupFiles: ['tests/helpers/globals-stub.ts'],
     environment: 'node',
     globals: false,
     restoreMocks: true,

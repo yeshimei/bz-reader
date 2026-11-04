@@ -25,6 +25,7 @@ import { viewSidebar } from '../shell/render/sidebar';
 import { focusSelector, type FocusMemo } from '../shell/focus-memo';
 import { isTocItemActive, type TocActiveRef } from '../shell/toc-active';
 import { getToc, subscribeToc } from './toc-state';
+import { setHtml } from '../ui/dom';
 
 /** 保留旧值：已保存的工作区布局按这个字符串恢复 leaf */
 export const VIEW_TYPE_TOC = 'bz-reader-toc';
@@ -212,17 +213,20 @@ export class SideView extends ItemView {
     this.memoFocus();
 
     root.dataset.bzaccent = shellPrefs().accent;
-    root.innerHTML = viewSidebar({
-      book,
-      tab: state.sideTab,
-      toc: snap?.items ?? ([] as FoliateTOCItem[]),
-      activeLabel: snap?.activeLabel ?? '',
-      activeHref: snap?.activeHref ?? '',
-      aiLog: RT.aiLog,
-      aiReady: !!settings.ai.baseUrl && !!settings.ai.apiKey && !!settings.ai.model,
-      aiProvider: settings.ai.model || '未配置',
-      collapsed: RT.tocCollapsed,
-    });
+    setHtml(
+      root,
+      viewSidebar({
+        book,
+        tab: state.sideTab,
+        toc: snap?.items ?? ([] as FoliateTOCItem[]),
+        activeLabel: snap?.activeLabel ?? '',
+        activeHref: snap?.activeHref ?? '',
+        aiLog: RT.aiLog,
+        aiReady: !!settings.ai.baseUrl && !!settings.ai.apiKey && !!settings.ai.model,
+        aiProvider: settings.ai.model || '未配置',
+        collapsed: RT.tocCollapsed,
+      }),
+    );
     this.paintedItems = snap?.items ?? null;
     this.paintedBook = snap?.bookId ?? '';
     this.paintedActive = snap?.activeLabel ?? '';

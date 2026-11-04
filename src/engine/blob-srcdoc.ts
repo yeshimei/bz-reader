@@ -21,10 +21,21 @@
 
 import { keepBlob as keepEntry, pruneBlobs, type KeptBlob } from './blob-registry';
 
-type GlobalWithPatches = typeof globalThis & {
-  __bzrOrigCreateObjectURL__?: typeof URL.createObjectURL;
-  __bzrOrigRevokeObjectURL__?: typeof URL.revokeObjectURL;
-  __bzrIframeSrcPatched__?: boolean;
+type GlobalWithPatches = typeof window & {
+  /**
+   * 「我们这一层包装**之前**的现状」与「我们装的那层包装」。
+   *
+   * 不能只记首次的原生函数（A-32）：同一个页面里别的插件也会包
+   * `URL.createObjectURL` / `iframe.src`。卸载时只有当前这层仍是我们装的，
+   * 才还原到「安装前的现状」；否则保持现状，别把别人的包装抹掉。
+   */
+  __bzrPrevCreateObjectURL__?: typeof URL.createObjectURL;
+  __bzrPrevRevokeObjectURL__?: typeof URL.revokeObjectURL;
+  __bzrOurCreateObjectURL__?: typeof URL.createObjectURL;
+  __bzrOurRevokeObjectURL__?: typeof URL.revokeObjectURL;
+  __bzrPrevIframeSrcSet__?: (this: HTMLIFrameElement, value: string) => void;
+  __bzrPrevIframeSrcGet__?: (this: HTMLIFrameElement) => string;
+  __bzrOurIframeSrcSet__?: (this: HTMLIFrameElement, value: string) => void;
 };
 
 /**
@@ -37,7 +48,7 @@ type GlobalWithPatches = typeof globalThis & {
  * 淘汰规则见 `blob-registry.ts`：按字节（64MB），先扔已 revoke 的最旧条目。
  * 旧版按条数（96 条）会在漫画上钉住上百 MB，也会被别的插件的 URL 挤掉书里的。
  */
-const blobs = ((globalThis as unknown as { __bzrBlobs?: Map<string, KeptBlob> }).__bzrBlobs ??=
+const blobs = ((window as unknown as { __bzrBlobs?: Map<string, KeptBlob> }).__bzrBlobs ??=
   new Map<string, KeptBlob>());
 /** 单张图片内联上限：再大就别塞 data: 了，宁可这张图不显示 */
 const MAX_INLINE_IMAGE = 3 * 1024 * 1024;
@@ -65,15 +76,30 @@ async function readText(url: string): Promise<string> {
   return res.text();
 }
 
-async function readDataUrl(url: string, limit = MAX_INLINE_IMAGE): Promise<string> {
-  const blob = blobOf(url) ?? (await (await fetch(url)).blob());
-  if (!blob || blob.size === 0 || blob.size > limit) return '';
+/** 拿 blob：注册表里有就直接用（foliate 已经 revoke 也还在），没有才走 fetch */
+async function resolveBlob(url: string): Promise<Blob | null> {
+  const kept = blobOf(url);
+  if (kept) return kept;
+  try {
+    return (await (await fetch(url)).blob());
+  } catch {
+    return null;
+  }
+}
+
+function toDataUrl(blob: Blob): Promise<string> {
   return new Promise<string>((resolve) => {
     const reader = new FileReader();
     reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
     reader.onerror = () => resolve('');
     reader.readAsDataURL(blob);
   });
+}
+
+async function readDataUrl(url: string, limit = MAX_INLINE_IMAGE): Promise<string> {
+  const blob = await resolveBlob(url);
+  if (!blob || blob.size === 0 || blob.size > limit) return '';
+  return toDataUrl(blob);
 }
 
 /** CSS 里的 url(blob:…) 换成 data:；@import blob: 直接展开 */
@@ -93,6 +119,96 @@ async function inlineCss(css: string): Promise<string> {
   return out;
 }
 
+/** srcset 的一个候选项：URL + 描述符（`2x` / `640w`，可为空） */
+export interface SrcsetCandidate {
+  url: string;
+  descriptor: string;
+}
+
+/**
+ * 拆 srcset（A-35）。
+ *
+ * 不能简单 `split(',')`：data: URL 本身带逗号。按 HTML 规范的思路扫：
+ * 跳过空白/逗号 → 读到空白前的整段算 URL → 再读到逗号算描述符。
+ */
+export function parseSrcset(value: string): SrcsetCandidate[] {
+  const s = String(value || '');
+  const out: SrcsetCandidate[] = [];
+  let i = 0;
+  while (i < s.length) {
+    while (i < s.length && /[\s,]/.test(s[i])) i += 1;
+    if (i >= s.length) break;
+    const start = i;
+    while (i < s.length && !/\s/.test(s[i])) i += 1;
+    let url = s.slice(start, i);
+    /* 规范允许 URL 后面紧跟逗号（`a.png,b.png 2x`）：尾部逗号是分隔符 */
+    while (url.endsWith(',')) url = url.slice(0, -1);
+    while (i < s.length && /\s/.test(s[i])) i += 1;
+    let descriptor = '';
+    if (i < s.length && s[i] !== ',') {
+      const dStart = i;
+      while (i < s.length && s[i] !== ',') i += 1;
+      descriptor = s.slice(dStart, i).trim();
+    }
+    if (i < s.length && s[i] === ',') i += 1;
+    if (url) out.push({ url, descriptor });
+  }
+  return out;
+}
+
+export function formatSrcset(items: SrcsetCandidate[]): string {
+  return items.map((it) => (it.descriptor ? `${it.url} ${it.descriptor}` : it.url)).join(', ');
+}
+
+/** 一次内联的落点：URL 换成 data: 之后写回哪个属性 */
+interface InlineTarget {
+  url: string;
+  apply: (data: string) => void;
+}
+
+/**
+ * 批量内联 blob URL（A-07 / A-35）。
+ *
+ * 预算按 **blob.size** 扣，不按 base64 字符串长度（后者虚高约 33%，会让
+ * 整章预算提前见底）。同一个 URL 只读一次、只扣一次预算——src 与 srcset
+ * 共用一张图很常见。任何一步失败都**什么都不写**，调用方保留原 blob 地址。
+ */
+async function inlineTargets(targets: InlineTarget[], budget: { left: number }): Promise<void> {
+  const byUrl = new Map<string, Promise<string>>();
+  for (const target of targets) {
+    if (byUrl.has(target.url)) continue;
+    byUrl.set(
+      target.url,
+      (async () => {
+        const blob = await resolveBlob(target.url);
+        if (!blob || blob.size === 0) return '';
+        if (blob.size > MAX_INLINE_IMAGE || blob.size > budget.left) return '';
+        budget.left -= blob.size;
+        const data = await toDataUrl(blob);
+        /* 读失败把预算还回去：一张坏图不该把后面几张图的额度吃掉 */
+        if (!data) budget.left += blob.size;
+        return data;
+      })().catch(() => ''),
+    );
+  }
+
+  const resolved = new Map<string, string>();
+  for (const [url, job] of byUrl) resolved.set(url, await job);
+  for (const target of targets) {
+    const data = resolved.get(target.url);
+    if (data) target.apply(data);
+  }
+}
+
+/** SVG 的 xlink:href 解析后是 XLink 命名空间属性，改它必须走 setAttributeNS */
+function setSvgHref(el: Element, attr: string, data: string): void {
+  if (attr === 'xlink:href' && typeof el.setAttributeNS === 'function') {
+    el.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', data);
+    return;
+  }
+  el.setAttribute(attr, data);
+}
+
 /**
  * 把一章 HTML 变成可以直接 srcdoc 的字符串。
  *
@@ -106,7 +222,7 @@ async function inlineCss(css: string): Promise<string> {
  * `<noscript>` 里藏标签那类），而黑名单是在解析后的树上跑的，看不见序列化
  * 之后才出现的东西。真正的边界是 iframe 上的 `sandbox`（见 installIframeSrcPatch）。
  */
-async function inlineMarkup(raw: string): Promise<string> {
+export async function inlineMarkup(raw: string): Promise<string> {
   const doc = new DOMParser().parseFromString(String(raw || ''), 'text/html');
 
   for (const el of Array.from(doc.querySelectorAll('script, iframe, object, embed'))) el.remove();
@@ -152,32 +268,43 @@ async function inlineMarkup(raw: string): Promise<string> {
     link.replaceWith(style);
   }
 
-  /* 图片内联：整章有总量预算（P2-18）。并行读，但超预算的图直接放弃内联，
-     保留原 blob 地址——比把 27MB 的字符串塞进 srcdoc 然后手机 OOM 好。 */
+  /* 图片/封面内联：整章有总量预算（P2-18 / A-07 / A-35）。
+     超过单张上限或预算耗尽时**保留原 blob 地址**——以前直接删 src，图片
+     变成一个空壳，用户连「图裂了」都看不到；现在至少能显示就显示，
+     显示不了也不拖垮整章。 */
   const budget = { left: MAX_INLINE_IMAGES_TOTAL };
-  const images = Array.from(doc.querySelectorAll('img[src]')).filter((img) =>
-    isBlobUrl(img.getAttribute('src') || ''),
-  );
-  await Promise.all(
-    images.map(async (img) => {
-      const src = img.getAttribute('src') || '';
-      if (budget.left <= 0) {
-        img.removeAttribute('src');
-        return;
-      }
-      const data = await readDataUrl(src, Math.min(MAX_INLINE_IMAGE, budget.left)).catch(() => '');
-      if (!data) {
-        img.removeAttribute('src');
-        return;
-      }
-      budget.left -= data.length;
-      if (budget.left < 0) {
-        img.removeAttribute('src');
-        return;
-      }
-      img.setAttribute('src', data);
-    }),
-  );
+  const targets: InlineTarget[] = [];
+
+  for (const img of Array.from(doc.querySelectorAll('img[src]'))) {
+    const src = img.getAttribute('src') || '';
+    if (isBlobUrl(src)) targets.push({ url: src, apply: (data) => img.setAttribute('src', data) });
+  }
+
+  /* `<svg><image href>` 是 EPUB 封面的常见写法；xlink:href 是老写法，两个都认 */
+  for (const image of Array.from(doc.querySelectorAll('image'))) {
+    for (const attr of ['href', 'xlink:href']) {
+      const url = image.getAttribute(attr) || '';
+      if (isBlobUrl(url)) targets.push({ url, apply: (data) => setSvgHref(image, attr, data) });
+    }
+  }
+
+  /* srcset：img 与 source（<picture>）都要拆开逐条转，描述符原样保留 */
+  for (const el of Array.from(doc.querySelectorAll('[srcset]'))) {
+    const items = parseSrcset(el.getAttribute('srcset') || '');
+    if (!items.some((it) => isBlobUrl(it.url))) continue;
+    for (const item of items) {
+      if (!isBlobUrl(item.url)) continue;
+      targets.push({
+        url: item.url,
+        apply: (data) => {
+          item.url = data;
+          el.setAttribute('srcset', formatSrcset(items));
+        },
+      });
+    }
+  }
+
+  await inlineTargets(targets, budget);
 
   for (const el of Array.from(doc.querySelectorAll('[style]'))) {
     const style = el.getAttribute('style') || '';
@@ -189,17 +316,26 @@ async function inlineMarkup(raw: string): Promise<string> {
 
 /** 1) 留住 Blob：foliate 换章会 revokeObjectURL，之后还得读原文 */
 function installUrlRegistry(): void {
-  const g = globalThis as GlobalWithPatches;
-  /* 原始函数只存一次；之后每次插件重载都重新包一层，
-     否则页面里留下的是上一个实例的闭包，它写进的是上一份 Map。 */
-  if (!g.__bzrOrigCreateObjectURL__) {
-    g.__bzrOrigCreateObjectURL__ = URL.createObjectURL.bind(URL);
-    g.__bzrOrigRevokeObjectURL__ = URL.revokeObjectURL.bind(URL);
+  const g = window as GlobalWithPatches;
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- 取当前实现做链式基线，不调用
+  const currentCreate = URL.createObjectURL;
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- 同上
+  const currentRevoke = URL.revokeObjectURL;
+
+  /* 基线 = 安装前一刻的现状（A-32）。只有当前这层仍是我们上次装的包装，
+     才沿用更早存下的「前一层」；否则说明中间有别的插件包过一层，
+     以它为新基线——卸载时还原到它，绝不能越过它写回最早的原生函数。 */
+  if (currentCreate !== g.__bzrOurCreateObjectURL__) {
+    g.__bzrPrevCreateObjectURL__ = currentCreate;
   }
-  const create = g.__bzrOrigCreateObjectURL__!;
-  const revoke = g.__bzrOrigRevokeObjectURL__!;
-  URL.createObjectURL = (blob: Blob): string => {
-    const url = create(blob);
+  if (currentRevoke !== g.__bzrOurRevokeObjectURL__) {
+    g.__bzrPrevRevokeObjectURL__ = currentRevoke;
+  }
+  const baseCreate = g.__bzrPrevCreateObjectURL__ ?? currentCreate;
+  const baseRevoke = g.__bzrPrevRevokeObjectURL__ ?? currentRevoke;
+
+  const create = (blob: Blob): string => {
+    const url = baseCreate.call(URL, blob);
     try {
       keepEntry(blobs, url, blob);
     } catch {
@@ -207,9 +343,9 @@ function installUrlRegistry(): void {
     }
     return url;
   };
-  URL.revokeObjectURL = (url: string): void => {
+  const revoke = (url: string): void => {
     try {
-      revoke(url);
+      baseRevoke.call(URL, url);
     } catch {
       /* 回收失败无所谓 */
     }
@@ -218,6 +354,11 @@ function installUrlRegistry(): void {
     const kept = blobs.get(url);
     if (kept) kept.revoked = true;
   };
+
+  g.__bzrOurCreateObjectURL__ = create;
+  g.__bzrOurRevokeObjectURL__ = revoke;
+  URL.createObjectURL = create;
+  URL.revokeObjectURL = revoke;
 }
 
 /**
@@ -236,57 +377,65 @@ function installUrlRegistry(): void {
  */
 function installIframeSrcPatch(): void {
   if (typeof HTMLIFrameElement === 'undefined') return;
-  const g = globalThis as GlobalWithPatches & {
-    __bzrOrigIframeSrcSet__?: (this: HTMLIFrameElement, value: string) => void;
-    __bzrOrigIframeSrcGet__?: (this: HTMLIFrameElement) => string;
-  };
+  const g = window as GlobalWithPatches;
   const desc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'src');
   if (!desc?.set) return;
-  /* 同样：原始 setter 只存一次，重载时重新包，避免嵌套上一次的包装 */
-  g.__bzrOrigIframeSrcSet__ ??= desc.set;
-  g.__bzrOrigIframeSrcGet__ ??= desc.get ?? undefined;
-  const originalSet = g.__bzrOrigIframeSrcSet__;
-  const originalGet = g.__bzrOrigIframeSrcGet__;
+  /* 同 URL 补丁：基线是「安装前的当前 setter」，不是首次的原生 setter */
+  if (desc.set !== g.__bzrOurIframeSrcSet__) {
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- 存原生 setter 供还原
+    g.__bzrPrevIframeSrcSet__ = desc.set;
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- 存原生 getter 供还原
+    g.__bzrPrevIframeSrcGet__ = desc.get ?? undefined;
+  }
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- 存的是原生 setter，调用时显式 .call(this)
+  const originalSet = g.__bzrPrevIframeSrcSet__ ?? desc.set;
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- 同上
+  const originalGet = g.__bzrPrevIframeSrcGet__ ?? desc.get ?? undefined;
   const tokens = new WeakMap<HTMLIFrameElement, number>();
 
+  const getSrc = function (this: HTMLIFrameElement): string {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- 原生 getter 的返回值就是 string，类型描述符丢了
+    return originalGet ? originalGet.call(this) : this.getAttribute('src') || '';
+  };
+  const setSrc = function (this: HTMLIFrameElement, value: string): void {
+    const url = String(value ?? '');
+    /* 只接管 foliate 的章节 iframe：paginator 与 fixed-layout 都挂了 part="filter"。
+       别的插件 / 宿主自己的 blob iframe 一概不碰。 */
+    const part = (this.getAttribute('part') || '').toLowerCase();
+    if (!isBlobUrl(url) || !part.includes('filter')) {
+      originalSet.call(this, url);
+      return;
+    }
+    /* 脚本执行交给浏览器，不指望黑名单。写在 srcdoc 之前，避免那一瞬间
+       iframe 已经按无 sandbox 的状态加载过一次。 */
+    try {
+      this.setAttribute('sandbox', 'allow-same-origin');
+    } catch {
+      /* 老 WebView 不支持就退回只靠黑名单，别让开书失败 */
+    }
+    const token = (tokens.get(this) || 0) + 1;
+    tokens.set(this, token);
+    void (async () => {
+      try {
+        const html = await readText(url);
+        if (tokens.get(this) !== token) return;
+        const inlined = await inlineMarkup(html);
+        if (tokens.get(this) !== token) return;
+        this.srcdoc = inlined;
+      } catch {
+        /* 读不出来就退回原地址：至少和打补丁前一个行为 */
+        if (tokens.get(this) !== token) return;
+        originalSet.call(this, url);
+      }
+    })();
+  };
+
+  g.__bzrOurIframeSrcSet__ = setSrc;
   Object.defineProperty(HTMLIFrameElement.prototype, 'src', {
     configurable: true,
     enumerable: desc.enumerable ?? true,
-    get(this: HTMLIFrameElement): string {
-      return originalGet ? originalGet.call(this) : this.getAttribute('src') || '';
-    },
-    set(this: HTMLIFrameElement, value: string): void {
-      const url = String(value ?? '');
-      /* 只接管 foliate 的章节 iframe：paginator 与 fixed-layout 都挂了 part="filter"。
-         别的插件 / 宿主自己的 blob iframe 一概不碰。 */
-      const part = (this.getAttribute('part') || '').toLowerCase();
-      if (!isBlobUrl(url) || !part.includes('filter')) {
-        originalSet.call(this, url);
-        return;
-      }
-      /* 脚本执行交给浏览器，不指望黑名单。写在 srcdoc 之前，避免那一瞬间
-         iframe 已经按无 sandbox 的状态加载过一次。 */
-      try {
-        this.setAttribute('sandbox', 'allow-same-origin');
-      } catch {
-        /* 老 WebView 不支持就退回只靠黑名单，别让开书失败 */
-      }
-      const token = (tokens.get(this) || 0) + 1;
-      tokens.set(this, token);
-      void (async () => {
-        try {
-          const html = await readText(url);
-          if (tokens.get(this) !== token) return;
-          const inlined = await inlineMarkup(html);
-          if (tokens.get(this) !== token) return;
-          this.srcdoc = inlined;
-        } catch {
-          /* 读不出来就退回原地址：至少和打补丁前一个行为 */
-          if (tokens.get(this) !== token) return;
-          originalSet.call(this, url);
-        }
-      })();
-    },
+    get: getSrc,
+    set: setSrc,
   });
 }
 
@@ -297,31 +446,45 @@ export function installBlobSrcdocPatches(): void {
 }
 
 /**
- * 插件 onunload 时调（P2-13）。
+ * 插件 onunload 时调（P2-13 / A-32）。
  *
  * 不还原的话，禁用/卸载插件后页面里仍留着 bz 的包装：`URL.createObjectURL`
  * 继续把**别的插件**造的 Blob 收进我们的表（最多 64MB），`iframe.src` 的
- * setter 也还是我们的。引用都挂在 `globalThis.__bzrOrig*__` 上，写回去即可。
+ * setter 也还是我们的。
+ *
+ * 但还原必须**只还原自己那层**：当前函数仍是 `__bzrOur*__` 才写回
+ * `__bzrPrev*__`；如果中间有别的插件又包了一层（当前值不是我们的），
+ * 保持现状——抹掉别人的补丁比多留一层更糟。
  */
 export function uninstallBlobSrcdocPatches(): void {
-  const g = globalThis as GlobalWithPatches & {
-    __bzrOrigIframeSrcSet__?: (this: HTMLIFrameElement, value: string) => void;
-    __bzrOrigIframeSrcGet__?: (this: HTMLIFrameElement) => string;
-  };
+  const g = window as GlobalWithPatches;
   try {
-    if (g.__bzrOrigCreateObjectURL__) URL.createObjectURL = g.__bzrOrigCreateObjectURL__;
-    if (g.__bzrOrigRevokeObjectURL__) URL.revokeObjectURL = g.__bzrOrigRevokeObjectURL__;
+    if (g.__bzrOurCreateObjectURL__ && URL.createObjectURL === g.__bzrOurCreateObjectURL__) {
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- 备份链里读当前函数
+      URL.createObjectURL = g.__bzrPrevCreateObjectURL__ ?? URL.createObjectURL;
+    }
   } catch {
     /* 还原失败不影响卸载流程 */
   }
   try {
-    if (typeof HTMLIFrameElement !== 'undefined' && g.__bzrOrigIframeSrcSet__) {
-      Object.defineProperty(HTMLIFrameElement.prototype, 'src', {
-        configurable: true,
-        enumerable: true,
-        get: g.__bzrOrigIframeSrcGet__,
-        set: g.__bzrOrigIframeSrcSet__,
-      });
+    if (g.__bzrOurRevokeObjectURL__ && URL.revokeObjectURL === g.__bzrOurRevokeObjectURL__) {
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- 同上
+      URL.revokeObjectURL = g.__bzrPrevRevokeObjectURL__ ?? URL.revokeObjectURL;
+    }
+  } catch {
+    /* 同上 */
+  }
+  try {
+    if (typeof HTMLIFrameElement !== 'undefined' && g.__bzrOurIframeSrcSet__) {
+      const desc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'src');
+      if (desc?.set === g.__bzrOurIframeSrcSet__) {
+        Object.defineProperty(HTMLIFrameElement.prototype, 'src', {
+          configurable: true,
+          enumerable: desc.enumerable ?? true,
+          get: g.__bzrPrevIframeSrcGet__,
+          set: g.__bzrPrevIframeSrcSet__,
+        });
+      }
     }
   } catch {
     /* 同上 */

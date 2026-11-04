@@ -13,6 +13,7 @@ import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
 import { coverPathOf, coverUrl } from '../data/cover';
 import { esc } from './render/html';
+import { setHtml } from '../ui/dom';
 import { getShellSource } from './source';
 
 /**
@@ -49,7 +50,7 @@ export function hydrateCovers(app: App | null | undefined, books: ReaderBook[], 
       /* dataset.title 是浏览器**解码后**的原始书名（写入时虽然 esc 过，读回来
          已经还原），这里重拼 innerHTML 必须再转义一次：书名里一个引号就能
          闭合属性，书名来自导入的 EPUB，属不可信输入。 */
-      node.innerHTML = `<img class="bzs-covimg" src="${esc(url)}" alt="${esc(node.dataset.title ?? '')}" loading="lazy">`;
+      setHtml(node, `<img class="bzs-covimg" src="${esc(url)}" alt="${esc(node.dataset.title ?? '')}" loading="lazy">`);
     });
   }
 }

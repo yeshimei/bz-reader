@@ -12,7 +12,8 @@
  *     再改名 tmp」；连 rename 都不支持时退回就地覆盖正本。任何一步失败都还剩
  *     一份完整文件，绝不像以前那样先删正本。
  *  3. **写盘防抖**：翻页会改 percent，每页都落盘等于每翻一页一次 IO。
- *     500ms 合并，外加 unload / 关书时 `flush(true)` 强制写。
+ *     2000ms 合并，外加 unload / 关书时 `flush(true)` 强制写。
+ *     内容与上次写下去的完全一样时只刷新签名，不产生任何文件 IO。
  *
  * 2026-11-04 补的三条（都是「防御代码写了但没接上」）：
  *  4. **外部修改先合并再写**：load() 之后 Obsidian Sync / 另一个窗口 /
@@ -26,6 +27,7 @@
  * ============================================================ */
 import type { App } from 'obsidian';
 import { notify } from '../core/notice';
+import { dlog } from '../core/debug-log';
 import { pluginVaultPath, storageDirOf } from '../core/plugin-path';
 import { copyTree } from './migrate';
 import { EMPTY_DATA, SCHEMA_VERSION, emptyReading, type ReaderBook, type ReaderData } from './schema';
@@ -33,7 +35,7 @@ import { EMPTY_DATA, SCHEMA_VERSION, emptyReading, type ReaderBook, type ReaderD
 const DATA_FILE = 'bz-reader.json';
 const TMP_SUFFIX = '.tmp';
 const BAK_SUFFIX = '.bak';
-const SAVE_DEBOUNCE_MS = 500;
+const SAVE_DEBOUNCE_MS = 2000;
 
 /** 时间戳后缀，坏文件与备份文件名用 */
 function stamp(): string {
@@ -73,7 +75,7 @@ export function sanitizeDataDetailed(v: unknown): SanitizeResult | null {
       dropped.push(raw);
       continue;
     }
-    const ref = b.fileRef as ReaderBook['fileRef'] | undefined;
+    const ref = b.fileRef;
     if (!isObj(ref) || typeof ref.vaultPath !== 'string' || !ref.vaultPath) {
       dropped.push(raw);
       continue;
@@ -114,6 +116,9 @@ export function sanitizeDataDetailed(v: unknown): SanitizeResult | null {
       },
       addedAt: typeof b.addedAt === 'number' ? b.addedAt : now,
       updatedAt: typeof b.updatedAt === 'number' ? b.updatedAt : now,
+      /* 标注时间戳与 updatedAt 分两条线（A-15）。重建时漏掉它，读盘一次
+         就退回 0：另一台设备的新标注再也不会被合并进来。 */
+      ...(typeof b.notesUpdatedAt === 'number' ? { notesUpdatedAt: b.notesUpdatedAt } : {}),
       /* 重建对象时漏了这两项，读盘一次就把收藏和分组丢掉——
          P2-01 把「跟着走」搬进业务数据，落盘面却把它清了。 */
       ...(b.favorite === true ? { favorite: true } : {}),
@@ -156,10 +161,56 @@ export function verifyCopiedJson(
 }
 
 /**
+ * 顶层标量字段的合并规则（A-13）。
+ *
+ * 以前 `mergeData` 是 `{ ...disk, ...local }`：顶层的 checkins / goal /
+ * dailyGoalMinutes 一律本地赢。另一台设备今天打的卡、改大的目标，只要本机
+ * 内存里还是旧值，就会被下一次写盘整份盖回去。
+ *
+ * 现在的规则：
+ *   · `checkins` 按天取 max——它是当天累计秒数，取大只会「打上卡」，不会抹掉记录；
+ *   · `goal` / `dailyGoalMinutes` 取有值且较大的那份（本机没设时采用磁盘的）；
+ *   · 其余顶层字段沿用本地（prefs / dataDir 这类机器相关的东西不跟着盘走）。
+ */
+export function mergeScalars(
+  local: ReaderData,
+  disk: ReaderData,
+): Pick<ReaderData, 'checkins' | 'goal' | 'dailyGoalMinutes'> {
+  const checkins: Record<string, number> = { ...(local.checkins ?? {}) };
+  for (const [day, sec] of Object.entries(disk.checkins ?? {})) {
+    const n = Number(sec) || 0;
+    if (n > (checkins[day] ?? 0)) checkins[day] = n;
+  }
+  return {
+    checkins,
+    goal: biggerNumber(local.goal, disk.goal),
+    dailyGoalMinutes: biggerNumber(local.dailyGoalMinutes, disk.dailyGoalMinutes),
+  };
+}
+
+/** 两个可选数字里取「有值且较大」的；都没有就是没有 */
+function biggerNumber(a: number | undefined, b: number | undefined): number | undefined {
+  const x = typeof a === 'number' && Number.isFinite(a) ? a : undefined;
+  const y = typeof b === 'number' && Number.isFinite(b) ? b : undefined;
+  if (x === undefined) return y;
+  if (y === undefined) return x;
+  return Math.max(x, y);
+}
+
+/**
  * 把磁盘上那份（可能来自另一台设备）合进内存这份。
  *
  * 按 `id` 对齐，同一本取 `updatedAt` 大的——这是唯一能跨设备比较的字段。
  * 顺序保持「本地的在前」，磁盘上新增的追加在后面，书架自己的排序不受影响。
+ *
+ * 2026-11-04 改（A-15）：**标注单独按 `notesUpdatedAt` 合**。
+ * 整本按 updatedAt 二选一有个固定丢数据的场景：A 机一直在读（updatedAt 新），
+ * B 机刚写了一条想法（updatedAt 也新，但更早）——合并取 A 整本，B 的标注没了。
+ * 现在 reading / meta / favorite 这些取 updatedAt 大的那份，`notes` 取
+ * notesUpdatedAt 大的那份；旧数据没有 notesUpdatedAt 时按 0，等价于旧行为。
+ *
+ * 顶层不再整块覆盖：checkins / goal / dailyGoalMinutes 按 mergeScalars 的
+ * 规则合（见上），其余字段本地优先，磁盘只补本地没有的键。
  *
  * 已知取舍：本地删掉的书如果磁盘上还有，会回来。宁可多一本（用户能再删），
  * 也不要少一本（用户找不回来）。
@@ -171,12 +222,27 @@ export function mergeData(local: ReaderData, disk: ReaderData): ReaderData {
   const seen = new Set<string>();
   for (const b of local.books) {
     const other = diskById.get(b.id);
+    /* 其余字段：updatedAt 大的整本当底 */
     const newer = other && (other.updatedAt ?? 0) > (b.updatedAt ?? 0) ? other : b;
-    out.push(newer);
+    if (!other) {
+      out.push(newer);
+      seen.add(b.id);
+      continue;
+    }
+    /* 标注单独比 notesUpdatedAt：赢家是「另一份」时只换 notes，
+       不动 newer 里的进度 / 元数据 / 收藏。 */
+    const otherSide = newer === b ? other : b;
+    const newerNotesAt = newer.notesUpdatedAt ?? 0;
+    const otherNotesAt = otherSide.notesUpdatedAt ?? 0;
+    out.push(
+      otherNotesAt > newerNotesAt
+        ? { ...newer, notes: otherSide.notes, notesUpdatedAt: otherSide.notesUpdatedAt }
+        : newer,
+    );
     seen.add(b.id);
   }
   for (const b of disk.books) if (!seen.has(b.id)) out.push(b);
-  return { ...disk, ...local, books: out };
+  return { ...disk, ...local, ...mergeScalars(local, disk), books: out };
 }
 
 function isMissing(e: unknown): boolean {
@@ -197,6 +263,8 @@ export class ReaderStore {
    * 必须先读回来合并，否则这次写盘就是拿旧快照整份覆盖。
    */
   private diskSig = '';
+  /** 上次真正写到磁盘上的 JSON 文本；内容完全相同就不必再写一遍 */
+  private lastSaved = '';
   /** 留档失败后置位：本次会话禁止任何写盘，绝不用空库覆盖真数据 */
   private readOnly = false;
 
@@ -269,12 +337,17 @@ export class ReaderStore {
     } catch {
       return false; // 老目录也没有，就是全新用户
     }
+    /* copyTree 是「合并覆盖」：新目录里已经有正本时再搬一次，老目录那份就会
+       把新的整份盖掉（读失败与 Sync 建文件可能只差一拍）。先确认没有正本。 */
+    const exists = await adapter.exists(`${storageDirOf(this.app)}/${DATA_FILE}`).catch(() => false);
+    if (exists) return false;
+
     const res = await copyTree(this.app, legacy, storageDirOf(this.app));
     if (res.failed.length) {
       console.warn('[bz-reader] 老数据搬迁未完成，已跳过：', res.failed.slice(0, 3));
       return false;
     }
-    console.info(`[bz-reader] 已把老数据搬到 ${storageDirOf(this.app)}/（${res.files} 个文件）`);
+    dlog('migrate', { dir: storageDirOf(this.app), files: res.files });
     return true;
   }
 
@@ -290,7 +363,7 @@ export class ReaderStore {
       const clean = this.parseText(await adapter.read(tmp));
       if (!clean) return null;
       await adapter.rename(tmp, this.filePath()).catch(() => undefined);
-      console.info('[bz-reader] 已从 .tmp 恢复数据文件');
+      dlog('recover', { from: 'tmp' });
       this.dirty = true;
       return clean.data;
     } catch {
@@ -310,7 +383,7 @@ export class ReaderStore {
     if (text === null) return null;
     const clean = this.parseText(text);
     if (!clean) return null;
-    console.info('[bz-reader] 正本读不出来，已从 .bak 恢复');
+    dlog('recover', { from: 'bak' });
     return clean;
   }
 
@@ -349,18 +422,39 @@ export class ReaderStore {
 
     let text: string | null = null;
     let missing = false;
+    let readFailed = false;
     try {
       text = await adapter.read(file);
     } catch (e) {
-      // 「不存在」是首次安装的正常态，顺带看看是不是从老版本升上来的
-      if (!isMissing(e)) console.warn('[bz-reader] 读取数据失败：', (e as Error)?.message || e);
-      missing = true;
-      if (await this.adoptLegacy()) {
-        text = await adapter.read(file).catch(() => null);
+      if (isMissing(e)) {
+        // 「不存在」是首次安装的正常态，顺带看看是不是从老版本升上来的
+        missing = true;
+        if (await this.adoptLegacy()) {
+          text = await adapter.read(file).catch(() => null);
+        }
+      } else {
+        /* 权限 / IO / 盘掉线：这**不是**首次安装。
+           当成空库继续跑，下一次 touch() 就会用「一本书都没有」覆盖真数据，
+           所以这里直接进只读，让 writeOnce() 早退。 */
+        readFailed = true;
+        this.readOnly = true;
+        console.warn('[bz-reader] 读取数据失败：', (e as Error)?.message || e);
+        notify('读取阅读数据失败，本次会话不保存，避免用空库覆盖原文件', 'error');
       }
     }
 
-    if (text === null && missing) {
+    /* 主文件缺失：先试 .bak（上一次完整写盘），再试 .tmp（写到一半的）。
+       恢复完立刻回写正本（A-14），否则下次启动还要再走一遍恢复路径。 */
+    if (!readFailed && text === null && missing) {
+      const fromBak = await this.recoverBak();
+      if (fromBak) {
+        this.data = fromBak.data;
+        if (fromBak.dropped.length) await this.saveDropped(fromBak.dropped);
+        this.dirty = true;
+        await this.markDisk();
+        await this.flush(true);
+        return this.data;
+      }
       const recovered = await this.recoverTmp();
       if (recovered) {
         this.data = recovered;
@@ -383,9 +477,12 @@ export class ReaderStore {
       if (bak) {
         this.data = bak.data;
         if (bak.dropped.length) await this.saveDropped(bak.dropped);
-        await this.quarantine(); // 坏正本挪走，别让下一次写盘覆盖
-        this.dirty = true; // 下次 flush 把恢复出来的数据写回正本
+        /* 坏正本挪走，别让下一次写盘覆盖。挪不走说明平台连 rename 都不支持，
+           那就只读，否则这次回写会把唯一一份坏文件也换掉。 */
+        if (!(await this.quarantine())) this.readOnly = true;
+        this.dirty = true;
         await this.markDisk();
+        await this.flush(true);
         return this.data;
       }
 
@@ -435,31 +532,38 @@ export class ReaderStore {
     const tmp = this.tmpPath();
     const target = this.filePath();
     try {
-      /* 外部修改检测：只有拿得到基线（load 或上次写盘留下的签名）才比。
-         比中了就读回来合并——合并本身失败不拦写盘，否则一次坏文件会让
-         整个会话再也存不下东西。 */
-      if (this.diskSig) {
-        const now = await this.sig();
-        if (now && now !== this.diskSig) {
-          const disk = await this.readDisk();
-          if (disk) {
-            const merged = mergeData(this.data, disk.data);
-            /* 原地改 books 数组，不换引用：BookRepo 在构造时拿的是
-               `store.get().books` 那一个数组（book-repo.ts 的 all() 直接返回它）。
-               直接 `this.data = merged` 会让 repo 继续指向旧数组——
-               合并一发生，新导入的书落不了盘、删掉的书重启又回来（P3-07 的坑）。 */
-            const books = this.data.books;
-            books.length = 0;
-            books.push(...merged.books);
-            this.data = { ...merged, books };
-            if (disk.dropped.length) void this.saveDropped(disk.dropped);
-          }
+      /* 外部修改检测：无条件取一次签名（A-01）。以前只在 diskSig 非空时比，
+         于是「load 时文件不存在、两次写盘之间 Sync 建出了文件」这一拍会被
+         跳过——本地旧快照/空库整份盖掉刚同步来的数据。
+         合并本身失败不拦写盘，否则一次坏文件会让整个会话再也存不下东西。 */
+      const now = await this.sig();
+      if (now && now !== this.diskSig) {
+        const disk = await this.readDisk();
+        if (disk) {
+          const merged = mergeData(this.data, disk.data);
+          /* 原地改 books 数组，不换引用：BookRepo 在构造时拿的是
+             `store.get().books` 那一个数组（book-repo.ts 的 all() 直接返回它）。
+             直接 `this.data = merged` 会让 repo 继续指向旧数组——
+             合并一发生，新导入的书落不了盘、删掉的书重启又回来（P3-07 的坑）。 */
+          const books = this.data.books;
+          books.length = 0;
+          books.push(...merged.books);
+          this.data = { ...merged, books };
+          if (disk.dropped.length) void this.saveDropped(disk.dropped);
         }
       }
       const text = JSON.stringify(this.data);
+      /* 与上次写下去的一模一样：只刷新磁盘签名，不写文件（A-21）。
+         否则「打开书翻一页又翻回来」「unload 时 force flush」都会白白 IO 一次。 */
+      if (text === this.lastSaved) {
+        this.saveWarned = false;
+        await this.markDisk();
+        return;
+      }
       await adapter.mkdir(storageDirOf(this.app)).catch(() => undefined);
       await adapter.write(tmp, text);
       await this.replaceTarget(tmp, target, text);
+      this.lastSaved = text;
       this.saveWarned = false;
       await this.markDisk();
     } catch (e) {

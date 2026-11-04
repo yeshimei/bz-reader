@@ -49,7 +49,7 @@ export function faultHtml(input: FaultInput): string {
     )
     .join('');
   return `<div class="bzs-fault">
-    <span class="fi">${ico(input.icon as never)}</span>
+    <span class="fi">${ico(input.icon)}</span>
     <b>${esc(input.title)}</b>
     <p>${esc(input.desc)}</p>
     ${diag}

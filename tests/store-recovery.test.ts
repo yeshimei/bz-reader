@@ -77,6 +77,58 @@ describe('外部修改（P0-01）', () => {
   });
 });
 
+describe('读盘失败（A-02）', () => {
+  it('不是「文件不存在」的读失败：本次会话只读，不能拿空库覆盖原文件', async () => {
+    const adapter = new FakeAdapter();
+    const originalRead = adapter.read.bind(adapter);
+    let calls = 0;
+    adapter.read = async (path: string) => {
+      calls += 1;
+      if (calls === 1) throw new Error('EACCES: permission denied');
+      return originalRead(path);
+    };
+    const store = makeStore(adapter);
+
+    const data = await store.load();
+    expect(data.books).toEqual([]);
+
+    store.get().books.push(book('b1', '读失败时不该被写下去') as never);
+    await store.flush(true);
+
+    expect(adapter.writes).toHaveLength(0);
+    expect(adapter.files.has(FILE)).toBe(false);
+  });
+});
+
+describe('老数据搬迁（A-12）', () => {
+  it('新数据目录已经有 bz-reader.json 时不再整棵覆盖', async () => {
+    const adapter = new FakeAdapter();
+    const legacyFile = '.obsidian/plugins/bz-reader/storage/bz-reader.json';
+    const newText = payload([book('new', '新目录里的书')]);
+    adapter.files.set(legacyFile, payload([book('old', '老目录里的书')]));
+    adapter.files.set(FILE, newText);
+
+    /* 模拟一次竞态：这一拍 read() 报「不存在」，但磁盘上文件其实在
+       （Sync 刚把它建出来 / 另一窗口刚写完）。adoptLegacy 若不先 exists 就会
+       用老目录那份把新文件整份盖掉。 */
+    const originalRead = adapter.read.bind(adapter);
+    let failed = false;
+    adapter.read = async (path: string) => {
+      if (!failed && path === FILE) {
+        failed = true;
+        throw new Error(`ENOENT: no such file or directory, ${path}`);
+      }
+      return originalRead(path);
+    };
+
+    const store = makeStore(adapter);
+    const data = await store.load();
+
+    expect(adapter.files.get(FILE)).toBe(newText);
+    expect(data.books).toEqual([]);
+  });
+});
+
 describe('mergeData', () => {
   it('两边的书都保留，同 id 取 updatedAt 大的', () => {
     const local = {
@@ -106,6 +158,52 @@ describe('mergeData', () => {
     const out = mergeData(local as never, disk as never);
     expect(out.books.map((b) => b.id)).toEqual(['a', 'c']);
   });
+
+  it('checkins 按天取 max，goal / dailyGoalMinutes 取有值且较大的那份（A-13）', () => {
+    const local = {
+      version: 1 as const,
+      books: [],
+      checkins: { '2026-01-01': 600, '2026-01-02': 60 },
+      goal: 30,
+      dailyGoalMinutes: 20,
+      prefs: { theme: 'local' },
+      dataDir: '本地目录',
+    };
+    const disk = {
+      version: 1 as const,
+      books: [],
+      checkins: { '2026-01-01': 300, '2026-01-02': 900, '2026-01-03': 120 },
+      goal: 50,
+      dailyGoalMinutes: 10,
+      prefs: { theme: 'disk' },
+      dataDir: '盘上目录',
+    };
+
+    const out = mergeData(local as never, disk as never);
+    expect(out.checkins).toEqual({
+      '2026-01-01': 600,
+      '2026-01-02': 900,
+      '2026-01-03': 120,
+    });
+    expect(out.goal).toBe(50);
+    expect(out.dailyGoalMinutes).toBe(20);
+    /* 其余字段沿用本地：磁盘那边的 prefs / dataDir 不能整份盖过来 */
+    expect(out.prefs).toEqual({ theme: 'local' });
+    expect(out.dataDir).toBe('本地目录');
+  });
+
+  it('本地没有 goal 时采用磁盘那份；两边都没有就保持没有（A-13）', () => {
+    const out = mergeData(
+      { version: 1 as const, books: [] } as never,
+      { version: 1 as const, books: [], goal: 24, dailyGoalMinutes: 15 } as never,
+    );
+    expect(out.goal).toBe(24);
+    expect(out.dailyGoalMinutes).toBe(15);
+
+    const empty = mergeData({ version: 1 as const, books: [] } as never, { version: 1 as const, books: [] } as never);
+    expect(empty.goal).toBeUndefined();
+    expect(empty.dailyGoalMinutes).toBeUndefined();
+  });
 });
 
 /* ───────────── P1-02：.bak 要读 ───────────── */
@@ -131,6 +229,29 @@ describe('备份恢复（P1-02）', () => {
     await store.flush(true);
     expect(adapter.files.get(FILE)).toContain('书');
     expect([...adapter.files.keys()].some((p) => p.includes('bz-reader.broken-'))).toBe(true);
+  });
+
+  it('.bak 恢复后不用等调用方 flush：load() 自己就把正本修好（A-14）', async () => {
+    const adapter = new FakeAdapter();
+    adapter.files.set(FILE, '{ 半截 JSON');
+    adapter.files.set(`${FILE}.bak`, payload([book('b1', '从备份里回来的书')]));
+    const store = makeStore(adapter);
+
+    await store.load();
+
+    expect(adapter.files.get(FILE)).toContain('从备份里回来的书');
+  });
+
+  it('正本整个缺失、只有 .bak：也先试 .bak 再试 .tmp（A-14）', async () => {
+    const adapter = new FakeAdapter();
+    adapter.files.set(`${FILE}.bak`, payload([book('b1', '只有备份的书')]));
+    const store = makeStore(adapter);
+
+    const data = await store.load();
+    expect(data.books).toHaveLength(1);
+    expect(data.books[0]!.meta.title).toBe('只有备份的书');
+    /* load 里恢复完立即回写，下一次启动走正常路径 */
+    expect(adapter.files.get(FILE)).toContain('只有备份的书');
   });
 
   it('.bak 也坏了才按空库启动', async () => {

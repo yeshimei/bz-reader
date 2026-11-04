@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { makeBook } from '../src/data/book-repo';
 import { addHighlight } from '../src/data/notes';
-import { linkOfMark, linkOfText, rawUrl } from '../src/data/deeplink';
+import { linkInline, linkOfMark, linkOfText, rawUrl } from '../src/data/deeplink';
 
 /**
  * 划线链接：`[划线文字](obsidian://bz-reader?…)`。
@@ -62,6 +62,33 @@ describe('linkOfMark · 划线链接', () => {
     const url = urlOf(linkOfMark(book, h));
     expect(url.searchParams.get('cfi')).toBeNull();
     expect(url.searchParams.get('t')).toBe('没有定位的划线');
+  });
+});
+
+describe('linkInline · 概要链接', () => {
+  it('书名与章节名里的方括号被清掉，EPUB 元数据注入不了外站链接（A-20）', () => {
+    const book = makeBook('书/测试书.epub', 'epub');
+    book.meta.title = '正常书名](https://evil.example)[';
+    const target = {
+      bookId: book.id,
+      chapter: '第一章](https://evil.example)',
+    };
+    const link = linkInline(book, target);
+
+    /* 链接文字部分不能出现第二个 `](`：那会让 Markdown 提前闭合、
+       把后面的 URL 变成用户笔记里的可点击外链。 */
+    const label = link.slice(1, link.indexOf(']('));
+    expect(label).not.toContain('[');
+    expect(label).not.toContain(']');
+    expect(link.match(/\]\(/g)).toHaveLength(1);
+    expect(urlOf(link).host).toBe('bz-reader');
+  });
+
+  it('正常书名与章节名原样保留', () => {
+    const book = makeBook('书/测试书.epub', 'epub');
+    book.meta.title = '测试书';
+    const link = linkInline(book, { bookId: book.id, chapter: '第一章' });
+    expect(link.startsWith('[《测试书》 · 第一章](obsidian://bz-reader?')).toBe(true);
   });
 });
 

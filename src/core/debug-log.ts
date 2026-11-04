@@ -13,14 +13,31 @@ const FILE = 'bz-reader-debug.md';
 /** 超过这个体积就从头写，避免无限长 */
 const MAX_BYTES = 300_000;
 const FLUSH_DELAY = 1200;
+/** 开关：只认精确的 '1'（避免 'true' / 'yes' 这类"看着像开"的旧值） */
+const FLAG = 'bz-reader:debug-log';
 
 let app: App | null = null;
+let enabled = false;
 let buf: string[] = [];
 let timer: number | null = null;
 let flushing = false;
 let chain: Promise<void> = Promise.resolve();
 /** 已注册的 window 监听（禁用插件时要摘掉，否则重启用一次就多一层） */
 let detach: (() => void) | null = null;
+
+/** 诊断日志是否启用（默认关闭：真机出问题时才手动打开） */
+export function isDebugLogEnabled(): boolean {
+  return enabled;
+}
+
+function readFlag(): boolean {
+  try {
+    return window.localStorage?.getItem(FLAG) === '1';
+  } catch {
+    /* 隐私模式 / 无 window：按关闭处理 */
+    return false;
+  }
+}
 
 function stamp(): string {
   const t = new Date();
@@ -29,6 +46,9 @@ function stamp(): string {
 }
 
 export function dlog(event: string, data?: Record<string, unknown>): void {
+  /* 默认关闭（A-11）：没开开关时连缓冲都不做，绝不产生 IO / 定时器。
+     排查时在控制台执行 localStorage['bz-reader:debug-log']='1' 再重开插件。 */
+  if (!enabled) return;
   let payload = '';
   if (data) {
     try {
@@ -76,9 +96,18 @@ async function flush(target: App | null = app): Promise<void> {
 
 /** 插件 onload 时调一次（幂等：重复调用只换 app，不重复挂监听） */
 export function initDebugLog(a: App): void {
+  /* 默认关闭（A-11）：诊断日志会往库里写文件、挂全局 error 监听，
+     普通用户不需要。只有显式打开开关才进入下面这套初始化。 */
+  enabled = readFlag();
+  (window as unknown as { __bzrLog?: typeof dlog }).__bzrLog = dlog;
+  if (!enabled) {
+    /* 上一次会话开着、这次关掉：监听也要摘，否则关掉开关后仍在收全局错误 */
+    detach?.();
+    detach = null;
+    app = null;
+    return;
+  }
   app = a;
-  /* 供 vendor 里的分页器调用（它不方便 import 插件模块） */
-  (globalThis as unknown as { __bzrLog?: typeof dlog }).__bzrLog = dlog;
   if (!detach) {
     const onError = (ev: ErrorEvent): void => {
       const msg = String(ev.message || '');
@@ -100,7 +129,7 @@ export function initDebugLog(a: App): void {
   dlog('boot', {
     tag: typeof __BZ_BUILD_TAG__ === 'string' ? __BZ_BUILD_TAG__ : '',
     mobile: document.body.classList.contains('is-mobile'),
-    ua: navigator.userAgent.slice(0, 90),
+    ua: String((window as { navigator?: { userAgent?: string } }).navigator?.userAgent ?? '').slice(0, 90),
   });
 }
 
@@ -122,4 +151,5 @@ export function shutdownDebugLog(): void {
     chain = chain.then(() => flush(last));
   }
   app = null;
+  enabled = false;
 }

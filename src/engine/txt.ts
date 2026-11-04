@@ -79,17 +79,42 @@ function htmlDoc(title: string, bodyHtml: string): string {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title></head><body>${bodyHtml}</body></html>`;
 }
 
+/** 一章的 HTML。默认实现：章题 + 段落化；抽出来是为了能被替换/被测试计数 */
+function chapterHtml(title: string, text: string): string {
+  return htmlDoc(title, `<h2>${escapeHtml(title)}</h2>${toParagraphs(text)}`);
+}
+
+export interface TxtBookOptions {
+  /**
+   * 章节 HTML 生成器。默认 `chapterHtml`；测试用它断言「没 load 就不生成」，
+   * 将来换轻量渲染器也只改这一处。
+   */
+  renderChapter?: (title: string, text: string) => string;
+}
+
 /**
- * 造一本 TXT 书。`raw` 是整份文本（已按 UTF-8 解码）。
+ * 造一本 TXT 书。`raw` 是整份文本（已解码；见 engine/encoding.ts）。
  * 返回的对象形状对齐 README 里 foliate 的契约，可直接交给 View.open。
+ *
+ * **章节 HTML 是惰性的（A-33）**：以前一上来就给所有章节拼 HTML，一本
+ * 800 章的网文打开第一页要先把整本几 MB 文本段落化 + 转义 + 拼字符串，
+ * 主线程卡死，字符串还一整天挂在 section 闭包里。现在 section 只留文本引用，
+ * `load()` / `createDocument()` 第一次用到时才生成，生成后缓存复用。
  */
-export function makeTxtBook(raw: string, meta: { title: string; author?: string }): FoliateBook {
+export function makeTxtBook(
+  raw: string,
+  meta: { title: string; author?: string },
+  opts: TxtBookOptions = {},
+): FoliateBook {
   const chapters = splitChapters(raw);
   const urls: string[] = [];
+  const render = opts.renderChapter ?? chapterHtml;
 
   const sections: FoliateSection[] = chapters.map((c, i) => {
     const href = `${i}.xhtml`;
-    const html = htmlDoc(c.title, `<h2>${escapeHtml(c.title)}</h2>${toParagraphs(c.text)}`);
+    /** 惰性缓存：null = 还没生成；生成后整章复用同一份（含 createDocument） */
+    let html: string | null = null;
+    const htmlOf = (): string => (html ??= render(c.title, c.text));
     /**
      * 这个 section 最近一次造出来的 blob URL。
      *
@@ -104,12 +129,12 @@ export function makeTxtBook(raw: string, meta: { title: string; author?: string 
       linear: 'yes',
       size: c.size,
       load: async () => {
-        const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+        const url = URL.createObjectURL(new Blob([htmlOf()], { type: 'text/html' }));
         urls.push(url);
         current = url;
         return url;
       },
-      createDocument: async () => new DOMParser().parseFromString(html, 'text/html'),
+      createDocument: async () => new DOMParser().parseFromString(htmlOf(), 'text/html'),
       unload: () => {
         const url = current;
         current = null;

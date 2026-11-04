@@ -17,10 +17,10 @@ export interface PickedFile {
 
 export function pickJsonFile(): Promise<PickedFile | null> {
   return new Promise<PickedFile | null>((resolve) => {
-    const input = document.createElement('input');
+    const input = createEl('input');
     input.type = 'file';
     input.accept = '.json,application/json';
-    input.style.display = 'none';
+    input.setCssProps({ display: 'none' });
     let settled = false;
     const done = (v: PickedFile | null): void => {
       if (settled) return;

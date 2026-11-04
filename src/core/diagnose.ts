@@ -63,10 +63,10 @@ export function probeBlobIframe(): Promise<string> {
 /** 插一个 8px 的 iframe，等 load / error / 无响应 */
 function probeIframe(opts: { src?: string; srcdoc?: string; sandbox?: boolean }): Promise<string> {
   return new Promise<string>((resolve) => {
-    const frame = document.createElement('iframe');
+    const frame = createEl('iframe');
     if (opts.sandbox) frame.setAttribute('sandbox', 'allow-same-origin allow-scripts');
     frame.setAttribute('scrolling', 'no');
-    frame.style.cssText = 'position:absolute;left:-9999px;width:8px;height:8px;border:0;opacity:0';
+    frame.setCssProps({ position: 'absolute', left: '-9999px', width: '8px', height: '8px', border: '0', opacity: '0' });
     let settled = false;
     const finish = (why: string): void => {
       if (settled) return;
@@ -104,7 +104,7 @@ function probeFetch(url: string): Promise<string> {
 
 /** 引擎打的事件轨迹（vendor/paginator.js 往 globalThis.__bzrTrace 里记） */
 export function traceText(): string {
-  const t = (globalThis as unknown as { __bzrTrace?: string[] }).__bzrTrace;
+  const t = (window as unknown as { __bzrTrace?: string[] }).__bzrTrace;
   return Array.isArray(t) && t.length ? t.slice(-8).join(' → ') : '';
 }
 
@@ -118,8 +118,13 @@ export function envSummary(phase: string): string[] {
       /* 已释放 */
     }
   }
-  const ua = navigator.userAgent;
-  const chromium = /Chrome\/(\d+)/.exec(ua)?.[1] ?? '?';
+  let chromium = '—';
+  try {
+    chromium =
+      (globalThis as { process?: { versions?: { chrome?: string } } }).process?.versions?.chrome ?? '—';
+  } catch {
+    chromium = '—';
+  }
   const named: Record<string, string> = {
     idle: '空闲（没开始）',
     read: '读文件',

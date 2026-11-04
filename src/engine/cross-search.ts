@@ -31,9 +31,8 @@ export interface CrossSearchDeps {
 }
 
 export async function searchAcrossBooks(deps: CrossSearchDeps): Promise<void> {
-  const stage = document.createElement('div');
-  stage.style.cssText =
-    'position:fixed;left:-10000px;top:0;width:800px;height:600px;visibility:hidden;pointer-events:none;';
+  const stage = createDiv();
+  stage.className = 'bzr-xs-stage';
   document.body.appendChild(stage);
   try {
     for (const book of deps.books) {

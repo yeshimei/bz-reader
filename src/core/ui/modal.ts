@@ -12,6 +12,7 @@ import { escManager } from '../esc-manager';
 import { bindMaskDismiss } from '../mask-dismiss';
 import { allocZ } from '../z-order';
 import { firstFocusable, trapFocus } from './focus-trap';
+import { setHtml } from '../../ui/dom';
 
 /**
  * bindFormSubmit（效率基元，diary 写链路效率#2 首个消费方）：弹窗表单回车提交。
@@ -83,11 +84,11 @@ export function uiModal(opts: BzModalOpts): { mask: HTMLElement; popup: HTMLElem
   const prevActive = document.activeElement;
   const focusEnabled = opts.autofocus !== false;
 
-  const mask = document.createElement('div');
+  const mask = createDiv();
   mask.className = 'bzr-overlay-mask';
   mask.style.zIndex = String(allocZ());
 
-  const popup = document.createElement('div');
+  const popup = createDiv();
   popup.className = 'bzr-overlay-popup' + (opts.className ? ' ' + opts.className : '');
   if (opts.maxWidth) popup.style.maxWidth = `min(${opts.maxWidth}px, calc(100vw - 32px))`;
   // 读屏语义（对齐 flow-dialog 契约）：弹窗容器为模态 dialog，标题随 head 透出
@@ -96,18 +97,18 @@ export function uiModal(opts: BzModalOpts): { mask: HTMLElement; popup: HTMLElem
   if (opts.title) popup.setAttribute('aria-label', opts.title);
 
   if (opts.head) {
-    const head = document.createElement('div');
+    const head = createDiv();
     head.className = 'bzr-dialog-head';
-    const title = document.createElement('span');
+    const title = createSpan();
     title.className = 'bzr-dialog-title';
     title.textContent = opts.title || '';
     head.appendChild(title);
     popup.appendChild(head);
   }
 
-  const body = document.createElement('div');
+  const body = createDiv();
   body.className = 'bzr-dialog-body';
-  if (typeof opts.content === 'string') body.innerHTML = opts.content;
+  if (typeof opts.content === 'string') setHtml(body, opts.content);
   else body.appendChild(opts.content);
   popup.appendChild(body);
   mask.appendChild(popup);

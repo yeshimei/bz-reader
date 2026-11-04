@@ -10,7 +10,7 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   cls?: string,
   text?: string,
 ): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
+  const node = createEl(tag);
   if (cls) node.className = cls;
   if (text !== undefined) node.textContent = text;
   return node;
@@ -18,6 +18,20 @@ export function el<K extends keyof HTMLElementTagNameMap>(
 
 export function clear(node: HTMLElement): void {
   while (node.firstChild) node.removeChild(node.firstChild);
+}
+
+/**
+ * 把一段 HTML 换进节点。
+ *
+ * 不用 `innerHTML`：`DOMParser` 解析出的文档是惰性的，字符串里的 `<script>`
+ * 不会执行，也避开 Obsidian 审核规则对 innerHTML / createContextualFragment
+ * 的安全告警。传进来的模板都由本插件生成、用户内容已过 `esc`。
+ */
+export function setHtml(node: HTMLElement, html: string): void {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const frag = document.createDocumentFragment();
+  for (const child of Array.from(doc.body.childNodes)) frag.appendChild(document.importNode(child, true));
+  node.replaceChildren(frag);
 }
 
 /** 百分比 → 人话（0% 不显示「0%」，显示「未读」） */

@@ -51,6 +51,19 @@ function notes(book: ReaderBook): BookNotes {
   return book.notes;
 }
 
+/**
+ * 标注变更的公共收尾（A-15）。
+ *
+ * 两条时间线：
+ *   · `updatedAt`   —— 这本书整体最后一次改动（书架「最近」排序、旧版合并用）；
+ *   · `notesUpdatedAt` —— 只记标注。跨设备合并时 notes 取它大的那份，
+ *     而阅读进度取 `updatedAt` 大的那份，互不覆盖。
+ */
+function touchNotes(book: ReaderBook, now = Date.now()): void {
+  book.notesUpdatedAt = now;
+  book.updatedAt = now;
+}
+
 export interface NewHighlight {
   text: string;
   cfiRange: string;
@@ -89,7 +102,7 @@ export function addHighlight(book: ReaderBook, input: NewHighlight): Highlight {
   };
   n.highlights.push(h);
   mirrorExcerpt(n, h);
-  book.updatedAt = now;
+  touchNotes(book, now);
   return h;
 }
 
@@ -106,7 +119,7 @@ export function setHighlightComment(book: ReaderBook, id: string, comment: strin
   h.comment = text || undefined;
   h.updatedAt = Date.now();
   mirrorExcerpt(n, h);
-  book.updatedAt = h.updatedAt;
+  touchNotes(book, h.updatedAt);
   return true;
 }
 
@@ -116,7 +129,7 @@ export function setHighlightColor(book: ReaderBook, id: string, color: Highlight
   if (!h) return false;
   h.color = color;
   h.updatedAt = Date.now();
-  book.updatedAt = h.updatedAt;
+  touchNotes(book, h.updatedAt);
   return true;
 }
 
@@ -127,7 +140,7 @@ export function removeHighlight(book: ReaderBook, id: string): boolean {
   n.highlights.splice(at, 1);
   const mirror = n.excerpts.findIndex((e) => e.id === id);
   if (mirror >= 0) n.excerpts.splice(mirror, 1);
-  book.updatedAt = Date.now();
+  touchNotes(book);
   return true;
 }
 
@@ -145,7 +158,7 @@ export function removeHighlights(book: ReaderBook, ids: ReadonlySet<string>): nu
   n.highlights = n.highlights.filter((h) => !ids.has(h.id));
   n.excerpts = n.excerpts.filter((e) => !ids.has(e.id));
   const removed = before - n.highlights.length;
-  if (removed > 0) book.updatedAt = Date.now();
+  if (removed > 0) touchNotes(book);
   return removed;
 }
 
@@ -200,7 +213,7 @@ export function addBookmark(book: ReaderBook, input: NewBookmark): Bookmark {
     createdAt: now,
   };
   n.bookmarks.push(b);
-  book.updatedAt = now;
+  touchNotes(book, now);
   return b;
 }
 
@@ -215,7 +228,7 @@ export function removeBookmark(book: ReaderBook, id: string): boolean {
   const at = n.bookmarks.findIndex((b) => b.id === id);
   if (at < 0) return false;
   n.bookmarks.splice(at, 1);
-  book.updatedAt = Date.now();
+  touchNotes(book);
   return true;
 }
 

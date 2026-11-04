@@ -62,7 +62,7 @@ const SANS = '"PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
 function pick2x(): number {
   /* 至少 2×：1× 出图在手机上一放大就糊。3× 以上没有意义，
      720 宽的卡乘 3 已经是 2160。 */
-  return Math.min(3, Math.max(2, globalThis.devicePixelRatio || 2));
+  return Math.min(3, Math.max(2, window.devicePixelRatio || 2));
 }
 
 /**
@@ -74,7 +74,7 @@ function pick2x(): number {
  */
 export async function renderQuoteCard(input: QuoteCardImageInput): Promise<Blob> {
   const scale = pick2x();
-  const canvas = document.createElement('canvas');
+  const canvas = createEl('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('这个环境不支持 canvas，导不出图片');
 

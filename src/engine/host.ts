@@ -28,6 +28,8 @@ import type {
 } from '../types/foliate';
 import { buildChapterCSS } from './theme';
 import { makeTxtBook, countWords } from './txt';
+import { decodeTxtBytes } from './encoding';
+import { teardownView } from './view-teardown';
 import { unionClientRects } from './selection-rect';
 import {
   chooseSectionIndex,
@@ -326,8 +328,10 @@ export class EngineHost {
   private async buildBook(vaultPath: string): Promise<{ book: FoliateBook; meta: EngineMeta }> {
     const name = (vaultPath.split('/').pop() || 'book').replace(/\.[^.]+$/, '');
     if (/\.txt$/i.test(vaultPath)) {
-      const raw = await this.app.vault.adapter.read(vaultPath);
-      const text = raw.replace(/^\uFEFF/, '');
+      /* TXT 不能按 UTF-8 读（A-06）：中文 txt 大量是 GBK，`adapter.read` 会
+         解成一片「锟斤拷」。统一拿字节，交给 decodeTxtBytes 判 BOM / 试编码。 */
+      const buf = await this.app.vault.adapter.readBinary(vaultPath);
+      const text = decodeTxtBytes(buf).replace(/^\uFEFF/, '');
       const book = makeTxtBook(text, { title: name });
       return { book, meta: { title: name, author: '', wordCount: countWords(text) } };
     }
@@ -968,7 +972,7 @@ export class EngineHost {
     if (!cfiRange) return null;
     const rects = Array.from(range.getClientRects()).filter((r) => r.width > 1 && r.height > 1);
     if (!rects.length) return null;
-    const first = rects[0] as DOMRect;
+    const first = rects[0];
     const g = this.frameGeom(doc);
     const bounds = unionClientRects(rects, g);
     dlog('sel', {
@@ -1111,13 +1115,13 @@ export class EngineHost {
     // 栏数走 CSS 变量进 shadow 的 #top（vendor 补丁把它接成了 var(--_column-count, 2)）；
     // 挂在 paginator 元素上，自定义属性会继承进 shadow 树
     const pag = this.view?.renderer as unknown as (HTMLElement & { render?: () => void }) | undefined;
-    pag?.style?.setProperty('--_column-count', String(eff.columns));
+    pag?.setCssProps?.({ '--_column-count': String(eff.columns) });
     // 分页模式下 foliate 用内联 !important 把 documentElement 的 padding 覆成
     // 「左右列距、上下 0」（columnize()），注入的 body padding 只对章首页生效——
     // 章中页顶端只剩 shadow 的 48px 边距行。vendor 补丁把上下 padding 接成
     // var(--_pad-top/bottom)。自绘工具栏撤了之后这里给 0，留白全由 theme.ts 管。
-    pag?.style?.setProperty('--_pad-top', '0px');
-    pag?.style?.setProperty('--_pad-bottom', '8px');
+    pag?.setCssProps?.({ '--_pad-top': '0px' });
+    pag?.setCssProps?.({ '--_pad-bottom': '8px' });
     /* 翻页 / 滚动模式（P2-02）：foliate 的 paginator 认 `flow` 属性，
        设成 `scrolled` 之后 `#container` 变成 overflow:auto，滚轮和触控板
        自然滚动，`next()` / `prev()` 也自动改成「滚一屏」。
@@ -1128,8 +1132,12 @@ export class EngineHost {
     if (prevEff.layout !== eff.layout) {
       // 竖排切换必须重新装载章节：引擎只在 load 时读一次 writing-mode，
       // 中途改注入不会重排。goTo 当前位置会让同章节重新 load，落回原处。
-      if (this.lastLocationCfi) {
-        void this.view.goTo(this.lastLocationCfi).catch(() => undefined);
+      /* 走导航队列（A-34）：排版切换同样会重载 iframe，和翻页/跳章并发时
+         会把章节顶掉。失败交给 navigate 的出口（onStall / 日志），
+         不再 `catch(() => undefined)` 静默吞——否则用户只看到「点了没反应」。 */
+      const cfi = this.lastLocationCfi;
+      if (cfi) {
+        void this.enqueue(() => this.navigate(() => this.view?.goTo(cfi), '切换排版'));
       }
     } else if (prevEff.columns !== eff.columns) {
       // 栏数不用重新 load：重算布局即可，锚点自己会回到原处
@@ -1569,11 +1577,10 @@ export class EngineHost {
     const book = this.book;
     this.book = null;
     if (view) {
-      try {
-        view.close();
-      } catch {
-        /* 已卸载的书再 close 会抛，忽略 */
-      }
+      /* 关书兜底（A-08）：close() 自己会调 renderer.destroy()，但它一旦抛错
+         （分页器的 #view 已被置空时就是这么抛的），sections 与 mediaQuery
+         监听都会留在全局对象上。teardownView 负责断链，见其文件头。 */
+      teardownView(view);
       view.remove();
     }
     book?.destroy?.();

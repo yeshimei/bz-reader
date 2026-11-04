@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import type { App } from 'obsidian';
 import { makeBook } from '../src/data/book-repo';
 import { addBookmark, addHighlight, DEFAULT_HIGHLIGHT_COLOR } from '../src/data/notes';
-import { buildNotesMarkdown, EXPORT_MARK, exportStampOf } from '../src/data/export';
+import { buildNotesMarkdown, EXPORT_MARK, exportBookNotes, exportStampOf } from '../src/data/export';
 import { DEFAULT_SETTINGS } from '../src/data/settings';
+import { FakeAdapter } from './helpers/fake-adapter';
 
 function bookWithNotes() {
   const book = makeBook('书/测试书.epub', 'epub');
@@ -68,5 +70,79 @@ describe('标注导出成 Markdown', () => {
     const front = md.slice(0, md.indexOf('\n---', 4));
     expect(front.split('\n').some((line) => line.startsWith('malicious:'))).toBe(false);
     expect(md.split('\n').some((line) => line.startsWith('注入'))).toBe(false);
+  });
+
+  it('frontmatter 写 bookId，同名书才认得出各自那份（A-16）', () => {
+    const { book } = bookWithNotes();
+    const md = buildNotesMarkdown(book, DEFAULT_SETTINGS);
+    expect(md).toContain(`bookId: "${book.id}"`);
+  });
+});
+
+describe('导出目标路径（A-16）', () => {
+  function appWith(adapter: FakeAdapter): App {
+    return { vault: { adapter, configDir: '.obsidian' } } as unknown as App;
+  }
+
+  function bookNamed(title: string, path: string) {
+    const b = makeBook(path, 'epub');
+    b.meta.title = title;
+    addHighlight(b, { text: '一句话', cfiRange: 'c1' });
+    return b;
+  }
+
+  it('两本同名书导出到不同文件，不互相覆盖', async () => {
+    const adapter = new FakeAdapter();
+    const app = appWith(adapter);
+    const a = bookNamed('同名书', '书/a.epub');
+    const b = bookNamed('同名书', '书/b.epub');
+
+    const ra = await exportBookNotes(app, a, DEFAULT_SETTINGS);
+    const rb = await exportBookNotes(app, b, DEFAULT_SETTINGS);
+
+    expect(ra?.path).toBe('bz-reader/notes/同名书.md');
+    expect(rb?.path).toBe('bz-reader/notes/同名书 (2).md');
+    expect(adapter.files.get('bz-reader/notes/同名书.md')).toContain(`bookId: "${a.id}"`);
+    expect(adapter.files.get('bz-reader/notes/同名书 (2).md')).toContain(`bookId: "${b.id}"`);
+  });
+
+  it('同一本书再导出：bookId 对得上就复用原路径，不堆 (2)(3)', async () => {
+    const adapter = new FakeAdapter();
+    const app = appWith(adapter);
+    const a = bookNamed('同名书', '书/a.epub');
+
+    const first = await exportBookNotes(app, a, DEFAULT_SETTINGS);
+    addHighlight(a, { text: '第二条', cfiRange: 'c2' });
+    const second = await exportBookNotes(app, a, DEFAULT_SETTINGS);
+
+    expect(first?.path).toBe('bz-reader/notes/同名书.md');
+    expect(second?.path).toBe('bz-reader/notes/同名书.md');
+    expect(adapter.files.get('bz-reader/notes/同名书.md')).toContain('第二条');
+  });
+
+  it('同名文件是别人的笔记（没有 bookId / 没有插件标记）：让开，不覆盖', async () => {
+    const adapter = new FakeAdapter();
+    const app = appWith(adapter);
+    const mine = bookNamed('同名书', '书/a.epub');
+    adapter.files.set('bz-reader/notes/同名书.md', '我自己的读书笔记，不能被插件冲掉');
+
+    const r = await exportBookNotes(app, mine, DEFAULT_SETTINGS);
+
+    expect(r?.path).toBe('bz-reader/notes/同名书 (2).md');
+    expect(adapter.files.get('bz-reader/notes/同名书.md')).toBe('我自己的读书笔记，不能被插件冲掉');
+  });
+
+  it('旧版导出（有插件标记但没有 bookId）也不能被当作同一本覆盖（A-16 的取舍）', async () => {
+    const adapter = new FakeAdapter();
+    const app = appWith(adapter);
+    const mine = bookNamed('同名书', '书/a.epub');
+    adapter.files.set(
+      'bz-reader/notes/同名书.md',
+      ['---', 'title: "同名书"', '---', EXPORT_MARK, '', '# 同名书'].join('\n'),
+    );
+
+    const r = await exportBookNotes(app, mine, DEFAULT_SETTINGS);
+
+    expect(r?.path).toBe('bz-reader/notes/同名书 (2).md');
   });
 });

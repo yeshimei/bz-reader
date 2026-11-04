@@ -146,7 +146,7 @@ export async function aiAsk(
      界面就一直「正在请求…」；没有取消，用户只能关掉整个弹层干等。 */
   let timedOut = false;
   const ctrl = new AbortController();
-  const timer = setTimeout(() => {
+  const timer = window.setTimeout(() => {
     timedOut = true;
     ctrl.abort();
   }, AI_TIMEOUT_MS);
@@ -175,7 +175,7 @@ export async function aiAsk(
     }
     throw new Error(`连不上 AI 接口：${(e as Error)?.message || '网络错误'}`);
   } finally {
-    clearTimeout(timer);
+    window.clearTimeout(timer);
     opts.signal?.removeEventListener('abort', onAbort);
   }
   if (!res.ok) {

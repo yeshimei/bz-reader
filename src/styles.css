@@ -953,3 +953,15 @@ body.bzr-immersive .workspace-leaf-content[data-type='bzr-reader-view'] .view-co
   border-radius: 3px;
   pointer-events: none;
 }
+
+
+/* 跨书搜索的离屏舞台：挂在 body 上渲染，但不参与布局、不可见 */
+.bzr-xs-stage {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 800px;
+  height: 600px;
+  visibility: hidden;
+  pointer-events: none;
+}

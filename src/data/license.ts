@@ -111,7 +111,7 @@ export async function verifyLicense(code: string): Promise<LicenseCheck> {
   }
   try {
     const key = await spkiToCryptoKey(
-      Uint8Array.from(atob(PUBKEY_SPKI_B64), (c) => c.charCodeAt(0)).buffer as ArrayBuffer,
+      Uint8Array.from(atob(PUBKEY_SPKI_B64), (c) => c.charCodeAt(0)).buffer,
     );
     const ok = await crypto.subtle.verify(
       { name: 'ECDSA', hash: 'SHA-256' },

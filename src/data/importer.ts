@@ -6,6 +6,7 @@
  * 而这两种入口在桌面端行为一样。
  * ============================================================ */
 import type { App } from 'obsidian';
+import { notify } from '../core/notice';
 
 export const IMPORT_FOLDER = 'bz-reader/books';
 
@@ -38,6 +39,42 @@ async function uniquePath(app: App, folder: string, name: string): Promise<strin
   return candidate;
 }
 
+/**
+ * 把一批已选中的文件写进 vault，返回实际写入的路径。
+ *
+ * 失败语义（A-17）：单个文件写失败只记一次失败，继续写后面的；整批结束
+ * 后 resolve 已写入的部分——**永不 reject**。以前这段循环是 change 回调里
+ * 裸 async IIFE，任何一步 reject 都没人接，pickAndImport 的 Promise 永远
+ * pending，导入面板就卡死在「正在写入…」。
+ */
+export async function importFiles(
+  app: App,
+  files: File[],
+  accept: string[] = ['epub', 'txt'],
+  folderRaw: string = IMPORT_FOLDER,
+): Promise<string[]> {
+  const written: string[] = [];
+  const folder = importFolderOf(folderRaw);
+  let failed = 0;
+  if (folder && !(await app.vault.adapter.exists(folder).catch(() => false))) {
+    await app.vault.adapter.mkdir(folder).catch(() => undefined);
+  }
+  for (const file of files) {
+    if (!accept.includes(extOf(file.name))) continue;
+    try {
+      const buf = await file.arrayBuffer();
+      const target = await uniquePath(app, folder, file.name);
+      await app.vault.adapter.writeBinary(target, buf);
+      written.push(target);
+    } catch (e) {
+      failed += 1;
+      console.warn('[bz-reader] 导入文件失败：', file.name, (e as Error)?.message || e);
+    }
+  }
+  if (failed) notify(`有 ${failed} 个文件导入失败，已导入 ${written.length} 个`, 'error');
+  return written;
+}
+
 /** 打开系统文件选择框，把选中的书写进 vault 的目标文件夹，返回写入后的 vault 路径（取消返回 null） */
 export function pickAndImport(
   app: App,
@@ -45,11 +82,11 @@ export function pickAndImport(
   folderRaw: string = IMPORT_FOLDER,
 ): Promise<string[] | null> {
   return new Promise((resolve) => {
-    const input = document.createElement('input');
+    const input = createEl('input');
     input.type = 'file';
     input.accept = accept.map((e) => `.${e}`).join(',');
     input.multiple = true;
-    input.style.display = 'none';
+    input.setCssProps({ display: 'none' });
     document.body.appendChild(input);
 
     const cleanup = (): void => input.remove();
@@ -61,21 +98,11 @@ export function pickAndImport(
         resolve(null);
         return;
       }
-      void (async () => {
-        const written: string[] = [];
-        const folder = importFolderOf(folderRaw);
-        if (folder && !(await app.vault.adapter.exists(folder))) {
-          await app.vault.adapter.mkdir(folder).catch(() => undefined);
-        }
-        for (const file of files) {
-          if (!accept.includes(extOf(file.name))) continue;
-          const buf = await file.arrayBuffer();
-          const target = await uniquePath(app, folder, file.name);
-          await app.vault.adapter.writeBinary(target, buf);
-          written.push(target);
-        }
-        resolve(written);
-      })();
+      /* 无论成功失败都要落定：导入面板 await 的是这个 Promise */
+      void importFiles(app, files, accept, folderRaw).then(resolve, (e) => {
+        notify(`导入失败：${(e as Error)?.message || '未知错误'}`, 'error');
+        resolve([]);
+      });
     });
 
     // 用户点取消时 change 不触发，靠窗口重新聚焦兜底

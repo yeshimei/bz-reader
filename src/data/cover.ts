@@ -7,9 +7,13 @@
  * 少一份 zip 解析就少一处和规范细节（大小写、相对路径、SVG 封面）打架。
  *
  * 三层缓存，按代价从低到高：
- *   1. 内存  Map<bookId, objectURL>  —— 同一次会话里翻来翻去不重读
- *   2. 磁盘  <插件目录>/storage/covers/<key>  —— 下次启动直接可用
+ *   1. 内存  LRU<bookId, objectURL>  —— 同一次会话里翻来翻去不重读，上限 60 条
+ *   2. 磁盘  <数据目录>/covers/<key>  —— 下次启动直接可用
  *   3. 解析  makeBook → getCover()   —— 只在没有缓存时发生
+ *
+ * 取不到封面时记一条失败负缓存（size/mtime 为签名）：坏书、无封面的书
+ * 不会因为书架每次重绘就整本 readBinary + 解一次 zip。只有源文件真的
+ * 被换掉（size 或 mtime 变了）才重试。
  *
  * 为什么必须落盘：解一次要用 zip.js 把整本书解到内存，一本 3MB 的书
  * 解 50 本就够卡住书架首屏。落盘之后第 2 次起只是读一个几十 KB 的小图。
@@ -22,12 +26,15 @@ import type { ReaderBook } from './schema';
 import { makeBook } from '../engine/foliate';
 import type { FoliateBook } from '../types/foliate';
 import { storageDirOf } from '../core/plugin-path';
+import { CoverFailureCache, CoverMemory } from './cover-cache';
 import { coverFileName, normalizeCoverIndex, type CoverIndex } from './cover-name';
 
-const MEM = new Map<string, string>();
+const MEM = new CoverMemory();
 /** bookId → 最近一次命中的缓存文件（vault 相对路径），供回填 meta.coverPath */
 const MEM_PATH = new Map<string, string>();
 const PENDING = new Map<string, Promise<string | null>>();
+/** bookId-size → 取封面失败时的源文件 size/mtime，用来判断值不值得重试 */
+const FAILED = new CoverFailureCache();
 let index: CoverIndex | null = null;
 let indexLoading: Promise<CoverIndex> | null = null;
 
@@ -67,6 +74,31 @@ function keyOf(book: ReaderBook): string {
 
 function blobUrl(buf: ArrayBuffer, mime: string): string {
   return URL.createObjectURL(new Blob([buf], { type: mime }));
+}
+
+/** 源文件的当前 size/mtime；拿不到就退回书记录里的 size（mtime 记 0） */
+async function sourceSig(app: App, book: ReaderBook): Promise<{ size: number; mtime: number }> {
+  const st = await app.vault.adapter.stat(book.fileRef.vaultPath).catch(() => null);
+  return {
+    size: st?.size ?? book.fileRef.size ?? 0,
+    mtime: st?.mtime ?? 0,
+  };
+}
+
+/** 负缓存命中就不必再解一遍。size 或 mtime 变了才值得重试 */
+async function stillFailing(app: App, book: ReaderBook): Promise<boolean> {
+  const key = keyOf(book);
+  const mark = FAILED.markOf(key);
+  if (!mark) return false;
+  const sig = await sourceSig(app, book);
+  if (mark.size === sig.size && mark.mtime === sig.mtime) return true;
+  FAILED.forget(key);
+  return false;
+}
+
+async function rememberFailure(app: App, book: ReaderBook): Promise<void> {
+  const sig = await sourceSig(app, book);
+  FAILED.remember(keyOf(book), sig.size, sig.mtime);
 }
 
 async function loadIndex(app: App): Promise<CoverIndex> {
@@ -180,6 +212,7 @@ export async function ensureCoverFromFoliate(
   const fromDisk = await readCache(app, book);
   if (fromDisk) {
     MEM.set(book.id, fromDisk);
+    FAILED.forget(keyOf(book));
     return fromDisk;
   }
 
@@ -190,6 +223,7 @@ export async function ensureCoverFromFoliate(
     const mime = blob.type || 'image/jpeg';
     const url = blobUrl(buf, mime);
     MEM.set(book.id, url);
+    FAILED.forget(keyOf(book));
     await writeCache(app, book, buf, mime);
     return url;
   } catch {
@@ -210,22 +244,36 @@ export async function coverUrl(app: App, book: ReaderBook): Promise<string | nul
   if (inflight) return inflight;
 
   const task = limit(async () => {
-    const fromDisk = await readCache(app, book);
-    if (fromDisk) {
-      MEM.set(book.id, fromDisk);
-      return fromDisk;
+    try {
+      /* 先看磁盘缓存：一次失败记录之后，用户可能已经从打开书那里拿到了封面
+         （ensureCoverFromFoliate 会落盘）。读一个小图 + 内存索引，代价远小于
+         重解整本；负缓存只该拦「连磁盘缓存也没有」的重试。 */
+      const fromDisk = await readCache(app, book);
+      if (fromDisk) {
+        MEM.set(book.id, fromDisk);
+        return fromDisk;
+      }
+      /* 上次就取不到、且源文件没变：直接返回 null，别再整本读 + 解 zip。
+         一本书在书架上重绘几次，代价就从「每次都解一遍」降成「一次 stat」。 */
+      if (await stillFailing(app, book)) return null;
+
+      const got = await extract(app, book);
+      if (!got) {
+        await rememberFailure(app, book);
+        return null;
+      }
+      const url = blobUrl(got.buf, got.mime);
+      MEM.set(book.id, url);
+      await writeCache(app, book, got.buf, got.mime);
+      return url;
+    } catch {
+      /* 读二进制 / 解 zip 抛错也算「这本取不出封面」，同样负缓存 */
+      await rememberFailure(app, book);
+      return null;
     }
-    const got = await extract(app, book);
-    if (!got) return null;
-    const url = blobUrl(got.buf, got.mime);
-    MEM.set(book.id, url);
-    await writeCache(app, book, got.buf, got.mime);
-    return url;
-  })
-    .catch(() => null)
-    .finally(() => {
-      PENDING.delete(book.id);
-    });
+  }).finally(() => {
+    PENDING.delete(book.id);
+  });
 
   PENDING.set(book.id, task);
   return task;
@@ -240,13 +288,11 @@ export function coverPathOf(bookId: string): string | null {
 
 /** 插件卸载时释放 objectURL（不释放也不崩，但会一直占着内存里的图） */
 export function releaseCovers(): void {
-  for (const url of MEM.values()) {
-    try {
-      URL.revokeObjectURL(url);
-    } catch {
-      /* 已经释放过 */
-    }
-  }
   MEM.clear();
   MEM_PATH.clear();
+  FAILED.clear();
+  PENDING.clear();
+  /* 索引也是「按当前库」的缓存：换库/重载后不能拿旧索引指到别的目录 */
+  index = null;
+  indexLoading = null;
 }

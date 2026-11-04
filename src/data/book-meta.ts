@@ -144,9 +144,9 @@ export function isbnOf(metadata: unknown): string {
     }
     if (alt && typeof alt === 'object') {
       const rec = alt as Record<string, unknown>;
-      const scheme = String(rec.scheme || '').toLowerCase();
+      const scheme = (typeof rec.scheme === 'string' ? rec.scheme : '').toLowerCase();
       if (scheme === 'isbn' && typeof rec.value === 'string') return rec.value.replace(/-/g, '').trim();
-      const s = isbnFromText(String(rec.value || ''));
+      const s = isbnFromText(typeof rec.value === 'string' ? rec.value : '');
       if (s) return s;
     }
   }

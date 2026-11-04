@@ -3,8 +3,8 @@
  * 全部是纯函数：输入数据，输出 HTML 字符串。不碰 DOM、不碰状态。
  * ============================================================ */
 
-/** 转义：拼 innerHTML 必须过这一道，书名里出现 < 不能让页面塌 */
-export function esc(s: unknown): string {
+/** 转义：拼 HTML 必须过这一道，书名里出现 < 不能让页面塌 */
+export function esc(s: string | number | null | undefined): string {
   return String(s ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

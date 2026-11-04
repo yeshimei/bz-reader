@@ -2,10 +2,10 @@
   <img src="docs/images/mark.svg" width="76" height="76" alt="">
   <h1>bz Reader</h1>
   <p><b>把 Obsidian 变成一个能读书的地方。</b><br>
-  <sub>桌面端+移动端、多格式支持、AI、原文链接，数据本地。</sub></p>
+  <sub>桌面端+移动端、多格式支持、原文链接；数据本地，AI 可接自己的接口。</sub></p>
 
   <p>
-    <a href="https://obsidian.md"><img src="docs/images/badges/obsidian.svg" height="27" alt="Obsidian 1.4.0+"></a>
+    <a href="https://obsidian.md"><img src="docs/images/badges/obsidian.svg" height="27" alt="Obsidian 1.7.2+"></a>
     <img src="docs/images/badges/version.svg" height="27" alt="版本 0.1.1">
     <img src="docs/images/badges/platform.svg" height="27" alt="桌面 + 移动">
     <img src="docs/images/badges/license.svg" height="27" alt="MIT">
@@ -48,7 +48,21 @@
 | 原文与译文并排 | — | ✓ |
 | 全书鸟瞰 | — | ✓ |
 
-在 **书架 → 设置 → 授权** 里填入激活码即可解锁，本地验签，不联网。
+## 付费说明
+
+基础版免费。高级版需要付费购买激活码：[购买页面](https://afdian.com/item/6f17bf10d7e311f1b8735254001e7c00)，具体价格以该页面为准。
+
+- 激活码在 **书架 → 设置 → 授权** 里填入，本地验签，不联网。
+- 不绑定设备数：换电脑或手机时，在新设备的同一位置再填一次即可。
+- 桌面端与移动端是同一个包，买一次两边都能用。
+
+## 网络访问
+
+只有 AI 功能会联网，其余功能完全离线。
+
+- 请求发往你在设置里填写的 OpenAI 兼容接口（自建服务或第三方 API 均可），插件没有自己的服务器。
+- 发送的内容是你划选或提问的文字、当前页正文（截到 6000 字以内），必要时还会带上书名、章节名与最近几轮问答。
+- API Key 与其他设置一起保存在插件目录的 `data.json` 里，不会上传给插件作者；只有请求你自己填写的那个接口时，它才会以请求头的形式发过去。
 
 ## 常见问题
 
@@ -59,10 +73,14 @@
 
 ## 安装
 
+在社区市场安装（首次上架审核通过后可见）：
+
 1. 打开 **设置 → 第三方插件**，关闭安全模式。
 2. 点 **浏览**，搜索 **bz Reader**，安装。
 3. 启用后左侧出现 bz 图标，从书架开始。
 
+审核期间或搜不到时，用 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 添加本仓库安装，或手动下载 Release 里的 `main.js`、`manifest.json`、`styles.css`，放进 `<你的库>/.obsidian/plugins/bz-reader/` 后启用。
+
 ## 许可
 
-本项目以 [MIT](LICENSE) 许可发布。渲染内核来自 [foliate-js](https://github.com/johnfactotum/foliate-js) 1.0.1（MIT）。
+本项目以 [MIT](LICENSE) 许可发布。渲染内核来自 [foliate-js](https://github.com/johnfactotum/foliate-js) 1.0.1（MIT，见 [src/vendor/foliate/LICENSE](src/vendor/foliate/LICENSE)）。
