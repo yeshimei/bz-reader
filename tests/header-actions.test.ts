@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ReaderBook } from '../src/data/schema';
-import { headerActionIds, headerActive } from '../src/view/header-actions';
+import { headerActionIds, headerActionsFor, headerActive, headerOverflowFor } from '../src/view/header-actions';
 
 /**
  * 头栏动作。两条真机反馈：
@@ -56,5 +56,36 @@ describe('headerActive', () => {
 
   it('并排对照的开关态照旧透出', () => {
     expect(headerActive(book(), 'cfi-1', true).para).toBe(true);
+  });
+});
+
+const cfg = (order: string[] = [], hidden: string[] = []) => ({ order, hidden });
+
+/**
+ * 用户可以把图标排序、把不用的收起来。移动端最多露 3 颗——
+ * 收起来的（显式隐藏 + 被名额挤出的）都进 ⋮。
+ */
+describe('headerActionsFor：排序、隐藏与移动端上限', () => {
+  it('桌面五颗、移动三颗（与默认一致）', () => {
+    expect(headerActionsFor(false, cfg())).toEqual(['toc', 'search', 'mark', 'type', 'para']);
+    expect(headerActionsFor(true, cfg())).toEqual(['toc', 'search', 'mark']);
+  });
+
+  it('自定义顺序生效，未列出的按默认顺序补在后面', () => {
+    expect(headerActionsFor(false, cfg(['para', 'mark']))).toEqual(['para', 'mark', 'toc', 'search', 'type']);
+  });
+
+  it('隐藏的不显示，但进 ⋮', () => {
+    const c = cfg([], ['type']);
+    expect(headerActionsFor(false, c)).not.toContain('type');
+    expect(headerOverflowFor(false, c)).toContain('type');
+  });
+
+  it('移动端第四颗起进 ⋮', () => {
+    expect(headerOverflowFor(true, cfg())).toEqual(['type', 'para']);
+  });
+
+  it('不认识的 id 被忽略', () => {
+    expect(headerActionsFor(false, cfg(['bogus', 'toc']))).toEqual(['toc', 'search', 'mark', 'type', 'para']);
   });
 });

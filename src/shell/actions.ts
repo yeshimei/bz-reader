@@ -35,6 +35,7 @@ import { rangeFill } from './range-fill';
 import { openHotkeySettings } from '../core/hotkeys';
 import { folderLabel, pickFolder } from '../core/folder-pick';
 import { CAP_LABEL, PURCHASE_URL, can, type Cap } from '../data/entitlement';
+import { HEADER_ACTION_IDS } from '../view/header-actions';
 import { normalizeDataDir } from '../core/plugin-path';
 import { linkInline, linkOfMark, linkOfText, linkQuote, rawUrl, targetOfMark } from '../data/deeplink';
 import { exportBookNotes } from '../data/export';
@@ -700,49 +701,72 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
 
     /* ── 数据目录 ── */
     case 'pickimportdir': {
-      // 只挑不输：弹出 vault 文件夹清单，选完即生效
+      /* 只挑不输；选到不同目录才问「要不要把已有文件搬过去」 */
       const src = getShellSource();
       if (!src) break;
       const cur = shellSettings().importDir || DEFAULT_SETTINGS.importDir;
       void pickFolder(src.app, cur).then((picked) => {
-        if (picked === null) return;
-        src.setSettings({ importDir: picked });
-        notify(`书籍导入位置：${folderLabel(picked)}`);
-        rerender();
+        if (picked === null || picked === cur) return;
+        overlay('movedir', { mode: 'import', text: JSON.stringify({ from: cur, to: picked }) });
       });
       break;
     }
     case 'pickexportdir': {
-      /* 导出目录也可以从文件夹清单里挑：手打路径错了不会报错，笔记会写进别处 */
+      /* 导出目录同理：手打路径错了不报错，笔记会写进别处 */
       const src = getShellSource();
       if (!src) break;
       const cur = shellSettings().exportDir || DEFAULT_SETTINGS.exportDir;
       void pickFolder(src.app, cur).then((picked) => {
-        if (picked === null) return;
+        if (picked === null || picked === cur) return;
         if (picked === '/') {
           notify('导出目录不能是库根目录，请选一个文件夹', 'error');
           return;
         }
-        src.setSettings({ exportDir: picked });
-        notify(`导出目录：${folderLabel(picked)}`);
-        rerender();
+        overlay('movedir', { mode: 'export', text: JSON.stringify({ from: cur, to: picked }) });
       });
       break;
     }
     case 'pickdatadir': {
-      /* 只改草稿：真正搬家要点「迁移」并二次确认 */
       const src = getShellSource();
       if (!src) break;
-      const cur = RT.dataDirDraft || src.dataDir();
+      const cur = src.dataDir();
       void pickFolder(src.app, cur).then((picked) => {
-        if (picked === null) return;
+        if (picked === null || picked === cur) return;
         if (picked === '/') {
           notify('数据目录不能是库根目录，请选一个文件夹', 'error');
           return;
         }
-        RT.dataDirDraft = picked;
-        rerender();
+        overlay('movedir', { mode: 'data', text: JSON.stringify({ from: cur, to: picked }) });
       });
+      break;
+    }
+    case 'dodirmove': {
+      /* 二次确认后的唯一执行点：三种目录都从这里搬 */
+      const src = getShellSource();
+      if (!src) break;
+      const o = getState().overlay;
+      const kind = o?.mode === 'export' || o?.mode === 'import' || o?.mode === 'data' ? o.mode : null;
+      if (!kind) break;
+      let from = '';
+      let to = '';
+      try {
+        const p = JSON.parse(o?.text || '{}') as { from?: string; to?: string };
+        from = p.from || '';
+        to = p.to || '';
+      } catch {
+        break;
+      }
+      if (!to) break;
+      notify('正在迁移…');
+      void (async () => {
+        const res = await src.migrateDir(kind, from, to);
+        notify(res.message, res.ok ? 'info' : 'error');
+        if (res.ok) {
+          if (kind === 'data') RT.dataDirDraft = '';
+          closeOverlay();
+        }
+        rerender();
+      })();
       break;
     }
     /* ── 备份 / 恢复（新功能） ── */
@@ -757,34 +781,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const src = getShellSource();
       if (!src) break;
       void src.restore();
-      break;
-    }
-    case 'datadirmove': {
-      const src = getShellSource();
-      if (!src) break;
-      const cur = src.dataDir();
-      const next = normalizeDataDir(RT.dataDirDraft || cur);
-      if (next === cur) {
-        notify('和当前目录相同，不需要迁移');
-        break;
-      }
-      overlay('movedata', { text: next });
-      break;
-    }
-    case 'datadomigrate': {
-      const src = getShellSource();
-      if (!src) break;
-      const to = normalizeDataDir(getState().overlay?.text || RT.dataDirDraft);
-      // 迁移要写几十个文件，先给个即时反馈，否则点完像没反应
-      notify('正在迁移数据…');
-      void (async () => {
-        const res = await src.migrateDataDir(to);
-        notify(res.message, res.ok ? 'info' : 'error');
-        if (res.ok) {
-          RT.dataDirDraft = to;
-          closeOverlay();
-        }
-      })();
       break;
     }
 
@@ -802,6 +798,38 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'setpen':
       if (d.v) setState({ pen: d.v });
       break;
+    case 'headertoggle': {
+      /* 图标显隐：隐藏的进 ⋮（不是彻底消失） */
+      const src = getShellSource();
+      if (!src) break;
+      const id = d.k || '';
+      if (!id) break;
+      const p = shellPrefs();
+      const hidden = p.headerHidden.includes(id);
+      src.setPrefs({
+        headerHidden: hidden ? p.headerHidden.filter((x) => x !== id) : [...p.headerHidden, id],
+        headerOrder: p.headerOrder.length ? p.headerOrder : HEADER_ACTION_IDS.slice(),
+      });
+      rerender();
+      break;
+    }
+    case 'headermove': {
+      /* 图标排序：跟相邻一位交换。顺序一旦动过就整份落盘，不再回退默认 */
+      const src = getShellSource();
+      if (!src) break;
+      const id = d.k || '';
+      const dir = Number(d.v) || 0;
+      const p = shellPrefs();
+      const base: string[] = p.headerOrder.length ? p.headerOrder : HEADER_ACTION_IDS.slice();
+      const i = base.indexOf(id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= base.length) break;
+      const next = base.slice();
+      [next[i], next[j]] = [next[j], next[i]];
+      src.setPrefs({ headerOrder: next });
+      rerender();
+      break;
+    }
     case 'toggle': {
       const src = getShellSource();
       if (!src) break;
@@ -1486,6 +1514,10 @@ export function dispatchInput(
   if (role === 'setting' && k) {
     const src = getShellSource();
     if (!src) return;
+    /* 输入期间（input）一个字节都不落盘：以前每敲一个字就 setSettings，
+       移动端软键盘会在同步 IO 的间隙收起，表现成「打一个字就失焦」。
+       松手（change）或输入法上屏（compositionend）才收口。 */
+    if (dragging) return;
     /* 目录类设置已经没有输入框了（只走文件夹选择器），这里只剩 AI 三个字段 */
     if (k === 'ai.baseUrl' || k === 'ai.model' || k === 'ai.apiKey') {
       src.setSettings({ ai: { ...shellSettings().ai, [k.slice(3)]: value } });

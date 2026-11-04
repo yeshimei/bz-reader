@@ -47,7 +47,7 @@ export type LibSort = 'recent' | 'title' | 'progress';
 export type OverlayKind =
   | 'search' | 'typography' | 'export' | 'bookmap'
   | 'quote' | 'idea' | 'hltools' | 'ai' | 'dict' | 'translate' | 'poster'
-  | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedata' | 'finish' | 'footnote'
+  | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedir' | 'finish' | 'footnote'
   | 'rename' | 'removebook' | 'confirmdel' | 'notedrop';
 
 /**

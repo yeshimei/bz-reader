@@ -242,6 +242,15 @@ export interface ReaderData {
   /** 全局阅读偏好（字号/行距/主题），缺省见 data/prefs.ts */
   prefs?: unknown;
   /**
+   * 桌面端与移动端各一套偏好，互不覆盖。
+   *
+   * 老的单一 `prefs` 保留为迁移源：新平台槽为空时先读它，
+   * 第一次改设置才写自己的槽。字体/行距在手机上合适的值，
+   * 到桌面往往要另调一遍——共用一份只会两边都不舒服。
+   */
+  prefsDesktop?: unknown;
+  prefsMobile?: unknown;
+  /**
    * 年度阅读目标（本）。
    *
    * 以前只活在 localStorage 里，换设备就回到 20 本。现在跟着业务数据走，

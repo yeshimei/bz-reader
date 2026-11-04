@@ -11,7 +11,7 @@ import { Platform } from 'obsidian';
 import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
 import { searchAcrossBooks, type CrossBookHit } from '../engine/cross-search';
-import { normalizePrefs, type ReaderPrefs } from '../data/prefs';
+import { pickPrefs, type ReaderPrefs } from '../data/prefs';
 import type { ReaderStore } from '../data/store';
 import { clear, el } from './dom';
 import { uiModal } from '../core/ui/modal';
@@ -25,7 +25,7 @@ export interface CrossSearchDeps {
 
 export function openCrossSearch(deps: CrossSearchDeps): void {
   const mobile = Platform.isMobile;
-  const prefs: ReaderPrefs = normalizePrefs(deps.store.get().prefs ?? undefined);
+  const prefs: ReaderPrefs = pickPrefs(deps.store.get(), mobile);
 
   const root = el('div', 'bzr-xs' + (mobile ? ' is-mobile' : ''));
   const bar = el('div', 'bzr-xs-bar');

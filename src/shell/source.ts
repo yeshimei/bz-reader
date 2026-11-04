@@ -90,6 +90,16 @@ export interface ShellSource {
    * 任何一步失败都保持原目录不动。调用前必须先让用户确认过。
    */
   migrateDataDir: (dir: string) => Promise<{ ok: boolean; message: string }>;
+  /**
+   * 迁移三个位置之一。export / import 走 Obsidian 的 `fileManager.renameFile`：
+   * 库内链接会被宿主一起改写，不会因为我们搬了文件就断。data 走
+   * `migrateDataDir` 那条「复制 → 校验 → 切指针 → 删旧」。调用前必须让用户确认过。
+   */
+  migrateDir: (
+    kind: 'export' | 'import' | 'data',
+    from: string,
+    to: string,
+  ) => Promise<{ ok: boolean; message: string }>;
 }
 
 let source: ShellSource | null = null;
@@ -123,8 +133,10 @@ function emit(): void {
 /* ─────────── 便捷读取（找不到源时给安全默认值） ─────────── */
 
 export function shellPrefs(): ReaderPrefs {
-  const raw = source?.store.get().prefs;
-  return normalizePrefs(raw ?? undefined);
+  /* 走注入的 prefs()：它会按当前平台选 prefsDesktop / prefsMobile。
+     直接读 store.get().prefs 会永远拿到迁移前那一份。 */
+  if (source) return source.prefs();
+  return normalizePrefs(undefined);
 }
 
 export function shellSettings(): ReaderSettings {

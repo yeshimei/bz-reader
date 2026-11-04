@@ -1015,6 +1015,17 @@
   grid-column: 1 / -1;
 }
 
+/* 基础版整组灰掉：点击弹高级功能说明（data-act="unlock" 挂在组上） */
+.bzs-setgrp.is-locked {
+  opacity: .55;
+  filter: grayscale(1);
+  cursor: pointer;
+}
+
+.bzs-setgrp.is-locked:hover {
+  opacity: .7;
+}
+
 .bzs-setgrp h3 {
   font-family: var(--serif);
   font-size: 15px;
@@ -1102,6 +1113,16 @@
 .bzs-seg button.on {
   background: var(--copper-soft);
   color: var(--copper);
+}
+
+/* 强调色有 8 档：桌面也强制两行、每行 4 个，移动端同样不挤 */
+.bzs-seg-wrap {
+  flex-wrap: wrap;
+}
+
+.bzs-seg-wrap button {
+  flex: 1 1 calc(25% - 6px);
+  min-width: 0;
 }
 
 /* 开关 */

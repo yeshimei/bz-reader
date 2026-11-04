@@ -41,6 +41,7 @@ import {
 } from './footnote';
 import { DEFAULT_PREFS, FONT_SIZE_RANGE, gatedPrefs, type ReaderPrefs } from '../data/prefs';
 import { can } from '../data/entitlement';
+import { isMobileEnv } from '../core/mobile';
 import { engineMetaFromBook, type EngineMeta } from '../data/book-meta';
 
 /** 宿主坐标系里的矩形（左上角 + 宽高，单位 CSS px） */
@@ -240,6 +241,8 @@ export class EngineHost {
   /** 两指轻按的判定：按下时间 + 两指间距的最大变化 */
   private twoFingerAt = 0;
   private twoFingerMove = 0;
+  /** 两指落下时的间距（移动端不做捏合，拔掉 pinchBase 后仍要它算位移） */
+  private twoFingerSpan = 0;
   /** 这个 iframe 里 pointer 事件是否可用（可用就只认 pointer，避免重复计数） */
   private pointerWorks = false;
   /**
@@ -790,10 +793,15 @@ export class EngineHost {
         touchTap.fingers = ev.touches.length;
       }
       if (ev.touches.length !== 2) return;
-      this.pinchStart = distance(ev.touches);
-      this.pinchBase = this.prefs.fontSize;
+      this.twoFingerSpan = distance(ev.touches);
       this.twoFingerAt = Date.now();
       this.twoFingerMove = 0;
+      /* 移动端不再用双指捏合改字号：它和系统/宿主的缩放手势抢同一只手。
+         两指轻按（切换沉浸）仍然保留。 */
+      if (!isMobileEnv()) {
+        this.pinchStart = this.twoFingerSpan;
+        this.pinchBase = this.prefs.fontSize;
+      }
     };
     const onTouchMove = (ev: TouchEvent): void => {
       if (touchTap) {
@@ -806,10 +814,12 @@ export class EngineHost {
           );
         }
       }
-      if (ev.touches.length !== 2 || !this.pinchStart) return;
-      ev.preventDefault();
+      if (ev.touches.length !== 2) return;
       const span = distance(ev.touches);
-      this.twoFingerMove = Math.max(this.twoFingerMove, Math.abs(span - this.pinchStart));
+      this.twoFingerMove = Math.max(this.twoFingerMove, Math.abs(span - this.twoFingerSpan));
+      /* 移动端捏合已关：pinchStart 恒为 0，到这里就返回，既不拦默认行为也不改字号 */
+      if (!this.pinchStart) return;
+      ev.preventDefault();
       const ratio = span / this.pinchStart;
       const next = Math.min(
         FONT_SIZE_RANGE.max,

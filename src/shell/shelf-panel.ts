@@ -200,6 +200,7 @@ export class ShelfPanel {
       if (!card) return;
       e.preventDefault();
       if (Date.now() - menuAt < 400) return; // 长按已经开过
+      this.suppressClickUntil = Date.now() + 600;
       openMenu(card, e.clientX, e.clientY);
     });
 
@@ -226,6 +227,9 @@ export class ShelfPanel {
         pressTimer = null;
         const target = pressCard;
         pressCard = null;
+        /* 安卓长按会先发一次 contextmenu，菜单已经开过了；520ms 计时器到点
+           再开一次就是「长按弹两层抽屉」。先去重，再压合成 click。 */
+        if (Date.now() - menuAt < 400) return;
         // 菜单弹出后浏览器还会补一次 click，先压住（P3-17）
         this.suppressClickUntil = Date.now() + 600;
         if (target) openMenu(target, pressX, pressY);

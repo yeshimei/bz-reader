@@ -202,7 +202,7 @@ export function setIcon(): void {
 
 /** core/folder-pick 的 import 期依赖 */
 export class FuzzySuggestModal {
-  constructor(_app?: unknown) {}
+  constructor(readonly app: unknown = undefined) {}
   setPlaceholder(): this {
     return this;
   }
@@ -210,6 +210,10 @@ export class FuzzySuggestModal {
     /* noop */
   }
   close(): void {
+    /* noop */
+  }
+  /** 真实 Modal 有 onClose（默认空实现）；子类会 super.onClose() */
+  onClose(): void {
     /* noop */
   }
 }

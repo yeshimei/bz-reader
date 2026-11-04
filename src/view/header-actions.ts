@@ -28,14 +28,43 @@ const SPEC: readonly HeaderActionSpec[] = [
   { id: 'para', icon: 'columns-2', label: '并排对照' },
 ];
 
+/** 全部图标 id（也是默认顺序） */
+export const HEADER_ACTION_IDS: HeaderActionId[] = SPEC.map((s) => s.id);
+
+export interface HeaderCfg {
+  order: string[];
+  hidden: string[];
+}
+
+function orderedIds(cfg?: HeaderCfg | null): HeaderActionId[] {
+  const wanted = (cfg?.order ?? []).filter((id): id is HeaderActionId =>
+    (HEADER_ACTION_IDS as string[]).includes(id),
+  );
+  const rest = HEADER_ACTION_IDS.filter((id) => !wanted.includes(id));
+  return [...wanted, ...rest];
+}
+
 /**
- * 头栏要挂哪几颗。
+ * 外露的图标：用户顺序 → 去掉显式隐藏的 → 移动端最多 3 颗。
  *
  * @param mobile 真实移动端（`isMobileEnv()`，**不是** `isMobileShell()`——
  *   后者含桌面验收用的 force-mobile，会让桌面也折起来）
  */
+export function headerActionsFor(mobile: boolean, cfg?: HeaderCfg | null): HeaderActionId[] {
+  const hidden = new Set(cfg?.hidden ?? []);
+  const list = orderedIds(cfg).filter((id) => !hidden.has(id));
+  return mobile ? list.slice(0, 3) : list;
+}
+
+/** ⋮ 里的：显式隐藏的 + 移动端被名额挤出去的 */
+export function headerOverflowFor(mobile: boolean, cfg?: HeaderCfg | null): HeaderActionId[] {
+  const shown = headerActionsFor(mobile, cfg);
+  return orderedIds(cfg).filter((id) => !shown.includes(id));
+}
+
+/** 不带用户配置时的默认清单（老入口，保留兼容） */
 export function headerActionIds(mobile: boolean): HeaderActionId[] {
-  return SPEC.filter((s) => !mobile || s.id === 'toc' || s.id === 'search' || s.id === 'mark').map((s) => s.id);
+  return headerActionsFor(mobile, null);
 }
 
 export function headerActionSpec(id: HeaderActionId): HeaderActionSpec {

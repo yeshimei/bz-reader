@@ -35,6 +35,40 @@ describe('设置页渲染', () => {
     expect(out).not.toContain('data-k="importDir"');
   });
 
+  it('基础版：AI 组整组灰化，点击弹高级功能说明', () => {
+    entState.unlocked = false;
+    const out = html();
+    expect(out).toMatch(/class="bzs-setgrp is-locked"[^>]*data-act="unlock" data-mode="ai"/);
+  });
+
+  it('placeholder 用「填写…」句式，不拿真实地址/模型名冒充已填内容', () => {
+    const out = html();
+    expect(out).toContain('placeholder="填写服务商接口地址，以 https:// 开头"');
+    expect(out).toContain('placeholder="填写你的账号可用的模型名"');
+    expect(out).toContain('placeholder="填写 API 密钥"');
+    expect(out).not.toContain('deepseek-chat');
+  });
+
+  it('朗读语速与朗读跟随在设置页，单成一组', () => {
+    const out = html();
+    expect(out).toContain('<h3>朗读</h3>');
+    expect(out).toContain('data-k="ttsRate"');
+    expect(out).toContain('data-k="ttsFollow"');
+  });
+
+  it('阅读页图标可以排序与收起', () => {
+    const out = html();
+    expect(out).toContain('<h3>阅读页图标</h3>');
+    expect(out).toContain('data-act="headertoggle"');
+    expect(out).toContain('data-act="headermove"');
+  });
+
+  it('三个目录的「迁移」按钮已去掉（改由选不同目录时二次确认）', () => {
+    const out = html();
+    expect(out).not.toContain('datadirmove');
+    expect(out).not.toContain('datadomigrate');
+  });
+
   it('不再出现「关于这一版」与它的说明', () => {
     const out = html();
     expect(out).not.toContain('关于这一版');

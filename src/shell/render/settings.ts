@@ -12,12 +12,13 @@
  * 两条都在 bz-reader.json 里，与书架同一份。
  * ============================================================ */
 import type { ReaderPrefs } from '../../data/prefs';
-import { ACCENT_OPTIONS, FONT_FAMILIES, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARGIN_RANGE } from '../../data/prefs';
+import { ACCENT_OPTIONS, FONT_FAMILIES, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARGIN_RANGE, TTS_RATE_RANGE } from '../../data/prefs';
 import { HIGHLIGHT_COLORS } from '../../data/notes';
 import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
 import { can, entitlement, tierText } from '../../data/entitlement';
 import { DEFAULT_DATA_DIR, dataDirOf } from '../../core/plugin-path';
 import type { HotkeyRow } from '../../core/hotkeys';
+import { HEADER_ACTION_IDS, headerActionSpec, type HeaderActionId } from '../../view/header-actions';
 import { rangeFill } from '../range-fill';
 import { RT } from '../runtime';
 import { esc, ico } from './html';
@@ -107,7 +108,49 @@ export function viewSettings(v: SettingsView): string {
   ).join('');
   const look = `<div class="bzs-setgrp">
       <h3>外观</h3>
-      <div class="bzs-setrow"><label>强调色</label><div class="bzs-seg">${accentBtns}</div></div>
+      <div class="bzs-setrow"><label>强调色</label><div class="bzs-seg bzs-seg-wrap">${accentBtns}</div></div>
+    </div>`;
+
+  /* 阅读页右上角图标：可排序、可收起。收起的进 ⋮；移动端最多露 3 颗。 */
+  const headerOrder: string[] = p.headerOrder.length ? p.headerOrder : HEADER_ACTION_IDS.slice();
+  const headerRows = headerOrder
+    .map((id, i) => {
+      const spec = headerActionSpec(id as HeaderActionId);
+      const hidden = p.headerHidden.includes(id);
+      return `<div class="bzs-setrow">
+        <label>${esc(spec.label)}</label>
+        <button class="bzs-btn sm" data-act="headermove" data-k="${id}" data-v="-1" ${i === 0 ? 'disabled' : ''}>↑</button>
+        <button class="bzs-btn sm" data-act="headermove" data-k="${id}" data-v="1" ${
+          i === headerOrder.length - 1 ? 'disabled' : ''
+        }>↓</button>
+        <button class="bzs-switch${hidden ? '' : ' on'}" data-act="headertoggle" data-k="${id}" aria-label="${esc(
+          spec.label,
+        )}"></button>
+      </div>`;
+    })
+    .join('');
+  const header = `<div class="bzs-setgrp">
+      <h3>阅读页图标</h3>
+      <div class="bzs-mini" style="margin:0 0 8px">开关控制显示 / 收起，收起的进右上角 ⋮；移动端最多露 3 颗。</div>
+      ${headerRows}
+    </div>`;
+
+  /* 朗读：语速与「念完续页」原来塞在阅读页的排版浮层里，调的时候浮层本身
+     就挡着正文。这两项属于「怎么读」，搬到设置页单起一组。 */
+  const ttsUnlocked = can('tts');
+  const tts = `<div class="bzs-setgrp${ttsUnlocked ? '' : ' is-locked'}"${
+    ttsUnlocked ? '' : ' data-act="unlock" data-mode="tts" title="高级版功能：点一下看看包含什么"'
+  }>
+      <h3>朗读</h3>
+      ${range('ttsRate', '语速', p.ttsRate, TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, TTS_RATE_RANGE.step, (x) => `${x.toFixed(1)}×`)}
+      <div class="bzs-setrow"><label>朗读跟随</label>${seg(
+        'ttsFollow',
+        [
+          ['1', '念完续页'],
+          ['0', '只念本页'],
+        ],
+        p.ttsFollow ? '1' : '0',
+      )}</div>
     </div>`;
 
   const marks = `<div class="bzs-setgrp">
@@ -124,16 +167,17 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>摘录链接</label><span class="bzs-mini" style="flex:1">复制为 obsidian:// 链接，粘进笔记点一下跳回原句</span></div>
     </div>`;
 
-  /* 入口平权：AI 组始终出现。基础版输入框只读（改一个用不了的配置只会
-     制造「我填了为什么不行」的困惑）。组里不放「查看功能对照」这类推销文案，
-     要解锁去授权组。 */
+  /* 入口平权：AI 组始终出现。基础版整组灰掉、点一下就弹高级功能说明——
+     只读输入框既不说明为什么不能改，也点不出任何出口。 */
   const aiUnlocked = can('ai');
   const aiReadonly = aiUnlocked ? '' : ' readonly';
-  const ai = `<div class="bzs-setgrp">
+  const ai = `<div class="bzs-setgrp${aiUnlocked ? '' : ' is-locked'}"${
+    aiUnlocked ? '' : ' data-act="unlock" data-mode="ai" title="高级版功能：点一下看看包含什么"'
+  }>
       <h3>AI 助手</h3>
-      <div class="bzs-setrow"><label>服务商</label><input data-role="setting" data-k="ai.baseUrl" placeholder="https://api.deepseek.com/v1" value="${esc(s.ai.baseUrl)}" style="flex:1"${aiReadonly}></div>
-      <div class="bzs-setrow"><label>模型</label><input data-role="setting" data-k="ai.model" placeholder="deepseek-chat" value="${esc(s.ai.model)}" style="flex:1"${aiReadonly}></div>
-      <div class="bzs-setrow"><label>密钥</label><input type="password" data-role="setting" data-k="ai.apiKey" placeholder="留空即不联网" value="${esc(s.ai.apiKey)}" style="flex:1"${aiReadonly}></div>
+      <div class="bzs-setrow"><label>服务商</label><input data-role="setting" data-k="ai.baseUrl" placeholder="填写服务商接口地址，以 https:// 开头" value="${esc(s.ai.baseUrl)}" style="flex:1"${aiReadonly}></div>
+      <div class="bzs-setrow"><label>模型</label><input data-role="setting" data-k="ai.model" placeholder="填写你的账号可用的模型名" value="${esc(s.ai.model)}" style="flex:1"${aiReadonly}></div>
+      <div class="bzs-setrow"><label>密钥</label><input type="password" data-role="setting" data-k="ai.apiKey" placeholder="填写 API 密钥" value="${esc(s.ai.apiKey)}" style="flex:1"${aiReadonly}></div>
     </div>`;
 
   const ent = entitlement();
@@ -176,9 +220,8 @@ export function viewSettings(v: SettingsView): string {
         </button></div>
       <div class="bzs-setrow"><label>数据目录</label>
         <button class="bzs-pickdir" data-act="pickdatadir" title="从文件夹清单里选">
-          <span>${esc(RT.dataDirDraft || dir)}/</span>${ico('folder') || ''}<i>选择…</i>
-        </button>
-        <button class="bzs-btn sm" data-act="datadirmove">迁移</button></div>
+          <span>${esc(dir)}/</span>${ico('folder') || ''}<i>选择…</i>
+        </button></div>
       <div class="bzs-setrow"><label>备份与恢复</label>
         <button class="bzs-btn sm" data-act="backup" title="导出成一份 JSON，存进数据目录">备份</button>
         <button class="bzs-btn sm" data-act="restore" title="从备份文件恢复（合并，不覆盖现有进度）">恢复</button></div>
@@ -205,5 +248,5 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-keys">${keyRows}</div>
     </div>`;
 
-  return `<div class="bzs-set-grid">${layout}${look}${marks}${data}${ai}${lic}${keys}</div>`;
+  return `<div class="bzs-set-grid">${layout}${look}${header}${tts}${marks}${data}${ai}${lic}${keys}</div>`;
 }

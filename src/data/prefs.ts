@@ -18,7 +18,7 @@
  * 明暗跟着宿主走；想区分「书」和「笔记」，靠的应该是强调色与版式，不是底色。
  */
 /** 强调色：默认跟随宿主 accent，其余几档是自持色（明暗各一档） */
-export type AccentName = 'auto' | 'copper' | 'vermilion' | 'indigo' | 'moss';
+export type AccentName = 'auto' | 'copper' | 'vermilion' | 'indigo' | 'moss' | 'ink' | 'plum' | 'celadon';
 export type FontFamilyName = 'book' | 'serif' | 'sans';
 export type TextAlign = 'left' | 'justify';
 /** 竖排（writing-mode: vertical-rl）是东亚长文阅读的一等需求，不是装饰 */
@@ -68,6 +68,12 @@ export interface ReaderPrefs {
   ttsFollow: boolean;
   /** 翻页 / 滚动（见 FlowMode） */
   flow: FlowMode;
+  /**
+   * 阅读页右上角图标的顺序与隐藏项（隐藏的收进 ⋮）。
+   * 空数组 = 用默认顺序；只认 header-actions.ts 里那五个 id。
+   */
+  headerOrder: string[];
+  headerHidden: string[];
 }
 
 export const DEFAULT_PREFS: ReaderPrefs = {
@@ -84,6 +90,8 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   ttsRate: 1,
   ttsFollow: true,
   flow: 'paged',
+  headerOrder: [],
+  headerHidden: [],
 };
 
 export const FONT_SIZE_RANGE = { min: 14, max: 30, step: 1 } as const;
@@ -107,11 +115,14 @@ export const FONT_FAMILIES: Array<{ value: FontFamilyName; label: string; css: s
  * 自持的几档都给明暗两色：同一支朱砂在白底和炭底上不是一个明度。
  */
 export const ACCENT_OPTIONS: Array<{ value: AccentName; label: string; css: string; dark: string }> = [
-  { value: 'auto', label: '跟随 Obsidian', css: '', dark: '' },
+  { value: 'auto', label: '原生', css: '', dark: '' },
   { value: 'copper', label: '铜金', css: '#9a7434', dark: '#c8a464' },
   { value: 'vermilion', label: '朱砂', css: '#b0452f', dark: '#d9705a' },
   { value: 'indigo', label: '黛蓝', css: '#3f5b8f', dark: '#8aa7d6' },
   { value: 'moss', label: '苔青', css: '#4c6b52', dark: '#93b79a' },
+  { value: 'ink', label: '墨色', css: '#2f3338', dark: '#c9d0d8' },
+  { value: 'plum', label: '绛紫', css: '#8a3a4a', dark: '#d98a99' },
+  { value: 'celadon', label: '天青', css: '#3f7474', dark: '#8fc6c6' },
 ];
 
 /**
@@ -125,9 +136,33 @@ export const LEGACY_THEMES: ReadonlySet<string> = new Set([
   'paper', 'ink', 'parchment', 'moss', 'night', 'light', 'sepia', 'green', 'dark',
 ]);
 
+/**
+ * 按平台取偏好：桌面 `prefsDesktop`、移动 `prefsMobile`。
+ *
+ * 老数据只有一份全局 `prefs`——第一次读任一平台时先拿它当初始值，
+ * 之后各写各的槽。这样升级不会突然把用户调好的字号清零。
+ */
+export function pickPrefs(data: unknown, mobile: boolean): ReaderPrefs {
+  const d = (data ?? {}) as Record<string, unknown>;
+  return normalizePrefs(d[mobile ? 'prefsMobile' : 'prefsDesktop'] ?? d.prefs ?? undefined);
+}
+
 function clamp(n: unknown, min: number, max: number, fallback: number): number {
   const v = typeof n === 'number' && Number.isFinite(n) ? n : fallback;
   return Math.min(max, Math.max(min, v));
+}
+
+/** 头栏图标 id 白名单（与 view/header-actions.ts 的 SPEC 对齐，这里不 import 视图层） */
+const HEADER_IDS = ['toc', 'search', 'mark', 'type', 'para'] as const;
+
+function headerIds(v: unknown): string[] {
+  const list = Array.isArray(v) ? v : [];
+  const out: string[] = [];
+  for (const item of list) {
+    const id = String(item);
+    if ((HEADER_IDS as readonly string[]).includes(id) && !out.includes(id)) out.push(id);
+  }
+  return out;
 }
 
 export function normalizePrefs(raw: unknown): ReaderPrefs {
@@ -152,6 +187,8 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     ttsRate: Math.round(clamp(p.ttsRate, TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, DEFAULT_PREFS.ttsRate) * 10) / 10,
     ttsFollow: p.ttsFollow !== false,
     flow: p.flow === 'scroll' ? 'scroll' : 'paged',
+    headerOrder: headerIds(p.headerOrder),
+    headerHidden: headerIds(p.headerHidden),
   };
 }
 

@@ -83,7 +83,12 @@ describe('改排版偏好（A-11）', () => {
     expect(updateA).toHaveBeenCalledTimes(1);
     expect(updateB).toHaveBeenCalledTimes(1);
     expect(placeholder.updatePrefs).not.toHaveBeenCalled();
-    expect((plugin.store.get().prefs as { fontSize: number }).fontSize).toBe(23);
+    /* 偏好按平台分槽：桌面写 prefsDesktop、移动写 prefsMobile（旧的全局 prefs 只当迁移源） */
+    const data = plugin.store.get() as {
+      prefsDesktop?: { fontSize: number };
+      prefsMobile?: { fontSize: number };
+    };
+    expect((data.prefsDesktop ?? data.prefsMobile)?.fontSize).toBe(23);
   });
 
   it('写盘失败也要广播（notifyShell 在 finally 里）', () => {

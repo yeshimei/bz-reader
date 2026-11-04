@@ -50,7 +50,10 @@ import { trialButtonHtml } from './group';
 /* ─────────── 小工具 ─────────── */
 
 function modal(title: string, sub: string, body: string, foot = '', cls = ''): string {
-  return `<div class="bzs-scrim" data-role="scrim"><div class="bzs-modal ${cls}">
+  /* 带输入框的弹窗在移动端要居中偏上：底部抽屉会被软键盘顶出屏幕。
+     按内容自动判定，省得每个调用点都要记得传类。 */
+  const withInput = /<(input|textarea)\b/i.test(body);
+  return `<div class="bzs-scrim${withInput ? ' has-input' : ''}" data-role="scrim"><div class="bzs-modal ${cls}">
     <div class="bzs-mhead"><b>${title}</b><span class="n">${sub}</span><span class="sp"></span>
       <button class="x" data-act="close" title="关闭">${ico('x')}</button></div>
     <div class="bzs-mbody">${body}</div>
@@ -174,15 +177,6 @@ export function typographyFormHtml(): string {
         ['scroll', '滚动'],
       ],
       p.flow,
-    )}</div>
-    ${rng('ttsRate', '朗读语速', p.ttsRate, 0.6, 2, 0.1, '×')}
-    <div class="bzs-setrow"><label>朗读跟随</label>${seg(
-      'ttsFollow',
-      [
-        ['1', '念完续页'],
-        ['0', '只念本页'],
-      ],
-      p.ttsFollow ? '1' : '0',
     )}</div>
   </div>`;
 }
@@ -757,25 +751,67 @@ function overlayRemoveBook(bookId?: string): string {
   );
 }
 
-function overlayMoveData(raw: string): string {
-  const from = dataDirOf();
-  const to = normalizeDataDir(raw);
+const MOVE_COPY: Record<'export' | 'import' | 'data', { title: string; bullets: string[] }> = {
+  export: {
+    title: '迁移导出目录',
+    bullets: [
+      '已经导出的书摘笔记会搬到新目录',
+      '文件移动时 Obsidian 会同步改写库内所有指向它的链接，不会搬断',
+      '中途失败会把已经搬走的文件挪回原处',
+    ],
+  },
+  import: {
+    title: '迁移书籍位置',
+    bullets: [
+      '书库里登记的书文件会搬到新目录',
+      '库内指向这些书的链接由 Obsidian 一起改写',
+      '书架上每本书的文件路径会跟着更新',
+    ],
+  },
+  data: {
+    title: '迁移数据目录',
+    bullets: [
+      '书架、划线、书签、阅读进度与封面会整体复制到新目录',
+      '复制并校验通过后才删除旧目录；中途失败会原样保留',
+      '已经粘进笔记的摘录链接不受影响，仍能跳回原文',
+    ],
+  },
+};
+
+function overlayMoveDir(mode: string, raw: string): string {
+  const kind = mode === 'export' || mode === 'import' ? mode : 'data';
+  let from = '';
+  let to = '';
+  try {
+    const p = JSON.parse(raw || '{}') as { from?: string; to?: string };
+    from = p.from || '';
+    to = p.to || '';
+  } catch {
+    /* 坏数据按空处理，下面给重新选择的出口 */
+  }
+  const copy = MOVE_COPY[kind];
+  if (!from || !to) {
+    return modal(
+      copy.title,
+      '',
+      '<div class="bzs-empty">目录信息不完整，请关掉重新选择。</div>',
+      `<span class="sp"></span><button class="bzs-btn" data-act="close">关闭</button>`,
+    );
+  }
   const body = `<div class="bzs-move">
       <div class="bzs-move-row"><b>当前目录</b><code>${esc(from)}/</code></div>
       <div class="bzs-move-row to"><b>迁移到</b><code>${esc(to)}/</code></div>
       <ul class="bzs-unlock-list">
-        <li>书架、划线、书签、阅读进度与封面会整体复制到新目录</li>
-        <li>复制并校验通过后才删除旧目录；中途失败会原样保留</li>
-        <li>已经粘进笔记的摘录链接不受影响，仍能跳回原文</li>
+        ${copy.bullets.map((t) => `<li>${esc(t)}</li>`).join('')}
       </ul>
-      <div class="bzs-mini">如果新目录里已经有一份数据，同名文件会被这次迁移覆盖。</div>
+      <div class="bzs-mini">迁移要写一批文件，开始后请等提示完成再继续操作。</div>
     </div>`;
   return modal(
-    '迁移数据目录',
+    copy.title,
     `${esc(from)} → ${esc(to)}`,
     body,
     `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
-     <button class="bzs-btn pri" data-act="datadomigrate">确认迁移</button>`,
+     <button class="bzs-btn pri" data-act="dodirmove">确认迁移</button>`,
   );
 }
 
@@ -821,8 +857,8 @@ export function overlayHtml(): string {
       return overlayFinish(o.bookId);
     case 'unlock':
       return overlayUnlock(o.mode);
-    case 'movedata':
-      return overlayMoveData(o.text || '');
+    case 'movedir':
+      return overlayMoveDir(o.mode || 'data', o.text || '');
     case 'rename':
       return overlayRename(o.bookId);
     case 'removebook':

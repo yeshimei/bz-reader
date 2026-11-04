@@ -17,10 +17,10 @@
  * 快捷键：键盘上能做的动作全部注册成命令，用户可以去 Obsidian 的
  * 「快捷键」里改键；壳层设置页只负责把它们读出来显示、点一下跳过去。
  * ============================================================ */
-import { Plugin, type WorkspaceLeaf } from 'obsidian';
+import { Plugin, TFile, type WorkspaceLeaf } from 'obsidian';
 import { setApp } from './core/app';
 import { setPluginRelDir, dataDirOf, debugOpenPath, normalizeDataDir, setDataDir, DEFAULT_DATA_DIR, PLUGIN_ID } from './core/plugin-path';
-import { isMobileShell } from './core/mobile';
+import { isMobileEnv, isMobileShell } from './core/mobile';
 import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
 import { BookRepo, BASE_FORMATS, PRO_FORMATS, formatOf, planRelocations, scanVault } from './data/book-repo';
@@ -28,8 +28,9 @@ import { ReaderStore, verifyCopiedJson } from './data/store';
 import { backupFileName, buildBackup, mergeRestore, parseBackup } from './data/backup';
 import { pickJsonFile } from './core/file-pick';
 import { copyTree, dirHasFiles, findDataDirs, removeTree } from './data/migrate';
+import { planMove } from './core/move-plan';
 import { collectDataDirCandidates, pickDataDir } from './core/data-dir-pick';
-import { normalizePrefs, type ReaderPrefs } from './data/prefs';
+import { normalizePrefs, pickPrefs, type ReaderPrefs } from './data/prefs';
 import { normalizeSettings, type ReaderSettings } from './data/settings';
 import type { BookFormat, ReaderBook } from './data/schema';
 import { ReaderView, VIEW_TYPE_READER, type ReaderCommand, type ReaderHostApi } from './view/reader-view';
@@ -354,7 +355,7 @@ export function createPlugin(cfg: PluginConfig) {
         closeStudy: () => this.app.workspace.leftSplit?.collapse?.(),
         openSidebar: (tab) => this.openTocSidebar(tab),
         syncVault: () => this.syncShelf(),
-        prefs: () => normalizePrefs(this.store.get().prefs ?? undefined),
+        prefs: () => this.currentPrefs(),
         setPrefs: (patch) => this.setPrefs(patch),
         settings: () => this.cfg.settings,
         setSettings: (patch) => this.setSettings(patch),
@@ -362,6 +363,7 @@ export function createPlugin(cfg: PluginConfig) {
         activate: (code) => this.activateLicense(code),
         dataDir: () => dataDirOf(),
         migrateDataDir: (dir) => this.migrateDataDir(dir),
+        migrateDir: (kind, from, to) => this.migrateDir(kind, from, to),
         setFavorite: (id, on) => this.patchBook(id, (b) => {
           if (on) b.favorite = true;
           else delete b.favorite;
@@ -538,6 +540,80 @@ export function createPlugin(cfg: PluginConfig) {
      *   - 整段 try/catch：任一步 reject 都把指针指回原目录并给人话，调用方
      *     不会再看到「正在迁移…」之后一片安静。
      */
+    /**
+     * 迁移导出目录 / 书籍导入位置 / 数据目录。
+     *
+     * export 与 import 都走宿主自己的 `fileManager.renameFile`：它会按用户的
+     * 偏好同步改写库内链接，不会因为插件搬了文件就把双链搬断。data 不是库内
+     * 可链接内容（JSON + 封面），继续走 `migrateDataDir` 的复制与校验。
+     *
+     * 先算完整清单再动手；目标有同名文件就整体拒绝，中途失败把已搬的搬回去。
+     */
+    async migrateDir(
+      kind: 'export' | 'import' | 'data',
+      from: string,
+      to: string,
+    ): Promise<{ ok: boolean; message: string }> {
+      if (kind === 'data') return this.migrateDataDir(to);
+
+      const vault = this.app.vault;
+      const files: TFile[] = [];
+      if (kind === 'export') {
+        for (const f of vault.getFiles()) {
+          if (f.extension === 'md' && f.path.startsWith(`${from}/`)) files.push(f);
+        }
+      } else {
+        for (const b of this.repo.all()) {
+          const f = vault.getAbstractFileByPath(b.fileRef.vaultPath);
+          if (f instanceof TFile) files.push(f);
+        }
+      }
+
+      const plan = planMove(files.map((f) => f.path), from, to);
+      if (!plan.ok) return { ok: false, message: plan.reason || '无法迁移' };
+
+      for (const m of plan.moves) {
+        if (vault.getAbstractFileByPath(m.to)) {
+          return { ok: false, message: `「${m.to}」已经存在，请先处理同名文件再迁移` };
+        }
+      }
+
+      const moved: Array<{ from: string; to: string }> = [];
+      try {
+        for (const m of plan.moves) {
+          const file = vault.getAbstractFileByPath(m.from);
+          if (!file) continue;
+          await this.app.fileManager.renameFile(file, m.to);
+          moved.push(m);
+        }
+      } catch (e) {
+        for (const m of [...moved].reverse()) {
+          const back = vault.getAbstractFileByPath(m.to);
+          if (back) await this.app.fileManager.renameFile(back, m.from).catch(() => undefined);
+        }
+        return { ok: false, message: `迁移失败：${(e as Error)?.message || '未知错误'}，已回滚` };
+      }
+
+      if (kind === 'export') {
+        this.setSettings({ exportDir: to });
+      } else {
+        const map = new Map(moved.map((m) => [m.from, m.to]));
+        for (const book of this.repo.all()) {
+          const next = map.get(book.fileRef.vaultPath);
+          if (next) book.fileRef.vaultPath = next;
+        }
+        this.setSettings({ importDir: to });
+        this.store.touch();
+      }
+
+      return {
+        ok: true,
+        message: plan.moves.length
+          ? `已迁移 ${moved.length} 个文件到「${to}」`
+          : `已切换到「${to}」（没有文件需要搬）`,
+      };
+    }
+
     async migrateDataDir(dir: string): Promise<{ ok: boolean; message: string }> {
       const from = dataDirOf();
       const to = normalizeDataDir(dir);
@@ -667,10 +743,17 @@ export function createPlugin(cfg: PluginConfig) {
      * `notifyShell()` 放 finally（A-11）：写盘/重排哪一步抛错，界面也得
      * 广播一次——否则设置页滑块停在旧位置，用户以为没改成功。
      */
+    /** 当前平台的偏好：桌面与移动各一套槽，互不覆盖 */
+    currentPrefs(): ReaderPrefs {
+      return pickPrefs(this.store.get(), isMobileEnv());
+    }
+
     setPrefs(patch: Partial<ReaderPrefs>): void {
       try {
-        const next = normalizePrefs({ ...normalizePrefs(this.store.get().prefs ?? undefined), ...patch });
-        this.store.get().prefs = next;
+        const next = normalizePrefs({ ...this.currentPrefs(), ...patch });
+        const data = this.store.get();
+        if (isMobileEnv()) data.prefsMobile = next;
+        else data.prefsDesktop = next;
         this.store.touch();
         for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_READER)) {
           /* 必须是 instanceof：DeferredView 上没有 updatePrefs，强转会抛

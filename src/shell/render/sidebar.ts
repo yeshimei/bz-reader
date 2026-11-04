@@ -207,7 +207,7 @@ export function viewSidebar(v: SidebarView): string {
   } else if (v.tab === 'toc') {
     body = v.toc?.length
       ? tocBody(v.toc, { label: v.activeLabel, href: v.activeHref }, v.collapsed ?? EMPTY_COLLAPSED)
-      : `<div class="bzs-empty">这本书还没有解析出目录。<br>翻一页之后会重新试一次。</div>`;
+      : `<div class="bzs-empty">目录还没准备好。<br><button class="bzs-btn sm" data-act="openbook" data-id="${esc(book.id)}">打开当前书籍</button></div>`;
   } else if (v.tab === 'bookmarks') {
     body = bookmarksBody(bmksOf(book));
   } else if (v.tab === 'highlights') {
