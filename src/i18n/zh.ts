@@ -46,6 +46,7 @@ export const ZH = {
   'cmd.bookmap': '阅读：全书鸟瞰',
   'cmd.tts': '阅读：朗读开关',
   'notice.needBook': '先打开一本书再用这个命令',
+  'notice.language.changed': '界面语言已切换，命令名需重启 Obsidian 后更新',
 
   /* ── 通知：剪贴板 ────────────────────────────────────────── */
   'notice.copy.ok': '已复制到剪贴板',

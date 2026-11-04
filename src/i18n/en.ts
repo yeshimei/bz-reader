@@ -47,6 +47,7 @@ export const EN: Record<MsgKey, string> = {
   'cmd.bookmap': 'Reader: Book overview',
   'cmd.tts': 'Reader: Toggle read aloud',
   'notice.needBook': 'Open a book first, then run this command',
+  'notice.language.changed': 'Interface language changed — command names update after restarting Obsidian',
 
   /* ── Notices: clipboard ─────────────────────────────────── */
   'notice.copy.ok': 'Copied to clipboard',

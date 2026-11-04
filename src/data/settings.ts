@@ -16,6 +16,8 @@
  * 「AI 按钮点了没反应」，而用户不会想到去看设置。
  * ============================================================ */
 
+import type { LanguagePref } from '../i18n';
+
 export interface AiSettings {
   /** OpenAI 兼容根地址，不带结尾斜杠，例如 https://api.openai.com/v1 */
   baseUrl: string;
@@ -30,6 +32,13 @@ export interface ReaderSettings {
   exportComments: boolean;
   /** 本地文件导入时写进哪个文件夹（vault 相对路径，默认 `bz-reader/books`；'/' = 库根目录） */
   importDir: string;
+  /**
+   * 界面语言：`auto` 跟随 Obsidian，`zh` / `en` 由用户在设置页手动指定。
+   *
+   * 放 settings（设备本地）而不是 prefs（跟库走）：语言是这台机器的偏好，
+   * 换设备该用那台机器的设置，不该被同步过来的库改掉。
+   */
+  language: LanguagePref;
   ai: AiSettings;
   /*
    * 这里**故意没有** license。
@@ -47,6 +56,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   exportDir: 'bz-reader/notes',
   exportComments: true,
   importDir: 'bz-reader/books',
+  language: 'auto',
   ai: {
     baseUrl: '',
     apiKey: '',
@@ -88,6 +98,9 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     exportDir: cleanDir(str(s.exportDir, DEFAULT_SETTINGS.exportDir)),
     exportComments: s.exportComments !== false,
     importDir: cleanDir(str(s.importDir, DEFAULT_SETTINGS.importDir), DEFAULT_SETTINGS.importDir),
+    /* 只认这三个值：手改坏的 JSON、旧版本没有这个字段、写了别的语言，都退回
+       auto——宁可跟随宿主，也不要钉死一个用户没选过的语言。 */
+    language: s.language === 'zh' || s.language === 'en' ? s.language : 'auto',
     ai: {
       baseUrl: cleanUrl(str(ai.baseUrl)),
       apiKey: str(ai.apiKey).trim(),

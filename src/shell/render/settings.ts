@@ -120,6 +120,24 @@ export function viewSettings(v: SettingsView): string {
   const ent = entitlement();
   const paid = ent.tier === 'paid';
 
+  /* 界面语言：放最前，因为它是「其他设置长什么样」的前提。
+     auto = 跟随 Obsidian；手动选了之后不再看宿主——用户特意选中文，
+     换台英文 Obsidian 不该把界面翻回去。 */
+  const languageGrp = `<div class="bzs-setgrp">
+      <h3>界面</h3>
+      <div class="bzs-setrow"><label>语言</label>${seg(
+        'language',
+        [
+          ['auto', '跟随 Obsidian'],
+          ['zh', '中文'],
+          ['en', 'English'],
+        ],
+        s.language,
+        'setlang',
+      )}</div>
+      <div class="bzs-mini" style="margin-top:8px;line-height:1.9">选「跟随 Obsidian」时由宿主语言决定；手动选择后界面立即生效，命令名需重启 Obsidian 才更新。</div>
+    </div>`;
+
   const layout = `<div class="bzs-setgrp">
       <h3>版式</h3>
       <div class="bzs-setrow"><label>字体</label>${seg(
@@ -287,5 +305,5 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-keys">${keyRows}</div>
     </div>`;
 
-  return `<div class="bzs-set-grid">${aboutBar(v.version || '', paid)}${layout}${header}${look}${tts}${marks}${data}${ai}${lic}${keys}</div>`;
+  return `<div class="bzs-set-grid">${aboutBar(v.version || '', paid)}${languageGrp}${layout}${header}${look}${tts}${marks}${data}${ai}${lic}${keys}</div>`;
 }

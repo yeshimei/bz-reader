@@ -29,7 +29,7 @@ import {
 import { allMarks, filterMarks } from './domain';
 import { toggleAll, togglePick } from './note-select';
 import { notify } from '../core/notice';
-import { t } from '../i18n';
+import { hostLanguageCode, resolveLocale, setLocale, t, type LanguagePref } from '../i18n';
 import { bookMenuItems } from './book-menu';
 import { flipSetting } from './settings-toggle';
 import { rangeFill } from './range-fill';
@@ -821,6 +821,25 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'setpen':
       if (d.v) setState({ pen: d.v });
       break;
+    /**
+     * 界面语言：写进 settings 并立刻切换。
+     *
+     * 命令名切不了——Obsidian 的 addCommand 只在插件加载时求值一次，
+     * 所以设置页那行说明写了「命令名需重启」。界面本身不该等重启：
+     * 一个点了没反应的开关比没有这个开关更糟。
+     */
+    case 'setlang': {
+      const src = getShellSource();
+      if (!src) break;
+      const next: LanguagePref = d.v === 'zh' || d.v === 'en' ? d.v : 'auto';
+      src.setSettings({ language: next });
+      const changed = setLocale(resolveLocale(next, hostLanguageCode()));
+      /* 重绘放在通知之前：选中态要跟着动，哪怕语言本身没变
+         （auto → en，而宿主本来就是英文时 setLocale 返回 false）。 */
+      repaint();
+      if (changed) notify(t('notice.language.changed'));
+      break;
+    }
     case 'headertoggle': {
       /* 图标显隐：隐藏的进 ⋮（不是彻底消失） */
       const src = getShellSource();

@@ -17,8 +17,8 @@
  * 快捷键：键盘上能做的动作全部注册成命令，用户可以去 Obsidian 的
  * 「快捷键」里改键；壳层设置页只负责把它们读出来显示、点一下跳过去。
  * ============================================================ */
-import { getLanguage, Plugin, TFile, type WorkspaceLeaf } from 'obsidian';
-import { detectLocale, setLocale, t } from './i18n';
+import { Plugin, TFile, type WorkspaceLeaf } from 'obsidian';
+import { hostLanguageCode, resolveLocale, setLocale, t } from './i18n';
 import { COMMANDS } from './plugin-commands';
 import { setApp } from './core/app';
 import { setPluginRelDir, dataDirOf, debugOpenPath, normalizeDataDir, setDataDir, DEFAULT_DATA_DIR, PLUGIN_ID } from './core/plugin-path';
@@ -101,20 +101,6 @@ function moveLeafToTop(leaf: WorkspaceLeaf): void {
     parent.insertChild(0, leaf, false);
   } catch {
     /* 内部 API 变了就维持原顺序：位置是锦上添花，开不了侧栏才是 bug */
-  }
-}
-
-/**
- * 宿主界面语言代码（`zh` / `zh-TW` / `en` …）。
- *
- * 拿不到就给空串，调用方据此**保持默认中文**：探测失败是一种异常环境，
- * 在异常环境里把中文用户扔进英文界面，比维持原样糟得多。
- */
-function hostLanguage(): string {
-  try {
-    return String(getLanguage() ?? '');
-  } catch {
-    return '';
   }
 }
 
@@ -202,11 +188,6 @@ export function createPlugin(cfg: PluginConfig) {
     async onload(): Promise<void> {
       setApp(this.app);
       setPluginRelDir(this.manifest.dir);
-      /* 界面语言先定：下面注册的命令名、通知、壳层文案全都读它。宿主在
-         1.8.7+ 才有 getLanguage()，拿不到就保持默认中文——探测失败不该把
-         中文用户扔进英文界面，也不该让整个插件加载失败。 */
-      const lang = hostLanguage();
-      if (lang) setLocale(detectLocale(lang));
 
       /* 配置先读：设置、授权、数据目录全在 data.json 里，而且 store 要知道
          数据目录在哪才能 load()。顺序反了就会「设置读到了、书架是空的」。
@@ -214,6 +195,10 @@ export function createPlugin(cfg: PluginConfig) {
       const raw: unknown = await this.loadData().catch(() => null);
       this.freshInstall = raw === null;
       this.cfg = normalizePluginData(raw);
+      /* 界面语言紧跟配置定：手动偏好优先，没选过就跟随宿主。
+         必须赶在 addCommand 之前——命令名在注册那一刻求值，晚了就永远是
+         上一个语言。getLanguage() 拿不到时 resolveLocale 退回中文，不报错。 */
+      setLocale(resolveLocale(this.cfg.settings.language, hostLanguageCode()));
       setEntBackend({
         read: () => this.cfg.entitlement,
         write: (raw) => {

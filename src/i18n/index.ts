@@ -13,6 +13,7 @@
  * 它的 key 集合就是类型真源：en 包漏一条，`tsc --noEmit` 直接红。
  */
 
+import { getLanguage } from 'obsidian';
 import { EN } from './en';
 import { ZH, type MsgKey } from './zh';
 
@@ -115,4 +116,44 @@ export function t(key: MsgKey, params?: MsgParams): string {
  */
 export function detectLocale(code: string | null | undefined): Locale {
   return normalizeLocale(code);
+}
+
+/**
+ * 用户的界面语言偏好：跟随宿主，或手动指定。
+ *
+ * 存在 `settings.language` 里，跟着 data.json（设备本地）。不跟库走：
+ * 「这台机器用什么语言」不是书的数据，换台机器该用那台的语言。
+ */
+export type LanguagePref = 'auto' | Locale;
+
+/**
+ * 偏好 + 宿主语言 → 实际界面语言。
+ *
+ * 手动选择永远优先：用户特意选了中文，换台英文 Obsidian 不该把界面翻回去。
+ *
+ * `auto` 但读不到宿主语言时退回**中文**而不是英文——现网用户全是中文，
+ * 探测失败是异常环境，异常时维持用户熟悉的样子比"猜一个"稳妥。
+ *
+ * 与 `normalizeLocale` 的区别：那个只管"代码 → 语言"，这个还要处理
+ * 「用户有没有表态」。
+ */
+export function resolveLocale(pref: LanguagePref, hostCode?: string | null): Locale {
+  if (pref === 'zh' || pref === 'en') return pref;
+  const code = String(hostCode ?? '').trim();
+  return code ? normalizeLocale(code) : 'zh';
+}
+
+/**
+ * 宿主当前的界面语言代码（`zh` / `zh-TW` / `en` …），读不到给空串。
+ *
+ * 空串的语义是「宿主没表态」，由 `resolveLocale` 决定怎么办（按当前默认，
+ * 不在这里猜）。`getLanguage()` 是 1.8.7 才有的接口，这里仍然包一层
+ * try/catch：插件加载不该因为一个只读接口挂掉。
+ */
+export function hostLanguageCode(): string {
+  try {
+    return String(getLanguage() ?? '');
+  } catch {
+    return '';
+  }
 }

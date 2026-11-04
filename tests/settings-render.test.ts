@@ -22,15 +22,46 @@ import { DEFAULT_PREFS } from '../src/data/prefs';
 import { DEFAULT_SETTINGS } from '../src/data/settings';
 import { viewSettings } from '../src/shell/render/settings';
 
-const html = (relicense = false): string =>
+const html = (relicense = false, settings = DEFAULT_SETTINGS): string =>
   viewSettings({
     prefs: DEFAULT_PREFS,
-    settings: DEFAULT_SETTINGS,
+    settings,
     pen: 'amber',
     hotkeys: [],
     relicense,
     version: '0.1.2',
   });
+
+describe('界面语言', () => {
+  it('三档都在：跟随 Obsidian / 中文 / English', () => {
+    const out = html();
+    expect(out).toContain('data-act="setlang"');
+    for (const v of ['auto', 'zh', 'en']) {
+      expect(out, v).toContain(`data-k="language" data-v="${v}"`);
+    }
+  });
+
+  it('语言选择器在设置页里只有一处，不重复渲染', () => {
+    const out = html();
+    expect((out.match(/data-act="setlang"/g) ?? []).length).toBe(3);
+  });
+
+  it('当前语言那一档是选中态', () => {
+    const out = html(false, { ...DEFAULT_SETTINGS, language: 'en' });
+    expect(out).toMatch(/class="on" data-act="setlang" data-k="language" data-v="en"/);
+    expect(out).not.toMatch(/class="on" data-act="setlang" data-k="language" data-v="zh"/);
+  });
+
+  it('默认（auto）时选中的是跟随 Obsidian', () => {
+    const out = html();
+    expect(out).toMatch(/class="on" data-act="setlang" data-k="language" data-v="auto"/);
+  });
+
+  it('说明里写清楚「命令名要重启才变」，不让用户以为切换没生效', () => {
+    const out = html();
+    expect(out).toContain('重启 Obsidian');
+  });
+});
 
 describe('设置页渲染', () => {
   it('导出目录与数据目录都有文件夹选择钮', () => {
