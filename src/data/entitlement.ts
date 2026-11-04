@@ -38,7 +38,7 @@ export type Cap =
   | 'crossSearch' // 跨书搜索
   | 'ai' // AI 回答 / 摘要 / 解释 / 翻译
   | 'fullFormats' // mobi / azw3 / fb2 / cbz
-  | 'vertical' // 竖排 / 双栏
+  | 'vertical' // 竖排（双栏已于 2026-11-05 下放基础版，不再挂在这个能力上）
   | 'tts' // 朗读
   | 'parallel' // 并排 / 双语
   | 'bookmap' // 全书鸟瞰
@@ -421,7 +421,7 @@ export const CAP_LABEL: Record<Cap, string> = {
   crossSearch: '在所有书里搜索',
   ai: 'AI 回答 · 摘要 · 解释 · 翻译',
   fullFormats: 'mobi / azw3 / fb2 / 漫画支持',
-  vertical: '竖排与双栏',
+  vertical: '竖排排版',
   tts: '朗读',
   parallel: '原文与译文并排',
   bookmap: '全书鸟瞰',
@@ -455,6 +455,8 @@ export interface PlanRow {
 
 export const PLAN_TABLE: PlanRow[] = [
   { name: 'EPUB / TXT 阅读、翻页与排版', free: 'yes', pro: 'yes' },
+  /* 分栏 2026-11-05 下放基础版：单独一行，免得用户以为双栏还要买 */
+  { name: '单栏 / 双栏', free: 'yes', pro: 'yes' },
   { name: '目录、书签、四色划线与想法', free: 'yes', pro: 'yes' },
   { name: '书内搜索', free: 'yes', pro: 'yes' },
   /* 脚注和上面的书本能力同属基础版，排在一起；别让它跟付费项混在表尾 */
@@ -469,7 +471,7 @@ export const PLAN_TABLE: PlanRow[] = [
   { name: '跨书搜索', free: 'no', pro: 'yes', cap: 'crossSearch' },
   { name: 'AI 回答 / 摘要 / 解释 / 翻译', free: 'no', pro: 'yes', cap: 'ai' },
   { name: 'mobi / azw3 / fb2 / 漫画', free: 'no', pro: 'yes', cap: 'fullFormats' },
-  { name: '竖排与双栏排版', free: 'no', pro: 'yes', cap: 'vertical' },
+  { name: '竖排排版', free: 'no', pro: 'yes', cap: 'vertical' },
   { name: '朗读', free: 'no', pro: 'yes', cap: 'tts' },
   { name: '原文与译文并排', free: 'no', pro: 'yes', cap: 'parallel' },
   { name: '全书鸟瞰', free: 'no', pro: 'yes', cap: 'bookmap' },

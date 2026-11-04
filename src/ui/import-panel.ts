@@ -20,6 +20,7 @@ import type { BookFormat } from '../data/schema';
 import { BOOK_FORMATS_LABEL, formatOf, scanVault, titleFromPath } from '../data/book-repo';
 import type { BookRepo } from '../data/book-repo';
 import { importFolderOf, pickAndImport } from '../data/importer';
+import { fillBookMetas } from '../data/book-scan';
 import { shellSettings } from '../shell/source';
 import type { ReaderStore } from '../data/store';
 import { notify } from '../core/notice';
@@ -103,6 +104,22 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
 
   let keyword = '';
   let rows: Row[] = [];
+  /** 解析书目/写盘期间锁住入口：重复点会把同一本书 ensure 两遍、并发解 zip */
+  let busy = false;
+
+  /**
+   * 把选中的书登记进书架，并**当场**读一遍内嵌书目。
+   *
+   * 以前这里只 `repo.ensure()`：书名从文件名来、作者留空，书架显示「佚名」，
+   * 直到用户点开这本书、引擎解析完 OPF 才回填。导入完的第一眼就该是
+   * 真书名 + 真作者，所以这一个 await 不能省——`onExit` 必须排在它后面。
+   */
+  async function addToShelf(picked: Array<{ path: string; format: BookFormat; size: number }>): Promise<void> {
+    const books = picked.map((r) => repo.ensure(r.path, formatOf(r.path) ?? r.format, r.size).book);
+    await fillBookMetas(app, books);
+    store.touch();
+    await store.flush();
+  }
 
   function load(): void {
     const found = scanVault(app, formats);
@@ -186,31 +203,45 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
   confirmBtn.addEventListener('click', () => {
     /* 同理：加入的只能是用户眼前勾中的那些 */
     const picked = visible().filter((r) => r.checked && !r.inShelf);
-    if (!picked.length) return;
-    for (const r of picked) repo.ensure(r.path, formatOf(r.path) ?? r.format, r.size);
-    store.touch();
-    void store.flush();
-    notify(`已加入 ${picked.length} 本`, 'success');
-    onDone?.();
-    /* 加完就回书库：这一刻用户想看到的是新书出现在架子上，
-       留在一张「已全部加入」的空列表前面没有意义。 */
-    onExit?.();
+    if (!picked.length || busy) return;
+    busy = true;
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = '正在读取书目…';
+    void (async () => {
+      try {
+        await addToShelf(picked);
+        notify(`已加入 ${picked.length} 本`, 'success');
+        onDone?.();
+        /* 加完就回书库：这一刻用户想看到的是新书出现在架子上，
+           留在一张「已全部加入」的空列表前面没有意义。 */
+        onExit?.();
+      } catch (e) {
+        notify(`加入书架失败：${(e as Error)?.message || '未知错误'}`, 'error');
+      } finally {
+        busy = false;
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = '加入书架';
+        syncConfirm();
+      }
+    })();
   });
 
   grabBtn.addEventListener('click', () => {
-    if (grabBtn.disabled) return;
+    if (grabBtn.disabled || busy) return;
+    busy = true;
     grabBtn.disabled = true;
     grabBtn.textContent = '正在写入…';
     void (async () => {
       try {
         const written = await pickAndImport(app, formats, folder);
         if (written && written.length) {
-          for (const p of written) {
+          /* 写进库里的文件同样当场读书目：不然新导入的书在书架上还是佚名 */
+          grabBtn.textContent = '正在读取书目…';
+          const picked = written.flatMap((p) => {
             const fmt = formatOf(p);
-            if (fmt) repo.ensure(p, fmt, 0);
-          }
-          store.touch();
-          await store.flush();
+            return fmt ? [{ path: p, format: fmt, size: 0 }] : [];
+          });
+          await addToShelf(picked);
           notify(`已导入 ${written.length} 本到 ${folderText}`, 'success');
           onDone?.();
           load();
@@ -219,6 +250,7 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
       } catch (e) {
         notify(`导入失败：${(e as Error)?.message || '未知错误'}`, 'error');
       } finally {
+        busy = false;
         grabBtn.disabled = false;
         grabBtn.textContent = '选择本地文件…';
       }

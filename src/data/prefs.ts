@@ -193,11 +193,15 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
 }
 
 /**
- * 授权门控后的排版偏好：竖排 / 双栏是高级能力，没解锁就按横排单栏渲染。
+ * 授权门控后的排版偏好：竖排仍是高级能力，没解锁就按横排渲染。
+ *
+ * 双栏**不再参与门控**（2026-11-05 下放基础版）：分栏是版式的基础诉求，
+ * 单栏/双栏在手机上都能用，没必要锁。`vertical` 这个能力名留着不动——
+ * 改能力 id 会让已发出的激活码里那份 capability 清单对不上。
  *
  * 只改「实际生效的值」，不动用户存下来的偏好——到期降级后重新激活，
- * 原来的竖排 / 双栏会自动回来，不用再设一次。
+ * 原来的竖排会自动回来，不用再设一次。
  */
 export function gatedPrefs(p: ReaderPrefs, unlocked: boolean): ReaderPrefs {
-  return unlocked ? p : { ...p, layout: 'horizontal', columns: 1 };
+  return unlocked ? p : { ...p, layout: 'horizontal' };
 }

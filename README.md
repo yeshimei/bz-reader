@@ -32,6 +32,7 @@
 | | 基础版 | 高级版 |
 |---|:---:|:---:|
 | EPUB / TXT 阅读、翻页与排版 | ✓ | ✓ |
+| 单栏 / 双栏 | ✓ | ✓ |
 | 目录、书签、四色划线与想法 | ✓ | ✓ |
 | 书内搜索 | ✓ | ✓ |
 | 脚注浮窗预览 | ✓ | ✓ |
@@ -42,7 +43,7 @@
 | 跨书搜索 | — | ✓ |
 | AI 回答 / 摘要 / 解释 / 翻译 | — | ✓ |
 | mobi / azw3 / fb2 / 漫画 | — | ✓ |
-| 竖排与双栏排版 | — | ✓ |
+| 竖排排版 | — | ✓ |
 | 朗读 | — | ✓ |
 | 原文与译文并排 | — | ✓ |
 | 全书鸟瞰 | — | ✓ |
@@ -104,7 +105,7 @@ While the directory review is pending, install with [BRAT](https://github.com/Tf
 
 ### Paid features
 
-The base version is free. Pro features — structured Markdown export, highlight cards, reading stats, cross-book search, AI answers, mobi / azw3 / fb2 / comics, vertical and two-column layout, text-to-speech, parallel reading, and the book map — require a license key, purchased from the link in the 付费说明 section above. The key is verified locally and is not tied to a device count.
+The base version is free. Pro features — structured Markdown export, highlight cards, reading stats, cross-book search, AI answers, mobi / azw3 / fb2 / comics, vertical layout, text-to-speech, parallel reading, and the book map — require a license key, purchased from the link in the 付费说明 section above. The key is verified locally and is not tied to a device count.
 
 ### Network access
 

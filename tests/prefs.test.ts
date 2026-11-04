@@ -90,25 +90,26 @@ describe('正文口径', () => {
 });
 
 /**
- * 竖排 / 双栏是高级能力：到期（或从未解锁）后必须落回横排单栏。
+ * 竖排仍是高级能力：到期（或从未解锁）后必须落回横排。
+ * 双栏已下放基础版（2026-11-05），不再跟着门控。
  * 只门控「实际生效的排版」，不改用户存下来的偏好——续费/重新激活后原选择自动回来。
  */
 describe('gatedPrefs', () => {
-  const vertical = normalizePrefs({ layout: 'vertical', columns: 2 });
+  const fancy = normalizePrefs({ layout: 'vertical', columns: 2 });
 
-  it('未解锁：竖排落回横排，双栏落回单栏', () => {
-    const p = gatedPrefs(vertical, false);
+  it('未解锁：竖排落回横排；双栏保留（基础版也能双栏）', () => {
+    const p = gatedPrefs(fancy, false);
     expect(p.layout).toBe('horizontal');
-    expect(p.columns).toBe(1);
+    expect(p.columns).toBe(2);
   });
 
   it('已解锁：原样保留', () => {
-    expect(gatedPrefs(vertical, true)).toEqual(vertical);
+    expect(gatedPrefs(fancy, true)).toEqual(fancy);
   });
 
   it('不改传入对象（到期后用户存的选择还在）', () => {
-    const before = JSON.stringify(vertical);
-    gatedPrefs(vertical, false);
-    expect(JSON.stringify(vertical)).toBe(before);
+    const before = JSON.stringify(fancy);
+    gatedPrefs(fancy, false);
+    expect(JSON.stringify(fancy)).toBe(before);
   });
 });

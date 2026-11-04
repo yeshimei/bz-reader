@@ -24,6 +24,7 @@ import { isMobileEnv, isMobileShell } from './core/mobile';
 import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
 import { BookRepo, BASE_FORMATS, PRO_FORMATS, formatOf, planRelocations, scanVault } from './data/book-repo';
+import { fillBookMetas } from './data/book-scan';
 import { ReaderStore, verifyCopiedJson } from './data/store';
 import { backupFileName, buildBackup, mergeRestore, parseBackup } from './data/backup';
 import { pickJsonFile } from './core/file-pick';
@@ -983,9 +984,11 @@ export function createPlugin(cfg: PluginConfig) {
         this.repo.relocate(move.book, move.to);
       }
       const existing = new Set(files.map((f) => f.path));
+      const fresh: ReaderBook[] = [];
       for (const f of files) {
         const fmt = formatOf(f.path) as BookFormat;
-        this.repo.ensure(f.path, fmt, f.size);
+        const { book, created } = this.repo.ensure(f.path, fmt, f.size);
+        if (created) fresh.push(book);
       }
       this.repo.markMissing(existing);
       this.store.touch();
@@ -993,6 +996,16 @@ export function createPlugin(cfg: PluginConfig) {
          只靠启动那一次 hydrate 会让它到下次重启才显示星标。 */
       hydrateLibrary(this.repo.all(), this.store.get().goal);
       notifyShell();
+      /* 新登记的书（拖进库里的那种）当场读一遍内嵌书目：和导入页同一条路。
+         异步做，大书解 zip 不能挡住启动；写完再广播一次，书架自己换成真作者。 */
+      if (fresh.length) {
+        void fillBookMetas(this.app, fresh).then((n) => {
+          if (!n) return;
+          this.store.touch();
+          void this.store.flush().catch(() => undefined);
+          notifyShell();
+        });
+      }
     }
 
     private async autoOpenIfRequested(): Promise<void> {

@@ -1297,7 +1297,7 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
       src.setPrefs({ layout: v === 'vertical' ? 'vertical' : 'horizontal' });
       break;
     case 'columns':
-      if (v === '2' && !requireCap('vertical')) break;
+      // 分栏已下放基础版（2026-11-05）：单栏/双栏随便选，不再要激活码
       src.setPrefs({ columns: v === '2' ? 2 : 1 });
       break;
     case 'footnote':

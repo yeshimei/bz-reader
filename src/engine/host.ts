@@ -43,6 +43,7 @@ import { DEFAULT_PREFS, FONT_SIZE_RANGE, gatedPrefs, type ReaderPrefs } from '..
 import { can } from '../data/entitlement';
 import { isMobileEnv } from '../core/mobile';
 import { engineMetaFromBook, type EngineMeta } from '../data/book-meta';
+import { accumulateEdgeTurn, scrollEdgeOf } from './scroll-edge';
 
 /** 宿主坐标系里的矩形（左上角 + 宽高，单位 CSS px） */
 export interface Rect {
@@ -221,6 +222,16 @@ export class EngineHost {
   /** 滚轮累计位移与上次翻页时间（一次手势只翻一页） */
   private wheelAcc = 0;
   private lastTurnAt = 0;
+  /**
+   * 滚动模式下「贴边后继续滚」的累计位移。
+   *
+   * 分页模式的累计是 `wheelAcc`（够 42px 翻一页）；滚动模式下滚轮本身在滚，
+   * 只有**章节已经贴边**时才需要把同样的手势换算成翻章（见 scroll-edge.ts）。
+   */
+  private edgeAcc = 0;
+  private edgeSide: 'top' | 'bottom' | null = null;
+  /** 滚动模式触摸：上一次手指的 Y（算「贴边后继续上滑」的位移） */
+  private lastTouchY = 0;
   /** 拖拽翻页期间抑制紧随其后的 click */
   private suppressClickUntil = 0;
   /** 两指捏合起始距离与基准字号 */
@@ -590,6 +601,41 @@ export class EngineHost {
   }
 
   /**
+   * 滚动模式：章节已经贴边，还在继续往同一个方向滚 → 翻到相邻章。
+   *
+   * 返回 true 表示这次手势已经转成翻章。非滚动模式、固定版式
+   * （foliate-fxl 没有这些 getter）、位置读不到时都直接 false。
+   *
+   * 以前完全没有这条路：`#container` 滚到底就停住，用户只能去点目录。
+   * 判断与累计都交给 scroll-edge.ts，这里只负责读 paginator 的位置。
+   */
+  private scrollEdgeTurn(delta: number): boolean {
+    if (this.prefs.flow !== 'scroll' || !delta) return false;
+    const r = this.view?.renderer as unknown as
+      | { start?: number; end?: number; viewSize?: number }
+      | undefined;
+    if (!r) return false;
+    let start = 0;
+    let end = 0;
+    let viewSize = 0;
+    try {
+      /* 三个 getter 都读 #container / #view；换章的空窗里可能是空的 */
+      start = Number(r.start);
+      end = Number(r.end);
+      viewSize = Number(r.viewSize);
+    } catch {
+      return false;
+    }
+    const edge = scrollEdgeOf({ start, end, viewSize });
+    const res = accumulateEdgeTurn({ acc: this.edgeAcc, side: this.edgeSide }, delta, edge);
+    this.edgeAcc = res.state.acc;
+    this.edgeSide = res.state.side;
+    if (!res.turn) return false;
+    this.turn(res.turn);
+    return true;
+  }
+
+  /**
    * 滚轮翻页。`deltaMode` 1 = 行（Firefox 鼠标滚轮报的是行数，一格约 3），
    * 2 = 页。统一折算成像素再比阈值，否则 Firefox 上永远翻不动。
    */
@@ -611,8 +657,13 @@ export class EngineHost {
 
     /* 滚动模式（P2-02）：滚轮交给浏览器自己滚，不拦、不翻页。
        这是桌面阅读的第一诉求——想往上回看两行，分页模式只能整页翻回去。
-       Ctrl/⌘ + 滚轮仍然改字号（那是最顺手的缩放，两种模式都该有）。 */
-    if (this.prefs.flow === 'scroll' && !ev.ctrlKey && !ev.metaKey) return;
+       Ctrl/⌘ + 滚轮仍然改字号（那是最顺手的缩放，两种模式都该有）。
+
+       只有「已经滚到章末/章首还继续滚」才接管，换来「一章滚完自动下一章」。 */
+    if (this.prefs.flow === 'scroll' && !ev.ctrlKey && !ev.metaKey) {
+      this.scrollEdgeTurn(main);
+      return;
+    }
 
     ev.preventDefault();
     this.wheelAcc += main;
@@ -788,6 +839,7 @@ export class EngineHost {
     const onTouchStart = (ev: TouchEvent): void => {
       if (ev.touches.length === 1) {
         const t = ev.touches[0];
+        this.lastTouchY = t?.clientY ?? 0;
         touchTap = { x: t.clientX, y: t.clientY, at: Date.now(), moved: 0, fingers: 1 };
       } else if (touchTap) {
         touchTap.fingers = ev.touches.length;
@@ -804,6 +856,17 @@ export class EngineHost {
       }
     };
     const onTouchMove = (ev: TouchEvent): void => {
+      /* 滚动模式下的「滚到章末继续上滑 → 下一章」。
+         手指上滑 = 内容往下走，位移取正；到边缘后继续滑才累计。
+         不 preventDefault：原生滚动照旧，只在够阈值时切章。 */
+      if (this.prefs.flow === 'scroll' && ev.touches.length === 1) {
+        const t = ev.touches[0];
+        if (t) {
+          const dy = this.lastTouchY - t.clientY;
+          this.lastTouchY = t.clientY;
+          if (Math.abs(dy) >= 1) this.scrollEdgeTurn(dy);
+        }
+      }
       if (touchTap) {
         if (ev.touches.length > 1) touchTap.fingers = ev.touches.length;
         const t = ev.touches[0];
@@ -1098,16 +1161,25 @@ export class EngineHost {
   applyPrefs(prefs: ReaderPrefs): void {
     const prev = this.prefs;
     this.prefs = prefs;
-    // 竖排 / 双栏是高级能力：到期或未解锁时按横排单栏渲染，
-    // 用户存的选择留在 prefs 里，重新激活后自动恢复。
+    // 竖排仍是高级能力：到期或未解锁时按横排渲染，用户存的选择留在
+    // prefs 里，重新激活后自动恢复。双栏已下放基础版，不参与门控。
     const verticalOk = can('vertical');
     const eff = gatedPrefs(prefs, verticalOk);
     const prevEff = gatedPrefs(prev, verticalOk);
     this.refreshTheme();
-    // 栏数走 CSS 变量进 shadow 的 #top（vendor 补丁把它接成了 var(--_column-count, 2)）；
-    // 挂在 paginator 元素上，自定义属性会继承进 shadow 树
     const pag = this.view?.renderer as unknown as (HTMLElement & { render?: () => void }) | undefined;
-    pag?.setCssProps?.({ '--_column-count': String(eff.columns) });
+    /* 栏数走两条路，缺一不可：
+       ① `max-column-count` 属性——paginator 的 attributeChangedCallback 会把它
+          写成 shadow 内 `#top` 的**内联** `--_max-column-count` 并自己重排。
+          这是唯一不依赖「自定义属性从宿主继承进 shadow」的通道。
+       ② `--_column-count` —— 补丁把 `#top` 的 `--_max-column-count` 接成了
+          `var(--_column-count, 2)`；旧版自定义元素（插件重载后页面上还留着
+          上一份定义）认这条。缺了它，默认值 2 会让单栏永远显示成双栏。 */
+    if (pag) {
+      const cols = String(eff.columns);
+      pag.setCssProps?.({ '--_column-count': cols });
+      if (pag.getAttribute?.('max-column-count') !== cols) pag.setAttribute?.('max-column-count', cols);
+    }
     // 分页模式下 foliate 用内联 !important 把 documentElement 的 padding 覆成
     // 「左右列距、上下 0」（columnize()），注入的 body padding 只对章首页生效——
     // 章中页顶端只剩 shadow 的 48px 边距行。vendor 补丁把上下 padding 接成
@@ -1120,6 +1192,12 @@ export class EngineHost {
        属性变化会走 attributeChangedCallback → render()，不需要重开书。 */
     const flow = prefs.flow === 'scroll' ? 'scrolled' : 'paginated';
     if (pag && pag.getAttribute?.('flow') !== flow) pag.setAttribute?.('flow', flow);
+    /* 换模式时清掉贴边累计：上一个模式留下的 40px 不该算进下一次滚轮 */
+    if (prev?.flow !== prefs.flow) {
+      this.edgeAcc = 0;
+      this.edgeSide = null;
+      this.wheelAcc = 0;
+    }
     if (!this.view || !prev) return;
     if (prevEff.layout !== eff.layout) {
       // 竖排切换必须重新装载章节：引擎只在 load 时读一次 writing-mode，
@@ -1529,6 +1607,8 @@ export class EngineHost {
        view 已经置空之后继续操作一个被 remove 掉的容器。 */
     await this.navChain.catch(() => undefined);
     this.wheelAcc = 0;
+    this.edgeAcc = 0;
+    this.edgeSide = null;
     this.pinchStart = 0;
     if (this.pinchTimer !== null) {
       window.clearTimeout(this.pinchTimer);
