@@ -187,6 +187,17 @@ const SWIPE_MIN = 48;
  * 再找不到就明确告诉用户没找到，比冻住界面好。
  */
 const MAX_FOOTNOTE_SCAN = 8;
+/**
+ * 落点高亮（从笔记 / 双链 / 划线列表跳回原文时，目标位置闪一下）。
+ *
+ * key 是独立的一串，不跟划线的 CFI 抢：覆盖层按 key 存，用同一个 key 画框
+ * 会把原来那条划线的填充顶掉——用户看到的是「划线不见了」，不是「就是这里」。
+ */
+const PULSE_KEY = '__bzr-pulse__';
+/** 闪多久。太短看不见，太长挡住阅读 */
+const PULSE_MS = 2600;
+/** 框的颜色。紫色在四色划线（琥珀 / 朱红 / 松绿 / 黛蓝）里没有，不会认混 */
+const PULSE_COLOR = '#7c3aed';
 /** 建立渲染器的耐心（毫秒）。这一步只解包/建视图，不画正文，通常几十毫秒 */
 const OPEN_TIMEOUT = 15000;
 /**
@@ -300,6 +311,8 @@ export class EngineHost {
   /** 待画标注 + CFI → 颜色索引（draw-annotation 回调只能拿到 value） */
   private annots: HostAnnotation[] = [];
   private annotColors = new Map<string, string>();
+  /** 落点高亮的撤下计时器（见 pulseAt） */
+  private pulseTimer: number | null = null;
   /** 选区检查的防抖句柄与「上一次已报告过哪一段」 */
   private selTimer: number | null = null;
   private lastSelKey = '';
@@ -1087,6 +1100,53 @@ export class EngineHost {
   }
 
   /* ─────────────────── 标注 ─────────────────── */
+
+  /**
+   * 把落点闪一下。
+   *
+   * 跳转本身是无声的：用户只知道「翻到别处了」，不知道落到哪一句。这里在
+   * 目标范围外面画一个框，几秒后自己撤掉。
+   *
+   * 用独立 key 直接写覆盖层，不走 `addAnnotation`：那条路的 key 是 CFI，
+   * 和划线同 key 时会把划线的填充顶掉——原划线闪完就没了。
+   */
+  async pulseAt(cfi: string): Promise<void> {
+    const view = this.view;
+    if (!view || !cfi) return;
+    this.clearPulse();
+    try {
+      const resolved = (await view.resolveNavigation(cfi)) as
+        | { index?: number; anchor?: (doc: Document) => Range | null }
+        | null
+        | undefined;
+      if (!resolved || typeof resolved.index !== 'number' || !resolved.anchor) return;
+      const content = view.renderer.getContents().find((c) => c.index === resolved.index && c.overlayer);
+      if (!content?.overlayer) return;
+      const range = resolved.anchor(content.doc);
+      if (!range) return;
+      content.overlayer.add(PULSE_KEY, range, Overlayer.outline, { color: PULSE_COLOR, width: 2 });
+      this.pulseTimer = window.setTimeout(() => this.clearPulse(), PULSE_MS);
+    } catch {
+      /* CFI 坏了 / 章节还没挂好：不闪就是了，别为了一个提示打断阅读 */
+    }
+  }
+
+  /** 撤掉落点框。定时器到点、或下一次跳转前都会调 */
+  clearPulse(): void {
+    if (this.pulseTimer !== null) {
+      window.clearTimeout(this.pulseTimer);
+      this.pulseTimer = null;
+    }
+    const view = this.view;
+    if (!view) return;
+    for (const content of view.renderer.getContents()) {
+      try {
+        content.overlayer?.remove(PULSE_KEY);
+      } catch {
+        /* 章节已经卸载，覆盖层跟着没了 */
+      }
+    }
+  }
 
   /** 全量替换待画标注（打开书、增删改之后调）。当前章节的立刻重画 */
   setAnnotations(list: HostAnnotation[]): void {

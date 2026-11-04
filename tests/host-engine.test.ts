@@ -342,6 +342,82 @@ describe('host · 上下边距（每页留白）', () => {
   });
 });
 
+describe('host · 落点高亮（从笔记 / 双链跳回原文）', () => {
+  /** 覆盖层的 add/remove 是可观测的：跳过去之后用户看到的就是这一层 */
+  function wirePulse(index = 3): {
+    host: InstanceType<EngineHostCtor>;
+    add: ReturnType<typeof vi.fn>;
+    remove: ReturnType<typeof vi.fn>;
+    view: Record<string, unknown>;
+  } {
+    const host = newHost();
+    const add = vi.fn();
+    const remove = vi.fn();
+    const overlayer = { add, remove, hitTest: () => [undefined, undefined], redraw: () => undefined };
+    const view = {
+      resolveNavigation: vi.fn(async () => ({ index, anchor: () => ({}) })),
+      renderer: { getContents: () => [{ index, doc: {}, overlayer }] },
+    };
+    Object.assign(host as unknown as Record<string, unknown>, { view });
+    return { host, add, remove, view };
+  }
+
+  const call = (host: InstanceType<EngineHostCtor>, name: string, arg?: unknown): Promise<void> =>
+    (host as unknown as Record<string, (a?: unknown) => Promise<void>>)[name](arg);
+
+  it('在目标章节的覆盖层上加一个框，key 固定（不和划线的 CFI 抢 key）', async () => {
+    const { host, add } = wirePulse();
+    await call(host, 'pulseAt', 'epubcfi(/6/6)');
+    expect(add).toHaveBeenCalledTimes(1);
+    expect(add.mock.calls[0]?.[0]).toBe('__bzr-pulse__');
+  });
+
+  it('清掉时把框移除，原划线不受影响', async () => {
+    const { host, add, remove } = wirePulse();
+    await call(host, 'pulseAt', 'epubcfi(/6/6)');
+    await call(host, 'clearPulse');
+    expect(remove).toHaveBeenCalledWith('__bzr-pulse__');
+    /* 全程没有碰 addAnnotation 那条路：划线的颜色不会因为跳转被改掉 */
+    expect(add).toHaveBeenCalledTimes(1);
+  });
+
+  it('连续跳两次：先清上一个框，不会叠成两层', async () => {
+    const { host, add, remove } = wirePulse();
+    await call(host, 'pulseAt', 'epubcfi(/6/6)');
+    await call(host, 'pulseAt', 'epubcfi(/6/8)');
+    expect(remove).toHaveBeenCalled();
+    expect(add).toHaveBeenCalledTimes(2);
+  });
+
+  it('CFI 解析不出来时安静收场，不打断阅读', async () => {
+    const host = newHost();
+    const view = {
+      resolveNavigation: vi.fn(async () => {
+        throw new Error('bad cfi');
+      }),
+      renderer: { getContents: () => [] },
+    };
+    Object.assign(host as unknown as Record<string, unknown>, { view });
+    await expect(call(host, 'pulseAt', 'nope')).resolves.toBeUndefined();
+  });
+
+  it('章节还没挂上覆盖层时安静返回', async () => {
+    const host = newHost();
+    const view = {
+      resolveNavigation: async () => ({ index: 3, anchor: () => ({}) }),
+      /* 只有 doc，没有 overlayer */
+      renderer: { getContents: () => [{ index: 3, doc: {} }] },
+    };
+    Object.assign(host as unknown as Record<string, unknown>, { view });
+    await expect(call(host, 'pulseAt', 'epubcfi(/6/6)')).resolves.toBeUndefined();
+  });
+
+  it('没有 view（书没开）时什么也不做', async () => {
+    const host = newHost();
+    await expect(call(host, 'pulseAt', 'epubcfi(/6/6)')).resolves.toBeUndefined();
+  });
+});
+
 describe('host · 关书兜底（A-08）', () => {
   it('view.close() 抛错后仍然断链：sections 清空、兜底 destroy、控件移除', async () => {
     const host = newHost();

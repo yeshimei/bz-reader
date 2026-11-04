@@ -95,6 +95,17 @@ export interface FoliateContent {
     /** 命中测试：给 iframe 视口坐标，返回落在哪条标注上 */
     hitTest: (point: { x: number; y: number }) => [string | undefined, Range | undefined];
     redraw: () => void;
+    /**
+     * 往覆盖层加一个图形。`key` 自己起，同一个 key 会先删后加——
+     * 所以落点高亮可以用独立 key，不跟划线的 CFI 抢。
+     */
+    add: (
+      key: string,
+      range: Range,
+      draw: OverlayerDrawer,
+      options?: { color?: string; padding?: number; width?: number; writingMode?: string },
+    ) => void;
+    remove: (key: string) => void;
   };
 }
 

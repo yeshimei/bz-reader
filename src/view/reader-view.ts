@@ -245,7 +245,10 @@ export class ReaderView extends ItemView {
        也返回 'ok'——于是「点了书签什么都没发生，还当成功返回」。
        没挂好就把 CFI 记下来，mount 完由 start() 用 pendingCfi 定位。 */
     if (this.mounted) {
-      void this.host.goToCfi(cfi);
+      /* 导航完成后再闪：pulseAt 要拿目标章节的覆盖层，章节还没挂好就闪不出来 */
+      void this.host.goToCfi(cfi).then((ok) => {
+        if (ok) void this.host.pulseAt(cfi);
+      });
       this.tracker.touch();
       return;
     }
@@ -274,6 +277,8 @@ export class ReaderView extends ItemView {
       const ok = await this.host.goToCfi(t.cfi);
       if (ok) {
         this.tracker.touch();
+        /* 跳转是无声的：闪一下，用户才知道落到哪一句 */
+        void this.host.pulseAt(t.cfi);
         return true;
       }
     }
@@ -286,6 +291,7 @@ export class ReaderView extends ItemView {
           const ok = await this.host.goToCfi(cfi);
           if (ok) {
             this.tracker.touch();
+            void this.host.pulseAt(cfi);
             return true;
           }
         }
@@ -1438,11 +1444,14 @@ export class ReaderView extends ItemView {
           }),
         );
       }
+      const pending = this.pendingCfi;
       await this.host.start(
-        this.pendingCfi || book.reading.position.cfi,
-        this.pendingCfi ? 0 : book.reading.position.percent || 0,
+        pending || book.reading.position.cfi,
+        pending ? 0 : book.reading.position.percent || 0,
       );
       this.pendingCfi = '';
+      /* 书本来没开着、从划线 / 书签点过来的：落点同样要闪一下 */
+      if (pending) void this.host.pulseAt(pending);
       /* 重试挂载时上一段会话还没结算：begin() 会把它收掉并返回，
          这里必须写回书里，否则统计里凭空少一段（P3-22）。 */
       const carried = this.tracker.begin(book.reading.position.percent);
