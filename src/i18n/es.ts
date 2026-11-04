@@ -162,6 +162,49 @@ export const ES: Record<MsgKey, string> = {
   'tier.until': 'válido hasta {date}',
   'tier.forever': 'permanente',
 
+  /* ── Panel lateral del lector ───────────────────────────── */
+  'side.tab.toc': 'Índice',
+  'side.tab.bookmarks': 'Marcadores',
+  'side.tab.highlights': 'Subrayados',
+  'side.expand': 'Expandir',
+  'side.collapse': 'Contraer',
+  'side.toc.count': '{n} secciones',
+  'side.bookmarks.empty': 'Aún no hay marcadores.',
+  'side.bookmarks.emptyHint': 'Donde te detengas, pulsa «Marcador» en la barra de lectura.',
+  'side.bookmarks.order': 'En orden del libro',
+  'side.delete': 'Eliminar',
+  'side.highlights.empty': 'Aún no hay subrayados.',
+  'side.highlights.emptyHint':
+    'Selecciona texto en el libro y elige un lápiz entre los colores que aparecen.',
+  'side.ideaTag': 'Nota',
+  'side.ai.hint':
+    'Selecciona un pasaje y pulsa el botón de IA de la barra de selección, o pregunta directamente sobre este libro. Las respuestas solo usan lo que has leído hasta aquí.',
+  'side.ai.notReady':
+    'No hay ningún servicio de IA configurado. Rellena proveedor, modelo y clave en Estantería · Ajustes y este panel cobrará vida.',
+  'side.ai.me': 'Yo',
+  'side.ai.ask.ph': 'Pregunta sobre este libro…',
+  'side.ai.notReady.ph': 'IA no configurada',
+  'side.ai.ask': 'Preguntar',
+  'side.ai.scope': 'Solo hasta tu posición · {provider}',
+  'side.ai.configHint': 'Configúralo en Estantería · Ajustes',
+  'side.untitled': 'Sin título',
+  'side.noBook': 'Ningún libro abierto',
+  'side.empty': 'Este panel sigue tu lectura.',
+  'side.emptyHint':
+    'Abre un libro desde la estantería y su índice, marcadores y subrayados aparecerán aquí.',
+  'side.toc.notReady': 'El índice aún no está listo.',
+  'side.toc.openCurrent': 'Abrir este libro',
+
+  /* ── Barra de selección ─────────────────────────────────── */
+  'tool.idea': 'Nota',
+  'tool.quote': 'Cita',
+  'tool.ai': 'IA',
+  'tool.bilink': 'Enlace',
+  'tool.copy': 'Copiar',
+  'tool.del': 'Eliminar',
+  'tool.more': 'Más',
+  'tool.aria': 'Herramientas de selección',
+
   /* ── Marco de la estantería ─────────────────────────────── */
   'shelf.tab.library': 'Biblioteca',
   'shelf.tab.notes': 'Notas',

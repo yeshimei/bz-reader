@@ -163,6 +163,49 @@ export const PT: Record<MsgKey, string> = {
   'tier.until': 'válido até {date}',
   'tier.forever': 'permanente',
 
+  /* ── Painel lateral do leitor ───────────────────────────── */
+  'side.tab.toc': 'Sumário',
+  'side.tab.bookmarks': 'Marcadores',
+  'side.tab.highlights': 'Destaques',
+  'side.expand': 'Expandir',
+  'side.collapse': 'Recolher',
+  'side.toc.count': '{n} seções',
+  'side.bookmarks.empty': 'Ainda sem marcadores.',
+  'side.bookmarks.emptyHint': 'Onde você parar, clique em «Marcador» na barra de leitura.',
+  'side.bookmarks.order': 'Na ordem do livro',
+  'side.delete': 'Excluir',
+  'side.highlights.empty': 'Ainda sem destaques.',
+  'side.highlights.emptyHint':
+    'Selecione um texto no livro e escolha uma caneta entre as cores que aparecem.',
+  'side.ideaTag': 'Nota',
+  'side.ai.hint':
+    'Selecione um trecho e toque no botão de IA da barra de seleção, ou pergunte diretamente sobre este livro. As respostas só usam o que você leu até aqui.',
+  'side.ai.notReady':
+    'Nenhum serviço de IA está configurado. Preencha provedor, modelo e chave em Estante · Configurações e este painel ganha vida.',
+  'side.ai.me': 'Eu',
+  'side.ai.ask.ph': 'Pergunte sobre este livro…',
+  'side.ai.notReady.ph': 'IA não configurada',
+  'side.ai.ask': 'Perguntar',
+  'side.ai.scope': 'Só até a sua posição · {provider}',
+  'side.ai.configHint': 'Configure em Estante · Configurações',
+  'side.untitled': 'Sem título',
+  'side.noBook': 'Nenhum livro aberto',
+  'side.empty': 'Este painel acompanha a leitura.',
+  'side.emptyHint':
+    'Abra um livro na estante e o sumário, os marcadores e os destaques aparecerão aqui.',
+  'side.toc.notReady': 'O sumário ainda não está pronto.',
+  'side.toc.openCurrent': 'Abrir este livro',
+
+  /* ── Barra de seleção ───────────────────────────────────── */
+  'tool.idea': 'Nota',
+  'tool.quote': 'Citação',
+  'tool.ai': 'IA',
+  'tool.bilink': 'Link',
+  'tool.copy': 'Copiar',
+  'tool.del': 'Excluir',
+  'tool.more': 'Mais',
+  'tool.aria': 'Ferramentas de seleção',
+
   /* ── Moldura da estante ─────────────────────────────────── */
   'shelf.tab.library': 'Biblioteca',
   'shelf.tab.notes': 'Notas',

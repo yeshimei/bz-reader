@@ -163,6 +163,49 @@ export const FR: Record<MsgKey, string> = {
   'tier.until': 'valable jusqu’au {date}',
   'tier.forever': 'à vie',
 
+  /* ── Panneau latéral du lecteur ─────────────────────────── */
+  'side.tab.toc': 'Sommaire',
+  'side.tab.bookmarks': 'Signets',
+  'side.tab.highlights': 'Surlignages',
+  'side.expand': 'Déplier',
+  'side.collapse': 'Replier',
+  'side.toc.count': '{n} sections',
+  'side.bookmarks.empty': 'Aucun signet pour l’instant.',
+  'side.bookmarks.emptyHint': 'Là où vous vous arrêtez, cliquez sur « Signet » dans la barre de lecture.',
+  'side.bookmarks.order': 'Dans l’ordre du livre',
+  'side.delete': 'Supprimer',
+  'side.highlights.empty': 'Aucun surlignage pour l’instant.',
+  'side.highlights.emptyHint':
+    'Sélectionnez du texte dans le livre, puis choisissez un stylo parmi les couleurs affichées.',
+  'side.ideaTag': 'Note',
+  'side.ai.hint':
+    'Sélectionnez un passage et touchez le bouton IA de la barre de sélection, ou posez directement une question sur ce livre. Les réponses ne s’appuient que sur ce que vous avez lu jusque-là.',
+  'side.ai.notReady':
+    'Aucun service d’IA n’est configuré. Renseignez fournisseur, modèle et clé sous Bibliothèque · Réglages et ce panneau s’animera.',
+  'side.ai.me': 'Moi',
+  'side.ai.ask.ph': 'Poser une question sur ce livre…',
+  'side.ai.notReady.ph': 'IA non configurée',
+  'side.ai.ask': 'Demander',
+  'side.ai.scope': 'Seulement jusqu’à votre position · {provider}',
+  'side.ai.configHint': 'À configurer sous Bibliothèque · Réglages',
+  'side.untitled': 'Sans titre',
+  'side.noBook': 'Aucun livre ouvert',
+  'side.empty': 'Ce panneau suit votre lecture.',
+  'side.emptyHint':
+    'Ouvrez un livre depuis la bibliothèque : sommaire, signets et surlignages apparaîtront ici.',
+  'side.toc.notReady': 'Le sommaire n’est pas encore prêt.',
+  'side.toc.openCurrent': 'Ouvrir ce livre',
+
+  /* ── Barre d’outils de sélection ────────────────────────── */
+  'tool.idea': 'Note',
+  'tool.quote': 'Citation',
+  'tool.ai': 'IA',
+  'tool.bilink': 'Lien',
+  'tool.copy': 'Copier',
+  'tool.del': 'Supprimer',
+  'tool.more': 'Plus',
+  'tool.aria': 'Outils de sélection',
+
   /* ── Cadre de la bibliothèque ───────────────────────────── */
   'shelf.tab.library': 'Bibliothèque',
   'shelf.tab.notes': 'Notes',

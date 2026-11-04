@@ -12,6 +12,7 @@ import {
   toolbarLayout,
 } from '../src/shell/text-toolbar';
 import { installDomStub } from './helpers/dom-stub';
+import { t } from '../src/i18n';
 
 /**
  * 划词工具条（S11 定稿）：**划词与点划线是同一枚**。
@@ -28,26 +29,26 @@ const menuLabels = (html: string): string[] =>
 describe('toolbarLayout · 两种排布', () => {
   it('桌面：五颗全摊开，没有 ⋯', () => {
     const l = toolbarLayout({ marked: false });
-    expect(l.visible.map((i) => i.label)).toEqual(['想法', '书摘', 'AI', '双链', '复制']);
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI', '双链', '复制']);
     expect(l.overflow).toEqual([]);
   });
 
   it('桌面 + 已有划线：删除排在最后', () => {
     const l = toolbarLayout({ marked: true });
-    expect(l.visible.map((i) => i.label)).toEqual(['想法', '书摘', 'AI', '双链', '复制', '删除']);
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI', '双链', '复制', '删除']);
     expect(l.visible.at(-1)).toBe(DELETE_ITEM);
   });
 
   it('手机：主路径三颗，其余收进 ⋯', () => {
     const l = toolbarLayout({ marked: false, compact: true });
-    expect(l.visible.map((i) => i.label)).toEqual(['想法', '书摘', 'AI']);
-    expect(l.overflow.map((i) => i.label)).toEqual(['双链', '复制']);
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI']);
+    expect(l.overflow.map((i) => t(i.key))).toEqual(['双链', '复制']);
   });
 
   it('手机 + 已有划线：删除也收进 ⋯，不占主路径', () => {
     const l = toolbarLayout({ marked: true, compact: true });
-    expect(l.visible.map((i) => i.label)).toEqual(['想法', '书摘', 'AI']);
-    expect(l.overflow.map((i) => i.label)).toEqual(['双链', '复制', '删除']);
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI']);
+    expect(l.overflow.map((i) => t(i.key))).toEqual(['双链', '复制', '删除']);
   });
 
   it('手机没有划线：⋯ 里没有删除', () => {

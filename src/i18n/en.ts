@@ -168,6 +168,47 @@ export const EN: Record<MsgKey, string> = {
   'tier.until': 'valid until {date}',
   'tier.forever': 'perpetual',
 
+  /* ── Reader sidebar ─────────────────────────────────────── */
+  'side.tab.toc': 'Contents',
+  'side.tab.bookmarks': 'Bookmarks',
+  'side.tab.highlights': 'Highlights',
+  'side.expand': 'Expand',
+  'side.collapse': 'Collapse',
+  'side.toc.count': '{n} sections',
+  'side.bookmarks.empty': 'No bookmarks yet.',
+  'side.bookmarks.emptyHint': 'Wherever you stop, click “Bookmark” on the reader bar to drop one.',
+  'side.bookmarks.order': 'In book order',
+  'side.delete': 'Delete',
+  'side.highlights.empty': 'No highlights yet.',
+  'side.highlights.emptyHint': 'Select some text in the book, then pick a pen from the colours that pop up.',
+  'side.ideaTag': 'Note',
+  'side.ai.hint':
+    'Select a passage and tap the AI button in the selection toolbar, or just ask a question about this book. Answers only draw on what you have read so far.',
+  'side.ai.notReady':
+    'No AI service is configured. Fill in provider, model and key under Shelf · Settings and this pane comes alive.',
+  'side.ai.me': 'Me',
+  'side.ai.ask.ph': 'Ask about this book…',
+  'side.ai.notReady.ph': 'AI not configured',
+  'side.ai.ask': 'Ask',
+  'side.ai.scope': 'Only up to your position · {provider}',
+  'side.ai.configHint': 'Configure under Shelf · Settings',
+  'side.untitled': 'Untitled',
+  'side.noBook': 'No book open',
+  'side.empty': 'This pane follows your reading.',
+  'side.emptyHint': 'Open a book from the shelf and its contents, bookmarks and highlights appear here.',
+  'side.toc.notReady': 'The contents are not ready yet.',
+  'side.toc.openCurrent': 'Open this book',
+
+  /* ── Selection toolbar ──────────────────────────────────── */
+  'tool.idea': 'Note',
+  'tool.quote': 'Quote',
+  'tool.ai': 'AI',
+  'tool.bilink': 'Link',
+  'tool.copy': 'Copy',
+  'tool.del': 'Delete',
+  'tool.more': 'More',
+  'tool.aria': 'Selection tools',
+
   /* ── Shelf shell ────────────────────────────────────────── */
   'shelf.tab.library': 'Library',
   'shelf.tab.notes': 'Notes',

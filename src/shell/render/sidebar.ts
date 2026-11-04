@@ -8,6 +8,7 @@
  * 目录来自 toc-state 的快照（阅读视图是唯一写入方），
  * 书关闭后快照为空——这时给空态，不假装有目录。
  * ============================================================ */
+import { t, type MsgKey } from '../../i18n';
 import type { ReaderBook } from '../../data/schema';
 import type { FoliateTOCItem } from '../../types/foliate';
 import type { BmkRow, MarkRow } from '../domain';
@@ -43,11 +44,11 @@ export interface SidebarView {
  *
  * 入口平权：AI 页签始终存在，基础版点它由 actions 弹高级版对照页。
  */
-export const SIDE_TABS: Array<{ value: SideTab; label: string; icon: string }> = [
-  { value: 'toc', label: '目录', icon: 'book-open' },
-  { value: 'bookmarks', label: '书签', icon: 'bookmark' },
-  { value: 'highlights', label: '划线', icon: 'highlighter' },
-  { value: 'ai', label: 'AI', icon: 'sparkles' },
+export const SIDE_TABS: Array<{ value: SideTab; key: MsgKey; icon: string }> = [
+  { value: 'toc', key: 'side.tab.toc', icon: 'book-open' },
+  { value: 'bookmarks', key: 'side.tab.bookmarks', icon: 'bookmark' },
+  { value: 'highlights', key: 'side.tab.highlights', icon: 'highlighter' },
+  { value: 'ai', key: 'tool.ai', icon: 'sparkles' },
 ];
 
 /** 没有折叠状态时的空集：省掉每次渲染都新建一个 Set */
@@ -105,7 +106,7 @@ function tocBody(toc: FoliateTOCItem[], active: TocActiveRef, collapsed: Readonl
          高亮比对用原始 label，显示用剥过序号的。 */
       const tw = kids
         ? `<span class="tw" data-act="toctoggle" data-href="${esc(it.href)}" title="${
-            isCollapsed ? '展开' : '折叠'
+            isCollapsed ? t('side.expand') : t('side.collapse')
           }">${ico('chevron')}</span>`
         : foldable
           ? `<span class="tw is-empty"></span>`
@@ -121,19 +122,21 @@ function tocBody(toc: FoliateTOCItem[], active: TocActiveRef, collapsed: Readonl
   };
   walk(toc, 0);
 
-  return `<div class="bzs-sbsec">共 ${total} 节</div>${rows.join('')}`;
+  return `<div class="bzs-sbsec">${t('side.toc.count', { n: total })}</div>${rows.join('')}`;
 }
 
 function bookmarksBody(rows: BmkRow[]): string {
-  if (!rows.length) return `<div class="bzs-empty">还没有书签。<br>读到的地方，点阅读栏「签」记一枚。</div>`;
+  if (!rows.length) {
+    return `<div class="bzs-empty">${t('side.bookmarks.empty')}<br>${t('side.bookmarks.emptyHint')}</div>`;
+  }
   /* 两行：第一行书名 + 百分比 + 删除，第二行目录名。
      以前三个都在一行，侧栏 300px 里谁都被截；目录名本来就是「在哪」，
      和「叫什么、读到哪」不是一回事，分开放反而都读得全。 */
-  return `<div class="bzs-sbsec">按书中先后</div><div class="bzs-timeline">${rows
+  return `<div class="bzs-sbsec">${t('side.bookmarks.order')}</div><div class="bzs-timeline">${rows
     .map(
       (k) => `<div class="bzs-mkrow" data-act="jumpbmk" data-id="${k.id}" role="button" tabindex="0">
         <div class="hd"><span class="tt">${esc(k.label)}</span><span class="pc">${k.percent}%</span>
-        <button class="x" data-act="delbmk" data-id="${k.id}" title="删除">${ico('x')}</button></div>
+        <button class="x" data-act="delbmk" data-id="${k.id}" title="${t('side.delete')}">${ico('x')}</button></div>
         <em>${esc(k.chapterTitle)}</em>
       </div>`,
     )
@@ -141,7 +144,9 @@ function bookmarksBody(rows: BmkRow[]): string {
 }
 
 function highlightsBody(rows: MarkRow[]): string {
-  if (!rows.length) return `<div class="bzs-empty">还没有划线。<br>在正文里选中一段文字，浮出的色点里挑一支笔。</div>`;
+  if (!rows.length) {
+    return `<div class="bzs-empty">${t('side.highlights.empty')}<br>${t('side.highlights.emptyHint')}</div>`;
+  }
   return groupByChapter(rows)
     .map(
       (g) => `<div class="bzs-hlgroup">
@@ -150,8 +155,8 @@ function highlightsBody(rows: MarkRow[]): string {
           .map(
             (m) => `<div class="bzs-hlit" style="--c:${m.css}" data-act="hljump" data-id="${m.id}" role="button" tabindex="0">
               <span class="tx"><i class="dot" style="background:${m.css}"></i>${esc(m.text)}</span>
-              ${m.comment ? `<span class="cm"><b>想 法</b>${esc(m.comment)}</span>` : ''}
-              <button class="x" data-act="delmark" data-id="${m.id}" title="删除">${ico('x')}</button>
+              ${m.comment ? `<span class="cm"><b>${t('side.ideaTag')}</b>${esc(m.comment)}</span>` : ''}
+              <button class="x" data-act="delmark" data-id="${m.id}" title="${t('side.delete')}">${ico('x')}</button>
             </div>`,
           )
           .join('')}
@@ -167,26 +172,29 @@ function aiBody(v: SidebarView): string {
         {
           me: false,
           tag: 'AI',
-          text: v.aiReady
-            ? '选中一段文字，点划词浮层里的「AI 解释」；或直接在这本书里问一个问题。回答只引用你当前位置之前的内容。'
-            : '还没有配置 AI 服务。到书架 · 设置里填好服务商、模型与密钥，这里就能用了。',
+          text: v.aiReady ? t('side.ai.hint') : t('side.ai.notReady'),
         },
       ];
   return `<div class="bzs-aichat">
       ${log
-        .map((m) => `<div class="bzs-aibubble${m.me ? ' me' : ''}"><span class="tag">${m.me ? '我' : esc(m.tag)}</span>${esc(m.text)}</div>`)
+        .map(
+          (m) =>
+            `<div class="bzs-aibubble${m.me ? ' me' : ''}"><span class="tag">${m.me ? t('side.ai.me') : esc(m.tag)}</span>${esc(m.text)}</div>`,
+        )
         .join('')}
       <div class="bzs-aiask">
-        <input data-role="aiask" placeholder="${v.aiReady ? '问这本书…' : 'AI 未配置'}"${v.aiReady ? '' : ' disabled'}>
-        <button class="bzs-btn sm pri" data-act="aiask">问</button>
+        <input data-role="aiask" placeholder="${v.aiReady ? t('side.ai.ask.ph') : t('side.ai.notReady.ph')}"${v.aiReady ? '' : ' disabled'}>
+        <button class="bzs-btn sm pri" data-act="aiask">${t('side.ai.ask')}</button>
       </div>
-      <div class="bzs-mini" style="padding:6px 2px">${v.aiReady ? `仅看当前位置之前 · ${esc(v.aiProvider)}` : '服务在书架 · 设置里配置'}</div>
+      <div class="bzs-mini" style="padding:6px 2px">${
+        v.aiReady ? esc(t('side.ai.scope', { provider: v.aiProvider })) : t('side.ai.configHint')
+      }</div>
     </div>`;
 }
 
 export function viewSidebar(v: SidebarView): string {
   const book = v.book;
-  const title = book ? book.meta.title || '未命名' : '没有打开的书';
+  const title = book ? book.meta.title || t('side.untitled') : t('side.noBook');
   const counts = book
     ? {
         toc: v.toc?.length ?? 0,
@@ -195,25 +203,28 @@ export function viewSidebar(v: SidebarView): string {
       }
     : { toc: 0, bookmarks: 0, highlights: 0 };
 
-  const tabCount = (t: SideTab): number =>
-    t === 'toc' ? counts.toc : t === 'bookmarks' ? counts.bookmarks : t === 'highlights' ? counts.highlights : 0;
+  const tabCount = (tab: SideTab): number =>
+    tab === 'toc' ? counts.toc : tab === 'bookmarks' ? counts.bookmarks : tab === 'highlights' ? counts.highlights : 0;
 
   const tabs = SIDE_TABS
-    .map((t) => {
-      const n = tabCount(t.value);
-      return `<button class="bzs-sbtab${v.tab === t.value ? ' on' : ''}" data-act="sbtab" data-tab="${t.value}" title="${t.label}" aria-label="${t.label}">${icoNative(
-        t.icon,
+    .map((tab) => {
+      const n = tabCount(tab.value);
+      const label = t(tab.key);
+      return `<button class="bzs-sbtab${v.tab === tab.value ? ' on' : ''}" data-act="sbtab" data-tab="${tab.value}" title="${label}" aria-label="${label}">${icoNative(
+        tab.icon,
       )}${n ? `<span class="n">${n}</span>` : ''}</button>`;
     })
     .join('');
 
   let body: string;
   if (!book) {
-    body = `<div class="bzs-empty">左侧栏跟着阅读走。<br>在书架点开一本书，目录、书签与划线就会出现在这里。</div>`;
+    body = `<div class="bzs-empty">${t('side.empty')}<br>${t('side.emptyHint')}</div>`;
   } else if (v.tab === 'toc') {
     body = v.toc?.length
       ? tocBody(v.toc, { label: v.activeLabel, href: v.activeHref }, v.collapsed ?? EMPTY_COLLAPSED)
-      : `<div class="bzs-empty">目录还没准备好。<br><button class="bzs-btn sm" data-act="openbook" data-id="${esc(book.id)}">打开当前书籍</button></div>`;
+      : `<div class="bzs-empty">${t('side.toc.notReady')}<br><button class="bzs-btn sm" data-act="openbook" data-id="${esc(
+          book.id,
+        )}">${t('side.toc.openCurrent')}</button></div>`;
   } else if (v.tab === 'bookmarks') {
     body = bookmarksBody(bmksOf(book));
   } else if (v.tab === 'highlights') {

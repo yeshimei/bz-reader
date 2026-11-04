@@ -12,6 +12,7 @@
  * 这里全是纯函数：HTML 由调用方塞进壳层，阅读视图与浮层各自负责定位。
  */
 
+import { t, type MsgKey } from '../i18n';
 import { HIGHLIGHT_COLORS, colorLabel } from '../data/notes';
 
 export interface ToolbarColor {
@@ -23,7 +24,8 @@ export type ToolbarAct = 'idea' | 'quote' | 'ai' | 'bilink' | 'copy' | 'del';
 
 export interface ToolbarItem {
   act: ToolbarAct;
-  label: string;
+  /** 按钮字按当前界面语言现取（`t(key)`）——常量字符串切完语言不更新 */
+  key: MsgKey;
   /** 破坏性动作：单独排在最后、用朱砂色 */
   danger?: boolean;
 }
@@ -35,14 +37,14 @@ export interface ToolbarItem {
  * AI 只有两个字母——旁边就是「书摘」，四个字会把整排推宽。
  */
 export const TOOLBAR_ITEMS: readonly ToolbarItem[] = [
-  { act: 'idea', label: '想法' },
-  { act: 'quote', label: '书摘' },
-  { act: 'ai', label: 'AI' },
-  { act: 'bilink', label: '双链' },
-  { act: 'copy', label: '复制' },
+  { act: 'idea', key: 'tool.idea' },
+  { act: 'quote', key: 'tool.quote' },
+  { act: 'ai', key: 'tool.ai' },
+  { act: 'bilink', key: 'tool.bilink' },
+  { act: 'copy', key: 'tool.copy' },
 ];
 
-export const DELETE_ITEM: ToolbarItem = { act: 'del', label: '删除', danger: true };
+export const DELETE_ITEM: ToolbarItem = { act: 'del', key: 'tool.del', danger: true };
 
 /** 手机上还留在胶囊上的主路径颗数：想法 / 书摘 / AI */
 const COMPACT_MAIN = 3;
@@ -237,23 +239,23 @@ export function toolbarHtml(input: ToolbarHtmlInput): string {
       .filter(Boolean)
       .join(' ');
     return `<button type="button" class="${cls}" data-act="${esc(actOf(item.act))}"${attrs}>${esc(
-      item.label,
+      t(item.key),
     )}</button>`;
   };
 
   const parts = [dots, '<span class="div"></span>', visible.map(btn).join('')];
   if (overflow.length) {
     parts.push(
-      `<button type="button" class="bzs-sbtn more" data-act="${MORE_ACT}" aria-label="更多" aria-haspopup="menu" aria-expanded="false">⋯</button>`,
+      `<button type="button" class="bzs-sbtn more" data-act="${MORE_ACT}" aria-label="${t('tool.more')}" aria-haspopup="menu" aria-expanded="false">⋯</button>`,
       `<div class="bzs-tb-more" role="menu">${overflow
         .map(
           (item) =>
             `<button type="button" class="bzs-tb-mi${item.danger ? ' danger' : ''}" data-act="${esc(
               actOf(item.act),
-            )}"${attrs}>${esc(item.label)}</button>`,
+            )}"${attrs}>${esc(t(item.key))}</button>`,
         )
         .join('')}</div>`,
     );
   }
-  return `<div class="bzs-tb" role="toolbar" aria-label="划词工具">${parts.join('')}</div>`;
+  return `<div class="bzs-tb" role="toolbar" aria-label="${t('tool.aria')}">${parts.join('')}</div>`;
 }

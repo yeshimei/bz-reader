@@ -163,6 +163,47 @@ export const DE: Record<MsgKey, string> = {
   'tier.until': 'gültig bis {date}',
   'tier.forever': 'unbefristet',
 
+  /* ── Seitenleiste im Lesemodus ──────────────────────────── */
+  'side.tab.toc': 'Inhalt',
+  'side.tab.bookmarks': 'Lesezeichen',
+  'side.tab.highlights': 'Markierungen',
+  'side.expand': 'Ausklappen',
+  'side.collapse': 'Einklappen',
+  'side.toc.count': '{n} Abschnitte',
+  'side.bookmarks.empty': 'Noch keine Lesezeichen.',
+  'side.bookmarks.emptyHint': 'Wo du aufhörst, in der Leseleiste auf „Lesezeichen" klicken.',
+  'side.bookmarks.order': 'In Buchreihenfolge',
+  'side.delete': 'Löschen',
+  'side.highlights.empty': 'Noch keine Markierungen.',
+  'side.highlights.emptyHint': 'Text im Buch markieren und dann einen Stift aus den eingeblendeten Farben wählen.',
+  'side.ideaTag': 'Notiz',
+  'side.ai.hint':
+    'Text markieren und in der Auswahlleiste auf KI tippen – oder einfach eine Frage zu diesem Buch stellen. Antworten greifen nur auf das zurück, was du bis hierhin gelesen hast.',
+  'side.ai.notReady':
+    'Es ist kein KI-Dienst eingerichtet. Anbieter, Modell und Schlüssel unter Regal · Einstellungen eintragen, dann wird diese Leiste lebendig.',
+  'side.ai.me': 'Ich',
+  'side.ai.ask.ph': 'Frag zu diesem Buch…',
+  'side.ai.notReady.ph': 'KI nicht konfiguriert',
+  'side.ai.ask': 'Fragen',
+  'side.ai.scope': 'Nur bis zur aktuellen Position · {provider}',
+  'side.ai.configHint': 'Unter Regal · Einstellungen konfigurieren',
+  'side.untitled': 'Ohne Titel',
+  'side.noBook': 'Kein Buch geöffnet',
+  'side.empty': 'Diese Leiste folgt dem Lesen.',
+  'side.emptyHint': 'Öffne ein Buch im Regal — Inhalt, Lesezeichen und Markierungen erscheinen hier.',
+  'side.toc.notReady': 'Der Inhalt ist noch nicht bereit.',
+  'side.toc.openCurrent': 'Dieses Buch öffnen',
+
+  /* ── Auswahlwerkzeugleiste ──────────────────────────────── */
+  'tool.idea': 'Notiz',
+  'tool.quote': 'Zitat',
+  'tool.ai': 'KI',
+  'tool.bilink': 'Link',
+  'tool.copy': 'Kopieren',
+  'tool.del': 'Löschen',
+  'tool.more': 'Mehr',
+  'tool.aria': 'Auswahlwerkzeuge',
+
   /* ── Regalrahmen ────────────────────────────────────────── */
   'shelf.tab.library': 'Bibliothek',
   'shelf.tab.notes': 'Notizen',
