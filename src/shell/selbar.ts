@@ -1,9 +1,11 @@
 /**
  * 划词条上的按钮（纯函数，node 里可直接测）。
  *
- * 顺序：想法 → 书摘 →（AI 解释）→ 原文 → 复制。
- * 原文放在复制前面：原文是「带定位、点得回原文」的链接，复制只是纯文本，
- * 常写笔记的人先要前者。AI 只在可用时出现，不占位成灰按钮。
+ * 顺序：想法 → 书摘 → AI 解释 → 双链 → 复制。
+ *
+ * 入口平权：**任何版本都显示全部按钮**。没解锁的人点 AI / 双链时由
+ * actions 里的 requireCap 弹出高级版对照页——看得见、点得到，才知道
+ * 自己买的是什么。以前按 can() 把 AI 藏掉，用户根本不知道有这项。
  */
 
 export interface SelbarAction {
@@ -11,12 +13,12 @@ export interface SelbarAction {
   act: string;
 }
 
-export function selbarActions(opts: { ai: boolean }): SelbarAction[] {
+export function selbarActions(): SelbarAction[] {
   return [
     { label: '想法', act: 'selidea' },
     { label: '书摘', act: 'selquote' },
-    ...(opts.ai ? [{ label: 'AI 解释', act: 'selai' }] : []),
-    { label: '原文', act: 'selbilink' },
+    { label: 'AI 解释', act: 'selai' },
+    { label: '双链', act: 'selbilink' },
     { label: '复制', act: 'selcopy' },
   ];
 }

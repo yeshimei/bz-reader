@@ -41,7 +41,7 @@
 | Highlight cards | — | ✓ |
 | Reading stats, heatmap, and per-book progress | — | ✓ |
 | Cross-book search | — | ✓ |
-| AI summary / explanation / translation | — | ✓ |
+| AI answers / summaries / explanations / translations | — | ✓ |
 | mobi / azw3 / fb2 / comics | — | ✓ |
 | Vertical and two-column layout | — | ✓ |
 | Text-to-speech | — | ✓ |

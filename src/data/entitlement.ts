@@ -30,7 +30,7 @@ export type Cap =
   | 'card' // 书摘卡片
   | 'stats' // 阅读统计
   | 'crossSearch' // 跨书搜索
-  | 'ai' // AI 摘要 / 释 / 译
+  | 'ai' // AI 回答 / 摘要 / 解释 / 翻译
   | 'fullFormats' // mobi / azw3 / fb2 / cbz
   | 'vertical' // 竖排 / 双栏
   | 'tts' // 朗读
@@ -341,7 +341,7 @@ export const CAP_LABEL: Record<Cap, string> = {
   card: '把划线做成可分享的书摘卡片',
   stats: '阅读统计与热力图',
   crossSearch: '在所有书里搜索',
-  ai: 'AI 摘要 · 解释 · 翻译',
+  ai: 'AI 回答 · 摘要 · 解释 · 翻译',
   fullFormats: 'mobi / azw3 / fb2 / 漫画支持',
   vertical: '竖排与双栏',
   tts: '朗读',
@@ -353,9 +353,12 @@ export const CAP_LABEL: Record<Cap, string> = {
 /* ─────────── 发行信息（改这里就够了） ───────────
  * 购买与加群都走外链：Obsidian 商城不做内购，政策明确允许开发者在
  * 自己的渠道收款（只要 README 披露「完整功能需付费」）。
- * 价格只出现在商店页，不写进插件界面——面板里只有「去购买」。 */
-export const PURCHASE_URL = 'https://afdian.com/a/bz-reader';
-export const GROUP_URL = 'https://qm.qq.com/q/bzreader';
+ * 价格只出现在商店页，不写进插件界面——面板里只有「去购买」。
+ * 购买链接是**商品直链**（/item/…），不是店铺主页：主页还要再点一次，
+ * 手机端更是容易停在动态流里找不到下单入口。 */
+export const PURCHASE_URL = 'https://afdian.com/item/6f17bf10d7e311f1b8735254001e7c00';
+/** 交流群群号：UI 直接显示、点击复制。短链（qm.qq.com/q/…）实测 404，不再用。 */
+export const GROUP_ID = '1130883117';
 
 /* ─────────── 基础版 / 高级版功能对照 ───────────
  * 点任何付费按钮弹出的就是这张表。一屏讲完「差在哪」，
@@ -375,20 +378,21 @@ export interface PlanRow {
 export const PLAN_TABLE: PlanRow[] = [
   { name: 'EPUB / TXT 阅读、翻页与排版', free: 'yes', pro: 'yes' },
   { name: '目录、书签、四色划线与想法', free: 'yes', pro: 'yes' },
-  { name: '书内搜索（本章 / 全书）', free: 'yes', pro: 'yes' },
+  { name: '书内搜索', free: 'yes', pro: 'yes' },
+  /* 脚注和上面的书本能力同属基础版，排在一起；别让它跟付费项混在表尾 */
+  { name: '脚注浮窗预览', free: 'yes', pro: 'yes' },
   /* 原文链接整条是高级版能力（copylink 走 requireCap('bilink')）。
      以前这里写「基础版：部分（仅单条）」，但那条免费路径 copylinkurl
      没有任何 UI 入口——表里承诺了，界面上找不到，比不给更糟。 */
-  { name: '划线复制为原文链接（点击直达原文）', free: 'no', pro: 'yes', cap: 'bilink' },
-  { name: '导出结构化 Markdown（按章节 + frontmatter）', free: 'no', pro: 'yes', cap: 'export' },
-  { name: '书摘卡片（可分享图片）', free: 'no', pro: 'yes', cap: 'card' },
+  { name: '划线复制为原文链接', free: 'no', pro: 'yes', cap: 'bilink' },
+  { name: '导出结构化 Markdown', free: 'no', pro: 'yes', cap: 'export' },
+  { name: '书摘卡片', free: 'no', pro: 'yes', cap: 'card' },
   { name: '阅读统计、热力图与每本进度', free: 'no', pro: 'yes', cap: 'stats' },
   { name: '跨书搜索', free: 'no', pro: 'yes', cap: 'crossSearch' },
-  { name: 'AI 摘要 / 解释 / 翻译（自带 Key）', free: 'no', pro: 'yes', cap: 'ai' },
+  { name: 'AI 回答 / 摘要 / 解释 / 翻译', free: 'no', pro: 'yes', cap: 'ai' },
   { name: 'mobi / azw3 / fb2 / 漫画', free: 'no', pro: 'yes', cap: 'fullFormats' },
   { name: '竖排与双栏排版', free: 'no', pro: 'yes', cap: 'vertical' },
-  { name: '朗读（TTS）', free: 'no', pro: 'yes', cap: 'tts' },
+  { name: '朗读', free: 'no', pro: 'yes', cap: 'tts' },
   { name: '原文与译文并排', free: 'no', pro: 'yes', cap: 'parallel' },
-  { name: '脚注浮窗预览（不离开当前页）', free: 'yes', pro: 'yes' },
   { name: '全书鸟瞰', free: 'no', pro: 'yes', cap: 'bookmap' },
 ];

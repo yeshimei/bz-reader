@@ -16,7 +16,6 @@
  * ============================================================ */
 import { ItemView, type WorkspaceLeaf } from 'obsidian';
 import type { FoliateTOCItem } from '../types/foliate';
-import { can } from '../data/entitlement';
 import { isMobileShell } from '../core/mobile';
 import { dispatchAction, dispatchInput } from '../shell/actions';
 import { getState, setState, subscribe, type SideTab } from '../shell/state';
@@ -202,7 +201,6 @@ export class SideView extends ItemView {
       aiLog: RT.aiLog,
       aiReady: !!settings.ai.baseUrl && !!settings.ai.apiKey && !!settings.ai.model,
       aiProvider: settings.ai.model || '未配置',
-      aiEnabled: can('ai'),
       collapsed: RT.tocCollapsed,
     });
     this.paintedItems = snap?.items ?? null;

@@ -1,10 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 
-/* 设置页会读授权状态；测试只关心模板，把授权模块换成固定值 */
+/* 设置页会读授权状态；测试里用一个可变开关模拟解锁前后 */
+const entState = vi.hoisted(() => ({ unlocked: false }));
 vi.mock('../src/data/entitlement', () => ({
-  can: () => false,
-  entitlement: () => ({ tier: 'free', unlocked: false, license: '' }),
-  tierText: () => '当前未激活',
+  can: () => entState.unlocked,
+  entitlement: () => ({
+    tier: entState.unlocked ? 'paid' : 'free',
+    unlocked: entState.unlocked,
+    license: '',
+  }),
+  tierText: () => (entState.unlocked ? '高级版已激活' : '当前未激活'),
 }));
 
 import { DEFAULT_PREFS } from '../src/data/prefs';
@@ -48,5 +53,46 @@ describe('设置页渲染', () => {
     expect(out).toContain('<h3>授权</h3>');
     expect(out).toContain('data-role="license"');
     expect(out).toContain('data-act="activate"');
+  });
+
+  /* 入口平权：基础版也看得见 AI 组。但没解锁时输入框只读——
+     让基础版改一个用不了的配置只会制造「我填了为什么不行」的困惑。
+     AI 组里不放「查看功能对照」这类提示：要解锁去授权组，别在配置区塞推销。 */
+  it('基础版：AI 组仍在，三个输入框都是只读', () => {
+    entState.unlocked = false;
+    const out = html();
+    expect(out).toContain('<h3>AI 助手</h3>');
+    for (const k of ['ai.baseUrl', 'ai.model', 'ai.apiKey']) {
+      expect(out, k).toMatch(new RegExp(`data-k="${k.replace('.', '\\.')}"[^>]*readonly`));
+    }
+  });
+
+  it('基础版：AI 组里没有查看 / 对照按钮', () => {
+    entState.unlocked = false;
+    const out = html();
+    const start = out.indexOf('<h3>AI 助手</h3>');
+    const next = out.indexOf('<h3>', start + 1);
+    const aiGroup = out.slice(start, next < 0 ? undefined : next);
+    expect(aiGroup).not.toContain('data-act="unlock"');
+    expect(aiGroup).not.toContain('查看');
+    expect(aiGroup).not.toContain('对照');
+  });
+
+  it('基础版：AI 组不再有「状态」描述行', () => {
+    entState.unlocked = false;
+    const out = html();
+    const start = out.indexOf('<h3>AI 助手</h3>');
+    const next = out.indexOf('<h3>', start + 1);
+    const aiGroup = out.slice(start, next < 0 ? undefined : next);
+    expect(aiGroup).not.toContain('<label>状态</label>');
+    expect(aiGroup).not.toContain('高级版功能 · 配置会保存在本地');
+  });
+
+  it('解锁后 AI 输入框可编辑，且不再提示解锁', () => {
+    entState.unlocked = true;
+    const out = html();
+    expect(out).not.toMatch(/data-k="ai\.baseUrl"[^>]*readonly/);
+    expect(out).not.toContain('data-act="unlock"');
+    entState.unlocked = false;
   });
 });

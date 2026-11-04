@@ -84,8 +84,9 @@ export function createPlugin(cfg: PluginConfig) {
     private offShell: (() => void) | null = null;
 
     private formats(): BookFormat[] {
-      // 多格式属于高级能力：没有解锁就只认 EPUB / TXT
-      return cfg.pro && can('fullFormats') ? PRO_FORMATS : BASE_FORMATS;
+      // 入口平权：导入列表始终列出全部格式。打开未解锁的 mobi / azw3 时
+      // openBook 会弹高级版对照页，而不是让那本书在库里根本不出现。
+      return PRO_FORMATS;
     }
 
     async onload(): Promise<void> {
@@ -499,7 +500,7 @@ export function createPlugin(cfg: PluginConfig) {
       /* 扫描用「这个包能认的全部格式」，而不是「当前已解锁的格式」。
          否则一旦没解锁，mobi 书会直接从书架上消失——用户会以为书被插件删了。
          真正的门控放在 openBook：看得见、点得开提示，比凭空少几本书好得多。 */
-      const files = scanVault(this.app, cfg.pro ? PRO_FORMATS : BASE_FORMATS);
+      const files = scanVault(this.app, PRO_FORMATS);
       /* 先认「改名/移动」：同格式、同字节数、当前路径已消失的旧记录，就地换路径。
          不做这一步的话，改个文件名就等于换了一本书——进度、划线、深链全留在
          那条被标成 fileMissing 的幽灵记录上。 */

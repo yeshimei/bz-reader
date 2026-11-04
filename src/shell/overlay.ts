@@ -26,13 +26,14 @@ import { closeOverlay, dismissesOnOutside, getState } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
-import { CAP_LABEL, GROUP_URL, PLAN_TABLE, PURCHASE_URL, can, entitlement, tierText, type Cap, type PlanCell } from '../data/entitlement';
+import { CAP_LABEL, PLAN_TABLE, PURCHASE_URL, can, entitlement, tierText, type Cap, type PlanCell } from '../data/entitlement';
 import { protocolUrl } from '../data/deeplink';
 import { dataDirOf, normalizeDataDir } from '../core/plugin-path';
 import { bindMaskDismiss } from '../core/mask-dismiss';
 import { RT, pushAi } from './runtime';
 import { rangeFill } from './range-fill';
 import { dispatchInput } from './actions';
+import { trialButtonHtml } from './group';
 
 /* ─────────── 小工具 ─────────── */
 
@@ -640,7 +641,7 @@ function overlayUnlock(mode?: string): string {
       </div>
       <div class="bzs-unlock-buy">
         <button class="bzs-btn pri" data-act="buy">去购买</button>
-        <button class="bzs-btn" data-act="joingroup">加交流群</button>
+        ${trialButtonHtml()}
         <span class="bzs-mini">购买后拿到激活码，填在下面即可</span>
       </div>
     </div>`;

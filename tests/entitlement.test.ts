@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   CAP_LABEL,
   PLAN_TABLE,
+  PURCHASE_URL,
   activateLicense,
   can,
   clearLicense,
@@ -90,11 +91,36 @@ describe.runIf(hasKey)('激活入口（端到端，需要 scripts/keys 私钥）
   });
 });
 
+describe('发行信息', () => {
+  it('购买链接指向爱发电商品直链，不是店铺主页', () => {
+    // 用户点「去购买」必须落到可以下单的那一页；主页只是店铺动态列表。
+    expect(PURCHASE_URL).toBe('https://afdian.com/item/6f17bf10d7e311f1b8735254001e7c00');
+  });
+});
+
 describe('界面文案', () => {
   it('全书鸟瞰不再混英文（Book Map 只在代码里当标识）', () => {
     expect(CAP_LABEL.bookmap).not.toMatch(/Book\s*Map/i);
     const row = PLAN_TABLE.find((r) => r.cap === 'bookmap');
     expect(row?.name).not.toMatch(/Book\s*Map/i);
     expect(row?.name).toContain('全书鸟瞰');
+  });
+
+  it('功能名只用短名，不带括号补充说明', () => {
+    for (const row of PLAN_TABLE) expect(row.name, row.name).not.toMatch(/[（(]/);
+  });
+
+  it('脚注浮窗属于基础版，且排在第一个付费项前面', () => {
+    const footnote = PLAN_TABLE.findIndex((r) => r.name.includes('脚注'));
+    expect(footnote).toBeGreaterThan(-1);
+    expect(PLAN_TABLE[footnote].free).toBe('yes');
+    const firstPaid = PLAN_TABLE.findIndex((r) => r.free === 'no');
+    expect(footnote).toBeLessThan(firstPaid);
+  });
+
+  it('AI 行覆盖回答、摘要、解释、翻译四件事', () => {
+    const ai = PLAN_TABLE.find((r) => r.cap === 'ai');
+    for (const word of ['回答', '摘要', '解释', '翻译']) expect(ai?.name).toContain(word);
+    expect(CAP_LABEL.ai).toContain('回答');
   });
 });

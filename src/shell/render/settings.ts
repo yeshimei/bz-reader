@@ -122,24 +122,17 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>摘录链接</label><span class="bzs-mini" style="flex:1">复制为 obsidian:// 链接，粘进笔记点一下跳回原句</span></div>
     </div>`;
 
-  /* AI 组只在能用的时候出现。基础版构建里 can('ai') 恒为 false——
-     与其摆一排「未解锁」的输入框，不如整组不出现。
-     __BZ_READER_PRO__ 是构建期常量：base 包里这段模板连字符串都不会留下，
-     pro 包里它恒为 true，等于只看 can('ai')。 */
-  /* 写成 if 而不是三元：esbuild 会把 `if (false) {…}` 连同里面的模板字符串
-     一起删掉，三元表达式的两个分支它会原样留着（试过，模板照样进包）。 */
-  let ai = '';
-  if (__BZ_READER_PRO__ && can('ai')) {
-    ai = `<div class="bzs-setgrp">
+  /* 入口平权：AI 组始终出现。基础版输入框只读（改一个用不了的配置只会
+     制造「我填了为什么不行」的困惑）。组里不放「查看功能对照」这类推销文案，
+     要解锁去授权组。 */
+  const aiUnlocked = can('ai');
+  const aiReadonly = aiUnlocked ? '' : ' readonly';
+  const ai = `<div class="bzs-setgrp">
       <h3>AI 助手</h3>
-      <div class="bzs-setrow"><label>服务商</label><input data-role="setting" data-k="ai.baseUrl" placeholder="https://api.deepseek.com/v1" value="${esc(s.ai.baseUrl)}" style="flex:1"></div>
-      <div class="bzs-setrow"><label>模型</label><input data-role="setting" data-k="ai.model" placeholder="deepseek-chat" value="${esc(s.ai.model)}" style="flex:1"></div>
-      <div class="bzs-setrow"><label>密钥</label><input type="password" data-role="setting" data-k="ai.apiKey" placeholder="留空即不联网" value="${esc(s.ai.apiKey)}" style="flex:1"></div>
-      <div class="bzs-setrow"><label>状态</label><span class="bzs-mini" style="flex:1">${
-        s.ai.baseUrl && s.ai.apiKey && s.ai.model ? '已配置 · 划词浮层里的「AI 解释」可用' : '未配置 · 划词浮层里不会出现 AI 按钮'
-      }</span></div>
+      <div class="bzs-setrow"><label>服务商</label><input data-role="setting" data-k="ai.baseUrl" placeholder="https://api.deepseek.com/v1" value="${esc(s.ai.baseUrl)}" style="flex:1"${aiReadonly}></div>
+      <div class="bzs-setrow"><label>模型</label><input data-role="setting" data-k="ai.model" placeholder="deepseek-chat" value="${esc(s.ai.model)}" style="flex:1"${aiReadonly}></div>
+      <div class="bzs-setrow"><label>密钥</label><input type="password" data-role="setting" data-k="ai.apiKey" placeholder="留空即不联网" value="${esc(s.ai.apiKey)}" style="flex:1"${aiReadonly}></div>
     </div>`;
-  }
 
   const ent = entitlement();
   /* 激活之后这组变成「凭证」：码只读，激活按钮与「高级版 / 查看功能对照」整行都不再出现。

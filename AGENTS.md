@@ -66,7 +66,28 @@ New-Item -ItemType Junction -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules
 - 划词：不自动划线，保留系统选区与手柄；工具条贴选区下方（桌面在选区上方）。
 - 文字类弹窗（想法 / 书摘 / 划线）：移动端贴底小卡，桌面贴选区上方。
 
-## 8. 不要做的事
+## 8. 发激活码（发行台账）
+
+私钥和已发出去的码都在 `scripts/keys/`（整目录 gitignore）。**永远不要**提交、贴进 `docs/`、README 或 issue —— 发出去的码就是钱。
+
+- 台账：`scripts/keys/issued/ledger.json`，`nextSeq` 是下一个可用序号
+- 码文件：`scripts/keys/issued/afdian-batch-XX.txt`，一行一枚
+- 人读的号段表：`docs/license-ledger.md`
+
+**签新一批按顺序来，一步都不能跳：**
+
+1. 读 `ledger.json` 拿 `nextSeq`；没有台账说明这是第一批，从 0001 起
+2. 从 `nextSeq` 开始**连续**签发，id 用 `BZR-AF-<年>-<四位序号>`：
+   `node scripts/issue-license.mjs --plan lifetime --id BZR-AF-2026-0021`
+3. 签完自查三件事：id 不重复、码全文不重复、序号连续没有空号
+4. 新批次追加进 `batches`，`nextSeq` 推到下一个未用号
+5. 码写进新的 `afdian-batch-XX.txt`，**同时更新 `docs/license-ledger.md` 的号段表**
+
+**不许**从 0001 重来，**不许**复用已经发过、删掉或标 revoked 的号——号段只增不减。
+
+也不要往任何会被 git 跟踪的文件里放码；`docs/afdian-store.md` 只留两行示例就是为这个。
+
+## 9. 不要做的事
 
 - 不提交 `.scratch*` 临时脚本、`dist/`、库里的调试日志。
 - 不为修一个 bug 顺手重构无关模块。

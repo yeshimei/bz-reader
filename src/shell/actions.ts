@@ -30,7 +30,7 @@ import { flipSetting, type ToggleState } from './settings-toggle';
 import { rangeFill } from './range-fill';
 import { openHotkeySettings } from '../core/hotkeys';
 import { folderLabel, pickFolder } from '../core/folder-pick';
-import { CAP_LABEL, GROUP_URL, PURCHASE_URL, can, type Cap } from '../data/entitlement';
+import { CAP_LABEL, PURCHASE_URL, can, type Cap } from '../data/entitlement';
 import { normalizeDataDir } from '../core/plugin-path';
 import { linkInline, linkOfMark, linkOfText, linkQuote, rawUrl, targetOfMark } from '../data/deeplink';
 import { exportBookNotes } from '../data/export';
@@ -39,6 +39,7 @@ import type { OverlayKind, StudyPage } from './state';
 import { closeOverlay, getState, mutateState, openOverlay, setState, toggleFav } from './state';
 import { RT, emitNotesChanged, pushAi } from './runtime';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
+import { copyGroupIdForTrial } from './group';
 
 /** 当前上下文里的书：优先状态里记住的那本，否则取书库第一本 */
 function currentBook(): ReaderBook | undefined {
@@ -232,6 +233,9 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
       break;
     }
     case 'sbtab':
+      /* AI 页签入口平权：基础版也看得见，点了弹高级版对照页，不切过去。
+         以前整枚页签都不渲染，用户连「有 AI」都不知道。 */
+      if (d.tab === 'ai' && !requireCap('ai')) break;
       if (d.tab) setState({ sideTab: d.tab as never });
       break;
     case 'swap':
@@ -516,8 +520,9 @@ export function dispatchAction(act: string, el: HTMLElement, env: ActionEnv = {}
     case 'buy':
       window.open(PURCHASE_URL, '_blank');
       break;
-    case 'joingroup':
-      window.open(GROUP_URL, '_blank');
+    case 'jointrial':
+      /* 灰测：只复制群号，7 天试用码由群管理员人工发 */
+      void copyGroupIdForTrial();
       break;
     case 'activate': {
       /* 取当前弹层里的那个输入框：设置页也有一枚 data-role="license"，

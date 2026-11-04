@@ -4,24 +4,30 @@ import { selbarActions } from '../src/shell/selbar';
 /**
  * 划词条上的按钮顺序。
  *
- * 文字工具条最后是「原文 → 复制」：先拿带 obsidian:// 定位的原文链接
- * （点一下跳回这句话），再考虑纯文本复制。AI 只在高级版构建里出现，
- * 不能占位成灰按钮。
+ * 入口平权：基础版也保留「AI 解释」与「双链」，点了由 requireCap 弹
+ * 高级版对照页——不再按版本把按钮藏掉。藏掉等于用户永远不知道有这个能力。
  */
 describe('selbarActions · 划词条按钮', () => {
-  it('想法、书摘、原文、复制依次出现', () => {
-    const acts = selbarActions({ ai: false }).map((a) => a.act);
-    expect(acts).toEqual(['selidea', 'selquote', 'selbilink', 'selcopy']);
+  it('想法、书摘、AI 解释、双链、复制依次出现', () => {
+    expect(selbarActions().map((a) => a.act)).toEqual([
+      'selidea',
+      'selquote',
+      'selai',
+      'selbilink',
+      'selcopy',
+    ]);
   });
 
-  it('支持 AI 时 AI 解释排在书摘之后、原文之前', () => {
-    const acts = selbarActions({ ai: true }).map((a) => a.act);
-    expect(acts).toEqual(['selidea', 'selquote', 'selai', 'selbilink', 'selcopy']);
+  it('AI 解释排在书摘之后、双链之前', () => {
+    const acts = selbarActions().map((a) => a.act);
+    expect(acts.indexOf('selai')).toBeGreaterThan(acts.indexOf('selquote'));
+    expect(acts.indexOf('selai')).toBeLessThan(acts.indexOf('selbilink'));
   });
 
-  it('原文按钮的文案是「原文」，复制是「复制」', () => {
-    const byAct = new Map(selbarActions({ ai: false }).map((a) => [a.act, a.label]));
-    expect(byAct.get('selbilink')).toBe('原文');
+  it('双链按钮的文案是「双链」，复制是「复制」', () => {
+    const byAct = new Map(selbarActions().map((a) => [a.act, a.label]));
+    expect(byAct.get('selbilink')).toBe('双链');
+    expect(byAct.get('selai')).toBe('AI 解释');
     expect(byAct.get('selcopy')).toBe('复制');
   });
 });

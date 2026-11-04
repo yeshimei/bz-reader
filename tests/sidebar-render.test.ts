@@ -66,6 +66,15 @@ describe('划线列表', () => {
   });
 });
 
+describe('AI 页签', () => {
+  /* 入口平权：基础版也保留 AI 页签，点进去是高级版说明/解锁，
+     而不是让页签整个消失。 */
+  it('页签始终包含 AI，不按版本过滤', () => {
+    const html = view();
+    expect(html).toContain('data-tab="ai"');
+  });
+});
+
 describe('目录行', () => {
   it('不再画百分比', () => {
     const html = view();

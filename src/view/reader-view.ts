@@ -26,7 +26,6 @@ import {
   toggleBookmark,
 } from '../data/notes';
 import { ActivityTracker } from '../engine/activity';
-import { can } from '../data/entitlement';
 import { applyEngineMeta } from '../data/book-meta';
 import { speak, type SpeakHandle } from '../core/speak';
 import { notify } from '../core/notice';
@@ -1006,11 +1005,10 @@ export class ReaderView extends ItemView {
       });
       return b;
     };
-    /* 按钮顺序由纯函数定义（想法 / 书摘 / AI / 原文 / 复制），
+    /* 按钮顺序由纯函数定义（想法 / 书摘 / AI / 双链 / 复制），
        测试直接从 selbarActions 断言，不必把整个视图塞进 node。
-       AI 属于高级能力：基础版构建里连按钮都不出现，
-       不做成灰的锁标——那是每次划词都提醒一次「你没买」。 */
-    for (const a of selbarActions({ ai: can('ai') })) bar.appendChild(mk(a.label, a.act));
+       入口平权：AI / 双链在基础版也显示，点了走 requireCap 弹对照页。 */
+    for (const a of selbarActions()) bar.appendChild(mk(a.label, a.act));
 
     /* 点工具条不能把系统的选区和手柄清掉：pointerdown 默认会让 iframe 失焦，
        选区一塌，后面所有动作都拿不到文本了。 */

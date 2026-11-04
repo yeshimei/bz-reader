@@ -33,8 +33,6 @@ export interface SidebarView {
   aiLog: AiLogItem[];
   aiReady: boolean;
   aiProvider: string;
-  /** AI 属于高级能力：基础版构建里这个页签整个不出现，不给「锁着」的假入口 */
-  aiEnabled?: boolean;
   /** 被折叠的父章节 href（见 runtime.tocCollapsed）；缺省 = 全部展开 */
   collapsed?: ReadonlySet<string>;
 }
@@ -42,6 +40,8 @@ export interface SidebarView {
 /**
  * 侧栏页签：书的坐标。书架是中心 tab，不在这里（封面墙需要宽度）。
  * 顺序即优先级：目录 → 书签 → 划线 → AI；打开一本书自动落在目录。
+ *
+ * 入口平权：AI 页签始终存在，基础版点它由 actions 弹高级版对照页。
  */
 export const SIDE_TABS: Array<{ value: SideTab; label: string; icon: string }> = [
   { value: 'toc', label: '目录', icon: 'board' },
@@ -52,10 +52,6 @@ export const SIDE_TABS: Array<{ value: SideTab; label: string; icon: string }> =
 
 /** 没有折叠状态时的空集：省掉每次渲染都新建一个 Set */
 const EMPTY_COLLAPSED: ReadonlySet<string> = new Set();
-
-export function sideTabs(aiEnabled = true): typeof SIDE_TABS {
-  return aiEnabled ? SIDE_TABS : SIDE_TABS.filter((t) => t.value !== 'ai');
-}
 
 /**
  * 目录项的编号是书自己带的（「一、」「3.」「第十二章 」），不是我们画的。
@@ -193,7 +189,7 @@ export function viewSidebar(v: SidebarView): string {
   const tabCount = (t: SideTab): number =>
     t === 'toc' ? counts.toc : t === 'bookmarks' ? counts.bookmarks : t === 'highlights' ? counts.highlights : 0;
 
-  const tabs = sideTabs(v.aiEnabled !== false)
+  const tabs = SIDE_TABS
     .map((t) => {
       const n = tabCount(t.value);
       return `<button class="bzs-sbtab${v.tab === t.value ? ' on' : ''}" data-act="sbtab" data-tab="${t.value}" title="${t.label}">${ico(
