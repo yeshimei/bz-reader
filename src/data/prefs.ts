@@ -156,15 +156,17 @@ const FONT_LABELS: Record<FontFamilyName, Record<Locale, string>> = {
 };
 
 const ACCENT_LABELS: Record<AccentName, Record<Locale, string>> = {
+  /* 第一档跟着宿主的强调色走。文字点名 Obsidian：写「原生」看不出跟谁有关，
+     写「跟随 Obsidian」与界面语言那一档同一套说法。 */
   auto: {
-    zh: '原生',
-    'zh-TW': '原生',
-    en: 'Native',
-    ja: 'ホストに合わせる',
-    de: 'System',
-    fr: 'Système',
-    es: 'Sistema',
-    pt: 'Sistema',
+    zh: '跟随 Obsidian',
+    'zh-TW': '跟隨 Obsidian',
+    en: 'Follow Obsidian',
+    ja: 'Obsidian に合わせる',
+    de: 'Obsidian folgen',
+    fr: 'Suivre Obsidian',
+    es: 'Seguir Obsidian',
+    pt: 'Seguir Obsidian',
   },
   copper: { zh: '铜金', 'zh-TW': '銅金', en: 'Copper', ja: '銅金', de: 'Kupfer', fr: 'Cuivre', es: 'Cobre', pt: 'Cobre' },
   vermilion: {

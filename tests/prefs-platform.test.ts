@@ -35,10 +35,12 @@ describe('pickPrefs：按平台取偏好', () => {
 });
 
 describe('强调色', () => {
-  it('八档，第一档叫「原生」（不再叫「跟随 Obsidian」）', () => {
+  /* 2026-11-05：第一档改回「跟随 Obsidian」。「原生」是内部说法——用户看不出
+     它跟设置页里任何一个开关有关，反倒要猜「原生」是谁的。 */
+  it('八档，第一档叫「跟随 Obsidian」', () => {
     expect(ACCENT_OPTIONS).toHaveLength(8);
     expect(ACCENT_OPTIONS[0].value).toBe('auto');
-    expect(accentLabel('auto')).toBe('原生');
-    expect(ACCENT_OPTIONS.map((a) => accentLabel(a.value))).not.toContain('跟随 Obsidian');
+    expect(accentLabel('auto')).toBe('跟随 Obsidian');
+    expect(ACCENT_OPTIONS.map((a) => accentLabel(a.value))).not.toContain('原生');
   });
 });
