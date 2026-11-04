@@ -51,6 +51,22 @@ export interface ShellSource {
   setFavorite: (id: string, on: boolean) => void;
   /** 改年度目标（本）。写进业务数据（data.goal） */
   setGoal: (n: number) => void;
+  /** 改每日打卡目标（分钟）。写进业务数据（data.dailyGoalMinutes） */
+  setDailyGoal: (minutes: number) => void;
+  /**
+   * 搜当前这一本的正文，返回带 CFI 的命中（新功能「书内搜索的命中定位」）。
+   * 没有打开的书时返回空数组。
+   */
+  searchText: (kw: string) => Promise<Array<{ cfi: string; excerpt: string; chapterLabel: string; chapterIndex: number }>>;
+  /** 当前有没有打开着的阅读视图（正文搜索前先问一句，别让用户搜了个寂寞） */
+  hasOpenReader: () => boolean;
+  /**
+   * 一键备份：把业务数据写成一份 JSON 放进数据目录。
+   * **不含激活码与 AI Key**（见 data/backup.ts 的文件头）。
+   */
+  backup: () => Promise<{ ok: boolean; message: string }>;
+  /** 从备份文件恢复：合并而不是替换，按 updatedAt 取新的那一份 */
+  restore: () => Promise<{ ok: boolean; message: string }>;
   /** 当前数据目录（vault 相对路径，默认 `bz 阅读`） */
   dataDir: () => string;
   /**

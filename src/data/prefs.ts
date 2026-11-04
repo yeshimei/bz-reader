@@ -26,6 +26,13 @@ export type LayoutMode = 'horizontal' | 'vertical';
 export type ColumnCount = 1 | 2;
 /** 脚注行为：上方浮窗先看一行注释，还是老实地跳到章末 */
 export type FootnoteMode = 'popup' | 'jump';
+/**
+ * 翻页还是滚动。
+ *
+ * 分页是默认（书的感觉，也是移动端唯一顺手的模式）；
+ * 滚动是桌面阅读的第一诉求——想往上回看两行，分页只能整页翻回去。
+ */
+export type FlowMode = 'paged' | 'scroll';
 
 export interface ReaderPrefs {
   fontSize: number;
@@ -59,6 +66,8 @@ export interface ReaderPrefs {
    * 关：只念当前页，念完就结束。
    */
   ttsFollow: boolean;
+  /** 翻页 / 滚动（见 FlowMode） */
+  flow: FlowMode;
 }
 
 export const DEFAULT_PREFS: ReaderPrefs = {
@@ -73,6 +82,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   footnote: 'popup',
   ttsRate: 1,
   ttsFollow: true,
+  flow: 'paged',
 };
 
 export const FONT_SIZE_RANGE = { min: 14, max: 30, step: 1 } as const;
@@ -137,5 +147,6 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     footnote: p.footnote === 'jump' ? 'jump' : 'popup',
     ttsRate: Math.round(clamp(p.ttsRate, TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, DEFAULT_PREFS.ttsRate) * 10) / 10,
     ttsFollow: p.ttsFollow !== false,
+    flow: p.flow === 'scroll' ? 'scroll' : 'paged',
   };
 }

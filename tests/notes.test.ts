@@ -6,6 +6,7 @@ import {
   bookmarkAt,
   findHighlight,
   removeHighlight,
+  removeHighlights,
   setHighlightComment,
   toggleBookmark,
 } from '../src/data/notes';
@@ -74,5 +75,34 @@ describe('划线与镜像摘录（highlight 主本，excerpt 镜像）', () => {
     const book = oldBook();
     expect(addBookmark(book, { cfi: 'c', percent: 3 }).percent).toBe(1);
     expect(addBookmark(book, { cfi: 'c', percent: -1 }).percent).toBe(0);
+  });
+});
+
+describe('批量删除（标注多选的操作面）', () => {
+  it('一次删多条，镜像 excerpt 一起删，返回真实删除条数', () => {
+    const book = oldBook();
+    const a = addHighlight(book, { text: 'a', cfiRange: 'c1' });
+    const b = addHighlight(book, { text: 'b', cfiRange: 'c2' });
+    const c = addHighlight(book, { text: 'c', cfiRange: 'c3' });
+    expect(removeHighlights(book, new Set([a.id, c.id]))).toBe(2);
+    expect(book.notes.highlights.map((x) => x.id)).toEqual([b.id]);
+    expect(book.notes.excerpts.map((x) => x.id)).toEqual([b.id]);
+  });
+
+  it('不存在的 id 不计数；空集合什么都不做', () => {
+    const book = oldBook();
+    addHighlight(book, { text: 'a', cfiRange: 'c1' });
+    expect(removeHighlights(book, new Set(['nope']))).toBe(0);
+    expect(removeHighlights(book, new Set())).toBe(0);
+    expect(book.notes.highlights).toHaveLength(1);
+  });
+
+  it('删掉后书的 updatedAt 前进（外部合并按它取新的那份）', () => {
+    const book = oldBook();
+    book.updatedAt = 1;
+    const a = addHighlight(book, { text: 'a', cfiRange: 'c1' });
+    book.updatedAt = 1;
+    removeHighlights(book, new Set([a.id]));
+    expect(book.updatedAt).toBeGreaterThan(1);
   });
 });

@@ -25,6 +25,8 @@ import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
 import { BookRepo, BASE_FORMATS, PRO_FORMATS, formatOf, planRelocations, scanVault } from './data/book-repo';
 import { ReaderStore, verifyCopiedJson } from './data/store';
+import { backupFileName, buildBackup, mergeRestore, parseBackup } from './data/backup';
+import { pickJsonFile } from './core/file-pick';
 import { copyTree, dirHasFiles, findDataDirs, removeTree } from './data/migrate';
 import { normalizePrefs, type ReaderPrefs } from './data/prefs';
 import { normalizeSettings, type ReaderSettings } from './data/settings';
@@ -46,6 +48,7 @@ import { openCrossSearch } from './ui/cross-search-panel';
 import { StudyView, VIEW_TYPE_STUDY } from './shell/study-view';
 import { OverlayLayer } from './shell/overlay';
 import { dispatchAction } from './shell/actions';
+import { clampDailyGoal } from './shell/checkin';
 import { loadShellState, notify as notifyShell, overlayKey, setState, getState, subscribe, hydrateLibrary, DEFAULT_SHELL_STATE, type StudyPage } from './shell/state';
 import { setShellSource, shellPrefs } from './shell/source';
 
@@ -333,7 +336,83 @@ export function createPlugin(cfg: PluginConfig) {
           this.store.get().goal = n;
           this.store.touch();
         },
+        setDailyGoal: (minutes) => {
+          const n = clampDailyGoal(minutes);
+          this.store.get().dailyGoalMinutes = n;
+          this.store.touch();
+          notify(`每日目标改为 ${n} 分钟`);
+        },
+        searchText: async (kw) => {
+          const view = this.activeReader();
+          return view ? view.searchText(kw) : [];
+        },
+        hasOpenReader: () => !!this.activeReader(),
+        backup: () => this.backupData(),
+        restore: () => this.restoreData(),
       });
+    }
+
+    /**
+     * 一键备份：把业务数据写成一份 JSON 放进数据目录。
+     *
+     * 先 `flush(true)` 再序列化：内存里可能还有刚翻的一页没落盘，
+     * 备份出来的却是「上一秒的书架」，用户拿它恢复就少一页进度。
+     */
+    private async backupData(): Promise<{ ok: boolean; message: string }> {
+      const dir = dataDirOf();
+      const path = `${dir}/${backupFileName()}`;
+      try {
+        await this.store.flush(true);
+        await this.app.vault.adapter.write(path, buildBackup(this.store.get()));
+        notify(`已备份到「${path}」`);
+        return { ok: true, message: path };
+      } catch (e) {
+        const why = `备份失败：${(e as Error)?.message || '未知错误'}`;
+        notify(why, 'error');
+        return { ok: false, message: why };
+      }
+    }
+
+    /**
+     * 从备份恢复：**合并**，不替换。
+     *
+     * 替换会让「另一台设备上多读的那几章」凭空消失——那是数据丢失，
+     * 不是恢复。合并按书 id 对齐、`updatedAt` 大的赢（同 store 的外部修改合并）。
+     */
+    private async restoreData(): Promise<{ ok: boolean; message: string }> {
+      const picked = await pickJsonFile();
+      if (!picked) return { ok: false, message: '没有选择文件' };
+      let text = '';
+      try {
+        text = await picked.text();
+      } catch (e) {
+        return { ok: false, message: `读不了这个文件：${(e as Error)?.message || '未知错误'}` };
+      }
+      const parsed = parseBackup(text);
+      if (!parsed.ok) {
+        notify(parsed.message, 'error');
+        return { ok: false, message: parsed.message };
+      }
+      const merged = mergeRestore(this.store.get(), parsed.data);
+      const books = this.repo.all();
+      books.length = 0;
+      books.push(...merged.books);
+      /* repo 与 store 必须指向同一个数组，否则恢复出来的书重启就没了 */
+      this.store.get().books = books;
+      if (merged.prefs !== undefined) this.store.get().prefs = merged.prefs;
+      if (typeof merged.goal === 'number') this.store.get().goal = merged.goal;
+      this.store.get().checkins = merged.checkins;
+      if (typeof merged.dailyGoalMinutes === 'number') {
+        this.store.get().dailyGoalMinutes = merged.dailyGoalMinutes;
+      }
+      this.store.touch();
+      await this.store.flush(true);
+      hydrateLibrary(books, this.store.get().goal);
+      notifyShell();
+      const extra = parsed.dropped ? `（有 ${parsed.dropped} 条记录不完整，已跳过）` : '';
+      const msg = `已恢复，书架现在 ${books.length} 本${extra}`;
+      notify(msg);
+      return { ok: true, message: msg };
     }
 
     /**

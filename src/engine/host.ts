@@ -597,6 +597,11 @@ export class EngineHost {
       return;
     }
 
+    /* 滚动模式（P2-02）：滚轮交给浏览器自己滚，不拦、不翻页。
+       这是桌面阅读的第一诉求——想往上回看两行，分页模式只能整页翻回去。
+       Ctrl/⌘ + 滚轮仍然改字号（那是最顺手的缩放，两种模式都该有）。 */
+    if (this.prefs.flow === 'scroll' && !ev.ctrlKey && !ev.metaKey) return;
+
     ev.preventDefault();
     this.wheelAcc += main;
     if (Math.abs(this.wheelAcc) < WHEEL_TURN_THRESHOLD) return;
@@ -1097,6 +1102,12 @@ export class EngineHost {
     // var(--_pad-top/bottom)。自绘工具栏撤了之后这里给 0，留白全由 theme.ts 管。
     pag?.style?.setProperty('--_pad-top', '0px');
     pag?.style?.setProperty('--_pad-bottom', '8px');
+    /* 翻页 / 滚动模式（P2-02）：foliate 的 paginator 认 `flow` 属性，
+       设成 `scrolled` 之后 `#container` 变成 overflow:auto，滚轮和触控板
+       自然滚动，`next()` / `prev()` 也自动改成「滚一屏」。
+       属性变化会走 attributeChangedCallback → render()，不需要重开书。 */
+    const flow = prefs.flow === 'scroll' ? 'scrolled' : 'paginated';
+    if (pag && pag.getAttribute?.('flow') !== flow) pag.setAttribute?.('flow', flow);
     if (!this.view || !prev) return;
     if (prev.layout !== prefs.layout) {
       // 竖排切换必须重新装载章节：引擎只在 load 时读一次 writing-mode，

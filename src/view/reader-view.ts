@@ -54,6 +54,8 @@ import { openOverlay, getState } from '../shell/state';
 import { anchoredPlacement } from '../shell/anchored-style';
 import { selbarActions } from '../shell/selbar';
 import { RT, onNotesChanged } from '../shell/runtime';
+import { addCheckin } from '../shell/checkin';
+import { toTextHits } from '../shell/text-search';
 import { shouldNotifyRelocate } from './relocate-notify';
 import { getShellSource } from '../shell/source';
 import { dispatchAction, createMark, requireCap } from '../shell/actions';
@@ -334,6 +336,12 @@ export class ReaderView extends ItemView {
         return;
       }
       const now = Date.now();
+      /* 滚动模式（P2-02）：滚轮/触控板已经在滚，点一下再跳一屏会很吓人。
+         选字、点链接、关浮层仍然照常，只是不再把点击当翻页。 */
+      if (this.prefs.flow === 'scroll') {
+        this.renderProbe();
+        return;
+      }
       this.tapCount += 1;
       dlog('tap', {
         zone,
@@ -611,6 +619,20 @@ export class ReaderView extends ItemView {
     const open = getState().overlay?.kind === 'search';
     if (this.searchOpen && !open) this.host.clearSearch();
     this.searchOpen = open;
+  }
+
+  /**
+   * 搜这一本的正文，返回带 CFI 的命中（新功能「书内搜索的命中定位」）。
+   *
+   * 以前 `host.search()` 只在深链兜底里用过，界面上没有入口：搜索浮层
+   * 只能搜「已建索引」的书名/作者/标注，正文里的字搜不到。
+   */
+  async searchText(kw: string): Promise<Array<{ cfi: string; excerpt: string; chapterLabel: string; chapterIndex: number }>> {
+    if (!this.mounted) await this.maybeMount();
+    if (!this.mounted) return [];
+    const hits = await this.host.search(kw);
+    /* 归一放在纯函数里：命中可能带重复 CFI、空 CFI、{pre,match,post} 形状 */
+    return toTextHits(hits);
   }
 
   /**
@@ -1445,6 +1467,9 @@ export class ReaderView extends ItemView {
         book.reading.sessions.push({ ...session, percent: book.reading.position.percent });
         book.reading.stats.totalReadTime += session.durationSeconds;
         book.reading.stats.lastReadTime = Date.now();
+        /* 每日打卡（新功能）：把这段会话的秒数记进今天。
+           以前 `goal` 只是统计页那圈铜线的一个数字，不记录、不结算。 */
+        addCheckin(this.api.store.get(), session.durationSeconds);
       }
       book.updatedAt = Date.now();
     }

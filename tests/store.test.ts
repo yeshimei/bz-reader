@@ -69,6 +69,24 @@ describe('数据形状自愈（sanitizeData）', () => {
     expect(sanitizeData({ version: 1 })).toBeNull();
     expect(sanitizeData('nope')).toBeNull();
   });
+
+  it('收藏与分组在 sanitize 后仍然保留（P2-01 的落盘面）', () => {
+    /* 重建 book 对象时漏掉 favorite/shelf，读盘一次就把它们丢掉，
+       下一轮写盘永久消失——换设备「跟着走」的承诺在本地就断了。 */
+    const clean = sanitizeData({
+      version: 1,
+      books: [
+        {
+          id: 'x',
+          fileRef: { vaultPath: 'a.epub', format: 'epub' },
+          favorite: true,
+          shelf: '技术',
+        },
+      ],
+    });
+    expect(clean?.books[0]!.favorite).toBe(true);
+    expect(clean?.books[0]!.shelf).toBe('技术');
+  });
 });
 
 describe('读盘与恢复', () => {

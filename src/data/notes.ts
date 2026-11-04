@@ -131,6 +131,24 @@ export function removeHighlight(book: ReaderBook, id: string): boolean {
   return true;
 }
 
+/**
+ * 批量删除（标注多选）。
+ *
+ * 一次遍历、一把过滤：500 条标注逐条调 `removeHighlight` 会做 500 次
+ * `splice`，而且每次都改 `updatedAt`。这里返回**真实删掉**的条数——
+ * 选中项里可能有已经被另一台设备删掉的 id，按数量给提示才对得上。
+ */
+export function removeHighlights(book: ReaderBook, ids: ReadonlySet<string>): number {
+  if (!ids.size) return 0;
+  const n = notes(book);
+  const before = n.highlights.length;
+  n.highlights = n.highlights.filter((h) => !ids.has(h.id));
+  n.excerpts = n.excerpts.filter((e) => !ids.has(e.id));
+  const removed = before - n.highlights.length;
+  if (removed > 0) book.updatedAt = Date.now();
+  return removed;
+}
+
 /** 划线的展示顺序：先按章节，再按在章节里的先后（createdAt 近似即可） */
 export function highlightsOf(book: ReaderBook): Highlight[] {
   return [...notes(book).highlights].sort((a, b) => {

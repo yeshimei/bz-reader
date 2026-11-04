@@ -493,6 +493,74 @@
   letter-spacing: .08em;
 }
 
+/* ── 书摘卡版式（多模板） ──
+   同一段引文四种长相，切换只改 class；文字、出处、转义都复用同一份渲染。 */
+.bzs-tpls {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+/* 信笺：横线纸 + 虚线边，抄长句用 */
+.bzs-qcard.tpl-letter {
+  border-style: dashed;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 27px,
+    color-mix(in srgb, var(--text-normal) 10%, transparent) 27px 28px
+  );
+}
+
+.bzs-qcard.tpl-letter .q {
+  font-size: 15px;
+  line-height: 28px;
+}
+
+/* 夜读：深底浅字，夜里截图不刺眼 */
+.bzs-qcard.tpl-night {
+  background: #171513;
+  border-color: #3a342c;
+}
+
+.bzs-qcard.tpl-night .q {
+  color: #efe6d6;
+}
+
+.bzs-qcard.tpl-night .loc {
+  color: #9c9384;
+}
+
+.bzs-qcard.tpl-night .stamp {
+  color: #d0a95e;
+}
+
+/* 胶片：去掉卡片框，上下两道铜线，像一张票根 */
+.bzs-qcard.tpl-film {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 24px 8px;
+  border-top: 2px solid var(--copper);
+  border-bottom: 1px solid var(--line-2);
+}
+
+.bzs-qcard.tpl-film .q {
+  font-size: 20px;
+  line-height: 1.9;
+  letter-spacing: .02em;
+}
+
+.bzs-qcard.tpl-film .loc {
+  letter-spacing: .25em;
+}
+
+.bzs-qcard.tpl-film .stamp {
+  position: static;
+  display: inline-block;
+  margin-top: 16px;
+}
+
 /* （想想类型胶囊的样式见文件后半段的「壳层补充」一处定义，别在这儿再写一份） */
 
 .bzs-shell textarea.idea {

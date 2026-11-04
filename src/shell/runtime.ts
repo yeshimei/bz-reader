@@ -28,7 +28,14 @@ export interface AiLogItem {
 export const RT = {
   /** 搜索面板关键词（本书 / 全库共用） */
   searchKw: '',
-  searchScope: 'book' as 'book' | 'all',
+  /** 搜索范围：笔记索引（book=本书 / all=全库）或正文（text） */
+  searchScope: 'book' as 'book' | 'all' | 'text',
+  /** 正文搜索的命中（点一条跳到那一页） */
+  textHits: [] as Array<{ cfi: string; excerpt: string; chapterLabel: string; chapterIndex: number }>,
+  /** 正文搜索是否正在跑 */
+  textSearching: false,
+  /** 书摘卡上次用的版式（关闭弹层后仍记得，下次打开还是这一版） */
+  cardTpl: 'classic' as string,
   /** AI 对话（侧栏 AI 页签与 AI 弹层共用一份） */
   aiLog: [] as AiLogItem[],
   /** 当前划词 */

@@ -52,4 +52,11 @@ describe('normalizePrefs', () => {
     normalizePrefs(raw);
     expect(JSON.stringify(raw)).toBe(before);
   });
+
+  it('翻页 / 滚动模式：只认 paged / scroll，其它退回分页', () => {
+    expect(DEFAULT_PREFS.flow).toBe('paged');
+    expect(normalizePrefs({ flow: 'scroll' }).flow).toBe('scroll');
+    expect(normalizePrefs({ flow: 'paged' }).flow).toBe('paged');
+    expect(normalizePrefs({ flow: 'nope' }).flow).toBe('paged');
+  });
 });

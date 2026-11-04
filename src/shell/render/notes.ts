@@ -11,6 +11,7 @@ import { HIGHLIGHT_COLORS } from '../../data/notes';
 import { can } from '../../data/entitlement';
 import type { MarkRow } from '../domain';
 import { filterMarks, fmtWhen, groupByBook } from '../domain';
+import { allPicked } from '../note-select';
 import { MAG, esc } from './html';
 
 export interface NotesView {
@@ -18,11 +19,20 @@ export interface NotesView {
   filter: string;
   kw: string;
   reviewIdx: number;
+  /** 批量选择模式（标注多选） */
+  select?: boolean;
+  /** 已选中的标注 id */
+  picked?: string[];
 }
 
 /** 一条标注卡；`showLoc` 为 false 时是详情弹层里用的紧凑版 */
-export function noteCardHtml(m: MarkRow, showLoc = true): string {
-  return `<div class="bzs-ncard" style="--c:${m.css}">
+export function noteCardHtml(m: MarkRow, showLoc = true, picked = false, select = false): string {
+  const check = select
+    ? `<button class="bzs-npick${picked ? ' on' : ''}" data-act="notepick" data-id="${m.id}"
+        aria-pressed="${picked}" title="${picked ? '取消选中' : '选中'}">${picked ? '✓' : ''}</button>`
+    : '';
+  return `<div class="bzs-ncard${select ? ' pick' : ''}${picked ? ' on' : ''}" style="--c:${m.css}">
+    ${check}
     <div class="tx"><span class="dot" style="background:${m.css}"></span>${esc(m.text)}</div>
     ${m.comment ? `<div class="cm"><b>想 法</b>${esc(m.comment)}</div>` : ''}
     ${
@@ -43,12 +53,16 @@ export function noteCardHtml(m: MarkRow, showLoc = true): string {
 export function viewNotes(v: NotesView): string {
   const shown = filterMarks(v.marks, v.filter, v.kw);
   const groups = groupByBook(shown);
+  const select = v.select === true;
+  const picked = v.picked ?? [];
+  const shownIds = shown.map((m) => m.id);
 
   /* 每日回顾：只有写过想法的才值得回看。
      **按日期轮**（P3-13）：以前是「顺序下一条」——翻一次就往前走一格，
      跟「每日」没有关系；第二天打开还停在上次那条的后面一条，永远轮不到
      真正没看过的那批。现在用「年内第几天」当种子：同一天稳定、隔天换一条，
-     「下一条」在当天里继续往后走。 */
+     「下一条」在当天里继续往后走。
+     选择模式下不出现：正在批量挑要删的，跳走干别的会中断。 */
   const recalls = v.marks.filter((m) => m.comment);
   const day = Math.floor(
     (Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / 86_400_000,
@@ -56,8 +70,9 @@ export function viewNotes(v: NotesView): string {
   const reviewAt = recalls.length ? (day + v.reviewIdx) % recalls.length : 0;
   const rv = recalls.length ? recalls[reviewAt] : null;
 
-  const review = rv
-    ? `<div class="bzs-review">
+  const review =
+    rv && !select
+      ? `<div class="bzs-review">
         <div class="kick">每 日 回 顾</div>
         <h3>回来看看这条</h3>
         <div class="q">「${esc(rv.text)}」</div>
@@ -67,7 +82,7 @@ export function viewNotes(v: NotesView): string {
           <span class="idx">${reviewAt + 1} / ${recalls.length}</span>
         </div>
       </div>`
-    : '';
+      : '';
 
   const chips = [
     `<button class="bzs-chip${v.filter === 'all' ? ' on' : ''}" data-act="notefilter" data-v="all">全部</button>`,
@@ -78,6 +93,18 @@ export function viewNotes(v: NotesView): string {
     ),
   ].join('');
 
+  const selBar = select
+    ? `<div class="bzs-nselbar">
+        <span class="bzs-mini">已选 ${picked.length} 条</span>
+        <span class="sp"></span>
+        <button class="bzs-btn sm" data-act="noteall">${allPicked(picked, shownIds) ? '取消全选' : '全选'}</button>
+        <button class="bzs-btn sm" data-act="notesel">退出选择</button>
+        <button class="bzs-btn sm danger" data-act="notedrop"${picked.length ? '' : ' disabled'}>删除${
+          picked.length ? ` ${picked.length} 条` : ''
+        }</button>
+      </div>`
+    : '';
+
   const body = groups.length
     ? groups
         .map(
@@ -87,7 +114,9 @@ export function viewNotes(v: NotesView): string {
               <span class="sp"></span>
               <button class="bzs-btn sm" data-act="exportfile" data-id="${g.bookId}">导出这本</button>
             </div>
-            <div class="bzs-ngrid">${g.items.map((m) => noteCardHtml(m)).join('')}</div>
+            <div class="bzs-ngrid">${g.items
+              .map((m) => noteCardHtml(m, !select, picked.includes(m.id), select))
+              .join('')}</div>
           </div>`,
         )
         .join('')
@@ -98,8 +127,10 @@ export function viewNotes(v: NotesView): string {
       ${chips}
       <span style="flex:1"></span>
       <span class="bzs-mini">${shown.length} 条 · ${v.marks.filter((m) => m.comment).length} 条想法</span>
+      ${select ? '' : '<button class="bzs-btn sm" data-act="notesel">选择</button>'}
       <button class="bzs-btn sm pri" data-act="export">导出为 Markdown</button>
     </div>
+    ${selBar}
     ${review}
     ${body}`;
 }

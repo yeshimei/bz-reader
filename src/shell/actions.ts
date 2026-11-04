@@ -20,10 +20,13 @@ import {
   isHighlightColor,
   removeBookmark,
   removeHighlight,
+  removeHighlights,
   setHighlightColor,
   setHighlightComment,
   toggleBookmark,
 } from '../data/notes';
+import { allMarks, filterMarks } from './domain';
+import { toggleAll, togglePick } from './note-select';
 import { notify } from '../core/notice';
 import { confirmDelete } from './delete-guard';
 import { flipSetting, type ToggleState } from './settings-toggle';
@@ -274,6 +277,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'setgoal':
       overlay('setgoal');
       break;
+    case 'setdailygoal': {
+      const n = Number(d.v);
+      if (Number.isFinite(n)) getShellSource()?.setDailyGoal(n);
+      break;
+    }
     case 'reset':
       overlay('reset');
       break;
@@ -428,6 +436,38 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     case 'jumpmark':
       jumpMark(d.id, d.book);
+      break;
+    /* ── 标注多选 / 批量操作 ── */
+    case 'notesel':
+      mutateState((s) => {
+        s.noteSelect = !s.noteSelect;
+        s.noteSel = [];
+      });
+      break;
+    case 'notepick':
+      if (d.id) {
+        mutateState((s) => {
+          s.noteSel = togglePick(s.noteSel, d.id as string);
+        });
+      }
+      break;
+    case 'noteall': {
+      const st = getState();
+      const shown = filterMarks(allMarks(liveBooks()), st.noteFilter, st.noteKw).map((m) => m.id);
+      mutateState((s) => {
+        s.noteSel = toggleAll(s.noteSel, shown);
+      });
+      break;
+    }
+    case 'notedrop':
+      if (!getState().noteSel.length) {
+        notify('先选几条要删的', 'info');
+        break;
+      }
+      overlay('notedrop');
+      break;
+    case 'notedropdo':
+      dropSelectedMarks();
       break;
     /* ── 读完仪式 ──
        星星只改 class 不重绘：重绘会把用户刚输入的一句话清掉 */
@@ -605,6 +645,20 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         RT.dataDirDraft = picked;
         rerender();
       });
+      break;
+    }
+    /* ── 备份 / 恢复（新功能） ── */
+    case 'backup': {
+      /* 成功/失败的提示都由插件层发（它知道具体路径），这里不再重复一条 */
+      const src = getShellSource();
+      if (!src) break;
+      void src.backup();
+      break;
+    }
+    case 'restore': {
+      const src = getShellSource();
+      if (!src) break;
+      void src.restore();
       break;
     }
     case 'datadirmove': {
@@ -787,6 +841,16 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       // 传过去会被丢掉，书摘卡就只能退回 RT.sel，某些路径下章节名是空的
       if (RT.sel) overlay('quote', { text: RT.sel.text, bookId: RT.sel.bookId, chapterTitle: RT.sel.chapterTitle });
       break;
+    case 'cardtpl': {
+      /* 书摘卡换版式：写进 overlay.mode，overlayKey 已经把它算进去了，
+         所以下一次 sync 会重画；内容（text/bookId/chapterTitle）原样带过去。
+         同时记进 RT.cardTpl，关掉弹层再打开还是这一版。 */
+      const o = getState().overlay;
+      if (!o || o.kind !== 'quote' || !d.v) break;
+      RT.cardTpl = d.v;
+      openOverlay({ ...o, mode: d.v });
+      break;
+    }
     case 'seldict':
       if (RT.sel) overlay('dict', { word: RT.sel.text.slice(0, 8) });
       break;
@@ -828,11 +892,52 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'searchscope':
       // 本书搜索免费，跨书搜索属于高级版；切换时拦，不要在结果里悄悄少几本
       if (d.v === 'all' && !requireCap('crossSearch')) break;
-      if (d.v === 'book' || d.v === 'all') {
+      if (d.v === 'book' || d.v === 'all' || d.v === 'text') {
         RT.searchScope = d.v;
+        RT.textHits = [];
         repaint();
       }
       break;
+    case 'searchtext': {
+      /* 正文搜索（新功能）：搜当前这一本的正文，点结果跳过去。
+         以前 `host.search()` 只在深链兜底里用，界面上根本没有入口。 */
+      const src = getShellSource();
+      const kw = RT.searchKw.trim();
+      if (!src || !kw) {
+        notify('先输入要搜的字', 'info');
+        break;
+      }
+      if (!src.hasOpenReader()) {
+        notify('先打开一本书，再来搜正文', 'info');
+        break;
+      }
+      RT.searchScope = 'text';
+      RT.textSearching = true;
+      RT.textHits = [];
+      repaint();
+      void (async () => {
+        try {
+          const hits = await src.searchText(kw);
+          RT.textHits = hits;
+        } catch (e) {
+          notify(`正文搜索失败：${(e as Error)?.message || '未知错误'}`, 'error');
+        } finally {
+          RT.textSearching = false;
+          repaint();
+        }
+      })();
+      break;
+    }
+    case 'hittotext': {
+      /* 点一条命中：跳到那一页。`openBook` 带 cfi 时会走 `jumpTo`，
+         书已经开着就直接定位，没开就开一个新的 tab。 */
+      const cfi = d.cfi || '';
+      const book = liveBooks().find((b) => b.id === getState().bookId);
+      if (!cfi || !book) break;
+      closeOverlay();
+      getShellSource()?.openBook(book, cfi);
+      break;
+    }
 
     /* ── 重置界面状态（不动书与笔记） ── */
     case 'resetui':
@@ -939,6 +1044,12 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
     case 'ttsRate':
       src.setPrefs({ ttsRate: Number(v) });
       break;
+    case 'ttsFollow':
+      src.setPrefs({ ttsFollow: v !== '0' });
+      break;
+    case 'flow':
+      src.setPrefs({ flow: v === 'scroll' ? 'scroll' : 'paged' });
+      break;
     case 'fontFamily':
       src.setPrefs({ fontFamily: v as typeof p.fontFamily });
       break;
@@ -987,6 +1098,30 @@ function deleteMark(markId?: string, bookId?: string): void {
     emitNotesChanged();
     notify('划线已删');
   }
+}
+
+/**
+ * 批量删除选中的标注（标注多选）。
+ *
+ * 按书分组一次删完：逐条调 `removeHighlight` 会在 500 条时做 500 次
+ * splice，还要 500 次重绘。删完退出选择模式——用户已经处理完这批了。
+ */
+function dropSelectedMarks(): void {
+  const sel = new Set(getState().noteSel);
+  if (!sel.size) {
+    closeOverlay();
+    return;
+  }
+  let removed = 0;
+  for (const b of liveBooks()) removed += removeHighlights(b, sel);
+  if (removed > 0) getShellSource()?.store.touch();
+  closeOverlay();
+  mutateState((s) => {
+    s.noteSelect = false;
+    s.noteSel = [];
+  });
+  emitNotesChanged();
+  notify(removed > 0 ? `已删除 ${removed} 条划线` : '这些标注已经不在了', 'info');
 }
 
 function changeMarkColor(markId?: string, color?: string, bookId?: string): void {

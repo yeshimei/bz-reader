@@ -111,6 +111,10 @@ export function sanitizeDataDetailed(v: unknown): SanitizeResult | null {
       },
       addedAt: typeof b.addedAt === 'number' ? b.addedAt : now,
       updatedAt: typeof b.updatedAt === 'number' ? b.updatedAt : now,
+      /* 重建对象时漏了这两项，读盘一次就把收藏和分组丢掉——
+         P2-01 把「跟着走」搬进业务数据，落盘面却把它清了。 */
+      ...(b.favorite === true ? { favorite: true } : {}),
+      ...(typeof b.shelf === 'string' && b.shelf ? { shelf: b.shelf } : {}),
     });
   }
   return { data: { ...(d as ReaderData), version: 1, books }, dropped };

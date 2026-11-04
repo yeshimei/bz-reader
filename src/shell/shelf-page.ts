@@ -36,15 +36,32 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[]): ShelfPag
   switch (state.studyPage) {
     case 'notes':
       return {
-        body: viewNotes({ marks, filter: state.noteFilter, kw: state.noteKw, reviewIdx: state.reviewIdx }),
+        body: viewNotes({
+          marks,
+          filter: state.noteFilter,
+          kw: state.noteKw,
+          reviewIdx: state.reviewIdx,
+          select: state.noteSelect,
+          picked: state.noteSel,
+        }),
         counts,
       };
-    case 'stats':
+    case 'stats': {
       // 统计是付费项：锁着就给锁态，别让整页空白像坏了
+      const src = getShellSource();
       return {
-        body: can('stats') ? viewStats({ stats: collectStats(books), books, goal: state.goal }) : viewStatsLocked(),
+        body: can('stats')
+          ? viewStats({
+              stats: collectStats(books),
+              books,
+              goal: state.goal,
+              checkins: src?.store.get().checkins,
+              dailyGoalMinutes: src?.store.get().dailyGoalMinutes,
+            })
+          : viewStatsLocked(),
         counts,
       };
+    }
     case 'settings':
       return {
         body: viewSettings({

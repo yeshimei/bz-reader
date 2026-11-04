@@ -558,6 +558,68 @@
   position: relative;
 }
 
+/* ── 标注多选（批量操作） ──
+   选择模式是一条单独的工具条，卡片左侧让出勾选圈的位置；
+   勾中之后整张卡描边，扫一眼就知道删的是哪几条。 */
+.bzs-nselbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+
+.bzs-nselbar .sp {
+  flex: 1;
+}
+
+.bzs-ncard.pick {
+  padding-left: 50px;
+  cursor: pointer;
+}
+
+.bzs-ncard.pick.on {
+  border-color: var(--copper);
+  box-shadow: inset 0 0 0 1px var(--copper);
+}
+
+.bzs-npick {
+  position: absolute;
+  left: 14px;
+  top: 13px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--bg);
+  color: transparent;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none;
+}
+
+.bzs-npick.on {
+  border-color: var(--copper);
+  background: var(--copper);
+  color: #fff;
+}
+
+.bzs-npick:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 2px;
+}
+
 /* 笔色改成一个小圆点，不再用卡片左缘那条竖线。
    竖线的问题：一张卡只为了标一个颜色就整条边被染色，卡片一多，
    整页就变成一排彩色条——颜色本来只是次要信息，却抢走了全部注意力。 */
@@ -746,6 +808,38 @@
 /* 热力图按 GitHub 口径排：**每列一周**（7 行），从左到右是 20 周。
    140 格 ÷ 20 列 = 7 行；如果按默认的行优先填充，每行是连续 20 天，
    列根本不是周，横轴「20 周前 → 今天」也就成了假话。 */
+/* ── 每日打卡（统计页） ──
+   一个月一排格子：达标铜色、没达标浅底、未来更淡。
+   目标档位是 chip，点一下立刻写盘（setdailygoal）。 */
+.bzs-checkin {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.bzs-checkin i {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: var(--surface-2);
+  display: block;
+}
+
+.bzs-checkin i.on {
+  background: var(--copper);
+}
+
+.bzs-checkin i.future {
+  opacity: .35;
+}
+
+.bzs-goalchips {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .bzs-heat {
   display: grid;
   grid-template-columns: repeat(20, 1fr);

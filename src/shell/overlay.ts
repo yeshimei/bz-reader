@@ -19,8 +19,9 @@ import { aiAsk, type AiTask } from '../data/ai';
 import type { ReaderBook } from '../data/schema';
 import { collectStats } from '../data/stats';
 import { cn, esc, coverHtml, ico, MAG } from './render/html';
-import { bmksOf, fmtMinutes, fmtWhen, marksOf } from './domain';
+import { bmksOf, allMarks, fmtMinutes, fmtWhen, marksOf } from './domain';
 import { noteCardHtml } from './render/notes';
+import { cardTemplateChipsHtml, quoteCardHtml } from './render/quote-card';
 import { searchHits } from './search-hits';
 import { closeOverlay, dismissesOnOutside, getState } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
@@ -74,8 +75,28 @@ function markById(id?: string | null, bookId?: string | null) {
  * 渲染过——用户打字时屏幕毫无变化，必须再点一下「本书 / 全库」才出结果。
  * 这里把「命中计算」交给纯函数 search-hits，顺便避免整块重绘打断中文输入法。
  */
-function searchResultsHtml(kw: string, scope: 'book' | 'all'): string {
-  if (!kw.trim()) return `<div class="bzs-empty">输入关键词。想搜正文全文，用 Obsidian 自带的全文搜索更快。</div>`;
+function searchResultsHtml(kw: string, scope: 'book' | 'all' | 'text'): string {
+  /* 正文搜索（新功能「书内搜索的命中定位」）：以前只能搜「已建索引」的
+     书名/作者/标注，正文里的字搜不到；跨书搜索又只列文字、点了不跳。
+     现在搜到就列出来，点一条直接跳到那一页。 */
+  if (scope === 'text') {
+    if (!kw.trim()) return `<div class="bzs-empty">输入关键词，点上面的「搜正文」。</div>`;
+    if (!getShellSource()?.hasOpenReader()) return `<div class="bzs-empty">先打开一本书，再来搜正文。</div>`;
+    if (RT.textSearching) return `<div class="bzs-empty">正在正文里找「${esc(kw)}」…</div>`;
+    if (!RT.textHits.length) {
+      return `<div class="bzs-empty">正文里没有「${esc(kw)}」<br><br><button class="bzs-btn sm" data-act="searchtext">再搜一次</button></div>`;
+    }
+    return `<div class="bzs-hits">${RT.textHits
+      .map(
+        (h) =>
+          `<div class="bzs-hit" data-act="hittotext" data-cfi="${esc(h.cfi)}" role="button" tabindex="0">
+            <span class="ch">${esc(h.chapterLabel || '')}</span>
+            <span class="tx">${esc(h.excerpt)}</span>
+          </div>`,
+      )
+      .join('')}</div>`;
+  }
+  if (!kw.trim()) return `<div class="bzs-empty">输入关键词。想搜这一本的正文，切到「正文」范围。</div>`;
   const books = (scope === 'book' ? liveBooks().filter((b) => b.id === getState().bookId) : liveBooks()).map((b) => ({
     id: b.id,
     title: b.meta.title,
@@ -111,11 +132,15 @@ function overlaySearch(): string {
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
       <button class="bzs-chip${scope === 'book' ? ' on' : ''}" data-act="searchscope" data-v="book">本书</button>
       <button class="bzs-chip${scope === 'all' ? ' on' : ''}" data-act="searchscope" data-v="all">全库 · ${liveBooks().length} 本</button>
-      <span class="bzs-mini" style="margin-left:auto">搜的是已建索引的内容：书名、作者、标注与想法</span>
+      <button class="bzs-chip${scope === 'text' ? ' on' : ''}" data-act="searchscope" data-v="text">正文</button>
+      <button class="bzs-btn sm" data-act="searchtext">搜正文</button>
+      <span class="bzs-mini" style="margin-left:auto">${
+        scope === 'text' ? '搜这一本的正文，点结果跳到那一页' : '搜的是已建索引的内容：书名、作者、标注与想法'
+      }</span>
     </div>
     <div data-role="hitlist">${searchResultsHtml(RT.searchKw, scope)}</div>`;
 
-  return modal('搜索', '本书 / 全库', body, '', 'wide tall');
+  return modal('搜索', '本书 / 全库 / 正文', body, '', 'wide tall');
 }
 
 /**
@@ -178,7 +203,23 @@ export function typographyFormHtml(): string {
       ],
       String(p.columns),
     )}</div>
+    <div class="bzs-setrow"><label>翻页</label>${seg(
+      'flow',
+      [
+        ['paged', '分页'],
+        ['scroll', '滚动'],
+      ],
+      p.flow,
+    )}</div>
     ${rng('ttsRate', '朗读语速', p.ttsRate, 0.6, 2, 0.1, '×')}
+    <div class="bzs-setrow"><label>朗读跟随</label>${seg(
+      'ttsFollow',
+      [
+        ['1', '念完续页'],
+        ['0', '只念本页'],
+      ],
+      p.ttsFollow ? '1' : '0',
+    )}</div>
   </div>`;
 }
 
@@ -273,16 +314,22 @@ function overlayBookmap(): string {
   return modal('全书鸟瞰', '全书一屏鸟瞰', body, closeBtn(), 'wide tall');
 }
 
-function overlayQuote(text?: string, bookId?: string, chapterTitle?: string): string {
+function overlayQuote(text?: string, bookId?: string, chapterTitle?: string, template?: string): string {
   const book = bookById(bookId ?? getState().bookId);
   const t = text || RT.sel?.text || '';
   const ch = chapterTitle || RT.sel?.chapterTitle || '未命名章节';
-  const body = `<div class="bzs-qcard">
-      <div class="q">${esc(t)}</div>
-      <div class="loc">${esc(book?.meta.title ?? '未命名')} · ${esc(book?.meta.author ?? '佚名')} · ${esc(ch)}</div>
-      <div class="stamp">bz 阅读</div>
-    </div>
-    <div class="bzs-mini" style="margin-top:12px;line-height:1.9">复制后粘到任何笔记里，定位串能带你回到同一段。</div>`;
+  /* 没用过模板就用 RT.cardTpl 记着的那一版：换过一次版式之后，
+     下次从别的划线打开还是同一版，不用每次都重选。 */
+  const tpl = template || RT.cardTpl;
+  const body = `${cardTemplateChipsHtml(tpl)}
+    ${quoteCardHtml({
+      text: t,
+      bookTitle: book?.meta.title ?? '未命名',
+      author: book?.meta.author ?? '佚名',
+      chapter: ch,
+      template: tpl,
+    })}
+    <div class="bzs-mini" style="margin-top:12px;line-height:1.9">复制后粘到任何笔记里，定位串能带你回到同一段。切换版式只改长相，不改内容。</div>`;
   const quoteMd = `「${t}」\n— ${book?.meta.title ?? ''} · ${book?.meta.author ?? ''} · ${ch}`;
   return modal(
     '书摘卡',
@@ -349,6 +396,33 @@ function overlayConfirmDel(markId?: string, bookId?: string): string {
     body,
     `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
      <button class="bzs-btn danger" data-act="delmarkdo" data-id="${mark.id}" data-book="${book.id}">删除</button>`,
+  );
+}
+
+/**
+ * 批量删除确认（标注多选）。
+ *
+ * 一次删很多条，比单条更需要「删的是哪批」的实感：列前三条 + 总数，
+ * 而不是只弹一句「确定删除 37 条吗」。删除不可撤销，所以不提供「不再提示」。
+ */
+function overlayConfirmDrop(): string {
+  const ids = new Set(getState().noteSel);
+  const rows = allMarks(liveBooks()).filter((m) => ids.has(m.id));
+  if (!rows.length) return modal('删除标注', '', '<div class="bzs-empty">没有选中任何标注。</div>', closeBtn());
+  const preview = rows
+    .slice(0, 3)
+    .map(
+      (m) => `<div class="bzs-qcard"><div class="q">${esc(m.text)}</div>
+      <div class="loc">${esc(m.bookTitle)} · ${esc(m.chapterTitle)}</div></div>`,
+    )
+    .join('');
+  const more = rows.length > 3 ? `<div class="bzs-mini">还有 ${rows.length - 3} 条…</div>` : '';
+  return modal(
+    `删除选中的 ${rows.length} 条划线？`,
+    '不能撤销',
+    `${preview}${more}<div class="bzs-mini" style="margin-top:12px;line-height:1.9">这些划线下的想法会一起删掉。</div>`,
+    `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
+     <button class="bzs-btn danger" data-act="notedropdo">删除 ${rows.length} 条</button>`,
   );
 }
 
@@ -735,13 +809,15 @@ export function overlayHtml(): string {
     case 'bookmap':
       return overlayBookmap();
     case 'quote':
-      return overlayQuote(o.text, o.bookId, o.chapterTitle);
+      return overlayQuote(o.text, o.bookId, o.chapterTitle, o.mode);
     case 'idea':
       return overlayIdea(o.markId, o.bookId);
     case 'hltools':
       return overlayHltools(o.markId, o.bookId);
     case 'confirmdel':
       return overlayConfirmDel(o.markId, o.bookId);
+    case 'notedrop':
+      return overlayConfirmDrop();
     case 'footnote':
       return overlayFootnote(o.text, o.href);
     case 'ai':

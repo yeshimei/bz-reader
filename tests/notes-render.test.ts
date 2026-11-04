@@ -1,0 +1,67 @@
+import { describe, expect, it } from 'vitest';
+import type { MarkRow } from '../src/shell/domain';
+import { viewNotes } from '../src/shell/render/notes';
+
+function mark(id: string, patch: Partial<MarkRow> = {}): MarkRow {
+  return {
+    id,
+    bookId: 'b1',
+    bookTitle: '一本测试书',
+    bookAuthor: '作者',
+    text: `划线 ${id}`,
+    comment: '',
+    color: 'amber',
+    colorLabel: '琥珀',
+    css: '#e8b53a',
+    chapterTitle: '第一章',
+    chapterIndex: 0,
+    createdAt: 1,
+    cfiRange: `cfi-${id}`,
+    ...patch,
+  };
+}
+
+function html(patch: Partial<Parameters<typeof viewNotes>[0]> = {}): string {
+  return viewNotes({
+    marks: [mark('a'), mark('b')],
+    filter: 'all',
+    kw: '',
+    reviewIdx: 0,
+    select: false,
+    picked: [],
+    ...patch,
+  });
+}
+
+describe('标注多选（笔记页）', () => {
+  it('非选择模式：有「选择」入口，没有逐条 checkbox', () => {
+    const h = html();
+    expect(h).toContain('data-act="notesel"');
+    expect(h).not.toContain('data-act="notepick"');
+  });
+
+  it('选择模式：每条卡片可勾选，顶部显示已选数量与批量操作', () => {
+    const h = html({ select: true, picked: ['a'] });
+    expect(h).toContain('data-act="notepick"');
+    expect(h).toContain('已选 1 条');
+    expect(h).toContain('data-act="notedrop"');
+    expect(h).toContain('data-act="noteall"');
+  });
+
+  it('勾选框带 data-id，能对上具体那一条', () => {
+    const h = html({ select: true, picked: [] });
+    expect(h).toContain('data-act="notepick" data-id="a"');
+    expect(h).toContain('data-act="notepick" data-id="b"');
+  });
+
+  it('已选中的卡片带 on 标记（重绘后仍看得出选没选）', () => {
+    const h = html({ select: true, picked: ['a'] });
+    expect(h).toMatch(/data-id="a"[^>]*class="[^"]*on|class="[^"]*on[^"]*"[^>]*data-id="a"/);
+  });
+
+  it('选择模式下不再出现「回到原文 / 双向链接」，避免误触走错', () => {
+    const h = html({ select: true, picked: [] });
+    expect(h).not.toContain('data-act="jumpmark"');
+    expect(h).not.toContain('data-act="copylink"');
+  });
+});

@@ -32,7 +32,7 @@ export type OverlayKind =
   | 'search' | 'typography' | 'export' | 'bookmap'
   | 'quote' | 'idea' | 'hltools' | 'ai' | 'dict' | 'translate' | 'poster'
   | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedata' | 'finish' | 'footnote'
-  | 'rename' | 'removebook' | 'confirmdel';
+  | 'rename' | 'removebook' | 'confirmdel' | 'notedrop';
 
 /**
  * 哪些弹层算「浮层」：无遮罩、贴在文字旁。
@@ -117,6 +117,10 @@ export interface ShellState {
   noteFilter: string;
   noteKw: string;
   reviewIdx: number;
+  /** 笔记页是否处于批量选择模式 */
+  noteSelect: boolean;
+  /** 已选中的标注 id（不落盘：退出插件后不该还留着上次的选择） */
+  noteSel: string[];
   /** 年度目标（本）。真实数据里没有「目标」，它只影响统计页那圈铜线 */
   goal: number;
   /* 阅读上下文 */
@@ -151,6 +155,8 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   noteFilter: 'all',
   noteKw: '',
   reviewIdx: 0,
+  noteSelect: false,
+  noteSel: [],
   goal: 20,
   sideTab: 'toc',
   bookId: null,
@@ -211,7 +217,7 @@ export function mutateState(fn: (s: ShellState) => void): void {
 
 function persist(): void {
   try {
-    const { overlay, libKw, noteKw, ...rest } = state;
+    const { overlay, libKw, noteKw, noteSelect, noteSel, ...rest } = state;
     // 浮层与输入框内容不落盘：下次打开还停在上次的弹窗上很怪
     window.localStorage.setItem(LS_KEY, JSON.stringify(rest));
   } catch {

@@ -14,14 +14,22 @@ import type { StatsSummary } from '../../data/stats';
 import { dayKey } from '../../data/stats';
 import { fmtMinutes } from '../domain';
 import { esc } from './html';
+import { checkinStats } from '../checkin';
 
 const MS_DAY = 86_400_000;
 const HEAT_DAYS = 140;
+
+/** 每日目标的预设档位（分钟）。不开放任意数字，省得用户把目标设成 1 分钟 */
+const DAILY_GOAL_CHOICES = [10, 15, 20, 30, 45, 60] as const;
 
 export interface StatsView {
   stats: StatsSummary;
   books: ReaderBook[];
   goal: number;
+  /** 每日打卡记录（`YYYY-MM-DD` → 秒）。没有就用 `stats.days` 兜底 */
+  checkins?: Record<string, number>;
+  /** 每日目标分钟数，打卡判据 */
+  dailyGoalMinutes?: number;
   now?: number;
 }
 
@@ -79,6 +87,9 @@ export function viewStats(v: StatsView): string {
   const goalPct = Math.min(100, Math.round((done / Math.max(1, v.goal)) * 100));
   const C = 2 * Math.PI * 52;
   const { bars } = weeklyBars(st, now);
+  /* 打卡（新功能）：优先用 checkins 记录，没有就退回热力图那本账 */
+  const dailyGoal = v.dailyGoalMinutes ?? 20;
+  const ck = checkinStats(v.checkins ?? st.days, dailyGoal, now);
 
   const rank = [...st.books]
     .sort((a, b) => b.seconds - a.seconds)
@@ -120,6 +131,22 @@ export function viewStats(v: StatsView): string {
             <button class="bzs-btn sm" data-act="poster">年度海报</button>
           </div>
         </div>
+      </div>
+      <div class="bzs-card">
+        <div class="bzs-sect-h" style="margin:0 0 4px"><b>每日打卡</b><span class="ln"></span></div>
+        <div class="bzs-kv"><b>连续</b><span>${ck.streak} 天</span></div>
+        <div class="bzs-kv"><b>今天</b><span>${ck.todayDone ? `已达标 · ${ck.todayMinutes} 分` : `${ck.todayMinutes} 分，还差 ${ck.leftMinutes} 分`}</span></div>
+        <div class="bzs-kv"><b>本月</b><span>${ck.monthDays} 天</span></div>
+        <div class="bzs-kv"><b>每日目标</b><span class="bzs-goalchips">${DAILY_GOAL_CHOICES.map(
+          (n) =>
+            `<button class="bzs-chip${n === dailyGoal ? ' on' : ''}" data-act="setdailygoal" data-v="${n}">${n} 分</button>`,
+        ).join('')}</span></div>
+        <div class="bzs-checkin" title="这个月每天的打卡">${ck.month
+          .map((v, i) => `<i class="${v === 1 ? 'on' : v === -2 ? 'future' : ''}" title="${i + 1} 日"></i>`)
+          .join('')}</div>
+        <div class="bzs-mini" style="margin-top:10px;line-height:1.9">每天读满 ${dailyGoal} 分钟就算打卡。${
+          ck.todayDone ? '今天已经打上了。' : '还差一点，睡前十分钟就够。'
+        }</div>
       </div>
       <div class="bzs-card">
         <div class="bzs-sect-h" style="margin:0 0 4px"><b>近 20 周</b><span class="ln"></span></div>

@@ -185,6 +185,16 @@ export interface ReaderData {
    * 「把库整个拷到另一台电脑、但没带 .obsidian」时还能看出原来放在哪。
    */
   dataDir?: string;
+  /**
+   * 每日打卡：`YYYY-MM-DD`（本地时区）→ 当天有效阅读秒数。
+   *
+   * 新功能「阅读目标真正可打卡」：以前 `goal` 只是统计页那圈铜线的一个数字，
+   * 不记录、不提醒、不结算——用户设了 30 本，年底看到「已读 8 本」而已。
+   * 现在每次阅读会话结束都会把秒数记进当天，连续打卡与本月格子都由它算。
+   */
+  checkins?: Record<string, number>;
+  /** 每日阅读目标（分钟）。打卡判据：当天秒数 ≥ 它 × 60 */
+  dailyGoalMinutes?: number;
 }
 
 export const EMPTY_DATA: ReaderData = { version: 1, books: [] };
