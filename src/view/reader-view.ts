@@ -354,10 +354,16 @@ export class ReaderView extends ItemView {
       this.lastZone = zone === 'prev' ? 'U' : 'D';
       /* 连点就连续翻：去重已经在引擎侧按手势做过，这里不再压时间窗 */
       this.lastTurnAt = now;
-      if (!isMobileShell()) {
-        this.renderProbe();
-        return;
-      }
+      /* 桌面也支持点击翻页（P2-10）：以前这里直接 return，桌面上点一下正文
+         什么都不发生，只能滚轮或键盘——很多人第一次用会以为插件坏了。
+         桌面是横向分页，所以按**左右**分区；移动端仍按上下（AGENTS.md 的约定，
+         手指在手机上上下点比左右点自然）。 */
+      const desktopDir: 'prev' | 'next' = (() => {
+        const box = this.stage?.getBoundingClientRect();
+        const sx = info?.screenX ?? 0;
+        if (!box || !box.width) return zone;
+        return sx < box.left + box.width / 2 ? 'prev' : 'next';
+      })();
       /* 浮层开着时点正文 = 关掉浮层，不翻页。浮层在宿主层、正文在 iframe 里，
          document 级 pointerdown 收不到 iframe 内的事件，只能在这里兜住。 */
       if (isFloatOverlay(getShellState().overlay?.kind)) {
@@ -365,8 +371,9 @@ export class ReaderView extends ItemView {
         this.renderProbe();
         return;
       }
-      /* 上面 = 上一页，下面 = 下一页（分区在引擎侧按屏幕纵坐标判） */
-      const dir: 'prev' | 'next' = zone;
+      /* 上面 = 上一页，下面 = 下一页（分区在引擎侧按屏幕纵坐标判）；
+         桌面用上面算出来的左右分区 */
+      const dir: 'prev' | 'next' = isMobileShell() ? zone : desktopDir;
       this.lastKeyBefore = this.host.pageKey;
       this.lastKeyAfter = '';
       this.stopTts();
@@ -891,18 +898,41 @@ export class ReaderView extends ItemView {
       return;
     }
     if (!requireCap('tts')) return;
+    this.speakPage();
+  }
+
+  /**
+   * 念当前这一页；按 `prefs.ttsFollow` 决定念完要不要自动翻页续读。
+   *
+   * 这就是「TTS 跟随阅读位置」：以前念完当前页就结束，翻页也不续，
+   * 想接着听只能再点一次朗读——而且每次重新从这一页的第一句开始。
+   */
+  private speakPage(): void {
     const text = this.host.currentText();
     if (!text) {
       notify('这一页没有可朗读的文字');
+      this.stopTts();
       return;
     }
-    const done = (): void => {
-      this.speaking = false;
-      this.voice = null;
-      this.syncToolState();
-    };
-    // 基础版包里 speak() 是空实现，返回 null —— 那就是「这个包没有朗读」
-    const handle = speak(text, done);
+    const rate = this.prefs.ttsRate;
+    const follow = this.prefs.ttsFollow;
+    // 基础版包里 speak() 返回 null —— 那就是「这个环境没有朗读」
+    const handle = speak(text, {
+      rate,
+      onEnd: () => {
+        if (this.closed || !this.speaking) return;
+        if (!follow) {
+          this.stopTts();
+          return;
+        }
+        /* 念完一页自动翻下一页接着念。翻页本身会走导航队列，
+           等它落定再取新页的文字（否则拿到的还是上一页）。 */
+        void this.host.next().then(() => {
+          if (this.closed || !this.speaking) return;
+          this.speakPage();
+        });
+      },
+    });
     if (!handle) {
       notify('这个环境不支持语音朗读');
       return;

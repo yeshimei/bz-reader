@@ -617,6 +617,24 @@ export function domToFNode(el: Element, opts: { ancestors?: string[]; context?: 
 const CONTEXT_DEPTH = 4;
 
 /**
+ * 向上取根时**不能越过**的块级容器（P2-17）。
+ *
+ * calibre 转出来的书是 `<body><div class="calibre"><p>…<a id="m42"></a>…</p></div>`：
+ * 锚点在 `<p>` 里，正文是同级的下一个节点。再往上取一层根就变成「整章容器」，
+ * 点一个 `[1]` 就要把整章几千个节点递归转成 FNode，之后还要在这棵树上反复走。
+ * 手机上是很明显的一顿。
+ *
+ * 规则：第一层允许进块级容器（锚点常直接挂在 `<p>` 里），之后遇到块级容器就停。
+ */
+const CONTEXT_STOP_TAGS = new Set([
+  'p', 'li', 'dd', 'dt', 'blockquote', 'td', 'th',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'section', 'article', 'aside',
+]);
+
+/** 一棵 FNode 树的节点数上限：块级截断之外的第二道保险 */
+const MAX_CONTEXT_NODES = 4000;
+
+/**
  * 向上找转换根。用 `childNodes` 索引记录路径（不是 `children`）：
  * 转换时注释节点会保留成空文本节点，两边索引才一一对应。
  */
@@ -628,6 +646,8 @@ function contextRootOf(el: Element): { root: Element; path: number[] } {
     if (!parent) break;
     const tag = (parent.tagName ?? '').toLowerCase();
     if (tag === 'body' || tag === 'html') break;
+    // 已经离开目标自己的那一层，就不要再跨进更大的块级容器（P2-17）
+    if (root !== el && CONTEXT_STOP_TAGS.has(tag)) break;
     const nodes = parent.childNodes;
     let index = -1;
     for (let i = 0; i < nodes.length; i += 1) {
@@ -643,7 +663,7 @@ function contextRootOf(el: Element): { root: Element; path: number[] } {
   return { root, path };
 }
 
-function convertDomNode(node: Node | null): FNode {
+function convertDomNode(node: Node | null, budget = { left: MAX_CONTEXT_NODES }): FNode {
   if (!node) return { tag: TEXT_TAG, text: '' };
   if (node.nodeType === 3) return { tag: TEXT_TAG, text: node.nodeValue ?? '' };
   /* 注释 / 处理指令也占一个空文本节点：childNodes 与 children 必须 1:1，
@@ -667,10 +687,12 @@ function convertDomNode(node: Node | null): FNode {
     /* 非 XML 文档可能没有命名空间 API，忽略 */
   }
   const out: FNode = { tag: (el.tagName ?? '').toLowerCase(), attrs, children: [] };
+  budget.left -= 1;
+  if (budget.left <= 0) return out; // 超预算就只留这一层，别把整章递归进来
   const children = el.childNodes;
   if (children) {
     for (let i = 0; i < children.length; i += 1) {
-      const child = convertDomNode(children[i] ?? null);
+      const child = convertDomNode(children[i] ?? null, budget);
       child.parent = out;
       out.children!.push(child);
     }

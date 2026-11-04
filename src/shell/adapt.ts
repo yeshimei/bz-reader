@@ -96,7 +96,10 @@ function resourceUrl(app: App, vaultPath?: string): string | null {
 
 export function toRow(app: App, b: ReaderBook): BookRow {
   const percent = Math.round((b.reading.position.percent || 0) * 100);
-  const done = percent >= 99 || !!b.reading.stats.completedTime;
+  /* 读完只看 completedTime（P2-06）。以前还认 `percent >= 99`，于是
+     「标为读完 → 取消」之后 percent 仍是 1，卡片继续显示「读完」，
+     按钮却写「标为在读」，怎么点都翻不过状态。 */
+  const done = !!b.reading.stats.completedTime;
   const status: BookStatus = done ? 'done' : percent > 0 ? 'reading' : 'new';
   const [c1, c2, fg] = coverColors(b.id);
   const title = b.meta.title || '未命名';

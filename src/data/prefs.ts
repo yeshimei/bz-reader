@@ -46,6 +46,19 @@ export interface ReaderPrefs {
    * 默认 **popup**：浮窗已并入基础版（2026-11-03），不再是付费项。
    */
   footnote: FootnoteMode;
+  /**
+   * 朗读语速（0.6–2）。1 是系统默认。
+   *
+   * 以前写死 `rate = 1`：读技术书嫌快、读小说嫌慢，用户没有任何办法。
+   */
+  ttsRate: number;
+  /**
+   * 朗读跟随阅读位置。
+   *
+   * 开（默认）：念完这一页自动翻下一页接着念；手动翻页 / 点正文时停下。
+   * 关：只念当前页，念完就结束。
+   */
+  ttsFollow: boolean;
 }
 
 export const DEFAULT_PREFS: ReaderPrefs = {
@@ -58,11 +71,14 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   layout: 'horizontal',
   columns: 1,
   footnote: 'popup',
+  ttsRate: 1,
+  ttsFollow: true,
 };
 
 export const FONT_SIZE_RANGE = { min: 14, max: 30, step: 1 } as const;
 export const LINE_HEIGHT_RANGE = { min: 1.4, max: 2.4, step: 0.1 } as const;
 export const MARGIN_RANGE = { min: 8, max: 120, step: 4 } as const;
+export const TTS_RATE_RANGE = { min: 0.6, max: 2, step: 0.1 } as const;
 
 /** 字体选项：值 → 注入 iframe 的 font-family；book = 不覆盖，跟随书自带 */
 export const FONT_FAMILIES: Array<{ value: FontFamilyName; label: string; css: string }> = [
@@ -119,5 +135,7 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     layout: p.layout === 'vertical' ? 'vertical' : 'horizontal',
     columns: p.columns === 2 ? 2 : 1,
     footnote: p.footnote === 'jump' ? 'jump' : 'popup',
+    ttsRate: Math.round(clamp(p.ttsRate, TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, DEFAULT_PREFS.ttsRate) * 10) / 10,
+    ttsFollow: p.ttsFollow !== false,
   };
 }

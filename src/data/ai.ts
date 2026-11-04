@@ -41,11 +41,16 @@ export interface AiResult {
   text: string;
 }
 
+/** 一次 AI 请求最多等多久。接口地址填错 / 代理挂掉时，不设上限就是一直转圈。 */
+export const AI_TIMEOUT_MS = 60_000;
+
 /** 调 OpenAI 兼容的 /chat/completions。失败抛 Error，消息给人看。 */
 export async function aiAsk(settings: ReaderSettings, task: AiTask, text: string): Promise<AiResult> {
   const { baseUrl, apiKey, model } = settings.ai;
   if (!baseUrl || !apiKey || !model) throw new Error('还没配置 AI 接口：到 设置 → bz 阅读 → AI 填好地址、Key 和模型');
   const prompt = buildPrompt(task, text);
+  /* 超时用 AbortSignal.timeout（P2-12）：没有它的时候，接口地址填错、代理挂掉，
+     界面就一直「正在请求…」，既没有失败提示也没有取消。 */
   let res: Response;
   try {
     res = await fetch(`${baseUrl}/chat/completions`, {
@@ -59,8 +64,13 @@ export async function aiAsk(settings: ReaderSettings, task: AiTask, text: string
         temperature: 0.3,
         messages: [{ role: 'user', content: prompt }],
       }),
+      signal: AbortSignal.timeout(AI_TIMEOUT_MS),
     });
   } catch (e) {
+    const name = (e as Error)?.name || '';
+    if (name === 'TimeoutError' || name === 'AbortError') {
+      throw new Error(`AI 接口 ${AI_TIMEOUT_MS / 1000} 秒没有响应，检查地址与网络后重试`);
+    }
     throw new Error(`连不上 AI 接口：${(e as Error)?.message || '网络错误'}`);
   }
   if (!res.ok) {

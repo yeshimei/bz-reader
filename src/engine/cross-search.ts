@@ -43,7 +43,9 @@ export async function searchAcrossBooks(deps: CrossSearchDeps): Promise<void> {
       try {
         await host.mount(stage, book.fileRef.vaultPath, { prefs: deps.prefs });
         // 不调 start()/init()：foliate 的 search 自己逐章 load，不依赖当前渲染
-        const hits = await host.search(deps.query, {});
+        /* shouldStop 一路传进逐章循环（P2-05）：只判「下一本书之前」的话，
+           点了停止当前这本仍会把剩下的章节扫完，界面还要再转好几秒。 */
+        const hits = await host.search(deps.query, { shouldStop: deps.shouldStop });
         if (hits.length) deps.onHits(book, hits);
       } catch {
         /* 打不开的书跳过——搜索不该被一本坏文件打断 */
@@ -51,6 +53,7 @@ export async function searchAcrossBooks(deps: CrossSearchDeps): Promise<void> {
         await host.destroy().catch(() => undefined);
       }
       deps.onBookDone?.(book);
+      if (deps.shouldStop?.()) break;
     }
   } finally {
     stage.remove();

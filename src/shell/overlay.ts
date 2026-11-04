@@ -178,6 +178,7 @@ export function typographyFormHtml(): string {
       ],
       String(p.columns),
     )}</div>
+    ${rng('ttsRate', '朗读语速', p.ttsRate, 0.6, 2, 0.1, '×')}
   </div>`;
 }
 
@@ -471,7 +472,9 @@ function overlayTranslate(text?: string): string {
 function overlayPoster(): string {
   const books = liveBooks();
   const st = collectStats(books);
-  const done = books.filter((b) => b.reading.stats.completedTime || b.reading.position.percent >= 0.99).length;
+  /* 读完只认 completedTime（P2-06）：percent 不再是「读完」的判据，
+     否则取消读完之后 percent 还停在 1，卡片和海报一直算它读完。 */
+  const done = books.filter((b) => !!b.reading.stats.completedTime).length;
   const top = [...st.books].sort((a, b) => b.seconds - a.seconds)[0];
   const year = new Date().getFullYear();
   const body = `<div class="bzs-poster"><div class="yr">${year} · 阅 读 年 报</div>
@@ -490,7 +493,7 @@ function overlayPoster(): string {
 
 function overlayGoal(): string {
   const st = getState();
-  const done = liveBooks().filter((b) => b.reading.stats.completedTime || b.reading.position.percent >= 0.99).length;
+  const done = liveBooks().filter((b) => !!b.reading.stats.completedTime).length;
   const body = `<div class="bzs-setgrp flat">
       <div class="bzs-setrow"><label>今年读</label>
         <input type="range" data-role="goal" min="5" max="100" step="1" value="${st.goal}" style="--fill:${rangeFill(5, 100, st.goal)}">

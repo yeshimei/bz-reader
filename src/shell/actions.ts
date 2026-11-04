@@ -742,8 +742,9 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
     case 'hldel':
-      deleteMark(d.id, d.book);
-      closeOverlay();
+      /* 正文工具条的「删除」以前直接删（连想法一起），无确认无撤销；
+         侧栏删同一条却要先过确认卡（P2-09）。统一走确认。 */
+      if (d.id) overlay('confirmdel', { markId: d.id, bookId: d.book || getState().bookId || '' });
       break;
     case 'ideasave':
       saveIdea(d.id, d.book);
@@ -880,14 +881,16 @@ function toggleDone(id?: string): void {
   const book = liveBooks().find((b) => b.id === id);
   const src = getShellSource();
   if (!book || !src) return;
-  const done = !!book.reading.stats.completedTime || (book.reading.position.percent || 0) >= 0.99;
-  if (done) {
+  /* 读完与否只看 `completedTime`，**一行 percent 都不碰**（P2-06）。
+     以前「标为读完」把 percent 写成 1、「取消读完」写成 0.95：一本只读了
+     37% 的书被标读完再取消，打开就从 95% 处开始——用户会以为书被翻乱了。
+     读到 99% 自动完成那条路在 reader-view.saveRelocate 里，它会写
+     completedTime，所以这里只看它也是自洽的。 */
+  if (book.reading.stats.completedTime) {
     book.reading.stats.completedTime = undefined;
-    if ((book.reading.position.percent || 0) >= 0.99) book.reading.position.percent = 0.95;
     notify('已标记为在读');
   } else {
     book.reading.stats.completedTime = Date.now();
-    book.reading.position.percent = 1;
     notify('已标记读完');
   }
   book.updatedAt = Date.now();
@@ -916,6 +919,9 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
       break;
     case 'margin':
       src.setPrefs({ margin: Number(v) });
+      break;
+    case 'ttsRate':
+      src.setPrefs({ ttsRate: Number(v) });
       break;
     case 'fontFamily':
       src.setPrefs({ fontFamily: v as typeof p.fontFamily });
@@ -1112,6 +1118,8 @@ export function labelFor(k: string, v: string): string {
       return n.toFixed(1);
     case 'margin':
       return `${n}px`;
+    case 'ttsRate':
+      return `${n.toFixed(1)}×`;
     default:
       return v;
   }

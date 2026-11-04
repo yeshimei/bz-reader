@@ -1463,15 +1463,31 @@ export class EngineHost {
    */
   async search(
     query: string,
-    opts: { chapterOnly?: boolean; onHit?: (hit: SearchHit & { chapterIndex: number; chapterLabel: string }) => void } = {},
+    opts: {
+      chapterOnly?: boolean;
+      onHit?: (hit: SearchHit & { chapterIndex: number; chapterLabel: string }) => void;
+      /**
+       * 逐章检查「要不要停」（P2-05）。
+       *
+       * 以前停止只发生在「下一本书开扫前」，当前这本仍会把剩下的章节逐章扫完
+       * ——几十本时用户点了停止，界面还要再转好几秒，离屏 iframe 和引擎
+       * 也一直占着内存。
+       */
+      shouldStop?: () => boolean;
+    } = {},
   ): Promise<Array<SearchHit & { chapterIndex: number; chapterLabel: string }>> {
     const view = this.view;
     const q = query.trim();
     if (!view || !q) return [];
     const out: Array<SearchHit & { chapterIndex: number; chapterLabel: string }> = [];
     const iter = view.search(opts.chapterOnly ? { query: q, index: this.chapterIndex } : { query: q });
+    let stopped = false;
     for await (const item of iter) {
       if (item === 'done') break;
+      if (opts.shouldStop?.()) {
+        stopped = true;
+        break;
+      }
       if (item.subitems?.length) {
         for (const sub of item.subitems) {
           const hit = { cfi: sub.cfi, excerpt: excerptText(sub.excerpt), chapterIndex: item.index ?? 0, chapterLabel: item.label ?? '' };
@@ -1482,6 +1498,15 @@ export class EngineHost {
         const hit = { cfi: item.cfi, excerpt: excerptText(item.excerpt), chapterIndex: this.chapterIndex, chapterLabel: '' };
         out.push(hit);
         opts.onHit?.(hit);
+      }
+    }
+    /* 用户点了停止：主动关掉生成器，让它别再逐章扫下去（P2-05）。
+       `for await` 提前 break 只是不读了，foliate 那边的循环还在跑。 */
+    if (stopped) {
+      try {
+        await iter.return?.(undefined);
+      } catch {
+        /* 关不掉也不影响返回已有结果 */
       }
     }
     return out;
