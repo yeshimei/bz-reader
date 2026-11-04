@@ -1,28 +1,38 @@
 # 多语言支持评估
 
-评估日期：2026-11-05　｜　基线：master @ 0.2.0（单包完整功能版）
+评估日期：2026-11-05　｜　基线：master @ 0.3.0（单包完整功能版）
 
 ## 实施进展
 
 **P0 已落地（2026-11-05，commit `53b199d`）**：
 
-- `src/i18n/`：`t` / `setLocale` / `detectLocale` / `onLocaleChange`，零依赖；
+- `src/i18n/`：`t` / `setLocale` / `detectLocale` / `onLocaleChange`；
   语言包是 TS 对象、编译进包体，不做运行时读盘。
 - `src/plugin-commands.ts`：16 条命令的注册表抽成纯数据，id 是稳定契约、名字走 `t()`。
 - ribbon + **91 处 `notify()`** 文案全部进语言包（含 data 层通知的调用侧）。
 - 新增 `tests/i18n-coverage.test.ts`：再写 `notify('中文')` 会被这条闸拦下。
 
+**语言来源：自动跟随 + 手动覆盖（commit `0eddc44`）**：
+
+- 默认 `settings.language = 'auto'`，按 `getLanguage()` 跟随 Obsidian；
+  设置页最前一组「界面」给三档：跟随 Obsidian / 中文 / English。
+- 手动选择存 `data.json`（设备本地，不跟库走），切换后即时 `setLocale` + 重绘，
+  并弹一条**新语言**的通知；**命令名只能下次启动生效**——`addCommand` 只在加载时求值。
+- `auto` 但读不到宿主语言时退回中文（不是英文）；脏值一律落回 `auto`。
+
 **默认语言仍是中文**，探测失败/语言无包一律退回中文。中文包是基准包，
 英文包漏一条 key 由 `tsc --noEmit` 拦住（`Record<MsgKey, string>`）。
 
-**`minAppVersion` 保持 1.7.2**（原计划提到 1.8.7）：`getLanguage()` 在 1.7.2 上不存在，
-`hostLanguage()` 的 `try/catch` 会保持中文，不需要提版本。提版本必须跟新版本号一起动
-（`versions.json` 是「已发布版本 → 该版本 minAppVersion」的映射），否则同一个 0.2.0 会
-出现两种最低版本要求。**留到 P1 有完整英文界面时与版本号一起改。**
+**`minAppVersion` 已提到 1.8.7，版本号随之升到 0.3.0（commit `c92baa7`）**：
+官方 lint 的 `obsidianmd/no-unsupported-api` 把 `getLanguage()` 在 1.7.2 下判成
+**error**（直接卡上架），所以提版本不是可选项。提版本必须连版本号一起动：`versions.json`
+是「已发布版本 → 该版本 minAppVersion」的映射，只改 minAppVersion 会让同一个 0.2.0 出现
+两种最低版本要求。0.2.0 及以前保持 1.7.2，老版本用户不受影响。
 
 **P0 没做的部分**（P1–P2 范围，不是遗漏）：
 
 - 壳层页面：书架 / 笔记 / 统计 / 设置页 / 侧栏 / 阅读器工具条 / 全部弹窗 / 更新日志。
+  （设置页新增的「界面」组本身也还是中文标签：跟随 Obsidian / 中文 / English。）
 - 颜色名（琥珀、朱红、松绿、黛蓝）与字体档名，仍只在中文里出现。
 - `data` 层返回给人看的错误消息（`license.ts` / `backup.ts` / `store.ts` 的 `message`）——
   正确做法是错误码化，UI 层再翻；P0 只在调用侧包了外层句子。
