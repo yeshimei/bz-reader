@@ -23,7 +23,12 @@
      算出来的本地坐标对不上，看起来就是「偏移特别远」。 */
   position: relative;
   flex-direction: column;
-  background: var(--bg-2);
+  /* 画布不自己上色。
+     以前这里是 --bg-2（主背景混 2% 文字色）：在纯白主题下算出来是 #f7f8f8，
+     而书页 iframe 用的是干净的 --background-primary（#fff），两者差出一层
+     浅灰——看上去就是「书页贴了一块纯白背景、四周是灰的」。
+     透明之后整片跟着宿主 view-content 走，书页与画布同色。 */
+  background: transparent;
 }
 
 /* 卷面容器：没有悬浮栏之后不再需要上下留白 */
