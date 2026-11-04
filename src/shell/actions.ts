@@ -34,7 +34,7 @@ import { flipSetting, type ToggleState } from './settings-toggle';
 import { rangeFill } from './range-fill';
 import { openHotkeySettings } from '../core/hotkeys';
 import { folderLabel, pickFolder } from '../core/folder-pick';
-import { CAP_LABEL, PURCHASE_URL, can, type Cap } from '../data/entitlement';
+import { CAP_LABEL, PURCHASE_URL, REPO_URL, can, type Cap } from '../data/entitlement';
 import { HEADER_ACTION_IDS } from '../view/header-actions';
 import { normalizeDataDir } from '../core/plugin-path';
 import { linkInline, snippet, targetOfMark } from '../data/deeplink';
@@ -61,7 +61,7 @@ import {
 import { RT, emitNotesChanged, pushAi } from './runtime';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { DEFAULT_SETTINGS } from '../data/settings';
-import { copyGroupIdForTrial } from './group';
+import { copyGroupId, copyGroupIdForTrial } from './group';
 
 /** 当前上下文里的书：优先状态里记住的那本，否则取书库第一本 */
 function currentBook(): ReaderBook | undefined {
@@ -343,6 +343,25 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     /* ── 书库 ── */
     case 'detail':
       if (d.id) overlay('detail', { bookId: d.id });
+      break;
+
+    /* ── 关于条 ──
+       四个出口都是「离开设置页去别处」：不写数据、不改偏好，所以这里
+       一不 commit()、二不重绘，只把用户送到目的地。 */
+    case 'aboutgithub':
+      window.open(REPO_URL, '_blank', 'noopener,noreferrer');
+      break;
+    case 'aboutvideo':
+      /* 教程还没剪完。说清「什么时候有」，别让人以为点了条坏链接 */
+      notify('视频教程还在剪，做好会在交流群里通知');
+      break;
+    case 'copygroup':
+      void copyGroupId();
+      break;
+    /* 关于条里的「更新日志」：回看任意一版，不动「已看过」记录。
+       自动弹只有升级后那一次，没有常驻入口就再也找不回来。 */
+    case 'changelog':
+      getShellSource()?.openChangelog();
       break;
 
     /* ── 书卡右键菜单 ──

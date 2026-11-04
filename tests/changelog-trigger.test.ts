@@ -121,3 +121,22 @@ describe('不该弹的情况', () => {
   });
 });
 
+/**
+ * 关于条里的「更新日志」。
+ *
+ * 这条路径与上面那条的差别只有一处，但很关键：**不记账**。用户点过一次看过，
+ * 下次还想点开——要是顺手把 changelogSeenVersion 写了，就等于再也不会自动弹。
+ */
+describe('关于条 · 回看', () => {
+  it('手动打开：以当前版本为起点，不改记录', () => {
+    openNote.mockClear();
+    const plugin = make('0.1.2', '0.1.2');
+
+    plugin.openChangelog();
+
+    expect(openNote).toHaveBeenCalledTimes(1);
+    expect(openNote.mock.calls[0][1]).toBe('0.1.2');
+    expect(plugin.saveData).not.toHaveBeenCalled();
+  });
+});
+

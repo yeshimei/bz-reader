@@ -1,16 +1,22 @@
 import { describe, expect, it, vi } from 'vitest';
 
-/* 设置页会读授权状态；测试里用一个可变开关模拟解锁前后 */
+/* 设置页会读授权状态；测试里用一个可变开关模拟解锁前后。
+   只换三个结论函数，发行信息（群号、仓库地址）仍走真实常量——
+   「关于」组显示的就是它们，钉死一份假值等于什么都没测。 */
 const entState = vi.hoisted(() => ({ unlocked: false }));
-vi.mock('../src/data/entitlement', () => ({
-  can: () => entState.unlocked,
-  entitlement: () => ({
-    tier: entState.unlocked ? 'paid' : 'free',
-    unlocked: entState.unlocked,
-    license: 'BZR2.old-code',
-  }),
-  tierText: () => (entState.unlocked ? '高级版已激活' : '当前未激活'),
-}));
+vi.mock('../src/data/entitlement', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/data/entitlement')>();
+  return {
+    ...actual,
+    can: () => entState.unlocked,
+    entitlement: () => ({
+      tier: entState.unlocked ? 'paid' : 'free',
+      unlocked: entState.unlocked,
+      license: 'BZR2.old-code',
+    }),
+    tierText: () => (entState.unlocked ? '高级版已激活' : '当前未激活'),
+  };
+});
 
 import { DEFAULT_PREFS } from '../src/data/prefs';
 import { DEFAULT_SETTINGS } from '../src/data/settings';
@@ -162,10 +168,73 @@ describe('设置页渲染', () => {
 });
 
 /**
- * 2026-11-05：设置页去掉「更新日志」入口，说明文字只留备份那一条。
+ * 关于组（2026-11-05）。
  *
- * 弹窗仍会在升级后第一次进书库时自动出现一次；只是不再有常驻入口。
- * 文案是用户挑定的定稿，别再改回长句。
+ * 设置页顶部一条横跨两栏的带子，四个出口：GitHub / 视频教程 / 交流群 /
+ * 更新日志。版本号与授权徽章跟在「关于」后面——用户想知道「我这是哪一版、
+ * 买没买」时就往这儿看一眼，不用先翻到页尾的授权组。
+ */
+describe('关于组', () => {
+  /** 截出「关于」组那一段：只看组内，不误判别的组 */
+  function aboutGroup(out: string): string {
+    const start = out.indexOf('<h3>关于</h3>');
+    const next = out.indexOf('<h3>', start + 1);
+    return out.slice(start, next < 0 ? undefined : next);
+  }
+
+  it('是设置页第一组，且横跨两栏', () => {
+    const out = html();
+    expect(out.indexOf('<h3>关于</h3>')).toBeLessThan(out.indexOf('<h3>版式</h3>'));
+    expect(out).toMatch(/<div class="[^"]*\bwide\b[^"]*">\s*<h3>关于<\/h3>/);
+  });
+
+  it('四个出口都在：GitHub / 视频教程 / 交流群 / 更新日志', () => {
+    const g = aboutGroup(html());
+    for (const act of ['aboutgithub', 'aboutvideo', 'copygroup', 'changelog']) {
+      expect(g, act).toContain(`data-act="${act}"`);
+    }
+  });
+
+  it('版本号与授权徽章跟在「关于」后面', () => {
+    const g = aboutGroup(html());
+    expect(g).toContain('v0.1.2');
+    expect(g).toContain('基础版');
+  });
+
+  it('已激活：徽章写「高级版」', () => {
+    entState.unlocked = true;
+    expect(aboutGroup(html())).toContain('高级版');
+    entState.unlocked = false;
+  });
+
+  it('视频教程标着「制作中」，且不是一条外链', () => {
+    const g = aboutGroup(html());
+    expect(g).toContain('制作中');
+    expect(g).not.toMatch(/data-act="aboutvideo"[^>]*data-href/);
+  });
+
+  it('交流群把群号直接印出来（不依赖短链，短链实测 404）', () => {
+    expect(aboutGroup(html())).toContain('1130883117');
+  });
+
+  it('GitHub 那项写的是仓库路径', () => {
+    expect(aboutGroup(html())).toContain('yeshimei/bz-reader');
+  });
+});
+
+/**
+ * 更新日志入口。
+ *
+ * 弹窗只在升级后第一次进书库自动出现一次，没有常驻入口就再也找不回来。
+ * 2026-11-05 从「数据」组挪进「关于」组：它讲的是「这一版改了什么」，
+ * 跟导出目录、备份恢复不是一类事，所以整条搬去了「关于」。
+ */
+
+/**
+ * 数据组 · 说明文字（2026-11-05 定稿）。
+ *
+ * 更新日志入口不在这组了，说明文字只留备份那一条。文案是用户挑定的定稿，
+ * 别再改回长句。
  */
 describe('数据组 · 说明文字', () => {
   /** 截出「数据」组那一段：只看组内，不误判别的组 */
@@ -175,8 +244,10 @@ describe('数据组 · 说明文字', () => {
     return out.slice(start, next < 0 ? undefined : next);
   }
 
+  /* 主分支上这条原本是「整页都不许有 data-act="changelog"」——那时入口被删光了。
+     现在入口搬到了「关于」，所以断言收窄成「这一组没有它」。 */
   it('不再画「更新日志」入口（行与按钮都不见）', () => {
-    expect(html()).not.toContain('data-act="changelog"');
+    expect(dataGroup(html())).not.toContain('data-act="changelog"');
     expect(dataGroup(html())).not.toContain('更新日志');
   });
 
@@ -185,6 +256,12 @@ describe('数据组 · 说明文字', () => {
     expect(group).toContain('备份含书架、进度、标注、收藏与目标。不含激活码和 AI Key，换设备需重填。');
     expect(group).not.toContain('导入的书');
     expect(group).not.toContain('改数据目录');
+  });
+
+  it('入口搬到了「关于」组，全页仍只有一个', () => {
+    const out = html();
+    expect(out.slice(0, out.indexOf('<h3>版式</h3>'))).toContain('data-act="changelog"');
+    expect((out.match(/data-act="changelog"/g) ?? []).length).toBe(1);
   });
 });
 

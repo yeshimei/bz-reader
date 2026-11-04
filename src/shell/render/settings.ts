@@ -15,13 +15,13 @@ import type { ReaderPrefs } from '../../data/prefs';
 import { ACCENT_OPTIONS, FONT_FAMILIES, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARGIN_RANGE, TTS_RATE_RANGE } from '../../data/prefs';
 import { HIGHLIGHT_COLORS } from '../../data/notes';
 import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
-import { can, entitlement, tierText } from '../../data/entitlement';
+import { can, entitlement, GROUP_ID, REPO_URL, tierText } from '../../data/entitlement';
 import { dataDirOf } from '../../core/plugin-path';
 import type { HotkeyRow } from '../../core/hotkeys';
 import { HEADER_ACTION_IDS, headerActionSpec, type HeaderActionId } from '../../view/header-actions';
 import { rangeFill } from '../range-fill';
 import { RT } from '../runtime';
-import { esc, ico } from './html';
+import { esc, githubIcon, ico } from './html';
 
 export interface SettingsView {
   prefs: ReaderPrefs;
@@ -32,6 +32,8 @@ export interface SettingsView {
   hotkeys: HotkeyRow[];
   /** 已激活时点了「重新激活」：临时允许编辑激活码（不落盘） */
   relicense?: boolean;
+  /** 插件版本（manifest.json），「关于」条显示它 */
+  version?: string;
 }
 
 /**
@@ -73,9 +75,51 @@ function toggle(k: string, on: boolean, label: string): string {
   return `<div class="bzs-setrow"><label>${label}</label><button class="bzs-switch${on ? ' on' : ''}" data-act="toggle" data-k="${k}" aria-label="${label}"></button></div>`;
 }
 
+/** 仓库地址在界面上只露 owner/repo：整条 URL 太长，也没人会照着读协议头 */
+const REPO_PATH = REPO_URL.replace(/^https:\/\/github\.com\//, '');
+
+/**
+ * 设置页顶部那条「关于」（横跨两栏）。
+ *
+ * 版本号与授权徽章紧跟「关于」后面：「我这是哪一版」「我买没买」是同一类
+ * 问题，不该让人先翻到页尾的授权组再回来。四个出口都是「离开设置页去别处」
+ * 的入口，不是设置项——这也是它横跨两栏的理由：它是整页的题头，不是两列
+ * 里的又一个方框。
+ *
+ * 视频教程还没剪完。它照样占一格、照样写着「制作中」，但点了只说明进度：
+ * 藏起来会让人以为「这插件没有教程」，灰掉不给解释则和坏了没区别。
+ */
+function aboutBar(version: string, paid: boolean): string {
+  const ver = version ? `v${esc(version)}` : '版本未知';
+  const badge = `<span class="bzs-about-badge${paid ? '' : ' is-base'}">${paid ? '高级版' : '基础版'}</span>`;
+  return `<div class="bzs-setgrp wide bzs-about">
+      <h3>关于</h3>
+      <span class="bzs-about-meta"><span class="bzs-about-ver">${ver}</span>${badge}</span>
+      <span class="sp"></span>
+      <button class="bzs-about-link" data-act="aboutgithub" title="在浏览器里打开仓库">
+        ${githubIcon(15)}<b>GitHub</b><i>${esc(REPO_PATH)}</i>
+      </button>
+      <span class="dot"></span>
+      <button class="bzs-about-link is-wip" data-act="aboutvideo" title="教程还在剪，做好会在交流群里通知">
+        ${ico('video')}<b>视频教程</b><i>制作中</i>
+      </button>
+      <span class="dot"></span>
+      <button class="bzs-about-link" data-act="copygroup" title="点一下复制群号，去 QQ 搜索">
+        ${ico('group')}<b>交流群</b><i>${esc(GROUP_ID)}</i>
+      </button>
+      <span class="dot"></span>
+      <button class="bzs-about-link" data-act="changelog" title="看看每一版改了什么">
+        ${ico('history')}<b>更新日志</b>
+      </button>
+    </div>`;
+}
+
 export function viewSettings(v: SettingsView): string {
   const p = v.prefs;
   const s = v.settings;
+  /* 授权结论页头（关于条）与页尾（授权组）都要用，取一次 */
+  const ent = entitlement();
+  const paid = ent.tier === 'paid';
 
   const layout = `<div class="bzs-setgrp">
       <h3>版式</h3>
@@ -180,12 +224,10 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>密钥</label><input type="password" data-role="setting" data-k="ai.apiKey" placeholder="填写 API 密钥" value="${esc(s.ai.apiKey)}" style="flex:1"${aiReadonly}></div>
     </div>`;
 
-  const ent = entitlement();
   /* 激活之后这组变成「凭证」：码只读，日常不让人误改。
      但**必须留一个换码入口**——先用群里的 7 天试用，再买正式版，
      如果输入框只读又没有按钮，就变成「买了却填不进去」。
      点「重新激活」进入一次性的替换态（relicense），取消即回只读。 */
-  const paid = ent.tier === 'paid';
   const editingLicense = paid && !!v.relicense;
   const lic = `<div class="bzs-setgrp">
       <h3>授权</h3>
@@ -246,5 +288,5 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-keys">${keyRows}</div>
     </div>`;
 
-  return `<div class="bzs-set-grid">${layout}${header}${look}${tts}${marks}${data}${ai}${lic}${keys}</div>`;
+  return `<div class="bzs-set-grid">${aboutBar(v.version || '', paid)}${layout}${header}${look}${tts}${marks}${data}${ai}${lic}${keys}</div>`;
 }

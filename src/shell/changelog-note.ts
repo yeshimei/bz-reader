@@ -9,11 +9,13 @@
  * 靠 CSS 媒体查询切换，不在 JS 里判断宽度——改窗口大小也不会错位。
  *
  * 数据全部来自 shell/changelog（内置），这里只负责「画」与「切版本」。
- * 打开方式只有一处：升级后第一次进书库（plugin.maybeShowChangelog 判定）。
+ * 打开方式两处：升级后第一次进书库（plugin.maybeShowChangelog，会记账）、
+ * 关于条里的「更新日志」（随时回看，不记账）。
  * ============================================================ */
 import { uiModal } from '../core/ui/modal';
 import { setHtml } from '../ui/dom';
-import { esc } from './render/html';
+import { esc, githubIcon } from './render/html';
+import { REPO_URL } from '../data/entitlement';
 import {
   normalizeVersion,
   releaseEntryCount,
@@ -28,8 +30,6 @@ const SECTIONS = [
   { key: 'fixed', label: '修复', cls: 'fix' },
 ] as const;
 
-const REPO_URL = 'https://github.com/yeshimei/bz-reader';
-
 const CLOSE_SVG =
   '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" ' +
   'stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
@@ -38,18 +38,6 @@ const CLOCK_SVG =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" ' +
   'stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>' +
   '<path d="M12 7v5l3 2"/></svg>';
-
-/* GitHub 与「反馈」都取 Simple Icons / 线描的官方形状，颜色吃 currentColor：
-   页脚这一排是同等重要的出口，谁单独带品牌色都会把视线抢过去。 */
-const GITHUB_SVG =
-  '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">' +
-  '<path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 ' +
-  '0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 ' +
-  '1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 ' +
-  '0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 ' +
-  '1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 ' +
-  '0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297 ' +
-  'c0-6.627-5.373-12-12-12"/></svg>';
 
 const FEEDBACK_SVG =
   '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" ' +
@@ -163,7 +151,7 @@ function mobReleaseHtml(release: ChangelogRelease, newest: boolean): string {
 
 function linksHtml(): string {
   const items = [
-    { href: REPO_URL, label: 'GitHub 仓库', icon: GITHUB_SVG },
+    { href: REPO_URL, label: 'GitHub 仓库', icon: githubIcon(15) },
     { href: `${REPO_URL}/issues`, label: '问题反馈', icon: FEEDBACK_SVG },
   ];
   return items

@@ -29,3 +29,18 @@ export async function copyGroupIdForTrial(): Promise<void> {
     notify(`复制失败，群号是 ${GROUP_ID}，进群找管理员领取 7 天试用`, 'error');
   }
 }
+
+/**
+ * 关于条里那颗「交流群」：只是加群，不谈试用。
+ *
+ * 和上面那颗分开写是为了文案：解锁弹层里的人正准备掏钱，「进群领试用」
+ * 才是他要的下一步；设置页里的人只是想知道群里在哪，再提试用就成了推销。
+ */
+export async function copyGroupId(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(GROUP_ID);
+    notify(`已复制群号 ${GROUP_ID}，去 QQ 搜索就能加群`);
+  } catch {
+    notify(`复制失败，群号是 ${GROUP_ID}，去 QQ 搜索加群`, 'error');
+  }
+}

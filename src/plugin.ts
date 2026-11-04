@@ -443,6 +443,8 @@ export function createPlugin(cfg: PluginConfig) {
         openSidebar: (tab) => this.openTocSidebar(tab),
         syncVault: () => this.syncShelf(),
         maybeShowChangelog: () => void this.maybeShowChangelog(),
+        openChangelog: () => this.openChangelog(),
+        version: () => String(this.manifest?.version || ''),
         prefs: () => this.currentPrefs(),
         setPrefs: (patch) => this.setPrefs(patch),
         settings: () => this.cfg.settings,
@@ -897,6 +899,16 @@ export function createPlugin(cfg: PluginConfig) {
       } finally {
         this.changelogBusy = false;
       }
+    }
+
+    /**
+     * 关于条里的「更新日志」：随时回看任意一版，不碰「已看过」记录。
+     *
+     * 和上面的 maybeShowChangelog 分开：那条路会记账（同一版只弹一次），
+     * 这条路是用户主动点的，看完还得能再点开。
+     */
+    openChangelog(): void {
+      openChangelogNote(CHANGELOG_RELEASES, String(this.manifest?.version || ''));
     }
 
     /** 记下「这一版已经给过了」并立即落盘；返回是否写成功 */
