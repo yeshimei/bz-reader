@@ -36,7 +36,7 @@ import { el, setHtml } from '../ui/dom';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
 import { headerActionSpec, headerActionsFor, headerActive, type HeaderActionId } from './header-actions';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
-import { selActions } from '../shell/text-toolbar';
+import { SELECTION_ACTS, toolbarHtml } from '../shell/text-toolbar';
 import { VIEW_TYPE_TOC } from './side-view';
 
 /* 注意：本类为了给 Obsidian 存 view 状态，重写了 getState()。
@@ -354,7 +354,11 @@ export class ReaderView extends ItemView {
         mobile: isMobileShell(),
       });
       if (intent !== 'turn') {
-        if (intent === 'dismiss-selbar') this.hideSelbar();
+        /* 条子与文本面板是一套：点正文一次收干净，别让面板留在空处 */
+        if (intent === 'dismiss-selbar') {
+          this.hideSelbar();
+          if (getShellState().overlay) closeOverlay();
+        }
         if (intent === 'dismiss-overlay') closeOverlay();
         this.renderProbe();
         return;
@@ -1030,6 +1034,11 @@ export class ReaderView extends ItemView {
   /** 选区消失后延迟收起：点工具条会让 iframe 失焦、选区塌掉，立刻收会把点击吞掉 */
   private scheduleSelbarHide(): void {
     if (!this.selbar) return;
+    /* 文本面板正开着（想法 / 书摘 / AI）时不收：面板里的那排按钮就贴在
+       这条下面，条子一抽走，用户得重新划词才能再点一下书摘。
+       收起交给「点正文」或关面板。 */
+    const kind = getShellState().overlay?.kind;
+    if (kind === 'idea' || kind === 'quote' || kind === 'ai') return;
     if (this.selbarHideTimer !== null) window.clearTimeout(this.selbarHideTimer);
     this.selbarHideTimer = window.setTimeout(() => {
       this.selbarHideTimer = null;
@@ -1070,8 +1079,9 @@ export class ReaderView extends ItemView {
   }
 
   /**
-   * 划词条的 DOM 用壳层样式（.bzs-selbar 在 overlay.css 里），
-   * 位置按 host 给出的宿主视口坐标换算到本视图内。
+   * 划词条：与「点已有划线」时弹出的那一条是**同一枚胶囊**（`shell/text-toolbar.ts`）。
+   * 这里只管「摆哪儿」与「点完干什么」：长什么样全在 toolbarHtml 里，
+   * 动作名用 SELECTION_ACTS（sel*）——与点划线那套只差前缀，结构一模一样。
    *
    * `markId` 有值时说明这条线已经画上了（手机上选中即划）：色点变成
    * 「改这条的颜色」，当前色加圈，点完不收起条子，可以连着试几个色。
@@ -1090,43 +1100,56 @@ export class ReaderView extends ItemView {
 
     const bar = el('div', 'bzs-selbar');
     if (live) bar.classList.add('is-marked');
-    for (const p of HIGHLIGHT_COLORS) {
-      const dot = el('span', 'bzs-pendot');
-      dot.style.background = colorCss(p.value);
-      dot.title = p.label;
-      dot.setAttribute('aria-label', p.label);
-      dot.dataset.v = p.value;
-      if (p.value === activeColor) dot.classList.add('on');
-      dot.addEventListener('click', () => {
-        dispatchAction('selpen', dot);
-        // 改色后条子留着：手机上连着换两个色比反复长按选字快得多
-        for (const other of Array.from(bar.querySelectorAll('.bzs-pendot'))) {
-          other.classList.toggle('on', other === dot);
-        }
-      });
-      bar.appendChild(dot);
-    }
-    bar.appendChild(el('span', 'div'));
-
-    const mk = (label: string, act: string): HTMLButtonElement => {
-      const b = el('button', 'bzs-sbtn', label);
-      b.type = 'button';
-      b.dataset.act = act;
-      b.addEventListener('click', () => {
-        dispatchAction(act, b);
-        this.hideSelbar();
-      });
-      return b;
-    };
-    /* 顺序与文案见 selActions()：想法 / 书摘 / AI / 复制。
-       入口平权：AI 在基础版也显示，点了走 requireCap 弹对照页。 */
-    for (const a of selActions(true)) bar.appendChild(mk(a.label, a.act));
+    bar.innerHTML = toolbarHtml({
+      marked: !!live,
+      color: activeColor,
+      colors: HIGHLIGHT_COLORS,
+      /* 手机上只留三颗主路径，其余进「⋯」；桌面全平铺 */
+      compact: isMobileEnv(),
+      acts: SELECTION_ACTS,
+    });
 
     /* 点工具条不能把系统的选区和手柄清掉：pointerdown 默认会让 iframe 失焦，
        选区一塌，后面所有动作都拿不到文本了。 */
     bar.addEventListener('pointerdown', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
+    });
+
+    /* 一颗监听管全部按钮。「⋯」只切一个类、不重画——重画会把手指底下的
+       按钮整排换掉，点起来像在打地鼠。 */
+    bar.addEventListener('click', (ev) => {
+      const btn = (ev.target as HTMLElement | null)?.closest<HTMLElement>('[data-act]');
+      if (!btn || !bar.contains(btn)) return;
+      const act = btn.dataset.act || '';
+      if (act === 'more') {
+        bar.classList.toggle('is-more');
+        return;
+      }
+      /* 面板要浮在工具条正上方，而且工具条不能因为面板打开而跳走：
+         把锚点从「整段选区」换成「这一条」的底边——面板底边贴着条子底边，
+         面板里那枚工具条正好顶替条子的位置，看起来像条子没动过。 */
+      if (RT.sel) {
+        const r = bar.getBoundingClientRect();
+        RT.sel = { ...RT.sel, anchor: { left: r.left, top: r.bottom + 4, width: r.width, height: 0 } };
+      }
+      dispatchAction(act, btn);
+      /* 改色不收：手机上连着换两个色，比反复长按选字快得多 */
+      if (act === SELECTION_ACTS.dot) {
+        for (const dot of Array.from(bar.querySelectorAll<HTMLElement>('.bzs-pendot'))) {
+          dot.classList.toggle('on', dot === btn);
+        }
+        return;
+      }
+      /* 其余动作：条子收起来，位置交给浮层里那枚同款工具条（同一个锚点），
+         所以视觉上它只是「原地换了个人」，不会消失。
+         选区载荷留一份给浮层里的工具条——它还要发 sel* 动作，
+         而 hideSelbar 会把 RT.sel 清掉。 */
+      const keepSel = RT.sel;
+      const keepMark = RT.selMarkId;
+      this.hideSelbar();
+      RT.sel = keepSel;
+      RT.selMarkId = keepMark;
     });
 
     root.appendChild(bar);

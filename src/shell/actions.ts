@@ -637,6 +637,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         break;
       }
       void copyText(linkOfMark(b, h));
+      /* 与「复制」同一条规矩：拿到东西就把浮层收掉 */
+      closeOverlay();
       break;
     }
     case 'copylinkurl': {
@@ -929,6 +931,26 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'hlquote':
       quoteFromMark(d.id, d.book);
       break;
+    case 'hlai': {
+      /* 点划线也能直接问 AI：以前这条工具条上根本没有 AI 这一颗，
+         想解释划线原文只能先划一遍再点。与 selai 同一个面板，只是带上了 markId。 */
+      if (!requireCap('ai')) break;
+      const book = findBookOfMark(d.id, d.book);
+      const h = book?.notes?.highlights.find((x) => x.id === d.id);
+      if (!book || !h) {
+        notify('没找到这条划线', 'error');
+        break;
+      }
+      overlay('ai', {
+        text: h.text,
+        markId: h.id,
+        bookId: book.id,
+        mode: 'explain',
+        /* 锚点沿用工具条正贴着的那条划线，AI 卡才不会掉到屏幕角 */
+        anchor: getState().overlay?.anchor,
+      });
+      break;
+    }
     case 'hlcopy': {
       /* 复制划线原文：文字已经存在数据里，不重复塞进 DOM 的 data-text */
       const book = findBookOfMark(d.id, d.book);
@@ -938,6 +960,9 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         break;
       }
       void copyText(h.text);
+      /* 复制完把浮层收掉：用户要的是这段字，不是继续停在这条线上。
+         不 force：想法里可能还有没保存的字，那是另一码事（会先问一句）。 */
+      closeOverlay();
       break;
     }
     case 'hldel':

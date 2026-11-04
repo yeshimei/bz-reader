@@ -13,8 +13,8 @@ import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { anchoredPlacement } from './anchored-style';
 import { sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
-import { textToolbarHtml } from './text-toolbar';
-import { aiCardHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml } from './reader-cards';
+import { MARK_ACTS, SELECTION_ACTS, toolbarHtml } from './text-toolbar';
+import { aiCardHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, markBubbleHtml } from './reader-cards';
 import { HIGHLIGHT_COLORS } from '../data/notes';
 import { aiAsk, type AiTask } from '../data/ai';
 import type { ReaderBook } from '../data/schema';
@@ -49,11 +49,12 @@ import { trialButtonHtml } from './group';
 
 /* ─────────── 小工具 ─────────── */
 
-function modal(title: string, sub: string, body: string, foot = '', cls = ''): string {
+function modal(title: string, sub: string, body: string, foot = '', cls = '', mask = ''): string {
   /* 带输入框的弹窗在移动端要居中偏上：底部抽屉会被软键盘顶出屏幕。
      按内容自动判定，省得每个调用点都要记得传类。 */
   const withInput = /<(input|textarea)\b/i.test(body);
-  return `<div class="bzs-scrim${withInput ? ' has-input' : ''}" data-role="scrim"><div class="bzs-modal ${cls}">
+  const scrim = ['bzs-scrim', mask, withInput ? 'has-input' : ''].filter(Boolean).join(' ');
+  return `<div class="${scrim}" data-role="scrim"><div class="bzs-modal ${cls}">
     <div class="bzs-mhead"><b>${title}</b><span class="n">${sub}</span><span class="sp"></span>
       <button class="x" data-act="close" title="关闭">${ico('x')}</button></div>
     <div class="bzs-mbody">${body}</div>
@@ -290,7 +291,13 @@ function overlayBookmap(): string {
   return modal('全书鸟瞰', '全书一屏鸟瞰', body, closeBtn(), 'wide tall');
 }
 
-function overlayQuote(text?: string, bookId?: string, chapterTitle?: string, template?: string): string {
+function overlayQuote(
+  text?: string,
+  bookId?: string,
+  chapterTitle?: string,
+  template?: string,
+  markId?: string,
+): string {
   const book = bookById(bookId ?? getState().bookId);
   const t = text || RT.sel?.text || '';
   const ch = chapterTitle || RT.sel?.chapterTitle || '未命名章节';
@@ -316,7 +323,16 @@ function overlayQuote(text?: string, bookId?: string, chapterTitle?: string, tem
       <button class="bzs-btn" data-act="quotesave">存笔记</button>
       ${__BZ_READER_PRO__ && can('card') ? '<button class="bzs-btn" data-act="quotecopyimg">复制图片</button>' : ''}
     </div>`;
-  return bareFloat(body, 'bzs-quote-panel');
+  /* 从划线打开时带 markId：工具条走 hl*，删除/复制都有据可依；
+     从刚划的选区打开时没有 markId，退回 sel*（此时删除本来也不该出现）。 */
+  const mark = markId ? markById(markId, bookId)?.mark : undefined;
+  return textPanel(body, 'bzs-quote-panel', {
+    active: 'quote',
+    marked: !!markId,
+    markId,
+    bookId: markId ? (book?.id ?? bookId) : undefined,
+    color: mark?.color,
+  });
 }
 
 /**
@@ -329,36 +345,45 @@ function overlayQuote(text?: string, bookId?: string, chapterTitle?: string, tem
  */
 function overlayIdea(markId?: string, bookId?: string): string {
   const found = markById(markId, bookId);
-  if (!found) return bareFloat('<div class="bzs-empty">这条标注已不存在。</div>', 'bzs-idea-panel');
+  if (!found) {
+    const empty = '<div class="bzs-empty">这条标注已不存在。</div>';
+    return isMobileEnv() ? textDialog(`<div class="bzs-float is-dialog bzs-idea-panel">${empty}</div>`) : bareFloat(empty, 'bzs-idea-panel');
+  }
   const payload = {
     value: ideaValue(getState().ideaDraft, found.mark.comment),
     markId: found.mark.id,
     bookId: found.book.id,
   };
   const confirm = getState().ideaConfirm ? ideaConfirmHtml() : '';
-  return bareFloat(`${ideaSheetBodyHtml(payload)}${confirm}`, 'bzs-idea-panel');
+  return textPanel(`${ideaSheetBodyHtml(payload)}${confirm}`, 'bzs-idea-panel', {
+    active: 'idea',
+    markId: found.mark.id,
+    bookId: found.book.id,
+    color: found.mark.color,
+  });
 }
 
 /**
- * 文字工具框：点中已有划线时贴字弹出。
+ * 点中已有划线：桌面是「想法气泡 + 工具条」一列，手机只摆工具条。
  *
- * 一排控件（色点 / 写想法 / 删除）；有想法就在下面原样展示。
- * 不重复原文，也不带章节、日期、笔色说明——这些对正在操作这条线的人都是噪音。
+ * 手机上不摆气泡不是漏了：手指刚点在字上，那一带本来就没有空位放一段
+ * 可能很长的想法；想法在面板里能看能改，不必再在旁边重复一遍。
  */
 function overlayHltools(markId?: string, bookId?: string): string {
   const found = markById(markId, bookId);
   if (!found) return '';
   const { book, mark } = found;
-  return bareFloat(
-    textToolbarHtml({
-      markId: mark.id,
-      bookId: book.id,
-      color: mark.color ?? 'amber',
-      colors: HIGHLIGHT_COLORS,
-      comment: mark.comment ?? '',
-    }),
-    'bzs-hltools-panel',
-  );
+  const toolbar = toolbarHtml({
+    marked: true,
+    compact: isMobileEnv(),
+    color: mark.color ?? 'amber',
+    colors: HIGHLIGHT_COLORS,
+    acts: MARK_ACTS,
+    attrs: `data-id="${mark.id}" data-book="${book.id}"`,
+  });
+  if (isMobileEnv()) return bareFloat(toolbar, 'bzs-hltools-panel');
+  const bubble = mark.comment ? markBubbleHtml(mark.comment) : '';
+  return bareFloat(`<div class="bzs-tb-stack">${bubble}${toolbar}</div>`, 'bzs-hltools-panel has-stack');
 }
 
 /**
@@ -369,9 +394,13 @@ function overlayHltools(markId?: string, bookId?: string): string {
  * 「一次没点准又补一下」几乎分不出来。删除不可撤销，所以不给「不再提示」。
  */
 function overlayConfirmDel(markId?: string, bookId?: string, bookmarkId?: string): string {
+  /* 手机上删除确认与书摘 / AI 同一张遮罩弹窗：都从工具条上点出来，
+     不该一个从底部抽屉来、另一个从中间来。桌面维持原来的浮卡。 */
+  const mask = isMobileEnv() ? 'bzs-text-scrim' : '';
   if (bookmarkId) {
     const found = bookmarkById(bookmarkId, bookId);
-    if (!found) return modal('删除书签', '', '<div class="bzs-empty">这枚书签已经不在了。</div>', closeBtn());
+    if (!found)
+      return modal('删除书签', '', '<div class="bzs-empty">这枚书签已经不在了。</div>', closeBtn(), '', mask);
     const { book, bookmark } = found;
     const { body, foot } = bookmarkDeleteHtml({
       id: bookmark.id,
@@ -380,10 +409,10 @@ function overlayConfirmDel(markId?: string, bookId?: string, bookmarkId?: string
       chapter: bookmark.chapterTitle,
       bookTitle: book.meta.title,
     });
-    return modal('删除这枚书签？', esc(bookmark.chapterTitle ?? ''), body, foot);
+    return modal('删除这枚书签？', esc(bookmark.chapterTitle ?? ''), body, foot, '', mask);
   }
   const found = markById(markId, bookId);
-  if (!found) return modal('删除划线', '', '<div class="bzs-empty">这条标注已经不在了。</div>', closeBtn());
+  if (!found) return modal('删除划线', '', '<div class="bzs-empty">这条标注已经不在了。</div>', closeBtn(), '', mask);
   const { book, mark } = found;
   const body = `<div class="bzs-qcard"><div class="q">${esc(mark.text)}</div>
       <div class="loc">${esc(book.meta.title || '')} · ${esc(mark.chapterTitle ?? '')}</div></div>
@@ -394,6 +423,8 @@ function overlayConfirmDel(markId?: string, bookId?: string, bookmarkId?: string
     body,
     `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
      <button class="bzs-btn danger" data-act="delmarkdo" data-id="${mark.id}" data-book="${book.id}">删除</button>`,
+    '',
+    mask,
   );
 }
 
@@ -444,6 +475,58 @@ function bareFloat(body: string, cls: string): string {
 }
 
 /**
+ * 手机上的文字面板：一张独立的遮罩弹窗，位置由 CSS 定（居中偏上），
+ * 不跟工具条走——手机上工具条与面板一次只出现一样东西。
+ */
+function textDialog(inner: string): string {
+  return `<div class="bzs-scrim bzs-text-scrim" data-role="scrim">${inner}</div>`;
+}
+
+/**
+ * 文字面板的两种形态（S11 定稿）。
+ *
+ * **桌面**：正文在上、同一枚工具条在下，竖着叠一列。工具条永远在同一个
+ * 高度上——打开想法 / 书摘 / AI 时它不会跳走，用户不用重新找按钮。
+ * 整块再由 `placeAnchored()` 贴到划线之上。
+ *
+ * **手机**：正文单独进遮罩弹窗，工具条不参与。屏幕窄，一块地方只放得下
+ * 一样；而且弹窗要能滚、要能被键盘顶起来，贴着字反而两头不讨好。
+ *
+ * `acts` 跟着「有没有具体这条划线」走：有 markId 就是 hl*（删除、复制都有
+ * 对象），没有就退回 sel*（刚划完的选区，此时不该出现删除）。
+ */
+function textPanel(
+  body: string,
+  cls: string,
+  opts: {
+    active?: string;
+    marked?: boolean;
+    markId?: string;
+    bookId?: string;
+    color?: string;
+  } = {},
+): string {
+  if (isMobileEnv()) {
+    return textDialog(`<div class="bzs-float is-dialog ${cls}" data-role="float">${body}</div>`);
+  }
+  const attrs = opts.markId ? `data-id="${opts.markId}" data-book="${opts.bookId ?? ''}"` : '';
+  const toolbar = toolbarHtml({
+    marked: opts.marked ?? true,
+    color: opts.color,
+    colors: HIGHLIGHT_COLORS,
+    acts: opts.markId ? MARK_ACTS : SELECTION_ACTS,
+    active: opts.active,
+    attrs,
+  });
+  /* 外壳透明，底板交给 `${cls}-body`：工具条要露在卡片外面，
+     不能跟卡片共用一个底——两层白底叠起来像套了个相框。 */
+  return bareFloat(
+    `<div class="bzs-tb-stack"><div class="bzs-panel-body ${cls}-body">${body}</div>${toolbar}</div>`,
+    'has-stack',
+  );
+}
+
+/**
  * 脚注浮窗（S10 定稿）：左侧一枚「注」小印，其余全是注文。
  *
  * 不写标题「脚注」、也不摆「跳到原文 / 关闭」：注是正文的一句旁白，
@@ -461,14 +544,20 @@ function overlayFootnote(text?: string): string {
  * 先选一次再等一次），没有模型名标签、没有免责说明。
  * 失败时把原因留在 body 里，「重试」就在下面——不要一句话把弹层关掉。
  */
-function overlayAi(): string {
+function overlayAi(markId?: string, bookId?: string): string {
   /* 整段包在 if 里而不是提前 return：esbuild 会连模板一起删掉，
      base 包里就不会留下「AI 助手」的界面文案。 */
   let html = '';
   if (__BZ_READER_PRO__) {
     const s = shellSettings();
     const ready = !!s.ai.baseUrl && !!s.ai.apiKey && !!s.ai.model;
-    html = bareFloat(aiCardHtml({ ready }), 'bzs-ai-panel');
+    html = textPanel(aiCardHtml({ ready }), 'bzs-ai-panel', {
+      active: 'ai',
+      marked: !!markId,
+      markId,
+      bookId,
+      color: markId ? markById(markId, bookId)?.mark.color : undefined,
+    });
   }
   return html;
 }
@@ -828,7 +917,7 @@ export function overlayHtml(): string {
     case 'bookmap':
       return overlayBookmap();
     case 'quote':
-      return overlayQuote(o.text, o.bookId, o.chapterTitle, o.mode);
+      return overlayQuote(o.text, o.bookId, o.chapterTitle, o.mode, o.markId);
     case 'idea':
       return overlayIdea(o.markId, o.bookId);
     case 'hltools':
@@ -840,7 +929,7 @@ export function overlayHtml(): string {
     case 'footnote':
       return overlayFootnote(o.text);
     case 'ai':
-      return overlayAi();
+      return overlayAi(o.markId, o.bookId);
     case 'dict':
       return overlayDict(o.word);
     case 'translate':
@@ -1110,9 +1199,12 @@ export class OverlayLayer {
       if (box && !box.value) box.value = keepLicense;
     }
     /* 点遮罩空白关闭：判据交给 bindMaskDismiss（起点在遮罩 + 位移不超容差），
-       在弹窗里选字拖到遮罩上松手不会再误关。每次重画都是新的遮罩元素。 */
-    const scrim = this.root.querySelector<HTMLElement>('[data-role="scrim"]');
-    if (scrim) bindMaskDismiss(scrim, () => closeOverlay());
+       在弹窗里选字拖到遮罩上松手不会再误关。每次重画都是新的遮罩元素。
+       手机上「想法 / 书摘 / AI / 删除」多了一层 .bzs-text-scrim，所以这里
+       要逐个绑——只绑第一个的话，第二层遮罩点了不会关。 */
+    for (const scrim of Array.from(this.root.querySelectorAll<HTMLElement>('[data-role="scrim"]'))) {
+      bindMaskDismiss(scrim, () => closeOverlay());
+    }
     const o = getState().overlay;
     /* 先摆位再聚焦：聚焦可能让键盘立刻弹起，位置要在那之前是对的 */
     this.placeAnchored();

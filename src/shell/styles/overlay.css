@@ -82,6 +82,57 @@
   transform: translateX(-50%);
 }
 
+/* ── 手机上的文字面板：一张独立卡片（S11）──
+   手机没有「工具条常驻」的位置，想法 / 书摘 / AI 改成遮罩弹窗；
+   居中的偏上位置由 .bzs-text-scrim 的 padding-bottom 压出来（见 mobile.css）。
+   桌面上不存在这个类——那边用 .bzs-tb-stack 叠一列。 */
+.bzs-float.is-dialog {
+  position: relative;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(72vh, 640px);
+  overflow: auto;
+  padding: 14px;
+  border: 0;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: 0 24px 60px rgba(40, 32, 20, .26), 0 0 0 1px rgba(60, 48, 28, .08);
+}
+
+body.theme-dark .bzs-float.is-dialog {
+  background: #35322c;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .68), 0 0 0 1px rgba(255, 255, 255, .09);
+}
+
+/* 弹窗自己有底板，里面的卡片不要再画一层：手机上 AI 卡 / 书摘卡
+   贴着弹窗边缘，套两层白底会像卡中卡。 */
+.bzs-float.is-dialog .bzs-ai-card {
+  width: 100%;
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.bzs-float.is-dialog .bzs-quote-card {
+  width: 100%;
+}
+
+/* 文字类遮罩弹窗：不管在哪种承载下都居中偏上，不跟着贴底抽屉走 */
+.bzs-scrim.bzs-text-scrim {
+  place-items: center;
+  align-items: center;
+  padding: 24px 16px 22vh;
+}
+
+/* ── S11：正文与工具条叠成一列 ──
+   桌面上面板在上、工具条在下（工具条永远在同一高度，开合面板不会跳）；
+   手机上不叠——面板单独走 .is-dialog 遮罩弹窗。 */
+.bzs-tb-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
 /* ── S10 五张阅读浮卡 ──
    都是「浮在正文上」而不是弹窗：没有标题头、没有关闭按钮、没有遮罩，
    点正文或按 Esc 收起；卡片朝上长、叠在划词胶囊之上。
@@ -90,10 +141,8 @@
 
    外壳统一透明：底色、圆角、投影都各不相同，交给卡片自己画。 */
 .bzs-float.is-anchored.bzs-hltools-panel,
-.bzs-float.is-anchored.bzs-idea-panel,
-.bzs-float.is-anchored.bzs-quote-panel,
-.bzs-float.is-anchored.bzs-ai-panel,
-.bzs-float.is-anchored.bzs-fn-panel {
+.bzs-float.is-anchored.bzs-fn-panel,
+.bzs-float.has-stack {
   width: max-content;
   max-width: min(480px, calc(100vw - 24px));
   max-height: none;
@@ -108,8 +157,9 @@
 
 /* 书摘浮卡是例外：它整块不透明。
    模板 chips、引文卡、动作按钮都落在同一块底板上——以前外壳透明、三块各自
-   上色，块与块之间的缝会漏出正文，整张卡看起来像半透明的。 */
-.bzs-float.is-anchored.bzs-quote-panel {
+   上色，块与块之间的缝会漏出正文，整张卡看起来像半透明的。
+   S11 之后底板收在 `-body` 这一层：工具条要露在卡片外面。 */
+.bzs-quote-panel-body {
   width: max-content;
   max-width: min(480px, calc(100vw - 24px));
   background: var(--surface);
@@ -121,7 +171,7 @@
 
 /* 经典卡在底板上同色，描边会变成「卡中卡」；只弱化这一版，
    信笺的虚线框与夜读的深底边框都保留。 */
-.bzs-quote-panel .bzs-qcard:not([class*="tpl-"]) {
+.bzs-quote-panel-body .bzs-qcard:not([class*="tpl-"]) {
   border-color: transparent;
 }
 
@@ -356,8 +406,8 @@
   box-sizing: border-box;
   width: max-content;
   max-width: min(430px, calc(100vw - 24px));
-  /* 跟在胶囊下面，留一条缝 */
-  margin-top: 10px;
+  /* 与工具条的间距由 .bzs-tb-stack 的 gap 管 */
+  margin: 0;
   background: var(--surface);
   border-radius: 10px;
   padding: 10px 13px;
@@ -370,40 +420,42 @@
   overflow: auto;
 }
 
-.bzs-hlbar {
+/* ── 工具条本体（S11）：划词与点划线共用这一枚 ──
+   白底实心胶囊；描边走 0 0 0 1px 的阴影、不写 border（border 会把整条撑高 2px）。
+   手机上胶囊必然压到下一行正文，实心的像盖了块色板，改磨砂（见 mobile.css）。 */
+.bzs-tb {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  /* 工具条是这一块的主控件：比划词胶囊略高，点在边缘也不容易点空 */
-  padding: 7px 14px;
-  background: #fff;
+  padding: 4px 12px;
   border-radius: 999px;
+  background: #fff;
   box-shadow: 0 16px 36px rgba(40, 32, 20, .2), 0 3px 8px rgba(40, 32, 20, .1), 0 0 0 1px rgba(60, 48, 28, .07);
+  white-space: nowrap;
 }
 
-/* 胶囊按内容宽，与气泡同一个中心线 */
-.bzs-hltools-panel {
-  align-items: center;
-}
-
-body.theme-dark .bzs-hlbar {
+body.theme-dark .bzs-tb {
   background: #35322c;
   box-shadow: 0 20px 42px rgba(0, 0, 0, .62), 0 4px 12px rgba(0, 0, 0, .46), 0 0 0 1px rgba(255, 255, 255, .09);
 }
 
-.bzs-hlbar-sep {
+/* 描边分隔：色点与动作之间竖一道 */
+.bzs-tb .div {
   width: 1px;
   height: 18px;
-  margin: 0 1px;
-  flex: none;
   background: rgba(60, 48, 28, .14);
+  margin: 0 1px;
+  flex-shrink: 0;
 }
 
-body.theme-dark .bzs-hlbar-sep {
+body.theme-dark .bzs-tb .div {
   background: var(--line);
 }
 
-.bzs-hlbar .bzs-sbtn {
+/* 胶囊里的动作按钮：12.5px 是原型量出来的——13px 会让整条宽出 8px，
+   窄栏里更容易顶到边上。 */
+.bzs-tb .bzs-sbtn {
   padding: 2px 8px;
   font-size: 12.5px;
   border-radius: 7px;
@@ -412,30 +464,90 @@ body.theme-dark .bzs-hlbar-sep {
 }
 
 /* 写想法是这一条上的主路径：铜字加粗，和「删除」拉开 */
-.bzs-hlbar .bzs-sbtn.pri {
+.bzs-tb .bzs-sbtn.pri {
   color: var(--copper);
   font-weight: 600;
 }
 
-.bzs-hlbar .bzs-sbtn.danger {
+/* 删除是唯一的破坏性动作，永远排在最后 */
+.bzs-tb .bzs-sbtn.danger {
   color: var(--vermilion);
 }
 
-.bzs-hlbar .bzs-sbtn.danger:hover {
-  color: var(--vermilion);
-  background: transparent;
+/* 当前打开的面板：对应按钮亮着，用户知道这一排在哪儿 */
+.bzs-tb .bzs-sbtn.on {
+  color: var(--copper);
+  background: var(--copper-soft);
 }
 
-/* ── 写想法：一个输入框 + 一个保存按钮，没有标题和取消 ── */
-.bzs-float.is-anchored.bzs-idea-panel {
+/* 「⋯」：手机上收起来的动作都挂在这儿 */
+.bzs-tb .bzs-sbtn.more {
+  padding: 2px 6px;
+  letter-spacing: 0;
+}
+
+/* 菜单常驻 DOM、默认收起：点开只给胶囊加一个 .is-more，不重画——
+   重画会把手指底下的按钮整排换掉。 */
+.bzs-tb-more {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  display: none;
+  flex-direction: column;
+  min-width: 84px;
+  padding: 5px;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 14px 30px rgba(40, 32, 20, .18), 0 0 0 1px rgba(60, 48, 28, .08);
+  z-index: 1;
+}
+
+body.theme-dark .bzs-tb-more {
+  background: #35322c;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .09);
+}
+
+.bzs-tb.is-more .bzs-tb-more {
+  display: flex;
+}
+
+.bzs-tb-mi {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--t2);
+  font: 12.5px var(--ui);
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+
+.bzs-tb-mi:hover {
+  color: var(--copper);
+  background: var(--copper-soft);
+}
+
+.bzs-tb-mi.danger {
+  color: var(--vermilion);
+}
+
+/* 点划线：工具条贴字，气泡在它上面（顺序见 .bzs-tb-stack） */
+.bzs-hltools-panel {
+  align-items: center;
+}
+
+/* ── 写想法：一个输入框 + 一个保存按钮，没有标题和取消 ──
+   底板收在这一层：外壳透明之后，输入框不能直接贴在正文上。 */
+.bzs-idea-panel-body {
   width: min(360px, calc(100vw - 24px));
-}
-
-.bzs-float.bzs-idea-panel {
   padding: 10px;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(40, 32, 20, .05), 0 16px 40px rgba(40, 32, 20, .12);
 }
 
-.bzs-idea-panel .bzs-sheet-input {
+.bzs-idea-panel-body .bzs-sheet-input {
   display: block;
 }
 
@@ -919,30 +1031,19 @@ body.theme-dark .bzs-hlbar-sep {
   margin-top: 10px;
 }
 
-/* ── 划词胶囊（S10 定稿）──
+/* ── 划词条的定位壳（S11）──
+   胶囊本身由 `shell/text-toolbar.ts` 生成，与浮层里那一枚是同一个 `.bzs-tb`；
+   这一层只负责「摆在哪儿」。**不要再画背景与内边距**：两边都画会套出
+   两层胶囊，手机上一眼就能看出来。
+
    位置全部由 reader-view 的 showSelbar() 算好（left/top 已是最终坐标），
    这里**不能再加 translate**：CSS 再抬 100% 会把工具条顶到选区两倍高度处，
-   选区在首行时整条飞出屏幕上边框。手机端的贴底规则自己带 translateX。
-
-   外观照定稿原型 shot-read.html 逐值来：白底实心胶囊，没有玻璃底——玻璃底
-   压在正文上会随文字明暗忽深忽浅，划词时最需要的是「这块是控件、不是文字」。
-   描边走 0 0 0 1px 的阴影、不写 border：border 会把整条撑高 2px。 */
+   选区在首行时整条飞出屏幕上边框。 */
 .bzs-selbar {
   position: absolute;
   z-index: var(--z-float);
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  background: #fff;
-  box-shadow: 0 16px 36px rgba(40, 32, 20, .2), 0 3px 8px rgba(40, 32, 20, .1), 0 0 0 1px rgba(60, 48, 28, .07);
-  white-space: nowrap;
-}
-
-body.theme-dark .bzs-selbar {
-  background: #35322c;
-  box-shadow: 0 20px 42px rgba(0, 0, 0, .62), 0 4px 12px rgba(0, 0, 0, .46), 0 0 0 1px rgba(255, 255, 255, .09);
+  display: flex;
+  max-width: calc(100vw - 16px);
 }
 
 .bzs-pendot {
@@ -968,28 +1069,6 @@ body.theme-dark .bzs-selbar {
 
 body.theme-dark .bzs-pendot.on {
   box-shadow: 0 0 0 2.5px #35322c, 0 0 0 4px rgba(200, 164, 100, .62);
-}
-
-.bzs-selbar .div {
-  width: 1px;
-  height: 18px;
-  background: rgba(60, 48, 28, .14);
-  margin: 0 1px;
-  flex-shrink: 0;
-}
-
-body.theme-dark .bzs-selbar .div {
-  background: var(--line);
-}
-
-/* 胶囊里的动作按钮：12.5px 是原型量出来的——13px 会让整条宽出 8px，
-   窄栏里更容易顶到边上。 */
-.bzs-selbar .bzs-sbtn {
-  padding: 2px 8px;
-  font-size: 12.5px;
-  border-radius: 7px;
-  letter-spacing: .03em;
-  color: var(--t2);
 }
 
 .bzs-sbtn {
