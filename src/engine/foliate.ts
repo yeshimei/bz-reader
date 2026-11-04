@@ -1,12 +1,15 @@
 /* ============================================================
  * bz-reader · foliate 运行时门面（engine/foliate.ts）
  *
- * 全仓唯一允许 import vendor/foliate 的地方。理由：vendor 是上游原版 JS，
- * TS 从 JS 推断出的类型不可用（View 被推断成 HTMLElement，导出也没有类型名），
+ * 全仓唯一允许 import foliate-js 的地方。理由：上游是纯 JS，TS 从 JS
+ * 推断出的类型不可用（View 被推断成 HTMLElement，导出也没有类型名），
  * 在这里一次性 cast 成 types/foliate.ts 的形状，业务侧只认这份。
+ *
+ * 包走 npm（`foliate-js@1.0.1`），本地补丁在 `patches/foliate-js@1.0.1.patch`，
+ * 由 pnpm 的 patchedDependencies 在安装时应用——不要改 node_modules。
  * ============================================================ */
-import * as viewModule from '../vendor/foliate/view.js';
-import * as overlayerModule from '../vendor/foliate/overlayer.js';
+import * as viewModule from 'foliate-js/view.js';
+import * as overlayerModule from 'foliate-js/overlayer.js';
 import type { FoliateBook, FoliateView } from '../types/foliate';
 import type { OverlayerDrawer } from '../types/foliate';
 

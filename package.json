@@ -21,6 +21,8 @@
     "obsidian": "latest",
     "typescript": "^5.4.5",
     "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "foliate-js": "1.0.1"
   }
 }
-

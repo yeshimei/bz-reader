@@ -4,9 +4,16 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  foliate-js@1.0.1: 19085925574d19c40e7b8d73fad84e9e401294e55a4a007147913f6654062e4f
+
 importers:
 
   .:
+    dependencies:
+      foliate-js:
+        specifier: 1.0.1
+        version: 1.0.1(patch_hash=19085925574d19c40e7b8d73fad84e9e401294e55a4a007147913f6654062e4f)
     devDependencies:
       '@types/node':
         specifier: ^22.20.4
@@ -361,6 +368,9 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
+
+  foliate-js@1.0.1:
+    resolution: {integrity: sha512-Cj4h2ub5aVA+yUgbhvVhCyxwi0GPF4pyNBa6Lw9+6WKY1ReBxipItn2kEBO6u7Vu/xYXjK711R74+t+yW/0u5w==}
 
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
@@ -821,6 +831,10 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.7):
     optionalDependencies:
       picomatch: 4.0.7
+
+  foliate-js@1.0.1(patch_hash=19085925574d19c40e7b8d73fad84e9e401294e55a4a007147913f6654062e4f):
+    dependencies:
+      construct-style-sheets-polyfill: 3.1.0
 
   fsevents@2.3.3:
     optional: true

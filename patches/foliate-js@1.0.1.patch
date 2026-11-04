@@ -1,0 +1,401 @@
+diff --git a/fixed-layout.js b/fixed-layout.js
+index b648a0da4c07a85d04c53b9be5dbdc0c60b7d47a..db6842353a4d8cd200972a8edbfc4d8fd10bbef9 100644
+--- a/fixed-layout.js
++++ b/fixed-layout.js
+@@ -316,4 +316,4 @@ export class FixedLayout extends HTMLElement {
+     }
+ }
+ 
+-customElements.define('foliate-fxl', FixedLayout)
++if (!customElements.get('foliate-fxl')) customElements.define('foliate-fxl', FixedLayout)
+diff --git a/overlayer.js b/overlayer.js
+index 86be1a612a782c23f4190a1a28ce61f03d13e5a3..8f4ad14b9ae83ea3e1cb23d7e7001d1e4d08e719 100644
+--- a/overlayer.js
++++ b/overlayer.js
+@@ -177,20 +177,55 @@ export class Overlayer {
+         }
+         return g
+     }
++    // [bz] 原版把整行文字糊成一块 30% 透明度的色块，压在正文上像荧光笔事故。
++    // 改成原型 reader-v2 的划线：只在文字**下半段**铺一层软色（笔刷wash），
++    // 底部压一条 1px 实线——颜色还在内容上，但正文透得出来。
++    // 竖排（writing-mode: vertical-*）笔刷落在右半、实线压右缘。
++    // wash 的浓度/混合模式走 --overlayer-highlight-*（theme.ts 按明暗注入），
++    // 实线浓度走 --overlayer-highlight-line-opacity（缺省 .8）。
+     static highlight(rects, options = {}) {
+-        const { color = 'red', padding = 0 } = options
++        const { color = 'red', padding = 0, writingMode } = options
+         const g = createSVGElement('g')
+-        g.setAttribute('fill', color)
+-        g.style.opacity = 'var(--overlayer-highlight-opacity, .3)'
+-        g.style.mixBlendMode = 'var(--overlayer-highlight-blend-mode, normal)'
+-        for (const { left, top, height, width } of rects) {
+-            const el = createSVGElement('rect')
+-            el.setAttribute('x', left - padding)
+-            el.setAttribute('y', top - padding)
+-            el.setAttribute('height', height + padding * 2)
+-            el.setAttribute('width', width + padding * 2)
+-            g.append(el)
++        const wash = createSVGElement('g')
++        wash.setAttribute('fill', color)
++        wash.style.opacity = 'var(--overlayer-highlight-opacity, .3)'
++        wash.style.mixBlendMode = 'var(--overlayer-highlight-blend-mode, normal)'
++        const line = createSVGElement('g')
++        line.setAttribute('fill', color)
++        line.style.opacity = 'var(--overlayer-highlight-line-opacity, .8)'
++        const vertical = writingMode === 'vertical-rl' || writingMode === 'vertical-lr'
++        for (const { left, top, right, bottom, width, height } of rects) {
++            if (vertical) {
++                const w = Math.max(2, width * 0.42)
++                const washRect = createSVGElement('rect')
++                washRect.setAttribute('x', right - w - padding)
++                washRect.setAttribute('y', top - padding)
++                washRect.setAttribute('width', w + padding * 2)
++                washRect.setAttribute('height', height + padding * 2)
++                wash.append(washRect)
++                const lineRect = createSVGElement('rect')
++                lineRect.setAttribute('x', right - 1 - padding)
++                lineRect.setAttribute('y', top - padding)
++                lineRect.setAttribute('width', 1 + padding * 2)
++                lineRect.setAttribute('height', height + padding * 2)
++                line.append(lineRect)
++            } else {
++                const h = Math.max(2, height * 0.42)
++                const washRect = createSVGElement('rect')
++                washRect.setAttribute('x', left - padding)
++                washRect.setAttribute('y', bottom - h - padding)
++                washRect.setAttribute('width', width + padding * 2)
++                washRect.setAttribute('height', h + padding * 2)
++                wash.append(washRect)
++                const lineRect = createSVGElement('rect')
++                lineRect.setAttribute('x', left - padding)
++                lineRect.setAttribute('y', bottom - 1 - padding)
++                lineRect.setAttribute('width', width + padding * 2)
++                lineRect.setAttribute('height', 1 + padding * 2)
++                line.append(lineRect)
++            }
+         }
++        g.append(wash, line)
+         return g
+     }
+     static outline(rects, options = {}) {
+diff --git a/paginator.js b/paginator.js
+index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..f34230f2026f22322b42f060f45136288ab1e378 100644
+--- a/paginator.js
++++ b/paginator.js
+@@ -240,38 +240,158 @@ class View {
+     get document() {
+         return this.#iframe.contentDocument
+     }
++    /**
++     * 装载一章。
++     *
++     * bz-reader 补丁：原版只挂 `load`、不挂 `error`。地址加载不了时这个 Promise
++     * 既不 resolve 也不 reject，上层 `await` 永远悬着——表现是正文空白且无报错，
++     * 恢复工作区时还会把 Obsidian 钉死在「加载工作区中…」。
++     *
++     * 现在有三条出口：
++     *   1. 正常 load；
++     *   2. load 迟迟不来（或 load 了但 document 拿不到）→ 用 srcdoc 把 HTML
++     *      直接写进 iframe 重试一次（绕开 blob 地址；书内相对资源会失效，
++     *      但正文能读，比白屏强）；
++     *   3. 到点仍失败 → reject，让上层画错误页。
++     */
+     async load(src, afterLoad, beforeRender) {
+         if (typeof src !== 'string') throw new Error(`${src} is not string`)
+-        return new Promise(resolve => {
+-            this.#iframe.addEventListener('load', () => {
+-                const doc = this.document
+-                afterLoad?.(doc)
+-
+-                // it needs to be visible for Firefox to get computed style
+-                this.#iframe.style.display = 'block'
+-                const { vertical, rtl } = getDirection(doc)
+-                this.docBackground = getBackground(doc)
+-                doc.body.style.background = 'none'
+-                const background = this.docBackground
+-                this.#iframe.style.display = 'none'
++        const RETRY_MS = 8000
++        const FAIL_MS = 15000
++        const trace = (m) => {
++            const t = (globalThis.__bzrTrace ??= [])
++            t.push(m)
++            if (t.length > 24) t.shift()
++        }
++        return new Promise((resolve, reject) => {
++            const t0 = Date.now()
++            let settled = false
++            let running = false
++            let triedSrcdoc = false
++            let retryTimer = 0
++            let failTimer = 0
++            let pumpTimer = 0
++            const settle = () => {
++                if (settled) return false
++                settled = true
++                if (retryTimer) clearTimeout(retryTimer)
++                if (failTimer) clearTimeout(failTimer)
++                if (pumpTimer) clearInterval(pumpTimer)
++                this.#iframe.removeEventListener('load', onLoad)
++                return true
++            }
++            const fail = (why) => {
++                trace('fail:' + why)
++                if (!settle()) return
++                reject(new Error(why))
++            }
++            /* 直接写文档：连 srcdoc 导航都不走，about:blank 的 document 总是可写的。
++               某些安卓 WebView 上 srcdoc 设了不生效、也不发 load，这是最后一条硬路。 */
++            const writeDocument = (html) => {
++                try {
++                    const doc = this.#iframe.contentDocument
++                    if (!doc) return false
++                    doc.open()
++                    doc.write(html)
++                    doc.close()
++                    trace('write ' + html.length)
++                    return true
++                } catch (e) {
++                    trace('write fail ' + (e?.message ?? e))
++                    return false
++                }
++            }
++            const retryWithSrcdoc = async () => {
++                if (settled || triedSrcdoc || running) return
++                triedSrcdoc = true
++                if (!src.startsWith('blob:')) return fail('章节地址不是 blob，无法回退')
++                try {
++                    const html = await (await fetch(src)).text()
++                    if (settled || running) return
++                    trace('fetch ' + html.length)
++                    if (!html) return fail('章节内容为空')
++                    this.#iframe.srcdoc = html
++                    writeDocument(html)
++                } catch (e) {
++                    fail(`章节内容读不出来：${e?.message ?? e}`)
++                }
++            }
++            /** 文档就绪后真正挂载。load 事件和下面的轮询都走这里，只跑一次。 */
++            const start = (doc) => {
++                if (running || settled) return
++                running = true
++                try {
++                    afterLoad?.(doc)
+ 
+-                this.#vertical = vertical
+-                this.#rtl = rtl
++                    // it needs to be visible for Firefox to get computed style
++                    this.#iframe.style.display = 'block'
++                    const { vertical, rtl } = getDirection(doc)
++                    this.docBackground = getBackground(doc)
++                    doc.body.style.background = 'none'
++                    const background = this.docBackground
++                    this.#iframe.style.display = 'none'
+ 
+-                this.#contentRange.selectNodeContents(doc.body)
+-                const layout = beforeRender?.({ vertical, rtl, background })
+-                this.#iframe.style.display = 'block'
+-                this.render(layout)
+-                this.#observer.observe(doc.body)
++                    this.#vertical = vertical
++                    this.#rtl = rtl
+ 
+-                // the resize observer above doesn't work in Firefox
+-                // (see https://bugzilla.mozilla.org/show_bug.cgi?id=1832939)
+-                // until the bug is fixed we can at least account for font load
+-                doc.fonts.ready.then(() => this.expand())
++                    this.#contentRange.selectNodeContents(doc.body)
++                    const layout = beforeRender?.({ vertical, rtl, background })
++                    this.#iframe.style.display = 'block'
++                    this.#iframe.style.visibility = 'visible'
++                    this.render(layout)
++                    this.#observer.observe(doc.body)
+ 
++                    // the resize observer above doesn't work in Firefox
++                    // (see https://bugzilla.mozilla.org/show_bug.cgi?id=1832939)
++                    // until the bug is fixed we can at least account for font load
++                    doc.fonts.ready.then(() => this.expand())
++                } catch (e) {
++                    running = false
++                    fail(`章节排版失败：${e?.message ?? e}`)
++                    return
++                }
++                trace('render ok')
++                if (!settle()) return
+                 resolve()
+-            }, { once: true })
++            }
++            /* 轮询兜底：不依赖 load 事件。判断标准是「文档里已经有元素」；
++               若 readyState 还在 loading，最多再等 2 秒就强行挂载——
++               宁可排版略糙，也别永远空白。 */
++            const pump = () => {
++                if (settled || running) return
++                const doc = this.document
++                if (!doc || !doc.body || !doc.body.childElementCount) return
++                if (doc.readyState === 'loading' && Date.now() - t0 < 2000) return
++                trace('pump ' + doc.URL)
++                start(doc)
++            }
++            const onLoad = () => {
++                if (settled || running) return
++                const doc = this.document
++                /* 跨源 / 拿不到文档：换成直接写 */
++                if (!doc) {
++                    void retryWithSrcdoc()
++                    return
++                }
++                trace('load ' + doc.URL)
++                start(doc)
++            }
++
++            trace('begin ' + src.slice(0, 18))
++            /* 关键：不要用 display:none 等 load——部分安卓 WebView 对不可见的
++               iframe 干脆不加载文档（既不 load 也不 error）。改成「可见但透明」，
++               布局照算、屏幕上不闪。 */
++            this.#iframe.style.display = 'block'
++            this.#iframe.style.visibility = 'hidden'
++            this.#iframe.addEventListener('load', onLoad)
++            /* 地址照旧交给 foliate 设：`src` 的 setter 已被 engine/blob-srcdoc.ts
++               接管，blob 地址在那里被读成原文、内联资源后改成 srcdoc。 */
+             this.#iframe.src = src
++            pumpTimer = setInterval(pump, 200)
++            retryTimer = setTimeout(() => {
++                if (!settled && !running) void retryWithSrcdoc()
++            }, RETRY_MS)
++            failTimer = setTimeout(() => fail('章节渲染超时'), FAIL_MS)
+         })
+     }
+     render(layout) {
+@@ -311,7 +431,9 @@ class View {
+             ...(vertical
+                 ? { 'width': `${width}px` }
+                 : { 'height': `${height}px` }),
+-            'padding': vertical ? `${margin / 2}px ${gap}px` : `0 ${gap / 2}px`,
++            'padding': vertical
++                ? `${margin / 2}px ${gap}px`
++                : `var(--_pad-top, 0px) ${gap / 2}px var(--_pad-bottom, 0px)`,
+             'overflow': 'hidden',
+             // force wrap long words
+             'overflow-wrap': 'break-word',
+@@ -460,7 +582,7 @@ export class Paginator extends HTMLElement {
+             --_margin: 48px;
+             --_max-inline-size: 720px;
+             --_max-block-size: 1440px;
+-            --_max-column-count: 2;
++            --_max-column-count: var(--_column-count, 2);
+             --_max-column-count-portrait: 1;
+             --_max-column-count-spread: var(--_max-column-count);
+             --_half-gap: calc(var(--_gap) / 2);
+@@ -670,7 +792,9 @@ export class Paginator extends HTMLElement {
+     }
+     #replaceBackground(background, columnCount) {
+         const doc = this.#view?.document
+-        if (!doc) return
++        /* bz-reader：换章/换文档的瞬间 documentElement 会是 null，
++           原来的 getComputedStyle 会抛 TypeError，把整次 render 打断。 */
++        if (!doc || !doc.documentElement || !doc.defaultView || !this.#background) return
+         const htmlStyle = doc.defaultView.getComputedStyle(doc.documentElement)
+         const themeBgColor = htmlStyle.getPropertyValue('--theme-bg-color')
+         if (background && themeBgColor) {
+@@ -829,6 +953,7 @@ export class Paginator extends HTMLElement {
+     }
+ 
+     snap(vx, vy) {
++        globalThis.__bzrLog && globalThis.__bzrLog("paginator.snap", { vx: +Number(vx).toFixed(2), vy: +Number(vy).toFixed(2), page: this.page })
+         const velocity = this.#vertical ? vy : vx
+         const [offset, a, b] = this.#scrollBounds
+         const { start, end, pages, size } = this
+@@ -852,7 +977,7 @@ export class Paginator extends HTMLElement {
+         this.#touchState = {
+             x: touch?.screenX, y: touch?.screenY,
+             t: e.timeStamp,
+-            vx: 0, xy: 0,
++            vx: 0, vy: 0, moved: 0,
+         }
+     }
+     #onTouchMove(e) {
+@@ -879,6 +1004,9 @@ export class Paginator extends HTMLElement {
+         state.t = e.timeStamp
+         state.vx = dx / dt
+         state.vy = dy / dt
++        /* bz-reader：累计位移。手指点按时 1~3px 的抖动也会派发 touchmove，
++           只看「有没有 touchmove」会把点按当拖拽，snap 就又回来了。 */
++        state.moved = (state.moved ?? 0) + Math.hypot(dx, dy)
+         this.#touchScrolled = true
+         if (Math.abs(dx) >= Math.abs(dy)) {
+             this.scrollBy(dx, 0)
+@@ -887,8 +1015,16 @@ export class Paginator extends HTMLElement {
+         }
+     }
+     #onTouchEnd() {
++        /* bz-reader：点按不吸附。
++           一次点按原本有两个翻页者——宿主的三区点击 + 这里的 snap()。
++           零速度的 snap 会按「当前页内偏移」吸到最近的页边界，于是
++           「翻到下一页 → 被吸回上一页」无限往返。
++           判据用累计位移而不是「有没有 touchmove」：点按本身也带 1~3px 抖动。 */
++        const movedDistance = this.#touchState?.moved ?? 0
++        const tapOnly = !this.#touchScrolled || movedDistance < 12
++        globalThis.__bzrLog && globalThis.__bzrLog("paginator.touchend", { moved: Math.round(movedDistance), scrolled: this.#touchScrolled, tapOnly, page: this.page, pages: this.pages })
+         this.#touchScrolled = false
+-        if (this.scrolled) return
++        if (this.scrolled || tapOnly) return
+ 
+         // XXX: Firefox seems to report scale as 1... sometimes...?
+         // at this point I'm basically throwing `requestAnimationFrame` at
+@@ -1105,9 +1241,11 @@ export class Paginator extends HTMLElement {
+         this.#locked = false
+     }
+     async prev(distance) {
++        globalThis.__bzrLog && globalThis.__bzrLog("paginator.prev", { page: this.page, pages: this.pages, atStart: this.atStart })
+         return await this.#turnPage(-1, distance)
+     }
+     async next(distance) {
++        globalThis.__bzrLog && globalThis.__bzrLog("paginator.next", { page: this.page, pages: this.pages, atEnd: this.atEnd })
+         return await this.#turnPage(1, distance)
+     }
+     prevSection() {
+@@ -1145,6 +1283,7 @@ export class Paginator extends HTMLElement {
+ 
+         // NOTE: needs `requestAnimationFrame` in Chromium
+         requestAnimationFrame(() => {
++            if (!this.#view) return
+             this.#replaceBackground(this.#view.docBackground, this.columnCount)
+         })
+ 
+@@ -1156,11 +1295,11 @@ export class Paginator extends HTMLElement {
+     }
+     destroy() {
+         this.#observer.unobserve(this)
+-        this.#view.destroy()
++        this.#view?.destroy()
+         this.#view = null
+         this.sections[this.#index]?.unload?.()
+         this.#mediaQuery.removeEventListener('change', this.#mediaQueryListener)
+     }
+ }
+ 
+-customElements.define('foliate-paginator', Paginator)
++if (!customElements.get('foliate-paginator')) customElements.define('foliate-paginator', Paginator)
+diff --git a/quote-image.js b/quote-image.js
+index 1336c59ec62d9a54fe359e22b840a5f98f0fd041..5a4d27eb01602d43f1f28a2094360e2491672748 100644
+--- a/quote-image.js
++++ b/quote-image.js
+@@ -49,7 +49,7 @@ const html = `<style>
+ </main>`
+ 
+ // TODO: lang, vertical writing
+-customElements.define('foliate-quoteimage', class extends HTMLElement {
++if (!customElements.get('foliate-quoteimage')) customElements.define('foliate-quoteimage', class extends HTMLElement {
+     #root = this.attachShadow({ mode: 'closed' })
+     constructor() {
+         super()
+diff --git a/view.js b/view.js
+index 6babab63987edac57076f1533026238ba90c455f..a45d9371e406d7092d38b8a1028b02c1706222ed 100644
+--- a/view.js
++++ b/view.js
+@@ -579,4 +579,4 @@ export class View extends HTMLElement {
+     }
+ }
+ 
+-customElements.define('foliate-view', View)
++if (!customElements.get('foliate-view')) customElements.define('foliate-view', View)
