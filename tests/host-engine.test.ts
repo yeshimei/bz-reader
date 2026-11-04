@@ -418,6 +418,28 @@ describe('host · 落点高亮（从笔记 / 双链跳回原文）', () => {
     expect(add.mock.calls[0]?.[0]).toBe('__bzr-pulse__');
   });
 
+  it('颜色跟随外观的强调色', async () => {
+    const { host, add } = wirePulse();
+    const g = globalThis as unknown as { getComputedStyle: unknown };
+    const orig = g.getComputedStyle;
+    g.getComputedStyle = () => ({
+      getPropertyValue: (k: string) => (k === '--interactive-accent' ? ' #ff0000 ' : ''),
+    });
+    try {
+      await call(host, 'pulseAt', 'epubcfi(/6/6)');
+      /* add(key, range, draw, options) 的第 4 个参数 */
+      expect(add.mock.calls[0]?.[3]).toMatchObject({ color: '#ff0000' });
+    } finally {
+      g.getComputedStyle = orig;
+    }
+  });
+
+  it('读不到强调色时退回默认紫（测试环境 / 启动早期）', async () => {
+    const { host, add } = wirePulse();
+    await call(host, 'pulseAt', 'epubcfi(/6/6)');
+    expect(add.mock.calls[0]?.[3]).toMatchObject({ color: '#7c3aed' });
+  });
+
   it('清掉时把框移除，原划线不受影响', async () => {
     const { host, add, remove } = wirePulse();
     await call(host, 'pulseAt', 'epubcfi(/6/6)');

@@ -196,8 +196,23 @@ const MAX_FOOTNOTE_SCAN = 8;
 const PULSE_KEY = '__bzr-pulse__';
 /** 闪多久。一秒：够看清落点，又不会挡着读下一句 */
 const PULSE_MS = 1000;
-/** 框的颜色。紫色在四色划线（琥珀 / 朱红 / 松绿 / 黛蓝）里没有，不会认混 */
-const PULSE_COLOR = '#7c3aed';
+/** 读不到强调色时的兜底。紫色在四色划线（琥珀 / 朱红 / 松绿 / 黛蓝）里没有，不会认混 */
+const PULSE_FALLBACK = '#7c3aed';
+/**
+ * 落点高亮的颜色：跟随 Obsidian 外观里的强调色。
+ *
+ * 用 CSS 变量而不是写死：用户换主题、换强调色，落点跟着变，
+ * 插件不必再维护一份颜色。
+ */
+function pulseColor(): string {
+  try {
+    const v = getComputedStyle(document.body).getPropertyValue('--interactive-accent').trim();
+    if (v) return v;
+  } catch {
+    /* 测试环境 / 启动早期还没有 body */
+  }
+  return PULSE_FALLBACK;
+}
 /** 建立渲染器的耐心（毫秒）。这一步只解包/建视图，不画正文，通常几十毫秒 */
 const OPEN_TIMEOUT = 15000;
 /**
@@ -1126,7 +1141,7 @@ export class EngineHost {
       if (!content?.overlayer) return;
       const range = resolved.anchor(content.doc);
       if (!range) return;
-      content.overlayer.add(PULSE_KEY, range, Overlayer.outline, { color: PULSE_COLOR, width: 2 });
+      content.overlayer.add(PULSE_KEY, range, Overlayer.outline, { color: pulseColor(), width: 2 });
       this.pulseTimer = window.setTimeout(() => this.clearPulse(), PULSE_MS);
     } catch (err) {
       /* CFI 坏了 / 章节还没挂好：不闪就是了，别为了一个提示打断阅读 */
