@@ -103,12 +103,15 @@ export const LIB_FILTERS: Array<[ShellState['libFilter'], string]> = [
   ['fav', '收藏'],
 ];
 
-/** 排序按钮上显示的字：与 actions.ts 的 libsortmenu 菜单同一套 */
-const SORT_LABEL: Record<ShellState['libSort'], string> = {
-  recent: '最近阅读',
-  title: '书名',
-  progress: '进度',
-};
+/** 排序的三档：桌面平铺成三颗 chip，窄屏收进下拉（actions 的 libsortmenu 读同一张表） */
+export const LIB_SORTS: Array<[ShellState['libSort'], string]> = [
+  ['recent', '最近阅读'],
+  ['title', '书名'],
+  ['progress', '进度'],
+];
+
+/** 下拉按钮上显示当前排序的字 */
+const SORT_LABEL = Object.fromEntries(LIB_SORTS) as Record<ShellState['libSort'], string>;
 
 export interface LibraryView {
   rows: BookRow[];
@@ -163,7 +166,8 @@ export function viewLibrary(v: LibraryView): string {
   const filterLabel = LIB_FILTERS.find((f) => f[0] === state.libFilter)?.[1] ?? '全部';
 
   /* 窄屏：一行放「搜索 / 分类 / 排序 / 视图」四颗，搜索展开后独占一行。
-     桌面保持原样——那里 1200px 宽，摊开比点两下快。 */
+     桌面 1200px 放得下，分类与排序全部平铺——点一颗比点开下拉再点一次快，
+     也不用为「现在选的是哪个」再留一层记忆。 */
   const filters = mobile
     ? state.libSearchOpen
       ? `<div class="bzs-filters is-mb is-search">
@@ -187,10 +191,12 @@ export function viewLibrary(v: LibraryView): string {
         (f) => `<button class="bzs-chip${state.libFilter === f[0] ? ' on' : ''}" data-act="libfilter" data-v="${f[0]}">${f[1]}</button>`,
       ).join('')}
       <span style="flex:1"></span>
-      <button class="bzs-chip bzs-sort" data-act="libsortmenu" aria-label="排序">${SORT_LABEL[state.libSort]} ${ico(
-        /* 图标表里叫 `chevron`，写成 `chevron-down` 会永远渲染成空（P3-15） */
-        'chevron',
-      )}</button>
+      <span class="bzs-mini">排序</span>
+      ${LIB_SORTS.map(
+        (s) =>
+          `<button class="bzs-chip${state.libSort === s[0] ? ' on' : ''}" data-act="libsort" data-v="${s[0]}">${s[1]}</button>`,
+      ).join('')}
+      <span class="bzs-vsep" aria-hidden="true"></span>
       <button class="bzs-chip${state.libView === 'grid' ? ' on' : ''}" data-act="libview" data-v="grid">封面墙</button>
       <button class="bzs-chip${state.libView === 'list' ? ' on' : ''}" data-act="libview" data-v="list">列表</button>
     </div>`;

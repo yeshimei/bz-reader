@@ -40,7 +40,7 @@ import { normalizeDataDir } from '../core/plugin-path';
 import { linkInline, linkOfMark, linkOfText, linkQuote, rawUrl, targetOfMark } from '../data/deeplink';
 import { exportBookNotes } from '../data/export';
 import { jumpTo, getToc } from '../view/toc-state';
-import { LIB_FILTERS } from './render/study';
+import { LIB_FILTERS, LIB_SORTS } from './render/study';
 import { copyQuoteCardImage } from './card-image';
 import { quoteRefMarkdown } from './render/quote-card';
 import type { OverlayKind, StudyPage } from './state';
@@ -448,6 +448,10 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'libfilter':
       if (d.v) setState({ libFilter: d.v as never });
       break;
+    /* 桌面端排序是三颗平铺的 chip（窄屏走 libsortmenu） */
+    case 'libsort':
+      if (d.v) setState({ libSort: d.v as never });
+      break;
     case 'libview':
       if (d.v) setState({ libView: d.v as never });
       break;
@@ -478,17 +482,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
     case 'libsortmenu': {
-      /* 排序原来是一个原生 <select>：展开是系统的白底蓝条，和旁边的纸色
-         chip 完全两套长相。改成一颗 chip + 宿主自己的菜单——跟主题走，
-         手机上还是原生的底部动作面板。 */
+      /* 窄屏排序：一颗 chip + 宿主自己的菜单——跟主题走，手机上还是原生的
+         底部动作面板。桌面已经平铺成三颗 chip，不走这里。 */
       const box = el.getBoundingClientRect();
       const menu = new Menu();
-      const opts = [
-        ['recent', '最近阅读'],
-        ['title', '书名'],
-        ['progress', '进度'],
-      ] as const;
-      for (const [value, label] of opts) {
+      for (const [value, label] of LIB_SORTS) {
         menu.addItem((item) =>
           item
             .setTitle(label)

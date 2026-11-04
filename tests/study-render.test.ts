@@ -4,9 +4,8 @@ import { DEFAULT_SHELL_STATE } from '../src/shell/state';
 import { viewLibrary } from '../src/shell/render/study';
 
 /**
- * 书架排序控件：原来是一个原生 `<select>`，展开后是系统的白底蓝条，
- * 跟壳层的纸色按钮完全两套长相（真机截图里最扎眼的一处）。
- * 现在改成和旁边「封面墙 / 列表」同一颗 chip，点开走宿主原生菜单。
+ * 书库页渲染：空态、筛选栏留不留、窄屏收不收。
+ * 排序控件的形态单独在 library-sort.test.ts 里测。
  */
 function row(patch: Partial<BookRow> = {}): BookRow {
   return {
@@ -38,28 +37,6 @@ function html(sort: 'recent' | 'title' | 'progress' = 'recent'): string {
     libraryKey: 'k',
   });
 }
-
-describe('书架排序', () => {
-  it('不再用原生 select', () => {
-    expect(html()).not.toContain('<select');
-  });
-
-  it('是一颗按钮，点开走 libsortmenu', () => {
-    expect(html()).toContain('data-act="libsortmenu"');
-  });
-
-  it('按钮上写着当前排序（换排序后跟着变）', () => {
-    expect(html('recent')).toContain('最近阅读');
-    expect(html('title')).toContain('书名');
-    expect(html('progress')).toContain('进度');
-  });
-
-  /* 排序箭头原来写的是 ico('chevron-down')，而图标表里只有 chevron——
-     渲染出来是一个空 svg，按钮上只剩文字。 */
-  it('排序按钮带得下箭头（不是空 svg）', () => {
-    expect(html()).toMatch(/libsortmenu[^>]*>[\s\S]*?<path d="M6 9\.5l6 6 6-6"/);
-  });
-});
 
 describe('书库空态', () => {
   it('一本都没导入：只留一句空态，不画搜索与分类', () => {

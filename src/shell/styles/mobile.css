@@ -810,12 +810,19 @@
     font-size: 19px;
   }
 
+  /* 页签与图标一起大一号：15 → 16，图标到 18（沿用 study.css 的 34×32 按钮）。
+     390px 下两颗页签 + 四颗图标合计约 356px，还放得下。 */
   .bzs-stunav button {
-    font-size: 15px;
+    font-size: 16px;
+  }
+
+  .bzs-stunav button svg {
+    width: 18px;
+    height: 18px;
   }
 
   .bzs-stunav button .n {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   /* ── 书库 ── */
@@ -1214,6 +1221,32 @@
 
   .bzs-stunav {
     gap: 12px;
+  }
+
+  /* 页签与图标放大后，320px 上「书库 3 / 笔记 11 + 四颗图标」会顶出屏幕
+     （约 356px 的内容宽）。这一档把页签字号、图标与按钮一起收回去。 */
+  .bzs-stunav button {
+    font-size: 14px;
+    gap: 4px;
+  }
+
+  .bzs-stunav button svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .bzs-stuacts {
+    gap: 0;
+  }
+
+  .bzs-stuacts .bzs-cbtn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .bzs-stuacts .bzs-cbtn svg {
+    width: 16px;
+    height: 16px;
   }
 }
 

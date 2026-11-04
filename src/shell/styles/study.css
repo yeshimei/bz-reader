@@ -38,9 +38,11 @@
   background: none;
   color: var(--t3);
   font-family: var(--ui);
-  font-size: 12.5px;
+  /* 2026-11-05：页签原来 12.5px，和右边 16px 的图标并排整行显得偏小；
+     抬到 14px、图标到 16px。padding 各收 1px 抵掉行高增量，头栏不变高。 */
+  font-size: 14px;
   letter-spacing: 0;
-  padding: 9px 2px 13px;
+  padding: 8px 2px 12px;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
   /* 图标 + 文字一行：图标只是定位锚，不参与字距 */
   display: inline-flex;
@@ -49,8 +51,8 @@
 }
 
 .bzs-stunav button svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   opacity: .72;
   flex-shrink: 0;
   margin-top: 1px;
@@ -69,7 +71,7 @@
 }
 
 .bzs-stunav button .n {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--t3);
   vertical-align: super;
   margin-left: 3px;
@@ -106,7 +108,14 @@
 }
 
 .bzs-stuacts .bzs-cbtn {
-  height: 28px;
+  width: 34px;
+  height: 32px;
+}
+
+/* 图标跟着页签一起大一号：16 → 18。按钮从 30×28 放到 34×32 才装得下 */
+.bzs-stuacts .bzs-cbtn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .bzs-stubody {
@@ -221,6 +230,31 @@
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 16px;
+}
+
+/* 排序组的抬头：五颗分类 chip 和三颗排序 chip 长得一样，中间只隔一个弹性
+   空隙。没有这两个字的「排序」，右侧第一颗「最近阅读」会被读成第六个分类。
+   与书架行的「书架」抬头同款（.bzs-mini），靠字号和颜色退到后面。 */
+.bzs-filters .bzs-mini {
+  white-space: nowrap;
+  letter-spacing: .06em;
+}
+
+/* 桌面搜索井：宽屏给 240，窄窗（1000 上下）可缩到 180。
+   分类三颗 + 排序三颗 + 视图两颗摊开后整行约 950px，
+   井卡在 210 的最小宽度会让半屏窗口折成两排。 */
+.bzs-filters > .bzs-well {
+  flex: 0 1 240px;
+  min-width: 180px;
+}
+
+/* 排序三颗与视图两颗之间的细分隔线：两组都是 chip，不隔一下像五颗一排 */
+.bzs-filters .bzs-vsep {
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: var(--line);
+  flex-shrink: 0;
 }
 
 .bzs-shelfline {
