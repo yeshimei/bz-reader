@@ -236,16 +236,23 @@ export function createPlugin(cfg: PluginConfig) {
       });
 
       /* 双链：`[[书.epub#bzr-cfi=…|划线文字]]` 的子路径 Obsidian 不认，
-         点下去只会打开书、落到上次的位置。
+         点下去只会打开书、落到上次的位置；更糟的是它会把 .epub 打开在
+         当前 leaf 上，笔记被换走就回不来了。
 
-         **用全局捕获，不用 markdown post-processor**：后者只在阅读视图跑，
-         Live Preview（编辑模式）里的链接是编辑器装饰器，不经过它——点下去走
-         Obsidian 默认处理，把 .epub 打开、替换掉当前笔记，用户回都回不来。
-
-         click 与 pointerdown 都绑：各版本/各视图里哪个先到不确定，两个都听，
-         500ms 内只认第一次。 */
+         三层保险，哪一层先到都算数（500ms 内只认第一次）：
+           1. window 捕获 —— 最早，先于 Obsidian 自己挂在 document 上的处理；
+           2. document 捕获（click + pointerdown）—— 有些视图里 click 不触发；
+           3. markdown post-processor —— 阅读视图里最贴链接本身的一层。 */
       let lastHit = 0;
       let diagnosed = false;
+      const takeOver = (target: LinkTarget, e: Event): void => {
+        const now = Date.now();
+        if (now - lastHit < 500) return;
+        lastHit = now;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        void this.openFromTarget(target);
+      };
       const onLinkClick = (e: MouseEvent | PointerEvent): void => {
         const target = interceptableClick(e.target as Element | null, (p) => this.repo.byPath(p));
         if (!target) {
@@ -259,15 +266,21 @@ export function createPlugin(cfg: PluginConfig) {
           }
           return;
         }
-        const now = Date.now();
-        if (now - lastHit < 500) return;
-        lastHit = now;
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        void this.openFromTarget(target);
+        takeOver(target, e);
       };
+      this.registerDomEvent(window, 'click', onLinkClick, true);
       this.registerDomEvent(document, 'pointerdown', onLinkClick, true);
       this.registerDomEvent(document, 'click', onLinkClick, true);
+      this.registerMarkdownPostProcessor((el) => {
+        el.querySelectorAll('a').forEach((link) => {
+          const target = interceptableClick(link, (p) => this.repo.byPath(p));
+          if (!target) return;
+          /* post-processor 会对同一块反复跑，绑过就别再绑 */
+          if (link.getAttribute('data-bzr-bound') === target.bookId) return;
+          link.setAttribute('data-bzr-bound', target.bookId);
+          link.addEventListener('click', (e) => takeOver(target, e), true);
+        });
+      });
 
       this.addRibbonIcon('library', 'bz 阅读：书架', () => this.openStudy());
 
