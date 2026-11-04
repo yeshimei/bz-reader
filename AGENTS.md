@@ -24,7 +24,32 @@ node esbuild.config.mjs once                    # 构建
 
 三条全绿才能 commit。只跑 tsc 不算过门。
 
-## 4. 改动走 worktree
+## 4. 部署
+
+「部署」= 把同一份构建产物同时落到**测试库**和**主仓库**，缺一不算部署。先过三道门（第 3 节），然后按顺序：
+
+1. **主仓库**：在 `D:\Obsidian\bz-reader` 跑
+
+    ```powershell
+    node esbuild.config.mjs once
+    ```
+
+    production 构建会把 `dist/pro` 的三件套复制到仓库根（`main.js` / `manifest.json` / `styles.css`）——发布与社区审核都按根目录核对。代码本身仍按第 5 节的 worktree 流程合并，部署前 master 必须是干净的。
+
+2. **测试库**：
+
+    ```powershell
+    $env:BZ_READER_VAULT='E:\Obsidian\测试\.obsidian\plugins\bz-reader'
+    node esbuild.config.mjs once
+    ```
+
+    `BZ_READER_VAULT` 必须指到**插件目录**，不是库根：指到库根会把三件套写进 vault 根目录（2026-11-05 踩过，已清理）。
+
+- 只部署**已合并到 master** 的产物；worktree 内构建把 `BZ_READER_VAULT` 指向不存在的目录，只验产物，不污染正在用的库。
+- 验收：两处 `main.js` 的时间戳都是本次构建；测试库重载 Obsidian 后生效。
+- 部署 ≠ 发版：tag / Release 走 `bz-release`，那是另一条流程。
+
+## 5. 改动走 worktree
 
 主仓随时可构建、可发布；功能、修复在仓库外的 worktree 里做。
 
@@ -42,7 +67,7 @@ New-Item -ItemType Junction -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules
 - 纯文档（`README.md` / `AGENTS.md`）可直接在主仓提交。
 - 不要和别的 worktree 同时改同一批文件。
 
-## 5. 测试规范
+## 6. 测试规范
 
 - 放 `tests/`，一模块一文件。
 - 优先测纯函数；逻辑抽不出来就先抽（参考 `shell/anchored-style.ts`）。
@@ -50,7 +75,7 @@ New-Item -ItemType Junction -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules
 - 没装 jsdom：不测真实布局、`getBoundingClientRect`、触摸事件。
 - 断言行为，不断言实现细节（状态翻转 + 重渲被调用，而不是某个 class 字符串）。
 
-## 6. 真机问题排查
+## 7. 真机问题排查
 
 **插件不往库里写日志**（`bz-reader-debug.md` 已移除），**插件目录也保持只读**——里面
 只有 Obsidian 自己的 `main.js` / `manifest.json` / `styles.css` / `data.json`，插件不往
@@ -67,14 +92,14 @@ New-Item -ItemType Junction -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules
 1. `clientX/clientY` 带平移量，不能当屏幕坐标用 → 用 `screenX/screenY`；
 2. 选区 rect 同理 → 先过 `frameGeom()` 换回宿主坐标，别直接拿 `getClientRects()` 的值。
 
-## 7. 移动端交互约定
+## 8. 移动端交互约定
 
 - 点正文：下方 = 下一页，上方 = 上一页（纵向分区，不看左右）。
 - 两指同时轻按：切换沉浸。
 - 划词：不自动划线，保留系统选区与手柄；工具条贴选区下方（桌面在选区上方）。
 - 文字类弹窗（想法 / 书摘 / 划线）：移动端贴底小卡，桌面贴选区上方。
 
-## 8. 发激活码（发行台账）
+## 9. 发激活码（发行台账）
 
 私钥和已发出去的码都在 `scripts/keys/`（整目录 gitignore）。**永远不要**提交、贴进 `docs/`、README 或 issue —— 发出去的码就是钱。
 
@@ -95,7 +120,7 @@ New-Item -ItemType Junction -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules
 
 也不要往任何会被 git 跟踪的文件里放码；`docs/afdian-store.md` 只留两行示例就是为这个。
 
-## 9. 不要做的事
+## 10. 不要做的事
 
 - 不提交 `.scratch*` 临时脚本、`dist/`、库里的调试日志。
 - 不为修一个 bug 顺手重构无关模块。
