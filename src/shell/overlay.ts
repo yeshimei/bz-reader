@@ -13,7 +13,7 @@ import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { anchoredPlacement } from './anchored-style';
 import { sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
-import { MARK_ACTS, SELECTION_ACTS, toolbarHtml } from './text-toolbar';
+import { MARK_ACTS, SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from './text-toolbar';
 import { aiCardHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, markBubbleHtml } from './reader-cards';
 import { HIGHLIGHT_COLORS } from '../data/notes';
 import { aiAsk, type AiTask } from '../data/ai';
@@ -1073,11 +1073,23 @@ export class OverlayLayer {
       const hit = target.closest<HTMLElement>('[data-act]');
       if (!hit) return;
       e.preventDefault();
-      this.onAction(hit.dataset.act || '', hit);
+      const plan = planToolbarHit(hit.dataset.act);
+      if (plan.kind === 'ignore') return;
+      /* 「⋯」只开合自己的菜单：就地切一个类，不派发、**不重画**。
+         以前这里没有分支，点下去被当成一次普通动作发出去，紧接着
+         paint() 把刚画出来的菜单连同 DOM 一起换掉——手机上看到的就是
+         「闪一下，打不开」。 */
+      if (plan.kind === 'more') {
+        const bar = hit.closest<HTMLElement>('.bzs-tb');
+        const open = toggleMoreMenu(bar, window.innerHeight);
+        hit.setAttribute('aria-expanded', open ? 'true' : 'false');
+        return;
+      }
+      this.onAction(plan.act, hit);
       /* 动作改完状态后重画一次（遮罩内没有视图订阅）。
          rate 例外：它只改星星的 class，紧接着重画会按「还没保存的 rating」
          重建 DOM，星星立刻熄灭、保存下来是 0 星。 */
-      if (getState().overlay && hit.dataset.act !== 'rate') this.paint();
+      if (getState().overlay && plan.act !== 'rate') this.paint();
     });
 
     this.root.addEventListener('input', (e) => {

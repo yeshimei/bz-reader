@@ -1,12 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   DELETE_ITEM,
   MARK_ACTS,
+  MORE_ACT,
   SELECTION_ACTS,
   TOOLBAR_ITEMS,
+  moreMenuOpensUp,
+  planToolbarHit,
+  toggleMoreMenu,
   toolbarHtml,
   toolbarLayout,
 } from '../src/shell/text-toolbar';
+import { installDomStub } from './helpers/dom-stub';
 
 /**
  * 划词工具条（S11 定稿）：**划词与点划线是同一枚**。
@@ -111,5 +116,72 @@ describe('toolbarHtml · 同一条工具条', () => {
 
   it('按钮表只有一份，两端共用', () => {
     expect(TOOLBAR_ITEMS.map((i) => i.act)).toEqual(['idea', 'quote', 'ai', 'bilink', 'copy']);
+  });
+});
+
+/**
+ * 「⋯」是这条工具条上唯一一个**不是业务动作**的按钮：它只开合自己的菜单。
+ *
+ * 以前浮层里的这枚按钮没有分支，点下去被当成一次普通动作派发出去、
+ * 派发完再整块重画——菜单刚画出来就被新 DOM 换掉，看起来就是「闪一下，
+ * 打不开」。判定必须发生在派发之前，并且明确「不重画」。
+ */
+describe('⋯：就地开合，不走动作分派', () => {
+  it('「⋯」归为开合', () => {
+    expect(planToolbarHit(MORE_ACT)).toEqual({ kind: 'more' });
+  });
+
+  it('业务按钮照旧交给动作表', () => {
+    expect(planToolbarHit('hlai')).toEqual({ kind: 'act', act: 'hlai' });
+    expect(planToolbarHit('selidea')).toEqual({ kind: 'act', act: 'selidea' });
+  });
+
+  it('没有 data-act 就当没点中', () => {
+    expect(planToolbarHit(undefined)).toEqual({ kind: 'ignore' });
+    expect(planToolbarHit('')).toEqual({ kind: 'ignore' });
+  });
+
+  it('按钮上的 data-act 与判定用的常量是同一个', () => {
+    const html = toolbarHtml({ marked: true, compact: true, acts: MARK_ACTS });
+    expect(html).toContain(`data-act="${MORE_ACT}"`);
+  });
+});
+
+/**
+ * 开合本身也得测：能开、能收。
+ *
+ * 收不起来比打不开更烦——菜单挂着，点哪儿都像失灵。
+ */
+describe('⋯ 菜单：开得开、收得起', () => {
+  let restore: () => void;
+  beforeAll(() => {
+    restore = installDomStub();
+  });
+  afterAll(() => restore());
+
+  const makeBar = (): HTMLElement => document.createElement('div') as unknown as HTMLElement;
+
+  it('第一次点开，第二次收起', () => {
+    const bar = makeBar();
+    expect(toggleMoreMenu(bar, 844)).toBe(true);
+    expect(bar.classList.contains('is-more')).toBe(true);
+    expect(toggleMoreMenu(bar, 844)).toBe(false);
+    expect(bar.classList.contains('is-more')).toBe(false);
+  });
+
+  it('收起时把「向上弹」也一起忘掉', () => {
+    const bar = makeBar();
+    bar.classList.add('is-more', 'is-more-up');
+    expect(toggleMoreMenu(bar, 844)).toBe(false);
+    expect(bar.classList.contains('is-more-up')).toBe(false);
+  });
+
+  it('拿不到工具条就当没点', () => {
+    expect(toggleMoreMenu(null, 844)).toBe(false);
+  });
+
+  it('下方放得下就向下弹，贴着屏幕底就翻上去', () => {
+    expect(moreMenuOpensUp(400, 96, 844)).toBe(false);
+    expect(moreMenuOpensUp(760, 96, 844)).toBe(true);
   });
 });

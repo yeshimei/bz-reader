@@ -36,7 +36,7 @@ import { el, setHtml } from '../ui/dom';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
 import { headerActionSpec, headerActionsFor, headerActive, type HeaderActionId } from './header-actions';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
-import { SELECTION_ACTS, toolbarHtml } from '../shell/text-toolbar';
+import { SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
 import { VIEW_TYPE_TOC } from './side-view';
 
 /* 注意：本类为了给 Obsidian 存 view 状态，重写了 getState()。
@@ -1117,15 +1117,22 @@ export class ReaderView extends ItemView {
     });
 
     /* 一颗监听管全部按钮。「⋯」只切一个类、不重画——重画会把手指底下的
-       按钮整排换掉，点起来像在打地鼠。 */
+       按钮整排换掉，点起来像在打地鼠。判定与浮层里那枚工具条共用
+       planToolbarHit，免得一处记得开合、另一处又把它当动作发出去。 */
     bar.addEventListener('click', (ev) => {
       const btn = (ev.target as HTMLElement | null)?.closest<HTMLElement>('[data-act]');
       if (!btn || !bar.contains(btn)) return;
-      const act = btn.dataset.act || '';
-      if (act === 'more') {
-        bar.classList.toggle('is-more');
+      const plan = planToolbarHit(btn.dataset.act);
+      if (plan.kind === 'ignore') return;
+      if (plan.kind === 'more') {
+        /* .is-more 必须加在胶囊 .bzs-tb 上，不是外面那层定位壳 .bzs-selbar：
+           CSS 是 `.bzs-tb.is-more .bzs-tb-more`，加错层菜单永远不会出现，
+           看起来就是「点了一下，闪一下，打不开」。 */
+        const open = toggleMoreMenu(btn.closest('.bzs-tb'), window.innerHeight);
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
         return;
       }
+      const act = plan.act;
       /* 面板要浮在工具条正上方，而且工具条不能因为面板打开而跳走：
          把锚点从「整段选区」换成「这一条」的底边——面板底边贴着条子底边，
          面板里那枚工具条正好顶替条子的位置，看起来像条子没动过。 */

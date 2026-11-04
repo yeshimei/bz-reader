@@ -115,6 +115,67 @@ export const MARK_ACTS: ToolbarActs = {
   del: 'hldel',
 };
 
+/**
+ * 「⋯」按钮的 data-act。
+ *
+ * 它是这条工具条上唯一**不是业务动作**的按钮：点它只开合自己的菜单，
+ * 不进动作表。以前浮层里这枚按钮没有单独分支，点下去被当成一次普通动作
+ * 派发、派发完再整块重画——菜单刚画出来就被新 DOM 换掉，
+ * 手机上看起来就是「闪一下，打不开」。
+ */
+export const MORE_ACT = 'more';
+
+/** 一次点击工具条的处置：开合菜单 / 交给动作表 / 什么都没点中 */
+export type ToolbarHitPlan = { kind: 'more' } | { kind: 'act'; act: string } | { kind: 'ignore' };
+
+/**
+ * 工具条上的点击该干什么——**必须在派发之前判定**。
+ *
+ * 两处（阅读视图里的划词条、浮层里的工具条）共用这一个判断，
+ * 免得一处记得开合、另一处又把「⋯」当动作发出去。
+ */
+export function planToolbarHit(act?: string | null): ToolbarHitPlan {
+  const a = (act ?? '').trim();
+  if (!a) return { kind: 'ignore' };
+  if (a === MORE_ACT) return { kind: 'more' };
+  return { kind: 'act', act: a };
+}
+
+/** 菜单与胶囊之间的间隙（CSS 里 top: calc(100% + 6px) 的那个 6） */
+export const MORE_MENU_GAP = 6;
+
+/**
+ * 菜单往哪边弹。
+ *
+ * 手机上工具条常常已经贴着屏幕底（贴选区下方），再往下弹就出屏了——
+ * 用户看到的是「点了没反应」。所以打开时量一次：下方放不下就翻到上方。
+ */
+export function moreMenuOpensUp(barBottom: number, menuHeight: number, viewportHeight: number): boolean {
+  return barBottom + MORE_MENU_GAP + menuHeight > viewportHeight;
+}
+
+/**
+ * 开合「⋯」菜单：就地切类、**不重画**（重画会把手指底下的按钮换掉）。
+ *
+ * 打开时顺手量一下可用空间，放不下就加 `is-more-up` 让它向上弹；
+ * 收起时把这个类一起摘掉，免得下次打开还记着上一次的方向。
+ * 返回开合之后的状态。
+ */
+export function toggleMoreMenu(bar: HTMLElement | null, viewportHeight: number): boolean {
+  if (!bar) return false;
+  const open = bar.classList.toggle('is-more');
+  if (!open) {
+    bar.classList.remove('is-more-up');
+    return false;
+  }
+  const menu = bar.querySelector<HTMLElement>('.bzs-tb-more');
+  /* 菜单刚被打开，同一帧里能量到它的高度（display 已经从 none 换成 flex） */
+  const menuHeight = menu?.getBoundingClientRect().height ?? 0;
+  const bottom = bar.getBoundingClientRect().bottom;
+  bar.classList.toggle('is-more-up', moreMenuOpensUp(bottom, menuHeight, viewportHeight));
+  return true;
+}
+
 export interface ToolbarHtmlInput extends ToolbarLayoutInput {
   /** 当前笔色（已有划线时给色点加圈） */
   color?: string;
@@ -185,7 +246,7 @@ export function toolbarHtml(input: ToolbarHtmlInput): string {
   const parts = [dots, '<span class="div"></span>', visible.map(btn).join('')];
   if (overflow.length) {
     parts.push(
-      `<button type="button" class="bzs-sbtn more" data-act="more" aria-label="更多" aria-haspopup="menu">⋯</button>`,
+      `<button type="button" class="bzs-sbtn more" data-act="${MORE_ACT}" aria-label="更多" aria-haspopup="menu" aria-expanded="false">⋯</button>`,
       `<div class="bzs-tb-more" role="menu">${overflow
         .map(
           (item) =>
