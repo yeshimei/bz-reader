@@ -15,7 +15,7 @@ import { ItemView, Menu, setIcon, type WorkspaceLeaf } from 'obsidian';
 import { EngineHost, OpenCancelledError, type FootnoteInfo, type Rect, type RelocateInfo, type SelectionInfo } from '../engine/host';
 import { resolveTheme } from '../engine/theme';
 import { normalizePrefs, type ReaderPrefs } from '../data/prefs';
-import type { ReaderBook } from '../data/schema';
+import { recordPosition, type ReaderBook } from '../data/schema';
 import type { LinkTarget } from '../data/deeplink';
 import {
   HIGHLIGHT_COLORS,
@@ -25,8 +25,9 @@ import {
   findHighlight,
   toggleBookmark,
 } from '../data/notes';
-import { ActivityTracker } from '../engine/activity';
+import { ActivityTracker, attachChapter } from '../engine/activity';
 import { applyEngineMeta } from '../data/book-meta';
+import { coverPathOf, ensureCoverFromFoliate } from '../data/cover';
 import { speak, type SpeakHandle } from '../core/speak';
 import { notify } from '../core/notice';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
@@ -1260,9 +1261,19 @@ export class ReaderView extends ItemView {
            设置里选「跳到章末」就退回 foliate 的老行为——我们在同一条链路上
            自己调 goTo，保证两种模式只有一处判断。 */
         onFootnote: (info) => this.handleFootnote(info),
-        onReady: (_b, m) => {
+        onReady: (fb, m) => {
           /* 用户改过名就不再拿文件里的书名覆盖（见 data/book-meta.ts） */
           applyEngineMeta(book, m);
+          /* 封面：复用刚解出来的 book 顺手落缓存并回填 coverPath。
+             只读书、不开书架的用户也要有这条数据——外部读数据文件时，
+             没有它就只能看到一片色块。 */
+          void ensureCoverFromFoliate(this.api.app, book, fb).then(() => {
+            const path = coverPathOf(book.id);
+            if (path && book.meta.coverPath !== path) {
+              book.meta.coverPath = path;
+              this.api.store.touch();
+            }
+          });
           this.mountHeader();
           this.publishToc();
           this.syncTabTitle();
@@ -1295,7 +1306,10 @@ export class ReaderView extends ItemView {
          这里必须写回书里，否则统计里凭空少一段（P3-22）。 */
       const carried = this.tracker.begin(book.reading.position.percent);
       if (carried) {
-        book.reading.sessions.push({ ...carried, percent: book.reading.position.percent });
+        book.reading.sessions.push({
+          ...attachChapter(carried, book.reading.position),
+          percent: book.reading.position.percent,
+        });
         book.reading.stats.totalReadTime += carried.durationSeconds;
         book.reading.stats.lastReadTime = Date.now();
       }
@@ -1374,13 +1388,18 @@ export class ReaderView extends ItemView {
     const book = this.book;
     if (!book) return;
     const chapterChanged = !!info.chapterTitle && info.chapterTitle !== this.lastChapterTitle;
-    book.reading.position.percent = info.percent;
-    if (info.cfi) book.reading.position.cfi = info.cfi;
+    /* 位置写入统一走 schema.recordPosition：顺带把被顶掉的旧位置存进
+       lastPosition（冗余字段，给未来的「返回上一处」用）。 */
+    recordPosition(book.reading, {
+      percent: info.percent,
+      cfi: info.cfi,
+      chapterIndex: info.chapterIndex,
+      chapterTitle: info.chapterTitle,
+      chapterHref: info.chapterHref,
+    });
     this.lastPercent = info.percent;
     if (info.cfi) this.lastCfi = info.cfi;
     if (info.chapterTitle) this.lastChapterTitle = info.chapterTitle;
-    book.reading.position.chapterIndex = info.chapterIndex;
-    book.reading.position.chapterTitle = info.chapterTitle;
     book.reading.stats.lastReadTime = Date.now();
     if (!book.reading.stats.startReadTime) book.reading.stats.startReadTime = Date.now();
     if (info.percent >= COMPLETE_THRESHOLD && !book.reading.stats.completedTime) {
@@ -1505,7 +1524,10 @@ export class ReaderView extends ItemView {
     if (book) {
       const session = this.tracker.end();
       if (session) {
-        book.reading.sessions.push({ ...session, percent: book.reading.position.percent });
+        book.reading.sessions.push({
+          ...attachChapter(session, book.reading.position),
+          percent: book.reading.position.percent,
+        });
         book.reading.stats.totalReadTime += session.durationSeconds;
         book.reading.stats.lastReadTime = Date.now();
       }

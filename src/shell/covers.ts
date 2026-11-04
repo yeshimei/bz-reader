@@ -11,8 +11,9 @@
  * ============================================================ */
 import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
-import { coverUrl } from '../data/cover';
+import { coverPathOf, coverUrl } from '../data/cover';
 import { esc } from './render/html';
+import { getShellSource } from './source';
 
 /**
  * 把 root 里所有带 data-cid 的封面占位换成真封面。
@@ -36,6 +37,14 @@ export function hydrateCovers(app: App | null | undefined, books: ReaderBook[], 
     void coverUrl(app, book).then((url) => {
       // 拿不到封面就留着色块——色块比一张破图体面
       if (!url || !node.isConnected) return;
+      /* 回填 meta.coverPath：数据文件不只给插件自己看（bz 书库也在读），
+         没有这一条，外部只能看到一片色块。只在值真的变了时 touch，
+         免得每次开书架都写一次盘。 */
+      const path = coverPathOf(book.id);
+      if (path && book.meta.coverPath !== path) {
+        book.meta.coverPath = path;
+        getShellSource()?.store.touch();
+      }
       node.dataset.cover = '1';
       /* dataset.title 是浏览器**解码后**的原始书名（写入时虽然 esc 过，读回来
          已经还原），这里重拼 innerHTML 必须再转义一次：书名里一个引号就能

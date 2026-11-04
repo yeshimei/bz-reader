@@ -22,16 +22,14 @@ import type { ReaderBook } from './schema';
 import { makeBook } from '../engine/foliate';
 import type { FoliateBook } from '../types/foliate';
 import { storageDirOf } from '../core/plugin-path';
-
-interface CacheIndex {
-  /** key → mime */
-  [key: string]: string;
-}
+import { coverFileName, normalizeCoverIndex, type CoverIndex } from './cover-name';
 
 const MEM = new Map<string, string>();
+/** bookId → 最近一次命中的缓存文件（vault 相对路径），供回填 meta.coverPath */
+const MEM_PATH = new Map<string, string>();
 const PENDING = new Map<string, Promise<string | null>>();
-let index: CacheIndex | null = null;
-let indexLoading: Promise<CacheIndex> | null = null;
+let index: CoverIndex | null = null;
+let indexLoading: Promise<CoverIndex> | null = null;
 
 /** 同时最多解两本：'EPUB' 的 zip 解压是纯 CPU，解多了就是整屏掉帧 */
 const MAX_PARALLEL = 2;
@@ -71,15 +69,14 @@ function blobUrl(buf: ArrayBuffer, mime: string): string {
   return URL.createObjectURL(new Blob([buf], { type: mime }));
 }
 
-async function loadIndex(app: App): Promise<CacheIndex> {
+async function loadIndex(app: App): Promise<CoverIndex> {
   if (index) return index;
   if (indexLoading) return indexLoading;
   indexLoading = (async () => {
     try {
       const path = indexPath(app);
       if (await app.vault.adapter.exists(path)) {
-        const raw = JSON.parse(await app.vault.adapter.read(path)) as CacheIndex;
-        index = raw && typeof raw === 'object' ? raw : {};
+        index = normalizeCoverIndex(JSON.parse(await app.vault.adapter.read(path)));
       } else {
         index = {};
       }
@@ -94,12 +91,22 @@ async function loadIndex(app: App): Promise<CacheIndex> {
 async function readCache(app: App, book: ReaderBook): Promise<string | null> {
   const idx = await loadIndex(app);
   const key = keyOf(book);
-  const mime = idx[key];
-  if (!mime) return null;
-  const path = `${coversDir(app)}/${key}`;
+  const entry = idx[key];
+  if (!entry) return null;
+  const path = `${coversDir(app)}/${entry.file}`;
   try {
     if (!(await app.vault.adapter.exists(path))) return null;
-    return blobUrl(await app.vault.adapter.readBinary(path), mime);
+    const buf = await app.vault.adapter.readBinary(path);
+    const url = blobUrl(buf, entry.mime);
+    if (entry.file === key) {
+      /* 旧缓存（无扩展名，`file` 就是 key）：顺手升级成带扩展名的。
+         否则 meta.coverPath 会是一条 app:// 推不出 MIME 的路径，
+         外部（bz 书库）拿它当图片用就是一片空白。 */
+      await writeCache(app, book, buf, entry.mime);
+    } else {
+      MEM_PATH.set(book.id, path);
+    }
+    return url;
   } catch {
     return null;
   }
@@ -110,9 +117,13 @@ async function writeCache(app: App, book: ReaderBook, buf: ArrayBuffer, mime: st
   try {
     const dir = coversDir(app);
     if (!(await app.vault.adapter.exists(dir))) await app.vault.adapter.mkdir(dir);
-    await app.vault.adapter.writeBinary(`${dir}/${key}`, buf);
+    /* 带扩展名落盘：外部（bz 书库）要拿 meta.coverPath 直接当 vault 图片路径，
+       没有扩展名时 app:// 推不出 MIME，<img> 是一片空白。 */
+    const file = coverFileName(key, mime);
+    await app.vault.adapter.writeBinary(`${dir}/${file}`, buf);
     const idx = await loadIndex(app);
-    idx[key] = mime;
+    idx[key] = { mime, file };
+    MEM_PATH.set(book.id, `${dir}/${file}`);
     await app.vault.adapter.write(indexPath(app), JSON.stringify(idx, null, 0));
   } catch {
     /* 落盘失败只影响下次启动要重解一次，不该让书架报错 */
@@ -151,6 +162,42 @@ async function extract(app: App, book: ReaderBook): Promise<{ buf: ArrayBuffer; 
 }
 
 /**
+ * 打开书时顺手落封面：复用引擎**已经解出来的** book 对象（`getCover()`），
+ * 不再 makeBook 解第二遍。写完缓存后由调用方回填 `meta.coverPath`。
+ *
+ * 为什么不能只靠书架：用户可能只读书、从不打开书架，那时封面缓存永远不会生成，
+ * 数据文件里的 `coverPath` 就一直是空的——外部（bz 书库）只能看到色块。
+ */
+export async function ensureCoverFromFoliate(
+  app: App,
+  book: ReaderBook,
+  foliate: { getCover?: () => Promise<Blob | null> },
+): Promise<string | null> {
+  if (book.fileRef.format === 'txt') return null;
+  const cached = MEM.get(book.id);
+  if (cached) return cached;
+
+  const fromDisk = await readCache(app, book);
+  if (fromDisk) {
+    MEM.set(book.id, fromDisk);
+    return fromDisk;
+  }
+
+  try {
+    const blob = await foliate.getCover?.();
+    if (!blob || !blob.size) return null;
+    const buf = await blob.arrayBuffer();
+    const mime = blob.type || 'image/jpeg';
+    const url = blobUrl(buf, mime);
+    MEM.set(book.id, url);
+    await writeCache(app, book, buf, mime);
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 取封面 URL（objectURL）。拿不到就返回 null，调用方继续用哈希色块兜底——
  * 封面是锦上添花，不能因为一本破书让整面书架停下来。
  */
@@ -184,6 +231,13 @@ export async function coverUrl(app: App, book: ReaderBook): Promise<string | nul
   return task;
 }
 
+/** 这本书最近一次命中的封面缓存路径（vault 相对）；没解出来过就是 null。
+ *  调用方（shell/covers.ts）拿它回填 `meta.coverPath`，外部读数据文件时
+ *  才有图可用——这个字段以前声明了却从来没有写入点。 */
+export function coverPathOf(bookId: string): string | null {
+  return MEM_PATH.get(bookId) || null;
+}
+
 /** 插件卸载时释放 objectURL（不释放也不崩，但会一直占着内存里的图） */
 export function releaseCovers(): void {
   for (const url of MEM.values()) {
@@ -194,4 +248,5 @@ export function releaseCovers(): void {
     }
   }
   MEM.clear();
+  MEM_PATH.clear();
 }

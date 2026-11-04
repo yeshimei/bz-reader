@@ -15,7 +15,7 @@
  * 扔进任何目录，插件都能认出来这是自己的备份，而不是拿一份任意 JSON
  * 去覆盖书架。
  * ============================================================ */
-import type { ReaderData } from './schema';
+import { SCHEMA_VERSION, type ReaderData } from './schema';
 import { sanitizeDataDetailed } from './store';
 
 export const BACKUP_APP = 'bz-reader';
@@ -43,6 +43,7 @@ export function buildBackup(data: ReaderData, now = Date.now()): string {
     exportedAt: now,
     data: {
       version: 1,
+      schemaVersion: SCHEMA_VERSION,
       books: data.books,
       prefs: data.prefs,
       goal: data.goal,

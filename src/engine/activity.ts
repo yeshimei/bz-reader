@@ -16,6 +16,8 @@
  * 可解析的毫秒戳（缺失会被 bz 整条丢弃，见 data/schema.ts 的说明）。
  * ============================================================ */
 
+import type { ReadingSession } from '../data/schema';
+
 const TICK_MS = 15_000;
 const IDLE_MS = 60_000;
 /** 短于这个时长的会话不记（误触/闪进闪出会把分布打散） */
@@ -50,6 +52,24 @@ export interface SessionResult {
   start: number;
   end: number;
   durationSeconds: number;
+}
+
+/**
+ * 给结算好的会话补上「结束时在哪一章」。
+ *
+ * 会话本身只记时间；章节要由调用方在结算那一刻从 position 取快照。
+ * 现在没有消费方（bz 的阅读报告不用），但按章分析是迟早的事——
+ * 会话一旦落盘就改不了，缺了就永远缺。
+ */
+export function attachChapter(
+  session: SessionResult,
+  where: { chapterIndex?: number; chapterTitle?: string },
+): ReadingSession {
+  const out: ReadingSession = { ...session };
+  if (typeof where.chapterIndex === 'number') out.chapterIndex = where.chapterIndex;
+  const title = where.chapterTitle?.trim();
+  if (title) out.chapterTitle = title;
+  return out;
 }
 
 export class ActivityTracker {

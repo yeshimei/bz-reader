@@ -11,13 +11,40 @@ export interface FoliateTOCItem {
   subitems?: FoliateTOCItem[];
 }
 
+/**
+ * foliate 解析出来的 contributor（dc:creator / dc:contributor / dc:subject / dc:publisher）。
+ *
+ * 注意 `tidy()` 会把单元素数组压成对象，所以同一字段在运行时可能是
+ * `{ name }` 也可能是 `[{ name }]`——取值必须两种都认（见 data/book-meta.ts 的 textOf）。
+ */
+export interface FoliateContributor {
+  name?: string | Record<string, string> | (() => string);
+  sortAs?: string | Record<string, string>;
+  role?: string[];
+  code?: string;
+  scheme?: string;
+}
+
+export interface FoliateSeries {
+  name?: string | Record<string, string>;
+  /** EPUB 允许 "2.2.1" 这种非数字卷次，原样保留 */
+  position?: string | number;
+}
+
 export interface FoliateMetadata {
-  title?: string | (() => string);
-  author?: string | (() => string);
-  language?: string | (() => string);
-  publisher?: string;
+  title?: string | Record<string, string> | (() => string);
+  subtitle?: string;
+  author?: string | FoliateContributor | FoliateContributor[];
+  language?: string | string[] | (() => string);
+  publisher?: string | FoliateContributor;
   description?: string;
   identifier?: string;
+  /** dc:date（出版日期） */
+  published?: string;
+  /** dc:subject（分类） */
+  subject?: FoliateContributor | FoliateContributor[];
+  altIdentifier?: Array<string | { scheme?: string; value?: string }>;
+  belongsTo?: { series?: FoliateSeries | null; collection?: unknown };
 }
 
 export interface FoliateSection {
@@ -45,6 +72,8 @@ export interface FoliateBook {
   resolveHref?: (href: string) => { index: number; anchor?: unknown };
   isExternal?: (href: string) => boolean;
   destroy?: () => void;
+  /** EPUB 封面（Blob）；TXT 与部分格式没有这个方法 */
+  getCover?: () => Promise<Blob | null>;
 }
 
 export interface FoliateLocation {

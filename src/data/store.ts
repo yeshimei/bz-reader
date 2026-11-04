@@ -28,7 +28,7 @@ import type { App } from 'obsidian';
 import { notify } from '../core/notice';
 import { pluginVaultPath, storageDirOf } from '../core/plugin-path';
 import { copyTree } from './migrate';
-import { EMPTY_DATA, emptyReading, type ReaderBook, type ReaderData } from './schema';
+import { EMPTY_DATA, SCHEMA_VERSION, emptyReading, type ReaderBook, type ReaderData } from './schema';
 
 const DATA_FILE = 'bz-reader.json';
 const TMP_SUFFIX = '.tmp';
@@ -90,6 +90,9 @@ export function sanitizeDataDetailed(v: unknown): SanitizeResult | null {
       fileRef: { ...ref },
       reading: {
         position: { ...base.position, ...(reading.position ?? {}) },
+        /* lastPosition 是冗余字段（未来「返回上一处」用）。重建对象时漏了它，
+           读一次盘就永久丢掉——与 favorite/shelf 同一个坑。 */
+        ...(isObj(reading.lastPosition) ? { lastPosition: { ...reading.lastPosition } } : {}),
         stats: { ...base.stats, ...(reading.stats ?? {}) },
         /* 反复强调过的口径：sessions[].start 缺失/≤0 的条目连 bz 都会丢，
            这里先丢，免得它进统计 */
@@ -117,7 +120,7 @@ export function sanitizeDataDetailed(v: unknown): SanitizeResult | null {
       ...(typeof b.shelf === 'string' && b.shelf ? { shelf: b.shelf } : {}),
     });
   }
-  return { data: { ...(d as ReaderData), version: 1, books }, dropped };
+  return { data: { ...(d as ReaderData), version: 1, schemaVersion: SCHEMA_VERSION, books }, dropped };
 }
 
 /** 旧签名：只要数据、不要丢弃记录（大部分调用方只需要这个） */

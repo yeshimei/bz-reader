@@ -40,6 +40,7 @@ import {
 import { DEFAULT_PREFS, FONT_SIZE_RANGE, gatedPrefs, type ReaderPrefs } from '../data/prefs';
 import { can } from '../data/entitlement';
 import { dlog } from '../core/debug-log';
+import { engineMetaFromBook, type EngineMeta } from '../data/book-meta';
 
 /** 宿主坐标系里的矩形（左上角 + 宽高，单位 CSS px） */
 export interface Rect {
@@ -129,7 +130,7 @@ export interface FootnoteInfo {
 export interface MountOptions {
   prefs: ReaderPrefs;
   onRelocate?: (info: RelocateInfo) => void;
-  onReady?: (book: FoliateBook, meta: { title: string; author: string; wordCount: number }) => void;
+  onReady?: (book: FoliateBook, meta: EngineMeta) => void;
   /** 单指轻触正文：左 / 中 / 右 */
   onTap?: (
     zone: 'prev' | 'next',
@@ -322,7 +323,7 @@ export class EngineHost {
     return new File([buf], name);
   }
 
-  private async buildBook(vaultPath: string): Promise<{ book: FoliateBook; meta: { title: string; author: string; wordCount: number } }> {
+  private async buildBook(vaultPath: string): Promise<{ book: FoliateBook; meta: EngineMeta }> {
     const name = (vaultPath.split('/').pop() || 'book').replace(/\.[^.]+$/, '');
     if (/\.txt$/i.test(vaultPath)) {
       const raw = await this.app.vault.adapter.read(vaultPath);
@@ -333,14 +334,12 @@ export class EngineHost {
 
     const file = await this.readAsFile(vaultPath);
     const book = await makeBook(file);
-    const md = book.metadata ?? {};
-    const pick = (v: unknown): string => (typeof v === 'function' ? String((v as () => string)()) : typeof v === 'string' ? v : '');
-    const title = pick(md.title) || name;
-    const author = pick(md.author);
     // 漫画（cbz）的 section size 是图片字节数——按字数累加会得出「三百多万字」，
     // 书架上吓人。漫画没有字数，直接给 0。
     const wordCount = /\.cbz$/i.test(vaultPath) ? 0 : book.sections.reduce((sum, s) => sum + (s.size ?? 0), 0);
-    return { book, meta: { title, author, wordCount } };
+    /* 书目提取全在 data/book-meta.ts：foliate 的 author 是 contributor 对象
+       （tidy 之后连数组都不是）。以前那个只认字符串的 pick() 让作者从来没落过盘。 */
+    return { book, meta: engineMetaFromBook(book, name, wordCount) };
   }
 
   async mount(container: HTMLElement, vaultPath: string, opts: MountOptions): Promise<void> {
