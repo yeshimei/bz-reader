@@ -30,13 +30,13 @@ import { allMarks, filterMarks } from './domain';
 import { toggleAll, togglePick } from './note-select';
 import { notify } from '../core/notice';
 import { bookMenuItems } from './book-menu';
-import { flipSetting, type ToggleState } from './settings-toggle';
+import { flipSetting } from './settings-toggle';
 import { rangeFill } from './range-fill';
 import { openHotkeySettings } from '../core/hotkeys';
-import { folderLabel, pickFolder } from '../core/folder-pick';
+import { pickFolder } from '../core/folder-pick';
 import { CAP_LABEL, PURCHASE_URL, REPO_URL, can, type Cap } from '../data/entitlement';
 import { HEADER_ACTION_IDS } from '../view/header-actions';
-import { normalizeDataDir } from '../core/plugin-path';
+import type { ReaderPrefs } from '../data/prefs';
 import { linkInline, snippet, targetOfMark } from '../data/deeplink';
 import { wikilinkOf, wikilinkOfMark, wikilinkTo } from '../data/wikilink';
 import { exportBookNotes } from '../data/export';
@@ -1315,7 +1315,6 @@ function toggleDone(id?: string): void {
 function setPref(k: string | undefined, v: string | undefined, opts: { silent?: boolean } = {}): void {
   const src = getShellSource();
   if (!src || !k || v === undefined) return;
-  const p = shellPrefs();
   switch (k) {
     case 'fontSize':
       src.setPrefs({ fontSize: Number(v) });
@@ -1336,7 +1335,7 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
       src.setPrefs({ flow: v === 'scroll' ? 'scroll' : 'paged' });
       break;
     case 'fontFamily':
-      src.setPrefs({ fontFamily: v as typeof p.fontFamily });
+      src.setPrefs({ fontFamily: v as ReaderPrefs['fontFamily'] });
       break;
     case 'align':
       src.setPrefs({ align: v === 'left' ? 'left' : 'justify' });
@@ -1355,7 +1354,7 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
       src.setPrefs({ footnote: v === 'jump' ? 'jump' : 'popup' });
       break;
     case 'accent':
-      src.setPrefs({ accent: v as typeof p.accent });
+      src.setPrefs({ accent: v as ReaderPrefs['accent'] });
       break;
     default:
       break;

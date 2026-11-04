@@ -69,3 +69,6 @@ if (typeof g.createDiv === 'undefined') {
 if (typeof g.createSpan === 'undefined') {
   g.createSpan = () => (g.document as Document).createElement('span');
 }
+if (typeof g.createFragment === 'undefined') {
+  g.createFragment = () => (g.document as Document).createDocumentFragment();
+}

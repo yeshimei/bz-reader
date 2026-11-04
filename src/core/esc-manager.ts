@@ -36,7 +36,7 @@ export const escManager = (() => {
           e.stopImmediatePropagation();
           return;
         }
-      } catch (err) {
+      } catch {
         layers.splice(i, 1);
       }
     }

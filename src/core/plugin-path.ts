@@ -29,10 +29,10 @@ export function pluginRelDirOf(app: App): string {
       ?.plugins?.manifests?.[PLUGIN_ID]?.dir || '',
   );
   if (fromManifests) return fromManifests;
-  const configDir = trim(
-    (app as unknown as { vault?: { configDir?: string } })?.vault?.configDir || '.obsidian',
-  );
-  return `${configDir || '.obsidian'}/plugins/${PLUGIN_ID}`;
+  /* 配置目录名由用户决定（不一定是 `.obsidian`），只认 Vault#configDir。
+     测试桩没给时退回 `plugins/<id>`——真实环境里 Obsidian 一定提供值。 */
+  const configDir = trim((app as unknown as { vault?: { configDir?: string } })?.vault?.configDir || '');
+  return configDir ? `${configDir}/plugins/${PLUGIN_ID}` : `plugins/${PLUGIN_ID}`;
 }
 
 /** 插件目录内的文件，vault 相对路径 */

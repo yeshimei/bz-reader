@@ -19,7 +19,7 @@
  * 换格式（epub/fb2/txt/mobi）各有各的拼法；拦 iframe 只有一处，全覆盖。
  * ============================================================ */
 
-import { keepBlob as keepEntry, pruneBlobs, type KeptBlob } from './blob-registry';
+import { keepBlob as keepEntry, type KeptBlob } from './blob-registry';
 
 type GlobalWithPatches = typeof window & {
   /**
@@ -72,7 +72,8 @@ function blobOf(url: string): Blob | null {
 async function readText(url: string): Promise<string> {
   const blob = blobOf(url);
   if (blob) return blob.text();
-  const res = await fetch(url);
+  /* blob: 地址只能交给浏览器读，requestUrl 只发 HTTP 请求。 */
+  const res = await window.fetch(url);
   return res.text();
 }
 
@@ -81,7 +82,7 @@ async function resolveBlob(url: string): Promise<Blob | null> {
   const kept = blobOf(url);
   if (kept) return kept;
   try {
-    return (await (await fetch(url)).blob());
+    return (await (await window.fetch(url)).blob());
   } catch {
     return null;
   }
@@ -263,7 +264,9 @@ export async function inlineMarkup(raw: string): Promise<string> {
       link.remove();
       continue;
     }
-    const style = doc.createElement('style');
+    /* 样式元素走 createEl（Obsidian 全局助手），随后随 link.replaceWith
+       一起被 adopt 进本章的 iframe 文档。 */
+    const style = createEl('style');
     style.textContent = await inlineCss(css);
     link.replaceWith(style);
   }

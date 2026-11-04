@@ -13,7 +13,6 @@
  * ============================================================ */
 import { ItemView, Menu, setIcon, type WorkspaceLeaf } from 'obsidian';
 import { EngineHost, OpenCancelledError, type FootnoteInfo, type Rect, type RelocateInfo, type SelectionInfo } from '../engine/host';
-import { resolveTheme } from '../engine/theme';
 import { normalizePrefs, pickPrefs, type ReaderPrefs } from '../data/prefs';
 import { recordPosition, type ReaderBook } from '../data/schema';
 import type { LinkTarget } from '../data/deeplink';
@@ -22,7 +21,6 @@ import {
   HIGHLIGHT_COLORS,
   colorCss,
   highlightsOf,
-  addHighlight,
   findHighlight,
   toggleBookmark,
 } from '../data/notes';
@@ -66,7 +64,7 @@ import { addCheckin } from '../shell/checkin';
 import { toTextHits, type TextHit } from '../shell/text-search';
 import { shouldNotifyRelocate } from './relocate-notify';
 import { getShellSource } from '../shell/source';
-import { dispatchAction, createMark, requireCap } from '../shell/actions';
+import { dispatchAction, requireCap } from '../shell/actions';
 
 export const VIEW_TYPE_READER = 'bzr-reader-view';
 
@@ -366,12 +364,6 @@ export class ReaderView extends ItemView {
        再补一帧——量到 0 也不会多留白（见 syncBottomGap）。 */
     this.syncBottomGap();
     window.requestAnimationFrame(() => this.syncBottomGap());
-
-    const turn = (dir: 'prev' | 'next'): void => {
-      this.stopTts();
-      const p = dir === 'prev' ? this.host.prev() : this.host.next();
-      void p.then(() => this.tracker.touch());
-    };
 
     /* 点正文：移动端上下分区翻页；两指同时按切换沉浸（判定在引擎侧）。
        翻页延后由 host 的队列保证，这里只管按区定方向。 */
@@ -1188,14 +1180,19 @@ export class ReaderView extends ItemView {
 
     const bar = el('div', 'bzs-selbar');
     if (live) bar.classList.add('is-marked');
-    bar.innerHTML = toolbarHtml({
-      marked: !!live,
-      color: activeColor,
-      colors: HIGHLIGHT_COLORS,
-      /* 手机上只留三颗主路径，其余进「⋯」；桌面全平铺 */
-      compact: isMobileEnv(),
-      acts: SELECTION_ACTS,
-    });
+    /* 走 setHtml（DOMParser 惰性解析）：模板全由 toolbarHtml 生成，
+       字符串里没有用户可控的 HTML。 */
+    setHtml(
+      bar,
+      toolbarHtml({
+        marked: !!live,
+        color: activeColor,
+        colors: HIGHLIGHT_COLORS,
+        /* 手机上只留三颗主路径，其余进「⋯」；桌面全平铺 */
+        compact: isMobileEnv(),
+        acts: SELECTION_ACTS,
+      }),
+    );
 
     /* 点工具条不能把系统的选区和手柄清掉：pointerdown 默认会让 iframe 失焦，
        选区一塌，后面所有动作都拿不到文本了。 */
@@ -1287,6 +1284,9 @@ export class ReaderView extends ItemView {
    */
   private ownsKeyboard(): boolean {
     const ws = this.api.app.workspace;
+    /* activeLeaf 在新版标了弃用，但 getLeaf(false) 在没有活动 leaf 时会退回
+       主 leaf，语义和这里「只认当前活动 leaf」不同；minAppVersion 1.7.2 上
+       activeLeaf 仍然可用（项目 eslint 配置关掉了 no-deprecated）。 */
     const active = ws.activeLeaf as unknown as { view?: { getViewType?: () => string } } | null;
     if (!active) return false;
     if (active === (this.leaf as unknown as typeof active)) return true;

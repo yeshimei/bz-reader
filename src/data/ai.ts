@@ -154,7 +154,9 @@ export async function aiAsk(
   opts.signal?.addEventListener('abort', onAbort);
   let res: Response;
   try {
-    res = await fetch(`${baseUrl}/chat/completions`, {
+    /* 用 window.fetch 而不是 requestUrl：后者不接受 AbortSignal，超时与
+       「取消请求」都会失效；这个端点由用户自己配置，不需要 Obsidian 代发 CORS。 */
+    res = await window.fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

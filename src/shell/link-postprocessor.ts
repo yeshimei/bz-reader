@@ -12,6 +12,7 @@
  *
  * 只认自家子路径：普通笔记链接、别的插件写的锚点、obsidian:// 老链接一律放行。
  * ============================================================ */
+import type { OpenViewState, PaneType } from 'obsidian';
 import type { LinkTarget } from '../data/deeplink';
 import { parseWikilinkHref } from '../data/wikilink';
 
@@ -77,12 +78,14 @@ export function interceptableClick(
 /**
  * `workspace.openLinkText` 的签名。
  *
- * `newLeaf` / `openViewState` 用 `any`：这层只透传，不解释它们；
- * 写死 Obsidian 的 `PaneType` / `OpenViewState` 会让 bind 出来的方法
- * 因参数逆变赋不过去，白添一处 cast。
+ * 参数照抄 Obsidian 的类型：这一层只透传，不解释它们。
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type OpenLinkText = (linktext: string, sourcePath: string, newLeaf?: any, openViewState?: any) => Promise<void>;
+export type OpenLinkText = (
+  linktext: string,
+  sourcePath: string,
+  newLeaf?: PaneType | boolean,
+  openViewState?: OpenViewState,
+) => Promise<void>;
 
 export interface OpenLinkHost {
   bookByPath(path: string): { id: string } | undefined;
@@ -102,7 +105,7 @@ export interface OpenLinkHost {
  */
 export function wrapOpenLinkText(original: OpenLinkText, host: OpenLinkHost): OpenLinkText {
   return (linktext, sourcePath, newLeaf, openViewState) => {
-    const target = planWikilinkClick(linktext, host.bookByPath);
+    const target = planWikilinkClick(linktext, (p) => host.bookByPath(p));
     if (target) {
       host.openTarget(target);
       return Promise.resolve();

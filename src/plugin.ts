@@ -20,7 +20,7 @@
 import { Plugin, TFile, type WorkspaceLeaf } from 'obsidian';
 import { setApp } from './core/app';
 import { setPluginRelDir, dataDirOf, debugOpenPath, normalizeDataDir, setDataDir, DEFAULT_DATA_DIR, PLUGIN_ID } from './core/plugin-path';
-import { isMobileEnv, isMobileShell } from './core/mobile';
+import { isMobileEnv } from './core/mobile';
 import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
 import { BookRepo, BASE_FORMATS, PRO_FORMATS, formatOf, planRelocations, scanVault } from './data/book-repo';
@@ -60,7 +60,6 @@ import {
   isStudyTab,
   loadShellState,
   notify as notifyShell,
-  overlayKey,
   overlayRenderKey,
   setState,
   subscribe,
@@ -143,7 +142,7 @@ export function createPlugin(cfg: PluginConfig) {
       /* 配置先读：设置、授权、数据目录全在 data.json 里，而且 store 要知道
          数据目录在哪才能 load()。顺序反了就会「设置读到了、书架是空的」。
          读盘结果先留一份原始值：`null` 才是真新装（更新日志据此只记账不弹）。 */
-      const raw = await this.loadData().catch(() => null);
+      const raw: unknown = await this.loadData().catch(() => null);
       this.freshInstall = raw === null;
       this.cfg = normalizePluginData(raw);
       setEntBackend({
@@ -290,16 +289,19 @@ export function createPlugin(cfg: PluginConfig) {
          linktext（含 `#bzr-cfi=…`）。包一层：是自家双链就接管，不是就原样
          交回去。阅读模式的 `<a>` 点击最终也走这里，顺带成了第四层保险。 */
       const ws = this.app.workspace;
+      /* 存原始方法引用只为 onunload 时原样还回去，不调用它——绑定 this 反而
+         会在还回去之后留下一个绑死的副本。 */
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- 只用于还原，不调用
       const originalOpenLinkText = ws.openLinkText;
       ws.openLinkText = wrapOpenLinkText(originalOpenLinkText.bind(ws), {
         bookByPath: (p) => this.repo.byPath(p),
         openTarget: (t) => void this.openFromTarget(t),
-      }) as typeof ws.openLinkText;
+      });
       this.register(() => {
         ws.openLinkText = originalOpenLinkText;
       });
 
-      this.addRibbonIcon('library', 'bz 阅读：书架', () => this.openStudy());
+      this.addRibbonIcon('library', 'Bz 阅读：书架', () => this.openStudy());
 
       /* ── 命令 ──
        * 键盘上能做的动作这里都注册一份：用户在 Obsidian 的「快捷键」里

@@ -54,7 +54,7 @@ export class SideView extends ItemView {
   }
 
   getDisplayText(): string {
-    return 'bz 阅读';
+    return 'Bz 阅读';
   }
 
   getIcon(): string {

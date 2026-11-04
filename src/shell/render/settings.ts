@@ -20,7 +20,6 @@ import { dataDirOf } from '../../core/plugin-path';
 import type { HotkeyRow } from '../../core/hotkeys';
 import { HEADER_ACTION_IDS, headerActionSpec, type HeaderActionId } from '../../view/header-actions';
 import { rangeFill } from '../range-fill';
-import { RT } from '../runtime';
 import { esc, githubIcon, ico } from './html';
 
 export interface SettingsView {

@@ -95,7 +95,9 @@ function probeFetch(url: string): Promise<string> {
       resolve(why);
     };
     const timer = window.setTimeout(() => done('超时'), 4000);
-    fetch(url)
+    /* blob: 地址只能交给浏览器读，requestUrl 只发 HTTP 请求，收不了它。 */
+    window
+      .fetch(url)
       .then((r) => r.text())
       .then((t) => done(t ? `✓ ${t.length} 字` : '空'))
       .catch((e) => done(`✗ ${(e as Error)?.name || 'error'}`));
@@ -121,7 +123,7 @@ export function envSummary(phase: string): string[] {
   let chromium = '—';
   try {
     chromium =
-      (globalThis as { process?: { versions?: { chrome?: string } } }).process?.versions?.chrome ?? '—';
+      (window as unknown as { process?: { versions?: { chrome?: string } } }).process?.versions?.chrome ?? '—';
   } catch {
     chromium = '—';
   }

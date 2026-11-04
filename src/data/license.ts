@@ -113,11 +113,13 @@ export async function verifyLicense(code: string): Promise<LicenseCheck> {
     const key = await spkiToCryptoKey(
       Uint8Array.from(atob(PUBKEY_SPKI_B64), (c) => c.charCodeAt(0)).buffer,
     );
+    /* 复制一份拿到确定的 ArrayBuffer：`Uint8Array.buffer` 的类型是
+       ArrayBufferLike（可能是 SharedArrayBuffer），crypto.subtle 只收 ArrayBuffer。 */
     const ok = await crypto.subtle.verify(
       { name: 'ECDSA', hash: 'SHA-256' },
       key,
-      parsed.sig.buffer as ArrayBuffer,
-      parsed.payloadBytes.buffer as ArrayBuffer,
+      new Uint8Array(parsed.sig).buffer,
+      new Uint8Array(parsed.payloadBytes).buffer,
     );
     if (!ok) return { ok: false, reason: 'invalid', message: '激活码验签失败：内容或签名被改过。' };
     const exp = parsed.payload.exp ?? 0;

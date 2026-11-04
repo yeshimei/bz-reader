@@ -29,7 +29,7 @@ export function clear(node: HTMLElement): void {
  */
 export function setHtml(node: HTMLElement, html: string): void {
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  const frag = document.createDocumentFragment();
+  const frag = createFragment();
   for (const child of Array.from(doc.body.childNodes)) frag.appendChild(document.importNode(child, true));
   node.replaceChildren(frag);
 }

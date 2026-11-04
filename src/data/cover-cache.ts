@@ -52,10 +52,12 @@ export class CoverMemory {
     this.urls.delete(id);
     this.urls.set(id, url);
     while (this.urls.size > this.limit) {
-      const oldest = this.urls.keys().next().value;
-      if (oldest === undefined) break;
-      const old = this.urls.get(oldest);
-      this.urls.delete(oldest);
+      /* `keys().next()` 的 `value` 在 lib 的类型里是 any：先看 `done`，
+         再取 key，TS 才收窄成 string。 */
+      const oldest = this.urls.keys().next();
+      if (oldest.done) break;
+      const old = this.urls.get(oldest.value);
+      this.urls.delete(oldest.value);
       if (old) this.revoke(old);
     }
   }

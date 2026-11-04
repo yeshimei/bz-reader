@@ -311,7 +311,7 @@ export function openChangelogNote(
   popup.addEventListener('click', (e) => {
     const target = e.target as HTMLElement | null;
     if (!target?.closest) return;
-    const version = target.closest('.bzs-chgn-v') as HTMLElement | null;
+    const version = target.closest<HTMLElement>('.bzs-chgn-v');
     if (version) {
       select(Number(version.dataset.i) || 0);
       return;
@@ -320,7 +320,7 @@ export function openChangelogNote(
       modal.close();
       return;
     }
-    const link = target.closest('[data-href]') as HTMLElement | null;
+    const link = target.closest<HTMLElement>('[data-href]');
     const href = link?.dataset.href;
     if (href) window.open(href, '_blank', 'noopener,noreferrer');
   });

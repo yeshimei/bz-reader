@@ -13,7 +13,7 @@ import { FuzzySuggestModal, TFolder, type App } from 'obsidian';
 export class FolderPickModal extends FuzzySuggestModal<TFolder> {
   private resolve: (v: string | null) => void = () => undefined;
   private settled = false;
-  private cancelTimer: ReturnType<typeof setTimeout> | null = null;
+  private cancelTimer: number | null = null;
 
   constructor(app: App, private current: string) {
     super(app);
@@ -53,15 +53,15 @@ export class FolderPickModal extends FuzzySuggestModal<TFolder> {
        并上锁，真正的选择随后被 `settled` 吞掉——三个目录选择器点了等于没点。
        延后一拍再取消，让 onChooseItem 先落定；真取消（Esc / 点空白）时
        没有 onChooseItem，这一拍才把 null 交出去。 */
-    if (this.cancelTimer !== null) clearTimeout(this.cancelTimer);
-    this.cancelTimer = setTimeout(() => this.settle(null), 0);
+    if (this.cancelTimer !== null) window.clearTimeout(this.cancelTimer);
+    this.cancelTimer = window.setTimeout(() => this.settle(null), 0);
   }
 
   private settle(v: string | null): void {
     if (this.settled) return;
     this.settled = true;
     if (this.cancelTimer !== null) {
-      clearTimeout(this.cancelTimer);
+      window.clearTimeout(this.cancelTimer);
       this.cancelTimer = null;
     }
     this.resolve(v);

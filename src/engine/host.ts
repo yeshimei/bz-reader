@@ -17,7 +17,7 @@
  *     一律让给书籍本身处理。
  * ============================================================ */
 import type { App } from 'obsidian';
-import { makeBook, Overlayer, View } from './foliate';
+import { makeBook, Overlayer } from './foliate';
 import type {
   DrawAnnotationDetail,
   FoliateBook,
@@ -407,7 +407,9 @@ export class EngineHost {
     container.empty();
     this.phase = 'parse';
 
-    const view = document.createElement('foliate-view') as unknown as FoliateView;
+    /* foliate-view 是自定义元素（customElements.define 在 foliate 运行时里），
+       不在 HTMLElementTagNameMap 的类型表里——createEl 运行时照建不误。 */
+    const view = createEl('foliate-view' as unknown as keyof HTMLElementTagNameMap) as unknown as FoliateView;
     view.className = 'bzr-view';
 
     view.addEventListener('relocate', (e) => {
@@ -1414,6 +1416,10 @@ export class EngineHost {
     return parts.join(' ').trim();
   }
 
+  /* caretRangeFromPoint 在 TS 的 DOM 类型里标了 deprecated，但 Chromium 只认
+     它——caretPositionFromPoint 在 Obsidian 支持的内核里还没实现。这里做的是
+     iframe 内的坐标命中测试，换 API 等于整个可见区文字退化成空串。
+     项目 eslint 配置里关掉了 no-deprecated，理由同上。 */
   /** 可见区文字：两点 Range（拿不到返回空串，由调用方退回整章） */
   private visibleText(doc: Document): string {
     const win = doc.defaultView;
