@@ -47,14 +47,17 @@ import {
   closeOverlay,
   dismissesOnSelect,
   getState as getShellState,
+  opensTextPanel,
   setState as setShellState,
   subscribe,
   notify as notifyShell,
+  type OverlayKind,
 } from '../shell/state';
 import { openOverlay } from '../shell/state';
 import { tapIntent } from './tap-intent';
 import { pagingKeyAction } from './paging-key';
 import { updateImmersiveHolders } from './immersive';
+import { bottomOverlap } from './bottom-gap';
 import { destroyQuietly } from '../core/safe-destroy';
 import { anchoredPlacement } from '../shell/anchored-style';
 import { RT, onNotesChanged } from '../shell/runtime';
@@ -177,6 +180,8 @@ export class ReaderView extends ItemView {
   private lastCfi = '';
   private lastPercent = 0;
   private lastChapterTitle = '';
+  /** 上一次壳层浮层的种类：用来判断「刚打开文字面板」那一下（见 opensTextPanel） */
+  private lastOverlayKind: OverlayKind | '' = '';
   private offShell: (() => void) | null = null;
   private offNotes: (() => void) | null = null;
   private lastTapAt = 0;
@@ -336,6 +341,11 @@ export class ReaderView extends ItemView {
     this.stage = stage;
     this.pagesEl = pages;
 
+    /* 手机底栏浮在内容上：量一次它压住多少。第一次量时布局可能还没落定，
+       再补一帧——量到 0 也不会多留白（见 syncBottomGap）。 */
+    this.syncBottomGap();
+    window.requestAnimationFrame(() => this.syncBottomGap());
+
     const turn = (dir: 'prev' | 'next'): void => {
       this.stopTts();
       const p = dir === 'prev' ? this.host.prev() : this.host.next();
@@ -405,7 +415,16 @@ export class ReaderView extends ItemView {
 
     const onKey = (e: KeyboardEvent): void => this.handleKey(e);
     document.addEventListener('keydown', onKey, true);
-    this.teardown = () => document.removeEventListener('keydown', onKey, true);
+    /* 底栏在键盘弹起 / 沉浸切换时会挪位置，跟着重量一次 */
+    const gapSync = (): void => this.syncBottomGap();
+    window.addEventListener('resize', gapSync);
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', gapSync);
+    this.teardown = () => {
+      document.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('resize', gapSync);
+      vv?.removeEventListener('resize', gapSync);
+    };
 
     /* 皮肤跟着壳层状态走：跟随宿主时宿主换主题，这里也重画。
        顺带在搜索浮层关掉时清掉书里的搜索高亮——`clearSearch()` 以前
@@ -413,6 +432,7 @@ export class ReaderView extends ItemView {
     const syncTheme = (): void => {
       this.applyChrome();
       this.syncSearchHighlight();
+      this.noteTextPanel();
     };
     this.offShell = subscribe(syncTheme);
     this.offNotes = onNotesChanged(() => this.refreshAfterNotesChange());
@@ -657,6 +677,46 @@ export class ReaderView extends ItemView {
     const open = getShellState().overlay?.kind === 'search';
     if (this.searchOpen && !open) this.host.clearSearch();
     this.searchOpen = open;
+  }
+
+  /**
+   * 想法 / 书摘 / AI 一开，就把书里的选区收掉。
+   *
+   * 手机上的选区不是一条色带那么安静：系统会一直挂着两端手柄和
+   * 「复制 / 全选 / 网页搜索」菜单，而面板正好开在它们下面——
+   * 手柄压在卡片角上，菜单直接盖住引文（截图见 S11 真机）。
+   *
+   * 只清书里的选区：面板自己的输入框、面板里选中的字都不受影响。
+   * 桌面不清——鼠标选的字没有手柄也没有系统菜单，留着反而方便对照原文。
+   */
+  private noteTextPanel(): void {
+    const next = getShellState().overlay?.kind;
+    const opened = opensTextPanel(this.lastOverlayKind || undefined, next);
+    this.lastOverlayKind = next ?? '';
+    if (!opened || !isMobileShell()) return;
+    this.host.clearSelection();
+  }
+
+  /**
+   * 手机底栏压住正文时，给阅读区补一块同样高的留白。
+   *
+   * Obsidian 移动端的导航栏（`< > 🔍 + ☰`）是**浮在内容上**的：阅读区一直
+   * 伸到屏幕最底，分页按容器高度排，排满的那一页最后一行就压在栏下。
+   * 只有排满时才看得出来，所以用户觉得是「偶尔」。
+   *
+   * 量到 0 就把变量摘掉，绝不凭空调白——桌面端、栏被隐藏时都不该多一刀。
+   */
+  private syncBottomGap(): void {
+    const root = this.rootEl;
+    if (!root) return;
+    if (!isMobileShell()) {
+      root.style.removeProperty('--bzr-bottom-gap');
+      return;
+    }
+    const nav = document.querySelector<HTMLElement>('.mobile-navbar');
+    const gap = bottomOverlap(root.getBoundingClientRect().bottom, nav ? nav.getBoundingClientRect().top : null);
+    if (gap > 0) root.style.setProperty('--bzr-bottom-gap', `${gap}px`);
+    else root.style.removeProperty('--bzr-bottom-gap');
   }
 
   /**

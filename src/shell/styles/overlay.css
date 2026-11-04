@@ -116,6 +116,13 @@ body.theme-dark .bzs-float.is-dialog {
   width: 100%;
 }
 
+/* 想法卡与确认条也不能再按 100vw 量宽度：弹窗自己已经扣过边距，
+   里面再按视口算就会顶出去——发送键正好被切在卡片外面（真机截图）。 */
+.bzs-float.is-dialog .bzs-idea-card,
+.bzs-float.is-dialog .bzs-idea-confirm {
+  width: 100%;
+}
+
 /* 文字类遮罩弹窗：不管在哪种承载下都居中偏上，不跟着贴底抽屉走 */
 .bzs-scrim.bzs-text-scrim {
   place-items: center;

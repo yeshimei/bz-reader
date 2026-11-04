@@ -373,9 +373,10 @@
   }
 
   /* 正文贴底会被 Obsidian 底栏 / 安全区压住：给阅读区留出底部呼吸位。
-     分页器按容器高度重排，这一条也顺带把最后一行的位置抬上来。 */
+     底栏是**浮在内容上**的，压住多少由 syncBottomGap 量出来写进
+     --bzr-bottom-gap；量不到就是 0，还是原来那 8px。 */
   .bzs-rpages {
-    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px) + var(--bzr-bottom-gap, 0px));
   }
 
   /* 带输入框的弹窗不从底部弹：软键盘一开就会被顶出屏幕。

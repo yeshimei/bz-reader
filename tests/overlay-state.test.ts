@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isFloatOverlay, overlayKey, overlayRenderKey } from '../src/shell/state';
+import { isFloatOverlay, opensTextPanel, overlayKey, overlayRenderKey } from '../src/shell/state';
 
 describe('overlayKey', () => {
   it('关闭状态是空串', () => {
@@ -64,5 +64,37 @@ describe('isFloatOverlay', () => {
       expect(isFloatOverlay(kind)).toBe(false);
     }
     expect(isFloatOverlay(undefined)).toBe(false);
+  });
+});
+
+/**
+ * 文字面板一开，书里那条选区就该收掉。
+ *
+ * 手机上系统会一直挂着选择手柄与「复制 / 全选」菜单，面板正好开在它们下面：
+ * 手柄压在卡片角上，菜单直接盖住引文。清选区的时机只在「打开」那一下——
+ * 面板之间互切时选区早就没了，再清一次是空转。
+ */
+describe('opensTextPanel', () => {
+  it('从没有浮层到想法 / 书摘 / AI 都算刚打开', () => {
+    expect(opensTextPanel(undefined, 'idea')).toBe(true);
+    expect(opensTextPanel(null, 'quote')).toBe(true);
+    expect(opensTextPanel('hltools', 'ai')).toBe(true);
+  });
+
+  it('面板之间互切不算：选区已经清过了', () => {
+    expect(opensTextPanel('idea', 'quote')).toBe(false);
+    expect(opensTextPanel('quote', 'ai')).toBe(false);
+    expect(opensTextPanel('idea', 'idea')).toBe(false);
+  });
+
+  it('关掉面板不是打开', () => {
+    expect(opensTextPanel('idea', null)).toBe(false);
+    expect(opensTextPanel(undefined, undefined)).toBe(false);
+  });
+
+  it('别的浮层不算文字面板', () => {
+    expect(opensTextPanel(undefined, 'hltools')).toBe(false);
+    expect(opensTextPanel(undefined, 'footnote')).toBe(false);
+    expect(opensTextPanel(undefined, 'typography')).toBe(false);
   });
 });

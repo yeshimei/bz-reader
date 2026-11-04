@@ -73,6 +73,26 @@ export function isFloatOverlay(kind?: OverlayKind | null): boolean {
   return !!kind && FLOAT_KINDS.includes(kind);
 }
 
+/** 三张「文字面板」：想法 / 书摘 / AI。打开它们时正文不该还挂着选区。 */
+const TEXT_PANEL_KINDS: readonly OverlayKind[] = ['idea', 'quote', 'ai'];
+
+export function isTextPanel(kind?: OverlayKind | null): boolean {
+  return !!kind && TEXT_PANEL_KINDS.includes(kind);
+}
+
+/**
+ * 这一次状态变化是不是「刚打开一张文字面板」。
+ *
+ * 手机上的选区会一直挂着两端手柄和「复制 / 全选」菜单，面板正好开在它们
+ * 下面：手柄压在卡片角上，菜单直接盖住引文。所以面板一开就清一次选区。
+ *
+ * 只在「打开」那一下清：面板之间互切（想法 → 书摘）时选区早没了，
+ * 再清一次是空转；清得太勤也会把用户在面板里选中的字一起抹掉。
+ */
+export function opensTextPanel(prev?: OverlayKind | null, next?: OverlayKind | null): boolean {
+  return isTextPanel(next) && !isTextPanel(prev);
+}
+
 /**
  * 点一下「别处」，算不算一次关闭请求。
  *
