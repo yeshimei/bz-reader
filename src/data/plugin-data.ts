@@ -29,6 +29,14 @@ export interface PluginDataFile {
   entitlement: unknown;
   /** 业务数据目录（vault 相对路径，无首尾斜杠） */
   dataDir: string;
+  /**
+   * 更新日志「已经给到哪一版」（本设备）。
+   *
+   * 存 data.json 而不是业务 JSON：这是「这台机器看过哪一版」的记录，
+   * 不该跟着库同步——否则在电脑上看过，手机就不弹了，而手机上根本没看过。
+   * 空串 = 没记过（老库升级上来就是这一档）。
+   */
+  changelogSeenVersion: string;
 }
 
 export const EMPTY_PLUGIN_DATA: PluginDataFile = {
@@ -36,6 +44,7 @@ export const EMPTY_PLUGIN_DATA: PluginDataFile = {
   settings: DEFAULT_SETTINGS,
   entitlement: null,
   dataDir: DEFAULT_DATA_DIR,
+  changelogSeenVersion: '',
 };
 
 /**
@@ -52,5 +61,6 @@ export function normalizePluginData(raw: unknown): PluginDataFile {
     settings: normalizeSettings(d.settings),
     entitlement: d.entitlement ?? null,
     dataDir: normalizeDataDir(typeof d.dataDir === 'string' ? d.dataDir : ''),
+    changelogSeenVersion: typeof d.changelogSeenVersion === 'string' ? d.changelogSeenVersion : '',
   };
 }

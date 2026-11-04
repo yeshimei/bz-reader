@@ -33,8 +33,10 @@ const BUILD_TAG = process.env.BZ_BUILD_TAG || MANIFEST.version;
  * 壳层（src/shell/styles）是原型 1:1 移植，全部选择器限定在 .bzs-shell 内，
  * 放在最后，确保不被旧域样式意外覆盖。
  */
-/* mobile.css 必须排在最后：它是覆盖层，同特异性靠顺序取胜 */
-const SHELL_STYLES = ["tokens.css", "common.css", "study.css", "sidebar.css", "reader.css", "overlay.css", "mobile.css"];
+/* mobile.css 必须排在最后：它是覆盖层，同特异性靠顺序取胜。
+   changelog.css 是独立弹窗（挂 body、选择器全以 .bzs- 开头，不被加壳前缀），
+   放在 mobile.css 之前，让手机的覆盖层仍然最后生效。 */
+const SHELL_STYLES = ["tokens.css", "common.css", "study.css", "sidebar.css", "reader.css", "overlay.css", "changelog.css", "mobile.css"];
 
 /**
  * 给壳层样式加作用域前缀。

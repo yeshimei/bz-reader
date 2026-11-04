@@ -1,0 +1,758 @@
+/* ==========================================================
+   更新日志弹窗（shell/changelog-note.ts）
+
+   版式照 bz 插件的更新日志小窗：桌面 214px 版本时间轴 + 右侧单版正文，
+   手机不设版本栏、整篇文档流。两端是同一份 DOM，靠这里的媒体查询切换。
+
+   作用域：弹窗挂在 body 上（uiModal），**不在 .bzs-shell 里**，所以颜色
+   不能吃壳层的 --t1 / --copper 那套（只定义在 .bzs-shell 内）。这里在
+   .bzs-chgn 上立一组 --chg-* 局部令牌，直接读宿主的主题变量——换主题、
+   切明暗都跟着走，也不会污染宿主。
+
+   选择器一律以 .bzs- 开头：构建时壳层样式会被加 .bzs-shell 前缀，只有
+   .bzs- 开头的选择器会原样保留（见 esbuild.config.mjs 的 scopeShellStyles）。
+   ========================================================== */
+
+/* 局部令牌 + 基础字体（弹窗不在 .bzs-shell 里，这一层自己给） */
+.bzs-chgn,
+.bzs-chgn-m {
+  --chg-accent: var(--interactive-accent, var(--text-accent, #7856d6));
+  --chg-accent-soft: color-mix(in srgb, var(--interactive-accent, var(--text-accent, #7856d6)) 12%, transparent);
+  --chg-panel: var(--background-primary, #ffffff);
+  --chg-ink: var(--text-normal, #1f1f23);
+  --chg-ink-2: var(--text-muted, #5a5a63);
+  --chg-ink-3: var(--text-faint, #93939c);
+  --chg-line: var(--background-modifier-border, rgba(0, 0, 0, 0.1));
+  --chg-line-soft: color-mix(in srgb, var(--background-modifier-border, rgba(0, 0, 0, 0.1)) 55%, transparent);
+  --chg-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+
+  font-family: -apple-system, "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--chg-ink);
+}
+
+/* ── 弹窗外壳 ──
+   盖掉 .bzr-overlay-popup 的默认尺寸：那个是给 400px 窄弹窗定的。 */
+.bzs-chgn-dialog {
+  width: min(720px, calc(100vw - 32px));
+  height: min(560px, calc(100vh - 32px));
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  background: var(--chg-panel);
+  border: 1px solid var(--chg-line);
+  border-radius: 14px;
+  overflow: hidden;
+  animation: bzs-chgn-pop 0.18s cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+
+@keyframes bzs-chgn-pop {
+  from {
+    opacity: 0;
+    transform: translateY(5px) scale(0.988);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bzs-chgn-dialog {
+    animation: none;
+  }
+}
+
+/* uiModal 的正文层：卡片自己排版，这层不留内边距、不滚 */
+.bzs-chgn-dialog .bzr-dialog-body {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+}
+
+/* 弹窗里的按钮从零开始：宿主给 button 的底色 / 边框 / 行高在这里全是噪音 */
+.bzs-chgn button,
+.bzs-chgn-m button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* ── 桌面：时间轴 + 单版正文 ── */
+.bzs-chgn {
+  position: relative;
+  display: grid;
+  grid-template-columns: 214px 1fr;
+  grid-template-rows: 1fr auto;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--chg-panel);
+}
+
+.bzs-chgn-rail {
+  grid-row: 1 / span 2;
+  grid-column: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--chg-line-soft);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--chg-ink) 4%, var(--chg-panel)),
+    var(--chg-panel) 46%
+  );
+}
+
+.bzs-chgn-rail-hd {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 24px 18px 14px 22px;
+}
+
+.bzs-chgn-rail-hd b {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--chg-ink-3);
+}
+
+.bzs-chgn-rail-hd span {
+  font-family: var(--chg-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--chg-ink-3);
+}
+
+.bzs-chgn-rail-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 10px 20px 20px;
+  scrollbar-width: none;
+}
+
+.bzs-chgn-rail-list::-webkit-scrollbar {
+  display: none;
+}
+
+/* 版本行：一根细线串起所有版本，每个版本在线上一个点（当前版实心 + 光晕） */
+.bzs-chgn .bzs-chgn-v {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 8px;
+  width: 100%;
+  padding: 10px 8px 10px 22px;
+}
+
+.bzs-chgn .bzs-chgn-v::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--chg-line-soft);
+}
+
+.bzs-chgn .bzs-chgn-v:first-child::after {
+  top: 14px;
+}
+
+.bzs-chgn .bzs-chgn-v:last-child::after {
+  bottom: calc(100% - 21px);
+}
+
+.bzs-chgn .bzs-chgn-v::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 13px;
+  z-index: 1;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--chg-panel);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chg-ink-3) 55%, transparent);
+  transition: box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.bzs-chgn .bzs-chgn-v.on::before {
+  background: var(--chg-accent);
+  box-shadow: 0 0 0 3px var(--chg-accent-soft);
+}
+
+.bzs-chgn-v .v {
+  font-family: var(--chg-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: var(--chg-ink-2);
+  transition: color 0.14s ease;
+}
+
+.bzs-chgn .bzs-chgn-v.on .v {
+  color: var(--chg-ink);
+  font-weight: 600;
+}
+
+.bzs-chgn-v .d {
+  margin-left: auto;
+  font-family: var(--chg-mono);
+  font-size: 10px;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+  color: var(--chg-ink-3);
+}
+
+/* 改动条数平时不露头，悬停 / 选中才淡入——列表静下来才像时间轴 */
+.bzs-chgn-v .n {
+  flex-basis: 100%;
+  margin-top: 2px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--chg-ink-3);
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.bzs-chgn .bzs-chgn-v.on .n {
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .bzs-chgn .bzs-chgn-v:hover .v {
+    color: var(--chg-ink);
+  }
+
+  .bzs-chgn .bzs-chgn-v:hover .n {
+    opacity: 1;
+  }
+
+  .bzs-chgn .bzs-chgn-v:hover::before {
+    box-shadow: inset 0 0 0 1px var(--chg-ink-2);
+  }
+}
+
+.bzs-chgn-pane {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+}
+
+.bzs-chgn-hd {
+  flex: none;
+  padding: 26px 32px 18px;
+  position: relative;
+  border-bottom: 1px solid var(--chg-line-soft);
+}
+
+.bzs-chgn-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--chg-accent);
+}
+
+/* 眉标前一小段短线：眼睛先落这儿，再往下读版本号 */
+.bzs-chgn-eyebrow::before {
+  content: "";
+  width: 15px;
+  height: 1px;
+  flex: none;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.bzs-chgn-ver {
+  margin: 0;
+  font-family: var(--chg-mono);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--chg-ink);
+}
+
+.bzs-chgn-ver small {
+  margin-left: 12px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--chg-ink-3);
+}
+
+.bzs-chgn-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  font-family: var(--chg-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--chg-ink-3);
+}
+
+.bzs-chgn-sep {
+  width: 1px;
+  height: 8px;
+  background: var(--chg-line);
+}
+
+/* 关闭钮：桌面靠右上这颗 / 「知道了」/ 遮罩 / ESC 四路都能关 */
+.bzs-chgn .bzs-chgn-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border-radius: 7px;
+  color: var(--chg-ink-3);
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+@media (hover: hover) {
+  .bzs-chgn .bzs-chgn-close:hover {
+    background: color-mix(in srgb, var(--chg-ink) 6%, transparent);
+    color: var(--chg-ink);
+  }
+}
+
+/* 正文：滚动条藏掉，上下渐隐负责「还有内容」的提示 */
+.bzs-chgn-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+}
+
+.bzs-chgn-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 32px 12px;
+  scrollbar-width: none;
+}
+
+.bzs-chgn-body::-webkit-scrollbar {
+  display: none;
+}
+
+.bzs-chgn-fade-top,
+.bzs-chgn-fade-bot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 20px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.bzs-chgn-fade-top {
+  top: 0;
+  background: linear-gradient(var(--chg-panel), transparent);
+}
+
+.bzs-chgn-fade-bot {
+  bottom: 0;
+  background: linear-gradient(transparent, var(--chg-panel));
+}
+
+.bzs-chgn-fade-top.show,
+.bzs-chgn-fade-bot.show {
+  opacity: 1;
+}
+
+.bzs-chgn-grp {
+  padding-top: 20px;
+}
+
+.bzs-chgn-grp + .bzs-chgn-grp {
+  margin-top: 10px;
+  border-top: 1px solid var(--chg-line-soft);
+}
+
+.bzs-chgn-grp-hd {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--chg-ink-2);
+}
+
+.bzs-chgn-grp-hd i {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+}
+
+.bzs-chgn-grp-cnt {
+  margin-left: auto;
+  font-family: var(--chg-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--chg-ink-3);
+}
+
+.bzs-chgn-g-add {
+  background: var(--chg-accent);
+}
+
+.bzs-chgn-g-imp {
+  background: color-mix(in srgb, var(--chg-accent) 45%, var(--chg-ink-3));
+}
+
+.bzs-chgn-g-fix {
+  background: var(--chg-ink-3);
+}
+
+/* 域名左对齐成一窄列，描述从同一条竖线起 */
+.bzs-chgn-row {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 16px;
+  align-items: start;
+  margin: 0 -8px;
+  padding: 10px 8px;
+  border-radius: 7px;
+  transition: background 0.14s ease;
+}
+
+@media (hover: hover) {
+  .bzs-chgn .bzs-chgn-row:hover {
+    background: var(--chg-accent-soft);
+  }
+}
+
+.bzs-chgn-k {
+  padding-top: 2px;
+  font-size: 10.5px;
+  line-height: 1.68;
+  letter-spacing: 0.02em;
+  color: var(--chg-ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bzs-chgn-t {
+  font-size: 13.5px;
+  line-height: 1.68;
+  color: var(--chg-ink);
+}
+
+.bzs-chgn-empty {
+  padding: 30px 0;
+  font-size: 12.5px;
+  color: var(--chg-ink-3);
+}
+
+/* 页脚：入口在左、确认在右 */
+.bzs-chgn-ft {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px 12px 32px;
+  border-top: 1px solid var(--chg-line-soft);
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--chg-panel) 60%, var(--chg-line-soft))
+  );
+}
+
+.bzs-chgn-grow {
+  flex: 1;
+}
+
+/* 入口链接：图标 + 文字。选择器带 .bzs-chgn 前缀是为了压过上面的按钮 reset
+   （`.bzs-chgn button` 的特异性是 0,1,1，单类选择器比不过）。 */
+.bzs-chgn .bzs-chgn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  color: var(--chg-ink-2);
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+@media (hover: hover) {
+  .bzs-chgn .bzs-chgn-link:hover {
+    background: var(--chg-accent-soft);
+    color: var(--chg-ink);
+  }
+}
+
+.bzs-chgn .bzs-chgn-link svg {
+  flex: none;
+}
+
+/* 主按钮：只有它带底色——这是「看完了」的唯一出口 */
+.bzs-chgn .bzs-chgn-done,
+.bzs-chgn-m .bzs-chgn-done {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  padding: 0 16px;
+  border-radius: 8px;
+  background: var(--chg-accent);
+  color: var(--text-on-accent, #ffffff);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
+}
+
+@media (hover: hover) {
+  .bzs-chgn .bzs-chgn-done:hover,
+  .bzs-chgn-m .bzs-chgn-done:hover {
+    filter: brightness(1.06);
+  }
+}
+
+/* ── 手机：整篇文档流（不设版本栏） ── */
+.bzs-chgn-m {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  /* 遮罩贴底、去内边距——与壳层 .bzs-scrim 的底部抽屉同口径 */
+  .bzs-chgn-mask {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .bzs-chgn-dialog {
+    width: 100%;
+    /* 给确定高度：抽屉里的 .bzs-chgn-m 靠 height:100% 拿高度，auto 高度下
+       里面的滚动区撑不开也收不住（内容一多就顶出 max-height）。 */
+    height: 92%;
+    max-width: 100%;
+    max-height: 92%;
+    border-radius: 10px 10px 0 0;
+    border-bottom: 0;
+    animation: bzs-chgn-sheet 0.2s cubic-bezier(0.33, 1, 0.68, 1) both;
+  }
+
+  .bzs-chgn {
+    display: none;
+  }
+
+  .bzs-chgn-m {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    background: var(--chg-panel);
+  }
+
+  .bzs-chgn-mbar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 47px;
+    padding: 0 10px 0 20px;
+    border-bottom: 1px solid var(--chg-line-soft);
+  }
+
+  .bzs-chgn-mtitle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--chg-ink);
+  }
+
+  .bzs-chgn-mtitle svg {
+    width: 17px;
+    height: 17px;
+    color: var(--chg-accent);
+  }
+
+  .bzs-chgn-m .bzs-chgn-close {
+    margin-left: auto;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    color: var(--chg-ink-3);
+  }
+
+  .bzs-chgn-mpage {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 18px 22px 20px;
+    scrollbar-width: none;
+  }
+
+  .bzs-chgn-mpage::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 版本之间一条实线分隔，靠间距造节奏——不折叠、不做导航 */
+  .bzs-chgn-mrel + .bzs-chgn-mrel {
+    margin-top: 26px;
+    padding-top: 22px;
+    border-top: 1px solid var(--chg-line);
+  }
+
+  .bzs-chgn-mrel-hd {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .bzs-chgn-mver {
+    font-family: var(--chg-mono);
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    color: var(--chg-ink);
+  }
+
+  .bzs-chgn-mcur {
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    line-height: 1;
+    color: var(--chg-accent);
+    background: var(--chg-accent-soft);
+  }
+
+  .bzs-chgn-mdate {
+    margin-left: auto;
+    font-family: var(--chg-mono);
+    font-size: 12px;
+    color: var(--chg-ink-3);
+  }
+
+  .bzs-chgn-mblk {
+    margin-top: 16px;
+  }
+
+  .bzs-chgn-mblk-t {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--chg-line);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--chg-ink-2);
+  }
+
+  .bzs-chgn-mblk-t i {
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 2px;
+  }
+
+  .bzs-chgn-mcnt {
+    margin-left: auto;
+    font-family: var(--chg-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--chg-ink-3);
+  }
+
+  .bzs-chgn-mit {
+    display: flex;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--chg-line-soft);
+  }
+
+  .bzs-chgn-mit:last-child {
+    border-bottom: 0;
+  }
+
+  .bzs-chgn-mdom {
+    flex: none;
+    width: 70px;
+    padding-top: 1px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--chg-ink-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .bzs-chgn-mtxt {
+    flex: 1;
+    min-width: 0;
+    font-size: 14px;
+    line-height: 1.65;
+    color: var(--chg-ink);
+  }
+
+  /* 底部入口条：手机上一滚页脚就没了，固定在抽屉底部才是长文档的归属 */
+  .bzs-chgn-mtools {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--chg-line-soft);
+  }
+
+  .bzs-chgn-mtools .bzs-chgn-done {
+    margin-left: auto;
+  }
+
+  /* 底条窄：入口只留图标，文字让给「知道了」 */
+  .bzs-chgn-mtools .bzs-chgn-link {
+    width: 38px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .bzs-chgn-mtools .bzs-chgn-link span {
+    display: none;
+  }
+}
+
+@keyframes bzs-chgn-sheet {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}

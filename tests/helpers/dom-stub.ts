@@ -9,6 +9,8 @@ type FakeEl = {
   className: string;
   textContent: string;
   children: FakeEl[];
+  /** 挂上去的父节点：remove() 要真的从父亲里摘掉（弹窗测试靠这个收尾） */
+  parent: FakeEl | null;
   style: Record<string, string> & { setProperty(k: string, v: string): void; removeProperty(k: string): void };
   classList: {
     add(...c: string[]): void;
@@ -18,11 +20,18 @@ type FakeEl = {
   };
   setAttribute(k: string, v: string): void;
   getAttribute(k: string): string | null;
+  hasAttribute(k: string): boolean;
   setCssProps(props: Record<string, string>): void;
   appendChild(el: FakeEl): FakeEl;
   append(...els: FakeEl[]): void;
+  /** setHtml 走 replaceChildren(fragment)：桩里把片段的子节点搬进容器 */
+  replaceChildren(...nodes: FakeEl[]): void;
   remove(): void;
   querySelector(): null;
+  /** 焦点工具会问「圈内有什么」：桩里一律空，够跑通挂载/收尾两条路径 */
+  querySelectorAll(): FakeEl[];
+  contains(): boolean;
+  focus(): void;
   addEventListener(): void;
   removeEventListener(): void;
   getBoundingClientRect(): { left: number; top: number; width: number; height: number };
@@ -52,6 +61,7 @@ function makeEl(tagName = 'div'): FakeEl {
     className: '',
     textContent: '',
     children: [],
+    parent: null,
     style,
     classList: {
       add: (...c: string[]) => c.forEach((x) => classes.add(x)),
@@ -66,16 +76,41 @@ function makeEl(tagName = 'div'): FakeEl {
     },
     setAttribute: (k, v) => void attrs.set(k, v),
     getAttribute: (k) => attrs.get(k) ?? null,
+    hasAttribute: (k) => attrs.has(k),
     setCssProps: (props) => {
       for (const [k, v] of Object.entries(props)) style.setProperty(k, v);
     },
     appendChild: (child) => {
+      child.parent = el;
       el.children.push(child);
       return child;
     },
-    append: (...els) => void el.children.push(...els),
-    remove: () => undefined,
+    append: (...els) => {
+      for (const child of els) {
+        child.parent = el;
+        el.children.push(child);
+      }
+    },
+    replaceChildren: (...nodes) => {
+      el.children = [];
+      for (const node of nodes) {
+        const kids = node.tagName === 'FRAGMENT' ? node.children : [node];
+        for (const child of kids) {
+          child.parent = el;
+          el.children.push(child);
+        }
+      }
+    },
+    remove: () => {
+      const p = el.parent;
+      if (!p) return;
+      p.children = p.children.filter((c) => c !== el);
+      el.parent = null;
+    },
     querySelector: () => null,
+    querySelectorAll: () => [],
+    contains: () => false,
+    focus: () => undefined,
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 0, height: 0 }),
@@ -472,7 +507,11 @@ export function installDomStub(): () => void {
     body,
     head,
     documentElement,
+    activeElement: null,
     createElement: (tag: string) => makeEl(tag),
+    /* setHtml 会先 parse 再 importNode；桩里节点本来就是自家对象，原样返回 */
+    createDocumentFragment: () => makeEl('fragment'),
+    importNode: (node: unknown) => node,
     querySelector: () => null,
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
@@ -481,7 +520,8 @@ export function installDomStub(): () => void {
   const g = globalThis as unknown as Record<string, unknown>;
   const hadWindow = 'window' in g;
   /* 不少模块会走 window.setTimeout；没有定时器时测试会以
-     「window.setTimeout is not a function」这种假故障炸掉。 */
+     「window.setTimeout is not a function」这种假故障炸掉。
+     弹窗还会往 window 上挂 resize（渐隐提示），一起补上。 */
   (g as { window?: unknown }).window = {
     innerWidth: 390,
     innerHeight: 844,
@@ -489,6 +529,8 @@ export function installDomStub(): () => void {
     clearTimeout,
     requestAnimationFrame: (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 0),
     cancelAnimationFrame: (id: number) => clearTimeout(id),
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
   };
   const hadDoc = 'document' in g;
   const hadGcs = 'getComputedStyle' in g;

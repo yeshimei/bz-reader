@@ -33,6 +33,8 @@ export class ShelfPanel {
   private lastPage: StudyPage | null = null;
   /** 导入页的拆卸函数：换页或离开时调用，别把监听留在 DOM 上 */
   private teardownImport: (() => void) | null = null;
+  /** 更新日志只在第一次画到书库页时问一次（判重与记账在插件侧） */
+  private changelogAsked = false;
 
   /** @param host 挂载点，ItemView 传 contentEl */
   constructor(private host: HTMLElement) {}
@@ -111,6 +113,14 @@ export class ShelfPanel {
        业务数据一变（store.touch）就整页重建会把勾了一半的清单清空。
        真正的离开（换页）由 lastPage 判断。 */
     if (state.studyPage === 'import' && this.lastPage === 'import' && this.teardownImport) return;
+
+    /* 第一次画到书库页：问一句要不要弹更新日志。
+       放在这里而不是 openStudy，是因为工作区恢复时视图会自己 mount、
+       不经过任何打开入口——那条路也得能弹。 */
+    if (state.studyPage === 'library' && !this.changelogAsked) {
+      this.changelogAsked = true;
+      getShellSource()?.maybeShowChangelog();
+    }
 
     /* 只有同一页内重绘才恢复滚动；换页要回到顶部。
        以前只判 `painted`（永不复位），从书库滚到一半切设置页会停在中间。 */

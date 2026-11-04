@@ -32,6 +32,8 @@ export interface SettingsView {
   hotkeys: HotkeyRow[];
   /** 已激活时点了「重新激活」：临时允许编辑激活码（不落盘） */
   relicense?: boolean;
+  /** 插件版本（manifest.json），「关于」组显示并作为更新日志的起点 */
+  version?: string;
 }
 
 /**
@@ -248,5 +250,15 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-keys">${keyRows}</div>
     </div>`;
 
-  return `<div class="bzs-set-grid">${layout}${header}${look}${tts}${marks}${data}${ai}${lic}${keys}</div>`;
+  /* 「关于」：版本号 + 更新日志入口。
+     弹窗只在升级后第一次进书库时自动出现，没有入口就再也找不回来——
+     何况用户看完一个功能想确认「这是哪一版加的」，入口得在这儿。 */
+  const about = `<div class="bzs-setgrp">
+      <h3>关于</h3>
+      <div class="bzs-setrow"><label>版本</label>
+        <span class="bzs-mini" style="flex:1">v${esc(v.version || '—')}</span>
+        <button class="bzs-btn sm" data-act="changelog" title="看看每一版改了什么">更新日志</button></div>
+    </div>`;
+
+  return `<div class="bzs-set-grid">${layout}${header}${look}${tts}${marks}${data}${ai}${lic}${keys}${about}</div>`;
 }

@@ -68,6 +68,8 @@ import {
   type StudyPage,
 } from './shell/state';
 import { setShellSource, shellPrefs } from './shell/source';
+import { CHANGELOG_RELEASES, pickReleaseFor, planChangelog, releaseEntryCount } from './shell/changelog';
+import { openChangelogNote } from './shell/changelog-note';
 
 export interface PluginConfig {
   /** 高级版构建为 true。基础版为 false，且高级模块根本不在包里。 */
@@ -112,6 +114,16 @@ export function createPlugin(cfg: PluginConfig) {
      */
     private cfg: PluginDataFile = normalizePluginData(null);
     private cfgTimer: number | null = null;
+    /**
+     * 启动时 data.json 本来就不存在 = 真新装。
+     *
+     * 只有「文件不存在」算新装；文件在、只是没有更新日志记录，是**老库**
+     * （这个功能上线之前就在用），要当作升级弹一次。两者在 planChangelog
+     * 里走向不同分支，所以必须在 onload 读盘的那一刻记下来。
+     */
+    private freshInstall = false;
+    /** 更新日志的判定与弹窗只放一个进来（进书库可能同时触发两处） */
+    private changelogBusy = false;
     /** 正在打开的书的 id：双击书卡 / 连点结果时防重复开（P1-14） */
     private opening = new Set<string>();
     private overlay: OverlayLayer | null = null;
@@ -128,8 +140,11 @@ export function createPlugin(cfg: PluginConfig) {
       setPluginRelDir(this.manifest.dir);
 
       /* 配置先读：设置、授权、数据目录全在 data.json 里，而且 store 要知道
-         数据目录在哪才能 load()。顺序反了就会「设置读到了、书架是空的」。 */
-      this.cfg = normalizePluginData(await this.loadData().catch(() => null));
+         数据目录在哪才能 load()。顺序反了就会「设置读到了、书架是空的」。
+         读盘结果先留一份原始值：`null` 才是真新装（更新日志据此只记账不弹）。 */
+      const raw = await this.loadData().catch(() => null);
+      this.freshInstall = raw === null;
+      this.cfg = normalizePluginData(raw);
       setEntBackend({
         read: () => this.cfg.entitlement,
         write: (raw) => {
@@ -356,6 +371,9 @@ export function createPlugin(cfg: PluginConfig) {
         closeStudy: () => this.app.workspace.leftSplit?.collapse?.(),
         openSidebar: (tab) => this.openTocSidebar(tab),
         syncVault: () => this.syncShelf(),
+        maybeShowChangelog: () => void this.maybeShowChangelog(),
+        openChangelog: () => this.openChangelog(),
+        version: () => String(this.manifest?.version || ''),
         prefs: () => this.currentPrefs(),
         setPrefs: (patch) => this.setPrefs(patch),
         settings: () => this.cfg.settings,
@@ -771,6 +789,69 @@ export function createPlugin(cfg: PluginConfig) {
       this.cfg.settings = normalizeSettings({ ...this.cfg.settings, ...patch });
       this.persistCfg();
       notifyShell();
+    }
+
+    /* ── 更新日志 ──
+     * 升级后「第一次打开书库」弹一版；判定全在 shell/changelog 的
+     * planChangelog（新装只记账、同版跳过、降级记账），这里只管顺序。 */
+
+    /**
+     * 该弹就弹（由书架在第一次画到书库页时调用）。
+     *
+     * **先记账、写成功才弹**：弹了却没记住，就变成每次进书库都弹一次，
+     * 用户会以为插件坏了。写不进去时把内存里的记录回滚，下次启动再试。
+     */
+    async maybeShowChangelog(): Promise<void> {
+      const plan = planChangelog({
+        current: String(this.manifest?.version || ''),
+        seen: String(this.cfg.changelogSeenVersion || ''),
+        freshInstall: this.freshInstall,
+      });
+      if (plan.action === 'skip' || this.changelogBusy) return;
+      if (plan.action === 'record') {
+        await this.markChangelogSeen(plan.version);
+        return;
+      }
+
+      this.changelogBusy = true;
+      try {
+        const release = pickReleaseFor(CHANGELOG_RELEASES, plan.version);
+        if (!release || releaseEntryCount(release) === 0) {
+          /* 发版时忘了往内置日志里插这一版：不弹空窗，但把记录推上去——
+             否则每次进书库都要白算一遍。 */
+          console.warn(`[bz-reader] 更新日志里没有 v${plan.version} 这一版（发版时漏加了？），本次不弹`);
+          await this.markChangelogSeen(plan.version);
+          return;
+        }
+        if (!(await this.markChangelogSeen(plan.version))) return;
+        openChangelogNote(CHANGELOG_RELEASES, plan.version);
+      } finally {
+        this.changelogBusy = false;
+      }
+    }
+
+    /** 设置页「关于 → 更新日志」：随时回看，不碰记录 */
+    openChangelog(): void {
+      openChangelogNote(CHANGELOG_RELEASES, String(this.manifest?.version || ''));
+    }
+
+    /** 记下「这一版已经给过了」并立即落盘；返回是否写成功 */
+    private async markChangelogSeen(version: string): Promise<boolean> {
+      const prev = this.cfg.changelogSeenVersion;
+      this.cfg.changelogSeenVersion = version;
+      /* 先把防抖定时器摘掉：它到点会用同一份 cfg 再写一次，白写一盘 */
+      if (this.cfgTimer !== null) {
+        window.clearTimeout(this.cfgTimer);
+        this.cfgTimer = null;
+      }
+      try {
+        await this.saveData(this.cfg);
+        return true;
+      } catch (e) {
+        this.cfg.changelogSeenVersion = prev; // 没写进去 = 没记过，下次还能重试
+        console.warn('[bz-reader] 更新日志记录落盘失败：', (e as Error)?.message || e);
+        return false;
+      }
     }
 
     /**
