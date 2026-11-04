@@ -163,6 +163,42 @@ export const PT: Record<MsgKey, string> = {
   'tier.until': 'válido até {date}',
   'tier.forever': 'permanente',
 
+  /* ── Moldura da estante ─────────────────────────────────── */
+  'shelf.tab.library': 'Biblioteca',
+  'shelf.tab.notes': 'Notas',
+  'shelf.act.search': 'Pesquisar',
+  'shelf.act.stats': 'Estatísticas',
+  'shelf.act.import': 'Importar livros',
+  'shelf.act.settings': 'Configurações',
+  'shelf.back': 'Voltar',
+
+  /* ── Página da biblioteca ───────────────────────────────── */
+  'shelf.filter.all': 'Todos',
+  'shelf.filter.reading': 'Em leitura',
+  'shelf.filter.done': 'Concluídos',
+  'shelf.filter.new': 'Não lidos',
+  'shelf.filter.fav': 'Favoritos',
+  'shelf.sort.recent': 'Leitura recente',
+  'shelf.sort.title': 'Título',
+  'shelf.sort.progress': 'Progresso',
+  'shelf.sort': 'Ordenar',
+  'shelf.empty.all':
+    'A biblioteca está vazia. Use «Importar livros» no canto superior direito para adicionar um EPUB, ou arraste um livro para o cofre.',
+  'shelf.empty.none': 'Nenhum livro corresponde. Tente outra palavra-chave ou adicione um com «Importar livros».',
+  'shelf.continue': 'Continuar a leitura',
+  'shelf.lastChapter': 'Última posição: {chapter}',
+  'shelf.lastPercent': 'Última posição: {percent}%',
+  'shelf.resume': 'Continuar ›',
+  'shelf.detail': 'Detalhes do livro',
+  'shelf.search.ph': 'Pesquisar título / autor / estante',
+  'shelf.collapse': 'Recolher',
+  'shelf.view.list': 'Lista',
+  'shelf.view.grid': 'Capas',
+  'shelf.shelfline': 'Estantes',
+  'shelf.count': '{n} livros',
+  'shelf.badge.done': 'Concluído',
+  'shelf.more': 'Clique com o botão direito ou toque e segure para mais',
+
   /* ── Configurações: faixa Sobre ─────────────────────────── */
   'settings.about': 'Sobre',
   'settings.about.version': 'Versão desconhecida',

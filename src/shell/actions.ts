@@ -493,10 +493,10 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'libfiltermenu': {
       const box = el.getBoundingClientRect();
       const menu = new Menu();
-      for (const [value, label] of LIB_FILTERS) {
+      for (const [value, key] of LIB_FILTERS) {
         menu.addItem((item) =>
           item
-            .setTitle(label)
+            .setTitle(t(key))
             .setChecked(getState().libFilter === value)
             .onClick(() => setState({ libFilter: value })),
         );
@@ -509,10 +509,10 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
          底部动作面板。桌面已经平铺成三颗 chip，不走这里。 */
       const box = el.getBoundingClientRect();
       const menu = new Menu();
-      for (const [value, label] of LIB_SORTS) {
+      for (const [value, key] of LIB_SORTS) {
         menu.addItem((item) =>
           item
-            .setTitle(label)
+            .setTitle(t(key))
             .setChecked(getState().libSort === value)
             .onClick(() => setState({ libSort: value })),
         );

@@ -168,6 +168,42 @@ export const EN: Record<MsgKey, string> = {
   'tier.until': 'valid until {date}',
   'tier.forever': 'perpetual',
 
+  /* ── Shelf shell ────────────────────────────────────────── */
+  'shelf.tab.library': 'Library',
+  'shelf.tab.notes': 'Notes',
+  'shelf.act.search': 'Search',
+  'shelf.act.stats': 'Stats',
+  'shelf.act.import': 'Import books',
+  'shelf.act.settings': 'Settings',
+  'shelf.back': 'Back',
+
+  /* ── Library page ───────────────────────────────────────── */
+  'shelf.filter.all': 'All',
+  'shelf.filter.reading': 'Reading',
+  'shelf.filter.done': 'Finished',
+  'shelf.filter.new': 'Unread',
+  'shelf.filter.fav': 'Favorites',
+  'shelf.sort.recent': 'Recent',
+  'shelf.sort.title': 'Title',
+  'shelf.sort.progress': 'Progress',
+  'shelf.sort': 'Sort',
+  'shelf.empty.all':
+    'The shelf is empty. Use “Import books” at the top right to add an EPUB, or drop a book straight into your vault.',
+  'shelf.empty.none': 'No book matches. Try another keyword, or add one with “Import books”.',
+  'shelf.continue': 'Continue reading',
+  'shelf.lastChapter': 'Last at {chapter}',
+  'shelf.lastPercent': 'Last at {percent}%',
+  'shelf.resume': 'Resume ›',
+  'shelf.detail': 'Book details',
+  'shelf.search.ph': 'Search title / author / shelf',
+  'shelf.collapse': 'Collapse',
+  'shelf.view.list': 'List',
+  'shelf.view.grid': 'Covers',
+  'shelf.shelfline': 'Shelves',
+  'shelf.count': '{n} books',
+  'shelf.badge.done': 'Finished',
+  'shelf.more': 'Right-click or long-press for more',
+
   /* ── Settings: about bar ────────────────────────────────── */
   'settings.about': 'About',
   'settings.about.version': 'Unknown version',

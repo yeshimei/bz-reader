@@ -7,7 +7,12 @@
  *
  * 原型是写死的封面墙，这里全部走真实数据；真实数据缺的字段
  * （封面色、读完状态、日期文案）在 adapt.ts 里补，不在这里猜。
+ *
+ * 页签、右上四颗、分类与排序都是**成套的短标签**：只存 MsgKey，渲染时
+ * 现取（`t(p.key)`）。做成常量字符串的话，切语言后重绘还是旧语言——
+ * 而这几颗恰好是用户切完语言第一眼看到的东西。
  * ============================================================ */
+import { t, type MsgKey } from '../../i18n';
 import type { BookRow } from '../adapt';
 import { continueRow, shelfNames } from '../adapt';
 import { isStudyTab, type ShellState, type StudyPage } from '../state';
@@ -15,15 +20,15 @@ import { MAG, barHtml, coverHtml, esc, ico } from './html';
 
 export interface StudyPageDef {
   value: StudyPage;
-  label: string;
+  key: MsgKey;
   /** 页签前的线描图标（ico() 的名字）。文字之外给一层形状记忆，扫一眼就能定位 */
   icon: string;
 }
 
 /** 占页签位置的两页。统计与设置不在这里——它们退到右上图标 */
 export const STUDY_TABS: StudyPageDef[] = [
-  { value: 'library', label: '书库', icon: 'library' },
-  { value: 'notes', label: '笔记', icon: 'note' },
+  { value: 'library', key: 'shelf.tab.library', icon: 'library' },
+  { value: 'notes', key: 'shelf.tab.notes', icon: 'note' },
 ];
 
 /**
@@ -33,18 +38,18 @@ export const STUDY_TABS: StudyPageDef[] = [
  * 实际上它们是低频的设置类入口，占着页签位置反而让高频的两页变小。
  */
 export const STUDY_ACTS: StudyPageDef[] = [
-  { value: 'search', label: '搜索', icon: 'search' },
-  { value: 'stats', label: '统计', icon: 'chart' },
-  { value: 'import', label: '导入书籍', icon: 'import' },
-  { value: 'settings', label: '设置', icon: 'gear' },
+  { value: 'search', key: 'shelf.act.search', icon: 'search' },
+  { value: 'stats', key: 'shelf.act.stats', icon: 'chart' },
+  { value: 'import', key: 'shelf.act.import', icon: 'import' },
+  { value: 'settings', key: 'shelf.act.settings', icon: 'gear' },
 ];
 
-/** 子页标题：头栏那一行字 */
-const SUB_TITLE: Record<string, string> = {
-  search: '搜索',
-  import: '导入书籍',
-  stats: '统计',
-  settings: '设置',
+/** 子页标题：头栏那一行字。表里查 key，渲染时取文案 */
+const SUB_TITLE: Record<string, MsgKey> = {
+  search: 'shelf.act.search',
+  import: 'shelf.act.import',
+  stats: 'shelf.act.stats',
+  settings: 'shelf.act.settings',
 };
 
 /** 页签上的计数徽记：书库给本数，笔记给条数，统计与设置不给 */
@@ -66,9 +71,9 @@ export interface StudyCounts {
 export function studyShell(page: StudyPage, body: string, counts: StudyCounts): string {
   const head = isStudyTab(page)
     ? `<div class="bzs-stuhead">${tabNav(page, counts)}<span class="sp"></span>${actBar()}</div>`
-    : `<div class="bzs-stuhead is-sub"><button class="bzs-back" data-act="studyback" title="返回" aria-label="返回">${ico(
-        'back',
-      )}</button><span class="bzs-subtitle">${esc(SUB_TITLE[page] || '')}</span></div>`;
+    : `<div class="bzs-stuhead is-sub"><button class="bzs-back" data-act="studyback" title="${t('shelf.back')}" aria-label="${t(
+        'shelf.back',
+      )}">${ico('back')}</button><span class="bzs-subtitle">${esc(SUB_TITLE[page] ? t(SUB_TITLE[page]) : '')}</span></div>`;
 
   return `<div class="bzs-studio">${head}<div class="bzs-stubody">${body}</div></div>`;
 }
@@ -76,42 +81,40 @@ export function studyShell(page: StudyPage, body: string, counts: StudyCounts): 
 function tabNav(page: StudyPage, counts: StudyCounts): string {
   const nav = STUDY_TABS.map((p) => {
     const n = p.value === 'library' ? counts.books : counts.notes;
-    return `<button class="${page === p.value ? 'on' : ''}" data-act="study" data-p="${p.value}" title="${p.label}">${ico(
+    const label = t(p.key);
+    return `<button class="${page === p.value ? 'on' : ''}" data-act="study" data-p="${p.value}" title="${label}">${ico(
       p.icon,
-    )}<span>${p.label}</span>${n ? `<span class="n">${n}</span>` : ''}</button>`;
+    )}<span>${label}</span>${n ? `<span class="n">${n}</span>` : ''}</button>`;
   }).join('');
   return `<nav class="bzs-stunav">${nav}</nav>`;
 }
 
 function actBar(): string {
-  return `<div class="bzs-stuacts">${STUDY_ACTS.map(
-    (a) =>
-      `<button class="bzs-cbtn" data-act="study" data-p="${a.value}" title="${a.label}" aria-label="${a.label}">${ico(
-        a.icon,
-      )}</button>`,
-  ).join('')}</div>`;
+  return `<div class="bzs-stuacts">${STUDY_ACTS.map((a) => {
+    const label = t(a.key);
+    return `<button class="bzs-cbtn" data-act="study" data-p="${a.value}" title="${label}" aria-label="${label}">${ico(
+      a.icon,
+    )}</button>`;
+  }).join('')}</div>`;
 }
 
 /* ─────────── 书库 ─────────── */
 
 /** 分类下拉与桌面的 chip 排共用这一张表（actions 里的 libfiltermenu 也读它） */
-export const LIB_FILTERS: Array<[ShellState['libFilter'], string]> = [
-  ['all', '全部'],
-  ['reading', '在读'],
-  ['done', '已读'],
-  ['new', '未读'],
-  ['fav', '收藏'],
+export const LIB_FILTERS: Array<[ShellState['libFilter'], MsgKey]> = [
+  ['all', 'shelf.filter.all'],
+  ['reading', 'shelf.filter.reading'],
+  ['done', 'shelf.filter.done'],
+  ['new', 'shelf.filter.new'],
+  ['fav', 'shelf.filter.fav'],
 ];
 
 /** 排序的三档：桌面平铺成三颗 chip，窄屏收进下拉（actions 的 libsortmenu 读同一张表） */
-export const LIB_SORTS: Array<[ShellState['libSort'], string]> = [
-  ['recent', '最近阅读'],
-  ['title', '书名'],
-  ['progress', '进度'],
+export const LIB_SORTS: Array<[ShellState['libSort'], MsgKey]> = [
+  ['recent', 'shelf.sort.recent'],
+  ['title', 'shelf.sort.title'],
+  ['progress', 'shelf.sort.progress'],
 ];
-
-/** 下拉按钮上显示当前排序的字 */
-const SORT_LABEL = Object.fromEntries(LIB_SORTS) as Record<ShellState['libSort'], string>;
 
 export interface LibraryView {
   rows: BookRow[];
@@ -143,7 +146,7 @@ export function viewLibrary(v: LibraryView): string {
      「没有匹配的书」——库里一本书都没有时，这两句话互相矛盾，
      而且满屏控件全是死的（真机图一）。 */
   if (!(v.total ?? rows.length)) {
-    return `<div class="bzs-empty">书库还是空的。点右上「导入」放一本 epub 进来，或把书直接拖进笔记库。</div>`;
+    return `<div class="bzs-empty">${t('shelf.empty.all')}</div>`;
   }
 
   const recent = continueRow(rows);
@@ -154,21 +157,25 @@ export function viewLibrary(v: LibraryView): string {
     ? `<div class="bzs-cont2">
         ${coverHtml(recent)}
         <div class="ci">
-          <div class="kick">继续阅读</div>
+          <div class="kick">${t('shelf.continue')}</div>
           <h2>${esc(recent.title)}</h2>
           <div class="sub">${esc(recent.author)} · ${
-            recent.chapterTitle ? `上次读到 ${esc(recent.chapterTitle)}` : `上次读到 ${recent.percent}%`
+            recent.chapterTitle
+              ? t('shelf.lastChapter', { chapter: recent.chapterTitle })
+              : t('shelf.lastPercent', { percent: recent.percent })
           }</div>
           <div class="prog">${barHtml(recent.percent)}<b>${recent.percent}%</b></div>
         </div>
         <div class="acts">
-          <button class="bzs-btn pri" data-act="openbook" data-id="${recent.id}">接着读 ›</button>
-          <button class="bzs-btn" data-act="detail" data-id="${recent.id}">书籍详情</button>
+          <button class="bzs-btn pri" data-act="openbook" data-id="${recent.id}">${t('shelf.resume')}</button>
+          <button class="bzs-btn" data-act="detail" data-id="${recent.id}">${t('shelf.detail')}</button>
         </div>
       </div>`
     : '';
 
-  const filterLabel = LIB_FILTERS.find((f) => f[0] === state.libFilter)?.[1] ?? '全部';
+  const curFilter = LIB_FILTERS.find((f) => f[0] === state.libFilter);
+  const filterLabel = curFilter ? t(curFilter[1]) : t('shelf.filter.all');
+  const sortLabel = t((LIB_SORTS.find((s) => s[0] === state.libSort) ?? LIB_SORTS[0])[1]);
 
   /* 放不下（手机 390）：一行放「搜索 / 分类 / 排序 / 视图」四颗，
      搜索展开后独占一行。
@@ -177,53 +184,56 @@ export function viewLibrary(v: LibraryView): string {
   const filters = compact
     ? state.libSearchOpen
       ? `<div class="bzs-filters is-mb is-search">
-          <div class="bzs-well">${MAG}<input data-role="libkw" placeholder="搜索书名 / 作者 / 分类" value="${esc(state.libKw)}"></div>
-          <button class="bzs-chip" data-act="libsearchtoggle">收起</button>
+          <div class="bzs-well">${MAG}<input data-role="libkw" placeholder="${t('shelf.search.ph')}" value="${esc(state.libKw)}"></div>
+          <button class="bzs-chip" data-act="libsearchtoggle">${t('shelf.collapse')}</button>
         </div>`
       : `<div class="bzs-filters is-mb">
-          <button class="bzs-chip bzs-icon-chip${state.libKw ? ' on' : ''}" data-act="libsearchtoggle" aria-label="搜索" title="搜索">${MAG}</button>
+          <button class="bzs-chip bzs-icon-chip${state.libKw ? ' on' : ''}" data-act="libsearchtoggle" aria-label="${t(
+            'shelf.act.search',
+          )}" title="${t('shelf.act.search')}">${MAG}</button>
           <button class="bzs-chip" data-act="libfiltermenu">${filterLabel}${ico('chevron')}</button>
-          <button class="bzs-chip bzs-sort" data-act="libsortmenu" aria-label="排序">${SORT_LABEL[state.libSort]}${ico(
+          <button class="bzs-chip bzs-sort" data-act="libsortmenu" aria-label="${t('shelf.sort')}">${sortLabel}${ico(
             'chevron',
           )}</button>
           <span class="sp"></span>
           <button class="bzs-chip" data-act="libview" data-v="${state.libView === 'grid' ? 'list' : 'grid'}">${
-            state.libView === 'grid' ? '列表' : '封面墙'
+            state.libView === 'grid' ? t('shelf.view.list') : t('shelf.view.grid')
           }</button>
         </div>`
     : `<div class="bzs-filters">
-      <div class="bzs-well">${MAG}<input data-role="libkw" placeholder="搜索书名 / 作者 / 分类" value="${esc(state.libKw)}"></div>
+      <div class="bzs-well">${MAG}<input data-role="libkw" placeholder="${t('shelf.search.ph')}" value="${esc(state.libKw)}"></div>
       ${LIB_FILTERS.map(
-        (f) => `<button class="bzs-chip${state.libFilter === f[0] ? ' on' : ''}" data-act="libfilter" data-v="${f[0]}">${f[1]}</button>`,
+        (f) =>
+          `<button class="bzs-chip${state.libFilter === f[0] ? ' on' : ''}" data-act="libfilter" data-v="${f[0]}">${t(f[1])}</button>`,
       ).join('')}
       <span style="flex:1"></span>
-      <span class="bzs-mini">排序</span>
+      <span class="bzs-mini">${t('shelf.sort')}</span>
       ${LIB_SORTS.map(
         (s) =>
-          `<button class="bzs-chip${state.libSort === s[0] ? ' on' : ''}" data-act="libsort" data-v="${s[0]}">${s[1]}</button>`,
+          `<button class="bzs-chip${state.libSort === s[0] ? ' on' : ''}" data-act="libsort" data-v="${s[0]}">${t(s[1])}</button>`,
       ).join('')}
       <span class="bzs-vsep" aria-hidden="true"></span>
-      <button class="bzs-chip${state.libView === 'grid' ? ' on' : ''}" data-act="libview" data-v="grid">封面墙</button>
-      <button class="bzs-chip${state.libView === 'list' ? ' on' : ''}" data-act="libview" data-v="list">列表</button>
+      <button class="bzs-chip${state.libView === 'grid' ? ' on' : ''}" data-act="libview" data-v="grid">${t('shelf.view.grid')}</button>
+      <button class="bzs-chip${state.libView === 'list' ? ' on' : ''}" data-act="libview" data-v="list">${t('shelf.view.list')}</button>
     </div>`;
 
   const shelfline = `<div class="bzs-shelfline">
-      <span class="bzs-mini" style="margin-right:4px">书架</span>
+      <span class="bzs-mini" style="margin-right:4px">${t('shelf.shelfline')}</span>
       ${shelves.map((s) => `<button class="bzs-chip${state.libShelf === s ? ' on' : ''}" data-act="shelf" data-v="${esc(s)}">${esc(s)}</button>`).join('')}
-      <span class="sp"></span><span class="bzs-mini">${shown.length} 本</span>
+      <span class="sp"></span><span class="bzs-mini">${t('shelf.count', { n: shown.length })}</span>
     </div>`;
 
   let body: string;
   if (!shown.length) {
-    body = `<div class="bzs-empty">没有匹配的书。换个关键词，或点右上「导入」放一本进来。</div>`;
+    body = `<div class="bzs-empty">${t('shelf.empty.none')}</div>`;
   } else if (state.libView === 'grid') {
     body = `<div class="bzs-grid">${shown
       .map(
         /* 卡片上不再钉三颗按钮：右键（手机长按）出菜单，动作都在里面。
            少了那一行，封面能大一圈，书名也不用为按钮让位。 */
         (b) => `<div class="bzs-bkcard${b.status === 'done' ? ' is-done' : ''}" data-act="detail" data-id="${b.id}"
-          data-bookmenu="${b.id}" role="button" tabindex="0" title="右键 / 长按更多">
-        ${b.status === 'done' ? `<span class="flag">已读完</span>` : b.fav ? `<span class="flag">收藏</span>` : ''}
+          data-bookmenu="${b.id}" role="button" tabindex="0" title="${t('shelf.more')}">
+        ${b.status === 'done' ? `<span class="flag">${t('shelf.badge.done')}</span>` : b.fav ? `<span class="flag">${t('shelf.filter.fav')}</span>` : ''}
         ${coverHtml(b)}
         <div class="bi">
           <b>${esc(b.title)}</b>
@@ -237,7 +247,7 @@ export function viewLibrary(v: LibraryView): string {
   } else {
     body = `<div class="bzs-list">${shown
       .map(
-        (b) => `<div class="bzs-bkrow2" data-act="detail" data-id="${b.id}" data-bookmenu="${b.id}" role="button" tabindex="0" title="右键 / 长按更多">
+        (b) => `<div class="bzs-bkrow2" data-act="detail" data-id="${b.id}" data-bookmenu="${b.id}" role="button" tabindex="0" title="${t('shelf.more')}">
         ${coverHtml(b)}
         <div class="bi"><b>${esc(b.title)}</b><div class="sub">${esc(b.author)} · ${esc(b.shelf)} · ${b.format}</div></div>
         ${barHtml(b.percent)}

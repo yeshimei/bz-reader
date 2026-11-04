@@ -163,6 +163,42 @@ export const FR: Record<MsgKey, string> = {
   'tier.until': 'valable jusqu’au {date}',
   'tier.forever': 'à vie',
 
+  /* ── Cadre de la bibliothèque ───────────────────────────── */
+  'shelf.tab.library': 'Bibliothèque',
+  'shelf.tab.notes': 'Notes',
+  'shelf.act.search': 'Rechercher',
+  'shelf.act.stats': 'Statistiques',
+  'shelf.act.import': 'Importer des livres',
+  'shelf.act.settings': 'Réglages',
+  'shelf.back': 'Retour',
+
+  /* ── Page bibliothèque ──────────────────────────────────── */
+  'shelf.filter.all': 'Tous',
+  'shelf.filter.reading': 'En cours',
+  'shelf.filter.done': 'Terminés',
+  'shelf.filter.new': 'Non lus',
+  'shelf.filter.fav': 'Favoris',
+  'shelf.sort.recent': 'Lecture récente',
+  'shelf.sort.title': 'Titre',
+  'shelf.sort.progress': 'Progression',
+  'shelf.sort': 'Trier',
+  'shelf.empty.all':
+    'La bibliothèque est vide. Utilisez « Importer des livres » en haut à droite pour ajouter un EPUB, ou déposez un livre dans le coffre.',
+  'shelf.empty.none': 'Aucun livre ne correspond. Essayez un autre mot-clé, ou ajoutez-en un avec « Importer des livres ».',
+  'shelf.continue': 'Reprendre la lecture',
+  'shelf.lastChapter': 'Dernière position : {chapter}',
+  'shelf.lastPercent': 'Dernière position : {percent}%',
+  'shelf.resume': 'Reprendre ›',
+  'shelf.detail': 'Détails du livre',
+  'shelf.search.ph': 'Rechercher un titre / auteur / rayon',
+  'shelf.collapse': 'Réduire',
+  'shelf.view.list': 'Liste',
+  'shelf.view.grid': 'Couvertures',
+  'shelf.shelfline': 'Rayons',
+  'shelf.count': '{n} livres',
+  'shelf.badge.done': 'Terminé',
+  'shelf.more': 'Clic droit ou appui long pour plus',
+
   /* ── Réglages : bandeau À propos ────────────────────────── */
   'settings.about': 'À propos',
   'settings.about.version': 'Version inconnue',

@@ -163,6 +163,42 @@ export const DE: Record<MsgKey, string> = {
   'tier.until': 'gültig bis {date}',
   'tier.forever': 'unbefristet',
 
+  /* ── Regalrahmen ────────────────────────────────────────── */
+  'shelf.tab.library': 'Bibliothek',
+  'shelf.tab.notes': 'Notizen',
+  'shelf.act.search': 'Suche',
+  'shelf.act.stats': 'Statistik',
+  'shelf.act.import': 'Bücher importieren',
+  'shelf.act.settings': 'Einstellungen',
+  'shelf.back': 'Zurück',
+
+  /* ── Bibliotheksseite ───────────────────────────────────── */
+  'shelf.filter.all': 'Alle',
+  'shelf.filter.reading': 'Am Lesen',
+  'shelf.filter.done': 'Gelesen',
+  'shelf.filter.new': 'Ungelesen',
+  'shelf.filter.fav': 'Favoriten',
+  'shelf.sort.recent': 'Zuletzt gelesen',
+  'shelf.sort.title': 'Titel',
+  'shelf.sort.progress': 'Fortschritt',
+  'shelf.sort': 'Sortierung',
+  'shelf.empty.all':
+    'Das Regal ist noch leer. Über „Bücher importieren" oben rechts ein EPUB hinzufügen oder ein Buch direkt in den Vault legen.',
+  'shelf.empty.none': 'Kein Buch passt. Anderer Suchbegriff, oder über „Bücher importieren" eines hinzufügen.',
+  'shelf.continue': 'Weiterlesen',
+  'shelf.lastChapter': 'Zuletzt bei {chapter}',
+  'shelf.lastPercent': 'Zuletzt bei {percent}%',
+  'shelf.resume': 'Weiterlesen ›',
+  'shelf.detail': 'Buchdetails',
+  'shelf.search.ph': 'Titel / Autor / Regal suchen',
+  'shelf.collapse': 'Einklappen',
+  'shelf.view.list': 'Liste',
+  'shelf.view.grid': 'Cover',
+  'shelf.shelfline': 'Regale',
+  'shelf.count': '{n} Bücher',
+  'shelf.badge.done': 'Gelesen',
+  'shelf.more': 'Rechtsklick oder lange drücken für mehr',
+
   /* ── Einstellungen: Über-Leiste ─────────────────────────── */
   'settings.about': 'Über',
   'settings.about.version': 'Version unbekannt',
