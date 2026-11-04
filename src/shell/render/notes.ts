@@ -30,7 +30,7 @@ export function noteCardHtml(m: MarkRow, showLoc = true): string {
         ? `<div class="loc"><span class="src">${esc(m.bookTitle)} · ${esc(m.chapterTitle)}</span></div>
             <div class="acts2">
               <button data-act="jumpmark" data-id="${m.id}" data-book="${m.bookId}">↪ 回到原文</button>
-              <button data-act="copylink" data-id="${m.id}" data-book="${m.bookId}">⧉ 双向链接${
+              <button data-act="copylink" data-id="${m.id}" data-book="${m.bookId}">⧉ 原文链接${
                 can('bilink') ? '' : '<i class="pro">高级</i>'
               }</button>
               <span class="when">${fmtWhen(m.createdAt)}</span>

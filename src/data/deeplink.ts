@@ -122,57 +122,53 @@ export function linkQuote(book: ReaderBook, h: Highlight): string {
 }
 
 /**
- * 形式三：双向链接（`[[地址|划线文字]]`）。
+ * 形式三：原文链接（`[划线文字](obsidian://bz-reader?…)`）。
  *
- * 前两种是 obsidian:// 协议——点得动、精确到句子，但不进反链面板。
- * 想要「这本书的笔记里看得到所有引用过它的地方」，只有 wiki 链接能做到：
- * 它指向导出稿（`<导出目录>/书名.md`）里的 `## 章节`。
- *
- * 别名是**划线原文**，不是「书名 · 章节」：粘进笔记后先看到的是那段话，
- * 想知道出处再点链接过去。地址始终是 `书名#章节`，章节为空就只留书名。
- *
- * 链接里不写目录：Obsidian 按文件名解析，导出目录换了也照样认得。
- * 导出稿不存在时点它会问「是否创建」——这是 Obsidian 处理未建链接的
- * 标准行为，比指到一个死路径好。
+ * 之前这里生成的是 `[[书名#章节|划线文字]]`（标准双链、反链可见），但
+ * wiki 链接只能指向笔记：点它到的是导出稿的章节，永远回不到原文那一句。
+ * 现在统一成 Markdown 行内链接，地址就是前两种的 obsidian:// 定位串，
+ * 点一下直接落回原文。代价是不进反向链接面板——要反链时仍可导出 Markdown。
  */
-
-/** 地址里的字符会截断 wiki 链接，书名 / 章节一律清掉 */
-function cleanTarget(v: string): string {
-  return v.replace(/[\[\]|#^]/g, ' ').replace(/\s+/g, ' ').trim();
-}
 
 /**
- * 别名里的链接结构字符要清掉（`|` 会把别名截成两段，`[` `]` 会提前闭合链接），
- * 其余标点与 `#` 原样保留——那是原文的一部分。
+ * 链接文字里的方括号要清掉（`]` 会提前闭合 `[文字]`），
+ * 其余标点、竖线、井号都原样保留——那是原文的一部分。
  */
-function cleanAlias(v: string): string {
+function cleanLabel(v: string): string {
   return v
-    .replace(/[\[\]|]/g, ' ')
+    .replace(/[\[\]]/g, ' ')
     /* 中文之间的换行不该变成空格（与 data/export.ts 的 oneLine 同一规则） */
     .replace(/\s+/g, ' ')
     .replace(/([\u3000-\u303f\u4e00-\u9fff\uff00-\uffef])\s+(?=[\u3000-\u303f\u4e00-\u9fff\uff00-\uffef])/g, '$1')
     .trim();
 }
 
-/** 双链地址：`书名#章节`；没有章节就只留书名 */
-function wikiTarget(book: ReaderBook, chapterTitle?: string): string {
-  const name = cleanTarget(displayName(book));
-  const chapter = cleanTarget(chapterTitle ?? '');
-  return chapter ? `${name}#${chapter}` : name;
+export interface LinkTextInput {
+  /** 划线原文 / 选区文字；空时退回书名 */
+  text: string;
+  cfiRange?: string;
+  chapterTitle?: string;
 }
 
 /**
- * 划词路径用：还没有落下标注，只有选区文字与章名。
- * 与 wikiLink 共用同一套清洗，保证两条路复制出来一模一样。
+ * 划线或划词 → 一段可粘进笔记的行内链接。
+ *
+ * 划线工具条、划词条、笔记页的「原文链接」都走这里，
+ * 免得三处各拼一套、格式慢慢走散。
  */
-export function wikiLinkFor(book: ReaderBook, chapterTitle: string | undefined, alias: string): string {
-  const target = wikiTarget(book, chapterTitle);
-  const text = cleanAlias(alias);
-  return text ? `[[${target}|${text}]]` : `[[${target}]]`;
+export function linkOfText(book: ReaderBook, input: LinkTextInput): string {
+  const target: LinkTarget = {
+    bookId: book.id,
+    cfi: input.cfiRange,
+    text: snippet(input.text),
+    chapter: input.chapterTitle?.trim() || undefined,
+  };
+  const label = cleanLabel(input.text) || `《${displayName(book)}》`;
+  return `[${label}](${protocolUrl(target)})`;
 }
 
-export function wikiLink(book: ReaderBook, h: Highlight): string {
-  return wikiLinkFor(book, h.chapterTitle, h.text);
+export function linkOfMark(book: ReaderBook, h: Highlight): string {
+  return linkOfText(book, { text: h.text, cfiRange: h.cfiRange, chapterTitle: h.chapterTitle });
 }
 
 /** 导出到 Markdown 时用的行内链接（只要 URL，不要外层的 []） */

@@ -1006,7 +1006,7 @@ export class ReaderView extends ItemView {
       });
       return b;
     };
-    /* 按钮顺序由纯函数定义（想法 / 书摘 / AI / 双链 / 复制），
+    /* 按钮顺序由纯函数定义（想法 / 书摘 / AI / 原文 / 复制），
        测试直接从 selbarActions 断言，不必把整个视图塞进 node。
        AI 属于高级能力：基础版构建里连按钮都不出现，
        不做成灰的锁标——那是每次划词都提醒一次「你没买」。 */

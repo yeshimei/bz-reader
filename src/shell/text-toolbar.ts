@@ -2,7 +2,7 @@
  * 「文字工具框」里那排控件（纯函数，node 里可直接测）。
  *
  * 点中一条已有划线时只弹这一条：
- *   [四个色点] | 写想法  书摘  双链  复制  删除
+ *   [四个色点] | 写想法  书摘  原文  复制  删除
  * 有想法就在下面原样显示那段想法。
  *
  * 删掉是唯一的破坏性动作，永远排在最后。
@@ -55,7 +55,7 @@ export function textToolbarHtml(input: TextToolbarInput): string {
     <div class="bzs-hltools-row">${dots}<span class="bzs-hltools-sep"></span>
       <button class="bzs-sbtn" data-act="hlidea" data-id="${id}" data-book="${book}">写想法</button>
       <button class="bzs-sbtn" data-act="hlquote" data-id="${id}" data-book="${book}">书摘</button>
-      <button class="bzs-sbtn" data-act="copylink" data-id="${id}" data-book="${book}">双链</button>
+      <button class="bzs-sbtn" data-act="copylink" data-id="${id}" data-book="${book}">原文</button>
       <button class="bzs-sbtn" data-act="hlcopy" data-id="${id}" data-book="${book}">复制</button>
       <button class="bzs-sbtn danger" data-act="hldel" data-id="${id}" data-book="${book}">删除</button>
     </div>

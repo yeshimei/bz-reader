@@ -154,7 +154,7 @@ export function createPlugin(cfg: PluginConfig) {
       /* 不注册 Obsidian 原生设置页：设置只有一处——书架 · 设置。
          两处能改同一个值就会「在这边改了、那边还显示旧的」。 */
 
-      /* 位置双链：笔记里的 obsidian://bz-reader?book=…&cfi=… 从这里落回原文 */
+      /* 位置链接：笔记里的 obsidian://bz-reader?book=…&cfi=… 从这里落回原文 */
       this.registerObsidianProtocolHandler(PROTOCOL, (params) => {
         void this.openFromTarget(parseProtocolParams(params));
       });

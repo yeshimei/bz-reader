@@ -4,9 +4,9 @@ import { textToolbarHtml } from '../src/shell/text-toolbar';
 /**
  * 点划线后弹出的「文字工具框」。
  *
- * 目标形态：只有一排控件（色点 + 写想法 + 书摘 + 双链 + 复制 + 删除），
+ * 目标形态：只有一排控件（色点 + 写想法 + 书摘 + 原文 + 复制 + 删除），
  * 有想法时在下面原样展示那段想法；**不重复选中的原文，也不放章节 / 日期 / 说明**。
- * 「双链」「复制」「书摘」都排在删除前面——删除是这一排唯一的破坏性动作，
+ * 「原文」「复制」「书摘」都排在删除前面——删除是这一排唯一的破坏性动作，
  * 不该夹在两个复制按钮中间。
  */
 const colors = [
@@ -38,17 +38,17 @@ describe('textToolbarHtml · 工具条', () => {
     expect(html).toContain('删除');
   });
 
-  it('书摘、双链、复制依次排在删除前面', () => {
+  it('书摘、原文、复制依次排在删除前面', () => {
     const html = textToolbarHtml(base);
     const at = (s: string): number => html.indexOf(s);
     expect(at('写想法')).toBeGreaterThan(-1);
     expect(at('写想法')).toBeLessThan(at('书摘'));
-    expect(at('书摘')).toBeLessThan(at('双链'));
-    expect(at('双链')).toBeLessThan(at('复制'));
+    expect(at('书摘')).toBeLessThan(at('原文'));
+    expect(at('原文')).toBeLessThan(at('复制'));
     expect(at('复制')).toBeLessThan(at('删除'));
   });
 
-  it('书摘 / 双链 / 复制都带着标注 id 与书 id', () => {
+  it('书摘 / 原文 / 复制都带着标注 id 与书 id', () => {
     const html = textToolbarHtml(base);
     for (const act of ['hlquote', 'copylink', 'hlcopy']) {
       const tag = html.match(new RegExp(`<button[^>]*data-act="${act}"[^>]*>`))?.[0] ?? '';

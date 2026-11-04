@@ -2,7 +2,7 @@
   <img src="docs/images/mark.svg" width="76" height="76" alt="">
   <h1>bz Reader</h1>
   <p><b>Turn Obsidian into a place to read.</b><br>
-  <sub>Desktop and mobile, multiple formats, AI, backlinks. No network required.</sub></p>
+  <sub>Desktop and mobile, multiple formats, AI, source links. No network required.</sub></p>
 
   <p>
     <a href="https://obsidian.md"><img src="docs/images/badges/obsidian.svg" height="27" alt="Obsidian 1.4.0+"></a>
@@ -36,7 +36,7 @@
 | Contents, bookmarks, four-color highlights, and notes | ✓ | ✓ |
 | In-book search | ✓ | ✓ |
 | Footnote preview in a popover | ✓ | ✓ |
-| Copy highlights as backlinks | — | ✓ |
+| Copy highlights as source links | — | ✓ |
 | Structured Markdown export | — | ✓ |
 | Highlight cards | — | ✓ |
 | Reading stats, heatmap, and per-book progress | — | ✓ |
@@ -53,7 +53,7 @@ Enter your license key in **Shelf → Settings → 授权 (License)** to unlock 
 ## FAQ
 
 - **Which formats?** EPUB and TXT out of the box; mobi, azw3, fb2, and comics with Pro.
-- **Does it conflict with other plugins?** The reader is a native Obsidian view, the contents are a tab in the left sidebar, and backlinks use the standard `[[ ]]` — no separate index is built.
+- **Does it conflict with other plugins?** The reader is a native Obsidian view and the contents are a tab in the left sidebar. Highlights can be copied as locator Markdown links that jump back to the exact passage — no separate index is built.
 - **Switching computers?** Your vault carries the shelf, progress, and annotations. Re-enter the license key on the new device.
 - **Do I pay again on mobile?** No. One build covers desktop and mobile.
 
