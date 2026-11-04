@@ -9,7 +9,7 @@
  * 渲染策略：全量 innerHTML + 事件委托（与其它视图一致），
  * 代价是重绘丢焦点，所以下面专门记焦点与滚动位置。
  * ============================================================ */
-import { isMobileShell } from '../core/mobile';
+import { isCompactLibrary, isMobileShell } from '../core/mobile';
 import { dispatchAction, dispatchInput } from './actions';
 import { getState, setState, setStateQuiet, subscribe, type StudyPage } from './state';
 import { getShellSource, liveBooks, shellPrefs, subscribeShellSource } from './source';
@@ -35,6 +35,8 @@ export class ShelfPanel {
   private teardownImport: (() => void) | null = null;
   /** 更新日志只在第一次画到书库页时问一次（判重与记账在插件侧） */
   private changelogAsked = false;
+  /** 上一次用的筛选行形态；只在跨过阈值时重绘，避免 resize 抖动 */
+  private compact: boolean | null = null;
 
   /** @param host 挂载点，ItemView 传 contentEl */
   constructor(private host: HTMLElement) {}
@@ -44,11 +46,29 @@ export class ShelfPanel {
     this.root = this.host.createDiv({ cls: `bzs-shell${isMobileShell() ? ' is-mobile' : ''}` });
     this.bind();
     this.render();
+    /* 首帧可能还没参与布局：clientWidth 为 0 时按摊开画了。
+       下一帧量到真实宽度，该收就重画一次（手机上不能停在下拉之外的样子）。 */
+    window.requestAnimationFrame(() => this.onResize());
     this.unsubscribe = subscribe(() => this.render());
     /* 视图可能比插件先活：Obsidian 恢复布局时插件还没注入数据源，
        那一次 render 是空跑，而状态订阅此后未必再被触发——书架就一直空着。
        数据源一到就得自己补画一次。 */
     this.offSource = subscribeShellSource(() => this.render());
+  }
+
+  /**
+   * 这块有多宽就摆多少：书库筛选行摊开还是收成下拉，**只问宽度**。
+   *
+   * 以前按 `isMobileShell()` 判，桌面验收开着 force-mobile 时，1725×1152
+   * 的窗口也被当成手机，整行收成四个下拉——「能放得下却收起来了」。
+   */
+  private wantCompact(): boolean {
+    return isCompactLibrary(this.host.clientWidth);
+  }
+
+  /** 窗口 / 侧栏宽度变了：只有跨过 1000px 那道线才重画 */
+  onResize(): void {
+    if (this.wantCompact() !== this.compact) this.render();
   }
 
   destroy(): void {
@@ -129,7 +149,9 @@ export class ShelfPanel {
     this.memoFocus();
 
     const books = liveBooks();
-    const { body, counts } = buildShelfPage(state, books);
+    const compact = this.wantCompact();
+    this.compact = compact;
+    const { body, counts } = buildShelfPage(state, books, compact);
 
     root.dataset.bzaccent = shellPrefs().accent;
     setHtml(root, studyShell(state.studyPage, body, counts));

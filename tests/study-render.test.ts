@@ -72,12 +72,13 @@ describe('窄屏筛选栏', () => {
       total: 1,
       state: { ...DEFAULT_SHELL_STATE, ...patch },
       libraryKey: 'k',
-      mobile: true,
+      compact: true,
     });
   }
 
   /* 390px 上「搜索框 + 五个分类 + 排序 + 两个视图」排不下，
-     真机截图里右边两颗被裁掉了。窄屏收成：搜索图标 + 分类下拉 + 排序下拉 + 视图。 */
+     真机截图里右边两颗被裁掉了。放不下的那一档收成：
+     搜索图标 + 分类下拉 + 排序下拉 + 视图。 */
   it('分类收成一颗下拉，不再平铺五颗', () => {
     const out = mobile();
     expect(out).toContain('data-act="libfiltermenu"');

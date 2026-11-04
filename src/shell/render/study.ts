@@ -125,13 +125,18 @@ export interface LibraryView {
   state: ShellState;
   /** 书库在加载真实封面时会重排，给一个稳定的 key 让滚动位置不丢 */
   libraryKey: string;
-  /** 窄屏：筛选栏收成三颗下拉、搜索按需展开（390px 放不下整排 chip） */
-  mobile?: boolean;
+  /**
+   * 放不下：筛选栏收成「放大镜 + 分类下拉 + 排序下拉 + 视图」，搜索按需展开。
+   *
+   * 由 `isCompactLibrary(这块的宽度)` 决定——**不是平台**。390px 的手机收着，
+   * 1725px 的桌面摊开。
+   */
+  compact?: boolean;
 }
 
 export function viewLibrary(v: LibraryView): string {
   const { rows, state } = v;
-  const mobile = v.mobile === true;
+  const compact = v.compact === true;
 
   /* 空库：整页只留一句空态。
      以前把搜索框、五个分类 chip、书架名一起画出来，下面再补一句
@@ -165,10 +170,11 @@ export function viewLibrary(v: LibraryView): string {
 
   const filterLabel = LIB_FILTERS.find((f) => f[0] === state.libFilter)?.[1] ?? '全部';
 
-  /* 窄屏：一行放「搜索 / 分类 / 排序 / 视图」四颗，搜索展开后独占一行。
-     桌面 1200px 放得下，分类与排序全部平铺——点一颗比点开下拉再点一次快，
-     也不用为「现在选的是哪个」再留一层记忆。 */
-  const filters = mobile
+  /* 放不下（手机 390）：一行放「搜索 / 分类 / 排序 / 视图」四颗，
+     搜索展开后独占一行。
+     放得下（桌面）：搜索、五个分类、三个排序、两个视图全部平铺——
+     点一颗比点开下拉再点一次快，也不用为「现在选的是哪个」留一层记忆。 */
+  const filters = compact
     ? state.libSearchOpen
       ? `<div class="bzs-filters is-mb is-search">
           <div class="bzs-well">${MAG}<input data-role="libkw" placeholder="搜索书名 / 作者 / 分类" value="${esc(state.libKw)}"></div>

@@ -1,13 +1,18 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { BookRow } from '../src/shell/adapt';
+import { isCompactLibrary } from '../src/core/mobile';
 import { dispatchAction } from '../src/shell/actions';
 import { DEFAULT_SHELL_STATE, getState, setState } from '../src/shell/state';
 import { viewLibrary } from '../src/shell/render/study';
 
 /**
- * 书库排序（2026-11-05）：
- * 桌面 1200px 放得下，排序不该再藏在「最近阅读 ▾」下拉里——
- * 三颗 chip 平铺，点哪颗亮哪颗。窄屏（手机 390px）仍然收成一颗下拉。
+ * 书库筛选行（2026-11-05）：
+ * 「放得下就摊开」——桌面把搜索、五个分类、三个排序、两个视图全平铺；
+ * 手机 390px 收成「放大镜 + 分类下拉 + 排序下拉 + 视图」四颗。
+ *
+ * 收不收**只看这一块有多宽**，不看平台：用 isMobileShell() 判的话，
+ * 桌面验收时开着 force-mobile，1725×1152 的窗口也会被当成手机，
+ * 筛选行收成四个下拉（真机截图）。
  */
 
 function row(patch: Partial<BookRow> = {}): BookRow {
@@ -33,13 +38,13 @@ function row(patch: Partial<BookRow> = {}): BookRow {
   };
 }
 
-function html(patch: Partial<typeof DEFAULT_SHELL_STATE> = {}, mobile = false): string {
+function html(patch: Partial<typeof DEFAULT_SHELL_STATE> = {}, compact = false): string {
   return viewLibrary({
     rows: [row()],
     total: 1,
     state: { ...DEFAULT_SHELL_STATE, ...patch },
     libraryKey: 'k',
-    mobile,
+    compact,
   });
 }
 
@@ -98,6 +103,36 @@ describe('窄屏：排序仍收成一颗下拉', () => {
 
   it('下拉按钮上写着当前排序', () => {
     expect(html({ libSort: 'title' }, true)).toContain('书名');
+  });
+});
+
+/* 真机：1725×1152 的桌面窗口里，筛选行还是四颗下拉（放大镜 / 全部▾ /
+   最近阅读▾ / 列表）。原因是渲染按 isMobileShell() 判——桌面验收开着
+   force-mobile 时它也返回 true。收不收只该看这一块有多宽。 */
+describe('放得下就摊开：只看宽度，不看平台', () => {
+  it('桌面宽窗口（1725）摊开', () => {
+    expect(isCompactLibrary(1725)).toBe(false);
+  });
+
+  it('半屏窗口（900）放不下，收成下拉', () => {
+    expect(isCompactLibrary(900)).toBe(true);
+  });
+
+  it('阈值 1000：刚好够就摊开，少 1px 就收', () => {
+    expect(isCompactLibrary(1000)).toBe(false);
+    expect(isCompactLibrary(999)).toBe(true);
+  });
+
+  /* 视图刚挂上来、还没参与布局时 clientWidth 是 0——
+     这时宁可按摊开画，随后 onResize 会纠正；反过来会在桌面上闪一下下拉。 */
+  it('宽度还测不到（0）时按摊开处理', () => {
+    expect(isCompactLibrary(0)).toBe(false);
+  });
+
+  it('桌面宽窗口渲染出来一个下拉都不剩', () => {
+    const out = html();
+    expect(out).not.toContain('data-act="libfiltermenu"');
+    expect(out).not.toContain('data-act="libsortmenu"');
   });
 });
 

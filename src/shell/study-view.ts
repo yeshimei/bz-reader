@@ -45,6 +45,16 @@ export class StudyView extends ItemView {
     this.panel = null;
   }
 
+  /**
+   * 宿主在窗口 / 侧栏尺寸变化时调它。
+   *
+   * 书库筛选行按「这一块有多宽」决定摊开还是收成下拉（见 isCompactLibrary），
+   * 不接这一下，把窗口从半屏拉到全屏之后整行还停在四颗下拉。
+   */
+  onResize(): void {
+    this.panel?.onResize();
+  }
+
   /** 外部切页（命令面板 / 侧栏「换书」时用） */
   setPage(page: StudyPage): void {
     setState({ studyPage: page });

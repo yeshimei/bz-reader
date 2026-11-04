@@ -20,15 +20,19 @@ import { viewNotes } from './render/notes';
 import { viewStats, viewStatsLocked } from './render/stats';
 import { KEY_COMMANDS, viewSettings } from './render/settings';
 import { readHotkeys } from '../core/hotkeys';
-import { isMobileShell } from '../core/mobile';
 
 export interface ShelfPage {
   body: string;
   counts: StudyCounts;
 }
 
-/** 书架某一页的 HTML。数据全部来自 store，不在这里做二次加工 */
-export function buildShelfPage(state: ShellState, books: ReaderBook[]): ShelfPage {
+/**
+ * 书架某一页的 HTML。数据全部来自 store，不在这里做二次加工。
+ *
+ * @param compact 书库筛选行放不下（`isCompactLibrary(宽度)`）。
+ *   只看宽度、不看平台：桌面验收开着 force-mobile 时也要摊开。
+ */
+export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: boolean): ShelfPage {
   const app = getShellSource()?.app;
   const rows = app ? toRows(app, books) : [];
   const shown = filterRows(rows, state);
@@ -90,7 +94,7 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[]): ShelfPag
           total: books.length,
           state,
           libraryKey: state.libShelf + state.libFilter + state.libView,
-          mobile: isMobileShell(),
+          compact,
         }),
         counts,
       };
