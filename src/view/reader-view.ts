@@ -1299,7 +1299,15 @@ export class ReaderView extends ItemView {
     leaf.updateHeader?.();
   }
 
-  private publishToc(openSidebar = true): void {
+  /**
+   * 把目录快照交给目录视图。
+   *
+   * **只写快照，不碰工作区布局**：打开一本书不等于要开左栏。以前这里会顺手
+   * `openTocSidebar('toc')`（连左栏一起展开），没点目录也会被拨过去；现在开书
+   * 就是开书，目录要人自己点（头栏、命令、快捷键都还在）。侧栏没开着时
+   * setToc 只是一次内存写入，没人订阅，自然什么都不发生。
+   */
+  private publishToc(): void {
     const book = this.book;
     if (!book) return;
     setToc({
@@ -1315,9 +1323,6 @@ export class ReaderView extends ItemView {
         this.tracker.touch();
       },
     });
-    /* 打开一本书就把左栏拨到目录（用户定的行为）：剪掉「先开书、再去找目录」
-       这一步。桌面与手机同一条路——手机上侧栏就是那个抽屉。 */
-    if (openSidebar) this.api.openTocSidebar('toc');
   }
 
   /**
@@ -1334,7 +1339,7 @@ export class ReaderView extends ItemView {
     if (getShellState().bookId !== book.id || getShellState().activeReaderId !== book.id) {
       setShellState({ bookId: book.id, activeReaderId: book.id });
     }
-    this.publishToc(false);
+    this.publishToc();
   }
 
   private async maybeMount(): Promise<void> {

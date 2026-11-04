@@ -3,6 +3,8 @@ import { installDomStub } from './helpers/dom-stub';
 import { makeApp, makeReaderView, stubHost, testBook, type ReaderHandle } from './helpers/plugin-harness';
 import { normalizePrefs } from '../src/data/prefs';
 import { EngineHost } from '../src/engine/host';
+import type { ReaderView } from '../src/view/reader-view';
+import { clearToc, getToc } from '../src/view/toc-state';
 
 /* 并排对照 / 朗读要过能力门；这里只测壳层状态机，统一放行 */
 vi.mock('../src/data/entitlement', async (importOriginal) => {
@@ -159,6 +161,45 @@ describe('从链接落回原文：落点高亮', () => {
 
     expect(ok).toBe(false);
     expect(pulseAt).not.toHaveBeenCalled();
+  });
+});
+
+describe('打开书默认不碰布局（用户定的：什么也不做）', () => {
+  afterEach(() => clearToc());
+
+  /** 造一本已绑好的书 + 只会吐章节的引擎壳；侧栏打开记在 openTocSidebar 上 */
+  function wire(): { view: ReaderView; openTocSidebar: ReturnType<typeof vi.fn> } {
+    const app = makeApp();
+    const handle = makeReaderView(app, 'b-open');
+    const openTocSidebar = vi.fn();
+    handle.api.openTocSidebar = openTocSidebar;
+    const book = testBook('b-open');
+    (book.reading as { position: Record<string, unknown> }).position.chapterTitle = '第一章';
+    (handle.view as unknown as { book: unknown }).book = book;
+    (handle.view as unknown as { host: unknown }).host = {
+      toc: () => [{ label: '第一章', href: '1.xhtml' }],
+      currentChapterHref: () => '1.xhtml',
+    };
+    return { view: handle.view, openTocSidebar };
+  }
+
+  it('引擎就绪只写目录快照，不展开左栏', () => {
+    const { view, openTocSidebar } = wire();
+
+    (view as unknown as { publishToc(): void }).publishToc();
+
+    expect(openTocSidebar).not.toHaveBeenCalled();
+    expect(getToc()?.bookId).toBe('b-open');
+    expect(getToc()?.items).toHaveLength(1);
+  });
+
+  it('切回已开的阅读 tab 也不展开左栏', () => {
+    const { view, openTocSidebar } = wire();
+
+    (view as unknown as { activate(): void }).activate();
+
+    expect(openTocSidebar).not.toHaveBeenCalled();
+    expect(getToc()?.bookId).toBe('b-open');
   });
 });
 
