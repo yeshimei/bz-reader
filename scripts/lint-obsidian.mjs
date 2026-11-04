@@ -85,7 +85,7 @@ function writeConfig() {
       '       *  - caretRangeFromPoint：Chromium 只认它，caretPositionFromPoint 还没落地；',
       '       *  - Workspace.activeLeaf：getLeaf(false) 在无活动 leaf 时会退回主 leaf，',
       '       *    语义和「只认当前活动 leaf」不同。',
-      '       * 两条都在 minAppVersion 1.7.2 上可用，换 API 等于改行为或功能退化。',
+      '       * 两条在 minAppVersion 1.8.7 上仍是唯一选择，换 API 等于改行为或功能退化。',
       '       */',
       "      '@typescript-eslint/no-deprecated': 'off',",
       '    },',
@@ -106,15 +106,23 @@ function cleanup() {
 
 ensureTools();
 writeConfig();
+/**
+ * 退出码放在 try 外面。
+ *
+ * 原来 `process.exit(code)` 写在 try 里：它直接终止进程，`finally` 里的
+ * cleanup() 永远没机会跑，于是每跑一次 lint，仓库根就留一个
+ * eslint.config.mjs（未跟踪，但 `git add -A` 会把它一起带走）。
+ */
+let exitCode = 1;
 try {
   const fix = process.argv.includes('--fix');
   const args = [ESLINT_BIN, '--config', 'eslint.config.mjs', 'src/**/*.ts', '-f', 'stylish'];
   if (fix) args.push('--fix');
   const r = spawnSync(process.execPath, args, { cwd: process.cwd(), stdio: 'inherit' });
-  const code = r.status ?? 1;
-  if (code === 0) console.log('[lint] 干净：0 error / 0 warning');
+  exitCode = r.status ?? 1;
+  if (exitCode === 0) console.log('[lint] 干净：0 error / 0 warning');
   else console.error('[lint] 有问题，上架前必须修完（或按 AGENTS.md 的例外说明处理）');
-  process.exit(code);
 } finally {
   cleanup();
 }
+process.exit(exitCode);
