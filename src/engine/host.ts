@@ -41,7 +41,6 @@ import {
 } from './footnote';
 import { DEFAULT_PREFS, FONT_SIZE_RANGE, gatedPrefs, type ReaderPrefs } from '../data/prefs';
 import { can } from '../data/entitlement';
-import { dlog } from '../core/debug-log';
 import { engineMetaFromBook, type EngineMeta } from '../data/book-meta';
 
 /** 宿主坐标系里的矩形（左上角 + 宽高，单位 CSS px） */
@@ -275,7 +274,6 @@ export class EngineHost {
   setViewportWidth(width: number, left = 0): void {
     if (Number.isFinite(width) && width > 0) this.viewportWidth = Math.round(width);
     if (Number.isFinite(left)) this.viewportLeft = Math.round(left);
-    dlog('viewport', { w: this.viewportWidth, left: this.viewportLeft });
   }
 
   /** 装载到哪一步了。出错时告诉用户卡在哪，而不是「打不开」三个字 */
@@ -468,17 +466,14 @@ export class EngineHost {
       const doc = a.ownerDocument ?? null;
       const anchor = doc ? this.toHostRect(a.getBoundingClientRect(), doc) : { left: 0, top: 0, width: 0, height: 0 };
       const label = (a.textContent ?? '').replace(/\s+/g, ' ').trim();
-      dlog('footnote.ref', { href, label });
       void this.readFootnote(href, label)
         .then((info) => {
           if (info) {
-            dlog('footnote.ok', { href, chars: info.text.length, section: info.chapterIndex });
             this.opts.onFootnote?.({ ...info, anchor });
             return;
           }
           /* 抓不到正文（结构太怪 / 跨章互链）：退回 foliate 原来的行为，
              直接跳过去，别让人点了没反应。 */
-          dlog('footnote.miss', { href });
           void this.goToHref(href);
         })
         .catch(() => void this.goToHref(href));
@@ -701,7 +696,6 @@ export class EngineHost {
       const screenRelY = screenY > 0 ? screenY - winTop : y;
       const withinY = Math.max(0, Math.min(liveH || 1, screenRelY - stageTop));
       const zone: 'prev' | 'next' = withinY < (liveH || 1) * 0.4 ? 'prev' : 'next';
-      dlog('tap.zone', { withinY, liveH, stageTop, screenY, zone, within, live, stageLeft });
       this.opts.onTap?.(zone, { x, y, width: live, source, scrollLeft, within, screenX });
     };
 
@@ -870,7 +864,6 @@ export class EngineHost {
         if (t) emitTap(t.clientX, t.clientY, ev.target, 'touch', t.screenX, t.screenY);
       }
       /* 拦下这一条，分页器就收不到 touchend，不会跑零速度吸附 */
-      dlog('tap.blockSnap', { moved: Math.round(tap.moved), ms: Date.now() - tap.at, pointerWorks: this.pointerWorks });
       ev.stopImmediatePropagation();
     };
 
@@ -975,17 +968,6 @@ export class EngineHost {
     const first = rects[0];
     const g = this.frameGeom(doc);
     const bounds = unionClientRects(rects, g);
-    dlog('sel', {
-      gl: Math.round(g.left),
-      gt: Math.round(g.top),
-      gs: +g.scale.toFixed(3),
-      rl: Math.round(first.left),
-      rt: Math.round(first.top),
-      rh: Math.round(first.height),
-      al: Math.round(g.left + first.left * g.scale),
-      at: Math.round(g.top + first.top * g.scale),
-      sy: Math.round(doc.defaultView?.scrollY ?? 0),
-    });
     return {
       text: text.slice(0, 5000),
       cfiRange,
@@ -1171,14 +1153,12 @@ export class EngineHost {
     try {
       const done = await Promise.race([Promise.resolve(run()).then(() => 'ok' as const), timeout]);
       if (done === 'timeout') {
-        dlog('nav.timeout', { what, timeoutMs });
         this.opts.onStall?.(what);
         return 'timeout';
       }
       return 'ok';
     } catch {
       /* 引擎自己的错误已经有地方报了（读文件/解包在 mount 里），这里只管「不结算」 */
-      dlog('nav.error', { what });
       this.opts.onStall?.(what);
       return 'error';
     } finally {
@@ -1348,22 +1328,12 @@ export class EngineHost {
       currentIndex: this.chapterIndex,
       resolvedIndex,
     });
-    dlog('footnote.start', {
-      href,
-      path,
-      fragment,
-      sections: sections.length,
-      current: this.chapterIndex,
-      resolvedIndex,
-      index,
-    });
 
     if (index >= 0) {
       const target = await this.loadFootnoteTarget(sections[index], fragment, anchorFn);
       if (target) {
         const info = this.buildFootnoteInfo(target, href, index, label);
         if (info) return info;
-        dlog('footnote.empty', { index, tag: target.tagName });
       }
     }
 
@@ -1379,22 +1349,16 @@ export class EngineHost {
     anchorFn: ((doc: Document) => Node | null) | null,
   ): Promise<Element | null> {
     if (!section?.createDocument) {
-      dlog('footnote.doc', { ok: false, why: 'no-createDocument' });
       return null;
     }
     let doc: Document;
     try {
       doc = await section.createDocument();
     } catch {
-      dlog('footnote.doc', { ok: false, why: 'throw' });
       return null;
     }
-    const elements = typeof doc.getElementsByTagName === 'function' ? doc.getElementsByTagName('*').length : -1;
-    const byId = fragment && typeof doc.getElementById === 'function' ? !!doc.getElementById(fragment) : false;
-    dlog('footnote.doc', { ok: true, elements, byId });
     if (fragment) {
       const el = findFragmentTarget(doc, fragment);
-      dlog('footnote.frag', { fragment, found: !!el, tag: el?.tagName ?? '' });
       if (el) return el;
     }
     if (!anchorFn) return null;
@@ -1437,7 +1401,6 @@ export class EngineHost {
     }
     const deadline = Date.now() + 4000;
     let tried = 0;
-    let failures = 0;
     let hit: { index: number; element: Element } | null = null;
     for (const i of order) {
       if (tried >= MAX_FOOTNOTE_SCAN || Date.now() > deadline) break;
@@ -1452,10 +1415,9 @@ export class EngineHost {
           break;
         }
       } catch {
-        failures += 1;
+        /* 这一章打不开就跳过，下一章还能命中 */
       }
     }
-    dlog('footnote.scan', { tried, failures, found: !!hit, index: hit?.index ?? -1 });
     return hit;
   }
 
@@ -1469,7 +1431,6 @@ export class EngineHost {
        要把父容器与兄弟一起转进来，候选评分才有东西可挑 */
     const node = domToFNode(el, { context: true });
     const text = resolveFootnoteText(node, label);
-    dlog('footnote.text', { tag: el.tagName, kids: el.childNodes.length, chars: text?.length ?? 0 });
     if (!text) return null;
     return { text, href, chapterIndex: index };
   }

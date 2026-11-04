@@ -480,7 +480,7 @@ export function installDomStub(): () => void {
   };
   const g = globalThis as unknown as Record<string, unknown>;
   const hadWindow = 'window' in g;
-  /* dlog 等模块会走 window.setTimeout；没有定时器时测试会以
+  /* 不少模块会走 window.setTimeout；没有定时器时测试会以
      「window.setTimeout is not a function」这种假故障炸掉。 */
   (g as { window?: unknown }).window = {
     innerWidth: 390,

@@ -31,7 +31,6 @@ import { coverPathOf, ensureCoverFromFoliate } from '../data/cover';
 import { speak, type SpeakHandle } from '../core/speak';
 import { notify } from '../core/notice';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
-import { dlog } from '../core/debug-log';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
 import { el, setHtml } from '../ui/dom';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
@@ -368,17 +367,6 @@ export class ReaderView extends ItemView {
         return;
       }
       this.tapCount += 1;
-      dlog('tap', {
-        zone,
-        src: info?.source ?? '?',
-        x: info ? Math.round(info.x) : -1,
-        w: info ? Math.round(info.width) : -1,
-        sx: info ? Math.round(info.scrollLeft) : -1,
-        in: info ? Math.round(info.within) : -1,
-        scr: info ? Math.round(info.screenX) : -1,
-        key: this.host.pageKey,
-        vertical: this.host.contentVertical,
-      });
       this.lastZone = zone === 'prev' ? 'U' : 'D';
       /* 连点就连续翻：去重已经在引擎侧按手势做过，这里不再压时间窗 */
       this.lastTurnAt = now;
@@ -402,11 +390,9 @@ export class ReaderView extends ItemView {
       this.lastKeyAfter = '';
       this.stopTts();
       /* 只翻一次：turn() 和这里各发一次的话，一按就是两页 */
-      dlog('turn', { dir, from: this.lastKeyBefore });
       const p = dir === 'prev' ? this.host.prev() : this.host.next();
       void p.then(() => {
         this.lastKeyAfter = this.host.pageKey;
-        dlog('turn.done', { dir, to: this.lastKeyAfter });
         this.tracker.touch();
         this.renderProbe();
       });
@@ -619,7 +605,6 @@ export class ReaderView extends ItemView {
     this.immersive = force ?? !this.immersive;
     /* 只释放自己这一份持有（A-27）：另一个阅读 tab 还沉浸时 class 必须留着 */
     const stillImmersive = updateImmersiveHolders(immersiveHolders, this, this.immersive);
-    dlog('immersive', { on: this.immersive });
     document.body.classList.toggle('bzr-immersive', stillImmersive);
   }
 
@@ -1430,7 +1415,6 @@ export class ReaderView extends ItemView {
         setShellState({ overlay: { kind: 'finish', bookId: book.id } });
       }
     }
-    if (info.chapterTitle) dlog('relocate', { key: this.host.pageKey, pct: Math.round(info.percent * 100) });
     /* 进度不再写 `book.updatedAt`（A-15）：跨设备合并按 updatedAt 取整本，
        翻一页就刷新它会让另一台设备刚写的标注整份丢掉。标注改的是
        `notesUpdatedAt`（data/notes.ts），两条时间线互不覆盖。 */

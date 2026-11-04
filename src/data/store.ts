@@ -27,7 +27,6 @@
  * ============================================================ */
 import type { App } from 'obsidian';
 import { notify } from '../core/notice';
-import { dlog } from '../core/debug-log';
 import { pluginVaultPath, storageDirOf } from '../core/plugin-path';
 import { copyTree } from './migrate';
 import { EMPTY_DATA, SCHEMA_VERSION, emptyReading, type ReaderBook, type ReaderData } from './schema';
@@ -347,7 +346,6 @@ export class ReaderStore {
       console.warn('[bz-reader] 老数据搬迁未完成，已跳过：', res.failed.slice(0, 3));
       return false;
     }
-    dlog('migrate', { dir: storageDirOf(this.app), files: res.files });
     return true;
   }
 
@@ -363,7 +361,6 @@ export class ReaderStore {
       const clean = this.parseText(await adapter.read(tmp));
       if (!clean) return null;
       await adapter.rename(tmp, this.filePath()).catch(() => undefined);
-      dlog('recover', { from: 'tmp' });
       this.dirty = true;
       return clean.data;
     } catch {
@@ -383,7 +380,6 @@ export class ReaderStore {
     if (text === null) return null;
     const clean = this.parseText(text);
     if (!clean) return null;
-    dlog('recover', { from: 'bak' });
     return clean;
   }
 

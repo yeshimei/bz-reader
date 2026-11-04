@@ -19,7 +19,7 @@
  * ============================================================ */
 import { Plugin, type WorkspaceLeaf } from 'obsidian';
 import { setApp } from './core/app';
-import { setPluginRelDir, dataDirOf, normalizeDataDir, setDataDir, DEFAULT_DATA_DIR, PLUGIN_ID } from './core/plugin-path';
+import { setPluginRelDir, dataDirOf, debugOpenPath, normalizeDataDir, setDataDir, DEFAULT_DATA_DIR, PLUGIN_ID } from './core/plugin-path';
 import { isMobileShell } from './core/mobile';
 import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
@@ -43,7 +43,6 @@ import { activateLicense as applyLicense, can, recordActivity, revalidateLicense
 import { normalizePluginData, type PluginDataFile } from './data/plugin-data';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
 import { installBlobSrcdocPatches, uninstallBlobSrcdocPatches } from './engine/blob-srcdoc';
-import { initDebugLog, isDebugLogEnabled, shutdownDebugLog } from './core/debug-log';
 import { openStats } from './ui/stats-panel';
 import { openCrossSearch } from './ui/cross-search-panel';
 
@@ -144,8 +143,6 @@ export function createPlugin(cfg: PluginConfig) {
       /* 移动端保命补丁：宿主 CSP 挡 blob 帧，章节必须以 srcdoc 落地。
          必须早于任何一次开书（拦 URL.createObjectURL 与 iframe.src）。 */
       installBlobSrcdocPatches();
-      /* 真机排查：关键动作落到库根目录的 bz-reader-debug.md */
-      initDebugLog(this.app);
       // 构建期能力 + 记一次活跃日（试用按「真的打开过的日子」算）
       setProBuild(cfg.pro);
       recordActivity();
@@ -296,8 +293,6 @@ export function createPlugin(cfg: PluginConfig) {
         /* 两个全局函数（createObjectURL / iframe.src）是我们改的，要还回去，
            否则禁用插件后它们还在收别的插件造的 Blob（P2-13） */
         uninstallBlobSrcdocPatches();
-        /* 日志的 window 监听要摘、缓冲区要 flush：否则禁用→再启用叠一层监听 */
-        shutdownDebugLog();
         /* 书架就是中心 tab 里的一个视图（VIEW_TYPE_STUDY），跟阅读视图一样是用户
            自己打开的——插件重载不该替他关掉。Obsidian 在插件停用时自己会把这些
            leaf 换成占位，我们 detach 只会让人丢掉布局。 */
@@ -918,18 +913,15 @@ export function createPlugin(cfg: PluginConfig) {
     }
 
     private async autoOpenIfRequested(): Promise<void> {
-      /* 调试钩子只在 debug 日志开关打开时生效（A-11）：它读的是插件目录里的
-         storage/debug-open.json，本来就不该在普通用户启动时执行——误留一份
-         就会「每次启动都替你开书」，而用户找不到原因。 */
-      if (!isDebugLogEnabled()) return;
+      /* 调试入口：往 <数据目录>/debug-open.json 写一份，启动时读一次就删。
+         读一次就删是有意的——误留一份在盘上，每次启动都会替用户开书，而他
+         会以为插件坏了，还找不到是谁干的。 */
       try {
-        const dir = this.manifest.dir;
-        if (!dir) return;
-        const path = `${dir}/storage/debug-open.json`;
+        const path = debugOpenPath(this.app);
         if (!(await this.app.vault.adapter.exists(path))) return;
         const raw = JSON.parse(await this.app.vault.adapter.read(path)) as { command?: string; bookId?: string };
         // 调试入口读一次就删：留着的话每次启动都会替你开书 / 开书架，
-        // 想正常启动还得去插件目录里手动删文件
+        // 想正常启动还得去数据目录里手动删文件
         await this.app.vault.adapter.remove(path);
         if (raw.command === 'open') this.openStudy();
         else if (raw.command === 'continue') await this.continueReading();

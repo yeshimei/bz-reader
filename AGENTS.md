@@ -52,12 +52,20 @@ New-Item -ItemType Junction -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules
 
 ## 6. 真机问题排查
 
-插件往库根目录写 `bz-reader-debug.md`（`boot / viewport / tap / turn / relocate / sel` 等）。复现一次，读日志按时间戳还原「点了哪儿 → 判成哪区 → 翻到哪页」，不要猜。
+**插件不往库里写日志**（`bz-reader-debug.md` 已移除），**插件目录也保持只读**——里面
+只有 Obsidian 自己的 `main.js` / `manifest.json` / `styles.css` / `data.json`，插件不往
+那里放任何自有文件。排查走这三条：
+
+- 控制台：桌面端 `Ctrl+Shift+I`；移动端用 `chrome://inspect` 连。
+- 阅读视图角标：`localStorage['bz-reader:debug-probe']='1'` 后重开书，屏幕上直接显示
+  点击次数、上下分区、翻页前后的位置指纹。
+- 调试入口：往 `<数据目录>/debug-open.json` 写
+  `{"command":"open"|"continue"|"book","bookId":"…"}`，下次启动执行一次后自删。
 
 两类已知坑（都源于 iframe 分页时被整体平移）：
 
 1. `clientX/clientY` 带平移量，不能当屏幕坐标用 → 用 `screenX/screenY`；
-2. 选区 rect 同理 → `sel` 日志记了 `gl/gt/gs/rl/rt/al/at`，对不上时按这几项定位。
+2. 选区 rect 同理 → 先过 `frameGeom()` 换回宿主坐标，别直接拿 `getClientRects()` 的值。
 
 ## 7. 移动端交互约定
 

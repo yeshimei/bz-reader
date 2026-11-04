@@ -110,4 +110,15 @@ export function storageDirOf(_app?: App): string {
   return dataDirOf();
 }
 
+/**
+ * 调试入口：`<数据目录>/debug-open.json`，写一次启动时读一次然后删掉。
+ *
+ * 以前它在 `<插件目录>/storage/` 下——重装插件时跟着一起没了，而且
+ * 插件目录应该是只读的（里面只有 Obsidian 自己的 main.js / manifest.json /
+ * data.json）。既然它是「下次启动做什么」的指令，就该和业务数据住一起。
+ */
+export function debugOpenPath(_app?: App): string {
+  return `${storageDirOf(_app)}/debug-open.json`;
+}
+
 export { PLUGIN_ID };

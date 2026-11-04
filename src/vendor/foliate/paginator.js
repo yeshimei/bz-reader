@@ -953,7 +953,6 @@ export class Paginator extends HTMLElement {
     }
 
     snap(vx, vy) {
-        globalThis.__bzrLog && globalThis.__bzrLog("paginator.snap", { vx: +Number(vx).toFixed(2), vy: +Number(vy).toFixed(2), page: this.page })
         const velocity = this.#vertical ? vy : vx
         const [offset, a, b] = this.#scrollBounds
         const { start, end, pages, size } = this
@@ -1022,7 +1021,6 @@ export class Paginator extends HTMLElement {
            判据用累计位移而不是「有没有 touchmove」：点按本身也带 1~3px 抖动。 */
         const movedDistance = this.#touchState?.moved ?? 0
         const tapOnly = !this.#touchScrolled || movedDistance < 12
-        globalThis.__bzrLog && globalThis.__bzrLog("paginator.touchend", { moved: Math.round(movedDistance), scrolled: this.#touchScrolled, tapOnly, page: this.page, pages: this.pages })
         this.#touchScrolled = false
         if (this.scrolled || tapOnly) return
 
@@ -1241,11 +1239,9 @@ export class Paginator extends HTMLElement {
         this.#locked = false
     }
     async prev(distance) {
-        globalThis.__bzrLog && globalThis.__bzrLog("paginator.prev", { page: this.page, pages: this.pages, atStart: this.atStart })
         return await this.#turnPage(-1, distance)
     }
     async next(distance) {
-        globalThis.__bzrLog && globalThis.__bzrLog("paginator.next", { page: this.page, pages: this.pages, atEnd: this.atEnd })
         return await this.#turnPage(1, distance)
     }
     prevSection() {
