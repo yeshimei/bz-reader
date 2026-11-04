@@ -160,4 +160,132 @@ export const EN: Record<MsgKey, string> = {
   'notice.group.trialFail': 'Copy failed. Group is {id} — join and ask an admin for a 7-day trial',
   'notice.group.plainOk': 'Copied group {id} — search for it in QQ to join',
   'notice.group.plainFail': 'Copy failed. Group is {id} — search for it in QQ to join',
+
+  /* ── Licence status ─────────────────────────────────────── */
+  'tier.base': 'Base',
+  'tier.paid': 'Pro activated{who} · {until}',
+  'tier.who': ' ({name})',
+  'tier.until': 'valid until {date}',
+  'tier.forever': 'perpetual',
+
+  /* ── Settings: about bar ────────────────────────────────── */
+  'settings.about': 'About',
+  'settings.about.version': 'Unknown version',
+  'settings.about.paid': 'Pro',
+  'settings.about.base': 'Base',
+  'settings.about.repo': 'Open the repository in your browser',
+  'settings.about.video': 'Video tutorial',
+  'settings.about.wip': 'In the works',
+  'settings.about.videoTip': 'The tutorial is still being edited — we will announce it in the group',
+  'settings.about.group': 'Community group',
+  'settings.about.groupTip': 'Click to copy the group number, then search for it in QQ',
+  'settings.about.changelog': 'Changelog',
+  'settings.about.changelogTip': 'See what changed in each release',
+
+  /* ── Settings: group headings ───────────────────────────── */
+  'settings.grp.ui': 'Interface',
+  'settings.grp.layout': 'Layout',
+  'settings.grp.look': 'Appearance',
+  'settings.grp.header': 'Reader toolbar',
+  'settings.grp.tts': 'Read aloud',
+  'settings.grp.marks': 'Highlights',
+  'settings.grp.ai': 'AI assistant',
+  'settings.grp.lic': 'License',
+  'settings.grp.data': 'Data',
+  'settings.grp.keys': 'Hotkeys',
+
+  /* ── Settings: interface ────────────────────────────────── */
+  'settings.language': 'Language',
+  'settings.language.auto': 'Follow Obsidian',
+  'settings.language.hint':
+    'With “Follow Obsidian” the host language decides. Picking one applies to the interface immediately; command names update after restarting Obsidian.',
+
+  /* ── Settings: layout ───────────────────────────────────── */
+  'settings.font': 'Font',
+  'settings.fontSize': 'Size',
+  'settings.lineHeight': 'Line height',
+  'settings.margin': 'Margins',
+  'settings.align': 'Alignment',
+  'settings.align.justify': 'Justified',
+  'settings.align.left': 'Left',
+  'settings.direction': 'Direction',
+  'settings.direction.h': 'Horizontal',
+  'settings.direction.v': 'Vertical',
+  'settings.columns': 'Columns',
+  'settings.columns.1': 'One',
+  'settings.columns.2': 'Two',
+  'settings.footnote': 'Footnotes',
+  'settings.footnote.popup': 'Popup above',
+  'settings.footnote.jump': 'Jump to chapter end',
+
+  /* ── Settings: appearance ───────────────────────────────── */
+  'settings.accent': 'Accent',
+
+  /* ── Settings: reader toolbar ───────────────────────────── */
+  'settings.header.hint':
+    'Toggle what appears; hidden icons move into the ⋮ menu on the right. Mobile shows at most 3.',
+
+  /* ── Settings: read aloud ───────────────────────────────── */
+  'settings.ttsRate': 'Speed',
+  'settings.ttsFollow': 'After this page',
+  'settings.ttsFollow.on': 'Keep reading',
+  'settings.ttsFollow.off': 'Stop at the end',
+  'settings.locked': 'Pro feature — click to see what it includes',
+
+  /* ── Settings: highlights ───────────────────────────────── */
+  'settings.pen': 'Default colour',
+  'settings.exportDir': 'Export folder',
+  'settings.pickFromList': 'Pick from the folder list',
+  'settings.pick': 'Choose…',
+  'settings.exportComments': 'Include notes in exports',
+  'settings.quoteLink': 'Excerpt link',
+  'settings.quoteLink.hint':
+    'Copies as a wikilink [[book#location]] — paste it into a note and click to jump back to the passage; it also shows up in the backlinks pane.',
+
+  /* ── Settings: AI ───────────────────────────────────────── */
+  'settings.ai.baseUrl': 'Provider',
+  'settings.ai.baseUrl.ph': 'Endpoint URL, starting with https://',
+  'settings.ai.model': 'Model',
+  'settings.ai.model.ph': 'A model name your account can use',
+  'settings.ai.key': 'Key',
+  'settings.ai.key.ph': 'API key',
+
+  /* ── Settings: license ──────────────────────────────────── */
+  'settings.lic.status': 'Status',
+  'settings.lic.code': 'License code',
+  'settings.lic.relicense': 'Re-activate',
+  'settings.lic.activate': 'Activate',
+  'settings.lic.paid': 'Pro',
+  'settings.lic.benefits': 'Export, stats, cross-book search, more formats',
+  'settings.lic.compare': 'Compare features',
+
+  /* ── Settings: data ─────────────────────────────────────── */
+  'settings.importDir': 'Import books into',
+  'settings.pickFolder': 'Pick a folder',
+  'settings.dataDir': 'Data folder',
+  'settings.backupRestore': 'Backup & restore',
+  'settings.backup': 'Back up',
+  'settings.backup.tip': 'Write a single JSON file into the data folder',
+  'settings.restore': 'Restore',
+  'settings.restore.tip': 'Restore from a backup file (merges; current progress is never overwritten)',
+  'settings.data.hint':
+    'A backup holds the shelf, progress, highlights, favourites and goals. It does not include your license code or AI key — re-enter those on a new device.',
+
+  /* ── Settings: hotkeys ──────────────────────────────────── */
+  'settings.key.unset': 'Not set',
+  'settings.key.tip': 'Change this in Obsidian’s hotkey settings',
+
+  /* ── Short command names for the hotkey rows ────────────── */
+  'key.pageNext': 'Next page',
+  'key.pagePrev': 'Previous page',
+  'key.open': 'Open shelf',
+  'key.search': 'Search (book / library)',
+  'key.sidebar': 'Show sidebar',
+  'key.focus': 'Focus mode',
+  'key.fullscreen': 'Fullscreen',
+  'key.bookmark': 'Add bookmark',
+  'key.typography': 'Typography',
+  'key.bookmap': 'Book overview',
+  'key.tts': 'Toggle read aloud',
+  'key.continue': 'Continue last book',
 };

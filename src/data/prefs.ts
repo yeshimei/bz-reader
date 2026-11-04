@@ -9,6 +9,10 @@
  * 少这一步的表现是「字号 400px，整页一个字」。
  * ============================================================ */
 
+/* 字体与强调色的档名走集中表（见下方 FONT_LABELS / ACCENT_LABELS）：成套选项
+   不进主语言包，`Record<Locale, string>` 保证八种语言都齐。 */
+import { locale, type Locale } from '../i18n';
+
 /**
  * 书页配色：只有一档「跟随 Obsidian」。
  *
@@ -102,10 +106,10 @@ export const MARGIN_RANGE = { min: 8, max: 120, step: 4 } as const;
 export const TTS_RATE_RANGE = { min: 0.6, max: 2, step: 0.1 } as const;
 
 /** 字体选项：值 → 注入 iframe 的 font-family；book = 不覆盖，跟随书自带 */
-export const FONT_FAMILIES: Array<{ value: FontFamilyName; label: string; css: string }> = [
-  { value: 'book', label: '跟随书籍', css: '' },
-  { value: 'serif', label: '宋体', css: '"Songti SC", "SimSun", "Noto Serif CJK SC", serif' },
-  { value: 'sans', label: '黑体', css: '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif' },
+export const FONT_FAMILIES: Array<{ value: FontFamilyName; css: string }> = [
+  { value: 'book', css: '' },
+  { value: 'serif', css: '"Songti SC", "SimSun", "Noto Serif CJK SC", serif' },
+  { value: 'sans', css: '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif' },
 ];
 
 /**
@@ -115,16 +119,89 @@ export const FONT_FAMILIES: Array<{ value: FontFamilyName; label: string; css: s
  * 阅读器的章题短线、首字、选中态跟着变，不会出现「紫主题配铜线」。
  * 自持的几档都给明暗两色：同一支朱砂在白底和炭底上不是一个明度。
  */
-export const ACCENT_OPTIONS: Array<{ value: AccentName; label: string; css: string; dark: string }> = [
-  { value: 'auto', label: '原生', css: '', dark: '' },
-  { value: 'copper', label: '铜金', css: '#9a7434', dark: '#c8a464' },
-  { value: 'vermilion', label: '朱砂', css: '#b0452f', dark: '#d9705a' },
-  { value: 'indigo', label: '黛蓝', css: '#3f5b8f', dark: '#8aa7d6' },
-  { value: 'moss', label: '苔青', css: '#4c6b52', dark: '#93b79a' },
-  { value: 'ink', label: '墨色', css: '#2f3338', dark: '#c9d0d8' },
-  { value: 'plum', label: '绛紫', css: '#8a3a4a', dark: '#d98a99' },
-  { value: 'celadon', label: '天青', css: '#3f7474', dark: '#8fc6c6' },
+export const ACCENT_OPTIONS: Array<{ value: AccentName; css: string; dark: string }> = [
+  { value: 'auto', css: '', dark: '' },
+  { value: 'copper', css: '#9a7434', dark: '#c8a464' },
+  { value: 'vermilion', css: '#b0452f', dark: '#d9705a' },
+  { value: 'indigo', css: '#3f5b8f', dark: '#8aa7d6' },
+  { value: 'moss', css: '#4c6b52', dark: '#93b79a' },
+  { value: 'ink', css: '#2f3338', dark: '#c9d0d8' },
+  { value: 'plum', css: '#8a3a4a', dark: '#d98a99' },
+  { value: 'celadon', css: '#3f7474', dark: '#8fc6c6' },
 ];
+
+/**
+ * 字体档名与强调色档名走**集中表**，不进主语言包。
+ *
+ * 与颜色名同一个理由：成套的选项拆进八种语言后，「某个包漏翻一项」不会
+ * 让 tsc 报错（key 还在），只会让德语用户在某一个档位上看到中文。
+ * `Record<Locale, string>` 把「八种齐」变成类型约束。
+ *
+ * 宋体/黑体这类**中文字体名**对西文用户无意义，所以那边译成 Serif / Sans；
+ * 日语仍用明朝体／ゴシック体（人家的书写习惯）。
+ */
+const FONT_LABELS: Record<FontFamilyName, Record<Locale, string>> = {
+  book: {
+    zh: '跟随书籍',
+    'zh-TW': '跟隨書籍',
+    en: 'Book default',
+    ja: '書籍に合わせる',
+    de: 'Buchschrift',
+    fr: 'Texte du livre',
+    es: 'Fuente del libro',
+    pt: 'Fonte do livro',
+  },
+  serif: { zh: '宋体', 'zh-TW': '宋體', en: 'Serif', ja: '明朝体', de: 'Serif', fr: 'Serif', es: 'Serif', pt: 'Serif' },
+  sans: { zh: '黑体', 'zh-TW': '黑體', en: 'Sans', ja: 'ゴシック体', de: 'Sans', fr: 'Sans', es: 'Sans', pt: 'Sans' },
+};
+
+const ACCENT_LABELS: Record<AccentName, Record<Locale, string>> = {
+  auto: {
+    zh: '原生',
+    'zh-TW': '原生',
+    en: 'Native',
+    ja: 'ホストに合わせる',
+    de: 'System',
+    fr: 'Système',
+    es: 'Sistema',
+    pt: 'Sistema',
+  },
+  copper: { zh: '铜金', 'zh-TW': '銅金', en: 'Copper', ja: '銅金', de: 'Kupfer', fr: 'Cuivre', es: 'Cobre', pt: 'Cobre' },
+  vermilion: {
+    zh: '朱砂',
+    'zh-TW': '朱砂',
+    en: 'Vermilion',
+    ja: '朱砂',
+    de: 'Zinnober',
+    fr: 'Vermillon',
+    es: 'Bermellón',
+    pt: 'Vermelhão',
+  },
+  indigo: { zh: '黛蓝', 'zh-TW': '黛藍', en: 'Indigo', ja: '黛藍', de: 'Indigo', fr: 'Indigo', es: 'Índigo', pt: 'Anil' },
+  moss: { zh: '苔青', 'zh-TW': '苔青', en: 'Moss', ja: '苔青', de: 'Moos', fr: 'Mousse', es: 'Musgo', pt: 'Musgo' },
+  ink: { zh: '墨色', 'zh-TW': '墨色', en: 'Ink', ja: '墨色', de: 'Tusche', fr: 'Encre', es: 'Tinta', pt: 'Tinta' },
+  plum: { zh: '绛紫', 'zh-TW': '絳紫', en: 'Plum', ja: '紅紫', de: 'Pflaume', fr: 'Prune', es: 'Ciruela', pt: 'Ameixa' },
+  celadon: {
+    zh: '天青',
+    'zh-TW': '天青',
+    en: 'Celadon',
+    ja: '天青',
+    de: 'Seladon',
+    fr: 'Céladon',
+    es: 'Celadón',
+    pt: 'Celadon',
+  },
+};
+
+/** 字体档名 → 当前界面语言的说法 */
+export function fontLabel(value: FontFamilyName): string {
+  return FONT_LABELS[value]?.[locale()] ?? FONT_LABELS[value]?.zh ?? String(value);
+}
+
+/** 强调色档名 → 当前界面语言的说法 */
+export function accentLabel(value: AccentName): string {
+  return ACCENT_LABELS[value]?.[locale()] ?? ACCENT_LABELS[value]?.zh ?? String(value);
+}
 
 /**
  * 旧书页主题名 → 'auto'。

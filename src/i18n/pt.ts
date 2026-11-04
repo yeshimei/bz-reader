@@ -155,4 +155,132 @@ export const PT: Record<MsgKey, string> = {
   'notice.group.trialFail': 'Falha ao copiar. O grupo é {id} — entre e peça a um administrador um teste de 7 dias',
   'notice.group.plainOk': 'Número do grupo {id} copiado — pesquise no QQ para entrar',
   'notice.group.plainFail': 'Falha ao copiar. O grupo é {id} — pesquise no QQ para entrar',
+
+  /* ── Status da licença ──────────────────────────────────── */
+  'tier.base': 'Base',
+  'tier.paid': 'Pro ativado{who} · {until}',
+  'tier.who': ' ({name})',
+  'tier.until': 'válido até {date}',
+  'tier.forever': 'permanente',
+
+  /* ── Configurações: faixa Sobre ─────────────────────────── */
+  'settings.about': 'Sobre',
+  'settings.about.version': 'Versão desconhecida',
+  'settings.about.paid': 'Pro',
+  'settings.about.base': 'Base',
+  'settings.about.repo': 'Abrir o repositório no navegador',
+  'settings.about.video': 'Tutorial em vídeo',
+  'settings.about.wip': 'Em produção',
+  'settings.about.videoTip': 'O tutorial ainda está em edição — avisaremos no grupo',
+  'settings.about.group': 'Comunidade',
+  'settings.about.groupTip': 'Clique para copiar o número do grupo e pesquise no QQ',
+  'settings.about.changelog': 'Registro de versões',
+  'settings.about.changelogTip': 'Ver o que mudou em cada versão',
+
+  /* ── Configurações: títulos de grupo ────────────────────── */
+  'settings.grp.ui': 'Interface',
+  'settings.grp.layout': 'Composição',
+  'settings.grp.look': 'Aparência',
+  'settings.grp.header': 'Barra de ferramentas',
+  'settings.grp.tts': 'Leitura em voz alta',
+  'settings.grp.marks': 'Destaques',
+  'settings.grp.ai': 'Assistente de IA',
+  'settings.grp.lic': 'Licença',
+  'settings.grp.data': 'Dados',
+  'settings.grp.keys': 'Atalhos',
+
+  /* ── Configurações: interface ───────────────────────────── */
+  'settings.language': 'Idioma',
+  'settings.language.auto': 'Seguir o Obsidian',
+  'settings.language.hint':
+    'Com «Seguir o Obsidian» o idioma do anfitrião decide. Uma escolha manual aplica-se logo à interface; os nomes dos comandos, após reiniciar o Obsidian.',
+
+  /* ── Configurações: composição ──────────────────────────── */
+  'settings.font': 'Fonte',
+  'settings.fontSize': 'Tamanho',
+  'settings.lineHeight': 'Entrelinha',
+  'settings.margin': 'Margens',
+  'settings.align': 'Alinhamento',
+  'settings.align.justify': 'Justificado',
+  'settings.align.left': 'Esquerda',
+  'settings.direction': 'Direção',
+  'settings.direction.h': 'Horizontal',
+  'settings.direction.v': 'Vertical',
+  'settings.columns': 'Colunas',
+  'settings.columns.1': 'Uma',
+  'settings.columns.2': 'Duas',
+  'settings.footnote': 'Notas de rodapé',
+  'settings.footnote.popup': 'Janela acima',
+  'settings.footnote.jump': 'Ir para o fim do capítulo',
+
+  /* ── Configurações: aparência ───────────────────────────── */
+  'settings.accent': 'Cor de destaque',
+
+  /* ── Configurações: barra de ferramentas ────────────────── */
+  'settings.header.hint': 'Escolhe quais ícones aparecem; os ocultos vão para o menu ⋮ à direita. No celular, no máximo três.',
+
+  /* ── Configurações: leitura em voz alta ─────────────────── */
+  'settings.ttsRate': 'Velocidade',
+  'settings.ttsFollow': 'Depois desta página',
+  'settings.ttsFollow.on': 'Continuar lendo',
+  'settings.ttsFollow.off': 'Parar aqui',
+  'settings.locked': 'Recurso Pro — clique para ver o que inclui',
+
+  /* ── Configurações: destaques ───────────────────────────── */
+  'settings.pen': 'Cor padrão',
+  'settings.exportDir': 'Pasta de exportação',
+  'settings.pickFromList': 'Escolher da lista de pastas',
+  'settings.pick': 'Escolher…',
+  'settings.exportComments': 'Incluir notas na exportação',
+  'settings.quoteLink': 'Link de citação',
+  'settings.quoteLink.hint':
+    'Copiado como wikilink [[book#location]] — cole numa nota e clique para voltar ao trecho; também aparece nos backlinks.',
+
+  /* ── Configurações: IA ──────────────────────────────────── */
+  'settings.ai.baseUrl': 'Provedor',
+  'settings.ai.baseUrl.ph': 'URL do endpoint, começando com https://',
+  'settings.ai.model': 'Modelo',
+  'settings.ai.model.ph': 'Um nome de modelo que sua conta possa usar',
+  'settings.ai.key': 'Chave',
+  'settings.ai.key.ph': 'Chave de API',
+
+  /* ── Configurações: licença ─────────────────────────────── */
+  'settings.lic.status': 'Status',
+  'settings.lic.code': 'Código de licença',
+  'settings.lic.relicense': 'Reativar',
+  'settings.lic.activate': 'Ativar',
+  'settings.lic.paid': 'Pro',
+  'settings.lic.benefits': 'Exportação, estatísticas, pesquisa entre livros, mais formatos',
+  'settings.lic.compare': 'Comparar recursos',
+
+  /* ── Configurações: dados ───────────────────────────────── */
+  'settings.importDir': 'Importar livros para',
+  'settings.pickFolder': 'Escolher uma pasta',
+  'settings.dataDir': 'Pasta de dados',
+  'settings.backupRestore': 'Backup e restauração',
+  'settings.backup': 'Fazer backup',
+  'settings.backup.tip': 'Grava um arquivo JSON na pasta de dados',
+  'settings.restore': 'Restaurar',
+  'settings.restore.tip':
+    'Restaurar de um arquivo de backup (mescla, nunca sobrescreve o progresso atual)',
+  'settings.data.hint':
+    'O backup inclui a estante, o progresso, os destaques, os favoritos e as metas. Não inclui o código de licença nem a chave de IA — informe-os de novo em outro dispositivo.',
+
+  /* ── Configurações: atalhos ─────────────────────────────── */
+  'settings.key.unset': 'Não definido',
+  'settings.key.tip': 'Altere nos atalhos do Obsidian',
+
+  /* ── Nomes curtos para as linhas de atalhos ─────────────── */
+  'key.pageNext': 'Próxima página',
+  'key.pagePrev': 'Página anterior',
+  'key.open': 'Abrir a estante',
+  'key.search': 'Pesquisar (livro / biblioteca)',
+  'key.sidebar': 'Mostrar o painel lateral',
+  'key.focus': 'Modo concentração',
+  'key.fullscreen': 'Tela cheia',
+  'key.bookmark': 'Adicionar marcador',
+  'key.typography': 'Tipografia',
+  'key.bookmap': 'Visão geral do livro',
+  'key.tts': 'Ativar a leitura em voz alta',
+  'key.continue': 'Continuar a última leitura',
 };

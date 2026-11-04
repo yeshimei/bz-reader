@@ -151,4 +151,128 @@ export const ZH_TW: Record<MsgKey, string> = {
   'notice.group.trialFail': '複製失敗，群號是 {id}，進群找管理員領取 7 天試用',
   'notice.group.plainOk': '已複製群號 {id}，到 QQ 搜尋就能加入',
   'notice.group.plainFail': '複製失敗，群號是 {id}，到 QQ 搜尋加入',
+
+  /* ── 授權狀態 ────────────────────────────────────────────── */
+  'tier.base': '基礎版',
+  'tier.paid': '高級版已啟用{who} · {until}',
+  'tier.who': '（{name}）',
+  'tier.until': '有效期到 {date}',
+  'tier.forever': '永久有效',
+
+  /* ── 設定頁：關於列 ──────────────────────────────────────── */
+  'settings.about': '關於',
+  'settings.about.version': '版本未知',
+  'settings.about.paid': '高級版',
+  'settings.about.base': '基礎版',
+  'settings.about.repo': '在瀏覽器裡開啟倉庫',
+  'settings.about.video': '影片教學',
+  'settings.about.wip': '製作中',
+  'settings.about.videoTip': '教學還在剪，做好會在交流群裡通知',
+  'settings.about.group': '交流群',
+  'settings.about.groupTip': '點一下複製群號，去 QQ 搜尋',
+  'settings.about.changelog': '更新日誌',
+  'settings.about.changelogTip': '看看每一版改了什麼',
+
+  /* ── 設定頁：分組標題 ────────────────────────────────────── */
+  'settings.grp.ui': '介面',
+  'settings.grp.layout': '版式',
+  'settings.grp.look': '外觀',
+  'settings.grp.header': '閱讀頁圖示',
+  'settings.grp.tts': '朗讀',
+  'settings.grp.marks': '標註',
+  'settings.grp.ai': 'AI 助手',
+  'settings.grp.lic': '授權',
+  'settings.grp.data': '資料',
+  'settings.grp.keys': '快速鍵',
+
+  /* ── 設定頁：介面 ────────────────────────────────────────── */
+  'settings.language': '語言',
+  'settings.language.auto': '跟隨 Obsidian',
+  'settings.language.hint': '選「跟隨 Obsidian」時由宿主語言決定；手動選擇後介面立即生效，指令名稱需重新啟動 Obsidian 才更新。',
+
+  /* ── 設定頁：版式 ────────────────────────────────────────── */
+  'settings.font': '字體',
+  'settings.fontSize': '字級',
+  'settings.lineHeight': '行距',
+  'settings.margin': '頁邊距',
+  'settings.align': '對齊',
+  'settings.align.justify': '兩端',
+  'settings.align.left': '靠左',
+  'settings.direction': '方向',
+  'settings.direction.h': '橫排',
+  'settings.direction.v': '豎排',
+  'settings.columns': '分欄',
+  'settings.columns.1': '單欄',
+  'settings.columns.2': '雙欄',
+  'settings.footnote': '腳註',
+  'settings.footnote.popup': '上方浮窗',
+  'settings.footnote.jump': '跳到章末',
+
+  /* ── 設定頁：外觀 ────────────────────────────────────────── */
+  'settings.accent': '強調色',
+
+  /* ── 設定頁：閱讀頁圖示 ──────────────────────────────────── */
+  'settings.header.hint': '開關控制顯示 / 收起；收起的進最右側 ⋮（Obsidian 內建的更多選單）。行動端最多露 3 顆。',
+
+  /* ── 設定頁：朗讀 ────────────────────────────────────────── */
+  'settings.ttsRate': '語速',
+  'settings.ttsFollow': '朗讀跟隨',
+  'settings.ttsFollow.on': '念完續頁',
+  'settings.ttsFollow.off': '只念本頁',
+  'settings.locked': '高級版功能：點一下看看包含什麼',
+
+  /* ── 設定頁：標註 ────────────────────────────────────────── */
+  'settings.pen': '預設筆色',
+  'settings.exportDir': '匯出目錄',
+  'settings.pickFromList': '從資料夾清單裡選',
+  'settings.pick': '選擇…',
+  'settings.exportComments': '匯出時帶上想法',
+  'settings.quoteLink': '摘錄連結',
+  'settings.quoteLink.hint': '複製成雙鏈 [[書#定位]]，貼進筆記點一下跳回原句，反向連結面板也看得見',
+
+  /* ── 設定頁：AI ──────────────────────────────────────────── */
+  'settings.ai.baseUrl': '服務商',
+  'settings.ai.baseUrl.ph': '填寫服務商介面位址，以 https:// 開頭',
+  'settings.ai.model': '模型',
+  'settings.ai.model.ph': '填寫你的帳號可用的模型名稱',
+  'settings.ai.key': '金鑰',
+  'settings.ai.key.ph': '填寫 API 金鑰',
+
+  /* ── 設定頁：授權 ────────────────────────────────────────── */
+  'settings.lic.status': '狀態',
+  'settings.lic.code': '啟用碼',
+  'settings.lic.relicense': '重新啟用',
+  'settings.lic.activate': '啟用',
+  'settings.lic.paid': '高級版',
+  'settings.lic.benefits': '匯出、統計、跨書搜尋、多格式等',
+  'settings.lic.compare': '查看功能對照',
+
+  /* ── 設定頁：資料 ────────────────────────────────────────── */
+  'settings.importDir': '書籍匯入位置',
+  'settings.pickFolder': '選擇一個資料夾',
+  'settings.dataDir': '資料目錄',
+  'settings.backupRestore': '備份與還原',
+  'settings.backup': '備份',
+  'settings.backup.tip': '匯出成一份 JSON，存進資料目錄',
+  'settings.restore': '還原',
+  'settings.restore.tip': '從備份檔還原（合併，不覆蓋現有進度）',
+  'settings.data.hint': '備份含書架、進度、標註、收藏與目標。不含啟用碼和 AI 金鑰，換裝置需重填。',
+
+  /* ── 設定頁：快速鍵 ──────────────────────────────────────── */
+  'settings.key.unset': '未設定',
+  'settings.key.tip': '在 Obsidian 的快速鍵設定裡改',
+
+  /* ── 快速鍵列的命令短名 ──────────────────────────────────── */
+  'key.pageNext': '下一頁',
+  'key.pagePrev': '上一頁',
+  'key.open': '開啟書架',
+  'key.search': '搜尋（本書／全庫）',
+  'key.sidebar': '顯示左側欄',
+  'key.focus': '專注模式',
+  'key.fullscreen': '全螢幕',
+  'key.bookmark': '記一枚書籤',
+  'key.typography': '排版面板',
+  'key.bookmap': '全書鳥瞰',
+  'key.tts': '朗讀開關',
+  'key.continue': '繼續閱讀最近一本',
 };

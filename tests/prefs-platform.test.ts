@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACCENT_OPTIONS, DEFAULT_PREFS, pickPrefs } from '../src/data/prefs';
+import { ACCENT_OPTIONS, accentLabel, DEFAULT_PREFS, pickPrefs } from '../src/data/prefs';
 
 /**
  * 桌面与移动各一套偏好：同一份数据文件里两个槽，互不覆盖。
@@ -37,7 +37,8 @@ describe('pickPrefs：按平台取偏好', () => {
 describe('强调色', () => {
   it('八档，第一档叫「原生」（不再叫「跟随 Obsidian」）', () => {
     expect(ACCENT_OPTIONS).toHaveLength(8);
-    expect(ACCENT_OPTIONS[0]).toMatchObject({ value: 'auto', label: '原生' });
-    expect(ACCENT_OPTIONS.map((a) => a.label)).not.toContain('跟随 Obsidian');
+    expect(ACCENT_OPTIONS[0].value).toBe('auto');
+    expect(accentLabel('auto')).toBe('原生');
+    expect(ACCENT_OPTIONS.map((a) => accentLabel(a.value))).not.toContain('跟随 Obsidian');
   });
 });

@@ -155,4 +155,132 @@ export const DE: Record<MsgKey, string> = {
   'notice.group.trialFail': 'Kopieren fehlgeschlagen. Gruppe ist {id} – tritt bei und frage einen Admin nach einem 7-Tage-Test',
   'notice.group.plainOk': 'Gruppennummer {id} kopiert – suche sie in QQ, um beizutreten',
   'notice.group.plainFail': 'Kopieren fehlgeschlagen. Gruppe ist {id} – suche sie in QQ, um beizutreten',
+
+  /* ── Lizenzstatus ───────────────────────────────────────── */
+  'tier.base': 'Basis',
+  'tier.paid': 'Pro aktiviert{who} · {until}',
+  'tier.who': ' ({name})',
+  'tier.until': 'gültig bis {date}',
+  'tier.forever': 'unbefristet',
+
+  /* ── Einstellungen: Über-Leiste ─────────────────────────── */
+  'settings.about': 'Über',
+  'settings.about.version': 'Version unbekannt',
+  'settings.about.paid': 'Pro',
+  'settings.about.base': 'Basis',
+  'settings.about.repo': 'Repository im Browser öffnen',
+  'settings.about.video': 'Video-Tutorial',
+  'settings.about.wip': 'In Arbeit',
+  'settings.about.videoTip': 'Das Tutorial wird noch geschnitten – wir kündigen es in der Gruppe an',
+  'settings.about.group': 'Community',
+  'settings.about.groupTip': 'Klicken, um die Gruppennummer zu kopieren, dann in QQ suchen',
+  'settings.about.changelog': 'Changelog',
+  'settings.about.changelogTip': 'Änderungen der einzelnen Versionen ansehen',
+
+  /* ── Einstellungen: Gruppenüberschriften ────────────────── */
+  'settings.grp.ui': 'Oberfläche',
+  'settings.grp.layout': 'Satz',
+  'settings.grp.look': 'Aussehen',
+  'settings.grp.header': 'Werkzeugleiste',
+  'settings.grp.tts': 'Vorlesen',
+  'settings.grp.marks': 'Markierungen',
+  'settings.grp.ai': 'KI-Assistent',
+  'settings.grp.lic': 'Lizenz',
+  'settings.grp.data': 'Daten',
+  'settings.grp.keys': 'Tastenkürzel',
+
+  /* ── Einstellungen: Oberfläche ──────────────────────────── */
+  'settings.language': 'Sprache',
+  'settings.language.auto': 'Obsidian folgen',
+  'settings.language.hint':
+    'Bei „Obsidian folgen" entscheidet die Sprache des Hosts. Eine eigene Wahl wirkt sofort auf die Oberfläche; Befehlsnamen erst nach einem Neustart von Obsidian.',
+
+  /* ── Einstellungen: Satz ────────────────────────────────── */
+  'settings.font': 'Schrift',
+  'settings.fontSize': 'Größe',
+  'settings.lineHeight': 'Zeilenabstand',
+  'settings.margin': 'Ränder',
+  'settings.align': 'Ausrichtung',
+  'settings.align.justify': 'Blocksatz',
+  'settings.align.left': 'Linksbündig',
+  'settings.direction': 'Richtung',
+  'settings.direction.h': 'Waagerecht',
+  'settings.direction.v': 'Senkrecht',
+  'settings.columns': 'Spalten',
+  'settings.columns.1': 'Eine',
+  'settings.columns.2': 'Zwei',
+  'settings.footnote': 'Fußnoten',
+  'settings.footnote.popup': 'Pop-up oben',
+  'settings.footnote.jump': 'Zum Kapitelende',
+
+  /* ── Einstellungen: Aussehen ────────────────────────────── */
+  'settings.accent': 'Akzentfarbe',
+
+  /* ── Einstellungen: Werkzeugleiste ──────────────────────── */
+  'settings.header.hint': 'Legt fest, welche Symbole erscheinen; ausgeblendete wandern ins ⋮-Menü rechts. Mobil höchstens 3.',
+
+  /* ── Einstellungen: Vorlesen ────────────────────────────── */
+  'settings.ttsRate': 'Tempo',
+  'settings.ttsFollow': 'Nach dieser Seite',
+  'settings.ttsFollow.on': 'Weiterlesen',
+  'settings.ttsFollow.off': 'Hier stoppen',
+  'settings.locked': 'Pro-Funktion – klicken, um den Umfang zu sehen',
+
+  /* ── Einstellungen: Markierungen ────────────────────────── */
+  'settings.pen': 'Standardfarbe',
+  'settings.exportDir': 'Exportordner',
+  'settings.pickFromList': 'Aus der Ordnerliste wählen',
+  'settings.pick': 'Wählen…',
+  'settings.exportComments': 'Notizen beim Export einschließen',
+  'settings.quoteLink': 'Zitatlink',
+  'settings.quoteLink.hint':
+    'Wird als Wikilink [[book#location]] kopiert – in eine Notiz einfügen und anklicken, um zur Stelle zurückzuspringen; erscheint auch in den Backlinks.',
+
+  /* ── Einstellungen: KI ──────────────────────────────────── */
+  'settings.ai.baseUrl': 'Anbieter',
+  'settings.ai.baseUrl.ph': 'Endpunkt-URL, beginnend mit https://',
+  'settings.ai.model': 'Modell',
+  'settings.ai.model.ph': 'Ein Modellname, den dein Konto nutzen kann',
+  'settings.ai.key': 'Schlüssel',
+  'settings.ai.key.ph': 'API-Schlüssel',
+
+  /* ── Einstellungen: Lizenz ──────────────────────────────── */
+  'settings.lic.status': 'Status',
+  'settings.lic.code': 'Lizenzschlüssel',
+  'settings.lic.relicense': 'Erneut aktivieren',
+  'settings.lic.activate': 'Aktivieren',
+  'settings.lic.paid': 'Pro',
+  'settings.lic.benefits': 'Export, Statistik, buchübergreifende Suche, weitere Formate',
+  'settings.lic.compare': 'Funktionen vergleichen',
+
+  /* ── Einstellungen: Daten ───────────────────────────────── */
+  'settings.importDir': 'Bücher importieren nach',
+  'settings.pickFolder': 'Ordner wählen',
+  'settings.dataDir': 'Datenordner',
+  'settings.backupRestore': 'Sicherung & Wiederherstellung',
+  'settings.backup': 'Sichern',
+  'settings.backup.tip': 'Schreibt eine JSON-Datei in den Datenordner',
+  'settings.restore': 'Wiederherstellen',
+  'settings.restore.tip':
+    'Aus einer Sicherungsdatei wiederherstellen (führt zusammen, überschreibt den aktuellen Fortschritt nie)',
+  'settings.data.hint':
+    'Eine Sicherung enthält Regal, Fortschritt, Markierungen, Favoriten und Ziele. Lizenzschlüssel und KI-Schlüssel sind nicht enthalten – auf einem neuen Gerät erneut eingeben.',
+
+  /* ── Einstellungen: Tastenkürzel ────────────────────────── */
+  'settings.key.unset': 'Nicht belegt',
+  'settings.key.tip': 'In den Tastenkürzel-Einstellungen von Obsidian ändern',
+
+  /* ── Kurze Befehlsnamen für die Kürzelzeilen ────────────── */
+  'key.pageNext': 'Nächste Seite',
+  'key.pagePrev': 'Vorherige Seite',
+  'key.open': 'Regal öffnen',
+  'key.search': 'Suche (Buch / Bibliothek)',
+  'key.sidebar': 'Seitenleiste anzeigen',
+  'key.focus': 'Fokusmodus',
+  'key.fullscreen': 'Vollbild',
+  'key.bookmark': 'Lesezeichen setzen',
+  'key.typography': 'Typografie',
+  'key.bookmap': 'Buchübersicht',
+  'key.tts': 'Vorlesen umschalten',
+  'key.continue': 'Zuletzt Gelesenes fortsetzen',
 };

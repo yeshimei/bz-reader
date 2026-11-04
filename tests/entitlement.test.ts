@@ -4,11 +4,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  CAP_LABEL,
   PLAN_TABLE,
   PURCHASE_URL,
   activateLicense,
   can,
+  capLabel,
   clearLicense,
   entitlement,
   revalidateLicense,
@@ -102,7 +102,8 @@ describe('发行信息', () => {
 
 describe('界面文案', () => {
   it('全书鸟瞰不再混英文（Book Map 只在代码里当标识）', () => {
-    expect(CAP_LABEL.bookmap).not.toMatch(/Book\s*Map/i);
+    expect(capLabel('bookmap')).not.toMatch(/Book\s*Map/i);
+    expect(capLabel('bookmap')).toContain('全书鸟瞰');
     const row = PLAN_TABLE.find((r) => r.cap === 'bookmap');
     expect(row?.name).not.toMatch(/Book\s*Map/i);
     expect(row?.name).toContain('全书鸟瞰');
@@ -123,7 +124,7 @@ describe('界面文案', () => {
   it('AI 行覆盖回答、摘要、解释、翻译四件事', () => {
     const ai = PLAN_TABLE.find((r) => r.cap === 'ai');
     for (const word of ['回答', '摘要', '解释', '翻译']) expect(ai?.name).toContain(word);
-    expect(CAP_LABEL.ai).toContain('回答');
+    expect(capLabel('ai')).toContain('回答');
   });
 });
 

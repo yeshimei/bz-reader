@@ -35,7 +35,7 @@ import { flipSetting } from './settings-toggle';
 import { rangeFill } from './range-fill';
 import { openHotkeySettings } from '../core/hotkeys';
 import { pickFolder } from '../core/folder-pick';
-import { CAP_LABEL, PURCHASE_URL, REPO_URL, can, type Cap } from '../data/entitlement';
+import { PURCHASE_URL, REPO_URL, can, capLabel, type Cap } from '../data/entitlement';
 import { HEADER_ACTION_IDS } from '../view/header-actions';
 import type { ReaderPrefs } from '../data/prefs';
 import { linkInline, snippet, targetOfMark } from '../data/deeplink';
@@ -188,7 +188,7 @@ function colorLabel(v: string): string {
  */
 export function requireCap(cap: Cap): boolean {
   if (can(cap)) return true;
-  openOverlay({ kind: 'unlock', mode: cap, text: CAP_LABEL[cap] });
+  openOverlay({ kind: 'unlock', mode: cap, text: capLabel(cap) });
   return false;
 }
 

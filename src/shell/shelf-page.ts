@@ -8,6 +8,7 @@
  * 输出是 HTML，谁承载谁负责挂，再换容器不用重写这一页。
  * ============================================================ */
 import type { ReaderBook } from '../data/schema';
+import { t } from '../i18n';
 import { collectStats } from '../data/stats';
 import { can } from '../data/entitlement';
 import { filterRows, toRows } from './adapt';
@@ -81,7 +82,12 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
           prefs: shellPrefs(),
           settings: shellSettings(),
           pen: state.pen,
-          hotkeys: readHotkeys(app, KEY_COMMANDS),
+          /* 命令名在这里求值而不是存进 KEY_COMMANDS：切语言后重绘设置页
+             就能看到新名字，不必等重启。 */
+          hotkeys: readHotkeys(
+            app,
+            KEY_COMMANDS.map((c) => ({ id: c.id, label: t(c.key), builtin: c.builtin })),
+          ),
           relicense: state.relicense,
           version: getShellSource()?.version?.() || '',
         }),

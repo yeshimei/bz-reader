@@ -154,4 +154,131 @@ export const JA: Record<MsgKey, string> = {
   'notice.group.trialFail': 'コピーできませんでした。グループ番号は {id} です。参加して管理者に 7 日間の試用をお求めください',
   'notice.group.plainOk': 'グループ番号 {id} をコピーしました。QQ で検索して参加できます',
   'notice.group.plainFail': 'コピーできませんでした。グループ番号は {id} です。QQ で検索して参加してください',
+
+  /* ── ライセンス状態 ─────────────────────────────────────── */
+  'tier.base': 'ベーシック版',
+  'tier.paid': 'プロ版 有効{who} · {until}',
+  'tier.who': '（{name}）',
+  'tier.until': '{date} まで有効',
+  'tier.forever': '無期限',
+
+  /* ── 設定：概要バー ─────────────────────────────────────── */
+  'settings.about': '概要',
+  'settings.about.version': 'バージョン不明',
+  'settings.about.paid': 'プロ版',
+  'settings.about.base': 'ベーシック版',
+  'settings.about.repo': 'ブラウザでリポジトリを開く',
+  'settings.about.video': '動画チュートリアル',
+  'settings.about.wip': '制作中',
+  'settings.about.videoTip': 'チュートリアルは編集中です。完成したら交流グループでお知らせします',
+  'settings.about.group': '交流グループ',
+  'settings.about.groupTip': 'クリックでグループ番号をコピー。QQ で検索してください',
+  'settings.about.changelog': '更新履歴',
+  'settings.about.changelogTip': '各バージョンの変更点を見る',
+
+  /* ── 設定：グループ見出し ───────────────────────────────── */
+  'settings.grp.ui': '表示',
+  'settings.grp.layout': '組版',
+  'settings.grp.look': '外観',
+  'settings.grp.header': 'リーダーのツールバー',
+  'settings.grp.tts': '読み上げ',
+  'settings.grp.marks': 'ハイライト',
+  'settings.grp.ai': 'AI アシスタント',
+  'settings.grp.lic': 'ライセンス',
+  'settings.grp.data': 'データ',
+  'settings.grp.keys': 'ホットキー',
+
+  /* ── 設定：表示 ─────────────────────────────────────────── */
+  'settings.language': '言語',
+  'settings.language.auto': 'Obsidian に合わせる',
+  'settings.language.hint':
+    '「Obsidian に合わせる」では Obsidian の言語に従います。手動で選ぶと表示はすぐ切り替わり、コマンド名は Obsidian の再起動後に反映されます。',
+
+  /* ── 設定：組版 ─────────────────────────────────────────── */
+  'settings.font': 'フォント',
+  'settings.fontSize': '文字サイズ',
+  'settings.lineHeight': '行間',
+  'settings.margin': '余白',
+  'settings.align': '行揃え',
+  'settings.align.justify': '両端揃え',
+  'settings.align.left': '左揃え',
+  'settings.direction': '組方向',
+  'settings.direction.h': '横組み',
+  'settings.direction.v': '縦組み',
+  'settings.columns': '段組',
+  'settings.columns.1': '1 段',
+  'settings.columns.2': '2 段',
+  'settings.footnote': '脚注',
+  'settings.footnote.popup': '上にポップアップ',
+  'settings.footnote.jump': '章末へ移動',
+
+  /* ── 設定：外観 ─────────────────────────────────────────── */
+  'settings.accent': 'アクセント色',
+
+  /* ── 設定：リーダーのツールバー ─────────────────────────── */
+  'settings.header.hint': '表示するアイコンを切り替えます。隠したものは右端の ⋮ に入ります。モバイルでは最大 3 個まで表示されます。',
+
+  /* ── 設定：読み上げ ─────────────────────────────────────── */
+  'settings.ttsRate': '速度',
+  'settings.ttsFollow': 'ページ末の動作',
+  'settings.ttsFollow.on': '続けて読む',
+  'settings.ttsFollow.off': 'このページで終了',
+  'settings.locked': 'プロ版の機能です。クリックで内容を確認できます',
+
+  /* ── 設定：ハイライト ───────────────────────────────────── */
+  'settings.pen': '既定の色',
+  'settings.exportDir': 'エクスポート先',
+  'settings.pickFromList': 'フォルダ一覧から選ぶ',
+  'settings.pick': '選択…',
+  'settings.exportComments': 'エクスポートにメモを含める',
+  'settings.quoteLink': '引用リンク',
+  'settings.quoteLink.hint':
+    'ウィキリンク [[book#location]] としてコピーされます。ノートに貼ってクリックすると元の箇所に戻り、バックリンクにも表示されます。',
+
+  /* ── 設定：AI ───────────────────────────────────────────── */
+  'settings.ai.baseUrl': 'プロバイダー',
+  'settings.ai.baseUrl.ph': 'エンドポイントの URL（https:// で始まる）',
+  'settings.ai.model': 'モデル',
+  'settings.ai.model.ph': 'お使いのアカウントで利用できるモデル名',
+  'settings.ai.key': 'キー',
+  'settings.ai.key.ph': 'API キー',
+
+  /* ── 設定：ライセンス ───────────────────────────────────── */
+  'settings.lic.status': '状態',
+  'settings.lic.code': 'ライセンスコード',
+  'settings.lic.relicense': '再アクティベート',
+  'settings.lic.activate': 'アクティベート',
+  'settings.lic.paid': 'プロ版',
+  'settings.lic.benefits': 'エクスポート・統計・横断検索・各種フォーマットなど',
+  'settings.lic.compare': '機能を比較',
+
+  /* ── 設定：データ ───────────────────────────────────────── */
+  'settings.importDir': '書籍のインポート先',
+  'settings.pickFolder': 'フォルダを選ぶ',
+  'settings.dataDir': 'データフォルダ',
+  'settings.backupRestore': 'バックアップと復元',
+  'settings.backup': 'バックアップ',
+  'settings.backup.tip': 'データフォルダに JSON を 1 つ書き出します',
+  'settings.restore': '復元',
+  'settings.restore.tip': 'バックアップファイルから復元（マージ。現在の進捗は上書きしません）',
+  'settings.data.hint':
+    'バックアップには本棚・進捗・ハイライト・お気に入り・目標が含まれます。ライセンスコードと AI キーは含まれないため、別の端末では再入力が必要です。',
+
+  /* ── 設定：ホットキー ───────────────────────────────────── */
+  'settings.key.unset': '未設定',
+  'settings.key.tip': 'Obsidian のホットキー設定で変更できます',
+
+  /* ── ホットキー行の短いコマンド名 ───────────────────────── */
+  'key.pageNext': '次のページ',
+  'key.pagePrev': '前のページ',
+  'key.open': '本棚を開く',
+  'key.search': '検索（本文／ライブラリ全体）',
+  'key.sidebar': 'サイドバーを表示',
+  'key.focus': '集中モード',
+  'key.fullscreen': 'フルスクリーン',
+  'key.bookmark': 'ブックマークを追加',
+  'key.typography': '組版パネル',
+  'key.bookmap': '全体マップ',
+  'key.tts': '読み上げの切り替え',
+  'key.continue': '最近読んだ本の続きから',
 };

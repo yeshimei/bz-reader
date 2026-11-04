@@ -158,6 +158,131 @@ export const ZH = {
   'notice.group.trialFail': '复制失败，群号是 {id}，进群找管理员领取 7 天试用',
   'notice.group.plainOk': '已复制群号 {id}，去 QQ 搜索就能加群',
   'notice.group.plainFail': '复制失败，群号是 {id}，去 QQ 搜索加群',
+
+  /* ── 设置页：关于条 ──────────────────────────────────────── */
+  'settings.about': '关于',
+  'settings.about.version': '版本未知',
+  'settings.about.paid': '高级版',
+  'settings.about.base': '基础版',
+  'settings.about.repo': '在浏览器里打开仓库',
+  'settings.about.video': '视频教程',
+  'settings.about.wip': '制作中',
+  'settings.about.videoTip': '教程还在剪，做好会在交流群里通知',
+  'settings.about.group': '交流群',
+  'settings.about.groupTip': '点一下复制群号，去 QQ 搜索',
+  'settings.about.changelog': '更新日志',
+  'settings.about.changelogTip': '看看每一版改了什么',
+
+  /* ── 授权状态（设置页状态行、解锁弹层共用） ──────────────── */
+  'tier.base': '基础版',
+  'tier.paid': '高级版已激活{who} · {until}',
+  'tier.who': '（{name}）',
+  'tier.until': '有效期到 {date}',
+  'tier.forever': '永久有效',
+
+  /* ── 设置页：分组标题 ────────────────────────────────────── */
+  'settings.grp.ui': '界面',
+  'settings.grp.layout': '版式',
+  'settings.grp.look': '外观',
+  'settings.grp.header': '阅读页图标',
+  'settings.grp.tts': '朗读',
+  'settings.grp.marks': '标注',
+  'settings.grp.ai': 'AI 助手',
+  'settings.grp.lic': '授权',
+  'settings.grp.data': '数据',
+  'settings.grp.keys': '快捷键',
+
+  /* ── 设置页：界面 ────────────────────────────────────────── */
+  'settings.language': '语言',
+  'settings.language.auto': '跟随 Obsidian',
+  'settings.language.hint': '选「跟随 Obsidian」时由宿主语言决定；手动选择后界面立即生效，命令名需重启 Obsidian 才更新。',
+
+  /* ── 设置页：版式 ────────────────────────────────────────── */
+  'settings.font': '字体',
+  'settings.fontSize': '字号',
+  'settings.lineHeight': '行距',
+  'settings.margin': '页边距',
+  'settings.align': '对齐',
+  'settings.align.justify': '两端',
+  'settings.align.left': '居左',
+  'settings.direction': '方向',
+  'settings.direction.h': '横排',
+  'settings.direction.v': '竖排',
+  'settings.columns': '分栏',
+  'settings.columns.1': '单栏',
+  'settings.columns.2': '双栏',
+  'settings.footnote': '脚注',
+  'settings.footnote.popup': '上方浮窗',
+  'settings.footnote.jump': '跳到章末',
+
+  /* ── 设置页：外观 ────────────────────────────────────────── */
+  'settings.accent': '强调色',
+
+  /* ── 设置页：阅读页图标 ──────────────────────────────────── */
+  'settings.header.hint': '开关控制显示 / 收起；收起的进最右侧 ⋮（Obsidian 自带的更多菜单）。移动端最多露 3 颗。',
+
+  /* ── 设置页：朗读 ────────────────────────────────────────── */
+  'settings.ttsRate': '语速',
+  'settings.ttsFollow': '朗读跟随',
+  'settings.ttsFollow.on': '念完续页',
+  'settings.ttsFollow.off': '只念本页',
+  'settings.locked': '高级版功能：点一下看看包含什么',
+
+  /* ── 设置页：标注 ────────────────────────────────────────── */
+  'settings.pen': '默认笔色',
+  'settings.exportDir': '导出目录',
+  'settings.pickFromList': '从文件夹清单里选',
+  'settings.pick': '选择…',
+  'settings.exportComments': '导出时带上想法',
+  'settings.quoteLink': '摘录链接',
+  'settings.quoteLink.hint': '复制成双链 [[书#定位]]，粘进笔记点一下跳回原句，反链面板也看得见',
+
+  /* ── 设置页：AI ──────────────────────────────────────────── */
+  'settings.ai.baseUrl': '服务商',
+  'settings.ai.baseUrl.ph': '填写服务商接口地址，以 https:// 开头',
+  'settings.ai.model': '模型',
+  'settings.ai.model.ph': '填写你的账号可用的模型名',
+  'settings.ai.key': '密钥',
+  'settings.ai.key.ph': '填写 API 密钥',
+
+  /* ── 设置页：授权 ────────────────────────────────────────── */
+  'settings.lic.status': '状态',
+  'settings.lic.code': '激活码',
+  'settings.lic.relicense': '重新激活',
+  'settings.lic.activate': '激活',
+  'settings.lic.paid': '高级版',
+  'settings.lic.benefits': '导出、统计、跨书搜索、多格式等',
+  'settings.lic.compare': '查看功能对照',
+
+  /* ── 设置页：数据 ────────────────────────────────────────── */
+  'settings.importDir': '书籍导入位置',
+  'settings.pickFolder': '选择一个文件夹',
+  'settings.dataDir': '数据目录',
+  'settings.backupRestore': '备份与恢复',
+  'settings.backup': '备份',
+  'settings.backup.tip': '导出成一份 JSON，存进数据目录',
+  'settings.restore': '恢复',
+  'settings.restore.tip': '从备份文件恢复（合并，不覆盖现有进度）',
+  'settings.data.hint': '备份含书架、进度、标注、收藏与目标。不含激活码和 AI Key，换设备需重填。',
+
+  /* ── 设置页：快捷键 ──────────────────────────────────────── */
+  'settings.key.unset': '未设置',
+  'settings.key.tip': '在 Obsidian 的快捷键设置里改',
+
+  /* ── 快捷键行的命令名（短名；命令面板里那套带「书架：/阅读：」前缀， */
+  /*    设置页一行放不下，所以另立一套短的） ──────────────────── */
+  'key.pageNext': '下一页',
+  'key.pagePrev': '上一页',
+  'key.open': '打开书架',
+  'key.search': '搜索（本书 / 全库）',
+  'key.sidebar': '显示左侧栏',
+  'key.focus': '专注模式',
+  'key.fullscreen': '全屏',
+  'key.bookmark': '记一枚书签',
+  'key.typography': '排版面板',
+  'key.bookmap': '全书鸟瞰',
+  'key.tts': '朗读开关',
+  'key.continue': '继续阅读最近一本',
 } as const;
 
 export type MsgKey = keyof typeof ZH;

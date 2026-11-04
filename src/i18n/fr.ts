@@ -155,4 +155,132 @@ export const FR: Record<MsgKey, string> = {
   'notice.group.trialFail': 'Échec de la copie. Le groupe est {id} — rejoignez-le et demandez un essai de 7 jours à un administrateur',
   'notice.group.plainOk': 'Numéro de groupe {id} copié — recherchez-le dans QQ pour le rejoindre',
   'notice.group.plainFail': 'Échec de la copie. Le groupe est {id} — recherchez-le dans QQ pour le rejoindre',
+
+  /* ── État de la licence ─────────────────────────────────── */
+  'tier.base': 'Base',
+  'tier.paid': 'Pro activé{who} · {until}',
+  'tier.who': ' ({name})',
+  'tier.until': 'valable jusqu’au {date}',
+  'tier.forever': 'à vie',
+
+  /* ── Réglages : bandeau À propos ────────────────────────── */
+  'settings.about': 'À propos',
+  'settings.about.version': 'Version inconnue',
+  'settings.about.paid': 'Pro',
+  'settings.about.base': 'Base',
+  'settings.about.repo': 'Ouvrir le dépôt dans le navigateur',
+  'settings.about.video': 'Tutoriel vidéo',
+  'settings.about.wip': 'En cours',
+  'settings.about.videoTip': 'Le tutoriel est encore en montage — nous l’annoncerons dans le groupe',
+  'settings.about.group': 'Communauté',
+  'settings.about.groupTip': 'Cliquez pour copier le numéro du groupe, puis cherchez-le dans QQ',
+  'settings.about.changelog': 'Journal des versions',
+  'settings.about.changelogTip': 'Voir les changements de chaque version',
+
+  /* ── Réglages : titres de groupe ────────────────────────── */
+  'settings.grp.ui': 'Interface',
+  'settings.grp.layout': 'Composition',
+  'settings.grp.look': 'Apparence',
+  'settings.grp.header': 'Barre d’outils',
+  'settings.grp.tts': 'Lecture vocale',
+  'settings.grp.marks': 'Surlignages',
+  'settings.grp.ai': 'Assistant IA',
+  'settings.grp.lic': 'Licence',
+  'settings.grp.data': 'Données',
+  'settings.grp.keys': 'Raccourcis',
+
+  /* ── Réglages : interface ───────────────────────────────── */
+  'settings.language': 'Langue',
+  'settings.language.auto': 'Suivre Obsidian',
+  'settings.language.hint':
+    'Avec « Suivre Obsidian », la langue de l’hôte décide. Un choix manuel s’applique immédiatement à l’interface ; les noms des commandes après un redémarrage d’Obsidian.',
+
+  /* ── Réglages : composition ─────────────────────────────── */
+  'settings.font': 'Police',
+  'settings.fontSize': 'Taille',
+  'settings.lineHeight': 'Interligne',
+  'settings.margin': 'Marges',
+  'settings.align': 'Alignement',
+  'settings.align.justify': 'Justifié',
+  'settings.align.left': 'Gauche',
+  'settings.direction': 'Sens',
+  'settings.direction.h': 'Horizontal',
+  'settings.direction.v': 'Vertical',
+  'settings.columns': 'Colonnes',
+  'settings.columns.1': 'Une',
+  'settings.columns.2': 'Deux',
+  'settings.footnote': 'Notes de bas de page',
+  'settings.footnote.popup': 'Infobulle au-dessus',
+  'settings.footnote.jump': 'Aller en fin de chapitre',
+
+  /* ── Réglages : apparence ───────────────────────────────── */
+  'settings.accent': 'Couleur d’accent',
+
+  /* ── Réglages : barre d’outils ──────────────────────────── */
+  'settings.header.hint': 'Choisit les icônes affichées ; les icônes masquées passent dans le menu ⋮ à droite. Trois au maximum sur mobile.',
+
+  /* ── Réglages : lecture vocale ──────────────────────────── */
+  'settings.ttsRate': 'Vitesse',
+  'settings.ttsFollow': 'Après cette page',
+  'settings.ttsFollow.on': 'Continuer',
+  'settings.ttsFollow.off': 'S’arrêter ici',
+  'settings.locked': 'Fonction Pro — cliquez pour voir ce qu’elle inclut',
+
+  /* ── Réglages : surlignages ─────────────────────────────── */
+  'settings.pen': 'Couleur par défaut',
+  'settings.exportDir': 'Dossier d’export',
+  'settings.pickFromList': 'Choisir dans la liste des dossiers',
+  'settings.pick': 'Choisir…',
+  'settings.exportComments': 'Inclure les notes dans l’export',
+  'settings.quoteLink': 'Lien d’extrait',
+  'settings.quoteLink.hint':
+    'Copié en wikilien [[book#location]] — collez-le dans une note et cliquez pour revenir au passage ; il apparaît aussi dans les rétroliens.',
+
+  /* ── Réglages : IA ──────────────────────────────────────── */
+  'settings.ai.baseUrl': 'Fournisseur',
+  'settings.ai.baseUrl.ph': 'URL du point d’accès, commençant par https://',
+  'settings.ai.model': 'Modèle',
+  'settings.ai.model.ph': 'Un nom de modèle utilisable par votre compte',
+  'settings.ai.key': 'Clé',
+  'settings.ai.key.ph': 'Clé API',
+
+  /* ── Réglages : licence ─────────────────────────────────── */
+  'settings.lic.status': 'État',
+  'settings.lic.code': 'Code de licence',
+  'settings.lic.relicense': 'Réactiver',
+  'settings.lic.activate': 'Activer',
+  'settings.lic.paid': 'Pro',
+  'settings.lic.benefits': 'Export, statistiques, recherche multi-livres, formats supplémentaires',
+  'settings.lic.compare': 'Comparer les fonctions',
+
+  /* ── Réglages : données ─────────────────────────────────── */
+  'settings.importDir': 'Importer les livres dans',
+  'settings.pickFolder': 'Choisir un dossier',
+  'settings.dataDir': 'Dossier de données',
+  'settings.backupRestore': 'Sauvegarde et restauration',
+  'settings.backup': 'Sauvegarder',
+  'settings.backup.tip': 'Écrit un fichier JSON dans le dossier de données',
+  'settings.restore': 'Restaurer',
+  'settings.restore.tip':
+    'Restaurer depuis un fichier de sauvegarde (fusionne, n’écrase jamais la progression actuelle)',
+  'settings.data.hint':
+    'Une sauvegarde contient la bibliothèque, la progression, les surlignages, les favoris et les objectifs. Elle n’inclut ni le code de licence ni la clé IA — à ressaisir sur un nouvel appareil.',
+
+  /* ── Réglages : raccourcis ──────────────────────────────── */
+  'settings.key.unset': 'Non défini',
+  'settings.key.tip': 'À modifier dans les raccourcis d’Obsidian',
+
+  /* ── Noms courts pour les lignes de raccourcis ──────────── */
+  'key.pageNext': 'Page suivante',
+  'key.pagePrev': 'Page précédente',
+  'key.open': 'Ouvrir la bibliothèque',
+  'key.search': 'Rechercher (livre / bibliothèque)',
+  'key.sidebar': 'Afficher le panneau latéral',
+  'key.focus': 'Mode concentration',
+  'key.fullscreen': 'Plein écran',
+  'key.bookmark': 'Ajouter un signet',
+  'key.typography': 'Typographie',
+  'key.bookmap': 'Vue d’ensemble',
+  'key.tts': 'Activer la lecture vocale',
+  'key.continue': 'Reprendre la dernière lecture',
 };

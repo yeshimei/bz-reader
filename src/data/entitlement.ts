@@ -28,6 +28,7 @@
  * 否则误伤之后没人能解释为什么试用没了。
  * ============================================================ */
 
+import { locale, t, type Locale } from '../i18n';
 import { parseLicense, verifyLicense, type LicenseFail, type LicensePayload } from './license';
 
 /** 高级能力。只有能判断的地方才列进来，别造没人问的开关。 */
@@ -406,27 +407,130 @@ export function clearLicense(): void {
 /** 报错用的人话。对外只有两种状态——试用相关信息一律不出现。 */
 export function tierText(v: EntitlementView = entitlement()): string {
   if (v.tier === 'paid') {
-    const who = v.name ? `（${v.name}）` : '';
-    const until = v.exp ? `有效期到 ${new Date(v.exp).toLocaleDateString()}` : '永久有效';
-    return `高级版已激活${who} · ${until}`;
+    const who = v.name ? t('tier.who', { name: v.name }) : '';
+    const until = v.exp ? t('tier.until', { date: new Date(v.exp).toLocaleDateString() }) : t('tier.forever');
+    return t('tier.paid', { who, until });
   }
-  return '基础版';
+  return t('tier.base');
 }
 
-/** 每个能力对应的卖点文案，解锁弹层与锁标 tooltip 共用 */
-export const CAP_LABEL: Record<Cap, string> = {
-  export: '把划线导出成结构化 Markdown',
-  card: '把划线做成可分享的书摘卡片',
-  stats: '阅读统计与热力图',
-  crossSearch: '在所有书里搜索',
-  ai: 'AI 回答 · 摘要 · 解释 · 翻译',
-  fullFormats: 'mobi / azw3 / fb2 / 漫画支持',
-  vertical: '竖排排版',
-  tts: '朗读',
-  parallel: '原文与译文并排',
-  bookmap: '全书鸟瞰',
-  bilink: '把划线复制成双向链接',
+/**
+ * 每个能力对应的卖点文案，解锁弹层与锁标 tooltip 共用。
+ *
+ * 走**集中表**而不是八份语言包：十一条是成套的卖点清单，漏翻一条只会表现
+ * 为「德语界面的解锁弹层里有一行中文」，tsc 看不出来。`Record<Locale, string>`
+ * 让「八种齐」变成类型约束——这张表是用户决定要不要付钱的地方，不能有洞。
+ */
+const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
+  export: {
+    zh: '把划线导出成结构化 Markdown',
+    'zh-TW': '把劃線匯出成結構化 Markdown',
+    en: 'Export highlights as structured Markdown',
+    ja: 'ハイライトを構造化 Markdown に書き出す',
+    de: 'Markierungen als strukturiertes Markdown exportieren',
+    fr: 'Exporter les surlignages en Markdown structuré',
+    es: 'Exportar los subrayados como Markdown estructurado',
+    pt: 'Exportar destaques como Markdown estruturado',
+  },
+  card: {
+    zh: '把划线做成可分享的书摘卡片',
+    'zh-TW': '把劃線做成可分享的書摘卡片',
+    en: 'Turn highlights into shareable quote cards',
+    ja: 'ハイライトを共有できる引用カードにする',
+    de: 'Markierungen in teilbare Zitatkarten verwandeln',
+    fr: 'Transformer les surlignages en cartes de citation partageables',
+    es: 'Convertir los subrayados en tarjetas de cita para compartir',
+    pt: 'Transformar destaques em cartões de citação compartilháveis',
+  },
+  stats: {
+    zh: '阅读统计与热力图',
+    'zh-TW': '閱讀統計與熱力圖',
+    en: 'Reading stats and heatmap',
+    ja: '読書統計とヒートマップ',
+    de: 'Lesestatistik und Heatmap',
+    fr: 'Statistiques de lecture et carte de chaleur',
+    es: 'Estadísticas de lectura y mapa de calor',
+    pt: 'Estatísticas de leitura e mapa de calor',
+  },
+  crossSearch: {
+    zh: '在所有书里搜索',
+    'zh-TW': '在所有書裡搜尋',
+    en: 'Search across every book',
+    ja: 'すべての本を横断検索',
+    de: 'Alle Bücher durchsuchen',
+    fr: 'Rechercher dans tous les livres',
+    es: 'Buscar en todos los libros',
+    pt: 'Pesquisar em todos os livros',
+  },
+  ai: {
+    zh: 'AI 回答 · 摘要 · 解释 · 翻译',
+    'zh-TW': 'AI 回答 · 摘要 · 解釋 · 翻譯',
+    en: 'AI answers · summaries · explanations · translation',
+    ja: 'AI による回答・要約・解説・翻訳',
+    de: 'KI-Antworten · Zusammenfassungen · Erklärungen · Übersetzung',
+    fr: 'Réponses, résumés, explications et traductions par IA',
+    es: 'Respuestas, resúmenes, explicaciones y traducción con IA',
+    pt: 'Respostas, resumos, explicações e tradução com IA',
+  },
+  fullFormats: {
+    zh: 'mobi / azw3 / fb2 / 漫画支持',
+    'zh-TW': 'mobi / azw3 / fb2 / 漫畫支援',
+    en: 'mobi / azw3 / fb2 / comic support',
+    ja: 'mobi / azw3 / fb2 / コミック対応',
+    de: 'mobi / azw3 / fb2 / Comic-Unterstützung',
+    fr: 'Prise en charge mobi / azw3 / fb2 / BD',
+    es: 'Compatibilidad con mobi / azw3 / fb2 / cómic',
+    pt: 'Suporte a mobi / azw3 / fb2 / quadrinhos',
+  },
+  vertical: {
+    zh: '竖排排版',
+    'zh-TW': '豎排排版',
+    en: 'Vertical typesetting',
+    ja: '縦組み',
+    de: 'Vertikaler Satz',
+    fr: 'Composition verticale',
+    es: 'Composición vertical',
+    pt: 'Composição vertical',
+  },
+  tts: { zh: '朗读', 'zh-TW': '朗讀', en: 'Read aloud', ja: '読み上げ', de: 'Vorlesen', fr: 'Lecture vocale', es: 'Lectura en voz alta', pt: 'Leitura em voz alta' },
+  parallel: {
+    zh: '原文与译文并排',
+    'zh-TW': '原文與譯文並排',
+    en: 'Original and translation side by side',
+    ja: '原文と訳文を並べて表示',
+    de: 'Original und Übersetzung nebeneinander',
+    fr: 'Original et traduction côte à côte',
+    es: 'Original y traducción en paralelo',
+    pt: 'Original e tradução lado a lado',
+  },
+  bookmap: {
+    zh: '全书鸟瞰',
+    'zh-TW': '全書鳥瞰',
+    en: 'Book overview',
+    ja: '全体マップ',
+    de: 'Buchübersicht',
+    fr: 'Vue d’ensemble du livre',
+    es: 'Vista general del libro',
+    pt: 'Visão geral do livro',
+  },
+  bilink: {
+    zh: '把划线复制成双向链接',
+    'zh-TW': '把劃線複製成雙向連結',
+    en: 'Copy a highlight as a bidirectional link',
+    ja: 'ハイライトを双方向リンクとしてコピー',
+    de: 'Markierung als bidirektionalen Link kopieren',
+    fr: 'Copier un surlignage en lien bidirectionnel',
+    es: 'Copiar un subrayado como enlace bidireccional',
+    pt: 'Copiar um destaque como link bidirecional',
+  },
 };
+
+/** 能力卖点 → 当前界面语言的说法 */
+export function capLabel(cap: Cap): string {
+  return CAP_TEXT[cap]?.[locale()] ?? CAP_TEXT[cap]?.zh ?? String(cap);
+}
+
+/** 兼容旧调用：`CAP_LABEL[cap]` 已删除——静态中文做不到随语言切换，一律用 capLabel() */
 
 /* ─────────── 发行信息（改这里就够了） ───────────
  * 购买与加群都走外链：Obsidian 商城不做内购，政策明确允许开发者在
