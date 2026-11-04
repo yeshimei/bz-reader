@@ -4,8 +4,9 @@ import { textToolbarHtml } from '../src/shell/text-toolbar';
 /**
  * 点划线后弹出的「文字工具框」。
  *
- * 目标形态：只有一排控件（色点 + 写想法 + 书摘 + 原文 + 复制 + 删除），
- * 有想法时在下面原样展示那段想法；**不重复选中的原文，也不放章节 / 日期 / 说明**。
+ * 目标形态（题跋）：有想法时，想法排在按钮行**上方**——先读批注、再决定操作；
+ * 想法用一枚「想」字小印起头，按钮行压一条发丝线。
+ * **不重复选中的原文，也不放章节 / 日期 / 说明**。
  * 「原文」「复制」「书摘」都排在删除前面——删除是这一排唯一的破坏性动作，
  * 不该夹在两个复制按钮中间。
  */
@@ -80,10 +81,22 @@ describe('textToolbarHtml · 工具条', () => {
 });
 
 describe('textToolbarHtml · 想法', () => {
-  it('有想法时在工具条下面原样展示', () => {
+  it('有想法时排在按钮行上方（先读批注，再操作）', () => {
     const html = textToolbarHtml({ ...base, comment: '这句我想了很久' });
     expect(html).toContain('bzs-hltools-thought');
     expect(html).toContain('这句我想了很久');
+    expect(html.indexOf('bzs-hltools-thought')).toBeLessThan(html.indexOf('bzs-hltools-row'));
+  });
+
+  it('想法用一枚「想」字小印起头', () => {
+    const html = textToolbarHtml({ ...base, comment: '爱我的' });
+    expect(html).toContain('bzs-hltools-seal');
+    expect(html).toContain('>想<');
+  });
+
+  it('没有想法时不渲染小印，也不给按钮行加分隔线', () => {
+    const html = textToolbarHtml(base);
+    expect(html).not.toContain('bzs-hltools-seal');
   });
 
   it('想法里的 HTML 被转义', () => {

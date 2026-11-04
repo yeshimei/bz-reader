@@ -1,9 +1,11 @@
 /**
  * 「文字工具框」里那排控件（纯函数，node 里可直接测）。
  *
- * 点中一条已有划线时只弹这一条：
+ * 点中一条已有划线时只弹这一条（题跋式）：
+ *   「想」爱我的
+ *   ─────────────────
  *   [四个色点] | 写想法  书摘  原文  复制  删除
- * 有想法就在下面原样显示那段想法。
+ * 想法在按钮行上方，先读批注、再决定操作。
  *
  * 删掉是唯一的破坏性动作，永远排在最后。
  *
@@ -51,7 +53,13 @@ export function textToolbarHtml(input: TextToolbarInput): string {
     )
     .join('');
   const thought = (input.comment ?? '').trim();
+  const thoughtHtml = thought
+    ? `<div class="bzs-hltools-thought"><span class="bzs-hltools-seal">想</span><span class="bzs-hltools-thought-text">${esc(
+        thought,
+      )}</span></div>`
+    : '';
   return `<div class="bzs-hltools">
+    ${thoughtHtml}
     <div class="bzs-hltools-row">${dots}<span class="bzs-hltools-sep"></span>
       <button class="bzs-sbtn" data-act="hlidea" data-id="${id}" data-book="${book}">写想法</button>
       <button class="bzs-sbtn" data-act="hlquote" data-id="${id}" data-book="${book}">书摘</button>
@@ -59,6 +67,5 @@ export function textToolbarHtml(input: TextToolbarInput): string {
       <button class="bzs-sbtn" data-act="hlcopy" data-id="${id}" data-book="${book}">复制</button>
       <button class="bzs-sbtn danger" data-act="hldel" data-id="${id}" data-book="${book}">删除</button>
     </div>
-    ${thought ? `<div class="bzs-hltools-thought">${esc(thought)}</div>` : ''}
   </div>`;
 }

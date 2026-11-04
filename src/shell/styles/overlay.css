@@ -122,15 +122,44 @@
   color: var(--vermilion);
 }
 
+/* 题跋：想法在按钮行上方，用一枚「想」字小印起头。
+   印章用朱红（宿主 --text-error），不另造一套色板。 */
 .bzs-hltools-thought {
-  padding: 0 11px 9px;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 10px 14px 10px 12px;
+  font-family: var(--serif);
   font-size: 12.5px;
-  line-height: 1.7;
+  line-height: 1.85;
   color: var(--t2);
   max-height: 5.1em;
   overflow: auto;
-  white-space: pre-wrap;
   word-break: break-word;
+}
+
+.bzs-hltools-thought-text {
+  min-width: 0;
+  white-space: pre-wrap;
+}
+
+.bzs-hltools-seal {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--vermilion) 55%, transparent);
+  border-radius: 3px;
+  color: var(--vermilion);
+  font: 10px/1 var(--serif);
+}
+
+/* 有想法时，按钮行与批注之间压一条发丝线；没想法时不画 */
+.bzs-hltools-thought + .bzs-hltools-row {
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
 }
 
 /* ── 写想法：一个输入框 + 一个保存按钮，没有标题和取消 ── */
