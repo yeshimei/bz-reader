@@ -311,7 +311,7 @@ export const ZH = {
   'settings.about.video': '视频教程',
   'settings.about.wip': '制作中',
   'settings.about.videoTip': '教程还在剪，做好会在交流群里通知',
-  'settings.about.group': '交流群',
+  'settings.about.group': 'QQ 交流群',
   'settings.about.groupTip': '点一下复制群号，去 QQ 搜索',
   'settings.about.changelog': '更新日志',
   'settings.about.changelogTip': '看看每一版改了什么',

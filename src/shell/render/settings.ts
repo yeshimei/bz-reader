@@ -22,7 +22,7 @@ import { t, LOCALES, LOCALE_NAMES, type MsgKey } from '../../i18n';
 import { ACCENT_OPTIONS, accentLabel, FONT_FAMILIES, fontLabel, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARGIN_RANGE, TTS_RATE_RANGE, type ReaderPrefs } from '../../data/prefs';
 import { HIGHLIGHT_COLORS, colorLabel } from '../../data/notes';
 import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
-import { can, entitlement, GROUP_ID, REPO_URL, tierText } from '../../data/entitlement';
+import { can, entitlement, GROUP_ID, tierText } from '../../data/entitlement';
 import { dataDirOf } from '../../core/plugin-path';
 import type { HotkeyRow } from '../../core/hotkeys';
 import { HEADER_ACTION_IDS, headerActionSpec, type HeaderActionId } from '../../view/header-actions';
@@ -84,9 +84,6 @@ function toggle(k: string, on: boolean, label: string): string {
   return `<div class="bzs-setrow"><label>${label}</label><button class="bzs-switch${on ? ' on' : ''}" data-act="toggle" data-k="${k}" aria-label="${label}"></button></div>`;
 }
 
-/** 仓库地址在界面上只露 owner/repo：整条 URL 太长，也没人会照着读协议头 */
-const REPO_PATH = REPO_URL.replace(/^https:\/\/github\.com\//, '');
-
 /**
  * 设置页顶部那条「关于」（横跨两栏）。
  *
@@ -106,7 +103,7 @@ function aboutBar(version: string, paid: boolean): string {
       <span class="bzs-about-meta"><span class="bzs-about-ver">${ver}</span>${badge}</span>
       <span class="sp"></span>
       <button class="bzs-about-link" data-act="aboutgithub" title="${t('settings.about.repo')}">
-        ${githubIcon(15)}<b>GitHub</b><i>${esc(REPO_PATH)}</i>
+        ${githubIcon(15)}<b>GitHub</b>
       </button>
       <span class="dot"></span>
       <button class="bzs-about-link is-wip" data-act="aboutvideo" title="${t('settings.about.videoTip')}">

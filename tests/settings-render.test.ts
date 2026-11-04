@@ -231,7 +231,7 @@ describe('关于组', () => {
     expect(out).toMatch(/<div class="[^"]*\bwide\b[^"]*">\s*<h3>关于<\/h3>/);
   });
 
-  it('四个出口都在：GitHub / 视频教程 / 交流群 / 更新日志', () => {
+  it('四个出口都在：GitHub / 视频教程 / QQ 交流群 / 更新日志', () => {
     const g = aboutGroup(html());
     for (const act of ['aboutgithub', 'aboutvideo', 'copygroup', 'changelog']) {
       expect(g, act).toContain(`data-act="${act}"`);
@@ -256,12 +256,19 @@ describe('关于组', () => {
     expect(g).not.toMatch(/data-act="aboutvideo"[^>]*data-href/);
   });
 
-  it('交流群把群号直接印出来（不依赖短链，短链实测 404）', () => {
-    expect(aboutGroup(html())).toContain('1130883117');
+  it('QQ 交流群把群号直接印出来（不依赖短链，短链实测 404）', () => {
+    const g = aboutGroup(html());
+    expect(g).toContain('QQ 交流群');
+    expect(g).toContain('1130883117');
   });
 
-  it('GitHub 那项写的是仓库路径', () => {
-    expect(aboutGroup(html())).toContain('yeshimei/bz-reader');
+  /* 2026-11-05：GitHub 项只留名字。后面那串 owner/repo 是点开前做判断用的，
+     但设置页的「关于」是一条带四个出口的题头，挂上路径会被读成一段网址。
+     仓库地址仍在点击行为里（openRepo），点开就是。 */
+  it('GitHub 只写名字，不再挂仓库路径小字', () => {
+    const g = aboutGroup(html());
+    expect(g).toContain('<b>GitHub</b>');
+    expect(g).not.toContain('yeshimei/bz-reader');
   });
 });
 

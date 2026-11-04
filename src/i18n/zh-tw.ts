@@ -311,7 +311,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.about.video': '影片教學',
   'settings.about.wip': '製作中',
   'settings.about.videoTip': '教學還在剪，做好會在交流群裡通知',
-  'settings.about.group': '交流群',
+  'settings.about.group': 'QQ 交流群',
   'settings.about.groupTip': '點一下複製群號，去 QQ 搜尋',
   'settings.about.changelog': '更新日誌',
   'settings.about.changelogTip': '看看每一版改了什麼',
