@@ -316,6 +316,8 @@ export class EngineHost {
   /** 选区检查的防抖句柄与「上一次已报告过哪一段」 */
   private selTimer: number | null = null;
   private lastSelKey = '';
+  /** 上下边距变化后的重排句柄：合并到下一帧，拖动滑块时不逐格重排整章 */
+  private reflowFrame = 0;
 
   constructor(app: App) {
     this.app = app;
@@ -1218,6 +1220,22 @@ export class EngineHost {
     renderer?.setStyles?.(buildChapterCSS(eff));
   }
 
+  /**
+   * 下一帧重排一次。
+   *
+   * 上下边距只换 CSS 变量时，分页器按旧 padding 算好的每页高度、iframe 高度
+   * 都不会变：新留白要么看不见，要么把内容挤出页外——手机屏矮，看起来就是
+   * 「拖了没反应」。滑块拖动一次会连着来几十次 setPrefs，逐次整章重排会卡，
+   * 所以合并到下一帧，只按最后那个值排一次。
+   */
+  private queueReflow(pag: { render?: () => void } | undefined): void {
+    if (!pag?.render || this.reflowFrame) return;
+    this.reflowFrame = window.requestAnimationFrame(() => {
+      this.reflowFrame = 0;
+      pag.render?.();
+    });
+  }
+
   /** 主题/字号/行距变化时调，只换样式不重开书 */
   applyPrefs(prefs: ReaderPrefs): void {
     const prev = this.prefs;
@@ -1274,6 +1292,11 @@ export class EngineHost {
     } else if (prevEff.columns !== eff.columns) {
       // 栏数不用重新 load：重算布局即可，锚点自己会回到原处
       pag?.render?.();
+    } else if (prevEff.marginY !== eff.marginY) {
+      /* 上下边距必须重排：只改变量的话，分页器还按旧的 padding 算页高和
+         iframe 高度，新留白会被挤出可见区（手机上调了像没调）。
+         滑块拖动会连着来几十次，合并到下一帧排一次，别逐格重排整章。 */
+      this.queueReflow(pag);
     }
   }
 
@@ -1675,6 +1698,10 @@ export class EngineHost {
     if (this.pinchTimer !== null) {
       window.clearTimeout(this.pinchTimer);
       this.pinchTimer = null;
+    }
+    if (this.reflowFrame) {
+      window.cancelAnimationFrame?.(this.reflowFrame);
+      this.reflowFrame = 0;
     }
     this.pinchPending = null;
     if (this.selTimer !== null) {
