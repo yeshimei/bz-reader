@@ -1,8 +1,11 @@
 /* ============================================================
  * bz-reader · 插件主体（src/plugin.ts）
  *
- * 一个工厂而不是一个类：基础版与高级版共用这一份逻辑，区别只在
- * 构建时进哪个入口（entry/base.ts / entry/pro.ts）。
+ * 一个工厂而不是一个类：**只有一个包**（完整功能版），能力是否可用由
+ * 激活码在运行期决定（`can()` → `entitlement().unlocked`）。没有 base/pro
+ * 两个入口——`entry/` 下只有一个 `pro.ts`，`dist/base` 是历史产物。
+ * （2026-11-04 修：这里原来写着「基础版与高级版共用这一份逻辑，区别只在
+ * 构建时进哪个入口」，双包早在 2026-11-03 就撤了。）
  *
  * 两个承载（2026-11-03 改）：
  *   书架 = **原生侧栏第一页**，内含 书库 / 笔记 / 统计 / 设置；
@@ -460,6 +463,10 @@ export function createPlugin(cfg: PluginConfig) {
         const books = this.repo.all();
         books.length = 0;
         books.push(...fresh.books);
+        /* 让 store 也用**同一个**数组（P3-07）：`load()` 换掉了 this.data，
+           `store.get().books` 已经是新数组，而 repo 还指着旧数组。不接上这一句，
+           之后 repo 里新导入的书永远落不了盘，移除的书重启又回来。 */
+        this.store.get().books = books;
         hydrateLibrary(books, fresh.goal);
 
         const removed = await removeTree(this.app, from);

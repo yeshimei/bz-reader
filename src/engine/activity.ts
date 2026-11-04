@@ -61,9 +61,15 @@ export class ActivityTracker {
   private lastPercent = 0;
   private running = false;
 
-  /** 开始一次阅读会话（打开书时调） */
-  begin(percent = 0): void {
-    if (this.running) this.end();
+  /**
+   * 开始一次阅读会话（打开书时调）。
+   *
+   * 如果上一段还没结算，这里会先把它收掉并**返回**（P3-22）：
+   * 以前 `this.end()` 的返回值被直接丢掉，重试挂载 / 重新 begin 时
+   * 上一段阅读时长就这么没了，统计里凭空少一截。
+   */
+  begin(percent = 0): SessionResult | null {
+    const previous = this.running ? this.end() : null;
     this.sessionStart = Date.now();
     this.lastActive = this.sessionStart;
     this.lastTickAt = this.sessionStart;
@@ -71,6 +77,7 @@ export class ActivityTracker {
     this.lastPercent = percent;
     this.running = true;
     this.timer = window.setInterval(() => this.tick(), TICK_MS);
+    return previous;
   }
 
   /** 用户有动作（翻页 / 滚动 / 点击）。只在会话进行中有效。 */

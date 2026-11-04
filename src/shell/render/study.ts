@@ -116,7 +116,8 @@ export function viewLibrary(v: LibraryView): string {
       ).join('')}
       <span style="flex:1"></span>
       <button class="bzs-chip bzs-sort" data-act="libsortmenu" aria-label="排序">${SORT_LABEL[state.libSort]} ${ico(
-        'chevron-down',
+        /* 图标表里叫 `chevron`，写成 `chevron-down` 会永远渲染成空（P3-15） */
+        'chevron',
       )}</button>
       <button class="bzs-chip${state.libView === 'grid' ? ' on' : ''}" data-act="libview" data-v="grid">封面墙</button>
       <button class="bzs-chip${state.libView === 'list' ? ' on' : ''}" data-act="libview" data-v="list">列表</button>

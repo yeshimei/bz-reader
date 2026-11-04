@@ -23,6 +23,8 @@ export class ShelfPanel {
   private unsubscribe: (() => void) | null = null;
   private offSource: (() => void) | null = null;
   private scrollTop = 0;
+  /** 长按菜单弹出后，抑制紧随其后的合成 click（P3-17） */
+  private suppressClickUntil = 0;
   private focusMemo: FocusMemo | null = null;
   private painted = false;
   /** 上一次渲染的页；换页要重置滚动位置 */
@@ -126,6 +128,13 @@ export class ShelfPanel {
   private bind(): void {
     const el = this.host;
     el.addEventListener('click', (e) => {
+      /* 长按菜单之后浏览器还会补发一次 click（P3-17）：不拦的话，
+         菜单刚弹出来，紧接着又打开了「书籍详情」弹层把它盖住。 */
+      if (Date.now() < this.suppressClickUntil) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       const target = e.target as HTMLElement;
       if (target.closest('.bzs-scrim') === target) return; // 遮罩点击由 overlay 层处理
       const hit = target.closest<HTMLElement>('[data-act]');
@@ -178,6 +187,8 @@ export class ShelfPanel {
         pressTimer = null;
         const target = pressCard;
         pressCard = null;
+        // 菜单弹出后浏览器还会补一次 click，先压住（P3-17）
+        this.suppressClickUntil = Date.now() + 600;
         if (target) openMenu(target, pressX, pressY);
       }, 520);
     });

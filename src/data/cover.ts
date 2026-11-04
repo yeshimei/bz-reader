@@ -119,9 +119,20 @@ async function writeCache(app: App, book: ReaderBook, buf: ArrayBuffer, mime: st
   }
 }
 
+/**
+ * 超过这个大小就不提封面（P3-11）。
+ *
+ * foliate 的 `makeBook()` 要一个完整 File，没法只读 zip 里那一张图。
+ * 一本 100MB 的漫画，只为了书架上那张 200px 的图把整本读进内存，
+ * 手机上就是一次可感知的卡顿甚至 OOM。书架会退回哈希色块兜底。
+ */
+const MAX_COVER_SOURCE = 40 * 1024 * 1024;
+
 /** 打开书 → 取封面 Blob。TXT 没有封面，直接返回 null。 */
 async function extract(app: App, book: ReaderBook): Promise<{ buf: ArrayBuffer; mime: string } | null> {
   if (book.fileRef.format === 'txt') return null;
+  const size = book.fileRef.size ?? 0;
+  if (size > MAX_COVER_SOURCE) return null;
   const data = await app.vault.adapter.readBinary(book.fileRef.vaultPath);
   const name = book.fileRef.vaultPath.split('/').pop() || 'book.epub';
   const file = new File([data], name);

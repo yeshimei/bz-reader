@@ -129,7 +129,9 @@ export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, n
 
   for (const g of ordered) {
     if (!g.items.length) continue;
-    lines.push(`## ${g.title}`);
+    /* 章标题可能带换行（EPUB 里标题常被拆成两行），直接插进 `## ` 会把
+       下面那半句变成正文段落（P3-08）。压成一行再进标题。 */
+    lines.push(`## ${oneLine(g.title)}`);
     lines.push('');
     g.items.forEach((it, i) => {
       if (i > 0) lines.push('');
@@ -147,9 +149,10 @@ export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, n
     lines.push('');
     const sorted = [...bookmarks].sort((a, b) => (a.percent || 0) - (b.percent || 0));
     for (const b of sorted) {
-      const where = b.chapterTitle?.trim();
+      const where = b.chapterTitle ? oneLine(b.chapterTitle) : '';
       const p = `${Math.round((b.percent || 0) * 100)}%`;
-      const label = b.label?.trim();
+      // 书签标签同理：带换行会把一条列表拆成两条（P3-08）
+      const label = b.label ? oneLine(b.label) : '';
       const parts = [`**${p}**`, where, label, ymd(b.createdAt)].filter(Boolean);
       lines.push(`- ${parts.join(' · ')}`);
     }
@@ -216,7 +219,18 @@ export async function exportBookNotes(
   const dir = settings.exportDir.replace(/^\/+|\/+$/g, '') || '书摘';
   await ensureDir(app, dir);
   const path = await resolveTarget(app, dir, book.meta.title);
-  await app.vault.adapter.write(path, buildNotesMarkdown(book, settings, now));
+  const text = buildNotesMarkdown(book, settings, now);
+  /* 原子写（P3-19）：直接 `adapter.write` 是「打开正本、截断、写入」，
+     中途崩溃/盘满就留半截 Markdown。先写 .tmp 再改名，要么旧要么新。
+     rename 不覆盖目标的平台（部分移动端）退回就地写。 */
+  const tmp = `${path}.tmp`;
+  try {
+    await app.vault.adapter.write(tmp, text);
+    await app.vault.adapter.rename(tmp, path);
+  } catch {
+    await app.vault.adapter.write(path, text);
+    await app.vault.adapter.remove(tmp).catch(() => undefined);
+  }
   return { path, highlights: highlights.length, bookmarks: bookmarks.length };
 }
 

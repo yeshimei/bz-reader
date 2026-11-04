@@ -11,6 +11,7 @@
 import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
 import { getState, isFav } from './state';
+import { shelfOf } from './domain';
 
 export type BookStatus = 'reading' | 'done' | 'new';
 
@@ -104,7 +105,8 @@ export function toRow(app: App, b: ReaderBook): BookRow {
   const [c1, c2, fg] = coverColors(b.id);
   const title = b.meta.title || '未命名';
   const noteCount = b.notes.highlights.length;
-  const shelf = getState().shelves[b.id] || b.meta.subjects?.[0] || '未分类';
+  /* 分组走 domain.shelfOf（P3-12）：英文 subjects 不再混进中文筛选条 */
+  const shelf = shelfOf(b);
 
   return {
     id: b.id,

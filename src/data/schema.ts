@@ -49,8 +49,11 @@ export interface BookFileRef {
   format: BookFormat;
   /** 文件大小（字节），导入去重与统计用 */
   size?: number;
-  /** 内容指纹（前 64KB + 大小的哈希），重命名后仍能认出是同一本 */
-  fingerprint?: string;
+  /*
+   * 这里曾经有 `fingerprint`（「前 64KB + 大小的哈希」），但全仓没有一个地方
+   * 算过它，认「书被改名」时也从没读过（2026-11-04 删）。
+   * 留着未使用的字段比没有更糟：下一个人会以为内容比对已经做了。
+   */
 }
 
 export interface ReadingPosition {

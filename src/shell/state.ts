@@ -29,7 +29,7 @@ export type LibSort = 'recent' | 'title' | 'progress';
 
 /** 浮层：同一时刻只开一个 */
 export type OverlayKind =
-  | 'search' | 'import' | 'typography' | 'export' | 'bookmap'
+  | 'search' | 'typography' | 'export' | 'bookmap'
   | 'quote' | 'idea' | 'hltools' | 'ai' | 'dict' | 'translate' | 'poster'
   | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedata' | 'finish' | 'footnote'
   | 'rename' | 'removebook' | 'confirmdel';

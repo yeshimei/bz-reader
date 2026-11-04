@@ -14,8 +14,10 @@
  *   3. 圆角按层级递增：4 小控件 / 8 按钮 / 12 弹窗 / 16 抽屉。
  *   4. 正文不用界面字体：界面无衬线，书里正文衬线。
  *
- * 全仓只有这一处样式源。唯一的例外是 engine/theme.ts 往 iframe 文档里注入的
- * 章节样式——那个作用域在书的内容里，与本文件互不可见。
+ * 样式源有三处，构建时拼成根目录的 styles.css（见 esbuild.config.mjs 的
+ * buildStyles）：本文件 + core/ui/tokens.css（旧面板）+ shell/styles/*.css
+ * （壳层，按行加 .bzs-shell 前缀）。第四处是 engine/theme.ts 往 iframe
+ * 文档里注入的章节样式——那个作用域在书的内容里，与这几处互不可见。
  * ============================================================ */
 
 /* ═══════════ ① 壳 ═══════════ */
@@ -991,7 +993,9 @@ body.bzr-immersive .workspace-leaf-content[data-type='bzr-reader-view'] .view-co
   position: absolute;
   left: 6px;
   bottom: 6px;
-  z-index: 9999;
+  /* 用壳层的弹层层级减一（P3-24）：以前写死 9999，比 --z-modal(500) 还高，
+     弹层一开诊断角标压在弹窗上面。 */
+  z-index: calc(var(--z-modal, 500) - 1);
   max-width: calc(100% - 12px);
   overflow: hidden;
   text-overflow: ellipsis;

@@ -44,9 +44,17 @@ export function viewNotes(v: NotesView): string {
   const shown = filterMarks(v.marks, v.filter, v.kw);
   const groups = groupByBook(shown);
 
-  // 每日回顾：只有写过想法的才值得回看
+  /* 每日回顾：只有写过想法的才值得回看。
+     **按日期轮**（P3-13）：以前是「顺序下一条」——翻一次就往前走一格，
+     跟「每日」没有关系；第二天打开还停在上次那条的后面一条，永远轮不到
+     真正没看过的那批。现在用「年内第几天」当种子：同一天稳定、隔天换一条，
+     「下一条」在当天里继续往后走。 */
   const recalls = v.marks.filter((m) => m.comment);
-  const rv = recalls.length ? recalls[v.reviewIdx % recalls.length] : null;
+  const day = Math.floor(
+    (Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / 86_400_000,
+  );
+  const reviewAt = recalls.length ? (day + v.reviewIdx) % recalls.length : 0;
+  const rv = recalls.length ? recalls[reviewAt] : null;
 
   const review = rv
     ? `<div class="bzs-review">
@@ -56,7 +64,7 @@ export function viewNotes(v: NotesView): string {
         <div class="acts">
           <button class="bzs-btn sm" data-act="reviewnext">下一条 ›</button>
           <button class="bzs-btn sm" data-act="jumpmark" data-id="${rv.id}" data-book="${rv.bookId}">回到原文</button>
-          <span class="idx">${(v.reviewIdx % recalls.length) + 1} / ${recalls.length}</span>
+          <span class="idx">${reviewAt + 1} / ${recalls.length}</span>
         </div>
       </div>`
     : '';

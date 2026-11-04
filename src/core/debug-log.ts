@@ -42,18 +42,24 @@ export function dlog(event: string, data?: Record<string, unknown>): void {
   if (timer === null) {
     timer = window.setTimeout(() => {
       timer = null;
-      chain = chain.then(flush);
+      chain = chain.then(() => flush());
     }, FLUSH_DELAY);
   }
 }
 
-async function flush(): Promise<void> {
-  if (!app || flushing || !buf.length) return;
+/**
+ * 写一批。`target` 显式传是为了卸载时还能写（P3-01）：
+ * 以前 `shutdownDebugLog()` 排完 `chain.then(flush)` 就把模块级 `app` 置空，
+ * 等 flush 真正跑到时 `app` 已经是 null，最后一批日志永远写不出去——
+ * 恰好是「崩溃/卡死之后重启看日志」最需要的那几条。
+ */
+async function flush(target: App | null = app): Promise<void> {
+  if (!target || flushing || !buf.length) return;
   const chunk = buf.join('\n') + '\n';
   buf = [];
   flushing = true;
   try {
-    const adapter = app.vault.adapter;
+    const adapter = target.vault.adapter;
     if (await adapter.exists(FILE)) {
       const old = await adapter.read(FILE);
       if (old.length + chunk.length > MAX_BYTES) await adapter.write(FILE, chunk);
@@ -65,7 +71,7 @@ async function flush(): Promise<void> {
     /* 写日志失败不能影响阅读 */
   }
   flushing = false;
-  if (buf.length) chain = chain.then(flush);
+  if (buf.length) chain = chain.then(() => flush());
 }
 
 /** 插件 onload 时调一次（幂等：重复调用只换 app，不重复挂监听） */
@@ -109,8 +115,11 @@ export function shutdownDebugLog(): void {
     window.clearTimeout(timer);
     timer = null;
   }
-  if (buf.length) {
-    chain = chain.then(flush);
+  /* 先把 app 抓在闭包里再置空（P3-01）：顺序反了的话，排进 chain 的 flush
+     真正执行时 app 已经是 null，最后一批日志静默丢掉。 */
+  const last = app;
+  if (buf.length && last) {
+    chain = chain.then(() => flush(last));
   }
   app = null;
 }

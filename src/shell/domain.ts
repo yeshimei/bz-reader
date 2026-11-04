@@ -192,7 +192,18 @@ export function fmtWhen(ts: number, now = Date.now()): string {
   return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
-/** 书架集合：优先用户自定（壳层），退回 epub 的 subjects */
+/**
+ * 书架集合：优先用户自定（业务数据里的 `book.shelf`，经 hydrateLibrary 进壳层），
+ * 退回 EPUB 自带的 subjects。
+ *
+ * subjects 只在**是中文**时才用（P3-12）：EPUB 里的分类常是 `Fiction` /
+ * `Science` / `Literary Collections` 这类英文串，直接塞进筛选条会变成
+ * 一排中英混杂的 chip，用户根本不知道自己什么时候建过这些书架。
+ */
 export function shelfOf(book: ReaderBook): string {
-  return getState().shelves[book.id] || book.meta.subjects?.[0] || '未分类';
+  const own = getState().shelves[book.id];
+  if (own) return own;
+  const sub = book.meta.subjects?.[0]?.trim();
+  if (sub && /[\u4e00-\u9fff]/.test(sub)) return sub;
+  return '未分类';
 }

@@ -154,15 +154,11 @@ export class ReaderView extends ItemView {
 
   private selection: SelectionInfo | null = null;
   private selectionAt = 0;
-  /** 「选中即划」自己收选区时会再冒一次空选区事件，这一次不该把条子收掉 */
-  private suppressSelClear = false;
   private lastCfi = '';
   private lastPercent = 0;
   private lastChapterTitle = '';
   private offShell: (() => void) | null = null;
   private offNotes: (() => void) | null = null;
-  /** 双击/两指判定留下的延时翻页句柄（当前实现不再用，留着给手势扩展） */
-  private pendingTurn: number | null = null;
   private lastTapAt = 0;
 
   constructor(leaf: WorkspaceLeaf, api: ReaderHostApi) {
@@ -273,7 +269,6 @@ export class ReaderView extends ItemView {
   async onClose(): Promise<void> {
     this.teardown();
     this.toggleImmersive(false);
-    this.cancelPendingTurn();
     this.headTitleEl?.remove();
     this.headTitleEl = null;
     this.headerEls.forEach((node) => node.remove());
@@ -595,12 +590,6 @@ export class ReaderView extends ItemView {
     this.immersive = force ?? !this.immersive;
     dlog('immersive', { on: this.immersive });
     document.body.classList.toggle('bzr-immersive', this.immersive);
-  }
-
-  private cancelPendingTurn(): void {
-    if (this.pendingTurn === null) return;
-    window.clearTimeout(this.pendingTurn);
-    this.pendingTurn = null;
   }
 
   /**
@@ -1202,10 +1191,6 @@ export class ReaderView extends ItemView {
         onSelect: (info) => {
           if (!info) {
             // 选区塌了只收色点条；正在写想法时不受影响（弹层在 body 上）
-            if (this.suppressSelClear) {
-              this.suppressSelClear = false;
-              return;
-            }
             this.scheduleSelbarHide();
             return;
           }
@@ -1257,7 +1242,14 @@ export class ReaderView extends ItemView {
         this.pendingCfi ? 0 : book.reading.position.percent || 0,
       );
       this.pendingCfi = '';
-      this.tracker.begin(book.reading.position.percent);
+      /* 重试挂载时上一段会话还没结算：begin() 会把它收掉并返回，
+         这里必须写回书里，否则统计里凭空少一段（P3-22）。 */
+      const carried = this.tracker.begin(book.reading.position.percent);
+      if (carried) {
+        book.reading.sessions.push({ ...carried, percent: book.reading.position.percent });
+        book.reading.stats.totalReadTime += carried.durationSeconds;
+        book.reading.stats.lastReadTime = Date.now();
+      }
       if (!book.reading.stats.startReadTime) book.reading.stats.startReadTime = Date.now();
       this.api.store.touch();
       this.refreshAnnotations();
@@ -1372,26 +1364,9 @@ export class ReaderView extends ItemView {
 
   /* ─────────────────── 标注 · 书签 ─────────────────── */
 
-  /** 划词条上的色点最终落到这里（由 shell/actions 调用 addHighlight） */
-  private createHighlight(color: string): void {
-    const book = this.book;
-    const sel = RT.sel;
-    if (!book || !sel) return;
-    if (Date.now() - this.selectionAt > 10_000 && !this.selection) return;
-    addHighlight(book, {
-      text: sel.text,
-      cfiRange: sel.cfiRange,
-      chapterIndex: this.selection?.chapterIndex,
-      chapterTitle: sel.chapterTitle || this.lastChapterTitle,
-      color: color as never,
-    });
-    this.selection = null;
-    this.host.clearSelection();
-    this.hideSelbar();
-    this.refreshAnnotations();
-    this.api.store.touch();
-    notifyShell();
-  }
+  /* 这里曾经有一个 `createHighlight()`：注释写着「由 shell/actions 调用」，
+     实际上没有任何调用方——落笔走的是 actions 里的 `selpen` → `addHighlight`。
+     留着一个永不执行的方法只会让人以为「选中即划」在这里实现（2026-11-04 删）。 */
 
   /** 点中已有划线：贴着这条线弹出文字工具框（章节/原文都不重复） */
   private openHighlight(info: { cfiRange: string; anchor: Rect }): void {

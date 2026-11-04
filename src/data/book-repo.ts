@@ -95,6 +95,13 @@ export class BookRepo {
       return { book: exist, created: false };
     }
     const book = makeBook(path, format, size);
+    /* djb2 只有 32 位，理论上会撞（P3-09）。撞了就让后来者加后缀——
+       两本书共用一个 id，进度、划线、深链会全串到一起，比 id 不好看严重得多。 */
+    if (this.byId(book.id)) {
+      const base = book.id;
+      let n = 2;
+      while (this.byId(book.id)) book.id = `${base}-${n++}`;
+    }
     this.books.push(book);
     return { book, created: true };
   }
@@ -146,26 +153,39 @@ export interface Relocation {
 /**
  * 认出「书被改名/移动」：文件还在，只是路径变了。
  *
- * 判据只有两条——同格式、同字节数，且旧路径已经不在扫描结果里。不做这一步的
- * 话，改个文件名就等于换了一本书：新记录从零开始，旧记录被 markMissing 标成
- * 幽灵，划线与进度还挂在旧 id 上（深链一起失效）。
+ * 判据是「同格式 + 同字节数 + 旧路径已经不在扫描结果里」，**书名相同优先**
+ * （P3-10）。不做这一步的话，改个文件名就等于换了一本书：新记录从零开始，
+ * 旧记录被 markMissing 标成幽灵，划线与进度还挂在旧 id 上（深链一起失效）。
  *
- * 保守起见，`size` 为 0（未知）不参与匹配，避免把所有 0 字节文件认成同一本；
- * 同一批里一本书只能认领一次，两个同大小候选按加入时间从新到旧配。
+ * 以前这里只比「同格式 + 同大小」：一个 vault 里几本同大小的书（同一套排版
+ * 的系列书很常见）会互相认领错。`BookFileRef.fingerprint` 曾经想做这件事，
+ * 但从来没有一个地方算过它——留着只会让人以为已经做了内容比对。
+ *
+ * 保守起见，`size` 为 0（未知）不参与匹配；同一批里一本书只能认领一次。
  */
 export function planRelocations(books: ReaderBook[], files: ScannedFile[]): Relocation[] {
   const nowPaths = new Set(files.map((f) => f.path));
   const candidates = books.filter((b) => !nowPaths.has(b.fileRef.vaultPath) && !!b.fileRef.size);
   if (!candidates.length) return [];
 
+  /** 去掉扩展名与 `(1)` 这类副本后缀，用来判「是不是同一本书改了名」 */
+  const stem = (p: string): string => titleFromPath(p).replace(/\s*[(（]\d+[)）]$/, '').trim();
+
   const taken = new Set<string>();
   const out: Relocation[] = [];
+  const sameSize = (b: ReaderBook, f: ScannedFile): boolean =>
+    !taken.has(b.id) && b.fileRef.format === f.format && b.fileRef.size === f.size;
+
   for (const f of files) {
     if (!f.size) continue;
     if (books.some((b) => b.fileRef.vaultPath === f.path)) continue;
-    const hit = candidates.find(
-      (b) => !taken.has(b.id) && b.fileRef.format === f.format && b.fileRef.size === f.size,
-    );
+    const target = stem(f.path);
+    /* 第一轮只认同名的，第二轮才退回「同格式同大小」。
+       两轮分开是为了让「A.epub → A (1).epub」优先配到它自己那本，
+       而不是被另一本同大小的书先抢走。 */
+    const hit =
+      candidates.find((b) => sameSize(b, f) && stem(b.fileRef.vaultPath) === target) ??
+      candidates.find((b) => sameSize(b, f));
     if (!hit) continue;
     taken.add(hit.id);
     out.push({ book: hit, to: f.path });

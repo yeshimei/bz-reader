@@ -194,21 +194,6 @@ function overlayTypography(): string {
   </div>`;
 }
 
-function overlayImport(): string {
-  const body = `<div class="bzs-drop" data-role="drop"><b>把书拖到这里</b>也可以直接放进笔记库，再回书库刷新<br>
-      <span class="bzs-mini">文件留在笔记库里，卸载插件也读得到</span></div>
-    <div class="bzs-sect-h"><b>支持的格式</b><span class="ln"></span></div>
-    <div class="bzs-kv"><b>EPUB / TXT</b><span>封面、目录、分页与标注</span></div>
-    <div class="bzs-kv"><b>MOBI / AZW3 / FB2 / CBZ</b><span>导入后自动转换</span></div>
-    <div class="bzs-mini" style="margin-top:12px;line-height:1.9">点下面的按钮会用 Obsidian 原生文件选择器，导入后自动重扫书库。</div>`;
-  return modal(
-    '导入书籍',
-    'epub · txt · mobi · azw3 · fb2',
-    body,
-    `<button class="bzs-btn pri" data-act="import">选择文件…</button>${closeBtn()}`,
-  );
-}
-
 function overlayExport(bookId?: string): string {
   const book = bookById(bookId);
   const md = buildPreview(book);
@@ -741,8 +726,6 @@ export function overlayHtml(): string {
   switch (o.kind) {
     case 'search':
       return overlaySearch();
-    case 'import':
-      return overlayImport();
     case 'typography':
       return overlayTypography();
     case 'export':
@@ -848,8 +831,17 @@ export class OverlayLayer {
     /* 以前只关 4 种浮层，搜索/导入/导出/解锁这些有遮罩的弹层按 Esc 毫无反应。
        壳层弹层不是 Obsidian Modal，escManager 管不到这里。 */
     if (!getState().overlay) return;
+    /* 输入框里的 Esc 是「放弃这次输入」，不该顺手把整个弹层关掉（P3-14）：
+       写想法写到一半按 Esc，以前是连内容一起没了。 */
+    const t = e.target as HTMLElement | null;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+      t.blur();
+      return;
+    }
     closeOverlay();
     e.preventDefault();
+    /* 只在真的要关的时候截住（P3-14）：以前无条件 stopImmediatePropagation，
+       阅读视图的 Esc（退出沉浸 / 收划词条）永远收不到。 */
     e.stopImmediatePropagation();
   };
 

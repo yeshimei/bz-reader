@@ -959,7 +959,12 @@ function findBookOfMark(markId?: string, bookId?: string): ReaderBook | undefine
 
 function deleteMark(markId?: string, bookId?: string): void {
   const book = findBookOfMark(markId, bookId);
-  if (!book || !markId) return;
+  /* 找不到就给一句人话（P3-27）：侧栏里那条标注已经被删掉/被同步覆盖时，
+     点「删除」以前是什么都不发生，用户会以为按钮坏了。 */
+  if (!book || !markId) {
+    notify('找不到这条标注，可能已经被删掉了', 'info');
+    return;
+  }
   if (removeHighlight(book, markId)) {
     getShellSource()?.store.touch();
     repaint();
@@ -982,7 +987,10 @@ function changeMarkColor(markId?: string, color?: string, bookId?: string): void
 function jumpToMark(markId?: string, bookId?: string): void {
   const book = findBookOfMark(markId, bookId);
   const h = book?.notes?.highlights.find((x) => x.id === markId);
-  if (!book || !h) return;
+  if (!book || !h) {
+    notify('找不到这条标注，可能已经被删掉了', 'info');
+    return;
+  }
   closeOverlay();
   setState({ bookId: book.id });
   getShellSource()?.openBook(book, h.cfiRange);
@@ -996,7 +1004,10 @@ function jumpMark(markId?: string, bookId?: string): void {
 function quoteFromMark(markId?: string, bookId?: string): void {
   const book = findBookOfMark(markId, bookId);
   const h = book?.notes?.highlights.find((x) => x.id === markId);
-  if (!book || !h) return;
+  if (!book || !h) {
+    notify('找不到这条标注，可能已经被删掉了', 'info');
+    return;
+  }
   overlay('quote', { text: h.text, bookId: book.id, chapterTitle: h.chapterTitle, markId: h.id });
 }
 
