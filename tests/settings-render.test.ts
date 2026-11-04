@@ -63,6 +63,14 @@ describe('设置页渲染', () => {
     expect(out).toContain('data-act="headermove"');
   });
 
+  it('阅读页图标列出全部十项（含对照书籍 / 朗读 / 鸟瞰 / 沉浸 / 返回书架）', () => {
+    const out = html();
+    for (const id of ['paraBook', 'tts', 'bookmap', 'immersive', 'library']) {
+      expect(out, id).toContain(`data-k="${id}"`);
+    }
+    expect((out.match(/data-act="headertoggle"/g) ?? []).length).toBe(10);
+  });
+
   it('三个目录的「迁移」按钮已去掉（改由选不同目录时二次确认）', () => {
     const out = html();
     expect(out).not.toContain('datadirmove');

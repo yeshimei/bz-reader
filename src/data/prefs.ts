@@ -153,7 +153,18 @@ function clamp(n: unknown, min: number, max: number, fallback: number): number {
 }
 
 /** 头栏图标 id 白名单（与 view/header-actions.ts 的 SPEC 对齐，这里不 import 视图层） */
-const HEADER_IDS = ['toc', 'search', 'mark', 'type', 'para'] as const;
+const HEADER_IDS = [
+  'toc',
+  'search',
+  'mark',
+  'type',
+  'para',
+  'paraBook',
+  'tts',
+  'bookmap',
+  'immersive',
+  'library',
+] as const;
 
 function headerIds(v: unknown): string[] {
   const list = Array.isArray(v) ? v : [];

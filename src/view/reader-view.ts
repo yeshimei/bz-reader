@@ -510,12 +510,17 @@ export class ReaderView extends ItemView {
       header;
     if (!box) return;
 
-    const run: Record<string, () => void> = {
+    const run: Record<string, (ev?: MouseEvent) => void> = {
       toc: () => this.api.openTocSidebar('toc'),
       search: () => dispatchAction('search', this.rootEl ?? document.body),
       mark: () => this.toggleBookmark(),
       type: () => dispatchAction('typography', this.rootEl ?? document.body),
       para: () => void this.toggleParallel(),
+      paraBook: (ev) => this.openParallelPicker(ev),
+      tts: () => this.toggleTts(),
+      bookmap: () => dispatchAction('bookmap', this.rootEl ?? document.body),
+      immersive: () => this.toggleImmersive(),
+      library: () => getShellSource()?.openStudy('library'),
     };
     const spec = headerActionsFor(mobile, { order: this.prefs.headerOrder, hidden: this.prefs.headerHidden }).map((id) => ({
       ...headerActionSpec(id),
@@ -547,7 +552,7 @@ export class ReaderView extends ItemView {
       setIcon(btn, item.icon);
       btn.addEventListener('click', (ev) => {
         ev.preventDefault();
-        item.run();
+        item.run(ev);
       });
       this.headerEls.set(item.id, btn);
       fresh.push(btn);
@@ -585,17 +590,27 @@ export class ReaderView extends ItemView {
   /** 头栏 ⋮：被隐藏 / 移动端挤出的动作都在这里 */
   private showHeaderMenu(anchor: HTMLElement, ids: HeaderActionId[]): void {
     if (!ids.length) return;
-    const run: Record<HeaderActionId, () => void> = {
+    const run: Record<HeaderActionId, (ev?: MouseEvent) => void> = {
       toc: () => this.api.openTocSidebar('toc'),
       search: () => dispatchAction('search', this.rootEl ?? document.body),
       mark: () => this.toggleBookmark(),
       type: () => dispatchAction('typography', this.rootEl ?? document.body),
       para: () => void this.toggleParallel(),
+      paraBook: (ev) => this.openParallelPicker(ev),
+      tts: () => this.toggleTts(),
+      bookmap: () => dispatchAction('bookmap', this.rootEl ?? document.body),
+      immersive: () => this.toggleImmersive(),
+      library: () => getShellSource()?.openStudy('library'),
     };
     const menu = new Menu();
     for (const id of ids) {
       const spec = headerActionSpec(id);
-      menu.addItem((item) => item.setTitle(spec.label).setIcon(spec.icon).onClick(() => run[id]()));
+      menu.addItem((item) =>
+        item
+          .setTitle(spec.label)
+          .setIcon(spec.icon)
+          .onClick((evt) => run[id](evt instanceof MouseEvent ? evt : undefined)),
+      );
     }
     const rect = anchor.getBoundingClientRect();
     menu.showAtPosition({ x: rect.left, y: rect.bottom + 4 });

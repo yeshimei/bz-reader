@@ -11,7 +11,17 @@
 import { bookmarkAt } from '../data/notes';
 import type { ReaderBook } from '../data/schema';
 
-export type HeaderActionId = 'toc' | 'search' | 'mark' | 'type' | 'para';
+export type HeaderActionId =
+  | 'toc'
+  | 'search'
+  | 'mark'
+  | 'type'
+  | 'para'
+  | 'paraBook'
+  | 'tts'
+  | 'bookmap'
+  | 'immersive'
+  | 'library';
 
 export interface HeaderActionSpec {
   id: HeaderActionId;
@@ -19,13 +29,21 @@ export interface HeaderActionSpec {
   label: string;
 }
 
-/** 顺序即视觉顺序：目录 → 搜索 → 书签 →（桌面）排版 → 并排对照 */
+/**
+ * 顺序即视觉顺序，与阅读页标签菜单（`onPaneMenu`）的十项一一对应。
+ * 菜单里始终保留全部十项；设置页只决定「外面露哪几颗、按什么顺序」。
+ */
 const SPEC: readonly HeaderActionSpec[] = [
   { id: 'toc', icon: 'list', label: '目录（s）' },
   { id: 'search', icon: 'search', label: '搜索' },
   { id: 'mark', icon: 'bookmark', label: '记书签（b）' },
   { id: 'type', icon: 'type', label: '排版（t）' },
   { id: 'para', icon: 'columns-2', label: '并排对照' },
+  { id: 'paraBook', icon: 'book', label: '对照书籍' },
+  { id: 'tts', icon: 'volume-2', label: '朗读（r）' },
+  { id: 'bookmap', icon: 'map', label: '全书鸟瞰（m）' },
+  { id: 'immersive', icon: 'maximize', label: '沉浸模式' },
+  { id: 'library', icon: 'library', label: '返回书架' },
 ];
 
 /** 全部图标 id（也是默认顺序） */

@@ -12,8 +12,19 @@ describe('headerActionIds', () => {
     expect(headerActionIds(true)).toEqual(['toc', 'search', 'mark']);
   });
 
-  it('桌面端 5 颗，排版与并排对照不折叠', () => {
-    expect(headerActionIds(false)).toEqual(['toc', 'search', 'mark', 'type', 'para']);
+  it('桌面端默认十颗（菜单里的功能都能摆出来，由用户自己收）', () => {
+    expect(headerActionIds(false)).toEqual([
+      'toc',
+      'search',
+      'mark',
+      'type',
+      'para',
+      'paraBook',
+      'tts',
+      'bookmap',
+      'immersive',
+      'library',
+    ]);
   });
 
   it('两端的顺序一致：目录 → 搜索 → 书签 永远在最前', () => {
@@ -66,13 +77,35 @@ const cfg = (order: string[] = [], hidden: string[] = []) => ({ order, hidden })
  * 收起来的（显式隐藏 + 被名额挤出的）都进 ⋮。
  */
 describe('headerActionsFor：排序、隐藏与移动端上限', () => {
-  it('桌面五颗、移动三颗（与默认一致）', () => {
-    expect(headerActionsFor(false, cfg())).toEqual(['toc', 'search', 'mark', 'type', 'para']);
+  it('桌面十颗、移动三颗（与默认一致）', () => {
+    expect(headerActionsFor(false, cfg())).toEqual([
+      'toc',
+      'search',
+      'mark',
+      'type',
+      'para',
+      'paraBook',
+      'tts',
+      'bookmap',
+      'immersive',
+      'library',
+    ]);
     expect(headerActionsFor(true, cfg())).toEqual(['toc', 'search', 'mark']);
   });
 
   it('自定义顺序生效，未列出的按默认顺序补在后面', () => {
-    expect(headerActionsFor(false, cfg(['para', 'mark']))).toEqual(['para', 'mark', 'toc', 'search', 'type']);
+    expect(headerActionsFor(false, cfg(['para', 'mark']))).toEqual([
+      'para',
+      'mark',
+      'toc',
+      'search',
+      'type',
+      'paraBook',
+      'tts',
+      'bookmap',
+      'immersive',
+      'library',
+    ]);
   });
 
   it('隐藏的不显示，但进 ⋮', () => {
@@ -82,10 +115,29 @@ describe('headerActionsFor：排序、隐藏与移动端上限', () => {
   });
 
   it('移动端第四颗起进 ⋮', () => {
-    expect(headerOverflowFor(true, cfg())).toEqual(['type', 'para']);
+    expect(headerOverflowFor(true, cfg())).toEqual([
+      'type',
+      'para',
+      'paraBook',
+      'tts',
+      'bookmap',
+      'immersive',
+      'library',
+    ]);
   });
 
   it('不认识的 id 被忽略', () => {
-    expect(headerActionsFor(false, cfg(['bogus', 'toc']))).toEqual(['toc', 'search', 'mark', 'type', 'para']);
+    expect(headerActionsFor(false, cfg(['bogus', 'toc']))).toEqual([
+      'toc',
+      'search',
+      'mark',
+      'type',
+      'para',
+      'paraBook',
+      'tts',
+      'bookmap',
+      'immersive',
+      'library',
+    ]);
   });
 });
