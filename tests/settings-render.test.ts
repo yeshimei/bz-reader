@@ -17,7 +17,14 @@ import { DEFAULT_SETTINGS } from '../src/data/settings';
 import { viewSettings } from '../src/shell/render/settings';
 
 const html = (relicense = false): string =>
-  viewSettings({ prefs: DEFAULT_PREFS, settings: DEFAULT_SETTINGS, pen: 'amber', hotkeys: [], relicense });
+  viewSettings({
+    prefs: DEFAULT_PREFS,
+    settings: DEFAULT_SETTINGS,
+    pen: 'amber',
+    hotkeys: [],
+    relicense,
+    version: '0.1.2',
+  });
 
 describe('设置页渲染', () => {
   it('导出目录与数据目录都有文件夹选择钮', () => {
@@ -151,6 +158,34 @@ describe('设置页渲染', () => {
     expect(out).not.toMatch(/data-k="ai\.baseUrl"[^>]*readonly/);
     expect(out).not.toContain('data-act="unlock"');
     entState.unlocked = false;
+  });
+});
+
+/**
+ * 更新日志入口（2026-11-05 用户要求放在「数据」组）。
+ *
+ * 弹窗只在升级后第一次进书库自动出现一次，没有常驻入口就再也找不回来；
+ * 「数据」是用户翻设置最先落眼的一组，不必再往下翻到页尾。
+ */
+describe('更新日志入口', () => {
+  /** 截出「数据」组那一段：只看组内，不误判别的组 */
+  function dataGroup(out: string): string {
+    const start = out.indexOf('<h3>数据</h3>');
+    const next = out.indexOf('<h3>', start + 1);
+    return out.slice(start, next < 0 ? undefined : next);
+  }
+
+  it('就在「数据」组里', () => {
+    expect(dataGroup(html())).toContain('data-act="changelog"');
+  });
+
+  it('按钮旁边写着当前版本号', () => {
+    expect(dataGroup(html())).toContain('v0.1.2');
+  });
+
+  it('全页只有一个更新日志入口（不在两处重复画同一个按钮）', () => {
+    const out = html();
+    expect((out.match(/data-act="changelog"/g) ?? []).length).toBe(1);
   });
 });
 

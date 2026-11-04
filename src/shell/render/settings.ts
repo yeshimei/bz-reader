@@ -227,6 +227,9 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>备份与恢复</label>
         <button class="bzs-btn sm" data-act="backup" title="导出成一份 JSON，存进数据目录">备份</button>
         <button class="bzs-btn sm" data-act="restore" title="从备份文件恢复（合并，不覆盖现有进度）">恢复</button></div>
+      <div class="bzs-setrow"><label>更新日志</label>
+        <span class="bzs-mini" style="flex:1">${v.version ? `当前 v${esc(v.version)}` : '当前版本未知'} · 每一版改了什么</span>
+        <button class="bzs-btn sm" data-act="changelog" title="打开更新日志">打开</button></div>
       <div class="bzs-mini" style="margin-top:10px;line-height:1.9">
         导入的书复制到「书籍导入位置」；数据默认放在库根目录的 <code>${esc(DEFAULT_DATA_DIR)}</code>。
         改数据目录要先确认，确认后整体迁移；复制与校验都成功才会删除旧目录，失败一律保留原样。<br>
@@ -250,15 +253,5 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-keys">${keyRows}</div>
     </div>`;
 
-  /* 「关于」：版本号 + 更新日志入口。
-     弹窗只在升级后第一次进书库时自动出现，没有入口就再也找不回来——
-     何况用户看完一个功能想确认「这是哪一版加的」，入口得在这儿。 */
-  const about = `<div class="bzs-setgrp">
-      <h3>关于</h3>
-      <div class="bzs-setrow"><label>版本</label>
-        <span class="bzs-mini" style="flex:1">${v.version ? `v${esc(v.version)}` : '—'}</span>
-        <button class="bzs-btn sm" data-act="changelog" title="看看每一版改了什么">更新日志</button></div>
-    </div>`;
-
-  return `<div class="bzs-set-grid">${layout}${header}${look}${tts}${marks}${data}${ai}${lic}${keys}${about}</div>`;
+  return `<div class="bzs-set-grid">${layout}${header}${look}${tts}${marks}${data}${ai}${lic}${keys}</div>`;
 }
