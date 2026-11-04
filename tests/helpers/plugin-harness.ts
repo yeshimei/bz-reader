@@ -103,9 +103,15 @@ export interface ReaderHandle {
   leaf: TestLeaf;
 }
 
-/** 造一个阅读视图；bookId 直接写进私有字段（构造后不会自动挂载） */
-export function makeReaderView(app: App, bookId = ''): ReaderHandle {
+/**
+ * 造一个阅读视图；bookId 直接写进私有字段（构造后不会自动挂载）。
+ *
+ * `storeData` 在构造前就写进 store：视图在构造函数里就会读偏好，
+ * 建完再写就晚了（测「重启后读回哪一份版式」时尤其要注意）。
+ */
+export function makeReaderView(app: App, bookId = '', storeData: Record<string, unknown> = {}): ReaderHandle {
   const store = makeStore();
+  Object.assign(store.data, storeData);
   const api = {
     app,
     store,

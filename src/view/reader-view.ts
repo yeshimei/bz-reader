@@ -190,7 +190,10 @@ export class ReaderView extends ItemView {
     super(leaf);
     this.api = api;
     this.host = new EngineHost(api.app);
-    this.prefs = normalizePrefs(api.store.get().prefs ?? undefined);
+    /* 按平台取：桌面 prefsDesktop、手机 prefsMobile，新槽空着才回落旧的全局
+       prefs。直接读 `store.get().prefs` 会永远拿到升级前那一份——手机上调好的
+       字号行距都写在自己的槽里，重启后打开书版式就回到默认。 */
+    this.prefs = pickPrefs(api.store.get(), isMobileEnv());
   }
 
   getViewType(): string {
@@ -1328,7 +1331,8 @@ export class ReaderView extends ItemView {
        壳层状态要跟着它走，否则侧栏与排版面板会一直以为没有打开的书
        （表现为侧栏一屏「没有打开的书」、方向预览卡写着「这本书」）。 */
     if (getShellState().bookId !== book.id) setShellState({ bookId: book.id });
-    this.prefs = normalizePrefs(this.api.store.get().prefs ?? undefined);
+    /* 同构造函数：重启后重开书，版式要读本平台那一份（见 data/prefs.ts 的 pickPrefs） */
+    this.prefs = pickPrefs(this.api.store.get(), isMobileEnv());
     this.applyChrome();
     /* 书名/动作挂在宿主头栏上（自绘那条已经撤了） */
     this.mountHeader();
