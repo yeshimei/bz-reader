@@ -72,7 +72,8 @@ export interface ReaderPrefs {
 
 export const DEFAULT_PREFS: ReaderPrefs = {
   fontSize: 18,
-  lineHeight: 2.0,
+  /* 2.05 是定稿量出来的：2.0 在中文字里太挤，2.1 又散（ui-spec 的「尺寸口径」） */
+  lineHeight: 2.05,
   margin: 32,
   fontFamily: 'book',
   align: 'justify',
@@ -86,15 +87,16 @@ export const DEFAULT_PREFS: ReaderPrefs = {
 };
 
 export const FONT_SIZE_RANGE = { min: 14, max: 30, step: 1 } as const;
-export const LINE_HEIGHT_RANGE = { min: 1.4, max: 2.4, step: 0.1 } as const;
+/* 步长 0.05：定稿默认 2.05 就落在这条线上，step 0.1 会把它四舍五入成 2.1 */
+export const LINE_HEIGHT_RANGE = { min: 1.4, max: 2.4, step: 0.05 } as const;
 export const MARGIN_RANGE = { min: 8, max: 120, step: 4 } as const;
 export const TTS_RATE_RANGE = { min: 0.6, max: 2, step: 0.1 } as const;
 
 /** 字体选项：值 → 注入 iframe 的 font-family；book = 不覆盖，跟随书自带 */
 export const FONT_FAMILIES: Array<{ value: FontFamilyName; label: string; css: string }> = [
   { value: 'book', label: '跟随书籍', css: '' },
-  { value: 'serif', label: '宋体 / 衬线', css: '"Songti SC", "SimSun", "Noto Serif CJK SC", serif' },
-  { value: 'sans', label: '黑体 / 无衬线', css: '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif' },
+  { value: 'serif', label: '宋体', css: '"Songti SC", "SimSun", "Noto Serif CJK SC", serif' },
+  { value: 'sans', label: '黑体', css: '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif' },
 ];
 
 /**
@@ -137,7 +139,9 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     : DEFAULT_PREFS.fontFamily;
   return {
     fontSize: Math.round(clamp(p.fontSize, FONT_SIZE_RANGE.min, FONT_SIZE_RANGE.max, DEFAULT_PREFS.fontSize)),
-    lineHeight: Math.round(clamp(p.lineHeight, LINE_HEIGHT_RANGE.min, LINE_HEIGHT_RANGE.max, DEFAULT_PREFS.lineHeight) * 10) / 10,
+    /* 按 0.05 取整：滑块步长与默认值都是这档，按 0.1 存会把 2.05 变成 2.1 */
+    lineHeight:
+      Math.round(clamp(p.lineHeight, LINE_HEIGHT_RANGE.min, LINE_HEIGHT_RANGE.max, DEFAULT_PREFS.lineHeight) * 20) / 20,
     margin: Math.round(clamp(p.margin, MARGIN_RANGE.min, MARGIN_RANGE.max, DEFAULT_PREFS.margin)),
     fontFamily: family,
     align: p.align === 'left' ? 'left' : 'justify',

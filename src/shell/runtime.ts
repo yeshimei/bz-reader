@@ -26,10 +26,6 @@ export interface AiLogItem {
 }
 
 export const RT = {
-  /** 搜索面板关键词（本书 / 全库共用） */
-  searchKw: '',
-  /** 搜索范围：笔记索引（book=本书 / all=全库）或正文（text） */
-  searchScope: 'book' as 'book' | 'all' | 'text',
   /** 正文搜索的命中（点一条跳到那一页） */
   textHits: [] as Array<{ cfi: string; excerpt: string; chapterLabel: string; chapterIndex: number }>,
   /** 正文搜索是否正在跑 */
@@ -67,11 +63,6 @@ export const RT = {
    * 回到「全部展开」，用户不必记着自己上次折了哪一支。
    */
   tocCollapsed: new Set<string>(),
-  /**
-   * 删除的「上膛」状态：侧栏的删除按钮在触摸屏上容易误触，
-   * 同一个 id 在 4 秒内再点一次才真删（见 shell/delete-guard.ts）。
-   */
-  deleteArm: null as { id: string; at: number } | null,
 };
 
 export function pushAi(me: boolean, tag: string, text: string): void {

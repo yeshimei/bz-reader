@@ -82,81 +82,333 @@
   transform: translateX(-50%);
 }
 
-/* ── 文字工具框：点划线后的一排控件 ──
-   色点 / 写想法 / 书摘 / 原文 / 复制 / 删除；有想法时在下面原样显示那段文字。
-   不重复原文、不带章节与日期——UI 数量与文字量都压到最低。 */
-.bzs-float.is-anchored.bzs-hltools-panel {
+/* ── S10 五张阅读浮卡 ──
+   都是「浮在正文上」而不是弹窗：没有标题头、没有关闭按钮、没有遮罩，
+   点正文或按 Esc 收起；卡片朝上长、叠在划词胶囊之上。
+   数值照 showcase-read.html 的 1× 稿：脚注 470/12、书摘 480/12、
+   AI 430/14、想法 470/12、确认条 470/10、划线气泡 430/10。
+
+   外壳统一透明：底色、圆角、投影都各不相同，交给卡片自己画。 */
+.bzs-float.is-anchored.bzs-hltools-panel,
+.bzs-float.is-anchored.bzs-idea-panel,
+.bzs-float.is-anchored.bzs-quote-panel,
+.bzs-float.is-anchored.bzs-ai-panel,
+.bzs-float.is-anchored.bzs-fn-panel {
   width: max-content;
-  max-width: min(360px, calc(100vw - 24px));
+  max-width: min(480px, calc(100vw - 24px));
+  max-height: none;
+  background: transparent;
+  backdrop-filter: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  overflow: visible;
 }
 
-.bzs-hltools {
+/* ① 脚注：左侧一枚「注」小印，其余全是注文 */
+.bzs-fncard {
+  position: relative;
+  box-sizing: border-box;
+  width: min(470px, calc(100vw - 24px));
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 20px 24px 22px 58px;
+  box-shadow: 0 4px 14px rgba(40, 32, 20, .07), 0 20px 50px rgba(40, 32, 20, .1);
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--t1);
+}
+
+.bzs-fncard::before {
+  content: "注";
+  position: absolute;
+  left: 22px;
+  top: 22px;
+  width: 24px;
+  height: 24px;
+  text-align: center;
+  font: 11px/23px var(--ui);
+  color: var(--copper);
+  border: 1px solid var(--copper-line);
+  border-radius: 4px;
+}
+
+/* ② 书摘：左引文右动作的双栏卡 */
+.bzs-quote-card {
+  display: flex;
+  width: min(480px, calc(100vw - 24px));
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(40, 32, 20, .12), 0 2px 6px rgba(40, 32, 20, .05);
+  overflow: hidden;
+}
+
+.bzs-quote-card .main {
+  flex: 1;
+  min-width: 0;
+  padding: 20px 22px;
+}
+
+.bzs-quote-card .q {
+  margin: 0 0 12px;
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.95;
+  color: var(--t1);
+}
+
+.bzs-quote-card .from {
+  font-size: 11px;
+  color: var(--t3);
+  letter-spacing: .06em;
+}
+
+.bzs-quote-card .side {
+  width: 108px;
+  flex: none;
+  border-left: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
 }
 
-.bzs-hltools-row {
+.bzs-quote-card .side .bzs-btn {
+  width: 100%;
+  padding: 8px 6px;
+  font-size: 12px;
+}
+
+/* ③ AI：只有结果与三个动作 */
+.bzs-ai-card {
+  width: min(430px, calc(100vw - 24px));
+  background: var(--surface);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(40, 32, 20, .12), 0 2px 6px rgba(40, 32, 20, .05);
+}
+
+.bzs-ai-card .body {
+  padding: 16px 18px;
+  font-size: 13px;
+  line-height: 1.85;
+  color: var(--t1);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 42vh;
+  overflow: auto;
+}
+
+.bzs-ai-card .foot {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 9px;
-}
-
-.bzs-hltools-sep {
-  width: 1px;
-  height: 16px;
-  margin: 0 2px;
-  background: var(--line-2);
-  flex: none;
-}
-
-.bzs-hltools .bzs-sbtn {
-  padding: 6px 7px;
-}
-
-.bzs-hltools .bzs-sbtn.danger:hover {
-  color: var(--vermilion);
-}
-
-/* 题跋：想法在按钮行上方，用一枚「想」字小印起头。
-   印章用朱红（宿主 --text-error），不另造一套色板。 */
-.bzs-hltools-thought {
-  display: flex;
-  align-items: flex-start;
-  gap: 9px;
-  margin: 10px 14px 10px 12px;
-  font-family: var(--serif);
-  font-size: 12.5px;
-  line-height: 1.85;
-  color: var(--t2);
-  max-height: 5.1em;
-  overflow: auto;
-  word-break: break-word;
-}
-
-.bzs-hltools-thought-text {
-  min-width: 0;
-  white-space: pre-wrap;
-}
-
-.bzs-hltools-seal {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  margin-top: 2px;
-  display: grid;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--vermilion) 55%, transparent);
-  border-radius: 3px;
-  color: var(--vermilion);
-  font: 10px/1 var(--serif);
-}
-
-/* 有想法时，按钮行与批注之间压一条发丝线；没想法时不画 */
-.bzs-hltools-thought + .bzs-hltools-row {
+  gap: 8px;
+  padding: 12px 18px;
   border-top: 1px solid var(--line);
-  padding-top: 6px;
+}
+
+.bzs-ai-card .foot .sp {
+  flex: 1;
+}
+
+.bzs-ai-card .foot .bzs-btn {
+  padding: 7px 14px;
+  font-size: 12px;
+}
+
+/* 卡片里的按钮：原型是 8px 圆角、白底、12.5px，
+   pri 是实心铜底白字——「复制引用」是这张卡唯一的主路径 */
+.bzs-quote-card .bzs-btn,
+.bzs-ai-card .bzs-btn {
+  border-radius: 8px;
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--t2);
+  font-size: 12.5px;
+  letter-spacing: 0;
+}
+
+.bzs-quote-card .bzs-btn.pri,
+.bzs-ai-card .bzs-btn.pri {
+  background: var(--copper);
+  border-color: var(--copper);
+  color: #fff;
+}
+
+.bzs-quote-card .bzs-btn.pri:hover,
+.bzs-ai-card .bzs-btn.pri:hover {
+  color: #fff;
+  background: var(--copper);
+  border-color: var(--copper);
+  filter: brightness(1.06);
+}
+
+/* ④ 想法：一条输入框 + 一颗发送键 */
+.bzs-idea-card {
+  width: min(470px, calc(100vw - 24px));
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 16px 40px rgba(40, 32, 20, .12), 0 2px 6px rgba(40, 32, 20, .05);
+}
+
+.bzs-idea-card .row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.bzs-idea-card .txt {
+  flex: 1;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  outline: 0;
+  resize: none;
+  font-family: var(--serif);
+  font-size: 14.5px;
+  line-height: 1.8;
+  color: var(--t1);
+}
+
+.bzs-idea-card .send {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border: 0;
+  border-radius: 10px;
+  background: var(--copper);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bzs-idea-card .send svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+/* ④b 关闭前的二次确认：一条，不是一张卡 */
+.bzs-idea-confirm {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(470px, calc(100vw - 24px));
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(40, 32, 20, .14), 0 2px 6px rgba(40, 32, 20, .06);
+  font: 12.5px var(--ui);
+  color: var(--t2);
+}
+
+.bzs-idea-confirm .sp {
+  flex: 1;
+}
+
+.bzs-idea-confirm button {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 4px 8px;
+  font: 12.5px var(--ui);
+  color: var(--copper);
+}
+
+.bzs-idea-confirm button.ghost {
+  color: var(--t3);
+}
+
+/* ⑤ 点已有划线：先出想法气泡，下面是换色与删线的胶囊。
+   气泡按内容宽收缩，不写死宽度：只有六个字的想法不该占满 430px，
+   更不该把下面那条胶囊一起拉宽（浮层是 flex column，默认 stretch）。 */
+.bzs-mark-bubble {
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(430px, calc(100vw - 24px));
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 10px 13px;
+  box-shadow: 0 10px 26px rgba(40, 32, 20, .1), 0 2px 5px rgba(40, 32, 20, .05);
+  font: 12.5px/1.72 var(--ui);
+  color: var(--t2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 26vh;
+  overflow: auto;
+}
+
+.bzs-hlbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 16px;
+  padding: 4px 12px;
+  background: #fff;
+  border-radius: 999px;
+  box-shadow: 0 16px 36px rgba(40, 32, 20, .2), 0 3px 8px rgba(40, 32, 20, .1), 0 0 0 1px rgba(60, 48, 28, .07);
+}
+
+/* 只有胶囊一个（没有想法气泡）时不留那 16px：它是气泡与胶囊之间的缝，
+   不是胶囊自己的外边距——留着会让工具条离选中的字远一截。 */
+.bzs-hlbar:first-child {
+  margin-top: 0;
+}
+
+/* 胶囊按内容宽，与气泡同一个中心线 */
+.bzs-hltools-panel {
+  align-items: center;
+}
+
+body.theme-dark .bzs-hlbar {
+  background: #35322c;
+  box-shadow: 0 20px 42px rgba(0, 0, 0, .62), 0 4px 12px rgba(0, 0, 0, .46), 0 0 0 1px rgba(255, 255, 255, .09);
+}
+
+.bzs-hlbar-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 1px;
+  flex: none;
+  background: rgba(60, 48, 28, .14);
+}
+
+body.theme-dark .bzs-hlbar-sep {
+  background: var(--line);
+}
+
+.bzs-hlbar .bzs-sbtn {
+  padding: 2px 8px;
+  font-size: 12.5px;
+  border-radius: 7px;
+  letter-spacing: .03em;
+  color: var(--t2);
+}
+
+/* 写想法是这一条上的主路径：铜字加粗，和「删除」拉开 */
+.bzs-hlbar .bzs-sbtn.pri {
+  color: var(--copper);
+  font-weight: 600;
+}
+
+.bzs-hlbar .bzs-sbtn.danger {
+  color: var(--vermilion);
+}
+
+.bzs-hlbar .bzs-sbtn.danger:hover {
+  color: var(--vermilion);
+  background: transparent;
 }
 
 /* ── 写想法：一个输入框 + 一个保存按钮，没有标题和取消 ── */
@@ -652,32 +904,40 @@
   margin-top: 10px;
 }
 
-/* ── 划词浮层 ──
+/* ── 划词胶囊（S10 定稿）──
    位置全部由 reader-view 的 showSelbar() 算好（left/top 已是最终坐标），
    这里**不能再加 translate**：CSS 再抬 100% 会把工具条顶到选区两倍高度处，
-   选区在首行时整条飞出屏幕上边框。手机端的贴底规则自己带 translateX。 */
+   选区在首行时整条飞出屏幕上边框。手机端的贴底规则自己带 translateX。
+
+   外观照定稿原型 shot-read.html 逐值来：白底实心胶囊，没有玻璃底——玻璃底
+   压在正文上会随文字明暗忽深忽浅，划词时最需要的是「这块是控件、不是文字」。
+   描边走 0 0 0 1px 的阴影、不写 border：border 会把整条撑高 2px。 */
 .bzs-selbar {
   position: absolute;
   z-index: var(--z-float);
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 7px 9px;
-  border-radius: var(--r-card);
-  background: var(--glass);
-  border: 1px solid var(--glass-line);
-  box-shadow: var(--shadow-lg);
+  gap: 9px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(40, 32, 20, .2), 0 3px 8px rgba(40, 32, 20, .1), 0 0 0 1px rgba(60, 48, 28, .07);
   white-space: nowrap;
 }
 
+body.theme-dark .bzs-selbar {
+  background: #35322c;
+  box-shadow: 0 20px 42px rgba(0, 0, 0, .62), 0 4px 12px rgba(0, 0, 0, .46), 0 0 0 1px rgba(255, 255, 255, .09);
+}
+
 .bzs-pendot {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   cursor: pointer;
   position: relative;
-  border: 1px solid rgba(0, 0, 0, .3);
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
+  border: 1px solid rgba(0, 0, 0, .16);
+  transition: transform var(--dur-move) var(--ease), box-shadow var(--dur) var(--ease);
   display: block;
   flex-shrink: 0;
 }
@@ -686,20 +946,35 @@
   transform: scale(1.15);
 }
 
-.bzs-pendot.on::after {
-  content: "";
-  position: absolute;
-  inset: -4px;
-  border: 1px solid var(--t2);
-  border-radius: 50%;
+/* 当前色：两道环（底色 + 铜色），不是一根边框——14px 的圆上画框会糊成一团 */
+.bzs-pendot.on {
+  box-shadow: 0 0 0 2.5px #fff, 0 0 0 4px rgba(154, 116, 52, .55);
+}
+
+body.theme-dark .bzs-pendot.on {
+  box-shadow: 0 0 0 2.5px #35322c, 0 0 0 4px rgba(200, 164, 100, .62);
 }
 
 .bzs-selbar .div {
   width: 1px;
   height: 18px;
-  background: var(--line-2);
-  margin: 0 3px;
+  background: rgba(60, 48, 28, .14);
+  margin: 0 1px;
   flex-shrink: 0;
+}
+
+body.theme-dark .bzs-selbar .div {
+  background: var(--line);
+}
+
+/* 胶囊里的动作按钮：12.5px 是原型量出来的——13px 会让整条宽出 8px，
+   窄栏里更容易顶到边上。 */
+.bzs-selbar .bzs-sbtn {
+  padding: 2px 8px;
+  font-size: 12.5px;
+  border-radius: 7px;
+  letter-spacing: .03em;
+  color: var(--t2);
 }
 
 .bzs-sbtn {
@@ -707,11 +982,11 @@
   border: 0;
   background: none;
   color: var(--t2);
-  font: 11px var(--ui);
-  padding: 7px 8px;
-  border-radius: var(--r-ctl);
+  font: 12.5px var(--ui);
+  padding: 4px 9px;
+  border-radius: 7px;
   white-space: nowrap;
-  letter-spacing: .04em;
+  letter-spacing: .03em;
 }
 
 .bzs-sbtn:hover {
@@ -1222,5 +1497,29 @@ textarea.idea:focus {
   font-size: 13px;
   line-height: 1.8;
 }
+
+/* ── 重置界面状态：两行对照 + 一句数据位置（S8 定稿） ──
+   两个标签用两种颜色区分「会重置」（铜）与「不会动」（正文色），
+   光靠「会 / 不会」四个字扫读时分不出来。 */
+.bzs-reset {
+  font-size: 13px;
+  line-height: 2;
+  color: var(--t2);
+}
+
+.bzs-reset .k {
+  color: var(--copper);
+  font-weight: 500;
+}
+
+.bzs-reset .k2 {
+  color: var(--t1);
+  font-weight: 500;
+}
+
+.bzs-reset .bzs-mini {
+  margin-top: 8px;
+}
+
 
 

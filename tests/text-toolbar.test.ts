@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { textToolbarHtml } from '../src/shell/text-toolbar';
+import { selActions, textToolbarHtml } from '../src/shell/text-toolbar';
 
 /**
  * 点划线后弹出的「文字工具框」。
@@ -76,27 +76,28 @@ describe('textToolbarHtml · 工具条', () => {
 
   it('没有想法时不渲染想法区', () => {
     const html = textToolbarHtml(base);
-    expect(html).not.toContain('bzs-hltools-thought');
+    expect(html).not.toContain('bzs-mark-bubble');
+  });
+
+  it('控件排成一条 999 圆角的胶囊，和划词那条同形', () => {
+    const html = textToolbarHtml(base);
+    expect(html).toContain('class="bzs-hlbar"');
+    expect(html).toContain('bzs-hlbar-sep');
+    expect(html).not.toContain('bzs-hltools');
   });
 });
 
 describe('textToolbarHtml · 想法', () => {
   it('有想法时排在按钮行上方（先读批注，再操作）', () => {
     const html = textToolbarHtml({ ...base, comment: '这句我想了很久' });
-    expect(html).toContain('bzs-hltools-thought');
+    expect(html).toContain('bzs-mark-bubble');
     expect(html).toContain('这句我想了很久');
-    expect(html.indexOf('bzs-hltools-thought')).toBeLessThan(html.indexOf('bzs-hltools-row'));
+    expect(html.indexOf('bzs-mark-bubble')).toBeLessThan(html.indexOf('bzs-hlbar'));
   });
 
-  it('想法用一枚「想」字小印起头', () => {
-    const html = textToolbarHtml({ ...base, comment: '爱我的' });
-    expect(html).toContain('bzs-hltools-seal');
-    expect(html).toContain('>想<');
-  });
-
-  it('没有想法时不渲染小印，也不给按钮行加分隔线', () => {
-    const html = textToolbarHtml(base);
-    expect(html).not.toContain('bzs-hltools-seal');
+  it('想法气泡排在胶囊之前（气泡在上）', () => {
+    const html = textToolbarHtml({ ...base, comment: '想法' });
+    expect(html.indexOf('bzs-mark-bubble')).toBeLessThan(html.indexOf('bzs-hlbar'));
   });
 
   it('想法里的 HTML 被转义', () => {
@@ -107,6 +108,26 @@ describe('textToolbarHtml · 想法', () => {
 
   it('只有空白想法时不渲染想法区', () => {
     const html = textToolbarHtml({ ...base, comment: '   ' });
-    expect(html).not.toContain('bzs-hltools-thought');
+    expect(html).not.toContain('bzs-mark-bubble');
+  });
+});
+
+/**
+ * 划词胶囊（S10 定稿）：色点在左，
+ * 右边依次是 想法 / 书摘 / AI / 复制；AI 文案就两个字，
+ * 「AI 解释」会把胶囊撑宽一截，而它旁边就是「书摘」。
+ */
+describe('selActions · 划词胶囊动作', () => {
+  it('顺序是 想法 / 书摘 / AI / 复制', () => {
+    expect(selActions(true).map((a) => a.act)).toEqual(['selidea', 'selquote', 'selai', 'selcopy']);
+  });
+
+  it('AI 文案只有两个字', () => {
+    const ai = selActions(true).find((a) => a.act === 'selai');
+    expect(ai?.label).toBe('AI');
+  });
+
+  it('没有 AI 权限时整颗不出现（不做灰锁）', () => {
+    expect(selActions(false).map((a) => a.act)).toEqual(['selidea', 'selquote', 'selcopy']);
   });
 });

@@ -35,6 +35,8 @@ import { envSummary, probeBlobIframe } from '../core/diagnose';
 import { el } from '../ui/dom';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
 import { headerActionIds, headerActionSpec, headerActive } from './header-actions';
+import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
+import { selActions } from '../shell/text-toolbar';
 import { VIEW_TYPE_TOC } from './side-view';
 
 /* 注意：本类为了给 Obsidian 存 view 状态，重写了 getState()。
@@ -43,16 +45,15 @@ import { VIEW_TYPE_TOC } from './side-view';
    （表现：主题不跟随、侧栏与排版面板以为没打开书）。 */
 import {
   closeOverlay,
-  dismissesOnOutside,
+  dismissesOnSelect,
   getState as getShellState,
-  isFloatOverlay,
   setState as setShellState,
   subscribe,
   notify as notifyShell,
 } from '../shell/state';
-import { openOverlay, getState } from '../shell/state';
+import { openOverlay } from '../shell/state';
+import { tapIntent } from './tap-intent';
 import { anchoredPlacement } from '../shell/anchored-style';
-import { selbarActions } from '../shell/selbar';
 import { RT, onNotesChanged } from '../shell/runtime';
 import { addCheckin } from '../shell/checkin';
 import { toTextHits, type TextHit } from '../shell/text-search';
@@ -327,17 +328,21 @@ export class ReaderView extends ItemView {
       void p.then(() => this.tracker.touch());
     };
 
-    /* 点正文：移动端左右翻页；两指同时按切换沉浸（判定在引擎侧）。
+    /* 点正文：移动端上下分区翻页；两指同时按切换沉浸（判定在引擎侧）。
        翻页延后由 host 的队列保证，这里只管按区定方向。 */
     this.tapHandler = (zone, info) => {
-      /* 浮层开着时，点正文只关浮层，不翻页。
-         iframe 里的点按不冒泡到宿主文档，document 级收口收不到，
-         必须在阅读视图这一层补上——否则「点任何地方关掉」在手机上不成立。 */
-      const shown = getShellState().overlay;
-      if (shown && isFloatOverlay(shown.kind)) {
-        /* 写想法是有内容要保护的输入框：点正文不关它（也不翻页，翻走之后
-           锚点会错位）。其余浮层点一下就收。 */
-        if (dismissesOnOutside(shown.kind)) closeOverlay();
+      /* 这一下该干什么，全交给 tapIntent：划词条 > 浮层 > 翻页。
+         iframe 里的点按不冒泡到宿主文档，document 级的收口收不到，
+         所以「先收条子、再关浮层、最后才翻页」只能在这里兜住。 */
+      const intent = tapIntent({
+        selbar: !!this.selbar,
+        overlayKind: getShellState().overlay?.kind,
+        mobile: isMobileShell(),
+      });
+      if (intent !== 'turn') {
+        if (intent === 'dismiss-selbar') this.hideSelbar();
+        if (intent === 'dismiss-overlay') closeOverlay();
+        this.renderProbe();
         return;
       }
       const now = Date.now();
@@ -375,13 +380,6 @@ export class ReaderView extends ItemView {
         if (!box || !box.width) return zone;
         return sx < box.left + box.width / 2 ? 'prev' : 'next';
       })();
-      /* 浮层开着时点正文 = 关掉浮层，不翻页。浮层在宿主层、正文在 iframe 里，
-         document 级 pointerdown 收不到 iframe 内的事件，只能在这里兜住。 */
-      if (isFloatOverlay(getShellState().overlay?.kind)) {
-        if (dismissesOnOutside(getShellState().overlay?.kind)) closeOverlay();
-        this.renderProbe();
-        return;
-      }
       /* 上面 = 上一页，下面 = 下一页（分区在引擎侧按屏幕纵坐标判）；
          桌面用上面算出来的左右分区 */
       const dir: 'prev' | 'next' = isMobileShell() ? zone : desktopDir;
@@ -624,7 +622,7 @@ export class ReaderView extends ItemView {
   private searchOpen = false;
 
   private syncSearchHighlight(): void {
-    const open = getState().overlay?.kind === 'search';
+    const open = getShellState().overlay?.kind === 'search';
     if (this.searchOpen && !open) this.host.clearSearch();
     this.searchOpen = open;
   }
@@ -819,6 +817,11 @@ export class ReaderView extends ItemView {
           })
       );
     }
+    /* 最多列 12 本：再多就让人先去筛书架，不在菜单里塞一块滚动区 */
+    if (books.length > 12) {
+      menu.addSeparator();
+      menu.addItem((i) => i.setTitle(`还有 ${books.length - 12} 本，先筛书架`).setDisabled(true));
+    }
     /* 没有坐标时不能落在 (0,0)：手机上会被状态栏/刘海裁掉一半，
        看起来像「点了没反应」。退回阅读区右上方。 */
     const fallback = (): { x: number; y: number } => {
@@ -872,6 +875,9 @@ export class ReaderView extends ItemView {
           void (dir === 'prev' ? host2.prev() : host2.next());
         },
       });
+      /* mount 只建视图，start 才真的装书——漏了这一步副栏是一块空白，
+         看起来像「并排打开了但右边什么都没有」。副卷从它自己的进度起。 */
+      await host2.start(other.reading.position.cfi || '', other.reading.position.percent || 0);
       this.parallelOn = true;
     } catch (e) {
       this.host2 = null;
@@ -909,6 +915,11 @@ export class ReaderView extends ItemView {
   }
 
   /* ─────────────────── 朗读 ─────────────────── */
+
+  /** 当前这一屏的正文纯文本（朗读与 AI 问答共用同一条取文口径） */
+  pageText(): string {
+    return this.host.currentText();
+  }
 
   private toggleTts(): void {
     // 停止永远放行，避免读起来之后关不掉
@@ -1078,10 +1089,9 @@ export class ReaderView extends ItemView {
       });
       return b;
     };
-    /* 按钮顺序由纯函数定义（想法 / 书摘 / AI / 双链 / 复制），
-       测试直接从 selbarActions 断言，不必把整个视图塞进 node。
-       入口平权：AI / 双链在基础版也显示，点了走 requireCap 弹对照页。 */
-    for (const a of selbarActions()) bar.appendChild(mk(a.label, a.act));
+    /* 顺序与文案见 selActions()：想法 / 书摘 / AI / 复制。
+       入口平权：AI 在基础版也显示，点了走 requireCap 弹对照页。 */
+    for (const a of selActions(true)) bar.appendChild(mk(a.label, a.act));
 
     /* 点工具条不能把系统的选区和手柄清掉：pointerdown 默认会让 iframe 失焦，
        选区一塌，后面所有动作都拿不到文本了。 */
@@ -1239,7 +1249,7 @@ export class ReaderView extends ItemView {
           /* 开始新的划词 = 离开上一段交互：浮层（工具条 / 脚注）收掉，
              再把划词条贴到新选区下方。写想法不收——选一段原文再粘进想法
              是常见操作，收掉就等于把正在写的内容丢了。 */
-          if (dismissesOnOutside(getShellState().overlay?.kind)) closeOverlay();
+          if (dismissesOnSelect(getShellState().overlay?.kind)) closeOverlay();
           /* 选中不立刻落笔：移动端要留着系统选区与两端手柄，让用户先把范围
              调准，再点颜色。以前「选中即划」会在长按结束的瞬间落一条，
              想改范围就只能撤销重来。 */
@@ -1310,44 +1320,51 @@ export class ReaderView extends ItemView {
     this.mounting = false;
   }
 
+  /**
+   * 失败态：标题说结论、第二行说原因、动作最多两个，自检信息收在下面。
+   *
+   * 环境自检那几行是给真机排查用的：手机上最常见的白屏是 iframe 加载不了
+   * blob 地址，而那种失败连一条报错都没有。把结论写在这里，截图就能定位。
+   */
   private renderFault(title: string, desc: string): void {
     const stage = this.stage;
     if (!stage) return;
     stage.empty();
-    const box = el('div', 'bzs-empty');
-    box.append(el('div', '', title), el('div', 'bzs-mini', desc));
-    /* 环境自检：手机上最常见的白屏是 iframe 加载不了 blob 地址，
-       而那种失败连一条报错都没有。把结论写在这里，真机截图就能定位。 */
-    const diag = el('div', 'bzs-mini bzr-diag');
-    diag.style.opacity = '.7';
-    for (const line of envSummary(this.host.loadPhase)) diag.appendChild(el('div', '', line));
-    const probeLine = el('div', '', 'iframe·blob：探测中…');
-    diag.appendChild(probeLine);
-    void probeBlobIframe().then((r) => {
-      probeLine.textContent = `iframe·blob：${r}`;
+    const diag: FaultDiagLine[] = envSummary(this.host.loadPhase).map((line) => {
+      const i = line.indexOf('：');
+      return i > 0 ? { k: line.slice(0, i), v: line.slice(i + 1) } : { k: '信息', v: line };
     });
-    box.appendChild(diag);
-    const back = el('button', 'bzs-btn', '回书架');
-    back.type = 'button';
-    back.addEventListener('click', () => getShellSource()?.openStudy('library'));
-    box.appendChild(back);
-    const retry = el('button', 'bzs-btn', '重试');
-    retry.type = 'button';
-    retry.addEventListener('click', () => {
+    diag.push({ k: 'iframe·blob', v: '探测中…' });
+    const box = el('div', '');
+    box.innerHTML = faultHtml({
+      icon: 'alert',
+      title,
+      desc,
+      diag,
+      actions: [
+        { label: '重试', act: 'retry', primary: true },
+        { label: '回书架', act: 'back' },
+      ],
+    });
+    box.querySelector('[data-act="back"]')?.addEventListener('click', () => getShellSource()?.openStudy('library'));
+    box.querySelector('[data-act="retry"]')?.addEventListener('click', () => {
       this.mounted = false;
       void this.maybeMount();
     });
-    box.appendChild(retry);
+    const probeRow = box.querySelector<HTMLElement>('[data-k="iframe·blob"]');
+    void probeBlobIframe().then((r) => {
+      if (probeRow) probeRow.innerHTML = `<span class="k">iframe·blob</span>${r}`;
+    });
     stage.appendChild(box);
   }
 
-  /** 解包与渲染期间的占位：说明在忙，不是坏了 */
+  /** 解包与渲染期间的占位：说明在忙，不是坏了（不编造百分比） */
   private renderLoading(title: string): void {
     const stage = this.stage;
     if (!stage) return;
     stage.empty();
-    const box = el('div', 'bzs-empty');
-    box.append(el('div', 'bzs-mini', `正在打开《${title}》…`));
+    const box = el('div', '');
+    box.innerHTML = loadingHtml(title);
     stage.appendChild(box);
   }
 

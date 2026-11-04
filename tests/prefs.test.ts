@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import {
   DEFAULT_PREFS,
+  FONT_FAMILIES,
   FONT_SIZE_RANGE,
   LINE_HEIGHT_RANGE,
   MARGIN_RANGE,
@@ -58,5 +59,31 @@ describe('normalizePrefs', () => {
     expect(normalizePrefs({ flow: 'scroll' }).flow).toBe('scroll');
     expect(normalizePrefs({ flow: 'paged' }).flow).toBe('paged');
     expect(normalizePrefs({ flow: 'nope' }).flow).toBe('paged');
+  });
+});
+
+/**
+ * 正文口径（ui-spec「尺寸口径」）：桌面 18px / 行高 2.05 / 单栏 648px。
+ * 行高这条踩过：按 0.1 取整会把 2.05 存成 2.1，界面上永远显示不出定稿值。
+ */
+describe('正文口径', () => {
+  it('默认行高就是 2.05', () => {
+    expect(DEFAULT_PREFS.lineHeight).toBe(2.05);
+    expect(DEFAULT_PREFS.fontSize).toBe(18);
+  });
+
+  it('2.05 存取一个来回不被改掉', () => {
+    expect(normalizePrefs({ lineHeight: 2.05 }).lineHeight).toBe(2.05);
+  });
+
+  it('行高按 0.05 取整（滑块步长同档）', () => {
+    expect(LINE_HEIGHT_RANGE.step).toBe(0.05);
+    expect(normalizePrefs({ lineHeight: 1.97 }).lineHeight).toBe(1.95);
+    expect(normalizePrefs({ lineHeight: 1.98 }).lineHeight).toBe(2);
+  });
+
+  it('字体只写两个字：宋体 / 黑体', () => {
+    const labels = FONT_FAMILIES.map((f) => f.label);
+    expect(labels).toEqual(['跟随书籍', '宋体', '黑体']);
   });
 });

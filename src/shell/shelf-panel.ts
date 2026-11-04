@@ -11,9 +11,10 @@
  * ============================================================ */
 import { isMobileShell } from '../core/mobile';
 import { dispatchAction, dispatchInput } from './actions';
-import { getState, setState, subscribe, type StudyPage } from './state';
+import { getState, setState, setStateQuiet, subscribe, type StudyPage } from './state';
 import { getShellSource, liveBooks, shellPrefs, subscribeShellSource } from './source';
 import { studyShell } from './render/study';
+import { searchResultsHtml } from './render/search';
 import { buildShelfPage } from './shelf-page';
 import { hydrateCovers } from './covers';
 import { focusSelector, type FocusMemo } from './focus-memo';
@@ -29,6 +30,8 @@ export class ShelfPanel {
   private painted = false;
   /** 上一次渲染的页；换页要重置滚动位置 */
   private lastPage: StudyPage | null = null;
+  /** 导入页的拆卸函数：换页或离开时调用，别把监听留在 DOM 上 */
+  private teardownImport: (() => void) | null = null;
 
   /** @param host 挂载点，ItemView 传 contentEl */
   constructor(private host: HTMLElement) {}
@@ -46,6 +49,7 @@ export class ShelfPanel {
   }
 
   destroy(): void {
+    this.teardownSubPage();
     this.unsubscribe?.();
     this.unsubscribe = null;
     this.offSource?.();
@@ -101,6 +105,12 @@ export class ShelfPanel {
     if (!root || !getShellSource()) return;
 
     const state = getState();
+
+    /* 导入页不参与重绘：扫描结果、勾选、筛选框内容都活在它自己的 DOM 里，
+       业务数据一变（store.touch）就整页重建会把勾了一半的清单清空。
+       真正的离开（换页）由 lastPage 判断。 */
+    if (state.studyPage === 'import' && this.lastPage === 'import' && this.teardownImport) return;
+
     /* 只有同一页内重绘才恢复滚动；换页要回到顶部。
        以前只判 `painted`（永不复位），从书库滚到一半切设置页会停在中间。 */
     const pageChanged = this.lastPage !== state.studyPage;
@@ -120,9 +130,25 @@ export class ShelfPanel {
     }
     this.lastPage = state.studyPage;
     this.painted = true;
+    this.mountSubPage(state.studyPage);
     this.restoreFocus();
     // 封面是异步的：先出的是色块，真封面到了就地换图（不重绘，否则滚动位置会跳）
     hydrateCovers(getShellSource()?.app, books, root);
+  }
+
+  /** 子页里需要真实 DOM 的那几个（目前只有导入）挂进来 */
+  private mountSubPage(page: StudyPage): void {
+    this.teardownSubPage();
+    if (page !== 'import') return;
+    const host = this.root?.querySelector<HTMLElement>('[data-role="importhost"]');
+    const src = getShellSource();
+    if (!host || !src) return;
+    this.teardownImport = src.mountImport(host);
+  }
+
+  private teardownSubPage(): void {
+    this.teardownImport?.();
+    this.teardownImport = null;
   }
 
   private bind(): void {
@@ -213,7 +239,17 @@ export class ShelfPanel {
 
     const onEdit = (e: Event): void => {
       const t = e.target as HTMLElement;
-      if (!t?.dataset?.role) return;
+      const role = t?.dataset?.role;
+      if (!role) return;
+      /* 搜索框就地换命中列表：整页重绘会把输入框换掉，手指还在打就被打断。
+         搜索页与浮层用的是同一个词（ShellState.searchKw）。 */
+      if (role === 'searchkw') {
+        const v = (t as HTMLInputElement).value;
+        setStateQuiet({ searchKw: v });
+        const list = this.root?.querySelector<HTMLElement>('[data-role="hitlist"]');
+        if (list) list.innerHTML = searchResultsHtml(v, getState().searchScope);
+        return;
+      }
       dispatchInput(t as HTMLInputElement, e);
     };
     el.addEventListener('input', onEdit);

@@ -20,7 +20,7 @@ describe('AI 请求（P2-12：没有超时就会一直转圈）', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('没配置时给人话，不是静默失败', async () => {
-    await expect(aiAsk(settings({ apiKey: '' }), 'explain', 'x')).rejects.toThrow('还没配置 AI 接口');
+    await expect(aiAsk(settings({ apiKey: '' }), { task: 'explain', text: 'x' })).rejects.toThrow('还没配置 AI 接口');
   });
 
   it('超时错误变成「60 秒没有响应」', async () => {
@@ -28,35 +28,35 @@ describe('AI 请求（P2-12：没有超时就会一直转圈）', () => {
       'fetch',
       vi.fn().mockRejectedValue(Object.assign(new Error('aborted'), { name: 'TimeoutError' })),
     );
-    await expect(aiAsk(settings(), 'explain', 'x')).rejects.toThrow('60 秒没有响应');
+    await expect(aiAsk(settings(), { task: 'explain', text: 'x' })).rejects.toThrow('60 秒没有响应');
   });
 
   it('普通网络错误告诉用户连不上', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('getaddrinfo ENOTFOUND')));
-    await expect(aiAsk(settings(), 'explain', 'x')).rejects.toThrow('连不上 AI 接口');
+    await expect(aiAsk(settings(), { task: 'explain', text: 'x' })).rejects.toThrow('连不上 AI 接口');
   });
 
   it('401 提示检查 Key，404 提示检查地址', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401 }));
-    await expect(aiAsk(settings(), 'explain', 'x')).rejects.toThrow('检查 API Key');
+    await expect(aiAsk(settings(), { task: 'explain', text: 'x' })).rejects.toThrow('检查 API Key');
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
-    await expect(aiAsk(settings(), 'explain', 'x')).rejects.toThrow('检查接口地址');
+    await expect(aiAsk(settings(), { task: 'explain', text: 'x' })).rejects.toThrow('检查接口地址');
   });
 
   it('返回空内容不当成功', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse('   ')));
-    await expect(aiAsk(settings(), 'explain', 'x')).rejects.toThrow('AI 没有返回内容');
+    await expect(aiAsk(settings(), { task: 'explain', text: 'x' })).rejects.toThrow('AI 没有返回内容');
   });
 
   it('正常返回 trim 后的文本', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse('  hello  ')));
-    await expect(aiAsk(settings(), 'explain', 'x')).resolves.toEqual({ text: 'hello' });
+    await expect(aiAsk(settings(), { task: 'explain', text: 'x' })).resolves.toEqual({ text: 'hello' });
   });
 
   it('请求真的带上 60 秒超时信号，且地址拼成 /chat/completions', async () => {
     const fetchMock = vi.fn().mockResolvedValue(okResponse('ok'));
     vi.stubGlobal('fetch', fetchMock);
-    await aiAsk(settings(), 'explain', 'x');
+    await aiAsk(settings(), { task: 'explain', text: 'x' });
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('https://api.example.com/v1/chat/completions');
     expect(AI_TIMEOUT_MS).toBe(60_000);
@@ -77,7 +77,7 @@ describe('AI 请求（P2-12：没有超时就会一直转圈）', () => {
           }),
       ),
     );
-    const p = aiAsk(settings(), 'explain', 'x', { signal: ctrl.signal });
+    const p = aiAsk(settings(), { task: 'explain', text: 'x' }, { signal: ctrl.signal });
     ctrl.abort();
     await expect(p).rejects.toThrow('已取消');
   });

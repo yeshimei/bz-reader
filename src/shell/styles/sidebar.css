@@ -210,14 +210,12 @@
   color: var(--copper);
 }
 
-/* 二级章节：左缩进、序号收窄 */
+/* 二级章节：左缩进。
+   原来退一整格（30px，箭头 16 + 间距 6 再加一级的 6），
+   在 300px 的侧栏里二级章节名因此少显示三四个字。
+   层级靠半格 + 字号已经够看出来，不需要整格。 */
 .bzs-chaprow.d1 {
-  padding-left: 30px;
-}
-
-.bzs-chaprow.d1 .no {
-  width: 16px;
-  font-size: 11px;
+  padding-left: 15px;
 }
 
 /* ── 书签行：菱形铜点串在发丝竖线上 ── */
@@ -235,25 +233,34 @@
   background: var(--line-2);
 }
 
+/* 两行：第一行书名 + 百分比 + 删除，第二行目录名。
+   三个挤一行时，300px 侧栏里书名和目录名互相截。 */
 .bzs-mkrow {
   position: relative;
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 12px 24px;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 24px 10px;
   cursor: pointer;
   border-radius: var(--r-ctl);
+}
+
+.bzs-mkrow .hd {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
 
 .bzs-mkrow::before {
   content: "";
   position: absolute;
   left: 10px;
-  top: 50%;
+  top: 16px;
   width: 6px;
   height: 6px;
   background: var(--copper);
-  transform: translateY(-50%) rotate(45deg);
+  transform: rotate(45deg);
 }
 
 .bzs-mkrow:hover {
@@ -261,6 +268,8 @@
 }
 
 .bzs-mkrow .tt {
+  flex: 0 1 auto;
+  min-width: 0;
   font-size: 12px;
   color: var(--t1);
   white-space: nowrap;
@@ -269,13 +278,10 @@
 }
 
 .bzs-mkrow .pc {
+  flex: none;
   font-family: var(--ui);
   font-size: 11px;
   color: var(--t3);
-}
-
-.bzs-mkrow .sp {
-  flex: 1;
 }
 
 .bzs-mkrow em {
@@ -283,6 +289,9 @@
   font-family: var(--serif);
   font-size: 11px;
   color: var(--t3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bzs-mkrow .x {
@@ -293,8 +302,7 @@
   opacity: 0;
   position: absolute;
   right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 9px;
   padding: 2px 5px;
   border-radius: var(--r-chip);
   display: grid;

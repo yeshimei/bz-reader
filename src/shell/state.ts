@@ -17,8 +17,24 @@ import { getShellSource } from './source';
 /* 壳层没有「皮肤」这个状态了：底色、文字、边框全部读宿主的 CSS 变量，
    强调色存在 ReaderPrefs.accent 里（那是阅读偏好，跟着书走）。 */
 
-/** 书架四页。设置也在这里，不用 Obsidian 原生设置页。 */
-export type StudyPage = 'library' | 'notes' | 'stats' | 'settings';
+/**
+ * 书架的各页。
+ *
+ * 只有 library / notes 占页签位置；stats / settings / search / import
+ * 是「子页」，从右上四颗图标进去，头栏换成「← 返回 + 标题」。
+ * 分成两类是因为页签栏一长就变成一排小字，扫不动。
+ */
+export type StudyPage = 'library' | 'notes' | 'stats' | 'settings' | 'search' | 'import';
+
+/** 占页签的两页 */
+export type StudyTab = 'library' | 'notes';
+
+/** 子页：进来前的页记在 studyBack，返回键回到那儿 */
+export const STUDY_SUB_PAGES = ['stats', 'settings', 'search', 'import'] as const;
+
+export function isStudyTab(page: StudyPage): page is StudyTab {
+  return page === 'library' || page === 'notes';
+}
 
 /** 左侧栏四页签：书的坐标（书架是中心 tab，不在这里） */
 export type SideTab = 'toc' | 'bookmarks' | 'highlights' | 'ai';
@@ -41,20 +57,40 @@ export type OverlayKind =
  * 以前这个判断写在 overlay.ts 里（还漏掉了新加的工具条），
  * 导致点正文时浮层不关、页面先翻走了。
  */
-const FLOAT_KINDS: readonly OverlayKind[] = ['typography', 'hltools', 'footnote', 'idea'];
+const FLOAT_KINDS: readonly OverlayKind[] = [
+  'typography',
+  'hltools',
+  'footnote',
+  'idea',
+  /* 书摘与 AI 是 S10 加的两张无遮罩浮卡。漏进这张表的后果是双向的：
+     桌面点空白关不掉，手机点正文不关、还先翻了一页（阅读视图的
+     tapHandler 也读这份判断）。 */
+  'quote',
+  'ai',
+];
 
 export function isFloatOverlay(kind?: OverlayKind | null): boolean {
   return !!kind && FLOAT_KINDS.includes(kind);
 }
 
 /**
- * 点「别处」要不要把它关掉。
+ * 点一下「别处」，算不算一次关闭请求。
  *
- * 写想法是唯一例外：它是**有内容要保护**的输入框，点正文、点遮罩、
- * 划到另一条划线都可能发生在打字途中，关掉就等于内容丢失。
- * 出口只留取消 / 保存 / Esc 三条。
+ * 写想法也算：输入框空着就直接关，有字就由 closeOverlay 先亮确认条。
+ * 以前这里把 idea 排除掉，结果不是「保护输入」而是「根本关不掉」——
+ * 关闭请求压根发不出去，ESC 之外没有任何出口，手机还变成点一下就翻页。
  */
-export function dismissesOnOutside(kind?: OverlayKind | null): boolean {
+export function dismissesOnTap(kind?: OverlayKind | null): boolean {
+  return isFloatOverlay(kind);
+}
+
+/**
+ * 开始一段新划词，算不算一次关闭请求。
+ *
+ * 写想法仍然例外：选一段正文粘进想法是常用操作，一选就收等于把正在
+ * 写的字丢了。这里的「别处」不是一次点击，用户没有表达要离开。
+ */
+export function dismissesOnSelect(kind?: OverlayKind | null): boolean {
   return isFloatOverlay(kind) && kind !== 'idea';
 }
 
@@ -62,6 +98,8 @@ export interface OverlayState {
   kind: OverlayKind;
   bookId?: string;
   markId?: string;
+  /** 删除确认卡：删的是书签时用它（删划线走 markId） */
+  bookmarkId?: string;
   text?: string;
   /** 引文出处用的章节名（真实数据里章节是字符串，不是页码） */
   chapterTitle?: string;
@@ -94,6 +132,7 @@ export function overlayKey(o?: OverlayState | null): string {
     o.kind,
     o.bookId ?? '',
     o.markId ?? '',
+    o.bookmarkId ?? '',
     o.mode ?? '',
     o.text ?? '',
     o.href ?? '',
@@ -104,15 +143,36 @@ export function overlayKey(o?: OverlayState | null): string {
   ].join('|');
 }
 
+/**
+ * 浮层「要不要重画」的键。
+ *
+ * 比 overlayKey 多一笔**同一弹层内部的可见状态**：写想法的确认条。
+ * 它不是换一种弹层，只是同一张卡片下面多一行字——只比 overlayKey 的话
+ * 订阅方认为「内容没变」直接跳过，确认条就永远不出现；而状态里其实已经
+ * 置了「已确认」，下一下点击就把用户写了一半的字丢掉。
+ */
+export function overlayRenderKey(s: { overlay: OverlayState | null; ideaConfirm: boolean }): string {
+  const base = overlayKey(s.overlay);
+  if (!base) return '';
+  return s.overlay?.kind === 'idea' && s.ideaConfirm ? `${base}|confirm` : base;
+}
+
 export interface ShellState {
   /* 承载 */
   studyPage: StudyPage;
+  /** 子页的返回目标：进搜索/导入/统计/设置之前停在哪一页 */
+  studyBack: StudyTab;
   /* 书库 */
   libView: LibView;
   libFilter: LibFilter;
   libSort: LibSort;
   libShelf: string;
   libKw: string;
+  /** 窄屏书库：搜索框展开成整行（桌面恒展开，不看这个） */
+  libSearchOpen: boolean;
+  /* 搜索（书架整页与阅读页浮层共用一份，切页不丢词） */
+  searchKw: string;
+  searchScope: 'book' | 'all' | 'text';
   /* 笔记 */
   noteFilter: string;
   noteKw: string;
@@ -138,6 +198,17 @@ export interface ShellState {
   pen: string;
   /* 浮层 */
   overlay: OverlayState | null;
+  /** 写想法里「有未保存内容」：关闭前要二次确认 */
+  ideaDirty: boolean;
+  /** 二次确认那一条正在显示（再按一次关闭才真的关） */
+  ideaConfirm: boolean;
+  /**
+   * 正在写、还没保存的想法正文（null = 没动过输入框，显示书里存的那条）。
+   *
+   * 必须存一份：亮确认条 / 点「继续写」都会重绘浮层，输入框是重建的，
+   * 只从已保存的标注里取值的话，用户打了一半的字会在这一刻被抹掉。
+   */
+  ideaDraft: string | null;
   /* 真实数据里没有、但书库需要 */
   favIds: string[];
   shelves: Record<string, string>;
@@ -147,11 +218,15 @@ const LS_KEY = 'bzs-shell-v1';
 
 export const DEFAULT_SHELL_STATE: ShellState = {
   studyPage: 'library',
+  studyBack: 'library',
   libView: 'grid',
   libFilter: 'all',
   libSort: 'recent',
   libShelf: '全部',
   libKw: '',
+  libSearchOpen: false,
+  searchKw: '',
+  searchScope: 'book',
   noteFilter: 'all',
   noteKw: '',
   reviewIdx: 0,
@@ -163,6 +238,9 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   activeReaderId: null,
   pen: 'amber',
   overlay: null,
+  ideaDirty: false,
+  ideaConfirm: false,
+  ideaDraft: null,
   favIds: [],
   shelves: {},
 };
@@ -176,7 +254,9 @@ export function loadShellState(): ShellState {
     const raw = window.localStorage.getItem(LS_KEY);
     if (raw) {
       const d = JSON.parse(raw) as Partial<ShellState>;
-      if (d.studyPage && ['library', 'notes', 'stats', 'settings'].includes(d.studyPage)) state.studyPage = d.studyPage;
+      /* 只恢复页签两页：子页是「进来干一件事」的，重开 Obsidian 还停在
+         导入页会让人以为插件坏了。 */
+      if (d.studyPage === 'library' || d.studyPage === 'notes') state.studyPage = d.studyPage;
       if (d.libView === 'grid' || d.libView === 'list') state.libView = d.libView;
       if (d.libFilter) state.libFilter = d.libFilter;
       if (d.libSort) state.libSort = d.libSort;
@@ -208,6 +288,17 @@ export function setState(patch: Partial<ShellState>): void {
   notify();
 }
 
+/**
+ * 写状态但不广播。
+ *
+ * 只给「用户正在打字」这类场景用：搜索框每敲一个字都整页重绘的话，
+ * 输入框会被换掉、光标丢、中文输入法还会被打断。值本身是真的写进
+ * 状态的，下一个真正的广播（切页、点按钮）会带着它一起生效。
+ */
+export function setStateQuiet(patch: Partial<ShellState>): void {
+  Object.assign(state, patch);
+}
+
 /** 读当前状态 → 改 → 写回。适合「先读旧值再改」的场景（筛选切换、收藏） */
 export function mutateState(fn: (s: ShellState) => void): void {
   fn(state);
@@ -217,7 +308,7 @@ export function mutateState(fn: (s: ShellState) => void): void {
 
 function persist(): void {
   try {
-    const { overlay, libKw, noteKw, noteSelect, noteSel, ...rest } = state;
+    const { overlay, libKw, noteKw, noteSelect, noteSel, searchKw, ideaDraft, ...rest } = state;
     // 浮层与输入框内容不落盘：下次打开还停在上次的弹窗上很怪
     window.localStorage.setItem(LS_KEY, JSON.stringify(rest));
   } catch {
@@ -245,12 +336,57 @@ export function notify(): void {
 export function openOverlay(o: OverlayState): void {
   mutateState((s) => {
     s.overlay = o;
+    s.ideaDirty = false;
+    s.ideaConfirm = false;
+    s.ideaDraft = null;
   });
 }
 
-export function closeOverlay(): void {
+/**
+ * 关浮层。
+ *
+ * 写想法要先问一句：里可能有没保存的字。第一次关闭只把确认条亮出来，
+ * 再关一次才真的丢。用「已经确认过」当判据而不是再弹一个模态——输入
+ * 内容全程都在，看得见。
+ *
+ * `force` 给「保存」用：用户点了发送键，意思就是要这条，不该再问。
+ */
+export function closeOverlay(opts?: { force?: boolean }): void {
+  const o = state.overlay;
+  if (!opts?.force && o?.kind === 'idea' && state.ideaDirty && !state.ideaConfirm) {
+    mutateState((s) => {
+      s.ideaConfirm = true;
+    });
+    return;
+  }
   mutateState((s) => {
     s.overlay = null;
+    s.ideaDirty = false;
+    s.ideaConfirm = false;
+    s.ideaDraft = null;
+  });
+}
+
+/** 想法里的字变了：只有真的打了字才算「未保存」 */
+export function markIdeaDirty(dirty: boolean): void {
+  if (state.ideaDirty === dirty) return;
+  state.ideaDirty = dirty;
+}
+
+/**
+ * 记下正在打的字，不广播。
+ *
+ * 用 setStateQuiet：每敲一个字都重绘的话输入框会被换掉、光标丢、
+ * 中文输入法还会被打断。真正需要它的是之后那次重绘（亮确认条）。
+ */
+export function setIdeaDraft(value: string): void {
+  state.ideaDraft = value;
+}
+
+/** 「继续写」：收掉确认条，输入框原样留着 */
+export function cancelIdeaClose(): void {
+  mutateState((s) => {
+    s.ideaConfirm = false;
   });
 }
 

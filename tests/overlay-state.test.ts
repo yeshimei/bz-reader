@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isFloatOverlay, overlayKey } from '../src/shell/state';
+import { isFloatOverlay, overlayKey, overlayRenderKey } from '../src/shell/state';
 
 describe('overlayKey', () => {
   it('关闭状态是空串', () => {
@@ -26,6 +26,29 @@ describe('overlayKey', () => {
   it('完全相同的内容键稳定', () => {
     const make = () => overlayKey({ kind: 'idea', markId: 'm1', bookId: 'b1' });
     expect(make()).toBe(make());
+  });
+});
+
+describe('overlayRenderKey', () => {
+  /* 真机发现：确认条是一次「同 kind 的内部状态变化」，overlayKey 看不出
+     区别，订阅方就跳过重画——那条「还有没保存的内容」永远不出现，
+     而状态里已经置了 true，下一次点别处直接把内容丢了。 */
+  it('写想法的确认条亮起 / 收起都要换键', () => {
+    const o = { kind: 'idea', markId: 'm1', bookId: 'b1' } as const;
+    const off = overlayRenderKey({ overlay: o, ideaConfirm: false });
+    const on = overlayRenderKey({ overlay: o, ideaConfirm: true });
+    expect(on).not.toBe(off);
+  });
+
+  it('别的弹层没有确认条这回事，键不受影响', () => {
+    const o = { kind: 'quote', text: '一段原文' } as const;
+    expect(overlayRenderKey({ overlay: o, ideaConfirm: true })).toBe(
+      overlayRenderKey({ overlay: o, ideaConfirm: false }),
+    );
+  });
+
+  it('没有弹层时是空串（和 overlayKey 一致）', () => {
+    expect(overlayRenderKey({ overlay: null, ideaConfirm: false })).toBe('');
   });
 });
 

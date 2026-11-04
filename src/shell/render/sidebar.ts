@@ -120,12 +120,15 @@ function tocBody(toc: FoliateTOCItem[], active: TocActiveRef, collapsed: Readonl
 
 function bookmarksBody(rows: BmkRow[]): string {
   if (!rows.length) return `<div class="bzs-empty">还没有书签。<br>读到的地方，点阅读栏「签」记一枚。</div>`;
+  /* 两行：第一行书名 + 百分比 + 删除，第二行目录名。
+     以前三个都在一行，侧栏 300px 里谁都被截；目录名本来就是「在哪」，
+     和「叫什么、读到哪」不是一回事，分开放反而都读得全。 */
   return `<div class="bzs-sbsec">按书中先后</div><div class="bzs-timeline">${rows
     .map(
       (k) => `<div class="bzs-mkrow" data-act="jumpbmk" data-id="${k.id}" role="button" tabindex="0">
-        <span class="tt">${esc(k.label)}</span><span class="pc">${k.percent}%</span><span class="sp"></span>
+        <div class="hd"><span class="tt">${esc(k.label)}</span><span class="pc">${k.percent}%</span>
+        <button class="x" data-act="delbmk" data-id="${k.id}" title="删除">${ico('x')}</button></div>
         <em>${esc(k.chapterTitle)}</em>
-        <button class="x" data-act="delbmk" data-id="${k.id}" title="删除">${ico('x')}</button>
       </div>`,
     )
     .join('')}</div>`;

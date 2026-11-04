@@ -36,7 +36,7 @@
   background: none;
   color: var(--t3);
   font-family: var(--ui);
-  font-size: 12px;
+  font-size: 12.5px;
   letter-spacing: 0;
   padding: 9px 2px 13px;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
@@ -98,8 +98,13 @@
 .bzs-stuacts {
   display: flex;
   align-items: center;
-  gap: 6px;
+  /* 定稿原型 gap 4：四颗图标挨得近才像一组工具，散开就成四个独立按钮 */
+  gap: 4px;
   padding-bottom: 9px;
+}
+
+.bzs-stuacts .bzs-cbtn {
+  height: 28px;
 }
 
 .bzs-stubody {
@@ -1186,3 +1191,122 @@
   box-shadow: none;
 }
 
+
+/* ═══════════ 子页：搜索 / 导入 / 统计 / 设置 ═══════════
+   这四页不在页签上（S1 定稿）。头栏只留「← 返回 + 标题」，
+   把横向空间还给内容本身。 */
+
+.bzs-stuhead.is-sub {
+  align-items: center;
+  gap: 4px;
+  height: 52px;
+  padding: 0 28px 0 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.bzs-back {
+  appearance: none;
+  border: 0;
+  background: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--t2);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.bzs-back:hover {
+  background: var(--surface-2);
+  color: var(--t1);
+}
+
+.bzs-back svg {
+  width: 17px;
+  height: 17px;
+  margin-left: -1px;
+}
+
+.bzs-subtitle {
+  font-size: 13.5px;
+  color: var(--t1);
+  letter-spacing: .02em;
+}
+
+/* ── 搜索整页：表单贴顶，结果往下排 ── */
+.bzs-searchpage {
+  max-width: 780px;
+}
+
+.bzs-searchpage .bzs-search-in {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: var(--r-card);
+}
+
+.bzs-searchbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -2px 0 16px;
+}
+
+.bzs-searchbar .bzs-mini {
+  margin-left: auto;
+}
+
+.bzs-hits {
+  padding-bottom: 10px;
+}
+
+.bzs-searchpage .bzs-hit {
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+/* ── 导入整页：库内扫描在上，本地文件在下 ── */
+.bzs-import-host {
+  max-width: 820px;
+}
+
+/* 旧样式是按弹窗写的（固定高、列表内滚、头部自己带标题）。
+   整页里这些都反过来了：高度跟着页面流，列表不内滚，标题由头栏给。 */
+.bzr-imp.is-page {
+  display: block;
+  padding: 0;
+}
+
+.bzr-imp.is-page .bzr-imp-b {
+  display: block;
+  padding: 0;
+  overflow: visible;
+}
+
+.bzr-imp.is-page .bzr-imp-list {
+  max-height: none;
+  overflow: visible;
+  margin-bottom: 4px;
+}
+
+.bzr-imp.is-page .bzr-imp-sec {
+  margin: 22px 0 8px;
+}
+
+.bzr-imp.is-page .bzr-imp-sec:first-child {
+  margin-top: 0;
+}
+
+.bzr-imp.is-page .bzr-imp-f {
+  margin-top: 20px;
+  padding: 0;
+  border-top: 0;
+  background: none;
+}
+
+.bzr-imp.is-page .bzr-imp-filter {
+  height: 34px;
+  background: var(--sunken);
+}

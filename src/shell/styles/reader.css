@@ -63,18 +63,19 @@
   min-width: 0;
 }
 
+/* 副栏书名：定稿是**左对齐**的一行铜色小字，压在副栏正文上方留白里。
+   居中会把它读成「这一屏的标题」，而它只是「右边这本是谁」。 */
 .bzs-plabel {
   position: absolute;
   top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 18px;
   z-index: var(--z-sticky);
   font-size: 11px;
   letter-spacing: 0;
   color: var(--copper);
   white-space: nowrap;
   pointer-events: none;
-  max-width: 80%;
+  max-width: calc(100% - 36px);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -83,5 +84,86 @@
   to {
     height: 3px;
     opacity: .5;
+  }
+}
+
+/* ── 失败态与加载态（S13 定稿）──
+   一块居中的说明：图标 → 结论 → 原因 → 动作，自检信息收在下面一行行。
+   标题 15px 正文色，说明 12.5px 次要色：用户先读结论，再读为什么。 */
+.bzs-fault {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 100%;
+  padding: 32px 24px;
+  text-align: center;
+  color: var(--t2);
+}
+
+.bzs-fault .fi {
+  color: var(--t3);
+  margin-bottom: 4px;
+}
+
+.bzs-fault .fi svg {
+  width: 26px;
+  height: 26px;
+}
+
+.bzs-fault b {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--t1);
+  letter-spacing: .02em;
+}
+
+.bzs-fault p {
+  margin: 0;
+  max-width: 42ch;
+  font-size: 12.5px;
+  line-height: 1.9;
+  color: var(--t2);
+}
+
+.bzs-fault-diag {
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.9;
+  color: var(--t3);
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.bzs-fault-diag .k {
+  display: inline-block;
+  min-width: 66px;
+  color: var(--t3);
+  opacity: .7;
+}
+
+.bzs-fault .acts {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.bzs-fault.is-loading {
+  gap: 12px;
+}
+
+.bzs-fault .spin {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--line);
+  border-top-color: var(--copper);
+  border-radius: 50%;
+  animation: bzs-spin .8s linear infinite;
+}
+
+@keyframes bzs-spin {
+  to {
+    transform: rotate(360deg);
   }
 }

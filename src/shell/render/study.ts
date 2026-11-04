@@ -10,7 +10,7 @@
  * ============================================================ */
 import type { BookRow } from '../adapt';
 import { continueRow, shelfNames } from '../adapt';
-import type { ShellState, StudyPage } from '../state';
+import { isStudyTab, type ShellState, type StudyPage } from '../state';
 import { MAG, barHtml, coverHtml, esc, ico } from './html';
 
 export interface StudyPageDef {
@@ -20,12 +20,32 @@ export interface StudyPageDef {
   icon: string;
 }
 
-export const STUDY_PAGES: StudyPageDef[] = [
+/** 占页签位置的两页。统计与设置不在这里——它们退到右上图标 */
+export const STUDY_TABS: StudyPageDef[] = [
   { value: 'library', label: '书库', icon: 'library' },
   { value: 'notes', label: '笔记', icon: 'note' },
+];
+
+/**
+ * 右上四颗。顺序即定稿：搜索、统计、导入、设置。
+ *
+ * 统计与设置从前是页签，摆在书库/笔记旁边意味着「同一层级的事」；
+ * 实际上它们是低频的设置类入口，占着页签位置反而让高频的两页变小。
+ */
+export const STUDY_ACTS: StudyPageDef[] = [
+  { value: 'search', label: '搜索', icon: 'search' },
   { value: 'stats', label: '统计', icon: 'chart' },
+  { value: 'import', label: '导入书籍', icon: 'import' },
   { value: 'settings', label: '设置', icon: 'gear' },
 ];
+
+/** 子页标题：头栏那一行字 */
+const SUB_TITLE: Record<string, string> = {
+  search: '搜索',
+  import: '导入书籍',
+  stats: '统计',
+  settings: '设置',
+};
 
 /** 页签上的计数徽记：书库给本数，笔记给条数，统计与设置不给 */
 export interface StudyCounts {
@@ -37,33 +57,45 @@ export interface StudyCounts {
  * 书架整页外壳。`body` 是内部某一页的 HTML。
  *
  * 它占一个中心 tab（VIEW_TYPE_STUDY），不是侧栏——侧栏留给目录/书签/划线。
- * 头行压成一行：四页签（带图标）+ 搜索/导入；大题「书 架」去掉了——
- * 页签本身已经说明这是哪，一行大字只吃竖向空间。
+ * 两种头栏：
+ *   · 页签页（书库/笔记）：两页签 + 右侧四颗图标
+ *   · 子页（搜索/导入/统计/设置）：一颗返回 + 标题，不再有页签
+ * 子页不留右上四颗：正在做一件事的时候，旁边摆四个「去别处」的按钮
+ * 只会让人分心，要换页先退出来。
  */
 export function studyShell(page: StudyPage, body: string, counts: StudyCounts): string {
-  const nav = STUDY_PAGES.map((p) => {
-    const n = p.value === 'library' ? counts.books : p.value === 'notes' ? counts.notes : 0;
+  const head = isStudyTab(page)
+    ? `<div class="bzs-stuhead">${tabNav(page, counts)}<span class="sp"></span>${actBar()}</div>`
+    : `<div class="bzs-stuhead is-sub"><button class="bzs-back" data-act="studyback" title="返回" aria-label="返回">${ico(
+        'back',
+      )}</button><span class="bzs-subtitle">${esc(SUB_TITLE[page] || '')}</span></div>`;
+
+  return `<div class="bzs-studio">${head}<div class="bzs-stubody">${body}</div></div>`;
+}
+
+function tabNav(page: StudyPage, counts: StudyCounts): string {
+  const nav = STUDY_TABS.map((p) => {
+    const n = p.value === 'library' ? counts.books : counts.notes;
     return `<button class="${page === p.value ? 'on' : ''}" data-act="study" data-p="${p.value}" title="${p.label}">${ico(
       p.icon,
     )}<span>${p.label}</span>${n ? `<span class="n">${n}</span>` : ''}</button>`;
   }).join('');
+  return `<nav class="bzs-stunav">${nav}</nav>`;
+}
 
-  return `<div class="bzs-studio">
-    <div class="bzs-stuhead">
-      <nav class="bzs-stunav">${nav}</nav>
-      <span class="sp"></span>
-      <div class="bzs-stuacts">
-        <button class="bzs-cbtn" data-act="search" title="搜索（命令面板里也能搜到）" aria-label="搜索">${ico('search')}</button>
-        <button class="bzs-cbtn" data-act="import" title="导入书籍" aria-label="导入">${ico('import')}</button>
-      </div>
-    </div>
-    <div class="bzs-stubody">${body}</div>
-  </div>`;
+function actBar(): string {
+  return `<div class="bzs-stuacts">${STUDY_ACTS.map(
+    (a) =>
+      `<button class="bzs-cbtn" data-act="study" data-p="${a.value}" title="${a.label}" aria-label="${a.label}">${ico(
+        a.icon,
+      )}</button>`,
+  ).join('')}</div>`;
 }
 
 /* ─────────── 书库 ─────────── */
 
-const FILTERS: Array<[ShellState['libFilter'], string]> = [
+/** 分类下拉与桌面的 chip 排共用这一张表（actions 里的 libfiltermenu 也读它） */
+export const LIB_FILTERS: Array<[ShellState['libFilter'], string]> = [
   ['all', '全部'],
   ['reading', '在读'],
   ['done', '已读'],
@@ -80,13 +112,32 @@ const SORT_LABEL: Record<ShellState['libSort'], string> = {
 
 export interface LibraryView {
   rows: BookRow[];
+  /**
+   * 库里一共有几本（过滤前）。
+   *
+   * 「一本都没导入」和「筛选后没匹配」是两种状态：前者要收起整条
+   * 搜索/分类栏（没有东西可筛），后者要留着让用户改条件。
+   */
+  total?: number;
   state: ShellState;
   /** 书库在加载真实封面时会重排，给一个稳定的 key 让滚动位置不丢 */
   libraryKey: string;
+  /** 窄屏：筛选栏收成三颗下拉、搜索按需展开（390px 放不下整排 chip） */
+  mobile?: boolean;
 }
 
 export function viewLibrary(v: LibraryView): string {
   const { rows, state } = v;
+  const mobile = v.mobile === true;
+
+  /* 空库：整页只留一句空态。
+     以前把搜索框、五个分类 chip、书架名一起画出来，下面再补一句
+     「没有匹配的书」——库里一本书都没有时，这两句话互相矛盾，
+     而且满屏控件全是死的（真机图一）。 */
+  if (!(v.total ?? rows.length)) {
+    return `<div class="bzs-empty">书库还是空的。点右上「导入」放一本 epub 进来，或把书直接拖进笔记库。</div>`;
+  }
+
   const recent = continueRow(rows);
   const shown = v.rows;
   const shelves = shelfNames(rows);
@@ -107,11 +158,32 @@ export function viewLibrary(v: LibraryView): string {
           <button class="bzs-btn" data-act="detail" data-id="${recent.id}">书籍详情</button>
         </div>
       </div>`
-    : `<div class="bzs-empty">书库还是空的。点右上「导入」放一本 epub 进来，或把书直接拖进笔记库。</div>`;
+    : '';
 
-  const filters = `<div class="bzs-filters">
+  const filterLabel = LIB_FILTERS.find((f) => f[0] === state.libFilter)?.[1] ?? '全部';
+
+  /* 窄屏：一行放「搜索 / 分类 / 排序 / 视图」四颗，搜索展开后独占一行。
+     桌面保持原样——那里 1200px 宽，摊开比点两下快。 */
+  const filters = mobile
+    ? state.libSearchOpen
+      ? `<div class="bzs-filters is-mb is-search">
+          <div class="bzs-well">${MAG}<input data-role="libkw" placeholder="搜索书名 / 作者 / 分类" value="${esc(state.libKw)}"></div>
+          <button class="bzs-chip" data-act="libsearchtoggle">收起</button>
+        </div>`
+      : `<div class="bzs-filters is-mb">
+          <button class="bzs-chip bzs-icon-chip${state.libKw ? ' on' : ''}" data-act="libsearchtoggle" aria-label="搜索" title="搜索">${MAG}</button>
+          <button class="bzs-chip" data-act="libfiltermenu">${filterLabel}${ico('chevron')}</button>
+          <button class="bzs-chip bzs-sort" data-act="libsortmenu" aria-label="排序">${SORT_LABEL[state.libSort]}${ico(
+            'chevron',
+          )}</button>
+          <span class="sp"></span>
+          <button class="bzs-chip" data-act="libview" data-v="${state.libView === 'grid' ? 'list' : 'grid'}">${
+            state.libView === 'grid' ? '列表' : '封面墙'
+          }</button>
+        </div>`
+    : `<div class="bzs-filters">
       <div class="bzs-well">${MAG}<input data-role="libkw" placeholder="搜索书名 / 作者 / 分类" value="${esc(state.libKw)}"></div>
-      ${FILTERS.map(
+      ${LIB_FILTERS.map(
         (f) => `<button class="bzs-chip${state.libFilter === f[0] ? ' on' : ''}" data-act="libfilter" data-v="${f[0]}">${f[1]}</button>`,
       ).join('')}
       <span style="flex:1"></span>
@@ -121,8 +193,9 @@ export function viewLibrary(v: LibraryView): string {
       )}</button>
       <button class="bzs-chip${state.libView === 'grid' ? ' on' : ''}" data-act="libview" data-v="grid">封面墙</button>
       <button class="bzs-chip${state.libView === 'list' ? ' on' : ''}" data-act="libview" data-v="list">列表</button>
-    </div>
-    <div class="bzs-shelfline">
+    </div>`;
+
+  const shelfline = `<div class="bzs-shelfline">
       <span class="bzs-mini" style="margin-right:4px">书架</span>
       ${shelves.map((s) => `<button class="bzs-chip${state.libShelf === s ? ' on' : ''}" data-act="shelf" data-v="${esc(s)}">${esc(s)}</button>`).join('')}
       <span class="sp"></span><span class="bzs-mini">${shown.length} 本</span>
@@ -163,5 +236,5 @@ export function viewLibrary(v: LibraryView): string {
       .join('')}</div>`;
   }
 
-  return `${cont}${filters}${body}`;
+  return `${cont}${filters}${shelfline}${body}`;
 }

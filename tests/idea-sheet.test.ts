@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ideaSheetActsHtml, ideaSheetBodyHtml, ideaSheetHtml } from '../src/shell/idea-sheet';
+import { ideaSheetBodyHtml, ideaSheetHtml, ideaValue } from '../src/shell/idea-sheet';
 
 /**
- * 写想法弹窗：一个输入框 + 取消 / 保存。
+ * 写想法 = 一条输入框 + 一颗发送键（S10 定稿）。
  *
- * 取消是为了「写了一半想退出」有明确的出口：以前只能点外面，
- * 而点外面正好是最容易误触的地方（正文、遮罩、另一条划线）。
- * 弹窗本身也不再因为点外面而关闭——内容丢了没处找回。
+ * 取消按钮没有出现在卡里：取消在打字之前毫无意义，在打字之后又太容易误点。
+ * 退出意图由关闭前的二次确认接住（见 reader-cards 的 ideaConfirmHtml）。
  */
 const base = { markId: 'm1', bookId: 'b1' };
 
@@ -32,33 +31,56 @@ describe('ideaSheetBodyHtml', () => {
     expect(html).toContain('&lt;b&gt;');
     expect(html).not.toContain('<b>x</b>');
   });
+
+  it('输入框是一行起（想法大多是一句话）', () => {
+    expect(ideaSheetBodyHtml(base)).toContain('rows="1"');
+  });
 });
 
-describe('ideaSheetActsHtml', () => {
-  it('取消在保存前面，一共两个按钮', () => {
-    const html = ideaSheetActsHtml(base);
-    expect(html.match(/<button/g)?.length).toBe(2);
-    expect(html.indexOf('取消')).toBeLessThan(html.indexOf('保存'));
-  });
-
-  it('取消走 close 动作（不落盘、不删标注）', () => {
-    const html = ideaSheetActsHtml(base);
-    expect(html).toContain('data-act="close"');
-  });
-
-  it('保存按钮带着标注 id 与书 id（保存链路要用）', () => {
-    const html = ideaSheetActsHtml(base);
+describe('ideaSheetBodyHtml · 发送键', () => {
+  it('整卡只有一颗按钮，就是发送', () => {
+    const html = ideaSheetBodyHtml(base);
+    expect(html.match(/<button/g)?.length).toBe(1);
     expect(html).toContain('data-act="ideasave"');
+  });
+
+  it('发送键带着标注 id 与书 id（保存链路要用）', () => {
+    const html = ideaSheetBodyHtml(base);
     expect(html).toContain('data-id="m1"');
     expect(html).toContain('data-book="b1"');
+  });
+
+  it('没有「取消」按钮（退出走关闭二次确认）', () => {
+    expect(ideaSheetBodyHtml(base)).not.toContain('取消');
+  });
+
+  it('发送键有一枚纸飞机图标，不是文字', () => {
+    const html = ideaSheetBodyHtml(base);
+    expect(html).toContain('<svg');
+    expect(html).toContain('class="send"');
+  });
+});
+
+describe('ideaValue', () => {
+  it('没动过输入框：用书里存的那条', () => {
+    expect(ideaValue(null, '旧想法')).toBe('旧想法');
+  });
+
+  it('动过：用草稿，哪怕被清空（用户就是要清空）', () => {
+    expect(ideaValue('', '旧想法')).toBe('');
+    expect(ideaValue('新的', '旧想法')).toBe('新的');
+  });
+
+  it('两边都没有：空串', () => {
+    expect(ideaValue(null, undefined)).toBe('');
+    expect(ideaValue(undefined, undefined)).toBe('');
   });
 });
 
 describe('ideaSheetHtml', () => {
-  it('整卡只有主体与动作行，且带专门的类名', () => {
+  it('整卡带专门的类名，外面没有段落外壳', () => {
     const html = ideaSheetHtml(base);
-    expect(html).toContain('bzs-sheet');
-    expect(html).toContain('bzs-sheet-input');
-    expect(html).toContain('bzs-sheet-foot');
+    expect(html).toContain('bzs-idea-card');
+    expect(html).not.toContain('bzs-sheet-foot');
   });
 });

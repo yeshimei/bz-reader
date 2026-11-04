@@ -31,10 +31,10 @@ import { copyTree, dirHasFiles, findDataDirs, removeTree } from './data/migrate'
 import { normalizePrefs, type ReaderPrefs } from './data/prefs';
 import { normalizeSettings, type ReaderSettings } from './data/settings';
 import type { BookFormat, ReaderBook } from './data/schema';
-import { openImport } from './ui/import-panel';
 import { ReaderView, VIEW_TYPE_READER, type ReaderCommand, type ReaderHostApi } from './view/reader-view';
 import { SideView, VIEW_TYPE_TOC, type SideTab } from './view/side-view';
 import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-state';
+import { mountImport } from './ui/import-panel';
 import { releaseCovers } from './data/cover';
 import { activateLicense as applyLicense, can, recordActivity, revalidateLicense, setEntBackend, setProBuild } from './data/entitlement';
 import { normalizePluginData, type PluginDataFile } from './data/plugin-data';
@@ -49,7 +49,20 @@ import { StudyView, VIEW_TYPE_STUDY } from './shell/study-view';
 import { OverlayLayer } from './shell/overlay';
 import { dispatchAction } from './shell/actions';
 import { clampDailyGoal } from './shell/checkin';
-import { loadShellState, notify as notifyShell, overlayKey, setState, getState, subscribe, hydrateLibrary, DEFAULT_SHELL_STATE, type StudyPage } from './shell/state';
+import {
+  DEFAULT_SHELL_STATE,
+  getState,
+  hydrateLibrary,
+  isStudyTab,
+  loadShellState,
+  notify as notifyShell,
+  overlayKey,
+  overlayRenderKey,
+  setState,
+  subscribe,
+  type ShellState,
+  type StudyPage,
+} from './shell/state';
 import { setShellSource, shellPrefs } from './shell/source';
 
 export interface PluginConfig {
@@ -317,6 +330,7 @@ export function createPlugin(cfg: PluginConfig) {
         store: this.store,
         openBook: (book, cfi) => void this.openBook(book, cfi),
         openImport: () => this.openImportPanel(),
+        mountImport: (host) => this.mountImportPage(host),
         openStudy: (page) => this.openStudy(page),
         closeStudy: () => this.app.workspace.leftSplit?.collapse?.(),
         openSidebar: (tab) => this.openTocSidebar(tab),
@@ -325,6 +339,7 @@ export function createPlugin(cfg: PluginConfig) {
         setPrefs: (patch) => this.setPrefs(patch),
         settings: () => this.cfg.settings,
         setSettings: (patch) => this.setSettings(patch),
+        currentText: () => this.activeReader()?.pageText() ?? '',
         activate: (code) => this.activateLicense(code),
         dataDir: () => dataDirOf(),
         migrateDataDir: (dir) => this.migrateDataDir(dir),
@@ -599,8 +614,9 @@ export function createPlugin(cfg: PluginConfig) {
       let last = '';
       const sync = (): void => {
         const s = getState();
-        // 内容键含 text/href/anchor：同 kind 换一条内容（第二次点脚注）也要重画
-        const key = overlayKey(s.overlay);
+        // 内容键含 text/href/anchor：同 kind 换一条内容（第二次点脚注）也要重画；
+        // 含写想法的确认条：那是同一张卡里的可见变化，漏了它确认条不会出现
+        const key = overlayRenderKey(s);
         // 强调色不进 key：改档只换 CSS 变量，不需要重画弹层内容
         this.overlay?.setAccent(shellPrefs().accent);
         if (key !== last) {
@@ -658,7 +674,19 @@ export function createPlugin(cfg: PluginConfig) {
      * 而且从书架点进书之后还得再收一层弹窗。
      */
     openStudy(page: StudyPage = 'library'): void {
-      setState({ studyPage: page });
+      /* 进页规则只写一处，四个入口共用：
+           · 页签页 → 返回目标指向自己
+           · 子页   → 返回目标停在上一个页签页
+           · 搜索   → 清空上次的词，范围按权限落到「全库 / 本书」 */
+      const cur = getState().studyPage;
+      const patch: Partial<ShellState> = { studyPage: page };
+      if (isStudyTab(page)) patch.studyBack = page;
+      else if (isStudyTab(cur)) patch.studyBack = cur;
+      if (page === 'search') {
+        patch.searchKw = '';
+        patch.searchScope = can('crossSearch') ? 'all' : 'book';
+      }
+      setState(patch);
       const ws = this.app.workspace;
       const opened = ws.getLeavesOfType(VIEW_TYPE_STUDY)[0];
       if (opened && opened.view instanceof StudyView) {
@@ -779,8 +807,14 @@ export function createPlugin(cfg: PluginConfig) {
       await this.openBook(recent);
     }
 
+    /** 导入也是一整页（S1 定稿）：旧 modal 与浮层里那套已经合并掉了 */
     private openImportPanel(): void {
-      openImport({
+      this.openStudy('import');
+    }
+
+    /** 书架页把导入页挂进来；返回的拆卸函数由 ShelfPanel 在换页时调用 */
+    private mountImportPage(host: HTMLElement): () => void {
+      return mountImport(host, {
         app: this.app,
         repo: this.repo,
         store: this.store,
@@ -789,6 +823,7 @@ export function createPlugin(cfg: PluginConfig) {
           notifyShelf();
           notifyShell();
         },
+        onExit: () => this.openStudy('library'),
       });
     }
 

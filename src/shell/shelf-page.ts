@@ -15,10 +15,12 @@ import { allMarks } from './domain';
 import type { ShellState } from './state';
 import { getShellSource, shellPrefs, shellSettings } from './source';
 import { viewLibrary, type StudyCounts } from './render/study';
+import { viewSearch } from './render/search';
 import { viewNotes } from './render/notes';
 import { viewStats, viewStatsLocked } from './render/stats';
 import { KEY_COMMANDS, viewSettings } from './render/settings';
 import { readHotkeys } from '../core/hotkeys';
+import { isMobileShell } from '../core/mobile';
 
 export interface ShelfPage {
   body: string;
@@ -34,6 +36,13 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[]): ShelfPag
   const counts: StudyCounts = { books: books.length, notes: marks.length };
 
   switch (state.studyPage) {
+    case 'search':
+      /* 整页搜索：表单与结果都在这里出，输入时由 ShelfPanel 就地换命中列表 */
+      return { body: viewSearch(), counts };
+    case 'import':
+      /* 导入页是命令式的（扫描、勾选、写入都是行为），这里只给挂载点，
+         ShelfPanel 画完这一页后把 mountImport 挂进来。 */
+      return { body: '<div class="bzs-import-host" data-role="importhost"></div>', counts };
     case 'notes':
       return {
         body: viewNotes({
@@ -74,7 +83,13 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[]): ShelfPag
       };
     default:
       return {
-        body: viewLibrary({ rows: shown, state, libraryKey: state.libShelf + state.libFilter + state.libView }),
+        body: viewLibrary({
+          rows: shown,
+          total: books.length,
+          state,
+          libraryKey: state.libShelf + state.libFilter + state.libView,
+          mobile: isMobileShell(),
+        }),
         counts,
       };
   }

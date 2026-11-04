@@ -15,6 +15,8 @@
  *   · 「换一支笔」「想法会出现在哪里」这类说明文字。
  */
 
+import { markBubbleHtml } from './reader-cards';
+
 export interface ToolbarColor {
   value: string;
   label: string;
@@ -39,6 +41,9 @@ function esc(s: string): string {
  * 工具条 + 想法。
  *
  * 返回的是浮层内部内容，外壳（定位、背景）由 overlay.ts 套。
+ * 结构照 S10 定稿：想法气泡在上（有想法才出现），换色胶囊在下；
+ * 胶囊与划词那条同形同尺寸（999 圆角、14px 色点、12.5px 文字），
+ * 所以「划一段」和「点回一段」看到的是同一个控件。
  * `data-act` 与 data-id / data-book 必须和 actions.ts 里的 case 对上。
  */
 export function textToolbarHtml(input: TextToolbarInput): string {
@@ -53,19 +58,30 @@ export function textToolbarHtml(input: TextToolbarInput): string {
     )
     .join('');
   const thought = (input.comment ?? '').trim();
-  const thoughtHtml = thought
-    ? `<div class="bzs-hltools-thought"><span class="bzs-hltools-seal">想</span><span class="bzs-hltools-thought-text">${esc(
-        thought,
-      )}</span></div>`
-    : '';
-  return `<div class="bzs-hltools">
-    ${thoughtHtml}
-    <div class="bzs-hltools-row">${dots}<span class="bzs-hltools-sep"></span>
-      <button class="bzs-sbtn" data-act="hlidea" data-id="${id}" data-book="${book}">写想法</button>
-      <button class="bzs-sbtn" data-act="hlquote" data-id="${id}" data-book="${book}">书摘</button>
-      <button class="bzs-sbtn" data-act="copylink" data-id="${id}" data-book="${book}">双链</button>
-      <button class="bzs-sbtn" data-act="hlcopy" data-id="${id}" data-book="${book}">复制</button>
-      <button class="bzs-sbtn danger" data-act="hldel" data-id="${id}" data-book="${book}">删除</button>
-    </div>
+  return `${thought ? markBubbleHtml(thought) : ''}
+  <div class="bzs-hlbar">${dots}<span class="bzs-hlbar-sep"></span>
+    <button class="bzs-sbtn pri" data-act="hlidea" data-id="${id}" data-book="${book}">写想法</button>
+    <button class="bzs-sbtn" data-act="hlquote" data-id="${id}" data-book="${book}">书摘</button>
+    <button class="bzs-sbtn" data-act="copylink" data-id="${id}" data-book="${book}">双链</button>
+    <button class="bzs-sbtn" data-act="hlcopy" data-id="${id}" data-book="${book}">复制</button>
+    <button class="bzs-sbtn danger" data-act="hldel" data-id="${id}" data-book="${book}">删除</button>
   </div>`;
+}
+
+/**
+ * 划词胶囊上的动作（S10 定稿）。
+ *
+ * 顺序是定稿的一部分：想法在最左（最常点），复制在最右（最少点）。
+ * AI 文案只写两个字母——旁边就是「书摘」，四个字会把它推远。
+ * 基础版不给 AI 权限时整颗不出现，不做灰锁：每次划词都提醒一次
+ * 「你没买」比不给还难受。
+ */
+export function selActions(hasAi: boolean): Array<{ label: string; act: string }> {
+  const list = [
+    { label: '想法', act: 'selidea' },
+    { label: '书摘', act: 'selquote' },
+  ];
+  if (hasAi) list.push({ label: 'AI', act: 'selai' });
+  list.push({ label: '复制', act: 'selcopy' });
+  return list;
 }
