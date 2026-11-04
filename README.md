@@ -14,32 +14,6 @@
   <p><a href="README.en.md">English</a></p>
 </div>
 
-## bz Reader
-
-Turn your vault into a place to read. Desktop and mobile, EPUB / TXT and more, with highlights, notes, footnotes, reading stats, and an optional AI assistant that talks to the endpoint you configure.
-
-### Installation
-
-1. Open **Settings → Community plugins** and turn off Restricted mode.
-2. Click **Browse**, search for **bz Reader**, and install.
-3. Enable it — a bz icon appears in the left ribbon; start from the shelf.
-
-While the directory review is pending, install with [BRAT](https://github.com/TfTHacker/obsidian42-brat) using `yeshimei/bz-reader`, or download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/yeshimei/bz-reader/releases/latest) into `<your vault>/.obsidian/plugins/bz-reader/`.
-
-### Usage
-
-- Click the ribbon icon to open the shelf; **Import** adds EPUB / TXT files from your vault.
-- In the reader, tap the lower or upper half of the page to turn pages on mobile, or use the arrow keys and wheel on desktop. Select text to highlight it, write a note, or copy a Markdown link back to the exact passage.
-- **Shelf → Settings** holds typography, the data folder, the license key, and the AI endpoint.
-
-### Paid features
-
-The base version is free. Pro features — structured Markdown export, highlight cards, reading stats, cross-book search, AI answers, mobi / azw3 / fb2 / comics, vertical and two-column layout, text-to-speech, parallel reading, and the book map — require a license key, purchased from the link in the [paid features](#付费说明) section below. The key is verified locally and is not tied to a device count.
-
-### Network access
-
-Only the AI feature uses the network: requests go to the OpenAI-compatible endpoint you configure, sending the selected text and the current page (up to 6,000 characters). Everything else works offline.
-
 <p align="center">
   <img src="docs/images/shelf-desktop-light.webp" alt="书架：继续阅读、筛选条、书架分组与封面墙（左侧亮色、右侧暗色）">
 </p>
@@ -109,4 +83,30 @@ Only the AI feature uses the network: requests go to the OpenAI-compatible endpo
 
 ## 许可
 
-本项目以 [MIT](LICENSE) 许可发布。渲染内核来自 [foliate-js](https://github.com/johnfactotum/foliate-js) 1.0.1（MIT，见 [src/vendor/foliate/LICENSE](src/vendor/foliate/LICENSE)）。
+本项目以 [MIT](LICENSE) 许可发布。渲染内核来自 [foliate-js](https://github.com/johnfactotum/foliate-js) 1.0.1（MIT，以 npm 依赖分发，本地补丁见 [patches/foliate-js@1.0.1.patch](patches/foliate-js@1.0.1.patch)）。
+
+## English
+
+Turn your vault into a place to read. Desktop and mobile, EPUB / TXT and more, with highlights, notes, footnotes, reading stats, and an optional AI assistant that talks to the endpoint you configure.
+
+### Installation
+
+1. Open **Settings → Community plugins** and turn off Restricted mode.
+2. Click **Browse**, search for **bz Reader**, and install.
+3. Enable it — a bz icon appears in the left ribbon; start from the shelf.
+
+While the directory review is pending, install with [BRAT](https://github.com/TfTHacker/obsidian42-brat) using `yeshimei/bz-reader`, or download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/yeshimei/bz-reader/releases/latest) into `<your vault>/.obsidian/plugins/bz-reader/`.
+
+### Usage
+
+- Click the ribbon icon to open the shelf; **Import** adds EPUB / TXT files from your vault.
+- In the reader, tap the lower or upper half of the page to turn pages on mobile, or use the arrow keys and wheel on desktop. Select text to highlight it, write a note, or copy a Markdown link back to the exact passage.
+- **Shelf → Settings** holds typography, the data folder, the license key, and the AI endpoint.
+
+### Paid features
+
+The base version is free. Pro features — structured Markdown export, highlight cards, reading stats, cross-book search, AI answers, mobi / azw3 / fb2 / comics, vertical and two-column layout, text-to-speech, parallel reading, and the book map — require a license key, purchased from the link in the 付费说明 section above. The key is verified locally and is not tied to a device count.
+
+### Network access
+
+Only the AI feature uses the network: requests go to the OpenAI-compatible endpoint you configure, sending the selected text and the current page (up to 6,000 characters). Everything else works offline.

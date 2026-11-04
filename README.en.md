@@ -83,4 +83,4 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 
 ## License
 
-Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](https://github.com/johnfactotum/foliate-js) 1.0.1 (MIT, see [src/vendor/foliate/LICENSE](src/vendor/foliate/LICENSE)).
+Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](https://github.com/johnfactotum/foliate-js) 1.0.1 (MIT, distributed as an npm dependency; local patches in [patches/foliate-js@1.0.1.patch](patches/foliate-js@1.0.1.patch)).
