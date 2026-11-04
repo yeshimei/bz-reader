@@ -26,27 +26,24 @@ node esbuild.config.mjs once                    # 构建
 
 ## 4. 部署
 
-「部署」= 把同一份构建产物同时落到**测试库**和**主仓库**，缺一不算部署。先过三道门（第 3 节），然后按顺序：
+「部署」= 把**同一份**构建产物同时落到**主仓库**和**测试库**，缺一不算部署。先过三道门（第 3 节），然后在 `D:\Obsidian\bz-reader` 跑：
 
-1. **主仓库**：在 `D:\Obsidian\bz-reader` 跑
+```powershell
+$env:BZ_READER_VAULT='E:\Obsidian\测试\.obsidian\plugins\bz-reader'
+node esbuild.config.mjs production
+```
 
-    ```powershell
-    node esbuild.config.mjs once
-    ```
+一条命令同时完成两处：
 
-    production 构建会把 `dist/pro` 的三件套复制到仓库根（`main.js` / `manifest.json` / `styles.css`）——发布与社区审核都按根目录核对。代码本身仍按第 5 节的 worktree 流程合并，部署前 master 必须是干净的。
+- **主仓库**：`main.js` / `manifest.json` / `styles.css` 复制到仓库根——发布与社区审核都按根目录核对；代码本身仍按第 5 节的 worktree 流程合并，部署前 master 必须是干净的。
+- **测试库**：同一份产物同步到 `BZ_READER_VAULT` 指向的插件目录。
 
-2. **测试库**：
+几个要点：
 
-    ```powershell
-    $env:BZ_READER_VAULT='E:\Obsidian\测试\.obsidian\plugins\bz-reader'
-    node esbuild.config.mjs once
-    ```
-
-    `BZ_READER_VAULT` 必须指到**插件目录**，不是库根：指到库根会把三件套写进 vault 根目录（2026-11-05 踩过，已清理）。
-
+- `production` 是压缩、无 sourcemap，并且**只有它**会落仓库根；`once` 不压缩、带 inline sourcemap，只写 `dist/pro` 和 vault，**不落仓库根**——所以 `once` 不是部署。
+- `BZ_READER_VAULT` 必须指到**插件目录**，不是库根：指到库根会把三件套写进 vault 根目录（2026-11-05 踩过，已清理）。
 - 只部署**已合并到 master** 的产物；worktree 内构建把 `BZ_READER_VAULT` 指向不存在的目录，只验产物，不污染正在用的库。
-- 验收：两处 `main.js` 的时间戳都是本次构建；测试库重载 Obsidian 后生效。
+- 验收：仓库根与测试库的 `main.js` 字节数一致、时间戳都是本次构建；测试库重载 Obsidian 后生效。
 - 部署 ≠ 发版：tag / Release 走 `bz-release`，那是另一条流程。
 
 ## 5. 改动走 worktree
