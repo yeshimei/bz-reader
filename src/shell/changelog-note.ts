@@ -246,6 +246,15 @@ export interface ChangelogNoteHandle {
 }
 
 /**
+ * 当前活着的那一个弹窗。
+ *
+ * 升级提示与设置页入口共用同一个函数：连点两下「更新日志」、或提示弹出来
+ * 的瞬间又点了设置页，都会各开一层遮罩叠在一起（关了上面那层，下面那层
+ * 还在，看着像关不掉）。新开之前先收掉旧的，全插件恒只有一个。
+ */
+let liveNote: ChangelogNoteHandle | null = null;
+
+/**
  * 打开更新日志弹窗。`releases` 按**新→旧**给（内置数据本就是）。
  *
  * 返回关闭句柄；一版日志都没有时直接返回空句柄，不开一个空窗。
@@ -257,6 +266,9 @@ export function openChangelogNote(
   const list = usable(releases);
   const html = changelogNoteHtml(list, expectVersion);
   if (!html) return { close: () => undefined };
+
+  liveNote?.close();
+  liveNote = null;
 
   let bodyEl: HTMLElement | null = null;
   let fadeTop: HTMLElement | null = null;
@@ -331,5 +343,12 @@ export function openChangelogNote(
   // 首帧量一次拿不到真实高度（排版还没落定），下一帧再量
   if (typeof window !== 'undefined') window.requestAnimationFrame(syncFade);
 
-  return { close: () => modal.close() };
+  const handle: ChangelogNoteHandle = {
+    close: () => {
+      if (liveNote === handle) liveNote = null;
+      modal.close();
+    },
+  };
+  liveNote = handle;
+  return handle;
 }

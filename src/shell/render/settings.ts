@@ -256,7 +256,7 @@ export function viewSettings(v: SettingsView): string {
   const about = `<div class="bzs-setgrp">
       <h3>关于</h3>
       <div class="bzs-setrow"><label>版本</label>
-        <span class="bzs-mini" style="flex:1">v${esc(v.version || '—')}</span>
+        <span class="bzs-mini" style="flex:1">${v.version ? `v${esc(v.version)}` : '—'}</span>
         <button class="bzs-btn sm" data-act="changelog" title="看看每一版改了什么">更新日志</button></div>
     </div>`;
 

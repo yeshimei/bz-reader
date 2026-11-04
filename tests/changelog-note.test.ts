@@ -42,4 +42,18 @@ describe('打开更新日志', () => {
     expect(document.body.children.length).toBe(before);
     expect(() => note.close()).not.toThrow();
   });
+
+  /* 连点两下「更新日志」、或提示弹出来的瞬间又点设置页：新窗开之前先收掉旧的，
+     否则两层遮罩叠着，关掉上面那层下面还在（看着像关不掉）。 */
+  it('连开两次只留一层遮罩', () => {
+    const first = openChangelogNote(CHANGELOG_RELEASES, '0.1.2');
+    const before = document.body.children.length;
+    const second = openChangelogNote(CHANGELOG_RELEASES, '0.1.1');
+
+    expect(document.body.children.length).toBe(before);
+
+    second.close();
+    expect(document.body.children.length).toBe(before - 1);
+    expect(() => first.close()).not.toThrow(); // 旧句柄已经关过了，再关一次也不炸
+  });
 });
