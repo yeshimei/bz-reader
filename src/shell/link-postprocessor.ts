@@ -73,3 +73,40 @@ export function interceptableClick(
   if (!link) return null;
   return resolveClickTarget(hrefCandidates(link), bookByPath);
 }
+
+/**
+ * `workspace.openLinkText` 的签名。
+ *
+ * `newLeaf` / `openViewState` 用 `any`：这层只透传，不解释它们；
+ * 写死 Obsidian 的 `PaneType` / `OpenViewState` 会让 bind 出来的方法
+ * 因参数逆变赋不过去，白添一处 cast。
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type OpenLinkText = (linktext: string, sourcePath: string, newLeaf?: any, openViewState?: any) => Promise<void>;
+
+export interface OpenLinkHost {
+  bookByPath(path: string): { id: string } | undefined;
+  openTarget(t: LinkTarget): void;
+}
+
+/**
+ * 包一层 `workspace.openLinkText`。
+ *
+ * **这是编辑模式（Live Preview）里唯一拿得到完整 linktext 的地方**：那里的
+ * 链接渲染成 `<span class="cm-underline">`，既没有 `<a>` 也没有 `data-href`，
+ * DOM 层什么也抓不到。Obsidian 点击时会把完整 linktext（含 `#bzr-cfi=…`）
+ * 传给 openLinkText——阅读模式的 `<a>` 点击最终也走这里，所以这一层同时
+ * 兜住了两种视图。
+ *
+ * 不是自家双链就原样交回去，别的链接一个参数都不改。
+ */
+export function wrapOpenLinkText(original: OpenLinkText, host: OpenLinkHost): OpenLinkText {
+  return (linktext, sourcePath, newLeaf, openViewState) => {
+    const target = planWikilinkClick(linktext, host.bookByPath);
+    if (target) {
+      host.openTarget(target);
+      return Promise.resolve();
+    }
+    return original(linktext, sourcePath, newLeaf, openViewState);
+  };
+}

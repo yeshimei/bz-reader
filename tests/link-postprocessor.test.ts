@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { makeBook } from '../src/data/book-repo';
 import { addHighlight } from '../src/data/notes';
 import { wikilinkOfMark } from '../src/data/wikilink';
@@ -7,6 +7,7 @@ import {
   interceptableClick,
   planWikilinkClick,
   resolveClickTarget,
+  wrapOpenLinkText,
 } from '../src/shell/link-postprocessor';
 import { parseMiniHtml } from './helpers/dom-stub';
 
@@ -119,5 +120,48 @@ describe('interceptableClick · 全局点击捕获', () => {
 
   it('点到空白处（没有链接元素）不拦', () => {
     expect(interceptableClick(null, library)).toBeNull();
+  });
+});
+
+describe('wrapOpenLinkText · Live Preview 里唯一的拦截点', () => {
+  /* Live Preview 的链接渲染成 <span class="cm-underline">，没有 <a>、没有
+     data-href——DOM 层什么都抓不到。Obsidian 点击时统一走
+     workspace.openLinkText，参数里是完整 linktext（含 #bzr-cfi=…）。 */
+  const base = () => vi.fn(async () => undefined);
+
+  it('自家双链：接管，不把 linktext 交给 Obsidian', async () => {
+    const original = base();
+    const openTarget = vi.fn();
+    const wrapped = wrapOpenLinkText(original, { bookByPath: library, openTarget });
+    const { book, h } = bookWithHighlight('一句话', '第一章');
+
+    await wrapped(hrefOf(book, h), '笔记.md', false);
+
+    expect(openTarget).toHaveBeenCalledTimes(1);
+    expect(openTarget.mock.calls[0]?.[0]).toMatchObject({ bookId: 'book-1', cfi: 'epubcfi(/6/4)' });
+    expect(original).not.toHaveBeenCalled();
+  });
+
+  it('普通链接原样交回去，一个参数都不改', async () => {
+    const original = base();
+    const openTarget = vi.fn();
+    const wrapped = wrapOpenLinkText(original, { bookByPath: library, openTarget });
+
+    await wrapped('笔记/某条.md#标题', '笔记.md', 'tab', { eState: {} });
+
+    expect(openTarget).not.toHaveBeenCalled();
+    expect(original).toHaveBeenCalledWith('笔记/某条.md#标题', '笔记.md', 'tab', { eState: {} });
+  });
+
+  it('书不在库里：不接管', async () => {
+    const original = base();
+    const openTarget = vi.fn();
+    const wrapped = wrapOpenLinkText(original, { bookByPath: () => undefined, openTarget });
+    const { book, h } = bookWithHighlight('一句话', '第一章');
+
+    await wrapped(hrefOf(book, h), '笔记.md', false);
+
+    expect(openTarget).not.toHaveBeenCalled();
+    expect(original).toHaveBeenCalledTimes(1);
   });
 });

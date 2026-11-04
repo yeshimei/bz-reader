@@ -68,7 +68,7 @@ import {
   type StudyPage,
 } from './shell/state';
 import { setShellSource, shellPrefs } from './shell/source';
-import { hrefCandidates, interceptableClick } from './shell/link-postprocessor';
+import { hrefCandidates, interceptableClick, wrapOpenLinkText } from './shell/link-postprocessor';
 import { CHANGELOG_RELEASES, pickReleaseFor, planChangelog, releaseEntryCount } from './shell/changelog';
 import { openChangelogNote } from './shell/changelog-note';
 
@@ -280,6 +280,23 @@ export function createPlugin(cfg: PluginConfig) {
           link.setAttribute('data-bzr-bound', target.bookId);
           link.addEventListener('click', (e) => takeOver(target, e), true);
         });
+      });
+
+      /* 编辑模式（Live Preview）的链接是 CM6 的 `<span class="cm-underline">`：
+         既没有 `<a>` 也没有 `data-href`，上面三层 DOM 捕获全都抓不到——这就是
+         「阅读模式正常、编辑模式却把书打开、还换走了当前笔记」的原因。
+
+         Obsidian 点击链接时统一走 `workspace.openLinkText`，参数里是完整
+         linktext（含 `#bzr-cfi=…`）。包一层：是自家双链就接管，不是就原样
+         交回去。阅读模式的 `<a>` 点击最终也走这里，顺带成了第四层保险。 */
+      const ws = this.app.workspace;
+      const originalOpenLinkText = ws.openLinkText;
+      ws.openLinkText = wrapOpenLinkText(originalOpenLinkText.bind(ws), {
+        bookByPath: (p) => this.repo.byPath(p),
+        openTarget: (t) => void this.openFromTarget(t),
+      }) as typeof ws.openLinkText;
+      this.register(() => {
+        ws.openLinkText = originalOpenLinkText;
       });
 
       this.addRibbonIcon('library', 'bz 阅读：书架', () => this.openStudy());
