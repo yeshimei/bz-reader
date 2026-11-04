@@ -17,6 +17,7 @@ import { resolveTheme } from '../engine/theme';
 import { normalizePrefs, pickPrefs, type ReaderPrefs } from '../data/prefs';
 import { recordPosition, type ReaderBook } from '../data/schema';
 import type { LinkTarget } from '../data/deeplink';
+import { parseWikilinkHref } from '../data/wikilink';
 import {
   HIGHLIGHT_COLORS,
   colorCss,
@@ -219,8 +220,19 @@ export class ReaderView extends ItemView {
   }
 
   async setState(state: unknown, result: { history: boolean }): Promise<void> {
-    const s = (state ?? {}) as { bookId?: string; cfi?: string };
+    const s = (state ?? {}) as { bookId?: string; cfi?: string; file?: string; subpath?: string };
     if (typeof s.bookId === 'string') this.bookId = s.bookId;
+    else if (typeof s.file === 'string' && s.file) {
+      /* 从 `[[书.epub]]` 点进来：Obsidian 给的是文件路径，不是 bookId */
+      const book = this.api.repo.byPath(s.file);
+      if (book) this.bookId = book.id;
+    }
+    /* 带子路径进来（Live Preview 里点双链）：能解出 CFI 就顺手定位一次，
+       解不出就落回上次位置——总比从书开头读起强。 */
+    if (typeof s.subpath === 'string' && s.subpath) {
+      const parsed = parseWikilinkHref(`${s.file ?? ''}${s.subpath}`);
+      if (parsed?.target.cfi) this.pendingCfi = parsed.target.cfi;
+    }
     if (typeof s.cfi === 'string' && s.cfi) this.pendingCfi = s.cfi;
     await super.setState(state, result);
     await this.maybeMount();

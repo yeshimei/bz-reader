@@ -68,6 +68,7 @@ import {
   type StudyPage,
 } from './shell/state';
 import { setShellSource, shellPrefs } from './shell/source';
+import { createWikilinkPostProcessor } from './shell/link-postprocessor';
 import { CHANGELOG_RELEASES, pickReleaseFor, planChangelog, releaseEntryCount } from './shell/changelog';
 import { openChangelogNote } from './shell/changelog-note';
 
@@ -183,6 +184,12 @@ export function createPlugin(cfg: PluginConfig) {
       this.registerView(VIEW_TYPE_TOC, (leaf) => new SideView(leaf));
       this.registerView(VIEW_TYPE_STUDY, (leaf) => new StudyView(leaf));
 
+      /* 让 vault 里的书文件能被阅读视图打开：否则 `[[书.epub]]` 点下去
+         Obsidian 只会说「无法打开此文件」。被别的插件（或 Obsidian 自己的
+         .txt）占走的格式会抛错，跳过即可——那个格式在阅读视图里仍由下面的
+         post-processor 接管，只是 Live Preview 里点不到。 */
+      this.registerBookFileExtensions();
+
       this.injectShellSource();
 
       // 弹层层：全局一个，挂 body，跟着壳层状态重画
@@ -227,6 +234,16 @@ export function createPlugin(cfg: PluginConfig) {
       this.registerObsidianProtocolHandler(PROTOCOL, (params) => {
         void this.openFromTarget(parseProtocolParams(params));
       });
+
+      /* 双链：`[[书.epub#bzr-cfi=…|划线文字]]` 的子路径 Obsidian 不认，
+         点下去只会打开书、落到上次的位置。这里把点击接管，落回原文那一句。
+         只管阅读视图——Live Preview 里的链接是编辑器装饰器，不经过这里。 */
+      this.registerMarkdownPostProcessor(
+        createWikilinkPostProcessor({
+          bookByPath: (path) => this.repo.byPath(path),
+          openTarget: (t) => void this.openFromTarget(t),
+        }),
+      );
 
       this.addRibbonIcon('library', 'bz 阅读：书架', () => this.openStudy());
 
@@ -1022,6 +1039,24 @@ export function createPlugin(cfg: PluginConfig) {
     }
 
     /* ── 内部 ── */
+
+    /**
+     * 把书文件扩展名绑到阅读视图。
+     *
+     * 不绑的话，笔记里 `[[书.epub]]` 点下去 Obsidian 只会说「无法打开此文件」。
+     * 每个扩展名单独 try：`.txt` 是 Obsidian 原生的，`.epub` 也可能被别的
+     * 阅读器插件先注册——抢占时 `registerExtensions` 会抛，跳过一个不影响其余。
+     * 抢不到的那个格式退回 obsidian:// 链接（Live Preview 里点不到，阅读视图照常）。
+     */
+    private registerBookFileExtensions(): void {
+      for (const fmt of PRO_FORMATS) {
+        try {
+          this.registerExtensions([fmt], VIEW_TYPE_READER);
+        } catch {
+          /* 已被占用：这个格式走 obsidian:// 那条路 */
+        }
+      }
+    }
 
     private async continueReading(): Promise<void> {
       const recent = this.repo.recent(1)[0];
