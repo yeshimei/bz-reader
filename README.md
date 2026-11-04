@@ -11,7 +11,6 @@
     <img src="docs/images/badges/license.svg" height="27" alt="MIT">
   </p>
 
-  <p><a href="README.en.md">English</a></p>
 </div>
 
 <p align="center">
