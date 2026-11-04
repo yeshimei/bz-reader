@@ -1,9 +1,9 @@
 {
   "id": "bz-reader",
   "name": "bz Reader",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "minAppVersion": "1.7.2",
-  "description": "Turn your vault into a place to read: desktop and mobile, multiple formats, AI Q&A, source links, and all data stored locally.",
+  "description": "Turn your vault into a place to read: desktop and mobile, multiple formats, AI Q&A, wikilinks, and all data stored locally.",
   "author": "叫我包仔",
   "authorUrl": "https://github.com/yeshimei",
   "isDesktopOnly": false

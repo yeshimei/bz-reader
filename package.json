@@ -1,6 +1,6 @@
 {
   "name": "bz-reader",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "EPUB / TXT 阅读器（Obsidian 插件），与 bz 生态联动。",
   "author": "叫我包仔",
   "license": "MIT",
