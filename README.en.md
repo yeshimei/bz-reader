@@ -2,7 +2,7 @@
   <img src="docs/images/mark.svg" width="76" height="76" alt="">
   <h1>bz Reader</h1>
   <p><b>Turn Obsidian into a place to read.</b><br>
-  <sub>Desktop and mobile, multiple formats, source links. Your data stays in your vault, and AI can use your own endpoint.</sub></p>
+  <sub>Desktop and mobile, multiple formats, AI Q&amp;A, source links. All data stored locally.</sub></p>
 
   <p>
     <a href="https://obsidian.md"><img src="docs/images/badges/obsidian.svg" height="27" alt="Obsidian 1.7.2+"></a>

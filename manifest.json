@@ -3,7 +3,7 @@
   "name": "bz Reader",
   "version": "0.1.1",
   "minAppVersion": "1.7.2",
-  "description": "Read EPUB and TXT books in Obsidian with highlights, notes, footnotes, and reading stats saved directly to your vault.",
+  "description": "Turn Obsidian into a place to read: desktop and mobile, multiple formats, AI Q&A, source links, and all data stored locally.",
   "author": "叫我包仔",
   "authorUrl": "https://github.com/yeshimei",
   "isDesktopOnly": false
