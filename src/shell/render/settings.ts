@@ -16,7 +16,7 @@ import { ACCENT_OPTIONS, FONT_FAMILIES, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARG
 import { HIGHLIGHT_COLORS } from '../../data/notes';
 import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
 import { can, entitlement, tierText } from '../../data/entitlement';
-import { DEFAULT_DATA_DIR, dataDirOf } from '../../core/plugin-path';
+import { dataDirOf } from '../../core/plugin-path';
 import type { HotkeyRow } from '../../core/hotkeys';
 import { HEADER_ACTION_IDS, headerActionSpec, type HeaderActionId } from '../../view/header-actions';
 import { rangeFill } from '../range-fill';
@@ -32,8 +32,6 @@ export interface SettingsView {
   hotkeys: HotkeyRow[];
   /** 已激活时点了「重新激活」：临时允许编辑激活码（不落盘） */
   relicense?: boolean;
-  /** 插件版本（manifest.json），「关于」组显示并作为更新日志的起点 */
-  version?: string;
 }
 
 /**
@@ -227,13 +225,8 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>备份与恢复</label>
         <button class="bzs-btn sm" data-act="backup" title="导出成一份 JSON，存进数据目录">备份</button>
         <button class="bzs-btn sm" data-act="restore" title="从备份文件恢复（合并，不覆盖现有进度）">恢复</button></div>
-      <div class="bzs-setrow"><label>更新日志</label>
-        <span class="bzs-mini" style="flex:1">${v.version ? `当前 v${esc(v.version)}` : '当前版本未知'}</span>
-        <button class="bzs-btn sm" data-act="changelog" title="看看每一版改了什么">打开</button></div>
       <div class="bzs-mini" style="margin-top:10px;line-height:1.9">
-        导入的书复制到「书籍导入位置」；数据默认放在库根目录的 <code>${esc(DEFAULT_DATA_DIR)}</code>。
-        改数据目录要先确认，确认后整体迁移；复制与校验都成功才会删除旧目录，失败一律保留原样。<br>
-        备份只含书架、进度、标注、收藏与目标——<b>不含激活码与 AI Key</b>，换设备要重新填一次。
+        备份含书架、进度、标注、收藏与目标。不含激活码和 AI Key，换设备需重填。
       </div>
     </div>`;
 

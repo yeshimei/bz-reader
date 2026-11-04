@@ -344,10 +344,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'detail':
       if (d.id) overlay('detail', { bookId: d.id });
       break;
-    /* 设置页「关于」：回看更新日志（自动弹只有升级后那一次） */
-    case 'changelog':
-      getShellSource()?.openChangelog();
-      break;
 
     /* ── 书卡右键菜单 ──
        书卡上原来钉着「阅读 / 收藏 / 标为读完」三颗按钮，每张卡都被

@@ -121,15 +121,3 @@ describe('不该弹的情况', () => {
   });
 });
 
-describe('设置页回看', () => {
-  it('手动打开：以当前版本为起点，不改记录', async () => {
-    openNote.mockClear();
-    const plugin = make('0.1.2', '0.1.2');
-
-    plugin.openChangelog();
-
-    expect(openNote).toHaveBeenCalledTimes(1);
-    expect(openNote.mock.calls[0][1]).toBe('0.1.2');
-    expect(plugin.saveData).not.toHaveBeenCalled();
-  });
-});

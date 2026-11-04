@@ -9,8 +9,7 @@
  * 靠 CSS 媒体查询切换，不在 JS 里判断宽度——改窗口大小也不会错位。
  *
  * 数据全部来自 shell/changelog（内置），这里只负责「画」与「切版本」。
- * 打开方式两处：升级后第一次进书库（plugin.maybeShowChangelog 判定）、
- * 设置页「关于 → 更新日志」随时回看。
+ * 打开方式只有一处：升级后第一次进书库（plugin.maybeShowChangelog 判定）。
  * ============================================================ */
 import { uiModal } from '../core/ui/modal';
 import { setHtml } from '../ui/dom';

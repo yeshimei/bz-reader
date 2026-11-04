@@ -83,7 +83,6 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
           pen: state.pen,
           hotkeys: readHotkeys(app, KEY_COMMANDS),
           relicense: state.relicense,
-          version: getShellSource()?.version?.() || '',
         }),
         counts,
       };

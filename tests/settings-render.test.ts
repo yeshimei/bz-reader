@@ -162,12 +162,12 @@ describe('设置页渲染', () => {
 });
 
 /**
- * 更新日志入口（2026-11-05 用户要求放在「数据」组）。
+ * 2026-11-05：设置页去掉「更新日志」入口，说明文字只留备份那一条。
  *
- * 弹窗只在升级后第一次进书库自动出现一次，没有常驻入口就再也找不回来；
- * 「数据」是用户翻设置最先落眼的一组，不必再往下翻到页尾。
+ * 弹窗仍会在升级后第一次进书库时自动出现一次；只是不再有常驻入口。
+ * 文案是用户挑定的定稿，别再改回长句。
  */
-describe('更新日志入口', () => {
+describe('数据组 · 说明文字', () => {
   /** 截出「数据」组那一段：只看组内，不误判别的组 */
   function dataGroup(out: string): string {
     const start = out.indexOf('<h3>数据</h3>');
@@ -175,17 +175,16 @@ describe('更新日志入口', () => {
     return out.slice(start, next < 0 ? undefined : next);
   }
 
-  it('就在「数据」组里', () => {
-    expect(dataGroup(html())).toContain('data-act="changelog"');
+  it('不再画「更新日志」入口（行与按钮都不见）', () => {
+    expect(html()).not.toContain('data-act="changelog"');
+    expect(dataGroup(html())).not.toContain('更新日志');
   });
 
-  it('按钮旁边写着当前版本号', () => {
-    expect(dataGroup(html())).toContain('v0.1.2');
-  });
-
-  it('全页只有一个更新日志入口（不在两处重复画同一个按钮）', () => {
-    const out = html();
-    expect((out.match(/data-act="changelog"/g) ?? []).length).toBe(1);
+  it('说明文字只讲备份：范围与不备份的东西', () => {
+    const group = dataGroup(html());
+    expect(group).toContain('备份含书架、进度、标注、收藏与目标。不含激活码和 AI Key，换设备需重填。');
+    expect(group).not.toContain('导入的书');
+    expect(group).not.toContain('改数据目录');
   });
 });
 

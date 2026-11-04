@@ -443,8 +443,6 @@ export function createPlugin(cfg: PluginConfig) {
         openSidebar: (tab) => this.openTocSidebar(tab),
         syncVault: () => this.syncShelf(),
         maybeShowChangelog: () => void this.maybeShowChangelog(),
-        openChangelog: () => this.openChangelog(),
-        version: () => String(this.manifest?.version || ''),
         prefs: () => this.currentPrefs(),
         setPrefs: (patch) => this.setPrefs(patch),
         settings: () => this.cfg.settings,
@@ -899,11 +897,6 @@ export function createPlugin(cfg: PluginConfig) {
       } finally {
         this.changelogBusy = false;
       }
-    }
-
-    /** 设置页「关于 → 更新日志」：随时回看，不碰记录 */
-    openChangelog(): void {
-      openChangelogNote(CHANGELOG_RELEASES, String(this.manifest?.version || ''));
     }
 
     /** 记下「这一版已经给过了」并立即落盘；返回是否写成功 */

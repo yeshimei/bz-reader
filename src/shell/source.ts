@@ -51,10 +51,6 @@ export interface ShellSource {
    * mount、不经过任何打开入口。判重与记账在插件侧，重复调用是幂等的。
    */
   maybeShowChangelog: () => void;
-  /** 手动打开更新日志（设置页「关于」）：随时回看，不改「已看过」记录 */
-  openChangelog: () => void;
-  /** 插件版本（设置页「关于」显示，来自 manifest.json） */
-  version: () => string;
   /** 当前排版偏好（引擎侧持有，改它要经过 setPrefs） */
   prefs: () => ReaderPrefs;
   /** 改排版偏好：立即重排当前打开的书 */
