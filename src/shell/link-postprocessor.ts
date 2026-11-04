@@ -5,20 +5,15 @@
  * Obsidian 不认识 `#bzr-cfi=…` 这段子路径，点它只会打开书、落到上次的位置。
  * 这里把点击抢下来，交给阅读视图的三级降级（CFI → 原文片段 → 百分比）。
  *
- * 只管阅读视图：Live Preview 里的链接是编辑器装饰器，不经过 post-processor。
- * 那条路点开的是书本身（registerExtensions 兜着），精确到句子做不到——
- * 所以 obsidian:// 那条老路必须一直留着。
+ * **为什么是全局捕获，不是 markdown post-processor**：
+ *   post-processor 只在阅读视图跑。Live Preview（编辑模式）里的链接是编辑器
+ *   装饰器，不经过它——点下去走 Obsidian 默认处理，把 .epub 打开、替换掉当前
+ *   笔记，用户回都回不来。全局捕获在 document 的捕获阶段先手，两边都能拦。
+ *
+ * 只认自家子路径：普通笔记链接、别的插件写的锚点、obsidian:// 老链接一律放行。
  * ============================================================ */
 import type { LinkTarget } from '../data/deeplink';
 import { parseWikilinkHref } from '../data/wikilink';
-
-/** post-processor 需要的最小宿主能力，方便在测试里替换 */
-export interface WikilinkHost {
-  /** 按 vault 路径找书；找不到说明这本书没导入，不该拦 */
-  bookByPath(path: string): { id: string } | undefined;
-  /** 落回原文（三级降级在阅读视图里做） */
-  openTarget(t: LinkTarget): void;
-}
 
 /**
  * 这个链接该不该接管？该的话返回要跳的定位，否则 null。
@@ -36,9 +31,6 @@ export function planWikilinkClick(
   if (!book) return null;
   return { ...parsed.target, bookId: book.id };
 }
-
-/** 元素上记一笔，post-processor 对同一块可能跑不止一次 */
-const BOUND_ATTR = 'data-bzr-wikilink-bound';
 
 /**
  * 从链接元素里取候选地址。
@@ -68,37 +60,16 @@ export function resolveClickTarget(
 }
 
 /**
- * 建 post-processor。每次渲染都会对整个块跑一遍，所以：
- *   1. 只认 `a` 元素，别的不管；
- *   2. 绑过的记一个属性，重复渲染不重复绑（否则一次点击跳好几次）。
+ * 全局点击捕获用：从点击目标往上找到链接元素，判断要不要接管。
+ *
+ * 选择器要同时认 `a[href]` 与 `[data-href]`：Live Preview 里的链接不保证是
+ * `<a>`（CM6 装饰器），但一定带着 `data-href`。
  */
-export function createWikilinkPostProcessor(host: WikilinkHost) {
-  return (el: HTMLElement): void => {
-    const links = el.querySelectorAll('a');
-    links.forEach((link) => {
-      const bound = link.getAttribute(BOUND_ATTR);
-      const target = resolveClickTarget(hrefCandidates(link), host.bookByPath);
-      if (!target) {
-        /* 以前是自家链接、现在书没了（删库 / 改路径）：把旧监听撤掉，
-           别让一个已经失效的定位继续抢点击 */
-        if (bound) link.removeAttribute(BOUND_ATTR);
-        return;
-      }
-      if (bound === target.bookId) return;
-
-      link.setAttribute(BOUND_ATTR, target.bookId);
-      link.addEventListener(
-        'click',
-        (e: MouseEvent) => {
-          /* 捕获阶段拦：Obsidian 的默认处理会去开那个文件，
-             等冒泡到它就晚了。stopImmediatePropagation 连同一元素上
-             别的监听也一起按住，避免打开两个 tab。 */
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          host.openTarget(target);
-        },
-        true,
-      );
-    });
-  };
+export function interceptableClick(
+  target: Element | null,
+  bookByPath: (path: string) => { id: string } | undefined,
+): LinkTarget | null {
+  const link = target?.closest?.('a[data-href], a[href], [data-href]') ?? null;
+  if (!link) return null;
+  return resolveClickTarget(hrefCandidates(link), bookByPath);
 }

@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { makeBook } from '../src/data/book-repo';
 import { addHighlight } from '../src/data/notes';
 import { wikilinkOfMark } from '../src/data/wikilink';
-import { hrefCandidates, planWikilinkClick, resolveClickTarget } from '../src/shell/link-postprocessor';
+import {
+  hrefCandidates,
+  interceptableClick,
+  planWikilinkClick,
+  resolveClickTarget,
+} from '../src/shell/link-postprocessor';
 import { parseMiniHtml } from './helpers/dom-stub';
 
 /**
@@ -82,5 +87,37 @@ describe('resolveClickTarget · 候选地址里挑一个能用的', () => {
 
   it('全都不是自家链接 → null', () => {
     expect(resolveClickTarget(['笔记.md#标题', 'https://example.com'], library)).toBeNull();
+  });
+});
+
+describe('interceptableClick · 全局点击捕获', () => {
+  /* 只在阅读视图挂 post-processor 时，Live Preview 里点双链走的是 Obsidian
+     默认处理：直接把 .epub 打开、替换掉当前笔记，回都回不来。全局捕获要能
+     从点击目标往上找到链接元素。 */
+  function clickInside(attrs: string): Element {
+    const link = anchor(attrs);
+    return {
+      closest: (sel: string) => (sel.includes('a') ? link : null),
+    } as unknown as Element;
+  }
+
+  it('点在自家双链上：返回定位', () => {
+    const { book, h } = bookWithHighlight('一句话', '第一章');
+    const target = interceptableClick(clickInside(`data-href="${hrefOf(book, h)}"`), library);
+    expect(target?.bookId).toBe('book-1');
+    expect(target?.cfi).toBe('epubcfi(/6/4)');
+  });
+
+  it('书不在库里：不拦（让 Obsidian 按默认方式处理）', () => {
+    const { book, h } = bookWithHighlight('一句话', '第一章');
+    expect(interceptableClick(clickInside(`data-href="${hrefOf(book, h)}"`), () => undefined)).toBeNull();
+  });
+
+  it('普通笔记链接不拦', () => {
+    expect(interceptableClick(clickInside('data-href="笔记/某条.md#标题"'), library)).toBeNull();
+  });
+
+  it('点到空白处（没有链接元素）不拦', () => {
+    expect(interceptableClick(null, library)).toBeNull();
   });
 });

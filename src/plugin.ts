@@ -68,7 +68,7 @@ import {
   type StudyPage,
 } from './shell/state';
 import { setShellSource, shellPrefs } from './shell/source';
-import { createWikilinkPostProcessor } from './shell/link-postprocessor';
+import { hrefCandidates, interceptableClick } from './shell/link-postprocessor';
 import { CHANGELOG_RELEASES, pickReleaseFor, planChangelog, releaseEntryCount } from './shell/changelog';
 import { openChangelogNote } from './shell/changelog-note';
 
@@ -236,13 +236,32 @@ export function createPlugin(cfg: PluginConfig) {
       });
 
       /* 双链：`[[书.epub#bzr-cfi=…|划线文字]]` 的子路径 Obsidian 不认，
-         点下去只会打开书、落到上次的位置。这里把点击接管，落回原文那一句。
-         只管阅读视图——Live Preview 里的链接是编辑器装饰器，不经过这里。 */
-      this.registerMarkdownPostProcessor(
-        createWikilinkPostProcessor({
-          bookByPath: (path) => this.repo.byPath(path),
-          openTarget: (t) => void this.openFromTarget(t),
-        }),
+         点下去只会打开书、落到上次的位置。
+
+         **用全局捕获，不用 markdown post-processor**：后者只在阅读视图跑，
+         Live Preview（编辑模式）里的链接是编辑器装饰器，不经过它——点下去走
+         Obsidian 默认处理，把 .epub 打开、替换掉当前笔记，用户回都回不来。
+         捕获阶段在 document 上先手，两种视图都能拦。 */
+      this.registerDomEvent(
+        document,
+        'click',
+        (e: MouseEvent) => {
+          const target = interceptableClick(e.target as Element | null, (p) => this.repo.byPath(p));
+          if (!target) {
+            /* 诊断：点的是书文件的双链却没认出来——把真实 href 打出来。
+               Obsidian 各版本对 data-href 的写法有过出入，格式猜错时靠这一行定位。 */
+            const link = (e.target as Element | null)?.closest?.('[data-href], a[href]') ?? null;
+            const href = link ? (hrefCandidates(link)[0] ?? '') : '';
+            if (/\.(epub|mobi|azw3|fb2|cbz)(#|%23)/i.test(href)) {
+              console.debug('[bz-reader] 双链没认出来：', href);
+            }
+            return;
+          }
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          void this.openFromTarget(target);
+        },
+        true,
       );
 
       this.addRibbonIcon('library', 'bz 阅读：书架', () => this.openStudy());

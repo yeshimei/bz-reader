@@ -1126,8 +1126,9 @@ export class EngineHost {
       if (!range) return;
       content.overlayer.add(PULSE_KEY, range, Overlayer.outline, { color: PULSE_COLOR, width: 2 });
       this.pulseTimer = window.setTimeout(() => this.clearPulse(), PULSE_MS);
-    } catch {
+    } catch (err) {
       /* CFI 坏了 / 章节还没挂好：不闪就是了，别为了一个提示打断阅读 */
+      console.debug('[bz-reader] 落点高亮没画出来：', err);
     }
   }
 
