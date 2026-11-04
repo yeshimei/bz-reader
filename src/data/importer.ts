@@ -7,6 +7,7 @@
  * ============================================================ */
 import type { App } from 'obsidian';
 import { notify } from '../core/notice';
+import { t } from '../i18n';
 
 export const IMPORT_FOLDER = 'bz-reader/books';
 
@@ -71,7 +72,7 @@ export async function importFiles(
       console.warn('[bz-reader] 导入文件失败：', file.name, (e as Error)?.message || e);
     }
   }
-  if (failed) notify(`有 ${failed} 个文件导入失败，已导入 ${written.length} 个`, 'error');
+  if (failed) notify(t('notice.import.partial', { failed, ok: written.length }), 'error');
   return written;
 }
 
@@ -100,7 +101,7 @@ export function pickAndImport(
       }
       /* 无论成功失败都要落定：导入面板 await 的是这个 Promise */
       void importFiles(app, files, accept, folderRaw).then(resolve, (e) => {
-        notify(`导入失败：${(e as Error)?.message || '未知错误'}`, 'error');
+        notify(t('notice.import.error', { why: (e as Error)?.message || t('common.unknownError') }), 'error');
         resolve([]);
       });
     });

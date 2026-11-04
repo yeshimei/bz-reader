@@ -10,6 +10,7 @@
  * ============================================================ */
 
 import { notify } from '../core/notice';
+import { t } from '../i18n';
 import { GROUP_ID } from '../data/entitlement';
 
 /**
@@ -24,9 +25,9 @@ export function trialButtonHtml(): string {
 export async function copyGroupIdForTrial(): Promise<void> {
   try {
     await navigator.clipboard.writeText(GROUP_ID);
-    notify(`已复制群号 ${GROUP_ID}，进群后找管理员领取 7 天试用码`);
+    notify(t('notice.group.trialOk', { id: GROUP_ID }));
   } catch {
-    notify(`复制失败，群号是 ${GROUP_ID}，进群找管理员领取 7 天试用`, 'error');
+    notify(t('notice.group.trialFail', { id: GROUP_ID }), 'error');
   }
 }
 
@@ -39,8 +40,8 @@ export async function copyGroupIdForTrial(): Promise<void> {
 export async function copyGroupId(): Promise<void> {
   try {
     await navigator.clipboard.writeText(GROUP_ID);
-    notify(`已复制群号 ${GROUP_ID}，去 QQ 搜索就能加群`);
+    notify(t('notice.group.plainOk', { id: GROUP_ID }));
   } catch {
-    notify(`复制失败，群号是 ${GROUP_ID}，去 QQ 搜索加群`, 'error');
+    notify(t('notice.group.plainFail', { id: GROUP_ID }), 'error');
   }
 }

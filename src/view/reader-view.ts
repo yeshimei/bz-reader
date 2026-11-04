@@ -29,6 +29,7 @@ import { applyEngineMeta } from '../data/book-meta';
 import { coverPathOf, ensureCoverFromFoliate } from '../data/cover';
 import { speak, type SpeakHandle } from '../core/speak';
 import { notify } from '../core/notice';
+import { t } from '../i18n';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
 import { el, setHtml } from '../ui/dom';
@@ -957,7 +958,7 @@ export class ReaderView extends ItemView {
       .get()
       .books.filter((b) => b.id !== book.id && !(b.fileRef as { fileMissing?: boolean }).fileMissing);
     if (!others.length) {
-      notify('书架上只有这一本，并排对照需要另一本书');
+      notify(t('notice.compare.onlyOne'));
       return;
     }
     const other = others.find((b) => b.id === this.parallelId) ?? others[0];
@@ -997,7 +998,7 @@ export class ReaderView extends ItemView {
       stage2.remove();
       this.stage2 = null;
       pages.classList.remove('is-parallel');
-      notify(`并排没打开：${(e as Error).message}`);
+      notify(t('notice.compare.failed', { why: (e as Error).message }));
       return;
     }
     this.syncToolState();
@@ -1053,7 +1054,7 @@ export class ReaderView extends ItemView {
   private speakPage(): void {
     const text = this.host.currentText();
     if (!text) {
-      notify('这一页没有可朗读的文字');
+      notify(t('notice.tts.noText'));
       this.stopTts();
       return;
     }
@@ -1086,7 +1087,7 @@ export class ReaderView extends ItemView {
       },
     });
     if (!handle) {
-      notify('这个环境不支持语音朗读');
+      notify(t('notice.tts.unsupported'));
       return;
     }
     this.voice = handle;
@@ -1377,7 +1378,7 @@ export class ReaderView extends ItemView {
         onRelocate: (info) => this.saveRelocate(info),
         /* 导航超时/异常时给一句人话：以前 onStall 声明了却没人接，
            所有「点了没反应」都是静默的。 */
-        onStall: (what) => notify(`${what}没有完成，请再试一次`, 'info'),
+        onStall: (what) => notify(t('notice.load.stalled', { what }), 'info'),
         onTap: (zone, info) => this.tapHandler(zone, info),
         /* 两指同时轻按 = 沉浸/还原。手势判定在引擎侧（只有它拿得到 iframe
            里的触摸序列），这里只接结果。 */
@@ -1481,8 +1482,8 @@ export class ReaderView extends ItemView {
          「开书已取消」让人以为出故障（P2-14）。取消与真失败现在是两种
          错误类型：OpenCancelledError 静默，其余照常报。 */
       if (this.closed || e instanceof OpenCancelledError) return;
-      const why = (e as Error)?.message || '格式不受支持';
-      this.renderFault('这本书打不开', why);
+      const why = (e as Error)?.message || t('notice.open.unsupported');
+      this.renderFault(t('fault.openFailed'), why);
       notify(why, 'error');
       return;
     }
@@ -1639,7 +1640,7 @@ export class ReaderView extends ItemView {
     const book = this.book;
     if (!book) return;
     if (!this.lastCfi) {
-      notify('这一页还没定位好，翻一下再试', 'info');
+      notify(t('notice.locate.notReady'), 'info');
       return;
     }
     const added = toggleBookmark(book, {
@@ -1650,7 +1651,7 @@ export class ReaderView extends ItemView {
     this.api.store.touch();
     /* 图标立刻跟着亮 / 灭：不能等下一次 relocate，那一页可能翻很久 */
     this.syncToolState();
-    notify(added ? '已加书签' : '已移除书签', 'info', 1600);
+    notify(added ? t('notice.bookmark.toggledOn') : t('notice.bookmark.toggledOff'), 'info', 1600);
     notifyShell();
   }
 

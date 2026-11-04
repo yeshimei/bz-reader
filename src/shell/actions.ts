@@ -29,6 +29,7 @@ import {
 import { allMarks, filterMarks } from './domain';
 import { toggleAll, togglePick } from './note-select';
 import { notify } from '../core/notice';
+import { t } from '../i18n';
 import { bookMenuItems } from './book-menu';
 import { flipSetting } from './settings-toggle';
 import { rangeFill } from './range-fill';
@@ -96,15 +97,15 @@ function overlay(kind: OverlayKind, extra: Record<string, unknown> = {}): void {
 async function appendToExport(app: App, book: ReaderBook | undefined, block: string): Promise<void> {
   const fallback = DEFAULT_SETTINGS.exportDir;
   const dir = (shellSettings().exportDir || fallback).replace(/^\/+|\/+$/g, '') || fallback;
-  const name = book?.meta.title || '零散片段';
+  const name = book?.meta.title || t('export.loose');
   const path = `${dir}/${name}.md`;
   try {
     if (!(await app.vault.adapter.exists(dir))) await app.vault.adapter.mkdir(dir);
     const head = (await app.vault.adapter.exists(path)) ? await app.vault.adapter.read(path) : `# ${name}\n`;
     await app.vault.adapter.write(path, `${head.trimEnd()}\n\n${block}\n`);
-    notify(`已存进 ${path}`);
+    notify(t('notice.note.saved', { path }));
   } catch (e) {
-    notify(`存笔记失败：${(e as Error).message}`);
+    notify(t('notice.note.saveFailed', { why: (e as Error).message }));
   }
 }
 
@@ -116,12 +117,12 @@ function newBookmarkHere(book: ReaderBook): void {
   const percent = book.reading.position.percent || 0;
   const cfi = book.reading.position.cfi || '';
   if (!cfi) {
-    notify('这一页还没有定位信息，翻一页再试', 'info');
+    notify(t('notice.bookmark.noCfi'), 'info');
     return;
   }
   const existing = (book.notes?.bookmarks ?? []).find((k) => k.cfi === cfi);
   if (existing) {
-    notify('这一页已经有一枚书签了', 'info');
+    notify(t('notice.bookmark.exists'), 'info');
     return;
   }
   toggleBookmark(book, {
@@ -132,7 +133,7 @@ function newBookmarkHere(book: ReaderBook): void {
   });
   src.store.touch();
   setState({ sideTab: 'bookmarks' });
-  notify('已记一枚书签');
+  notify(t('notice.bookmark.added'));
 }
 
 /** 划词产生的一条标注（划词浮层与书摘卡共用） */
@@ -152,7 +153,9 @@ export function createMark(color: string, opts: { silent?: boolean } = {}): stri
   repaint();
   emitNotesChanged();
   // 选中即划这条路每选一次就弹一条提示会盖住正文，交给调用方决定
-  if (!opts.silent) notify(`已用${isHighlightColor(color) ? colorLabel(color) : '默认'}色划线`);
+  if (!opts.silent) {
+    notify(t('notice.mark.created', { color: isHighlightColor(color) ? colorLabel(color) : t('common.default') }));
+  }
   return h.id;
 }
 
@@ -166,7 +169,7 @@ function recolorMark(id: string, color: string): boolean {
   getShellSource()?.store.touch();
   repaint();
   emitNotesChanged();
-  notify(`换成${colorLabel(color)}`,'info');
+  notify(t('notice.mark.recolored', { color: colorLabel(color) }), 'info');
   return true;
 }
 
@@ -192,21 +195,21 @@ export function requireCap(cap: Cap): boolean {
 async function copyText(text: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
-    notify('已复制到剪贴板');
+    notify(t('notice.copy.ok'));
   } catch {
-    notify('复制失败，请用系统快捷键', 'error');
+    notify(t('notice.copy.failed'), 'error');
   }
 }
 
 function exportMarkdown(bookId?: string): string {
   const src = getShellSource();
-  if (!src) return '（还没有可导出的数据）';
+  if (!src) return t('export.noData');
   const settings = shellSettings();
   const books = bookId ? liveBooks().filter((b) => b.id === bookId) : liveBooks();
   const parts = books
     .filter((b) => (b.notes?.highlights ?? []).length)
     .map((b) => buildMdFor(b, settings.exportComments));
-  return parts.join('\n\n---\n\n') || '（还没有划线。去阅读页选中一段文字试试。）';
+  return parts.join('\n\n---\n\n') || t('export.noNotes');
 }
 
 /** 轻量预览版：与 data/export.ts 的落盘版同一结构，但不写文件 */
@@ -353,7 +356,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     case 'aboutvideo':
       /* 教程还没剪完。说清「什么时候有」，别让人以为点了条坏链接 */
-      notify('视频教程还在剪，做好会在交流群里通知');
+      notify(t('notice.video.wip'));
       break;
     case 'copygroup':
       void copyGroupId();
@@ -390,7 +393,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
           if (it.act === 'fav')
             i.onClick(() => {
               const on = toggleFav(id);
-              notify(on ? '已收藏' : '已取消收藏');
+              notify(on ? t('notice.fav.on') : t('notice.fav.off'));
               rerender();
             });
           if (it.act === 'done') i.onClick(() => toggleDone(id));
@@ -421,7 +424,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const next = (input?.value ?? '').trim();
       if (!book) break;
       if (!next) {
-        notify('书名不能为空', 'error');
+        notify(t('notice.rename.empty'), 'error');
         break;
       }
       book.meta.title = next;
@@ -431,7 +434,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       getShellSource()?.store.touch();
       closeOverlay();
       rerender();
-      notify('书名已改');
+      notify(t('notice.rename.done'));
       break;
     }
     case 'removebook':
@@ -447,7 +450,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (getState().bookId === id) setState({ bookId: null });
       closeOverlay();
       rerender();
-      notify(`已从书架移除《${book.meta.title || '未命名'}》`);
+      notify(t('notice.book.removed', { title: book.meta.title || t('common.untitled') }));
       break;
     }
     case 'openbook':
@@ -459,7 +462,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'fav':
       if (d.id) {
         const on = toggleFav(d.id);
-        notify(on ? '已收藏' : '已取消收藏');
+        notify(on ? t('notice.fav.on') : t('notice.fav.off'));
       }
       break;
     case 'done':
@@ -566,7 +569,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     }
     case 'notedrop':
       if (!getState().noteSel.length) {
-        notify('先选几条要删的', 'info');
+        notify(t('notice.select.pick'), 'info');
         break;
       }
       overlay('notedrop');
@@ -595,7 +598,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       book.reading.stats.review = (ta as HTMLTextAreaElement | null)?.value.trim() || undefined;
       book.updatedAt = Date.now();
       getShellSource()?.store.touch();
-      notify(stars ? `已记下 ${stars} 星` : '已记下');
+      notify(stars ? t('notice.rating.stars', { stars }) : t('notice.rating.done'));
       break;
     }
     case 'finishskip':
@@ -617,7 +620,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const id = d.id || d.book || getState().bookId;
       const book = id ? liveBooks().find((b) => b.id === id) : undefined;
       if (!book) {
-        notify('先打开一本书，或在笔记页对某本书点导出');
+        notify(t('notice.export.needBook'));
         break;
       }
       void (async () => {
@@ -626,13 +629,13 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         try {
           const res = await exportBookNotes(src.app, book, shellSettings());
           if (!res) {
-            notify('这本书还没有划线或书签，导不出东西');
+            notify(t('notice.export.empty'));
             return;
           }
           closeOverlay();
-          notify(`已导出 ${res.highlights} 条划线到 ${res.path}`);
+          notify(t('notice.export.done', { n: res.highlights, path: res.path }));
         } catch (e) {
-          notify(`导出失败：${(e as Error)?.message || '写文件出错'}`, 'error');
+          notify(t('notice.export.failed', { why: (e as Error)?.message || t('common.unknownError') }), 'error');
         }
       })();
       break;
@@ -649,7 +652,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const b = liveBooks().find((x) => x.id === (d.book || getState().bookId));
       const h = b?.notes?.highlights?.find((x) => x.id === d.id);
       if (!b || !h) {
-        notify('没找到这条划线', 'error');
+        notify(t('notice.mark.notFound'), 'error');
         break;
       }
       void copyText(wikilinkOfMark(b, h));
@@ -661,7 +664,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const b = liveBooks().find((x) => x.id === (d.book || getState().bookId));
       const h = b?.notes?.highlights?.find((x) => x.id === d.id);
       if (!b || !h) {
-        notify('没找到这条划线', 'error');
+        notify(t('notice.mark.notFound'), 'error');
         break;
       }
       void copyText(linkInline(b, targetOfMark(b, h)));
@@ -739,7 +742,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       void pickFolder(src.app, cur).then((picked) => {
         if (picked === null || picked === cur) return;
         if (picked === '/') {
-          notify('导出目录不能是库根目录，请选一个文件夹', 'error');
+          notify(t('notice.dir.exportRoot'), 'error');
           return;
         }
         overlay('movedir', { mode: 'export', text: JSON.stringify({ from: cur, to: picked }) });
@@ -753,7 +756,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       void pickFolder(src.app, cur).then((picked) => {
         if (picked === null || picked === cur) return;
         if (picked === '/') {
-          notify('数据目录不能是库根目录，请选一个文件夹', 'error');
+          notify(t('notice.dir.dataRoot'), 'error');
           return;
         }
         overlay('movedir', { mode: 'data', text: JSON.stringify({ from: cur, to: picked }) });
@@ -777,7 +780,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         break;
       }
       if (!to) break;
-      notify('正在迁移…');
+      notify(t('notice.migrate.running'));
       void (async () => {
         const res = await src.migrateDir(kind, from, to);
         notify(res.message, res.ok ? 'info' : 'error');
@@ -881,7 +884,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         closeOverlay();
         jumpTo(hit.href);
       } else {
-        notify('这一章在目录里找不到，可能书换了版本', 'info');
+        notify(t('notice.toc.missingChapter'), 'info');
       }
       break;
     }
@@ -954,7 +957,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const book = findBookOfMark(d.id, d.book);
       const h = book?.notes?.highlights.find((x) => x.id === d.id);
       if (!book || !h) {
-        notify('没找到这条划线', 'error');
+        notify(t('notice.mark.notFound'), 'error');
         break;
       }
       overlay('ai', {
@@ -972,7 +975,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const book = findBookOfMark(d.id, d.book);
       const h = book?.notes?.highlights.find((x) => x.id === d.id);
       if (!book || !h) {
-        notify('没找到这条划线', 'error');
+        notify(t('notice.mark.notFound'), 'error');
         break;
       }
       void copyText(h.text);
@@ -1052,7 +1055,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const sel = RT.sel;
       const book = sel ? liveBooks().find((b) => b.id === sel.bookId) : undefined;
       if (!sel || !book) {
-        notify('没有可复制的选区', 'error');
+        notify(t('notice.sel.empty'), 'error');
         break;
       }
       void copyText(wikilinkOf(book, { text: sel.text, cfiRange: sel.cfiRange, chapterTitle: sel.chapterTitle }));
@@ -1084,11 +1087,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const src = getShellSource();
       const kw = getState().searchKw.trim();
       if (!src || !kw) {
-        notify('先输入要搜的字', 'info');
+        notify(t('notice.search.empty'), 'info');
         break;
       }
       if (!src.hasOpenReader()) {
-        notify('先打开一本书，再来搜正文', 'info');
+        notify(t('notice.search.needBook'), 'info');
         break;
       }
       setState({ searchScope: 'text' });
@@ -1100,7 +1103,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
           const hits = await src.searchText(kw);
           RT.textHits = hits;
         } catch (e) {
-          notify(`正文搜索失败：${(e as Error)?.message || '未知错误'}`, 'error');
+          notify(t('notice.search.failed', { why: (e as Error)?.message || t('common.unknownError') }), 'error');
         } finally {
           RT.textSearching = false;
           /* 命中列表在弹层里，`repaint()` 广播后订阅方还要过 `overlayKey` 判重：
@@ -1126,7 +1129,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'resetui':
       resetUiState();
       closeOverlay();
-      notify('界面状态已重置');
+      notify(t('notice.ui.reset'));
       break;
 
     /* ── AI 卡上的动作：取消 / 复制 / 重试 / 存笔记 ── */
@@ -1184,7 +1187,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const overlayState = getState().overlay;
       const text = (overlayState?.text || RT.sel?.text || '').trim();
       if (!app || !text) {
-        if (!text) notify('没有可存的引文', 'info');
+        if (!text) notify(t('notice.quote.empty'), 'info');
         break;
       }
       const md = quoteRefMarkdown({
@@ -1211,8 +1214,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         author: book?.meta.author,
         chapter: getState().overlay?.chapterTitle || RT.sel?.chapterTitle,
       })
-        .then(() => notify('书摘卡已复制为图片'))
-        .catch((e: Error) => notify(e.message || '复制图片失败', 'error'));
+        .then(() => notify(t('notice.card.copied')))
+        .catch((e: Error) => notify(e.message || t('notice.card.copyFailed'), 'error'));
       break;
     }
 
@@ -1294,10 +1297,10 @@ function toggleDone(id?: string): void {
      completedTime，所以这里只看它也是自洽的。 */
   if (book.reading.stats.completedTime) {
     book.reading.stats.completedTime = undefined;
-    notify('已标记为在读');
+    notify(t('notice.status.reading'));
   } else {
     book.reading.stats.completedTime = Date.now();
-    notify('已标记读完');
+    notify(t('notice.status.done'));
   }
   book.updatedAt = Date.now();
   src.store.touch();
@@ -1373,14 +1376,14 @@ function deleteMark(markId?: string, bookId?: string): void {
   /* 找不到就给一句人话（P3-27）：侧栏里那条标注已经被删掉/被同步覆盖时，
      点「删除」以前是什么都不发生，用户会以为按钮坏了。 */
   if (!book || !markId) {
-    notify('找不到这条标注，可能已经被删掉了', 'info');
+    notify(t('notice.mark.gone'), 'info');
     return;
   }
   if (removeHighlight(book, markId)) {
     getShellSource()?.store.touch();
     repaint();
     emitNotesChanged();
-    notify('划线已删');
+    notify(t('notice.mark.deleted'));
   }
 }
 
@@ -1405,7 +1408,7 @@ function dropSelectedMarks(): void {
     s.noteSel = [];
   });
   emitNotesChanged();
-  notify(removed > 0 ? `已删除 ${removed} 条划线` : '这些标注已经不在了', 'info');
+  notify(removed > 0 ? t('notice.mark.deletedN', { n: removed }) : t('notice.mark.goneAll'), 'info');
 }
 
 function changeMarkColor(markId?: string, color?: string, bookId?: string): void {
@@ -1415,7 +1418,7 @@ function changeMarkColor(markId?: string, color?: string, bookId?: string): void
     getShellSource()?.store.touch();
     repaint();
     emitNotesChanged();
-    notify(`换成${colorLabel(color)}`);
+    notify(t('notice.mark.recolored', { color: colorLabel(color) }));
   }
 }
 
@@ -1423,7 +1426,7 @@ function jumpToMark(markId?: string, bookId?: string): void {
   const book = findBookOfMark(markId, bookId);
   const h = book?.notes?.highlights.find((x) => x.id === markId);
   if (!book || !h) {
-    notify('找不到这条标注，可能已经被删掉了', 'info');
+    notify(t('notice.mark.gone'), 'info');
     return;
   }
   closeOverlay();
@@ -1440,7 +1443,7 @@ function quoteFromMark(markId?: string, bookId?: string): void {
   const book = findBookOfMark(markId, bookId);
   const h = book?.notes?.highlights.find((x) => x.id === markId);
   if (!book || !h) {
-    notify('找不到这条标注，可能已经被删掉了', 'info');
+    notify(t('notice.mark.gone'), 'info');
     return;
   }
   overlay('quote', {
@@ -1465,7 +1468,7 @@ function saveIdea(markId?: string, bookId?: string): void {
     closeOverlay({ force: true });
     repaint();
     emitNotesChanged();
-    notify(text ? '想法已保存' : '想法已清空');
+    notify(text ? t('notice.idea.saved') : t('notice.idea.cleared'));
   }
 }
 

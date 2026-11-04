@@ -27,6 +27,7 @@
  * ============================================================ */
 import type { App } from 'obsidian';
 import { notify } from '../core/notice';
+import { t } from '../i18n';
 import { pluginVaultPath, storageDirOf } from '../core/plugin-path';
 import { copyTree } from './migrate';
 import { EMPTY_DATA, SCHEMA_VERSION, emptyReading, type ReaderBook, type ReaderData } from './schema';
@@ -390,10 +391,10 @@ export class ReaderStore {
   private async quarantine(): Promise<boolean> {
     try {
       await this.app.vault.adapter.rename(this.filePath(), this.brokenPath());
-      notify('数据文件读不出来，已留档为 bz-reader.broken-*.json', 'error');
+      notify(t('notice.data.broken'), 'error');
       return true;
     } catch {
-      notify('数据文件读不出来，也没能留档；本次会话不再保存，避免覆盖原文件', 'error');
+      notify(t('notice.data.brokenUnarchived'), 'error');
       return false;
     }
   }
@@ -404,7 +405,7 @@ export class ReaderStore {
     const path = `${storageDirOf(this.app)}/bz-reader.dropped-${stamp()}.json`;
     try {
       await this.app.vault.adapter.write(path, JSON.stringify({ at: Date.now(), dropped }, null, 2));
-      notify(`有 ${dropped.length} 条书记录缺文件路径，已另存为 bz-reader.dropped-*.json`, 'info');
+      notify(t('notice.data.dropped', { n: dropped.length }), 'info');
     } catch {
       /* 存不下就算了：至少不要因此阻断启动 */
     }
@@ -435,7 +436,7 @@ export class ReaderStore {
         readFailed = true;
         this.readOnly = true;
         console.warn('[bz-reader] 读取数据失败：', (e as Error)?.message || e);
-        notify('读取阅读数据失败，本次会话不保存，避免用空库覆盖原文件', 'error');
+        notify(t('notice.data.loadFailed'), 'error');
       }
     }
 
@@ -567,7 +568,7 @@ export class ReaderStore {
       /* 只报一次：翻页会一直 touch，写盘失败时每次都弹一条，界面就没法用了 */
       if (!this.saveWarned) {
         this.saveWarned = true;
-        notify('保存阅读数据失败，请检查磁盘空间', 'error');
+        notify(t('notice.data.saveFailed'), 'error');
       }
       console.warn('[bz-reader] 写盘失败：', (e as Error)?.message || e);
     }

@@ -24,6 +24,7 @@ import { fillBookMetas } from '../data/book-scan';
 import { shellSettings } from '../shell/source';
 import type { ReaderStore } from '../data/store';
 import { notify } from '../core/notice';
+import { t } from '../i18n';
 import { clear, el } from './dom';
 
 export interface ImportDeps {
@@ -210,13 +211,13 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
     void (async () => {
       try {
         await addToShelf(picked);
-        notify(`已加入 ${picked.length} 本`, 'success');
+        notify(t('notice.import.done', { n: picked.length }), 'success');
         onDone?.();
         /* 加完就回书库：这一刻用户想看到的是新书出现在架子上，
            留在一张「已全部加入」的空列表前面没有意义。 */
         onExit?.();
       } catch (e) {
-        notify(`加入书架失败：${(e as Error)?.message || '未知错误'}`, 'error');
+        notify(t('notice.import.failed', { why: (e as Error)?.message || t('common.unknownError') }), 'error');
       } finally {
         busy = false;
         confirmBtn.disabled = false;
@@ -242,13 +243,13 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
             return fmt ? [{ path: p, format: fmt, size: 0 }] : [];
           });
           await addToShelf(picked);
-          notify(`已导入 ${written.length} 本到 ${folderText}`, 'success');
+          notify(t('notice.import.written', { n: written.length, folder: folderText }), 'success');
           onDone?.();
           load();
           render();
         }
       } catch (e) {
-        notify(`导入失败：${(e as Error)?.message || '未知错误'}`, 'error');
+        notify(t('notice.import.error', { why: (e as Error)?.message || t('common.unknownError') }), 'error');
       } finally {
         busy = false;
         grabBtn.disabled = false;

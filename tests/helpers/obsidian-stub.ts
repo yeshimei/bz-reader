@@ -31,6 +31,18 @@ export const Platform = {
   isWin: true,
 };
 
+/**
+ * 宿主界面语言（`@since 1.8.7`）。
+ *
+ * 测试里一律给 `zh`：默认语言就是中文，这样任何走到语言探测的路径都不会
+ * 因为「跑在 node 里、宿主给不出语言」而意外翻成英文——那会让几十个断言
+ * 中文文案的老测试随环境漂移。
+ */
+export function getLanguage(): string {
+  return 'zh';
+}
+
+
 export const requestUrl = async (): Promise<{ status: number; text: string; json: unknown }> => ({
   status: 500,
   text: '',

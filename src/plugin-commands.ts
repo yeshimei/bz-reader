@@ -1,0 +1,52 @@
+/* ============================================================
+ * bz-reader · 命令注册表（src/plugin-commands.ts）
+ *
+ * 一张纯数据表：id 是稳定契约，key 是文案入口。分成两边是因为它们的变化
+ * 节奏完全不同——id 一旦发出去（用户可能已经绑了快捷键）就再也不能改，
+ * 文案却要随界面语言走。
+ *
+ * 表里只放「注册什么」，不放「怎么执行」：执行分派在 plugin.runCommandById，
+ * 因为那需要插件实例。这样表可以在 node 里直接断言，不需要造一个插件。
+ * ============================================================ */
+import type { MsgKey } from './i18n/zh';
+import type { ReaderCommand } from './view/reader-view';
+
+export interface CommandSpec {
+  /** Obsidian 命令 id（最终是 `bz-reader:<id>`） */
+  id: string;
+  /** 界面语言的文案 key */
+  key: MsgKey;
+  /**
+   * 阅读器动作。有它 = 这条命令只在阅读页有意义（没开书时提示先开书）；
+   * 没有 = 书架侧命令，随时可跑。
+   */
+  reader?: ReaderCommand;
+}
+
+/**
+ * 注册顺序即命令面板里的默认顺序：书架六条在前，阅读八条在后。
+ *
+ * 中文名带域前缀（`书架：` / `阅读：`）是原来的口径，语音与肌肉记忆都靠它；
+ * 英文用 `Shelf:` / `Reader:` 对应，Obsidian 的搜索按空格分词，搜一个词
+ * 就能把同一域的命令全过滤出来。
+ */
+export const COMMANDS: readonly CommandSpec[] = [
+  /* ── 书架 ── */
+  { id: 'open', key: 'cmd.open' },
+  { id: 'continue', key: 'cmd.continue' },
+  { id: 'import', key: 'cmd.import' },
+  { id: 'notes', key: 'cmd.notes' },
+  { id: 'stats', key: 'cmd.stats' },
+  { id: 'prefs', key: 'cmd.prefs' },
+  /* ── 阅读 ── */
+  { id: 'search', key: 'cmd.search' },
+  { id: 'sidebar', key: 'cmd.sidebar' },
+  { id: 'page-next', key: 'cmd.pageNext', reader: 'next' },
+  { id: 'page-prev', key: 'cmd.pagePrev', reader: 'prev' },
+  { id: 'focus', key: 'cmd.focus', reader: 'focus' },
+  { id: 'fullscreen', key: 'cmd.fullscreen', reader: 'fullscreen' },
+  { id: 'bookmark', key: 'cmd.bookmark', reader: 'bookmark' },
+  { id: 'typography', key: 'cmd.typography', reader: 'typography' },
+  { id: 'bookmap', key: 'cmd.bookmap', reader: 'bookmap' },
+  { id: 'tts', key: 'cmd.tts', reader: 'tts' },
+];

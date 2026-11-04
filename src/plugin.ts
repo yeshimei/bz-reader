@@ -17,7 +17,9 @@
  * 快捷键：键盘上能做的动作全部注册成命令，用户可以去 Obsidian 的
  * 「快捷键」里改键；壳层设置页只负责把它们读出来显示、点一下跳过去。
  * ============================================================ */
-import { Plugin, TFile, type WorkspaceLeaf } from 'obsidian';
+import { getLanguage, Plugin, TFile, type WorkspaceLeaf } from 'obsidian';
+import { detectLocale, setLocale, t } from './i18n';
+import { COMMANDS } from './plugin-commands';
 import { setApp } from './core/app';
 import { setPluginRelDir, dataDirOf, debugOpenPath, normalizeDataDir, setDataDir, DEFAULT_DATA_DIR, PLUGIN_ID } from './core/plugin-path';
 import { isMobileEnv } from './core/mobile';
@@ -102,6 +104,20 @@ function moveLeafToTop(leaf: WorkspaceLeaf): void {
   }
 }
 
+/**
+ * 宿主界面语言代码（`zh` / `zh-TW` / `en` …）。
+ *
+ * 拿不到就给空串，调用方据此**保持默认中文**：探测失败是一种异常环境，
+ * 在异常环境里把中文用户扔进英文界面，比维持原样糟得多。
+ */
+function hostLanguage(): string {
+  try {
+    return String(getLanguage() ?? '');
+  } catch {
+    return '';
+  }
+}
+
 export function createPlugin(cfg: PluginConfig) {
   return class BzReaderPlugin extends Plugin implements ReaderHostApi {
     store!: ReaderStore;
@@ -135,9 +151,62 @@ export function createPlugin(cfg: PluginConfig) {
       return PRO_FORMATS;
     }
 
+    /**
+     * 跑一条已注册的命令（注册表见 plugin-commands.ts）。
+     *
+     * 阅读器类命令先要有一个活动阅读视图；没有就提示「先打开一本书」，
+     * 而不是静默什么都不做——命令面板里点了没反应是最难排查的一种。
+     */
+    runCommandById(id: string): void {
+      const cmd = COMMANDS.find((c) => c.id === id);
+      if (!cmd) return;
+      if (cmd.reader) {
+        const view = this.activeReader();
+        if (!view) {
+          notify(t('notice.needBook'), 'info');
+          return;
+        }
+        view.runCommand(cmd.reader);
+        return;
+      }
+      switch (id) {
+        case 'open':
+          this.openStudy();
+          break;
+        case 'continue':
+          void this.continueReading();
+          break;
+        case 'import':
+          this.openImportPanel();
+          break;
+        case 'notes':
+          this.openStudy('notes');
+          break;
+        case 'stats':
+          this.openStudy('stats');
+          break;
+        case 'prefs':
+          this.openStudy('settings');
+          break;
+        case 'search':
+          this.openSearch();
+          break;
+        case 'sidebar':
+          this.openTocSidebar('toc');
+          break;
+        default:
+          break;
+      }
+    }
+
     async onload(): Promise<void> {
       setApp(this.app);
       setPluginRelDir(this.manifest.dir);
+      /* 界面语言先定：下面注册的命令名、通知、壳层文案全都读它。宿主在
+         1.8.7+ 才有 getLanguage()，拿不到就保持默认中文——探测失败不该把
+         中文用户扔进英文界面，也不该让整个插件加载失败。 */
+      const lang = hostLanguage();
+      if (lang) setLocale(detectLocale(lang));
 
       /* 配置先读：设置、授权、数据目录全在 data.json 里，而且 store 要知道
          数据目录在哪才能 load()。顺序反了就会「设置读到了、书架是空的」。
@@ -261,7 +330,7 @@ export function createPlugin(cfg: PluginConfig) {
           const href = link ? (hrefCandidates(link)[0] ?? '') : '';
           if (!diagnosed && /\.(epub|mobi|azw3|fb2|cbz)(#|%23)/i.test(href)) {
             diagnosed = true;
-            notify(`[bz 诊断] ${e.type} · ${href.slice(0, 90)}`, 'info');
+            notify(t('notice.debug.link', { type: e.type, href: href.slice(0, 90) }), 'info');
           }
           return;
         }
@@ -301,47 +370,19 @@ export function createPlugin(cfg: PluginConfig) {
         ws.openLinkText = originalOpenLinkText;
       });
 
-      this.addRibbonIcon('library', 'Bz 阅读：书架', () => this.openStudy());
+      this.addRibbonIcon('library', t('ribbon.shelf'), () => this.openStudy());
 
       /* ── 命令 ──
        * 键盘上能做的动作这里都注册一份：用户在 Obsidian 的「快捷键」里
        * 改成自己顺手的键，壳层设置页只负责把绑定读回来显示（点一下跳过去改）。
-       * 命名统一以「阅读：」「书架：」开头，在快捷键列表里搜一个词就能过滤出全部。 */
-      this.addCommand({ id: 'open', name: '书架：打开书架', callback: () => this.openStudy() });
-      this.addCommand({
-        id: 'continue',
-        name: '书架：继续阅读最近一本',
-        callback: () => void this.continueReading(),
-      });
-      this.addCommand({ id: 'import', name: '书架：导入书籍', callback: () => this.openImportPanel() });
-      this.addCommand({ id: 'notes', name: '书架：笔记', callback: () => this.openStudy('notes') });
-      this.addCommand({ id: 'stats', name: '书架：统计', callback: () => this.openStudy('stats') });
-      this.addCommand({ id: 'prefs', name: '书架：设置', callback: () => this.openStudy('settings') });
-      this.addCommand({ id: 'search', name: '阅读：搜索（本书 / 全库）', callback: () => this.openSearch() });
-      this.addCommand({ id: 'sidebar', name: '阅读：显示左侧栏', callback: () => this.openTocSidebar('toc') });
-
-      const onReader = (id: string, name: string, kind: ReaderCommand): void => {
+       * 注册表在 plugin-commands.ts：id 是稳定契约，名字走 t() 随语言变。 */
+      for (const cmd of COMMANDS) {
         this.addCommand({
-          id,
-          name: `阅读：${name}`,
-          callback: () => {
-            const view = this.activeReader();
-            if (!view) {
-              notify('先打开一本书再用这个命令', 'info');
-              return;
-            }
-            view.runCommand(kind);
-          },
+          id: cmd.id,
+          name: t(cmd.key),
+          callback: () => this.runCommandById(cmd.id),
         });
-      };
-      onReader('page-next', '下一页', 'next');
-      onReader('page-prev', '上一页', 'prev');
-      onReader('focus', '专注模式', 'focus');
-      onReader('fullscreen', '全屏', 'fullscreen');
-      onReader('bookmark', '记一枚书签', 'bookmark');
-      onReader('typography', '排版面板', 'typography');
-      onReader('bookmap', '全书鸟瞰', 'bookmap');
-      onReader('tts', '朗读开关', 'tts');
+      }
 
       /* 两个 tab 各开一本书时，切 tab 目录要跟着换：阅读视图不会自己重发
          relocate，这里在 leaf 激活时让它把目录快照重放一遍。 */
@@ -468,7 +509,7 @@ export function createPlugin(cfg: PluginConfig) {
           const n = clampDailyGoal(minutes);
           this.store.get().dailyGoalMinutes = n;
           this.store.touch();
-          notify(`每日目标改为 ${n} 分钟`);
+          notify(t('notice.goal.set', { n }));
         },
         searchText: async (kw) => {
           const view = this.activeReader();
@@ -492,10 +533,10 @@ export function createPlugin(cfg: PluginConfig) {
       try {
         await this.store.flush(true);
         await this.app.vault.adapter.write(path, buildBackup(this.store.get()));
-        notify(`已备份到「${path}」`);
+        notify(t('notice.backup.done', { path }));
         return { ok: true, message: path };
       } catch (e) {
-        const why = `备份失败：${(e as Error)?.message || '未知错误'}`;
+        const why = t('notice.backup.failed', { why: (e as Error)?.message || t('common.unknownError') });
         notify(why, 'error');
         return { ok: false, message: why };
       }
@@ -509,12 +550,12 @@ export function createPlugin(cfg: PluginConfig) {
      */
     private async restoreData(): Promise<{ ok: boolean; message: string }> {
       const picked = await pickJsonFile();
-      if (!picked) return { ok: false, message: '没有选择文件' };
+      if (!picked) return { ok: false, message: t('notice.restore.noPick') };
       let text = '';
       try {
         text = await picked.text();
       } catch (e) {
-        const why = `读不了这个文件：${(e as Error)?.message || '未知错误'}`;
+        const why = t('notice.restore.unreadable', { why: (e as Error)?.message || t('common.unknownError') });
         notify(why, 'error');
         return { ok: false, message: why };
       }
@@ -539,8 +580,8 @@ export function createPlugin(cfg: PluginConfig) {
       await this.store.flush(true);
       hydrateLibrary(books, this.store.get().goal);
       notifyShell();
-      const extra = parsed.dropped ? `（有 ${parsed.dropped} 条记录不完整，已跳过）` : '';
-      const msg = `已恢复，书架现在 ${books.length} 本${extra}`;
+      const extra = parsed.dropped ? t('notice.restore.dropped', { n: parsed.dropped }) : '';
+      const msg = t('notice.restore.done', { n: books.length }) + extra;
       notify(msg);
       return { ok: true, message: msg };
     }
@@ -799,14 +840,14 @@ export function createPlugin(cfg: PluginConfig) {
       const candidates = await collectDataDirCandidates(this.app, found);
       const pick = pickDataDir(candidates);
       if (pick.ambiguous) {
-        notify('发现多个数据目录，无法判断该用哪一个；请到设置里选择', 'info');
+        notify(t('notice.dataDir.multiple'), 'info');
         return;
       }
       if (!pick.dir) return;
       setDataDir(pick.dir);
       this.cfg.dataDir = pick.dir;
       void this.flushCfg();
-      notify(`数据目录找回来了：「${pick.dir}」`, 'info');
+      notify(t('notice.dataDir.found', { dir: pick.dir }), 'info');
     }
 
     /** 壳层状态一变，弹层层与主题就跟着走 */
@@ -1082,11 +1123,11 @@ export function createPlugin(cfg: PluginConfig) {
      * 从位置链接跳到原文。
      * 开书交给 openBook，定位交给阅读视图的三级降级（CFI → 原文片段 → 百分比）。
      */
-    async openFromTarget(t: LinkTarget | null): Promise<void> {
-      if (!t) return;
-      const book = this.repo.byId(t.bookId) ?? this.repo.all().find((b) => b.id === t.bookId);
+    async openFromTarget(target: LinkTarget | null): Promise<void> {
+      if (!target) return;
+      const book = this.repo.byId(target.bookId) ?? this.repo.all().find((b) => b.id === target.bookId);
       if (!book) {
-        notify('链接指向的书不在书架上，可能已被移走');
+        notify(t('notice.link.bookMissing'));
         return;
       }
       setState({ bookId: book.id });
@@ -1095,8 +1136,8 @@ export function createPlugin(cfg: PluginConfig) {
         .getLeavesOfType(VIEW_TYPE_READER)
         .find((l) => (l.view as ReaderView).currentBookId === book.id);
       if (!leaf) return;
-      const ok = await (leaf.view as ReaderView).locateFromLink(t);
-      if (!ok) notify('没找到原句，已停在这本书上次读到的位置', 'info');
+      const ok = await (leaf.view as ReaderView).locateFromLink(target);
+      if (!ok) notify(t('notice.link.cfiMiss'), 'info');
     }
 
     /* ── 内部 ── */
@@ -1127,7 +1168,7 @@ export function createPlugin(cfg: PluginConfig) {
     private async continueReading(): Promise<void> {
       const recent = this.repo.recent(1)[0];
       if (!recent) {
-        notify('还没有读过的书', 'info');
+        notify(t('notice.noReadBook'), 'info');
         this.openStudy('library');
         return;
       }
