@@ -1535,7 +1535,7 @@ textarea.idea:focus {
 }
 
 .bzs-move-row code {
-  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-family: "Cascadia Mono", Consolas, monospace;
   font-size: 12px;
   padding: 3px 8px;
   border-radius: var(--r-ctl);

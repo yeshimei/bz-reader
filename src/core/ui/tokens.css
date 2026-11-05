@@ -104,7 +104,7 @@
     "Microsoft YaHei", sans-serif;
   --bzr-font-serif: "Songti SC", "Source Han Serif SC", "Noto Serif CJK SC",
     "SimSun", Georgia, serif;
-  --bzr-font-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  --bzr-font-mono: "Cascadia Code", Consolas, monospace;
 
   /* 通用品牌黄（影视星轨、评分高亮；两主题同值） */
   --bzr-star: #f0b429;

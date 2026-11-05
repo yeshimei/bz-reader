@@ -24,7 +24,7 @@
   --chg-ink-3: var(--text-faint, #93939c);
   --chg-line: var(--background-modifier-border, rgba(0, 0, 0, 0.1));
   --chg-line-soft: color-mix(in srgb, var(--background-modifier-border, rgba(0, 0, 0, 0.1)) 55%, transparent);
-  --chg-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  --chg-mono: "Cascadia Code", Consolas, monospace;
 
   font-family: -apple-system, "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
   color: var(--chg-ink);

@@ -1,0 +1,53 @@
+name: attest-release
+
+# Release 资产的 GitHub 构建来源签名（artifact attestation）。
+#
+# 社区目录审核把「Release 资产没有 attestation」列为建议项：有了它，用户可以
+#   gh attestation verify main.js --repo yeshimei/bz-reader
+# 证明这个文件确实由本仓库的源码构建，而不是本地随手打的包。
+#
+# 只做「构建 + 签名」，不碰 Release 资产：发版仍是本地
+# `node esbuild.config.mjs production` + `gh release upload`（AGENTS.md 第 10 节）。
+# 构建是确定性的——esbuild 的 BUILD_TAG 默认只取 manifest.version，不含时间戳，
+# 所以 CI 产物与本地产物的 sha256 相同；attestation 按文件 digest 关联，
+# 用户下载的 Release 文件能直接验过。
+on:
+  push:
+    tags:
+      - '[0-9]*'
+
+permissions:
+  contents: read
+  id-token: write        # attestation 的 OIDC 签名
+  attestations: write    # 写 attestation
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build release bundle
+        run: node esbuild.config.mjs production
+
+      - name: Show digests
+        run: sha256sum main.js styles.css manifest.json
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            main.js
+            styles.css

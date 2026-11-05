@@ -593,7 +593,6 @@
   font-family: var(--bzr-font-ui);
 }
 .bzr-stage,
-.bzr-stage foliate-view,
 .bzr-view {
   display: block;
   width: 100%;

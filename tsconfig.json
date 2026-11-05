@@ -1,10 +1,17 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
-    "target": "ES2018",
+    "target": "ES2020",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["DOM", "DOM.Iterable", "ES2018"],
+    /* 与 esbuild 的 target 保持一致（esbuild.config.mjs 里也是 es2020）。
+       代码确实在用 ES2019/ES2020 的 API：trimEnd / flatMap / matchAll。
+       以前 lib 写 ES2018，本地能过是因为 @types/node 的 index.d.ts 里
+       `/// <reference lib="es2020" />` 把 lib 隐式抬高了；审核环境只装生产
+       依赖时没有这层提升，这三个方法变成 errorType，连锁报出 24 条
+       no-unsafe-*（社区目录审核报告里那一大段）。显式写 ES2020 之后
+       不依赖 @types/node 的副作用。 */
+    "lib": ["DOM", "DOM.Iterable", "ES2020"],
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
