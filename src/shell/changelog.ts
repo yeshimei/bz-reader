@@ -63,19 +63,154 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
     date: '2026-11-05',
     added: [
       {
-        domain: { zh: '语言', en: 'Language' },
+        domain: { zh: '双向链接', en: 'Wikilinks' },
         text: {
-          zh: '界面语言可手动选择：跟随 Obsidian，或指定中文、繁體中文、English、日本語、Deutsch、Français、Español、Português。',
-          en: 'The interface language can now be chosen: follow Obsidian, or pick Chinese, Traditional Chinese, English, Japanese, German, French, Spanish or Portuguese.',
+          zh: '划线可以复制成 `[[书#定位|原文]]` 双链，点一下跳回那一句，反链面板里也看得见。',
+          en: 'Copy a highlight as a `[[book#locator|text]]` wikilink: clicking it jumps straight back to that sentence, and the link shows up in the backlinks pane.',
+        },
+      },
+      {
+        domain: { zh: '多语言', en: 'Languages' },
+        text: {
+          zh: '界面支持中文、繁體中文、English、日本語、Deutsch、Français、Español、Português 八种语言，可跟随 Obsidian 或手动选择。',
+          en: 'The interface speaks eight languages — Chinese, Traditional Chinese, English, Japanese, German, French, Spanish and Portuguese — following Obsidian or picked by hand.',
+        },
+      },
+      {
+        domain: { zh: '划词工具条', en: 'Selection toolbar' },
+        text: {
+          zh: '划词和点划线合并成同一枚工具条，复制、AI、双链都在一处。',
+          en: 'Selecting text and tapping a highlight now open the same toolbar, so copy, AI and wikilinks all live in one place.',
+        },
+      },
+      {
+        domain: { zh: '阅读页图标', en: 'Header icons' },
+        text: {
+          zh: '头栏图标扩到十项，可在设置里排序、收起，收起的进「⋮」菜单。',
+          en: 'The reader header holds ten actions; reorder or hide them in Settings, and hidden ones move into the ⋮ menu.',
+        },
+      },
+      {
+        domain: { zh: '关于条', en: 'About bar' },
+        text: {
+          zh: '设置页顶部新增关于条，版本、GitHub、视频教程、交流群与更新日志收在一处。',
+          en: 'A new About bar sits at the top of Settings, gathering the version, GitHub, video guide, community group and changelog in one place.',
+        },
+      },
+      {
+        domain: { zh: '更新日志', en: 'Changelog' },
+        text: {
+          zh: '升级后第一次打开书库时自动弹一次。',
+          en: 'The first time you open your library after an update, the changelog pops up once.',
         },
       },
     ],
     improved: [
       {
+        domain: { zh: '基础版', en: 'Free tier' },
+        text: {
+          zh: '单栏 / 双栏下放基础版，不再需要激活码。',
+          en: 'Single and two-column layouts are now part of the free tier — no activation code needed.',
+        },
+      },
+      {
+        domain: { zh: '删除划线', en: 'Highlights' },
+        text: {
+          zh: '桌面改成贴字确认条，不再弹大卡。',
+          en: 'Deleting a highlight on desktop now asks with an inline confirmation strip instead of a full dialog.',
+        },
+      },
+      {
+        domain: { zh: '书库', en: 'Library' },
+        text: {
+          zh: '头栏文字与图标放大一档，桌面排序拆成三颗平铺。',
+          en: 'The library header is a notch larger, and desktop sorting is split into three flat buttons.',
+        },
+      },
+      {
         domain: { zh: '设置', en: 'Settings' },
         text: {
-          zh: '设置页新增「界面」一组，语言切换后立即生效；命令名需重启 Obsidian 才更新。',
-          en: 'A new “Interface” group in Settings applies the language immediately; command names update after restarting Obsidian.',
+          zh: '分组重新排序，阅读页图标移到外观之前。',
+          en: 'Settings groups are reordered, with the reader icon moved ahead of Appearance.',
+        },
+      },
+      {
+        domain: { zh: '强调色', en: 'Accent color' },
+        text: {
+          zh: '从 5 档扩到 8 档，第一档叫「跟随 Obsidian」。',
+          en: 'Accent colors grow from five to eight; the first one is called “Follow Obsidian”.',
+        },
+      },
+      {
+        domain: { zh: '朗读', en: 'Read aloud' },
+        text: {
+          zh: '语速与朗读跟随从排版浮层搬到设置页，单独成组。',
+          en: 'Speech rate and follow-along moved from the typography popover into their own Settings group.',
+        },
+      },
+    ],
+    fixed: [
+      {
+        domain: { zh: '阅读页', en: 'Reader' },
+        text: {
+          zh: '打开书不再自动展开侧栏与目录。',
+          en: 'Opening a book no longer unfolds the sidebar and contents on its own.',
+        },
+      },
+      {
+        domain: { zh: '阅读页', en: 'Reader' },
+        text: {
+          zh: '导入后立即显示作者，滚动模式读完一章自动进下一章。',
+          en: 'The author shows up as soon as a book is imported, and scroll mode moves to the next chapter when one ends.',
+        },
+      },
+      {
+        domain: { zh: '阅读页', en: 'Reader' },
+        text: {
+          zh: '重启后版式读本平台那一份，不再串到另一套。',
+          en: 'After a restart the layout comes from this platform’s own settings instead of drifting to the other set.',
+        },
+      },
+      {
+        domain: { zh: '手机', en: 'Mobile' },
+        text: {
+          zh: '想法 / 书摘弹窗不再被输入法遮挡，正文底部让出安全区。',
+          en: 'Note and excerpt dialogs are no longer covered by the keyboard, and body text leaves room for the safe area.',
+        },
+      },
+      {
+        domain: { zh: '书库', en: 'Library' },
+        text: {
+          zh: '筛选行不再被误判成手机，按窗口宽度摊开。',
+          en: 'The filter row is no longer mistaken for a phone layout and spreads across the window width.',
+        },
+      },
+      {
+        domain: { zh: '目录迁移', en: 'Data folder' },
+        text: {
+          zh: '三个目录选择器恢复正常，迁移失败会回滚。',
+          en: 'All three folder pickers work again, and a failed move rolls back.',
+        },
+      },
+      {
+        domain: { zh: 'AI 输入框', en: 'AI input' },
+        text: {
+          zh: '输入期间不再落盘，打一个字不会失焦。',
+          en: 'Typing in the AI box no longer saves on every keystroke, so it stops losing focus mid-sentence.',
+        },
+      },
+      {
+        domain: { zh: '文件', en: 'Files' },
+        text: {
+          zh: '不再抢 `.txt` 扩展名。',
+          en: 'The plugin no longer claims the `.txt` extension.',
+        },
+      },
+      {
+        domain: { zh: '备份', en: 'Backup' },
+        text: {
+          zh: '备份与恢复同时带上桌面与手机两套版式。',
+          en: 'Backups and restores now carry both the desktop and mobile layout sets.',
         },
       },
     ],
