@@ -345,9 +345,17 @@
     flex-wrap: wrap;
   }
 
-  .bzs-seg button {
+  /* 多档位组（语言 / 强调色 / 笔色）走 grid（见 study.css 的 .bzs-seg-wrap）：
+     列数由格子下限算出来。这里只补触屏的字号与内边距，别再给它们
+     加 min-width——那会把 grid 的格子撑歪。 */
+  .bzs-seg:not(.bzs-seg-wrap) button {
     flex: 1 1 auto;
     min-width: 54px;
+    font-size: 12px;
+    padding: 7px 6px;
+  }
+
+  .bzs-seg-wrap button {
     font-size: 12px;
     padding: 7px 6px;
   }

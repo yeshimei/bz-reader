@@ -252,10 +252,11 @@ export function viewSettings(v: SettingsView): string {
     </div>`;
 
   /* 标注组只剩能动手的三项：画笔、导出目录、带想法。「摘录链接」那一行没有
-     任何控件，讲的双链能力在复制书摘时本来就有，2026-11-05 整行去掉。 */
+     任何控件，讲的双链能力在复制书摘时本来就有，2026-11-05 整行去掉。
+     笔色五档走 bzs-seg-wrap：与语言、强调色同一套格子下限，窄窗不会叠字。 */
   const marks = `<div class="bzs-setgrp">
       <h3>${t('settings.grp.marks')}</h3>
-      <div class="bzs-setrow"><label>${t('settings.pen')}</label><div class="bzs-seg">${HIGHLIGHT_COLORS.map(
+      <div class="bzs-setrow"><label>${t('settings.pen')}</label><div class="bzs-seg bzs-seg-wrap">${HIGHLIGHT_COLORS.map(
         (c) =>
           `<button class="${v.pen === c.value ? 'on' : ''}" data-act="setpen" data-v="${c.value}"><span class="dot" style="background:${c.css}"></span>${colorLabel(c.value)}</button>`,
       ).join('')}</div></div>

@@ -18,8 +18,9 @@ vi.mock('../src/data/entitlement', async (importOriginal) => {
   };
 });
 
-import { DEFAULT_PREFS } from '../src/data/prefs';
+import { ACCENT_OPTIONS, DEFAULT_PREFS } from '../src/data/prefs';
 import { DEFAULT_SETTINGS } from '../src/data/settings';
+import { HIGHLIGHT_COLORS } from '../src/data/notes';
 import { viewSettings } from '../src/shell/render/settings';
 
 const html = (relicense = false, settings = DEFAULT_SETTINGS): string =>
@@ -441,5 +442,52 @@ describe('标注组 · 不再有摘录链接说明', () => {
     for (const marker of ['data-act="setpen"', 'data-act="pickexportdir"', 'data-k="exportComments"']) {
       expect(g, marker).toContain(marker);
     }
+  });
+});
+
+/**
+ * 多档位选项按格子下限排行（2026-11-05）。
+ *
+ * 窄窗下书架内容区只剩 900 左右，两列各 457：语言那排四个一行，每格
+ * 只有 75px，「跟随 Obsidian」画到了右边那格上——真机截图是一行字叠一行字。
+ * 现在语言、强调色、笔色三组都挂 bzs-seg-wrap，由 CSS 按 88px 的格子下限
+ * 算列数（放不下就少一列，不硬挤）。
+ *
+ * 这里钉的是「三组都拿到了这个类」：以后加档位时漏挂，窄窗那格就又会叠字，
+ * 而单测跑得出来，不用等到真机截图。
+ */
+describe('多档位选项 · 窄窗按格子下限排行', () => {
+  /** 截出某一组：从它的 h3 到下一个 h3 */
+  function group(out: string, title: string): string {
+    const start = out.indexOf(`<h3>${title}</h3>`);
+    const next = out.indexOf('<h3>', start + 1);
+    expect(start, title).toBeGreaterThan(-1);
+    return out.slice(start, next < 0 ? undefined : next);
+  }
+
+  it('语言（9 档）、强调色（8 档）、笔色（5 档）都带 bzs-seg-wrap', () => {
+    const out = html();
+    const cases: Array<[string, string]> = [
+      ['界面', 'data-act="setlang"'],
+      ['外观', 'data-k="accent"'],
+      ['标注', 'data-act="setpen"'],
+    ];
+    for (const [title, marker] of cases) {
+      const g = group(out, title);
+      expect(g, title).toContain('class="bzs-seg bzs-seg-wrap"');
+      expect(g, title).toContain(marker);
+    }
+    /* 档位数量没变：wrap 只是排版，不许顺手删档 */
+    expect((group(out, '界面').match(/data-act="setlang"/g) ?? []).length).toBe(9);
+    expect((group(out, '外观').match(/data-act="setpref" data-k="accent"/g) ?? []).length).toBe(
+      ACCENT_OPTIONS.length,
+    );
+    expect((group(out, '标注').match(/data-act="setpen"/g) ?? []).length).toBe(HIGHLIGHT_COLORS.length);
+  });
+
+  it('两档的单行分段不挂 wrap：两端 / 居左仍平分一行', () => {
+    const g = group(html(), '版式');
+    expect(g).not.toContain('bzs-seg-wrap');
+    expect(g).toContain('class="bzs-seg"');
   });
 });
