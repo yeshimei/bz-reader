@@ -175,7 +175,7 @@ describe('activeIndex：弹窗先停在哪一版', () => {
 });
 
 describe('更新日志弹窗的 DOM 结构', () => {
-  const html = changelogNoteHtml(CHANGELOG_RELEASES, '0.3.0');
+  const html = changelogNoteHtml(CHANGELOG_RELEASES, '0.2.0');
 
   it('桌面版有版本时间轴 + 单版正文', () => {
     expect(html).toContain('class="bzs-chgn-rail"');
@@ -192,7 +192,7 @@ describe('更新日志弹窗的 DOM 结构', () => {
   });
 
   it('正文先落在本次要提示的那一版，版本号与日期并排', () => {
-    expect(html).toContain('v0.3.0');
+    expect(html).toContain('v0.2.0');
     expect(html).toContain('2026.11.05');
     expect(html).toContain('本次更新');
   });
