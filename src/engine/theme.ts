@@ -88,16 +88,17 @@ export function buildChapterCSS(prefs: ReaderPrefs): string {
   }
 
   // 上下留白：可调的「上下边距」撤档了（2026-11-05），回到写死的呼吸边——
-  // 桌面 28/40、手机 18/48。手机上底部多留一截，免得最后一行被宿主的悬浮
-  // 导航条压住；分页模式再叠加 .bzs-rpages 的底栏让位，两段各管各的。
+  // 桌面 28/40、手机 8/14。手机收窄是因为宿主头栏、系统底栏已经各占一截，
+  // 书页里再留 18/48 会叠成三笔（真机反馈：没全屏时上下空太多）。
+  // 底部被底栏压住的那一块由 .bzs-rpages 单独让，这里不重复计算。
   //
   // 分页模式下每页的上下留白由分页器的 `padding: var(--_pad-top) ...
   // var(--_pad-bottom)` 决定（vendor 补丁）。变量必须定义在**书页文档里**：
   // 宿主元素上的 CSS 变量不会跨 iframe 继承。
   // 这里同时写 body 的 padding：滚动模式没有分页器，留白只能靠它。
   const mobile = isMobileEnv();
-  const padTop = mobile ? '18px' : '28px';
-  const padBottom = mobile ? '48px' : '40px';
+  const padTop = mobile ? '8px' : '28px';
+  const padBottom = mobile ? '14px' : '40px';
   const paged = prefs.flow !== 'scroll';
 
   return `

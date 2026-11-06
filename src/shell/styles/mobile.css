@@ -384,14 +384,14 @@
     padding: 0;
   }
 
-  /* 底部只补「底栏会压住的那一块」+ 安全区：
-     · 非全屏：底栏浮在内容上，syncBottomGap 量出它压住多少写进 --bzr-bottom-gap；
-       这一段是**固定的机器留白**，和书页里的呼吸边是两笔账。
-     · 全屏：量不到底栏 → 0，只剩书页里写死的下边距。
-     正文自己的留白由书页里的 --_pad-bottom 给（theme.ts 的固定值），
-     这里再写死 8px 就会在全屏时凭空多出一块。 */
+  /* 底部让位：安全区与底栏高度**取大值，不相加**。
+     · 非全屏：底栏浮在内容上，syncBottomGap 量出它的实际高度（已含安全区）
+       写进 --bzr-bottom-gap；
+     · 全屏：量不到底栏 → 0，退回安全区。
+     以前两份相加，iPhone 上等于把安全区算了两遍，正文底下凭空多一截；
+     书页自己的呼吸边由 --_pad-top/--_pad-bottom 给（theme.ts），不在这里重复。 */
   .bzs-rpages {
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--bzr-bottom-gap, 0px));
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--bzr-bottom-gap, 0px));
   }
 
   /* 带输入框的弹窗不从底部弹：软键盘一开就会被顶出屏幕。

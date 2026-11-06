@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { Platform } from 'obsidian';
 import { installDomStub } from './helpers/dom-stub';
 import { EMPTY_DATA, emptyNotes, emptyReading } from '../src/data/schema';
 import { accentColor, buildChapterCSS } from '../src/engine/theme';
@@ -82,6 +83,24 @@ describe('buildChapterCSS', () => {
     const css = buildChapterCSS({ ...DEFAULT_PREFS, marginY: 120 } as unknown as ReaderPrefs);
     expect(css).toMatch(/--_pad-top:\s*28px/);
     expect(css).toMatch(/--_pad-bottom:\s*40px/);
+  });
+
+  /**
+   * 手机上没开全屏时，宿主头栏 + 系统底栏已经占掉不少，
+   * 书页里再留 18/48 就是三笔留白叠在一起（真机反馈：上下空太多）。
+   * 收成 8/14；底部让位由宿主侧另算（见 mobile.css），不在这里叠加。
+   */
+  it('手机：上下留白收到 8/14', () => {
+    Platform.isMobile = true;
+    Platform.isDesktop = false;
+    try {
+      const css = buildChapterCSS(DEFAULT_PREFS);
+      expect(css).toMatch(/--_pad-top:\s*8px/);
+      expect(css).toMatch(/--_pad-bottom:\s*14px/);
+    } finally {
+      Platform.isMobile = false;
+      Platform.isDesktop = true;
+    }
   });
 
   it('不同字号产出的 CSS 不同（避免缓存串味）', () => {
