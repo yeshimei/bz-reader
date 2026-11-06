@@ -8,7 +8,8 @@ import { FakeAdapter } from './helpers/fake-adapter';
 const { makeBookMock } = vi.hoisted(() => ({ makeBookMock: vi.fn() }));
 vi.mock('../src/engine/foliate', () => ({ makeBook: makeBookMock }));
 
-import { fillBookMeta, fillBookMetas, readBookMeta } from '../src/data/book-scan';
+import { fillBookMeta, fillBookMetas, backfillFingerprints, readBookMeta } from '../src/data/book-scan';
+import { fingerprintOf } from '../src/data/fingerprint';
 
 function makeApp(adapter: FakeAdapter): App {
   return { vault: { adapter, configDir: '.obsidian' } } as unknown as App;
@@ -130,8 +131,7 @@ describe('导入时读取书目（作者不再等第一次打开）', () => {
     expect(b.meta.author).toBe('余华');
   });
 
-  it('批量：每本都填，坏书跳过，返回真的写了几本', async () => {
-    const adapter = new FakeAdapter();
+  it('批量：每本都填，坏书跳过，返回真的写了几本', async () => {    const adapter = new FakeAdapter();
     adapter.files.set('a.epub', 'x');
     adapter.files.set('b.epub', 'x');
     adapter.files.set('c.epub', 'x');
@@ -150,5 +150,43 @@ describe('导入时读取书目（作者不再等第一次打开）', () => {
     expect(makeBookMock).toHaveBeenCalledTimes(3);
 
     warn.mockRestore();
+  });
+});
+
+/**
+ * 升级前的书没有指纹。不补算的话，用户重新导入同一本书照样新建一条，
+ * 等于去重没生效。补算只读记录上那条路径，文件没了/太大就跳过。
+ */
+describe('给老记录补算内容指纹', () => {
+  it('只补没有指纹的，已有的原样保留', async () => {
+    const adapter = new FakeAdapter();
+    adapter.files.set('a.epub', 'aaa');
+    adapter.files.set('b.epub', 'bbb');
+    const books = [bookOf('a', 'a.epub'), bookOf('b', 'b.epub')];
+    books[0]!.fileRef.fingerprint = 'v1-keep';
+
+    const n = await backfillFingerprints(makeApp(adapter), books);
+
+    expect(n).toBe(1);
+    expect(books[0]!.fileRef.fingerprint).toBe('v1-keep');
+    expect(books[1]!.fileRef.fingerprint).toBe(fingerprintOf(new TextEncoder().encode('bbb')));
+  });
+
+  it('文件已经没了：跳过，不抛错，不写假指纹', async () => {
+    const adapter = new FakeAdapter();
+    const books = [bookOf('gone', 'gone.epub')];
+
+    expect(await backfillFingerprints(makeApp(adapter), books)).toBe(0);
+    expect(books[0]!.fileRef.fingerprint).toBeUndefined();
+  });
+
+  it('已经都有指纹：一次文件都不读', async () => {
+    const adapter = new FakeAdapter();
+    const readBinary = vi.spyOn(adapter, 'readBinary');
+    const books = [bookOf('a', 'a.epub')];
+    books[0]!.fileRef.fingerprint = 'v1-x';
+
+    expect(await backfillFingerprints(makeApp(adapter), books)).toBe(0);
+    expect(readBinary).not.toHaveBeenCalled();
   });
 });

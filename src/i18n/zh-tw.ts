@@ -97,6 +97,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'notice.import.written': '已匯入 {n} 本到 {folder}',
   'notice.import.error': '匯入失敗：{why}',
   'notice.import.partial': '有 {failed} 個檔案匯入失敗，已匯入 {ok} 個',
+  'notice.import.skipped': '有 {n} 本已經在書架（同一份檔案），沒有重複加入',
 
   /* ── 通知：搜尋 ──────────────────────────────────────────── */
   'notice.search.empty': '先輸入要搜的字',

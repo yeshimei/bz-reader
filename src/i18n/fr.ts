@@ -101,6 +101,7 @@ export const FR: Record<MsgKey, string> = {
   'notice.import.written': '{n} livre(s) importé(s) dans {folder}',
   'notice.import.error': 'Échec de l’import : {why}',
   'notice.import.partial': '{failed} fichier(s) non importé(s), {ok} importé(s)',
+  'notice.import.skipped': '{n} livre(s) déjà dans la bibliothèque (même fichier) — ignoré(s)',
 
   /* ── Notifications : recherche ──────────────────────────── */
   'notice.search.empty': 'Saisissez quelque chose à rechercher',

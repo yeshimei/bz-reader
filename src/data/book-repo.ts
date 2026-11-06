@@ -59,17 +59,27 @@ export function titleFromPath(path: string): string {
 }
 
 /** 新建一条书记录（元数据随后由引擎填充） */
-export function makeBook(path: string, format: BookFormat, size = 0): ReaderBook {
+export function makeBook(path: string, format: BookFormat, size = 0, fingerprint?: string): ReaderBook {
   const now = Date.now();
   return {
     id: hashId(path),
     meta: { title: titleFromPath(path) },
-    fileRef: { vaultPath: path, format, size },
+    fileRef: { vaultPath: path, format, size, ...(fingerprint ? { fingerprint } : {}) },
     reading: emptyReading(),
     notes: emptyNotes(),
     addedAt: now,
     updatedAt: now,
   };
+}
+
+export interface EnsureResult {
+  book: ReaderBook;
+  created: boolean;
+  /**
+   * 指纹命中的是**另一条路径**上的记录：调用方确认旧路径已经不可用之后，
+   * 调 `relocate()` 把记录挪到新路径。仓库层不碰文件系统，判断不了。
+   */
+  pathChanged?: boolean;
 }
 
 export class BookRepo {
@@ -87,14 +97,34 @@ export class BookRepo {
     return this.books.find((b) => b.fileRef.vaultPath === path);
   }
 
-  /** 有则更新路径（书被改名/移动时不丢进度），无则新建。返回记录与是否新建。 */
-  ensure(path: string, format: BookFormat, size = 0): { book: ReaderBook; created: boolean } {
+  /** 按内容指纹查书：同一份文件在书架上最多一条记录 */
+  byFingerprint(fingerprint: string): ReaderBook | undefined {
+    return this.books.find((b) => b.fileRef.fingerprint === fingerprint);
+  }
+
+  /**
+   * 登记一本书：有则复用（优先按路径，其次按内容指纹），无则新建。
+   *
+   * 指纹是「同一份文件只进书架一次」的唯一依据：同一个文件改名、换目录、
+   * 复制一份再导入，都只更新路径，不产生第二条记录、不产生第二份进度。
+   * 没传指纹（大文件/老数据）时退回按路径匹配，行为与以前一致。
+   */
+  ensure(path: string, format: BookFormat, size = 0, fingerprint?: string): EnsureResult {
     const exist = this.byPath(path);
     if (exist) {
       exist.fileRef.size = size || exist.fileRef.size;
+      /* 同一路径换了内容（用户换了一个版本的文件）：指纹跟着路径走 */
+      if (fingerprint && exist.fileRef.fingerprint !== fingerprint) exist.fileRef.fingerprint = fingerprint;
       return { book: exist, created: false };
     }
-    const book = makeBook(path, format, size);
+    if (fingerprint) {
+      const same = this.byFingerprint(fingerprint);
+      if (same) {
+        same.fileRef.size = size || same.fileRef.size;
+        return { book: same, created: false, pathChanged: same.fileRef.vaultPath !== path };
+      }
+    }
+    const book = makeBook(path, format, size, fingerprint);
     /* djb2 只有 32 位，理论上会撞（P3-09）。撞了就让后来者加后缀——
        两本书共用一个 id，进度、划线、深链会全串到一起，比 id 不好看严重得多。 */
     if (this.byId(book.id)) {

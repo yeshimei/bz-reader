@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { App } from 'obsidian';
-import { importFiles } from '../src/data/importer';
+import { importDetailed, importFiles } from '../src/data/importer';
+import { fingerprintOf } from '../src/data/fingerprint';
+import { BookRepo } from '../src/data/book-repo';
 import { FakeAdapter } from './helpers/fake-adapter';
 
 function makeApp(adapter: FakeAdapter): App {
@@ -61,5 +63,73 @@ describe('本地文件导入（A-17）', () => {
     expect(written).toEqual(['Inbox/a.epub']);
     expect(adapter.files.has('Inbox/a.epub')).toBe(true);
     expect(adapter.files.has('Inbox/b.pdf')).toBe(false);
+  });
+});
+
+/**
+ * 同一份文件只能进书架一次：导入前先算指纹、查已有记录，命中就不写盘。
+ *
+ * 以前是「先写盘（重名存成 (2)）再按路径登记」，所以同一本书导入两次
+ * 就是两个文件、两条记录、两份进度。
+ */
+describe('导入前按指纹查重', () => {
+  it('库里已有同一份内容：不写盘、不产生副本，直接复用原路径', async () => {
+    const adapter = new FakeAdapter();
+    const app = makeApp(adapter);
+    const repo = new BookRepo([]);
+    const content = new Uint8Array([1, 2, 3, 4]);
+    await adapter.writeBinary('Books/原书.epub', content.buffer);
+    repo.ensure('Books/原书.epub', 'epub', content.length, fingerprintOf(content) ?? undefined);
+
+    const results = await importDetailed(app, [new File([content], '原书.epub')], ['epub'], 'Books', repo);
+
+    expect(results).toHaveLength(1);
+    expect(results[0]!.reused).toBe(true);
+    expect(results[0]!.written).toBe(false);
+    expect(results[0]!.path).toBe('Books/原书.epub');
+    expect(adapter.files.has('Books/原书 (2).epub')).toBe(false);
+  });
+
+  it('记录还在但文件没了：照常写盘，让这条记录重新有文件可用', async () => {
+    const adapter = new FakeAdapter();
+    const app = makeApp(adapter);
+    const repo = new BookRepo([]);
+    const content = new Uint8Array([9, 9, 9]);
+    const fp = fingerprintOf(content);
+    repo.ensure('Books/丢了.epub', 'epub', content.length, fp ?? undefined);
+
+    const results = await importDetailed(app, [new File([content], '丢了.epub')], ['epub'], 'Books', repo);
+
+    expect(results[0]!.written).toBe(true);
+    expect(results[0]!.reused).toBe(false);
+    expect(results[0]!.path).toBe('Books/丢了.epub');
+    expect(results[0]!.fingerprint).toBe(fp);
+  });
+
+  it('没有书库可查时按老规矩写盘，并把指纹一起带回去', async () => {
+    const adapter = new FakeAdapter();
+    const app = makeApp(adapter);
+    const content = new Uint8Array([5, 5]);
+
+    const results = await importDetailed(app, [new File([content], 'a.epub')], ['epub'], 'Books');
+
+    expect(results[0]!.written).toBe(true);
+    expect(results[0]!.fingerprint).toBe(fingerprintOf(content));
+  });
+
+  it('同一批里两个同内容文件：第二个不再写盘', async () => {
+    const adapter = new FakeAdapter();
+    const app = makeApp(adapter);
+    const repo = new BookRepo([]);
+    const content = new Uint8Array([7, 7, 7]);
+    const fp = fingerprintOf(content) ?? undefined;
+
+    const first = await importDetailed(app, [new File([content], 'a.epub')], ['epub'], 'Books', repo);
+    repo.ensure(first[0]!.path, 'epub', content.length, fp);
+    const second = await importDetailed(app, [new File([content], 'b.epub')], ['epub'], 'Books', repo);
+
+    expect(second[0]!.reused).toBe(true);
+    expect(second[0]!.written).toBe(false);
+    expect([...adapter.files.keys()].filter((p) => p.endsWith('.epub'))).toHaveLength(1);
   });
 });

@@ -100,6 +100,7 @@ export const JA: Record<MsgKey, string> = {
   'notice.import.written': '{n} 冊を {folder} にインポートしました',
   'notice.import.error': 'インポートに失敗しました：{why}',
   'notice.import.partial': '{failed} 件のファイルをインポートできませんでした（{ok} 件は成功）',
+  'notice.import.skipped': '{n} 冊は同じファイルが本棚にあります（重複追加なし）',
 
   /* ── 通知：検索 ─────────────────────────────────────────── */
   'notice.search.empty': '検索する文字を入力してください',

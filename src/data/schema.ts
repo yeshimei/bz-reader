@@ -33,11 +33,14 @@ export type BookFormat = 'epub' | 'txt' | 'mobi' | 'azw3' | 'fb2' | 'cbz';
 /**
  * 业务数据格式版本。
  *
+ * 2026-11-06（schemaVersion 3）：`fileRef.fingerprint` 开始真的写入。
+ * 外部消费者忽略未知键即可；老数据没有它，读侧不受影响。
+ *
  * `version` 是「这份 JSON 能不能读」的版本；`schemaVersion` 是给**外部消费者**
  * （bz 书库）判断字段代际用的。两者分开：以后只加字段不改结构时，只推
  * schemaVersion，读侧不用动。
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export interface BookMeta {
   title: string;
@@ -83,11 +86,17 @@ export interface BookFileRef {
   format: BookFormat;
   /** 文件大小（字节），导入去重与统计用 */
   size?: number;
-  /*
-   * 这里曾经有 `fingerprint`（「前 64KB + 大小的哈希」），但全仓没有一个地方
-   * 算过它，认「书被改名」时也从没读过（2026-11-04 删）。
-   * 留着未使用的字段比没有更糟：下一个人会以为内容比对已经做了。
+  /**
+   * 内容指纹（`v1-…`，算法见 data/fingerprint.ts）。
+   *
+   * 2026-11-06 起真的算了：导入/扫描登记前先算，**同一指纹只允许一条记录**。
+   * 以前这里有个同名字段但全仓没有一个写入点（2026-11-04 删掉）；现在它
+   * 就是「同一份文件只能进书架一次」的依据，所以重新加回来。
+   *
+   * 老记录没有这个值：下次扫描到文件时补算（大文件超过 64MB 不补，退回
+   * 按路径去重）。
    */
+  fingerprint?: string;
 }
 
 export interface ReadingPosition {

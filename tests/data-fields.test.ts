@@ -259,8 +259,8 @@ describe('recordPosition：上一次位置作为冗余落盘', () => {
 
 describe('落盘形状：schemaVersion 与冗余字段不丢', () => {
   it('EMPTY_DATA 带 schemaVersion', () => {
-    expect(SCHEMA_VERSION).toBe(2);
-    expect(EMPTY_DATA.schemaVersion).toBe(2);
+    expect(SCHEMA_VERSION).toBe(3);
+    expect(EMPTY_DATA.schemaVersion).toBe(3);
   });
 
   it('sanitize 保留 lastPosition 与 schemaVersion（读盘一次不把冗余清掉）', () => {
@@ -284,10 +284,29 @@ describe('落盘形状：schemaVersion 与冗余字段不丢', () => {
         },
       ],
     });
-    expect(clean?.schemaVersion).toBe(2);
+    expect(clean?.schemaVersion).toBe(3);
     const b = clean!.books[0]!;
     expect(b.meta).toMatchObject({ author: '作者', publisher: '社', subjects: ['分类'], chapterCount: 12 });
     expect(b.reading.lastPosition).toMatchObject({ cfi: 'cfi/1', percent: 0.4, savedAt: 99 });
+  });
+
+  it('sanitize 保留 fileRef.fingerprint（读盘一次不丢内容指纹）', () => {
+    const clean = sanitizeData({
+      version: 1,
+      schemaVersion: 3,
+      books: [
+        {
+          id: 'b1',
+          meta: { title: '书' },
+          fileRef: { vaultPath: 'a.epub', format: 'epub', size: 10, fingerprint: 'v1-abc' },
+          reading: { position: { percent: 0 }, stats: { totalReadTime: 0, lastReadTime: 0 }, sessions: [] },
+          notes: { highlights: [], excerpts: [], bookmarks: [] },
+          addedAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    });
+    expect(clean?.books[0]?.fileRef.fingerprint).toBe('v1-abc');
   });
 });
 

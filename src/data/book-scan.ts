@@ -18,12 +18,31 @@ import type { App } from 'obsidian';
 import { makeBook } from '../engine/foliate';
 import { applyEngineMeta, engineMetaFromBook, type EngineMeta } from './book-meta';
 import { formatOf, titleFromPath } from './book-repo';
+import { MAX_FINGERPRINT_BYTES, fingerprintOf } from './fingerprint';
 import type { ReaderBook } from './schema';
 
 /** 与封面同一口径：超过这个大小不整本读进来，书目退回文件名 */
 const MAX_META_SOURCE = 40 * 1024 * 1024;
 /** 同时解几本：zip 解压是纯 CPU，一次解太多会让导入面板掉帧 */
 const PARALLEL = 3;
+
+/**
+ * 读一本文件的**内容指纹**（登记进书架前查重用）。
+ *
+ * 和读书目一样，只能整份读：Obsidian 的 adapter 没有分段读接口。
+ * 超过 `MAX_FINGERPRINT_BYTES` 直接放弃——手机内存比「多一层去重」重要，
+ * 这类书退回按路径去重。读失败同样返回 null，绝不挡导入流程。
+ */
+export async function readFingerprint(app: App, path: string, size = 0): Promise<string | null> {
+  if (size > MAX_FINGERPRINT_BYTES) return null;
+  try {
+    const buf = await app.vault.adapter.readBinary(path);
+    if (buf.byteLength > MAX_FINGERPRINT_BYTES) return null;
+    return fingerprintOf(new Uint8Array(buf));
+  } catch {
+    return null;
+  }
+}
 
 /**
  * 读一本文件的内嵌书目。TXT（或读不出来）返回 null。
@@ -89,6 +108,38 @@ export async function fillBookMetas(app: App, books: ReaderBook[], concurrency =
     }
   };
   const workers = Math.min(Math.max(1, concurrency), books.length);
+  await Promise.all(Array.from({ length: workers }, () => worker()));
+  return changed;
+}
+
+/**
+ * 给升级前的老记录补算指纹（幂等，导入前调一次）。
+ *
+ * 指纹查重只对「有指纹的记录」有效。老记录没有这个字段，不补的话，用户
+ * 重新导入同一本书照样会新建一条——等于去重没生效。这里按记录上的路径
+ * 读文件补算，不扫全库；读不到（文件已删）/超大（手机内存）就跳过，
+ * 下次再试，绝不挡导入。
+ */
+export async function backfillFingerprints(app: App, books: ReaderBook[], concurrency = 2): Promise<number> {
+  const pending = books.filter((b) => !b.fileRef.fingerprint);
+  if (!pending.length) return 0;
+  let changed = 0;
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      const i = next++;
+      if (i >= pending.length) return;
+      const book = pending[i];
+      if (!book) continue;
+      const size = book.fileRef.size ?? 0;
+      if (size > MAX_FINGERPRINT_BYTES) continue;
+      const fp = await readFingerprint(app, book.fileRef.vaultPath, size);
+      if (!fp) continue;
+      book.fileRef.fingerprint = fp;
+      changed += 1;
+    }
+  };
+  const workers = Math.min(Math.max(1, concurrency), pending.length);
   await Promise.all(Array.from({ length: workers }, () => worker()));
   return changed;
 }

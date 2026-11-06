@@ -26,7 +26,8 @@ import { isMobileEnv } from './core/mobile';
 import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
 import { BookRepo, BASE_FORMATS, PRO_FORMATS, formatOf, planRelocations, scanVault } from './data/book-repo';
-import { fillBookMetas } from './data/book-scan';
+import { fillBookMetas, readFingerprint } from './data/book-scan';
+import { MAX_FINGERPRINT_BYTES } from './data/fingerprint';
 import { ReaderStore, verifyCopiedJson } from './data/store';
 import { backupFileName, buildBackup, mergeRestore, parseBackup } from './data/backup';
 import { pickJsonFile } from './core/file-pick';
@@ -258,7 +259,7 @@ export function createPlugin(cfg: PluginConfig) {
         store: this.store,
         openBook: (book, cfi) => void this.openBook(book, cfi),
         openImport: () => this.openImportPanel(),
-        syncVault: () => this.syncShelf(),
+        syncVault: () => void this.syncShelf(),
       });
       setShelfProActions({
         openStats: () => {
@@ -469,7 +470,7 @@ export function createPlugin(cfg: PluginConfig) {
         openStudy: (page) => this.openStudy(page),
         closeStudy: () => this.app.workspace.leftSplit?.collapse?.(),
         openSidebar: (tab) => this.openTocSidebar(tab),
-        syncVault: () => this.syncShelf(),
+        syncVault: () => void this.syncShelf(),
         maybeShowChangelog: () => void this.maybeShowChangelog(),
         openChangelog: () => this.openChangelog(),
         version: () => String(this.manifest?.version || ''),
@@ -1183,22 +1184,40 @@ export function createPlugin(cfg: PluginConfig) {
       });
     }
 
-    private syncShelf(): void {
+    private async syncShelf(): Promise<void> {
       /* 扫描用「这个包能认的全部格式」，而不是「当前已解锁的格式」。
          否则一旦没解锁，mobi 书会直接从书架上消失——用户会以为书被插件删了。
          真正的门控放在 openBook：看得见、点得开提示，比凭空少几本书好得多。 */
       const files = scanVault(this.app, PRO_FORMATS);
       /* 先认「改名/移动」：同格式、同字节数、当前路径已消失的旧记录，就地换路径。
          不做这一步的话，改个文件名就等于换了一本书——进度、划线、深链全留在
-         那条被标成 fileMissing 的幽灵记录上。 */
-      for (const move of planRelocations(this.repo.all(), files)) {
+         那条被标成 fileMissing 的幽灵记录上。
+         只处理**没有指纹**的记录：有指纹的交给下面的指纹匹配，免得「同大小
+         猜路径」把它认到另一本书上（指纹能精确认出，就不该先猜）。 */
+      for (const move of planRelocations(
+        this.repo.all().filter((b) => !b.fileRef.fingerprint),
+        files,
+      )) {
         this.repo.relocate(move.book, move.to);
       }
       const existing = new Set(files.map((f) => f.path));
       const fresh: ReaderBook[] = [];
       for (const f of files) {
         const fmt = formatOf(f.path) as BookFormat;
-        const { book, created } = this.repo.ensure(f.path, fmt, f.size);
+        const known = this.repo.byPath(f.path);
+        /* 已经登记过、也有指纹：不用再读文件 */
+        if (known?.fileRef.fingerprint) continue;
+        /* 大文件不为指纹整份读进内存（手机上限）；退回按路径去重 */
+        const fp = f.size > MAX_FINGERPRINT_BYTES ? null : await readFingerprint(this.app, f.path, f.size);
+        const { book, created, pathChanged } = this.repo.ensure(f.path, fmt, f.size, fp ?? undefined);
+        /* 指纹命中的是另一条路径上的旧记录（文件改名/移动后重新扫到）：把记录挪过来。
+           旧路径还在时不动——同一内容的另一份副本不应该让记录每次扫描来回跳。 */
+        if (
+          pathChanged &&
+          !this.app.vault.getAbstractFileByPath(book.fileRef.vaultPath)
+        ) {
+          this.repo.relocate(book, f.path);
+        }
         if (created) fresh.push(book);
       }
       this.repo.markMissing(existing);

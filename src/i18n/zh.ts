@@ -104,6 +104,7 @@ export const ZH = {
   'notice.import.written': '已导入 {n} 本到 {folder}',
   'notice.import.error': '导入失败：{why}',
   'notice.import.partial': '有 {failed} 个文件导入失败，已导入 {ok} 个',
+  'notice.import.skipped': '有 {n} 本已经在书架（同一份文件），没有重复加入',
 
   /* ── 通知：搜索 ──────────────────────────────────────────── */
   'notice.search.empty': '先输入要搜的字',

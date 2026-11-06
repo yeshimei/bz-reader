@@ -16,11 +16,11 @@
  * 原生 checkbox 一上一下两套外观，和这套界面放一起就是「另一个软件的控件」。
  * ============================================================ */
 import { Platform, type App } from 'obsidian';
-import type { BookFormat } from '../data/schema';
+import type { BookFormat, ReaderBook } from '../data/schema';
 import { BOOK_FORMATS_LABEL, formatOf, scanVault, titleFromPath } from '../data/book-repo';
 import type { BookRepo } from '../data/book-repo';
 import { importFolderOf, pickAndImport } from '../data/importer';
-import { fillBookMetas } from '../data/book-scan';
+import { backfillFingerprints, fillBookMetas, readFingerprint } from '../data/book-scan';
 import { shellSettings } from '../shell/source';
 import type { ReaderStore } from '../data/store';
 import { notify } from '../core/notice';
@@ -111,15 +111,34 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
   /**
    * 把选中的书登记进书架，并**当场**读一遍内嵌书目。
    *
+   * 登记前先算内容指纹：同一份文件（改名、复制、从本地再导入一次）
+   * 在书架上只允许一条记录，多出来的只更新路径，不新建。没有指纹的
+   * （大文件/老数据）退回按路径去重。
+   *
    * 以前这里只 `repo.ensure()`：书名从文件名来、作者留空，书架显示「佚名」，
    * 直到用户点开这本书、引擎解析完 OPF 才回填。导入完的第一眼就该是
    * 真书名 + 真作者，所以这一个 await 不能省——`onExit` 必须排在它后面。
    */
-  async function addToShelf(picked: Array<{ path: string; format: BookFormat; size: number }>): Promise<void> {
-    const books = picked.map((r) => repo.ensure(r.path, formatOf(r.path) ?? r.format, r.size).book);
+  async function addToShelf(
+    picked: Array<{ path: string; format: BookFormat; size: number }>,
+  ): Promise<{ added: number; skipped: number }> {
+    /* 老记录没有指纹就补算：不补的话，同一本书重新导入照样会新建一条 */
+    await backfillFingerprints(app, repo.all());
+    const books: ReaderBook[] = [];
+    let skipped = 0;
+    for (const r of picked) {
+      const fp = await readFingerprint(app, r.path, r.size);
+      const { book, created, pathChanged } = repo.ensure(r.path, formatOf(r.path) ?? r.format, r.size, fp ?? undefined);
+      /* 指纹命中的是另一条路径：旧路径已经不可用了才把记录挪过来；
+         旧路径还在（同一内容的另一份副本）就保持不动，免得来回跳 */
+      if (pathChanged && !app.vault.getAbstractFileByPath(book.fileRef.vaultPath)) repo.relocate(book, r.path);
+      if (created) books.push(book);
+      else skipped += 1;
+    }
     await fillBookMetas(app, books);
     store.touch();
     await store.flush();
+    return { added: books.length, skipped };
   }
 
   function load(): void {
@@ -210,8 +229,10 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
     confirmBtn.textContent = '正在读取书目…';
     void (async () => {
       try {
-        await addToShelf(picked);
-        notify(t('notice.import.done', { n: picked.length }), 'success');
+        const { added, skipped } = await addToShelf(picked);
+        if (added) notify(t('notice.import.done', { n: added }), 'success');
+        /* 指纹命中（同一份文件已在书架）时不再建记录：告诉用户为什么数字对不上 */
+        if (skipped) notify(t('notice.import.skipped', { n: skipped }), 'info');
         onDone?.();
         /* 加完就回书库：这一刻用户想看到的是新书出现在架子上，
            留在一张「已全部加入」的空列表前面没有意义。 */
@@ -231,19 +252,32 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
     if (grabBtn.disabled || busy) return;
     busy = true;
     grabBtn.disabled = true;
-    grabBtn.textContent = '正在写入…';
+    grabBtn.textContent = '正在核对书库…';
     void (async () => {
       try {
-        const written = await pickAndImport(app, formats, folder);
-        if (written && written.length) {
+        /* 写盘前先补算老记录的指纹：不然查重对升级前的书无效 */
+        await backfillFingerprints(app, repo.all());
+        grabBtn.textContent = '正在写入…';
+        /* 传 repo：写盘前先按内容指纹查重，同一份文件不会写出第二份副本 */
+        const results = await pickAndImport(app, formats, folder, repo);
+        if (results && results.length) {
           /* 写进库里的文件同样当场读书目：不然新导入的书在书架上还是佚名 */
           grabBtn.textContent = '正在读取书目…';
-          const picked = written.flatMap((p) => {
-            const fmt = formatOf(p);
-            return fmt ? [{ path: p, format: fmt, size: 0 }] : [];
-          });
-          await addToShelf(picked);
-          notify(t('notice.import.written', { n: written.length, folder: folderText }), 'success');
+          const books: ReaderBook[] = [];
+          let skipped = 0;
+          for (const r of results) {
+            const fmt = formatOf(r.path);
+            if (!fmt) continue;
+            const { book, created, pathChanged } = repo.ensure(r.path, fmt, r.size, r.fingerprint ?? undefined);
+            if (pathChanged && !app.vault.getAbstractFileByPath(book.fileRef.vaultPath)) repo.relocate(book, r.path);
+            if (created) books.push(book);
+            else skipped += 1;
+          }
+          await fillBookMetas(app, books);
+          store.touch();
+          const fresh = books.length;
+          if (fresh) notify(t('notice.import.written', { n: fresh, folder: folderText }), 'success');
+          if (skipped) notify(t('notice.import.skipped', { n: skipped }), 'info');
           onDone?.();
           load();
           render();
@@ -260,6 +294,10 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
 
   load();
   render();
+  /* 打开导入页就顺手给老记录补指纹（后台，不挡列表）：补完下一次导入才认得出重复 */
+  void backfillFingerprints(app, repo.all()).then((n) => {
+    if (n) store.touch();
+  });
 
   return () => {
     void store.flush();
