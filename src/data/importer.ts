@@ -28,7 +28,8 @@ function extOf(name: string): string {
   return m ? m[1].toLowerCase() : '';
 }
 
-async function uniquePath(app: App, folder: string, name: string): Promise<string> {
+/** 目标文件夹里给同名文件找一个不冲突的路径（重名才加 `(2)` 后缀） */
+export async function uniquePath(app: App, folder: string, name: string): Promise<string> {
   const dot = name.lastIndexOf('.');
   const base = dot > 0 ? name.slice(0, dot) : name;
   const ext = dot > 0 ? name.slice(dot) : '';

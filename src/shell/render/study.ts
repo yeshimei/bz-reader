@@ -229,17 +229,25 @@ export function viewLibrary(v: LibraryView): string {
   } else if (state.libView === 'grid') {
     body = `<div class="bzs-grid">${shown
       .map(
-        /* 卡片上不再钉三颗按钮：点一下直接开书；右键（手机长按）出菜单，
-           详情与其它动作都在里面。少了那一行，封面能大一圈，书名也不用为按钮让位。 */
-        (b) => `<div class="bzs-bkcard${b.status === 'done' ? ' is-done' : ''}" data-act="openbook" data-id="${b.id}"
-          data-bookmenu="${b.id}" role="button" tabindex="0" title="${t('shelf.more')}">
-        ${b.status === 'done' ? `<span class="flag">${t('shelf.badge.done')}</span>` : b.fav ? `<span class="flag">${t('shelf.filter.fav')}</span>` : ''}
+        /* 卡片上不再钉三颗按钮：点一下开书；文件失联时点它进「重新定位」，
+           右键（手机长按）出菜单，详情与其它动作都在里面。 */
+        (b) => `<div class="bzs-bkcard${b.status === 'done' ? ' is-done' : ''}${b.missing ? ' is-missing' : ''}" data-act="openbook" data-id="${b.id}"
+          data-bookmenu="${b.id}" role="button" tabindex="0" title="${b.missing ? t('shelf.missing.tip') : t('shelf.more')}">
+        ${
+          b.missing
+            ? `<span class="flag is-missing">${t('shelf.missing')}</span>`
+            : b.status === 'done'
+              ? `<span class="flag">${t('shelf.badge.done')}</span>`
+              : b.fav
+                ? `<span class="flag">${t('shelf.filter.fav')}</span>`
+                : ''
+        }
         ${coverHtml(b)}
         <div class="bi">
           <b>${esc(b.title)}</b>
           <span class="sub">${esc(b.author)}</span>
           ${barHtml(b.percent)}
-          <div class="meta"><span>${b.format} · ${esc(b.lastText)}</span><em>${b.percent > 0 ? b.percent + '%' : '—'}</em></div>
+          <div class="meta"><span>${b.missing ? t('shelf.missing') : `${b.format} · ${esc(b.lastText)}`}</span><em>${b.percent > 0 ? b.percent + '%' : '—'}</em></div>
         </div>
       </div>`,
       )
@@ -247,9 +255,9 @@ export function viewLibrary(v: LibraryView): string {
   } else {
     body = `<div class="bzs-list">${shown
       .map(
-        (b) => `<div class="bzs-bkrow2" data-act="openbook" data-id="${b.id}" data-bookmenu="${b.id}" role="button" tabindex="0" title="${t('shelf.more')}">
+        (b) => `<div class="bzs-bkrow2${b.missing ? ' is-missing' : ''}" data-act="openbook" data-id="${b.id}" data-bookmenu="${b.id}" role="button" tabindex="0" title="${b.missing ? t('shelf.missing.tip') : t('shelf.more')}">
         ${coverHtml(b)}
-        <div class="bi"><b>${esc(b.title)}</b><div class="sub">${esc(b.author)} · ${esc(b.shelf)} · ${b.format}</div></div>
+        <div class="bi"><b>${esc(b.title)}</b><div class="sub">${esc(b.author)} · ${esc(b.shelf)} · ${b.format}${b.missing ? ` · <span class="miss">${t('shelf.missing')}</span>` : ''}</div></div>
         ${barHtml(b.percent)}
         <span class="pct">${b.percent > 0 ? b.percent + '%' : '—'}</span>
         <span class="dt">${esc(b.lastText)}</span>

@@ -48,7 +48,7 @@ export type OverlayKind =
   | 'search' | 'typography' | 'export' | 'bookmap'
   | 'quote' | 'idea' | 'hltools' | 'ai' | 'dict' | 'translate' | 'poster'
   | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedir' | 'finish' | 'footnote'
-  | 'rename' | 'removebook' | 'confirmdel' | 'notedrop';
+  | 'rename' | 'removebook' | 'confirmdel' | 'notedrop' | 'missing';
 
 /**
  * 哪些弹层算「浮层」：无遮罩、贴在文字旁。

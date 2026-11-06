@@ -123,6 +123,9 @@ export function sanitizeDataDetailed(v: unknown): SanitizeResult | null {
          P2-01 把「跟着走」搬进业务数据，落盘面却把它清了。 */
       ...(b.favorite === true ? { favorite: true } : {}),
       ...(typeof b.shelf === 'string' && b.shelf ? { shelf: b.shelf } : {}),
+      /* 归档是「移出书架、数据全留」。重建时漏掉 archivedAt，读盘一次
+         归档书就会自己回到书架——用户会以为移除没生效。 */
+      ...(typeof b.archivedAt === 'number' && b.archivedAt > 0 ? { archivedAt: b.archivedAt } : {}),
     });
   }
   return { data: { ...(d as ReaderData), version: 1, schemaVersion: SCHEMA_VERSION, books }, dropped };

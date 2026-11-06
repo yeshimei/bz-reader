@@ -92,6 +92,14 @@ export const EN: Record<MsgKey, string> = {
   'notice.rename.empty': 'A title is required',
   'notice.rename.done': 'Title updated',
   'notice.book.removed': 'Removed “{title}” from the shelf',
+  'notice.book.archived': 'Moved “{title}” off the shelf — all data kept',
+  'notice.book.revived': 'Restored {n} book(s) — progress and highlights are back',
+  'notice.missing.found': 'Found it: {path}',
+  'notice.missing.notFound': 'No copy of this file found in the vault — pick one manually',
+  'notice.missing.wrong': 'That file is not the same book (content differs)',
+  'notice.missing.picked': 'Relocated to {path}',
+  'notice.missing.tooBig': 'File is too large to verify — put it back in the vault, then use “Look in vault”',
+  'notice.missing.noFingerprint': 'This book has no content fingerprint yet — pick the file once manually, then auto-locate works',
   'notice.select.pick': 'Select a few to delete first',
   'notice.rating.stars': 'Rated {stars} stars',
   'notice.rating.done': 'Rating saved',
@@ -313,6 +321,8 @@ export const EN: Record<MsgKey, string> = {
   'shelf.shelfline': 'Shelves',
   'shelf.count': '{n} books',
   'shelf.badge.done': 'Finished',
+  'shelf.missing': 'File missing',
+  'shelf.missing.tip': 'The file is no longer where it was — click to relocate',
   'shelf.more': 'Right-click or long-press for more',
 
   /* ── Settings: about bar ────────────────────────────────── */

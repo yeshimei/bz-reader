@@ -159,9 +159,14 @@ export function allBooks(): ReaderBook[] {
   return source?.repo.all() ?? [];
 }
 
-/** 会随书库变化而变的书列表（已从磁盘消失的先剔掉，界面不显示幽灵书） */
+/**
+ * 书架上的书：归档（移出书架）的不算，**失联的算**。
+ *
+ * 失联书留在架子上、封面压暗带角标，点它进「重新定位」——这才是用户
+ * 能处理的状态。以前这里把失联的过滤掉，用户以为书被插件删了。
+ */
 export function liveBooks(): ReaderBook[] {
-  return allBooks().filter((b) => !(b.fileRef as { fileMissing?: boolean }).fileMissing);
+  return allBooks().filter((b) => !b.archivedAt);
 }
 
 export function bookById(id: string): ReaderBook | undefined {

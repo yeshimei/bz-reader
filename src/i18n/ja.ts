@@ -86,6 +86,14 @@ export const JA: Record<MsgKey, string> = {
   'notice.rename.empty': 'タイトルを入力してください',
   'notice.rename.done': 'タイトルを変更しました',
   'notice.book.removed': '「{title}」を本棚から削除しました',
+  'notice.book.archived': '「{title}」を本棚から外しました（データは保持）',
+  'notice.book.revived': '{n} 冊を復元しました（進捗とハイライトも戻っています）',
+  'notice.missing.found': '見つかりました：{path}',
+  'notice.missing.notFound': '同じファイルがライブラリに見つかりません。手動で選択してください',
+  'notice.missing.wrong': 'このファイルは同じ本ではありません（内容が一致しません）',
+  'notice.missing.picked': '{path} に再指定しました',
+  'notice.missing.tooBig': 'ファイルが大きすぎて照合できません。ライブラリに戻してから「ライブラリ内で探す」を使ってください',
+  'notice.missing.noFingerprint': 'この本にはまだ内容指紋がありません。まず手動でファイルを一度選択してください（以後は自動で探せます）',
   'notice.select.pick': '削除する項目を選んでください',
   'notice.rating.stars': '星 {stars} 個で記録しました',
   'notice.rating.done': '記録しました',
@@ -305,6 +313,8 @@ export const JA: Record<MsgKey, string> = {
   'shelf.shelfline': '本棚',
   'shelf.count': '{n} 冊',
   'shelf.badge.done': '読了',
+  'shelf.missing': 'ファイル不明',
+  'shelf.missing.tip': 'ファイルが元の場所にありません。クリックして再指定',
   'shelf.more': '右クリック / 長押しでメニュー',
 
   /* ── 設定：概要バー ─────────────────────────────────────── */

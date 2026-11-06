@@ -708,6 +708,7 @@ function overlayDetail(bookId?: string): string {
   const marks = marksOf(b);
   const bks = bmksOf(b);
   const percent = Math.round((b.reading.position.percent || 0) * 100);
+  const missing = b.fileRef.fileMissing === true;
   const body = `<div class="bzs-detail">${coverHtml({
     coverUrl: null, // 真封面异步回填（paint 末尾 hydrateCovers），这里只出占位色块
     bg: 'linear-gradient(150deg,#4a3a28,#2c2115)',
@@ -720,7 +721,11 @@ function overlayDetail(bookId?: string): string {
       <div class="au">${esc(b.meta.author || '佚名')}</div>
       <div class="desc">${esc(b.meta.description || '这本书还没有简介。')}</div>
       <div class="acts">
-        <button class="bzs-btn pri" data-act="openbook" data-id="${b.id}">开始阅读 ›</button>
+        ${
+          missing
+            ? `<button class="bzs-btn pri" data-act="missing" data-id="${b.id}">重新定位文件…</button>`
+            : `<button class="bzs-btn pri" data-act="openbook" data-id="${b.id}">开始阅读 ›</button>`
+        }
         <button class="bzs-btn" data-act="fav" data-id="${b.id}">${ico('star')} ${
           getState().favIds.includes(b.id) ? '已收藏' : '收藏'
         }</button>
@@ -732,7 +737,9 @@ function overlayDetail(bookId?: string): string {
       <div class="bzs-kv"><b>累计时长</b><span>${fmtMinutes(b.reading.stats.totalReadTime || 0)}</span></div>
       <div class="bzs-kv"><b>划线 / 书签</b><span>${marks.length} 条 / ${bks.length} 枚</span></div>
       <div class="bzs-kv"><b>上次打开</b><span>${fmtWhen(b.reading.stats.lastReadTime)}</span></div>
-      <div class="bzs-kv"><b>文件</b><span style="max-width:280px;overflow:hidden;text-overflow:ellipsis">${esc(b.fileRef.vaultPath)}</span></div>
+      <div class="bzs-kv"><b>文件</b><span style="max-width:280px;overflow:hidden;text-overflow:ellipsis${
+        missing ? ';color:var(--vermilion)' : ''
+      }">${esc(b.fileRef.vaultPath)}${missing ? '（失联）' : ''}</span></div>
       ${
         marks.length
           ? `<div class="bzs-sect-h"><b>这本书的划线</b><span class="ln"></span></div>
@@ -835,25 +842,55 @@ function overlayRename(bookId?: string): string {
 }
 
 /**
- * 移除书库：删记录与标注，不删文件。
+ * 移出书架：归档，不删任何数据，也不删文件。
  *
- * 这两件事的后果差很远——删文件是不可逆的，用户点「移除」多半只是想
- * 让它从书架上消失。所以文案里把边界写死，确认按钮也只做这一件事。
+ * 2026-11-06 改：以前这个确认框写的是「进度、划线、书签与想法一起删掉」，
+ * 点一下真的删。现在只打归档标记——重新导入同一份文件就复活，
+ * 所以按钮也不再是危险色。
  */
 function overlayRemoveBook(bookId?: string): string {
   const b = bookById(bookId);
-  if (!b) return modal('移除书库', '', '<div class="bzs-empty">这本书已不在书库。</div>', closeBtn());
+  if (!b) return modal('移出书架', '', '<div class="bzs-empty">这本书已不在书库。</div>', closeBtn());
   const marks = marksOf(b).length;
   const body = `<div style="font-size:13px;line-height:2;color:var(--t2)">
-      会把《${esc(b.meta.title || '未命名')}》从书架移除：阅读进度、${marks} 条划线、书签与想法一起删掉。<br>
-      笔记库里的原文件 <code>${esc(b.fileRef.vaultPath)}</code> <b>不会</b>被删除，之后还能重新导入。
+      《${esc(b.meta.title || '未命名')}》会从书架移走，但<b>数据都保留</b>：阅读进度、${marks} 条划线、书签与想法。<br>
+      笔记库里的原文件 <code>${esc(b.fileRef.vaultPath)}</code> <b>不会</b>被删除。<br>
+      以后重新导入同一份文件，会自动接上原来的进度和划线。
     </div>`;
   return modal(
-    '移除书库',
+    '移出书架',
     esc(b.meta.title || '未命名'),
     body,
     `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
-     <button class="bzs-btn danger" data-act="removebookdo" data-id="${b.id}">确认移除</button>`,
+     <button class="bzs-btn pri" data-act="removebookdo" data-id="${b.id}">移出书架</button>`,
+  );
+}
+
+/**
+ * 文件失联：书还在书架上，记录与数据都在，只是文件不在登记的路径上。
+ *
+ * 三个出口：在库里按指纹找、手动选一个文件、移出书架（归档）。
+ * 不在这里「删记录」——数据一条都不该丢。
+ */
+function overlayMissing(bookId?: string): string {
+  const b = bookById(bookId);
+  if (!b) return modal('文件失联', '', '<div class="bzs-empty">这本书已不在书库。</div>', closeBtn());
+  const name = b.meta.title || '未命名';
+  const marks = marksOf(b).length;
+  const body = `<div style="font-size:13px;line-height:2;color:var(--t2)">
+      《${esc(name)}》的文件不在原来的位置了：<br>
+      <code>${esc(b.fileRef.vaultPath)}</code><br>
+      阅读进度、${marks} 条划线、书签与想法都还在，找到文件就能接上。<br>
+      <span style="color:var(--t3);font-size:12px">如果只是改过名，点「在库里找一找」多半能自动认出来。</span>
+    </div>`;
+  return modal(
+    '文件失联',
+    esc(name),
+    body,
+    `<button class="bzs-btn pri" data-act="relocateauto" data-id="${b.id}">在库里找一找</button>
+     <button class="bzs-btn" data-act="relocatepick" data-id="${b.id}">选择文件…</button>
+     <span class="sp"></span>
+     <button class="bzs-btn" data-act="archivebook" data-id="${b.id}">移出书架</button>`,
   );
 }
 
@@ -969,6 +1006,8 @@ export function overlayHtml(): string {
       return overlayRename(o.bookId);
     case 'removebook':
       return overlayRemoveBook(o.bookId);
+    case 'missing':
+      return overlayMissing(o.bookId);
     default:
       return '';
   }

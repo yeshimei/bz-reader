@@ -83,6 +83,14 @@ export const ZH_TW: Record<MsgKey, string> = {
   'notice.rename.empty': '書名不能為空',
   'notice.rename.done': '書名已變更',
   'notice.book.removed': '已從書架移除《{title}》',
+  'notice.book.archived': '已把《{title}》移出書架，資料都保留',
+  'notice.book.revived': '已恢復 {n} 本，進度和劃線都接上了',
+  'notice.missing.found': '找到了：{path}',
+  'notice.missing.notFound': '庫裡沒找到同一份檔案，可以手動選一個',
+  'notice.missing.wrong': '這個檔案不是同一本（內容對不上）',
+  'notice.missing.picked': '已重新定位到 {path}',
+  'notice.missing.tooBig': '檔案太大，無法校驗內容：請把它放回庫裡，再用「在庫裡找一找」',
+  'notice.missing.noFingerprint': '這本書還沒有內容指紋：請先手動選擇一次檔案，之後就能自動找',
   'notice.select.pick': '先選幾條要刪的',
   'notice.rating.stars': '已記下 {stars} 星',
   'notice.rating.done': '已記下',
@@ -301,6 +309,8 @@ export const ZH_TW: Record<MsgKey, string> = {
   'shelf.shelfline': '書架',
   'shelf.count': '{n} 本',
   'shelf.badge.done': '已讀完',
+  'shelf.missing': '檔案失聯',
+  'shelf.missing.tip': '檔案不在原位了，點它重新定位',
   'shelf.more': '右鍵 / 長按更多',
 
   /* ── 設定頁：關於列 ──────────────────────────────────────── */

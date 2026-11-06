@@ -90,6 +90,14 @@ export const ZH = {
   'notice.rename.empty': '书名不能为空',
   'notice.rename.done': '书名已改',
   'notice.book.removed': '已从书架移除《{title}》',
+  'notice.book.archived': '已把《{title}》移出书架，数据都保留',
+  'notice.book.revived': '已恢复 {n} 本，进度和划线都接上了',
+  'notice.missing.found': '找到了：{path}',
+  'notice.missing.notFound': '库里没找到同一份文件，可以手动选一个',
+  'notice.missing.wrong': '这个文件不是同一本（内容对不上）',
+  'notice.missing.picked': '已重新定位到 {path}',
+  'notice.missing.tooBig': '文件太大，无法校验内容：请把它放回库里，再用「在库里找一找」',
+  'notice.missing.noFingerprint': '这本书还没有内容指纹：请先手动选择一次文件，之后就能自动找',
   'notice.select.pick': '先选几条要删的',
   'notice.rating.stars': '已记下 {stars} 星',
   'notice.rating.done': '已记下',
@@ -301,6 +309,8 @@ export const ZH = {
   'shelf.shelfline': '书架',
   'shelf.count': '{n} 本',
   'shelf.badge.done': '已读完',
+  'shelf.missing': '文件失联',
+  'shelf.missing.tip': '文件不在原位了，点它重新定位',
   'shelf.more': '右键 / 长按更多',
 
   /* ── 设置页：关于条 ──────────────────────────────────────── */

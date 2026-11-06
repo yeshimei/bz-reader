@@ -375,6 +375,31 @@
   backdrop-filter: blur(8px);
 }
 
+/* 文件失联：角标换警示色、封面压暗。点卡片不是开书，是进「重新定位」。 */
+.bzs-bkcard .flag.is-missing {
+  color: var(--vermilion);
+  border-color: color-mix(in srgb, var(--vermilion) 45%, transparent);
+  background: color-mix(in srgb, var(--vermilion) 12%, var(--glass));
+}
+
+.bzs-bkcard.is-missing .bzs-cov {
+  filter: grayscale(.55);
+  opacity: .55;
+}
+
+.bzs-bkcard.is-missing .bi b {
+  color: var(--t2);
+}
+
+.bzs-bkrow2.is-missing .bzs-cov {
+  filter: grayscale(.55);
+  opacity: .55;
+}
+
+.bzs-bkrow2 .miss {
+  color: var(--vermilion);
+}
+
 /* S-08（2026-11-04）：`.bzs-bkcard .rowacts` 的整段样式没有对应 DOM，
    连带那两处 `backdrop-filter: blur(10px)` 一起删掉。 */
 

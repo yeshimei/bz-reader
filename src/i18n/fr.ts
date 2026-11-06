@@ -87,6 +87,14 @@ export const FR: Record<MsgKey, string> = {
   'notice.rename.empty': 'Un titre est requis',
   'notice.rename.done': 'Titre modifié',
   'notice.book.removed': '« {title} » retiré de la bibliothèque',
+  'notice.book.archived': '« {title} » retiré de l’étagère — données conservées',
+  'notice.book.revived': '{n} livre(s) restauré(s) — progression et surlignages conservés',
+  'notice.missing.found': 'Trouvé : {path}',
+  'notice.missing.notFound': 'Aucune copie de ce fichier dans la bibliothèque — choisissez-le manuellement',
+  'notice.missing.wrong': 'Ce fichier n’est pas le même livre (contenu différent)',
+  'notice.missing.picked': 'Relocalisé vers {path}',
+  'notice.missing.tooBig': 'Fichier trop volumineux pour vérifier — remettez-le dans le coffre, puis utilisez « Chercher dans le coffre »',
+  'notice.missing.noFingerprint': 'Ce livre n’a pas encore d’empreinte de contenu — choisissez le fichier une fois manuellement, la recherche automatique marchera ensuite',
   'notice.select.pick': 'Sélectionnez d’abord quelques éléments à supprimer',
   'notice.rating.stars': 'Noté {stars} étoiles',
   'notice.rating.done': 'Note enregistrée',
@@ -313,6 +321,8 @@ export const FR: Record<MsgKey, string> = {
   'shelf.shelfline': 'Rayons',
   'shelf.count': '{n} livres',
   'shelf.badge.done': 'Terminé',
+  'shelf.missing': 'Fichier introuvable',
+  'shelf.missing.tip': 'Le fichier n’est plus à sa place — cliquez pour le relocaliser',
   'shelf.more': 'Clic droit ou appui long pour plus',
 
   /* ── Réglages : bandeau À propos ────────────────────────── */

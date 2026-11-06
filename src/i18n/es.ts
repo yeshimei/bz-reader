@@ -86,6 +86,14 @@ export const ES: Record<MsgKey, string> = {
   'notice.rename.empty': 'Se requiere un título',
   'notice.rename.done': 'Título actualizado',
   'notice.book.removed': '«{title}» eliminado de la estantería',
+  'notice.book.archived': '«{title}» retirado de la estantería — datos conservados',
+  'notice.book.revived': '{n} libro(s) restaurado(s) — progreso y subrayados vuelven',
+  'notice.missing.found': 'Encontrado: {path}',
+  'notice.missing.notFound': 'No hay copia de este archivo en la bóveda — elígelo manualmente',
+  'notice.missing.wrong': 'Ese archivo no es el mismo libro (el contenido no coincide)',
+  'notice.missing.picked': 'Reubicado en {path}',
+  'notice.missing.tooBig': 'El archivo es demasiado grande para verificarlo — vuelve a ponerlo en la bóveda y usa «Buscar en la bóveda»',
+  'notice.missing.noFingerprint': 'Este libro aún no tiene huella de contenido — elige el archivo una vez a mano y luego podrá buscarse solo',
   'notice.select.pick': 'Selecciona primero algunos para borrar',
   'notice.rating.stars': 'Valorado con {stars} estrellas',
   'notice.rating.done': 'Valoración guardada',
@@ -312,6 +320,8 @@ export const ES: Record<MsgKey, string> = {
   'shelf.shelfline': 'Estantes',
   'shelf.count': '{n} libros',
   'shelf.badge.done': 'Terminado',
+  'shelf.missing': 'Archivo perdido',
+  'shelf.missing.tip': 'El archivo ya no está en su sitio — pulsa para reubicarlo',
   'shelf.more': 'Clic derecho o pulsación larga para más',
 
   /* ── Ajustes: banda Acerca de ───────────────────────────── */

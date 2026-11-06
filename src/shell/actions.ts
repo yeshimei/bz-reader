@@ -31,6 +31,11 @@ import { toggleAll, togglePick } from './note-select';
 import { notify } from '../core/notice';
 import { hostLanguageCode, isLocale, resolveLocale, setLocale, t, type LanguagePref } from '../i18n';
 import { bookMenuItems } from './book-menu';
+import { scanVault } from '../data/book-repo';
+import { readFingerprint } from '../data/book-scan';
+import { MAX_FINGERPRINT_BYTES, fingerprintOf } from '../data/fingerprint';
+import { importFolderOf, uniquePath } from '../data/importer';
+import type { ShellSource } from './source';
 import { flipSetting } from './settings-toggle';
 import { rangeFill } from './range-fill';
 import { openHotkeySettings } from '../core/hotkeys';
@@ -75,8 +80,74 @@ function openBookById(id: string, cfi?: string): void {
   const src = getShellSource();
   const book = liveBooks().find((b) => b.id === id);
   if (!src || !book) return;
+  /* 文件不在登记的路径上：不当成「打开失败」，直接进「重新定位」弹层。
+     顺手把失联标记写上——书架下一次重绘就压暗封面，用户也能看见。 */
+  if (book.fileRef.fileMissing || !src.app.vault.getAbstractFileByPath(book.fileRef.vaultPath)) {
+    book.fileRef.fileMissing = true;
+    src.store.touch();
+    openOverlay({ kind: 'missing', bookId: id });
+    return;
+  }
   setState({ bookId: id });
   src.openBook(book, cfi);
+}
+
+/**
+ * 失联书的手动重连：选一个库外文件 → 算指纹 → 与记录比对 → 一致才写进库并重连。
+ *
+ * 有指纹的记录对不上就拒绝：宁可多一步提示，也不能把进度接错书。
+ * 老记录没有指纹时按用户的选择接受，并把指纹补上（这一次之后就能自动找）。
+ */
+async function pickAndRelocate(src: ShellSource, book: ReaderBook): Promise<void> {
+  const picked = await new Promise<File | null>((resolve) => {
+    const input = createEl('input');
+    input.type = 'file';
+    input.accept = `.${book.fileRef.format}`;
+    input.setCssProps({ display: 'none' });
+    document.body.appendChild(input);
+    const done = (f: File | null): void => {
+      input.remove();
+      resolve(f);
+    };
+    input.addEventListener('change', () => done(input.files?.[0] ?? null));
+    /* 点取消时 change 不触发：窗口重新聚焦兜底（与 pickAndImport 同一套路） */
+    window.addEventListener(
+      'focus',
+      () => {
+        window.setTimeout(() => {
+          if (input.isConnected) done(null);
+        }, 500);
+      },
+      { once: true },
+    );
+    input.click();
+  });
+  if (!picked) return;
+
+  const buf = await picked.arrayBuffer();
+  const fp = buf.byteLength > MAX_FINGERPRINT_BYTES ? null : fingerprintOf(new Uint8Array(buf));
+  const known = book.fileRef.fingerprint;
+  if (!fp) {
+    notify(t('notice.missing.tooBig'));
+    return;
+  }
+  if (known && known !== fp) {
+    notify(t('notice.missing.wrong'));
+    return;
+  }
+
+  const folder = importFolderOf(shellSettings().importDir);
+  if (folder && !(await src.app.vault.adapter.exists(folder).catch(() => false))) {
+    await src.app.vault.adapter.mkdir(folder).catch(() => undefined);
+  }
+  const target = await uniquePath(src.app, folder, picked.name);
+  await src.app.vault.adapter.writeBinary(target, buf);
+  book.fileRef.fingerprint = fp;
+  src.repo.relocate(book, target);
+  src.store.touch();
+  closeOverlay();
+  repaint();
+  notify(t('notice.missing.picked', { path: target }));
 }
 
 /** 统一的重绘出口：所有视图都订阅 state，改完自然会重画 */
@@ -379,7 +450,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const items = bookMenuItems({
         done,
         fav: getState().favIds.includes(id),
-        missing: !!(book.fileRef as { fileMissing?: boolean }).fileMissing,
+        missing: book.fileRef.fileMissing === true,
       });
       const menu = new Menu();
       for (const it of items) {
@@ -389,6 +460,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
           /* 文件丢了就禁用「阅读」，其余照旧：书还在，用户要知道点不动的原因 */
           if (it.disabled) i.setDisabled(true);
           if (it.act === 'open') i.onClick(() => openBookById(id));
+          if (it.act === 'relocate') i.onClick(() => overlay('missing', { bookId: id }));
           if (it.act === 'detail') i.onClick(() => overlay('detail', { bookId: id }));
           if (it.act === 'fav')
             i.onClick(() => {
@@ -445,12 +517,65 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const src = getShellSource();
       const book = liveBooks().find((b) => b.id === id);
       if (!src || !book) break;
-      src.repo.remove(id);
+      /* 移出书架 = 归档：记录与数据一条不删，重新导入同一份文件会复活。
+         真删（连数据一起）只留给设置页的清理入口。 */
+      src.repo.archive(book);
       src.store.touch();
       if (getState().bookId === id) setState({ bookId: null });
       closeOverlay();
       rerender();
-      notify(t('notice.book.removed', { title: book.meta.title || t('common.untitled') }));
+      notify(t('notice.book.archived', { title: book.meta.title || t('common.untitled') }));
+      break;
+    }
+    case 'archivebook': {
+      /* 失联弹层里的「移出书架」：与上面的 removebookdo 走同一条归档 */
+      const id = d.id || '';
+      const src = getShellSource();
+      const book = liveBooks().find((b) => b.id === id);
+      if (!src || !book) break;
+      src.repo.archive(book);
+      src.store.touch();
+      closeOverlay();
+      rerender();
+      notify(t('notice.book.archived', { title: book.meta.title || t('common.untitled') }));
+      break;
+    }
+    case 'relocateauto': {
+      /* 失联书：在库里按内容指纹找同一份文件，找到就把记录挪过去 */
+      const id = d.id || '';
+      const src = getShellSource();
+      const book = liveBooks().find((b) => b.id === id);
+      if (!src || !book) break;
+      void (async () => {
+        const fp = book.fileRef.fingerprint;
+        if (!fp) {
+          notify(t('notice.missing.noFingerprint'));
+          return;
+        }
+        const files = scanVault(src.app, [book.fileRef.format]);
+        for (const f of files) {
+          const owner = src.repo.byPath(f.path);
+          if (owner && owner.id !== book.id) continue; // 已属于另一条记录，别抢
+          const cand = await readFingerprint(src.app, f.path, f.size);
+          if (cand !== fp) continue;
+          src.repo.relocate(book, f.path);
+          src.store.touch();
+          closeOverlay();
+          rerender();
+          notify(t('notice.missing.found', { path: f.path }));
+          return;
+        }
+        notify(t('notice.missing.notFound'));
+      })();
+      break;
+    }
+    case 'relocatepick': {
+      /* 失联书：用户从库外选文件。先算指纹校验，对得上才写进库里再重连 */
+      const id = d.id || '';
+      const src = getShellSource();
+      const book = liveBooks().find((b) => b.id === id);
+      if (!src || !book) break;
+      void pickAndRelocate(src, book);
       break;
     }
     case 'openbook':
@@ -458,6 +583,10 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       // 否则书在底下打开、详情盖在上面，看着像没反应
       closeOverlay();
       if (d.id) openBookById(d.id);
+      break;
+    case 'missing':
+      /* 详情页里失联书的主按钮：直接进「重新定位」 */
+      if (d.id) overlay('missing', { bookId: d.id });
       break;
     case 'fav':
       if (d.id) {

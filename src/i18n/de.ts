@@ -87,6 +87,14 @@ export const DE: Record<MsgKey, string> = {
   'notice.rename.empty': 'Ein Titel ist erforderlich',
   'notice.rename.done': 'Titel geändert',
   'notice.book.removed': '„{title}“ aus dem Regal entfernt',
+  'notice.book.archived': '„{title}“ aus dem Regal entfernt — Daten bleiben erhalten',
+  'notice.book.revived': '{n} Buch/Bücher wiederhergestellt — Fortschritt und Markierungen sind zurück',
+  'notice.missing.found': 'Gefunden: {path}',
+  'notice.missing.notFound': 'Keine Kopie dieser Datei im Vault gefunden — bitte manuell auswählen',
+  'notice.missing.wrong': 'Diese Datei ist nicht dasselbe Buch (Inhalt weicht ab)',
+  'notice.missing.picked': 'Neu verknüpft mit {path}',
+  'notice.missing.tooBig': 'Datei zu groß zum Prüfen — legen Sie sie zurück in den Vault und nutzen Sie „Im Vault suchen“',
+  'notice.missing.noFingerprint': 'Dieses Buch hat noch keinen Inhaltsfingerabdruck — wählen Sie die Datei einmal manuell, danach funktioniert das automatische Finden',
   'notice.select.pick': 'Wähle zuerst einige zum Löschen aus',
   'notice.rating.stars': '{stars} Sterne gespeichert',
   'notice.rating.done': 'Bewertung gespeichert',
@@ -311,6 +319,8 @@ export const DE: Record<MsgKey, string> = {
   'shelf.shelfline': 'Regale',
   'shelf.count': '{n} Bücher',
   'shelf.badge.done': 'Gelesen',
+  'shelf.missing': 'Datei fehlt',
+  'shelf.missing.tip': 'Die Datei liegt nicht mehr am alten Ort — zum Neuverknüpfen klicken',
   'shelf.more': 'Rechtsklick oder lange drücken für mehr',
 
   /* ── Einstellungen: Über-Leiste ─────────────────────────── */

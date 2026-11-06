@@ -80,6 +80,8 @@ export interface EnsureResult {
    * 调 `relocate()` 把记录挪到新路径。仓库层不碰文件系统，判断不了。
    */
   pathChanged?: boolean;
+  /** 命中的是一条归档记录：已经清掉归档标记，进度与划线原样接上 */
+  revived?: boolean;
 }
 
 export class BookRepo {
@@ -115,13 +117,21 @@ export class BookRepo {
       exist.fileRef.size = size || exist.fileRef.size;
       /* 同一路径换了内容（用户换了一个版本的文件）：指纹跟着路径走 */
       if (fingerprint && exist.fileRef.fingerprint !== fingerprint) exist.fileRef.fingerprint = fingerprint;
-      return { book: exist, created: false };
+      /* 归档过的书又被导回来：清掉归档标记，进度划线原样接上 */
+      const revived = this.revive(exist);
+      return { book: exist, created: false, ...(revived ? { revived: true } : {}) };
     }
     if (fingerprint) {
       const same = this.byFingerprint(fingerprint);
       if (same) {
         same.fileRef.size = size || same.fileRef.size;
-        return { book: same, created: false, pathChanged: same.fileRef.vaultPath !== path };
+        const revived = this.revive(same);
+        return {
+          book: same,
+          created: false,
+          pathChanged: same.fileRef.vaultPath !== path,
+          ...(revived ? { revived: true } : {}),
+        };
       }
     }
     const book = makeBook(path, format, size, fingerprint);
@@ -136,17 +146,36 @@ export class BookRepo {
     return { book, created: true };
   }
 
+  /** 归档过的书被重新登记时清掉归档标记；返回是否真的复活了 */
+  private revive(book: ReaderBook): boolean {
+    if (typeof book.archivedAt !== 'number') return false;
+    delete book.archivedAt;
+    book.updatedAt = Date.now();
+    return true;
+  }
+
+  /**
+   * 移出书架（软删除）：只打一个归档时间，记录与数据全留。
+   *
+   * 重新导入同一份文件时 `ensure` 会调 `revive` 清掉它，进度/划线/书签/
+   * 想法原样接上。真删仍然走 `remove()`（设置页清理或内部用）。
+   */
+  archive(book: ReaderBook): void {
+    book.archivedAt = Date.now();
+    book.updatedAt = book.archivedAt;
+  }
+
   /** 清掉指向已不存在文件的记录（不删用户数据，只是标记 fileMissing） */
   markMissing(existingPaths: Set<string>): void {
     for (const b of this.books) {
-      (b.fileRef as { fileMissing?: boolean }).fileMissing = !existingPaths.has(b.fileRef.vaultPath);
+      b.fileRef.fileMissing = !existingPaths.has(b.fileRef.vaultPath);
     }
   }
 
   /** 书在磁盘上换了位置：只改路径，id / 进度 / 划线全部保留 */
   relocate(book: ReaderBook, to: string): void {
     book.fileRef.vaultPath = to;
-    (book.fileRef as { fileMissing?: boolean }).fileMissing = false;
+    book.fileRef.fileMissing = false;
     book.updatedAt = Date.now();
   }
 
@@ -157,9 +186,9 @@ export class BookRepo {
     return true;
   }
 
-  /** 最近在读（按 lastReadTime 倒序，未读过的排后面按加入时间） */
+  /** 最近在读（按 lastReadTime 倒序，未读过的排后面按加入时间）；归档书不参与 */
   recent(limit = 0): ReaderBook[] {
-    const sorted = [...this.books].sort((a, b) => {
+    const sorted = this.books.filter((b) => !b.archivedAt).sort((a, b) => {
       const la = a.reading.stats.lastReadTime || 0;
       const lb = b.reading.stats.lastReadTime || 0;
       if (la !== lb) return lb - la;

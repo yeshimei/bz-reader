@@ -87,6 +87,14 @@ export const PT: Record<MsgKey, string> = {
   'notice.rename.empty': 'Um título é obrigatório',
   'notice.rename.done': 'Título atualizado',
   'notice.book.removed': '«{title}» removido da estante',
+  'notice.book.archived': '«{title}» removido da estante — dados mantidos',
+  'notice.book.revived': '{n} livro(s) restaurado(s) — progresso e destaques voltaram',
+  'notice.missing.found': 'Encontrado: {path}',
+  'notice.missing.notFound': 'Nenhuma cópia deste arquivo no cofre — escolha manualmente',
+  'notice.missing.wrong': 'Esse arquivo não é o mesmo livro (o conteúdo difere)',
+  'notice.missing.picked': 'Relocalizado para {path}',
+  'notice.missing.tooBig': 'Arquivo grande demais para verificar — coloque-o de volta no cofre e use «Procurar no cofre»',
+  'notice.missing.noFingerprint': 'Este livro ainda não tem impressão digital de conteúdo — escolha o arquivo uma vez manualmente; depois a busca automática funciona',
   'notice.select.pick': 'Selecione primeiro alguns para excluir',
   'notice.rating.stars': 'Avaliado com {stars} estrelas',
   'notice.rating.done': 'Avaliação salva',
@@ -313,6 +321,8 @@ export const PT: Record<MsgKey, string> = {
   'shelf.shelfline': 'Estantes',
   'shelf.count': '{n} livros',
   'shelf.badge.done': 'Concluído',
+  'shelf.missing': 'Arquivo ausente',
+  'shelf.missing.tip': 'O arquivo não está mais no lugar — clique para relocalizar',
   'shelf.more': 'Clique com o botão direito ou toque e segure para mais',
 
   /* ── Configurações: faixa Sobre ─────────────────────────── */

@@ -379,7 +379,34 @@ export function createPlugin(cfg: PluginConfig) {
         }),
       );
 
+      /* 书文件改名/移动/删除：书架跟着变，不用等用户点开才报错。
+         rename 事件直接给新旧路径，比事后「同大小猜」可靠得多。 */
+      this.registerEvent(
+        this.app.vault.on('rename', (file, oldPath) => {
+          const book = this.repo.byPath(oldPath);
+          if (!book) return;
+          this.repo.relocate(book, file.path);
+          this.store.touch();
+          notifyShelf();
+          notifyShell();
+        }),
+      );
+      this.registerEvent(
+        this.app.vault.on('delete', (file) => {
+          const book = this.repo.byPath(file.path);
+          if (!book) return;
+          book.fileRef.fileMissing = true;
+          book.updatedAt = Date.now();
+          this.store.touch();
+          notifyShelf();
+          notifyShell();
+        }),
+      );
+      /* 新建文件先不自动收录（改了用户的书架构成会吓人）；导入页负责登记 */
+
       this.app.workspace.onLayoutReady(() => {
+        /* 启动那一次核对：插件停用期间被删/被移走的书，书架要能看见 */
+        this.maybeReconcile();
         void this.autoOpenIfRequested();
       });
     }
@@ -985,6 +1012,9 @@ export function createPlugin(cfg: PluginConfig) {
      * 而且从书架点进书之后还得再收一层弹窗。
      */
     openStudy(page: StudyPage = 'library'): void {
+      /* 进书架先核对一次「文件还在不在」：只查已登记路径，不扫全库。
+         不做这一步，外面删了文件，书架要到用户点开才报错。 */
+      if (page === 'library') this.maybeReconcile();
       /* 进页规则只写一处，四个入口共用：
            · 页签页 → 返回目标指向自己
            · 子页   → 返回目标停在上一个页签页
@@ -1065,6 +1095,15 @@ export function createPlugin(cfg: PluginConfig) {
       // 否则「书架里能点开」就等于绕过付费门
       if (!BASE_FORMATS.includes(book.fileRef.format) && !can('fullFormats')) {
         setState({ overlay: { kind: 'unlock', mode: 'fullFormats', text: book.fileRef.format } });
+        return;
+      }
+      /* 文件不在了：不进阅读视图、不抛底层错误，直接开「重新定位」弹层。
+         顺手把失联标记写上，书架下一次重绘就压暗封面、显示角标。 */
+      if (!this.app.vault.getAbstractFileByPath(book.fileRef.vaultPath)) {
+        book.fileRef.fileMissing = true;
+        book.updatedAt = Date.now();
+        this.store.touch();
+        setState({ overlay: { kind: 'missing', bookId: book.id } });
         return;
       }
       /* 双击书卡 / 连点搜索结果会开两次（P1-14）：EPUB 被解析两遍（手机上内存
@@ -1184,6 +1223,33 @@ export function createPlugin(cfg: PluginConfig) {
       });
     }
 
+    /** 上次核对「文件还在不在」的时间：打开书架时最多每 30 秒查一次 */
+    private reconciledAt = 0;
+
+    /**
+     * 轻量核对：只看已登记路径还在不在，不扫全库、不算指纹。
+     *
+     * rename/delete 事件能把大多数变化实时告诉书架；这里兜底的是插件停用
+     * 期间、或 Obsidian 外部改动（同步盘直接删文件）漏掉的事件。
+     */
+    private maybeReconcile(): void {
+      const now = Date.now();
+      if (now - this.reconciledAt < 30_000) return;
+      this.reconciledAt = now;
+      let changed = false;
+      for (const b of this.repo.all()) {
+        if (b.archivedAt) continue;
+        const ok = !!this.app.vault.getAbstractFileByPath(b.fileRef.vaultPath);
+        if (b.fileRef.fileMissing === !ok) continue;
+        b.fileRef.fileMissing = !ok;
+        changed = true;
+      }
+      if (!changed) return;
+      this.store.touch();
+      notifyShelf();
+      notifyShell();
+    }
+
     private async syncShelf(): Promise<void> {
       /* 扫描用「这个包能认的全部格式」，而不是「当前已解锁的格式」。
          否则一旦没解锁，mobi 书会直接从书架上消失——用户会以为书被插件删了。
@@ -1192,10 +1258,10 @@ export function createPlugin(cfg: PluginConfig) {
       /* 先认「改名/移动」：同格式、同字节数、当前路径已消失的旧记录，就地换路径。
          不做这一步的话，改个文件名就等于换了一本书——进度、划线、深链全留在
          那条被标成 fileMissing 的幽灵记录上。
-         只处理**没有指纹**的记录：有指纹的交给下面的指纹匹配，免得「同大小
-         猜路径」把它认到另一本书上（指纹能精确认出，就不该先猜）。 */
+         只处理**没有指纹、也没归档**的记录：有指纹的交给下面的指纹匹配，
+         免得「同大小猜路径」把它认到另一本书上；归档的不自动回架。 */
       for (const move of planRelocations(
-        this.repo.all().filter((b) => !b.fileRef.fingerprint),
+        this.repo.all().filter((b) => !b.fileRef.fingerprint && !b.archivedAt),
         files,
       )) {
         this.repo.relocate(move.book, move.to);
@@ -1205,6 +1271,8 @@ export function createPlugin(cfg: PluginConfig) {
       for (const f of files) {
         const fmt = formatOf(f.path) as BookFormat;
         const known = this.repo.byPath(f.path);
+        /* 归档书不因为「文件还在」就自己回架：回架只能由用户导入/加入触发 */
+        if (known?.archivedAt) continue;
         /* 已经登记过、也有指纹：不用再读文件 */
         if (known?.fileRef.fingerprint) continue;
         /* 大文件不为指纹整份读进内存（手机上限）；退回按路径去重 */

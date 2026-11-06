@@ -121,36 +121,49 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
    */
   async function addToShelf(
     picked: Array<{ path: string; format: BookFormat; size: number }>,
-  ): Promise<{ added: number; skipped: number }> {
+  ): Promise<{ added: number; skipped: number; revived: number }> {
     /* 老记录没有指纹就补算：不补的话，同一本书重新导入照样会新建一条 */
     await backfillFingerprints(app, repo.all());
     const books: ReaderBook[] = [];
     let skipped = 0;
+    let revived = 0;
     for (const r of picked) {
       const fp = await readFingerprint(app, r.path, r.size);
-      const { book, created, pathChanged } = repo.ensure(r.path, formatOf(r.path) ?? r.format, r.size, fp ?? undefined);
+      const { book, created, pathChanged, revived: cameBack } = repo.ensure(
+        r.path,
+        formatOf(r.path) ?? r.format,
+        r.size,
+        fp ?? undefined,
+      );
       /* 指纹命中的是另一条路径：旧路径已经不可用了才把记录挪过来；
          旧路径还在（同一内容的另一份副本）就保持不动，免得来回跳 */
       if (pathChanged && !app.vault.getAbstractFileByPath(book.fileRef.vaultPath)) repo.relocate(book, r.path);
       if (created) books.push(book);
+      else if (cameBack) revived += 1;
       else skipped += 1;
     }
     await fillBookMetas(app, books);
     store.touch();
     await store.flush();
-    return { added: books.length, skipped };
+    return { added: books.length, skipped, revived };
   }
 
   function load(): void {
     const found = scanVault(app, formats);
-    rows = found.map((f) => ({
-      path: f.path,
-      format: f.format,
-      size: f.size,
-      title: titleFromPath(f.path),
-      inShelf: !!repo.byPath(f.path),
-      checked: !repo.byPath(f.path),
-    }));
+    rows = found.map((f) => {
+      const rec = repo.byPath(f.path);
+      /* 归档书虽然文件还在，但对书架来说等于没加入：显示成可勾选，
+         勾了会走复活（进度划线接上），不该显示「已在书架」 */
+      const onShelf = !!rec && !rec.archivedAt;
+      return {
+        path: f.path,
+        format: f.format,
+        size: f.size,
+        title: titleFromPath(f.path),
+        inShelf: onShelf,
+        checked: !onShelf,
+      };
+    });
   }
 
   function visible(): Row[] {
@@ -229,8 +242,10 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
     confirmBtn.textContent = '正在读取书目…';
     void (async () => {
       try {
-        const { added, skipped } = await addToShelf(picked);
+        const { added, skipped, revived } = await addToShelf(picked);
         if (added) notify(t('notice.import.done', { n: added }), 'success');
+        /* 归档过的书被重新导入：不是「新加入」，是原记录复活 */
+        if (revived) notify(t('notice.book.revived', { n: revived }), 'success');
         /* 指纹命中（同一份文件已在书架）时不再建记录：告诉用户为什么数字对不上 */
         if (skipped) notify(t('notice.import.skipped', { n: skipped }), 'info');
         onDone?.();
@@ -265,18 +280,26 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
           grabBtn.textContent = '正在读取书目…';
           const books: ReaderBook[] = [];
           let skipped = 0;
+          let revived = 0;
           for (const r of results) {
             const fmt = formatOf(r.path);
             if (!fmt) continue;
-            const { book, created, pathChanged } = repo.ensure(r.path, fmt, r.size, r.fingerprint ?? undefined);
+            const { book, created, pathChanged, revived: cameBack } = repo.ensure(
+              r.path,
+              fmt,
+              r.size,
+              r.fingerprint ?? undefined,
+            );
             if (pathChanged && !app.vault.getAbstractFileByPath(book.fileRef.vaultPath)) repo.relocate(book, r.path);
             if (created) books.push(book);
+            else if (cameBack) revived += 1;
             else skipped += 1;
           }
           await fillBookMetas(app, books);
           store.touch();
           const fresh = books.length;
           if (fresh) notify(t('notice.import.written', { n: fresh, folder: folderText }), 'success');
+          if (revived) notify(t('notice.book.revived', { n: revived }), 'success');
           if (skipped) notify(t('notice.import.skipped', { n: skipped }), 'info');
           onDone?.();
           load();

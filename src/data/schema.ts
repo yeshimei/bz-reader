@@ -97,6 +97,13 @@ export interface BookFileRef {
    * 按路径去重）。
    */
   fingerprint?: string;
+  /**
+   * 文件已经不在登记的路径上（被删/被移走）。
+   *
+   * 2026-11-06 从「运行时 as 断言字段」转正：打开书之前先看它，别等引擎
+   * 读文件抛错；书架据此画失联角标。
+   */
+  fileMissing?: boolean;
 }
 
 export interface ReadingPosition {
@@ -238,6 +245,15 @@ export interface ReaderBook {
    * 以前分组也存在 localStorage，换设备后整排书退回「未分类」。
    */
   shelf?: string;
+  /**
+   * 移出书架的时间（软删除）。有值 = 不在书架上显示，但**数据一条不删**：
+   * 进度、划线、书签、想法、阅读会话都还在，重新导入同一份文件时清掉这个
+   * 字段就复活。
+   *
+   * 2026-11-06 起「移除书库」不再真的删记录：以前一个确认框就把几百条
+   * 划线和阅读历史一起删了，用户以为只是从架子上拿下来。
+   */
+  archivedAt?: number;
 }
 
 export interface ReaderData {

@@ -5,30 +5,30 @@ import { bookMenuItems } from '../src/shell/book-menu';
  * 书卡右键 / 长按菜单（S2 定稿）。
  *
  * 菜单外壳是 Obsidian 原生 Menu，这里只钉条目、顺序、图标与禁用条件。
- * 条目顺序即使用频次，危险动作沉底并隔开。
+ * 条目顺序即使用频次，管理类动作沉底并隔开。
  */
 
 const plain = { done: false, fav: false };
 
 describe('bookMenuItems · 条目与顺序', () => {
-  it('七条都在，顺序是 阅读 / 详情 / 收藏 / 标为读完 / 改名 / 移除', () => {
+  it('六条都在，顺序是 阅读 / 详情 / 收藏 / 标为读完 / 改名 / 移出书架', () => {
     expect(bookMenuItems(plain).map((i) => i.title)).toEqual([
       '阅读',
       '书籍详情',
       '收藏',
       '标为读完',
       '改名',
-      '移除书库',
+      '移出书架',
     ]);
   });
 
-  it('改名前有一道分隔线，且只有这一道', () => {
+  it('改名与移出书架前各有一道分隔线', () => {
     const seps = bookMenuItems(plain).filter((i) => i.sepBefore);
-    expect(seps.map((i) => i.title)).toEqual(['改名']);
+    expect(seps.map((i) => i.title)).toEqual(['改名', '移出书架']);
   });
 
-  it('移除书库是危险项', () => {
-    expect(bookMenuItems(plain).find((i) => i.act === 'remove')?.danger).toBe(true);
+  it('移出书架不是危险项：它只归档，数据全留、可复活', () => {
+    expect(bookMenuItems(plain).find((i) => i.act === 'remove')?.danger).toBeFalsy();
   });
 
   it('每条都有自己的图标', () => {
@@ -65,9 +65,10 @@ describe('bookMenuItems · 文件丢失', () => {
     expect(open?.title).toBe('阅读');
   });
 
-  it('其余项照旧可用（详情里才给原因与「重新定位文件」）', () => {
+  it('多一条「重新定位文件…」，其余项照旧可用', () => {
     const list = bookMenuItems({ ...plain, missing: true });
+    expect(list.find((i) => i.act === 'relocate')?.title).toBe('重新定位文件…');
     expect(list.filter((i) => i.disabled).map((i) => i.act)).toEqual(['open']);
-    expect(list).toHaveLength(6);
+    expect(list).toHaveLength(7);
   });
 });

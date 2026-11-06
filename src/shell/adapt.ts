@@ -37,6 +37,8 @@ export interface BookRow {
   glyph: string;
   chapterTitle: string;
   noteCount: number;
+  /** 文件不在登记的路径上：书卡压暗 + 角标，点它进「重新定位」 */
+  missing: boolean;
 }
 
 /** 封面配色：12 组暖调，都压过饱和度，避免封面墙花成调色盘 */
@@ -126,6 +128,7 @@ export function toRow(app: App, b: ReaderBook): BookRow {
     glyph: glyphOf(title),
     chapterTitle: b.reading.position.chapterTitle || '',
     noteCount,
+    missing: b.fileRef.fileMissing === true,
   };
 }
 
@@ -158,9 +161,10 @@ export function filterRows(rows: BookRow[], s = getState()): BookRow[] {
   return arr;
 }
 
-/** 「继续阅读」挑最近在读、且读到一半的那本 */
+/** 「继续阅读」挑最近在读、且读到一半的那本；失联的不选（点了也读不了） */
 export function continueRow(rows: BookRow[]): BookRow | null {
-  const reading = rows.filter((r) => r.status === 'reading');
+  const reading = rows.filter((r) => r.status === 'reading' && !r.missing);
   if (reading.length) return reading.sort((a, b) => b.lastTs - a.lastTs)[0];
-  return rows.length ? [...rows].sort((a, b) => b.lastTs - a.lastTs)[0] : null;
+  const alive = rows.filter((r) => !r.missing);
+  return alive.length ? [...alive].sort((a, b) => b.lastTs - a.lastTs)[0] : null;
 }
