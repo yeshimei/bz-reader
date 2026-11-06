@@ -65,6 +65,39 @@ describe('书库空态', () => {
   });
 });
 
+describe('点书卡直接开书', () => {
+  /** 取某一类卡的起始标签（属性都在同一串里，避免误伤「继续阅读」卡的详情按钮） */
+  const tagOf = (out: string, cls: string): string =>
+    new RegExp(`<div class="${cls}[^"]*"[^>]*>`).exec(out)?.[0] ?? '';
+
+  it('封面墙：整张卡的动作是 openbook，不再是 detail', () => {
+    const card = tagOf(html(), 'bzs-bkcard');
+    expect(card).toContain('data-act="openbook"');
+    expect(card).not.toContain('data-act="detail"');
+  });
+
+  it('列表行：动作同样是 openbook', () => {
+    const out = viewLibrary({
+      rows: [row()],
+      total: 1,
+      state: { ...DEFAULT_SHELL_STATE, libView: 'list' },
+      libraryKey: 'k',
+    });
+    const line = tagOf(out, 'bzs-bkrow2');
+    expect(line).toContain('data-act="openbook"');
+    expect(line).not.toContain('data-act="detail"');
+  });
+
+  /* 右键 / 长按菜单的入口不能丢：桌面右键、手机长按都还靠它 */
+  it('书卡仍保留菜单入口（data-bookmenu）', () => {
+    expect(tagOf(html(), 'bzs-bkcard')).toContain('data-bookmenu');
+  });
+
+  it('「继续阅读」大卡片的详情按钮保持原样', () => {
+    expect(html()).toContain('data-act="detail"');
+  });
+});
+
 describe('窄屏筛选栏', () => {
   function mobile(patch = {}): string {
     return viewLibrary({

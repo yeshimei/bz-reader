@@ -229,9 +229,9 @@ export function viewLibrary(v: LibraryView): string {
   } else if (state.libView === 'grid') {
     body = `<div class="bzs-grid">${shown
       .map(
-        /* 卡片上不再钉三颗按钮：右键（手机长按）出菜单，动作都在里面。
-           少了那一行，封面能大一圈，书名也不用为按钮让位。 */
-        (b) => `<div class="bzs-bkcard${b.status === 'done' ? ' is-done' : ''}" data-act="detail" data-id="${b.id}"
+        /* 卡片上不再钉三颗按钮：点一下直接开书；右键（手机长按）出菜单，
+           详情与其它动作都在里面。少了那一行，封面能大一圈，书名也不用为按钮让位。 */
+        (b) => `<div class="bzs-bkcard${b.status === 'done' ? ' is-done' : ''}" data-act="openbook" data-id="${b.id}"
           data-bookmenu="${b.id}" role="button" tabindex="0" title="${t('shelf.more')}">
         ${b.status === 'done' ? `<span class="flag">${t('shelf.badge.done')}</span>` : b.fav ? `<span class="flag">${t('shelf.filter.fav')}</span>` : ''}
         ${coverHtml(b)}
@@ -247,7 +247,7 @@ export function viewLibrary(v: LibraryView): string {
   } else {
     body = `<div class="bzs-list">${shown
       .map(
-        (b) => `<div class="bzs-bkrow2" data-act="detail" data-id="${b.id}" data-bookmenu="${b.id}" role="button" tabindex="0" title="${t('shelf.more')}">
+        (b) => `<div class="bzs-bkrow2" data-act="openbook" data-id="${b.id}" data-bookmenu="${b.id}" role="button" tabindex="0" title="${t('shelf.more')}">
         ${coverHtml(b)}
         <div class="bi"><b>${esc(b.title)}</b><div class="sub">${esc(b.author)} · ${esc(b.shelf)} · ${b.format}</div></div>
         ${barHtml(b.percent)}
