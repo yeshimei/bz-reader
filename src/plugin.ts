@@ -1034,6 +1034,9 @@ export function createPlugin(cfg: PluginConfig) {
       const opened = ws.getLeavesOfType(VIEW_TYPE_TOC)[0];
       if (opened && opened.view instanceof SideView) {
         if (tab) opened.view.setTab(tab);
+        /* 只 expand 是「把侧栏拉开」，但拉开的可能是文件树那一页，甚至这个
+           leaf 被拖到了右侧栏。revealLeaf 会展开它所在的分栏并把它激活。 */
+        void ws.revealLeaf(opened);
         ws.leftSplit?.expand?.();
         return;
       }
@@ -1041,7 +1044,7 @@ export function createPlugin(cfg: PluginConfig) {
       if (opened && isDeferredViewOf(opened.view, VIEW_TYPE_TOC)) {
         void opened.setViewState({ type: VIEW_TYPE_TOC, active: true }).then(() => {
           if (tab && opened.view instanceof SideView) opened.view.setTab(tab);
-          ws.leftSplit?.expand?.();
+          void ws.revealLeaf(opened);
         });
         ws.leftSplit?.expand?.();
         return;

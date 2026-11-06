@@ -5,7 +5,7 @@ import { resetUiState } from '../src/shell/actions';
 import { DEFAULT_DATA_DIR, dataDirOf, setDataDir } from '../src/core/plugin-path';
 import { VIEW_TYPE_READER } from '../src/view/reader-view';
 import { VIEW_TYPE_STUDY } from '../src/shell/study-view';
-import { VIEW_TYPE_TOC } from '../src/view/side-view';
+import { SideView, VIEW_TYPE_TOC } from '../src/view/side-view';
 import { FakeAdapter } from './helpers/fake-adapter';
 import { makeApp, makeLeaf, makePlugin, makeReaderView, testBook } from './helpers/plugin-harness';
 
@@ -155,6 +155,29 @@ describe('复用延迟加载的 leaf（A-11）', () => {
     expect(detach).not.toHaveBeenCalled();
     expect(leaf.setViewState).toHaveBeenCalledWith({ type: VIEW_TYPE_TOC, active: true });
     expect(expand).toHaveBeenCalled();
+  });
+
+  /* 侧栏里可能同时开着一堆页签（文件树、搜索…），也可能被拖到右侧栏。
+     只 leftSplit.expand() 是「把侧栏拉开」，但拉到前面的是别的页签，
+     或者根本没有展开它所在的那一栏。 */
+  it('openTocSidebar：已有真实目录侧栏时，激活它并切到目录', () => {
+    const app = makeApp();
+    const plugin = makePlugin(app);
+    const leaf = makeLeaf(null);
+    const view = new SideView(leaf as never);
+    (leaf as { view: unknown }).view = view;
+    const reveal = vi.fn(async () => undefined);
+    const expand = vi.fn();
+    app.workspace.getLeavesOfType = (type: string) => (type === VIEW_TYPE_TOC ? [leaf] : []) as never;
+    app.workspace.revealLeaf = reveal as never;
+    app.workspace.leftSplit = { expand };
+    const setTab = vi.spyOn(view, 'setTab');
+
+    plugin.openTocSidebar('toc');
+
+    expect(setTab).toHaveBeenCalledWith('toc');
+    expect(reveal).toHaveBeenCalledWith(leaf);
+    expect(leaf.detach).not.toHaveBeenCalled();
   });
 });
 
