@@ -278,6 +278,19 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>${t('settings.ai.baseUrl')}</label><input data-role="setting" data-k="ai.baseUrl" placeholder="${t('settings.ai.baseUrl.ph')}" value="${esc(s.ai.baseUrl)}" style="flex:1"${aiReadonly}></div>
       <div class="bzs-setrow"><label>${t('settings.ai.model')}</label><input data-role="setting" data-k="ai.model" placeholder="${t('settings.ai.model.ph')}" value="${esc(s.ai.model)}" style="flex:1"${aiReadonly}></div>
       <div class="bzs-setrow"><label>${t('settings.ai.key')}</label><input type="password" data-role="setting" data-k="ai.apiKey" placeholder="${t('settings.ai.key.ph')}" value="${esc(s.ai.apiKey)}" style="flex:1"${aiReadonly}></div>
+      ${toggle('aiKnowledge', s.aiKnowledge, t('settings.ai.knowledge'))}
+      ${
+        /* 说明只在打开之后出现：关着的时候解释「打开后会发生什么」是废话，
+           打开之后才需要提醒它依赖 bz、以及多出来的两颗按钮长什么样。 */
+        s.aiKnowledge ? `<div class="bzs-mini" style="margin:-2px 0 8px;line-height:1.8">${t('settings.ai.knowledge.hint')}</div>` : ''
+      }
+      ${
+        /* 画像按书存成独立文件：书删了、换版本了，文件还在。留一个出口，
+           但它得先列清单再删，不在这儿直接动手。 */
+        s.aiKnowledge
+          ? `<div class="bzs-setrow"><label>${t('detail.portrait')}</label><button class="bzs-btn sm" data-act="ptclean">${t('pt.clean')}</button></div>`
+          : ''
+      }
     </div>`;
 
   /* 激活之后这组变成「凭证」：码只读，日常不让人误改。

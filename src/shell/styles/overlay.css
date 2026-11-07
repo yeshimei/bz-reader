@@ -1682,3 +1682,168 @@ textarea.idea:focus {
 
 
 
+
+/* 数据说明（第一次用知识库 / 全书）：一段话 + 一个「知道了」，不要做成清单 */
+.bzs-ack p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.9;
+  color: var(--t2);
+}
+
+/* ── 全书画像 ──
+   准备页是两张大卡片：做法 / 好处 / 代价 / 适合各一行，代价必须在按钮上面。
+   卡片本身可点（选方案），所以整张是一个 button，不用 radio 圆点。 */
+.bzs-pt {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bzs-pt-lead {
+  font-size: 12.5px;
+  line-height: 1.9;
+  color: var(--t2);
+}
+
+.bzs-pt-plans {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .bzs-pt-plans {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bzs-pt-plan {
+  appearance: none;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--sunken);
+  color: var(--t2);
+  border-radius: var(--r-card);
+  padding: 14px 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bzs-pt-plan.on {
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+}
+
+.bzs-pt-plan > b {
+  font-size: 13px;
+  color: var(--t1);
+  letter-spacing: .02em;
+}
+
+.bzs-pt-plan dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  font-size: 11.5px;
+  line-height: 1.8;
+}
+
+.bzs-pt-plan dt {
+  color: var(--t3);
+  white-space: nowrap;
+}
+
+.bzs-pt-plan dd {
+  margin: 0;
+  color: var(--t2);
+}
+
+.bzs-pt-plan .est {
+  font-size: 11px;
+  color: var(--copper);
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.bzs-pt-run {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 6px 2px;
+}
+
+.bzs-pt-run .line {
+  font-size: 13px;
+  color: var(--t1);
+}
+
+.bzs-pt-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.bzs-pt-bar > i {
+  display: block;
+  height: 100%;
+  background: var(--copper);
+  transition: width .2s ease;
+}
+
+.bzs-pt-done {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bzs-pt-done > b {
+  font-size: 14px;
+  color: var(--t1);
+}
+
+.bzs-pt-preview {
+  margin: 4px 0 0;
+  padding: 0 0 0 2px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11.5px;
+  line-height: 1.8;
+  color: var(--t2);
+}
+
+.bzs-pt-preview em {
+  font-style: normal;
+  color: var(--copper);
+  margin-right: 8px;
+}
+
+.bzs-pt-orphans {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 11.5px;
+  line-height: 1.9;
+  color: var(--t2);
+}
+
+.bzs-mini.is-bad {
+  color: var(--vermilion);
+}
+
+/* 鸟瞰里每章那一句话：压在章名下面，比章名小一档 */
+.bzs-bmap .nm .dg {
+  display: block;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--t3);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

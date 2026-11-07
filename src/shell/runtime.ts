@@ -8,6 +8,8 @@
  * 与 state.ts 的分界：state 是用户偏好（落 localStorage），
  * runtime 是一次会话里的临时量（内存）。
  * ============================================================ */
+import type { AiScope, AiSource } from '../data/ai-scope';
+import type { PortraitPlan } from '../data/portrait';
 
 export interface SelectionPayload {
   /** 整段选区在宿主坐标系里的矩形：想法 / 书摘贴着它弹，而不是跑到屏幕中间 */
@@ -23,6 +25,8 @@ export interface AiLogItem {
   me: boolean;
   tag: string;
   text: string;
+  /** 这一条答完之后附的来源（知识库笔记能点开，全书的只有章节名） */
+  sources?: AiSource[];
 }
 
 export const RT = {
@@ -36,6 +40,17 @@ export const RT = {
   aiAbort: null as AbortController | null,
   /** AI 对话（侧栏 AI 页签与 AI 弹层共用一份） */
   aiLog: [] as AiLogItem[],
+  /**
+   * 等用户确认「会把什么发给 AI」的那一次提问。
+   *
+   * 说明弹窗是状态驱动的（没有 await 的对话框），用户点「知道了」之后要
+   * 原样重发这条提问——不存下来就等于让他白打一遍字。
+   */
+  ackPending: null as { q: string; scope: AiScope } | null,
+  /** 画像方案：记住上次选的（两种方案差别很大，用户通常固定用同一种） */
+  portraitPlan: 'vector' as PortraitPlan,
+  /** 待确认清理的无主画像（书号，给人看的清单在弹层里） */
+  ptOrphans: [] as string[],
   /** 当前划词 */
   sel: null as SelectionPayload | null,
   /**
@@ -65,8 +80,8 @@ export const RT = {
   tocCollapsed: new Set<string>(),
 };
 
-export function pushAi(me: boolean, tag: string, text: string): void {
-  RT.aiLog.push({ me, tag, text });
+export function pushAi(me: boolean, tag: string, text: string, sources?: AiSource[]): void {
+  RT.aiLog.push({ me, tag, text, sources: sources?.length ? sources : undefined });
   // 只留最近 20 条：侧栏气泡不是聊天记录，不需要无限长
   if (RT.aiLog.length > 20) RT.aiLog = RT.aiLog.slice(-20);
 }

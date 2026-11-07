@@ -40,6 +40,21 @@ export interface ReaderSettings {
    */
   language: LanguagePref;
   ai: AiSettings;
+  /**
+   * AI 知识库（2026-11-07）：打开后划词条多出「存为名词 / 存为段落」，
+   * 侧栏 AI 可以接 bz 的知识库与整本书画像。
+   *
+   * 默认关：这项功能要靠 bz 插件才成立，没装 bz 的人打开只会看到四个字
+   * 「bz 插件还没装」。开关的意义是「我知道了、我要用」，不是「默认全开」。
+   */
+  aiKnowledge: boolean;
+  /**
+   * 「会把什么发给 AI」那份说明是否已经确认过。
+   *
+   * 记在这台机器上（settings 不跟库同步）：换台电脑第一次用知识库时
+   * 再讲一遍是应该的，那个人没看过。
+   */
+  aiAck: boolean;
   /*
    * 这里**故意没有** license。
    *
@@ -62,6 +77,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     apiKey: '',
     model: '',
   },
+  aiKnowledge: false,
+  aiAck: false,
 };
 
 function str(v: unknown, fallback = ''): string {
@@ -106,6 +123,8 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
       apiKey: str(ai.apiKey).trim(),
       model: str(ai.model).trim(),
     },
+    aiKnowledge: s.aiKnowledge === true,
+    aiAck: s.aiAck === true,
   };
 }
 

@@ -186,3 +186,63 @@ describe('⋯ 菜单：开得开、收得起', () => {
     expect(moreMenuOpensUp(760, 96, 844)).toBe(true);
   });
 });
+
+/**
+ * AI 知识库打开之后多出来的两颗（2026-11-07）。
+ *
+ * 顺序定在 AI 右边：它们是「先存起来再问」的动作，比双链 / 复制更靠近 AI。
+ * 收不收进「⋯」看宽度，不看平台——桌面窄到 400px 一样会挤。
+ */
+describe('toolbarLayout · 知识库两颗', () => {
+  it('关着的时候一颗都不多（老布局原样）', () => {
+    const l = toolbarLayout({ marked: false, kb: false });
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI', '双链', '复制']);
+    expect(l.overflow).toEqual([]);
+  });
+
+  it('打开时排在 AI 右边，顺序固定', () => {
+    const l = toolbarLayout({ marked: true, kb: true });
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI', '存为名词', '存为段落', '双链', '复制', '删除']);
+    expect(l.overflow).toEqual([]);
+  });
+
+  it('窄窗：知识库两颗进 ⋯，主路径五颗留在胶囊上', () => {
+    const l = toolbarLayout({ marked: false, kb: true, narrow: true });
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI', '双链', '复制']);
+    expect(l.overflow.map((i) => t(i.key))).toEqual(['存为名词', '存为段落']);
+  });
+
+  it('窄窗 + 已有划线：删除留在胶囊最后，不跟着进菜单', () => {
+    const l = toolbarLayout({ marked: true, kb: true, narrow: true });
+    expect(l.visible.at(-1)).toBe(DELETE_ITEM);
+    expect(l.overflow.some((i) => i.act === 'del')).toBe(false);
+  });
+
+  it('窄窗但知识库关着：没有 ⋯ 可开', () => {
+    const l = toolbarLayout({ marked: false, kb: false, narrow: true });
+    expect(l.overflow).toEqual([]);
+  });
+
+  it('手机：三颗主路径，知识库两颗与双链 / 复制一起进 ⋯', () => {
+    const l = toolbarLayout({ marked: false, kb: true, compact: true });
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI']);
+    expect(l.overflow.map((i) => t(i.key))).toEqual(['存为名词', '存为段落', '双链', '复制']);
+  });
+});
+
+describe('toolbarHtml · 知识库两颗的 data-act', () => {
+  it('划词给 selterm / selpassage，点划线给 hlterm / hlpassage', () => {
+    const sel = toolbarHtml({ marked: false, kb: true, acts: SELECTION_ACTS });
+    expect(sel).toContain('data-act="selterm"');
+    expect(sel).toContain('data-act="selpassage"');
+    const mark = toolbarHtml({ marked: true, kb: true, acts: MARK_ACTS });
+    expect(mark).toContain('data-act="hlterm"');
+    expect(mark).toContain('data-act="hlpassage"');
+  });
+
+  it('窄窗里两颗在「⋯」菜单中，胶囊上没有', () => {
+    const html = toolbarHtml({ marked: false, kb: true, narrow: true, acts: SELECTION_ACTS });
+    expect(menuLabels(html)).toEqual(['存为名词', '存为段落']);
+    expect(labels(html)).not.toContain('存为名词');
+  });
+});

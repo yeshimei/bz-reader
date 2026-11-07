@@ -506,6 +506,7 @@ export function createPlugin(cfg: PluginConfig) {
         settings: () => this.cfg.settings,
         setSettings: (patch) => this.setSettings(patch),
         currentText: () => this.activeReader()?.pageText() ?? '',
+        exportChapters: async (opts) => (await this.activeReader()?.exportChapters(opts)) ?? [],
         activate: (code) => this.activateLicense(code),
         dataDir: () => dataDirOf(),
         migrateDataDir: (dir) => this.migrateDataDir(dir),

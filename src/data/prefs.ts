@@ -12,6 +12,7 @@
 /* 字体与强调色的档名走集中表（见下方 FONT_LABELS / ACCENT_LABELS）：成套选项
    不进主语言包，`Record<Locale, string>` 保证八种语言都齐。 */
 import { locale, type Locale } from '../i18n';
+import { isAiScope, type AiScope } from './ai-scope';
 
 /**
  * 书页配色：只有一档「跟随 Obsidian」。
@@ -79,6 +80,14 @@ export interface ReaderPrefs {
    */
   headerOrder: string[];
   headerHidden: string[];
+  /**
+   * 侧栏 AI 的回答依据：当前这一屏 / 知识库 / 全书（2026-11-07）。
+   *
+   * 放 prefs 而不是 settings：它跟「读这本书时怎么用」是一类，
+   * 跟着库走，换设备还是上次那一档。是否**允许**出现这三档由
+   * settings.aiKnowledge 决定，这里只管选过哪一档。
+   */
+  aiScope: AiScope;
 }
 
 export const DEFAULT_PREFS: ReaderPrefs = {
@@ -97,6 +106,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   flow: 'paged',
   headerOrder: [],
   headerHidden: [],
+  aiScope: 'screen',
 };
 
 export const FONT_SIZE_RANGE = { min: 14, max: 30, step: 1 } as const;
@@ -282,6 +292,7 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     flow: p.flow === 'scroll' ? 'scroll' : 'paged',
     headerOrder: headerIds(p.headerOrder),
     headerHidden: headerIds(p.headerHidden),
+    aiScope: isAiScope(p.aiScope) ? p.aiScope : DEFAULT_PREFS.aiScope,
   };
 }
 

@@ -37,6 +37,8 @@ import { setToc, clearToc, getToc, patchToc } from './toc-state';
 import { headerActionSpec, headerActionsFor, headerActive, type HeaderActionId } from './header-actions';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
+import { shellSettings } from '../shell/source';
+import { can } from '../data/entitlement';
 import { VIEW_TYPE_TOC } from './side-view';
 
 /* 注意：本类为了给 Obsidian 存 view 状态，重写了 getState()。
@@ -1035,6 +1037,18 @@ export class ReaderView extends ItemView {
     return this.host.currentText();
   }
 
+  /**
+   * 逐章导出整本正文（建全书画像用）。
+   *
+   * 转一手 host：视图暴露给壳层的能力都走这一条，壳层不该知道 host 的存在。
+   */
+  exportChapters(opts?: {
+    onProgress?: (done: number, total: number, title: string) => void;
+    shouldStop?: () => boolean;
+  }): Promise<Array<{ title: string; text: string }>> {
+    return this.host.exportChapters(opts ?? {});
+  }
+
   private toggleTts(): void {
     // 停止永远放行，避免读起来之后关不掉
     if (this.speaking) {
@@ -1183,14 +1197,19 @@ export class ReaderView extends ItemView {
     if (live) bar.classList.add('is-marked');
     /* 走 setHtml（DOMParser 惰性解析）：模板全由 toolbarHtml 生成，
        字符串里没有用户可控的 HTML。 */
+    /* 知识库两颗：设置里打开了、且授权还在，才出现（关掉授权后设置项还在，
+       但按钮不该再亮着——那是「买过又退了」最常见的样子）。 */
+    const kb = shellSettings().aiKnowledge && can('ai');
     setHtml(
       bar,
       toolbarHtml({
         marked: !!live,
         color: activeColor,
         colors: HIGHLIGHT_COLORS,
-        /* 手机上只留三颗主路径，其余进「⋯」；桌面全平铺 */
+        /* 手机只留三颗主路径；桌面窄到放不下七颗时，把知识库两颗收进「⋯」 */
         compact: isMobileEnv(),
+        kb,
+        narrow: (root.clientWidth || 0) < 520,
         acts: SELECTION_ACTS,
       }),
     );

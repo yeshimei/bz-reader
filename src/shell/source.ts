@@ -24,6 +24,16 @@ export interface ShellSource {
   app: App;
   repo: BookRepo;
   store: ReaderStore;
+  /**
+   * 逐章导出整本正文（建全书画像用）。
+   *
+   * 从阅读视图走而不是自己解析文件：分页、编码、TXT 切章这些规则都已经在
+   * 引擎里了，另写一份迟早和正文对不上。没有打开的书时返回空数组。
+   */
+  exportChapters: (opts?: {
+    onProgress?: (done: number, total: number, title: string) => void;
+    shouldStop?: () => boolean;
+  }) => Promise<Array<{ title: string; text: string }>>;
   /** 打开一本书（带 cfi 落到那一页）；已有同书 tab 就复用 */
   openBook: (book: ReaderBook, cfi?: string) => void;
   /** 打开导入页（整页，S1 定稿） */

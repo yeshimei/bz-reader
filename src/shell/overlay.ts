@@ -10,6 +10,7 @@
  * 它的背景被覆盖成透明，所以不会给整屏染色。
  * ============================================================ */
 import { isMobileEnv, isMobileShell } from '../core/mobile';
+import { t } from '../i18n';
 import { anchoredPlacement } from './anchored-style';
 import { sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
@@ -26,6 +27,7 @@ import { noteCardHtml } from './render/notes';
 import { cardTemplateChipsHtml, quoteCardHtml, quoteRefMarkdown } from './render/quote-card';
 import { searchFormHtml, searchResultsHtml } from './render/search';
 import {
+  bumpOverlayRev,
   closeOverlay,
   dismissesOnTap,
   getState,
@@ -46,6 +48,11 @@ import { rangeFill } from './range-fill';
 import { getToc } from '../view/toc-state';
 import { dispatchInput } from './actions';
 import { trialButtonHtml } from './group';
+import { portraitBuilder } from '../data/portrait-build';
+import { chapterDigests, estimateChars } from '../data/portrait';
+import { probeBz } from '../data/bz-bridge';
+import { cachedPortrait, ensurePortrait } from './portrait-cache';
+import { portraitBody, portraitFoot, portraitStatusLine, type PortraitView } from './render/portrait';
 
 /* ─────────── 小工具 ─────────── */
 
@@ -258,6 +265,23 @@ function overlayBookmap(): string {
   }
   /* 鸟瞰的章节名来自标注，不是目录项：两者可能差一个「第一章」编号。
      先用完整名字精确找，再用包含关系兜底；找不到 href 时动作层还有名称回查。 */
+  /* 有压缩画像时，每章补一句话摘要：鸟瞰不该只是「这章划了几条」 */
+  const portrait = cachedPortrait(book.id) ?? null;
+  if (cachedPortrait(book.id) === undefined) {
+    void ensurePortrait(getShellSource()?.app, book.id, () => bumpOverlayRev());
+  }
+  const digestRows = portrait ? chapterDigests(portrait) : [];
+  const digestOf = (title: string): string => {
+    const name = title.trim();
+    if (!name) return '';
+    const exact = digestRows.find((d) => d.chapter.trim() === name);
+    if (exact) return exact.line;
+    const loose = digestRows.find((d) => {
+      const l = d.chapter.trim();
+      return !!l && (l.includes(name) || name.includes(l));
+    });
+    return loose?.line ?? '';
+  };
   const toc = getToc()?.items ?? [];
   const hrefOf = (title: string): string => {
     const t = title.trim();
@@ -279,7 +303,9 @@ function overlayBookmap(): string {
       ([title, g], i) => `<div class="row" data-act="jumpch" data-label="${esc(title)}"${
         hrefOf(title) ? ` data-href="${esc(hrefOf(title))}"` : ''
       } role="button" tabindex="0">
-        <span class="no">${cn(i + 1)}</span><span class="nm">${esc(title)}</span>
+        <span class="no">${cn(i + 1)}</span><span class="nm">${esc(title)}${
+          digestOf(title) ? `<em class="dg">${esc(digestOf(title))}</em>` : ''
+        }</span>
         <div class="strip">${Array.from({ length: Math.min(12, g.marks) }, () => '<u style="background:var(--copper)"></u>').join('')}</div>
         <span class="bzs-mini">${g.marks} 划 · ${g.bks} 签</span></div>`,
     )
@@ -376,6 +402,8 @@ function overlayHltools(markId?: string, bookId?: string): string {
   const toolbar = toolbarHtml({
     marked: true,
     compact: isMobileEnv(),
+    kb: shellSettings().aiKnowledge && can('ai'),
+    narrow: window.innerWidth < 520,
     color: mark.color ?? 'amber',
     colors: HIGHLIGHT_COLORS,
     acts: MARK_ACTS,
@@ -531,6 +559,8 @@ function textPanel(
     marked: opts.marked ?? true,
     color: opts.color,
     colors: HIGHLIGHT_COLORS,
+    kb: shellSettings().aiKnowledge && can('ai'),
+    narrow: window.innerWidth < 520,
     acts: opts.markId ? MARK_ACTS : SELECTION_ACTS,
     active: opts.active,
     attrs,
@@ -709,6 +739,9 @@ function overlayDetail(bookId?: string): string {
   const bks = bmksOf(b);
   const percent = Math.round((b.reading.position.percent || 0) * 100);
   const missing = b.fileRef.fileMissing === true;
+  if (cachedPortrait(b.id) === undefined) {
+    void ensurePortrait(getShellSource()?.app, b.id, () => bumpOverlayRev());
+  }
   const body = `<div class="bzs-detail">${coverHtml({
     coverUrl: null, // 真封面异步回填（paint 末尾 hydrateCovers），这里只出占位色块
     bg: 'linear-gradient(150deg,#4a3a28,#2c2115)',
@@ -732,11 +765,19 @@ function overlayDetail(bookId?: string): string {
         <button class="bzs-btn" data-act="done" data-id="${b.id}">${
           b.reading.stats.completedTime ? '标为在读' : '标为读完'
         }</button>
+        ${
+          can('ai')
+            ? `<button class="bzs-btn" data-act="ptopen" data-id="${b.id}">${esc(t('detail.portrait.open'))}</button>`
+            : ''
+        }
       </div>
       <div class="bzs-kv"><b>阅读进度</b><span>${percent}%</span></div>
       <div class="bzs-kv"><b>累计时长</b><span>${fmtMinutes(b.reading.stats.totalReadTime || 0)}</span></div>
       <div class="bzs-kv"><b>划线 / 书签</b><span>${marks.length} 条 / ${bks.length} 枚</span></div>
       <div class="bzs-kv"><b>上次打开</b><span>${fmtWhen(b.reading.stats.lastReadTime)}</span></div>
+      <div class="bzs-kv"><b>${esc(t('detail.portrait'))}</b><span>${esc(
+        portraitStatusLine(cachedPortrait(b.id) ?? null, probeBz(getShellSource()?.app).ai?.embeddingModel?.() || ''),
+      )}</span></div>
       <div class="bzs-kv"><b>文件</b><span style="max-width:280px;overflow:hidden;text-overflow:ellipsis${
         missing ? ';color:var(--vermilion)' : ''
       }">${esc(b.fileRef.vaultPath)}${missing ? '（失联）' : ''}</span></div>
@@ -808,6 +849,78 @@ function overlayUnlock(mode?: string): string {
     </div>`;
 
   return modal('高级版', paid ? '已激活' : '', body, foot, 'wide tall');
+}
+
+/**
+ * 全书画像：准备 → 跑 → 完成，同一层里换内容。
+ *
+ * 进度不走整页重画（`paint()` 每块都重来一次，按钮会在手指底下换掉），
+ * 由 `bindPortrait()` 直接替换 `[data-role="portrait-body"]` 的内容。
+ */
+function portraitModel(bookId?: string): PortraitView {
+  const book = bookById(bookId) ?? bookById(getState().bookId) ?? liveBooks()[0];
+  const builder = portraitBuilder();
+  const raw = builder.progress();
+  /* 单例只跑一个任务：进度记的是另一本书时，这本就当「没开始」，
+     否则打开新书会看到上一本书的「第 12/130 块」在那儿跳。 */
+  const progress =
+    raw.bookId && book && raw.bookId !== book.id
+      ? { ...raw, status: 'idle' as const, phase: '' as const, total: 0, done: 0, failed: 0, extractDone: 0, extractTotal: 0 }
+      : raw;
+  const cached = book ? cachedPortrait(book.id) : null;
+  /* 还没读过就先按「未建」画一版，读到了再补（读盘是异步的，不能卡住弹层） */
+  if (book && cached === undefined) {
+    const app = getShellSource()?.app;
+    void ensurePortrait(app, book.id, () => bumpOverlayRev());
+  }
+  const probe = probeBz(getShellSource()?.app);
+  return {
+    mobile: isMobileEnv(),
+    chosen: RT.portraitPlan,
+    chars: estimateChars(book),
+    bookTitle: book?.meta.title ?? '',
+    progress,
+    portrait: cached ?? null,
+    model: probe.ai ? probe.ai.embeddingModel() : '',
+  };
+}
+
+function overlayPortrait(bookId?: string): string {
+  const v = portraitModel(bookId);
+  const title = v.bookTitle ? `${t('pt.title')} · ${esc(v.bookTitle)}` : t('pt.title');
+  return modal(
+    title,
+    '',
+    `<div data-role="portrait-body">${portraitBody(v)}</div>`,
+    portraitFoot(v),
+    'wide tall',
+  );
+}
+
+/** 清理无主画像：先列清单，再删（与仓库里既有的破坏性操作同一套习惯） */
+function overlayPtClean(): string {
+  const list = RT.ptOrphans;
+  const body = `<div class="bzs-ack"><p>${esc(t('pt.clean.confirm'))}</p>
+      <ul class="bzs-pt-orphans">${list.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+  return modal(
+    t('pt.clean'),
+    '',
+    body,
+    `<button class="bzs-btn" data-act="close">${esc(t('pt.close'))}</button>
+     <button class="bzs-btn pri danger" data-act="ptcleanyes">${esc(t('pt.clean'))}</button>`,
+  );
+}
+
+/**
+ * 第一次用「知识库 / 全书」时把话说清楚：会把什么发出去、发到哪儿。
+ *
+ * 只弹一次（`settings.aiAck`），记在这台机器上：换台电脑再讲一遍是应该的。
+ */
+function overlayAck(mode?: string): string {
+  const body = `<div class="bzs-ack"><p>${esc(
+    t(mode === 'book' ? 'ack.body.book' : 'ack.body.brain'),
+  )}</p></div>`;
+  return modal(t('ack.title'), '', body, `<button class="bzs-btn pri" data-act="ackok">${esc(t('ack.ok'))}</button>`);
 }
 
 /**
@@ -1008,6 +1121,12 @@ export function overlayHtml(): string {
       return overlayRemoveBook(o.bookId);
     case 'missing':
       return overlayMissing(o.bookId);
+    case 'ack':
+      return overlayAck(o.mode);
+    case 'portrait':
+      return overlayPortrait(o.bookId);
+    case 'ptclean':
+      return overlayPtClean();
     default:
       return '';
   }
@@ -1062,6 +1181,8 @@ export class OverlayLayer {
   readonly root: HTMLElement;
   /** 卸载时要撤掉的监听（键盘补偿等） */
   private disposers: Array<() => void> = [];
+  /** 画像进度的订阅：换弹层 / 关弹层都要摘掉，否则关掉之后还在写已销毁的 DOM */
+  private portraitOff: (() => void) | null = null;
   private accent = '';
   /** 上一次画的是哪种弹层：同种重画不算「打开」，不抢输入焦点 */
   private lastKind = '';
@@ -1282,6 +1403,12 @@ export class OverlayLayer {
       const len = input?.value.length ?? 0;
       input?.setSelectionRange(len, len);
     }
+    if (o?.kind === 'portrait') {
+      this.bindPortrait();
+    } else {
+      this.portraitOff?.();
+      this.portraitOff = null;
+    }
     if (o?.kind === 'ai' || o?.kind === 'translate') {
       void runAiForOverlay();
     } else {
@@ -1304,7 +1431,29 @@ export class OverlayLayer {
     hydrateCovers(getShellSource()?.app, liveBooks(), this.root);
   }
 
+  /**
+   * 建画像的进度只更新那一块，不整页重画。
+   *
+   * 每块都 `paint()` 的话，「暂停」按钮会在用户按下前一刻被换成新的 DOM：
+   * 手指落空、点不动，看起来就是「点了没反应」。
+   */
+  private bindPortrait(): void {
+    this.portraitOff?.();
+    this.portraitOff = null;
+    const builder = portraitBuilder();
+    const write = (): void => {
+      const host = this.root.querySelector<HTMLElement>('[data-role="portrait-body"]');
+      if (!host) return;
+      setHtml(host, portraitBody(portraitModel(getState().overlay?.bookId)));
+      const foot = this.root.querySelector<HTMLElement>('.bzs-mfoot');
+      if (foot) setHtml(foot, portraitFoot(portraitModel(getState().overlay?.bookId)));
+    };
+    this.portraitOff = builder.subscribe(write);
+  }
+
   destroy(): void {
+    this.portraitOff?.();
+    this.portraitOff = null;
     document.removeEventListener('pointerdown', this.onDocPointer, true);
     document.removeEventListener('keydown', this.onDocKey, true);
     for (const off of this.disposers) off();

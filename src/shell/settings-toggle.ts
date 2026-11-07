@@ -7,6 +7,7 @@
  */
 export interface ToggleState {
   exportComments: boolean;
+  aiKnowledge: boolean;
 }
 
 /** 返回翻转后的补丁；未知 key 返回 null（不重绘、不写盘） */
@@ -14,6 +15,8 @@ export function flipSetting(current: ToggleState, key: string): Partial<ToggleSt
   switch (key) {
     case 'exportComments':
       return { exportComments: !current.exportComments };
+    case 'aiKnowledge':
+      return { aiKnowledge: !current.aiKnowledge };
     default:
       return null;
   }

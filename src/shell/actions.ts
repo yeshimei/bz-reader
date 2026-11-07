@@ -10,7 +10,7 @@
  *   2. 任何写数据之后都 commit()（store.touch），否则关掉 Obsidian 就丢。
  *   3. 失败要说人话（notify），不要静默——用户点一下没反应比报错更难受。
  * ============================================================ */
-import { Menu } from 'obsidian';
+import { Menu, type TFile } from 'obsidian';
 import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
 import { aiAsk } from '../data/ai';
@@ -65,8 +65,30 @@ import {
   toggleFav,
 } from './state';
 import { RT, emitNotesChanged, pushAi } from './runtime';
+import { probeBz, openBzEntry, aiBridgeProblem, type BzEntryKind } from '../data/bz-bridge';
+import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
+import { ensurePortrait, forgetPortrait, setPortrait } from './portrait-cache';
+import { portraitNoteMarkdown } from './render/portrait';
+import { hitsToContext, isAiScope, sourcesOfHits, type AiScope, type AiSource } from '../data/ai-scope';
+import {
+  PORTRAIT_TOP_K,
+  firstSentence,
+  listPortraits,
+  orphanPortraits,
+  removePortrait,
+  writePortrait,
+  blocksEvidence,
+  chapterDigests,
+  compressEvidence,
+  portraitState,
+  readPortrait,
+  topBlocksByVector,
+  type PortraitFile,
+  type PortraitPlan,
+} from '../data/portrait';
+import { kbSource, kbThought, mergeThought } from '../data/kb-entry';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
-import { DEFAULT_SETTINGS } from '../data/settings';
+import { DEFAULT_SETTINGS, aiReady } from '../data/settings';
 import { copyGroupId, copyGroupIdForTrial } from './group';
 
 /** 当前上下文里的书：优先状态里记住的那本，否则取书库第一本 */
@@ -249,6 +271,151 @@ function colorLabel(v: string): string {
   return map[v] || '默认';
 }
 
+/**
+ * 划词条上的「存为名词 / 存为段落」：交给 bz 的录入界面，写盘成功才回写。
+ *
+ * 三条界线：
+ *   · **先问 bz 在不在**（probeBz + openBzEntry），缺哪一半都只说一句人话；
+ *   · **不预造划线**：用户可能在中途取消，取消就不该在书里留一条空标注，
+ *     所以标记与双链都挂在 bz 的「写入成功」回调上；
+ *   · **输入框里那一段原文归 bz 管**，我们不复制一份到自己的数据里，
+ *     只有回写的那枚双链是这本书的。
+ */
+function knowledgeEntry(kind: BzEntryKind, markId?: string, bookId?: string): void {
+  const src = getShellSource();
+  if (!src) return;
+  const app: App = src.app;
+  if (!requireCap('ai')) return;
+  if (!shellSettings().aiKnowledge) {
+    notify(t('notice.kb.off'), 'info');
+    return;
+  }
+
+  let book: ReaderBook | undefined;
+  let text = '';
+  let cfi = '';
+  let chapter = '';
+  if (markId) {
+    book = findBookOfMark(markId, bookId);
+    const h = book?.notes?.highlights.find((x) => x.id === markId);
+    if (!book || !h) {
+      notify(t('notice.mark.notFound'), 'error');
+      return;
+    }
+    text = h.text || '';
+    cfi = h.cfiRange || '';
+    chapter = h.chapterTitle || '';
+  } else {
+    const sel = RT.sel;
+    book = sel ? liveBooks().find((b) => b.id === sel.bookId) : undefined;
+    if (!sel || !book) {
+      notify(t('notice.sel.empty'), 'error');
+      return;
+    }
+    text = sel.text;
+    cfi = sel.cfiRange;
+    chapter = sel.chapterTitle || '';
+  }
+
+  const target = book;
+  const shell = src;
+  const res = openBzEntry(probeBz(app), kind, text, kbSource(target.id, target.meta.title, { text, cfiRange: cfi, chapterTitle: chapter }), (notePath) => {
+    /* bz 的写入成功回调：此刻笔记已经落盘，才轮到书里多一条划线 + 一枚双链 */
+    let id = markId ?? '';
+    if (!id) {
+      const h = addHighlight(target, {
+        text,
+        cfiRange: cfi,
+        chapterTitle: chapter,
+        color: DEFAULT_HIGHLIGHT_COLOR,
+      });
+      id = h.id;
+    }
+    const prev = target.notes?.highlights.find((x) => x.id === id)?.comment;
+    const link = kbThought(notePath);
+    if (link) setHighlightComment(target, id, mergeThought(prev, link));
+    shell.store.touch();
+    repaint();
+    emitNotesChanged();
+    notify(t(kind === 'term' ? 'notice.kb.term' : 'notice.kb.passage'));
+  });
+
+  if (!res.ok) notify(res.message || t('notice.kb.failed', { message: '' }), 'error');
+  else if (res.message) notify(res.message, 'info');
+}
+
+/* ─────────── 全书画像 ─────────── */
+
+/**
+ * 建画像需要的全部外部能力。
+ *
+ * 每次都现装配、现 rebind：设置里的 Key、bz 的嵌入模型都可能在两次打开
+ * 之间换掉，把 deps 焊死在单例里就会拿着旧模型去算新向量。
+ */
+function portraitDeps(): PortraitBuildDeps | null {
+  const src = getShellSource();
+  if (!src) return null;
+  const settings = shellSettings();
+  return {
+    load: (bookId) => readPortrait(src.app, bookId),
+    save: async (p) => {
+      const ok = await writePortrait(src.app, p);
+      if (ok) setPortrait(p.bookId, p);
+      return ok;
+    },
+    extract: (onProgress, shouldStop) => src.exportChapters({ onProgress, shouldStop }),
+    embed: async (texts, signal) => {
+      const probe = probeBz(src.app);
+      if (!probe.ai) throw new Error(t('bz.outdated', { version: probe.version || '—' }));
+      return probe.ai.embedDocuments(texts, signal);
+    },
+    summarise: async (text, signal) => {
+      const res = await aiAsk(settings, { task: 'summarize', text }, { signal });
+      return { digest: firstSentence(res.text), summary: res.text.trim() };
+    },
+    overview: async (evidence, signal) => (await aiAsk(settings, { task: 'summarize', text: evidence }, { signal })).text.trim(),
+    embedModel: () => probeBz(src.app).ai?.embeddingModel() ?? '',
+    chatModel: () => settings.ai.model || '',
+  };
+}
+
+/** 拿一个可用方案：向量要 bz 的嵌入，压缩要配好 AI Key */
+function portraitProblem(plan: PortraitPlan): string | null {
+  const settings = shellSettings();
+  if (plan === 'vector') {
+    const probe = probeBz(getShellSource()?.app);
+    return aiBridgeProblem(probe);
+  }
+  return aiReady(settings) ? null : t('side.ai.notReady');
+}
+
+function startPortrait(book: ReaderBook, plan: PortraitPlan, rebuild = false): void {
+  const problem = portraitProblem(plan);
+  if (problem) {
+    notify(problem, 'info');
+    return;
+  }
+  const deps = portraitDeps();
+  if (!deps) return;
+  RT.portraitPlan = plan;
+  const b = portraitBuilder(deps);
+  void b.start({ id: book.id, title: book.meta.title || t('common.untitled') }, plan, { rebuild });
+}
+
+/** 无主画像：先读清单，再问一句 */
+async function cleanPortraits(): Promise<void> {
+  const src = getShellSource();
+  if (!src) return;
+  const files = await listPortraits(src.app);
+  const orphans = orphanPortraits(files, liveBooks());
+  if (!orphans.length) {
+    notify(t('pt.clean.empty'), 'info');
+    return;
+  }
+  RT.ptOrphans = orphans;
+  openOverlay({ kind: 'ptclean' });
+}
+
 /* ─────────── 导出 ─────────── */
 
 /**
@@ -373,6 +540,9 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
 
     /* ── 弹层开关 ── */
     case 'close':
+      /* 建画像时关闭弹层 = 暂停：进度留在盘上，下次进来接着跑。
+         不这么做的话，用户关个窗口就把几十次请求的成果丢了。 */
+      if (getState().overlay?.kind === 'portrait') portraitBuilder().pause();
       closeOverlay();
       break;
     case 'search':
@@ -1006,6 +1176,13 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'toggle': {
       const src = getShellSource();
       if (!src) break;
+      /* 锁着的组整块带 data-act=unlock，但组里的开关自己也有 data-act——
+         点开关时命中的是它，会绕过解锁直接把值翻过去。知识库这一项必须
+         单独挡一次：翻过去等于「没买也能用」。 */
+      if (d.k === 'aiKnowledge' && !can('ai')) {
+        requireCap('ai');
+        break;
+      }
       const patch = flipSetting(shellSettings(), d.k ?? '');
       if (!patch) break;
       src.setSettings(patch);
@@ -1198,6 +1375,18 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (RT.sel && requireCap('ai'))
         overlay('ai', { text: RT.sel.text, mode: 'explain', anchor: RT.sel.anchor });
       break;
+    case 'selterm':
+      knowledgeEntry('term');
+      break;
+    case 'selpassage':
+      knowledgeEntry('passage');
+      break;
+    case 'hlterm':
+      knowledgeEntry('term', d.id, d.book);
+      break;
+    case 'hlpassage':
+      knowledgeEntry('passage', d.id, d.book);
+      break;
     case 'selbilink': {
       /* 还没落下标注，只能拿选区 + 当前章名拼双向链接；
          与笔记页的「双向链接」按钮同源（data/wikilink.ts 的 wikilinkOf）。 */
@@ -1220,6 +1409,127 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (!requireCap('ai')) break;
       void askAi(el);
       break;
+    case 'aiscope':
+      /* 三档互斥：换档只写偏好、不立刻发请求（用户可能只是想先看看） */
+      if (!d.v) break;
+      setPref('aiScope', d.v);
+      break;
+    case 'opensrc': {
+      const src = getShellSource();
+      const path = d.path || '';
+      if (!src || !path) break;
+      const file = src.app.vault.getAbstractFileByPath(path);
+      if (!file) {
+        notify(t('notice.note.missing', { path }), 'error');
+        break;
+      }
+      void src.app.workspace.getLeaf(false).openFile(file as TFile);
+      break;
+    }
+    case 'ptopen': {
+      if (!requireCap('ai')) break;
+      const book = liveBooks().find((b) => b.id === (d.id || d.book || getState().bookId));
+      if (!book) {
+        notify(t('notice.needBook'), 'info');
+        break;
+      }
+      void ensurePortrait(getShellSource()?.app, book.id);
+      openOverlay({ kind: 'portrait', bookId: book.id });
+      break;
+    }
+    case 'ptplan': {
+      if (d.v === 'vector' || d.v === 'compress') {
+        RT.portraitPlan = d.v;
+        repaint();
+      }
+      break;
+    }
+    case 'ptstart': {
+      const book = liveBooks().find((b) => b.id === (getState().overlay?.bookId || getState().bookId));
+      if (!book) {
+        notify(t('notice.needBook'), 'info');
+        break;
+      }
+      startPortrait(book, RT.portraitPlan);
+      break;
+    }
+    case 'ptpause':
+      portraitBuilder().pause();
+      break;
+    case 'ptresume':
+      void portraitBuilder().resume();
+      break;
+    case 'ptstop':
+      portraitBuilder().cancel();
+      break;
+    case 'ptretry':
+      void portraitBuilder().retryFailed();
+      break;
+    case 'ptrebuild': {
+      const book = liveBooks().find((b) => b.id === (getState().overlay?.bookId || getState().bookId));
+      if (!book) break;
+      forgetPortrait(book.id);
+      startPortrait(book, RT.portraitPlan, true);
+      break;
+    }
+    case 'ptclose':
+      /* 关掉弹层 = 暂停（不丢进度）；真在跑的时候才停，已完成的不动它 */
+      portraitBuilder().pause();
+      closeOverlay();
+      break;
+    case 'ptnote': {
+      const book = liveBooks().find((b) => b.id === (getState().overlay?.bookId || getState().bookId));
+      const src = getShellSource();
+      if (!src || !book) break;
+      void (async () => {
+        const portrait = await readPortrait(src.app, book.id);
+        if (!portrait) {
+          notify(t('side.ai.book.none'), 'info');
+          return;
+        }
+        await appendToExport(src.app, book, portraitNoteMarkdown(portrait));
+      })();
+      break;
+    }
+    case 'ptask': {
+      const src = getShellSource();
+      src?.setPrefs({ aiScope: 'book' });
+      closeOverlay();
+      src?.openSidebar('ai');
+      break;
+    }
+    case 'ptclean':
+      void cleanPortraits();
+      break;
+    case 'ptcleanyes': {
+      const src = getShellSource();
+      if (!src) break;
+      const ids = RT.ptOrphans;
+      RT.ptOrphans = [];
+      void (async () => {
+        let n = 0;
+        for (const id of ids) {
+          if (await removePortrait(src.app, id)) {
+            forgetPortrait(id);
+            n += 1;
+          }
+        }
+        notify(t('pt.clean.done', { n }));
+        closeOverlay();
+        repaint();
+      })();
+      break;
+    }
+    case 'ackok': {
+      /* 说明看完了：记住，并把刚才那条提问原样发出去 */
+      const src = getShellSource();
+      src?.setSettings({ aiAck: true });
+      const pending = RT.ackPending;
+      RT.ackPending = null;
+      closeOverlay();
+      if (pending) void askAi(null, pending.q);
+      break;
+    }
 
     /* ── 搜索 ── */
     case 'searchscope':
@@ -1469,6 +1779,10 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
   const src = getShellSource();
   if (!src || !k || v === undefined) return;
   switch (k) {
+    case 'aiScope':
+      /* 差一个档名就退回默认：别让手改的 JSON 把界面卡在一个不存在的档位上 */
+      if (isAiScope(v)) src.setPrefs({ aiScope: v as AiScope });
+      break;
     case 'fontSize':
       src.setPrefs({ fontSize: Number(v) });
       break;
@@ -1629,31 +1943,159 @@ function saveIdea(markId?: string, bookId?: string): void {
  * 走 ask 任务。原来复用 explain 的 prompt 且不传正文，问「讲了什么」
  * 会被当成一段要解释的名词。
  */
-async function askAi(el: HTMLElement): Promise<void> {
-  const scope = el.closest('.bzs-aiask, .bzs-aichat');
-  const input = scope?.querySelector<HTMLInputElement>('[data-role="aiask"]');
-  const q = input?.value.trim() || '';
+/**
+ * 侧栏 AI 的三档：当前这一屏 / 知识库 / 全书。
+ *
+ * 一条底线：**用不了就当场说一句人话，然后按「当前这一屏」答**，不是
+ * 发一个没有依据的请求让用户以为知识库接上了。查不到内容时同理——
+ * 硬着头皮用零条笔记回答，比直接说「没找到」更误导。
+ */
+function aiScopeOf(): AiScope {
+  const s = shellSettings();
+  if (!s.aiKnowledge || !can('ai')) return 'screen';
+  return shellPrefs().aiScope;
+}
+
+/** 知识库 / 全书这一档的依据；任何一步不成立都返回 null（调用方退回这一屏） */
+async function scopeContext(
+  scope: AiScope,
+  q: string,
+  src: ShellSource,
+  book: ReaderBook | undefined,
+): Promise<{ context: string; sources: AiSource[] } | null> {
+  const app = src.app;
+
+  if (scope === 'brain') {
+    const probe = probeBz(app);
+    const problem = aiBridgeProblem(probe);
+    if (problem || !probe.ai) {
+      notify(problem ?? t('bz.outdated', { version: probe.version || '—' }), 'info');
+      return null;
+    }
+    if (!probe.ai.isIndexReady()) {
+      notify(t('side.ai.brain.notReady'), 'info');
+      return null;
+    }
+    try {
+      const hits = await probe.ai.searchNotes(q, 8);
+      if (!hits.length) {
+        notify(t('side.ai.brain.noHit'), 'info');
+        return null;
+      }
+      return { context: hitsToContext(hits), sources: sourcesOfHits(hits) };
+    } catch (e) {
+      notify(t('notice.kb.failed', { message: (e as Error)?.message || t('common.unknownError') }), 'error');
+      return null;
+    }
+  }
+
+  /* 全书：画像没建 / 建到一半 / 换过嵌入模型，都按「用不了」处理 */
+  if (!book) {
+    notify(t('notice.search.needBook'), 'info');
+    return null;
+  }
+  const portrait = await readPortrait(app, book.id);
+  const probe = probeBz(app);
+  const model = probe.ai ? probe.ai.embeddingModel() : '';
+  const state = portraitState(portrait, model);
+  if (!portrait || state !== 'ready') {
+    notify(t('side.ai.book.none'), 'info');
+    return null;
+  }
+  return bookEvidence(portrait, q, probe.ai);
+}
+
+/**
+ * 画像 → 依据。
+ *
+ * 向量方案要一次嵌入（把问题转成向量），压缩方案不用发任何请求——
+ * 这也是它在没有 bz 时仍然可用的原因。
+ */
+async function bookEvidence(
+  portrait: PortraitFile,
+  q: string,
+  ai: ReturnType<typeof probeBz>['ai'],
+): Promise<{ context: string; sources: AiSource[] } | null> {
+  if (portrait.plan === 'vector') {
+    if (!ai) {
+      notify(t('bz.outdated', { version: '' }), 'info');
+      return null;
+    }
+    try {
+      const vec = await ai.embedQuery(q);
+      const picks = topBlocksByVector(portrait, vec, PORTRAIT_TOP_K);
+      if (!picks.length) {
+        notify(t('side.ai.brain.noHit'), 'info');
+        return null;
+      }
+      return {
+        context: blocksEvidence(portrait, picks),
+        sources: picks.map((p) => ({ title: p.block.chapter || t('side.ai.source.chapter'), note: `第 ${p.index + 1} 块` })),
+      };
+    } catch (e) {
+      notify(t('notice.kb.failed', { message: (e as Error)?.message || t('common.unknownError') }), 'error');
+      return null;
+    }
+  }
+  const context = compressEvidence(portrait);
+  if (!context.trim()) {
+    notify(t('side.ai.book.none'), 'info');
+    return null;
+  }
+  return {
+    context,
+    sources: chapterDigests(portrait)
+      .slice(0, 5)
+      .map((d) => ({ title: d.chapter, note: d.line })),
+  };
+}
+
+async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
+  const scopeEl = el?.closest('.bzs-aiask, .bzs-aichat') ?? null;
+  const input = scopeEl?.querySelector<HTMLInputElement>('[data-role="aiask"]') ?? null;
+  const q = (preset ?? input?.value ?? '').trim();
   if (!q) return;
   const src = getShellSource();
   if (!src) return;
   const settings = shellSettings();
   const book = currentBook();
+  const scope = aiScopeOf();
+
+  /* 第一次用知识库 / 全书：先说清楚会把什么发出去。确认之后原样重发这条提问 */
+  if (scope !== 'screen' && !settings.aiAck) {
+    RT.ackPending = { q, scope };
+    if (input) input.value = q;
+    openOverlay({ kind: 'ack', mode: scope });
+    return;
+  }
+
   /* 先把自己这条提问放进日志（界面立刻有反馈），再取历史时要把它排除——
      buildMessages 会把 text 作为最后一条 user 追加。 */
   const history = RT.aiLog.map((m) => ({ role: m.me ? ('user' as const) : ('assistant' as const), content: m.text }));
   pushAi(true, '我', q);
   if (input) input.value = '';
   repaint();
+
+  let context = src.currentText();
+  let sources: AiSource[] = [];
+  if (scope !== 'screen') {
+    const got = await scopeContext(scope, q, src, book);
+    if (got) {
+      context = got.context;
+      sources = got.sources;
+    }
+  }
+
   try {
     const res = await aiAsk(settings, {
       task: 'ask',
       text: q,
       title: book?.meta.title,
       chapter: book?.reading.position.chapterTitle,
-      context: src.currentText(),
+      context,
       history,
     });
-    pushAi(false, `AI · ${settings.ai.model || '模型'}`, res.text);
+    pushAi(false, `AI · ${settings.ai.model || '模型'}`, res.text, sources);
   } catch (e) {
     pushAi(false, 'AI', (e as Error).message || '请求失败');
   }

@@ -12,16 +12,16 @@ import { t, type MsgKey } from '../../i18n';
 import type { ReaderBook } from '../../data/schema';
 import type { FoliateTOCItem } from '../../types/foliate';
 import type { BmkRow, MarkRow } from '../domain';
+import { AI_SCOPES, aiScopeLabel, type AiScope } from '../../data/ai-scope';
 import { bmksOf, groupByChapter, marksOf } from '../domain';
 import type { SideTab } from '../state';
+import type { AiLogItem } from '../runtime';
 import { isTocItemActive, type TocActiveRef } from '../toc-active';
 import { esc, ico, icoNative } from './html';
 
-export interface AiLogItem {
-  me: boolean;
-  tag: string;
-  text: string;
-}
+/* AiLogItem 的字段口径只有一份，在 shell/runtime.ts（pushAi 往那儿写）。
+   这里以前自己抄了一份，加 sources 时两份就对不上了。 */
+export type { AiLogItem } from '../runtime';
 
 export interface SidebarView {
   book: ReaderBook | null;
@@ -34,6 +34,10 @@ export interface SidebarView {
   aiLog: AiLogItem[];
   aiReady: boolean;
   aiProvider: string;
+  /** 当前选的回答依据 */
+  aiScope: AiScope;
+  /** 三档要不要出现：设置里打开了 AI 知识库、且授权还在 */
+  aiScopeUi: boolean;
   /** 被折叠的父章节 href（见 runtime.tocCollapsed）；缺省 = 全部展开 */
   collapsed?: ReadonlySet<string>;
 }
@@ -165,6 +169,33 @@ function highlightsBody(rows: MarkRow[]): string {
     .join('');
 }
 
+/** 三档：互斥、单选；点一下换档，选择记在 prefs 里 */
+function aiScopeRow(v: SidebarView): string {
+  if (!v.aiScopeUi) return '';
+  const chips = AI_SCOPES.map(
+    (s) =>
+      `<button type="button" class="${v.aiScope === s ? 'on' : ''}" data-act="aiscope" data-v="${s}" aria-pressed="${
+        v.aiScope === s
+      }">${esc(aiScopeLabel(s))}</button>`,
+  ).join('');
+  return `<div class="bzs-aiscope" role="radiogroup" aria-label="${esc(t('side.ai.scope.aria'))}">${chips}</div>`;
+}
+
+/** 一条回答下面的来源：知识库笔记能点开，全书的只有章节名 */
+function aiSourcesRow(m: AiLogItem): string {
+  if (m.me || !m.sources?.length) return '';
+  const items = m.sources
+    .map((s) =>
+      s.path
+        ? `<button type="button" class="bzs-aisrc-i" data-act="opensrc" data-path="${esc(s.path)}" title="${esc(
+            s.note || s.path,
+          )}">${esc(s.title)}</button>`
+        : `<span class="bzs-aisrc-i" title="${esc(s.note || '')}">${esc(s.title)}</span>`,
+    )
+    .join('');
+  return `<div class="bzs-aisrc"><span class="lbl">${esc(t('side.ai.sources'))}</span>${items}</div>`;
+}
+
 function aiBody(v: SidebarView): string {
   const log = v.aiLog.length
     ? v.aiLog
@@ -179,13 +210,16 @@ function aiBody(v: SidebarView): string {
       ${log
         .map(
           (m) =>
-            `<div class="bzs-aibubble${m.me ? ' me' : ''}"><span class="tag">${m.me ? t('side.ai.me') : esc(m.tag)}</span>${esc(m.text)}</div>`,
+            `<div class="bzs-aibubble${m.me ? ' me' : ''}"><span class="tag">${m.me ? t('side.ai.me') : esc(
+              m.tag,
+            )}</span>${esc(m.text)}${aiSourcesRow(m)}</div>`,
         )
         .join('')}
       <div class="bzs-aiask">
         <input data-role="aiask" placeholder="${v.aiReady ? t('side.ai.ask.ph') : t('side.ai.notReady.ph')}"${v.aiReady ? '' : ' disabled'}>
         <button class="bzs-btn sm pri" data-act="aiask">${t('side.ai.ask')}</button>
       </div>
+      ${aiScopeRow(v)}
       <div class="bzs-mini" style="padding:6px 2px">${
         v.aiReady ? esc(t('side.ai.scope', { provider: v.aiProvider })) : t('side.ai.configHint')
       }</div>

@@ -26,6 +26,7 @@ import { focusSelector, type FocusMemo } from '../shell/focus-memo';
 import { isTocItemActive, type TocActiveRef } from '../shell/toc-active';
 import { getToc, subscribeToc } from './toc-state';
 import { setHtml } from '../ui/dom';
+import { can } from '../data/entitlement';
 
 /** 保留旧值：已保存的工作区布局按这个字符串恢复 leaf */
 export const VIEW_TYPE_TOC = 'bz-reader-toc';
@@ -224,6 +225,8 @@ export class SideView extends ItemView {
         aiLog: RT.aiLog,
         aiReady: !!settings.ai.baseUrl && !!settings.ai.apiKey && !!settings.ai.model,
         aiProvider: settings.ai.model || '未配置',
+        aiScope: shellPrefs().aiScope,
+        aiScopeUi: settings.aiKnowledge && can('ai'),
         collapsed: RT.tocCollapsed,
       }),
     );

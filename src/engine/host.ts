@@ -1446,6 +1446,66 @@ export class EngineHost {
   }
 
   /**
+   * 逐章导出正文（全书画像用）。
+   *
+   * 与 `currentText()` 的分工：那个取「屏幕上这一页」，这个取**整本**——
+   * 建画像要的是全书，翻到哪一页与它无关。逐章走 `section.createDocument()`，
+   * 和脚注读取同一条路（foliate 的 search 也是这么干的），不另开第二个 view。
+   *
+   * 三个必须守住的点：
+   *   1. **一章失败不拖垮整本**：坏章节跳过并继续，只有全空才算失败；
+   *   2. **能中途停**：`shouldStop` 每章问一次，用户点取消不必等整本读完；
+   *   3. **读完就 unload**：sections 钉着整本书的文本引用，几十章一起留着，
+   *      手机端直接 OOM（view-teardown 里那条注释是同一件事）。
+   */
+  async exportChapters(
+    opts: {
+      onProgress?: (done: number, total: number, title: string) => void;
+      shouldStop?: () => boolean;
+    } = {},
+  ): Promise<Array<{ title: string; text: string }>> {
+    const book = this.book;
+    if (!book) return [];
+    const sections = book.sections ?? [];
+    if (!sections.length) return [];
+
+    /* href → 章名：目录里的 label 才是读者认的名字，section 只有路径 */
+    const labelOf = new Map<string, string>();
+    const walk = (items: FoliateTOCItem[] | undefined): void => {
+      for (const it of items ?? []) {
+        const href = (it.href ?? '').split('#')[0];
+        const label = (it.label ?? '').trim();
+        if (href && label && !labelOf.has(href)) labelOf.set(href, label);
+        walk(it.subitems);
+      }
+    };
+    walk(book.toc);
+
+    const out: Array<{ title: string; text: string }> = [];
+    for (let i = 0; i < sections.length; i += 1) {
+      if (opts.shouldStop?.()) break;
+      const section = sections[i];
+      const title = labelOf.get((section.href ?? '').split('#')[0]) || `第 ${i + 1} 节`;
+      let text = '';
+      try {
+        const doc = await section.createDocument?.();
+        text = doc?.body?.textContent ?? '';
+      } catch {
+        /* 单章解析失败：留空继续，不让一章毁掉整本 */
+        text = '';
+      }
+      try {
+        section.unload?.();
+      } catch {
+        /* 卸不掉不影响已读到的内容 */
+      }
+      if (text.trim()) out.push({ title, text });
+      opts.onProgress?.(i + 1, sections.length, title);
+    }
+    return out;
+  }
+
+  /**
    * 定位到 CFI，返回**是否真的完成**。
    *
    * 以前返回 void，而 navigate() 会吞掉超时与异常；`locateFromLink` 的

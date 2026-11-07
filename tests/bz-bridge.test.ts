@@ -1,0 +1,129 @@
+/**
+ * bz 门面探测（data/bz-bridge.ts）：没装 / 装了没启用 / 老版本缺半边 / 齐全。
+ *
+ * 这条路径每次重绘都可能走到，所以底线是「不抛错、有话说」：任何异常状态都要
+ * 变成一句用户能照着做的人话，而不是控制台里一条红字。
+ */
+import { describe, expect, it, vi } from 'vitest';
+import { aiBridgeProblem, entryBridgeProblem, openBzEntry, probeBz } from '../src/data/bz-bridge';
+
+const term = vi.fn();
+const passage = vi.fn();
+const knowledge = { openTermNote: term, openPassageNote: passage };
+
+function app(patch: Record<string, unknown> = {}, manifestVersion = '1.41.0') {
+  return {
+    plugins: {
+      getPlugin: (id: string) => (id === 'bz' ? patch : null),
+      plugins: { bz: patch },
+      manifests: { bz: { version: manifestVersion } },
+    },
+  } as never;
+}
+
+describe('探测', () => {
+  it('没有 bz：状态 missing，能力全空，提示引导安装', () => {
+    const p = probeBz({ plugins: { plugins: {}, manifests: {} } } as never);
+    expect(p.status).toBe('missing');
+    expect(p.knowledge).toBeNull();
+    expect(aiBridgeProblem(p)).toContain('还没装');
+  });
+
+  it('装了没启用（manifest 在、实例不在）：状态 disabled，提示引导启用', () => {
+    const p = probeBz({ plugins: { plugins: {}, manifests: { bz: { version: '1.40.0' } } } } as never);
+    expect(p.status).toBe('disabled');
+    expect(p.version).toBe('1.40.0');
+    expect(aiBridgeProblem(p)).toContain('启用');
+  });
+
+  it('插件列表完全拿不到（老宿主 / 被别的东西替换）：当没装处理，不抛', () => {
+    expect(probeBz(null).status).toBe('missing');
+    expect(probeBz({} as never).status).toBe('missing');
+  });
+
+  it('老版本 bz 只有录入门面：检索那半边判为版本旧', () => {
+    const p = probeBz(app({ knowledge }));
+    expect(p.status).toBe('ok');
+    expect(p.knowledge).not.toBeNull();
+    expect(p.ai).toBeNull();
+    expect(aiBridgeProblem(p)).toContain('1.41.0');
+    expect(entryBridgeProblem(p)).toBeNull();
+  });
+
+  it('门面只有一半方法（被裁剪 / 名字改了）：整半边判为不可用', () => {
+    const p = probeBz(app({ knowledge, readerAi: { isIndexReady: () => true } }));
+    expect(p.ai).toBeNull();
+  });
+
+  it('齐了：两个 capability 都拿到，不报问题', () => {
+    const readerAi = {
+      isIndexReady: () => true,
+      embeddingModel: () => 'bge-m3',
+      searchNotes: async () => [],
+      embedDocuments: async () => [],
+      embedQuery: async () => [],
+    };
+    const p = probeBz(app({ knowledge, readerAi }));
+    expect(p.knowledge).toBe(knowledge);
+    expect(p.ai).toBe(readerAi);
+    expect(aiBridgeProblem(p)).toBeNull();
+  });
+});
+
+describe('打开录入', () => {
+  it('名词：选中文字作为名词预填，来源与回调原样透传', () => {
+    term.mockClear();
+    const probe = probeBz(app({ knowledge: { openTermNote: term, openPassageNote: passage } }));
+    const onCreated = vi.fn();
+    const res = openBzEntry(probe, 'term', '心流', { kind: 'note', path: 'obsidian://bz-reader?book=b1', name: '心流' }, onCreated);
+    expect(res.ok).toBe(true);
+    expect(term).toHaveBeenCalledWith('心流', {
+      source: { kind: 'note', path: 'obsidian://bz-reader?book=b1', name: '心流' },
+      onCreated,
+    });
+  });
+
+  it('段落：正文走 opts.text（bz 侧优先于编辑器选区）', () => {
+    passage.mockClear();
+    const probe = probeBz(app({ knowledge: { openTermNote: term, openPassageNote: passage } }));
+    openBzEntry(probe, 'passage', '一整段原文');
+    expect(passage).toHaveBeenCalledWith({ text: '一整段原文', source: undefined, onCreated: undefined });
+  });
+
+  it('文献文件夹没配：仍然打开（bz 会把人送去设置），但回一句说明', () => {
+    const probe = probeBz(
+      app({
+        knowledge: {
+          openTermNote: vi.fn(),
+          openPassageNote: vi.fn(),
+          isFolderReady: () => false,
+        },
+      }),
+    );
+    const res = openBzEntry(probe, 'term', '词');
+    expect(res.ok).toBe(true);
+    expect(res.message).toContain('文献文件夹');
+  });
+
+  it('门面不在：不调用、给原因', () => {
+    const res = openBzEntry(probeBz(null), 'term', '词');
+    expect(res.ok).toBe(false);
+    expect(res.message).toBeTruthy();
+  });
+
+  it('bz 内部抛错：收敛成一句人话，不把异常抛给界面', () => {
+    const probe = probeBz(
+      app({
+        knowledge: {
+          openTermNote: () => {
+            throw new Error('boom');
+          },
+          openPassageNote: vi.fn(),
+        },
+      }),
+    );
+    const res = openBzEntry(probe, 'term', '词');
+    expect(res.ok).toBe(false);
+    expect(res.message).toContain('boom');
+  });
+});

@@ -20,7 +20,7 @@ export interface ToolbarColor {
   css: string;
 }
 
-export type ToolbarAct = 'idea' | 'quote' | 'ai' | 'bilink' | 'copy' | 'del';
+export type ToolbarAct = 'idea' | 'quote' | 'ai' | 'term' | 'passage' | 'bilink' | 'copy' | 'del';
 
 export interface ToolbarItem {
   act: ToolbarAct;
@@ -44,6 +44,25 @@ export const TOOLBAR_ITEMS: readonly ToolbarItem[] = [
   { act: 'copy', key: 'tool.copy' },
 ];
 
+/**
+ * 「存为名词 / 存为段落」——只有 AI 知识库打开时才出现。
+ *
+ * 放在 AI 右边：它们是「把这段交给 AI 之前先存起来」的动作，比双链 / 复制
+ * 更靠近 AI；两个四字按钮也是整排里最宽的一对，放中间比放两头更不容易
+ * 把色点挤变形。
+ */
+export const KB_ITEMS: readonly ToolbarItem[] = [
+  { act: 'term', key: 'tool.term' },
+  { act: 'passage', key: 'tool.passage' },
+];
+
+/** 基础项里插入知识库两颗之后的那一整排（顺序即最终顺序） */
+export function toolbarItems(kb?: boolean): ToolbarItem[] {
+  if (!kb) return [...TOOLBAR_ITEMS];
+  const at = TOOLBAR_ITEMS.findIndex((i) => i.act === 'ai');
+  return [...TOOLBAR_ITEMS.slice(0, at + 1), ...KB_ITEMS, ...TOOLBAR_ITEMS.slice(at + 1)];
+}
+
 export const DELETE_ITEM: ToolbarItem = { act: 'del', key: 'tool.del', danger: true };
 
 /** 手机上还留在胶囊上的主路径颗数：想法 / 书摘 / AI */
@@ -54,6 +73,15 @@ export interface ToolbarLayoutInput {
   marked: boolean;
   /** 手机：主路径 + ⋯ */
   compact?: boolean;
+  /** AI 知识库开着：多出「存为名词 / 存为段落」两颗 */
+  kb?: boolean;
+  /**
+   * 窄窗口：放不下七颗时，把知识库那两颗收进「⋯」。
+   *
+   * 不按平台硬分：桌面窄到 400px 时七颗按钮同样会挤成一团，
+   * 而手机横屏反而放得下。判据是「宽度够不够」，不是「是不是手机」。
+   */
+  narrow?: boolean;
 }
 
 export interface ToolbarLayout {
@@ -72,16 +100,23 @@ export interface ToolbarLayout {
  */
 export function toolbarLayout(input: ToolbarLayoutInput): ToolbarLayout {
   const marked = !!input.marked;
-  if (!input.compact) {
+  const del = marked ? [DELETE_ITEM] : [];
+  const items = toolbarItems(input.kb);
+  if (input.compact) {
     return {
-      visible: marked ? [...TOOLBAR_ITEMS, DELETE_ITEM] : [...TOOLBAR_ITEMS],
-      overflow: [],
+      visible: items.slice(0, COMPACT_MAIN),
+      overflow: [...items.slice(COMPACT_MAIN), ...del],
     };
   }
-  return {
-    visible: TOOLBAR_ITEMS.slice(0, COMPACT_MAIN),
-    overflow: [...TOOLBAR_ITEMS.slice(COMPACT_MAIN), ...(marked ? [DELETE_ITEM] : [])],
-  };
+  if (input.narrow && input.kb) {
+    /* 主路径（想法 / 书摘 / AI / 双链 / 复制）留在胶囊上，知识库两颗进菜单：
+       窄窗里最先牺牲的应该是「用得少」而不是「用得急」。 */
+    return {
+      visible: [...items.filter((i) => !KB_ITEMS.some((k) => k.act === i.act)), ...del],
+      overflow: [...KB_ITEMS],
+    };
+  }
+  return { visible: [...items, ...del], overflow: [] };
 }
 
 /**
@@ -94,6 +129,8 @@ export interface ToolbarActs {
   idea?: string;
   quote?: string;
   ai?: string;
+  term?: string;
+  passage?: string;
   bilink?: string;
   copy?: string;
   del?: string;
@@ -104,6 +141,8 @@ export const SELECTION_ACTS: ToolbarActs = {
   idea: 'selidea',
   quote: 'selquote',
   ai: 'selai',
+  term: 'selterm',
+  passage: 'selpassage',
   bilink: 'selbilink',
   copy: 'selcopy',
 };
@@ -113,6 +152,8 @@ export const MARK_ACTS: ToolbarActs = {
   idea: 'hlidea',
   quote: 'hlquote',
   ai: 'hlai',
+  term: 'hlterm',
+  passage: 'hlpassage',
   bilink: 'copylink',
   copy: 'hlcopy',
   del: 'hldel',

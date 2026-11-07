@@ -487,6 +487,73 @@
   min-width: 0;
 }
 
+/* 回答依据三档：互斥单选；窄栏里允许换行，宁可两行也不许把字压扁 */
+.bzs-aiscope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 2px 0;
+}
+
+.bzs-aiscope button {
+  flex: 1 1 auto;
+  min-width: 0;
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--sunken);
+  color: var(--t2);
+  border-radius: var(--r-ctl);
+  padding: 5px 8px;
+  font: 11.5px var(--ui);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bzs-aiscope button.on {
+  border-color: var(--copper-line);
+  color: var(--copper);
+  background: var(--copper-soft);
+}
+
+/* 来源：答完之后附在气泡里；能点开的是一枚小按钮，点不开的只是说明 */
+.bzs-aisrc {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.bzs-aisrc .lbl {
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  color: var(--t3);
+}
+
+.bzs-aisrc-i {
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--t2);
+  font: 11px var(--ui);
+  border-radius: 999px;
+  padding: 2px 8px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.bzs-aisrc-i {
+  cursor: pointer;
+}
+
+button.bzs-aisrc-i:hover {
+  color: var(--copper);
+  border-color: var(--copper-line);
+}
+
 /* ── 页签图标：Obsidian 原生尺寸 ──
    18px、2 描边，和宿主自己的侧栏按钮同一档；未选中压到 .62 透明。 */
 .bzs-sbtab svg {
