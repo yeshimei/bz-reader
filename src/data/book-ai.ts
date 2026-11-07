@@ -17,7 +17,7 @@
 import type { App } from 'obsidian';
 import { bzEmbedder } from './bz-bridge';
 import { can } from './entitlement';
-import { PORTRAIT_TOP_K, cosine, decodeVector, listPortraits, readPortrait, type PortraitFile } from './portrait';
+import { PORTRAIT_TOP_K, cosine, decodeVector, listPortraits, readPortrait, type PortraitFile, type PortraitPlan } from './portrait';
 
 export interface BookAiHit {
   bookId: string;
@@ -41,10 +41,37 @@ export interface BookAiStats {
   models: string[];
 }
 
+/**
+ * 单本书的清单行（2026-11-08）。
+ *
+ * 第二大脑的统计面板要把书和笔记摆在一起：来源分布里每本书一行、
+ * 最近向量化里按时间和笔记混排。汇总数字不够用，那边要书名与各自的时间。
+ */
+export interface BookAiBook {
+  bookId: string;
+  /** 书名（缺失时是空串，由界面兜底成「未命名」——不在这里编名字） */
+  title: string;
+  /** 可检索的块数 */
+  blocks: number;
+  /** 正文总字数（按块计） */
+  chars: number;
+  /** 最近一次建／重建的时间（ms） */
+  updatedAt: number;
+  /** 产出向量的模型名（vector 方案）；空串 = 没有记录 */
+  model: string;
+  /** 画像方案：vector 才能检索，compress 只能看要点 */
+  plan: PortraitPlan;
+}
+
 export interface BookAiApi {
   /** 共享开关是否打开（关着时 bz 侧不该显示任何书籍统计） */
   isShared(): boolean;
   stats(): Promise<BookAiStats>;
+  /**
+   * 书籍清单（可选方法：老版 bz 不读，新版 bz 没有它就退回汇总行）。
+   * 只给「已建好、可检索」的书，按最近更新时间降序。
+   */
+  books(): Promise<BookAiBook[]>;
   search(query: string, topK?: number): Promise<BookAiHit[]>;
 }
 
@@ -101,6 +128,26 @@ export function summarizePortraits(list: readonly PortraitFile[]): BookAiStats {
 }
 
 /**
+ * 清单聚合（纯函数：只吃已经读完的画像）。
+ *
+ * 排序：最近更新时间降序；同一时刻按书名——同一次批量重建的几本书
+ * 不该随目录枚举顺序在面板里乱跳。时间缺失（0）排最后。
+ */
+export function summarizeBooks(list: readonly PortraitFile[]): BookAiBook[] {
+  return list
+    .map((p) => ({
+      bookId: p.bookId,
+      title: String(p.bookTitle ?? '').trim(),
+      blocks: p.blocks.length,
+      chars: p.blocks.reduce((n, b) => n + (Number(b.chars) || 0), 0),
+      updatedAt: Number(p.updatedAt) || 0,
+      model: String(p.model ?? ''),
+      plan: p.plan,
+    }))
+    .sort((a, b) => b.updatedAt - a.updatedAt || a.title.localeCompare(b.title));
+}
+
+/**
  * 跨书排序（纯函数）。
  *
  * 相似度只在「同一个查询向量 + 同一个模型空间」里可比：维度对不上、
@@ -149,6 +196,16 @@ export function createBookAi(deps: BookAiDeps): BookAiApi {
         return summarizePortraits(await loadPortraits(deps.app));
       } catch {
         return emptyStats();
+      }
+    },
+
+    async books(): Promise<BookAiBook[]> {
+      if (!shared()) return [];
+      try {
+        return summarizeBooks(await loadPortraits(deps.app));
+      } catch {
+        /* 读画像失败只是少一层清单：第二大脑那边退回汇总行，不报错 */
+        return [];
       }
     },
 

@@ -6,7 +6,7 @@
  * 「开关关着就一条不给」由 isShared 把关，属于接线层（plugin.ts）。
  */
 import { describe, expect, it } from 'vitest';
-import { rankBlocks, summarizePortraits, type BookAiStats } from '../src/data/book-ai';
+import { rankBlocks, summarizeBooks, summarizePortraits, type BookAiStats } from '../src/data/book-ai';
 import { encodeVector, type PortraitBlock, type PortraitFile } from '../src/data/portrait';
 
 function portrait(
@@ -90,5 +90,47 @@ describe('跨书排序', () => {
 
   it('topK 收口：要 2 条就只给 2 条', () => {
     expect(rankBlocks([1, 0], [p1, p2], 2)).toHaveLength(2);
+  });
+});
+
+/**
+ * 书籍清单（2026-11-08）：第二大脑的统计面板要把书并进来——「来源分布」里
+ * 每本书一行、「最近向量化」里按时间与笔记混排。汇总数字（几本几块）不够，
+ * 那边需要书名和各自的时间。
+ */
+describe('书籍清单', () => {
+  it('空书架 → 空数组，不造一行空书', () => {
+    expect(summarizeBooks([])).toEqual([]);
+  });
+
+  it('按最近更新时间降序，每本带书号/书名/块数/字数/时间/模型/方案', () => {
+    const list = summarizeBooks([
+      portrait('a', [{ chars: 100 }, { chars: 200 }], { updatedAt: 50, model: 'm1' }),
+      portrait('b', [{ chars: 300 }], { updatedAt: 900, model: 'm2' }),
+    ]);
+    expect(list.map((b) => b.bookId)).toEqual(['b', 'a']);
+    expect(list[0]).toEqual({
+      bookId: 'b',
+      title: '书b',
+      blocks: 1,
+      chars: 300,
+      updatedAt: 900,
+      model: 'm2',
+      plan: 'vector',
+    });
+    expect(list[1]).toMatchObject({ blocks: 2, chars: 300 });
+  });
+
+  it('时间相同按书名排（同一次重建的几本书不随目录顺序乱跳）', () => {
+    const list = summarizeBooks([
+      portrait('z', [{ chars: 1 }], { bookTitle: '乙书', updatedAt: 100 }),
+      portrait('y', [{ chars: 1 }], { bookTitle: '甲书', updatedAt: 100 }),
+    ]);
+    expect(list.map((b) => b.title)).toEqual(['甲书', '乙书']);
+  });
+
+  it('书名缺失给空串（界面兜底成「未命名」），不把 undefined/空值漏到界面上', () => {
+    const list = summarizeBooks([portrait('x', [{ chars: 1 }], { bookTitle: '' })]);
+    expect(list[0].title).toBe('');
   });
 });
