@@ -16,17 +16,22 @@
  * ============================================================ */
 import { ItemView, type WorkspaceLeaf } from 'obsidian';
 import type { FoliateTOCItem } from '../types/foliate';
-import { isMobileShell } from '../core/mobile';
+import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { dispatchAction, dispatchInput } from '../shell/actions';
 import { getState, setState, subscribe, type SideTab } from '../shell/state';
-import { liveBooks, shellPrefs, shellSettings } from '../shell/source';
+import { getShellSource, liveBooks, shellPrefs, shellSettings } from '../shell/source';
 import { RT } from '../shell/runtime';
-import { viewSidebar } from '../shell/render/sidebar';
+import { viewSidebar, type AiIndexView } from '../shell/render/sidebar';
 import { focusSelector, type FocusMemo } from '../shell/focus-memo';
 import { isTocItemActive, type TocActiveRef } from '../shell/toc-active';
 import { getToc, subscribeToc } from './toc-state';
 import { setHtml } from '../ui/dom';
 import { can } from '../data/entitlement';
+import { bzEmbedder } from '../data/bz-bridge';
+import { cachedPortrait, ensurePortrait } from '../shell/portrait-cache';
+import { portraitBuilder } from '../data/portrait-build';
+import { estimateChars, portraitState } from '../data/portrait';
+import { aiReady } from '../data/settings';
 
 /** 保留旧值：已保存的工作区布局按这个字符串恢复 leaf */
 export const VIEW_TYPE_TOC = 'bz-reader-toc';
@@ -75,6 +80,9 @@ export class SideView extends ItemView {
     this.render();
     this.unsubs.push(subscribe(() => this.render()));
     this.unsubs.push(subscribeToc(() => this.onTocChange()));
+    /* 建索引的进度每跑完一批就广播一次：不订阅的话，侧栏会停在
+       「第 3 / 130 块」直到用户点别的页签再切回来。 */
+    this.unsubs.push(portraitBuilder().subscribe(() => this.render()));
   }
 
   async onClose(): Promise<void> {
@@ -213,6 +221,31 @@ export class SideView extends ItemView {
 
     this.memoFocus();
 
+    /* 画像状态是异步读来的：先按缓存画，读到（或建完）之后自己重绘一次。
+       undefined = 还没读过，这一帧不出「建立索引」——建过的书不该闪一下按钮。 */
+    const cached = bookId ? cachedPortrait(bookId) : null;
+    if (bookId && cached === undefined) {
+      void ensurePortrait(getShellSource()?.app, bookId, () => this.render());
+    }
+    const progress = portraitBuilder().progress();
+    /* 向量归第二大脑：模型名从 bz 取，画像里记的也是它——换了模型，旧向量
+       会在这里被判 stale（以前靠用户自己把设置改对才看得出来）。 */
+    const embedder = bzEmbedder(getShellSource()?.app);
+    const aiIndex: AiIndexView = {
+      state: portraitState(cached ?? null, embedder.model),
+      loading: !!bookId && cached === undefined,
+      /* 单例只跑一个任务：进度记的是另一本书时，这本按「没在跑」画 */
+      progress: progress.bookId && progress.bookId === bookId ? progress : null,
+      chars: estimateChars(book),
+      choosing: RT.aiIndexOpen,
+      plan: RT.portraitPlan,
+      mobile: isMobileEnv(),
+      open: !!bookId && getShellSource()?.openBookId() === bookId,
+      embedReady: !!embedder.ai,
+      askReady: aiReady(settings),
+      blocks: cached?.blocks?.length ?? 0,
+    };
+
     root.dataset.bzaccent = shellPrefs().accent;
     setHtml(
       root,
@@ -223,7 +256,8 @@ export class SideView extends ItemView {
         activeLabel: snap?.activeLabel ?? '',
         activeHref: snap?.activeHref ?? '',
         aiLog: RT.aiLog,
-        aiReady: !!settings.ai.baseUrl && !!settings.ai.apiKey && !!settings.ai.model,
+        aiReady: aiReady(settings),
+        aiIndex,
         collapsed: RT.tocCollapsed,
       }),
     );

@@ -364,9 +364,13 @@ export function portraitState(p: PortraitFile | null | undefined, model: string)
   if (!p) return 'none';
   if (!p.done) return 'building';
   /* 只有向量方案会被模型换代打废：摘要换了对话模型照样读得懂。
-     缺模型名（老文件 / 探测不到）时按可用处理，不凭猜测让人重建。 */
-  if (p.plan === 'vector' && p.model && model && p.model !== model) return 'stale';
-  return 'ready';
+     两边都探测不到模型名时不凭猜测让人重建（bz 没装、缓存还没读到），
+     真要提问会在取向量那一步给出明确的一句话。 */
+  if (p.plan !== 'vector' || !model) return 'ready';
+  /* 向上未知也要判废：画像里没记模型名，说明它不是这一套模型算出来的。
+     以前「缺模型名按可用」是一条宽松规则，自建嵌入时代无伤大雅；现在模型
+     由第二大脑给，宽松等于拿两套空间的向量互相检索——界面正常，结果全错。 */
+  return p.model === model ? 'ready' : 'stale';
 }
 
 /* ─────────── 存储 ─────────── */

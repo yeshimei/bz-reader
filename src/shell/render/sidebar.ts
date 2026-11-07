@@ -16,6 +16,9 @@ import { bmksOf, groupByChapter, marksOf } from '../domain';
 import type { SideTab } from '../state';
 import type { AiLogItem } from '../runtime';
 import { isTocItemActive, type TocActiveRef } from '../toc-active';
+import type { BuildProgress } from '../../data/portrait-build';
+import type { PortraitPlan, PortraitState } from '../../data/portrait';
+import { portraitEstimate } from './portrait';
 import { esc, ico, icoNative } from './html';
 
 /* AiLogItem 的字段口径只有一份，在 shell/runtime.ts（pushAi 往那儿写）。
@@ -32,8 +35,39 @@ export interface SidebarView {
   /** 未开书时各页签统一空态 */
   aiLog: AiLogItem[];
   aiReady: boolean;
+  /**
+   * AI 页签的索引态（2026-11-07 定稿）。
+   *
+   * 侧栏先回答「这本书能不能按全书提问」：没索引就摆「建立索引」，
+   * 建法与进度都在这块里，不弹窗；建好之后才出现输入框。
+   * 缺省 = 还没读到状态，按「未建」画但不出按钮（避免建过的书闪一下）。
+   */
+  aiIndex?: AiIndexView;
   /** 被折叠的父章节 href（见 runtime.tocCollapsed）；缺省 = 全部展开 */
   collapsed?: ReadonlySet<string>;
+}
+
+/** 侧栏 AI 页签要画的那点索引状态 */
+export interface AiIndexView {
+  state: PortraitState;
+  /** 盘上的状态还没读回来：先只说一句「在读」，不摆按钮也不摆输入框 */
+  loading?: boolean;
+  /** 正在跑（或上次停在一半）的任务进度；null / 缺省 = 没有任务 */
+  progress?: BuildProgress | null;
+  /** 正文体积（切块之前按它估块数与请求数） */
+  chars: number;
+  /** 用户点了「建立索引」，正在选建法 */
+  choosing?: boolean;
+  plan: PortraitPlan;
+  /** 手机端不建索引（建好的照样能问） */
+  mobile?: boolean;
+  /** 这本书正在阅读视图里打开：建索引要读它的正文 */
+  open?: boolean;
+  /** 嵌入服务 / 对话模型分别配好了没（两种建法要的东西不一样） */
+  embedReady?: boolean;
+  askReady?: boolean;
+  /** 已建好的块数（建好后那行元信息用） */
+  blocks?: number;
 }
 
 /**
@@ -189,17 +223,132 @@ function aiSourcesRow(m: AiLogItem): string {
   return `<div class="bzs-aisrc"><span class="lbl">${esc(t('side.ai.sources'))}</span>${items}</div>`;
 }
 
-function aiBody(v: SidebarView): string {
+/**
+ * 索引建法与进度（2026-11-07 定稿）。
+ *
+ * 以前这两步是「全书问答准备」弹窗：打开弹层 → 看预估 → 选方案 → 开始。
+ * 现在全部收进这一块侧栏，理由是它本来就在同一个位置反复出现——建完之前
+ * 侧栏 AI 页签本来也干不了别的，弹窗只是把同一件事又说了一遍。
+ *
+ * 一条硬规矩：
+ *   · 没建索引 → 只有「建立索引」与「观看视频教程」；
+ *   · 建到一半 → 只有进度与暂停 / 取消；
+ *   · 建好了   → 才出现输入框（问什么都按全书回答）。
+ */
+const PLAN_LABEL: Record<PortraitPlan, MsgKey> = {
+  vector: 'pt.plan.vector',
+  compress: 'pt.plan.compress',
+};
+
+const PLAN_EST: Record<PortraitPlan, MsgKey> = {
+  vector: 'pt.estimate.vector',
+  compress: 'pt.estimate.compress',
+};
+
+function tutorialBtn(): string {
+  return `<button class="bzs-btn sm" data-act="aitutorial">${t('side.ai.index.tutorial')}</button>`;
+}
+
+function buildBtn(stale: boolean): string {
+  return `<button class="bzs-btn sm pri" data-act="aiidx">${stale ? t('side.ai.index.rebuild') : t('side.ai.index.build')}</button>`;
+}
+
+/** 选建法：两张卡写清块数与请求数，确认之后才跑 */
+function indexChoose(v: AiIndexView): string {
+  const cards = (['vector', 'compress'] as const)
+    .map((plan) => {
+      const est = portraitEstimate(v.chars, plan, 0);
+      const on = v.plan === plan;
+      // 这一档要的服务没配好：仍然可选，但把缺什么写在卡片下面（按钮不给灰）
+      const lack =
+        plan === 'vector' && v.embedReady === false
+          ? t('side.ai.embedNotReady')
+          : plan === 'compress' && v.askReady === false
+            ? t('side.ai.notReady')
+            : '';
+      return `<button class="bzs-aiplan${on ? ' on' : ''}" data-act="aiplan" data-v="${plan}" aria-pressed="${on}">
+          <b>${esc(t(PLAN_LABEL[plan]))}</b>
+          <span class="est">${esc(t(PLAN_EST[plan], { blocks: est.blocks, requests: est.requests }))}</span>
+          ${on && lack ? `<em class="lack">${esc(lack)}</em>` : ''}
+        </button>`;
+    })
+    .join('');
+  return `<div class="bzs-aiidx">
+      <div class="lead">${t('side.ai.index.choose')}</div>
+      ${cards}
+      <div class="acts">
+        <button class="bzs-btn sm pri" data-act="aistart">${t('pt.start')}</button>
+        <button class="bzs-btn sm" data-act="aiidxclose">${t('pt.stop')}</button>
+      </div>
+    </div>`;
+}
+
+/** 跑起来之后：进度条 + 一行「第几块」+ 暂停 / 取消 */
+function indexRun(p: BuildProgress): string {
+  const extracting = p.phase === 'extract' || p.status === 'extract';
+  const line = extracting
+    ? t('pt.extract', { done: p.extractDone, total: p.extractTotal })
+    : p.total
+      ? t('pt.block', { done: p.done, total: p.total })
+      : t('pt.extract', { done: 0, total: 0 });
+  const pct = p.total ? Math.min(100, Math.round((p.done / p.total) * 100)) : 4;
+  const paused = p.status === 'paused';
+  const failed = p.failed > 0;
+  const note = [paused ? t('pt.pause') : '', failed ? t('pt.failedBlocks', { n: p.failed }) : '']
+    .filter(Boolean)
+    .join(' · ');
+  return `<div class="bzs-aiidx">
+      <div class="bzs-idxhd"><b>${t('side.ai.index.running')}</b><span class="pc">${pct}%</span></div>
+      <div class="bzs-idxbar"><i style="width:${pct}%"></i></div>
+      <div class="bzs-mini">${esc(line)}${note ? ` · ${esc(note)}` : ''}</div>
+      ${p.message ? `<div class="bzs-mini is-bad">${esc(p.message)}</div>` : ''}
+      <div class="acts">
+        <button class="bzs-btn sm" data-act="${paused ? 'ptresume' : 'ptpause'}">${paused ? t('pt.resume') : t('pt.pause')}</button>
+        ${failed ? `<button class="bzs-btn sm" data-act="ptretry">${t('pt.retryFailed')}</button>` : ''}
+        <button class="bzs-btn sm" data-act="aiidxstop">${t('pt.stop')}</button>
+      </div>
+    </div>`;
+}
+
+function indexBody(v: SidebarView, idx: AiIndexView): string {
+  if (idx.loading) return `<div class="bzs-aiidx"><div class="lead">${t('side.ai.index.loading')}</div></div>`;
+
+  const p = idx.progress ?? null;
+  if (p && (p.status === 'extract' || p.status === 'running' || p.status === 'paused' || (p.status === 'error' && p.total > 0))) {
+    return indexRun(p);
+  }
+  /* 刚跑完、盘上的缓存还没换过来：先给一句话，下一次重绘就进对话界面 */
+  if (p?.status === 'done') {
+    return `<div class="bzs-aiidx"><div class="lead">${t('side.ai.index.done')}</div></div>`;
+  }
+  if (idx.choosing) return indexChoose(idx);
+
+  const stale = idx.state === 'stale';
+  /* 手机上不建索引：只说明去哪儿建，教程按钮仍留着（没有 bz 也能看） */
+  if (idx.mobile) {
+    return `<div class="bzs-aiidx">
+        <div class="lead">${t('pt.mobile')}</div>
+        <div class="acts">${tutorialBtn()}</div>
+      </div>`;
+  }
+  return `<div class="bzs-aiidx">
+      ${stale ? `<div class="bzs-mini is-bad">${t('side.ai.book.stale')}</div>` : ''}
+      <div class="lead">${t('side.ai.index.lead')}</div>
+      ${idx.open === false ? `<div class="bzs-mini">${t('pt.needOpen')}</div>` : ''}
+      <div class="acts">${buildBtn(stale)}${tutorialBtn()}</div>
+    </div>`;
+}
+
+/** 建好之后：对话 + 输入框。提问一律按全书回答，没有档位可选 */
+function indexChat(v: SidebarView, idx: AiIndexView): string {
   const log = v.aiLog.length
     ? v.aiLog
-    : [
-        {
-          me: false,
-          tag: 'AI',
-          text: v.aiReady ? t('side.ai.hint') : t('side.ai.notReady'),
-        },
-      ];
+    : [{ me: false, tag: 'AI', text: t('side.ai.hint') }];
+  const blocks = idx.blocks && idx.blocks > 0 ? ` · ${t('pt.blockCount', { n: idx.blocks })}` : '';
   return `<div class="bzs-aichat">
+      <div class="bzs-aimeta">${t('side.ai.scope.book')}${blocks}
+        <button class="lnk" data-act="aiidxrebuild">${t('side.ai.index.rebuild')}</button>
+      </div>
       ${log
         .map(
           (m) =>
@@ -209,11 +358,24 @@ function aiBody(v: SidebarView): string {
         )
         .join('')}
       <div class="bzs-aiask">
-        <input data-role="aiask" placeholder="${v.aiReady ? t('side.ai.ask.ph') : t('side.ai.notReady.ph')}"${v.aiReady ? '' : ' disabled'}>
+        <input data-role="aiask" placeholder="${t('side.ai.ask.ph')}">
         <button class="bzs-btn sm pri" data-act="aiask">${t('side.ai.ask')}</button>
       </div>
-      ${v.aiReady ? '' : `<div class="bzs-mini" style="padding:6px 2px">${t('side.ai.configHint')}</div>`}
     </div>`;
+}
+
+function aiBody(v: SidebarView): string {
+  /* 服务没配：说清去哪儿配。没配之前既建不了索引，也问不了；
+     但教程按钮仍留着——没装 bz、也没配 AI 的人，正是最需要先看点东西的人。 */
+  if (!v.aiReady) {
+    return `<div class="bzs-aiidx">
+        <div class="lead">${t('side.ai.notReady')}</div>
+        <div class="acts">${tutorialBtn()}</div>
+      </div>`;
+  }
+  const idx = v.aiIndex;
+  if (!idx) return `<div class="bzs-aiidx"><div class="lead">${t('side.ai.index.lead')}</div></div>`;
+  return idx.state === 'ready' ? indexChat(v, idx) : indexBody(v, idx);
 }
 
 export function viewSidebar(v: SidebarView): string {

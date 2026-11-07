@@ -37,6 +37,8 @@ import {
   setIdeaDraft,
 } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
+import { bzEmbedder, bzEntryReady } from '../data/bz-bridge';
+import { aiCardBegin, aiCardDone, aiCardDrop, aiCardFail, aiCardGet, aiCardKey, aiCardReset, aiModeOf } from './ai-card';
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
 import { PLAN_TABLE, can, entitlement, type Cap, type PlanCell } from '../data/entitlement';
@@ -401,7 +403,7 @@ function overlayHltools(markId?: string, bookId?: string): string {
   const toolbar = toolbarHtml({
     marked: true,
     compact: isMobileEnv(),
-    kb: shellSettings().aiKnowledge && can('ai'),
+    kb: can('ai') && bzEntryReady(getShellSource()?.app),
     narrow: window.innerWidth < 520,
     color: mark.color ?? 'amber',
     colors: HIGHLIGHT_COLORS,
@@ -558,7 +560,7 @@ function textPanel(
     marked: opts.marked ?? true,
     color: opts.color,
     colors: HIGHLIGHT_COLORS,
-    kb: shellSettings().aiKnowledge && can('ai'),
+    kb: can('ai') && bzEntryReady(getShellSource()?.app),
     narrow: window.innerWidth < 520,
     acts: opts.markId ? MARK_ACTS : SELECTION_ACTS,
     active: opts.active,
@@ -597,13 +599,28 @@ function overlayAi(markId?: string, bookId?: string): string {
   if (__BZ_READER_PRO__) {
     const s = shellSettings();
     const ready = !!s.ai.baseUrl && !!s.ai.apiKey && !!s.ai.model;
-    html = textPanel(aiCardHtml({ ready }), 'bzs-ai-panel', {
-      active: 'ai',
-      marked: !!markId,
-      markId,
-      bookId,
-      color: markId ? markById(markId, bookId)?.mark.color : undefined,
-    });
+    const o = getState().overlay;
+    const text = o?.text || RT.sel?.text || '';
+    const mode = aiModeOf(o?.mode);
+    const entry = ready ? aiCardGet(aiCardKey('ai', mode, text)) : undefined;
+    html = textPanel(
+      aiCardHtml({
+        ready,
+        mode,
+        quote: text,
+        text: entry?.text,
+        /* 没有记账 = 请求正要发出去：先画占位，别让卡片空着 */
+        busy: entry ? entry.status === 'busy' : true,
+      }),
+      'bzs-ai-panel',
+      {
+        active: 'ai',
+        marked: !!markId,
+        markId,
+        bookId,
+        color: markId ? markById(markId, bookId)?.mark.color : undefined,
+      },
+    );
   }
   return html;
 }
@@ -626,8 +643,12 @@ function overlayTranslate(text?: string): string {
   const t = text || RT.sel?.text || '';
   const s = shellSettings();
   const ready = !!s.ai.baseUrl && !!s.ai.apiKey && !!s.ai.model;
+  /* 译文也记在册子上：重画（换焦点、授权变化）之后不该退回「正在翻译…」 */
+  const entry = ready ? aiCardGet(aiCardKey('translate', 'translate', t)) : undefined;
   const body = `<div class="bzs-ai-quote">「${esc(t)}」</div>
-    <div class="bzs-ai-body" data-role="aibody">${ready ? '正在翻译…' : '还没有配置 AI 服务，无法翻译。到 书架 · 设置 里配置。'}</div>
+    <div class="bzs-ai-body" data-role="aibody">${esc(
+      entry?.text || (ready ? '正在翻译…' : '还没有配置 AI 服务，无法翻译。到 书架 · 设置 里配置。'),
+    )}</div>
     <div class="bzs-ai-src">只发送选中的这一段 · ${esc(s.ai.model || '未配置模型')}</div>`;
   return modal('翻译', '段落 · 译成中文', body, `<button class="bzs-btn" data-act="copytext" data-text="">复制译文</button>${closeBtn()}`, 'wide');
 }
@@ -775,7 +796,7 @@ function overlayDetail(bookId?: string): string {
       <div class="bzs-kv"><b>划线 / 书签</b><span>${marks.length} 条 / ${bks.length} 枚</span></div>
       <div class="bzs-kv"><b>上次打开</b><span>${fmtWhen(b.reading.stats.lastReadTime)}</span></div>
       <div class="bzs-kv"><b>${esc(t('detail.portrait'))}</b><span>${esc(
-        portraitStatusLine(cachedPortrait(b.id) ?? null, shellSettings().ai.embedModel),
+        portraitStatusLine(cachedPortrait(b.id) ?? null, bzEmbedder(getShellSource()?.app).model),
       )}</span></div>
       <div class="bzs-kv"><b>文件</b><span style="max-width:280px;overflow:hidden;text-overflow:ellipsis${
         missing ? ';color:var(--vermilion)' : ''
@@ -879,7 +900,7 @@ function portraitModel(bookId?: string): PortraitView {
     bookTitle: book?.meta.title ?? '',
     progress,
     portrait: cached ?? null,
-    model: shellSettings().ai.embedModel,
+    model: bzEmbedder(getShellSource()?.app).model,
   };
 }
 
@@ -1136,10 +1157,40 @@ export function overlayHtml(): string {
  * 都会 `paint()`**：想点「存为笔记」，正文立刻变回「正在请求…」，刚看到的
  * 答案被抹掉并重新发一次（花的是用户的钱）；点一次模式切换会在同一 tick
  * 发两条，一条写进已经被替换掉的旧节点，纯浪费（P1-08）。
+ *
+ * 现在这份记号由 `shell/ai-card` 的账本承担：**在路上的不算重发、已经有
+ * 结果的直接画回去**。同一条规则顺带治好了「答案只写在 DOM 上、重画就丢」
+ * ——那个症状是卡片永远停在「正在请求…」。
  */
-let aiRequestedFor = '';
 
-/** AI 请求：弹层打开后自己发一次，结果回填到 [data-role="aibody"] */
+/** 只往「当前这张卡」里写：换档之后旧请求回来，不该污染新卡 */
+function currentAiKey(): string {
+  const o = getState().overlay;
+  if (!o || (o.kind !== 'ai' && o.kind !== 'translate')) return '';
+  const text = o.text || RT.sel?.text || '';
+  const task: AiTask = o.kind === 'translate' ? 'translate' : aiModeOf(o.mode);
+  return aiCardKey(o.kind, task, text);
+}
+
+/**
+ * 把册子里的这一条画到**当前**的 DOM 上。
+ *
+ * 不缓存节点：请求要跑几十秒，中间任何一次重画都会把节点换掉，抓着旧节点
+ * 写进去等于写在空气里（用户看到的就是「一直正在请求」）。
+ */
+function writeAiBody(key: string): void {
+  if (!key || currentAiKey() !== key) return;
+  const entry = aiCardGet(key);
+  /* 还在路上（正文是空的）：占位文案由渲染那一侧画，这里不要写一个空串进去 */
+  if (!entry || !entry.text) return;
+  const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
+  if (node) node.textContent = entry.text;
+}
+
+/** 正在跑的请求：`RT.aiAbort` 给「取消请求」用，这里额外记着它是哪一档 */
+let aiInFlight: { key: string; ctrl: AbortController } | null = null;
+
+/** AI 请求：弹层打开后自己发一次，结果记进册子并回填到 [data-role="aibody"] */
 export async function runAiForOverlay(): Promise<void> {
   const o = getState().overlay;
   if (!o || (o.kind !== 'ai' && o.kind !== 'translate')) return;
@@ -1148,24 +1199,54 @@ export async function runAiForOverlay(): Promise<void> {
   const s = shellSettings();
   if (!s.ai.baseUrl || !s.ai.apiKey || !s.ai.model) return;
   const text = o.text || RT.sel?.text || '';
-  const task: AiTask = o.kind === 'translate' ? 'translate' : ((o.mode as AiTask) || 'explain');
-  const key = `${o.kind}|${task}|${text}`;
-  if (key === aiRequestedFor) return;
-  aiRequestedFor = key;
-  const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
-  /* 新请求先取消旧的：用户连点两次模式不该两个请求并排跑 */
-  RT.aiAbort?.abort();
+  const task: AiTask = o.kind === 'translate' ? 'translate' : aiModeOf(o.mode);
+  const key = aiCardKey(o.kind, task, text);
+
+  /* 同一条还在路上：把占位画回去就够，绝不重复发（花的是用户的钱） */
+  if (aiInFlight?.key === key) {
+    writeAiBody(key);
+    return;
+  }
+  const entry = aiCardGet(key);
+  /* 已经问过：结果 / 失败原因都还在册子上，画回去即可。失败不自动重发，
+     重发是「重试」那颗按钮的事——自动重发等于用户每点一下都扣一次费 */
+  if (entry && entry.status !== 'busy') {
+    writeAiBody(key);
+    return;
+  }
+  /* 换档 / 换一段：把旧请求掐掉，它的机会已经过去了 */
+  if (aiInFlight) {
+    const old = aiInFlight;
+    aiInFlight = null;
+    if (RT.aiAbort === old.ctrl) RT.aiAbort = null;
+    old.ctrl.abort();
+    aiCardDrop(old.key);
+  }
+  aiCardBegin(key);
   const ctrl = new AbortController();
+  aiInFlight = { key, ctrl };
   RT.aiAbort = ctrl;
   try {
     const res = await aiAsk(s, { task, text }, { signal: ctrl.signal });
-    if (RT.aiAbort === ctrl) RT.aiAbort = null;
-    if (node) node.textContent = res.text;
+    if (aiInFlight?.ctrl === ctrl) {
+      aiInFlight = null;
+      RT.aiAbort = null;
+    }
+    aiCardDone(key, res.text);
     pushAi(false, `AI · ${s.ai.model}`, res.text);
   } catch (e) {
-    if (RT.aiAbort === ctrl) RT.aiAbort = null;
-    if (node) node.textContent = (e as Error).message;
+    if (aiInFlight?.ctrl === ctrl) {
+      aiInFlight = null;
+      RT.aiAbort = null;
+    }
+    /* 被掐掉的请求不留「已取消」这种假结果：取消按钮自己会写一条给人看的，
+       换档则连这条都不需要——旧档切回来应该重新问 */
+    if (!ctrl.signal.aborted) aiCardFail(key, (e as Error).message);
+    else aiCardDrop(key);
   }
+  /* 卡已经关了 / 换了另一档：这份结果没人看，别留在册子上冒充「问过了」 */
+  if (currentAiKey() !== key) aiCardDrop(key);
+  writeAiBody(key);
 }
 
 /* ─────────── 容器 ─────────── */
@@ -1411,8 +1492,8 @@ export class OverlayLayer {
     if (o?.kind === 'ai' || o?.kind === 'translate') {
       void runAiForOverlay();
     } else {
-      // 离开 AI 弹层就清掉「已请求过」的记号，下次打开同一段还要再问一次
-      aiRequestedFor = '';
+      // 离开 AI 卡就把册子清掉：下次划同一段，应该重新问一次
+      aiCardReset();
     }
     /* 想法浮窗：打开就把光标放进输入框，少一次点击。
        之后的重画（亮确认条）不再抢焦点——手刚离开输入框。 */

@@ -13,7 +13,7 @@
 import { Menu, type TFile } from 'obsidian';
 import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
-import { aiAsk, aiEmbed, aiEmbedQuery } from '../data/ai';
+import { aiAsk, type AiTask } from '../data/ai';
 import {
   DEFAULT_HIGHLIGHT_COLOR,
   addHighlight,
@@ -65,11 +65,11 @@ import {
   toggleFav,
 } from './state';
 import { RT, emitNotesChanged, pushAi } from './runtime';
-import { probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
+import { bzEmbedder, bzNotesReady, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
 import { isMobileEnv } from '../core/mobile';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
-import { ensurePortrait, forgetPortrait, setPortrait } from './portrait-cache';
+import { forgetPortrait, setPortrait } from './portrait-cache';
 import { portraitNoteMarkdown } from './render/portrait';
 import {
   AI_CONTEXT_LIMIT,
@@ -98,7 +98,9 @@ import {
 } from '../data/portrait';
 import { kbSource, kbThought, mergeThought } from '../data/kb-entry';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
-import { DEFAULT_SETTINGS, aiReady, embedReady } from '../data/settings';
+import { aiCardDrop, aiCardFail, aiCardKey, aiModeOf } from './ai-card';
+import { runAiForOverlay } from './overlay';
+import { DEFAULT_SETTINGS, aiReady } from '../data/settings';
 import { copyGroupId, copyGroupIdForTrial } from './group';
 
 /** 当前上下文里的书：优先状态里记住的那本，否则取书库第一本 */
@@ -296,10 +298,9 @@ function knowledgeEntry(kind: BzEntryKind, markId?: string, bookId?: string): vo
   if (!src) return;
   const app: App = src.app;
   if (!requireCap('ai')) return;
-  if (!shellSettings().aiKnowledge) {
-    notify(t('notice.kb.off'), 'info');
-    return;
-  }
+  /* 自动识别（2026-11-07 起没有开关）：bz 缺失由下面的 openBzEntry 回一句
+     「还没装 / 没启用 / 版本旧」，比这里再写一句笼统的话更指导下一步。
+     工具条上的两颗按钮本身也按 bzEntryReady 出现，所以正常走不到失败分支。 */
 
   let book: ReaderBook | undefined;
   let text = '';
@@ -386,15 +387,20 @@ function portraitDeps(bookId: string): PortraitBuildDeps | null {
       return ok;
     },
     extract: (onProgress, shouldStop) => src.exportChapters({ onProgress, shouldStop, bookId }),
-    /* 向量由本插件自己算：设置里的嵌入模型，经 OpenAI 兼容的 /embeddings。
-       以前这里借 bz 的门面，bz 不在就建不了画像——那条依赖已经断开。 */
-    embed: (texts, signal) => aiEmbed(settings, texts, { signal }),
+    /* 向量由第二大脑算（2026-11-07 决策回摆）：模型名、维度都在 bz 那边，
+       这里只把正文递过去。取不到门面就直说缺什么，不退回自建嵌入——
+       两套模型算出来的向量不在一个空间，混用等于静默给错结果。 */
+    embed: (texts, signal) => {
+      const embedder = bzEmbedder(src.app);
+      if (!embedder.ai) return Promise.reject(new Error(embedder.problem || t('side.ai.embedNotReady')));
+      return embedder.ai.embedDocuments(texts, signal);
+    },
     summarise: async (text, signal) => {
       const res = await aiAsk(settings, { task: 'summarize', text }, { signal });
       return { digest: firstSentence(res.text), summary: res.text.trim() };
     },
     overview: async (evidence, signal) => (await aiAsk(settings, { task: 'summarize', text: evidence }, { signal })).text.trim(),
-    embedModel: () => settings.ai.embedModel,
+    embedModel: () => bzEmbedder(src.app).model,
     chatModel: () => settings.ai.model || '',
   };
 }
@@ -407,7 +413,28 @@ function portraitBlockMessage(reason: PortraitBlockReason): string {
   return t('pt.needOpen');
 }
 
-function startPortrait(book: ReaderBook, plan: PortraitPlan, rebuild = false): void {
+/**
+ * 教程视频地址。
+ *
+ * 现在留空：视频还在剪。空串时按钮照样渲染（没装 bz 的人只能靠它知道
+ * 「这本书的索引是怎么建的」），点下去说一句「还在剪」；做好之后把地址
+ * 填在这儿，按钮就变成真链接——不用再改界面。
+ */
+const AI_TUTORIAL_URL = '';
+
+/** 展开侧栏 AI 页签里的「选建法」，并把人送到那儿（建索引入口只有这一处） */
+function revealIndexPanel(): void {
+  RT.aiIndexOpen = true;
+  getShellSource()?.openSidebar('ai');
+  repaint();
+}
+
+/**
+ * 开始建索引。返回「真的跑起来了没有」——侧栏据此决定要不要收起选建法那一块：
+ * 被拦下时（书没开 / 手机端 / 服务没配）已经把原因说给用户了，此时把
+ * 选项收掉等于让他重新点一遍。
+ */
+function startPortrait(book: ReaderBook, plan: PortraitPlan, rebuild = false): boolean {
   const src = getShellSource();
   /* 能不能建，四条一起判（portrait-gate.ts）。其中「开的是另一本书」这条
      最隐蔽：画像的正文来自阅读视图，取错了会算出一整本错向量，界面却正常。 */
@@ -417,18 +444,20 @@ function startPortrait(book: ReaderBook, plan: PortraitPlan, rebuild = false): v
     mobile: isMobileEnv(),
     bookId: book.id,
     openBookId: src?.openBookId() ?? '',
-    embedReady: embedReady(settings),
+    /* 向量方案要的是「bz 的嵌入能力」，不是本插件设置里的某个字段 */
+    embedReady: !!bzEmbedder(src?.app).ai,
     aiReady: aiReady(settings),
   });
   if (reason) {
     notify(portraitBlockMessage(reason), 'info');
-    return;
+    return false;
   }
   const deps = portraitDeps(book.id);
-  if (!deps) return;
+  if (!deps) return false;
   RT.portraitPlan = plan;
   const b = portraitBuilder(deps);
   void b.start({ id: book.id, title: book.meta.title || t('common.untitled') }, plan, { rebuild });
+  return true;
 }
 
 /** 无主画像：先读清单，再问一句 */
@@ -1210,13 +1239,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'toggle': {
       const src = getShellSource();
       if (!src) break;
-      /* 锁着的组整块带 data-act=unlock，但组里的开关自己也有 data-act——
-         点开关时命中的是它，会绕过解锁直接把值翻过去。知识库这一项必须
-         单独挡一次：翻过去等于「没买也能用」。 */
-      if (d.k === 'aiKnowledge' && !can('ai')) {
-        requireCap('ai');
-        break;
-      }
       const patch = flipSetting(shellSettings(), d.k ?? '');
       if (!patch) break;
       src.setSettings(patch);
@@ -1479,10 +1501,62 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         notify(t('notice.needBook'), 'info');
         break;
       }
-      void ensurePortrait(getShellSource()?.app, book.id);
-      openOverlay({ kind: 'portrait', bookId: book.id });
+      /* 2026-11-07 起建索引只在侧栏 AI 页签里做：详情页这颗按钮负责把
+         「建立索引」那一块展开，不再弹「全书问答准备」的弹窗。 */
+      revealIndexPanel();
       break;
     }
+
+    /* ── 侧栏 AI 页签：建索引就地展开，不弹窗 ── */
+    case 'aiidx': {
+      if (!requireCap('ai')) break;
+      revealIndexPanel();
+      break;
+    }
+    case 'aiidxclose':
+      RT.aiIndexOpen = false;
+      repaint();
+      break;
+    case 'aiplan':
+      if (d.v === 'vector' || d.v === 'compress') {
+        RT.portraitPlan = d.v;
+        repaint();
+      }
+      break;
+    case 'aistart': {
+      if (!requireCap('ai')) break;
+      const book = currentBook();
+      if (!book) {
+        notify(t('notice.needBook'), 'info');
+        break;
+      }
+      /* 跑起来了才收起「选建法」：被拦下时保留原样，用户能改选另一种方案 */
+      if (startPortrait(book, RT.portraitPlan)) RT.aiIndexOpen = false;
+      repaint();
+      break;
+    }
+    case 'aiidxstop':
+      portraitBuilder().cancel();
+      repaint();
+      break;
+    case 'aiidxrebuild': {
+      if (!requireCap('ai')) break;
+      const book = currentBook();
+      if (!book) {
+        notify(t('notice.needBook'), 'info');
+        break;
+      }
+      forgetPortrait(book.id);
+      startPortrait(book, RT.portraitPlan, true);
+      repaint();
+      break;
+    }
+    case 'aitutorial':
+      /* 教程视频还在剪：先把按钮留着（没有装 bz 的人更只能靠它），
+         做好之后把地址填进 AI_TUTORIAL_URL 就生效。 */
+      if (AI_TUTORIAL_URL) window.open(AI_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
+      else notify(t('notice.video.wip'), 'info');
+      break;
     case 'ptplan': {
       if (d.v === 'vector' || d.v === 'compress') {
         RT.portraitPlan = d.v;
@@ -1646,17 +1720,33 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       notify(t('notice.ui.reset'));
       break;
 
-    /* ── AI 卡上的动作：取消 / 复制 / 重试 / 存笔记 ── */
+    /* ── AI 卡上的动作：切档 / 取消 / 复制 / 重试 / 存笔记 ── */
+    case 'aimode': {
+      const o = getState().overlay;
+      const next = d.mode;
+      if (!o || o.kind !== 'ai' || !next) break;
+      const mode = aiModeOf(next);
+      if (o.mode === mode) break;
+      /* 换一档 = 换一个问题：旧请求在 runAiForOverlay 里会被掐掉，
+         答案按 (kind|task|text) 分开记，切回来还是那一份。
+         重画由派发方负责（overlayKey 含 mode，内容键一变就会重画） */
+      RT.aiAbort?.abort();
+      setState({ overlay: { ...o, mode } });
+      break;
+    }
     case 'aicancel': {
       /* 只取消正在跑的那一个：RT.aiAbort 由 runAiForOverlay 持有，
-         取消后按钮点「再来一次」会新建 controller。 */
+         取消后按钮点「重试」会新建 controller。 */
       const ctrl = RT.aiAbort;
       if (ctrl) {
         RT.aiAbort = null;
+        const o = getState().overlay;
+        if (o) {
+          const task: AiTask = o.kind === 'translate' ? 'translate' : aiModeOf(o.mode);
+          aiCardFail(aiCardKey(o.kind, task, o.text || RT.sel?.text || ''), '已取消');
+        }
         ctrl.abort();
       }
-      const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
-      if (node) node.textContent = '已取消';
       break;
     }
     case 'aicopy': {
@@ -1667,16 +1757,14 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     }
     /* 重试：结果回填到卡里，不关卡——失败原因还留在上面 */
     case 'airetry': {
-      const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
-      const text = getState().overlay?.text || RT.sel?.text || '';
-      if (node) node.textContent = '正在请求…';
-      void aiAsk(shellSettings(), { task: 'explain', text })
-        .then((res) => {
-          if (node) node.textContent = res.text;
-        })
-        .catch((e: Error) => {
-          if (node) node.textContent = e.message;
-        });
+      const o = getState().overlay;
+      if (!o) break;
+      /* 问的是当前这一档，不是永远 explain：以前在翻译档点重试，回来的是一段解释 */
+      const task: AiTask = o.kind === 'translate' ? 'translate' : aiModeOf(o.mode);
+      const text = o.text || RT.sel?.text || '';
+      /* 先把失败记号丢掉，再让统一的请求入口重新发一次（它会写册子） */
+      aiCardDrop(aiCardKey(o.kind, task, text));
+      void runAiForOverlay();
       break;
     }
     /* 存为笔记：落进导出目录，不伪造一条没有出处的标注 */
@@ -2000,13 +2088,15 @@ function saveIdea(markId?: string, bookId?: string): void {
  * 走到这里还取不到内容只剩一种可能：这本书里确实没有和问题相关的段落。
  */
 async function bookEvidenceOf(q: string, app: App | null | undefined, book: ReaderBook): Promise<AiEvidence | null> {
-  const settings = shellSettings();
   const portrait = await readPortrait(app, book.id);
-  if (!portrait || portraitState(portrait, settings.ai.embedModel) !== 'ready') return null;
+  const embedder = bzEmbedder(app);
+  if (!portrait || portraitState(portrait, embedder.model) !== 'ready') return null;
 
   if (portrait.plan === 'vector') {
-    /* 问题也要算成向量：这一步同样走用户自己的嵌入服务，不借 bz */
-    const vec = await aiEmbedQuery(settings, q);
+    /* 问题也要算成向量，而且必须用 bz 的模型算：书的向量就是它算的，
+       换个模型算查询向量，距离再近也没有意义。 */
+    if (!embedder.ai) throw new Error(embedder.problem || t('side.ai.embedNotReady'));
+    const vec = await embedder.ai.embedQuery(q);
     const picks = topBlocksByVector(portrait, vec, PORTRAIT_TOP_K);
     if (!picks.length) return null;
     return {
@@ -2032,17 +2122,15 @@ async function bookEvidenceOf(q: string, app: App | null | undefined, book: Read
 /**
  * 共享：bz 知识库的笔记（可选的一层补充）。
  *
- * 只认设置里那颗「连接至 BZ AI 知识库」：关着、bz 不在、索引没建好、
- * 检索报错——一律返回 null，**不拦这次提问**。笔记是补充，书才是本体；
- * 因为补充没取到就不让人问书，是本末倒置。
+ * 自动识别（2026-11-07 起没有开关）：bz 不在、索引没建好、检索报错——一律
+ * 返回 null，**不拦这次提问**。笔记是补充，书才是本体；因为补充没取到就
+ * 不让人问书，是本末倒置。
  */
 async function sharedEvidenceOf(q: string, app: App | null | undefined): Promise<AiEvidence | null> {
-  const settings = shellSettings();
-  if (!settings.aiKnowledge || !can('ai')) return null;
+  if (!can('ai') || !bzNotesReady(app)) return null;
   const probe = probeBz(app);
   if (!probe.ai) return null;
   try {
-    if (!probe.ai.isIndexReady()) return null;
     const hits = await probe.ai.searchNotes(q, AI_SOURCES_MAX);
     if (!hits.length) return null;
     const context = hitsToContext(hits, Math.floor(AI_CONTEXT_LIMIT / 2));
@@ -2083,14 +2171,15 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
     return;
   }
 
-  /* 依据还没建：先弹准备页（看预估 → 选方式 → 点开始）。
-     拦在 pushAi 之前，日志里不会留下一条没有回答的提问；问题留在输入框里，
-     建完点「开始提问」时原样重发（RT.pendingAsk）。 */
+  /* 依据还没建：把侧栏切到「选建法」那一块，问题留在输入框里。
+     这里不弹窗（2026-11-07 定稿）：建索引的位置就是侧栏 AI 页签，
+     弹窗只是把同一件事又说一遍。 */
   const portrait = await readPortrait(src.app, book.id);
-  if (portraitState(portrait, settings.ai.embedModel) !== 'ready') {
-    RT.pendingAsk = q;
+  if (portraitState(portrait, bzEmbedder(src.app).model) !== 'ready') {
     if (input) input.value = q;
-    openOverlay({ kind: 'portrait', bookId: book.id });
+    RT.aiIndexOpen = true;
+    notify(t('side.ai.book.none'), 'info');
+    repaint();
     return;
   }
 

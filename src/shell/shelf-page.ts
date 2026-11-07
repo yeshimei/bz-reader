@@ -15,6 +15,7 @@ import { filterRows, toRows } from './adapt';
 import { allMarks } from './domain';
 import type { ShellState } from './state';
 import { getShellSource, shellPrefs, shellSettings } from './source';
+import { bzSnapshot } from '../data/bz-bridge';
 import { viewLibrary, type StudyCounts } from './render/study';
 import { viewSearch } from './render/search';
 import { viewNotes } from './render/notes';
@@ -93,6 +94,9 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
           ),
           relicense: state.relicense,
           version: getShellSource()?.version?.() || '',
+          /* 向量库/知识库两行是自动识别的，这里现探一次：切换 bz 后重进设置页
+             看到的就是新状态，不缓存。 */
+          bz: bzSnapshot(getShellSource()?.app),
         }),
         counts,
       };

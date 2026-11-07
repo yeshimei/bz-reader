@@ -24,14 +24,14 @@ export interface AiSettings {
   apiKey: string;
   /** 对话模型（压缩方案、提问、摘录） */
   model: string;
-  /**
-   * 嵌入模型（全书画像的向量由它算）。
+  /*
+   * 这里**故意没有**嵌入模型。
    *
-   * 单独一条而不是复用 model：对话模型基本都不提供 `/embeddings`，
-   * 混用一个字段的结果是「配好了对话，建画像却一路 404」。
-   * 地址与 Key 共用上面两条——同一家服务商的两类模型。
+   * 2026-11-07 决策回摆：向量这一层归第二大脑（bz），模型名与嵌入都由它提供
+   * （data/bz-bridge 的 bzEmbedder）。以前这里有一条 embedModel，用户填得和
+   * bz 不一致时两边向量不在一个空间，检索会静默给错结果——界面一切正常，
+   * 答案离谱。留一条能填错的字段就是留一个静默错误源。
    */
-  embedModel: string;
 }
 
 export interface ReaderSettings {
@@ -49,17 +49,14 @@ export interface ReaderSettings {
    */
   language: LanguagePref;
   ai: AiSettings;
-  /**
-   * 连接至 BZ AI 知识库（共享开关）。
+  /*
+   * 这里**故意没有**「连接至 BZ AI 知识库」开关。
    *
-   * 打开后两件事一起发生：
-   *   · 划词条多出「存为名词 / 存为段落」（录入到 bz 的文献盒）；
-   *   · 提问时把 bz 知识库的笔记一起当依据，第二大脑也会显示这本书的统计。
-   *
-   * 默认关：书本身不依赖它（书向量存在 bz 阅读自己的目录、由这里的
-   * 嵌入模型算），关着照样能按全书回答；开了只是把两个库连起来。
+   * 2026-11-07 改成自动识别：检测到 bz（能力齐全）就连，检测不到就只用这本书。
+   * 留一个开关等于让用户选「要不要让两个库连起来」，而这件事他自己判断不了
+   * （连上有什么好处、会多发什么出去，比多一个勾选复杂得多）。
+   * 判断在 data/bz-bridge 的 bzEntryReady / bzNotesReady，逐项降级。
    */
-  aiKnowledge: boolean;
   /**
    * 「会把什么发给 AI」那份说明是否已经确认过。
    *
@@ -88,9 +85,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     baseUrl: '',
     apiKey: '',
     model: '',
-    embedModel: '',
   },
-  aiKnowledge: false,
   aiAck: false,
 };
 
@@ -135,9 +130,7 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
       baseUrl: cleanUrl(str(ai.baseUrl)),
       apiKey: str(ai.apiKey).trim(),
       model: str(ai.model).trim(),
-      embedModel: str(ai.embedModel).trim(),
     },
-    aiKnowledge: s.aiKnowledge === true,
     aiAck: s.aiAck === true,
   };
 }
@@ -147,12 +140,6 @@ export function aiReady(s: ReaderSettings): boolean {
   return !!s.ai.baseUrl && !!s.ai.apiKey && !!s.ai.model;
 }
 
-/**
- * 嵌入服务配好了没。
- *
- * 与 aiReady 分开：建画像走嵌入、提问走对话，两件事缺的东西不一样。
- * 地址和 Key 是共用的，所以这里只多要一个嵌入模型名。
- */
-export function embedReady(s: ReaderSettings): boolean {
-  return !!s.ai.baseUrl && !!s.ai.apiKey && !!s.ai.embedModel;
-}
+/* 建索引要不要「嵌入配好了」这个判断？不用了：嵌入由第二大脑提供，
+   能不能借到看 data/bz-bridge 的 bzEmbedder（它连 bz 在不在一起答）。
+   设置里已经没有嵌入模型这一项，再留一个 embedReady() 只会让人以为这里还有。 */

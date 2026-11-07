@@ -40,6 +40,13 @@ export interface SettingsView {
   relicense?: boolean;
   /** 插件版本（manifest.json），「关于」条显示它 */
   version?: string;
+  /**
+   * 第二大脑（bz）现状：AI 组里的「向量库」「知识库」两行按它显示。
+   *
+   * 只读展示、不给开关——2026-11-07 起是自动识别（data/bz-bridge）。缺省 =
+   * 还没探测到，按「没连上」画一句话，不摆假开关。
+   */
+  bz?: { ok: boolean; version: string; model: string; entry: boolean; notes: boolean };
 }
 
 /**
@@ -278,18 +285,27 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>${t('settings.ai.baseUrl')}</label><input data-role="setting" data-k="ai.baseUrl" placeholder="${t('settings.ai.baseUrl.ph')}" value="${esc(s.ai.baseUrl)}" style="flex:1"${aiReadonly}></div>
       <div class="bzs-setrow"><label>${t('settings.ai.model')}</label><input data-role="setting" data-k="ai.model" placeholder="${t('settings.ai.model.ph')}" value="${esc(s.ai.model)}" style="flex:1"${aiReadonly}></div>
       <div class="bzs-setrow"><label>${t('settings.ai.key')}</label><input type="password" data-role="setting" data-k="ai.apiKey" placeholder="${t('settings.ai.key.ph')}" value="${esc(s.ai.apiKey)}" style="flex:1"${aiReadonly}></div>
-      <div class="bzs-setrow"><label>${t('settings.ai.embedModel')}</label><input data-role="setting" data-k="ai.embedModel" placeholder="${t('settings.ai.embedModel.ph')}" value="${esc(s.ai.embedModel)}" style="flex:1"${aiReadonly}></div>
-      <div class="bzs-mini" style="margin:-2px 0 8px;line-height:1.7">${t('settings.ai.embed.hint')}</div>
-      ${toggle('aiKnowledge', s.aiKnowledge, t('settings.ai.knowledge'))}
       ${
-        /* 说明只在打开之后出现：关着的时候解释「打开后会发生什么」是废话，
-           打开之后才需要提醒它依赖 bz、以及多出来的两颗按钮长什么样。 */
-        s.aiKnowledge ? `<div class="bzs-mini" style="margin:-2px 0 8px;line-height:1.8">${t('settings.ai.knowledge.hint')}</div>` : ''
+        /* 向量库归第二大脑：这里只报「它在不在算、用的哪个模型」，不给选。
+           留一个能填错的框，就留了一条静默错误（模型不一致 → 检索全错）。 */
+        `<div class="bzs-setrow"><label>${t('settings.ai.vector')}</label><span class="bzs-mini" style="flex:1">${
+          v.bz?.model ? esc(t('settings.ai.vector.bz', { model: v.bz.model })) : t('settings.ai.vector.none')
+        }</span></div>
+        <div class="bzs-mini" style="margin:-2px 0 8px;line-height:1.7">${
+          v.bz?.model ? t('settings.ai.vector.hint') : t('settings.ai.vector.missing')
+        }</div>`
+      }
+      ${
+        /* 知识库两件事（划词录入 / 笔记当依据）也自动识别：bz 在就有，不在就没有。
+           不摆开关：连上有什么好处、会多发什么出去，比一个勾选复杂得多。 */
+        `<div class="bzs-mini" style="margin:0 0 8px;line-height:1.8">${
+          v.bz?.entry || v.bz?.notes ? t('settings.ai.kb.on') : t('settings.ai.kb.off')
+        }</div>`
       }
       ${
         /* 画像按书存成独立文件：书删了、换版本了，文件还在。留一个出口，
            但它得先列清单再删，不在这儿直接动手。 */
-        s.aiKnowledge
+        aiUnlocked
           ? `<div class="bzs-setrow"><label>${t('detail.portrait')}</label><button class="bzs-btn sm" data-act="ptclean">${t('pt.clean')}</button></div>`
           : ''
       }

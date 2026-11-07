@@ -144,6 +144,94 @@ export function entryBridgeProblem(p: BzProbe): string | null {
   return bridgeProblem(p, 'knowledge');
 }
 
+/* ─────────── 借 bz 的向量库（2026-11-07 决策回摆） ───────────
+ *
+ * 早先是「书自己算向量」：设置里填嵌入模型，本插件直连 `/embeddings`，
+ * 画像存自己目录，bz 在不在都不影响。后来定为**向量这一层归第二大脑**：
+ * 模型名、维度、嵌入都由 bz 提供，本插件只把正文递过去、把向量收回来
+ * （向量仍存本插件目录，bz 只当嵌入服务）。
+ *
+ * 由此「能不能建索引」的判据从「设置里填没填嵌入模型」变成「bz 在不在」。
+ * 模型名从 bz 取还有个额外好处：换了模型，画像里的模型名对不上，
+ * 旧向量自动判废——这是自建时代靠用户手填才能发现的错。
+ */
+
+export interface BzEmbedder {
+  /** bz 的向量能力；null = 用不了，原因看 problem */
+  ai: BzAiFacade | null;
+  /** bz 现在用的嵌入模型名（写进画像，换模型时据此判旧向量作废） */
+  model: string;
+  /** 用不了时的一句人话（null = 能用） */
+  problem: string | null;
+}
+
+/**
+ * 当前可用的嵌入能力。
+ *
+ * 空模型名也算不可用：画像里记不下模型名，将来换了模型就发现不了，
+ * 拿旧向量去检索会静默给错结果——比建不了更糟。
+ */
+export function bzEmbedder(app: App | null | undefined): BzEmbedder {
+  const probe = probeBz(app);
+  const problem = aiBridgeProblem(probe);
+  if (problem || !probe.ai) {
+    return { ai: null, model: '', problem: problem ?? t('bz.outdated', { version: probe.version || '—' }) };
+  }
+  let model = '';
+  try {
+    model = String(probe.ai.embeddingModel() || '').trim();
+  } catch {
+    model = '';
+  }
+  if (!model) return { ai: null, model: '', problem: t('bz.noEmbedModel') };
+  return { ai: probe.ai, model, problem: null };
+}
+
+/** 能不能把划词录进 bz 的文献盒（知识盒门面在不在） */
+export function bzEntryReady(app: App | null | undefined): boolean {
+  return !!probeBz(app).knowledge;
+}
+
+/**
+ * 能不能把 bz 的笔记当依据（门面齐 + bz 自己的索引建好了）。
+ *
+ * 问「索引建好没」是必须的：门面在、索引空着时去搜只会拿到空结果，
+ * 界面却会显示「已连接」——那是更让人困惑的状态。
+ */
+export function bzNotesReady(app: App | null | undefined): boolean {
+  const ai = probeBz(app).ai;
+  if (!ai) return false;
+  try {
+    return ai.isIndexReady();
+  } catch {
+    return false;
+  }
+}
+
+/** 设置页要显示的那几行（不把门面对象递给渲染层，那里只会用到这几个值） */
+export interface BzSnapshot {
+  /** bz 在不在（装了并启用） */
+  ok: boolean;
+  version: string;
+  /** bz 现在用的嵌入模型名；空串 = 还没配 */
+  model: string;
+  /** 划词能录进文献盒 */
+  entry: boolean;
+  /** bz 的索引建好了，笔记能当依据 */
+  notes: boolean;
+}
+
+export function bzSnapshot(app: App | null | undefined): BzSnapshot {
+  const probe = probeBz(app);
+  return {
+    ok: probe.status === 'ok',
+    version: probe.version,
+    model: bzEmbedder(app).model,
+    entry: !!probe.knowledge,
+    notes: bzNotesReady(app),
+  };
+}
+
 export type BzEntryKind = 'term' | 'passage';
 
 /**

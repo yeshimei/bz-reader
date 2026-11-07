@@ -7,7 +7,8 @@
  */
 export interface ToggleState {
   exportComments: boolean;
-  aiKnowledge: boolean;
+  /* 曾经这里还有 aiKnowledge：2026-11-07 改成自动识别，开关撤掉，
+     判断在 data/bz-bridge（bz 在不在）。 */
 }
 
 /** 返回翻转后的补丁；未知 key 返回 null（不重绘、不写盘） */
@@ -15,8 +16,6 @@ export function flipSetting(current: ToggleState, key: string): Partial<ToggleSt
   switch (key) {
     case 'exportComments':
       return { exportComments: !current.exportComments };
-    case 'aiKnowledge':
-      return { aiKnowledge: !current.aiKnowledge };
     default:
       return null;
   }

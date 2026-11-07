@@ -77,16 +77,18 @@ describe('quoteCardHtml · 书摘', () => {
   });
 });
 
-describe('aiCardHtml · AI 极简卡', () => {
-  it('只有结果区与三个动作，没有模式切换', () => {
-    const html = aiCardHtml({ ready: true, answer: '「须眉」指男子。' });
+describe('aiCardHtml · 划词 AI 卡', () => {
+  it('结果、三档页签与三个动作都在', () => {
+    const html = aiCardHtml({ ready: true, answer: '「须眉」指男子。' } as never);
     expect(html).toContain('data-role="aibody"');
     expect(html).toContain('复制');
     expect(html).toContain('重试');
     expect(html).toContain('存为笔记');
-    expect(html).not.toContain('解释');
-    expect(html).not.toContain('翻译');
-    expect(html).not.toContain('摘要');
+    /* 三档住在卡里（2026-11-07）：以前解释 / 翻译 / 摘要各是一条入口，
+       问同一段话要关掉卡片回工具条上重新点一次 */
+    for (const mode of ['explain', 'translate', 'summarize']) {
+      expect(html).toContain(`data-mode="${mode}"`);
+    }
   });
 
   it('没配服务时先说明，而不是空着等', () => {
@@ -95,7 +97,7 @@ describe('aiCardHtml · AI 极简卡', () => {
   });
 
   it('结果是用户内容，必须转义', () => {
-    expect(aiCardHtml({ ready: true, answer: '<img>' })).toContain('&lt;img&gt;');
+    expect(aiCardHtml({ ready: true, text: '<img>' })).toContain('&lt;img&gt;');
   });
 });
 

@@ -203,7 +203,12 @@ describe('状态', () => {
 
   it('探测不到模型名时不凭猜测让人重建', () => {
     expect(portraitState(portrait({ plan: 'vector', model: 'bge-m3' }), '')).toBe('ready');
-    expect(portraitState(portrait({ plan: 'vector', model: '' }), 'qwen3')).toBe('ready');
+  });
+
+  /* 2026-11-07：模型名改由第二大脑提供，画像里却没记 —— 这份向量不是这套
+     模型算的，拿它检索会静默给错结果，所以判废。 */
+  it('画像没记模型名、但现在有模型名：判废', () => {
+    expect(portraitState(portrait({ plan: 'vector', model: '' }), 'qwen3')).toBe('stale');
   });
 });
 

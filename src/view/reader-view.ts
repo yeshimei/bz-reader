@@ -39,6 +39,7 @@ import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
 import { shellSettings } from '../shell/source';
 import { can } from '../data/entitlement';
+import { bzEntryReady } from '../data/bz-bridge';
 import { VIEW_TYPE_TOC } from './side-view';
 
 /* 注意：本类为了给 Obsidian 存 view 状态，重写了 getState()。
@@ -1202,9 +1203,9 @@ export class ReaderView extends ItemView {
     if (live) bar.classList.add('is-marked');
     /* 走 setHtml（DOMParser 惰性解析）：模板全由 toolbarHtml 生成，
        字符串里没有用户可控的 HTML。 */
-    /* 知识库两颗：设置里打开了、且授权还在，才出现（关掉授权后设置项还在，
-       但按钮不该再亮着——那是「买过又退了」最常见的样子）。 */
-    const kb = shellSettings().aiKnowledge && can('ai');
+    /* 知识库两颗：授权在、且 bz 的录入门面在，才出现（自动识别，没有开关）。
+       没装 bz 时这两颗按钮按下去只会弹一句「还没装」——不如不出现。 */
+    const kb = can('ai') && bzEntryReady(this.app);
     setHtml(
       bar,
       toolbarHtml({

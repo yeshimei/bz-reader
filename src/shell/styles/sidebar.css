@@ -487,6 +487,134 @@
   min-width: 0;
 }
 
+/* ── AI 页签 · 建索引（2026-11-07） ──
+   建法与进度都在这块侧栏里就地展开，不再弹「全书问答准备」。
+
+   一条排版规矩：这块永远只有一条主路径——没建时是「建立索引」，
+   选建法时是「开始」，跑起来是「暂停」。其余按钮一律次一级，
+   300px 宽里三颗并排的主按钮会互相削弱。 */
+.bzs-aiidx {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 2px;
+}
+
+.bzs-aiidx .lead {
+  font-size: 12px;
+  line-height: 1.85;
+  color: var(--t2);
+}
+
+.bzs-aiidx .acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bzs-aiidx .acts .bzs-btn {
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+.bzs-idxhd {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.bzs-idxhd b {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--t1);
+}
+
+.bzs-idxhd .pc {
+  font-size: 11px;
+  color: var(--t3);
+}
+
+.bzs-idxbar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.bzs-idxbar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--copper);
+  transition: width 0.2s var(--ease);
+}
+
+/* 两种建法：卡片本身就是按钮，块数与请求数写在下面（决定花多少钱的就是它） */
+.bzs-aiplan {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.bzs-aiplan b {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--t1);
+}
+
+.bzs-aiplan .est {
+  font-size: 11px;
+  color: var(--t3);
+}
+
+.bzs-aiplan .lack {
+  font-size: 11px;
+  font-style: normal;
+  color: var(--vermilion);
+  line-height: 1.7;
+}
+
+.bzs-aiplan.on {
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+}
+
+.bzs-aiplan.on b {
+  color: var(--copper);
+}
+
+/* 建好之后那行元信息：「按全书回答 · N 块」+ 重建入口 */
+.bzs-aimeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--t3);
+}
+
+.bzs-aimeta .lnk {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: 11px var(--ui);
+  color: var(--t3);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: 0;
+}
+
+.bzs-aimeta .lnk:hover {
+  color: var(--copper);
+}
+
 /* 来源：答完之后附在气泡里；能点开的是一枚小按钮，点不开的只是说明 */
 .bzs-aisrc {
   display: flex;

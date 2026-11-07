@@ -2,23 +2,22 @@
  * bz-reader · 给 bz 的书籍出口（data/book-ai.ts）
  *
  * 与 data/bz-bridge.ts 对称：那边是 bz 借能力给我们，这边是我们借给 bz。
- * 只做两件事，都只在「连接至 BZ AI 知识库」打开时才成立：
+ * 只做两件事；2026-11-07 起是**自动识别**（bz 在、授权在就成立），不再有开关：
  *
  *   1. **统计**：第二大脑要显示「有几本书、多少块」；
  *   2. **检索**：在第二大脑里提问时，书的块要能作为补充依据出现。
  *
  * 三条取舍：
  *   · **只读、不改任何文件**：bz 侧调坏了大不了返回空，书的画像不动；
- *   · **问题向量由这里算**：bz 不知道我们配的是哪个嵌入模型，也不能拿
- *     它自己的模型去算——两套向量不在一个空间里，相似度毫无意义；
+ *   · **问题向量走 bz 自己的嵌入**：书的向量就是借它的模型算的，同一个空间，
+ *     相似度才有意义（以前两边各算各的，那是「自建向量」时代的做法）；
  *   · **失败一律收敛成空结果**：第二大脑的核心是笔记，不能因为书这边
  *     出问题就让整个提问挂掉。
  * ============================================================ */
 import type { App } from 'obsidian';
-import { aiEmbedQuery } from './ai';
+import { bzEmbedder } from './bz-bridge';
 import { can } from './entitlement';
 import { PORTRAIT_TOP_K, cosine, decodeVector, listPortraits, readPortrait, type PortraitFile } from './portrait';
-import type { ReaderSettings } from './settings';
 
 export interface BookAiHit {
   bookId: string;
@@ -51,7 +50,6 @@ export interface BookAiApi {
 
 export interface BookAiDeps {
   app: App | null | undefined;
-  settings: () => ReaderSettings;
 }
 
 /** 画像文件按 mtime 缓存：一份几十万字，每次提问都重读会把界面拖住 */
@@ -130,10 +128,9 @@ export function rankBlocks(qvec: readonly number[], list: readonly PortraitFile[
 }
 
 export function createBookAi(deps: BookAiDeps): BookAiApi {
-  const shared = (): boolean => {
-    if (!can('ai')) return false;
-    return deps.settings().aiKnowledge === true;
-  };
+  /* 自动识别：授权在 + bz 的检索门面在，就算连上了。
+     两样逐项降级由 bz-bridge 判，这边不重复实现一套「在不在」的判断。 */
+  const shared = (): boolean => can('ai') && !!bzEmbedder(deps.app).ai;
 
   return {
     isShared: shared,
@@ -150,7 +147,6 @@ export function createBookAi(deps: BookAiDeps): BookAiApi {
     async search(query: string, topK = PORTRAIT_TOP_K): Promise<BookAiHit[]> {
       const q = String(query ?? '').trim();
       if (!q || !shared()) return [];
-      const settings = deps.settings();
       let list: PortraitFile[];
       try {
         list = (await loadPortraits(deps.app)).filter((p) => p.plan === 'vector');
@@ -159,9 +155,12 @@ export function createBookAi(deps: BookAiDeps): BookAiApi {
       }
       if (!list.length) return [];
 
+      /* 查询向量也由 bz 算：两套模型算出来的向量不在一个空间，不能混 */
       let vec: number[];
       try {
-        vec = await aiEmbedQuery(settings, q);
+        const embedder = bzEmbedder(deps.app);
+        if (!embedder.ai) return [];
+        vec = await embedder.ai.embedQuery(q);
       } catch {
         /* 嵌入服务挂了：书这边没有依据可给，但笔记那边照常 */
         return [];

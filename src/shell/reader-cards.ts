@@ -11,9 +11,20 @@
  * 想法 470/12、确认条 470/10、划线气泡 430/10。
  */
 
+import type { AiTask } from '../data/ai';
+import { t, type MsgKey } from '../i18n';
+import { AI_CARD_MODES } from './ai-card';
+
 function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
 }
+
+/** 三档页签上的字。`ask` 不进这张卡（那是侧栏的全书问答），所以只列三档 */
+const MODE_KEYS = {
+  explain: 'ai.mode.explain',
+  translate: 'ai.mode.translate',
+  summarize: 'ai.mode.summarize',
+} as const satisfies Record<Exclude<AiTask, 'ask'>, MsgKey>;
 
 /**
  * ① 脚注：左侧一枚「注」小印，其余全是注文。
@@ -60,21 +71,44 @@ export function quoteCardHtml(input: QuoteCardInput): string {
 export interface AiCardInput {
   /** 服务商、模型、密钥是否都配好了 */
   ready: boolean;
-  /** 已经有结果时直接放进来（重试后就地换成新文本） */
-  answer?: string;
+  /** 当前问的是哪一档（解释 / 翻译 / 摘要），缺省 = 解释 */
+  mode?: AiTask;
+  /** 划选的原文：压成两行，切档时能确认问的是哪一句 */
+  quote?: string;
+  /** 卡上的正文：结果 / 失败原因。空 = 还没有结果 */
+  text?: string;
+  /** 请求还在路上：没有正文时据此画占位文案 */
+  busy?: boolean;
 }
 
 /**
- * ③ AI：只有结果与三个动作。
+ * ③ AI：原文一截 + 三档页签 + 结果与三个动作。
  *
- * 没有模式切换（解释 / 翻译 / 摘要已经各自是入口，卡里再摆一排等于
- * 让用户先选一次再等一次）、没有「只发送选中的这一段」这种免责话。
- * 请求失败时把失败原因留在 body 里，重试按钮就在下面。
+ * 顺序是「问的是哪段 → 怎么问 → 答案」：引文只留两行，压不住下面的答案。
+ * 三档就在卡里切（解释 / 翻译 / 摘要，默认解释），不再让用户先关掉卡片、
+ * 回工具条上重新点一次——以前那三颗是三条入口，问同一段话要来回点。
+ *
+ * 正文取自记账（shell/ai-card），不是「有结果就写 text、没有就写正在请求」：
+ * 重画之后还得画得出同一份答案，否则切档、点按钮都会把答案冲掉。
  */
 export function aiCardHtml(input: AiCardInput): string {
-  const body =
-    input.answer ?? (input.ready ? '正在请求…' : '还没有配置 AI 服务。到 书架 · 设置 里填好服务商、模型与密钥。');
+  const mode = input.mode ?? 'explain';
+  const body = !input.ready
+    ? '还没有配置 AI 服务。到 书架 · 设置 里填好服务商、模型与密钥。'
+    : input.text || (input.busy ? '正在请求…' : '');
+  const quote = input.quote ? `<div class="quote">「${esc(input.quote)}」</div>` : '';
+  /* 没配服务时不摆页签：切了也不会有结果，三颗亮着的按钮只会误导 */
+  const modes = input.ready
+    ? `<div class="modes" role="tablist">${AI_CARD_MODES.map((m) => {
+        const on = m === mode;
+        return `<button type="button" class="bzs-ai-mode${on ? ' on' : ''}" role="tab" aria-selected="${on}" data-act="aimode" data-mode="${m}">${esc(
+          t(MODE_KEYS[m as keyof typeof MODE_KEYS]),
+        )}</button>`;
+      }).join('')}</div>`
+    : '';
   return `<div class="bzs-ai-card">
+    ${quote}
+    ${modes}
     <div class="body" data-role="aibody">${esc(body)}</div>
     <div class="foot">
       <button class="bzs-btn" data-act="aicopy">复制</button>

@@ -291,3 +291,30 @@ describe('块里的原文', () => {
     expect(b2.current()!.blocks[0].text).toBe(first.blocks[0].text);
   });
 });
+
+/**
+ * 完成的那一刻，盘上必须已经是「已完成」的那一份（2026-11-07）。
+ *
+ * 侧栏 AI 页签在 status 变 done 时就换成对话界面，它读的是画像缓存
+ * （portrait-cache，由 save 回填）。先 emit 后 save 的话，界面会停在
+ * 「索引已建好，可以提问了」不动——直到用户切走再切回来。
+ */
+describe('完成顺序', () => {
+  it('done 是在最后一次落盘之后才广播的', async () => {
+    const order: string[] = [];
+    const { deps: d } = deps({
+      save: async (p) => {
+        order.push(`save:${p.done ? 'done' : 'partial'}`);
+        return true;
+      },
+    });
+    const b = new PortraitBuilder(d);
+    b.subscribe((p) => {
+      if (p.status === 'done') order.push('emit:done');
+    });
+    await b.start(book, 'vector');
+
+    expect(order[order.length - 1]).toBe('emit:done');
+    expect(order[order.length - 2]).toBe('save:done');
+  });
+});

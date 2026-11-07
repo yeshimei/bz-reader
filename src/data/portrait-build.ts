@@ -65,7 +65,7 @@ export interface PortraitBuildDeps {
     onProgress: (done: number, total: number, title: string) => void,
     shouldStop: () => boolean,
   ) => Promise<ChapterText[]>;
-  /** 批量嵌入（本插件自己的嵌入服务，见 data/ai.ts 的 aiEmbed） */
+  /** 批量嵌入（借 bz 的向量能力，见 data/bz-bridge 的 bzEmbedder） */
   embed: (texts: string[], signal: AbortSignal) => Promise<number[][]>;
   /** 单块压缩：返回「一句话 + 要点」 */
   summarise: (text: string, signal: AbortSignal) => Promise<{ digest: string; summary: string }>;
@@ -238,7 +238,7 @@ export class PortraitBuilder {
         this.emit({ status: 'paused', phase: '' });
         return;
       }
-      this.finish();
+      await this.finish();
     } catch (e) {
       this.ctrl = null;
       this.emit({ status: 'error', phase: '', message: (e as Error)?.message || '建画像失败' });
@@ -309,13 +309,21 @@ export class PortraitBuilder {
     }
   }
 
-  /** 收尾：压缩方案再要一次全书总述；全部块齐了才算完成 */
-  private finish(): void {
+  /**
+   * 收尾：压缩方案再要一次全书总述；全部块齐了才算完成。
+   *
+   * 顺序是「先落盘、再宣布完成」：侧栏在 status 变成 done 的那一刻
+   * 就换到对话界面，它读的是盘上的画像（经 portrait-cache）。先 emit
+   * 后 save 的话，界面会停在「索引已建好，可以提问了」不动，直到用户
+   * 点别的页签再切回来——而这中间什么也没发生。
+   */
+  private async finish(): Promise<void> {
     const p = this.portrait;
     if (!p) return;
     this.emit({ phase: 'save' });
     const missing = p.blocks.filter((b) => !filled(b)).length;
     p.done = missing === 0;
+    await this.deps.save(p);
     this.emit({
       status: p.done ? 'done' : 'error',
       phase: '',
@@ -323,7 +331,6 @@ export class PortraitBuilder {
       failed: missing,
       message: p.done ? undefined : `还有 ${missing} 块没拿到内容，可只重试失败的块`,
     });
-    void this.deps.save(p);
   }
 
   /** 压缩方案的全书总述（单独一步，失败不影响块级进度） */

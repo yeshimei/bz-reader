@@ -123,118 +123,15 @@ export interface AiResult {
   text: string;
 }
 
-/* ─────────── 嵌入（书的向量由这里算，不再借 bz） ─────────── */
-
-/**
- * 一批发多少块。
+/* ─────────── 嵌入到哪去了 ───────────
  *
- * 与建画像的批（portrait-build 的 8 块）对齐：一批就是一次请求，
- * 太大接口按数组长度吃内存、失败时整批白跑；太小则请求数翻倍。
- */
-export const EMBED_BATCH = 8;
-
-/** 一次嵌入请求最多等多久：嵌入比对话慢，但也不该无限等 */
-export const EMBED_TIMEOUT_MS = 120_000;
-
-export interface EmbedRequest {
-  url: string;
-  body: { model: string; input: string[] };
-}
-
-/** 请求长什么样（单独抽出来是为了能被测试钉住，不用起网络） */
-export function buildEmbedRequest(settings: ReaderSettings, texts: string[]): EmbedRequest {
-  const { baseUrl, embedModel } = settings.ai;
-  return { url: `${baseUrl}/embeddings`, body: { model: embedModel, input: texts } };
-}
-
-/**
- * 解析嵌入返回。
+ * 2026-11-07：书的向量改由第二大脑（bz）算，这里不再有 /embeddings 这条路。
+ * 借能力的入口是 data/bz-bridge 的 bzEmbedder（门面 + 模型名），建索引在
+ * data/portrait-build，检索在 data/book-ai。
  *
- * 三条会悄悄出错、界面上看不出来的事，一律当错误：
- *   1. **条数不对**：少一条就是少一块的依据，硬配下去向量与块从此错位；
- *   2. **空向量**：不是「相似度为 0」，是这块根本没有向量；
- *   3. **index 缺失**：接口不保证顺序，有 index 就按它归位。
+ * 删掉的不只是几个函数：自建嵌入要用户自己填模型名，填得和 bz 不一致时
+ * 两边向量不在一个空间，检索会**静默**给错结果。这条路留着就是留个坑。
  */
-export function parseEmbeddings(raw: unknown, expect: number): number[][] {
-  const data = raw as {
-    data?: Array<{ index?: number; embedding?: unknown }>;
-    error?: { message?: string };
-  };
-  if (data?.error?.message) throw new Error(`嵌入接口报错：${data.error.message}`);
-  const rows = Array.isArray(data?.data) ? data.data : [];
-  if (rows.length !== expect) {
-    throw new Error(`嵌入接口返回的条数不对：要 ${expect} 条，拿到 ${rows.length} 条`);
-  }
-  const out: number[][] = new Array(expect);
-  rows.forEach((row, fallbackIndex) => {
-    const at = typeof row?.index === 'number' ? row.index : fallbackIndex;
-    const vec = Array.isArray(row?.embedding) ? row.embedding.map((n) => Number(n)) : [];
-    if (!vec.length || vec.some((n) => !Number.isFinite(n))) {
-      throw new Error('嵌入接口返回了空向量');
-    }
-    if (at >= 0 && at < expect) out[at] = vec;
-  });
-  /* index 越界 / 重复会让某些槽位是空的：这也是「条数不对」的一种 */
-  if (out.some((v) => !v)) throw new Error(`嵌入接口返回的条数不对：要 ${expect} 条，归位后有空缺`);
-  return out;
-}
-
-export interface EmbedOptions {
-  signal?: AbortSignal;
-  /** 测试注入：默认 window.fetch */
-  fetch?: typeof fetch;
-}
-
-/**
- * 把若干段文字算成向量（按 EMBED_BATCH 切批）。
- *
- * 失败直接抛给人看的消息：调用方（建画像 / 提问）会把它当「这一块没拿到」
- * 或「这次问不了」处理，不会静默算出一堆 0 向量。
- */
-export async function aiEmbed(settings: ReaderSettings, texts: string[], opts: EmbedOptions = {}): Promise<number[][]> {
-  const { baseUrl, apiKey, embedModel } = settings.ai;
-  if (!baseUrl || !apiKey || !embedModel) {
-    throw new Error('还没配置嵌入模型：到 书架 · 设置 的「AI 助手」里填好服务商、密钥与嵌入模型');
-  }
-  const list = (texts ?? []).map((t) => String(t ?? ''));
-  if (!list.length) return [];
-  const doFetch = opts.fetch ?? window.fetch.bind(window);
-  const out: number[][] = [];
-  for (let i = 0; i < list.length; i += EMBED_BATCH) {
-    const batch = list.slice(i, i + EMBED_BATCH);
-    const req = buildEmbedRequest(settings, batch);
-    let res: Response;
-    try {
-      res = await doFetch(req.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify(req.body),
-        signal: opts.signal,
-      });
-    } catch (e) {
-      if (opts.signal?.aborted) throw new Error('已取消');
-      throw new Error(`连不上嵌入接口：${(e as Error)?.message || '网络错误'}`);
-    }
-    if (!res.ok) {
-      const hint =
-        res.status === 401 || res.status === 403
-          ? '（检查 API Key）'
-          : res.status === 404
-            ? '（检查接口地址与嵌入模型名，一般以 /v1 结尾）'
-            : '';
-      throw new Error(`嵌入接口返回 ${res.status}${hint}`);
-    }
-    out.push(...parseEmbeddings(await res.json(), batch.length));
-  }
-  return out;
-}
-
-/** 一个问题 → 一个向量 */
-export async function aiEmbedQuery(settings: ReaderSettings, text: string, opts: EmbedOptions = {}): Promise<number[]> {
-  const [vec] = await aiEmbed(settings, [String(text ?? '')], opts);
-  if (!vec?.length) throw new Error('嵌入接口没有返回查询向量');
-  return vec;
-}
 
 /** 一次 AI 请求最多等多久。接口地址填错 / 代理挂掉时，不设上限就是一直转圈。 */
 export const AI_TIMEOUT_MS = 60_000;

@@ -57,6 +57,13 @@ export const RT = {
   pendingAsk: null as string | null,
   /** 画像方案：记住上次选的（两种方案差别很大，用户通常固定用同一种） */
   portraitPlan: 'vector' as PortraitPlan,
+  /**
+   * 侧栏 AI 页签：用户点了「建立索引」，正在选建法。
+   *
+   * 这一步以前是弹窗，现在就地展开——所以「展没展开」得有个地方记：
+   * 选完方案开始跑、或者点取消，都要把它收回去。
+   */
+  aiIndexOpen: false,
   /** 待确认清理的无主画像（书号，给人看的清单在弹层里） */
   ptOrphans: [] as string[],
   /** 当前划词 */
