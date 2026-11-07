@@ -45,15 +45,14 @@ import { PLAN_TABLE, can, entitlement, type Cap, type PlanCell } from '../data/e
 import { protocolUrl } from '../data/deeplink';
 import { dataDirOf } from '../core/plugin-path';
 import { bindMaskDismiss } from '../core/mask-dismiss';
-import { RT, pushAi } from './runtime';
+import { RT } from './runtime';
 import { rangeFill } from './range-fill';
 import { getToc } from '../view/toc-state';
 import { dispatchInput } from './actions';
 import { trialButtonHtml } from './group';
-import { portraitBuilder } from '../data/portrait-build';
-import { chapterDigests, estimateChars } from '../data/portrait';
+import { chapterDigests } from '../data/portrait';
 import { cachedPortrait, ensurePortrait } from './portrait-cache';
-import { portraitBody, portraitFoot, portraitStatusLine, type PortraitView } from './render/portrait';
+import { portraitStatusLine } from './render/portrait';
 
 /* ─────────── 小工具 ─────────── */
 
@@ -639,20 +638,6 @@ function overlayDict(word?: string): string {
   );
 }
 
-function overlayTranslate(text?: string): string {
-  const t = text || RT.sel?.text || '';
-  const s = shellSettings();
-  const ready = !!s.ai.baseUrl && !!s.ai.apiKey && !!s.ai.model;
-  /* 译文也记在册子上：重画（换焦点、授权变化）之后不该退回「正在翻译…」 */
-  const entry = ready ? aiCardGet(aiCardKey('translate', 'translate', t)) : undefined;
-  const body = `<div class="bzs-ai-quote">「${esc(t)}」</div>
-    <div class="bzs-ai-body" data-role="aibody">${esc(
-      entry?.text || (ready ? '正在翻译…' : '还没有配置 AI 服务，无法翻译。到 书架 · 设置 里配置。'),
-    )}</div>
-    <div class="bzs-ai-src">只发送选中的这一段 · ${esc(s.ai.model || '未配置模型')}</div>`;
-  return modal('翻译', '段落 · 译成中文', body, `<button class="bzs-btn" data-act="copytext" data-text="">复制译文</button>${closeBtn()}`, 'wide');
-}
-
 function overlayPoster(): string {
   const books = liveBooks();
   const st = collectStats(books);
@@ -871,52 +856,6 @@ function overlayUnlock(mode?: string): string {
   return modal('高级版', paid ? '已激活' : '', body, foot, 'wide tall');
 }
 
-/**
- * 全书画像：准备 → 跑 → 完成，同一层里换内容。
- *
- * 进度不走整页重画（`paint()` 每块都重来一次，按钮会在手指底下换掉），
- * 由 `bindPortrait()` 直接替换 `[data-role="portrait-body"]` 的内容。
- */
-function portraitModel(bookId?: string): PortraitView {
-  const book = bookById(bookId) ?? bookById(getState().bookId) ?? liveBooks()[0];
-  const builder = portraitBuilder();
-  const raw = builder.progress();
-  /* 单例只跑一个任务：进度记的是另一本书时，这本就当「没开始」，
-     否则打开新书会看到上一本书的「第 12/130 块」在那儿跳。 */
-  const progress =
-    raw.bookId && book && raw.bookId !== book.id
-      ? { ...raw, status: 'idle' as const, phase: '' as const, total: 0, done: 0, failed: 0, extractDone: 0, extractTotal: 0 }
-      : raw;
-  const cached = book ? cachedPortrait(book.id) : null;
-  /* 还没读过就先按「未建」画一版，读到了再补（读盘是异步的，不能卡住弹层） */
-  if (book && cached === undefined) {
-    const app = getShellSource()?.app;
-    void ensurePortrait(app, book.id, () => bumpOverlayRev());
-  }
-  return {
-    mobile: isMobileEnv(),
-    chosen: RT.portraitPlan,
-    chars: estimateChars(book),
-    bookTitle: book?.meta.title ?? '',
-    progress,
-    portrait: cached ?? null,
-    model: bzEmbedder(getShellSource()?.app).model,
-  };
-}
-
-function overlayPortrait(bookId?: string): string {
-  const v = portraitModel(bookId);
-  const title = v.bookTitle ? `${t('pt.title')} · ${esc(v.bookTitle)}` : t('pt.title');
-  return modal(
-    title,
-    '',
-    `<div data-role="portrait-body">${portraitBody(v)}</div>`,
-    portraitFoot(v),
-    'wide tall',
-  );
-}
-
-/** 清理无主画像：先列清单，再删（与仓库里既有的破坏性操作同一套习惯） */
 function overlayPtClean(): string {
   const list = RT.ptOrphans;
   const body = `<div class="bzs-ack"><p>${esc(t('pt.clean.confirm'))}</p>
@@ -1117,8 +1056,6 @@ export function overlayHtml(): string {
       return overlayAi(o.markId, o.bookId);
     case 'dict':
       return overlayDict(o.word);
-    case 'translate':
-      return overlayTranslate(o.text);
     case 'poster':
       return overlayPoster();
     case 'setgoal':
@@ -1141,8 +1078,6 @@ export function overlayHtml(): string {
       return overlayMissing(o.bookId);
     case 'ack':
       return overlayAck();
-    case 'portrait':
-      return overlayPortrait(o.bookId);
     case 'ptclean':
       return overlayPtClean();
     default:
@@ -1166,10 +1101,9 @@ export function overlayHtml(): string {
 /** 只往「当前这张卡」里写：换档之后旧请求回来，不该污染新卡 */
 function currentAiKey(): string {
   const o = getState().overlay;
-  if (!o || (o.kind !== 'ai' && o.kind !== 'translate')) return '';
+  if (!o || o.kind !== 'ai') return '';
   const text = o.text || RT.sel?.text || '';
-  const task: AiTask = o.kind === 'translate' ? 'translate' : aiModeOf(o.mode);
-  return aiCardKey(o.kind, task, text);
+  return aiCardKey(o.kind, aiModeOf(o.mode), text);
 }
 
 /**
@@ -1193,13 +1127,13 @@ let aiInFlight: { key: string; ctrl: AbortController } | null = null;
 /** AI 请求：弹层打开后自己发一次，结果记进册子并回填到 [data-role="aibody"] */
 export async function runAiForOverlay(): Promise<void> {
   const o = getState().overlay;
-  if (!o || (o.kind !== 'ai' && o.kind !== 'translate')) return;
+  if (!o || o.kind !== 'ai') return;
   /* 到期 / 未解锁不再发请求：弹层可能是在有码时打开的，跑完再点重试也得拦 */
   if (!can('ai')) return;
   const s = shellSettings();
   if (!s.ai.baseUrl || !s.ai.apiKey || !s.ai.model) return;
   const text = o.text || RT.sel?.text || '';
-  const task: AiTask = o.kind === 'translate' ? 'translate' : aiModeOf(o.mode);
+  const task: AiTask = aiModeOf(o.mode);
   const key = aiCardKey(o.kind, task, text);
 
   /* 同一条还在路上：把占位画回去就够，绝不重复发（花的是用户的钱） */
@@ -1232,8 +1166,11 @@ export async function runAiForOverlay(): Promise<void> {
       aiInFlight = null;
       RT.aiAbort = null;
     }
+    /* 只进卡片的册子，**不**写侧栏的问答记录：工具栏这条路是「问一小段」，
+       侧栏那条是「问整本书」，两边的上下文、花费、追问方式都不一样。
+       以前把自己的结果也 push 进侧栏日志，用户会看到侧栏凭空多出一条
+       没有提问的答案，捡起来接着问还会发现它根本没有书的依据。 */
     aiCardDone(key, res.text);
-    pushAi(false, `AI · ${s.ai.model}`, res.text);
   } catch (e) {
     if (aiInFlight?.ctrl === ctrl) {
       aiInFlight = null;
@@ -1259,8 +1196,6 @@ export class OverlayLayer {
   readonly root: HTMLElement;
   /** 卸载时要撤掉的监听（键盘补偿等） */
   private disposers: Array<() => void> = [];
-  /** 画像进度的订阅：换弹层 / 关弹层都要摘掉，否则关掉之后还在写已销毁的 DOM */
-  private portraitOff: (() => void) | null = null;
   private accent = '';
   /** 上一次画的是哪种弹层：同种重画不算「打开」，不抢输入焦点 */
   private lastKind = '';
@@ -1483,13 +1418,7 @@ export class OverlayLayer {
       const len = input?.value.length ?? 0;
       input?.setSelectionRange(len, len);
     }
-    if (o?.kind === 'portrait') {
-      this.bindPortrait();
-    } else {
-      this.portraitOff?.();
-      this.portraitOff = null;
-    }
-    if (o?.kind === 'ai' || o?.kind === 'translate') {
+    if (o?.kind === 'ai') {
       void runAiForOverlay();
     } else {
       // 离开 AI 卡就把册子清掉：下次划同一段，应该重新问一次
@@ -1511,29 +1440,7 @@ export class OverlayLayer {
     hydrateCovers(getShellSource()?.app, liveBooks(), this.root);
   }
 
-  /**
-   * 建画像的进度只更新那一块，不整页重画。
-   *
-   * 每块都 `paint()` 的话，「暂停」按钮会在用户按下前一刻被换成新的 DOM：
-   * 手指落空、点不动，看起来就是「点了没反应」。
-   */
-  private bindPortrait(): void {
-    this.portraitOff?.();
-    this.portraitOff = null;
-    const builder = portraitBuilder();
-    const write = (): void => {
-      const host = this.root.querySelector<HTMLElement>('[data-role="portrait-body"]');
-      if (!host) return;
-      setHtml(host, portraitBody(portraitModel(getState().overlay?.bookId)));
-      const foot = this.root.querySelector<HTMLElement>('.bzs-mfoot');
-      if (foot) setHtml(foot, portraitFoot(portraitModel(getState().overlay?.bookId)));
-    };
-    this.portraitOff = builder.subscribe(write);
-  }
-
   destroy(): void {
-    this.portraitOff?.();
-    this.portraitOff = null;
     document.removeEventListener('pointerdown', this.onDocPointer, true);
     document.removeEventListener('keydown', this.onDocKey, true);
     for (const off of this.disposers) off();

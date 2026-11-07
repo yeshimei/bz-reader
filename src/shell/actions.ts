@@ -70,7 +70,6 @@ import { isMobileEnv } from '../core/mobile';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
 import { forgetPortrait, setPortrait } from './portrait-cache';
-import { portraitNoteMarkdown } from './render/portrait';
 import {
   AI_CONTEXT_LIMIT,
   AI_SOURCES_MAX,
@@ -358,18 +357,6 @@ function knowledgeEntry(kind: BzEntryKind, markId?: string, bookId?: string): vo
 /* ─────────── 全书画像 ─────────── */
 
 /**
- * 由提问弹起的准备界面被取消 / 关闭：退回「当前这一屏」并说一句（决策 7）。
- *
- * 只有带着 pendingAsk 才是「这次提问没答成」。用户自己从详情页点「建画像…」
- * 进来的，关掉不该动他的回答依据——他可能只是先看看。
- */
-function backToScreen(): void {
-  if (!RT.pendingAsk) return;
-  RT.pendingAsk = null;
-  notify(t('side.ai.book.cancelled'), 'info');
-}
-
-/**
  * 建画像需要的全部外部能力。
  *
  * 每次都现装配、现 rebind：设置里的 Key、bz 的嵌入模型都可能在两次打开
@@ -598,14 +585,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
 
     /* ── 弹层开关 ── */
     case 'close':
-      /* 建画像时关闭弹层 = 暂停：进度留在盘上，下次进来接着跑。
-         不这么做的话，用户关个窗口就把几十次请求的成果丢了。 */
-      if (getState().overlay?.kind === 'portrait') {
-        portraitBuilder().pause();
-        /* 遮罩点击 / Esc 关掉准备页也走这里——否则回答依据仍停在「全书」，
-           残留的问题还会在下次点「开始提问」时被当成新问题重发。 */
-        backToScreen();
-      }
       closeOverlay();
       break;
     case 'search':
@@ -1424,9 +1403,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'seldict':
       if (RT.sel) overlay('dict', { word: RT.sel.text.slice(0, 8) });
       break;
-    case 'seltranslate':
-      if (RT.sel && requireCap('ai')) overlay('translate', { text: RT.sel.text });
-      break;
     case 'selai':
       if (RT.sel && requireCap('ai'))
         overlay('ai', { text: RT.sel.text, mode: 'explain', anchor: RT.sel.anchor });
@@ -1557,75 +1533,15 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (AI_TUTORIAL_URL) window.open(AI_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
       else notify(t('notice.video.wip'), 'info');
       break;
-    case 'ptplan': {
-      if (d.v === 'vector' || d.v === 'compress') {
-        RT.portraitPlan = d.v;
-        repaint();
-      }
-      break;
-    }
-    case 'ptstart': {
-      const book = liveBooks().find((b) => b.id === (getState().overlay?.bookId || getState().bookId));
-      if (!book) {
-        notify(t('notice.needBook'), 'info');
-        break;
-      }
-      startPortrait(book, RT.portraitPlan);
-      break;
-    }
     case 'ptpause':
       portraitBuilder().pause();
       break;
     case 'ptresume':
       void portraitBuilder().resume();
       break;
-    case 'ptstop':
-      portraitBuilder().cancel();
-      /* 取消是「这次不建了」：弹层收起，别留一个还写着「开始」的准备页
-         让人以为刚才那次取消没生效。 */
-      backToScreen();
-      closeOverlay();
-      break;
     case 'ptretry':
       void portraitBuilder().retryFailed();
       break;
-    case 'ptrebuild': {
-      const book = liveBooks().find((b) => b.id === (getState().overlay?.bookId || getState().bookId));
-      if (!book) break;
-      forgetPortrait(book.id);
-      startPortrait(book, RT.portraitPlan, true);
-      break;
-    }
-    case 'ptclose':
-      /* 关掉弹层 = 暂停（不丢进度）；真在跑的时候才停，已完成的不动它 */
-      portraitBuilder().pause();
-      backToScreen();
-      closeOverlay();
-      break;
-    case 'ptnote': {
-      const book = liveBooks().find((b) => b.id === (getState().overlay?.bookId || getState().bookId));
-      const src = getShellSource();
-      if (!src || !book) break;
-      void (async () => {
-        const portrait = await readPortrait(src.app, book.id);
-        if (!portrait) {
-          notify(t('side.ai.book.none'), 'info');
-          return;
-        }
-        await appendToExport(src.app, book, portraitNoteMarkdown(portrait));
-      })();
-      break;
-    }
-    case 'ptask': {
-      const src = getShellSource();
-      const q = RT.pendingAsk;
-      RT.pendingAsk = null;
-      closeOverlay();
-      src?.openSidebar('ai');
-      /* 由提问触发的流程：把刚才那句原样重发，不让用户再打一遍 */
-      if (q) void askAi(null, q);
-      break;
-    }
     case 'ptclean':
       void cleanPortraits();
       break;
@@ -1742,7 +1658,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         RT.aiAbort = null;
         const o = getState().overlay;
         if (o) {
-          const task: AiTask = o.kind === 'translate' ? 'translate' : aiModeOf(o.mode);
+          const task: AiTask = aiModeOf(o.mode);
           aiCardFail(aiCardKey(o.kind, task, o.text || RT.sel?.text || ''), '已取消');
         }
         ctrl.abort();
@@ -1760,7 +1676,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const o = getState().overlay;
       if (!o) break;
       /* 问的是当前这一档，不是永远 explain：以前在翻译档点重试，回来的是一段解释 */
-      const task: AiTask = o.kind === 'translate' ? 'translate' : aiModeOf(o.mode);
+      const task: AiTask = aiModeOf(o.mode);
       const text = o.text || RT.sel?.text || '';
       /* 先把失败记号丢掉，再让统一的请求入口重新发一次（它会写册子） */
       aiCardDrop(aiCardKey(o.kind, task, text));

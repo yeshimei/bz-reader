@@ -883,53 +883,9 @@ body.theme-dark .bzs-tb-more {
   overflow: auto;
 }
 
-/* ── AI ── */
-.bzs-ai-tag {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-bottom: 4px;
-}
-
-.bzs-ai-tag .seal {
-  width: 26px;
-  height: 26px;
-  border-radius: var(--r-ctl);
-  background: var(--copper-soft);
-  border: 1px solid var(--copper-line);
-  color: var(--copper);
-  display: grid;
-  place-items: center;
-}
-
-.bzs-ai-tag .seal svg {
-  width: 14px;
-  height: 14px;
-}
-
-.bzs-ai-tag b {
-  font-size: 11px;
-  letter-spacing: 0;
-  color: var(--copper);
-}
-
-.bzs-ai-quote {
-  margin: 12px 0;
-  padding: 10px 14px;
-  border-radius: var(--r-ctl);
-  background: var(--sunken);
-  font-family: var(--serif);
-  font-size: 12px;
-  line-height: 1.9;
-  color: var(--t2);
-}
-
-.bzs-ai-body {
-  font-size: 13px;
-  line-height: 1.95;
-  color: var(--ink-2);
-}
-
+/* ── AI ──
+   旧版弹层式 AI 卡（顶部品牌条 + 引文 + 正文 + 动作）已退役：工具栏问话现在
+   是一张浮卡（见 .bzs-ai-card），这里只剩词典页脚那句来源说明还在用 ai-src。 */
 .bzs-ai-src {
   font-size: 11px;
   color: var(--t3);
@@ -937,13 +893,6 @@ body.theme-dark .bzs-tb-more {
   margin-top: 12px;
   border-top: 1px solid var(--line);
   padding-top: 10px;
-}
-
-.bzs-ai-acts {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 14px;
 }
 
 /* ── 书摘卡 ── */
@@ -1746,139 +1695,8 @@ textarea.idea:focus {
   color: var(--t2);
 }
 
-/* ── 全书画像 ──
-   准备页是两张大卡片：做法 / 好处 / 代价 / 适合各一行，代价必须在按钮上面。
-   卡片本身可点（选方案），所以整张是一个 button，不用 radio 圆点。 */
-.bzs-pt {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.bzs-pt-lead {
-  font-size: 12.5px;
-  line-height: 1.9;
-  color: var(--t2);
-}
-
-.bzs-pt-plans {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-@media (max-width: 720px) {
-  .bzs-pt-plans {
-    grid-template-columns: 1fr;
-  }
-}
-
-.bzs-pt-plan {
-  appearance: none;
-  text-align: left;
-  border: 1px solid var(--line);
-  background: var(--sunken);
-  color: var(--t2);
-  border-radius: var(--r-card);
-  padding: 14px 16px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.bzs-pt-plan.on {
-  border-color: var(--copper-line);
-  background: var(--copper-soft);
-}
-
-.bzs-pt-plan > b {
-  font-size: 13px;
-  color: var(--t1);
-  letter-spacing: .02em;
-}
-
-.bzs-pt-plan dl {
-  margin: 0;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 10px;
-  font-size: 11.5px;
-  line-height: 1.8;
-}
-
-.bzs-pt-plan dt {
-  color: var(--t3);
-  white-space: nowrap;
-}
-
-.bzs-pt-plan dd {
-  margin: 0;
-  color: var(--t2);
-}
-
-.bzs-pt-plan .est {
-  font-size: 11px;
-  color: var(--copper);
-  border-top: 1px solid var(--line);
-  padding-top: 8px;
-}
-
-.bzs-pt-run {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 6px 2px;
-}
-
-.bzs-pt-run .line {
-  font-size: 13px;
-  color: var(--t1);
-}
-
-.bzs-pt-bar {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--line);
-  overflow: hidden;
-}
-
-.bzs-pt-bar > i {
-  display: block;
-  height: 100%;
-  background: var(--copper);
-  transition: width .2s ease;
-}
-
-.bzs-pt-done {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.bzs-pt-done > b {
-  font-size: 14px;
-  color: var(--t1);
-}
-
-.bzs-pt-preview {
-  margin: 4px 0 0;
-  padding: 0 0 0 2px;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 11.5px;
-  line-height: 1.8;
-  color: var(--t2);
-}
-
-.bzs-pt-preview em {
-  font-style: normal;
-  color: var(--copper);
-  margin-right: 8px;
-}
-
+/* ── 清理无主画像 ──
+   清单列出来再删；列表本身的样式留着，建索引界面搬走之后只有它还用。 */
 .bzs-pt-orphans {
   margin: 8px 0 0;
   padding-left: 18px;

@@ -17,6 +17,7 @@ import {
   estimateBlocks,
   estimateChars,
   estimateRequests,
+  firstSentence,
   orphanPortraits,
   portraitState,
   sanitizePortrait,
@@ -261,5 +262,20 @@ describe('blocksEvidence · 命中块的原文', () => {
   it('超长时截断，不把整本书塞进上下文', () => {
     const out = blocksEvidence({} as never, [{ block: block('一', '字'.repeat(5000)) }], 400);
     expect(out.length).toBeLessThanOrEqual(402);
+  });
+});
+
+/* 一句话摘要：夹在两块正文之间当「这章讲了什么」用，太长会占掉半屏 */
+describe('firstSentence', () => {
+  it('取第一个句末标点', () => {
+    expect(firstSentence('注意力是有限的。所以要做减法。')).toBe('注意力是有限的。');
+  });
+
+  it('没有标点就整句截断，并补省略号', () => {
+    expect(firstSentence('字'.repeat(80))).toBe(`${'字'.repeat(60)}…`);
+  });
+
+  it('空输入给空串（不要一个孤零零的省略号）', () => {
+    expect(firstSentence('   ')).toBe('');
   });
 });

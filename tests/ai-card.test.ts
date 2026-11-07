@@ -1,10 +1,12 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { overlayHtml } from '../src/shell/overlay';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { overlayHtml, runAiForOverlay } from '../src/shell/overlay';
 import { DEFAULT_SHELL_STATE, setState } from '../src/shell/state';
 import { setShellSource, type ShellSource } from '../src/shell/source';
+import { RT, resetAi } from '../src/shell/runtime';
 import { DEFAULT_SETTINGS } from '../src/data/settings';
 import { aiCardBegin, aiCardDone, aiCardDrop, aiCardFail, aiCardGet, aiCardKey, aiCardReset, aiModeOf } from '../src/shell/ai-card';
 import { makeApp, makeStore } from './helpers/plugin-harness';
+import { installDomStub } from './helpers/dom-stub';
 
 /**
  * 划词 AI 卡（工具栏那条路，不是侧栏的全书问答）。
@@ -32,6 +34,13 @@ vi.mock('../src/data/entitlement', async (importOriginal) => {
   return { ...actual, can: () => true };
 });
 
+/* 请求本身不是这组测试要验的：把它换成一句固定的回答，才能看清
+   「答完之后去了哪儿」——卡片册子里有，侧栏日志里没有。 */
+vi.mock('../src/data/ai', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/data/ai')>();
+  return { ...actual, aiAsk: async () => ({ text: '卡片里的答案' }) };
+});
+
 const TEXT = '划线原文一段';
 
 function install(): void {
@@ -53,6 +62,7 @@ function open(mode?: string): void {
 afterEach(() => {
   flags.mobile = false;
   aiCardReset();
+  resetAi();
   setShellSource(null);
   setState({ ...DEFAULT_SHELL_STATE });
 });
@@ -149,5 +159,35 @@ describe('ai-card · 三档页签', () => {
     expect(overlayHtml()).toContain('这是摘要');
     open('explain');
     expect(overlayHtml()).toContain('这是解释');
+  });
+});
+
+/**
+ * 两条路：工具栏的 AI 问的是一小段，侧栏的 AI 问的是整本书。
+ *
+ * 以前卡片答完会把结果 push 进侧栏的问答记录，侧栏于是凭空多出一条
+ * 没有提问的答案；用户接着在侧栏追问，会以为这条答案是基于全书的。
+ * 现在卡片只写自己的册子。
+ */
+describe('ai-card · 和侧栏全书问答互不回填', () => {
+  /* 请求回填要 querySelector 找 [data-role="aibody"]，这是唯一需要 document 的地方 */
+  let off = (): void => undefined;
+  beforeEach(() => {
+    off = installDomStub();
+  });
+  afterEach(() => off());
+
+  it('卡里问到答案，侧栏的问答记录里不会多出一条', async () => {
+    install();
+    open('explain');
+    resetAi();
+
+    await runAiForOverlay();
+
+    expect(aiCardGet(aiCardKey('ai', 'explain', TEXT))).toMatchObject({
+      status: 'done',
+      text: '卡片里的答案',
+    });
+    expect(RT.aiLog).toHaveLength(0);
   });
 });

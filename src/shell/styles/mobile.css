@@ -1084,19 +1084,7 @@
     font-size: 14px;
   }
 
-  /* ── 弹层：AI / 书摘 / 词典 / 全书鸟瞰 ── */
-  .bzs-ai-tag b {
-    font-size: 12px;
-  }
-
-  .bzs-ai-quote {
-    font-size: 14px;
-  }
-
-  .bzs-ai-body {
-    font-size: 15px;
-  }
-
+  /* ── 弹层：书摘 / 词典 / 全书鸟瞰 ── */
   .bzs-ai-src {
     font-size: 12px;
   }

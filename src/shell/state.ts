@@ -46,9 +46,9 @@ export type LibSort = 'recent' | 'title' | 'progress';
 /** 浮层：同一时刻只开一个 */
 export type OverlayKind =
   | 'search' | 'typography' | 'export' | 'bookmap'
-  | 'quote' | 'idea' | 'hltools' | 'ai' | 'dict' | 'translate' | 'poster'
+  | 'quote' | 'idea' | 'hltools' | 'ai' | 'dict' | 'poster'
   | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedir' | 'finish' | 'footnote'
-  | 'rename' | 'removebook' | 'confirmdel' | 'notedrop' | 'missing' | 'ack' | 'portrait' | 'ptclean';
+  | 'rename' | 'removebook' | 'confirmdel' | 'notedrop' | 'missing' | 'ack' | 'ptclean';
 
 /**
  * 哪些弹层算「浮层」：无遮罩、贴在文字旁。

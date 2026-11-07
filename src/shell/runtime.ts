@@ -38,7 +38,13 @@ export const RT = {
   cardTpl: 'classic' as string,
   /** 正在跑的 AI 请求（「取消请求」按钮用）；空表示没有在请求 */
   aiAbort: null as AbortController | null,
-  /** AI 对话（侧栏 AI 页签与 AI 弹层共用一份） */
+  /**
+   * 侧栏 AI 页签的问答记录。
+   *
+   * **只有侧栏那条路写这里**（全书问答）。工具栏划词问的是另一件事——
+   * 一小段、不要书的依据、花的是另一次钱——它记在 shell/ai-card 那本册子里。
+   * 以前两边共用一份，侧栏会凭空多出一条没有提问的答案。
+   */
   aiLog: [] as AiLogItem[],
   /**
    * 等用户确认「会把什么发给 AI」的那一次提问。
@@ -47,14 +53,6 @@ export const RT = {
    * 原样重发这条提问——不存下来就等于让他白打一遍字。
    */
   ackPending: null as { q: string } | null,
-  /**
-   * 全书档因「还没建画像」被拦下的那条提问（决策 7）。
-   *
-   * 弹准备界面时把问题留在这儿：用户点开始、建完、再点「开始提问」时
-   * 原样重发；取消则退回「当前这一屏」并说一句。没有这个字段，用户
-   * 就得自己重新打一遍刚才那句话。
-   */
-  pendingAsk: null as string | null,
   /** 画像方案：记住上次选的（两种方案差别很大，用户通常固定用同一种） */
   portraitPlan: 'vector' as PortraitPlan,
   /**
