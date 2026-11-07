@@ -22,6 +22,7 @@ import {
   compressEvidence,
   encodeVector,
   estimateBlocks,
+  estimateRequests,
   type ChapterText,
   type PortraitBlock,
   type PortraitFile,
@@ -409,7 +410,14 @@ export function resetPortraitBuilder(): void {
 }
 
 /** 预估（界面用）：约几块、约几次请求 */
+/**
+ * 准备界面上的预估。
+ *
+ * 请求数的算法只有一份（`estimateRequests`）：这里再抄一遍，改批次大小时
+ * 预估就会和实际跑数对不上，而预估正是用户决定「要不要花这个钱」的唯一依据。
+ * 0 块时仍然给 0 次——还没切出块就说「约 1 次请求」是假话。
+ */
 export function estimateOf(chars: number, plan: PortraitPlan): { blocks: number; requests: number } {
   const blocks = estimateBlocks(chars, plan);
-  return { blocks, requests: plan === 'vector' ? Math.ceil(blocks / EMBED_BATCH_BLOCKS) : blocks + 1 };
+  return { blocks, requests: blocks > 0 ? estimateRequests(blocks, plan, EMBED_BATCH_BLOCKS) : 0 };
 }

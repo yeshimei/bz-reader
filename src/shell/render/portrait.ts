@@ -11,7 +11,13 @@
 import { t, type MsgKey } from '../../i18n';
 import { esc } from './html';
 import { estimateOf, type BuildProgress } from '../../data/portrait-build';
-import { chapterDigests, estimateRequests, type PortraitFile, type PortraitPlan } from '../../data/portrait';
+import {
+  chapterDigests,
+  estimateRequests,
+  portraitState,
+  type PortraitFile,
+  type PortraitPlan,
+} from '../../data/portrait';
 
 export interface PortraitView {
   /** 手机上不建画像，只提示去电脑上建 */
@@ -80,8 +86,12 @@ function planCard(plan: PortraitPlan, v: PortraitView): string {
 }
 
 function prepareBody(v: PortraitView): string {
+  /* 已经建过却还看到准备页，得说清为什么（换了嵌入模型，向量对不上）。
+     不说的话，用户会以为「我明明建过」——然后不敢点。 */
+  const stale = portraitState(v.portrait, v.model) === 'stale';
   return `<div class="bzs-pt">
       <div class="bzs-pt-lead">${esc(t('pt.choose'))}</div>
+      ${stale ? `<div class="bzs-mini is-bad" style="margin:-4px 0 8px;line-height:1.8">${esc(t('side.ai.book.stale'))}</div>` : ''}
       <div class="bzs-pt-plans">${planCard('vector', v)}${planCard('compress', v)}</div>
     </div>`;
 }

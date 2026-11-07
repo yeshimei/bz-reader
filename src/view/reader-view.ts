@@ -1042,6 +1042,11 @@ export class ReaderView extends ItemView {
    *
    * 转一手 host：视图暴露给壳层的能力都走这一条，壳层不该知道 host 的存在。
    */
+  /** 按章名跳转（AI 来源点开用）；找不到就不动 */
+  goToChapter(title: string): void {
+    void this.host.goToChapter(title);
+  }
+
   exportChapters(opts?: {
     onProgress?: (done: number, total: number, title: string) => void;
     shouldStop?: () => boolean;

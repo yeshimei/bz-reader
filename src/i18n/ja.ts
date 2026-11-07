@@ -512,4 +512,7 @@ export const JA: Record<MsgKey, string> = {
   'pt.blockCount': '{n} ブロック',
   'pt.clean.done': '持ち主のない全体像を {n} 件削除しました',
   'pt.needOpen': '全体像は本文全体を読みます。先にリーダーでこの本を開いてから作成してください',
+  'side.ai.source.block': '{n} ブロック目',
+  'side.ai.book.stale': 'この本の全体像は別の埋め込みモデルで作成されています。作り直さないと検索結果が噛み合いません。',
+  'side.ai.book.cancelled': '全体像は未作成です。今回は「この画面」で回答します。',
 };

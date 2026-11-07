@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { AI_CONTEXT_LIMIT, aiScopeLabel, hitsToContext, isAiScope, sourcesOfHits } from '../src/data/ai-scope';
+import {
+  AI_CONTEXT_LIMIT,
+  aiScopeLabel,
+  hitsToContext,
+  isAiScope,
+  joinScopeContext,
+  sourcesOfBlocks,
+  sourcesOfHits,
+} from '../src/data/ai-scope';
 
 const hit = (title: string, chunk: string, path = `笔记/${title}.md`) => ({ title, chunk, path, score: 0.5 });
 
@@ -62,5 +70,62 @@ describe('检索命中 → 来源列表', () => {
   it('最多列五条：来源是佐证，不是第二份结果列表', () => {
     const many = Array.from({ length: 9 }, (_, i) => hit(`n${i}`, 'x'));
     expect(sourcesOfHits(many)).toHaveLength(5);
+  });
+});
+
+/**
+ * 决策 8 / 3.2：知识库与全书两档也要带「当前这一屏」。
+ *
+ * 这条以前是整体覆盖——切到全书之后，用户指着屏幕问「这段什么意思」，
+ * 模型只看得到检索出来的八块，看不到那一段。修法是拼接而不是替换，
+ * 所以上限要重新分配：这一屏固定留一小块，其余让给依据。
+ */
+describe('依据 + 当前这一屏', () => {
+  it('两段都在，这一屏在前（用户问的就是它）', () => {
+    const out = joinScopeContext('【笔记】\n检索到的东西', '屏幕上这一段');
+    expect(out.indexOf('屏幕上这一段')).toBeLessThan(out.indexOf('检索到的东西'));
+    expect(out).toContain('【当前这一屏】');
+  });
+
+  it('没有依据时只剩这一屏，不留空标题', () => {
+    const out = joinScopeContext('', '屏幕上这一段');
+    expect(out.trim()).toBe('屏幕上这一段');
+  });
+
+  it('没有这一屏时原样返回依据（不硬造一段空的）', () => {
+    expect(joinScopeContext('【笔记】\n检索到的东西', '  ')).toBe('【笔记】\n检索到的东西');
+  });
+
+  it('总长不超上限：这一屏吃定额，依据吃剩下的', () => {
+    const out = joinScopeContext('依'.repeat(9000), '屏'.repeat(5000), 6000);
+    expect(out.length).toBeLessThanOrEqual(6000);
+    expect(out).toContain('屏'.repeat(10));
+  });
+
+  it('这一屏自己超长时按定额截，不把依据挤没', () => {
+    const out = joinScopeContext('依据', '屏'.repeat(5000), 6000);
+    expect(out).toContain('依据');
+    expect(out.length).toBeLessThan(6000);
+  });
+});
+
+describe('全书来源可点', () => {
+  const blk = (chapter: string, index: number) => ({ chapter, index });
+
+  it('每条都带书号，标题是章名，副标题是第几块', () => {
+    const src = sourcesOfBlocks('b1', [blk('第一章', 0), blk('第二章', 7)]);
+    expect(src[0]).toMatchObject({ title: '第一章', bookId: 'b1', note: '第 1 块' });
+    expect(src[1]).toMatchObject({ title: '第二章', bookId: 'b1', note: '第 8 块' });
+  });
+
+  it('没章名时给一个能看的名字，但不给空标题', () => {
+    const src = sourcesOfBlocks('b1', [blk('', 0)]);
+    expect(src[0].title).toBe('本章');
+    expect(src[0].bookId).toBe('b1');
+  });
+
+  it('最多列五条', () => {
+    const many = Array.from({ length: 9 }, (_, i) => blk(`章${i}`, i));
+    expect(sourcesOfBlocks('b1', many)).toHaveLength(5);
   });
 });

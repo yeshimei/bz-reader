@@ -65,11 +65,21 @@ import {
   toggleFav,
 } from './state';
 import { RT, emitNotesChanged, pushAi } from './runtime';
-import { probeBz, openBzEntry, aiBridgeProblem, type BzEntryKind } from '../data/bz-bridge';
+import { probeBz, openBzEntry, aiBridgeProblem, type BzEntryKind, type BzProbe } from '../data/bz-bridge';
+import { isMobileEnv } from '../core/mobile';
+import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
 import { ensurePortrait, forgetPortrait, setPortrait } from './portrait-cache';
 import { portraitNoteMarkdown } from './render/portrait';
-import { hitsToContext, isAiScope, sourcesOfHits, type AiScope, type AiSource } from '../data/ai-scope';
+import {
+  hitsToContext,
+  isAiScope,
+  joinScopeContext,
+  sourcesOfBlocks,
+  sourcesOfHits,
+  type AiScope,
+  type AiSource,
+} from '../data/ai-scope';
 import {
   PORTRAIT_TOP_K,
   firstSentence,
@@ -347,6 +357,19 @@ function knowledgeEntry(kind: BzEntryKind, markId?: string, bookId?: string): vo
 /* ─────────── 全书画像 ─────────── */
 
 /**
+ * 由提问弹起的准备界面被取消 / 关闭：退回「当前这一屏」并说一句（决策 7）。
+ *
+ * 只有带着 pendingAsk 才是「这次提问没答成」。用户自己从详情页点「建画像…」
+ * 进来的，关掉不该动他的回答依据——他可能只是先看看。
+ */
+function backToScreen(): void {
+  if (!RT.pendingAsk) return;
+  RT.pendingAsk = null;
+  getShellSource()?.setPrefs({ aiScope: 'screen' });
+  notify(t('side.ai.book.cancelled'), 'info');
+}
+
+/**
  * 建画像需要的全部外部能力。
  *
  * 每次都现装配、现 rebind：设置里的 Key、bz 的嵌入模型都可能在两次打开
@@ -379,26 +402,29 @@ function portraitDeps(bookId: string): PortraitBuildDeps | null {
   };
 }
 
-/** 拿一个可用方案：向量要 bz 的嵌入，压缩要配好 AI Key */
-function portraitProblem(plan: PortraitPlan): string | null {
-  const settings = shellSettings();
-  if (plan === 'vector') {
-    const probe = probeBz(getShellSource()?.app);
-    return aiBridgeProblem(probe);
-  }
-  return aiReady(settings) ? null : t('side.ai.notReady');
+/** 拦截原因 → 一句人话（bz 那几种仍由桥接层给具体说法：没装 / 没启用 / 版本旧） */
+function portraitBlockMessage(reason: PortraitBlockReason, probe: BzProbe): string {
+  if (reason === 'mobile') return t('pt.mobile');
+  if (reason === 'noBz') return aiBridgeProblem(probe) ?? t('bz.outdated', { version: probe.version || '—' });
+  if (reason === 'noAi') return t('side.ai.notReady');
+  return t('pt.needOpen');
 }
 
 function startPortrait(book: ReaderBook, plan: PortraitPlan, rebuild = false): void {
-  const problem = portraitProblem(plan);
-  if (problem) {
-    notify(problem, 'info');
-    return;
-  }
-  /* 画像读的是「阅读视图里那本」的正文：没开这本书就直说，
-     让用户对着一个 0% 的进度条等三分钟是最糟的结果。 */
-  if (getShellSource()?.openBookId() !== book.id) {
-    notify(t('pt.needOpen'), 'info');
+  const src = getShellSource();
+  const probe = probeBz(src?.app);
+  /* 能不能建，四条一起判（portrait-gate.ts）。其中「开的是另一本书」这条
+     最隐蔽：画像的正文来自阅读视图，取错了会算出一整本错向量，界面却正常。 */
+  const reason = portraitBlock({
+    plan,
+    mobile: isMobileEnv(),
+    bookId: book.id,
+    openBookId: src?.openBookId() ?? '',
+    bzProblem: aiBridgeProblem(probe),
+    aiReady: aiReady(shellSettings()),
+  });
+  if (reason) {
+    notify(portraitBlockMessage(reason, probe), 'info');
     return;
   }
   const deps = portraitDeps(book.id);
@@ -1381,16 +1407,22 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (RT.sel && requireCap('ai'))
         overlay('ai', { text: RT.sel.text, mode: 'explain', anchor: RT.sel.anchor });
       break;
+    /* 两颗知识库按钮和 AI 问答同一道门：按钮在授权掉了之后不再渲染，
+       但动作本身也该拦——data-act 是 DOM 属性，不是权限。 */
     case 'selterm':
+      if (!requireCap('ai')) break;
       knowledgeEntry('term');
       break;
     case 'selpassage':
+      if (!requireCap('ai')) break;
       knowledgeEntry('passage');
       break;
     case 'hlterm':
+      if (!requireCap('ai')) break;
       knowledgeEntry('term', d.id, d.book);
       break;
     case 'hlpassage':
+      if (!requireCap('ai')) break;
       knowledgeEntry('passage', d.id, d.book);
       break;
     case 'selbilink': {
@@ -1432,6 +1464,17 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       void src.app.workspace.getLeaf(false).openFile(file as TFile);
       break;
     }
+    case 'opensrcbook': {
+      const book = liveBooks().find((b) => b.id === d.book);
+      const src = getShellSource();
+      if (!book || !src) break;
+      const chapter = (d.chapter || '').trim();
+      /* 同一本书就直接跳章；另一本只打开——打开视图是异步的，
+         刚 openBook 完立刻跳章会跳到一个还没分页的引擎上。 */
+      if (chapter && src.openBookId() === book.id) src.goToChapter(chapter);
+      else src.openBook(book);
+      break;
+    }
     case 'ptopen': {
       if (!requireCap('ai')) break;
       const book = liveBooks().find((b) => b.id === (d.id || d.book || getState().bookId));
@@ -1467,6 +1510,10 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     case 'ptstop':
       portraitBuilder().cancel();
+      /* 取消是「这次不建了」：弹层收起，别留一个还写着「开始」的准备页
+         让人以为刚才那次取消没生效。 */
+      backToScreen();
+      closeOverlay();
       break;
     case 'ptretry':
       void portraitBuilder().retryFailed();
@@ -1481,6 +1528,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'ptclose':
       /* 关掉弹层 = 暂停（不丢进度）；真在跑的时候才停，已完成的不动它 */
       portraitBuilder().pause();
+      backToScreen();
       closeOverlay();
       break;
     case 'ptnote': {
@@ -1499,9 +1547,13 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     }
     case 'ptask': {
       const src = getShellSource();
+      const q = RT.pendingAsk;
+      RT.pendingAsk = null;
       src?.setPrefs({ aiScope: 'book' });
       closeOverlay();
       src?.openSidebar('ai');
+      /* 由提问触发的流程：把刚才那句原样重发，不让用户再打一遍 */
+      if (q) void askAi(null, q);
       break;
     }
     case 'ptclean':
@@ -2005,7 +2057,7 @@ async function scopeContext(
   const model = probe.ai ? probe.ai.embeddingModel() : '';
   const state = portraitState(portrait, model);
   if (!portrait || state !== 'ready') {
-    notify(t('side.ai.book.none'), 'info');
+    notify(t(state === 'stale' ? 'side.ai.book.stale' : 'side.ai.book.none'), 'info');
     return null;
   }
   return bookEvidence(portrait, q, probe.ai);
@@ -2036,7 +2088,10 @@ async function bookEvidence(
       }
       return {
         context: blocksEvidence(portrait, picks),
-        sources: picks.map((p) => ({ title: p.block.chapter || t('side.ai.source.chapter'), note: `第 ${p.index + 1} 块` })),
+        sources: sourcesOfBlocks(
+          portrait.bookId,
+          picks.map((p) => ({ chapter: p.block.chapter, index: p.index })),
+        ),
       };
     } catch (e) {
       notify(t('notice.kb.failed', { message: (e as Error)?.message || t('common.unknownError') }), 'error');
@@ -2050,9 +2105,10 @@ async function bookEvidence(
   }
   return {
     context,
+    /* 压缩方案的依据是章节摘要，来源就是章，不是块 */
     sources: chapterDigests(portrait)
       .slice(0, 5)
-      .map((d) => ({ title: d.chapter, note: d.line })),
+      .map((d) => ({ title: d.chapter, bookId: portrait.bookId, note: d.line })),
   };
 }
 
@@ -2075,6 +2131,25 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
     return;
   }
 
+  /* 全书档：还没画像就先弹准备界面（决策 7：看预估 → 点开始才跑）。
+     拦在 pushAi 之前，日志里不会留下一条没有回答的提问；问题留在输入框里，
+     用户建完点「开始提问」时原样重发（RT.pendingAsk）。 */
+  if (scope === 'book') {
+    if (!book) {
+      notify(t('notice.search.needBook'), 'info');
+      return;
+    }
+    const portrait = await readPortrait(src.app, book.id);
+    const model = probeBz(src.app).ai?.embeddingModel() ?? '';
+    if (portraitState(portrait, model) !== 'ready') {
+      RT.pendingAsk = q;
+      if (input) input.value = q;
+      /* 弹层自己会 ensurePortrait（portraitModel 里），这里不重复读盘 */
+      openOverlay({ kind: 'portrait', bookId: book.id });
+      return;
+    }
+  }
+
   /* 先把自己这条提问放进日志（界面立刻有反馈），再取历史时要把它排除——
      buildMessages 会把 text 作为最后一条 user 追加。 */
   const history = RT.aiLog.map((m) => ({ role: m.me ? ('user' as const) : ('assistant' as const), content: m.text }));
@@ -2082,12 +2157,15 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
   if (input) input.value = '';
   repaint();
 
-  let context = src.currentText();
+  const page = src.currentText();
+  let context = page;
   let sources: AiSource[] = [];
   if (scope !== 'screen') {
     const got = await scopeContext(scope, q, src, book);
     if (got) {
-      context = got.context;
+      /* 决策 8：知识库 / 全书两档**仍带当前这一屏**。以前这里是整体覆盖，
+         用户指着屏幕上某段问「这段什么意思」时，模型看不到那一段。 */
+      context = joinScopeContext(got.context, page);
       sources = got.sources;
     }
   }

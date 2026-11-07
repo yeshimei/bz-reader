@@ -519,4 +519,7 @@ export const DE: Record<MsgKey, string> = {
   'pt.blockCount': '{n} Blöcke',
   'pt.clean.done': '{n} verwaiste Gesamtbilder gelöscht',
   'pt.needOpen': 'Ein Gesamtbild liest das ganze Buch – öffne es zuerst im Reader',
+  'side.ai.source.block': 'Block {n}',
+  'side.ai.book.stale': 'Dieses Gesamtbild wurde mit einem anderen Embedding-Modell erstellt – neu erstellen, sonst passen die gefundenen Blöcke nicht.',
+  'side.ai.book.cancelled': 'Kein Gesamtbild erstellt – antwortet vorerst aus diesem Bildschirm.',
 };

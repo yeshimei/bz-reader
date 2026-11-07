@@ -211,3 +211,38 @@ describe('存为笔记', () => {
     expect(md).toContain('向量化检索');
   });
 });
+
+/**
+ * 已经建过却还看到准备页，必须说清为什么（换了嵌入模型）。
+ * 不说的话用户会以为「我明明建过」，然后不敢点开始。
+ */
+describe('准备页 · 换过模型', () => {
+  const built = (model: string): PortraitFile => ({
+    version: 1,
+    bookId: 'b1',
+    bookTitle: '心流',
+    plan: 'vector',
+    model,
+    chunkChars: 1000,
+    dim: 1024,
+    total: 2,
+    done: true,
+    blocks: [
+      { chapter: '第一章', chars: 10, vec: 'AA==', text: '正文' },
+      { chapter: '第二章', chars: 10, vec: 'AA==', text: '正文' },
+    ],
+    createdAt: 1,
+    updatedAt: 2,
+  });
+
+  it('模型对不上：准备页说明要重建', () => {
+    const html = portraitBody(view({ portrait: built('旧模型'), model: '新模型' }));
+    expect(html).toContain('另一个嵌入模型');
+    expect(portraitStage(view({ portrait: built('旧模型'), model: '新模型' }))).toBe('prepare');
+  });
+
+  it('模型一致：只是没开始建，不吓人', () => {
+    const html = portraitBody(view({ portrait: null, model: '新模型' }));
+    expect(html).not.toContain('另一个嵌入模型');
+  });
+});

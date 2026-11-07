@@ -181,17 +181,28 @@ function aiScopeRow(v: SidebarView): string {
   return `<div class="bzs-aiscope" role="radiogroup" aria-label="${esc(t('side.ai.scope.aria'))}">${chips}</div>`;
 }
 
-/** 一条回答下面的来源：知识库笔记能点开，全书的只有章节名 */
+/**
+ * 一条回答下面的来源（决策 17：点了能打开对应笔记或书）。
+ *
+ * 三种：库内笔记 → opensrc；全书的章 → opensrcbook（带书号与章名）；
+ * 两样都没有的（例如「本章」这种兜底名）只当说明。
+ */
 function aiSourcesRow(m: AiLogItem): string {
   if (m.me || !m.sources?.length) return '';
   const items = m.sources
-    .map((s) =>
-      s.path
-        ? `<button type="button" class="bzs-aisrc-i" data-act="opensrc" data-path="${esc(s.path)}" title="${esc(
-            s.note || s.path,
-          )}">${esc(s.title)}</button>`
-        : `<span class="bzs-aisrc-i" title="${esc(s.note || '')}">${esc(s.title)}</span>`,
-    )
+    .map((s) => {
+      const label = esc(s.title);
+      const tip = esc(s.note || s.path || s.title);
+      if (s.path) {
+        return `<button type="button" class="bzs-aisrc-i" data-act="opensrc" data-path="${esc(s.path)}" title="${tip}">${label}</button>`;
+      }
+      if (s.bookId) {
+        return `<button type="button" class="bzs-aisrc-i" data-act="opensrcbook" data-book="${esc(
+          s.bookId,
+        )}" data-chapter="${esc(s.title)}" title="${tip}">${label}</button>`;
+      }
+      return `<span class="bzs-aisrc-i" title="${tip}">${label}</span>`;
+    })
     .join('');
   return `<div class="bzs-aisrc"><span class="lbl">${esc(t('side.ai.sources'))}</span>${items}</div>`;
 }

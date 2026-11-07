@@ -29,6 +29,7 @@ import type {
 import { buildChapterCSS } from './theme';
 import { makeTxtBook, countWords } from './txt';
 import { decodeTxtBytes } from './encoding';
+import { findTocHref } from './toc';
 import { teardownView } from './view-teardown';
 import { unionClientRects } from './selection-rect';
 import {
@@ -1443,6 +1444,19 @@ export class EngineHost {
   /** 跳到 TOC 项（href 由 foliate 解析成章节 + 锚点） */
   async goToHref(href: string): Promise<void> {
     await this.enqueue(() => this.navigate(() => this.view?.goTo(href), '跳到这一章'));
+  }
+
+  /**
+   * 按章名跳转（AI 回答的来源点开用）。
+   *
+   * 画像里存的是「章名 + 第几块」，没有 href；这里回目录换一次。
+   * 找不到就返回 false、什么都不做——跳回开头比不跳更像坏了。
+   */
+  async goToChapter(title: string): Promise<boolean> {
+    const href = findTocHref(this.book?.toc, title);
+    if (!href) return false;
+    await this.goToHref(href);
+    return true;
   }
 
   /**

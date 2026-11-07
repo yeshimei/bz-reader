@@ -521,4 +521,7 @@ export const FR: Record<MsgKey, string> = {
   'pt.blockCount': '{n} blocs',
   'pt.clean.done': '{n} portraits orphelins supprimés',
   'pt.needOpen': 'Un portrait lit tout le livre : ouvre-le d\'abord dans le lecteur',
+  'side.ai.source.block': 'Bloc {n}',
+  'side.ai.book.stale': 'Ce portrait a été créé avec un autre modèle d\'embedding : reconstruis-le, sinon les blocs récupérés ne correspondront pas.',
+  'side.ai.book.cancelled': 'Aucun portrait créé : réponse limitée à cet écran pour l\'instant.',
 };

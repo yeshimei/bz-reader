@@ -513,6 +513,9 @@ export const ZH = {
   'pt.blockCount': '{n} 块',
   'pt.clean.done': '已清理 {n} 份无主画像',
   'pt.needOpen': '画像要读整本书的正文：先在阅读视图里打开这本书，再回来建',
+  'side.ai.source.block': '第 {n} 块',
+  'side.ai.book.stale': '这本书的画像用另一个嵌入模型建的：需要重建一次，否则检索出来的块对不上。',
+  'side.ai.book.cancelled': '画像没有建：这次先按「当前这一屏」回答。',
 } as const;
 
 export type MsgKey = keyof typeof ZH;

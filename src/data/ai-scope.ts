@@ -31,17 +31,55 @@ export function aiScopeLabel(scope: AiScope): string {
   return t(LABEL_KEY[scope] ?? LABEL_KEY.screen);
 }
 
-/** 来源：有 path 的能点开（知识库笔记），没有的只当说明（全书的章节） */
+/** 来源：带 path 的打开笔记，带 bookId 的打开书；两样都没有的只当说明 */
 export interface AiSource {
   title: string;
   /** 库内相对路径（Markdown 笔记） */
   path?: string;
-  /** 副标题：命中片段或章节名 */
+  /** 书号：点开后落到这本书（决策 17「打开对应笔记或书」） */
+  bookId?: string;
+  /** 副标题：命中片段或「第 N 块」 */
   note?: string;
 }
 
 /** 拼进上下文的字数上限：约 4k token 中文，留够回答与历史的余量 */
 export const AI_CONTEXT_LIMIT = 6000;
+
+/**
+ * 「当前这一屏」在上下文里能占的字数。
+ *
+ * 决策 8 要求知识库 / 全书两档仍带这一屏，但依据才是这两档的主角——
+ * 把这一屏放开不限，一页几千字的正文会把检索出来的证据全挤掉，
+ * 这两档就退化成「带了一点点笔记的这一屏问答」。
+ */
+export const PAGE_CONTEXT_KEEP = 1200;
+
+function clip(text: string, max: number): string {
+  const s = String(text ?? '').trim();
+  if (max <= 0) return '';
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
+/**
+ * 依据 + 当前这一屏（决策 8）。
+ *
+ * 顺序是刻意的：这一屏在前。用户指着屏幕上某句话问「这是什么意思」时，
+ * 那句话才是问题本身，检索出来的笔记是补充。以前这里被整体覆盖成依据，
+ * 结果切到全书之后，模型看不到用户正在看的那一段。
+ */
+export function joinScopeContext(evidence: string, page: string, limit = AI_CONTEXT_LIMIT): string {
+  const pageText = clip(page, PAGE_CONTEXT_KEEP);
+  const source = String(evidence ?? '').trim();
+  if (!pageText) return source;
+  if (!source) return pageText;
+  const head = `【${t('side.ai.scope.screen')}】
+`;
+  const room = Math.max(0, limit - pageText.length - head.length - 2 /* 两个换行 */);
+  if (room < 40) return pageText;
+  return `${head}${pageText}
+
+${clip(source, room)}`;
+}
 
 /**
  * 检索命中 → 给模型看的上下文。
@@ -70,6 +108,30 @@ export function hitsToContext(hits: readonly BzNoteHit[], limit = AI_CONTEXT_LIM
     used += sep + head.length + body.length;
   }
   return parts.join('\n\n');
+}
+
+/**
+ * 全书这一档的来源（决策 17）。
+ *
+ * 命中的是「块」，但给用户看的必须是他认的东西：章名 + 第几块。
+ * 带上 bookId，点一下能把书打开；没有这一条，来源就只是几行死文字。
+ */
+export function sourcesOfBlocks(
+  bookId: string,
+  blocks: ReadonlyArray<{ chapter?: string; index: number }>,
+  take = 5,
+): AiSource[] {
+  const out: AiSource[] = [];
+  for (const b of blocks) {
+    if (out.length >= take) break;
+    const chapter = String(b.chapter ?? '').trim();
+    out.push({
+      title: chapter || t('side.ai.source.chapter'),
+      bookId: bookId || undefined,
+      note: t('side.ai.source.block', { n: String(Number(b.index) + 1) }),
+    });
+  }
+  return out;
 }
 
 export function sourcesOfHits(hits: readonly BzNoteHit[], take = 5): AiSource[] {

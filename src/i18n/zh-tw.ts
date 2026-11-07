@@ -505,4 +505,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'pt.blockCount': '{n} 塊',
   'pt.clean.done': '已清理 {n} 份無主畫像',
   'pt.needOpen': '畫像要讀整本書的正文：先在閱讀視圖裡打開這本書，再回來建',
+  'side.ai.source.block': '第 {n} 塊',
+  'side.ai.book.stale': '這本書的畫像用另一個嵌入模型建的：需要重建一次，否則檢索出來的塊對不上。',
+  'side.ai.book.cancelled': '畫像沒有建：這次先按「當前這一屏」回答。',
 };

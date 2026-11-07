@@ -47,6 +47,14 @@ export const RT = {
    * 原样重发这条提问——不存下来就等于让他白打一遍字。
    */
   ackPending: null as { q: string; scope: AiScope } | null,
+  /**
+   * 全书档因「还没建画像」被拦下的那条提问（决策 7）。
+   *
+   * 弹准备界面时把问题留在这儿：用户点开始、建完、再点「开始提问」时
+   * 原样重发；取消则退回「当前这一屏」并说一句。没有这个字段，用户
+   * 就得自己重新打一遍刚才那句话。
+   */
+  pendingAsk: null as string | null,
   /** 画像方案：记住上次选的（两种方案差别很大，用户通常固定用同一种） */
   portraitPlan: 'vector' as PortraitPlan,
   /** 待确认清理的无主画像（书号，给人看的清单在弹层里） */

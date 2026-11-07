@@ -121,20 +121,27 @@ export function probeBz(app: App | null | undefined): BzProbe {
   return { status: 'ok', version: versionOf(app, plugin), knowledge: knowledgeOf(plugin), ai: aiOf(plugin) };
 }
 
-/** 知识库 / 全书这两档要用的能力缺哪一半，给人话；齐了返回 null */
-export function aiBridgeProblem(p: BzProbe): string | null {
+/**
+ * 门面缺哪一半 → 一句人话；齐了返回 null。
+ *
+ * 两个入口（检索/嵌入 与 知识盒录入）的三种失败说法完全一样，只差「缺的
+ * 是哪一项」。以前是两份逐字相同的实现，改一句文案得记住改两处。
+ */
+function bridgeProblem(p: BzProbe, cap: 'ai' | 'knowledge'): string | null {
   if (p.status === 'missing') return t('bz.missing');
   if (p.status === 'disabled') return t('bz.disabled');
-  if (!p.ai) return t('bz.outdated', { version: p.version || '—' });
+  if (!p[cap]) return t('bz.outdated', { version: p.version || '—' });
   return null;
 }
 
-/** 两颗录入按钮要用的能力缺了，给人话；齐了返回 null */
+/** 知识库 / 全书这两档要用的能力缺哪一半 */
+export function aiBridgeProblem(p: BzProbe): string | null {
+  return bridgeProblem(p, 'ai');
+}
+
+/** 两颗录入按钮要用的能力缺了 */
 export function entryBridgeProblem(p: BzProbe): string | null {
-  if (p.status === 'missing') return t('bz.missing');
-  if (p.status === 'disabled') return t('bz.disabled');
-  if (!p.knowledge) return t('bz.outdated', { version: p.version || '—' });
-  return null;
+  return bridgeProblem(p, 'knowledge');
 }
 
 export type BzEntryKind = 'term' | 'passage';

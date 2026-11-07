@@ -514,6 +514,7 @@ export function createPlugin(cfg: PluginConfig) {
           return view.exportChapters(opts);
         },
         openBookId: () => this.activeReader()?.currentBookId ?? '',
+        goToChapter: (title) => this.activeReader()?.goToChapter(title),
         activate: (code) => this.activateLicense(code),
         dataDir: () => dataDirOf(),
         migrateDataDir: (dir) => this.migrateDataDir(dir),
