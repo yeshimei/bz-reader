@@ -6,7 +6,7 @@ const base = {
   mobile: false,
   bookId: 'b1',
   openBookId: 'b1',
-  bzProblem: null,
+  embedReady: true,
   aiReady: true,
 };
 
@@ -16,6 +16,8 @@ const base = {
  * 这个 bug 没有可见症状：从书籍详情给另一本书建画像，取到的是**正在读的
  * 那本**的正文——向量全错，界面一切正常。所以判定必须被测试钉住，
  * 不能只靠「我记得加了这一段」。
+ *
+ * 2026-11-07：向量方案不再看 bz，只看自己配没配嵌入模型。
  */
 describe('建画像前的拦截', () => {
   it('条件齐了才放行', () => {
@@ -32,24 +34,24 @@ describe('建画像前的拦截', () => {
 
   it('手机端不建：先于其它条件判断（手机上一律只说这一句）', () => {
     expect(portraitBlock({ ...base, mobile: true })).toBe('mobile');
-    expect(portraitBlock({ ...base, mobile: true, openBookId: '', bzProblem: '没装' })).toBe('mobile');
+    expect(portraitBlock({ ...base, mobile: true, openBookId: '', embedReady: false })).toBe('mobile');
   });
 
-  it('向量方案缺 bz → 拦', () => {
-    expect(portraitBlock({ ...base, bzProblem: 'bz 插件还没装' })).toBe('noBz');
+  it('向量方案缺嵌入服务 → 拦（bz 在不在不再影响）', () => {
+    expect(portraitBlock({ ...base, embedReady: false })).toBe('noEmbed');
   });
 
-  it('压缩方案不看 bz，只看 AI 配没配', () => {
+  it('压缩方案不看嵌入，只看对话模型配没配', () => {
     const compress = { ...base, plan: 'compress' as const };
-    expect(portraitBlock({ ...compress, bzProblem: '没装' })).toBe(null);
+    expect(portraitBlock({ ...compress, embedReady: false })).toBe(null);
     expect(portraitBlock({ ...compress, aiReady: false })).toBe('noAi');
   });
 
-  it('向量方案不看对话模型（嵌入走 bz，不用自己的 Key）', () => {
+  it('向量方案不看对话模型：算向量是嵌入接口的事', () => {
     expect(portraitBlock({ ...base, aiReady: false })).toBe(null);
   });
 
   it('书的问题优先于服务的问题：先让用户把书打开，再说缺什么', () => {
-    expect(portraitBlock({ ...base, openBookId: 'b2', bzProblem: '没装' })).toBe('otherBook');
+    expect(portraitBlock({ ...base, openBookId: 'b2', embedReady: false })).toBe('otherBook');
   });
 });

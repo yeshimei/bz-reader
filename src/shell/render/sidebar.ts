@@ -12,7 +12,6 @@ import { t, type MsgKey } from '../../i18n';
 import type { ReaderBook } from '../../data/schema';
 import type { FoliateTOCItem } from '../../types/foliate';
 import type { BmkRow, MarkRow } from '../domain';
-import { AI_SCOPES, aiScopeLabel, type AiScope } from '../../data/ai-scope';
 import { bmksOf, groupByChapter, marksOf } from '../domain';
 import type { SideTab } from '../state';
 import type { AiLogItem } from '../runtime';
@@ -33,11 +32,6 @@ export interface SidebarView {
   /** 未开书时各页签统一空态 */
   aiLog: AiLogItem[];
   aiReady: boolean;
-  aiProvider: string;
-  /** 当前选的回答依据 */
-  aiScope: AiScope;
-  /** 三档要不要出现：设置里打开了 AI 知识库、且授权还在 */
-  aiScopeUi: boolean;
   /** 被折叠的父章节 href（见 runtime.tocCollapsed）；缺省 = 全部展开 */
   collapsed?: ReadonlySet<string>;
 }
@@ -169,18 +163,6 @@ function highlightsBody(rows: MarkRow[]): string {
     .join('');
 }
 
-/** 三档：互斥、单选；点一下换档，选择记在 prefs 里 */
-function aiScopeRow(v: SidebarView): string {
-  if (!v.aiScopeUi) return '';
-  const chips = AI_SCOPES.map(
-    (s) =>
-      `<button type="button" class="${v.aiScope === s ? 'on' : ''}" data-act="aiscope" data-v="${s}" aria-pressed="${
-        v.aiScope === s
-      }">${esc(aiScopeLabel(s))}</button>`,
-  ).join('');
-  return `<div class="bzs-aiscope" role="radiogroup" aria-label="${esc(t('side.ai.scope.aria'))}">${chips}</div>`;
-}
-
 /**
  * 一条回答下面的来源（决策 17：点了能打开对应笔记或书）。
  *
@@ -230,10 +212,7 @@ function aiBody(v: SidebarView): string {
         <input data-role="aiask" placeholder="${v.aiReady ? t('side.ai.ask.ph') : t('side.ai.notReady.ph')}"${v.aiReady ? '' : ' disabled'}>
         <button class="bzs-btn sm pri" data-act="aiask">${t('side.ai.ask')}</button>
       </div>
-      ${aiScopeRow(v)}
-      <div class="bzs-mini" style="padding:6px 2px">${
-        v.aiReady ? esc(t('side.ai.scope', { provider: v.aiProvider })) : t('side.ai.configHint')
-      }</div>
+      ${v.aiReady ? '' : `<div class="bzs-mini" style="padding:6px 2px">${t('side.ai.configHint')}</div>`}
     </div>`;
 }
 

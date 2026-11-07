@@ -13,7 +13,7 @@
  * ============================================================ */
 import type { PortraitPlan } from './portrait';
 
-export type PortraitBlockReason = 'mobile' | 'noBook' | 'otherBook' | 'noBz' | 'noAi';
+export type PortraitBlockReason = 'mobile' | 'noBook' | 'otherBook' | 'noEmbed' | 'noAi';
 
 export interface PortraitGateInput {
   plan: PortraitPlan;
@@ -23,8 +23,13 @@ export interface PortraitGateInput {
   bookId: string;
   /** 阅读视图里现在开着的那本（没开是空串） */
   openBookId: string;
-  /** bz 门面的问题（没装 / 没启用 / 版本旧），可用时为 null */
-  bzProblem: string | null;
+  /**
+   * 自己的嵌入服务配好了没（地址 + Key + 嵌入模型）。
+   *
+   * 2026-11-07 之前这里看的是 bz 的嵌入门面；现在向量由本插件自己算，
+   * bz 在不在都不影响建画像。
+   */
+  embedReady: boolean;
   /** 自己的对话模型配好了没（只有压缩方案用得上） */
   aiReady: boolean;
 }
@@ -41,9 +46,6 @@ export function portraitBlock(g: PortraitGateInput): PortraitBlockReason | null 
   if (g.mobile) return 'mobile';
   if (!g.openBookId) return 'noBook';
   if (g.openBookId !== g.bookId) return 'otherBook';
-  if (g.plan === 'vector') {
-    if (g.bzProblem) return 'noBz';
-    return null;
-  }
+  if (g.plan === 'vector') return g.embedReady ? null : 'noEmbed';
   return g.aiReady ? null : 'noAi';
 }

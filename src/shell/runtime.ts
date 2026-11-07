@@ -8,7 +8,7 @@
  * 与 state.ts 的分界：state 是用户偏好（落 localStorage），
  * runtime 是一次会话里的临时量（内存）。
  * ============================================================ */
-import type { AiScope, AiSource } from '../data/ai-scope';
+import type { AiSource } from '../data/ai-evidence';
 import type { PortraitPlan } from '../data/portrait';
 
 export interface SelectionPayload {
@@ -46,7 +46,7 @@ export const RT = {
    * 说明弹窗是状态驱动的（没有 await 的对话框），用户点「知道了」之后要
    * 原样重发这条提问——不存下来就等于让他白打一遍字。
    */
-  ackPending: null as { q: string; scope: AiScope } | null,
+  ackPending: null as { q: string } | null,
   /**
    * 全书档因「还没建画像」被拦下的那条提问（决策 7）。
    *

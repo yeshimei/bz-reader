@@ -65,7 +65,7 @@ export interface PortraitBuildDeps {
     onProgress: (done: number, total: number, title: string) => void,
     shouldStop: () => boolean,
   ) => Promise<ChapterText[]>;
-  /** 批量嵌入（bz 门面的 embedDocuments） */
+  /** 批量嵌入（本插件自己的嵌入服务，见 data/ai.ts 的 aiEmbed） */
   embed: (texts: string[], signal: AbortSignal) => Promise<number[][]>;
   /** 单块压缩：返回「一句话 + 要点」 */
   summarise: (text: string, signal: AbortSignal) => Promise<{ digest: string; summary: string }>;

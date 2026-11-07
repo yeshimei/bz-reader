@@ -224,9 +224,6 @@ export class SideView extends ItemView {
         activeHref: snap?.activeHref ?? '',
         aiLog: RT.aiLog,
         aiReady: !!settings.ai.baseUrl && !!settings.ai.apiKey && !!settings.ai.model,
-        aiProvider: settings.ai.model || '未配置',
-        aiScope: shellPrefs().aiScope,
-        aiScopeUi: settings.aiKnowledge && can('ai'),
         collapsed: RT.tocCollapsed,
       }),
     );

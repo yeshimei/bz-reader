@@ -37,17 +37,17 @@ describe('buildMessages · ask', () => {
     expect(msgs[0]!.content).toContain('第一回');
   });
 
-  it('正文与问题分开，问题在后面', () => {
+  it('依据与问题分开，问题在后面', () => {
     const msgs = buildMessages({ ...base, context: '贾雨村风尘怀闺秀' });
     const user = msgs.filter((m) => m.role === 'user').at(-1)!;
     expect(user.content).toContain('贾雨村风尘怀闺秀');
     expect(user.content.indexOf('贾雨村风尘怀闺秀')).toBeLessThan(user.content.indexOf('这本书的主角是谁？'));
   });
 
-  it('没有正文时不编造上下文，并说明只能凭问题回答', () => {
+  it('没有依据时不编造上下文，并说明只能凭问题回答', () => {
     const msgs = buildMessages(base);
-    expect(msgs[0]!.content).toContain('没有正文');
-    expect(msgs.filter((m) => m.role === 'user').at(-1)!.content).not.toContain('【正文】');
+    expect(msgs[0]!.content).toContain('没有取到可用的依据');
+    expect(msgs.filter((m) => m.role === 'user').at(-1)!.content).not.toContain('【依据】');
   });
 
   it('多轮：历史里的问答按顺序带上，最多 6 条', () => {

@@ -278,6 +278,8 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>${t('settings.ai.baseUrl')}</label><input data-role="setting" data-k="ai.baseUrl" placeholder="${t('settings.ai.baseUrl.ph')}" value="${esc(s.ai.baseUrl)}" style="flex:1"${aiReadonly}></div>
       <div class="bzs-setrow"><label>${t('settings.ai.model')}</label><input data-role="setting" data-k="ai.model" placeholder="${t('settings.ai.model.ph')}" value="${esc(s.ai.model)}" style="flex:1"${aiReadonly}></div>
       <div class="bzs-setrow"><label>${t('settings.ai.key')}</label><input type="password" data-role="setting" data-k="ai.apiKey" placeholder="${t('settings.ai.key.ph')}" value="${esc(s.ai.apiKey)}" style="flex:1"${aiReadonly}></div>
+      <div class="bzs-setrow"><label>${t('settings.ai.embedModel')}</label><input data-role="setting" data-k="ai.embedModel" placeholder="${t('settings.ai.embedModel.ph')}" value="${esc(s.ai.embedModel)}" style="flex:1"${aiReadonly}></div>
+      <div class="bzs-mini" style="margin:-2px 0 8px;line-height:1.7">${t('settings.ai.embed.hint')}</div>
       ${toggle('aiKnowledge', s.aiKnowledge, t('settings.ai.knowledge'))}
       ${
         /* 说明只在打开之后出现：关着的时候解释「打开后会发生什么」是废话，

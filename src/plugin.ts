@@ -69,7 +69,8 @@ import {
   type ShellState,
   type StudyPage,
 } from './shell/state';
-import { setShellSource, shellPrefs } from './shell/source';
+import { createBookAi, type BookAiApi } from './data/book-ai';
+import { setShellSource, shellPrefs, shellSettings } from './shell/source';
 import { hrefCandidates, interceptableClick, wrapOpenLinkText } from './shell/link-postprocessor';
 import { CHANGELOG_RELEASES, pickReleaseFor, planChangelog, releaseEntryCount } from './shell/changelog';
 import { openChangelogNote } from './shell/changelog-note';
@@ -109,6 +110,14 @@ export function createPlugin(cfg: PluginConfig) {
   return class BzReaderPlugin extends Plugin implements ReaderHostApi {
     store!: ReaderStore;
     repo!: BookRepo;
+    /**
+     * 给 bz 的书籍出口（ADR 对侧：data/bz-bridge.ts 是 bz 借给我们）。
+     *
+     * 只在设置里打开「连接至 BZ AI 知识库」时返回内容：第二大脑据此
+     * 显示书籍统计、在提问时把书的块并进依据。没打开就是空实现，
+     * bz 那边看到的是「没有书」，与没装这个插件表现一致。
+     */
+    bookAi!: BookAiApi;
     /**
      * 插件配置（`data.json`）。设置、授权、数据目录指针都在这里。
      *
@@ -228,6 +237,7 @@ export function createPlugin(cfg: PluginConfig) {
       this.store = new ReaderStore(this.app);
       await this.store.load();
       this.repo = new BookRepo(this.store.get().books);
+      this.bookAi = createBookAi({ app: this.app, settings: () => shellSettings() });
       /* 老版本把 AI 配置和激活码写进业务 JSON；搬到 data.json 之后把残留清掉，
          否则用户把 bz-reader.json 发给别人时会顺手把自己的 Key 也发出去。 */
       this.adoptLegacySettings();

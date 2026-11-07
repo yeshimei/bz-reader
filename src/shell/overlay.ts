@@ -50,7 +50,6 @@ import { dispatchInput } from './actions';
 import { trialButtonHtml } from './group';
 import { portraitBuilder } from '../data/portrait-build';
 import { chapterDigests, estimateChars } from '../data/portrait';
-import { probeBz } from '../data/bz-bridge';
 import { cachedPortrait, ensurePortrait } from './portrait-cache';
 import { portraitBody, portraitFoot, portraitStatusLine, type PortraitView } from './render/portrait';
 
@@ -776,7 +775,7 @@ function overlayDetail(bookId?: string): string {
       <div class="bzs-kv"><b>划线 / 书签</b><span>${marks.length} 条 / ${bks.length} 枚</span></div>
       <div class="bzs-kv"><b>上次打开</b><span>${fmtWhen(b.reading.stats.lastReadTime)}</span></div>
       <div class="bzs-kv"><b>${esc(t('detail.portrait'))}</b><span>${esc(
-        portraitStatusLine(cachedPortrait(b.id) ?? null, probeBz(getShellSource()?.app).ai?.embeddingModel?.() || ''),
+        portraitStatusLine(cachedPortrait(b.id) ?? null, shellSettings().ai.embedModel),
       )}</span></div>
       <div class="bzs-kv"><b>文件</b><span style="max-width:280px;overflow:hidden;text-overflow:ellipsis${
         missing ? ';color:var(--vermilion)' : ''
@@ -873,7 +872,6 @@ function portraitModel(bookId?: string): PortraitView {
     const app = getShellSource()?.app;
     void ensurePortrait(app, book.id, () => bumpOverlayRev());
   }
-  const probe = probeBz(getShellSource()?.app);
   return {
     mobile: isMobileEnv(),
     chosen: RT.portraitPlan,
@@ -881,7 +879,7 @@ function portraitModel(bookId?: string): PortraitView {
     bookTitle: book?.meta.title ?? '',
     progress,
     portrait: cached ?? null,
-    model: probe.ai ? probe.ai.embeddingModel() : '',
+    model: shellSettings().ai.embedModel,
   };
 }
 
@@ -912,14 +910,13 @@ function overlayPtClean(): string {
 }
 
 /**
- * 第一次用「知识库 / 全书」时把话说清楚：会把什么发出去、发到哪儿。
+ * 第一次用「问这本书」时把话说清楚：会把什么发出去、发到哪儿。
  *
  * 只弹一次（`settings.aiAck`），记在这台机器上：换台电脑再讲一遍是应该的。
+ * 依据已经不是档位了（每次都是全书 + 共享打开时的笔记），所以这里只剩一种口径。
  */
-function overlayAck(mode?: string): string {
-  const body = `<div class="bzs-ack"><p>${esc(
-    t(mode === 'book' ? 'ack.body.book' : 'ack.body.brain'),
-  )}</p></div>`;
+function overlayAck(): string {
+  const body = `<div class="bzs-ack"><p>${esc(t('ack.body.book'))}</p></div>`;
   return modal(t('ack.title'), '', body, `<button class="bzs-btn pri" data-act="ackok">${esc(t('ack.ok'))}</button>`);
 }
 
@@ -1122,7 +1119,7 @@ export function overlayHtml(): string {
     case 'missing':
       return overlayMissing(o.bookId);
     case 'ack':
-      return overlayAck(o.mode);
+      return overlayAck();
     case 'portrait':
       return overlayPortrait(o.bookId);
     case 'ptclean':
