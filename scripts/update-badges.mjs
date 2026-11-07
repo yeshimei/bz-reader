@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 // 生成 README 顶部两枚会变的自托管徽章：
 //   version.svg   ← manifest.json 的 version
-//   downloads.svg ← GitHub Release 里 main.js 资产的累计下载数（≈ 实际安装数）
+//   downloads.svg ← GitHub Release 全部资产的下载次数合计
 // 其余三枚（obsidian / platform / license）不随版本变，手写在 docs/images/badges/。
+//
+// 下载量口径：全部 Release × 全部资产之和，与 shields 的 github/downloads/total 一致，
+// 读者点开 Release 页三项相加能对上。不用别的口径的原因：
+//   · 只数 main.js：一次安装要下三个文件，等于把「一个人」压成三分之一；
+//   · 数 manifest.json：它被版本检查反复拉取，远高于真实安装，虚高。
 //
 // 用法：node scripts/update-badges.mjs [--downloads 123]
 
@@ -41,7 +46,6 @@ function downloadsFromGh() {
   const releases = JSON.parse(raw)
   return releases
     .flatMap((r) => r.assets ?? [])
-    .filter((a) => a.name === 'main.js')
     .reduce((sum, a) => sum + a.download_count, 0)
 }
 
@@ -79,5 +83,5 @@ await write('version.svg', badge('VERSION', version, '#a8a399', `VERSION: ${vers
 if (downloads !== null) {
   const shown = downloads.toLocaleString('en-US')
   await write('downloads.svg', badge('DOWNLOADS', shown, '#8ea6b0', `DOWNLOADS: ${shown}`))
-  console.log(`main.js 累计下载 ${shown}（跨全部 Release）`)
+  console.log(`Release 资产累计下载 ${shown}（全部版本合计）`)
 }

@@ -94,7 +94,7 @@ node scripts/lint-obsidian.mjs
 1. `node scripts/lint-obsidian.mjs` → 0/0；
 2. **补齐本版多语言**：把本次改动新增/改动的文案在 `src/i18n/` 里七种外语全部换成正式翻译（替换开发期留的英文/繁体占位）。自查四条——key 集合与 `zh.ts` 一致、无空串、`{占位符}`与中文逐条相同、拉丁语系包无汉字且 `zh-TW` 无简体字（跑 `vitest run tests/i18n-packs.test.ts` 就是这套）；
 3. 三道门（tsc / vitest / esbuild once）；
-4. `manifest.json` 的 `version`、`versions.json` 同步，再跑 `node scripts/update-badges.mjs` 刷 `version.svg` / `downloads.svg`（下载量取 GitHub Release 里 `main.js` 的累计数）；
+4. `manifest.json` 的 `version`、`versions.json` 同步，再跑 `node scripts/update-badges.mjs` 刷 `version.svg` / `downloads.svg`（下载量 = 全部 Release 全部资产之和）；
 5. `node esbuild.config.mjs production`（落仓库根三件套：`main.js` / `manifest.json` / `styles.css`）；
 6. 提交、推送、打 tag——**tag 与 `manifest.version` 逐字相同，不带 `v`**；
 7. `gh release create <版本> --notes-file docs/note-v<版本>.md main.js manifest.json styles.css`；
