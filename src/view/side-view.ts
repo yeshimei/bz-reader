@@ -256,6 +256,7 @@ export class SideView extends ItemView {
         activeLabel: snap?.activeLabel ?? '',
         activeHref: snap?.activeHref ?? '',
         aiLog: RT.aiLog,
+        aiDraft: RT.aiDraft,
         aiReady: aiReady(settings),
         aiIndex,
         collapsed: RT.tocCollapsed,

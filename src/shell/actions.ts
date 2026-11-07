@@ -2110,6 +2110,7 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
   /* 第一次用：先说清楚会把什么发出去。确认之后原样重发这条提问 */
   if (!settings.aiAck) {
     RT.ackPending = { q };
+    RT.aiDraft = q;
     if (input) input.value = q;
     openOverlay({ kind: 'ack' });
     return;
@@ -2120,6 +2121,9 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
      弹窗只是把同一件事又说一遍。 */
   const portrait = await readPortrait(src.app, book.id);
   if (portraitState(portrait, bzEmbedder(src.app).model) !== 'ready') {
+    /* 草稿要落在 RT 里：下面这次 repaint 会把输入框整个换掉，只写 element
+       的 value 等于没写。 */
+    RT.aiDraft = q;
     if (input) input.value = q;
     RT.aiIndexOpen = true;
     notify(t('side.ai.book.none'), 'info');
@@ -2131,6 +2135,7 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
      buildMessages 会把 text 作为最后一条 user 追加。 */
   const history = RT.aiLog.map((m) => ({ role: m.me ? ('user' as const) : ('assistant' as const), content: m.text }));
   pushAi(true, '我', q);
+  RT.aiDraft = '';
   if (input) input.value = '';
   repaint();
 
@@ -2243,7 +2248,12 @@ export function dispatchInput(
     setState({ searchKw: value });
     return;
   }
-  if (role === 'aiask') return;
+  /* 输入框的字只留在内存里：任何一次重绘（进度广播、切页签）都不该
+     把用户打了一半的问题抹掉。不广播，省得每次按键都重绘。 */
+  if (role === 'aiask') {
+    RT.aiDraft = value;
+    return;
+  }
 }
 
 export function labelFor(k: string, v: string): string {

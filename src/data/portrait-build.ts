@@ -323,6 +323,9 @@ export class PortraitBuilder {
     this.emit({ phase: 'save' });
     const missing = p.blocks.filter((b) => !filled(b)).length;
     p.done = missing === 0;
+    /* 压缩方案的全书总述就在这里补：它是「全书那一眼」的依据，估算里
+       也算了一次请求。块没齐时不花这次钱，留给下次续跑。 */
+    if (p.done) await this.buildOverview();
     await this.deps.save(p);
     this.emit({
       status: p.done ? 'done' : 'error',

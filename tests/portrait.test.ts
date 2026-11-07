@@ -5,6 +5,8 @@
  * 要多花十倍请求；向量编解码错 → 答案全偏但界面一切正常。所以全是纯函数断言。
  */
 import { describe, expect, it } from 'vitest';
+import type { App } from 'obsidian';
+import { FakeAdapter } from './helpers/fake-adapter';
 import {
   PORTRAIT_CHUNK_CHARS,
   blocksEvidence,
@@ -18,10 +20,13 @@ import {
   estimateChars,
   estimateRequests,
   firstSentence,
+  listPortraits,
   orphanPortraits,
+  portraitPath,
   portraitState,
   sanitizePortrait,
   topBlocksByVector,
+  writePortrait,
   type PortraitFile,
 } from '../src/data/portrait';
 
@@ -277,5 +282,50 @@ describe('firstSentence', () => {
 
   it('空输入给空串（不要一个孤零零的省略号）', () => {
     expect(firstSentence('   ')).toBe('');
+  });
+});
+
+/* 盘上的画像：读回来的 mtime 决定 bz 侧要不要重新读（数据层的缓存按它判） */
+describe('画像文件 · 存储', () => {
+  function appOf(adapter: FakeAdapter): App {
+    return { vault: { adapter, configDir: '.obsidian' } } as unknown as App;
+  }
+
+  it('mtime 取自磁盘：重建之后不能被当成旧文件一直用缓存', async () => {
+    const adapter = new FakeAdapter();
+    const app = appOf(adapter);
+    await writePortrait(app, portrait({ bookId: 'b1' }));
+
+    const first = await listPortraits(app);
+    expect(first).toHaveLength(1);
+    expect(first[0]!.bookId).toBe('b1');
+    expect(first[0]!.mtime).toBeGreaterThan(0);
+
+    /* 重建 = 同一个路径被重写；mtime 不变的话调用方永远读旧向量 */
+    adapter.bump(portraitPath('b1'));
+    const second = await listPortraits(app);
+    expect(second[0]!.mtime).toBeGreaterThan(first[0]!.mtime);
+  });
+
+  it('正本直接写失败时靠 rename 落盘：不留下半截 JSON', async () => {
+    const adapter = new FakeAdapter();
+    const app = appOf(adapter);
+    const target = portraitPath('b1');
+    const rawWrite = adapter.write.bind(adapter);
+    adapter.write = async (path: string, data: string) => {
+      if (path === target) throw new Error('disk full');
+      return rawWrite(path, data);
+    };
+
+    expect(await writePortrait(app, portrait({ bookId: 'b1' }))).toBe(true);
+    expect(JSON.parse(adapter.files.get(target)!).bookId).toBe('b1');
+    expect([...adapter.files.keys()].some((p) => p.endsWith('.tmp'))).toBe(false);
+  });
+
+  it('平台不支持 rename：退回直接写，照样存得下', async () => {
+    const adapter = new FakeAdapter({ renameAlwaysFails: true });
+    const app = appOf(adapter);
+    expect(await writePortrait(app, portrait({ bookId: 'b2' }))).toBe(true);
+    expect(JSON.parse(adapter.files.get(portraitPath('b2'))!).bookId).toBe('b2');
   });
 });

@@ -52,8 +52,8 @@ export interface BookAiDeps {
   app: App | null | undefined;
 }
 
-/** 画像文件按 mtime 缓存：一份几十万字，每次提问都重读会把界面拖住 */
-const cache = new Map<string, { mtime: number; portrait: PortraitFile }>();
+/** 画像文件按 mtime + size 缓存：一份几十万字，每次提问都重读会把界面拖住 */
+const cache = new Map<string, { mtime: number; size: number; portrait: PortraitFile }>();
 
 /** 只认「已完成」且形状可用的画像：建到一半的书不该被当成依据 */
 function usable(p: PortraitFile | null | undefined): p is PortraitFile {
@@ -65,12 +65,13 @@ async function loadPortraits(app: App | null | undefined): Promise<PortraitFile[
   const out: PortraitFile[] = [];
   for (const f of files) {
     const hit = cache.get(f.bookId);
-    if (hit && hit.mtime === f.mtime) {
+    /* 键里带 size：同一秒内重建两次时 mtime 可能一样，内容却已经换了 */
+    if (hit && hit.mtime === f.mtime && hit.size === f.size) {
       if (usable(hit.portrait)) out.push(hit.portrait);
       continue;
     }
     const p = await readPortrait(app, f.bookId);
-    if (p) cache.set(f.bookId, { mtime: f.mtime, portrait: p });
+    if (p) cache.set(f.bookId, { mtime: f.mtime, size: f.size, portrait: p });
     if (usable(p)) out.push(p);
   }
   /* 缓存里可能留着已删的书：以 listPortraits 的结果为准 */
@@ -102,13 +103,20 @@ export function summarizePortraits(list: readonly PortraitFile[]): BookAiStats {
 /**
  * 跨书排序（纯函数）。
  *
- * 相似度只在「同一个查询向量 + 同一个模型空间」里可比：维度对不上的块
- * 直接跳过，不拿不同模型的向量硬算一个看起来像分数的东西。
+ * 相似度只在「同一个查询向量 + 同一个模型空间」里可比：维度对不上、
+ * 或者模型名对不上的块直接跳过，不拿不同模型的向量硬算一个看起来像
+ * 分数的东西。传了 `model` 就按名字挡（同维度的两个模型拦不住维度守卫）。
  */
-export function rankBlocks(qvec: readonly number[], list: readonly PortraitFile[], topK: number): BookAiHit[] {
+export function rankBlocks(
+  qvec: readonly number[],
+  list: readonly PortraitFile[],
+  topK: number,
+  model?: string,
+): BookAiHit[] {
   const hits: BookAiHit[] = [];
   for (const p of list) {
     if (p.plan !== 'vector') continue;
+    if (model && p.model !== model) continue;
     for (const block of p.blocks) {
       const text = String(block.text ?? '').trim();
       if (!text) continue;
@@ -157,15 +165,17 @@ export function createBookAi(deps: BookAiDeps): BookAiApi {
 
       /* 查询向量也由 bz 算：两套模型算出来的向量不在一个空间，不能混 */
       let vec: number[];
+      let model = '';
       try {
         const embedder = bzEmbedder(deps.app);
         if (!embedder.ai) return [];
+        model = embedder.model;
         vec = await embedder.ai.embedQuery(q);
       } catch {
         /* 嵌入服务挂了：书这边没有依据可给，但笔记那边照常 */
         return [];
       }
-      return rankBlocks(vec, list, topK);
+      return rankBlocks(vec, list, topK, model);
     },
   };
 }

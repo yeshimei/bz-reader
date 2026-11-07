@@ -35,6 +35,8 @@ export interface SidebarView {
   /** 未开书时各页签统一空态 */
   aiLog: AiLogItem[];
   aiReady: boolean;
+  /** 输入框里没发出去的草稿：侧栏整页重建后要能原样回填 */
+  aiDraft?: string;
   /**
    * AI 页签的索引态（2026-11-07 定稿）。
    *
@@ -358,7 +360,7 @@ function indexChat(v: SidebarView, idx: AiIndexView): string {
         )
         .join('')}
       <div class="bzs-aiask">
-        <input data-role="aiask" placeholder="${t('side.ai.ask.ph')}">
+        <input data-role="aiask" placeholder="${t('side.ai.ask.ph')}" value="${esc(v.aiDraft ?? '')}">
         <button class="bzs-btn sm pri" data-act="aiask">${t('side.ai.ask')}</button>
       </div>
     </div>`;

@@ -67,6 +67,12 @@ describe('解锁弹层 · 交流群入口', () => {
     expect(html).toContain(GROUP_ID);
     expect(html).toContain('QQ');
   });
+
+  it('带输入框的弹层要有 has-input：不然手机键盘把激活码框盖住', () => {
+    /* 激活码输入框在页脚（foot），弹层自带的判定只看正文，
+       手机上仍按底部抽屉弹，软键盘一开输入框就落在屏幕外。 */
+    expect(overlayUnlock()).toMatch(/class="bzs-scrim[^"]*\bhas-input\b/);
+  });
 });
 
 describe('解锁弹层 · 点按钮', () => {

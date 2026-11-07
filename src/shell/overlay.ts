@@ -59,8 +59,9 @@ import { portraitStatusLine } from './render/portrait';
 
 function modal(title: string, sub: string, body: string, foot = '', cls = '', mask = ''): string {
   /* 带输入框的弹窗在移动端要居中偏上：底部抽屉会被软键盘顶出屏幕。
-     按内容自动判定，省得每个调用点都要记得传类。 */
-  const withInput = /<(input|textarea)\b/i.test(body);
+     按内容自动判定，省得每个调用点都要记得传类。
+     页脚也要看：激活码框就在 foot 里，只看 body 会把它漏掉。 */
+  const withInput = /<(input|textarea)\b/i.test(body) || /<(input|textarea)\b/i.test(foot);
   const scrim = ['bzs-scrim', mask, withInput ? 'has-input' : ''].filter(Boolean).join(' ');
   return `<div class="${scrim}" data-role="scrim"><div class="bzs-modal ${cls}">
     <div class="bzs-mhead"><b>${title}</b><span class="n">${sub}</span><span class="sp"></span>

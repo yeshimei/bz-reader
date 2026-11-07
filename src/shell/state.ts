@@ -13,6 +13,7 @@
  * ============================================================ */
 
 import { getShellSource } from './source';
+import { RT } from './runtime';
 
 /* 壳层没有「皮肤」这个状态了：底色、文字、边框全部读宿主的 CSS 变量，
    强调色存在 ReaderPrefs.accent 里（那是阅读偏好，跟着书走）。 */
@@ -413,6 +414,12 @@ export function closeOverlay(opts?: { force?: boolean }): void {
       s.ideaConfirm = true;
     });
     return;
+  }
+  /* 关掉 AI 浮卡 = 不要这个答案了。请求是流式的、按 token 计费；
+     只清界面不掐请求，它会在后台跑完——用户以为取消了，钱照扣。 */
+  if (o?.kind === 'ai') {
+    RT.aiAbort?.abort();
+    RT.aiAbort = null;
   }
   mutateState((s) => {
     s.overlay = null;

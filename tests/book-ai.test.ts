@@ -68,6 +68,15 @@ describe('跨书排序', () => {
     expect(hits.map((h) => h.chunk)).not.toContain('丁');
   });
 
+  it('维度相同但模型不同：旧向量照样不参与排序', () => {
+    /* 换一个同为 2 维的嵌入模型，维度守卫拦不住；不按模型名挡的话，
+       旧空间的向量会被算出一个看起来正常的分数，静默混进依据。 */
+    const old = portrait('f', [{ text: '旧', vec: encodeVector([1, 0]) }], { model: 'embed-old' });
+    const cur = portrait('g', [{ text: '新', vec: encodeVector([1, 0]) }], { model: 'embed-new' });
+    const hits = rankBlocks([1, 0], [old, cur], 5, 'embed-new');
+    expect(hits.map((h) => h.chunk)).toEqual(['新']);
+  });
+
   it('压缩方案的画像不参与向量检索（它没有向量）', () => {
     const compress = portrait('d', [{ text: '要点', summary: 'x' }], { plan: 'compress' });
     const hits = rankBlocks([1, 0], [p1, compress], 5);

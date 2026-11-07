@@ -112,6 +112,12 @@ describe('AI 页签 · 索引建好', () => {
     expect(html).not.toContain('data-act="aiscreen"');
     expect(html).not.toContain('data-act="aiscope"');
   });
+
+  it('草稿跟着重绘走：没建索引时提示完，打好的问题还在', () => {
+    /* 侧栏是整页重建（setHtml），输入框不存草稿就会被换成一个空的 */
+    const html = view({ aiIndex: idx({ state: 'ready' }), aiDraft: '这本书讲了什么' });
+    expect(html).toContain('value="这本书讲了什么"');
+  });
 });
 
 describe('AI 页签 · 建索引的过程留在侧栏里', () => {

@@ -235,6 +235,17 @@ describe('压缩方案', () => {
     expect(b.current()!.overview).toBe('整本书讲的是专注');
   });
 
+  it('跑完就带全书总述：不用调用方记得再补一次', async () => {
+    /* 总述是压缩方案的「全书那一眼」，estimateOf 也把它算进了请求数。
+       以前它只有测试会调，生产里 p.overview 恒为空，依据永远缺这一段。 */
+    const { deps: d } = deps({ extract: async () => [{ title: '第一章', text: '字'.repeat(100) }] });
+    const b = new PortraitBuilder(d);
+    await b.start(book, 'compress');
+
+    expect(b.current()!.overview).toBe('整本书讲的是专注');
+    expect(b.current()!.done).toBe(true);
+  });
+
   it('总述失败不影响块级完成', async () => {
     const { deps: d } = deps({
       overview: async () => {

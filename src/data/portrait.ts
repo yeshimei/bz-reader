@@ -437,10 +437,11 @@ export async function readPortrait(app: App | null | undefined, bookId: string):
 }
 
 /**
- * 写画像：原子写（先 `.tmp` 再覆盖）。
+ * 写画像：原子写（先写 `.tmp` 再 rename 覆盖）。
  *
  * 建画像会**每跑完一批就落一次盘**（关闭弹层 = 暂停、断了能续跑），
  * 中途崩掉留下半截 JSON 就等于整份白跑——和业务数据同一条理由。
+ * rename 不支持（移动端 SAF）时退回直接写。
  */
 export async function writePortrait(app: App | null | undefined, p: PortraitFile): Promise<boolean> {
   const adapter = app?.vault?.adapter;
@@ -452,8 +453,12 @@ export async function writePortrait(app: App | null | undefined, p: PortraitFile
   try {
     if (!(await adapter.exists(dir))) await adapter.mkdir(dir);
     await adapter.write(tmp, body);
-    await adapter.write(path, body);
-    await adapter.remove(tmp).catch(() => undefined);
+    try {
+      await adapter.rename(tmp, path);
+    } catch {
+      await adapter.write(path, body);
+      await adapter.remove(tmp).catch(() => undefined);
+    }
     return true;
   } catch {
     return false;
@@ -473,8 +478,10 @@ export async function removePortrait(app: App | null | undefined, bookId: string
   }
 }
 
-/** 列出已有的画像文件（清理无主 / 详情页批量判断用）；返回 `[{ bookId, mtime }]` */
-export async function listPortraits(app: App | null | undefined): Promise<Array<{ bookId: string; mtime: number }>> {
+/** 列出已有的画像文件（清理无主 / 详情页批量判断用）；返回 `[{ bookId, mtime, size }]` */
+export async function listPortraits(
+  app: App | null | undefined,
+): Promise<Array<{ bookId: string; mtime: number; size: number }>> {
   const adapter = app?.vault?.adapter;
   if (!adapter) return [];
   const dir = portraitDir();
@@ -482,10 +489,21 @@ export async function listPortraits(app: App | null | undefined): Promise<Array<
     if (!(await adapter.exists(dir))) return [];
     const listed = await adapter.list(dir);
     const files = (listed?.files ?? []).filter((f) => /\.json$/i.test(f));
-    const out: Array<{ bookId: string; mtime: number }> = [];
+    const out: Array<{ bookId: string; mtime: number; size: number }> = [];
     for (const file of files) {
       const name = file.replace(/\\/g, '/').split('/').pop() ?? '';
-      out.push({ bookId: name.replace(/\.json$/i, ''), mtime: 0 });
+      /* mtime 必须是真的：调用方（book-ai）拿它判断「这份画像读过之后
+         有没有被重建」。恒给 0 会让缓存永远命中，重建后还在喂旧向量。 */
+      let mtime = 0;
+      let size = 0;
+      try {
+        const st = await adapter.stat(file);
+        mtime = typeof st?.mtime === 'number' ? st.mtime : 0;
+        size = typeof st?.size === 'number' ? st.size : 0;
+      } catch {
+        /* 读不到就按 0 处理：下一次调用照样会重新问一遍 */
+      }
+      out.push({ bookId: name.replace(/\.json$/i, ''), mtime, size });
     }
     return out;
   } catch {

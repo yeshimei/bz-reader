@@ -53,6 +53,14 @@ export const RT = {
    * 原样重发这条提问——不存下来就等于让他白打一遍字。
    */
   ackPending: null as { q: string } | null,
+  /**
+   * 侧栏 AI 输入框里正在打的字。
+   *
+   * 侧栏是整页重建（setHtml），输入框的值不存在任何地方的画，重绘一次
+   * 就丢一次。「没建索引 → 提示完让你去建」这条路上刚好要重绘一次，
+   * 不存草稿等于让用户白打一遍。
+   */
+  aiDraft: '',
   /** 画像方案：记住上次选的（两种方案差别很大，用户通常固定用同一种） */
   portraitPlan: 'vector' as PortraitPlan,
   /**
