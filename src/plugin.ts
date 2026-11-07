@@ -506,7 +506,14 @@ export function createPlugin(cfg: PluginConfig) {
         settings: () => this.cfg.settings,
         setSettings: (patch) => this.setSettings(patch),
         currentText: () => this.activeReader()?.pageText() ?? '',
-        exportChapters: async (opts) => (await this.activeReader()?.exportChapters(opts)) ?? [],
+        exportChapters: async (opts) => {
+          const view = this.activeReader();
+          /* 建画像要的是「这本书」的正文：视图里开着另一本时宁可返回空，
+             也不能把正在读的那本的正文当成它去算向量（结果全错且看不出来）。 */
+          if (!view || (opts?.bookId && view.currentBookId !== opts.bookId)) return [];
+          return view.exportChapters(opts);
+        },
+        openBookId: () => this.activeReader()?.currentBookId ?? '',
         activate: (code) => this.activateLicense(code),
         dataDir: () => dataDirOf(),
         migrateDataDir: (dir) => this.migrateDataDir(dir),

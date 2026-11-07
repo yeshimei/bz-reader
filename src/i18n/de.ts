@@ -518,4 +518,5 @@ export const DE: Record<MsgKey, string> = {
   'notice.note.missing': 'Diese Notiz gibt es nicht mehr: {path}',
   'pt.blockCount': '{n} Blöcke',
   'pt.clean.done': '{n} verwaiste Gesamtbilder gelöscht',
+  'pt.needOpen': 'Ein Gesamtbild liest das ganze Buch – öffne es zuerst im Reader',
 };

@@ -33,7 +33,11 @@ export interface ShellSource {
   exportChapters: (opts?: {
     onProgress?: (done: number, total: number, title: string) => void;
     shouldStop?: () => boolean;
+    /** 要读的是哪一本：和当前打开的书对不上时返回空（绝不拿另一本书的正文顶上） */
+    bookId?: string;
   }) => Promise<Array<{ title: string; text: string }>>;
+  /** 阅读视图里现在开着的那本书（没开书时是空串） */
+  openBookId: () => string;
   /** 打开一本书（带 cfi 落到那一页）；已有同书 tab 就复用 */
   openBook: (book: ReaderBook, cfi?: string) => void;
   /** 打开导入页（整页，S1 定稿） */

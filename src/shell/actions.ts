@@ -352,7 +352,7 @@ function knowledgeEntry(kind: BzEntryKind, markId?: string, bookId?: string): vo
  * 每次都现装配、现 rebind：设置里的 Key、bz 的嵌入模型都可能在两次打开
  * 之间换掉，把 deps 焊死在单例里就会拿着旧模型去算新向量。
  */
-function portraitDeps(): PortraitBuildDeps | null {
+function portraitDeps(bookId: string): PortraitBuildDeps | null {
   const src = getShellSource();
   if (!src) return null;
   const settings = shellSettings();
@@ -363,7 +363,7 @@ function portraitDeps(): PortraitBuildDeps | null {
       if (ok) setPortrait(p.bookId, p);
       return ok;
     },
-    extract: (onProgress, shouldStop) => src.exportChapters({ onProgress, shouldStop }),
+    extract: (onProgress, shouldStop) => src.exportChapters({ onProgress, shouldStop, bookId }),
     embed: async (texts, signal) => {
       const probe = probeBz(src.app);
       if (!probe.ai) throw new Error(t('bz.outdated', { version: probe.version || '—' }));
@@ -395,7 +395,13 @@ function startPortrait(book: ReaderBook, plan: PortraitPlan, rebuild = false): v
     notify(problem, 'info');
     return;
   }
-  const deps = portraitDeps();
+  /* 画像读的是「阅读视图里那本」的正文：没开这本书就直说，
+     让用户对着一个 0% 的进度条等三分钟是最糟的结果。 */
+  if (getShellSource()?.openBookId() !== book.id) {
+    notify(t('pt.needOpen'), 'info');
+    return;
+  }
+  const deps = portraitDeps(book.id);
   if (!deps) return;
   RT.portraitPlan = plan;
   const b = portraitBuilder(deps);

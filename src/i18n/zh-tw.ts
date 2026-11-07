@@ -504,4 +504,5 @@ export const ZH_TW: Record<MsgKey, string> = {
   'notice.note.missing': '這條筆記不在了：{path}',
   'pt.blockCount': '{n} 塊',
   'pt.clean.done': '已清理 {n} 份無主畫像',
+  'pt.needOpen': '畫像要讀整本書的正文：先在閱讀視圖裡打開這本書，再回來建',
 };

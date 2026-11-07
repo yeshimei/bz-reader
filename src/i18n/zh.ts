@@ -512,6 +512,7 @@ export const ZH = {
   'notice.note.missing': '这条笔记不在了：{path}',
   'pt.blockCount': '{n} 块',
   'pt.clean.done': '已清理 {n} 份无主画像',
+  'pt.needOpen': '画像要读整本书的正文：先在阅读视图里打开这本书，再回来建',
 } as const;
 
 export type MsgKey = keyof typeof ZH;

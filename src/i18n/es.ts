@@ -519,4 +519,5 @@ export const ES: Record<MsgKey, string> = {
   'notice.note.missing': 'Esa nota ya no está: {path}',
   'pt.blockCount': '{n} bloques',
   'pt.clean.done': '{n} retratos huérfanos eliminados',
+  'pt.needOpen': 'Un retrato lee todo el libro: ábrelo primero en el lector',
 };

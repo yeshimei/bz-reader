@@ -511,4 +511,5 @@ export const JA: Record<MsgKey, string> = {
   'notice.note.missing': 'このノートが見つかりません：{path}',
   'pt.blockCount': '{n} ブロック',
   'pt.clean.done': '持ち主のない全体像を {n} 件削除しました',
+  'pt.needOpen': '全体像は本文全体を読みます。先にリーダーでこの本を開いてから作成してください',
 };
