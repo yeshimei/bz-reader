@@ -47,6 +47,10 @@ export const FR: Record<MsgKey, string> = {
   'notice.needBook': 'Ouvrez d’abord un livre, puis relancez cette commande',
   'notice.language.changed': 'Langue de l’interface modifiée — les noms des commandes seront mis à jour après un redémarrage d’Obsidian',
 
+  /* ── Notifications : mode immersif ──────────────────────── */
+  'notice.immersive.exitDesktop': 'Immersive mode on. Press ESC to exit',
+  'notice.immersive.exitMobile': 'Immersive mode on. Tap the page with two fingers to exit',
+
   /* ── Notifications : presse-papiers ─────────────────────── */
   'notice.copy.ok': 'Copié dans le presse-papiers',
   'notice.copy.failed': 'Échec de la copie — utilisez le raccourci système',

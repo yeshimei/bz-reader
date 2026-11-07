@@ -59,7 +59,7 @@ import {
 import { openOverlay } from '../shell/state';
 import { tapIntent } from './tap-intent';
 import { pagingKeyAction } from './paging-key';
-import { updateImmersiveHolders } from './immersive';
+import { immersiveExitHint, updateImmersiveHolders } from './immersive';
 import { navBottomGap } from './bottom-gap';
 import { destroyQuietly } from '../core/safe-destroy';
 import { anchoredPlacement } from '../shell/anchored-style';
@@ -669,7 +669,20 @@ export class ReaderView extends ItemView {
 
   /** 沉浸：藏掉宿主的上头栏与下导航条，再按一次还原 */
   private toggleImmersive(force?: boolean): void {
+    const wasImmersive = this.immersive;
     this.immersive = force ?? !this.immersive;
+    /* 头栏一藏，退出方式就没人提示了，所以进入时说一句：桌面 ESC、手机
+       两指轻按正文。所有入口（右上角图标 / ⋮ / 命令 / 快捷键 / 双指）都走
+       这里，行为一致；退出与关书不弹，判据在沉浸式模块里。
+       5 秒够读完一句话；notify 自带 800ms 同文案去重，连按不会糊屏。 */
+    const hint = immersiveExitHint(isMobileEnv(), wasImmersive, this.immersive);
+    if (hint) {
+      notify(
+        t(hint === 'desktop' ? 'notice.immersive.exitDesktop' : 'notice.immersive.exitMobile'),
+        'info',
+        5000,
+      );
+    }
     /* 只释放自己这一份持有（A-27）：另一个阅读 tab 还沉浸时 class 必须留着 */
     const stillImmersive = updateImmersiveHolders(immersiveHolders, this, this.immersive);
     document.body.classList.toggle('bzr-immersive', stillImmersive);

@@ -43,6 +43,10 @@ export const ZH_TW: Record<MsgKey, string> = {
   'notice.needBook': '先開啟一本書再使用這個指令',
   'notice.language.changed': '介面語言已切換，指令名稱需重新啟動 Obsidian 後才會更新',
 
+  /* ── 通知：沉浸模式 ──────────────────────────────────────── */
+  'notice.immersive.exitDesktop': '已進入沉浸模式，按 ESC 退出',
+  'notice.immersive.exitMobile': '已進入沉浸模式，雙指同時輕按正文退出',
+
   /* ── 通知：剪貼簿 ────────────────────────────────────────── */
   'notice.copy.ok': '已複製到剪貼簿',
   'notice.copy.failed': '複製失敗，請改用系統快速鍵',

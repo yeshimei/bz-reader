@@ -47,6 +47,10 @@ export const DE: Record<MsgKey, string> = {
   'notice.needBook': 'Öffne zuerst ein Buch und führe den Befehl dann erneut aus',
   'notice.language.changed': 'Sprache geändert – Befehlsnamen werden erst nach einem Neustart von Obsidian aktualisiert',
 
+  /* ── Hinweise: Immersivmodus ─────────────────────────────── */
+  'notice.immersive.exitDesktop': 'Immersive mode on. Press ESC to exit',
+  'notice.immersive.exitMobile': 'Immersive mode on. Tap the page with two fingers to exit',
+
   /* ── Hinweise: Zwischenablage ───────────────────────────── */
   'notice.copy.ok': 'In die Zwischenablage kopiert',
   'notice.copy.failed': 'Kopieren fehlgeschlagen – bitte die Systemtastenkombination verwenden',

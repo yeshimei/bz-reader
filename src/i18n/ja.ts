@@ -46,6 +46,10 @@ export const JA: Record<MsgKey, string> = {
   'notice.needBook': '先に本を開いてからこのコマンドを実行してください',
   'notice.language.changed': '表示言語を切り替えました。コマンド名は Obsidian の再起動後に反映されます',
 
+  /* ── 通知：没入モード ───────────────────────────────────── */
+  'notice.immersive.exitDesktop': 'Immersive mode on. Press ESC to exit',
+  'notice.immersive.exitMobile': 'Immersive mode on. Tap the page with two fingers to exit',
+
   /* ── 通知：クリップボード ───────────────────────────────── */
   'notice.copy.ok': 'クリップボードにコピーしました',
   'notice.copy.failed': 'コピーできませんでした。OS のショートカットをお使いください',

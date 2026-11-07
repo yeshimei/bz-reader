@@ -52,6 +52,10 @@ export const EN: Record<MsgKey, string> = {
   'notice.needBook': 'Open a book first, then run this command',
   'notice.language.changed': 'Interface language changed — command names update after restarting Obsidian',
 
+  /* ── Notices: immersive mode ─────────────────────────────── */
+  'notice.immersive.exitDesktop': 'Immersive mode on. Press ESC to exit',
+  'notice.immersive.exitMobile': 'Immersive mode on. Tap the page with two fingers to exit',
+
   /* ── Notices: clipboard ─────────────────────────────────── */
   'notice.copy.ok': 'Copied to clipboard',
   'notice.copy.failed': 'Copy failed — use the system shortcut instead',

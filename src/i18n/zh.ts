@@ -50,6 +50,10 @@ export const ZH = {
   'notice.needBook': '先打开一本书再用这个命令',
   'notice.language.changed': '界面语言已切换，命令名需重启 Obsidian 后更新',
 
+  /* ── 通知：沉浸模式 ──────────────────────────────────────── */
+  'notice.immersive.exitDesktop': '已进入沉浸模式，按 ESC 退出',
+  'notice.immersive.exitMobile': '已进入沉浸模式，双指同时轻按正文退出',
+
   /* ── 通知：剪贴板 ────────────────────────────────────────── */
   'notice.copy.ok': '已复制到剪贴板',
   'notice.copy.failed': '复制失败，请用系统快捷键',
