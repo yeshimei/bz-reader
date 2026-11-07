@@ -23,6 +23,7 @@ export const EN: Record<MsgKey, string> = {
   /* ── Shared words ───────────────────────────────────────── */
   'common.default': 'default',
   'common.untitled': 'Untitled',
+  'common.cancel': 'Cancel',
   'common.unknownError': 'Unknown error',
 
   /* ── Entry ───────────────────────────────────────────────── */
@@ -272,6 +273,7 @@ export const EN: Record<MsgKey, string> = {
   'side.ai.index.running': 'Building index',
   'side.ai.index.done': 'Index ready — you can ask now.',
   'side.ai.index.rebuild': 'Rebuild index',
+  'side.ai.rebuild.confirm': 'Rebuilding deletes the index this book has now and re-runs the whole book: it cannot be paused, and there is no undo.',
   'side.ai.scope.book': 'Whole-book answers',
   'side.untitled': 'Untitled',
   'side.noBook': 'No book open',

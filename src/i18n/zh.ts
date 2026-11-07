@@ -21,6 +21,7 @@ export const ZH = {
   /* ── 通用词 ──────────────────────────────────────────────── */
   'common.default': '默认',
   'common.untitled': '未命名',
+  'common.cancel': '取消',
   'common.unknownError': '未知错误',
 
   /* ── 插件入口 ────────────────────────────────────────────── */
@@ -262,6 +263,7 @@ export const ZH = {
   'side.ai.index.running': '正在建立索引',
   'side.ai.index.done': '索引已建好，可以提问了。',
   'side.ai.index.rebuild': '重建索引',
+  'side.ai.rebuild.confirm': '重建会删掉这本书现在的索引，之后要整本重算——中途停不下来，也算不回去。',
   'side.ai.scope.book': '按全书回答',
   'side.untitled': '未命名',
   'side.noBook': '没有打开的书',

@@ -14,6 +14,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   /* ── 通用詞 ──────────────────────────────────────────────── */
   'common.default': '預設',
   'common.untitled': '未命名',
+  'common.cancel': '取消',
   'common.unknownError': '未知錯誤',
 
   /* ── 外掛入口 ────────────────────────────────────────────── */
@@ -262,6 +263,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'side.ai.index.running': '正在建立索引',
   'side.ai.index.done': '索引已建好，可以提問了。',
   'side.ai.index.rebuild': '重建索引',
+  'side.ai.rebuild.confirm': '重建會刪掉這本書現在的索引，之後要整本重算——中途停不下來，也算不回去。',
   'side.ai.scope.book': '按全書回答',
   'side.untitled': '未命名',
   'side.noBook': '沒有開啟的書',

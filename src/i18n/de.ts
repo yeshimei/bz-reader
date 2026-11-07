@@ -18,6 +18,7 @@ export const DE: Record<MsgKey, string> = {
   /* ── Gemeinsame Wörter ──────────────────────────────────── */
   'common.default': 'Standard',
   'common.untitled': 'Ohne Titel',
+  'common.cancel': 'Abbrechen',
   'common.unknownError': 'Unbekannter Fehler',
 
   /* ── Einstieg ───────────────────────────────────────────── */
@@ -270,6 +271,7 @@ export const DE: Record<MsgKey, string> = {
   'side.ai.index.running': 'Index wird erstellt',
   'side.ai.index.done': 'Index fertig – du kannst jetzt fragen.',
   'side.ai.index.rebuild': 'Index neu erstellen',
+  'side.ai.rebuild.confirm': 'Neu erstellen löscht den jetzigen Index dieses Buchs und rechnet alles noch einmal – unterbrechen oder rückgängig machen geht nicht.',
   'side.ai.scope.book': 'Antworten aus dem ganzen Buch',
   'side.untitled': 'Ohne Titel',
   'side.noBook': 'Kein Buch geöffnet',

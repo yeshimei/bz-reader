@@ -18,6 +18,7 @@ export const FR: Record<MsgKey, string> = {
   /* ── Mots courants ──────────────────────────────────────── */
   'common.default': 'par défaut',
   'common.untitled': 'Sans titre',
+  'common.cancel': 'Annuler',
   'common.unknownError': 'Erreur inconnue',
 
   /* ── Entrée du plugin ───────────────────────────────────── */
@@ -271,6 +272,7 @@ export const FR: Record<MsgKey, string> = {
   'side.ai.index.running': 'Création de l’index',
   'side.ai.index.done': 'Index prêt — vous pouvez poser vos questions.',
   'side.ai.index.rebuild': 'Recréer l’index',
+  'side.ai.rebuild.confirm': 'Recréer supprime l’index actuel de ce livre et relance tout le calcul : ni pause, ni retour en arrière.',
   'side.ai.scope.book': 'Réponses sur tout le livre',
   'side.untitled': 'Sans titre',
   'side.noBook': 'Aucun livre ouvert',

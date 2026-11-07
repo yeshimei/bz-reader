@@ -17,6 +17,7 @@ export const JA: Record<MsgKey, string> = {
   /* ── 共通語 ──────────────────────────────────────────────── */
   'common.default': '既定',
   'common.untitled': '無題',
+  'common.cancel': 'キャンセル',
   'common.unknownError': '不明なエラー',
 
   /* ── プラグイン入口 ──────────────────────────────────────── */
@@ -265,6 +266,7 @@ export const JA: Record<MsgKey, string> = {
   'side.ai.index.running': '索引を作成中',
   'side.ai.index.done': '索引ができました。質問できます。',
   'side.ai.index.rebuild': '索引を作り直す',
+  'side.ai.rebuild.confirm': '作り直すと、この本の今の索引は消えて最初から計算し直しになります。途中で止めることも元に戻すこともできません。',
   'side.ai.scope.book': '本全体から回答',
   'side.untitled': '無題',
   'side.noBook': '開いている本がありません',

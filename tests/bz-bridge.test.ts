@@ -127,3 +127,45 @@ describe('打开录入', () => {
     expect(res.message).toContain('boom');
   });
 });
+
+/**
+ * 老门面：bz 1.40 之前把内部函数**原样**挂到 plugin.knowledge 上，第一个参数是
+ * Obsidian 的 app。bz-reader 按「第一个参数是文字」去调，bz 内部那句 `term.trim()`
+ * 拿到的就是选项对象，当场抛 `term.trim is not a function`（2026-11-07 真机）。
+ *
+ * 只认参数个数：绑定写法是 2 / 1 个参数，原样挂出来是 3 / 2 个。
+ */
+describe('老门面的调用形状', () => {
+  const hostApp = { vault: { adapter: {} } };
+
+  it('名词：先补 app，文字仍落在第二个参数', () => {
+    const calls: unknown[][] = [];
+    function legacyTerm(host: unknown, text?: string, opts?: unknown) {
+      calls.push([host, text, opts]);
+    }
+    const probe = probeBz(app({ knowledge: { openTermNote: legacyTerm, openPassageNote: () => undefined } }));
+    const res = openBzEntry(probe, 'term', '心流', undefined, undefined, hostApp as never);
+    expect(res.ok).toBe(true);
+    expect(calls[0]).toEqual([hostApp, '心流', { source: undefined, onCreated: undefined }]);
+  });
+
+  it('段落：先补 app，正文仍走 opts.text', () => {
+    const calls: unknown[][] = [];
+    function legacyPassage(host: unknown, opts?: { text?: string }) {
+      calls.push([host, opts]);
+    }
+    const probe = probeBz(app({ knowledge: { openTermNote: () => undefined, openPassageNote: legacyPassage } }));
+    openBzEntry(probe, 'passage', '一整段原文', undefined, undefined, hostApp as never);
+    expect(calls[0]).toEqual([hostApp, { source: undefined, onCreated: undefined, text: '一整段原文' }]);
+  });
+
+  it('要 app 却拿不到 app：不硬调，给一句「更新 bz」', () => {
+    function legacyTerm(_host: unknown, _text?: string, _opts?: unknown) {
+      throw new Error('不该被调用');
+    }
+    const probe = probeBz(app({ knowledge: { openTermNote: legacyTerm, openPassageNote: () => undefined } }));
+    const res = openBzEntry(probe, 'term', '词');
+    expect(res.ok).toBe(false);
+    expect(res.message).toContain('bz 版本太旧');
+  });
+});

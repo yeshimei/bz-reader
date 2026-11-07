@@ -870,6 +870,24 @@ function overlayPtClean(): string {
 }
 
 /**
+ * 重建索引的二次确认。
+ *
+ * 「重建」在这个插件里等于把这本书的索引整份删掉再重算：删掉的块、花掉的
+ * 请求都收不回来，重算期间也没法一边读一边问。所以先摊开写清楚，再让他点。
+ * 确认之后不自动开跑——回到「还没建索引」的空态重新选建法（2026-11-07 定稿）。
+ */
+function overlayRebuildIndex(): string {
+  const body = `<div class="bzs-ack"><p>${esc(t('side.ai.rebuild.confirm'))}</p></div>`;
+  return modal(
+    t('side.ai.index.rebuild'),
+    '',
+    body,
+    `<button class="bzs-btn" data-act="close">${esc(t('common.cancel'))}</button>
+     <button class="bzs-btn pri danger" data-act="aiidxrebuildyes">${esc(t('side.ai.index.rebuild'))}</button>`,
+  );
+}
+
+/**
  * 第一次用「问这本书」时把话说清楚：会把什么发出去、发到哪儿。
  *
  * 只弹一次（`settings.aiAck`），记在这台机器上：换台电脑再讲一遍是应该的。
@@ -1080,6 +1098,8 @@ export function overlayHtml(): string {
       return overlayAck();
     case 'ptclean':
       return overlayPtClean();
+    case 'rebuildidx':
+      return overlayRebuildIndex();
     default:
       return '';
   }

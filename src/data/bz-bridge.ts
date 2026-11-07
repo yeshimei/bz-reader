@@ -37,6 +37,9 @@ export interface BzEntryOptions {
 }
 
 export interface BzKnowledgeFacade {
+  /* 签名按外部口径写（不带 app）。bz 1.40 及更早挂的是带 app 的内部函数，
+     由 openBzEntry 按参数个数识别后补位——别在这里改回带 app 的形状，
+     那会让新门面（绑定写法）收到一个多出来的首参。 */
   openTermNote(term?: string, opts?: BzEntryOptions): void;
   openPassageNote(opts?: BzEntryOptions): void;
   /** 文献文件夹配好了没（老版本 bz 没有这一项，按「未知」处理） */
@@ -235,10 +238,27 @@ export function bzSnapshot(app: App | null | undefined): BzSnapshot {
 export type BzEntryKind = 'term' | 'passage';
 
 /**
+ * 这个门面函数要不要我们先塞一个 app 进去。
+ *
+ * bz 1.40 及更早把 knowledge 域的**内部函数原样**挂在 `plugin.knowledge` 上，
+ * 第一个参数是 Obsidian 的 app；文档里给外部用的形状（也是这里的接口）没有 app。
+ * 按文档调用会把选项对象当成名词递进去，bz 内部那句 `term.trim()` 当场抛
+ * `term.trim is not a function`——2026-11-07 用户点「存为名词」看到的就是它。
+ *
+ * 只能按参数个数认：绑定写法是 2 个（名词）/ 1 个（段落），原样挂出来是
+ * 3 个 / 2 个。bz 那边改成绑定写法之后这里自然走不到补 app 的分支。
+ */
+function wantsApp(fn: (...args: never[]) => void, bound: number): boolean {
+  return typeof fn === 'function' && fn.length > bound;
+}
+
+/**
  * 打开 bz 的录入界面。
  *
  * 返回**是否真的发出去了**：调用方据此决定要不要提示失败。文献文件夹没配时
  * bz 自己会把人送去设置页，这里补一句说明，不让用户对着一个跳走的界面猜。
+ *
+ * `app` 是给老门面补位用的（见 `wantsApp`）；新门面用不上，传了也不影响。
  */
 export function openBzEntry(
   probe: BzProbe,
@@ -246,13 +266,26 @@ export function openBzEntry(
   text: string,
   source?: BzEntryOptions['source'],
   onCreated?: (notePath: string) => void,
+  app?: App | null,
 ): { ok: boolean; message?: string } {
   const problem = entryBridgeProblem(probe);
   if (problem || !probe.knowledge) return { ok: false, message: problem ?? t('bz.outdated', { version: probe.version || '—' }) };
+  const k = probe.knowledge;
   const opts: BzEntryOptions = { source, onCreated };
+  const termFn = k.openTermNote as unknown as (...args: never[]) => void;
+  const passageFn = k.openPassageNote as unknown as (...args: never[]) => void;
+  const needApp = kind === 'term' ? wantsApp(termFn, 2) : wantsApp(passageFn, 1);
+  /* 老门面缺 app 时宁可不调：硬调进去只会得到一条看不懂的 TypeError */
+  if (needApp && !app) return { ok: false, message: t('bz.outdated', { version: probe.version || '—' }) };
   try {
-    if (kind === 'term') probe.knowledge.openTermNote(text, opts);
-    else probe.knowledge.openPassageNote({ ...opts, text });
+    if (kind === 'term') {
+      if (needApp) (termFn as unknown as (host: App, t: string, o: BzEntryOptions) => void)(app as App, text, opts);
+      else k.openTermNote(text, opts);
+    } else {
+      const arg = { ...opts, text };
+      if (needApp) (passageFn as unknown as (host: App, o: BzEntryOptions) => void)(app as App, arg);
+      else k.openPassageNote(arg);
+    }
   } catch (e) {
     return { ok: false, message: (e as Error)?.message || t('bz.callFailed') };
   }

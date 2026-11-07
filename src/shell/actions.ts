@@ -64,7 +64,7 @@ import {
   setStateQuiet,
   toggleFav,
 } from './state';
-import { RT, emitNotesChanged, pushAi } from './runtime';
+import { RT, emitNotesChanged, pushAi, resetAi } from './runtime';
 import { bzEmbedder, bzNotesReady, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
 import { isMobileEnv } from '../core/mobile';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
@@ -329,6 +329,7 @@ function knowledgeEntry(kind: BzEntryKind, markId?: string, bookId?: string): vo
 
   const target = book;
   const shell = src;
+  /* 第六个参数是 app：老版本 bz 的门面首参要 app，新门面用不上（见 bz-bridge 的 wantsApp） */
   const res = openBzEntry(probeBz(app), kind, text, kbSource(target.id, target.meta.title, { text, cfiRange: cfi, chapterTitle: chapter }), (notePath) => {
     /* bz 的写入成功回调：此刻笔记已经落盘，才轮到书里多一条划线 + 一枚双链 */
     let id = markId ?? '';
@@ -348,7 +349,7 @@ function knowledgeEntry(kind: BzEntryKind, markId?: string, bookId?: string): vo
     repaint();
     emitNotesChanged();
     notify(t(kind === 'term' ? 'notice.kb.term' : 'notice.kb.passage'));
-  });
+  }, app);
 
   if (!res.ok) notify(res.message || t('notice.kb.failed', { message: '' }), 'error');
   else if (res.message) notify(res.message, 'info');
@@ -420,8 +421,11 @@ function revealIndexPanel(): void {
  * 开始建索引。返回「真的跑起来了没有」——侧栏据此决定要不要收起选建法那一块：
  * 被拦下时（书没开 / 手机端 / 服务没配）已经把原因说给用户了，此时把
  * 选项收掉等于让他重新点一遍。
+ *
+ * 只从**空态**开跑（重建走「确认 → 删掉 → 回空态」那一圈，见 aiidxrebuildyes），
+ * 所以这里不再带「清旧块重来」的开关。
  */
-function startPortrait(book: ReaderBook, plan: PortraitPlan, rebuild = false): boolean {
+function startPortrait(book: ReaderBook, plan: PortraitPlan): boolean {
   const src = getShellSource();
   /* 能不能建，四条一起判（portrait-gate.ts）。其中「开的是另一本书」这条
      最隐蔽：画像的正文来自阅读视图，取错了会算出一整本错向量，界面却正常。 */
@@ -443,7 +447,7 @@ function startPortrait(book: ReaderBook, plan: PortraitPlan, rebuild = false): b
   if (!deps) return false;
   RT.portraitPlan = plan;
   const b = portraitBuilder(deps);
-  void b.start({ id: book.id, title: book.meta.title || t('common.untitled') }, plan, { rebuild });
+  void b.start({ id: book.id, title: book.meta.title || t('common.untitled') }, plan, { rebuild: false });
   return true;
 }
 
@@ -1516,15 +1520,32 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       repaint();
       break;
     case 'aiidxrebuild': {
+      /* 重建 = 删掉现有索引再整本重来，中途停不下、也算不回去：
+         先弹一句问清楚，别让「看一下这颗是干什么的」直接变成一次重算。 */
       if (!requireCap('ai')) break;
       const book = currentBook();
       if (!book) {
         notify(t('notice.needBook'), 'info');
         break;
       }
-      forgetPortrait(book.id);
-      startPortrait(book, RT.portraitPlan, true);
-      repaint();
+      openOverlay({ kind: 'rebuildidx', bookId: book.id });
+      break;
+    }
+    case 'aiidxrebuildyes': {
+      /* 删完回到「还没建索引」的空态：建法是每次现选的，不替用户沿用上一次。
+         缓存要一起清——只删文件不清缓存，侧栏还按「建好了」画。 */
+      const src = getShellSource();
+      const bookId = getState().overlay?.bookId || currentBook()?.id || '';
+      if (!src || !bookId) break;
+      void (async () => {
+        await removePortrait(src.app, bookId);
+        forgetPortrait(bookId);
+        /* 索引没了，挂在上面的问答依据也没了：留着那串答案只会让人以为还能追问 */
+        resetAi();
+        RT.aiIndexOpen = false;
+        closeOverlay();
+        repaint();
+      })();
       break;
     }
     case 'aitutorial':
