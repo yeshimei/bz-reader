@@ -11,11 +11,28 @@ const mode = args.includes("production") ? "production" : args.includes("once") 
 const prod = mode === "production";
 const TARGETS = ["pro"];
 
-// 产物直出 vault 插件目录（安装即用）。缺省落「测试库」——开发时用可造数据的库，
-// 别把半成品推给主库；要装到主库就
-// BZ_READER_VAULT="E:/Obsidian/叫我包仔/.obsidian/plugins/bz-reader"。
-const VAULT_PLUGIN_DIR =
-  process.env.BZ_READER_VAULT || "E:/Obsidian/测试/.obsidian/plugins/bz-reader";
+/**
+ * 产物直出 vault 插件目录（安装即用）。
+ *
+ * 缺省只落「测试库」——开发时用可造数据的库，别把半成品推给真实库。
+ * `BZ_READER_VAULT` 取值：
+ *   · `all` / `test` / `main` —— 关键字，分别对应下面两处（缺省 test）
+ *   · 完整插件目录路径 —— 原样使用，多个用 `;` 分隔
+ * 部署（而不是 once）要三处齐全，用 `all`；worktree 里验产物就指一个不存在的目录。
+ */
+const VAULTS = {
+  test: "E:/Obsidian/测试/.obsidian/plugins/bz-reader",
+  main: "E:/Obsidian/叫我包仔/.obsidian/plugins/bz-reader",
+};
+const VAULT_PLUGIN_DIRS = (() => {
+  const raw = (process.env.BZ_READER_VAULT || "test").trim();
+  if (raw === "all") return [VAULTS.test, VAULTS.main];
+  return raw
+    .split(";")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => VAULTS[entry] ?? entry);
+})();
 const ACTIVE = "pro";
 
 const DIST = path.join(process.cwd(), "dist");
@@ -167,15 +184,17 @@ function copyStatic() {
     }
   }
   // 同步到 vault：只同步当前激活的那一版
-  if (fs.existsSync(VAULT_PLUGIN_DIR)) {
-    const srcDir = path.join(DIST, ACTIVE);
+  const srcDir = path.join(DIST, ACTIVE);
+  for (const dir of VAULT_PLUGIN_DIRS) {
+    if (!fs.existsSync(dir)) {
+      console.log(`! vault 插件目录不存在，跳过同步：${dir}`);
+      continue;
+    }
     for (const file of ["main.js", "manifest.json", "styles.css"]) {
       const src = path.join(srcDir, file);
-      if (fs.existsSync(src)) fs.copyFileSync(src, path.join(VAULT_PLUGIN_DIR, file));
+      if (fs.existsSync(src)) fs.copyFileSync(src, path.join(dir, file));
     }
-    console.log(`✓ 已同步 ${ACTIVE} → ${VAULT_PLUGIN_DIR}`);
-  } else {
-    console.log(`! vault 插件目录不存在，跳过同步：${VAULT_PLUGIN_DIR}`);
+    console.log(`✓ 已同步 ${ACTIVE} → ${dir}`);
   }
 }
 

@@ -22,16 +22,16 @@ node esbuild.config.mjs once
 三条全绿才能 commit；只跑 tsc 不算过门。上架前再加 `node scripts/lint-obsidian.mjs`（见「上架」一节）。
 
 ## 部署
-- “部署”= 同一份产物同时落到**主仓库根**和**测试库插件目录**，缺一不算。
+- “部署”= 同一份产物同时落到**三处**：主仓库根、测试库插件目录、真实库（`叫我包仔`）插件目录，缺一不算。
 - 先过三道门，在 `D:\Obsidian\bz-reader` 跑：
 ```powershell
-$env:BZ_READER_VAULT='E:\Obsidian\测试\.obsidian\plugins\bz-reader'
+$env:BZ_READER_VAULT='all'
 node esbuild.config.mjs production
 ```
 - `production` 压缩、无 sourcemap，**只有它**落仓库根；`once` 只写 `dist/pro` 和 vault，不是部署。
-- `BZ_READER_VAULT` 指**插件目录**，不是库根；指库根会把三件套写进 vault 根。
+- `BZ_READER_VAULT` 指**插件目录**，不是库根；`all` = 测试库 + 真实库，也可填 `test` / `main`（缺省 `test`），或用 `;` 分隔多个完整路径。
 - 只部署已合并到 master 的产物；worktree 内构建把 `BZ_READER_VAULT` 指向不存在的目录，只验产物。
-- 验收：仓库根与测试库的 `main.js` 字节数一致、时间戳都是本次构建；测试库重载后生效。
+- 验收：仓库根与两个库的 `main.js` 字节数一致、时间戳都是本次构建；两个库重载后生效。
 - 部署 ≠ 发版；tag / Release 走 `bz-release`。
 
 ## 改动流程
