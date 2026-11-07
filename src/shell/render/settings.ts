@@ -99,8 +99,8 @@ function toggle(k: string, on: boolean, label: string): string {
  * 的入口，不是设置项——这也是它横跨两栏的理由：它是整页的题头，不是两列
  * 里的又一个方框。
  *
- * 视频教程还没剪完。它照样占一格、照样写着「制作中」，但点了只说明进度：
- * 藏起来会让人以为「这插件没有教程」，灰掉不给解释则和坏了没区别。
+ * 视频教程占一格：没装 bz 的人靠它知道「索引是怎么建的」，所以它和 GitHub、
+ * 交流群一样是常驻出口，不做成「做好了再放上来」。
  */
 function aboutBar(version: string, paid: boolean): string {
   const ver = version ? `v${esc(version)}` : t('settings.about.version');
@@ -113,8 +113,8 @@ function aboutBar(version: string, paid: boolean): string {
         ${githubIcon(15)}<b>GitHub</b>
       </button>
       <span class="dot"></span>
-      <button class="bzs-about-link is-wip" data-act="aboutvideo" title="${t('settings.about.videoTip')}">
-        ${ico('video')}<b>${t('settings.about.video')}</b><i>${t('settings.about.wip')}</i>
+      <button class="bzs-about-link" data-act="aboutvideo" title="${t('settings.about.videoTip')}">
+        ${ico('video')}<b>${t('settings.about.video')}</b>
       </button>
       <span class="dot"></span>
       <button class="bzs-about-link" data-act="copygroup" title="${t('settings.about.groupTip')}">

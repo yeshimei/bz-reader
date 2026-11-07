@@ -37,7 +37,6 @@ import { setToc, clearToc, getToc, patchToc } from './toc-state';
 import { headerActionSpec, headerActionsFor, headerActive, type HeaderActionId } from './header-actions';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
-import { shellSettings } from '../shell/source';
 import { can } from '../data/entitlement';
 import { bzEntryReady } from '../data/bz-bridge';
 import { VIEW_TYPE_TOC } from './side-view';

@@ -59,6 +59,105 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '0.3.0',
+    date: '2026-11-07',
+    added: [
+      {
+        domain: { zh: '全书问答', en: 'Whole-book Q&A' },
+        text: {
+          zh: '在侧栏就能就整本书提问，回答附上出处，点一下跳到那一章。',
+          en: 'Ask about the whole book right in the sidebar — answers cite their sources, and one click jumps to that chapter.',
+        },
+      },
+      {
+        domain: { zh: '全书索引', en: 'Book index' },
+        text: {
+          zh: '每本书单独建一份索引，向量化检索或 AI 信息压缩两种建法任选。',
+          en: 'Each book gets its own index, built either from vector search or from AI compression.',
+        },
+      },
+      {
+        domain: { zh: '知识盒', en: 'Knowledge box' },
+        text: {
+          zh: '划词条里多出「存为名词 / 存为段落」，存进 bz 知识盒并回写双链。',
+          en: 'The selection toolbar gains Save as term and Save as passage: entries land in bz’s knowledge box and link back to the highlight.',
+        },
+      },
+      {
+        domain: { zh: '文件失联', en: 'Missing files' },
+        text: {
+          zh: '书文件被移走时书卡打上角标，点一下重新定位。',
+          en: 'A book whose file has moved away shows a badge on its card; tap it to point the plugin at the new location.',
+        },
+      },
+      {
+        domain: { zh: '沉浸提示', en: 'Immersive mode' },
+        text: {
+          zh: '进入沉浸模式时提示退出方式，桌面按 ESC、手机双指轻按。',
+          en: 'Entering immersive mode now says how to leave: ESC on desktop, a two-finger tap on mobile.',
+        },
+      },
+      {
+        domain: { zh: '书卡直达', en: 'Open from the shelf' },
+        text: {
+          zh: '点书卡直接进阅读，不用再点一次「继续」。',
+          en: 'Tap a book card to start reading — no second tap on Continue.',
+        },
+      },
+    ],
+    improved: [
+      {
+        domain: { zh: '书架去重', en: 'Shelf dedupe' },
+        text: {
+          zh: '同一份文件改名、换目录、复制一份，都只留一条记录。',
+          en: 'A renamed, moved or copied file still keeps a single record on the shelf.',
+        },
+      },
+      {
+        domain: { zh: '移除书库', en: 'Removing books' },
+        text: {
+          zh: '改成移出书架，进度、划线、想法全留着，重新导入就接上。',
+          en: 'Removing a book now only takes it off the shelf: progress, highlights and notes stay, and re-importing picks them up.',
+        },
+      },
+      {
+        domain: { zh: '划词条', en: 'Selection toolbar' },
+        text: {
+          zh: '去掉与「问 AI」重复的翻译入口。',
+          en: 'Dropped the translate entry that duplicated Ask AI.',
+        },
+      },
+      {
+        domain: { zh: '手机', en: 'Mobile' },
+        text: {
+          zh: '正文上下留白收窄，底部不再重复让出安全区。',
+          en: 'Tighter top and bottom margins in the text, and the bottom inset is no longer counted twice.',
+        },
+      },
+      {
+        domain: { zh: '目录', en: 'Contents' },
+        text: {
+          zh: '点目录时自动切到目录页签并顶到前面。',
+          en: 'Tapping the contents switches to the Contents tab and brings it to the front.',
+        },
+      },
+      {
+        domain: { zh: '群入口', en: 'Community group' },
+        text: {
+          zh: '解锁弹层里的加群按钮常驻，文案统一成「QQ交流群」。',
+          en: 'The unlock dialog always shows the group button, labelled QQ group.',
+        },
+      },
+      {
+        domain: { zh: 'AI 卡片', en: 'AI card' },
+        text: {
+          zh: '关掉卡片就停掉请求，不会在后台跑完照扣费。',
+          en: 'Closing the card stops the request instead of letting it run — and bill — in the background.',
+        },
+      },
+    ],
+  },
+  {
     version: '0.2.0',
     date: '2026-11-05',
     added: [

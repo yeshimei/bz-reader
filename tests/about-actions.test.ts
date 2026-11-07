@@ -3,6 +3,7 @@ import { dispatchAction } from '../src/shell/actions';
 import { DEFAULT_SHELL_STATE, setState } from '../src/shell/state';
 import { setShellSource, type ShellSource } from '../src/shell/source';
 import { GROUP_ID, REPO_URL } from '../src/data/entitlement';
+import { VIDEO_TUTORIAL_URL } from '../src/core/links';
 
 /* notify 走 Obsidian 的 Notice，node 里拿不到弹出来的那条；
    换成收集器，验「说了什么」而不是「弹了几次」。 */
@@ -42,16 +43,24 @@ describe('关于组 · GitHub', () => {
 });
 
 describe('关于组 · 视频教程', () => {
-  /* 教程还没剪完。这一项不能是死按钮：点了要说清「为什么没反应、什么时候有」，
-     也不能顺手打开一个不存在的链接。 */
-  it('不打开任何链接，只说明还在做', () => {
+  /* 设置页关于条与侧栏 AI 页签是同一个入口，地址只留一份；
+     两边各自写一个字符串，换视频时必然漏掉一处。 */
+  it('点一下在新窗口打开 B 站教程，带 noopener', () => {
     const open = vi.fn();
     vi.stubGlobal('window', { open });
 
     dispatchAction('aboutvideo', el());
 
-    expect(open).not.toHaveBeenCalled();
-    expect(notices.join('')).toContain('还在剪');
+    expect(open).toHaveBeenCalledWith(VIDEO_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
+  });
+
+  it('侧栏 AI 页签的「观看视频教程」指向同一个地址', () => {
+    const open = vi.fn();
+    vi.stubGlobal('window', { open });
+
+    dispatchAction('aitutorial', el());
+
+    expect(open).toHaveBeenCalledWith(VIDEO_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
   });
 });
 

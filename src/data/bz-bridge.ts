@@ -272,8 +272,8 @@ export function openBzEntry(
   if (problem || !probe.knowledge) return { ok: false, message: problem ?? t('bz.outdated', { version: probe.version || '—' }) };
   const k = probe.knowledge;
   const opts: BzEntryOptions = { source, onCreated };
-  const termFn = k.openTermNote as unknown as (...args: never[]) => void;
-  const passageFn = k.openPassageNote as unknown as (...args: never[]) => void;
+  const termFn = k.openTermNote.bind(k);
+  const passageFn = k.openPassageNote.bind(k);
   const needApp = kind === 'term' ? wantsApp(termFn, 2) : wantsApp(passageFn, 1);
   /* 老门面缺 app 时宁可不调：硬调进去只会得到一条看不懂的 TypeError */
   if (needApp && !app) return { ok: false, message: t('bz.outdated', { version: probe.version || '—' }) };

@@ -251,9 +251,9 @@ describe('关于组', () => {
     entState.unlocked = false;
   });
 
-  it('视频教程标着「制作中」，且不是一条外链', () => {
+  it('视频教程已是真入口：不再标「制作中」，点击交给动作层', () => {
     const g = aboutGroup(html());
-    expect(g).toContain('制作中');
+    expect(g).not.toContain('制作中');
     expect(g).not.toMatch(/data-act="aboutvideo"[^>]*data-href/);
   });
 

@@ -102,7 +102,6 @@ export const ZH_TW: Record<MsgKey, string> = {
   'notice.status.reading': '已標記為在讀',
   'notice.status.done': '已標記讀完',
   'notice.ui.reset': '介面狀態已重設',
-  'notice.video.wip': '影片教學還在剪，做好會在交流群裡通知',
 
   /* ── 通知：匯入 ──────────────────────────────────────────── */
   'notice.import.done': '已加入 {n} 本',
@@ -332,8 +331,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.about.base': '基礎版',
   'settings.about.repo': '在瀏覽器裡開啟倉庫',
   'settings.about.video': '影片教學',
-  'settings.about.wip': '製作中',
-  'settings.about.videoTip': '教學還在剪，做好會在交流群裡通知',
+  'settings.about.videoTip': '在 B 站觀看教學影片',
   'settings.about.group': 'QQ 交流群',
   'settings.about.groupTip': '點一下複製群號，去 QQ 搜尋',
   'settings.about.changelog': '更新日誌',

@@ -105,7 +105,6 @@ export const JA: Record<MsgKey, string> = {
   'notice.status.reading': '読書中に設定しました',
   'notice.status.done': '読了に設定しました',
   'notice.ui.reset': '表示状態をリセットしました',
-  'notice.video.wip': '動画チュートリアルは編集中です。完成したら交流グループでお知らせします',
 
   /* ── 通知：インポート ───────────────────────────────────── */
   'notice.import.done': '{n} 冊を追加しました',
@@ -335,8 +334,7 @@ export const JA: Record<MsgKey, string> = {
   'settings.about.base': 'ベーシック版',
   'settings.about.repo': 'ブラウザでリポジトリを開く',
   'settings.about.video': '動画チュートリアル',
-  'settings.about.wip': '制作中',
-  'settings.about.videoTip': 'チュートリアルは編集中です。完成したら交流グループでお知らせします',
+  'settings.about.videoTip': 'Bilibili でチュートリアル動画を見る',
   'settings.about.group': '交流グループ',
   'settings.about.groupTip': 'クリックでグループ番号をコピー。QQ で検索してください',
   'settings.about.changelog': '更新履歴',

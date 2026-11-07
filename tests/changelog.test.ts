@@ -163,8 +163,10 @@ describe('内置更新日志数据', () => {
 
 describe('activeIndex：弹窗先停在哪一版', () => {
   it('命中本次要提示的版本', () => {
-    expect(activeIndex(CHANGELOG_RELEASES, '0.1.1')).toBe(2);
-    expect(activeIndex(CHANGELOG_RELEASES, 'v0.1.2')).toBe(1);
+    const i11 = CHANGELOG_RELEASES.findIndex((r) => r.version === '0.1.1');
+    const i12 = CHANGELOG_RELEASES.findIndex((r) => r.version === '0.1.2');
+    expect(activeIndex(CHANGELOG_RELEASES, '0.1.1')).toBe(i11);
+    expect(activeIndex(CHANGELOG_RELEASES, 'v0.1.2')).toBe(i12);
   });
 
   it('找不到 / 没给 → 停在最新一版（0）', () => {
@@ -175,7 +177,8 @@ describe('activeIndex：弹窗先停在哪一版', () => {
 });
 
 describe('更新日志弹窗的 DOM 结构', () => {
-  const html = changelogNoteHtml(CHANGELOG_RELEASES, '0.2.0');
+  const newest = CHANGELOG_RELEASES[0]!;
+  const html = changelogNoteHtml(CHANGELOG_RELEASES, newest.version);
 
   it('桌面版有版本时间轴 + 单版正文', () => {
     expect(html).toContain('class="bzs-chgn-rail"');
@@ -192,8 +195,8 @@ describe('更新日志弹窗的 DOM 结构', () => {
   });
 
   it('正文先落在本次要提示的那一版，版本号与日期并排', () => {
-    expect(html).toContain('v0.2.0');
-    expect(html).toContain('2026.11.05');
+    expect(html).toContain(`v${newest.version}`);
+    expect(html).toContain(newest.date!.replace(/-/g, '.'));
     expect(html).toContain('本次更新');
   });
 
@@ -209,7 +212,7 @@ describe('更新日志弹窗的 DOM 结构', () => {
   });
 
   it('统计行报出总条数与各段条数', () => {
-    expect(html).toContain('共 21 处改动');
+    expect(html).toContain(`共 ${releaseEntryCount(newest)} 处改动`);
   });
 
   it('手机版是整篇文档流：所有版本按新→旧铺开，不设版本栏', () => {

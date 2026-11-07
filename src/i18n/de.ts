@@ -106,7 +106,6 @@ export const DE: Record<MsgKey, string> = {
   'notice.status.reading': 'Als „am Lesen" markiert',
   'notice.status.done': 'Als „gelesen" markiert',
   'notice.ui.reset': 'Oberfläche zurückgesetzt',
-  'notice.video.wip': 'Das Video-Tutorial wird noch geschnitten – wir kündigen es in der Gruppe an',
 
   /* ── Hinweise: Import ───────────────────────────────────── */
   'notice.import.done': '{n} Buch/Bücher hinzugefügt',
@@ -341,8 +340,7 @@ export const DE: Record<MsgKey, string> = {
   'settings.about.base': 'Basis',
   'settings.about.repo': 'Repository im Browser öffnen',
   'settings.about.video': 'Video-Tutorial',
-  'settings.about.wip': 'In Arbeit',
-  'settings.about.videoTip': 'Das Tutorial wird noch geschnitten – wir kündigen es in der Gruppe an',
+  'settings.about.videoTip': 'Das Tutorial-Video auf Bilibili ansehen',
   'settings.about.group': 'Community',
   'settings.about.groupTip': 'Klicken, um die Gruppennummer zu kopieren, dann in QQ suchen',
   'settings.about.changelog': 'Changelog',

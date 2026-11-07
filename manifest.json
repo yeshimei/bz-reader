@@ -1,7 +1,7 @@
 {
   "id": "bz-reader",
   "name": "bz Reader",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "minAppVersion": "1.8.7",
   "description": "Turn your vault into a place to read: desktop and mobile, eight interface languages, multiple formats, AI Q&A, wikilinks, and all data stored locally.",
   "author": "叫我包仔",

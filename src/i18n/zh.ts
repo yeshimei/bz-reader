@@ -109,7 +109,6 @@ export const ZH = {
   'notice.status.reading': '已标记为在读',
   'notice.status.done': '已标记读完',
   'notice.ui.reset': '界面状态已重置',
-  'notice.video.wip': '视频教程还在剪，做好会在交流群里通知',
 
   /* ── 通知：导入 ──────────────────────────────────────────── */
   'notice.import.done': '已加入 {n} 本',
@@ -332,8 +331,7 @@ export const ZH = {
   'settings.about.base': '基础版',
   'settings.about.repo': '在浏览器里打开仓库',
   'settings.about.video': '视频教程',
-  'settings.about.wip': '制作中',
-  'settings.about.videoTip': '教程还在剪，做好会在交流群里通知',
+  'settings.about.videoTip': '在 B 站观看教程视频',
   'settings.about.group': 'QQ 交流群',
   'settings.about.groupTip': '点一下复制群号，去 QQ 搜索',
   'settings.about.changelog': '更新日志',

@@ -10,7 +10,7 @@
  *   2. 任何写数据之后都 commit()（store.touch），否则关掉 Obsidian 就丢。
  *   3. 失败要说人话（notify），不要静默——用户点一下没反应比报错更难受。
  * ============================================================ */
-import { Menu, type TFile } from 'obsidian';
+import { Menu } from 'obsidian';
 import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
 import { aiAsk, type AiTask } from '../data/ai';
@@ -67,6 +67,7 @@ import {
 import { RT, emitNotesChanged, pushAi, resetAi } from './runtime';
 import { bzEmbedder, bzNotesReady, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
 import { isMobileEnv } from '../core/mobile';
+import { VIDEO_TUTORIAL_URL } from '../core/links';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
 import { forgetPortrait, setPortrait } from './portrait-cache';
@@ -92,7 +93,6 @@ import {
   portraitState,
   readPortrait,
   topBlocksByVector,
-  type PortraitFile,
   type PortraitPlan,
 } from '../data/portrait';
 import { kbSource, kbThought, mergeThought } from '../data/kb-entry';
@@ -411,15 +411,6 @@ function portraitBlockMessage(reason: PortraitBlockReason): string {
   return t('pt.needOpen');
 }
 
-/**
- * 教程视频地址。
- *
- * 现在留空：视频还在剪。空串时按钮照样渲染（没装 bz 的人只能靠它知道
- * 「这本书的索引是怎么建的」），点下去说一句「还在剪」；做好之后把地址
- * 填在这儿，按钮就变成真链接——不用再改界面。
- */
-const AI_TUTORIAL_URL = '';
-
 /** 展开侧栏 AI 页签里的「选建法」，并把人送到那儿（建索引入口只有这一处） */
 function revealIndexPanel(): void {
   RT.aiIndexOpen = true;
@@ -652,8 +643,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       window.open(REPO_URL, '_blank', 'noopener,noreferrer');
       break;
     case 'aboutvideo':
-      /* 教程还没剪完。说清「什么时候有」，别让人以为点了条坏链接 */
-      notify(t('notice.video.wip'));
+      /* 和侧栏 AI 页签里的「观看视频教程」是同一个地址：只留一份，别各写一处 */
+      window.open(VIDEO_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
       break;
     case 'copygroup':
       void copyGroupId();
@@ -1462,12 +1453,12 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const src = getShellSource();
       const path = d.path || '';
       if (!src || !path) break;
-      const file = src.app.vault.getAbstractFileByPath(path);
+      const file = src.app.vault.getFileByPath(path);
       if (!file) {
         notify(t('notice.note.missing', { path }), 'error');
         break;
       }
-      void src.app.workspace.getLeaf(false).openFile(file as TFile);
+      void src.app.workspace.getLeaf(false).openFile(file);
       break;
     }
     case 'opensrcbook': {
@@ -1556,10 +1547,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
     case 'aitutorial':
-      /* 教程视频还在剪：先把按钮留着（没有装 bz 的人更只能靠它），
-         做好之后把地址填进 AI_TUTORIAL_URL 就生效。 */
-      if (AI_TUTORIAL_URL) window.open(AI_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
-      else notify(t('notice.video.wip'), 'info');
+      /* 没装 bz 的人最需要它：从这儿知道索引是怎么建的。地址与设置页关于条同一份 */
+      window.open(VIDEO_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
       break;
     case 'ptpause':
       portraitBuilder().pause();

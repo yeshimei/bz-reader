@@ -6,10 +6,12 @@
 
   <p>
     <a href="https://obsidian.md"><img src="docs/images/badges/obsidian.svg" height="27" alt="Obsidian 1.8.7+"></a>
-    <img src="docs/images/badges/version.svg" height="27" alt="版本 0.2.0">
+    <img src="docs/images/badges/version.svg" height="27" alt="版本 0.3.0">
     <img src="docs/images/badges/platform.svg" height="27" alt="桌面 + 移动">
     <img src="docs/images/badges/license.svg" height="27" alt="MIT">
   </p>
+
+  <p><sub><a href="https://www.bilibili.com/video/BV1vNsZ6pE7i">视频教程 · Video tutorial</a></sub></p>
 
   <p><sub><b>简体中文</b> · <a href="#english">English</a> · <a href="#繁體中文">繁體中文</a> · <a href="#日本語">日本語</a> · <a href="#deutsch">Deutsch</a> · <a href="#français">Français</a> · <a href="#español">Español</a> · <a href="#português">Português</a></sub></p>
 </div>

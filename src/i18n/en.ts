@@ -111,7 +111,6 @@ export const EN: Record<MsgKey, string> = {
   'notice.status.reading': 'Marked as reading',
   'notice.status.done': 'Marked as finished',
   'notice.ui.reset': 'UI state reset',
-  'notice.video.wip': 'The video tutorial is still in the edit — we will announce it in the group',
 
   /* ── Notices: import ────────────────────────────────────── */
   'notice.import.done': 'Added {n} book(s) to the shelf',
@@ -343,8 +342,7 @@ export const EN: Record<MsgKey, string> = {
   'settings.about.base': 'Base',
   'settings.about.repo': 'Open the repository in your browser',
   'settings.about.video': 'Video tutorial',
-  'settings.about.wip': 'In the works',
-  'settings.about.videoTip': 'The tutorial is still being edited — we will announce it in the group',
+  'settings.about.videoTip': 'Watch the tutorial video on Bilibili',
   'settings.about.group': 'Community group',
   'settings.about.groupTip': 'Click to copy the group number, then search for it in QQ',
   'settings.about.changelog': 'Changelog',

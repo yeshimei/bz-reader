@@ -33,7 +33,7 @@ export const MAX_FINGERPRINT_BYTES = 64 * 1024 * 1024;
 function fnv1a(bytes: Uint8Array, seed: number): number {
   let h = seed >>> 0;
   for (let i = 0; i < bytes.length; i += 1) {
-    h ^= bytes[i] as number;
+    h ^= bytes[i];
     h = Math.imul(h, 0x01000193) >>> 0;
   }
   return h >>> 0;

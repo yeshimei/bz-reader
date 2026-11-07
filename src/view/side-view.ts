@@ -26,7 +26,6 @@ import { focusSelector, type FocusMemo } from '../shell/focus-memo';
 import { isTocItemActive, type TocActiveRef } from '../shell/toc-active';
 import { getToc, subscribeToc } from './toc-state';
 import { setHtml } from '../ui/dom';
-import { can } from '../data/entitlement';
 import { bzEmbedder } from '../data/bz-bridge';
 import { cachedPortrait, ensurePortrait } from '../shell/portrait-cache';
 import { portraitBuilder } from '../data/portrait-build';

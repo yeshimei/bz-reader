@@ -1303,28 +1303,6 @@
 
 .bzs-about-link:hover::after { transform: none; }
 
-/* 「制作中」：一枚缓慢呼吸的铜点。系统开了减少动态效果时由 tokens.css
-   的全局规则收掉动画，不在这里重复判断。 */
-.bzs-about-link.is-wip i {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.bzs-about-link.is-wip i::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--copper);
-  animation: bzs-about-pulse 2.6s ease-in-out infinite;
-}
-
-@keyframes bzs-about-pulse {
-  0%, 100% { opacity: .3; transform: scale(.85); }
-  50% { opacity: .95; transform: scale(1); }
-}
-
 /* 窄窗：四个出口掉到第二行，分隔点与撑开的空白一起收掉 */
 @media (max-width: 820px) {
   .bzs-about .sp,

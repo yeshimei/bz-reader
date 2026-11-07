@@ -150,20 +150,22 @@ export function mergeEvidence(
   /* 上限为 0 之类的极端调用：只可能来自测试或更紧的模型，一律当「没有依据」 */
   if (limit <= 0) return null;
 
-  if (!hasNotes) {
-    const ctx = clip(book!.context, limit);
-    return ctx ? { context: ctx, sources: dedupeSources(book!.sources ?? []) } : null;
-  }
-  if (!hasBook) {
-    const ctx = clip(notes!.context, limit);
-    return ctx ? { context: ctx, sources: dedupeSources(notes!.sources ?? []) } : null;
-  }
+  /* 用三元把收窄落到局部变量上：`hasBook` 这种布尔量 tsc 不当窄化依据，
+     而 `!` 又会被 lint 判成多余——两边都要过，只能显式收一次。 */
+  const bookEv = valid(book) ? book : null;
+  const notesEv = valid(notes) ? notes : null;
+  const alone = (e: AiEvidence): AiEvidence | null => {
+    const ctx = clip(e.context, limit);
+    return ctx ? { context: ctx, sources: dedupeSources(e.sources ?? []) } : null;
+  };
+  if (!bookEv) return notesEv ? alone(notesEv) : null;
+  if (!notesEv) return alone(bookEv);
 
-  const head = clip(book!.context, limit);
+  const head = clip(bookEv.context, limit);
   const room = limit - head.length - 2;
-  const tail = room > MIN_APPEND ? clip(notes!.context, room) : '';
+  const tail = room > MIN_APPEND ? clip(notesEv.context, room) : '';
   return {
     context: tail ? `${head}\n\n${tail}` : head,
-    sources: dedupeSources([...(book!.sources ?? []), ...(tail ? (notes!.sources ?? []) : [])]),
+    sources: dedupeSources([...(bookEv.sources ?? []), ...(tail ? (notesEv.sources ?? []) : [])]),
   };
 }

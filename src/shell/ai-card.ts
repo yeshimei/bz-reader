@@ -31,7 +31,7 @@ export interface AiCardEntry {
 export const AI_CARD_MODES: readonly AiTask[] = ['explain', 'translate', 'summarize'];
 
 /** 问答的记账键。同一段文字的不同档位是不同的一份 */
-export function aiCardKey(kind: string, task: AiTask | string, text: string): string {
+export function aiCardKey(kind: string, task: string, text: string): string {
   return `${kind}|${task}|${text}`;
 }
 
