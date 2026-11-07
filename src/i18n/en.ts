@@ -23,6 +23,7 @@ export const EN: Record<MsgKey, string> = {
   /* ── Shared words ───────────────────────────────────────── */
   'common.default': 'default',
   'common.untitled': 'Untitled',
+  'common.close': 'Close',
   'common.cancel': 'Cancel',
   'common.unknownError': 'Unknown error',
 
@@ -416,8 +417,19 @@ export const EN: Record<MsgKey, string> = {
   'settings.lic.relicense': 'Re-activate',
   'settings.lic.activate': 'Activate',
   'settings.lic.paid': 'Pro',
-  'settings.lic.benefits': 'Export, stats, cross-book search, more formats',
+  'settings.lic.benefits': 'Export, stats, cross-book search, AI, more formats',
   'settings.lic.compare': 'Compare features',
+
+  /* ── 解锁弹层：功能对照表 ─────────────────────────────── */
+  'unlock.title': 'Pro',
+  'unlock.activated': 'Activated',
+  'unlock.col.feature': 'Feature',
+  'unlock.col.base': 'Free',
+  'unlock.col.pro': 'Pro',
+  'unlock.part': 'Partial',
+  'unlock.buy': 'Get Pro',
+  'unlock.hint': 'You will receive a license code after purchase; enter it below.',
+  'unlock.haveCode': 'Already have a code',
 
   /* ── Settings: data ─────────────────────────────────────── */
   'settings.importDir': 'Import books into',

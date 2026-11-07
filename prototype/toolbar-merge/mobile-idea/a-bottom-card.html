@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="paper">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>原型 A · 想法贴底卡片</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* 贴底卡：宽度撑满、贴住底栏上沿；内容多了卡内滚动 */
+  .ideacard.bottom{border-radius:12px 12px 10px 10px}
+</style>
+</head>
+<body data-mode="A">
+
+<div class="proto-head">
+  <span class="tag">手机 · 想法</span>
+  <b>A 贴底卡片</b>
+  <span class="say">想法固定贴在屏幕底部，永远不跟正文抢地方；工具条仍贴着文字。</span>
+  <span class="sp"></span>
+  <a href="index.html">← 四版对照</a>
+</div>
+
+<div class="stage">
+  <div class="app" id="app">
+    <header class="rhead">
+      <button class="ib" title="返回">‹</button>
+      <div class="meta"><b>夜读札记</b><span>第 7 章 · 灯下</span></div>
+      <span class="sp"></span>
+      <div class="themeswitch">
+        <button data-theme-set="paper" class="on">纸</button>
+        <button data-theme-set="ink">墨</button>
+      </div>
+    </header>
+    <main class="page" id="page"><article class="prose" id="prose"></article></main>
+    <footer class="rfoot"><span>23%</span><span class="bar"><i style="width:23%"></i></span><span>12 / 52</span></footer>
+
+    <div class="scrim" id="scrim" hidden></div>
+    <div class="stack" id="stack" hidden></div>
+    <div class="dialog" id="dialog" hidden></div>
+    <div class="ideacard" id="ideacard" hidden></div>
+  </div>
+</div>
+
+<div class="proto-bar">
+  <span class="lab">场景</span>
+  <span id="scenes"></span>
+  <span class="bar-sep"></span>
+  <span class="state" id="state"></span>
+</div>
+
+<script src="base.js"></script>
+</body>
+</html>

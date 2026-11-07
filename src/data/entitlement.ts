@@ -29,6 +29,7 @@
  * ============================================================ */
 
 import { locale, t, type Locale } from '../i18n';
+import { planNameZh, type PlanKey } from '../i18n/plan';
 import { parseLicense, verifyLicense, type LicenseFail, type LicensePayload } from './license';
 
 /** 高级能力。只有能判断的地方才列进来，别造没人问的开关。 */
@@ -37,7 +38,10 @@ export type Cap =
   | 'card' // 书摘卡片
   | 'stats' // 阅读统计
   | 'crossSearch' // 跨书搜索
-  | 'ai' // AI 回答 / 摘要 / 解释 / 翻译
+  | 'aiSel' // 划词 AI：解释 / 翻译 / 摘要（工具栏那颗）
+  | 'ai' // 侧栏 AI：全书问答
+  | 'vector' // 书籍本地化向量检索（建全书索引）
+  | 'kb' // 连接至 BZ AI 知识库（划词录入 / 笔记当依据）
   | 'fullFormats' // mobi / azw3 / fb2 / cbz
   | 'vertical' // 竖排（双栏已于 2026-11-05 下放基础版，不再挂在这个能力上）
   | 'tts' // 朗读
@@ -433,14 +437,16 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     pt: 'Exportar destaques como Markdown estruturado',
   },
   card: {
-    zh: '把划线做成可分享的书摘卡片',
-    'zh-TW': '把劃線做成可分享的書摘卡片',
-    en: 'Turn highlights into shareable quote cards',
-    ja: 'ハイライトを共有できる引用カードにする',
-    de: 'Markierungen in teilbare Zitatkarten verwandeln',
-    fr: 'Transformer les surlignages en cartes de citation partageables',
-    es: 'Convertir los subrayados en tarjetas de cita para compartir',
-    pt: 'Transformar destaques em cartões de citação compartilháveis',
+    /* 2026-11-07 改：基础版本来就有「书摘卡片」（文字卡），被 can('card')
+       拦住的只有「复制成图片」那一刻。写「书摘卡片 · 高级版」是在撒谎。 */
+    zh: '把划线做成可分享的书摘图片',
+    'zh-TW': '把劃線做成可分享的書摘圖片',
+    en: 'Turn highlights into shareable quote card images',
+    ja: 'ハイライトを共有できる引用カード画像にする',
+    de: 'Markierungen in teilbare Zitatkarten-Bilder verwandeln',
+    fr: 'Transformer les surlignages en images de cartes à partager',
+    es: 'Convertir los subrayados en imágenes de tarjetas para compartir',
+    pt: 'Transformar destaques em imagens de cartões compartilháveis',
   },
   stats: {
     zh: '阅读统计与热力图',
@@ -462,15 +468,45 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     es: 'Buscar en todos los libros',
     pt: 'Pesquisar em todos os livros',
   },
+  aiSel: {
+    zh: '划词 AI：解释 · 翻译 · 摘要',
+    'zh-TW': '劃詞 AI：解釋 · 翻譯 · 摘要',
+    en: 'AI on a selection: explain · translate · summarize',
+    ja: '選択範囲を AI で解説・翻訳・要約',
+    de: 'KI zur Auswahl: erklären · übersetzen · zusammenfassen',
+    fr: "IA sur une sélection : expliquer · traduire · résumer",
+    es: 'IA sobre una selección: explicar · traducir · resumir',
+    pt: 'IA sobre uma seleção: explicar · traduzir · resumir',
+  },
   ai: {
-    zh: 'AI 回答 · 摘要 · 解释 · 翻译',
-    'zh-TW': 'AI 回答 · 摘要 · 解釋 · 翻譯',
-    en: 'AI answers · summaries · explanations · translation',
-    ja: 'AI による回答・要約・解説・翻訳',
-    de: 'KI-Antworten · Zusammenfassungen · Erklärungen · Übersetzung',
-    fr: 'Réponses, résumés, explications et traductions par IA',
-    es: 'Respuestas, resúmenes, explicaciones y traducción con IA',
-    pt: 'Respostas, resumos, explicações e tradução com IA',
+    zh: 'AI 全书问答',
+    'zh-TW': 'AI 全書問答',
+    en: 'AI Q&A over the whole book',
+    ja: 'AI 全書 Q&A',
+    de: 'KI: Fragen zum ganzen Buch',
+    fr: 'Questions IA sur tout le livre',
+    es: 'Preguntas de IA sobre todo el libro',
+    pt: 'Perguntas de IA sobre o livro inteiro',
+  },
+  vector: {
+    zh: '整本书建本地向量索引，提问只取最相关的几块',
+    'zh-TW': '整本書建本地向量索引，提問只取最相關的幾塊',
+    en: 'Build a local vector index of the book and retrieve only the best-matching chunks',
+    ja: '本全体のローカルベクトル索引を作り、該当箇所だけを取り出す',
+    de: 'Lokalen Vektorindex für das ganze Buch anlegen und nur die passenden Blöcke abrufen',
+    fr: "Indexer tout le livre en vecteurs locaux et ne retenir que les passages pertinents",
+    es: 'Crear un índice vectorial local del libro y recuperar solo los fragmentos pertinentes',
+    pt: 'Criar um índice vetorial local do livro e recuperar só os trechos relevantes',
+  },
+  kb: {
+    zh: '用 BZ AI 知识库里的笔记一起回答',
+    'zh-TW': '用 BZ AI 知識庫裡的筆記一起回答',
+    en: 'Answer with notes from your BZ AI knowledge base',
+    ja: 'BZ AI ナレッジベースのノートも参考に回答',
+    de: 'Antworten unter Einbeziehung der Notizen aus der BZ-KI-Wissensdatenbank',
+    fr: 'Répondre en s’appuyant aussi sur les notes de la base de connaissances BZ AI',
+    es: 'Responder usando también las notas de la base de conocimiento BZ AI',
+    pt: 'Responder usando também as notas da base de conhecimento BZ AI',
   },
   fullFormats: {
     zh: 'mobi / azw3 / fb2 / 漫画支持',
@@ -550,35 +586,54 @@ export const REPO_URL = 'https://github.com/yeshimei/bz-reader';
 export type PlanCell = 'yes' | 'no' | 'part';
 
 export interface PlanRow {
+  /** 行名 id：八语言文案在 i18n/plan.ts 的集中表里 */
+  key: PlanKey;
+  /** 中文基准名（= planNameZh(key)），测试与自检用；界面渲染走 planLabel(key) */
   name: string;
   free: PlanCell;
   pro: PlanCell;
   /** 与 free/pro 并列的补充说明，例如「单条」「全部」 */
   note?: string;
-  /** 这一行对应哪项能力：解锁弹层靠它高亮「你刚点的就是这个」 */
+  /** 这一行对应哪项能力：解锁弹层靠它高亮并滚到「你刚点的就是这个」 */
   cap?: Cap;
 }
 
+/** 只在这里拼一次中文名：表和语言包共用同一个真源 */
+function row(key: PlanKey, free: PlanCell, pro: PlanCell, cap?: Cap): PlanRow {
+  return { key, name: planNameZh(key), free, pro, cap };
+}
+
 export const PLAN_TABLE: PlanRow[] = [
-  { name: 'EPUB / TXT 阅读、翻页与排版', free: 'yes', pro: 'yes' },
+  row('reading', 'yes', 'yes'),
   /* 分栏 2026-11-05 下放基础版：单独一行，免得用户以为双栏还要买 */
-  { name: '单栏 / 双栏', free: 'yes', pro: 'yes' },
-  { name: '目录、书签、四色划线与想法', free: 'yes', pro: 'yes' },
-  { name: '书内搜索', free: 'yes', pro: 'yes' },
-  /* 脚注和上面的书本能力同属基础版，排在一起；别让它跟付费项混在表尾 */
-  { name: '脚注浮窗预览', free: 'yes', pro: 'yes' },
+  row('columns', 'yes', 'yes'),
+  row('marks', 'yes', 'yes'),
+  row('inbookSearch', 'yes', 'yes'),
+  /* 基础版五行连着放，别让付费项插进来 */
+  row('footnote', 'yes', 'yes'),
+  /* 「更多格式」紧跟阅读能力：它决定「哪些书能打开」，和后面的加工类
+     能力不是一回事。2026-11-07 按真机对照顺序上移到这里。 */
+  row('formats', 'no', 'yes', 'fullFormats'),
   /* 双向链接整条是高级版能力（copylink 走 requireCap('bilink')）。
      以前这里写「基础版：部分（仅单条）」，但那条免费路径 copylinkurl
      没有任何 UI 入口——表里承诺了，界面上找不到，比不给更糟。 */
-  { name: '划线复制为双向链接', free: 'no', pro: 'yes', cap: 'bilink' },
-  { name: '导出结构化 Markdown', free: 'no', pro: 'yes', cap: 'export' },
-  { name: '书摘卡片', free: 'no', pro: 'yes', cap: 'card' },
-  { name: '阅读统计、热力图与每本进度', free: 'no', pro: 'yes', cap: 'stats' },
-  { name: '跨书搜索', free: 'no', pro: 'yes', cap: 'crossSearch' },
-  { name: 'AI 回答 / 摘要 / 解释 / 翻译', free: 'no', pro: 'yes', cap: 'ai' },
-  { name: 'mobi / azw3 / fb2 / 漫画', free: 'no', pro: 'yes', cap: 'fullFormats' },
-  { name: '竖排排版', free: 'no', pro: 'yes', cap: 'vertical' },
-  { name: '朗读', free: 'no', pro: 'yes', cap: 'tts' },
-  { name: '原文与译文并排', free: 'no', pro: 'yes', cap: 'parallel' },
-  { name: '全书鸟瞰', free: 'no', pro: 'yes', cap: 'bookmap' },
+  row('bilink', 'no', 'yes', 'bilink'),
+  row('export', 'no', 'yes', 'export'),
+  /* 书摘卡片（文字卡）基础版就有，锁的只是「复制成图片」这一下 */
+  row('card', 'no', 'yes', 'card'),
+  row('stats', 'no', 'yes', 'stats'),
+  row('crossSearch', 'no', 'yes', 'crossSearch'),
+  /* 工具栏那颗 AI 是「解释 / 翻译 / 摘要」划选文字，和侧栏的「全书问答」
+     不是一个入口，各自一行，各自有 cap——点被拦的那颗就滚到对应那行。 */
+  row('aiSel', 'no', 'yes', 'aiSel'),
+  row('aiBook', 'no', 'yes', 'ai'),
+  row('vertical', 'no', 'yes', 'vertical'),
+  row('tts', 'no', 'yes', 'tts'),
+  row('parallel', 'no', 'yes', 'parallel'),
+  row('bookmap', 'no', 'yes', 'bookmap'),
+  /* 最后两行是同一次提问里取依据的两个环节，放在表尾：它们是「全书问答」
+     背后的能力，不是用户会单独点的一颗按钮。cap 仍然各自挂一个，
+     建索引 / 知识库录入被拦下时，解锁弹层才能滚到正确那一行。 */
+  row('vector', 'no', 'yes', 'vector'),
+  row('kb', 'no', 'yes', 'kb'),
 ];

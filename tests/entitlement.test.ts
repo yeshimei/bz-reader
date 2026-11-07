@@ -121,10 +121,36 @@ describe('界面文案', () => {
     expect(footnote).toBeLessThan(firstPaid);
   });
 
-  it('AI 行覆盖回答、摘要、解释、翻译四件事', () => {
-    const ai = PLAN_TABLE.find((r) => r.cap === 'ai');
-    for (const word of ['回答', '摘要', '解释', '翻译']) expect(ai?.name).toContain(word);
-    expect(capLabel('ai')).toContain('回答');
+  it('AI 解释 / 翻译 / 摘要单独一行，紧跟在 AI 全书问答上面', () => {
+    const sel = PLAN_TABLE.findIndex((r) => r.cap === 'aiSel');
+    const book = PLAN_TABLE.findIndex((r) => r.cap === 'ai');
+    expect(sel).toBeGreaterThan(-1);
+    expect(book).toBe(sel + 1);
+    expect(PLAN_TABLE[sel].name).toContain('解释');
+    expect(PLAN_TABLE[book].name).toBe('AI 全书问答');
+    expect(capLabel('ai')).toBe('AI 全书问答');
+  });
+
+  it('更多格式紧跟脚注，向量检索与 BZ 知识库排在表尾', () => {
+    const footnote = PLAN_TABLE.findIndex((r) => r.name.includes('脚注'));
+    expect(PLAN_TABLE[footnote + 1].key).toBe('formats');
+    expect(PLAN_TABLE[footnote + 1].cap).toBe('fullFormats');
+    expect(PLAN_TABLE.slice(-2).map((r) => r.key)).toEqual(['vector', 'kb']);
+    expect(PLAN_TABLE.slice(-2).map((r) => r.name)).toEqual(['书籍本地化向量检索', '连接至 BZ AI 知识库']);
+  });
+
+  it('书摘那一行写「图片」：书摘卡片本身是基础版就有的', () => {
+    const card = PLAN_TABLE.find((r) => r.cap === 'card');
+    expect(card?.name).toBe('书摘图片');
+    expect(capLabel('card')).toContain('书摘图片');
+  });
+
+  it('每个付费行都有唯一 cap：解锁弹层才能高亮并滚到正确那一行', () => {
+    const caps = PLAN_TABLE.filter((r) => r.free === 'no').map((r) => r.cap);
+    expect(caps.every(Boolean)).toBe(true);
+    expect(new Set(caps).size).toBe(caps.length);
+    /* 基础版行不该挂 cap：它们没有「被拦下」的时刻 */
+    for (const r of PLAN_TABLE.filter((r) => r.free === 'yes')) expect(r.cap).toBeUndefined();
   });
 });
 

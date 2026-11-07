@@ -328,7 +328,7 @@ export function viewSettings(v: SettingsView): string {
           ? ''
           : `<div class="bzs-setrow"><label>${t('settings.lic.paid')}</label>
         <span class="bzs-mini" style="flex:1">${t('settings.lic.benefits')}</span>
-        <button class="bzs-btn sm" data-act="unlock" data-mode="export">${t('settings.lic.compare')}</button></div>`
+        <button class="bzs-btn sm" data-act="unlock">${t('settings.lic.compare')}</button></div>`
       }
     </div>`;
 

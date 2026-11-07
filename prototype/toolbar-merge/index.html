@@ -1,0 +1,1051 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="paper">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>原型 · 划词工具条（定稿 v4）</title>
+<style>
+/* ==========================================================
+   bz 阅读 · 原型：划词工具条（定稿 v4）
+
+   这一版按评审结论重写，只剩一套布局：
+     · 桌面：A 全平铺，浮窗（想法 / 书摘 / AI）全部叠在工具条**上方**
+       —— 工具条紧贴文字，开面板时工具条**不动**，面板往上长
+     · 手机：B 主次 + ⋯，先放想法 / 书摘 / AI，放不下的收进「⋯」
+       —— 面板不跟着工具条，单独一张卡，居中偏上
+   桌面/手机各自一套，不再有分体/一体的切换。
+   ========================================================== */
+
+:root{
+  --ui:"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --serif:Georgia,"Times New Roman","STZhongsong","SimSun","Songti SC",serif;
+
+  --shell-bg:#d8d1c3;
+  --bg:#f6f1e6;
+  --bg-2:#efe8d9;
+  --card:#fffdf8;
+  --ink:#2c2519;
+  --ink-2:#5c5140;
+  --t2:#7d7057;
+  --t3:#a3967c;
+  --copper:#9a7434;
+  --copper-soft:rgba(154,116,52,.12);
+  --copper-line:rgba(154,116,52,.38);
+  --vermilion:#a84a38;
+  --line:rgba(60,48,32,.12);
+  --line-2:rgba(60,48,32,.22);
+
+  --sh-toolbar:0 16px 36px rgba(40,32,20,.2),0 3px 8px rgba(40,32,20,.1),0 0 0 1px rgba(60,48,28,.07);
+  --sh-card:0 22px 48px rgba(40,32,20,.2),0 6px 14px rgba(40,32,20,.08),0 0 0 1px rgba(60,48,28,.06);
+  --sh-frame:0 30px 80px rgba(40,32,20,.28);
+}
+html[data-theme="ink"]{
+  --shell-bg:#0c0b0a;
+  --bg:#141110;
+  --bg-2:#181412;
+  --card:#242019;
+  --ink:#ede4d4;
+  --ink-2:#c9bda6;
+  --t2:#a2937d;
+  --t3:#6b5f4e;
+  --copper:#c8a464;
+  --copper-soft:rgba(200,164,100,.14);
+  --copper-line:rgba(200,164,100,.38);
+  --vermilion:#c25e4a;
+  --line:rgba(233,214,181,.11);
+  --line-2:rgba(233,214,181,.19);
+  --sh-toolbar:0 20px 42px rgba(0,0,0,.62),0 4px 12px rgba(0,0,0,.46),0 0 0 1px rgba(255,255,255,.09);
+  --sh-card:0 22px 48px rgba(0,0,0,.55),0 4px 12px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.07);
+  --sh-frame:0 30px 80px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  min-height:100vh;
+  background:var(--shell-bg);
+  color:var(--ink);
+  font-family:var(--ui);
+  -webkit-font-smoothing:antialiased;
+  transition:background .3s ease,color .3s ease;
+}
+
+/* ── 页头：这一版定下来的三条 ── */
+.proto-head{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:16px 26px 12px;
+  max-width:1240px;margin:0 auto;
+  font-size:12.5px;color:var(--t2);
+}
+.proto-head .tag{
+  font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--copper);border:1px solid var(--copper-line);border-radius:4px;
+  padding:2px 7px;background:var(--copper-soft);
+}
+.proto-head b{font-size:13.5px;font-weight:600;color:var(--ink);letter-spacing:.02em}
+.proto-head .asks{display:flex;gap:16px;flex-wrap:wrap;color:var(--t2)}
+.proto-head .asks i{font-style:normal;color:var(--copper);margin-right:5px;font-family:var(--serif)}
+.proto-head .sp{flex:1}
+.proto-head .hint{font-size:11.5px;color:var(--t3)}
+
+/* ── 舞台 ── */
+.stage{
+  display:flex;justify-content:center;align-items:flex-start;
+  padding:0 24px 132px;
+}
+.app{
+  position:relative;
+  display:flex;flex-direction:column;
+  width:min(1120px,100%);
+  height:min(720px,calc(100vh - 232px));
+  min-height:520px;
+  background:var(--bg);
+  border:1px solid var(--line-2);
+  border-radius:14px;
+  box-shadow:var(--sh-frame);
+  overflow:hidden;
+  transition:width .28s ease,height .28s ease,border-radius .28s ease;
+}
+.stage[data-viewport="phone"] .app{
+  width:390px;
+  height:min(780px,calc(100vh - 232px));
+  border-radius:38px;
+  border-width:7px;
+  border-color:#1b1713;
+  box-shadow:0 34px 70px rgba(0,0,0,.35);
+}
+html[data-theme="ink"] .stage[data-viewport="phone"] .app{border-color:#2a2521}
+
+/* 假宿主顶栏 */
+.rhead{
+  position:relative;z-index:6;
+  display:flex;align-items:center;gap:12px;
+  padding:11px 18px;
+  border-bottom:1px solid var(--line);
+  background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(14px);
+}
+.rhead .ib{
+  width:30px;height:30px;flex:none;
+  display:grid;place-items:center;
+  border:1px solid transparent;border-radius:8px;
+  background:none;color:var(--t2);
+  font:15px/1 var(--ui);cursor:pointer;
+}
+.rhead .ib:hover{color:var(--ink);border-color:var(--line);background:var(--copper-soft)}
+.rhead .meta{display:flex;flex-direction:column;gap:1px;min-width:0}
+.rhead .meta b{font-family:var(--serif);font-weight:500;font-size:15px;letter-spacing:.04em;white-space:nowrap}
+.rhead .meta span{font-size:11px;color:var(--t3);letter-spacing:.06em}
+.rhead .sp{flex:1}
+.themeswitch{display:flex;border:1px solid var(--line-2);border-radius:99px;overflow:hidden;flex:none}
+.themeswitch button{
+  appearance:none;border:0;background:transparent;color:var(--t3);
+  font:11.5px/1 var(--ui);padding:6px 12px;cursor:pointer;letter-spacing:.1em;
+}
+.themeswitch button.on{background:var(--copper-soft);color:var(--copper)}
+.stage[data-viewport="phone"] .rhead .ib.hide-phone{display:none}
+
+/* 正文 */
+.page{flex:1;min-height:0;overflow:auto;display:flex;justify-content:center;padding:46px 0 90px}
+.prose{
+  width:min(640px,calc(100% - 104px));
+  font:400 18.5px/2.06 var(--serif);
+  color:var(--ink);
+  text-align:justify;
+  letter-spacing:.005em;
+}
+.prose h2{
+  font:500 21px/1.5 var(--serif);letter-spacing:.14em;color:var(--t2);
+  margin:0 0 26px;
+}
+.prose p{margin:0 0 1.35em;text-indent:2em}
+.stage[data-viewport="phone"] .prose{width:calc(100% - 54px);font-size:16.5px;line-height:2.02}
+.stage[data-viewport="phone"] .page{padding:34px 0 120px}
+.stage[data-viewport="phone"] .prose h2{font-size:18px;margin-bottom:20px}
+
+/* 已有划线 */
+mark.hl{
+  background:color-mix(in srgb,var(--c) 20%,transparent);
+  color:inherit;
+  padding:1px 0;
+  border-radius:3px;
+  box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--c) 52%,transparent);
+  cursor:pointer;
+  -webkit-box-decoration-break:clone;
+  box-decoration-break:clone;
+  transition:background .18s ease;
+}
+mark.hl:hover{background:color-mix(in srgb,var(--c) 32%,transparent)}
+
+/* 底栏进度 */
+.rfoot{display:flex;align-items:center;gap:12px;padding:9px 20px 11px;border-top:1px solid var(--line);font-size:11px;color:var(--t3);flex:none}
+.rfoot .bar{flex:1;height:2px;background:var(--line-2);border-radius:2px;overflow:hidden}
+.rfoot .bar i{display:block;height:100%;background:var(--copper);border-radius:2px}
+
+/* ==========================================================
+   工具条与浮窗
+   桌面：.stack = [浮窗][工具条]，整叠贴着文字上方
+   手机：.stack 只有工具条；浮窗进 .dialog，独立居中偏上
+   ========================================================== */
+.stack{
+  position:absolute;left:0;top:0;
+  z-index:20;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+  max-width:calc(100% - 16px);
+}
+.stack[hidden]{display:none}
+.stack[data-vp="phone"]{max-width:calc(100% - 24px)}
+
+.dialog{
+  position:absolute;left:0;top:0;
+  z-index:30;
+  width:min(340px,calc(100% - 32px));
+}
+.dialog[hidden]{display:none}
+
+/* 手机弹窗的遮罩：盖住正文与顶栏，工具条与弹窗浮在它上面 */
+.scrim{
+  position:absolute;inset:0;
+  z-index:15;
+  background:rgba(24,19,14,.38);
+  animation:scrim-in .16s ease-out;
+}
+html[data-theme="ink"] .scrim{background:rgba(0,0,0,.56)}
+.scrim[hidden]{display:none}
+@keyframes scrim-in{from{opacity:0}}
+
+/* 浮窗本体（面板与想法气泡共用外壳） */
+.float{
+  width:360px;
+  max-width:100%;
+  background:var(--card);
+  border-radius:12px;
+  box-shadow:var(--sh-card);
+  animation:float-in .14s ease-out;
+}
+@keyframes float-in{from{opacity:0}}
+.float.thought{
+  position:relative;
+  width:max-content;max-width:340px;
+  padding:11px 15px 11px 46px;
+}
+.float.idea{padding:12px 14px}
+.float.quote{padding:16px}
+.float.ai{padding:14px 16px}
+.float.confirm{
+  width:auto;min-width:300px;max-width:360px;
+  display:flex;align-items:center;gap:10px;
+  padding:11px 12px;
+}
+/* 手机弹窗：同一张卡，占满弹窗宽度 */
+.dialog .float{width:100%;max-width:none}
+.dialog .float.thought{width:100%;max-width:none}
+.dialog .float.confirm{min-width:0;max-width:none}
+
+/* 想法气泡：左上一枚「想」印 */
+.thought .seal{
+  position:absolute;left:12px;top:12px;
+  width:22px;height:22px;
+  display:grid;place-items:center;
+  font:11px/1 var(--ui);
+  color:var(--copper);
+  background:var(--copper-soft);
+  border:1px solid var(--copper-line);
+  border-radius:4px;
+}
+.thought p{
+  margin:0;
+  font:12.5px/1.9 var(--ui);
+  color:var(--ink-2);
+  white-space:pre-wrap;word-break:break-word;
+  max-height:150px;overflow:auto;
+}
+
+/* ── 工具条 ── */
+.toolbar{
+  position:relative;
+  display:flex;align-items:center;justify-content:center;
+  gap:8px;
+  padding:5px 12px;
+  min-height:34px;
+  max-width:100%;
+  background:var(--card);
+  border-radius:999px;
+  box-shadow:var(--sh-toolbar);
+  white-space:nowrap;
+  user-select:none;
+}
+/* 暗底上白卡片不行：工具条单独提一档，和正文拉开 */
+html[data-theme="ink"] .toolbar{background:#35322c}
+.toolbar .dots{display:flex;align-items:center;gap:8px;flex:none}
+.dot{
+  width:14px;height:14px;flex:none;
+  border-radius:50%;
+  border:1px solid rgba(0,0,0,.16);
+  background:var(--c);
+  cursor:pointer;padding:0;
+  transition:transform .18s ease,box-shadow .18s ease;
+}
+.dot:hover{transform:scale(1.15)}
+.dot.on{box-shadow:0 0 0 2.5px var(--card),0 0 0 4px var(--copper-line)}
+.sep{width:1px;height:18px;flex:none;margin:0 1px;background:var(--line)}
+.act{
+  appearance:none;border:0;background:none;
+  font:12.5px/1.5 var(--ui);letter-spacing:.03em;
+  color:var(--ink-2);
+  padding:3px 8px;border-radius:7px;
+  white-space:nowrap;cursor:pointer;flex:none;
+}
+.act:hover{color:var(--copper);background:var(--copper-soft)}
+.act.on{color:var(--copper);background:var(--copper-soft);font-weight:600}
+.act.pri{color:var(--copper);font-weight:600}
+.act.danger{color:var(--vermilion)}
+.act.more{font-size:14px;line-height:1;color:var(--t2);padding:3px 7px}
+
+/* 手机：B 主次 + ⋯。一排不折行，放不下的由 JS 收进「⋯」 */
+.stack[data-vp="phone"] .toolbar{flex-wrap:nowrap;padding:6px 12px}
+.stack[data-vp="phone"] .toolbar .sep{display:none}
+
+/* 「⋯」菜单 */
+.moremenu{
+  position:absolute;top:calc(100% + 8px);right:0;z-index:30;
+  min-width:126px;
+  padding:5px;
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:10px;
+  box-shadow:var(--sh-card);
+  display:flex;flex-direction:column;
+}
+.toolbar.menu-up .moremenu{top:auto;bottom:calc(100% + 8px)}
+.moremenu .mi{
+  appearance:none;border:0;background:none;text-align:left;
+  font:12.5px/1.6 var(--ui);color:var(--ink-2);
+  padding:7px 10px;border-radius:7px;cursor:pointer;
+}
+.moremenu .mi:hover{background:var(--copper-soft);color:var(--copper)}
+.moremenu .mi.danger{color:var(--vermilion)}
+.moremenu .mi.danger:hover{background:color-mix(in srgb,var(--vermilion) 10%,transparent);color:var(--vermilion)}
+
+/* ── 面板内容 ── */
+/* 想法：一个输入面 + 一颗发送（不描边，卡片本身就是输入面） */
+.float.idea .row{display:flex;align-items:flex-end;gap:10px}
+.float.idea textarea{
+  flex:1 1 auto;
+  width:0;
+  min-width:0;
+  min-height:46px;max-height:180px;
+  padding:0;
+  border:0;
+  background:none;
+  color:var(--ink);
+  resize:none;outline:0;
+  font:400 14.5px/1.8 var(--serif);
+}
+.float.idea textarea:focus{border:0;box-shadow:none}
+.float.idea textarea::placeholder{color:var(--t3)}
+.send{
+  width:36px;height:36px;flex:none;
+  border:0;border-radius:10px;
+  background:var(--copper);
+  display:grid;place-items:center;cursor:pointer;
+}
+.send svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:1.8;stroke-linejoin:round}
+
+/* 书摘 */
+.float.quote .q{
+  font:400 15px/1.95 var(--serif);color:var(--ink);
+  margin:0 0 10px;max-width:336px;
+  border-left:2px solid color-mix(in srgb,var(--copper) 55%,transparent);
+  padding-left:12px;
+}
+.float.quote .meta{font:11px/1.6 var(--ui);color:var(--t3);letter-spacing:.05em;margin-bottom:12px}
+.acts{display:flex;gap:8px}
+.acts button{
+  appearance:none;border:1px solid var(--line-2);background:none;
+  font:12.5px/1 var(--ui);color:var(--ink-2);
+  padding:7px 12px;border-radius:7px;cursor:pointer;
+}
+.acts button:hover{border-color:var(--copper-line);color:var(--copper);background:var(--copper-soft)}
+.acts button.pri{background:var(--copper);border-color:var(--copper);color:#fff}
+.acts button.pri:hover{background:var(--copper);color:#fff;filter:brightness(1.05)}
+
+/* AI */
+.float.ai .q{
+  font:400 12px/1.7 var(--ui);color:var(--t3);
+  margin:0 0 10px;max-width:330px;padding-left:10px;
+  border-left:2px solid var(--line-2);
+}
+.float.ai .body{font:400 13px/1.95 var(--ui);color:var(--ink-2);max-width:330px}
+.float.ai .src{margin-top:10px;font:10.5px/1.5 var(--ui);color:var(--t3);letter-spacing:.04em}
+
+/* 删除确认 */
+.float.confirm .tx{max-width:200px;font:12.5px/1.6 var(--ui);color:var(--t2)}
+.float.confirm .sp{flex:1}
+.float.confirm button{
+  appearance:none;border:0;background:none;
+  font:12.5px/1 var(--ui);color:var(--t3);
+  padding:5px 8px;border-radius:6px;cursor:pointer;
+}
+.float.confirm button.danger{color:var(--vermilion)}
+
+/* 提示条 */
+.toast{
+  position:absolute;left:50%;bottom:22px;transform:translateX(-50%);
+  z-index:60;
+  padding:7px 14px;border-radius:99px;
+  background:var(--card);color:var(--ink-2);
+  font:12px/1.5 var(--ui);
+  box-shadow:var(--sh-toolbar);
+  pointer-events:none;
+  animation:toastin .16s ease-out;
+}
+@keyframes toastin{from{opacity:0;transform:translate(-50%,6px)}}
+
+/* ==========================================================
+   原型控制条（不属于设计本身）
+   ========================================================== */
+.proto-bar{
+  position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+  z-index:200;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;
+  max-width:calc(100vw - 32px);
+  padding:9px 12px;
+  border-radius:14px;
+  background:#1d1a16;color:#e9e1d2;
+  box-shadow:0 18px 44px rgba(0,0,0,.4);
+  font:12px/1.4 var(--ui);
+}
+.proto-bar .lab{color:#9d9384;font-size:11px;letter-spacing:.08em}
+.proto-bar .seg{display:flex;border:1px solid rgba(255,255,255,.16);border-radius:8px;overflow:hidden}
+.proto-bar .seg button{
+  appearance:none;border:0;background:none;
+  font:11.5px/1 var(--ui);color:#b7ad9d;
+  padding:6px 12px;cursor:pointer;
+}
+.proto-bar .seg button.on{background:rgba(232,185,106,.16);color:#e8b96a}
+.proto-bar .bar-sep{width:1px;height:20px;background:rgba(255,255,255,.16)}
+.proto-bar .state{color:#8d8476;font-size:11px;letter-spacing:.02em}
+.proto-bar .state b{color:#cfc4b2;font-weight:500}
+
+@media (max-width:760px){
+  .proto-head{padding:12px 16px 8px;gap:8px}
+  .proto-head .asks{display:none}
+  .stage{padding:0 10px 150px}
+  .stage[data-viewport="desktop"] .app{height:calc(100vh - 250px)}
+}
+</style>
+</head>
+<body>
+
+<div class="proto-head">
+  <span class="tag">原型 · 定稿</span>
+  <b>划词工具条</b>
+  <span class="asks">
+    <span><i>①</i>桌面 A 全平铺；手机 B，放不下收进 ⋯</span>
+    <span><i>②</i>桌面浮窗全部叠在工具条上方（工具条不动）</span>
+    <span><i>③</i>手机弹窗独立：不跟工具条，居中偏上</span>
+  </span>
+  <span class="sp"></span>
+  <span class="hint">拖选正文 · 点划线 · 点按钮 · Esc 收起</span>
+</div>
+
+<div class="stage" id="stage" data-viewport="desktop">
+  <div class="app" id="app">
+    <header class="rhead">
+      <button class="ib" title="返回">‹</button>
+      <div class="meta"><b>夜读札记</b><span>第 7 章 · 灯下</span></div>
+      <span class="sp"></span>
+      <div class="themeswitch">
+        <button data-theme-set="paper" class="on">纸</button>
+        <button data-theme-set="ink">墨</button>
+      </div>
+      <button class="ib hide-phone" title="排版">Aa</button>
+      <button class="ib hide-phone" title="更多">⋯</button>
+    </header>
+
+    <main class="page" id="page">
+      <article class="prose" id="prose">
+        <h2>灯 下</h2>
+        <p>夜里读书，最怕忽然安静下来。外头的车声退到很远的地方，只剩纸页翻动的窸窣，像有人在隔壁翻一件旧衣裳。这时候读到一句好话，往往要停下来，抬头看看窗，仿佛那句话是从窗子外面递进来的。</p>
+        <p>我一直觉得，读书的好处，不在于把多少别人的意思搬进自己的脑子里，而在于<mark class="hl" data-mark="m1" style="--c:#e8b53a">它慢慢教会你用另一种速度过日子</mark>——那种速度里，一句话可以停很久，一个念头也不必急着说出口。</p>
+        <p>所以我不太爱「读完一本，就要写一千字」的说法。<mark class="hl" data-mark="m2" style="--c:#4a83d0">读完不写，也是一种读法</mark>；那些说不出来的部分，会自己找地方待着，等哪天你用得上，它先你一步认出了眼前的事。</p>
+        <p>窗外有人骑车经过，铃铛响了两声。我把书合上，夹进一片干了的银杏叶，明天再读——不读也行。</p>
+      </article>
+    </main>
+
+    <footer class="rfoot">
+      <span>23%</span>
+      <span class="bar"><i style="width:23%"></i></span>
+      <span>12 / 52</span>
+    </footer>
+
+    <!-- 手机弹窗的遮罩 -->
+    <div class="scrim" id="scrim" hidden></div>
+    <!-- 桌面：浮窗 + 工具条同一叠；手机：只有工具条 -->
+    <div class="stack" id="stack" hidden></div>
+    <!-- 手机：独立弹窗 -->
+    <div class="dialog" id="dialog" hidden></div>
+  </div>
+</div>
+
+<div class="proto-bar" id="protoBar">
+  <span class="lab">视口</span>
+  <div class="seg" id="viewSeg">
+    <button data-view="desktop" class="on">桌面</button>
+    <button data-view="phone">手机</button>
+  </div>
+  <span class="bar-sep"></span>
+  <span class="state" id="state"></span>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const $  = (s, r) => (r || document).querySelector(s);
+const stage  = $('#stage');
+const app    = $('#app');
+const page   = $('#page');
+const stack  = $('#stack');
+const dialog = $('#dialog');
+const prose  = $('#prose');
+
+/* 与 src/data/notes.ts 的 HIGHLIGHT_COLORS 同值 */
+const COLORS = [
+  { v:'amber',     c:'#e8b53a', n:'琥珀' },
+  { v:'vermilion', c:'#e2571c', n:'朱红' },
+  { v:'green',     c:'#4f9a63', n:'松绿' },
+  { v:'blue',      c:'#4a83d0', n:'黛蓝' },
+];
+
+const MARKS = {
+  m1: { id:'m1', color:'#e8b53a', name:'琥珀', text:'它慢慢教会你用另一种速度过日子',
+        idea:'「另一种速度」这个说法很准。我缺的就是这种速度：一页可以读十分钟，而不是十分钟翻十页。' },
+  m2: { id:'m2', color:'#4a83d0', name:'黛蓝', text:'读完不写，也是一种读法', idea:'' },
+};
+
+/* 动作顺序是定稿的一部分：想法最常点，复制最少点，删除永远最后 */
+const ACTIONS = [
+  { k:'idea',  label:'想法' },
+  { k:'quote', label:'书摘' },
+  { k:'ai',    label:'AI' },
+  { k:'bilink',label:'双链' },
+  { k:'copy',  label:'复制' },
+];
+const DEL = { k:'del', label:'删除', danger:true };
+
+/* 手机主路径：先只有这三个，放不下再往「⋯」里挪 */
+const MAIN = ['idea', 'quote', 'ai'];
+
+const state = {
+  vp:'desktop',   // desktop | phone
+  mode:'none',    // none | sel | mark
+  markId:null,
+  panel:null,     // null | idea | quote | ai | del
+  more:false,
+  collapsed:[],   // 手机上被收进「⋯」的主路径动作
+  anchor:null,    // {left,top,width,height} 相对 .app
+  selText:'',
+  pendingRange:null,
+};
+
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function currentMark(){ return state.markId ? MARKS[state.markId] : null; }
+function penColor(){ return COLORS[0]; }
+
+/* ── 位置换算 ── */
+function anchorFromRect(r){
+  const a = app.getBoundingClientRect();
+  return { left:r.left - a.left, top:r.top - a.top, width:r.width, height:r.height };
+}
+function anchorFromEl(el){ return el ? anchorFromRect(el.getBoundingClientRect()) : null; }
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
+
+/* ── 工具条 ── */
+function dotsHtml(){
+  const mark = currentMark();
+  const active = mark ? mark.color : '';
+  return COLORS.map((c) =>
+    `<button type="button" class="dot${c.c === active ? ' on' : ''}" data-act="dot" data-css="${c.c}" data-name="${c.n}" style="--c:${c.c}" title="${c.n}" aria-label="${c.n}"></button>`
+  ).join('');
+}
+
+function actHtml(a){
+  const on = state.panel === a.k ? ' on' : '';
+  const pri = a.k === 'idea' ? ' pri' : '';
+  const danger = a.danger ? ' danger' : '';
+  return `<button type="button" class="act${on}${pri}${danger}" data-act="${a.k}">${esc(a.label)}</button>`;
+}
+
+function visibleActions(){
+  const mark = currentMark();
+  if (state.vp === 'desktop') {
+    return mark ? ACTIONS.concat([DEL]) : ACTIONS.slice();
+  }
+  const main = ACTIONS.filter((a) => MAIN.includes(a.k) && !state.collapsed.includes(a.k));
+  return main;
+}
+
+function overflowActions(){
+  if (state.vp === 'desktop') return [];   /* 桌面 A：全平铺，不收 */
+  const mark = currentMark();
+  const visible = visibleActions().map((a) => a.k);
+  const rest = ACTIONS.filter((a) => !visible.includes(a.k));
+  return mark ? rest.concat([DEL]) : rest;
+}
+
+function toolbarHtml(){
+  const visible = visibleActions();
+  const overflow = overflowActions();
+  const parts = [dotsHtml(), '<span class="sep"></span>'];
+  parts.push(visible.map(actHtml).join(''));
+  if (overflow.length) {
+    parts.push(`<button type="button" class="act more${state.more ? ' on' : ''}" data-act="more" title="更多" aria-label="更多">⋯</button>`);
+  }
+  if (state.more && overflow.length) {
+    parts.push(`<div class="moremenu" role="menu">${overflow.map((a) =>
+      `<button type="button" class="mi${a.danger ? ' danger' : ''}" data-act="${a.k}">${esc(a.label)}</button>`
+    ).join('')}</div>`);
+  }
+  return `<div class="toolbar" role="toolbar" aria-label="划词工具">${parts.join('')}</div>`;
+}
+
+/* ── 浮窗（面板 / 想法气泡） ── */
+function floatText(){
+  const mark = currentMark();
+  return (mark && mark.text) || state.selText || '选中的这一段';
+}
+
+function floatHtml(){
+  const mark = currentMark();
+
+  if (state.panel === 'idea') {
+    const val = (mark && mark.idea) || '';
+    return `<div class="float idea"><div class="row">
+      <textarea rows="1" cols="1" maxlength="2000" placeholder="写点什么…" aria-label="写想法">${esc(val)}</textarea>
+      <button type="button" class="send" data-act="ideasave" title="保存想法" aria-label="保存想法">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-7-7 16-2-7z"/></svg>
+      </button>
+    </div></div>`;
+  }
+
+  if (state.panel === 'quote') {
+    return `<div class="float quote">
+      <div class="q">「${esc(floatText())}」</div>
+      <div class="meta">夜读札记 · 第 7 章 · 灯下</div>
+      <div class="acts">
+        <button type="button" class="pri" data-act="copytxt">复制引用</button>
+        <button type="button" data-act="savenote">存笔记</button>
+      </div>
+    </div>`;
+  }
+
+  if (state.panel === 'ai') {
+    return `<div class="float ai">
+      <div class="q">「${esc(floatText())}」</div>
+      <div class="body">这句话把「读书」换成了一种节奏问题：不是多知道多少，而是同一句话能停多久。后半句的「不必急着说出口」，说的正是那种不产出也没关系的时间。</div>
+      <div class="src">只发送选中的这一段 · 本段 18 字</div>
+    </div>`;
+  }
+
+  if (state.panel === 'del') {
+    return `<div class="float confirm"><span class="tx">删除这条划线？想法会一起删掉。</span><span class="sp"></span>
+      <button type="button" data-act="delcancel">取消</button>
+      <button type="button" class="danger" data-act="deldo">删除</button>
+    </div>`;
+  }
+
+  /* 没有面板、但这条划线有想法：气泡自己出来 */
+  if (mark && mark.idea) {
+    return `<div class="float thought"><span class="seal">想</span><p>${esc(mark.idea)}</p></div>`;
+  }
+  return '';
+}
+
+/* ── 画 ── */
+function build(){
+  stage.dataset.viewport = state.vp;
+  stack.hidden = state.mode === 'none';
+  stack.dataset.vp = state.vp;
+
+  const float = floatHtml();
+  const toolbar = toolbarHtml();
+
+  if (state.vp === 'desktop') {
+    /* 浮窗在上、工具条在下：开面板时工具条位置不动 */
+    stack.innerHTML = float + toolbar;
+    dialog.innerHTML = '';
+    dialog.hidden = true;
+  } else {
+    stack.innerHTML = toolbar;
+    dialog.innerHTML = float;
+    dialog.hidden = !float;
+  }
+}
+
+/* 手机：一排放不下就把主路径末尾的动作收进「⋯」 */
+function fitPhone(){
+  if (state.vp !== 'phone') return false;
+  let changed = false;
+  for (let i = 0; i < 3; i++) {
+    const tb = stack.querySelector('.toolbar');
+    if (!tb) break;
+    /* 量「真需要多宽」：临时放开 max-width 按内容排版。
+       overflow:visible 的元素 scrollWidth 不报溢出，直接量会骗人。 */
+    const oldMax = tb.style.maxWidth;
+    const oldWidth = tb.style.width;
+    tb.style.maxWidth = 'none';
+    tb.style.width = 'max-content';
+    const need = tb.offsetWidth;
+    tb.style.maxWidth = oldMax;
+    tb.style.width = oldWidth;
+    if (need <= stack.clientWidth + 1) break;
+    const vis = visibleActions().filter((a) => MAIN.includes(a.k));
+    if (vis.length <= 1) break;
+    state.collapsed.push(vis[vis.length - 1].k);
+    changed = true;
+    build();
+  }
+  return changed;
+}
+
+/* 尺寸变了（切视口、转屏、拉窗口）之后重新量一次宽度并贴位 */
+function refit(){
+  if (state.mode === 'none') return;
+  fitPhone();
+  build();
+  place();
+}
+
+/* 视口/滚动变化后锚点要重算：选区的 rect 会随排版变，缓存的旧值会把工具条摆错地方 */
+function refreshAnchor(){
+  if (state.mode === 'mark' && state.markId) {
+    const mk = prose.querySelector(`mark[data-mark="${state.markId}"]`);
+    if (mk) state.anchor = anchorFromEl(mk);
+  } else if (state.mode === 'sel' && state.pendingRange) {
+    try { state.anchor = anchorFromRect(state.pendingRange.getBoundingClientRect()); } catch (e) {}
+  }
+}
+
+function place(){
+  if (state.mode === 'none' || !state.anchor) return;  const W = app.clientWidth, H = app.clientHeight;
+  const a = state.anchor;
+  const cx = a.left + a.width / 2;
+
+  /* 工具条：桌面贴文字上方；手机贴文字下方，放不下才翻上去 */
+  stack.style.visibility = 'hidden';
+  const tw = stack.offsetWidth, th = stack.offsetHeight;
+  let tleft, ttop;
+  if (state.vp === 'desktop') {
+    tleft = clamp(cx - tw / 2, 8, Math.max(8, W - tw - 8));
+    ttop = a.top - 8 - th;
+    if (ttop < 8) ttop = 8;
+  } else {
+    tleft = clamp(cx - tw / 2, 8, Math.max(8, W - tw - 8));
+    ttop = a.top + a.height + 10;
+    if (ttop + th > H - 8) ttop = a.top - 10 - th;
+    ttop = clamp(ttop, 8, Math.max(8, H - th - 8));
+  }
+  stack.style.left = Math.round(tleft) + 'px';
+  stack.style.top  = Math.round(ttop) + 'px';
+  stack.style.visibility = '';
+
+  /* 手机：「⋯」菜单朝有空间的一侧开 */
+  const tbEl = stack.querySelector('.toolbar');
+  if (tbEl) tbEl.classList.toggle('menu-up', ttop + th + 150 > H - 34);
+
+  /* 手机：弹窗独立，居中偏上，跟着阅读区算，不跟工具条 */
+  if (state.vp === 'phone' && !dialog.hidden) {
+    const ar = app.getBoundingClientRect();
+    const pr = page.getBoundingClientRect();
+    const dw = dialog.offsetWidth, dh = dialog.offsetHeight;
+    const pageTop = pr.top - ar.top;
+    const dleft = Math.round((W - dw) / 2);
+    let dtop = Math.round(pageTop + Math.max(18, pr.height * 0.17));
+    dtop = clamp(dtop, 8, Math.max(8, H - dh - 34 - 12));
+    dialog.style.left = dleft + 'px';
+    dialog.style.top  = dtop + 'px';
+  }
+}
+
+function render(){
+  build();
+  fitPhone();
+  build();                       /* 收起之后重画一次，让宽度定下来 */
+  /* 输入框先撑高再摆位：不然撑高发生在摆位之后，工具条会被顶下去压住正文 */
+  const ta = $('.float.idea textarea', state.vp === 'phone' ? dialog : stack);
+  if (ta) grow(ta);
+  place();
+  renderBar();
+  if (ta) {
+    ta.focus({ preventScroll:true });
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  }
+}
+
+function renderBar(){
+  const modeLabel = state.mode === 'mark' ? '点划线' : state.mode === 'sel' ? '划词' : '收起';
+  const ideaLabel = currentMark() && currentMark().idea ? '有想法' : '没想法';
+  const panelLabel = state.panel === 'idea' ? '想法' : state.panel === 'quote' ? '书摘'
+                   : state.panel === 'ai' ? 'AI' : state.panel === 'del' ? '删除确认' : '无';
+  const notes = [];
+  if (state.mode !== 'none') {
+    if (state.vp === 'desktop') notes.push('浮窗在工具条上方');
+    else notes.push(state.collapsed.length ? `收进 ⋯：${state.collapsed.map(labelOf).join(' / ')}` : '弹窗独立 · 居中偏上');
+  }
+  $('#state').innerHTML = `<b>${modeLabel}</b> · ${ideaLabel} · 面板：<b>${panelLabel}</b>`
+    + (notes.length ? ' · ' + notes.join(' · ') : '');
+}
+
+function labelOf(k){
+  const a = ACTIONS.concat([DEL]).find((x) => x.k === k);
+  return a ? a.label : k;
+}
+
+/* ── 动作 ── */
+function toast(msg){
+  const old = app.querySelector('.toast');
+  if (old) old.remove();
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  app.appendChild(t);
+  setTimeout(() => t.remove(), 1700);
+}
+
+function ensureMark(){
+  if (state.mode === 'mark' && state.markId) return MARKS[state.markId];
+
+  const id = 'm' + Date.now().toString(36);
+  let wrapped = false;
+  const r = state.pendingRange;
+  if (r) {
+    try {
+      const frag = r.extractContents();
+      const mk = document.createElement('mark');
+      mk.className = 'hl';
+      mk.dataset.mark = id;
+      mk.style.setProperty('--c', penColor().c);
+      mk.appendChild(frag);
+      r.insertNode(mk);
+      wrapped = true;
+    } catch (err) { /* 跨段的选区：原型里不强行包，留个提示 */ }
+  }
+  MARKS[id] = { id, color:penColor().c, name:penColor().n, text:state.selText, idea:'' };
+  state.mode = 'mark';
+  state.markId = id;
+  state.pendingRange = null;
+  state.collapsed = [];
+  try { window.getSelection().removeAllRanges(); } catch (e) {}
+  if (!wrapped) toast('原型里只做了单段落笔');
+  return MARKS[id];
+}
+
+function act(name, ds){
+  if (name === 'more') { state.more = !state.more; render(); return; }
+
+  if (name === 'dot') {
+    const mark = ensureMark();
+    mark.color = ds.css;
+    mark.name = ds.name;
+    const mk = prose.querySelector(`mark[data-mark="${mark.id}"]`);
+    if (mk) mk.style.setProperty('--c', ds.css);
+    state.more = false;
+    render();
+    return;
+  }
+
+  if (name === 'idea' || name === 'quote' || name === 'ai') {
+    if (state.panel === name) { state.panel = null; render(); return; }
+    ensureMark();
+    state.panel = name;
+    state.more = false;
+    render();
+    return;
+  }
+
+  if (name === 'bilink') { state.more = false; toast('（原型）已复制原文双链'); render(); return; }
+  if (name === 'copy')   { state.more = false; copyText(floatText(), '已复制原文'); render(); return; }
+  if (name === 'copytxt'){ copyText('「' + floatText() + '」', '已复制引用'); return; }
+  if (name === 'savenote'){ toast('（原型）存进书摘目录'); return; }
+
+  if (name === 'del') { state.panel = 'del'; state.more = false; render(); return; }
+  if (name === 'delcancel') { state.panel = null; render(); return; }
+  if (name === 'deldo') {
+    const mark = currentMark();
+    if (mark) {
+      const mk = prose.querySelector(`mark[data-mark="${mark.id}"]`);
+      if (mk) {
+        const parent = mk.parentNode;
+        while (mk.firstChild) parent.insertBefore(mk.firstChild, mk);
+        mk.remove();
+      }
+      delete MARKS[mark.id];
+    }
+    closeAll();
+    toast('已删除这条划线');
+    return;
+  }
+
+  if (name === 'ideasave') {
+    const ta = $('.float.idea textarea');
+    const v = (ta && ta.value || '').trim();
+    if (!v) { toast('想法还是空的'); return; }
+    ensureMark();
+    currentMark().idea = v;
+    state.panel = null;
+    render();
+    toast('想法已保存');
+    return;
+  }
+}
+
+function copyText(text, okMsg){
+  try {
+    navigator.clipboard.writeText(text).then(
+      () => toast(okMsg),
+      () => toast('（原型）浏览器不让写剪贴板'),
+    );
+  } catch (e) { toast('（原型）浏览器不让写剪贴板'); }
+}
+
+function openMark(id){
+  const mk = prose.querySelector(`mark[data-mark="${id}"]`);
+  if (!mk) return;
+  try { window.getSelection().removeAllRanges(); } catch (e) {}
+  state.mode = 'mark';
+  state.markId = id;
+  state.panel = null;
+  state.more = false;
+  state.collapsed = [];
+  state.pendingRange = null;
+  state.anchor = anchorFromEl(mk);
+  render();
+}
+
+function closeAll(){
+  state.mode = 'none';
+  state.markId = null;
+  state.panel = null;
+  state.more = false;
+  state.collapsed = [];
+  state.anchor = null;
+  state.pendingRange = null;
+  try { window.getSelection().removeAllRanges(); } catch (e) {}
+  render();
+}
+
+/* ── 选区 ── */
+document.addEventListener('mouseup', (ev) => {
+  if (ev.target.closest && ev.target.closest('#stack, #dialog')) return;
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  if (!prose.contains(range.commonAncestorContainer)) return;
+  const text = sel.toString().trim();
+  if (!text) return;
+  state.mode = 'sel';
+  state.markId = null;
+  state.panel = null;
+  state.more = false;
+  state.collapsed = [];
+  state.selText = text;
+  state.pendingRange = range.cloneRange();
+  state.anchor = anchorFromRect(range.getBoundingClientRect());
+  render();
+});
+
+app.addEventListener('mousedown', (ev) => {
+  /* 点工具条/弹窗不能把选区清掉（真实实现里同样要拦） */
+  if (ev.target.closest('#stack, #dialog') && !ev.target.closest('textarea, input')) ev.preventDefault();
+});
+
+app.addEventListener('click', (ev) => {
+  if (ev.target.closest('#stack') || ev.target.closest('#dialog')) {
+    const btn = ev.target.closest('[data-act]');
+    if (btn) { ev.preventDefault(); act(btn.dataset.act, btn.dataset); }
+    return;
+  }
+  if (ev.target.closest('.rhead') || ev.target.closest('.rfoot')) { closeAll(); return; }
+  const mk = ev.target.closest('mark.hl');
+  if (!mk) { if (state.mode !== 'none') closeAll(); return; }
+  const sel = window.getSelection();
+  if (sel && !sel.isCollapsed) return;   /* 拖选经过划线，不当作点击 */
+  openMark(mk.dataset.mark);
+});
+
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape') closeAll();
+});
+
+function grow(ta){
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(180, Math.max(46, ta.scrollHeight)) + 'px';
+}
+
+document.addEventListener('input', (ev) => {
+  if (ev.target.tagName === 'TEXTAREA') { grow(ev.target); place(); }
+});
+
+/* ── 控制条 ── */
+$('#viewSeg').addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-view]'); if (!b) return;
+  state.vp = b.dataset.view;
+  state.more = false;
+  state.collapsed = [];
+  $('#viewSeg').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+  render();
+});
+document.querySelectorAll('[data-theme-set]').forEach((b) => {
+  b.addEventListener('click', () => {
+    document.documentElement.dataset.theme = b.dataset.themeSet;
+    document.querySelectorAll('[data-theme-set]').forEach((x) => x.classList.toggle('on', x === b));
+  });
+});
+
+window.addEventListener('resize', () => { refreshAnchor(); refit(); place(); });
+app.addEventListener('transitionend', (ev) => { if (ev.target === app) { refreshAnchor(); refit(); } });
+page.addEventListener('scroll', () => { refreshAnchor(); place(); });
+
+/* ── 截图 / 演示用的小接口（不属于设计） ── */
+window.PROTO = {
+  state,
+  set(patch){ Object.assign(state, patch); render(); },
+  demo(name){
+    const map = {
+      mark(){ openMark('m1'); },
+      mark2(){ openMark('m2'); },
+      sel(){
+        const p = prose.querySelectorAll('p')[1];
+        const tn = p.firstChild;
+        const r = document.createRange();
+        r.setStart(tn, 5); r.setEnd(tn, 22);
+        const s = window.getSelection();
+        s.removeAllRanges(); s.addRange(r);
+        state.mode = 'sel'; state.markId = null; state.panel = null; state.more = false;
+        state.collapsed = [];
+        state.selText = r.toString();
+        state.pendingRange = r.cloneRange();
+        state.anchor = anchorFromRect(r.getBoundingClientRect());
+        render();
+      },
+      idea(){ openMark('m1'); state.panel = 'idea'; render(); },
+      quote(){ openMark('m2'); state.panel = 'quote'; render(); },
+      ai(){ openMark('m1'); state.panel = 'ai'; render(); },
+      del(){ openMark('m1'); state.panel = 'del'; render(); },
+      more(){ openMark('m1'); state.more = true; render(); },
+    };
+    if (map[name]) map[name]();
+  },
+};
+
+render();
+})();
+</script>
+</body>
+</html>

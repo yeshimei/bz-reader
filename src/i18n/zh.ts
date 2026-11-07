@@ -21,6 +21,7 @@ export const ZH = {
   /* ── 通用词 ──────────────────────────────────────────────── */
   'common.default': '默认',
   'common.untitled': '未命名',
+  'common.close': '关闭',
   'common.cancel': '取消',
   'common.unknownError': '未知错误',
 
@@ -411,8 +412,19 @@ export const ZH = {
   'settings.lic.relicense': '重新激活',
   'settings.lic.activate': '激活',
   'settings.lic.paid': '高级版',
-  'settings.lic.benefits': '导出、统计、跨书搜索、多格式等',
+  'settings.lic.benefits': '导出、统计、跨书搜索、AI 与多格式等',
   'settings.lic.compare': '查看功能对照',
+
+  /* ── 解锁弹层：功能对照表 ─────────────────────────────── */
+  'unlock.title': '高级版',
+  'unlock.activated': '已激活',
+  'unlock.col.feature': '功能',
+  'unlock.col.base': '基础版',
+  'unlock.col.pro': '高级版',
+  'unlock.part': '部分',
+  'unlock.buy': '去购买',
+  'unlock.hint': '购买后拿到激活码，填在下面即可',
+  'unlock.haveCode': '已有激活码',
 
   /* ── 设置页：数据 ────────────────────────────────────────── */
   'settings.importDir': '书籍导入位置',

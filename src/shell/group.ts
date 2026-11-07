@@ -11,14 +11,18 @@
 
 import { notify } from '../core/notice';
 import { t } from '../i18n';
-import { GROUP_ID } from '../data/entitlement';
+import { GROUP_ID, TRIAL_ACTIVE } from '../data/entitlement';
 
 /**
- * 解锁弹层里唯一的一颗群按钮：进群领试用，群号直接印在按钮上。
- * 「复制群号」和「领试用」是同一个动作（先加群），拆两颗只会让人以为
- * 有两条路，所以合并成这一颗。
+ * 解锁弹层里的群按钮。
+ *
+ * `TRIAL_ACTIVE = false`（2026-11-03 起不对外发试用）时**整颗不渲染**：
+ * 授权状态机明确要求界面上一个字都不提试用，留一颗「进群领试用」等于
+ * 让用户去群里领一个根本不存在的码。合并成一颗按钮的理由见下方注释，
+ * 恢复试用时把开关打开即可，这里不用再改。
  */
 export function trialButtonHtml(): string {
+  if (!TRIAL_ACTIVE) return '';
   return `<button class="bzs-btn" data-act="jointrial">进群领试用 · ${GROUP_ID}</button>`;
 }
 

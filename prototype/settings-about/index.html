@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>设置页 · 关于条（定稿）</title>
+<!-- 真机样式：构建产物，含 .bzs-shell 内全部令牌与组件 -->
+<link rel="stylesheet" href="../../styles.css">
+<link rel="stylesheet" href="proto.css">
+</head>
+<body class="theme-light">
+<div class="bzs-shell" data-bzaccent="copper">
+  <div class="bzs-studio">
+    <div class="bzs-stuhead is-sub">
+      <button class="bzs-back" title="返回" aria-label="返回">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/></svg>
+      </button>
+      <span class="bzs-subtitle">设置</span>
+    </div>
+
+    <div class="bzs-stubody">
+      <div class="bzs-set-grid">
+
+        <!-- ① 关于条：横跨两栏；版本号与授权徽章跟在「关于」后面 -->
+        <div class="bzs-setgrp wide ab-d">
+          <h3>关于</h3>
+          <span class="ab-d-meta">
+            <span class="ab-d-ver" id="ver">v0.1.2</span>
+            <span class="ab-badge" id="badge">高级版</span>
+          </span>
+          <span class="sp"></span>
+
+          <button class="ab-d-link" data-act="github" title="在浏览器里打开仓库">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+            <span class="ab-d-k">GitHub</span>
+            <span class="ab-d-v">yeshimei/bz-reader</span>
+          </button>
+          <span class="ab-d-dot"></span>
+
+          <button class="ab-d-link is-wip" data-act="wip" title="教程还在剪，做好会在群里通知">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2.6" y="4.8" width="18.8" height="14.4" rx="3.4"/><path d="M10.2 9.5 15 12l-4.8 2.5z" fill="currentColor" stroke="none"/></svg>
+            <span class="ab-d-k">视频教程</span>
+            <span class="ab-d-v">制作中</span>
+          </button>
+          <span class="ab-d-dot"></span>
+
+          <button class="ab-d-link" data-act="group" title="点一下复制群号，去 QQ 搜索">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.4a8.3 8.3 0 0 1-8.9 8.3 9.1 9.1 0 0 1-3.7-.8L4.2 21l1.6-4.2A8.2 8.2 0 0 1 3.6 11.4 8.3 8.3 0 0 1 12.3 3a8.3 8.3 0 0 1 8.7 8.4Z"/><path d="M8.6 11.6h.01M12 11.6h.01M15.4 11.6h.01"/></svg>
+            <span class="ab-d-k">交流群</span>
+            <span class="ab-d-v">1130883117</span>
+          </button>
+          <span class="ab-d-dot"></span>
+
+          <button class="ab-d-link" data-act="log" title="看看每一版改了什么">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.4 12a8.6 8.6 0 1 0 2.9-6.4L3.4 8"/><path d="M3.2 3.4v4.9h4.9"/><path d="M12 7.4v5l3.1 2"/></svg>
+            <span class="ab-d-k">更新日志</span>
+          </button>
+        </div>
+
+        <!-- ② 版式 -->
+        <div class="bzs-setgrp">
+          <h3>版式</h3>
+          <div class="bzs-setrow"><label>字体</label>
+            <div class="bzs-seg"><button>跟随书籍</button><button class="on">宋体</button><button>黑体</button></div>
+          </div>
+          <div class="bzs-setrow"><label>字号</label>
+            <input type="range" min="14" max="30" step="1" value="19" style="--fill:31%">
+            <span class="val">19px</span>
+          </div>
+          <div class="bzs-setrow"><label>行距</label>
+            <input type="range" min="1.4" max="2.4" step="0.05" value="2.05" style="--fill:65%">
+            <span class="val">2.1</span>
+          </div>
+          <div class="bzs-setrow"><label>页边距</label>
+            <input type="range" min="8" max="120" step="4" value="32" style="--fill:21%">
+            <span class="val">32px</span>
+          </div>
+          <div class="bzs-setrow"><label>对齐</label>
+            <div class="bzs-seg"><button class="on">两端</button><button>居左</button></div>
+          </div>
+          <div class="bzs-setrow"><label>方向</label>
+            <div class="bzs-seg"><button class="on">横排</button><button>竖排</button></div>
+          </div>
+          <div class="bzs-setrow"><label>分栏</label>
+            <div class="bzs-seg"><button class="on">单栏</button><button>双栏</button></div>
+          </div>
+          <div class="bzs-setrow"><label>脚注</label>
+            <div class="bzs-seg"><button class="on">上方浮窗</button><button>跳到章末</button></div>
+          </div>
+        </div>
+
+        <!-- ③ 外观 -->
+        <div class="bzs-setgrp">
+          <h3>外观</h3>
+          <div class="bzs-setrow"><label>强调色</label>
+            <div class="bzs-seg bzs-seg-wrap">
+              <button><span class="dot" style="background:var(--interactive-accent)"></span>原生</button>
+              <button class="on"><span class="dot" style="background:#9a7434"></span>铜金</button>
+              <button><span class="dot" style="background:#b0452f"></span>朱砂</button>
+              <button><span class="dot" style="background:#3f5b8f"></span>黛蓝</button>
+              <button><span class="dot" style="background:#4c6b52"></span>苔青</button>
+              <button><span class="dot" style="background:#2f3338"></span>墨色</button>
+              <button><span class="dot" style="background:#8a3a4a"></span>绛紫</button>
+              <button><span class="dot" style="background:#3f7474"></span>天青</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ④ 阅读页图标 -->
+        <div class="bzs-setgrp">
+          <h3>阅读页图标</h3>
+          <div class="bzs-mini" style="margin:0 0 8px">开关控制显示 / 收起；收起的进最右侧 ⋮（Obsidian 自带的更多菜单）。移动端最多露 3 颗。</div>
+          <div class="bzs-setrow"><label>目录（s）</label>
+            <button class="bzs-btn sm" disabled>↑</button><button class="bzs-btn sm">↓</button>
+            <button class="bzs-switch on" aria-label="目录"></button></div>
+          <div class="bzs-setrow"><label>搜索</label>
+            <button class="bzs-btn sm" disabled>↑</button><button class="bzs-btn sm">↓</button>
+            <button class="bzs-switch on" aria-label="搜索"></button></div>
+          <div class="bzs-setrow"><label>记书签（b）</label>
+            <button class="bzs-btn sm">↑</button><button class="bzs-btn sm">↓</button>
+            <button class="bzs-switch on" aria-label="记书签"></button></div>
+          <div class="bzs-setrow"><label>排版（t）</label>
+            <button class="bzs-btn sm">↑</button><button class="bzs-btn sm">↓</button>
+            <button class="bzs-switch on" aria-label="排版"></button></div>
+          <div class="bzs-setrow"><label>并排对照</label>
+            <button class="bzs-btn sm">↑</button><button class="bzs-btn sm">↓</button>
+            <button class="bzs-switch" aria-label="并排对照"></button></div>
+        </div>
+
+        <!-- ⑤ 朗读（锁态） -->
+        <div class="bzs-setgrp is-locked" data-act="unlock" title="高级版功能：点一下看看包含什么">
+          <h3>朗读</h3>
+          <div class="bzs-setrow"><label>语速</label>
+            <input type="range" min="0.6" max="2" step="0.1" value="1" style="--fill:29%">
+            <span class="val">1.0×</span>
+          </div>
+          <div class="bzs-setrow"><label>朗读跟随</label>
+            <div class="bzs-seg"><button class="on">念完续页</button><button>只念本页</button></div>
+          </div>
+        </div>
+
+        <!-- ⑥ 标注 -->
+        <div class="bzs-setgrp">
+          <h3>标注</h3>
+          <div class="bzs-setrow"><label>默认笔色</label>
+            <div class="bzs-seg">
+              <button class="on"><span class="dot" style="background:#e8c46a"></span>黄</button>
+              <button><span class="dot" style="background:#8fbf7a"></span>绿</button>
+              <button><span class="dot" style="background:#7fa9d8"></span>蓝</button>
+              <button><span class="dot" style="background:#d98a99"></span>粉</button>
+            </div>
+          </div>
+          <div class="bzs-setrow"><label>导出目录</label>
+            <button class="bzs-pickdir"><span>笔记/读书</span><i>选择…</i></button>
+          </div>
+          <div class="bzs-setrow"><label>导出时带上想法</label><button class="bzs-switch on" aria-label="导出时带上想法"></button></div>
+          <div class="bzs-setrow"><label>摘录链接</label>
+            <span class="bzs-mini" style="flex:1">复制成双链 <code>[[书#定位]]</code>，粘进笔记点一下跳回原句，反链面板也看得见</span>
+          </div>
+        </div>
+
+        <!-- ⑦ 数据（更新日志已移进「关于」，这里不再有那一行） -->
+        <div class="bzs-setgrp">
+          <h3>数据</h3>
+          <div class="bzs-setrow"><label>书籍导入位置</label>
+            <button class="bzs-pickdir"><span>书籍/导入</span><i>选择…</i></button></div>
+          <div class="bzs-setrow"><label>数据目录</label>
+            <button class="bzs-pickdir"><span>.bz-reader</span><i>选择…</i></button></div>
+          <div class="bzs-setrow"><label>备份与恢复</label>
+            <button class="bzs-btn sm">备份</button><button class="bzs-btn sm">恢复</button></div>
+          <div class="bzs-mini" style="margin-top:10px;line-height:1.9">
+            导入的书复制到「书籍导入位置」；数据默认放在库根目录的 <code>.bz-reader</code>。
+            备份只含书架、进度、标注、收藏与目标——<b>不含激活码与 AI Key</b>。
+          </div>
+        </div>
+
+        <!-- ⑧ AI -->
+        <div class="bzs-setgrp is-locked" data-act="unlock" title="高级版功能：点一下看看包含什么">
+          <h3>AI 助手</h3>
+          <div class="bzs-setrow"><label>服务商</label><input placeholder="填写服务商接口地址，以 https:// 开头" readonly style="flex:1"></div>
+          <div class="bzs-setrow"><label>模型</label><input placeholder="填写你的账号可用的模型名" readonly style="flex:1"></div>
+          <div class="bzs-setrow"><label>密钥</label><input type="password" placeholder="填写 API 密钥" readonly style="flex:1"></div>
+        </div>
+
+        <!-- ⑨ 授权 -->
+        <div class="bzs-setgrp">
+          <h3>授权</h3>
+          <div class="bzs-setrow"><label>状态</label><span class="bzs-mini" style="flex:1" id="licState">高级版 · 已激活</span></div>
+          <div class="bzs-setrow"><label>激活码</label>
+            <input value="BZR2.XXXX-XXXX-XXXX-XXXX" readonly style="flex:1">
+            <button class="bzs-btn sm">重新激活</button>
+          </div>
+        </div>
+
+        <!-- ⑩ 快捷键 -->
+        <div class="bzs-setgrp wide">
+          <h3>快捷键</h3>
+          <div class="bzs-keys">
+            <button class="bzs-keyrow"><span>下一页</span><kbd>→</kbd></button>
+            <button class="bzs-keyrow"><span>上一页</span><kbd>←</kbd></button>
+            <button class="bzs-keyrow"><span>打开书架</span><kbd>g</kbd></button>
+            <button class="bzs-keyrow"><span>搜索（本书 / 全库）</span><kbd>⌘/Ctrl + F</kbd></button>
+            <button class="bzs-keyrow"><span>显示左侧栏</span><kbd>s</kbd></button>
+            <button class="bzs-keyrow"><span>专注模式</span><kbd>f</kbd></button>
+            <button class="bzs-keyrow"><span>全屏</span><kbd class="soft">未设置</kbd></button>
+            <button class="bzs-keyrow"><span>记一枚书签</span><kbd>b</kbd></button>
+            <button class="bzs-keyrow"><span>排版面板</span><kbd>t</kbd></button>
+            <button class="bzs-keyrow"><span>全书鸟瞰</span><kbd>m</kbd></button>
+            <button class="bzs-keyrow"><span>朗读开关</span><kbd>r</kbd></button>
+            <button class="bzs-keyrow"><span>继续阅读最近一本</span><kbd class="soft">未设置</kbd></button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="proto-toast" id="toast"></div>
+
+<div class="proto-bar">
+  <span class="tag">授权</span>
+  <button data-lic="pro" class="on">高级版</button>
+  <button data-lic="base">基础版</button>
+  <span class="sep"></span>
+  <button id="themeBtn">深色</button>
+  <button id="narrowBtn">窄窗</button>
+</div>
+
+<script>
+const REPO_URL = 'https://github.com/yeshimei/bz-reader';
+const GROUP_ID = '1130883117';
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+/* 授权态：同一块界面，只换徽章与授权组的状态行 */
+const LIC = {
+  pro: { label: '高级版', base: false, state: '高级版 · 已激活' },
+  base: { label: '基础版', base: true, state: '基础版 · 未激活' },
+};
+
+document.addEventListener('click', (e) => {
+  const lic = e.target.closest('[data-lic]');
+  if (lic) {
+    const cfg = LIC[lic.dataset.lic];
+    const badge = document.getElementById('badge');
+    badge.textContent = cfg.label;
+    badge.classList.toggle('base', cfg.base);
+    document.getElementById('licState').textContent = cfg.state;
+    document.querySelectorAll('[data-lic]').forEach((b) => b.classList.toggle('on', b === lic));
+    return;
+  }
+
+  const btn = e.target.closest('.ab-d-link');
+  if (!btn) return;
+  const act = btn.dataset.act;
+  if (act === 'github') {
+    toast('打开 ' + REPO_URL);
+    window.open(REPO_URL, '_blank', 'noopener,noreferrer');
+  } else if (act === 'wip') {
+    toast('视频教程还在剪，做好会在交流群里通知');
+  } else if (act === 'group') {
+    navigator.clipboard.writeText(GROUP_ID).then(
+      () => toast('已复制群号 ' + GROUP_ID + '，去 QQ 搜索加群'),
+      () => toast('群号是 ' + GROUP_ID + '，去 QQ 搜索加群'),
+    );
+  } else if (act === 'log') {
+    toast('这里会打开「更新日志」弹窗');
+  }
+});
+
+const themeBtn = document.getElementById('themeBtn');
+themeBtn.addEventListener('click', () => {
+  const dark = document.body.classList.toggle('theme-dark');
+  document.body.classList.toggle('theme-light', !dark);
+  themeBtn.textContent = dark ? '浅色' : '深色';
+});
+
+const narrowBtn = document.getElementById('narrowBtn');
+narrowBtn.addEventListener('click', () => {
+  const on = document.body.classList.toggle('proto-narrow');
+  narrowBtn.classList.toggle('on', on);
+});
+</script>
+</body>
+</html>

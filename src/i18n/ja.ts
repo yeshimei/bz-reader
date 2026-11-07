@@ -17,6 +17,7 @@ export const JA: Record<MsgKey, string> = {
   /* ── 共通語 ──────────────────────────────────────────────── */
   'common.default': '既定',
   'common.untitled': '無題',
+  'common.close': '閉じる',
   'common.cancel': 'キャンセル',
   'common.unknownError': '不明なエラー',
 
@@ -407,8 +408,19 @@ export const JA: Record<MsgKey, string> = {
   'settings.lic.relicense': '再アクティベート',
   'settings.lic.activate': 'アクティベート',
   'settings.lic.paid': 'プロ版',
-  'settings.lic.benefits': 'エクスポート・統計・横断検索・各種フォーマットなど',
+  'settings.lic.benefits': 'エクスポート・統計・横断検索・AI・各種フォーマットなど',
   'settings.lic.compare': '機能を比較',
+
+  /* ── 解锁弹层：功能对照表 ─────────────────────────────── */
+  'unlock.title': 'プロ版',
+  'unlock.activated': '有効化済み',
+  'unlock.col.feature': '機能',
+  'unlock.col.base': 'ベーシック版',
+  'unlock.col.pro': 'プロ版',
+  'unlock.part': '一部',
+  'unlock.buy': '購入する',
+  'unlock.hint': '購入後に届くライセンスコードを下に入力してください',
+  'unlock.haveCode': 'ライセンスコードをお持ちの方',
 
   /* ── 設定：データ ───────────────────────────────────────── */
   'settings.importDir': '書籍のインポート先',

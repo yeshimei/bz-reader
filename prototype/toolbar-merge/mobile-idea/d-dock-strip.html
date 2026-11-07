@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="paper">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>原型 D · 想法吸附条</title>
+<link rel="stylesheet" href="base.css">
+<style>
+  /* 吸附条：默认贴在阅读区上缘；划线在上缘会被压住时翻到下缘。只露三行，点开看全 */
+  .ideacard.strip{padding-top:10px;padding-bottom:10px}
+  .ideacard.strip p{
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+</style>
+</head>
+<body data-mode="D">
+
+<div class="proto-head">
+  <span class="tag">手机 · 想法</span>
+  <b>D 吸附条</b>
+  <span class="say">想法做成一条吸附在屏幕边缘：默认顶部，划线靠上会被压住时自动翻到底部；只露三行，点开看全。</span>
+  <span class="sp"></span>
+  <a href="index.html">← 四版对照</a>
+</div>
+
+<div class="stage">
+  <div class="app" id="app">
+    <header class="rhead">
+      <button class="ib" title="返回">‹</button>
+      <div class="meta"><b>夜读札记</b><span>第 7 章 · 灯下</span></div>
+      <span class="sp"></span>
+      <div class="themeswitch">
+        <button data-theme-set="paper" class="on">纸</button>
+        <button data-theme-set="ink">墨</button>
+      </div>
+    </header>
+    <main class="page" id="page"><article class="prose" id="prose"></article></main>
+    <footer class="rfoot"><span>23%</span><span class="bar"><i style="width:23%"></i></span><span>12 / 52</span></footer>
+
+    <div class="scrim" id="scrim" hidden></div>
+    <div class="stack" id="stack" hidden></div>
+    <div class="dialog" id="dialog" hidden></div>
+    <div class="ideacard" id="ideacard" hidden></div>
+  </div>
+</div>
+
+<div class="proto-bar">
+  <span class="lab">场景</span>
+  <span id="scenes"></span>
+  <span class="bar-sep"></span>
+  <span class="state" id="state"></span>
+</div>
+
+<script src="base.js"></script>
+</body>
+</html>

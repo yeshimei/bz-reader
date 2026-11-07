@@ -11,6 +11,7 @@
  * ============================================================ */
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { t } from '../i18n';
+import { planLabel } from '../i18n/plan';
 import { anchoredPlacement } from './anchored-style';
 import { sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
@@ -63,7 +64,7 @@ function modal(title: string, sub: string, body: string, foot = '', cls = '', ma
   const scrim = ['bzs-scrim', mask, withInput ? 'has-input' : ''].filter(Boolean).join(' ');
   return `<div class="${scrim}" data-role="scrim"><div class="bzs-modal ${cls}">
     <div class="bzs-mhead"><b>${title}</b><span class="n">${sub}</span><span class="sp"></span>
-      <button class="x" data-act="close" title="关闭">${ico('x')}</button></div>
+      <button class="x" data-act="close" title="${t('common.close')}">${ico('x')}</button></div>
     <div class="bzs-mbody">${body}</div>
     ${foot ? `<div class="bzs-mfoot">${foot}</div>` : ''}
   </div></div>`;
@@ -814,46 +815,48 @@ function overlayDetail(bookId?: string): string {
  */
 function planCell(kind: 'free' | 'pro', v: PlanCell): string {
   if (v === 'yes') return `<i class="y">${ico('check')}</i>`;
-  if (v === 'part') return `<i class="p">部分</i>`;
+  if (v === 'part') return `<i class="p">${t('unlock.part')}</i>`;
   return `<i class="n">—</i>`;
 }
 
 function overlayUnlock(mode?: string): string {
   const v = entitlement();
-  const cap = (mode || 'export') as Cap;
+  /* 不传 mode = 只是「查看功能对照」（设置页那颗按钮），不高亮任何一行。
+     以前这里兜底成 export，结果从设置页进来看全表，视线总被拽到导出那行。 */
+  const cap = mode ? (mode as Cap) : undefined;
   const paid = v.tier === 'paid';
 
   /* 不再在表头上写「你点的是朗读 / 基础版此项需高级版」：
      那两行字占掉了整屏最贵的空间，信息量却等于「看下面那张表」。
-     做法改成：直接在表里把这一项标亮。 */
+     做法改成：直接在表里把这一项标亮，并滚到可见范围。 */
   const rows = PLAN_TABLE.map((r) => {
-    const hot = !paid && r.cap === cap;
+    const hot = !paid && !!cap && r.cap === cap;
     return `<div class="bzs-plan-row${hot ? ' is-cap' : ''}">
-        <span>${esc(r.name)}${r.note ? `<em>${esc(r.note)}</em>` : ''}</span>
+        <span>${esc(planLabel(r.key))}${r.note ? `<em>${esc(r.note)}</em>` : ''}</span>
         ${planCell('free', r.free)}${planCell('pro', r.pro)}
       </div>`;
   }).join('');
 
   const body = `<div class="bzs-unlock">
       <div class="bzs-plan">
-        <div class="bzs-plan-row head"><span>功能</span><b>基础版</b><b>高级版</b></div>
+        <div class="bzs-plan-row head"><span>${t('unlock.col.feature')}</span><b>${t('unlock.col.base')}</b><b>${t('unlock.col.pro')}</b></div>
         ${rows}
       </div>
       <div class="bzs-unlock-buy">
-        <button class="bzs-btn pri" data-act="buy">去购买</button>
+        <button class="bzs-btn pri" data-act="buy">${t('unlock.buy')}</button>
         ${trialButtonHtml()}
-        <span class="bzs-mini">购买后拿到激活码，填在下面即可</span>
+        <span class="bzs-mini">${t('unlock.hint')}</span>
       </div>
     </div>`;
 
   // 激活框独占页脚整行：输入框与按钮挨着，眼睛不用在两端来回找
   const foot = `<div class="bzs-unlock-act">
-      <label>已有激活码</label>
+      <label>${t('unlock.haveCode')}</label>
       <input data-role="license" placeholder="BZR2.…" value="${esc(v.license)}" spellcheck="false">
-      <button class="bzs-btn sm pri" data-act="activate">激活</button>
+      <button class="bzs-btn sm pri" data-act="activate">${t('settings.lic.activate')}</button>
     </div>`;
 
-  return modal('高级版', paid ? '已激活' : '', body, foot, 'wide tall');
+  return modal(t('unlock.title'), paid ? t('unlock.activated') : '', body, foot, 'wide tall');
 }
 
 function overlayPtClean(): string {

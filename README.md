@@ -37,17 +37,20 @@
 | 目录、书签、四色划线与想法 | ✓ | ✓ |
 | 书内搜索 | ✓ | ✓ |
 | 脚注浮窗预览 | ✓ | ✓ |
+| mobi / azw3 / fb2 / 漫画 | — | ✓ |
 | 划线复制为双向链接 | — | ✓ |
 | 导出结构化 Markdown | — | ✓ |
-| 书摘卡片 | — | ✓ |
+| 书摘图片 | — | ✓ |
 | 阅读统计、热力图与每本进度 | — | ✓ |
 | 跨书搜索 | — | ✓ |
-| AI 回答 / 摘要 / 解释 / 翻译 | — | ✓ |
-| mobi / azw3 / fb2 / 漫画 | — | ✓ |
+| AI 解释 / 翻译 / 摘要 | — | ✓ |
+| AI 全书问答 | — | ✓ |
 | 竖排排版 | — | ✓ |
 | 朗读 | — | ✓ |
 | 原文与译文并排 | — | ✓ |
 | 全书鸟瞰 | — | ✓ |
+| 书籍本地化向量检索 | — | ✓ |
+| 连接至 BZ AI 知识库 | — | ✓ |
 
 ## 界面语言
 
@@ -68,7 +71,8 @@
 只有 AI 功能会联网，其余功能完全离线。
 
 - 请求发往你在设置里填写的 OpenAI 兼容接口（自建服务或第三方 API 均可），插件没有自己的服务器。
-- 发送的内容是你划选或提问的文字、当前页正文（截到 6000 字以内），必要时还会带上书名、章节名与最近几轮问答。
+- 建全书索引时，整本书的正文会分块发给嵌入服务；提问时只发检索命中的那几块，必要时再带上书名、章节名与最近几轮问答。向量与索引都存在插件目录里，不上传。
+- 嵌入由 bz（第二大脑）插件提供：没装它就没有向量检索，只能走压缩要点那一档。
 - API Key 与其他设置一起保存在插件目录的 `data.json` 里，不会上传给插件作者；只有请求你自己填写的那个接口时，它才会以请求头的形式发过去。
 
 ## 常见问题
@@ -101,20 +105,24 @@
 | | Free | Pro |
 |---|:---:|:---:|
 | EPUB / TXT reading, pagination, and typography | ✓ | ✓ |
+| One or two columns | ✓ | ✓ |
 | Contents, bookmarks, four-color highlights, and notes | ✓ | ✓ |
 | In-book search | ✓ | ✓ |
 | Footnote preview in a popover | ✓ | ✓ |
+| mobi / azw3 / fb2 / comics | — | ✓ |
 | Copy highlights as wikilinks | — | ✓ |
 | Structured Markdown export | — | ✓ |
-| Highlight cards | — | ✓ |
+| Quote card images | — | ✓ |
 | Reading stats, heatmap, and per-book progress | — | ✓ |
 | Cross-book search | — | ✓ |
-| AI answers / summaries / explanations / translations | — | ✓ |
-| mobi / azw3 / fb2 / comics | — | ✓ |
-| Vertical and two-column layout | — | ✓ |
+| AI explanations / translation / summaries | — | ✓ |
+| AI Q&A over the whole book | — | ✓ |
+| Vertical typesetting | — | ✓ |
 | Text-to-speech | — | ✓ |
 | Original and translation side by side | — | ✓ |
-| Book map | — | ✓ |
+| Book overview | — | ✓ |
+| Local vector search over the book | — | ✓ |
+| Connect to the BZ AI knowledge base | — | ✓ |
 
 ### Interface languages
 
@@ -141,7 +149,8 @@ The free edition covers everyday reading. Pro features require a paid license ke
 Only the AI features go online; everything else works fully offline.
 
 - Requests go to the OpenAI-compatible endpoint you configure (your own server or a third-party API). The plugin has no server of its own.
-- The request contains the text you selected or typed and the current page (trimmed to 6000 characters), plus the book title, chapter name, and the last few turns when needed.
+- Building the whole-book index sends the book's text to your embedding service in chunks; a question only sends the few retrieved chunks, plus the book title, chapter name, and the last few turns when needed. Vectors and the index stay in the plugin folder and are never uploaded.
+- Embeddings come from the bz (second brain) plugin: without it there is no vector search, only the compressed-key-points path.
 - Your API key is stored with the rest of your settings in `data.json` inside the plugin folder. It is never sent to the plugin author; it only travels to the endpoint you configured, as a request header.
 
 ### FAQ
@@ -183,17 +192,20 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 | 目錄、書籤、四色劃線與想法 | ✓ | ✓ |
 | 書內搜尋 | ✓ | ✓ |
 | 腳註浮窗預覽 | ✓ | ✓ |
+| mobi / azw3 / fb2 / 漫畫 | — | ✓ |
 | 劃線複製為雙向連結 | — | ✓ |
 | 匯出結構化 Markdown | — | ✓ |
-| 書摘卡片 | — | ✓ |
+| 書摘圖片 | — | ✓ |
 | 閱讀統計、熱力圖與每本進度 | — | ✓ |
 | 跨書搜尋 | — | ✓ |
-| AI 回答 / 摘要 / 解釋 / 翻譯 | — | ✓ |
-| mobi / azw3 / fb2 / 漫畫 | — | ✓ |
+| AI 解釋 / 翻譯 / 摘要 | — | ✓ |
+| AI 全書問答 | — | ✓ |
 | 豎排排版 | — | ✓ |
 | 朗讀 | — | ✓ |
 | 原文與譯文並排 | — | ✓ |
 | 全書鳥瞰 | — | ✓ |
+| 書籍本地化向量檢索 | — | ✓ |
+| 連接至 BZ AI 知識庫 | — | ✓ |
 
 ### 介面語言
 
@@ -214,7 +226,8 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 只有 AI 功能會連網，其餘功能完全離線。
 
 - 請求發往你在設定裡填寫的 OpenAI 相容介面（自建服務或第三方 API 均可），外掛沒有自己的伺服器。
-- 發送的內容是你選取或提問的文字、目前頁正文（截到 6000 字以內），必要時還會帶上書名、章節名與最近幾輪問答。
+- 建全書索引時，整本書的正文會分塊發給嵌入服務；提問時只發檢索命中的那幾塊，必要時再帶上書名、章節名與最近幾輪問答。向量與索引都存在外掛目錄裡，不上傳。
+- 嵌入由 bz（第二大腦）外掛提供：沒裝它就沒有向量檢索，只能走壓縮要點那一檔。
 - API 金鑰與其他設定一起保存在外掛目錄的 `data.json` 裡，不會上傳給外掛作者；只有請求你自己填寫的那個介面時，它才會以請求標頭的形式送過去。
 
 ### 常見問題
@@ -256,17 +269,20 @@ Obsidian を「本を読む場所」に。デスクトップとモバイル、�
 | 目次・ブックマーク・4 色ハイライトとメモ | ✓ | ✓ |
 | 本文内検索 | ✓ | ✓ |
 | 脚注のポップアップ表示 | ✓ | ✓ |
+| mobi / azw3 / fb2 / コミック | — | ✓ |
 | ハイライトを双方向リンクとしてコピー | — | ✓ |
 | 構造化 Markdown への書き出し | — | ✓ |
-| 引用カード | — | ✓ |
+| 引用カード画像 | — | ✓ |
 | 読書統計・ヒートマップ・本ごとの進捗 | — | ✓ |
 | 本をまたぐ検索 | — | ✓ |
-| AI による回答 / 要約 / 解説 / 翻訳 | — | ✓ |
-| mobi / azw3 / fb2 / コミック | — | ✓ |
+| AI による解説 / 翻訳 / 要約 | — | ✓ |
+| AI 全書 Q&A | — | ✓ |
 | 縦組み | — | ✓ |
 | 読み上げ | — | ✓ |
 | 原文と訳文の並列表示 | — | ✓ |
 | 全体マップ | — | ✓ |
+| 書籍のローカルベクトル検索 | — | ✓ |
+| BZ AI ナレッジベースに接続 | — | ✓ |
 
 ### 表示言語
 
@@ -287,7 +303,8 @@ Obsidian を「本を読む場所」に。デスクトップとモバイル、�
 ネットワークを使うのは AI 機能だけです。それ以外は完全にオフラインで動作します。
 
 - リクエストは、設定で入力した OpenAI 互換のエンドポイント（自前のサーバーでも第三者 API でも可）に送られます。プラグイン独自のサーバーはありません。
-- 送信されるのは、選択または入力したテキスト、現在のページ本文（6000 文字まで）、必要に応じて書名・章名・直近数ターンのやり取りです。
+- 全書インデックスを作るときは、本の本文を分割して埋め込みサービスに送ります。質問時は検索でヒットした数ブロックだけを送り、必要に応じて書名・章名・直近数ターンを添えます。ベクトルとインデックスはプラグインフォルダに保存され、アップロードされません。
+- 埋め込みは bz（セカンドブレイン）プラグインが提供します。入っていないとベクトル検索は使えず、要点圧縮の方式だけになります。
 - API キーは他の設定とともにプラグインフォルダの `data.json` に保存されます。作者に送信されることはなく、設定したエンドポイントへのリクエストヘッダーとしてのみ送られます。
 
 ### よくある質問
@@ -329,17 +346,20 @@ Mach aus Obsidian einen Ort zum Lesen. Desktop und Mobil, mehrere Formate, acht 
 | Inhalt, Lesezeichen, vier Markierungsfarben und Notizen | ✓ | ✓ |
 | Suche im Buch | ✓ | ✓ |
 | Fußnoten als Pop-up | ✓ | ✓ |
+| mobi / azw3 / fb2 / Comics | — | ✓ |
 | Markierungen als Wikilink kopieren | — | ✓ |
 | Strukturierter Markdown-Export | — | ✓ |
-| Zitatkarten | — | ✓ |
+| Zitatkarten als Bild | — | ✓ |
 | Lesestatistik, Heatmap, Fortschritt pro Buch | — | ✓ |
 | Suche über alle Bücher | — | ✓ |
-| KI: Antworten / Zusammenfassungen / Erklärungen / Übersetzung | — | ✓ |
-| mobi / azw3 / fb2 / Comics | — | ✓ |
+| KI: Erklärungen / Übersetzung / Zusammenfassungen | — | ✓ |
+| KI: Fragen zum ganzen Buch | — | ✓ |
 | Vertikaler Satz | — | ✓ |
 | Vorlesen | — | ✓ |
 | Original und Übersetzung nebeneinander | — | ✓ |
 | Buchübersicht | — | ✓ |
+| Lokale Vektorsuche im Buch | — | ✓ |
+| Verbindung zur BZ-KI-Wissensdatenbank | — | ✓ |
 
 ### Oberflächensprachen
 
@@ -360,7 +380,8 @@ Die Basisversion ist kostenlos. Für die Pro-Funktionen braucht es einen Lizenzs
 Nur die KI-Funktionen gehen online; alles andere arbeitet vollständig offline.
 
 - Anfragen gehen an den OpenAI-kompatiblen Endpunkt, den du einstellst (eigener Server oder Drittanbieter-API). Das Plugin hat keinen eigenen Server.
-- Gesendet werden der markierte oder eingetippte Text und die aktuelle Seite (auf 6000 Zeichen gekürzt), bei Bedarf zusätzlich Buchtitel, Kapitelname und die letzten Gesprächsrunden.
+- Beim Aufbau des Buchindex wird der Buchtext in Blöcken an deinen Embedding-Dienst geschickt; eine Frage sendet nur die wenigen gefundenen Blöcke, bei Bedarf plus Buchtitel, Kapitelname und die letzten Gesprächsrunden. Vektoren und Index bleiben im Plugin-Ordner und werden nicht hochgeladen.
+- Die Embeddings liefert das bz-Plugin (zweites Gehirn): ohne es gibt es keine Vektorsuche, nur den Weg über verdichtete Kernpunkte.
 - Der API-Schlüssel liegt mit den übrigen Einstellungen in `data.json` im Plugin-Ordner. Er geht nie an den Autor, sondern nur als Request-Header an den von dir eingestellten Endpunkt.
 
 ### Häufige Fragen
@@ -402,17 +423,20 @@ Faites d'Obsidian un endroit où lire. Bureau et mobile, plusieurs formats, huit
 | Sommaire, signets, quatre couleurs de surlignage et notes | ✓ | ✓ |
 | Recherche dans le livre | ✓ | ✓ |
 | Aperçu des notes de bas de page | ✓ | ✓ |
+| mobi / azw3 / fb2 / BD | — | ✓ |
 | Copier les surlignages en wikiliens | — | ✓ |
 | Export Markdown structuré | — | ✓ |
-| Cartes de citation | — | ✓ |
+| Images de cartes de citation | — | ✓ |
 | Statistiques, carte de chaleur, progression par livre | — | ✓ |
 | Recherche dans tous les livres | — | ✓ |
-| IA : réponses / résumés / explications / traduction | — | ✓ |
-| mobi / azw3 / fb2 / BD | — | ✓ |
+| IA : explications / traduction / résumés | — | ✓ |
+| Questions IA sur tout le livre | — | ✓ |
 | Composition verticale | — | ✓ |
 | Lecture à voix haute | — | ✓ |
 | Original et traduction côte à côte | — | ✓ |
 | Vue d'ensemble du livre | — | ✓ |
+| Recherche vectorielle locale dans le livre | — | ✓ |
+| Connexion à la base de connaissances BZ AI | — | ✓ |
 
 ### Langues de l'interface
 
@@ -433,7 +457,8 @@ L'édition de base est gratuite. Les fonctions Pro demandent une clé de licence
 Seules les fonctions d'IA vont en ligne ; tout le reste fonctionne hors ligne.
 
 - Les requêtes partent vers le point d'accès compatible OpenAI que vous configurez (votre serveur ou une API tierce). Le plugin n'a pas de serveur propre.
-- La requête contient le texte sélectionné ou saisi et la page courante (tronquée à 6000 caractères), plus le titre du livre, le nom du chapitre et les derniers échanges si nécessaire.
+- La construction de l'index du livre envoie le texte par blocs à votre service d'embedding ; une question n'envoie que les quelques blocs retrouvés, plus le titre du livre, le nom du chapitre et les derniers échanges si nécessaire. Les vecteurs et l'index restent dans le dossier du plugin et ne sont jamais téléversés.
+- Les embeddings viennent du plugin bz (second cerveau) : sans lui, pas de recherche vectorielle, seulement la voie des points clés condensés.
 - Votre clé d'API est stockée avec le reste des réglages dans `data.json`, dans le dossier du plugin. Elle n'est jamais envoyée à l'auteur ; elle ne part que vers le point d'accès que vous avez configuré, en en-tête de requête.
 
 ### Questions fréquentes
@@ -475,17 +500,20 @@ Convierte Obsidian en un lugar donde leer. Escritorio y móvil, varios formatos,
 | Índice, marcadores, cuatro colores de subrayado y notas | ✓ | ✓ |
 | Búsqueda dentro del libro | ✓ | ✓ |
 | Vista previa de notas al pie | ✓ | ✓ |
+| mobi / azw3 / fb2 / cómic | — | ✓ |
 | Copiar subrayados como wikienlaces | — | ✓ |
 | Exportación a Markdown estructurado | — | ✓ |
-| Tarjetas de cita | — | ✓ |
+| Imágenes de tarjetas de cita | — | ✓ |
 | Estadísticas, mapa de calor y progreso por libro | — | ✓ |
-| Búsqueda en todos los libros | — | ✓ |
-| IA: respuestas / resúmenes / explicaciones / traducción | — | ✓ |
-| mobi / azw3 / fb2 / cómic | — | ✓ |
+| Búsqueda entre libros | — | ✓ |
+| IA: explicaciones / traducción / resúmenes | — | ✓ |
+| Preguntas de IA sobre todo el libro | — | ✓ |
 | Composición vertical | — | ✓ |
 | Lectura en voz alta | — | ✓ |
 | Original y traducción en paralelo | — | ✓ |
 | Vista general del libro | — | ✓ |
+| Búsqueda vectorial local en el libro | — | ✓ |
+| Conexión con la base de conocimiento BZ AI | — | ✓ |
 
 ### Idiomas de la interfaz
 
@@ -506,7 +534,8 @@ La edición base es gratuita. Las funciones Pro requieren una clave de licencia;
 Solo las funciones de IA se conectan; todo lo demás funciona sin conexión.
 
 - Las peticiones van al punto de acceso compatible con OpenAI que configures (tu propio servidor o una API de terceros). El plugin no tiene servidor propio.
-- La petición incluye el texto seleccionado o escrito y la página actual (recortada a 6000 caracteres), y cuando hace falta el título del libro, el nombre del capítulo y los últimos turnos.
+- Al construir el índice del libro se envía el texto por bloques a tu servicio de embeddings; una pregunta solo envía los pocos bloques recuperados, y cuando hace falta el título del libro, el nombre del capítulo y los últimos turnos. Los vectores y el índice se quedan en la carpeta del plugin y no se suben.
+- Los embeddings los aporta el plugin bz (segundo cerebro): sin él no hay búsqueda vectorial, solo la vía de los puntos clave condensados.
 - Tu clave de API se guarda con el resto de ajustes en `data.json`, dentro de la carpeta del plugin. Nunca se envía al autor; solo viaja al punto de acceso que hayas configurado, como cabecera de la petición.
 
 ### Preguntas frecuentes
@@ -548,17 +577,20 @@ Transforme o Obsidian num lugar para ler. Desktop e celular, vários formatos, o
 | Sumário, marcadores, quatro cores de destaque e notas | ✓ | ✓ |
 | Pesquisa dentro do livro | ✓ | ✓ |
 | Prévia das notas de rodapé | ✓ | ✓ |
+| mobi / azw3 / fb2 / quadrinhos | — | ✓ |
 | Copiar destaques como wikilinks | — | ✓ |
 | Exportação em Markdown estruturado | — | ✓ |
-| Cartões de citação | — | ✓ |
+| Imagens de cartões de citação | — | ✓ |
 | Estatísticas, mapa de calor e progresso por livro | — | ✓ |
-| Pesquisa em todos os livros | — | ✓ |
-| IA: respostas / resumos / explicações / tradução | — | ✓ |
-| mobi / azw3 / fb2 / quadrinhos | — | ✓ |
+| Pesquisa entre livros | — | ✓ |
+| IA: explicações / tradução / resumos | — | ✓ |
+| Perguntas de IA sobre o livro inteiro | — | ✓ |
 | Composição vertical | — | ✓ |
 | Leitura em voz alta | — | ✓ |
 | Original e tradução lado a lado | — | ✓ |
 | Visão geral do livro | — | ✓ |
+| Busca vetorial local no livro | — | ✓ |
+| Conexão com a base de conhecimento BZ AI | — | ✓ |
 
 ### Idiomas da interface
 
@@ -579,7 +611,8 @@ A edição base é gratuita. Os recursos Pro exigem uma chave de licença; o pre
 Só os recursos de IA acessam a rede; todo o resto funciona offline.
 
 - As requisições vão para o endpoint compatível com OpenAI que você configurar (servidor próprio ou API de terceiros). O plugin não tem servidor próprio.
-- A requisição leva o texto selecionado ou digitado e a página atual (cortada em 6000 caracteres), além do título do livro, nome do capítulo e as últimas trocas quando necessário.
+- Ao montar o índice do livro, o texto é enviado em blocos ao seu serviço de embeddings; uma pergunta envia só os poucos blocos recuperados, além do título do livro, nome do capítulo e as últimas trocas quando necessário. Os vetores e o índice ficam na pasta do plugin e não são enviados.
+- Os embeddings vêm do plugin bz (segundo cérebro): sem ele não há busca vetorial, só o caminho dos pontos-chave condensados.
 - Sua chave de API fica com os demais ajustes em `data.json`, na pasta do plugin. Ela nunca é enviada ao autor; só vai para o endpoint que você configurou, como cabeçalho da requisição.
 
 ### Perguntas frequentes

@@ -14,6 +14,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   /* ── 通用詞 ──────────────────────────────────────────────── */
   'common.default': '預設',
   'common.untitled': '未命名',
+  'common.close': '關閉',
   'common.cancel': '取消',
   'common.unknownError': '未知錯誤',
 
@@ -404,8 +405,19 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.lic.relicense': '重新啟用',
   'settings.lic.activate': '啟用',
   'settings.lic.paid': '高級版',
-  'settings.lic.benefits': '匯出、統計、跨書搜尋、多格式等',
+  'settings.lic.benefits': '匯出、統計、跨書搜尋、AI 與多格式等',
   'settings.lic.compare': '查看功能對照',
+
+  /* ── 解锁弹层：功能对照表 ─────────────────────────────── */
+  'unlock.title': '高級版',
+  'unlock.activated': '已啟用',
+  'unlock.col.feature': '功能',
+  'unlock.col.base': '基礎版',
+  'unlock.col.pro': '高級版',
+  'unlock.part': '部分',
+  'unlock.buy': '前往購買',
+  'unlock.hint': '購買後取得啟用碼，填在下面即可',
+  'unlock.haveCode': '已有啟用碼',
 
   /* ── 設定頁：資料 ────────────────────────────────────────── */
   'settings.importDir': '書籍匯入位置',

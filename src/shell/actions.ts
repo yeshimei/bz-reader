@@ -296,7 +296,7 @@ function knowledgeEntry(kind: BzEntryKind, markId?: string, bookId?: string): vo
   const src = getShellSource();
   if (!src) return;
   const app: App = src.app;
-  if (!requireCap('ai')) return;
+  if (!requireCap('kb')) return;
   /* 自动识别（2026-11-07 起没有开关）：bz 缺失由下面的 openBzEntry 回一句
      「还没装 / 没启用 / 版本旧」，比这里再写一句笼统的话更指导下一步。
      工具条上的两颗按钮本身也按 bzEntryReady 出现，所以正常走不到失败分支。 */
@@ -391,6 +391,16 @@ function portraitDeps(bookId: string): PortraitBuildDeps | null {
     embedModel: () => bzEmbedder(src.app).model,
     chatModel: () => settings.ai.model || '',
   };
+}
+
+/**
+ * 建索引被拦下时该高亮哪一行。
+ *
+ * 向量方案 = 「书籍本地化向量检索」；压缩方案没有向量，本质是拿要点去问整本书，
+ * 那就高亮「AI 全书问答」。`can()` 不按 cap 细分，这里只是选一行给用户看。
+ */
+function indexCap(): Cap {
+  return RT.portraitPlan === 'vector' ? 'vector' : 'ai';
 }
 
 /** 拦截原因 → 一句人话（书没开 / 手机端 / 没配嵌入或对话模型） */
@@ -1319,7 +1329,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'hlai': {
       /* 点划线也能直接问 AI：以前这条工具条上根本没有 AI 这一颗，
          想解释划线原文只能先划一遍再点。与 selai 同一个面板，只是带上了 markId。 */
-      if (!requireCap('ai')) break;
+      if (!requireCap('aiSel')) break;
       const book = findBookOfMark(d.id, d.book);
       const h = book?.notes?.highlights.find((x) => x.id === d.id);
       if (!book || !h) {
@@ -1408,25 +1418,26 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (RT.sel) overlay('dict', { word: RT.sel.text.slice(0, 8) });
       break;
     case 'selai':
-      if (RT.sel && requireCap('ai'))
+      if (RT.sel && requireCap('aiSel'))
         overlay('ai', { text: RT.sel.text, mode: 'explain', anchor: RT.sel.anchor });
       break;
     /* 两颗知识库按钮和 AI 问答同一道门：按钮在授权掉了之后不再渲染，
-       但动作本身也该拦——data-act 是 DOM 属性，不是权限。 */
+       但动作本身也该拦——data-act 是 DOM 属性，不是权限。
+       用 kb 这个 cap：解锁弹层才能滚到「连接至 BZ AI 知识库」那一行。 */
     case 'selterm':
-      if (!requireCap('ai')) break;
+      if (!requireCap('kb')) break;
       knowledgeEntry('term');
       break;
     case 'selpassage':
-      if (!requireCap('ai')) break;
+      if (!requireCap('kb')) break;
       knowledgeEntry('passage');
       break;
     case 'hlterm':
-      if (!requireCap('ai')) break;
+      if (!requireCap('kb')) break;
       knowledgeEntry('term', d.id, d.book);
       break;
     case 'hlpassage':
-      if (!requireCap('ai')) break;
+      if (!requireCap('kb')) break;
       knowledgeEntry('passage', d.id, d.book);
       break;
     case 'selbilink': {
@@ -1475,7 +1486,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
     case 'ptopen': {
-      if (!requireCap('ai')) break;
+      if (!requireCap(indexCap())) break;
       const book = liveBooks().find((b) => b.id === (d.id || d.book || getState().bookId));
       if (!book) {
         notify(t('notice.needBook'), 'info');
@@ -1489,7 +1500,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
 
     /* ── 侧栏 AI 页签：建索引就地展开，不弹窗 ── */
     case 'aiidx': {
-      if (!requireCap('ai')) break;
+      if (!requireCap(indexCap())) break;
       revealIndexPanel();
       break;
     }
@@ -1504,7 +1515,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       }
       break;
     case 'aistart': {
-      if (!requireCap('ai')) break;
+      if (!requireCap(indexCap())) break;
       const book = currentBook();
       if (!book) {
         notify(t('notice.needBook'), 'info');
@@ -1522,7 +1533,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'aiidxrebuild': {
       /* 重建 = 删掉现有索引再整本重来，中途停不下、也算不回去：
          先弹一句问清楚，别让「看一下这颗是干什么的」直接变成一次重算。 */
-      if (!requireCap('ai')) break;
+      if (!requireCap(indexCap())) break;
       const book = currentBook();
       if (!book) {
         notify(t('notice.needBook'), 'info');

@@ -9,6 +9,8 @@
    4. 列出你不确认、需要我回答的问题。
    等我确认后再改动代码。
 3. **再走 TDD**：先写 `tests/<模块>.test.ts` 让它红，再改实现让它绿；修 bug 先写复现断言并永久保留，测试与实现同一提交；纯样式（CSS）例外，提交信息写「无逻辑变更，走真机冒烟」并说明冒烟了什么。
+4. **多语言只在准备上架那一版时补齐**：日常开发、修 bug、feature 分支**不**给外语配翻译。新增文案只把 `zh`（基准包）和 `en` 写实，其余六包放占位顶住门禁——`ja`/`de`/`fr`/`es`/`pt` 直接放英文原值，`zh-TW` 必须放繁体写法（`tests/i18n-packs.test.ts` 会查简体字）。正式翻译、术语统一、润色统一放到发版前一次做完，见「上架」的上架顺序第 2 步。
+   - 更新日志永远只有中英两版（`changelogLang()`），任何版本都不补其余六种。
 
 ## 提交前必过三道门
 在仓库 `D:\Obsidian\bz-reader` 跑：
@@ -17,7 +19,7 @@ node node_modules/typescript/bin/tsc --noEmit
 node node_modules/vitest/vitest.mjs run
 node esbuild.config.mjs once
 ```
-三条全绿才能 commit；只跑 tsc 不算过门。上架前再加 `node scripts/lint-obsidian.mjs`（第 10 节）。
+三条全绿才能 commit；只跑 tsc 不算过门。上架前再加 `node scripts/lint-obsidian.mjs`（见「上架」一节）。
 
 ## 部署
 - “部署”= 同一份产物同时落到**主仓库根**和**测试库插件目录**，缺一不算。
@@ -90,13 +92,14 @@ node scripts/lint-obsidian.mjs
 
 上架顺序：
 1. `node scripts/lint-obsidian.mjs` → 0/0；
-2. 三道门（tsc / vitest / esbuild once）；
-3. `manifest.json` 的 `version`、`versions.json`、`README` badge 三处同步；
-4. `node esbuild.config.mjs production`（落仓库根三件套：`main.js` / `manifest.json` / `styles.css`）；
-5. 提交、推送、打 tag——**tag 与 `manifest.version` 逐字相同，不带 `v`**；
-6. `gh release create <版本> --notes-file docs/note-v<版本>.md main.js manifest.json styles.css`；
-7. `node scripts/push-gitee.mjs`：镜像到码云（Release 页 + 三件套资产）；
-8. 在 `community.obsidian.md` 提交。
+2. **补齐本版多语言**：把本次改动新增/改动的文案在 `src/i18n/` 里七种外语全部换成正式翻译（替换开发期留的英文/繁体占位）。自查四条——key 集合与 `zh.ts` 一致、无空串、`{占位符}`与中文逐条相同、拉丁语系包无汉字且 `zh-TW` 无简体字（跑 `vitest run tests/i18n-packs.test.ts` 就是这套）；
+3. 三道门（tsc / vitest / esbuild once）；
+4. `manifest.json` 的 `version`、`versions.json`、`README` badge 三处同步；
+5. `node esbuild.config.mjs production`（落仓库根三件套：`main.js` / `manifest.json` / `styles.css`）；
+6. 提交、推送、打 tag——**tag 与 `manifest.version` 逐字相同，不带 `v`**；
+7. `gh release create <版本> --notes-file docs/note-v<版本>.md main.js manifest.json styles.css`；
+8. `node scripts/push-gitee.mjs`：镜像到码云（Release 页 + 三件套资产）；
+9. 在 `community.obsidian.md` 提交。
 
 目录审核要点：仓库根有 `README.md` / `LICENSE` / `manifest.json`；Release 附三件套；`README` 披露「完整功能需付费」与网络访问。
 

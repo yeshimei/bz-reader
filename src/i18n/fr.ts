@@ -18,6 +18,7 @@ export const FR: Record<MsgKey, string> = {
   /* ── Mots courants ──────────────────────────────────────── */
   'common.default': 'par défaut',
   'common.untitled': 'Sans titre',
+  'common.close': 'Fermer',
   'common.cancel': 'Annuler',
   'common.unknownError': 'Erreur inconnue',
 
@@ -415,8 +416,19 @@ export const FR: Record<MsgKey, string> = {
   'settings.lic.relicense': 'Réactiver',
   'settings.lic.activate': 'Activer',
   'settings.lic.paid': 'Pro',
-  'settings.lic.benefits': 'Export, statistiques, recherche multi-livres, formats supplémentaires',
+  'settings.lic.benefits': 'Export, statistiques, recherche multi-livres, IA, formats supplémentaires',
   'settings.lic.compare': 'Comparer les fonctions',
+
+  /* ── 解锁弹层：功能对照表 ─────────────────────────────── */
+  'unlock.title': 'Pro',
+  'unlock.activated': 'Activé',
+  'unlock.col.feature': 'Fonction',
+  'unlock.col.base': 'Base',
+  'unlock.col.pro': 'Pro',
+  'unlock.part': 'Partiel',
+  'unlock.buy': 'Acheter Pro',
+  'unlock.hint': 'Vous recevrez un code de licence après l’achat ; saisissez-le ci-dessous.',
+  'unlock.haveCode': 'Déjà un code',
 
   /* ── Réglages : données ─────────────────────────────────── */
   'settings.importDir': 'Importer les livres dans',
