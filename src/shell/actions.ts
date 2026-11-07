@@ -574,7 +574,12 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'close':
       /* 建画像时关闭弹层 = 暂停：进度留在盘上，下次进来接着跑。
          不这么做的话，用户关个窗口就把几十次请求的成果丢了。 */
-      if (getState().overlay?.kind === 'portrait') portraitBuilder().pause();
+      if (getState().overlay?.kind === 'portrait') {
+        portraitBuilder().pause();
+        /* 遮罩点击 / Esc 关掉准备页也走这里——否则回答依据仍停在「全书」，
+           残留的问题还会在下次点「开始提问」时被当成新问题重发。 */
+        backToScreen();
+      }
       closeOverlay();
       break;
     case 'search':

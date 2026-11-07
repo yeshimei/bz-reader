@@ -1214,7 +1214,9 @@ export class OverlayLayer {
       t.blur();
       return;
     }
-    closeOverlay();
+    /* 走关闭动作而不是直接 closeOverlay：弹层关闭要带副作用
+       （建画像时暂停 + 退回「当前这一屏」）。直接关会绕过它们。 */
+    this.onAction('close', this.root);
     e.preventDefault();
     /* 只在真的要关的时候截住（P3-14）：以前无条件 stopImmediatePropagation，
        阅读视图的 Esc（退出沉浸 / 收划词条）永远收不到。 */

@@ -68,17 +68,18 @@ function clip(text: string, max: number): string {
  * 结果切到全书之后，模型看不到用户正在看的那一段。
  */
 export function joinScopeContext(evidence: string, page: string, limit = AI_CONTEXT_LIMIT): string {
-  const pageText = clip(page, PAGE_CONTEXT_KEEP);
-  const source = String(evidence ?? '').trim();
+  const head = `【${t('side.ai.scope.screen')}】\n`;
+  const total = Math.max(0, Math.floor(limit) || 0);
+  if (!total) return '';
+  /* 这一屏的定额不能顶穿上限：limit 被调小时（更紧的模型、测试），定额跟着收。 */
+  const pageText = clip(page, Math.min(PAGE_CONTEXT_KEEP, Math.max(0, total - head.length - 2)));
+  /* 依据也要截：这一屏为空时以前整段原样返回，9000 字也照发。 */
+  const source = clip(evidence, total);
   if (!pageText) return source;
   if (!source) return pageText;
-  const head = `【${t('side.ai.scope.screen')}】
-`;
-  const room = Math.max(0, limit - pageText.length - head.length - 2 /* 两个换行 */);
+  const room = Math.max(0, total - pageText.length - head.length - 2);
   if (room < 40) return pageText;
-  return `${head}${pageText}
-
-${clip(source, room)}`;
+  return `${head}${pageText}\n\n${clip(source, room)}`;
 }
 
 /**

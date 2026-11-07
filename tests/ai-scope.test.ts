@@ -129,3 +129,26 @@ describe('全书来源可点', () => {
     expect(sourcesOfBlocks('b1', many)).toHaveLength(5);
   });
 });
+
+/**
+ * 上限是硬承诺，不是「一般情况下能守住」。
+ *
+ * 两种情况以前会漏：这一屏为空时依据整段原样返回（9000 字也照发）；
+ * limit 被调得比这一屏的定额（1200）还小时，单这一屏就顶穿了。
+ * 生产调用是 6000 + 非空这一屏，所以没露出来——但参数摆在那儿就会被传。
+ */
+describe('拼接 · 上限的边界', () => {
+  it('这一屏为空：依据也要截到上限', () => {
+    const out = joinScopeContext('依'.repeat(9000), '', 6000);
+    expect(out.length).toBeLessThanOrEqual(6000);
+  });
+
+  it('上限小到装不下这一屏的定额时，定额跟着收', () => {
+    const out = joinScopeContext('依据', '屏'.repeat(500), 100);
+    expect(out.length).toBeLessThanOrEqual(100);
+  });
+
+  it('上限为 0 时给空串，不给半句话', () => {
+    expect(joinScopeContext('依据', '屏幕', 0)).toBe('');
+  });
+});
