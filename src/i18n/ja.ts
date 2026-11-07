@@ -440,16 +440,13 @@ export const JA: Record<MsgKey, string> = {
   'key.tts': '読み上げの切り替え',
   'key.continue': '最近読んだ本の続きから',
 
-  /* ── AI 知识库 / 全书画像（2026-11-07） ─────────────────── */
+  /* ── AI 知识库（2026-11-07） ─────────────────── */
   'bz.missing': 'bz プラグインが未インストールです。まず Obsidian のコミュニティプラグインから bz を入れてください',
   'bz.noEmbedModel': 'セカンドブレインで埋め込みモデルが未選択です。bz の設定で選ぶとこちらで索引を作れます。',
-  'settings.ai.kb.off': 'セカンドブレイン（bz）が見つかりません：選択も質問もこの本だけを使います。',
-  'settings.ai.kb.on': 'セカンドブレインに接続済み：選択時に「用語 / 段落として保存」が増え、質問ではノートも参照します。',
-  'settings.ai.vector.missing': 'bz をインストールして有効化し、bz 側で埋め込みモデルを選ぶと索引を作れます。',
-  'settings.ai.vector.hint': 'ベクトルはセカンドブレイン（bz）が計算します。ここでモデルを選ぶ必要はありません。',
-  'settings.ai.vector.none': 'セカンドブレインが見つかりません',
-  'settings.ai.vector.bz': 'セカンドブレイン · {model}',
-  'settings.ai.vector': 'ベクトルストア',
+  'settings.ai.kb': 'BZ AI ナレッジベースに接続',
+  'settings.ai.kb.on': '接続済み',
+  'settings.ai.kb.off': '未接続',
+  'settings.ai.kb.hint': '選択時に「用語 / 段落として保存」を追加すると、書籍のローカルベクトル索引を作れます。質問ではナレッジベースのノートも参照します。',
   'bz.disabled': 'bz は入っていますが無効です。「設定 → コミュニティプラグイン」で有効にしてください',
   'bz.outdated': 'bz のバージョン（{version}）が古いため使えません。最新版に更新してください',
   'bz.callFailed': 'bz がリクエストを受け取れませんでした：{message}',

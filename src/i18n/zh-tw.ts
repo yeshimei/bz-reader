@@ -436,16 +436,13 @@ export const ZH_TW: Record<MsgKey, string> = {
   'key.tts': '朗讀開關',
   'key.continue': '繼續閱讀最近一本',
 
-  /* ── AI 知识库 / 全书画像（2026-11-07） ─────────────────── */
+  /* ── AI 知识库（2026-11-07） ─────────────────── */
   'bz.missing': 'bz 外掛還沒裝：先在 Obsidian 的第三方外掛裡裝上 bz',
   'bz.noEmbedModel': '第二大腦還沒選嵌入模型：在 bz 的設定裡選一個，這邊才能建立索引。',
-  'settings.ai.kb.off': '未偵測到第二大腦（bz）：劃詞與提問都只用到這本書。',
-  'settings.ai.kb.on': '已連上第二大腦：劃詞多出「存為名詞 / 存為段落」，提問時會一併參考它的筆記。',
-  'settings.ai.vector.missing': '安裝並啟用 bz、在它的設定裡選好嵌入模型，才能建立索引。',
-  'settings.ai.vector.hint': '向量由第二大腦（bz）計算，這裡不用選模型。',
-  'settings.ai.vector.none': '未偵測到第二大腦',
-  'settings.ai.vector.bz': '第二大腦 · {model}',
-  'settings.ai.vector': '向量庫',
+  'settings.ai.kb': '連接至 BZ AI 知識庫',
+  'settings.ai.kb.on': '已連線',
+  'settings.ai.kb.off': '未連線',
+  'settings.ai.kb.hint': '在劃詞中新增存為名詞 / 存為段落，可以為書籍建立本機向量化索引，提問時會一併參考庫裡的筆記。',
   'bz.disabled': 'bz 外掛沒有啟用：到「設定 → 第三方外掛」裡把 bz 打開',
   'bz.outdated': 'bz 版本太舊（{version}）：更新到最新版才能用這項功能',
   'bz.callFailed': 'bz 沒接住這次請求：{message}',

@@ -449,16 +449,13 @@ export const PT: Record<MsgKey, string> = {
   'key.tts': 'Ativar a leitura em voz alta',
   'key.continue': 'Continuar a última leitura',
 
-  /* ── AI 知识库 / 全书画像（2026-11-07） ─────────────────── */
+  /* ── AI 知识库（2026-11-07） ─────────────────── */
   'bz.missing': 'O bz ainda não está instalado: instale-o nos plugins da comunidade do Obsidian',
   'bz.noEmbedModel': 'O Second Brain ainda não tem modelo de embeddings: escolha um no bz para criar o índice aqui.',
-  'settings.ai.kb.off': 'Second Brain (bz) não detetado: seleções e perguntas usam apenas este livro.',
-  'settings.ai.kb.on': 'Ligado ao Second Brain: as seleções ganham «guardar como termo / passagem» e as perguntas também usam as suas notas.',
-  'settings.ai.vector.missing': 'Instale e ative o bz, escolha lá um modelo de embeddings e depois crie o índice.',
-  'settings.ai.vector.hint': 'Os vetores são calculados pelo Second Brain (bz); aqui não há modelo para escolher.',
-  'settings.ai.vector.none': 'Second Brain não detetado',
-  'settings.ai.vector.bz': 'Second Brain · {model}',
-  'settings.ai.vector': 'Base vetorial',
+  'settings.ai.kb': 'Ligar à base de conhecimento BZ AI',
+  'settings.ai.kb.on': 'Ligado',
+  'settings.ai.kb.off': 'Não ligado',
+  'settings.ai.kb.hint': 'Guardar como termo / passagem a partir de uma seleção permite criar um índice vetorial local do livro; as perguntas também usam as notas da biblioteca.',
   'bz.disabled': 'O bz está instalado mas desativado: ative em Configurações → Plugins da comunidade',
   'bz.outdated': 'Sua versão do bz ({version}) está desatualizada: atualize',
   'bz.callFailed': 'O bz não aceitou a solicitação: {message}',

@@ -1379,6 +1379,41 @@
   flex: 1;
 }
 
+/* AI 组「连接至 BZ AI 知识库」的状态：只有连没连上两种。
+   未连接退到 --t3（读的时候不该抢）；连上换成 --t2 并点一颗铜色实心点。
+   不引第二种语义色（绿）：整页只有强调色一套，成功色会跟「观看视频教程」
+   抢注意力，而那个按钮才是这一行唯一要人动手的东西。 */
+.bzs-kbstate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--t3);
+  letter-spacing: .04em;
+}
+
+.bzs-kbstate i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .5;
+}
+
+.bzs-kbstate.on {
+  color: var(--t2);
+}
+
+.bzs-kbstate.on i {
+  background: var(--copper);
+  opacity: 1;
+}
+
+/* 教程按钮紧贴说明文字：吃一条 .bzs-setrow 的分隔线会把一句话拆成两条设置 */
+.bzs-kbacts {
+  margin: -2px 0 2px;
+}
+
 /* 分段选择器 */
 .bzs-seg {
   display: flex;

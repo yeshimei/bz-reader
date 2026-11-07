@@ -447,16 +447,13 @@ export const DE: Record<MsgKey, string> = {
   'key.tts': 'Vorlesen umschalten',
   'key.continue': 'Zuletzt Gelesenes fortsetzen',
 
-  /* ── AI 知识库 / 全书画像（2026-11-07） ─────────────────── */
+  /* ── AI 知识库（2026-11-07） ─────────────────── */
   'bz.missing': 'bz ist noch nicht installiert – installiere es zuerst über die Community-Plugins von Obsidian',
   'bz.noEmbedModel': 'Im Second Brain ist noch kein Embedding-Modell gewählt — dort eins auswählen, dann kann hier ein Index entstehen.',
-  'settings.ai.kb.off': 'Second Brain (bz) nicht gefunden: Markierungen und Fragen nutzen nur dieses Buch.',
-  'settings.ai.kb.on': 'Mit dem Second Brain verbunden: Markierungen bieten „als Begriff / Absatz speichern“, Fragen beziehen seine Notizen mit ein.',
-  'settings.ai.vector.missing': 'bz installieren, aktivieren und dort ein Embedding-Modell wählen, dann lässt sich ein Index erstellen.',
-  'settings.ai.vector.hint': 'Vektoren berechnet das Second Brain (bz); hier ist kein Modell zu wählen.',
-  'settings.ai.vector.none': 'Second Brain nicht gefunden',
-  'settings.ai.vector.bz': 'Second Brain · {model}',
-  'settings.ai.vector': 'Vektorspeicher',
+  'settings.ai.kb': 'Mit der BZ AI Knowledge Base verbinden',
+  'settings.ai.kb.on': 'Verbunden',
+  'settings.ai.kb.off': 'Nicht verbunden',
+  'settings.ai.kb.hint': 'Über „als Begriff / Absatz speichern“ in der Markierung lässt sich ein lokaler Vektorindex für das Buch aufbauen; Fragen beziehen auch die Notizen der Bibliothek mit ein.',
   'bz.disabled': 'bz ist installiert, aber deaktiviert – aktiviere es unter Einstellungen → Community-Plugins',
   'bz.outdated': 'Deine bz-Version ({version}) ist zu alt – aktualisiere sie',
   'bz.callFailed': 'bz hat die Anfrage nicht angenommen: {message}',

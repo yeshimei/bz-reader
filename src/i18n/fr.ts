@@ -449,16 +449,13 @@ export const FR: Record<MsgKey, string> = {
   'key.tts': 'Activer la lecture vocale',
   'key.continue': 'Reprendre la dernière lecture',
 
-  /* ── AI 知识库 / 全书画像（2026-11-07） ─────────────────── */
+  /* ── AI 知识库（2026-11-07） ─────────────────── */
   'bz.missing': 'bz n\'est pas encore installé : installe-le depuis les plugins communautaires d\'Obsidian',
   'bz.noEmbedModel': 'Aucun modèle d’embedding choisi dans le Second Brain : choisissez-en un dans bz pour créer un index ici.',
-  'settings.ai.kb.off': 'Second Brain (bz) introuvable : sélections et questions n’utilisent que ce livre.',
-  'settings.ai.kb.on': 'Connecté au Second Brain : les sélections proposent « enregistrer comme terme / passage », et les questions tiennent compte de ses notes.',
-  'settings.ai.vector.missing': 'Installez et activez bz, choisissez-y un modèle d’embedding, puis créez l’index.',
-  'settings.ai.vector.hint': 'Les vecteurs sont calculés par le Second Brain (bz) ; aucun modèle à choisir ici.',
-  'settings.ai.vector.none': 'Second Brain introuvable',
-  'settings.ai.vector.bz': 'Second Brain · {model}',
-  'settings.ai.vector': 'Base vectorielle',
+  'settings.ai.kb': 'Se connecter à la base de connaissances BZ AI',
+  'settings.ai.kb.on': 'Connecté',
+  'settings.ai.kb.off': 'Non connecté',
+  'settings.ai.kb.hint': 'Enregistrer un terme / passage depuis une sélection permet de construire un index vectoriel local du livre ; les questions tiennent aussi compte des notes de la bibliothèque.',
   'bz.disabled': 'bz est installé mais désactivé : active-le dans Paramètres → Modules complémentaires',
   'bz.outdated': 'Ta version de bz ({version}) est trop ancienne : mets-la à jour',
   'bz.callFailed': 'bz n\'a pas pris la requête : {message}',

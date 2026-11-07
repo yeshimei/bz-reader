@@ -444,16 +444,13 @@ export const ZH = {
   'key.tts': '朗读开关',
   'key.continue': '继续阅读最近一本',
 
-  /* ── AI 知识库 / 全书画像（2026-11-07） ─────────────────── */
+  /* ── AI 知识库（2026-11-07） ─────────────────────────── */
   'bz.missing': 'bz 插件还没装：先在 Obsidian 的第三方插件里装上 bz',
   'bz.noEmbedModel': '第二大脑还没选嵌入模型：在 bz 的设置里选一个，这边才能建索引。',
-  'settings.ai.kb.off': '未检测到第二大脑（bz）：划词与提问都只用到这本书。',
-  'settings.ai.kb.on': '已连上第二大脑：划词多出「存为名词 / 存为段落」，提问时会一并参考它的笔记。',
-  'settings.ai.vector.missing': '装上并启用 bz、在它的设置里选好嵌入模型，才能建索引。',
-  'settings.ai.vector.hint': '向量由第二大脑（bz）算，这里不用选模型。',
-  'settings.ai.vector.none': '未检测到第二大脑',
-  'settings.ai.vector.bz': '第二大脑 · {model}',
-  'settings.ai.vector': '向量库',
+  'settings.ai.kb': '连接至 BZ AI 知识库',
+  'settings.ai.kb.on': '已连接',
+  'settings.ai.kb.off': '未连接',
+  'settings.ai.kb.hint': '在划词中添加存为名词 / 存为段落，可以为书籍建立本地向量化索引，提问时会一并参考库里的笔记。',
   'bz.disabled': 'bz 插件没有启用：到「设置 → 第三方插件」里把 bz 打开',
   'bz.outdated': 'bz 版本太旧（{version}）：更新到最新版才能用这项功能',
   'bz.callFailed': 'bz 没接住这次请求：{message}',

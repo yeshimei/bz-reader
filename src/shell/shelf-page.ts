@@ -94,8 +94,8 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
           ),
           relicense: state.relicense,
           version: getShellSource()?.version?.() || '',
-          /* 向量库/知识库两行是自动识别的，这里现探一次：切换 bz 后重进设置页
-             看到的就是新状态，不缓存。 */
+          /* 「连接至 BZ AI 知识库」那一行是自动识别的，这里现探一次：切换 bz 后
+             重进设置页看到的就是新状态，不缓存。 */
           bz: bzSnapshot(getShellSource()?.app),
         }),
         counts,

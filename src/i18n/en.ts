@@ -449,16 +449,13 @@ export const EN: Record<MsgKey, string> = {
   'key.tts': 'Toggle read aloud',
   'key.continue': 'Continue last book',
 
-  /* ── AI 知识库 / 全书画像（2026-11-07） ─────────────────── */
+  /* ── AI 知识库（2026-11-07） ─────────────────── */
   'bz.missing': 'bz isn\'t installed yet — install it from Obsidian\'s community plugins first',
   'bz.noEmbedModel': 'The Second Brain has no embedding model yet — pick one in bz settings to build an index here.',
-  'settings.ai.kb.off': 'Second Brain (bz) not detected: selections and questions only use this book.',
-  'settings.ai.kb.on': 'Connected to the Second Brain: selections gain "save as term / passage", and questions also draw on its notes.',
-  'settings.ai.vector.missing': 'Install and enable bz and pick an embedding model there before building an index.',
-  'settings.ai.vector.hint': 'Vectors are computed by the Second Brain (bz); no model to pick here.',
-  'settings.ai.vector.none': 'Second Brain not detected',
-  'settings.ai.vector.bz': 'Second Brain · {model}',
-  'settings.ai.vector': 'Vector store',
+  'settings.ai.kb': 'Link to BZ AI Knowledge Base',
+  'settings.ai.kb.on': 'Connected',
+  'settings.ai.kb.off': 'Not connected',
+  'settings.ai.kb.hint': 'Save a term / passage from a selection to build a local vector index for the book; questions then also draw on the notes in your library.',
   'bz.disabled': 'bz is installed but turned off — enable it in Settings → Community plugins',
   'bz.outdated': 'Your bz version ({version}) is too old — update it to use this',
   'bz.callFailed': 'bz didn\'t take the request: {message}',
