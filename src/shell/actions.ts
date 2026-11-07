@@ -100,7 +100,7 @@ import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { aiCardDrop, aiCardFail, aiCardKey, aiModeOf } from './ai-card';
 import { runAiForOverlay } from './overlay';
 import { DEFAULT_SETTINGS, aiReady } from '../data/settings';
-import { copyGroupId, copyGroupIdForTrial } from './group';
+import { copyGroupId } from './group';
 
 /** 当前上下文里的书：优先状态里记住的那本，否则取书库第一本 */
 function currentBook(): ReaderBook | undefined {
@@ -1032,10 +1032,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     case 'buy':
       window.open(PURCHASE_URL, '_blank');
-      break;
-    case 'jointrial':
-      /* 灰测：只复制群号，7 天试用码由群管理员人工发 */
-      void copyGroupIdForTrial();
       break;
     case 'relicense':
       /* 已激活的人换码（试用 → 正式版）：直接放开输入框，原码留着方便替换 */

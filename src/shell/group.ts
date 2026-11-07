@@ -11,35 +11,24 @@
 
 import { notify } from '../core/notice';
 import { t } from '../i18n';
-import { GROUP_ID, TRIAL_ACTIVE } from '../data/entitlement';
+import { GROUP_ID } from '../data/entitlement';
 
 /**
  * 解锁弹层里的群按钮。
  *
- * `TRIAL_ACTIVE = false`（2026-11-03 起不对外发试用）时**整颗不渲染**：
- * 授权状态机明确要求界面上一个字都不提试用，留一颗「进群领试用」等于
- * 让用户去群里领一个根本不存在的码。合并成一颗按钮的理由见下方注释，
- * 恢复试用时把开关打开即可，这里不用再改。
+ * 2026-11-03 起不对外发试用，这颗按钮从「进群领试用」退成纯加群入口：
+ * 常驻渲染、只印群号。留着试用字样等于让用户去群里领一枚根本不存在的码。
+ * 动作与设置页「关于」条那颗共用（`copygroup`），两处点下去说同一句话。
  */
-export function trialButtonHtml(): string {
-  if (!TRIAL_ACTIVE) return '';
-  return `<button class="bzs-btn" data-act="jointrial">进群领试用 · ${GROUP_ID}</button>`;
-}
-
-export async function copyGroupIdForTrial(): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(GROUP_ID);
-    notify(t('notice.group.trialOk', { id: GROUP_ID }));
-  } catch {
-    notify(t('notice.group.trialFail', { id: GROUP_ID }), 'error');
-  }
+export function groupButtonHtml(): string {
+  return `<button class="bzs-btn" data-act="copygroup">${t('unlock.group', { id: GROUP_ID })}</button>`;
 }
 
 /**
- * 关于条里那颗「交流群」：只是加群，不谈试用。
+ * 点一下复制群号。
  *
- * 和上面那颗分开写是为了文案：解锁弹层里的人正准备掏钱，「进群领试用」
- * 才是他要的下一步；设置页里的人只是想知道群里在哪，再提试用就成了推销。
+ * 解锁弹层与设置页关于条都走这里：两个入口的目的地相同（去 QQ 搜群号），
+ * 就该只有一套话术。
  */
 export async function copyGroupId(): Promise<void> {
   try {

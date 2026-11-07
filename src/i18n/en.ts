@@ -170,8 +170,6 @@ export const EN: Record<MsgKey, string> = {
   'notice.bookmark.toggledOff': 'Bookmark removed',
 
   /* ── Notices: community group (QQ) ──────────────────────── */
-  'notice.group.trialOk': 'Copied group {id} — join and ask an admin for a 7-day trial code',
-  'notice.group.trialFail': 'Copy failed. Group is {id} — join and ask an admin for a 7-day trial',
   'notice.group.plainOk': 'Copied group {id} — search for it in QQ to join',
   'notice.group.plainFail': 'Copy failed. Group is {id} — search for it in QQ to join',
 
@@ -432,6 +430,7 @@ export const EN: Record<MsgKey, string> = {
   'unlock.col.pro': 'Pro',
   'unlock.part': 'Partial',
   'unlock.buy': 'Get Pro',
+  'unlock.group': 'QQ group {id}',
   'unlock.hint': 'You will receive a license code after purchase; enter it below.',
   'unlock.haveCode': 'Already have a code',
 

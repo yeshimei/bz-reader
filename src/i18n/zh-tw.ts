@@ -161,8 +161,6 @@ export const ZH_TW: Record<MsgKey, string> = {
   'notice.bookmark.toggledOff': '已移除書籤',
 
   /* ── 通知：交流群（QQ） ──────────────────────────────────── */
-  'notice.group.trialOk': '已複製群號 {id}，進群後找管理員領取 7 天試用碼',
-  'notice.group.trialFail': '複製失敗，群號是 {id}，進群找管理員領取 7 天試用',
   'notice.group.plainOk': '已複製群號 {id}，到 QQ 搜尋就能加入',
   'notice.group.plainFail': '複製失敗，群號是 {id}，到 QQ 搜尋加入',
 
@@ -420,6 +418,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'unlock.col.pro': '高級版',
   'unlock.part': '部分',
   'unlock.buy': '前往購買',
+  'unlock.group': 'QQ交流群 {id}',
   'unlock.hint': '購買後取得啟用碼，填在下面即可',
   'unlock.haveCode': '已有啟用碼',
 

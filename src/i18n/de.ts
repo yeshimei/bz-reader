@@ -165,8 +165,6 @@ export const DE: Record<MsgKey, string> = {
   'notice.bookmark.toggledOff': 'Lesezeichen entfernt',
 
   /* ── Hinweise: Gruppe (QQ) ──────────────────────────────── */
-  'notice.group.trialOk': 'Gruppennummer {id} kopiert – tritt bei und frage einen Admin nach einem 7-Tage-Testcode',
-  'notice.group.trialFail': 'Kopieren fehlgeschlagen. Gruppe ist {id} – tritt bei und frage einen Admin nach einem 7-Tage-Test',
   'notice.group.plainOk': 'Gruppennummer {id} kopiert – suche sie in QQ, um beizutreten',
   'notice.group.plainFail': 'Kopieren fehlgeschlagen. Gruppe ist {id} – suche sie in QQ, um beizutreten',
 
@@ -429,6 +427,7 @@ export const DE: Record<MsgKey, string> = {
   'unlock.col.pro': 'Pro',
   'unlock.part': 'Teilweise',
   'unlock.buy': 'Pro kaufen',
+  'unlock.group': 'QQ group {id}',
   'unlock.hint': 'Nach dem Kauf erhältst du einen Lizenzcode; gib ihn unten ein.',
   'unlock.haveCode': 'Code bereits vorhanden',
 

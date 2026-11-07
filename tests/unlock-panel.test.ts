@@ -1,27 +1,85 @@
-import { describe, expect, it, vi } from 'vitest';
-import { GROUP_ID, TRIAL_ACTIVE } from '../src/data/entitlement';
-import { copyGroupIdForTrial, trialButtonHtml } from '../src/shell/group';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * 解锁弹层里的群入口。
  *
- * 2026-11-03 起不对外发试用（TRIAL_ACTIVE = false），授权状态机要求
- * 「界面上一个字都不提试用」，所以整颗按钮不渲染。留着它等于让用户
- * 去群里领一枚根本不存在的码。恢复试用只要把开关打开，按钮自己回来。
+ * 2026-11-03 起不对外发试用，弹层里那颗按钮只做一件事：把群号递出去。
+ * 所以它必须**常驻可见**（不是试用期的奖励），文案里也不能出现「试用」——
+ * 用户加进去却领不到码，比没有入口更难看。
  */
-describe('解锁弹层 · 群入口', () => {
-  it('不发试用时不渲染「进群领试用」', () => {
-    expect(TRIAL_ACTIVE).toBe(false);
-    expect(trialButtonHtml()).toBe('');
+
+/* notify 走 Obsidian 的 Notice，node 里拿不到弹出来的那条；换成收集器 */
+const notices = vi.hoisted(() => [] as string[]);
+vi.mock('../src/core/notice', () => ({
+  notify: (text: string) => void notices.push(text),
+}));
+
+/* entitlement() 读宿主存储；弹层只需要「现在是什么档位」这一个事实 */
+vi.mock('../src/data/entitlement', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/data/entitlement')>();
+  return {
+    ...actual,
+    entitlement: () => ({
+      tier: 'free' as const,
+      unlocked: false,
+      trialLeft: 0,
+      trialUsed: 0,
+      exp: 0,
+      license: '',
+      trialVoid: false,
+      installId: 'test',
+      days: [],
+    }),
+  };
+});
+
+import { GROUP_ID, TRIAL_ACTIVE } from '../src/data/entitlement';
+import { setLocale } from '../src/i18n';
+import { copyGroupId, groupButtonHtml } from '../src/shell/group';
+import { overlayUnlock } from '../src/shell/overlay';
+
+afterEach(() => {
+  setLocale('zh');
+  notices.length = 0;
+  vi.unstubAllGlobals();
+});
+
+describe('解锁弹层 · 交流群入口', () => {
+  it('免费版弹层里就有这颗按钮，印着群号', () => {
+    const html = overlayUnlock();
+    expect(html).toContain(GROUP_ID);
+    expect(html).toContain('QQ');
   });
 
-  it('点击把群号写进剪贴板', async () => {
+  it('不提试用：界面上的字不能指向一枚不再发出的码', () => {
+    expect(TRIAL_ACTIVE).toBe(false);
+    expect(groupButtonHtml()).not.toContain('试用');
+    expect(overlayUnlock()).not.toContain('试用');
+  });
+
+  it('按钮挂着设置页那条复制动作，不是单独的试用分支', () => {
+    expect(groupButtonHtml()).toContain('data-act="copygroup"');
+  });
+
+  it('换界面语言后按钮还在，群号不随语言漂移', () => {
+    setLocale('en');
+    const html = overlayUnlock();
+    expect(html).toContain(GROUP_ID);
+    expect(html).toContain('QQ');
+  });
+});
+
+describe('解锁弹层 · 点按钮', () => {
+  it('复制群号本身，提示去 QQ 搜索而不是领试用', async () => {
     const writes: string[] = [];
     vi.stubGlobal('navigator', {
       clipboard: { writeText: async (text: string) => void writes.push(text) },
     });
-    await copyGroupIdForTrial();
+
+    await copyGroupId();
+
     expect(writes).toEqual([GROUP_ID]);
-    vi.unstubAllGlobals();
+    expect(notices.join('')).toContain(GROUP_ID);
+    expect(notices.join('')).not.toContain('试用');
   });
 });

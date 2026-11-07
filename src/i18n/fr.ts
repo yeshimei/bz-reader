@@ -165,8 +165,6 @@ export const FR: Record<MsgKey, string> = {
   'notice.bookmark.toggledOff': 'Signet retiré',
 
   /* ── Notifications : groupe (QQ) ────────────────────────── */
-  'notice.group.trialOk': 'Numéro de groupe {id} copié — rejoignez-le et demandez un code d’essai de 7 jours à un administrateur',
-  'notice.group.trialFail': 'Échec de la copie. Le groupe est {id} — rejoignez-le et demandez un essai de 7 jours à un administrateur',
   'notice.group.plainOk': 'Numéro de groupe {id} copié — recherchez-le dans QQ pour le rejoindre',
   'notice.group.plainFail': 'Échec de la copie. Le groupe est {id} — recherchez-le dans QQ pour le rejoindre',
 
@@ -431,6 +429,7 @@ export const FR: Record<MsgKey, string> = {
   'unlock.col.pro': 'Pro',
   'unlock.part': 'Partiel',
   'unlock.buy': 'Acheter Pro',
+  'unlock.group': 'QQ group {id}',
   'unlock.hint': 'Vous recevrez un code de licence après l’achat ; saisissez-le ci-dessous.',
   'unlock.haveCode': 'Déjà un code',
 

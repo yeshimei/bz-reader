@@ -50,7 +50,7 @@ import { RT } from './runtime';
 import { rangeFill } from './range-fill';
 import { getToc } from '../view/toc-state';
 import { dispatchInput } from './actions';
-import { trialButtonHtml } from './group';
+import { groupButtonHtml } from './group';
 import { chapterDigests } from '../data/portrait';
 import { cachedPortrait, ensurePortrait } from './portrait-cache';
 import { portraitStatusLine } from './render/portrait';
@@ -819,7 +819,8 @@ function planCell(kind: 'free' | 'pro', v: PlanCell): string {
   return `<i class="n">—</i>`;
 }
 
-function overlayUnlock(mode?: string): string {
+/* 导出给测试：这一屏是免费用户最常看到的，按钮与群号值得单独钉住 */
+export function overlayUnlock(mode?: string): string {
   const v = entitlement();
   /* 不传 mode = 只是「查看功能对照」（设置页那颗按钮），不高亮任何一行。
      以前这里兜底成 export，结果从设置页进来看全表，视线总被拽到导出那行。 */
@@ -844,7 +845,7 @@ function overlayUnlock(mode?: string): string {
       </div>
       <div class="bzs-unlock-buy">
         <button class="bzs-btn pri" data-act="buy">${t('unlock.buy')}</button>
-        ${trialButtonHtml()}
+        ${groupButtonHtml()}
         <span class="bzs-mini">${t('unlock.hint')}</span>
       </div>
     </div>`;

@@ -164,8 +164,6 @@ export const JA: Record<MsgKey, string> = {
   'notice.bookmark.toggledOff': 'ブックマークを削除しました',
 
   /* ── 通知：交流グループ（QQ） ───────────────────────────── */
-  'notice.group.trialOk': 'グループ番号 {id} をコピーしました。参加したら管理者に 7 日間の試用コードをお求めください',
-  'notice.group.trialFail': 'コピーできませんでした。グループ番号は {id} です。参加して管理者に 7 日間の試用をお求めください',
   'notice.group.plainOk': 'グループ番号 {id} をコピーしました。QQ で検索して参加できます',
   'notice.group.plainFail': 'コピーできませんでした。グループ番号は {id} です。QQ で検索して参加してください',
 
@@ -423,6 +421,7 @@ export const JA: Record<MsgKey, string> = {
   'unlock.col.pro': 'プロ版',
   'unlock.part': '一部',
   'unlock.buy': '購入する',
+  'unlock.group': 'QQ group {id}',
   'unlock.hint': '購入後に届くライセンスコードを下に入力してください',
   'unlock.haveCode': 'ライセンスコードをお持ちの方',
 

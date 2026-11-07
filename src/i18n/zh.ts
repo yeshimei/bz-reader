@@ -168,8 +168,6 @@ export const ZH = {
   'notice.bookmark.toggledOff': '已移除书签',
 
   /* ── 通知：交流群（QQ） ──────────────────────────────────── */
-  'notice.group.trialOk': '已复制群号 {id}，进群后找管理员领取 7 天试用码',
-  'notice.group.trialFail': '复制失败，群号是 {id}，进群找管理员领取 7 天试用',
   'notice.group.plainOk': '已复制群号 {id}，去 QQ 搜索就能加群',
   'notice.group.plainFail': '复制失败，群号是 {id}，去 QQ 搜索加群',
 
@@ -427,6 +425,7 @@ export const ZH = {
   'unlock.col.pro': '高级版',
   'unlock.part': '部分',
   'unlock.buy': '去购买',
+  'unlock.group': 'QQ交流群 {id}',
   'unlock.hint': '购买后拿到激活码，填在下面即可',
   'unlock.haveCode': '已有激活码',
 

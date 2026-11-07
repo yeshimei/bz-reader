@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { LOCALES, PACK_OF, locale, setLocale, t, type Locale } from '../src/i18n';
 import { PLAN_TEXT_PACK, planLabel, planNameZh } from '../src/i18n/plan';
-import { PLAN_TABLE, TRIAL_ACTIVE } from '../src/data/entitlement';
-import { trialButtonHtml } from '../src/shell/group';
+import { GROUP_ID, PLAN_TABLE, TRIAL_ACTIVE } from '../src/data/entitlement';
+import { groupButtonHtml } from '../src/shell/group';
 
 const CJK = /[\u4e00-\u9fff]/;
 const LATIN = ['en', 'de', 'fr', 'es', 'pt'] as const;
@@ -81,9 +81,11 @@ describe('解锁弹层的其余文案', () => {
   });
 });
 
-describe('不发试用时不渲染试用按钮', () => {
-  it('TRIAL_ACTIVE=false，解锁弹层里一个字都不提试用', () => {
+describe('不发试用时，弹层只留交流群入口', () => {
+  it('TRIAL_ACTIVE=false：按钮不提试用，只印群号', () => {
     expect(TRIAL_ACTIVE).toBe(false);
-    expect(trialButtonHtml()).toBe('');
+    const html = groupButtonHtml();
+    expect(html).not.toContain('试用');
+    expect(html).toContain(GROUP_ID);
   });
 });
