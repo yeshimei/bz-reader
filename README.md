@@ -11,7 +11,7 @@
     <img src="docs/images/badges/license.svg" height="27" alt="MIT">
   </p>
 
-  <p><sub><a href="https://www.bilibili.com/video/BV1vNsZ6pE7i">视频教程 · Video tutorial</a></sub></p>
+  <p><sub><a href="https://www.bilibili.com/video/BV1tK4E6KE1B">视频教程 · Video tutorial</a></sub></p>
 
   <p><sub><b>简体中文</b> · <a href="#english">English</a> · <a href="#繁體中文">繁體中文</a> · <a href="#日本語">日本語</a> · <a href="#deutsch">Deutsch</a> · <a href="#français">Français</a> · <a href="#español">Español</a> · <a href="#português">Português</a></sub></p>
 </div>

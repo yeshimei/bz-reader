@@ -6,5 +6,10 @@
  * 依赖动作层（会绕成环）——两边都只认这个常量，换视频改一行。
  * ============================================================ */
 
-/** B 站教程视频：设置页关于条与侧栏 AI 页签共用 */
-export const VIDEO_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1vNsZ6pE7i';
+/**
+ * B 站教程视频：设置页关于条与侧栏 AI 页签共用。
+ *
+ * README 顶部也挂同一条，但那边是 markdown，抄不了这个常量——
+ * `tests/readme-links.test.ts` 盯着两份是否一致，换视频记得一起改。
+ */
+export const VIDEO_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1tK4E6KE1B';
