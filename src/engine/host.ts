@@ -1472,10 +1472,12 @@ export class EngineHost {
   }
 
   async next(): Promise<void> {
+    debugEvent('hostTurn', { dir: 'next' });
     await this.enqueue(() => this.turnOnce('next'));
   }
 
   async prev(): Promise<void> {
+    debugEvent('hostTurn', { dir: 'prev' });
     await this.enqueue(() => this.turnOnce('prev'));
   }
 

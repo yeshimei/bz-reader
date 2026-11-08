@@ -56,14 +56,14 @@ describe('debug-log', () => {
     expect(dump.events[0]?.t).toBeLessThan(60_000);
   });
 
-  it('只留最近 400 条', () => {
+  it('只留最近 800 条', () => {
     const c = collector();
     startDebugLog(c.write, META);
-    for (let i = 0; i < 450; i += 1) debugEvent('n', { i });
+    for (let i = 0; i < 850; i += 1) debugEvent('n', { i });
     const events = debugSnapshot().events;
-    expect(events).toHaveLength(400);
+    expect(events).toHaveLength(800);
     expect(events[0]?.d?.i).toBe(50);
-    expect(events[399]?.d?.i).toBe(449);
+    expect(events[799]?.d?.i).toBe(849);
   });
 
   it('长字符串截断，不把整章正文写进文件', () => {

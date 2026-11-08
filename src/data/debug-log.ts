@@ -45,7 +45,9 @@ export interface DebugDump extends DebugMeta {
 }
 
 /** 最多留这么多条；真机上「划一下」大概 3~8 条，400 条够看几百次操作 */
-const MAX_EVENTS = 400;
+/* 2026-11-08 精细到「每一次 selectionchange / scroll」之后，400 条一次拖选就满，
+   提到 800。文件仍然只有几十 KB，真机发回来没负担。 */
+const MAX_EVENTS = 800;
 
 /** 单条字符串最长这么多字：够认出「哪一段」，又不至于把正文搬进日志 */
 const MAX_TEXT = 80;
