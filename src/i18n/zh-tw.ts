@@ -240,6 +240,15 @@ export const ZH_TW: Record<MsgKey, string> = {
   'stats.locked': '閱讀統計屬於高級版。',
   'stats.lockedHint': '累計時長、熱力圖、每本書的進度與讀完記錄，解鎖後都在這裡。',
   'stats.locked.cta': '查看高級版功能',
+  'stats.lock.title': '高級版',
+  'stats.lock.tags': '趨勢 · 對比 · 熱力 · 書籍 · 週報 · 體檢',
+  'stats.lock.kpi.total': '總有效時長',
+  'stats.lock.kpi.today': '今日',
+  'stats.lock.kpi.active': '有記錄',
+  'stats.lock.kpi.streak': '連續',
+  'stats.lock.kpi.sessions': '會話 · 均 {avg}',
+  'stats.lock.segments': '{n} 段',
+  'stats.lock.kpi.read': '讀過 / 在庫',
 
   /* ── 筆記頁 ──────────────────────────────────────────────── */
   'notes.pick': '選取',

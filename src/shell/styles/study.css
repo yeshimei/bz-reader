@@ -908,37 +908,126 @@
   display: block;
 }
 
-/* 统计页锁态：模糊热力图 + 一句人话 + 一个按钮，别把数据藏死 */
-/* 锁态整块居中原点：以前它贴在页面顶部，下面留一大片空白，
-   看上去像「内容没加载出来」。现在按剩余高度垂直居中，
-   模糊的热力图在上、一句话在中、按钮在下，三段等距。 */
+/* ── 统计页基础版锁态 ──
+   头部六个真实数字照常给，下面的完整图表压进模糊层，再用强调色渐变盖住；
+   铜色越往下越浓，隐约看得见有东西，但点不到。 */
+.bzs-kpis.is-six {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.bzs-kpis.is-six .k {
+  padding: 14px 12px;
+}
+
+.bzs-kpis.is-six .k b {
+  font-size: 21px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .bzs-lockstat {
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: 20px;
-  min-height: 100%;
-  padding: 28px 0 56px;
-  text-align: center;
+  position: relative;
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  overflow: hidden;
 }
 
-.bzs-lockstat .bzs-empty {
-  text-align: center;
-  max-width: 36em;
-  line-height: 2;
-}
-
-.bzs-lockstat-blur {
-  width: 100%;
-  filter: blur(2.5px);
-  opacity: .32;
+.bzs-lockstat-body {
+  filter: blur(3px);
+  opacity: .6;
+  max-height: 430px;
+  overflow: hidden;
   pointer-events: none;
   user-select: none;
+  padding: 2px 14px 14px;
 }
 
-.bzs-lockstat-act {
+.bzs-lockstat-mask {
+  position: absolute;
+  inset: 0;
   display: flex;
+  align-items: center;
   justify-content: center;
+  cursor: pointer;
+  border-top: 1px solid var(--copper-line);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--copper) 12%, transparent) 0%,
+    color-mix(in srgb, var(--copper) 28%, transparent) 52%,
+    color-mix(in srgb, var(--copper) 46%, transparent) 100%);
+}
+
+.bzs-lockstat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 11px;
+  padding: 22px 36px;
+  border: 1px solid var(--copper-line);
+  border-radius: var(--r-card);
+  background: var(--bg);
+  box-shadow: var(--shadow-lg);
+}
+
+.bzs-lockstat-seal {
+  display: block;
+  position: relative;
+  width: 26px;
+  height: 24px;
+  border: 2px solid var(--copper);
+  border-radius: 4px;
+}
+
+.bzs-lockstat-seal::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  top: -11px;
+  height: 13px;
+  border: 2px solid var(--copper);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+}
+
+.bzs-lockstat-seal::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 6px;
+  width: 2px;
+  height: 7px;
+  background: var(--copper);
+}
+
+.bzs-lockstat-card b {
+  font: 400 22px/1.2 var(--serif);
+  color: var(--copper);
+}
+
+.bzs-lockstat-tags {
+  font-size: var(--fs-caption);
+  color: var(--t2);
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+
+.bzs-lockstat-card .bzs-btn {
+  padding: 7px 28px;
+}
+
+@media (max-width: 860px) {
+  .bzs-kpis.is-six {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .bzs-lockstat-card {
+    padding: 16px 20px;
+  }
+  .bzs-lockstat-tags {
+    white-space: normal;
+    text-align: center;
+  }
 }
 
 .bzs-heat i.l1 {

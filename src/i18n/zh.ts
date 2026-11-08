@@ -253,6 +253,15 @@ export const ZH = {
   'stats.locked': '阅读统计属于高级版。',
   'stats.lockedHint': '累计时长、热力图、每本书的进度与读完记录，解锁后都在这里。',
   'stats.locked.cta': '查看高级版功能',
+  'stats.lock.title': '高级版',
+  'stats.lock.tags': '趋势 · 对比 · 热力 · 书籍 · 周报 · 体检',
+  'stats.lock.kpi.total': '总有效时长',
+  'stats.lock.kpi.today': '今日',
+  'stats.lock.kpi.active': '有记录',
+  'stats.lock.kpi.streak': '连续',
+  'stats.lock.kpi.sessions': '会话 · 均 {avg}',
+  'stats.lock.segments': '{n} 段',
+  'stats.lock.kpi.read': '读过 / 在库',
 
   /* ── 笔记页 ──────────────────────────────────────────────── */
   'notes.pick': '选中',

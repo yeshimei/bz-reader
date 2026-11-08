@@ -242,6 +242,15 @@ export const JA: Record<MsgKey, string> = {
   'stats.locked': '読書統計はプロ版の機能です。',
   'stats.lockedHint': '累計時間・ヒートマップ・本ごとの進捗と読了記録は、解放するとここに表示されます。',
   'stats.locked.cta': 'プロ版の機能を見る',
+  'stats.lock.title': 'Pro',
+  'stats.lock.tags': 'Trends · Compare · Heatmap · Books · Weekly · Audit',
+  'stats.lock.kpi.total': 'Total time',
+  'stats.lock.kpi.today': 'Today',
+  'stats.lock.kpi.active': 'Active days',
+  'stats.lock.kpi.streak': 'Streak',
+  'stats.lock.kpi.sessions': 'Sessions · avg {avg}',
+  'stats.lock.segments': '{n} sessions',
+  'stats.lock.kpi.read': 'Read / Shelf',
 
   /* ── ノートページ ───────────────────────────────────────── */
   'notes.pick': '選択',

@@ -248,6 +248,15 @@ export const EN: Record<MsgKey, string> = {
   'stats.locked': 'Reading stats are a Pro feature.',
   'stats.lockedHint': 'Total time, heatmap, per-book progress and finished books all live here once unlocked.',
   'stats.locked.cta': 'See what Pro adds',
+  'stats.lock.title': 'Pro',
+  'stats.lock.tags': 'Trends · Compare · Heatmap · Books · Weekly · Audit',
+  'stats.lock.kpi.total': 'Total time',
+  'stats.lock.kpi.today': 'Today',
+  'stats.lock.kpi.active': 'Active days',
+  'stats.lock.kpi.streak': 'Streak',
+  'stats.lock.kpi.sessions': 'Sessions · avg {avg}',
+  'stats.lock.segments': '{n} sessions',
+  'stats.lock.kpi.read': 'Read / Shelf',
 
   /* ── Notes page ─────────────────────────────────────────── */
   'notes.pick': 'Select',

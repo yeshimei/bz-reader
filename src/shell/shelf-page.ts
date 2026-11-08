@@ -139,21 +139,20 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
         counts,
       };
     case 'stats': {
-      // 统计是付费项：锁着就给锁态，别让整页空白像坏了
+      // 统计是付费项：锁着给基础版（六个真实数字 + 强调色遮罩），点一下弹高级版
       const src = getShellSource();
       /* 归档书的阅读历史仍然计入统计（用户定的口径）：聚合用全量书籍，
          但页面上的书单只看在架的书——归档的不该出现在「最近在读」里。 */
       const all = src?.repo.all() ?? books;
+      const statsView = {
+        stats: collectStats(all),
+        books,
+        goal: state.goal,
+        checkins: src?.store.get().checkins,
+        dailyGoalMinutes: src?.store.get().dailyGoalMinutes,
+      };
       return {
-        body: can('stats')
-          ? viewStats({
-              stats: collectStats(all),
-              books,
-              goal: state.goal,
-              checkins: src?.store.get().checkins,
-              dailyGoalMinutes: src?.store.get().dailyGoalMinutes,
-            })
-          : viewStatsLocked(),
+        body: can('stats') ? viewStats(statsView) : viewStatsLocked(statsView),
         counts,
       };
     }

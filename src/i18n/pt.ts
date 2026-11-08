@@ -246,6 +246,15 @@ export const PT: Record<MsgKey, string> = {
   'stats.lockedHint':
     'Tempo total, mapa de calor, progresso por livro e livros concluídos aparecerão aqui ao desbloquear.',
   'stats.locked.cta': 'Ver o que o Pro inclui',
+  'stats.lock.title': 'Pro',
+  'stats.lock.tags': 'Trends · Compare · Heatmap · Books · Weekly · Audit',
+  'stats.lock.kpi.total': 'Total time',
+  'stats.lock.kpi.today': 'Today',
+  'stats.lock.kpi.active': 'Active days',
+  'stats.lock.kpi.streak': 'Streak',
+  'stats.lock.kpi.sessions': 'Sessions · avg {avg}',
+  'stats.lock.segments': '{n} sessions',
+  'stats.lock.kpi.read': 'Read / Shelf',
 
   /* ── Página de notas ────────────────────────────────────── */
   'notes.pick': 'Selecionar',

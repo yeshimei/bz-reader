@@ -246,6 +246,15 @@ export const DE: Record<MsgKey, string> = {
   'stats.lockedHint':
     'Gesamtzeit, Heatmap, Fortschritt pro Buch und Gelesen-Liste erscheinen hier, sobald du freischaltest.',
   'stats.locked.cta': 'Pro-Funktionen ansehen',
+  'stats.lock.title': 'Pro',
+  'stats.lock.tags': 'Trends · Compare · Heatmap · Books · Weekly · Audit',
+  'stats.lock.kpi.total': 'Total time',
+  'stats.lock.kpi.today': 'Today',
+  'stats.lock.kpi.active': 'Active days',
+  'stats.lock.kpi.streak': 'Streak',
+  'stats.lock.kpi.sessions': 'Sessions · avg {avg}',
+  'stats.lock.segments': '{n} sessions',
+  'stats.lock.kpi.read': 'Read / Shelf',
 
   /* ── Notizenseite ───────────────────────────────────────── */
   'notes.pick': 'Auswählen',
