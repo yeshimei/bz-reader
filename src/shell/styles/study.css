@@ -291,11 +291,13 @@
  * 选中才用铜色实底；文字色取 --bg：亮色主题是白字、暗色主题是深字。
  * 作用域只到这三条筛选行，弹层、搜索页与引用卡里的 chip 不动。
  *
- * 2026-11-09：这里原来用 color-mix() 现混底色，移动端 WebView 直接不认
- * （真机上是透明的，就成了一颗空白的图标）。宿主变量本身已经是主题算好
- * 的一档灰，不再自己混。
+ * 2026-11-09：真机上这三颗圆钮一直是「空白」的，根因不是颜色太淡：
+ * 宿主的 app.css 里有 `button:not(.clickable-icon)`（特异性 0,1,1），
+ * 把单类选择器（0,1,0）的 background / border-radius 全压掉了，圆钮
+ * 既没有底也不是圆的。所以这里的选择器必须带 `.bzs-shell`（0,2,0），
+ * 构建时的作用域函数见 `.bzs-` 开头就原样放过，这一笔只能手写。
  */
-.bzs-round {
+.bzs-shell .bzs-round {
   position: relative;
   width: 34px;
   height: 34px;
@@ -311,26 +313,26 @@
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease), transform var(--dur-move) var(--ease);
 }
 
-.bzs-round:hover {
+.bzs-shell .bzs-round:hover {
   color: var(--t1);
   background: var(--background-secondary-alt, var(--background-secondary));
 }
 
 /* 选中那颗悬停时不能退回灰底：铜色是它的身份 */
-.bzs-round.on:hover {
+.bzs-shell .bzs-round.on:hover {
   background: var(--copper);
 }
 
-.bzs-round:active {
+.bzs-shell .bzs-round:active {
   transform: scale(.96);
 }
 
-.bzs-round.on {
+.bzs-shell .bzs-round.on {
   background: var(--copper);
   color: var(--bg);
 }
 
-.bzs-round svg {
+.bzs-shell .bzs-round svg {
   width: 16px;
   height: 16px;
 }
@@ -426,7 +428,7 @@
     min-width: 150px;
   }
 
-  .bzs-round::after {
+  .bzs-shell .bzs-round::after {
     content: "";
     position: absolute;
     inset: -5px;
