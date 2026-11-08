@@ -17,6 +17,9 @@ export function esc(s: string | number | null | undefined): string {
 }
 
 
+/** 铅笔：改名用的通用形状（分类行与「写」共用，不另画一份） */
+const PENCIL_PATH = '<path d="M4 20l4.6-1.1L19 8.5 15.5 5 5.1 15.4z"/><path d="M14 6.5L17.5 10"/>';
+
 /** 线描图标：16px、1.5 描边、圆头圆角，与原型同一套 */
 export function ico(name: string): string {
   const paths: Record<string, string> = {
@@ -26,7 +29,14 @@ export function ico(name: string): string {
     note: '<path d="M6 3.5h8.5L18 7v13.5H6z"/><path d="M9 9h6M9 12.5h6M9 16h4"/>',
     chart: '<path d="M4 19.5V11M10 19.5V5M16 19.5v-6"/><path d="M2.5 21h19"/>',
     board: '<path d="M4 6h16M7 12h13M7 18h13"/><circle cx="4.6" cy="12" r=".6" fill="currentColor"/><circle cx="4.6" cy="18" r=".6" fill="currentColor"/>',
-    pen: '<path d="M4 20l4.6-1.1L19 8.5 15.5 5 5.1 15.4z"/><path d="M14 6.5L17.5 10"/>',
+    pen: PENCIL_PATH,
+    /* 铅笔的另一半：分类行「改名」用。与 pen 同形，因为两个动作都是「改字」，
+       分两份路径迟早会画歪一枚。 */
+    pencil: PENCIL_PATH,
+    /* 垃圾桶：分类行「删除这一类」用。这里删的不是书，是分类名册里的一格，
+       所以走描边、不上实心；颜色由调用点的 .danger 交给朱砂。 */
+    trash:
+      '<path d="M4 6.6h16"/><path d="M9.6 6.6V4.4h4.8v2.2"/><path d="M6.4 6.6l.9 13.4h9.4l.9-13.4"/><path d="M10.2 10.6v5.8M13.8 10.6v5.8"/>',
     bookmark: '<path d="M7 4h10v16l-5-3.6L7 20z"/>',
     ai: '<path d="M12 3.5l1.9 5.4 5.4 1.9-5.4 1.9L12 18.1l-1.9-5.4L4.7 10.8l5.4-1.9z"/>',
     read: '<path d="M3 5.5A1.5 1.5 0 014.5 4H9a3 3 0 013 3v12a2.5 2.5 0 00-2.5-2.5H3zM21 5.5A1.5 1.5 0 0019.5 4H15a3 3 0 00-3 3v12a2.5 2.5 0 012.5-2.5H21z"/>',

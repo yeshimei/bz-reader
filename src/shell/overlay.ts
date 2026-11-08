@@ -26,6 +26,7 @@ import { setHtml } from '../ui/dom';
 import { bmksOf, allMarks, fmtMinutes, fmtWhen, marksOf, shelfOf } from './domain';
 import { ALL_SHELF, NO_SHELF, orderShelves } from '../data/shelves';
 import { noteCardHtml } from './render/notes';
+import { shelfActionsHtml } from './render/shelf-row';
 import { cardTemplateChipsHtml, quoteCardHtml, quoteRefMarkdown } from './render/quote-card';
 import { searchFormHtml, searchResultsHtml } from './render/search';
 import { kickBodySearch, searchQueryKey, stopBodySearch } from './search-run';
@@ -1026,15 +1027,12 @@ function overlayShelves(mode: string, name: string, bookId?: string): string {
       }
       return `<div class="bzs-shelfrow">
         <b class="nm">${esc(n)}</b><span class="ct">${t('shelf.count', { n: countOf(n) })}</span>
-        <span class="sp"></span>
-        <button class="bzs-cbtn up" data-act="shelfmove" data-v="up" data-name="${esc(n)}" title="${t(
-          'shelves.up',
-        )}" aria-label="${t('shelves.up')}">${ico('chevron')}</button>
-        <button class="bzs-cbtn down" data-act="shelfmove" data-v="down" data-name="${esc(n)}" title="${t(
-          'shelves.down',
-        )}" aria-label="${t('shelves.down')}">${ico('chevron')}</button>
-        <button class="bzs-chip" data-act="shelfrename" data-name="${esc(n)}">${t('shelves.rename')}</button>
-        <button class="bzs-chip danger" data-act="shelfdel" data-name="${esc(n)}">${t('shelves.del')}</button>
+        ${shelfActionsHtml(n, {
+          up: t('shelves.up'),
+          down: t('shelves.down'),
+          rename: t('shelves.rename'),
+          del: t('shelves.del'),
+        })}
       </div>`;
     })
     .join('');
