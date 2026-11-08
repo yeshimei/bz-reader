@@ -24,6 +24,21 @@ describe('翻页键位（A-26）', () => {
     expect(pagingKeyAction('ArrowRight', ctx)).toBe('prev');
   });
 
+  it('RTL 书：左键 = 下一页（与点按同一条反转规则，B1）', () => {
+    const ctx = { flow: 'paged', contentVertical: false, contentRtl: true } as const;
+    expect(pagingKeyAction('ArrowLeft', ctx)).toBe('next');
+    expect(pagingKeyAction('ArrowRight', ctx)).toBe('prev');
+    /* PageUp / PageDown 说的是「上一屏 / 下一屏」，与左右方向无关，不跟着反 */
+    expect(pagingKeyAction('PageUp', ctx)).toBe('prev');
+    expect(pagingKeyAction('PageDown', ctx)).toBe('next');
+  });
+
+  it('竖排 + RTL：两次反转抵消', () => {
+    const ctx = { flow: 'paged', contentVertical: true, contentRtl: true } as const;
+    expect(pagingKeyAction('ArrowLeft', ctx)).toBe('prev');
+    expect(pagingKeyAction('ArrowRight', ctx)).toBe('next');
+  });
+
   it('其它键不拦', () => {
     const ctx = { flow: 'paged', contentVertical: false } as const;
     expect(pagingKeyAction('a', ctx)).toBeNull();

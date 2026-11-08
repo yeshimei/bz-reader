@@ -516,6 +516,13 @@ export const ZH = {
   'side.ai.book.stale': '这本书的画像用另一个嵌入模型建的：需要重建一次，否则检索出来的块对不上。',
   'notice.portrait.busy': '另一本书正在建索引，先停掉它再建这本',
   'notice.import.tooBig': '有 {n} 个文件太大，请先在电脑上导入',
+  'menu.compare.title': '对照书籍：{title}',
+  'menu.compare.none': '未选',
+  'menu.compare.empty': '书架上还没有别的书',
+  'menu.compare.more': '还有 {n} 本，先筛书架',
+  'menu.para.close': '关闭并排对照',
+  'menu.tts.stop': '停止朗读',
+  'menu.immersive.exit': '退出沉浸',
 } as const;
 
 export type MsgKey = keyof typeof ZH;

@@ -521,4 +521,11 @@ export const EN: Record<MsgKey, string> = {
   'side.ai.book.stale': 'This portrait was built with a different embedding model — rebuild it, or the retrieved blocks won\'t line up.',
   'notice.portrait.busy': 'Another book is still building its index — stop that one first',
   'notice.import.tooBig': '{n} file(s) are too large — import them on a computer first',
+  'menu.compare.title': 'Compare book: {title}',
+  'menu.compare.none': 'None',
+  'menu.compare.empty': 'No other books on the shelf yet',
+  'menu.compare.more': '{n} more — filter the shelf first',
+  'menu.para.close': 'Close side by side',
+  'menu.tts.stop': 'Stop reading aloud',
+  'menu.immersive.exit': 'Exit immersive mode',
 };

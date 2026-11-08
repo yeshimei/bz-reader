@@ -24,7 +24,7 @@ import { RT } from '../shell/runtime';
 import { viewSidebar, type AiIndexView } from '../shell/render/sidebar';
 import { focusSelector, type FocusMemo } from '../shell/focus-memo';
 import { isTocItemActive, type TocActiveRef } from '../shell/toc-active';
-import { getToc, subscribeToc } from './toc-state';
+import { getToc, subscribeToc, tocPaintMode } from './toc-state';
 import { setHtml } from '../ui/dom';
 import { bzEmbedder } from '../data/bz-bridge';
 import { cachedPortrait, ensurePortrait } from '../shell/portrait-cache';
@@ -180,8 +180,8 @@ export class SideView extends ItemView {
    *   · 同章内翻页（高亮没变，moved=false）→ 走全量 render，最该走快路径的
    *     那条路反而最贵；
    *   · 换章（高亮真的变了）→ 走快路径。
-   * 现在只要「同一棵树 + 目录页签 + 已渲染」就走快路径，内部再按 moved
-   * 决定要不要动 DOM。
+   * 现在只要「同一棵树 + 已渲染」就走快路径，内部再按 moved
+   * 决定要不要动 DOM；动 DOM 只在目录页签里做（B10）。
    */
   private onTocChange(): void {
     const snap = getToc();
@@ -190,14 +190,25 @@ export class SideView extends ItemView {
     const sameTree =
       (snap?.items ?? null) === this.paintedItems && (snap?.bookId ?? '') === this.paintedBook;
     const moved = activeLabel !== this.paintedActive || activeHref !== this.paintedActiveHref;
-    if (sameTree && getState().sideTab === 'toc' && this.root) {
-      if (!moved) return; // 高亮没变，DOM 一行都不用动
-      this.paintedActive = activeLabel;
-      this.paintedActiveHref = activeHref;
-      this.patchActiveRow(this.root, { label: activeLabel, href: activeHref });
+    const mode = tocPaintMode({
+      sameTree: sameTree && !!this.root,
+      moved,
+      /* 书签 / 划线 / AI 页签里根本没有目录行：以前这里没判页签，
+         翻一页就整块侧栏重建——滚动位置靠 scrollTops 抢回来，正在输入的
+         提问框靠 focusMemo 抢回来，手机上一页掉一次帧。 */
+      onTocPage: getState().sideTab === 'toc',
+    });
+    if (mode === 'full') {
+      this.render();
       return;
     }
-    this.render();
+    if (!moved) return;
+    /* 高亮状态无论画不画都要记下来：下一次 relocate 的 moved 判定以它为准 */
+    this.paintedActive = activeLabel;
+    this.paintedActiveHref = activeHref;
+    if (mode === 'row' && this.root) {
+      this.patchActiveRow(this.root, { label: activeLabel, href: activeHref });
+    }
   }
 
   /** 只切 `.on`：按 href 定位唯一一行；href 缺失才退回 data-label（老快照） */

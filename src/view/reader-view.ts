@@ -27,14 +27,20 @@ import {
 import { ActivityTracker, attachChapter } from '../engine/activity';
 import { applyEngineMeta } from '../data/book-meta';
 import { coverPathOf, ensureCoverFromFoliate } from '../data/cover';
-import { speak, type SpeakHandle } from '../core/speak';
+import { speak, speakLang, type SpeakHandle } from '../core/speak';
 import { notify } from '../core/notice';
-import { t } from '../i18n';
+import { localeTag, t } from '../i18n';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
 import { el, setHtml } from '../ui/dom';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
-import { headerActionSpec, headerActionsFor, headerActive, type HeaderActionId } from './header-actions';
+import {
+  headerActionLabel,
+  headerActionSpec,
+  headerActionsFor,
+  headerActive,
+  type HeaderActionId,
+} from './header-actions';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
 import { can } from '../data/entitlement';
@@ -57,7 +63,8 @@ import {
 } from '../shell/state';
 import { openOverlay } from '../shell/state';
 import { tapIntent } from './tap-intent';
-import { pagingKeyAction } from './paging-key';
+import { pagingKeyAction, type PagingDirection } from './paging-key';
+import { tapDirection, type TapSide } from './tap-direction';
 import { immersiveExitHint, updateImmersiveHolders } from './immersive';
 import { navBottomGap } from './bottom-gap';
 import { destroyQuietly } from '../core/safe-destroy';
@@ -118,6 +125,16 @@ export class ReaderView extends ItemView {
   /** resize 监听只挂一次（重试时不重复挂，P3-18） */
   private resizeBound = false;
   private closed = false;
+  /** 正文搜索的代号：换词、关书都会 +1，旧一轮的 await 回来一看就知道作废了 */
+  private searchGen = 0;
+  /**
+   * 本次会话里用户是否真的翻过页（B14）。
+   *
+   * 打开一本书会先来一次「定位到上次读到的地方」的 relocate；那次不是
+   * 「读到了这里」，而是「上次读到过这里」。把它当进度写下去，就会出现
+   * 「在电脑上点开一本没读完的书 → 手机上的进度被盖回去」。
+   */
+  private userTurned = false;
   private teardown = (): void => undefined;
 
   private host: EngineHost;
@@ -153,6 +170,8 @@ export class ReaderView extends ItemView {
   private parallelOn = false;
   private parallelId = '';
   private host2: EngineHost | null = null;
+  /** 副卷正在开（mount + start 那一段）：这段时间拒绝第二次开启 */
+  private parallelOpening = false;
   private stage2: HTMLElement | null = null;
 
   /* 朗读：交给系统语音，不额外引依赖。翻页即停，避免「翻过去了还在念上一页」 */
@@ -403,24 +422,27 @@ export class ReaderView extends ItemView {
       /* 桌面也支持点击翻页（P2-10）：以前这里直接 return，桌面上点一下正文
          什么都不发生，只能滚轮或键盘——很多人第一次用会以为插件坏了。
          桌面是横向分页，所以按**左右**分区；移动端仍按上下（AGENTS.md 的约定，
-         手指在手机上上下点比左右点自然）。 */
-      const desktopDir: 'prev' | 'next' = (() => {
-        const box = this.stage?.getBoundingClientRect();
-        /* info.screenX 是**屏幕**坐标，getBoundingClientRect 是**视口**坐标：
-           直接比，在窗口不最大化时左右会判反（AGENTS.md 的坐标约定）。 */
-        const winX = typeof window !== 'undefined' ? window.screenX || 0 : 0;
-        const sx = (info?.screenX ?? 0) - winX;
-        if (!box || !box.width) return zone;
-        return sx < box.left + box.width / 2 ? 'prev' : 'next';
-      })();
-      /* 上面 = 上一页，下面 = 下一页（分区在引擎侧按屏幕纵坐标判）；
-         桌面用上面算出来的左右分区 */
-      const dir: 'prev' | 'next' = isMobileShell() ? zone : desktopDir;
+         手指在手机上上下点比左右点自然）。
+         方向本身交给 tapDirection：竖排 / RTL 的左右反转只有那一份规则，
+         键盘（pagingKeyAction）也走它。 */
+      const dirCtx = { vertical: this.host.contentVertical, rtl: this.host.contentRtl };
+      const dir: PagingDirection = isMobileShell()
+        ? tapDirection(zone === 'prev' ? 'top' : 'bottom', dirCtx)
+        : (() => {
+            const box = this.stage?.getBoundingClientRect();
+            /* info.screenX 是**屏幕**坐标，getBoundingClientRect 是**视口**坐标：
+               直接比，在窗口不最大化时左右会判反（AGENTS.md 的坐标约定）。 */
+            const winX = typeof window !== 'undefined' ? window.screenX || 0 : 0;
+            const sx = (info?.screenX ?? 0) - winX;
+            /* 拿不到布局就别改判：沿用引擎按上下算出来的方向 */
+            if (!box || !box.width) return zone;
+            const side: TapSide = sx < box.left + box.width / 2 ? 'left' : 'right';
+            return tapDirection(side, dirCtx);
+          })();
       this.lastKeyBefore = this.host.pageKey;
       this.lastKeyAfter = '';
-      this.stopTts();
       /* 只翻一次：turn() 和这里各发一次的话，一按就是两页 */
-      const p = dir === 'prev' ? this.host.prev() : this.host.next();
+      const p = this.userNavigate(dir);
       void p.then(() => {
         this.lastKeyAfter = this.host.pageKey;
         this.tracker.touch();
@@ -455,10 +477,7 @@ export class ReaderView extends ItemView {
     /* 宿主换主题：壳层的强调色跟着换，书页的底色/字色也要重注入——
        只改 data-bzaccent 的话，深色模式下书页还是那张白纸。 */
     this.registerEvent(
-      this.api.app.workspace.on('css-change', () => {
-        this.applyChrome();
-        this.host.refreshTheme();
-      }),
+      this.api.app.workspace.on('css-change', () => this.onCssChange()),
     );
     /* 宿主重建头栏 / 换 tab 时，书名与动作都会掉，得补一遍 */
     this.registerEvent(this.api.app.workspace.on('layout-change', () => this.mountHeader()));
@@ -639,6 +658,14 @@ export class ReaderView extends ItemView {
     });
   }
 
+  /** 宿主换主题（`css-change`）：主卷与副卷是两份文档，都要重新注入变量 */
+  private onCssChange(): void {
+    this.applyChrome();
+    this.host.refreshTheme();
+    /* 副卷也要跟着换：只刷新主卷的话，并排右半边还是旧底色 */
+    this.host2?.refreshTheme();
+  }
+
   /** 真机角标（默认关闭，排查时 `localStorage['bz-reader:debug-probe']='1'`） */
   private renderProbe(): void {
     if (!isMobileShell() || !this.rootEl || !probeEnabled()) {
@@ -764,7 +791,13 @@ export class ReaderView extends ItemView {
   async searchText(kw: string): Promise<TextHit[]> {
     if (!this.mounted) await this.maybeMount();
     if (!this.mounted) return [];
-    const hits = await this.host.search(kw);
+    /* 每次搜索领一个号（B5）：全书搜索要逐章扫，几秒很正常。
+       await 回来时书可能已经关了、或者用户又搜了一个词——
+       把上一轮的结果画上去，轻则列表闪回旧词，重则往已销毁的视图里塞高亮。 */
+    const gen = ++this.searchGen;
+    const stale = (): boolean => gen !== this.searchGen || this.closed || !this.mounted;
+    const hits = await this.host.search(kw, { shouldStop: stale });
+    if (stale()) return [];
     /* 归一放在纯函数里：命中可能带重复 CFI、空 CFI、{pre,match,post} 形状 */
     return toTextHits(hits);
   }
@@ -799,6 +832,7 @@ export class ReaderView extends ItemView {
     const dir = pagingKeyAction(e.key, {
       flow: this.prefs.flow,
       contentVertical: this.host.contentVertical,
+      contentRtl: this.host.contentRtl,
     });
     if (!dir) return;
     e.preventDefault();
@@ -808,10 +842,8 @@ export class ReaderView extends ItemView {
   runCommand(kind: ReaderCommand): void {
     switch (kind) {
       case 'next':
-        void this.host.next().then(() => this.tracker.touch());
-        break;
       case 'prev':
-        void this.host.prev().then(() => this.tracker.touch());
+        void this.userNavigate(kind);
         break;
       case 'focus':
       case 'fullscreen':
@@ -857,67 +889,54 @@ export class ReaderView extends ItemView {
   onPaneMenu(menu: Menu, source: string): void {
     super.onPaneMenu?.(menu, source);
     menu.addSeparator();
-    menu.addItem((i) =>
-      i
-        .setTitle('目录')
-        .setIcon('list')
-        .onClick(() => this.api.openTocSidebar('toc')),
-    );
-    menu.addItem((i) =>
-      i
-        .setTitle('搜索')
-        .setIcon('search')
-        .onClick(() => dispatchAction('search', this.rootEl ?? document.body)),
-    );
-    menu.addItem((i) =>
-      i
-        .setTitle('记书签')
-        .setIcon('bookmark')
-        .onClick(() => this.toggleBookmark()),
-    );
-    menu.addItem((i) =>
-      i
-        .setTitle('排版')
-        .setIcon('type')
-        .onClick(() => dispatchAction('typography', this.rootEl ?? document.body)),
-    );
-    menu.addItem((i) =>
-      i
-        .setTitle(this.parallelOn ? '关闭并排对照' : '并排对照')
-        .setIcon('columns-2')
-        .onClick(() => void this.toggleParallel()),
-    );
+    /* 十项图标与这里一一对应，标签也只该有一份真源：头栏那颗图标的
+       tooltip 是 `headerActionLabel()`，菜单里如果另写一套中文字面量，
+       就会出现「界面语言是德语、⋮ 里还是中文」——而这排菜单恰好是手机端
+       唯一的入口（头栏图标只露 3 颗，其余全折在这里）。 */
     const other = this.parallelId ? this.api.repo.byId(this.parallelId) : null;
-    menu.addItem((i) =>
-      i
-        .setTitle(`对照书籍：${other?.meta.title ?? '未选'}`)
-        .setIcon('book')
-        .onClick((evt) => this.openParallelPicker(evt instanceof MouseEvent ? evt : undefined)),
-    );
-    menu.addItem((i) =>
-      i
-        .setTitle(this.speaking ? '停止朗读' : '朗读')
-        .setIcon('volume-2')
-        .onClick(() => this.toggleTts()),
-    );
-    menu.addItem((i) =>
-      i
-        .setTitle('全书鸟瞰')
-        .setIcon('map')
-        .onClick(() => dispatchAction('bookmap', this.rootEl ?? document.body)),
-    );
-    menu.addItem((i) =>
-      i
-        .setTitle(this.immersive ? '退出沉浸' : '沉浸模式')
-        .setIcon('maximize')
-        .onClick(() => this.toggleImmersive()),
-    );
-    menu.addItem((i) =>
-      i
-        .setTitle('返回书架')
-        .setIcon('library')
-        .onClick(() => getShellSource()?.openStudy('library')),
-    );
+    const root = this.rootEl ?? document.body;
+    /* 三个会变的标题（并排 / 朗读 / 沉浸）说的是「点了会怎样」：
+       开着的时候应该是「关闭 / 停止 / 退出」，不是图标名。 */
+    const items: Array<{ id: HeaderActionId; label?: string; run: (evt?: MouseEvent) => void }> = [
+      { id: 'toc', run: () => this.api.openTocSidebar('toc') },
+      { id: 'search', run: () => dispatchAction('search', root) },
+      { id: 'mark', run: () => this.toggleBookmark() },
+      { id: 'type', run: () => dispatchAction('typography', root) },
+      {
+        id: 'para',
+        label: this.parallelOn ? t('menu.para.close') : headerActionLabel('para'),
+        run: () => void this.toggleParallel(),
+      },
+      {
+        id: 'paraBook',
+        label: t('menu.compare.title', {
+          title: other?.meta.title ?? t('menu.compare.none'),
+        }),
+        run: (evt) => this.openParallelPicker(evt),
+      },
+      {
+        id: 'tts',
+        label: this.speaking ? t('menu.tts.stop') : headerActionLabel('tts'),
+        run: () => this.toggleTts(),
+      },
+      { id: 'bookmap', run: () => dispatchAction('bookmap', root) },
+      {
+        id: 'immersive',
+        label: this.immersive ? t('menu.immersive.exit') : headerActionLabel('immersive'),
+        run: () => this.toggleImmersive(),
+      },
+      { id: 'library', run: () => getShellSource()?.openStudy('library') },
+    ];
+    for (const item of items) {
+      const spec = headerActionSpec(item.id);
+      menu.addItem((i) =>
+        i
+          .setTitle(item.label ?? spec.label)
+          .setIcon(spec.icon)
+          /* 二级菜单（选对照书）要落在手指/鼠标的位置上，坐标只有事件里有 */
+          .onClick((evt) => item.run(evt instanceof MouseEvent ? evt : undefined)),
+      );
+    }
   }
 
   /** 二级菜单：选对照的另一本书。最多列 12 本，再多让用户先筛书架。 */
@@ -928,7 +947,7 @@ export class ReaderView extends ItemView {
 
     const menu = new Menu();
     if (!books.length) {
-      menu.addItem((i) => i.setTitle('书架上还没有别的书').setDisabled(true));
+      menu.addItem((i) => i.setTitle(t('menu.compare.empty')).setDisabled(true));
     }
     for (const b of books.slice(0, 12)) {
       menu.addItem((i) =>
@@ -945,7 +964,9 @@ export class ReaderView extends ItemView {
     /* 最多列 12 本：再多就让人先去筛书架，不在菜单里塞一块滚动区 */
     if (books.length > 12) {
       menu.addSeparator();
-      menu.addItem((i) => i.setTitle(`还有 ${books.length - 12} 本，先筛书架`).setDisabled(true));
+      menu.addItem((i) =>
+        i.setTitle(t('menu.compare.more', { n: books.length - 12 })).setDisabled(true),
+      );
     }
     /* 没有坐标时不能落在 (0,0)：手机上会被状态栏/刘海裁掉一半，
        看起来像「点了没反应」。退回阅读区右上方。 */
@@ -965,6 +986,10 @@ export class ReaderView extends ItemView {
       return;
     }
     if (!requireCap('parallel')) return;
+    /* 开一次要 mount + start 整本副卷，几百毫秒起。这段时间里再点一次
+       （双击、头栏与命令面板同时来）会建出第二个副卷：第一个的 host2 被
+       覆盖，iframe 与监听全漏，界面上还会并排出现两本书。 */
+    if (this.parallelOpening) return;
     const book = this.book;
     const pages = this.pagesEl;
     if (!book || !pages) return;
@@ -980,6 +1005,7 @@ export class ReaderView extends ItemView {
     this.parallelId = other.id;
     this.fillParallelSelect(others, other.id);
 
+    this.parallelOpening = true;
     const stage2 = el('div', 'bzs-stage bzs-stage-2');
     stage2.append(el('span', 'bzs-plabel', other.meta.title));
     const inner = el('div', 'bzs-stage-in');
@@ -1015,6 +1041,8 @@ export class ReaderView extends ItemView {
       pages.classList.remove('is-parallel');
       notify(t('notice.compare.failed', { why: (e as Error).message }));
       return;
+    } finally {
+      this.parallelOpening = false;
     }
     this.syncToolState();
   }
@@ -1057,6 +1085,9 @@ export class ReaderView extends ItemView {
    */
   /** 按章名跳转（AI 来源点开用）；找不到就不动 */
   goToChapter(title: string): void {
+    /* 点 AI 来源 = 用户要去那一章：停朗读、并且从现在起进度值得落盘（B14） */
+    this.stopTts();
+    this.userTurned = true;
     void this.host.goToChapter(title);
   }
 
@@ -1095,6 +1126,9 @@ export class ReaderView extends ItemView {
     // 基础版包里 speak() 返回 null —— 那就是「这个环境没有朗读」
     const handle = speak(text, {
       rate,
+      /* 书的语言优先（元数据是作者写的，比统计猜测可靠），其次界面语言，
+         最后才按内容猜；细节见 core/speak.ts 的 speakLang */
+      lang: speakLang(text, this.book?.meta.language, localeTag()),
       onEnd: () => {
         if (this.closed || !this.speaking) return;
         if (!follow) {
@@ -1105,8 +1139,8 @@ export class ReaderView extends ItemView {
            等它落定再取新页的文字（否则拿到的还是上一页）。
            书末 next() 不前进：页码没变就停，不然会无限重念同一页。 */
         const before = this.host.pageKey;
-        void this.host
-          .next()
+        void this
+          .advanceForTts()
           .then(() => {
             if (this.closed || !this.speaking) return;
             if (this.host.pageKey === before) {
@@ -1125,6 +1159,30 @@ export class ReaderView extends ItemView {
     this.voice = handle;
     this.speaking = true;
     this.syncToolState();
+  }
+
+  /**
+   * **用户**发起的翻页：点按 / 键盘 / 拖拽 / 命令，全走这一条。
+   *
+   * 先停朗读再翻：以前只有点按这一路停了朗读，键盘翻页、命令翻页、拖拽翻页
+   * 都不停——朗读还在念上一页，人已经在新页面上了，两句词同时对不上。
+   *
+   * 朗读自己的「念完一页自动续读」**不能**走这里（那会把朗读掐死），
+   * 它走 `advanceForTts()`。
+   */
+  private userNavigate(dir: PagingDirection): Promise<void> {
+    this.stopTts();
+    /* 用户真的动了：从这一刻起，relocate 记下的位置才值得落盘（B14） */
+    this.userTurned = true;
+    const p = dir === 'prev' ? this.host.prev() : this.host.next();
+    return p.then(() => this.tracker.touch());
+  }
+
+  /** TTS 自动续读：不停朗读，只翻页。书末 next() 不前进由调用方判 */
+  private advanceForTts(): Promise<void> {
+    /* 人在听书，翻页也是他的意图：这几页的进度要落盘 */
+    this.userTurned = true;
+    return this.host.next();
   }
 
   private stopTts(): void {
@@ -1357,6 +1415,10 @@ export class ReaderView extends ItemView {
          不然这一瞬间目录会退回按 label 比对，同名章节又一起亮。 */
       activeHref: this.host.currentChapterHref(),
       jump: (href) => {
+        /* 跟着朗读时点目录 = 我要去别处，先把朗读停掉：
+           以前它继续念旧位置，翻过去的新页面一声不响。 */
+        this.stopTts();
+        this.userTurned = true;
         void this.host.goToHref(href);
         this.tracker.touch();
       },
@@ -1420,11 +1482,10 @@ export class ReaderView extends ItemView {
         /* 两指同时轻按 = 沉浸/还原。手势判定在引擎侧（只有它拿得到 iframe
            里的触摸序列），这里只接结果。 */
         onTwoFingerTap: () => this.toggleImmersive(),
+        /* 引擎侧手势 / 横向拖拽翻页：与点按、键盘同一条路 */
         onTurn: (dir) => {
-          const p = dir === 'prev' ? this.host.prev() : this.host.next();
-          void p.then(() => this.tracker.touch());
+          void this.userNavigate(dir);
         },
-        onFontSize: (size) => this.applyPrefs({ fontSize: size }),
         /* 正文 iframe 里的键盘转出来（P2-04）。不接的话，点过正文之后
            方向键、空格、Escape 全部失灵，只能先点头栏把焦点抢回来。 */
         onKeyDown: (ev) => this.handleKey(ev),
@@ -1619,9 +1680,15 @@ export class ReaderView extends ItemView {
     /* 每翻一页都可能换到「有书签 / 没书签」的页：图标亮不亮得跟着走 */
     this.syncToolState();
     this.tracker.touch(info.percent);
-    /* 翻页时顺手结算打卡：不靠 60 秒定时器等，翻得快也能实时涨 */
-    this.flushCheckin();
-    this.api.store.touch();
+    /* 只有用户真的翻过页才落盘（B14）：初次定位写的是「上次读到哪」，
+       不是这次的进度。落盘统一放在第一次翻页之后——那一次 relocate
+       会把内存里这份（含定位结果）一起写下去，不会丢。
+       朗读自动续读也算用户的意图（人按了朗读），走 userTurned。 */
+    if (this.userTurned) {
+      /* 翻页时顺手结算打卡：不靠 60 秒定时器等，翻得快也能实时涨 */
+      this.flushCheckin();
+      this.api.store.touch();
+    }
     /* 每翻一页都广播会让侧栏与书架全量重建（书架是整面封面墙），手机上掉帧。
        换章/百分比变化且过节流窗口才通知；落盘仍然每次都做。 */
     const now = Date.now();
@@ -1667,6 +1734,7 @@ export class ReaderView extends ItemView {
     if (!info) return;
     /* 脚注浮窗已并入基础版：不再按能力位拦截，只看用户偏好 */
     if (this.prefs.footnote === 'jump') {
+      this.userTurned = true;
       void this.host.goToHref(info.href);
       return;
     }
@@ -1712,6 +1780,8 @@ export class ReaderView extends ItemView {
   async settle(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
+    /* 在跑的那次全书搜索立刻作废：它对每一条命中都会回调界面 */
+    this.searchGen += 1;
     this.stopCheckinTimer();
     /* 两本书各开一个 tab 时，关掉 A 不该把 B 的目录一起清空——
        目录快照是全局一份，只认自己那本。 */
@@ -1750,6 +1820,9 @@ export class ReaderView extends ItemView {
   updatePrefs(next: ReaderPrefs): void {
     this.prefs = normalizePrefs(next);
     this.host.applyPrefs(this.prefs);
+    /* 副卷是另一份引擎、另一份样式：只给主卷 push 的话，调字号/行距/主题
+       时并排的右半边一直不动，看起来像「设置只对左半边生效」。 */
+    this.host2?.applyPrefs(this.prefs);
     this.api.store.touch();
     this.applyChrome();
     /* 头栏图标的顺序 / 显隐也是偏好：改完立刻重挂，不用等切 tab */

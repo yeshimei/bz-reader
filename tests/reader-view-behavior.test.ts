@@ -84,6 +84,86 @@ describe('沉浸模式（A-27）', () => {
   });
 });
 
+describe('并排对照的开启闸门（B8）', () => {
+  function wire() {
+    const app = makeApp();
+    const { view } = makeReaderView(app);
+    const book = testBook('main');
+    const other = testBook('other');
+    (view as unknown as { book: unknown }).book = book;
+    (view as unknown as { pagesEl: unknown }).pagesEl = document.createElement('div');
+    view.api.store.get().books = [book, other];
+    return view;
+  }
+
+  /**
+   * 开副卷要 mount + start 整本副卷，几百毫秒起。这段时间里再点一次
+   * （双击、头栏与命令面板同时触发）会建出第二个副卷：第一个的 host2 被
+   * 覆盖，iframe 与监听全漏，界面上并排出现两本书。
+   */
+  it('副卷还在装载时再点一次：只建一个副卷', async () => {
+    const view = wire();
+    let release: (() => void) | null = null;
+    const mount = vi
+      .spyOn(EngineHost.prototype, 'mount')
+      .mockImplementation(() => new Promise<void>((res) => (release = () => res())) as never);
+    const start = vi.spyOn(EngineHost.prototype, 'start').mockResolvedValue(undefined);
+
+    const first = (view as unknown as { toggleParallel(): Promise<void> }).toggleParallel();
+    await (view as unknown as { toggleParallel(): Promise<void> }).toggleParallel();
+
+    expect(mount).toHaveBeenCalledTimes(1);
+
+    release?.();
+    await first;
+    expect(start).toHaveBeenCalledTimes(1);
+    expect((view as unknown as { parallelOpening: boolean }).parallelOpening).toBe(false);
+  });
+});
+
+describe('排版与主题同时作用到副卷（B9）', () => {
+  it('改排版偏好：主卷与副卷都收到', () => {
+    const app = makeApp();
+    const { view } = makeReaderView(app);
+    const applyPrefs = vi.fn();
+    (view as unknown as { host: unknown }).host = {
+      destroy: async () => undefined,
+      contentVertical: false,
+      pageKey: '',
+      applyPrefs,
+    };
+    const applyPrefs2 = vi.fn();
+    (view as unknown as { host2: unknown }).host2 = { applyPrefs: applyPrefs2, refreshTheme: vi.fn() };
+
+    view.updatePrefs(normalizePrefs({ fontSize: 22 }));
+
+    expect(applyPrefs).toHaveBeenCalledTimes(1);
+    /* 只推给主卷的话，调字号时并排的右半边一直不动，像「只对左半边生效」 */
+    expect(applyPrefs2).toHaveBeenCalledTimes(1);
+  });
+
+  it('宿主换主题：副卷也要刷新', () => {
+    const app = makeApp();
+    const { view } = makeReaderView(app);
+    const refreshTheme = vi.fn();
+    const refreshTheme2 = vi.fn();
+    (view as unknown as { host: unknown }).host = {
+      destroy: async () => undefined,
+      contentVertical: false,
+      pageKey: '',
+      refreshTheme,
+    };
+    (view as unknown as { host2: unknown }).host2 = { applyPrefs: vi.fn(), refreshTheme: refreshTheme2 };
+
+    /* 宿主抛 css-change 时走的就是这一条 */
+    (view as unknown as { onCssChange(): void }).onCssChange();
+
+    expect(refreshTheme).toHaveBeenCalledTimes(1);
+    /* 只刷新主卷的话，并排的右半边还是旧底色 */
+    expect(refreshTheme2).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('并排对照失败清理（A-28）', () => {
   it('副卷装载失败时先销毁引擎，再清引用与 DOM', async () => {
     const app = makeApp();

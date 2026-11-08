@@ -508,4 +508,11 @@ export const ZH_TW: Record<MsgKey, string> = {
   'side.ai.book.stale': '這本書的畫像用另一個嵌入模型建的：需要重建一次，否則檢索出來的塊對不上。',
   'notice.portrait.busy': '另一本書正在建索引，先停掉它再建這本',
   'notice.import.tooBig': '有 {n} 個檔案太大，請先在電腦上匯入',
+  'menu.compare.title': '對照書籍：{title}',
+  'menu.compare.none': '未選',
+  'menu.compare.empty': '書架上還沒有別的書',
+  'menu.compare.more': '還有 {n} 本，先篩書架',
+  'menu.para.close': '關閉並排對照',
+  'menu.tts.stop': '停止朗讀',
+  'menu.immersive.exit': '退出沉浸',
 };

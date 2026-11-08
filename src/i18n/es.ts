@@ -520,4 +520,11 @@ export const ES: Record<MsgKey, string> = {
   'side.ai.book.stale': 'Este retrato se creó con otro modelo de embeddings: vuelve a crearlo o los bloques recuperados no coincidirán.',
   'notice.portrait.busy': 'Another book is still building its index — stop that one first',
   'notice.import.tooBig': '{n} file(s) are too large — import them on a computer first',
+  'menu.compare.title': 'Compare book: {title}',
+  'menu.compare.none': 'None',
+  'menu.compare.empty': 'No other books on the shelf yet',
+  'menu.compare.more': '{n} more — filter the shelf first',
+  'menu.para.close': 'Close side by side',
+  'menu.tts.stop': 'Stop reading aloud',
+  'menu.immersive.exit': 'Exit immersive mode',
 };

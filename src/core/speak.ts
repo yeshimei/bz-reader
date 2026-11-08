@@ -49,20 +49,32 @@ export function splitForSpeech(text: string, target = CHUNK_TARGET): string[] {
     .replace(/\n{2,}/g, '\n')
     .trim();
   if (!clean) return [];
-  const sentences = clean.match(/[^。！？!?；;\n]+[。！？!?；;\n]?/g) ?? [clean];
+  /* 断句（B11）：补上英文句号。
+     以前只认中文标点与 `!?`，一本英文书整页只有末尾那一个句号能断——
+     两百多词的段落变成「一句」，念起来没有停顿，onChunk 也只回调一次
+     （界面上「正在念这句」的高亮整段不动）。
+     点后面必须跟空白或行尾才算句末：`3.14`、`e.g.x` 里的点不动，
+     小数点不会被切碎。 */
+  const tokens = clean.split(/([。！？!?；;\n]|\.(?=\s|$))/);
+  const sentences: string[] = [];
+  for (let i = 0; i < tokens.length; i += 2) {
+    const piece = `${tokens[i] ?? ''}${tokens[i + 1] ?? ''}`;
+    if (piece.trim()) sentences.push(piece);
+  }
   const merged: string[] = [];
   let buf = '';
   for (const raw of sentences) {
-    const s = raw.trim();
-    if (!s) continue;
-    if (buf && buf.length + s.length > target) {
-      merged.push(buf);
-      buf = s;
+    /* 不在这里 trim：句间的空格 / 换行是「两句之间的停顿」，并段时要留住，
+       否则英文会念成 `sentence.Two`。整体 push 时再收尾。 */
+    if (!raw.trim()) continue;
+    if (buf && buf.length + raw.length > target) {
+      merged.push(buf.trim());
+      buf = raw;
     } else {
-      buf += s;
+      buf += raw;
     }
   }
-  if (buf) merged.push(buf);
+  if (buf.trim()) merged.push(buf.trim());
 
   // 单段仍超长（没有标点的长句）：硬切，保证每段都念得出来
   const out: string[] = [];
@@ -82,6 +94,62 @@ export function guessLang(text: string): string {
   return cjk / Math.max(1, text.length) > 0.15 ? 'zh-CN' : 'en-US';
 }
 
+/** 站内语言（`zh` / `zh-TW` / `en` / 书里的 `language: en-US`）→ 朗读标签 */
+export function normalizeSpeakLang(raw: string | null | undefined): string {
+  const tag = String(raw ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, '-');
+  if (!tag) return '';
+  /* 书的元数据可能是 ISO 639-2（`eng` / `zho`），语音合成只认 BCP-47 */
+  const iso3: Record<string, string> = {
+    eng: 'en',
+    zho: 'zh-cn',
+    chi: 'zh-cn',
+    jpn: 'ja',
+    kor: 'ko',
+    deu: 'de',
+    ger: 'de',
+    fra: 'fr',
+    fre: 'fr',
+    spa: 'es',
+    por: 'pt',
+  };
+  const base = iso3[tag] ?? tag;
+  if (!/^[a-z]{2,3}(-[a-z0-9]{2,8})*$/.test(base)) return '';
+  if (base === 'zh' || base.startsWith('zh-')) {
+    return /-(tw|hk|mo|hant)\b/.test(base) ? 'zh-TW' : 'zh-CN';
+  }
+  return base;
+}
+
+/** 这门语言用汉字/假名写，还是用拉丁字母写——用来判「界面语言靠不靠谱」 */
+function isCjkLang(tag: string): boolean {
+  const base = tag.split('-')[0] ?? '';
+  return base === 'zh' || base === 'ja' || base === 'ko';
+}
+
+/**
+ * 朗读语言（B11）：书的语言 → 界面语言 → 按内容猜。
+ *
+ * 以前只有「猜」：书里标了 `language` 也不用，中文书夹两句英文就容易被
+ * 判成英文腔；而一本英文书遇到中文界面，又会被界面语言带偏。
+ * 中间那一步因此加一道同文种校验——界面是中文、正文是英文时，拿 zh-CN
+ * 去念英文比按内容猜成 en-US 更糟，这种情况直接跳过界面语言。
+ */
+export function speakLang(
+  text: string,
+  metaLanguage?: string | null,
+  uiLocale?: string | null,
+): string {
+  const fromBook = normalizeSpeakLang(metaLanguage);
+  if (fromBook) return fromBook;
+  const guess = guessLang(text);
+  const fromUi = normalizeSpeakLang(uiLocale);
+  if (fromUi && isCjkLang(fromUi) === isCjkLang(guess)) return fromUi;
+  return guess;
+}
+
 /**
  * 念一段文字。环境不支持朗读时返回 null（调用方据此提示）。
  *
@@ -91,7 +159,14 @@ export function guessLang(text: string): string {
 export function speak(text: string, opts: SpeakOptions = {}): SpeakHandle | null {
   const synth = window.speechSynthesis;
   if (!synth || typeof SpeechSynthesisUtterance === 'undefined') return null;
-  synth.cancel();
+  /* 先掐掉上一段（B12）：某些 WebView（尤其 iOS 从后台回来）会在
+     `cancel()` 里同步抛错，以前它把整个 speak() 带崩——用户点朗读，
+     既没有声音也没有提示。队列没清干净不影响下面的 speak()，宿主自己会排。 */
+  try {
+    synth.cancel();
+  } catch {
+    /* 忽略：接着念新的一段 */
+  }
   const chunks = splitForSpeech(text);
   if (!chunks.length) return null;
 

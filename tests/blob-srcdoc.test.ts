@@ -139,6 +139,74 @@ describe('inlineMarkup · srcset / SVG 封面（A-35）', () => {
   });
 });
 
+/* ── B2：循环 @import 不能把主线程递归到栈溢出 ───────────────── */
+
+describe('样式表循环 import（B2）', () => {
+  /** 没登记进 blob 表的地址会走 window.fetch：用它造一个「自己 import 自己」的表 */
+  function stubFetch(css: string): { calls: () => number; restore: () => void } {
+    const g = window as unknown as { fetch?: unknown };
+    const prev = g.fetch;
+    let n = 0;
+    g.fetch = async () => {
+      n += 1;
+      return { text: async () => css, blob: async () => new Blob([]) };
+    };
+    return {
+      calls: () => n,
+      restore: () => {
+        g.fetch = prev;
+      },
+    };
+  }
+
+  it('样式表 import 自己：删掉那条 import，其余规则仍然展开', async () => {
+    const url = 'blob:loop-css';
+    const f = stubFetch(`@import url("${url}");
+.loop{color:red}`);
+    try {
+      const out = await inlineMarkup(page(`<style>@import url("${url}");</style>`));
+      expect(out).toContain('.loop{color:red}');
+      /* 见过就不再展开：读一次就够，不会一路递归到栈溢出 */
+      expect(f.calls()).toBeLessThanOrEqual(2);
+    } finally {
+      f.restore();
+    }
+  });
+
+  it('style 里的 blob url() 与 @import 混在一起也能收尾', async () => {
+    const img = seedImage(32);
+    const f = stubFetch(`@import url("blob:loop-x"); .x{background:url("${img}")}`);
+    try {
+      const out = await inlineMarkup(page(`<style>@import url("blob:loop-x");</style>`));
+      expect(out).toContain('background:url("data:image/png;base64,');
+    } finally {
+      f.restore();
+    }
+  });
+});
+
+/* ── B6：CSS 图与正文图共用一份字节池 ───────────────────────── */
+
+describe('CSS 图与正文图共享预算（B6）', () => {
+  it('背景图先吃掉一半，正文就少内联两张（不再各算 8MB）', async () => {
+    const MB = 1024 * 1024;
+    const bg1 = seedImage(2 * MB);
+    const bg2 = seedImage(2 * MB);
+    const pics = [seedImage(2 * MB), seedImage(2 * MB), seedImage(2 * MB)];
+    const out = await inlineMarkup(
+      page(
+        `<style>.a{background:url("${bg1}")}.b{background:url("${bg2}")}</style>` +
+          pics.map((u) => `<img src="${u}">`).join(''),
+      ),
+    );
+
+    /* 4MB（背景）+ 2MB + 2MB = 8MB 用满；第三张正文图保留原地址 */
+    expect(out.match(/background:url\("data:/g)?.length).toBe(2);
+    expect(out.match(/src="data:/g)?.length).toBe(2);
+    expect(out).toContain(`src="${pics[2]}"`);
+  });
+});
+
 describe('srcset 纯函数', () => {
   it('拆出 URL 与描述符', () => {
     expect(parseSrcset('a.png 1x, b.png 2x')).toEqual([

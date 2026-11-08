@@ -512,4 +512,11 @@ export const JA: Record<MsgKey, string> = {
   'side.ai.book.stale': 'この本の全体像は別の埋め込みモデルで作成されています。作り直さないと検索結果が噛み合いません。',
   'notice.portrait.busy': 'Another book is still building its index — stop that one first',
   'notice.import.tooBig': '{n} file(s) are too large — import them on a computer first',
+  'menu.compare.title': 'Compare book: {title}',
+  'menu.compare.none': 'None',
+  'menu.compare.empty': 'No other books on the shelf yet',
+  'menu.compare.more': '{n} more — filter the shelf first',
+  'menu.para.close': 'Close side by side',
+  'menu.tts.stop': 'Stop reading aloud',
+  'menu.immersive.exit': 'Exit immersive mode',
 };

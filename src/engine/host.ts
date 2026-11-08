@@ -40,9 +40,8 @@ import {
   resolveFootnoteText,
   splitFootnoteHref,
 } from './footnote';
-import { DEFAULT_PREFS, FONT_SIZE_RANGE, gatedPrefs, type ReaderPrefs } from '../data/prefs';
+import { DEFAULT_PREFS, gatedPrefs, type ReaderPrefs } from '../data/prefs';
 import { can } from '../data/entitlement';
-import { isMobileEnv } from '../core/mobile';
 import { engineMetaFromBook, type EngineMeta } from '../data/book-meta';
 import { accumulateEdgeTurn, scrollEdgeOf } from './scroll-edge';
 
@@ -150,8 +149,6 @@ export interface MountOptions {
   ) => void;
   /** 任何手势要求翻页（滚轮 / 双指横滑 / 按钮） */
   onTurn?: (dir: 'prev' | 'next') => void;
-  /** 两指捏合或 Ctrl+滚轮要求改字号 */
-  onFontSize?: (size: number) => void;
   /** 划词（选区消失时回调 null）。移动端也一样，只是浮层位置不同 */
   onSelect?: (info: SelectionInfo | null) => void;
   /** 点中一条已画好的标注 */
@@ -261,25 +258,17 @@ export class EngineHost {
   private lastTouchY = 0;
   /** 拖拽翻页期间抑制紧随其后的 click */
   private suppressClickUntil = 0;
-  /** 两指捏合起始距离与基准字号 */
-  private pinchStart = 0;
-  private pinchBase = 0;
   /**
-   * 捏合时的字号节流（P2-19）。
+   * 双指手势只剩「两指轻按 = 切换沉浸」。
    *
-   * 以前 `touchmove` 里每次两指距离变化都回调 `onFontSize`，上层
-   * `applyPrefs` 会重新生成整份 CSS（`resolveTheme` + `accentColor` 各来一次
-   * `getComputedStyle(document.body)`）再 `setStyles` 进 iframe。捏一次缩放
-   * 就是几十次全量重算，手机上直接卡成幻灯片。
-   *
-   * 现在 80ms 合并一次，松手时再补最后一次。
+   * 2026-11-08 用户拍板删掉两个改字号的入口：双指捏合与 Ctrl+滚轮。
+   * 它们和系统 / 宿主的缩放手势抢同一只手，而且和「点按翻页」互相误伤——
+   * 想放大看一张图，结果翻了三页。改字号回设置面板里去调。
    */
-  private pinchPending: number | null = null;
-  private pinchTimer: number | null = null;
   /** 两指轻按的判定：按下时间 + 两指间距的最大变化 */
   private twoFingerAt = 0;
   private twoFingerMove = 0;
-  /** 两指落下时的间距（移动端不做捏合，拔掉 pinchBase 后仍要它算位移） */
+  /** 两指落下时的间距：算「这两指几乎没动」 */
   private twoFingerSpan = 0;
   /** 这个 iframe 里 pointer 事件是否可用（可用就只认 pointer，避免重复计数） */
   private pointerWorks = false;
@@ -389,6 +378,9 @@ export class EngineHost {
 
   async mount(container: HTMLElement, vaultPath: string, opts: MountOptions): Promise<void> {
     await this.destroy();
+    /* 上一个 destroy 立的旗子在这里放下：同一个 host 会被反复用来开不同的书，
+       旗子不清掉的话，重开之后的标注与搜索全被当成「关书后的迟到回调」丢掉。 */
+    this.destroyed = false;
 
     this.opts = opts;
     this.prefs = opts.prefs;
@@ -556,12 +548,10 @@ export class EngineHost {
     } catch (err) {
       /* 首章失败：把 foliate 视图和 book 一起拆掉（P3-21）。
          只 remove() 视图的话，book 里那些已经解出来的章节/资源（blob URL）
-         会一直挂着——打开一本坏书就等于漏一次内存。 */
-      try {
-        view.close();
-      } catch {
-        /* 没 open 成功的视图再 close 会抛，忽略 */
-      }
+         会一直挂着——打开一本坏书就等于漏一次内存。
+         必须走 teardownView（B7）：close() 自己抛错时 sections 与 mediaQuery
+         监听都还挂在全局对象上，`catch { 忽略 }` 把它们留到了下一次开书。 */
+      teardownView(view);
       view.remove();
       book?.destroy?.();
       this.view = null;
@@ -614,7 +604,10 @@ export class EngineHost {
       ]);
       if (done === 'timeout') throw new Error(`正文 ${LOCATE_TIMEOUT / 1000} 秒没能分页出来`);
     } catch (err) {
-      this.phase = 'locate';
+      /* 分页失败 / 超时：**先把视图拆干净再抛**（B4）。
+         以前只把 phase 改回 locate 就抛：界面上是错误页，内存里整本书的
+         sections 与 blob 注册表还在，用户再点一次开书就是第二份。 */
+      await this.destroy();
       throw err;
     } finally {
       window.clearTimeout(timer);
@@ -677,21 +670,16 @@ export class EngineHost {
     const main = Math.abs(dy) >= Math.abs(dx) ? dy : dx;
     if (!main) return;
 
-    // Ctrl/⌘ + 滚轮：改字号。桌面端这是最顺手的缩放，比去开面板快
-    if (ev.ctrlKey || ev.metaKey) {
-      ev.preventDefault();
-      const step = main > 0 ? -1 : 1;
-      const next = Math.min(FONT_SIZE_RANGE.max, Math.max(FONT_SIZE_RANGE.min, this.prefs.fontSize + step));
-      if (next !== this.prefs.fontSize) this.opts.onFontSize?.(next);
-      return;
-    }
+    /* Ctrl/⌘ + 滚轮不再改字号（用户拍板删掉这个入口）：这是系统 / 宿主的
+       缩放手势，我们既不拦也不翻页——拦了会跟触控板捏合打架，不拦又直接
+       掉进下面的翻页逻辑，一捏就是连翻好几页。 */
+    if (ev.ctrlKey || ev.metaKey) return;
 
     /* 滚动模式（P2-02）：滚轮交给浏览器自己滚，不拦、不翻页。
        这是桌面阅读的第一诉求——想往上回看两行，分页模式只能整页翻回去。
-       Ctrl/⌘ + 滚轮仍然改字号（那是最顺手的缩放，两种模式都该有）。
 
        只有「已经滚到章末/章首还继续滚」才接管，换来「一章滚完自动下一章」。 */
-    if (this.prefs.flow === 'scroll' && !ev.ctrlKey && !ev.metaKey) {
+    if (this.prefs.flow === 'scroll') {
       this.scrollEdgeTurn(main);
       return;
     }
@@ -714,8 +702,10 @@ export class EngineHost {
   private bindGestures(doc: Document): void {
     // 竖排感知：注入的 writing-mode 在引擎判定方向前就已生效，这里读到的是准的。
     // 竖排从右往左读，「下一页」在左边——点击与拖拽的方向映射全部反过来。
-    const writingMode = doc.defaultView?.getComputedStyle(doc.body).writingMode ?? '';
+    const computed = doc.defaultView?.getComputedStyle(doc.body);
+    const writingMode = computed?.writingMode ?? '';
     this.verticalContent = writingMode.startsWith('vertical');
+    this.rtlContent = (computed?.direction ?? '') === 'rtl';
 
     /* ① 点按三区。
        不用 `click`：移动端一次触摸可能合成两次 click（一次给 iframe、一次给
@@ -879,12 +869,6 @@ export class EngineHost {
       this.twoFingerSpan = distance(ev.touches);
       this.twoFingerAt = Date.now();
       this.twoFingerMove = 0;
-      /* 移动端不再用双指捏合改字号：它和系统/宿主的缩放手势抢同一只手。
-         两指轻按（切换沉浸）仍然保留。 */
-      if (!isMobileEnv()) {
-        this.pinchStart = this.twoFingerSpan;
-        this.pinchBase = this.prefs.fontSize;
-      }
     };
     const onTouchMove = (ev: TouchEvent): void => {
       /* 滚动模式下的「滚到章末继续上滑 → 下一章」。
@@ -911,24 +895,12 @@ export class EngineHost {
       if (ev.touches.length !== 2) return;
       const span = distance(ev.touches);
       this.twoFingerMove = Math.max(this.twoFingerMove, Math.abs(span - this.twoFingerSpan));
-      /* 移动端捏合已关：pinchStart 恒为 0，到这里就返回，既不拦默认行为也不改字号 */
-      if (!this.pinchStart) return;
-      ev.preventDefault();
-      const ratio = span / this.pinchStart;
-      const next = Math.min(
-        FONT_SIZE_RANGE.max,
-        Math.max(FONT_SIZE_RANGE.min, Math.round(this.pinchBase * ratio)),
-      );
-      this.queueFontSize(next);
     };
     const onTouchEnd = (ev: TouchEvent): void => {
-      /* 松手时把节流里最后那一档字号补上，否则停在中途的那一档就丢了 */
-      if (ev.touches.length < 2) this.flushFontSize();
-      /* 两指轻按：时间短、两指间距几乎没变。捏合会改字号，这里不拦。 */
+      /* 两指轻按：时间短、两指间距几乎没变 */
       if (ev.touches.length < 2 && this.twoFingerAt) {
         const startedAt = this.twoFingerAt;
         const moved = this.twoFingerMove;
-        this.pinchStart = 0;
         this.twoFingerAt = 0;
         this.twoFingerMove = 0;
         if (Date.now() - startedAt < 400 && moved < 14) {
@@ -1017,27 +989,6 @@ export class EngineHost {
       doc.removeEventListener('keyup', onKeyUp);
       doc.removeEventListener('keydown', onKeyDown);
     });
-  }
-
-  /** 捏合字号：80ms 合并，只把最后一档交出去（P2-19） */
-  private queueFontSize(next: number): void {
-    this.pinchPending = next;
-    if (this.pinchTimer !== null) return;
-    this.pinchTimer = window.setTimeout(() => {
-      this.pinchTimer = null;
-      this.flushFontSize();
-    }, 80);
-  }
-
-  /** 立刻提交待发的字号（松手 / 销毁时调） */
-  private flushFontSize(): void {
-    if (this.pinchTimer !== null) {
-      window.clearTimeout(this.pinchTimer);
-      this.pinchTimer = null;
-    }
-    const next = this.pinchPending;
-    this.pinchPending = null;
-    if (next !== null && next !== this.prefs.fontSize) this.opts.onFontSize?.(next);
   }
 
   /** 选区检查（防抖）。同一段选区只上报一次，避免浮层被重复 show 打断输入 */  private scheduleSelection(doc: Document, delay: number): void {
@@ -1180,6 +1131,7 @@ export class EngineHost {
     // 串行做是刻意的——删除和重画都是异步的，交错跑会把刚画上的又删掉。
     void (async () => {
       for (const value of prev) {
+        if (this.destroyed || this.view !== view) return;
         if (this.annotColors.has(value)) continue;
         await view.deleteAnnotation({ value }).catch(() => undefined);
       }
@@ -1194,10 +1146,13 @@ export class EngineHost {
    */
   private redrawAnnotations(): void {
     const view = this.view;
-    if (!view) return;
+    if (!view || this.destroyed) return;
     for (const a of this.annots) {
       if (a.chapterIndex != null && a.chapterIndex !== this.sectionIndex) continue;
       void view.addAnnotation({ value: a.cfiRange }).catch((err: unknown) => {
+        /* 关书之后 addAnnotation 会抛在已经拆掉的渲染器上，那属于正常收尾，
+           不是「标注定位失败」——别在控制台里制造假的报错线索。 */
+        if (this.destroyed || this.view !== view) return;
         console.warn('[bz-reader] 标注定位失败：', err);
       });
     }
@@ -1223,6 +1178,21 @@ export class EngineHost {
     return this.verticalContent;
   }
   private verticalContent = false;
+
+  /**
+   * 当前章节是不是 RTL（阿拉伯语 / 希伯来语等）。
+   *
+   * 和竖排一样在 bindGestures 里从 computed style 读一次：书自带的
+   * `dir="rtl"` 会落到 body 的 `direction` 上，而注入的样式之后才生效，
+   * 所以那一刻读到的值既包含书的语义也包含我们的覆盖。
+   */
+  get contentRtl(): boolean {
+    return this.rtlContent;
+  }
+  private rtlContent = false;
+
+  /** 已经 destroy 过：之后的异步回调（搜索、标注、导航）一律不再碰视图 */
+  private destroyed = false;
 
   /**
    * 宿主换主题（明暗 / 社区主题）时重注入章节样式。
@@ -1754,6 +1724,9 @@ export class EngineHost {
   }
 
   async destroy(): Promise<void> {
+    /* 先立旗：拆卸要 await 导航队列，这期间可能还有 relocate / 标注事件
+       摸进来，它们必须看见「已经关了」。 */
+    this.destroyed = true;
     this.unbindDocGestures();
     for (const off of this.outerDetachers.splice(0)) off();
     /* 等排队的导航收口再拆 iframe（P1-15）：不等的话，正在跑的 goTo 会在
@@ -1762,12 +1735,6 @@ export class EngineHost {
     this.wheelAcc = 0;
     this.edgeAcc = 0;
     this.edgeSide = null;
-    this.pinchStart = 0;
-    if (this.pinchTimer !== null) {
-      window.clearTimeout(this.pinchTimer);
-      this.pinchTimer = null;
-    }
-    this.pinchPending = null;
     if (this.selTimer !== null) {
       window.clearTimeout(this.selTimer);
       this.selTimer = null;
