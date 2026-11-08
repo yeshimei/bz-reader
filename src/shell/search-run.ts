@@ -20,6 +20,16 @@ import { mergeBodyHits, planBodyBooks, runBodySearch } from './search-body';
 /** 打字停下多久才开始扫正文：太短会边打边解包，太长像卡住 */
 const DEBOUNCE_MS = 320;
 
+/**
+ * 一轮搜索的身份：词（去首尾空白）+ 范围。
+ *
+ * 搜索浮层「关闭只收起、再开还回去」的缓存靠它判断能不能复用：书架搜索页
+ * 可能已经把词换掉了，还按旧 DOM 还原就会出现输入框与状态各说各话。
+ */
+export function searchQueryKey(kw: string, scope: 'book' | 'all'): string {
+  return `${kw.trim()}\u0001${scope}`;
+}
+
 let timer: number | null = null;
 
 function clearTimer(): void {

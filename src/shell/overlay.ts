@@ -27,7 +27,7 @@ import { bmksOf, allMarks, fmtMinutes, fmtWhen, marksOf } from './domain';
 import { noteCardHtml } from './render/notes';
 import { cardTemplateChipsHtml, quoteCardHtml, quoteRefMarkdown } from './render/quote-card';
 import { searchFormHtml, searchResultsHtml } from './render/search';
-import { kickBodySearch, stopBodySearch } from './search-run';
+import { kickBodySearch, searchQueryKey, stopBodySearch } from './search-run';
 import {
   bumpOverlayRev,
   closeOverlay,
@@ -683,7 +683,7 @@ function overlayGoal(): string {
   const body = `<div class="bzs-setgrp flat">
       <div class="bzs-setrow"><label>今年读</label>
         <span class="bzs-range"><input type="range" data-role="goal" min="5" max="100" step="1" value="${st.goal}" style="--fill:${rangeFill(5, 100, st.goal)}"></span>
-        <span class="val" id="bzs-goalval">${st.goal} 本</span></div>
+        <span class="val" id="bzs-goalval">${t('stats.goal.value', { n: st.goal })}</span></div>
       <div class="bzs-mini" style="margin-top:12px;line-height:1.9">已完成 ${done} 本。目标只影响仪表盘上的那圈铜线。</div>
     </div>`;
   return modal('年度目标', '按自己的节奏来', body, closeBtn());
@@ -1276,6 +1276,8 @@ export class OverlayLayer {
    * 关闭只是把节点收进这里，再次打开原样挂回，不重渲染。
    */
   private searchStash: HTMLElement | null = null;
+  /** 缓存的搜索屏属于哪一轮（词 + 范围）；跟当前状态不一致就不再复用 */
+  private searchStashKey = '';
   /** 隐藏那一刻的滚动位置：节点脱离文档后 scrollTop 不保证还保留 */
   private searchScroll = 0;
 
@@ -1446,10 +1448,11 @@ export class OverlayLayer {
       persistShellState();
       stopBodySearch();
     }
-    /* 打开搜索浮层：没有缓存时才补扫一轮正文；有缓存就直接复用旧结果，
-       免得刚打开又清空列表、再长一遍。 */
-    if (opening && kind === 'search' && !this.searchStash) {
-      kickBodySearch(getState().searchKw, getState().searchScope);
+    /* 打开搜索浮层：缓存的词还跟当前状态对得上就直接复用旧屏；
+       对不上（书架搜索页可能已经改过词）就丢掉重开，免得输入框和结果各说各话。 */
+    if (opening && kind === 'search') {
+      if (this.searchStash && !this.stashMatches()) this.searchStash = null;
+      if (!this.searchStash) kickBodySearch(getState().searchKw, getState().searchScope);
     }
     this.paint(opening);
   }
@@ -1517,9 +1520,9 @@ export class OverlayLayer {
   }
 
   private paint(refocus = true): void {
-    /* 搜索浮层「隐藏不销毁」：缓存还在就直接原样挂回——不 setHtml、不重建，
-       输入框内容、结果列表与滚动位置都保持隐藏前那一刻。 */
-    if (getState().overlay?.kind === 'search' && this.searchStash) {
+    /* 搜索浮层「隐藏不销毁」：缓存还在、且属于当前这一轮搜索，就原样挂回——
+       不 setHtml、不重建，输入框内容、结果列表与滚动位置都保持隐藏前那一刻。 */
+    if (getState().overlay?.kind === 'search' && this.stashMatches()) {
       this.restoreSearchStash(refocus);
       return;
     }
@@ -1618,10 +1621,16 @@ export class OverlayLayer {
     const scrim = this.root.firstElementChild as HTMLElement | null;
     if (!scrim) return;
     this.searchScroll = this.root.querySelector<HTMLElement>('.bzs-mbody')?.scrollTop ?? 0;
+    this.searchStashKey = searchQueryKey(getState().searchKw, getState().searchScope);
     this.unbindHitlist();
     const holder = createDiv();
     holder.appendChild(scrim);
     this.searchStash = holder;
+  }
+
+  /** 缓存的那一屏是不是当前这一轮搜索（词 + 范围都对得上才复用） */
+  private stashMatches(): boolean {
+    return !!this.searchStash && this.searchStashKey === searchQueryKey(getState().searchKw, getState().searchScope);
   }
 
   /** 再次打开搜索：把收起来的节点原样挂回，不重渲染 */

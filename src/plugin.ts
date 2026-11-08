@@ -52,7 +52,7 @@ import { initDevTier, resetDevTier, setDevTier } from './core/dev-tier';
 import { normalizePluginData, type PluginDataFile } from './data/plugin-data';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
 import { installBlobSrcdocPatches, uninstallBlobSrcdocPatches } from './engine/blob-srcdoc';
-import { searchAcrossBooks } from './engine/cross-search';
+import { disposeCrossSearchStage, searchAcrossBooks } from './engine/cross-search';
 import { openStats } from './ui/stats-panel';
 import { openCrossSearch } from './ui/cross-search-panel';
 
@@ -543,6 +543,9 @@ export function createPlugin(cfg: PluginConfig) {
         /* 壳层的数据源必须断：它握着 store / repo / app，不断的话禁用插件后
            任何一次误触（残留的按钮、还没销毁的监听）都能继续改数据。 */
         setShellSource(null);
+        /* 跨书搜索的离屏舞台常驻 body（整轮复用）：卸载时摘掉，
+           否则正在扫的那本书走不到 finally，body 上会留一个空节点。 */
+        disposeCrossSearchStage();
         /* 书架就是中心 tab 里的一个视图（VIEW_TYPE_STUDY），跟阅读视图一样是用户
            自己打开的——插件重载不该替他关掉。Obsidian 在插件停用时自己会把这些
            leaf 换成占位，我们 detach 只会让人丢掉布局。 */

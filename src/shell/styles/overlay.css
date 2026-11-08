@@ -837,6 +837,13 @@ body.theme-dark .bzs-tb-more {
   background: var(--copper-soft);
 }
 
+/* 手机上给清空键一个指尖放得下的热区：22px 是桌面的尺度 */
+.bzs-shell.is-mobile .bzs-srch-clear {
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+}
+
 /* 正文搜索进行中：进度 + 停止 */
 .bzs-srch-prog {
   display: flex;

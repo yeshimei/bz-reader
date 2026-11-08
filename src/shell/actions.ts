@@ -2332,7 +2332,7 @@ export function dispatchInput(
   if (role === 'goal') {
     setGoal(Math.max(1, Number(value) || 1), { silent: dragging });
     const label = document.getElementById('bzs-goalval');
-    if (label) label.textContent = `${value} 本`;
+    if (label) label.textContent = t('stats.goal.value', { n: value });
     return;
   }
   if (role === 'searchkw') {

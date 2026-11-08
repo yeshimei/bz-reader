@@ -34,7 +34,7 @@ export interface SearchRow {
   bookId: string;
   /** 标注 id；kind==='book' 时为空串 */
   id: string;
-  /** 行首小字：书籍 / 章节名 */
+  /** 行首小字：书籍 / 章节名。书籍行留空——那枚小字按界面语言由渲染层填 */
   label: string;
   /** 正文（标注截到 80 字；想法命中时是想法本身；章节名命中时是章节名） */
   text: string;
@@ -67,12 +67,14 @@ export function searchHits(books: SearchTarget[], keyword: string, maxPerBook = 
   for (const b of books) {
     const rows: SearchRow[] = [];
     if (`${b.title}${b.author ?? ''}`.toLowerCase().includes(kw)) {
+      const author = (b.author ?? '').trim();
       rows.push({
         kind: 'book',
         bookId: b.id,
         id: '',
-        label: '书籍',
-        text: `${b.title} · ${b.author || '佚名'}`,
+        label: '',
+        /* 没有作者就只显示书名：以前兜底写「佚名」，非中文界面会冒中文 */
+        text: author ? `${b.title} · ${author}` : b.title,
         via: 'title',
       });
     }

@@ -209,6 +209,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'stats.kpi.today': '今日 · 分鐘',
   'stats.goal.caption': '年度目標',
   'stats.goal.progress': '{done} / {goal} 本',
+  'stats.goal.value': '{n} 本',
   'stats.goal.reached': '目標已經達成。把數字調高一點，或者換一本難啃的。',
   'stats.goal.remaining': '今年還差 {n} 本。目標只影響這圈銅線，不影響別處的統計。',
   'stats.goal.adjust': '調整目標',

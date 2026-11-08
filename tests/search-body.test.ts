@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { mergeBodyHits, planBodyBooks, runBodySearch, type BodyHit } from '../src/shell/search-body';
-import { settleBodySearch } from '../src/shell/search-run';
+import { searchQueryKey, settleBodySearch } from '../src/shell/search-run';
 import { RT } from '../src/shell/runtime';
 
 /* ============================================================
@@ -141,6 +141,17 @@ describe('runBodySearch', () => {
       onProgress: () => undefined,
     });
     expect(done).toBe(true);
+  });
+});
+
+describe('searchQueryKey（搜索浮层缓存的复用判据）', () => {
+  it('同一个词同一个范围得到同一把钥匙', () => {
+    expect(searchQueryKey('文明', 'all')).toBe(searchQueryKey('  文明  ', 'all'));
+  });
+
+  it('换词或换范围都要换钥匙：否则会把上一处的旧结果还回去', () => {
+    expect(searchQueryKey('文明', 'all')).not.toBe(searchQueryKey('文明', 'book'));
+    expect(searchQueryKey('文明', 'all')).not.toBe(searchQueryKey('文明史', 'all'));
   });
 });
 

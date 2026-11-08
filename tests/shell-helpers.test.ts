@@ -31,10 +31,10 @@ describe('searchHits', () => {
     expect(searchHits(books, '   ')).toEqual({ groups: [], total: 0 });
   });
 
-  it('命中书名/作者，给出「书籍」行', () => {
+  it('命中书名/作者，给出「书籍」行（行首小字由渲染层按界面语言填）', () => {
     const r = searchHits(books, '红楼');
     expect(r.groups).toHaveLength(1);
-    expect(r.groups[0]!.rows[0]).toMatchObject({ kind: 'book', bookId: 'b2', label: '书籍' });
+    expect(r.groups[0]!.rows[0]).toMatchObject({ kind: 'book', bookId: 'b2', label: '' });
   });
 
   it('命中标注原文与想法，合计总数按书统计', () => {

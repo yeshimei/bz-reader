@@ -59,6 +59,17 @@ describe('搜索命中来源（fix/search-body）', () => {
     expect(r.groups[0]!.rows[0]).toMatchObject({ kind: 'book', via: 'title' });
   });
 
+  it('书没有作者时只显示书名，不留「佚名」兜底', () => {
+    const noAuthor: SearchTarget[] = [{ id: 'b9', title: '无名之书', marks: [] }];
+    const r = searchHits(noAuthor, '无名');
+    expect(r.groups[0]!.rows[0]!.text).toBe('无名之书');
+  });
+
+  it('书籍行的 label 留空：行首小字由渲染层按界面语言填', () => {
+    const r = searchHits(books, '红楼');
+    expect(r.groups[0]!.rows[0]!.label).toBe('');
+  });
+
   it('书名、作者、章节名、原文、想法都不含关键词时，一本都别列', () => {
     expect(searchHits(books, '不存在的字')).toEqual({ groups: [], total: 0 });
   });

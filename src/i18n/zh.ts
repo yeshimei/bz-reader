@@ -222,6 +222,7 @@ export const ZH = {
   'stats.kpi.today': '今日 · 分钟',
   'stats.goal.caption': '年度目标',
   'stats.goal.progress': '{done} / {goal} 本',
+  'stats.goal.value': '{n} 本',
   'stats.goal.reached': '目标已经达成。把数字调高一点，或者换一本难啃的。',
   'stats.goal.remaining': '今年还差 {n} 本。目标只影响这圈铜线，不影响别处的统计。',
   'stats.goal.adjust': '调整目标',

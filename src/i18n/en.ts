@@ -217,6 +217,7 @@ export const EN: Record<MsgKey, string> = {
   'stats.kpi.today': 'Today · minutes',
   'stats.goal.caption': 'Yearly goal',
   'stats.goal.progress': '{done} / {goal} books',
+  'stats.goal.value': '{n} books',
   'stats.goal.reached': 'Goal reached. Raise the number, or pick a harder book.',
   'stats.goal.remaining': '{n} books to go this year. The goal only moves this ring — nothing else changes.',
   'stats.goal.adjust': 'Adjust goal',

@@ -16,6 +16,29 @@ import { EngineHost, type SearchHit } from './host';
 
 export type CrossBookHit = SearchHit & { chapterLabel: string };
 
+/**
+ * 整轮共用的离屏舞台。
+ *
+ * 原来每本书都新建一个再 remove：正常路径能收干净，但搜索途中卸载插件时
+ * 正在扫的那一本走不到 finally，body 上就留下一个空节点。现在同一时间只有
+ * 一个舞台，卸载时调 `disposeCrossSearchStage()` 一次摘掉。
+ */
+let sharedStage: HTMLElement | null = null;
+
+export function crossSearchStage(): HTMLElement {
+  if (sharedStage) return sharedStage;
+  sharedStage = createDiv();
+  sharedStage.className = 'bzr-xs-stage';
+  document.body.appendChild(sharedStage);
+  return sharedStage;
+}
+
+/** 插件卸载时调用：把还在的离屏舞台摘掉 */
+export function disposeCrossSearchStage(): void {
+  sharedStage?.remove();
+  sharedStage = null;
+}
+
 export interface CrossSearchDeps {
   app: App;
   /** 要扫的书（调用方负责剔掉文件缺失的） */
@@ -31,30 +54,24 @@ export interface CrossSearchDeps {
 }
 
 export async function searchAcrossBooks(deps: CrossSearchDeps): Promise<void> {
-  const stage = createDiv();
-  stage.className = 'bzr-xs-stage';
-  document.body.appendChild(stage);
-  try {
-    for (const book of deps.books) {
-      if (deps.shouldStop?.()) break;
-      deps.onBookStart?.(book);
-      const host = new EngineHost(deps.app);
-      try {
-        await host.mount(stage, book.fileRef.vaultPath, { prefs: deps.prefs });
-        // 不调 start()/init()：foliate 的 search 自己逐章 load，不依赖当前渲染
-        /* shouldStop 一路传进逐章循环（P2-05）：只判「下一本书之前」的话，
-           点了停止当前这本仍会把剩下的章节扫完，界面还要再转好几秒。 */
-        const hits = await host.search(deps.query, { shouldStop: deps.shouldStop });
-        if (hits.length) deps.onHits(book, hits);
-      } catch {
-        /* 打不开的书跳过——搜索不该被一本坏文件打断 */
-      } finally {
-        await host.destroy().catch(() => undefined);
-      }
-      deps.onBookDone?.(book);
-      if (deps.shouldStop?.()) break;
+  const stage = crossSearchStage();
+  for (const book of deps.books) {
+    if (deps.shouldStop?.()) break;
+    deps.onBookStart?.(book);
+    const host = new EngineHost(deps.app);
+    try {
+      await host.mount(stage, book.fileRef.vaultPath, { prefs: deps.prefs });
+      // 不调 start()/init()：foliate 的 search 自己逐章 load，不依赖当前渲染
+      /* shouldStop 一路传进逐章循环（P2-05）：只判「下一本书之前」的话，
+         点了停止当前这本仍会把剩下的章节扫完，界面还要再转好几秒。 */
+      const hits = await host.search(deps.query, { shouldStop: deps.shouldStop });
+      if (hits.length) deps.onHits(book, hits);
+    } catch {
+      /* 打不开的书跳过——搜索不该被一本坏文件打断 */
+    } finally {
+      await host.destroy().catch(() => undefined);
     }
-  } finally {
-    stage.remove();
+    deps.onBookDone?.(book);
+    if (deps.shouldStop?.()) break;
   }
 }
