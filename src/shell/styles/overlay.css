@@ -962,6 +962,14 @@ body.theme-dark .bzs-tb-more {
   font-size: 16px;
   line-height: 2;
   color: var(--ink);
+  /* 划了一整段也别把整张卡顶出屏幕：引文自己滚，模板 chips 与底部动作
+     留在原位。上限按视口算，横屏矮屏加上那些固定开销也还在一屏之内；
+     手机另在 mobile.css 里收一档。出图 / 存笔记都取原文全文，不受这里影响。 */
+  max-height: min(34vh, 300px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .bzs-qcard .q::before {

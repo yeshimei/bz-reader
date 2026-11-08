@@ -1039,6 +1039,14 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'buy':
       window.open(PURCHASE_URL, '_blank');
       break;
+    case 'showcode': {
+      /* 手机解锁层：展开激活码框。收起态不带输入框，弹层才拿得到接近
+         满屏的高度；展开后由 paint() 把光标放进输入框。 */
+      const o = getState().overlay;
+      if (!o || o.kind !== 'unlock') break;
+      setState({ overlay: { ...o, codeOpen: true } });
+      break;
+    }
     case 'relicense':
       /* 已激活的人换码（试用 → 正式版）：直接放开输入框，原码留着方便替换 */
       setState({ relicense: true });

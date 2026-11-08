@@ -836,7 +836,7 @@ function planCell(kind: 'free' | 'pro', v: PlanCell): string {
 }
 
 /* 导出给测试：这一屏是免费用户最常看到的，按钮与群号值得单独钉住 */
-export function overlayUnlock(mode?: string): string {
+export function overlayUnlock(mode?: string, codeOpen = false): string {
   const v = entitlement();
   /* 不传 mode = 只是「查看功能对照」（设置页那颗按钮），不高亮任何一行。
      以前这里兜底成 export，结果从设置页进来看全表，视线总被拽到导出那行。 */
@@ -862,18 +862,26 @@ export function overlayUnlock(mode?: string): string {
     </div>`;
 
   /* 购买区与激活框都放进页脚：正文里的对照表再长、滚多远，这两个出口
-     也钉在底部。以前购买条在正文里，表一长就被推出可视区。 */
-  const foot = `<div class="bzs-unlock-foot">
+     也钉在底部。以前购买条在正文里，表一长就被推出可视区。
+     手机上默认收起激活框：页脚只剩一行，弹层也不再因为「页脚有输入框」
+     被压到七成屏高；点一下才展开，展开后软键盘避让照旧（modal() 按
+     HTML 里有没有输入框自动判定）。桌面维持原样，输入框一直可见。 */
+  const showCode = !isMobileEnv() || codeOpen;
+  const act = showCode
+    ? `<div class="bzs-unlock-act">
+        <label>${t('unlock.haveCode')}</label>
+        <input data-role="license" placeholder="BZR2.…" value="${esc(v.license)}" spellcheck="false">
+        <button class="bzs-btn sm pri" data-act="activate">${t('settings.lic.activate')}</button>
+      </div>`
+    : '';
+  const foot = `<div class="bzs-unlock-foot ${showCode ? 'is-open' : 'is-closed'}">
       <div class="bzs-unlock-buy">
         <button class="bzs-btn pri" data-act="buy">${t('unlock.buy')}</button>
         ${groupButtonHtml()}
         <span class="bzs-mini">${t('unlock.hint')}</span>
+        ${showCode ? '' : `<button class="bzs-btn" data-act="showcode">${t('unlock.haveCode')}</button>`}
       </div>
-      <div class="bzs-unlock-act">
-        <label>${t('unlock.haveCode')}</label>
-        <input data-role="license" placeholder="BZR2.…" value="${esc(v.license)}" spellcheck="false">
-        <button class="bzs-btn sm pri" data-act="activate">${t('settings.lic.activate')}</button>
-      </div>
+      ${act}
     </div>`;
 
   return modal(t('unlock.title'), paid ? t('unlock.activated') : '', body, foot, 'wide tall');
@@ -1128,7 +1136,7 @@ export function overlayHtml(): string {
     case 'finish':
       return overlayFinish(o.bookId);
     case 'unlock':
-      return overlayUnlock(o.mode);
+      return overlayUnlock(o.mode, o.codeOpen);
     case 'movedir':
       return overlayMoveDir(o.mode || 'data', o.text || '');
     case 'rename':
@@ -1563,6 +1571,11 @@ export class OverlayLayer {
     this.placeAnchored();
     /* 把焦点还给刚才那个输入框；下面几段「一打开就聚焦」的再覆盖它 */
     if (keepInput) this.restoreInput(keepInput);
+    /* 手机上点「已有激活码」展开输入框：重画完立刻把光标放进去，
+       省掉再点一次。聚焦会让软键盘弹起，位置已由 placeAnchored() 先摆好。 */
+    if (o?.kind === 'unlock' && o.codeOpen) {
+      this.root.querySelector<HTMLInputElement>('[data-role="license"]')?.focus({ preventScroll: true });
+    }
     if (o?.kind === 'search') {
       const input = this.root.querySelector<HTMLInputElement>('[data-role="searchkw"]');
       input?.focus();

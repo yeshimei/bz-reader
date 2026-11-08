@@ -165,6 +165,14 @@ export interface OverlayState {
    * 用户只看到一条 toast，界面上还是「未激活」。
    */
   rev?: number;
+  /**
+   * 手机解锁弹层的激活码框是否展开。
+   *
+   * 收起时页脚没有输入框，弹层就不会被当成「键盘要弹起」的那一类，
+   * 高度才能还给对照表；展开后软键盘避让照旧。只属于这一张弹层，
+   * 关掉浮层、换一本弹层都跟着 overlay 一起消失，不用单独清理。
+   */
+  codeOpen?: boolean;
 }
 
 /**
@@ -188,7 +196,9 @@ export function overlayKey(o?: OverlayState | null): string {
     o.chapterTitle ?? '',
     o.anchor ? `${o.anchor.left},${o.anchor.top}` : '',
     String(o.rev ?? 0),
-  ].join('|');
+    /* 展开激活码框是「同一张弹层里的可见状态」，不是换了内容。
+       只在展开时挂标记，收起态的键逐字不变，别的弹层也不受影响。 */
+  ].join('|') + (o.codeOpen ? '|code' : '');
 }
 
 /**

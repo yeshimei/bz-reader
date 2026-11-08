@@ -1277,3 +1277,33 @@
     inset: -12px;
   }
 }
+
+/* ── 长内容别把弹层顶出屏幕（2026-11-08）──
+   · 书摘引文在手机上再收一档：整张卡（含遮罩上方留白）仍留在一屏内；
+   · 高级版弹窗收起激活码框后，对照表拿到接近满屏的高度，行距再压紧一档，
+     二十行基本能一屏看完。只改手机，桌面维持原样。 */
+@media (max-width: 820px) {
+  .bzs-qcard .q {
+    max-height: min(28vh, 220px);
+  }
+
+  /* 收起态：购买条就是页脚的全部，三颗出口挤一行。
+     「填在下面即可」此时没有落点，别再占掉一行。 */
+  .bzs-unlock-foot.is-closed {
+    gap: 0;
+  }
+
+  .bzs-unlock-foot.is-closed .bzs-unlock-buy {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .bzs-unlock-foot.is-closed .bzs-unlock-buy .bzs-mini {
+    display: none;
+  }
+
+  .bzs-plan-row {
+    padding: 3px 10px;
+    gap: 6px;
+  }
+}
