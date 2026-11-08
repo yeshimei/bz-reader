@@ -18,6 +18,7 @@
 | `paginator.js` | `load()` 三条改造：①不用 `display:none` 等 load，改成 `visibility:hidden`（安卓 WebView 对不可见 iframe 可能干脆不加载）；②不依赖 `load` 事件——每 200ms 轮询 `contentDocument`，正文一出现就挂载；③8s 没动静再按 blob 原文重试、15s 仍失败就 `reject` | 上游只挂 `load`、不挂 `error`，地址加载失败时 Promise 既不 resolve 也不 reject，上层 `await` 永远悬着——白屏且无报错，恢复工作区时还会把 Obsidian 钉在「加载工作区中…」 |
 | `paginator.js` | `destroy()` 里 `this.#view.destroy()` 改为 `this.#view?.destroy()` | `#view` 在从未装载 / 已被上一次 destroy 置空时为 null，原版直接抛 `Cannot read properties of null`。这一抛会把后面的 `sections[index].unload()` 与 `#mediaQuery.removeEventListener` 全部跳过：整本书的 section 引用和 mediaQuery 监听都泄漏（宿主侧 `host.destroy` 里补了「close 失败也断链」的兜底，但根因在这里） |
 | `paginator.js` | `isPointerSelecting` 只对非触摸、非触控笔的指针置真，并补 `pointercancel` 复位 | 上游的「拖选到页外自动翻页」（`checkPointerSelection`，700ms 防抖）本来是给桌面鼠标拖选用的。安卓长按选字后拿到的是 `pointercancel` 而不是 `pointerup`，开关会一直挂在真上；之后拖动选择手柄改选区也走同一条判断，选区一端越过当页边界就整页翻走（2026-11-08 真机录屏：向上拖起点手柄跳上一页，向下拖终点手柄跳下一页）。触摸与触控笔一律不参与，桌面鼠标行为保留 |
+| `paginator.js` | 粗指针（`pointer: coarse`）且正文有非空选区时，把 `containerPosition` 吸回整页边界 | 浏览器为了让选区进入视野会把 `#container` 滚走（它虽是 `overflow: hidden`，仍是可编程滚动的容器）。分页模式下 `scrollLeft` 就是页位置，于是整页横移半屏：左边每行少一个字、右边露出下一列每行的第一个字。移动端拖选要求「页面完全不动」，所以有选区就吸回；`#locked` 期间（翻页动画）不插手，桌面鼠标不动它——那边拖选越界自动翻页还留着 |
 
 > 移动端 `blob:` 帧被宿主 CSP 挡掉的问题**不在 vendor 里修**：`engine/blob-srcdoc.ts`
 > 在运行时拦 `iframe.src`，把 blob 读成原文、内联 CSS/图片后写 `srcdoc`。
