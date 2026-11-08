@@ -287,9 +287,13 @@
  * 书库与笔记的筛选条从「细线方框」改成「圆钮 + 圆头胶囊」：
  *   · 动作（搜索、视图切换、多选）→ 34px 正圆，只放图标；
  *   · 选值（分类、排序、颜色）→ 32px 整圆角胶囊，只放文字。
- * 底色统一用 --bg-3（比页面深一档，深浅主题各自混出来），选中才用铜色
- * 实底；文字色取 --bg：亮色主题是白字、暗色主题是深字，铜底上都读得清。
+ * 底色一律读宿主自己的 --background-secondary（纯变量，老 WebView 也认），
+ * 选中才用铜色实底；文字色取 --bg：亮色主题是白字、暗色主题是深字。
  * 作用域只到这三条筛选行，弹层、搜索页与引用卡里的 chip 不动。
+ *
+ * 2026-11-09：这里原来用 color-mix() 现混底色，移动端 WebView 直接不认
+ * （真机上是透明的，就成了一颗空白的图标）。宿主变量本身已经是主题算好
+ * 的一档灰，不再自己混。
  */
 .bzs-round {
   position: relative;
@@ -298,11 +302,7 @@
   flex: none;
   border: 0;
   border-radius: 50%;
-  /* 2026-11-09：--bg-3 在真机上只差 4%，圆钮看起来像「没有圆」。
-     用 --t2（带兜底的主题次要文字色）混 15%——不写死灰度，深浅两套主题
-     各自动得到一档看得见的底；上一版 8% 在手机屏上还是太淡。 */
-  background: var(--surface-2);
-  background: color-mix(in srgb, var(--t2) 15%, var(--bg));
+  background: var(--background-secondary, var(--surface-2));
   color: var(--t2);
   display: grid;
   place-items: center;
@@ -313,7 +313,7 @@
 
 .bzs-round:hover {
   color: var(--t1);
-  background: color-mix(in srgb, var(--t2) 22%, var(--bg));
+  background: var(--background-secondary-alt, var(--background-secondary));
 }
 
 /* 选中那颗悬停时不能退回灰底：铜色是它的身份 */
@@ -335,13 +335,13 @@
   height: 16px;
 }
 
-/* 选值胶囊：同样去掉边框、落 --bg-3；选中实心铜 */
+/* 选值胶囊：同样去掉边框、落宿主的 secondary 底；选中实心铜 */
 .bzs-filters .bzs-chip,
 .bzs-shelfline .bzs-chip,
 .bzs-noteshead .bzs-chip {
   position: relative;
   border: 0;
-  background: var(--bg-3);
+  background: var(--background-secondary, var(--surface-2));
   color: var(--t2);
   height: 32px;
   min-height: 32px;
@@ -375,7 +375,7 @@
 .bzs-filters > .bzs-well,
 .bzs-noteshead .bzs-well {
   border: 0;
-  background: var(--bg-3);
+  background: var(--background-secondary, var(--surface-2));
   border-radius: var(--r-pill);
   height: 34px;
   padding: 0 14px;
@@ -385,7 +385,7 @@
    一二指宽的药丸里再套一圈铜环，看起来像套了两层壳。 */
 .bzs-filters > .bzs-well:focus-within,
 .bzs-noteshead .bzs-well:focus-within {
-  background: color-mix(in srgb, var(--text-normal) 6%, var(--bg));
+  background: var(--background-secondary-alt, var(--background-secondary));
 }
 
 .bzs-filters > .bzs-well input,
