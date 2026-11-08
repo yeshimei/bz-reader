@@ -25,6 +25,8 @@ describe('命令 id', () => {
         'bookmark',
         'bookmap',
         'continue',
+        /* 排查用：手机上开不了控制台，只有这条命令能把链路计数显示出来 */
+        'diag',
         'focus',
         'fullscreen',
         'import',
@@ -81,20 +83,27 @@ describe('命令分发', () => {
   it('每条书架类命令都真的调到东西，没有点在原地不动的入口', () => {
     const app = makeApp();
     const p = makePlugin(app);
+    /* 诊断角标命令的去处是「切开关 + 让当前阅读页立刻重画」：
+       没有开书时 activeReader 为 null，那一半自然不调。 */
+    const probeRefresh = vi.fn();
     const spy = {
       openStudy: vi.fn(),
       continueReading: vi.fn(async () => undefined),
       openImportPanel: vi.fn(),
       openSearch: vi.fn(),
       openTocSidebar: vi.fn(),
+      activeReader: vi.fn(() => ({ refreshProbe: probeRefresh })),
     };
     Object.assign(p, spy);
 
     for (const c of COMMANDS) {
       if (c.reader) continue;
       mockResetAll(spy);
+      probeRefresh.mockClear();
       p.runCommandById(c.id);
-      const hit = Object.values(spy).some((fn) => fn.mock.calls.length > 0);
+      const hit =
+        Object.values(spy).some((fn) => fn.mock.calls.length > 0) ||
+        probeRefresh.mock.calls.length > 0;
       expect(hit, `${c.id} 没有任何去处`).toBe(true);
     }
   });

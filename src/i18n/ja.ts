@@ -44,7 +44,10 @@ export const JA: Record<MsgKey, string> = {
   'cmd.typography': '読書：組版パネル',
   'cmd.bookmap': '読書：全体マップ',
   'cmd.tts': '読書：読み上げの切り替え',
+  'cmd.diag': 'Reader: Diagnostic badge (troubleshooting)',
   'notice.needBook': '先に本を開いてからこのコマンドを実行してください',
+  'notice.diag.on': 'Diagnostic badge on (this session only, turns off on restart)',
+  'notice.diag.off': 'Diagnostic badge off',
   'notice.language.changed': '表示言語を切り替えました。コマンド名は Obsidian の再起動後に反映されます',
 
   /* ── 通知：没入モード ───────────────────────────────────── */

@@ -42,6 +42,7 @@ import type { BookFormat, ReaderBook } from './data/schema';
 import { ReaderView, VIEW_TYPE_READER, type ReaderHostApi } from './view/reader-view';
 import { SideView, VIEW_TYPE_TOC, type SideTab } from './view/side-view';
 import { pickActiveReader } from './view/active-reader';
+import { toggleProbe } from './view/debug-probe';
 import { isDeferredViewOf } from './view/leaf-reuse';
 import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-state';
 import { mountImport } from './ui/import-panel';
@@ -215,6 +216,14 @@ export function createPlugin(cfg: PluginConfig) {
         case 'sidebar':
           this.openTocSidebar('toc');
           break;
+        case 'diag': {
+          /* 手机上开不了控制台：这个角标是唯一能看到链路计数的地方。
+             会话内开关，重启自动关，不写进 data.json。 */
+          const on = toggleProbe();
+          this.activeReader()?.refreshProbe();
+          notify(t(on ? 'notice.diag.on' : 'notice.diag.off'), 'info');
+          break;
+        }
         default:
           break;
       }

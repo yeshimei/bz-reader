@@ -24,7 +24,7 @@ export interface CommandSpec {
 }
 
 /**
- * 注册顺序即命令面板里的默认顺序：书架六条在前，阅读八条在后。
+ * 注册顺序即命令面板里的默认顺序：书架六条在前，阅读相关的在后。
  *
  * 中文名带域前缀（`书架：` / `阅读：`）是原来的口径，语音与肌肉记忆都靠它；
  * 英文用 `Shelf:` / `Reader:` 对应，Obsidian 的搜索按空格分词，搜一个词
@@ -49,4 +49,7 @@ export const COMMANDS: readonly CommandSpec[] = [
   { id: 'typography', key: 'cmd.typography', reader: 'typography' },
   { id: 'bookmap', key: 'cmd.bookmap', reader: 'bookmap' },
   { id: 'tts', key: 'cmd.tts', reader: 'tts' },
+  /* 排查用：手机上开不了控制台，这是唯一能把链路计数显示出来的入口。
+     会话内生效、不落盘，重启自动关。 */
+  { id: 'diag', key: 'cmd.diag' },
 ];

@@ -45,7 +45,10 @@ export const DE: Record<MsgKey, string> = {
   'cmd.typography': 'Lesen: Typografie',
   'cmd.bookmap': 'Lesen: Buchübersicht',
   'cmd.tts': 'Lesen: Vorlesen umschalten',
+  'cmd.diag': 'Reader: Diagnostic badge (troubleshooting)',
   'notice.needBook': 'Öffne zuerst ein Buch und führe den Befehl dann erneut aus',
+  'notice.diag.on': 'Diagnostic badge on (this session only, turns off on restart)',
+  'notice.diag.off': 'Diagnostic badge off',
   'notice.language.changed': 'Sprache geändert – Befehlsnamen werden erst nach einem Neustart von Obsidian aktualisiert',
 
   /* ── Hinweise: Immersivmodus ─────────────────────────────── */

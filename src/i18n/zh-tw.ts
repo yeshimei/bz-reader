@@ -41,7 +41,10 @@ export const ZH_TW: Record<MsgKey, string> = {
   'cmd.typography': '閱讀：排版面板',
   'cmd.bookmap': '閱讀：全書鳥瞰',
   'cmd.tts': '閱讀：朗讀開關',
+  'cmd.diag': '閱讀：診斷角標（排查用）',
   'notice.needBook': '先開啟一本書再使用這個指令',
+  'notice.diag.on': '診斷角標已開啟（本次工作階段有效，重新啟動後自動關閉）',
+  'notice.diag.off': '診斷角標已關閉',
   'notice.language.changed': '介面語言已切換，指令名稱需重新啟動 Obsidian 後才會更新',
 
   /* ── 通知：沉浸模式 ──────────────────────────────────────── */

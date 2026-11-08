@@ -48,8 +48,13 @@ export const ZH = {
   'cmd.typography': '阅读：排版面板',
   'cmd.bookmap': '阅读：全书鸟瞰',
   'cmd.tts': '阅读：朗读开关',
+  'cmd.diag': '阅读：诊断角标（排查用）',
   'notice.needBook': '先打开一本书再用这个命令',
   'notice.language.changed': '界面语言已切换，命令名需重启 Obsidian 后更新',
+
+  /* ── 通知：诊断角标 ──────────────────────────────────────── */
+  'notice.diag.on': '诊断角标已打开（本次会话有效，重启自动关闭）',
+  'notice.diag.off': '诊断角标已关闭',
 
   /* ── 通知：沉浸模式 ──────────────────────────────────────── */
   'notice.immersive.exitDesktop': '已进入沉浸模式，按 ESC 退出',

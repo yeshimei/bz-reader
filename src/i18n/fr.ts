@@ -45,7 +45,10 @@ export const FR: Record<MsgKey, string> = {
   'cmd.typography': 'Lecture : typographie',
   'cmd.bookmap': 'Lecture : vue d’ensemble',
   'cmd.tts': 'Lecture : activer la lecture vocale',
+  'cmd.diag': 'Reader: Diagnostic badge (troubleshooting)',
   'notice.needBook': 'Ouvrez d’abord un livre, puis relancez cette commande',
+  'notice.diag.on': 'Diagnostic badge on (this session only, turns off on restart)',
+  'notice.diag.off': 'Diagnostic badge off',
   'notice.language.changed': 'Langue de l’interface modifiée — les noms des commandes seront mis à jour après un redémarrage d’Obsidian',
 
   /* ── Notifications : mode immersif ──────────────────────── */

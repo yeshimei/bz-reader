@@ -32,6 +32,7 @@ import { notify } from '../core/notice';
 import { localeTag, t } from '../i18n';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
+import { probeEnabled } from './debug-probe';
 import { el, setHtml } from '../ui/dom';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
 import {
@@ -93,19 +94,6 @@ const COMPLETE_THRESHOLD = 0.99;
  * 自己这一份。
  */
 const immersiveHolders = new Set<ReaderView>();
-
-/**
- * 真机诊断角标开关：默认关闭。
- * 以前没有开关，每一台手机的每一页左下角都挂着版本号与点按计数。
- * 排查时在控制台执行 `localStorage['bz-reader:debug-probe']='1'` 再重开书。
- */
-function probeEnabled(): boolean {
-  try {
-    return window.localStorage?.getItem('bz-reader:debug-probe') === '1';
-  } catch {
-    return false;
-  }
-}
 
 /** 阅读视图对外暴露给插件的能力（开书、开侧栏、拿 store） */
 export interface ReaderHostApi {
@@ -717,10 +705,20 @@ export class ReaderView extends ItemView {
     const acts = header?.querySelectorAll('.bzr-action').length ?? 0;
     /* pg = 页面里跑的 paginator 是不是打过「点按不吸附」补丁的那一版 */
     const pg = (window as unknown as { __bzrPaginatorGuard?: boolean }).__bzrPaginatorGuard;
+    /* bd / tk / bl 是引擎侧的链路计数（见 EngineHost.probe）：
+       bd 一直 0 = 手势监听没挂上；tk 不涨 = 事件没进来；bl 一直涨 = 被选区/链接/
+       划线拦掉了。真机上分得清这三种，就不用再靠猜。 */
+    const pr = this.host?.probe;
     this.probeEl.textContent =
       `bz ${ReaderView.BUILD_TAG} · pg${pg ? '✓' : '✗'} hdr${header ? '✓' : '✗'} ttl${title ? '✓' : '✗'} act${acts}` +
+      ` · bd${pr?.binds ?? 0} tk${pr?.taps ?? 0} bl${pr?.blocked ?? 0}` +
       ` · tap${this.tapCount}${this.lastZone} ${this.lastKeyBefore || '-'}→${this.lastKeyAfter || '…'}` +
       ` ${Math.round(this.lastPct * 100)}%`;
+  }
+
+  /** 命令面板切完诊断角标后调一下：立刻反映，不用重开书 */
+  refreshProbe(): void {
+    this.renderProbe();
   }
 
   /** 沉浸：藏掉宿主的上头栏与下导航条，再按一次还原 */

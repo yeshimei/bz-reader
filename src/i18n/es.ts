@@ -44,7 +44,10 @@ export const ES: Record<MsgKey, string> = {
   'cmd.typography': 'Lectura: tipografía',
   'cmd.bookmap': 'Lectura: vista general del libro',
   'cmd.tts': 'Lectura: activar la lectura en voz alta',
+  'cmd.diag': 'Reader: Diagnostic badge (troubleshooting)',
   'notice.needBook': 'Abre primero un libro y vuelve a ejecutar el comando',
+  'notice.diag.on': 'Diagnostic badge on (this session only, turns off on restart)',
+  'notice.diag.off': 'Diagnostic badge off',
   'notice.language.changed': 'Idioma de la interfaz cambiado: los nombres de los comandos se actualizarán al reiniciar Obsidian',
 
   /* ── Avisos: modo inmersivo ──────────────────────────────── */

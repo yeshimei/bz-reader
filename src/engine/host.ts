@@ -45,6 +45,8 @@ import { can } from '../data/entitlement';
 import { engineMetaFromBook, type EngineMeta } from '../data/book-meta';
 import { accumulateEdgeTurn, scrollEdgeOf } from './scroll-edge';
 import { isReplayTap, touchTapVerdict, type TapGesture, type TapMark } from './tap-replay';
+import { needsGestureBind, pickGestureDoc, zoneFromFrameY } from './gesture-binding';
+import { isMobileShell } from '../core/mobile';
 
 /** 宿主坐标系里的矩形（左上角 + 宽高，单位 CSS px） */
 export interface Rect {
@@ -243,6 +245,26 @@ export class EngineHost {
    *  否则换章时顺手把容器滚轮也解掉了 */
   private docDetachers: Array<() => void> = [];
   private outerDetachers: Array<() => void> = [];
+  /**
+   * 手势监听现在挂在哪份文档上。
+   *
+   * 用作「要不要重挂」的判据：relocate 每次可见位置变化都会来，同一个文档
+   * 不能重复挂（会把正在进行的滑动打断），换了文档才重挂一次。
+   */
+  private gestureDoc: Document | null = null;
+
+  /**
+   * 真机诊断计数（给阅读页角标看，不参与任何逻辑）。
+   *
+   * - `binds`：手势监听挂到过几份文档上。一直是 0 = `load` 与 `relocate` 都没把
+   *   监听挂上——正文照样能选中、目录照样能跳章，但点按和划词全哑。
+   * - `taps`：走到「该翻页了」那一步的点按次数。不涨 = 事件没进来、或者被下面
+   *   某一条前置条件拦掉了。
+   * - `blocked`：被前置条件拦掉的次数（有选区 / 点在链接 / 点在划线上 / 重播）。
+   *
+   * 三个数放在一起，一眼就能分清「没挂上」「没进来」「进来又被拦了」。
+   */
+  readonly probe = { binds: 0, taps: 0, blocked: 0 };
 
   /** 滚轮累计位移与上次翻页时间（一次手势只翻一页） */
   private wheelAcc = 0;
@@ -432,6 +454,10 @@ export class EngineHost {
       this.chapterTitle = d.tocItem?.label ?? this.chapterTitle;
       this.chapterHref = d.tocItem?.href ?? this.chapterHref;
       this.relocateSeq += 1;
+      /* 兜底补挂：`load` 事件在某些真机上整场不派发（iframe 复用换章时最明显），
+         那一来点击、划词、滚轮三组监听一个都挂不上——正文照样能选中、目录照样
+         能跳章，就是点不动。`relocate` 在每次可见位置变化时必达，用它幂等补一次。 */
+      this.ensureDocGestures();
       this.lastRelocateCfi = d.cfi ?? this.lastRelocateCfi;
       const waiters = this.relocateWaiters;
       this.relocateWaiters = [];
@@ -452,8 +478,7 @@ export class EngineHost {
     view.addEventListener('load', (e) => {
       const { doc, index } = (e as CustomEvent).detail as { doc: Document; index: number };
       this.sectionIndex = index;
-      this.unbindDocGestures();
-      this.bindGestures(doc);
+      this.bindDocGestures(doc);
     });
 
     // 记录最近一次定位（relocate 的 CFI）：竖排切换重载章节时靠它回到原处
@@ -717,10 +742,17 @@ export class EngineHost {
   private bindGestures(doc: Document): void {
     // 竖排感知：注入的 writing-mode 在引擎判定方向前就已生效，这里读到的是准的。
     // 竖排从右往左读，「下一页」在左边——点击与拖拽的方向映射全部反过来。
-    const computed = doc.defaultView?.getComputedStyle(doc.body);
-    const writingMode = computed?.writingMode ?? '';
-    this.verticalContent = writingMode.startsWith('vertical');
-    this.rtlContent = (computed?.direction ?? '') === 'rtl';
+    /* 读方向只是元信息：拿不到就保持上一次的判断，**绝不能让它抛出去**。
+       这个函数是整组监听的总入口，前面一抛，后面所有 addEventListener 都跑不到，
+       表现就是「正文能选中、目录能跳章，但点按和划词全哑」。 */
+    try {
+      const computed = doc.defaultView?.getComputedStyle(doc.body);
+      const writingMode = computed?.writingMode ?? '';
+      this.verticalContent = writingMode.startsWith('vertical');
+      this.rtlContent = (computed?.direction ?? '') === 'rtl';
+    } catch {
+      /* 下一次 load 会再读一遍 */
+    }
 
     /* ① 点按三区。
        不用 `click`：移动端一次触摸可能合成两次 click（一次给 iframe、一次给
@@ -750,13 +782,32 @@ export class EngineHost {
       screenY = 0,
     ): void => {
       const now = Date.now();
-      if (now < this.suppressClickUntil) return;
+      if (now < this.suppressClickUntil) {
+        this.probe.blocked += 1;
+        return;
+      }
       const sel = doc.getSelection();
-      if (sel && !sel.isCollapsed) return;
+      if (sel && !sel.isCollapsed) {
+        /* 有选区时点正文 = 收起选中，不翻页。
+           以前这里直接 return、选区却原样留着：那之后**每一下**点按都被这一条
+           吞掉，正文从此再也翻不动，而工具条又弹不出来（readSelection 拿不到
+           cfi 就返回 null），用户看到的正是「能选中、但点哪儿都没反应」。
+           收起之后 selectionchange 会把工具条一并收掉，下一次点按就正常了。 */
+        sel.removeAllRanges();
+        this.lastSelKey = '';
+        this.probe.blocked += 1;
+        return;
+      }
       const node = target as HTMLElement | null;
-      if (node?.closest?.('a[href], [data-bzr-skip-tap]')) return;
+      if (node?.closest?.('a[href], [data-bzr-skip-tap]')) {
+        this.probe.blocked += 1;
+        return;
+      }
       /* 点在划线上是要看那条标注，不是要翻页 */
-      if (this.hitsAnnotation({ clientX: x, clientY: y })) return;
+      if (this.hitsAnnotation({ clientX: x, clientY: y })) {
+        this.probe.blocked += 1;
+        return;
+      }
       /* 分母必须是「一页有多宽」，不是 html 元素的宽。
          分页器把整章按列排开，documentElement.clientWidth 会是整章的宽度
          （实测 14611px），拿它当分母时手指点哪儿都判成最左边，
@@ -795,13 +846,26 @@ export class EngineHost {
       const winTop = win?.screenY ?? 0;
       const screenRelY = screenY > 0 ? screenY - winTop : y;
       const withinY = Math.max(0, Math.min(liveH || 1, screenRelY - stageTop));
-      const zone: 'prev' | 'next' = withinY < (liveH || 1) * 0.4 ? 'prev' : 'next';
+      /* 分区：手机按**正文自己的高度**比例算（见 gesture-binding.ts）。
+         绕到屏幕坐标再减回来在 iOS 上会对不上，判成「上一页」而人正在第一页时
+         点哪儿都不动。桌面仍走宿主坐标：那里屏幕坐标是准的，且窗口不最大化时
+         帧高与可见正文高度不一定相同。 */
+      const frameH = win?.innerHeight ?? doc.documentElement?.clientHeight ?? 0;
+      /* 判据用 isMobileShell 而不是 isMobileEnv：桌面开着 force-mobile 验收时
+         也要走这条，否则分区算法和下面视图层的方向映射对不上，桌面上就复现不了。 */
+      const zone: 'prev' | 'next' = isMobileShell()
+        ? zoneFromFrameY(y, frameH)
+        : (withinY < (liveH || 1) * 0.4 ? 'prev' : 'next');
       /* 两条路报的是同一次触摸：pointerup 先到，touchend 紧随其后。
          只有第一次算数（详见 tap-replay.ts）。放在所有「点这儿不算翻页」的
          判断之后——被链接 / 标注拦掉的那一下不该占住这个位置，否则紧接着
          真要点别处会被误判成重播。 */
-      if (isReplayTap(this.lastTap, now, x, y)) return;
+      if (isReplayTap(this.lastTap, now, x, y)) {
+        this.probe.blocked += 1;
+        return;
+      }
       this.lastTap = { at: now, x, y };
+      this.probe.taps += 1;
       /* 把「这次手势已经上报过」记在手势自己身上：紧随其后的 touchend
          隔着多久都能认出来（手机上翻页的重排会把 touchend 拖到上百毫秒后）。 */
       if (source === 'pointer' && touchTap) touchTap.reported = true;
@@ -1094,8 +1158,12 @@ export class EngineHost {
     for (const c of contents) {
       const overlayer = c.overlayer;
       if (!overlayer) continue;
-      const [value] = overlayer.hitTest({ x: point.clientX, y: point.clientY });
-      if (value && this.annotColors.has(value)) return true;
+      try {
+        const [value] = overlayer.hitTest({ x: point.clientX, y: point.clientY });
+        if (value && this.annotColors.has(value)) return true;
+      } catch {
+        /* 覆盖层跟着章一起拆了：这次按「没命中」处理，点按照常翻页 */
+      }
     }
     return false;
   }
@@ -1199,6 +1267,33 @@ export class EngineHost {
 
   private unbindDocGestures(): void {
     for (const off of this.docDetachers.splice(0)) off();
+    this.gestureDoc = null;
+  }
+
+  /**
+   * 把点按 / 滚轮 / 划词监听挂到这份文档上（幂等）。
+   *
+   * 同一份文档重复挂会把一次点按算成两次、也会让正在进行的滑动被打断，
+   * 所以换文档才重挂。挂在 `load` 与 `relocate` 两处调用，详见 gesture-binding.ts。
+   */
+  private bindDocGestures(doc: Document): void {
+    if (!needsGestureBind(this.gestureDoc, doc)) return;
+    this.unbindDocGestures();
+    this.bindGestures(doc);
+    this.gestureDoc = doc;
+    this.probe.binds += 1;
+  }
+
+  /** 渲染器当前显示的那份文档（还没就绪时为 null） */
+  private visibleDoc(): Document | null {
+    const contents = this.view?.renderer?.getContents?.() ?? [];
+    return pickGestureDoc(contents as ReadonlyArray<{ doc?: Document | null }>);
+  }
+
+  /** `load` 没来时的补挂路径：按当前可见文档对齐监听 */
+  private ensureDocGestures(): void {
+    const doc = this.visibleDoc();
+    if (doc) this.bindDocGestures(doc);
   }
 
   /**
