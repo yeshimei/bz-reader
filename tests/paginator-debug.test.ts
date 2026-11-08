@@ -32,12 +32,14 @@ const KEYS = [
   'scrollSel',
   'freeze',
   'iframeScroll',
+  'relocate',
+  'setSel',
   'snapGo',
   'turnPage',
 ];
 
 describe('paginator 调试埋点', () => {
-  it('十六条关键路径都接上了全局钩子', () => {
+  it('十八条关键路径都接上了全局钩子', () => {
     for (const key of KEYS) {
       expect(src).toContain(`__bzrDbg?.('${key}'`);
     }
@@ -95,12 +97,13 @@ describe('paginator 拖选锁', () => {
 });
 
 describe('paginator 触摸手势', () => {
-  it('手指压在选区上拖动不再 preventDefault，交给拖选锁', () => {
+  it('手指压在选区上拖动直接拦下滚动，不靠写回', () => {
     const at = src.indexOf("globalThis.__bzrDbg?.('selDrag'");
     expect(at).toBeGreaterThan(0);
-    /* 有选区那一段（selDrag 之前 500 字符内）不该再有 preventDefault：
-       它和拖选锁抢同一件事，还会让手柄拖动变迟钝。 */
-    expect(src.slice(Math.max(0, at - 500), at)).not.toContain('e.preventDefault()');
+    /* 有选区那一段必须在 selDrag 之前 preventDefault：写回虽然能把位置
+       拉回来，但每写一次 scrollLeft 都要重新合成，选区高亮跟着重绘——那
+       正是「闪」。手指这一路是唯一能「根本不滚」的。 */
+    expect(src.slice(Math.max(0, at - 500), at)).toContain('e.preventDefault()');
   });
 });
 
@@ -117,5 +120,37 @@ describe('paginator 正文 viewport 的滚动', () => {
   it('不支持 clip 的老 WebView 由 scroll 写回兜底，且每次都记日志', () => {
     expect(src).toContain("__bzrDbg?.('iframeScroll'");
     expect(src).toContain('se.scrollLeft = se.scrollTop = 0');
+  });
+});
+
+/* 2026-11-08 第四轮：两层滚动都锁上之后仍然闪。真正会「闪」的不是位置，
+ * 是选区本身被重设 / 页面被 re-anchor：
+ *   - relocate 里的 setSelectionTo 走 removeAllRanges + addRange，高亮会
+ *     消失一帧再出现；
+ *   - focusin 在拖选期间无条件 re-anchor，把页面滚到焦点所在页，滚动锁再
+ *     把它拉回来，一来一回就是闪；
+ *   - expand 同理。
+ * fork-weave 对这三处都加了「有非空选区就不做」的守卫，我们一处都没有。 */
+describe('paginator 拖选期间不碰选区与锚点', () => {
+  it('relocate 在有非空选区时不重设选区，并记日志', () => {
+    const at = src.indexOf("this.addEventListener('relocate'");
+    expect(at).toBeGreaterThan(0);
+    const block = src.slice(at, at + 1400);
+    expect(block).toContain("__bzrDbg?.('relocate'");
+    expect(block).toContain('if (dragging) return');
+  });
+
+  it('focusin 在粗指针或已有选区时不 re-anchor', () => {
+    const at = src.indexOf("doc.addEventListener('focusin'");
+    expect(at).toBeGreaterThan(0);
+    const block = src.slice(at, at + 1600);
+    expect(block).toContain('#isCoarsePointer()');
+    expect(block).toContain('!current.isCollapsed');
+  });
+
+  it('expand 在已有选区时不 re-anchor', () => {
+    const at = src.indexOf('onExpand:');
+    expect(at).toBeGreaterThan(0);
+    expect(src.slice(at, at + 400)).toContain('!sel.isCollapsed');
   });
 });
