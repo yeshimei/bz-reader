@@ -248,7 +248,14 @@ export function verifyCopiedJson(
 function errorText(e: unknown): string {
   if (typeof e === 'string') return e;
   const o = e as { message?: unknown; code?: unknown } | null;
-  return `${o?.message ?? ''} ${o?.code ?? ''}`;
+  return `${asText(o?.message)} ${asText(o?.code)}`;
+}
+
+/** 只认字符串与数字；对象直接拼进模板串只会得到 `[object Object]`，没有信息量 */
+function asText(v: unknown): string {
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number') return String(v);
+  return '';
 }
 
 /**

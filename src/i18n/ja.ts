@@ -305,7 +305,6 @@ export const JA: Record<MsgKey, string> = {
   'shelf.act.stats': '統計',
   'shelf.act.import': '書籍をインポート',
   'shelf.act.settings': '設定',
-  'shelf.back': '戻る',
 
   /* ── 本棚ページ ─────────────────────────────────────────── */
   'shelf.filter.all': 'すべて',

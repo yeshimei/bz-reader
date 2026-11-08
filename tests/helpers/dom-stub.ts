@@ -564,11 +564,18 @@ export function installDomStub(): () => void {
   g.document = stub;
   g.getComputedStyle = () => ({ getPropertyValue: () => '' });
   g.DOMParser = MiniDomParser;
+  /* Obsidian 的全局助手 createEl：插件代码里到处在用，桩里得有一份，
+     否则「换元素走 createEl」的地方一进测试就 ReferenceError。 */
+  const hadCreateEl = 'createEl' in g;
+  const prevCreateEl = g.createEl;
+  g.createEl = (tag: string) => makeEl(tag);
   return () => {
     if (!hadDoc) delete g.document;
     if (!hadGcs) delete g.getComputedStyle;
     if (!hadWindow) delete (g as { window?: unknown }).window;
     if (hadParser) g.DOMParser = prevParser;
     else delete g.DOMParser;
+    if (hadCreateEl) g.createEl = prevCreateEl;
+    else delete g.createEl;
   };
 }

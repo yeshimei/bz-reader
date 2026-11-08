@@ -302,7 +302,6 @@ export const ZH_TW: Record<MsgKey, string> = {
   'shelf.act.stats': '統計',
   'shelf.act.import': '匯入書籍',
   'shelf.act.settings': '設定',
-  'shelf.back': '返回',
 
   /* ── 書庫頁 ──────────────────────────────────────────────── */
   'shelf.filter.all': '全部',

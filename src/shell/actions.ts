@@ -58,6 +58,7 @@ import {
   getState,
   hydrateLibrary,
   mutateState,
+  nextStudyPage,
   openOverlay,
   setGoal,
   setState,
@@ -585,14 +586,14 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     /* ── 承载 ── */
     case 'study': {
       /* 进页的统一规则（返回目标、搜索范围）在 plugin.openStudy 里，
-         这里只把页码递过去——四个入口（页签、图标、命令、协议）共用一套。 */
-      const page = (d.p as StudyPage) || 'library';
-      getShellSource()?.openStudy(page);
+         这里只把页码递过去——四个入口（页签、图标、命令、协议）共用一套。
+         2026-11-08：头栏只有一个形态，四颗图标也当页签用——点已亮的那颗
+         回进来之前的页签页（nextStudyPage），所以不再有 studyback。 */
+      const clicked = (d.p as StudyPage) || 'library';
+      const st = getState();
+      getShellSource()?.openStudy(nextStudyPage(st.studyPage, clicked, st.studyBack));
       break;
     }
-    case 'studyback':
-      getShellSource()?.openStudy(getState().studyBack);
-      break;
     case 'gostudy':
       getShellSource()?.openStudy();
       break;

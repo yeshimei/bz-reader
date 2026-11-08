@@ -311,7 +311,6 @@ export const ES: Record<MsgKey, string> = {
   'shelf.act.stats': 'Estadísticas',
   'shelf.act.import': 'Importar libros',
   'shelf.act.settings': 'Ajustes',
-  'shelf.back': 'Volver',
 
   /* ── Página de biblioteca ───────────────────────────────── */
   'shelf.filter.all': 'Todos',

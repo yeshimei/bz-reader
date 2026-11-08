@@ -1287,7 +1287,7 @@ export class EngineHost {
   /** 渲染器当前显示的那份文档（还没就绪时为 null） */
   private visibleDoc(): Document | null {
     const contents = this.view?.renderer?.getContents?.() ?? [];
-    return pickGestureDoc(contents as ReadonlyArray<{ doc?: Document | null }>);
+    return pickGestureDoc(contents);
   }
 
   /** `load` 没来时的补挂路径：按当前可见文档对齐监听 */

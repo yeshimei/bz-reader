@@ -23,19 +23,33 @@ import { RT } from './runtime';
  * 书架的各页。
  *
  * 只有 library / notes 占页签位置；stats / settings / search / import
- * 是「子页」，从右上四颗图标进去，头栏换成「← 返回 + 标题」。
+ * 是「子页」，从右上四颗图标进去。
  * 分成两类是因为页签栏一长就变成一排小字，扫不动。
+ *
+ * 2026-11-08 改：子页不再换一种头栏（原来换成「← 返回 + 标题」）。
+ * 页签与四颗图标一直在，当前那颗亮着；再点一次就回 studyBack。
  */
 export type StudyPage = 'library' | 'notes' | 'stats' | 'settings' | 'search' | 'import';
 
 /** 占页签的两页 */
 export type StudyTab = 'library' | 'notes';
 
-/** 子页：进来前的页记在 studyBack，返回键回到那儿 */
+/** 子页：进来前的页记在 studyBack，再点一次那颗图标回到那儿 */
 export const STUDY_SUB_PAGES = ['stats', 'settings', 'search', 'import'] as const;
 
 export function isStudyTab(page: StudyPage): page is StudyTab {
   return page === 'library' || page === 'notes';
+}
+
+/**
+ * 头栏某个入口被点之后该去哪一页。
+ *
+ * 页签页永远去自己那页（点当前那颗页签等于原地不动）。
+ * 子页图标是开关：从别处点进来就去那一页，已经在这一页再点一下就回
+ * `back`——就是进来之前停的那个页签页。它同时替代了原来的「← 返回」。
+ */
+export function nextStudyPage(current: StudyPage, clicked: StudyPage, back: StudyTab): StudyPage {
+  return clicked === current && !isStudyTab(clicked) ? back : clicked;
 }
 
 /** 左侧栏四页签：书的坐标（书架是中心 tab，不在这里） */

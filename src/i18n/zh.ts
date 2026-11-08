@@ -315,7 +315,6 @@ export const ZH = {
   'shelf.act.stats': '统计',
   'shelf.act.import': '导入书籍',
   'shelf.act.settings': '设置',
-  'shelf.back': '返回',
 
   /* ── 书库页 ──────────────────────────────────────────────── */
   'shelf.filter.all': '全部',

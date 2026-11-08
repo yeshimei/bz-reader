@@ -138,6 +138,15 @@ function newCtx(): InlineCtx {
 /** @import 的展开深度上限：链式互相 import 的样式表不该把主线程卡死 */
 const MAX_CSS_DEPTH = 8;
 
+/**
+ * 章节文档的 CSP：只禁脚本，别的照放。
+ *
+ * 为什么必须有：章节 iframe 带 `allow-scripts`（iOS 收不到事件的唯一解），
+ * 书里的脚本全靠这一条挡住。书自带的那条在 inlineMarkup 里会被删掉——
+ * 它会连我们内联的 data: 一起挡。
+ */
+const CSP_META = `<meta http-equiv="Content-Security-Policy" content="script-src 'none'">`;
+
 /** CSS 里的 url(blob:…) 换成 data:；@import blob: 直接展开 */
 async function inlineCss(
   css: string,
@@ -276,17 +285,12 @@ export async function inlineMarkup(raw: string): Promise<string> {
      书自带的那条上面刚删掉（它会连我们内联的 data: 一起挡住），但**不能没有**——
      章节 iframe 现在带 `allow-scripts`（见 chapterSandbox()，iOS 收不到事件的
      唯一解），脚本层面的防线就只剩这一条。
-     必须插在 head 第一个子元素：mXSS 能造出解析树里不存在的 <script>，
-     它只要排在 CSP 前面就会先跑起来。 */
-  const csp = doc.createElement('meta');
-  csp.setAttribute('http-equiv', 'Content-Security-Policy');
-  csp.setAttribute('content', "script-src 'none'");
-  let head = doc.head;
-  if (!head) {
-    head = doc.createElement('head');
-    doc.documentElement.insertBefore(head, doc.documentElement.firstChild);
-  }
-  head.insertBefore(csp, head.firstChild);
+
+     不在这里建 DOM 节点，而是在序列化时拼到 <head> 最前（见函数末尾）：
+     这份 doc 是 DOMParser 的惰性文档，建元素只能用 doc.createElement，
+     而官方 lint 要求走 createEl——那条路依赖真实 window，惰性文档里没有。
+     最终喂给 iframe 的就是那串 HTML，拼在 head 开头与插入节点等价，
+     而且「必须排在最前」这条约束在字符串上更容易守住。 */
 
   for (const el of Array.from(doc.querySelectorAll('*'))) {
     for (const attr of Array.from(el.attributes)) {
@@ -368,7 +372,15 @@ export async function inlineMarkup(raw: string): Promise<string> {
     if (style.includes('blob:')) el.setAttribute('style', await inlineCss(style, ctx));
   }
 
-  return `<!doctype html>${doc.documentElement.outerHTML}`;
+  /* CSP 拼在 head 第一个子元素：mXSS 能造出解析树里不存在的 <script>，
+     它只要排在 CSP 前面就会先跑起来。没有 head 就现补一个——DOMParser
+     通常会补，但这属于安全边界，不能指望它。 */
+  const html = doc.documentElement.outerHTML;
+  const withCsp = /<head(\s[^>]*)?>/i.test(html)
+    ? html.replace(/<head([^>]*)>/i, `<head$1>${CSP_META}`)
+    : html.replace(/<html([^>]*)>/i, `<html$1><head>${CSP_META}</head>`);
+
+  return `<!doctype html>${withCsp}`;
 }
 
 /** 1) 留住 Blob：foliate 换章会 revokeObjectURL，之后还得读原文 */

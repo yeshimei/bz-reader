@@ -118,6 +118,21 @@
   height: 18px;
 }
 
+/* 2026-11-08：四颗当页签用之后，选中只亮图标本身——一条铜色描边，
+   不加底色也不加下划线（用户定的：只要「这颗是当前页」，别多画一层）。
+   这里盖掉通用的 .bzs-cbtn.on（那是按钮式的铜底方块）。 */
+.bzs-stuacts .bzs-cbtn.on {
+  color: var(--copper);
+  background: none;
+  border-color: transparent;
+}
+
+/* 亮着的那颗悬停别再变回铜底方块：选中态只该有一种画法 */
+.bzs-stuacts .bzs-cbtn.on:hover {
+  background: none;
+  border-color: transparent;
+}
+
 .bzs-stubody {
   flex: 1;
   overflow: auto;
@@ -1536,48 +1551,8 @@
 
 
 /* ═══════════ 子页：搜索 / 导入 / 统计 / 设置 ═══════════
-   这四页不在页签上（S1 定稿）。头栏只留「← 返回 + 标题」，
-   把横向空间还给内容本身。 */
-
-.bzs-stuhead.is-sub {
-  align-items: center;
-  gap: 4px;
-  height: 52px;
-  padding: 0 28px 0 20px;
-  border-bottom: 1px solid var(--line);
-}
-
-.bzs-back {
-  appearance: none;
-  border: 0;
-  background: none;
-  width: 30px;
-  height: 30px;
-  border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--t2);
-  cursor: pointer;
-  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
-}
-
-.bzs-back:hover {
-  background: var(--surface-2);
-  color: var(--t1);
-}
-
-.bzs-back svg {
-  width: 17px;
-  height: 17px;
-  margin-left: -1px;
-}
-
-.bzs-subtitle {
-  font-size: 13.5px;
-  color: var(--t1);
-  letter-spacing: .02em;
-}
+   2026-11-08：子页不再有自己的头栏（原来那套「← 返回 + 标题」连同样式一起
+   撤了）。四页和书库/笔记共用同一条头栏，当前那颗图标亮着，再点一次回去。 */
 
 /* ── 搜索整页：表单贴顶，结果往下排 ── */
 .bzs-searchpage {

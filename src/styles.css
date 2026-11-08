@@ -965,3 +965,10 @@ body.bzr-immersive .workspace-leaf-content[data-type='bzr-reader-view'] .view-co
   visibility: hidden;
   pointer-events: none;
 }
+
+/* 头栏里「别人的」按钮藏掉（reader-view 按角色判定后加这个 class）。
+   必须 !important：主题和别的插件常给自己的 .clickable-icon 写 !important。
+   选择器故意写长，靠特异性压过去——单靠一个 class 压不住 0,2,0 的规则。 */
+body .view-header .clickable-icon.bzs-host-hidden {
+  display: none !important;
+}

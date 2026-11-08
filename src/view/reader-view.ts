@@ -652,16 +652,19 @@ export class ReaderView extends ItemView {
       const others = roles
         .map((role, i) => (role === 'other' ? i : -1))
         .filter((i) => i >= 0);
-      if (others.length === 1) roles[others[0]!] = 'more';
+      if (others.length === 1) roles[others[0]] = 'more';
       else if (others.length > 1) hideOthers = false;
     }
 
     const show = planHeaderVisibility(roles, maxOurs, hideOthers);
     items.forEach((el, i) => {
-      if (show[i]) el.style.removeProperty('display');
-      /* inline + important：既有 CSS 里对别人图标的规则（含主题/别的插件
-         自己的 !important）也得让路，否则「该藏的藏不掉」会再回来。 */
-      else el.style.setProperty('display', 'none', 'important');
+      /* 显示/隐藏走 class（`body .view-header .clickable-icon.bzs-host-hidden`
+         里带 !important）——主题和别的插件常给自己图标写 !important，
+         inline 样式是那时唯一压得住的写法，但官方 lint 禁止直接写样式。 */
+      if (show[i]) {
+        el.removeClass('bzs-host-hidden');
+        el.style.removeProperty('display');
+      } else el.addClass('bzs-host-hidden');
     });
 
     /* scope 之外还有：有些插件不往 .view-actions 里塞，而是直接挂在
@@ -672,7 +675,7 @@ export class ReaderView extends ItemView {
     const header = scope.closest('.view-header');
     for (const el of Array.from(header?.querySelectorAll<HTMLElement>('.clickable-icon') ?? [])) {
       if (items.includes(el) || el.closest('.view-header-nav-buttons')) continue;
-      if (roleOf(el) === 'other') el.style.setProperty('display', 'none', 'important');
+      if (roleOf(el) === 'other') el.addClass('bzs-host-hidden');
     }
   }
 

@@ -1,8 +1,8 @@
 /* ============================================================
  * bz-reader · 书架外壳与书库页（shell/render/study.ts）
  *
- * 书架是一个中心 ItemView，内部四页。这个文件只管两件事：
- *   1. 外壳：小标签 + 衬线大题「书 房」+ 四页签 + 右上动作
+ * 书架是一个中心 ItemView，内部六页。这个文件只管两件事：
+ *   1. 外壳：两页签 + 右上四颗图标（只此一种形态）+ 页面容器
  *   2. 书库页：继续阅读 / 筛选 / 封面墙 / 列表
  *
  * 原型是写死的封面墙，这里全部走真实数据；真实数据缺的字段
@@ -15,9 +15,8 @@
 import { t, type MsgKey } from '../../i18n';
 import type { BookRow } from '../adapt';
 import { continueRow, shelfNames } from '../adapt';
-import { isStudyTab, type ShellState, type StudyPage } from '../state';
+import type { ShellState, StudyPage } from '../state';
 import { MAG, barHtml, coverHtml, esc, ico } from './html';
-
 export interface StudyPageDef {
   value: StudyPage;
   key: MsgKey;
@@ -44,14 +43,6 @@ export const STUDY_ACTS: StudyPageDef[] = [
   { value: 'settings', key: 'shelf.act.settings', icon: 'gear' },
 ];
 
-/** 子页标题：头栏那一行字。表里查 key，渲染时取文案 */
-const SUB_TITLE: Record<string, MsgKey> = {
-  search: 'shelf.act.search',
-  import: 'shelf.act.import',
-  stats: 'shelf.act.stats',
-  settings: 'shelf.act.settings',
-};
-
 /** 页签上的计数徽记：书库给本数，笔记给条数，统计与设置不给 */
 export interface StudyCounts {
   books: number;
@@ -62,20 +53,16 @@ export interface StudyCounts {
  * 书架整页外壳。`body` 是内部某一页的 HTML。
  *
  * 它占一个中心 tab（VIEW_TYPE_STUDY），不是侧栏——侧栏留给目录/书签/划线。
- * 两种头栏：
- *   · 页签页（书库/笔记）：两页签 + 右侧四颗图标
- *   · 子页（搜索/导入/统计/设置）：一颗返回 + 标题，不再有页签
- * 子页不留右上四颗：正在做一件事的时候，旁边摆四个「去别处」的按钮
- * 只会让人分心，要换页先退出来。
+ * 头栏只有一种形态：左边两个页签、右边四颗图标，进任何一页都在。
+ *
+ * 2026-11-08 改：子页以前换成「← 返回 + 标题」，四颗图标整块消失——
+ * 用户的原话是「不要那种形式」。现在不换形态：当前那颗图标亮起，
+ * 再点一次回进来之前那页（判据在 state.nextStudyPage）。
  */
 export function studyShell(page: StudyPage, body: string, counts: StudyCounts): string {
-  const head = isStudyTab(page)
-    ? `<div class="bzs-stuhead">${tabNav(page, counts)}<span class="sp"></span>${actBar()}</div>`
-    : `<div class="bzs-stuhead is-sub"><button class="bzs-back" data-act="studyback" title="${t('shelf.back')}" aria-label="${t(
-        'shelf.back',
-      )}">${ico('back')}</button><span class="bzs-subtitle">${esc(SUB_TITLE[page] ? t(SUB_TITLE[page]) : '')}</span></div>`;
-
-  return `<div class="bzs-studio">${head}<div class="bzs-stubody">${body}</div></div>`;
+  return `<div class="bzs-studio"><div class="bzs-stuhead">${tabNav(page, counts)}<span class="sp"></span>${actBar(
+    page,
+  )}</div><div class="bzs-stubody">${body}</div></div>`;
 }
 
 function tabNav(page: StudyPage, counts: StudyCounts): string {
@@ -89,10 +76,18 @@ function tabNav(page: StudyPage, counts: StudyCounts): string {
   return `<nav class="bzs-stunav">${nav}</nav>`;
 }
 
-function actBar(): string {
+/**
+ * 右上四颗。
+ *
+ * 2026-11-08 起它们和页签同级：点了切页，当前那颗图标亮成铜色（不加底色、
+ * 不加下划线，见 study.css 的 .bzs-stuacts）。亮着的那颗再点一次由
+ * nextStudyPage 送回进来之前的页签页，所以不再需要单独的返回键。
+ */
+function actBar(page: StudyPage): string {
   return `<div class="bzs-stuacts">${STUDY_ACTS.map((a) => {
     const label = t(a.key);
-    return `<button class="bzs-cbtn" data-act="study" data-p="${a.value}" title="${label}" aria-label="${label}">${ico(
+    const on = page === a.value;
+    return `<button class="bzs-cbtn${on ? ' on' : ''}" data-act="study" data-p="${a.value}" title="${label}" aria-label="${label}" aria-pressed="${on}">${ico(
       a.icon,
     )}</button>`;
   }).join('')}</div>`;

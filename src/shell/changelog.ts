@@ -59,6 +59,42 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '0.3.2',
+    date: '2026-11-08',
+    improved: [
+      {
+        domain: { zh: '书架头栏', en: 'Shelf header' },
+        text: {
+          zh: '进搜索、导入、统计、设置不再换头栏，页签和四颗图标一直在。',
+          en: 'Search, import, stats and settings no longer swap the header — the tabs and the four icons stay right where they are.',
+        },
+      },
+      {
+        domain: { zh: '返回', en: 'Going back' },
+        text: {
+          zh: '再点一次亮着的那颗图标，就回到进来之前那一页。',
+          en: 'Tap the lit icon again and you are back on the page you came from.',
+        },
+      },
+    ],
+    fixed: [
+      {
+        domain: { zh: 'iPhone 翻页', en: 'iPhone page turns' },
+        text: {
+          zh: '章节正文重新允许脚本，点按与滑动恢复响应。',
+          en: 'Chapter documents may run scripts again, so taps and swipes respond on iPhone.',
+        },
+      },
+      {
+        domain: { zh: '首装读盘', en: 'First launch' },
+        text: {
+          zh: 'iPhone 第一次打开不再误报读取失败。',
+          en: 'A fresh install on iPhone no longer reports a read failure.',
+        },
+      },
+    ],
+  },
+  {
     version: '0.3.1',
     date: '2026-11-08',
     improved: [

@@ -58,7 +58,7 @@ function sizeLabel(bytes: number): string {
 /**
  * 把导入页挂进 `host`，返回拆卸函数。
  *
- * 没有 headBox：「导入书籍」这四个字已经由子页头栏给了，
+ * 没有 headBox：「导入书籍」这四个字已经由头栏那颗亮着的导入图标说了，
  * 页内再写一遍就是同一句话说两次。
  */
 export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
