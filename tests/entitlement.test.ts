@@ -313,7 +313,10 @@ describe.runIf(hasKey)('到期不清码（P1-05）', () => {
     expect(entitlement().license).toBe('');
   });
 
-  it('验签环境异常（WebCrypto 抛错）：完全不动，沿用上次结论', async () => {
+  /* 2026-11-08 改口径（A10）：env-error 以前保留「上次验过了」的结论，
+     于是让 WebCrypto 抖一下就能白嫖高级功能。现在码不动（环境抖了不是码假），
+     但验签结论落到 failed，can() / tier 一律不放行，等下一次启动重新验。 */
+  it('验签环境异常（WebCrypto 抛错）：码留着，但不放行', async () => {
     setProBuild(true);
     const code = issue({ v: 1, name: '包仔' });
     setEntBackend({ read: () => snapshot({ license: code, checkedTs: 1 }), write: () => undefined });
@@ -328,8 +331,9 @@ describe.runIf(hasKey)('到期不清码（P1-05）', () => {
       const r = await revalidateLicense();
       expect(r.changed).toBe(false);
       expect(r.reason).toBe('env-error');
-      expect(entitlement().license).toBe(code);
-      expect(entitlement().tier).toBe('paid'); // 上次的结论还在
+      expect(entitlement().license).toBe(code); // 码不清：环境的问题，不是码的问题
+      expect(entitlement().verify).toBe('failed');
+      expect(entitlement().tier).not.toBe('paid'); // 沿用上次结论就是给伪造开门
     } finally {
       Object.defineProperty(globalThis, 'crypto', { value: real, configurable: true, writable: true });
     }
