@@ -351,6 +351,10 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>${t('settings.backupRestore')}</label>
         <button class="bzs-btn sm" data-act="backup" title="${t('settings.backup.tip')}">${t('settings.backup')}</button>
         <button class="bzs-btn sm" data-act="restore" title="${t('settings.restore.tip')}">${t('settings.restore')}</button></div>
+      ${toggle('debugLog', s.debugLog, t('settings.debugLog'))}
+      <div class="bzs-mini" style="margin-top:2px;line-height:1.9">
+        ${t('settings.debugLog.hint')}
+      </div>
       <div class="bzs-mini" style="margin-top:10px;line-height:1.9">
         ${t('settings.data.hint')}
       </div>

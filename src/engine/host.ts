@@ -47,6 +47,7 @@ import { accumulateEdgeTurn, scrollEdgeOf } from './scroll-edge';
 import { isReplayTap, touchTapVerdict, type TapGesture, type TapMark } from './tap-replay';
 import { needsGestureBind, pickGestureDoc, zoneFromFrameY } from './gesture-binding';
 import { hasLiveSelection } from './tap-gate';
+import { debugEvent } from '../data/debug-log';
 import { isMobileShell } from '../core/mobile';
 
 /** 宿主坐标系里的矩形（左上角 + 宽高，单位 CSS px） */
@@ -460,6 +461,11 @@ export class EngineHost {
          能跳章，就是点不动。`relocate` 在每次可见位置变化时必达，用它幂等补一次。 */
       this.ensureDocGestures();
       this.lastRelocateCfi = d.cfi ?? this.lastRelocateCfi;
+      debugEvent('relocate', {
+        i: this.chapterIndex,
+        pct: Math.round(percent * 1000) / 10,
+        cfi: (d.cfi ?? '').slice(0, 30),
+      });
       const waiters = this.relocateWaiters;
       this.relocateWaiters = [];
       for (const w of waiters) w();
@@ -659,6 +665,7 @@ export class EngineHost {
     const now = Date.now();
     if (now - this.lastTurnAt < WHEEL_COOLDOWN) return;
     this.lastTurnAt = now;
+    debugEvent('turn', { dir });
     this.opts.onTurn?.(dir);
   }
 
@@ -785,6 +792,7 @@ export class EngineHost {
       const now = Date.now();
       if (now < this.suppressClickUntil) {
         this.probe.blocked += 1;
+        debugEvent('blocked', { why: 'suppress', src: source });
         return;
       }
       if (hasLiveSelection(doc)) {
@@ -794,16 +802,19 @@ export class EngineHost {
            selectionchange 又把工具条一并收起。收起选区是浏览器原生行为（点空白
            处自己收），不需要我们代劳；代劳只会毁掉用户刚做的选择。 */
         this.probe.blocked += 1;
+        debugEvent('blocked', { why: 'selection', src: source });
         return;
       }
       const node = target as HTMLElement | null;
       if (node?.closest?.('a[href], [data-bzr-skip-tap]')) {
         this.probe.blocked += 1;
+        debugEvent('blocked', { why: 'link', src: source });
         return;
       }
       /* 点在划线上是要看那条标注，不是要翻页 */
       if (this.hitsAnnotation({ clientX: x, clientY: y })) {
         this.probe.blocked += 1;
+        debugEvent('blocked', { why: 'annot', src: source });
         return;
       }
       /* 分母必须是「一页有多宽」，不是 html 元素的宽。
@@ -860,10 +871,12 @@ export class EngineHost {
          真要点别处会被误判成重播。 */
       if (isReplayTap(this.lastTap, now, x, y)) {
         this.probe.blocked += 1;
+        debugEvent('blocked', { why: 'replay', src: source });
         return;
       }
       this.lastTap = { at: now, x, y };
       this.probe.taps += 1;
+      debugEvent('tap', { zone, src: source, x: Math.round(x), y: Math.round(y) });
       /* 把「这次手势已经上报过」记在手势自己身上：紧随其后的 touchend
          隔着多久都能认出来（手机上翻页的重排会把 touchend 拖到上百毫秒后）。 */
       if (source === 'pointer' && touchTap) touchTap.reported = true;
@@ -954,8 +967,10 @@ export class EngineHost {
         const t = ev.touches[0];
         this.lastTouchY = t?.clientY ?? 0;
         touchTap = { x: t.clientX, y: t.clientY, at: Date.now(), moved: 0, fingers: 1, reported: false };
+        debugEvent('touch', { phase: 'start', x: Math.round(t.clientX), y: Math.round(t.clientY) });
       } else if (touchTap) {
         touchTap.fingers = ev.touches.length;
+        debugEvent('touch', { phase: 'start', n: ev.touches.length });
       }
       if (ev.touches.length !== 2) return;
       this.twoFingerSpan = distance(ev.touches);
@@ -1024,6 +1039,7 @@ export class EngineHost {
         longPressMs: TAP_LONG_PRESS_MS,
         movePx: TAP_MOVE_PX,
       });
+      debugEvent('touch', { phase: 'end', verdict, n: ev.touches.length });
       /* 不是点按：长按 / 拖动 / 多指都要把 touchend 留给分页器收尾 */
       if (verdict === 'skip') return;
       /* 已经由 pointer 报过：不再报第二遍，但这屏点按仍要吞掉 touchend */
@@ -1092,6 +1108,11 @@ export class EngineHost {
       this.selTimer = null;
       const info = this.readSelection(doc);
       const key = info?.cfiRange ?? '';
+      debugEvent('sel', {
+        cfi: (info?.cfiRange ?? '').slice(0, 40),
+        len: info?.text?.length ?? 0,
+        same: key === this.lastSelKey,
+      });
       if (key === this.lastSelKey) return;
       this.lastSelKey = key;
       this.opts.onSelect?.(info);

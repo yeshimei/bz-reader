@@ -476,6 +476,9 @@ export const PT: Record<MsgKey, string> = {
   'settings.restore': 'Restaurar',
   'settings.restore.tip':
     'Restaurar a partir de um arquivo de backup (substitui tudo, sobrescreve os dados atuais)',
+  'settings.debugLog': 'Debug log',
+  'settings.debugLog.hint':
+    'Turn this on while troubleshooting: it records touch, selection, page turns and jumps into debug.json in the data folder. Leave it off normally.',
   'settings.data.hint':
     'O backup inclui a estante, o progresso, os destaques, os favoritos e as metas. Não inclui o código de licença nem a chave de IA — informe-os de novo em outro dispositivo.',
 

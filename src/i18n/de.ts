@@ -474,6 +474,9 @@ export const DE: Record<MsgKey, string> = {
   'settings.restore': 'Wiederherstellen',
   'settings.restore.tip':
     'Aus einer Backup-Datei wiederherstellen (ersetzt alles und überschreibt aktuelle Daten)',
+  'settings.debugLog': 'Debug log',
+  'settings.debugLog.hint':
+    'Turn this on while troubleshooting: it records touch, selection, page turns and jumps into debug.json in the data folder. Leave it off normally.',
   'settings.data.hint':
     'Eine Sicherung enthält Regal, Fortschritt, Markierungen, Favoriten und Ziele. Lizenzschlüssel und KI-Schlüssel sind nicht enthalten – auf einem neuen Gerät erneut eingeben.',
 

@@ -24,6 +24,7 @@ import { hostLanguageCode, resolveLocale, setLocale, t } from './i18n';
 import { COMMANDS } from './plugin-commands';
 import { setApp } from './core/app';
 import { setPluginRelDir, dataDirOf, debugOpenPath, normalizeDataDir, setDataDir, DEFAULT_DATA_DIR, PLUGIN_ID } from './core/plugin-path';
+import { debugEnabled, flushDebugLog, installDebugHook, startDebugLog, stopDebugLog } from './data/debug-log';
 import { isMobileEnv } from './core/mobile';
 import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
@@ -267,6 +268,11 @@ export function createPlugin(cfg: PluginConfig) {
       /* 指针可能是空的（清过缓存 / 只拷了书没带 .obsidian）：扫一遍库根找回来，
          否则下面 load() 会另建一份空库，用户以为书全丢了。 */
       await this.resolveDataDir();
+
+      /* 调试日志：先装 vendor 用的全局钩子（首次开书前就位），再按配置起停。
+         默认关；关着时 debugEvent 自己就是空操作，钩子常驻没有代价。 */
+      installDebugHook();
+      this.applyDebugLog();
 
       /* 移动端保命补丁：宿主 CSP 挡 blob 帧，章节必须以 srcdoc 落地。
          必须早于任何一次开书（拦 URL.createObjectURL 与 iframe.src）。 */
@@ -553,6 +559,9 @@ export function createPlugin(cfg: PluginConfig) {
            目录卸掉，最后一段进度白写。Obsidian 不 await onunload，但同步地等到
            IO 排进队列总比丢一个 promise 强。 */
         await this.store?.destroy();
+        /* 调试日志：最后落一次盘再关，别把最后几百毫秒的事件丢掉 */
+        flushDebugLog();
+        stopDebugLog();
         /* 配置（含激活码）最后写一次：刚激活就禁用插件的场景不能丢码 */
         await this.flushCfg();
       }
@@ -1072,7 +1081,55 @@ export function createPlugin(cfg: PluginConfig) {
     setSettings(patch: Partial<ReaderSettings>): void {
       this.cfg.settings = normalizeSettings({ ...this.cfg.settings, ...patch });
       this.persistCfg();
+      this.applyDebugLog();
       notifyShell();
+    }
+
+    /* ── 调试日志（data/debug-log） ──
+     * 设置页「数据」组里那个开关。打开后写 `<数据目录>/debug.json`，
+     * 关闭即删。排查「划词时页面乱跳」这类真机问题用，默认关。 */
+
+    private applyDebugLog(): void {
+      if (this.cfg.settings.debugLog) {
+        if (debugEnabled()) return;
+        startDebugLog(
+          (text) => {
+            void this.writeDebugFile(text);
+          },
+          {
+            app: `bz-reader ${this.manifest?.version || ''}`.trim(),
+            platform: isMobileEnv() ? 'mobile' : 'desktop',
+          },
+        );
+        return;
+      }
+      if (debugEnabled()) {
+        stopDebugLog();
+        void this.removeDebugFile();
+      }
+    }
+
+    private debugFilePath(): string {
+      return `${dataDirOf()}/debug.json`;
+    }
+
+    private async writeDebugFile(text: string): Promise<void> {
+      const adapter = this.app.vault.adapter;
+      try {
+        const dir = dataDirOf();
+        if (!(await adapter.exists(dir))) await adapter.mkdir(dir);
+        await adapter.write(this.debugFilePath(), text);
+      } catch {
+        /* 只吞：调试设施绝不能影响阅读 */
+      }
+    }
+
+    private async removeDebugFile(): Promise<void> {
+      try {
+        await this.app.vault.adapter.remove(this.debugFilePath());
+      } catch {
+        /* 文件本来就不在：正常 */
+      }
     }
 
     /* ── 更新日志 ──

@@ -465,6 +465,8 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.backup.tip': '匯出成一份 JSON，存進資料目錄',
   'settings.restore': '還原',
   'settings.restore.tip': '從備份檔還原（整份替換，會覆蓋當前資料）',
+  'settings.debugLog': '偵錯日誌',
+  'settings.debugLog.hint': '排查問題時打開：會把觸控、選取、翻頁與跳轉記進資料目錄的 debug.json，平時不用開。',
   'settings.data.hint': '備份含書架、進度、標註、收藏與目標。不含啟用碼和 AI 金鑰，換裝置需重填。',
 
   /* ── 設定頁：快速鍵 ──────────────────────────────────────── */

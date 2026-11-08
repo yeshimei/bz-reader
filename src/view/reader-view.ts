@@ -65,6 +65,7 @@ import {
 } from '../shell/state';
 import { openOverlay } from '../shell/state';
 import { tapIntent } from './tap-intent';
+import { debugEvent } from '../data/debug-log';
 import { pagingKeyAction, type PagingDirection } from './paging-key';
 import { tapDirection, type TapSide } from './tap-direction';
 import { immersiveExitHint, updateImmersiveHolders } from './immersive';
@@ -387,6 +388,7 @@ export class ReaderView extends ItemView {
         overlayKind: getShellState().overlay?.kind,
         mobile: isMobileShell(),
       });
+      debugEvent('intent', { intent, zone, selbar: !!this.selbar });
       if (intent !== 'turn') {
         /* 条子与文本面板是一套：点正文一次收干净，别让面板留在空处 */
         if (intent === 'dismiss-selbar') {
@@ -1205,6 +1207,7 @@ export class ReaderView extends ItemView {
     this.stopTts();
     /* 用户真的动了：从这一刻起，relocate 记下的位置才值得落盘（B14） */
     this.userTurned = true;
+    debugEvent('nav', { dir });
     const p = dir === 'prev' ? this.host.prev() : this.host.next();
     return p.then(() => this.tracker.touch());
   }

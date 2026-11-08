@@ -475,6 +475,9 @@ export const ES: Record<MsgKey, string> = {
   'settings.restore': 'Restaurar',
   'settings.restore.tip':
     'Restaurar desde un archivo de copia de seguridad (reemplaza todo, sobrescribe los datos actuales)',
+  'settings.debugLog': 'Debug log',
+  'settings.debugLog.hint':
+    'Turn this on while troubleshooting: it records touch, selection, page turns and jumps into debug.json in the data folder. Leave it off normally.',
   'settings.data.hint':
     'La copia incluye la estantería, el progreso, los subrayados, los favoritos y los objetivos. No incluye el código de licencia ni la clave de IA: vuelve a introducirlos en otro dispositivo.',
 

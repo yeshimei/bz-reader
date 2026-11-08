@@ -7,6 +7,8 @@
  */
 export interface ToggleState {
   exportComments: boolean;
+  /** 调试日志（数据组）：默认关，开了才往 debug.json 写事件 */
+  debugLog: boolean;
   /* 曾经这里还有 aiKnowledge：2026-11-07 改成自动识别，开关撤掉，
      判断在 data/bz-bridge（bz 在不在）。 */
 }
@@ -16,6 +18,8 @@ export function flipSetting(current: ToggleState, key: string): Partial<ToggleSt
   switch (key) {
     case 'exportComments':
       return { exportComments: !current.exportComments };
+    case 'debugLog':
+      return { debugLog: !current.debugLog };
     default:
       return null;
   }

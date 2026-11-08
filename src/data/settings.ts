@@ -64,6 +64,14 @@ export interface ReaderSettings {
    * 再讲一遍是应该的，那个人没看过。
    */
   aiAck: boolean;
+  /**
+   * 调试日志：把触摸、选区、翻页、跳转写进数据目录的 `debug.json`。
+   *
+   * 只在排查「划词时页面乱跳」这类真机问题时要打开。默认关，关着时
+   * 一个字节都不写（判断在 data/debug-log）。正式包里也留着——用户
+   * 遇到问题时能自己开一次抓现场，比让他连着电脑看控制台现实。
+   */
+  debugLog: boolean;
   /*
    * 这里**故意没有** license。
    *
@@ -87,6 +95,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     model: '',
   },
   aiAck: false,
+  debugLog: false,
 };
 
 function str(v: unknown, fallback = ''): string {
@@ -132,6 +141,7 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
       model: str(ai.model).trim(),
     },
     aiAck: s.aiAck === true,
+    debugLog: s.debugLog === true,
   };
 }
 
