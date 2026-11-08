@@ -81,9 +81,11 @@ function seg(name: string, opts: Array<[string, string]>, cur: string, act = 'se
 }
 
 function range(k: string, label: string, val: number, min: number, max: number, step: number, fmt: (v: number) => string): string {
-  /* --fill 必须在渲染时就写：缺省 50% 会让「已填充」段和圆点对不上 */
+  /* --fill 必须在渲染时就写：缺省 50% 会让「已填充」段和圆点对不上。
+     `.bzs-range` 是移动端的手势层（见 shell/range-touch.ts）：原生滑块按下
+     即跳值，手机上滚动时扫过滑轨就会误改，所以触摸由外面这层接管。 */
   return `<div class="bzs-setrow"><label>${label}</label>
-    <input type="range" data-role="pref" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${val}" style="--fill:${rangeFill(min, max, val)}">
+    <span class="bzs-range"><input type="range" data-role="pref" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${val}" style="--fill:${rangeFill(min, max, val)}"></span>
     <span class="val">${fmt(val)}</span></div>`;
 }
 

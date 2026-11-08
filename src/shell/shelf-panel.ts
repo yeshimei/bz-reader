@@ -20,6 +20,7 @@ import { kickBodySearch } from './search-run';
 import { buildShelfPage, shelfRenderKey } from './shelf-page';
 import { hydrateCovers } from './covers';
 import { focusSelector, type FocusMemo } from './focus-memo';
+import { bindRangeTouch } from './range-touch';
 import { setHtml } from '../ui/dom';
 
 export class ShelfPanel {
@@ -43,6 +44,8 @@ export class ShelfPanel {
   private hitlistCb: (() => void) | null = null;
   /** 上一次重绘的内容指纹（D4）：一样就不画 */
   private lastKey = '';
+  /** 移动端滑块的触摸接管（桌面返回空函数，见 shell/range-touch.ts） */
+  private rangeTouchOff: (() => void) | null = null;
 
   /** @param host 挂载点，ItemView 传 contentEl */
   constructor(private host: HTMLElement) {}
@@ -51,6 +54,7 @@ export class ShelfPanel {
     this.host.addClass('bzs-shell-wrap');
     this.root = this.host.createDiv({ cls: `bzs-shell${isMobileShell() ? ' is-mobile' : ''}` });
     this.bind();
+    this.rangeTouchOff = bindRangeTouch(this.root);
     this.render();
     /* 首帧可能还没参与布局：clientWidth 为 0 时按摊开画了。
        下一帧量到真实宽度，该收就重画一次（手机上不能停在下拉之外的样子）。 */
@@ -83,6 +87,8 @@ export class ShelfPanel {
     this.unsubscribe = null;
     this.offSource?.();
     this.offSource = null;
+    this.rangeTouchOff?.();
+    this.rangeTouchOff = null;
     if (this.hitlistCb) RT.body.listeners.delete(this.hitlistCb);
     this.hitlistCb = null;
     /* 监听挂在 host 上（宿主 contentEl 活得比面板久），摘不掉也不能再管事：

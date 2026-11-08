@@ -273,6 +273,35 @@ body.theme-dark .bzs-shell[data-bzaccent="celadon"] { --copper: #8fc6c6; }
   appearance: none;
 }
 
+/* 滑杆外的手势层（只在移动端接管，见 shell/range-touch.ts）。
+   原生 range 在触摸按下的一瞬就把值跳到触点：手机上往下滚设置页，
+   手指扫过滑轨就已经把字号/行距/页边距改了（2026-11-08 真机录屏）。
+   所以移动端关掉原生指针命中，由外面这层判定方向：
+     · touch-action: pan-y 把纵向手势让给页面滚动；
+     · 上下各放宽 8px 加触摸热区，负 margin 抵掉——视觉与行高都不变。
+   桌面端不设 pointer-events，鼠标手感仍是原生那份。 */
+.bzs-range {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+}
+
+.bzs-range input[type="range"] {
+  flex: 1;
+  width: 100%;
+}
+
+.bzs-shell.is-mobile .bzs-range {
+  touch-action: pan-y;
+  padding: 8px 0;
+  margin: -8px 0;
+}
+
+.bzs-shell.is-mobile .bzs-range input[type="range"] {
+  pointer-events: none;
+}
+
 /* 滑轨：占满框高，线本身用背景画在正中——左侧铜金走到当前值，右侧留在发丝线色。
    --fill 在渲染时就写进 style（shell/range-fill.ts），拖动时由 dispatchInput 更新
    （纯 CSS 画不出「填充到当前值」；只在拖动时写，首次渲染会停在缺省的 50%）。

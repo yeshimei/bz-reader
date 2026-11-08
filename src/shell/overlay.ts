@@ -44,6 +44,7 @@ import { bzEmbedder, bzEntryReady } from '../data/bz-bridge';
 import { aiCardBegin, aiCardDone, aiCardDrop, aiCardFail, aiCardGet, aiCardKey, aiCardReset, aiModeOf } from './ai-card';
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
+import { bindRangeTouch } from './range-touch';
 import { PLAN_TABLE, can, entitlement, type Cap, type PlanCell } from '../data/entitlement';
 import { protocolUrl } from '../data/deeplink';
 import { dataDirOf } from '../core/plugin-path';
@@ -143,8 +144,9 @@ export function typographyFormHtml(): string {
       .join('')}</div>`;
 
   const rng = (k: string, label: string, val: number, min: number, max: number, step: number, unit: string): string => {
+    /* `.bzs-range`：移动端手势层，同设置页（见 shell/range-touch.ts） */
     return `<div class="bzs-setrow"><label>${label}</label>
-      <input type="range" data-role="pref" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${val}" style="--fill:${rangeFill(min, max, val)}">
+      <span class="bzs-range"><input type="range" data-role="pref" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${val}" style="--fill:${rangeFill(min, max, val)}"></span>
       <span class="val">${k === 'lineHeight' ? val.toFixed(1) : val + unit}</span></div>`;
   };
 
@@ -680,7 +682,7 @@ function overlayGoal(): string {
   const done = liveBooks().filter((b) => !!b.reading.stats.completedTime).length;
   const body = `<div class="bzs-setgrp flat">
       <div class="bzs-setrow"><label>今年读</label>
-        <input type="range" data-role="goal" min="5" max="100" step="1" value="${st.goal}" style="--fill:${rangeFill(5, 100, st.goal)}">
+        <span class="bzs-range"><input type="range" data-role="goal" min="5" max="100" step="1" value="${st.goal}" style="--fill:${rangeFill(5, 100, st.goal)}"></span>
         <span class="val" id="bzs-goalval">${st.goal} 本</span></div>
       <div class="bzs-mini" style="margin-top:12px;line-height:1.9">已完成 ${done} 本。目标只影响仪表盘上的那圈铜线。</div>
     </div>`;
@@ -1303,7 +1305,10 @@ export class OverlayLayer {
 
   constructor(private onAction: (act: string, el: HTMLElement) => void) {
     this.root = createDiv();
-    this.root.className = 'bzs-shell bzs-overlay-root';
+    /* `is-mobile` 让移动端的滑杆手势层生效（见 shell/range-touch.ts 与
+       styles.css 的 `.bzs-range`）；桌面端不加，原生手感不变。 */
+    this.root.className = `bzs-shell bzs-overlay-root${isMobileShell() ? ' is-mobile' : ''}`;
+    this.disposers.push(bindRangeTouch(this.root));
     /* 视口一变（手机键盘弹起 / 桌面改窗口大小）就重新摆位：
        锚点浮层贴着文字，贴底卡抬到键盘之上。 */
     const sync = (): void => this.syncPosition();

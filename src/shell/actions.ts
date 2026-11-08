@@ -2302,8 +2302,10 @@ export function dispatchInput(
   }
   if (role === 'pref' && k) {
     setPref(k, value, { silent: dragging });
-    // 滑块的数值标签就地更新，避免整页重绘时手指还在拖
-    const label = target.parentElement?.querySelector('.val');
+    /* 滑块的数值标签就地更新，避免整页重绘时手指还在拖。
+       往上找整行再取 `.val`：滑块外面包了一层手势层（shell/range-touch.ts），
+       `parentElement` 已经不是放数值的那一格了。 */
+    const label = target.closest('.bzs-setrow')?.querySelector('.val');
     if (label) label.textContent = labelFor(k, value);
     // 铜金填充跟着走（纯 CSS 画不出「填充到当前值」）
     const min = Number(target.getAttribute('min') ?? 0);
