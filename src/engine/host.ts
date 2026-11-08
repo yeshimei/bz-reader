@@ -44,6 +44,7 @@ import { DEFAULT_PREFS, gatedPrefs, type ReaderPrefs } from '../data/prefs';
 import { can } from '../data/entitlement';
 import { engineMetaFromBook, type EngineMeta } from '../data/book-meta';
 import { accumulateEdgeTurn, scrollEdgeOf } from './scroll-edge';
+import { isReplayTap, type TapMark } from './tap-replay';
 
 /** 宿主坐标系里的矩形（左上角 + 宽高，单位 CSS px） */
 export interface Rect {
@@ -270,8 +271,16 @@ export class EngineHost {
   private twoFingerMove = 0;
   /** 两指落下时的间距：算「这两指几乎没动」 */
   private twoFingerSpan = 0;
-  /** 这个 iframe 里 pointer 事件是否可用（可用就只认 pointer，避免重复计数） */
-  private pointerWorks = false;
+  /**
+   * 上一次真的上报出去的点按。
+   *
+   * 点按同时听 pointer 与 touch 两条路（见 emitTap 的注释）。以前用
+   * 「pointer 走过一次完整的 pointerup 就永久只认 pointer」来去重，iPhone 上
+   * 会锁死：分页器对带位移的 touchmove 一律 preventDefault，WKWebView 于是
+   * 只派 pointercancel、不派 pointerup，两条路同时哑掉，点正文彻底没反应，
+   * 只能关书重开。现在两条路各自独立上报，靠这里判「是不是同一次手势的重播」。
+   */
+  private lastTap: TapMark | null = null;
   /**
    * 阅读区可见宽度（CSS px）。
    *
@@ -381,6 +390,9 @@ export class EngineHost {
     /* 上一个 destroy 立的旗子在这里放下：同一个 host 会被反复用来开不同的书，
        旗子不清掉的话，重开之后的标注与搜索全被当成「关书后的迟到回调」丢掉。 */
     this.destroyed = false;
+    /* 换书/重开时上一次点按的记录要丢掉：留着它的话，新书打开后 80ms 内
+       在第一下位置点下去会被当成「刚才那一下的重播」，无端少翻一页。 */
+    this.lastTap = null;
 
     this.opts = opts;
     this.prefs = opts.prefs;
@@ -715,7 +727,13 @@ export class EngineHost {
        应用），一次点按被记成两次翻页——「翻过去又翻回来」就是它。
        也不用「只看 pointer」：部分 WebView 在 preventDefault 过的 iframe 里
        干脆不派发 pointer 事件，那样真机上会完全没反应。所以 pointer 与 touch
-       两条路都听，最后都汇到 emitTap，用时间戳去重，一次手势只算一次。 */
+       两条路都听，都汇到 emitTap，由 tap-replay 判掉重复的那一次。
+
+       两条路必须**各自独立**能翻页（这一条是 2026-11-08 改的）：以前用一个
+       `pointerWorks` 单向开关，pointer 走过一次完整 pointerup 就永久关掉
+       触摸兜底。iPhone 上分页器对带位移的 touchmove 一律 preventDefault，
+       WKWebView 只派 pointercancel 不派 pointerup，于是开关已经立起来、
+       兜底又被关掉——点正文彻底没反应，只能关书重开。 */
     const TAP_MOVE_PX = 12;
     const TAP_LONG_PRESS_MS = 500;
 
@@ -774,6 +792,12 @@ export class EngineHost {
       const screenRelY = screenY > 0 ? screenY - winTop : y;
       const withinY = Math.max(0, Math.min(liveH || 1, screenRelY - stageTop));
       const zone: 'prev' | 'next' = withinY < (liveH || 1) * 0.4 ? 'prev' : 'next';
+      /* 两条路报的是同一次触摸：pointerup 先到，touchend 紧随其后。
+         只有第一次算数（详见 tap-replay.ts）。放在所有「点这儿不算翻页」的
+         判断之后——被链接 / 标注拦掉的那一下不该占住这个位置，否则紧接着
+         真要点别处会被误判成重播。 */
+      if (isReplayTap(this.lastTap, now, x, y)) return;
+      this.lastTap = { at: now, x, y };
       this.opts.onTap?.(zone, { x, y, width: live, source, scrollLeft, within, screenX });
     };
 
@@ -815,9 +839,6 @@ export class EngineHost {
       if (Math.hypot(ev.clientX - tapX, ev.clientY - tapY) > TAP_MOVE_PX) tapMoved = true;
     };
     const onPointerUp = (ev: PointerEvent): void => {
-      /* 走完一次完整的 pointerup 才认定 pointer 可用：有的 WebView 只发
-         pointerdown 不发 pointerup，那种情况下还要靠触摸兜底 */
-      this.pointerWorks = true;
       tapPointers = Math.max(0, tapPointers - 1);
       /* 鼠标拖拽（原有桌面行为） */
       if (dragging && ev.pointerId === tapId) {
@@ -912,36 +933,30 @@ export class EngineHost {
           this.opts.onTwoFingerTap?.();
         }
       }
-      /* 单指点按兜底：只在 pointer 事件根本不来时才用（少数 WebView）。
-         pointer 一旦可用就走 pointer，两条都用会把一次点按算两次。 */
-      if (!this.pointerWorks && touchTap && ev.touches.length === 0) {
-        const state = touchTap;
-        touchTap = null;
-        const t = ev.changedTouches[0];
-        if (
-          state.fingers === 1 &&
-          t &&
-          Date.now() - state.at < TAP_LONG_PRESS_MS &&
-          state.moved < TAP_MOVE_PX
-        ) {
-          emitTap(t.clientX, t.clientY, ev.target, 'touch-fallback', t.screenX, t.screenY);
-        }
-      }
+      /* 手指全抬离 = 这次手势结束。单指点按的判定已经全在捕获层做完
+         （见 onTouchEndCapture）：以前这里还留了一份「pointer 不可用时的兜底」，
+         可捕获层没拦下来的时候（多指 / 长按 / 滑动）本来就不该翻页，
+         拦下来的那一次又早已经上报过——留着它只会让人读不出到底谁在翻页。 */
+      if (ev.touches.length === 0) touchTap = null;
     };
 
     /* 点按拦截：在捕获阶段吞掉这次 touchend，分页器就收不到它，
        也就不会跑「零速度吸附」——「翻过去又被吸回来」的另一半源头。
        这一层不依赖 vendor 补丁是否生效：插件重载后旧的自定义元素还在页面上，
-       补丁不会重新注册，只有这层能兜住。 */
+       补丁不会重新注册，只有这层能兜住。
+
+       触摸这条路**无条件**上报，不再看 pointer 有没有走过（那正是 iPhone 上
+       彻底点不动的根因，见 tap-replay.ts 的文件头）。同一次手势的重播由
+       emitTap 里的时间 + 位置判据去掉，所以多报一次不会多翻一页。 */
     const onTouchEndCapture = (ev: TouchEvent): void => {
       const tap = touchTap;
       if (!tap || tap.fingers !== 1 || ev.touches.length > 0) return;
       if (Date.now() - tap.at >= TAP_LONG_PRESS_MS) return;
       if (tap.moved >= TAP_MOVE_PX) return;
-      if (!this.pointerWorks) {
-        const t = ev.changedTouches[0];
-        if (t) emitTap(t.clientX, t.clientY, ev.target, 'touch', t.screenX, t.screenY);
-      }
+      const t = ev.changedTouches[0];
+      if (t) emitTap(t.clientX, t.clientY, ev.target, 'touch', t.screenX, t.screenY);
+      /* 这次手势已经结算，别再让 bubble 层的收尾把它当成「还没结束」 */
+      touchTap = null;
       /* 拦下这一条，分页器就收不到 touchend，不会跑零速度吸附 */
       ev.stopImmediatePropagation();
     };
