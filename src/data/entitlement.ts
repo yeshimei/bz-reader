@@ -1,3 +1,5 @@
+/* global __BZ_DEV__ -- 构建期 define，声明在 types/globals.d.ts；eslint 的 no-undef 读不到 .d.ts */
+
 /* ============================================================
  * bz-reader · 授权状态机（data/entitlement.ts）
  *

@@ -75,7 +75,7 @@ const WIN_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
  * 导出给 shell 复用（`appendToExport` 追加导出到同一个目录），两处规则必须
  * 一模一样——否则同一本书在两个入口下会落成两个文件名，用户看到两份笔记。
  */
-export function safeName(name: string): string {
+export function safeName(name: string, fallback = '未命名'): string {
   const s = Array.from(String(name ?? ''))
     /* 控制字符逐个换空格，不写成正则：`no-control-regex` 会拦它，
        而这里本来也不需要正则（字符集只有 32 个码位）。 */
@@ -86,7 +86,7 @@ export function safeName(name: string): string {
     .replace(/^[.\s]+|[.\s]+$/g, '')
     .slice(0, 80)
     .replace(/^[.\s]+|[.\s]+$/g, '');
-  if (!s) return '未命名';
+  if (!s) return fallback;
   return WIN_RESERVED.test(s) ? `_${s}` : s;
 }
 

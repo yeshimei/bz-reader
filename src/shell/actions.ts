@@ -45,7 +45,7 @@ import { HEADER_ACTION_IDS } from '../view/header-actions';
 import type { ReaderPrefs } from '../data/prefs';
 import { snippet } from '../data/deeplink';
 import { wikilinkOf, wikilinkOfMark, wikilinkTo } from '../data/wikilink';
-import { exportBookNotes } from '../data/export';
+import { exportBookNotes, safeName } from '../data/export';
 import { jumpTo, getToc } from '../view/toc-state';
 import { LIB_FILTERS, LIB_SORTS } from './render/study';
 import { copyQuoteCardImage } from './card-image';
@@ -196,20 +196,14 @@ function overlay(kind: OverlayKind, extra: Record<string, unknown> = {}): void {
 /**
  * 导出文件名清洗（C1）。
  *
- * 与 `data/export.ts` 的 `safeName` 同一套规则（A4 会把那份导出成共享函数，
- * 合并时统一过来）。书名是用户可改的自由文本：`CON` 在 Windows 上根本
- * 打不开，`../../x` 会把笔记写到导出目录外面去。
+ * 规则全部来自 `data/export.ts` 的 `safeName`（A4 导出的共享函数）：书名是
+ * 用户可改的自由文本——`CON` 在 Windows 上根本打不开，`../../x` 会把笔记
+ * 写到导出目录外面去。两处必须同一套规则，否则同一本书从「导出」和
+ * 「存笔记」两个入口会落成两个文件名，用户看到两份笔记。
+ * 唯一的差别是兜底名走界面语言（那份函数默认写死中文）。
  */
-const WIN_RESERVED_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
-
 function safeExportName(raw: string): string {
-  const base = (raw || '')
-    .replace(/[\u0000-\u001f<>:"/\\|?*]/g, ' ')
-    .replace(/[. ]+$/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (!base) return t('common.untitled');
-  return WIN_RESERVED_NAME.test(base) ? `${base}_` : base;
+  return safeName(raw, t('common.untitled'));
 }
 
 /** 导出目录同样收一遍：设置里可能是 `a/../b`，也可能整条是 `..` */
@@ -217,8 +211,9 @@ function safeExportDir(raw: string, fallback: string): string {
   const parts = (raw || '')
     .replace(/\\/g, '/')
     .split('/')
-    .map((seg) => seg.replace(/[\u0000-\u001f<>:"|?*]/g, ' ').trim())
-    .filter((seg) => !!seg && seg !== '.' && seg !== '..');
+    /* `..` / `.` 直接丢掉，其余段按文件名同一套规则洗（目录也可能叫 CON） */
+    .map((seg) => (seg === '.' || seg === '..' ? '' : safeName(seg, '')))
+    .filter((seg) => !!seg);
   return parts.join('/') || fallback;
 }
 

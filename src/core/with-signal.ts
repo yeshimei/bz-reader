@@ -33,9 +33,11 @@ export function withSignal<T>(p: Promise<T>, signal?: AbortSignal): Promise<T> {
         signal.removeEventListener('abort', onAbort);
         resolve(v);
       },
-      (e) => {
+      (e: unknown) => {
         signal.removeEventListener('abort', onAbort);
-        reject(e);
+        /* 外部接口 reject 的东西不保证是 Error（有的写字符串/对象）：
+           交给调用方之前统一成 Error，否则 Promise 链上的 catch 拿不到栈。 */
+        reject(e instanceof Error ? e : new Error(String(e)));
       },
     );
   });

@@ -77,7 +77,9 @@ describe('存笔记的导出文件名（C1）', () => {
   it('书名是 Windows 保留名时不直接拿来当文件名', async () => {
     const keys = await saveQuoteWithTitle('CON');
 
-    expect(keys[0]).toBe('书摘/CON_.md');
+    /* 前缀下划线是 `data/export.ts` 的 safeName 定下的（A4）：导出与存笔记
+       必须落成同一个文件名，否则同一本书在两个入口下会出两份笔记。 */
+    expect(keys[0]).toBe('书摘/_CON.md');
   });
 
   it('书名里带路径分隔符也出不了导出目录', async () => {
