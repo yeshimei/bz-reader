@@ -38,6 +38,14 @@ export type FootnoteMode = 'popup' | 'jump';
  */
 export type FlowMode = 'paged' | 'scroll';
 
+/**
+ * 划词工具条长什么样：文字 / 图标（2026-11-08）。
+ *
+ * 默认文字：老用户升级后界面不该变样。图标模式给窄屏省地方，
+ * 一枚按钮从两三个字缩到一枚 16px 图标；认不出来时靠 title / aria 提示。
+ */
+export type ToolbarStyle = 'text' | 'icon';
+
 export interface ReaderPrefs {
   fontSize: number;
   lineHeight: number;
@@ -73,6 +81,8 @@ export interface ReaderPrefs {
   ttsFollow: boolean;
   /** 翻页 / 滚动（见 FlowMode） */
   flow: FlowMode;
+  /** 划词工具条：文字 / 图标（见 ToolbarStyle） */
+  toolbarStyle: ToolbarStyle;
   /**
    * 阅读页右上角图标的顺序与隐藏项（隐藏的收进 ⋮）。
    * 空数组 = 用默认顺序；只认 header-actions.ts 里那五个 id。
@@ -95,6 +105,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   ttsRate: 1,
   ttsFollow: true,
   flow: 'paged',
+  toolbarStyle: 'text',
   headerOrder: [],
   headerHidden: [],
 };
@@ -280,6 +291,7 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     ttsRate: Math.round(clamp(p.ttsRate, TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, DEFAULT_PREFS.ttsRate) * 10) / 10,
     ttsFollow: p.ttsFollow !== false,
     flow: p.flow === 'scroll' ? 'scroll' : 'paged',
+    toolbarStyle: p.toolbarStyle === 'icon' ? 'icon' : 'text',
     headerOrder: headerIds(p.headerOrder),
     headerHidden: headerIds(p.headerHidden),
   };

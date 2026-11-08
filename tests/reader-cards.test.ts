@@ -133,3 +133,31 @@ describe('markBubbleHtml · 划线气泡', () => {
     expect(markBubbleHtml('<b>x</b>')).toContain('&lt;b&gt;');
   });
 });
+
+/**
+ * 知识盒链接（2026-11-08）：气泡里单独一行可点标签，不再混进想法正文。
+ *
+ * 用户原话是「正常显示而不是纯文本，点击可以打开对应笔记」——所以这里要的是
+ * 一枚带 data-act 的按钮，不是 `[[…]]` 那几个字符。
+ */
+describe('markBubbleHtml · 知识盒标签', () => {
+  it('没有链接：输出里没有 kbopen，也没有多余的空行容器', () => {
+    const html = markBubbleHtml('想法');
+    expect(html).not.toContain('kbopen');
+    expect(html).toContain('想法');
+  });
+
+  it('存过名词：带一枚可点标签（类型 + 笔记名 + 路径）', () => {
+    const html = markBubbleHtml('想法', [{ kind: 'term', path: '文献/心流.md', at: 1 }]);
+    expect(html).toContain('data-act="kbopen"');
+    expect(html).toContain('data-path="文献/心流.md"');
+    expect(html).toContain('心流');
+    expect(html).toContain('名词');
+  });
+
+  it('只有链接、没有想法：气泡仍显示这一行', () => {
+    const html = markBubbleHtml('', [{ kind: 'passage', path: '文献/注意力.md', at: 1 }]);
+    expect(html).toContain('data-act="kbopen"');
+    expect(html).toContain('段落');
+  });
+});

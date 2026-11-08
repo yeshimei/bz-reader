@@ -147,3 +147,29 @@ describe('上下边距已撤档', () => {
     expect(p.fontSize).toBe(20);
   });
 });
+
+/**
+ * 工具条样式（2026-11-08）：文字 / 图标二选一。
+ *
+ * 默认**文字**：老用户升级后界面不该变样。图标模式是为了窄屏省地方，
+ * 认不出来的按钮靠 title / aria-label 补话。
+ */
+describe('工具条样式', () => {
+  it('默认是文字', () => {
+    expect(DEFAULT_PREFS.toolbarStyle).toBe('text');
+    expect(normalizePrefs({}).toolbarStyle).toBe('text');
+  });
+
+  it('只认 text / icon，其它值退回文字', () => {
+    expect(normalizePrefs({ toolbarStyle: 'icon' }).toolbarStyle).toBe('icon');
+    expect(normalizePrefs({ toolbarStyle: 'text' }).toolbarStyle).toBe('text');
+    expect(normalizePrefs({ toolbarStyle: 'emoji' } as unknown as Record<string, unknown>).toolbarStyle).toBe('text');
+    expect(normalizePrefs({ toolbarStyle: 1 } as unknown as Record<string, unknown>).toolbarStyle).toBe('text');
+  });
+
+  it('跟库走（阅读偏好的一份），不写进本机设置', () => {
+    /* 断言的是「它属于 prefs」这件事：DEFAULT_PREFS 里有它，
+       而 DEFAULT_SETTINGS 不该有同名项（两处各存一份必然分叉）。 */
+    expect(DEFAULT_PREFS).toHaveProperty('toolbarStyle');
+  });
+});

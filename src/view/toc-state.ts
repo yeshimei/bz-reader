@@ -104,7 +104,9 @@ export function tocPaintMode(input: {
   return input.onTocPage ? 'row' : 'none';
 }
 
-/** 目录视图点章节时调；书已经关了就是空操作 */
-export function jumpTo(href: string): void {
-  snapshot?.jump(href);
+/** 目录视图点章节时调；书已经关了就是空操作。返回是否真的发出去了 */
+export function jumpTo(href: string): boolean {
+  if (!snapshot || !href) return false;
+  snapshot.jump(href);
+  return true;
 }

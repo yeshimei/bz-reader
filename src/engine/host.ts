@@ -1277,10 +1277,21 @@ export class EngineHost {
     }
   }
 
-  /** 清掉书里的选区（画完线、点走浮层之后调，否则菜单会一直挂着） */
+  /**
+   * 清掉书里的选区（划词条上落袋的动作做完调，否则手机上系统手柄与菜单
+   * 会一直挂着、压在刚弹出来的浮层下面）。
+   *
+   * 遍历**所有**已加载的分片，不只第一个：分页器会预载相邻章，选区通常不在
+   * `getContents()[0]` 里。只清第一片时表现就是「点了按钮，选区还在」。
+   * 顺带清掉 `lastSelKey`：清完浏览器会派发 selectionchange，不清它的话
+   * 下一轮读到同样的空选区会被去重逻辑挡掉。
+   */
   clearSelection(): void {
-    const sel = this.view?.renderer?.getContents?.()[0]?.doc?.getSelection?.();
-    sel?.removeAllRanges();
+    const contents = this.view?.renderer?.getContents?.() ?? [];
+    for (const c of contents) {
+      const sel = c?.doc?.getSelection?.();
+      if (sel && !sel.isCollapsed) sel.removeAllRanges();
+    }
     this.lastSelKey = '';
   }
 

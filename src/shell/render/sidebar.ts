@@ -19,6 +19,7 @@ import { isTocItemActive, type TocActiveRef } from '../toc-active';
 import type { BuildProgress } from '../../data/portrait-build';
 import type { PortraitPlan, PortraitState } from '../../data/portrait';
 import { portraitEstimate } from './portrait';
+import { kbLinksHtml } from '../kb-links';
 import { esc, ico, icoNative } from './html';
 
 /* AiLogItem 的字段口径只有一份，在 shell/runtime.ts（pushAi 往那儿写）。
@@ -190,6 +191,7 @@ function highlightsBody(rows: MarkRow[]): string {
             (m) => `<div class="bzs-hlit" style="--c:${m.css}" data-act="hljump" data-id="${esc(m.id)}" role="button" tabindex="0">
               <span class="tx"><i class="dot" style="background:${m.css}"></i>${esc(m.text)}</span>
               ${m.comment ? `<span class="cm"><b>${t('side.ideaTag')}</b>${esc(m.comment)}</span>` : ''}
+              ${kbLinksHtml(m.kb)}
               <button class="x" data-act="delmark" data-id="${esc(m.id)}" title="${t('side.delete')}">${ico('x')}</button>
             </div>`,
           )

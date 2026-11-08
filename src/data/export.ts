@@ -16,9 +16,11 @@
  *      但会把换行压平——多行摘录在 blockquote 里会断成两块，读起来像两条。
  * ============================================================ */
 import type { App } from 'obsidian';
-import type { ReaderBook } from './schema';
+import type { KbLink, ReaderBook } from './schema';
 import type { ReaderSettings } from './settings';
 import { bookmarksOf, highlightsOf } from './notes';
+import { kbLinkMarkdown } from './kb-link';
+import { t } from '../i18n';
 
 /** 导出文件第一行。再次导出靠它判断「这份是不是我们写的」 */
 const MARK = '<!-- bz-reader:export -->';
@@ -104,7 +106,7 @@ interface Group {
   key: string;
   title: string;
   order: number;
-  items: Array<{ text: string; comment?: string; createdAt: number }>;
+  items: Array<{ text: string; comment?: string; kb?: KbLink[]; createdAt: number }>;
 }
 
 export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, now = Date.now()): string {
@@ -149,7 +151,7 @@ export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, n
       g = { key, title, order: index, items: [] };
       groups.set(key, g);
     }
-    g.items.push({ text: oneLine(h.text), comment: h.comment?.trim(), createdAt: h.createdAt });
+    g.items.push({ text: oneLine(h.text), comment: h.comment?.trim(), kb: h.kb, createdAt: h.createdAt });
   }
 
   const ordered = [...groups.values()].sort((a, b) => a.order - b.order);
@@ -169,6 +171,14 @@ export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, n
       if (settings.exportComments && it.comment) {
         lines.push('');
         lines.push(`想法：${oneLine(it.comment)}`);
+      }
+      /* 知识盒链接单独一行：它不算想法（导出时不受「带想法」开关影响——
+         没有这一行，导出到库里的笔记就看不出这段存过名词 / 段落了）。 */
+      for (const kb of it.kb ?? []) {
+        const link = kbLinkMarkdown(kb.path);
+        if (!link) continue;
+        lines.push('');
+        lines.push(`${t(kb.kind === 'term' ? 'export.kb.term' : 'export.kb.passage')}：${link}`);
       }
     });
     lines.push('');

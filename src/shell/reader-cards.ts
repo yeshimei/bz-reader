@@ -12,7 +12,9 @@
  */
 
 import type { AiTask } from '../data/ai';
+import type { KbLink } from '../data/schema';
 import { t, type MsgKey } from '../i18n';
+import { kbLinksHtml } from './kb-links';
 import { AI_CARD_MODES } from './ai-card';
 import { esc } from './render/html';
 
@@ -135,9 +137,14 @@ export function ideaConfirmHtml(): string {
  *
  * 只显示想法本身：原文就在屏幕上那段高亮里，再抄一遍是纯噪音。
  * 气泡在上、换色胶囊在下（见 text-toolbar.ts）。
+ *
+ * 2026-11-08 起多一行知识盒标签：存过名词 / 段落的那条划线，这里显示成
+ * 一枚可点按钮（`data-act="kbopen"`）。想法为空、只有链接时气泡照样出现——
+ * 用户点划线就是想找那条链接，不能因为没写想法就把它藏掉。
  */
-export function markBubbleHtml(comment: string): string {
-  return `<div class="bzs-mark-bubble">${esc(comment)}</div>`;
+export function markBubbleHtml(comment: string, kb?: KbLink[]): string {
+  const idea = comment ? esc(comment) : '';
+  return `<div class="bzs-mark-bubble">${idea}${kbLinksHtml(kb)}</div>`;
 }
 
 export interface BookmarkDeleteInput {

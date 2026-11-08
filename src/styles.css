@@ -881,6 +881,23 @@
   }
 }
 
+/* 书名可点：点一下 = 打开左侧栏的目录页签（2026-11-08）。
+   只在本视图里给手型与 hover；桌面原生 .view-header-title 在别的视图里
+   不是这个含义，所以两处都挂在 data-type='bzr-reader-view' 下面。 */
+.workspace-leaf-content[data-type='bzr-reader-view'] .bzr-title-toc {
+  cursor: pointer;
+}
+
+.bzr-title-toc:hover {
+  color: var(--text-accent);
+}
+
+.bzr-title-toc:focus-visible {
+  outline: 1px solid var(--text-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* 阅读时头栏图标缩到 36px：真机默认那颗有 44~48px，三颗就把书名挤没了 */
 body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .view-header .clickable-icon,
 body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .view-header .cmdr {

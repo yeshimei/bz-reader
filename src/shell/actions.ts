@@ -24,6 +24,7 @@ import {
   removeHighlights,
   setHighlightColor,
   setHighlightComment,
+  setHighlightKb,
   toggleBookmark,
 } from '../data/notes';
 import { allMarks, filterMarks, shelfOf } from './domain';
@@ -79,8 +80,8 @@ import {
 } from './state';
 import { RT, emitNotesChanged, pushAi, resetAi } from './runtime';
 import { kickBodySearch, resetBodySearch, stopBodySearch } from './search-run';
-import { bzEmbedder, bzNotesReady, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
-import { isMobileEnv } from '../core/mobile';
+import { bzEmbedder, bzNotesReady, openBzPreview, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
+import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { VIDEO_TUTORIAL_URL } from '../core/links';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
@@ -109,7 +110,10 @@ import {
   topBlocksByVector,
   type PortraitPlan,
 } from '../data/portrait';
-import { kbSource, kbThought, mergeThought } from '../data/kb-entry';
+import { kbSource } from '../data/kb-entry';
+import { kbLinkOf } from '../data/kb-link';
+import { endsSelection } from './selection-end';
+import { fromSidebarHit, shouldCollapseSidebar } from './sidebar-jump';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { aiCardDrop, aiCardKey, aiModeOf } from './ai-card';
 import { runAiForOverlay } from './overlay';
@@ -479,14 +483,17 @@ function colorLabel(v: string): string {
 }
 
 /**
- * 划词条上的「存为名词 / 存为段落」：交给 bz 的录入界面，写盘成功才回写。
+ * 划词条 / 划线工具条上的「存为名词 / 存为段落」。
  *
  * 三条界线：
  *   · **先问 bz 在不在**（probeBz + openBzEntry），缺哪一半都只说一句人话；
  *   · **不预造划线**：用户可能在中途取消，取消就不该在书里留一条空标注，
- *     所以标记与双链都挂在 bz 的「写入成功」回调上；
+ *     所以标记与链接都挂在 bz 的「写入成功」回调上；
  *   · **输入框里那一段原文归 bz 管**，我们不复制一份到自己的数据里，
- *     只有回写的那枚双链是这本书的。
+ *     只有回写的链接是这本书的。
+ *
+ * 2026-11-08 起：链接写进 `Highlight.kb`，**不再塞进想法**；同一个按钮
+ * 在这一格已经有链接时改做「打开那篇笔记」（动作名不变，见 tool.termView）。
  */
 function knowledgeEntry(kind: BzEntryKind, markId?: string, bookId?: string): void {
   const src = getShellSource();
@@ -501,6 +508,7 @@ function knowledgeEntry(kind: BzEntryKind, markId?: string, bookId?: string): vo
   let text = '';
   let cfi = '';
   let chapter = '';
+  let existing: ReturnType<typeof kbLinkOf> = undefined;
   if (markId) {
     book = findBookOfMark(markId, bookId);
     const h = book?.notes?.highlights.find((x) => x.id === markId);
@@ -511,6 +519,7 @@ function knowledgeEntry(kind: BzEntryKind, markId?: string, bookId?: string): vo
     text = h.text || '';
     cfi = h.cfiRange || '';
     chapter = h.chapterTitle || '';
+    existing = kbLinkOf(h.kb, kind);
   } else {
     const sel = RT.sel;
     book = sel ? liveBooks().find((b) => b.id === sel.bookId) : undefined;
@@ -521,13 +530,22 @@ function knowledgeEntry(kind: BzEntryKind, markId?: string, bookId?: string): vo
     text = sel.text;
     cfi = sel.cfiRange;
     chapter = sel.chapterTitle || '';
+    /* 划词路径上刚落笔的那条线也算：手机上选中即已划，按钮同样该变「看」 */
+    const live = RT.selMarkId ? kbLinkOf(book.notes?.highlights.find((x) => x.id === RT.selMarkId)?.kb, kind) : undefined;
+    existing = live;
+  }
+
+  /* 这一格已经有链接：按钮的字是「看名词 / 看段落」，点它是打开，不是再存一次 */
+  if (existing) {
+    openKbNote(existing.path);
+    return;
   }
 
   const target = book;
   const shell = src;
   /* 第六个参数是 app：老版本 bz 的门面首参要 app，新门面用不上（见 bz-bridge 的 wantsApp） */
   const res = openBzEntry(probeBz(app), kind, text, kbSource(target.id, target.meta.title, { text, cfiRange: cfi, chapterTitle: chapter }), (notePath) => {
-    /* bz 的写入成功回调：此刻笔记已经落盘，才轮到书里多一条划线 + 一枚双链 */
+    /* bz 的写入成功回调：此刻笔记已经落盘，才轮到书里多一条划线 + 一格链接 */
     let id = markId ?? '';
     if (!id) {
       const h = addHighlight(target, {
@@ -538,17 +556,49 @@ function knowledgeEntry(kind: BzEntryKind, markId?: string, bookId?: string): vo
       });
       id = h.id;
     }
-    const prev = target.notes?.highlights.find((x) => x.id === id)?.comment;
-    const link = kbThought(notePath);
-    if (link) setHighlightComment(target, id, mergeThought(prev, link));
-    shell.store.touch();
-    repaint();
-    emitNotesChanged();
+    if (setHighlightKb(target, id, { kind, path: notePath, at: Date.now() })) {
+      shell.store.touch();
+      repaint();
+      emitNotesChanged();
+    }
     notify(t(kind === 'term' ? 'notice.kb.term' : 'notice.kb.passage'));
   }, app);
 
   if (!res.ok) notify(res.message || t('notice.kb.failed', { message: '' }), 'error');
   else if (res.message) notify(res.message, 'info');
+}
+
+/**
+ * 打开一枚知识盒链接：优先让 bz 开文献预览弹窗，老版本 bz 退回打开那篇笔记。
+ *
+ * 两条路都以「用户能看见那篇笔记」收尾——链接点下去没反应是最差的结局。
+ */
+function openKbNote(path: string): void {
+  const src = getShellSource();
+  const app = src?.app;
+  const target = String(path ?? '').trim();
+  if (!app || !target) return;
+  if (openBzPreview(app, target)) return;
+  void app.workspace
+    .openLinkText(target, '', false, { active: true })
+    .catch(() => notify(t('notice.kb.missing', { path: target }), 'error'));
+}
+
+/** 动作点完把正文里的选区收掉（见 shell/selection-end.ts 的判据） */
+function finishSelection(act: string): void {
+  if (!endsSelection(act)) return;
+  getShellSource()?.clearSelection?.();
+}
+
+/**
+ * 手机上从侧栏跳转完，把抽屉收起来。
+ *
+ * 桌面侧栏常驻是正常形态；这本书没打开 / 这一跳没有落点时不收——
+ * 用户还在原地找，收起来等于多按一次。
+ */
+function collapseSidebarAfterJump(el: HTMLElement, jumped: boolean): void {
+  if (!shouldCollapseSidebar({ mobile: isMobileShell(), fromSidebar: fromSidebarHit(el), jumped })) return;
+  getShellSource()?.closeSidebar?.();
 }
 
 /* ─────────── 全书画像 ─────────── */
@@ -1558,7 +1608,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'jumpch': {
       if (d.href) {
         closeOverlay();
-        jumpTo(d.href);
+        collapseSidebarAfterJump(el, jumpTo(d.href));
         break;
       }
       /* 全书鸟瞰只拿得到章节名（S-05）：在目录快照里按名字找一条 href。
@@ -1571,7 +1621,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         : undefined;
       if (hit?.href) {
         closeOverlay();
-        jumpTo(hit.href);
+        collapseSidebarAfterJump(el, jumpTo(hit.href));
       } else {
         notify(t('notice.toc.missingChapter'), 'info');
       }
@@ -1592,6 +1642,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (book && k) {
         closeOverlay();
         getShellSource()?.openBook(book, k.cfi || undefined);
+        collapseSidebarAfterJump(el, true);
       }
       break;
     }
@@ -1633,7 +1684,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       changeMarkColor(d.id, d.v, d.book);
       break;
     case 'hljump':
-      jumpToMark(d.id, d.book);
+      collapseSidebarAfterJump(el, jumpToMark(d.id, d.book));
       break;
     case 'hlidea':
       // 浮窗要贴着原来那条划线展开，锚点沿用标注卡的位置
@@ -1698,6 +1749,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (reuse && recolorMark(reuse, d.v || getState().pen)) break;
       const id = createMark(d.v || getState().pen);
       if (id) RT.selMarkId = id;
+      /* 落笔即结束：选区收掉，手机上的系统手柄与菜单一起退场 */
+      finishSelection('selpen');
       break;
     }
     case 'selidea': {
@@ -1743,10 +1796,13 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'selterm':
       if (!requireCap('kb')) break;
       knowledgeEntry('term');
+      /* 录入界面已经打开 / 已有链接已转交出去：这段字用完了，收选区 */
+      finishSelection('selterm');
       break;
     case 'selpassage':
       if (!requireCap('kb')) break;
       knowledgeEntry('passage');
+      finishSelection('selpassage');
       break;
     case 'hlterm':
       if (!requireCap('kb')) break;
@@ -1767,10 +1823,16 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         break;
       }
       void copyText(wikilinkOf(book, { text: sel.text, cfiRange: sel.cfiRange, chapterTitle: sel.chapterTitle }));
+      finishSelection('selbilink');
       break;
     }
     case 'selcopy':
       if (RT.sel) void copyText(RT.sel.text);
+      finishSelection('selcopy');
+      break;
+    /* 知识盒标签（气泡 / 侧栏 / 笔记卡上的那枚可点链接）：打开对应笔记 */
+    case 'kbopen':
+      if (d.path) openKbNote(d.path);
       break;
 
     /* ── AI ── */
@@ -2212,6 +2274,10 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
     case 'accent':
       src.setPrefs({ accent: v as ReaderPrefs['accent'] });
       break;
+    case 'toolbarStyle':
+      /* 工具条文字 / 图标：跟库走的阅读偏好，改完立刻重绘（正开着的浮层也会换） */
+      src.setPrefs({ toolbarStyle: v === 'icon' ? 'icon' : 'text' });
+      break;
     default:
       break;
   }
@@ -2295,21 +2361,23 @@ function changeMarkColor(markId?: string, color?: string, bookId?: string): void
   }
 }
 
-function jumpToMark(markId?: string, bookId?: string): void {
+/** 跳到一条划线；返回是否真的发出去了（侧栏据此决定收不收抽屉） */
+function jumpToMark(markId?: string, bookId?: string): boolean {
   const book = findBookOfMark(markId, bookId);
   const h = book?.notes?.highlights.find((x) => x.id === markId);
   if (!book || !h) {
     notify(t('notice.mark.gone'), 'info');
-    return;
+    return false;
   }
   closeOverlay();
   setState({ bookId: book.id });
   getShellSource()?.openBook(book, h.cfiRange);
+  return true;
 }
 
 /** jumpmark 的 id 是标注 id，不是书签 id */
-function jumpMark(markId?: string, bookId?: string): void {
-  jumpToMark(markId, bookId);
+function jumpMark(markId?: string, bookId?: string): boolean {
+  return jumpToMark(markId, bookId);
 }
 
 function quoteFromMark(markId?: string, bookId?: string): void {

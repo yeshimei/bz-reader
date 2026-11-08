@@ -324,6 +324,7 @@ export const JA: Record<MsgKey, string> = {
   'tool.copy': 'コピー',
   'tool.del': '削除',
   'tool.more': 'その他',
+  'view.title.openToc': 'Open contents',
   'tool.aria': '選択ツール',
 
   /* ── 本棚の外枠 ─────────────────────────────────────────── */
@@ -436,6 +437,9 @@ export const JA: Record<MsgKey, string> = {
 
   /* ── 設定：外観 ─────────────────────────────────────────── */
   'settings.accent': 'アクセント色',
+  'settings.toolbarStyle': 'Toolbar style',
+  'settings.toolbarStyle.text': 'Text',
+  'settings.toolbarStyle.icon': 'Icons',
 
   /* ── 設定：リーダーのツールバー ─────────────────────────── */
   'settings.header.hint': '表示するアイコンを切り替えます。隠したものは右端の ⋮ に入ります。モバイルでは最大 3 個まで表示されます。',
@@ -529,9 +533,16 @@ export const JA: Record<MsgKey, string> = {
   'bz.noFolder': '先に bz で文献フォルダを設定してから、もう一度お試しください',
   'tool.term': '用語',
   'tool.passage': '段落',
+  'tool.termView': 'View term',
+  'tool.passageView': 'View passage',
+  'kb.kind.term': 'Term',
+  'kb.kind.passage': 'Passage',
+  'export.kb.term': 'Knowledge box (term)',
+  'export.kb.passage': 'Knowledge box (passage)',
   'notice.kb.term': 'ナレッジベースに用語として保存しました',
   'notice.kb.passage': 'ナレッジベースに段落として保存しました',
   'notice.kb.failed': 'ナレッジベースに書き込めませんでした：{message}',
+  'notice.kb.missing': 'Couldn\'t open that note: {path}',
   'side.ai.book.none': 'この本の全体像はまだ未作成です。作成すると本全体で回答できます。',
   'side.ai.embedNotReady': 'ベクトルはセカンドブレインが提供します。bz を有効化し埋め込みモデルを選んでから索引を作ってください。',
   'side.ai.book.noHit': 'この本に質問に関連する箇所が見つかりません：言い方を変えるか、索引を作り直してください。',

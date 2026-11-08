@@ -331,6 +331,7 @@ export const FR: Record<MsgKey, string> = {
   'tool.copy': 'Copier',
   'tool.del': 'Supprimer',
   'tool.more': 'Plus',
+  'view.title.openToc': 'Open contents',
   'tool.aria': 'Outils de sélection',
 
   /* ── Cadre de la bibliothèque ───────────────────────────── */
@@ -444,6 +445,9 @@ export const FR: Record<MsgKey, string> = {
 
   /* ── Réglages : apparence ───────────────────────────────── */
   'settings.accent': 'Couleur d’accent',
+  'settings.toolbarStyle': 'Toolbar style',
+  'settings.toolbarStyle.text': 'Text',
+  'settings.toolbarStyle.icon': 'Icons',
 
   /* ── Réglages : barre d’outils ──────────────────────────── */
   'settings.header.hint': 'Choisit les icônes affichées ; les icônes masquées passent dans le menu ⋮ à droite. Trois au maximum sur mobile.',
@@ -538,9 +542,16 @@ export const FR: Record<MsgKey, string> = {
   'bz.noFolder': 'Configure d\'abord le dossier de littérature dans bz, puis réessaie',
   'tool.term': 'Terme',
   'tool.passage': 'Passage',
+  'tool.termView': 'View term',
+  'tool.passageView': 'View passage',
+  'kb.kind.term': 'Term',
+  'kb.kind.passage': 'Passage',
+  'export.kb.term': 'Knowledge box (term)',
+  'export.kb.passage': 'Knowledge box (passage)',
   'notice.kb.term': 'Enregistré comme terme dans la base de connaissances',
   'notice.kb.passage': 'Enregistré comme passage dans la base de connaissances',
   'notice.kb.failed': 'Impossible d\'écrire dans la base : {message}',
+  'notice.kb.missing': 'Couldn\'t open that note: {path}',
   'side.ai.book.none': 'Ce livre n\'a pas encore de portrait : crées-en un pour répondre sur tout le livre.',
   'side.ai.embedNotReady': 'Les vecteurs viennent du Second Brain : activez bz, choisissez-y un modèle d’embedding, puis créez l’index.',
   'side.ai.book.noHit': 'Aucun passage de ce livre ne correspond : reformulez ou recréez l’index.',

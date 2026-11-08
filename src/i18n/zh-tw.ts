@@ -322,6 +322,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'tool.copy': '複製',
   'tool.del': '刪除',
   'tool.more': '更多',
+  'view.title.openToc': '開啟目錄',
   'tool.aria': '劃詞工具',
 
   /* ── 書架外殼 ────────────────────────────────────────────── */
@@ -434,6 +435,9 @@ export const ZH_TW: Record<MsgKey, string> = {
 
   /* ── 設定頁：外觀 ────────────────────────────────────────── */
   'settings.accent': '強調色',
+  'settings.toolbarStyle': '工具列樣式',
+  'settings.toolbarStyle.text': '文字',
+  'settings.toolbarStyle.icon': '圖示',
 
   /* ── 設定頁：閱讀頁圖示 ──────────────────────────────────── */
   'settings.header.hint': '開關控制顯示 / 收起；收起的進最右側 ⋮（Obsidian 內建的更多選單）。行動端最多露 3 顆。',
@@ -525,9 +529,16 @@ export const ZH_TW: Record<MsgKey, string> = {
   'bz.noFolder': 'bz 裡需要先設好文獻資料夾，設好後再點一次',
   'tool.term': '存為名詞',
   'tool.passage': '存為段落',
+  'tool.termView': '看名詞',
+  'tool.passageView': '看段落',
+  'kb.kind.term': '名詞',
+  'kb.kind.passage': '段落',
+  'export.kb.term': '知識盒（名詞）',
+  'export.kb.passage': '知識盒（段落）',
   'notice.kb.term': '已存為知識盒名詞',
   'notice.kb.passage': '已存為知識盒段落',
   'notice.kb.failed': '沒能寫進知識盒：{message}',
+  'notice.kb.missing': '這篇筆記打不開了：{path}',
   'side.ai.book.none': '這本書還沒建全書畫像，先建一次才能按全書回答。',
   'side.ai.embedNotReady': '向量由第二大腦提供：安裝並啟用 bz，在它的設定裡選好嵌入模型，再來建立索引。',
   'side.ai.book.noHit': '這本書裡沒有找到和問題相關的段落：換個問法，或重建一次全書依據。',

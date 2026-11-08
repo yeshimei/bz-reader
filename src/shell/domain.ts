@@ -7,7 +7,7 @@
  *
  * 只读：不写 store，不改数据。写操作一律走 data/notes.ts 的纯函数。
  * ============================================================ */
-import type { Bookmark, Highlight, ReaderBook } from '../data/schema';
+import type { Bookmark, Highlight, KbLink, ReaderBook } from '../data/schema';
 import { HIGHLIGHT_COLORS, colorCss, colorLabel } from '../data/notes';
 import { NO_SHELF } from '../data/shelves';
 import { getState } from './state';
@@ -19,6 +19,8 @@ export interface MarkRow {
   bookAuthor: string;
   text: string;
   comment: string;
+  /** 知识盒双链（名词 / 段落各最多一条）：卡片与侧栏据此出可点标签 */
+  kb?: KbLink[];
   /** 颜色名（amber / vermilion / green / blue） */
   color: string;
   colorLabel: string;
@@ -59,6 +61,7 @@ export function markRow(book: ReaderBook, h: Highlight): MarkRow {
     bookAuthor: book.meta.author || '佚名',
     text: h.text,
     comment: h.comment?.trim() || '',
+    kb: h.kb?.length ? h.kb : undefined,
     color: h.color || HIGHLIGHT_COLORS[0].value,
     colorLabel: penLabel(h.color),
     css: penCss(h.color),

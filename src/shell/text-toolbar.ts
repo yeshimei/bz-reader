@@ -27,6 +27,13 @@ export interface ToolbarItem {
   act: ToolbarAct;
   /** 按钮字按当前界面语言现取（`t(key)`）——常量字符串切完语言不更新 */
   key: MsgKey;
+  /**
+   * 图标模式下用的宿主图标名（lucide / Obsidian 那一套）。
+   *
+   * 名字交给 `setIcon` 画，本文件不关心路径——这样主题换了描边、Obsidian 换了
+   * 图标集，工具条都跟着走，不会出现「自绘的近似图形和旁边原生图标不是一个东西」。
+   */
+  icon: string;
   /** 破坏性动作：单独排在最后、用朱砂色 */
   danger?: boolean;
 }
@@ -38,11 +45,11 @@ export interface ToolbarItem {
  * AI 只有两个字母——旁边就是「书摘」，四个字会把整排推宽。
  */
 export const TOOLBAR_ITEMS: readonly ToolbarItem[] = [
-  { act: 'idea', key: 'tool.idea' },
-  { act: 'quote', key: 'tool.quote' },
-  { act: 'ai', key: 'tool.ai' },
-  { act: 'bilink', key: 'tool.bilink' },
-  { act: 'copy', key: 'tool.copy' },
+  { act: 'idea', key: 'tool.idea', icon: 'lightbulb' },
+  { act: 'quote', key: 'tool.quote', icon: 'quote' },
+  { act: 'ai', key: 'tool.ai', icon: 'sparkles' },
+  { act: 'bilink', key: 'tool.bilink', icon: 'link-2' },
+  { act: 'copy', key: 'tool.copy', icon: 'copy' },
 ];
 
 /**
@@ -53,8 +60,8 @@ export const TOOLBAR_ITEMS: readonly ToolbarItem[] = [
  * 把色点挤变形。
  */
 export const KB_ITEMS: readonly ToolbarItem[] = [
-  { act: 'term', key: 'tool.term' },
-  { act: 'passage', key: 'tool.passage' },
+  { act: 'term', key: 'tool.term', icon: 'book-type' },
+  { act: 'passage', key: 'tool.passage', icon: 'align-left' },
 ];
 
 /** 基础项里插入知识库两颗之后的那一整排（顺序即最终顺序） */
@@ -64,7 +71,18 @@ export function toolbarItems(kb?: boolean): ToolbarItem[] {
   return [...TOOLBAR_ITEMS.slice(0, at + 1), ...KB_ITEMS, ...TOOLBAR_ITEMS.slice(at + 1)];
 }
 
-export const DELETE_ITEM: ToolbarItem = { act: 'del', key: 'tool.del', danger: true };
+export const DELETE_ITEM: ToolbarItem = { act: 'del', key: 'tool.del', icon: 'trash-2', danger: true };
+
+/**
+ * 已存过知识盒的那两颗：文案换成「看名词 / 看段落」。
+ *
+ * 动作名不变——同一个 data-act 由动作表自己判断「存过就打开、没存过就录入」；
+ * 这里只负责把字换掉，所以旧 DOM、旧点击路径都不用重学。
+ */
+const KB_VIEW_KEYS: Partial<Record<ToolbarAct, MsgKey>> = {
+  term: 'tool.termView',
+  passage: 'tool.passageView',
+};
 
 /** 手机上还留在胶囊上的主路径颗数：想法 / 书摘 / AI */
 const COMPACT_MAIN = 3;
@@ -230,6 +248,14 @@ export interface ToolbarHtmlInput extends ToolbarLayoutInput {
   acts?: ToolbarActs;
   /** 额外挂在每颗按钮上的 data-*（点划线要带 data-id / data-book） */
   attrs?: string;
+  /** 图标模式：只画图标，文案进 title / aria-label */
+  icon?: boolean;
+  /**
+   * 这条划线已经存进知识盒的格子：对应按钮从「存为名词」变「看名词」。
+   *
+   * 只影响文案，`data-act` 不变——动作表自己会判断「存过就打开」。
+   */
+  kbDone?: Partial<Record<'term' | 'passage', boolean>>;
 }
 
 /* 转义只有一份：render/html.ts 的 esc（D8）。这里原先自己抄了一份，
@@ -270,6 +296,11 @@ export function toolbarHtml(input: ToolbarHtmlInput): string {
     )
     .join('');
 
+  const labelOf = (item: ToolbarItem): string => {
+    const viewKey = KB_VIEW_KEYS[item.act];
+    return t(viewKey && input.kbDone?.[item.act as 'term' | 'passage'] ? viewKey : item.key);
+  };
+
   const btn = (item: ToolbarItem): string => {
     const cls = [
       'bzs-sbtn',
@@ -279,24 +310,34 @@ export function toolbarHtml(input: ToolbarHtmlInput): string {
     ]
       .filter(Boolean)
       .join(' ');
-    return `<button type="button" class="${cls}" data-act="${esc(actOf(item.act))}"${attrs}>${esc(
-      t(item.key),
-    )}</button>`;
+    const label = labelOf(item);
+    if (input.icon) {
+      return `<button type="button" class="${cls}" data-act="${esc(actOf(item.act))}" aria-label="${esc(
+        label,
+      )}" title="${esc(label)}"${attrs}><span class="bzs-tbi" data-icon="${esc(item.icon)}"></span></button>`;
+    }
+    return `<button type="button" class="${cls}" data-act="${esc(actOf(item.act))}"${attrs}>${esc(label)}</button>`;
   };
 
   const parts = [dots, '<span class="div"></span>', visible.map(btn).join('')];
   if (overflow.length) {
+    const more = input.icon
+      ? `<span class="bzs-tbi" data-icon="more-horizontal"></span>`
+      : '⋯';
     parts.push(
-      `<button type="button" class="bzs-sbtn more" data-act="${MORE_ACT}" aria-label="${t('tool.more')}" aria-haspopup="menu" aria-expanded="false">⋯</button>`,
+      `<button type="button" class="bzs-sbtn more" data-act="${MORE_ACT}" aria-label="${t('tool.more')}" aria-haspopup="menu" aria-expanded="false">${more}</button>`,
       `<div class="bzs-tb-more" role="menu">${overflow
         .map(
+          /* 菜单项保持文字：菜单里空间够，图标反而要多想一下 */
           (item) =>
             `<button type="button" class="bzs-tb-mi${item.danger ? ' danger' : ''}" data-act="${esc(
               actOf(item.act),
-            )}"${attrs}>${esc(t(item.key))}</button>`,
+            )}"${attrs}>${esc(labelOf(item))}</button>`,
         )
         .join('')}</div>`,
     );
   }
-  return `<div class="bzs-tb" role="toolbar" aria-label="${t('tool.aria')}">${parts.join('')}</div>`;
+  return `<div class="bzs-tb${input.icon ? ' is-icon' : ''}" role="toolbar" aria-label="${t('tool.aria')}">${parts.join(
+    '',
+  )}</div>`;
 }

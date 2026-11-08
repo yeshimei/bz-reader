@@ -329,6 +329,7 @@ export const DE: Record<MsgKey, string> = {
   'tool.copy': 'Kopieren',
   'tool.del': 'Löschen',
   'tool.more': 'Mehr',
+  'view.title.openToc': 'Open contents',
   'tool.aria': 'Auswahlwerkzeuge',
 
   /* ── Regalrahmen ────────────────────────────────────────── */
@@ -442,6 +443,9 @@ export const DE: Record<MsgKey, string> = {
 
   /* ── Einstellungen: Aussehen ────────────────────────────── */
   'settings.accent': 'Akzentfarbe',
+  'settings.toolbarStyle': 'Toolbar style',
+  'settings.toolbarStyle.text': 'Text',
+  'settings.toolbarStyle.icon': 'Icons',
 
   /* ── Einstellungen: Werkzeugleiste ──────────────────────── */
   'settings.header.hint': 'Legt fest, welche Symbole erscheinen; ausgeblendete wandern ins ⋮-Menü rechts. Mobil höchstens 3.',
@@ -536,9 +540,16 @@ export const DE: Record<MsgKey, string> = {
   'bz.noFolder': 'Richte zuerst den Literaturordner in bz ein und versuche es erneut',
   'tool.term': 'Begriff',
   'tool.passage': 'Absatz',
+  'tool.termView': 'View term',
+  'tool.passageView': 'View passage',
+  'kb.kind.term': 'Term',
+  'kb.kind.passage': 'Passage',
+  'export.kb.term': 'Knowledge box (term)',
+  'export.kb.passage': 'Knowledge box (passage)',
   'notice.kb.term': 'Als Begriff in der Wissensbox gespeichert',
   'notice.kb.passage': 'Als Absatz in der Wissensbox gespeichert',
   'notice.kb.failed': 'Konnte nicht in die Wissensbox schreiben: {message}',
+  'notice.kb.missing': 'Couldn\'t open that note: {path}',
   'side.ai.book.none': 'Für dieses Buch gibt es noch kein Gesamtbild – erstelle eins.',
   'side.ai.embedNotReady': 'Vektoren liefert das Second Brain: bz aktivieren, dort ein Embedding-Modell wählen, dann den Index erstellen.',
   'side.ai.book.noHit': 'Keine passende Stelle im Buch gefunden: anders formulieren oder den Index neu erstellen.',

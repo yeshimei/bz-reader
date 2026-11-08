@@ -44,6 +44,13 @@ export interface BzKnowledgeFacade {
   openPassageNote(opts?: BzEntryOptions): void;
   /** 文献文件夹配好了没（老版本 bz 没有这一项，按「未知」处理） */
   isFolderReady?: () => boolean;
+  /**
+   * 按路径打开知识盒的「文献预览」弹窗（2026-11-08，bz 侧同款出口）。
+   *
+   * 可选：老版本 bz 没有它，调用方（openBzPreview）探测不到就退回
+   * 打开那篇笔记，不能因为缺这一项整块不可用。
+   */
+  openPreview?: (path: string) => void | Promise<void>;
 }
 
 export interface BzAiFacade {
@@ -193,6 +200,38 @@ export function bzEmbedder(app: App | null | undefined): BzEmbedder {
 /** 能不能把划词录进 bz 的文献盒（知识盒门面在不在） */
 export function bzEntryReady(app: App | null | undefined): boolean {
   return !!probeBz(app).knowledge;
+}
+
+/**
+ * 知识盒有没有「按路径打开预览」这个出口（bz 1.42+）。
+ *
+ * 与 bzEntryReady 分开：录入和打开是两件事，老版本 bz 能存不能放，
+ * 界面据此决定「看名词」是开弹窗还是打开笔记。
+ */
+export function bzPreviewReady(app: App | null | undefined): boolean {
+  return typeof probeBz(app).knowledge?.openPreview === 'function';
+}
+
+/**
+ * 让 bz 打开一篇知识盒笔记的预览弹窗。
+ *
+ * 返回**是否转交出去**：false 时调用方自己打开笔记（`openLinkText`）。
+ * 门面内部抛错一律吞掉——用户点了一枚链接，最坏的结果应该是「打开了笔记」，
+ * 而不是控制台里一条红字。异步拒绝也不往外抛（bz 侧自己会兜回原生打开）。
+ */
+export function openBzPreview(app: App | null | undefined, path: string): boolean {
+  const fn = probeBz(app).knowledge?.openPreview;
+  const key = String(path ?? '').trim();
+  if (typeof fn !== 'function' || !key) return false;
+  try {
+    const out = fn(key);
+    if (out && typeof (out as Promise<void>).catch === 'function') {
+      (out as Promise<void>).catch(() => undefined);
+    }
+  } catch {
+    return false;
+  }
+  return true;
 }
 
 /**

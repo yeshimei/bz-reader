@@ -14,7 +14,8 @@
  *     等于把这个选择权永久焊死在今天这版配色上。
  * ============================================================ */
 import { locale, type Locale } from '../i18n';
-import type { Bookmark, BookNotes, Excerpt, Highlight, ReaderBook } from './schema';
+import type { Bookmark, BookNotes, Excerpt, Highlight, KbLink, ReaderBook } from './schema';
+import { upsertKbLink } from './kb-link';
 
 export const HIGHLIGHT_COLORS = [
   { value: 'amber', css: '#e8b53a' },
@@ -181,6 +182,25 @@ export function setHighlightComment(book: ReaderBook, id: string, comment: strin
   h.comment = text || undefined;
   h.updatedAt = Date.now();
   mirrorExcerpt(n, h);
+  touchNotes(book, h.updatedAt);
+  return true;
+}
+
+/**
+ * 记一条知识盒链接（2026-11-08）。
+ *
+ * 与想法分家：**不碰 `comment`**。名词 / 段落各一格，同类型再存是替换——
+ * 名词笔记改名后再存一次，不该同时出现两个「看名词」。
+ *
+ * 空路径也返回 true（动作本身成功，只是没有东西可写），由 upsertKbLink 保住旧链接。
+ */
+export function setHighlightKb(book: ReaderBook, id: string, link: KbLink): boolean {
+  const n = notes(book);
+  const h = n.highlights.find((x) => x.id === id);
+  if (!h) return false;
+  const next = upsertKbLink(h.kb, link);
+  h.kb = next.length ? next : undefined;
+  h.updatedAt = Date.now();
   touchNotes(book, h.updatedAt);
   return true;
 }

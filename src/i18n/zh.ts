@@ -336,6 +336,8 @@ export const ZH = {
   'tool.del': '删除',
   'tool.more': '更多',
   'tool.aria': '划词工具',
+  /* 阅读页左上角书名：点一下 = 打开左侧栏的目录页签 */
+  'view.title.openToc': '打开目录',
 
   /* ── 书架外壳 ────────────────────────────────────────────── */
   'shelf.tab.library': '书库',
@@ -454,6 +456,9 @@ export const ZH = {
 
   /* ── 设置页：外观 ────────────────────────────────────────── */
   'settings.accent': '强调色',
+  'settings.toolbarStyle': '工具条样式',
+  'settings.toolbarStyle.text': '文字',
+  'settings.toolbarStyle.icon': '图标',
 
   /* ── 设置页：阅读页图标 ──────────────────────────────────── */
   'settings.header.hint': '开关控制显示 / 收起；收起的进最右侧 ⋮（Obsidian 自带的更多菜单）。移动端最多露 3 颗。',
@@ -546,9 +551,17 @@ export const ZH = {
   'bz.noFolder': 'bz 里需要先配好文献文件夹，配好后再点一次',
   'tool.term': '存为名词',
   'tool.passage': '存为段落',
+  /* 存过之后那颗变「看」：同一个 data-act，动作表自己判断打开还是录入 */
+  'tool.termView': '看名词',
+  'tool.passageView': '看段落',
+  'kb.kind.term': '名词',
+  'kb.kind.passage': '段落',
+  'export.kb.term': '知识盒（名词）',
+  'export.kb.passage': '知识盒（段落）',
   'notice.kb.term': '已存为知识盒名词',
   'notice.kb.passage': '已存为知识盒段落',
   'notice.kb.failed': '没能写进知识盒：{message}',
+  'notice.kb.missing': '这篇笔记打不开了：{path}',
   'notice.ai.evidenceTimeout': '取证超时：AI 服务 20 秒没有响应，稍后再试',
   'notice.portrait.removeFailed': '索引没删掉，稍后再试',
   'side.ai.book.none': '这本书还没建全书画像，先建一次才能按全书回答。',

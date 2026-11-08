@@ -618,6 +618,8 @@ export function createPlugin(cfg: PluginConfig) {
         openStudy: (page) => this.openStudy(page),
         closeStudy: () => this.app.workspace.leftSplit?.collapse?.(),
         openSidebar: (tab) => this.openTocSidebar(tab),
+        closeSidebar: () => this.closeTocSidebar(),
+        clearSelection: () => this.activeReader()?.clearSelection(),
         syncVault: () => void this.syncShelf(),
         maybeShowChangelog: () => void this.maybeShowChangelog(),
         openChangelog: () => this.openChangelog(),
@@ -1314,6 +1316,25 @@ export function createPlugin(cfg: PluginConfig) {
         moveLeafToTop(leaf);
       });
       ws.leftSplit?.expand?.();
+    }
+
+    /**
+     * 收掉目录侧栏（手机上从侧栏跳转完之后自动收抽屉）。
+     *
+     * 桌面不会被调：那边侧栏常驻是正常形态。
+     *
+     * 按 leaf 的 DOM 位置判断左右，而不是 `leaf.parent === leftSplit`：
+     * 手机上抽屉里的 leaf 父级是内部 split，跟 leftSplit 不是同一个对象；
+     * 而 `mod-left-split` / `mod-right-split` 两个类在两端都是稳定的。
+     * 侧栏被拖到右边时只收左边等于没反应——用户点了目录，抽屉还在。
+     */
+    closeTocSidebar(): void {
+      const ws = this.app.workspace;
+      const leaf = ws.getLeavesOfType(VIEW_TYPE_TOC)[0];
+      const el = (leaf?.view as unknown as { containerEl?: HTMLElement } | undefined)?.containerEl;
+      const onRight = !!el?.closest?.('.mod-right-split');
+      if (onRight) ws.rightSplit?.collapse?.();
+      else ws.leftSplit?.collapse?.();
     }
 
     async openBook(book: ReaderBook, cfi?: string): Promise<void> {

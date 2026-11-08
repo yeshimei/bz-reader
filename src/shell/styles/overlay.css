@@ -486,6 +486,53 @@ body.theme-dark .bzs-float.is-dialog {
   overflow: auto;
 }
 
+/* 知识盒标签（气泡 / 侧栏 / 笔记卡共用一份）：类型 + 笔记名，点开对应笔记。
+   2026-11-08 之前它是想法正文里的一串 [[…]]——看得见、点不动。 */
+.bzs-kblinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.bzs-kblink {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  border: 0;
+  background: var(--sunken);
+  color: var(--t1);
+  font: 11.5px/1 var(--ui);
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bzs-kblink .k {
+  color: var(--copper);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.bzs-kblink.is-passage .k {
+  color: var(--t3);
+}
+
+.bzs-kblink:hover {
+  background: var(--copper-soft);
+  color: var(--copper);
+}
+
+.bzs-kblink:focus-visible {
+  outline: 1px solid var(--copper-line);
+  outline-offset: 1px;
+}
+
 /* ── 工具条本体（S11）：划词与点划线共用这一枚 ──
    白底实心胶囊；描边走 0 0 0 1px 的阴影、不写 border（border 会把整条撑高 2px）。
    手机上胶囊必然压到下一行正文，实心的像盖了块色板，改磨砂（见 mobile.css）。 */
@@ -550,6 +597,37 @@ body.theme-dark .bzs-tb .div {
 .bzs-tb .bzs-sbtn.more {
   padding: 2px 6px;
   letter-spacing: 0;
+}
+
+/* ── 图标模式（设置 · 外观 · 工具条样式）──
+   一颗按钮只剩一枚 16px 宿主图标，文案在 title / aria-label 里。
+   宽度写死是刻意的：图标本身宽度不一，不钉住会让整排忽宽忽窄。 */
+.bzs-tb.is-icon {
+  gap: 3px;
+}
+
+.bzs-tb.is-icon .bzs-sbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+}
+
+.bzs-tb.is-icon .bzs-sbtn.more {
+  width: 24px;
+}
+
+.bzs-tb .bzs-tbi {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bzs-tb .bzs-tbi svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* 菜单常驻 DOM、默认收起：点开只给胶囊加一个 .is-more，不重画——

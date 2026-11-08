@@ -45,8 +45,10 @@ import {
 import { planHeaderVisibility, roleOf } from './header-layout';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
+import { hydrateToolbarIcons } from '../shell/toolbar-icons';
 import { can } from '../data/entitlement';
 import { bzEntryReady } from '../data/bz-bridge';
+import { kbLinkOf } from '../data/kb-link';
 import { VIEW_TYPE_TOC } from './side-view';
 
 /* 注意：本类为了给 Obsidian 存 view 状态，重写了 getState()。
@@ -76,7 +78,7 @@ import { RT, onNotesChanged } from '../shell/runtime';
 import { addCheckin } from '../shell/checkin';
 import { toTextHits, type TextHit } from '../shell/text-search';
 import { shouldNotifyRelocate } from './relocate-notify';
-import { getShellSource } from '../shell/source';
+import { getShellSource, shellPrefs } from '../shell/source';
 import { dispatchAction, requireCap } from '../shell/actions';
 
 export const VIEW_TYPE_READER = 'bzr-reader-view';
@@ -524,6 +526,8 @@ export class ReaderView extends ItemView {
       this.headTitleEl.textContent = book.meta.title;
       this.headTitleEl.setAttribute('title', book.meta.title);
     }
+    /* 点书名 = 打开左侧栏的目录页签（与头栏那颗目录图标同一条路） */
+    this.bindTitleToToc(this.headTitleEl, book.meta.title);
   }
 
   /**
@@ -537,9 +541,47 @@ export class ReaderView extends ItemView {
   private applyHeaderTitle(header: HTMLElement): void {
     const title = this.book?.meta.title || '';
     const el0 = header.querySelector<HTMLElement>('.view-header-title');
-    if (!el0 || el0.textContent === title) return;
-    el0.textContent = title;
-    el0.setAttribute('title', title);
+    if (!el0) return;
+    if (el0.textContent !== title) el0.textContent = title;
+    /* 桌面同样可点：同一颗元素在别的视图里有别的含义，所以只从本视图挂 */
+    this.bindTitleToToc(el0, title);
+  }
+
+  /**
+   * 书名可点：打开左侧栏并切到目录（2026-11-08）。
+   *
+   * 两端都绑，但只绑「本视图头栏里的那个元素」——宿主的 `.view-header-title`
+   * 在别的视图里也有（文件视图里点它是另一回事），所以入口只从 mountHeader
+   * 进来。用 `data-bzr-toc` 记一次：头栏会被宿主重建，元素换了才重绑；
+   * 同一个元素上换书不重复叠监听。
+   *
+   * 键盘可达：Enter / Space 与点击同效，`role=button` 让读屏也能认出来。
+   */
+  private bindTitleToToc(el: HTMLElement | null, title: string): void {
+    if (!el) return;
+    el.setAttribute('aria-label', t('view.title.openToc'));
+    el.setAttribute('title', title ? `${title} · ${t('view.title.openToc')}` : t('view.title.openToc'));
+    if (el.dataset.bzrToc === '1') return;
+    el.dataset.bzrToc = '1';
+    el.classList.add('bzr-title-toc');
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
+    const open = (): void => {
+      /* 头栏元素会被宿主复用：这个 leaf 切到别的视图之后它还在，
+         那时点标题不该再把阅读器的侧栏拽出来。 */
+      const live = (this.leaf as unknown as { view?: unknown } | undefined)?.view;
+      if (live && live !== this) return;
+      this.api.openTocSidebar('toc');
+    };
+    el.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      open();
+    });
+    el.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'Enter' && ev.key !== ' ') return;
+      ev.preventDefault();
+      open();
+    });
   }
 
   /**
@@ -1263,6 +1305,18 @@ export class ReaderView extends ItemView {
     RT.selMarkId = '';
   }
 
+  /**
+   * 收掉正文里的选区（划词条上「落袋」的动作用完就调）。
+   *
+   * 只动正文 iframe 里的选区：工具条、浮层、宿主窗口自己的输入框都不碰。
+   * 清完浏览器会派发一次 selectionchange，`onSelect(null)` 会把条子收掉——
+   * 这正是要的；这里先把条子自己收了，避免那 320ms 的延迟里还挂着。
+   */
+  clearSelection(): void {
+    this.host.clearSelection();
+    this.hideSelbar();
+  }
+
   /** 选区 → 壳层载荷。划词条上的动作全靠它，必须先落这里再落标注 */
   private setSel(info: SelectionInfo): void {
     const book = this.book;
@@ -1301,7 +1355,8 @@ export class ReaderView extends ItemView {
     const live = markId || '';
     RT.selMarkId = live;
     const book = this.book;
-    const activeColor = live && book ? findHighlight(book, live)?.color : '';
+    const marked = live && book ? findHighlight(book, live) : undefined;
+    const activeColor = marked?.color ?? '';
 
     const bar = el('div', 'bzs-selbar');
     if (live) bar.classList.add('is-marked');
@@ -1321,8 +1376,14 @@ export class ReaderView extends ItemView {
         kb,
         narrow: (root.clientWidth || 0) < 520,
         acts: SELECTION_ACTS,
+        /* 存的这本划线已经存过名词 / 段落：那两颗显示成「看名词 / 看段落」 */
+        kbDone: { term: !!kbLinkOf(marked?.kb, 'term'), passage: !!kbLinkOf(marked?.kb, 'passage') },
+        /* 设置里的工具条样式：文字 / 图标（默认文字） */
+        icon: shellPrefs().toolbarStyle === 'icon',
       }),
     );
+    /* 图标是宿主画的（模板里只有 data-icon 空壳），插进页面后补一遍 */
+    hydrateToolbarIcons(bar);
 
     /* 点工具条不能把系统的选区和手柄清掉：pointerdown 默认会让 iframe 失焦，
        选区一塌，后面所有动作都拿不到文本了。 */

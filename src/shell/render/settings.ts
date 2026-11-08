@@ -213,9 +213,20 @@ export function viewSettings(v: SettingsView): string {
         a.css || 'var(--interactive-accent)'
       }"></span>${accentLabel(a.value)}</button>`,
   ).join('');
+  /* 工具条样式：文字 / 图标。默认文字（老用户升级后外观不变）；
+     图标模式下按钮只剩一枚宿主图标，窄屏能省出一截。 */
+  const toolbarStyleBtns = seg(
+    'toolbarStyle',
+    [
+      ['text', t('settings.toolbarStyle.text')],
+      ['icon', t('settings.toolbarStyle.icon')],
+    ],
+    p.toolbarStyle,
+  );
   const look = `<div class="bzs-setgrp">
       <h3>${t('settings.grp.look')}</h3>
       <div class="bzs-setrow"><label>${t('settings.accent')}</label><div class="bzs-seg bzs-seg-wrap">${accentBtns}</div></div>
+      <div class="bzs-setrow"><label>${t('settings.toolbarStyle')}</label>${toolbarStyleBtns}</div>
     </div>`;
 
   /* 阅读页右上角图标：可排序、可收起。收起的进 ⋮；移动端最多露 3 颗。 */

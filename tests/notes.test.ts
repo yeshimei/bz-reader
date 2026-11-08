@@ -8,6 +8,7 @@ import {
   removeHighlight,
   removeHighlights,
   setHighlightComment,
+  setHighlightKb,
   toggleBookmark,
 } from '../src/data/notes';
 
@@ -75,6 +76,59 @@ describe('划线与镜像摘录（highlight 主本，excerpt 镜像）', () => {
     const book = oldBook();
     expect(addBookmark(book, { cfi: 'c', percent: 3 }).percent).toBe(1);
     expect(addBookmark(book, { cfi: 'c', percent: -1 }).percent).toBe(0);
+  });
+});
+
+/**
+ * 知识盒双链（2026-11-08）：**单独一格，不写进想法**。
+ *
+ * 以前存完名词会把 `[[文献/心流|心流]]` 追加到 comment 里——用户一改想法就可能
+ * 把它删掉，界面上也只是纯文本。现在它住在划线自己的 `kb` 数组里，想法保持干净。
+ */
+describe('知识盒链接', () => {
+  const link = (kind: 'term' | 'passage', path: string, at = 10) => ({ kind, path, at });
+
+  it('写进 kb，不动想法', () => {
+    const book = oldBook();
+    const h = addHighlight(book, { text: '划线', cfiRange: 'cfi' });
+    setHighlightComment(book, h.id, '我的想法');
+    expect(setHighlightKb(book, h.id, link('term', '文献/心流.md'))).toBe(true);
+    const got = findHighlight(book, h.id);
+    expect(got?.kb).toEqual([link('term', '文献/心流.md')]);
+    expect(got?.comment).toBe('我的想法');
+  });
+
+  it('名词与段落并列，各自独立', () => {
+    const book = oldBook();
+    const h = addHighlight(book, { text: '划线', cfiRange: 'cfi' });
+    setHighlightKb(book, h.id, link('term', '文献/心流.md'));
+    setHighlightKb(book, h.id, link('passage', '文献/注意力.md', 20));
+    expect(findHighlight(book, h.id)?.kb?.map((x) => x.kind)).toEqual(['term', 'passage']);
+  });
+
+  it('同类型再存是替换（笔记改名不留旧链接）', () => {
+    const book = oldBook();
+    const h = addHighlight(book, { text: '划线', cfiRange: 'cfi' });
+    setHighlightKb(book, h.id, link('term', '文献/心流.md', 1));
+    setHighlightKb(book, h.id, link('term', '文献/心流（新版）.md', 2));
+    expect(findHighlight(book, h.id)?.kb).toHaveLength(1);
+    expect(findHighlight(book, h.id)?.kb?.[0].path).toBe('文献/心流（新版）.md');
+  });
+
+  it('空路径不写、未知 id 返回 false', () => {
+    const book = oldBook();
+    const h = addHighlight(book, { text: '划线', cfiRange: 'cfi' });
+    expect(setHighlightKb(book, h.id, link('term', '   '))).toBe(true);
+    expect(findHighlight(book, h.id)?.kb ?? []).toEqual([]);
+    expect(setHighlightKb(book, 'nope', link('term', '文献/心流.md'))).toBe(false);
+  });
+
+  it('改知识盒链接不碰镜像摘录里的想法', () => {
+    const book = oldBook();
+    const h = addHighlight(book, { text: '划线', cfiRange: 'cfi' });
+    setHighlightComment(book, h.id, '想法');
+    setHighlightKb(book, h.id, link('term', '文献/心流.md'));
+    expect(book.notes.excerpts[0].comment).toBe('想法');
   });
 });
 

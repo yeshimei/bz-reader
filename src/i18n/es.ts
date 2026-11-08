@@ -330,6 +330,7 @@ export const ES: Record<MsgKey, string> = {
   'tool.copy': 'Copiar',
   'tool.del': 'Eliminar',
   'tool.more': 'Más',
+  'view.title.openToc': 'Open contents',
   'tool.aria': 'Herramientas de selección',
 
   /* ── Marco de la estantería ─────────────────────────────── */
@@ -443,6 +444,9 @@ export const ES: Record<MsgKey, string> = {
 
   /* ── Ajustes: aspecto ───────────────────────────────────── */
   'settings.accent': 'Color de acento',
+  'settings.toolbarStyle': 'Toolbar style',
+  'settings.toolbarStyle.text': 'Text',
+  'settings.toolbarStyle.icon': 'Icons',
 
   /* ── Ajustes: barra de herramientas ─────────────────────── */
   'settings.header.hint': 'Elige qué iconos aparecen; los ocultos pasan al menú ⋮ de la derecha. En móvil, tres como máximo.',
@@ -537,9 +541,16 @@ export const ES: Record<MsgKey, string> = {
   'bz.noFolder': 'Configura primero la carpeta de literatura en bz y vuelve a intentarlo',
   'tool.term': 'Término',
   'tool.passage': 'Párrafo',
+  'tool.termView': 'View term',
+  'tool.passageView': 'View passage',
+  'kb.kind.term': 'Term',
+  'kb.kind.passage': 'Passage',
+  'export.kb.term': 'Knowledge box (term)',
+  'export.kb.passage': 'Knowledge box (passage)',
   'notice.kb.term': 'Guardado como término en la caja de conocimiento',
   'notice.kb.passage': 'Guardado como párrafo en la caja de conocimiento',
   'notice.kb.failed': 'No se pudo escribir en la caja de conocimiento: {message}',
+  'notice.kb.missing': 'Couldn\'t open that note: {path}',
   'side.ai.book.none': 'Este libro aún no tiene retrato: créalo para responder con todo el libro.',
   'side.ai.embedNotReady': 'Los vectores los aporta el Second Brain: activa bz, elige allí un modelo de embeddings y crea el índice.',
   'side.ai.book.noHit': 'No hay ningún pasaje de este libro relacionado: prueba otra formulación o reconstruye el índice.',

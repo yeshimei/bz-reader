@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MarkRow } from '../src/shell/domain';
-import { viewNotes } from '../src/shell/render/notes';
+import { noteCardHtml, viewNotes } from '../src/shell/render/notes';
 
 function mark(id: string, patch: Partial<MarkRow> = {}): MarkRow {
   return {
@@ -73,5 +73,36 @@ describe('标注多选（笔记页）', () => {
     const h = html({ select: true, picked: [] });
     expect(h).not.toContain('data-act="jumpmark"');
     expect(h).not.toContain('data-act="copylink"');
+  });
+});
+
+/**
+ * 知识盒双链：存在划线自己身上，显示成一枚可点的标签。
+ *
+ * 以前它是想法里的一行 `[[…]]` 纯文本——看得见文字、点不动，而且用户一改想法
+ * 就把它删了。现在想法归想法，链接归链接，点标签直接开知识盒那篇笔记。
+ */
+describe('标注卡 · 知识盒标签', () => {
+  it('没有链接：不冒出空标签', () => {
+    expect(noteCardHtml(mark('a'))).not.toContain('data-act="kbopen"');
+  });
+
+  it('存过名词：卡片上有「名词」标签，带笔记路径与显示名', () => {
+    const h = noteCardHtml(mark('a', { kb: [{ kind: 'term', path: '文献/心流.md', at: 1 }] }));
+    expect(h).toContain('data-act="kbopen"');
+    expect(h).toContain('data-path="文献/心流.md"');
+    expect(h).toContain('心流');
+  });
+
+  it('名词与段落各一格，两颗都在', () => {
+    const h = noteCardHtml(
+      mark('a', {
+        kb: [
+          { kind: 'term', path: '文献/心流.md', at: 1 },
+          { kind: 'passage', path: '文献/注意力.md', at: 2 },
+        ],
+      }),
+    );
+    expect(h.match(/data-act="kbopen"/g)?.length).toBe(2);
   });
 });

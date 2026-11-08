@@ -332,6 +332,8 @@ export const EN: Record<MsgKey, string> = {
   'tool.del': 'Delete',
   'tool.more': 'More',
   'tool.aria': 'Selection tools',
+  /* Top-left book title: click = open the table of contents in the left sidebar */
+  'view.title.openToc': 'Open contents',
 
   /* ── Shelf shell ────────────────────────────────────────── */
   'shelf.tab.library': 'Library',
@@ -444,6 +446,9 @@ export const EN: Record<MsgKey, string> = {
 
   /* ── Settings: appearance ───────────────────────────────── */
   'settings.accent': 'Accent',
+  'settings.toolbarStyle': 'Toolbar style',
+  'settings.toolbarStyle.text': 'Text',
+  'settings.toolbarStyle.icon': 'Icons',
 
   /* ── Settings: reader toolbar ───────────────────────────── */
   'settings.header.hint':
@@ -538,9 +543,17 @@ export const EN: Record<MsgKey, string> = {
   'bz.noFolder': 'Set up the literature folder in bz first, then try again',
   'tool.term': 'Term',
   'tool.passage': 'Passage',
+  /* Stored already: the button flips to "View" and opens the knowledge-box note */
+  'tool.termView': 'View term',
+  'tool.passageView': 'View passage',
+  'kb.kind.term': 'Term',
+  'kb.kind.passage': 'Passage',
+  'export.kb.term': 'Knowledge box (term)',
+  'export.kb.passage': 'Knowledge box (passage)',
   'notice.kb.term': 'Saved to the knowledge box as a term',
   'notice.kb.passage': 'Saved to the knowledge box as a passage',
   'notice.kb.failed': 'Couldn\'t write to the knowledge box: {message}',
+  'notice.kb.missing': 'Couldn\'t open that note: {path}',
   'side.ai.book.none': 'This book has no portrait yet — build one to answer from the whole book.',
   'side.ai.embedNotReady': 'Vectors come from the Second Brain: install and enable bz and pick an embedding model there, then build the index.',
   'side.ai.book.noHit': 'No passage in this book matches the question: try different wording, or rebuild the book index.',

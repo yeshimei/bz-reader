@@ -5,7 +5,7 @@
  * 变成一句用户能照着做的人话，而不是控制台里一条红字。
  */
 import { describe, expect, it, vi } from 'vitest';
-import { aiBridgeProblem, entryBridgeProblem, openBzEntry, probeBz } from '../src/data/bz-bridge';
+import { aiBridgeProblem, bzPreviewReady, entryBridgeProblem, openBzEntry, openBzPreview, probeBz } from '../src/data/bz-bridge';
 
 const term = vi.fn();
 const passage = vi.fn();
@@ -167,5 +167,42 @@ describe('老门面的调用形状', () => {
     const res = openBzEntry(probe, 'term', '词');
     expect(res.ok).toBe(false);
     expect(res.message).toContain('bz 版本太旧');
+  });
+});
+
+/**
+ * 打开知识盒预览（2026-11-08）：点划线 / 卡片上的知识盒标签时调。
+ *
+ * 门面是**可选**的：老版本 bz 没这个出口，探测不到就返回 false，由调用方
+ * 退回「打开那篇笔记」——不能因为缺这一项就整块不可用。
+ */
+describe('打开知识盒预览', () => {
+  it('门面没有 openPreview：判为不可用，不抛错', () => {
+    const a = app({ knowledge });
+    expect(bzPreviewReady(a)).toBe(false);
+    expect(openBzPreview(a, '文献/心流.md')).toBe(false);
+  });
+
+  it('门面有 openPreview：把路径原样递过去', () => {
+    const preview = vi.fn(async () => undefined);
+    const a = app({ knowledge: { ...knowledge, openPreview: preview } });
+    expect(bzPreviewReady(a)).toBe(true);
+    expect(openBzPreview(a, '文献/心流.md')).toBe(true);
+    expect(preview).toHaveBeenCalledWith('文献/心流.md');
+  });
+
+  it('路径为空：不调用', () => {
+    const preview = vi.fn(async () => undefined);
+    const a = app({ knowledge: { ...knowledge, openPreview: preview } });
+    expect(openBzPreview(a, '   ')).toBe(false);
+    expect(preview).not.toHaveBeenCalled();
+  });
+
+  it('bz 内部同步抛错：吞掉并返回 false（界面退回打开笔记）', () => {
+    const preview = vi.fn(() => {
+      throw new Error('boom');
+    });
+    const a = app({ knowledge: { ...knowledge, openPreview: preview } });
+    expect(openBzPreview(a, '文献/心流.md')).toBe(false);
   });
 });

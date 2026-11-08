@@ -10,7 +10,13 @@
  *      追加一行而不是覆盖——那是用户自己写的东西，不能因为存了一次名词就没了。
  * ============================================================ */
 import { protocolUrl } from './deeplink';
+import type { KbLink } from './schema';
 import type { BzEntryOptions } from './bz-bridge';
+
+export type { KbLink };
+/* 知识盒链接的纯计算在 data/kb-link.ts（不 import deeplink，避免循环）；
+   这里 re-export，调用方仍可以从一开始的 kb-entry 取。 */
+export { kbLinkLabel, kbLinkMarkdown, kbLinkOf, upsertKbLink } from './kb-link';
 
 export interface KbTarget {
   text: string;
@@ -49,6 +55,9 @@ export function kbThought(notePath: string): string {
  * 把双链并进现有想法。
  *
  * 已经有这枚链接就原样返回（重复点两次不该叠两行）；空想法就是一行链接。
+ *
+ * **2026-11-08 起新数据不再走这里**：存名词 / 段落改为写 `Highlight.kb`
+ * （见 upsertKbLink），想法保持干净。函数留着只为读旧数据时对得上。
  */
 export function mergeThought(prev: string | undefined | null, link: string): string {
   const before = String(prev ?? '').trim();

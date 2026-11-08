@@ -42,6 +42,8 @@ import {
 } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { bzEmbedder, bzEntryReady } from '../data/bz-bridge';
+import { kbLinkOf } from '../data/kb-link';
+import { hydrateToolbarIcons } from './toolbar-icons';
 import { aiCardBegin, aiCardDone, aiCardDrop, aiCardFail, aiCardGet, aiCardKey, aiCardReset, aiModeOf } from './ai-card';
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
@@ -421,9 +423,12 @@ function overlayHltools(markId?: string, bookId?: string): string {
     colors: HIGHLIGHT_COLORS,
     acts: MARK_ACTS,
     attrs: `data-id="${esc(mark.id)}" data-book="${esc(book.id)}"`,
+    kbDone: { term: !!kbLinkOf(mark.kb, 'term'), passage: !!kbLinkOf(mark.kb, 'passage') },
+    icon: shellPrefs().toolbarStyle === 'icon',
   });
   if (isMobileEnv()) return bareFloat(toolbar, 'bzs-hltools-panel');
-  const bubble = mark.comment ? markBubbleHtml(mark.comment) : '';
+  /* 想法为空、但有知识盒链接时气泡也要出：点划线的人可能就是来点那枚链接的 */
+  const bubble = mark.comment || mark.kb?.length ? markBubbleHtml(mark.comment ?? '', mark.kb) : '';
   return bareFloat(`<div class="bzs-tb-stack">${bubble}${toolbar}</div>`, 'bzs-hltools-panel has-stack');
 }
 
@@ -573,6 +578,7 @@ function textPanel(
     return textDialog(`<div class="bzs-float is-dialog ${cls}" data-role="float">${body}</div>`);
   }
   const attrs = opts.markId ? `data-id="${esc(opts.markId)}" data-book="${esc(opts.bookId ?? '')}"` : '';
+  const marked = opts.markId ? markById(opts.markId, opts.bookId)?.mark : undefined;
   const toolbar = toolbarHtml({
     marked: opts.marked ?? true,
     color: opts.color,
@@ -582,6 +588,8 @@ function textPanel(
     acts: opts.markId ? MARK_ACTS : SELECTION_ACTS,
     active: opts.active,
     attrs,
+    kbDone: { term: !!kbLinkOf(marked?.kb, 'term'), passage: !!kbLinkOf(marked?.kb, 'passage') },
+    icon: shellPrefs().toolbarStyle === 'icon',
   });
   /* 外壳透明，底板交给 `${cls}-body`：工具条要露在卡片外面，
      不能跟卡片共用一个底——两层白底叠起来像套了个相框。 */
@@ -1661,6 +1669,8 @@ export class OverlayLayer {
     for (const scrim of Array.from(this.root.querySelectorAll<HTMLElement>('[data-role="scrim"]'))) {
       bindMaskDismiss(scrim, () => closeOverlay());
     }
+    /* 工具条图标：模板只留 data-icon 空壳，这里交给宿主 setIcon 画 */
+    hydrateToolbarIcons(this.root);
     const o = getState().overlay;
     /* 先摆位再聚焦：聚焦可能让键盘立刻弹起，位置要在那之前是对的 */
     this.placeAnchored();

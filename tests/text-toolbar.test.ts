@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   DELETE_ITEM,
+  KB_ITEMS,
   MARK_ACTS,
   MORE_ACT,
   SELECTION_ACTS,
@@ -244,5 +245,109 @@ describe('toolbarHtml · 知识库两颗的 data-act', () => {
     const html = toolbarHtml({ marked: false, kb: true, narrow: true, acts: SELECTION_ACTS });
     expect(menuLabels(html)).toEqual(['存为名词', '存为段落']);
     expect(labels(html)).not.toContain('存为名词');
+  });
+});
+
+/**
+ * 已经存过的两颗：**文案变成「看名词 / 看段落」，动作名不变**。
+ *
+ * 动作名不变是刻意的：同一个 data-act 在动作表里自己判断「存过就打开、没存过就录入」，
+ * 这样旧 DOM、旧点击路径都不需要重学一遍；按钮上换的只是字。
+ */
+describe('toolbarHtml · 存过之后变「看」', () => {
+  it('存过名词：那颗写「看名词」，另一颗照旧', () => {
+    const html = toolbarHtml({ marked: true, kb: true, acts: MARK_ACTS, kbDone: { term: true } });
+    expect(labels(html)).toContain('看名词');
+    expect(labels(html)).toContain('存为段落');
+    expect(html).toContain('data-act="hlterm"');
+  });
+
+  it('存过段落：那颗写「看段落」', () => {
+    const html = toolbarHtml({ marked: true, kb: true, acts: MARK_ACTS, kbDone: { passage: true } });
+    expect(labels(html)).toContain('看段落');
+    expect(labels(html)).toContain('存为名词');
+    expect(html).toContain('data-act="hlpassage"');
+  });
+
+  it('两颗都存过：两颗都变「看」', () => {
+    const html = toolbarHtml({ marked: true, kb: true, acts: MARK_ACTS, kbDone: { term: true, passage: true } });
+    expect(labels(html)).toContain('看名词');
+    expect(labels(html)).toContain('看段落');
+    expect(labels(html)).not.toContain('存为名词');
+  });
+
+  it('窄窗里进「⋯」的那两颗同样会变', () => {
+    const html = toolbarHtml({
+      marked: true,
+      kb: true,
+      narrow: true,
+      acts: MARK_ACTS,
+      kbDone: { term: true },
+    });
+    expect(menuLabels(html)).toEqual(['看名词', '存为段落']);
+  });
+
+  it('没存过时一颗都不变（老样子）', () => {
+    const html = toolbarHtml({ marked: true, kb: true, acts: MARK_ACTS });
+    expect(labels(html)).toContain('存为名词');
+    expect(labels(html)).toContain('存为段落');
+    expect(labels(html)).not.toContain('看名词');
+  });
+});
+
+/**
+ * 图标模式：一颗按钮只剩一枚宿主自带图标，文字挪进 title / aria-label。
+ *
+ * 图标只换「长什么样」，不换 data-act、不换顺序——两端仍是同一条工具条。
+ * 「⋯」菜单里的项保持文字：菜单里空间够，文字比图标好认。
+ */
+const iconNames = (html: string): string[] =>
+  [...html.matchAll(/<button[^>]*class="bzs-sbtn[^"]*"[^>]*>\s*<span[^>]*data-icon="([^"]+)"/g)].map((m) => m[1]);
+
+describe('toolbarHtml · 图标模式', () => {
+  it('每颗主路径都有图标，且没有可见文字', () => {
+    const html = toolbarHtml({ marked: true, acts: MARK_ACTS, icon: true });
+    expect(iconNames(html)).toEqual(['lightbulb', 'quote', 'sparkles', 'link-2', 'copy', 'trash-2']);
+    expect(labels(html)).toEqual([]);
+  });
+
+  it('文案进 title 与 aria-label（纯图标也得说清是什么）', () => {
+    const html = toolbarHtml({ marked: false, acts: SELECTION_ACTS, icon: true });
+    for (const word of ['想法', '书摘', 'AI', '双链', '复制']) {
+      expect(html, word).toContain(`title="${word}"`);
+      expect(html, word).toContain(`aria-label="${word}"`);
+    }
+  });
+
+  it('知识库两颗也有自己的图标', () => {
+    const html = toolbarHtml({ marked: false, kb: true, acts: SELECTION_ACTS, icon: true });
+    expect(iconNames(html)).toContain('book-type');
+    expect(iconNames(html)).toContain('align-left');
+  });
+
+  it('「⋯」换成横排三点图标，菜单项仍是文字', () => {
+    const html = toolbarHtml({ marked: true, compact: true, acts: MARK_ACTS, icon: true });
+    expect(html).toContain('data-icon="more-horizontal"');
+    expect(menuLabels(html)).toEqual(['双链', '复制', '删除']);
+  });
+
+  it('动作名一个都不变（图标只是外壳）', () => {
+    const text = toolbarHtml({ marked: true, acts: MARK_ACTS });
+    const icon = toolbarHtml({ marked: true, acts: MARK_ACTS, icon: true });
+    const acts = (h: string): string[] => [...h.matchAll(/data-act="([^"]+)"/g)].map((m) => m[1]);
+    expect(acts(icon)).toEqual(acts(text));
+  });
+
+  it('文字模式保持原样：没有图标 span', () => {
+    const html = toolbarHtml({ marked: true, acts: MARK_ACTS });
+    expect(html).not.toContain('data-icon=');
+    expect(labels(html)).toContain('想法');
+  });
+
+  it('按钮表里每一项都带图标名（加新按钮时漏了会红）', () => {
+    for (const item of [...TOOLBAR_ITEMS, ...KB_ITEMS]) {
+      expect(item.icon, item.act).toBeTruthy();
+    }
+    expect(DELETE_ITEM.icon).toBeTruthy();
   });
 });

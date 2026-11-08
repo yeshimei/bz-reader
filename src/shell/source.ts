@@ -58,6 +58,20 @@ export interface ShellSource {
   closeStudy: () => void;
   /** 打开左侧栏并切到某页签 */
   openSidebar: (tab?: 'toc' | 'bookmarks' | 'highlights' | 'ai') => void;
+  /**
+   * 收掉左侧栏（手机上是从侧栏跳转之后自动收抽屉；桌面侧栏常驻，不调）。
+   *
+   * 按目录 leaf **实际所在的那一栏**收：侧栏可以被拖到右边，
+   * 只收左边在那种情况下等于没反应。
+   */
+  closeSidebar: () => void;
+  /**
+   * 收掉正文里的选区（含系统手柄 / 菜单）。
+   *
+   * 划词条上「划线 / 双链 / 复制 / 存为名词 / 存为段落」点完就调——
+   * 动作已经落袋，选区继续亮着只会挡住正文。没有打开的书时是空操作。
+   */
+  clearSelection: () => void;
   /** 从笔记库重扫一遍书 */
   syncVault: () => void;
   /**
@@ -180,8 +194,9 @@ function emit(): void {
 
 export function shellPrefs(): ReaderPrefs {
   /* 走注入的 prefs()：它会按当前平台选 prefsDesktop / prefsMobile。
-     直接读 store.get().prefs 会永远拿到迁移前那一份。 */
-  if (source) return source.prefs();
+     直接读 store.get().prefs 会永远拿到迁移前那一份。
+     注入半份能力包（测试 / 卸载途中）时按默认值处理，不让一次渲染崩掉。 */
+  if (source && typeof source.prefs === 'function') return source.prefs();
   return normalizePrefs(undefined);
 }
 

@@ -164,8 +164,25 @@ export interface Highlight {
   color?: string;
   /** 想法 / 批注正文 */
   comment?: string;
+  /**
+   * 知识盒双链（2026-11-08）。
+   *
+   * 以前存为名词 / 段落之后，链接被追加进 `comment`——用户一改想法就可能把它
+   * 删掉，界面上也只是 `[[…]]` 一串纯文本，点不动。现在单独放这里：名词一格、
+   * 段落一格，与想法互不打扰。bz 侧读到不认识的键会忽略，不影响数据同构。
+   */
+  kb?: KbLink[];
   createdAt: number;
   updatedAt?: number;
+}
+
+/** 划线 → 知识盒笔记的一条链接（名词 / 段落各最多一条） */
+export interface KbLink {
+  kind: 'term' | 'passage';
+  /** 笔记在 vault 里的相对路径（正斜杠；不保证带 .md） */
+  path: string;
+  /** 写入时间（毫秒戳）：同一格再存时用它判断新旧 */
+  at: number;
 }
 
 /** 摘录（与 highlight 同源，bz 侧 thinks 计数读的是这个数组） */

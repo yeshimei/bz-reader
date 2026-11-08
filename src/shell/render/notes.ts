@@ -13,6 +13,7 @@ import { can } from '../../data/entitlement';
 import type { MarkRow } from '../domain';
 import { filterMarks, fmtWhen, groupByBook } from '../domain';
 import { allPicked } from '../note-select';
+import { kbLinksHtml } from '../kb-links';
 import { MAG, esc, ico } from './html';
 
 export interface NotesView {
@@ -36,6 +37,7 @@ export function noteCardHtml(m: MarkRow, showLoc = true, picked = false, select 
     ${check}
     <div class="tx"><span class="dot" style="background:${m.css}"></span>${esc(m.text)}</div>
     ${m.comment ? `<div class="cm"><b>${t('side.ideaTag')}</b>${esc(m.comment)}</div>` : ''}
+    ${kbLinksHtml(m.kb)}
     ${
       showLoc
         ? `<div class="loc"><span class="src">${esc(m.bookTitle)} · ${esc(m.chapterTitle)}</span></div>

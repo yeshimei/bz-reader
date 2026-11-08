@@ -21,6 +21,8 @@
  * 所以链接里同时写了 cfi / t / c / p 四个参数。
  * ============================================================ */
 import type { Bookmark, Highlight, ReaderBook } from './schema';
+import { kbLinkMarkdown } from './kb-link';
+import { t } from '../i18n';
 
 /** 协议名：注册在 plugin.registerObsidianProtocolHandler('bz-reader', …) */
 export const PROTOCOL = 'bz-reader';
@@ -125,11 +127,16 @@ export function linkInline(book: ReaderBook, t: LinkTarget): string {
 
 /** 形式二（默认）：引文 + 出处，读书笔记最常见的样子 */
 export function linkQuote(book: ReaderBook, h: Highlight): string {
-  const t = targetOfMark(book, h);
+  const target = targetOfMark(book, h);
   const body = h.text.replace(/\s*\n\s*/g, ' ').trim();
-  const where = t.chapter ? ` · ${t.chapter}` : '';
-  const lines = [`> ${body}`, `> ——《${displayName(book)}》${authorPart(book)}${where} [原文](${protocolUrl(t)})`];
+  const where = target.chapter ? ` · ${target.chapter}` : '';
+  const lines = [`> ${body}`, `> ——《${displayName(book)}》${authorPart(book)}${where} [原文](${protocolUrl(target)})`];
   if (h.comment?.trim()) lines.push('>', `> **想法**：${h.comment.trim()}`);
+  /* 知识盒链接与想法分家：各占一行，粘贴出去以后仍然是可点的双链 */
+  for (const kb of h.kb ?? []) {
+    const link = kbLinkMarkdown(kb.path);
+    if (link) lines.push('>', `> **${t(kb.kind === 'term' ? 'export.kb.term' : 'export.kb.passage')}**：${link}`);
+  }
   return lines.join('\n');
 }
 
