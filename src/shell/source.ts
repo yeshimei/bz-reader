@@ -92,6 +92,18 @@ export interface ShellSource {
   activate: (code: string) => Promise<{ ok: boolean; message: string }>;
   /** 收藏 / 取消收藏。写进业务数据（book.favorite），换设备跟着走 */
   setFavorite: (id: string, on: boolean) => void;
+  /**
+   * 改一本书的分类归属。`name` 为空串 = 退回「未分类」。
+   * 写进业务数据（book.shelf），换设备跟着走。
+   */
+  setShelf: (id: string, name: string) => void;
+  /**
+   * 写分类名单（顺序即书架上的顺序）。
+   *
+   * 名单不能从书上反推——空分类在书上什么痕迹都没有，反推的下场就是
+   * 刚建完的那个分类下一次重绘消失。
+   */
+  setShelfList: (list: string[]) => void;
   /** 改年度目标（本）。写进业务数据（data.goal） */
   setGoal: (n: number) => void;
   /** 改每日打卡目标（分钟）。写进业务数据（data.dailyGoalMinutes） */

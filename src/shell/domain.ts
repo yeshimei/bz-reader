@@ -9,6 +9,7 @@
  * ============================================================ */
 import type { Bookmark, Highlight, ReaderBook } from '../data/schema';
 import { HIGHLIGHT_COLORS, colorCss, colorLabel } from '../data/notes';
+import { NO_SHELF } from '../data/shelves';
 import { getState } from './state';
 
 export interface MarkRow {
@@ -205,5 +206,5 @@ export function shelfOf(book: ReaderBook): string {
   if (own) return own;
   const sub = book.meta.subjects?.[0]?.trim();
   if (sub && /[\u4e00-\u9fff]/.test(sub)) return sub;
-  return '未分类';
+  return NO_SHELF;
 }

@@ -644,6 +644,16 @@ export function createPlugin(cfg: PluginConfig) {
           if (on) b.favorite = true;
           else delete b.favorite;
         }),
+        setShelf: (id, name) => this.patchBook(id, (b) => {
+          /* 空串 = 没归类：字段直接删掉，别留一个空字符串占着——
+             `book.shelf` 为空时 shelfOf() 会退回 EPUB 自带的分类名 */
+          if (name) b.shelf = name;
+          else delete b.shelf;
+        }),
+        setShelfList: (list) => {
+          this.store.get().shelves = [...list];
+          this.store.touch();
+        },
         setGoal: (n) => {
           this.store.get().goal = n;
           this.store.touch();
@@ -747,7 +757,7 @@ export function createPlugin(cfg: PluginConfig) {
 
       this.store.touch();
       await this.store.flush(true);
-      hydrateLibrary(books, current.goal);
+      hydrateLibrary(books, current.goal, current.shelves);
       notifyShell();
       const extra = parsed.dropped ? t('notice.restore.dropped', { n: parsed.dropped }) : '';
       const msg = t('notice.restore.done', { n: books.length }) + extra;
@@ -825,7 +835,7 @@ export function createPlugin(cfg: PluginConfig) {
       }
       if (touched) this.store.touch();
       data.dataDir = dataDirOf();
-      hydrateLibrary(books, data.goal);
+      hydrateLibrary(books, data.goal, data.shelves);
     }
 
     /**
@@ -963,7 +973,7 @@ export function createPlugin(cfg: PluginConfig) {
            `store.get().books` 已经是新数组，而 repo 还指着旧数组。不接上这一句，
            之后 repo 里新导入的书永远落不了盘，移除的书重启又回来。 */
         this.store.get().books = books;
-        hydrateLibrary(books, fresh.goal);
+        hydrateLibrary(books, fresh.goal, fresh.shelves);
 
         /* 封面缓存写在旧数据目录的 `covers/` 里，迁移完那些 `meta.coverPath`
            全是死路径：书架自己还能重解，外部（bz 书库）拿它当图片读就是一片
@@ -1508,7 +1518,7 @@ export function createPlugin(cfg: PluginConfig) {
       this.store.touch();
       /* 重扫之后收藏/分组要从书里重新灌一遍：同步来的新书可能带 favorite，
          只靠启动那一次 hydrate 会让它到下次重启才显示星标。 */
-      hydrateLibrary(this.repo.all(), this.store.get().goal);
+      hydrateLibrary(this.repo.all(), this.store.get().goal, this.store.get().shelves);
       notifyShell();
       /* 新登记的书（拖进库里的那种）当场读一遍内嵌书目：和导入页同一条路。
          异步做，大书解 zip 不能挡住启动；写完再广播一次，书架自己换成真作者。 */

@@ -299,6 +299,17 @@ export interface ReaderData {
   checkins?: Record<string, number>;
   /** 每日阅读目标（分钟）。打卡判据：当天秒数 ≥ 它 × 60 */
   dailyGoalMinutes?: number;
+  /**
+   * 用户自建的分类名单，**顺序即书架上的顺序**（2026-11-08）。
+   *
+   * 书上的 `book.shelf` 只是「这本书归哪一类」，回答不了「一共建过哪些类」——
+   * 空分类在书上没有任何痕迹。以前分类条从书反推，所以刚建好的空分类下一次
+   * 重绘就没了，改名、排序也无从谈起。名单解决的就是这件事。
+   *
+   * 「全部」「未分类」是两个保留名，不进名单（见 data/shelves.ts）。
+   * bz 侧读到不认识的键会忽略，不影响数据同构。
+   */
+  shelves?: string[];
 }
 
 export const EMPTY_DATA: ReaderData = { version: 1, schemaVersion: SCHEMA_VERSION, books: [] };

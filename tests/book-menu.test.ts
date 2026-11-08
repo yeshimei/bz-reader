@@ -11,15 +11,29 @@ import { bookMenuItems } from '../src/shell/book-menu';
 const plain = { done: false, fav: false };
 
 describe('bookMenuItems · 条目与顺序', () => {
-  it('六条都在，顺序是 阅读 / 详情 / 收藏 / 标为读完 / 改名 / 移出书架', () => {
+  it('七条都在，顺序是 阅读 / 详情 / 收藏 / 标为读完 / 改名 / 归入分类 / 移出书架', () => {
     expect(bookMenuItems(plain).map((i) => i.title)).toEqual([
       '阅读',
       '书籍详情',
       '收藏',
       '标为读完',
       '改名',
+      '归入分类…',
       '移出书架',
     ]);
+  });
+
+  /* 归类是「整理书架」的动作，和改名同一组：它不该插到阅读/收藏这些
+     高频项中间，也不该和「移出书架」混在一起（那道线是「要动书架」的分界）。 */
+  it('归入分类与改名同组，分隔线位置不变', () => {
+    const seps = bookMenuItems(plain).filter((i) => i.sepBefore).map((i) => i.act);
+    expect(seps).toEqual(['rename', 'remove']);
+  });
+
+  it('归入分类排在改名之后、移出书架之前', () => {
+    const acts = bookMenuItems(plain).map((i) => i.act);
+    expect(acts.indexOf('shelf')).toBe(acts.indexOf('rename') + 1);
+    expect(acts.indexOf('shelf')).toBe(acts.indexOf('remove') - 1);
   });
 
   it('改名与移出书架前各有一道分隔线', () => {
@@ -33,7 +47,7 @@ describe('bookMenuItems · 条目与顺序', () => {
 
   it('每条都有自己的图标', () => {
     const icons = bookMenuItems(plain).map((i) => i.icon);
-    expect(icons).toEqual(['book-open', 'info', 'star', 'check', 'pencil', 'trash']);
+    expect(icons).toEqual(['book-open', 'info', 'star', 'check', 'pencil', 'folder', 'trash']);
   });
 });
 
@@ -69,6 +83,6 @@ describe('bookMenuItems · 文件丢失', () => {
     const list = bookMenuItems({ ...plain, missing: true });
     expect(list.find((i) => i.act === 'relocate')?.title).toBe('重新定位文件…');
     expect(list.filter((i) => i.disabled).map((i) => i.act)).toEqual(['open']);
-    expect(list).toHaveLength(7);
+    expect(list).toHaveLength(8);
   });
 });

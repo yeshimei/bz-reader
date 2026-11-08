@@ -42,6 +42,10 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/data/portrait-build.ts': 8,
   'src/data/portrait.ts': 2,
   'src/data/prefs.ts': 33,
+  /* 两个保留名「全部」「未分类」既是分类条上的一格，也是筛选与存储里的值。
+     它们不走 t()：改名会把已存进 localStorage 的 libShelf 全部对不上。
+     真正的多语言标签要等这两个值改成不依赖语言之后再补。 */
+  'src/data/shelves.ts': 2,
   'src/data/store.ts': 12,
   'src/data/wikilink.ts': 1,
   'src/engine/host.ts': 21,
@@ -50,7 +54,10 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/plugin.ts': 26,
   'src/shell/actions.ts': 16,
   'src/shell/adapt.ts': 9,
-  'src/shell/book-menu.ts': 9,
+  /* 2026-11-08 +1：书卡菜单多一条「归入分类…」。这一列菜单本来就是
+     硬编码中文（六条老条目都在），只给新条目单独走 i18n 会变成中英混排，
+     所以整组留到以后一次性收。 */
+  'src/shell/book-menu.ts': 10,
   'src/shell/card-image.ts': 4,
   'src/shell/card-template.ts': 8,
   'src/shell/changelog-note.ts': 17,

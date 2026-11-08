@@ -13,6 +13,7 @@
  * ============================================================ */
 
 import { HIGHLIGHT_COLORS } from '../data/notes';
+import { cleanShelfList } from '../data/shelves';
 import { getShellSource } from './source';
 import { RT } from './runtime';
 
@@ -70,6 +71,10 @@ export type OverlayKind =
   | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedir' | 'finish' | 'footnote'
   | 'rename' | 'removebook' | 'confirmdel' | 'notedrop' | 'missing' | 'ack' | 'ptclean'
   | 'rebuildidx'
+  /* 分类管理（2026-11-08）：新建 / 改名 / 排序 / 删除一份「分类名单」。
+     `mode` 在这张弹层里换的是内部形态（'' 名单 / 'rename' 改名 / 'del' 删除确认），
+     `text` 是正在动的那一格分类名。 */
+  | 'shelves'
   /* 从备份恢复：先问一句「当前数据不保留」（C12）。恢复是整份替换，
      不是合并——点错一次就再也回不来了，所以不能点了就执行。 */
   | 'restore';
@@ -276,6 +281,14 @@ export interface ShellState {
   /* 真实数据里没有、但书库需要 */
   favIds: string[];
   shelves: Record<string, string>;
+  /**
+   * 用户自建的分类名单（顺序即书架上的顺序）。
+   *
+   * 真相在业务数据 `data.shelves`，这里只是一份渲染用的缓存——
+   * 与 `shelves`（书号 → 分类名）不是一回事：那份是「书归哪类」，
+   * 这份是「一共有哪些类、谁在前谁在后」。空分类靠它才留得住。
+   */
+  shelfList: string[];
 }
 
 const LS_KEY = 'bzs-shell-v1';
@@ -308,6 +321,7 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   relicense: false,
   favIds: [],
   shelves: {},
+  shelfList: [],
 };
 
 let state: ShellState = { ...DEFAULT_SHELL_STATE };
@@ -341,6 +355,9 @@ export function loadShellState(): ShellState {
       }
       if (Array.isArray(d.favIds)) state.favIds = d.favIds.filter((x) => typeof x === 'string');
       if (d.shelves && typeof d.shelves === 'object') state.shelves = d.shelves;
+      /* 分类名单是业务数据的缓存：这里读到的只是一份离线快照，
+         启动后 hydrateLibrary 会用 data.shelves 覆盖它。 */
+      if (Array.isArray(d.shelfList)) state.shelfList = cleanShelfList(d.shelfList.map(String));
     }
   } catch {
     /* 读失败就用默认值，不打扰用户 */
@@ -552,11 +569,15 @@ export function setGoal(books: number, opts: { silent?: boolean } = {}): void {
 export function hydrateLibrary(
   books: ReadonlyArray<{ id: string; favorite?: boolean; shelf?: string }>,
   goal?: number,
+  shelfList?: readonly string[],
 ): void {
   state.favIds = books.filter((b) => b.favorite === true).map((b) => b.id);
   const shelves: Record<string, string> = {};
   for (const b of books) if (typeof b.shelf === 'string' && b.shelf) shelves[b.id] = b.shelf;
   state.shelves = shelves;
+  /* 分类名单只在传了值时才覆盖：有不少调用点只关心收藏与目标，
+     传 undefined 意味着「名单没变」，不是「名单清空」。 */
+  if (shelfList) state.shelfList = cleanShelfList(shelfList);
   if (typeof goal === 'number' && goal > 0) state.goal = Math.min(200, Math.round(goal));
   persist();
   notify();

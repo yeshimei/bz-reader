@@ -23,7 +23,8 @@ import type { ReaderBook } from '../data/schema';
 import { collectStats } from '../data/stats';
 import { cn, esc, coverHtml, ico } from './render/html';
 import { setHtml } from '../ui/dom';
-import { bmksOf, allMarks, fmtMinutes, fmtWhen, marksOf } from './domain';
+import { bmksOf, allMarks, fmtMinutes, fmtWhen, marksOf, shelfOf } from './domain';
+import { ALL_SHELF, NO_SHELF, orderShelves } from '../data/shelves';
 import { noteCardHtml } from './render/notes';
 import { cardTemplateChipsHtml, quoteCardHtml, quoteRefMarkdown } from './render/quote-card';
 import { searchFormHtml, searchResultsHtml } from './render/search';
@@ -971,6 +972,88 @@ function overlayRename(bookId?: string): string {
 }
 
 /**
+ * 分类管理（2026-11-08）。
+ *
+ * 一份弹层，四种形态（`mode`）：
+ *   ''        名单：上面一行新建框，下面每一类一行
+ *   'new'     从书卡菜单「新建分类…」进来：光标直接落在新建框，建好把这本书放进去
+ *   'rename'  某一格原地变成输入框，别的行还在（改完接着看得到全局）
+ *   'del'     删除确认：先把「几本书会回到未分类」写清楚
+ *
+ * 为什么空分类也要画：名单存在业务数据里，跟书无关。以前分类条是从书上
+ * 反推的，刚建好的空分类下一次重绘就没了，用户以为没建成。
+ */
+function overlayShelves(mode: string, name: string, bookId?: string): string {
+  const used = liveBooks().map((b) => shelfOf(b));
+  const names = orderShelves(getState().shelfList, used).filter((n) => n !== ALL_SHELF);
+  /* 「未分类」是收尾那一格，不是用户建的分类：它没有可改的名字，也删不掉 */
+  const real = names.filter((n) => n !== NO_SHELF);
+  const countOf = (n: string): number => used.filter((x) => x === n).length;
+
+  if (mode === 'del') {
+    const n = countOf(name);
+    return modal(
+      t('shelves.del.title', { name }),
+      '',
+      `<div class="bzs-mini" style="line-height:1.9">${t('shelves.del.body', { n })}</div>`,
+      `<span class="sp"></span><button class="bzs-btn" data-act="shelves">${t('common.cancel')}</button>
+       <button class="bzs-btn danger" data-act="shelfdeldo" data-name="${esc(name)}">${t('shelves.del.do')}</button>`,
+    );
+  }
+
+  const rows = names
+    .map((n) => {
+      if (n === NO_SHELF) {
+        /* 收尾那格只报个数，不给动作：没有名字可改，也不该被删 */
+        return `<div class="bzs-shelfrow is-none"><b class="nm">${esc(n)}</b><span class="ct">${t('shelf.count', {
+          n: countOf(n),
+        })}</span></div>`;
+      }
+      if (mode === 'rename' && n === name) {
+        return `<div class="bzs-shelfrow is-edit">
+          <input type="text" data-role="shelfrename" value="${esc(n)}" maxlength="20" spellcheck="false">
+          <button class="bzs-btn pri" data-act="shelfrenamesave" data-name="${esc(n)}">${t('shelves.save')}</button>
+          <button class="bzs-btn" data-act="shelves">${t('common.cancel')}</button>
+        </div>`;
+      }
+      return `<div class="bzs-shelfrow">
+        <b class="nm">${esc(n)}</b><span class="ct">${t('shelf.count', { n: countOf(n) })}</span>
+        <span class="sp"></span>
+        <button class="bzs-cbtn up" data-act="shelfmove" data-v="up" data-name="${esc(n)}" title="${t(
+          'shelves.up',
+        )}" aria-label="${t('shelves.up')}">${ico('chevron')}</button>
+        <button class="bzs-cbtn down" data-act="shelfmove" data-v="down" data-name="${esc(n)}" title="${t(
+          'shelves.down',
+        )}" aria-label="${t('shelves.down')}">${ico('chevron')}</button>
+        <button class="bzs-chip" data-act="shelfrename" data-name="${esc(n)}">${t('shelves.rename')}</button>
+        <button class="bzs-chip danger" data-act="shelfdel" data-name="${esc(n)}">${t('shelves.del')}</button>
+      </div>`;
+    })
+    .join('');
+
+  const newRow = `<div class="bzs-shelfnew">
+      <input type="text" data-role="shelfnew" maxlength="20" spellcheck="false" placeholder="${t('shelves.new.ph')}">
+      <button class="bzs-btn pri" data-act="shelfcreate"${bookId ? ` data-id="${esc(bookId)}"` : ''}>${t(
+        bookId ? 'shelves.new.add' : 'shelves.new',
+      )}</button>
+    </div>`;
+
+  const body = `${newRow}${real.length ? `<div class="bzs-shelflist">${rows}</div>` : ''}
+    ${
+      /* 一句说明只在这两处出现：名单空着（不知道这页是干什么的）、
+         或者从书卡进来（要说明建完会顺手把书放进去） */
+      real.length ? '' : `<div class="bzs-empty">${t('shelves.empty')}</div>`
+    }`;
+
+  return modal(
+    t('shelves.title'),
+    t('shelves.sub', { n: real.length }),
+    body,
+    `<span class="sp"></span><button class="bzs-btn" data-act="close">${t('common.close')}</button>`,
+  );
+}
+
+/**
  * 移出书架：归档，不删任何数据，也不删文件。
  *
  * 2026-11-06 改：以前这个确认框写的是「进度、划线、书签与想法一起删掉」，
@@ -1151,6 +1234,8 @@ export function overlayHtml(): string {
       return overlayMoveDir(o.mode || 'data', o.text || '');
     case 'rename':
       return overlayRename(o.bookId);
+    case 'shelves':
+      return overlayShelves(o.mode || '', o.text || '', o.bookId);
     case 'removebook':
       return overlayRemoveBook(o.bookId);
     case 'missing':
@@ -1605,6 +1690,15 @@ export class OverlayLayer {
       const input = this.root.querySelector<HTMLInputElement>('[data-role="rename"]');
       input?.focus();
       input?.select();
+    }
+    /* 分类：改名时把原名选中（多半是整段换掉），从书卡「新建分类…」进来时
+       光标直接落在新建框——点这一下的目的就是打字。 */
+    if (o?.kind === 'shelves' && (o.mode === 'rename' || o.mode === 'new')) {
+      const input = this.root.querySelector<HTMLInputElement>(
+        `[data-role="${o.mode === 'rename' ? 'shelfrename' : 'shelfnew'}"]`,
+      );
+      input?.focus();
+      if (o.mode === 'rename') input?.select();
     }
     // 解锁表：被拦下的那一行可能在一长串功能下面，把它滚到可见范围里
     if (o?.kind === 'unlock') {

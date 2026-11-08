@@ -26,10 +26,22 @@ import {
   setHighlightComment,
   toggleBookmark,
 } from '../data/notes';
-import { allMarks, filterMarks } from './domain';
+import { allMarks, filterMarks, shelfOf } from './domain';
 import { toggleAll, togglePick } from './note-select';
-import { notify } from '../core/notice';
-import { hostLanguageCode, isLocale, resolveLocale, setLocale, t, type LanguagePref } from '../i18n';
+import { notify, notifyUndo } from '../core/notice';
+import {
+  ALL_SHELF,
+  NO_SHELF,
+  cleanShelfList,
+  cleanShelfName,
+  dropShelf,
+  moveShelf,
+  orderShelves,
+  renameShelf,
+  shelfNameError,
+  shelfOfName,
+} from '../data/shelves';
+import { hostLanguageCode, isLocale, resolveLocale, setLocale, t, type LanguagePref, type MsgKey } from '../i18n';
 import { bookMenuItems } from './book-menu';
 import { scanVault } from '../data/book-repo';
 import { readFingerprint } from '../data/book-scan';
@@ -197,6 +209,139 @@ function repaint(): void {
 
 function overlay(kind: OverlayKind, extra: Record<string, unknown> = {}): void {
   openOverlay({ kind, ...extra });
+}
+
+/* ─────────── 分类（2026-11-08） ───────────
+ *
+ * 「分类」以前只是书上的一个字符串：没有名单，于是不能改名、不能排序，
+ * 空分类建完就消失。现在名单存在业务数据里（`data.shelves`），壳层
+ * `state.shelfList` 是它的一份缓存。所有写操作都必须**两份一起改**：
+ * 只改缓存 → 换设备就丢；只改数据 → 界面要等下次启动才认。
+ */
+
+/** 查重用的名字池：名单 + 书自带的分类（「全部」「未分类」是保留名，不算） */
+function shelfNamePool(): string[] {
+  return orderShelves(
+    getState().shelfList,
+    liveBooks().map((b) => shelfOf(b)),
+  ).filter((n) => n !== ALL_SHELF && n !== NO_SHELF);
+}
+
+/** 改名单：缓存立刻生效，随后写业务数据 */
+function saveShelfList(list: readonly string[]): void {
+  const clean = cleanShelfList(list);
+  setState({ shelfList: clean });
+  getShellSource()?.setShelfList(clean);
+}
+
+/** 把书的归属从「某一类」换成「另一类」：缓存里那份映射跟着改 */
+function reshapeShelfCache(from: string, to: string): void {
+  mutateState((s) => {
+    for (const [id, n] of Object.entries(s.shelves)) {
+      if (n !== from) continue;
+      if (to) s.shelves[id] = to;
+      else delete s.shelves[id];
+    }
+  });
+}
+
+/**
+ * 把一批书归到某个分类。`name` 是分类条上显示的那一格（含「未分类」）。
+ *
+ * 归类是「一秒钟就能反悔」的动作，所以每次都给一条带「撤销」的回执：
+ * 手滑点错一格是常事，而分类改动没有任何确认框挡在前面。
+ */
+function assignShelf(ids: string[], name: string): void {
+  const src = getShellSource();
+  if (!src || !ids.length) return;
+  const want = shelfOfName(name);
+  const before: Array<[string, string]> = [];
+  for (const id of ids) {
+    const b = liveBooks().find((x) => x.id === id);
+    if (!b) continue;
+    before.push([id, b.shelf || '']);
+    src.setShelf(id, want);
+  }
+  if (!before.length) return;
+  mutateState((s) => {
+    for (const [id] of before) {
+      if (want) s.shelves[id] = want;
+      else delete s.shelves[id];
+    }
+  });
+  RT.shelfUndo = { ids: before.map(([id]) => id), prev: before.map(([, n]) => n) };
+  notifyUndo(
+    want ? t('shelves.assigned', { name: want }) : t('shelves.assigned.none'),
+    t('shelves.undo'),
+    undoAssignShelf,
+  );
+}
+
+/** 撤销上一次归类：每本书回到它原来的归属（原样可能就是空） */
+function undoAssignShelf(): void {
+  const src = getShellSource();
+  const u = RT.shelfUndo;
+  RT.shelfUndo = null;
+  if (!src || !u) return;
+  u.ids.forEach((id, i) => src.setShelf(id, u.prev[i] || ''));
+  mutateState((s) => {
+    u.ids.forEach((id, i) => {
+      if (u.prev[i]) s.shelves[id] = u.prev[i];
+      else delete s.shelves[id];
+    });
+  });
+  notify(t('shelves.undone'));
+}
+
+/** 名字不合法时给哪一句人话 */
+const SHELF_ERR_KEY: Record<string, MsgKey> = {
+  empty: 'shelves.err.empty',
+  dup: 'shelves.err.dup',
+  reserved: 'shelves.err.reserved',
+};
+
+/**
+ * 书卡菜单「归入分类…」的下一层。
+ *
+ * 原生 `Menu` 没有二级菜单的 API（公开类型里没有 submenu），所以点这一条时
+ * 在**同一处**再弹一张菜单：第一张收起、第二张在原地出现，读起来就是
+ * 「进了下一层」，桌面上鼠标位置不变，手机上还是同一张底部面板。
+ */
+function openShelfMenu(bookIds: string[], pos: { x: number; y: number }): void {
+  const books = liveBooks();
+  const used = books.map((b) => shelfOf(b));
+  const names = orderShelves(getState().shelfList, used).filter((n) => n !== ALL_SHELF);
+  const only = bookIds.length === 1 ? books.find((b) => b.id === bookIds[0]) : undefined;
+  const current = only ? shelfOf(only) : '';
+
+  const menu = new Menu();
+  for (const n of names) {
+    const count = used.filter((x) => x === n).length;
+    menu.addItem((i) => {
+      /* 名字后面跟本数：挑分类时最想知道的是「这一类现在有几本」 */
+      const title = document.createDocumentFragment();
+      title.append(n);
+      const num = document.createElement('span');
+      num.className = 'bzs-menu-count';
+      num.textContent = String(count);
+      title.append(num);
+      i.setTitle(title);
+      if (current === n) {
+        /* 当前那一格打勾且点不动：再点一次没有任何变化，留着只会让人误以为能取消 */
+        i.setChecked(true).setDisabled(true);
+      } else {
+        i.onClick(() => assignShelf(bookIds, n));
+      }
+    });
+  }
+  menu.addSeparator();
+  menu.addItem((i) =>
+    i
+      .setTitle(t('shelves.assign.new'))
+      .setIcon('folder')
+      .onClick(() => overlay('shelves', { mode: 'new', bookId: only?.id ?? bookIds[0] })),
+  );
+  menu.showAtPosition(pos);
 }
 
 /** 统计页动作要用的一份视图：和书架页同数据源，报告 / 周报才不会和页面对不上 */
@@ -777,6 +922,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
             });
           if (it.act === 'done') i.onClick(() => toggleDone(id));
           if (it.act === 'rename') i.onClick(() => overlay('rename', { bookId: id }));
+          /* 归入分类：点它开下一层菜单，位置沿用这次右键的坐标 */
+          if (it.act === 'shelf')
+            i.onClick(() =>
+              openShelfMenu([id], { x: Number(d.x) || 0, y: Number(d.y) || 0 }),
+            );
           if (it.act === 'remove') i.onClick(() => overlay('removebook', { bookId: id }));
         });
       }
@@ -959,6 +1109,86 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'shelf':
       if (d.v) setState({ libShelf: d.v });
       break;
+
+    /* ── 分类管理 ──
+       入口一颗图标（头栏）+ 书卡菜单里的一条。所有动作改的都是那份名单，
+       与「书归哪一类」是两件事：改名会把这一类的书一起改过去，
+       删除则把书退回「未分类」（书、进度、划线一条不动）。 */
+    case 'shelfmanage':
+      overlay('shelves');
+      break;
+    /* 改名 / 删除确认里的「取消」：三态共用一层弹层，回名单就是重开一次 */
+    case 'shelves':
+      overlay('shelves');
+      break;
+    case 'shelfcreate': {
+      const input = document.querySelector<HTMLInputElement>('[data-role="shelfnew"]');
+      const raw = input?.value ?? '';
+      const err = shelfNameError(raw, shelfNamePool());
+      if (err) {
+        notify(t(SHELF_ERR_KEY[err]), 'error');
+        break;
+      }
+      const name = cleanShelfName(raw);
+      saveShelfList([...getState().shelfList, name]);
+      const bookId = d.id || '';
+      if (bookId) {
+        /* 从书卡「新建分类…」进来的：建好顺手把这本书放进去，少绕一圈 */
+        closeOverlay();
+        assignShelf([bookId], name);
+      } else {
+        bumpOverlayRev();
+      }
+      break;
+    }
+    case 'shelfrename':
+      if (d.name) overlay('shelves', { mode: 'rename', text: d.name });
+      break;
+    case 'shelfrenamesave': {
+      const from = d.name || '';
+      const input = document.querySelector<HTMLInputElement>('[data-role="shelfrename"]');
+      const err = shelfNameError(input?.value ?? '', shelfNamePool().filter((x) => x !== from));
+      if (err) {
+        notify(t(SHELF_ERR_KEY[err]), 'error');
+        break;
+      }
+      const src = getShellSource();
+      if (!src) break;
+      const to = cleanShelfName(input?.value ?? '');
+      /* 书自带分类的书（归属字段是空的）也要跟着走：改名之后它们才第一次
+         真正「有归属」，否则会退回 EPUB 里的旧分类名，看起来像没改成。 */
+      for (const b of liveBooks()) if (shelfOf(b) === from) src.setShelf(b.id, to);
+      reshapeShelfCache(from, to);
+      saveShelfList(renameShelf(getState().shelfList, from, to));
+      /* 正筛着这一类时改名：筛选值还指着旧名字，画面会立刻空掉 */
+      if (getState().libShelf === from) setState({ libShelf: to });
+      overlay('shelves');
+      notify(t('shelves.renamed', { name: to }));
+      break;
+    }
+    case 'shelfdel':
+      if (d.name) overlay('shelves', { mode: 'del', text: d.name });
+      break;
+    case 'shelfdeldo': {
+      const name = d.name || '';
+      const src = getShellSource();
+      if (!src || !name) break;
+      /* 删除 = 书退回「未分类」，不是连书一起删。归属字段清空，
+         下次打开会退回 EPUB 自带的分类名——那句「回到未分类」说的就是这个 */
+      for (const b of liveBooks()) if (shelfOf(b) === name) src.setShelf(b.id, '');
+      reshapeShelfCache(name, '');
+      saveShelfList(dropShelf(getState().shelfList, name));
+      if (getState().libShelf === name) setState({ libShelf: ALL_SHELF });
+      overlay('shelves');
+      notify(t('shelves.deleted', { name }));
+      break;
+    }
+    case 'shelfmove': {
+      const dir = d.v === 'down' ? 'down' : 'up';
+      saveShelfList(moveShelf(getState().shelfList, d.name || '', dir));
+      bumpOverlayRev();
+      break;
+    }
 
     /* ── 笔记 ── */
     case 'notefilter':

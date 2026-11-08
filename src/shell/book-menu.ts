@@ -14,7 +14,15 @@
  * 重新导入同一份文件就复活——不可逆的只有「清理归档」那种入口。
  */
 
-export type BookMenuAction = 'open' | 'detail' | 'fav' | 'done' | 'rename' | 'relocate' | 'remove';
+export type BookMenuAction =
+  | 'open'
+  | 'detail'
+  | 'fav'
+  | 'done'
+  | 'rename'
+  | 'shelf'
+  | 'relocate'
+  | 'remove';
 
 export interface BookMenuItem {
   act: BookMenuAction;
@@ -49,6 +57,9 @@ export function bookMenuItems(input: BookMenuInput): BookMenuItem[] {
        共用一枚 check 的话，「标为在读」看起来像又要把它标成读完。 */
     { act: 'done', title: input.done ? '标为在读' : '标为读完', icon: input.done ? 'refresh' : 'check' },
     { act: 'rename', title: '改名', icon: 'pencil', sepBefore: true },
+    /* 归类与改名同属「整理这本书」：都改的是书怎么摆，不碰它的内容。
+       放进同一组、不另起分隔线——分隔线留给「要动书架本身」的动作。 */
+    { act: 'shelf', title: '归入分类…', icon: 'folder' },
     { act: 'remove', title: '移出书架', icon: 'trash', sepBefore: true },
   ];
 }

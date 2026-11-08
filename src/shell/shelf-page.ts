@@ -73,6 +73,9 @@ export function shelfRenderKey(state: ShellState, books: ReaderBook[], compact =
       .sort()
       .map((k) => `${k}=${state.shelves[k]}`)
       .join(','),
+    /* 分类名单的**顺序**也要进指纹：改名 / 上下移动改的是这份名单，
+       书上一个字都没变；漏了它，挪完分类条一动不动。 */
+    state.shelfList.join(','),
     shellPrefs().accent,
   ].join('\u0001');
 

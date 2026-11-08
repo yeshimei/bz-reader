@@ -31,10 +31,13 @@ export const STUDY_TABS: StudyPageDef[] = [
 ];
 
 /**
- * 右上四颗。顺序即定稿：搜索、统计、导入、设置。
+ * 右上四颗 + 一颗分类。顺序即定稿：搜索、分类、统计、导入、设置。
  *
  * 统计与设置从前是页签，摆在书库/笔记旁边意味着「同一层级的事」；
  * 实际上它们是低频的设置类入口，占着页签位置反而让高频的两页变小。
+ *
+ * 「分类」不是一页，是弹窗（分类管理）——但它在头栏里的位置和用法与这四颗
+ * 一样：点一下，做完一件事，回来。放在搜索后面：两者都是「在书库里找东西」。
  */
 export const STUDY_ACTS: StudyPageDef[] = [
   { value: 'search', key: 'shelf.act.search', icon: 'search' },
@@ -77,20 +80,32 @@ function tabNav(page: StudyPage, counts: StudyCounts): string {
 }
 
 /**
- * 右上四颗。
+ * 右上五颗。
  *
  * 2026-11-08 起它们和页签同级：点了切页，当前那颗图标亮成铜色（不加底色、
  * 不加下划线，见 study.css 的 .bzs-stuacts）。亮着的那颗再点一次由
  * nextStudyPage 送回进来之前的页签页，所以不再需要单独的返回键。
  */
 function actBar(page: StudyPage): string {
-  return `<div class="bzs-stuacts">${STUDY_ACTS.map((a) => {
+  const btns: string[] = [];
+  for (const a of STUDY_ACTS) {
     const label = t(a.key);
     const on = page === a.value;
-    return `<button class="bzs-cbtn${on ? ' on' : ''}" data-act="study" data-p="${a.value}" title="${label}" aria-label="${label}" aria-pressed="${on}">${ico(
-      a.icon,
-    )}</button>`;
-  }).join('')}</div>`;
+    btns.push(
+      `<button class="bzs-cbtn${on ? ' on' : ''}" data-act="study" data-p="${a.value}" title="${label}" aria-label="${label}" aria-pressed="${on}">${ico(
+        a.icon,
+      )}</button>`,
+    );
+    /* 「分类」紧跟在搜索后面：它不是一页，所以不走上面那套页签判定，
+       永远不亮，点一下开分类管理的弹窗。 */
+    if (a.value === 'search') btns.push(shelfBtn());
+  }
+  return `<div class="bzs-stuacts">${btns.join('')}</div>`;
+}
+
+function shelfBtn(): string {
+  const label = t('shelf.act.shelves');
+  return `<button class="bzs-cbtn" data-act="shelfmanage" title="${label}" aria-label="${label}">${ico('folder')}</button>`;
 }
 
 /* ─────────── 书库 ─────────── */
@@ -146,7 +161,7 @@ export function viewLibrary(v: LibraryView): string {
 
   const recent = continueRow(rows);
   const shown = v.rows;
-  const shelves = shelfNames(rows);
+  const shelves = shelfNames(rows, state.shelfList);
 
   const cont = recent
     ? `<div class="bzs-cont2">

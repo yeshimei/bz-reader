@@ -402,3 +402,27 @@
   background: color-mix(in srgb, var(--text-error, #c0392b) 12%, transparent);
 }
 
+/* ── 菜单条目右侧的本数（分类清单） ──
+   同样挂在宿主菜单里，所以只用宿主的 --text-faint，不碰壳层令牌。 */
+.bzs-menu-count {
+  margin-left: 10px;
+  font-size: 11.5px;
+  color: var(--text-faint, #93939c);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 提示条里的「撤销」 ──
+   Notice 同样在宿主 body 上（不在 .bzs-shell 里）：颜色只能取宿主变量，
+   取不到时给一个暖棕兜底。文字样式跟正文一致，只靠下划线说明它能点。 */
+.bzs-undo-btn {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-accent, #8a6d3b);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+

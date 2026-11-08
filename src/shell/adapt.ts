@@ -10,6 +10,7 @@
  * ============================================================ */
 import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
+import { orderShelves } from '../data/shelves';
 import { getState, isFav } from './state';
 import { shelfOf } from './domain';
 
@@ -136,11 +137,17 @@ export function toRows(app: App, books: ReaderBook[]): BookRow[] {
   return books.map((b) => toRow(app, b));
 }
 
-/** 书架集合：真实数据取 subjects，外加「全部」 */
-export function shelfNames(rows: BookRow[]): string[] {
-  const set = new Set<string>();
-  for (const r of rows) set.add(r.shelf);
-  return ['全部', ...Array.from(set).sort((a, b) => a.localeCompare(b, 'zh'))];
+/**
+ * 分类条的顺序。
+ *
+ * 以前是「全部 + 按拼音排的分类名」：用户自己排过的顺序、刚建的空分类都留不住。
+ * 现在顺序由 `data/shelves` 的名单说了算，书自带的分类接在后面，「未分类」收尾。
+ */
+export function shelfNames(rows: BookRow[], saved: readonly string[] = []): string[] {
+  return orderShelves(
+    saved,
+    rows.map((r) => r.shelf),
+  );
 }
 
 /** 书库筛选 + 排序：与原型 libBooks() 一致的语义 */

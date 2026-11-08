@@ -33,6 +33,7 @@ import { notify } from '../core/notice';
 import { t } from '../i18n';
 import { pluginVaultPath, storageDirOf } from '../core/plugin-path';
 import { copyTree } from './migrate';
+import { cleanShelfList } from './shelves';
 import {
   EMPTY_DATA,
   SCHEMA_VERSION,
@@ -203,7 +204,21 @@ export function sanitizeDataDetailed(v: unknown): SanitizeResult | null {
       ...(num(b.archivedAt) !== undefined && num(b.archivedAt)! > 0 ? { archivedAt: num(b.archivedAt)! } : {}),
     });
   }
-  return { data: { ...(d as ReaderData), version: 1, schemaVersion: SCHEMA_VERSION, books }, dropped };
+  const shelfList = Array.isArray((d as ReaderData).shelves)
+    ? cleanShelfList(((d as ReaderData).shelves as unknown[]).map((x) => String(x)))
+    : undefined;
+  return {
+    data: {
+      ...(d as ReaderData),
+      version: 1,
+      schemaVersion: SCHEMA_VERSION,
+      books,
+      /* 分类名单只收规整过的字符串：坏值（对象、空串、重复）都不该进内存。
+         它丢了不影响书与标注，分类条会退回「书上反推」的老样子。 */
+      ...(shelfList ? { shelves: shelfList } : {}),
+    },
+    dropped,
+  };
 }
 
 /** 旧签名：只要数据、不要丢弃记录（大部分调用方只需要这个） */
