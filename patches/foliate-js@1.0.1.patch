@@ -80,7 +80,7 @@ index 86be1a612a782c23f4190a1a28ce61f03d13e5a3..8f4ad14b9ae83ea3e1cb23d7e7001d1e
      }
      static outline(rects, options = {}) {
 diff --git a/paginator.js b/paginator.js
-index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..a519ffb1de2b5176f04d506de853acb6e9379a89 100644
+index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..ae108fbc0b6a92def3c4a831e3b7a7e3119c4e57 100644
 --- a/paginator.js
 +++ b/paginator.js
 @@ -240,38 +240,158 @@ class View {
@@ -286,7 +286,71 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..a519ffb1de2b5176f04d506de853acb6
              --_max-column-count-portrait: 1;
              --_max-column-count-spread: var(--_max-column-count);
              --_half-gap: calc(var(--_gap) / 2);
-@@ -670,7 +792,9 @@ export class Paginator extends HTMLElement {
+@@ -556,6 +678,25 @@ export class Paginator extends HTMLElement {
+             }
+         }, 250))
+ 
++        /* bz-reader：移动端拖选时页面完全不动。
++           浏览器为了让选区进入视野，会滚动最近的可滚容器——分页模式下
++           #container 的 scrollLeft 就是页位置（overflow: hidden 拦不住程序
++           滚动），于是整页横移半屏：左边每行少一个字，右边露出下一列每行的
++           第一个字（2026-11-08 安卓截图）。
++           粗指针上只要正文有非空选区，就把容器吸回整页边界；桌面鼠标不动它。
++           #locked 期间（翻页动画）不插手，否则会把正在跑的翻页拉回来。 */
++        const coarsePointer = matchMedia('(pointer: coarse)')
++        this.#container.addEventListener('scroll', () => {
++            if (this.scrolled || this.#locked || !coarsePointer.matches) return
++            const sel = this.#view?.document?.getSelection()
++            if (!sel || sel.collapsed || !sel.rangeCount) return
++            const { size } = this
++            if (!size) return
++            const pos = this.containerPosition
++            const snapped = Math.round(pos / size) * size
++            if (Math.abs(pos - snapped) > 2) this.containerPosition = snapped
++        })
++
+         const opts = { passive: false }
+         this.addEventListener('touchstart', this.#onTouchStart.bind(this), opts)
+         this.addEventListener('touchmove', this.#onTouchMove.bind(this), opts)
+@@ -575,19 +716,14 @@ export class Paginator extends HTMLElement {
+                 else setSelectionTo(this.#anchor, -1)
+             }
+         })
+-        const checkPointerSelection = debounce((range, sel) => {
+-            if (!sel.rangeCount) return
+-            const selRange = sel.getRangeAt(0)
+-            const backward = selectionIsBackward(sel)
+-            if (backward && selRange.compareBoundaryPoints(Range.START_TO_START, range) < 0)
+-                this.prev()
+-            else if (!backward && selRange.compareBoundaryPoints(Range.END_TO_END, range) > 0)
+-                this.next()
+-        }, 700)
++        /* bz-reader：跨页选择完全禁止（2026-11-08 定稿）。
++           上游这里有一段「拖选越界自动翻页」的补偿：把选区越出可见范围
++           当成「用户想选到页外」，700ms 后 prev()/next()。它在移动端会
++           误触——长按选字后 pointercancel 让开关卡住，拖选择手柄改选区就
++           被判成跨页，页面整页跳走（向上拖起点跳上一页、向下拖终点跳下
++           一页）。前后两次「只关触摸」「只吸回」都会伤到扩选，最终决定
++           整段删掉：拖到页边不再翻页。保留键盘那条（它本来就该跟着光标走）。 */
+         this.addEventListener('load', ({ detail: { doc } }) => {
+-            let isPointerSelecting = false
+-            doc.addEventListener('pointerdown', () => isPointerSelecting = true)
+-            doc.addEventListener('pointerup', () => isPointerSelecting = false)
+             let isKeyboardSelecting = false
+             doc.addEventListener('keydown', () => isKeyboardSelecting = true)
+             doc.addEventListener('keyup', () => isKeyboardSelecting = false)
+@@ -597,9 +733,7 @@ export class Paginator extends HTMLElement {
+                 if (!range) return
+                 const sel = doc.getSelection()
+                 if (!sel.rangeCount) return
+-                if (isPointerSelecting && sel.type === 'Range')
+-                    checkPointerSelection(range, sel)
+-                else if (isKeyboardSelecting) {
++                if (isKeyboardSelecting) {
+                     const selRange = sel.getRangeAt(0).cloneRange()
+                     const backward = selectionIsBackward(sel)
+                     if (!backward) selRange.collapse()
+@@ -670,7 +804,9 @@ export class Paginator extends HTMLElement {
      }
      #replaceBackground(background, columnCount) {
          const doc = this.#view?.document
@@ -297,7 +361,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..a519ffb1de2b5176f04d506de853acb6
          const htmlStyle = doc.defaultView.getComputedStyle(doc.documentElement)
          const themeBgColor = htmlStyle.getPropertyValue('--theme-bg-color')
          if (background && themeBgColor) {
-@@ -852,7 +976,7 @@ export class Paginator extends HTMLElement {
+@@ -852,7 +988,7 @@ export class Paginator extends HTMLElement {
          this.#touchState = {
              x: touch?.screenX, y: touch?.screenY,
              t: e.timeStamp,
@@ -306,7 +370,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..a519ffb1de2b5176f04d506de853acb6
          }
      }
      #onTouchMove(e) {
-@@ -879,6 +1003,9 @@ export class Paginator extends HTMLElement {
+@@ -879,6 +1015,9 @@ export class Paginator extends HTMLElement {
          state.t = e.timeStamp
          state.vx = dx / dt
          state.vy = dy / dt
@@ -316,7 +380,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..a519ffb1de2b5176f04d506de853acb6
          this.#touchScrolled = true
          if (Math.abs(dx) >= Math.abs(dy)) {
              this.scrollBy(dx, 0)
-@@ -887,8 +1014,15 @@ export class Paginator extends HTMLElement {
+@@ -887,8 +1026,15 @@ export class Paginator extends HTMLElement {
          }
      }
      #onTouchEnd() {
@@ -333,7 +397,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..a519ffb1de2b5176f04d506de853acb6
  
          // XXX: Firefox seems to report scale as 1... sometimes...?
          // at this point I'm basically throwing `requestAnimationFrame` at
-@@ -1145,6 +1279,7 @@ export class Paginator extends HTMLElement {
+@@ -1145,6 +1291,7 @@ export class Paginator extends HTMLElement {
  
          // NOTE: needs `requestAnimationFrame` in Chromium
          requestAnimationFrame(() => {
@@ -341,7 +405,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..a519ffb1de2b5176f04d506de853acb6
              this.#replaceBackground(this.#view.docBackground, this.columnCount)
          })
  
-@@ -1156,11 +1291,11 @@ export class Paginator extends HTMLElement {
+@@ -1156,11 +1303,11 @@ export class Paginator extends HTMLElement {
      }
      destroy() {
          this.#observer.unobserve(this)
