@@ -435,7 +435,7 @@ export const JA: Record<MsgKey, string> = {
   'settings.backup': 'バックアップ',
   'settings.backup.tip': 'データフォルダに JSON を 1 つ書き出します',
   'settings.restore': '復元',
-  'settings.restore.tip': 'バックアップファイルから復元（マージ。現在の進捗は上書きしません）',
+  'settings.restore.tip': 'バックアップファイルから復元（すべて置き換え。現在のデータは残りません）',
   'settings.data.hint':
     'バックアップには本棚・進捗・ハイライト・お気に入り・目標が含まれます。ライセンスコードと AI キーは含まれないため、別の端末では再入力が必要です。',
 
@@ -519,4 +519,17 @@ export const JA: Record<MsgKey, string> = {
   'menu.para.close': 'Close side by side',
   'menu.tts.stop': 'Stop reading aloud',
   'menu.immersive.exit': 'Exit immersive mode',
+
+  /* ── restore confirmation / shell guards (C-batch; placeholder EN) ── */
+  'notice.bookmark.gone': 'That bookmark is gone',
+  'notice.migrate.busy': 'Another folder is still being migrated — wait for it to finish',
+  'notice.migrate.failed': 'Migration failed: {why}',
+  'notice.ai.evidenceTimeout': 'Timed out gathering sources: the AI service did not respond in 20s — try again later',
+  'notice.portrait.removeFailed': 'Could not delete the index — try again later',
+  'pt.rebuild.cleared': 'Index cleared — you can build it again',
+  'restore.title': 'Restore from backup',
+  'restore.sub': 'Full replacement — cannot be undone',
+  'restore.body': 'Restoring replaces your entire library, progress, highlights, favourites and goal with the backup. Your current data will not be kept.',
+  'restore.hint': 'The data folder stays where it is. Consider making a backup first.',
+  'restore.do': 'Restore now',
 };

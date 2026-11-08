@@ -443,7 +443,7 @@ export const ES: Record<MsgKey, string> = {
   'settings.backup.tip': 'Escribe un archivo JSON en la carpeta de datos',
   'settings.restore': 'Restaurar',
   'settings.restore.tip':
-    'Restaurar desde un archivo de copia (fusiona, nunca sobrescribe el progreso actual)',
+    'Restaurar desde un archivo de copia (reemplazo completo: el estado actual no se conserva)',
   'settings.data.hint':
     'La copia incluye la estantería, el progreso, los subrayados, los favoritos y los objetivos. No incluye el código de licencia ni la clave de IA: vuelve a introducirlos en otro dispositivo.',
 
@@ -527,4 +527,17 @@ export const ES: Record<MsgKey, string> = {
   'menu.para.close': 'Close side by side',
   'menu.tts.stop': 'Stop reading aloud',
   'menu.immersive.exit': 'Exit immersive mode',
+
+  /* ── restore confirmation / shell guards (C-batch; placeholder EN) ── */
+  'notice.bookmark.gone': 'That bookmark is gone',
+  'notice.migrate.busy': 'Another folder is still being migrated — wait for it to finish',
+  'notice.migrate.failed': 'Migration failed: {why}',
+  'notice.ai.evidenceTimeout': 'Timed out gathering sources: the AI service did not respond in 20s — try again later',
+  'notice.portrait.removeFailed': 'Could not delete the index — try again later',
+  'pt.rebuild.cleared': 'Index cleared — you can build it again',
+  'restore.title': 'Restore from backup',
+  'restore.sub': 'Full replacement — cannot be undone',
+  'restore.body': 'Restoring replaces your entire library, progress, highlights, favourites and goal with the backup. Your current data will not be kept.',
+  'restore.hint': 'The data folder stays where it is. Consider making a backup first.',
+  'restore.do': 'Restore now',
 };

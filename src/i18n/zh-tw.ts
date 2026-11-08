@@ -432,7 +432,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.backup': '備份',
   'settings.backup.tip': '匯出成一份 JSON，存進資料目錄',
   'settings.restore': '還原',
-  'settings.restore.tip': '從備份檔還原（合併，不覆蓋現有進度）',
+  'settings.restore.tip': '從備份檔還原（整份替換，會覆蓋當前資料）',
   'settings.data.hint': '備份含書架、進度、標註、收藏與目標。不含啟用碼和 AI 金鑰，換裝置需重填。',
 
   /* ── 設定頁：快速鍵 ──────────────────────────────────────── */
@@ -515,4 +515,17 @@ export const ZH_TW: Record<MsgKey, string> = {
   'menu.para.close': '關閉並排對照',
   'menu.tts.stop': '停止朗讀',
   'menu.immersive.exit': '退出沉浸',
+
+  /* ── 從備份恢復確認層 / 殼層守門（C 批次） ───────────────── */
+  'notice.bookmark.gone': '這枚書籤已經不在了',
+  'notice.migrate.busy': '上一個目錄還在遷移，等它跑完再來',
+  'notice.migrate.failed': '遷移失敗：{why}',
+  'notice.ai.evidenceTimeout': '取證超時：AI 服務 20 秒沒有回應，稍後再試',
+  'notice.portrait.removeFailed': '索引沒刪掉，稍後再試',
+  'pt.rebuild.cleared': '索引已清空，可以重新建立了',
+  'restore.title': '從備份恢復',
+  'restore.sub': '整份替換，不能撤銷',
+  'restore.body': '恢復會用備份裡的書架、進度、劃線、收藏與目標整份替換當前資料；當前資料不保留。',
+  'restore.hint': '資料目錄指向的位置不變。恢復前建議先點一次「備份」。',
+  'restore.do': '確認恢復',
 };

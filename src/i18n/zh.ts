@@ -62,6 +62,7 @@ export const ZH = {
   'notice.bookmark.noCfi': '这一页还没有定位信息，翻一页再试',
   'notice.bookmark.exists': '这一页已经有一枚书签了',
   'notice.bookmark.added': '已记一枚书签',
+  'notice.bookmark.gone': '这枚书签已经不在了',
 
   /* ── 通知：划线 / 标注 ───────────────────────────────────── */
   'notice.mark.created': '已用{color}色划线',
@@ -129,6 +130,8 @@ export const ZH = {
   'notice.dir.exportRoot': '导出目录不能是库根目录，请选一个文件夹',
   'notice.dir.dataRoot': '数据目录不能是库根目录，请选一个文件夹',
   'notice.migrate.running': '正在迁移…',
+  'notice.migrate.busy': '上一个目录还在迁移，等它跑完再来',
+  'notice.migrate.failed': '迁移失败：{why}',
   'notice.goal.set': '每日目标改为 {n} 分钟',
 
   /* ── 通知：备份 / 恢复 ───────────────────────────────────── */
@@ -138,6 +141,13 @@ export const ZH = {
   'notice.restore.unreadable': '读不了这个文件：{why}',
   'notice.restore.done': '已恢复，书架现在 {n} 本',
   'notice.restore.dropped': '（有 {n} 条记录不完整，已跳过）',
+
+  /* ── 从备份恢复：确认层（C12） ───────────────────────────── */
+  'restore.title': '从备份恢复',
+  'restore.sub': '整份替换，不能撤销',
+  'restore.body': '恢复会用备份里的书架、进度、划线、收藏与目标整份替换当前数据；当前数据不保留。',
+  'restore.hint': '数据目录指向的位置不变。恢复前建议先点一次「备份」。',
+  'restore.do': '确认恢复',
 
   /* ── 通知：数据文件 ──────────────────────────────────────── */
   'notice.data.broken': '数据文件读不出来，已留档为 bz-reader.broken-*.json',
@@ -439,7 +449,7 @@ export const ZH = {
   'settings.backup': '备份',
   'settings.backup.tip': '导出成一份 JSON，存进数据目录',
   'settings.restore': '恢复',
-  'settings.restore.tip': '从备份文件恢复（合并，不覆盖现有进度）',
+  'settings.restore.tip': '从备份文件恢复（整份替换，会覆盖当前数据）',
   'settings.data.hint': '备份含书架、进度、标注、收藏与目标。不含激活码和 AI Key，换设备需重填。',
 
   /* ── 设置页：快捷键 ──────────────────────────────────────── */
@@ -477,6 +487,8 @@ export const ZH = {
   'notice.kb.term': '已存为知识盒名词',
   'notice.kb.passage': '已存为知识盒段落',
   'notice.kb.failed': '没能写进知识盒：{message}',
+  'notice.ai.evidenceTimeout': '取证超时：AI 服务 20 秒没有响应，稍后再试',
+  'notice.portrait.removeFailed': '索引没删掉，稍后再试',
   'side.ai.book.none': '这本书还没建全书画像，先建一次才能按全书回答。',
   'side.ai.embedNotReady': '向量由第二大脑提供：装上并启用 bz，在它的设置里选好嵌入模型，再来建索引。',
   'side.ai.book.noHit': '这本书里没有找到和问题相关的段落：换个问法，或重建一次全书依据。',
@@ -511,6 +523,7 @@ export const ZH = {
   'notice.note.missing': '这条笔记不在了：{path}',
   'pt.blockCount': '{n} 块',
   'pt.clean.done': '已清理 {n} 份无主画像',
+  'pt.rebuild.cleared': '索引已清空，可以重新建立了',
   'pt.needOpen': '画像要读整本书的正文：先在阅读视图里打开这本书，再回来建',
   'side.ai.source.block': '第 {n} 块',
   'side.ai.book.stale': '这本书的画像用另一个嵌入模型建的：需要重建一次，否则检索出来的块对不上。',

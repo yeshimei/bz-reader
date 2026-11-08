@@ -44,7 +44,11 @@ export const escManager = (() => {
 
   // 环境守卫：node 环境下（数据层测试）不注册 DOM 监听，Obsidian 运行时 document 恒存在
   if (typeof document !== 'undefined') {
-    document.addEventListener('keydown', onKeydown);
+    /* 捕获阶段（C6）：阅读视图的 Esc（退出沉浸 / 收划词条）也挂在 document 的
+       捕获阶段，弹层自己那一层如果不先跑，ESC 会先被正文吃掉——弹层还开着、
+       沉浸先退了。层栈的顺序仍按「后注册的在上」，这里只决定它相对宿主
+       其它监听谁先看到同一次按键。 */
+    document.addEventListener('keydown', onKeydown, true);
   }
 
   return {

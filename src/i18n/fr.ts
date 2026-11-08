@@ -444,7 +444,7 @@ export const FR: Record<MsgKey, string> = {
   'settings.backup.tip': 'Écrit un fichier JSON dans le dossier de données',
   'settings.restore': 'Restaurer',
   'settings.restore.tip':
-    'Restaurer depuis un fichier de sauvegarde (fusionne, n’écrase jamais la progression actuelle)',
+    'Restaurer depuis un fichier de sauvegarde (remplacement complet : l’état actuel n’est pas conservé)',
   'settings.data.hint':
     'Une sauvegarde contient la bibliothèque, la progression, les surlignages, les favoris et les objectifs. Elle n’inclut ni le code de licence ni la clé IA — à ressaisir sur un nouvel appareil.',
 
@@ -528,4 +528,17 @@ export const FR: Record<MsgKey, string> = {
   'menu.para.close': 'Close side by side',
   'menu.tts.stop': 'Stop reading aloud',
   'menu.immersive.exit': 'Exit immersive mode',
+
+  /* ── restore confirmation / shell guards (C-batch; placeholder EN) ── */
+  'notice.bookmark.gone': 'That bookmark is gone',
+  'notice.migrate.busy': 'Another folder is still being migrated — wait for it to finish',
+  'notice.migrate.failed': 'Migration failed: {why}',
+  'notice.ai.evidenceTimeout': 'Timed out gathering sources: the AI service did not respond in 20s — try again later',
+  'notice.portrait.removeFailed': 'Could not delete the index — try again later',
+  'pt.rebuild.cleared': 'Index cleared — you can build it again',
+  'restore.title': 'Restore from backup',
+  'restore.sub': 'Full replacement — cannot be undone',
+  'restore.body': 'Restoring replaces your entire library, progress, highlights, favourites and goal with the backup. Your current data will not be kept.',
+  'restore.hint': 'The data folder stays where it is. Consider making a backup first.',
+  'restore.do': 'Restore now',
 };

@@ -165,7 +165,7 @@ export interface LinkTextInput {
 /**
  * 划线或划词 → 一段可粘进笔记的行内链接。
  *
- * 免费路径（copylinkurl）与导出仍走这里；高级版的「双向链接」由
+ * 导出仍走这里；高级版的「双向链接」由
  * data/wikilink.ts 单独拼，两条路共用同一套定位与清洗。
  */
 export function linkOfText(book: ReaderBook, input: LinkTextInput): string {

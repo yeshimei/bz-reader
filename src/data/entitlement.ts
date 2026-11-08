@@ -658,8 +658,8 @@ export const PLAN_TABLE: PlanRow[] = [
      能力不是一回事。2026-11-07 按真机对照顺序上移到这里。 */
   row('formats', 'no', 'yes', 'fullFormats'),
   /* 双向链接整条是高级版能力（copylink 走 requireCap('bilink')）。
-     以前这里写「基础版：部分（仅单条）」，但那条免费路径 copylinkurl
-     没有任何 UI 入口——表里承诺了，界面上找不到，比不给更糟。 */
+     2026-11-08：没有 UI 入口的免费路径 copylinkurl 已删除，表里不再
+     承诺「基础版部分可用」。 */
   row('bilink', 'no', 'yes', 'bilink'),
   row('export', 'no', 'yes', 'export'),
   /* 书摘卡片（文字卡）基础版就有，锁的只是「复制成图片」这一下 */

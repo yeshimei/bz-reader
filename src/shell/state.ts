@@ -12,6 +12,7 @@
  *     —— 界面状态丢了不算数据丢失，不值得占用业务 JSON 的写盘预算
  * ============================================================ */
 
+import { HIGHLIGHT_COLORS } from '../data/notes';
 import { getShellSource } from './source';
 import { RT } from './runtime';
 
@@ -44,13 +45,20 @@ export type LibView = 'grid' | 'list';
 export type LibFilter = 'all' | 'reading' | 'done' | 'new' | 'fav';
 export type LibSort = 'recent' | 'title' | 'progress';
 
+/** 读盘白名单：值不在里面就退回默认，别把界面拖进一个画不出来的状态 */
+const LIB_FILTER_VALUES: readonly LibFilter[] = ['all', 'reading', 'done', 'new', 'fav'];
+const LIB_SORT_VALUES: readonly LibSort[] = ['recent', 'title', 'progress'];
+
 /** 浮层：同一时刻只开一个 */
 export type OverlayKind =
   | 'search' | 'typography' | 'export' | 'bookmap'
   | 'quote' | 'idea' | 'hltools' | 'ai' | 'dict' | 'poster'
   | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedir' | 'finish' | 'footnote'
   | 'rename' | 'removebook' | 'confirmdel' | 'notedrop' | 'missing' | 'ack' | 'ptclean'
-  | 'rebuildidx';
+  | 'rebuildidx'
+  /* 从备份恢复：先问一句「当前数据不保留」（C12）。恢复是整份替换，
+     不是合并——点错一次就再也回不来了，所以不能点了就执行。 */
+  | 'restore';
 
 /**
  * 哪些弹层算「浮层」：无遮罩、贴在文字旁。
@@ -290,12 +298,18 @@ export function loadShellState(): ShellState {
          导入页会让人以为插件坏了。 */
       if (d.studyPage === 'library' || d.studyPage === 'notes') state.studyPage = d.studyPage;
       if (d.libView === 'grid' || d.libView === 'list') state.libView = d.libView;
-      if (d.libFilter) state.libFilter = d.libFilter;
-      if (d.libSort) state.libSort = d.libSort;
+      /* 三个枚举按白名单收（C12）：以前 `if (d.libFilter)` 认任何真值，
+         旧版本 / 手改过的 localStorage 里留一个 `libSort: "xxx"` 进来，
+         书架排序与筛选按钮全都不亮，看起来像「筛选功能坏了」。 */
+      if (LIB_FILTER_VALUES.includes(d.libFilter as LibFilter)) state.libFilter = d.libFilter as LibFilter;
+      if (LIB_SORT_VALUES.includes(d.libSort as LibSort)) state.libSort = d.libSort as LibSort;
       if (typeof d.libShelf === 'string') state.libShelf = d.libShelf;
       if (d.sideTab && ['toc', 'bookmarks', 'highlights', 'ai'].includes(d.sideTab)) state.sideTab = d.sideTab;
       if (typeof d.goal === 'number' && d.goal > 0) state.goal = Math.min(200, Math.round(d.goal));
-      if (typeof d.pen === 'string') state.pen = d.pen;
+      /* 笔色同理：认不出的色名会让「选中即划」用一条画不出来的颜色 */
+      if ((HIGHLIGHT_COLORS.map((c) => c.value) as string[]).includes(String(d.pen))) {
+        state.pen = String(d.pen);
+      }
       if (typeof d.bookId === 'string' || d.bookId === null) state.bookId = d.bookId ?? null;
       if (typeof d.activeReaderId === 'string' || d.activeReaderId === null) {
         state.activeReaderId = d.activeReaderId ?? null;
@@ -315,7 +329,18 @@ export function getState(): ShellState {
 
 /** 就地改状态并广播。改完不广播 = 界面不动，这里统一收口。 */
 export function setState(patch: Partial<ShellState>): void {
+  const bookChanged = 'bookId' in patch && patch.bookId !== state.bookId;
   Object.assign(state, patch);
+  /* 换了书：上一本的问答记录与在途请求都属于上一本（C4）。
+     不清的话，A 书的答案会挂在 B 书的侧栏里；请求回来还会往新界面里写。 */
+  if (bookChanged) {
+    RT.aiAbort?.abort();
+    RT.aiAbort = null;
+    RT.askAbort?.abort();
+    RT.askAbort = null;
+    RT.aiBookId = '';
+    RT.aiLog = [];
+  }
   persist();
   notify();
 }

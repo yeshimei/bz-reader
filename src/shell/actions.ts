@@ -43,7 +43,7 @@ import { pickFolder } from '../core/folder-pick';
 import { PURCHASE_URL, REPO_URL, can, capLabel, type Cap } from '../data/entitlement';
 import { HEADER_ACTION_IDS } from '../view/header-actions';
 import type { ReaderPrefs } from '../data/prefs';
-import { linkInline, snippet, targetOfMark } from '../data/deeplink';
+import { snippet } from '../data/deeplink';
 import { wikilinkOf, wikilinkOfMark, wikilinkTo } from '../data/wikilink';
 import { exportBookNotes } from '../data/export';
 import { jumpTo, getToc } from '../view/toc-state';
@@ -97,10 +97,11 @@ import {
 } from '../data/portrait';
 import { kbSource, kbThought, mergeThought } from '../data/kb-entry';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
-import { aiCardDrop, aiCardFail, aiCardKey, aiModeOf } from './ai-card';
+import { aiCardDrop, aiCardKey, aiModeOf } from './ai-card';
 import { runAiForOverlay } from './overlay';
 import { DEFAULT_SETTINGS, aiReady } from '../data/settings';
 import { copyGroupId } from './group';
+import { withSignal } from '../core/with-signal';
 
 /** 当前上下文里的书：优先状态里记住的那本，否则取书库第一本 */
 function currentBook(): ReaderBook | undefined {
@@ -193,6 +194,40 @@ function overlay(kind: OverlayKind, extra: Record<string, unknown> = {}): void {
 }
 
 /**
+ * 导出文件名清洗（C1）。
+ *
+ * 与 `data/export.ts` 的 `safeName` 同一套规则（A4 会把那份导出成共享函数，
+ * 合并时统一过来）。书名是用户可改的自由文本：`CON` 在 Windows 上根本
+ * 打不开，`../../x` 会把笔记写到导出目录外面去。
+ */
+const WIN_RESERVED_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+
+function safeExportName(raw: string): string {
+  const base = (raw || '')
+    .replace(/[\u0000-\u001f<>:"/\\|?*]/g, ' ')
+    .replace(/[. ]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!base) return t('common.untitled');
+  return WIN_RESERVED_NAME.test(base) ? `${base}_` : base;
+}
+
+/** 导出目录同样收一遍：设置里可能是 `a/../b`，也可能整条是 `..` */
+function safeExportDir(raw: string, fallback: string): string {
+  const parts = (raw || '')
+    .replace(/\\/g, '/')
+    .split('/')
+    .map((seg) => seg.replace(/[\u0000-\u001f<>:"|?*]/g, ' ').trim())
+    .filter((seg) => !!seg && seg !== '.' && seg !== '..');
+  return parts.join('/') || fallback;
+}
+
+/** 最终路径是否老老实实落在导出目录里 */
+function insideExportDir(path: string, dir: string): boolean {
+  return path.startsWith(`${dir}/`) && !path.split('/').includes('..');
+}
+
+/**
  * 追加一段进导出目录里这本书的笔记（书摘「存笔记」与 AI「存为笔记」共用）。
  *
  * 不覆盖已有内容：同一本书可以连着存好几段，路径与导出功能一致
@@ -200,10 +235,13 @@ function overlay(kind: OverlayKind, extra: Record<string, unknown> = {}): void {
  */
 async function appendToExport(app: App, book: ReaderBook | undefined, block: string): Promise<void> {
   const fallback = DEFAULT_SETTINGS.exportDir;
-  const dir = (shellSettings().exportDir || fallback).replace(/^\/+|\/+$/g, '') || fallback;
-  const name = book?.meta.title || t('export.loose');
+  const dir = safeExportDir(shellSettings().exportDir || fallback, fallback);
+  const name = safeExportName(book?.meta.title || t('export.loose'));
   const path = `${dir}/${name}.md`;
   try {
+    /* 清洗之后理论上不会越界；这条是给以后改清洗规则的人留的门闩——
+       写错一个文件比报一句错糟得多。 */
+    if (!insideExportDir(path, dir)) throw new Error(`bad export path: ${path}`);
     if (!(await app.vault.adapter.exists(dir))) await app.vault.adapter.mkdir(dir);
     const head = (await app.vault.adapter.exists(path)) ? await app.vault.adapter.read(path) : `# ${name}\n`;
     await app.vault.adapter.write(path, `${head.trimEnd()}\n\n${block}\n`);
@@ -868,15 +906,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'shelf':
       if (d.v) setState({ libShelf: d.v });
       break;
-    case 'detailjump': {
-      const bookId = d.id;
-      if (bookId) {
-        closeOverlay();
-        setState({ bookId });
-        getShellSource()?.openBook(liveBooks().find((b) => b.id === bookId) as ReaderBook);
-      }
-      break;
-    }
 
     /* ── 笔记 ── */
     case 'notefilter':
@@ -1005,16 +1034,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       closeOverlay();
       break;
     }
-    case 'copylinkurl': {
-      const b = liveBooks().find((x) => x.id === (d.book || getState().bookId));
-      const h = b?.notes?.highlights?.find((x) => x.id === d.id);
-      if (!b || !h) {
-        notify(t('notice.mark.notFound'), 'error');
-        break;
-      }
-      void copyText(linkInline(b, targetOfMark(b, h)));
-      break;
-    }
 
     /* ── 授权 ── */
     case 'unlock':
@@ -1111,6 +1130,12 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const o = getState().overlay;
       const kind = o?.mode === 'export' || o?.mode === 'import' || o?.mode === 'data' ? o.mode : null;
       if (!kind) break;
+      /* 一次只能搬一种目录（C2）：迁移按秒算，动作还可能被命令 / 脚本派发。
+         再点一次不该把同一批文件搬第二遍。 */
+      if (RT.migrating) {
+        notify(t('notice.migrate.busy'), 'info');
+        break;
+      }
       let from = '';
       let to = '';
       try {
@@ -1121,15 +1146,22 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         break;
       }
       if (!to) break;
+      RT.migrating = kind;
+      /* 先把弹层收掉：迁移一旦开跑按钮就不该还在可点状态 */
+      closeOverlay();
       notify(t('notice.migrate.running'));
       void (async () => {
-        const res = await src.migrateDir(kind, from, to);
-        notify(res.message, res.ok ? 'info' : 'error');
-        if (res.ok) {
-          if (kind === 'data') RT.dataDirDraft = '';
-          closeOverlay();
+        try {
+          const res = await src.migrateDir(kind, from, to);
+          notify(res.message, res.ok ? 'info' : 'error');
+          if (res.ok && kind === 'data') RT.dataDirDraft = '';
+        } catch (e) {
+          /* 迁移自己会兜底回滚，但异常不能被吞成「一直在迁移」 */
+          notify(t('notice.migrate.failed', { why: (e as Error)?.message || t('common.unknownError') }), 'error');
+        } finally {
+          RT.migrating = '';
+          rerender();
         }
-        rerender();
       })();
       break;
     }
@@ -1142,8 +1174,16 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
     case 'restore': {
+      /* 恢复是**整份替换**（C12）：点一下就把当前数据换掉，没有回头路。
+         所以这里只开一张确认层，真正执行在 restoredo。 */
+      overlay('restore');
+      break;
+    }
+    case 'restoredo': {
       const src = getShellSource();
       if (!src) break;
+      /* 先收层再读文件：文件选择器是阻塞式的一步，弹层留在后面会挡住宿主窗口 */
+      closeOverlay();
       void src.restore();
       break;
     }
@@ -1276,12 +1316,15 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       overlay('confirmdel', { bookmarkId: d.id, bookId: d.book || getState().bookId || '' });
       break;
     case 'delbmkdo': {
-      const book = currentBook();
-      if (book && d.id) {
-        removeBookmark(book, d.id);
-        getShellSource()?.store.touch();
-        repaint();
+      /* 按 `data-book` 找（C8）：弹层是从某本书的侧栏打开的，那时用户可能已经
+         切到另一本；拿 currentBook() 去删会删错书。 */
+      const book = bookOfBookmark(d.id, d.book);
+      if (!book || !d.id || !removeBookmark(book, d.id)) {
+        notify(t('notice.bookmark.gone'), 'info');
+        break;
       }
+      getShellSource()?.store.touch();
+      repaint();
       closeOverlay();
       break;
     }
@@ -1294,8 +1337,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
     case 'delmarkdo':
-      deleteMark(d.id, d.book);
-      closeOverlay();
+      /* 删成功才收层（C8）：失败时卡片留着，用户还能再点一次或先去看一眼 */
+      if (deleteMark(d.id, d.book)) closeOverlay();
       break;
 
     /* ── 标注弹层内的动作 ── */
@@ -1531,19 +1574,29 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
     case 'aiidxrebuildyes': {
+      /* 删索引、清缓存、清问答都是「高级能力」这条线上的动作：按钮不渲染
+         不等于动作不存在（C11），入口自己再判一次。 */
+      if (!requireCap(indexCap())) break;
       /* 删完回到「还没建索引」的空态：建法是每次现选的，不替用户沿用上一次。
          缓存要一起清——只删文件不清缓存，侧栏还按「建好了」画。 */
       const src = getShellSource();
       const bookId = getState().overlay?.bookId || currentBook()?.id || '';
       if (!src || !bookId) break;
       void (async () => {
-        await removePortrait(src.app, bookId);
+        const ok = await removePortrait(src.app, bookId);
+        /* 删不掉就说一句并把层留着（C3）：以前无论成败都收层 + 清缓存，
+           界面说「可以重建了」，磁盘上的旧索引其实还在。 */
+        if (!ok) {
+          notify(t('notice.portrait.removeFailed'), 'error');
+          return;
+        }
         forgetPortrait(bookId);
         /* 索引没了，挂在上面的问答依据也没了：留着那串答案只会让人以为还能追问 */
         resetAi();
         RT.aiIndexOpen = false;
         closeOverlay();
         repaint();
+        notify(t('pt.rebuild.cleared'), 'info');
       })();
       break;
     }
@@ -1555,9 +1608,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       portraitBuilder().pause();
       break;
     case 'ptresume':
+      if (!requireCap(indexCap())) break;
       void portraitBuilder().resume();
       break;
     case 'ptretry':
+      if (!requireCap(indexCap())) break;
       void portraitBuilder().retryFailed();
       break;
     case 'ptclean':
@@ -1583,7 +1638,10 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
     case 'ackok': {
-      /* 说明看完了：记住，并把刚才那条提问原样发出去 */
+      /* 说明看完了：记住，并把刚才那条提问原样发出去。
+         这一步就是「要问 AI」：授权在这期间掉了就开解锁层，别把 ack 记成
+         已确认又白跑一次请求（C11）。 */
+      if (!requireCap('ai')) break;
       const src = getShellSource();
       src?.setSettings({ aiAck: true });
       const pending = RT.ackPending;
@@ -1666,21 +1724,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
          重画由派发方负责（overlayKey 含 mode，内容键一变就会重画） */
       RT.aiAbort?.abort();
       setState({ overlay: { ...o, mode } });
-      break;
-    }
-    case 'aicancel': {
-      /* 只取消正在跑的那一个：RT.aiAbort 由 runAiForOverlay 持有，
-         取消后按钮点「重试」会新建 controller。 */
-      const ctrl = RT.aiAbort;
-      if (ctrl) {
-        RT.aiAbort = null;
-        const o = getState().overlay;
-        if (o) {
-          const task: AiTask = aiModeOf(o.mode);
-          aiCardFail(aiCardKey(o.kind, task, o.text || RT.sel?.text || ''), '已取消');
-        }
-        ctrl.abort();
-      }
       break;
     }
     case 'aicopy': {
@@ -1907,20 +1950,40 @@ function findBookOfMark(markId?: string, bookId?: string): ReaderBook | undefine
   return liveBooks().find((b) => (b.notes?.highlights ?? []).some((h) => h.id === markId));
 }
 
-function deleteMark(markId?: string, bookId?: string): void {
+/**
+ * 书签属于哪本书：优先 `data-book`，没有就按 id 全库找。
+ *
+ * 不给 bookId 又不全库找的话，侧栏那枚 × 只能删「当前打开的书」——
+ * 用户在两个 tab 之间切过之后，删的就是另一本里同名（id 相同）的那枚。
+ */
+function bookOfBookmark(bookmarkId?: string, bookId?: string): ReaderBook | undefined {
+  if (!bookmarkId) return undefined;
+  const books = liveBooks();
+  if (bookId) {
+    const hit = books.find((b) => b.id === bookId);
+    return hit?.notes?.bookmarks?.some((k) => k.id === bookmarkId) ? hit : undefined;
+  }
+  return books.find((b) => (b.notes?.bookmarks ?? []).some((k) => k.id === bookmarkId));
+}
+
+/** 删一条划线；成功返回 true（调用方据此决定收不收确认卡） */
+function deleteMark(markId?: string, bookId?: string): boolean {
   const book = findBookOfMark(markId, bookId);
   /* 找不到就给一句人话（P3-27）：侧栏里那条标注已经被删掉/被同步覆盖时，
      点「删除」以前是什么都不发生，用户会以为按钮坏了。 */
   if (!book || !markId) {
     notify(t('notice.mark.gone'), 'info');
-    return;
+    return false;
   }
-  if (removeHighlight(book, markId)) {
-    getShellSource()?.store.touch();
-    repaint();
-    emitNotesChanged();
-    notify(t('notice.mark.deleted'));
+  if (!removeHighlight(book, markId)) {
+    notify(t('notice.mark.gone'), 'info');
+    return false;
   }
+  getShellSource()?.store.touch();
+  repaint();
+  emitNotesChanged();
+  notify(t('notice.mark.deleted'));
+  return true;
 }
 
 /**
@@ -2008,20 +2071,28 @@ function saveIdea(markId?: string, bookId?: string): void {
   }
 }
 
+/* ─────────── 侧栏 AI 页签：问这本书 ─────────── */
+
 /**
- * 侧栏 AI 页签的「问这本书」。
+ * 取证阶段的预算（毫秒）。
  *
- * 与划线的 AI 解释是两条链路：这里带全书检索到的依据、带最近几轮问答，
- * 走 ask 任务。原来复用 explain 的 prompt 且不传依据，问「讲了什么」
- * 会被当成一段要解释的名词。
+ * 建索引 / 算查询向量 / 检索笔记都可能卡在远端：没有上限时，一次提问
+ * 可以一直转圈，用户既看不出在等什么，也没有取消的地方。
  */
+const EVIDENCE_TIMEOUT_MS = 20_000;
+
 /**
  * 这本书自己的依据：从全书画像里取最相关的几块。
  *
  * 画像的三种状态（没建 / 建到一半 / 换了嵌入模型）在 askAi 里已经拦过，
  * 走到这里还取不到内容只剩一种可能：这本书里确实没有和问题相关的段落。
  */
-async function bookEvidenceOf(q: string, app: App | null | undefined, book: ReaderBook): Promise<AiEvidence | null> {
+async function bookEvidenceOf(
+  q: string,
+  app: App | null | undefined,
+  book: ReaderBook,
+  signal?: AbortSignal,
+): Promise<AiEvidence | null> {
   const portrait = await readPortrait(app, book.id);
   const embedder = bzEmbedder(app);
   if (!portrait || portraitState(portrait, embedder.model) !== 'ready') return null;
@@ -2030,7 +2101,7 @@ async function bookEvidenceOf(q: string, app: App | null | undefined, book: Read
     /* 问题也要算成向量，而且必须用 bz 的模型算：书的向量就是它算的，
        换个模型算查询向量，距离再近也没有意义。 */
     if (!embedder.ai) throw new Error(embedder.problem || t('side.ai.embedNotReady'));
-    const vec = await embedder.ai.embedQuery(q);
+    const vec = await embedder.ai.embedQuery(q, signal);
     const picks = topBlocksByVector(portrait, vec, PORTRAIT_TOP_K);
     if (!picks.length) return null;
     return {
@@ -2060,12 +2131,17 @@ async function bookEvidenceOf(q: string, app: App | null | undefined, book: Read
  * 返回 null，**不拦这次提问**。笔记是补充，书才是本体；因为补充没取到就
  * 不让人问书，是本末倒置。
  */
-async function sharedEvidenceOf(q: string, app: App | null | undefined): Promise<AiEvidence | null> {
+async function sharedEvidenceOf(
+  q: string,
+  app: App | null | undefined,
+  signal?: AbortSignal,
+): Promise<AiEvidence | null> {
   if (!can('ai') || !bzNotesReady(app)) return null;
   const probe = probeBz(app);
   if (!probe.ai) return null;
   try {
-    const hits = await probe.ai.searchNotes(q, AI_SOURCES_MAX);
+    /* 门面没有 signal 参数：用 withSignal 包一层，掐断时不再等它（C5） */
+    const hits = await withSignal(probe.ai.searchNotes(q, AI_SOURCES_MAX), signal);
     if (!hits.length) return null;
     const context = hitsToContext(hits, Math.floor(AI_CONTEXT_LIMIT / 2));
     return context ? { context, sources: sourcesOfHits(hits) } : null;
@@ -2077,6 +2153,10 @@ async function sharedEvidenceOf(q: string, app: App | null | undefined): Promise
 
 /**
  * 问这本书。
+ *
+ * 与划线的 AI 解释是两条链路：这里带全书检索到的依据、带最近几轮问答，
+ * 走 ask 任务。原来复用 explain 的 prompt 且不传依据，问「讲了什么」
+ * 会被当成一段要解释的名词。
  *
  * 2026-11-07 改：不再有「当前这一屏 / 知识库 / 全书」三档。每次提问都以
  * 全书为依据（向量检索最相关的几块，或压缩方案的全书要点），共享开关
@@ -2096,6 +2176,10 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
     notify(t('notice.needBook'), 'info');
     return;
   }
+  /* 这一问归属哪本书（C4）：整条链路要跑好几步，中途完全可能换书 */
+  const bookId = book.id;
+  RT.aiBookId = bookId;
+  const sameBook = (): boolean => RT.aiBookId === bookId;
 
   /* 第一次用：先说清楚会把什么发出去。确认之后原样重发这条提问 */
   if (!settings.aiAck) {
@@ -2110,6 +2194,7 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
      这里不弹窗（2026-11-07 定稿）：建索引的位置就是侧栏 AI 页签，
      弹窗只是把同一件事又说一遍。 */
   const portrait = await readPortrait(src.app, book.id);
+  if (!sameBook()) return;
   if (portraitState(portrait, bzEmbedder(src.app).model) !== 'ready') {
     /* 草稿要落在 RT 里：下面这次 repaint 会把输入框整个换掉，只写 element
        的 value 等于没写。 */
@@ -2129,35 +2214,65 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
   if (input) input.value = '';
   repaint();
 
+  /* 取证阶段自己带预算（C5）：向量检索 / 笔记检索不归 aiAsk 的超时管，
+     服务端不吐字时界面会一直转圈。20 秒一到就掐；后面那次对话共用同一个
+     signal，换书时由 setState 掐它。 */
+  const ctrl = new AbortController();
+  let timedOut = false;
+  RT.askAbort = ctrl;
+  const timer = window.setTimeout(() => {
+    timedOut = true;
+    ctrl.abort();
+  }, EVIDENCE_TIMEOUT_MS);
+
   let evidence: AiEvidence | null = null;
   try {
     evidence = mergeEvidence(
-      await bookEvidenceOf(q, src.app, book),
-      await sharedEvidenceOf(q, src.app),
+      await bookEvidenceOf(q, src.app, book, ctrl.signal),
+      await sharedEvidenceOf(q, src.app, ctrl.signal),
     );
   } catch (e) {
-    pushAi(false, 'AI', t('notice.kb.failed', { message: (e as Error)?.message || t('common.unknownError') }), []);
+    /* 取证就失败了：这一问到此为止，别把 controller 留在 RT 里装成「还在跑」 */
+    if (RT.askAbort === ctrl) RT.askAbort = null;
+    if (!sameBook()) return;
+    const why = timedOut
+      ? t('notice.ai.evidenceTimeout')
+      : t('notice.kb.failed', { message: (e as Error)?.message || t('common.unknownError') });
+    pushAi(false, 'AI', why, []);
     repaint();
     return;
+  } finally {
+    window.clearTimeout(timer);
   }
+  if (!sameBook()) return;
   if (!evidence) {
+    if (RT.askAbort === ctrl) RT.askAbort = null;
     pushAi(false, 'AI', t('side.ai.book.noHit'), []);
     repaint();
     return;
   }
 
   try {
-    const res = await aiAsk(settings, {
-      task: 'ask',
-      text: q,
-      title: book.meta.title,
-      chapter: book.reading.position.chapterTitle,
-      context: evidence.context,
-      history,
-    });
+    const res = await aiAsk(
+      settings,
+      {
+        task: 'ask',
+        text: q,
+        title: book.meta.title,
+        chapter: book.reading.position.chapterTitle,
+        context: evidence.context,
+        history,
+      },
+      { signal: ctrl.signal },
+    );
+    /* 答案回来时已经换书：这份答案不属于当前这本，丢掉（C4） */
+    if (!sameBook()) return;
     pushAi(false, `AI · ${settings.ai.model || '模型'}`, res.text, evidence.sources);
   } catch (e) {
+    if (!sameBook()) return;
     pushAi(false, 'AI', (e as Error).message || '请求失败');
+  } finally {
+    if (RT.askAbort === ctrl) RT.askAbort = null;
   }
   repaint();
 }

@@ -33,6 +33,7 @@ import {
   dismissesOnTap,
   getState,
   markIdeaDirty,
+  overlayRenderKey,
   persistShellState,
   setStateQuiet,
   setIdeaDraft,
@@ -46,6 +47,8 @@ import { PLAN_TABLE, can, entitlement, type Cap, type PlanCell } from '../data/e
 import { protocolUrl } from '../data/deeplink';
 import { dataDirOf } from '../core/plugin-path';
 import { bindMaskDismiss } from '../core/mask-dismiss';
+import { escManager } from '../core/esc-manager';
+import { trapFocus } from '../core/ui/focus-trap';
 import { RT } from './runtime';
 import { rangeFill } from './range-fill';
 import { getToc } from '../view/toc-state';
@@ -63,8 +66,12 @@ function modal(title: string, sub: string, body: string, foot = '', cls = '', ma
      页脚也要看：激活码框就在 foot 里，只看 body 会把它漏掉。 */
   const withInput = /<(input|textarea)\b/i.test(body) || /<(input|textarea)\b/i.test(foot);
   const scrim = ['bzs-scrim', mask, withInput ? 'has-input' : ''].filter(Boolean).join(' ');
-  return `<div class="${scrim}" data-role="scrim"><div class="bzs-modal ${cls}">
-    <div class="bzs-mhead"><b>${title}</b><span class="n">${sub}</span><span class="sp"></span>
+  /* role / aria-modal（C6）：读屏要能听出「这是一张弹窗、焦点该留在这里」，
+     宿主自己的 Modal 有这套，壳层弹窗以前是裸 div。焦点圈闭在 paint() 里挂。 */
+  return `<div class="${scrim}" data-role="scrim"><div class="bzs-modal ${cls}" role="dialog" aria-modal="true" aria-label="${esc(
+    title,
+  )}">
+    <div class="bzs-mhead"><b>${esc(title)}</b><span class="n">${sub}</span><span class="sp"></span>
       <button class="x" data-act="close" title="${t('common.close')}">${ico('x')}</button></div>
     <div class="bzs-mbody">${body}</div>
     ${foot ? `<div class="bzs-mfoot">${foot}</div>` : ''}
@@ -409,7 +416,7 @@ function overlayHltools(markId?: string, bookId?: string): string {
     color: mark.color ?? 'amber',
     colors: HIGHLIGHT_COLORS,
     acts: MARK_ACTS,
-    attrs: `data-id="${mark.id}" data-book="${book.id}"`,
+    attrs: `data-id="${esc(mark.id)}" data-book="${esc(book.id)}"`,
   });
   if (isMobileEnv()) return bareFloat(toolbar, 'bzs-hltools-panel');
   const bubble = mark.comment ? markBubbleHtml(mark.comment) : '';
@@ -526,7 +533,8 @@ function bareFloat(body: string, cls: string): string {
  * 不跟工具条走——手机上工具条与面板一次只出现一样东西。
  */
 function textDialog(inner: string): string {
-  return `<div class="bzs-scrim bzs-text-scrim" data-role="scrim">${inner}</div>`;
+  /* 手机上的文字面板也是「压住正文、焦点该留在里面」的弹窗（C6） */
+  return `<div class="bzs-scrim bzs-text-scrim" data-role="scrim" role="dialog" aria-modal="true">${inner}</div>`;
 }
 
 /**
@@ -556,7 +564,7 @@ function textPanel(
   if (isMobileEnv()) {
     return textDialog(`<div class="bzs-float is-dialog ${cls}" data-role="float">${body}</div>`);
   }
-  const attrs = opts.markId ? `data-id="${opts.markId}" data-book="${opts.bookId ?? ''}"` : '';
+  const attrs = opts.markId ? `data-id="${esc(opts.markId)}" data-book="${esc(opts.bookId ?? '')}"` : '';
   const toolbar = toolbarHtml({
     marked: opts.marked ?? true,
     color: opts.color,
@@ -990,6 +998,26 @@ function overlayMissing(bookId?: string): string {
   );
 }
 
+/**
+ * 从备份恢复（C12）：把「会发生什么」摊开写清楚，再让他点。
+ *
+ * 恢复的语义是**整份替换**——备份里有多少本，恢复后就是多少本，当前这台
+ * 机器上的书、进度、划线一条都不留。这跟「导入」不是一回事，也和以前的
+ * 「合并恢复」不是一回事，所以文案必须自己说出这一点，不能靠用户猜。
+ */
+function overlayRestore(): string {
+  return modal(
+    t('restore.title'),
+    t('restore.sub'),
+    `<div class="bzs-ack">
+      <p>${esc(t('restore.body'))}</p>
+      <p class="bzs-mini">${esc(t('restore.hint'))}</p>
+    </div>`,
+    `<span class="sp"></span><button class="bzs-btn" data-act="close">${esc(t('common.cancel'))}</button>
+     <button class="bzs-btn danger" data-act="restoredo">${esc(t('restore.do'))}</button>`,
+  );
+}
+
 const MOVE_COPY: Record<'export' | 'import' | 'data', { title: string; bullets: string[] }> = {
   export: {
     title: '迁移导出目录',
@@ -1108,6 +1136,8 @@ export function overlayHtml(): string {
       return overlayPtClean();
     case 'rebuildidx':
       return overlayRebuildIndex();
+    case 'restore':
+      return overlayRestore();
     default:
       return '';
   }
@@ -1227,6 +1257,8 @@ export class OverlayLayer {
   private accent = '';
   /** 上一次画的是哪种弹层：同种重画不算「打开」，不抢输入焦点 */
   private lastKind = '';
+  /** 当前弹窗的焦点圈闭解绑：每次重画换新节点，旧的跟着旧节点作废 */
+  private untrap: (() => void) | null = null;
 
   /**
    * 浮层（排版 / 工具条 / 脚注 / 书摘 / AI / 想法）没有遮罩，所以「点空白处
@@ -1243,26 +1275,14 @@ export class OverlayLayer {
     closeOverlay();
   };
 
-  private onDocKey = (e: KeyboardEvent): void => {
-    if (e.key !== 'Escape') return;
-    /* 以前只关 4 种浮层，搜索/导入/导出/解锁这些有遮罩的弹层按 Esc 毫无反应。
-       壳层弹层不是 Obsidian Modal，escManager 管不到这里。 */
-    if (!getState().overlay) return;
-    /* 输入框里的 Esc 是「放弃这次输入」，不该顺手把整个弹层关掉（P3-14）：
-       写想法写到一半按 Esc，以前是连内容一起没了。 */
-    const t = e.target as HTMLElement | null;
-    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
-      t.blur();
-      return;
-    }
-    /* 走关闭动作而不是直接 closeOverlay：弹层关闭要带副作用
-       （建画像时暂停 + 退回「当前这一屏」）。直接关会绕过它们。 */
-    this.onAction('close', this.root);
-    e.preventDefault();
-    /* 只在真的要关的时候截住（P3-14）：以前无条件 stopImmediatePropagation，
-       阅读视图的 Esc（退出沉浸 / 收划词条）永远收不到。 */
-    e.stopImmediatePropagation();
-  };
+  /**
+   * ESC 交给 `core/esc-manager` 统一收口（C6）。
+   *
+   * 以前这里自己挂 document 级 keydown，谁后注册谁先跑，和宿主自带的
+   * 弹窗（`ui/modal` 已经走 escManager）完全是两套顺序：叠在一起时先关
+   * 哪一层取决于模块加载顺序。注册成一层之后，ESC 从最上面那一层开始关。
+   */
+  private esc: { unregister: () => void } | null = null;
 
   constructor(private onAction: (act: string, el: HTMLElement) => void) {
     this.root = createDiv();
@@ -1283,7 +1303,22 @@ export class OverlayLayer {
     this.disposers.push(() => window.removeEventListener('resize', sync));
     document.body.appendChild(this.root);
     document.addEventListener('pointerdown', this.onDocPointer, true);
-    document.addEventListener('keydown', this.onDocKey, true);
+    /* 输入框里的 Esc 是「放弃这次输入」，不该顺手把整个弹层关掉（P3-14）：
+       写想法写到一半按 Esc，以前是连内容一起没了。 */
+    this.esc = escManager.register('bzr-shell-overlay', {
+      isVisible: () => !!getState().overlay,
+      close: () => {
+        const t = document.activeElement as HTMLElement | null;
+        if (t && this.root.contains(t) && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+          t.blur();
+          return;
+        }
+        /* 走关闭动作而不是直接 closeOverlay：弹层关闭要带副作用
+           （建画像时暂停 + 退回「当前这一屏」）。直接关会绕过它们。 */
+        this.onAction('close', this.root);
+      },
+    });
+    this.disposers.push(() => this.esc?.unregister());
 
     this.root.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
@@ -1305,11 +1340,17 @@ export class OverlayLayer {
         hit.setAttribute('aria-expanded', open ? 'true' : 'false');
         return;
       }
+      const before = overlayRenderKey(getState());
       this.onAction(plan.act, hit);
       /* 动作改完状态后重画一次（遮罩内没有视图订阅）。
          rate 例外：它只改星星的 class，紧接着重画会按「还没保存的 rating」
-         重建 DOM，星星立刻熄灭、保存下来是 0 星。 */
-      if (getState().overlay && plan.act !== 'rate') this.paint();
+         重建 DOM，星星立刻熄灭、保存下来是 0 星。
+
+         去重（C7）：状态变了的话，`repaint()` 的广播已经走到 sync()→paint()
+         画过一遍了；这里再画一次就是整棵 DOM 重建两遍（外加一次封面回填）。
+         只有「状态变了但内容键没体现」的变化（换笔色、勾选）才需要补一次。 */
+      if (!getState().overlay || plan.act === 'rate') return;
+      if (overlayRenderKey(getState()) === before) this.paint();
     });
 
     this.root.addEventListener('input', (e) => {
@@ -1419,17 +1460,55 @@ export class OverlayLayer {
     }
   }
 
+  /** 焦点还在弹层里的哪个输入框（重画后放回去用） */
+  private activeInput(): { role: string; start: number | null; end: number | null } | null {
+    const el = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
+    if (!el || !this.root.contains(el)) return null;
+    if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') return null;
+    const role = el.dataset?.role;
+    if (!role) return null;
+    return { role, start: el.selectionStart ?? null, end: el.selectionEnd ?? null };
+  }
+
+  private restoreInput(keep: { role: string; start: number | null; end: number | null }): void {
+    const el = this.root.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-role="${keep.role}"]`);
+    if (!el) return;
+    el.focus({ preventScroll: true });
+    if (keep.start !== null && keep.end !== null) {
+      try {
+        el.setSelectionRange(keep.start, keep.end);
+      } catch {
+        /* 数字 / 颜色一类输入框不支持选区，忽略即可 */
+      }
+    }
+  }
+
   private paint(refocus = true): void {
     /* 重画前把激活码输入框的现值记下来（P2-08）：粘贴一枚长码 → 点「激活」→
        同步 paint() 按旧 entitlement 重建 DOM，输入框回到空——再点一次「激活」
        发出去的是空码。 */
     const keepLicense = this.root.querySelector<HTMLInputElement>('[data-role="license"]')?.value ?? '';
+    /* 整棵 DOM 换掉 = 滚动位置与光标一起归零（C7）：解锁表翻到一半点一下
+       按钮，列表跳回顶部；在输入框里打字时点别的控件，键盘会收起。
+       这两样都是「用户刚放好的位置」，记下来还回去。 */
+    const keepScroll = this.root.querySelector<HTMLElement>('.bzs-mbody')?.scrollTop ?? 0;
+    const keepInput = this.activeInput();
+    this.untrap?.();
+    this.untrap = null;
     this.setAccent(shellPrefs().accent);
     setHtml(this.root, overlayHtml());
     if (keepLicense) {
       const box = this.root.querySelector<HTMLInputElement>('[data-role="license"]');
       if (box && !box.value) box.value = keepLicense;
     }
+    if (keepScroll) {
+      const body = this.root.querySelector<HTMLElement>('.bzs-mbody');
+      if (body) body.scrollTop = keepScroll;
+    }
+    /* 弹窗的焦点圈闭（C6）：Tab / Shift+Tab 不出这张卡。浮层（排版、工具条）
+       没有遮罩，圈住反而挡住正文，只给 aria-modal 的弹窗挂。 */
+    const dialog = this.root.querySelector<HTMLElement>('[aria-modal="true"]');
+    if (dialog) this.untrap = trapFocus(dialog);
     /* 点遮罩空白关闭：判据交给 bindMaskDismiss（起点在遮罩 + 位移不超容差），
        在弹窗里选字拖到遮罩上松手不会再误关。每次重画都是新的遮罩元素。
        手机上「想法 / 书摘 / AI / 删除」多了一层 .bzs-text-scrim，所以这里
@@ -1440,6 +1519,8 @@ export class OverlayLayer {
     const o = getState().overlay;
     /* 先摆位再聚焦：聚焦可能让键盘立刻弹起，位置要在那之前是对的 */
     this.placeAnchored();
+    /* 把焦点还给刚才那个输入框；下面几段「一打开就聚焦」的再覆盖它 */
+    if (keepInput) this.restoreInput(keepInput);
     if (o?.kind === 'search') {
       const input = this.root.querySelector<HTMLInputElement>('[data-role="searchkw"]');
       input?.focus();
@@ -1470,9 +1551,11 @@ export class OverlayLayer {
 
   destroy(): void {
     document.removeEventListener('pointerdown', this.onDocPointer, true);
-    document.removeEventListener('keydown', this.onDocKey, true);
     for (const off of this.disposers) off();
     this.disposers = [];
+    this.esc = null;
+    this.untrap?.();
+    this.untrap = null;
     this.root.remove();
   }
 }
