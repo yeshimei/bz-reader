@@ -140,7 +140,7 @@ export function viewNotes(v: NotesView): string {
       })}</span>
       ${select ? '' : `<button class="bzs-round" data-act="notesel" aria-label="${t('notes.select')}" title="${t(
         'notes.select',
-      )}">${ico('select')}</button>`}
+      )}">${ico('listchecks')}</button>`}
       <button class="bzs-btn sm pri" data-act="export">${t('notes.export')}</button>
     </div>
     ${selBar}

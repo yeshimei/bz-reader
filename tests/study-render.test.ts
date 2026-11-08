@@ -149,4 +149,14 @@ describe('窄屏筛选栏', () => {
     expect(out).not.toContain('>列表<');
     expect(out).not.toContain('>封面墙<');
   });
+
+  /* 图标名写错时 ico() 会吐一个空 <svg>，圆钮看起来就是一颗空圆 */
+  it('两个圆钮里都真的画了图标', () => {
+    const out = mobile();
+    for (const act of ['libsearchtoggle', 'libview']) {
+      const at = out.indexOf(`data-act="${act}"`);
+      const around = out.slice(at, at + 300);
+      expect(around, act).toContain('<path');
+    }
+  });
 });

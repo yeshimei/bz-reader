@@ -41,13 +41,23 @@ describe('标注多选（笔记页）', () => {
   });
 
   /* 2026-11-08：笔记头换成圆形语汇，「选择」是动作而不是筛选值，
-     所以做成圆形图标钮（勾选框），文字交给 aria-label / title。 */
+     所以做成圆形图标钮（勾选列表），文字交给 aria-label / title。 */
   it('「选择」是圆形图标钮，不再是一颗文字按钮', () => {
     const h = html();
     const tag = h.match(/<button[^>]*data-act="notesel"[^>]*>/)?.[0] ?? '';
     expect(tag).toContain('bzs-round');
     expect(tag).toContain('aria-label');
     expect(h).not.toContain('>选择<');
+  });
+
+  /* 图标名写错时 ico() 会吐一个空 <svg>，按钮就变成一颗空圆——
+     在真机上很难看出是 bug 还是设计。 */
+  it('「选择」钮里真的画了图标', () => {
+    const h = html();
+    const at = h.indexOf('data-act="notesel"');
+    const around = h.slice(at, at + 400);
+    expect(around).toContain('<svg');
+    expect(around).toContain('<path');
   });
 
   it('选择模式：每条卡片可勾选，顶部显示已选数量与批量操作', () => {

@@ -298,7 +298,9 @@
   flex: none;
   border: 0;
   border-radius: 50%;
-  background: var(--bg-3);
+  /* 2026-11-09：--bg-3 在真机上只差 4%，圆钮看起来像「没有圆」。
+     改用文字色混 8%——不写死灰度，深浅两套主题各自得到一档看得见的底。 */
+  background: color-mix(in srgb, var(--text-normal) 8%, var(--bg));
   color: var(--t2);
   display: grid;
   place-items: center;
@@ -309,6 +311,12 @@
 
 .bzs-round:hover {
   color: var(--t1);
+  background: color-mix(in srgb, var(--text-normal) 13%, var(--bg));
+}
+
+/* 选中那颗悬停时不能退回灰底：铜色是它的身份 */
+.bzs-round.on:hover {
+  background: var(--copper);
 }
 
 .bzs-round:active {
@@ -369,6 +377,25 @@
   border-radius: var(--r-pill);
   height: 34px;
   padding: 0 14px;
+}
+
+/* 搜索输入框：焦点不画轮廓、不画边框，让井自己沉一档——
+   一二指宽的药丸里再套一圈铜环，看起来像套了两层壳。 */
+.bzs-filters > .bzs-well:focus-within,
+.bzs-noteshead .bzs-well:focus-within {
+  background: color-mix(in srgb, var(--text-normal) 6%, var(--bg));
+}
+
+.bzs-filters > .bzs-well input,
+.bzs-filters > .bzs-well input:focus,
+.bzs-filters > .bzs-well input:focus-visible,
+.bzs-noteshead .bzs-well input,
+.bzs-noteshead .bzs-well input:focus,
+.bzs-noteshead .bzs-well input:focus-visible {
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  background: none;
 }
 
 /* 导出是这一行唯一的主操作：实心铜 + 圆头，和筛选的「选中」说同一种话 */
