@@ -49,9 +49,11 @@ describe('paginator 跨页行为', () => {
     expect(src).not.toContain('isPointerSelecting');
   });
 
-  it('粗指针拖选把容器吸回整页', () => {
+  it('粗指针拖选把容器吸回上一次程序认定的页位置', () => {
     expect(src).toContain("(pointer: coarse)");
-    expect(src).toContain('this.containerPosition = snapped');
+    expect(src).toContain('this.containerPosition = this.#goodPos');
+    /* 吸回目标不能再用「最近的整页」：偏移过半页会吸到相邻页，等于翻页 */
+    expect(src).not.toContain('const snapped = Math.round(pos / size) * size');
   });
 
   it('有选区时触摸移动不让浏览器滚容器', () => {
