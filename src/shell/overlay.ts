@@ -13,7 +13,7 @@ import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { t } from '../i18n';
 import { planLabel } from '../i18n/plan';
 import { anchoredPlacement } from './anchored-style';
-import { sheetLift } from './keyboard-inset';
+import { drawerLift, sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
 import { MARK_ACTS, SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from './text-toolbar';
 import { aiCardHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, markBubbleHtml, markDeleteBarHtml } from './reader-cards';
@@ -1390,6 +1390,8 @@ export class OverlayLayer {
   private hitlistCb: (() => void) | null = null;
   /** 上一次算出的键盘抬升：数值不变就不碰 CSS 变量，省掉无谓的重排 */
   private kbLift = -1;
+  /** 键盘采样令牌：新一次聚焦会让上一轮 rAF 循环作废 */
+  private kbSample = 0;
   /**
    * 搜索浮层被隐藏时的整棵 DOM（含遮罩）。
    *
@@ -1540,11 +1542,15 @@ export class OverlayLayer {
     /* 贴底抽屉里的新建框：上次可能把名单滚到了中间，聚焦时先回顶部，
        免得输入框看着「不在开头」。改名框不滚——它就在名单里的某一行。 */
     this.root.addEventListener('focusin', (e) => {
+      /* 键盘动画可能只报一次中途高度，聚焦后补采样到动画停稳 */
+      this.sampleKeyboard();
       const el = e.target as HTMLElement | null;
       if (el?.dataset?.role !== 'shelfnew') return;
       const body = el.closest('.bzs-mbody');
       if (body instanceof HTMLElement) body.scrollTop = 0;
     });
+    /* 键盘收起同样是动画，变量要跟着落回 0 */
+    this.root.addEventListener('focusout', () => this.sampleKeyboard());
   }
 
   /** 强调色换档：弹层拿的是同一套令牌，改档不必重画内容 */
@@ -1618,8 +1624,10 @@ export class OverlayLayer {
   /** 视口变化后的统一收口：锚点浮层重新贴字，贴底小卡与抽屉避让键盘 */
   private syncPosition(): void {
     this.placeAnchored();
-    const lift = this.syncKeyboardVar();
-    if (!isMobileShell() || !window.visualViewport) return;
+    this.syncKeyboardVar();
+    const vv = window.visualViewport;
+    if (!isMobileShell() || !vv) return;
+    const lift = sheetLift({ innerHeight: window.innerHeight, visualHeight: vv.height });
     for (const el of Array.from(this.root.querySelectorAll<HTMLElement>('.bzs-float.is-sheet'))) {
       el.setCssProps({ bottom: `calc(${10 + lift}px + env(safe-area-inset-bottom, 0px))` });
     }
@@ -1631,16 +1639,44 @@ export class OverlayLayer {
    * is-kb 只在键盘弹起时挂上——抬起有过渡，落回时直接归位不拖。
    * 数值没变就不碰样式，免得 resize 连发时一直触发重排。
    */
-  private syncKeyboardVar(): number {
+  private syncKeyboardVar(): void {
     const vv = window.visualViewport;
-    if (!isMobileShell() || !vv) return 0;
-    const lift = sheetLift({ innerHeight: window.innerHeight, visualHeight: vv.height });
+    if (!isMobileShell() || !vv) return;
+    /* 抽屉要抬满整个键盘：sheetLift 的 60% 上限是给贴字小卡的。 */
+    const lift = drawerLift({ innerHeight: window.innerHeight, visualHeight: vv.height });
     if (lift !== this.kbLift) {
       this.kbLift = lift;
       this.root.setCssProps({ '--bzr-kb': `${lift}px` });
       this.root.classList.toggle('is-kb', lift > 0);
     }
-    return lift;
+  }
+
+  /**
+   * 键盘动画结束后再补几次采样（真机 2026-11-09）。
+   *
+   * 安卓 WebView 常在键盘弹出动画中途只发一次 visualViewport.resize：
+   * 那一刻量到的是半截高度，之后不再有事件，抽屉就只抬起一点点、下半截
+   * 还压在键盘后面。聚焦 / 失焦后连采 700ms，取动画真正停下时的值。
+   * 每次只写一次样式（值不变就跳过），开销可以忽略。
+   */
+  private sampleKeyboard(maxMs = 1200): void {
+    const token = ++this.kbSample;
+    const started = performance.now();
+    let last = -1;
+    let stable = 0;
+    const tick = (): void => {
+      if (token !== this.kbSample) return;
+      this.syncKeyboardVar();
+      const h = window.visualViewport?.height ?? 0;
+      /* 连续 8 帧（约 130ms）不变就算停稳，不必等满 1.2s */
+      if (h === last) stable++;
+      else {
+        stable = 0;
+        last = h;
+      }
+      if (stable < 8 && performance.now() - started < maxMs) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
   /** 焦点还在弹层里的哪个输入框（重画后放回去用） */

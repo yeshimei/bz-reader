@@ -24,3 +24,14 @@ export function sheetLift(m: ViewportMetrics): number {
   /* 只按键盘高度抬，不再额外加余量：卡片本身有 10px 边距，加了会顶进正文 */
   return Math.min(inset, Math.round(m.visualHeight * 0.6));
 }
+
+/**
+ * 贴底抽屉的抬升量：**整个**键盘高度，不套 60% 上限。
+ *
+ * 上限是给「贴字小卡」留的：卡只占屏幕一小块，抬太多会顶到正文。
+ * 抽屉本来就是整张卡，目标是把底边送到键盘上沿——截断只会让下半截
+ * 留在键盘后面（真机 2026-11-09 截图：只抬起了三分之一）。
+ */
+export function drawerLift(m: ViewportMetrics): number {
+  return keyboardInset(m);
+}
