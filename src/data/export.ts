@@ -76,8 +76,11 @@ const WIN_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
  * 一模一样——否则同一本书在两个入口下会落成两个文件名，用户看到两份笔记。
  */
 export function safeName(name: string): string {
-  const s = String(name ?? '')
-    .replace(/[\u0000-\u001f]/g, ' ')
+  const s = Array.from(String(name ?? ''))
+    /* 控制字符逐个换空格，不写成正则：`no-control-regex` 会拦它，
+       而这里本来也不需要正则（字符集只有 32 个码位）。 */
+    .map((ch) => (ch.codePointAt(0)! < 0x20 ? ' ' : ch))
+    .join('')
     .replace(/[\\/:*?"<>|]/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/^[.\s]+|[.\s]+$/g, '')

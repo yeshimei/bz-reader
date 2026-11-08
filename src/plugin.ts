@@ -468,10 +468,22 @@ export function createPlugin(cfg: PluginConfig) {
       });
     }
 
-    async onunload(): Promise<void> {
-      /* 整段收尾放在 try/finally：视图收尾、弹层销毁任一步抛错，后面的全局
-         资源（封面 objectURL、iframe 补丁、日志监听、store、data.json）也
-         必须归还——否则禁用插件后它们还挂在这个进程里。 */
+    /**
+     * 宿主调的卸载钩子。**必须是同步返回**（Plugin 的签名是 `void`），
+     * 真正的收尾在 `shutdown()` 里——那里要 await 写盘，不能塞进这个签名。
+     */
+    onunload(): void {
+      void this.shutdown();
+    }
+
+    /**
+     * 卸载收尾（可 await，测试与「禁用插件」路径都走它）。
+     *
+     * 整段放在 try/finally：视图收尾、弹层销毁任一步抛错，后面的全局
+     * 资源（封面 objectURL、iframe 补丁、日志监听、store、data.json）也
+     * 必须归还——否则禁用插件后它们还挂在这个进程里。
+     */
+    async shutdown(): Promise<void> {
       try {
         closeAllModals();
         /* 还在跑的长任务先掐掉：AI 请求与建画像都持有 AbortController 和定时器，

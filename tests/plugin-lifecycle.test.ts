@@ -28,7 +28,7 @@ describe('插件卸载（A-11）', () => {
     app.workspace.getLeavesOfType = (type: string) =>
       (type === VIEW_TYPE_READER ? [readerLeaf, otherLeaf] : []) as never;
 
-    await plugin.onunload();
+    await plugin.shutdown();
 
     expect(close).toHaveBeenCalledTimes(1);
     expect(otherClose).not.toHaveBeenCalled();
@@ -49,7 +49,7 @@ describe('插件卸载（A-11）', () => {
 
     /* onunload 现在是 async：store.destroy() / flushCfg() 要 await，
        否则宿主紧跟着卸插件目录，最后一段进度就白写了。 */
-    await expect(plugin.onunload()).rejects.toThrow('overlay boom');
+    await expect(plugin.shutdown()).rejects.toThrow('overlay boom');
     expect(plugin.store.destroy).toHaveBeenCalledTimes(1);
     expect(plugin.flushCfg).toHaveBeenCalledTimes(1);
   });
@@ -75,7 +75,7 @@ describe('插件卸载（A-11）', () => {
     });
     const cancel = vi.spyOn(builder, 'cancel');
 
-    await plugin.onunload();
+    await plugin.shutdown();
 
     expect(ctrl.signal.aborted).toBe(true);
     expect(cancel).toHaveBeenCalledTimes(1);
@@ -94,7 +94,7 @@ describe('插件卸载（A-11）', () => {
     const leaf = { view, detach: vi.fn() };
     app.workspace.getLeavesOfType = (type: string) => (type === VIEW_TYPE_READER ? [leaf] : []) as never;
 
-    await expect(plugin.onunload()).rejects.toThrow('close boom');
+    await expect(plugin.shutdown()).rejects.toThrow('close boom');
     expect(leaf.detach).toHaveBeenCalledTimes(1);
     expect(plugin.flushCfg).toHaveBeenCalledTimes(1);
   });
