@@ -3,7 +3,11 @@
  * 全部是纯函数：输入数据，输出 HTML 字符串。不碰 DOM、不碰状态。
  * ============================================================ */
 
-/** 转义：拼 HTML 必须过这一道，书名里出现 < 不能让页面塌 */
+import { locale } from '../../i18n';
+
+/** 转义：拼 HTML 必须过这一道，书名里出现 < 不能让页面塌。
+ *  **全仓只此一份**（D8）：浮卡、工具条、想法输入条以前各抄了一份，
+ *  改一处漏三处时，注入的落点就藏在漏掉的那一份里。 */
 export function esc(s: string | number | null | undefined): string {
   return String(s ?? '')
     .replace(/&/g, '&amp;')
@@ -101,9 +105,16 @@ export function icoNative(name: string, size = 18): string {
   return `<svg class="bzs-ico-native" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 }
 
-/** 中文数字：全书鸟瞰的章节序号用，只在 1..99 上有意义。
- *  侧栏目录已经不用它了（那 24px 宁可留给章节名）。 */
+/**
+ * 章节序号：中文数字。
+ *
+ * 只在 zh / zh-TW 下转，其余语言直接给阿拉伯数字（D7）——以前不管界面语言
+ * 一律输出「一二三」，英文界面里全书鸟瞰就成了「Chapter 一」，读起来像串码。
+ * 只在 1..99 上有意义，再大也没有中文习惯写法，落回阿拉伯数字。
+ */
 export function cn(n: number): string {
+  const l = locale();
+  if (l !== 'zh' && l !== 'zh-TW') return String(n);
   const d = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
   if (n <= 10) return d[n - 1] || String(n);
   if (n < 20) return '十' + (d[n - 11] || '');

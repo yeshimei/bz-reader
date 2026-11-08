@@ -14,10 +14,7 @@
 import type { AiTask } from '../data/ai';
 import { t, type MsgKey } from '../i18n';
 import { AI_CARD_MODES } from './ai-card';
-
-function esc(s: string): string {
-  return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
-}
+import { esc } from './render/html';
 
 /** 三档页签上的字。`ask` 不进这张卡（那是侧栏的全书问答），所以只列三档 */
 const MODE_KEYS = {

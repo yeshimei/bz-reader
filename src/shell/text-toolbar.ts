@@ -14,6 +14,7 @@
 
 import { t, type MsgKey } from '../i18n';
 import { HIGHLIGHT_COLORS, colorLabel } from '../data/notes';
+import { esc } from './render/html';
 
 export interface ToolbarColor {
   value: string;
@@ -231,9 +232,8 @@ export interface ToolbarHtmlInput extends ToolbarLayoutInput {
   attrs?: string;
 }
 
-function esc(s: string): string {
-  return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
-}
+/* 转义只有一份：render/html.ts 的 esc（D8）。这里原先自己抄了一份，
+   两份一旦分叉，注入就落在少转义的那一份上。 */
 
 /* 颜色名不再随配置走：`colorLabel()` 按当前界面语言取，语言切了重画就是新的，
    所以这里只需要色值本身（与 data/notes 的 HIGHLIGHT_COLORS 同源）。 */

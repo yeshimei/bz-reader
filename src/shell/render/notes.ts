@@ -29,7 +29,7 @@ export interface NotesView {
 /** 一条标注卡；`showLoc` 为 false 时是详情弹层里用的紧凑版 */
 export function noteCardHtml(m: MarkRow, showLoc = true, picked = false, select = false): string {
   const check = select
-    ? `<button class="bzs-npick${picked ? ' on' : ''}" data-act="notepick" data-id="${m.id}"
+    ? `<button class="bzs-npick${picked ? ' on' : ''}" data-act="notepick" data-id="${esc(m.id)}"
         aria-pressed="${picked}" title="${picked ? t('notes.unpick') : t('notes.pick')}">${picked ? '✓' : ''}</button>`
     : '';
   return `<div class="bzs-ncard${select ? ' pick' : ''}${picked ? ' on' : ''}" style="--c:${m.css}">
@@ -40,8 +40,8 @@ export function noteCardHtml(m: MarkRow, showLoc = true, picked = false, select 
       showLoc
         ? `<div class="loc"><span class="src">${esc(m.bookTitle)} · ${esc(m.chapterTitle)}</span></div>
             <div class="acts2">
-              <button data-act="jumpmark" data-id="${m.id}" data-book="${m.bookId}">↪ ${t('notes.jump')}</button>
-              <button data-act="copylink" data-id="${m.id}" data-book="${m.bookId}">⧉ ${t('notes.bilink')}${
+              <button data-act="jumpmark" data-id="${esc(m.id)}" data-book="${esc(m.bookId)}">↪ ${t('notes.jump')}</button>
+              <button data-act="copylink" data-id="${esc(m.id)}" data-book="${esc(m.bookId)}">⧉ ${t('notes.bilink')}${
                 can('bilink') ? '' : `<i class="pro">${t('notes.pro')}</i>`
               }</button>
               <span class="when">${fmtWhen(m.createdAt)}</span>
@@ -56,6 +56,9 @@ export function viewNotes(v: NotesView): string {
   const groups = groupByBook(shown);
   const select = v.select === true;
   const picked = v.picked ?? [];
+  /* Set 一遍：原来是每张卡都 `picked.includes(id)`，500 条标注时是 25 万次
+     字符串比较，切一次筛选就卡一下（D5）。 */
+  const pickedSet = new Set(picked);
   const shownIds = shown.map((m) => m.id);
 
   /* 每日回顾：只有写过想法的才值得回看。
@@ -79,7 +82,7 @@ export function viewNotes(v: NotesView): string {
         <div class="q">「${esc(rv.text)}」</div>
         <div class="acts">
           <button class="bzs-btn sm" data-act="reviewnext">${t('notes.review.next')}</button>
-          <button class="bzs-btn sm" data-act="jumpmark" data-id="${rv.id}" data-book="${rv.bookId}">${t('notes.jump')}</button>
+          <button class="bzs-btn sm" data-act="jumpmark" data-id="${esc(rv.id)}" data-book="${esc(rv.bookId)}">${t('notes.jump')}</button>
           <span class="idx">${reviewAt + 1} / ${recalls.length}</span>
         </div>
       </div>`
@@ -115,10 +118,10 @@ export function viewNotes(v: NotesView): string {
             <div class="bzs-nbook-h">
               <b>${esc(g.bookTitle)}</b><span class="bzs-mini">${t('notes.count', { n: g.items.length })}</span>
               <span class="sp"></span>
-              <button class="bzs-btn sm" data-act="exportfile" data-id="${g.bookId}">${t('notes.exportThis')}</button>
+              <button class="bzs-btn sm" data-act="exportfile" data-id="${esc(g.bookId)}">${t('notes.exportThis')}</button>
             </div>
             <div class="bzs-ngrid">${g.items
-              .map((m) => noteCardHtml(m, !select, picked.includes(m.id), select))
+              .map((m) => noteCardHtml(m, !select, pickedSet.has(m.id), select))
               .join('')}</div>
           </div>`,
         )

@@ -168,9 +168,9 @@ function bookmarksBody(rows: BmkRow[]): string {
      和「叫什么、读到哪」不是一回事，分开放反而都读得全。 */
   return `<div class="bzs-sbsec">${t('side.bookmarks.order')}</div><div class="bzs-timeline">${rows
     .map(
-      (k) => `<div class="bzs-mkrow" data-act="jumpbmk" data-id="${k.id}" role="button" tabindex="0">
+      (k) => `<div class="bzs-mkrow" data-act="jumpbmk" data-id="${esc(k.id)}" role="button" tabindex="0">
         <div class="hd"><span class="tt">${esc(k.label)}</span><span class="pc">${k.percent}%</span>
-        <button class="x" data-act="delbmk" data-id="${k.id}" title="${t('side.delete')}">${ico('x')}</button></div>
+        <button class="x" data-act="delbmk" data-id="${esc(k.id)}" title="${t('side.delete')}">${ico('x')}</button></div>
         <em>${esc(k.chapterTitle)}</em>
       </div>`,
     )
@@ -187,10 +187,10 @@ function highlightsBody(rows: MarkRow[]): string {
         <div class="bzs-hlg-h"><span>${esc(g.title)}</span><span class="n">${g.items.length}</span><span class="ln"></span></div>
         ${g.items
           .map(
-            (m) => `<div class="bzs-hlit" style="--c:${m.css}" data-act="hljump" data-id="${m.id}" role="button" tabindex="0">
+            (m) => `<div class="bzs-hlit" style="--c:${m.css}" data-act="hljump" data-id="${esc(m.id)}" role="button" tabindex="0">
               <span class="tx"><i class="dot" style="background:${m.css}"></i>${esc(m.text)}</span>
               ${m.comment ? `<span class="cm"><b>${t('side.ideaTag')}</b>${esc(m.comment)}</span>` : ''}
-              <button class="x" data-act="delmark" data-id="${m.id}" title="${t('side.delete')}">${ico('x')}</button>
+              <button class="x" data-act="delmark" data-id="${esc(m.id)}" title="${t('side.delete')}">${ico('x')}</button>
             </div>`,
           )
           .join('')}

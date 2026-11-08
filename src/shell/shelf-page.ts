@@ -28,6 +28,78 @@ export interface ShelfPage {
   counts: StudyCounts;
 }
 
+/** 这两页的内容完全由 state + books 决定，可以安全跳过重复重绘 */
+const DEDUP_PAGES: readonly string[] = ['library', 'notes'];
+
+/**
+ * 书架重绘指纹（D4）。
+ *
+ * 壳层状态每次写入都广播（开浮层、切侧栏页签、阅读器翻页……），书架哪怕
+ * 在后台也照画一遍整页 HTML——封面墙几十本书时这一下是实打实的掉帧。
+ * 这里把「这一页会画成什么样」压成一个字符串，一样就不重画。
+ *
+ * 只给书库 / 笔记两页出指纹：统计与设置页还依赖插件设置、热键、bz 探测
+ * 结果，那两页很便宜，宁可重画也不留一份不更新的界面。其余页返回空串，
+ * 调用方按「空串 = 每次都画」处理。
+ *
+ * 书的指纹里**没有**逐条标注内容：标注的增删改一律经 data/notes.ts，
+ * 那里每次都会推 `notesUpdatedAt`。真正会绕开它的只有引擎回填元数据
+ * （`applyEngineMeta`），所以 title / author 单列。
+ */
+export function shelfRenderKey(state: ShellState, books: ReaderBook[], compact = false): string {
+  if (!DEDUP_PAGES.includes(state.studyPage)) return '';
+  const s = [
+    state.studyPage,
+    state.libFilter,
+    state.libSort,
+    state.libView,
+    state.libShelf,
+    state.libKw,
+    state.libSearchOpen ? '1' : '0',
+    state.noteFilter,
+    state.noteKw,
+    state.noteSelect ? '1' : '0',
+    state.noteSel.join(','),
+    state.reviewIdx,
+    compact ? 'c' : 'f',
+    /* 「今天 / 昨天」和每日回顾都按本地日期算：跨过零点画面就该变一次，
+       所以日子也是指纹的一部分（不然它会一直停在前一天）。 */
+    new Date().toDateString(),
+    /* 收藏与分组在 state 里也有一份缓存（hydrateLibrary 灌的），
+       两处都要算进指纹，否则同步完只换了缓存时界面不动。 */
+    state.favIds.join(','),
+    Object.keys(state.shelves)
+      .sort()
+      .map((k) => `${k}=${state.shelves[k]}`)
+      .join(','),
+    shellPrefs().accent,
+  ].join('\u0001');
+
+  let b = '';
+  for (const x of books) {
+    b +=
+      [
+        x.id,
+        x.meta.title,
+        x.meta.author ?? '',
+        x.meta.coverPath ?? '',
+        x.meta.subjects?.[0] ?? '',
+        x.fileRef.format,
+        x.fileRef.fileMissing ? '1' : '0',
+        x.reading.position.percent ?? 0,
+        x.reading.position.chapterTitle ?? '',
+        x.reading.stats.completedTime ?? 0,
+        x.reading.stats.totalReadTime ?? 0,
+        x.reading.stats.lastReadTime ?? 0,
+        x.notes?.highlights?.length ?? 0,
+        x.notesUpdatedAt ?? 0,
+        x.updatedAt ?? 0,
+        x.archivedAt ?? 0,
+      ].join('\u0002') + '\u0003';
+  }
+  return `${s}\u0004${b}`;
+}
+
 /**
  * 书架某一页的 HTML。数据全部来自 store，不在这里做二次加工。
  *
@@ -36,10 +108,10 @@ export interface ShelfPage {
  */
 export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: boolean): ShelfPage {
   const app = getShellSource()?.app;
-  const rows = app ? toRows(app, books) : [];
-  const shown = filterRows(rows, state);
-  const marks = allMarks(books);
-  const counts: StudyCounts = { books: books.length, notes: marks.length };
+  /* 页签上的「笔记」数量只要条数，不必把每一条拍平成 MarkRow 再排序：
+     以前每画一页（包括设置页）都算一次全库标注（D4）。 */
+  const noteCount = books.reduce((n, b) => n + (b.notes?.highlights?.length ?? 0), 0);
+  const counts: StudyCounts = { books: books.length, notes: noteCount };
 
   switch (state.studyPage) {
     case 'search':
@@ -52,7 +124,7 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
     case 'notes':
       return {
         body: viewNotes({
-          marks,
+          marks: allMarks(books),
           filter: state.noteFilter,
           kw: state.noteKw,
           reviewIdx: state.reviewIdx,
@@ -100,10 +172,13 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
         }),
         counts,
       };
-    default:
+    default: {
+      /* 行映射（配色 / 日期文案 / 封面地址）只在书库页做：别的页用不上，
+         每画一页都算一遍是白烧 CPU（D4）。 */
+      const rows = app ? toRows(app, books) : [];
       return {
         body: viewLibrary({
-          rows: shown,
+          rows: filterRows(rows, state),
           total: books.length,
           state,
           libraryKey: state.libShelf + state.libFilter + state.libView,
@@ -111,5 +186,6 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
         }),
         counts,
       };
+    }
   }
 }

@@ -15,7 +15,7 @@ import { getState, setState, setStateQuiet, subscribe, type StudyPage } from './
 import { getShellSource, liveBooks, shellPrefs, subscribeShellSource } from './source';
 import { studyShell } from './render/study';
 import { searchResultsHtml } from './render/search';
-import { buildShelfPage } from './shelf-page';
+import { buildShelfPage, shelfRenderKey } from './shelf-page';
 import { hydrateCovers } from './covers';
 import { focusSelector, type FocusMemo } from './focus-memo';
 import { setHtml } from '../ui/dom';
@@ -37,6 +37,8 @@ export class ShelfPanel {
   private changelogAsked = false;
   /** 上一次用的筛选行形态；只在跨过阈值时重绘，避免 resize 抖动 */
   private compact: boolean | null = null;
+  /** 上一次重绘的内容指纹（D4）：一样就不画 */
+  private lastKey = '';
 
   /** @param host 挂载点，ItemView 传 contentEl */
   constructor(private host: HTMLElement) {}
@@ -77,7 +79,11 @@ export class ShelfPanel {
     this.unsubscribe = null;
     this.offSource?.();
     this.offSource = null;
+    /* 监听挂在 host 上（宿主 contentEl 活得比面板久），摘不掉也不能再管事：
+       先摘掉自己那层 root，旧监听进来一律按「目标不在树里」丢弃（D3）。 */
+    this.root?.remove();
     this.root = null;
+    this.lastKey = '';
     this.host.empty();
   }
 
@@ -142,15 +148,22 @@ export class ShelfPanel {
       getShellSource()?.maybeShowChangelog();
     }
 
+    const books = liveBooks();
+    const compact = this.wantCompact();
+    this.compact = compact;
+
+    /* 内容指纹一样就不重画（D4）：状态每写一次都广播，浮层开关、侧栏页签、
+       阅读器翻页都会走到这里，而画面一个字都不会变。 */
+    const key = shelfRenderKey(state, books, compact);
+    if (key && key === this.lastKey) return;
+    this.lastKey = key;
+
     /* 只有同一页内重绘才恢复滚动；换页要回到顶部。
        以前只判 `painted`（永不复位），从书库滚到一半切设置页会停在中间。 */
     const pageChanged = this.lastPage !== state.studyPage;
     this.memoScroll();
     this.memoFocus();
 
-    const books = liveBooks();
-    const compact = this.wantCompact();
-    this.compact = compact;
     const { body, counts } = buildShelfPage(state, books, compact);
 
     root.dataset.bzaccent = shellPrefs().accent;
@@ -184,6 +197,24 @@ export class ShelfPanel {
     this.teardownImport = null;
   }
 
+  /**
+   * 事件是不是落在本面板之外。
+   *
+   * 订阅可以退订，`host` 上的委托监听退不掉（宿主 contentEl 活得比面板久，
+   * 又没存监听句柄）。面板销毁后如果同一块 contentEl 上又挂了一个书架，
+   * 旧监听会跟着新点击跑一遍——同一个动作派发两次，开书弹两层。
+   * 判据用「目标在不在自己这层 root 里」：销毁后 root 为空，一律丢弃（D3）。
+   */
+  private outside(target: EventTarget | null): boolean {
+    const root = this.root;
+    if (!root || !target) return true;
+    try {
+      return !root.contains(target as Node);
+    } catch {
+      return true;
+    }
+  }
+
   private bind(): void {
     const el = this.host;
     el.addEventListener('click', (e) => {
@@ -194,6 +225,7 @@ export class ShelfPanel {
         e.stopPropagation();
         return;
       }
+      if (this.outside(e.target)) return;
       const target = e.target as HTMLElement;
       if (target.closest('.bzs-scrim') === target) return; // 遮罩点击由 overlay 层处理
       const hit = target.closest<HTMLElement>('[data-act]');
@@ -206,6 +238,7 @@ export class ShelfPanel {
        但以前只有 click 委托——Tab 得过去、按 Enter/Space 毫无反应。 */
     el.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
+      if (this.outside(e.target)) return;
       const t = e.target as HTMLElement;
       if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable) return;
       const hit = t.closest<HTMLElement>('[data-act]');
@@ -225,9 +258,10 @@ export class ShelfPanel {
       dispatchAction('bookmenu', card, { repaint: () => this.render() });
     };
     const cardOf = (t: EventTarget | null): HTMLElement | null =>
-      t instanceof HTMLElement ? t.closest<HTMLElement>('[data-bookmenu]') : null;
+      this.outside(t) || !(t instanceof HTMLElement) ? null : t.closest<HTMLElement>('[data-bookmenu]');
 
     el.addEventListener('contextmenu', (e) => {
+      if (this.outside(e.target)) return;
       const card = cardOf(e.target);
       if (!card) return;
       e.preventDefault();
@@ -275,6 +309,7 @@ export class ShelfPanel {
     el.addEventListener('pointercancel', cancelPress);
 
     const onEdit = (e: Event): void => {
+      if (this.outside(e.target)) return;
       const t = e.target as HTMLElement;
       const role = t?.dataset?.role;
       if (!role) return;

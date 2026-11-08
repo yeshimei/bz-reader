@@ -56,4 +56,27 @@ describe('打开更新日志', () => {
     expect(document.body.children.length).toBe(before - 1);
     expect(() => first.close()).not.toThrow(); // 旧句柄已经关过了，再关一次也不炸
   });
+
+  /* 渐隐提示跟着 window resize 重算（D6）。窗关掉后这个监听必须摘掉：
+     不摘的话每次改窗口大小都会去碰已经离树的节点，弹窗开过几次就攒几个。 */
+  it('关窗时把 window 上的 resize 监听摘掉', () => {
+    const added: Array<{ type: string; fn: unknown }> = [];
+    const removed: Array<{ type: string; fn: unknown }> = [];
+    const w = window as unknown as Record<string, unknown>;
+    const prevAdd = w.addEventListener;
+    const prevRemove = w.removeEventListener;
+    w.addEventListener = (type: string, fn: unknown) => void added.push({ type, fn });
+    w.removeEventListener = (type: string, fn: unknown) => void removed.push({ type, fn });
+    try {
+      const note = openChangelogNote(CHANGELOG_RELEASES, '0.1.2');
+      const resizes = added.filter((a) => a.type === 'resize');
+      expect(resizes.length).toBe(1);
+
+      note.close();
+      expect(removed.filter((r) => r.type === 'resize').map((r) => r.fn)).toContain(resizes[0]!.fn);
+    } finally {
+      w.addEventListener = prevAdd;
+      w.removeEventListener = prevRemove;
+    }
+  });
 });

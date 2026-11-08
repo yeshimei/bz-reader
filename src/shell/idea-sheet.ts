@@ -12,6 +12,8 @@
  * DOM 依赖，测试环境 import 就炸）。
  */
 
+import { esc } from './render/html';
+
 export interface IdeaSheetInput {
   /** 已有想法（编辑场景）；会原样放进输入框 */
   value?: string;
@@ -19,10 +21,6 @@ export interface IdeaSheetInput {
   bookId: string;
   /** 字数上限，默认 2000 */
   max?: number;
-}
-
-function esc(s: string): string {
-  return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
 }
 
 /**

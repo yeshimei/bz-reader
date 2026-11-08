@@ -161,14 +161,15 @@ export function viewLibrary(v: LibraryView): string {
           <h2>${esc(recent.title)}</h2>
           <div class="sub">${esc(recent.author)} · ${
             recent.chapterTitle
-              ? t('shelf.lastChapter', { chapter: recent.chapterTitle })
+              ? /* 章节名来自书里，可能是任意字符串：拼进 HTML 前必须转义（D1） */
+                esc(t('shelf.lastChapter', { chapter: recent.chapterTitle }))
               : t('shelf.lastPercent', { percent: recent.percent })
           }</div>
           <div class="prog">${barHtml(recent.percent)}<b>${recent.percent}%</b></div>
         </div>
         <div class="acts">
-          <button class="bzs-btn pri" data-act="openbook" data-id="${recent.id}">${t('shelf.resume')}</button>
-          <button class="bzs-btn" data-act="detail" data-id="${recent.id}">${t('shelf.detail')}</button>
+          <button class="bzs-btn pri" data-act="openbook" data-id="${esc(recent.id)}">${t('shelf.resume')}</button>
+          <button class="bzs-btn" data-act="detail" data-id="${esc(recent.id)}">${t('shelf.detail')}</button>
         </div>
       </div>`
     : '';
@@ -231,8 +232,8 @@ export function viewLibrary(v: LibraryView): string {
       .map(
         /* 卡片上不再钉三颗按钮：点一下开书；文件失联时点它进「重新定位」，
            右键（手机长按）出菜单，详情与其它动作都在里面。 */
-        (b) => `<div class="bzs-bkcard${b.status === 'done' ? ' is-done' : ''}${b.missing ? ' is-missing' : ''}" data-act="openbook" data-id="${b.id}"
-          data-bookmenu="${b.id}" role="button" tabindex="0" title="${b.missing ? t('shelf.missing.tip') : t('shelf.more')}">
+        (b) => `<div class="bzs-bkcard${b.status === 'done' ? ' is-done' : ''}${b.missing ? ' is-missing' : ''}" data-act="openbook" data-id="${esc(b.id)}"
+          data-bookmenu="${esc(b.id)}" role="button" tabindex="0" title="${b.missing ? t('shelf.missing.tip') : t('shelf.more')}">
         ${
           b.missing
             ? `<span class="flag is-missing">${t('shelf.missing')}</span>`
@@ -255,7 +256,7 @@ export function viewLibrary(v: LibraryView): string {
   } else {
     body = `<div class="bzs-list">${shown
       .map(
-        (b) => `<div class="bzs-bkrow2${b.missing ? ' is-missing' : ''}" data-act="openbook" data-id="${b.id}" data-bookmenu="${b.id}" role="button" tabindex="0" title="${b.missing ? t('shelf.missing.tip') : t('shelf.more')}">
+        (b) => `<div class="bzs-bkrow2${b.missing ? ' is-missing' : ''}" data-act="openbook" data-id="${esc(b.id)}" data-bookmenu="${esc(b.id)}" role="button" tabindex="0" title="${b.missing ? t('shelf.missing.tip') : t('shelf.more')}">
         ${coverHtml(b)}
         <div class="bi"><b>${esc(b.title)}</b><div class="sub">${esc(b.author)} · ${esc(b.shelf)} · ${b.format}${b.missing ? ` · <span class="miss">${t('shelf.missing')}</span>` : ''}</div></div>
         ${barHtml(b.percent)}

@@ -18,16 +18,24 @@ export function togglePick(selected: string[], id: string): string[] {
  *
  * 只处理 `ids`：筛选条切到「有想法」时点全选，不该把看不见的划线也选上；
  * 同理取消时只从选中里移除这批，其它筛选下选的仍然保留。
+ *
+ * 用 Set 做判重与包含判断（D5）：500 条标注时，「已全选」判一次就是
+ * 25 万次 `includes`，点一下全选要顿一帧。
  */
 export function toggleAll(selected: string[], ids: string[]): string[] {
   const visible = [...new Set(ids)];
   if (!visible.length) return selected;
-  const all = visible.every((id) => selected.includes(id));
-  if (all) return selected.filter((id) => !visible.includes(id));
+  const chosen = new Set(selected);
+  if (visible.every((id) => chosen.has(id))) {
+    const drop = new Set(visible);
+    return selected.filter((id) => !drop.has(id));
+  }
   return [...new Set([...selected, ...visible])];
 }
 
 /** 当前可见的是否已经全部选中（空列表不算） */
 export function allPicked(selected: string[], ids: string[]): boolean {
-  return ids.length > 0 && ids.every((id) => selected.includes(id));
+  if (!ids.length) return false;
+  const chosen = new Set(selected);
+  return ids.every((id) => chosen.has(id));
 }
