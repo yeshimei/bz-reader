@@ -80,20 +80,10 @@ index 86be1a612a782c23f4190a1a28ce61f03d13e5a3..8f4ad14b9ae83ea3e1cb23d7e7001d1e
      }
      static outline(rects, options = {}) {
 diff --git a/paginator.js b/paginator.js
-index 95c4d0d..27ae567 100644
+index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..058635c3c0c8d865af110fa7c0c46c10e0fc09cf 100644
 --- a/paginator.js
 +++ b/paginator.js
-@@ -150,6 +150,9 @@ const selectionIsBackward = sel => {
- }
- 
- const setSelectionTo = (target, collapse) => {
-+    /* bz-reader：调试埋点。这条会 removeAllRanges + addRange，选区高亮
-+       必然消失一帧再出现。日志里只要它出现在拖选过程中，就是「闪」的源头。 */
-+    globalThis.__bzrDbg?.('setSel', { collapse: String(collapse) })
-     let range
-     if (target.startContainer) range = target.cloneRange()
-     else if (target.nodeType) {
-@@ -240,38 +243,158 @@ class View {
+@@ -240,38 +240,158 @@ class View {
      get document() {
          return this.#iframe.contentDocument
      }
@@ -276,48 +266,30 @@ index 95c4d0d..27ae567 100644
          })
      }
      render(layout) {
-@@ -303,6 +426,13 @@ class View {
-         this.#size = vertical ? height : width
- 
-         const doc = this.document
-+        /* bz-reader：分页模式下正文自己也是一个可滚 viewport。浏览器为把选区
-+           带进视野会先滚它——它是离选区最近的可滚祖先，比滚外层更早。外层
-+           拖选锁管不到，用户看到的是「选中文字那一块在闪」（外层位置没变，
-+           只有正文内容连同选区高亮平移）。overflow: clip 让根元素不再是滚动
-+           容器，scrollIntoView 直接失效；不支持 clip 的老 WebView 退回
-+           hidden，行为与上游一致（那时靠 load 里的写回兜底）。 */
-+        const clipOverflow = globalThis.CSS?.supports?.('overflow', 'clip') === true
-         setStylesImportant(doc.documentElement, {
-             'box-sizing': 'border-box',
-             'column-width': `${Math.trunc(columnWidth)}px`,
-@@ -311,8 +441,10 @@ class View {
+@@ -311,7 +431,9 @@ class View {
              ...(vertical
                  ? { 'width': `${width}px` }
                  : { 'height': `${height}px` }),
 -            'padding': vertical ? `${margin / 2}px ${gap}px` : `0 ${gap / 2}px`,
--            'overflow': 'hidden',
 +            'padding': vertical
 +                ? `${margin / 2}px ${gap}px`
 +                : `var(--_pad-top, 0px) ${gap / 2}px var(--_pad-bottom, 0px)`,
-+            'overflow': clipOverflow ? 'clip' : 'hidden',
+             'overflow': 'hidden',
              // force wrap long words
              'overflow-wrap': 'break-word',
-             // reset some potentially problematic props
-@@ -441,6 +573,13 @@ export class Paginator extends HTMLElement {
+@@ -441,6 +563,11 @@ export class Paginator extends HTMLElement {
      #touchState
      #touchScrolled
      #lastVisibleRange
 +    /* bz-reader：调试用。上一次记过的「拖选期间原生滚动」位置，避免同值刷屏 */
 +    #dbgScrollAt = -1
-+    /* bz-reader：拖选锁。null = 未锁；数值 = 按下（或选区出现）那一刻的
-+       精确分页位置。不取整到页边界——取整在偏移过半页时会跳到相邻页。 */
-+    #selFreezePos = null
-+    /* bz-reader：解锁定时器。选区折叠/抬手后延时解除，堵住「拖到端点闪一帧」。 */
-+    #selFreezeTimer = 0
++    /* bz-reader：上一次程序认定的页位置。吸回用它，而不是「最近的整页」——
++       偏移过一页的一半时 Math.round 会吸到相邻页，等于替用户翻了一页。 */
++    #goodPos = 0
      constructor() {
          super()
          this.#root.innerHTML = `<style>
-@@ -460,7 +599,7 @@ export class Paginator extends HTMLElement {
+@@ -460,7 +587,7 @@ export class Paginator extends HTMLElement {
              --_margin: 48px;
              --_max-inline-size: 720px;
              --_max-block-size: 1440px;
@@ -326,7 +298,7 @@ index 95c4d0d..27ae567 100644
              --_max-column-count-portrait: 1;
              --_max-column-count-spread: var(--_max-column-count);
              --_half-gap: calc(var(--_gap) / 2);
-@@ -556,6 +695,37 @@ export class Paginator extends HTMLElement {
+@@ -556,6 +683,41 @@ export class Paginator extends HTMLElement {
              }
          }, 250))
  
@@ -341,46 +313,34 @@ index 95c4d0d..27ae567 100644
 +            globalThis.__bzrDbg?.('scrollSel', { to })
 +        })
 +
-+        /* bz-reader：拖选锁（selection scroll freeze）。
++        /* bz-reader：移动端拖选时页面完全不动。
 +           浏览器为了让选区进入视野，会滚动最近的可滚容器——分页模式下
 +           #container 的 scrollLeft 就是页位置（overflow: hidden 拦不住程序
 +           滚动），于是整页横移半屏：左边每行少一个字，右边露出下一列每行的
-+           第一个字（2026-11-08 安卓截图）。这是 WebView/Chromium 的既有行为，
-+           上游与社区（foliate-js#84/#86、epub.js#1366）的通行解法只能「拦下
-+           再写回」。锁住按下那一刻的精确像素，任何不是 foliate 自己发起的
-+           滚动都同步写回：同一帧内落回原位，不留中间帧。粗指针才开。 */
++           第一个字（2026-11-08 安卓截图）。粗指针上只要正文有非空选区，就把
++           容器吸回整页边界；桌面鼠标不动它。#locked 期间（翻页动画）不插手，
++           否则会把正在跑的翻页拉回来。 */
 +        const coarsePointer = matchMedia('(pointer: coarse)')
 +        this.#container.addEventListener('scroll', () => {
-+            if (this.#selFreezePos == null || this.scrolled || !coarsePointer.matches) return
++            if (this.scrolled || this.#locked || !coarsePointer.matches) return
++            const sel = this.#view?.document?.getSelection()
++            if (!sel || sel.collapsed || !sel.rangeCount) return
 +            const pos = this.containerPosition
-+            if (Math.abs(pos - this.#selFreezePos) < 0.5) return
-+            this.containerPosition = this.#selFreezePos
-+            globalThis.__bzrDbg?.('freeze', {
-+                from: Math.round(pos),
-+                to: Math.round(this.#selFreezePos),
-+            })
++            /* 回到上一次程序认定的页位置，不是「最近的整页」：
++               后者在偏移过半页时会吸到相邻页，用户看到的是整页翻过去。 */
++            if (Math.abs(pos - this.#goodPos) > 2) {
++                this.containerPosition = this.#goodPos
++                globalThis.__bzrDbg?.('snapBack', {
++                    from: Math.round(pos),
++                    to: Math.round(this.#goodPos),
++                })
++            }
 +        })
 +
          const opts = { passive: false }
          this.addEventListener('touchstart', this.#onTouchStart.bind(this), opts)
          this.addEventListener('touchmove', this.#onTouchMove.bind(this), opts)
-@@ -567,6 +737,15 @@ export class Paginator extends HTMLElement {
-         })
- 
-         this.addEventListener('relocate', ({ detail }) => {
-+            /* bz-reader：用户正在拖选时不重设选区。setSelectionTo 走的是
-+               removeAllRanges + addRange，高亮会消失一帧再出现——这是
-+               「选中文字那块在闪」最直接的来源（2026-11-08 第四轮反馈）。
-+               滚动锁只保证页面不动，管不到选区被重设。 */
-+            const liveSelection = this.#view?.document?.getSelection?.()
-+            const dragging = !!liveSelection && liveSelection.rangeCount > 0
-+                && !liveSelection.isCollapsed
-+            globalThis.__bzrDbg?.('relocate', { why: detail.reason, dragging })
-+            if (dragging) return
-             if (detail.reason === 'selection') setSelectionTo(this.#anchor, 0)
-             else if (detail.reason === 'navigation') {
-                 if (this.#anchor === 1) setSelectionTo(detail.range, 1)
-@@ -575,19 +754,35 @@ export class Paginator extends HTMLElement {
+@@ -575,19 +737,18 @@ export class Paginator extends HTMLElement {
                  else setSelectionTo(this.#anchor, -1)
              }
          })
@@ -408,27 +368,10 @@ index 95c4d0d..27ae567 100644
 +            /* bz-reader：调试埋点。换章节文档会重新绑手势，日志里留一条，
 +               好把后面的事件归到正确的那一章。 */
 +            globalThis.__bzrDbg?.('chapter', { index: this.#index })
-+            /* bz-reader：正文 viewport 的滚动兜底。columnize 里已经尽量把根
-+               元素设成 overflow: clip（不再是滚动容器）；不支持 clip 的
-+               WebView 上它仍会被 scrollIntoView 滚走，这里写回原位。同时
-+               每次都记日志——scrollSel 只记外层容器，分不清是哪个在动。 */
-+            const frameWindow = doc.defaultView
-+            if (frameWindow) {
-+                frameWindow.addEventListener('scroll', () => {
-+                    const se = doc.scrollingElement || doc.documentElement
-+                    const x = se?.scrollLeft ?? 0
-+                    const y = se?.scrollTop ?? 0
-+                    globalThis.__bzrDbg?.('iframeScroll', {
-+                        x: Math.round(x),
-+                        y: Math.round(y),
-+                    })
-+                    if (x !== 0 || y !== 0) se.scrollLeft = se.scrollTop = 0
-+                }, { passive: true })
-+            }
              let isKeyboardSelecting = false
              doc.addEventListener('keydown', () => isKeyboardSelecting = true)
              doc.addEventListener('keyup', () => isKeyboardSelecting = false)
-@@ -597,18 +792,60 @@ export class Paginator extends HTMLElement {
+@@ -597,18 +758,42 @@ export class Paginator extends HTMLElement {
                  if (!range) return
                  const sel = doc.getSelection()
                  if (!sel.rangeCount) return
@@ -450,12 +393,6 @@ index 95c4d0d..27ae567 100644
 +                        out,
 +                    })
 +                } catch { /* 节点被换掉时 getRangeAt 会抛，调试不该影响阅读 */ }
-+                /* bz-reader：拖选锁的第二个来源（第一个是 touchstart）。
-+                   选区出现就上锁——手柄拖动前一定先长按出选区，所以这条路
-+                   覆盖走系统层的手柄；选区折叠才延时解锁，不在折叠的那一帧
-+                   就放行，否则手柄拖到行首/行尾会闪一下。 */
-+                if (sel.isCollapsed) this.#unlockSelectionScrollSoon()
-+                else this.#lockSelectionScroll()
 +                if (isKeyboardSelecting) {
                      const selRange = sel.getRangeAt(0).cloneRange()
                      const backward = selectionIsBackward(sel)
@@ -475,40 +412,14 @@ index 95c4d0d..27ae567 100644
 +                    cls: String(t?.className || '').slice(0, 40),
 +                })
 +                if (this.scrolled) return
-+                /* bz-reader：拖选期间焦点会跟着选区跑（手柄拖动、长按选中
-+                   都会触发 focusin）。上游这一路无条件 re-anchor，会把页面
-+                   滚到「焦点所在页」，滚动锁再把它拉回来，一来一回就是闪
-+                   （2026-11-08 第四轮）。粗指针上直接不处理；有非空选区
-+                   也不处理，rAF 里再查一次。 */
-+                if (this.#isCoarsePointer()) return
-+                const current = doc.getSelection()
-+                if (current && current.rangeCount > 0 && !current.isCollapsed) return
                  // NOTE: `requestAnimationFrame` is needed in WebKit
 -                requestAnimationFrame(() => this.#scrollToAnchor(e.target)))
-+                requestAnimationFrame(() => {
-+                    const latest = doc.getSelection()
-+                    if (latest && latest.rangeCount > 0 && !latest.isCollapsed) return
-+                    this.#scrollToAnchor(t)
-+                })
++                requestAnimationFrame(() => this.#scrollToAnchor(t))
 +            })
          })
  
          this.#mediaQueryListener = () => {
-@@ -663,14 +900,22 @@ export class Paginator extends HTMLElement {
-         }
-         this.#view = new View({
-             container: this,
--            onExpand: () => this.#scrollToAnchor(this.#anchor),
-+            /* bz-reader：有非空选区时不要 re-anchor。扩选会触发 expand，
-+               上游在这里无条件跳回 #anchor，与拖选锁来回拉扯就是闪。 */
-+            onExpand: () => {
-+                const sel = this.#view?.document?.getSelection?.()
-+                if (sel && sel.rangeCount > 0 && !sel.isCollapsed) return
-+                this.#scrollToAnchor(this.#anchor)
-+            },
-         })
-         this.#container.append(this.#view.element)
-         return this.#view
+@@ -670,7 +855,9 @@ export class Paginator extends HTMLElement {
      }
      #replaceBackground(background, columnCount) {
          const doc = this.#view?.document
@@ -519,7 +430,7 @@ index 95c4d0d..27ae567 100644
          const htmlStyle = doc.defaultView.getComputedStyle(doc.documentElement)
          const themeBgColor = htmlStyle.getPropertyValue('--theme-bg-color')
          if (background && themeBgColor) {
-@@ -771,6 +1016,9 @@ export class Paginator extends HTMLElement {
+@@ -771,6 +958,9 @@ export class Paginator extends HTMLElement {
      }
      render() {
          if (!this.#view) return
@@ -529,7 +440,7 @@ index 95c4d0d..27ae567 100644
          this.#view.render(this.#beforeRender({
              vertical: this.#vertical,
              rtl: this.#rtl,
-@@ -839,20 +1087,39 @@ export class Paginator extends HTMLElement {
+@@ -839,12 +1029,28 @@ export class Paginator extends HTMLElement {
              Math.max(min, Math.min(max, (start + end) / 2
                  + (isNaN(d) ? 0 : d))) / size)
  
@@ -562,10 +473,7 @@ index 95c4d0d..27ae567 100644
          })
      }
      #onTouchStart(e) {
-+        /* bz-reader：手指按下就上锁。手柄拖动走系统层，页面收不到
-+           touchstart，锁会保留长按那一下记下的位置——这正是覆盖手柄的方式。 */
-+        this.#lockSelectionScroll()
-         const touch = e.changedTouches[0]
+@@ -852,7 +1058,7 @@ export class Paginator extends HTMLElement {
          this.#touchState = {
              x: touch?.screenX, y: touch?.screenY,
              t: e.timeStamp,
@@ -574,15 +482,16 @@ index 95c4d0d..27ae567 100644
          }
      }
      #onTouchMove(e) {
-@@ -867,6 +1134,17 @@ export class Paginator extends HTMLElement {
+@@ -867,6 +1073,18 @@ export class Paginator extends HTMLElement {
          const doc = this.#view?.document
          const selection = doc?.getSelection()
          if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
-+            /* bz-reader：手指压在选区上滑动这一路，直接不让浏览器滚容器。
-+               这是唯一能「根本不滚」的一条路——写回虽然把位置拉回来了，但
-+               每写一次 #container.scrollLeft 都要重新合成一遍，选区高亮跟着
-+               重绘，视觉上就是闪（2026-11-08 第四轮）。手柄走系统层、页面
-+               收不到 touchmove，那一头由拖选锁兜底。 */
++            /* bz-reader：有选区时既不接管手势，也不让浏览器滚容器。
++               手指压在选区上往上/往下滑会走到这里，浏览器原本会为了把选区
++               带进视野去滚 #container（分页模式下 scrollLeft 就是页位置），
++               视觉上就是「页面横着滑走半屏」。preventDefault 之后这一路
++               只扩展选区、不动页面；选择手柄拖动走系统层、页面收不到
++               touchmove，那边由下面的 scroll 吸回兜底。 */
 +            e.preventDefault()
 +            const t = e.changedTouches[0]
 +            globalThis.__bzrDbg?.('selDrag', {
@@ -592,7 +501,7 @@ index 95c4d0d..27ae567 100644
              return
          }
          e.preventDefault()
-@@ -879,6 +1157,9 @@ export class Paginator extends HTMLElement {
+@@ -879,6 +1097,9 @@ export class Paginator extends HTMLElement {
          state.t = e.timeStamp
          state.vx = dx / dt
          state.vy = dy / dt
@@ -602,7 +511,7 @@ index 95c4d0d..27ae567 100644
          this.#touchScrolled = true
          if (Math.abs(dx) >= Math.abs(dy)) {
              this.scrollBy(dx, 0)
-@@ -887,8 +1168,26 @@ export class Paginator extends HTMLElement {
+@@ -887,8 +1108,21 @@ export class Paginator extends HTMLElement {
          }
      }
      #onTouchEnd() {
@@ -621,24 +530,14 @@ index 95c4d0d..27ae567 100644
 +            tapOnly,
 +            scrolled: this.scrolled,
 +        })
-+        /* bz-reader：抬手后选区还在就继续锁着（用户可能马上拖手柄），
-+           选区没了才延时解锁。解锁不放在折叠的那一帧，见 #unlockSelectionScrollSoon。 */
-+        const liveSelection = this.#view?.document?.getSelection()
-+        if (!liveSelection || !liveSelection.rangeCount || liveSelection.isCollapsed)
-+            this.#unlockSelectionScrollSoon()
 +        if (this.scrolled || tapOnly) return
  
          // XXX: Firefox seems to report scale as 1... sometimes...?
          // at this point I'm basically throwing `requestAnimationFrame` at
-@@ -926,6 +1225,19 @@ export class Paginator extends HTMLElement {
+@@ -926,6 +1160,14 @@ export class Paginator extends HTMLElement {
      }
      async #scrollTo(offset, reason, smooth) {
          const { size } = this
-+        /* bz-reader：程序滚动前先松开拖选锁，否则这一下会被自己的锁拽回去；
-+           落定后由 #afterScroll 按当前选区状态重新上锁。 */
-+        clearTimeout(this.#selFreezeTimer)
-+        this.#selFreezeTimer = 0
-+        this.#selFreezePos = null
 +        /* bz-reader：调试埋点。所有「程序性」位置写入都从这里过；
 +           与下面 scroll 事件里的「原生滚动」对照，就能分清页面是被谁推走的。 */
 +        globalThis.__bzrDbg?.('scrollTo', {
@@ -650,7 +549,7 @@ index 95c4d0d..27ae567 100644
          if (this.containerPosition === offset) {
              this.#scrollBounds = [offset, this.atStart ? 0 : size, this.atEnd ? 0 : size]
              this.#afterScroll(reason)
-@@ -954,6 +1266,11 @@ export class Paginator extends HTMLElement {
+@@ -954,6 +1196,11 @@ export class Paginator extends HTMLElement {
          return this.#scrollToAnchor(anchor, select ? 'selection' : 'navigation')
      }
      async #scrollToAnchor(anchor, reason = 'anchor') {
@@ -662,51 +561,20 @@ index 95c4d0d..27ae567 100644
          this.#anchor = anchor
          const rects = uncollapse(anchor)?.getClientRects?.()
          // if anchor is an element or a range
-@@ -987,6 +1304,13 @@ export class Paginator extends HTMLElement {
+@@ -987,6 +1234,12 @@ export class Paginator extends HTMLElement {
      #afterScroll(reason) {
          const range = this.#getVisibleRange()
          this.#lastVisibleRange = range
-+        /* bz-reader：位置落定，程序滚动结束。正文还有非空选区就把拖选锁
-+           移到新位置——不重新锁的话，下一次原生滚动就没人管了。 */
-+        const liveSelection = this.#view?.document?.getSelection()
-+        if (liveSelection && liveSelection.rangeCount > 0 && !liveSelection.isCollapsed)
-+            this.#lockSelectionScroll()
++        /* bz-reader：记下程序认定的页位置（翻页/定位/重排都从这里过），
++           拖选吸回时回到它。用整页取整，翻页动画中间的半页位置不算数。 */
++        const { size: pageSize } = this
++        if (pageSize) this.#goodPos = Math.round(this.containerPosition / pageSize) * pageSize
 +        /* bz-reader：调试埋点。位置每次变化都会到这里，带上章节索引好对上页码。 */
 +        globalThis.__bzrDbg?.('afterScroll', { why: reason, index: this.#index })
          // don't set new anchor if relocation was to scroll to anchor
          if (reason !== 'selection' && reason !== 'navigation' && reason !== 'anchor')
              this.#anchor = range
-@@ -1003,6 +1327,29 @@ export class Paginator extends HTMLElement {
-         }
-         this.dispatchEvent(new CustomEvent('relocate', { detail }))
-     }
-+    /* bz-reader：粗指针（手机/平板触屏）判定。桌面鼠标不走进拖选那套守卫，
-+       与上游行为逐字一致。 */
-+    #isCoarsePointer() {
-+        return globalThis.matchMedia?.('(pointer: coarse)')?.matches === true
-+    }
-+    /* bz-reader：拖选锁的「上锁」。只在未锁时记一次——拖动过程中选区一直在变，
-+       每次都刷新等于没锁：位置若已经被滚走，记下的也是错的值。 */
-+    #lockSelectionScroll() {
-+        clearTimeout(this.#selFreezeTimer)
-+        this.#selFreezeTimer = 0
-+        if (this.scrolled || this.#selFreezePos != null) return
-+        this.#selFreezePos = this.containerPosition
-+    }
-+    /* bz-reader：延时解锁。选区折叠或抬手并不代表浏览器不会再补一次
-+       scrollIntoView（touchend 之后常见），拖手柄到行首/行尾时选区也会短暂
-+       折叠——立刻解锁正好放走那一帧，下一帧又被锁回来，来回一次就是闪。 */
-+    #unlockSelectionScrollSoon(delay = 400) {
-+        clearTimeout(this.#selFreezeTimer)
-+        this.#selFreezeTimer = setTimeout(() => {
-+            this.#selFreezeTimer = 0
-+            this.#selFreezePos = null
-+        }, delay)
-+    }
-     async #display(promise) {
-         const { index, src, anchor, onLoad, select } = await promise
-         this.#index = index
-@@ -1037,6 +1384,8 @@ export class Paginator extends HTMLElement {
+@@ -1037,6 +1290,8 @@ export class Paginator extends HTMLElement {
          return index >= 0 && index <= this.sections.length - 1
      }
      async #goTo({ index, anchor, select }) {
@@ -715,7 +583,7 @@ index 95c4d0d..27ae567 100644
          if (index === this.#index) await this.#display({ index, anchor, select })
          else {
              const oldIndex = this.#index
-@@ -1097,6 +1446,14 @@ export class Paginator extends HTMLElement {
+@@ -1097,6 +1352,14 @@ export class Paginator extends HTMLElement {
          this.#locked = true
          const prev = dir === -1
          const shouldGo = await (prev ? this.#scrollPrev(distance) : this.#scrollNext(distance))
@@ -730,7 +598,7 @@ index 95c4d0d..27ae567 100644
          if (shouldGo) await this.#goTo({
              index: this.#adjacentIndex(dir),
              anchor: prev ? () => 1 : () => 0,
-@@ -1105,9 +1462,12 @@ export class Paginator extends HTMLElement {
+@@ -1105,9 +1368,12 @@ export class Paginator extends HTMLElement {
          this.#locked = false
      }
      async prev(distance) {
@@ -743,7 +611,7 @@ index 95c4d0d..27ae567 100644
          return await this.#turnPage(1, distance)
      }
      prevSection() {
-@@ -1145,6 +1505,7 @@ export class Paginator extends HTMLElement {
+@@ -1145,6 +1411,7 @@ export class Paginator extends HTMLElement {
  
          // NOTE: needs `requestAnimationFrame` in Chromium
          requestAnimationFrame(() => {
@@ -751,14 +619,11 @@ index 95c4d0d..27ae567 100644
              this.#replaceBackground(this.#view.docBackground, this.columnCount)
          })
  
-@@ -1156,11 +1517,14 @@ export class Paginator extends HTMLElement {
+@@ -1156,11 +1423,11 @@ export class Paginator extends HTMLElement {
      }
      destroy() {
          this.#observer.unobserve(this)
 -        this.#view.destroy()
-+        /* bz-reader：解锁定时器跟着视图一起清，别让它在关书后还挂着。 */
-+        clearTimeout(this.#selFreezeTimer)
-+        this.#selFreezeTimer = 0
 +        this.#view?.destroy()
          this.#view = null
          this.sections[this.#index]?.unload?.()
