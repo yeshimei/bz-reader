@@ -409,6 +409,38 @@
     border-bottom: 1px solid var(--glass-line);
   }
 
+  /* 贴底 + 键盘避让（2026-11-09）：分类这类「带输入框、内容短」的弹窗
+     仍然从底部升起。键盘一开，底边按 --bzr-kb（overlay 算出的键盘高）
+     抬到键盘上沿，高度同步扣掉，输入框始终露在外面。
+     `is-drawer` 由 modal() 同时落在遮罩与卡片上，见 render/modal-shell.ts。 */
+  .bzs-scrim.is-drawer {
+    align-items: end;
+    padding: 0;
+  }
+
+  .bzs-scrim.is-drawer .bzs-modal {
+    max-height: min(92%, calc(100% - var(--bzr-kb, 0px) - 8px));
+    margin-bottom: var(--bzr-kb, 0px);
+    border-radius: var(--r-card) var(--r-card) 0 0;
+    border-bottom: 0;
+  }
+
+  /* 只有「抬起」走过渡：键盘收起时 is-kb 已摘掉，卡片直接落回不拖。 */
+  .bzs-overlay-root.is-kb .bzs-scrim.is-drawer .bzs-modal {
+    transition: margin-bottom .12s ease-out, max-height .12s ease-out;
+  }
+
+  /* 抽屉把手：一条小横杠，暗示这卡片从底部升起 */
+  .bzs-modal.is-drawer .bzs-sheet-grip {
+    display: block;
+    width: 36px;
+    height: 4px;
+    margin: 8px auto 0;
+    border-radius: 2px;
+    background: var(--line-2);
+    flex: none;
+  }
+
   .bzs-modal,
   .bzs-modal.wide,
   .bzs-modal.tall {

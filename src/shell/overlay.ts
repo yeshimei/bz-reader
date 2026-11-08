@@ -27,6 +27,7 @@ import { bmksOf, allMarks, fmtMinutes, fmtWhen, marksOf, shelfOf } from './domai
 import { ALL_SHELF, NO_SHELF, orderShelves } from '../data/shelves';
 import { noteCardHtml } from './render/notes';
 import { shelfActionsHtml } from './render/shelf-row';
+import { isDrawerClass, scrimClasses } from './render/modal-shell';
 import { cardTemplateChipsHtml, quoteCardHtml, quoteRefMarkdown } from './render/quote-card';
 import { searchFormHtml, searchResultsHtml } from './render/search';
 import { kickBodySearch, searchQueryKey, stopBodySearch } from './search-run';
@@ -71,12 +72,19 @@ function modal(title: string, sub: string, body: string, foot = '', cls = '', ma
      按内容自动判定，省得每个调用点都要记得传类。
      页脚也要看：激活码框就在 foot 里，只看 body 会把它漏掉。 */
   const withInput = /<(input|textarea)\b/i.test(body) || /<(input|textarea)\b/i.test(foot);
-  const scrim = ['bzs-scrim', mask, withInput ? 'has-input' : ''].filter(Boolean).join(' ');
+  /* 例外是 `is-drawer`（分类管理）：仍然贴底，键盘弹起时由 syncPosition()
+     把 --bzr-kb 抬上去。类必须同时落在遮罩与卡片上，见 modal-shell.ts。 */
+  const drawer = isDrawerClass(cls);
+  const scrim = scrimClasses(mask, withInput, drawer);
   /* role / aria-modal（C6）：读屏要能听出「这是一张弹窗、焦点该留在这里」，
      宿主自己的 Modal 有这套，壳层弹窗以前是裸 div。焦点圈闭在 paint() 里挂。 */
   return `<div class="${scrim}" data-role="scrim"><div class="bzs-modal ${cls}" role="dialog" aria-modal="true" aria-label="${esc(
     title,
   )}">
+    ${
+      /* 抽屉把手：一条小横杠，暗示这卡片从底部升起。桌面上不显示（CSS）。 */
+      drawer ? '<span class="bzs-sheet-grip" aria-hidden="true"></span>' : ''
+    }
     <div class="bzs-mhead"><b>${esc(title)}</b><span class="n">${sub}</span><span class="sp"></span>
       <button class="x" data-act="close" title="${t('common.close')}">${ico('x')}</button></div>
     <div class="bzs-mbody">${body}</div>
@@ -1056,6 +1064,9 @@ function overlayShelves(mode: string, name: string, bookId?: string): string {
     t('shelves.sub', { n: real.length }),
     body,
     `<span class="sp"></span><button class="bzs-btn" data-act="close">${t('common.close')}</button>`,
+    /* 贴底抽屉：分类名单短，键盘只会在点「新建 / 改名」时弹起；
+       底边由 --bzr-kb 抬到键盘上沿，不占掉整个上半屏。 */
+    'is-drawer',
   );
 }
 
@@ -1377,6 +1388,8 @@ export class OverlayLayer {
   private untrap: (() => void) | null = null;
   /** 正文命中到达时只换命中列表；搜索浮层关闭 / 重画时摘掉 */
   private hitlistCb: (() => void) | null = null;
+  /** 上一次算出的键盘抬升：数值不变就不碰 CSS 变量，省掉无谓的重排 */
+  private kbLift = -1;
   /**
    * 搜索浮层被隐藏时的整棵 DOM（含遮罩）。
    *
@@ -1524,6 +1537,14 @@ export class OverlayLayer {
     };
     this.root.addEventListener('change', settle);
     this.root.addEventListener('compositionend', settle);
+    /* 贴底抽屉里的新建框：上次可能把名单滚到了中间，聚焦时先回顶部，
+       免得输入框看着「不在开头」。改名框不滚——它就在名单里的某一行。 */
+    this.root.addEventListener('focusin', (e) => {
+      const el = e.target as HTMLElement | null;
+      if (el?.dataset?.role !== 'shelfnew') return;
+      const body = el.closest('.bzs-mbody');
+      if (body instanceof HTMLElement) body.scrollTop = 0;
+    });
   }
 
   /** 强调色换档：弹层拿的是同一套令牌，改档不必重画内容 */
@@ -1594,15 +1615,32 @@ export class OverlayLayer {
     el.setCssProps({ left: `${pos.left}px`, top: `${pos.top}px`, transform: 'none' });
   }
 
-  /** 视口变化后的统一收口：锚点浮层重新贴字，贴底小卡避让键盘 */
+  /** 视口变化后的统一收口：锚点浮层重新贴字，贴底小卡与抽屉避让键盘 */
   private syncPosition(): void {
     this.placeAnchored();
-    const vv = window.visualViewport;
-    if (!isMobileShell() || !vv) return;
-    const lift = sheetLift({ innerHeight: window.innerHeight, visualHeight: vv.height });
+    const lift = this.syncKeyboardVar();
+    if (!isMobileShell() || !window.visualViewport) return;
     for (const el of Array.from(this.root.querySelectorAll<HTMLElement>('.bzs-float.is-sheet'))) {
       el.setCssProps({ bottom: `calc(${10 + lift}px + env(safe-area-inset-bottom, 0px))` });
     }
+  }
+
+  /**
+   * 贴底弹窗（.bzs-scrim.is-drawer）靠 --bzr-kb 抬到键盘上沿：
+   * 底边抬起、最大高度同步扣掉，输入框就不会被键盘盖住。
+   * is-kb 只在键盘弹起时挂上——抬起有过渡，落回时直接归位不拖。
+   * 数值没变就不碰样式，免得 resize 连发时一直触发重排。
+   */
+  private syncKeyboardVar(): number {
+    const vv = window.visualViewport;
+    if (!isMobileShell() || !vv) return 0;
+    const lift = sheetLift({ innerHeight: window.innerHeight, visualHeight: vv.height });
+    if (lift !== this.kbLift) {
+      this.kbLift = lift;
+      this.root.setCssProps({ '--bzr-kb': `${lift}px` });
+      this.root.classList.toggle('is-kb', lift > 0);
+    }
+    return lift;
   }
 
   /** 焦点还在弹层里的哪个输入框（重画后放回去用） */
@@ -1719,6 +1757,8 @@ export class OverlayLayer {
        和光标会被换掉）。 */
     this.unbindHitlist();
     if (o?.kind === 'search') this.bindHitlist();
+    /* 抽屉的键盘抬升：带着键盘切进来时，变量要在这一帧就是对的 */
+    this.syncKeyboardVar();
   }
 
   /** 正文命中到达时只替换命中列表，不碰表单与滚动 */
