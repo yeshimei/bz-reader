@@ -31,6 +31,8 @@ const KEYS = [
   'touchEnd',
   'scrollSel',
   'snapBack',
+  'snapGo',
+  'turnPage',
 ];
 
 describe('paginator 调试埋点', () => {
