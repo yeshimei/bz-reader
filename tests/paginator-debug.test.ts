@@ -31,12 +31,13 @@ const KEYS = [
   'touchEnd',
   'scrollSel',
   'freeze',
+  'iframeScroll',
   'snapGo',
   'turnPage',
 ];
 
 describe('paginator 调试埋点', () => {
-  it('十五条关键路径都接上了全局钩子', () => {
+  it('十六条关键路径都接上了全局钩子', () => {
     for (const key of KEYS) {
       expect(src).toContain(`__bzrDbg?.('${key}'`);
     }
@@ -100,5 +101,21 @@ describe('paginator 触摸手势', () => {
     /* 有选区那一段（selDrag 之前 500 字符内）不该再有 preventDefault：
        它和拖选锁抢同一件事，还会让手柄拖动变迟钝。 */
     expect(src.slice(Math.max(0, at - 500), at)).not.toContain('e.preventDefault()');
+  });
+});
+
+/* 2026-11-08 第三轮：外层锁上之后页面不整页跳了，但用户报「闪的是选中
+ * 文字覆盖的区域」。外层 #container 并不是离选区最近的可滚容器——正文
+ * 自己的 viewport 才是，浏览器先滚它。它一滚，外层位置没变，只有正文
+ * 内容连同选区高亮平移，看起来就是那一块在闪。 */
+describe('paginator 正文 viewport 的滚动', () => {
+  it('分页模式把根元素设成不可滚（overflow: clip），并留 hidden 兜底', () => {
+    expect(src).toContain("supports?.('overflow', 'clip')");
+    expect(src).toContain("'overflow': clipOverflow ? 'clip' : 'hidden'");
+  });
+
+  it('不支持 clip 的老 WebView 由 scroll 写回兜底，且每次都记日志', () => {
+    expect(src).toContain("__bzrDbg?.('iframeScroll'");
+    expect(src).toContain('se.scrollLeft = se.scrollTop = 0');
   });
 });
