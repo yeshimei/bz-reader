@@ -27,7 +27,7 @@ import { bmksOf, allMarks, fmtMinutes, fmtWhen, marksOf } from './domain';
 import { noteCardHtml } from './render/notes';
 import { cardTemplateChipsHtml, quoteCardHtml, quoteRefMarkdown } from './render/quote-card';
 import { searchFormHtml, searchResultsHtml } from './render/search';
-import { kickBodySearch, resetBodySearch } from './search-run';
+import { kickBodySearch, stopBodySearch } from './search-run';
 import {
   bumpOverlayRev,
   closeOverlay,
@@ -1266,6 +1266,16 @@ export class OverlayLayer {
   private untrap: (() => void) | null = null;
   /** 正文命中到达时只换命中列表；搜索浮层关闭 / 重画时摘掉 */
   private hitlistCb: (() => void) | null = null;
+  /**
+   * 搜索浮层被隐藏时的整棵 DOM（含遮罩）。
+   *
+   * 用户点一条结果跳走、再打开搜索，期望的是「刚才那一屏还在」：同样的词、
+   * 同样的结果、同样的滚动位置。真的关闭（清空 DOM）就得从零开始，所以
+   * 关闭只是把节点收进这里，再次打开原样挂回，不重渲染。
+   */
+  private searchStash: HTMLElement | null = null;
+  /** 隐藏那一刻的滚动位置：节点脱离文档后 scrollTop 不保证还保留 */
+  private searchScroll = 0;
 
   /**
    * 浮层（排版 / 工具条 / 脚注 / 书摘 / AI / 想法）没有遮罩，所以「点空白处
@@ -1424,13 +1434,18 @@ export class OverlayLayer {
     const opening = kind !== prev;
     this.lastKind = kind;
     /* 搜索词在输入期间是 setStateQuiet 写的（不广播、不落盘）。离开搜索浮层
-       时补一次正常持久化（A-24）——不广播，避免这次关闭再触发一轮重绘。 */
+       时补一次正常持久化（A-24）——不广播，避免这次关闭再触发一轮重绘。
+       同时把整棵搜索 DOM 收起来：再次打开要原样还回去，不重渲染。 */
     if (prev === 'search' && kind !== 'search') {
+      this.stashSearch();
       persistShellState();
-      resetBodySearch();
+      stopBodySearch();
     }
-    /* 打开搜索浮层：词若还在（重开 / 从别的浮层切过来），补扫一轮正文 */
-    if (opening && kind === 'search') kickBodySearch(getState().searchKw, getState().searchScope);
+    /* 打开搜索浮层：没有缓存时才补扫一轮正文；有缓存就直接复用旧结果，
+       免得刚打开又清空列表、再长一遍。 */
+    if (opening && kind === 'search' && !this.searchStash) {
+      kickBodySearch(getState().searchKw, getState().searchScope);
+    }
     this.paint(opening);
   }
 
@@ -1497,6 +1512,12 @@ export class OverlayLayer {
   }
 
   private paint(refocus = true): void {
+    /* 搜索浮层「隐藏不销毁」：缓存还在就直接原样挂回——不 setHtml、不重建，
+       输入框内容、结果列表与滚动位置都保持隐藏前那一刻。 */
+    if (getState().overlay?.kind === 'search' && this.searchStash) {
+      this.restoreSearchStash(refocus);
+      return;
+    }
     /* 重画前把激活码输入框的现值记下来（P2-08）：粘贴一枚长码 → 点「激活」→
        同步 paint() 按旧 entitlement 重建 DOM，输入框回到空——再点一次「激活」
        发出去的是空码。 */
@@ -1563,16 +1584,70 @@ export class OverlayLayer {
 
     /* 正文搜索是异步的：命中到达时只换命中列表，不整页重绘（否则输入框
        和光标会被换掉）。 */
-    if (this.hitlistCb) {
-      RT.body.listeners.delete(this.hitlistCb);
-      this.hitlistCb = null;
+    this.unbindHitlist();
+    if (o?.kind === 'search') this.bindHitlist();
+  }
+
+  /** 正文命中到达时只替换命中列表，不碰表单与滚动 */
+  private bindHitlist(): void {
+    this.unbindHitlist();
+    this.hitlistCb = () => {
+      const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
+      if (list) setHtml(list, searchResultsHtml(getState().searchKw, getState().searchScope));
+    };
+    RT.body.listeners.add(this.hitlistCb);
+  }
+
+  private unbindHitlist(): void {
+    if (this.hitlistCb) RT.body.listeners.delete(this.hitlistCb);
+    this.hitlistCb = null;
+  }
+
+  /**
+   * 关闭搜索浮层：只把整棵 DOM 收起来，不销毁。
+   *
+   * 点结果跳走后再次打开，要看到同样的词、同样的结果、同样的滚动位置。
+   * 收起来时顺手停掉还在跑的正文扫描：隐藏的列表不该再被后台写入。
+   */
+  private stashSearch(): void {
+    const scrim = this.root.firstElementChild as HTMLElement | null;
+    if (!scrim) return;
+    this.searchScroll = this.root.querySelector<HTMLElement>('.bzs-mbody')?.scrollTop ?? 0;
+    this.unbindHitlist();
+    const holder = createDiv();
+    holder.appendChild(scrim);
+    this.searchStash = holder;
+  }
+
+  /** 再次打开搜索：把收起来的节点原样挂回，不重渲染 */
+  private restoreSearchStash(refocus: boolean): void {
+    const holder = this.searchStash;
+    if (!holder) return;
+    this.searchStash = null;
+    this.untrap?.();
+    this.untrap = null;
+    this.setAccent(shellPrefs().accent);
+    this.root.replaceChildren(...Array.from(holder.childNodes));
+    const body = this.root.querySelector<HTMLElement>('.bzs-mbody');
+    if (body) {
+      body.scrollTop = this.searchScroll;
+      /* 刚挂回文档时布局还没算完，scrollTop 会被夹到 0；下一帧再补一次 */
+      if (this.searchScroll > 0) {
+        const top = this.searchScroll;
+        window.requestAnimationFrame(() => {
+          const b = this.root.querySelector<HTMLElement>('.bzs-mbody');
+          if (b) b.scrollTop = top;
+        });
+      }
     }
-    if (o?.kind === 'search') {
-      this.hitlistCb = () => {
-        const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
-        if (list) setHtml(list, searchResultsHtml(getState().searchKw, getState().searchScope));
-      };
-      RT.body.listeners.add(this.hitlistCb);
+    const dialog = this.root.querySelector<HTMLElement>('[aria-modal="true"]');
+    if (dialog) this.untrap = trapFocus(dialog);
+    this.bindHitlist();
+    if (refocus) {
+      const input = this.root.querySelector<HTMLInputElement>('[data-role="searchkw"]');
+      input?.focus();
+      const len = input?.value.length ?? 0;
+      input?.setSelectionRange(len, len);
     }
   }
 
@@ -1580,8 +1655,8 @@ export class OverlayLayer {
     document.removeEventListener('pointerdown', this.onDocPointer, true);
     for (const off of this.disposers) off();
     this.disposers = [];
-    if (this.hitlistCb) RT.body.listeners.delete(this.hitlistCb);
-    this.hitlistCb = null;
+    this.unbindHitlist();
+    this.searchStash = null;
     this.esc = null;
     this.untrap?.();
     this.untrap = null;
