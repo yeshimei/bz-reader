@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installDomStub } from './helpers/dom-stub';
 import {
+  chapterSandbox,
   formatSrcset,
   inlineMarkup,
   installBlobSrcdocPatches,
@@ -233,6 +234,39 @@ describe('srcset 纯函数', () => {
   });
 });
 
+/**
+ * iOS WebKit bug 218086：`srcdoc` + `sandbox=allow-same-origin`（不带
+ * `allow-scripts`）时，**父页面注册在 iframe 文档上的监听全部收不到事件**，
+ * 控制台报 `Blocked script execution in 'about:srcdoc'`。
+ *
+ * 症状正是 iPhone 上的那一条：正文能选中、目录能跳章，但点按翻页、滑动、
+ * 划词工具条全哑——这三件都靠父页面挂在 iframe doc 上的监听，选字和跳章
+ * 走的是浏览器原生行为与宿主按钮，所以看着「一切正常，就是翻不了页」。
+ * Android 的 Chromium 没这个 bug，所以只有 iOS 中招。
+ *
+ * 解法是官方 workaround：加回 `allow-scripts`，同时在 srcdoc 最前面插一条
+ * `script-src 'none'` 的 CSP——书里的脚本照样一行都跑不了。
+ */
+describe('章节 iframe 的 sandbox 与 CSP（iOS WebKit 218086）', () => {
+  it('sandbox 必须带 allow-scripts，否则 iOS 上父页面一条事件都收不到', () => {
+    expect(chapterSandbox()).toContain('allow-same-origin');
+    expect(chapterSandbox()).toContain('allow-scripts');
+  });
+
+  it('srcdoc 的 head 最前面注入 script-src none，书里的脚本仍然跑不了', async () => {
+    const out = await inlineMarkup(page('<p>字</p>'));
+    expect(out).toMatch(/<head>\s*<meta http-equiv="Content-Security-Policy" content="script-src 'none';?">/);
+  });
+
+  it('书自带的 CSP 仍然被删掉，只留我们自己那条', async () => {
+    const out = await inlineMarkup(
+      page(`<meta http-equiv="Content-Security-Policy" content="default-src 'self'"><p>字</p>`),
+    );
+    expect(out).not.toContain("default-src 'self'");
+    expect(out).toContain("script-src 'none'");
+  });
+});
+
 describe('inlineMarkup · 原有安全清理不回退', () => {  it('删 script / iframe / on* / CSP meta，保留正常内容', async () => {
     const out = await inlineMarkup(
       page(
@@ -242,7 +276,9 @@ describe('inlineMarkup · 原有安全清理不回退', () => {  it('删 script 
     );
     expect(out).not.toContain('<script');
     expect(out).not.toContain('onclick');
-    expect(out).not.toContain('Content-Security-Policy');
+    /* 书自带的那条被删了；留下的是我们自己注入的 script-src 'none' */
+    expect(out).not.toContain("default-src 'self'");
+    expect(out).toContain("script-src 'none'");
     expect(out).not.toContain('javascript:');
     expect(out).toContain('字');
     expect(out).toContain('链接');

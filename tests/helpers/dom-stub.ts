@@ -203,6 +203,14 @@ class MiniElement {
     return this.childNodes.filter(isElement);
   }
 
+  get firstChild(): MiniNode | null {
+    return this.childNodes[0] ?? null;
+  }
+
+  get lastChild(): MiniNode | null {
+    return this.childNodes[this.childNodes.length - 1] ?? null;
+  }
+
   getAttribute(name: string): string | null {
     const n = String(name).toLowerCase();
     return this.attributes.find((a) => a.name === n)?.value ?? null;
@@ -235,6 +243,23 @@ class MiniElement {
     node.parentNode = this;
     this.childNodes.push(node);
     return node;
+  }
+
+  /** 标准 DOM 方法：`inlineMarkup` 要把 CSP meta 插到 head 最前面 */
+  insertBefore<T extends MiniNode>(node: T, ref: MiniNode | null): T {
+    if (node.parentNode) {
+      node.parentNode.childNodes = node.parentNode.childNodes.filter((n) => n !== node);
+    }
+    if (!ref) return this.appendChild(node);
+    const at = this.childNodes.indexOf(ref);
+    node.parentNode = this;
+    if (at < 0) this.childNodes.push(node);
+    else this.childNodes.splice(at, 0, node);
+    return node;
+  }
+
+  prepend(...nodes: MiniNode[]): void {
+    for (const n of [...nodes].reverse()) this.insertBefore(n, this.childNodes[0] ?? null);
   }
 
   append(...nodes: MiniNode[]): void {

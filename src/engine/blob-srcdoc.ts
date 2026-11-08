@@ -272,6 +272,22 @@ export async function inlineMarkup(raw: string): Promise<string> {
     if (kind === 'refresh' || kind === 'content-security-policy') meta.remove();
   }
 
+  /* 换上我们自己的 CSP：只禁脚本，别的照放。
+     书自带的那条上面刚删掉（它会连我们内联的 data: 一起挡住），但**不能没有**——
+     章节 iframe 现在带 `allow-scripts`（见 chapterSandbox()，iOS 收不到事件的
+     唯一解），脚本层面的防线就只剩这一条。
+     必须插在 head 第一个子元素：mXSS 能造出解析树里不存在的 <script>，
+     它只要排在 CSP 前面就会先跑起来。 */
+  const csp = doc.createElement('meta');
+  csp.setAttribute('http-equiv', 'Content-Security-Policy');
+  csp.setAttribute('content', "script-src 'none'");
+  let head = doc.head;
+  if (!head) {
+    head = doc.createElement('head');
+    doc.documentElement.insertBefore(head, doc.documentElement.firstChild);
+  }
+  head.insertBefore(csp, head.firstChild);
+
   for (const el of Array.from(doc.querySelectorAll('*'))) {
     for (const attr of Array.from(el.attributes)) {
       if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
@@ -403,15 +419,33 @@ function installUrlRegistry(): void {
 }
 
 /**
+ * 章节 iframe 的 sandbox 值。
+ *
+ * **`allow-scripts` 不是可选项**：WebKit bug 218086（2020 年报的，到今天最新
+ * iOS 仍然在）——`srcdoc` 帧用 `sandbox=allow-same-origin` 而没带 `allow-scripts`
+ * 时，**父页面注册在这份文档上的监听一个事件都收不到**，控制台报
+ * `Blocked script execution in 'about:srcdoc'`。分页器的 touchstart/move、
+ * 我们挂的点按与划词监听全在那份文档上，iOS 上于是「正文能选中、目录能跳章，
+ * 就是点不动、滑不动、划词不出工具条」——而 Android 的 Chromium 没这个 bug，
+ * 桌面也正常，只有 iPhone 中招。
+ *
+ * 加回来的代价由 `inlineMarkup` 注入的 `script-src 'none'` CSP 兜住：
+ * 书里的脚本照样一行都执行不了，安全边界没有松开。
+ */
+export function chapterSandbox(): string {
+  return 'allow-same-origin allow-scripts';
+}
+
+/**
  * 2) 拦 iframe.src：blob 地址 → 读原文 → 内联 → srcdoc
  *
- * 顺手给章节 iframe 挂 `sandbox="allow-same-origin"`（P1-01）。
+ * 顺手把章节 iframe 的 `sandbox` 设成 `chapterSandbox()`（P1-01）。
  *
  * 为什么是这两个词的组合：
  *   · `allow-same-origin` 必须留——foliate 的父页面要读 `contentDocument`
  *     来分页、取选区、画高亮；去掉它，翻页和划词全废。
- *   · `allow-scripts` 坚决不给——书里的 `<script>` 已经被黑名单删了，但 mXSS
- *     能在序列化之后造出新的；只有浏览器级的「不执行脚本」能兜住这一层。
+ *   · `allow-scripts` 也必须留，理由见 `chapterSandbox()`：少了它 iOS 上
+ *     父页面的监听收不到事件。书里的脚本由 CSP 挡。
  *
  * 副作用：sandbox 里没有 `allow-popups` / `allow-forms` / `allow-top-navigation`，
  * 书里的外链点了不会跳转（本来也不该跳）。真机要回归：翻页、脚注、划词。
@@ -447,10 +481,11 @@ function installIframeSrcPatch(): void {
       originalSet.call(this, url);
       return;
     }
-    /* 脚本执行交给浏览器，不指望黑名单。写在 srcdoc 之前，避免那一瞬间
-       iframe 已经按无 sandbox 的状态加载过一次。 */
+    /* 脚本执行交给注入的 CSP（script-src 'none'）拦；allow-scripts 只为
+       让 iOS 把事件派发给父页面的监听，见 chapterSandbox()。
+       写在 srcdoc 之前，避免那一瞬间 iframe 已经按无 sandbox 的状态加载过一次。 */
     try {
-      this.setAttribute('sandbox', 'allow-same-origin');
+      this.setAttribute('sandbox', chapterSandbox());
     } catch {
       /* 老 WebView 不支持就退回只靠黑名单，别让开书失败 */
     }
