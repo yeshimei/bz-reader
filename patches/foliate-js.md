@@ -17,8 +17,6 @@
 | `paginator.js` | `columnize()` 里 `requestAnimationFrame` 回调前加 `if (!this.#view) return` | 视图销毁后那一帧仍会跑，`this.#view.docBackground` 直接抛 `Cannot read properties of null`。触发场景：快速关书后立刻从位置链接重开另一本（`#mediaQueryListener` 上游已有同样的判空，这一处漏了） |
 | `paginator.js` | `load()` 三条改造：①不用 `display:none` 等 load，改成 `visibility:hidden`（安卓 WebView 对不可见 iframe 可能干脆不加载）；②不依赖 `load` 事件——每 200ms 轮询 `contentDocument`，正文一出现就挂载；③8s 没动静再按 blob 原文重试、15s 仍失败就 `reject` | 上游只挂 `load`、不挂 `error`，地址加载失败时 Promise 既不 resolve 也不 reject，上层 `await` 永远悬着——白屏且无报错，恢复工作区时还会把 Obsidian 钉在「加载工作区中…」 |
 | `paginator.js` | `destroy()` 里 `this.#view.destroy()` 改为 `this.#view?.destroy()` | `#view` 在从未装载 / 已被上一次 destroy 置空时为 null，原版直接抛 `Cannot read properties of null`。这一抛会把后面的 `sections[index].unload()` 与 `#mediaQuery.removeEventListener` 全部跳过：整本书的 section 引用和 mediaQuery 监听都泄漏（宿主侧 `host.destroy` 里补了「close 失败也断链」的兜底，但根因在这里） |
-| `paginator.js` | 删掉「拖选越界自动翻页」整段（`checkPointerSelection` 与它的 `isPointerSelecting` 开关），只留键盘选择那条 | 上游把它当成「用户想选到页外」，700ms 后 `prev()`/`next()`。移动端会误触：安卓长按选字拿到 `pointercancel` 而不是 `pointerup`，开关卡在真上，拖选择手柄改选区就被判成跨页，页面整页跳走（2026-11-08 录屏：向上拖起点跳上一页）。试过「只关触摸」和「只吸回」，都会伤到扩选；最终按用户决定**完全禁止跨页选择**，拖到页边不再翻页 |
-| `paginator.js` | 粗指针（`pointer: coarse`）且正文有非空选区时，把 `containerPosition` 吸回整页边界 | 禁掉自动翻页后还有第二处动页面：浏览器为了让选区进入视野，会把 `#container` 滚走（`overflow: hidden` 拦不住程序滚动）。分页模式下 `scrollLeft` 就是页位置，于是整页横移半屏：左边每行少一个字、右边露出下一列每行的第一个字。移动端拖选要求页面完全不动，所以有选区就吸回；`#locked`（翻页动画）期间不插手，桌面鼠标不动它 |
 
 > 移动端 `blob:` 帧被宿主 CSP 挡掉的问题**不在 vendor 里修**：`engine/blob-srcdoc.ts`
 > 在运行时拦 `iframe.src`，把 blob 读成原文、内联 CSS/图片后写 `srcdoc`。
