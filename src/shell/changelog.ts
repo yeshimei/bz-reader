@@ -59,6 +59,42 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '0.3.3',
+    date: '2026-11-08',
+    improved: [
+      {
+        domain: { zh: '搜索合并', en: 'One search box' },
+        text: {
+          zh: '本书与全库两档，书名、章节、标注与正文一次搜完。',
+          en: 'Both scopes now search titles, chapters, highlights and body text in one go.',
+        },
+      },
+      {
+        domain: { zh: '搜索高亮', en: 'Search results' },
+        text: {
+          zh: '结果里的关键词加底色，没作者的书只显示书名。',
+          en: 'Keywords are highlighted in the results, and a book with no author now shows just its title.',
+        },
+      },
+      {
+        domain: { zh: '搜索浮层', en: 'Search popover' },
+        text: {
+          zh: '关掉再打开，还停在原来的词、结果和位置。',
+          en: 'Close the search popover and open it again: the same query, the same results, the same position.',
+        },
+      },
+    ],
+    fixed: [
+      {
+        domain: { zh: '移动端滑杆', en: 'Sliders on mobile' },
+        text: {
+          zh: '设置页往下滚，手指扫过滑轨不再改字号与行距。',
+          en: 'Scrolling the settings page no longer changes font size or line spacing when a finger brushes a slider.',
+        },
+      },
+    ],
+  },
+  {
     version: '0.3.2',
     date: '2026-11-08',
     improved: [
