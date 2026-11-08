@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { REPLAY_MS, REPLAY_PX, isReplayTap } from '../src/engine/tap-replay';
+import {
+  REPLAY_MS,
+  REPLAY_PX,
+  isReplayTap,
+  touchTapVerdict,
+  type TapGesture,
+} from '../src/engine/tap-replay';
 
 /**
  * 一次点按会被两条路各报一次（pointer 与 touch）。
@@ -38,5 +44,73 @@ describe('isReplayTap', () => {
   it('窗口内小幅抖动（真机两条路取的坐标偶尔差零点几像素）：仍算同一次', () => {
     const last = { at: 1000, x: 100, y: 200 };
     expect(isReplayTap(last, 1010, 100.4, 200.6)).toBe(true);
+  });
+});
+
+/**
+ * touchend 捕获层的裁决。真机反馈（Android）：一次点按翻两页、中间闪一下。
+ *
+ * 时间窗（isReplayTap 的 80ms）在手机上靠不住：pointerup 这一下会同步触发
+ * 滚动 + 整章重排 + 进度落盘，主线程被占住之后 touchend 才被派发，
+ * 间隔常常上百毫秒，于是同一个手势被当成两次点按。
+ *
+ * 所以真正的判据是手势身份：pointer 这条路报过就把它记在这次手势上，
+ * touchend 到了直接闭嘴——不看时间，也不看坐标差不差得开。
+ */
+describe('touchTapVerdict', () => {
+  const base = (patch: Partial<TapGesture> = {}): TapGesture => ({
+    x: 100,
+    y: 200,
+    at: 1000,
+    moved: 0,
+    fingers: 1,
+    reported: false,
+    ...patch,
+  });
+  const opts = (patch: { now?: number; remaining?: number } = {}): {
+    now: number;
+    remaining: number;
+    longPressMs: number;
+    movePx: number;
+  } => ({ now: 1010, remaining: 0, longPressMs: 500, movePx: 12, ...patch });
+
+  it('没有进行中的手势：什么都不做', () => {
+    expect(touchTapVerdict(null, opts())).toBe('skip');
+    expect(touchTapVerdict(undefined, opts())).toBe('skip');
+  });
+
+  it('普通单指点按：由触摸这条路补上这一次', () => {
+    expect(touchTapVerdict(base(), opts())).toBe('report');
+  });
+
+  it('pointer 已经为同一手势报过：不再上报，但这条 touchend 仍要吞掉', () => {
+    expect(touchTapVerdict(base({ reported: true }), opts())).toBe('settled');
+  });
+
+  it('pointer 报得很早、touchend 迟到几百毫秒：照样算同一手势', () => {
+    /* 今天那个 bug 就是这一条：主线程被翻页占住，touchend 隔了 300ms 才到，
+       80ms 的时间窗判不出来，于是又翻一页。手势身份不看时间。 */
+    expect(touchTapVerdict(base({ reported: true }), opts({ now: 1300 }))).toBe('settled');
+  });
+
+  it('手指还在屏上（多指还没抬完）：不是这次手势的结束', () => {
+    expect(touchTapVerdict(base(), opts({ remaining: 1 }))).toBe('skip');
+  });
+
+  it('起手就是两指：不是点按', () => {
+    expect(touchTapVerdict(base({ fingers: 2 }), opts())).toBe('skip');
+  });
+
+  it('长按：不翻页，也不能吞掉 touchend（分页器还要用它收尾）', () => {
+    expect(touchTapVerdict(base(), opts({ now: 1600 }))).toBe('skip');
+  });
+
+  it('拖动过：不翻页，交给分页器吸附', () => {
+    expect(touchTapVerdict(base({ moved: 40 }), opts())).toBe('skip');
+  });
+
+  it('pointer 报过之后紧接着又拖动了：仍然只算一次，不重复上报', () => {
+    /* reported 优先于位移判定：这一次手势的翻页已经发生，touchend 不该再来一次 */
+    expect(touchTapVerdict(base({ reported: true, moved: 40 }), opts())).toBe('settled');
   });
 });

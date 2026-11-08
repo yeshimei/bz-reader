@@ -44,7 +44,7 @@ import { DEFAULT_PREFS, gatedPrefs, type ReaderPrefs } from '../data/prefs';
 import { can } from '../data/entitlement';
 import { engineMetaFromBook, type EngineMeta } from '../data/book-meta';
 import { accumulateEdgeTurn, scrollEdgeOf } from './scroll-edge';
-import { isReplayTap, type TapMark } from './tap-replay';
+import { isReplayTap, touchTapVerdict, type TapGesture, type TapMark } from './tap-replay';
 
 /** 宿主坐标系里的矩形（左上角 + 宽高，单位 CSS px） */
 export interface Rect {
@@ -737,6 +737,10 @@ export class EngineHost {
     const TAP_MOVE_PX = 12;
     const TAP_LONG_PRESS_MS = 500;
 
+    /* 屏上正在进行的那次触摸手势。`reported` 由 emitTap 置位：
+       pointer 这条路报过之后，touchend 只是回声，不能再翻一页。 */
+    let touchTap: TapGesture | null = null;
+
     const emitTap = (
       x: number,
       y: number,
@@ -798,6 +802,9 @@ export class EngineHost {
          真要点别处会被误判成重播。 */
       if (isReplayTap(this.lastTap, now, x, y)) return;
       this.lastTap = { at: now, x, y };
+      /* 把「这次手势已经上报过」记在手势自己身上：紧随其后的 touchend
+         隔着多久都能认出来（手机上翻页的重排会把 touchend 拖到上百毫秒后）。 */
+      if (source === 'pointer' && touchTap) touchTap.reported = true;
       this.opts.onTap?.(zone, { x, y, width: live, source, scrollLeft, within, screenX });
     };
 
@@ -879,13 +886,12 @@ export class EngineHost {
       if (!a || !b) return 0;
       return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
     };
-    let touchTap: { x: number; y: number; at: number; moved: number; fingers: number } | null = null;
 
     const onTouchStart = (ev: TouchEvent): void => {
       if (ev.touches.length === 1) {
         const t = ev.touches[0];
         this.lastTouchY = t?.clientY ?? 0;
-        touchTap = { x: t.clientX, y: t.clientY, at: Date.now(), moved: 0, fingers: 1 };
+        touchTap = { x: t.clientX, y: t.clientY, at: Date.now(), moved: 0, fingers: 1, reported: false };
       } else if (touchTap) {
         touchTap.fingers = ev.touches.length;
       }
@@ -947,14 +953,22 @@ export class EngineHost {
 
        触摸这条路**无条件**上报，不再看 pointer 有没有走过（那正是 iPhone 上
        彻底点不动的根因，见 tap-replay.ts 的文件头）。同一次手势的重播由
-       emitTap 里的时间 + 位置判据去掉，所以多报一次不会多翻一页。 */
+       touchTapVerdict 按手势身份去掉——不看时间：手机上翻页的重排会把
+       touchend 拖到 80ms 之后才派发，窗口判空就是「一次点按翻两页」。 */
     const onTouchEndCapture = (ev: TouchEvent): void => {
-      const tap = touchTap;
-      if (!tap || tap.fingers !== 1 || ev.touches.length > 0) return;
-      if (Date.now() - tap.at >= TAP_LONG_PRESS_MS) return;
-      if (tap.moved >= TAP_MOVE_PX) return;
-      const t = ev.changedTouches[0];
-      if (t) emitTap(t.clientX, t.clientY, ev.target, 'touch', t.screenX, t.screenY);
+      const verdict = touchTapVerdict(touchTap, {
+        now: Date.now(),
+        remaining: ev.touches.length,
+        longPressMs: TAP_LONG_PRESS_MS,
+        movePx: TAP_MOVE_PX,
+      });
+      /* 不是点按：长按 / 拖动 / 多指都要把 touchend 留给分页器收尾 */
+      if (verdict === 'skip') return;
+      /* 已经由 pointer 报过：不再报第二遍，但这屏点按仍要吞掉 touchend */
+      if (verdict === 'report') {
+        const t = ev.changedTouches[0];
+        if (t) emitTap(t.clientX, t.clientY, ev.target, 'touch', t.screenX, t.screenY);
+      }
       /* 这次手势已经结算，别再让 bubble 层的收尾把它当成「还没结束」 */
       touchTap = null;
       /* 拦下这一条，分页器就收不到 touchend，不会跑零速度吸附 */
