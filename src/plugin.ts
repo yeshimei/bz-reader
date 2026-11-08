@@ -54,7 +54,6 @@ import { normalizePluginData, type PluginDataFile } from './data/plugin-data';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
 import { installBlobSrcdocPatches, uninstallBlobSrcdocPatches } from './engine/blob-srcdoc';
 import { disposeCrossSearchStage, searchAcrossBooks } from './engine/cross-search';
-import { openStats } from './ui/stats-panel';
 import { openCrossSearch } from './ui/cross-search-panel';
 
 /* 壳层 */
@@ -338,9 +337,10 @@ export function createPlugin(cfg: PluginConfig) {
       });
       setShelfProActions({
         openStats: () => {
-          // 基础版包里没有 openStats（构建时被换成空实现），只能走解锁层
-          if (__BZ_READER_PRO__ && can('stats')) openStats(this.store);
-          else setState({ overlay: { kind: 'unlock', mode: 'stats' } });
+          /* 统计页只有一套了（书架的 stats 子页）：原来那个二级弹窗是独立 DOM，
+             和统计页各算各的。收编之后，未解锁的人进去看到的就是基础版锁态，
+             锁态上的「高级版」按钮照样能打开解锁层。 */
+          this.openStudy('stats');
         },
         openCrossSearch: () => {
           if (__BZ_READER_PRO__ && can('crossSearch')) {

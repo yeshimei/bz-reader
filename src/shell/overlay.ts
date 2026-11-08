@@ -680,10 +680,20 @@ function overlayPoster(): string {
 function overlayGoal(): string {
   const st = getState();
   const done = liveBooks().filter((b) => !!b.reading.stats.completedTime).length;
+  /* 统计页一比一之后，每日目标档位从卡片上撤了，收进这里：
+     年度目标与每日目标在同一处调，统计页不额外摆控件。 */
+  const rawDaily = Number(getShellSource()?.store.get().dailyGoalMinutes);
+  const daily = Number.isFinite(rawDaily) && rawDaily > 0
+    ? Math.min(600, Math.max(1, Math.round(rawDaily))) : 20;
+  const chips = [10, 15, 20, 30, 45, 60].map((n) =>
+    `<button class="bzs-chip${n === daily ? ' on' : ''}" data-act="setdailygoal" data-v="${n}">${t('stats.minutes', { n })}</button>`,
+  ).join('');
   const body = `<div class="bzs-setgrp flat">
       <div class="bzs-setrow"><label>今年读</label>
         <span class="bzs-range"><input type="range" data-role="goal" min="5" max="100" step="1" value="${st.goal}" style="--fill:${rangeFill(5, 100, st.goal)}"></span>
         <span class="val" id="bzs-goalval">${t('stats.goal.value', { n: st.goal })}</span></div>
+      <div class="bzs-setrow"><label>${t('stats.checkin.goal')}</label>
+        <span style="display:inline-flex;flex-wrap:wrap;gap:6px">${chips}</span></div>
       <div class="bzs-mini" style="margin-top:12px;line-height:1.9">已完成 ${done} 本。目标只影响仪表盘上的那圈铜线。</div>
     </div>`;
   return modal('年度目标', '按自己的节奏来', body, closeBtn());

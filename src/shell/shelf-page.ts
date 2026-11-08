@@ -20,6 +20,7 @@ import { viewLibrary, type StudyCounts } from './render/study';
 import { viewSearch } from './render/search';
 import { viewNotes } from './render/notes';
 import { viewStats, viewStatsLocked } from './render/stats';
+import { getStatsUi } from './stats-ui';
 import { KEY_COMMANDS, viewSettings } from './render/settings';
 import { readHotkeys } from '../core/hotkeys';
 
@@ -141,18 +142,20 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
     case 'stats': {
       // 统计是付费项：锁着给基础版（六个真实数字 + 强调色遮罩），点一下弹高级版
       const src = getShellSource();
-      /* 归档书的阅读历史仍然计入统计（用户定的口径）：聚合用全量书籍，
-         但页面上的书单只看在架的书——归档的不该出现在「最近在读」里。 */
+      /* 归档书的阅读历史仍然计入统计。整页一比一之后，KPI、明细表、
+         热力图全部同出这一份全量书籍，不再另切一份在架书单——
+         否则「读过 / 在库」会和表格里的行数对不上。 */
       const all = src?.repo.all() ?? books;
       const statsView = {
         stats: collectStats(all),
-        books,
+        books: all,
         goal: state.goal,
         checkins: src?.store.get().checkins,
         dailyGoalMinutes: src?.store.get().dailyGoalMinutes,
       };
+      const ui = getStatsUi();
       return {
-        body: can('stats') ? viewStats(statsView) : viewStatsLocked(statsView),
+        body: can('stats') ? viewStats(statsView, ui) : viewStatsLocked(statsView, ui),
         counts,
       };
     }

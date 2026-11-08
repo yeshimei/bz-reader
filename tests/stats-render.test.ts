@@ -1,3 +1,10 @@
+/**
+ * 统计页的回归断言（tests/stats-render.test.ts）
+ *
+ * 整页强化之后，原来的「每日打卡卡」被原型的一比一版式替换：
+ * 目标档位、达标文案并入趋势图的目标线与口径对照表。
+ * 这里保留锁态的骨架断言，并补一条「数字只认会话、不认手写汇总值」。
+ */
 import { describe, expect, it } from 'vitest';
 import { viewStats, viewStatsLocked, type StatsView } from '../src/shell/render/stats';
 
@@ -15,39 +22,34 @@ function view(patch: Partial<StatsView> = {}): StatsView {
   };
 }
 
-describe('统计页 · 每日打卡', () => {
-  it('显示连续 / 今天 / 本月的打卡状态', () => {
+describe('统计页 · 目标与口径', () => {
+  it('每日目标画成趋势图上的目标线，不再是一排可点档位', () => {
     const h = viewStats(view());
-    expect(h).toContain('每日打卡');
-    expect(h).toContain('连续');
-    expect(h).toContain('今天');
+    expect(h).toContain('目标 30 分');
+    expect(h).not.toContain('data-act="setdailygoal"');
   });
 
-  it('每日目标可点选，当前值高亮', () => {
-    const h = viewStats(view());
-    expect(h).toContain('data-act="setdailygoal"');
-    expect(h).toMatch(/class="[^"]*on[^"]*"[^>]*data-v="30"|data-v="30"[^>]*class="[^"]*on/);
+  it('打卡与会话的差额进口径对照表，不再写「已达标」', () => {
+    const h = viewStats(view({ checkins: { '2026-11-04': 30 * 60 }, dailyGoalMinutes: 30 }));
+    expect(h).toContain('口径对照');
+    expect(h).toContain('30:00');
+    expect(h).not.toContain('已达标');
   });
 
-  it('今天读够时写「已达标」，没够时写还差多少', () => {
-    const done = viewStats(view({ checkins: { '2026-11-04': 30 * 60 }, dailyGoalMinutes: 30 }));
-    expect(done).toContain('已达标');
-    const not = viewStats(view({ checkins: { '2026-11-04': 10 * 60 }, dailyGoalMinutes: 30 }));
-    expect(not).toContain('还差 20 分');
-  });
-
-  it('没有 checkins 时退回统计热力图那份数据，不显示空白', () => {
+  it('没有 checkins 时三套账仍然齐全，不显示空白', () => {
     const h = viewStats(view({ checkins: undefined, stats: { ...view().stats, days: { '2026-11-04': 31 * 60 } } }));
-    expect(h).toContain('已达标');
+    expect(h).toContain('会话有效');
+    expect(h).toContain('挂钟');
+    expect(h).toContain('合计');
   });
 });
 
 /** 造最小书籍：锁态只数会话条数与是否读过，不需要完整 schema */
 function lockedView(patch: Partial<StatsView> = {}): StatsView {
   const sessions = [
-    { start: NOW - 3 * 86_400_000, durationSeconds: 129 },
-    { start: NOW - 2 * 86_400_000, durationSeconds: 395 },
-    { start: NOW, durationSeconds: 60 },
+    { start: NOW - 3 * 86_400_000, end: NOW - 3 * 86_400_000 + 129_000, durationSeconds: 129 },
+    { start: NOW - 2 * 86_400_000, end: NOW - 2 * 86_400_000 + 395_000, durationSeconds: 395 },
+    { start: NOW, end: NOW + 60_000, durationSeconds: 60 },
   ];
   return view({
     stats: {
@@ -70,9 +72,9 @@ describe('统计页 · 基础版锁态', () => {
   it('头部给出 6 个真实统计，且都在遮罩之外', () => {
     const h = viewStatsLocked(lockedView());
     const head = h.slice(0, h.indexOf('bzs-lockstat'));
-    expect((head.match(/class="k"/g) ?? []).length).toBe(6);
-    expect(head).toContain('37:14');
-    expect(head).toContain('19:51');
+    expect((head.match(/class="kpi"/g) ?? []).length).toBe(6);
+    expect(head).toContain('09:44');
+    expect(head).toContain('01:00');
     expect(head).toContain('3 天');
     expect(head).toContain('1 天');
     expect(head).toContain('3 段');
@@ -84,7 +86,7 @@ describe('统计页 · 基础版锁态', () => {
     expect(h).toContain('bzs-lockstat-mask');
     expect(h).toContain('bzs-lockstat-body');
     expect(h.indexOf('bzs-lockstat-body')).toBeLessThan(h.indexOf('bzs-lockstat-mask'));
-    expect(h).toContain('bzs-heat');
+    expect(h).toContain('class="chart"');
   });
 
   it('高级版按钮与整块遮罩都打开 stats 模式的解锁层', () => {
@@ -94,12 +96,11 @@ describe('统计页 · 基础版锁态', () => {
     expect((h.match(/data-act="unlock"/g) ?? []).length).toBeGreaterThanOrEqual(2);
   });
 
-  it('数字跟着传入的数据走，不是写死的样例', () => {
+  it('数字只认会话明细，手写汇总值不会顶替真实数据', () => {
     const h = viewStatsLocked(lockedView({
       stats: { totalSeconds: 60, todaySeconds: 60, streakDays: 5, activeDays: 9, days: {}, books: [] },
     }));
-    expect(h).toContain('01:00');
-    expect(h).toContain('9 天');
+    expect(h).toContain('09:44');
     expect(h).not.toContain('37:14');
   });
 

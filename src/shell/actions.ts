@@ -103,6 +103,10 @@ import { aiCardDrop, aiCardKey, aiModeOf } from './ai-card';
 import { runAiForOverlay } from './overlay';
 import { DEFAULT_SETTINGS, aiReady } from '../data/settings';
 import { copyGroupId } from './group';
+import { collectStats } from '../data/stats';
+import { statsModelOf, statsReportOf, type StatsView } from './render/stats';
+import { downloadStatsPoster } from './stats-poster';
+import { getStatsUi, setStatsUi } from './stats-ui';
 import { withSignal } from '../core/with-signal';
 
 /** 当前上下文里的书：优先状态里记住的那本，否则取书库第一本 */
@@ -193,6 +197,19 @@ function repaint(): void {
 
 function overlay(kind: OverlayKind, extra: Record<string, unknown> = {}): void {
   openOverlay({ kind, ...extra });
+}
+
+/** 统计页动作要用的一份视图：和书架页同数据源，报告 / 周报才不会和页面对不上 */
+function currentStatsView(): StatsView {
+  const src = getShellSource();
+  const all = src?.repo.all() ?? liveBooks();
+  return {
+    stats: collectStats(all),
+    books: all,
+    goal: getState().goal,
+    checkins: src?.store.get().checkins,
+    dailyGoalMinutes: src?.store.get().dailyGoalMinutes,
+  };
 }
 
 /**
@@ -657,6 +674,45 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       }
       break;
     }
+    /* ── 统计页：范围 / 口径 / 重算预演 / 报告出口 ──
+       重算只在 stats-ui 的内存里生效，checkins 一行都不写回 store。 */
+    case 'statsrange':
+      setStatsUi({ range: d.v === 'today' ? 'today' : 'all', preview: false });
+      rerender();
+      break;
+    case 'statsaudit':
+      setStatsUi({ audit: d.v === 'wall' ? 'wall' : 'checkin', preview: false });
+      rerender();
+      break;
+    case 'statsrecalc':
+      setStatsUi({ preview: true });
+      rerender();
+      break;
+    case 'statscancel':
+      setStatsUi({ preview: false });
+      rerender();
+      break;
+    case 'statsapply':
+      setStatsUi({ recalced: true, preview: false });
+      rerender();
+      break;
+    case 'statsrestore':
+      setStatsUi({ recalced: false, preview: false });
+      rerender();
+      break;
+    case 'statscopy': {
+      if (!requireCap('stats')) break;
+      void copyText(statsReportOf(currentStatsView(), getStatsUi()));
+      const label = el.textContent;
+      el.textContent = t('notice.copy.ok');
+      window.setTimeout(() => { el.textContent = label; }, 1500);
+      break;
+    }
+    case 'statsposter':
+      if (!requireCap('stats')) break;
+      downloadStatsPoster(statsModelOf(currentStatsView(), getStatsUi()));
+      break;
+
     case 'reset':
       overlay('reset');
       break;
