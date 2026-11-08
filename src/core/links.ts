@@ -12,4 +12,4 @@
  * README 顶部也挂同一条，但那边是 markdown，抄不了这个常量——
  * `tests/readme-links.test.ts` 盯着两份是否一致，换视频记得一起改。
  */
-export const VIDEO_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1tK4E6KE1B';
+export const VIDEO_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1bR4s6dEjH';
