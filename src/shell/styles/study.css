@@ -333,8 +333,9 @@
 }
 
 .bzs-shell .bzs-round svg {
-  width: 16px;
-  height: 16px;
+  /* 与 13px 的胶囊文字并排时 16px 的线描显得偏小，提到 18 */
+  width: 18px;
+  height: 18px;
 }
 
 /* 选值胶囊：同样去掉边框、落宿主的 secondary 底；选中实心铜 */
