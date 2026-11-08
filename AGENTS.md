@@ -97,7 +97,7 @@ node scripts/lint-obsidian.mjs
 4. `manifest.json` 的 `version`、`versions.json` 同步，再跑 `node scripts/update-badges.mjs` 刷 `version.svg` / `downloads.svg`（下载量 = 全部 Release 全部资产之和）；
 5. `node esbuild.config.mjs production`（落仓库根三件套：`main.js` / `manifest.json` / `styles.css`）；
 6. 提交、推送、打 tag——**tag 与 `manifest.version` 逐字相同，不带 `v`**；
-7. `gh release create <版本> --notes-file docs/note-v<版本>.md main.js manifest.json styles.css`；
+7. `gh release create <版本> --title <版本> --notes-file docs/note-v<版本>.md main.js manifest.json styles.css`（`--title` 必须与版本逐字相同：社区目录会检查 Release name 是否匹配 `manifest.version`）；
 8. `node scripts/push-gitee.mjs`：镜像到码云（Release 页 + 三件套资产）；
 9. 在 `community.obsidian.md` 提交。
 
