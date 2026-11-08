@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { mergeBodyHits, planBodyBooks, runBodySearch, type BodyHit } from '../src/shell/search-body';
+import { settleBodySearch } from '../src/shell/search-run';
+import { RT } from '../src/shell/runtime';
 
 /* ============================================================
  * 正文搜索的纯逻辑（fix/search-body）。
@@ -139,5 +141,21 @@ describe('runBodySearch', () => {
       onProgress: () => undefined,
     });
     expect(done).toBe(true);
+  });
+});
+
+describe('settleBodySearch（真机出现过「跑完却显示已停止」）', () => {
+  it('完整跑完：不记「已停止」', () => {
+    RT.body.running = true;
+    RT.body.stopped = true;
+    settleBodySearch(true);
+    expect(RT.body.running).toBe(false);
+    expect(RT.body.stopped).toBe(false);
+  });
+
+  it('被叫停：记「已停止」', () => {
+    RT.body.running = true;
+    settleBodySearch(false);
+    expect(RT.body.stopped).toBe(true);
   });
 });

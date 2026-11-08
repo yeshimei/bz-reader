@@ -127,7 +127,7 @@ async function run(seq: number, q: string, books: Array<{ id: string; title: str
   const src = getShellSource();
   if (!src || seq !== RT.body.seq) return;
 
-  const stopped = !(await runBodySearch({
+  const finished = await runBodySearch({
     kw: q,
     books,
     shouldStop: () => seq !== RT.body.seq,
@@ -153,10 +153,21 @@ async function run(seq: number, q: string, books: Array<{ id: string; title: str
       RT.body.total = total;
       notify();
     },
-  }));
+  });
 
   if (seq !== RT.body.seq) return;
+  settleBodySearch(finished);
+}
+
+/**
+ * 一轮搜完的收口：`finished` 是 runBodySearch 的返回值（true=完整跑完）。
+ *
+ * 单独抽出来是为了能被测试钉住：这里曾经写成 `stopped = !finished` 再
+ * `RT.body.stopped = !stopped`，连反两次——跑完反而显示「已停止」，真机上
+ * 一眼就能看到。用 `stopped = !finished` 只留一次取反。
+ */
+export function settleBodySearch(finished: boolean): void {
   RT.body.running = false;
-  RT.body.stopped = !stopped;
+  RT.body.stopped = !finished;
   notify();
 }
