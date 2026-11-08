@@ -238,8 +238,29 @@ export function verifyCopiedJson(
   return { ok: true, message: '', books };
 }
 
+/**
+ * 报错的可读文本。
+ *
+ * 不是所有平台的读失败都是 `Error`：移动端桥接层有抛字符串的，也有抛
+ * `{ code: 'NOT_FOUND' }` 这种对象的。只看 `.message` 会得到空串，后面
+ * 任何匹配都命中不了，于是「文件不存在」被判成真失败。
+ */
+function errorText(e: unknown): string {
+  if (typeof e === 'string') return e;
+  const o = e as { message?: unknown; code?: unknown } | null;
+  return `${o?.message ?? ''} ${o?.code ?? ''}`;
+}
+
+/**
+ * 报错说是「文件不存在」。
+ *
+ * **只当兜底**：正常路径上游已经先问过 `exists()`。这里认不全是必然的——
+ * iOS 上 FileManager 的错误描述跟着系统语言走（中文系统给的是
+ * 「未能完成操作。（NSCocoaErrorDomain 错误 260。）」），靠文案判断存在性
+ * 从一开始就不可靠。
+ */
 function isMissing(e: unknown): boolean {
-  return /not exist|ENOENT|no such file/i.test((e as Error)?.message || '');
+  return /not exist|not found|ENOENT|no such file|NOT_FOUND|找不到该文件|文件不存在/i.test(errorText(e));
 }
 
 export class ReaderStore {
@@ -390,24 +411,47 @@ export class ReaderStore {
 
     let text: string | null = null;
     let missing = false;
+    let existsSaid = false;
     let readFailed = false;
+    /* 先问一句「在不在」，不拿报错文案猜。
+       2026-11-08 iPhone 首装真机反馈：iOS 上读一个不存在的文件，抛的是
+       FileManager 的本地化描述（「未能完成操作。（NSCocoaErrorDomain 错误 260。）」），
+       一个英文关键词都不含。旧实现靠 `/not exist|ENOENT|no such file/` 认，
+       于是首装被判成「读取失败」——弹红字 + 整场会话锁成只读，用户加的书、
+       划的线一条都存不下去。存在性本来就是能直接问的，不该靠猜。
+       `exists` 自己抛错时不急着定案，退回 read 再试，下面的文案匹配兜底。 */
     try {
-      text = await adapter.read(file);
-    } catch (e) {
-      if (isMissing(e)) {
-        // 「不存在」是首次安装的正常态，顺带看看是不是从老版本升上来的
-        missing = true;
-        if (await this.adoptLegacy()) {
-          text = await adapter.read(file).catch(() => null);
+      if (await adapter.exists(file)) existsSaid = true;
+      else missing = true;
+    } catch {
+      /* 问不出来就按老路读一次，让 catch 分支判 */
+    }
+    if (!missing) {
+      try {
+        text = await adapter.read(file);
+      } catch (e) {
+        if (isMissing(e)) {
+          /* exists 刚说「在」、read 却说「不在」：多半是竞态（Sync 刚把文件
+             建出来 / 另一个窗口刚写完）。再读一次，别急着按空库启动——
+             那样下一次 touch() 就把刚同步来的书整份盖掉。 */
+          if (existsSaid) text = await adapter.read(file).catch(() => null);
+          if (text === null) missing = true;
+        } else {
+          /* 权限 / IO / 盘掉线：这**不是**首次安装。
+             当成空库继续跑，下一次 touch() 就会用「一本书都没有」覆盖真数据，
+             所以这里直接进只读，让 writeOnce() 早退。 */
+          readFailed = true;
+          this.readOnly = true;
+          console.warn('[bz-reader] 读取数据失败：', errorText(e));
+          notify(t('notice.data.loadFailed'), 'error');
         }
-      } else {
-        /* 权限 / IO / 盘掉线：这**不是**首次安装。
-           当成空库继续跑，下一次 touch() 就会用「一本书都没有」覆盖真数据，
-           所以这里直接进只读，让 writeOnce() 早退。 */
-        readFailed = true;
-        this.readOnly = true;
-        console.warn('[bz-reader] 读取数据失败：', (e as Error)?.message || e);
-        notify(t('notice.data.loadFailed'), 'error');
+      }
+    }
+
+    /* 「不存在」是首次安装的正常态，顺带看看是不是从老版本升上来的 */
+    if (!readFailed && missing) {
+      if (await this.adoptLegacy()) {
+        text = await adapter.read(file).catch(() => null);
       }
     }
 

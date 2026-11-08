@@ -1,8 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { App } from 'obsidian';
 import { ReaderStore, sanitizeDataDetailed } from '../src/data/store';
 import { DEFAULT_DATA_DIR } from '../src/core/plugin-path';
 import { FakeAdapter } from './helpers/fake-adapter';
+
+/* notify 走 Obsidian 的 Notice，node 里拿不到弹出来的那条；换成收集器。
+   读盘失败这条路径的要害不是「弹了什么」，而是「该不该弹」——首装弹一条
+   错误会让新用户以为插件坏了，所以必须能断言「一条都没弹」。 */
+const { notices } = vi.hoisted(() => ({ notices: [] as string[] }));
+vi.mock('../src/core/notice', () => ({ notify: (text: string) => void notices.push(text) }));
+
+beforeEach(() => {
+  notices.length = 0;
+});
 
 const DIR = DEFAULT_DATA_DIR;
 const FILE = `${DIR}/bz-reader.json`;
@@ -72,25 +82,59 @@ describe('不做跨设备合并', () => {
 });
 
 describe('读盘失败（A-02）', () => {
-  it('不是「文件不存在」的读失败：本次会话只读，不能拿空库覆盖原文件', async () => {
+  it('文件在、读不出来（权限 / IO）：本次会话只读，不能拿空库覆盖原文件', async () => {
     const adapter = new FakeAdapter();
-    const originalRead = adapter.read.bind(adapter);
-    let calls = 0;
-    adapter.read = async (path: string) => {
-      calls += 1;
-      if (calls === 1) throw new Error('EACCES: permission denied');
-      return originalRead(path);
+    const original = payload([book('b1', '原文件里的书')]);
+    adapter.files.set(FILE, original);
+    adapter.read = async () => {
+      throw new Error('EACCES: permission denied');
     };
     const store = makeStore(adapter);
 
     const data = await store.load();
     expect(data.books).toEqual([]);
+    expect(notices.some((n) => n.includes('读取阅读数据失败'))).toBe(true);
 
     store.get().books.push(book('b1', '读失败时不该被写下去') as never);
     await store.flush(true);
 
     expect(adapter.writes).toHaveLength(0);
-    expect(adapter.files.has(FILE)).toBe(false);
+    expect(adapter.files.get(FILE)).toBe(original);
+  });
+
+  /* 2026-11-08 真机反馈（iPhone 首装）：iOS 上读一个不存在的文件，抛出来的
+     是 FileManager 的本地化文案「未能完成操作。（NSCocoaErrorDomain 错误 260。）」，
+     一个英文关键词都不含。旧实现靠报错文案匹配判断「不存在」，于是首装被
+     判成「读取失败」——弹一条红字、整场会话锁成只读，用户加的书和划线一条
+     都存不下去，重载全没。存在性本来就是能直接问的，不该靠猜文案。 */
+  it('iOS 首装：本地化报错文案认不出来也必须按「没有数据」处理，不弹错、不锁只读', async () => {
+    const adapter = new FakeAdapter();
+    adapter.read = async () => {
+      throw new Error('未能完成操作。（NSCocoaErrorDomain 错误 260。）');
+    };
+    const store = makeStore(adapter);
+
+    const data = await store.load();
+    expect(data.books).toEqual([]);
+    expect(notices).toEqual([]);
+
+    /* 首装是唯一必走读失败分支的场景，这一场能不能写盘决定新用户还会不会留下 */
+    store.get().books.push(book('b1', '首装加的第一本书') as never);
+    await store.flush(true);
+    expect(JSON.parse(adapter.files.get(FILE)!).books.map((b: { id: string }) => b.id)).toEqual(['b1']);
+  });
+
+  it('文件确实不存在（桌面 ENOENT）：同样不弹错、可写', async () => {
+    const adapter = new FakeAdapter();
+    const store = makeStore(adapter);
+
+    const data = await store.load();
+    expect(data.books).toEqual([]);
+    expect(notices).toEqual([]);
+
+    store.get().books.push(book('b1', '首装加的第一本书') as never);
+    await store.flush(true);
+    expect(adapter.files.has(FILE)).toBe(true);
   });
 });
 
@@ -103,8 +147,8 @@ describe('老数据搬迁（A-12）', () => {
     adapter.files.set(FILE, newText);
 
     /* 模拟一次竞态：这一拍 read() 报「不存在」，但磁盘上文件其实在
-       （Sync 刚把它建出来 / 另一窗口刚写完）。adoptLegacy 若不先 exists 就会
-       用老目录那份把新文件整份盖掉。 */
+       （Sync 刚把它建出来 / 另一窗口刚写完）。存在性先问一次，直接读回正本，
+       既不回退老目录，也不会用老目录那份把新文件整份盖掉。 */
     const originalRead = adapter.read.bind(adapter);
     let failed = false;
     adapter.read = async (path: string) => {
@@ -119,7 +163,7 @@ describe('老数据搬迁（A-12）', () => {
     const data = await store.load();
 
     expect(adapter.files.get(FILE)).toBe(newText);
-    expect(data.books).toEqual([]);
+    expect(data.books.map((b) => b.id)).toEqual(['new']);
   });
 });
 
