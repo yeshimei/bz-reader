@@ -73,6 +73,17 @@ describe('解锁弹层 · 交流群入口', () => {
        手机上仍按底部抽屉弹，软键盘一开输入框就落在屏幕外。 */
     expect(overlayUnlock()).toMatch(/class="bzs-scrim[^"]*\bhas-input\b/);
   });
+
+  it('购买入口固定在页脚：正文对照表再长，也滚不走它', () => {
+    const html = overlayUnlock();
+    const footAt = html.indexOf('<div class="bzs-mfoot">');
+    expect(footAt).toBeGreaterThan(-1);
+    const body = html.slice(0, footAt);
+    const foot = html.slice(footAt);
+    expect(foot).toContain('bzs-unlock-buy');
+    expect(foot).toContain('bzs-unlock-act');
+    expect(body).not.toContain('bzs-unlock-buy');
+  });
 });
 
 describe('解锁弹层 · 点按钮', () => {

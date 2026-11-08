@@ -44,7 +44,8 @@ import { isDeferredViewOf } from './view/leaf-reuse';
 import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-state';
 import { mountImport } from './ui/import-panel';
 import { releaseCovers } from './data/cover';
-import { activateLicense as applyLicense, can, recordActivity, revalidateLicense, setEntBackend, setProBuild } from './data/entitlement';
+import { activateLicense as applyLicense, can, entitlement, recordActivity, revalidateLicense, setEntBackend, setProBuild } from './data/entitlement';
+import { initDevTier, resetDevTier, setDevTier } from './core/dev-tier';
 import { normalizePluginData, type PluginDataFile } from './data/plugin-data';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
 import { installBlobSrcdocPatches, uninstallBlobSrcdocPatches } from './engine/blob-srcdoc';
@@ -148,6 +149,26 @@ export function createPlugin(cfg: PluginConfig) {
     }
 
     /**
+     * 测试库专用：在基础版 / 高级版之间来回切。
+     *
+     * 只改界面判定，不动 data.json 里的真实激活码；切完立刻重绘壳层，
+     * 书架的授权行、AI 页签灰化、解锁弹层都跟着变。发布构建没有这个命令。
+     */
+    private devToggleTier(): void {
+      const next = entitlement().tier === 'paid' ? 'free' : 'paid';
+      setDevTier(next);
+      notify(t(next === 'paid' ? 'notice.dev.tier.paid' : 'notice.dev.tier.free'));
+      notifyShell();
+    }
+
+    /** 测试库专用：清掉切档覆盖，回到激活码的真实判定 */
+    private devResetTier(): void {
+      resetDevTier();
+      notify(t('notice.dev.tier.real'));
+      notifyShell();
+    }
+
+    /**
      * 跑一条已注册的命令（注册表见 plugin-commands.ts）。
      *
      * 阅读器类命令先要有一个活动阅读视图；没有就提示「先打开一本书」，
@@ -216,6 +237,16 @@ export function createPlugin(cfg: PluginConfig) {
           this.persistCfg();
         },
       });
+      /* 仅开发构建（测试库）：授权档位覆盖。发布包里整块被摇掉，dev-tier 不进包。 */
+      if (__BZ_DEV__) {
+        initDevTier({
+          read: () => this.cfg.devTier,
+          write: (raw) => {
+            this.cfg.devTier = raw === 'free' || raw === 'paid' ? raw : null;
+            this.persistCfg();
+          },
+        });
+      }
       setDataDir(this.cfg.dataDir);
       /* 指针可能是空的（清过缓存 / 只拷了书没带 .obsidian）：扫一遍库根找回来，
          否则下面 load() 会另建一份空库，用户以为书全丢了。 */
@@ -377,6 +408,19 @@ export function createPlugin(cfg: PluginConfig) {
           id: cmd.id,
           name: t(cmd.key),
           callback: () => this.runCommandById(cmd.id),
+        });
+      }
+      /* 测试库专用：切基础版 / 高级版（只有开发构建有，见 esbuild 的 __BZ_DEV__） */
+      if (__BZ_DEV__) {
+        this.addCommand({
+          id: 'bzr-dev-tier-toggle',
+          name: '开发：切换基础版 / 高级版',
+          callback: () => this.devToggleTier(),
+        });
+        this.addCommand({
+          id: 'bzr-dev-tier-reset',
+          name: '开发：恢复真实授权',
+          callback: () => this.devResetTier(),
         });
       }
 

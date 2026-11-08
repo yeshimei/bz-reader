@@ -166,6 +166,10 @@ export const DE: Record<MsgKey, string> = {
   /* ── Hinweise: Gruppe (QQ) ──────────────────────────────── */
   'notice.group.plainOk': 'Gruppennummer {id} kopiert – suche sie in QQ, um beizutreten',
   'notice.group.plainFail': 'Kopieren fehlgeschlagen. Gruppe ist {id} – suche sie in QQ, um beizutreten',
+  /* Dev-build only: feedback from the tier toggle commands */
+  'notice.dev.tier.free': 'Dev: switched to the free tier (test vault only)',
+  'notice.dev.tier.paid': 'Dev: switched to the pro tier (test vault only)',
+  'notice.dev.tier.real': 'Dev: real license restored',
 
   /* ── Lizenzstatus ───────────────────────────────────────── */
   'tier.base': 'Basis',

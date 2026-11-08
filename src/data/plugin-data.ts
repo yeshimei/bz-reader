@@ -37,7 +37,16 @@ export interface PluginDataFile {
    * 空串 = 没记过（老库升级上来就是这一档）。
    */
   changelogSeenVersion: string;
+  /**
+   * 仅开发构建：测试库的授权档位覆盖（free / paid / null）。
+   *
+   * 命令面板「开发：切换基础版 / 高级版」写这里，重启后接着生效。
+   * 发布包里 normalize 一律收成 null；entitlement 的读取分支也被摇掉。
+   */
+  devTier: DevTierValue;
 }
+
+export type DevTierValue = 'free' | 'paid' | null;
 
 export const EMPTY_PLUGIN_DATA: PluginDataFile = {
   version: 1,
@@ -45,6 +54,7 @@ export const EMPTY_PLUGIN_DATA: PluginDataFile = {
   entitlement: null,
   dataDir: DEFAULT_DATA_DIR,
   changelogSeenVersion: '',
+  devTier: null,
 };
 
 /**
@@ -62,5 +72,6 @@ export function normalizePluginData(raw: unknown): PluginDataFile {
     entitlement: d.entitlement ?? null,
     dataDir: normalizeDataDir(typeof d.dataDir === 'string' ? d.dataDir : ''),
     changelogSeenVersion: typeof d.changelogSeenVersion === 'string' ? d.changelogSeenVersion : '',
+    devTier: d.devTier === 'free' || d.devTier === 'paid' ? d.devTier : null,
   };
 }

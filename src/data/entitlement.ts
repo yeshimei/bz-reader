@@ -30,6 +30,7 @@
 
 import { locale, t, type Locale } from '../i18n';
 import { planNameZh, type PlanKey } from '../i18n/plan';
+import { devTierOverride } from '../core/dev-tier';
 import { parseLicense, verifyLicense, type LicenseFail, type LicensePayload } from './license';
 
 /** 高级能力。只有能判断的地方才列进来，别造没人问的开关。 */
@@ -309,7 +310,11 @@ export function entitlement(now = Date.now()): EntitlementView {
   // 第 1..TRIAL_DAYS 个活跃日都在试用内；第 TRIAL_DAYS+1 天开始结束
   // TRIAL_ACTIVE=false 时这一支永远不成立（试用不发放，但记录照旧）
   const trialAlive = TRIAL_ACTIVE && !e.trialVoid && used <= TRIAL_DAYS;
-  const tier: Tier = paid ? 'paid' : trialAlive ? 'trial' : 'free';
+  let tier: Tier = paid ? 'paid' : trialAlive ? 'trial' : 'free';
+
+  /* 测试库的开发构建：命令面板可以强制切档，方便看两套界面。
+     发布构建 __BZ_DEV__ 为 false，整块被 esbuild 删掉，dev-tier 也不进包。 */
+  if (__BZ_DEV__) tier = devTierOverride() ?? tier;
 
   const left = used <= 0 ? TRIAL_DAYS : Math.max(0, TRIAL_DAYS - used + 1);
 

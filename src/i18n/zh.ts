@@ -169,6 +169,10 @@ export const ZH = {
   /* ── 通知：交流群（QQ） ──────────────────────────────────── */
   'notice.group.plainOk': '已复制群号 {id}，去 QQ 搜索就能加群',
   'notice.group.plainFail': '复制失败，群号是 {id}，去 QQ 搜索加群',
+  /* 仅开发构建（测试库）：命令面板切授权档位的反馈 */
+  'notice.dev.tier.free': '开发：已切到基础版（仅测试库）',
+  'notice.dev.tier.paid': '开发：已切到高级版（仅测试库）',
+  'notice.dev.tier.real': '开发：已恢复真实授权',
 
   /* ── 统计页 ──────────────────────────────────────────────── */
   'stats.thisWeek': '本周',

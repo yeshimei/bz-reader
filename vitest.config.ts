@@ -6,6 +6,7 @@ export default defineConfig({
   // 否则任何走到 `if (__BZ_READER_PRO__)` 的模块都会在 node 里抛 ReferenceError。
   define: {
     __BZ_READER_PRO__: 'true',
+    __BZ_DEV__: 'true',
     __BZ_BUILD_TAG__: '"test"',
   },
   resolve: {

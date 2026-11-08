@@ -35,6 +35,14 @@ const VAULT_PLUGIN_DIRS = (() => {
 })();
 const ACTIVE = "pro";
 
+/**
+ * 开发构建：非 production，且产物要落到测试库时为 true。
+ *
+ * 只有这时才注入 `__BZ_DEV__`，测试库里多两条「切基础版 / 高级版」命令。
+ * production 永远 false——部署到测试库的正式包不带开发命令。
+ */
+const DEV = !prod && VAULT_PLUGIN_DIRS.some((dir) => path.resolve(dir) === path.resolve(VAULTS.test));
+
 const DIST = path.join(process.cwd(), "dist");
 
 /* 版本号只有一个来源：manifest.json。构建时再拼上时间戳，
@@ -160,7 +168,11 @@ for (const target of TARGETS) {
     treeShaking: true,
     minify: prod,
     charset: "utf8",
-    define: { __BZ_READER_PRO__: "true", __BZ_BUILD_TAG__: JSON.stringify(BUILD_TAG) },
+    define: {
+      __BZ_READER_PRO__: "true",
+      __BZ_DEV__: DEV ? "true" : "false",
+      __BZ_BUILD_TAG__: JSON.stringify(BUILD_TAG),
+    },
     outfile: path.join(outDir, "main.js"),
   });
   contexts.push({ ctx, outDir, target });

@@ -844,18 +844,21 @@ export function overlayUnlock(mode?: string): string {
         <div class="bzs-plan-row head"><span>${t('unlock.col.feature')}</span><b>${t('unlock.col.base')}</b><b>${t('unlock.col.pro')}</b></div>
         ${rows}
       </div>
+    </div>`;
+
+  /* 购买区与激活框都放进页脚：正文里的对照表再长、滚多远，这两个出口
+     也钉在底部。以前购买条在正文里，表一长就被推出可视区。 */
+  const foot = `<div class="bzs-unlock-foot">
       <div class="bzs-unlock-buy">
         <button class="bzs-btn pri" data-act="buy">${t('unlock.buy')}</button>
         ${groupButtonHtml()}
         <span class="bzs-mini">${t('unlock.hint')}</span>
       </div>
-    </div>`;
-
-  // 激活框独占页脚整行：输入框与按钮挨着，眼睛不用在两端来回找
-  const foot = `<div class="bzs-unlock-act">
-      <label>${t('unlock.haveCode')}</label>
-      <input data-role="license" placeholder="BZR2.…" value="${esc(v.license)}" spellcheck="false">
-      <button class="bzs-btn sm pri" data-act="activate">${t('settings.lic.activate')}</button>
+      <div class="bzs-unlock-act">
+        <label>${t('unlock.haveCode')}</label>
+        <input data-role="license" placeholder="BZR2.…" value="${esc(v.license)}" spellcheck="false">
+        <button class="bzs-btn sm pri" data-act="activate">${t('settings.lic.activate')}</button>
+      </div>
     </div>`;
 
   return modal(t('unlock.title'), paid ? t('unlock.activated') : '', body, foot, 'wide tall');

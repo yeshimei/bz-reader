@@ -166,6 +166,10 @@ export const FR: Record<MsgKey, string> = {
   /* ── Notifications : groupe (QQ) ────────────────────────── */
   'notice.group.plainOk': 'Numéro de groupe {id} copié — recherchez-le dans QQ pour le rejoindre',
   'notice.group.plainFail': 'Échec de la copie. Le groupe est {id} — recherchez-le dans QQ pour le rejoindre',
+  /* Dev-build only: feedback from the tier toggle commands */
+  'notice.dev.tier.free': 'Dev: switched to the free tier (test vault only)',
+  'notice.dev.tier.paid': 'Dev: switched to the pro tier (test vault only)',
+  'notice.dev.tier.real': 'Dev: real license restored',
 
   /* ── État de la licence ─────────────────────────────────── */
   'tier.base': 'Base',

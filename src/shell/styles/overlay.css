@@ -1493,6 +1493,8 @@ textarea.idea:focus {
   border: 1px solid var(--copper-line);
   border-radius: var(--r-card);
   background: var(--copper-soft);
+  /* 页脚宽度比正文窄，窄屏（手机）时群号与提示允许换行，不要挤出弹窗 */
+  flex-wrap: wrap;
 }
 
 .bzs-unlock-buy .bzs-btn {
@@ -1558,6 +1560,14 @@ textarea.idea:focus {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* 解锁弹层的页脚：购买条在上、激活框在下，两行都随 .bzs-mfoot 固定在底部 */
+.bzs-unlock-foot {
+  display: grid;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
 
 /* 放在页脚时占满左侧剩余宽度，输入框才不会被压成一条缝 */

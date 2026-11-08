@@ -162,6 +162,10 @@ export const ZH_TW: Record<MsgKey, string> = {
   /* ── 通知：交流群（QQ） ──────────────────────────────────── */
   'notice.group.plainOk': '已複製群號 {id}，到 QQ 搜尋就能加入',
   'notice.group.plainFail': '複製失敗，群號是 {id}，到 QQ 搜尋加入',
+  /* 僅開發建置（測試庫）：指令面板切換授權檔位的回饋 */
+  'notice.dev.tier.free': '開發：已切到基礎版（僅測試庫）',
+  'notice.dev.tier.paid': '開發：已切到高級版（僅測試庫）',
+  'notice.dev.tier.real': '開發：已恢復真實授權',
 
   /* ── 授權狀態 ────────────────────────────────────────────── */
   'tier.base': '基礎版',
