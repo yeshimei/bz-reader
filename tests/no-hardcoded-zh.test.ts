@@ -12,6 +12,9 @@ import { describe, expect, it } from 'vitest';
  *
  * 为什么不数注释：注释是给人看的，不进界面。这里只数字符串与模板字面量。
  * 为什么不数 `src/i18n/**`：那里就是文案本身。
+ * 为什么不数 `src/shell/changelog.ts`：内置更新日志是中英双语的数据表，
+ *   不经过 i18n 表、也不在界面拼装；每发一版都要手写两条，按「文案本身」
+ *   同样豁免（否则每版都得来改一次基线，等于把门禁改成记账）。
  *
  * 少了（重构进 i18n）不用改基线，多了才要。新增文件默认预算 0。
  *
@@ -51,7 +54,6 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/shell/card-image.ts': 4,
   'src/shell/card-template.ts': 8,
   'src/shell/changelog-note.ts': 17,
-  'src/shell/changelog.ts': 83,
   'src/shell/domain.ts': 14,
   'src/shell/idea-sheet.ts': 2,
   'src/shell/overlay.ts': 179,
@@ -72,6 +74,9 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/view/reader-view.ts': 9,
   'src/view/side-view.ts': 1,
 };
+
+/** 纯文案数据文件：与 i18n 同口径豁免（见文件头） */
+const EXEMPT = new Set(['src/shell/changelog.ts']);
 
 const SRC = join(__dirname, '../src');
 
@@ -111,6 +116,7 @@ describe('硬编码中文', () => {
     const over: string[] = [];
     for (const file of tsFiles(SRC)) {
       const key = relative(join(__dirname, '..'), file).replace(/\\/g, '/');
+      if (EXEMPT.has(key)) continue;
       const n = countHardcodedZh(readFileSync(file, 'utf8'), file);
       const budget = BASELINE[key] ?? 0;
       if (n > budget) over.push(`${key}: ${n} 处（存量 ${budget}）`);

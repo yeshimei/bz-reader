@@ -59,6 +59,47 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '0.3.1',
+    date: '2026-11-08',
+    improved: [
+      {
+        domain: { zh: '朗读语言', en: 'Read-aloud language' },
+        text: {
+          zh: '按书的语言挑发音，英文按句号断句，不再一页念成一句。',
+          en: 'Speech now follows the book’s own language, and English sentences are split at full stops instead of being read as one long page.',
+        },
+      },
+      {
+        domain: { zh: '弹窗读屏', en: 'Screen readers' },
+        text: {
+          zh: '弹窗补上读屏标签与焦点圈闭，键盘 Tab 不会跑出窗。',
+          en: 'Dialogs now carry screen-reader labels and trap keyboard focus, so Tab can no longer wander out behind them.',
+        },
+      },
+      {
+        domain: { zh: '翻页方向', en: 'Page turning' },
+        text: {
+          zh: '点按、键盘、拖拽共用一条规则，从右往左的书不再翻反。',
+          en: 'Tap, keyboard and drag now share one direction rule — right-to-left books no longer turn the wrong way.',
+        },
+      },
+      {
+        domain: { zh: '手势', en: 'Gestures' },
+        text: {
+          zh: '删掉双指捏合与 Ctrl+滚轮改字号，不再和系统缩放抢同一只手。',
+          en: 'Pinch-to-zoom and Ctrl+scroll no longer change the font size, so they stop fighting the system zoom gesture.',
+        },
+      },
+      {
+        domain: { zh: '书架重绘', en: 'Shelf repaint' },
+        text: {
+          zh: '内容没变不再整页重画，封面墙翻起来更顺。',
+          en: 'The shelf skips repainting when nothing changed, so scrolling a wall of covers feels smoother.',
+        },
+      },
+    ],
+  },
+  {
     version: '0.3.0',
     date: '2026-11-07',
     added: [
