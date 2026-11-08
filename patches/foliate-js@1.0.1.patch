@@ -80,7 +80,7 @@ index 86be1a612a782c23f4190a1a28ce61f03d13e5a3..8f4ad14b9ae83ea3e1cb23d7e7001d1e
      }
      static outline(rects, options = {}) {
 diff --git a/paginator.js b/paginator.js
-index 95c4d0d..48ce0d5 100644
+index 95c4d0d..27ae567 100644
 --- a/paginator.js
 +++ b/paginator.js
 @@ -150,6 +150,9 @@ const selectionIsBackward = sel => {
@@ -303,13 +303,7 @@ index 95c4d0d..48ce0d5 100644
              // force wrap long words
              'overflow-wrap': 'break-word',
              // reset some potentially problematic props
-@@ -438,9 +570,19 @@ export class Paginator extends HTMLElement {
-     #mediaQuery = matchMedia('(prefers-color-scheme: dark)')
-     #mediaQueryListener
-     #scrollBounds
-+    /* bz-reader：分页模式下的「当前页位置」。容器不再可滚，位置只存在这里，
-+       由 #view 的 transform 表现出来；滚动模式不读它。 */
-+    #pos = 0
+@@ -441,6 +573,13 @@ export class Paginator extends HTMLElement {
      #touchState
      #touchScrolled
      #lastVisibleRange
@@ -323,7 +317,7 @@ index 95c4d0d..48ce0d5 100644
      constructor() {
          super()
          this.#root.innerHTML = `<style>
-@@ -460,7 +602,7 @@ export class Paginator extends HTMLElement {
+@@ -460,7 +599,7 @@ export class Paginator extends HTMLElement {
              --_margin: 48px;
              --_max-inline-size: 720px;
              --_max-block-size: 1440px;
@@ -332,23 +326,7 @@ index 95c4d0d..48ce0d5 100644
              --_max-column-count-portrait: 1;
              --_max-column-count-spread: var(--_max-column-count);
              --_half-gap: calc(var(--_gap) / 2);
-@@ -498,7 +640,15 @@ export class Paginator extends HTMLElement {
-         #container {
-             grid-column: 2 / 5;
-             grid-row: 2;
-+            /* bz-reader：分页位置改由 #view 的 transform 承担，容器自己不再是
-+               滚动容器。overflow: hidden 仍可被 scrollLeft / scrollIntoView
-+               程序滚动——这正是「拖选时页面横移、选区高亮反复跳」的根源；
-+               clip 的元素根本不滚，那一路从根上失效。第一条 hidden 是给不
-+               认识 clip 的老 WebView 的兜底（那时布局正常，只是还会被滚）。
-+               滚动模式仍由下面那条规则改回 auto。 */
-             overflow: hidden;
-+            overflow: clip;
-+            position: relative;
-         }
-         :host([flow="scrolled"]) #container {
-             grid-column: 1 / -1;
-@@ -556,6 +706,37 @@ export class Paginator extends HTMLElement {
+@@ -556,6 +695,37 @@ export class Paginator extends HTMLElement {
              }
          }, 250))
  
@@ -386,7 +364,7 @@ index 95c4d0d..48ce0d5 100644
          const opts = { passive: false }
          this.addEventListener('touchstart', this.#onTouchStart.bind(this), opts)
          this.addEventListener('touchmove', this.#onTouchMove.bind(this), opts)
-@@ -567,6 +748,15 @@ export class Paginator extends HTMLElement {
+@@ -567,6 +737,15 @@ export class Paginator extends HTMLElement {
          })
  
          this.addEventListener('relocate', ({ detail }) => {
@@ -402,7 +380,7 @@ index 95c4d0d..48ce0d5 100644
              if (detail.reason === 'selection') setSelectionTo(this.#anchor, 0)
              else if (detail.reason === 'navigation') {
                  if (this.#anchor === 1) setSelectionTo(detail.range, 1)
-@@ -575,19 +765,35 @@ export class Paginator extends HTMLElement {
+@@ -575,19 +754,35 @@ export class Paginator extends HTMLElement {
                  else setSelectionTo(this.#anchor, -1)
              }
          })
@@ -450,7 +428,7 @@ index 95c4d0d..48ce0d5 100644
              let isKeyboardSelecting = false
              doc.addEventListener('keydown', () => isKeyboardSelecting = true)
              doc.addEventListener('keyup', () => isKeyboardSelecting = false)
-@@ -597,18 +803,66 @@ export class Paginator extends HTMLElement {
+@@ -597,18 +792,60 @@ export class Paginator extends HTMLElement {
                  if (!range) return
                  const sel = doc.getSelection()
                  if (!sel.rangeCount) return
@@ -477,13 +455,7 @@ index 95c4d0d..48ce0d5 100644
 +                   覆盖走系统层的手柄；选区折叠才延时解锁，不在折叠的那一帧
 +                   就放行，否则手柄拖到行首/行尾会闪一下。 */
 +                if (sel.isCollapsed) this.#unlockSelectionScrollSoon()
-+                else {
-+                    this.#lockSelectionScroll()
-+                    /* bz-reader：分页位置改用 transform 之后容器不再可滚，
-+                       浏览器没有「滚到相邻列」这条路，拖选可以正常越过页
-+                       边——所以这里不再截断选区（上一版截断会让人一拖就
-+                       选中整页）。保留锁只是为了 scrolled 模式的兜底。 */
-+                }
++                else this.#lockSelectionScroll()
 +                if (isKeyboardSelecting) {
                      const selRange = sel.getRangeAt(0).cloneRange()
                      const backward = selectionIsBackward(sel)
@@ -522,7 +494,7 @@ index 95c4d0d..48ce0d5 100644
          })
  
          this.#mediaQueryListener = () => {
-@@ -663,14 +917,25 @@ export class Paginator extends HTMLElement {
+@@ -663,14 +900,22 @@ export class Paginator extends HTMLElement {
          }
          this.#view = new View({
              container: this,
@@ -536,9 +508,6 @@ index 95c4d0d..48ce0d5 100644
 +            },
          })
          this.#container.append(this.#view.element)
-+        /* bz-reader：新视图没有 transform，把当前位置补回去（换章时 #pos 还是
-+           上一章的位置，随后 #scrollToAnchor 会立刻纠正）。 */
-+        this.#applyTransform()
          return this.#view
      }
      #replaceBackground(background, columnCount) {
@@ -550,7 +519,7 @@ index 95c4d0d..48ce0d5 100644
          const htmlStyle = doc.defaultView.getComputedStyle(doc.documentElement)
          const themeBgColor = htmlStyle.getPropertyValue('--theme-bg-color')
          if (background && themeBgColor) {
-@@ -771,6 +1036,9 @@ export class Paginator extends HTMLElement {
+@@ -771,6 +1016,9 @@ export class Paginator extends HTMLElement {
      }
      render() {
          if (!this.#view) return
@@ -560,37 +529,7 @@ index 95c4d0d..48ce0d5 100644
          this.#view.render(this.#beforeRender({
              vertical: this.#vertical,
              rtl: this.#rtl,
-@@ -810,12 +1078,27 @@ export class Paginator extends HTMLElement {
-     }
-     // this is the current position of the container
-     get containerPosition() {
--        return this.#container[this.scrollProp]
-+        /* bz-reader：分页读虚拟值（真实滚动已经不存在），滚动模式仍读真实位置。 */
-+        return this.scrolled ? this.#container[this.scrollProp] : this.#pos
-     }
- 
-     // this is the new position of the containr
-     set containerPosition(newVal) {
--        this.#container[this.scrollProp] = newVal
-+        if (this.scrolled) {
-+            this.#container[this.scrollProp] = newVal
-+            return
-+        }
-+        this.#pos = newVal
-+        this.#applyTransform()
-+    }
-+    /* bz-reader：把页位置写成 #view 的位移。transform 走合成层，不触发重排，
-+       也不产生可滚动区域——浏览器没有任何机会「自己滚一下」。 */
-+    #applyTransform() {
-+        const el = this.#view?.element
-+        if (!el) return
-+        el.style.transform = this.#vertical
-+            ? `translateY(${-this.#pos}px)`
-+            : `translateX(${-this.#pos}px)`
-     }
- 
-     scrollBy(dx, dy) {
-@@ -839,20 +1122,39 @@ export class Paginator extends HTMLElement {
+@@ -839,20 +1087,39 @@ export class Paginator extends HTMLElement {
              Math.max(min, Math.min(max, (start + end) / 2
                  + (isNaN(d) ? 0 : d))) / size)
  
@@ -635,7 +574,7 @@ index 95c4d0d..48ce0d5 100644
          }
      }
      #onTouchMove(e) {
-@@ -867,6 +1169,17 @@ export class Paginator extends HTMLElement {
+@@ -867,6 +1134,17 @@ export class Paginator extends HTMLElement {
          const doc = this.#view?.document
          const selection = doc?.getSelection()
          if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
@@ -653,7 +592,7 @@ index 95c4d0d..48ce0d5 100644
              return
          }
          e.preventDefault()
-@@ -879,6 +1192,9 @@ export class Paginator extends HTMLElement {
+@@ -879,6 +1157,9 @@ export class Paginator extends HTMLElement {
          state.t = e.timeStamp
          state.vx = dx / dt
          state.vy = dy / dt
@@ -663,7 +602,7 @@ index 95c4d0d..48ce0d5 100644
          this.#touchScrolled = true
          if (Math.abs(dx) >= Math.abs(dy)) {
              this.scrollBy(dx, 0)
-@@ -887,8 +1203,26 @@ export class Paginator extends HTMLElement {
+@@ -887,8 +1168,26 @@ export class Paginator extends HTMLElement {
          }
      }
      #onTouchEnd() {
@@ -691,7 +630,7 @@ index 95c4d0d..48ce0d5 100644
  
          // XXX: Firefox seems to report scale as 1... sometimes...?
          // at this point I'm basically throwing `requestAnimationFrame` at
-@@ -926,6 +1260,19 @@ export class Paginator extends HTMLElement {
+@@ -926,6 +1225,19 @@ export class Paginator extends HTMLElement {
      }
      async #scrollTo(offset, reason, smooth) {
          const { size } = this
@@ -711,7 +650,7 @@ index 95c4d0d..48ce0d5 100644
          if (this.containerPosition === offset) {
              this.#scrollBounds = [offset, this.atStart ? 0 : size, this.atEnd ? 0 : size]
              this.#afterScroll(reason)
-@@ -954,6 +1301,11 @@ export class Paginator extends HTMLElement {
+@@ -954,6 +1266,11 @@ export class Paginator extends HTMLElement {
          return this.#scrollToAnchor(anchor, select ? 'selection' : 'navigation')
      }
      async #scrollToAnchor(anchor, reason = 'anchor') {
@@ -723,7 +662,7 @@ index 95c4d0d..48ce0d5 100644
          this.#anchor = anchor
          const rects = uncollapse(anchor)?.getClientRects?.()
          // if anchor is an element or a range
-@@ -987,6 +1339,13 @@ export class Paginator extends HTMLElement {
+@@ -987,6 +1304,13 @@ export class Paginator extends HTMLElement {
      #afterScroll(reason) {
          const range = this.#getVisibleRange()
          this.#lastVisibleRange = range
@@ -737,7 +676,7 @@ index 95c4d0d..48ce0d5 100644
          // don't set new anchor if relocation was to scroll to anchor
          if (reason !== 'selection' && reason !== 'navigation' && reason !== 'anchor')
              this.#anchor = range
-@@ -1003,6 +1362,29 @@ export class Paginator extends HTMLElement {
+@@ -1003,6 +1327,29 @@ export class Paginator extends HTMLElement {
          }
          this.dispatchEvent(new CustomEvent('relocate', { detail }))
      }
@@ -767,7 +706,7 @@ index 95c4d0d..48ce0d5 100644
      async #display(promise) {
          const { index, src, anchor, onLoad, select } = await promise
          this.#index = index
-@@ -1037,6 +1419,8 @@ export class Paginator extends HTMLElement {
+@@ -1037,6 +1384,8 @@ export class Paginator extends HTMLElement {
          return index >= 0 && index <= this.sections.length - 1
      }
      async #goTo({ index, anchor, select }) {
@@ -776,7 +715,7 @@ index 95c4d0d..48ce0d5 100644
          if (index === this.#index) await this.#display({ index, anchor, select })
          else {
              const oldIndex = this.#index
-@@ -1097,6 +1481,14 @@ export class Paginator extends HTMLElement {
+@@ -1097,6 +1446,14 @@ export class Paginator extends HTMLElement {
          this.#locked = true
          const prev = dir === -1
          const shouldGo = await (prev ? this.#scrollPrev(distance) : this.#scrollNext(distance))
@@ -791,7 +730,7 @@ index 95c4d0d..48ce0d5 100644
          if (shouldGo) await this.#goTo({
              index: this.#adjacentIndex(dir),
              anchor: prev ? () => 1 : () => 0,
-@@ -1105,9 +1497,12 @@ export class Paginator extends HTMLElement {
+@@ -1105,9 +1462,12 @@ export class Paginator extends HTMLElement {
          this.#locked = false
      }
      async prev(distance) {
@@ -804,7 +743,7 @@ index 95c4d0d..48ce0d5 100644
          return await this.#turnPage(1, distance)
      }
      prevSection() {
-@@ -1145,6 +1540,7 @@ export class Paginator extends HTMLElement {
+@@ -1145,6 +1505,7 @@ export class Paginator extends HTMLElement {
  
          // NOTE: needs `requestAnimationFrame` in Chromium
          requestAnimationFrame(() => {
@@ -812,7 +751,7 @@ index 95c4d0d..48ce0d5 100644
              this.#replaceBackground(this.#view.docBackground, this.columnCount)
          })
  
-@@ -1156,11 +1552,14 @@ export class Paginator extends HTMLElement {
+@@ -1156,11 +1517,14 @@ export class Paginator extends HTMLElement {
      }
      destroy() {
          this.#observer.unobserve(this)

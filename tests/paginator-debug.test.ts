@@ -154,35 +154,3 @@ describe('paginator 拖选期间不碰选区与锚点', () => {
     expect(src.slice(at, at + 400)).toContain('!sel.isCollapsed');
   });
 });
-
-/* 2026-11-08 第六轮：前五轮都在「锁住 scrollLeft」这条路上打转，可真机日志
- * 证明锁本身在制造问题——freeze 把页面写回原位，内容相对屏幕平移了，手柄
- * 所指的字符就跟着跳，选区从 15 字一下变成 211 字。
- *
- * 根子在分页方式：`#container` 的 `scrollLeft` 就是页位置，只要它还是个滚动
- * 容器，浏览器的 scrollIntoView 就一定能动它，拦、拉回、截断都只是在补救。
- * 改成 `transform` 分页：位置只存在 #pos 里，由 #view 的位移表现；容器用
- * `overflow: clip`（hidden 仍可被程序滚，clip 才算真的不可滚）。浏览器连
- * 「滚一下」的入口都没有，拖选就完全不动。 */
-describe('paginator 分页位置', () => {
-  it('页位置改写 #view 的 transform，不再写 scrollLeft', () => {
-    expect(src).toContain('#applyTransform()');
-    expect(src).toContain('translateX(');
-    expect(src).toContain('this.#pos = newVal');
-  });
-
-  it('容器用 overflow: clip，浏览器没有可滚的入口', () => {
-    expect(src).toContain('overflow: clip');
-  });
-
-  it('滚动模式仍走真实 scroll 位置', () => {
-    const at = src.indexOf('get containerPosition()');
-    expect(at).toBeGreaterThan(0);
-    expect(src.slice(at, at + 500)).toContain('this.scrolled ?');
-  });
-
-  it('拖选越界不再截断选区（容器不滚了，截断只会让人一拖就选整页）', () => {
-    expect(src).not.toContain('#clampSelectionToPage');
-    expect(src).not.toContain('setBaseAndExtent');
-  });
-});
