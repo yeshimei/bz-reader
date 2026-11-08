@@ -1570,6 +1570,23 @@ textarea.idea:focus {
   min-width: 0;
 }
 
+/* 窄屏（手机）把激活框压成两行：标签独占一行，输入框与按钮并排。
+   页脚固定在底部，正文对照表只剩上面一截——两行排布比挤成一条更省高度。 */
+@media (max-width: 480px) {
+  .bzs-unlock-foot {
+    gap: 8px;
+  }
+
+  .bzs-mfoot .bzs-unlock-act {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .bzs-mfoot .bzs-unlock-act label {
+    flex-basis: 100%;
+  }
+}
+
 /* 放在页脚时占满左侧剩余宽度，输入框才不会被压成一条缝 */
 .bzs-mfoot .bzs-unlock-act {
   flex: 1;

@@ -36,12 +36,17 @@ const VAULT_PLUGIN_DIRS = (() => {
 const ACTIVE = "pro";
 
 /**
- * 开发构建：非 production，且产物要落到测试库时为 true。
+ * 开发构建：非 production，且产物**只**落到测试库时为 true。
  *
  * 只有这时才注入 `__BZ_DEV__`，测试库里多两条「切基础版 / 高级版」命令。
  * production 永远 false——部署到测试库的正式包不带开发命令。
+ * 判据要求「恰好一个目录」，`BZ_READER_VAULT='all'` 跑 `once` 时真实库就不会
+ * 跟着拿到一份带开发命令的包。
  */
-const DEV = !prod && VAULT_PLUGIN_DIRS.some((dir) => path.resolve(dir) === path.resolve(VAULTS.test));
+const DEV =
+  !prod &&
+  VAULT_PLUGIN_DIRS.length === 1 &&
+  path.resolve(VAULT_PLUGIN_DIRS[0]) === path.resolve(VAULTS.test);
 
 const DIST = path.join(process.cwd(), "dist");
 

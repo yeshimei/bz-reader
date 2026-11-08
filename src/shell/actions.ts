@@ -1545,11 +1545,15 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         notify(t('notice.needBook'), 'info');
         break;
       }
-      /* 跑起来了才收起「选建法」：被拦下时保留原样，用户能改选另一种方案 */
-      void startPortrait(book, RT.portraitPlan).then((ok) => {
-        if (ok) RT.aiIndexOpen = false;
-        repaint();
-      });
+      /* 跑起来了才收起「选建法」：被拦下时保留原样，用户能改选另一种方案。
+         读画像失败时 startPortrait 会 reject（它的 deps.load 在 try 之外），
+         不接住就是一条未处理拒绝 + 界面永远停在「正在建立」。 */
+      void startPortrait(book, RT.portraitPlan)
+        .catch(() => false)
+        .then((ok) => {
+          if (ok) RT.aiIndexOpen = false;
+          repaint();
+        });
       break;
     }
     case 'aiidxstop':

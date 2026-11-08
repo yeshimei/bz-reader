@@ -670,10 +670,13 @@ export class EngineHost {
     const main = Math.abs(dy) >= Math.abs(dx) ? dy : dx;
     if (!main) return;
 
-    /* Ctrl/⌘ + 滚轮不再改字号（用户拍板删掉这个入口）：这是系统 / 宿主的
-       缩放手势，我们既不拦也不翻页——拦了会跟触控板捏合打架，不拦又直接
-       掉进下面的翻页逻辑，一捏就是连翻好几页。 */
-    if (ev.ctrlKey || ev.metaKey) return;
+    /* Ctrl/⌘ + 滚轮不再改字号（用户拍板删掉这个入口）。
+       默认行为要拦：不拦的话这一下会落到宿主 / 浏览器的整页缩放上，
+       用户以为「字号入口删了」，实际变成把整个界面放大缩小。 */
+    if (ev.ctrlKey || ev.metaKey) {
+      ev.preventDefault();
+      return;
+    }
 
     /* 滚动模式（P2-02）：滚轮交给浏览器自己滚，不拦、不翻页。
        这是桌面阅读的第一诉求——想往上回看两行，分页模式只能整页翻回去。

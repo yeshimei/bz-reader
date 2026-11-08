@@ -20,6 +20,7 @@ export const ES: Record<MsgKey, string> = {
   'common.close': 'Cerrar',
   'common.cancel': 'Cancelar',
   'common.unknownError': 'Error desconocido',
+  'common.dialog': 'Dialog',
 
   /* ── Entrada del plugin ─────────────────────────────────── */
   'ribbon.shelf': 'bz Reader: estantería',
@@ -530,6 +531,7 @@ export const ES: Record<MsgKey, string> = {
 
   /* ── restore confirmation / shell guards (C-batch; placeholder EN) ── */
   'notice.bookmark.gone': 'That bookmark is gone',
+  'notice.license.checkFailed': 'License check failed, running as not activated. Restart the plugin; contact me if it persists.',
   'notice.migrate.busy': 'Another folder is still being migrated — wait for it to finish',
   'notice.migrate.failed': 'Migration failed: {why}',
   'notice.ai.evidenceTimeout': 'Timed out gathering sources: the AI service did not respond in 20s — try again later',

@@ -267,7 +267,18 @@ export function createPlugin(cfg: PluginConfig) {
          不等它，付费用户会先看到一帧「未解锁」再闪回来。等完再往下，
          首帧就是正确状态。
          只对「码本身是假的」清码；过期保留、环境异常也不放行（见 revalidateLicense）。 */
-      await revalidateLicense();
+      try {
+        const r = await revalidateLicense();
+        /* 首帧在 await 之后才画，不需要为 changed 补重绘。但环境异常要明说：
+           验签跑不了时这一版按「未激活」处理，付费用户只看到「未激活」会
+           以为码失效了。 */
+        if (r.reason === 'env-error') notify(t('notice.license.checkFailed'), 'error');
+      } catch (e) {
+        /* 读存储 / 验签链上任何一步抛，都不能把 onload 带崩：插件起不来，
+           书写不了。降级成「校验异常」，用户至少能进界面看到提示。 */
+        console.warn('[bz-reader] license revalidate failed on startup:', e);
+        notify(t('notice.license.checkFailed'), 'error');
+      }
       loadShellState();
 
       this.store = new ReaderStore(this.app);
@@ -475,7 +486,11 @@ export function createPlugin(cfg: PluginConfig) {
      * 真正的收尾在 `shutdown()` 里——那里要 await 写盘，不能塞进这个签名。
      */
     onunload(): void {
-      void this.shutdown();
+      /* 收尾是异步的（要等写盘），但宿主不 await 它：接住拒绝，
+         别让一次写盘失败变成控制台里的一条未处理拒绝。 */
+      void this.shutdown().catch((e: unknown) => {
+        console.warn('[bz-reader] shutdown failed:', e);
+      });
     }
 
     /**

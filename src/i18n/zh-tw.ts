@@ -17,6 +17,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'common.close': '關閉',
   'common.cancel': '取消',
   'common.unknownError': '未知錯誤',
+  'common.dialog': '對話框',
 
   /* ── 外掛入口 ────────────────────────────────────────────── */
   'ribbon.shelf': 'Bz 閱讀：書架',
@@ -518,6 +519,7 @@ export const ZH_TW: Record<MsgKey, string> = {
 
   /* ── 從備份恢復確認層 / 殼層守門（C 批次） ───────────────── */
   'notice.bookmark.gone': '這枚書籤已經不在了',
+  'notice.license.checkFailed': '授權校驗異常，已按未啟用處理；重啟外掛重試，仍不行請發郵件或加群。',
   'notice.migrate.busy': '上一個目錄還在遷移，等它跑完再來',
   'notice.migrate.failed': '遷移失敗：{why}',
   'notice.ai.evidenceTimeout': '取證超時：AI 服務 20 秒沒有回應，稍後再試',

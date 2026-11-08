@@ -20,6 +20,7 @@ export const JA: Record<MsgKey, string> = {
   'common.close': '閉じる',
   'common.cancel': 'キャンセル',
   'common.unknownError': '不明なエラー',
+  'common.dialog': 'Dialog',
 
   /* ── プラグイン入口 ──────────────────────────────────────── */
   'ribbon.shelf': 'bz Reader：本棚',
@@ -522,6 +523,7 @@ export const JA: Record<MsgKey, string> = {
 
   /* ── restore confirmation / shell guards (C-batch; placeholder EN) ── */
   'notice.bookmark.gone': 'That bookmark is gone',
+  'notice.license.checkFailed': 'License check failed, running as not activated. Restart the plugin; contact me if it persists.',
   'notice.migrate.busy': 'Another folder is still being migrated — wait for it to finish',
   'notice.migrate.failed': 'Migration failed: {why}',
   'notice.ai.evidenceTimeout': 'Timed out gathering sources: the AI service did not respond in 20s — try again later',

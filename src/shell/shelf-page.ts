@@ -92,6 +92,11 @@ export function shelfRenderKey(state: ShellState, books: ReaderBook[], compact =
         x.reading.stats.totalReadTime ?? 0,
         x.reading.stats.lastReadTime ?? 0,
         x.notes?.highlights?.length ?? 0,
+        /* 书摘与书签也上指纹（笔记页按它们出条数）：现在 notes.ts 每改一次都会推
+           notesUpdatedAt，路是通的；但指纹不该只依赖「以后没人绕过 notes.ts」——
+           少算一项就是一次静默不刷新。 */
+        x.notes?.excerpts?.length ?? 0,
+        x.notes?.bookmarks?.length ?? 0,
         x.notesUpdatedAt ?? 0,
         x.updatedAt ?? 0,
         x.archivedAt ?? 0,

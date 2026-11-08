@@ -24,6 +24,7 @@ export const ZH = {
   'common.close': '关闭',
   'common.cancel': '取消',
   'common.unknownError': '未知错误',
+  'common.dialog': '对话框',
 
   /* ── 插件入口 ────────────────────────────────────────────── */
   'ribbon.shelf': 'Bz 阅读：书架',
@@ -63,6 +64,7 @@ export const ZH = {
   'notice.bookmark.exists': '这一页已经有一枚书签了',
   'notice.bookmark.added': '已记一枚书签',
   'notice.bookmark.gone': '这枚书签已经不在了',
+  'notice.license.checkFailed': '授权校验异常，已按未激活处理；重启插件重试，仍不行请发邮件或加群。',
 
   /* ── 通知：划线 / 标注 ───────────────────────────────────── */
   'notice.mark.created': '已用{color}色划线',

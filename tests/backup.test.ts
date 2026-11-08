@@ -169,4 +169,14 @@ describe('恢复 = 整份替换（replaceWithBackup）', () => {
     );
     expect(out.dataDir).toBe('我的库/数据');
   });
+
+  /* 0.2.0 之前的备份没有双端偏好键：整份替换别把本机调好的字号抹成默认。 */
+  it('备份里没有双端偏好时保留本机的（设置不跟着备份走）', () => {
+    const out = replaceWithBackup(
+      { version: 1, books: [], prefsDesktop: { fontSize: 17 }, prefsMobile: { fontSize: 14 } },
+      { version: 1, books: [] },
+    );
+    expect((out.prefsDesktop as { fontSize: number }).fontSize).toBe(17);
+    expect((out.prefsMobile as { fontSize: number }).fontSize).toBe(14);
+  });
 });

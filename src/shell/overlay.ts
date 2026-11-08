@@ -533,8 +533,12 @@ function bareFloat(body: string, cls: string): string {
  * 不跟工具条走——手机上工具条与面板一次只出现一样东西。
  */
 function textDialog(inner: string): string {
-  /* 手机上的文字面板也是「压住正文、焦点该留在里面」的弹窗（C6） */
-  return `<div class="bzs-scrim bzs-text-scrim" data-role="scrim" role="dialog" aria-modal="true">${inner}</div>`;
+  /* 手机上的文字面板也是「压住正文、焦点该留在里面」的弹窗（C6）。
+     aria-label 不能省：只写 role="dialog" 时读屏只会念「对话框」，
+     听不出打开的是想法、书摘还是 AI。 */
+  return `<div class="bzs-scrim bzs-text-scrim" data-role="scrim" role="dialog" aria-modal="true" aria-label="${esc(
+    t('common.dialog'),
+  )}">${inner}</div>`;
 }
 
 /**

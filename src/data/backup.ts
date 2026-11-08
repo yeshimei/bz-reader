@@ -72,6 +72,10 @@ export function buildBackup(data: ReaderData, now = Date.now()): string {
  *
  * `dataDir` 必须保留本机的：备份可能来自另一台电脑，那个路径在这里不存在，
  * 拿过来当天就会「数据目录丢了」。
+ *
+ * 双端偏好（`prefsDesktop` / `prefsMobile`）同理：它们是「这台机器怎么读」的
+ * 口径，不是书的内容。0.2.0 之前的备份没有这两个键，整份替换会把本机调好的
+ * 字号 / 行距直接抹掉——那是恢复数据，不是恢复设置。
  */
 export function replaceWithBackup(local: ReaderData, backup: ReaderData): ReaderData {
   return {
@@ -79,6 +83,8 @@ export function replaceWithBackup(local: ReaderData, backup: ReaderData): Reader
     version: 1,
     schemaVersion: SCHEMA_VERSION,
     dataDir: local.dataDir,
+    prefsDesktop: backup.prefsDesktop ?? local.prefsDesktop,
+    prefsMobile: backup.prefsMobile ?? local.prefsMobile,
   };
 }
 

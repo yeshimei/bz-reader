@@ -20,9 +20,21 @@ export const escManager = (() => {
    *  软关后 layers 保留（重启用后 isVisible 判活自愈），ESC 处理可随 arm() 恢复。 */
   let disabled = false;
 
+  /** 宿主自己的弹窗（设置 / 命令面板 / 确认框）是不是开着 */
+  const hostModalOpen = (): boolean => {
+    try {
+      return typeof document.querySelector === 'function' && !!document.querySelector('.modal-container');
+    } catch {
+      return false;
+    }
+  };
+
   const onKeydown = (e: KeyboardEvent) => {
     if (disabled) return;
     if (e.key !== 'Escape') return;
+    /* 捕获阶段比宿主早看到同一次按键；宿主弹窗在上面时必须让它先关——
+       否则用户按 ESC，关掉的是后面那层壳层弹层，宿主的窗口还杵在那里。 */
+    if (hostModalOpen()) return;
     for (let i = layers.length - 1; i >= 0; i--) {
       const L = layers[i];
       try {

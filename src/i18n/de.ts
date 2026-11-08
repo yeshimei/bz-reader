@@ -21,6 +21,7 @@ export const DE: Record<MsgKey, string> = {
   'common.close': 'Schließen',
   'common.cancel': 'Abbrechen',
   'common.unknownError': 'Unbekannter Fehler',
+  'common.dialog': 'Dialog',
 
   /* ── Einstieg ───────────────────────────────────────────── */
   'ribbon.shelf': 'bz Reader: Regal',
@@ -529,6 +530,7 @@ export const DE: Record<MsgKey, string> = {
 
   /* ── restore confirmation / shell guards (C-batch; placeholder EN) ── */
   'notice.bookmark.gone': 'That bookmark is gone',
+  'notice.license.checkFailed': 'License check failed, running as not activated. Restart the plugin; contact me if it persists.',
   'notice.migrate.busy': 'Another folder is still being migrated — wait for it to finish',
   'notice.migrate.failed': 'Migration failed: {why}',
   'notice.ai.evidenceTimeout': 'Timed out gathering sources: the AI service did not respond in 20s — try again later',

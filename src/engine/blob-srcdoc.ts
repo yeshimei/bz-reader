@@ -64,29 +64,6 @@ const MAX_INLINE_IMAGE = 3 * 1024 * 1024;
  */
 const MAX_INLINE_TOTAL = 8 * 1024 * 1024;
 
-/**
- * srcdoc 总长硬上限（B6）。
- *
- * 单张上限 + 整章预算挡的是「资源太多」，挡不住「一章正文本身就很大」
- * （排版很碎的书，一章 HTML 十几 MB 不稀奇）。srcdoc 是一个属性值，
- * 十几 MB 的字符串在移动端 WebView 里解析就能把页面卡死。
- * 真超了只砍 data: 资源（图退回占位），正文一个字不动——先能读，再看图。
- */
-const MAX_SRCDOC_LEN = 12 * 1024 * 1024;
-
-/** 超上限时反复剥 data: 资源，直到进线或没得剥 */
-function capSrcdoc(html: string): string {
-  if (html.length <= MAX_SRCDOC_LEN) return html;
-  let out = html;
-  for (let i = 0; i < 4 && out.length > MAX_SRCDOC_LEN; i += 1) {
-    out = out
-      .replace(/srcset="[^"]*data:[^"]*"/gi, 'srcset=""')
-      .replace(/(src|href)="data:[^"]*"/gi, '$1=""')
-      .replace(/url\((['"]?)data:[^'")]*\1\)/gi, 'none');
-  }
-  return out;
-}
-
 function isBlobUrl(url: string): boolean {
   return String(url || '').trim().toLowerCase().startsWith('blob:');
 }
@@ -375,7 +352,7 @@ export async function inlineMarkup(raw: string): Promise<string> {
     if (style.includes('blob:')) el.setAttribute('style', await inlineCss(style, ctx));
   }
 
-  return capSrcdoc(`<!doctype html>${doc.documentElement.outerHTML}`);
+  return `<!doctype html>${doc.documentElement.outerHTML}`;
 }
 
 /** 1) 留住 Blob：foliate 换章会 revokeObjectURL，之后还得读原文 */

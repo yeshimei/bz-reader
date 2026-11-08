@@ -120,6 +120,18 @@ describe('重绘指纹：变了的', () => {
     differs(base, shelfRenderKey(lib, [edited]));
   });
 
+  /* 指纹里补了书摘 / 书签条数：不经过 notesUpdatedAt 也得能看见变化。 */
+  it('书摘 / 书签条数变化也算内容变了', () => {
+    const base = shelfRenderKey(lib, [book()]);
+    const excerpted = book();
+    excerpted.notes.excerpts.push({ id: 'x1', text: '好一似食尽鸟投林', createdAt: 3 });
+    differs(base, shelfRenderKey(lib, [excerpted]));
+
+    const marked = book();
+    marked.notes.bookmarks.push({ id: 'k1', percent: 0.3, createdAt: 3 });
+    differs(base, shelfRenderKey(lib, [marked]));
+  });
+
   it('书名被引擎回填 / 用户改名（不碰 updatedAt）', () => {
     const base = shelfRenderKey(lib, [book()]);
     const renamed = book();
