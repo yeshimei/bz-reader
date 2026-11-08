@@ -16,6 +16,8 @@
  * 所以下标可以直接对上；把每块原文也存进画像文件能省这一遍，但会让文件大出一倍，
  * 不值得——读书几秒，省下的是用户的磁盘与同步流量。
  * ============================================================ */
+import { notify } from '../core/notice';
+import { t } from '../i18n';
 import {
   PORTRAIT_CHUNK_CHARS,
   chunkChapters,
@@ -155,14 +157,25 @@ export class PortraitBuilder {
   }
 
   /**
-   * 开始跑。
+   * 开始跑。返回「真的开跑了没有」——被拦下（另一个任务在跑 / 已完成）时为 false，
+   * 调用方据此决定要不要把选建法那一块收起来。
    *
    * `rebuild` = 用户点的是「重建」：清掉旧块重来。否则同一方案且已完成 → 直接返回
    * （不做任何请求），未完成 → 续跑缺的块。
    */
-  async start(book: { id: string; title: string }, plan: PortraitPlan, opts: { rebuild?: boolean } = {}): Promise<void> {
-    if (this.state.status === 'running' || this.state.status === 'extract') return;
+  async start(
+    book: { id: string; title: string },
+    plan: PortraitPlan,
+    opts: { rebuild?: boolean } = {},
+  ): Promise<boolean> {
+    if (this.state.status === 'running' || this.state.status === 'extract') {
+      /* 以前这里静默 return：用户点了「建立索引」什么也没发生，只当成按钮坏了。
+         说不清为什么没反应，比报一句「先停掉另一本」糟得多。 */
+      notify(t('notice.portrait.busy'), 'info');
+      return false;
+    }
     const now = this.now();
+    const model = plan === 'vector' ? this.deps.embedModel() : this.deps.chatModel();
     this.stopped = false;
     this.state = {
       ...emptyProgress(plan, book.id, book.title),
@@ -174,15 +187,23 @@ export class PortraitBuilder {
     this.emit();
 
     const existing = opts.rebuild ? null : await this.deps.load(book.id);
+    /* 模型也算切块口径：换了嵌入模型，旧块里的 vec 是两个不同向量空间的坐标，
+       拿来做相似度就是在比两套尺子。模型变了就不可续跑——重跑时 chars/text
+       照旧用（切块对同一本书是确定性的），vec 因为不进 resumable 而被自然丢掉。 */
+    const sameModel = !!existing && existing.model === model;
     const resumable =
-      existing && existing.plan === plan && !existing.done && existing.chunkChars === PORTRAIT_CHUNK_CHARS[plan]
+      existing &&
+      sameModel &&
+      existing.plan === plan &&
+      !existing.done &&
+      existing.chunkChars === PORTRAIT_CHUNK_CHARS[plan]
         ? existing
         : null;
-    if (existing && existing.done && existing.plan === plan && !opts.rebuild) {
+    if (existing && sameModel && existing.done && existing.plan === plan && !opts.rebuild) {
       /* 已经建好且方案一致：不发请求，直接把成品交给界面 */
       this.portrait = existing;
       this.emit({ status: 'done', total: existing.total, done: existing.blocks.length, phase: '' });
-      return;
+      return true;
     }
 
     try {
@@ -195,7 +216,7 @@ export class PortraitBuilder {
       );
       if (this.stopped) {
         this.emit({ status: 'paused', phase: '' });
-        return;
+        return true;
       }
       const chunks = chunkChapters(chapters, PORTRAIT_CHUNK_CHARS[plan]);
       if (!chunks.length) throw new Error('这本书没有可用的正文块');
@@ -215,7 +236,7 @@ export class PortraitBuilder {
         bookId: book.id,
         bookTitle: book.title,
         plan,
-        model: plan === 'vector' ? this.deps.embedModel() : this.deps.chatModel(),
+        model,
         chunkChars: PORTRAIT_CHUNK_CHARS[plan],
         total: chunks.length,
         blocks,
@@ -236,12 +257,14 @@ export class PortraitBuilder {
       await this.runChunks(chunks.map((c) => c.text));
       if (this.stopped) {
         this.emit({ status: 'paused', phase: '' });
-        return;
+        return true;
       }
       await this.finish();
+      return true;
     } catch (e) {
       this.ctrl = null;
       this.emit({ status: 'error', phase: '', message: (e as Error)?.message || '建画像失败' });
+      return true;
     }
   }
 

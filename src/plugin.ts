@@ -29,7 +29,7 @@ import { BookRepo, BASE_FORMATS, PRO_FORMATS, formatOf, planRelocations, scanVau
 import { fillBookMetas, readFingerprint } from './data/book-scan';
 import { MAX_FINGERPRINT_BYTES } from './data/fingerprint';
 import { ReaderStore, verifyCopiedJson } from './data/store';
-import { backupFileName, buildBackup, mergeRestore, parseBackup } from './data/backup';
+import { backupFileName, buildBackup, parseBackup, replaceWithBackup } from './data/backup';
 import { pickJsonFile } from './core/file-pick';
 import { copyTree, dirHasFiles, findDataDirs, removeTree } from './data/migrate';
 import { planMove } from './core/move-plan';
@@ -72,6 +72,8 @@ import {
 } from './shell/state';
 import { createBookAi, type BookAiApi } from './data/book-ai';
 import { setShellSource, shellPrefs } from './shell/source';
+import { RT } from './shell/runtime';
+import { portraitBuilder } from './data/portrait-build';
 import { hrefCandidates, interceptableClick, wrapOpenLinkText } from './shell/link-postprocessor';
 import { CHANGELOG_RELEASES, pickReleaseFor, planChangelog, releaseEntryCount } from './shell/changelog';
 import { openChangelogNote } from './shell/changelog-note';
@@ -259,10 +261,11 @@ export function createPlugin(cfg: PluginConfig) {
       setProBuild(cfg.pro);
       recordActivity();
       /* 启动即真验一次码：同步判定只能拆 payload，验签得在这里做。
-         只对「码本身是假的」清码；过期保留、环境异常不动（见 revalidateLicense）。 */
-      void revalidateLicense().then((r) => {
-        if (r.changed) notifyShell();
-      });
+         必须 await：`can()` 在首帧就会被问，而 `verify: pending` 一律不放行——
+         不等它，付费用户会先看到一帧「未解锁」再闪回来。等完再往下，
+         首帧就是正确状态。
+         只对「码本身是假的」清码；过期保留、环境异常也不放行（见 revalidateLicense）。 */
+      await revalidateLicense();
       loadShellState();
 
       this.store = new ReaderStore(this.app);
@@ -465,12 +468,17 @@ export function createPlugin(cfg: PluginConfig) {
       });
     }
 
-    onunload(): void {
+    async onunload(): Promise<void> {
       /* 整段收尾放在 try/finally：视图收尾、弹层销毁任一步抛错，后面的全局
          资源（封面 objectURL、iframe 补丁、日志监听、store、data.json）也
          必须归还——否则禁用插件后它们还挂在这个进程里。 */
       try {
         closeAllModals();
+        /* 还在跑的长任务先掐掉：AI 请求与建画像都持有 AbortController 和定时器，
+           插件卸载后它们仍会 resolve 回来，然后对着已经销毁的 DOM 写进度。
+           以前只关视图，任务照跑——禁用插件后网络面板里还有请求在走。 */
+        RT.aiAbort?.abort();
+        portraitBuilder().cancel();
         this.offShell?.();
         this.overlay?.destroy();
         for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_READER)) {
@@ -478,7 +486,7 @@ export function createPlugin(cfg: PluginConfig) {
             /* 必须是 instanceof：`getLeavesOfType` 在工作区恢复期间可能给出
                还没实例化的 DeferredView，强转后调 forceClose 会抛在 undefined 上。 */
             const v = leaf.view;
-            if (v instanceof ReaderView) void v.forceClose();
+            if (v instanceof ReaderView) await v.forceClose();
           } finally {
             /* 视图类随插件卸载一起失效，留在工作区里就是一个「插件不再活动」的空壳；
                下次加载时 Obsidian 还会尝试 load() 它，然后抛在 titleEl 上。
@@ -491,12 +499,18 @@ export function createPlugin(cfg: PluginConfig) {
         /* 两个全局函数（createObjectURL / iframe.src）是我们改的，要还回去，
            否则禁用插件后它们还在收别的插件造的 Blob（P2-13） */
         uninstallBlobSrcdocPatches();
+        /* 壳层的数据源必须断：它握着 store / repo / app，不断的话禁用插件后
+           任何一次误触（残留的按钮、还没销毁的监听）都能继续改数据。 */
+        setShellSource(null);
         /* 书架就是中心 tab 里的一个视图（VIEW_TYPE_STUDY），跟阅读视图一样是用户
            自己打开的——插件重载不该替他关掉。Obsidian 在插件停用时自己会把这些
            leaf 换成占位，我们 detach 只会让人丢掉布局。 */
-        void this.store?.destroy();
+        /* store.destroy() 里是一次 flush：不 await 的话，宿主紧接着就可能把插件
+           目录卸掉，最后一段进度白写。Obsidian 不 await onunload，但同步地等到
+           IO 排进队列总比丢一个 promise 强。 */
+        await this.store?.destroy();
         /* 配置（含激活码）最后写一次：刚激活就禁用插件的场景不能丢码 */
-        void this.flushCfg();
+        await this.flushCfg();
       }
     }
 
@@ -619,10 +633,15 @@ export function createPlugin(cfg: PluginConfig) {
     }
 
     /**
-     * 从备份恢复：**合并**，不替换。
+     * 从备份恢复：**整份替换**（2026-11-08 用户拍板）。
      *
-     * 替换会让「另一台设备上多读的那几章」凭空消失——那是数据丢失，
-     * 不是恢复。合并按书 id 对齐、`updatedAt` 大的赢（同 store 的外部修改合并）。
+     * 以前这里是「按 id 合并、updatedAt 大的赢」。合并的问题不是实现难，
+     * 是结果说不清：恢复完到底有几本、进度是哪一份，用户预期不了。现在就是
+     * 「回到备份那一刻」，当前数据不保留——壳层（`restoredo`）在调它之前
+     * 必须先弹一次确认，文案写明这一点。
+     *
+     * `dataDir` 保留本机值（见 `replaceWithBackup`）：备份可能来自另一台机器，
+     * 那个路径在这里不存在。
      */
     private async restoreData(): Promise<{ ok: boolean; message: string }> {
       const picked = await pickJsonFile();
@@ -640,21 +659,23 @@ export function createPlugin(cfg: PluginConfig) {
         notify(parsed.message, 'error');
         return { ok: false, message: parsed.message };
       }
-      const merged = mergeRestore(this.store.get(), parsed.data);
+      /* 原位替换，不换对象也不换 books 数组：BookRepo 与壳层快照拿的都是
+         `store.get()` / `books` 这两个引用，换掉它们等于让半个插件继续看着
+         恢复前的书架（新导入的书落不了盘、删掉的书重启又回来）。 */
+      const current = this.store.get();
+      const next = replaceWithBackup(current, parsed.data);
       const books = this.repo.all();
       books.length = 0;
-      books.push(...merged.books);
-      /* repo 与 store 必须指向同一个数组，否则恢复出来的书重启就没了 */
-      this.store.get().books = books;
-      if (merged.prefs !== undefined) this.store.get().prefs = merged.prefs;
-      if (typeof merged.goal === 'number') this.store.get().goal = merged.goal;
-      this.store.get().checkins = merged.checkins;
-      if (typeof merged.dailyGoalMinutes === 'number') {
-        this.store.get().dailyGoalMinutes = merged.dailyGoalMinutes;
+      books.push(...next.books);
+      for (const key of Object.keys(current)) {
+        if (key === 'books') continue;
+        delete (current as unknown as Record<string, unknown>)[key];
       }
+      Object.assign(current, next, { books });
+
       this.store.touch();
       await this.store.flush(true);
-      hydrateLibrary(books, this.store.get().goal);
+      hydrateLibrary(books, current.goal);
       notifyShell();
       const extra = parsed.dropped ? t('notice.restore.dropped', { n: parsed.dropped }) : '';
       const msg = t('notice.restore.done', { n: books.length }) + extra;
@@ -871,6 +892,16 @@ export function createPlugin(cfg: PluginConfig) {
            之后 repo 里新导入的书永远落不了盘，移除的书重启又回来。 */
         this.store.get().books = books;
         hydrateLibrary(books, fresh.goal);
+
+        /* 封面缓存写在旧数据目录的 `covers/` 里，迁移完那些 `meta.coverPath`
+           全是死路径：书架自己还能重解，外部（bz 书库）拿它当图片读就是一片
+           空白，而且会一直空白下去。释放内存里的 objectURL 并清掉路径，
+           让下一次取封面在新目录重新落一份。 */
+        releaseCovers();
+        for (const b of books) {
+          if (b.meta.coverPath) delete b.meta.coverPath;
+        }
+        this.store.touch();
 
         const removed = await removeTree(this.app, from);
         this.cfg.dataDir = to;

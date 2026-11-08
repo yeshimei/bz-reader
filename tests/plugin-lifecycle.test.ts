@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SHELL_STATE, getState, setState, subscribe } from '../src/shell/state';
-import { setShellSource } from '../src/shell/source';
+import { getShellSource, setShellSource } from '../src/shell/source';
+import { RT } from '../src/shell/runtime';
+import { portraitBuilder, resetPortraitBuilder } from '../src/data/portrait-build';
 import { resetUiState } from '../src/shell/actions';
 import { DEFAULT_DATA_DIR, dataDirOf, setDataDir } from '../src/core/plugin-path';
 import { VIEW_TYPE_READER } from '../src/view/reader-view';
@@ -15,7 +17,7 @@ afterEach(() => {
 });
 
 describe('插件卸载（A-11）', () => {
-  it('只对 ReaderView 实例调 forceClose；其它 leaf 照样 detach', () => {
+  it('只对 ReaderView 实例调 forceClose；其它 leaf 照样 detach', async () => {
     const app = makeApp();
     const plugin = makePlugin(app);
     const { view } = makeReaderView(app, 'b1');
@@ -26,7 +28,7 @@ describe('插件卸载（A-11）', () => {
     app.workspace.getLeavesOfType = (type: string) =>
       (type === VIEW_TYPE_READER ? [readerLeaf, otherLeaf] : []) as never;
 
-    plugin.onunload();
+    await plugin.onunload();
 
     expect(close).toHaveBeenCalledTimes(1);
     expect(otherClose).not.toHaveBeenCalled();
@@ -34,7 +36,7 @@ describe('插件卸载（A-11）', () => {
     expect(otherLeaf.detach).toHaveBeenCalledTimes(1);
   });
 
-  it('清理中途抛错也把全局收尾走完（try/finally）', () => {
+  it('清理中途抛错也把全局收尾走完（try/finally）', async () => {
     const app = makeApp();
     const plugin = makePlugin(app);
     plugin.store.destroy = vi.fn(async () => undefined);
@@ -45,12 +47,44 @@ describe('插件卸载（A-11）', () => {
       },
     };
 
-    expect(() => plugin.onunload()).toThrow('overlay boom');
+    /* onunload 现在是 async：store.destroy() / flushCfg() 要 await，
+       否则宿主紧跟着卸插件目录，最后一段进度就白写了。 */
+    await expect(plugin.onunload()).rejects.toThrow('overlay boom');
     expect(plugin.store.destroy).toHaveBeenCalledTimes(1);
     expect(plugin.flushCfg).toHaveBeenCalledTimes(1);
   });
 
-  it('每个 leaf 先收视图再 detach，视图收尾抛错也不把 leaf 留在工作区', () => {
+  /**
+   * A-11 补：以前只关视图，长任务照跑——禁用插件后网络面板里还有请求在走，
+   * 而且要写的那块界面已经销毁了。壳层数据源同理：它握着 store / repo / app。
+   */
+  it('卸载时掐掉在跑的 AI 请求与建索引任务，并断开壳层数据源', async () => {
+    const app = makeApp();
+    const plugin = makePlugin(app);
+    const ctrl = new AbortController();
+    RT.aiAbort = ctrl;
+    setShellSource({ app } as never);
+    const builder = portraitBuilder({
+      load: async () => null,
+      save: async () => true,
+      extract: async () => [],
+      embed: async () => [],
+      summarise: async () => ({ digest: '', summary: '' }),
+      embedModel: () => 'm',
+      chatModel: () => 'c',
+    });
+    const cancel = vi.spyOn(builder, 'cancel');
+
+    await plugin.onunload();
+
+    expect(ctrl.signal.aborted).toBe(true);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(getShellSource()).toBeNull();
+    RT.aiAbort = null;
+    resetPortraitBuilder();
+  });
+
+  it('每个 leaf 先收视图再 detach，视图收尾抛错也不把 leaf 留在工作区', async () => {
     const app = makeApp();
     const plugin = makePlugin(app);
     const { view } = makeReaderView(app, 'b1');
@@ -60,7 +94,7 @@ describe('插件卸载（A-11）', () => {
     const leaf = { view, detach: vi.fn() };
     app.workspace.getLeavesOfType = (type: string) => (type === VIEW_TYPE_READER ? [leaf] : []) as never;
 
-    expect(() => plugin.onunload()).toThrow('close boom');
+    await expect(plugin.onunload()).rejects.toThrow('close boom');
     expect(leaf.detach).toHaveBeenCalledTimes(1);
     expect(plugin.flushCfg).toHaveBeenCalledTimes(1);
   });

@@ -8,8 +8,10 @@
  *   · AI Key（同上）——用户会把备份文件发给别人看，不该顺手把自己的 Key
  *     一起发出去。
  *
- * 恢复走**合并**而不是替换：按书 id 对齐、`updatedAt` 大的赢。替换会让
- * 「在另一台设备上多读的那几章」凭空消失——那是数据丢失，不是恢复。
+ * 恢复走**整份替换**（2026-11-08 用户拍板）：选了哪份备份就回到哪份状态。
+ * 不做按 id 的跨设备合并——「另一台多读的那几章」要不要留，是用户自己的
+ * 同步工具该决定的事，插件替他算一遍只会得到一份谁都说不清的数据。
+ * `dataDir` 例外：那是本机的路径，永远保留本机值。
  *
  * 格式是一个自描述的单文件 JSON，带 `app` 与 `version`：用户把它改名、
  * 扔进任何目录，插件都能认出来这是自己的备份，而不是拿一份任意 JSON
@@ -61,42 +63,22 @@ export function buildBackup(data: ReaderData, now = Date.now()): string {
 }
 
 /**
- * 恢复时的合并：书架按 `updatedAt` 合，偏好类字段以**备份**为准。
+ * 恢复：**整份替换**，不是合并（2026-11-08 改）。
  *
- * 为什么不直接用 `mergeData`：那个函数的语义是「外部改动并进来、本地优先」，
- * 用于写盘前的同步合并；而恢复是用户主动选了一份备份，`prefs / goal /
- * dailyGoalMinutes` 应该按备份来，否则「恢复」出来跟没恢复一样。
+ * 以前这里是「按 id 对齐、`updatedAt` 大的赢」的合并。用户拍板删掉：
+ * 恢复就是恢复——我选了一份备份，我要回到那个状态，不是要一份两边掺起来的
+ * 东西。合并还带来一个说不清的后果：恢复完书架里有几本、进度是哪一份，
+ * 连写代码的人都得算一遍才说得明白，用户更不可能预期。
  *
- * 打卡按天取较大秒数：它是当天累计值，取大只会「打上卡」，不会把记录抹掉。
- * `dataDir` 保留本机的——备份来自另一台电脑，那个路径在这里没有意义。
+ * `dataDir` 必须保留本机的：备份可能来自另一台电脑，那个路径在这里不存在，
+ * 拿过来当天就会「数据目录丢了」。
  */
-export function mergeRestore(local: ReaderData, backup: ReaderData): ReaderData {
-  const byId = new Map(backup.books.map((b) => [b.id, b]));
-  const books = local.books.map((b) => {
-    const other = byId.get(b.id);
-    if (!other) return b;
-    byId.delete(b.id);
-    return (other.updatedAt ?? 0) > (b.updatedAt ?? 0) ? other : b;
-  });
-  for (const b of byId.values()) books.push(b);
-
-  const checkins: Record<string, number> = { ...(local.checkins ?? {}) };
-  for (const [day, sec] of Object.entries(backup.checkins ?? {})) {
-    const n = Number(sec) || 0;
-    if (n > (checkins[day] ?? 0)) checkins[day] = n;
-  }
-
+export function replaceWithBackup(local: ReaderData, backup: ReaderData): ReaderData {
   return {
-    ...local,
-    books,
-    prefs: backup.prefs ?? local.prefs,
-    /* 旧备份里没有这两个键 → 保留本机调好的那份，别把它抹成默认 */
-    prefsDesktop: backup.prefsDesktop ?? local.prefsDesktop,
-    prefsMobile: backup.prefsMobile ?? local.prefsMobile,
-    goal: typeof backup.goal === 'number' ? backup.goal : local.goal,
-    checkins,
-    dailyGoalMinutes:
-      typeof backup.dailyGoalMinutes === 'number' ? backup.dailyGoalMinutes : local.dailyGoalMinutes,
+    ...backup,
+    version: 1,
+    schemaVersion: SCHEMA_VERSION,
+    dataDir: local.dataDir,
   };
 }
 

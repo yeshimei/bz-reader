@@ -45,9 +45,13 @@ jobs:
       - name: Show digests
         run: sha256sum main.js styles.css manifest.json
 
+      # subject-path 必须与 Show digests 里那三个文件一致：少签一个，
+      # 用户对那个文件跑 `gh attestation verify` 就是「找不到 attestation」。
+      # manifest.json 尤其不能漏——社区审核拿它确认版本与 minAppVersion。
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
             main.js
             styles.css
+            manifest.json

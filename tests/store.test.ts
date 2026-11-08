@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { App } from 'obsidian';
-import { ReaderStore, sanitizeData } from '../src/data/store';
+import { ReaderStore, sanitizeData, sanitizeDataDetailed } from '../src/data/store';
 import { DEFAULT_DATA_DIR } from '../src/core/plugin-path';
 import { FakeAdapter } from './helpers/fake-adapter';
 
@@ -82,6 +82,74 @@ describe('数据形状自愈（sanitizeData）', () => {
       ],
     });
     expect(clean?.books[0]!.reading.sessions).toHaveLength(1);
+  });
+
+  /* ── A8：id 只能长成 `^[\w-]{1,64}$` ────────────────────────── */
+
+  it('带引号的书 id 整本丢弃，并进 dropped（它会进 DOM 属性）', () => {
+    const res = sanitizeDataDetailed({
+      version: 1,
+      books: [
+        { id: 'x" onmouseover="alert(1)', fileRef: { vaultPath: 'a.epub', format: 'epub' } },
+        { id: '../../evil', fileRef: { vaultPath: 'b.epub', format: 'epub' } },
+        { id: 'ok-1', fileRef: { vaultPath: 'c.epub', format: 'epub' } },
+      ],
+    });
+    expect(res?.data.books.map((b) => b.id)).toEqual(['ok-1']);
+    expect(res?.dropped).toHaveLength(2);
+  });
+
+  it('标注 id 不合规的单条丢弃，同数组里合规的照留', () => {
+    const res = sanitizeDataDetailed({
+      version: 1,
+      books: [
+        {
+          id: 'b1',
+          fileRef: { vaultPath: 'a.epub', format: 'epub' },
+          notes: {
+            highlights: [
+              { id: 'h1', text: '正常', createdAt: 1 },
+              { id: 'x/../y', text: '带斜杠', createdAt: 1 },
+              { id: '', text: '空 id', createdAt: 1 },
+            ],
+          },
+        },
+      ],
+    });
+    expect(res?.data.books[0]!.notes.highlights.map((h) => h.id)).toEqual(['h1']);
+    expect(res?.dropped).toHaveLength(2);
+  });
+
+  /* ── A9：数字只能是有限数，percent 夹到 0..1 ────────────────── */
+
+  it('1e999 解析出来的 Infinity 落回默认值，不会写进内存', () => {
+    /* JSON.parse('1e999') 得到 Infinity，`typeof` 仍是 number——
+       以前它能一路混进来，再 JSON.stringify 回 null。 */
+    const raw = JSON.parse(
+      '{"version":1,"books":[{"id":"b1","fileRef":{"vaultPath":"a.epub","format":"epub"},' +
+        '"addedAt":1e999,"updatedAt":1e999,"notesUpdatedAt":1e999,' +
+        '"reading":{"position":{"percent":1e999},"stats":{"totalReadTime":1e999,"lastReadTime":-1e999}}}]}',
+    );
+    const clean = sanitizeData(raw);
+    const b = clean!.books[0]!;
+    expect(Number.isFinite(b.addedAt)).toBe(true);
+    expect(Number.isFinite(b.updatedAt)).toBe(true);
+    expect(b.notesUpdatedAt).toBeUndefined();
+    expect(b.reading.position.percent).toBe(0); // 非有限数落回默认（0），不是夹成 1
+    expect(b.reading.stats.totalReadTime).toBe(0);
+    expect(b.reading.stats.lastReadTime).toBe(0);
+  });
+
+  it('percent 夹在 0..1：负数变 0，超界变 1', () => {
+    const clean = sanitizeData({
+      version: 1,
+      books: [
+        { id: 'a', fileRef: { vaultPath: 'a.epub', format: 'epub' }, reading: { position: { percent: -3 } } },
+        { id: 'b', fileRef: { vaultPath: 'b.epub', format: 'epub' }, reading: { position: { percent: 7 } } },
+      ],
+    });
+    expect(clean!.books[0]!.reading.position.percent).toBe(0);
+    expect(clean!.books[1]!.reading.position.percent).toBe(1);
   });
 
   it('books 不是数组时返回 null（调用方按空库启动）', () => {
@@ -185,9 +253,10 @@ describe('落盘', () => {
     expect(adapter.files.has(TMP)).toBe(false);
   });
 
-  it('写盘前合并外部修改时 books 数组引用不变（book-repo 不会与 store 分叉）', async () => {
-    /* BookRepo 构造时拿的是 store.get().books 那一个数组。合并如果换成新数组，
-       repo 继续指向旧数组：新导入的书落不了盘、删掉的书重启又回来（P3-07）。 */
+  it('外部改动不会被并进来，books 数组引用也不变（book-repo 不会与 store 分叉）', async () => {
+    /* 2026-11-08 起不再做跨设备合并：写盘就是本机这份整份落地。
+       books 数组的引用仍然不能换——BookRepo 构造时拿的是它，换掉等于
+       让 repo 继续指向旧数组（新导入的书落不了盘、删掉的书重启又回来）。 */
     const adapter = new FakeAdapter();
     adapter.files.set(FILE, validData());
     const store = makeStore(adapter);
@@ -204,7 +273,9 @@ describe('落盘', () => {
     await store.flush(true);
 
     expect(store.get().books).toBe(booksRef);
-    expect(booksRef.map((b) => b.id).sort()).toEqual(['b1', 'b2']);
+    expect(booksRef.map((b) => b.id)).toEqual(['b1']);
+    const onDisk = JSON.parse(adapter.files.get(FILE)!) as { books: Array<{ id: string }> };
+    expect(onDisk.books.map((b) => b.id)).toEqual(['b1']);
   });
 
   it('JSON.stringify 抛错不会把写盘链永久打死', async () => {
@@ -221,10 +292,12 @@ describe('落盘', () => {
     expect(adapter.files.get(FILE)).toContain('auto');
   });
 
-  it('磁盘签名还是空的时候磁盘上已经有文件：先合并再写，不能拿空库盖掉（A-01）', async () => {
+  it('两次写盘之间磁盘上出现文件：本机这份照写，不读盘合并', async () => {
+    /* 这是「不做冲突处理」的代价，写下来是为了让它是被选择的行为，而不是
+       某天被人当成 bug 又加回一套合并算法：谁最后写谁赢。 */
     const adapter = new FakeAdapter();
     const store = makeStore(adapter);
-    await store.load(); // 文件不存在，diskSig 留空
+    await store.load();
     expect(adapter.files.has(FILE)).toBe(false);
 
     // 另一个进程（Sync / 另一个窗口）在两次写盘之间创建了文件
@@ -234,8 +307,8 @@ describe('落盘', () => {
     store.get().books.push(book('local', '本地新书') as never);
     await store.flush(true);
 
-    const onDisk = JSON.parse(adapter.files.get(FILE)!) as { books: Array<{ id: string; meta: { title: string } }> };
-    expect(onDisk.books.map((b) => b.id).sort()).toEqual(['disk', 'local']);
+    const onDisk = JSON.parse(adapter.files.get(FILE)!) as { books: Array<{ id: string }> };
+    expect(onDisk.books.map((b) => b.id)).toEqual(['local']);
   });
 
   it('内容没变化时只刷新磁盘签名，不重复写文件（A-21）', async () => {

@@ -93,6 +93,77 @@ describe.runIf(hasKey)('激活入口（端到端，需要 scripts/keys 私钥）
   });
 });
 
+/* ───────────── 验签三态（A10） ───────────── */
+
+/**
+ * 以前的漏洞：`entitlement()` 是同步的，只能拆 payload 不能验签，而 payload
+ * 是码里的明文——手写一段 `{"v":1}` 的 base64，再把 checkedTs 填成今天，
+ * 就「已激活」了。现在多一道 `verify`：没验过、验不过都不放行。
+ */
+describe('验签三态（A10）', () => {
+  /** 结构合法、签名是假的：parseLicense 认，verifyLicense 不认 */
+  const forged =
+    'BZR1.' +
+    b64url(Buffer.from(JSON.stringify({ v: 1, name: '白嫖' }), 'utf8')) +
+    '.' +
+    b64url(Buffer.alloc(64, 7));
+
+  it('手填 checkedTs + 伪造 payload：验签没跑过时 can() 为 false', () => {
+    setProBuild(true);
+    setEntBackend({
+      read: () => snapshot({ license: forged, checkedTs: Date.now() }),
+      write: () => undefined,
+    });
+    expect(entitlement().verify).toBe('pending');
+    expect(entitlement().tier).toBe('free');
+    expect(can('stats')).toBe(false);
+  });
+
+  it.runIf(hasKey)('验签不过：verify 变 failed，can() 仍为 false，码被清掉', async () => {
+    setProBuild(true);
+    setEntBackend({
+      read: () => snapshot({ license: forged, checkedTs: Date.now() }),
+      write: () => undefined,
+    });
+    const res = await revalidateLicense();
+    expect(res.changed).toBe(true);
+    expect(entitlement().verify).toBe('failed');
+    expect(can('stats')).toBe(false);
+    expect(entitlement().license).toBe('');
+  });
+
+  it.runIf(hasKey)('真码验过之后才放行', async () => {
+    setProBuild(true);
+    let written: unknown = null;
+    setEntBackend({
+      read: () => snapshot({ license: issue({ v: 1, name: '包仔' }), checkedTs: Date.now() }),
+      write: (raw) => {
+        written = raw;
+      },
+    });
+    expect(entitlement().verify).toBe('pending');
+    expect(can('stats')).toBe(false); // 首帧不放行
+
+    await revalidateLicense();
+    expect(entitlement().verify).toBe('ok');
+    expect(can('stats')).toBe(true);
+    expect(written).toBeNull(); // 验过不等于要重写盘
+  });
+
+  it.runIf(hasKey)('过期码：verify 是 ok（签名是真的），但 tier 是 free', async () => {
+    setProBuild(true);
+    setEntBackend({
+      read: () => snapshot({ license: issue({ v: 1, name: '包仔', exp: Date.now() - 86_400_000 }), checkedTs: 1 }),
+      write: () => undefined,
+    });
+    await revalidateLicense();
+    expect(entitlement().verify).toBe('ok');
+    expect(entitlement().tier).toBe('free');
+    expect(can('stats')).toBe(false);
+    expect(entitlement().license).not.toBe(''); // 码留着，续费后不用重填
+  });
+});
+
 describe('发行信息', () => {
   it('购买链接指向爱发电商品直链，不是店铺主页', () => {
     // 用户点「去购买」必须落到可以下单的那一页；主页只是店铺动态列表。

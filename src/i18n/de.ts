@@ -517,4 +517,6 @@ export const DE: Record<MsgKey, string> = {
   'pt.needOpen': 'Ein Gesamtbild liest das ganze Buch – öffne es zuerst im Reader',
   'side.ai.source.block': 'Block {n}',
   'side.ai.book.stale': 'Dieses Gesamtbild wurde mit einem anderen Embedding-Modell erstellt – neu erstellen, sonst passen die gefundenen Blöcke nicht.',
+  'notice.portrait.busy': 'Another book is still building its index — stop that one first',
+  'notice.import.tooBig': '{n} file(s) are too large — import them on a computer first',
 };

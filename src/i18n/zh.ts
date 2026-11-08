@@ -514,6 +514,8 @@ export const ZH = {
   'pt.needOpen': '画像要读整本书的正文：先在阅读视图里打开这本书，再回来建',
   'side.ai.source.block': '第 {n} 块',
   'side.ai.book.stale': '这本书的画像用另一个嵌入模型建的：需要重建一次，否则检索出来的块对不上。',
+  'notice.portrait.busy': '另一本书正在建索引，先停掉它再建这本',
+  'notice.import.tooBig': '有 {n} 个文件太大，请先在电脑上导入',
 } as const;
 
 export type MsgKey = keyof typeof ZH;

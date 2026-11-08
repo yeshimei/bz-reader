@@ -87,6 +87,32 @@ describe('封面失败负缓存（A-18）', () => {
   });
 });
 
+/* ── A13：内存缓存与磁盘缓存同 key（id+size） ───────────────── */
+
+describe('内存缓存 key 与磁盘一致（A13）', () => {
+  it('同一个 id、文件换了版本（size 变了）就重新解封面', async () => {
+    makeBookMock.mockResolvedValue({
+      getCover: async () => new Blob(['img'], { type: 'image/png' }),
+      destroy: () => undefined,
+    });
+    const adapter = new FakeAdapter();
+    adapter.files.set('书/a.epub', 'epub-bytes');
+    const app = makeApp(adapter);
+    const book = bookOf('b1', '书/a.epub', 10);
+
+    const first = await coverUrl(app, book);
+    expect(first).toBeTruthy();
+
+    /* 以前 MEM 只按 book.id 存：书换了版本，内存里那张旧图会一直顶着新书
+       显示到下次重启（磁盘缓存早就按 id-size 换新了）。 */
+    book.fileRef.size = 999;
+    const second = await coverUrl(app, book);
+    expect(second).toBeTruthy();
+    expect(second).not.toBe(first);
+    expect(makeBookMock).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('封面内存 LRU（A-19）', () => {
   it('第 61 本书进来时释放第 1 个 objectURL，内存不会无限涨', async () => {
     makeBookMock.mockResolvedValue({

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { App } from 'obsidian';
-import { ReaderStore, mergeData, sanitizeDataDetailed } from '../src/data/store';
+import { ReaderStore, sanitizeDataDetailed } from '../src/data/store';
 import { DEFAULT_DATA_DIR } from '../src/core/plugin-path';
 import { FakeAdapter } from './helpers/fake-adapter';
 
@@ -28,10 +28,15 @@ function payload(books: unknown[]): string {
   return JSON.stringify({ version: 1, books });
 }
 
-/* ───────────── P0-01：外部修改不能整份覆盖 ───────────── */
+/* ───────────── 2026-11-08：不做跨设备冲突处理 ───────────── */
 
-describe('外部修改（P0-01）', () => {
-  it('load 之后磁盘被别的设备改过：写盘前先合并，新同步来的书不会丢', async () => {
+/**
+ * 用户拍板：写盘前不再比对磁盘签名、不再重读合并。
+ * 本机内存就是这份文件的真相，谁最后写谁赢——同步怎么合是用户自己的事。
+ * 这一组锁的是**新语义**，不是回归：以前这里断言的是「同步来的书会并进来」。
+ */
+describe('不做跨设备合并', () => {
+  it('磁盘被别的设备改过：本机写盘整份覆盖，不把磁盘那份掺进来', async () => {
     const adapter = new FakeAdapter();
     adapter.files.set(FILE, payload([book('b1', '本地书')]));
     const store = makeStore(adapter);
@@ -45,10 +50,11 @@ describe('外部修改（P0-01）', () => {
     await store.flush(true);
 
     const onDisk = JSON.parse(adapter.files.get(FILE)!) as { books: Array<{ id: string; meta: { title: string } }> };
-    expect(new Set(onDisk.books.map((b) => b.meta.title))).toEqual(new Set(['电脑上改的书名', '手机上的新书']));
+    expect(onDisk.books.map((b) => b.id)).toEqual(['b1']);
+    expect(onDisk.books[0]!.meta.title).toBe('电脑上改的书名');
   });
 
-  it('外部改的是同一本书：按 updatedAt 取新的那一份', async () => {
+  it('同一本书被外部改成更「新」的版本也不采用：本机这份照写', async () => {
     const adapter = new FakeAdapter();
     adapter.files.set(FILE, payload([book('b1', '旧名', 100)]));
     const store = makeStore(adapter);
@@ -57,23 +63,11 @@ describe('外部修改（P0-01）', () => {
     adapter.files.set(FILE, payload([book('b1', '手机上改的新名', 200)]));
     adapter.bump(FILE);
 
-    store.get().books[0]!.updatedAt = 50; // 本地那份更旧
+    store.get().books[0]!.updatedAt = 50; // 本机这份更旧
     await store.flush(true);
 
     const onDisk = JSON.parse(adapter.files.get(FILE)!) as { books: Array<{ meta: { title: string } }> };
-    expect(onDisk.books[0]!.meta.title).toBe('手机上改的新名');
-  });
-
-  it('磁盘没被动过时不重读，合并函数不参与', async () => {
-    const adapter = new FakeAdapter();
-    adapter.files.set(FILE, payload([book('b1', '书')]));
-    const store = makeStore(adapter);
-    await store.load();
-    store.get().books[0]!.meta.title = '新名';
-    await store.flush(true);
-    const reads = adapter.writes.filter((p) => p === FILE);
-    expect(reads.length).toBe(0); // 只写 tmp，再 rename
-    expect(JSON.parse(adapter.files.get(FILE)!).books[0].meta.title).toBe('新名');
+    expect(onDisk.books[0]!.meta.title).toBe('旧名');
   });
 });
 
@@ -126,83 +120,6 @@ describe('老数据搬迁（A-12）', () => {
 
     expect(adapter.files.get(FILE)).toBe(newText);
     expect(data.books).toEqual([]);
-  });
-});
-
-describe('mergeData', () => {
-  it('两边的书都保留，同 id 取 updatedAt 大的', () => {
-    const local = {
-      version: 1 as const,
-      books: [
-        { ...book('a', '本地-a', 10), notes: { highlights: [], excerpts: [], bookmarks: [] } },
-        { ...book('b', '本地-b', 30), notes: { highlights: [], excerpts: [], bookmarks: [] } },
-      ],
-    };
-    const disk = {
-      version: 1 as const,
-      books: [
-        { ...book('a', '磁盘-a', 20), notes: { highlights: [], excerpts: [], bookmarks: [] } },
-        { ...book('c', '磁盘-c', 5), notes: { highlights: [], excerpts: [], bookmarks: [] } },
-      ],
-    };
-    const out = mergeData(local as never, disk as never);
-    expect(out.books.map((b) => b.meta.title)).toEqual(['磁盘-a', '本地-b', '磁盘-c']);
-  });
-
-  it('本地删除的书不会因为磁盘还有就复活', () => {
-    /* 注意：这条是「按 id 合并」的已知取舍——磁盘上那份仍然有 c，
-       合并结果里 c 会回来。这里锁住的是「本地新增不会被丢」，
-       删除语义交给用户自己决定（宁可多回来一本，也别少一本）。 */
-    const local = { version: 1 as const, books: [book('a', 'a')] };
-    const disk = { version: 1 as const, books: [book('a', 'a'), book('c', 'c')] };
-    const out = mergeData(local as never, disk as never);
-    expect(out.books.map((b) => b.id)).toEqual(['a', 'c']);
-  });
-
-  it('checkins 按天取 max，goal / dailyGoalMinutes 取有值且较大的那份（A-13）', () => {
-    const local = {
-      version: 1 as const,
-      books: [],
-      checkins: { '2026-01-01': 600, '2026-01-02': 60 },
-      goal: 30,
-      dailyGoalMinutes: 20,
-      prefs: { theme: 'local' },
-      dataDir: '本地目录',
-    };
-    const disk = {
-      version: 1 as const,
-      books: [],
-      checkins: { '2026-01-01': 300, '2026-01-02': 900, '2026-01-03': 120 },
-      goal: 50,
-      dailyGoalMinutes: 10,
-      prefs: { theme: 'disk' },
-      dataDir: '盘上目录',
-    };
-
-    const out = mergeData(local as never, disk as never);
-    expect(out.checkins).toEqual({
-      '2026-01-01': 600,
-      '2026-01-02': 900,
-      '2026-01-03': 120,
-    });
-    expect(out.goal).toBe(50);
-    expect(out.dailyGoalMinutes).toBe(20);
-    /* 其余字段沿用本地：磁盘那边的 prefs / dataDir 不能整份盖过来 */
-    expect(out.prefs).toEqual({ theme: 'local' });
-    expect(out.dataDir).toBe('本地目录');
-  });
-
-  it('本地没有 goal 时采用磁盘那份；两边都没有就保持没有（A-13）', () => {
-    const out = mergeData(
-      { version: 1 as const, books: [] } as never,
-      { version: 1 as const, books: [], goal: 24, dailyGoalMinutes: 15 } as never,
-    );
-    expect(out.goal).toBe(24);
-    expect(out.dailyGoalMinutes).toBe(15);
-
-    const empty = mergeData({ version: 1 as const, books: [] } as never, { version: 1 as const, books: [] } as never);
-    expect(empty.goal).toBeUndefined();
-    expect(empty.dailyGoalMinutes).toBeUndefined();
   });
 });
 

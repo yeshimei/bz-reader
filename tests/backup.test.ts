@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { backupFileName, buildBackup, mergeRestore, parseBackup } from '../src/data/backup';
+import { backupFileName, buildBackup, parseBackup, replaceWithBackup } from '../src/data/backup';
 import type { ReaderData } from '../src/data/schema';
 
 function data(books = 2): ReaderData {
@@ -107,7 +107,7 @@ describe('备份文件（数据一键备份）', () => {
   });
 });
 
-describe('恢复 = 合并（mergeRestore）', () => {
+describe('恢复 = 整份替换（replaceWithBackup）', () => {
   const book = (id: string, updatedAt: number, pct: number) => ({
     id,
     meta: { title: id },
@@ -118,67 +118,55 @@ describe('恢复 = 合并（mergeRestore）', () => {
     updatedAt,
   });
 
-  it('同一本书按 updatedAt 取新的那份，旧进度不会被恢复拖回去', () => {
-    const merged = mergeRestore(
-      { version: 1, books: [book('a', 2, 0.2)] },
-      { version: 1, books: [book('a', 3, 0.8)] },
-    );
-    expect(merged.books[0]!.reading.position.percent).toBe(0.8);
-  });
-
-  it('备份独有的书加进来，本地独有的保留', () => {
-    const merged = mergeRestore(
-      { version: 1, books: [book('local', 1, 0.1)] },
-      { version: 1, books: [book('backup', 1, 0.2)] },
-    );
-    expect(merged.books.map((b) => b.id).sort()).toEqual(['backup', 'local']);
-  });
-
-  it('备份里的排版偏好、年度目标、每日目标会生效（用户主动恢复）', () => {
-    const merged = mergeRestore(
-      { version: 1, books: [], goal: 20, prefs: { fontSize: 18 }, dailyGoalMinutes: 20 },
-      { version: 1, books: [], goal: 30, prefs: { fontSize: 22 }, dailyGoalMinutes: 30 },
-    );
-    expect(merged.goal).toBe(30);
-    expect((merged.prefs as { fontSize: number }).fontSize).toBe(22);
-    expect(merged.dailyGoalMinutes).toBe(30);
-  });
-
   /**
-   * 版式是两个平台槽存的（prefsDesktop / prefsMobile）。以前备份只搬旧的
-   * 全局 prefs，换设备恢复后两份槽都空着 —— 字号、行距全回到默认，
-   * 用户以为自己调好的版式丢了。
+   * 2026-11-08 用户拍板：恢复不再合并，当前数据不保留。
+   * 这条锁的就是「本地 3 本、备份 2 本 → 恢复完正好 2 本」。
    */
-  it('桌面 / 手机两套版式跟着备份走，恢复时按备份来', () => {
-    const merged = mergeRestore(
-      { version: 1, books: [], prefsMobile: { fontSize: 15 }, prefsDesktop: { fontSize: 16 } },
-      { version: 1, books: [], prefsMobile: { fontSize: 23 }, prefsDesktop: { fontSize: 24 } },
+  it('备份里有几本，恢复完就是几本：本地独有的书不保留', () => {
+    const out = replaceWithBackup(
+      { version: 1, books: [book('a', 1, 0.1), book('b', 1, 0.1), book('c', 1, 0.1)] },
+      { version: 1, books: [book('a', 9, 0.8), book('z', 9, 0.5)] },
     );
-    expect((merged.prefsMobile as { fontSize: number }).fontSize).toBe(23);
-    expect((merged.prefsDesktop as { fontSize: number }).fontSize).toBe(24);
+    expect(out.books.map((b) => b.id)).toEqual(['a', 'z']);
+    expect(out.books[0]!.reading.position.percent).toBe(0.8);
   });
 
-  it('旧备份没有这两个键时，保留本机调好的那份', () => {
-    const merged = mergeRestore(
-      { version: 1, books: [], prefsMobile: { fontSize: 15 } },
-      { version: 1, books: [] },
+  it('目标 / 打卡 / 排版偏好一律按备份来，不跟本机取大', () => {
+    const out = replaceWithBackup(
+      {
+        version: 1,
+        books: [],
+        goal: 20,
+        prefs: { fontSize: 18 },
+        prefsMobile: { fontSize: 15 },
+        prefsDesktop: { fontSize: 16 },
+        dailyGoalMinutes: 20,
+        checkins: { '2026-11-04': 1200, '2026-11-03': 600 },
+      },
+      {
+        version: 1,
+        books: [],
+        goal: 30,
+        prefs: { fontSize: 22 },
+        prefsMobile: { fontSize: 23 },
+        prefsDesktop: { fontSize: 24 },
+        dailyGoalMinutes: 30,
+        checkins: { '2026-11-04': 300 },
+      },
     );
-    expect((merged.prefsMobile as { fontSize: number }).fontSize).toBe(15);
+    expect(out.goal).toBe(30);
+    expect((out.prefs as { fontSize: number }).fontSize).toBe(22);
+    expect((out.prefsMobile as { fontSize: number }).fontSize).toBe(23);
+    expect((out.prefsDesktop as { fontSize: number }).fontSize).toBe(24);
+    expect(out.dailyGoalMinutes).toBe(30);
+    expect(out.checkins).toEqual({ '2026-11-04': 300 });
   });
 
-  it('打卡按天取较大秒数，恢复不会把今天的分钟数减回去', () => {
-    const merged = mergeRestore(
-      { version: 1, books: [], checkins: { '2026-11-04': 1200, '2026-11-03': 600 } },
-      { version: 1, books: [], checkins: { '2026-11-04': 300, '2026-11-02': 900 } },
-    );
-    expect(merged.checkins).toEqual({ '2026-11-04': 1200, '2026-11-03': 600, '2026-11-02': 900 });
-  });
-
-  it('数据目录镜像保留本机的，不被备份里的路径带走', () => {
-    const merged = mergeRestore(
+  it('数据目录保留本机的：备份里的路径在这台机器上不存在', () => {
+    const out = replaceWithBackup(
       { version: 1, books: [], dataDir: '我的库/数据' },
       { version: 1, books: [], dataDir: '旧电脑/数据' },
     );
-    expect(merged.dataDir).toBe('我的库/数据');
+    expect(out.dataDir).toBe('我的库/数据');
   });
 });

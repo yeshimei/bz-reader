@@ -17,7 +17,7 @@
  * ============================================================ */
 import type { App } from 'obsidian';
 import type { ReaderBook } from './schema';
-import { DEFAULT_SETTINGS, type ReaderSettings } from './settings';
+import type { ReaderSettings } from './settings';
 import { bookmarksOf, highlightsOf } from './notes';
 
 /** 导出文件第一行。再次导出靠它判断「这份是不是我们写的」 */
@@ -58,11 +58,35 @@ function yamlStr(v: string): string {
   return `"${one.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
-/** 文件名里不能出现的字符。斜杠留着会变成目录，必须换掉 */
-function safeName(name: string): string {
-  const s = name.replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim();
-  return s.slice(0, 80) || '未命名';
+/** Windows 上「有名字也不能用」的那些：带扩展名一样被系统挡住 */
+const WIN_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+
+/**
+ * 文件名里不能出现的字符。斜杠留着会变成目录，必须换掉。
+ *
+ * 另外三件事，都是「文件在 vault 里建不出来 / 建到别处」的真实故障：
+ *   · Windows 保留名（`CON` / `NUL` / `COM1`…）：`CON.md` 在 Windows 上写不进去，
+ *     导出直接抛错，用户只看到「导出失败」；
+ *   · 控制字符：换行会把文件名断成两截，`\u0000` 让整个 write 抛；
+ *   · 结尾的点和空格：Windows 会静默吃掉，`书.` 和 `书` 变成同一个文件。
+ *
+ * 首尾的点也一并去掉：`..` / `.hidden` 不想让导出悄悄写出隐藏文件。
+ *
+ * 导出给 shell 复用（`appendToExport` 追加导出到同一个目录），两处规则必须
+ * 一模一样——否则同一本书在两个入口下会落成两个文件名，用户看到两份笔记。
+ */
+export function safeName(name: string): string {
+  const s = String(name ?? '')
+    .replace(/[\u0000-\u001f]/g, ' ')
+    .replace(/[\\/:*?"<>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[.\s]+|[.\s]+$/g, '')
+    .slice(0, 80)
+    .replace(/^[.\s]+|[.\s]+$/g, '');
+  if (!s) return '未命名';
+  return WIN_RESERVED.test(s) ? `_${s}` : s;
 }
+
 
 /** 多行摘录压成一行：引用块里换行会被当成两段 */
 function oneLine(text: string): string {
@@ -202,17 +226,25 @@ async function resolveTarget(app: App, dir: string, book: ReaderBook): Promise<s
   const adapter = app.vault.adapter;
   for (let n = 1; n <= 50; n += 1) {
     const name = n === 1 ? base : `${base} (${n})`;
-    const path = `${dir}/${name}.md`;
+    const path = joinPath(dir, `${name}.md`);
     if (!(await adapter.exists(path))) return path;
     // 这本书自己写的：覆盖。别人的（或认不出是哪本的）：让开
     try {
       const text = await adapter.read(path);
       if (text.includes(MARK) && bookIdOf(text) === book.id) return path;
     } catch {
-      return path;
+      /* 读不出来就别赌它是不是自己的：以前这里 `return path`，等于「读失败 →
+         覆盖」。一次权限抖动 / 同步锁文件就能把别人的同名笔记整份冲掉，
+         而用户看到的结果是「导出成功」。让开，换下一个候选名。 */
+      continue;
     }
   }
-  return `${dir}/${base} (${Date.now()}).md`;
+  return joinPath(dir, `${base} (${Date.now()}).md`);
+}
+
+/** 空目录 = 库根。直接拼 `${dir}/${name}` 会得到 `/书.md`（绝对路径），写不进去 */
+function joinPath(dir: string, name: string): string {
+  return dir ? `${dir}/${name}` : name;
 }
 
 async function ensureDir(app: App, dir: string): Promise<void> {
@@ -245,7 +277,11 @@ export async function exportBookNotes(
   const bookmarks = bookmarksOf(book);
   if (!highlights.length && !bookmarks.length) return null;
 
-  const dir = settings.exportDir.replace(/^\/+|\/+$/g, '') || DEFAULT_SETTINGS.exportDir;
+  /* '/' 与空串都是「库根」（见 data/settings.ts 的 cleanDir）。
+     去掉斜杠之后变成空串就退回默认目录的话，用户显式选的根目录会被
+     悄悄换成 `bz-reader/notes`——他找了半天以为导出没成功。 */
+  const raw = String(settings.exportDir ?? '').trim();
+  const dir = raw === '' || raw === '/' ? '' : raw.replace(/^\/+|\/+$/g, '');
   await ensureDir(app, dir);
   const path = await resolveTarget(app, dir, book);
   const text = buildNotesMarkdown(book, settings, now);

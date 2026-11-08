@@ -519,4 +519,6 @@ export const PT: Record<MsgKey, string> = {
   'pt.needOpen': 'Um retrato lê o livro inteiro: abra-o primeiro no leitor',
   'side.ai.source.block': 'Bloco {n}',
   'side.ai.book.stale': 'Este retrato foi criado com outro modelo de embeddings: recrie-o, ou os blocos recuperados não vão bater.',
+  'notice.portrait.busy': 'Another book is still building its index — stop that one first',
+  'notice.import.tooBig': '{n} file(s) are too large — import them on a computer first',
 };

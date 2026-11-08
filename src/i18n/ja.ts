@@ -510,4 +510,6 @@ export const JA: Record<MsgKey, string> = {
   'pt.needOpen': '全体像は本文全体を読みます。先にリーダーでこの本を開いてから作成してください',
   'side.ai.source.block': '{n} ブロック目',
   'side.ai.book.stale': 'この本の全体像は別の埋め込みモデルで作成されています。作り直さないと検索結果が噛み合いません。',
+  'notice.portrait.busy': 'Another book is still building its index — stop that one first',
+  'notice.import.tooBig': '{n} file(s) are too large — import them on a computer first',
 };

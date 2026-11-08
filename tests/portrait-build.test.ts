@@ -33,6 +33,34 @@ function deps(patch: Partial<PortraitBuildDeps> = {}) {
 
 const book = { id: 'b1', title: '心流' };
 
+/* ── A7：正在建另一本时，第二次点「建立」要说人话 ─────────── */
+
+describe('同时只跑一个（A7）', () => {
+  it('正在建 A 时点建 B：返回 false 并提示，状态仍属于 A', async () => {
+    /* 以前这里静默 return：用户点了按钮什么也没发生，以为按钮坏了。
+       调用方拿返回值决定要不要收起「选建法」，所以必须回 false。 */
+    let release: ((v: number[][]) => void) | null = null;
+    const embed = vi.fn(
+      () =>
+        new Promise<number[][]>((res) => {
+          release = res;
+        }),
+    );
+    const { deps: d } = deps({ embed });
+    const b = new PortraitBuilder(d);
+
+    const first = b.start({ id: 'a', title: 'A 书' }, 'vector');
+    await vi.waitFor(() => expect(b.progress().status).toBe('running'));
+    expect(b.progress().bookId).toBe('a');
+
+    expect(await b.start({ id: 'b', title: 'B 书' }, 'vector')).toBe(false);
+    expect(b.progress().bookId).toBe('a');
+
+    release?.([[1, 1]]);
+    await first;
+  });
+});
+
 describe('向量方案', () => {
   it('读完书 → 切块 → 按批嵌入 → 每批落盘 → 完成', async () => {
     const { deps: d, saved } = deps();
@@ -102,6 +130,86 @@ describe('向量方案', () => {
     expect(embed).not.toHaveBeenCalled();
     expect(extract).not.toHaveBeenCalled();
     expect(b.progress().status).toBe('done');
+  });
+
+  /* ── A6：换模型后不可续跑 ──────────────────────────────── */
+
+  it('换了嵌入模型：旧块的 vec 不复用，整本重新嵌入', async () => {
+    /* 两个不同模型的向量活在不同坐标空间，混着算相似度等于用两把尺子量。
+       续跑判定必须比 model——只比 plan + chunkChars 是漏的。 */
+    const partial: PortraitFile = {
+      version: 1,
+      bookId: 'b1',
+      bookTitle: '心流',
+      plan: 'vector',
+      model: '旧模型',
+      chunkChars: 1000,
+      total: 3,
+      blocks: [
+        { chapter: '第一章', chars: 1000, vec: 'AAAA' },
+        { chapter: '第一章', chars: 1000, vec: 'BBBB' },
+        { chapter: '第一章', chars: 500 },
+      ],
+      createdAt: 1,
+      updatedAt: 1,
+      done: false,
+    };
+    const embed = vi.fn(async (texts: string[]) => texts.map(() => [7, 7]));
+    const { deps: d } = deps({ load: async () => JSON.parse(JSON.stringify(partial)), embed });
+    const b = new PortraitBuilder(d);
+    await b.start(book, 'vector');
+
+    expect(embed).toHaveBeenCalledTimes(1);
+    expect(embed.mock.calls[0][0]).toHaveLength(3); // 三块全部重算，不是只补第三块
+    expect(b.current()!.blocks.every((x) => decodeVector(x.vec)[0] === 7)).toBe(true);
+    expect(b.current()!.model).toBe('bge-m3');
+  });
+
+  it('模型一致时才续跑（换模型不影响同模型的情形）', async () => {
+    const partial: PortraitFile = {
+      version: 1,
+      bookId: 'b1',
+      bookTitle: '心流',
+      plan: 'vector',
+      model: 'bge-m3',
+      chunkChars: 1000,
+      total: 3,
+      blocks: [
+        { chapter: '第一章', chars: 1000, vec: 'AAAA' },
+        { chapter: '第一章', chars: 1000, vec: 'BBBB' },
+        { chapter: '第一章', chars: 500 },
+      ],
+      createdAt: 1,
+      updatedAt: 1,
+      done: false,
+    };
+    const embed = vi.fn(async (texts: string[]) => texts.map(() => [1, 1]));
+    const { deps: d } = deps({ load: async () => JSON.parse(JSON.stringify(partial)), embed });
+    const b = new PortraitBuilder(d);
+    await b.start(book, 'vector');
+    expect(embed.mock.calls[0][0]).toHaveLength(1);
+  });
+
+  it('已完成但模型变了：不能直接交旧成品，要重建', async () => {
+    const done: PortraitFile = {
+      version: 1,
+      bookId: 'b1',
+      bookTitle: '心流',
+      plan: 'vector',
+      model: '旧模型',
+      chunkChars: 1000,
+      total: 1,
+      blocks: [{ chapter: '一', chars: 10, vec: 'AAAA' }],
+      createdAt: 1,
+      updatedAt: 1,
+      done: true,
+    };
+    const embed = vi.fn(async (texts: string[]) => texts.map(() => [1, 1]));
+    const { deps: d } = deps({ load: async () => JSON.parse(JSON.stringify(done)), embed });
+    const b = new PortraitBuilder(d);
+    await b.start(book, 'vector');
+    expect(embed).toHaveBeenCalled();
+    expect(b.current()!.model).toBe('bge-m3');
   });
 
   it('重建（用户主动点）：已完成也整本重来', async () => {

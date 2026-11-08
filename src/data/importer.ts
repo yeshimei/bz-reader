@@ -14,6 +14,15 @@ import { MAX_FINGERPRINT_BYTES, fingerprintOf } from './fingerprint';
 export const IMPORT_FOLDER = 'bz-reader/books';
 
 /**
+ * 单个文件的上限：超过就不在插件里导。
+ *
+ * `file.arrayBuffer()` 是「把整本书读进内存」，而不是流式写盘——一本 400MB 的
+ * 漫画在手机上就是一次必然的 OOM（而且发生在 `try` 里，用户只拿到一句
+ * 「导入失败」，谁也想不到是内存不够）。桌面端确实导得动，所以文案要指路。
+ */
+const MAX_IMPORT_BYTES = 300 * 1024 * 1024;
+
+/**
  * 目标文件夹 → 实际写入前缀。
  * '/' 或空串表示库根目录；其余去掉首尾斜杠。返回空串时路径直接拼文件名。
  */
@@ -82,11 +91,17 @@ export async function importDetailed(
   const out: ImportResult[] = [];
   const folder = importFolderOf(folderRaw);
   let failed = 0;
+  let oversized = 0;
   if (folder && !(await app.vault.adapter.exists(folder).catch(() => false))) {
     await app.vault.adapter.mkdir(folder).catch(() => undefined);
   }
   for (const file of files) {
     if (!accept.includes(extOf(file.name))) continue;
+    /* 先看 size 再读内容：`arrayBuffer()` 一旦开始就没有「取消」的余地了 */
+    if (file.size > MAX_IMPORT_BYTES) {
+      oversized += 1;
+      continue;
+    }
     try {
       const buf = await file.arrayBuffer();
       const fingerprint = fingerprintOfBuffer(buf);
@@ -110,6 +125,7 @@ export async function importDetailed(
     const ok = out.filter((r) => r.written).length;
     notify(t('notice.import.partial', { failed, ok }), 'error');
   }
+  if (oversized) notify(t('notice.import.tooBig', { n: oversized }), 'error');
   return out;
 }
 

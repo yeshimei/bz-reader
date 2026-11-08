@@ -420,13 +420,13 @@ function revealIndexPanel(): void {
 
 /**
  * 开始建索引。返回「真的跑起来了没有」——侧栏据此决定要不要收起选建法那一块：
- * 被拦下时（书没开 / 手机端 / 服务没配）已经把原因说给用户了，此时把
- * 选项收掉等于让他重新点一遍。
+ * 被拦下时（书没开 / 手机端 / 服务没配 / 另一本正在建）已经把原因说给用户了，
+ * 此时把选项收掉等于让他重新点一遍。
  *
  * 只从**空态**开跑（重建走「确认 → 删掉 → 回空态」那一圈，见 aiidxrebuildyes），
  * 所以这里不再带「清旧块重来」的开关。
  */
-function startPortrait(book: ReaderBook, plan: PortraitPlan): boolean {
+async function startPortrait(book: ReaderBook, plan: PortraitPlan): Promise<boolean> {
   const src = getShellSource();
   /* 能不能建，四条一起判（portrait-gate.ts）。其中「开的是另一本书」这条
      最隐蔽：画像的正文来自阅读视图，取错了会算出一整本错向量，界面却正常。 */
@@ -448,8 +448,7 @@ function startPortrait(book: ReaderBook, plan: PortraitPlan): boolean {
   if (!deps) return false;
   RT.portraitPlan = plan;
   const b = portraitBuilder(deps);
-  void b.start({ id: book.id, title: book.meta.title || t('common.untitled') }, plan, { rebuild: false });
-  return true;
+  return b.start({ id: book.id, title: book.meta.title || t('common.untitled') }, plan, { rebuild: false });
 }
 
 /** 无主画像：先读清单，再问一句 */
@@ -1509,8 +1508,10 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         break;
       }
       /* 跑起来了才收起「选建法」：被拦下时保留原样，用户能改选另一种方案 */
-      if (startPortrait(book, RT.portraitPlan)) RT.aiIndexOpen = false;
-      repaint();
+      void startPortrait(book, RT.portraitPlan).then((ok) => {
+        if (ok) RT.aiIndexOpen = false;
+        repaint();
+      });
       break;
     }
     case 'aiidxstop':

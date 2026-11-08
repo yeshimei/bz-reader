@@ -133,3 +133,39 @@ describe('导入前按指纹查重', () => {
     expect([...adapter.files.keys()].filter((p) => p.endsWith('.epub'))).toHaveLength(1);
   });
 });
+/* ── A12：超大文件先看 size，不要 arrayBuffer ────────────────── */
+
+describe('超大文件（A12）', () => {
+  /** 只实现 size 的假 File：真 File 装不下 300MB 的数组 */
+  function sized(name: string, size: number, spy: { calls: number }): File {
+    return {
+      name,
+      size,
+      arrayBuffer: async () => {
+        spy.calls += 1;
+        return new ArrayBuffer(0);
+      },
+    } as unknown as File;
+  }
+
+  it('超过 300MB 直接跳过：不调用 arrayBuffer，也不写盘', async () => {
+    const adapter = new FakeAdapter();
+    const app = makeApp(adapter);
+    const spy = { calls: 0 };
+    const out = await importDetailed(app, [sized('巨无霸.epub', 400 * 1024 * 1024, spy)], ['epub'], 'Books');
+
+    expect(spy.calls).toBe(0);
+    expect(out).toEqual([]);
+    expect(adapter.writes).toEqual([]);
+  });
+
+  it('刚好 300MB 仍然导入（边界只挡超过的）', async () => {
+    const adapter = new FakeAdapter();
+    const app = makeApp(adapter);
+    const spy = { calls: 0 };
+    const out = await importDetailed(app, [sized('临界.epub', 300 * 1024 * 1024, spy)], ['epub'], 'Books');
+
+    expect(spy.calls).toBe(1);
+    expect(out.map((r) => r.written)).toEqual([true]);
+  });
+});

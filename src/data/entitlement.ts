@@ -100,6 +100,17 @@ export interface EntitlementView {
   tier: Tier;
   /** 高级功能是否可用（trial 与 paid 都为 true） */
   unlocked: boolean;
+  /**
+   * 这枚码验过签了没有。
+   *
+   * `entitlement()` 是同步的，只能拆 payload 不能验签；而 payload 是码里的
+   * 明文，手写一段 `{"v":2}` 的 base64 就能骗过同步判定。所以「有码、有
+   * payload、checkedTs > 0」这一组条件必须再加一道「启动时真的验过了」。
+   *   · pending：还没验（启动后、revalidateLicense 返回前）
+   *   · ok：签名有效（过期也算 ok——码是真的，放不放行由 exp 说）
+   *   · failed：验不过 / 验签环境异常
+   */
+  verify: 'pending' | 'ok' | 'failed';
   /** 试用剩余天数（含今天）；非试用态为 0 */
   trialLeft: number;
   /** 已经用掉的活跃日 */
@@ -116,6 +127,13 @@ export interface EntitlementView {
 
 let proBuild = false;
 let cache: Ent | null = null;
+
+/**
+ * 验签状态。**每次进程启动从 pending 开始**——不给「沿用上次结论」留口子：
+ * 以前 env-error 会保留上一次的成功结论，于是「让 WebCrypto 抖一下」就等于
+ * 永久解锁。现在只有真的验过才放行。
+ */
+let verifyState: EntitlementView['verify'] = 'pending';
 
 /**
  * 存储后端。由 plugin.onload 注入，指向 `data.json` 的 `entitlement` 字段。
@@ -142,6 +160,8 @@ export function setEntBackend(b: EntBackend | null): void {
   backend = b;
   cache = null;
   payloadCache.clear();
+  /* 换后端 = 换了一份授权来源（启动 / 测试隔离）：验签结论不能跟着串过去 */
+  verifyState = 'pending';
 }
 
 /** 由 plugin.onload 注入：当前构建是不是 pro 包 */
@@ -301,11 +321,12 @@ export function entitlement(now = Date.now()): EntitlementView {
   const used = days.length;
 
   /* 计划类型、到期、署名全部从码里现解。parseLicense 只拆 payload 不验签，
-     真正的验签在激活那一刻做过一次；这里要的是「结论无法被外部改写」，
-     而不是「每次都重验」——后者是异步的，can() 是同步的。 */
+     真正的验签在激活那一刻与每次启动时做过（见 revalidateLicense），
+     `verify` 就是那个结论——没验过、验不过都不放行。 */
   const payload = payloadOf(e.license);
   const exp = payload?.exp ?? 0;
-  const paid = !!payload && e.checkedTs > 0 && (exp === 0 || exp > now);
+  const verified = verifyState === 'ok';
+  const paid = verified && !!payload && e.checkedTs > 0 && (exp === 0 || exp > now);
 
   // 第 1..TRIAL_DAYS 个活跃日都在试用内；第 TRIAL_DAYS+1 天开始结束
   // TRIAL_ACTIVE=false 时这一支永远不成立（试用不发放，但记录照旧）
@@ -321,6 +342,7 @@ export function entitlement(now = Date.now()): EntitlementView {
   return {
     tier,
     unlocked: tier !== 'free',
+    verify: verifyState,
     trialLeft: tier === 'trial' ? left : 0,
     trialUsed: used,
     plan: payload?.plan,
@@ -354,6 +376,8 @@ export function setLicense(code: string): void {
   e.license = code.trim();
   e.checkedTs = e.license ? Date.now() : 0;
   payloadCache.delete(e.license);
+  /* activateLicense 只在验签通过后调这里，所以此刻结论就是 ok */
+  verifyState = 'ok';
   save();
 }
 
@@ -388,19 +412,33 @@ export async function activateLicense(code: string): Promise<{ ok: boolean; mess
  *                                 （entitlement() 自己按 exp 算），续费后
  *                                 不用重新找码
  *   env-error                   → 验签环境抖了（WebCrypto 缺失 / 抛错），
- *                                 完全不动，沿用上次结论
+ *                                 码不动，但**也不放行**（`verify: failed`）：
+ *                                 沿用上次「已激活」的结论等于给伪造开了扇门
  *
  * 返回值给插件用来决定要不要通知界面重绘。
  */
 export async function revalidateLicense(): Promise<{ changed: boolean; reason?: LicenseFail }> {
   const e = load();
-  if (!e.license) return { changed: false };
+  if (!e.license) {
+    /* 没码就没有要验的东西：这不是「验不过」，别让界面显示「授权异常」 */
+    verifyState = 'ok';
+    return { changed: false };
+  }
   const res = await verifyLicense(e.license);
-  if (res.ok) return { changed: false };
+  if (res.ok) {
+    verifyState = 'ok';
+    return { changed: false };
+  }
+  if (res.reason === 'expired') {
+    verifyState = 'ok';
+    return { changed: false, reason: res.reason };
+  }
   if (res.reason === 'invalid' || res.reason === 'format' || res.reason === 'no-pubkey') {
+    verifyState = 'failed';
     clearLicense();
     return { changed: true, reason: res.reason };
   }
+  verifyState = 'failed';
   return { changed: false, reason: res.reason };
 }
 

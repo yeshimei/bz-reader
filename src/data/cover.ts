@@ -7,7 +7,9 @@
  * 少一份 zip 解析就少一处和规范细节（大小写、相对路径、SVG 封面）打架。
  *
  * 三层缓存，按代价从低到高：
- *   1. 内存  LRU<bookId, objectURL>  —— 同一次会话里翻来翻去不重读，上限 60 条
+ *   1. 内存  LRU<key, objectURL>     —— 同一次会话里翻来翻去不重读，上限 60 条
+ *              key 与磁盘缓存同口径（`id-size`）：书换了版本 size 就变，
+ *              否则内存里那张旧图会一直顶着新书显示到下次重启。
  *   2. 磁盘  <数据目录>/covers/<key>  —— 下次启动直接可用
  *   3. 解析  makeBook → getCover()   —— 只在没有缓存时发生
  *
@@ -68,8 +70,17 @@ function indexPath(app: App): string {
   return `${coversDir(app)}/index.json`;
 }
 
+/**
+ * 缓存 key。**必须只含安全字符**：它会直接变成 `covers/<key>.<ext>` 的文件名。
+ *
+ * `book.id` 在 store 的 sanitize 里已经限成 `^[\w-]{1,64}$`，这里再洗一次是
+ * 最后一道——`keyOf` 也接受刚 `makeBook` 出来的内存对象，以及从别处传进来的
+ * 记录；一个 `/` 或 `../` 就能让封面写到数据目录外面。
+ */
 function keyOf(book: ReaderBook): string {
-  return `${book.id}-${book.fileRef.size ?? 0}`;
+  const id = String(book.id ?? '').replace(/[^\w-]/g, '_').slice(0, 64) || 'book';
+  const size = Number(book.fileRef?.size);
+  return `${id}-${Number.isFinite(size) ? size : 0}`;
 }
 
 function blobUrl(buf: ArrayBuffer, mime: string): string {
@@ -206,12 +217,12 @@ export async function ensureCoverFromFoliate(
   foliate: { getCover?: () => Promise<Blob | null> },
 ): Promise<string | null> {
   if (book.fileRef.format === 'txt') return null;
-  const cached = MEM.get(book.id);
+  const cached = MEM.get(keyOf(book));
   if (cached) return cached;
 
   const fromDisk = await readCache(app, book);
   if (fromDisk) {
-    MEM.set(book.id, fromDisk);
+    MEM.set(keyOf(book), fromDisk);
     FAILED.forget(keyOf(book));
     return fromDisk;
   }
@@ -222,7 +233,7 @@ export async function ensureCoverFromFoliate(
     const buf = await blob.arrayBuffer();
     const mime = blob.type || 'image/jpeg';
     const url = blobUrl(buf, mime);
-    MEM.set(book.id, url);
+    MEM.set(keyOf(book), url);
     FAILED.forget(keyOf(book));
     await writeCache(app, book, buf, mime);
     return url;
@@ -237,7 +248,7 @@ export async function ensureCoverFromFoliate(
  */
 export async function coverUrl(app: App, book: ReaderBook): Promise<string | null> {
   if (book.fileRef.format === 'txt') return null;
-  const cached = MEM.get(book.id);
+  const cached = MEM.get(keyOf(book));
   if (cached) return cached;
 
   const inflight = PENDING.get(book.id);
@@ -250,7 +261,7 @@ export async function coverUrl(app: App, book: ReaderBook): Promise<string | nul
          重解整本；负缓存只该拦「连磁盘缓存也没有」的重试。 */
       const fromDisk = await readCache(app, book);
       if (fromDisk) {
-        MEM.set(book.id, fromDisk);
+        MEM.set(keyOf(book), fromDisk);
         return fromDisk;
       }
       /* 上次就取不到、且源文件没变：直接返回 null，别再整本读 + 解 zip。
@@ -263,7 +274,7 @@ export async function coverUrl(app: App, book: ReaderBook): Promise<string | nul
         return null;
       }
       const url = blobUrl(got.buf, got.mime);
-      MEM.set(book.id, url);
+      MEM.set(keyOf(book), url);
       await writeCache(app, book, got.buf, got.mime);
       return url;
     } catch {
