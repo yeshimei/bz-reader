@@ -80,7 +80,7 @@ index 86be1a612a782c23f4190a1a28ce61f03d13e5a3..8f4ad14b9ae83ea3e1cb23d7e7001d1e
      }
      static outline(rects, options = {}) {
 diff --git a/paginator.js b/paginator.js
-index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..dcb89b1629f396f3856f8f17d71bbbc74a64f20c 100644
+index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..6a5c51304ed7b3e9e254f534f9e72c151cac11e1 100644
 --- a/paginator.js
 +++ b/paginator.js
 @@ -240,38 +240,158 @@ class View {
@@ -454,12 +454,17 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..dcb89b1629f396f3856f8f17d71bbbc7
          }
      }
      #onTouchMove(e) {
-@@ -867,6 +1055,13 @@ export class Paginator extends HTMLElement {
+@@ -867,6 +1055,18 @@ export class Paginator extends HTMLElement {
          const doc = this.#view?.document
          const selection = doc?.getSelection()
          if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
-+            /* bz-reader：调试埋点。有选区时这一路只放行、不接管手势，
-+               原生滚动/选区滚动都可能发生，先记一笔再让浏览器处理。 */
++            /* bz-reader：有选区时既不接管手势，也不让浏览器滚容器。
++               手指压在选区上往上/往下滑会走到这里，浏览器原本会为了把选区
++               带进视野去滚 #container（分页模式下 scrollLeft 就是页位置），
++               视觉上就是「页面横着滑走半屏」。preventDefault 之后这一路
++               只扩展选区、不动页面；选择手柄拖动走系统层、页面收不到
++               touchmove，那边由下面的 scroll 吸回兜底。 */
++            e.preventDefault()
 +            const t = e.changedTouches[0]
 +            globalThis.__bzrDbg?.('selDrag', {
 +                x: Math.round(t?.screenX ?? 0),
@@ -468,7 +473,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..dcb89b1629f396f3856f8f17d71bbbc7
              return
          }
          e.preventDefault()
-@@ -879,6 +1074,9 @@ export class Paginator extends HTMLElement {
+@@ -879,6 +1079,9 @@ export class Paginator extends HTMLElement {
          state.t = e.timeStamp
          state.vx = dx / dt
          state.vy = dy / dt
@@ -478,7 +483,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..dcb89b1629f396f3856f8f17d71bbbc7
          this.#touchScrolled = true
          if (Math.abs(dx) >= Math.abs(dy)) {
              this.scrollBy(dx, 0)
-@@ -887,8 +1085,21 @@ export class Paginator extends HTMLElement {
+@@ -887,8 +1090,21 @@ export class Paginator extends HTMLElement {
          }
      }
      #onTouchEnd() {
@@ -501,7 +506,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..dcb89b1629f396f3856f8f17d71bbbc7
  
          // XXX: Firefox seems to report scale as 1... sometimes...?
          // at this point I'm basically throwing `requestAnimationFrame` at
-@@ -926,6 +1137,14 @@ export class Paginator extends HTMLElement {
+@@ -926,6 +1142,14 @@ export class Paginator extends HTMLElement {
      }
      async #scrollTo(offset, reason, smooth) {
          const { size } = this
@@ -516,7 +521,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..dcb89b1629f396f3856f8f17d71bbbc7
          if (this.containerPosition === offset) {
              this.#scrollBounds = [offset, this.atStart ? 0 : size, this.atEnd ? 0 : size]
              this.#afterScroll(reason)
-@@ -954,6 +1173,11 @@ export class Paginator extends HTMLElement {
+@@ -954,6 +1178,11 @@ export class Paginator extends HTMLElement {
          return this.#scrollToAnchor(anchor, select ? 'selection' : 'navigation')
      }
      async #scrollToAnchor(anchor, reason = 'anchor') {
@@ -528,7 +533,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..dcb89b1629f396f3856f8f17d71bbbc7
          this.#anchor = anchor
          const rects = uncollapse(anchor)?.getClientRects?.()
          // if anchor is an element or a range
-@@ -987,6 +1211,8 @@ export class Paginator extends HTMLElement {
+@@ -987,6 +1216,8 @@ export class Paginator extends HTMLElement {
      #afterScroll(reason) {
          const range = this.#getVisibleRange()
          this.#lastVisibleRange = range
@@ -537,7 +542,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..dcb89b1629f396f3856f8f17d71bbbc7
          // don't set new anchor if relocation was to scroll to anchor
          if (reason !== 'selection' && reason !== 'navigation' && reason !== 'anchor')
              this.#anchor = range
-@@ -1037,6 +1263,8 @@ export class Paginator extends HTMLElement {
+@@ -1037,6 +1268,8 @@ export class Paginator extends HTMLElement {
          return index >= 0 && index <= this.sections.length - 1
      }
      async #goTo({ index, anchor, select }) {
@@ -546,7 +551,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..dcb89b1629f396f3856f8f17d71bbbc7
          if (index === this.#index) await this.#display({ index, anchor, select })
          else {
              const oldIndex = this.#index
-@@ -1105,9 +1333,12 @@ export class Paginator extends HTMLElement {
+@@ -1105,9 +1338,12 @@ export class Paginator extends HTMLElement {
          this.#locked = false
      }
      async prev(distance) {
@@ -559,7 +564,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..dcb89b1629f396f3856f8f17d71bbbc7
          return await this.#turnPage(1, distance)
      }
      prevSection() {
-@@ -1145,6 +1376,7 @@ export class Paginator extends HTMLElement {
+@@ -1145,6 +1381,7 @@ export class Paginator extends HTMLElement {
  
          // NOTE: needs `requestAnimationFrame` in Chromium
          requestAnimationFrame(() => {
@@ -567,7 +572,7 @@ index 95c4d0dae16bd96c3ace91bbd87fd1bea1c9f571..dcb89b1629f396f3856f8f17d71bbbc7
              this.#replaceBackground(this.#view.docBackground, this.columnCount)
          })
  
-@@ -1156,11 +1388,11 @@ export class Paginator extends HTMLElement {
+@@ -1156,11 +1393,11 @@ export class Paginator extends HTMLElement {
      }
      destroy() {
          this.#observer.unobserve(this)

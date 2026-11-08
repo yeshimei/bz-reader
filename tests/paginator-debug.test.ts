@@ -51,4 +51,11 @@ describe('paginator 跨页行为', () => {
     expect(src).toContain("(pointer: coarse)");
     expect(src).toContain('this.containerPosition = snapped');
   });
+
+  it('有选区时触摸移动不让浏览器滚容器', () => {
+    const at = src.indexOf("globalThis.__bzrDbg?.('selDrag'");
+    expect(at).toBeGreaterThan(0);
+    /* preventDefault 必须紧挨着 selDrag 那一段之前（同一分支里） */
+    expect(src.slice(Math.max(0, at - 400), at)).toContain('e.preventDefault()');
+  });
 });
