@@ -337,6 +337,9 @@ function openShelfMenu(bookIds: string[], pos: { x: number; y: number }): void {
       .setIcon('folder')
       .onClick(() => overlay('shelves', { mode: 'new', bookId: only?.id ?? bookIds[0] })),
   );
+  /* 分类管理（改名 / 排序 / 删除）不再占头栏一颗图标：从这层菜单进，
+     和「新建分类…」挨着，都属于「整理分类名册」。 */
+  menu.addItem((i) => i.setTitle(t('shelves.manage')).setIcon('settings').onClick(() => overlay('shelves')));
   menu.showAtPosition(pos);
 }
 
@@ -1107,12 +1110,9 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
 
     /* ── 分类管理 ──
-       入口一颗图标（头栏）+ 书卡菜单里的一条。所有动作改的都是那份名单，
-       与「书归哪一类」是两件事：改名会把这一类的书一起改过去，
+       入口在书卡菜单「归入分类…」的下一层（新建 / 管理两条）。所有动作改的
+       都是那份名单，与「书归哪一类」是两件事：改名会把这一类的书一起改过去，
        删除则把书退回「未分类」（书、进度、划线一条不动）。 */
-    case 'shelfmanage':
-      overlay('shelves');
-      break;
     /* 改名 / 删除确认里的「取消」：三态共用一层弹层，回名单就是重开一次 */
     case 'shelves':
       overlay('shelves');

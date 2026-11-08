@@ -69,6 +69,15 @@ describe('书架头栏 · 右侧四颗', () => {
       expect(acts, p).not.toContain('aria-pressed="true"');
     }
   });
+
+  /* 2026-11-08：头栏不再挂第五颗「分类」。分类管理挪进书卡菜单的
+     「归入分类…」下一层，头栏回到定稿的四颗。 */
+  it('头栏只有四颗：没有分类管理那颗第五图标', () => {
+    const html = studyShell('library', '', counts);
+    expect(html).not.toContain('data-act="shelfmanage"');
+    const acts = actsOf(html);
+    expect((acts.match(/data-act="study"/g) ?? []).length).toBe(4);
+  });
 });
 
 describe('书架整页 · 子页头栏', () => {

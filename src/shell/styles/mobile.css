@@ -197,9 +197,8 @@
     flex: 1;
   }
 
-  .bzs-icon-chip {
-    padding: 0 10px;
-  }
+  /* 2026-11-08：筛选条换了圆形语汇，图标钮由 study.css 的 .bzs-round 负责，
+     .bzs-icon-chip 这颗旧胶囊不再有人用。 */
 
   /* 列表行：桌面是「封面 · 书名 · 进度条 130px · 百分比 44px · 日期 76px」一行，
      固定宽度就吃掉 350px。390px 屏上留给书名的只剩个位数——书名被挤成
@@ -565,7 +564,8 @@
 
   .bzs-btn:hover,
   .bzs-cbtn:hover,
-  .bzs-chip:hover {
+  .bzs-chip:hover,
+  .bzs-round:hover {
     color: inherit;
   }
 

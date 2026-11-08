@@ -13,7 +13,7 @@ import { can } from '../../data/entitlement';
 import type { MarkRow } from '../domain';
 import { filterMarks, fmtWhen, groupByBook } from '../domain';
 import { allPicked } from '../note-select';
-import { MAG, esc } from './html';
+import { MAG, esc, ico } from './html';
 
 export interface NotesView {
   marks: MarkRow[];
@@ -136,7 +136,9 @@ export function viewNotes(v: NotesView): string {
         n: shown.length,
         ideas: v.marks.filter((m) => m.comment).length,
       })}</span>
-      ${select ? '' : `<button class="bzs-btn sm" data-act="notesel">${t('notes.select')}</button>`}
+      ${select ? '' : `<button class="bzs-round" data-act="notesel" aria-label="${t('notes.select')}" title="${t(
+        'notes.select',
+      )}">${ico('select')}</button>`}
       <button class="bzs-btn sm pri" data-act="export">${t('notes.export')}</button>
     </div>
     ${selBar}

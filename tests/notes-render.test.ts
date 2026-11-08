@@ -40,6 +40,16 @@ describe('标注多选（笔记页）', () => {
     expect(h).not.toContain('data-act="notepick"');
   });
 
+  /* 2026-11-08：笔记头换成圆形语汇，「选择」是动作而不是筛选值，
+     所以做成圆形图标钮（勾选框），文字交给 aria-label / title。 */
+  it('「选择」是圆形图标钮，不再是一颗文字按钮', () => {
+    const h = html();
+    const tag = h.match(/<button[^>]*data-act="notesel"[^>]*>/)?.[0] ?? '';
+    expect(tag).toContain('bzs-round');
+    expect(tag).toContain('aria-label');
+    expect(h).not.toContain('>选择<');
+  });
+
   it('选择模式：每条卡片可勾选，顶部显示已选数量与批量操作', () => {
     const h = html({ select: true, picked: ['a'] });
     expect(h).toContain('data-act="notepick"');

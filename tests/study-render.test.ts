@@ -135,4 +135,18 @@ describe('窄屏筛选栏', () => {
     expect(out).toContain('data-act="libfilter"');
     expect(out).not.toContain('data-act="libfiltermenu"');
   });
+
+  /* 2026-11-08：筛选条换成圆形语汇后，空间不够放字的动作钮（搜索、视图切换）
+     一律用正圆图标钮；文字只留给分类/排序这种「选一个值」的胶囊。 */
+  it('动作钮是圆形图标钮：搜索与视图都不再往圆里塞文字', () => {
+    const out = mobile();
+    const search = out.match(/<button[^>]*data-act="libsearchtoggle"[^>]*>/)?.[0] ?? '';
+    const view = out.match(/<button[^>]*data-act="libview"[^>]*>/)?.[0] ?? '';
+    expect(search).toContain('bzs-round');
+    expect(view).toContain('bzs-round');
+    expect(search).toContain('aria-label');
+    expect(view).toContain('aria-label');
+    expect(out).not.toContain('>列表<');
+    expect(out).not.toContain('>封面墙<');
+  });
 });

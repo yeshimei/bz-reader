@@ -283,6 +283,137 @@
   flex: 1;
 }
 
+/* ═══════════ 圆形控件（2026-11-08） ═══════════
+ * 书库与笔记的筛选条从「细线方框」改成「圆钮 + 圆头胶囊」：
+ *   · 动作（搜索、视图切换、多选）→ 34px 正圆，只放图标；
+ *   · 选值（分类、排序、颜色）→ 32px 整圆角胶囊，只放文字。
+ * 底色统一用 --bg-3（比页面深一档，深浅主题各自混出来），选中才用铜色
+ * 实底；文字色取 --bg：亮色主题是白字、暗色主题是深字，铜底上都读得清。
+ * 作用域只到这三条筛选行，弹层、搜索页与引用卡里的 chip 不动。
+ */
+.bzs-round {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bg-3);
+  color: var(--t2);
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease), transform var(--dur-move) var(--ease);
+}
+
+.bzs-round:hover {
+  color: var(--t1);
+}
+
+.bzs-round:active {
+  transform: scale(.96);
+}
+
+.bzs-round.on {
+  background: var(--copper);
+  color: var(--bg);
+}
+
+.bzs-round svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 选值胶囊：同样去掉边框、落 --bg-3；选中实心铜 */
+.bzs-filters .bzs-chip,
+.bzs-shelfline .bzs-chip,
+.bzs-noteshead .bzs-chip {
+  position: relative;
+  border: 0;
+  background: var(--bg-3);
+  color: var(--t2);
+  height: 32px;
+  min-height: 32px;
+  padding: 0 14px;
+  font-size: 13px;
+  letter-spacing: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.bzs-filters .bzs-chip:hover,
+.bzs-shelfline .bzs-chip:hover,
+.bzs-noteshead .bzs-chip:hover {
+  color: var(--t1);
+}
+
+.bzs-filters .bzs-chip.on,
+.bzs-shelfline .bzs-chip.on,
+.bzs-noteshead .bzs-chip.on {
+  background: var(--copper);
+  color: var(--bg);
+}
+
+/* 笔色圆点跟着选中一起翻：渲染处把颜色写成了内联样式，只能在这里盖 */
+.bzs-noteshead .bzs-chip.on .dot {
+  background: var(--bg) !important;
+}
+
+/* 搜索井：同一套圆头，去掉边框 */
+.bzs-filters > .bzs-well,
+.bzs-noteshead .bzs-well {
+  border: 0;
+  background: var(--bg-3);
+  border-radius: var(--r-pill);
+  height: 34px;
+  padding: 0 14px;
+}
+
+/* 导出是这一行唯一的主操作：实心铜 + 圆头，和筛选的「选中」说同一种话 */
+.bzs-noteshead .bzs-btn.pri {
+  border: 0;
+  background: var(--copper);
+  color: var(--bg);
+  border-radius: var(--r-pill);
+  height: 34px;
+  padding: 0 16px;
+  font-size: 12.5px;
+  letter-spacing: 0;
+}
+
+.bzs-noteshead .bzs-btn.pri:hover {
+  color: var(--bg);
+  opacity: .92;
+}
+
+/* 触摸目标：视觉尺寸不动（34 / 32），用透明伪元素把热区补到 44，
+   和 mobile.css 的 S-03 同一套做法。相邻控件会重叠两三像素，可接受。 */
+@media (max-width: 820px) {
+  /* 笔记头：搜索井收窄一档，第一行才放得下「井 + 全部 + 有想法」，
+     不把筛选拆成三行 */
+  .bzs-noteshead .bzs-well {
+    min-width: 150px;
+  }
+
+  .bzs-round::after {
+    content: "";
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+  }
+
+  .bzs-filters .bzs-chip::after,
+  .bzs-shelfline .bzs-chip::after,
+  .bzs-noteshead .bzs-chip::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: inherit;
+  }
+}
+
 /* 封面墙 */
 .bzs-grid {
   display: grid;
