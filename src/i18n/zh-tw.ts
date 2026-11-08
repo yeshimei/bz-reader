@@ -117,8 +117,27 @@ export const ZH_TW: Record<MsgKey, string> = {
 
   /* ── 通知：搜尋 ──────────────────────────────────────────── */
   'notice.search.empty': '先輸入要搜的字',
-  'notice.search.needBook': '先開啟一本書，再來搜尋正文',
+  'notice.search.needBook': '先開啟一本書再搜尋',
   'notice.search.failed': '正文搜尋失敗：{why}',
+  /* ── 搜尋頁：本書 / 全庫 ─────────────────────────────────── */
+  'search.scope.book': '本書',
+  'search.scope.all': '全庫',
+  'search.scope.allCount': '全庫 · {n} 本',
+  'search.ph': '搜書名、作者、章節名、標註，或書裡的任意一句話…',
+  'search.empty': '輸入關鍵詞：書名、作者、章節名、標註，或書裡的任意一句話。',
+  'search.needBook': '先開啟一本書，再搜「本書」。',
+  'search.noHit': '沒有找到「{kw}」',
+  'search.group': '{title} · {n} 處',
+  'search.kind.book': '書籍',
+  'search.kind.mark': '標註',
+  'search.kind.idea': '想法',
+  'search.kind.chapter': '章節',
+  'search.kind.body': '正文',
+  'search.body.searching': '正在搜正文… {done}/{total} 本 · 命中 {n} 處',
+  'search.body.finding': '正在正文裡找「{kw}」…',
+  'search.body.stopped': '已停止（搜了 {done}/{total} 本）',
+  'search.body.stop': '停止',
+  'search.clear': '清空',
   'notice.sel.empty': '沒有可複製的選取範圍',
   'notice.toc.missingChapter': '這一章在目錄裡找不到，可能書換了版本',
 

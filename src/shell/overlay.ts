@@ -27,6 +27,7 @@ import { bmksOf, allMarks, fmtMinutes, fmtWhen, marksOf } from './domain';
 import { noteCardHtml } from './render/notes';
 import { cardTemplateChipsHtml, quoteCardHtml, quoteRefMarkdown } from './render/quote-card';
 import { searchFormHtml, searchResultsHtml } from './render/search';
+import { kickBodySearch, resetBodySearch } from './search-run';
 import {
   bumpOverlayRev,
   closeOverlay,
@@ -120,7 +121,7 @@ function overlaySearch(): string {
   const { searchKw, searchScope } = getState();
   return modal(
     '搜索',
-    '本书 / 全库 / 正文',
+    '本书 / 全库',
     `${searchFormHtml()}<div data-role="hitlist">${searchResultsHtml(searchKw, searchScope)}</div>`,
     '',
     'wide tall',
@@ -1263,6 +1264,8 @@ export class OverlayLayer {
   private lastKind = '';
   /** 当前弹窗的焦点圈闭解绑：每次重画换新节点，旧的跟着旧节点作废 */
   private untrap: (() => void) | null = null;
+  /** 正文命中到达时只换命中列表；搜索浮层关闭 / 重画时摘掉 */
+  private hitlistCb: (() => void) | null = null;
 
   /**
    * 浮层（排版 / 工具条 / 脚注 / 书摘 / AI / 想法）没有遮罩，所以「点空白处
@@ -1380,6 +1383,7 @@ export class OverlayLayer {
         setStateQuiet({ searchKw: t.value });
         const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
         if (list) setHtml(list, searchResultsHtml(t.value, getState().searchScope));
+        kickBodySearch(t.value, getState().searchScope);
         return;
       }
       // 排版滑块（pref）、年度目标（goal）、设置项（setting）走与书架同一条链路。
@@ -1421,7 +1425,12 @@ export class OverlayLayer {
     this.lastKind = kind;
     /* 搜索词在输入期间是 setStateQuiet 写的（不广播、不落盘）。离开搜索浮层
        时补一次正常持久化（A-24）——不广播，避免这次关闭再触发一轮重绘。 */
-    if (prev === 'search' && kind !== 'search') persistShellState();
+    if (prev === 'search' && kind !== 'search') {
+      persistShellState();
+      resetBodySearch();
+    }
+    /* 打开搜索浮层：词若还在（重开 / 从别的浮层切过来），补扫一轮正文 */
+    if (opening && kind === 'search') kickBodySearch(getState().searchKw, getState().searchScope);
     this.paint(opening);
   }
 
@@ -1551,12 +1560,28 @@ export class OverlayLayer {
     }
     // 书籍详情的封面：占位色块先出，真封面到了就地换图
     hydrateCovers(getShellSource()?.app, liveBooks(), this.root);
+
+    /* 正文搜索是异步的：命中到达时只换命中列表，不整页重绘（否则输入框
+       和光标会被换掉）。 */
+    if (this.hitlistCb) {
+      RT.body.listeners.delete(this.hitlistCb);
+      this.hitlistCb = null;
+    }
+    if (o?.kind === 'search') {
+      this.hitlistCb = () => {
+        const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
+        if (list) setHtml(list, searchResultsHtml(getState().searchKw, getState().searchScope));
+      };
+      RT.body.listeners.add(this.hitlistCb);
+    }
   }
 
   destroy(): void {
     document.removeEventListener('pointerdown', this.onDocPointer, true);
     for (const off of this.disposers) off();
     this.disposers = [];
+    if (this.hitlistCb) RT.body.listeners.delete(this.hitlistCb);
+    this.hitlistCb = null;
     this.esc = null;
     this.untrap?.();
     this.untrap = null;

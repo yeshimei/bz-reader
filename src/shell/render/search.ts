@@ -4,37 +4,40 @@
  * 一份命中列表，两个出口：
  *   · 书架整页（S1 定稿：搜索不再走浮层；2026-11-08 起和书库共用同一条头栏，
  *     当前那颗搜索图标亮着，再点一次回去）
- *   · 阅读页右上那颗浮层（书内 / 全库 / 正文，边读边搜）
+ *   · 阅读页右上那颗浮层（本书 / 全库，边读边搜）
  *
  * 两个出口共用同一个表单与同一个结果渲染，避免「同一件事长两副样子」。
  * 状态只有一份：ShellState.searchKw / searchScope，切页不丢词。
+ *
+ * 2026-11-08（fix/search-body）：
+ *   · 去掉「正文」范围与「搜正文」按钮——正文已并入本书 / 全库；
+ *   · 正文命中异步到达（RT.body），先出书名/作者/章节名/标注的快结果；
+ *   · 关键词在结果里高亮，想法命中显示想法本身；
+ *   · 文案全部走 i18n（新增的 17 条，见 src/i18n/zh.ts 的 search.* 段）。
  * ============================================================ */
+import { t } from '../../i18n';
 import { marksOf } from '../domain';
-import { searchHits } from '../search-hits';
+import { highlightEscaped } from '../highlight';
+import { searchHits, type SearchRow } from '../search-hits';
 import { getState } from '../state';
-import { getShellSource, liveBooks } from '../source';
+import { liveBooks } from '../source';
 import { RT } from '../runtime';
 import { esc, MAG } from './html';
 
 /**
  * 搜索范围。
  *
- * 「本书」只在阅读页有意义——书架没有当前书，进去时默认全库；
- * 若用户上次在阅读页选了「本书」，回到书架会搜不到东西，所以
- * 书架打开搜索时强制切到 all（见 actions.ts 的 study 分支）。
- *
- * 「正文」是 review-1104 加的口径：搜的是当前这一本的正文，
- * 命中带 CFI，点一条直接跳过去（见 view/reader-view.ts 的 searchText）。
+ * 「本书」只在有当前书时有意义：书架页没有打开的书时，「本书」会给出
+ * 「先打开一本书」的提示，而不是静默空结果（原 bug）。
  */
-export type SearchScope = 'book' | 'all' | 'text';
+export type SearchScope = 'book' | 'all';
 
-const SCOPES: Array<{ value: Exclude<SearchScope, 'text'> | 'text'; label: string }> = [
-  { value: 'book', label: '本书' },
-  { value: 'all', label: '全库' },
-  { value: 'text', label: '正文' },
+const SCOPES: Array<{ value: SearchScope; key: 'search.scope.book' | 'search.scope.all' }> = [
+  { value: 'book', key: 'search.scope.book' },
+  { value: 'all', key: 'search.scope.all' },
 ];
 
-function searchTargets(scope: 'book' | 'all') {
+function searchTargets(scope: SearchScope) {
   const state = getState();
   return (scope === 'book' ? liveBooks().filter((b) => b.id === state.bookId) : liveBooks()).map((b) => ({
     id: b.id,
@@ -49,42 +52,98 @@ function searchTargets(scope: 'book' | 'all') {
   }));
 }
 
-export function searchResultsHtml(kw: string, scope: SearchScope): string {
-  /* 正文搜索（新功能「书内搜索的命中定位」）：以前只能搜「已建索引」的
-     书名/作者/标注，正文里的字搜不到；跨书搜索又只列文字、点了不跳。
-     现在搜到就列出来，点一条直接跳到那一页。 */
-  if (scope === 'text') {
-    if (!kw.trim()) return `<div class="bzs-empty">输入关键词，点「搜正文」。</div>`;
-    if (!getShellSource()?.hasOpenReader()) return `<div class="bzs-empty">先打开一本书，再来搜正文。</div>`;
-    if (RT.textSearching) return `<div class="bzs-empty">正在正文里找「${esc(kw)}」…</div>`;
-    if (!RT.textHits.length) {
-      return `<div class="bzs-empty">正文里没有「${esc(kw)}」<br><br><button class="bzs-btn sm" data-act="searchtext">再搜一次</button></div>`;
-    }
-    return `<div class="bzs-hits">${RT.textHits
-      .map(
-        (h) =>
-          `<div class="bzs-hit" data-act="hittotext" data-cfi="${esc(h.cfi)}" role="button" tabindex="0">
-            <span class="ch">${esc(h.chapterLabel || '')}</span>
-            <span class="tx">${esc(h.excerpt)}</span>
-          </div>`,
-      )
-      .join('')}</div>`;
+/** 行首小字：说清楚这一行为什么命中 */
+function rowTag(r: SearchRow): string {
+  if (r.kind === 'book') return t('search.kind.book');
+  if (r.kind === 'body') return r.label.trim() || t('search.kind.body');
+  if (r.via === 'comment') return t('search.kind.idea');
+  if (r.via === 'chapter') return t('search.kind.chapter');
+  return r.label.trim() || t('search.kind.mark');
+}
+
+function rowHtml(r: SearchRow, kw: string): string {
+  const tag = `<span class="loc">${esc(rowTag(r))}</span>`;
+  const body = highlightEscaped(r.text, kw);
+  if (r.kind === 'book') {
+    return `<button class="bzs-hit" data-act="openbook" data-id="${esc(r.bookId)}">${tag}${body}</button>`;
   }
-  if (!kw.trim()) return `<div class="bzs-empty">输入关键词。想搜正文全文，切到「正文」范围。</div>`;
-  const { groups, total } = searchHits(searchTargets(scope), kw);
-  if (!total) return `<div class="bzs-empty">没有找到「${esc(kw)}」</div>`;
-  return groups
+  if (r.kind === 'body') {
+    return `<button class="bzs-hit" data-act="hittotext" data-cfi="${esc(r.cfi ?? '')}" data-book="${esc(
+      r.bookId,
+    )}">${tag}${body}</button>`;
+  }
+  return `<button class="bzs-hit" data-act="jumpmark" data-id="${esc(r.id)}" data-book="${esc(
+    r.bookId,
+  )}">${tag}${body}</button>`;
+}
+
+/** 正文搜索的进度 / 停止行 */
+function progressHtml(): string {
+  const b = RT.body;
+  if (b.noBook || !b.running) {
+    if (b.stopped) {
+      return `<div class="bzs-srch-prog"><span>${t('search.body.stopped', { done: b.done, total: b.total })}</span></div>`;
+    }
+    return '';
+  }
+  return `<div class="bzs-srch-prog"><span>${t('search.body.searching', {
+    done: b.done,
+    total: b.total,
+    n: b.hits.length,
+  })}</span><button class="bzs-btn sm" data-act="searchstop">${t('search.body.stop')}</button></div>`;
+}
+
+export function searchResultsHtml(kw: string, scope: SearchScope): string {
+  const q = kw.trim();
+  if (!q) return `<div class="bzs-empty">${t('search.empty')}</div>`;
+  if (scope === 'book' && !getState().bookId) {
+    return `<div class="bzs-empty">${t('search.needBook')}</div>`;
+  }
+
+  /* 快结果：同步算，立刻画 */
+  const { groups } = searchHits(searchTargets(scope), q);
+  const merged = groups.map((g) => ({ bookId: g.bookId, title: g.title, rows: g.rows.slice(), total: g.total }));
+  const byBook = new Map(merged.map((g) => [g.bookId, g]));
+
+  /* 正文命中：异步边到边追加。词对不上说明是上一轮的残留，不画 */
+  const bodyHits = RT.body.kw === q ? RT.body.hits : [];
+  for (const h of bodyHits) {
+    let g = byBook.get(h.bookId);
+    if (!g) {
+      g = { bookId: h.bookId, title: h.bookTitle, rows: [], total: 0 };
+      merged.push(g);
+      byBook.set(h.bookId, g);
+    }
+    g.rows.push({
+      kind: 'body',
+      bookId: h.bookId,
+      id: '',
+      label: h.chapterLabel,
+      text: h.excerpt,
+      via: 'body',
+      cfi: h.cfi,
+    });
+    g.total += 1;
+  }
+
+  const hits = merged.reduce((n, g) => n + g.total, 0);
+  const progress = progressHtml();
+  const heads = merged
+    .filter((g) => g.rows.length)
     .map(
       (g) =>
-        `<div class="bzs-hitgroup">${esc(g.title)} · ${g.total} 处</div>${g.rows
-          .map((r) =>
-            r.kind === 'book'
-              ? `<button class="bzs-hit" data-act="openbook" data-id="${esc(r.bookId)}"><span class="loc">书籍</span>${esc(r.text)}</button>`
-              : `<button class="bzs-hit" data-act="jumpmark" data-id="${esc(r.id)}" data-book="${esc(r.bookId)}"><span class="loc">${esc(r.label)}</span>${esc(r.text)}</button>`,
-          )
+        `<div class="bzs-hitgroup">${esc(t('search.group', { title: g.title, n: g.total }))}</div>${g.rows
+          .map((r) => rowHtml(r, q))
           .join('')}`,
     )
     .join('');
+
+  if (!hits) {
+    if (RT.body.noBook) return `<div class="bzs-empty">${t('search.needBook')}</div>`;
+    if (RT.body.running) return `${progress}<div class="bzs-empty">${t('search.body.finding', { kw: q })}</div>`;
+    return `${progress}<div class="bzs-empty">${t('search.noHit', { kw: q })}</div>`;
+  }
+  return `${progress}${heads}`;
 }
 
 /** 搜索表单本体：输入框 + 范围切换。整页与浮层共用 */
@@ -92,18 +151,20 @@ export function searchFormHtml(): string {
   const { searchKw, searchScope } = getState();
   const books = liveBooks().length;
   return `<div class="bzs-search-in">${MAG}
-      <input data-role="searchkw" placeholder="搜书名、作者、章节名或标注里的字…" value="${esc(searchKw)}"></div>
+      <input data-role="searchkw" placeholder="${esc(t('search.ph'))}" value="${esc(searchKw)}">${
+        searchKw.trim()
+          ? `<button class="bzs-srch-clear" data-act="searchclear" title="${esc(t('search.clear'))}" aria-label="${esc(
+              t('search.clear'),
+            )}">×</button>`
+          : ''
+      }</div>
     <div class="bzs-searchbar">
       ${SCOPES.map(
         (s) =>
           `<button class="bzs-chip${searchScope === s.value ? ' on' : ''}" data-act="searchscope" data-v="${s.value}">${
-            s.value === 'all' ? `${s.label} · ${books} 本` : s.label
+            s.value === 'all' ? esc(t('search.scope.allCount', { n: books })) : esc(t(s.key))
           }</button>`,
       ).join('')}
-      <button class="bzs-btn sm" data-act="searchtext">搜正文</button>
-      <span class="bzs-mini">${
-        searchScope === 'text' ? '搜这一本的正文，点结果跳到那一页' : '搜的是已建索引的内容：书名、作者、标注与想法'
-      }</span>
     </div>`;
 }
 

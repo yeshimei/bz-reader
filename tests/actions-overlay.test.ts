@@ -17,8 +17,9 @@ vi.mock('../src/data/entitlement', async (importOriginal) => {
 afterEach(() => {
   setShellSource(null);
   setState({ ...DEFAULT_SHELL_STATE });
-  RT.textHits = [];
-  RT.textSearching = false;
+  RT.body.hits = [];
+  RT.body.running = false;
+  RT.body.seq += 1;
 });
 
 function el(): HTMLElement {
@@ -28,33 +29,43 @@ function el(): HTMLElement {
 function installSource(opts: {
   app?: unknown;
   books?: unknown[];
-  searchText?: (kw: string) => Promise<unknown[]>;
+  openBook?: (book: unknown, cfi?: string) => void;
 }): void {
   setShellSource({
     app: opts.app ?? makeApp(),
     repo: { all: () => opts.books ?? [] },
     store: makeStore(),
     settings: () => ({ ...DEFAULT_SETTINGS, exportDir: '书摘' }),
-    searchText: opts.searchText ?? (async () => []),
-    hasOpenReader: () => true,
+    openBook: opts.openBook ?? (() => undefined),
     setGoal: () => undefined,
   } as unknown as ShellSource);
 }
 
-describe('书内搜正文的结果回填（A-09）', () => {
-  it('搜完在 finally 里推进 overlay.rev，弹层才会重画', async () => {
-    const hits = [
-      { cfi: 'epubcfi(/6/4)', excerpt: '给岁月以文明', chapterLabel: '第一章', chapterIndex: 0 },
-    ];
-    installSource({ searchText: async () => hits });
-    setState({ ...DEFAULT_SHELL_STATE, searchKw: '文明', overlay: { kind: 'search' } });
+describe('正文命中跳转（fix/search-body）', () => {
+  it('按 data-book 找到那本书并带 cfi 打开，不再只认当前书', () => {
+    const opened: Array<[string, string | undefined]> = [];
+    installSource({
+      books: [testBook('b1', '书一'), testBook('b2', '书二')],
+      openBook: (book, cfi) => opened.push([(book as { id: string }).id, cfi]),
+    });
+    setState({ ...DEFAULT_SHELL_STATE, bookId: 'b1' });
+    const hit = { dataset: { cfi: 'epubcfi(/6/4)', book: 'b2' } } as unknown as HTMLElement;
 
-    dispatchAction('searchtext', el());
+    dispatchAction('hittotext', hit);
 
-    expect(RT.textSearching).toBe(true);
-    await vi.waitFor(() => expect(RT.textSearching).toBe(false));
-    expect(RT.textHits).toEqual(hits);
-    expect(getState().overlay?.rev).toBe(1);
+    expect(opened).toEqual([['b2', 'epubcfi(/6/4)']]);
+  });
+
+  it('清空按钮把搜索词与正文现场一起收干净', () => {
+    setState({ ...DEFAULT_SHELL_STATE, searchKw: '文明' });
+    RT.body.hits = [{ bookId: 'b1', bookTitle: '书', cfi: 'c1', chapterLabel: '', excerpt: '文明' }];
+    RT.body.running = true;
+
+    dispatchAction('searchclear', el());
+
+    expect(getState().searchKw).toBe('');
+    expect(RT.body.hits).toEqual([]);
+    expect(RT.body.running).toBe(false);
   });
 });
 

@@ -66,6 +66,7 @@ import {
   toggleFav,
 } from './state';
 import { RT, emitNotesChanged, pushAi, resetAi } from './runtime';
+import { kickBodySearch, resetBodySearch, stopBodySearch } from './search-run';
 import { bzEmbedder, bzNotesReady, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
 import { isMobileEnv } from '../core/mobile';
 import { VIDEO_TUTORIAL_URL } from '../core/links';
@@ -1652,53 +1653,36 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     }
 
     /* ── 搜索 ── */
-    case 'searchscope':
+    case 'searchscope': {
       // 本书搜索免费，跨书搜索属于高级版；切换时拦，不要在结果里悄悄少几本
       if (d.v === 'all' && !requireCap('crossSearch')) break;
-      if (d.v === 'book' || d.v === 'all' || d.v === 'text') {
-        setState({ searchScope: d.v });
-        RT.textHits = [];
-        repaint();
-      }
-      break;
-    case 'searchtext': {
-      /* 正文搜索（新功能）：搜当前这一本的正文，点结果跳过去。
-         以前 `host.search()` 只在深链兜底里用，界面上根本没有入口。 */
-      const src = getShellSource();
-      const kw = getState().searchKw.trim();
-      if (!src || !kw) {
-        notify(t('notice.search.empty'), 'info');
-        break;
-      }
-      if (!src.hasOpenReader()) {
+      if (d.v !== 'book' && d.v !== 'all') break;
+      /* 书架页没有当前书时，「本书」给一句明确提示，而不是静默空结果 */
+      if (d.v === 'book' && !getState().bookId) {
         notify(t('notice.search.needBook'), 'info');
         break;
       }
-      setState({ searchScope: 'text' });
-      RT.textSearching = true;
-      RT.textHits = [];
+      setState({ searchScope: d.v });
+      kickBodySearch(getState().searchKw, d.v);
       repaint();
-      void (async () => {
-        try {
-          const hits = await src.searchText(kw);
-          RT.textHits = hits;
-        } catch (e) {
-          notify(t('notice.search.failed', { why: (e as Error)?.message || t('common.unknownError') }), 'error');
-        } finally {
-          RT.textSearching = false;
-          /* 命中列表在弹层里，`repaint()` 广播后订阅方还要过 `overlayKey` 判重：
-             内容键没变就跳过 sync()，结果永远停在「搜索中」。rev +1 强制它重画。 */
-          bumpOverlayRev();
-          repaint();
-        }
-      })();
       break;
     }
+    case 'searchstop':
+      stopBodySearch();
+      bumpOverlayRev();
+      repaint();
+      break;
+    case 'searchclear':
+      setState({ searchKw: '' });
+      resetBodySearch();
+      repaint();
+      break;
     case 'hittotext': {
-      /* 点一条命中：跳到那一页。`openBook` 带 cfi 时会走 `jumpTo`，
-         书已经开着就直接定位，没开就开一个新的 tab。 */
+      /* 点一条正文命中：跳到那本书的那一页。`openBook` 带 cfi 时会走 `jumpTo`，
+         书已经开着就直接定位，没开就开一个新的 tab。
+         以前只按当前书找，全库搜索点别的书的结果会没反应。 */
       const cfi = d.cfi || '';
-      const book = liveBooks().find((b) => b.id === getState().bookId);
+      const book = liveBooks().find((b) => b.id === (d.book || getState().bookId));
       if (!cfi || !book) break;
       closeOverlay();
       getShellSource()?.openBook(book, cfi);

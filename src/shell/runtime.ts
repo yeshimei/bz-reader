@@ -10,6 +10,7 @@
  * ============================================================ */
 import type { AiSource } from '../data/ai-evidence';
 import type { PortraitPlan } from '../data/portrait';
+import type { BodyHit } from './search-body';
 
 export interface SelectionPayload {
   /** 整段选区在宿主坐标系里的矩形：想法 / 书摘贴着它弹，而不是跑到屏幕中间 */
@@ -30,10 +31,34 @@ export interface AiLogItem {
 }
 
 export const RT = {
-  /** 正文搜索的命中（点一条跳到那一页） */
-  textHits: [] as Array<{ cfi: string; excerpt: string; chapterLabel: string; chapterIndex: number }>,
-  /** 正文搜索是否正在跑 */
-  textSearching: false,
+  /**
+   * 正文搜索的现场（fix/search-body）。
+   *
+   * 「本书 / 全库」现在同时搜正文：快结果（书名/作者/章节名/标注）是同步算的，
+   * 正文命中要逐本解包、异步到达——没有这一份现场，进度、停止和「新词来了
+   * 旧结果还能落地」都没有地方记。
+   */
+  body: {
+    /** 轮次号：每次换词 / 切范围 / 停止都 +1，旧一轮的异步结果按它对不上就丢 */
+    seq: 0,
+    /** 是否正在扫（含防抖等待） */
+    running: false,
+    /** 这一轮是被用户点「停止」结束的（与「搜完了」区分） */
+    stopped: false,
+    /** 这一轮搜的词 */
+    kw: '',
+    hits: [] as BodyHit[],
+    done: 0,
+    total: 0,
+    /** 本书范围但没有当前书：界面提示先打开一本 */
+    noBook: false,
+    /**
+     * 正文命中到达时，只替换命中列表（不整页重绘）。
+     * 由当前显示的搜索宿主（书架整页 / 阅读页浮层）注册；两个宿主同时
+     * 存在时各自收自己的，不互相覆盖。
+     */
+    listeners: new Set<() => void>(),
+  },
   /** 书摘卡上次用的版式（关闭弹层后仍记得，下次打开还是这一版） */
   cardTpl: 'classic' as string,
   /** 正在跑的 AI 请求（「取消请求」按钮用）；空表示没有在请求 */

@@ -128,8 +128,27 @@ export const ZH = {
 
   /* ── 通知：搜索 ──────────────────────────────────────────── */
   'notice.search.empty': '先输入要搜的字',
-  'notice.search.needBook': '先打开一本书，再来搜正文',
+  'notice.search.needBook': '先打开一本书再搜索',
   'notice.search.failed': '正文搜索失败：{why}',
+  /* ── 搜索页：本书 / 全库 ─────────────────────────────────── */
+  'search.scope.book': '本书',
+  'search.scope.all': '全库',
+  'search.scope.allCount': '全库 · {n} 本',
+  'search.ph': '搜书名、作者、章节名、标注，或书里的任意一句话…',
+  'search.empty': '输入关键词：书名、作者、章节名、标注，或书里的任意一句话。',
+  'search.needBook': '先打开一本书，再搜「本书」。',
+  'search.noHit': '没有找到「{kw}」',
+  'search.group': '{title} · {n} 处',
+  'search.kind.book': '书籍',
+  'search.kind.mark': '标注',
+  'search.kind.idea': '想法',
+  'search.kind.chapter': '章节',
+  'search.kind.body': '正文',
+  'search.body.searching': '正在搜正文… {done}/{total} 本 · 命中 {n} 处',
+  'search.body.finding': '正在正文里找「{kw}」…',
+  'search.body.stopped': '已停止（搜了 {done}/{total} 本）',
+  'search.body.stop': '停止',
+  'search.clear': '清空',
   'notice.sel.empty': '没有可复制的选区',
   'notice.toc.missingChapter': '这一章在目录里找不到，可能书换了版本',
 

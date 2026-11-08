@@ -15,6 +15,8 @@ import { getState, setState, setStateQuiet, subscribe, type StudyPage } from './
 import { getShellSource, liveBooks, shellPrefs, subscribeShellSource } from './source';
 import { studyShell } from './render/study';
 import { searchResultsHtml } from './render/search';
+import { RT } from './runtime';
+import { kickBodySearch } from './search-run';
 import { buildShelfPage, shelfRenderKey } from './shelf-page';
 import { hydrateCovers } from './covers';
 import { focusSelector, type FocusMemo } from './focus-memo';
@@ -37,6 +39,8 @@ export class ShelfPanel {
   private changelogAsked = false;
   /** 上一次用的筛选行形态；只在跨过阈值时重绘，避免 resize 抖动 */
   private compact: boolean | null = null;
+  /** 正文命中到达时「只换命中列表」的回调；离开搜索页 / 销毁时摘掉 */
+  private hitlistCb: (() => void) | null = null;
   /** 上一次重绘的内容指纹（D4）：一样就不画 */
   private lastKey = '';
 
@@ -79,6 +83,8 @@ export class ShelfPanel {
     this.unsubscribe = null;
     this.offSource?.();
     this.offSource = null;
+    if (this.hitlistCb) RT.body.listeners.delete(this.hitlistCb);
+    this.hitlistCb = null;
     /* 监听挂在 host 上（宿主 contentEl 活得比面板久），摘不掉也不能再管事：
        先摘掉自己那层 root，旧监听进来一律按「目标不在树里」丢弃（D3）。 */
     this.root?.remove();
@@ -178,8 +184,26 @@ export class ShelfPanel {
     this.painted = true;
     this.mountSubPage(state.studyPage);
     this.restoreFocus();
+    this.bindHitlist(state.studyPage);
     // 封面是异步的：先出的是色块，真封面到了就地换图（不重绘，否则滚动位置会跳）
     hydrateCovers(getShellSource()?.app, books, root);
+  }
+
+  /**
+   * 正文搜索是异步的：命中到达时只替换 `[data-role="hitlist"]`，
+   * 不整页重绘——整页重绘会把正在打字的输入框换掉。
+   */
+  private bindHitlist(page: StudyPage): void {
+    if (this.hitlistCb) RT.body.listeners.delete(this.hitlistCb);
+    this.hitlistCb = null;
+    if (page !== 'search') return;
+    this.hitlistCb = () => {
+      const root = this.root;
+      if (!root) return;
+      const list = root.querySelector<HTMLElement>('[data-role="hitlist"]');
+      if (list) setHtml(list, searchResultsHtml(getState().searchKw, getState().searchScope));
+    };
+    RT.body.listeners.add(this.hitlistCb);
   }
 
   /** 子页里需要真实 DOM 的那几个（目前只有导入）挂进来 */
@@ -320,6 +344,8 @@ export class ShelfPanel {
         setStateQuiet({ searchKw: v });
         const list = this.root?.querySelector<HTMLElement>('[data-role="hitlist"]');
         if (list) setHtml(list, searchResultsHtml(v, getState().searchScope));
+        /* 快结果已经画上了，正文命中随后异步追加（防抖在 search-run 里） */
+        kickBodySearch(v, getState().searchScope);
         return;
       }
       dispatchInput(t as HTMLInputElement, e);

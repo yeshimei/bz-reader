@@ -101,6 +101,13 @@ export interface ShellSource {
    * 没有打开的书时返回空数组。
    */
   searchText: (kw: string) => Promise<TextHit[]>;
+  /**
+   * 对任意一本书扫正文（不必先打开它）：临时开引擎、扫完即拆。
+   *
+   * 「本书 / 全库」里的正文搜索用它。当前已经在阅读视图里打开的书优先走
+   * `searchText`——引擎已经加载好，不必重新解一遍。
+   */
+  searchBookBody: (book: ReaderBook, kw: string, shouldStop?: () => boolean) => Promise<TextHit[]>;
   /** 当前有没有打开着的阅读视图（正文搜索前先问一句，别让用户搜了个寂寞） */
   hasOpenReader: () => boolean;
   /**

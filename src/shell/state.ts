@@ -220,7 +220,8 @@ export interface ShellState {
   libSearchOpen: boolean;
   /* 搜索（书架整页与阅读页浮层共用一份，切页不丢词） */
   searchKw: string;
-  searchScope: 'book' | 'all' | 'text';
+  /** 搜索范围：「本书 / 全库」两档（2026-11-08 起正文已并入这两档） */
+  searchScope: 'book' | 'all';
   /* 笔记 */
   noteFilter: string;
   noteKw: string;

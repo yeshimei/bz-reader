@@ -52,6 +52,7 @@ import { initDevTier, resetDevTier, setDevTier } from './core/dev-tier';
 import { normalizePluginData, type PluginDataFile } from './data/plugin-data';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
 import { installBlobSrcdocPatches, uninstallBlobSrcdocPatches } from './engine/blob-srcdoc';
+import { searchAcrossBooks } from './engine/cross-search';
 import { openStats } from './ui/stats-panel';
 import { openCrossSearch } from './ui/cross-search-panel';
 
@@ -76,6 +77,8 @@ import {
 import { createBookAi, type BookAiApi } from './data/book-ai';
 import { setShellSource, shellPrefs } from './shell/source';
 import { RT } from './shell/runtime';
+import { resetBodySearch } from './shell/search-run';
+import type { TextHit } from './shell/text-search';
 import { portraitBuilder } from './data/portrait-build';
 import { hrefCandidates, interceptableClick, wrapOpenLinkText } from './shell/link-postprocessor';
 import { CHANGELOG_RELEASES, pickReleaseFor, planChangelog, releaseEntryCount } from './shell/changelog';
@@ -643,6 +646,25 @@ export function createPlugin(cfg: PluginConfig) {
           const view = this.activeReader();
           return view ? view.searchText(kw) : [];
         },
+        searchBookBody: async (book, kw, shouldStop) => {
+          /* 对一本（可能没打开的）书扫正文：临时开引擎、扫完即拆。
+             全库搜索逐本来，每本几秒很正常。 */
+          const prefs = pickPrefs(this.store.get(), isMobileEnv());
+          const hits: TextHit[] = [];
+          await searchAcrossBooks({
+            app: this.app,
+            books: [book],
+            prefs,
+            query: kw,
+            shouldStop,
+            onHits: (_b, list) => {
+              for (const h of list) {
+                hits.push({ cfi: h.cfi, excerpt: h.excerpt, chapterLabel: h.chapterLabel, chapterIndex: 0 });
+              }
+            },
+          });
+          return hits;
+        },
         hasOpenReader: () => !!this.activeReader(),
         backup: () => this.backupData(),
         restore: () => this.restoreData(),
@@ -1158,6 +1180,8 @@ export function createPlugin(cfg: PluginConfig) {
       if (page === 'search') {
         patch.searchKw = '';
         patch.searchScope = can('crossSearch') ? 'all' : 'book';
+        /* 上一轮的正文结果与在跑的扫描都属于上一个词，进页先收干净 */
+        resetBodySearch();
       }
       setState(patch);
       const ws = this.app.workspace;

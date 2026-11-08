@@ -782,6 +782,7 @@ body.theme-dark .bzs-tb-more {
 
 /* ── 搜索 ── */
 .bzs-search-in {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -792,15 +793,58 @@ body.theme-dark .bzs-tb-more {
   margin-bottom: 12px;
 }
 
-.bzs-search-in input {
-  flex: 1;
+/* 搜索输入框本身永远不要自己的边框 / 焦点环：外层这条圆角搜索条才是边界。
+   必须写到 `.bzs-shell` 这一级——tokens.css 的 `.bzs-shell input:not([type])`
+   与 `.bzs-shell input:focus` 特异性更高，旧规则 `.bzs-search-in input`
+   根本压不住（截图里那圈铜色焦点环就是这么来的）。
+   焦点态仍用外层搜索条的边框变化表示，不另加阴影。 */
+.bzs-shell .bzs-search-in input,
+.bzs-shell .bzs-search-in input:focus,
+.bzs-shell .bzs-search-in input:focus-visible {
   border: 0;
-  background: none;
-  color: var(--t1);
-  font-size: 15px;
   outline: 0;
   box-shadow: none;
+  background: none;
+  padding: 0;
+}
+
+.bzs-search-in input {
+  flex: 1;
+  color: var(--t1);
+  font-size: 15px;
   min-width: 0;
+}
+
+/* 有词才出现的清空键：搜索框右侧一枚小 × */
+.bzs-srch-clear {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--t3);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bzs-srch-clear:hover {
+  color: var(--t1);
+  background: var(--copper-soft);
+}
+
+/* 正文搜索进行中：进度 + 停止 */
+.bzs-srch-prog {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px 10px;
+  font-size: var(--fs-mini);
+  color: var(--t3);
 }
 
 .bzs-hit {
@@ -834,6 +878,8 @@ body.theme-dark .bzs-tb-more {
   font-style: normal;
   color: var(--copper);
   border-bottom: 1px solid var(--copper-line);
+  background: var(--copper-soft);
+  border-radius: 2px;
 }
 
 .bzs-hitgroup {
