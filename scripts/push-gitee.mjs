@@ -109,7 +109,9 @@ async function ensureRelease(body) {
     });
   } else if (rel.name !== name || rel.body !== body) {
     log(`更新 Release ${tag} 的标题与正文`);
-    if (!DRY) rel = await api('PATCH', `/repos/${SLUG}/releases/${rel.id}`, { name, body });
+    /* 码云的 PATCH 把 tag_name 当必填（不给就 400 tag_name is missing），
+       哪怕只是改正文也得原样带上。 */
+    if (!DRY) rel = await api('PATCH', `/repos/${SLUG}/releases/${rel.id}`, { tag_name: tag, name, body });
   } else {
     log(`Release ${tag} 已在位（正文一致）`);
   }
