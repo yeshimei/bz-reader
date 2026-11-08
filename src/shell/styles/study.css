@@ -299,8 +299,10 @@
   border: 0;
   border-radius: 50%;
   /* 2026-11-09：--bg-3 在真机上只差 4%，圆钮看起来像「没有圆」。
-     改用文字色混 8%——不写死灰度，深浅两套主题各自得到一档看得见的底。 */
-  background: color-mix(in srgb, var(--text-normal) 8%, var(--bg));
+     用 --t2（带兜底的主题次要文字色）混 15%——不写死灰度，深浅两套主题
+     各自动得到一档看得见的底；上一版 8% 在手机屏上还是太淡。 */
+  background: var(--surface-2);
+  background: color-mix(in srgb, var(--t2) 15%, var(--bg));
   color: var(--t2);
   display: grid;
   place-items: center;
@@ -311,7 +313,7 @@
 
 .bzs-round:hover {
   color: var(--t1);
-  background: color-mix(in srgb, var(--text-normal) 13%, var(--bg));
+  background: color-mix(in srgb, var(--t2) 22%, var(--bg));
 }
 
 /* 选中那颗悬停时不能退回灰底：铜色是它的身份 */
