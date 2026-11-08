@@ -80,7 +80,7 @@ index 86be1a612a782c23f4190a1a28ce61f03d13e5a3..8f4ad14b9ae83ea3e1cb23d7e7001d1e
      }
      static outline(rects, options = {}) {
 diff --git a/paginator.js b/paginator.js
-index 95c4d0d..27ae567 100644
+index 95c4d0d..139ddc6 100644
 --- a/paginator.js
 +++ b/paginator.js
 @@ -150,6 +150,9 @@ const selectionIsBackward = sel => {
@@ -428,7 +428,7 @@ index 95c4d0d..27ae567 100644
              let isKeyboardSelecting = false
              doc.addEventListener('keydown', () => isKeyboardSelecting = true)
              doc.addEventListener('keyup', () => isKeyboardSelecting = false)
-@@ -597,18 +792,60 @@ export class Paginator extends HTMLElement {
+@@ -597,18 +792,67 @@ export class Paginator extends HTMLElement {
                  if (!range) return
                  const sel = doc.getSelection()
                  if (!sel.rangeCount) return
@@ -455,7 +455,14 @@ index 95c4d0d..27ae567 100644
 +                   覆盖走系统层的手柄；选区折叠才延时解锁，不在折叠的那一帧
 +                   就放行，否则手柄拖到行首/行尾会闪一下。 */
 +                if (sel.isCollapsed) this.#unlockSelectionScrollSoon()
-+                else this.#lockSelectionScroll()
++                else {
++                    this.#lockSelectionScroll()
++                    /* bz-reader：拖选不许越出当前页。越界时浏览器必须滚到相邻
++                       列才看得见端点，滚动锁拉回来、它再滚——真机日志里 0.2 秒
++                       freeze 六次、选区在 15 与 380 字之间来回跳。 */
++                    if (range && this.#selFreezePos != null)
++                        this.#clampSelectionToPage(sel, range)
++                }
 +                if (isKeyboardSelecting) {
                      const selRange = sel.getRangeAt(0).cloneRange()
                      const backward = selectionIsBackward(sel)
@@ -494,7 +501,7 @@ index 95c4d0d..27ae567 100644
          })
  
          this.#mediaQueryListener = () => {
-@@ -663,14 +900,22 @@ export class Paginator extends HTMLElement {
+@@ -663,14 +907,22 @@ export class Paginator extends HTMLElement {
          }
          this.#view = new View({
              container: this,
@@ -519,7 +526,7 @@ index 95c4d0d..27ae567 100644
          const htmlStyle = doc.defaultView.getComputedStyle(doc.documentElement)
          const themeBgColor = htmlStyle.getPropertyValue('--theme-bg-color')
          if (background && themeBgColor) {
-@@ -771,6 +1016,9 @@ export class Paginator extends HTMLElement {
+@@ -771,6 +1023,9 @@ export class Paginator extends HTMLElement {
      }
      render() {
          if (!this.#view) return
@@ -529,7 +536,7 @@ index 95c4d0d..27ae567 100644
          this.#view.render(this.#beforeRender({
              vertical: this.#vertical,
              rtl: this.#rtl,
-@@ -839,20 +1087,39 @@ export class Paginator extends HTMLElement {
+@@ -839,20 +1094,39 @@ export class Paginator extends HTMLElement {
              Math.max(min, Math.min(max, (start + end) / 2
                  + (isNaN(d) ? 0 : d))) / size)
  
@@ -574,7 +581,7 @@ index 95c4d0d..27ae567 100644
          }
      }
      #onTouchMove(e) {
-@@ -867,6 +1134,17 @@ export class Paginator extends HTMLElement {
+@@ -867,6 +1141,17 @@ export class Paginator extends HTMLElement {
          const doc = this.#view?.document
          const selection = doc?.getSelection()
          if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
@@ -592,7 +599,7 @@ index 95c4d0d..27ae567 100644
              return
          }
          e.preventDefault()
-@@ -879,6 +1157,9 @@ export class Paginator extends HTMLElement {
+@@ -879,6 +1164,9 @@ export class Paginator extends HTMLElement {
          state.t = e.timeStamp
          state.vx = dx / dt
          state.vy = dy / dt
@@ -602,7 +609,7 @@ index 95c4d0d..27ae567 100644
          this.#touchScrolled = true
          if (Math.abs(dx) >= Math.abs(dy)) {
              this.scrollBy(dx, 0)
-@@ -887,8 +1168,26 @@ export class Paginator extends HTMLElement {
+@@ -887,8 +1175,26 @@ export class Paginator extends HTMLElement {
          }
      }
      #onTouchEnd() {
@@ -630,7 +637,7 @@ index 95c4d0d..27ae567 100644
  
          // XXX: Firefox seems to report scale as 1... sometimes...?
          // at this point I'm basically throwing `requestAnimationFrame` at
-@@ -926,6 +1225,19 @@ export class Paginator extends HTMLElement {
+@@ -926,6 +1232,19 @@ export class Paginator extends HTMLElement {
      }
      async #scrollTo(offset, reason, smooth) {
          const { size } = this
@@ -650,7 +657,7 @@ index 95c4d0d..27ae567 100644
          if (this.containerPosition === offset) {
              this.#scrollBounds = [offset, this.atStart ? 0 : size, this.atEnd ? 0 : size]
              this.#afterScroll(reason)
-@@ -954,6 +1266,11 @@ export class Paginator extends HTMLElement {
+@@ -954,6 +1273,11 @@ export class Paginator extends HTMLElement {
          return this.#scrollToAnchor(anchor, select ? 'selection' : 'navigation')
      }
      async #scrollToAnchor(anchor, reason = 'anchor') {
@@ -662,7 +669,7 @@ index 95c4d0d..27ae567 100644
          this.#anchor = anchor
          const rects = uncollapse(anchor)?.getClientRects?.()
          // if anchor is an element or a range
-@@ -987,6 +1304,13 @@ export class Paginator extends HTMLElement {
+@@ -987,6 +1311,13 @@ export class Paginator extends HTMLElement {
      #afterScroll(reason) {
          const range = this.#getVisibleRange()
          this.#lastVisibleRange = range
@@ -676,10 +683,41 @@ index 95c4d0d..27ae567 100644
          // don't set new anchor if relocation was to scroll to anchor
          if (reason !== 'selection' && reason !== 'navigation' && reason !== 'anchor')
              this.#anchor = range
-@@ -1003,6 +1327,29 @@ export class Paginator extends HTMLElement {
+@@ -1003,6 +1334,60 @@ export class Paginator extends HTMLElement {
          }
          this.dispatchEvent(new CustomEvent('relocate', { detail }))
      }
++    /* bz-reader：把选区截回当前页——「跨页选择完全禁止」的真正落地。
++       上一版只删了上游的「越界自动翻页」，选区本身照样跨过当前页；越界后
++       浏览器必须滚到相邻列才能显示端点，滚动锁把它拉回来、它再滚，两边
++       永远不收敛。真机日志（2026-11-08 debug.json）里拖手柄的 1.2 秒内
++       scrollSel/freeze 交替六次，选区在 15 字与 380 字之间来回跳——屏幕上
++       就是「选中那块一会儿大一会儿小」。
++       截断用 setBaseAndExtent 一次写完：removeAllRanges + addRange 会留下
++       一帧空选区，那本身就是闪。 */
++    #clampSelectionToPage(sel, pageRange) {
++        let range
++        try { range = sel.getRangeAt(0).cloneRange() } catch { return }
++        let changed = false
++        if (range.compareBoundaryPoints(Range.START_TO_START, pageRange) < 0) {
++            range.setStart(pageRange.startContainer, pageRange.startOffset)
++            changed = true
++        }
++        if (range.compareBoundaryPoints(Range.END_TO_END, pageRange) > 0) {
++            range.setEnd(pageRange.endContainer, pageRange.endOffset)
++            changed = true
++        }
++        if (!changed) return
++        globalThis.__bzrDbg?.('clampSel', { len: sel.toString().length })
++        /* setBaseAndExtent 是原子操作：一次调用完成，不经过空选区那一帧。 */
++        if (typeof sel.setBaseAndExtent === 'function') sel.setBaseAndExtent(
++            range.startContainer, range.startOffset,
++            range.endContainer, range.endOffset)
++        else {
++            sel.removeAllRanges()
++            sel.addRange(range)
++        }
++    }
 +    /* bz-reader：粗指针（手机/平板触屏）判定。桌面鼠标不走进拖选那套守卫，
 +       与上游行为逐字一致。 */
 +    #isCoarsePointer() {
@@ -706,7 +744,7 @@ index 95c4d0d..27ae567 100644
      async #display(promise) {
          const { index, src, anchor, onLoad, select } = await promise
          this.#index = index
-@@ -1037,6 +1384,8 @@ export class Paginator extends HTMLElement {
+@@ -1037,6 +1422,8 @@ export class Paginator extends HTMLElement {
          return index >= 0 && index <= this.sections.length - 1
      }
      async #goTo({ index, anchor, select }) {
@@ -715,7 +753,7 @@ index 95c4d0d..27ae567 100644
          if (index === this.#index) await this.#display({ index, anchor, select })
          else {
              const oldIndex = this.#index
-@@ -1097,6 +1446,14 @@ export class Paginator extends HTMLElement {
+@@ -1097,6 +1484,14 @@ export class Paginator extends HTMLElement {
          this.#locked = true
          const prev = dir === -1
          const shouldGo = await (prev ? this.#scrollPrev(distance) : this.#scrollNext(distance))
@@ -730,7 +768,7 @@ index 95c4d0d..27ae567 100644
          if (shouldGo) await this.#goTo({
              index: this.#adjacentIndex(dir),
              anchor: prev ? () => 1 : () => 0,
-@@ -1105,9 +1462,12 @@ export class Paginator extends HTMLElement {
+@@ -1105,9 +1500,12 @@ export class Paginator extends HTMLElement {
          this.#locked = false
      }
      async prev(distance) {
@@ -743,7 +781,7 @@ index 95c4d0d..27ae567 100644
          return await this.#turnPage(1, distance)
      }
      prevSection() {
-@@ -1145,6 +1505,7 @@ export class Paginator extends HTMLElement {
+@@ -1145,6 +1543,7 @@ export class Paginator extends HTMLElement {
  
          // NOTE: needs `requestAnimationFrame` in Chromium
          requestAnimationFrame(() => {
@@ -751,7 +789,7 @@ index 95c4d0d..27ae567 100644
              this.#replaceBackground(this.#view.docBackground, this.columnCount)
          })
  
-@@ -1156,11 +1517,14 @@ export class Paginator extends HTMLElement {
+@@ -1156,11 +1555,14 @@ export class Paginator extends HTMLElement {
      }
      destroy() {
          this.#observer.unobserve(this)

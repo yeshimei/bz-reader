@@ -34,12 +34,13 @@ const KEYS = [
   'iframeScroll',
   'relocate',
   'setSel',
+  'clampSel',
   'snapGo',
   'turnPage',
 ];
 
 describe('paginator 调试埋点', () => {
-  it('十八条关键路径都接上了全局钩子', () => {
+  it('十九条关键路径都接上了全局钩子', () => {
     for (const key of KEYS) {
       expect(src).toContain(`__bzrDbg?.('${key}'`);
     }
@@ -152,5 +153,36 @@ describe('paginator 拖选期间不碰选区与锚点', () => {
     const at = src.indexOf('onExpand:');
     expect(at).toBeGreaterThan(0);
     expect(src.slice(at, at + 400)).toContain('!sel.isCollapsed');
+  });
+});
+
+/* 2026-11-08 第五轮：真机日志（debug.json）把机制拍死了。
+ *
+ * 拖手柄到页首那 1.2 秒里，logger 连续记到：
+ *   scrollSel 1170 → freeze 1170→1913 → selRaw len=380 out=before
+ *   scrollSel 1327 → freeze 1327→1913 → selRaw len=15  out=inside
+ *   scrollSel 1301 → freeze 1301→1913 → selRaw len=395 out=before
+ *   ...
+ * 选区在 15 字和 380 字之间来回跳，屏幕上就是「选中那块一会儿大一会儿小」。
+ *
+ * 根因：选区越过了当前页，浏览器必须滚到相邻列才看得见端点；滚动锁把它
+ * 拉回来、它再滚，永远不收敛。删掉自动翻页只是不再换章，选区本身照样跨页。
+ * 真正的「跨页选择完全禁止」是把越界的端点截回当前页——截完浏览器没有
+ * 滚的理由，循环自然消失。 */
+describe('paginator 跨页选择', () => {
+  it('拖选越界时把选区截回当前页，用 setBaseAndExtent 一次写完', () => {
+    expect(src).toContain('#clampSelectionToPage(');
+    expect(src).toContain('sel.setBaseAndExtent(');
+    /* 截断必须发生在「拖选锁已上锁」时，否则程序设置的选区也会被截 */
+    expect(src).toContain('this.#selFreezePos != null)');
+  });
+
+  it('截断只在拖选期间做，且记一条 clampSel', () => {
+    expect(src).toContain("__bzrDbg?.('clampSel'");
+    const at = src.indexOf('#clampSelectionToPage(sel, pageRange) {');
+    expect(at).toBeGreaterThan(0);
+    const block = src.slice(at, at + 1200);
+    expect(block).toContain('compareBoundaryPoints(Range.START_TO_START, pageRange)');
+    expect(block).toContain('compareBoundaryPoints(Range.END_TO_END, pageRange)');
   });
 });
