@@ -41,6 +41,7 @@ import {
   headerActive,
   type HeaderActionId,
 } from './header-actions';
+import { planHeaderVisibility, roleOf } from './header-layout';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
 import { can } from '../data/entitlement';
@@ -631,31 +632,60 @@ export class ReaderView extends ItemView {
   }
 
   /**
-   * 头栏右侧：别人的图标收起来，我们的最多 3 颗，⋮ 始终保留。
+   * 头栏右侧：我们的最多 3 颗 + 宿主的 ⋮，别人的图标一律收起来。
    *
-   * 真机上别的插件（Commander 等）也会往这一排塞按钮，谁家的 DOM 都可能变，
-   * 所以不靠猜选择器：挂上自己那三颗，再数「确实可见的其它图标」，
-   * 先尝试把它们收掉（阅读时它们没有用，还挤掉书名），收不掉就按名额
-   * 从右往左裁自己的。⋮ 永远保留——全部折叠动作都在它里面。
+   * 以前这段靠「最右那颗就是 ⋮」猜位置，真机上装了会往头栏塞图标的插件之后
+   * 整套假设失效：别人有一颗排在 ⋮ 后面，真 ⋮ 就被当成别人藏掉、别人那颗被
+   * 当成 ⋮ 留下；再加 styles.css 里那条 `:last-child { display:grid !important }`，
+   * inline 的 display:none 压不过它，最右那颗谁也藏不掉。用户看到的正是
+   * 「三个动作露了、别人的图标还在、⋮ 没了」。
+   *
+   * 现在按身份分类（见 view/header-layout.ts），不再按位置猜，也不再
+   * 「先扣别人的名额再裁自己的」。
    */
-  private trimHeaderActions(box: HTMLElement, maxIcons: number): void {
-    const kids = Array.from(box.children) as HTMLElement[];
-    const visible = (el: HTMLElement): boolean =>
-      el.offsetParent !== null && getComputedStyle(el).display !== 'none';
-    const isOurs = (el: HTMLElement): boolean => el.classList.contains('bzr-action');
-    const ours = kids.filter(isOurs);
+  private trimHeaderActions(box: HTMLElement, maxOurs: number): void {
+    /* box 可能是兜底选到的 .view-header 本体，那样扫下去会把宿主的
+       侧栏切换 / 返回前进一起收掉。只在真正的动作容器里动手。 */
+    const scope = box.closest('.view-actions, .nav-buttons-container')
+      ? box
+      : box.querySelector<HTMLElement>('.view-actions, .nav-buttons-container');
+    if (!scope) return;
 
-    const othersAll = kids.filter((el) => !isOurs(el) && visible(el));
-    /* 最右那颗是宿主的 ⋮，不占名额，也不能收 */
-    const dots = othersAll[othersAll.length - 1];
-    const others = othersAll.filter((el) => el !== dots);
-    for (const el of others) el.setCssProps({ display: 'none' });
+    const items = Array.from(scope.querySelectorAll<HTMLElement>('.clickable-icon'));
+    if (!items.length) return;
 
-    const stillOthers = others.filter(visible).length;
-    const slots = Math.max(0, maxIcons - stillOthers);
-    ours.forEach((el, i) => {
-      el.setCssProps({ display: i < slots ? '' : 'none' });
+    const roles = items.map((el) => roleOf(el));
+    /* 一颗 ⋮ 都没认出来（图标名换过、或主题重画了 svg）时的兜底：
+       · 别人只剩一颗 → 那它只能是 ⋮，留着；
+       · 别人不止一颗 → 分不清哪颗是 ⋮，就一颗都不藏。宁可别人的图标
+         多留两颗，也不能把 ⋮ 藏掉——阅读的全部分组动作都在它里面。 */
+    let hideOthers = true;
+    if (!roles.includes('more')) {
+      const others = roles
+        .map((role, i) => (role === 'other' ? i : -1))
+        .filter((i) => i >= 0);
+      if (others.length === 1) roles[others[0]!] = 'more';
+      else if (others.length > 1) hideOthers = false;
+    }
+
+    const show = planHeaderVisibility(roles, maxOurs, hideOthers);
+    items.forEach((el, i) => {
+      if (show[i]) el.style.removeProperty('display');
+      /* inline + important：既有 CSS 里对别人图标的规则（含主题/别的插件
+         自己的 !important）也得让路，否则「该藏的藏不掉」会再回来。 */
+      else el.style.setProperty('display', 'none', 'important');
     });
+
+    /* scope 之外还有：有些插件不往 .view-actions 里塞，而是直接挂在
+       .view-header 上或自己包一层容器。这里一并清掉，但跳过
+       .view-header-nav-buttons——那里是宿主的侧栏切换 / 返回前进，
+       藏了用户就回不去了。认不出 ⋮ 时（hideOthers=false）一颗都不动。 */
+    if (!hideOthers) return;
+    const header = scope.closest('.view-header');
+    for (const el of Array.from(header?.querySelectorAll<HTMLElement>('.clickable-icon') ?? [])) {
+      if (items.includes(el) || el.closest('.view-header-nav-buttons')) continue;
+      if (roleOf(el) === 'other') el.style.setProperty('display', 'none', 'important');
+    }
   }
 
   /** 宿主换主题（`css-change`）：主卷与副卷是两份文档，都要重新注入变量 */

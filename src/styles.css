@@ -904,10 +904,11 @@ body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .nav-buttons
   display: none !important;
 }
 
-/* ⋮ 永远在最右，且必须可见（阅读的全部分组动作都在它里面） */
-body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .view-actions > .clickable-icon:last-child {
-  display: grid !important;
-}
+/* ⋮ 的可见性交给 view/header-layout.ts 按图标身份保证。
+   这里以前还有一条 `.view-actions > .clickable-icon:last-child { display:grid
+   !important }`，本意是「保住最右那颗 ⋮」，但最右那颗不一定是 ⋮：别的插件
+   往头栏塞的图标排在它后面时，这条会把别人的图标强显、把真 ⋮ 藏掉
+   （inline 的 display:none 压不过 !important）。别再按位置写死。 */
 
 /* 沉浸：按 f 或调色板命令时藏掉宿主的上头栏与下导航条。
    桌面端以前只藏了 view-header，tab 栏、状态栏还在，正文上下各被切掉一条，
