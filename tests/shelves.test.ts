@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { makeBook } from '../src/data/book-repo';
+import { sanitizeData } from '../src/data/store';
+import { shelfOf } from '../src/shell/domain';
+import { hydrateLibrary } from '../src/shell/state';
 import {
   ALL_SHELF,
   NO_SHELF,
@@ -134,5 +138,41 @@ describe('把名字翻译成书名上的归属', () => {
 
   it('普通分类原样写', () => {
     expect(shelfOfName('工具书')).toBe('工具书');
+  });
+});
+
+/**
+ * 「明确未分类」与「没表过态」是两件事（2026-11-08）。
+ *
+ * 书里的 `shelf` 字段缺席时，分类会回落到 EPUB 自带的 subjects——那是导入
+ * 时的默认值，不是用户的选择。用户点了「移出分类」或删掉这一类，必须留下
+ * 一个明确的「这本书不属于任何分类」，否则读一次盘就被 subjects 顶回去，
+ * 看起来像「删不干净」。
+ */
+describe('明确未分类 vs 没表过态', () => {
+  const oneBook = () => {
+    const b = makeBook('书/a.epub', 'epub', 100);
+    b.id = 'b-1';
+    b.meta.subjects = ['小说'];
+    return b;
+  };
+
+  it('没有任何归属记录时，回落到书自带的分类', () => {
+    hydrateLibrary([{ id: 'b-1' }], 20, []);
+    expect(shelfOf(oneBook())).toBe('小说');
+  });
+
+  it('写了空串就是「未分类」，不再回落到书自带的分类', () => {
+    hydrateLibrary([{ id: 'b-1', shelf: '' }], 20, []);
+    expect(shelfOf(oneBook())).toBe(NO_SHELF);
+  });
+
+  it('读盘重建时不能把空串丢掉：丢了就等于撤销了用户的选择', () => {
+    const b = oneBook();
+    b.shelf = '';
+    b.reading = { position: { percent: 0 }, stats: { totalReadTime: 0, lastReadTime: 0 }, sessions: [] };
+    b.notes = { highlights: [], excerpts: [], bookmarks: [] };
+    const data = sanitizeData({ version: 1, schemaVersion: 3, books: [b] });
+    expect(data?.books[0]?.shelf).toBe('');
   });
 });

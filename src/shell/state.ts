@@ -573,7 +573,9 @@ export function hydrateLibrary(
 ): void {
   state.favIds = books.filter((b) => b.favorite === true).map((b) => b.id);
   const shelves: Record<string, string> = {};
-  for (const b of books) if (typeof b.shelf === 'string' && b.shelf) shelves[b.id] = b.shelf;
+  /* 空串也要进索引：它代表「明确未分类」，与「压根没归属」不是一回事
+     （见 domain.shelfOf）。 */
+  for (const b of books) if (typeof b.shelf === 'string') shelves[b.id] = b.shelf;
   state.shelves = shelves;
   /* 分类名单只在传了值时才覆盖：有不少调用点只关心收藏与目标，
      传 undefined 意味着「名单没变」，不是「名单清空」。 */

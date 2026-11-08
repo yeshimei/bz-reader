@@ -239,8 +239,7 @@ function reshapeShelfCache(from: string, to: string): void {
   mutateState((s) => {
     for (const [id, n] of Object.entries(s.shelves)) {
       if (n !== from) continue;
-      if (to) s.shelves[id] = to;
-      else delete s.shelves[id];
+      s.shelves[id] = to;
     }
   });
 }
@@ -264,10 +263,8 @@ function assignShelf(ids: string[], name: string): void {
   }
   if (!before.length) return;
   mutateState((s) => {
-    for (const [id] of before) {
-      if (want) s.shelves[id] = want;
-      else delete s.shelves[id];
-    }
+    /* 空串照写：归类到「未分类」是一次明确的表态，不是「忘了设」 */
+    for (const [id] of before) s.shelves[id] = want;
   });
   RT.shelfUndo = { ids: before.map(([id]) => id), prev: before.map(([, n]) => n) };
   notifyUndo(
@@ -286,8 +283,7 @@ function undoAssignShelf(): void {
   u.ids.forEach((id, i) => src.setShelf(id, u.prev[i] || ''));
   mutateState((s) => {
     u.ids.forEach((id, i) => {
-      if (u.prev[i]) s.shelves[id] = u.prev[i];
-      else delete s.shelves[id];
+      s.shelves[id] = u.prev[i];
     });
   });
   notify(t('shelves.undone'));

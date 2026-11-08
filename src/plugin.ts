@@ -645,10 +645,10 @@ export function createPlugin(cfg: PluginConfig) {
           else delete b.favorite;
         }),
         setShelf: (id, name) => this.patchBook(id, (b) => {
-          /* 空串 = 没归类：字段直接删掉，别留一个空字符串占着——
-             `book.shelf` 为空时 shelfOf() 会退回 EPUB 自带的分类名 */
-          if (name) b.shelf = name;
-          else delete b.shelf;
+          /* 空串要写下去，不能 delete：删掉字段等于「从没表过态」，
+             shelfOf() 会退回 EPUB 自带的分类名——用户点了「移出分类」，
+             书却还挂在原来那一类下面。 */
+          b.shelf = name;
         }),
         setShelfList: (list) => {
           this.store.get().shelves = [...list];

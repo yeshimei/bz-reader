@@ -198,7 +198,10 @@ export function sanitizeDataDetailed(v: unknown): SanitizeResult | null {
       /* 重建对象时漏了这两项，读盘一次就把收藏和分组丢掉——
          P2-01 把「跟着走」搬进业务数据，落盘面却把它清了。 */
       ...(b.favorite === true ? { favorite: true } : {}),
-      ...(typeof b.shelf === 'string' && b.shelf ? { shelf: b.shelf } : {}),
+      /* 空串要留：`shelf: ''` 是「用户明确把它归到未分类」，与「没表过态」
+         （字段不存在、回落到 EPUB 自带的 subjects）是两件事。以前这里只收
+         真值，于是「移出分类 / 删掉这一类」读一次盘就自己弹回旧分类名。 */
+      ...(typeof b.shelf === 'string' ? { shelf: b.shelf } : {}),
       /* 归档是「移出书架、数据全留」。重建时漏掉 archivedAt，读盘一次
          归档书就会自己回到书架——用户会以为移除没生效。 */
       ...(num(b.archivedAt) !== undefined && num(b.archivedAt)! > 0 ? { archivedAt: num(b.archivedAt)! } : {}),

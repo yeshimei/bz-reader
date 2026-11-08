@@ -203,7 +203,9 @@ export function fmtWhen(ts: number, now = Date.now()): string {
  */
 export function shelfOf(book: ReaderBook): string {
   const own = getState().shelves[book.id];
-  if (own) return own;
+  /* 有这条索引就以它为准，哪怕是空串——空串是「用户明确归到未分类」，
+     不能再回落到 EPUB 自带的分类名，否则删掉这一类之后书还挂在原名下。 */
+  if (own !== undefined) return own || NO_SHELF;
   const sub = book.meta.subjects?.[0]?.trim();
   if (sub && /[\u4e00-\u9fff]/.test(sub)) return sub;
   return NO_SHELF;
