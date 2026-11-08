@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="125" height="27" viewBox="0 0 125 27" role="img" aria-label="DOWNLOADS: 320">
+<svg xmlns="http://www.w3.org/2000/svg" width="125" height="27" viewBox="0 0 125 27" role="img" aria-label="DOWNLOADS: 707">
   <rect x="0.5" y="0.5" width="124" height="26" rx="8" fill="#1f1f1e" stroke="#2e2d29"/>
   <circle cx="14.5" cy="13.5" r="2.5" fill="#8ea6b0"/>
   <text x="24" y="16.7" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="9.5" letter-spacing="0.7" fill="#8a8478">DOWNLOADS</text>
-  <text x="91.61" y="17.4" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#e7e2d7">320</text>
+  <text x="91.61" y="17.4" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="600" fill="#e7e2d7">707</text>
 </svg>
