@@ -46,6 +46,7 @@ import { engineMetaFromBook, type EngineMeta } from '../data/book-meta';
 import { accumulateEdgeTurn, scrollEdgeOf } from './scroll-edge';
 import { isReplayTap, touchTapVerdict, type TapGesture, type TapMark } from './tap-replay';
 import { needsGestureBind, pickGestureDoc, zoneFromFrameY } from './gesture-binding';
+import { hasLiveSelection } from './tap-gate';
 import { isMobileShell } from '../core/mobile';
 
 /** 宿主坐标系里的矩形（左上角 + 宽高，单位 CSS px） */
@@ -786,15 +787,12 @@ export class EngineHost {
         this.probe.blocked += 1;
         return;
       }
-      const sel = doc.getSelection();
-      if (sel && !sel.isCollapsed) {
-        /* 有选区时点正文 = 收起选中，不翻页。
-           以前这里直接 return、选区却原样留着：那之后**每一下**点按都被这一条
-           吞掉，正文从此再也翻不动，而工具条又弹不出来（readSelection 拿不到
-           cfi 就返回 null），用户看到的正是「能选中、但点哪儿都没反应」。
-           收起之后 selectionchange 会把工具条一并收掉，下一次点按就正常了。 */
-        sel.removeAllRanges();
-        this.lastSelKey = '';
+      if (hasLiveSelection(doc)) {
+        /* 有选区时点正文不翻页，但**一个字都不动**。
+           这里曾经顺手 `removeAllRanges()`，安卓上就变成「长按选字、抬手闪一下
+           没了」：长按后的抬手本身会被判成一次点按，刚选中的字立刻被清掉，
+           selectionchange 又把工具条一并收起。收起选区是浏览器原生行为（点空白
+           处自己收），不需要我们代劳；代劳只会毁掉用户刚做的选择。 */
         this.probe.blocked += 1;
         return;
       }
