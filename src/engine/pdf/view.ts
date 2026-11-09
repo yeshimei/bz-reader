@@ -17,6 +17,7 @@
 import type { Rect, RelocateInfo, SelectionInfo } from '../host';
 import { parsePdfLinkHash } from '../../data/pdf-link';
 import type { PdfDocument, PdfPageSize, PdfRenderTask } from './document';
+import { fitScaleFor, pickFitSize, type PdfBox } from './fit';
 import { encodePdfLocator, parsePdfLocator, pdfPageLocator } from './locator';
 
 export interface PdfViewCallbacks {
@@ -68,7 +69,10 @@ export class PdfView {
   private sizes: PdfPageSize[] = [];
   private offsets: number[] = [];
   private scale = 1;
-  private fitMode: 'width' | 'page' = 'width';
+  /** none = 用户自己定的比例（默认 100%）：不跟着窗口宽度重算 */
+  private fitMode: 'width' | 'page' | 'none' = 'none';
+  /** 适配基准：整本里最宽最高的那页，见 fit.ts 的注释 */
+  private fitSize: PdfBox = { width: 612, height: 792 };
   private current = 1;
   private destroyed = false;
 
@@ -127,7 +131,7 @@ export class PdfView {
   }
 
   get zoomLabel(): string {
-    return this.fitMode === 'page' ? 'page' : `${Math.round(this.scale * 100)}%`;
+    return `${Math.round(this.scale * 100)}%`;
   }
 
   /** 挂进舞台并建好所有页的骨架（不渲染内容） */
@@ -137,12 +141,37 @@ export class PdfView {
     const first = await this.doc.getPageSize(1);
     this.sizes = Array.from({ length: this.numPages }, () => first);
     this.sizes[0] = first;
-    this.scale = this.fitScale('width');
+    /* 每页尺寸可能不同（封面、插页、最后一页都常见），骨架高度和适配基准
+       都必须按真实尺寸来，否则滚动条长度和缩放比例一开始就是错的 */
+    await this.sampleSizes();
+    this.fitSize = pickFitSize(this.sizes);
+    /* 默认 100%：真机上按「适合宽度」开局，窄封面的书会被放大到 356%，
+       一屏只看得到页面上半截，第一眼就是「页面溢出了」 */
+    this.scale = 1;
     this.buildShells();
     this.mountToolbar();
     this.bindEvents();
     /* 首屏必须立刻画：几秒空白会被当成「这本书打不开」 */
     this.ensureAround(1, true);
+  }
+
+  /** 抽几页问真实尺寸：只问第 1 页会把封面尺寸当成整本的尺寸 */
+  private async sampleSizes(): Promise<void> {
+    const total = this.numPages;
+    const picks = new Set<number>();
+    for (let page = 1; page <= Math.min(4, total); page += 1) picks.add(page);
+    const step = Math.max(1, Math.floor(total / 6));
+    for (let page = 1; page <= total; page += step) picks.add(page);
+    picks.add(total);
+    await Promise.all(
+      [...picks].map(async (page) => {
+        try {
+          this.sizes[page - 1] = await this.doc.getPageSize(page);
+        } catch {
+          /* 单页取不到就沿用第 1 页尺寸，不影响能不能读 */
+        }
+      }),
+    );
   }
 
   /** 回到某页：优先 locator，其次 PDF++/Obsidian 的 #page= 链接，最后百分比 */
@@ -202,10 +231,13 @@ export class PdfView {
   }
 
   zoomIn(): void {
+    /* 手动缩放之后就不再跟着窗口宽度走，否则每次重排都会被拉回适配比例 */
+    this.fitMode = 'none';
     this.applyScale(clamp(this.scale * 1.2, 0.2, 8), false);
   }
 
   zoomOut(): void {
+    this.fitMode = 'none';
     this.applyScale(clamp(this.scale / 1.2, 0.2, 8), false);
   }
 
@@ -250,7 +282,7 @@ export class PdfView {
   setViewportWidth(width: number): void {
     if (width <= 0 || Math.abs(width - this.lastWidth) < 2) return;
     this.lastWidth = width;
-    if (this.fitMode === 'width') this.applyScale(this.fitScale('width'), true);
+    if (this.fitMode !== 'none') this.applyScale(this.fitScale(this.fitMode), true);
   }
 
   currentText(): string {
@@ -331,11 +363,9 @@ export class PdfView {
     const rootWidth = this.root.clientWidth;
     const width = rootWidth > 0 ? rootWidth : this.scroller.clientWidth || 600;
     const height = this.scroller.clientHeight || this.root.clientHeight || 800;
-    const size = this.sizes[0] ?? { width: 600, height: 800 };
-    const byWidth = (width - SIDE_PAD * 2) / Math.max(1, size.width);
-    const byHeight = (height - SIDE_PAD * 2) / Math.max(1, size.height);
-    const picked = mode === 'page' ? Math.min(byWidth, byHeight) : byWidth;
-    return clamp(picked, 0.2, 8);
+    /* 基准是整本最宽最高的页，不是第 1 页：封面比正文窄时，按封面算出来的
+       比例会把正文页放大到撑破阅读区（真机上就是「页面溢出」） */
+    return fitScaleFor(mode, this.fitSize, { width, height }, SIDE_PAD);
   }
 
   private pageSize(page: number): PdfPageSize {
@@ -408,15 +438,14 @@ export class PdfView {
 
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => {
-        if (this.fitMode === 'width') {
-          const width = this.scroller.clientWidth;
-          if (width > 0 && Math.abs(width - this.lastWidth) >= 2) {
-            this.lastWidth = width;
-            this.applyScale(this.fitScale('width'), true);
-          }
+        /* 只记录宽度：用户手动定过比例（none）就别再抢他的缩放 */
+        const width = this.root.clientWidth;
+        if (width > 0 && Math.abs(width - this.lastWidth) >= 2) {
+          this.lastWidth = width;
+          if (this.fitMode !== 'none') this.applyScale(this.fitScale(this.fitMode), true);
         }
       });
-      this.resizeObserver.observe(this.scroller);
+      this.resizeObserver.observe(this.root);
     }
 
     /* 选区：selectionchange 在宿主 document 上，和 EPUB 的 iframe 不同 */
