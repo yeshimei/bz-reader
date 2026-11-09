@@ -42,9 +42,16 @@
 .bzs-stage {
   position: relative;
   height: 100%;
+  /* PDF 的页面是固定宽度的绝对尺寸。没有 width/min-width 时，stage 作为
+     block/flex 子项会被页面内容撑宽，而 PDF 视图的 fitScale 又按 stage 宽度
+     算——页面越宽、缩放越大，形成正反馈，最后溢出阅读区（真机表现是左右
+     被切掉）。撑满 + 允许收缩，宽度就只由阅读区决定。 */
+  width: 100%;
+  min-width: 0;
   /* 万一外层高度又塌了，至少把「打不开」的提示留在屏幕上——
      全灰一片是最难查的样子：既不像在加载，也不像出错 */
   min-height: 200px;
+  overflow: hidden;
 }
 
 .bzs-stage-in {

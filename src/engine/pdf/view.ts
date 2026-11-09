@@ -326,7 +326,10 @@ export class PdfView {
   /* ── 建骨架 ── */
 
   private fitScale(mode: 'width' | 'page'): number {
-    const width = this.scroller.clientWidth || this.root.clientWidth || 600;
+    /* 必须用 root 的宽度：绝对定位后它就是阅读区的宽度。用 scroller 的话，
+       放大后又会被页面内容反向影响（scroller 是页面容器）。 */
+    const rootWidth = this.root.clientWidth;
+    const width = rootWidth > 0 ? rootWidth : this.scroller.clientWidth || 600;
     const height = this.scroller.clientHeight || this.root.clientHeight || 800;
     const size = this.sizes[0] ?? { width: 600, height: 800 };
     const byWidth = (width - SIDE_PAD * 2) / Math.max(1, size.width);

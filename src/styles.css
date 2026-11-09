@@ -1004,10 +1004,11 @@ body .view-header .clickable-icon.bzs-host-hidden {
  * ============================================================ */
 
 .bzr-pdf {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
+  /* 绝对定位：PDF 页是固定像素宽度，留在文档流里会把 .bzs-stage 撑宽，
+     而 fitScale 又按 stage 宽度算，越算越大。脱离文档流之后，宽度只由
+     阅读区（最近定位祖先）决定。 */
+  position: absolute;
+  inset: 0;
   overflow: hidden;
   background: var(--background-primary);
 }
@@ -1015,20 +1016,25 @@ body .view-header .clickable-icon.bzs-host-hidden {
 .bzr-pdf-scroll {
   position: absolute;
   inset: 0;
-  overflow-x: hidden;
+  /* 放大后要能横向拖到左右边缘；hidden 会把超出部分直接裁掉，
+     flex 居中溢出时左半边永远滚不到 */
+  overflow-x: auto;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  display: flex;
-  justify-content: center;
+  display: block;
 }
 
 .bzr-pdf-pages {
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: fit-content;
+  /* max-content：放大后由页面撑开滚动宽度；min-width:100%：未放大时
+     容器至少占满阅读区，页面才会居中 */
+  width: max-content;
+  min-width: 100%;
   padding: 12px 0 56px;
+  box-sizing: border-box;
 }
 
 .bzr-pdf-page {
