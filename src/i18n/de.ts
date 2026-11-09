@@ -182,6 +182,7 @@ export const DE: Record<MsgKey, string> = {
   'fault.openFailed': 'Dieses Buch lässt sich nicht öffnen',
   'notice.load.stalled': '{what} wurde nicht abgeschlossen – bitte erneut versuchen',
   'notice.pdf.typography': 'Typography settings do not apply to PDFs — layout comes from the original file.',
+  'notice.pdf.scanned': 'This PDF is a scan (no text layer): you can read, zoom and box-select links, but text selection and search have nothing to work with.',
   'notice.locate.notReady': 'Diese Seite ist noch nicht verortet – blättere weiter und versuche es erneut',
   'notice.bookmark.toggledOn': 'Lesezeichen gesetzt',
   'notice.bookmark.toggledOff': 'Lesezeichen entfernt',

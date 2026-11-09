@@ -20,8 +20,8 @@ import type { PdfDocument, PdfPageSize, PdfRenderTask } from './document';
 import type { PdfBacklinkHit } from '../../data/pdf-backlink';
 import type { PdfLinkSelection } from '../../data/pdf-link';
 import { fitScaleFor, pickFitSize, type PdfBox } from './fit';
-import {
-  encodePdfLocator,
+import { PdfThumbPanel } from './thumbs';
+import { encodePdfLocator,
   encodePdfRectLocator,
   normalizePdfRect,
   parsePdfLocator,
@@ -51,7 +51,7 @@ interface AnnotRecord {
   rects?: NormRect[];
 }
 
-const PAGE_GAP = 12;
+const PAGE_GAP = 20;
 const SIDE_PAD = 12;
 /** 可视页前后各预渲染几页 */
 const PRELOAD = 1;
@@ -81,6 +81,10 @@ export class PdfView {
   private fitMode: 'width' | 'page' | 'none' = 'none';
   /** 适配基准：整本里最宽最高的那页，见 fit.ts 的注释 */
   private fitSize: PdfBox = { width: 612, height: 792 };
+  /** 额外旋转角度（0/90/180/270），叠加在 PDF 自带的 /Rotate 之上 */
+  private rotation = 0;
+  /** false = 连续滚动单栏；true = 双页并排（跨页扫描件） */
+  private spread = false;
   private current = 1;
   private destroyed = false;
 
@@ -101,6 +105,11 @@ export class PdfView {
   private readonly selectionRects = new Map<string, NormRect[]>();
   private pulseTimer: number | null = null;
   private zoomLabelEl: HTMLButtonElement | null = null;
+  private pageLabelEl: HTMLSpanElement | null = null;
+  private rotateBtn: HTMLButtonElement | null = null;
+  private spreadBtn: HTMLButtonElement | null = null;
+  private thumbsBtn: HTMLButtonElement | null = null;
+  private thumbs: PdfThumbPanel | null = null;
 
   private observer: IntersectionObserver | null = null;
   private resizeObserver: ResizeObserver | null = null;
@@ -161,8 +170,7 @@ export class PdfView {
     /* 每页尺寸可能不同（封面、插页、最后一页都常见），骨架高度和适配基准
        都必须按真实尺寸来，否则滚动条长度和缩放比例一开始就是错的 */
     await this.sampleSizes();
-    this.fitSize = pickFitSize(this.sizes);
-    /* 默认 100%：真机上按「适合宽度」开局，窄封面的书会被放大到 356%，
+    this.fitSize = pickFitSize(this.sizes);    /* 默认 100%：真机上按「适合宽度」开局，窄封面的书会被放大到 356%，
        一屏只看得到页面上半截，第一眼就是「页面溢出了」 */
     this.scale = 1;
     this.buildShells();
@@ -247,6 +255,61 @@ export class PdfView {
     this.applyScale(this.fitScale(mode), true);
   }
 
+  /** 页缩略图面板：278 页的书靠滚动条找页太慢 */
+  private toggleThumbs(): void {
+    if (this.thumbs?.isOpen) {
+      this.thumbs.close();
+      this.thumbsBtn?.classList.remove('is-on');
+      return;
+    }
+    this.thumbs = new PdfThumbPanel(this.doc, {
+      label: '页缩略图',
+      closeLabel: '关闭',
+      onPick: (page) => this.goToPage(page, false),
+      onClose: () => {
+        this.thumbs?.close();
+        this.thumbsBtn?.classList.remove('is-on');
+      },
+    });
+    this.thumbs.open(this.root);
+    this.thumbsBtn?.classList.add('is-on');
+  }
+
+  /** 双页并排：跨页扫描件（一张图两页）按单栏看会很别扭 */
+  setSpread(on: boolean): void {
+    if (on === this.spread) return;
+    this.spread = on;
+    this.pagesBox.classList.toggle('is-spread', on);
+    this.spreadBtn?.classList.toggle('is-on', on);
+    /* 双页时一屏要放两页：直接切到「适合宽度」，100% 会横向溢出 */
+    this.fitMode = 'width';
+    this.applyScale(this.fitScale('width'), true);
+  }
+
+  get isSpread(): boolean {
+    return this.spread;
+  }
+
+  /** 顺时针转 90 度；旋转后适配基准与所有页尺寸一起重算 */
+  setRotation(deg: number): void {
+    const next = (((Math.round(deg / 90) * 90) % 360) + 360) % 360;
+    if (next === this.rotation) return;
+    this.rotation = next;
+    this.computeFitSize();
+    this.applyScale(this.scale, true);
+    this.updateRotationButton();
+  }
+
+  get rotationDeg(): number {
+    return this.rotation;
+  }
+
+  private updateRotationButton(): void {
+    if (!this.rotateBtn) return;
+    this.rotateBtn.classList.toggle('is-on', this.rotation !== 0);
+    this.rotateBtn.title = `旋转 ${this.rotation}°`;
+  }
+
   zoomIn(): void {
     /* 手动缩放之后就不再跟着窗口宽度走，否则每次重排都会被拉回适配比例 */
     this.fitMode = 'none';
@@ -287,8 +350,22 @@ export class PdfView {
     add('＋', '放大', () => this.zoomIn());
     add('宽', '适合宽度', () => this.setFitMode('width'));
     add('页', '适合页面', () => this.setFitMode('page'));
+    this.rotateBtn = add('⟳', '旋转 90°', () => this.setRotation(this.rotation + 90));
+    this.spreadBtn = add('双页', '双页并排', () => this.setSpread(!this.spread));
+    this.thumbsBtn = add('页图', '页缩略图', () => this.toggleThumbs());
+    /* 页码：滚动到哪一页比百分比准，278 页的书尤其需要 */
+    const pageNo = document.createElement('span');
+    pageNo.className = 'bzr-pdf-pageno';
+    bar.appendChild(pageNo);
+    this.pageLabelEl = pageNo;
     this.root.appendChild(bar);
     this.updateZoomLabel();
+    this.updatePageLabel();
+  }
+
+  private updatePageLabel(): void {
+    if (!this.pageLabelEl) return;
+    this.pageLabelEl.textContent = `${this.current} / ${this.numPages}`;
   }
 
   private updateZoomLabel(): void {
@@ -357,6 +434,8 @@ export class PdfView {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.thumbs?.close();
+    this.thumbs = null;
     this.observer?.disconnect();
     this.resizeObserver?.disconnect();
     document.removeEventListener('selectionchange', this.onSelectionChange);
@@ -387,14 +466,26 @@ export class PdfView {
        放大后又会被页面内容反向影响（scroller 是页面容器）。 */
     const rootWidth = this.root.clientWidth;
     const width = rootWidth > 0 ? rootWidth : this.scroller.clientWidth || 600;
+    /* 双页：一屏放两页，可用宽度要减半（间距由 column-gap 让出来） */
+    const availWidth = this.spread ? (width - PAGE_GAP) / 2 : width;
     const height = this.scroller.clientHeight || this.root.clientHeight || 800;
     /* 基准是整本最宽最高的页，不是第 1 页：封面比正文窄时，按封面算出来的
        比例会把正文页放大到撑破阅读区（真机上就是「页面溢出」） */
-    return fitScaleFor(mode, this.fitSize, { width, height }, SIDE_PAD);
+    return fitScaleFor(mode, this.fitSize, { width: availWidth, height }, SIDE_PAD);
   }
 
   private pageSize(page: number): PdfPageSize {
-    return this.sizes[page - 1] ?? this.sizes[0] ?? { width: 600, height: 800 };
+    const raw = this.sizes[page - 1] ?? this.sizes[0] ?? { width: 600, height: 800 };
+    /* 90/270 度旋转后宽高互换；页面 shell 与适配基准都要用旋转后的尺寸 */
+    return this.rotation % 180 === 90 ? { width: raw.height, height: raw.width } : raw;
+  }
+
+  /** 适配基准要跟着旋转走，否则转 90 度后「适合宽度」会按旧宽度算 */
+  private computeFitSize(): void {
+    const turned = this.rotation % 180 === 90;
+    this.fitSize = pickFitSize(
+      this.sizes.map((size) => (turned ? { width: size.height, height: size.width } : size)),
+    );
   }
 
   private buildShells(): void {
@@ -524,6 +615,7 @@ export class PdfView {
   private emitRelocate(): void {
     const total = this.numPages;
     const percent = total <= 1 ? 1 : clamp((this.current - 1) / (total - 1), 0, 1);
+    this.updatePageLabel();
     this.opts.onRelocate?.({
       percent,
       cfi: pdfPageLocator(this.current),
@@ -857,7 +949,13 @@ export class PdfView {
       layer.className = 'textLayer';
       layer.dataset.page = String(page);
       el.replaceChildren(canvas, layer);
-      const task = await this.doc.renderPage(page, canvas, this.scale, Math.min(2, window.devicePixelRatio || 1));
+      const task = await this.doc.renderPage(
+        page,
+        canvas,
+        this.scale,
+        Math.min(2, window.devicePixelRatio || 1),
+        this.rotation,
+      );
       this.tasks.set(page, task);
       await task.promise;
       this.tasks.delete(page);
@@ -871,7 +969,7 @@ export class PdfView {
         return;
       }
       try {
-        await this.doc.renderTextLayer(page, layer, this.scale);
+        await this.doc.renderTextLayer(page, layer, this.scale, this.rotation);
       } catch {
         /* 文字层失败仍然能看图，不要把整页判成失败 */
       }

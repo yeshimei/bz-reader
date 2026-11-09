@@ -128,6 +128,8 @@ export const RT = {
   ptOrphans: [] as string[],
   /** 当前划词 */
   sel: null as SelectionPayload | null,
+  /** 已经提醒过「这是扫描件」的书号：同一本只打扰一次 */
+  scanWarned: new Set<string>(),
   /**
    * 手机上「选中即划」刚落下的那条标注 id。
    *

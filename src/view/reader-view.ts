@@ -163,7 +163,7 @@ export class ReaderView extends ItemView {
   /* 并排对照：副卷自己一套引擎，主卷的进度与标注一概不受影响 */
   private parallelOn = false;
   private parallelId = '';
-  private host2: EngineHost | null = null;
+  private host2: ReaderEngine | null = null;
   /** 副卷正在开（mount + start 那一段）：这段时间拒绝第二次开启 */
   private parallelOpening = false;
   private stage2: HTMLElement | null = null;
@@ -628,8 +628,8 @@ export class ReaderView extends ItemView {
     };
     const spec = headerActionsFor(mobile, { order: prefs.headerOrder, hidden: prefs.headerHidden })
       /* PDF 的排版面板没有意义：字号、行距、字体都来自原文档。
-         这里按引擎类型收走那颗按钮，菜单里也一并收（见 onPaneMenu）。 */
-      .filter((id) => !(this.host.isPdf && (id === 'type' || id === 'para' || id === 'paraBook')))
+         并排对照对 PDF 同样可用（每边一套引擎），只收走排版那颗。 */
+      .filter((id) => !(this.host.isPdf && id === 'type'))
       .map((id) => ({
         ...headerActionSpec(id),
         run: run[id],
@@ -1000,22 +1000,18 @@ export class ReaderView extends ItemView {
       { id: 'mark', run: () => this.toggleBookmark() },
       /* PDF 没有排版可调，菜单里不摆一个点开只弹提示的入口 */
       ...(this.host.isPdf ? [] : [{ id: 'type' as HeaderActionId, run: () => dispatchAction('typography', root) }]),
-      ...(this.host.isPdf
-        ? []
-        : [
-            {
-              id: 'para' as HeaderActionId,
-              label: this.parallelOn ? t('menu.para.close') : headerActionLabel('para'),
-              run: () => void this.toggleParallel(),
-            },
-            {
-              id: 'paraBook' as HeaderActionId,
-              label: t('menu.compare.title', {
-                title: other?.meta.title ?? t('menu.compare.none'),
-              }),
-              run: (evt?: MouseEvent) => this.openParallelPicker(evt),
-            },
-          ]),
+      {
+        id: 'para' as HeaderActionId,
+        label: this.parallelOn ? t('menu.para.close') : headerActionLabel('para'),
+        run: () => void this.toggleParallel(),
+      },
+      {
+        id: 'paraBook' as HeaderActionId,
+        label: t('menu.compare.title', {
+          title: other?.meta.title ?? t('menu.compare.none'),
+        }),
+        run: (evt?: MouseEvent) => this.openParallelPicker(evt),
+      },
       {
         id: 'tts',
         label: this.speaking ? t('menu.tts.stop') : headerActionLabel('tts'),
@@ -1087,12 +1083,8 @@ export class ReaderView extends ItemView {
       await this.closeParallel();
       return;
     }
-    /* 对照卷是 EPUB 分页器那条路：PDF 没有章节可对齐，硬开会把一本 PDF
-       塞进 foliate 然后白屏。入口已经在头栏/菜单收掉，这里再兜一层。 */
-    if (this.host.isPdf) {
-      notify(t('notice.pdf.typography'), 'info');
-      return;
-    }
+    /* 对照卷：PDF 也能并排（每边各自一套引擎，互不认识对方的排版）。
+       EPUB 那套 grid 两栏对 canvas 同样成立，不需要特判格式。 */
     if (!requireCap('parallel')) return;
     /* 开一次要 mount + start 整本副卷，几百毫秒起。这段时间里再点一次
        （双击、头栏与命令面板同时来）会建出第二个副卷：第一个的 host2 被
@@ -1122,7 +1114,7 @@ export class ReaderView extends ItemView {
     pages.append(stage2);
     this.stage2 = stage2;
 
-    const host2 = new EngineHost(this.api.app);
+    const host2 = createEngine(other.fileRef.format, this.api.app);
     this.host2 = host2;
     try {
       await host2.mount(inner, other.fileRef.vaultPath, {
@@ -1704,6 +1696,12 @@ export class ReaderView extends ItemView {
           notifyShell();
         },
       });
+      /* 扫描件：一打开就说清楚能做什么、不能做什么。
+         每本书只提醒一次，翻来翻去重复弹就成了噪音。 */
+      if (this.host.isPdf && this.host.isScanned && !RT.scanWarned.has(book.id)) {
+        RT.scanWarned.add(book.id);
+        notify(t('notice.pdf.scanned'), 'info');
+      }
       /* 点按分区要用「可见宽度」当分母：分页器的文档宽度比屏幕大一个量级 */
       this.host.setViewportWidth(
         (this.stage).clientWidth,

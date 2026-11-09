@@ -20,6 +20,11 @@ import { PdfEngineHost } from './pdf/host';
 export interface ReaderEngine {
   /** PDF 走另一套渲染；视图层据此隐藏排版面板、改页码文案 */
   readonly isPdf: boolean;
+  /**
+   * PDF 是不是纯扫描件（首页没有文字层）。
+   * 宿主拿它决定要不要先提醒一句「划词和搜索取不到文字」。
+   */
+  readonly isScanned?: boolean;
   readonly contentVertical: boolean;
   readonly contentRtl: boolean;
   readonly pageKey: string;

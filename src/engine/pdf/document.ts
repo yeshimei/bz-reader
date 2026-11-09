@@ -205,17 +205,19 @@ export class PdfDocument {
     canvas: HTMLCanvasElement,
     cssScale: number,
     dpr = 1,
+    extraRotation = 0,
   ): Promise<PdfRenderTask> {
     const p = await this.page(page);
     /* 高 DPI 走「viewport 直接放大」，不用 render 的 transform 参数：
        transform 会与 pdf.js 内部的 viewport.transform 叠乘，叠错时整页
        空白且不抛错。文字层仍按 cssScale 摆，与 canvas 的 CSS 尺寸对齐。 */
-    const base = p.getViewport({ scale: cssScale });
+    const rotation = rotationOf(p, extraRotation);
+    const base = p.getViewport({ scale: cssScale, rotation });
     /* 画布边长兜底：超过 8192 时 Chromium 会静默不画（或整块变空），
        降低像素倍率比让整页白屏好。 */
     const maxSide = 8192;
     const ratio = Math.max(1, Math.min(Math.max(1, dpr), maxSide / Math.max(1, Math.max(base.width, base.height))));
-    const viewport = p.getViewport({ scale: cssScale * ratio });
+    const viewport = p.getViewport({ scale: cssScale * ratio, rotation });
     canvas.width = Math.max(1, Math.floor(viewport.width));
     canvas.height = Math.max(1, Math.floor(viewport.height));
     canvas.style.width = `${Math.max(1, Math.round(viewport.width / ratio))}px`;
@@ -230,10 +232,17 @@ export class PdfDocument {
   }
 
   /** 在容器里铺透明文字层（选择、搜索高亮、朗读都靠它） */
-  async renderTextLayer(page: number, container: HTMLElement, cssScale: number): Promise<void> {
+  async renderTextLayer(
+    page: number,
+    container: HTMLElement,
+    cssScale: number,
+    extraRotation = 0,
+  ): Promise<void> {
     const lib = await loadPdfjs();
     const p = await this.page(page);
-    const viewport = p.getViewport({ scale: cssScale });
+    /* 文字层的旋转必须和 canvas 完全一致，差 90 度就是「字和画错位」 */
+    const rotation = rotationOf(p, extraRotation);
+    const viewport = p.getViewport({ scale: cssScale, rotation });
     container.style.setProperty('--scale-factor', String(cssScale));
     const layer = new lib.TextLayer({
       textContentSource: await p.getTextContent(),
@@ -281,4 +290,17 @@ export class PdfDocument {
       /* 已经销毁过就算了 */
     }
   }
+}
+
+/**
+ * 页面最终旋转角度 = 文件自带的 `/Rotate` + 用户选的额外角度。
+ *
+ * pdf.js 的 `getViewport({ rotation })` 是**绝对**角度而不是增量：
+ * 直接把用户选的 90 传进去，会把本来就横置的页面掰正（扫描件常见 `/Rotate 90`）。
+ */
+function rotationOf(page: { rotate?: number }, extra: number): number {
+  const base = Number(page?.rotate) || 0;
+  const extraSafe = Number(extra) || 0;
+  const sum = (base + extraSafe) % 360;
+  return sum < 0 ? sum + 360 : sum;
 }

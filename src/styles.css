@@ -1010,7 +1010,9 @@ body .view-header .clickable-icon.bzs-host-hidden {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: var(--background-primary);
+  /* 和 EPUB 一样不自带底色：跟随宿主 view-content，主题有底色时不会出现
+     「一块白」贴在上面（书页本身是 canvas 的白，那是 PDF 内容，不是画布） */
+  background: transparent;
 }
 
 .bzr-pdf-scroll {
@@ -1037,12 +1039,24 @@ body .view-header .clickable-icon.bzs-host-hidden {
   box-sizing: border-box;
 }
 
+/* 双页并排：跨页扫描件一屏看两页。页宽由 fitScale 减半算出，
+   这里只负责换行与横向间距 */
+.bzr-pdf-pages.is-spread {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  column-gap: 4px;
+}
+
 .bzr-pdf-page {
   position: relative;
   flex: none;
   overflow: hidden;
   background: #fff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  border-radius: 4px;
+  /* 双层阴影：近处一条收边，远处一层散开——和 EPUB 书页的观感一致 */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14), 0 10px 28px rgba(0, 0, 0, 0.1);
   contain: layout paint;
 }
 
@@ -1146,6 +1160,90 @@ body .view-header .clickable-icon.bzs-host-hidden {
   to { opacity: 1; transform: none; }
 }
 
+/* 页缩略图面板：懒加载，滚到哪儿画哪儿（engine/pdf/thumbs.ts） */
+.bzr-pdf-thumbs {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--background-primary) 96%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.bzr-pdf-thumbs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.bzr-pdf-thumbs-close {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-normal);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bzr-pdf-thumbs-close:hover {
+  background: var(--background-modifier-hover);
+}
+
+.bzr-pdf-thumbs-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 14px 12px;
+  align-content: start;
+}
+
+.bzr-pdf-thumb {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.bzr-pdf-thumb-box {
+  display: block;
+  width: 100%;
+  min-height: 120px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-secondary);
+  overflow: hidden;
+}
+
+.bzr-pdf-thumb-box img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.bzr-pdf-thumb:hover .bzr-pdf-thumb-box {
+  border-color: var(--interactive-accent);
+}
+
+.bzr-pdf-thumb-no {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* 反链：笔记里引用了这一页的位置。虚线 + 不盖住文字，和实心划线一眼能分开 */
 .bzr-pdf-backlink {
   position: absolute;
@@ -1239,6 +1337,20 @@ body .view-header .clickable-icon.bzs-host-hidden {
   color: var(--text-normal);
   font-size: 12px;
   cursor: pointer;
+}
+
+/* 页码：滚动时比百分比直观，用等宽数字免得宽度跳 */
+.bzr-pdf-pageno {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 8px 0 10px;
+  margin-left: 2px;
+  border-left: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .bzr-pdf-toolbar button:hover {

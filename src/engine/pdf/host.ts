@@ -24,6 +24,8 @@ import { PdfView } from './view';
 
 export class PdfEngineHost implements ReaderEngine {
   readonly isPdf = true;
+  /** 首页没有文字 = 纯扫描件；划词、搜索都没有素材 */
+  isScanned = false;
   readonly contentVertical = false;
   readonly contentRtl = false;
   readonly probe = { binds: 0, taps: 0, blocked: 0 };
@@ -92,6 +94,15 @@ export class PdfEngineHost implements ReaderEngine {
       this.view.setBacklinks(pdfBacklinkHits(collectPdfBacklinks(this.app, vaultPath)));
     } catch (err) {
       console.warn('[bz-reader] PDF 反链读取失败：', err);
+    }
+
+    /* 扫描件判定：首页一个字都没有，划词、搜索、朗读全都无从下手。
+       宿主据此先说明一句，别让用户以为是插件坏了。 */
+    try {
+      const first = await this.doc.getText(1);
+      this.isScanned = !String(first ?? '').trim();
+    } catch {
+      this.isScanned = false;
     }
 
     /* 视图层拿到一个「书」的形状做封面/元数据回填；PDF 的 sections 为空，
