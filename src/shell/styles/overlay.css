@@ -778,9 +778,13 @@ body.theme-dark .bzs-tb-more {
   align-items: center;
 }
 
-/* 手机：整块翻到划线上方时，顺序反过来——气泡在上、工具条在下，
-   工具条仍然贴着划线。类由 placeAnchored 按落点加，桌面永远不加。 */
-.bzs-hltools-panel .bzs-tb-stack.is-up {
+/* 工具条永远贴着划线那一侧。
+   桌面默认「气泡在上、工具条在下」：落在划线下方时反转成工具条在上；
+   手机默认「工具条在上、气泡在下」：落在划线上方时反转成气泡在上。
+   两端的默认顺序不同，所以用 is-mobile 把规则分开，别互相误伤。
+   类由 placeAnchored 按落点加。 */
+.bzs-hltools-panel .bzs-tb-stack:not(.is-mobile).is-down,
+.bzs-hltools-panel .bzs-tb-stack.is-mobile.is-up {
   flex-direction: column-reverse;
 }
 

@@ -122,6 +122,18 @@ describe('桌面：想法气泡与工具条叠成一列', () => {
     install([book]);
     expect(render('hltools', markId)).not.toContain('data-act="more"');
   });
+
+  /* 桌面默认顺序是「气泡在上、工具条在下」；整块翻到划线下方时由
+     placeAnchored 加 is-down 反转。stack 本身不能带手机标记，
+     否则「落在下方」会被手机规则接管。 */
+  it('桌面的 stack 不带手机标记，默认顺序由 HTML 决定', () => {
+    const { book, markId } = marked('这条想法');
+    install([book]);
+    const html = render('hltools', markId);
+
+    expect(html).toContain('class="bzs-tb-stack"');
+    expect(html).not.toContain('bzs-tb-stack is-mobile');
+  });
 });
 
 describe('桌面：想法 / 书摘 / AI 的正文在上、工具条在下', () => {
@@ -213,6 +225,8 @@ describe('手机：面板独立成遮罩弹窗，不跟工具条', () => {
     expect(html).toContain('bzs-mark-bubble');
     expect(html.indexOf('class="bzs-tb"')).toBeLessThan(html.indexOf('bzs-mark-bubble'));
     expect(html).not.toContain('bzs-scrim');
+    /* 手机默认顺序靠这个标记区分：翻到划线上方时才会被反转 */
+    expect(html).toContain('class="bzs-tb-stack is-mobile"');
   });
 
   it('点划线但没有想法：手机也不摆空气泡', () => {

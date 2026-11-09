@@ -448,8 +448,12 @@ function overlayHltools(markId?: string, bookId?: string): string {
   });
   /* 想法为空、但有知识盒链接时气泡也要出：点划线的人可能就是来点那枚链接的 */
   const bubble = mark.comment || mark.kb?.length ? markBubbleHtml(mark.comment ?? '', mark.kb, { markId: mark.id, bookId: book.id }) : '';
-  const stack = isMobileEnv() ? `${toolbar}${bubble}` : `${bubble}${toolbar}`;
-  return bareFloat(`<div class="bzs-tb-stack">${stack}</div>`, 'bzs-hltools-panel has-stack');
+  const mobile = isMobileEnv();
+  const stack = mobile ? `${toolbar}${bubble}` : `${bubble}${toolbar}`;
+  return bareFloat(
+    `<div class="bzs-tb-stack${mobile ? ' is-mobile' : ''}">${stack}</div>`,
+    'bzs-hltools-panel has-stack',
+  );
 }
 
 /**
@@ -1692,10 +1696,16 @@ export class OverlayLayer {
       isMobileEnv() ? 'below' : 'above',
     );
     el.setCssProps({ left: `${pos.left}px`, top: `${pos.top}px`, transform: 'none' });
-    /* 手机：整块翻到划线上方时，顺序反过来——气泡在上、工具条在下，
-       工具条仍然贴着划线。桌面不做这件事，固定「气泡在上、工具条在下」。 */
-    const stack = el.querySelector<HTMLElement>('.bzs-tb-stack');
-    if (stack && isMobileEnv()) stack.classList.toggle('is-up', pos.side === 'above');
+    /* 工具条永远贴着划线那一侧：整块落在下方时工具条在上，落在上方时工具条在下。
+       两端的 HTML 默认顺序不同（桌面气泡在前、手机工具条在前），
+       所以标记落点、由 CSS 按 is-mobile 分开反转，别互相误伤。 */
+    if (el.classList.contains('bzs-hltools-panel')) {
+      const stack = el.querySelector<HTMLElement>('.bzs-tb-stack');
+      if (stack) {
+        stack.classList.toggle('is-up', pos.side === 'above');
+        stack.classList.toggle('is-down', pos.side === 'below');
+      }
+    }
   }
 
   /** 视口变化后的统一收口：锚点浮层重新贴字，贴底小卡与抽屉避让键盘 */
