@@ -83,6 +83,42 @@ describe('PDF 自带标注映射', () => {
     expect(out).toEqual([]);
   });
 
+  it('pdf.js 4 的颜色是 Uint8ClampedArray，也得认', () => {
+    const out = mapFileAnnots(
+      [
+        {
+          subtype: 'Highlight',
+          quadPoints: [100, 700, 300, 700, 100, 680, 300, 680],
+          color: new Uint8ClampedArray([255, 230, 0]),
+        },
+        {
+          subtype: 'Underline',
+          quadPoints: [100, 600, 300, 600, 100, 590, 300, 590],
+          color: new Uint8Array([0, 102, 255]),
+        },
+      ],
+      { box },
+    );
+    expect(out.map((a) => a.color)).toEqual(['#ffe600', '#0066ff']);
+  });
+
+  it('pdf.js 4 的批注正文/作者在 contentsObj / titleObj 里', () => {
+    const out = mapFileAnnots(
+      [
+        {
+          subtype: 'Highlight',
+          quadPoints: [100, 700, 300, 700, 100, 680, 300, 680],
+          contentsObj: { str: '这一句被别的阅读器标过', dir: 'ltr' },
+          titleObj: { str: '审稿人', dir: 'ltr' },
+        },
+      ],
+      { box },
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]!.contents).toBe('这一句被别的阅读器标过');
+    expect(out[0]!.author).toBe('审稿人');
+  });
+
   it('页面转过 90 度时，标注跟着转', () => {
     const out = mapFileAnnots(
       [{ subtype: 'Highlight', quadPoints: [0, 800, 300, 800, 0, 400, 300, 400] }],

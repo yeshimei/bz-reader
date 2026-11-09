@@ -52,6 +52,9 @@ interface AnnotLike {
   color?: unknown;
   contents?: unknown;
   title?: unknown;
+  /* pdf.js 4 把正文/作者藏在这两个对象里，且颜色是 Uint8ClampedArray */
+  contentsObj?: { str?: unknown } | null;
+  titleObj?: { str?: unknown } | null;
 }
 
 function num(value: unknown): number {
@@ -59,13 +62,28 @@ function num(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** `{ str }` 形状的字段取值（pdf.js 的 contentsObj / titleObj） */
+function strOf(obj: { str?: unknown } | null | undefined): string {
+  const raw = obj?.str;
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
 /** 0..1 浮点三元组 → `#rrggbb`；已经是字符串就原样返回（校验过才用） */
 function toHex(color: unknown): string {
   if (typeof color === 'string') return /^#[0-9a-f]{3,8}$/i.test(color.trim()) ? color.trim() : '';
-  if (!Array.isArray(color) || color.length < 3) return '';
-  const hex = color
-    .slice(0, 3)
-    .map((v) => Math.round(Math.min(1, Math.max(0, num(v))) * 255))
+  /* pdf.js 4 给的是 Uint8ClampedArray，`Array.isArray` 对它返回 false——
+     只认数组会让所有自带标注都掉成默认灰色 */
+  const rgb =
+    Array.isArray(color) || (ArrayBuffer.isView(color) && typeof (color as { length?: unknown }).length === 'number')
+      ? Array.from(color as ArrayLike<number>)
+      : null;
+  if (!rgb || rgb.length < 3) return '';
+  const head = rgb.slice(0, 3);
+  /* pdf.js 4 的强转颜色是 0..255 的整数；老数据/PDF 原始值是 0..1 浮点。
+     有一位超过 1 就按字节算，否则按比例算——混着处理会全变成纯色。 */
+  const bytes = head.some((v) => num(v) > 1);
+  const hex = head
+    .map((v) => Math.round(bytes ? Math.min(255, Math.max(0, num(v))) : Math.min(1, Math.max(0, num(v))) * 255))
     .map((v) => v.toString(16).padStart(2, '0'))
     .join('');
   return `#${hex}`;
@@ -153,8 +171,9 @@ export function mapFileAnnots(
       kind,
       rects,
       color: toHex(annot.color),
-      contents: typeof annot.contents === 'string' ? annot.contents.trim() : '',
-      author: typeof annot.title === 'string' ? annot.title.trim() : '',
+      /* pdf.js 4 的正文/作者在 contentsObj / titleObj.str 上；老版本才是裸字符串 */
+      contents: strOf(annot.contentsObj) || (typeof annot.contents === 'string' ? annot.contents.trim() : ''),
+      author: strOf(annot.titleObj) || (typeof annot.title === 'string' ? annot.title.trim() : ''),
     });
   }
   return out;
