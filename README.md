@@ -99,6 +99,10 @@
 
 审核期间或搜不到时，用 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 添加本仓库安装，或手动下载 Release 里的 `main.js`、`manifest.json`、`styles.css`，放进 `<你的库>/.obsidian/plugins/bz-reader/` 后启用。
 
+## 插件推荐
+
+- [bz](https://github.com/yeshimei/bz) —— 日记、备忘、读书观影、游戏、剪藏、番茄钟，复习、安全加密，ai知识库，工具坞，还有一只桌宠猫
+
 ## 许可
 
 本项目以 [MIT](LICENSE) 许可发布。渲染内核来自 [foliate-js](https://github.com/johnfactotum/foliate-js) 1.0.1（MIT，以 npm 依赖分发，本地补丁见 [patches/foliate-js@1.0.1.patch](patches/foliate-js@1.0.1.patch)）。
@@ -177,6 +181,10 @@ Install from the community directory (visible once the initial review passes):
 
 While the review is pending, or if search doesn't find it, install with [BRAT](https://github.com/TfTHacker/obsidian42-brat), or download `main.js`, `manifest.json`, and `styles.css` from the Release and place them in `<your vault>/.obsidian/plugins/bz-reader/`, then enable the plugin.
 
+### Recommended plugins
+
+- [bz](https://github.com/yeshimei/bz) — Diary, memos, books and films, games, web clippings, pomodoro, review, secure encryption, AI knowledge base, tool dock, and a desktop pet cat.
+
 ### License
 
 Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](https://github.com/johnfactotum/foliate-js) 1.0.1 (MIT, distributed as an npm dependency; local patches in [patches/foliate-js@1.0.1.patch](patches/foliate-js@1.0.1.patch)).
@@ -253,6 +261,10 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 3. 啟用後左側出現 bz 圖示，從書架開始。
 
 審核期間或搜不到時，用 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 加入本倉庫安裝，或手動下載 Release 裡的 `main.js`、`manifest.json`、`styles.css`，放進 `<你的庫>/.obsidian/plugins/bz-reader/` 後啟用。
+
+### 外掛推薦
+
+- [bz](https://github.com/yeshimei/bz) —— 日記、備忘、讀書觀影、遊戲、剪藏、番茄鐘，複習、安全加密，AI 知識庫，工具塢，還有一隻桌寵貓
 
 ### 授權
 
@@ -331,6 +343,10 @@ Obsidian を「本を読む場所」に。デスクトップとモバイル、�
 
 審査中で見つからない場合は、[BRAT](https://github.com/TfTHacker/obsidian42-brat) でこのリポジトリを追加するか、Release から `main.js`・`manifest.json`・`styles.css` をダウンロードして `<保管庫>/.obsidian/plugins/bz-reader/` に置き、有効化してください。
 
+### おすすめプラグイン
+
+- [bz](https://github.com/yeshimei/bz) — 日記、メモ、読書や映画の記録、ゲーム、クリップ、ポモドーロ、復習、安全な暗号化、AI ナレッジベース、ツールドック、デスクトップペットの猫。
+
 ### ライセンス
 
 [MIT](LICENSE) ライセンスで公開しています。レンダリングエンジンは [foliate-js](https://github.com/johnfactotum/foliate-js) 1.0.1（MIT、npm 依存として配布、ローカルパッチは [patches/foliate-js@1.0.1.patch](patches/foliate-js@1.0.1.patch)）です。
@@ -407,6 +423,10 @@ Installation über das Community-Verzeichnis (sichtbar, sobald die erste Prüfun
 3. Aktivieren — links erscheint ein bz-Symbol; das Regal ist der Einstieg.
 
 Solange die Prüfung läuft oder die Suche nichts findet: mit [BRAT](https://github.com/TfTHacker/obsidian42-brat) dieses Repository hinzufügen, oder `main.js`, `manifest.json` und `styles.css` aus dem Release herunterladen, nach `<dein Vault>/.obsidian/plugins/bz-reader/` legen und aktivieren.
+
+### Empfohlene Plugins
+
+- [bz](https://github.com/yeshimei/bz) — Tagebuch, Notizen, Bücher und Filme, Spiele, Web-Clips, Pomodoro, Wiederholung, sichere Verschlüsselung, KI-Wissensbasis, Tool-Dock und eine Desktop-Katze.
 
 ### Lizenz
 
@@ -485,6 +505,10 @@ Installation depuis le répertoire communautaire (visible une fois la première 
 
 Pendant la validation, ou si la recherche ne donne rien : ajoutez ce dépôt avec [BRAT](https://github.com/TfTHacker/obsidian42-brat), ou téléchargez `main.js`, `manifest.json` et `styles.css` depuis la Release, placez-les dans `<votre coffre>/.obsidian/plugins/bz-reader/`, puis activez.
 
+### Extensions recommandées
+
+- [bz](https://github.com/yeshimei/bz) — Journal, mémos, livres et films, jeux, clips web, pomodoro, révisions, chiffrement sécurisé, base de connaissances IA, dock d'outils et un chat de bureau.
+
 ### Licence
 
 Publié sous licence [MIT](LICENSE). Le moteur de rendu est [foliate-js](https://github.com/johnfactotum/foliate-js) 1.0.1 (MIT, distribué comme dépendance npm ; correctifs locaux dans [patches/foliate-js@1.0.1.patch](patches/foliate-js@1.0.1.patch)).
@@ -562,6 +586,10 @@ Instalación desde el directorio comunitario (visible cuando pase la primera rev
 
 Mientras la revisión esté pendiente, o si la búsqueda no lo encuentra, añade este repositorio con [BRAT](https://github.com/TfTHacker/obsidian42-brat), o descarga `main.js`, `manifest.json` y `styles.css` desde la Release y colócalos en `<tu bóveda>/.obsidian/plugins/bz-reader/`, luego actívalo.
 
+### Plugins recomendados
+
+- [bz](https://github.com/yeshimei/bz) — Diario, notas, libros y películas, juegos, recortes web, pomodoro, repaso, cifrado seguro, base de conocimiento con IA, dock de herramientas y un gato de escritorio.
+
 ### Licencia
 
 Publicado bajo licencia [MIT](LICENSE). El motor de renderizado es [foliate-js](https://github.com/johnfactotum/foliate-js) 1.0.1 (MIT, distribuido como dependencia npm; parches locales en [patches/foliate-js@1.0.1.patch](patches/foliate-js@1.0.1.patch)).
@@ -638,6 +666,10 @@ Instalação pelo diretório da comunidade (visível quando a primeira revisão 
 3. Ative — um ícone bz aparece na faixa da esquerda; comece pela estante.
 
 Enquanto a revisão estiver pendente, ou se a busca não encontrar, adicione este repositório com o [BRAT](https://github.com/TfTHacker/obsidian42-brat), ou baixe `main.js`, `manifest.json` e `styles.css` do Release e coloque em `<seu cofre>/.obsidian/plugins/bz-reader/`, depois ative.
+
+### Plugins recomendados
+
+- [bz](https://github.com/yeshimei/bz) — Diário, notas, livros e filmes, jogos, recortes da web, pomodoro, revisão, criptografia segura, base de conhecimento com IA, dock de ferramentas e um gato de estimação na área de trabalho.
 
 ### Licença
 
