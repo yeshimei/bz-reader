@@ -182,6 +182,8 @@ export const JA: Record<MsgKey, string> = {
   'notice.load.stalled': '{what}が完了しませんでした。もう一度お試しください',
   'notice.pdf.typography': 'Typography settings do not apply to PDFs — layout comes from the original file.',
   'notice.pdf.scanned': 'This PDF is a scan (no text layer): you can read, zoom and box-select links, but text selection and search have nothing to work with.',
+  'notice.pdf.exported': 'Saved to {path}',
+  'notice.pdf.exportFailed': 'Could not export this page as an image',
   'notice.locate.notReady': 'このページはまだ位置が決まっていません。ページをめくってからもう一度お試しください',
   'notice.bookmark.toggledOn': 'ブックマークを追加しました',
   'notice.bookmark.toggledOff': 'ブックマークを削除しました',

@@ -27,6 +27,8 @@ export class PdfThumbPanel {
   private observer: IntersectionObserver | null = null;
   private readonly started = new Set<number>();
   private readonly urls: string[] = [];
+  /** 当前正在读的页：面板里高亮它，打开时自动滚到它附近 */
+  private current = 0;
 
   constructor(doc: PdfDocument, opts: PdfThumbPanelOptions) {
     this.doc = doc;
@@ -35,6 +37,29 @@ export class PdfThumbPanel {
 
   get isOpen(): boolean {
     return !!this.root;
+  }
+
+  /**
+   * 跟随阅读位置。
+   *
+   * 278 页的书打开面板时人在第 150 页，不滚过去的话面板永远停在第 1 页，
+   * 每次都要自己翻——「点一下就能跳」的便利等于没有。
+   */
+  setCurrent(page: number): void {
+    const target = Math.max(1, Math.floor(page) || 1);
+    if (!this.root || target === this.current) return;
+    this.current = target;
+    for (const node of Array.from(this.root.querySelectorAll<HTMLElement>('.bzr-pdf-thumb'))) {
+      node.classList.toggle('is-current', Number(node.dataset.page) === target);
+    }
+    const cell = this.root.querySelector<HTMLElement>(`.bzr-pdf-thumb[data-page="${target}"]`);
+    const grid = cell?.parentElement;
+    if (!cell || !grid) return;
+    /* 只在当前页已经滚出可视区时才动滚动条，否则每次翻页面板都跳一下 */
+    const top = cell.offsetTop;
+    if (top < grid.scrollTop || top + cell.offsetHeight > grid.scrollTop + grid.clientHeight) {
+      grid.scrollTop = Math.max(0, top - grid.clientHeight / 3);
+    }
   }
 
   open(host: HTMLElement): void {
@@ -122,6 +147,7 @@ export class PdfThumbPanel {
     this.root?.remove();
     this.root = null;
     this.started.clear();
+    this.current = 0;
     for (const url of this.urls) URL.revokeObjectURL(url);
     this.urls.length = 0;
   }

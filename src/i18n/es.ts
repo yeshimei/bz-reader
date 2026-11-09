@@ -182,6 +182,8 @@ export const ES: Record<MsgKey, string> = {
   'notice.load.stalled': '{what} no terminó; inténtalo de nuevo',
   'notice.pdf.typography': 'Typography settings do not apply to PDFs — layout comes from the original file.',
   'notice.pdf.scanned': 'This PDF is a scan (no text layer): you can read, zoom and box-select links, but text selection and search have nothing to work with.',
+  'notice.pdf.exported': 'Saved to {path}',
+  'notice.pdf.exportFailed': 'Could not export this page as an image',
   'notice.locate.notReady': 'Esta página aún no está localizada: pasa una página e inténtalo de nuevo',
   'notice.bookmark.toggledOn': 'Marcador añadido',
   'notice.bookmark.toggledOff': 'Marcador eliminado',

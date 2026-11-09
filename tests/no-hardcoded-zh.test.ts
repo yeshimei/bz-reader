@@ -52,11 +52,15 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   /* PDF 引擎的页号标签（「第 N 页」「第 1–10 页」）与引擎内提示，和
      txt.ts 的「第 N 节」同口径：都是**数据标签**（目录行、状态栏），
      不是可替换的界面句子。按钮 title 是纯符号说明，随 PDF 文案一起
-     进语言包时再收。 */
+     进语言包时再收。
+     2026-11-09 +1：导出目录名 `_导出`（库内路径，不进界面文案表）。
+     2026-11-09 +9（view.ts 23 → 32）：新增的翻页 / 导出 / 跳页 / 页内链接
+     四组按钮的 title 与 aria-label，与既有 8 颗按钮的 title 是同一批——
+     只给新按钮走 i18n 会变成中英混排，整组留到一次性收。 */
   'src/engine/pdf/document.ts': 1,
-  'src/engine/pdf/host.ts': 4,
+  'src/engine/pdf/host.ts': 5,
   'src/engine/pdf/outline.ts': 6,
-  'src/engine/pdf/view.ts': 23,
+  'src/engine/pdf/view.ts': 32,
   'src/engine/theme.ts': 3,
   'src/engine/txt.ts': 4,
   'src/plugin.ts': 26,

@@ -11,9 +11,12 @@
  * ============================================================ */
 
 import type { App } from 'obsidian';
+import { normalizePath } from 'obsidian';
+import { notify } from '../../core/notice';
 import type { EngineMeta } from '../../data/book-meta';
 import { collectPdfBacklinks, pdfBacklinkHits } from '../../data/pdf-backlink';
 import type { ReaderPrefs } from '../../data/prefs';
+import { t } from '../../i18n';
 import type { FoliateBook, FoliateTOCItem } from '../../types/foliate';
 import { OpenCancelledError, type HostAnnotation, type MountOptions, type SearchHit } from '../host';
 import type { ReaderEngine } from '../reader-engine';
@@ -84,6 +87,8 @@ export class PdfEngineHost implements ReaderEngine {
       onAnnotTap: (info) => opts.onAnnotTap?.({ cfiRange: info.locator, anchor: info.anchor }),
       onTwoFingerTap: () => opts.onTwoFingerTap?.(),
       onStall: (what) => opts.onStall?.(what),
+      onViewState: (state) => opts.onPdfViewState?.(state),
+      onExportPage: (page) => this.exportPage(page, vaultPath),
     });
     await this.view.mount(container);
     if (this.destroyed) return;
@@ -119,6 +124,60 @@ export class PdfEngineHost implements ReaderEngine {
   async start(cfi?: string, fraction = 0): Promise<void> {
     await this.view?.start(cfi, fraction);
     this.phase = 'ready';
+  }
+
+  /** 打开书时还原上次的视角（旋转 / 双页）。没有记录就保持默认 */
+  restorePdfView(state: { rotation?: number; spread?: boolean } | null | undefined): void {
+    this.view?.restoreView(state);
+  }
+
+  /**
+   * 导出某一页为 PNG，存进库内 `_导出/` 目录（与书同级的子目录）。
+   *
+   * 不进 Obsidian 的 attachments 配置：那套设置是全局的，用户可能把它指向
+   * 一个完全不相干的目录，导出的图会散落在别处。
+   */
+  private async exportPage(page: number, vaultPath: string): Promise<void> {
+    const doc = this.doc;
+    if (!doc) return;
+    try {
+      const blob = await doc.renderPng(page, 2);
+      if (!blob) {
+        notify(t('notice.pdf.exportFailed'), 'error');
+        return;
+      }
+      const path = await this.writePageImage(blob, page, vaultPath);
+      if (path) notify(t('notice.pdf.exported', { path }), 'success');
+      else notify(t('notice.pdf.exportFailed'), 'error');
+    } catch (err) {
+      console.warn('[bz-reader] PDF export failed:', err);
+      notify(t('notice.pdf.exportFailed'), 'error');
+    }
+  }
+
+  private async writePageImage(blob: Blob, page: number, vaultPath: string): Promise<string | null> {
+    try {
+      const cut = vaultPath.lastIndexOf('/');
+      const dir = cut > 0 ? vaultPath.slice(0, cut) : '';
+      const folder = dir ? `${dir}/_导出` : '_导出';
+      const raw = String(this.meta.title || vaultPath.split('/').pop() || 'pdf');
+      const base =
+        raw
+          .replace(/\.[^.]+$/, '')
+          /* 文件名里的非法字符与 Obsidian 的链接字符一起换掉：留着 # 或 [ ]
+             会让导出文件在双链里变成断链 */
+          .replace(/[\\/:*?"<>|#^[\]]/g, '_')
+          .trim()
+          .slice(0, 60) || 'pdf';
+      const target = normalizePath(`${folder}/${base}-p${page}.png`);
+      const adapter = this.app.vault.adapter;
+      if (!(await adapter.exists(folder))) await adapter.mkdir(folder).catch(() => undefined);
+      await adapter.writeBinary(target, await blob.arrayBuffer());
+      return target;
+    } catch (err) {
+      console.warn('[bz-reader] PDF export failed:', err);
+      return null;
+    }
   }
 
   async next(): Promise<void> {
@@ -211,6 +270,8 @@ export class PdfEngineHost implements ReaderEngine {
   applyPrefs(prefs: ReaderPrefs): void {
     this.prefs = prefs;
     this.view?.applyPrefs();
+    /* 排版偏好对 PDF 没意义，只有「翻页 / 滚动」要跟着走 */
+    this.view?.setPaged(prefs.flow === 'paged');
   }
 
   clearPulse(): void {

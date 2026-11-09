@@ -174,6 +174,37 @@ describe('数据形状自愈（sanitizeData）', () => {
     expect(clean?.books[0]!.favorite).toBe(true);
     expect(clean?.books[0]!.shelf).toBe('技术');
   });
+
+  it('PDF 视角（旋转 / 双页）在 sanitize 后仍然保留，角度按 90 取整', () => {
+    /* 同一类坑：重建 book 对象时漏了 pdfView，读盘一次就退回 0°，
+       用户每天打开扫描件都要重新转一遍。 */
+    const clean = sanitizeData({
+      version: 1,
+      books: [
+        {
+          id: 'p',
+          fileRef: { vaultPath: 'a.pdf', format: 'pdf' },
+          pdfView: { rotation: 270, spread: true },
+        },
+        {
+          id: 'q',
+          fileRef: { vaultPath: 'b.pdf', format: 'pdf' },
+          /* 手改过的脏值：角度取整到 90 的倍数，非法数字归 0 */
+          pdfView: { rotation: 137, spread: 1 },
+        },
+      ],
+    });
+    expect(clean?.books[0]!.pdfView).toEqual({ rotation: 270, spread: true });
+    expect(clean?.books[1]!.pdfView).toEqual({ rotation: 180, spread: false });
+  });
+
+  it('没有 pdfView 的书不凭空长出这个字段', () => {
+    const clean = sanitizeData({
+      version: 1,
+      books: [{ id: 'x', fileRef: { vaultPath: 'a.epub', format: 'epub' } }],
+    });
+    expect(clean?.books[0]!.pdfView).toBeUndefined();
+  });
 });
 
 describe('读盘与恢复', () => {

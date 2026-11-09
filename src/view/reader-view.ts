@@ -920,6 +920,8 @@ export class ReaderView extends ItemView {
       flow: this.prefs.flow,
       contentVertical: this.host.contentVertical,
       contentRtl: this.host.contentRtl,
+      /* PDF 是纵向的一叠纸：上下键就是翻页。EPUB 的分页器里没有对应动作 */
+      verticalKeys: this.host.isPdf,
     });
     if (!dir) return;
     e.preventDefault();
@@ -1672,6 +1674,8 @@ export class ReaderView extends ItemView {
           if (this.host.isPdf && shellPrefs().pdfAutoLink) this.schedulePdfLinkCopy(info);
         },
         onAnnotTap: (info) => this.openHighlight(info),
+        /* PDF 视角（旋转 / 双页）按书记住：下次打开还在刚才那个角度 */
+        onPdfViewState: (state) => this.savePdfView(state),
         /* 脚注：默认在注释号上方开一小块浮窗，读完接着读。
            设置里选「跳到章末」就退回 foliate 的老行为——我们在同一条链路上
            自己调 goTo，保证两种模式只有一处判断。 */
@@ -1702,6 +1706,12 @@ export class ReaderView extends ItemView {
         RT.scanWarned.add(book.id);
         notify(t('notice.pdf.scanned'), 'info');
       }
+      /* 视角必须在这里还原（而不是 mount 之前）：旋转要重建页骨架、
+         双页要重算适配比例，都得等视图挂好。顺序也不能反——先按书记忆的
+         角度/排法摆好，再套全局的翻页/滚动偏好，否则全局偏好会顶着默认值
+         先把「双页」冲掉。 */
+      this.host.restorePdfView?.(book.pdfView);
+      if (this.host.isPdf) this.host.applyPrefs(this.prefs);
       /* 点按分区要用「可见宽度」当分母：分页器的文档宽度比屏幕大一个量级 */
       this.host.setViewportWidth(
         (this.stage).clientWidth,
@@ -1810,6 +1820,23 @@ export class ReaderView extends ItemView {
   }
 
   /* ─────────────────── 进度与会话 ─────────────────── */
+
+  /**
+   * 按书记住 PDF 的视角（旋转 / 双页）。
+   *
+   * 只在值真的变了时落盘：`onPdfViewState` 在每次转角度、切排法时都会响，
+   * 没变也写就是每点一下就 `touch()` 一次存储。
+   */
+  private savePdfView(state: { rotation: number; spread: boolean }): void {
+    const book = this.book;
+    if (!book) return;
+    const rotation = (((Math.round((Number(state.rotation) || 0) / 90) * 90) % 360) + 360) % 360;
+    const spread = state.spread === true;
+    const cur = book.pdfView;
+    if (cur && cur.rotation === rotation && cur.spread === spread) return;
+    book.pdfView = { rotation, spread };
+    this.api.store.touch();
+  }
 
   private saveRelocate(info: RelocateInfo): void {
     const book = this.book;

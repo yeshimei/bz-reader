@@ -192,6 +192,14 @@ export interface MountOptions {
    * 只转发 keydown；`keyup` 那边已经用于划词检测，别重复。
    */
   onKeyDown?: (ev: KeyboardEvent) => void;
+  /**
+   * PDF 的视图状态变了（旋转 / 双页并排）。
+   *
+   * 角度和排法是**每本书**的事：扫描件 A 要转 90°、正文书 B 不用。
+   * 存进全局 prefs 就会「转一本，全库都横过来」。视图层只管回调，
+   * 落盘由阅读视图按 book 记录（ReaderBook.pdfView）。
+   */
+  onPdfViewState?: (state: { rotation: number; spread: boolean }) => void;
 }
 
 /** 滚轮累计到多少才翻一页（像素）。触控板一次轻扫约 30–60，鼠标滚轮一格约 100。 */

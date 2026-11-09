@@ -15,6 +15,7 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPdfjs } from './pdfjs';
 import { mapPdfOutline, synthPdfToc, type PdfTocItem } from './outline';
+import { rotateNormRect } from './locator';
 import { pageTextOf, type PdfTextItemLike } from './text';
 
 export interface PdfPageSize {
@@ -39,6 +40,22 @@ export interface PdfRenderTask {
   cancel: () => void;
 }
 
+/** 页面里的一个可点区域（内部链接）。rect 已换成「左上原点、0..1 比例」 */
+export interface PdfPageLink {
+  rect: { left: number; top: number; width: number; height: number };
+  /** 目标页（1 基）；0 = 只有外部 URL，跳不了页 */
+  page: number;
+  url: string;
+}
+
+/** pdf.js 注解的最小面：只取链接需要的四个字段 */
+interface PdfAnnotLike {
+  subtype?: string;
+  rect?: unknown;
+  dest?: unknown;
+  url?: unknown;
+}
+
 function textOf(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -49,6 +66,7 @@ export class PdfDocument {
   private readonly pages = new Map<number, Promise<unknown>>();
   private readonly texts = new Map<number, string>();
   private readonly sizes = new Map<number, PdfPageSize>();
+  private readonly links = new Map<string, PdfPageLink[]>();
   private tocCache: PdfTocItem[] | null = null;
   private metaCache: PdfDocMeta | null = null;
   private destroyed = false;
@@ -255,6 +273,97 @@ export class PdfDocument {
   /** 封面：首页按宽度缩放的位图。取不到返回 null */
   async renderCover(maxWidth = 600): Promise<Blob | null> {
     return this.renderThumb(1, maxWidth);
+  }
+
+  /**
+   * 页面里的超链接（目录跳转、交叉引用）。
+   *
+   * PDF 的 `annot.rect` 是**未旋转**的用户坐标：原点在左下、单位是 pt。
+   * 这里换算成「左上原点、0..1 比例」，再按页面实际旋转角转一次，
+   * 视图层套百分比就能画。目标页解析失败（外部 URL、坏 dest）返回 page=0。
+   */
+  async getLinks(page: number, extraRotation = 0): Promise<PdfPageLink[]> {
+    const n = Math.min(Math.max(1, Math.floor(page)), this.numPages);
+    const out: PdfPageLink[] = [];
+    try {
+      const p = await this.page(n);
+      const rotate = rotationOf(p, extraRotation);
+      const key = `${n}@${rotate}`;
+      const cached = this.links.get(key);
+      if (cached) return cached;
+      /* 分母必须用未旋转的 MediaBox/CropBox：getViewport 的宽高已经含 /Rotate，
+         拿它当分母会把横置页的链接全部算错位 */
+      const box = (p.view as number[]) ?? [0, 0, 612, 792];
+      const bw = Math.max(1, box[2] - box[0]);
+      const bh = Math.max(1, box[3] - box[1]);
+      const annots = (await p.getAnnotations({ intent: 'display' })) as PdfAnnotLike[];
+      for (const annot of annots) {
+        if (annot?.subtype !== 'Link') continue;
+        const r = Array.isArray(annot.rect) ? annot.rect : null;
+        if (!r || r.length !== 4) continue;
+        const target = await this.resolveLinkPage(annot);
+        const url = typeof annot.url === 'string' ? annot.url : '';
+        if (!target && !url) continue;
+        const [x1, y1, x2, y2] = r.map((v) => Number(v) || 0);
+        const left = Math.min(x1, x2);
+        const right = Math.max(x1, x2);
+        const bottom = Math.min(y1, y2);
+        const top = Math.max(y1, y2);
+        const raw = {
+          left: (left - box[0]) / bw,
+          top: 1 - (top - box[1]) / bh,
+          width: (right - left) / bw,
+          height: (top - bottom) / bh,
+        };
+        if (!(raw.width > 0.0005 && raw.height > 0.0005)) continue;
+        out.push({ rect: rotateNormRect(raw, rotate), page: target, url });
+      }
+      this.links.set(key, out);
+    } catch {
+      /* 链接是锦上添花：解析失败只会少几个热区，不该影响看页 */
+    }
+    return out;
+  }
+
+  /** 链接的 dest 可能是字符串（要再查一次）也可能是数组；解不出返回 0 */
+  private async resolveLinkPage(annot: PdfAnnotLike): Promise<number> {
+    const dest = annot.dest;
+    if (!dest) return 0;
+    try {
+      const explicit = typeof dest === 'string' ? await this.pdf.getDestination(dest) : dest;
+      if (!Array.isArray(explicit) || !explicit.length) return 0;
+      const ref = explicit[0] as { num?: number; gen?: number } | number | null;
+      if (ref && typeof ref === 'object') {
+        const index = await this.pdf.getPageIndex(ref as never);
+        return Number.isFinite(index) ? index + 1 : 0;
+      }
+      if (typeof ref === 'number') return Math.max(0, Math.floor(ref) + 1);
+    } catch {
+      /* 坏的 dest 很常见，静默 */
+    }
+    return 0;
+  }
+
+  /**
+   * 高清位图（导出当前页用）。scale 是相对页面原始尺寸的倍数。
+   * 和 renderThumb 分开：那个是 JPEG 0.82 的小图，导出的图要存进库里给人看。
+   */
+  async renderPng(page: number, scale = 2): Promise<Blob | null> {
+    try {
+      const target = Math.max(1, Math.min(this.numPages, Math.floor(page)));
+      const canvas = document.createElement('canvas');
+      const task = await this.renderPage(target, canvas, Math.max(0.5, Math.min(4, scale)), 1);
+      await task.promise;
+      return await new Promise<Blob | null>((resolve) => {
+        try {
+          canvas.toBlob((blob) => resolve(blob), 'image/png');
+        } catch {
+          resolve(null);
+        }
+      });
+    } catch {
+      return null;
+    }
   }
 
   /** 任意一页的缩略图（悬浮预览用）；取不到返回 null，别把整条链路拖挂 */

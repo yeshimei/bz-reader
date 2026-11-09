@@ -205,6 +205,16 @@ export function sanitizeDataDetailed(v: unknown): SanitizeResult | null {
       /* 归档是「移出书架、数据全留」。重建时漏掉 archivedAt，读盘一次
          归档书就会自己回到书架——用户会以为移除没生效。 */
       ...(num(b.archivedAt) !== undefined && num(b.archivedAt)! > 0 ? { archivedAt: num(b.archivedAt)! } : {}),
+      /* PDF 视角也是「重建对象时容易漏」的一类：漏了就读盘一次回到 0°，
+         用户每天打开都要重转一遍。角度按 90 取整、非法值归 0。 */
+      ...(isObj(b.pdfView)
+        ? {
+            pdfView: {
+              rotation: (((Math.round((num(b.pdfView.rotation) ?? 0) / 90) * 90) % 360) + 360) % 360,
+              spread: b.pdfView.spread === true,
+            },
+          }
+        : {}),
     });
   }
   const shelfList = Array.isArray((d as ReaderData).shelves)

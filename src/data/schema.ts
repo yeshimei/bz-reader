@@ -271,6 +271,14 @@ export interface ReaderBook {
    * 划线和阅读历史一起删了，用户以为只是从架子上拿下来。
    */
   archivedAt?: number;
+  /**
+   * PDF 的视角：旋转角度 + 双页并排，**每本书各记一份**。
+   *
+   * 扫描件 A 要横过来看、正文书 B 不用；塞进全局 prefs 就变成「转一本，
+   * 全库都横过来」。和一键还原一起，是「下次打开还在刚才那个视角」的底座。
+   * bz 侧读到不认识的键会忽略，不影响数据同构。
+   */
+  pdfView?: { rotation: number; spread: boolean };
 }
 
 export interface ReaderData {

@@ -20,6 +20,8 @@ import type { PdfDocument, PdfPageSize, PdfRenderTask } from './document';
 import type { PdfBacklinkHit } from '../../data/pdf-backlink';
 import type { PdfLinkSelection } from '../../data/pdf-link';
 import { fitScaleFor, pickFitSize, type PdfBox } from './fit';
+import { pageAtRow, pageLabel, turnPage } from './layout';
+import { mergeRects } from './rects';
 import { PdfThumbPanel } from './thumbs';
 import {
   encodePdfLocator,
@@ -36,6 +38,16 @@ export interface PdfViewCallbacks {
   onAnnotTap?: (info: { locator: string; anchor: Rect }) => void;
   onTwoFingerTap?: () => void;
   onStall?: (what: string) => void;
+  /** 视图状态变了（旋转 / 双页）：宿主负责按书记住，下次打开还原 */
+  onViewState?: (state: PdfViewState) => void;
+  /** 导出某一页为图片。渲染与落盘都在宿主那边，视图只负责触发 */
+  onExportPage?: (page: number) => Promise<void>;
+}
+
+/** 每本书各自记住的 PDF 视图状态（角度、双页）。与全局 prefs 分开存 */
+export interface PdfViewState {
+  rotation: number;
+  spread: boolean;
 }
 
 /** 归一化矩形：相对页宽高的比例（0..1），滚动/缩放后仍能复现 */
@@ -63,6 +75,8 @@ const KEEP_ALIVE = 6;
 const MAX_PARALLEL = 2;
 const RELOCATE_MS = 120;
 const SELECTION_MS = 160;
+/** 滚动停下多久之后重新确认一次当前页（scroll-snap 吸附要等它稳定） */
+const SCROLL_SETTLE_MS = 140;
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
@@ -87,6 +101,8 @@ export class PdfView {
   private rotation = 0;
   /** false = 连续滚动单栏；true = 双页并排（跨页扫描件） */
   private spread = false;
+  /** true = 一屏一页（翻页像 EPUB）；false = 连续滚动 */
+  private paged = false;
   private current = 1;
   private destroyed = false;
 
@@ -113,8 +129,11 @@ export class PdfView {
   private pulseTimer: number | null = null;
   private zoomLabelEl: HTMLButtonElement | null = null;
   private pageLabelEl: HTMLSpanElement | null = null;
+  /** 可拖的页码滑块：278 页的书只靠滚轮找一页太慢 */
+  private progressEl: HTMLInputElement | null = null;
   private rotateBtn: HTMLButtonElement | null = null;
   private spreadBtn: HTMLButtonElement | null = null;
+  private pagedBtn: HTMLButtonElement | null = null;
   private thumbsBtn: HTMLButtonElement | null = null;
   private thumbs: PdfThumbPanel | null = null;
 
@@ -122,6 +141,8 @@ export class PdfView {
   private resizeObserver: ResizeObserver | null = null;
   private relocateTimer: number | null = null;
   private selectionTimer: number | null = null;
+  /** 滚动停下后确认当前页的定时器（见 onScroll） */
+  private scrollSettle: number | null = null;
   private lastSelectionAt = 0;
   private suppressClickUntil = 0;
   private lastWidth = 0;
@@ -222,11 +243,45 @@ export class PdfView {
   }
 
   next(): void {
+    /* 一屏一页 / 双页并排时不能 scrollBy 半屏：那样会停在两页中间，
+       而且双页模式一屏两页，按页跳会漏掉右页。统一按「屏」跳。 */
+    if (this.paged || this.spread) {
+      this.goToPage(turnPage(this.current, this.numPages, 1, this.spread), true);
+      return;
+    }
     this.scroller.scrollBy({ top: Math.max(120, this.scroller.clientHeight * 0.92), behavior: 'smooth' });
   }
 
   prev(): void {
+    if (this.paged || this.spread) {
+      this.goToPage(turnPage(this.current, this.numPages, -1, this.spread), true);
+      return;
+    }
     this.scroller.scrollBy({ top: -Math.max(120, this.scroller.clientHeight * 0.92), behavior: 'smooth' });
+  }
+
+  /**
+   * 一屏一页（像 EPUB 那样翻）。
+   *
+   * 连续滚动适合「看图表书、来回对照」，翻页适合「从头读到尾」。
+   * 真正的翻页行为在 next/prev 里，这里只负责两件版面的事：
+   *  1. 给根节点一个类，让 CSS 打开 scroll-snap（手动滚也停在页边界）；
+   *  2. 立刻把当前页顶到屏幕最上——否则切过来的第一眼是半页正文。
+   */
+  setPaged(on: boolean): void {
+    if (on === this.paged) return;
+    this.paged = on;
+    this.root.classList.toggle('is-paged', on);
+    this.pagedBtn?.classList.toggle('is-on', on);
+    if (this.pagedBtn) this.pagedBtn.title = on ? '连续滚动' : '一屏一页';
+    if (on) this.goToPage(this.current, false);
+    /* 这里**不**发 onViewState：翻页/滚动是全局偏好（prefs.flow），
+       不是「这本书的角度与排法」。早期版本在这里发，打开书时先按默认
+       发一次 `{spread:false}`，把上次存的双页直接冲掉了。 */
+  }
+
+  get isPaged(): boolean {
+    return this.paged;
   }
 
   goToPage(page: number, smooth = true): void {
@@ -280,6 +335,7 @@ export class PdfView {
       },
     });
     this.thumbs.open(this.root);
+    this.thumbs.setCurrent(this.current);
     this.thumbsBtn?.classList.add('is-on');
   }
 
@@ -291,7 +347,20 @@ export class PdfView {
     this.spreadBtn?.classList.toggle('is-on', on);
     /* 双页时一屏要放两页：直接切到「适合宽度」，100% 会横向溢出 */
     this.fitMode = 'width';
+    /* 并排时行距交给 grid 的 row-gap，页自己的 marginBottom 必须清零，
+       否则每页都被撑高一截，行与行之间出现一道越来越大的缝 */
+    this.applyPageGap();
     this.applyScale(this.fitScale('width'), true);
+    /* 换排之后滚动位置对应的页变了：回到当前页，别停在两页中间 */
+    this.goToPage(this.current, false);
+    this.updatePageLabel();
+    this.opts.onViewState?.({ rotation: this.rotation, spread: this.spread });
+  }
+
+  /** 页与页之间的纵向间距：并排时归零，单栏时 20px */
+  private applyPageGap(): void {
+    const gap = this.spread ? 0 : PAGE_GAP;
+    for (const el of this.pageEls) el.style.marginBottom = `${gap}px`;
   }
 
   get isSpread(): boolean {
@@ -319,6 +388,16 @@ export class PdfView {
     }
     this.applyScale(this.scale, true);
     this.updateRotationButton();
+    /* 页宽高互换后原来的滚动位置未必还在页首，重新对齐一次 */
+    this.goToPage(this.current, false);
+    this.opts.onViewState?.({ rotation: this.rotation, spread: this.spread });
+  }
+
+  /** 打开书时还原上次的视角（旋转 / 双页）。角度非法按 0 处理 */
+  restoreView(state: { rotation?: number; spread?: boolean } | null | undefined): void {
+    const deg = Number(state?.rotation) || 0;
+    if (deg) this.setRotation(deg);
+    if (state?.spread) this.setSpread(true);
   }
 
   get rotationDeg(): number {
@@ -373,20 +452,56 @@ export class PdfView {
     add('页', '适合页面', () => this.setFitMode('page'));
     this.rotateBtn = add('⟳', '旋转 90°', () => this.setRotation(this.rotation + 90));
     this.spreadBtn = add('双页', '双页并排', () => this.setSpread(!this.spread));
+    this.pagedBtn = add('翻', '一屏一页', () => this.setPaged(!this.paged));
     this.thumbsBtn = add('页图', '页缩略图', () => this.toggleThumbs());
+    add('存', '导出本页为图片', () => void this.exportCurrentPage());
     /* 页码：滚动到哪一页比百分比准，278 页的书尤其需要 */
     const pageNo = document.createElement('span');
     pageNo.className = 'bzr-pdf-pageno';
     bar.appendChild(pageNo);
     this.pageLabelEl = pageNo;
+    /* 可拖的页码滑块。278 页的书先拖到大概位置再微调，比滚轮快得多 */
+    const range = document.createElement('input');
+    range.type = 'range';
+    range.className = 'bzr-pdf-range';
+    range.min = '1';
+    range.max = String(this.numPages);
+    range.step = '1';
+    range.value = '1';
+    range.setAttribute('aria-label', '跳页');
+    range.addEventListener('input', () => {
+      this.goToPage(Number(range.value), false);
+    });
+    /* 拖滑块不该顺带触发「点一下翻页」 */
+    range.addEventListener('click', (ev) => ev.stopPropagation());
+    bar.appendChild(range);
+    this.progressEl = range;
     this.root.appendChild(bar);
     this.updateZoomLabel();
     this.updatePageLabel();
   }
 
+  /** 导出当前页：渲染和落盘都交给宿主（它才知道库里的路径规则） */
+  private async exportCurrentPage(): Promise<void> {
+    const run = this.opts.onExportPage;
+    if (!run) return;
+    const page = this.current;
+    this.root.classList.add('is-exporting');
+    try {
+      await run(page);
+    } finally {
+      this.root.classList.remove('is-exporting');
+    }
+  }
+
   private updatePageLabel(): void {
     if (!this.pageLabelEl) return;
-    this.pageLabelEl.textContent = `${this.current} / ${this.numPages}`;
+    /* 双页并排时一行两页，页码要报「4–5」而不是 4：只报一个数字，
+       用户会以为右页没跳过来 */
+    this.pageLabelEl.textContent = pageLabel(this.current, this.numPages, this.spread);
+    this.progressEl?.setAttribute('max', String(Math.max(1, this.numPages)));
+    if (this.progressEl) this.progressEl.value = String(this.current);
+    this.thumbs?.setCurrent(this.current);
   }
 
   private updateZoomLabel(): void {
@@ -466,6 +581,7 @@ export class PdfView {
     this.clearFrame();
     if (this.relocateTimer !== null) window.clearTimeout(this.relocateTimer);
     if (this.selectionTimer !== null) window.clearTimeout(this.selectionTimer);
+    if (this.scrollSettle !== null) window.clearTimeout(this.scrollSettle);
     if (this.pulseTimer !== null) window.clearTimeout(this.pulseTimer);
     for (const task of this.tasks.values()) {
       try {
@@ -520,11 +636,11 @@ export class PdfView {
       el.dataset.page = String(page);
       el.style.width = `${Math.round(size.width * this.scale)}px`;
       el.style.height = `${Math.round(size.height * this.scale)}px`;
-      el.style.marginBottom = `${PAGE_GAP}px`;
       frag.appendChild(el);
       this.pageEls.push(el);
     }
     this.pagesBox.appendChild(frag);
+    this.applyPageGap();
     this.recomputeOffsets();
   }
 
@@ -551,7 +667,13 @@ export class PdfView {
     }
     this.recomputeOffsets();
     const again = this.pageEls[keep - 1];
-    if (again) this.scroller.scrollTop = Math.max(0, again.offsetTop + before);
+    if (again) {
+      /* 一屏一页模式下缩放完必须还停在页顶：按「页内偏移」恢复的话，
+         放大之后同一比例对应的是另一行字，页首会被顶出屏幕 */
+      this.scroller.scrollTop = this.paged
+        ? Math.max(0, again.offsetTop - PAGE_GAP)
+        : Math.max(0, again.offsetTop + before);
+    }
     this.ensureAround(keep, true);
     this.scheduleRelocate(true);
     this.updateZoomLabel();
@@ -598,25 +720,28 @@ export class PdfView {
 
   private onScroll(): void {
     if (this.destroyed) return;
-    const page = this.pageAt(this.scroller.scrollTop + this.scroller.clientHeight * 0.4);
-    if (page !== this.current) {
-      this.current = page;
-      this.ensureAround(page, false);
-      this.scheduleRelocate();
-      this.trim();
-    }
+    this.syncCurrentFromScroll();
+    /* scroll-snap 的吸附发生在滚动停下之后：最后一帧的 scrollTop 还停在
+       吸附中间，页码会落后一屏（真机上「滚到 4–5，角标还写着 2–3」）。
+       收尾再确认一次——这时位置已经稳定。 */
+    if (this.scrollSettle !== null) window.clearTimeout(this.scrollSettle);
+    this.scrollSettle = window.setTimeout(() => {
+      this.scrollSettle = null;
+      this.syncCurrentFromScroll();
+    }, SCROLL_SETTLE_MS);
   }
 
-  private pageAt(y: number): number {
-    if (!this.offsets.length) return 1;
-    let lo = 0;
-    let hi = this.offsets.length - 1;
-    while (lo < hi) {
-      const mid = Math.ceil((lo + hi) / 2);
-      if (this.offsets[mid] <= y) lo = mid;
-      else hi = mid - 1;
-    }
-    return lo + 1;
+  private syncCurrentFromScroll(): void {
+    if (this.destroyed) return;
+    /* 双页并排时同一行两页 offsetTop 相同，二分只会落到行尾那页：
+       pageAtRow 会回溯到行首，页码和翻页才不会错开一页 */
+    const page = pageAtRow(this.offsets, this.scroller.scrollTop + this.scroller.clientHeight * 0.4);
+    if (page === this.current) return;
+    this.current = page;
+    this.ensureAround(page, false);
+    this.scheduleRelocate();
+    this.trim();
+    this.updatePageLabel();
   }
 
   private scheduleRelocate(immediate = false): void {
@@ -913,6 +1038,17 @@ export class PdfView {
       if (locator) this.opts.onAnnotTap?.({ locator, anchor: rectOfBox(mark.getBoundingClientRect()) });
       return;
     }
+    /* 页内超链接（目录页那种）：点了就跳，不参与「上下半区翻页」 */
+    const hot = (ev.target as HTMLElement | null)?.closest('.bzr-pdf-linkhot') as HTMLElement | null;
+    if (hot) {
+      const target = Number(hot.dataset.target);
+      if (target > 0) {
+        this.suppressClickUntil = Date.now() + 350;
+        /* goToPage 自己会触发 relocate，外部的位置记录跟着更新，不用另发回调 */
+        this.goToPage(target, true);
+      }
+      return;
+    }
     if (Date.now() < this.suppressClickUntil) return;
     const sel = document.getSelection();
     if (sel && !sel.isCollapsed) return;
@@ -1017,6 +1153,7 @@ export class PdfView {
       this.recency.set(page, ++this.recencySeq);
       this.paintAnnotations(page);
       this.paintBacklinks(page);
+      void this.paintLinks(page);
       void this.doc.getText(page).catch(() => undefined);
       this.trim();
     } catch (err) {
@@ -1070,16 +1207,46 @@ export class PdfView {
     }
   }
 
+  /* ── 页内超链接 ── */
+
+  /**
+   * PDF 自带的内部链接（目录、交叉引用）→ 透明热区。
+   *
+   * 扫描件的目录页全是图，没有文字可选，也没有书签大纲；这些链接是唯一
+   * 「点目录跳过去」的入口。热区盖在链接原位置上，光标变成手型。
+   */
+  private async paintLinks(page: number): Promise<void> {
+    const el = this.pageEls[page - 1];
+    if (!el) return;
+    el.querySelectorAll('.bzr-pdf-linkhot').forEach((node) => node.remove());
+    const links = await this.doc.getLinks(page, this.rotation).catch(() => []);
+    if (this.destroyed || !el.isConnected) return;
+    for (const link of links) {
+      if (!link.page || link.page === page) continue;
+      const hot = document.createElement('div');
+      hot.className = 'bzr-pdf-linkhot';
+      hot.dataset.target = String(link.page);
+      hot.title = `跳到第 ${link.page} 页`;
+      hot.style.left = `${link.rect.left * 100}%`;
+      hot.style.top = `${link.rect.top * 100}%`;
+      hot.style.width = `${link.rect.width * 100}%`;
+      hot.style.height = `${link.rect.height * 100}%`;
+      el.appendChild(hot);
+    }
+  }
+
   /* ── 标注 ── */
 
   private paintAnnotations(page: number): void {
     const el = this.pageEls[page - 1];
     if (!el) return;
     el.querySelectorAll('.bzr-pdf-annot-mark').forEach((node) => node.remove());
-    /* 旋转后的坐标还原还没做对（pdf.js 的文字层是靠 CSS transform 转的，
-       它的包围盒还是未旋转尺寸，百分比会整体错位）。宁可不画，也不要画一条
-       横着的假高亮误导人——转回 0° 就恢复。 */
-    if (this.rotation !== 0) return;
+    /* 旋转后为什么要重新算而不是套缓存：
+       pdf.js 的文字层是靠 CSS transform 转的，它自己的包围盒还是未旋转尺寸；
+       但 `normRects` 的基准取的是**页面元素**（见那里的注释），而
+       `getClientRects()` 给的是变换后的屏幕矩形——两者都在同一个旋转坐标系里，
+       除出来就是对的。旋转时 `setRotation` 顺手清掉 `selectionRects`，
+       逼所有标注重走这条「从 DOM 现算」的路。 */
     const layer = el.querySelector('.textLayer') as HTMLElement | null;
     for (const [locator, annot] of this.annots) {
       if (annot.page !== page) continue;
@@ -1105,7 +1272,10 @@ export class PdfView {
         if (!rects?.length && annot.quote) rects = this.quoteRects(layer, annot.quote);
       }
       if (!rects?.length) continue;
-      for (const rect of rects) {
+      /* pdf.js 把每个词拆成一个 span，一段话能返回上千个矩形：不合并的话
+         一页要塞上千个绝对定位 div，滚动直接掉帧，块与块之间的亚像素缝还
+         会在深色底上连成白线（见 rects.ts） */
+      for (const rect of mergeRects(rects)) {
         const mark = document.createElement('div');
         mark.className = 'bzr-pdf-annot-mark';
         mark.dataset.locator = locator;
@@ -1163,7 +1333,7 @@ export class PdfView {
         el.appendChild(edge);
         continue;
       }
-      for (const rect of rects) {
+      for (const rect of mergeRects(rects)) {
         const mark = document.createElement('div');
         mark.className = 'bzr-pdf-backlink';
         mark.dataset.source = hit.sourcePath;

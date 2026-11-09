@@ -1042,11 +1042,32 @@ body .view-header .clickable-icon.bzs-host-hidden {
 /* 双页并排：跨页扫描件一屏看两页。页宽由 fitScale 减半算出，
    这里只负责换行与横向间距 */
 .bzr-pdf-pages.is-spread {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  /* grid 而不是 flex-wrap：第 1 页要独占一行（封面），后面两页一行 */
+  display: grid;
+  grid-template-columns: repeat(2, auto);
   justify-content: center;
+  justify-items: center;
+  align-items: start;
   column-gap: 4px;
+  row-gap: 20px;
+}
+
+/* 封面单独占一行：1 | 2-3 | 4-5 ……
+   不这么排，从第 2 页起每一对都是「右页 + 下一页的左页」，整本错开一页 */
+.bzr-pdf-pages.is-spread .bzr-pdf-page:first-child {
+  grid-column: 1 / -1;
+}
+
+/* 一屏一页：手动滚也停在页边界。
+   用 proximity 不用 mandatory——页面比屏幕高时（放大到 300% 看小字），
+   mandatory 会把滚动锁死在同一页里，怎么滚都翻不过去 */
+.bzr-pdf.is-paged .bzr-pdf-scroll {
+  scroll-snap-type: y proximity;
+}
+
+.bzr-pdf.is-paged .bzr-pdf-page {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 .bzr-pdf-page {
@@ -1101,9 +1122,23 @@ body .view-header .clickable-icon.bzs-host-hidden {
   background: rgba(80, 120, 255, 0.28);
 }
 
+/* 页内超链接（PDF 自带的目录跳转）：透明热区，悬停才显形 */
+.bzr-pdf-linkhot {
+  position: absolute;
+  z-index: 4;
+  border-radius: 2px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.bzr-pdf-linkhot:hover {
+  background: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--interactive-accent) 45%, transparent);
+}
+
 .bzr-pdf-annot-mark {
   position: absolute;
-  z-index: 3;
+  z-index: 5;
   border-radius: 2px;
   opacity: 0.32;
   mix-blend-mode: multiply;
@@ -1250,6 +1285,17 @@ body .view-header .clickable-icon.bzs-host-hidden {
   font-variant-numeric: tabular-nums;
 }
 
+/* 当前正在读的那一页：边框提亮 + 页码加重，扫一眼就知道自己在哪 */
+.bzr-pdf-thumb.is-current .bzr-pdf-thumb-box {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 35%, transparent);
+}
+
+.bzr-pdf-thumb.is-current .bzr-pdf-thumb-no {
+  color: var(--text-normal);
+  font-weight: 600;
+}
+
 /* 反链：笔记里引用了这一页的位置。虚线 + 不盖住文字，和实心划线一眼能分开 */
 .bzr-pdf-backlink {
   position: absolute;
@@ -1331,9 +1377,18 @@ body .view-header .clickable-icon.bzs-host-hidden {
   border: 1px solid var(--background-modifier-border);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
   opacity: 0.92;
+  /* 十来个按钮在手机和窄分栏里放不下：横向滚，不要把它们挤成一条缝 */
+  max-width: calc(100% - 24px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.bzr-pdf-toolbar::-webkit-scrollbar {
+  display: none;
 }
 
 .bzr-pdf-toolbar button {
+  flex: none;
   min-width: 30px;
   height: 28px;
   padding: 0 8px;
@@ -1342,6 +1397,17 @@ body .view-header .clickable-icon.bzs-host-hidden {
   background: transparent;
   color: var(--text-normal);
   font-size: 12px;
+  cursor: pointer;
+}
+
+/* 页码滑块：278 页的书先拖到大概位置再微调，比滚轮快 */
+.bzr-pdf-range {
+  flex: 1 1 90px;
+  min-width: 70px;
+  max-width: 160px;
+  height: 28px;
+  margin: 0 4px;
+  accent-color: var(--interactive-accent);
   cursor: pointer;
 }
 

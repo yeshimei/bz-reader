@@ -55,6 +55,8 @@ export interface ReaderEngine {
   applyPrefs(prefs: ReaderPrefs): void;
   pulseAt(cfi: string): Promise<void>;
   setViewportWidth(width: number, left?: number): void;
+  /** PDF 专用：还原上次的旋转角与双页排法。别的引擎不实现 */
+  restorePdfView?(state: { rotation?: number; spread?: boolean } | null | undefined): void;
   destroy(): Promise<void>;
 }
 

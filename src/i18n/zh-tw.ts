@@ -180,6 +180,8 @@ export const ZH_TW: Record<MsgKey, string> = {
   'notice.load.stalled': '{what}沒有完成，請再試一次',
   'notice.pdf.typography': 'PDF 不支援排版設定：字體與行距由原文件決定',
   'notice.pdf.scanned': '這本是掃描件（沒有文字層）：可以看、縮放、框選複製連結，但劃詞和搜尋取不到文字。',
+  'notice.pdf.exported': '已匯出到 {path}',
+  'notice.pdf.exportFailed': '這一頁沒能匯出成圖片',
   'notice.locate.notReady': '這一頁還沒定位好，翻一下再試',
   'notice.bookmark.toggledOn': '已加書籤',
   'notice.bookmark.toggledOff': '已移除書籤',

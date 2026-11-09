@@ -22,6 +22,14 @@ export interface PagingKeyContext {
   contentVertical: boolean;
   /** RTL 书：左右同样要反 */
   contentRtl?: boolean;
+  /**
+   * 上下键也算翻页。
+   *
+   * 只给 PDF 用：EPUB 是「横向分栏」，上下键在分页器里没有对应物，接管了
+   * 反而会和「滚一屏」打架。PDF 是纵向滚动的一叠纸，上下就是最自然的翻页键
+   * （真机上按 ↓ 没反应，看着像卡住了）。
+   */
+  verticalKeys?: boolean;
 }
 
 export function pagingKeyAction(key: string, ctx: PagingKeyContext): PagingDirection | null {
@@ -33,6 +41,11 @@ export function pagingKeyAction(key: string, ctx: PagingKeyContext): PagingDirec
     case 'ArrowLeft':
     case 'ArrowRight':
       return arrowDirection(key, dir);
+    /* 上下键不看竖排/RTL：它说的是「下一屏 / 上一屏」，和左右不是一回事 */
+    case 'ArrowDown':
+      return ctx.verticalKeys ? 'next' : null;
+    case 'ArrowUp':
+      return ctx.verticalKeys ? 'prev' : null;
     case 'PageUp':
       return dir.vertical ? 'next' : 'prev';
     case 'PageDown':

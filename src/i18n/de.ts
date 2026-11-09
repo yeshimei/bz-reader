@@ -183,6 +183,8 @@ export const DE: Record<MsgKey, string> = {
   'notice.load.stalled': '{what} wurde nicht abgeschlossen – bitte erneut versuchen',
   'notice.pdf.typography': 'Typography settings do not apply to PDFs — layout comes from the original file.',
   'notice.pdf.scanned': 'This PDF is a scan (no text layer): you can read, zoom and box-select links, but text selection and search have nothing to work with.',
+  'notice.pdf.exported': 'Saved to {path}',
+  'notice.pdf.exportFailed': 'Could not export this page as an image',
   'notice.locate.notReady': 'Diese Seite ist noch nicht verortet – blättere weiter und versuche es erneut',
   'notice.bookmark.toggledOn': 'Lesezeichen gesetzt',
   'notice.bookmark.toggledOff': 'Lesezeichen entfernt',
