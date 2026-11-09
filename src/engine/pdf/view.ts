@@ -174,6 +174,8 @@ export class PdfView {
   private linkPreviewUrl: string | null = null;
   /** 反链框的悬浮提示 */
   private blTipEl: HTMLDivElement | null = null;
+  /** 悬停提示的「延后收起」计时器（跨 span 移动时不要闪） */
+  private tipOutTimer: number | null = null;
   /** 当前搜索词：命中要落到页面上，否则跳过去还得自己找 */
   private searchQuery = '';
 
@@ -777,6 +779,10 @@ export class PdfView {
   /** 鼠标落在链接热区或反链框上：一个出目标页缩略图，一个出引用来源 */
   private onHoverIn = (ev: MouseEvent): void => {
     if (this.destroyed) return;
+    if (this.tipOutTimer !== null) {
+      window.clearTimeout(this.tipOutTimer);
+      this.tipOutTimer = null;
+    }
     const target = ev.target as HTMLElement | null;
     const hot = target?.closest('.bzr-pdf-linkhot') as HTMLElement | null;
     if (hot) {
@@ -786,6 +792,9 @@ export class PdfView {
     }
     const pageEl = target?.closest('.bzr-pdf-page') as HTMLElement | null;
     if (!pageEl) return;
+    /* 先看一眼这页有没有可悬停的东西。mouseover 在文字层上按 span 连发，
+       每次都去量一遍矩形（强制重排）会拖慢划词——没有标注的页直接返回。 */
+    if (!pageEl.querySelector('.bzr-pdf-fileannot, .bzr-pdf-backlink')) return;
     /* 文件批注优先：它比反链框更具体，而且只有它带正文可看 */
     const annot = this.fileAnnotAt(pageEl, ev.clientX, ev.clientY);
     if (annot) {
@@ -799,7 +808,17 @@ export class PdfView {
   private onHoverOut = (ev: MouseEvent): void => {
     const target = ev.target as HTMLElement | null;
     if (target?.closest('.bzr-pdf-linkhot')) this.hideLinkPreview();
-    if (target?.closest('.bzr-pdf-page')) this.hideBacklinkTip();
+    if (!target?.closest('.bzr-pdf-page')) {
+      this.hideBacklinkTip();
+      return;
+    }
+    /* 页内跨 span 也会发 mouseout：立刻收掉再重建，提示会一闪一闪。
+       延后一点点，真离开这一页（或停下来没再进来）才收。 */
+    if (this.tipOutTimer !== null) window.clearTimeout(this.tipOutTimer);
+    this.tipOutTimer = window.setTimeout(() => {
+      this.tipOutTimer = null;
+      this.hideBacklinkTip();
+    }, 120);
   };
 
   /** 点在哪一条反链框上（框本身不吃指针事件，靠坐标反查，才不挡划词） */
@@ -1042,6 +1061,10 @@ export class PdfView {
     if (this.selectionTimer !== null) window.clearTimeout(this.selectionTimer);
     if (this.scrollSettle !== null) window.clearTimeout(this.scrollSettle);
     if (this.pulseTimer !== null) window.clearTimeout(this.pulseTimer);
+    if (this.tipOutTimer !== null) {
+      window.clearTimeout(this.tipOutTimer);
+      this.tipOutTimer = null;
+    }
     for (const task of this.tasks.values()) {
       try {
         task.cancel();
