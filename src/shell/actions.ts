@@ -82,6 +82,7 @@ import { RT, emitNotesChanged, pushAi, resetAi } from './runtime';
 import { kickBodySearch, resetBodySearch, stopBodySearch } from './search-run';
 import { bzEmbedder, bzNotesReady, openBzPreview, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
+import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap, warmKeyboard } from './shelf-tap';
 import { VIDEO_TUTORIAL_URL } from '../core/links';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
@@ -301,11 +302,36 @@ const SHELF_ERR_KEY: Record<string, MsgKey> = {
 };
 
 /**
+ * 菜单项标题：给「分类管理 / 新建分类…」挂一个触摸标记。
+ *
+ * 宿主画菜单项时只让我们改标题，标记只好藏在标题的 span 上；手指点在
+ * 图标那一侧时，shelf-tap.ts 会回到同一个 `.menu-item` 里找它。
+ * span 不带样式，视觉与原来看不出差别。
+ */
+function shelfTapTitle(text: string, kind: 'manage' | 'new', bookId?: string): DocumentFragment {
+  const frag = document.createDocumentFragment();
+  const span = document.createElement('span');
+  span.setAttribute(SHELF_TAP_ATTR, kind);
+  if (bookId) span.setAttribute(SHELF_TAP_BOOK_ATTR, bookId);
+  span.textContent = text;
+  frag.append(span);
+  return frag;
+}
+
+/** 上一张分类菜单挂的触摸解绑：菜单关掉或下一次打开时先撤掉 */
+let unbindShelfTap: (() => void) | null = null;
+
+/**
  * 书卡菜单「归入分类…」的下一层。
  *
  * 原生 `Menu` 没有二级菜单的 API（公开类型里没有 submenu），所以点这一条时
  * 在**同一处**再弹一张菜单：第一张收起、第二张在原地出现，读起来就是
  * 「进了下一层」，桌面上鼠标位置不变，手机上还是同一张底部面板。
+ *
+ * 手机上「分类管理 / 新建分类…」要顺手弹键盘（2026-11-09）：宿主的 click
+ * 回调不算用户亲手操作，`focus()` 只给光标不给键盘。改成在手指抬起那一刻
+ * 先把软键盘叫起来（见 shelf-tap.ts），随后宿主照常打开弹层、焦点交给
+ * 输入框，键盘全程不落。打开流程与事件流一点没动，只是提前预热了键盘。
  */
 function openShelfMenu(bookIds: string[], pos: { x: number; y: number }): void {
   const books = liveBooks();
@@ -313,6 +339,8 @@ function openShelfMenu(bookIds: string[], pos: { x: number; y: number }): void {
   const names = orderShelves(getState().shelfList, used).filter((n) => n !== ALL_SHELF);
   const only = bookIds.length === 1 ? books.find((b) => b.id === bookIds[0]) : undefined;
   const current = only ? shelfOf(only) : '';
+  /* 从书卡「新建分类…」进来时把这本书带上：建完顺手归进去 */
+  const newBookId = only?.id ?? bookIds[0];
 
   const menu = new Menu();
   for (const n of names) {
@@ -337,14 +365,28 @@ function openShelfMenu(bookIds: string[], pos: { x: number; y: number }): void {
   menu.addSeparator();
   menu.addItem((i) =>
     i
-      .setTitle(t('shelves.assign.new'))
+      .setTitle(shelfTapTitle(t('shelves.assign.new'), 'new', newBookId))
       .setIcon('folder')
-      .onClick(() => overlay('shelves', { mode: 'new', bookId: only?.id ?? bookIds[0] })),
+      .onClick(() => overlay('shelves', { mode: 'new', bookId: newBookId })),
   );
   /* 分类管理（改名 / 排序 / 删除）不再占头栏一颗图标：从这层菜单进，
      和「新建分类…」挨着，都属于「整理分类名册」。 */
-  menu.addItem((i) => i.setTitle(t('shelves.manage')).setIcon('settings').onClick(() => overlay('shelves')));
+  menu.addItem((i) =>
+    i
+      .setTitle(shelfTapTitle(t('shelves.manage'), 'manage'))
+      .setIcon('settings')
+      .onClick(() => overlay('shelves')),
+  );
   menu.showAtPosition(pos);
+  /* 只有真移动端才有触摸；桌面（含触屏 Windows）挂上去永远不触发，白搭一层。
+     回调只做「把键盘叫起来」，打开弹层仍由宿主那次 click 负责——不抢事件，
+     菜单该收就收、该关就关，行为与以前完全一致。 */
+  unbindShelfTap?.();
+  unbindShelfTap = isMobileEnv() ? bindShelfTap(document, () => warmKeyboard()) : null;
+  menu.onHide(() => {
+    unbindShelfTap?.();
+    unbindShelfTap = null;
+  });
 }
 
 /** 统计页动作要用的一份视图：和书架页同数据源，报告 / 周报才不会和页面对不上 */
