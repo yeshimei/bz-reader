@@ -404,7 +404,14 @@ body.theme-dark .bzs-float.is-dialog {
 .bzs-idea-card .txt {
   flex: 1;
   min-width: 0;
-  min-height: 34px;
+  /* 默认三行（与 rows=3 说的是同一件事）：三行起才看得见自己刚写的两三条，
+     这里兜住「主题把行高改掉」的情况。 */
+  min-height: calc(3 * 1.8em + 16px);
+  /* 长高的上限。超过它就停在这么高，多出来的内容在框里滚——
+     shell/idea-grow.ts 把这个值读回去当裁切线，数值只在这里写一份。 */
+  max-height: min(40vh, 230px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 8px 12px;
   border: 0;
   border-radius: 10px;
@@ -1174,19 +1181,6 @@ body.theme-dark .bzs-tb-more {
   letter-spacing: .08em;
 }
 
-.bzs-qcard .stamp {
-  position: absolute;
-  right: 18px;
-  bottom: 16px;
-  font-family: var(--serif);
-  font-size: 11px;
-  color: var(--copper);
-  border: 1px solid currentColor;
-  border-radius: var(--r-chip);
-  padding: 2px 6px;
-  letter-spacing: .08em;
-}
-
 /* ── 书摘卡版式（多模板） ──
    同一段引文四种长相，切换只改 class；文字、出处、转义都复用同一份渲染。 */
 .bzs-tpls {
@@ -1225,10 +1219,6 @@ body.theme-dark .bzs-tb-more {
   color: #9c9384;
 }
 
-.bzs-qcard.tpl-night .stamp {
-  color: #d0a95e;
-}
-
 /* 胶片：去掉卡片框，上下两道铜线，像一张票根 */
 .bzs-qcard.tpl-film {
   border: none;
@@ -1247,12 +1237,6 @@ body.theme-dark .bzs-tb-more {
 
 .bzs-qcard.tpl-film .loc {
   letter-spacing: .25em;
-}
-
-.bzs-qcard.tpl-film .stamp {
-  position: static;
-  display: inline-block;
-  margin-top: 16px;
 }
 
 /* （想想类型胶囊的样式见文件后半段的「壳层补充」一处定义，别在这儿再写一份） */

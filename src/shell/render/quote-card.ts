@@ -20,10 +20,11 @@ export interface QuoteCardInput {
 export function quoteCardHtml(input: QuoteCardInput): string {
   const tpl = normalizeCardTemplate(input.template);
   const cls = tpl === 'classic' ? 'bzs-qcard' : `bzs-qcard tpl-${tpl}`;
+  /* 不放「bz 阅读」印章：这是用户的摘抄，右下角留白比一枚自家小印好看，
+     也免得截图分享时像广告。出处那一行已经有「书名 · 作者 · 章节」。 */
   return `<div class="${cls}">
       <div class="q">${esc(input.text)}</div>
       <div class="loc">${esc(input.bookTitle)} · ${esc(input.author)} · ${esc(input.chapter)}</div>
-      <div class="stamp">bz 阅读</div>
     </div>`;
 }
 

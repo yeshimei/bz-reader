@@ -69,7 +69,7 @@ function pick2x(): number {
  * 把一张书摘卡画成 PNG。
  *
  * 版式：纸色底 + 左侧一条铜色竖线，引文衬线大字，落款是
- * 「章节 · 书名」和右下角一行小字。不做封面、不做统计数字——
+ * 「章节 · 书名」。不做封面、不做统计数字，也不印自家水印——
  * 这些东西在手机上会挤掉引文本来的呼吸感。
  */
 export async function renderQuoteCard(input: QuoteCardImageInput): Promise<Blob> {
@@ -94,8 +94,7 @@ export async function renderQuoteCard(input: QuoteCardImageInput): Promise<Blob>
 
   const headH = input.title ? titleSize + 34 : 0;
   const bodyH = Math.max(lineH, lineCount * lineH);
-  const footH = 52;
-  const H = Math.max(420, PAD + headH + bodyH + 26 + footH + PAD);
+  const H = Math.max(420, PAD + headH + bodyH + 26 + PAD);
 
   canvas.width = CARD_W * scale;
   canvas.height = H * scale;
@@ -136,12 +135,7 @@ export async function renderQuoteCard(input: QuoteCardImageInput): Promise<Blob>
     ctx.fillText(`— ${from}`, PAD, y);
   }
 
-  /* 右下角签名：和卡片一起被转发时，它是唯一能说明出处的标记 */
-  setFont(12, SANS);
-  ctx.fillStyle = '#a99d88';
-  ctx.textAlign = 'right';
-  ctx.fillText('bz 阅读', CARD_W - PAD, H - PAD - 14);
-  ctx.textAlign = 'left';
+  /* 右下角不画签名：与展示窗一致，出处那一行下面留白。 */
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {

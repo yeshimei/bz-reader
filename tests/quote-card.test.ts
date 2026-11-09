@@ -43,6 +43,14 @@ describe('书摘卡模板（多模板）', () => {
     expect(h).toContain('tpl-letter');
   });
 
+  it('不再带「bz 阅读」印章（展示窗右下角留白）', () => {
+    for (const tpl of ['classic', 'letter', 'night', 'film'] as const) {
+      const h = card(tpl);
+      expect(h).not.toContain('stamp');
+      expect(h).not.toContain('bz 阅读');
+    }
+  });
+
   it('模板切换按钮里当前版式高亮，每个按钮带 cardtpl 动作', () => {
     const h = cardTemplateChipsHtml('film');
     expect((h.match(/data-act="cardtpl"/g) ?? []).length).toBe(CARD_TEMPLATES.length);
