@@ -201,20 +201,21 @@ export class PdfDocument {
     dpr = 1,
   ): Promise<PdfRenderTask> {
     const p = await this.page(page);
-    const viewport = p.getViewport({ scale: cssScale });
     const ratio = Math.max(1, dpr);
-    canvas.width = Math.max(1, Math.floor(viewport.width * ratio));
-    canvas.height = Math.max(1, Math.floor(viewport.height * ratio));
-    canvas.style.width = `${Math.round(viewport.width)}px`;
-    canvas.style.height = `${Math.round(viewport.height)}px`;
-    const ctx = canvas.getContext('2d', { alpha: false });
+    /* 高 DPI 走「viewport 直接放大」，不用 render 的 transform 参数：
+       transform 会与 pdf.js 内部的 viewport.transform 叠乘，叠错时整页
+       空白且不抛错。文字层仍按 cssScale 摆，与 canvas 的 CSS 尺寸对齐。 */
+    const viewport = p.getViewport({ scale: cssScale * ratio });
+    canvas.width = Math.max(1, Math.floor(viewport.width));
+    canvas.height = Math.max(1, Math.floor(viewport.height));
+    canvas.style.width = `${Math.max(1, Math.round(viewport.width / ratio))}px`;
+    canvas.style.height = `${Math.max(1, Math.round(viewport.height / ratio))}px`;
+    const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('canvas 2d 不可用');
-    const task = p.render({
-      canvas,
-      canvasContext: ctx,
-      viewport,
-      transform: ratio === 1 ? undefined : [ratio, 0, 0, ratio, 0, 0],
-    });
+    /* 只传 canvasContext（pdf.js 默认 canvas = canvasContext.canvas）。
+       多传一个 canvas 参数会让依赖追踪器走另一条分支；foliate 的 PDF
+       实现就是只传 canvasContext，这条路径最稳。 */
+    const task = p.render({ canvasContext: ctx, viewport } as unknown as Parameters<typeof p.render>[0]);
     return task as unknown as PdfRenderTask;
   }
 

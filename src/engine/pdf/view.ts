@@ -15,6 +15,7 @@
  * ============================================================ */
 
 import type { Rect, RelocateInfo, SelectionInfo } from '../host';
+import { parsePdfLinkHash } from '../../data/pdf-link';
 import type { PdfDocument, PdfPageSize, PdfRenderTask } from './document';
 import { encodePdfLocator, parsePdfLocator, pdfPageLocator } from './locator';
 
@@ -144,12 +145,15 @@ export class PdfView {
     this.ensureAround(1, true);
   }
 
-  /** 回到某页：优先 locator，其次百分比 */
+  /** 回到某页：优先 locator，其次 PDF++/Obsidian 的 #page= 链接，最后百分比 */
   async start(locator: string | undefined, fraction: number): Promise<void> {
-    const target = locator ? parsePdfLocator(locator) : null;
-    const page = target
-      ? clamp(target.page, 1, this.numPages)
-      : clamp(1 + Math.round(clamp(fraction, 0, 1) * Math.max(0, this.numPages - 1)), 1, this.numPages);
+    const internal = locator ? parsePdfLocator(locator) : null;
+    const external = !internal && locator ? parsePdfLinkHash(locator) : null;
+    const page = internal
+      ? clamp(internal.page, 1, this.numPages)
+      : external
+        ? clamp(external.page, 1, this.numPages)
+        : clamp(1 + Math.round(clamp(fraction, 0, 1) * Math.max(0, this.numPages - 1)), 1, this.numPages);
     this.goToPage(page, false);
     this.current = page;
     this.emitRelocate();
@@ -179,9 +183,17 @@ export class PdfView {
 
   goToLocator(locator: string): boolean {
     const target = parsePdfLocator(locator);
-    if (!target) return false;
-    this.goToPage(target.page);
-    return true;
+    if (target) {
+      this.goToPage(target.page);
+      return true;
+    }
+    /* PDF++ / Obsidian 原生 PDF 复制出来的 `#page=3&selection=…` 也要能跳 */
+    const external = parsePdfLinkHash(locator);
+    if (external) {
+      this.goToPage(external.page);
+      return true;
+    }
+    return false;
   }
 
   setFitMode(mode: 'width' | 'page'): void {
@@ -652,14 +664,21 @@ export class PdfView {
     } catch (err) {
       const name = (err as { name?: string })?.name;
       if (name === 'RenderingCancelledException') return;
+      /* 真机白屏时，界面上只有一句「没有完成」；具体原因必须在控制台留一份，
+         否则只能靠猜（字体 / 图片解码 / 画布超限各是一类错）。 */
+      console.error(`[bz-reader] PDF 第 ${page} 页渲染失败：`, err);
       this.failed.add(page);
       el.classList.add('is-failed');
       el.textContent = '';
       const tip = document.createElement('div');
       tip.className = 'bzr-pdf-page-error';
-      tip.textContent = `第 ${page} 页渲染失败`;
+      /* 把引擎给的原因直接写到页上：真机排查时没人愿意为了看一行报错
+         去开控制台，截图就能说明问题。 */
+      const reason = (err as Error)?.message || String(err);
+      tip.textContent = `第 ${page} 页渲染失败：${reason.slice(0, 160)}`;
       el.appendChild(tip);
-      this.opts.onStall?.(`第 ${page} 页`);
+      /* 通知也带上原因摘要：错误提示在页面中部时，视口只露上半页会看不到 */
+      this.opts.onStall?.(`第 ${page} 页（${reason.slice(0, 80)}）`);
     }
   }
 
