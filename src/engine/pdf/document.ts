@@ -16,6 +16,8 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPdfjs } from './pdfjs';
 import { mapPdfOutline, synthPdfToc, type PdfTocItem } from './outline';
 import { rotateNormRect } from './locator';
+import { mapFileAnnots, type PdfFileAnnot } from './annots';
+import { labelsFromPdf } from './pagelabels';
 import { pageTextOf, type PdfTextItemLike } from './text';
 
 export interface PdfPageSize {
@@ -67,6 +69,8 @@ export class PdfDocument {
   private readonly texts = new Map<number, string>();
   private readonly sizes = new Map<number, PdfPageSize>();
   private readonly links = new Map<string, PdfPageLink[]>();
+  private readonly fileAnnots = new Map<string, PdfFileAnnot[]>();
+  private labels: string[] | null | undefined;
   private tocCache: PdfTocItem[] | null = null;
   private metaCache: PdfDocMeta | null = null;
   private destroyed = false;
@@ -211,6 +215,48 @@ export class PdfDocument {
       return Number.isFinite(index) ? index + 1 : null;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * 书的页码标签（`/PageLabels`）。
+   *
+   * 论文常见「前置页 i–xii、正文从 1 重新数」。返回 null = 这本没有页标签
+   * （或整本都和物理页号一样），调用方退回物理页号即可。
+   */
+  async getPageLabels(): Promise<string[] | null> {
+    if (this.labels !== undefined) return this.labels;
+    try {
+      this.labels = labelsFromPdf(await this.pdf.getPageLabels());
+    } catch {
+      this.labels = null;
+    }
+    return this.labels;
+  }
+
+  /**
+   * 文件里自带的标注（别的软件画的高亮、下划线、便签）。
+   *
+   * 和 `getLinks` 一样按「页 + 旋转角」缓存：`rect` / `quadPoints` 是未旋转的
+   * 用户坐标，页面一转，同一份数据算出来的比例就完全不同了。
+   */
+  async getFileAnnots(page: number, extraRotation = 0): Promise<PdfFileAnnot[]> {
+    const n = Math.min(Math.max(1, Math.floor(page)), this.numPages);
+    try {
+      const p = await this.page(n);
+      const rotate = rotationOf(p, extraRotation);
+      const key = `${n}@${rotate}`;
+      const cached = this.fileAnnots.get(key);
+      if (cached) return cached;
+      /* 分母用未旋转的 MediaBox：getViewport 的宽高已含 /Rotate，
+         拿它当分母会把横置页的标注全部算错位（和链接同一个坑） */
+      const box = (p.view as number[]) ?? [0, 0, 612, 792];
+      const annots = (await p.getAnnotations({ intent: 'display' })) as unknown[];
+      const out = mapFileAnnots(annots, { box, rotation: rotate });
+      this.fileAnnots.set(key, out);
+      return out;
+    } catch {
+      return [];
     }
   }
 
@@ -393,6 +439,8 @@ export class PdfDocument {
     this.pages.clear();
     this.texts.clear();
     this.sizes.clear();
+    this.links.clear();
+    this.fileAnnots.clear();
     try {
       await this.pdf.destroy();
     } catch {

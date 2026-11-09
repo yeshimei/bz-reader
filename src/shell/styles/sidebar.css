@@ -510,6 +510,71 @@
   color: var(--copper);
 }
 
+/* 行首色点：链接自带 `&color=` 时用它，颜色是 PDF++ 那套名字折算出来的。
+   没有颜色就用铜色半透明，保持和划线行同一种「点」的语言。 */
+.bzs-cite .dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--copper);
+  opacity: 0.55;
+}
+
+/* 笔记名占一半，剩下的让给别名原文：引的是哪句话比文件名有用 */
+.bzs-cite .nm {
+  flex: none;
+  max-width: 46%;
+}
+
+.bzs-cite .tx {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--t3);
+}
+
+/* 「只看本页」开关：贴在引用列表顶上，右对齐，不占一整行 */
+.bzs-citehead {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 6px 0;
+}
+
+.bzs-citeonly {
+  appearance: none;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-chip);
+  background: none;
+  color: var(--t3);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.bzs-citeonly:hover {
+  color: var(--ink);
+  border-color: var(--copper);
+}
+
+.bzs-citeonly.on {
+  border-color: var(--copper);
+  background: var(--copper-soft);
+  color: var(--copper);
+}
+
+/* 当前停的那一页：分组头换成铜色，翻过来一眼能认出自己在哪一段 */
+.bzs-hlg-h.is-here {
+  color: var(--copper);
+}
+
+.bzs-hlg-h.is-here .n {
+  color: var(--copper);
+}
+
 /* ── AI 对话 ── */
 .bzs-aichat {
   display: flex;

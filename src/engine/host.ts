@@ -206,7 +206,21 @@ export interface MountOptions {
    * 页面上那些虚线框由引擎自己画，这份只给侧栏「引用」页签用：
    * 用户得知道「是谁引了这页」，光看见框不知道出处。
    */
-  onPdfBacklinks?: (rows: Array<{ page: number; sourcePath: string }>) => void;
+  onPdfBacklinks?: (rows: Array<{ page: number; sourcePath: string; label?: string; color?: string }>) => void;
+  /**
+   * 工具栏「复制」菜单：壳层拼链接 / 取标注。
+   *
+   * 引擎只报「哪一页、什么视角」，书在库里的路径、显示文字格式、划线数据
+   * 都在壳层——把它们塞进引擎会让 PDF 模块认识整本书的数据结构。
+   */
+  onPdfCopy?: (
+    kind: 'page' | 'view' | 'embed' | 'marks',
+    info: { page: number; offset: { left: number; top: number; zoom: number } },
+  ) => void;
+  /** 点页面上的反链框：打开写这条引用的笔记（带修饰键时壳层决定怎么开） */
+  onPdfBacklinkTap?: (info: { sourcePath: string; event: MouseEvent }) => void;
+  /** 点 PDF 自带的批注：把正文交给壳层弹卡 */
+  onPdfFileAnnotTap?: (info: { contents: string; author: string; anchor: Rect }) => void;
 }
 
 /** 滚轮累计到多少才翻一页（像素）。触控板一次轻扫约 30–60，鼠标滚轮一格约 100。 */

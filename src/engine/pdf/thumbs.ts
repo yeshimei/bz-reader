@@ -18,6 +18,8 @@ export interface PdfThumbPanelOptions {
   onClose(): void;
   label: string;
   closeLabel: string;
+  /** 把一页拖出去（拖到笔记里生成链接）。没有就不给拖 */
+  onDragPage?(page: number, ev: DragEvent): void;
 }
 
 export class PdfThumbPanel {
@@ -114,6 +116,11 @@ export class PdfThumbPanel {
         this.opts.onPick(page);
         this.close();
       });
+      /* 拖到笔记里生成一条带页码的链接：拖拽本身由调用方填数据 */
+      if (this.opts.onDragPage) {
+        cell.draggable = true;
+        cell.addEventListener('dragstart', (ev) => this.opts.onDragPage?.(page, ev as DragEvent));
+      }
       this.observer?.observe(cell);
       frag.appendChild(cell);
     }

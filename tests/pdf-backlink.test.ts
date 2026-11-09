@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   backlinkCountByPage,
   collectPdfBacklinks,
+  hitsOnPage,
   invalidatePdfBacklinks,
   pdfBacklinkHits,
   subpathOfHref,
@@ -168,5 +169,26 @@ describe('collectPdfBacklinks', () => {
     invalidatePdfBacklinks();
     collectPdfBacklinks(app, BOOK);
     expect(cacheReads()).toBeGreaterThan(first);
+  });
+});
+
+describe('反链的可交互信息', () => {
+  it('链接别名作为「引的是哪一句」的提示', () => {
+    const hits = pdfBacklinkHits([
+      { path: '读书笔记/论文.md', link: '[[x.pdf#page=3&rect=1,2,3,4|第 3 页那段]]' },
+      { path: 'b.md', link: '[[x.pdf#page=3]]' },
+    ]);
+    expect(hits[0]!.label).toBe('第 3 页那段');
+    expect(hits[1]!.label).toBeUndefined();
+  });
+
+  it('按页筛出这一页的引用（侧栏「只看本页」用）', () => {
+    const hits = pdfBacklinkHits([
+      { path: 'a.md', link: '[[x.pdf#page=3]]' },
+      { path: 'b.md', link: '[[x.pdf#page=7]]' },
+      { path: 'c.md', link: '[[x.pdf#page=3&rect=1,1,2,2]]' },
+    ]);
+    expect(hitsOnPage(hits, 3).map((h) => h.sourcePath)).toEqual(['a.md', 'c.md']);
+    expect(hitsOnPage(hits, 4)).toEqual([]);
   });
 });

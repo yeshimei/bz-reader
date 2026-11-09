@@ -60,6 +60,10 @@ export type SideTab = 'toc' | 'bookmarks' | 'highlights' | 'cites' | 'ai';
 export interface PdfCiteRow {
   page: number;
   sourcePath: string;
+  /** 笔记里给这条链接写的别名（悬停看原文片段用） */
+  label?: string;
+  /** 链接自带 `&color=` 时按这个色画点，没有就用默认色 */
+  color?: string;
 }
 
 export type LibView = 'grid' | 'list';
@@ -265,6 +269,13 @@ export interface ShellState {
    * 不放 localStorage：引用关系随时会变，存旧值只会画出不存在的引用。
    */
   pdfCites: PdfCiteRow[];
+  /**
+   * 当前 PDF 停在第几页（0 = 不是 PDF / 还没定位）。
+   *
+   * 只给「引用」页签的「只看本页」用：反链按页分组，翻到第 40 页时
+   * 前面几十组都是路过的噪声。不落盘，读别的书就清掉。
+   */
+  pdfPage: number;
   bookId: string | null;
   /**
    * 最近激活的阅读视图（用 bookId 标识）。
@@ -328,6 +339,7 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   goal: 20,
   sideTab: 'toc',
   pdfCites: [],
+  pdfPage: 0,
   bookId: null,
   activeReaderId: null,
   pen: 'amber',
@@ -434,7 +446,7 @@ export function mutateState(fn: (s: ShellState) => void): void {
 
 function persist(): void {
   try {
-    const { overlay, libKw, noteKw, noteSelect, noteSel, searchKw, ideaDraft, ...rest } = state;
+    const { overlay, libKw, noteKw, noteSelect, noteSel, searchKw, ideaDraft, pdfPage, ...rest } = state;
     // 浮层与输入框内容不落盘：下次打开还停在上次的弹窗上很怪
     window.localStorage.setItem(LS_KEY, JSON.stringify(rest));
   } catch {

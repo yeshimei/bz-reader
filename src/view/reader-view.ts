@@ -18,6 +18,8 @@ import { normalizePrefs, pickPrefs, type ReaderPrefs } from '../data/prefs';
 import { recordPosition, type ReaderBook } from '../data/schema';
 import type { LinkTarget } from '../data/deeplink';
 import { parseWikilinkHref, wikilinkOf } from '../data/wikilink';
+import { pdfColorFromName, pdfDisplayLabel, pdfSubpathOf } from '../data/pdf-link';
+import { pdfLocatorPage, pdfPageLocator } from '../engine/pdf/locator';
 import {
   HIGHLIGHT_COLORS,
   colorCss,
@@ -62,6 +64,7 @@ import {
   getState as getShellState,
   opensTextPanel,
   setState as setShellState,
+  setStateQuiet,
   subscribe,
   notify as notifyShell,
   type OverlayKind,
@@ -137,6 +140,8 @@ export class ReaderView extends ItemView {
   private prefs: ReaderPrefs;
   /** 这本书最近一次算出的反链（PDF）：切走页签再切回来要在侧栏里重放 */
   private pdfCites: PdfCiteRow[] = [];
+  /** 点 PDF 自带批注时弹的那张小卡（一次只留一张） */
+  private faCard: HTMLElement | null = null;
 
   private rootEl: HTMLElement | null = null;
   private stage: HTMLElement | null = null;
@@ -1335,11 +1340,19 @@ export class ReaderView extends ItemView {
       this.pdfCopyTimer = null;
       const book = this.book;
       if (!book) return;
+      const page = pdfLocatorPage(info.cfiRange) ?? 1;
       const link = wikilinkOf(book, {
         text: info.text,
         cfiRange: info.cfiRange,
         pdfSelection: info.pdfSelection,
         pdfRect: info.pdfRect,
+        /* 别名跟着设置走：摘录档（默认）贴原文，页码档贴「第 12 页」——
+           自动复制和手动点「复制」必须同一种写法，否则同一本书两种链接 */
+        display: pdfDisplayLabel(shellPrefs().pdfLinkLabel, {
+          title: book.meta.title,
+          page,
+          text: info.text,
+        }),
       });
       if (!link) return;
       void navigator.clipboard?.writeText(link).catch(() => undefined);
@@ -1630,7 +1643,7 @@ export class ReaderView extends ItemView {
     if (getShellState().bookId !== book.id) {
       /* 换书时先清掉上一本的反链：EPUB 没有反链这一说，留着只会让侧栏
          把「围城被引用过」画到一本 epub 上。PDF 那份等宿主挂好会重新推。 */
-      setShellState({ bookId: book.id, pdfCites: [] });
+      setShellState({ bookId: book.id, pdfCites: [], pdfPage: 0 });
     }
     /* 同构造函数：重启后重开书，版式要读本平台那一份（见 data/prefs.ts 的 pickPrefs） */
     this.prefs = pickPrefs(this.api.store.get(), isMobileEnv());
@@ -1686,6 +1699,12 @@ export class ReaderView extends ItemView {
         onPdfViewState: (state) => this.savePdfView(state),
         /* PDF 反链：页面上的虚线框由引擎画，这份清单给侧栏「引用」页签 */
         onPdfBacklinks: (rows) => this.publishPdfCites(rows),
+        /* 工具栏「复制」：页链接 / 视图链接 / 嵌入 / 本页标注都由壳层拼 */
+        onPdfCopy: (kind, info) => this.copyPdfLink(kind, info),
+        /* 点页面上的反链框 → 打开来源笔记 */
+        onPdfBacklinkTap: (info) => this.openPdfSource(info),
+        /* 点文件自带批注 → 就地弹卡 */
+        onPdfFileAnnotTap: (info) => this.showFileAnnot(info),
         /* 脚注：默认在注释号上方开一小块浮窗，读完接着读。
            设置里选「跳到章末」就退回 foliate 的老行为——我们在同一条链路上
            自己调 goTo，保证两种模式只有一处判断。 */
@@ -1837,9 +1856,159 @@ export class ReaderView extends ItemView {
    * 两本书各开一个 tab 时，只有当前在读的那本写——侧栏是「这本书」的坐标，
    * 后台那本的引用不该顶掉眼前这本。值没变就不写，省掉一次整页重绘。
    */
+  /* ─────────────────── PDF：复制 / 反链 / 文件批注 ─────────────────── */
+
+  /**
+   * 工具栏「复制」的四种产出。
+   *
+   * 引擎只报「哪一页、什么视角」，链接怎么拼是壳层的事：书在库里的路径、
+   * 别名档位只有这里知道。三条链接都走 PDF++ 兼容的 hash，粘进笔记后
+   * Obsidian 原生 PDF 视图、PDF++ 和本插件都能打开——`bzr=` 是给我们的
+   * 精确定位，别人忽略它也不影响跳页。
+   */
+  private copyPdfLink(
+    kind: 'page' | 'view' | 'embed' | 'marks',
+    info: { page: number; offset: { left: number; top: number; zoom: number } },
+  ): void {
+    const book = this.book;
+    if (!book) return;
+    const page = Math.max(1, Math.floor(Number(info.page) || 1));
+    if (kind === 'marks') {
+      this.copyPageMarks(book, page);
+      return;
+    }
+    const label = pdfDisplayLabel(shellPrefs().pdfLinkLabel, { title: book.meta.title, page });
+    const path = book.fileRef.vaultPath;
+    /* 嵌入只带页码：Obsidian 原生视图会把多出来的参数当噪声，
+       而嵌入本来就是「看这一页」，不需要页内偏移。 */
+    if (kind === 'embed') {
+      this.writeClipboard(`![[${path}#page=${page}]]`);
+      return;
+    }
+    const offset =
+      kind === 'view'
+        ? {
+            left: Math.round(info.offset.left) || null,
+            top: Math.round(info.offset.top) || null,
+            zoom: Number(info.offset.zoom) || null,
+          }
+        : undefined;
+    const sub = pdfSubpathOf({ page, offset, locator: pdfPageLocator(page) });
+    this.writeClipboard(`[[${path}#${sub}|${label}]]`);
+  }
+
+  /**
+   * 本页标注 → 一段 callout。
+   *
+   * 不列成 `- [[长链接|原文]]`：粘进笔记是要读的，一串 hash 会把正文淹掉。
+   * 想回到原文再点对应的划线；这里先保住「哪本书、哪一页、写了什么」。
+   */
+  private copyPageMarks(book: ReaderBook, page: number): void {
+    const rows = highlightsOf(book).filter((h) => pdfLocatorPage(h.cfiRange ?? '') === page);
+    if (!rows.length) {
+      notify(t('pdf.copy.marksEmpty'), 'info');
+      return;
+    }
+    const title = book.meta.title || t('pdf.label.untitled');
+    const lines = [`> [!quote] ${t('pdf.label.titlePage', { title, n: String(page) })}`];
+    for (const h of rows) {
+      const text = String(h.text ?? '').replace(/\s+/g, ' ').trim();
+      if (text) lines.push(`> ${text}`);
+      const note = String(h.comment ?? '').replace(/\r?\n/g, '\n> ').trim();
+      if (note) lines.push('>', `> **${t('side.ideaTag')}** ${note}`);
+    }
+    this.writeClipboard(lines.join('\n'));
+  }
+
+  private writeClipboard(text: string): void {
+    if (!text) return;
+    const cp = navigator.clipboard;
+    if (!cp) {
+      notify(t('notice.copy.failed'), 'error');
+      return;
+    }
+    void cp.writeText(text).then(
+      () => notify(t('notice.copy.ok')),
+      () => notify(t('notice.copy.failed'), 'error'),
+    );
+  }
+
+  /**
+   * 点页面上的反链框 → 打开写这条引用的笔记。
+   *
+   * 按住 Ctrl / ⌘ 开在新标签：跳出去看笔记是常事，把当前页顶掉就回不来了。
+   */
+  private openPdfSource(info: { sourcePath: string; event: MouseEvent }): void {
+    const file = this.api.app.metadataCache.getFirstLinkpathDest(info.sourcePath, '');
+    if (!file) {
+      notify(t('pdf.backlink.gone'), 'error');
+      return;
+    }
+    const mod = !!info.event?.metaKey || !!info.event?.ctrlKey;
+    const leaf = mod ? this.api.app.workspace.getLeaf('tab') : this.api.app.workspace.getLeaf(false);
+    void leaf.openFile(file);
+  }
+
+  /**
+   * 点 PDF 文件里自带的批注 → 就地弹一小张卡。
+   *
+   * 不进浮层：批注是「这一句旁边有话说」，看一眼就该收，开全屏浮层等于
+   * 把读者从这一页拽走。点别处 / 再点一下同一处都收起。
+   */
+  private showFileAnnot(info: { contents: string; author: string; anchor: Rect }): void {
+    this.hideFileAnnot();
+    const root = this.rootEl;
+    if (!root) return;
+    const card = document.createElement('div');
+    card.className = 'bzr-fa-card';
+    const head = document.createElement('div');
+    head.className = 'bzr-fa-h';
+    head.textContent = info.author ? t('pdf.fileannot.by', { name: info.author }) : t('pdf.fileannot.note');
+    const body = document.createElement('div');
+    body.className = 'bzr-fa-b';
+    body.textContent = info.contents || t('pdf.fileannot.empty');
+    card.append(head, body);
+    root.appendChild(card);
+    const rootRect = root.getBoundingClientRect();
+    const box = card.getBoundingClientRect();
+    const pos = anchoredPlacement(
+      {
+        left: info.anchor.left - rootRect.left,
+        top: info.anchor.top - rootRect.top,
+        width: info.anchor.width,
+        height: info.anchor.height,
+      },
+      { width: box.width, height: box.height },
+      { width: rootRect.width, height: rootRect.height },
+      isMobileEnv() ? 'below' : 'above',
+    );
+    card.style.left = `${pos.left}px`;
+    card.style.top = `${pos.top}px`;
+    this.faCard = card;
+    /* 点卡片以外的地方收起。用捕获阶段，免得被正文的「点一下翻页」吞掉 */
+    const off = (ev: MouseEvent): void => {
+      if (card.contains(ev.target as Node)) return;
+      document.removeEventListener('pointerdown', off, true);
+      this.hideFileAnnot();
+    };
+    window.setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
+  }
+
+  private hideFileAnnot(): void {
+    this.faCard?.remove();
+    this.faCard = null;
+  }
+
   private publishPdfCites(rows: PdfCiteRow[]): void {
     const book = this.book;
     if (!book) return;
+    /* 引擎给的是 PDF++ 的颜色名（Yellow / Red…），侧栏要 CSS 颜色。
+       在这里折一次，别让渲染层去认识 PDF++ 的色名表。 */
+    const styled = rows.map((row) => {
+      const named = pdfColorFromName(row.color);
+      return named ? { ...row, color: colorCss(named) } : { page: row.page, sourcePath: row.sourcePath, label: row.label };
+    });
+    rows = styled;
     /* 先自己留一份：两本书各开一个 tab 时，后台那本只记不写，等切回来再补 */
     this.pdfCites = rows;
     const cur = getShellState();
@@ -1848,7 +2017,13 @@ export class ReaderView extends ItemView {
     if (cur.bookId !== book.id) return;
     const same =
       cur.pdfCites.length === rows.length &&
-      rows.every((r, i) => cur.pdfCites[i].page === r.page && cur.pdfCites[i].sourcePath === r.sourcePath);
+      rows.every(
+        (r, i) =>
+          cur.pdfCites[i].page === r.page &&
+          cur.pdfCites[i].sourcePath === r.sourcePath &&
+          (cur.pdfCites[i].label ?? '') === (r.label ?? '') &&
+          (cur.pdfCites[i].color ?? '') === (r.color ?? ''),
+      );
     if (!same) setShellState({ pdfCites: rows });
   }
 
@@ -1884,6 +2059,17 @@ export class ReaderView extends ItemView {
     });
     this.lastPercent = info.percent;
     if (info.cfi) this.lastCfi = info.cfi;
+    /* 「引用」页签的「只看本页」要知道眼前是第几页。翻一页就整页广播一次
+       会把侧栏重绘得很勤，所以常态只静默写入；只有开关真的开着、人又正
+       看着引用页签时，才广播一次让列表跟着翻。 */
+    if (this.host.isPdf) {
+      const page = pdfLocatorPage(info.cfi ?? '') ?? 0;
+      const cur = getShellState();
+      if (page > 0 && cur.bookId === book.id && cur.pdfPage !== page) {
+        if (RT.citesOnlyPage && cur.sideTab === 'cites') setShellState({ pdfPage: page });
+        else setStateQuiet({ pdfPage: page });
+      }
+    }
     if (info.chapterTitle) this.lastChapterTitle = info.chapterTitle;
     book.reading.stats.lastReadTime = Date.now();
     if (!book.reading.stats.startReadTime) book.reading.stats.startReadTime = Date.now();

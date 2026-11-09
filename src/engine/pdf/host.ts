@@ -15,6 +15,7 @@ import { normalizePath } from 'obsidian';
 import { notify } from '../../core/notice';
 import type { EngineMeta } from '../../data/book-meta';
 import { collectPdfBacklinks, invalidatePdfBacklinks, pdfBacklinkHits } from '../../data/pdf-backlink';
+import { pdfDisplayLabel } from '../../data/pdf-link';
 import type { ReaderPrefs } from '../../data/prefs';
 import { t } from '../../i18n';
 import type { FoliateBook, FoliateTOCItem } from '../../types/foliate';
@@ -94,9 +95,27 @@ export class PdfEngineHost implements ReaderEngine {
       onStall: (what) => opts.onStall?.(what),
       onViewState: (state) => opts.onPdfViewState?.(state),
       onExportPage: (page) => this.exportPage(page, vaultPath),
+      onCopy: (kind) =>
+        opts.onPdfCopy?.(kind, {
+          page: this.view?.page ?? 1,
+          offset: this.view?.currentViewOffset() ?? { left: 0, top: 0, zoom: 1 },
+        }),
+      onBacklinkTap: (info) => opts.onPdfBacklinkTap?.(info),
+      onFileAnnotTap: (info) => opts.onPdfFileAnnotTap?.(info),
+      /* 缩略图拖到笔记：引擎只给「这条链接长什么样」，怎么显示由设置决定 */
+      linkForPage: (page) => {
+        const mode = this.prefs?.pdfLinkLabel ?? 'text';
+        const label = pdfDisplayLabel(mode, { title: this.meta.title, page });
+        return `[[${this.bookPath}#page=${page}|${label}]]`;
+      },
     });
     await this.view.mount(container);
     if (this.destroyed) return;
+
+    /* 页标签：论文前置页是 i、ii…，页脚与链接别名都该按书自己的说法 */
+    void doc.getPageLabels().then((labels) => {
+      if (!this.destroyed) this.view?.setPageLabels(labels);
+    });
 
     /* 反链：笔记里引用了这本书的位置，打开时直接标在页面上。
        索引坏了 / 大库里第一次扫得慢都不该挡住看书，所以整段包在 try 里。 */
@@ -262,6 +281,8 @@ export class PdfEngineHost implements ReaderEngine {
       if (opts.shouldStop?.()) break;
       pages.push({ page, text: await doc.getText(page) });
     }
+    /* 命中也要落到页面上：点一条结果跳过去，整页字里得能看见自己在找什么 */
+    this.view?.setSearchQuery(kw);
     return searchPageTexts(pages, kw, 200).map((hit) => ({
       cfi: pdfPageLocator(hit.page),
       excerpt: `${hit.excerpt.pre}${hit.excerpt.match}${hit.excerpt.post}`,
@@ -269,7 +290,7 @@ export class PdfEngineHost implements ReaderEngine {
   }
 
   clearSearch(): void {
-    /* PDF 的搜索命中不画在页面上，没有需要清的高亮 */
+    this.view?.clearSearchHighlight();
   }
 
   setAnnotations(list: HostAnnotation[]): void {
@@ -339,7 +360,12 @@ export class PdfEngineHost implements ReaderEngine {
       const hits = pdfBacklinkHits(collectPdfBacklinks(this.app, this.bookPath));
       this.view?.setBacklinks(hits);
       this.opts?.onPdfBacklinks?.(
-        hits.map((hit) => ({ page: hit.page, sourcePath: hit.sourcePath })),
+        hits.map((hit) => ({
+          page: hit.page,
+          sourcePath: hit.sourcePath,
+          label: hit.label,
+          color: hit.color,
+        })),
       );
     } catch (err) {
       console.warn('[bz-reader] PDF 反链读取失败：', err);

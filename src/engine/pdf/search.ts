@@ -54,3 +54,31 @@ export function searchPageTexts(
   }
   return out;
 }
+
+/**
+ * 一段文字里 `query` 出现的所有区间（大小写不敏感，按出现顺序）。
+ *
+ * 搜索面板只给「第几页」；用户点进去还得自己在整页里找那一处。有了区间，
+ * 视图层就能把命中落到页面上。每页单独算、上限 cap 条——一页出现几百次
+ * 「的」时，画出来只会糊成一片，也没有信息量。
+ */
+export function rangesInText(
+  text: string,
+  query: string,
+  cap = 40,
+): Array<{ start: number; end: number }> {
+  const haystack = String(text ?? '');
+  const needle = String(query ?? '').trim().toLowerCase();
+  if (!haystack || !needle) return [];
+  const lower = haystack.toLowerCase();
+  const limit = Math.max(1, Math.floor(Number.isFinite(cap) ? cap : 40));
+  const out: Array<{ start: number; end: number }> = [];
+  let from = 0;
+  while (out.length < limit) {
+    const at = lower.indexOf(needle, from);
+    if (at < 0) break;
+    out.push({ start: at, end: at + needle.length });
+    from = at + needle.length;
+  }
+  return out;
+}

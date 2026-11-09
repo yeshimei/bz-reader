@@ -18,11 +18,16 @@ import type { Rect, RelocateInfo, SelectionInfo } from '../host';
 import { parsePdfLinkHash } from '../../data/pdf-link';
 import type { PdfDocument, PdfPageSize, PdfRenderTask } from './document';
 import type { PdfBacklinkHit } from '../../data/pdf-backlink';
-import type { PdfLinkSelection } from '../../data/pdf-link';
+import { pdfColorFromName, type PdfLinkSelection } from '../../data/pdf-link';
+import { colorCss } from '../../data/notes';
+import { t } from '../../i18n';
 import { fitScaleFor, pickFitSize, type PdfBox } from './fit';
-import { pageAtRow, pageLabel, turnPage } from './layout';
+import { pageAtRow, turnPage } from './layout';
+import { pageLabelText } from './pagelabels';
 import { mergeRects } from './rects';
+import { rangesInText } from './search';
 import { PdfThumbPanel } from './thumbs';
+import type { PdfFileAnnot } from './annots';
 import {
   encodePdfLocator,
   encodePdfRectLocator,
@@ -42,7 +47,24 @@ export interface PdfViewCallbacks {
   onViewState?: (state: PdfViewState) => void;
   /** 导出某一页为图片。渲染与落盘都在宿主那边，视图只负责触发 */
   onExportPage?: (page: number) => Promise<void>;
+  /**
+   * 工具栏「复制」菜单里的四种产出。字符串只描述「要什么」，拼链接、
+   * 取标注都在壳层做——引擎不认识书在库里的路径，也不认识划线数据。
+   */
+  onCopy?: (kind: PdfCopyKind) => void;
+  /** 点页面上的反链框：打开写这条引用的笔记 */
+  onBacklinkTap?: (info: { sourcePath: string; event: MouseEvent }) => void;
+  /** 点 PDF 自带的批注图标：把批注正文交给壳层弹卡 */
+  onFileAnnotTap?: (info: { contents: string; author: string; anchor: Rect }) => void;
+  /**
+   * 「这一页该怎么写成链接」——缩略图拖到笔记里时用。
+   * 引擎不知道书名与库内路径，所以只问一句、不自己拼。
+   */
+  linkForPage?: (page: number) => string;
 }
+
+/** 「复制」菜单的四种产出（见 PdfViewCallbacks.onCopy） */
+export type PdfCopyKind = 'page' | 'view' | 'embed' | 'marks';
 
 /** 每本书各自记住的 PDF 视图状态（角度、双页）。与全局 prefs 分开存 */
 export interface PdfViewState {
@@ -136,6 +158,24 @@ export class PdfView {
   private pagedBtn: HTMLButtonElement | null = null;
   private thumbsBtn: HTMLButtonElement | null = null;
   private thumbs: PdfThumbPanel | null = null;
+
+  /** 书的页码标签（`/PageLabels`）：论文前置页是 i、ii…；null = 没有 */
+  private pageLabels: string[] | null = null;
+  /** PDF 文件里自带的标注，按页缓存；换角度时整份作废 */
+  private readonly fileAnnots = new Map<string, PdfFileAnnot[]>();
+  /** 跳转历史：从笔记 / 目录跳进某一页之后能一键回来 */
+  private readonly history: Array<{ page: number; top: number }> = [];
+  private backBtn: HTMLButtonElement | null = null;
+  private copyBtn: HTMLButtonElement | null = null;
+  private copyMenuEl: HTMLDivElement | null = null;
+  /** 页内链接的悬浮预览（目标页缩略图） */
+  private linkPreviewEl: HTMLDivElement | null = null;
+  private linkPreviewTimer: number | null = null;
+  private linkPreviewUrl: string | null = null;
+  /** 反链框的悬浮提示 */
+  private blTipEl: HTMLDivElement | null = null;
+  /** 当前搜索词：命中要落到页面上，否则跳过去还得自己找 */
+  private searchQuery = '';
 
   private observer: IntersectionObserver | null = null;
   private resizeObserver: ResizeObserver | null = null;
@@ -246,7 +286,18 @@ export class PdfView {
       : external
         ? clamp(external.page, 1, this.numPages)
         : clamp(1 + Math.round(clamp(fraction, 0, 1) * Math.max(0, this.numPages - 1)), 1, this.numPages);
-    this.goToPage(page, false);
+    /* 链接里带 `offset=`（本插件「当前视图链接」、PDF++ 的 native 视图链接）：
+       先按缩放排一遍，再落到页内那一行。没这两个字段就还是老行为 */
+    const offset = external?.offset;
+    if (offset) {
+      const zoom = Number(offset.zoom);
+      if (Number.isFinite(zoom) && zoom >= 0.2 && zoom <= 8 && Math.abs(zoom - this.scale) > 0.01) {
+        this.fitMode = 'none';
+        this.applyScale(zoom, false);
+      }
+    }
+    const top = Number(offset?.top);
+    this.goToPage(page, false, Number.isFinite(top) ? clamp(top, 0, 1) : 0);
     this.current = page;
     this.emitRelocate();
   }
@@ -293,12 +344,20 @@ export class PdfView {
     return this.paged;
   }
 
-  goToPage(page: number, smooth = true): void {
+  /**
+   * 跳到某页。`top` 是页内位置（0..1，0 = 页首）：
+   * 「复制当前视图链接」存的就是它，回来时才能停在原来那一行。
+   */
+  goToPage(page: number, smooth = true, top = 0): void {
     const index = clamp(Math.floor(page), 1, this.numPages) - 1;
     const el = this.pageEls[index];
     if (!el) return;
     this.current = index + 1;
-    this.scroller.scrollTo({ top: Math.max(0, el.offsetTop - PAGE_GAP), behavior: smooth ? 'smooth' : 'auto' });
+    const within = clamp(Number(top) || 0, 0, 1) * el.offsetHeight;
+    this.scroller.scrollTo({
+      top: Math.max(0, el.offsetTop - PAGE_GAP + within),
+      behavior: smooth ? 'smooth' : 'auto',
+    });
     this.ensureAround(this.current, true);
     this.scheduleRelocate();
   }
@@ -310,12 +369,14 @@ export class PdfView {
   goToLocator(locator: string): boolean {
     const target = parsePdfLocator(locator);
     if (target) {
+      this.recordHistory();
       this.goToPage(target.page);
       return true;
     }
     /* PDF++ / Obsidian 原生 PDF 复制出来的 `#page=3&selection=…` 也要能跳 */
     const external = parsePdfLinkHash(locator);
     if (external) {
+      this.recordHistory();
       this.goToPage(external.page);
       return true;
     }
@@ -338,6 +399,13 @@ export class PdfView {
       label: '页缩略图',
       closeLabel: '关闭',
       onPick: (page) => this.goToPage(page, false),
+      /* 缩略图拖到笔记里 = 一条带页码的链接（PDF++ 的拖放） */
+      onDragPage: (page, ev) => {
+        const link = this.opts.linkForPage?.(page);
+        if (!link || !ev.dataTransfer) return;
+        ev.dataTransfer.setData('text/plain', link);
+        ev.dataTransfer.effectAllowed = 'copy';
+      },
       onClose: () => {
         this.thumbs?.close();
         this.thumbsBtn?.classList.remove('is-on');
@@ -456,6 +524,11 @@ export class PdfView {
       bar.appendChild(btn);
       return btn;
     };
+    /* 跳转历史：从笔记 / 目录 / 引用面板跳进来之后，能一键退回原处。
+       没有历史时把它藏起来——常驻一颗永远灰着的按钮只是占地方。 */
+    this.backBtn = add('↩', t('pdf.tool.back'), () => this.back());
+    this.backBtn.classList.add('bzr-pdf-back');
+    this.syncBackButton();
     add('−', '缩小', () => this.zoomOut());
     this.zoomLabelEl = add('100%', '当前缩放', () => this.setFitMode('width'));
     add('＋', '放大', () => this.zoomIn());
@@ -466,6 +539,11 @@ export class PdfView {
     this.pagedBtn = add('翻', '一屏一页', () => this.setPaged(!this.paged));
     this.thumbsBtn = add('页图', '页缩略图', () => this.toggleThumbs());
     add('存', '导出本页为图片', () => void this.exportCurrentPage());
+    /* 复制菜单：页链接 / 视图链接 / 嵌入 / 本页标注。
+       四种产出都不常点，摊成四颗会把工具栏挤满，收进一枚下拉更合适。 */
+    this.copyBtn = add('⧉', t('pdf.tool.copy'), () => this.toggleCopyMenu());
+    this.copyBtn.classList.add('bzr-pdf-copy');
+    this.copyBtn.setAttribute('aria-haspopup', 'menu');
     /* 页码：滚动到哪一页比百分比准，278 页的书尤其需要 */
     const pageNo = document.createElement('span');
     pageNo.className = 'bzr-pdf-pageno';
@@ -509,10 +587,371 @@ export class PdfView {
     if (!this.pageLabelEl) return;
     /* 双页并排时一行两页，页码要报「4–5」而不是 4：只报一个数字，
        用户会以为右页没跳过来 */
-    this.pageLabelEl.textContent = pageLabel(this.current, this.numPages, this.spread);
+    this.pageLabelEl.textContent = pageLabelText(this.current, this.numPages, this.spread, this.pageLabels);
     this.progressEl?.setAttribute('max', String(Math.max(1, this.numPages)));
     if (this.progressEl) this.progressEl.value = String(this.current);
     this.thumbs?.setCurrent(this.current);
+  }
+
+  /** 书的页码标签（`/PageLabels`）。null = 没有，页脚保持物理页号 */
+  setPageLabels(labels: readonly string[] | null | undefined): void {
+    this.pageLabels = labels?.length ? [...labels] : null;
+    this.updatePageLabel();
+  }
+
+  /* ── 搜索命中 ── */
+
+  /**
+   * 搜索词落到页面上。
+   *
+   * 搜索面板只告诉用户「在第几页」；跳过去之后整页字，还得自己找那一个词。
+   * 这里按文字层里的字符区间反推矩形，和划线用同一套坐标（滚动缩放都不用重算）。
+   * 传空串 = 清掉。
+   */
+  setSearchQuery(query: string | null | undefined): void {
+    const next = String(query ?? '').trim();
+    if (next === this.searchQuery) return;
+    this.searchQuery = next;
+    for (const page of this.rendered) this.paintSearch(page);
+  }
+
+  clearSearchHighlight(): void {
+    this.setSearchQuery('');
+  }
+
+  private paintSearch(page: number): void {
+    const el = this.pageEls[page - 1];
+    if (!el) return;
+    el.querySelectorAll('.bzr-pdf-searchhit').forEach((node) => node.remove());
+    const query = this.searchQuery;
+    if (!query) return;
+    const layer = el.querySelector('.textLayer') as HTMLElement | null;
+    if (!layer) return;
+    const text = layer.textContent ?? '';
+    if (!text) return;
+    const ranges = rangesInText(text, query, 40);
+    if (!ranges.length) return;
+    const rects: NormRect[] = [];
+    for (const range of ranges) {
+      const got = this.rectsOfOffset(layer, range.start, range.end);
+      if (got?.length) rects.push(...got);
+    }
+    if (!rects.length) return;
+    const merged = mergeRects(rects);
+    merged.forEach((rect, index) => {
+      const mark = document.createElement('div');
+      /* 第一处给重一点的颜色：一眼能看出「跳过来落在哪」 */
+      mark.className = `bzr-pdf-searchhit${index === 0 ? ' is-first' : ''}`;
+      mark.style.left = `${rect.left * 100}%`;
+      mark.style.top = `${rect.top * 100}%`;
+      mark.style.width = `${rect.width * 100}%`;
+      mark.style.height = `${rect.height * 100}%`;
+      el.appendChild(mark);
+    });
+  }
+
+  /* ── 跳转历史 ── */
+
+  /** 记下当前位置（只在「用链接 / 目录跳走」之前记，滚动与翻页不算） */
+  private recordHistory(): void {
+    const el = this.pageEls[this.current - 1];
+    const top = el
+      ? clamp((this.scroller.scrollTop - el.offsetTop + PAGE_GAP) / Math.max(1, el.offsetHeight), 0, 1)
+      : 0;
+    const last = this.history[this.history.length - 1];
+    if (last && last.page === this.current && Math.abs(last.top - top) < 0.02) return;
+    this.history.push({ page: this.current, top });
+    if (this.history.length > 50) this.history.shift();
+    this.syncBackButton();
+  }
+
+  /** 回到跳转之前的位置；没有历史返回 false */
+  back(): boolean {
+    const entry = this.history.pop();
+    this.syncBackButton();
+    if (!entry) return false;
+    this.goToPage(entry.page, true, entry.top);
+    return true;
+  }
+
+  private syncBackButton(): void {
+    if (!this.backBtn) return;
+    this.backBtn.style.display = this.history.length ? '' : 'none';
+  }
+
+  /**
+   * 当前视图：页内位置 + 缩放。「复制当前视图链接」用它，
+   * 下次点回来能停在同一段字上，而不是只到那一页的页首。
+   */
+  currentViewOffset(): { left: number; top: number; zoom: number } {
+    const el = this.pageEls[this.current - 1];
+    const top = el
+      ? clamp((this.scroller.scrollTop - el.offsetTop + PAGE_GAP) / Math.max(1, el.offsetHeight), 0, 1)
+      : 0;
+    return {
+      left: 0,
+      top: Math.round(top * 1000) / 1000,
+      zoom: Math.round(this.scale * 100) / 100,
+    };
+  }
+
+  /* ── 复制菜单 ── */
+
+  private toggleCopyMenu(): void {
+    if (this.copyMenuEl) {
+      this.closeCopyMenu();
+      return;
+    }
+    const menu = document.createElement('div');
+    menu.className = 'bzr-pdf-menu';
+    menu.setAttribute('role', 'menu');
+    const items: Array<[PdfCopyKind, string]> = [
+      ['page', t('pdf.copy.page')],
+      ['view', t('pdf.copy.view')],
+      ['embed', t('pdf.copy.embed')],
+      ['marks', t('pdf.copy.marks')],
+    ];
+    for (const [kind, label] of items) {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.setAttribute('role', 'menuitem');
+      item.dataset.kind = kind;
+      item.textContent = label;
+      item.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        this.closeCopyMenu();
+        this.opts.onCopy?.(kind);
+      });
+      menu.appendChild(item);
+    }
+    this.root.appendChild(menu);
+    this.copyMenuEl = menu;
+    this.copyBtn?.classList.add('is-on');
+  }
+
+  private closeCopyMenu(): void {
+    this.copyMenuEl?.remove();
+    this.copyMenuEl = null;
+    this.copyBtn?.classList.remove('is-on');
+  }
+
+  /* ── PDF 自带标注 ── */
+
+  /**
+   * 文件里本来就有的标注（在别的软件里画的）。
+   *
+   * 和自家的划线分两层画：这一层是淡色、带类型（下划线只画线），点开能看批注
+   * 正文。缓存按「页 + 旋转角」——转 90 度之后矩形全变了，旧缓存不能再用。
+   */
+  private async paintFileAnnots(page: number): Promise<void> {
+    const el = this.pageEls[page - 1];
+    if (!el) return;
+    const key = `${page}@${this.rotation}`;
+    let list = this.fileAnnots.get(key);
+    if (!list) {
+      list = await this.doc.getFileAnnots(page, this.rotation).catch(() => []);
+      if (this.destroyed) return;
+      this.fileAnnots.set(key, list);
+    }
+    if (!el.isConnected || !list.length) return;
+    el.querySelectorAll('.bzr-pdf-fileannot').forEach((node) => node.remove());
+    list.forEach((annot, index) => {
+      for (const rect of mergeRects(annot.rects)) {
+        const mark = document.createElement('div');
+        mark.className = `bzr-pdf-fileannot is-${annot.kind}${annot.contents ? ' has-note' : ''}`;
+        mark.dataset.annot = String(index);
+        mark.style.left = `${rect.left * 100}%`;
+        mark.style.top = `${rect.top * 100}%`;
+        mark.style.width = `${rect.width * 100}%`;
+        mark.style.height = `${rect.height * 100}%`;
+        if (annot.color) mark.style.setProperty('--bzr-fa-color', annot.color);
+        if (annot.contents) mark.title = annot.contents.slice(0, 300);
+        el.appendChild(mark);
+      }
+    });
+  }
+
+  /* ── 悬停：页内链接预览 / 反链提示 ── */
+
+  /** 鼠标落在链接热区或反链框上：一个出目标页缩略图，一个出引用来源 */
+  private onHoverIn = (ev: MouseEvent): void => {
+    if (this.destroyed) return;
+    const target = ev.target as HTMLElement | null;
+    const hot = target?.closest('.bzr-pdf-linkhot') as HTMLElement | null;
+    if (hot) {
+      const page = Number(hot.dataset.target) || 0;
+      if (page) this.showLinkPreview(hot, page);
+      return;
+    }
+    const pageEl = target?.closest('.bzr-pdf-page') as HTMLElement | null;
+    if (!pageEl) return;
+    /* 文件批注优先：它比反链框更具体，而且只有它带正文可看 */
+    const annot = this.fileAnnotAt(pageEl, ev.clientX, ev.clientY);
+    if (annot) {
+      this.showAnnotTip(pageEl, annot);
+      return;
+    }
+    const hit = this.backlinkAt(pageEl, ev.clientX, ev.clientY);
+    if (hit) this.showBacklinkTip(pageEl, hit);
+  };
+
+  private onHoverOut = (ev: MouseEvent): void => {
+    const target = ev.target as HTMLElement | null;
+    if (target?.closest('.bzr-pdf-linkhot')) this.hideLinkPreview();
+    if (target?.closest('.bzr-pdf-page')) this.hideBacklinkTip();
+  };
+
+  /** 点在哪一条反链框上（框本身不吃指针事件，靠坐标反查，才不挡划词） */
+  private backlinkAt(pageEl: HTMLElement, x: number, y: number): HTMLElement | null {
+    const marks = pageEl.querySelectorAll<HTMLElement>('.bzr-pdf-backlink');
+    for (const mark of Array.from(marks)) {
+      const box = mark.getBoundingClientRect();
+      if (x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) return mark;
+    }
+    return null;
+  }
+
+  /**
+   * 点在哪一条文件批注上。
+   *
+   * 和反链一样不吃指针事件，否则页面上每一块彩色都会变成一个「划不动的
+   * 死区」。重叠时取面积最小的：整页方框套着三行高亮时，用户要的显然是
+   * 那三行。
+   */
+  private fileAnnotAt(pageEl: HTMLElement, x: number, y: number): HTMLElement | null {
+    const marks = pageEl.querySelectorAll<HTMLElement>('.bzr-pdf-fileannot');
+    let best: HTMLElement | null = null;
+    let bestArea = Infinity;
+    for (const mark of Array.from(marks)) {
+      const box = mark.getBoundingClientRect();
+      if (x < box.left || x > box.right || y < box.top || y > box.bottom) continue;
+      const area = box.width * box.height;
+      if (area < bestArea) {
+        bestArea = area;
+        best = mark;
+      }
+    }
+    return best;
+  }
+
+  private showLinkPreview(hot: HTMLElement, page: number): void {
+    this.hideLinkPreview();
+    this.linkPreviewTimer = window.setTimeout(() => {
+      this.linkPreviewTimer = null;
+      if (this.destroyed || !hot.isConnected) return;
+      const el = document.createElement('div');
+      el.className = 'bzr-pdf-linkprev is-empty';
+      const cap = document.createElement('span');
+      cap.className = 'cap';
+      cap.textContent = t('pdf.preview.page', { n: page });
+      const body = document.createElement('div');
+      body.className = 'body';
+      el.append(cap, body);
+      this.root.appendChild(el);
+      this.linkPreviewEl = el;
+      this.placeNear(el, hot);
+      void this.doc.renderThumb(page, 220).then((blob) => {
+        if (!blob || this.linkPreviewEl !== el) return;
+        const url = URL.createObjectURL(blob);
+        this.linkPreviewUrl = url;
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = '';
+        body.replaceChildren(img);
+        el.classList.remove('is-empty');
+      });
+    }, 220);
+  }
+
+  private hideLinkPreview(): void {
+    if (this.linkPreviewTimer !== null) {
+      window.clearTimeout(this.linkPreviewTimer);
+      this.linkPreviewTimer = null;
+    }
+    this.linkPreviewEl?.remove();
+    this.linkPreviewEl = null;
+    if (this.linkPreviewUrl) {
+      URL.revokeObjectURL(this.linkPreviewUrl);
+      this.linkPreviewUrl = null;
+    }
+  }
+
+  /** 摆到热区上方；上面放不下就翻到下方，再夹进窗口 */
+  private placeNear(el: HTMLElement, anchor: HTMLElement): void {
+    const box = anchor.getBoundingClientRect();
+    const rootBox = this.root.getBoundingClientRect();
+    el.style.left = `${clamp(box.left - rootBox.left, 4, Math.max(4, rootBox.width - 230))}px`;
+    el.style.top = `${Math.max(4, box.top - rootBox.top - 170)}px`;
+    const rect = el.getBoundingClientRect();
+    if (rect.top < 4) {
+      el.style.top = `${box.bottom - rootBox.top + 6}px`;
+    }
+  }
+
+  private showBacklinkTip(pageEl: HTMLElement, mark: HTMLElement): void {
+    const source = mark.dataset.source ?? '';
+    if (this.blTipEl && this.blTipEl.dataset.source === source) return;
+    this.hideBacklinkTip();
+    const el = document.createElement('div');
+    el.className = 'bzr-pdf-btip';
+    el.dataset.source = source;
+    const name = document.createElement('span');
+    name.className = 'nm';
+    const base = source.split('/').pop()?.replace(/\.md$/i, '') ?? source;
+    name.textContent = t('pdf.backlink.citedBy', { name: base });
+    el.appendChild(name);
+    const label = mark.dataset.label ?? '';
+    if (label) {
+      const quote = document.createElement('span');
+      quote.className = 'qt';
+      quote.textContent = label;
+      el.appendChild(quote);
+    }
+    this.placeTip(pageEl, el, mark);
+  }
+
+  /**
+   * 悬停 PDF 自带批注：把批注正文浮在框上方。
+   *
+   * 框不吃指针事件，所以 DOM 的 `title` 永远不会弹——正文只能自己画。
+   */
+  private showAnnotTip(pageEl: HTMLElement, mark: HTMLElement): void {
+    const page = Number(pageEl.dataset.page) || 0;
+    const list = page ? this.fileAnnots.get(`${page}@${this.rotation}`) : null;
+    const annot = list?.[Number(mark.dataset.annot)];
+    if (!annot?.contents) return;
+    const key = `annot:${page}:${mark.dataset.annot}`;
+    if (this.blTipEl?.dataset.source === key) return;
+    this.hideBacklinkTip();
+    const el = document.createElement('div');
+    el.className = 'bzr-pdf-btip is-note';
+    el.dataset.source = key;
+    const name = document.createElement('span');
+    name.className = 'nm';
+    name.textContent = annot.author
+      ? t('pdf.fileannot.by', { name: annot.author })
+      : t('pdf.fileannot.note');
+    const quote = document.createElement('span');
+    quote.className = 'qt';
+    quote.textContent = annot.contents;
+    el.append(name, quote);
+    this.placeTip(pageEl, el, mark);
+  }
+
+  /** 把提示框摆到框上方；上面放不下就贴下方，左右夹进页面内 */
+  private placeTip(pageEl: HTMLElement, el: HTMLDivElement, mark: HTMLElement): void {
+    pageEl.appendChild(el);
+    this.blTipEl = el;
+    const pageBox = pageEl.getBoundingClientRect();
+    const box = mark.getBoundingClientRect();
+    el.style.left = `${clamp(box.left - pageBox.left, 2, Math.max(2, pageBox.width - 180))}px`;
+    el.style.top = `${Math.max(2, box.top - pageBox.top - el.offsetHeight - 6)}px`;
+  }
+
+  private hideBacklinkTip(): void {
+    this.blTipEl?.remove();
+    this.blTipEl = null;
   }
 
   private updateZoomLabel(): void {
@@ -556,6 +995,7 @@ export class PdfView {
   async pulseAt(locator: string): Promise<void> {
     const target = parsePdfLocator(locator);
     if (!target) return;
+    this.recordHistory();
     this.goToPage(target.page);
     const el = this.pageEls[target.page - 1];
     if (!el) return;
@@ -592,6 +1032,12 @@ export class PdfView {
     document.removeEventListener('pointerup', this.onFrameUp);
     this.clearFrame();
     this.clearLiveSelection();
+    this.hideLinkPreview();
+    this.hideBacklinkTip();
+    this.closeCopyMenu();
+    this.root.removeEventListener('mouseover', this.onHoverIn);
+    this.root.removeEventListener('mouseout', this.onHoverOut);
+    this.fileAnnots.clear();
     if (this.relocateTimer !== null) window.clearTimeout(this.relocateTimer);
     if (this.selectionTimer !== null) window.clearTimeout(this.selectionTimer);
     if (this.scrollSettle !== null) window.clearTimeout(this.scrollSettle);
@@ -696,6 +1142,9 @@ export class PdfView {
 
   private bindEvents(): void {
     this.scroller.addEventListener('scroll', () => this.onScroll(), { passive: true });
+    /* 悬停：页内链接出目标页缩略图，反链框出「引用自哪篇」。 */
+    this.root.addEventListener('mouseover', this.onHoverIn);
+    this.root.addEventListener('mouseout', this.onHoverOut);
 
     this.observer = new IntersectionObserver(
       (entries) => {
@@ -733,6 +1182,10 @@ export class PdfView {
 
   private onScroll(): void {
     if (this.destroyed) return;
+    /* 滚动时浮层会僵在原地：预览跟着旧位置跑，看起来像贴错了地方 */
+    this.hideLinkPreview();
+    this.hideBacklinkTip();
+    this.closeCopyMenu();
     this.syncCurrentFromScroll();
     /* scroll-snap 的吸附发生在滚动停下之后：最后一帧的 scrollTop 还停在
        吸附中间，页码会落后一屏（真机上「滚到 4–5，角标还写着 2–3」）。
@@ -1110,7 +1563,40 @@ export class PdfView {
   }
 
   private onClick = (ev: MouseEvent): void => {
-    const mark = (ev.target as HTMLElement | null)?.closest('.bzr-pdf-annot-mark') as HTMLElement | null;
+    const target = ev.target as HTMLElement | null;
+    /* 点菜单以外的地方收起「复制」下拉。菜单项自己的 click 已经 stopPropagation */
+    if (this.copyMenuEl && !target?.closest('.bzr-pdf-menu, .bzr-pdf-copy')) {
+      this.closeCopyMenu();
+    }
+    /* PDF 文件里自带的批注：点开看正文。
+       框本身不吃指针事件（会挡住划词），坐标反查；多个框叠在一起时取
+       面积最小的那一处——最具体的那一条才是用户想看的。 */
+    const pageEl = target?.closest('.bzr-pdf-page') as HTMLElement | null;
+    if (pageEl) {
+      const fa = this.fileAnnotAt(pageEl, ev.clientX, ev.clientY);
+      if (fa) {
+        const page = Number(pageEl.dataset.page) || 0;
+        const list = page ? this.fileAnnots.get(`${page}@${this.rotation}`) : null;
+        const annot = list?.[Number(fa.dataset.annot)];
+        if (annot) {
+          this.suppressClickUntil = Date.now() + 350;
+          this.opts.onFileAnnotTap?.({
+            contents: annot.contents,
+            author: annot.author,
+            anchor: rectOfBox(fa.getBoundingClientRect()),
+          });
+          return;
+        }
+      }
+      /* 反链框同样不吃指针事件，点击位置靠坐标反查 */
+      const hit = this.backlinkAt(pageEl, ev.clientX, ev.clientY);
+      if (hit?.dataset.source) {
+        this.suppressClickUntil = Date.now() + 350;
+        this.opts.onBacklinkTap?.({ sourcePath: hit.dataset.source, event: ev });
+        return;
+      }
+    }
+    const mark = target?.closest('.bzr-pdf-annot-mark') as HTMLElement | null;
     if (mark) {
       const locator = mark.dataset.locator ?? '';
       if (locator) this.opts.onAnnotTap?.({ locator, anchor: rectOfBox(mark.getBoundingClientRect()) });
@@ -1231,6 +1717,8 @@ export class PdfView {
       this.recency.set(page, ++this.recencySeq);
       this.paintAnnotations(page);
       this.paintBacklinks(page);
+      this.paintSearch(page);
+      void this.paintFileAnnots(page);
       void this.paintLinks(page);
       void this.doc.getText(page).catch(() => undefined);
       this.trim();
@@ -1416,6 +1904,9 @@ export class PdfView {
         const edge = document.createElement('div');
         edge.className = 'bzr-pdf-backlink-edge';
         edge.dataset.source = hit.sourcePath;
+        if (hit.label) edge.dataset.label = hit.label;
+        const edgeColor = pdfColorFromName(hit.color);
+        if (edgeColor) edge.style.background = colorCss(edgeColor);
         el.appendChild(edge);
         continue;
       }
@@ -1423,6 +1914,14 @@ export class PdfView {
         const mark = document.createElement('div');
         mark.className = 'bzr-pdf-backlink';
         mark.dataset.source = hit.sourcePath;
+        if (hit.label) mark.dataset.label = hit.label;
+        /* 链接里带 &color= 就按那个色画：一眼能分出「这是标红那一条」 */
+        const named = pdfColorFromName(hit.color);
+        if (named) {
+          const css = colorCss(named);
+          mark.style.borderColor = css;
+          mark.style.background = `color-mix(in srgb, ${css} 12%, transparent)`;
+        }
         mark.style.left = `${rect.left * 100}%`;
         mark.style.top = `${rect.top * 100}%`;
         mark.style.width = `${rect.width * 100}%`;

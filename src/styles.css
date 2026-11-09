@@ -1386,6 +1386,217 @@ body .view-header .clickable-icon.bzs-host-hidden {
   font-size: 13px;
 }
 
+/* ── 搜索命中：整页都是字，跳过来得先看见第一个 ── */
+.bzr-pdf-searchhit {
+  position: absolute;
+  z-index: 3;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text-highlight-bg, #ffd54a) 42%, transparent);
+  pointer-events: none;
+}
+
+/* 第一处重一档：告诉用户「跳到的是这里」，不是「这页有很多个」 */
+.bzr-pdf-searchhit.is-first {
+  background: color-mix(in srgb, var(--text-highlight-bg, #ffd54a) 78%, transparent);
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--color-orange, #e8a33d) 65%, transparent);
+}
+
+/* ── PDF 文件自带的标注（在 Acrobat / 别的软件里画的） ──
+   比自家划线更淡；不吃指针事件——盖在正文上会挡住划词，点击靠坐标反查
+   （和反链框同一条路）。 */
+.bzr-pdf-fileannot {
+  position: absolute;
+  z-index: 3;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--bzr-fa-color, #ffd54a) 34%, transparent);
+  pointer-events: none;
+}
+
+.bzr-pdf-fileannot.is-underline {
+  background: none;
+  border-radius: 0;
+  border-bottom: 2px solid var(--bzr-fa-color, #ffd54a);
+}
+
+.bzr-pdf-fileannot.is-strike {
+  background: linear-gradient(
+    to bottom,
+    transparent 44%,
+    var(--bzr-fa-color, #ffd54a) 44%,
+    var(--bzr-fa-color, #ffd54a) 56%,
+    transparent 56%
+  );
+}
+
+.bzr-pdf-fileannot.is-squiggly {
+  background: none;
+  border-radius: 0;
+  border-bottom: 2px dotted var(--bzr-fa-color, #ffd54a);
+}
+
+/* 方框 / 便签：只描边，别把纸面涂满 */
+.bzr-pdf-fileannot.is-box,
+.bzr-pdf-fileannot.is-note {
+  background: none;
+  border: 1.5px solid var(--bzr-fa-color, #ffd54a);
+}
+
+/* 有批注正文的：右上角一个小折角，点开之前就知道「这里有话」 */
+.bzr-pdf-fileannot.has-note::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-top: 7px solid var(--bzr-fa-color, #ffd54a);
+  border-left: 7px solid transparent;
+  opacity: 0.85;
+}
+
+/* 点文件批注弹的小卡（view/reader-view.ts） */
+.bzr-fa-card {
+  position: absolute;
+  z-index: 30;
+  width: 260px;
+  max-width: 78vw;
+  padding: 10px 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  background: var(--background-primary);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.22);
+  animation: bzr-pdf-hover-in 0.12s ease-out;
+}
+
+.bzr-fa-h {
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.bzr-fa-b {
+  max-height: 40vh;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-normal);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── 页内链接悬停预览：一页缩略图比「第 37 页」三个字直观 ── */
+.bzr-pdf-linkprev {
+  position: absolute;
+  z-index: 20;
+  width: 200px;
+  padding: 6px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+  animation: bzr-pdf-hover-in 0.1s ease-out;
+}
+
+.bzr-pdf-linkprev .cap {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.bzr-pdf-linkprev .body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--background-secondary);
+}
+
+.bzr-pdf-linkprev .body img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.bzr-pdf-linkprev.is-empty .body {
+  display: none;
+}
+
+/* ── 反链框悬停提示：谁引了这句 ── */
+.bzr-pdf-btip {
+  position: absolute;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 220px;
+  padding: 5px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.bzr-pdf-btip .nm {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.bzr-pdf-btip .qt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-normal);
+}
+
+/* 批注正文可以长：折行、最多四行，多出来的用省略号收 */
+.bzr-pdf-btip.is-note .qt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* ── 工具栏「复制」下拉 ── */
+.bzr-pdf-menu {
+  position: absolute;
+  right: 12px;
+  bottom: 52px;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+  padding: 4px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.bzr-pdf-menu button {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-normal);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bzr-pdf-menu button:hover {
+  background: var(--background-modifier-hover);
+}
+
 .bzr-pdf-toolbar {
   position: absolute;
   right: 12px;

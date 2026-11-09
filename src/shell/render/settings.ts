@@ -242,6 +242,17 @@ export function viewSettings(v: SettingsView): string {
         'settings.pdfAutoLink',
       )}"></button></div>
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfAutoLink.hint')}</div>
+      <div class="bzs-setrow"><label>${t('settings.pdfLinkLabel')}</label>${seg(
+        'pdfLinkLabel',
+        [
+          ['text', t('settings.pdfLinkLabel.text')],
+          ['page', t('settings.pdfLinkLabel.page')],
+          ['titlePage', t('settings.pdfLinkLabel.titlePage')],
+          ['emoji', t('settings.pdfLinkLabel.emoji')],
+        ],
+        p.pdfLinkLabel,
+      )}</div>
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfLinkLabel.hint')}</div>
     </div>`;
 
   /* 阅读页右上角图标：可排序、可收起。收起的进 ⋮；移动端最多露 3 颗。 */

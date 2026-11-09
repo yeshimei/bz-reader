@@ -50,12 +50,22 @@ export interface SidebarView {
   /** 被折叠的父章节 href（见 runtime.tocCollapsed）；缺省 = 全部展开 */
   collapsed?: ReadonlySet<string>;
   /**
+   * 目录行可以拖出去（拖进笔记就是一条带页码的链接）。
+   *
+   * 只有 PDF 给：EPUB 的 href 是书内路径，拼出来的链接打不开那一章。
+   */
+  tocDraggable?: boolean;
+  /**
    * PDF 反链：哪几篇笔记引了哪一页。
    *
    * 由阅读视图按书推送（宿主从 Obsidian 的链接索引里捞），EPUB 恒为空。
    * 只放数据不放「有没有开书」——那是 `book` 的事。
    */
-  cites?: ReadonlyArray<{ page: number; sourcePath: string }>;
+  cites?: ReadonlyArray<{ page: number; sourcePath: string; label?: string; color?: string }>;
+  /** 当前停在第几页（0 = 不是 PDF / 未知），「只看本页」用 */
+  activePage?: number;
+  /** 「只看本页」开关是否打开 */
+  citesOnlyPage?: boolean;
 }
 
 /** 侧栏 AI 页签要画的那点索引状态 */
@@ -125,7 +135,12 @@ export function stripTocLabel(label: string): string {
  * 折叠：有子项的父章节前面放一枚箭头，点它收起整支子树（`collapsed` 里记 href）。
  * 默认全展开——一进来就只看见几个大部头，等于把「目录」变成「目录的目录」。
  */
-function tocBody(toc: FoliateTOCItem[], active: TocActiveRef, collapsed: ReadonlySet<string>): string {
+function tocBody(
+  toc: FoliateTOCItem[],
+  active: TocActiveRef,
+  collapsed: ReadonlySet<string>,
+  draggable = false,
+): string {
   let total = 0;
   const count = (items: FoliateTOCItem[]): void => {
     for (const it of items) {
@@ -158,7 +173,9 @@ function tocBody(toc: FoliateTOCItem[], active: TocActiveRef, collapsed: Readonl
           : '';
       rows.push(`<div class="bzs-chaprow${depth ? ' d1' : ''}${on ? ' on' : ''}${
         isCollapsed ? ' is-collapsed' : ''
-      }" data-act="jumpch" data-href="${esc(it.href)}" data-label="${esc(it.label)}" role="button" tabindex="0">
+      }" data-act="jumpch" data-href="${esc(it.href)}" data-label="${esc(it.label)}" role="button" tabindex="0"${
+        draggable ? ' draggable="true"' : ''
+      }>
         ${tw}
         <span class="t">${esc(stripTocLabel(it.label))}</span>
       </div>`);
@@ -218,40 +235,66 @@ function highlightsBody(rows: MarkRow[]): string {
  * ——用户在这页上看见虚线框，想知道出处，翻的是「页码」这条线。
  * 行本身跳到那一页；右边那颗小按钮才打开笔记（跳页是主操作）。
  */
-function citesBody(rows: ReadonlyArray<{ page: number; sourcePath: string }>): string {
+function citesBody(
+  rows: ReadonlyArray<{ page: number; sourcePath: string; label?: string; color?: string }>,
+  activePage = 0,
+  onlyPage = false,
+): string {
   if (!rows.length) {
     return `<div class="bzs-empty">${t('side.cites.empty')}<br>${t('side.cites.emptyHint')}</div>`;
   }
-  const byPage = new Map<number, string[]>();
-  for (const row of rows) {
+  /* 「只看本页」：翻到第 40 页时，前面几十组都是路过的噪声。
+     只在真有当前页、且确实按页分组时才给这枚开关（EPUB 没有页码）。 */
+  const canFilter = activePage > 0;
+  const shown = onlyPage && canFilter ? rows.filter((r) => r.page === activePage) : rows;
+  const toggle = canFilter
+    ? `<button type="button" class="bzs-citeonly${onlyPage ? ' on' : ''}" data-act="citeonly" title="${t(
+        'side.cites.onlyPage',
+      )}">${t('side.cites.onlyPage')}</button>`
+    : '';
+  if (!shown.length) {
+    return `<div class="bzs-citehead">${toggle}</div><div class="bzs-empty">${t('side.cites.noneHere')}</div>`;
+  }
+  const byPage = new Map<number, Array<{ page: number; sourcePath: string; label?: string; color?: string }>>();
+  for (const row of shown) {
     const list = byPage.get(row.page) ?? [];
-    list.push(row.sourcePath);
+    list.push(row);
     byPage.set(row.page, list);
   }
   const pages = [...byPage.keys()].sort((a, b) => a - b);
-  return pages
-    .map((page) => {
-      const sources = byPage.get(page) ?? [];
-      const head = `<div class="bzs-hlg-h"><span>${t('side.cites.page', { n: page })}</span><span class="n">${t(
-        'side.cites.count',
-        { n: sources.length },
-      )}</span><span class="ln"></span></div>`;
-      const items = sources
-        .map((path) => {
-          const name = path.split('/').pop()?.replace(/\.md$/i, '') ?? path;
-          return `<div class="bzs-cite" data-act="citejump" data-page="${page}" role="button" tabindex="0" title="${esc(
-            path,
-          )}">
-            <span class="nm">${esc(name)}</span>
+  return (
+    (toggle ? `<div class="bzs-citehead">${toggle}</div>` : '') +
+    pages
+      .map((page) => {
+        const sources = byPage.get(page) ?? [];
+        const head = `<div class="bzs-hlg-h${page === activePage ? ' is-here' : ''}"><span>${t(
+          'side.cites.page',
+          { n: page },
+        )}</span><span class="n">${t('side.cites.count', { n: sources.length })}</span><span class="ln"></span></div>`;
+        const items = sources
+          .map((row) => {
+            const path = row.sourcePath;
+            const name = path.split('/').pop()?.replace(/\.md$/i, '') ?? path;
+            /* 别名是笔记里写的原文；用它当行标题比「文件名」有用，
+               文件名一长串，扫一眼不知道引的是哪句话。 */
+            const label = String(row.label ?? '').replace(/\s+/g, ' ').trim();
+            const dot = row.color
+              ? `<i class="dot" style="background:${esc(row.color)}"></i>`
+              : '<i class="dot"></i>';
+            return `<div class="bzs-cite" data-act="citejump" data-page="${page}" role="button" tabindex="0" title="${esc(
+              path,
+            )}">
+            ${dot}<span class="nm">${esc(name)}</span>${label ? `<span class="tx">${esc(label)}</span>` : ''}
             <button class="x" data-act="citeopen" data-path="${esc(path)}" title="${t(
               'side.cites.open',
             )}">${icoNative('external-link', 13)}</button>
           </div>`;
-        })
-        .join('');
-      return `<div class="bzs-hlgroup">${head}${items}</div>`;
-    })
-    .join('');
+          })
+          .join('');
+        return `<div class="bzs-hlgroup">${head}${items}</div>`;
+      })
+      .join('')
+  );
 }
 
 /**
@@ -473,7 +516,12 @@ export function viewSidebar(v: SidebarView): string {
     body = `<div class="bzs-empty">${t('side.empty')}<br>${t('side.emptyHint')}</div>`;
   } else if (v.tab === 'toc') {
     body = v.toc?.length
-      ? tocBody(v.toc, { label: v.activeLabel, href: v.activeHref }, v.collapsed ?? EMPTY_COLLAPSED)
+      ? tocBody(
+          v.toc,
+          { label: v.activeLabel, href: v.activeHref },
+          v.collapsed ?? EMPTY_COLLAPSED,
+          v.tocDraggable === true,
+        )
       : `<div class="bzs-empty">${t('side.toc.notReady')}<br><button class="bzs-btn sm" data-act="openbook" data-id="${esc(
           book.id,
         )}">${t('side.toc.openCurrent')}</button></div>`;
@@ -482,7 +530,7 @@ export function viewSidebar(v: SidebarView): string {
   } else if (v.tab === 'highlights') {
     body = highlightsBody(marksOf(book));
   } else if (v.tab === 'cites') {
-    body = citesBody(v.cites ?? []);
+    body = citesBody(v.cites ?? [], v.activePage ?? 0, v.citesOnlyPage === true);
   } else {
     body = aiBody(v);
   }

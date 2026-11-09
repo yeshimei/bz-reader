@@ -128,6 +128,13 @@ export const RT = {
   ptOrphans: [] as string[],
   /** 当前划词 */
   sel: null as SelectionPayload | null,
+  /**
+   * 「引用」页签只看当前页。
+   *
+   * 一次会话里记住：边读边看引用的人会连着翻好几页，每翻一页都要
+   * 重新点一次开关就是折磨。不落盘——下次开书默认还是看全书的引用。
+   */
+  citesOnlyPage: false,
   /** 已经提醒过「这是扫描件」的书号：同一本只打扰一次 */
   scanWarned: new Set<string>(),
   /**

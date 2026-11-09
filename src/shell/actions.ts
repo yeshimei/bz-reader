@@ -1934,6 +1934,14 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       collapseSidebarAfterJump(el, true);
       break;
     }
+    case 'citeonly': {
+      /* 「只看本页」：反链按页分组，厚书翻到中间时要滚很久才看见眼前这页。
+         打开后按当前页过滤，页内没有引用就明说「本页还没被引用」，
+         不退回全书——不然开关看起来毫无作用。 */
+      RT.citesOnlyPage = !RT.citesOnlyPage;
+      rerender();
+      break;
+    }
     case 'citeopen': {
       const src = getShellSource();
       const path = d.path || '';

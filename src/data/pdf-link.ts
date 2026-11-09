@@ -18,6 +18,8 @@
  * 点进 bz 阅读器就只会打开第一页。
  * ============================================================ */
 
+import { t } from '../i18n';
+
 export interface PdfLinkSelection {
   beginIndex: number;
   beginOffset: number;
@@ -128,6 +130,75 @@ export function parsePdfLinkHash(hash: string): PdfLinkTarget | null {
   return target;
 }
 
+/**
+ * 划线色名 → PDF++ 认的颜色名。
+ *
+ * PDF++ 的 `&color=` 只认一张**颜色名表**（不是十六进制），写错名字它静默
+ * 忽略、不报错——所以这里必须是一张白名单，而不是把用户输入直接透传。
+ * `Yellow / Red / Green / Blue` 都在它的默认调色板里，且和我们的四档一一对应。
+ */
+const PDF_COLOR_NAME: Readonly<Record<string, string>> = {
+  amber: 'Yellow',
+  vermilion: 'Red',
+  green: 'Green',
+  blue: 'Blue',
+};
+
+/**
+ * 反过来：链接里的颜色名 → 我们的划线色。
+ *
+ * 大小写不敏感；PDF++ 默认调色板里的 `Note` 是蓝，算到「黛蓝」；
+ * `Important` 是紫，我们没有对应档，宁可不上色也不硬套成别的颜色。
+ */
+const HIGHLIGHT_OF_COLOR: Readonly<Record<string, string>> = {
+  yellow: 'amber',
+  amber: 'amber',
+  red: 'vermilion',
+  vermilion: 'vermilion',
+  green: 'green',
+  blue: 'blue',
+  indigo: 'blue',
+  note: 'blue',
+};
+
+export function pdfColorName(color?: string): string | undefined {
+  const key = String(color ?? '').trim().toLowerCase();
+  return PDF_COLOR_NAME[key];
+}
+
+export function pdfColorFromName(name?: string): string | undefined {
+  const key = String(name ?? '').trim().toLowerCase();
+  return HIGHLIGHT_OF_COLOR[key];
+}
+
+/** 复制链接时别名怎么写（设置里可选，默认「原文」） */
+export type PdfLinkLabelMode = 'text' | 'page' | 'titlePage' | 'emoji';
+
+/**
+ * 链接别名文案。
+ *
+ * `text` 是原来的行为（划的那段原文）；其余三档是 PDF++ 的 display text
+ * format 里最常用的几个——「书名 + 页码」写笔记时最像引用，`📖` 给喜欢
+ * 行内极简的人。框选没有原文，`text` 退化成页码，而不是留一个空别名。
+ */
+export function pdfDisplayLabel(
+  mode: PdfLinkLabelMode,
+  input: { title?: string; page: number; text?: string; pageText?: string },
+): string {
+  const page = Math.max(1, Math.floor(Number(input.page) || 1));
+  const n = String(input.pageText ?? '').trim() || String(page);
+  if (mode === 'emoji') return '📖';
+  if (mode === 'page') return t('pdf.label.page', { n });
+  if (mode === 'titlePage') {
+    const title = String(input.title ?? '').trim() || t('pdf.label.untitled');
+    return t('pdf.label.titlePage', { title, n });
+  }
+  const text = String(input.text ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text || t('pdf.label.page', { n });
+}
+
 /** 生成 PDF++ 兼容的哈希（不带 `#` 前缀以外的多余内容） */
 export function buildPdfLinkHash(target: PdfLinkTarget): string {
   const parts = [`page=${Math.max(1, Math.floor(target.page))}`];
@@ -162,6 +233,7 @@ export function pdfSubpathOf(input: {
   selection?: PdfLinkSelection;
   rect?: PdfLinkRect;
   color?: string;
+  offset?: PdfLinkOffset;
   locator?: string;
 }): string {
   return buildPdfLinkHash(input).slice(1);

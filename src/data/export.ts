@@ -20,6 +20,8 @@ import type { KbLink, ReaderBook } from './schema';
 import type { ReaderSettings } from './settings';
 import { bookmarksOf, highlightsOf } from './notes';
 import { kbLinkMarkdown } from './kb-link';
+import { wikilinkTo } from './wikilink';
+import { pdfLocatorPage, pdfPageLocator } from '../engine/pdf/locator';
 import { t } from '../i18n';
 
 /** 导出文件第一行。再次导出靠它判断「这份是不是我们写的」 */
@@ -106,7 +108,7 @@ interface Group {
   key: string;
   title: string;
   order: number;
-  items: Array<{ text: string; comment?: string; kb?: KbLink[]; createdAt: number }>;
+  items: Array<{ text: string; comment?: string; kb?: KbLink[]; createdAt: number; page?: number }>;
 }
 
 export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, now = Date.now()): string {
@@ -151,7 +153,15 @@ export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, n
       g = { key, title, order: index, items: [] };
       groups.set(key, g);
     }
-    g.items.push({ text: oneLine(h.text), comment: h.comment?.trim(), kb: h.kb, createdAt: h.createdAt });
+    g.items.push({
+      text: oneLine(h.text),
+      comment: h.comment?.trim(),
+      kb: h.kb,
+      createdAt: h.createdAt,
+      /* PDF 划线的定位串就是「第几页」；导出后没有页码，几天后再看
+         就只剩一句话，回不到原文。EPUB 没有页这个概念，留空。 */
+      page: pdfLocatorPage(h.cfiRange ?? '') ?? undefined,
+    });
   }
 
   const ordered = [...groups.values()].sort((a, b) => a.order - b.order);
@@ -167,7 +177,13 @@ export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, n
     lines.push('');
     g.items.forEach((it, i) => {
       if (i > 0) lines.push('');
-      lines.push(`> ${it.text}`);
+      /* PDF 划线：引用后面缀一条回链。放在同一行而不是另起一段——
+         一条划线配一条空行链接，几十条下来就是满屏链接。 */
+      const pageLink =
+        it.page && it.page > 0
+          ? wikilinkTo(book, { cfi: pdfPageLocator(it.page) }, t('pdf.label.page', { n: it.page }))
+          : '';
+      lines.push(pageLink ? `> ${it.text} — ${pageLink}` : `> ${it.text}`);
       if (settings.exportComments && it.comment) {
         lines.push('');
         lines.push(`想法：${oneLine(it.comment)}`);

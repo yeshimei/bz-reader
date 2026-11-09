@@ -12,6 +12,7 @@
 /* 字体与强调色的档名走集中表（见下方 FONT_LABELS / ACCENT_LABELS）：成套选项
    不进主语言包，`Record<Locale, string>` 保证八种语言都齐。 */
 import { locale, type Locale } from '../i18n';
+import type { PdfLinkLabelMode } from './pdf-link';
 
 /**
  * 书页配色：只有一档「跟随 Obsidian」。
@@ -96,6 +97,13 @@ export interface ReaderPrefs {
    * 需要的人自己开。
    */
   pdfAutoLink: boolean;
+  /**
+   * 复制 PDF 链接时别名写什么（原文 / 页码 / 书名 + 页码 / 📖）。
+   *
+   * 默认「原文」——和以前一模一样，老用户看不出变化；写笔记时想更像引用
+   * 就切「书名 + 页码」。
+   */
+  pdfLinkLabel: PdfLinkLabelMode;
 }
 
 export const DEFAULT_PREFS: ReaderPrefs = {
@@ -116,6 +124,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   headerOrder: [],
   headerHidden: [],
   pdfAutoLink: false,
+  pdfLinkLabel: 'text',
 };
 
 export const FONT_SIZE_RANGE = { min: 14, max: 30, step: 1 } as const;
@@ -303,6 +312,9 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     headerOrder: headerIds(p.headerOrder),
     headerHidden: headerIds(p.headerHidden),
     pdfAutoLink: p.pdfAutoLink === true,
+    pdfLinkLabel: p.pdfLinkLabel === 'page' || p.pdfLinkLabel === 'titlePage' || p.pdfLinkLabel === 'emoji'
+      ? p.pdfLinkLabel
+      : 'text',
   };
 }
 

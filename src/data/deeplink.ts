@@ -176,6 +176,13 @@ export interface LinkTextInput {
   pdfRect?: { left: number; top: number; width: number; height: number };
   /** PDF 高亮颜色名（黄/绿/蓝/粉），写进链接的 `color=` */
   color?: string;
+  /**
+   * 别名已由调用方算好（PDF 的「原文 / 页码 / 书名 + 页码」四档）。
+   *
+   * 不给就还是老行为：把原文清洗后当别名。放在这里而不是在数据层读偏好，
+   * 是因为 deeplink 也会被导出、测试直接调用，不该依赖界面状态。
+   */
+  display?: string;
 }
 
 /**

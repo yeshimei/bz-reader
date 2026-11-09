@@ -55,6 +55,10 @@ export type LocatorFields = Pick<LinkTarget, 'cfi' | 'text' | 'chapter' | 'pct'>
   pdfRect?: PdfLinkRect;
   /** PDF 专有：高亮颜色名 */
   color?: string;
+  /** PDF 专有：视图链接的滚动/缩放（PDF++ 的 `offset=`） */
+  offset?: import('./pdf-link').PdfLinkOffset;
+  /** 调用方算好的别名（见 deeplink 的 LinkTextInput.display） */
+  display?: string;
 };
 
 /** `page=3&selection=…` 这种 PDF++ 形状的子路径（没有 `bzr-` 前缀） */
@@ -78,6 +82,7 @@ function subpathFor(fields: LocatorFields): string {
       selection: fields.pdfSelection,
       rect: fields.pdfRect,
       color: fields.color,
+      offset: fields.offset,
       locator: cfi,
     });
   }
@@ -206,7 +211,7 @@ export function wikilinkTo(book: ReaderBook, fields: LocatorFields, label: strin
  * 免得同一条划线在两种格式下显示得不一样。
  */
 export function wikilinkOf(book: ReaderBook, input: LinkTextInput): string {
-  const label = cleanLabel(input.text) || `《${displayName(book)}》`;
+  const label = input.display?.trim() || cleanLabel(input.text) || `《${displayName(book)}》`;
   return wikilinkTo(
     book,
     {
@@ -216,11 +221,18 @@ export function wikilinkOf(book: ReaderBook, input: LinkTextInput): string {
       pdfSelection: input.pdfSelection,
       pdfRect: input.pdfRect,
       color: input.color,
+      display: input.display,
     },
     label,
   );
 }
 
-export function wikilinkOfMark(book: ReaderBook, h: Highlight): string {
-  return wikilinkOf(book, { text: h.text, cfiRange: h.cfiRange, chapterTitle: h.chapterTitle });
+export function wikilinkOfMark(book: ReaderBook, h: Highlight, extra: { display?: string } = {}): string {
+  return wikilinkOf(book, {
+    text: h.text,
+    cfiRange: h.cfiRange,
+    chapterTitle: h.chapterTitle,
+    color: h.color,
+    display: extra.display,
+  });
 }

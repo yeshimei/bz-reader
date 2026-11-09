@@ -25,6 +25,9 @@ import { viewSidebar, type AiIndexView } from '../shell/render/sidebar';
 import { focusSelector, type FocusMemo } from '../shell/focus-memo';
 import { isTocItemActive, type TocActiveRef } from '../shell/toc-active';
 import { getToc, subscribeToc, tocPaintMode } from './toc-state';
+import { pdfLocatorPage, pdfPageLocator } from '../engine/pdf/locator';
+import { wikilinkTo } from '../data/wikilink';
+import { t } from '../i18n';
 import { setHtml } from '../ui/dom';
 import { bzEmbedder } from '../data/bz-bridge';
 import { cachedPortrait, ensurePortrait } from '../shell/portrait-cache';
@@ -97,6 +100,25 @@ export class SideView extends ItemView {
       if (!hit) return;
       e.preventDefault();
       dispatchAction(hit.dataset.act || '', hit, { repaint: () => this.render() });
+    });
+
+    /**
+     * 目录行拖到笔记里：落一条带页码的链接。
+     *
+     * 只给 PDF——EPUB 的 href 是书内路径，拼出来打不开那一章。别的时候
+     * 拖拽是浏览器默认行为（选字），不能拦。
+     */
+    el.addEventListener('dragstart', (e) => {
+      const row = (e.target as HTMLElement)?.closest<HTMLElement>('.bzs-chaprow[draggable="true"]');
+      const bookId = getState().bookId;
+      if (!row || !bookId) return;
+      const book = liveBooks().find((b) => b.id === bookId);
+      const page = pdfLocatorPage(row.dataset.href || '');
+      const dt = (e as DragEvent).dataTransfer;
+      if (!book || !page || !dt) return;
+      const label = (row.dataset.label || '').trim() || t('pdf.label.page', { n: page });
+      dt.setData('text/plain', wikilinkTo(book, { cfi: pdfPageLocator(page) }, label));
+      dt.effectAllowed = 'copy';
     });
 
     const onEdit = (e: Event): void => {
@@ -271,6 +293,9 @@ export class SideView extends ItemView {
         aiIndex,
         collapsed: RT.tocCollapsed,
         cites: state.pdfCites,
+        activePage: state.pdfPage,
+        citesOnlyPage: RT.citesOnlyPage,
+        tocDraggable: book?.fileRef.format === 'pdf',
       }),
     );
     this.paintedItems = snap?.items ?? null;

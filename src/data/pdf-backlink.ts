@@ -31,11 +31,35 @@ export interface PdfBacklinkHit {
    * 不把它带上，这类反链在页面上只能退化成一整页的「被引过」竖线。
    */
   locator?: string;
+  /**
+   * 链接的显示别名（`[[x.pdf#page=3|第 3 页那段]]` 里的后半截）。
+   *
+   * 页面上悬停反链框时用它当提示：只报笔记名不够，用户想知道「引的是哪句」。
+   * 没有别名就是 undefined——不拿链接原文凑数，那只是一串路径。
+   */
+  label?: string;
+}
+
+/** 去掉 `[[ ]]` 外壳：Obsidian 链接索引里的 `original` 带它 */
+function unwrapHref(href: string): string {
+  let raw = String(href ?? '').trim();
+  if (raw.startsWith('[[')) raw = raw.slice(2);
+  if (raw.endsWith(']]')) raw = raw.slice(0, -2);
+  return raw;
+}
+
+/** `[[x.pdf#page=3|别名]]` 里的别名；没有别名返回 undefined */
+export function aliasOfHref(href: string): string | undefined {
+  const raw = unwrapHref(href);
+  const bar = raw.lastIndexOf('|');
+  if (bar < 0) return undefined;
+  const alias = raw.slice(bar + 1).trim();
+  return alias || undefined;
 }
 
 /** 从链接里取 `#` 之后的子路径；没有子路径返回空串 */
 export function subpathOfHref(href: string): string {
-  const raw = String(href ?? '');
+  const raw = unwrapHref(href);
   const at = raw.indexOf('#');
   return at >= 0 ? raw.slice(at + 1) : '';
 }
@@ -68,9 +92,19 @@ export function pdfBacklinkHits(sources: ReadonlyArray<PdfBacklinkSource>): PdfB
       rect: target.rect,
       color: target.color,
       locator: target.locator,
+      label: aliasOfHref(source?.link ?? ''),
     });
   }
   return out;
+}
+
+/** 这一页上的反链（侧栏「只看本页」用；不要改原数组） */
+export function hitsOnPage(
+  hits: ReadonlyArray<PdfBacklinkHit>,
+  page: number,
+): PdfBacklinkHit[] {
+  const n = Math.max(1, Math.floor(Number(page) || 1));
+  return hits.filter((hit) => hit.page === n);
 }
 
 /** 同一页上有几条反链（侧栏/提示里说「第 7 页被引 3 次」） */

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { buildPdfLinkHash, hasPdfLinkPreciseTarget, parsePdfLinkHash, pdfSubpathOf } from '../src/data/pdf-link';
+import {
+  buildPdfLinkHash,
+  hasPdfLinkPreciseTarget,
+  parsePdfLinkHash,
+  pdfColorFromName,
+  pdfColorName,
+  pdfDisplayLabel,
+  pdfSubpathOf,
+} from '../src/data/pdf-link';
 
 describe('PDF++ link format', () => {
   it('解析只有页码的链接', () => {
@@ -83,5 +91,56 @@ describe('PDF++ link format', () => {
 
   it('生成时不带 bzr 就和老格式一模一样，不影响旧链接', () => {
     expect(buildPdfLinkHash({ page: 3, color: 'yellow' })).toBe('#page=3&color=yellow');
+  });
+});
+
+describe('PDF++ 颜色名映射', () => {
+  it('划线色 → PDF++ 认得的颜色名', () => {
+    expect(pdfColorName('amber')).toBe('Yellow');
+    expect(pdfColorName('vermilion')).toBe('Red');
+    expect(pdfColorName('green')).toBe('Green');
+    expect(pdfColorName('blue')).toBe('Blue');
+    expect(pdfColorName('')).toBeUndefined();
+    expect(pdfColorName('chartreuse')).toBeUndefined();
+  });
+
+  it('外来颜色名认回划线色（大小写不敏感）', () => {
+    expect(pdfColorFromName('yellow')).toBe('amber');
+    expect(pdfColorFromName('RED')).toBe('vermilion');
+    expect(pdfColorFromName('Green')).toBe('green');
+    /* PDF++ 默认调色板里的 Note 是蓝，Important 是紫——紫色我们没有对应档 */
+    expect(pdfColorFromName('note')).toBe('blue');
+    expect(pdfColorFromName('important')).toBeUndefined();
+    expect(pdfColorFromName('')).toBeUndefined();
+  });
+
+  it('写进链接的颜色名能被自己读回来', () => {
+    const hash = pdfSubpathOf({ page: 6, color: pdfColorName('vermilion'), locator: 'pdf/6/3-9' });
+    expect(hash).toContain('color=Red');
+    expect(pdfColorFromName(parsePdfLinkHash(hash)?.color)).toBe('vermilion');
+  });
+
+  it('视图链接带上 offset（滚动位置 + 缩放）', () => {
+    const hash = pdfSubpathOf({ page: 6, offset: { left: 0, top: 240, zoom: 1.5 } });
+    expect(hash).toContain('offset=0,240,1.5');
+    expect(parsePdfLinkHash(`#${hash}`)?.offset).toEqual({ left: 0, top: 240, zoom: 1.5 });
+  });
+});
+
+describe('链接显示文本', () => {
+  it('四种档位各自的样子', () => {
+    expect(pdfDisplayLabel('text', { title: 'When AI', page: 3, text: '  hello  ' })).toBe('hello');
+    expect(pdfDisplayLabel('page', { title: 'When AI', page: 3 })).toBe('第 3 页');
+    expect(pdfDisplayLabel('titlePage', { title: 'When AI', page: 3 })).toBe('When AI，第 3 页');
+    expect(pdfDisplayLabel('emoji', { title: 'When AI', page: 3 })).toBe('📖');
+  });
+
+  it('有页标签时用页标签，没有就退回物理页号', () => {
+    expect(pdfDisplayLabel('page', { title: 'x', page: 4, pageText: 'xii' })).toBe('第 xii 页');
+    expect(pdfDisplayLabel('page', { title: 'x', page: 4, pageText: '  ' })).toBe('第 4 页');
+  });
+
+  it('选了「原文」但没原文（框选）时退回页码', () => {
+    expect(pdfDisplayLabel('text', { title: '书', page: 8, text: '' })).toBe('第 8 页');
   });
 });

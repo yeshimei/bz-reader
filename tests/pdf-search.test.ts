@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { searchPageTexts } from '../src/engine/pdf/search';
+import { rangesInText, searchPageTexts } from '../src/engine/pdf/search';
 
 describe('pdf search', () => {
   const pages = [
@@ -40,5 +40,28 @@ describe('pdf search', () => {
     const hits = searchPageTexts(pages, 'lazy', 20);
     expect(hits[0].excerpt.pre).not.toContain('nothing');
     expect(hits[0].excerpt.match).toBe('lazy');
+  });
+});
+
+describe('页内命中区间（画到页面上用）', () => {
+  it('英文大小写不敏感，按出现顺序给出区间', () => {
+    expect(rangesInText('abcABCabc', 'abc')).toEqual([
+      { start: 0, end: 3 },
+      { start: 3, end: 6 },
+      { start: 6, end: 9 },
+    ]);
+  });
+
+  it('中文按字面，重叠处不重复计算', () => {
+    expect(rangesInText('哈哈哈哈', '哈哈')).toEqual([
+      { start: 0, end: 2 },
+      { start: 2, end: 4 },
+    ]);
+  });
+
+  it('有上限、空查询返回空', () => {
+    expect(rangesInText('aaaa', 'a', 2)).toHaveLength(2);
+    expect(rangesInText('abc', '')).toEqual([]);
+    expect(rangesInText('', 'a')).toEqual([]);
   });
 });
