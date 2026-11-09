@@ -35,13 +35,13 @@
 
 | 类别 | 功能 | 基础版 | 高级版 |
 |---|:---|:---:|:---:|
-| **阅读与书架** | EPUB / TXT 阅读与翻页 | ✓ | ✓ |
+| **阅读与书架** | EPUB / TXT / PDF 阅读与翻页 | ✓ | ✓ |
 | | 单栏 / 双栏 | ✓ | ✓ |
 | | 目录、书签、四色划线与想法 | ✓ | ✓ |
 | | 书内搜索 | ✓ | ✓ |
 | | 脚注浮窗预览 | ✓ | ✓ |
 | | 分类管理 | ✓ | ✓ |
-| **格式与导出** | mobi / azw3 / fb2 / 漫画 | — | ✓ |
+| **格式与导出** | mobi / azw3 / fb2 / 漫画 / PDF | — | ✓ |
 | | 划线复制为双向链接 | — | ✓ |
 | | 导出结构化 Markdown | — | ✓ |
 | | 书摘图片 | — | ✓ |
@@ -79,7 +79,8 @@
 
 ## 常见问题
 
-- **支持哪些格式？** EPUB 与 TXT 开箱即读；mobi、azw3、fb2 与漫画在高级版。
+- **支持哪些格式？** EPUB 与 TXT 开箱即读；mobi、azw3、fb2、漫画与 PDF 在高级版。
+- **PDF 有什么限制？** 文字版 PDF 可以选字、划线、搜索与朗读，排版来自原文件（字号/行距不可调）；扫描版没有文字层，只能阅读和截图摘录，不提供 OCR。
 - **会和其他插件打架吗？** 阅读页是 Obsidian 原生视图，目录是左侧栏里的一个页签；划线可以复制成带定位的 Markdown 链接，点一下跳回原文那一句，不另建索引。
 - **换电脑怎么办？** 库同步过去，书架、进度和标注跟着走；高级版在新设备上重新填一次激活码。
 - **手机上要单独买吗？** 不用，同一个包，桌面与移动都包含在内。
@@ -110,13 +111,13 @@
 
 | | Free | Pro |
 |---|:---:|:---:|
-| EPUB / TXT reading, pagination, and typography | ✓ | ✓ |
+| EPUB / TXT / PDF reading and pagination | ✓ | ✓ |
 | One or two columns | ✓ | ✓ |
 | Contents, bookmarks, four-color highlights, and notes | ✓ | ✓ |
 | In-book search | ✓ | ✓ |
 | Footnote preview in a popover | ✓ | ✓ |
 | Shelf categories | ✓ | ✓ |
-| mobi / azw3 / fb2 / comics | — | ✓ |
+| mobi / azw3 / fb2 / comics / PDF | — | ✓ |
 | Copy highlights as wikilinks | — | ✓ |
 | Structured Markdown export | — | ✓ |
 | Quote card images | — | ✓ |
@@ -161,7 +162,8 @@ Only the AI features go online; everything else works fully offline.
 
 ### FAQ
 
-- **Which formats?** EPUB and TXT out of the box; mobi, azw3, fb2, and comics with Pro.
+- **Which formats?** EPUB and TXT out of the box; mobi, azw3, fb2, comics, and PDF with Pro.
+- **Any PDF caveats?** Text-based PDFs support selection, highlights, search, and read-aloud; the layout comes from the file itself (font size and line height are fixed). Scanned PDFs have no text layer, so only reading and screenshot excerpts are available — there is no OCR.
 - **Does it conflict with other plugins?** The reader is a native Obsidian view and the contents are a tab in the left sidebar. Highlights can be copied as locator Markdown links that jump back to the exact passage — no separate index is built.
 - **Switching computers?** Your vault carries the shelf, progress, and annotations. Re-enter the license key on the new device.
 - **Do I pay again on mobile?** No. One build covers desktop and mobile.
@@ -197,13 +199,13 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 
 | | 基礎版 | 高級版 |
 |---|:---:|:---:|
-| EPUB / TXT 閱讀、翻頁與排版 | ✓ | ✓ |
+| EPUB / TXT / PDF 閱讀與翻頁 | ✓ | ✓ |
 | 單欄 / 雙欄 | ✓ | ✓ |
 | 目錄、書籤、四色劃線與想法 | ✓ | ✓ |
 | 書內搜尋 | ✓ | ✓ |
 | 腳註浮窗預覽 | ✓ | ✓ |
 | 分類管理 | ✓ | ✓ |
-| mobi / azw3 / fb2 / 漫畫 | — | ✓ |
+| mobi / azw3 / fb2 / 漫畫 / PDF | — | ✓ |
 | 劃線複製為雙向連結 | — | ✓ |
 | 匯出結構化 Markdown | — | ✓ |
 | 書摘圖片 | — | ✓ |
@@ -242,7 +244,8 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 
 ### 常見問題
 
-- **支援哪些格式？** EPUB 與 TXT 開箱即讀；mobi、azw3、fb2 與漫畫在高級版。
+- **支援哪些格式？** EPUB 與 TXT 開箱即讀；mobi、azw3、fb2、漫畫與 PDF 在高級版。
+- **PDF 有什麼限制？** 文字版 PDF 可以選字、劃線、搜尋與朗讀，排版來自原檔（字級/行距不可調）；掃描版沒有文字層，只能閱讀與截圖摘錄，不提供 OCR。
 - **會和其他外掛衝突嗎？** 閱讀頁是 Obsidian 原生檢視，目錄是左側欄裡的一個頁籤；劃線可以複製成帶定位的 Markdown 連結，點一下跳回原文那一句，不另建索引。
 - **換電腦怎麼辦？** 庫同步過去，書架、進度與標註跟著走；高級版在新裝置上重新填一次啟用碼。
 - **手機上要單獨買嗎？** 不用，同一個包，桌面與行動都包含在內。
@@ -284,7 +287,7 @@ Obsidian を「本を読む場所」に。デスクトップとモバイル、�
 | 本文内検索 | ✓ | ✓ |
 | 脚注のポップアップ表示 | ✓ | ✓ |
 | カテゴリ管理 | ✓ | ✓ |
-| mobi / azw3 / fb2 / コミック | — | ✓ |
+| mobi / azw3 / fb2 / コミック / PDF | — | ✓ |
 | ハイライトを双方向リンクとしてコピー | — | ✓ |
 | 構造化 Markdown への書き出し | — | ✓ |
 | 引用カード画像 | — | ✓ |
@@ -365,7 +368,7 @@ Mach aus Obsidian einen Ort zum Lesen. Desktop und Mobil, mehrere Formate, acht 
 | Suche im Buch | ✓ | ✓ |
 | Fußnoten als Pop-up | ✓ | ✓ |
 | Kategorien verwalten | ✓ | ✓ |
-| mobi / azw3 / fb2 / Comics | — | ✓ |
+| mobi / azw3 / fb2 / Comics / PDF | — | ✓ |
 | Markierungen als Wikilink kopieren | — | ✓ |
 | Strukturierter Markdown-Export | — | ✓ |
 | Zitatkarten als Bild | — | ✓ |
@@ -446,7 +449,7 @@ Faites d'Obsidian un endroit où lire. Bureau et mobile, plusieurs formats, huit
 | Recherche dans le livre | ✓ | ✓ |
 | Aperçu des notes de bas de page | ✓ | ✓ |
 | Gestion des catégories | ✓ | ✓ |
-| mobi / azw3 / fb2 / BD | — | ✓ |
+| mobi / azw3 / fb2 / BD / PDF | — | ✓ |
 | Copier les surlignages en wikiliens | — | ✓ |
 | Export Markdown structuré | — | ✓ |
 | Images de cartes de citation | — | ✓ |
@@ -527,7 +530,7 @@ Convierte Obsidian en un lugar donde leer. Escritorio y móvil, varios formatos,
 | Búsqueda dentro del libro | ✓ | ✓ |
 | Vista previa de notas al pie | ✓ | ✓ |
 | Gestión de categorías | ✓ | ✓ |
-| mobi / azw3 / fb2 / cómic | — | ✓ |
+| mobi / azw3 / fb2 / cómic / PDF | — | ✓ |
 | Copiar subrayados como wikienlaces | — | ✓ |
 | Exportación a Markdown estructurado | — | ✓ |
 | Imágenes de tarjetas de cita | — | ✓ |
@@ -608,7 +611,7 @@ Transforme o Obsidian num lugar para ler. Desktop e celular, vários formatos, o
 | Pesquisa dentro do livro | ✓ | ✓ |
 | Prévia das notas de rodapé | ✓ | ✓ |
 | Gerenciar categorias | ✓ | ✓ |
-| mobi / azw3 / fb2 / quadrinhos | — | ✓ |
+| mobi / azw3 / fb2 / quadrinhos / PDF | — | ✓ |
 | Copiar destaques como wikilinks | — | ✓ |
 | Exportação em Markdown estruturado | — | ✓ |
 | Imagens de cartões de citação | — | ✓ |
