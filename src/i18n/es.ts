@@ -180,6 +180,7 @@ export const ES: Record<MsgKey, string> = {
   'notice.open.unsupported': 'Formato no compatible',
   'fault.openFailed': 'No se puede abrir este libro',
   'notice.load.stalled': '{what} no terminó; inténtalo de nuevo',
+  'notice.pdf.typography': 'Typography settings do not apply to PDFs — layout comes from the original file.',
   'notice.locate.notReady': 'Esta página aún no está localizada: pasa una página e inténtalo de nuevo',
   'notice.bookmark.toggledOn': 'Marcador añadido',
   'notice.bookmark.toggledOff': 'Marcador eliminado',

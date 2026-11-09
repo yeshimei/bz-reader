@@ -995,3 +995,158 @@ body.bzr-immersive .workspace-leaf-content[data-type='bzr-reader-view'] .view-co
 body .view-header .clickable-icon.bzs-host-hidden {
   display: none !important;
 }
+
+/* ============================================================
+ * PDF 阅读视图（engine/pdf/view.ts）
+ *
+ * 一页一张 canvas + 一层透明文字。文字层只负责「能选中」，
+ * 所以颜色必须全透明，不能给它 opacity——那会把原生选区一起变淡。
+ * ============================================================ */
+
+.bzr-pdf {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--background-primary);
+}
+
+.bzr-pdf-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  display: flex;
+  justify-content: center;
+}
+
+.bzr-pdf-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: fit-content;
+  padding: 12px 0 56px;
+}
+
+.bzr-pdf-page {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  contain: layout paint;
+}
+
+.theme-dark .bzr-pdf-page {
+  background: #1b1b1b;
+}
+
+.bzr-pdf-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+}
+
+/* pdf.js 的 TextLayer：span 的 left/top/font-size/transform 都是内联写的，
+   这里只兜住「绝对定位 + 透明文字」两条，别再叠 opacity。 */
+.bzr-pdf-page .textLayer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  line-height: 1;
+  text-size-adjust: none;
+  transform-origin: 0 0;
+  --scale-factor: 1;
+}
+
+.bzr-pdf-page .textLayer span,
+.bzr-pdf-page .textLayer br {
+  position: absolute;
+  white-space: pre;
+  color: transparent;
+  transform-origin: 0 0;
+}
+
+.bzr-pdf-page .textLayer ::selection {
+  background: rgba(80, 120, 255, 0.28);
+}
+
+.bzr-pdf-annot-mark {
+  position: absolute;
+  z-index: 3;
+  border-radius: 2px;
+  opacity: 0.32;
+  mix-blend-mode: multiply;
+  cursor: pointer;
+}
+
+.bzr-pdf-pulse {
+  position: absolute;
+  inset: 6px;
+  z-index: 4;
+  border: 2px solid var(--interactive-accent);
+  border-radius: 8px;
+  pointer-events: none;
+  animation: bzr-pdf-pulse 1s ease-out forwards;
+}
+
+@keyframes bzr-pdf-pulse {
+  0% { opacity: 0; }
+  18% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.bzr-pdf-page-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.bzr-pdf-toolbar {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 6;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
+  opacity: 0.92;
+}
+
+.bzr-pdf-toolbar button {
+  min-width: 30px;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-normal);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.bzr-pdf-toolbar button:hover {
+  background: var(--background-modifier-hover);
+}
+
+.bzr-pdf-toolbar button.is-on {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+/* 手机上工具坞/底栏会压住右下角，把缩放条抬高一点 */
+body.is-mobile .bzr-pdf-toolbar {
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}

@@ -181,6 +181,7 @@ export const DE: Record<MsgKey, string> = {
   'notice.open.unsupported': 'Format wird nicht unterstützt',
   'fault.openFailed': 'Dieses Buch lässt sich nicht öffnen',
   'notice.load.stalled': '{what} wurde nicht abgeschlossen – bitte erneut versuchen',
+  'notice.pdf.typography': 'Typography settings do not apply to PDFs — layout comes from the original file.',
   'notice.locate.notReady': 'Diese Seite ist noch nicht verortet – blättere weiter und versuche es erneut',
   'notice.bookmark.toggledOn': 'Lesezeichen gesetzt',
   'notice.bookmark.toggledOff': 'Lesezeichen entfernt',

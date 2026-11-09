@@ -13,6 +13,7 @@
  * ============================================================ */
 import { ItemView, Menu, setIcon, type WorkspaceLeaf } from 'obsidian';
 import { EngineHost, OpenCancelledError, type FootnoteInfo, type Rect, type RelocateInfo, type SelectionInfo } from '../engine/host';
+import { createEngine, type ReaderEngine } from '../engine/reader-engine';
 import { normalizePrefs, pickPrefs, type ReaderPrefs } from '../data/prefs';
 import { recordPosition, type ReaderBook } from '../data/schema';
 import type { LinkTarget } from '../data/deeplink';
@@ -130,7 +131,7 @@ export class ReaderView extends ItemView {
   private userTurned = false;
   private teardown = (): void => undefined;
 
-  private host: EngineHost;
+  private host: ReaderEngine;
   private tracker = new ActivityTracker();
   private prefs: ReaderPrefs;
 
@@ -623,10 +624,14 @@ export class ReaderView extends ItemView {
       immersive: () => this.toggleImmersive(),
       library: () => getShellSource()?.openStudy('library'),
     };
-    const spec = headerActionsFor(mobile, { order: prefs.headerOrder, hidden: prefs.headerHidden }).map((id) => ({
-      ...headerActionSpec(id),
-      run: run[id],
-    }));
+    const spec = headerActionsFor(mobile, { order: prefs.headerOrder, hidden: prefs.headerHidden })
+      /* PDF 的排版面板没有意义：字号、行距、字体都来自原文档。
+         这里按引擎类型收走那颗按钮，菜单里也一并收（见 onPaneMenu）。 */
+      .filter((id) => !(this.host.isPdf && (id === 'type' || id === 'para' || id === 'paraBook')))
+      .map((id) => ({
+        ...headerActionSpec(id),
+        run: run[id],
+      }));
     const ids = spec.map((s) => s.id);
 
     /* 收走不该露的按钮：按 DOM 查，不只按 headerEls——视图复用或热重载时，
@@ -935,7 +940,17 @@ export class ReaderView extends ItemView {
       case 'tts':
         this.toggleTts();
         break;
-      case 'typography':
+      case 'typography': {
+        /* PDF 的字号/行距来自原文件，改不了。与其打开一个点了没反应的
+           面板，不如直接说清楚。 */
+        if (this.host.isPdf) {
+          notify(t('notice.pdf.typography'), 'info');
+          break;
+        }
+        const host = this.rootEl;
+        if (host) dispatchAction(kind, host);
+        break;
+      }
       case 'bookmap':
       case 'help': {
         const host = this.rootEl;
@@ -981,19 +996,24 @@ export class ReaderView extends ItemView {
       { id: 'toc', run: () => this.api.openTocSidebar('toc') },
       { id: 'search', run: () => dispatchAction('search', root) },
       { id: 'mark', run: () => this.toggleBookmark() },
-      { id: 'type', run: () => dispatchAction('typography', root) },
-      {
-        id: 'para',
-        label: this.parallelOn ? t('menu.para.close') : headerActionLabel('para'),
-        run: () => void this.toggleParallel(),
-      },
-      {
-        id: 'paraBook',
-        label: t('menu.compare.title', {
-          title: other?.meta.title ?? t('menu.compare.none'),
-        }),
-        run: (evt) => this.openParallelPicker(evt),
-      },
+      /* PDF 没有排版可调，菜单里不摆一个点开只弹提示的入口 */
+      ...(this.host.isPdf ? [] : [{ id: 'type' as HeaderActionId, run: () => dispatchAction('typography', root) }]),
+      ...(this.host.isPdf
+        ? []
+        : [
+            {
+              id: 'para' as HeaderActionId,
+              label: this.parallelOn ? t('menu.para.close') : headerActionLabel('para'),
+              run: () => void this.toggleParallel(),
+            },
+            {
+              id: 'paraBook' as HeaderActionId,
+              label: t('menu.compare.title', {
+                title: other?.meta.title ?? t('menu.compare.none'),
+              }),
+              run: (evt?: MouseEvent) => this.openParallelPicker(evt),
+            },
+          ]),
       {
         id: 'tts',
         label: this.speaking ? t('menu.tts.stop') : headerActionLabel('tts'),
@@ -1063,6 +1083,12 @@ export class ReaderView extends ItemView {
     // 关闭永远放行；只有「开启」才要高级版
     if (this.parallelOn) {
       await this.closeParallel();
+      return;
+    }
+    /* 对照卷是 EPUB 分页器那条路：PDF 没有章节可对齐，硬开会把一本 PDF
+       塞进 foliate 然后白屏。入口已经在头栏/菜单收掉，这里再兜一层。 */
+    if (this.host.isPdf) {
+      notify(t('notice.pdf.typography'), 'info');
       return;
     }
     if (!requireCap('parallel')) return;
@@ -1557,6 +1583,12 @@ export class ReaderView extends ItemView {
 
     this.mounting = true;
     this.book = book;
+    /* PDF 走另一套引擎：切书时连同实例一起换。EPUB/TXT/CBZ 复用同一个
+       EngineHost（它自己会在 mount 时 destroy 上一本）。 */
+    if ((book.fileRef.format === 'pdf') !== this.host.isPdf) {
+      await this.host.destroy();
+      this.host = createEngine(book.fileRef.format, this.api.app);
+    }
     /* 调试日志要能认出这会儿在读哪本：切书后 meta 跟着换，真机把日志
        发回来时才分得清「划词乱跳」发生在这本书还是上一本。 */
     setDebugMeta({ book: book.meta.title || book.id });
@@ -1870,7 +1902,13 @@ export class ReaderView extends ItemView {
     this.host.setAnnotations(
       highlightsOf(book)
         .filter((h) => !!h.cfiRange)
-        .map((h) => ({ cfiRange: h.cfiRange as string, color: colorCss(h.color), chapterIndex: h.chapterIndex })),
+        .map((h) => ({
+          cfiRange: h.cfiRange as string,
+          color: colorCss(h.color),
+          chapterIndex: h.chapterIndex,
+          /* PDF 的标注重开书后要靠原文重新定位；EPUB 忽略这个字段 */
+          text: h.text,
+        })),
     );
   }
 

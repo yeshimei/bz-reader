@@ -180,6 +180,7 @@ export const JA: Record<MsgKey, string> = {
   'notice.open.unsupported': 'この形式には対応していません',
   'fault.openFailed': 'この本を開けません',
   'notice.load.stalled': '{what}が完了しませんでした。もう一度お試しください',
+  'notice.pdf.typography': 'Typography settings do not apply to PDFs — layout comes from the original file.',
   'notice.locate.notReady': 'このページはまだ位置が決まっていません。ページをめくってからもう一度お試しください',
   'notice.bookmark.toggledOn': 'ブックマークを追加しました',
   'notice.bookmark.toggledOff': 'ブックマークを削除しました',

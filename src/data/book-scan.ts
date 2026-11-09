@@ -55,6 +55,25 @@ export async function readBookMeta(app: App, path: string, size = 0): Promise<En
   if (!format || format === 'txt') return null;
   if (size > MAX_META_SOURCE) return null;
   const data = await app.vault.adapter.readBinary(path);
+  /* PDF 不走 foliate 的 makeBook：它没有 PDF loader。用 pdf.js 读 info /
+     XMP 字典，页数就是「章节数」（进度、目录都按页走）。 */
+  if (format === 'pdf') {
+    const { PdfDocument } = await import('../engine/pdf/document');
+    const doc = await PdfDocument.load(new Uint8Array(data.slice(0)));
+    try {
+      const raw = await doc.getMetadata();
+      return {
+        title: raw.title || titleFromPath(path),
+        author: raw.author,
+        description: raw.subject,
+        publishDate: raw.creationDate,
+        chapterCount: doc.numPages,
+        wordCount: 0,
+      };
+    } finally {
+      await doc.destroy();
+    }
+  }
   const name = path.split('/').pop() || `book.${format}`;
   const fb = await makeBook(new File([data], name));
   try {

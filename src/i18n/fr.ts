@@ -181,6 +181,7 @@ export const FR: Record<MsgKey, string> = {
   'notice.open.unsupported': 'Format non pris en charge',
   'fault.openFailed': 'Impossible d’ouvrir ce livre',
   'notice.load.stalled': '{what} ne s’est pas terminé — veuillez réessayer',
+  'notice.pdf.typography': 'Typography settings do not apply to PDFs — layout comes from the original file.',
   'notice.locate.notReady': 'Cette page n’est pas encore localisée — tournez une page et réessayez',
   'notice.bookmark.toggledOn': 'Signet ajouté',
   'notice.bookmark.toggledOff': 'Signet retiré',

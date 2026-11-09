@@ -178,6 +178,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'notice.open.unsupported': '格式不支援',
   'fault.openFailed': '這本書打不開',
   'notice.load.stalled': '{what}沒有完成，請再試一次',
+  'notice.pdf.typography': 'PDF 不支援排版設定：字體與行距由原文件決定',
   'notice.locate.notReady': '這一頁還沒定位好，翻一下再試',
   'notice.bookmark.toggledOn': '已加書籤',
   'notice.bookmark.toggledOff': '已移除書籤',

@@ -84,7 +84,7 @@ function fingerprintOfBuffer(buf: ArrayBuffer): string | null {
 export async function importDetailed(
   app: App,
   files: File[],
-  accept: string[] = ['epub', 'txt'],
+  accept: string[] = ['epub', 'txt', 'pdf'],
   folderRaw: string = IMPORT_FOLDER,
   repo?: BookRepo,
 ): Promise<ImportResult[]> {
@@ -133,7 +133,7 @@ export async function importDetailed(
 export async function importFiles(
   app: App,
   files: File[],
-  accept: string[] = ['epub', 'txt'],
+  accept: string[] = ['epub', 'txt', 'pdf'],
   folderRaw: string = IMPORT_FOLDER,
 ): Promise<string[]> {
   const results = await importDetailed(app, files, accept, folderRaw);
@@ -143,7 +143,7 @@ export async function importFiles(
 /** 打开系统文件选择框，把选中的书写进 vault 的目标文件夹（取消返回 null） */
 export function pickAndImport(
   app: App,
-  accept: string[] = ['epub', 'txt'],
+  accept: string[] = ['epub', 'txt', 'pdf'],
   folderRaw: string = IMPORT_FOLDER,
   repo?: BookRepo,
 ): Promise<ImportResult[] | null> {

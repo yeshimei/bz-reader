@@ -198,6 +198,7 @@ export const ZH = {
   'notice.open.unsupported': '格式不受支持',
   'fault.openFailed': '这本书打不开',
   'notice.load.stalled': '{what}没有完成，请再试一次',
+  'notice.pdf.typography': 'PDF 不支持排版设置：字体与行距由原文档决定',
   'notice.locate.notReady': '这一页还没定位好，翻一下再试',
   'notice.bookmark.toggledOn': '已加书签',
   'notice.bookmark.toggledOff': '已移除书签',

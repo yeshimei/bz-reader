@@ -11,7 +11,7 @@ import { emptyNotes, emptyReading, type BookFormat, type ReaderBook } from './sc
 
 /** 基础版认得的格式。高级版放开全部，由调用方传 allowed 覆盖。 */
 export const BASE_FORMATS: BookFormat[] = ['epub', 'txt'];
-export const PRO_FORMATS: BookFormat[] = ['epub', 'txt', 'mobi', 'azw3', 'fb2', 'cbz'];
+export const PRO_FORMATS: BookFormat[] = ['epub', 'txt', 'mobi', 'azw3', 'fb2', 'cbz', 'pdf'];
 
 /** 给文案用的格式枚举：「EPUB / TXT」 */
 export function BOOK_FORMATS_LABEL(formats: BookFormat[]): string {
@@ -26,6 +26,7 @@ const EXT_TO_FORMAT: Record<string, BookFormat> = {
   azw3x: 'azw3',
   fb2: 'fb2',
   cbz: 'cbz',
+  pdf: 'pdf',
 };
 
 export function formatOf(path: string): BookFormat | null {

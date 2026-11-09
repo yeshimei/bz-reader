@@ -28,7 +28,7 @@
  *   3. `type: 'completed'` 由「有起止且时长 > 0」派生，不必自己写
  * ============================================================ */
 
-export type BookFormat = 'epub' | 'txt' | 'mobi' | 'azw3' | 'fb2' | 'cbz';
+export type BookFormat = 'epub' | 'txt' | 'mobi' | 'azw3' | 'fb2' | 'cbz' | 'pdf';
 
 /**
  * 业务数据格式版本。

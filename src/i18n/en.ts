@@ -186,6 +186,7 @@ export const EN: Record<MsgKey, string> = {
   'notice.open.unsupported': 'Unsupported format',
   'fault.openFailed': 'Could not open this book',
   'notice.load.stalled': '{what} did not finish — please try again',
+  'notice.pdf.typography': 'Typography settings do not apply to PDFs — layout comes from the original file.',
   'notice.locate.notReady': 'This page is not located yet — turn a page and try again',
   'notice.bookmark.toggledOn': 'Bookmark added',
   'notice.bookmark.toggledOff': 'Bookmark removed',

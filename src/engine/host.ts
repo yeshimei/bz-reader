@@ -79,10 +79,16 @@ export interface SelectionInfo {  text: string;
   bounds: Rect;
 }
 
-/** 交给引擎去画的标注（宿主只认 CFI 范围与颜色） */
+/** 交给引擎去画的标注（宿主只认定位串与颜色） */
 export interface HostAnnotation {
+  /** EPUB 是 CFI；PDF 是 `pdf/<页>/<起>-<止>` 定位串 */
   cfiRange: string;
   color?: string;
+  /**
+   * 划线原文。PDF 的标注没有 DOM Range 可复现，重开书后要靠这段文字
+   * 重新定位到页内位置；EPUB 忽略它。
+   */
+  text?: string;
   /** 章节序号：只重画当前章节的，省得每次翻页解析几百条 CFI */
   chapterIndex?: number;
 }
@@ -234,6 +240,8 @@ const TURN_TIMEOUT = 3000;
 
 
 export class EngineHost {
+  /** EPUB/TXT/CBZ 走 foliate；PDF 是另一个实现（engine/pdf/host.ts） */
+  readonly isPdf = false;
   private app: App;
   private view: FoliateView | null = null;
   private book: FoliateBook | null = null;
