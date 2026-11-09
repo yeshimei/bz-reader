@@ -161,6 +161,30 @@ async function uploadAssets(rel) {
 
 const ghRel = githubRelease();
 
+/**
+ * 网盘镜像（2026-11-09 立）：发版产物再传一份到夸克网盘，给推广渠道用。
+ * 脚本本体在 bz 主仓（scripts/push-quark.mjs），用 BZ_REPO 指过去；找不到就跳过——
+ * 这个仓库是公开的，别人克隆下来没有 bz 主仓也不该在这里报错。
+ * 失败只告警：GitHub / 码云才是用户拿到更新的主通道。
+ */
+function pushQuark() {
+  const bzRepo = process.env.BZ_REPO || 'D:/Obsidian/bz';
+  const script = path.join(bzRepo, 'scripts', 'push-quark.mjs');
+  if (!fs.existsSync(script)) {
+    log(`没有找到 ${script}，跳过网盘镜像`);
+    return;
+  }
+  if (DRY) {
+    log('[dry-run] 将调用 push-quark.mjs --product=reader');
+    return;
+  }
+  try {
+    execFileSync(process.execPath, [script, '--product=reader'], { cwd: ROOT, stdio: 'inherit' });
+  } catch {
+    log('夸克网盘没传成（不影响发版，可补跑：node D:/Obsidian/bz/scripts/push-quark.mjs --product=reader）');
+  }
+}
+
 if (CODE_ONLY) {
   pushCode();
   log('完成（只推代码与 tag）');
@@ -172,4 +196,5 @@ if (CODE_ONLY) {
     log(`Release ${tag}：本次上传 ${sent} 个资产`);
     log(`https://gitee.com/${SLUG}/releases/tag/${tag}`);
   }
+  pushQuark();
 }
