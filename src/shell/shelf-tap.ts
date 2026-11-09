@@ -4,8 +4,21 @@
  * 为什么需要这一层：分类管理只能从 Obsidian 原生菜单进入
  * （书卡 ⋯ →「归入分类…」→「分类管理 / 新建分类…」）。菜单项的
  * click 回调里 `input.focus()` 在手机上只给光标、不给键盘——宿主那边
- * 的点击在两端都不算「用户亲手操作」，系统拒绝弹软键盘。touchend 才是
- * 真手势，在这一刻把弹层画出来并聚焦，键盘就跟着起来了。
+ * 的点击在 iOS 上不算「用户亲手操作」，系统拒绝弹软键盘。touchend 才是
+ * 真手势。
+ *
+ * 但「touchend 里只叫键盘」也不行（第一版就是这么写的）：iOS 会先
+ * 把页面滚/缩到键盘上方，随后宿主那次 click 落在错位的地方、甚至不再
+ * 派发——WebKit r188405 记录过同一现象（于是 r243044 加了「touch 被
+ * 页面 preventDefault 才补发键盘信息」的条件）。真机表现就是「键盘闪
+ * 一下又收回去，弹窗永远不出来」。
+ *
+ * 所以现在这一下由我们**接管**：
+ *   1. 认出点的是哪个菜单项（见 {@link shelfTapFrom}）；
+ *   2. `preventDefault()` 掉默认行为——宿主的 click 不再执行，也就不会
+ *      错位；WebKit 那条「handled 才补发键盘信息」的条件同时满足；
+ *   3. 回调里自己关菜单、自己打开弹层，并在同一手势栈里把焦点交给输入框。
+ * 菜单项的 `onClick` 仍保留给桌面：那边没有触摸，走正常点击。
  *
  * 菜单项由宿主画，我们能控制的只有标题：标题里塞一个带标记的 span，
  * 手指抬起时顺着事件目标找到它，就知道该打开哪一形态。标记不参与视觉。
@@ -85,8 +98,13 @@ export function isShelfTapStill(
  * 在文档上挂一次触摸识别，点中带标记的菜单项就回调。
  *
  * 用捕获阶段：宿主在菜单项上也有自己的监听，谁先谁后不受我们控制；
- * 捕获从外往里走，能保证在宿主的 click 之前拿到这一下。返回解绑函数，
- * 菜单关闭（或下一次打开菜单）时调用，避免监听叠在一起。
+ * 捕获从外往里走，能保证在宿主的 click 之前拿到这一下。
+ *
+ * `touchend` 必须是**非 passive**：document 级的触摸监听在 iOS 上默认
+ * 是 passive 的，那种监听里调 `preventDefault()` 是空操作，拦不住宿主
+ * 那次 click——真机上就表现为「键盘闪一下、弹窗不出来」。
+ *
+ * 返回解绑函数，菜单关闭（或下一次打开菜单）时调用，避免监听叠在一起。
  */
 export function bindShelfTap(doc: Document, onTap: (tap: ShelfTap) => void): () => void {
   let start: { x: number; y: number; at: number } | null = null;
@@ -108,7 +126,11 @@ export function bindShelfTap(doc: Document, onTap: (tap: ShelfTap) => void): () 
     if (!t) return;
     if (!isShelfTapStill(s, { x: t.clientX, y: t.clientY, at: Date.now() })) return;
     const tap = shelfTapFrom(e.target as Element | null);
-    if (tap) onTap(tap);
+    if (!tap) return;
+    /* 接管这一下：宿主的 click 不能再跑一次——iOS 上键盘弹起会让页面
+       移动，那次 click 可能落到别的菜单项上（见文件头）。 */
+    e.preventDefault();
+    onTap(tap);
   };
 
   const onCancel = (): void => {
@@ -116,59 +138,11 @@ export function bindShelfTap(doc: Document, onTap: (tap: ShelfTap) => void): () 
   };
 
   doc.addEventListener('touchstart', onStart, { capture: true, passive: true });
-  doc.addEventListener('touchend', onEnd, { capture: true });
+  doc.addEventListener('touchend', onEnd, { capture: true, passive: false });
   doc.addEventListener('touchcancel', onCancel, { capture: true });
   return () => {
     doc.removeEventListener('touchstart', onStart, { capture: true });
     doc.removeEventListener('touchend', onEnd, { capture: true });
     doc.removeEventListener('touchcancel', onCancel, { capture: true });
   };
-}
-
-/** 预热后留多少时间给弹层接管焦点；到点还停在这一格就收回去 */
-const WARM_GRACE_MS = 600;
-
-/**
- * 一只 1px、透明、不进 Tab 序的输入框——只负责把软键盘叫起来。
- *
- * 不能 display:none（那样焦点拿不到、键盘也不弹）；也不能太显眼。
- * 放在 body 上而不是弹层容器里：弹层每次重画都会整棵换掉 DOM，带着它
- * 一起换会把刚弹起来的键盘又弄丢。
- */
-function makeWarmInput(): HTMLInputElement {
-  const el = document.createElement('input');
-  el.type = 'text';
-  el.tabIndex = -1;
-  el.autocomplete = 'off';
-  el.setAttribute('aria-hidden', 'true');
-  el.setAttribute('data-role', 'bzr-kb-warm');
-  el.style.cssText =
-    'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;border:0;padding:0;margin:0;font-size:16px;pointer-events:none;';
-  return el;
-}
-
-/**
- * 在真实手势里先把软键盘叫起来（2026-11-09）。
- *
- * 手机上程序化聚焦只有在「用户手势的同一口气」里才允许弹键盘；宿主菜单的
- * click 回调不算，所以只给光标。手指抬起（touchend）时聚焦这只隐藏输入框，
- * 键盘就起来了；随后宿主的 click 打开分类管理、把焦点交给真正的输入框，
- * 键盘保持不落。用户看到的就是「点一下分类管理，键盘自己弹出来」。
- *
- * 用户中途取消（点了又滑走、或弹层没打开）时，一只键盘举着会挡住菜单：
- * 到点若焦点还在这里就主动 blur 并移除，让它自己落回去。
- */
-export function warmKeyboard(): void {
-  if (typeof document === 'undefined') return;
-  const input = makeWarmInput();
-  document.body.appendChild(input);
-  input.focus({ preventScroll: true });
-  window.setTimeout(() => {
-    if (document.activeElement === input) {
-      input.blur();
-      window.setTimeout(() => input.remove(), 0);
-      return;
-    }
-    input.remove();
-  }, WARM_GRACE_MS);
 }

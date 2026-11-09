@@ -89,6 +89,18 @@ describe('搜索结果', () => {
     expect(html).toContain('<em>天才</em>');
   });
 
+  /* 2026-11-09 iPhone 真机：结果行换成多行之后，整页文字互相叠在一起。
+     WebKit 219372 记的就是这件事——iOS 上 <button> 承载多行内容渲染异常。
+     所以结果行不再用按钮元素，改用 div + role=button，键盘照样可达。 */
+  it('结果行用 div 承载多行文本，不再用 <button>（WebKit 219372）', () => {
+    installSource();
+    setState({ ...DEFAULT_SHELL_STATE, bookId: 'b1' });
+    const html = searchResultsHtml('天才', 'book');
+    expect(html).not.toContain('<button class="bzs-hit"');
+    expect(html).toContain('role="button"');
+    expect(html).toContain('tabindex="0"');
+  });
+
   it('正文命中按书追加，带 data-book 供跨书跳转', () => {
     installSource();
     setState({ ...DEFAULT_SHELL_STATE, bookId: 'b1' });

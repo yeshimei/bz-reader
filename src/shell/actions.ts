@@ -82,7 +82,7 @@ import { RT, emitNotesChanged, pushAi, resetAi } from './runtime';
 import { kickBodySearch, resetBodySearch, stopBodySearch } from './search-run';
 import { bzEmbedder, bzNotesReady, openBzPreview, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
-import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap, warmKeyboard } from './shelf-tap';
+import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
 import { VIDEO_TUTORIAL_URL } from '../core/links';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
@@ -320,6 +320,8 @@ function shelfTapTitle(text: string, kind: 'manage' | 'new', bookId?: string): D
 
 /** 上一张分类菜单挂的触摸解绑：菜单关掉或下一次打开时先撤掉 */
 let unbindShelfTap: (() => void) | null = null;
+/** 手机上 touchend 刚开过弹层的时刻：宿主那次 click 若仍被派发，用它挡住重复打开 */
+let shelfOpenedAt = 0;
 
 /**
  * 书卡菜单「归入分类…」的下一层。
@@ -328,10 +330,11 @@ let unbindShelfTap: (() => void) | null = null;
  * 在**同一处**再弹一张菜单：第一张收起、第二张在原地出现，读起来就是
  * 「进了下一层」，桌面上鼠标位置不变，手机上还是同一张底部面板。
  *
- * 手机上「分类管理 / 新建分类…」要顺手弹键盘（2026-11-09）：宿主的 click
- * 回调不算用户亲手操作，`focus()` 只给光标不给键盘。改成在手指抬起那一刻
- * 先把软键盘叫起来（见 shelf-tap.ts），随后宿主照常打开弹层、焦点交给
- * 输入框，键盘全程不落。打开流程与事件流一点没动，只是提前预热了键盘。
+ * 手机上「分类管理 / 新建分类…」这一下由我们接管（2026-11-09，见 shelf-tap.ts）：
+ * 宿主的 click 在 iOS 上既不算「用户亲手操作」（键盘不给），又会被我们提前
+ * 叫起的键盘顶偏（click 落到别处、菜单项的 onClick 根本没跑）。所以改成在
+ * touchend 里 preventDefault，自己关菜单、自己开弹层——同一手势栈里聚焦
+ * 输入框，键盘才会跟上来。桌面的 onClick 原样保留。
  */
 function openShelfMenu(bookIds: string[], pos: { x: number; y: number }): void {
   const books = liveBooks();
@@ -341,6 +344,13 @@ function openShelfMenu(bookIds: string[], pos: { x: number; y: number }): void {
   const current = only ? shelfOf(only) : '';
   /* 从书卡「新建分类…」进来时把这本书带上：建完顺手归进去 */
   const newBookId = only?.id ?? bookIds[0];
+
+  /* 手机上 touchend 已经开过一次：万一 preventDefault 没拦住宿主那次
+     click，这里别再开第二遍（重画不算「打开」，但会抢一次焦点）。 */
+  const openShelves = (extra: Record<string, unknown> = {}): void => {
+    if (Date.now() < shelfOpenedAt) return;
+    overlay('shelves', extra);
+  };
 
   const menu = new Menu();
   for (const n of names) {
@@ -367,7 +377,7 @@ function openShelfMenu(bookIds: string[], pos: { x: number; y: number }): void {
     i
       .setTitle(shelfTapTitle(t('shelves.assign.new'), 'new', newBookId))
       .setIcon('folder')
-      .onClick(() => overlay('shelves', { mode: 'new', bookId: newBookId })),
+      .onClick(() => openShelves({ mode: 'new', bookId: newBookId })),
   );
   /* 分类管理（改名 / 排序 / 删除）不再占头栏一颗图标：从这层菜单进，
      和「新建分类…」挨着，都属于「整理分类名册」。 */
@@ -375,14 +385,21 @@ function openShelfMenu(bookIds: string[], pos: { x: number; y: number }): void {
     i
       .setTitle(shelfTapTitle(t('shelves.manage'), 'manage'))
       .setIcon('settings')
-      .onClick(() => overlay('shelves')),
+      .onClick(() => openShelves()),
   );
   menu.showAtPosition(pos);
-  /* 只有真移动端才有触摸；桌面（含触屏 Windows）挂上去永远不触发，白搭一层。
-     回调只做「把键盘叫起来」，打开弹层仍由宿主那次 click 负责——不抢事件，
-     菜单该收就收、该关就关，行为与以前完全一致。 */
+  /* 只有真移动端才有触摸；桌面（含触屏 Windows）没有 touchend，照旧走
+     onClick。手机上这一下由 touchend 接管：先收菜单再开弹层——菜单的
+     z-index 比弹层高，留着会盖住卡片。 */
   unbindShelfTap?.();
-  unbindShelfTap = isMobileEnv() ? bindShelfTap(document, () => warmKeyboard()) : null;
+  unbindShelfTap = isMobileEnv()
+    ? bindShelfTap(document, (tap) => {
+        menu.hide();
+        shelfOpenedAt = Date.now() + 600;
+        if (tap.mode === 'new') overlay('shelves', { mode: 'new', bookId: tap.bookId });
+        else overlay('shelves');
+      })
+    : null;
   menu.onHide(() => {
     unbindShelfTap?.();
     unbindShelfTap = null;

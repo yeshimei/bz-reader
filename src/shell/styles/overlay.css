@@ -1032,7 +1032,6 @@ body.theme-dark .bzs-tb-more {
   display: block;
   width: 100%;
   text-align: left;
-  appearance: none;
   border: 0;
   background: none;
   color: var(--t2);
@@ -1043,10 +1042,11 @@ body.theme-dark .bzs-tb-more {
   cursor: pointer;
   /* 结果行必须换行（2026-11-09）：以前靠默认值，iPhone 上按钮里的
      省略号裁切不生效，长摘录把整块结果撑宽、整页能横着滑。
-     显式声明换行 + 断词，宽度钉死在容器里，两端一样。 */
+     现在行是 div（iOS 的按钮多行渲染有 bug，见 render/search.ts），
+     这里显式声明换行 + 断词，宽度钉死在容器里，两端一样。 */
   white-space: normal;
   word-break: break-word;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   max-width: 100%;
 }
 

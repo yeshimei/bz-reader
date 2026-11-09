@@ -1888,8 +1888,16 @@ export class OverlayLayer {
       const role = shelfFocusRole(o.mode);
       if (role && (refocus || role === 'shelfrename')) {
         const input = this.root.querySelector<HTMLInputElement>(`[data-role="${role}"]`);
-        input?.focus();
-        if (role === 'shelfrename') input?.select();
+        if (input) {
+          /* 先逼一次布局再聚焦：这张卡是刚 setHtml 进来的，节点还没有
+             渲染盒。iOS 只对「已经渲染出来的可编辑元素」开键盘，直接
+             focus() 只给光标。开键盘的时机只有一个——touchend 的同步栈
+             （见 shelf-tap.ts），所以布局也必须在这一栈里同步算完，
+             不能丢给 requestAnimationFrame。 */
+          void input.offsetHeight;
+          input.focus();
+          if (role === 'shelfrename') input.select();
+        }
       }
     }
     // 解锁表：被拦下的那一行可能在一长串功能下面，把它滚到可见范围里

@@ -85,13 +85,21 @@ export function openCrossSearch(deps: CrossSearchDeps): void {
         if (mySeq !== seq) return;
         const group = groupFor(book.meta.title);
         for (const hit of list.slice(0, 20)) {
-          const row = el('button', 'bzr-xs-hit');
-          row.type = 'button';
+          /* 2026-11-09：从 button 换成 div + role。iOS 上按钮承载多行内容
+             有渲染 bug（WebKit 219372），结果一换行就叠成一片。 */
+          const row = el('div', 'bzr-xs-hit');
+          row.setAttribute('role', 'button');
+          row.tabIndex = 0;
           if (hit.chapterLabel) row.appendChild(el('span', 'bzr-xs-loc', hit.chapterLabel));
           row.appendChild(document.createTextNode(hit.excerpt || '（无摘录）'));
           row.addEventListener('click', () => {
             closeAll();
             deps.onJump(book, hit.cfi);
+          });
+          row.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            row.click();
           });
           group.appendChild(row);
         }

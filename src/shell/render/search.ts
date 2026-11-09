@@ -61,20 +61,25 @@ function rowTag(r: SearchRow): string {
   return r.label.trim() || t('search.kind.mark');
 }
 
+/**
+ * 一条命中。
+ *
+ * 2026-11-09：外层从 `<button>` 换成 `<div role="button" tabindex="0">`。
+ * iOS 的 WebKit 对「多行内容的按钮」渲染有 bug（WebKit 219372 ：内容被裁成
+ * 单行，或行与行叠在一起）——真机上整页结果糊成一片正是这个。div 照旧能
+ * 拿到 `[data-act]` 的点击委托，键盘可达性由书架页的 keydown 委托负责。
+ */
 function rowHtml(r: SearchRow, kw: string): string {
   const tag = `<span class="loc">${esc(rowTag(r))}</span>`;
   const body = highlightEscaped(r.text, kw);
+  const open = 'class="bzs-hit" role="button" tabindex="0"';
   if (r.kind === 'book') {
-    return `<button class="bzs-hit" data-act="openbook" data-id="${esc(r.bookId)}">${tag}${body}</button>`;
+    return `<div ${open} data-act="openbook" data-id="${esc(r.bookId)}">${tag}${body}</div>`;
   }
   if (r.kind === 'body') {
-    return `<button class="bzs-hit" data-act="hittotext" data-cfi="${esc(r.cfi ?? '')}" data-book="${esc(
-      r.bookId,
-    )}">${tag}${body}</button>`;
+    return `<div ${open} data-act="hittotext" data-cfi="${esc(r.cfi ?? '')}" data-book="${esc(r.bookId)}">${tag}${body}</div>`;
   }
-  return `<button class="bzs-hit" data-act="jumpmark" data-id="${esc(r.id)}" data-book="${esc(
-    r.bookId,
-  )}">${tag}${body}</button>`;
+  return `<div ${open} data-act="jumpmark" data-id="${esc(r.id)}" data-book="${esc(r.bookId)}">${tag}${body}</div>`;
 }
 
 /** 正文搜索的进度 / 停止行 */

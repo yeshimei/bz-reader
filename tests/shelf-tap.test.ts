@@ -96,10 +96,12 @@ describe('isShelfTapStill', () => {
 /** 极简假文档：只要 add/remove/fire，够验绑定本身的行为 */
 function fakeDoc() {
   const map = new Map<string, Set<(ev: unknown) => void>>();
+  const opts = new Map<string, unknown>();
   return {
-    addEventListener(type: string, fn: (ev: unknown) => void) {
+    addEventListener(type: string, fn: (ev: unknown) => void, options?: unknown) {
       if (!map.has(type)) map.set(type, new Set());
       map.get(type)!.add(fn);
+      if (type === 'touchend') opts.set(type, options);
     },
     removeEventListener(type: string, fn: (ev: unknown) => void) {
       map.get(type)?.delete(fn);
@@ -110,15 +112,23 @@ function fakeDoc() {
     count(type: string) {
       return map.get(type)?.size ?? 0;
     },
+    optionsOf(type: string) {
+      return opts.get(type) as { capture?: boolean; passive?: boolean } | undefined;
+    },
   };
 }
 
 function touchAt(x: number, y: number, target?: Element) {
-  return {
+  const ev = {
     touches: [],
     changedTouches: [{ clientX: x, clientY: y }],
     target: target ?? null,
+    defaultPrevented: false,
+    preventDefault() {
+      ev.defaultPrevented = true;
+    },
   };
+  return ev;
 }
 
 describe('bindShelfTap', () => {
@@ -132,6 +142,41 @@ describe('bindShelfTap', () => {
     doc.fire('touchend', touchAt(10, 10, item));
 
     expect(seen).toEqual([{ mode: 'manage' }]);
+  });
+
+  /* 2026-11-09 真机：点菜单项只弹一下键盘又收回去，弹窗始终不出来。
+     原因是我们先在 touchend 里叫键盘，页面被顶起来，宿主随后那次 click
+     落到别处（WebKit r188405 记录过同一现象），菜单项的 onClick 从没跑过。
+     现在这一下由我们接管：拦掉默认行为，自己关菜单、自己开弹层。 */
+  it('点中时拦掉默认行为：宿主那次 click 不能再落到别处', () => {
+    const doc = fakeDoc();
+    bindShelfTap(doc as unknown as Document, () => undefined);
+    const item = chain([{ [SHELF_TAP_ATTR]: 'manage' }]);
+
+    doc.fire('touchstart', { touches: [{ clientX: 10, clientY: 10 }] });
+    const ev = touchAt(10, 10, item);
+    doc.fire('touchend', ev);
+
+    expect(ev.defaultPrevented).toBe(true);
+  });
+
+  it('普通菜单项不拦：分类名、取消这些照旧交给宿主', () => {
+    const doc = fakeDoc();
+    bindShelfTap(doc as unknown as Document, () => undefined);
+
+    doc.fire('touchstart', { touches: [{ clientX: 10, clientY: 10 }] });
+    const ev = touchAt(10, 10, chain([{}]));
+    doc.fire('touchend', ev);
+
+    expect(ev.defaultPrevented).toBe(false);
+  });
+
+  it('touchend 必须是非 passive：被动监听里的 preventDefault 是空操作', () => {
+    const doc = fakeDoc();
+    bindShelfTap(doc as unknown as Document, () => undefined);
+
+    expect(doc.optionsOf('touchend')?.passive).toBe(false);
+    expect(doc.optionsOf('touchend')?.capture).toBe(true);
   });
 
   it('手指滑走了不打开', () => {
