@@ -2385,6 +2385,14 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
       /* PDF 划完词自动复制链接：默认关，用户自己开 */
       src.setPrefs({ pdfAutoLink: v !== '0' });
       break;
+    case 'pdfLinkLabel':
+      /* 链接别名四档：原文 / 页码 / 书名+页码 / 📖。窗口外的值一律回「原文」，
+         别让一个手改过的 data-v 把别名变成空串 */
+      src.setPrefs({
+        pdfLinkLabel:
+          v === 'page' || v === 'titlePage' || v === 'emoji' ? v : 'text',
+      });
+      break;
     default:
       break;
   }

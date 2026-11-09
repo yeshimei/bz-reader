@@ -173,3 +173,26 @@ describe('工具条样式', () => {
     expect(DEFAULT_PREFS).toHaveProperty('toolbarStyle');
   });
 });
+
+/**
+ * PDF 链接别名（2026-11-09）：从 PDF++ 抄来的四档。
+ *
+ * 默认「原文」：粘进笔记先看见的是引的那句话，不是「第 12 页」——
+ * 一句没有上下文的页码，三个月后自己都认不出来。
+ */
+describe('PDF 链接别名', () => {
+  it('默认贴原文', () => {
+    expect(DEFAULT_PREFS.pdfLinkLabel).toBe('text');
+    expect(normalizePrefs({}).pdfLinkLabel).toBe('text');
+  });
+
+  it('四档各自认得出，其它值退回原文', () => {
+    for (const mode of ['page', 'titlePage', 'emoji'] as const) {
+      expect(normalizePrefs({ pdfLinkLabel: mode }).pdfLinkLabel).toBe(mode);
+    }
+    expect(normalizePrefs({ pdfLinkLabel: 'quote' } as unknown as Record<string, unknown>).pdfLinkLabel).toBe(
+      'text',
+    );
+    expect(normalizePrefs({ pdfLinkLabel: 2 } as unknown as Record<string, unknown>).pdfLinkLabel).toBe('text');
+  });
+});
