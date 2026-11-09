@@ -1745,10 +1745,11 @@ textarea.idea:focus {
   background: currentColor;
 }
 
-/* 分组标题：跨三列的一条浅底，字比功能行小一号、字距拉开，左边一根铜色短条。
-   它只是分隔线，不该比功能行还显眼（2026-11-09）。 */
+/* 分组标题：跨三列的一条浅底，字比功能行小一号、字距拉开。
+   它只是分隔线，不该比功能行还显眼（2026-11-09）。
+   左边原来有一根铜色短条，真机看下来像多余的装饰线——组名靠字距和底色
+   已经能分开，去掉。 */
 .bzs-plan-row.is-group {
-  position: relative;
   grid-column: 1 / -1;
   grid-template-columns: 1fr;
   padding: 12px 12px 5px;
@@ -1762,21 +1763,6 @@ textarea.idea:focus {
   letter-spacing: .13em;
   color: var(--ink);
   opacity: .62;
-}
-
-/* 竖条定位在行上（不是 span 上）：组名要和下面的功能行一样从 12px 起，
-   不能被标记顶到右边去。 */
-.bzs-plan-row.is-group span::before {
-  content: "";
-  position: absolute;
-  left: 3px;
-  top: 50%;
-  width: 3px;
-  height: 9px;
-  margin-top: -4.5px;
-  border-radius: 2px;
-  background: var(--copper);
-  opacity: .85;
 }
 
 /* 「你刚点的就是这个」：基础版点付费按钮被拦下时，对照表里那一行
