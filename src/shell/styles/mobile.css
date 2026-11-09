@@ -1087,7 +1087,11 @@
   }
 
   .bzs-sbtab .n {
-    font-size: 12px;
+    top: 5px;
+    min-width: 16px;
+    height: 16px;
+    font-size: 10px;
+    line-height: 16px;
   }
 
   .bzs-sbsec {

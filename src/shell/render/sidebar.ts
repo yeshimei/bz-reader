@@ -387,22 +387,25 @@ export function viewSidebar(v: SidebarView): string {
   const title = book ? book.meta.title || t('side.untitled') : t('side.noBook');
   const counts = book
     ? {
-        toc: v.toc?.length ?? 0,
         bookmarks: (book.notes?.bookmarks ?? []).length,
         highlights: (book.notes?.highlights ?? []).length,
       }
-    : { toc: 0, bookmarks: 0, highlights: 0 };
+    : { bookmarks: 0, highlights: 0 };
 
+  /* 目录不显示条数（2026-11-09）：那是「这本书有多厚」，不是「我要去哪」，
+     还和图标抢地方。书签与划线保留——它们表示「我在这本书里留过多少东西」。 */
   const tabCount = (tab: SideTab): number =>
-    tab === 'toc' ? counts.toc : tab === 'bookmarks' ? counts.bookmarks : tab === 'highlights' ? counts.highlights : 0;
+    tab === 'bookmarks' ? counts.bookmarks : tab === 'highlights' ? counts.highlights : 0;
 
   const tabs = SIDE_TABS
     .map((tab) => {
       const n = tabCount(tab.value);
+      /* 三位数会把页签挤歪：超过 99 只报「99+」，准确数在各自的页里还能数 */
+      const badge = n > 99 ? '99+' : String(n);
       const label = t(tab.key);
       return `<button class="bzs-sbtab${v.tab === tab.value ? ' on' : ''}" data-act="sbtab" data-tab="${tab.value}" title="${label}" aria-label="${label}">${icoNative(
         tab.icon,
-      )}${n ? `<span class="n">${n}</span>` : ''}</button>`;
+      )}${n ? `<span class="n">${badge}</span>` : ''}</button>`;
     })
     .join('');
 

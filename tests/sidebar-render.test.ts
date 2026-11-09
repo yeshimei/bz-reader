@@ -164,6 +164,48 @@ describe('目录折叠', () => {
   });
 });
 
+describe('页签计数', () => {
+  /* 真机反馈（2026-11-09）：目录页签右上角的数字没有意义——它是「这本书
+     有多少节」，跟「我要去哪一章」无关，还和图标抢地方。去掉之后只留书签
+     与划线两个数：那两个是「我在这本书里留过多少东西」，值得看。
+     样式改成实心铜点（见 sidebar.css），超过 99 收成 99+。 */
+
+  function tabBtn(html: string, tab: string): string {
+    const at = html.indexOf(`data-tab="${tab}"`);
+    expect(at).toBeGreaterThan(-1);
+    const start = html.lastIndexOf('<button', at);
+    return html.slice(start, html.indexOf('</button>', at));
+  }
+
+  function withHighlights(n: number): ReaderBook {
+    const b = book();
+    b.notes.highlights = Array.from({ length: n }, (_, i) => ({
+      id: `m${i}`,
+      text: `划线 ${i}`,
+      cfiRange: 'epubcfi(/6/4!/2/2,/1:0,/1:6)',
+      chapterTitle: '第一回',
+      color: 'amber',
+      createdAt: i,
+    }));
+    return b;
+  }
+
+  it('目录页签不画数字', () => {
+    expect(tabBtn(view({ tab: 'toc' }), 'toc')).not.toContain('class="n"');
+  });
+
+  it('书签与划线照常显示条数', () => {
+    const html = view({ tab: 'highlights' }, withHighlights(3));
+    expect(tabBtn(html, 'highlights')).toContain('<span class="n">3</span>');
+  });
+
+  it('超过 99 收成 99+，不然三位数会把页签挤歪', () => {
+    const html = view({ tab: 'highlights' }, withHighlights(137));
+    expect(tabBtn(html, 'highlights')).toContain('<span class="n">99+</span>');
+    expect(tabBtn(html, 'highlights')).not.toContain('137');
+  });
+});
+
 describe('书签列表', () => {
   function withBookmark(percent = 0.42): ReaderBook {
     const b = book();
