@@ -13,7 +13,7 @@ import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { t } from '../i18n';
 import { planLabel } from '../i18n/plan';
 import { anchoredPlacement } from './anchored-style';
-import { drawerLift, sheetLift } from './keyboard-inset';
+import { drawerLift, keyboardHeightFromCss, sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
 import { MARK_ACTS, SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from './text-toolbar';
 import { aiCardHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, markBubbleHtml, markDeleteBarHtml } from './reader-cards';
@@ -1392,6 +1392,8 @@ export class OverlayLayer {
   private kbLift = -1;
   /** 键盘采样令牌：新一次聚焦会让上一轮 rAF 循环作废 */
   private kbSample = 0;
+  /** 最近一次 keyboardWillHide 的时刻：宿主变量可能滞后，一小段时间内不信它 */
+  private kbHiddenAt = 0;
   /**
    * 搜索浮层被隐藏时的整棵 DOM（含遮罩）。
    *
@@ -1449,6 +1451,25 @@ export class OverlayLayer {
     }
     window.addEventListener('resize', sync);
     this.disposers.push(() => window.removeEventListener('resize', sync));
+    /* 宿主在键盘显隐时派发 Capacitor 的同名事件（Obsidian 自己也听）：
+       --keyboard-height 随后才更新，抽屉要在这之后重新量一次。
+       hide 时先直接归位，不等变量更新——视觉上跟手，变量晚到也不会回弹。 */
+    const onKbShow = (): void => {
+      this.kbHiddenAt = 0;
+      this.sampleKeyboard(600);
+    };
+    const onKbHide = (): void => {
+      this.kbHiddenAt = performance.now();
+      this.kbLift = 0;
+      this.root.setCssProps({ '--bzr-kb': '0px' });
+      this.root.classList.remove('is-kb');
+    };
+    window.addEventListener('keyboardWillShow', onKbShow);
+    window.addEventListener('keyboardWillHide', onKbHide);
+    this.disposers.push(() => {
+      window.removeEventListener('keyboardWillShow', onKbShow);
+      window.removeEventListener('keyboardWillHide', onKbHide);
+    });
     document.body.appendChild(this.root);
     document.addEventListener('pointerdown', this.onDocPointer, true);
     /* 输入框里的 Esc 是「放弃这次输入」，不该顺手把整个弹层关掉（P3-14）：
@@ -1640,14 +1661,31 @@ export class OverlayLayer {
    * 数值没变就不碰样式，免得 resize 连发时一直触发重排。
    */
   private syncKeyboardVar(): void {
+    if (!isMobileShell()) return;
+    /* 优先用宿主自己维护的 --keyboard-height（移动工具栏也靠它定位）：
+       部分安卓 WebView 的 visualViewport 只报一半键盘高，拿它抬抽屉会停在半路。
+       宿主变量读不到（桌面验收、老版本）时才退回视觉视口差值。 */
     const vv = window.visualViewport;
-    if (!isMobileShell() || !vv) return;
-    /* 抽屉要抬满整个键盘：sheetLift 的 60% 上限是给贴字小卡的。 */
-    const lift = drawerLift({ innerHeight: window.innerHeight, visualHeight: vv.height });
+    /* 键盘刚收起的一小段时间里宿主变量可能还是旧值，先别信它，否则刚归位又被抬起来 */
+    const recentlyHidden = this.kbHiddenAt > 0 && performance.now() - this.kbHiddenAt < 600;
+    const lift =
+      (recentlyHidden ? 0 : this.hostKeyboardHeight()) ||
+      (vv ? drawerLift({ innerHeight: window.innerHeight, visualHeight: vv.height }) : 0);
     if (lift !== this.kbLift) {
       this.kbLift = lift;
       this.root.setCssProps({ '--bzr-kb': `${lift}px` });
       this.root.classList.toggle('is-kb', lift > 0);
+    }
+  }
+
+  /** 宿主写在 documentElement 上的键盘高（读不到就是 0） */
+  private hostKeyboardHeight(): number {
+    try {
+      return keyboardHeightFromCss(
+        getComputedStyle(document.documentElement).getPropertyValue('--keyboard-height'),
+      );
+    } catch {
+      return 0;
     }
   }
 
@@ -1667,7 +1705,9 @@ export class OverlayLayer {
     const tick = (): void => {
       if (token !== this.kbSample) return;
       this.syncKeyboardVar();
-      const h = window.visualViewport?.height ?? 0;
+      /* 以「算出来的抬升量」为准：宿主变量可能比视觉视口晚一步更新，
+         只盯 vv 会在半截高度上提前收手。 */
+      const h = this.kbLift;
       /* 连续 8 帧（约 130ms）不变就算停稳，不必等满 1.2s */
       if (h === last) stable++;
       else {

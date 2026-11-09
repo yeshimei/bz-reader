@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { drawerLift, keyboardInset, sheetLift } from '../src/shell/keyboard-inset';
+import { drawerLift, keyboardHeightFromCss, keyboardInset, sheetLift } from '../src/shell/keyboard-inset';
 
 describe('keyboardInset', () => {
   it('没键盘时为 0', () => {
@@ -44,5 +44,29 @@ describe('drawerLift', () => {
   it('没键盘、或差值太小（地址栏收起）都不抬', () => {
     expect(drawerLift({ innerHeight: 800, visualHeight: 800 })).toBe(0);
     expect(drawerLift({ innerHeight: 800, visualHeight: 760 })).toBe(0);
+  });
+});
+
+describe('keyboardHeightFromCss', () => {
+  /* Obsidian 移动端把键盘高写在根元素的 --keyboard-height 上，自己的移动工具栏
+     就靠它定位。visualViewport 在部分安卓 WebView 上只报一半，所以优先读这个。 */
+  it('读带 px 的键盘高度', () => {
+    expect(keyboardHeightFromCss('411px')).toBe(411);
+  });
+
+  it('键盘收起时是 0 或空', () => {
+    expect(keyboardHeightFromCss('0px')).toBe(0);
+    expect(keyboardHeightFromCss('')).toBe(0);
+    expect(keyboardHeightFromCss('   ')).toBe(0);
+  });
+
+  it('脏值不抛错，一律当没有键盘', () => {
+    expect(keyboardHeightFromCss('abc')).toBe(0);
+    expect(keyboardHeightFromCss(undefined as unknown as string)).toBe(0);
+    expect(keyboardHeightFromCss(null as unknown as string)).toBe(0);
+  });
+
+  it('小数四舍五入', () => {
+    expect(keyboardHeightFromCss('411.6px')).toBe(412);
   });
 });

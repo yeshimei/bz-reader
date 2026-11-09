@@ -35,3 +35,19 @@ export function sheetLift(m: ViewportMetrics): number {
 export function drawerLift(m: ViewportMetrics): number {
   return keyboardInset(m);
 }
+
+/**
+ * 从宿主写在根元素上的 `--keyboard-height` 读键盘高（可带 px）。
+ *
+ * 为什么优先用这个而不是 visualViewport 差值：Obsidian 移动端自己就用它
+ * 定位移动工具栏与回链面板（桌面版安装包里能搜到
+ * `getComputedStyle(document.documentElement).getPropertyValue("--keyboard-height")`），
+ * 说明它由宿主原生层维护、值可靠。部分安卓 WebView 的 visualViewport
+ * 在键盘弹起时只报一半高度，用它抬抽屉会停在半路（真机 2026-11-09）。
+ *
+ * 空串 / 0 / 脏值一律当「没有键盘」。
+ */
+export function keyboardHeightFromCss(raw: string): number {
+  const n = parseFloat(raw);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+}
