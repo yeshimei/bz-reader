@@ -5,11 +5,11 @@
   <sub>桌面端 + 移动端、多格式支持、八种界面语言、AI 问答、双向链接，数据全部本地。</sub></p>
 
   <p>
-    <a href="https://obsidian.md"><img src="docs/images/badges/obsidian.svg" height="27" alt="Obsidian 1.8.7+"></a>
-    <img src="docs/images/badges/version.svg" height="27" alt="版本">
-    <img src="docs/images/badges/downloads.svg" height="27" alt="下载量">
-    <img src="docs/images/badges/platform.svg" height="27" alt="桌面 + 移动">
-    <img src="docs/images/badges/license.svg" height="27" alt="MIT">
+    <a href="https://obsidian.md"><img src="https://img.shields.io/badge/OBSIDIAN-%E2%89%A5%201.8.7-8a6a3a?style=flat-square&logo=obsidian&logoColor=white" alt="Obsidian 1.8.7+"></a>
+    <a href="https://github.com/yeshimei/bz-reader/releases/latest"><img src="https://img.shields.io/github/v/release/yeshimei/bz-reader?style=flat-square&label=VERSION&labelColor=1f1f1e&color=6a6861" alt="版本"></a>
+    <a href="https://github.com/yeshimei/bz-reader/releases"><img src="https://img.shields.io/github/downloads/yeshimei/bz-reader/total?style=flat-square&label=DOWNLOADS&labelColor=1f1f1e&color=6d8795" alt="下载量"></a>
+    <img src="https://img.shields.io/badge/PLATFORM-DESKTOP%20%2B%20MOBILE-5f7f57?style=flat-square&labelColor=1f1f1e" alt="桌面 + 移动">
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/yeshimei/bz-reader?style=flat-square&label=LICENSE&labelColor=1f1f1e&color=5f7f57" alt="MIT"></a>
   </p>
 
   <p><sub><a href="https://www.bilibili.com/video/BV1tK4E6KE1B">视频教程 · Video tutorial</a></sub></p>
