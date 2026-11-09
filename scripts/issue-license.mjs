@@ -5,6 +5,10 @@
  *   node scripts/issue-license.mjs --name 包仔 [--days 365]
  *   node scripts/issue-license.mjs --name 包仔 --until 2027-12-31
  *   node scripts/issue-license.mjs --name 包仔 --plan lifetime --id BZR-2026-0001
+ *   node scripts/issue-license.mjs --plan lifetime --patron --id BZR-SP-2026-0001
+ *
+ * `--patron` 在 payload 里多写一个 `patron: true`：插件据此在授权状态里
+ * 额外标一枚「赞助人」。老码没有这个字段，行为完全不变。
  *
  * 输出形如 BZR2.<payload>.<sig> 的激活码，粘贴到 书架 → 设置 → 授权。
  * 需要 scripts/keys/private.pem（gen-keys.mjs 生成）。
@@ -31,6 +35,7 @@ const arg = (name) => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 const name = arg('name');
+const patron = args.includes('--patron');
 const days = Number(arg('days') || 0);
 const until = arg('until');
 const plan = arg('plan') || (days > 0 || until ? 'year' : 'lifetime');
@@ -52,7 +57,14 @@ if (Number.isNaN(exp)) {
 
 /* v2：带 id 与 plan。id 是码号/订单号，将来上「吊销名单」和查「谁泄露了」都靠它。
    v1 老码仍能验，但新发的一律 v2。 */
-const payload = { v: 2, id, ...(name ? { name } : {}), plan, ...(exp ? { exp } : {}) };
+const payload = {
+  v: 2,
+  id,
+  ...(name ? { name } : {}),
+  ...(patron ? { patron: true } : {}),
+  plan,
+  ...(exp ? { exp } : {}),
+};
 const payloadBytes = Buffer.from(JSON.stringify(payload), 'utf8');
 
 /** DER 签名（SEQUENCE{r INTEGER, s INTEGER}）→ IEEE-P1363 裸 r||s，各 32 字节 */
@@ -89,5 +101,5 @@ const code = `BZR2.${b64url(payloadBytes)}.${b64url(sig)}`;
 
 console.log(code);
 console.error(
-  `--- ${name || '未署名'} · ${plan} · ${id} · ${exp ? new Date(exp).toLocaleDateString() : '永久'}`,
+  `--- ${name || '未署名'}${patron ? ' · 赞助人' : ''} · ${plan} · ${id} · ${exp ? new Date(exp).toLocaleDateString() : '永久'}`,
 );
