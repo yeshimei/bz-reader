@@ -29,6 +29,49 @@
   flex-direction: column;
 }
 
+/* ── 宿主的默认按钮底：整个壳层按掉 ──
+   默认主题的 app.css 里有一条 `button:not(.clickable-icon)`（特异性 0,1,1）：
+   给每个按钮铺 --interactive-normal 的底、加 --input-shadow 的内描边与投影，
+   文字色也换成 --text-color。壳层里几乎所有按钮都靠自己那一行单类规则
+   （0,1,0）画，一律输给它——默认主题下就成了满屏灰底灰框：图标钮、划词条、
+   关于条、侧栏页签、胶囊、描边按钮、开关、星星、色点……全是这个原因。
+   主库看着正常是借来的：那边同时开着 bz，它有一条全局按钮归零；这边不能
+   依赖别的插件，自己按掉。
+
+   这一条与宿主同档（0,1,1）、写在宿主之后，同档靠顺序取胜。组件自己的
+   hover / .on / .pri 都在 (0,2,0) 以上，仍然盖得住；只有「本来就该有底色」
+   的几颗（开关 / 选目录 / 笔记多选 / 知识盒链接 / 目录卡）得把选择器升到
+   .bzs-shell 下，见 common/study/overlay 里各自那一条。
+
+   只清底与阴影：边框、圆角、内边距由各组件自己声明（单类 0,1,0 已经不输
+   宿主的基础 button 规则 0,0,1）。焦点环画在 box-shadow 上，
+   `.bzs-shell button:focus-visible` 多一个元素选择器（0,2,1），Tab 时照样亮。 */
+.bzs-shell button {
+  background: none;
+  box-shadow: none;
+}
+
+/* 文字色也被宿主换成了 --text-color（= 正文色，偏黑）：这些按钮故意比正文
+   淡一档，按设计值补回来。都写成（0,2,0），各自的 hover / .on 写在后面、
+   同档，靠顺序照旧生效。 */
+.bzs-shell .bzs-cbtn,
+.bzs-shell .bzs-sbtn,
+.bzs-shell .bzs-about-link,
+.bzs-shell .bzs-btn,
+.bzs-shell .bzs-ai-mode,
+.bzs-shell .bzs-tb-mi {
+  color: var(--t2);
+}
+
+.bzs-shell .bzs-chip,
+.bzs-shell .bzs-sbtab,
+.bzs-shell .bzs-srch-clear {
+  color: var(--t3);
+}
+
+.bzs-shell .bzs-star { color: var(--line-2); }
+.bzs-shell .bzs-idea-more { color: var(--copper); }
+
 /* ── 图标钮：方形、无底、悬停泛铜 ── */
 .bzs-cbtn {
   width: 30px;
@@ -164,8 +207,10 @@
 
 /* ── 文件夹选择钮：「路径 + 选择…」 ──
    以前没有任何样式，渲染出来就是浏览器默认按钮：文字、图标挤在一起，
-   还紧贴标签左侧（真机反馈第 7 条）。这里让它靠右、限宽、超长路径省略。 */
-.bzs-pickdir {
+   还紧贴标签左侧（真机反馈第 7 条）。这里让它靠右、限宽、超长路径省略。
+   选择器带 .bzs-shell：它是有底色的那一类，得压过宿主按钮底与
+   上面那条壳层归零（0,1,1），自己把 sunken 底拿回来。 */
+.bzs-shell .bzs-pickdir {
   margin-left: auto;
   display: inline-flex;
   align-items: center;

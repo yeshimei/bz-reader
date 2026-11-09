@@ -584,7 +584,9 @@ body.theme-dark .bzs-float.is-dialog {
   margin-top: 7px;
 }
 
-.bzs-kblink {
+/* 这一颗是有底的（--sunken）：选择器带 .bzs-shell，既压过宿主按钮底，
+   也压过 common.css 那条壳层归零（0,1,1）。 */
+.bzs-shell .bzs-kblink {
   appearance: none;
   display: inline-flex;
   align-items: center;
@@ -1557,7 +1559,9 @@ textarea.idea:focus {
   flex: 1;
 }
 
-.bzs-dircard {
+/* 目录卡是有底的（--surface）：选择器带 .bzs-shell，压过宿主按钮底与
+   common.css 那条壳层归零（0,1,1）；hover / .on 写在后面，同档照旧生效。 */
+.bzs-shell .bzs-dircard {
   appearance: none;
   cursor: pointer;
   display: flex;

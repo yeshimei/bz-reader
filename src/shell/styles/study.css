@@ -802,7 +802,9 @@
   box-shadow: inset 0 0 0 1px var(--copper);
 }
 
-.bzs-npick {
+/* 选中圈是有底色的按钮（--bg 盖在封面上），选择器带 .bzs-shell：既压过
+   宿主按钮底，也压过 common.css 那条壳层归零（0,1,1）。 */
+.bzs-shell .bzs-npick {
   position: absolute;
   left: 14px;
   top: 13px;
@@ -1514,8 +1516,9 @@
   padding: 6px 6px;
 }
 
-/* 开关 */
-.bzs-switch {
+/* 开关：轨道要有 --sunken 底，选择器带 .bzs-shell 才能压过宿主按钮底与
+   common.css 那条壳层归零（0,1,1）；.on / ::after 写在后面，同档照旧生效。 */
+.bzs-shell .bzs-switch {
   margin-left: auto;
   width: 36px;
   height: 20px;
