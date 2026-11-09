@@ -198,17 +198,27 @@ describe('手机：面板独立成遮罩弹窗，不跟工具条', () => {
     expect(html).not.toContain('class="bzs-tb"');
   });
 
-  it('点划线：工具条照旧贴字，但不摆想法气泡，其余动作收进「⋯」', () => {
+  it('点划线：想法气泡在工具条上方，整块贴字，其余动作收进「⋯」', () => {
     flags.mobile = true;
     const { book, markId } = marked('这条想法');
     install([book]);
     const html = render('hltools', markId);
 
+    expect(html).toContain('bzs-tb-stack');
     expect(html).toContain('class="bzs-tb"');
     expect(html).toContain('data-act="more"');
     expect(html).toContain('bzs-tb-more');
-    expect(html).not.toContain('bzs-mark-bubble');
+    /* 手机上也要看得见想法，而且排在工具条前面（视觉上在它上方） */
+    expect(html).toContain('bzs-mark-bubble');
+    expect(html.indexOf('bzs-mark-bubble')).toBeLessThan(html.indexOf('class="bzs-tb"'));
     expect(html).not.toContain('bzs-scrim');
+  });
+
+  it('点划线但没有想法：手机也不摆空气泡', () => {
+    flags.mobile = true;
+    const { book, markId } = marked();
+    install([book]);
+    expect(render('hltools', markId)).not.toContain('bzs-mark-bubble');
   });
 
   it('删除确认也用同一张遮罩弹窗', () => {
@@ -268,5 +278,42 @@ describe('桌面：删除确认改成贴字的一条', () => {
       overlay: { kind: 'confirmdel', bookmarkId: 'k1', bookId: 'b1' },
     });
     expect(overlayHtml()).toContain('bzs-modal');
+  });
+});
+
+/**
+ * 想法全文（2026-11-09）：气泡只露一截，整篇点开一张只读弹窗。
+ *
+ * 500 / 1000 字的想法在气泡里滚得出来，但要通读、要抄，还是得有一张
+ * 能滚的完整弹窗；它不进工具条那一列，也不跟浮层抢位置。
+ */
+describe('想法全文：单独一张只读弹窗', () => {
+  const full = '这是一段很长的想法。'.repeat(30);
+
+  it('打开 ideaall：遮罩弹窗里是完整想法，带标题与关闭', () => {
+    const { book, markId } = marked(full);
+    install([book]);
+    setState({
+      ...DEFAULT_SHELL_STATE,
+      bookId: 'b1',
+      overlay: { kind: 'ideaall', markId, bookId: 'b1' },
+    });
+    const html = overlayHtml();
+
+    expect(html).toContain('bzs-modal');
+    expect(html).toContain('bzs-idea-full');
+    expect(html).toContain(full);
+    expect(html).toContain('data-act="close"');
+  });
+
+  it('标注已经不在：给一句说明，不画空白弹窗', () => {
+    const { book } = marked('想法');
+    install([book]);
+    setState({
+      ...DEFAULT_SHELL_STATE,
+      bookId: 'b1',
+      overlay: { kind: 'ideaall', markId: 'gone', bookId: 'b1' },
+    });
+    expect(overlayHtml()).toContain('找不到这条标注');
   });
 });

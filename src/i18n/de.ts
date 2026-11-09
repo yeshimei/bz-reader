@@ -320,6 +320,7 @@ export const DE: Record<MsgKey, string> = {
 
   /* ── Auswahlwerkzeugleiste ──────────────────────────────── */
   'tool.idea': 'Notiz',
+  'idea.expand': 'Show full note',
   'ai.mode.explain': 'Erklären',
   'ai.mode.translate': 'Übersetzen',
   'ai.mode.summarize': 'Zusammenfassen',

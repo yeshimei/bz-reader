@@ -16,7 +16,7 @@ import { anchoredPlacement } from './anchored-style';
 import { drawerLiftFor, keyboardHeightFromCss, sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
 import { MARK_ACTS, SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from './text-toolbar';
-import { aiCardHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, markBubbleHtml, markDeleteBarHtml } from './reader-cards';
+import { aiCardHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, ideaFullHtml, markBubbleHtml, markDeleteBarHtml } from './reader-cards';
 import { HIGHLIGHT_COLORS } from '../data/notes';
 import { aiAsk, type AiTask } from '../data/ai';
 import type { ReaderBook } from '../data/schema';
@@ -414,10 +414,11 @@ function overlayIdea(markId?: string, bookId?: string): string {
 }
 
 /**
- * 点中已有划线：桌面是「想法气泡 + 工具条」一列，手机只摆工具条。
+ * 点中已有划线：想法气泡在上、工具条在下，两端都是这一列。
  *
- * 手机上不摆气泡不是漏了：手指刚点在字上，那一带本来就没有空位放一段
- * 可能很长的想法；想法在面板里能看能改，不必再在旁边重复一遍。
+ * 手机以前只摆工具条：理由是「那一带没有空位放一段可能很长的想法」。
+ * 2026-11-09 改掉——点划线的人第一件事就是看自己写过什么；想法在气泡里
+ * 限高、可滚，超长的再点「展开全文」进只读弹窗，不会把工具条顶出屏幕。
  */
 function overlayHltools(markId?: string, bookId?: string): string {
   const found = markById(markId, bookId);
@@ -435,10 +436,27 @@ function overlayHltools(markId?: string, bookId?: string): string {
     kbDone: { term: !!kbLinkOf(mark.kb, 'term'), passage: !!kbLinkOf(mark.kb, 'passage') },
     icon: shellPrefs().toolbarStyle === 'icon',
   });
-  if (isMobileEnv()) return bareFloat(toolbar, 'bzs-hltools-panel');
   /* 想法为空、但有知识盒链接时气泡也要出：点划线的人可能就是来点那枚链接的 */
-  const bubble = mark.comment || mark.kb?.length ? markBubbleHtml(mark.comment ?? '', mark.kb) : '';
+  const bubble = mark.comment || mark.kb?.length ? markBubbleHtml(mark.comment ?? '', mark.kb, { markId: mark.id, bookId: book.id }) : '';
   return bareFloat(`<div class="bzs-tb-stack">${bubble}${toolbar}</div>`, 'bzs-hltools-panel has-stack');
+}
+
+/**
+ * 想法全文：一张只读的遮罩弹窗（长想法从气泡底部的「展开全文」进来）。
+ *
+ * 气泡里的高度是有限的，读一整篇（500 / 1000 字）得有一块能滚的完整卡。
+ * 它不进工具条那一列——全文是「读」，不是「贴着这条划线操作」。
+ */
+function overlayIdeaAll(markId?: string, bookId?: string): string {
+  const found = markById(markId, bookId);
+  if (!found) {
+    /* 文案复用「找不到这条标注」那条通知：同一种处境说同一句话，
+       也免得为一个空状态再开一条语言包条目 */
+    return modal(t('tool.idea'), '', `<div class="bzs-empty">${esc(t('notice.mark.gone'))}</div>`, closeBtn());
+  }
+  const { book, mark } = found;
+  const sub = [book.meta.title, mark.chapterTitle].filter((s) => !!s && s.trim()).join(' · ');
+  return modal(t('tool.idea'), esc(sub), ideaFullHtml(mark.comment ?? ''), closeBtn());
 }
 
 /**
@@ -1223,6 +1241,8 @@ export function overlayHtml(): string {
       return overlayQuote(o.text, o.bookId, o.chapterTitle, o.mode, o.markId);
     case 'idea':
       return overlayIdea(o.markId, o.bookId);
+    case 'ideaall':
+      return overlayIdeaAll(o.markId, o.bookId);
     case 'hltools':
       return overlayHltools(o.markId, o.bookId);
     case 'confirmdel':

@@ -322,6 +322,7 @@ export const PT: Record<MsgKey, string> = {
 
   /* ── Barra de seleção ───────────────────────────────────── */
   'tool.idea': 'Nota',
+  'idea.expand': 'Show full note',
   'ai.mode.explain': 'Explicar',
   'ai.mode.translate': 'Traduzir',
   'ai.mode.summarize': 'Resumir',

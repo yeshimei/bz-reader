@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  IDEA_BUBBLE_MAX_CHARS,
   aiCardHtml,
   footnoteCardHtml,
   ideaConfirmHtml,
+  ideaFullHtml,
+  ideaNeedsExpand,
   markBubbleHtml,
   quoteCardHtml,
 } from '../src/shell/reader-cards';
@@ -131,6 +134,56 @@ describe('markBubbleHtml · 划线气泡', () => {
 
   it('想法里的 HTML 被转义', () => {
     expect(markBubbleHtml('<b>x</b>')).toContain('&lt;b&gt;');
+  });
+
+  /* 想法放在一个单独的滚动区里：超长时滚的是这一段，不是整张浮层 */
+  it('想法正文有自己的滚动区', () => {
+    expect(markBubbleHtml('想法')).toContain('class="tx"');
+  });
+});
+
+/**
+ * 长想法：气泡里只露一截，底部给一个「展开全文」的出口。
+ *
+ * 500 / 1000 字的想法在气泡里滚，工具条不能被顶出屏幕；
+ * 但滚到底也只是「看完这一截」，要整篇读得点开那张只读弹窗。
+ */
+describe('markBubbleHtml · 长想法与展开全文', () => {
+  it('短想法不出现「展开全文」', () => {
+    const html = markBubbleHtml('一句话', undefined, { markId: 'm1', bookId: 'b1' });
+    expect(html).not.toContain('ideaexpand');
+    expect(html).not.toContain('is-long');
+  });
+
+  it('超过上限的想法带一枚「展开全文」，并记住是哪条标注', () => {
+    const long = '长'.repeat(IDEA_BUBBLE_MAX_CHARS + 1);
+    const html = markBubbleHtml(long, undefined, { markId: 'm1', bookId: 'b1' });
+
+    expect(html).toContain('is-long');
+    expect(html).toContain('data-act="ideaexpand"');
+    expect(html).toContain('data-id="m1"');
+    expect(html).toContain('data-book="b1"');
+    expect(html).toContain('展开全文');
+  });
+
+  it('不知道是哪条标注时不出展开（点了也没处可去）', () => {
+    const long = '长'.repeat(IDEA_BUBBLE_MAX_CHARS + 1);
+    expect(markBubbleHtml(long)).not.toContain('ideaexpand');
+  });
+
+  it('判断只看字数，两端共用同一条线', () => {
+    expect(ideaNeedsExpand('短'.repeat(IDEA_BUBBLE_MAX_CHARS))).toBe(false);
+    expect(ideaNeedsExpand('长'.repeat(IDEA_BUBBLE_MAX_CHARS + 1))).toBe(true);
+    expect(ideaNeedsExpand('   ')).toBe(false);
+  });
+});
+
+describe('ideaFullHtml · 只读全文', () => {
+  it('原文原样显示，保留换行，HTML 被转义', () => {
+    const html = ideaFullHtml('第一行\n第二行 <b>x</b>');
+    expect(html).toContain('bzs-idea-full');
+    expect(html).toContain('&lt;b&gt;');
+    expect(html).toContain('第一行\n第二行');
   });
 });
 

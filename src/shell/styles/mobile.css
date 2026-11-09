@@ -750,6 +750,26 @@
     align-items: center;
     padding: 24px 16px 22vh;
   }
+
+  /* 点划线：气泡与工具条同宽，整块看起来是一张卡，而不是「宽卡片下面
+     贴了一小条胶囊」。工具条内部居中，按钮不因拉宽而散开。 */
+  .bzs-hltools-panel .bzs-tb-stack {
+    width: min(430px, calc(100vw - 24px));
+    align-items: stretch;
+  }
+
+  .bzs-hltools-panel .bzs-tb-stack > .bzs-tb {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* 手机上高度再收一档：200px 约九行，已够看清「写了什么」；
+     再长就点「展开全文」，不在浮层里跟正文抢地方。 */
+  .bzs-mark-bubble {
+    width: auto;
+    max-width: none;
+    max-height: 200px;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════

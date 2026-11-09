@@ -322,6 +322,7 @@ export const EN: Record<MsgKey, string> = {
 
   /* ── Selection toolbar ──────────────────────────────────── */
   'tool.idea': 'Note',
+  'idea.expand': 'Show full note',
   'ai.mode.explain': 'Explain',
   'ai.mode.translate': 'Translate',
   'ai.mode.summarize': 'Summarize',

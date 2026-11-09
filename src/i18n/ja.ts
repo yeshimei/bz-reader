@@ -315,6 +315,7 @@ export const JA: Record<MsgKey, string> = {
 
   /* ── 選択ツールバー ─────────────────────────────────────── */
   'tool.idea': 'メモ',
+  'idea.expand': 'Show full note',
   'ai.mode.explain': '解説',
   'ai.mode.translate': '翻訳',
   'ai.mode.summarize': '要約',

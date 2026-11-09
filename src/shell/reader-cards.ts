@@ -141,10 +141,52 @@ export function ideaConfirmHtml(): string {
  * 2026-11-08 起多一行知识盒标签：存过名词 / 段落的那条划线，这里显示成
  * 一枚可点按钮（`data-act="kbopen"`）。想法为空、只有链接时气泡照样出现——
  * 用户点划线就是想找那条链接，不能因为没写想法就把它藏掉。
+ *
+ * 2026-11-09 起版式照脚注卡走：左侧一枚「想」字小印（CSS 的 ::before，
+ * 与「注」同一套），正文单独一块可滚区。500 / 1000 字的想法只在气泡里
+ * 露一截，底部给「展开全文」——整篇读进 overlayIdeaAll 的只读弹窗。
  */
-export function markBubbleHtml(comment: string, kb?: KbLink[]): string {
+
+/**
+ * 气泡里最多露出来的字数。
+ *
+ * 超过这个数就多一枚「展开全文」。它是「要不要给出口」的判据，不是截断：
+ * 正文仍然整段在 DOM 里，只是外层限高、可滚。200 字是两端都接近
+ * 「要滚了」的位置（桌面约 11 行、手机约 9 行）。
+ */
+export const IDEA_BUBBLE_MAX_CHARS = 200;
+
+export function ideaNeedsExpand(comment: string): boolean {
+  return comment.trim().length > IDEA_BUBBLE_MAX_CHARS;
+}
+
+export interface MarkBubbleOpts {
+  /** 这条标注的 id / 书 id：长想法点「展开全文」时要用 */
+  markId?: string;
+  bookId?: string;
+}
+
+export function markBubbleHtml(comment: string, kb?: KbLink[], opts: MarkBubbleOpts = {}): string {
   const idea = comment ? esc(comment) : '';
-  return `<div class="bzs-mark-bubble">${idea}${kbLinksHtml(kb)}</div>`;
+  /* 没有 markId 就不给出口：按钮点下去不知道该开哪一条 */
+  const long = !!idea && ideaNeedsExpand(comment) && !!opts.markId;
+  const body = `<div class="scroll">${idea ? `<div class="tx">${idea}</div>` : ''}${kbLinksHtml(kb)}</div>`;
+  const foot = long
+    ? `<div class="foot"><button type="button" class="bzs-idea-more" data-act="ideaexpand" data-id="${esc(
+        opts.markId ?? '',
+      )}" data-book="${esc(opts.bookId ?? '')}">${esc(t('idea.expand'))}</button></div>`
+    : '';
+  return `<div class="bzs-mark-bubble${long ? ' is-long' : ''}">${body}${foot}</div>`;
+}
+
+/**
+ * 只读全文：一张能滚的完整想法（「展开全文」弹窗的正文）。
+ *
+ * 气泡里的高度是有限的；要通读、要抄，得有一块不打折的地方。
+ * 保留换行——想法里的分行是用户自己排的。
+ */
+export function ideaFullHtml(comment: string): string {
+  return `<div class="bzs-idea-full">${esc(comment)}</div>`;
 }
 
 export interface BookmarkDeleteInput {

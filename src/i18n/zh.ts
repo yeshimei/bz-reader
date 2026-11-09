@@ -326,6 +326,8 @@ export const ZH = {
 
   /* ── 划词工具条 ──────────────────────────────────────────── */
   'tool.idea': '想法',
+  /* 气泡里的想法太长时只露一截，点它开一张只读的全文弹窗 */
+  'idea.expand': '展开全文',
   'ai.mode.explain': '解释',
   'ai.mode.translate': '翻译',
   'ai.mode.summarize': '摘要',

@@ -1732,6 +1732,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       // 浮窗要贴着原来那条划线展开，锚点沿用标注卡的位置
       overlay('idea', { markId: d.id, bookId: d.book || getState().bookId || '', anchor: getState().overlay?.anchor });
       break;
+    case 'ideaexpand':
+      /* 气泡里只露一截，整篇进一张只读弹窗。不带锚点：全文居中读，
+         不再贴着那条划线——关掉后回到阅读页，位置由用户自己找回来。 */
+      if (d.id) overlay('ideaall', { markId: d.id, bookId: d.book || getState().bookId || '' });
+      break;
     case 'hlquote':
       quoteFromMark(d.id, d.book);
       break;

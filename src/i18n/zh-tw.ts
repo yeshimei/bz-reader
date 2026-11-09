@@ -313,6 +313,7 @@ export const ZH_TW: Record<MsgKey, string> = {
 
   /* ── 劃詞工具列 ──────────────────────────────────────────── */
   'tool.idea': '想法',
+  'idea.expand': '展開全文',
   'ai.mode.explain': '解釋',
   'ai.mode.translate': '翻譯',
   'ai.mode.summarize': '摘要',

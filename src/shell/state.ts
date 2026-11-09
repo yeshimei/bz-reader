@@ -71,6 +71,9 @@ export type OverlayKind =
   | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedir' | 'finish' | 'footnote'
   | 'rename' | 'removebook' | 'confirmdel' | 'notedrop' | 'missing' | 'ack' | 'ptclean'
   | 'rebuildidx'
+  /* 想法全文（2026-11-09）：气泡只露一截，长想法点「展开全文」进这张
+     只读弹窗。它不是浮层——带遮罩、居中，读完整篇再关。 */
+  | 'ideaall'
   /* 分类管理（2026-11-08）：新建 / 改名 / 排序 / 删除一份「分类名单」。
      `mode` 在这张弹层里换的是内部形态（'' 名单 / 'rename' 改名 / 'del' 删除确认），
      `text` 是正在动的那一格分类名。 */

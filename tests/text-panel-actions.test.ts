@@ -120,3 +120,16 @@ describe('复制：点完收起浮层', () => {
     expect(writes[0]).toContain('[[书/b1.epub#bzr-cfi=');
   });
 });
+
+describe('想法全文：展开动作', () => {
+  it('点「展开全文」把浮层换成 ideaall，带着这条标注', () => {
+    const { markId } = setup();
+
+    dispatchAction('ideaexpand', el({ id: markId, book: 'b1' }));
+
+    const o = getState().overlay;
+    expect(o?.kind).toBe('ideaall');
+    expect(o?.markId).toBe(markId);
+    expect(o?.bookId).toBe('b1');
+  });
+});
