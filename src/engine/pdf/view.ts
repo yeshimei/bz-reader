@@ -21,7 +21,7 @@ import type { PdfBacklinkHit } from '../../data/pdf-backlink';
 import { pdfColorFromName, type PdfLinkSelection } from '../../data/pdf-link';
 import { colorCss } from '../../data/notes';
 import { t } from '../../i18n';
-import { fitScaleFor, pickFitSize, type PdfBox } from './fit';
+import { fitScaleFor, needsFitWidth, pickFitSize, type PdfBox } from './fit';
 import { pageAtRow, turnPage } from './layout';
 import { pageLabelText } from './pagelabels';
 import { mergeRects } from './rects';
@@ -168,6 +168,8 @@ export class PdfView {
   private backBtn: HTMLButtonElement | null = null;
   private copyBtn: HTMLButtonElement | null = null;
   private copyMenuEl: HTMLDivElement | null = null;
+  /** 工具栏本体：菜单要贴着它的上沿摆（窄栏/手机会换行成两排，高度不是常量） */
+  private toolbarEl: HTMLDivElement | null = null;
   /** 页内链接的悬浮预览（目标页缩略图） */
   private linkPreviewEl: HTMLDivElement | null = null;
   private linkPreviewTimer: number | null = null;
@@ -253,6 +255,11 @@ export class PdfView {
     this.fitSize = pickFitSize(this.sizes);    /* 默认 100%：真机上按「适合宽度」开局，窄封面的书会被放大到 356%，
        一屏只看得到页面上半截，第一眼就是「页面溢出了」 */
     this.scale = 1;
+    /* 但窄分栏 / 手机竖屏上 100% 又摆不下：A4 正文 595pt 放进 390px 的屏幕，
+       右边半页直接裁在屏幕外。这种开局就该退到「适合宽度」——用户手动缩放
+       之后 fitMode 不再是 width，这里也不会再抢他的比例。 */
+    if (needsFitWidth(this.fitSize.width, this.root.clientWidth, SIDE_PAD)) this.fitMode = 'width';
+    if (this.fitMode === 'width') this.scale = this.fitScale('width');
     this.buildShells();
     this.mountToolbar();
     this.bindEvents();
@@ -567,6 +574,7 @@ export class PdfView {
     range.addEventListener('click', (ev) => ev.stopPropagation());
     bar.appendChild(range);
     this.progressEl = range;
+    this.toolbarEl = bar;
     this.root.appendChild(bar);
     this.updateZoomLabel();
     this.updatePageLabel();
@@ -729,6 +737,11 @@ export class PdfView {
     }
     this.root.appendChild(menu);
     this.copyMenuEl = menu;
+    /* 菜单贴着工具栏的上沿：窄栏 / 手机上工具栏会换行成两排，写死的
+       `bottom: 52px` 会把第二排按钮压住，菜单项和按钮叠在一起。 */
+    const bar = this.toolbarEl?.getBoundingClientRect();
+    const rootBox = this.root.getBoundingClientRect();
+    if (bar && bar.height > 0) menu.style.bottom = `${Math.round(rootBox.bottom - bar.top + 6)}px`;
     this.copyBtn?.classList.add('is-on');
   }
 
@@ -1564,14 +1577,29 @@ export class PdfView {
     const pageEl = layer.closest('.bzr-pdf-page') as HTMLElement | null;
     const box = (pageEl ?? layer).getBoundingClientRect();
     if (box.width <= 0 || box.height <= 0) return [];
+    /* 竖向要用**文字块自己的盒子**，不能用 Range 的行盒。
+       `range.getClientRects()` 返回的是行盒：行盒高度由块级 line-height 撑开，
+       而 pdf.js 的 span 是一个词一个绝对定位盒子。实测 9.96px 的字，行盒
+       14.4px——高亮条直接按行盒画，就比字高出四成、上下各溢出一截，
+       看起来「条子把上下两行都压住了」。横向仍然取 Range 的分段（那是每行的
+       真实起止），只把 top/height 换成承载这段字的 span 自己的。 */
+    const rows = Array.from(layer.querySelectorAll('span'))
+      .map((node) => node.getBoundingClientRect())
+      .filter((r) => r.width > 0 && r.height > 0);
     return Array.from(range.getClientRects())
       .filter((r) => r.width > 1 && r.height > 1)
-      .map((r) => ({
-        left: clamp((r.left - box.left) / box.width, 0, 1),
-        top: clamp((r.top - box.top) / box.height, 0, 1),
-        width: clamp(r.width / box.width, 0, 1),
-        height: clamp(r.height / box.height, 0, 1),
-      }));
+      .map((r) => {
+        const mid = (r.top + r.bottom) / 2;
+        const host = rows.find((s) => s.top <= mid && s.bottom >= mid && s.right > r.left && s.left < r.right) ?? null;
+        const top = host ? host.top : r.top;
+        const height = host ? host.height : r.height;
+        return {
+          left: clamp((r.left - box.left) / box.width, 0, 1),
+          top: clamp((top - box.top) / box.height, 0, 1),
+          width: clamp(r.width / box.width, 0, 1),
+          height: clamp(height / box.height, 0, 1),
+        };
+      });
   }
 
   /** 选区边界在整页文字层里的字符偏移（用来区分同页重复文本） */
@@ -1699,12 +1727,16 @@ export class PdfView {
     try {
       const size = await this.doc.getPageSize(page);
       if (gen !== this.scaleGen) return;
-      if (size.width !== this.sizes[page - 1]?.width || size.height !== this.sizes[page - 1]?.height) {
-        this.sizes[page - 1] = size;
-        el.style.width = `${Math.round(size.width * this.scale)}px`;
-        el.style.height = `${Math.round(size.height * this.scale)}px`;
-        this.recomputeOffsets();
-      }
+      /* 页面盒子的宽高必须**每次都写**：只有在「固有尺寸变了」时才写的话，
+         换缩放（同一页、固有尺寸不变）这一步会被整段跳过——画布和文字层按
+         新比例重绘了，页面元素还是旧尺寸，于是文字层比页面大一圈，所有按
+         「页面比例」定位的东西（划线、反链框、搜索命中、页内链接热点）整体
+         放大 1.4 倍还往上飘。offset 只在真的变了时才重算，省一次重排。 */
+      const sizeChanged = size.width !== this.sizes[page - 1]?.width || size.height !== this.sizes[page - 1]?.height;
+      this.sizes[page - 1] = size;
+      el.style.width = `${Math.round(size.width * this.scale)}px`;
+      el.style.height = `${Math.round(size.height * this.scale)}px`;
+      if (sizeChanged) this.recomputeOffsets();
       const canvas = document.createElement('canvas');
       canvas.className = 'bzr-pdf-canvas';
       const layer = document.createElement('div');

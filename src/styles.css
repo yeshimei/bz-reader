@@ -1103,7 +1103,21 @@ body .view-header .clickable-icon.bzs-host-hidden {
   line-height: 1;
   text-size-adjust: none;
   transform-origin: 0 0;
+  /* 兜底要写成 pdf.js 4 认的那个名字（renderTextLayer 会覆盖成实际缩放）。
+     写成 --scale-factor 的话 calc 里引用未定义变量，字号会退回继承值，
+     于是放大后文字层不跟着放大，划线整体错位。 */
+  --total-scale-factor: 1;
   --scale-factor: 1;
+  --scale-round-x: 1px;
+  --scale-round-y: 1px;
+  /* pdf.js 的文字层样式原本随 pdf_viewer.css 一起发；我们只引引擎、不引那套
+     视图 CSS，于是 span 的 font-size / transform 一直是空的：
+     字号退回继承的 15px、`scaleX(var(--scale-x))` 也不生效——
+     结果是「文字层和画布各按各的尺寸排」，划线、反链框、搜索命中全错位。
+     这里把这两条补齐，作用域收在 .bzr-pdf-page 下，压过宿主自带的那份。 */
+  --min-font-size: 1;
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
   /* 压在自绘选区（z-index:1）之上：文字本身透明，这一层只负责接收拖选 */
   z-index: 3;
   user-select: text;
@@ -1118,6 +1132,8 @@ body .view-header .clickable-icon.bzs-host-hidden {
   transform-origin: 0 0;
   user-select: text;
   -webkit-user-select: text;
+  font-size: calc(var(--text-scale-factor) * var(--font-height, 0px));
+  transform: rotate(var(--rotate, 0deg)) scaleX(var(--scale-x, 1)) scale(var(--min-font-size-inv, 1));
 }
 
 /* 原生选区**不上色**（2026-11-09）。
@@ -1667,7 +1683,17 @@ body .view-header .clickable-icon.bzs-host-hidden {
   color: var(--text-on-accent);
 }
 
-/* 手机上工具坞/底栏会压住右下角，把缩放条抬高一点 */
+/* 手机上工具坞/底栏会压住右下角，把缩放条抬高一点。
+   桌面端开 emulateMobile 时 env() 恒为 0，Obsidian 自己的 --safe-area-inset-bottom
+   才是真高度，两个取大的那个。 */
 body.is-mobile .bzr-pdf-toolbar {
-  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(12px + max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px)));
+  /* 十来个按钮在 390px 里排不下：换行，别横向滚——
+     横向滚没有滚动条也没有提示，「复制」「页码」会永远藏在屏幕外 */
+  flex-wrap: wrap;
+  overflow-x: visible;
+  row-gap: 2px;
+  max-width: calc(100% - 24px);
+  /* 手机上工具栏直接压在正文上：半透明会让底下的字透上来，看着像糊了 */
+  opacity: 1;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fitScaleFor, pickFitSize } from '../src/engine/pdf/fit';
+import { fitScaleFor, needsFitWidth, pickFitSize } from '../src/engine/pdf/fit';
 
 /* 《千亿个太阳》的真机尺寸：封面比正文窄三分之一，正是溢出的来源 */
 const COVER = { width: 471.8, height: 681.3 };
@@ -52,5 +52,16 @@ describe('pdf fit', () => {
   it('比例限幅在 0.2～8 之间', () => {
     expect(fitScaleFor('width', { width: 1, height: 1 }, { width: 100000, height: 100000 }, 0)).toBe(8);
     expect(fitScaleFor('page', { width: 100000, height: 100000 }, { width: 100, height: 100 }, 0)).toBe(0.2);
+  });
+
+  it('窄栏 / 手机：100% 摆不下整页宽时，首屏该退到「适合宽度」', () => {
+    /* 手机竖屏 390px 看 A4 正文（595pt）：100% 一定横向溢出 */
+    expect(needsFitWidth(BODY.width, 390, 12)).toBe(true);
+    /* 桌面宽栏放得下：保持 100%，不要把书放大 */
+    expect(needsFitWidth(BODY.width, 900, 12)).toBe(false);
+    /* 刚好塞得下（减掉两侧留白后）就不动 */
+    expect(needsFitWidth(400, 424, 12)).toBe(false);
+    /* 宽度还没量出来（0）时不判断：等 ResizeObserver 报一次再说 */
+    expect(needsFitWidth(BODY.width, 0, 12)).toBe(false);
   });
 });

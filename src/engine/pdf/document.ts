@@ -307,6 +307,14 @@ export class PdfDocument {
     /* 文字层的旋转必须和 canvas 完全一致，差 90 度就是「字和画错位」 */
     const rotation = rotationOf(p, extraRotation);
     const viewport = p.getViewport({ scale: cssScale, rotation });
+    /* pdf.js 4 的文字层靠 `--total-scale-factor` 算字号：
+         --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size))
+         font-size: calc(var(--text-scale-factor) * var(--font-height))
+       只给 3.x 时代的 `--scale-factor` 等于没给：calc 里引用未定义变量，
+       整条声明作废，字号退回继承的 15px——于是字号永远不随缩放变，
+       而页面元素和画布都在变，划线/反链/搜索命中就整体错位。
+       两个都写：3.x 与 4.x 各认一个，互不影响。 */
+    container.style.setProperty('--total-scale-factor', String(cssScale));
     container.style.setProperty('--scale-factor', String(cssScale));
     const layer = new lib.TextLayer({
       textContentSource: await p.getTextContent(),

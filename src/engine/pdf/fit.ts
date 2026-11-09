@@ -60,3 +60,17 @@ export function fitScaleFor(
   if (!Number.isFinite(picked)) return min;
   return Math.min(max, Math.max(min, picked));
 }
+
+/**
+ * 100% 摆不下整页宽吗？（窄分栏、手机竖屏都会）
+ *
+ * 放不下还硬按 100% 开局，右边整块就被裁在屏幕外——手机上 A4 正文只剩半页。
+ * 这种情况下首屏该退到「适合宽度」。宽度还没量出来（0）时不下判断：
+ * 等 ResizeObserver 报一次，免得在 0 宽的时候把书放大到离谱。
+ */
+export function needsFitWidth(pageWidth: number, availWidth: number, pad: number, scale = 1): boolean {
+  const page = Number(pageWidth);
+  const avail = Number(availWidth);
+  if (!(page > 0) || !(avail > 0)) return false;
+  return page * scale > avail - pad * 2;
+}
