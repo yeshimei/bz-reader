@@ -26,7 +26,7 @@ import { setHtml } from '../ui/dom';
 import { bmksOf, allMarks, fmtMinutes, fmtWhen, marksOf, shelfOf } from './domain';
 import { ALL_SHELF, NO_SHELF, orderShelves } from '../data/shelves';
 import { noteCardHtml } from './render/notes';
-import { shelfActionsHtml } from './render/shelf-row';
+import { shelfActionsHtml, shelfFocusRole } from './render/shelf-row';
 import { isDrawerClass, scrimClasses } from './render/modal-shell';
 import { cardTemplateChipsHtml, quoteCardHtml, quoteRefMarkdown } from './render/quote-card';
 import { searchFormHtml, searchResultsHtml } from './render/search';
@@ -1813,14 +1813,17 @@ export class OverlayLayer {
       input?.focus();
       input?.select();
     }
-    /* 分类：改名时把原名选中（多半是整段换掉），从书卡「新建分类…」进来时
-       光标直接落在新建框——点这一下的目的就是打字。 */
-    if (o?.kind === 'shelves' && (o.mode === 'rename' || o.mode === 'new')) {
-      const input = this.root.querySelector<HTMLInputElement>(
-        `[data-role="${o.mode === 'rename' ? 'shelfrename' : 'shelfnew'}"]`,
-      );
-      input?.focus();
-      if (o.mode === 'rename') input?.select();
+    /* 分类：打开这一页就把光标放进输入框，少点一下（2026-11-09）。
+       名单形态落在新建框；改名落在那一行并选中原名（多半整段换掉）。
+       重绘（排序 / 删除 / 保存之后）不再抢焦点——那时用户的手刚离开键盘，
+       再弹一次只会挡视线。删除确认没有输入框。 */
+    if (o?.kind === 'shelves') {
+      const role = shelfFocusRole(o.mode);
+      if (role && (refocus || role === 'shelfrename')) {
+        const input = this.root.querySelector<HTMLInputElement>(`[data-role="${role}"]`);
+        input?.focus();
+        if (role === 'shelfrename') input?.select();
+      }
     }
     // 解锁表：被拦下的那一行可能在一长串功能下面，把它滚到可见范围里
     if (o?.kind === 'unlock') {

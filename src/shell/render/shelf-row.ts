@@ -35,3 +35,15 @@ export function shelfActionsHtml(name: string, labels: ShelfActionLabels): strin
     ${actBtn('', 'shelfrename', name, labels.rename, 'pencil')}
     ${actBtn('danger', 'shelfdel', name, labels.del, 'trash')}`;
 }
+
+/**
+ * 打开分类管理时，光标该落在哪个输入框。
+ *
+ * `''`（从书架点开名单）与 `'new'`（从书卡「新建分类…」进来）都落在
+ * 新建框：点开这一页的目的多半就是建一个或改一个，先弹键盘少点一下。
+ * `'rename'` 落在那一行的改名框；`'del'` 是删除确认，没有输入框。
+ */
+export function shelfFocusRole(mode: string | undefined): 'shelfnew' | 'shelfrename' | null {
+  if (mode === 'del') return null;
+  return mode === 'rename' ? 'shelfrename' : 'shelfnew';
+}

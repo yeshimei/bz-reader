@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shelfActionsHtml } from '../src/shell/render/shelf-row';
+import { shelfActionsHtml, shelfFocusRole } from '../src/shell/render/shelf-row';
 
 /**
  * 分类管理弹窗里每一类后面那组动作。
@@ -59,5 +59,31 @@ describe('shelfActionsHtml', () => {
   it('分类名进 data-name 前要转义', () => {
     const html = shelfActionsHtml('a"b<c', labels);
     expect(html).toContain('data-name="a&quot;b&lt;c"');
+  });
+});
+
+/**
+ * 打开分类管理的瞬间，光标落在哪一格。
+ *
+ * 2026-11-09：以前只有从书卡「新建分类…」和点「改名」进来才聚焦；
+ * 从书架点开名单时光标在无名处，还得再点一下输入框。现在一打开就落在
+ * 新建框上——点开这一页的目的多半是建一个或改一个。
+ */
+describe('shelfFocusRole', () => {
+  it('打开名单就落在新建框', () => {
+    expect(shelfFocusRole('')).toBe('shelfnew');
+    expect(shelfFocusRole(undefined)).toBe('shelfnew');
+  });
+
+  it('从书卡「新建分类…」进来也落在新建框', () => {
+    expect(shelfFocusRole('new')).toBe('shelfnew');
+  });
+
+  it('改名落在那一行的改名框', () => {
+    expect(shelfFocusRole('rename')).toBe('shelfrename');
+  });
+
+  it('删除确认没有输入框，不聚焦', () => {
+    expect(shelfFocusRole('del')).toBeNull();
   });
 });
