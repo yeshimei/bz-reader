@@ -29,7 +29,7 @@ import {
 } from '../data/notes';
 import { allMarks, filterMarks, shelfOf } from './domain';
 import { toggleAll, togglePick } from './note-select';
-import { notify, notifyUndo } from '../core/notice';
+import { notify } from '../core/notice';
 import {
   ALL_SHELF,
   NO_SHELF,
@@ -252,46 +252,26 @@ function reshapeShelfCache(from: string, to: string): void {
 /**
  * 把一批书归到某个分类。`name` 是分类条上显示的那一格（含「未分类」）。
  *
- * 归类是「一秒钟就能反悔」的动作，所以每次都给一条带「撤销」的回执：
- * 手滑点错一格是常事，而分类改动没有任何确认框挡在前面。
+ * 回执只报结果，不带按钮：归类是低频动作，提示条上再挂一个白底「撤销」
+ * 在手机通知里太抢眼，改错分类直接再点另一格就行。
  */
 function assignShelf(ids: string[], name: string): void {
   const src = getShellSource();
   if (!src || !ids.length) return;
   const want = shelfOfName(name);
-  const before: Array<[string, string]> = [];
+  const hit: string[] = [];
   for (const id of ids) {
     const b = liveBooks().find((x) => x.id === id);
     if (!b) continue;
-    before.push([id, b.shelf || '']);
+    hit.push(id);
     src.setShelf(id, want);
   }
-  if (!before.length) return;
+  if (!hit.length) return;
   mutateState((s) => {
     /* 空串照写：归类到「未分类」是一次明确的表态，不是「忘了设」 */
-    for (const [id] of before) s.shelves[id] = want;
+    for (const id of hit) s.shelves[id] = want;
   });
-  RT.shelfUndo = { ids: before.map(([id]) => id), prev: before.map(([, n]) => n) };
-  notifyUndo(
-    want ? t('shelves.assigned', { name: want }) : t('shelves.assigned.none'),
-    t('shelves.undo'),
-    undoAssignShelf,
-  );
-}
-
-/** 撤销上一次归类：每本书回到它原来的归属（原样可能就是空） */
-function undoAssignShelf(): void {
-  const src = getShellSource();
-  const u = RT.shelfUndo;
-  RT.shelfUndo = null;
-  if (!src || !u) return;
-  u.ids.forEach((id, i) => src.setShelf(id, u.prev[i] || ''));
-  mutateState((s) => {
-    u.ids.forEach((id, i) => {
-      s.shelves[id] = u.prev[i];
-    });
-  });
-  notify(t('shelves.undone'));
+  notify(want ? t('shelves.assigned', { name: want }) : t('shelves.assigned.none'));
 }
 
 /** 名字不合法时给哪一句人话 */

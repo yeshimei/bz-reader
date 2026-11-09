@@ -411,18 +411,3 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── 提示条里的「撤销」 ──
-   Notice 同样在宿主 body 上（不在 .bzs-shell 里）：颜色只能取宿主变量，
-   取不到时给一个暖棕兜底。文字样式跟正文一致，只靠下划线说明它能点。 */
-.bzs-undo-btn {
-  margin-left: 6px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--text-accent, #8a6d3b);
-  font: inherit;
-  font-weight: 600;
-  text-decoration: underline;
-  cursor: pointer;
-}
-

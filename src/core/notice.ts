@@ -20,36 +20,3 @@ export function notify(text: string, kind: NoticeKind = 'info', timeout?: number
   const ms = timeout ?? (kind === 'error' ? 6000 : 3000);
   new Notice(text, ms);
 }
-
-/**
- * 带一个按钮的提示条（目前只给「撤销归类」用）。
- *
- * Obsidian 的 Notice 收 `string | DocumentFragment`，所以按钮可以藏在片段里。
- * 它是壳层里唯一自带动作的提示：归类没有确认框挡着，点错一格只靠
- * 「自己记得再改回去」不可靠。
- *
- * 按钮类名以 `bzs-` 开头：构建时只给非 `bzs-` 的选择器套 `.bzs-shell`，
- * 而 Notice 挂在宿主 body 上、不在壳层里，套了前缀就匹配不到。
- */
-export function notifyUndo(
-  text: string,
-  label: string,
-  onUndo: () => void,
-  timeout = 8000,
-): void {
-  let notice: Notice | null = null;
-  const frag = document.createDocumentFragment();
-  frag.append(text, ' ');
-  const btn = document.createElement('button');
-  btn.className = 'bzs-undo-btn';
-  btn.textContent = label;
-  btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onUndo();
-    /* 点完就收掉：留着一条已经点过的「撤销」会让人以为还能再撤一次 */
-    notice?.hide();
-  });
-  frag.append(btn);
-  notice = new Notice(frag, timeout);
-}

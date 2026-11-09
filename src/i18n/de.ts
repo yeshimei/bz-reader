@@ -390,8 +390,6 @@ export const DE: Record<MsgKey, string> = {
   'shelves.manage': 'Manage categories…',
   'shelves.assigned': 'Added to "{name}"',
   'shelves.assigned.none': 'Removed from category',
-  'shelves.undo': 'Undo',
-  'shelves.undone': 'Restored',
   'shelves.renamed': 'Renamed to "{name}"',
   'shelves.deleted': 'Deleted "{name}"',
 

@@ -397,8 +397,6 @@ export const ZH = {
   'shelves.manage': '管理分类…',
   'shelves.assigned': '已归入「{name}」',
   'shelves.assigned.none': '已移出分类',
-  'shelves.undo': '撤销',
-  'shelves.undone': '已还原',
   'shelves.renamed': '已改名为「{name}」',
   'shelves.deleted': '已删除「{name}」',
 

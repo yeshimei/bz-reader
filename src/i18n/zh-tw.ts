@@ -382,8 +382,6 @@ export const ZH_TW: Record<MsgKey, string> = {
   'shelves.manage': '管理分類…',
   'shelves.assigned': '已歸入「{name}」',
   'shelves.assigned.none': '已移出分類',
-  'shelves.undo': '復原',
-  'shelves.undone': '已復原',
   'shelves.renamed': '已改名為「{name}」',
   'shelves.deleted': '已刪除「{name}」',
 
