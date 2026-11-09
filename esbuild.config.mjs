@@ -19,9 +19,13 @@ const TARGETS = ["pro"];
  *   · `all` / `test` / `main` —— 关键字，分别对应下面两处（缺省 test）
  *   · 完整插件目录路径 —— 原样使用，多个用 `;` 分隔
  * 部署（而不是 once）要三处齐全，用 `all`；worktree 里验产物就指一个不存在的目录。
+ *
+ * 2026-11-09：测试库从 `E:/Obsidian/测试` 换成 `E:/Obsidian/bz reader`——
+ * 后者是「只装 bz-reader、默认主题」的干净库，正好拿来复现「别人第一次装
+ * 插件」的样式，也不会被测试库里的旧快照和片段干扰。旧测试库不再部署。
  */
 const VAULTS = {
-  test: "E:/Obsidian/测试/.obsidian/plugins/bz-reader",
+  test: "E:/Obsidian/bz reader/.obsidian/plugins/bz-reader",
   main: "E:/Obsidian/叫我包仔/.obsidian/plugins/bz-reader",
 };
 const VAULT_PLUGIN_DIRS = (() => {
