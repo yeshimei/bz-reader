@@ -49,6 +49,14 @@ export interface ReaderEngine {
   }): Promise<Array<{ title: string; text: string }>>;
   search(kw: string, opts?: { shouldStop?: () => boolean }): Promise<SearchHit[]>;
   clearSearch(): void;
+  /**
+   * 只把词标在页面上，不再扫一遍。
+   *
+   * 从跨书搜索点一条结果跳过来时用：那一次搜索是在临时的离屏引擎里跑的，
+   * 落到手上的书这里什么都没标，用户跳到那一页还得自己找那个词。
+   * 只有 PDF 实现（EPUB 走 foliate 自己的 search）。
+   */
+  highlightQuery?(kw: string): void;
   setAnnotations(list: HostAnnotation[]): void;
   clearSelection(): void;
   refreshTheme(): void;

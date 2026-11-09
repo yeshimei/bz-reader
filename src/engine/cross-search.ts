@@ -12,9 +12,26 @@
 import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
 import type { ReaderPrefs } from '../data/prefs';
-import { EngineHost, type SearchHit } from './host';
+import { type SearchHit } from './host';
+import { createEngine } from './reader-engine';
+import { t } from '../i18n';
+import { parsePdfLocator } from './pdf/locator';
 
 export type CrossBookHit = SearchHit & { chapterLabel: string };
+
+/**
+ * 命中行首的小字。
+ *
+ * EPUB 引擎自己会给章节名；PDF 引擎只给 `pdf/<页>` 这种定位串，没有章节——
+ * 不给它补一个页码，全库搜索里 PDF 的每一条都只剩一个「正文」，看不出在
+ * 书的哪个位置。认不出来的也退回空串（界面会显示成「正文」），不硬编。
+ */
+export function hitChapterLabel(hit: { cfi: string; chapterLabel?: string }): string {
+  const given = String(hit?.chapterLabel ?? '').trim();
+  if (given) return given;
+  const loc = parsePdfLocator(String(hit?.cfi ?? ''));
+  return loc ? t('pdf.label.page', { n: loc.page }) : '';
+}
 
 /**
  * 整轮共用的离屏舞台。
@@ -58,14 +75,22 @@ export async function searchAcrossBooks(deps: CrossSearchDeps): Promise<void> {
   for (const book of deps.books) {
     if (deps.shouldStop?.()) break;
     deps.onBookStart?.(book);
-    const host = new EngineHost(deps.app);
+    /* 按书的格式造引擎。原来这里写死 `new EngineHost()`（那是 EPUB/TXT/CBZ
+       的 foliate 宿主），PDF 一律打不开、异常被下面的 catch 吞掉——
+       表现就是「全库搜索永远搜不到 PDF 里的字」，面板还写「没有找到」。 */
+    const host = createEngine(book.fileRef.format, deps.app);
     try {
       await host.mount(stage, book.fileRef.vaultPath, { prefs: deps.prefs });
       // 不调 start()/init()：foliate 的 search 自己逐章 load，不依赖当前渲染
       /* shouldStop 一路传进逐章循环（P2-05）：只判「下一本书之前」的话，
          点了停止当前这本仍会把剩下的章节扫完，界面还要再转好几秒。 */
       const hits = await host.search(deps.query, { shouldStop: deps.shouldStop });
-      if (hits.length) deps.onHits(book, hits);
+      if (hits.length) {
+        deps.onHits(
+          book,
+          hits.map((h) => ({ ...h, chapterLabel: hitChapterLabel(h as CrossBookHit) })),
+        );
+      }
     } catch {
       /* 打不开的书跳过——搜索不该被一本坏文件打断 */
     } finally {

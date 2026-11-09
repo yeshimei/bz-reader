@@ -117,6 +117,8 @@ export class ReaderView extends ItemView {
   private api: ReaderHostApi;
   private bookId = '';
   private pendingCfi = '';
+  /** 从跨书搜索跳过来时「要找的词」：挂好之后标在页面上，别让人自己找 */
+  private pendingQuery = '';
   private book: ReaderBook | null = null;
   private mounted = false;
   private mounting = false;
@@ -244,7 +246,7 @@ export class ReaderView extends ItemView {
   }
 
   async setState(state: unknown, result: { history: boolean }): Promise<void> {
-    const s = (state ?? {}) as { bookId?: string; cfi?: string; file?: string; subpath?: string };
+    const s = (state ?? {}) as { bookId?: string; cfi?: string; file?: string; subpath?: string; query?: string };
     if (typeof s.bookId === 'string') this.bookId = s.bookId;
     else if (typeof s.file === 'string' && s.file) {
       /* 从 `[[书.epub]]` 点进来：Obsidian 给的是文件路径，不是 bookId */
@@ -258,8 +260,17 @@ export class ReaderView extends ItemView {
       if (parsed?.target.cfi) this.pendingCfi = parsed.target.cfi;
     }
     if (typeof s.cfi === 'string' && s.cfi) this.pendingCfi = s.cfi;
+    if (typeof s.query === 'string' && s.query.trim()) this.pendingQuery = s.query.trim();
     await super.setState(state, result);
     await this.maybeMount();
+  }
+
+  /** 已经开着这本书时从外面（跨书搜索）再点一条结果：只补标词 */
+  highlightQuery(query: string): void {
+    const q = String(query ?? '').trim();
+    if (!q) return;
+    if (!this.mounted) this.pendingQuery = q;
+    else this.host.highlightQuery?.(q);
   }
 
   jumpTo(cfi: string): void {
@@ -1763,6 +1774,11 @@ export class ReaderView extends ItemView {
         pending ? 0 : book.reading.position.percent || 0,
       );
       this.pendingCfi = '';
+      /* 从跨书搜索点过来：词也要标上。搜索本身是在临时引擎里跑的，
+         这里不补一次，落到页面上的就只有一张没有记号的书页。 */
+      const query = this.pendingQuery;
+      this.pendingQuery = '';
+      if (query) this.host.highlightQuery?.(query);
       /* 书本来没开着、从划线 / 书签点过来的：落点同样要闪一下 */
       if (pending) void this.host.pulseAt(pending);
       /* 重试挂载时上一段会话还没结算：begin() 会把它收掉并返回，

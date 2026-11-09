@@ -20,7 +20,8 @@ export interface CrossSearchDeps {
   app: App;
   store: ReaderStore;
   books: ReaderBook[];
-  onJump: (book: ReaderBook, cfi: string) => void;
+  /** `query` 是这次搜的词：跳过去之后要标在页面上，不然用户还得自己找 */
+  onJump: (book: ReaderBook, cfi: string, query?: string) => void;
 }
 
 export function openCrossSearch(deps: CrossSearchDeps): void {
@@ -94,7 +95,7 @@ export function openCrossSearch(deps: CrossSearchDeps): void {
           row.appendChild(document.createTextNode(hit.excerpt || '（无摘录）'));
           row.addEventListener('click', () => {
             closeAll();
-            deps.onJump(book, hit.cfi);
+            deps.onJump(book, hit.cfi, q);
           });
           row.addEventListener('keydown', (e) => {
             if (e.key !== 'Enter' && e.key !== ' ') return;

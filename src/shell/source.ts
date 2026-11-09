@@ -38,8 +38,11 @@ export interface ShellSource {
   }) => Promise<Array<{ title: string; text: string }>>;
   /** 阅读视图里现在开着的那本书（没开书时是空串） */
   openBookId: () => string;
-  /** 打开一本书（带 cfi 落到那一页）；已有同书 tab 就复用 */
-  openBook: (book: ReaderBook, cfi?: string) => void;
+  /**
+   * 打开一本书（带 cfi 落到那一页）；已有同书 tab 就复用。
+   * `query` = 从搜索结果点过来时正在搜的词：落到页面上要标出来。
+   */
+  openBook: (book: ReaderBook, cfi?: string, query?: string) => void;
   /** 在当前打开的书里按章名跳转（AI 来源点开用）；找不到就不动 */
   goToChapter: (title: string) => void;
   /** 打开导入页（整页，S1 定稿） */

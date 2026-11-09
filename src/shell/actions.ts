@@ -2140,7 +2140,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const book = liveBooks().find((b) => b.id === (d.book || getState().bookId));
       if (!cfi || !book) break;
       closeOverlay();
-      getShellSource()?.openBook(book, cfi);
+      /* 带上搜索词：跳过去之后整页字里得能看见自己在找什么 */
+      getShellSource()?.openBook(book, cfi, getState().searchKw);
       break;
     }
 

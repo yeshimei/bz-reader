@@ -19,8 +19,8 @@ export interface ShelfSource {
   app: App;
   repo: BookRepo;
   store: ReaderStore;
-  /** 点一本书：进阅读（带 cfi 时落到那一页） */
-  openBook: (book: ReaderBook, cfi?: string) => void;
+  /** 点一本书：进阅读（带 cfi 时落到那一页，带 query 时把搜索词标在页面上） */
+  openBook: (book: ReaderBook, cfi?: string, query?: string) => void;
   /** 打开导入面板（弹窗）；导入完成后调用方自己负责 notify */
   openImport: () => void;
   /** 从笔记库重新扫一遍书（打开书库页签时做一次） */

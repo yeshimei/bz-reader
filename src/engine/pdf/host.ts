@@ -293,6 +293,13 @@ export class PdfEngineHost implements ReaderEngine {
     this.view?.clearSearchHighlight();
   }
 
+  /** 跨书搜索跳过来时，只标词不重扫（重扫要好几秒） */
+  highlightQuery(kw: string): void {
+    const next = String(kw ?? '').trim();
+    if (!next) return;
+    this.view?.setSearchQuery(next);
+  }
+
   setAnnotations(list: HostAnnotation[]): void {
     this.view?.setAnnotations(list.map((item) => ({ cfiRange: item.cfiRange, color: item.color, text: item.text })));
   }

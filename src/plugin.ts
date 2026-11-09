@@ -332,7 +332,7 @@ export function createPlugin(cfg: PluginConfig) {
         app: this.app,
         repo: this.repo,
         store: this.store,
-        openBook: (book, cfi) => void this.openBook(book, cfi),
+        openBook: (book, cfi, query) => void this.openBook(book, cfi, query),
         openImport: () => this.openImportPanel(),
         syncVault: () => void this.syncShelf(),
       });
@@ -349,7 +349,7 @@ export function createPlugin(cfg: PluginConfig) {
               app: this.app,
               store: this.store,
               books: this.repo.all().filter((b) => !(b.fileRef as { fileMissing?: boolean }).fileMissing),
-              onJump: (book, cfi) => void this.openBook(book, cfi),
+              onJump: (book, cfi, query) => void this.openBook(book, cfi, query),
             });
           } else {
             setState({ overlay: { kind: 'unlock', mode: 'crossSearch' } });
@@ -615,7 +615,7 @@ export function createPlugin(cfg: PluginConfig) {
         app: this.app,
         repo: this.repo,
         store: this.store,
-        openBook: (book, cfi) => void this.openBook(book, cfi),
+        openBook: (book, cfi, query) => void this.openBook(book, cfi, query),
         openImport: () => this.openImportPanel(),
         mountImport: (host) => this.mountImportPage(host),
         openStudy: (page) => this.openStudy(page),
@@ -1340,7 +1340,7 @@ export function createPlugin(cfg: PluginConfig) {
       else ws.leftSplit?.collapse?.();
     }
 
-    async openBook(book: ReaderBook, cfi?: string): Promise<void> {
+    async openBook(book: ReaderBook, cfi?: string, query?: string): Promise<void> {
       // 多格式属于高级能力：升级前导入的 mobi / azw3 也要拦住，
       // 否则「书架里能点开」就等于绕过付费门
       if (!BASE_FORMATS.includes(book.fileRef.format) && !can('fullFormats')) {
@@ -1370,6 +1370,8 @@ export function createPlugin(cfg: PluginConfig) {
         );
         if (opened) {
           if (cfi) void (opened.view as ReaderView).jumpTo(cfi);
+          /* 同一本书开着时再点一条跨书搜索结果：词也要重新标上 */
+          if (query) (opened.view as ReaderView).highlightQuery(query);
           await ws.revealLeaf(opened);
           // 书已经有 tab 在：阅读视图不会重发 relocate，目录得手动切过来
           (opened.view as ReaderView).activate();
@@ -1389,7 +1391,7 @@ export function createPlugin(cfg: PluginConfig) {
         await leaf.setViewState({
           type: VIEW_TYPE_READER,
           active: true,
-          state: { bookId: book.id, ...(cfi ? { cfi } : {}) },
+          state: { bookId: book.id, ...(cfi ? { cfi } : {}), ...(query ? { query } : {}) },
         });
         await ws.revealLeaf(leaf);
       } finally {
