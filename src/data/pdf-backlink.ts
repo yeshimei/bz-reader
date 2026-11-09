@@ -24,6 +24,13 @@ export interface PdfBacklinkHit {
   selection?: PdfLinkSelection;
   rect?: PdfLinkRect;
   color?: string;
+  /**
+   * 本插件自己复制出来的精确定位串（`pdf/4/29-81`）。
+   *
+   * 自己复制的高亮链接只带 `bzr=`，没有 PDF++ 那套 `selection/rect`——
+   * 不把它带上，这类反链在页面上只能退化成一整页的「被引过」竖线。
+   */
+  locator?: string;
 }
 
 /** 从链接里取 `#` 之后的子路径；没有子路径返回空串 */
@@ -60,6 +67,7 @@ export function pdfBacklinkHits(sources: ReadonlyArray<PdfBacklinkSource>): PdfB
       selection: target.selection,
       rect: target.rect,
       color: target.color,
+      locator: target.locator,
     });
   }
   return out;
@@ -78,6 +86,10 @@ export function backlinkCountByPage(hits: ReadonlyArray<PdfBacklinkHit>): Map<nu
  * 先用 `resolvedLinks` 反查哪些笔记链到了它（一次 O(链接数) 的扫描），
  * 再只对这些笔记读 cache 拿子路径——直接遍历全库 cache 在几万篇笔记的库里
  * 要几秒，开书时会明显卡一下。
+ *
+ * **坑**：笔记 cache 里的 `link.link` 是带子路径的（`x.pdf#page=7&…`），
+ * 而 `getFirstLinkpathDest` 只认纯路径，带 `#` 一律返回 null。不过滤就去查，
+ * 结果是所有 PDF 反链全被丢掉、页面上一个框也画不出来（真机上验证过）。
  */
 export function collectPdfBacklinks(
   app: {
@@ -90,6 +102,9 @@ export function collectPdfBacklinks(
   },
   bookPath: string,
 ): PdfBacklinkSource[] {
+  const cached = memo.get(bookPath);
+  if (cached) return cached;
+
   const cache = app?.metadataCache;
   const resolved = cache?.resolvedLinks ?? {};
   const out: PdfBacklinkSource[] = [];
@@ -100,9 +115,12 @@ export function collectPdfBacklinks(
     if (!file) continue;
     const links = cache.getFileCache(file)?.links ?? [];
     for (const link of links) {
+      /* 子路径不能进 getFirstLinkpathDest：查不到目标，整条反链就没了 */
+      const linkpath = String(link?.link ?? '').split('#')[0];
+      if (!linkpath) continue;
       let dest: { path: string } | null = null;
       try {
-        dest = cache.getFirstLinkpathDest?.(link.link, source) ?? null;
+        dest = cache.getFirstLinkpathDest?.(linkpath, source) ?? null;
       } catch {
         dest = null;
       }
@@ -110,5 +128,19 @@ export function collectPdfBacklinks(
       out.push({ path: source, link: link.original || link.link });
     }
   }
+  memo.set(bookPath, out);
   return out;
+}
+
+/**
+ * 一本书记一份扫描结果。
+ *
+ * `resolvedLinks` 是一次 O(笔记数) 的扫描，大库里每次开书都要几百毫秒；
+ * 索引没动就没必要重算。索引一动（插件在 metadataCache 的 `resolved`
+ * 事件里调用 `invalidatePdfBacklinks`）整份作废，宁可重扫也不留旧账。
+ */
+const memo = new Map<string, PdfBacklinkSource[]>();
+
+export function invalidatePdfBacklinks(): void {
+  memo.clear();
 }

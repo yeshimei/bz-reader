@@ -1923,6 +1923,29 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       void src.app.workspace.getLeaf(false).openFile(file);
       break;
     }
+    case 'citejump': {
+      /* 侧栏「引用」：点一行跳到那一页。书没开着就一并打开（PDF 是分页引擎，
+         直接带定位开书比「先开再跳」稳，后者会撞上一个还没分页的视图）。 */
+      const book = currentBook();
+      const page = Number(d.page) || 0;
+      if (!book || page < 1) break;
+      closeOverlay();
+      getShellSource()?.openBook(book, `pdf/${page}`);
+      collapseSidebarAfterJump(el, true);
+      break;
+    }
+    case 'citeopen': {
+      const src = getShellSource();
+      const path = d.path || '';
+      if (!src || !path) break;
+      const file = src.app.vault.getFileByPath(path);
+      if (!file) {
+        notify(t('notice.note.missing', { path }), 'error');
+        break;
+      }
+      void src.app.workspace.getLeaf(false).openFile(file);
+      break;
+    }
     case 'opensrcbook': {
       const book = liveBooks().find((b) => b.id === d.book);
       const src = getShellSource();

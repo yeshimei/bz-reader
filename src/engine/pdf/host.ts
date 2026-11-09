@@ -10,11 +10,11 @@
  *   · 没有脚注、没有竖排、没有章内锚点。
  * ============================================================ */
 
-import type { App } from 'obsidian';
+import type { App, EventRef } from 'obsidian';
 import { normalizePath } from 'obsidian';
 import { notify } from '../../core/notice';
 import type { EngineMeta } from '../../data/book-meta';
-import { collectPdfBacklinks, pdfBacklinkHits } from '../../data/pdf-backlink';
+import { collectPdfBacklinks, invalidatePdfBacklinks, pdfBacklinkHits } from '../../data/pdf-backlink';
 import type { ReaderPrefs } from '../../data/prefs';
 import { t } from '../../i18n';
 import type { FoliateBook, FoliateTOCItem } from '../../types/foliate';
@@ -42,6 +42,11 @@ export class PdfEngineHost implements ReaderEngine {
   private meta: EngineMeta = {};
   private phase = 'idle';
   private destroyed = false;
+  /** 这本书在库里的路径：反链要按它查，索引变动后也要靠它重算 */
+  private bookPath = '';
+  /** 链接索引事件：书关掉必须摘掉，否则刷到已经销毁的视图上 */
+  private resolvedRef: EventRef | null = null;
+  private backlinkTimer: number | null = null;
 
   constructor(app: App) {
     this.app = app;
@@ -95,10 +100,22 @@ export class PdfEngineHost implements ReaderEngine {
 
     /* 反链：笔记里引用了这本书的位置，打开时直接标在页面上。
        索引坏了 / 大库里第一次扫得慢都不该挡住看书，所以整段包在 try 里。 */
+    this.bookPath = vaultPath;
+    this.refreshBacklinks();
+    /* 书开着的时候新写一条引用链接，框应该自己冒出来——只在开书时算一次，
+       用户会以为功能坏了。索引一变动就重算，防抖 600ms 挡掉批量改名。 */
     try {
-      this.view.setBacklinks(pdfBacklinkHits(collectPdfBacklinks(this.app, vaultPath)));
+      this.resolvedRef = this.app.metadataCache.on('resolved', () => {
+        if (this.destroyed) return;
+        invalidatePdfBacklinks();
+        if (this.backlinkTimer !== null) window.clearTimeout(this.backlinkTimer);
+        this.backlinkTimer = window.setTimeout(() => {
+          this.backlinkTimer = null;
+          if (!this.destroyed) this.refreshBacklinks();
+        }, 600);
+      });
     } catch (err) {
-      console.warn('[bz-reader] PDF 反链读取失败：', err);
+      console.warn('[bz-reader] PDF 反链事件注册失败：', err);
     }
 
     /* 扫描件判定：首页一个字都没有，划词、搜索、朗读全都无从下手。
@@ -288,6 +305,18 @@ export class PdfEngineHost implements ReaderEngine {
 
   async destroy(): Promise<void> {
     this.destroyed = true;
+    if (this.backlinkTimer !== null) {
+      window.clearTimeout(this.backlinkTimer);
+      this.backlinkTimer = null;
+    }
+    if (this.resolvedRef) {
+      try {
+        this.app.metadataCache.offref(this.resolvedRef);
+      } catch {
+        /* 插件已卸载时 metadataCache 可能已经收摊 */
+      }
+      this.resolvedRef = null;
+    }
     this.view?.destroy();
     this.view = null;
     const doc = this.doc;
@@ -296,6 +325,25 @@ export class PdfEngineHost implements ReaderEngine {
     this.phase = 'idle';
     if (doc) await doc.destroy();
     void this.prefs;
+  }
+
+  /**
+   * 重算反链并推给两处：页面上画框（视图自己画），侧栏列清单（回调给上层）。
+   *
+   * 收藏了 `collectPdfBacklinks` 的缓存：同一本书连续开关只扫一次索引，
+   * 链接有变动时由 `invalidatePdfBacklinks` 作废（见上面的 resolved 事件）。
+   */
+  private refreshBacklinks(): void {
+    if (this.destroyed || !this.bookPath) return;
+    try {
+      const hits = pdfBacklinkHits(collectPdfBacklinks(this.app, this.bookPath));
+      this.view?.setBacklinks(hits);
+      this.opts?.onPdfBacklinks?.(
+        hits.map((hit) => ({ page: hit.page, sourcePath: hit.sourcePath })),
+      );
+    } catch (err) {
+      console.warn('[bz-reader] PDF 反链读取失败：', err);
+    }
   }
 
   /** 元数据：PDF 的 info 字典 + XMP。没有字数概念，给 0 */

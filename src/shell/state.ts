@@ -53,8 +53,14 @@ export function nextStudyPage(current: StudyPage, clicked: StudyPage, back: Stud
   return clicked === current && !isStudyTab(clicked) ? back : clicked;
 }
 
-/** 左侧栏四页签：书的坐标（书架是中心 tab，不在这里） */
-export type SideTab = 'toc' | 'bookmarks' | 'highlights' | 'ai';
+/** 左侧栏五页签：书的坐标（书架是中心 tab，不在这里） */
+export type SideTab = 'toc' | 'bookmarks' | 'highlights' | 'cites' | 'ai';
+
+/** PDF 反链：哪篇笔记引了哪一页。侧栏「引用」页签直接画这一份 */
+export interface PdfCiteRow {
+  page: number;
+  sourcePath: string;
+}
 
 export type LibView = 'grid' | 'list';
 export type LibFilter = 'all' | 'reading' | 'done' | 'new' | 'fav';
@@ -252,6 +258,13 @@ export interface ShellState {
   goal: number;
   /* 阅读上下文 */
   sideTab: SideTab;
+  /**
+   * 当前这本书的 PDF 反链（笔记里引用了哪几页）。
+   *
+   * 由阅读视图在开书后写入，侧栏「引用」页签读它；换书 / 读 EPUB 时清空。
+   * 不放 localStorage：引用关系随时会变，存旧值只会画出不存在的引用。
+   */
+  pdfCites: PdfCiteRow[];
   bookId: string | null;
   /**
    * 最近激活的阅读视图（用 bookId 标识）。
@@ -314,6 +327,7 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   noteSel: [],
   goal: 20,
   sideTab: 'toc',
+  pdfCites: [],
   bookId: null,
   activeReaderId: null,
   pen: 'amber',
@@ -346,7 +360,7 @@ export function loadShellState(): ShellState {
       if (LIB_FILTER_VALUES.includes(d.libFilter as LibFilter)) state.libFilter = d.libFilter as LibFilter;
       if (LIB_SORT_VALUES.includes(d.libSort as LibSort)) state.libSort = d.libSort as LibSort;
       if (typeof d.libShelf === 'string') state.libShelf = d.libShelf;
-      if (d.sideTab && ['toc', 'bookmarks', 'highlights', 'ai'].includes(d.sideTab)) state.sideTab = d.sideTab;
+      if (d.sideTab && ['toc', 'bookmarks', 'highlights', 'cites', 'ai'].includes(d.sideTab)) state.sideTab = d.sideTab;
       if (typeof d.goal === 'number' && d.goal > 0) state.goal = Math.min(200, Math.round(d.goal));
       /* 笔色同理：认不出的色名会让「选中即划」用一条画不出来的颜色 */
       if ((HIGHLIGHT_COLORS.map((c) => c.value) as string[]).includes(String(d.pen))) {

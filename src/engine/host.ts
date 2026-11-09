@@ -200,6 +200,13 @@ export interface MountOptions {
    * 落盘由阅读视图按 book 记录（ReaderBook.pdfView）。
    */
   onPdfViewState?: (state: { rotation: number; spread: boolean }) => void;
+  /**
+   * PDF 的反链清单变了（开书时一次，之后链接索引变动时再补）。
+   *
+   * 页面上那些虚线框由引擎自己画，这份只给侧栏「引用」页签用：
+   * 用户得知道「是谁引了这页」，光看见框不知道出处。
+   */
+  onPdfBacklinks?: (rows: Array<{ page: number; sourcePath: string }>) => void;
 }
 
 /** 滚轮累计到多少才翻一页（像素）。触控板一次轻扫约 30–60，鼠标滚轮一格约 100。 */

@@ -58,7 +58,9 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
      四组按钮的 title 与 aria-label，与既有 8 颗按钮的 title 是同一批——
      只给新按钮走 i18n 会变成中英混排，整组留到一次性收。 */
   'src/engine/pdf/document.ts': 1,
-  'src/engine/pdf/host.ts': 5,
+  /* 2026-11-09 +1（5 → 6）：「反链事件注册失败」的控制台告警，与同文件
+     「反链读取失败」「渲染失败」是同一批引擎日志，随 PDF 文案一起进语言包。 */
+  'src/engine/pdf/host.ts': 6,
   'src/engine/pdf/outline.ts': 6,
   'src/engine/pdf/view.ts': 32,
   'src/engine/theme.ts': 3,

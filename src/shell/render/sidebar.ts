@@ -1,8 +1,9 @@
 /* ============================================================
- * bz-reader · 左侧栏四页签（shell/render/sidebar.ts）
+ * bz-reader · 左侧栏五页签（shell/render/sidebar.ts）
  *
  * 侧栏是「读书时的坐标」，不是书库。所以它只回答三个问题：
- * 我在哪（目录）、我留过什么记号（书签 / 划线）、这一段什么意思（AI）。
+ * 我在哪（目录）、我留过什么记号（书签 / 划线）、别人引过哪（引用）、
+ * 这一段什么意思（AI）。
  * 换书与回书架在顶行，不在这里再放一层书架。
  *
  * 目录来自 toc-state 的快照（阅读视图是唯一写入方），
@@ -48,6 +49,13 @@ export interface SidebarView {
   aiIndex?: AiIndexView;
   /** 被折叠的父章节 href（见 runtime.tocCollapsed）；缺省 = 全部展开 */
   collapsed?: ReadonlySet<string>;
+  /**
+   * PDF 反链：哪几篇笔记引了哪一页。
+   *
+   * 由阅读视图按书推送（宿主从 Obsidian 的链接索引里捞），EPUB 恒为空。
+   * 只放数据不放「有没有开书」——那是 `book` 的事。
+   */
+  cites?: ReadonlyArray<{ page: number; sourcePath: string }>;
 }
 
 /** 侧栏 AI 页签要画的那点索引状态 */
@@ -75,7 +83,8 @@ export interface AiIndexView {
 
 /**
  * 侧栏页签：书的坐标。书架是中心 tab，不在这里（封面墙需要宽度）。
- * 顺序即优先级：目录 → 书签 → 划线 → AI；打开一本书自动落在目录。
+ * 顺序即优先级：目录 → 书签 → 划线 → 引用 → AI；打开一本书自动落在目录。
+ * 「引用」只有 PDF 有内容（EPUB 没有页内定位），没数据时给空态。
  *
  * 入口平权：AI 页签始终存在，基础版点它由 actions 弹高级版对照页。
  */
@@ -83,6 +92,7 @@ export const SIDE_TABS: Array<{ value: SideTab; key: MsgKey; icon: string }> = [
   { value: 'toc', key: 'side.tab.toc', icon: 'book-open' },
   { value: 'bookmarks', key: 'side.tab.bookmarks', icon: 'bookmark' },
   { value: 'highlights', key: 'side.tab.highlights', icon: 'highlighter' },
+  { value: 'cites', key: 'side.tab.cites', icon: 'quote' },
   { value: 'ai', key: 'tool.ai', icon: 'sparkles' },
 ];
 
@@ -198,6 +208,49 @@ function highlightsBody(rows: MarkRow[]): string {
           .join('')}
       </div>`,
     )
+    .join('');
+}
+
+/**
+ * 引用（PDF 反链）。
+ *
+ * 按页升序分组：一页被三篇笔记引过，就问「这页被谁引过」，不是按笔记列
+ * ——用户在这页上看见虚线框，想知道出处，翻的是「页码」这条线。
+ * 行本身跳到那一页；右边那颗小按钮才打开笔记（跳页是主操作）。
+ */
+function citesBody(rows: ReadonlyArray<{ page: number; sourcePath: string }>): string {
+  if (!rows.length) {
+    return `<div class="bzs-empty">${t('side.cites.empty')}<br>${t('side.cites.emptyHint')}</div>`;
+  }
+  const byPage = new Map<number, string[]>();
+  for (const row of rows) {
+    const list = byPage.get(row.page) ?? [];
+    list.push(row.sourcePath);
+    byPage.set(row.page, list);
+  }
+  const pages = [...byPage.keys()].sort((a, b) => a - b);
+  return pages
+    .map((page) => {
+      const sources = byPage.get(page) ?? [];
+      const head = `<div class="bzs-hlg-h"><span>${t('side.cites.page', { n: page })}</span><span class="n">${t(
+        'side.cites.count',
+        { n: sources.length },
+      )}</span><span class="ln"></span></div>`;
+      const items = sources
+        .map((path) => {
+          const name = path.split('/').pop()?.replace(/\.md$/i, '') ?? path;
+          return `<div class="bzs-cite" data-act="citejump" data-page="${page}" role="button" tabindex="0" title="${esc(
+            path,
+          )}">
+            <span class="nm">${esc(name)}</span>
+            <button class="x" data-act="citeopen" data-path="${esc(path)}" title="${t(
+              'side.cites.open',
+            )}">${icoNative('external-link', 13)}</button>
+          </div>`;
+        })
+        .join('');
+      return `<div class="bzs-hlgroup">${head}${items}</div>`;
+    })
     .join('');
 }
 
@@ -395,7 +448,13 @@ export function viewSidebar(v: SidebarView): string {
   /* 目录不显示条数（2026-11-09）：那是「这本书有多厚」，不是「我要去哪」，
      还和图标抢地方。书签与划线保留——它们表示「我在这本书里留过多少东西」。 */
   const tabCount = (tab: SideTab): number =>
-    tab === 'bookmarks' ? counts.bookmarks : tab === 'highlights' ? counts.highlights : 0;
+    tab === 'bookmarks'
+      ? counts.bookmarks
+      : tab === 'highlights'
+        ? counts.highlights
+        : tab === 'cites'
+          ? (v.cites ?? []).length
+          : 0;
 
   const tabs = SIDE_TABS
     .map((tab) => {
@@ -422,6 +481,8 @@ export function viewSidebar(v: SidebarView): string {
     body = bookmarksBody(bmksOf(book));
   } else if (v.tab === 'highlights') {
     body = highlightsBody(marksOf(book));
+  } else if (v.tab === 'cites') {
+    body = citesBody(v.cites ?? []);
   } else {
     body = aiBody(v);
   }

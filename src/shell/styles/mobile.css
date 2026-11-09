@@ -635,7 +635,8 @@
   /* 侧栏的删除叉原本只在 hover 时出现（opacity:0）。触摸屏没有 hover，
      按钮看不见却仍可点——误触即丢一条划线。触摸设备上常显。 */
   .bzs-mkrow .x,
-  .bzs-hlit .x {
+  .bzs-hlit .x,
+  .bzs-cite .x {
     opacity: 1;
   }
 

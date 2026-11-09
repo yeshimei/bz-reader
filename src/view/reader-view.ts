@@ -65,6 +65,7 @@ import {
   subscribe,
   notify as notifyShell,
   type OverlayKind,
+  type PdfCiteRow,
 } from '../shell/state';
 import { openOverlay } from '../shell/state';
 import { tapIntent } from './tap-intent';
@@ -134,6 +135,8 @@ export class ReaderView extends ItemView {
   private host: ReaderEngine;
   private tracker = new ActivityTracker();
   private prefs: ReaderPrefs;
+  /** 这本书最近一次算出的反链（PDF）：切走页签再切回来要在侧栏里重放 */
+  private pdfCites: PdfCiteRow[] = [];
 
   private rootEl: HTMLElement | null = null;
   private stage: HTMLElement | null = null;
@@ -1591,7 +1594,8 @@ export class ReaderView extends ItemView {
     /* activeReaderId 决定「焦点在目录侧栏时键盘归谁」（P1-12）。
        没有它，两本书会一起翻页。 */
     if (getShellState().bookId !== book.id || getShellState().activeReaderId !== book.id) {
-      setShellState({ bookId: book.id, activeReaderId: book.id });
+      /* 后台那本的反链只在激活时才写进侧栏（见 publishPdfCites） */
+      setShellState({ bookId: book.id, activeReaderId: book.id, pdfCites: this.pdfCites });
     }
     this.publishToc();
   }
@@ -1623,7 +1627,11 @@ export class ReaderView extends ItemView {
     /* 阅读视图是「当前在读哪本」的唯一真相。
        壳层状态要跟着它走，否则侧栏与排版面板会一直以为没有打开的书
        （表现为侧栏一屏「没有打开的书」、方向预览卡写着「这本书」）。 */
-    if (getShellState().bookId !== book.id) setShellState({ bookId: book.id });
+    if (getShellState().bookId !== book.id) {
+      /* 换书时先清掉上一本的反链：EPUB 没有反链这一说，留着只会让侧栏
+         把「围城被引用过」画到一本 epub 上。PDF 那份等宿主挂好会重新推。 */
+      setShellState({ bookId: book.id, pdfCites: [] });
+    }
     /* 同构造函数：重启后重开书，版式要读本平台那一份（见 data/prefs.ts 的 pickPrefs） */
     this.prefs = pickPrefs(this.api.store.get(), isMobileEnv());
     this.applyChrome();
@@ -1676,6 +1684,8 @@ export class ReaderView extends ItemView {
         onAnnotTap: (info) => this.openHighlight(info),
         /* PDF 视角（旋转 / 双页）按书记住：下次打开还在刚才那个角度 */
         onPdfViewState: (state) => this.savePdfView(state),
+        /* PDF 反链：页面上的虚线框由引擎画，这份清单给侧栏「引用」页签 */
+        onPdfBacklinks: (rows) => this.publishPdfCites(rows),
         /* 脚注：默认在注释号上方开一小块浮窗，读完接着读。
            设置里选「跳到章末」就退回 foliate 的老行为——我们在同一条链路上
            自己调 goTo，保证两种模式只有一处判断。 */
@@ -1820,6 +1830,27 @@ export class ReaderView extends ItemView {
   }
 
   /* ─────────────────── 进度与会话 ─────────────────── */
+
+  /**
+   * 把这本书的反链清单交给侧栏。
+   *
+   * 两本书各开一个 tab 时，只有当前在读的那本写——侧栏是「这本书」的坐标，
+   * 后台那本的引用不该顶掉眼前这本。值没变就不写，省掉一次整页重绘。
+   */
+  private publishPdfCites(rows: PdfCiteRow[]): void {
+    const book = this.book;
+    if (!book) return;
+    /* 先自己留一份：两本书各开一个 tab 时，后台那本只记不写，等切回来再补 */
+    this.pdfCites = rows;
+    const cur = getShellState();
+    /* 严格比对：库里同时开着两本 PDF 时，后挂载的那本不能把先开那本的引用
+       顶掉——侧栏画的是「眼前这本」，不是「最后加载的那本」。 */
+    if (cur.bookId !== book.id) return;
+    const same =
+      cur.pdfCites.length === rows.length &&
+      rows.every((r, i) => cur.pdfCites[i].page === r.page && cur.pdfCites[i].sourcePath === r.sourcePath);
+    if (!same) setShellState({ pdfCites: rows });
+  }
 
   /**
    * 按书记住 PDF 的视角（旋转 / 双页）。

@@ -270,6 +270,7 @@ export class SideView extends ItemView {
         aiReady: aiReady(settings),
         aiIndex,
         collapsed: RT.tocCollapsed,
+        cites: state.pdfCites,
       }),
     );
     this.paintedItems = snap?.items ?? null;

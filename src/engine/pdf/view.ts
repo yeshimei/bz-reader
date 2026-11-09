@@ -154,6 +154,15 @@ export class PdfView {
   private framing = false;
   /** 最近一次框选完成的时间：清选区会触发 selectionchange，别让空选区把它收掉 */
   private lastRegionAt = 0;
+  /**
+   * 正在拖的那一段选区自己画。
+   *
+   * 原生 `::selection` 画在 pdf.js 的文字层上，而文字层是按 span 切的：
+   * 挨着的 span 有重叠、行内还有缝，叠上 0.28 的半透明蓝就成了一格一格的
+   * 深色块 + 白缝（真机上看着像「背景色很乱」）。这里改成先把选区矩形
+   * 按行合并，再画一层平的色块，原生选区自己不再上色（见 styles.css）。
+   */
+  private liveSel: { page: number; root: HTMLElement } | null = null;
 
   constructor(doc: PdfDocument, opts: PdfViewCallbacks) {
     this.doc = doc;
@@ -380,6 +389,8 @@ export class PdfView {
     this.rendering.clear();
     this.queue.length = 0;
     this.selectionRects.clear();
+    /* 自己画的那层选区是按旧角度量的，页元素一换就跟着作废 */
+    this.clearLiveSelection();
     this.buildShells();
     /* 旧页元素刚被删掉，观察器要重新挂到新元素上 */
     if (this.observer) {
@@ -564,6 +575,7 @@ export class PdfView {
     const sel = document.getSelection();
     if (sel && this.layerOf(sel.anchorNode)) sel.removeAllRanges();
     this.clearFrame();
+    this.clearLiveSelection();
     this.opts.onSelect?.(null);
   }
 
@@ -579,6 +591,7 @@ export class PdfView {
     document.removeEventListener('pointermove', this.onFrameMove);
     document.removeEventListener('pointerup', this.onFrameUp);
     this.clearFrame();
+    this.clearLiveSelection();
     if (this.relocateTimer !== null) window.clearTimeout(this.relocateTimer);
     if (this.selectionTimer !== null) window.clearTimeout(this.selectionTimer);
     if (this.scrollSettle !== null) window.clearTimeout(this.scrollSettle);
@@ -774,12 +787,75 @@ export class PdfView {
 
   private onSelectionChange = (): void => {
     if (this.destroyed) return;
+    /* 先立刻把「自己画的那层」更新掉：原生选区已经不上色，等 160ms 节流
+       再画就是「拖着拖着什么都没有」。矩形合并是一行几十个数量级，很快。 */
+    this.paintLiveSelection();
     if (this.selectionTimer !== null) window.clearTimeout(this.selectionTimer);
     this.selectionTimer = window.setTimeout(() => {
       this.selectionTimer = null;
       this.emitSelection();
     }, SELECTION_MS);
   };
+
+  /** 选区矩形 → 页面上的平色块。没有可用选区就收掉 */
+  private paintLiveSelection(): void {
+    if (this.destroyed) {
+      this.clearLiveSelection();
+      return;
+    }
+    const sel = document.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+      this.clearLiveSelection();
+      return;
+    }
+    const range = sel.getRangeAt(0);
+    const layer = this.layerOf(range.startContainer);
+    /* 跨页选区没有意义（PDF 一页一个文字层），不画 */
+    if (!layer || layer !== this.layerOf(range.endContainer)) {
+      this.clearLiveSelection();
+      return;
+    }
+    const page = Number(layer.dataset.page);
+    if (!page) {
+      this.clearLiveSelection();
+      return;
+    }
+    this.paintSelectionLayer(page, this.normRects(range, layer));
+  }
+
+  private paintSelectionLayer(page: number, rects: NormRect[]): void {
+    const el = this.pageEls[page - 1];
+    if (!el || !rects.length) {
+      this.clearLiveSelection();
+      return;
+    }
+    let root = this.liveSel?.page === page && this.liveSel.root.isConnected ? this.liveSel.root : null;
+    if (!root) {
+      this.clearLiveSelection();
+      root = document.createElement('div');
+      root.className = 'bzr-pdf-selpaint';
+      el.appendChild(root);
+      this.liveSel = { page, root };
+    }
+    const merged = mergeRects(rects);
+    root.replaceChildren(
+      ...merged.map((rect) => {
+        const band = document.createElement('div');
+        band.className = 'bzr-pdf-selband';
+        band.style.left = `${rect.left * 100}%`;
+        band.style.top = `${rect.top * 100}%`;
+        band.style.width = `${rect.width * 100}%`;
+        band.style.height = `${rect.height * 100}%`;
+        return band;
+      }),
+    );
+  }
+
+  private clearLiveSelection(): void {
+    if (!this.liveSel) return;
+    this.liveSel.root.remove();
+    this.liveSel = null;
+  }
 
   private onPointerUp = (): void => {
     /* 移动端 selectionchange 有时晚于 pointerup；这里再补一次 */
@@ -788,6 +864,8 @@ export class PdfView {
 
   private emitSelection(): void {
     if (this.destroyed) return;
+    /* 重渲 / 转角度会把页元素整个换掉，自己画的那层要跟着重建 */
+    this.paintLiveSelection();
     const sel = document.getSelection();
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
       /* 框选刚结束时会清一次文字选区，那次 collapsed 不能把框选弹掉的条子收掉 */
@@ -1321,6 +1399,14 @@ export class PdfView {
               this.rotation,
             ),
           ];
+        }
+      } else if (hit.locator && layer) {
+        /* 本插件自己复制的高亮链接只有 `bzr=` 定位串：文字区间按偏移还原，
+           框选的矩形直接换算角度——比 PDF++ 的 span 下标稳，也不依赖原文 */
+        const target = parsePdfLocator(hit.locator);
+        if (target?.rect) rects = [rotateNormRect(target.rect, this.rotation)];
+        else if (target && target.end > target.start) {
+          rects = this.rectsOfOffset(layer, target.start, target.end);
         }
       } else if (hit.selection && layer) {
         rects = this.rectsOfSelection(layer, hit.selection);

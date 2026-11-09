@@ -1104,6 +1104,8 @@ body .view-header .clickable-icon.bzs-host-hidden {
   text-size-adjust: none;
   transform-origin: 0 0;
   --scale-factor: 1;
+  /* 压在自绘选区（z-index:1）之上：文字本身透明，这一层只负责接收拖选 */
+  z-index: 3;
   user-select: text;
   -webkit-user-select: text;
 }
@@ -1118,9 +1120,29 @@ body .view-header .clickable-icon.bzs-host-hidden {
   -webkit-user-select: text;
 }
 
+/* 原生选区**不上色**（2026-11-09）。
+   pdf.js 的文字层是一个词一个 `<span>`，挨着的 span 有重叠、行内还有缝：
+   浏览器按 span 各自涂 0.28 的半透明蓝，叠出来的就是深一块浅一块、
+   中间还夹着白缝的「乱背景」。改成由 view.ts 把选区矩形按行合并后
+   自己画一层平色块（.bzr-pdf-selpaint），这里只保留「文字本身是透明的」。 */
 .bzr-pdf-page .textLayer ::selection {
-  background: rgba(80, 120, 255, 0.28);
+  background: transparent;
 }
+
+/* 自己画的选区：整段一块平色，行与行之间不再有缝 */
+.bzr-pdf-selpaint {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.bzr-pdf-selband {
+  position: absolute;
+  background: rgba(80, 120, 255, 0.28);
+  border-radius: 2px;
+}
+
 
 /* 页内超链接（PDF 自带的目录跳转）：透明热区，悬停才显形 */
 .bzr-pdf-linkhot {

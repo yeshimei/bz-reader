@@ -10,7 +10,7 @@
  *   · 渲染缩略图要占主线程 —— 宽度 260px，一页几十毫秒，可接受。
  * ============================================================ */
 
-import type { App } from 'obsidian';
+import type { App, EventRef } from 'obsidian';
 import { parsePdfLinkHash } from '../data/pdf-link';
 import { PdfDocument } from '../engine/pdf/document';
 import { hrefCandidates } from './link-postprocessor';
@@ -172,7 +172,10 @@ export function installPdfHover(app: App): () => void {
   };
 
   const onOut = (ev: MouseEvent): void => {
-    const link = (ev.target as Element | null)?.closest?.('[data-href], a[href]') ?? null;
+    /* Live Preview 的内链是 `.cm-hmd-internal-link`（没有 data-href / href），
+       不把它算进来，编辑模式下鼠标移开卡片会一直挂着 */
+    const link =
+      (ev.target as Element | null)?.closest?.('[data-href], a[href], .cm-hmd-internal-link') ?? null;
     if (!link) return;
     clearTimers();
     hideTimer = window.setTimeout(hide, HIDE_MS);
@@ -181,6 +184,45 @@ export function installPdfHover(app: App): () => void {
   document.addEventListener('mouseover', onOver, true);
   document.addEventListener('mouseout', onOut, true);
   window.addEventListener('scroll', hide, true);
+
+  /**
+   * Live Preview（默认编辑模式）里补一条入口。
+   *
+   * 那边的内链是 CodeMirror 的 widget（`span.cm-hmd-internal-link`），
+   * 没有 `data-href` 也没有 `href`，上面那条 mouseover 根本认不出来——
+   * 表现就是「阅读视图会弹，编辑模式不弹」。Obsidian 自己会给内链发
+   * `hover-link` 事件，两种模式都会发，从这里接上最省事。
+   *
+   * 如果 Obsidian 自己的页预览已经弹出来了（它也会调 PDF 视图预览），
+   * 就不叠第二张卡：两张小卡叠在同一个位置，比只弹一张更糟。
+   */
+  const onHoverLink = (evt: unknown): void => {
+    const e = evt as { linktext?: string; targetEl?: HTMLElement };
+    const linktext = String(e?.linktext ?? '');
+    const hit = pdfPathOf(linktext);
+    if (!hit) return;
+    const targetEl = e?.targetEl;
+    if (!targetEl) return;
+    window.setTimeout(() => {
+      if (document.querySelector('.hover-popover')) return;
+      if (pending === `${hit.path}#${hit.page}`) return;
+      clearTimers();
+      pending = `${hit.path}#${hit.page}`;
+      void show(hit.path, hit.page, targetEl.getBoundingClientRect());
+    }, WAIT_MS);
+  };
+  const workspace = app.workspace as unknown as {
+    on(name: string, cb: (evt: unknown) => void): EventRef;
+    offref(ref: EventRef): void;
+  };
+  let hoverRef: EventRef | null = null;
+  try {
+    hoverRef = workspace.on('hover-link', onHoverLink);
+  } catch {
+    /* 老版本宿主没有这个事件：退回只有阅读视图能弹 */
+    hoverRef = null;
+  }
+
   return () => {
     clearTimers();
     el?.remove();
@@ -188,6 +230,14 @@ export function installPdfHover(app: App): () => void {
     document.removeEventListener('mouseover', onOver, true);
     document.removeEventListener('mouseout', onOut, true);
     window.removeEventListener('scroll', hide, true);
+    if (hoverRef) {
+      try {
+        workspace.offref(hoverRef);
+      } catch {
+        /* 插件卸载时事件总线可能已经收摊 */
+      }
+      hoverRef = null;
+    }
     for (const [, value] of docs) void value.doc?.destroy().catch(() => undefined);
     docs.clear();
   };
