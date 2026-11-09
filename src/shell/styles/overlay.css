@@ -1351,8 +1351,10 @@ body.theme-dark .bzs-tb-more {
 }
 
 .bzs-pendot {
-  width: 14px;
-  height: 14px;
+  /* 尺寸只认这一个变量：触摸屏 / 窄屏 / 小屏各改一档，宽高永远成对 */
+  --bzr-dot: 14px;
+  width: var(--bzr-dot);
+  height: var(--bzr-dot);
   border-radius: 50%;
   cursor: pointer;
   position: relative;
@@ -1360,6 +1362,27 @@ body.theme-dark .bzs-tb-more {
   transition: transform var(--dur-move) var(--ease), box-shadow var(--dur) var(--ease);
   display: block;
   flex-shrink: 0;
+}
+
+/* 圆点永远是正圆（2026-11-09 真机反馈）：
+   iPhone 上 Obsidian 移动端给 button 挂了最小高度 / 内边距 / 默认外观，
+   18px 的宽留着、高被撑大，四个色点全成了椭圆。这里把盒模型、外观、
+   内边距与最小 / 最大尺寸一并钉死，尺寸只认 --bzr-dot；选择器比宿主那条
+   `body.is-mobile button` 高一档，宿主样式插不进来。
+   aspect-ratio 是兜底：万一哪天有一边变成 auto，也还是圆的。 */
+.bzs-shell .bzs-tb .bzs-pendot {
+  box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 0;
+  width: var(--bzr-dot);
+  height: var(--bzr-dot);
+  min-width: 0;
+  min-height: 0;
+  max-width: none;
+  max-height: none;
+  flex: 0 0 auto;
+  aspect-ratio: 1 / 1;
 }
 
 .bzs-pendot:hover {

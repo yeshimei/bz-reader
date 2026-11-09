@@ -614,8 +614,12 @@
 
   /* 触摸目标：色点 18px、星星 22px 都太小，指腹点不准就等于没做 */
   .bzs-pendot {
-    width: 22px;
-    height: 22px;
+    --bzr-dot: 22px;
+  }
+
+  /* 点过的圆点会粘住 :hover 的 1.15 倍放大，看起来大小不一 */
+  .bzs-shell .bzs-tb .bzs-pendot:hover {
+    transform: none;
   }
 
   .bzs-star {
@@ -658,8 +662,7 @@
    下面的媒体查询里再按窄屏收一档，两处不要写同一个属性。 */
 @media (max-width: 820px) {
   .bzs-tb .bzs-pendot {
-    width: 18px;
-    height: 18px;
+    --bzr-dot: 18px;
   }
 }
 
@@ -1307,8 +1310,7 @@
   }
 
   .bzs-tb .bzs-pendot {
-    width: 15px;
-    height: 15px;
+    --bzr-dot: 15px;
   }
 }
 
