@@ -15,6 +15,7 @@ import { planLabel } from '../i18n/plan';
 import { anchoredPlacement } from './anchored-style';
 import { drawerLiftFor, keyboardHeightFromCss, sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
+import { fitIdeaInput } from './idea-grow';
 import { MARK_ACTS, SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from './text-toolbar';
 import { aiCardHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, ideaFullHtml, markBubbleHtml, markDeleteBarHtml } from './reader-cards';
 import { HIGHLIGHT_COLORS } from '../data/notes';
@@ -1590,6 +1591,9 @@ export class OverlayLayer {
         const found = o ? markById(o.markId, o.bookId) : null;
         setIdeaDraft(t.value);
         markIdeaDirty(t.value.trim() !== (found?.mark.comment ?? '').trim());
+        /* 打字 / 回车换行时按内容撑高，长到上限就停在样式表给的 max-height。
+           高度真变了才重新贴字：每敲一个字符都重排浮层会抖。 */
+        if (fitIdeaInput(t as HTMLTextAreaElement)) this.placeAnchored();
         return;
       }
       // 搜索框就地更新命中列表：重绘会把输入框换掉，手指还在打就被打断
@@ -1861,6 +1865,10 @@ export class OverlayLayer {
     /* 工具条图标：模板只留 data-icon 空壳，这里交给宿主 setIcon 画 */
     hydrateToolbarIcons(this.root);
     const o = getState().overlay;
+    /* 想法输入框按内容定高（预填的多行想法不该只露三行里的两行），
+       必须赶在 placeAnchored 之前：浮层高度正是它量出来的。 */
+    const ideaBox = this.root.querySelector<HTMLTextAreaElement>('[data-role="idea"]');
+    if (ideaBox) fitIdeaInput(ideaBox);
     /* 先摆位再聚焦：聚焦可能让键盘立刻弹起，位置要在那之前是对的 */
     this.placeAnchored();
     /* 把焦点还给刚才那个输入框；下面几段「一打开就聚焦」的再覆盖它 */

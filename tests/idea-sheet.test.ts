@@ -32,8 +32,8 @@ describe('ideaSheetBodyHtml', () => {
     expect(html).not.toContain('<b>x</b>');
   });
 
-  it('输入框是一行起（想法大多是一句话）', () => {
-    expect(ideaSheetBodyHtml(base)).toContain('rows="1"');
+  it('输入框三行起（一句话也不显得挤，长的自己往下长）', () => {
+    expect(ideaSheetBodyHtml(base)).toContain('rows="3"');
   });
 });
 

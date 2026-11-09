@@ -41,13 +41,14 @@ const SEND_ICON =
 /**
  * 唯一的输入框 + 发送键。
  *
- * 输入框用 rows=1 而不是 rows=3：想法大多是一句话，三行高的空框会让人
- * 以为要写一段；内容多了它自己会长（CSS 里 min-height 46px + 自动撑开）。
+ * 输入框 rows=3：一句话的想法也不至于挤成一条缝，写三条、分行对照时能
+ * 一眼看见自己写了什么。内容再长就跟着长（shell/idea-grow.ts 按内容
+ * 撑高），长到上限（样式表里的 max-height）就让框自己滚。
  */
 export function ideaSheetBodyHtml(input: IdeaSheetInput): string {
   const max = input.max ?? 2000;
   return `<div class="bzs-idea-card"><div class="row">
-    <textarea class="txt" data-role="idea" maxlength="${max}" rows="1" placeholder="写点什么…">${esc(
+    <textarea class="txt" data-role="idea" maxlength="${max}" rows="3" placeholder="写点什么…">${esc(
       input.value ?? '',
     )}</textarea>
     <button class="send" data-act="ideasave" data-id="${esc(input.markId)}" data-book="${esc(
