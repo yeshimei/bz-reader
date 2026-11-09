@@ -138,16 +138,21 @@ function scopeShellStyles(css) {
 }
 
 function buildStyles() {
+  /* 换行统一成 LF 再拼：Windows 检出是 CRLF、CI（Linux）是 LF，
+     不归一的话同一份源码在两边拼出的 styles.css 字节不同，
+     Release 资产与 CI 构建的 attestation 就对不上（2026-11-09）。 */
+  const readCss = (p) => fs.readFileSync(p, "utf8").replace(/\r\n?/g, "\n");
+
   const legacy = [
     path.join(process.cwd(), "src/core/ui/tokens.css"),
     path.join(process.cwd(), "src/styles.css"),
   ]
     .filter((p) => fs.existsSync(p))
-    .map((p) => fs.readFileSync(p, "utf8"));
+    .map(readCss);
 
   const shell = SHELL_STYLES.map((f) => path.join(process.cwd(), "src/shell/styles", f))
     .filter((p) => fs.existsSync(p))
-    .map((p) => scopeShellStyles(fs.readFileSync(p, "utf8")));
+    .map((p) => scopeShellStyles(readCss(p)));
 
   const css = [...legacy, ...shell].join("\n\n");
   fs.writeFileSync(path.join(process.cwd(), "styles.css"), css, "utf8");
