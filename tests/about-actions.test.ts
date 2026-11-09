@@ -3,7 +3,7 @@ import { dispatchAction } from '../src/shell/actions';
 import { DEFAULT_SHELL_STATE, setState } from '../src/shell/state';
 import { setShellSource, type ShellSource } from '../src/shell/source';
 import { GROUP_ID, REPO_URL } from '../src/data/entitlement';
-import { VIDEO_TUTORIAL_URL } from '../src/core/links';
+import { AI_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../src/core/links';
 
 /* notify 走 Obsidian 的 Notice，node 里拿不到弹出来的那条；
    换成收集器，验「说了什么」而不是「弹了几次」。 */
@@ -43,9 +43,10 @@ describe('关于组 · GitHub', () => {
 });
 
 describe('关于组 · 视频教程', () => {
-  /* 设置页关于条与侧栏 AI 页签是同一个入口，地址只留一份；
-     两边各自写一个字符串，换视频时必然漏掉一处。 */
-  it('点一下在新窗口打开 B 站教程，带 noopener', () => {
+  /* 设置页关于条是推荐向的那期，README 顶部跟它共用一条；侧栏 AI
+     页签讲的是索引怎么建，看的是另一期。两条各指各的，不再共用一个
+     常量——共用就会「换个视频顺带改掉另一处」。 */
+  it('设置页关于条打开推荐向那期，带 noopener', () => {
     const open = vi.fn();
     vi.stubGlobal('window', { open });
 
@@ -54,13 +55,17 @@ describe('关于组 · 视频教程', () => {
     expect(open).toHaveBeenCalledWith(VIDEO_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
   });
 
-  it('侧栏 AI 页签的「观看视频教程」指向同一个地址', () => {
+  it('侧栏 AI 页签的「观看视频教程」指向 AI 知识库那期', () => {
     const open = vi.fn();
     vi.stubGlobal('window', { open });
 
     dispatchAction('aitutorial', el());
 
-    expect(open).toHaveBeenCalledWith(VIDEO_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
+    expect(open).toHaveBeenCalledWith(AI_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
+  });
+
+  it('两处地址不是同一条：换视频不该顺带改掉另一处', () => {
+    expect(AI_TUTORIAL_URL).not.toBe(VIDEO_TUTORIAL_URL);
   });
 });
 

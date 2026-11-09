@@ -1,15 +1,25 @@
 /* ============================================================
  * bz-reader · 对外链接（core/links.ts）
  *
- * 视频教程要同时出现在两处：设置页顶部的关于条、侧栏 AI 页签的
- * 「观看视频教程」。地址放这里而不是任一侧，是因为渲染层不能反向
- * 依赖动作层（会绕成环）——两边都只认这个常量，换视频改一行。
+ * 视频教程散在两处：设置页顶部的关于条、侧栏 AI 页签的「观看视频
+ * 教程」。两处看的不是同一期——关于条给还没装的人看推荐向的介绍，
+ * 侧栏讲的是索引怎么建——所以各留一个常量。共用一个的话，换其中
+ * 一处就会顺手改掉另一处。
+ *
+ * 地址放这里而不是任一侧，是因为渲染层不能反向依赖动作层（会绕成
+ * 环）——两边都只认这里的常量。
  * ============================================================ */
 
 /**
- * B 站教程视频：设置页关于条与侧栏 AI 页签共用。
+ * 设置页关于条与 README 顶部共用的推荐向视频。
  *
- * README 顶部也挂同一条，但那边是 markdown，抄不了这个常量——
- * `tests/readme-links.test.ts` 盯着两份是否一致，换视频记得一起改。
+ * README 是 markdown，抄不了这个常量——`tests/readme-links.test.ts`
+ * 盯着两份是否一致，换视频记得一起改。
  */
-export const VIDEO_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1bR4s6dEjH';
+export const VIDEO_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1tK4E6KE1B';
+
+/**
+ * 侧栏 AI 页签「观看视频教程」专用：那一期讲 AI 知识库怎么建。
+ * 与设置页的推荐向视频不是同一条，别合并回去。
+ */
+export const AI_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1bR4s6dEjH';

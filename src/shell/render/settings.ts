@@ -101,7 +101,7 @@ function toggle(k: string, on: boolean, label: string): string {
  * 的入口，不是设置项——这也是它横跨两栏的理由：它是整页的题头，不是两列
  * 里的又一个方框。
  *
- * 视频教程占一格：没装 bz 的人靠它知道「索引是怎么建的」，所以它和 GitHub、
+ * 视频教程占一格：没装 bz 的人先看一期整体介绍，所以它和 GitHub、
  * 交流群一样是常驻出口，不做成「做好了再放上来」。
  */
 function aboutBar(version: string, paid: boolean): string {

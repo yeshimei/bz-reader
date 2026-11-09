@@ -83,7 +83,7 @@ import { kickBodySearch, resetBodySearch, stopBodySearch } from './search-run';
 import { bzEmbedder, bzNotesReady, openBzPreview, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
-import { VIDEO_TUTORIAL_URL } from '../core/links';
+import { AI_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../core/links';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
 import { forgetPortrait, setPortrait } from './portrait-cache';
@@ -967,7 +967,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       window.open(REPO_URL, '_blank', 'noopener,noreferrer');
       break;
     case 'aboutvideo':
-      /* 和侧栏 AI 页签里的「观看视频教程」是同一个地址：只留一份，别各写一处 */
+      /* 关于条看推荐向那期，侧栏 AI 页签看 AI 知识库那期：两条各指各的，
+         别为了少一个常量又合并回去（tests/about-actions.test.ts 守着）。 */
       window.open(VIDEO_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
       break;
     case 'copygroup':
@@ -1999,8 +2000,9 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
     case 'aitutorial':
-      /* 没装 bz 的人最需要它：从这儿知道索引是怎么建的。地址与设置页关于条同一份 */
-      window.open(VIDEO_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
+      /* 没装 bz 的人最需要它：从这儿知道索引是怎么建的。看的是讲索引
+         的那期，不是关于条上的推荐向视频。 */
+      window.open(AI_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
       break;
     case 'ptpause':
       portraitBuilder().pause();
