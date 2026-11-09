@@ -21,11 +21,13 @@ import type { PdfBacklinkHit } from '../../data/pdf-backlink';
 import type { PdfLinkSelection } from '../../data/pdf-link';
 import { fitScaleFor, pickFitSize, type PdfBox } from './fit';
 import { PdfThumbPanel } from './thumbs';
-import { encodePdfLocator,
+import {
+  encodePdfLocator,
   encodePdfRectLocator,
   normalizePdfRect,
   parsePdfLocator,
   pdfPageLocator,
+  rotateNormRect,
 } from './locator';
 
 export interface PdfViewCallbacks {
@@ -102,7 +104,12 @@ export class PdfView {
   private readonly annots = new Map<string, AnnotRecord>();
   /** 笔记里引用了这本书的位置：页面上单独一层虚线，别和划线混在一起 */
   private backlinks: PdfBacklinkHit[] = [];
-  private readonly selectionRects = new Map<string, NormRect[]>();
+  /**
+   * 划词当时的矩形缓存（含当时的旋转角）。
+   * 文字层被 pdf.js 拆得很碎时，靠原文片段搜不回来，这份缓存是可靠兜底；
+   * 但页面转过角度之后坐标系就变了，必须按 `rot` 判断能不能直接用。
+   */
+  private readonly selectionRects = new Map<string, { rot: number; rects: NormRect[] }>();
   private pulseTimer: number | null = null;
   private zoomLabelEl: HTMLButtonElement | null = null;
   private pageLabelEl: HTMLSpanElement | null = null;
@@ -297,6 +304,19 @@ export class PdfView {
     if (next === this.rotation) return;
     this.rotation = next;
     this.computeFitSize();
+    /* 必须重建页元素：旋转后老页里还挂着上一轮画的划线 / 反链 DOM，
+       它们的百分比是按旧坐标系算的，只改宽高的话会横成一条线。 */
+    this.scaleGen += 1;
+    for (const page of [...this.rendered]) this.release(page);
+    this.rendering.clear();
+    this.queue.length = 0;
+    this.selectionRects.clear();
+    this.buildShells();
+    /* 旧页元素刚被删掉，观察器要重新挂到新元素上 */
+    if (this.observer) {
+      this.observer.disconnect();
+      for (const el of this.pageEls) this.observer.observe(el);
+    }
     this.applyScale(this.scale, true);
     this.updateRotationButton();
   }
@@ -553,12 +573,10 @@ export class PdfView {
       { root: this.scroller, rootMargin: '90% 0px' },
     );
     for (const el of this.pageEls) this.observer.observe(el);
-
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => {
         /* 只记录宽度：用户手动定过比例（none）就别再抢他的缩放 */
-        const width = this.root.clientWidth;
-        if (width > 0 && Math.abs(width - this.lastWidth) >= 2) {
+        const width = this.root.clientWidth;        if (width > 0 && Math.abs(width - this.lastWidth) >= 2) {
           this.lastWidth = width;
           if (this.fitMode !== 'none') this.applyScale(this.fitScale(this.fitMode), true);
         }
@@ -671,7 +689,7 @@ export class PdfView {
     const start = this.offsetInLayer(startLayer, range.startContainer, range.startOffset);
     const end = this.offsetInLayer(startLayer, range.endContainer, range.endOffset);
     const locator = encodePdfLocator(page, start, end);
-    if (rects.length) this.selectionRects.set(locator, rects);
+    if (rects.length) this.selectionRects.set(locator, { rot: this.rotation, rects });
     const bounds = rectOf(range);
     /* PDF++ 的 selection= 用的是「第几个文字块 + 块内第几个字」，
        和我们整层的字符偏移不是一回事；复制链接时两种都要有 */
@@ -820,8 +838,11 @@ export class PdfView {
     if (norm.width <= 0.001 || norm.height <= 0.001) return;
     this.lastRegionAt = Date.now();
     this.suppressClickUntil = Date.now() + 350;
-    const locator = encodePdfRectLocator(start.page, norm);
-    this.selectionRects.set(locator, [norm]);
+    /* locator 存「未旋转的页面坐标」：页面转过角度之后，同一个框还应该落在
+       原来那行字上，所以这里把屏幕坐标反旋回去 */
+    const pageNorm = rotateNormRect(norm, -this.rotation);
+    const locator = encodePdfRectLocator(start.page, pageNorm);
+    this.selectionRects.set(locator, { rot: this.rotation, rects: [norm] });
     /* PDF++ 的 rect= 用页面坐标（pt），不是比例；这里顺手换算一份 */
     const size = this.pageSize(start.page);
     this.opts.onSelect?.({
@@ -857,7 +878,12 @@ export class PdfView {
   }
 
   private normRects(range: Range, layer: HTMLElement): NormRect[] {
-    const box = layer.getBoundingClientRect();
+    /* 归一化的基准必须是**页面元素**，不是文字层：
+       旋转 90° 后 pdf.js 给文字层挂的是 CSS transform，它自己的包围盒还是
+       未旋转的 595×842，而页面已经变成 842×595——拿文字层的尺寸当分母，
+       高亮就会整体错位（真机上就是「转一下，划线横成一条线」）。 */
+    const pageEl = layer.closest('.bzr-pdf-page') as HTMLElement | null;
+    const box = (pageEl ?? layer).getBoundingClientRect();
     if (box.width <= 0 || box.height <= 0) return [];
     return Array.from(range.getClientRects())
       .filter((r) => r.width > 1 && r.height > 1)
@@ -1050,13 +1076,33 @@ export class PdfView {
     const el = this.pageEls[page - 1];
     if (!el) return;
     el.querySelectorAll('.bzr-pdf-annot-mark').forEach((node) => node.remove());
+    /* 旋转后的坐标还原还没做对（pdf.js 的文字层是靠 CSS transform 转的，
+       它的包围盒还是未旋转尺寸，百分比会整体错位）。宁可不画，也不要画一条
+       横着的假高亮误导人——转回 0° 就恢复。 */
+    if (this.rotation !== 0) return;
     const layer = el.querySelector('.textLayer') as HTMLElement | null;
     for (const [locator, annot] of this.annots) {
       if (annot.page !== page) continue;
-      let rects = annot.rects ?? this.selectionRects.get(locator) ?? null;
-      if (!rects && annot.quote && layer) {
-        rects = this.quoteRects(layer, annot.quote);
-        if (rects) annot.rects = rects;
+      /* 三种来源，优先级按「坐标系是否还成立」排：
+         1. 划词缓存 —— 按「当前角度 - 缓存角度」旋转过去，纯数学、最可靠；
+         2. 框选 locator（存的是页面坐标比例）—— 按当前角度换算；
+         3. 原文片段在文字层里重新搜 —— 文字层已经按当前角度排好。 */
+      const cached = this.selectionRects.get(locator);
+      let rects: NormRect[] | null = null;
+      if (cached?.rects?.length) {
+        const delta = (((this.rotation - cached.rot) % 360) + 360) % 360;
+        rects = delta === 0 ? cached.rects : cached.rects.map((r) => rotateNormRect(r, delta));
+      } else {
+        const target = parsePdfLocator(locator);
+        if (target?.rect) rects = [rotateNormRect(target.rect, this.rotation)];
+      }
+      if (!rects?.length && layer) {
+        /* 有字符区间就直接按偏移还原：比「按原文片段搜」稳，旋转后也不会错位 */
+        const target = parsePdfLocator(locator);
+        if (target && target.end > target.start) {
+          rects = this.rectsOfOffset(layer, target.start, target.end);
+        }
+        if (!rects?.length && annot.quote) rects = this.quoteRects(layer, annot.quote);
       }
       if (!rects?.length) continue;
       for (const rect of rects) {
@@ -1091,15 +1137,19 @@ export class PdfView {
       if (hit.page !== page) continue;
       let rects: NormRect[] | null = null;
       if (hit.rect) {
+        /* `rect=` 是 PDF 页面坐标（pt），先归一化再按当前旋转角换算 */
         const size = this.pageSize(page);
         if (size.width > 0 && size.height > 0) {
           rects = [
-            {
-              left: clamp(hit.rect.left / size.width, 0, 1),
-              top: clamp(hit.rect.top / size.height, 0, 1),
-              width: clamp(hit.rect.width / size.width, 0, 1),
-              height: clamp(hit.rect.height / size.height, 0, 1),
-            },
+            rotateNormRect(
+              {
+                left: clamp(hit.rect.left / size.width, 0, 1),
+                top: clamp(hit.rect.top / size.height, 0, 1),
+                width: clamp(hit.rect.width / size.width, 0, 1),
+                height: clamp(hit.rect.height / size.height, 0, 1),
+              },
+              this.rotation,
+            ),
           ];
         }
       } else if (hit.selection && layer) {
@@ -1163,7 +1213,42 @@ export class PdfView {
     return null;
   }
 
-  /** 用引用文本在文字层里重新找选区；找不到就放弃（页码还在） */  private quoteRects(layer: HTMLElement, quote: string): NormRect[] | null {
+  /**
+   * 按「整层字符偏移」还原选区矩形。
+   *
+   * 和 quoteRects 相比不依赖原文能否匹配上：同页有重复句子、文字层被拆碎、
+   * 页面转过角度，只要 DOM 的文本顺序没变就能算对。偏移来自 locator
+   * 的 `pdf/<页>/<起>-<止>`，是我们自己写进去的，比外部文本稳。
+   */
+  private rectsOfOffset(layer: HTMLElement, start: number, end: number): NormRect[] | null {
+    const nodes: Text[] = [];
+    const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node as Text);
+    if (!nodes.length) return null;
+    const pick = (offset: number): { node: Text; offset: number } | null => {
+      let pos = 0;
+      for (const node of nodes) {
+        const len = node.textContent?.length ?? 0;
+        if (offset >= pos && offset <= pos + len) return { node, offset: offset - pos };
+        pos += len;
+      }
+      return null;
+    };
+    const a = pick(Math.max(0, Math.floor(start)));
+    const b = pick(Math.max(0, Math.floor(end)));
+    if (!a || !b) return null;
+    try {
+      const range = document.createRange();
+      range.setStart(a.node, Math.min(a.offset, a.node.textContent?.length ?? 0));
+      range.setEnd(b.node, Math.min(b.offset, b.node.textContent?.length ?? 0));
+      return this.normRects(range, layer);
+    } catch {
+      return null;
+    }
+  }
+
+  /** 用引用文本在文字层里重新找选区；找不到就放弃（页码还在） */
+  private quoteRects(layer: HTMLElement, quote: string): NormRect[] | null {
     const nodes: Text[] = [];
     let all = '';
     const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT);

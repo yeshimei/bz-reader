@@ -1072,7 +1072,9 @@ body .view-header .clickable-icon.bzs-host-hidden {
 }
 
 /* pdf.js 的 TextLayer：span 的 left/top/font-size/transform 都是内联写的，
-   这里只兜住「绝对定位 + 透明文字」两条，别再叠 opacity。 */
+   这里只兜住「绝对定位 + 透明文字」两条，别再叠 opacity。
+   `user-select: text` 是必须的：Obsidian 的 body 是 user-select: none，
+   不显式打开的话整页文字根本拖不出选区（真机上表现为「选不中、没有划线条」）。 */
 .bzr-pdf-page .textLayer {
   position: absolute;
   inset: 0;
@@ -1081,6 +1083,8 @@ body .view-header .clickable-icon.bzs-host-hidden {
   text-size-adjust: none;
   transform-origin: 0 0;
   --scale-factor: 1;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .bzr-pdf-page .textLayer span,
@@ -1089,6 +1093,8 @@ body .view-header .clickable-icon.bzs-host-hidden {
   white-space: pre;
   color: transparent;
   transform-origin: 0 0;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .bzr-pdf-page .textLayer ::selection {

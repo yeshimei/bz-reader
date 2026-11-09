@@ -6,6 +6,7 @@ import {
   parsePdfLocator,
   pdfLocatorPage,
   pdfPageLocator,
+  rotateNormRect,
 } from '../src/engine/pdf/locator';
 
 describe('pdf locator', () => {
@@ -92,6 +93,23 @@ describe('pdf locator', () => {
       const locator = encodePdfRectLocator(8, { left: 0, top: 0, width: 0.5, height: 0.5 });
       expect(isPdfLocator(locator)).toBe(true);
       expect(pdfLocatorPage(locator)).toBe(8);
+    });
+
+    it('旋转 90° 后左上角跑到右上角（划线与框选跟着转）', () => {
+      const box = { left: 0, top: 0, width: 0.2, height: 0.1 };
+      expect(rotateNormRect(box, 90)).toEqual({ left: 0.9, top: 0, width: 0.1, height: 0.2 });
+      expect(rotateNormRect(box, 180)).toEqual({ left: 0.8, top: 0.9, width: 0.2, height: 0.1 });
+      expect(rotateNormRect(box, 270)).toEqual({ left: 0, top: 0.8, width: 0.1, height: 0.2 });
+    });
+
+    it('转四次回到原点，不会越转越偏', () => {
+      const box = { left: 0.13, top: 0.27, width: 0.31, height: 0.19 };
+      let cur = box;
+      for (let i = 0; i < 4; i += 1) cur = rotateNormRect(cur, 90);
+      expect(cur.left).toBeCloseTo(box.left, 6);
+      expect(cur.top).toBeCloseTo(box.top, 6);
+      expect(cur.width).toBeCloseTo(box.width, 6);
+      expect(cur.height).toBeCloseTo(box.height, 6);
     });
   });
 });

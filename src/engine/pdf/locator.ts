@@ -116,6 +116,22 @@ export function encodePdfRectLocator(page: number, rect: PdfRectArea): string {
   return `${PREFIX}${p}/r=${fix(r.left)},${fix(r.top)},${fix(r.width)},${fix(r.height)}`;
 }
 
+/**
+ * 把「未旋转页面坐标」里的矩形换算到旋转后的坐标系。
+ *
+ * 归一化矩形存的是相对页面宽高的比例，页面一转，宽高互换、坐标轴也跟着转：
+ * 左上角的小方块在转了 90° 之后应该出现在右上角。不换算的话，旋转后所有
+ * 划线与框选都会跑到页面中间（真机上就是「转一下就全错位了」）。
+ */
+export function rotateNormRect(rect: PdfRectArea, deg: number): PdfRectArea {
+  const d = (((Math.round((Number(deg) || 0) / 90) * 90) % 360) + 360) % 360;
+  const { left: l, top: t, width: w, height: h } = normalizePdfRect(rect);
+  if (d === 90) return normalizePdfRect({ left: 1 - t - h, top: l, width: h, height: w });
+  if (d === 180) return normalizePdfRect({ left: 1 - l - w, top: 1 - t - h, width: w, height: h });
+  if (d === 270) return normalizePdfRect({ left: t, top: 1 - l - w, width: h, height: w });
+  return { left: l, top: t, width: w, height: h };
+}
+
 export function pdfPageLocator(page: number): string {
   return encodePdfLocator(page);
 }
