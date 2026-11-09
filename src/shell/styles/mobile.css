@@ -715,9 +715,17 @@
    放在普通媒体查询里，不放 @container：容器查询在部分真机 WebView 上不生效，
    之前就是「改了样式但完全没变化」。 */
 @media (max-width: 820px) {
+  /* 贴字浮层的宽度上限：屏幕宽左右各留 32，**不跟正文列走**。
+     跟正文走的话，页边距一调大（最大 120），胶囊和想法卡就比正文还宽、
+     贴着屏幕边；页边距调小又会把短想法挤成一条。屏幕宽是稳定基准。
+     宽于这个上限才收，窄于它的按内容各自收缩（见下面的点划线一段）。 */
+  .bzs-shell {
+    --bzr-float-max: calc(100vw - 64px);
+  }
+
   /* 手机上胶囊必然压到下一行正文，实心会像盖了块色板——换回磨砂 */
   .bzs-tb {
-    max-width: calc(100vw - 16px);
+    max-width: var(--bzr-float-max, calc(100vw - 64px));
     flex-wrap: nowrap;
     padding: 4px 11px;
     gap: 7px;
@@ -742,7 +750,7 @@
 
   /* 定位壳只留宽度约束：外观在 .bzs-tb 上，两边都画会套两层胶囊 */
   .bzs-selbar {
-    max-width: calc(100vw - 16px);
+    max-width: var(--bzr-float-max, calc(100vw - 64px));
   }
 
   /* 文字类遮罩弹窗：居中偏上（约视口 40%），不跟着贴底抽屉走 */
@@ -751,23 +759,21 @@
     padding: 24px 16px 22vh;
   }
 
-  /* 点划线：气泡与工具条同宽，整块看起来是一张卡，而不是「宽卡片下面
-     贴了一小条胶囊」。工具条内部居中，按钮不因拉宽而散开。 */
+  /* 点划线：工具条与想法卡各自按内容收缩（桌面本来就是这样）。
+     2026-11-09 之前这里把整列定成 min(430px, 100vw - 24px) 并拉伸，
+     六个字的想法也占满一整行——那正是「浮窗和正文一样宽」的来源。
+     现在两条都回到 fit-content：短想法是窄窄一条，长想法撑到上限为止。
+     宽度上限统一走 --bzr-float-max，不要再在这里写死像素。 */
   .bzs-hltools-panel .bzs-tb-stack {
-    width: min(430px, calc(100vw - 24px));
-    align-items: stretch;
-  }
-
-  .bzs-hltools-panel .bzs-tb-stack > .bzs-tb {
-    width: 100%;
-    justify-content: center;
+    width: auto;
+    align-items: center;
   }
 
   /* 手机上高度再收一档：200px 约九行，已够看清「写了什么」；
      再长就点「展开全文」，不在浮层里跟正文抢地方。 */
   .bzs-mark-bubble {
-    width: auto;
-    max-width: none;
+    width: max-content;
+    max-width: var(--bzr-float-max, calc(100vw - 64px));
     max-height: 200px;
   }
 }
@@ -1251,24 +1257,8 @@
 }
 
 /* 320px 小屏兜底：
-   工具条是一排 nowrap，12.5px 加四个色点会顶出屏幕，
-   所以 gap、内边距、色点各收一档。书架页签同理，宁小勿溢出。 */
+   书架页签在 320 上会顶出屏幕，宁小勿溢出。 */
 @media (max-width: 360px) {
-  .bzs-tb {
-    gap: 2px;
-    padding: 5px 5px;
-  }
-
-  .bzs-tb .bzs-sbtn {
-    padding: 6px 4px;
-    font-size: 12px;
-  }
-
-  .bzs-tb .bzs-pendot {
-    width: 15px;
-    height: 15px;
-  }
-
   .bzs-stunav {
     gap: 12px;
   }
@@ -1297,6 +1287,28 @@
   .bzs-stuacts .bzs-cbtn svg {
     width: 16px;
     height: 16px;
+  }
+}
+
+/* 工具条的小屏档：只有真放不下时才收（≤355）。
+   360 是最常见的手机竖屏，正常尺寸的胶囊约 285，在
+   --bzr-float-max（296）里放得下；留在 360 那一档里，工具条会
+   突然从 285 缩成 198——以前整条被拉满看不出来，现在按内容
+   收缩就一眼看出来了。320 这一档照旧收紧，宁小勿溢出。 */
+@media (max-width: 355px) {
+  .bzs-tb {
+    gap: 2px;
+    padding: 5px 5px;
+  }
+
+  .bzs-tb .bzs-sbtn {
+    padding: 6px 4px;
+    font-size: 12px;
+  }
+
+  .bzs-tb .bzs-pendot {
+    width: 15px;
+    height: 15px;
   }
 }
 
