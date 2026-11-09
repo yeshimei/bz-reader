@@ -15,7 +15,10 @@ export type { KbLink };
 
 /** 路径统一：反斜杠转正斜杠、去首尾空白。大小写与扩展名一律不动 */
 export function cleanKbPath(v: unknown): string {
-  return String(v ?? '').trim().replace(/\\/g, '/');
+  /* 只认字符串：路径来自 bz 回传，类型上是 unknown；对象 String() 会变成
+     "[object Object]"，宁可按空路径处理，也不要拿它去拼文件。 */
+  if (typeof v !== 'string') return '';
+  return v.trim().replace(/\\/g, '/');
 }
 
 /**

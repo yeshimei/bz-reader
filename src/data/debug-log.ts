@@ -57,7 +57,8 @@ let startedAt = 0;
 let meta: DebugMeta = { app: '', platform: '' };
 let events: DebugEvent[] = [];
 let sink: ((text: string) => void) | null = null;
-let timer: ReturnType<typeof setTimeout> | null = null;
+/** `window.setTimeout` 的返回值；弹窗窗口下也拿得到正确的计时器 */
+let timer: number | null = null;
 
 export function debugEnabled(): boolean {
   return enabled;
@@ -80,7 +81,7 @@ export function startDebugLog(write: (text: string) => void, m: DebugMeta): void
 export function stopDebugLog(): void {
   enabled = false;
   if (timer !== null) {
-    clearTimeout(timer);
+    window.clearTimeout(timer);
     timer = null;
   }
   events = [];
@@ -128,7 +129,7 @@ export function debugSnapshot(): DebugDump {
 /** 立刻落一次盘（节流计时器一并取消） */
 export function flushDebugLog(): void {
   if (timer !== null) {
-    clearTimeout(timer);
+    window.clearTimeout(timer);
     timer = null;
   }
   if (!enabled || !sink) return;
@@ -143,16 +144,16 @@ export function flushDebugLog(): void {
  * 给 vendor 代码用的全局入口。
  *
  * foliate 的 paginator 在宿主文档里，但它不该 import 业务模块——只认
- * `globalThis.__bzrDbg?.(k, d)`。这里常驻装一次，未开启时 debugEvent 自己
+ * `window.__bzrDbg?.(k, d)`。这里常驻装一次，未开启时 debugEvent 自己
  * 就是空操作，不用反复挂/摘。
  */
 export function installDebugHook(): void {
-  (globalThis as unknown as { __bzrDbg?: typeof debugEvent }).__bzrDbg = debugEvent;
+  (window as unknown as { __bzrDbg?: typeof debugEvent }).__bzrDbg = debugEvent;
 }
 
 function scheduleFlush(): void {
   if (timer !== null) return;
-  timer = setTimeout(() => {
+  timer = window.setTimeout(() => {
     timer = null;
     flushDebugLog();
   }, 1000);

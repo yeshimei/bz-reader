@@ -224,8 +224,10 @@ export function openBzPreview(app: App | null | undefined, path: string): boolea
   const key = String(path ?? '').trim();
   if (typeof fn !== 'function' || !key) return false;
   try {
-    const out = fn(key);
-    if (out && typeof (out as Promise<void>).catch === 'function') {
+    /* 门面返回值在类型上可能是 void 或 Promise：统一按 unknown 接，
+       有 catch 才吞拒绝，别用强转假装它一定是 Promise。 */
+    const out: unknown = fn(key);
+    if (out && typeof (out as { catch?: unknown }).catch === 'function') {
       (out as Promise<void>).catch(() => undefined);
     }
   } catch {

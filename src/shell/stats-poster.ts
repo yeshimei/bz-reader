@@ -38,7 +38,7 @@ export function drawStatsPoster(a: FullStats): string {
   const W = 800;
   const H = 1040;
   const dpr = 2;
-  const cv = document.createElement('canvas');
+  const cv = createEl('canvas');
   cv.width = W * dpr;
   cv.height = H * dpr;
   const x = cv.getContext('2d');
@@ -169,7 +169,7 @@ export function drawStatsPoster(a: FullStats): string {
 export function downloadStatsPoster(a: FullStats): void {
   const url = drawStatsPoster(a);
   if (!url) return;
-  const el = document.createElement('a');
+  const el = createEl('a');
   el.href = url;
   el.download = `bz-reader-report-${a.todayK}.png`;
   document.body.appendChild(el);

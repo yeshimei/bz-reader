@@ -1800,9 +1800,9 @@ export class OverlayLayer {
         stable = 0;
         last = h;
       }
-      if (stable < 8 && performance.now() - started < maxMs) requestAnimationFrame(tick);
+      if (stable < 8 && performance.now() - started < maxMs) window.requestAnimationFrame(tick);
     };
-    requestAnimationFrame(tick);
+    window.requestAnimationFrame(tick);
   }
 
   /** 焦点还在弹层里的哪个输入框（重画后放回去用） */

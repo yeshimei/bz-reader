@@ -49,12 +49,14 @@ export function ideaMaxPx(el: HTMLElement): number {
  */
 export function fitIdeaInput(ta: HTMLTextAreaElement): boolean {
   const before = ta.style.height;
-  ta.style.height = 'auto';
+  /* 走 setCssProps：官方 lint 不允许直接写 element.style.*（弹窗窗口里
+     也要能正确改样式）。 */
+  ta.setCssProps({ height: 'auto' });
   const h = ideaFitHeight(ta.scrollHeight, ideaMaxPx(ta));
   if (h === null) {
-    ta.style.height = before;
+    ta.setCssProps({ height: before });
     return false;
   }
-  ta.style.height = `${h}px`;
+  ta.setCssProps({ height: `${h}px` });
   return ta.style.height !== before;
 }

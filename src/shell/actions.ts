@@ -292,8 +292,10 @@ const SHELF_ERR_KEY: Record<string, MsgKey> = {
  * span 不带样式，视觉与原来看不出差别。
  */
 function shelfTapTitle(text: string, kind: 'manage' | 'new', bookId?: string): DocumentFragment {
-  const frag = document.createDocumentFragment();
-  const span = document.createElement('span');
+  /* 走 Obsidian 的全局助手（createFragment / createSpan）：上架 lint 要求，
+     弹窗窗口里也能建出正确的节点，不依赖宿主 document。 */
+  const frag = createFragment();
+  const span = createSpan();
   span.setAttribute(SHELF_TAP_ATTR, kind);
   if (bookId) span.setAttribute(SHELF_TAP_BOOK_ATTR, bookId);
   span.textContent = text;
@@ -341,9 +343,9 @@ function openShelfMenu(bookIds: string[], pos: { x: number; y: number }): void {
     menu.addItem((i) => {
       /* 名字后面跟本数：挑分类时最想知道的是「这一类现在有几本」。
          系统格子（全部 / 未分类）走语言包，用户起的名字原样显示。 */
-      const title = document.createDocumentFragment();
+      const title = createFragment();
       title.append(shelfLabel(n));
-      const num = document.createElement('span');
+      const num = createSpan();
       num.className = 'bzs-menu-count';
       num.textContent = String(count);
       title.append(num);
