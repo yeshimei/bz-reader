@@ -63,7 +63,7 @@
 
 ## 付费说明
 
-基础版免费。高级版需要付费购买激活码：[购买页面](https://afdian.com/item/6f17bf10d7e311f1b8735254001e7c00)，具体价格以该页面为准。
+基础版免费。高级版需要付费购买激活码：[购买页面](https://wzyp.cn/shop/IFCEI5I3)，具体价格以该页面为准。
 
 - 激活码在 **书架 → 设置 → 授权** 里填入，本地验签，不联网。
 - 不绑定设备数：换电脑或手机时，在新设备的同一位置再填一次即可。
@@ -145,7 +145,7 @@ Chinese and English; the other six languages show the English entries.
 
 ### Paid features
 
-The free edition covers everyday reading. Pro features require a paid license key; see the [purchase page](https://afdian.com/item/6f17bf10d7e311f1b8735254001e7c00) for the current price.
+The free edition covers everyday reading. Pro features require a paid license key; see the [purchase page](https://wzyp.cn/shop/IFCEI5I3) for the current price.
 
 - Enter the key in **Shelf → Settings → License**. It is verified locally, with no network call.
 - Keys are not tied to a device count — just enter yours again on a new device.
@@ -226,7 +226,7 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 
 ### 付費說明
 
-基礎版免費。高級版需要付費購買啟用碼：[購買頁面](https://afdian.com/item/6f17bf10d7e311f1b8735254001e7c00)，具體價格以該頁面為準。
+基礎版免費。高級版需要付費購買啟用碼：[購買頁面](https://wzyp.cn/shop/IFCEI5I3)，具體價格以該頁面為準。
 
 - 啟用碼在 **書架 → 設定 → 授權** 裡填入，本地驗簽，不連網。
 - 不綁定裝置數：換電腦或手機時，在新裝置的同一位置再填一次即可。
@@ -307,7 +307,7 @@ Obsidian を「本を読む場所」に。デスクトップとモバイル、�
 
 ### プロ版について
 
-ベーシック版は無料です。プロ版の機能にはライセンスキーが必要です。価格は[購入ページ](https://afdian.com/item/6f17bf10d7e311f1b8735254001e7c00)をご覧ください。
+ベーシック版は無料です。プロ版の機能にはライセンスキーが必要です。価格は[購入ページ](https://wzyp.cn/shop/IFCEI5I3)をご覧ください。
 
 - キーは **本棚 → 設定 → ライセンス** に入力します。検証はローカルで行われ、通信しません。
 - デバイス数に紐づきません。新しい端末では同じ場所にもう一度入力してください。
@@ -388,7 +388,7 @@ Die Umschaltung wirkt sofort auf die Oberfläche; Befehlsnamen erst nach einem N
 
 ### Pro-Funktionen
 
-Die Basisversion ist kostenlos. Für die Pro-Funktionen braucht es einen Lizenzschlüssel; den aktuellen Preis nennt die [Kaufseite](https://afdian.com/item/6f17bf10d7e311f1b8735254001e7c00).
+Die Basisversion ist kostenlos. Für die Pro-Funktionen braucht es einen Lizenzschlüssel; den aktuellen Preis nennt die [Kaufseite](https://wzyp.cn/shop/IFCEI5I3).
 
 - Der Schlüssel wird unter **Regal → Einstellungen → Lizenz** eingetragen und lokal geprüft, ohne Netzwerkzugriff.
 - Er ist an keine Gerätezahl gebunden — auf einem neuen Gerät einfach erneut eintragen.
@@ -469,7 +469,7 @@ Le changement s'applique immédiatement à l'interface ; les noms des commandes 
 
 ### Fonctions Pro
 
-L'édition de base est gratuite. Les fonctions Pro demandent une clé de licence ; le prix en cours figure sur la [page d'achat](https://afdian.com/item/6f17bf10d7e311f1b8735254001e7c00).
+L'édition de base est gratuite. Les fonctions Pro demandent une clé de licence ; le prix en cours figure sur la [page d'achat](https://wzyp.cn/shop/IFCEI5I3).
 
 - La clé se saisit dans **Bibliothèque → Réglages → Licence**. Elle est vérifiée localement, sans appel réseau.
 - Elle n'est liée à aucun nombre d'appareils : ressaisissez-la simplement sur un nouvel appareil.
@@ -550,7 +550,7 @@ El cambio se aplica al instante en la interfaz; los nombres de comando, tras rei
 
 ### Funciones Pro
 
-La edición base es gratuita. Las funciones Pro requieren una clave de licencia; el precio actual está en la [página de compra](https://afdian.com/item/6f17bf10d7e311f1b8735254001e7c00).
+La edición base es gratuita. Las funciones Pro requieren una clave de licencia; el precio actual está en la [página de compra](https://wzyp.cn/shop/IFCEI5I3).
 
 - La clave se introduce en **Estantería → Ajustes → Licencia**. Se verifica en local, sin llamada de red.
 - No está ligada a un número de dispositivos: vuelve a introducirla en el nuevo dispositivo.
@@ -631,7 +631,7 @@ A troca vale na hora para a interface; os nomes dos comandos, após reiniciar o 
 
 ### Recursos Pro
 
-A edição base é gratuita. Os recursos Pro exigem uma chave de licença; o preço atual está na [página de compra](https://afdian.com/item/6f17bf10d7e311f1b8735254001e7c00).
+A edição base é gratuita. Os recursos Pro exigem uma chave de licença; o preço atual está na [página de compra](https://wzyp.cn/shop/IFCEI5I3).
 
 - A chave é informada em **Estante → Configurações → Licença**. A verificação é local, sem chamada de rede.
 - Não está atrelada a um número de dispositivos: basta informá-la de novo no novo aparelho.

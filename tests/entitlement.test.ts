@@ -165,9 +165,9 @@ describe('验签三态（A10）', () => {
 });
 
 describe('发行信息', () => {
-  it('购买链接指向爱发电商品直链，不是店铺主页', () => {
-    // 用户点「去购买」必须落到可以下单的那一页；主页只是店铺动态列表。
-    expect(PURCHASE_URL).toBe('https://afdian.com/item/6f17bf10d7e311f1b8735254001e7c00');
+  it('购买链接指向当前在售的店铺页', () => {
+    // 用户点「去购买」要一步落到能下单的那一页；换渠道只改这一处。
+    expect(PURCHASE_URL).toBe('https://wzyp.cn/shop/IFCEI5I3');
   });
 });
 
