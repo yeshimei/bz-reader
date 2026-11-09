@@ -336,6 +336,14 @@
   color: var(--copper);
 }
 
+/* 章名太长时截断：这一行是 flex，长章名会把计数和后面的横线挤出去 */
+.bzs-hlg-h > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .bzs-hlg-h .ln {
   flex: 1;
   height: 1px;
@@ -373,6 +381,8 @@
   line-height: 1.85;
   color: var(--ink);
   display: block;
+  /* 划线正文也可能是长不可断串（URL、连着的外文）：不给断行就顶宽侧栏 */
+  overflow-wrap: anywhere;
 }
 
 .bzs-hlit .cm {
@@ -382,6 +392,16 @@
   font-size: 12px;
   line-height: 1.7;
   color: var(--t2);
+  min-width: 0;
+}
+
+/* 想法正文单独一层（2026-11-09 修横向滚动条）：
+   flex 里的裸文本会被包成匿名 flex item，`min-width: auto` 让它按内容的
+   最小宽度撑开——一个 160 字符的 URL 直接把 300px 的侧栏顶出横向滚动条。
+   正文有了自己的块，才吃得到 min-width: 0 与 overflow-wrap。 */
+.bzs-hlit .cm .cmm {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .bzs-hlit .cm b {

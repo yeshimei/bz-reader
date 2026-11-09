@@ -190,7 +190,7 @@ function highlightsBody(rows: MarkRow[]): string {
           .map(
             (m) => `<div class="bzs-hlit" style="--c:${m.css}" data-act="hljump" data-id="${esc(m.id)}" role="button" tabindex="0">
               <span class="tx"><i class="dot" style="background:${m.css}"></i>${esc(m.text)}</span>
-              ${m.comment ? `<span class="cm"><b>${t('side.ideaTag')}</b>${esc(m.comment)}</span>` : ''}
+              ${m.comment ? `<span class="cm"><b>${t('side.ideaTag')}</b><span class="cmm">${esc(m.comment)}</span></span>` : ''}
               ${kbLinksHtml(m.kb)}
               <button class="x" data-act="delmark" data-id="${esc(m.id)}" title="${t('side.delete')}">${ico('x')}</button>
             </div>`,

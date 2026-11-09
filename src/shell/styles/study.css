@@ -856,6 +856,7 @@
   font-size: 13px;
   line-height: 1.9;
   color: var(--ink);
+  overflow-wrap: anywhere;
 }
 
 .bzs-ncard .cm {
@@ -865,6 +866,7 @@
   color: var(--t2);
   border-top: 1px solid var(--line);
   padding-top: 9px;
+  overflow-wrap: anywhere;
 }
 
 .bzs-ncard .cm b {
@@ -889,6 +891,7 @@
 
 .bzs-ncard .loc .src {
   display: block;
+  overflow-wrap: anywhere;
 }
 
 .bzs-ncard .acts2 {
@@ -943,6 +946,7 @@
   line-height: 1.9;
   color: var(--ink);
   min-height: 52px;
+  overflow-wrap: anywhere;
 }
 
 .bzs-review .acts {

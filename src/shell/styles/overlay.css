@@ -201,6 +201,8 @@ body.theme-dark .bzs-float.is-dialog {
   font-size: 15px;
   line-height: 1.9;
   color: var(--t1);
+  /* 脚注里可能是长 URL 或连续外文：卡片宽度是定死的，不断行就会顶出去 */
+  overflow-wrap: anywhere;
 }
 
 .bzs-fncard::before {
@@ -239,12 +241,15 @@ body.theme-dark .bzs-float.is-dialog {
   font-size: 16px;
   line-height: 1.95;
   color: var(--t1);
+  /* 引用里可能是长 URL / 连续外文：卡片本身 overflow:hidden，不断行就只能被裁 */
+  overflow-wrap: anywhere;
 }
 
 .bzs-quote-card .from {
   font-size: 11px;
   color: var(--t3);
   letter-spacing: .06em;
+  overflow-wrap: anywhere;
 }
 
 .bzs-quote-card .side {

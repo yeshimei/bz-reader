@@ -36,7 +36,7 @@ export function noteCardHtml(m: MarkRow, showLoc = true, picked = false, select 
   return `<div class="bzs-ncard${select ? ' pick' : ''}${picked ? ' on' : ''}" style="--c:${m.css}">
     ${check}
     <div class="tx"><span class="dot" style="background:${m.css}"></span>${esc(m.text)}</div>
-    ${m.comment ? `<div class="cm"><b>${t('side.ideaTag')}</b>${esc(m.comment)}</div>` : ''}
+    ${m.comment ? `<div class="cm"><b>${t('side.ideaTag')}</b><span class="cmm">${esc(m.comment)}</span></div>` : ''}
     ${kbLinksHtml(m.kb)}
     ${
       showLoc
