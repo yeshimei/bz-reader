@@ -65,8 +65,8 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
       {
         domain: { zh: '分类管理', en: 'Shelf categories' },
         text: {
-          zh: '书架分类可以新建、改名、排序、删除，空分类也留得住。',
-          en: 'Create, rename, reorder and delete shelf categories — even an empty one now sticks around.',
+          zh: '书架分类可以新建、改名、排序、删除。',
+          en: 'Create, rename, reorder and delete shelf categories.',
         },
       },
       {
@@ -79,8 +79,38 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
       {
         domain: { zh: '统计页', en: 'Reading stats' },
         text: {
-          zh: '时长、趋势、节律、目标与打卡、书籍明细，整页重做。',
-          en: 'Time, trends, rhythm, goals and check-ins, per-book detail — the whole page is new.',
+          zh: '时长、趋势、节律、目标与打卡、书籍明细、口径对照。',
+          en: 'Time, trends, rhythm, goals and check-ins, per-book detail, and time-source comparison.',
+        },
+      },
+      {
+        domain: { zh: '书名开目录', en: 'Title opens contents' },
+        text: {
+          zh: '点头栏书名直接打开左侧目录。',
+          en: 'Clicking the book title in the header opens the contents sidebar.',
+        },
+      },
+      {
+        domain: { zh: '划词条', en: 'Selection bar' },
+        text: {
+          zh: '新增图标模式。',
+          en: 'A new icon mode for the selection bar.',
+        },
+      },
+      {
+        domain: { zh: '调试日志', en: 'Debug log' },
+        text: {
+          zh: '设置里可开启。',
+          en: 'A switch in settings turns it on.',
+        },
+      },
+    ],
+    improved: [
+      {
+        domain: { zh: '分类条', en: 'Category bar' },
+        text: {
+          zh: '换成圆形筛选的语汇，顺序按自己排的来，书自带的分类接在后面。',
+          en: 'Round filter chips, your own order, and categories that came with the book follow after.',
         },
       },
       {
@@ -98,43 +128,6 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
         },
       },
       {
-        domain: { zh: '书名开目录', en: 'Title opens contents' },
-        text: {
-          zh: '点头栏书名直接打开左侧目录。',
-          en: 'Clicking the book title in the header opens the contents sidebar.',
-        },
-      },
-      {
-        domain: { zh: '调试日志', en: 'Debug log' },
-        text: {
-          zh: '设置里可开启，记录触摸、选区与翻页，可一键复制。',
-          en: 'Turn it on in settings to record touches, selection and page turns, then copy it in one click.',
-        },
-      },
-    ],
-    improved: [
-      {
-        domain: { zh: '分类条', en: 'Category bar' },
-        text: {
-          zh: '换成圆形筛选的语汇，顺序按自己排的来，书自带的分类接在后面。',
-          en: 'Round filter chips, your own order, and categories that came with the book follow after.',
-        },
-      },
-      {
-        domain: { zh: '划词条', en: 'Selection bar' },
-        text: {
-          zh: '新增图标模式，存过的名词与段落单独成链接，动作点完自动收选区。',
-          en: 'An icon mode, saved terms and passages as their own links, and the selection clears after an action.',
-        },
-      },
-      {
-        domain: { zh: '手机分类弹窗', en: 'Category dialog on mobile' },
-        text: {
-          zh: '改成居中卡片，键盘弹起不再把卡片压成一条缝。',
-          en: 'Now a centered card, so the keyboard no longer squeezes it into a sliver.',
-        },
-      },
-      {
         domain: { zh: '想法输入框', en: 'Note editor' },
         text: {
           zh: '三行起，按内容撑高，长想法不用挤在一行里。',
@@ -142,47 +135,19 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
         },
       },
       {
-        domain: { zh: '圆钮与图标', en: 'Round buttons' },
+        domain: { zh: '书摘印章', en: 'Excerpt card' },
         text: {
-          zh: '统一大一号，宿主压掉的底色补回。',
-          en: 'One size larger across the board, with the tint the host was overriding restored.',
+          zh: '书摘展示窗去掉「bz 阅读」印章。',
+          en: 'The excerpt card no longer stamps "bz Reader" on it.',
         },
       },
     ],
     fixed: [
       {
-        domain: { zh: '分类删不净', en: 'Stale categories' },
-        text: {
-          zh: '移出书架的书还带着旧分类，重启后那一格又冒出来。',
-          en: 'Books moved off the shelf kept their old category, which came back after a restart.',
-        },
-      },
-      {
-        domain: { zh: '今天统计', en: 'Today range' },
-        text: {
-          zh: '切到「今天」时「每 1%」整列跌成几十秒。',
-          en: 'Switching to Today no longer collapses the per-percent column to a few seconds.',
-        },
-      },
-      {
-        domain: { zh: '图标模式误触', en: 'Icon mode taps' },
-        text: {
-          zh: '手机上按钮只有一道指宽，容易点到旁边那颗。',
-          en: 'On mobile the buttons were a finger too narrow, so taps landed on the neighbour.',
-        },
-      },
-      {
         domain: { zh: '划词闪动', en: 'Selection jitter' },
         text: {
           zh: '拖选时正文横移、高亮忽大忽小，已恢复稳定。',
           en: 'Dragging a selection no longer shifts the page or makes the highlight jump in size.',
-        },
-      },
-      {
-        domain: { zh: '书摘印章', en: 'Excerpt card' },
-        text: {
-          zh: '书摘展示窗去掉「bz 阅读」印章。',
-          en: 'The excerpt card no longer stamps "bz Reader" on it.',
         },
       },
     ],
