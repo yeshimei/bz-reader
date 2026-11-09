@@ -13,7 +13,7 @@ import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { t } from '../i18n';
 import { planLabel } from '../i18n/plan';
 import { anchoredPlacement } from './anchored-style';
-import { drawerLift, keyboardHeightFromCss, sheetLift } from './keyboard-inset';
+import { drawerLiftFor, keyboardHeightFromCss, sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
 import { MARK_ACTS, SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from './text-toolbar';
 import { aiCardHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, markBubbleHtml, markDeleteBarHtml } from './reader-cards';
@@ -1394,6 +1394,8 @@ export class OverlayLayer {
   private kbSample = 0;
   /** 最近一次 keyboardWillHide 的时刻：宿主变量可能滞后，一小段时间内不信它 */
   private kbHiddenAt = 0;
+  /** 键盘弹起前的完整窗口高：用来识别 iOS 是否已经把 WebView 缩到键盘上方 */
+  private baseInnerHeight = 0;
   /**
    * 搜索浮层被隐藏时的整棵 DOM（含遮罩）。
    *
@@ -1662,15 +1664,23 @@ export class OverlayLayer {
    */
   private syncKeyboardVar(): void {
     if (!isMobileShell()) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
     /* 优先用宿主自己维护的 --keyboard-height（移动工具栏也靠它定位）：
        部分安卓 WebView 的 visualViewport 只报一半键盘高，拿它抬抽屉会停在半路。
        宿主变量读不到（桌面验收、老版本）时才退回视觉视口差值。 */
-    const vv = window.visualViewport;
+    const host = this.hostKeyboardHeight();
+    const m = { innerHeight: window.innerHeight, visualHeight: vv.height };
+    /* 没有键盘时记下完整窗口高：横竖屏切换、从其他页面切进来都会在这里跟上。
+       iOS 上系统会把 WebView 缩到键盘上方，这个基准用来识别「已经让位了」。 */
+    if (!host && vv.height >= window.innerHeight - 80) this.baseInnerHeight = window.innerHeight;
     /* 键盘刚收起的一小段时间里宿主变量可能还是旧值，先别信它，否则刚归位又被抬起来 */
     const recentlyHidden = this.kbHiddenAt > 0 && performance.now() - this.kbHiddenAt < 600;
-    const lift =
-      (recentlyHidden ? 0 : this.hostKeyboardHeight()) ||
-      (vv ? drawerLift({ innerHeight: window.innerHeight, visualHeight: vv.height }) : 0);
+    const lift = drawerLiftFor({
+      ...m,
+      hostHeight: recentlyHidden ? 0 : host,
+      baseInnerHeight: this.baseInnerHeight,
+    });
     if (lift !== this.kbLift) {
       this.kbLift = lift;
       this.root.setCssProps({ '--bzr-kb': `${lift}px` });

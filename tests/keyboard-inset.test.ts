@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { drawerLift, keyboardHeightFromCss, keyboardInset, sheetLift } from '../src/shell/keyboard-inset';
+import {
+  drawerLift,
+  drawerLiftFor,
+  keyboardHeightFromCss,
+  keyboardInset,
+  sheetLift,
+} from '../src/shell/keyboard-inset';
 
 describe('keyboardInset', () => {
   it('没键盘时为 0', () => {
@@ -68,5 +74,50 @@ describe('keyboardHeightFromCss', () => {
 
   it('小数四舍五入', () => {
     expect(keyboardHeightFromCss('411.6px')).toBe(412);
+  });
+});
+
+/**
+ * 双端判断：安卓 WebView 不缩窗口，靠抬高；iOS 的 Capacitor 往往已经把
+ * WebView 缩到键盘上方，这时再抬一次就会把抽屉顶到屏幕上半截。
+ * 判据是「当前窗口高是否明显小于键盘弹起前的窗口高」。
+ */
+describe('drawerLiftFor', () => {
+  const base = 872;
+
+  it('安卓：窗口没缩，抬宿主给的高度（哪怕 vv 只报半截）', () => {
+    expect(
+      drawerLiftFor({ innerHeight: 872, visualHeight: 725, hostHeight: 411, baseInnerHeight: base }),
+    ).toBe(411);
+  });
+
+  it('安卓：宿主没给变量时退回视觉视口差值', () => {
+    expect(
+      drawerLiftFor({ innerHeight: 872, visualHeight: 461, hostHeight: 0, baseInnerHeight: base }),
+    ).toBe(411);
+  });
+
+  it('iOS：窗口已被系统缩到键盘上方，不再抬', () => {
+    expect(
+      drawerLiftFor({ innerHeight: 461, visualHeight: 461, hostHeight: 411, baseInnerHeight: base }),
+    ).toBe(0);
+  });
+
+  it('iOS：窗口没缩、只是视觉视口缩了，照常抬', () => {
+    expect(
+      drawerLiftFor({ innerHeight: 872, visualHeight: 461, hostHeight: 411, baseInnerHeight: base }),
+    ).toBe(411);
+  });
+
+  it('键盘收起时归零', () => {
+    expect(
+      drawerLiftFor({ innerHeight: 872, visualHeight: 872, hostHeight: 0, baseInnerHeight: base }),
+    ).toBe(0);
+  });
+
+  it('还不知道完整窗口高（首次打开）时不乱判缩窗', () => {
+    expect(
+      drawerLiftFor({ innerHeight: 461, visualHeight: 461, hostHeight: 411, baseInnerHeight: 0 }),
+    ).toBe(411);
   });
 });

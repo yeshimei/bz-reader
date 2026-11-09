@@ -51,3 +51,29 @@ export function keyboardHeightFromCss(raw: string): number {
   const n = parseFloat(raw);
   return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
 }
+
+/** 抽屉抬升要看的几路信号（由调用点从 window / documentElement 上采集） */
+export interface DrawerSignals extends ViewportMetrics {
+  /** 宿主写在 --keyboard-height 上的值（没有就是 0） */
+  hostHeight: number;
+  /** 键盘弹起前的完整窗口高；用来判断 WebView 是否已经被系统缩小 */
+  baseInnerHeight: number;
+}
+
+/**
+ * 贴底抽屉该抬多少——安卓与 iOS 共用这一份判断。
+ *
+ * 两端的键盘让位方式不一样：
+ *   · 安卓 WebView 通常不缩窗口（adjustPan / overlay），键盘盖在内容上，
+ *     只能自己把抽屉抬起来；
+ *   · iOS 的 Capacitor 多半已经把 WebView 缩到键盘上方（resize native），
+ *     此时 fixed 的容器也跟着变矮，再抬一次会把抽屉顶到屏幕上半截。
+ *
+ * 所以先看窗口本身有没有变矮（比键盘弹起前少了 80px 以上）：变了说明
+ * 系统已经让位，抬升量为 0；没变才按宿主变量 / 视觉视口差值去抬。
+ */
+export function drawerLiftFor(s: DrawerSignals): number {
+  const shrunk = s.baseInnerHeight > 0 && s.innerHeight < s.baseInnerHeight - 80;
+  if (shrunk) return 0;
+  return s.hostHeight || drawerLift(s);
+}
