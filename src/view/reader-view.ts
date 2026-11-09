@@ -67,7 +67,8 @@ import {
 } from '../shell/state';
 import { openOverlay } from '../shell/state';
 import { tapIntent } from './tap-intent';
-import { debugEvent } from '../data/debug-log';
+import { debugEvent, setDebugMeta } from '../data/debug-log';
+import { clearTitleToc, isTitleToc, markTitleToc } from './title-toc';
 import { pagingKeyAction, type PagingDirection } from './paging-key';
 import { tapDirection, type TapSide } from './tap-direction';
 import { immersiveExitHint, updateImmersiveHolders } from './immersive';
@@ -327,7 +328,12 @@ export class ReaderView extends ItemView {
   async onClose(): Promise<void> {
     this.teardown();
     this.toggleImmersive(false);
-    this.headTitleEl?.remove();
+    /* 头栏元素是宿主的、会被复用：关书前先把「书名可点」那套属性摘掉，
+       再把元素删掉（宿主随后会重建一块干净的）。 */
+    if (this.headTitleEl) {
+      clearTitleToc(this.headTitleEl, this.book?.meta.title || '');
+      this.headTitleEl.remove();
+    }
     this.headTitleEl = null;
     this.headerEls.forEach((node) => node.remove());
     this.headerEls.clear();
@@ -552,20 +558,19 @@ export class ReaderView extends ItemView {
    *
    * 两端都绑，但只绑「本视图头栏里的那个元素」——宿主的 `.view-header-title`
    * 在别的视图里也有（文件视图里点它是另一回事），所以入口只从 mountHeader
-   * 进来。用 `data-bzr-toc` 记一次：头栏会被宿主重建，元素换了才重绑；
+   * 进来。用标记属性记一次：头栏会被宿主重建，元素换了才重绑；
    * 同一个元素上换书不重复叠监听。
    *
    * 键盘可达：Enter / Space 与点击同效，`role=button` 让读屏也能认出来。
+   * 加与摘都在 view/title-toc.ts：onClose 要能把这套属性摘回去（宿主会
+   * 复用同一块元素，留着会让别的视图看起来像按钮却点不动）。
    */
   private bindTitleToToc(el: HTMLElement | null, title: string): void {
     if (!el) return;
-    el.setAttribute('aria-label', t('view.title.openToc'));
-    el.setAttribute('title', title ? `${title} · ${t('view.title.openToc')}` : t('view.title.openToc'));
-    if (el.dataset.bzrToc === '1') return;
-    el.dataset.bzrToc = '1';
-    el.classList.add('bzr-title-toc');
-    el.setAttribute('role', 'button');
-    el.setAttribute('tabindex', '0');
+    const label = t('view.title.openToc');
+    const bound = isTitleToc(el);
+    markTitleToc(el, label, title ? `${title} · ${label}` : label);
+    if (bound) return;
     const open = (): void => {
       /* 头栏元素会被宿主复用：这个 leaf 切到别的视图之后它还在，
          那时点标题不该再把阅读器的侧栏拽出来。 */
@@ -1552,6 +1557,9 @@ export class ReaderView extends ItemView {
 
     this.mounting = true;
     this.book = book;
+    /* 调试日志要能认出这会儿在读哪本：切书后 meta 跟着换，真机把日志
+       发回来时才分得清「划词乱跳」发生在这本书还是上一本。 */
+    setDebugMeta({ book: book.meta.title || book.id });
     /* 阅读视图是「当前在读哪本」的唯一真相。
        壳层状态要跟着它走，否则侧栏与排版面板会一直以为没有打开的书
        （表现为侧栏一屏「没有打开的书」、方向预览卡写着「这本书」）。 */

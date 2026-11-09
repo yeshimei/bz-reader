@@ -244,13 +244,6 @@ export const JA: Record<MsgKey, string> = {
   'stats.locked.cta': 'プロ版の機能を見る',
   'stats.lock.title': 'Pro',
   'stats.lock.tags': 'Trends · Compare · Heatmap · Books · Weekly · Audit',
-  'stats.lock.kpi.total': 'Total time',
-  'stats.lock.kpi.today': 'Today',
-  'stats.lock.kpi.active': 'Active days',
-  'stats.lock.kpi.streak': 'Streak',
-  'stats.lock.kpi.sessions': 'Sessions · avg {avg}',
-  'stats.lock.segments': '{n} sessions',
-  'stats.lock.kpi.read': 'Read / Shelf',
 
   /* ── ノートページ ───────────────────────────────────────── */
   'notes.pick': '選択',
@@ -338,6 +331,7 @@ export const JA: Record<MsgKey, string> = {
 
   /* ── 本棚ページ ─────────────────────────────────────────── */
   'shelf.filter.all': 'すべて',
+  'shelf.uncategorized': '未分類',
   'shelf.filter.reading': '読書中',
   'shelf.filter.done': '読了',
   'shelf.filter.new': '未読',
@@ -497,6 +491,7 @@ export const JA: Record<MsgKey, string> = {
   'settings.restore.tip': 'バックアップファイルから復元（全体を置き換え、現在のデータを上書きします）',
   'settings.debugLog': 'Debug',
   'settings.debugLog.hint': 'Only turn this on when troubleshooting.',
+  'settings.debugLog.copy': 'デバッグデータをコピー',
   'settings.data.hint':
     'バックアップには本棚・進捗・ハイライト・お気に入り・目標が含まれます。ライセンスコードと AI キーは含まれないため、別の端末では再入力が必要です。',
 

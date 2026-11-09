@@ -17,6 +17,7 @@ import type { BookRow } from '../adapt';
 import { continueRow, shelfNames } from '../adapt';
 import type { ShellState, StudyPage } from '../state';
 import { MAG, barHtml, coverHtml, esc, ico } from './html';
+import { shelfLabel } from '../shelf-label';
 export interface StudyPageDef {
   value: StudyPage;
   key: MsgKey;
@@ -222,7 +223,7 @@ export function viewLibrary(v: LibraryView): string {
 
   const shelfline = `<div class="bzs-shelfline">
       <span class="bzs-mini" style="margin-right:4px">${t('shelf.shelfline')}</span>
-      ${shelves.map((s) => `<button class="bzs-chip${state.libShelf === s ? ' on' : ''}" data-act="shelf" data-v="${esc(s)}">${esc(s)}</button>`).join('')}
+      ${shelves.map((s) => `<button class="bzs-chip${state.libShelf === s ? ' on' : ''}" data-act="shelf" data-v="${esc(s)}">${esc(shelfLabel(s))}</button>`).join('')}
       <span class="sp"></span><span class="bzs-mini">${t('shelf.count', { n: shown.length })}</span>
     </div>`;
 

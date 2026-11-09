@@ -229,4 +229,19 @@ describe('统计 · 体检、重算、报告', () => {
     expect(statsSeries(a).items.length).toBeGreaterThan(0);
     expect(statsReportText(a, (k) => k)).not.toMatch(/NaN|undefined/);
   });
+
+  /* 2026-11-09 发版复核：「每 1% 投入」是「累计花了多少秒 / 已读百分比」，
+     分子必须取全量有效时长。以前分子跟着范围一起收窄，切到「今天」后
+     这一列整体塌到接近零——用户看到的是「数据坏了」。 */
+  it('切到「今天」后每 1% 投入不缩水：分子分母都取全量', () => {
+    const all = analyzeFull(fixture('all'));
+    const today = analyzeFull(fixture('today'));
+    expect(today.books.length).toBe(all.books.length);
+    for (const b of all.books) {
+      const t = today.books.find((x) => x.id === b.id);
+      expect(t?.perPct, b.id).toBe(b.perPct);
+    }
+    /* 范围口径本身照旧收窄：今天的有效时长只算今天的会话 */
+    expect(today.total).toBeLessThan(all.total);
+  });
 });

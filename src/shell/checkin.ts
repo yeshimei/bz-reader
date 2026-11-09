@@ -16,26 +16,16 @@
  * 那时候把连续天数清零，等于每天早上都在惩罚用户。
  * ============================================================ */
 
+/* 目标数值与归一函数在 data/goal.ts（统计页也用同一份）。这里 re-export，
+   老调用点（`shell/checkin` 的导入）不用跟着改。 */
+import { clampDailyGoal } from '../data/goal';
+
+export { DEFAULT_DAILY_GOAL, clampDailyGoal } from '../data/goal';
+
 /** 本地时区的 YYYY-MM-DD（与 entitlement.todayKey 同口径，别用 UTC） */
 export function dayKey(d = new Date()): string {
   const p = (n: number): string => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
-/** 每日默认目标：20 分钟。统计页与旧数据缺值时都用它 */
-export const DEFAULT_DAILY_GOAL = 20;
-
-/**
- * 每日目标分钟数归一。
- *
- * 设置页输入框给的是字符串，手改 JSON 可能是 0 / 负数 / 字符串垃圾。
- * 0 会让「今天达标」永远成立（0 秒也算够），负数同理；上限 600 是
- * 「一天认真读十小时」的天花板，再大只是把目标变成永不可能。
- */
-export function clampDailyGoal(v: unknown): number {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return DEFAULT_DAILY_GOAL;
-  return Math.min(600, Math.max(1, Math.round(n)));
 }
 
 export interface CheckinStats {

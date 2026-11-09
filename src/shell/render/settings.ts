@@ -28,6 +28,7 @@ import type { HotkeyRow } from '../../core/hotkeys';
 import { HEADER_ACTION_IDS, headerActionSpec, type HeaderActionId } from '../../view/header-actions';
 import { rangeFill } from '../range-fill';
 import { esc, githubIcon, ico } from './html';
+import { segHtml } from './seg';
 
 export interface SettingsView {
   prefs: ReaderPrefs;
@@ -75,9 +76,11 @@ export const KEY_COMMANDS: Array<{ id: string; key: MsgKey; builtin?: string }> 
 ];
 
 function seg(name: string, opts: Array<[string, string]>, cur: string, act = 'setpref'): string {
-  return `<div class="bzs-seg">${opts
-    .map((o) => `<button class="${String(cur) === o[0] ? 'on' : ''}" data-act="${act}" data-k="${name}" data-v="${o[0]}">${o[1]}</button>`)
-    .join('')}</div>`;
+  return segHtml(
+    opts.map(([v, k]) => ({ v, k })),
+    cur,
+    { act, name },
+  );
 }
 
 function range(k: string, label: string, val: number, min: number, max: number, step: number, fmt: (v: number) => string): string {
@@ -370,6 +373,7 @@ export function viewSettings(v: SettingsView): string {
       ${toggle('debugLog', s.debugLog, t('settings.debugLog'))}
       <div class="bzs-mini" style="margin-top:2px;line-height:1.9">
         ${t('settings.debugLog.hint')}
+        <button class="bzs-btn sm" data-act="debugcopy">${t('settings.debugLog.copy')}</button>
       </div>
     </div>`;
 

@@ -250,13 +250,6 @@ export const EN: Record<MsgKey, string> = {
   'stats.locked.cta': 'See what Pro adds',
   'stats.lock.title': 'Pro',
   'stats.lock.tags': 'Trends · Compare · Heatmap · Books · Weekly · Audit',
-  'stats.lock.kpi.total': 'Total time',
-  'stats.lock.kpi.today': 'Today',
-  'stats.lock.kpi.active': 'Active days',
-  'stats.lock.kpi.streak': 'Streak',
-  'stats.lock.kpi.sessions': 'Sessions · avg {avg}',
-  'stats.lock.segments': '{n} sessions',
-  'stats.lock.kpi.read': 'Read / Shelf',
 
   /* ── Notes page ─────────────────────────────────────────── */
   'notes.pick': 'Select',
@@ -346,6 +339,7 @@ export const EN: Record<MsgKey, string> = {
 
   /* ── Library page ───────────────────────────────────────── */
   'shelf.filter.all': 'All',
+  'shelf.uncategorized': 'Uncategorized',
   'shelf.filter.reading': 'Reading',
   'shelf.filter.done': 'Finished',
   'shelf.filter.new': 'Unread',
@@ -507,6 +501,7 @@ export const EN: Record<MsgKey, string> = {
   'settings.restore.tip': 'Restore from a backup file (full replacement — current data is not kept)',
   'settings.debugLog': 'Debug',
   'settings.debugLog.hint': 'Only turn this on when troubleshooting.',
+  'settings.debugLog.copy': 'Copy debug data',
   'settings.data.hint':
     'A backup holds the shelf, progress, highlights, favourites and goals. It does not include your license code or AI key — re-enter those on a new device.',
 

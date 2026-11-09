@@ -54,6 +54,9 @@ import { bindRangeTouch } from './range-touch';
 import { PLAN_TABLE, can, entitlement, type Cap, type PlanCell } from '../data/entitlement';
 import { protocolUrl } from '../data/deeplink';
 import { dataDirOf } from '../core/plugin-path';
+import { clampDailyGoal } from '../data/goal';
+import { shelfLabel } from './shelf-label';
+import { segHtml } from './render/seg';
 import { bindMaskDismiss } from '../core/mask-dismiss';
 import { escManager } from '../core/esc-manager';
 import { trapFocus } from '../core/ui/focus-trap';
@@ -157,9 +160,11 @@ export function typographyFormHtml(): string {
   const p = shellPrefs();
 
   const seg = (name: string, opts: Array<[string, string]>, cur: string): string =>
-    `<div class="bzs-seg">${opts
-      .map(([v, l]) => `<button class="${cur === v ? 'on' : ''}" data-act="setpref" data-k="${name}" data-v="${v}">${l}</button>`)
-      .join('')}</div>`;
+    segHtml(
+      opts.map(([v, k]) => ({ v, k })),
+      cur,
+      { name },
+    );
 
   const rng = (k: string, label: string, val: number, min: number, max: number, step: number, unit: string): string => {
     /* `.bzs-range`：移动端手势层，同设置页（见 shell/range-touch.ts） */
@@ -750,9 +755,8 @@ function overlayGoal(): string {
   const done = liveBooks().filter((b) => !!b.reading.stats.completedTime).length;
   /* 统计页一比一之后，每日目标档位从卡片上撤了，收进这里：
      年度目标与每日目标在同一处调，统计页不额外摆控件。 */
-  const rawDaily = Number(getShellSource()?.store.get().dailyGoalMinutes);
-  const daily = Number.isFinite(rawDaily) && rawDaily > 0
-    ? Math.min(600, Math.max(1, Math.round(rawDaily))) : 20;
+  const rawDaily = getShellSource()?.store.get().dailyGoalMinutes;
+  const daily = clampDailyGoal(rawDaily);
   const chips = [10, 15, 20, 30, 45, 60].map((n) =>
     `<button class="bzs-chip${n === daily ? ' on' : ''}" data-act="setdailygoal" data-v="${n}">${t('stats.minutes', { n })}</button>`,
   ).join('');
@@ -1071,8 +1075,9 @@ function overlayShelves(mode: string, name: string, bookId?: string): string {
   const rows = names
     .map((n) => {
       if (n === NO_SHELF) {
-        /* 收尾那格只报个数，不给动作：没有名字可改，也不该被删 */
-        return `<div class="bzs-shelfrow is-none"><b class="nm">${esc(n)}</b><span class="ct">${t('shelf.count', {
+        /* 收尾那格只报个数，不给动作：没有名字可改，也不该被删。
+           显示名走语言包（数据值仍是 NO_SHELF，删/改都按它比对）。 */
+        return `<div class="bzs-shelfrow is-none"><b class="nm">${esc(shelfLabel(n))}</b><span class="ct">${t('shelf.count', {
           n: countOf(n),
         })}</span></div>`;
       }

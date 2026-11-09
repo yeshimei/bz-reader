@@ -242,13 +242,6 @@ export const ZH_TW: Record<MsgKey, string> = {
   'stats.locked.cta': '查看高級版功能',
   'stats.lock.title': '高級版',
   'stats.lock.tags': '趨勢 · 對比 · 熱力 · 書籍 · 週報 · 體檢',
-  'stats.lock.kpi.total': '總有效時長',
-  'stats.lock.kpi.today': '今日',
-  'stats.lock.kpi.active': '有記錄',
-  'stats.lock.kpi.streak': '連續',
-  'stats.lock.kpi.sessions': '會話 · 均 {avg}',
-  'stats.lock.segments': '{n} 段',
-  'stats.lock.kpi.read': '讀過 / 在庫',
 
   /* ── 筆記頁 ──────────────────────────────────────────────── */
   'notes.pick': '選取',
@@ -336,6 +329,7 @@ export const ZH_TW: Record<MsgKey, string> = {
 
   /* ── 書庫頁 ──────────────────────────────────────────────── */
   'shelf.filter.all': '全部',
+  'shelf.uncategorized': '未分類',
   'shelf.filter.reading': '在讀',
   'shelf.filter.done': '已讀',
   'shelf.filter.new': '未讀',
@@ -495,6 +489,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.restore.tip': '從備份檔還原（整份替換，會覆蓋當前資料）',
   'settings.debugLog': '偵錯',
   'settings.debugLog.hint': '只在排查問題時打開。',
+  'settings.debugLog.copy': '複製偵錯資料',
   'settings.data.hint': '備份含書架、進度、標註、收藏與目標。不含啟用碼和 AI 金鑰，換裝置需重填。',
 
   /* ── 設定頁：快速鍵 ──────────────────────────────────────── */

@@ -177,4 +177,14 @@ describe('语言包完整性', () => {
       expect(v.trim().length, k).toBeGreaterThan(0);
     }
   });
+
+  /* 2026-11-09 发版复核：统计页锁态只画「高级版」和那串标签，另有一组
+     kpi / segments 文案在代码里零引用，八种语言白留一份。发版翻译时
+     它们还要被当成正式文案翻一遍，所以把「锁态只用这两条」变成断言。 */
+  it('统计页锁态只留 title / tags 两条文案，不再有零引用的死键', () => {
+    const lockKeys = Object.keys(ZH)
+      .filter((k) => k.startsWith('stats.lock.'))
+      .sort();
+    expect(lockKeys).toEqual(['stats.lock.tags', 'stats.lock.title']);
+  });
 });

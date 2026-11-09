@@ -14,6 +14,7 @@
  * ============================================================ */
 import type { ReaderBook } from './schema';
 import { dayKey } from './stats';
+import { clampDailyGoal } from './goal';
 
 const DAY = 86_400_000;
 
@@ -203,6 +204,8 @@ export function analyzeFull(input: FullStatsInput): FullStats {
     const percent = Number(position.percent) || 0;
     const last = Number(bstats.lastReadTime) || 0;
     let eff = 0;
+    /** 全量有效时长：perPct 的分子。不能跟着 range 收窄（见 :perPct） */
+    let effAll = 0;
     let wall = 0;
     let n = 0;
     let nAll = 0;
@@ -224,6 +227,7 @@ export function analyzeFull(input: FullStatsInput): FullStats {
       const k = dayKey(s.start);
       fullEff[k] = (fullEff[k] || 0) + e;
       fullWall[k] = (fullWall[k] || 0) + w;
+      effAll += e;
       if (s.start >= wk && s.start <= now) weekCur += e;
       else if (s.start >= prevWk && s.start < wk) weekPrev += e;
       if (s.start >= mStart.getTime() && s.start <= now) monthCur += e;
@@ -242,7 +246,9 @@ export function analyzeFull(input: FullStatsInput): FullStats {
     const sessionSum = sessions.reduce((x, s) => x + (s.durationSeconds || 0), 0);
     if (Math.abs((Number(bstats.totalReadTime) || 0) - sessionSum) > 0) clockDrift += 1;
     const idleDays = last ? (now - last) / DAY : null;
-    const perPct = nAll > 0 && percent > 0 ? eff / (percent * 100) : null;
+    /* 每 1% 投入 = 累计有效时长 / 已读百分比。分子分母都取全量：
+       跟着「今天」收窄的话，这一列会从「约一分半」跌成几十秒。 */
+    const perPct = nAll > 0 && percent > 0 ? effAll / (percent * 100) : null;
     const completed = Number(bstats.completedTime) || 0;
     const finishDays = completed && first ? (completed - first) / DAY : null;
     const status: BookStatus =
@@ -297,8 +303,8 @@ export function analyzeFull(input: FullStatsInput): FullStats {
   const peakKey = Object.keys(fullEff).sort((x, y) => fullEff[y] - fullEff[x])[0] || '';
   const bestHour = hour.indexOf(Math.max(...hour));
   const idleCount = books.filter((b) => b.status === 'idle' || b.status === 'longIdle').length;
-  const rawGoal = Number(input.dailyGoalMinutes);
-  const dailyGoal = Number.isFinite(rawGoal) ? Math.min(600, Math.max(1, Math.round(rawGoal))) : 20;
+  /* 与设置页、打卡判定同一把尺子（data/goal.ts），别再各写一遍钳制 */
+  const dailyGoal = clampDailyGoal(input.dailyGoalMinutes);
 
   return {
     range,
@@ -374,9 +380,55 @@ export function statsAuditDays(a: FullStats): string[] {
   return Array.from(new Set(Object.keys(a.fullEff).concat(Object.keys(a.checkins)))).sort();
 }
 
-export interface QualityCell { k: string; v: string; ok: boolean }
+/** 时段四档的文案键（顺序固定：凌晨 / 上午 / 下午 / 夜间） */
+export const HOUR_KEYS = [
+  'stats.f.hour0',
+  'stats.f.hour1',
+  'stats.f.hour2',
+  'stats.f.hour3',
+] as const;
 
-type Tr = (key: string, params?: Record<string, string | number>) => string;
+/** 单次会话四档的文案键（越往后越长） */
+export const LEN_KEYS = ['stats.f.len0', 'stats.f.len1', 'stats.f.len2', 'stats.f.len3'] as const;
+
+/**
+ * 体检六格与报告九行用到的文案键。
+ *
+ * 写在这里是为了让调用方（统计页 / 周报）能把 `t()` 原样递进来：data 层
+ * 不 import i18n，渲染层的 `t()` 参数是更宽的 `MsgKey`，赋给这个窄联合
+ * 是安全的——反过来（把 data 层的字符串强转成 `MsgKey`）就会让新键打错字
+ * 时静默显示键名原文。
+ */
+export type QualityKey =
+  | 'stats.f.q.wall'
+  | 'stats.f.q.ckDiff'
+  | 'stats.f.q.orphan'
+  | 'stats.f.q.regress'
+  | 'stats.f.q.drift'
+  | 'stats.f.q.done';
+
+export type ReportKey =
+  | 'stats.f.unit.day'
+  | 'stats.f.unit.pair'
+  | 'stats.f.unit.book'
+  | QualityKey
+  | 'stats.f.report.title'
+  | 'stats.f.report.line1'
+  | 'stats.f.report.line2'
+  | 'stats.f.report.line3'
+  | 'stats.f.report.line4'
+  | 'stats.f.report.line5'
+  | 'stats.f.report.line6'
+  | 'stats.f.report.byBook'
+  | (typeof HOUR_KEYS)[number];
+
+export interface QualityCell {
+  k: QualityKey;
+  v: string;
+  ok: boolean;
+}
+
+export type Tr = (key: ReportKey, params?: Record<string, string | number>) => string;
 
 /** 六格数据体检。k 是 i18n key，单位由调用方（页面传 t()）给，计算层不写文案 */
 export function statsQuality(a: FullStats, tr: Tr): QualityCell[] {
@@ -409,7 +461,7 @@ export function statsReportText(a: FullStats, tr: Tr): string {
   const top = [...a.books].sort((x, y) => y.eff - x.eff)[0];
   const fastest = [...a.books].sort((x, y) => y.percent - x.percent)[0];
   const byEff = a.books.filter((b) => b.eff > 0).sort((x, y) => y.eff - x.eff);
-  const hourName = (i: number): string => tr(`stats.f.hour${i}`);
+  const hourName = (i: number): string => tr(HOUR_KEYS[Math.min(3, Math.max(0, Math.round(i)))]);
   return [
     tr('stats.f.report.title', { date: a.todayK }),
     `${dayKey(a.first)} ~ ${a.todayK}`,

@@ -115,7 +115,10 @@ import { kbSource } from '../data/kb-entry';
 import { kbLinkOf } from '../data/kb-link';
 import { endsSelection } from './selection-end';
 import { fromSidebarHit, shouldCollapseSidebar } from './sidebar-jump';
-import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
+import { shelfLabel } from './shelf-label';
+import { getShellSource, allBooks, liveBooks, shellPrefs, shellSettings } from './source';
+import { debugSnapshot } from '../data/debug-log';
+import { TAP_MENU_PRESSURE_MS } from '../core/tap';
 import { aiCardDrop, aiCardKey, aiModeOf } from './ai-card';
 import { runAiForOverlay } from './overlay';
 import { DEFAULT_SETTINGS, aiReady } from '../data/settings';
@@ -336,9 +339,10 @@ function openShelfMenu(bookIds: string[], pos: { x: number; y: number }): void {
   for (const n of names) {
     const count = used.filter((x) => x === n).length;
     menu.addItem((i) => {
-      /* 名字后面跟本数：挑分类时最想知道的是「这一类现在有几本」 */
+      /* 名字后面跟本数：挑分类时最想知道的是「这一类现在有几本」。
+         系统格子（全部 / 未分类）走语言包，用户起的名字原样显示。 */
       const title = document.createDocumentFragment();
-      title.append(n);
+      title.append(shelfLabel(n));
       const num = document.createElement('span');
       num.className = 'bzs-menu-count';
       num.textContent = String(count);
@@ -375,7 +379,7 @@ function openShelfMenu(bookIds: string[], pos: { x: number; y: number }): void {
   unbindShelfTap = isMobileEnv()
     ? bindShelfTap(document, (tap) => {
         menu.hide();
-        shelfOpenedAt = Date.now() + 600;
+        shelfOpenedAt = Date.now() + TAP_MENU_PRESSURE_MS;
         if (tap.mode === 'new') overlay('shelves', { mode: 'new', bookId: tap.bookId });
         else overlay('shelves');
       })
@@ -947,6 +951,14 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       downloadStatsPoster(statsModelOf(currentStatsView(), getStatsUi()));
       break;
 
+    /* 设置页「调试日志」那一行：开关只负责抓，抓到的这份 JSON 从这里
+       复制走（真机没法翻数据目录，只能靠粘贴板带出来）。 */
+    case 'debugcopy': {
+      const snap = debugSnapshot();
+      void copyText(JSON.stringify(snap, null, 2));
+      break;
+    }
+
     case 'reset':
       overlay('reset');
       break;
@@ -1243,8 +1255,10 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (!src) break;
       const to = cleanShelfName(input?.value ?? '');
       /* 书自带分类的书（归属字段是空的）也要跟着走：改名之后它们才第一次
-         真正「有归属」，否则会退回 EPUB 里的旧分类名，看起来像没改成。 */
-      for (const b of liveBooks()) if (shelfOf(b) === from) src.setShelf(b.id, to);
+         真正「有归属」，否则会退回 EPUB 里的旧分类名，看起来像没改成。
+         遍历全量书（含已移出书架的）：归档书的归属字段留着旧名字，
+         下次启动重建索引时那一格又会冒回分类条。 */
+      for (const b of allBooks()) if (shelfOf(b) === from) src.setShelf(b.id, to);
       reshapeShelfCache(from, to);
       saveShelfList(renameShelf(getState().shelfList, from, to));
       /* 正筛着这一类时改名：筛选值还指着旧名字，画面会立刻空掉 */
@@ -1261,8 +1275,9 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const src = getShellSource();
       if (!src || !name) break;
       /* 删除 = 书退回「未分类」，不是连书一起删。归属字段清空，
-         下次打开会退回 EPUB 自带的分类名——那句「回到未分类」说的就是这个 */
-      for (const b of liveBooks()) if (shelfOf(b) === name) src.setShelf(b.id, '');
+         下次打开会退回 EPUB 自带的分类名——那句「回到未分类」说的就是这个。
+         同样遍历全量书：跳过归档书的话，旧分类名会随下次重建索引复活。 */
+      for (const b of allBooks()) if (shelfOf(b) === name) src.setShelf(b.id, '');
       reshapeShelfCache(name, '');
       saveShelfList(dropShelf(getState().shelfList, name));
       if (getState().libShelf === name) setState({ libShelf: ALL_SHELF });

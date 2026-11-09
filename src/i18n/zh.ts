@@ -255,13 +255,6 @@ export const ZH = {
   'stats.locked.cta': '查看高级版功能',
   'stats.lock.title': '高级版',
   'stats.lock.tags': '趋势 · 对比 · 热力 · 书籍 · 周报 · 体检',
-  'stats.lock.kpi.total': '总有效时长',
-  'stats.lock.kpi.today': '今日',
-  'stats.lock.kpi.active': '有记录',
-  'stats.lock.kpi.streak': '连续',
-  'stats.lock.kpi.sessions': '会话 · 均 {avg}',
-  'stats.lock.segments': '{n} 段',
-  'stats.lock.kpi.read': '读过 / 在库',
 
   /* ── 笔记页 ──────────────────────────────────────────────── */
   'notes.pick': '选中',
@@ -351,6 +344,7 @@ export const ZH = {
 
   /* ── 书库页 ──────────────────────────────────────────────── */
   'shelf.filter.all': '全部',
+  'shelf.uncategorized': '未分类',
   'shelf.filter.reading': '在读',
   'shelf.filter.done': '已读',
   'shelf.filter.new': '未读',
@@ -517,6 +511,7 @@ export const ZH = {
   'settings.restore.tip': '从备份文件恢复（整份替换，会覆盖当前数据）',
   'settings.debugLog': '调试',
   'settings.debugLog.hint': '只在排查问题时打开。',
+  'settings.debugLog.copy': '复制调试数据',
   'settings.data.hint': '备份含书架、进度、标注、收藏与目标。不含激活码和 AI Key，换设备需重填。',
 
   /* ── 设置页：快捷键 ──────────────────────────────────────── */

@@ -513,3 +513,18 @@ describe('多档位选项 · 窄窗按格子下限排行', () => {
     expect(g).toContain('class="bzs-seg"');
   });
 });
+
+/**
+ * 调试日志（2026-11-09 发版复核）。
+ *
+ * 开关只管「抓」，抓到的 JSON 得有一个出口：真机上翻不到数据目录，
+ * 只能靠粘贴板带出来。设置页这一行因此必须有一颗复制按钮，
+ * 点了走 `debugcopy`（不再只是「写进 debug.json 就没了」）。
+ */
+describe('调试日志出口', () => {
+  it('设置页有「复制调试数据」按钮，接的是 debugcopy', () => {
+    const out = html();
+    expect(out).toContain('data-act="debugcopy"');
+    expect(out).toContain('复制调试数据');
+  });
+});

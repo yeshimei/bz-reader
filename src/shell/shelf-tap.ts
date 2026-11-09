@@ -26,16 +26,17 @@
  * 只负责「认出点的是哪一项」和「绑定/解绑触摸监听」；打开动作由调用点
  * 决定，免得这里反过来依赖壳层状态。
  */
+import { TAP_LONG_PRESS_MS, TAP_SLOP_PX, isTap } from '../core/tap';
 
 /** 菜单项标题上的标记属性（值见 {@link ShelfTapTag}） */
 export const SHELF_TAP_ATTR = 'data-bzr-shelftap';
 /** 从某本书「新建分类…」时带上书 id，建完把书放进去 */
 export const SHELF_TAP_BOOK_ATTR = 'data-bzr-book';
 
-/** 手指按下后最多算「没动」的位移（px） */
-const TAP_SLOP = 10;
+/** 手指按下后最多算「没动」的位移（px）——与全站点按判定同一套（core/tap） */
+const TAP_SLOP = TAP_SLOP_PX;
 /** 按下到抬起超过这么久就不算点选（长按另有意图） */
-const TAP_MS = 600;
+const TAP_MS = TAP_LONG_PRESS_MS;
 
 /** 标记值：打开名单，或从一本书新建 */
 export type ShelfTapTag = 'manage' | 'new';
@@ -83,15 +84,14 @@ export function shelfTapFrom(target: Element | null): ShelfTap | null {
  *
  * 菜单里手指稍微滑一下就松手很常见（想滚动、想取消），不能把这些当成
  * 点中——否则会在用户没想打开的时候把弹层顶出来。长按同理。
+ * 判定本体在 `core/tap.ts`：位移与时长阈值全站只有一份。
  */
 export function isShelfTapStill(
   start: { x: number; y: number; at: number },
   end: { x: number; y: number; at: number },
   maxDist = TAP_SLOP,
 ): boolean {
-  if (![start.x, start.y, end.x, end.y, start.at, end.at].every(Number.isFinite)) return false;
-  if (end.at - start.at >= TAP_MS) return false;
-  return Math.abs(end.x - start.x) < maxDist && Math.abs(end.y - start.y) < maxDist;
+  return isTap(start, end, { maxDistance: maxDist, maxMs: TAP_MS });
 }
 
 /**

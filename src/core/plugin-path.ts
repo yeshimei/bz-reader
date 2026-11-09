@@ -121,4 +121,14 @@ export function debugOpenPath(_app?: App): string {
   return `${storageDirOf(_app)}/debug-open.json`;
 }
 
+/**
+ * 调试日志：`<数据目录>/debug.json`（设置页开关打开时才写）。
+ *
+ * 与调试入口同族，一起走这里——2026-11-09 发版复核：原来路径在 plugin.ts
+ * 里裸拼，换数据目录或加清理规则时漏掉的就是它。
+ */
+export function debugLogPath(_app?: App): string {
+  return `${storageDirOf(_app)}/debug.json`;
+}
+
 export { PLUGIN_ID };

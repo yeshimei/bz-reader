@@ -21,6 +21,7 @@ type FakeEl = {
   setAttribute(k: string, v: string): void;
   getAttribute(k: string): string | null;
   hasAttribute(k: string): boolean;
+  removeAttribute(k: string): void;
   setCssProps(props: Record<string, string>): void;
   appendChild(el: FakeEl): FakeEl;
   append(...els: FakeEl[]): void;
@@ -77,6 +78,9 @@ function makeEl(tagName = 'div'): FakeEl {
     setAttribute: (k, v) => void attrs.set(k, v),
     getAttribute: (k) => attrs.get(k) ?? null,
     hasAttribute: (k) => attrs.has(k),
+    /* 2026-11-09：头栏书名那套标记要能摘干净（role / tabindex / title），
+       纯函数里 makeEl 必须支持删除属性，否则只能在生产代码里绕开标准 API */
+    removeAttribute: (k: string) => void attrs.delete(k),
     setCssProps: (props) => {
       for (const [k, v] of Object.entries(props)) style.setProperty(k, v);
     },

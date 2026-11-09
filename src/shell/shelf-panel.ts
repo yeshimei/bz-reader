@@ -10,6 +10,7 @@
  * 代价是重绘丢焦点，所以下面专门记焦点与滚动位置。
  * ============================================================ */
 import { isCompactLibrary, isMobileShell } from '../core/mobile';
+import { TAP_LONG_PRESS_MS, TAP_MENU_PRESSURE_MS, TAP_SLOP_PX } from '../core/tap';
 import { dispatchAction, dispatchInput } from './actions';
 import { getState, setState, setStateQuiet, subscribe, type StudyPage } from './state';
 import { getShellSource, liveBooks, shellPrefs, subscribeShellSource } from './source';
@@ -278,8 +279,9 @@ export class ShelfPanel {
     });
 
     /* 书卡菜单：桌面右键、手机长按。
-       长按用 520ms 的指针计时，手指一动就取消——否则用户想划动书库时
-       会被菜单打断。两端都走同一个 bookmenu 动作，不写两套逻辑。 */
+       长按用全站同一套指针计时（core/tap 的 TAP_LONG_PRESS_MS），手指一动
+       就取消——否则用户想划动书库时会被菜单打断。两端都走同一个 bookmenu
+       动作，不写两套逻辑。 */
     let menuAt = 0;
     const openMenu = (card: HTMLElement, x: number, y: number): void => {
       menuAt = Date.now();
@@ -296,7 +298,7 @@ export class ShelfPanel {
       if (!card) return;
       e.preventDefault();
       if (Date.now() - menuAt < 400) return; // 长按已经开过
-      this.suppressClickUntil = Date.now() + 600;
+      this.suppressClickUntil = Date.now() + TAP_MENU_PRESSURE_MS;
       openMenu(card, e.clientX, e.clientY);
     });
 
@@ -323,17 +325,19 @@ export class ShelfPanel {
         pressTimer = null;
         const target = pressCard;
         pressCard = null;
-        /* 安卓长按会先发一次 contextmenu，菜单已经开过了；520ms 计时器到点
+        /* 安卓长按会先发一次 contextmenu，菜单已经开过了；计时器到点
            再开一次就是「长按弹两层抽屉」。先去重，再压合成 click。 */
         if (Date.now() - menuAt < 400) return;
         // 菜单弹出后浏览器还会补一次 click，先压住（P3-17）
-        this.suppressClickUntil = Date.now() + 600;
+        this.suppressClickUntil = Date.now() + TAP_MENU_PRESSURE_MS;
         if (target) openMenu(target, pressX, pressY);
-      }, 520);
+      }, TAP_LONG_PRESS_MS);
     });
     el.addEventListener('pointermove', (e) => {
       if (!pressCard) return;
-      if (Math.abs(e.clientX - pressX) > 8 || Math.abs(e.clientY - pressY) > 8) cancelPress();
+      if (Math.abs(e.clientX - pressX) > TAP_SLOP_PX || Math.abs(e.clientY - pressY) > TAP_SLOP_PX) {
+        cancelPress();
+      }
     });
     el.addEventListener('pointerup', cancelPress);
     el.addEventListener('pointercancel', cancelPress);

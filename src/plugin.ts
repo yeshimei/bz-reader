@@ -23,7 +23,7 @@ import { Plugin, TFile, type WorkspaceLeaf } from 'obsidian';
 import { hostLanguageCode, resolveLocale, setLocale, t } from './i18n';
 import { COMMANDS } from './plugin-commands';
 import { setApp } from './core/app';
-import { setPluginRelDir, dataDirOf, debugOpenPath, normalizeDataDir, setDataDir, DEFAULT_DATA_DIR, PLUGIN_ID } from './core/plugin-path';
+import { setPluginRelDir, dataDirOf, debugLogPath, debugOpenPath, normalizeDataDir, setDataDir, DEFAULT_DATA_DIR, PLUGIN_ID } from './core/plugin-path';
 import { debugEnabled, flushDebugLog, installDebugHook, startDebugLog, stopDebugLog } from './data/debug-log';
 import { isMobileEnv } from './core/mobile';
 import { closeAllModals } from './core/ui/modal';
@@ -1122,7 +1122,7 @@ export function createPlugin(cfg: PluginConfig) {
     }
 
     private debugFilePath(): string {
-      return `${dataDirOf()}/debug.json`;
+      return debugLogPath();
     }
 
     private async writeDebugFile(text: string): Promise<void> {

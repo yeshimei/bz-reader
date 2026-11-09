@@ -248,13 +248,6 @@ export const PT: Record<MsgKey, string> = {
   'stats.locked.cta': 'Ver o que o Pro inclui',
   'stats.lock.title': 'Pro',
   'stats.lock.tags': 'Trends · Compare · Heatmap · Books · Weekly · Audit',
-  'stats.lock.kpi.total': 'Total time',
-  'stats.lock.kpi.today': 'Today',
-  'stats.lock.kpi.active': 'Active days',
-  'stats.lock.kpi.streak': 'Streak',
-  'stats.lock.kpi.sessions': 'Sessions · avg {avg}',
-  'stats.lock.segments': '{n} sessions',
-  'stats.lock.kpi.read': 'Read / Shelf',
 
   /* ── Página de notas ────────────────────────────────────── */
   'notes.pick': 'Selecionar',
@@ -345,6 +338,7 @@ export const PT: Record<MsgKey, string> = {
 
   /* ── Página da biblioteca ───────────────────────────────── */
   'shelf.filter.all': 'Todos',
+  'shelf.uncategorized': 'Sem categoria',
   'shelf.filter.reading': 'Em leitura',
   'shelf.filter.done': 'Concluídos',
   'shelf.filter.new': 'Não lidos',
@@ -506,6 +500,7 @@ export const PT: Record<MsgKey, string> = {
     'Restaurar a partir de um arquivo de backup (substitui tudo, sobrescreve os dados atuais)',
   'settings.debugLog': 'Debug',
   'settings.debugLog.hint': 'Only turn this on when troubleshooting.',
+  'settings.debugLog.copy': 'Copiar dados de depuração',
   'settings.data.hint':
     'O backup inclui a estante, o progresso, os destaques, os favoritos e as metas. Não inclui o código de licença nem a chave de IA — informe-os de novo em outro dispositivo.',
 

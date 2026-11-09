@@ -1368,6 +1368,20 @@
     position: absolute;
     inset: -12px;
   }
+
+  /* 图标模式的划词按钮只有 26px 宽（见 overlay.css）：高度已被上面的
+     min-height:44 撑开，宽度用透明伪元素补到 44（左右各 9px）。
+     相邻按钮的热区会有几像素重叠——取「宁可重叠也别点不中」：
+     26px 宽在这条密集工具条上必误触，手指点到的永远是隔壁那颗。 */
+  .bzs-shell .bzs-tb.is-icon .bzs-sbtn {
+    position: relative;
+  }
+
+  .bzs-shell .bzs-tb.is-icon .bzs-sbtn::before {
+    content: "";
+    position: absolute;
+    inset: 0 -9px;
+  }
 }
 
 /* ── 长内容别把弹层顶出屏幕（2026-11-08）──

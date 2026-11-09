@@ -4,10 +4,19 @@
  * 原型 drawPoster 的 1:1 复刻：800×1040、2 倍像素、Canvas 直出 PNG，
  * 跟随宿主明暗主题。没有外部依赖，也不往库里写文件——点一下就下载。
  * ============================================================ */
-import { t, type MsgKey } from '../i18n';
-import { clock, dayLabel, shortTime, statsSeries, type FullStats } from '../data/stats-full';
+import { t, type MsgKey, type MsgParams } from '../i18n';
+import { HOUR_KEYS, clock, dayLabel, shortTime, statsSeries, type FullStats } from '../data/stats-full';
 
-const T = (key: string, params?: Record<string, string | number>): string => t(key as MsgKey, params);
+/** 周报上「节律」四档的文案键：顺序与 HOUR_KEYS 一致，只是换成了周报措辞 */
+const POSTER_HOUR_KEYS: readonly MsgKey[] = [
+  'stats.f.poster.hour0',
+  'stats.f.poster.hour1',
+  'stats.f.poster.hour2',
+  'stats.f.poster.hour3',
+];
+
+/** 参数就是 `MsgKey`：不再把任意字符串强转进来，打错键会编译报错 */
+const T = (key: MsgKey, params?: MsgParams): string => t(key, params);
 
 interface Palette {
   bg: string; card: string; t1: string; t2: string; t3: string;
@@ -65,7 +74,7 @@ export function drawStatsPoster(a: FullStats): string {
   label(`${a.todayK.slice(0, 10)} — ${a.todayK}`, 56, 134, C.t2);
   label(
     T('stats.f.report.line3', {
-      day: dayLabel(a.peakKey), peak: clock(a.peakSec), hour: T(`stats.f.hour${a.bestHour}`),
+      day: dayLabel(a.peakKey), peak: clock(a.peakSec), hour: T(HOUR_KEYS[a.bestHour]),
       hourSec: clock(a.bestHourSec), idle: a.idleCount,
     }),
     W - 56, 134, C.t2, 'right',
@@ -143,7 +152,7 @@ export function drawStatsPoster(a: FullStats): string {
   const hm = Math.max(1, ...a.hour);
   [0, 1, 2, 3].forEach((i) => {
     const y = 908 + i * 30;
-    label(T(`stats.f.poster.hour${i}`), 56, y, C.t3);
+    label(T(POSTER_HOUR_KEYS[i]), 56, y, C.t3);
     x.fillStyle = C.card;
     x.fillRect(170, y - 9, 380, 7);
     x.fillStyle = C.cu;

@@ -112,8 +112,9 @@ describe('统计页 · 交互状态', () => {
   it('范围切到今天：按钮高亮变化，全量指标仍在', () => {
     const all = viewStats(view(), ui());
     const today = viewStats(view(), ui({ range: 'today' }));
-    expect(all).toContain('data-act="statsrange" data-v="all" class="on"');
-    expect(today).toContain('data-act="statsrange" data-v="today" class="on"');
+    /* 属性顺序由共用的分段按钮生成器决定，这里只认「这一项带着 on」 */
+    expect(all).toContain('class="on" data-act="statsrange" data-v="all"');
+    expect(today).toContain('class="on" data-act="statsrange" data-v="today"');
     expect(today).toContain('01:00');
     expect(today).not.toMatch(/NaN|undefined/);
   });
@@ -122,9 +123,9 @@ describe('统计页 · 交互状态', () => {
     const wall = viewStats(view(), ui({ audit: 'wall' }));
     const ck = viewStats(view(), ui({ audit: 'checkin' }));
     expect((wall.match(/class="num hi"/g) ?? []).length).toBeGreaterThan(0);
-    expect(wall).toContain('data-act="statsaudit" data-v="wall" class="on"');
-    expect(ck).toContain('data-act="statsaudit" data-v="checkin" class="on"');
-    expect(ck).not.toContain('data-v="wall" class="on"');
+    expect(wall).toContain('class="on" data-act="statsaudit" data-v="wall"');
+    expect(ck).toContain('class="on" data-act="statsaudit" data-v="checkin"');
+    expect(ck).not.toContain('class="on" data-act="statsaudit" data-v="wall"');
   });
 
   it('重算预演给逐日清单 + 应用/取消，应用后只显示还原', () => {
@@ -173,5 +174,21 @@ describe('统计页 · 基础版锁态', () => {
     expect(locked).toContain('09:44');
     expect(full).toContain('09:44');
     expect(locked).not.toMatch(/NaN|undefined/);
+  });
+});
+
+/**
+ * 文案键（2026-11-09 发版复核）。
+ *
+ * 统计页与周报的 key 以前经过 `key as MsgKey` 强转：新键打错一个字照样
+ * 编译通过，界面上直接显示成 `stats.f.xxx` 原文。现在 key 参数就是
+ * `MsgKey`，动态那几档（时段 / 会话长度 / 周报时段）走常量数组。
+ * 这条测试盯住渲染结果：任何键名原文漏到 HTML 里都算红。
+ */
+describe('统计页 · 文案键', () => {
+  it('整页与锁态里不出现键名原文', () => {
+    for (const h of [viewStats(view()), viewStatsLocked(view())]) {
+      expect(h).not.toMatch(/stats\.(f|lock)\./);
+    }
   });
 });

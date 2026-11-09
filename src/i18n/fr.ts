@@ -248,13 +248,6 @@ export const FR: Record<MsgKey, string> = {
   'stats.locked.cta': 'Voir ce qu’apporte Pro',
   'stats.lock.title': 'Pro',
   'stats.lock.tags': 'Trends · Compare · Heatmap · Books · Weekly · Audit',
-  'stats.lock.kpi.total': 'Total time',
-  'stats.lock.kpi.today': 'Today',
-  'stats.lock.kpi.active': 'Active days',
-  'stats.lock.kpi.streak': 'Streak',
-  'stats.lock.kpi.sessions': 'Sessions · avg {avg}',
-  'stats.lock.segments': '{n} sessions',
-  'stats.lock.kpi.read': 'Read / Shelf',
 
   /* ── Page notes ─────────────────────────────────────────── */
   'notes.pick': 'Sélectionner',
@@ -345,6 +338,7 @@ export const FR: Record<MsgKey, string> = {
 
   /* ── Page bibliothèque ──────────────────────────────────── */
   'shelf.filter.all': 'Tous',
+  'shelf.uncategorized': 'Sans catégorie',
   'shelf.filter.reading': 'En cours',
   'shelf.filter.done': 'Terminés',
   'shelf.filter.new': 'Non lus',
@@ -506,6 +500,7 @@ export const FR: Record<MsgKey, string> = {
     'Restaurer depuis un fichier de sauvegarde (remplace tout, écrase les données actuelles)',
   'settings.debugLog': 'Debug',
   'settings.debugLog.hint': 'Only turn this on when troubleshooting.',
+  'settings.debugLog.copy': 'Copier les données de débogage',
   'settings.data.hint':
     'Une sauvegarde contient la bibliothèque, la progression, les surlignages, les favoris et les objectifs. Elle n’inclut ni le code de licence ni la clé IA — à ressaisir sur un nouvel appareil.',
 

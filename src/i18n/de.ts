@@ -248,13 +248,6 @@ export const DE: Record<MsgKey, string> = {
   'stats.locked.cta': 'Pro-Funktionen ansehen',
   'stats.lock.title': 'Pro',
   'stats.lock.tags': 'Trends · Compare · Heatmap · Books · Weekly · Audit',
-  'stats.lock.kpi.total': 'Total time',
-  'stats.lock.kpi.today': 'Today',
-  'stats.lock.kpi.active': 'Active days',
-  'stats.lock.kpi.streak': 'Streak',
-  'stats.lock.kpi.sessions': 'Sessions · avg {avg}',
-  'stats.lock.segments': '{n} sessions',
-  'stats.lock.kpi.read': 'Read / Shelf',
 
   /* ── Notizenseite ───────────────────────────────────────── */
   'notes.pick': 'Auswählen',
@@ -343,6 +336,7 @@ export const DE: Record<MsgKey, string> = {
 
   /* ── Bibliotheksseite ───────────────────────────────────── */
   'shelf.filter.all': 'Alle',
+  'shelf.uncategorized': 'Nicht kategorisiert',
   'shelf.filter.reading': 'Am Lesen',
   'shelf.filter.done': 'Gelesen',
   'shelf.filter.new': 'Ungelesen',
@@ -504,6 +498,7 @@ export const DE: Record<MsgKey, string> = {
     'Aus einer Backup-Datei wiederherstellen (ersetzt alles und überschreibt aktuelle Daten)',
   'settings.debugLog': 'Debug',
   'settings.debugLog.hint': 'Only turn this on when troubleshooting.',
+  'settings.debugLog.copy': 'Diagnosedaten kopieren',
   'settings.data.hint':
     'Eine Sicherung enthält Regal, Fortschritt, Markierungen, Favoriten und Ziele. Lizenzschlüssel und KI-Schlüssel sind nicht enthalten – auf einem neuen Gerät erneut eingeben.',
 

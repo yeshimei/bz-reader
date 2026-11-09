@@ -17,6 +17,8 @@ import {
   clock,
   delta,
   dayLabel,
+  HOUR_KEYS,
+  LEN_KEYS,
   pct,
   shortTime,
   startOfDay,
@@ -30,14 +32,20 @@ import {
   type FullStats,
 } from '../../data/stats-full';
 import { esc } from './html';
+import { segHtml } from './seg';
 import { defaultStatsUi, type StatsUiState } from '../stats-ui';
 
 const MS_DAY = 86_400_000;
 const HEAT_DAYS = 140;
 const DASH = '—';
 
-/** 计算层不依赖 i18n，报告/体检要翻译时从这里递一个 tr 进去 */
-const T = (key: string, params?: MsgParams): string => t(key as MsgKey, params);
+/**
+ * 计算层不依赖 i18n，报告/体检要翻译时从这里递一个 tr 进去。
+ *
+ * 参数类型就是 `MsgKey`：以前写成 `key: string` 再 `as MsgKey`，新键打错
+ * 一个字照样编译通过，界面上直接显示成键名原文（2026-11-09 发版复核）。
+ */
+const T = (key: MsgKey, params?: MsgParams): string => t(key, params);
 
 export interface StatsView {
   /** 兼容旧调用：页面现在直接从 books 重算，这个汇总只作 checkins 兜底 */
@@ -52,10 +60,14 @@ export interface StatsView {
 
 interface SegOpt { v: string; k: string }
 
+/* 统计页的「几选一」与设置页同一个结构（shell/render/seg.ts），
+   只是外层沿用原型那套 `.seg`（行内 span）——样式各用各的，生成逻辑只有一份。 */
 function seg(act: string, cur: string, opts: SegOpt[]): string {
-  return '<span class="seg">' + opts.map((o) =>
-    `<button data-act="${act}" data-v="${esc(o.v)}" class="${cur === o.v ? 'on' : ''}">${esc(o.k)}</button>`,
-  ).join('') + '</span>';
+  return segHtml(
+    opts.map((o) => ({ v: esc(o.v), k: esc(o.k) })),
+    cur,
+    { act, cls: 'seg', tag: 'span' },
+  );
 }
 
 interface BarRow { k: string; v: number; s: string }
@@ -69,7 +81,7 @@ function hbars(rows: BarRow[]): string {
   ).join('') + '</div>';
 }
 
-function section(titleKey: string, note = ''): string {
+function section(titleKey: MsgKey, note = ''): string {
   return `<div class="sect"><h3>${esc(T(titleKey))}</h3><span class="ln"></span>` +
     (note ? `<span class="note">${esc(note)}</span>` : '') + '</div>';
 }
@@ -100,7 +112,7 @@ function model(v: StatsView, ui: StatsUiState): FullStats {
 function insightsHtml(a: FullStats): string {
   const rows = [
     { k: T('stats.f.ins.peak'), v: T('stats.f.ins.peakValue', { day: dayLabel(a.peakKey), sec: clock(a.peakSec) }) },
-    { k: T('stats.f.ins.hour'), v: T('stats.f.ins.hourValue', { hour: T(`stats.f.hour${a.bestHour}`), sec: clock(a.bestHourSec) }) },
+    { k: T('stats.f.ins.hour'), v: T('stats.f.ins.hourValue', { hour: T(HOUR_KEYS[a.bestHour]), sec: clock(a.bestHourSec) }) },
     { k: T('stats.f.ins.idle'), v: T('stats.f.ins.idleValue', { n: a.idleCount }) },
     { k: T('stats.f.ins.streak'), v: T('stats.f.ins.streakValue', { n: a.streak }) },
   ];
@@ -123,7 +135,7 @@ function kpiHtml(a: FullStats): string {
 }
 
 function compareHtml(a: FullStats): string {
-  const cells = [
+  const cells: Array<{ k: MsgKey; v: string }> = [
     { k: 'stats.f.cmp.week', v: clock(a.weekCur) },
     { k: 'stats.f.cmp.lastWeek', v: a.weekPrev ? clock(a.weekPrev) : DASH },
     { k: 'stats.f.cmp.mom', v: delta(a.weekCur, a.weekPrev) },
@@ -153,12 +165,12 @@ function chartHtml(a: FullStats): string {
 function rhythmHtml(a: FullStats): string {
   const ranges = ['00–06', '06–12', '12–18', '18–24'];
   const hourRows = ranges.map((r, i) => ({
-    k: `${T(`stats.f.hour${i}`)} ${r}`,
+    k: `${T(HOUR_KEYS[i])} ${r}`,
     v: a.hour[i],
     s: a.hour[i] ? clock(a.hour[i]) : DASH,
   }));
   const lenRows = [0, 1, 2, 3].map((i) => ({
-    k: T(`stats.f.len${i}`),
+    k: T(LEN_KEYS[i]),
     v: a.len[i],
     s: T('stats.f.lenValue', { n: a.len[i] }),
   }));
@@ -208,7 +220,7 @@ function rankHtml(a: FullStats): string {
   })));
 }
 
-const STATUS_KEY: Record<BookStatus, string> = {
+const STATUS_KEY: Record<BookStatus, MsgKey> = {
   done: 'stats.f.status.done',
   longIdle: 'stats.f.status.longIdle',
   idle: 'stats.f.status.idle',
@@ -231,7 +243,7 @@ function tableHtml(a: FullStats): string {
       `<td class="num">${b.finishDays !== null ? b.finishDays.toFixed(1) + ' ' + esc(T('stats.f.unit.day')) : DASH}</td>` +
       `<td><span class="tag ${cls}">${esc(T(STATUS_KEY[b.status]))}</span></td></tr>`;
   }).join('');
-  const th = (key: string, right = false) => `<th${right ? ' style="text-align:right"' : ''}>${esc(T(key))}</th>`;
+  const th = (key: MsgKey, right = false) => `<th${right ? ' style="text-align:right"' : ''}>${esc(T(key))}</th>`;
   return '<div class="scroll"><table><thead><tr>' + th('stats.f.th.book') + th('stats.f.th.position') +
     th('stats.f.th.eff', true) + th('stats.f.th.share', true) + th('stats.f.th.perPct', true) +
     th('stats.f.th.idle', true) + th('stats.f.th.finish', true) + th('stats.f.th.status') +
