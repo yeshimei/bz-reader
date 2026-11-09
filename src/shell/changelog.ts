@@ -59,6 +59,42 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '0.4.1',
+    date: '2026-11-09',
+    improved: [
+      {
+        domain: { zh: '高级版对照表', en: 'Upgrade table' },
+        text: {
+          zh: '按阅读与书架、格式与导出、统计与检索、AI、进阶分成五段，勾选列统一居中，段题前不再有竖条。',
+          en: 'Grouped into five sections — reading, formats, stats, AI and advanced — with the check column centred and no rule before each heading.',
+        },
+      },
+      {
+        domain: { zh: '目录页签', en: 'Contents tab' },
+        text: {
+          zh: '去掉名字后面的计数。',
+          en: 'The count after each name is gone.',
+        },
+      },
+      {
+        domain: { zh: '书签与划线', en: 'Bookmarks and highlights' },
+        text: {
+          zh: '侧栏里改用实心铜点，和正文的强调色对上。',
+          en: 'Solid copper dots in the sidebar, matching the accent used in the book.',
+        },
+      },
+    ],
+    fixed: [
+      {
+        domain: { zh: '长想法', en: 'Long notes' },
+        text: {
+          zh: '再长也不会把侧栏顶出一条横向滚动条。',
+          en: 'A long note no longer pushes a horizontal scrollbar into the sidebar.',
+        },
+      },
+    ],
+  },
+  {
     version: '0.4.0',
     date: '2026-11-09',
     added: [
