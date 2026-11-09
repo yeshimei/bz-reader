@@ -11,7 +11,7 @@
  * ============================================================ */
 import { isIosEnv, isMobileEnv, isMobileShell } from '../core/mobile';
 import { t } from '../i18n';
-import { planLabel } from '../i18n/plan';
+import { planGroupLabel, planLabel } from '../i18n/plan';
 import { anchoredPlacement } from './anchored-style';
 import { drawerLiftFor, keyboardHeightFromCss, sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
@@ -51,7 +51,7 @@ import { aiCardBegin, aiCardDone, aiCardDrop, aiCardFail, aiCardGet, aiCardKey, 
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
 import { bindRangeTouch } from './range-touch';
-import { PLAN_TABLE, can, entitlement, type Cap, type PlanCell } from '../data/entitlement';
+import { PLAN_GROUPS, PLAN_TABLE, can, entitlement, type Cap, type PlanCell } from '../data/entitlement';
 import { protocolUrl } from '../data/deeplink';
 import { dataDirOf } from '../core/plugin-path';
 import { clampDailyGoal } from '../data/goal';
@@ -914,7 +914,10 @@ function overlayDetail(bookId?: string): string {
 function planCell(kind: 'free' | 'pro', v: PlanCell): string {
   if (v === 'yes') return `<i class="y">${ico('check')}</i>`;
   if (v === 'part') return `<i class="p">${t('unlock.part')}</i>`;
-  return `<i class="n">—</i>`;
+  /* 空勾位以前写「—」字符：靠 text-align 居中，和 SVG 勾不是一套对齐，
+     72px 列里偏左 29px。现在留空格子，横线交给 CSS 的 ::before 画，
+     三种格子都从同一条中心线起。 */
+  return `<i class="n"></i>`;
 }
 
 /* 导出给测试：这一屏是免费用户最常看到的，按钮与群号值得单独钉住 */
@@ -927,13 +930,26 @@ export function overlayUnlock(mode?: string, codeOpen = false): string {
 
   /* 不再在表头上写「你点的是朗读 / 基础版此项需高级版」：
      那两行字占掉了整屏最贵的空间，信息量却等于「看下面那张表」。
-     做法改成：直接在表里把这一项标亮，并滚到可见范围。 */
-  const rows = PLAN_TABLE.map((r) => {
-    const hot = !paid && !!cap && r.cap === cap;
-    return `<div class="bzs-plan-row${hot ? ' is-cap' : ''}">
+     做法改成：直接在表里把这一项标亮，并滚到可见范围。
+
+     2026-11-09 加分组的理由反过来：19 行一长串，用户滚一遍只记得「很多」。
+     组标题让他知道自己正在看哪一类。分组只决定**插在哪**，行还是 PLAN_TABLE
+     里那 19 行，所以高亮与滚动位置不受影响。 */
+  const byKey = new Map(PLAN_TABLE.map((r) => [r.key, r]));
+  const rows = PLAN_GROUPS.map((g) => {
+    const head = `<div class="bzs-plan-row is-group"><span>${esc(planGroupLabel(g.key))}</span></div>`;
+    const body = g.rows
+      .map((key) => {
+        const r = byKey.get(key);
+        if (!r) return '';
+        const hot = !paid && !!cap && r.cap === cap;
+        return `<div class="bzs-plan-row${hot ? ' is-cap' : ''}">
         <span>${esc(planLabel(r.key))}${r.note ? `<em>${esc(r.note)}</em>` : ''}</span>
         ${planCell('free', r.free)}${planCell('pro', r.pro)}
       </div>`;
+      })
+      .join('');
+    return head + body;
   }).join('');
 
   const body = `<div class="bzs-unlock">

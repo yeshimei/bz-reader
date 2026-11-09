@@ -181,7 +181,12 @@ describe('界面文案', () => {
   });
 
   it('功能名只用短名，不带括号补充说明', () => {
-    for (const row of PLAN_TABLE) expect(row.name, row.name).not.toMatch(/[（(]/);
+    /* 例外只有 formats：括号里是「Kindle 系」这一族的扩展名枚举，
+       不是在给功能名打补丁（「书摘（图片版）」那种才是要拦的）。 */
+    for (const row of PLAN_TABLE) {
+      if (row.key === 'formats') continue;
+      expect(row.name, row.name).not.toMatch(/[（(]/);
+    }
   });
 
   it('脚注浮窗属于基础版，且排在第一个付费项前面', () => {
@@ -223,7 +228,7 @@ describe('界面文案', () => {
   it('对照表不再单列向量检索，表尾只剩 BZ 知识库', () => {
     expect(PLAN_TABLE.some((r) => r.name.includes('向量'))).toBe(false);
     expect(PLAN_TABLE.slice(-1).map((r) => r.key)).toEqual(['kb']);
-    expect(PLAN_TABLE.slice(-1).map((r) => r.name)).toEqual(['连接至 BZ AI 知识库']);
+    expect(PLAN_TABLE.slice(-1).map((r) => r.name)).toEqual(['接入 BZ AI 知识库']);
   });
 
   it('统计那一行写全：统计、打卡与目标', () => {
@@ -235,7 +240,7 @@ describe('界面文案', () => {
 
   it('书摘那一行写「图片」：书摘卡片本身是基础版就有的', () => {
     const card = PLAN_TABLE.find((r) => r.cap === 'card');
-    expect(card?.name).toBe('书摘图片');
+    expect(card?.name).toBe('划线做成书摘图片');
     expect(capLabel('card')).toContain('书摘图片');
   });
 

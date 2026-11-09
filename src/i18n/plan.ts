@@ -35,11 +35,18 @@ export type PlanKey =
   | 'bookmap'
   | 'kb';
 
+/**
+ * 分组 id。和 `PlanKey` 是**两套命名空间**：这里是「段」，那里是「行」。
+ * 名字刻意不重合，免得代码里 `PLAN_TABLE[0].key` 与 `PLAN_GROUPS[0].key`
+ * 读起来像同一个东西。归属关系在 `data/entitlement.ts` 的 PLAN_GROUPS。
+ */
+export type PlanGroupKey = 'read' | 'output' | 'insight' | 'ai' | 'advanced';
+
 const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
   reading: {
-    zh: 'EPUB / TXT 阅读、翻页与排版',
-    'zh-TW': 'EPUB / TXT 閱讀、翻頁與排版',
-    en: 'EPUB / TXT reading, pagination, and typography',
+    zh: 'EPUB / TXT 阅读与排版',
+    'zh-TW': 'EPUB / TXT 閱讀與排版',
+    en: 'EPUB / TXT reading and typography',
     ja: 'EPUB / TXT の読書・ページ送り・組版',
     de: 'EPUB / TXT lesen, blättern, Satz einstellen',
     fr: 'Lecture EPUB / TXT, pagination et composition',
@@ -57,9 +64,9 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     pt: 'Uma ou duas colunas',
   },
   marks: {
-    zh: '目录、书签、四色划线与想法',
-    'zh-TW': '目錄、書籤、四色劃線與想法',
-    en: 'Contents, bookmarks, four-color highlights, and notes',
+    zh: '目录、书签、四色划线、想法',
+    'zh-TW': '目錄、書籤、四色劃線、想法',
+    en: 'Contents, bookmarks, four-color highlights, notes',
     ja: '目次・ブックマーク・4 色ハイライトとメモ',
     de: 'Inhalt, Lesezeichen, vier Markierungsfarben und Notizen',
     fr: 'Sommaire, signets, quatre couleurs de surlignage et notes',
@@ -98,9 +105,12 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     pt: 'Gestão de categorias',
   },
   formats: {
-    zh: 'mobi / azw3 / fb2 / 漫画',
-    'zh-TW': 'mobi / azw3 / fb2 / 漫畫',
-    en: 'mobi / azw3 / fb2 / comics',
+    /* 2026-11-09 改：只写**真机实测能打开**的四种。AZW / PRC / FBZ 看着像
+       Kindle 家族，但 EXT_TO_FORMAT 里没有它们，写上去就是空头承诺。
+       括号在这里是「族 → 枚举」，不是行名解释，允许这一行例外。 */
+    zh: 'Kindle 系（MOBI / AZW3）、FB2 与 CBZ 漫画',
+    'zh-TW': 'Kindle 系（MOBI / AZW3）、FB2 與 CBZ 漫畫',
+    en: 'Kindle family (MOBI / AZW3), FB2, and CBZ comics',
     ja: 'mobi / azw3 / fb2 / コミック',
     de: 'mobi / azw3 / fb2 / Comics',
     fr: 'mobi / azw3 / fb2 / BD',
@@ -108,8 +118,8 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     pt: 'mobi / azw3 / fb2 / quadrinhos',
   },
   bilink: {
-    zh: '划线复制为双向链接',
-    'zh-TW': '劃線複製為雙向連結',
+    zh: '划线复制成双向链接',
+    'zh-TW': '劃線複製成雙向連結',
     en: 'Copy highlights as wikilinks',
     ja: 'ハイライトを双方向リンクとしてコピー',
     de: 'Markierungen als Wikilink kopieren',
@@ -128,9 +138,9 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     pt: 'Exportação em Markdown estruturado',
   },
   card: {
-    zh: '书摘图片',
-    'zh-TW': '書摘圖片',
-    en: 'Quote card images',
+    zh: '划线做成书摘图片',
+    'zh-TW': '劃線做成書摘圖片',
+    en: 'Highlights as quote card images',
     ja: '引用カード画像',
     de: 'Zitatkarten als Bild',
     fr: 'Images de cartes de citation',
@@ -161,9 +171,9 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     pt: 'Pesquisa entre livros',
   },
   aiSel: {
-    zh: 'AI 解释 / 翻译 / 摘要',
-    'zh-TW': 'AI 解釋 / 翻譯 / 摘要',
-    en: 'AI explanations / translation / summaries',
+    zh: 'AI 解释、翻译与摘要',
+    'zh-TW': 'AI 解釋、翻譯與摘要',
+    en: 'Explain, translate, summarize a selection',
     ja: 'AI による解説 / 翻訳 / 要約',
     de: 'KI: Erklärungen / Übersetzung / Zusammenfassungen',
     fr: 'IA : explications / traduction / résumés',
@@ -224,8 +234,8 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
      的前置步骤，拆成两行只会让用户以为要买两次。能力本身还在（建索引仍
      走 requireCap('ai')），对照表不再承诺一项独立功能。 */
   kb: {
-    zh: '连接至 BZ AI 知识库',
-    'zh-TW': '連接至 BZ AI 知識庫',
+    zh: '接入 BZ AI 知识库',
+    'zh-TW': '接入 BZ AI 知識庫',
     en: 'Connect to the BZ AI knowledge base',
     ja: 'BZ AI ナレッジベースに接続',
     de: 'Verbindung zur BZ-KI-Wissensdatenbank',
@@ -244,6 +254,79 @@ export function planLabel(key: PlanKey): string {
 export function planNameZh(key: PlanKey): string {
   return PLAN_TEXT[key].zh;
 }
+
+/* ─────────── 分组标题（2026-11-09 新增） ───────────
+ * 19 行一长串看不出结构，弹窗里按「阅读与书架 / 格式与导出 / 统计与检索 /
+ * AI / 进阶」分五段。组名同样是界面文案，走同一套八语言约束，别写回
+ * `data/entitlement.ts`——那里多一句中文就撞硬编码门禁。
+ *
+ * 开发期规则：只写实中文 / 繁体 / 英文，其余五种先放英文占位顶住类型，
+ * 上架前统一换正式翻译。 */
+const PLAN_GROUP_TEXT: Record<PlanGroupKey, Record<Locale, string>> = {
+  read: {
+    zh: '阅读与书架',
+    'zh-TW': '閱讀與書架',
+    en: 'Reading & Shelf',
+    ja: 'Reading & Shelf',
+    de: 'Reading & Shelf',
+    fr: 'Reading & Shelf',
+    es: 'Reading & Shelf',
+    pt: 'Reading & Shelf',
+  },
+  output: {
+    zh: '格式与导出',
+    'zh-TW': '格式與匯出',
+    en: 'Formats & Export',
+    ja: 'Formats & Export',
+    de: 'Formats & Export',
+    fr: 'Formats & Export',
+    es: 'Formats & Export',
+    pt: 'Formats & Export',
+  },
+  insight: {
+    zh: '统计与检索',
+    'zh-TW': '統計與搜尋',
+    en: 'Stats & Search',
+    ja: 'Stats & Search',
+    de: 'Stats & Search',
+    fr: 'Stats & Search',
+    es: 'Stats & Search',
+    pt: 'Stats & Search',
+  },
+  ai: {
+    zh: 'AI',
+    'zh-TW': 'AI',
+    en: 'AI',
+    ja: 'AI',
+    de: 'AI',
+    fr: 'IA',
+    es: 'IA',
+    pt: 'IA',
+  },
+  advanced: {
+    zh: '进阶',
+    'zh-TW': '進階',
+    en: 'Advanced',
+    ja: 'Advanced',
+    de: 'Advanced',
+    fr: 'Advanced',
+    es: 'Advanced',
+    pt: 'Advanced',
+  },
+};
+
+/** 分组标题 → 当前界面语言的说法 */
+export function planGroupLabel(key: PlanGroupKey): string {
+  return PLAN_GROUP_TEXT[key]?.[locale()] ?? PLAN_GROUP_TEXT[key]?.zh ?? String(key);
+}
+
+/** 中文基准组名，测试与自检用 */
+export function planGroupNameZh(key: PlanGroupKey): string {
+  return PLAN_GROUP_TEXT[key].zh;
+}
+
+/** 测试与自检用：分组标题八种语言是否都填了 */
+export const PLAN_GROUP_TEXT_PACK = PLAN_GROUP_TEXT;
 
 /** 测试与自检用：八种语言是否都填了 */
 export const PLAN_TEXT_PACK = PLAN_TEXT;

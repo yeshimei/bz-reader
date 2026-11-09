@@ -31,7 +31,7 @@
  * ============================================================ */
 
 import { locale, t, type Locale } from '../i18n';
-import { planNameZh, type PlanKey } from '../i18n/plan';
+import { planNameZh, type PlanGroupKey, type PlanKey } from '../i18n/plan';
 import { devTierOverride } from '../core/dev-tier';
 import { parseLicense, verifyLicense, type LicenseFail, type LicensePayload } from './license';
 
@@ -678,4 +678,51 @@ export const PLAN_TABLE: PlanRow[] = [
      全书问答的前置步骤，拆成两行只让用户以为要买两次；建索引被拦时高亮
      的是「AI 全书问答」那一行（见 shell/actions.ts 的 indexCap）。 */
   row('kb', 'no', 'yes', 'kb'),
+];
+
+/* ─────────── 对照表的分组（2026-11-09） ───────────
+ * 19 行一长串看不出结构：用户从上滚到下，只记得「很多功能」，分不清哪几行
+ * 是一类。这里把同一批行按使用场景切成五段，渲染时插组标题——**行本身、
+ * 勾叉、顺序都没变**，所以被拦时的高亮与滚动位置照旧。
+ *
+ * 两条约束：
+ *   1. 组的先后就是表的先后，组内也按表序（测试 flatMap 展开后与 PLAN_TABLE
+ *      逐项相等，谁插错位置都会红）；
+ *   2. 组名不写在这个文件里——`data/` 有硬编码中文门禁，组名在
+ *      `i18n/plan.ts` 的 PLAN_GROUP_TEXT，渲染走 planGroupLabel()。
+ *
+ * 切法按「读 → 归档 → 回看 → 问 AI → 进阶」走：
+ *   · 阅读与书架：基础版六行，正好是免费区全部；
+ *   · 格式与导出：能打开哪些书 + 把划线搬出去；
+ *   · 统计与检索：回看读了多少、找回某句话；
+ *   · AI：划词与全书问答；
+ *   · 进阶：排版、朗读、对照、鸟瞰，最后落在知识库。
+ * 「连接至 BZ AI 知识库」必须留最后一行（有测试钉住），所以归在「进阶」尾巴。 */
+export interface PlanGroup {
+  key: PlanGroupKey;
+  /** 这一段包含哪些行，按表里的顺序 */
+  rows: PlanKey[];
+}
+
+export const PLAN_GROUPS: PlanGroup[] = [
+  {
+    key: 'read',
+    rows: ['reading', 'columns', 'marks', 'inbookSearch', 'footnote', 'classify'],
+  },
+  {
+    key: 'output',
+    rows: ['formats', 'bilink', 'export', 'card'],
+  },
+  {
+    key: 'insight',
+    rows: ['stats', 'crossSearch'],
+  },
+  {
+    key: 'ai',
+    rows: ['aiSel', 'aiBook'],
+  },
+  {
+    key: 'advanced',
+    rows: ['vertical', 'tts', 'parallel', 'bookmap', 'kb'],
+  },
 ];

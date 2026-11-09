@@ -1701,7 +1701,14 @@ textarea.idea:focus {
   letter-spacing: .06em;
 }
 
+/* 三种格子（勾 / 部分 / 横线）用同一套居中。
+   2026-11-09 修：原来 i.y 是 inline-flex 却没写 justify-content，SVG 贴左；
+   i.n 靠 text-align 让「—」字形居中。两套逻辑在 72px 列里差 29px，
+   看起来就是「对号和横线不在一条线上」。 */
 .bzs-plan-row i {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   font-style: normal;
   font-size: 13px;
@@ -1710,7 +1717,6 @@ textarea.idea:focus {
 
 .bzs-plan-row i.y {
   color: var(--copper);
-  display: inline-flex;
 }
 
 .bzs-plan-row i.y svg {
@@ -1727,6 +1733,50 @@ textarea.idea:focus {
 .bzs-plan-row i.n {
   color: var(--ink);
   opacity: .26;
+}
+
+/* 横线画出来，不用「—」字符：字符居中受字体字形框左右留白影响，
+   换一套主题字体就又歪了。 */
+.bzs-plan-row i.n::before {
+  content: "";
+  width: 12px;
+  height: 1.5px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+/* 分组标题：跨三列的一条浅底，字比功能行小一号、字距拉开，左边一根铜色短条。
+   它只是分隔线，不该比功能行还显眼（2026-11-09）。 */
+.bzs-plan-row.is-group {
+  position: relative;
+  grid-column: 1 / -1;
+  grid-template-columns: 1fr;
+  padding: 12px 12px 5px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--sunken) 55%, transparent);
+}
+
+.bzs-plan-row.is-group span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .13em;
+  color: var(--ink);
+  opacity: .62;
+}
+
+/* 竖条定位在行上（不是 span 上）：组名要和下面的功能行一样从 12px 起，
+   不能被标记顶到右边去。 */
+.bzs-plan-row.is-group span::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  width: 3px;
+  height: 9px;
+  margin-top: -4.5px;
+  border-radius: 2px;
+  background: var(--copper);
+  opacity: .85;
 }
 
 /* 「你刚点的就是这个」：基础版点付费按钮被拦下时，对照表里那一行
