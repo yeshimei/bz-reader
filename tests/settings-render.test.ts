@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 /* 设置页会读授权状态；测试里用一个可变开关模拟解锁前后。
    只换三个结论函数，发行信息（群号、仓库地址）仍走真实常量——
    「关于」组显示的就是它们，钉死一份假值等于什么都没测。 */
-const entState = vi.hoisted(() => ({ unlocked: false, patron: false }));
+const entState = vi.hoisted(() => ({ unlocked: false, patron: false, name: '' }));
 vi.mock('../src/data/entitlement', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/data/entitlement')>();
   return {
@@ -13,6 +13,7 @@ vi.mock('../src/data/entitlement', async (importOriginal) => {
       tier: entState.unlocked ? 'paid' : 'free',
       unlocked: entState.unlocked,
       patron: entState.patron,
+      name: entState.name || undefined,
       license: 'BZR2.old-code',
     }),
     tierText: () => (entState.unlocked ? '高级版已激活' : '当前未激活'),
@@ -559,5 +560,43 @@ describe('赞助人徽章', () => {
     const out = html();
     expect(out).not.toContain('is-patron');
     entState.patron = false;
+  });
+});
+
+/**
+ * 定制昵称（2026-11-09）。
+ *
+ * 商品页第二条承诺：想要定制昵称的人加群报名字，另签一枚带 name 的赞助人码。
+ * 那枚码的徽章文字直接用昵称；没报名字的批次码仍写「赞助人」。
+ */
+describe('赞助人徽章 · 定制昵称', () => {
+  it('赞助人 + 昵称：徽章文字换成昵称', () => {
+    entState.unlocked = true;
+    entState.patron = true;
+    entState.name = '小明';
+    const out = html();
+    expect(out).toContain('is-patron');
+    expect(out).toContain('>小明<');
+    entState.name = '';
+    entState.patron = false;
+    entState.unlocked = false;
+  });
+
+  it('赞助人无昵称：徽章仍写「赞助人」', () => {
+    entState.unlocked = true;
+    entState.patron = true;
+    const out = html();
+    expect(out).toContain('>赞助人<');
+    entState.patron = false;
+    entState.unlocked = false;
+  });
+
+  it('普通码带昵称但没 patron：不出徽章', () => {
+    entState.unlocked = true;
+    entState.name = '小明';
+    const out = html();
+    expect(out).not.toContain('is-patron');
+    entState.name = '';
+    entState.unlocked = false;
   });
 });
