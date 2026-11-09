@@ -64,6 +64,12 @@ export class PdfDocument {
       data,
       isEvalSupported: false,
       useSystemFonts: true,
+      /* Obsidian 的 Electron 里 OffscreenCanvas 与 WebCodecs 的 ImageDecoder
+         都存在但行为不保证（CSP / GPU 黑名单 / 权限域）。pdf.js 默认会优先
+         走它们，失败时整页 render 直接 reject。这里强制退回普通 canvas +
+         createImageBitmap，这是 Chromium 里最老、最稳的一条路。 */
+      isOffscreenCanvasSupported: false,
+      isImageDecoderSupported: false,
       /* 不指定 cMapUrl / standardFontDataUrl：插件发布只有三件套，
          没有地方放 PDF 的 CMap 与标准字体文件。现代 PDF 带 ToUnicode，
          中文能出字；缺字体时 pdf.js 会退回系统字体并 warn。 */
@@ -201,10 +207,14 @@ export class PdfDocument {
     dpr = 1,
   ): Promise<PdfRenderTask> {
     const p = await this.page(page);
-    const ratio = Math.max(1, dpr);
     /* 高 DPI 走「viewport 直接放大」，不用 render 的 transform 参数：
        transform 会与 pdf.js 内部的 viewport.transform 叠乘，叠错时整页
        空白且不抛错。文字层仍按 cssScale 摆，与 canvas 的 CSS 尺寸对齐。 */
+    const base = p.getViewport({ scale: cssScale });
+    /* 画布边长兜底：超过 8192 时 Chromium 会静默不画（或整块变空），
+       降低像素倍率比让整页白屏好。 */
+    const maxSide = 8192;
+    const ratio = Math.max(1, Math.min(Math.max(1, dpr), maxSide / Math.max(1, Math.max(base.width, base.height))));
     const viewport = p.getViewport({ scale: cssScale * ratio });
     canvas.width = Math.max(1, Math.floor(viewport.width));
     canvas.height = Math.max(1, Math.floor(viewport.height));
