@@ -120,7 +120,8 @@ export class PdfView {
   private lastWidth = 0;
 
   /* ── 框选（矩形） ── */
-  private frameStart: { pageEl: HTMLElement; page: number; x: number; y: number } | null = null;
+  private frameStart: { pageEl: HTMLElement; page: number; x: number; y: number; forced: boolean } | null =
+    null;
   private frameBoxEl: HTMLDivElement | null = null;
   private framing = false;
   /** 最近一次框选完成的时间：清选区会触发 selectionchange，别让空选区把它收掉 */
@@ -724,9 +725,10 @@ export class PdfView {
   }
 
   /* ── 框选（矩形） ──
-   * 扫描页没有文字层，划词选不到东西；图、公式、跨栏段落只能框。
-   * 与「点按翻页」共用一个指针，所以：拖动超过 6px 才算框选，
-   * 已经选着字时不进框选（那是在调选区）。 */
+   * **文字优先**：有文字层的页，拖动就是浏览器原生划词（和 EPUB 一模一样），
+   * 框选退到「按住 Shift 再拖」——真机上默认把拖动判成框选，用户选字时
+   * 只会看到一条空矩形，划线工具条永远出不来。
+   * 扫描页没有文字可选，拖动直接框选。 */
 
   private onFrameDown = (ev: PointerEvent): void => {
     if (this.destroyed) return;
@@ -734,6 +736,7 @@ export class PdfView {
     if (ev.pointerType !== 'mouse' || ev.button !== 0) return;
     const pageEl = (ev.target as HTMLElement | null)?.closest('.bzr-pdf-page') as HTMLElement | null;
     if (!pageEl) return;
+    if (!ev.shiftKey && this.pageHasText(pageEl)) return;
     const sel = document.getSelection();
     if (sel && !sel.isCollapsed) return;
     this.frameStart = {
@@ -741,8 +744,16 @@ export class PdfView {
       page: Number(pageEl.dataset.page) || 1,
       x: ev.clientX,
       y: ev.clientY,
+      /* Shift 拖动 / 无文字页：这两个场景下即使拖出了文字选区也要框选 */
+      forced: ev.shiftKey,
     };
   };
+
+  /** 这一页有没有可选文字：有就走划词，没有才让框选接管 */
+  private pageHasText(el: HTMLElement): boolean {
+    const layer = el.querySelector('.textLayer');
+    return !!layer && layer.childElementCount > 0;
+  }
 
   private onFrameMove = (ev: PointerEvent): void => {
     const start = this.frameStart;
@@ -751,11 +762,13 @@ export class PdfView {
     const dy = ev.clientY - start.y;
     if (!this.framing) {
       if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-      const sel = document.getSelection();
-      if (sel && !sel.isCollapsed) {
-        /* 拖出文字选区了：这是划词，不是框选 */
-        this.frameStart = null;
-        return;
+      if (!start.forced) {
+        const sel = document.getSelection();
+        if (sel && !sel.isCollapsed) {
+          /* 拖出文字选区了：这是划词，不是框选 */
+          this.frameStart = null;
+          return;
+        }
       }
       this.framing = true;
       this.scroller.classList.add('is-framing');
