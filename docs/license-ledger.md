@@ -25,7 +25,13 @@
 ## 签发命令
 
 ```powershell
-node scripts/issue-license.mjs --plan lifetime --id BZR-AF-2026-0021
+# 普通批次码：不署名，插件徽章写「赞助人」
+node scripts/issue-license.mjs --plan lifetime --patron --id BZR-AF-2026-0175
+
+# 定制昵称码：加群报名字后逐枚签，插件徽章直接显示昵称
+node scripts/issue-license.mjs --plan lifetime --patron --name 小明 --id BZR-AF-2026-0175
 ```
 
 `--plan lifetime` + 不传 `--days/--until` = 永久（payload 无 `exp`）。
+`--patron` 让插件在「关于」条画赞助人徽章；带 `--name` 时徽章文字换成昵称。
+定制码占同一号段，签完同样要更新 `ledger.json` 与上表。
