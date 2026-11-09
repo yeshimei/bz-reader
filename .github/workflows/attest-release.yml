@@ -15,6 +15,9 @@ on:
   push:
     tags:
       - '[0-9]*'
+  # 补签用：tag 已经推上去、但那次构建失败时，从 master 重跑一次；
+  # 产物与 tag 一致（BUILD_TAG 只取 manifest.version），attestation 按 digest 关联。
+  workflow_dispatch:
 
 permissions:
   contents: read
