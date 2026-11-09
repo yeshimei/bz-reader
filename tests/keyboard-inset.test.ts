@@ -115,9 +115,37 @@ describe('drawerLiftFor', () => {
     ).toBe(0);
   });
 
-  it('还不知道完整窗口高（首次打开）时不乱判缩窗', () => {
+  it('还不知道完整窗口高（首次打开）时按安卓口径不乱判缩窗', () => {
     expect(
       drawerLiftFor({ innerHeight: 461, visualHeight: 461, hostHeight: 411, baseInnerHeight: 0 }),
+    ).toBe(411);
+  });
+});
+
+/**
+ * iOS 首次打开：键盘先被叫起，弹层画出来时窗口已经缩到键盘上方，
+ * 而「缩窗前有多高」还没记下来（baseInnerHeight = 0）。
+ *
+ * 真机 2026-11-09 的「分类管理打不开」就卡在这里：旧判据把它当成
+ * 「窗口没缩」→ 按宿主报的键盘高再抬一次 → 卡片高度被扣到只剩一条缝。
+ * 新判据不靠基线：iOS 上窗口与视觉视口一样高，本身就说明系统已经让过位。
+ */
+describe('drawerLiftFor · iOS 已让位但还没有基线', () => {
+  it('iOS：窗口与视觉视口等高，即便不知道基线也不抬', () => {
+    expect(
+      drawerLiftFor({ innerHeight: 461, visualHeight: 461, hostHeight: 411, baseInnerHeight: 0, ios: true }),
+    ).toBe(0);
+  });
+
+  it('安卓：同样等高、宿主报了键盘高，照常抬（adjustPan 不缩视觉视口）', () => {
+    expect(
+      drawerLiftFor({ innerHeight: 872, visualHeight: 872, hostHeight: 411, baseInnerHeight: 0, ios: false }),
+    ).toBe(411);
+  });
+
+  it('iOS：视觉视口明显更小，说明窗口没缩，照常抬', () => {
+    expect(
+      drawerLiftFor({ innerHeight: 872, visualHeight: 461, hostHeight: 411, baseInnerHeight: 0, ios: true }),
     ).toBe(411);
   });
 });

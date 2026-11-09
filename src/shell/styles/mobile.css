@@ -441,6 +441,33 @@
     flex: none;
   }
 
+  /* ── 居中档（2026-11-09）：分类管理与想法全文 ──
+     位置照书摘卡：垂直居中、下方留 22vh。不再贴底，也不让卡片自己的
+     高度跟着键盘走——iOS 上系统已经把 WebView 缩到键盘上方，抽屉再按
+     宿主报的键盘高扣一次，同一块让位就被扣了两遍，卡片只剩一条缝；
+     真机上看到的就是「分类管理打不开」。
+     键盘弹起时只收缩遮罩的可用区（--bzr-kb 由 overlay 的键盘让位算出），
+     卡片始终落在「还能看见的那块屏幕」的正中间，不往输入框上跳。
+     `is-center` 由 modal() 同时落在遮罩与卡片上，见 render/modal-shell.ts。 */
+  .bzs-scrim.is-center {
+    align-items: center;
+    padding: 24px 16px 22vh;
+  }
+
+  /* 有输入框的（分类管理）打开就把光标放进新建框、键盘随即弹起：
+     那时屏幕只剩上半截，22vh 的呼吸位会把卡片挤没，换成固定的下边距。 */
+  .bzs-scrim.is-center.has-input {
+    padding-bottom: calc(16px + var(--bzr-kb, 0px));
+  }
+
+  /* 卡片宽度与书摘卡同一个上限（420），不再拉满整屏 */
+  .bzs-scrim.is-center .bzs-modal {
+    width: min(420px, 100%);
+    max-height: min(72vh, calc(100% - 40px));
+    border-radius: var(--r-card);
+    border-bottom: 1px solid var(--glass-line);
+  }
+
   .bzs-modal,
   .bzs-modal.wide,
   .bzs-modal.tall {

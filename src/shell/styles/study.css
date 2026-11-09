@@ -1632,6 +1632,9 @@
 
 .bzs-hits {
   padding-bottom: 10px;
+  /* 结果只上下滚：某一行万一还是溢出（超长拉丁串、表格化的摘录），
+     也不该让整个书库页跟手横滑 */
+  overflow-x: hidden;
 }
 
 .bzs-searchpage .bzs-hit {

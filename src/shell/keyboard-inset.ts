@@ -58,6 +58,12 @@ export interface DrawerSignals extends ViewportMetrics {
   hostHeight: number;
   /** 键盘弹起前的完整窗口高；用来判断 WebView 是否已经被系统缩小 */
   baseInnerHeight: number;
+  /**
+   * 是不是 iOS。iOS 的 Capacitor 会把 WebView 缩到键盘上方，
+   * 安卓 adjustPan 不缩——两端「窗口与视觉视口等高」的含义正好相反。
+   * 缺省按安卓算：宁可多抬一次，也不要让输入框落在键盘后面。
+   */
+  ios?: boolean;
 }
 
 /**
@@ -69,10 +75,22 @@ export interface DrawerSignals extends ViewportMetrics {
  *   · iOS 的 Capacitor 多半已经把 WebView 缩到键盘上方（resize native），
  *     此时 fixed 的容器也跟着变矮，再抬一次会把抽屉顶到屏幕上半截。
  *
- * 所以先看窗口本身有没有变矮（比键盘弹起前少了 80px 以上）：变了说明
- * 系统已经让位，抬升量为 0；没变才按宿主变量 / 视觉视口差值去抬。
+ * 两条判据，任一条成立就不抬：
+ *   1. 窗口比键盘弹起前矮了 80px 以上（有基线时最可靠）；
+ *   2. iOS 上窗口与视觉视口几乎一样高、宿主又报了键盘高——说明键盘
+ *      根本不在视口里，系统已经让过位了。
+ *
+ * 第 2 条是 2026-11-09 补的：点「分类管理」时键盘先被叫起，等弹层画
+ * 出来已经缩过窗，而基线（baseInnerHeight）还是 0，第 1 条判不出来。
+ * 真机上卡片被扣掉整个键盘高，只剩一条缝——用户说的「打不开」。
  */
 export function drawerLiftFor(s: DrawerSignals): number {
+  /* iOS：键盘已被系统让掉。用「半个键盘高」做容差——视觉视口可能比
+     布局视口再小几十像素（滚动条 / 浏览器 UI），差值远小于键盘高就
+     说明键盘那块并不在视口里。 */
+  const pinnedBySystem =
+    !!s.ios && s.hostHeight > 0 && s.innerHeight - s.visualHeight < s.hostHeight * 0.5;
+  if (pinnedBySystem) return 0;
   const shrunk = s.baseInnerHeight > 0 && s.innerHeight < s.baseInnerHeight - 80;
   if (shrunk) return 0;
   return s.hostHeight || drawerLift(s);

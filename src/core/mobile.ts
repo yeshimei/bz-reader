@@ -6,6 +6,17 @@ export function isMobileEnv(): boolean {
 }
 
 /**
+ * 是不是 iOS / iPadOS。
+ *
+ * 只用来判断「键盘让位该不该自己再做一次」：iOS 的 Capacitor 会把
+ * WebView 缩到键盘上方，安卓的 adjustPan 不缩。两端看到同一个
+ * 「窗口高 == 视觉视口高」时，意思正好相反（见 shell/keyboard-inset.ts）。
+ */
+export function isIosEnv(): boolean {
+  return typeof Platform !== 'undefined' && !!Platform.isIosApp;
+}
+
+/**
  * 「是不是按手机形态承载」——决定书架用 tab 还是全屏弹窗、
  * 阅读页按不按窄屏折叠工具条。
  *

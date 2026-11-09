@@ -9,7 +9,7 @@
  * 容器本身带 .bzs-shell + data-bzaccent，为的是拿到同一套设计令牌；
  * 它的背景被覆盖成透明，所以不会给整屏染色。
  * ============================================================ */
-import { isMobileEnv, isMobileShell } from '../core/mobile';
+import { isIosEnv, isMobileEnv, isMobileShell } from '../core/mobile';
 import { t } from '../i18n';
 import { planLabel } from '../i18n/plan';
 import { anchoredPlacement } from './anchored-style';
@@ -27,7 +27,7 @@ import { bmksOf, allMarks, fmtMinutes, fmtWhen, marksOf, shelfOf } from './domai
 import { ALL_SHELF, NO_SHELF, orderShelves } from '../data/shelves';
 import { noteCardHtml } from './render/notes';
 import { shelfActionsHtml, shelfFocusRole } from './render/shelf-row';
-import { isDrawerClass, scrimClasses } from './render/modal-shell';
+import { centeredModal, isCenterClass, isDrawerClass, scrimClasses } from './render/modal-shell';
 import { cardTemplateChipsHtml, quoteCardHtml, quoteRefMarkdown } from './render/quote-card';
 import { searchFormHtml, searchResultsHtml } from './render/search';
 import { kickBodySearch, searchQueryKey, stopBodySearch } from './search-run';
@@ -72,10 +72,15 @@ function modal(title: string, sub: string, body: string, foot = '', cls = '', ma
      按内容自动判定，省得每个调用点都要记得传类。
      页脚也要看：激活码框就在 foot 里，只看 body 会把它漏掉。 */
   const withInput = /<(input|textarea)\b/i.test(body) || /<(input|textarea)\b/i.test(foot);
-  /* 例外是 `is-drawer`（分类管理）：仍然贴底，键盘弹起时由 syncPosition()
-     把 --bzr-kb 抬上去。类必须同时落在遮罩与卡片上，见 modal-shell.ts。 */
+  /* 两档例外：
+     · `is-drawer`：仍然贴底（现在没有弹层用它，判据留着给键盘让位采样用）；
+     · `is-center`：垂直居中、位置照书摘卡（分类管理 / 想法全文）。
+     2026-11-09 分类管理从抽屉挪到居中：iOS 上系统先把窗口缩到键盘上方，
+     抽屉再按键盘高抬一次等于把同一块让位扣两遍，卡片被压成一条缝。
+     类必须同时落在遮罩与卡片上，见 modal-shell.ts。 */
   const drawer = isDrawerClass(cls);
-  const scrim = scrimClasses(mask, withInput, drawer);
+  const center = isCenterClass(cls);
+  const scrim = scrimClasses(mask, withInput, drawer, center);
   /* role / aria-modal（C6）：读屏要能听出「这是一张弹窗、焦点该留在这里」，
      宿主自己的 Modal 有这套，壳层弹窗以前是裸 div。焦点圈闭在 paint() 里挂。 */
   return `<div class="${scrim}" data-role="scrim"><div class="bzs-modal ${cls}" role="dialog" aria-modal="true" aria-label="${esc(
@@ -452,17 +457,33 @@ function overlayHltools(markId?: string, bookId?: string): string {
  *
  * 气泡里的高度是有限的，读一整篇（500 / 1000 字）得有一块能滚的完整卡。
  * 它不进工具条那一列——全文是「读」，不是「贴着这条划线操作」。
+ *
+ * 2026-11-09：手机上改走居中档，位置与书摘卡一致（下方留 22vh）。
+ * 以前从屏幕底端升起，长文一大半在工具条与安全区之间，读完还要往上看
+ * 才知道标题说的是哪本书。
  */
 function overlayIdeaAll(markId?: string, bookId?: string): string {
   const found = markById(markId, bookId);
   if (!found) {
     /* 文案复用「找不到这条标注」那条通知：同一种处境说同一句话，
        也免得为一个空状态再开一条语言包条目 */
-    return modal(t('tool.idea'), '', `<div class="bzs-empty">${esc(t('notice.mark.gone'))}</div>`, closeBtn());
+    return modal(
+      t('tool.idea'),
+      '',
+      `<div class="bzs-empty">${esc(t('notice.mark.gone'))}</div>`,
+      closeBtn(),
+      centeredModal('ideaall') ? 'is-center' : '',
+    );
   }
   const { book, mark } = found;
   const sub = [book.meta.title, mark.chapterTitle].filter((s) => !!s && s.trim()).join(' · ');
-  return modal(t('tool.idea'), esc(sub), ideaFullHtml(mark.comment ?? ''), closeBtn());
+  return modal(
+    t('tool.idea'),
+    esc(sub),
+    ideaFullHtml(mark.comment ?? ''),
+    closeBtn(),
+    centeredModal('ideaall') ? 'is-center' : '',
+  );
 }
 
 /**
@@ -1088,9 +1109,12 @@ function overlayShelves(mode: string, name: string, bookId?: string): string {
     t('shelves.sub', { n: real.length }),
     body,
     `<span class="sp"></span><button class="bzs-btn" data-act="close">${t('common.close')}</button>`,
-    /* 贴底抽屉：分类名单短，键盘只会在点「新建 / 改名」时弹起；
-       底边由 --bzr-kb 抬到键盘上沿，不占掉整个上半屏。 */
-    'is-drawer',
+    /* 居中档（2026-11-09）：不再贴底、也不再让卡片跟着键盘抬高。
+       iOS 上系统会先把窗口缩到键盘上方，抽屉再按宿主报的键盘高抬一次，
+       等于把同一块让位扣了两遍——卡片高度被扣到只剩一条缝，用户看到
+       的就是「打不开」。居中之后卡片高度只由屏幕和内容决定，键盘只
+       收缩遮罩的可用区（见 mobile.css 的 is-center）。 */
+    centeredModal('shelves') ? 'is-center' : '',
   );
 }
 
@@ -1710,6 +1734,9 @@ export class OverlayLayer {
       ...m,
       hostHeight: recentlyHidden ? 0 : host,
       baseInnerHeight: this.baseInnerHeight,
+      /* iOS 与安卓要分开判：iOS 缩窗后「窗口 == 视觉视口」= 键盘已被系统
+         让掉；安卓 adjustPan 下同样的等高位形照旧要自己抬。 */
+      ios: isIosEnv(),
     });
     if (lift !== this.kbLift) {
       this.kbLift = lift;

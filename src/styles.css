@@ -479,6 +479,8 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  /* 只上下滚：结果行改成换行之后不该再有横向溢出（2026-11-09） */
+  overflow-x: hidden;
   overscroll-behavior: contain;
 }
 .bzr-xs-group {
@@ -504,8 +506,12 @@
   text-align: left;
   cursor: pointer;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* 摘录要换行（2026-11-09）：以前是 nowrap + 省略号，iPhone 上按钮里的
+     省略号裁切不生效，长摘录把结果区撑宽、整块能横着滑。改成多行显示，
+     谁都不用猜被截掉的是哪半句。 */
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .bzr-xs-hit:hover {
   border-color: var(--bzr-border-strong);

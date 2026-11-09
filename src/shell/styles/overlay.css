@@ -1041,6 +1041,13 @@ body.theme-dark .bzs-tb-more {
   padding: 10px 12px;
   border-radius: var(--r-card);
   cursor: pointer;
+  /* 结果行必须换行（2026-11-09）：以前靠默认值，iPhone 上按钮里的
+     省略号裁切不生效，长摘录把整块结果撑宽、整页能横着滑。
+     显式声明换行 + 断词，宽度钉死在容器里，两端一样。 */
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 .bzs-hit:hover {
