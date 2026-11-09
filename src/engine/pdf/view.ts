@@ -79,6 +79,8 @@ export class PdfView {
   private readonly tasks = new Map<number, PdfRenderTask>();
   private readonly recency = new Map<number, number>();
   private recencySeq = 0;
+  /** 每次缩放/重排 +1；旧渲染回来时用它判断这一轮是否已作废 */
+  private scaleGen = 0;
 
   private readonly annots = new Map<string, AnnotRecord>();
   private readonly selectionRects = new Map<string, NormRect[]>();
@@ -353,6 +355,7 @@ export class PdfView {
     const anchor = this.pageEls[keep - 1];
     const before = anchor ? this.scroller.scrollTop - anchor.offsetTop : 0;
     this.scale = clamp(next, 0.2, 8);
+    this.scaleGen += 1;
     void refit;
     for (const page of [...this.rendered]) this.release(page);
     this.rendering.clear();
@@ -604,8 +607,12 @@ export class PdfView {
   private async renderPage(page: number): Promise<void> {
     const el = this.pageEls[page - 1];
     if (!el || this.destroyed) return;
+    /* 缩放/重排会让这一轮作废：旧任务回来时不能再往页里写画布，
+       否则用户会看到旧尺寸的图和新的文字层叠在一起。 */
+    const gen = this.scaleGen;
     try {
       const size = await this.doc.getPageSize(page);
+      if (gen !== this.scaleGen) return;
       if (size.width !== this.sizes[page - 1]?.width || size.height !== this.sizes[page - 1]?.height) {
         this.sizes[page - 1] = size;
         el.style.width = `${Math.round(size.width * this.scale)}px`;
@@ -622,12 +629,21 @@ export class PdfView {
       this.tasks.set(page, task);
       await task.promise;
       this.tasks.delete(page);
-      if (this.destroyed || !el.isConnected) return;
+      if (this.destroyed || gen !== this.scaleGen || !el.isConnected) {
+        try {
+          task.cancel();
+        } catch {
+          /* 已完成 */
+        }
+        el.replaceChildren();
+        return;
+      }
       try {
         await this.doc.renderTextLayer(page, layer, this.scale);
       } catch {
         /* 文字层失败仍然能看图，不要把整页判成失败 */
       }
+      if (gen !== this.scaleGen) return;
       this.rendered.add(page);
       this.recency.set(page, ++this.recencySeq);
       this.paintAnnotations(page);
