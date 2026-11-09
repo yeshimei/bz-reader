@@ -434,6 +434,8 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.toolbarStyle': '工具列樣式',
   'settings.toolbarStyle.text': '文字',
   'settings.toolbarStyle.icon': '圖示',
+  'settings.pdfAutoLink': 'PDF 劃詞自動複製',
+  'settings.pdfAutoLink.hint': '劃完字自動把連結放進剪貼簿；預設關閉。',
 
   /* ── 設定頁：閱讀頁圖示 ──────────────────────────────────── */
   'settings.header.hint': '開關控制顯示 / 收起；收起的進最右側 ⋮（Obsidian 內建的更多選單）。行動端最多露 3 顆。',

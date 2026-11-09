@@ -442,6 +442,8 @@ export const DE: Record<MsgKey, string> = {
   'settings.toolbarStyle': 'Stil der Werkzeugleiste',
   'settings.toolbarStyle.text': 'Text',
   'settings.toolbarStyle.icon': 'Symbole',
+  'settings.pdfAutoLink': 'Auto-copy PDF links',
+  'settings.pdfAutoLink.hint': 'Copy a link to the clipboard as soon as you select text in a PDF. Off by default.',
 
   /* ── Einstellungen: Werkzeugleiste ──────────────────────── */
   'settings.header.hint': 'Legt fest, welche Symbole erscheinen; ausgeblendete wandern ins ⋮-Menü rechts. Mobil höchstens 3.',

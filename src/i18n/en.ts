@@ -445,6 +445,8 @@ export const EN: Record<MsgKey, string> = {
   'settings.toolbarStyle': 'Toolbar style',
   'settings.toolbarStyle.text': 'Text',
   'settings.toolbarStyle.icon': 'Icons',
+  'settings.pdfAutoLink': 'Auto-copy PDF links',
+  'settings.pdfAutoLink.hint': 'Copy a link to the clipboard as soon as you select text in a PDF. Off by default.',
 
   /* ── Settings: reader toolbar ───────────────────────────── */
   'settings.header.hint':

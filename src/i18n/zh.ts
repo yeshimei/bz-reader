@@ -456,6 +456,8 @@ export const ZH = {
   'settings.toolbarStyle': '工具条样式',
   'settings.toolbarStyle.text': '文字',
   'settings.toolbarStyle.icon': '图标',
+  'settings.pdfAutoLink': 'PDF 划词自动复制',
+  'settings.pdfAutoLink.hint': '划完字自动把链接放进剪贴板；默认关闭。',
 
   /* ── 设置页：阅读页图标 ──────────────────────────────────── */
   'settings.header.hint': '开关控制显示 / 收起；收起的进最右侧 ⋮（Obsidian 自带的更多菜单）。移动端最多露 3 颗。',

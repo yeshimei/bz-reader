@@ -236,6 +236,12 @@ export function viewSettings(v: SettingsView): string {
       <h3>${t('settings.grp.look')}</h3>
       <div class="bzs-setrow"><label>${t('settings.accent')}</label><div class="bzs-seg bzs-seg-wrap">${accentBtns}</div></div>
       <div class="bzs-setrow"><label>${t('settings.toolbarStyle')}</label>${toolbarStyleBtns}</div>
+      <div class="bzs-setrow"><label>${t('settings.pdfAutoLink')}</label><button class="bzs-switch${
+        p.pdfAutoLink ? ' on' : ''
+      }" data-act="setpref" data-k="pdfAutoLink" data-v="${p.pdfAutoLink ? '0' : '1'}" aria-label="${t(
+        'settings.pdfAutoLink',
+      )}"></button></div>
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfAutoLink.hint')}</div>
     </div>`;
 
   /* 阅读页右上角图标：可排序、可收起。收起的进 ⋮；移动端最多露 3 颗。 */

@@ -12,6 +12,7 @@
 
 import type { App } from 'obsidian';
 import type { EngineMeta } from '../../data/book-meta';
+import { collectPdfBacklinks, pdfBacklinkHits } from '../../data/pdf-backlink';
 import type { ReaderPrefs } from '../../data/prefs';
 import type { FoliateBook, FoliateTOCItem } from '../../types/foliate';
 import { OpenCancelledError, type HostAnnotation, type MountOptions, type SearchHit } from '../host';
@@ -84,6 +85,14 @@ export class PdfEngineHost implements ReaderEngine {
     });
     await this.view.mount(container);
     if (this.destroyed) return;
+
+    /* 反链：笔记里引用了这本书的位置，打开时直接标在页面上。
+       索引坏了 / 大库里第一次扫得慢都不该挡住看书，所以整段包在 try 里。 */
+    try {
+      this.view.setBacklinks(pdfBacklinkHits(collectPdfBacklinks(this.app, vaultPath)));
+    } catch (err) {
+      console.warn('[bz-reader] PDF 反链读取失败：', err);
+    }
 
     /* 视图层拿到一个「书」的形状做封面/元数据回填；PDF 的 sections 为空，
        getCover 走 pdf.js 渲染首页。 */

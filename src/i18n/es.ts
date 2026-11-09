@@ -443,6 +443,8 @@ export const ES: Record<MsgKey, string> = {
   'settings.toolbarStyle': 'Estilo de la barra de herramientas',
   'settings.toolbarStyle.text': 'Texto',
   'settings.toolbarStyle.icon': 'Iconos',
+  'settings.pdfAutoLink': 'Auto-copy PDF links',
+  'settings.pdfAutoLink.hint': 'Copy a link to the clipboard as soon as you select text in a PDF. Off by default.',
 
   /* ── Ajustes: barra de herramientas ─────────────────────── */
   'settings.header.hint': 'Elige qué iconos aparecen; los ocultos pasan al menú ⋮ de la derecha. En móvil, tres como máximo.',

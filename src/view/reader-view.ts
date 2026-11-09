@@ -17,7 +17,7 @@ import { createEngine, type ReaderEngine } from '../engine/reader-engine';
 import { normalizePrefs, pickPrefs, type ReaderPrefs } from '../data/prefs';
 import { recordPosition, type ReaderBook } from '../data/schema';
 import type { LinkTarget } from '../data/deeplink';
-import { parseWikilinkHref } from '../data/wikilink';
+import { parseWikilinkHref, wikilinkOf } from '../data/wikilink';
 import {
   HIGHLIGHT_COLORS,
   colorCss,
@@ -192,6 +192,8 @@ export class ReaderView extends ItemView {
 
   private selection: SelectionInfo | null = null;
   private selectionAt = 0;
+  /** PDF 划词自动复制的防抖定时器（拖动选区时只落最后一次） */
+  private pdfCopyTimer: number | null = null;
   private lastCfi = '';
   private lastPercent = 0;
   private lastChapterTitle = '';
@@ -1324,10 +1326,37 @@ export class ReaderView extends ItemView {
     }, 320);
   }
 
+  /**
+   * PDF 划词自动复制：等手停下来 500ms 再写剪贴板。
+   *
+   * 拖动选区时 selectionchange 会连发十几次，每次都写就等于往剪贴板里灌
+   * 中间态；只落最后一次才和用户「划完就粘」的直觉一致。
+   */
+  private schedulePdfLinkCopy(info: SelectionInfo): void {
+    if (this.pdfCopyTimer !== null) window.clearTimeout(this.pdfCopyTimer);
+    this.pdfCopyTimer = window.setTimeout(() => {
+      this.pdfCopyTimer = null;
+      const book = this.book;
+      if (!book) return;
+      const link = wikilinkOf(book, {
+        text: info.text,
+        cfiRange: info.cfiRange,
+        pdfSelection: info.pdfSelection,
+        pdfRect: info.pdfRect,
+      });
+      if (!link) return;
+      void navigator.clipboard?.writeText(link).catch(() => undefined);
+    }, 500);
+  }
+
   private hideSelbar(): void {
     if (this.selbarHideTimer !== null) {
       window.clearTimeout(this.selbarHideTimer);
       this.selbarHideTimer = null;
+    }
+    if (this.pdfCopyTimer !== null) {
+      window.clearTimeout(this.pdfCopyTimer);
+      this.pdfCopyTimer = null;
     }
     this.selbar?.remove();
     this.selbar = null;
@@ -1646,6 +1675,9 @@ export class ReaderView extends ItemView {
              调准，再点颜色。以前「选中即划」会在长按结束的瞬间落一条，
              想改范围就只能撤销重来。 */
           this.showSelbar(info);
+          /* PDF 划词自动复制链接（设置里默认关）：拖动选区时 selectionchange
+             会连发很多次，等手停下来再写剪贴板，否则一路都是中间态 */
+          if (this.host.isPdf && shellPrefs().pdfAutoLink) this.schedulePdfLinkCopy(info);
         },
         onAnnotTap: (info) => this.openHighlight(info),
         /* 脚注：默认在注释号上方开一小块浮窗，读完接着读。

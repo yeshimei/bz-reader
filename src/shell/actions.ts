@@ -2350,6 +2350,10 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
       /* 工具条文字 / 图标：跟库走的阅读偏好，改完立刻重绘（正开着的浮层也会换） */
       src.setPrefs({ toolbarStyle: v === 'icon' ? 'icon' : 'text' });
       break;
+    case 'pdfAutoLink':
+      /* PDF 划完词自动复制链接：默认关，用户自己开 */
+      src.setPrefs({ pdfAutoLink: v !== '0' });
+      break;
     default:
       break;
   }

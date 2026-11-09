@@ -436,6 +436,8 @@ export const JA: Record<MsgKey, string> = {
   'settings.toolbarStyle': 'ツールバーのスタイル',
   'settings.toolbarStyle.text': '文字',
   'settings.toolbarStyle.icon': 'アイコン',
+  'settings.pdfAutoLink': 'Auto-copy PDF links',
+  'settings.pdfAutoLink.hint': 'Copy a link to the clipboard as soon as you select text in a PDF. Off by default.',
 
   /* ── 設定：リーダーのツールバー ─────────────────────────── */
   'settings.header.hint': '表示するアイコンを切り替えます。隠したものは右端の ⋮ に入ります。モバイルでは最大 3 個まで表示されます。',

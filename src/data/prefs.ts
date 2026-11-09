@@ -89,6 +89,13 @@ export interface ReaderPrefs {
    */
   headerOrder: string[];
   headerHidden: string[];
+  /**
+   * PDF 划完词自动把链接复制到剪贴板。
+   *
+   * 默认**关**：剪贴板是用户自己的东西，正打着字时被悄悄换掉很恼人；
+   * 需要的人自己开。
+   */
+  pdfAutoLink: boolean;
 }
 
 export const DEFAULT_PREFS: ReaderPrefs = {
@@ -108,6 +115,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   toolbarStyle: 'text',
   headerOrder: [],
   headerHidden: [],
+  pdfAutoLink: false,
 };
 
 export const FONT_SIZE_RANGE = { min: 14, max: 30, step: 1 } as const;
@@ -294,6 +302,7 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     toolbarStyle: p.toolbarStyle === 'icon' ? 'icon' : 'text',
     headerOrder: headerIds(p.headerOrder),
     headerHidden: headerIds(p.headerHidden),
+    pdfAutoLink: p.pdfAutoLink === true,
   };
 }
 

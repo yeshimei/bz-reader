@@ -17,6 +17,8 @@
 import type { Rect, RelocateInfo, SelectionInfo } from '../host';
 import { parsePdfLinkHash } from '../../data/pdf-link';
 import type { PdfDocument, PdfPageSize, PdfRenderTask } from './document';
+import type { PdfBacklinkHit } from '../../data/pdf-backlink';
+import type { PdfLinkSelection } from '../../data/pdf-link';
 import { fitScaleFor, pickFitSize, type PdfBox } from './fit';
 import {
   encodePdfLocator,
@@ -94,6 +96,8 @@ export class PdfView {
   private scaleGen = 0;
 
   private readonly annots = new Map<string, AnnotRecord>();
+  /** 笔记里引用了这本书的位置：页面上单独一层虚线，别和划线混在一起 */
+  private backlinks: PdfBacklinkHit[] = [];
   private readonly selectionRects = new Map<string, NormRect[]>();
   private pulseTimer: number | null = null;
   private zoomLabelEl: HTMLButtonElement | null = null;
@@ -875,6 +879,7 @@ export class PdfView {
       this.rendered.add(page);
       this.recency.set(page, ++this.recencySeq);
       this.paintAnnotations(page);
+      this.paintBacklinks(page);
       void this.doc.getText(page).catch(() => undefined);
       this.trim();
     } catch (err) {
@@ -957,8 +962,97 @@ export class PdfView {
     }
   }
 
-  /** 用引用文本在文字层里重新找选区；找不到就放弃（页码还在） */
-  private quoteRects(layer: HTMLElement, quote: string): NormRect[] | null {
+  /* ── 反链高亮 ── */
+
+  /** 笔记里引用了这本书的位置；数据由宿主从 Obsidian 的链接索引里捞出来 */
+  setBacklinks(hits: ReadonlyArray<PdfBacklinkHit>): void {
+    this.backlinks = [...(hits ?? [])];
+    for (const page of this.rendered) this.paintBacklinks(page);
+  }
+
+  private paintBacklinks(page: number): void {
+    const el = this.pageEls[page - 1];
+    if (!el) return;
+    el.querySelectorAll('.bzr-pdf-backlink, .bzr-pdf-backlink-edge').forEach((node) => node.remove());
+    if (!this.backlinks.length) return;
+    const layer = el.querySelector('.textLayer') as HTMLElement | null;
+    for (const hit of this.backlinks) {
+      if (hit.page !== page) continue;
+      let rects: NormRect[] | null = null;
+      if (hit.rect) {
+        const size = this.pageSize(page);
+        if (size.width > 0 && size.height > 0) {
+          rects = [
+            {
+              left: clamp(hit.rect.left / size.width, 0, 1),
+              top: clamp(hit.rect.top / size.height, 0, 1),
+              width: clamp(hit.rect.width / size.width, 0, 1),
+              height: clamp(hit.rect.height / size.height, 0, 1),
+            },
+          ];
+        }
+      } else if (hit.selection && layer) {
+        rects = this.rectsOfSelection(layer, hit.selection);
+      }
+      if (!rects?.length) {
+        /* 只有页码：页边画一条竖线，表示「这一页被引用过」 */
+        const edge = document.createElement('div');
+        edge.className = 'bzr-pdf-backlink-edge';
+        edge.dataset.source = hit.sourcePath;
+        el.appendChild(edge);
+        continue;
+      }
+      for (const rect of rects) {
+        const mark = document.createElement('div');
+        mark.className = 'bzr-pdf-backlink';
+        mark.dataset.source = hit.sourcePath;
+        mark.style.left = `${rect.left * 100}%`;
+        mark.style.top = `${rect.top * 100}%`;
+        mark.style.width = `${rect.width * 100}%`;
+        mark.style.height = `${rect.height * 100}%`;
+        el.appendChild(mark);
+      }
+    }
+  }
+
+  /**
+   * PDF++ 的 `selection=`（文字块下标 + 块内偏移）→ 页内矩形。
+   *
+   * 从别的阅读器（Obsidian 原生、PDF++）复制来的链接只有这四个数字，
+   * 没有原文片段；要把它画出来只能按文字层的 span 顺序反查。
+   */
+  private rectsOfSelection(layer: HTMLElement, sel: PdfLinkSelection): NormRect[] | null {
+    const spans = Array.from(layer.children).filter((node) => node.tagName === 'SPAN');
+    const startSpan = spans[sel.beginIndex];
+    const endSpan = spans[sel.endIndex];
+    if (!startSpan || !endSpan) return null;
+    const start = this.pointInSpan(startSpan, sel.beginOffset);
+    const end = this.pointInSpan(endSpan, sel.endOffset);
+    if (!start || !end) return null;
+    try {
+      const range = document.createRange();
+      range.setStart(start.node, start.offset);
+      range.setEnd(end.node, end.offset);
+      return this.normRects(range, layer);
+    } catch {
+      return null;
+    }
+  }
+
+  private pointInSpan(span: Element, offset: number): { node: Text; offset: number } | null {
+    const walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
+    let consumed = 0;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const len = node.textContent?.length ?? 0;
+      if (offset <= consumed + len) {
+        return { node: node as Text, offset: clamp(offset - consumed, 0, len) };
+      }
+      consumed += len;
+    }
+    return null;
+  }
+
+  /** 用引用文本在文字层里重新找选区；找不到就放弃（页码还在） */  private quoteRects(layer: HTMLElement, quote: string): NormRect[] | null {
     const nodes: Text[] = [];
     let all = '';
     const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT);

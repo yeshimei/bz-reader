@@ -245,15 +245,21 @@ export class PdfDocument {
 
   /** 封面：首页按宽度缩放的位图。取不到返回 null */
   async renderCover(maxWidth = 600): Promise<Blob | null> {
+    return this.renderThumb(1, maxWidth);
+  }
+
+  /** 任意一页的缩略图（悬浮预览用）；取不到返回 null，别把整条链路拖挂 */
+  async renderThumb(page: number, maxWidth = 600): Promise<Blob | null> {
     try {
-      const size = await this.getPageSize(1);
-      const scale = Math.min(2, Math.max(0.1, maxWidth / Math.max(1, size.width)));
+      const target = Math.max(1, Math.min(this.numPages, Math.floor(page)));
+      const size = await this.getPageSize(target);
+      const scale = Math.min(2, Math.max(0.05, maxWidth / Math.max(1, size.width)));
       const canvas = document.createElement('canvas');
-      const task = await this.renderPage(1, canvas, scale, 1);
+      const task = await this.renderPage(target, canvas, scale, 1);
       await task.promise;
       return await new Promise<Blob | null>((resolve) => {
         try {
-          canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.86);
+          canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.82);
         } catch {
           resolve(null);
         }

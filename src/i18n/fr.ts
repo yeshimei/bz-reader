@@ -444,6 +444,8 @@ export const FR: Record<MsgKey, string> = {
   'settings.toolbarStyle': 'Style de la barre d’outils',
   'settings.toolbarStyle.text': 'Texte',
   'settings.toolbarStyle.icon': 'Icônes',
+  'settings.pdfAutoLink': 'Auto-copy PDF links',
+  'settings.pdfAutoLink.hint': 'Copy a link to the clipboard as soon as you select text in a PDF. Off by default.',
 
   /* ── Réglages : barre d’outils ──────────────────────────── */
   'settings.header.hint': 'Choisit les icônes affichées ; les icônes masquées passent dans le menu ⋮ à droite. Trois au maximum sur mobile.',
