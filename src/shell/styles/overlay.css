@@ -778,6 +778,12 @@ body.theme-dark .bzs-tb-more {
   align-items: center;
 }
 
+/* 手机：整块翻到划线上方时，顺序反过来——气泡在上、工具条在下，
+   工具条仍然贴着划线。类由 placeAnchored 按落点加，桌面永远不加。 */
+.bzs-hltools-panel .bzs-tb-stack.is-up {
+  flex-direction: column-reverse;
+}
+
 /* ── 写想法：一个输入框 + 一个保存按钮，没有标题和取消 ──
    底板交给 .bzs-idea-card：这一层再铺白底和阴影，卡片就成了「卡中卡」。
    宽度也交给卡片自己，这里只负责把卡片和工具条叠成一列。 */

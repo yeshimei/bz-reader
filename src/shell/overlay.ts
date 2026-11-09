@@ -1668,6 +1668,10 @@ export class OverlayLayer {
       isMobileEnv() ? 'below' : 'above',
     );
     el.setCssProps({ left: `${pos.left}px`, top: `${pos.top}px`, transform: 'none' });
+    /* 手机：整块翻到划线上方时，顺序反过来——气泡在上、工具条在下，
+       工具条仍然贴着划线。桌面不做这件事，固定「气泡在上、工具条在下」。 */
+    const stack = el.querySelector<HTMLElement>('.bzs-tb-stack');
+    if (stack && isMobileEnv()) stack.classList.toggle('is-up', pos.side === 'above');
   }
 
   /** 视口变化后的统一收口：锚点浮层重新贴字，贴底小卡与抽屉避让键盘 */

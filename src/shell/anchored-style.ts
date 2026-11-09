@@ -35,6 +35,13 @@ export type AnchoredSide = 'above' | 'below';
 export interface Placement {
   left: number;
   top: number;
+  /**
+   * 最终落在锚点的哪一侧。
+   *
+   * 坐标只说明浮层在屏幕上的位置，不说明它翻没翻边。手机要据此决定
+   * 「谁贴着划线」：落在下方时工具条在上，落在上方时工具条在下。
+   */
+  side: AnchoredSide;
 }
 
 /**
@@ -80,11 +87,13 @@ export function anchoredPlacement(
   const fitsBelow = belowTop + panel.height <= viewBottom - VIEW_MARGIN;
   const fitsAbove = aboveTop >= viewTop + VIEW_MARGIN;
 
-  let top: number;
-  if (prefer === 'below') top = fitsBelow || !fitsAbove ? belowTop : aboveTop;
-  else top = fitsAbove || !fitsBelow ? aboveTop : belowTop;
+  /* 先按偏好选边，放不下再翻；选中的这一边同时告诉调用方
+     「工具条该贴在哪」——两边各有一套顺序。 */
+  const chooseBelow = prefer === 'below' ? fitsBelow || !fitsAbove : !(fitsAbove || !fitsBelow);
+  const side: AnchoredSide = chooseBelow ? 'below' : 'above';
+  let top = chooseBelow ? belowTop : aboveTop;
 
   top = clamp(top, viewTop + VIEW_MARGIN, Math.max(viewTop + VIEW_MARGIN, viewBottom - panel.height - VIEW_MARGIN));
 
-  return { left: Math.round(left), top: Math.round(top) };
+  return { left: Math.round(left), top: Math.round(top), side };
 }

@@ -77,3 +77,29 @@ describe('anchoredPlacement', () => {
     expect(ANCHOR_GAP).toBe(4);
   });
 });
+
+/**
+ * 落点在哪一侧：手机要据此决定「工具条贴划线」还是「气泡贴划线」。
+ *
+ * 坐标只能说明浮层在屏幕上的位置，不能说明它翻没翻边；
+ * 手机上翻到划线上方时，顺序要反过来（气泡在上、工具条在下）。
+ */
+describe('anchoredPlacement · 落点在哪一侧', () => {
+  it('手机优先下方、且下方放得下：side = below', () => {
+    expect(anchoredPlacement(anchor, panel, view, 'below').side).toBe('below');
+  });
+
+  it('手机下方放不下、翻到上方：side = above', () => {
+    const low = { left: 100, top: 800, width: 120, height: 20 };
+    expect(anchoredPlacement(low, { width: 200, height: 60 }, view, 'below').side).toBe('above');
+  });
+
+  it('桌面优先上方、且上方放得下：side = above', () => {
+    expect(anchoredPlacement(anchor, panel, view, 'above').side).toBe('above');
+  });
+
+  it('桌面上方放不下、翻到下方：side = below', () => {
+    const high = { left: 100, top: 10, width: 120, height: 20 };
+    expect(anchoredPlacement(high, panel, view, 'above').side).toBe('below');
+  });
+});
