@@ -70,7 +70,8 @@ describe('确认类动作补能力门（C11）', () => {
     dispatchAction(act, el());
 
     expect(getState().overlay?.kind).toBe('unlock');
-    expect(getState().overlay?.mode).toBe('vector');
+    /* 2026-11-09 起对照表不再单列向量检索：建索引被拦统一高亮「AI 全书问答」 */
+    expect(getState().overlay?.mode).toBe('ai');
   });
 });
 

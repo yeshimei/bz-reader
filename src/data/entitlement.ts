@@ -43,7 +43,6 @@ export type Cap =
   | 'crossSearch' // 跨书搜索
   | 'aiSel' // 划词 AI：解释 / 翻译 / 摘要（工具栏那颗）
   | 'ai' // 侧栏 AI：全书问答
-  | 'vector' // 书籍本地化向量检索（建全书索引）
   | 'kb' // 连接至 BZ AI 知识库（划词录入 / 笔记当依据）
   | 'fullFormats' // mobi / azw3 / fb2 / cbz
   | 'vertical' // 竖排（双栏已于 2026-11-05 下放基础版，不再挂在这个能力上）
@@ -494,14 +493,16 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     pt: 'Transformar destaques em imagens de cartões compartilháveis',
   },
   stats: {
-    zh: '阅读统计与热力图',
-    'zh-TW': '閱讀統計與熱力圖',
-    en: 'Reading stats and heatmap',
-    ja: '読書統計とヒートマップ',
-    de: 'Lesestatistik und Heatmap',
-    fr: 'Statistiques de lecture et carte de chaleur',
-    es: 'Estadísticas de lectura y mapa de calor',
-    pt: 'Estatísticas de leitura e mapa de calor',
+    /* 2026-11-09 改名：统计页早有 KPI、投入趋势、节律、年度目标与每日打卡，
+       不再只是「统计 + 热力图」。与对照表行名同一句，被锁时看到的是同一个说法。 */
+    zh: '阅读统计、打卡与目标',
+    'zh-TW': '閱讀統計、打卡與目標',
+    en: 'Reading stats, check-ins, and goals',
+    ja: 'Reading stats, check-ins, and goals',
+    de: 'Reading stats, check-ins, and goals',
+    fr: 'Reading stats, check-ins, and goals',
+    es: 'Reading stats, check-ins, and goals',
+    pt: 'Reading stats, check-ins, and goals',
   },
   crossSearch: {
     zh: '在所有书里搜索',
@@ -533,16 +534,9 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     es: 'Preguntas de IA sobre todo el libro',
     pt: 'Perguntas de IA sobre o livro inteiro',
   },
-  vector: {
-    zh: '整本书建本地向量索引，提问只取最相关的几块',
-    'zh-TW': '整本書建本地向量索引，提問只取最相關的幾塊',
-    en: 'Build a local vector index of the book and retrieve only the best-matching chunks',
-    ja: '本全体のローカルベクトル索引を作り、該当箇所だけを取り出す',
-    de: 'Lokalen Vektorindex für das ganze Buch anlegen und nur die passenden Blöcke abrufen',
-    fr: "Indexer tout le livre en vecteurs locaux et ne retenir que les passages pertinents",
-    es: 'Crear un índice vectorial local del libro y recuperar solo los fragmentos pertinentes',
-    pt: 'Criar um índice vetorial local do livro e recuperar só os trechos relevantes',
-  },
+  /* 2026-11-09 删：书籍本地化向量检索不再单列，也不再有 cap——建索引被拦时
+     高亮「AI 全书问答」。能力本身还在（侧栏 AI 页签），只是不再作为一项
+     独立的付费开关对外承诺。 */
   kb: {
     zh: '用 BZ AI 知识库里的笔记一起回答',
     'zh-TW': '用 BZ AI 知識庫裡的筆記一起回答',
@@ -654,8 +648,11 @@ export const PLAN_TABLE: PlanRow[] = [
   row('columns', 'yes', 'yes'),
   row('marks', 'yes', 'yes'),
   row('inbookSearch', 'yes', 'yes'),
-  /* 基础版五行连着放，别让付费项插进来 */
+  /* 基础版六行连着放，别让付费项插进来 */
   row('footnote', 'yes', 'yes'),
+  /* 2026-11-09 新增：分类管理按用户要求跟在脚注浮窗下面，基础版就有——
+     新建 / 改名 / 排序 / 删除分类、把书归入某一类，都不拦。 */
+  row('classify', 'yes', 'yes'),
   /* 「更多格式」紧跟阅读能力：它决定「哪些书能打开」，和后面的加工类
      能力不是一回事。2026-11-07 按真机对照顺序上移到这里。 */
   row('formats', 'no', 'yes', 'fullFormats'),
@@ -676,9 +673,9 @@ export const PLAN_TABLE: PlanRow[] = [
   row('tts', 'no', 'yes', 'tts'),
   row('parallel', 'no', 'yes', 'parallel'),
   row('bookmap', 'no', 'yes', 'bookmap'),
-  /* 最后两行是同一次提问里取依据的两个环节，放在表尾：它们是「全书问答」
-     背后的能力，不是用户会单独点的一颗按钮。cap 仍然各自挂一个，
-     建索引 / 知识库录入被拦下时，解锁弹层才能滚到正确那一行。 */
-  row('vector', 'no', 'yes', 'vector'),
+  /* 表尾只剩「知识库」一个环节：它是「全书问答」取依据的那一步，不是用户
+     会单独点的一颗按钮。2026-11-09 起「向量检索」不再单列——整本索引是
+     全书问答的前置步骤，拆成两行只让用户以为要买两次；建索引被拦时高亮
+     的是「AI 全书问答」那一行（见 shell/actions.ts 的 indexCap）。 */
   row('kb', 'no', 'yes', 'kb'),
 ];

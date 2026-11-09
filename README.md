@@ -44,11 +44,12 @@
 | 目录、书签、四色划线与想法 | ✓ | ✓ |
 | 书内搜索 | ✓ | ✓ |
 | 脚注浮窗预览 | ✓ | ✓ |
+| 分类管理 | ✓ | ✓ |
 | mobi / azw3 / fb2 / 漫画 | — | ✓ |
 | 划线复制为双向链接 | — | ✓ |
 | 导出结构化 Markdown | — | ✓ |
 | 书摘图片 | — | ✓ |
-| 阅读统计、热力图与每本进度 | — | ✓ |
+| 阅读统计、打卡与目标 | — | ✓ |
 | 跨书搜索 | — | ✓ |
 | AI 解释 / 翻译 / 摘要 | — | ✓ |
 | AI 全书问答 | — | ✓ |
@@ -56,7 +57,6 @@
 | 朗读 | — | ✓ |
 | 原文与译文并排 | — | ✓ |
 | 全书鸟瞰 | — | ✓ |
-| 书籍本地化向量检索 | — | ✓ |
 | 连接至 BZ AI 知识库 | — | ✓ |
 
 ## 界面语言
@@ -116,11 +116,12 @@
 | Contents, bookmarks, four-color highlights, and notes | ✓ | ✓ |
 | In-book search | ✓ | ✓ |
 | Footnote preview in a popover | ✓ | ✓ |
+| Shelf categories | ✓ | ✓ |
 | mobi / azw3 / fb2 / comics | — | ✓ |
 | Copy highlights as wikilinks | — | ✓ |
 | Structured Markdown export | — | ✓ |
 | Quote card images | — | ✓ |
-| Reading stats, heatmap, and per-book progress | — | ✓ |
+| Reading stats, check-ins, and goals | — | ✓ |
 | Cross-book search | — | ✓ |
 | AI explanations / translation / summaries | — | ✓ |
 | AI Q&A over the whole book | — | ✓ |
@@ -128,7 +129,6 @@
 | Text-to-speech | — | ✓ |
 | Original and translation side by side | — | ✓ |
 | Book overview | — | ✓ |
-| Local vector search over the book | — | ✓ |
 | Connect to the BZ AI knowledge base | — | ✓ |
 
 ### Interface languages
@@ -199,11 +199,12 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 | 目錄、書籤、四色劃線與想法 | ✓ | ✓ |
 | 書內搜尋 | ✓ | ✓ |
 | 腳註浮窗預覽 | ✓ | ✓ |
+| 分類管理 | ✓ | ✓ |
 | mobi / azw3 / fb2 / 漫畫 | — | ✓ |
 | 劃線複製為雙向連結 | — | ✓ |
 | 匯出結構化 Markdown | — | ✓ |
 | 書摘圖片 | — | ✓ |
-| 閱讀統計、熱力圖與每本進度 | — | ✓ |
+| 閱讀統計、打卡與目標 | — | ✓ |
 | 跨書搜尋 | — | ✓ |
 | AI 解釋 / 翻譯 / 摘要 | — | ✓ |
 | AI 全書問答 | — | ✓ |
@@ -211,7 +212,6 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 | 朗讀 | — | ✓ |
 | 原文與譯文並排 | — | ✓ |
 | 全書鳥瞰 | — | ✓ |
-| 書籍本地化向量檢索 | — | ✓ |
 | 連接至 BZ AI 知識庫 | — | ✓ |
 
 ### 介面語言
@@ -276,11 +276,12 @@ Obsidian を「本を読む場所」に。デスクトップとモバイル、�
 | 目次・ブックマーク・4 色ハイライトとメモ | ✓ | ✓ |
 | 本文内検索 | ✓ | ✓ |
 | 脚注のポップアップ表示 | ✓ | ✓ |
+| カテゴリ管理 | ✓ | ✓ |
 | mobi / azw3 / fb2 / コミック | — | ✓ |
 | ハイライトを双方向リンクとしてコピー | — | ✓ |
 | 構造化 Markdown への書き出し | — | ✓ |
 | 引用カード画像 | — | ✓ |
-| 読書統計・ヒートマップ・本ごとの進捗 | — | ✓ |
+| 読書統計・チェックイン・目標 | — | ✓ |
 | 本をまたぐ検索 | — | ✓ |
 | AI による解説 / 翻訳 / 要約 | — | ✓ |
 | AI 全書 Q&A | — | ✓ |
@@ -288,7 +289,6 @@ Obsidian を「本を読む場所」に。デスクトップとモバイル、�
 | 読み上げ | — | ✓ |
 | 原文と訳文の並列表示 | — | ✓ |
 | 全体マップ | — | ✓ |
-| 書籍のローカルベクトル検索 | — | ✓ |
 | BZ AI ナレッジベースに接続 | — | ✓ |
 
 ### 表示言語
@@ -353,11 +353,12 @@ Mach aus Obsidian einen Ort zum Lesen. Desktop und Mobil, mehrere Formate, acht 
 | Inhalt, Lesezeichen, vier Markierungsfarben und Notizen | ✓ | ✓ |
 | Suche im Buch | ✓ | ✓ |
 | Fußnoten als Pop-up | ✓ | ✓ |
+| Kategorien verwalten | ✓ | ✓ |
 | mobi / azw3 / fb2 / Comics | — | ✓ |
 | Markierungen als Wikilink kopieren | — | ✓ |
 | Strukturierter Markdown-Export | — | ✓ |
 | Zitatkarten als Bild | — | ✓ |
-| Lesestatistik, Heatmap, Fortschritt pro Buch | — | ✓ |
+| Lesestatistik, Check-ins und Ziele | — | ✓ |
 | Suche über alle Bücher | — | ✓ |
 | KI: Erklärungen / Übersetzung / Zusammenfassungen | — | ✓ |
 | KI: Fragen zum ganzen Buch | — | ✓ |
@@ -365,7 +366,6 @@ Mach aus Obsidian einen Ort zum Lesen. Desktop und Mobil, mehrere Formate, acht 
 | Vorlesen | — | ✓ |
 | Original und Übersetzung nebeneinander | — | ✓ |
 | Buchübersicht | — | ✓ |
-| Lokale Vektorsuche im Buch | — | ✓ |
 | Verbindung zur BZ-KI-Wissensdatenbank | — | ✓ |
 
 ### Oberflächensprachen
@@ -430,11 +430,12 @@ Faites d'Obsidian un endroit où lire. Bureau et mobile, plusieurs formats, huit
 | Sommaire, signets, quatre couleurs de surlignage et notes | ✓ | ✓ |
 | Recherche dans le livre | ✓ | ✓ |
 | Aperçu des notes de bas de page | ✓ | ✓ |
+| Gestion des catégories | ✓ | ✓ |
 | mobi / azw3 / fb2 / BD | — | ✓ |
 | Copier les surlignages en wikiliens | — | ✓ |
 | Export Markdown structuré | — | ✓ |
 | Images de cartes de citation | — | ✓ |
-| Statistiques, carte de chaleur, progression par livre | — | ✓ |
+| Statistiques, check-ins et objectifs | — | ✓ |
 | Recherche dans tous les livres | — | ✓ |
 | IA : explications / traduction / résumés | — | ✓ |
 | Questions IA sur tout le livre | — | ✓ |
@@ -442,7 +443,6 @@ Faites d'Obsidian un endroit où lire. Bureau et mobile, plusieurs formats, huit
 | Lecture à voix haute | — | ✓ |
 | Original et traduction côte à côte | — | ✓ |
 | Vue d'ensemble du livre | — | ✓ |
-| Recherche vectorielle locale dans le livre | — | ✓ |
 | Connexion à la base de connaissances BZ AI | — | ✓ |
 
 ### Langues de l'interface
@@ -507,11 +507,12 @@ Convierte Obsidian en un lugar donde leer. Escritorio y móvil, varios formatos,
 | Índice, marcadores, cuatro colores de subrayado y notas | ✓ | ✓ |
 | Búsqueda dentro del libro | ✓ | ✓ |
 | Vista previa de notas al pie | ✓ | ✓ |
+| Gestión de categorías | ✓ | ✓ |
 | mobi / azw3 / fb2 / cómic | — | ✓ |
 | Copiar subrayados como wikienlaces | — | ✓ |
 | Exportación a Markdown estructurado | — | ✓ |
 | Imágenes de tarjetas de cita | — | ✓ |
-| Estadísticas, mapa de calor y progreso por libro | — | ✓ |
+| Estadísticas, registros y objetivos | — | ✓ |
 | Búsqueda entre libros | — | ✓ |
 | IA: explicaciones / traducción / resúmenes | — | ✓ |
 | Preguntas de IA sobre todo el libro | — | ✓ |
@@ -519,7 +520,6 @@ Convierte Obsidian en un lugar donde leer. Escritorio y móvil, varios formatos,
 | Lectura en voz alta | — | ✓ |
 | Original y traducción en paralelo | — | ✓ |
 | Vista general del libro | — | ✓ |
-| Búsqueda vectorial local en el libro | — | ✓ |
 | Conexión con la base de conocimiento BZ AI | — | ✓ |
 
 ### Idiomas de la interfaz
@@ -584,11 +584,12 @@ Transforme o Obsidian num lugar para ler. Desktop e celular, vários formatos, o
 | Sumário, marcadores, quatro cores de destaque e notas | ✓ | ✓ |
 | Pesquisa dentro do livro | ✓ | ✓ |
 | Prévia das notas de rodapé | ✓ | ✓ |
+| Gerenciar categorias | ✓ | ✓ |
 | mobi / azw3 / fb2 / quadrinhos | — | ✓ |
 | Copiar destaques como wikilinks | — | ✓ |
 | Exportação em Markdown estruturado | — | ✓ |
 | Imagens de cartões de citação | — | ✓ |
-| Estatísticas, mapa de calor e progresso por livro | — | ✓ |
+| Estatísticas, check-ins e metas | — | ✓ |
 | Pesquisa entre livros | — | ✓ |
 | IA: explicações / tradução / resumos | — | ✓ |
 | Perguntas de IA sobre o livro inteiro | — | ✓ |
@@ -596,7 +597,6 @@ Transforme o Obsidian num lugar para ler. Desktop e celular, vários formatos, o
 | Leitura em voz alta | — | ✓ |
 | Original e tradução lado a lado | — | ✓ |
 | Visão geral do livro | — | ✓ |
-| Busca vetorial local no livro | — | ✓ |
 | Conexão com a base de conhecimento BZ AI | — | ✓ |
 
 ### Idiomas da interface

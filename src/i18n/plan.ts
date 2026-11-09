@@ -20,6 +20,7 @@ export type PlanKey =
   | 'marks'
   | 'inbookSearch'
   | 'footnote'
+  | 'classify'
   | 'formats'
   | 'bilink'
   | 'export'
@@ -32,7 +33,6 @@ export type PlanKey =
   | 'tts'
   | 'parallel'
   | 'bookmap'
-  | 'vector'
   | 'kb';
 
 const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
@@ -86,6 +86,19 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'Vista previa de notas al pie',
     pt: 'Prévia das notas de rodapé',
   },
+  /* 2026-11-09 新增：分类管理（免费）。按「多语言只在准备上架那版补齐」的
+     规矩，这里只把简中 / 繁中 / 英文写实，日德法西葡先放英文原值顶着，
+     上架前统一换成正式翻译。 */
+  classify: {
+    zh: '分类管理',
+    'zh-TW': '分類管理',
+    en: 'Shelf categories',
+    ja: 'Shelf categories',
+    de: 'Shelf categories',
+    fr: 'Shelf categories',
+    es: 'Shelf categories',
+    pt: 'Shelf categories',
+  },
   formats: {
     zh: 'mobi / azw3 / fb2 / 漫画',
     'zh-TW': 'mobi / azw3 / fb2 / 漫畫',
@@ -127,14 +140,17 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     pt: 'Imagens de cartões de citação',
   },
   stats: {
-    zh: '阅读统计、热力图与每本进度',
-    'zh-TW': '閱讀統計、熱力圖與每本進度',
-    en: 'Reading stats, heatmap, and per-book progress',
-    ja: '読書統計・ヒートマップ・本ごとの進捗',
-    de: 'Lesestatistik, Heatmap, Fortschritt pro Buch',
-    fr: 'Statistiques, carte de chaleur, progression par livre',
-    es: 'Estadísticas, mapa de calor y progreso por libro',
-    pt: 'Estatísticas, mapa de calor e progresso por livro',
+    /* 2026-11-09 改名：统计页早已不只是热力图 + 每本进度，还有 KPI、投入
+       趋势、节律、年度目标与每日打卡。行名只留三块最显眼的，其余交给
+       页面本身。外语同样只写实简中 / 繁中 / 英文，上架前补。 */
+    zh: '阅读统计、打卡与目标',
+    'zh-TW': '閱讀統計、打卡與目標',
+    en: 'Reading stats, check-ins, and goals',
+    ja: 'Reading stats, check-ins, and goals',
+    de: 'Reading stats, check-ins, and goals',
+    fr: 'Reading stats, check-ins, and goals',
+    es: 'Reading stats, check-ins, and goals',
+    pt: 'Reading stats, check-ins, and goals',
   },
   crossSearch: {
     zh: '跨书搜索',
@@ -206,16 +222,9 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'Vista general del libro',
     pt: 'Visão geral do livro',
   },
-  vector: {
-    zh: '书籍本地化向量检索',
-    'zh-TW': '書籍本地化向量檢索',
-    en: 'Local vector search over the book',
-    ja: '書籍のローカルベクトル検索',
-    de: 'Lokale Vektorsuche im Buch',
-    fr: 'Recherche vectorielle locale dans le livre',
-    es: 'Búsqueda vectorial local en el libro',
-    pt: 'Busca vetorial local no livro',
-  },
+  /* 2026-11-09 删：书籍本地化向量检索不再单独占一行——它是「AI 全书问答」
+     的前置步骤，拆成两行只会让用户以为要买两次。能力本身还在（建索引仍
+     走 requireCap('ai')），对照表不再承诺一项独立功能。 */
   kb: {
     zh: '连接至 BZ AI 知识库',
     'zh-TW': '連接至 BZ AI 知識庫',

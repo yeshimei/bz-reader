@@ -684,11 +684,12 @@ function portraitDeps(bookId: string): PortraitBuildDeps | null {
 /**
  * 建索引被拦下时该高亮哪一行。
  *
- * 向量方案 = 「书籍本地化向量检索」；压缩方案没有向量，本质是拿要点去问整本书，
- * 那就高亮「AI 全书问答」。`can()` 不按 cap 细分，这里只是选一行给用户看。
+ * 2026-11-09 起两种建法都高亮「AI 全书问答」：对照表不再单列「书籍本地化
+ * 向量检索」，整本索引是全书问答的前置步骤；压缩方案本来就是拿要点去问
+ * 整本书。`can()` 不按 cap 细分，这里只是选一行给用户看。
  */
 function indexCap(): Cap {
-  return RT.portraitPlan === 'vector' ? 'vector' : 'ai';
+  return 'ai';
 }
 
 /** 拦截原因 → 一句人话（书没开 / 手机端 / 没配嵌入或对话模型） */

@@ -202,12 +202,35 @@ describe('界面文案', () => {
     expect(capLabel('ai')).toBe('AI 全书问答');
   });
 
-  it('更多格式紧跟脚注，向量检索与 BZ 知识库排在表尾', () => {
+  it('分类管理紧跟在脚注浮窗下面，两栏都打勾', () => {
     const footnote = PLAN_TABLE.findIndex((r) => r.name.includes('脚注'));
-    expect(PLAN_TABLE[footnote + 1].key).toBe('formats');
-    expect(PLAN_TABLE[footnote + 1].cap).toBe('fullFormats');
-    expect(PLAN_TABLE.slice(-2).map((r) => r.key)).toEqual(['vector', 'kb']);
-    expect(PLAN_TABLE.slice(-2).map((r) => r.name)).toEqual(['书籍本地化向量检索', '连接至 BZ AI 知识库']);
+    expect(footnote).toBeGreaterThan(-1);
+    const classify = PLAN_TABLE[footnote + 1];
+    expect(classify.key).toBe('classify');
+    expect(classify.name).toBe('分类管理');
+    expect(classify.free).toBe('yes');
+    expect(classify.pro).toBe('yes');
+    /* 基础版行不挂 cap：它没有「被拦下」的时刻 */
+    expect(classify.cap).toBeUndefined();
+  });
+
+  it('更多格式仍排在基础版第一块之后', () => {
+    const footnote = PLAN_TABLE.findIndex((r) => r.name.includes('脚注'));
+    expect(PLAN_TABLE[footnote + 2].key).toBe('formats');
+    expect(PLAN_TABLE[footnote + 2].cap).toBe('fullFormats');
+  });
+
+  it('对照表不再单列向量检索，表尾只剩 BZ 知识库', () => {
+    expect(PLAN_TABLE.some((r) => r.name.includes('向量'))).toBe(false);
+    expect(PLAN_TABLE.slice(-1).map((r) => r.key)).toEqual(['kb']);
+    expect(PLAN_TABLE.slice(-1).map((r) => r.name)).toEqual(['连接至 BZ AI 知识库']);
+  });
+
+  it('统计那一行写全：统计、打卡与目标', () => {
+    const stats = PLAN_TABLE.find((r) => r.cap === 'stats');
+    expect(stats?.name).toBe('阅读统计、打卡与目标');
+    /* 被锁时弹层显示的那句卖点，与行名同一个说法 */
+    expect(capLabel('stats')).toBe('阅读统计、打卡与目标');
   });
 
   it('书摘那一行写「图片」：书摘卡片本身是基础版就有的', () => {
