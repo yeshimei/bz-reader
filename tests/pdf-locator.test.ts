@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   encodePdfLocator,
+  encodePdfRectLocator,
   isPdfLocator,
   parsePdfLocator,
   pdfLocatorPage,
@@ -55,5 +56,42 @@ describe('pdf locator', () => {
 
   it('pdfPageLocator 与 encodePdfLocator 同形', () => {
     expect(pdfPageLocator(5)).toBe(encodePdfLocator(5));
+  });
+
+  describe('框选矩形', () => {
+    it('编码成四位小数，往返解析后位置不变', () => {
+      const locator = encodePdfRectLocator(12, { left: 0.1, top: 0.2, width: 0.3, height: 0.4 });
+      expect(locator).toBe('pdf/12/r=0.1000,0.2000,0.3000,0.4000');
+      expect(parsePdfLocator(locator)).toEqual({
+        page: 12,
+        start: 0,
+        end: 0,
+        rect: { left: 0.1, top: 0.2, width: 0.3, height: 0.4 },
+      });
+    });
+
+    it('超出页面的坐标被裁回页内（真机拖到页外很常见）', () => {
+      const locator = encodePdfRectLocator(3, { left: 0.9, top: -0.2, width: 0.5, height: 0.1 });
+      const target = parsePdfLocator(locator);
+      expect(target?.rect?.left).toBeCloseTo(0.9, 4);
+      expect(target?.rect?.top).toBe(0);
+      expect(target?.rect?.width).toBeCloseTo(0.1, 4);
+      expect(target?.rect?.height).toBeCloseTo(0.1, 4);
+    });
+
+    it('零宽/零高的矩形不算定位，返回 null', () => {
+      expect(parsePdfLocator('pdf/3/r=0.1,0.1,0,0.2')).toBeNull();
+    });
+
+    it('数字个数不对、非数字都拒绝', () => {
+      expect(parsePdfLocator('pdf/3/r=0.1,0.2,0.3')).toBeNull();
+      expect(parsePdfLocator('pdf/3/r=a,b,c,d')).toBeNull();
+    });
+
+    it('框选定位串仍能被 isPdfLocator / pdfLocatorPage 认出来', () => {
+      const locator = encodePdfRectLocator(8, { left: 0, top: 0, width: 0.5, height: 0.5 });
+      expect(isPdfLocator(locator)).toBe(true);
+      expect(pdfLocatorPage(locator)).toBe(8);
+    });
   });
 });

@@ -18,7 +18,13 @@ import type { Rect, RelocateInfo, SelectionInfo } from '../host';
 import { parsePdfLinkHash } from '../../data/pdf-link';
 import type { PdfDocument, PdfPageSize, PdfRenderTask } from './document';
 import { fitScaleFor, pickFitSize, type PdfBox } from './fit';
-import { encodePdfLocator, parsePdfLocator, pdfPageLocator } from './locator';
+import {
+  encodePdfLocator,
+  encodePdfRectLocator,
+  normalizePdfRect,
+  parsePdfLocator,
+  pdfPageLocator,
+} from './locator';
 
 export interface PdfViewCallbacks {
   onRelocate?: (info: RelocateInfo) => void;
@@ -99,6 +105,13 @@ export class PdfView {
   private lastSelectionAt = 0;
   private suppressClickUntil = 0;
   private lastWidth = 0;
+
+  /* ── 框选（矩形） ── */
+  private frameStart: { pageEl: HTMLElement; page: number; x: number; y: number } | null = null;
+  private frameBoxEl: HTMLDivElement | null = null;
+  private framing = false;
+  /** 最近一次框选完成的时间：清选区会触发 selectionchange，别让空选区把它收掉 */
+  private lastRegionAt = 0;
 
   constructor(doc: PdfDocument, opts: PdfViewCallbacks) {
     this.doc = doc;
@@ -305,6 +318,8 @@ export class PdfView {
         color: item.color || 'var(--bzr-hl-amber, #f2c14e)',
         page: target.page,
         quote: item.text ?? '',
+        /* 框选标注自带矩形，不用再从文字层里搜原文（扫描页也没有原文可搜） */
+        rects: target.rect ? [target.rect] : undefined,
       });
     }
     for (const page of this.rendered) this.paintAnnotations(page);
@@ -331,6 +346,8 @@ export class PdfView {
   clearSelection(): void {
     const sel = document.getSelection();
     if (sel && this.layerOf(sel.anchorNode)) sel.removeAllRanges();
+    this.clearFrame();
+    this.opts.onSelect?.(null);
   }
 
   destroy(): void {
@@ -339,6 +356,10 @@ export class PdfView {
     this.observer?.disconnect();
     this.resizeObserver?.disconnect();
     document.removeEventListener('selectionchange', this.onSelectionChange);
+    this.scroller.removeEventListener('pointerdown', this.onFrameDown);
+    document.removeEventListener('pointermove', this.onFrameMove);
+    document.removeEventListener('pointerup', this.onFrameUp);
+    this.clearFrame();
     if (this.relocateTimer !== null) window.clearTimeout(this.relocateTimer);
     if (this.selectionTimer !== null) window.clearTimeout(this.selectionTimer);
     if (this.pulseTimer !== null) window.clearTimeout(this.pulseTimer);
@@ -401,6 +422,7 @@ export class PdfView {
     const before = anchor ? this.scroller.scrollTop - anchor.offsetTop : 0;
     this.scale = clamp(next, 0.2, 8);
     this.scaleGen += 1;
+    this.clearFrame();
     void refit;
     for (const page of [...this.rendered]) this.release(page);
     this.rendering.clear();
@@ -451,6 +473,10 @@ export class PdfView {
     /* 选区：selectionchange 在宿主 document 上，和 EPUB 的 iframe 不同 */
     document.addEventListener('selectionchange', this.onSelectionChange);
     this.scroller.addEventListener('pointerup', this.onPointerUp, { passive: true });
+    /* 框选：按下在页面上，拖动与松开挂在 document 上——拖出页面边缘也不会断 */
+    this.scroller.addEventListener('pointerdown', this.onFrameDown);
+    document.addEventListener('pointermove', this.onFrameMove);
+    document.addEventListener('pointerup', this.onFrameUp);
     this.scroller.addEventListener('click', this.onClick);
     this.scroller.addEventListener('touchstart', this.onTouchStart, { passive: true });
     this.scroller.addEventListener('touchend', this.onTouchEnd, { passive: true });
@@ -524,6 +550,8 @@ export class PdfView {
     if (this.destroyed) return;
     const sel = document.getSelection();
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+      /* 框选刚结束时会清一次文字选区，那次 collapsed 不能把框选弹掉的条子收掉 */
+      if (this.framing || Date.now() - this.lastRegionAt < 500) return;
       this.opts.onSelect?.(null);
       return;
     }
@@ -548,13 +576,169 @@ export class PdfView {
     const locator = encodePdfLocator(page, start, end);
     if (rects.length) this.selectionRects.set(locator, rects);
     const bounds = rectOf(range);
+    /* PDF++ 的 selection= 用的是「第几个文字块 + 块内第几个字」，
+       和我们整层的字符偏移不是一回事；复制链接时两种都要有 */
+    const beginRef = this.textDivRef(startLayer, range.startContainer, range.startOffset);
+    const endRef = this.textDivRef(startLayer, range.endContainer, range.endOffset);
+    const pdfSelection =
+      beginRef.index >= 0 && endRef.index >= 0
+        ? {
+            beginIndex: beginRef.index,
+            beginOffset: beginRef.offset,
+            endIndex: endRef.index,
+            endOffset: endRef.offset,
+          }
+        : undefined;
     this.opts.onSelect?.({
       text,
       cfiRange: locator,
       chapterIndex: page - 1,
       anchor: bounds,
       bounds,
+      pdfSelection,
     });
+  }
+
+  /**
+   * 节点在文字层里的「文字块下标 + 块内偏移」。
+   *
+   * pdf.js 的文字层是一串并列的 `<span>`，PDF++（和 Obsidian 原生 PDF 视图）
+   * 的 `selection=` 就是按这个顺序数的。拿不到就返回 -1，调用方降级成只有页码。
+   */
+  private textDivRef(
+    layer: HTMLElement,
+    container: Node | null,
+    offset: number,
+  ): { index: number; offset: number } {
+    const spans = Array.from(layer.children).filter((node) => node.tagName === 'SPAN');
+    const host =
+      container?.nodeType === Node.ELEMENT_NODE
+        ? (container as Element)
+        : (container?.parentElement ?? null);
+    const span = (host?.closest('span') as HTMLElement | null) ?? null;
+    const index = span ? spans.indexOf(span) : -1;
+    if (!span || index < 0) return { index: -1, offset: 0 };
+    let before = 0;
+    const walker = document.createTreeWalker(span, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node === container) return { index, offset: before + offset };
+      before += node.textContent?.length ?? 0;
+    }
+    return { index, offset: before };
+  }
+
+  /* ── 框选（矩形） ──
+   * 扫描页没有文字层，划词选不到东西；图、公式、跨栏段落只能框。
+   * 与「点按翻页」共用一个指针，所以：拖动超过 6px 才算框选，
+   * 已经选着字时不进框选（那是在调选区）。 */
+
+  private onFrameDown = (ev: PointerEvent): void => {
+    if (this.destroyed) return;
+    /* 触摸先不做：手指拖动既要滚页又要框选，等长按那套手势接上再放开 */
+    if (ev.pointerType !== 'mouse' || ev.button !== 0) return;
+    const pageEl = (ev.target as HTMLElement | null)?.closest('.bzr-pdf-page') as HTMLElement | null;
+    if (!pageEl) return;
+    const sel = document.getSelection();
+    if (sel && !sel.isCollapsed) return;
+    this.frameStart = {
+      pageEl,
+      page: Number(pageEl.dataset.page) || 1,
+      x: ev.clientX,
+      y: ev.clientY,
+    };
+  };
+
+  private onFrameMove = (ev: PointerEvent): void => {
+    const start = this.frameStart;
+    if (!start || this.destroyed) return;
+    const dx = ev.clientX - start.x;
+    const dy = ev.clientY - start.y;
+    if (!this.framing) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      const sel = document.getSelection();
+      if (sel && !sel.isCollapsed) {
+        /* 拖出文字选区了：这是划词，不是框选 */
+        this.frameStart = null;
+        return;
+      }
+      this.framing = true;
+      this.scroller.classList.add('is-framing');
+      const box = document.createElement('div');
+      box.className = 'bzr-pdf-frame';
+      start.pageEl.appendChild(box);
+      this.frameBoxEl = box;
+      document.getSelection()?.removeAllRanges();
+    }
+    ev.preventDefault();
+    const pageBox = start.pageEl.getBoundingClientRect();
+    const left = clamp(Math.min(start.x, ev.clientX) - pageBox.left, 0, pageBox.width);
+    const top = clamp(Math.min(start.y, ev.clientY) - pageBox.top, 0, pageBox.height);
+    const width = clamp(Math.abs(dx), 0, pageBox.width - left);
+    const height = clamp(Math.abs(dy), 0, pageBox.height - top);
+    const box = this.frameBoxEl;
+    if (box) {
+      box.style.left = `${left}px`;
+      box.style.top = `${top}px`;
+      box.style.width = `${width}px`;
+      box.style.height = `${height}px`;
+    }
+  };
+
+  private onFrameUp = (): void => {
+    const start = this.frameStart;
+    const box = this.frameBoxEl;
+    const wasFraming = this.framing;
+    this.frameStart = null;
+    this.framing = false;
+    this.scroller.classList.remove('is-framing');
+    if (!start || !wasFraming) {
+      box?.remove();
+      this.frameBoxEl = null;
+      return;
+    }
+    this.frameBoxEl = null;
+    const rect = box?.getBoundingClientRect() ?? null;
+    box?.remove();
+    if (!rect || rect.width < 8 || rect.height < 8) return;
+    const pageBox = start.pageEl.getBoundingClientRect();
+    if (pageBox.width <= 0 || pageBox.height <= 0) return;
+    const norm = normalizePdfRect({
+      left: (rect.left - pageBox.left) / pageBox.width,
+      top: (rect.top - pageBox.top) / pageBox.height,
+      width: rect.width / pageBox.width,
+      height: rect.height / pageBox.height,
+    });
+    if (norm.width <= 0.001 || norm.height <= 0.001) return;
+    this.lastRegionAt = Date.now();
+    this.suppressClickUntil = Date.now() + 350;
+    const locator = encodePdfRectLocator(start.page, norm);
+    this.selectionRects.set(locator, [norm]);
+    /* PDF++ 的 rect= 用页面坐标（pt），不是比例；这里顺手换算一份 */
+    const size = this.pageSize(start.page);
+    this.opts.onSelect?.({
+      text: '',
+      cfiRange: locator,
+      chapterIndex: start.page - 1,
+      anchor: rectOfBox(rect),
+      bounds: rectOfBox(rect),
+      region: { page: start.page, ...norm },
+      pdfRect: {
+        left: norm.left * size.width,
+        top: norm.top * size.height,
+        width: norm.width * size.width,
+        height: norm.height * size.height,
+      },
+    });
+  };
+
+  /** 收掉正在画或已画好的框（缩放、换页、关书都要） */
+  private clearFrame(): void {
+    this.frameStart = null;
+    this.framing = false;
+    this.scroller.classList.remove('is-framing');
+    this.frameBoxEl?.remove();
+    this.frameBoxEl = null;
+    this.root.querySelectorAll('.bzr-pdf-frame').forEach((node) => node.remove());
   }
 
   private layerOf(node: Node | null): HTMLElement | null {

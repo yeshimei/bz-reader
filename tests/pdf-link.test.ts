@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPdfLinkHash, hasPdfLinkPreciseTarget, parsePdfLinkHash } from '../src/data/pdf-link';
+import { buildPdfLinkHash, hasPdfLinkPreciseTarget, parsePdfLinkHash, pdfSubpathOf } from '../src/data/pdf-link';
 
 describe('PDF++ link format', () => {
   it('解析只有页码的链接', () => {
@@ -60,5 +60,28 @@ describe('PDF++ link format', () => {
   it('判断是否带页内位置', () => {
     expect(hasPdfLinkPreciseTarget({ page: 1 })).toBe(false);
     expect(hasPdfLinkPreciseTarget({ page: 1, rect: { left: 0, top: 0, width: 1, height: 1 } })).toBe(true);
+  });
+
+  it('带上本插件自己的 locator（bzr=），解析后能还原', () => {
+    const hash = pdfSubpathOf({ page: 5, locator: 'pdf/5/12-30' });
+    expect(hash).toBe('page=5&bzr=pdf%2F5%2F12-30');
+    expect(parsePdfLinkHash(hash)).toEqual({ page: 5, locator: 'pdf/5/12-30' });
+  });
+
+  it('框选 locator 里的斜杠和等号也能安全往返', () => {
+    const locator = 'pdf/5/r=0.1000,0.2000,0.3000,0.4000';
+    const hash = pdfSubpathOf({ page: 5, rect: { left: 10, top: 20, width: 30, height: 40 }, locator });
+    const back = parsePdfLinkHash(hash);
+    expect(back?.locator).toBe(locator);
+    expect(back?.rect).toEqual({ left: 10, top: 20, width: 30, height: 40 });
+  });
+
+  it('不认识的 bzr 值直接丢掉（别的插件也往 URL 里塞参数）', () => {
+    expect(parsePdfLinkHash('#page=2&bzr=epubcfi%28%2F6%2F4%29')).toEqual({ page: 2 });
+    expect(parsePdfLinkHash('#page=2&bzr=hello')).toEqual({ page: 2 });
+  });
+
+  it('生成时不带 bzr 就和老格式一模一样，不影响旧链接', () => {
+    expect(buildPdfLinkHash({ page: 3, color: 'yellow' })).toBe('#page=3&color=yellow');
   });
 });

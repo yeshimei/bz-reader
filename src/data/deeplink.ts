@@ -167,6 +167,15 @@ export interface LinkTextInput {
   text: string;
   cfiRange?: string;
   chapterTitle?: string;
+  /**
+   * PDF 划词时给 PDF++ 用的文字块定位。
+   * 别的格式用不到，留空即可——它只影响 PDF 的双链怎么写。
+   */
+  pdfSelection?: { beginIndex: number; beginOffset: number; endIndex: number; endOffset: number };
+  /** PDF 框选区域（页面坐标 pt） */
+  pdfRect?: { left: number; top: number; width: number; height: number };
+  /** PDF 高亮颜色名（黄/绿/蓝/粉），写进链接的 `color=` */
+  color?: string;
 }
 
 /**

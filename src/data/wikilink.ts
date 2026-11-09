@@ -18,6 +18,8 @@
  * ============================================================ */
 import { formatOf } from './book-repo';
 import { cleanLabel, snippet, type LinkTarget, type LinkTextInput } from './deeplink';
+import { parsePdfLinkHash, pdfSubpathOf, type PdfLinkRect, type PdfLinkSelection } from './pdf-link';
+import { isPdfLocator, pdfLocatorPage } from '../engine/pdf/locator';
 import type { Highlight, ReaderBook } from './schema';
 
 /** 子路径前缀。只有以它开头的 `#…` 才是本插件写的定位串。 */
@@ -46,7 +48,41 @@ function safeDecode(v: string): string {
 }
 
 /** 子路径里能带的定位字段（bookId 不进链接，按路径查书是调用方的事） */
-export type LocatorFields = Pick<LinkTarget, 'cfi' | 'text' | 'chapter' | 'pct'>;
+export type LocatorFields = Pick<LinkTarget, 'cfi' | 'text' | 'chapter' | 'pct'> & {
+  /** PDF 专有：给 PDF++ / Obsidian 原生视图看的文字块定位 */
+  pdfSelection?: PdfLinkSelection;
+  /** PDF 专有：框选区域（页面坐标 pt） */
+  pdfRect?: PdfLinkRect;
+  /** PDF 专有：高亮颜色名 */
+  color?: string;
+};
+
+/** `page=3&selection=…` 这种 PDF++ 形状的子路径（没有 `bzr-` 前缀） */
+function isPdfSubpath(sub: string): boolean {
+  return /^page=\d+(&|$)/.test(sub);
+}
+
+/**
+ * 定位子路径。
+ *
+ * PDF 走 PDF++ 的形状（`page=…&selection=…&bzr=…`）：一条链接同时能被
+ * Obsidian 原生 PDF 视图、PDF++ 和本插件打开，`bzr=` 只是我们自己的精确跳。
+ * 其余格式仍是 `bzr-cfi=…&t=…&c=…&p=…`。
+ */
+function subpathFor(fields: LocatorFields): string {
+  const cfi = fields.cfi?.trim();
+  if (cfi && isPdfLocator(cfi)) {
+    const page = pdfLocatorPage(cfi) ?? 1;
+    return pdfSubpathOf({
+      page,
+      selection: fields.pdfSelection,
+      rect: fields.pdfRect,
+      color: fields.color,
+      locator: cfi,
+    });
+  }
+  return subpathOf(fields);
+}
 
 /**
  * 定位子路径：`bzr-cfi=…&t=…&c=…&p=…`。
@@ -98,9 +134,19 @@ export function parseWikilinkHref(href: string): ParsedWikilink | null {
   /* 路径被 URL 编码过（中文文件名常见）时先解回来，否则按路径查不到书 */
   const vaultPath = rawPath.includes('%') ? safeDecode(rawPath) : rawPath;
   const subpath = raw.slice(hash + sepLen);
-  if (!subpath.startsWith(PREFIX)) return null;
   /* 只认书文件：笔记的 .md、附件的 .png 都不该被当成书 */
   if (!formatOf(vaultPath)) return null;
+  /* PDF++ / Obsidian 原生 PDF 视图复制出来的 `#page=3&…` 也算自家链接：
+     不接管的话点进我们的阅读器只会打开封面。 */
+  if (isPdfSubpath(subpath)) {
+    const pdf = parsePdfLinkHash(subpath);
+    if (!pdf) return null;
+    return {
+      vaultPath,
+      target: { cfi: pdf.locator ?? `pdf/${pdf.page}` },
+    };
+  }
+  if (!subpath.startsWith(PREFIX)) return null;
 
   const params = new Map<string, string>();
   for (const part of subpath.slice(PREFIX.length).split('&')) {
@@ -146,7 +192,7 @@ function aliasOf(v: string): string {
  * 显示文字为空或定位字段全空时返回空串，由调用方决定怎么退。
  */
 export function wikilinkTo(book: ReaderBook, fields: LocatorFields, label: string): string {
-  const sub = subpathOf(fields);
+  const sub = subpathFor(fields);
   if (!sub) return '';
   const text = aliasOf(cleanLabel(label));
   if (!text) return '';
@@ -167,6 +213,9 @@ export function wikilinkOf(book: ReaderBook, input: LinkTextInput): string {
       cfi: input.cfiRange,
       text: snippet(input.text),
       chapter: input.chapterTitle?.trim() || undefined,
+      pdfSelection: input.pdfSelection,
+      pdfRect: input.pdfRect,
+      color: input.color,
     },
     label,
   );

@@ -7,12 +7,21 @@
  *
  *   pdf/12          整页（第 12 页，1 基）
  *   pdf/12/3-18     第 12 页里第 3–18 个字符（用于划线）
+ *   pdf/12/r=…      第 12 页里的一块矩形（用于框选，见 PdfRectArea）
  *
  * 解析一律不抛错：外部链接、旧数据、用户手写都可能塞进任何字符串，
  * 认不出来就返回 null，由调用方决定退化成「打开第一页」还是「忽略」。
  * ============================================================ */
 
 const PREFIX = 'pdf/';
+
+/** 页面内的一块矩形，坐标是相对页宽高的比例（0..1），滚动缩放后仍然成立 */
+export interface PdfRectArea {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
 
 export interface PdfLocatorTarget {
   /** 1 基页码（展示口径；内部取页时再减一） */
@@ -21,6 +30,20 @@ export interface PdfLocatorTarget {
   start: number;
   /** 页文本里的结束字符偏移（含） */
   end: number;
+  /** 框选区域；只有 `r=` 形式的定位串才有 */
+  rect?: PdfRectArea;
+}
+
+/** 比例归一到 0..1，并保证 left+width / top+height 不越界 */
+export function normalizePdfRect(rect: PdfRectArea): PdfRectArea {
+  const clamp01 = (n: number): number => (Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0);
+  const left = clamp01(rect?.left ?? 0);
+  const top = clamp01(rect?.top ?? 0);
+  let width = clamp01(rect?.width ?? 0);
+  let height = clamp01(rect?.height ?? 0);
+  if (left + width > 1) width = Math.max(0, 1 - left);
+  if (top + height > 1) height = Math.max(0, 1 - top);
+  return { left, top, width, height };
 }
 
 /** 非负整数：只认纯数字，`3.5` / `3a` / `+3` 一律不认 */
@@ -42,6 +65,19 @@ export function parsePdfLocator(value: string): PdfLocatorTarget | null {
   if (parts.length !== 2) return null;
   const page = nonNegativeInt(parts[0]);
   if (!page || page <= 0) return null;
+  /* 框选：`r=<左>,<上>,<宽>,<高>`，四个数都是 0..1 的比例 */
+  if (parts[1].startsWith('r=')) {
+    const nums = parts[1].slice(2).split(',').map((piece) => Number(piece.trim()));
+    if (nums.length !== 4 || nums.some((n) => !Number.isFinite(n))) return null;
+    const rect = normalizePdfRect({
+      left: nums[0],
+      top: nums[1],
+      width: nums[2],
+      height: nums[3],
+    });
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    return { page, start: 0, end: 0, rect };
+  }
   const range = parts[1].split('-');
   if (range.length !== 2) return null;
   const start = nonNegativeInt(range[0]);
@@ -69,6 +105,15 @@ export function encodePdfLocator(page: number, start?: number, end?: number): st
 /** 只要页码（1 基）；认不出返回 null */
 export function pdfLocatorPage(value: string): number | null {
   return parsePdfLocator(value)?.page ?? null;
+}
+
+/** 框选定位串：`pdf/<页>/r=<左>,<上>,<宽>,<高>`，四位小数够用且不会写成一长串 */
+export function encodePdfRectLocator(page: number, rect: PdfRectArea): string {
+  const raw = Number.isFinite(page) ? Math.floor(page) : 1;
+  const p = Math.max(1, raw);
+  const r = normalizePdfRect(rect);
+  const fix = (n: number): string => n.toFixed(4);
+  return `${PREFIX}${p}/r=${fix(r.left)},${fix(r.top)},${fix(r.width)},${fix(r.height)}`;
 }
 
 export function pdfPageLocator(page: number): string {

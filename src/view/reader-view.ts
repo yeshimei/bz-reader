@@ -1365,6 +1365,8 @@ export class ReaderView extends ItemView {
       bookId: book.id,
       chapterTitle: this.lastChapterTitle || book.reading.position.chapterTitle || '',
       cfiRange: info.cfiRange,
+      pdfSelection: info.pdfSelection,
+      pdfRect: info.pdfRect,
     };
   }
 
@@ -1401,12 +1403,15 @@ export class ReaderView extends ItemView {
       toolbarHtml({
         marked: !!live,
         color: activeColor,
-        colors: HIGHLIGHT_COLORS,
+        colors: info.region ? [] : HIGHLIGHT_COLORS,
         /* 手机只留三颗主路径；桌面窄到放不下七颗时，把知识库两颗收进「⋯」 */
         compact: isMobileEnv(),
         kb,
         narrow: (root.clientWidth || 0) < 520,
         acts: SELECTION_ACTS,
+        /* 框选没有文字：想法 / 书摘 / AI / 名词 / 段落 全都无从下手，
+           只留「双链」「复制」，色点也收起来（框选高亮走标注那条路） */
+        only: info.region ? ['bilink', 'copy'] : undefined,
         /* 存的这本划线已经存过名词 / 段落：那两颗显示成「看名词 / 看段落」 */
         kbDone: { term: !!kbLinkOf(marked?.kb, 'term'), passage: !!kbLinkOf(marked?.kb, 'passage') },
         /* 设置里的工具条样式：文字 / 图标（默认文字） */

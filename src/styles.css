@@ -1100,6 +1100,25 @@ body .view-header .clickable-icon.bzs-host-hidden {
   animation: bzr-pdf-pulse 1s ease-out forwards;
 }
 
+/* 框选时的橡皮筋：虚线 + 半透明底，松手后由 .bzr-pdf-annot-mark 接手 */
+.bzr-pdf-frame {
+  position: absolute;
+  z-index: 5;
+  border: 1px dashed var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+/* 框选期间禁掉文字选择，否则一次拖动会同时选中一堆字 */
+.bzr-pdf-scroll.is-framing .textLayer {
+  user-select: none;
+}
+
+.bzr-pdf-scroll.is-framing {
+  cursor: crosshair;
+}
+
 @keyframes bzr-pdf-pulse {
   0% { opacity: 0; }
   18% { opacity: 1; }

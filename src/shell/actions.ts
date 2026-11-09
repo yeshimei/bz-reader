@@ -1885,7 +1885,15 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         notify(t('notice.sel.empty'), 'error');
         break;
       }
-      void copyText(wikilinkOf(book, { text: sel.text, cfiRange: sel.cfiRange, chapterTitle: sel.chapterTitle }));
+      void copyText(
+        wikilinkOf(book, {
+          text: sel.text,
+          cfiRange: sel.cfiRange,
+          chapterTitle: sel.chapterTitle,
+          pdfSelection: sel.pdfSelection,
+          pdfRect: sel.pdfRect,
+        }),
+      );
       finishSelection('selbilink');
       break;
     }

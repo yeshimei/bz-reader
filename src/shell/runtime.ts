@@ -20,6 +20,12 @@ export interface SelectionPayload {
   chapterTitle: string;
   /** 用于生成 CFI 的原始字符串（划词时由阅读视图注入） */
   cfiRange: string;
+  /**
+   * PDF 专有：复制成 PDF++ 兼容链接时用的定位。
+   * 文字块下标给 `selection=`，框选矩形（pt）给 `rect=`——别的格式用不上。
+   */
+  pdfSelection?: { beginIndex: number; beginOffset: number; endIndex: number; endOffset: number };
+  pdfRect?: { left: number; top: number; width: number; height: number };
 }
 
 export interface AiLogItem {

@@ -77,6 +77,18 @@ export interface SelectionInfo {  text: string;
   anchor: Rect;
   /** 整个选区的外接矩形（判断上边放不放得下时用） */
   bounds: Rect;
+  /**
+   * PDF 框选：一块矩形区域（页内比例 0..1）。文字划词时没有这个字段。
+   * 有它时 text 是空的——扫描页本来就没有文字可选。
+   */
+  region?: { page: number; left: number; top: number; width: number; height: number };
+  /**
+   * PDF 专有：PDF++ 的 `selection=` 四元组（文字块下标 + 块内偏移）。
+   * 只给「复制成 PDF++ 兼容链接」用，无关的格式会把它丢掉。
+   */
+  pdfSelection?: { beginIndex: number; beginOffset: number; endIndex: number; endOffset: number };
+  /** PDF 框选的页面坐标矩形（pt），对应 PDF++ 的 `rect=` */
+  pdfRect?: { left: number; top: number; width: number; height: number };
 }
 
 /** 交给引擎去画的标注（宿主只认定位串与颜色） */

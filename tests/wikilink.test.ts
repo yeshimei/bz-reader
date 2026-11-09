@@ -172,3 +172,62 @@ describe('wikilinkOf · 划词双链', () => {
     expect(parseWikilinkHref(`${path}#${partsOf(link).subpath}`)!.target.cfi).toBe('epubcfi(/6/8)');
   });
 });
+
+describe('wikilinkOf · PDF 采用 PDF++ 形状', () => {
+  function pdfBook() {
+    const book = makeBook('bz-reader/books/论文.pdf', 'pdf');
+    book.meta.title = '论文';
+    return book;
+  }
+
+  it('子路径是 page= 而不是 bzr-cfi=（原生视图与 PDF++ 都能认）', () => {
+    const link = wikilinkOf(pdfBook(), { text: '一段原文', cfiRange: 'pdf/7/12-30' });
+    const { subpath } = partsOf(link);
+    expect(subpath.startsWith('page=7')).toBe(true);
+    expect(subpath).not.toContain('bzr-cfi=');
+  });
+
+  it('带上 selection / rect / color 给 PDF++，同时留 bzr= 给自己精确定位', () => {
+    const link = wikilinkOf(pdfBook(), {
+      text: '一段原文',
+      cfiRange: 'pdf/7/12-30',
+      pdfSelection: { beginIndex: 2, beginOffset: 1, endIndex: 4, endOffset: 6 },
+      color: 'yellow',
+    });
+    const params = new URLSearchParams(partsOf(link).subpath);
+    expect(params.get('page')).toBe('7');
+    expect(params.get('selection')).toBe('2,1,4,6');
+    expect(params.get('color')).toBe('yellow');
+    expect(params.get('bzr')).toBe('pdf/7/12-30');
+  });
+
+  it('框选链接带 rect（页面坐标，取整）', () => {
+    const link = wikilinkOf(pdfBook(), {
+      text: '',
+      cfiRange: 'pdf/3/r=0.1000,0.2000,0.3000,0.4000',
+      pdfRect: { left: 10.4, top: 20.6, width: 30.2, height: 40.5 },
+    });
+    const params = new URLSearchParams(partsOf(link).subpath);
+    expect(params.get('rect')).toBe('10,21,30,41');
+    expect(params.get('bzr')).toBe('pdf/3/r=0.1000,0.2000,0.3000,0.4000');
+  });
+
+  it('从 PDF++ 链接点回来能还原成自家定位串', () => {
+    const link = wikilinkOf(pdfBook(), { text: '一段原文', cfiRange: 'pdf/7/12-30' });
+    const { path, subpath } = partsOf(link);
+    const parsed = parseWikilinkHref(`${path}#${subpath}`);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.vaultPath).toBe('bz-reader/books/论文.pdf');
+    expect(parsed!.target.cfi).toBe('pdf/7/12-30');
+  });
+
+  it('别人给的只有页码的 PDF++ 链接也能点进我们的阅读器', () => {
+    const parsed = parseWikilinkHref('bz-reader/books/论文.pdf#page=42');
+    expect(parsed).not.toBeNull();
+    expect(parsed!.target.cfi).toBe('pdf/42');
+  });
+
+  it('不是书的 PDF 子路径（恶作剧链接）不会拦下来', () => {
+    expect(parseWikilinkHref('笔记.md#page=42')).toBeNull();
+  });
+});

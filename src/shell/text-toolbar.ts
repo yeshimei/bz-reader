@@ -101,6 +101,11 @@ export interface ToolbarLayoutInput {
    * 而手机横屏反而放得下。判据是「宽度够不够」，不是「是不是手机」。
    */
   narrow?: boolean;
+  /**
+   * 只保留这几颗动作：PDF 框选没有文字，想法 / 书摘 / AI / 名词 / 段落
+   * 全都无从下手，只留「双链 / 复制」才是对的。
+   */
+  only?: readonly ToolbarAct[];
 }
 
 export interface ToolbarLayout {
@@ -120,7 +125,8 @@ export interface ToolbarLayout {
 export function toolbarLayout(input: ToolbarLayoutInput): ToolbarLayout {
   const marked = !!input.marked;
   const del = marked ? [DELETE_ITEM] : [];
-  const items = toolbarItems(input.kb);
+  /* `only` 过一遍：不在这几颗里的动作连按钮都不出现，免得点了没反应 */
+  const items = toolbarItems(input.kb).filter((i) => !input.only || input.only.includes(i.act));
   if (input.compact) {
     return {
       visible: items.slice(0, COMPACT_MAIN),

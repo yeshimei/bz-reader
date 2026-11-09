@@ -45,6 +45,14 @@ export interface PdfLinkTarget {
   rect?: PdfLinkRect;
   color?: string;
   offset?: PdfLinkOffset;
+  /**
+   * 本插件自己的精确定位串（`pdf/5/12-30`、`pdf/5/r=…`）。
+   *
+   * 塞进同一个 hash 的 `bzr=` 参数里：PDF++ 和 Obsidian 原生视图都不认这个
+   * 参数、会忽略它，我们自己的阅读器拿它就能一次跳到那一句；filename 换成
+   * 原生视图打开时，退化成只认 `page=` 也不至于打不开。
+   */
+  locator?: string;
 }
 
 function int(raw: string | null): number | null {
@@ -107,6 +115,16 @@ export function parsePdfLinkHash(hash: string): PdfLinkTarget | null {
       target.offset = { left: num(parts[0]), top: num(parts[1]), zoom: num(parts[2]) };
     }
   }
+  const locator = params.get('bzr');
+  if (locator) {
+    try {
+      const decoded = decodeURIComponent(locator);
+      /* 只收本插件自己的定位串：别的插件也可能往 URL 里塞 bzr */
+      if (/^pdf\/\d+(?:\/|$)/.test(decoded)) target.locator = decoded;
+    } catch {
+      /* 半截编码，忽略 */
+    }
+  }
   return target;
 }
 
@@ -126,7 +144,27 @@ export function buildPdfLinkHash(target: PdfLinkTarget): string {
     const o = target.offset;
     parts.push(`offset=${o.left ?? ''},${o.top ?? ''},${o.zoom ?? ''}`);
   }
+  if (target.locator) parts.push(`bzr=${encodeURIComponent(target.locator)}`);
   return `#${parts.join('&')}`;
+}
+
+/**
+ * 生成 PDF++ 子路径（不带 `#`）：`page=3&selection=…&rect=…&color=…&bzr=…`
+ *
+ * 四种消费方都能吃：
+ *   · Obsidian 原生 PDF 视图 —— 只认 `page=`
+ *   · PDF++ —— 认 `page/selection/rect/color`
+ *   · 本插件 —— 优先用 `bzr=` 精确定位，没有就退回页码 + 原文片段
+ *   · 别的 Markdown 工具 —— 当普通锚点，不会打不开
+ */
+export function pdfSubpathOf(input: {
+  page: number;
+  selection?: PdfLinkSelection;
+  rect?: PdfLinkRect;
+  color?: string;
+  locator?: string;
+}): string {
+  return buildPdfLinkHash(input).slice(1);
 }
 
 /** 链接里的位置是否足够具体（只有页码 = 整页） */
