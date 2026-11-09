@@ -349,6 +349,8 @@ export function viewSettings(v: SettingsView): string {
   /* 目录一律只给选择器，不给输入框：vault 路径有口径（分隔符、首尾斜杠、
      大小写），手打死角很多，错了还不报错——文件会写进别处。 */
   const importDir = s.importDir || DEFAULT_SETTINGS.importDir;
+  /* 备份说明紧跟「备份与恢复」那一行（2026-11-09）：它说的是备份，不该挂在
+     下一项调试开关的脚下。调试那一项只留一句「只在排查问题时打开」。 */
   const data = `<div class="bzs-setgrp">
       <h3>${t('settings.grp.data')}</h3>
       <div class="bzs-setrow"><label>${t('settings.importDir')}</label>
@@ -362,12 +364,12 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>${t('settings.backupRestore')}</label>
         <button class="bzs-btn sm" data-act="backup" title="${t('settings.backup.tip')}">${t('settings.backup')}</button>
         <button class="bzs-btn sm" data-act="restore" title="${t('settings.restore.tip')}">${t('settings.restore')}</button></div>
+      <div class="bzs-mini" style="margin-top:2px;line-height:1.9">
+        ${t('settings.data.hint')}
+      </div>
       ${toggle('debugLog', s.debugLog, t('settings.debugLog'))}
       <div class="bzs-mini" style="margin-top:2px;line-height:1.9">
         ${t('settings.debugLog.hint')}
-      </div>
-      <div class="bzs-mini" style="margin-top:10px;line-height:1.9">
-        ${t('settings.data.hint')}
       </div>
     </div>`;
 

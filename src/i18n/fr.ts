@@ -505,9 +505,8 @@ export const FR: Record<MsgKey, string> = {
   'settings.restore': 'Restaurer',
   'settings.restore.tip':
     'Restaurer depuis un fichier de sauvegarde (remplace tout, écrase les données actuelles)',
-  'settings.debugLog': 'Debug log',
-  'settings.debugLog.hint':
-    'Turn this on while troubleshooting: it records touch, selection, page turns and jumps into debug.json in the data folder. Leave it off normally.',
+  'settings.debugLog': 'Debug',
+  'settings.debugLog.hint': 'Only turn this on when troubleshooting.',
   'settings.data.hint':
     'Une sauvegarde contient la bibliothèque, la progression, les surlignages, les favoris et les objectifs. Elle n’inclut ni le code de licence ni la clé IA — à ressaisir sur un nouvel appareil.',
 

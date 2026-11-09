@@ -92,6 +92,28 @@ describe('设置页渲染', () => {
     expect(out).not.toContain('data-k="importDir"');
   });
 
+  /* 2026-11-09：备份说明原来排在调试开关的说明下面，像是两件事共用一段解释。
+     现在它紧跟「备份与恢复」那一行，读的人知道这句说的是备份。 */
+  it('备份说明紧贴备份行，落在调试开关之前', () => {
+    const out = html();
+    const backupAt = out.indexOf('data-act="backup"');
+    const hintAt = out.indexOf('备份含书架、进度、标注、收藏与目标');
+    const debugAt = out.indexOf('data-k="debugLog"');
+    expect(backupAt).toBeGreaterThan(-1);
+    expect(hintAt).toBeGreaterThan(backupAt);
+    expect(debugAt).toBeGreaterThan(hintAt);
+  });
+
+  /* 调试开关原来挂着一段「会记触摸、选区、翻页、debug.json」的说明。
+     用户只留一句「只在排查问题时打开」。 */
+  it('调试项只剩一句「只在排查问题时打开」', () => {
+    const out = html();
+    expect(out).toContain('<label>调试</label>');
+    expect(out).toContain('只在排查问题时打开。');
+    expect(out).not.toContain('debug.json');
+    expect(out).not.toContain('触摸、选区、翻页与跳转');
+  });
+
   it('基础版：AI 组整组灰化，点击弹高级功能说明', () => {
     entState.unlocked = false;
     const out = html();

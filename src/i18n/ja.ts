@@ -496,9 +496,8 @@ export const JA: Record<MsgKey, string> = {
   'settings.backup.tip': 'データフォルダに JSON を 1 つ書き出します',
   'settings.restore': '復元',
   'settings.restore.tip': 'バックアップファイルから復元（全体を置き換え、現在のデータを上書きします）',
-  'settings.debugLog': 'Debug log',
-  'settings.debugLog.hint':
-    'Turn this on while troubleshooting: it records touch, selection, page turns and jumps into debug.json in the data folder. Leave it off normally.',
+  'settings.debugLog': 'Debug',
+  'settings.debugLog.hint': 'Only turn this on when troubleshooting.',
   'settings.data.hint':
     'バックアップには本棚・進捗・ハイライト・お気に入り・目標が含まれます。ライセンスコードと AI キーは含まれないため、別の端末では再入力が必要です。',
 

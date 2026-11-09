@@ -515,8 +515,8 @@ export const ZH = {
   'settings.backup.tip': '导出成一份 JSON，存进数据目录',
   'settings.restore': '恢复',
   'settings.restore.tip': '从备份文件恢复（整份替换，会覆盖当前数据）',
-  'settings.debugLog': '调试日志',
-  'settings.debugLog.hint': '排查问题时打开：会把触摸、选区、翻页与跳转记进数据目录的 debug.json，平时不用开。',
+  'settings.debugLog': '调试',
+  'settings.debugLog.hint': '只在排查问题时打开。',
   'settings.data.hint': '备份含书架、进度、标注、收藏与目标。不含激活码和 AI Key，换设备需重填。',
 
   /* ── 设置页：快捷键 ──────────────────────────────────────── */

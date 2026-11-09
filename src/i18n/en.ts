@@ -506,9 +506,8 @@ export const EN: Record<MsgKey, string> = {
   'settings.backup.tip': 'Write a single JSON file into the data folder',
   'settings.restore': 'Restore',
   'settings.restore.tip': 'Restore from a backup file (full replacement — current data is not kept)',
-  'settings.debugLog': 'Debug log',
-  'settings.debugLog.hint':
-    'Turn this on while troubleshooting: it records touch, selection, page turns and jumps into debug.json in the data folder. Leave it off normally.',
+  'settings.debugLog': 'Debug',
+  'settings.debugLog.hint': 'Only turn this on when troubleshooting.',
   'settings.data.hint':
     'A backup holds the shelf, progress, highlights, favourites and goals. It does not include your license code or AI key — re-enter those on a new device.',
 
