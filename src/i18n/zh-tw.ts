@@ -193,6 +193,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   /* ── 授權狀態 ────────────────────────────────────────────── */
   'tier.base': '基礎版',
   'tier.paid': '高級版已啟用{who} · {until}',
+  'tier.paidPatron': '高級版已啟用{who} · 贊助人 · {until}',
   'tier.who': '（{name}）',
   'tier.until': '有效期到 {date}',
   'tier.forever': '永久有效',
@@ -384,6 +385,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.about.version': '版本未知',
   'settings.about.paid': '高級版',
   'settings.about.base': '基礎版',
+  'settings.about.patron': '贊助人',
   'settings.about.repo': '在瀏覽器裡開啟倉庫',
   'settings.about.video': '影片教學',
   'settings.about.videoTip': '在 B 站觀看教學影片',

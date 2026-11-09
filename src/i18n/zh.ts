@@ -399,6 +399,7 @@ export const ZH = {
   'settings.about.version': '版本未知',
   'settings.about.paid': '高级版',
   'settings.about.base': '基础版',
+  'settings.about.patron': '赞助人',
   'settings.about.repo': '在浏览器里打开仓库',
   'settings.about.video': '视频教程',
   'settings.about.videoTip': '在 B 站观看教程视频',
@@ -410,6 +411,7 @@ export const ZH = {
   /* ── 授权状态（设置页状态行、解锁弹层共用） ──────────────── */
   'tier.base': '基础版',
   'tier.paid': '高级版已激活{who} · {until}',
+  'tier.paidPatron': '高级版已激活{who} · 赞助人 · {until}',
   'tier.who': '（{name}）',
   'tier.until': '有效期到 {date}',
   'tier.forever': '永久有效',

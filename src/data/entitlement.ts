@@ -119,6 +119,8 @@ export interface EntitlementView {
   plan?: Plan;
   exp: number;
   name?: string;
+  /** 赞助人码（payload.patron === true）：设置页「关于」条据此多画一枚徽章 */
+  patron: boolean;
   license: string;
   /** 试用是否因时钟异常被作废 */
   trialVoid: boolean;
@@ -349,6 +351,7 @@ export function entitlement(now = Date.now()): EntitlementView {
     plan: payload?.plan,
     exp,
     name: payload?.name,
+    patron: payload?.patron === true,
     license: e.license,
     trialVoid: e.trialVoid,
     installId: e.installId,
@@ -457,7 +460,9 @@ export function tierText(v: EntitlementView = entitlement()): string {
   if (v.tier === 'paid') {
     const who = v.name ? t('tier.who', { name: v.name }) : '';
     const until = v.exp ? t('tier.until', { date: new Date(v.exp).toLocaleDateString() }) : t('tier.forever');
-    return t('tier.paid', { who, until });
+    /* 赞助人码多一段身份说明（商品页承诺的那句），模板单独一条，避免在
+       句子中间插词——八种语言的语序不同。 */
+    return t(v.patron ? 'tier.paidPatron' : 'tier.paid', { who, until });
   }
   return t('tier.base');
 }

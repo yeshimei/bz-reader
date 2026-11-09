@@ -32,6 +32,11 @@ export interface LicensePayload {
   id?: string;
   /** 购买者署名：设置页会显示出来，等于一枚水印 */
   name?: string;
+  /**
+   * 赞助人标记（2026-11-09）：商品页承诺「使用此高级版激活码，会额外在
+   * 插件中标识赞助人身份」。老码没有这个字段，判定一律按 false。
+   */
+  patron?: boolean;
   plan?: LicensePlan;
   /** 过期毫秒戳；缺省或 0 = 永久 */
   exp?: number;

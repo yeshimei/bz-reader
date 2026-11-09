@@ -95,4 +95,14 @@ describe.runIf(hasKey && PUB.test(embeds))('激活码验签（端到端，需要
     expect(res.ok).toBe(false);
     expect(res.message).toContain('激活码');
   });
+
+  /* 2026-11-09：赞助人批次（BZR-AF-2026-0125 起）在 payload 里多带一个 patron，
+     验签逻辑不看这个字段，但解析层必须原样透出——插件靠它画「赞助人」徽章。 */
+  it('赞助人码：payload 的 patron 原样透出，验签照旧通过', async () => {
+    const code = issue({ v: 2, id: 'BZR-AF-2026-0125', patron: true, plan: 'lifetime' }, keyPem);
+    const res = await verifyLicense(code);
+    expect(res.ok).toBe(true);
+    expect(res.payload?.patron).toBe(true);
+    expect(parseLicense(code)?.payload.patron).toBe(true);
+  });
 });

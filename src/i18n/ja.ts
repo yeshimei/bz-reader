@@ -195,6 +195,7 @@ export const JA: Record<MsgKey, string> = {
   /* ── ライセンス状態 ─────────────────────────────────────── */
   'tier.base': 'ベーシック版',
   'tier.paid': 'プロ版 有効{who} · {until}',
+  'tier.paidPatron': 'Pro activated{who} · Sponsor · {until}',
   'tier.who': '（{name}）',
   'tier.until': '{date} まで有効',
   'tier.forever': '無期限',
@@ -386,6 +387,7 @@ export const JA: Record<MsgKey, string> = {
   'settings.about.version': 'バージョン不明',
   'settings.about.paid': 'プロ版',
   'settings.about.base': 'ベーシック版',
+  'settings.about.patron': 'Sponsor',
   'settings.about.repo': 'ブラウザでリポジトリを開く',
   'settings.about.video': '動画チュートリアル',
   'settings.about.videoTip': 'Bilibili でチュートリアル動画を見る',

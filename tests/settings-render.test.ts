@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 /* 设置页会读授权状态；测试里用一个可变开关模拟解锁前后。
    只换三个结论函数，发行信息（群号、仓库地址）仍走真实常量——
    「关于」组显示的就是它们，钉死一份假值等于什么都没测。 */
-const entState = vi.hoisted(() => ({ unlocked: false }));
+const entState = vi.hoisted(() => ({ unlocked: false, patron: false }));
 vi.mock('../src/data/entitlement', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/data/entitlement')>();
   return {
@@ -12,6 +12,7 @@ vi.mock('../src/data/entitlement', async (importOriginal) => {
     entitlement: () => ({
       tier: entState.unlocked ? 'paid' : 'free',
       unlocked: entState.unlocked,
+      patron: entState.patron,
       license: 'BZR2.old-code',
     }),
     tierText: () => (entState.unlocked ? '高级版已激活' : '当前未激活'),
@@ -526,5 +527,37 @@ describe('调试日志出口', () => {
     const out = html();
     expect(out).toContain('data-act="debugcopy"');
     expect(out).toContain('复制调试数据');
+  });
+});
+
+/**
+ * 赞助人徽章（2026-11-09）。
+ *
+ * 商品页承诺「使用此高级版激活码，会额外在插件中标识赞助人身份」。
+ * 徽章挂在「关于」条上，只在已激活时出现——基础版不显示，
+ * 免得没买的人也被打上标。
+ */
+describe('赞助人徽章', () => {
+  it('已激活 + 赞助人：关于条多一枚「赞助人」徽章', () => {
+    entState.unlocked = true;
+    entState.patron = true;
+    const out = html();
+    expect(out).toContain('is-patron');
+    entState.patron = false;
+    entState.unlocked = false;
+  });
+
+  it('已激活但老码没有赞助人：不出现徽章', () => {
+    entState.unlocked = true;
+    const out = html();
+    expect(out).not.toContain('is-patron');
+    entState.unlocked = false;
+  });
+
+  it('基础版即使码里带赞助人也不显示', () => {
+    entState.patron = true;
+    const out = html();
+    expect(out).not.toContain('is-patron');
+    entState.patron = false;
   });
 });

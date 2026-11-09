@@ -107,12 +107,18 @@ function toggle(k: string, on: boolean, label: string): string {
  * 视频教程占一格：没装 bz 的人先看一期整体介绍，所以它和 GitHub、
  * 交流群一样是常驻出口，不做成「做好了再放上来」。
  */
-function aboutBar(version: string, paid: boolean): string {
+function aboutBar(version: string, paid: boolean, patron: boolean): string {
   const ver = version ? `v${esc(version)}` : t('settings.about.version');
   const badge = `<span class="bzs-about-badge${paid ? '' : ' is-base'}">${paid ? t('settings.about.paid') : t('settings.about.base')}</span>`;
+  /* 赞助人徽章（2026-11-09）：只在已激活时画——基础版不该被打标。
+     与「高级版」并排：一个是档位，一个是身份，两件事不互相替代。 */
+  const patronBadge =
+    paid && patron
+      ? `<span class="bzs-about-badge is-patron">${t('settings.about.patron')}</span>`
+      : '';
   return `<div class="bzs-setgrp wide bzs-about">
       <h3>${t('settings.about')}</h3>
-      <span class="bzs-about-meta"><span class="bzs-about-ver">${ver}</span>${badge}</span>
+      <span class="bzs-about-meta"><span class="bzs-about-ver">${ver}</span>${badge}${patronBadge}</span>
       <span class="sp"></span>
       <button class="bzs-about-link" data-act="aboutgithub" title="${t('settings.about.repo')}">
         ${githubIcon(15)}<b>GitHub</b>
@@ -401,5 +407,5 @@ export function viewSettings(v: SettingsView): string {
   const leftCol = `${languageGrp}${layout}${header}`;
   const rightCol = `${look}${tts}${marks}${data}${ai}${lic}`;
 
-  return `<div class="bzs-set-page">${aboutBar(v.version || '', paid)}<div class="bzs-set-grid"><div class="bzs-set-col">${leftCol}</div><div class="bzs-set-col">${rightCol}</div></div>${keys}</div>`;
+  return `<div class="bzs-set-page">${aboutBar(v.version || '', paid, ent.patron)}<div class="bzs-set-grid"><div class="bzs-set-col">${leftCol}</div><div class="bzs-set-col">${rightCol}</div></div>${keys}</div>`;
 }

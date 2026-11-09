@@ -14,6 +14,7 @@ import {
   revalidateLicense,
   setEntBackend,
   setProBuild,
+  tierText,
 } from '../src/data/entitlement';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -365,5 +366,40 @@ describe.runIf(hasKey)('到期不清码（P1-05）', () => {
     } finally {
       Object.defineProperty(globalThis, 'crypto', { value: real, configurable: true, writable: true });
     }
+  });
+});
+
+/* ───────────── 赞助人标识（2026-11-09） ───────────── */
+
+/**
+ * 商品页口径：这批码「额外在插件中标识赞助人身份」；想要定制昵称的人另发带 name 的码。
+ * 所以两种码都要成立——只有 patron、或 patron + name。
+ */
+describe.runIf(hasKey)('赞助人标识', () => {
+  it('只带 patron：状态行写出「赞助人」，高级功能照常解锁', async () => {
+    setProBuild(true);
+    setEntBackend({ read: () => snapshot(), write: () => undefined });
+    const res = await activateLicense(issue({ v: 2, id: 'BZR-AF-2026-0125', patron: true, plan: 'lifetime' }));
+    expect(res.ok).toBe(true);
+    expect(entitlement().patron).toBe(true);
+    expect(tierText()).toContain('赞助人');
+    expect(can('stats')).toBe(true);
+  });
+
+  it('patron + name：昵称与赞助人同时出现', async () => {
+    setProBuild(true);
+    setEntBackend({ read: () => snapshot(), write: () => undefined });
+    await activateLicense(issue({ v: 2, id: 'BZR-SP-2026-0001', name: '小明', patron: true, plan: 'lifetime' }));
+    const text = tierText();
+    expect(text).toContain('小明');
+    expect(text).toContain('赞助人');
+  });
+
+  it('老码没有 patron：状态行不出现「赞助人」', async () => {
+    setProBuild(true);
+    setEntBackend({ read: () => snapshot(), write: () => undefined });
+    await activateLicense(issue({ v: 2, id: 'BZR-AF-2026-0124', plan: 'lifetime' }));
+    expect(entitlement().patron).toBe(false);
+    expect(tierText()).not.toContain('赞助人');
   });
 });

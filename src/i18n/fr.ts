@@ -196,6 +196,7 @@ export const FR: Record<MsgKey, string> = {
   /* ── État de la licence ─────────────────────────────────── */
   'tier.base': 'Base',
   'tier.paid': 'Pro activé{who} · {until}',
+  'tier.paidPatron': 'Pro activated{who} · Sponsor · {until}',
   'tier.who': ' ({name})',
   'tier.until': 'valable jusqu’au {date}',
   'tier.forever': 'à vie',
@@ -394,6 +395,7 @@ export const FR: Record<MsgKey, string> = {
   'settings.about.version': 'Version inconnue',
   'settings.about.paid': 'Pro',
   'settings.about.base': 'Base',
+  'settings.about.patron': 'Sponsor',
   'settings.about.repo': 'Ouvrir le dépôt dans le navigateur',
   'settings.about.video': 'Tutoriel vidéo',
   'settings.about.videoTip': 'Regarder le tutoriel vidéo sur Bilibili',

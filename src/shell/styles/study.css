@@ -1303,6 +1303,15 @@
   color: var(--t3);
 }
 
+/* 赞助人徽章（2026-11-09）：实底反白，与「高级版」的软底拉开一档。
+   只在已激活的赞助人码上出现；基础版没有这一枚。 */
+.bzs-about-badge.is-patron {
+  border-color: var(--copper);
+  background: var(--copper);
+  color: var(--text-on-accent, #fff);
+  font-weight: 600;
+}
+
 .bzs-about .sp {
   flex: 1;
 }
