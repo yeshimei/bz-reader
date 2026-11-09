@@ -198,7 +198,7 @@ describe('手机：面板独立成遮罩弹窗，不跟工具条', () => {
     expect(html).not.toContain('class="bzs-tb"');
   });
 
-  it('点划线：想法气泡在工具条上方，整块贴字，其余动作收进「⋯」', () => {
+  it('点划线：工具条在上、想法气泡在下，整块贴字，其余动作收进「⋯」', () => {
     flags.mobile = true;
     const { book, markId } = marked('这条想法');
     install([book]);
@@ -208,9 +208,10 @@ describe('手机：面板独立成遮罩弹窗，不跟工具条', () => {
     expect(html).toContain('class="bzs-tb"');
     expect(html).toContain('data-act="more"');
     expect(html).toContain('bzs-tb-more');
-    /* 手机上也要看得见想法，而且排在工具条前面（视觉上在它上方） */
+    /* 手机上也要看得见想法，但顺序和桌面相反：工具条贴选区，
+       气泡从它下面展开——气泡压的是划线以下的正文，不压划线本身 */
     expect(html).toContain('bzs-mark-bubble');
-    expect(html.indexOf('bzs-mark-bubble')).toBeLessThan(html.indexOf('class="bzs-tb"'));
+    expect(html.indexOf('class="bzs-tb"')).toBeLessThan(html.indexOf('bzs-mark-bubble'));
     expect(html).not.toContain('bzs-scrim');
   });
 

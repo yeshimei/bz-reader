@@ -414,7 +414,12 @@ function overlayIdea(markId?: string, bookId?: string): string {
 }
 
 /**
- * 点中已有划线：想法气泡在上、工具条在下，两端都是这一列。
+ * 点中已有划线：一列「想法 + 工具条」，两端的顺序相反。
+ *
+ * 桌面：想法在上、工具条在下——整块贴在划线**上方**，工具条离鼠标最近。
+ * 手机：工具条在上、想法在下——工具条贴着选区，气泡从它下面展开，
+ *   压的是划线**以下**的正文，不压住划线本身（真机反馈：反过来的话
+ *   气泡把划线以上半屏都盖住了）。
  *
  * 手机以前只摆工具条：理由是「那一带没有空位放一段可能很长的想法」。
  * 2026-11-09 改掉——点划线的人第一件事就是看自己写过什么；想法在气泡里
@@ -438,7 +443,8 @@ function overlayHltools(markId?: string, bookId?: string): string {
   });
   /* 想法为空、但有知识盒链接时气泡也要出：点划线的人可能就是来点那枚链接的 */
   const bubble = mark.comment || mark.kb?.length ? markBubbleHtml(mark.comment ?? '', mark.kb, { markId: mark.id, bookId: book.id }) : '';
-  return bareFloat(`<div class="bzs-tb-stack">${bubble}${toolbar}</div>`, 'bzs-hltools-panel has-stack');
+  const stack = isMobileEnv() ? `${toolbar}${bubble}` : `${bubble}${toolbar}`;
+  return bareFloat(`<div class="bzs-tb-stack">${stack}</div>`, 'bzs-hltools-panel has-stack');
 }
 
 /**
