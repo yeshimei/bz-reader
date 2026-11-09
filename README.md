@@ -26,10 +26,6 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/stats-desktop-light.webp" alt="统计页：阅读时长、投入趋势、阅读节奏、热力图、目标与书籍明细、口径对照（亮色）">
-</p>
-
-<p align="center">
   <img src="docs/images/shelf-mobile-light.webp" width="288" alt="阅读 · 移动端 · 亮色">
   &nbsp;&nbsp;
   <img src="docs/images/read-mobile-dark.webp" width="288" alt="阅读 · 移动端 · 暗色">
