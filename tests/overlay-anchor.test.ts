@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ANCHOR_GAP, anchoredPlacement } from '../src/shell/anchored-style';
+import { ANCHOR_GAP, anchoredBelowRight, anchoredPlacement } from '../src/shell/anchored-style';
 
 /**
  * 文字浮层贴哪儿 = 这个函数的输出。
@@ -101,5 +101,53 @@ describe('anchoredPlacement · 落点在哪一侧', () => {
   it('桌面上方放不下、翻到下方：side = below', () => {
     const high = { left: 100, top: 10, width: 120, height: 20 };
     expect(anchoredPlacement(high, panel, view, 'above').side).toBe('below');
+  });
+});
+
+/**
+ * 排版浮层贴着头栏按钮：右下角对齐按钮右缘，顶边在按钮下方 8px。
+ *
+ * 它和「贴文字」的浮层不是一回事：文字工具条要居中盖在选区上，
+ * 排版面板是一张 320px 的卡，右缘对齐按钮才不会压住头栏那一排图标；
+ * 放不下（窄窗、按钮靠右）时整体夹回可视区。
+ */
+describe('anchoredBelowRight · 排版浮层贴按钮', () => {
+  const button = { left: 700, top: 20, width: 32, height: 32 };
+  const panel = { width: 320, height: 300 };
+  const wide = { width: 1200, height: 900 };
+
+  it('右缘与按钮右缘对齐', () => {
+    const pos = anchoredBelowRight(button, panel, wide, 8);
+    expect(pos.left + panel.width).toBe(button.left + button.width);
+  });
+
+  it('顶边 = 按钮底边 + 间距', () => {
+    const pos = anchoredBelowRight(button, panel, wide, 8);
+    expect(pos.top).toBe(button.top + button.height + 8);
+  });
+
+  it('间距默认 8px：贴着按钮，但留一条缝', () => {
+    expect(anchoredBelowRight(button, panel, wide)).toEqual(anchoredBelowRight(button, panel, wide, 8));
+  });
+
+  it('按钮靠右、面板会越界时夹回可视区', () => {
+    const pos = anchoredBelowRight({ left: 1180, top: 20, width: 20, height: 32 }, panel, wide, 8);
+    expect(pos.left).toBe(wide.width - panel.width - 8);
+  });
+
+  it('按钮靠左时面板不越出左边界', () => {
+    const pos = anchoredBelowRight({ left: 4, top: 20, width: 24, height: 32 }, panel, wide, 8);
+    expect(pos.left).toBe(8);
+  });
+
+  it('按钮贴着底边时面板被顶上去，不会挂到屏幕外', () => {
+    const pos = anchoredBelowRight({ left: 700, top: 880, width: 32, height: 32 }, panel, wide, 8);
+    expect(pos.top + panel.height).toBeLessThanOrEqual(wide.height - 8);
+  });
+
+  it('键盘弹起时按可视区顶部夹取', () => {
+    const visible = { width: 1200, height: 500, top: 300 };
+    const pos = anchoredBelowRight({ left: 700, top: 310, width: 32, height: 32 }, { width: 320, height: 600 }, visible, 8);
+    expect(pos.top).toBeGreaterThanOrEqual(visible.top + 8);
   });
 });

@@ -97,3 +97,33 @@ export function anchoredPlacement(
 
   return { left: Math.round(left), top: Math.round(top), side };
 }
+
+/**
+ * 排版浮层贴着头栏按钮：右缘对齐按钮右缘，顶边在按钮下方。
+ *
+ * 它和「贴文字」的浮层不是一回事：文字工具条要居中盖在选区上，
+ * 排版面板是一张 320px 的卡，居中会把头栏那一排图标压掉一半；
+ * 右缘对齐按钮，卡片自然落在按钮下方、靠阅读区右边。
+ * 放不下（窄窗、按钮靠右）时整体夹回可视区。
+ */
+export const ANCHOR_BUTTON_GAP = 8;
+
+export function anchoredBelowRight(
+  anchor: AnchorRect,
+  panel: PanelBox,
+  view: ViewBox,
+  gap = ANCHOR_BUTTON_GAP,
+): { left: number; top: number } {
+  const viewTop = view.top ?? 0;
+  const left = clamp(
+    anchor.left + (anchor.width ?? 0) - panel.width,
+    VIEW_MARGIN,
+    Math.max(VIEW_MARGIN, view.width - panel.width - VIEW_MARGIN),
+  );
+  const top = clamp(
+    anchor.top + (anchor.height ?? 0) + gap,
+    viewTop + VIEW_MARGIN,
+    Math.max(viewTop + VIEW_MARGIN, viewTop + view.height - panel.height - VIEW_MARGIN),
+  );
+  return { left: Math.round(left), top: Math.round(top) };
+}
