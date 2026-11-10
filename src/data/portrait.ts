@@ -90,6 +90,13 @@ export interface PortraitFile {
   blocks: PortraitBlock[];
   /** compress：全书总述（最后那一次「合成」请求的产物；问答与详情页都用它开头） */
   overview?: string;
+  /**
+   * 按章的开章导读（2026-11-11）：章节名 → 两三句话 + 三个问题。
+   *
+   * 放画像文件而不是 `bz-reader.json`：导读与块、向量是同一批「这本书的数据」，
+   * 一起备份、一起因换版本作废；主数据文件要留给 bz 读，不该被长文撑大。
+   */
+  guides?: Record<string, string>;
   createdAt: number;
   updatedAt: number;
   /** false = 建到一半（可续跑）；true = 全部块都拿到了内容 */
@@ -386,6 +393,18 @@ export function portraitPath(bookId: string): string {
   return `${portraitDir()}/${safe || 'unknown'}.json`;
 }
 
+/** 导读表收口径：只认「非空键 + 非空字符串」，顺带掐掉超长的 */
+function sanitizeGuides(raw: unknown): Record<string, string> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    const key = String(k ?? '').trim();
+    const val = typeof v === 'string' ? v.trim() : '';
+    if (key && val) out[key] = val.slice(0, 2000);
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 /** 收口径：手改坏的 JSON、旧版本缺字段、块长度与 total 不一致，一律修成能用的样子 */
 export function sanitizePortrait(raw: unknown, bookId: string): PortraitFile | null {
   const r = (raw && typeof raw === 'object' ? raw : null) as Partial<PortraitFile> | null;
@@ -417,6 +436,7 @@ export function sanitizePortrait(raw: unknown, bookId: string): PortraitFile | n
     total,
     blocks,
     overview: typeof r.overview === 'string' ? r.overview : undefined,
+    guides: sanitizeGuides(r.guides),
     createdAt: Number(r.createdAt) || 0,
     updatedAt: Number(r.updatedAt) || 0,
     done: r.done === true,

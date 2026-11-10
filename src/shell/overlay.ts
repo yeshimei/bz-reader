@@ -265,6 +265,35 @@ function buildPreview(book?: ReaderBook): string {
   return books.map((b) => buildNotesBody(b, settings)).join('\n\n---\n\n');
 }
 
+/* ─────────── 本章导读（2026-11-11） ─────────── */
+
+/**
+ * 导读弹层。
+ *
+ * 三种状态都画在这一张里：正在生成 / 失败（带重试）/ 有内容。
+ * 不另开一张「生成中」的弹层——用户点完命令后眼睛还在同一个位置，
+ * 换一张等于让他在两个窗口之间找。
+ */
+function overlayGuide(): string {
+  const o = getState().overlay;
+  const chapter = String(o?.chapterTitle ?? '').trim();
+  const text = String(o?.text ?? '').trim();
+  const busy = o?.busy === true;
+  const error = o?.error === true;
+
+  const body = busy
+    ? `<div class="bzs-guide is-busy">${esc(t('guide.busy'))}</div>`
+    : error
+      ? `<div class="bzs-guide is-bad">${esc(text || t('guide.fail'))}</div>`
+      : text
+        ? `<div class="bzs-guide">${esc(text)}</div>`
+        : `<div class="bzs-guide is-empty">${esc(t('guide.empty'))}</div>`;
+  const foot = busy
+    ? closeBtn()
+    : `<button class="bzs-btn" data-act="guidetry">${esc(t('guide.retry'))}</button>${closeBtn()}`;
+  return modal(t('guide.title'), chapter || t('guide.noChapter'), body, foot);
+}
+
 function overlayBookmap(): string {
   const book = bookById(getState().bookId) ?? liveBooks()[0];
   if (!book) return modal('全书鸟瞰', '全书一屏鸟瞰', '<div class="bzs-empty">还没有打开的书。</div>', closeBtn(), 'wide');
@@ -1287,6 +1316,8 @@ export function overlayHtml(): string {
       return overlayExport(o.bookId);
     case 'bookmap':
       return overlayBookmap();
+    case 'guide':
+      return overlayGuide();
     case 'quote':
       return overlayQuote(o.text, o.bookId, o.chapterTitle, o.mode, o.markId);
     case 'idea':

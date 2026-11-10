@@ -29,6 +29,7 @@ describe('命令 id', () => {
         'diag',
         'focus',
         'fullscreen',
+        'guide',
         'import',
         'notes',
         'open',
@@ -100,7 +101,7 @@ describe('命令分发', () => {
     const ids = (pred: (c: (typeof COMMANDS)[number]) => boolean) => COMMANDS.filter(pred).map((c) => c.id);
     expect(ids((c) => !!c.reader).sort()).toEqual(
       [
-        'bookmark', 'bookmap', 'focus', 'fullscreen', 'page-next', 'page-prev', 'tts', 'typography',
+        'bookmark', 'bookmap', 'focus', 'fullscreen', 'guide', 'page-next', 'page-prev', 'tts', 'typography',
         'pdf-zoom-in', 'pdf-zoom-out', 'pdf-fit-width', 'pdf-fit-page', 'pdf-rotate',
         'pdf-spread', 'pdf-paged', 'pdf-thumbs', 'pdf-copy-link', 'pdf-export-page', 'pdf-back',
       ].sort(),

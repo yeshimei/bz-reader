@@ -23,7 +23,7 @@ const MODE_KEYS = {
   explain: 'ai.mode.explain',
   translate: 'ai.mode.translate',
   summarize: 'ai.mode.summarize',
-} as const satisfies Record<Exclude<AiTask, 'ask' | 'follow' | 'probe' | 'quiz' | 'shelf' | 'enrich'>, MsgKey>;
+} as const satisfies Record<Exclude<AiTask, 'ask' | 'follow' | 'probe' | 'quiz' | 'shelf' | 'enrich' | 'guide'>, MsgKey>;
 
 /**
  * ① 脚注：左侧一枚「注」小印，其余全是注文。

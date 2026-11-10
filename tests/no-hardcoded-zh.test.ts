@@ -42,6 +42,9 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
      是模型输出里的字段名，解析器必须认得这几个字；它们不显示给用户，
      与 data/ai.ts 里的 prompt 同一性质）。 */
   'src/data/book-enrich.ts': 10,
+  /* 2026-11-11 新文件：开章导读的 prompt 与「这一章 / 带着三个问题」的段落名，
+     只发给模型、不显示给用户，与 data/ai.ts 同一性质。 */
+  'src/data/chapter-guide.ts': 7,
   'src/data/book-scan.ts': 1,
   'src/data/deeplink.ts': 4,
   /* 2026-11-11 +2（42 → 44）：新增「划线加入复习计划」这一行能力的卖点句

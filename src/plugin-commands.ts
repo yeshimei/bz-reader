@@ -52,6 +52,8 @@ export const COMMANDS: readonly CommandSpec[] = [
   { id: 'bookmark', key: 'cmd.bookmark', reader: 'bookmark' },
   { id: 'typography', key: 'cmd.typography', reader: 'typography' },
   { id: 'bookmap', key: 'cmd.bookmap', reader: 'bookmap' },
+  /* 本章导读（2026-11-11）：读中随手看一眼「这一章要带着什么读」 */
+  { id: 'guide', key: 'cmd.guide', reader: 'guide' },
   { id: 'tts', key: 'cmd.tts', reader: 'tts' },
   /* ── PDF 专用 ──
    * 头栏图标与排版面板在手机上会折进 ⋮，命令面板是另一条稳定入口；

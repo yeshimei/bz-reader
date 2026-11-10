@@ -10,6 +10,7 @@
  * ============================================================ */
 import type { ReaderSettings } from './settings';
 import { buildEnrichMessages } from './book-enrich';
+import { buildGuideMessages } from './chapter-guide';
 
 export type AiTask =
   | 'summarize'
@@ -20,7 +21,8 @@ export type AiTask =
   | 'probe'
   | 'quiz'
   | 'shelf'
-  | 'enrich';
+  | 'enrich'
+  | 'guide';
 
 /**
  * 追问时原文最多带多少字。
@@ -88,7 +90,7 @@ export function clipContext(text: string, limit = ASK_CONTEXT_LIMIT): string {
 }
 
 /** 摘录 / 解释 / 翻译的老口径，一字不改（回归测试锁着） */
-function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow' | 'probe' | 'quiz' | 'shelf' | 'enrich'>, text: string): string {
+function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow' | 'probe' | 'quiz' | 'shelf' | 'enrich' | 'guide'>, text: string): string {
   if (task === 'summarize') {
     return `请把下面这段文字压缩成不超过 100 字的摘要，直接给摘要正文，不要任何开场白或前缀：\n\n${text}`;
   }
@@ -194,6 +196,15 @@ export function buildMessages(input: AiAskInput): AiMessage[] {
       title: input.title ?? '',
       author: input.author,
       sample: input.context,
+    });
+  }
+  if (input.task === 'guide') {
+    /* 本章导读：章名 + 书名 + （可选）这一章的摘要。prompt 在 chapter-guide 里，
+       与补元数据同一套分工（数据层守格式，调用层只递字段）。 */
+    return buildGuideMessages({
+      chapter: input.chapter ?? '',
+      book: input.title,
+      digest: input.context,
     });
   }
   if (input.task === 'shelf') return buildShelfMessages(input);

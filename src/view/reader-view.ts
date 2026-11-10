@@ -108,6 +108,7 @@ export type ReaderCommand =
   | 'bookmark'
   | 'typography'
   | 'bookmap'
+  | 'guide'
   | 'tts'
   | 'help'
   | 'pdf-zoom-in'
@@ -1098,6 +1099,7 @@ export class ReaderView extends ItemView {
         break;
       }
       case 'bookmap':
+      case 'guide':
       case 'help': {
         const host = this.rootEl;
         if (host) dispatchAction(kind, host);

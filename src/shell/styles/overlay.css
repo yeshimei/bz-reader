@@ -2248,3 +2248,23 @@ textarea.idea:focus {
     height: 38px;
   }
 }
+
+/* ═══════════ 本章导读（2026-11-11） ═══════════
+   模型输出会带换行与两段（「这一章」「带着三个问题」），原样保留；
+   上限与其它弹层正文同一口径，不做成可滚动的小窗。 */
+.bzs-guide {
+  font-size: 13.5px;
+  line-height: 1.9;
+  color: var(--t1);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+.bzs-guide.is-busy,
+.bzs-guide.is-empty {
+  color: var(--t2);
+}
+.bzs-guide.is-bad {
+  color: var(--vermilion);
+}

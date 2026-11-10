@@ -117,6 +117,7 @@ import {
   topBlocksByVector,
   type PortraitPlan,
 } from '../data/portrait';
+import { chapterDigestOf, guideOf, withGuide } from '../data/chapter-guide';
 import { enrichSample, mergeMetaPatch, parseEnrichReply } from '../data/book-enrich';
 import { kbSource } from '../data/kb-entry';
 import { kbLinkOf } from '../data/kb-link';
@@ -702,6 +703,76 @@ function finishSelection(act: string): void {  if (!endsSelection(act)) return;
  *     提示的是「更新 bz 后可用」，而不是把用户刚划的那段丢掉。
  */
 /**
+ * 本章导读（2026-11-11）。
+ *
+ * 有缓存直接显示；没有才发请求——用户点了命令才走到这里，符合
+ * 「不自动调用 AI」的边界。生成成功写回画像的 `guides[章名]`，
+ * 同一章下次不再花钱；写不回去（没有画像）时至少这一次能看到。
+ */
+async function openGuide(force = false): Promise<void> {
+  const src = getShellSource();
+  const book = currentBook();
+  if (!src || !book) {
+    notify(t('notice.needBook'), 'info');
+    return;
+  }
+  const chapter = String(book.reading.position.chapterTitle ?? '').trim();
+  if (!chapter) {
+    notify(t('notice.guide.noChapter'), 'info');
+    return;
+  }
+  const app = src.app;
+  const bookId = book.id;
+  /* 同一个画面只认这一章：换章 / 关卡之后回来的结果一律丢掉 */
+  const same = (): boolean =>
+    getState().overlay?.kind === 'guide' && getState().overlay?.chapterTitle === chapter;
+
+  setState({ overlay: { kind: 'guide', bookId, chapterTitle: chapter, text: '', busy: true } });
+  const portrait = await readPortrait(app, bookId);
+  if (!same()) return;
+
+  const cached = guideOf(portrait, chapter);
+  if (cached && !force) {
+    setState({ overlay: { kind: 'guide', bookId, chapterTitle: chapter, text: cached } });
+    return;
+  }
+
+  const settings = shellSettings();
+  if (!settings.ai.baseUrl || !settings.ai.apiKey || !settings.ai.model) {
+    notify(t('notice.ai.needSetup'), 'info');
+    setState({ overlay: null });
+    return;
+  }
+
+  try {
+    const res = await aiAsk(settings, {
+      task: 'guide',
+      text: '',
+      title: book.meta.title,
+      chapter,
+      context: chapterDigestOf(portrait, chapter),
+    });
+    if (!same()) return;
+    if (portrait) {
+      const next = withGuide(portrait, chapter, res.text);
+      if (next !== portrait) await writePortrait(app, next);
+    }
+    setState({ overlay: { kind: 'guide', bookId, chapterTitle: chapter, text: res.text.trim() } });
+  } catch (e) {
+    if (!same()) return;
+    setState({
+      overlay: {
+        kind: 'guide',
+        bookId,
+        chapterTitle: chapter,
+        text: (e as Error)?.message || t('guide.fail'),
+        error: true,
+      },
+    });
+  }
+}
+
+/**
  * 补全书籍信息（2026-11-11）。
  *
  * 用户点菜单才发请求：书名 + 作者 + 画像里的样本 → 简介 / 分类 / 语言。
@@ -1162,6 +1233,15 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'bookmap':
       if (!requireCap('bookmap')) break;
       overlay('bookmap');
+      break;
+    /* 本章导读（2026-11-11）：命令与「重新生成」都走同一个函数 */
+    case 'guide':
+      if (!requireCap('ai')) break;
+      void openGuide();
+      break;
+    case 'guidetry':
+      if (!requireCap('ai')) break;
+      void openGuide(true);
       break;
     case 'poster':
       /* 周报和书摘图片以前共用 card；书摘下放基础版后，周报自己立一道门禁 */

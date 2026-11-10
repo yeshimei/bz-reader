@@ -104,7 +104,10 @@ export type OverlayKind =
   | 'shelves'
   /* 从备份恢复：先问一句「当前数据不保留」（C12）。恢复是整份替换，
      不是合并——点错一次就再也回不来了，所以不能点了就执行。 */
-  | 'restore';
+  | 'restore'
+  /* 本章导读（2026-11-11）：读中随手看一眼「这一章要带着什么读」。
+     busy / error 是这张弹层自己的状态，不进 overlayKey（text 变了就会重画）。 */
+  | 'guide';
 
 /**
  * 哪些弹层算「浮层」：无遮罩、贴在文字旁。
@@ -205,6 +208,10 @@ export interface OverlayState {
    * 关掉浮层、换一本弹层都跟着 overlay 一起消失，不用单独清理。
    */
   codeOpen?: boolean;
+  /** 本章导读正在生成（只给 kind='guide' 用）：画占位文案、把「重新生成」禁掉 */
+  busy?: boolean;
+  /** 本章导读生成失败（text 里是原因）：用错误色画，并给重试 */
+  error?: boolean;
 }
 
 /**
