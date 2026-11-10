@@ -294,6 +294,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'side.tab.highlights': '劃線',
   'side.tab.cites': '引用',
   'side.cites.empty': '還沒有筆記引用這本書。',
+  'side.cites.bookPlace': '其他位置',
   'side.cites.page': '第 {n} 頁',
   'side.cites.count': '{n} 處',
   'side.cites.open': '開啟筆記',

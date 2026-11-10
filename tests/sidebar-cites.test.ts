@@ -62,11 +62,42 @@ describe('引用页签', () => {
   });
 
   it('空态只说没人引用，不再教用户在笔记里写 #page=', () => {
-    /* EPUB 引擎不收集引用（只有 PDF 会上报），这条引导在 epub 上
-       永远不会成真，还会让用户以为是自己写错了链接语法。 */
+    /* 引导语会误导：只有从书里复制出来的定位链接才算引用，
+       手写 `#page=` 是 PDF 的语法。 */
     const html = render({ cites: [] });
     expect(html).toContain('还没有笔记引用这本书。');
     expect(html).not.toContain('在笔记里写');
     expect(html).not.toContain('#page=');
+  });
+});
+
+/**
+ * EPUB 没有页码：按「章节」分组，行上带跳转定位（cfi）。
+ * 章节名来自链接里的 `c=`，老链接没有就归到「其他位置」。
+ */
+describe('引用页签 · EPUB', () => {
+  it('按章节分组，行上带跳转定位而不是页码', () => {
+    const html = render({
+      cites: [
+        {
+          sourcePath: '欢迎.md',
+          label: '重印前记',
+          chapter: '重印前记',
+          locator: 'epubcfi(/6/10!/4/2/4,/1:124,/1:192)',
+        },
+        { sourcePath: '读书笔记/围城.md', label: '方鸿渐', chapter: '第一章', locator: 'epubcfi(/6/12!/4/2/2)' },
+      ],
+    });
+    expect(html).toContain('重印前记');
+    expect(html).toContain('第一章');
+    expect(html).toContain('欢迎');
+    expect(html).toContain('data-cfi="epubcfi(/6/10!/4/2/4,/1:124,/1:192)"');
+    expect(html).not.toContain('data-page="');
+    expect(html).not.toContain('bzs-citeonly');
+  });
+
+  it('没有章节名的引用归到「其他位置」', () => {
+    const html = render({ cites: [{ sourcePath: 'a.md', locator: 'epubcfi(/6/2)' }] });
+    expect(html).toContain('其他位置');
   });
 });

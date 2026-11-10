@@ -1993,13 +1993,28 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
     case 'citejump': {
-      /* 侧栏「引用」：点一行跳到那一页。书没开着就一并打开（PDF 是分页引擎，
-         直接带定位开书比「先开再跳」稳，后者会撞上一个还没分页的视图）。 */
+      /* 侧栏「引用」：点一行跳回书里那一处。书没开着就一并打开。
+         PDF 带 `pdf/页码` 直接落页；EPUB 带 cfi + 原文 + 章节走三级降级
+         （CFI 失效还能按原文搜、按百分比落），只传 cfi 会「点了没反应」。 */
       const book = currentBook();
+      if (!book) break;
       const page = Number(d.page) || 0;
-      if (!book || page < 1) break;
+      const cfi = String(d.cfi ?? '').trim();
+      const text = String(d.text ?? '').trim();
+      if (page < 1 && !cfi && !text) break;
       closeOverlay();
-      getShellSource()?.openBook(book, `pdf/${page}`);
+      if (page >= 1) {
+        getShellSource()?.openBook(book, `pdf/${page}`);
+      } else {
+        const pct = Number(d.pct);
+        getShellSource()?.openTarget?.({
+          bookId: book.id,
+          cfi: cfi || undefined,
+          text: text || undefined,
+          chapter: d.chapter || undefined,
+          pct: Number.isFinite(pct) ? pct : undefined,
+        });
+      }
       collapseSidebarAfterJump(el, true);
       break;
     }

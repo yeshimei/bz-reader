@@ -70,7 +70,7 @@ import {
   subscribe,
   notify as notifyShell,
   type OverlayKind,
-  type PdfCiteRow,
+  type CiteRow,
 } from '../shell/state';
 import { openOverlay } from '../shell/state';
 import { tapIntent } from './tap-intent';
@@ -87,6 +87,8 @@ import { addCheckin } from '../shell/checkin';
 import { toTextHits, type TextHit } from '../shell/text-search';
 import { shouldNotifyRelocate } from './relocate-notify';
 import { getShellSource, shellPrefs } from '../shell/source';
+import { collectPdfBacklinks, invalidatePdfBacklinks } from '../data/pdf-backlink';
+import { epubBacklinkHits } from '../data/epub-backlink';
 import { dispatchAction, requireCap } from '../shell/actions';
 
 export const VIEW_TYPE_READER = 'bzr-reader-view';
@@ -122,6 +124,29 @@ export type ReaderCommand =
 
 /** 读到 99% 以上就算读完，不必真翻到最后一页的最后一个字 */
 const COMPLETE_THRESHOLD = 0.99;
+
+/**
+ * 两份反链清单是不是同一份。
+ *
+ * 链接索引每动一下都会重算一次；不比对就每次整块重绘侧栏，
+ * 正在滚动 / 悬停的列表会被打断。字段全对得上才认为没变。
+ */
+function sameCites(a: ReadonlyArray<CiteRow>, b: ReadonlyArray<CiteRow>): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((x, i) => {
+    const y = b[i];
+    return (
+      x.sourcePath === y.sourcePath &&
+      (x.page ?? 0) === (y.page ?? 0) &&
+      (x.label ?? '') === (y.label ?? '') &&
+      (x.color ?? '') === (y.color ?? '') &&
+      (x.locator ?? '') === (y.locator ?? '') &&
+      (x.chapter ?? '') === (y.chapter ?? '') &&
+      (x.text ?? '') === (y.text ?? '') &&
+      (x.pct ?? -1) === (y.pct ?? -1)
+    );
+  });
+}
 
 /**
  * 所有处于沉浸态的阅读视图。
@@ -168,8 +193,10 @@ export class ReaderView extends ItemView {
   private host: ReaderEngine;
   private tracker = new ActivityTracker();
   private prefs: ReaderPrefs;
-  /** 这本书最近一次算出的反链（PDF）：切走页签再切回来要在侧栏里重放 */
-  private pdfCites: PdfCiteRow[] = [];
+  /** 这本书最近一次算出的反链：切走页签再切回来要在侧栏里重放 */
+  private cites: CiteRow[] = [];
+  /** EPUB 反链的重算防抖计时器（链接索引变动是一阵一阵的） */
+  private citesTimer: number | null = null;
   /** 点 PDF 自带批注时弹的那张小卡（一次只留一张） */
   private faCard: HTMLElement | null = null;
 
@@ -388,6 +415,9 @@ export class ReaderView extends ItemView {
 
   async onClose(): Promise<void> {
     this.teardown();
+    /* 反链防抖计时器：关书之后到点还会跑，算出来的东西也没地方放 */
+    if (this.citesTimer !== null) window.clearTimeout(this.citesTimer);
+    this.citesTimer = null;
     this.toggleImmersive(false);
     /* 头栏元素是宿主的、会被复用：关书前先把「书名可点」那套属性摘掉，
        再把元素删掉（宿主随后会重建一块干净的）。 */
@@ -534,6 +564,9 @@ export class ReaderView extends ItemView {
     };
     this.offShell = subscribe(syncTheme);
     this.offNotes = onNotesChanged(() => this.refreshAfterNotesChange());
+    /* 笔记里新增 / 删掉一条指向本书的链接：EPUB 的引用页签要跟着变。
+       PDF 由引擎自己监听（页面框也要重画），这里只接 EPUB 这一路。 */
+    this.registerEvent(this.api.app.metadataCache.on('resolved', () => this.scheduleEpubCites()));
     /* 宿主换主题：壳层的强调色跟着换，书页的底色/字色也要重注入——
        只改 data-bzaccent 的话，深色模式下书页还是那张白纸。 */
     this.registerEvent(
@@ -1712,8 +1745,8 @@ export class ReaderView extends ItemView {
     /* activeReaderId 决定「焦点在目录侧栏时键盘归谁」（P1-12）。
        没有它，两本书会一起翻页。 */
     if (getShellState().bookId !== book.id || getShellState().activeReaderId !== book.id) {
-      /* 后台那本的反链只在激活时才写进侧栏（见 publishPdfCites） */
-      setShellState({ bookId: book.id, activeReaderId: book.id, pdfCites: this.pdfCites });
+      /* 后台那本的反链只在激活时才写进侧栏（见 publishPdfCites / publishEpubCites） */
+      setShellState({ bookId: book.id, activeReaderId: book.id, cites: this.cites });
     }
     this.publishToc();
   }
@@ -1746,9 +1779,9 @@ export class ReaderView extends ItemView {
        壳层状态要跟着它走，否则侧栏与排版面板会一直以为没有打开的书
        （表现为侧栏一屏「没有打开的书」、方向预览卡写着「这本书」）。 */
     if (getShellState().bookId !== book.id) {
-      /* 换书时先清掉上一本的反链：EPUB 没有反链这一说，留着只会让侧栏
-         把「围城被引用过」画到一本 epub 上。PDF 那份等宿主挂好会重新推。 */
-      setShellState({ bookId: book.id, pdfCites: [], pdfPage: 0 });
+      /* 换书时先清掉上一本的反链：留着只会让侧栏把「上一本被引过」
+         画到新书上。两份数据都等挂好之后再推。 */
+      setShellState({ bookId: book.id, cites: [], pdfPage: 0 });
     }
     /* 同构造函数：重启后重开书，版式要读本平台那一份（见 data/prefs.ts 的 pickPrefs） */
     this.prefs = pickPrefs(this.api.store.get(), isMobileEnv());
@@ -1834,6 +1867,11 @@ export class ReaderView extends ItemView {
           });
           this.mountHeader();
           this.publishToc();
+          /* EPUB 的反链在挂载完成后再扫：解析 cfi 要这本书的路径，
+             太早扫会拿到上一本的书单。PDF 由引擎自己推，这里直接返回。
+             扫描结果有缓存（按书路径），开书时清一次，别拿上一次的旧账。 */
+          invalidatePdfBacklinks();
+          this.publishEpubCites();
           this.syncTabTitle();
           this.api.store.touch();
           notifyShell();
@@ -2114,7 +2152,7 @@ export class ReaderView extends ItemView {
     this.faCard = null;
   }
 
-  private publishPdfCites(rows: PdfCiteRow[]): void {
+  private publishPdfCites(rows: CiteRow[]): void {
     const book = this.book;
     if (!book) return;
     /* 引擎给的是 PDF++ 的颜色名（Yellow / Red…），侧栏要 CSS 颜色。
@@ -2123,23 +2161,59 @@ export class ReaderView extends ItemView {
       const named = pdfColorFromName(row.color);
       return named ? { ...row, color: colorCss(named) } : { page: row.page, sourcePath: row.sourcePath, label: row.label };
     });
-    rows = styled;
     /* 先自己留一份：两本书各开一个 tab 时，后台那本只记不写，等切回来再补 */
-    this.pdfCites = rows;
+    this.cites = styled;
     const cur = getShellState();
-    /* 严格比对：库里同时开着两本 PDF 时，后挂载的那本不能把先开那本的引用
+    /* 严格比对：库里同时开着两本书时，后挂载的那本不能把先开那本的引用
        顶掉——侧栏画的是「眼前这本」，不是「最后加载的那本」。 */
     if (cur.bookId !== book.id) return;
-    const same =
-      cur.pdfCites.length === rows.length &&
-      rows.every(
-        (r, i) =>
-          cur.pdfCites[i].page === r.page &&
-          cur.pdfCites[i].sourcePath === r.sourcePath &&
-          (cur.pdfCites[i].label ?? '') === (r.label ?? '') &&
-          (cur.pdfCites[i].color ?? '') === (r.color ?? ''),
-      );
-    if (!same) setShellState({ pdfCites: rows });
+    if (!sameCites(cur.cites, styled)) setShellState({ cites: styled });
+  }
+
+  /**
+   * EPUB 的反链：从链接索引里捞「谁引了这本书的哪一句」。
+   *
+   * EPUB 引擎不上报这份数据（PDF 那份同时用来在页面上画虚线框，
+   * EPUB 没有页面框），所以视图自己按书的路径扫。扫描结果由
+   * `collectPdfBacklinks` 缓存，链接索引一动就作废重算。
+   */
+  private publishEpubCites(): void {
+    const book = this.book;
+    if (!book || this.host.isPdf) return;
+    const hits = epubBacklinkHits(
+      collectPdfBacklinks(this.api.app, book.fileRef.vaultPath),
+      book.fileRef.vaultPath,
+    );
+    const rows: CiteRow[] = hits.map((h) => ({
+      sourcePath: h.sourcePath,
+      label: h.label,
+      locator: h.cfi,
+      chapter: h.chapter,
+      pct: h.pct,
+      text: h.text,
+    }));
+    this.cites = rows;
+    const cur = getShellState();
+    if (cur.bookId !== book.id) return;
+    if (!sameCites(cur.cites, rows)) setShellState({ cites: rows });
+  }
+
+  /**
+   * 链接索引变动后重算 EPUB 反链（防抖）。
+   *
+   * `resolved` 一次保存能连发好几下；每一下都全库扫一遍（几万篇笔记的库）
+   * 会把翻页卡出顿挫。等它安静下来再算。PDF 由引擎自己刷新，不掺和。
+   */
+  private scheduleEpubCites(): void {
+    if (this.host.isPdf) return;
+    if (this.citesTimer !== null) window.clearTimeout(this.citesTimer);
+    this.citesTimer = window.setTimeout(() => {
+      this.citesTimer = null;
+      if (this.closed) return;
+      /* 链接索引已经变了：作废扫描缓存再算，否则拿到的是上一次的清单 */
+      invalidatePdfBacklinks();
+      this.publishEpubCites();
+    }, 250);
   }
 
   /**

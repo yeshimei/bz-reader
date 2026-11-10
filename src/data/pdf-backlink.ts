@@ -40,8 +40,8 @@ export interface PdfBacklinkHit {
   label?: string;
 }
 
-/** 去掉 `[[ ]]` 外壳：Obsidian 链接索引里的 `original` 带它 */
-function unwrapHref(href: string): string {
+/** 去掉 `[[ ]]` 外壳：Obsidian 链接索引里的 `original` 带它（EPUB 那份解析也用） */
+export function unwrapHref(href: string): string {
   let raw = String(href ?? '').trim();
   if (raw.startsWith('[[')) raw = raw.slice(2);
   if (raw.endsWith(']]')) raw = raw.slice(0, -2);
@@ -116,6 +116,9 @@ export function backlinkCountByPage(hits: ReadonlyArray<PdfBacklinkHit>): Map<nu
 
 /**
  * 从 Obsidian 的链接索引里捞出「指向这本书」的所有链接。
+ *
+ * 只看目标路径，不关心书的格式：PDF 与 EPUB 的反链解析共用这一份扫描
+ * （PDF 用 `pdfBacklinkHits`，EPUB 用 `epubBacklinkHits`）。
  *
  * 先用 `resolvedLinks` 反查哪些笔记链到了它（一次 O(链接数) 的扫描），
  * 再只对这些笔记读 cache 拿子路径——直接遍历全库 cache 在几万篇笔记的库里

@@ -292,7 +292,7 @@ export class SideView extends ItemView {
         aiReady: aiReady(settings),
         aiIndex,
         collapsed: RT.tocCollapsed,
-        cites: state.pdfCites,
+        cites: state.cites,
         activePage: state.pdfPage,
         citesOnlyPage: RT.citesOnlyPage,
         tocDraggable: book?.fileRef.format === 'pdf',

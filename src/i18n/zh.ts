@@ -306,6 +306,7 @@ export const ZH = {
   'side.tab.highlights': '划线',
   'side.tab.cites': '引用',
   'side.cites.empty': '还没有笔记引用这本书。',
+  'side.cites.bookPlace': '其他位置',
   'side.cites.page': '第 {n} 页',
   'side.cites.count': '{n} 处',
   'side.cites.open': '打开笔记',

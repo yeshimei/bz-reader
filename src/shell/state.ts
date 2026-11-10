@@ -56,14 +56,28 @@ export function nextStudyPage(current: StudyPage, clicked: StudyPage, back: Stud
 /** 左侧栏五页签：书的坐标（书架是中心 tab，不在这里） */
 export type SideTab = 'toc' | 'bookmarks' | 'highlights' | 'cites' | 'ai';
 
-/** PDF 反链：哪篇笔记引了哪一页。侧栏「引用」页签直接画这一份 */
-export interface PdfCiteRow {
-  page: number;
+/**
+ * 引用反链：哪篇笔记引了书里的哪里。
+ *
+ * PDF 按「页」分组（`page`），EPUB 按「章节」分组（`chapter` + `locator`）；
+ * 一本书只会走其中一条，不会混。
+ */
+export interface CiteRow {
   sourcePath: string;
-  /** 笔记里给这条链接写的别名（悬停看原文片段用） */
+  /** 笔记里给这条链接写的别名（行标题用） */
   label?: string;
   /** 链接自带 `&color=` 时按这个色画点，没有就用默认色 */
   color?: string;
+  /** PDF：1 基页码；EPUB 没有页码 */
+  page?: number;
+  /** EPUB：跳回原文的定位串（CFI） */
+  locator?: string;
+  /** EPUB：章节名（链接里的 `c=`） */
+  chapter?: string;
+  /** EPUB：章节内百分比 0..1（链接里的 `p=`） */
+  pct?: number;
+  /** EPUB：原文前若干字（链接里的 `t=`），别名缺失时当行标题 */
+  text?: string;
 }
 
 export type LibView = 'grid' | 'list';
@@ -263,12 +277,12 @@ export interface ShellState {
   /* 阅读上下文 */
   sideTab: SideTab;
   /**
-   * 当前这本书的 PDF 反链（笔记里引用了哪几页）。
+   * 当前这本书的引用反链（笔记里引用了哪几页 / 哪几句）。
    *
-   * 由阅读视图在开书后写入，侧栏「引用」页签读它；换书 / 读 EPUB 时清空。
+   * 由阅读视图在开书后写入，侧栏「引用」页签读它；换书时清空。
    * 不放 localStorage：引用关系随时会变，存旧值只会画出不存在的引用。
    */
-  pdfCites: PdfCiteRow[];
+  cites: CiteRow[];
   /**
    * 当前 PDF 停在第几页（0 = 不是 PDF / 还没定位）。
    *
@@ -338,7 +352,7 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   noteSel: [],
   goal: 20,
   sideTab: 'toc',
-  pdfCites: [],
+  cites: [],
   pdfPage: 0,
   bookId: null,
   activeReaderId: null,

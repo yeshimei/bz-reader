@@ -12,6 +12,7 @@
 import type { App } from 'obsidian';
 import type { BookRepo } from '../data/book-repo';
 import type { ReaderBook } from '../data/schema';
+import type { LinkTarget } from '../data/deeplink';
 import type { ReaderPrefs } from '../data/prefs';
 import { normalizePrefs } from '../data/prefs';
 import type { ReaderSettings } from '../data/settings';
@@ -43,6 +44,13 @@ export interface ShellSource {
    * `query` = 从搜索结果点过来时正在搜的词：落到页面上要标出来。
    */
   openBook: (book: ReaderBook, cfi?: string, query?: string) => void;
+  /**
+   * 按定位打开书里某一处：CFI → 原文片段 → 章节百分比逐级降级。
+   *
+   * 侧栏「引用」行用它：EPUB 的老链接可能只有原文片段没有 CFI，
+   * 走 `openBook` 只能带 CFI，那条链接就会落在「哪儿也没去」。
+   */
+  openTarget?: (target: LinkTarget) => void;
   /** 在当前打开的书里按章名跳转（AI 来源点开用）；找不到就不动 */
   goToChapter: (title: string) => void;
   /** 打开导入页（整页，S1 定稿） */

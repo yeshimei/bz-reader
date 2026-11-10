@@ -56,12 +56,13 @@ export interface SidebarView {
    */
   tocDraggable?: boolean;
   /**
-   * PDF 反链：哪几篇笔记引了哪一页。
+   * 引用反链：哪几篇笔记引了这本书的哪一处。
    *
-   * 由阅读视图按书推送（宿主从 Obsidian 的链接索引里捞），EPUB 恒为空。
-   * 只放数据不放「有没有开书」——那是 `book` 的事。
+   * 由阅读视图按书推送（宿主从 Obsidian 的链接索引里捞）：PDF 是
+   * 「哪一页」，EPUB 是「哪一章的哪一句」。只放数据不放「有没有开书」
+   * ——那是 `book` 的事。
    */
-  cites?: ReadonlyArray<{ page: number; sourcePath: string; label?: string; color?: string }>;
+  cites?: ReadonlyArray<CiteRowView>;
   /** 当前停在第几页（0 = 不是 PDF / 未知），「只看本页」用 */
   activePage?: number;
   /** 「只看本页」开关是否打开 */
@@ -229,24 +230,101 @@ function highlightsBody(rows: MarkRow[]): string {
 }
 
 /**
- * 引用（PDF 反链）。
+ * 引用行。PDF 看「页」，EPUB 看「章节 + 定位」——一本书只会走其中一支。
+ * 字段都对可选，是为了让两种来源能塞进同一个数组。
+ */
+export interface CiteRowView {
+  /** PDF：1 基页码；EPUB 没有页码 */
+  page?: number;
+  sourcePath: string;
+  label?: string;
+  color?: string;
+  /** EPUB：跳回原文的定位串（CFI） */
+  locator?: string;
+  /** EPUB：章节名（链接里的 `c=`），分组头用它 */
+  chapter?: string;
+  /** EPUB：章节内百分比 0..1 */
+  pct?: number;
+  /** EPUB：原文前若干字，别名缺失时当行标题 */
+  text?: string;
+}
+
+/**
+ * 一行引用：点它跳回书里，右边那颗小按钮才打开笔记（跳回去是主操作）。
  *
- * 按页升序分组：一页被三篇笔记引过，就问「这页被谁引过」，不是按笔记列
+ * `page > 0` 走 PDF 的页定位；否则走 EPUB 的 cfi / 原文 / 百分比，
+ * 三个都带上是给三级降级用的（CFI 失效还能按原文搜、按百分比落）。
+ */
+function citeRowHtml(row: CiteRowView, page: number): string {
+  const path = row.sourcePath;
+  const name = path.split('/').pop()?.replace(/\.md$/i, '') ?? path;
+  /* 别名是笔记里写的原文；没有就用链接里的原文片段。
+     用它当行标题比「文件名」有用，文件名一长串，扫一眼不知道引的是哪句话。 */
+  const label = String(row.label ?? row.text ?? '').replace(/\s+/g, ' ').trim();
+  const dot = row.color
+    ? `<i class="dot" style="background:${esc(row.color)}"></i>`
+    : '<i class="dot"></i>';
+  const jump =
+    page > 0
+      ? `data-page="${page}"`
+      : `data-cfi="${esc(row.locator ?? '')}"` +
+        (row.chapter ? ` data-chapter="${esc(row.chapter)}"` : '') +
+        (row.text ? ` data-text="${esc(row.text)}"` : '') +
+        (typeof row.pct === 'number' ? ` data-pct="${row.pct}"` : '');
+  return `<div class="bzs-cite" data-act="citejump" ${jump} role="button" tabindex="0" title="${esc(path)}">
+    ${dot}<span class="nm">${esc(name)}</span>${label ? `<span class="tx">${esc(label)}</span>` : ''}
+    <button class="x" data-act="citeopen" data-path="${esc(path)}" title="${t(
+      'side.cites.open',
+    )}">${icoNative('external-link', 13)}</button>
+  </div>`;
+}
+
+/**
+ * EPUB 引用：按章节分组。
+ *
+ * 没有页码可排，章节名就是「在哪」这条线；同一章被引五处时并成一组，
+ * 组内保持链接出现的顺序。没有章节名的老链接归到「其他位置」，
+ * 不硬编一个假章节。
+ */
+function citesByChapter(rows: ReadonlyArray<CiteRowView>): string {
+  const groups = new Map<string, CiteRowView[]>();
+  for (const row of rows) {
+    const key = String(row.chapter ?? '').trim();
+    const list = groups.get(key) ?? [];
+    list.push(row);
+    groups.set(key, list);
+  }
+  return [...groups]
+    .map(([chapter, list]) => {
+      const head = `<div class="bzs-hlg-h"><span>${esc(
+        chapter || t('side.cites.bookPlace'),
+      )}</span><span class="n">${t('side.cites.count', { n: list.length })}</span><span class="ln"></span></div>`;
+      return `<div class="bzs-hlgroup">${head}${list.map((r) => citeRowHtml(r, 0)).join('')}</div>`;
+    })
+    .join('');
+}
+
+/**
+ * 引用（反链）。
+ *
+ * PDF 按页升序分组：一页被三篇笔记引过，就问「这页被谁引过」，不是按笔记列
  * ——用户在这页上看见虚线框，想知道出处，翻的是「页码」这条线。
- * 行本身跳到那一页；右边那颗小按钮才打开笔记（跳页是主操作）。
+ * EPUB 没有页码，按章节分组（见 `citesByChapter`）。
  */
 function citesBody(
-  rows: ReadonlyArray<{ page: number; sourcePath: string; label?: string; color?: string }>,
+  rows: ReadonlyArray<CiteRowView>,
   activePage = 0,
   onlyPage = false,
 ): string {
   if (!rows.length) {
-    /* 只说一句。引用目前只有 PDF 引擎会上报，EPUB 没这条数据来源——
-       以前那句「在笔记里写 [[书名#page=3]]」在 epub 上永远成不了真。 */
+    /* 只说一句。引导语（在笔记里写 `#page=`）是 PDF 的语法，
+        在 epub 上是教错话；真不知道怎么来，从书里复制划线就是。 */
     return `<div class="bzs-empty">${t('side.cites.empty')}</div>`;
   }
+  /* EPUB 没有页码：一行一个位置，不摆「只看本页」那枚开关 */
+  if (!rows.some((r) => (r.page ?? 0) > 0)) return citesByChapter(rows);
   /* 「只看本页」：翻到第 40 页时，前面几十组都是路过的噪声。
-     只在真有当前页、且确实按页分组时才给这枚开关（EPUB 没有页码）。 */
+     只在真有当前页、且确实按页分组时才给这枚开关。 */
   const canFilter = activePage > 0;
   const shown = onlyPage && canFilter ? rows.filter((r) => r.page === activePage) : rows;
   const toggle = canFilter
@@ -257,11 +335,12 @@ function citesBody(
   if (!shown.length) {
     return `<div class="bzs-citehead">${toggle}</div><div class="bzs-empty">${t('side.cites.noneHere')}</div>`;
   }
-  const byPage = new Map<number, Array<{ page: number; sourcePath: string; label?: string; color?: string }>>();
+  const byPage = new Map<number, CiteRowView[]>();
   for (const row of shown) {
-    const list = byPage.get(row.page) ?? [];
+    const page = Number(row.page) || 0;
+    const list = byPage.get(page) ?? [];
     list.push(row);
-    byPage.set(row.page, list);
+    byPage.set(page, list);
   }
   const pages = [...byPage.keys()].sort((a, b) => a - b);
   return (
@@ -273,26 +352,7 @@ function citesBody(
           'side.cites.page',
           { n: page },
         )}</span><span class="n">${t('side.cites.count', { n: sources.length })}</span><span class="ln"></span></div>`;
-        const items = sources
-          .map((row) => {
-            const path = row.sourcePath;
-            const name = path.split('/').pop()?.replace(/\.md$/i, '') ?? path;
-            /* 别名是笔记里写的原文；用它当行标题比「文件名」有用，
-               文件名一长串，扫一眼不知道引的是哪句话。 */
-            const label = String(row.label ?? '').replace(/\s+/g, ' ').trim();
-            const dot = row.color
-              ? `<i class="dot" style="background:${esc(row.color)}"></i>`
-              : '<i class="dot"></i>';
-            return `<div class="bzs-cite" data-act="citejump" data-page="${page}" role="button" tabindex="0" title="${esc(
-              path,
-            )}">
-            ${dot}<span class="nm">${esc(name)}</span>${label ? `<span class="tx">${esc(label)}</span>` : ''}
-            <button class="x" data-act="citeopen" data-path="${esc(path)}" title="${t(
-              'side.cites.open',
-            )}">${icoNative('external-link', 13)}</button>
-          </div>`;
-          })
-          .join('');
+        const items = sources.map((row) => citeRowHtml(row, page)).join('');
         return `<div class="bzs-hlgroup">${head}${items}</div>`;
       })
       .join('')

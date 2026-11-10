@@ -300,6 +300,7 @@ export const DE: Record<MsgKey, string> = {
   'side.tab.highlights': 'Markierungen',
   'side.tab.cites': 'Citations',
   'side.cites.empty': 'No notes cite this book yet.',
+  'side.cites.bookPlace': 'Elsewhere in the book',
   'side.cites.page': 'Page {n}',
   'side.cites.count': '{n}',
   'side.cites.open': 'Open note',

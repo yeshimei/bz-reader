@@ -613,6 +613,7 @@ export function createPlugin(cfg: PluginConfig) {
         repo: this.repo,
         store: this.store,
         openBook: (book, cfi, query) => void this.openBook(book, cfi, query),
+        openTarget: (target) => void this.openFromTarget(target),
         openImport: () => this.openImportPanel(),
         mountImport: (host) => this.mountImportPage(host),
         openStudy: (page) => this.openStudy(page),
