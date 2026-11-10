@@ -58,6 +58,7 @@
 |  | 划线存成双链：笔记里点回原文 | — | ✓ |
 |  | 引用页签：看哪些笔记引了这本书 | — | ✓ |
 |  | 导出整本摘录：每条带双链 | — | ✓ |
+|  | 划线加入复习：生成卡片笔记，排进 bz 的复习计划（需装 bz） | — | ✓ |
 | **PDF 阅读** | 打开 PDF：缩放、旋转、单双页、滚动，每本记住视角 | — | ✓ |
 |  | 页缩略图：几百页也能一屏找 | — | ✓ |
 |  | 复制页链接：页码 / 视图 / 嵌入 / 批注 | — | ✓ |
@@ -158,6 +159,7 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 |  | Highlights as wikilinks: click back from your notes | — | ✓ |
 |  | Citations tab: see which notes cite this book | — | ✓ |
 |  | Export every excerpt, each with a wikilink | — | ✓ |
+|  | Highlights to review: a card per highlight, scheduled by bz (needs bz) | — | ✓ |
 | **PDF Reading** | Open a PDF: zoom, rotate, one or two pages, scroll; view remembered per book | — | ✓ |
 |  | Page thumbnails: find a page in a long book | — | ✓ |
 |  | Copy page links: page / view / embed / annotation | — | ✓ |

@@ -14,7 +14,7 @@
  *     等于把这个选择权永久焊死在今天这版配色上。
  * ============================================================ */
 import { locale, type Locale } from '../i18n';
-import type { Bookmark, BookNotes, Excerpt, Highlight, KbLink, ReaderBook } from './schema';
+import type { Bookmark, BookNotes, Excerpt, Highlight, KbLink, ReaderBook, ReviewLink } from './schema';
 import { upsertKbLink } from './kb-link';
 
 export const HIGHLIGHT_COLORS = [
@@ -220,6 +220,22 @@ export function setHighlightKb(book: ReaderBook, id: string, link: KbLink): bool
   const next = upsertKbLink(h.kb, link);
   h.kb = next.length ? next : undefined;
   h.updatedAt = Date.now();
+  touchNotes(book, h.updatedAt);
+  return true;
+}
+
+/**
+ * 记下一条划线生成的复习卡（2026-11-11）。
+ *
+ * 与 setHighlightKb 同一套：路径记在划线上，工具条那颗按钮据此从「复习」
+ * 变成「已复习」。返回 false 只表示这条划线找不到，与写卡成败无关。
+ */
+export function setHighlightReview(book: ReaderBook, id: string, link: ReviewLink): boolean {
+  const n = notes(book);
+  const h = n.highlights.find((x) => x.id === id);
+  if (!h) return false;
+  h.review = { path: link.path, at: link.at };
+  h.updatedAt = link.at;
   touchNotes(book, h.updatedAt);
   return true;
 }

@@ -386,6 +386,10 @@ export function viewSettings(v: SettingsView): string {
           <span>${esc(s.exportDir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>
         </button></div>
       ${toggle('exportComments', s.exportComments, t('settings.exportComments'))}
+      <div class="bzs-setrow"><label>${t('settings.reviewDir')}</label>
+        <button class="bzs-pickdir" data-act="pickreviewdir" title="${t('settings.pickFromList')}">
+          <span>${esc(s.reviewDir || DEFAULT_SETTINGS.reviewDir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>
+        </button></div>
     </div>`;
 
   /* 入口平权：AI 组始终出现。基础版整组灰掉、点一下就弹高级功能说明——

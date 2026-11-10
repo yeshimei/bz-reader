@@ -61,6 +61,25 @@ export interface BzAiFacade {
   embedQuery(text: string, signal?: AbortSignal): Promise<number[]>;
 }
 
+/** 没加进去的原因：已在计划中 / 文件不存在 */
+export type BzReviewAddReason = 'exists' | 'notFound';
+
+/**
+ * 复习计划门面（bz 新增的 `reviewPlan`）。
+ *
+ * 这是两边关系里**第一次反向写 bz 的数据**：以前只有「录入交给你」（knowledge）
+ * 与「问你只读算力」（readerAi）。复习排期表以文件路径为钥匙，所以我们写出的
+ * 卡片必须先落盘、再通过这里登记，顺序反了会留下一条挂起记录。
+ */
+export interface BzReviewFacade {
+  /** 复习域本身能不能用（bz 那边面板能打开） */
+  isReady(): boolean;
+  hasNote(path: string): Promise<boolean>;
+  addNote(path: string): Promise<{ added: boolean; reason?: BzReviewAddReason }>;
+  addNotes(paths: string[]): Promise<{ added: number; exists: number; notFound: number }>;
+  removeNote(path: string): Promise<boolean>;
+}
+
 /** missing = 没装；disabled = 装了没启用；ok = 实例在（门面可能缺半边） */
 export type BzStatus = 'ok' | 'disabled' | 'missing';
 
@@ -69,9 +88,11 @@ export interface BzProbe {
   version: string;
   knowledge: BzKnowledgeFacade | null;
   ai: BzAiFacade | null;
+  /** 复习计划门面（bz 新增）；老版本为 null */
+  review: BzReviewFacade | null;
 }
 
-const ABSENT: BzProbe = { status: 'missing', version: '', knowledge: null, ai: null };
+const ABSENT: BzProbe = { status: 'missing', version: '', knowledge: null, ai: null, review: null };
 
 type AnyApp = {
   plugins?: {
@@ -111,6 +132,16 @@ function aiOf(plugin: Record<string, unknown> | null): BzAiFacade | null {
   return a as BzAiFacade;
 }
 
+/** 复习门面要齐的五个动作：缺一个就整块当没有 */
+const REVIEW_METHODS = ['isReady', 'hasNote', 'addNote', 'addNotes', 'removeNote'] as const;
+
+function reviewOf(plugin: Record<string, unknown> | null): BzReviewFacade | null {
+  const r = plugin?.reviewPlan as Partial<BzReviewFacade> | undefined;
+  if (!r) return null;
+  if (REVIEW_METHODS.some((k) => typeof (r as Record<string, unknown>)[k] !== 'function')) return null;
+  return r as BzReviewFacade;
+}
+
 /**
  * 探测 bz。任何时候都能调：没装、禁用、老版本、插件列表拿不到，一律返回结构化结果，
  * 不抛错、不打日志——这条路径在每次重绘里都可能走到。
@@ -126,9 +157,21 @@ export function probeBz(app: App | null | undefined): BzProbe {
     /* 区分「没装」和「装了没启用」：前者该引导安装，后者该引导启用。
        manifest 在、实例不在，就是装了没启用。 */
     const hasManifest = !!(app as AnyApp | null | undefined)?.plugins?.manifests?.[BZ_PLUGIN_ID];
-    return { status: hasManifest ? 'disabled' : 'missing', version: versionOf(app, null), knowledge: null, ai: null };
+    return {
+      status: hasManifest ? 'disabled' : 'missing',
+      version: versionOf(app, null),
+      knowledge: null,
+      ai: null,
+      review: null,
+    };
   }
-  return { status: 'ok', version: versionOf(app, plugin), knowledge: knowledgeOf(plugin), ai: aiOf(plugin) };
+  return {
+    status: 'ok',
+    version: versionOf(app, plugin),
+    knowledge: knowledgeOf(plugin),
+    ai: aiOf(plugin),
+    review: reviewOf(plugin),
+  };
 }
 
 /**
@@ -137,7 +180,7 @@ export function probeBz(app: App | null | undefined): BzProbe {
  * 两个入口（检索/嵌入 与 知识盒录入）的三种失败说法完全一样，只差「缺的
  * 是哪一项」。以前是两份逐字相同的实现，改一句文案得记住改两处。
  */
-function bridgeProblem(p: BzProbe, cap: 'ai' | 'knowledge'): string | null {
+function bridgeProblem(p: BzProbe, cap: 'ai' | 'knowledge' | 'review'): string | null {
   if (p.status === 'missing') return t('bz.missing');
   if (p.status === 'disabled') return t('bz.disabled');
   if (!p[cap]) return t('bz.outdated', { version: p.version || '—' });
@@ -152,6 +195,21 @@ export function aiBridgeProblem(p: BzProbe): string | null {
 /** 两颗录入按钮要用的能力缺了 */
 export function entryBridgeProblem(p: BzProbe): string | null {
   return bridgeProblem(p, 'knowledge');
+}
+
+/** 「加入复习」要用的能力缺了（老版本 bz 没有这个出口） */
+export function reviewBridgeProblem(p: BzProbe): string | null {
+  return bridgeProblem(p, 'review');
+}
+
+/**
+ * 当前能用的复习门面；null = 用不了。
+ *
+ * 与 bzEmbedder 同一种收口：探测走一处，调用方不必自己把 missing / disabled /
+ * outdated 三种状态各判一遍。
+ */
+export function reviewPlanOf(app: App | null | undefined): BzReviewFacade | null {
+  return probeBz(app).review;
 }
 
 /* ─────────── 借 bz 的向量库（2026-11-07 决策回摆） ───────────

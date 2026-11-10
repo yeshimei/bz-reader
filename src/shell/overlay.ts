@@ -44,7 +44,7 @@ import {
   setIdeaDraft,
 } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
-import { bzEmbedder, bzEntryReady } from '../data/bz-bridge';
+import { bzEmbedder, bzEntryReady, reviewPlanOf } from '../data/bz-bridge';
 import { kbLinkOf } from '../data/kb-link';
 import { hydrateToolbarIcons } from './toolbar-icons';
 import { aiCardBegin, aiCardDone, aiCardDrop, aiCardFail, aiCardGet, aiCardKey, aiCardReset, aiModeOf } from './ai-card';
@@ -427,12 +427,14 @@ function overlayHltools(markId?: string, bookId?: string): string {
     marked: true,
     compact: isMobileEnv(),
     kb: can('ai') && bzEntryReady(getShellSource()?.app),
+    review: can('review') && !!reviewPlanOf(getShellSource()?.app),
     narrow: window.innerWidth < 520,
     color: mark.color ?? 'amber',
     colors: HIGHLIGHT_COLORS,
     acts: MARK_ACTS,
     attrs: `data-id="${esc(mark.id)}" data-book="${esc(book.id)}"`,
     kbDone: { term: !!kbLinkOf(mark.kb, 'term'), passage: !!kbLinkOf(mark.kb, 'passage') },
+    reviewDone: !!mark.review?.path,
     icon: shellPrefs().toolbarStyle === 'icon',
   });
   /* 想法为空、但有知识盒链接时气泡也要出：点划线的人可能就是来点那枚链接的 */
@@ -631,11 +633,13 @@ function textPanel(
     color: opts.color,
     colors: HIGHLIGHT_COLORS,
     kb: can('ai') && bzEntryReady(getShellSource()?.app),
+    review: can('review') && !!reviewPlanOf(getShellSource()?.app),
     narrow: window.innerWidth < 520,
     acts: opts.markId ? MARK_ACTS : SELECTION_ACTS,
     active: opts.active,
     attrs,
     kbDone: { term: !!kbLinkOf(marked?.kb, 'term'), passage: !!kbLinkOf(marked?.kb, 'passage') },
+    reviewDone: !!marked?.review?.path,
     icon: shellPrefs().toolbarStyle === 'icon',
   });
   /* 外壳透明，底板交给 `${cls}-body`：工具条要露在卡片外面，

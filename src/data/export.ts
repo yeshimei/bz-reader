@@ -60,7 +60,7 @@ function stamp(ts: number): string {
  * `title: "x"\n恶意键: 1` 能截断引号串、注入 frontmatter，甚至用 `---` 提前
  * 结束整个头部。书名里的换行本来也没有保留意义。
  */
-function yamlStr(v: string): string {
+export function yamlStr(v: string): string {
   const one = String(v ?? '')
     .replace(/\r\n?/g, '\n')
     .replace(/\n+/g, ' ');
@@ -101,7 +101,7 @@ export function safeName(name: string, fallback = '未命名'): string {
 
 
 /** 多行摘录压成一行：引用块里换行会被当成两段 */
-function oneLine(text: string): string {
+export function oneLine(text: string): string {
   let s = text.replace(/[ \t]*\n[ \t]*/g, ' ').replace(/[ \t]{2,}/g, ' ').trim();
   // 中文之间的换行不该变成空格：`她转过身， 没有回头` 读起来像多打了个空格。
   // 只在两侧都是全角字符时吃掉这个空格，英文单词之间照旧保留。
@@ -310,7 +310,8 @@ function joinPath(dir: string, name: string): string {
   return dir ? `${dir}/${name}` : name;
 }
 
-async function ensureDir(app: App, dir: string): Promise<void> {
+/** 逐段建目录（已存在的段跳过；并发建目录时 mkdir 抛 already exists 也吞掉） */
+export async function ensureDir(app: App, dir: string): Promise<void> {
   const adapter = app.vault.adapter;
   const parts = dir.split('/').filter(Boolean);
   let acc = '';

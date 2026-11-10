@@ -13,12 +13,14 @@
 import { Menu } from 'obsidian';
 import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
+import type { Highlight } from '../data/schema';
 import { aiAsk, type AiTask } from '../data/ai';
 import {
   DEFAULT_HIGHLIGHT_COLOR,
   addHighlight,
   colorCss,
   ensureHighlight,
+  highlightsOf,
   isHighlightColor,
   removeBookmark,
   removeHighlight,
@@ -26,6 +28,7 @@ import {
   setHighlightColor,
   setHighlightComment,
   setHighlightKb,
+  setHighlightReview,
   toggleBookmark,
 } from '../data/notes';
 import { allMarks, filterMarks, shelfOf } from './domain';
@@ -81,7 +84,8 @@ import {
 import { RT, emitNotesChanged, pushAi, resetAi } from './runtime';
 import { HITS_PAGE } from './search-hits';
 import { kickBodySearch, refreshBodyHits, resetBodySearch, stopBodySearch } from './search-run';
-import { bzEmbedder, bzNotesReady, openBzPreview, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
+import { bzEmbedder, bzNotesReady, openBzPreview, probeBz, openBzEntry, reviewPlanOf, reviewBridgeProblem, type BzEntryKind } from '../data/bz-bridge';
+import { syncReviewCard } from '../data/review-sync';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
 import { AI_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../core/links';
@@ -678,9 +682,117 @@ function openKbNote(path: string): void {
 }
 
 /** 动作点完把正文里的选区收掉（见 shell/selection-end.ts 的判据） */
-function finishSelection(act: string): void {
-  if (!endsSelection(act)) return;
+function finishSelection(act: string): void {  if (!endsSelection(act)) return;
   getShellSource()?.clearSelection?.();
+}
+
+/**
+ * 划词条 / 划线工具条上的「复习」：一条划线 → 一张卡片笔记 → 进 bz 的复习计划。
+ *
+ * 三条界线：
+ *   · **加过就打开**：按钮字已经变成「已复习」，点它是打开那张卡，不是再生成
+ *     一份；卡片被删了才回退成重新生成。
+ *   · **卡片归用户**：写一次之后不再覆盖。用户往卡片里补的想法是他自己的，
+ *     一次点击不该冲掉；要改就打开那张卡自己改。
+ *   · **没有 bz 也写卡**：卡片本身有用（能当笔记用），只是排不进复习。这时
+ *     提示的是「更新 bz 后可用」，而不是把用户刚划的那段丢掉。
+ */
+function addToReview(markId?: string, bookId?: string): void {
+  const src = getShellSource();
+  if (!src) return;
+  const app: App = src.app;
+  const settings = shellSettings();
+
+  let book: ReaderBook | undefined;
+  let h: Highlight | undefined;
+  if (markId) {
+    book = findBookOfMark(markId, bookId);
+    h = book?.notes?.highlights.find((x) => x.id === markId);
+  } else {
+    /* 划词路径：线已经由 autoMarkSelection 落下，取刚落笔的那一条 */
+    const sel = RT.sel;
+    book = sel ? liveBooks().find((b) => b.id === sel.bookId) : undefined;
+    h = book && RT.selMarkId ? book.notes?.highlights.find((x) => x.id === RT.selMarkId) : undefined;
+  }
+  if (!book || !h) {
+    notify(t('notice.mark.notFound'), 'error');
+    return;
+  }
+
+  const remembered = String(h.review?.path ?? '').trim();
+  if (remembered) {
+    const file = app.vault.getFileByPath(remembered);
+    if (file) {
+      void app.workspace.getLeaf(false).openFile(file);
+      return;
+    }
+  }
+
+  const target = book;
+  const mark = h;
+  const plan = reviewPlanOf(app);
+  void (async () => {
+    try {
+      const res = await syncReviewCard({ app, book: target, highlight: mark, settings, plan });
+      if (setHighlightReview(target, mark.id, { path: res.path, at: Date.now() })) {
+        src.store.touch();
+        repaint();
+        emitNotesChanged();
+      }
+      if (res.added) notify(t('notice.review.added'));
+      else if (res.reason === 'exists') notify(t('notice.review.exists'), 'info');
+      /* 没加进去、也不是「已经在计划里」：把 bz 那边的具体原因说清楚
+         （没装 / 没启用 / 版本旧），这比一句「卡片已生成」有用得多 */
+      else notify(reviewBridgeProblem(probeBz(app)) ?? t('notice.review.noPlan'), 'info');
+    } catch {
+      notify(t('common.unknownError'), 'error');
+    }
+  })();
+}
+
+/**
+ * 书卡右键「划线加入复习」：把这本书还没进复习的划线一次做成卡片。
+ *
+ * 逐条调用单条链路而不是另写一套批量：写卡与登记的逻辑只有一份，批量只是
+ * 循环 + 汇总，接口不会分叉。代价是几十条就是几十次读改写——对本地文件
+ * 来说可以接受，真卡住再改成「先全部写盘、再一趟登记」。
+ *
+ * 已经加过的跳过（划线上记着路径），所以重复点不会造出重复卡片。
+ */
+async function addBookToReview(bookId: string): Promise<void> {
+  const src = getShellSource();
+  if (!src) return;
+  const book = liveBooks().find((b) => b.id === bookId);
+  if (!book) return;
+  const all = highlightsOf(book);
+  if (!all.length) {
+    notify(t('notice.review.noMarks'), 'info');
+    return;
+  }
+  const todo = all.filter((h) => !String(h.review?.path ?? '').trim());
+  if (!todo.length) {
+    notify(t('notice.review.allIn'), 'info');
+    return;
+  }
+
+  const plan = reviewPlanOf(src.app);
+  const settings = shellSettings();
+  let added = 0;
+  let skipped = 0;
+  for (const h of todo) {
+    try {
+      const res = await syncReviewCard({ app: src.app, book, highlight: h, settings, plan });
+      if (res.added) added += 1;
+      else skipped += 1;
+      setHighlightReview(book, h.id, { path: res.path, at: Date.now() });
+    } catch {
+      skipped += 1;
+    }
+  }
+  src.store.touch();
+  repaint();
+  emitNotesChanged();
+  notify(t('notice.review.batch', { added, skipped }));
 }
 
 /**
@@ -1093,6 +1205,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
           if (it.act === 'export')
             i.onClick(() => {
               if (requireCap('export')) exportBookFile(id);
+            });
+          /* 复习没解锁就弹对照表，与导出同一口径（不悄悄只做一半） */
+          if (it.act === 'review')
+            i.onClick(() => {
+              if (requireCap('review')) void addBookToReview(id);
             });
           if (it.act === 'fav')
             i.onClick(() => {
@@ -1562,6 +1679,21 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       });
       break;
     }
+    case 'pickreviewdir': {
+      /* 复习卡目录：只改配置、不搬旧卡——卡片已经进了 bz 的复习排期，
+         搬文件要同时改排期表里的路径，一次手滑就断一批。旧卡留在原处，
+         划线上记着路径，照样能打开。 */
+      const src = getShellSource();
+      if (!src) break;
+      const cur = shellSettings().reviewDir || DEFAULT_SETTINGS.reviewDir;
+      void pickFolder(src.app, cur).then((picked) => {
+        if (picked === null || picked === cur) return;
+        src.setSettings({ reviewDir: picked || DEFAULT_SETTINGS.reviewDir });
+        notify(t('notice.review.dirChanged', { dir: picked || DEFAULT_SETTINGS.reviewDir }));
+        repaint();
+      });
+      break;
+    }
     case 'pickdatadir': {
       const src = getShellSource();
       if (!src) break;
@@ -1944,6 +2076,18 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'hlpassage':
       if (!requireCap('kb')) break;
       knowledgeEntry('passage', d.id, d.book);
+      break;
+    /* 复习：点已有划线时，划线上已经记着卡片路径，加过就直接打开 */
+    case 'hlreview':
+      if (!requireCap('review')) break;
+      addToReview(d.id, d.book);
+      break;
+    /* 划词路径：先落线（autoMarkSelection），再拿刚落笔的那条去生成卡片 */
+    case 'selreview':
+      if (!requireCap('review')) break;
+      autoMarkSelection('selreview');
+      addToReview(RT.selMarkId);
+      finishSelection('selreview');
       break;
     case 'selbilink': {
       /* 还没落下标注，只能拿选区 + 当前章名拼双向链接；

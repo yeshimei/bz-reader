@@ -5,7 +5,7 @@
  * 变成一句用户能照着做的人话，而不是控制台里一条红字。
  */
 import { describe, expect, it, vi } from 'vitest';
-import { aiBridgeProblem, bzPreviewReady, entryBridgeProblem, openBzEntry, openBzPreview, probeBz } from '../src/data/bz-bridge';
+import { aiBridgeProblem, bzPreviewReady, entryBridgeProblem, openBzEntry, openBzPreview, probeBz, reviewBridgeProblem, reviewPlanOf } from '../src/data/bz-bridge';
 
 const term = vi.fn();
 const passage = vi.fn();
@@ -204,5 +204,49 @@ describe('打开知识盒预览', () => {
     });
     const a = app({ knowledge: { ...knowledge, openPreview: preview } });
     expect(openBzPreview(a, '文献/心流.md')).toBe(false);
+  });
+});
+
+/**
+ * 复习计划门面（2026-11，划线 → 复习卡）：bz 那边新增的 `reviewPlan`。
+ *
+ * 与知识盒门面同一种探测口径：老版本没有就整块降级，绝不因为缺一个方法
+ * 抛错。缺一半（比如有 addNote 没有 hasNote）也算不可用——半套门面调下去
+ * 只会得到更难懂的错误。
+ */
+describe('复习计划门面', () => {
+  const reviewPlan = () => ({
+    isReady: () => true,
+    hasNote: vi.fn(async () => false),
+    addNote: vi.fn(async () => ({ added: true })),
+    addNotes: vi.fn(async () => ({ added: 1, exists: 0, notFound: 0 })),
+    removeNote: vi.fn(async () => true),
+  });
+
+  it('门面齐全：探测到，取得到', () => {
+    const a = app({ reviewPlan: reviewPlan() });
+    const p = probeBz(a);
+    expect(p.review).not.toBeNull();
+    expect(reviewBridgeProblem(p)).toBeNull();
+  });
+
+  it('老版本 bz 没有 reviewPlan：判为版本旧并给出可执行的提示', () => {
+    const a = app({ knowledge });
+    const p = probeBz(a);
+    expect(p.review).toBeNull();
+    expect(reviewBridgeProblem(p)).toContain('1.41.0');
+  });
+
+  it('缺一个方法：整块判为不可用，不拿半套门面去调', () => {
+    const partial = reviewPlan() as Record<string, unknown>;
+    delete partial.removeNote;
+    const p = probeBz(app({ reviewPlan: partial }));
+    expect(p.review).toBeNull();
+  });
+
+  it('没装 bz：提示引导安装', () => {
+    const p = probeBz({ plugins: { plugins: {}, manifests: {} } } as never);
+    expect(reviewBridgeProblem(p)).toContain('还没装');
+    expect(reviewPlanOf({ plugins: { plugins: {}, manifests: {} } } as never)).toBeNull();
   });
 });

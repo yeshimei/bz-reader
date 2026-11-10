@@ -11,11 +11,12 @@ import { bookMenuItems } from '../src/shell/book-menu';
 const plain = { done: false, fav: false };
 
 describe('bookMenuItems · 条目与顺序', () => {
-  it('八条都在，顺序是 阅读 / 详情 / 导出 / 收藏 / 标为读完 / 改名 / 归入分类 / 移出书架', () => {
+  it('九条都在，顺序是 阅读 / 详情 / 导出 / 加入复习 / 收藏 / 标为读完 / 改名 / 归入分类 / 移出书架', () => {
     expect(bookMenuItems(plain).map((i) => i.title)).toEqual([
       '阅读',
       '书籍详情',
       '导出这本书',
+      '划线加入复习',
       '收藏',
       '标为读完',
       '改名',
@@ -25,13 +26,17 @@ describe('bookMenuItems · 条目与顺序', () => {
   });
 
   /* 导出紧跟在「书籍详情」后面：它和详情一样是「看这本书产出什么」，
-     不该沉到底部管理组，也不该插进收藏/读完这种状态开关中间。 */
+     不该沉到底部管理组，也不该插进收藏/读完这种状态开关中间。
+     复习（2026-11-11）同理，紧跟导出——两者都是「把划线搬出去」。 */
   it('导出排在详情之后、收藏之前，且不带分隔线', () => {
     const list = bookMenuItems(plain);
     const acts = list.map((i) => i.act);
     expect(acts.indexOf('export')).toBe(acts.indexOf('detail') + 1);
-    expect(acts.indexOf('export')).toBe(acts.indexOf('fav') - 1);
+    expect(acts.indexOf('review')).toBe(acts.indexOf('export') + 1);
+    /* 复习与导出之间不插状态开关，最终都落在收藏前面 */
+    expect(acts.indexOf('review')).toBeLessThan(acts.indexOf('fav'));
     expect(list.find((i) => i.act === 'export')?.sepBefore).toBeFalsy();
+    expect(list.find((i) => i.act === 'review')?.sepBefore).toBeFalsy();
   });
 
   /* 归类是「整理书架」的动作，和改名同一组：它不该插到阅读/收藏这些
@@ -58,7 +63,17 @@ describe('bookMenuItems · 条目与顺序', () => {
 
   it('每条都有自己的图标', () => {
     const icons = bookMenuItems(plain).map((i) => i.icon);
-    expect(icons).toEqual(['book-open', 'info', 'download', 'star', 'check', 'pencil', 'folder', 'trash']);
+    expect(icons).toEqual([
+      'book-open',
+      'info',
+      'download',
+      'rotate-ccw',
+      'star',
+      'check',
+      'pencil',
+      'folder',
+      'trash',
+    ]);
   });
 });
 
@@ -94,7 +109,7 @@ describe('bookMenuItems · 文件丢失', () => {
     const list = bookMenuItems({ ...plain, missing: true });
     expect(list.find((i) => i.act === 'relocate')?.title).toBe('重新定位文件…');
     expect(list.filter((i) => i.disabled).map((i) => i.act)).toEqual(['open']);
-    expect(list).toHaveLength(9);
+    expect(list).toHaveLength(10);
   });
 
   /* 书文件丢了，摘录和书签还在本机：导出不该跟着禁用 */

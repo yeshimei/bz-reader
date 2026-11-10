@@ -18,6 +18,7 @@ export type BookMenuAction =
   | 'open'
   | 'detail'
   | 'export'
+  | 'review'
   | 'fav'
   | 'done'
   | 'rename'
@@ -56,6 +57,9 @@ export function bookMenuItems(input: BookMenuInput): BookMenuItem[] {
     /* 导出紧跟详情：两者都回答「这本书能产出什么」。摘录存在本机，
        书文件丢了也能导，所以这一条不看 missing。 */
     { act: 'export', title: '导出这本书', icon: 'download' },
+    /* 复习紧跟导出：两者都是「这本书能产出什么」。点它把本书还没进复习的
+       划线一次做成卡片——几十条划线逐条点太折磨，批量入口要在这里。 */
+    { act: 'review', title: '划线加入复习', icon: 'rotate-ccw' },
     { act: 'fav', title: input.fav ? '取消收藏' : '收藏', icon: 'star' },
     /* 两个方向用两枚图标：check 是「完成」，refresh 是「回到未读完」。
        共用一枚 check 的话，「标为在读」看起来像又要把它标成读完。 */
