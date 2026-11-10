@@ -44,6 +44,8 @@ export const COMMANDS: readonly CommandSpec[] = [
   { id: 'shelf-ask', key: 'cmd.shelfAsk' },
   /* 主题书单（2026-11-11）：给主题，检索找书，模型排路线，可存成笔记 */
   { id: 'route', key: 'cmd.route' },
+  /* 写作素材包（2026-11-11）：主题词本地匹配划线，不调 AI */
+  { id: 'materials', key: 'cmd.materials' },
   /* ── 阅读 ── */
   { id: 'search', key: 'cmd.search' },
   { id: 'sidebar', key: 'cmd.sidebar' },

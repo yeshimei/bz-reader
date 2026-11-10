@@ -31,6 +31,7 @@ describe('命令 id', () => {
         'fullscreen',
         'guide',
         'import',
+        'materials',
         'notes',
         'open',
         'page-next',
@@ -125,6 +126,7 @@ describe('命令分发', () => {
       openSemanticSearchPanel: vi.fn(),
       openShelfAskPanel: vi.fn(),
       openTopicRoutePanel: vi.fn(),
+      openMaterialPanel: vi.fn(),
       activeReader: vi.fn(() => ({ refreshProbe: probeRefresh })),
     };
     Object.assign(p, spy);

@@ -58,6 +58,8 @@ import { openCrossSearch } from './ui/cross-search-panel';
 import { openSemanticSearch as openSemanticPanel } from './ui/semantic-panel';
 import { openShelfAsk } from './ui/shelf-ask-panel';
 import { openTopicRoute } from './ui/topic-route-panel';
+import { openMaterials } from './ui/material-panel';
+import { allMarks } from './shell/domain';
 import { aiAsk } from './data/ai';
 import { safeName } from './data/export';
 import { DEFAULT_SETTINGS } from './data/settings';
@@ -236,6 +238,10 @@ export function createPlugin(cfg: PluginConfig) {
         /* 主题书单（2026-11-11）：给主题，检索找书，模型排路线 */
         case 'route':
           this.openTopicRoutePanel();
+          break;
+        /* 写作素材包（2026-11-11）：主题词本地匹配划线，不发请求 */
+        case 'materials':
+          this.openMaterialPanel();
           break;
         case 'sidebar':
           this.openTocSidebar('toc');
@@ -1373,6 +1379,28 @@ export function createPlugin(cfg: PluginConfig) {
       const base = String(this.cfg.settings.exportDir ?? '').trim() || DEFAULT_SETTINGS.exportDir;
       const dir = `${base}/主题书单`;
       const name = safeName(String(topic ?? '').trim() || t('route.title'), t('route.title'));
+      const path = `${dir}/${name}.md`;
+      const adapter = this.app.vault.adapter;
+      if (!(await adapter.exists(dir))) await adapter.mkdir(dir);
+      await adapter.write(path, markdown);
+      return path;
+    }
+
+    /**
+     * 写作素材包（2026-11-11）：主题词本地匹配划线，不调 AI、不发请求。
+     */
+    openMaterialPanel(): void {
+      openMaterials({
+        marks: allMarks(this.repo.all()),
+        onSave: (topic, markdown) => this.saveMaterialNote(topic, markdown),
+      });
+    }
+
+    /** 素材包存成笔记：与主题书单同一套「同名覆盖」 */
+    async saveMaterialNote(topic: string, markdown: string): Promise<string> {
+      const base = String(this.cfg.settings.exportDir ?? '').trim() || DEFAULT_SETTINGS.exportDir;
+      const dir = `${base}/素材包`;
+      const name = safeName(String(topic ?? '').trim() || t('material.title'), t('material.title'));
       const path = `${dir}/${name}.md`;
       const adapter = this.app.vault.adapter;
       if (!(await adapter.exists(dir))) await adapter.mkdir(dir);
