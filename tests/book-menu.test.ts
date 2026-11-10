@@ -11,10 +11,11 @@ import { bookMenuItems } from '../src/shell/book-menu';
 const plain = { done: false, fav: false };
 
 describe('bookMenuItems · 条目与顺序', () => {
-  it('十条都在，顺序是 阅读 / 详情 / 导出 / 加入复习 / 加入复习（AI 出题）/ 收藏 / 标为读完 / 改名 / 归入分类 / 移出书架', () => {
+  it('十一条都在，顺序是 阅读 / 详情 / 补全信息 / 导出 / 加入复习 / 加入复习（AI 出题）/ 收藏 / 标为读完 / 改名 / 归入分类 / 移出书架', () => {
     expect(bookMenuItems(plain).map((i) => i.title)).toEqual([
       '阅读',
       '书籍详情',
+      '补全信息（AI）',
       '导出这本书',
       '划线加入复习',
       '划线加入复习（AI 出题）',
@@ -28,11 +29,13 @@ describe('bookMenuItems · 条目与顺序', () => {
 
   /* 导出紧跟在「书籍详情」后面：它和详情一样是「看这本书产出什么」，
      不该沉到底部管理组，也不该插进收藏/读完这种状态开关中间。
-     复习（2026-11-11）同理，紧跟导出——两者都是「把划线搬出去」。 */
+     复习（2026-11-11）同理，紧跟导出——两者都是「把划线搬出去」。
+     2026-11-11 补全信息插在详情与导出之间：它补的是详情页那几个空字段。 */
   it('导出排在详情之后、收藏之前，且不带分隔线', () => {
     const list = bookMenuItems(plain);
     const acts = list.map((i) => i.act);
-    expect(acts.indexOf('export')).toBe(acts.indexOf('detail') + 1);
+    expect(acts.indexOf('enrich')).toBe(acts.indexOf('detail') + 1);
+    expect(acts.indexOf('export')).toBe(acts.indexOf('enrich') + 1);
     expect(acts.indexOf('review')).toBe(acts.indexOf('export') + 1);
     /* 复习与导出之间不插状态开关，最终都落在收藏前面 */
     expect(acts.indexOf('review')).toBeLessThan(acts.indexOf('fav'));
@@ -67,6 +70,7 @@ describe('bookMenuItems · 条目与顺序', () => {
     expect(icons).toEqual([
       'book-open',
       'info',
+      'sparkles',
       'download',
       'rotate-ccw',
       'sparkles',
@@ -111,7 +115,7 @@ describe('bookMenuItems · 文件丢失', () => {
     const list = bookMenuItems({ ...plain, missing: true });
     expect(list.find((i) => i.act === 'relocate')?.title).toBe('重新定位文件…');
     expect(list.filter((i) => i.disabled).map((i) => i.act)).toEqual(['open']);
-    expect(list).toHaveLength(11);
+    expect(list).toHaveLength(12);
   });
 
   /* 书文件丢了，摘录和书签还在本机：导出不该跟着禁用 */

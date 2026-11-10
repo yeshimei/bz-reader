@@ -38,6 +38,10 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
      同一性质。 */
   'src/data/ai.ts': 37,
   'src/data/backup.ts': 4,
+  /* 2026-11-11 新文件：补元数据的 prompt 与解析标签（'简介' / '标签' / '语言'
+     是模型输出里的字段名，解析器必须认得这几个字；它们不显示给用户，
+     与 data/ai.ts 里的 prompt 同一性质）。 */
+  'src/data/book-enrich.ts': 10,
   'src/data/book-scan.ts': 1,
   'src/data/deeplink.ts': 4,
   /* 2026-11-11 +2（42 → 44）：新增「划线加入复习计划」这一行能力的卖点句
@@ -86,8 +90,9 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
      2026-11-10 +1（10 → 11）：同理多一条「导出这本书」。
      2026-11-11 +1（11 → 12）：多一条「划线加入复习」。这一列菜单整组仍是
      硬编码中文，只给新条目走 t() 会变成中英混排，整组留到以后一次性收。
-     2026-11-10 +1（12 → 13）：多一条「划线加入复习（AI 出题）」，理由同上。 */
-  'src/shell/book-menu.ts': 13,
+     2026-11-10 +1（12 → 13）：多一条「划线加入复习（AI 出题）」，理由同上。
+     2026-11-11 +1（13 → 14）：多一条「补全信息（AI）」，理由同上。 */
+  'src/shell/book-menu.ts': 14,
   'src/shell/card-image.ts': 4,
   'src/shell/card-template.ts': 8,
   /* 2026-11-10 +2（17 → 19）：更新日志页脚多一枚「支持作者（已有 N 位）」，

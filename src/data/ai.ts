@@ -9,8 +9,18 @@
  * 用户应该被带到设置页，而不是看着按钮点了没反应。
  * ============================================================ */
 import type { ReaderSettings } from './settings';
+import { buildEnrichMessages } from './book-enrich';
 
-export type AiTask = 'summarize' | 'explain' | 'translate' | 'ask' | 'follow' | 'probe' | 'quiz' | 'shelf';
+export type AiTask =
+  | 'summarize'
+  | 'explain'
+  | 'translate'
+  | 'ask'
+  | 'follow'
+  | 'probe'
+  | 'quiz'
+  | 'shelf'
+  | 'enrich';
 
 /**
  * 追问时原文最多带多少字。
@@ -45,6 +55,8 @@ export interface AiAskInput {
   text: string;
   /** 书名（问答的 system 里用来指代「这本书」） */
   title?: string;
+  /** 作者（只有补元数据用：书名 + 作者 + 片段） */
+  author?: string;
   /** 当前章节名 */
   chapter?: string;
   /** 当前这一屏的正文（只有 ask 用；不传就明说没有正文） */
@@ -76,7 +88,7 @@ export function clipContext(text: string, limit = ASK_CONTEXT_LIMIT): string {
 }
 
 /** 摘录 / 解释 / 翻译的老口径，一字不改（回归测试锁着） */
-function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow' | 'probe' | 'quiz' | 'shelf'>, text: string): string {
+function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow' | 'probe' | 'quiz' | 'shelf' | 'enrich'>, text: string): string {
   if (task === 'summarize') {
     return `请把下面这段文字压缩成不超过 100 字的摘要，直接给摘要正文，不要任何开场白或前缀：\n\n${text}`;
   }
@@ -175,6 +187,15 @@ function buildShelfMessages(input: AiAskInput): AiMessage[] {
 export function buildMessages(input: AiAskInput): AiMessage[] {
   if (input.task === 'follow') return buildFollowMessages(input);
   if (input.task === 'probe' || input.task === 'quiz') return buildCoachMessages(input);
+  if (input.task === 'enrich') {
+    /* 补元数据：书名 + 作者 + 画像里的一段样本。格式约定在 book-enrich 里，
+       这里只把三个字段递过去（两边各守一半，测试也各测一半）。 */
+    return buildEnrichMessages({
+      title: input.title ?? '',
+      author: input.author,
+      sample: input.context,
+    });
+  }
   if (input.task === 'shelf') return buildShelfMessages(input);
   if (input.task !== 'ask') {
     return [{ role: 'user', content: buildPrompt(input.task, input.text) }];

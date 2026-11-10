@@ -17,6 +17,7 @@
 export type BookMenuAction =
   | 'open'
   | 'detail'
+  | 'enrich'
   | 'export'
   | 'review'
   | 'reviewai'
@@ -55,6 +56,9 @@ export function bookMenuItems(input: BookMenuInput): BookMenuItem[] {
       ? [{ act: 'relocate' as const, title: '重新定位文件…', icon: 'folder-open' }]
       : []),
     { act: 'detail', title: '书籍详情', icon: 'info' },
+    /* 2026-11-11：补全信息紧跟详情——两者都回答「这本书是什么」。
+       只填空白字段，用户改过的一律不动。 */
+    { act: 'enrich', title: '补全信息（AI）', icon: 'sparkles' },
     /* 导出紧跟详情：两者都回答「这本书能产出什么」。摘录存在本机，
        书文件丢了也能导，所以这一条不看 missing。 */
     { act: 'export', title: '导出这本书', icon: 'download' },

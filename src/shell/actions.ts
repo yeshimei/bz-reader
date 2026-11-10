@@ -117,6 +117,7 @@ import {
   topBlocksByVector,
   type PortraitPlan,
 } from '../data/portrait';
+import { enrichSample, mergeMetaPatch, parseEnrichReply } from '../data/book-enrich';
 import { kbSource } from '../data/kb-entry';
 import { kbLinkOf } from '../data/kb-link';
 import { endsSelection } from './selection-end';
@@ -700,6 +701,46 @@ function finishSelection(act: string): void {  if (!endsSelection(act)) return;
  *   · **没有 bz 也写卡**：卡片本身有用（能当笔记用），只是排不进复习。这时
  *     提示的是「更新 bz 后可用」，而不是把用户刚划的那段丢掉。
  */
+/**
+ * 补全书籍信息（2026-11-11）。
+ *
+ * 用户点菜单才发请求：书名 + 作者 + 画像里的样本 → 简介 / 分类 / 语言。
+ * 只写空白字段——用户改过的简介、已有的分类一律不动；模型没按约定格式
+ * 回答时什么都不写，宁可这次白问，也不往详情页塞一段散文。
+ */
+async function enrichBookMeta(bookId: string): Promise<void> {
+  const src = getShellSource();
+  const book = src ? liveBooks().find((b) => b.id === bookId) : undefined;
+  if (!src || !book) return;
+  const settings = shellSettings();
+  if (!settings.ai.baseUrl || !settings.ai.apiKey || !settings.ai.model) {
+    notify(t('notice.ai.needSetup'), 'info');
+    return;
+  }
+  const portrait = await readPortrait(src.app, book.id);
+  try {
+    const res = await aiAsk(settings, {
+      task: 'enrich',
+      text: '',
+      title: book.meta.title,
+      author: book.meta.author,
+      context: enrichSample(portrait),
+    });
+    const next = mergeMetaPatch(book.meta, parseEnrichReply(res.text));
+    if (!Object.keys(next).length) {
+      notify(t('notice.enrich.none'), 'info');
+      return;
+    }
+    Object.assign(book.meta, next);
+    book.updatedAt = Date.now();
+    src.store.touch();
+    repaint();
+    notify(t('notice.enrich.done'));
+  } catch {
+    notify(t('notice.enrich.fail'), 'error');
+  }
+}
+
 function addToReview(markId?: string, bookId?: string): void {
   const src = getShellSource();
   if (!src) return;
@@ -1250,6 +1291,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
           if (it.act === 'open') i.onClick(() => openBookById(id));
           if (it.act === 'relocate') i.onClick(() => overlay('missing', { bookId: id }));
           if (it.act === 'detail') i.onClick(() => overlay('detail', { bookId: id }));
+          /* 补全信息（2026-11-11）：用户点了才发请求，只填空白字段 */
+          if (it.act === 'enrich')
+            i.onClick(() => {
+              if (requireCap('ai')) void enrichBookMeta(id);
+            });
           /* 导出没解锁就弹对照表，不悄悄降级成「复制一段纯文本」 */
           if (it.act === 'export')
             i.onClick(() => {
