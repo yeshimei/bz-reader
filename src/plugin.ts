@@ -55,6 +55,8 @@ import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink'
 import { installBlobSrcdocPatches, uninstallBlobSrcdocPatches } from './engine/blob-srcdoc';
 import { disposeCrossSearchStage, searchAcrossBooks } from './engine/cross-search';
 import { openCrossSearch } from './ui/cross-search-panel';
+import { openSemanticSearch as openSemanticPanel } from './ui/semantic-panel';
+import type { SemanticHit } from './data/book-search';
 
 /* 壳层 */
 import { StudyView, VIEW_TYPE_STUDY } from './shell/study-view';
@@ -217,6 +219,10 @@ export function createPlugin(cfg: PluginConfig) {
           break;
         case 'search':
           this.openSearch();
+          break;
+        /* 按意思搜全库（2026-11-10）：命令面板入口，不是阅读动作 */
+        case 'semantic':
+          this.openSemanticSearchPanel();
           break;
         case 'sidebar':
           this.openTocSidebar('toc');
@@ -1299,6 +1305,39 @@ export function createPlugin(cfg: PluginConfig) {
 
     openSearch(): void {
       setState({ overlay: { kind: 'search' } });
+    }
+
+    /**
+     * 按意思搜全库（2026-11-10）。
+     *
+     * 与跨书全文搜索并列：那边逐本扫字面，这边一次嵌入 + 画像余弦。
+     * 结果面板上点一条 → 打开那本书 → 用这一段开头在书内再搜一次定位。
+     */
+    openSemanticSearchPanel(): void {
+      openSemanticPanel({
+        app: this.app,
+        books: this.repo.all().filter((b) => !(b.fileRef as { fileMissing?: boolean }).fileMissing),
+        onJump: (book, hit) => void this.jumpToSemanticHit(book, hit),
+      });
+    }
+
+    /** 语义命中落到原文：画像里没有 CFI，用片段在书内搜一次再跳 */
+    async jumpToSemanticHit(book: ReaderBook, hit: SemanticHit): Promise<void> {
+      await this.openBook(book);
+      const view = this.activeReader();
+      if (!view || view.currentBookId !== book.id) return;
+      const snippet = String(hit.chunk ?? '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 24);
+      if (!snippet) return;
+      try {
+        const hits = await view.searchText(snippet);
+        const first = hits[0];
+        if (first?.cfi) view.jumpTo(first.cfi);
+      } catch {
+        /* 定位失败就停在书里：打开书本身已经是用户要的结果 */
+      }
     }
 
     openTocSidebar(tab?: SideTab): void {

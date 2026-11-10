@@ -36,6 +36,7 @@ export const ZH = {
   'cmd.notes': '书架：笔记',
   'cmd.stats': '书架：统计',
   'cmd.prefs': '书架：设置',
+  'cmd.semantic': '书架：按意思搜全库',
 
   /* ── 命令：阅读器 ────────────────────────────────────────── */
   'cmd.search': '阅读：搜索（本书 / 全库）',
@@ -164,6 +165,16 @@ export const ZH = {
   'search.body.stopped': '已停止（搜了 {done}/{total} 本）',
   'search.body.stop': '停止',
   'search.clear': '清空',
+  'search.semantic.title': '按意思搜全库',
+  'search.semantic.ph': '描述你要找的内容，比如「哪本书讲过知行合一」',
+  'search.semantic.go': '搜索',
+  'search.semantic.hint': '输入一句话，按意思找，不要求原词。回车开始。',
+  'search.semantic.searching': '正在检索…',
+  'search.semantic.empty': '没有找到相近的段落（检索了 {n} 本）',
+  'search.semantic.found': '找到 {n} 段，来自 {books} 本',
+  'search.semantic.pro': '按意思搜是高级功能，激活后可用',
+  'search.semantic.noIndex': '还没有可检索的画像：先打开一本，在侧栏 AI 页签里建一次',
+  'search.semantic.embedFail': '嵌入服务没有响应，稍后再试',
   'notice.sel.empty': '没有可复制的选区',
   'notice.toc.missingChapter': '这一章在目录里找不到，可能书换了版本',
 

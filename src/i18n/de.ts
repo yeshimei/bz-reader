@@ -33,6 +33,7 @@ export const DE: Record<MsgKey, string> = {
   'cmd.notes': 'Regal: Notizen',
   'cmd.stats': 'Regal: Statistik',
   'cmd.prefs': 'Regal: Einstellungen',
+  'cmd.semantic': 'Shelf: Search by meaning',
 
   /* ── Befehle: Leseansicht ───────────────────────────────── */
   'cmd.search': 'Lesen: Suche (Buch / Bibliothek)',
@@ -156,6 +157,16 @@ export const DE: Record<MsgKey, string> = {
   'search.body.stopped': 'Angehalten ({done}/{total} Bücher)',
   'search.body.stop': 'Anhalten',
   'search.clear': 'Leeren',
+  'search.semantic.title': 'Search by meaning',
+  'search.semantic.ph': 'Describe what you are looking for, e.g. which book explains this idea',
+  'search.semantic.go': 'Search',
+  'search.semantic.hint': 'Type a sentence and search by meaning; exact words are not required. Press Enter.',
+  'search.semantic.searching': 'Searching…',
+  'search.semantic.empty': 'No close passages found (searched {n} books)',
+  'search.semantic.found': 'Found {n} passages in {books} books',
+  'search.semantic.pro': 'Searching by meaning is a Pro feature',
+  'search.semantic.noIndex': 'No searchable profile yet: open a book and build one in the AI sidebar tab',
+  'search.semantic.embedFail': 'The embedding service did not respond; try again later',
   'notice.sel.empty': 'Nichts zum Kopieren ausgewählt',
   'notice.toc.missingChapter': 'Dieses Kapitel steht nicht mehr im Inhaltsverzeichnis – die Datei wurde vermutlich geändert',
 

@@ -87,7 +87,13 @@ function usable(p: PortraitFile | null | undefined): p is PortraitFile {
   return !!p && p.done === true && p.blocks.length > 0;
 }
 
-async function loadPortraits(app: App | null | undefined): Promise<PortraitFile[]> {
+/**
+ * 读全部可用画像（按 mtime + size 缓存）。
+ *
+ * 2026-11-10 导出给 data/book-search 复用：跨书语义搜索与「借给 bz」看的是
+ * 同一批文件，缓存也该是同一份——两处各读各的，等于每次搜索多一遍 IO。
+ */
+export async function loadPortraits(app: App | null | undefined): Promise<PortraitFile[]> {
   const files = await listPortraits(app);
   const out: PortraitFile[] = [];
   for (const f of files) {

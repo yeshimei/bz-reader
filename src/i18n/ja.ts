@@ -32,6 +32,7 @@ export const JA: Record<MsgKey, string> = {
   'cmd.notes': '本棚：ノート',
   'cmd.stats': '本棚：統計',
   'cmd.prefs': '本棚：設定',
+  'cmd.semantic': 'Shelf: Search by meaning',
 
   /* ── コマンド：リーダー ──────────────────────────────────── */
   'cmd.search': '読書：検索（本文／ライブラリ全体）',
@@ -155,6 +156,16 @@ export const JA: Record<MsgKey, string> = {
   'search.body.stopped': '停止しました（{done}/{total} 冊を検索）',
   'search.body.stop': '停止',
   'search.clear': 'クリア',
+  'search.semantic.title': 'Search by meaning',
+  'search.semantic.ph': 'Describe what you are looking for, e.g. which book explains this idea',
+  'search.semantic.go': 'Search',
+  'search.semantic.hint': 'Type a sentence and search by meaning; exact words are not required. Press Enter.',
+  'search.semantic.searching': 'Searching…',
+  'search.semantic.empty': 'No close passages found (searched {n} books)',
+  'search.semantic.found': 'Found {n} passages in {books} books',
+  'search.semantic.pro': 'Searching by meaning is a Pro feature',
+  'search.semantic.noIndex': 'No searchable profile yet: open a book and build one in the AI sidebar tab',
+  'search.semantic.embedFail': 'The embedding service did not respond; try again later',
   'notice.sel.empty': 'コピーできる選択範囲がありません',
   'notice.toc.missingChapter': 'この章は目次に見つかりません。本のバージョンが変わった可能性があります',
 

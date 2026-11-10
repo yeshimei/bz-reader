@@ -33,6 +33,7 @@ export const PT: Record<MsgKey, string> = {
   'cmd.notes': 'Estante: notas',
   'cmd.stats': 'Estante: estatísticas',
   'cmd.prefs': 'Estante: configurações',
+  'cmd.semantic': 'Shelf: Search by meaning',
 
   /* ── Comandos: leitor ───────────────────────────────────── */
   'cmd.search': 'Leitura: pesquisar (livro / biblioteca)',
@@ -156,6 +157,16 @@ export const PT: Record<MsgKey, string> = {
   'search.body.stopped': 'Parado ({done}/{total} livros)',
   'search.body.stop': 'Parar',
   'search.clear': 'Limpar',
+  'search.semantic.title': 'Search by meaning',
+  'search.semantic.ph': 'Describe what you are looking for, e.g. which book explains this idea',
+  'search.semantic.go': 'Search',
+  'search.semantic.hint': 'Type a sentence and search by meaning; exact words are not required. Press Enter.',
+  'search.semantic.searching': 'Searching…',
+  'search.semantic.empty': 'No close passages found (searched {n} books)',
+  'search.semantic.found': 'Found {n} passages in {books} books',
+  'search.semantic.pro': 'Searching by meaning is a Pro feature',
+  'search.semantic.noIndex': 'No searchable profile yet: open a book and build one in the AI sidebar tab',
+  'search.semantic.embedFail': 'The embedding service did not respond; try again later',
   'notice.sel.empty': 'Nada selecionado para copiar',
   'notice.toc.missingChapter': 'Este capítulo não está mais no sumário — o arquivo pode ter mudado',
 

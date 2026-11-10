@@ -38,6 +38,8 @@ export const COMMANDS: readonly CommandSpec[] = [
   { id: 'notes', key: 'cmd.notes' },
   { id: 'stats', key: 'cmd.stats' },
   { id: 'prefs', key: 'cmd.prefs' },
+  /* 按意思搜全库（2026-11-10）：书架侧命令，随时可跑；没建画像时面板会说明 */
+  { id: 'semantic', key: 'cmd.semantic' },
   /* ── 阅读 ── */
   { id: 'search', key: 'cmd.search' },
   { id: 'sidebar', key: 'cmd.sidebar' },

@@ -29,6 +29,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'cmd.notes': '書架：筆記',
   'cmd.stats': '書架：統計',
   'cmd.prefs': '書架：設定',
+  'cmd.semantic': '書架：按意思搜全庫',
 
   /* ── 指令：閱讀器 ────────────────────────────────────────── */
   'cmd.search': '閱讀：搜尋（本書／全庫）',
@@ -153,6 +154,16 @@ export const ZH_TW: Record<MsgKey, string> = {
   'search.body.stopped': '已停止（搜了 {done}/{total} 本）',
   'search.body.stop': '停止',
   'search.clear': '清空',
+  'search.semantic.title': '按意思搜全庫',
+  'search.semantic.ph': '描述你要找的內容，例如「哪本書講過知行合一」',
+  'search.semantic.go': '搜尋',
+  'search.semantic.hint': '輸入一句話，按意思找，不要求原詞。按 Enter 開始。',
+  'search.semantic.searching': '正在檢索…',
+  'search.semantic.empty': '沒有找到相近的段落（檢索了 {n} 本）',
+  'search.semantic.found': '找到 {n} 段，來自 {books} 本',
+  'search.semantic.pro': '按意思搜是進階功能，啟用後可用',
+  'search.semantic.noIndex': '還沒有可檢索的畫像：先打開一本，在側欄 AI 頁籤裡建一次',
+  'search.semantic.embedFail': '嵌入服務沒有回應，稍後再試',
   'notice.sel.empty': '沒有可複製的選取範圍',
   'notice.toc.missingChapter': '這一章在目錄裡找不到，可能書換了版本',
 

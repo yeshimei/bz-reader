@@ -36,6 +36,7 @@ describe('命令 id', () => {
         'page-prev',
         'prefs',
         'search',
+        'semantic',
         'sidebar',
         'stats',
         'tts',
@@ -117,6 +118,8 @@ describe('命令分发', () => {
       openImportPanel: vi.fn(),
       openSearch: vi.fn(),
       openTocSidebar: vi.fn(),
+      /* 语义搜索要造 DOM，node 里没有 document：这里只验「命令走到了它」 */
+      openSemanticSearchPanel: vi.fn(),
       activeReader: vi.fn(() => ({ refreshProbe: probeRefresh })),
     };
     Object.assign(p, spy);
