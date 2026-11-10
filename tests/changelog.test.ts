@@ -223,10 +223,11 @@ describe('更新日志弹窗的 DOM 结构', () => {
     expect(mob).toContain('当前');
   });
 
-  it('关闭钮两端各一颗，外部入口给的是能被 JS 认出的 data 属性', () => {
+  it('关闭钮两端各一颗，入口给的是能被 JS 认出的 data-act', () => {
     expect((html.match(/bzs-chgn-close/g) ?? []).length).toBe(2);
-    expect(html).toContain('data-href="https://github.com/yeshimei/bz-reader"');
-    expect(html).toContain('data-role="chgndone"');
+    expect(html).toContain('data-act="chgnrepo"');
+    /* 2026-11-10 照 bz 去掉「知道了」：弹窗里不再有那枚主按钮 */
+    expect(html).not.toContain('data-role="chgndone"');
   });
 
   it('没有条目的一段不画（构造一版只有修复）', () => {

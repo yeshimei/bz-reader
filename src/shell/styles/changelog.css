@@ -143,7 +143,9 @@
   display: none;
 }
 
-/* 版本行：一根细线串起所有版本，每个版本在线上一个点（当前版实心 + 光晕） */
+/* 版本行：一根细线串起所有版本，每个版本在线上一个点（当前版实心 + 光晕）。
+   2026-11-10：行距从 10 放到 13——选中项下面还要多一行「N 处改动」，
+   10 的上下内边距会让 v0.4.1 / 4 处改动 / v0.4.0 三行糊成一团。 */
 .bzs-chgn .bzs-chgn-v {
   position: relative;
   display: flex;
@@ -151,7 +153,7 @@
   align-items: baseline;
   gap: 0 8px;
   width: 100%;
-  padding: 10px 8px 10px 22px;
+  padding: 13px 8px 13px 22px;
 }
 
 .bzs-chgn .bzs-chgn-v::after {
@@ -165,18 +167,18 @@
 }
 
 .bzs-chgn .bzs-chgn-v:first-child::after {
-  top: 14px;
+  top: 19px;
 }
 
 .bzs-chgn .bzs-chgn-v:last-child::after {
-  bottom: calc(100% - 21px);
+  bottom: calc(100% - 26px);
 }
 
 .bzs-chgn .bzs-chgn-v::before {
   content: "";
   position: absolute;
   left: 0;
-  top: 13px;
+  top: 18px;
   z-index: 1;
   width: 7px;
   height: 7px;
@@ -215,10 +217,11 @@
   color: var(--chg-ink-3);
 }
 
-/* 改动条数平时不露头，悬停 / 选中才淡入——列表静下来才像时间轴 */
+/* 改动条数平时不露头，悬停 / 选中才淡入——列表静下来才像时间轴。
+   2026-11-10：上下各让出几像素，让它和版本号分开一档、也不贴住下一版。 */
 .bzs-chgn-v .n {
   flex-basis: 100%;
-  margin-top: 2px;
+  margin: 5px 0 4px;
   font-size: 10.5px;
   line-height: 1.4;
   color: var(--chg-ink-3);
@@ -473,12 +476,15 @@
   color: var(--chg-ink-3);
 }
 
-/* 页脚：入口在左、确认在右 */
+/* 页脚：一排纯图标整组靠右，最后是带文字的「支持作者」胶囊。
+   2026-11-10 照 bz 的更新日志小窗改：入口不再带文字，也不再放「知道了」——
+   关窗只走右上角 × / 点遮罩 / ESC。 */
 .bzs-chgn-ft {
   grid-column: 2;
   grid-row: 2;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
   padding: 12px 16px 12px 32px;
   border-top: 1px solid var(--chg-line-soft);
@@ -489,27 +495,24 @@
   );
 }
 
-.bzs-chgn-grow {
-  flex: 1;
-}
-
-/* 入口链接：图标 + 文字。选择器带 .bzs-chgn 前缀是为了压过上面的按钮 reset
+/* 入口图标：30px 方块、裸图标不描边——加了框就变成四颗按钮，重一档。
+   选择器带 .bzs-chgn 前缀是为了压过上面的按钮 reset
    （`.bzs-chgn button` 的特异性是 0,1,1，单类选择器比不过）。 */
 .bzs-chgn .bzs-chgn-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 7px;
-  font-size: 12px;
-  color: var(--chg-ink-2);
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 8px;
+  color: var(--chg-ink-3);
   transition: background 0.14s ease, color 0.14s ease;
 }
 
 @media (hover: hover) {
   .bzs-chgn .bzs-chgn-link:hover {
-    background: var(--chg-accent-soft);
+    background: color-mix(in srgb, var(--chg-ink) 5%, transparent);
     color: var(--chg-ink);
   }
 }
@@ -518,60 +521,65 @@
   flex: none;
 }
 
-/* 支持作者（2026-11-10）：页脚右侧一枚图标 + 人数，排在「知道了」左边。
-   只给图标是因为这一行已经有两个文字入口了；人数是它唯一的信息量。
-   选择器同样带 .bzs-chgn / .bzs-chgn-m 前缀，压过上面的按钮 reset。 */
+/* 支持作者（2026-11-10 照 bz）：这一行唯一带文字、带底色的一枚——
+   它要人看见；右上角挂「+人数」角标。选择器带 .bzs-chgn / .bzs-chgn-m
+   前缀，压过上面的按钮 reset。 */
 .bzs-chgn .bzs-chgn-support,
 .bzs-chgn-m .bzs-chgn-support {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  height: 28px;
-  padding: 0 8px;
-  border-radius: 7px;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 8px;
   font-size: 11.5px;
-  font-variant-numeric: tabular-nums;
-  color: var(--chg-ink-2);
-  transition: background 0.14s ease, color 0.14s ease;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  color: var(--chg-accent);
+  background: var(--chg-accent-soft);
+  transition: filter 0.14s ease;
 }
 
+/* 心形图标自带 15px 尺寸（与 bz 同一枚、同一描边），这里只负责不被压扁 */
 .bzs-chgn .bzs-chgn-support svg,
 .bzs-chgn-m .bzs-chgn-support svg {
   flex: none;
-  width: 14px;
-  height: 14px;
-  color: var(--chg-accent);
 }
 
 @media (hover: hover) {
+  /* 悬停只提一点亮度，不换成实心底：这一组里它已经是最重的一个了 */
   .bzs-chgn .bzs-chgn-support:hover,
   .bzs-chgn-m .bzs-chgn-support:hover {
-    background: var(--chg-accent-soft);
-    color: var(--chg-ink);
+    filter: brightness(1.06);
   }
 }
 
-/* 主按钮：只有它带底色——这是「看完了」的唯一出口 */
-.bzs-chgn .bzs-chgn-done,
-.bzs-chgn-m .bzs-chgn-done {
+/* 角标：+人数。15px 圆点里 9px 字，是这排按钮上唯一的彩色实心块，再大就抢戏。
+   两位数自己撑成小胶囊（min-width + padding 一起长），99 位以上文案封顶成
+   99+（见 changelog-note.ts）。边框取面板底色，做出「从按钮上挖掉一角」的
+   观感；pointer-events 交给按钮本体，点角标也算点按钮。 */
+.bzs-chgn .bzs-chgn-count,
+.bzs-chgn-m .bzs-chgn-count {
+  position: absolute;
+  top: -5px;
+  right: -6px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 30px;
-  padding: 0 16px;
-  border-radius: 8px;
+  border-radius: 999px;
   background: var(--chg-accent);
   color: var(--text-on-accent, #ffffff);
-  font-size: 12.5px;
+  font-size: 9px;
   font-weight: 600;
-  text-align: center;
-}
-
-@media (hover: hover) {
-  .bzs-chgn .bzs-chgn-done:hover,
-  .bzs-chgn-m .bzs-chgn-done:hover {
-    filter: brightness(1.06);
-  }
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  border: 2px solid var(--chg-panel);
+  box-sizing: content-box;
+  pointer-events: none;
 }
 
 /* ── 手机：整篇文档流（不设版本栏） ── */
@@ -651,7 +659,8 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 18px 22px 20px;
+    /* 底距让给右下角浮条：条高 52 + 离地 36 = 88，再留一口气 */
+    padding: 18px 22px 96px;
     scrollbar-width: none;
   }
 
@@ -759,37 +768,64 @@
     color: var(--chg-ink);
   }
 
-  /* 底部入口条：手机上一滚页脚就没了，固定在抽屉底部才是长文档的归属 */
+  /* 入口条：手机上一滚页脚就没了。照 bz（2026-11-10）从贴底整条改成
+     右下角浮起的小玻璃条——它不占正文高度，滚到哪都在。
+     底距必须抬出系统手势区：只算 16px 时整条压在 Android 手势导航 /
+     iOS home indicator 上，触摸会被系统先吃掉（bz 那边真机踩过）。 */
   .bzs-chgn-mtools {
-    flex: none;
+    position: absolute;
+    right: 16px;
+    bottom: calc(20px + max(16px, env(safe-area-inset-bottom, 0px)));
+    z-index: 5;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
-    border-top: 1px solid var(--chg-line-soft);
+    gap: 8px;
+    padding: 6px;
+    border: 1px solid var(--chg-line);
+    border-radius: 13px;
+    background: color-mix(in srgb, var(--chg-panel) 90%, transparent);
+    backdrop-filter: blur(9px);
+    box-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.5);
   }
 
-  .bzs-chgn-mtools .bzs-chgn-done {
-    margin-left: auto;
-  }
-
-  /* 底条窄：入口只留图标，文字让给「知道了」 */
+  /* 40px 视觉 + ::after 外扩 2px 补到 44px 触控档（与壳层 .bz-touch-target
+     同口径）。桌面页脚那版是 30px —— 手机端反过来更小正是「按不准」的
+     一半原因。 */
   .bzs-chgn-mtools .bzs-chgn-link {
-    width: 38px;
-    justify-content: center;
-    padding: 0;
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
   }
 
-  .bzs-chgn-mtools .bzs-chgn-link span {
-    display: none;
+  .bzs-chgn-mtools .bzs-chgn-link::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
   }
 
-  /* 支持作者在底条上占一格：图标 + 人数，跟入口同宽 */
+  .bzs-chgn-mtools .bzs-chgn-link svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  /* 带文字的「支持作者」必须 width:auto —— 上面那条同为 (0,2,0)，
+     会把它按 40px 卡死成竖排。 */
   .bzs-chgn-mtools .bzs-chgn-support {
-    width: 44px;
-    justify-content: center;
-    padding: 0;
-    gap: 3px;
+    width: auto;
+    height: 40px;
+    gap: 7px;
+    padding: 0 14px;
+    font-size: 12.5px;
+    border-radius: 10px;
+  }
+
+  /* 角标跟按钮一起放大一档：40px 按钮上挂 15px 的角标会显得缩水 */
+  .bzs-chgn-mtools .bzs-chgn-count {
+    top: -6px;
+    right: -7px;
+    min-width: 16px;
+    height: 16px;
   }
 }
 

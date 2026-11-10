@@ -77,7 +77,10 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   /* 2026-11-10 +2（17 → 19）：更新日志页脚多一枚「支持作者（已有 N 位）」，
      那半句是弹窗框架文案，跟更新日志一样只有中英两版（`changelogLang`），
      不走八语言 t()——否则日文界面会出现「日文按钮 + 中文条目」的半翻状态。 */
-  'src/shell/changelog-note.ts': 19,
+  /* 2026-11-10 19 → 21：页脚照 bz 收成「三个纯图标 + 支持作者胶囊」，
+     删掉「知道了」与「问题反馈」，补上群号提示（模板头尾各一处中文）、
+     「视频教程」与「支持作者」。这一整组仍是中英两版框架文案，理由同上。 */
+  'src/shell/changelog-note.ts': 21,
   'src/shell/domain.ts': 14,
   'src/shell/idea-sheet.ts': 2,
   'src/shell/overlay.ts': 179,
