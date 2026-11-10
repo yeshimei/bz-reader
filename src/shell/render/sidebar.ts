@@ -241,7 +241,9 @@ function citesBody(
   onlyPage = false,
 ): string {
   if (!rows.length) {
-    return `<div class="bzs-empty">${t('side.cites.empty')}<br>${t('side.cites.emptyHint')}</div>`;
+    /* 只说一句。引用目前只有 PDF 引擎会上报，EPUB 没这条数据来源——
+       以前那句「在笔记里写 [[书名#page=3]]」在 epub 上永远成不了真。 */
+    return `<div class="bzs-empty">${t('side.cites.empty')}</div>`;
   }
   /* 「只看本页」：翻到第 40 页时，前面几十组都是路过的噪声。
      只在真有当前页、且确实按页分组时才给这枚开关（EPUB 没有页码）。 */

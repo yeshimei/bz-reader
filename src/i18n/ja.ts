@@ -292,7 +292,6 @@ export const JA: Record<MsgKey, string> = {
   'side.tab.highlights': 'ハイライト',
   'side.tab.cites': 'Citations',
   'side.cites.empty': 'No notes cite this book yet.',
-  'side.cites.emptyHint': 'Write [[book#page=3]] in a note and the pages it cites show up here.',
   'side.cites.page': 'Page {n}',
   'side.cites.count': '{n}',
   'side.cites.open': 'Open note',

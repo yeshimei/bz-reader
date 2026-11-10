@@ -60,4 +60,13 @@ describe('引用页签', () => {
     const html = render({ cites: ROWS, activePage: 0 });
     expect(html).not.toContain('bzs-citeonly');
   });
+
+  it('空态只说没人引用，不再教用户在笔记里写 #page=', () => {
+    /* EPUB 引擎不收集引用（只有 PDF 会上报），这条引导在 epub 上
+       永远不会成真，还会让用户以为是自己写错了链接语法。 */
+    const html = render({ cites: [] });
+    expect(html).toContain('还没有笔记引用这本书。');
+    expect(html).not.toContain('在笔记里写');
+    expect(html).not.toContain('#page=');
+  });
 });

@@ -302,7 +302,6 @@ export const ZH = {
   'side.tab.highlights': '划线',
   'side.tab.cites': '引用',
   'side.cites.empty': '还没有笔记引用这本书。',
-  'side.cites.emptyHint': '在笔记里写 [[书名#page=3]]，这里就会列出引了哪几页。',
   'side.cites.page': '第 {n} 页',
   'side.cites.count': '{n} 处',
   'side.cites.open': '打开笔记',

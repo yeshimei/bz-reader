@@ -290,7 +290,6 @@ export const ZH_TW: Record<MsgKey, string> = {
   'side.tab.highlights': '劃線',
   'side.tab.cites': '引用',
   'side.cites.empty': '還沒有筆記引用這本書。',
-  'side.cites.emptyHint': '在筆記裡寫 [[書名#page=3]]，這裡就會列出引了哪幾頁。',
   'side.cites.page': '第 {n} 頁',
   'side.cites.count': '{n} 處',
   'side.cites.open': '開啟筆記',
