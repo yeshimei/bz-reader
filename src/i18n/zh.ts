@@ -37,6 +37,7 @@ export const ZH = {
   'cmd.stats': '书架：统计',
   'cmd.prefs': '书架：设置',
   'cmd.semantic': '书架：按意思搜全库',
+  'cmd.shelfAsk': '书架：问这几本书',
 
   /* ── 命令：阅读器 ────────────────────────────────────────── */
   'cmd.search': '阅读：搜索（本书 / 全库）',
@@ -175,6 +176,20 @@ export const ZH = {
   'search.semantic.pro': '按意思搜是高级功能，激活后可用',
   'search.semantic.noIndex': '还没有可检索的画像：先打开一本，在侧栏 AI 页签里建一次',
   'search.semantic.embedFail': '嵌入服务没有响应，稍后再试',
+  'shelf.ask.title': '问这几本书',
+  'shelf.ask.pick': '选几本一起问',
+  'shelf.ask.ph': '想问这几本书什么？',
+  'shelf.ask.go': '提问',
+  'shelf.ask.hint': '勾选几本书，问一个它们各自怎么说的问题。',
+  'shelf.ask.ready': '已选 {n} 本',
+  'shelf.ask.needPick': '先勾选至少一本书',
+  'shelf.ask.noBooks': '书架上是空的',
+  'shelf.ask.noIndex': '选中的书还没有可检索的画像：先在侧栏 AI 里给它们各建一次',
+  'shelf.ask.empty': '这几本书里没有找到相近的段落',
+  'shelf.ask.searching': '正在翻这几本书…',
+  'shelf.ask.thinking': '正在整理答案…',
+  'shelf.ask.done': '依据来自 {n} 本',
+  'shelf.ask.sources': '出自',
   'notice.sel.empty': '没有可复制的选区',
   'notice.toc.missingChapter': '这一章在目录里找不到，可能书换了版本',
 

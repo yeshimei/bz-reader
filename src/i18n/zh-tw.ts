@@ -30,6 +30,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'cmd.stats': '書架：統計',
   'cmd.prefs': '書架：設定',
   'cmd.semantic': '書架：按意思搜全庫',
+  'cmd.shelfAsk': '書架：問這幾本書',
 
   /* ── 指令：閱讀器 ────────────────────────────────────────── */
   'cmd.search': '閱讀：搜尋（本書／全庫）',
@@ -164,6 +165,20 @@ export const ZH_TW: Record<MsgKey, string> = {
   'search.semantic.pro': '按意思搜是進階功能，啟用後可用',
   'search.semantic.noIndex': '還沒有可檢索的畫像：先打開一本，在側欄 AI 頁籤裡建一次',
   'search.semantic.embedFail': '嵌入服務沒有回應，稍後再試',
+  'shelf.ask.title': '問這幾本書',
+  'shelf.ask.pick': '選幾本一起問',
+  'shelf.ask.ph': '想問這幾本書什麼？',
+  'shelf.ask.go': '提問',
+  'shelf.ask.hint': '勾選幾本書，問一個它們各自怎麼說的問題。',
+  'shelf.ask.ready': '已選 {n} 本',
+  'shelf.ask.needPick': '先勾選至少一本書',
+  'shelf.ask.noBooks': '書架上是空的',
+  'shelf.ask.noIndex': '選中的書還沒有可檢索的畫像：先在側欄 AI 裡給它們各建一次',
+  'shelf.ask.empty': '這幾本書裡沒有找到相近的段落',
+  'shelf.ask.searching': '正在翻這幾本書…',
+  'shelf.ask.thinking': '正在整理答案…',
+  'shelf.ask.done': '依據來自 {n} 本',
+  'shelf.ask.sources': '出自',
   'notice.sel.empty': '沒有可複製的選取範圍',
   'notice.toc.missingChapter': '這一章在目錄裡找不到，可能書換了版本',
 

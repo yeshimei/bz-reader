@@ -37,6 +37,7 @@ describe('命令 id', () => {
         'prefs',
         'search',
         'semantic',
+        'shelf-ask',
         'sidebar',
         'stats',
         'tts',
@@ -120,6 +121,7 @@ describe('命令分发', () => {
       openTocSidebar: vi.fn(),
       /* 语义搜索要造 DOM，node 里没有 document：这里只验「命令走到了它」 */
       openSemanticSearchPanel: vi.fn(),
+      openShelfAskPanel: vi.fn(),
       activeReader: vi.fn(() => ({ refreshProbe: probeRefresh })),
     };
     Object.assign(p, spy);

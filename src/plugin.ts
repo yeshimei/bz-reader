@@ -56,6 +56,8 @@ import { installBlobSrcdocPatches, uninstallBlobSrcdocPatches } from './engine/b
 import { disposeCrossSearchStage, searchAcrossBooks } from './engine/cross-search';
 import { openCrossSearch } from './ui/cross-search-panel';
 import { openSemanticSearch as openSemanticPanel } from './ui/semantic-panel';
+import { openShelfAsk } from './ui/shelf-ask-panel';
+import { aiAsk } from './data/ai';
 import type { SemanticHit } from './data/book-search';
 
 /* 壳层 */
@@ -223,6 +225,10 @@ export function createPlugin(cfg: PluginConfig) {
         /* 按意思搜全库（2026-11-10）：命令面板入口，不是阅读动作 */
         case 'semantic':
           this.openSemanticSearchPanel();
+          break;
+        /* 问这摞书（2026-11-10）：选几本一起问，答案带出处 */
+        case 'shelf-ask':
+          this.openShelfAskPanel();
           break;
         case 'sidebar':
           this.openTocSidebar('toc');
@@ -1317,22 +1323,43 @@ export function createPlugin(cfg: PluginConfig) {
       openSemanticPanel({
         app: this.app,
         books: this.repo.all().filter((b) => !(b.fileRef as { fileMissing?: boolean }).fileMissing),
-        onJump: (book, hit) => void this.jumpToSemanticHit(book, hit),
+        onJump: (book, hit) => void this.jumpIntoBook(book, hit.chunk),
       });
     }
 
-    /** 语义命中落到原文：画像里没有 CFI，用片段在书内搜一次再跳 */
-    async jumpToSemanticHit(book: ReaderBook, hit: SemanticHit): Promise<void> {
+    /**
+     * 问这摞书（2026-11-10）。
+     *
+     * 勾几本书 → 跨书检索 → 一次对话。与「问这本书」共用同一套模型配置，
+     * 差别只在依据是多本、每条带出处。
+     */
+    openShelfAskPanel(): void {
+      openShelfAsk({
+        app: this.app,
+        books: this.repo.all().filter((b) => !b.archivedAt && !(b.fileRef as { fileMissing?: boolean }).fileMissing),
+        ask: (question, evidence) =>
+          aiAsk(this.cfg.settings, { task: 'shelf', text: question, context: evidence }).then((r) => r.text),
+        onJump: (book, snippet) => void this.jumpIntoBook(book, snippet),
+      });
+    }
+
+    /**
+     * 打开书并用一段字定位。
+     *
+     * 语义命中里没有 CFI（画像只存章节与原文），只能拿这一段的开头在书内
+     * 再搜一次——定位交给已有的全文搜索，不另造一套坐标。
+     */
+    async jumpIntoBook(book: ReaderBook, snippet: string): Promise<void> {
       await this.openBook(book);
       const view = this.activeReader();
       if (!view || view.currentBookId !== book.id) return;
-      const snippet = String(hit.chunk ?? '')
+      const kw = String(snippet ?? '')
         .replace(/\s+/g, ' ')
         .trim()
         .slice(0, 24);
-      if (!snippet) return;
+      if (!kw) return;
       try {
-        const hits = await view.searchText(snippet);
+        const hits = await view.searchText(kw);
         const first = hits[0];
         if (first?.cfi) view.jumpTo(first.cfi);
       } catch {

@@ -34,6 +34,7 @@ export const FR: Record<MsgKey, string> = {
   'cmd.stats': 'Bibliothèque : statistiques',
   'cmd.prefs': 'Bibliothèque : réglages',
   'cmd.semantic': 'Shelf: Search by meaning',
+  'cmd.shelfAsk': 'Shelf: Ask these books',
 
   /* ── Commandes : lecteur ────────────────────────────────── */
   'cmd.search': 'Lecture : rechercher (livre / bibliothèque)',
@@ -167,6 +168,20 @@ export const FR: Record<MsgKey, string> = {
   'search.semantic.pro': 'Searching by meaning is a Pro feature',
   'search.semantic.noIndex': 'No searchable profile yet: open a book and build one in the AI sidebar tab',
   'search.semantic.embedFail': 'The embedding service did not respond; try again later',
+  'shelf.ask.title': 'Ask these books',
+  'shelf.ask.pick': 'Pick books to ask together',
+  'shelf.ask.ph': 'What do you want to ask these books?',
+  'shelf.ask.go': 'Ask',
+  'shelf.ask.hint': 'Tick a few books and ask something they each have a view on.',
+  'shelf.ask.ready': '{n} books selected',
+  'shelf.ask.needPick': 'Tick at least one book first',
+  'shelf.ask.noBooks': 'The shelf is empty',
+  'shelf.ask.noIndex': 'The selected books have no searchable profile yet: open each and build one in the AI sidebar tab',
+  'shelf.ask.empty': 'No close passages in these books',
+  'shelf.ask.searching': 'Looking through these books…',
+  'shelf.ask.thinking': 'Putting the answer together…',
+  'shelf.ask.done': 'Based on {n} books',
+  'shelf.ask.sources': 'From',
   'notice.sel.empty': 'Rien de sélectionné à copier',
   'notice.toc.missingChapter': 'Ce chapitre n’est plus dans la table des matières — le fichier a peut-être changé',
 

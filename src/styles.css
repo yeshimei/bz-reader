@@ -544,6 +544,91 @@
   font-size: 12px;
 }
 
+/* ═══════════ ④.6 问这几本书（2026-11-10，与跨书搜索共用外壳语汇） ═══════════ */
+.bzr-sask {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 20px 20px;
+  max-height: calc(100vh - 160px);
+  font-family: var(--bzr-font-ui);
+}
+.bzr-sask-h {
+  flex: none;
+  font-size: var(--bzr-font-caption);
+  color: var(--bzr-text-3);
+}
+.bzr-sask-list {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  max-height: 170px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--bzr-border);
+  border-radius: var(--r-ctl);
+  background: var(--bzr-surface-sunken);
+}
+.bzr-sask-book {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  font-size: 12.5px;
+  color: var(--bzr-text-1);
+  cursor: pointer;
+}
+.bzr-sask-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bzr-sask-answer {
+  flex: 1 1 auto;
+  min-height: 60px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.85;
+  color: var(--bzr-text-1);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.bzr-sask-sources {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.bzr-sask-srch {
+  font-size: var(--bzr-font-caption);
+  color: var(--bzr-text-3);
+}
+.bzr-sask-src {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  border: 1px solid var(--bzr-border);
+  border-radius: 999px;
+  background: var(--bzr-surface);
+  color: var(--bzr-text-2);
+  cursor: pointer;
+}
+.bzr-sask-src:hover {
+  border-color: var(--bzr-border-hover);
+  color: var(--bzr-text-1);
+}
+.bzr-sask.is-mobile .bzr-sask-list {
+  max-height: 130px;
+}
+.bzr-sask.is-mobile .bzr-sask-answer {
+  font-size: 14px;
+}
+
 /* ═══════════ ④.7 书摘卡片（高级版，划线卡片的二级弹窗） ═══════════
  * 2026-11-04 删（S-08）：`.bzr-qcard-popup` 那段（420px 宽）已经没有对应 DOM，
  * 书摘卡走壳层的 `poster` 弹层。 */
