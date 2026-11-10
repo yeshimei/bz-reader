@@ -557,8 +557,8 @@
 
 /* 角标：+人数。15px 圆点里 9px 字，是这排按钮上唯一的彩色实心块，再大就抢戏。
    两位数自己撑成小胶囊（min-width + padding 一起长），99 位以上文案封顶成
-   99+（见 changelog-note.ts）。边框取面板底色，做出「从按钮上挖掉一角」的
-   观感；pointer-events 交给按钮本体，点角标也算点按钮。 */
+   99+（见 changelog-note.ts）。字与描边都取面板底色，做出「从按钮上挖掉一角」
+   的观感；pointer-events 交给按钮本体，点角标也算点按钮。 */
 .bzs-chgn .bzs-chgn-count,
 .bzs-chgn-m .bzs-chgn-count {
   position: absolute;
@@ -572,8 +572,10 @@
   justify-content: center;
   border-radius: 999px;
   background: var(--chg-accent);
-  /* 铜色底上 --text-on-accent 仍是白 → 白字浅底；改用 --bg 随明暗取反色（同 overlay 主按钮）。 */
-  color: var(--bg);
+  /* 字与 2px 描边同取面板底色：浅色主题白字、暗色主题深字。这里不能用壳层的
+     --bg —— 弹窗挂在 body 上，那组令牌只定义在 .bzs-shell 里，取不到会退回
+     继承色（父级铜色），与铜底同色，数字整颗隐形。 */
+  color: var(--chg-panel);
   font-size: 9px;
   font-weight: 600;
   line-height: 1;
