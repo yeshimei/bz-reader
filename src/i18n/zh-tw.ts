@@ -31,6 +31,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'cmd.prefs': '書架：設定',
   'cmd.semantic': '書架：按意思搜全庫',
   'cmd.shelfAsk': '書架：問這幾本書',
+  'cmd.route': '書架：按主題開書單',
 
   /* ── 指令：閱讀器 ────────────────────────────────────────── */
   'cmd.search': '閱讀：搜尋（本書／全庫）',
@@ -186,6 +187,16 @@ export const ZH_TW: Record<MsgKey, string> = {
   'shelf.ask.thinking': '正在整理答案…',
   'shelf.ask.done': '依據來自 {n} 本',
   'shelf.ask.sources': '出自',
+  'route.title': '主題書單',
+  'route.ph': '想讀一個什麼主題？',
+  'route.go': '產生書單',
+  'route.hint': '輸入主題，按書架裡的畫像找書與章節，再排一條閱讀路線。',
+  'route.searching': '正在找相關的書…',
+  'route.thinking': '找到 {n} 本，正在排路線…',
+  'route.done': '路線基於 {n} 本',
+  'route.none': '沒有命中可用的書',
+  'route.save': '存成筆記',
+  'route.saved': '已存到 {path}',
   'notice.sel.empty': '沒有可複製的選取範圍',
   'notice.toc.missingChapter': '這一章在目錄裡找不到，可能書換了版本',
 

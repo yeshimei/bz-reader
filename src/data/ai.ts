@@ -11,6 +11,7 @@
 import type { ReaderSettings } from './settings';
 import { buildEnrichMessages } from './book-enrich';
 import { buildGuideMessages } from './chapter-guide';
+import { buildRouteMessages, type RouteBook } from './topic-route';
 
 export type AiTask =
   | 'summarize'
@@ -22,7 +23,8 @@ export type AiTask =
   | 'quiz'
   | 'shelf'
   | 'enrich'
-  | 'guide';
+  | 'guide'
+  | 'route';
 
 /**
  * 追问时原文最多带多少字。
@@ -65,6 +67,8 @@ export interface AiAskInput {
   context?: string;
   /** 之前的问答，按时间正序 */
   history?: AiTurn[];
+  /** 主题书单的候选（只有 route 用）：书 + 命中的章节 + 相关度 */
+  books?: RouteBook[];
 }
 
 export interface AiMessage {
@@ -90,7 +94,7 @@ export function clipContext(text: string, limit = ASK_CONTEXT_LIMIT): string {
 }
 
 /** 摘录 / 解释 / 翻译的老口径，一字不改（回归测试锁着） */
-function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow' | 'probe' | 'quiz' | 'shelf' | 'enrich' | 'guide'>, text: string): string {
+function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow' | 'probe' | 'quiz' | 'shelf' | 'enrich' | 'guide' | 'route'>, text: string): string {
   if (task === 'summarize') {
     return `请把下面这段文字压缩成不超过 100 字的摘要，直接给摘要正文，不要任何开场白或前缀：\n\n${text}`;
   }
@@ -207,6 +211,7 @@ export function buildMessages(input: AiAskInput): AiMessage[] {
       digest: input.context,
     });
   }
+  if (input.task === 'route') return buildRouteMessages({ topic: input.text, books: input.books ?? [] });
   if (input.task === 'shelf') return buildShelfMessages(input);
   if (input.task !== 'ask') {
     return [{ role: 'user', content: buildPrompt(input.task, input.text) }];

@@ -57,7 +57,10 @@ import { disposeCrossSearchStage, searchAcrossBooks } from './engine/cross-searc
 import { openCrossSearch } from './ui/cross-search-panel';
 import { openSemanticSearch as openSemanticPanel } from './ui/semantic-panel';
 import { openShelfAsk } from './ui/shelf-ask-panel';
+import { openTopicRoute } from './ui/topic-route-panel';
 import { aiAsk } from './data/ai';
+import { safeName } from './data/export';
+import { DEFAULT_SETTINGS } from './data/settings';
 import type { SemanticHit } from './data/book-search';
 
 /* 壳层 */
@@ -229,6 +232,10 @@ export function createPlugin(cfg: PluginConfig) {
         /* 问这摞书（2026-11-10）：选几本一起问，答案带出处 */
         case 'shelf-ask':
           this.openShelfAskPanel();
+          break;
+        /* 主题书单（2026-11-11）：给主题，检索找书，模型排路线 */
+        case 'route':
+          this.openTopicRoutePanel();
           break;
         case 'sidebar':
           this.openTocSidebar('toc');
@@ -1341,6 +1348,36 @@ export function createPlugin(cfg: PluginConfig) {
           aiAsk(this.cfg.settings, { task: 'shelf', text: question, context: evidence }).then((r) => r.text),
         onJump: (book, snippet) => void this.jumpIntoBook(book, snippet),
       });
+    }
+
+    /**
+     * 主题书单（2026-11-11）：给一个主题，语义检索找书，模型排阅读路线。
+     */
+    openTopicRoutePanel(): void {
+      openTopicRoute({
+        app: this.app,
+        ask: (topic, books) =>
+          aiAsk(this.cfg.settings, { task: 'route', text: topic, books }).then((r) => r.text),
+        onSave: (topic, markdown) => this.saveRouteNote(topic, markdown),
+      });
+    }
+
+    /**
+     * 书单存成笔记：落导出目录下的「主题书单」，同名覆盖。
+     *
+     * 覆盖是有意的——用户点「存成笔记」是想把这一篇更新成当前这版，
+     * 不是想要一份 `主题书单 (2).md`。与导出「不覆盖别人笔记」不冲突：
+     * 这里写的只是本插件自己生成的目录。
+     */
+    async saveRouteNote(topic: string, markdown: string): Promise<string> {
+      const base = String(this.cfg.settings.exportDir ?? '').trim() || DEFAULT_SETTINGS.exportDir;
+      const dir = `${base}/主题书单`;
+      const name = safeName(String(topic ?? '').trim() || t('route.title'), t('route.title'));
+      const path = `${dir}/${name}.md`;
+      const adapter = this.app.vault.adapter;
+      if (!(await adapter.exists(dir))) await adapter.mkdir(dir);
+      await adapter.write(path, markdown);
+      return path;
     }
 
     /**

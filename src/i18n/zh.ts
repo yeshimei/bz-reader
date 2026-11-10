@@ -38,6 +38,7 @@ export const ZH = {
   'cmd.prefs': '书架：设置',
   'cmd.semantic': '书架：按意思搜全库',
   'cmd.shelfAsk': '书架：问这几本书',
+  'cmd.route': '书架：按主题开书单',
 
   /* ── 命令：阅读器 ────────────────────────────────────────── */
   'cmd.search': '阅读：搜索（本书 / 全库）',
@@ -197,6 +198,16 @@ export const ZH = {
   'shelf.ask.thinking': '正在整理答案…',
   'shelf.ask.done': '依据来自 {n} 本',
   'shelf.ask.sources': '出自',
+  'route.title': '主题书单',
+  'route.ph': '想读一个什么主题？',
+  'route.go': '生成书单',
+  'route.hint': '输入主题，按书架里的画像找书与章节，再排一条阅读路线。',
+  'route.searching': '正在找相关的书…',
+  'route.thinking': '找到 {n} 本，正在排路线…',
+  'route.done': '路线基于 {n} 本',
+  'route.none': '没有命中可用的书',
+  'route.save': '存成笔记',
+  'route.saved': '已存到 {path}',
   'notice.sel.empty': '没有可复制的选区',
   'notice.toc.missingChapter': '这一章在目录里找不到，可能书换了版本',
 

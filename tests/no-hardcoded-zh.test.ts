@@ -45,6 +45,9 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   /* 2026-11-11 新文件：开章导读的 prompt 与「这一章 / 带着三个问题」的段落名，
      只发给模型、不显示给用户，与 data/ai.ts 同一性质。 */
   'src/data/chapter-guide.ts': 7,
+  /* 2026-11-11 新文件：主题书单的 prompt 与「阅读路线 / 来源」段落名，
+     只发给模型或写进生成的笔记，不显示为界面文案。 */
+  'src/data/topic-route.ts': 10,
   'src/data/book-scan.ts': 1,
   'src/data/deeplink.ts': 4,
   /* 2026-11-11 +2（42 → 44）：新增「划线加入复习计划」这一行能力的卖点句
@@ -84,7 +87,10 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   /* 2026-11-10 +3（26 → 29）：debug-open 调试入口两条控制台痕迹
      （收到指令 / 执行失败）。这个仓库的控制台日志一律中文——同一文件里
      十几条老告警都是中文，翻译成英文反而看不出是哪一处。 */
-  'src/plugin.ts': 29,
+  /* 2026-11-11 +1（29 → 30）：主题书单的落盘目录名「主题书单」。与引擎的
+     `_导出` 同性质——它是库内路径（用户在文件树里看到的文件夹名），
+     不是可替换的界面文案。 */
+  'src/plugin.ts': 30,
   'src/shell/actions.ts': 16,
   'src/shell/adapt.ts': 9,
   /* 2026-11-08 +1：书卡菜单多一条「归入分类…」。这一列菜单本来就是

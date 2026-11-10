@@ -36,6 +36,7 @@ describe('命令 id', () => {
         'page-next',
         'page-prev',
         'prefs',
+        'route',
         'search',
         'semantic',
         'shelf-ask',
@@ -123,6 +124,7 @@ describe('命令分发', () => {
       /* 语义搜索要造 DOM，node 里没有 document：这里只验「命令走到了它」 */
       openSemanticSearchPanel: vi.fn(),
       openShelfAskPanel: vi.fn(),
+      openTopicRoutePanel: vi.fn(),
       activeReader: vi.fn(() => ({ refreshProbe: probeRefresh })),
     };
     Object.assign(p, spy);

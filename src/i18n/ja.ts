@@ -34,6 +34,7 @@ export const JA: Record<MsgKey, string> = {
   'cmd.prefs': '本棚：設定',
   'cmd.semantic': 'Shelf: Search by meaning',
   'cmd.shelfAsk': 'Shelf: Ask these books',
+  'cmd.route': 'Shelf: Reading list by topic',
 
   /* ── コマンド：リーダー ──────────────────────────────────── */
   'cmd.search': '読書：検索（本文／ライブラリ全体）',
@@ -188,6 +189,16 @@ export const JA: Record<MsgKey, string> = {
   'shelf.ask.thinking': 'Putting the answer together…',
   'shelf.ask.done': 'Based on {n} books',
   'shelf.ask.sources': 'From',
+  'route.title': 'Reading list',
+  'route.ph': 'What topic do you want to read about?',
+  'route.go': 'Build list',
+  'route.hint': 'Enter a topic; we look through book profiles for matching books and chapters, then plan a route.',
+  'route.searching': 'Looking for related books…',
+  'route.thinking': 'Found {n} books, planning the route…',
+  'route.done': 'Route based on {n} books',
+  'route.none': 'No matching books',
+  'route.save': 'Save as note',
+  'route.saved': 'Saved to {path}',
   'notice.sel.empty': 'コピーできる選択範囲がありません',
   'notice.toc.missingChapter': 'この章は目次に見つかりません。本のバージョンが変わった可能性があります',
 

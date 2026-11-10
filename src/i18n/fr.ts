@@ -35,6 +35,7 @@ export const FR: Record<MsgKey, string> = {
   'cmd.prefs': 'Bibliothèque : réglages',
   'cmd.semantic': 'Shelf: Search by meaning',
   'cmd.shelfAsk': 'Shelf: Ask these books',
+  'cmd.route': 'Shelf: Reading list by topic',
 
   /* ── Commandes : lecteur ────────────────────────────────── */
   'cmd.search': 'Lecture : rechercher (livre / bibliothèque)',
@@ -189,6 +190,16 @@ export const FR: Record<MsgKey, string> = {
   'shelf.ask.thinking': 'Putting the answer together…',
   'shelf.ask.done': 'Based on {n} books',
   'shelf.ask.sources': 'From',
+  'route.title': 'Reading list',
+  'route.ph': 'What topic do you want to read about?',
+  'route.go': 'Build list',
+  'route.hint': 'Enter a topic; we look through book profiles for matching books and chapters, then plan a route.',
+  'route.searching': 'Looking for related books…',
+  'route.thinking': 'Found {n} books, planning the route…',
+  'route.done': 'Route based on {n} books',
+  'route.none': 'No matching books',
+  'route.save': 'Save as note',
+  'route.saved': 'Saved to {path}',
   'notice.sel.empty': 'Rien de sélectionné à copier',
   'notice.toc.missingChapter': 'Ce chapitre n’est plus dans la table des matières — le fichier a peut-être changé',
 

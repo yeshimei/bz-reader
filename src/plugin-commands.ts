@@ -42,6 +42,8 @@ export const COMMANDS: readonly CommandSpec[] = [
   { id: 'semantic', key: 'cmd.semantic' },
   /* 问这摞书（2026-11-10）：选几本一起问，答案带出处 */
   { id: 'shelf-ask', key: 'cmd.shelfAsk' },
+  /* 主题书单（2026-11-11）：给主题，检索找书，模型排路线，可存成笔记 */
+  { id: 'route', key: 'cmd.route' },
   /* ── 阅读 ── */
   { id: 'search', key: 'cmd.search' },
   { id: 'sidebar', key: 'cmd.sidebar' },
