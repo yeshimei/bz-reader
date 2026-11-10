@@ -117,6 +117,7 @@ import { endsSelection } from './selection-end';
 import { fromSidebarHit, shouldCollapseSidebar } from './sidebar-jump';
 import { shelfLabel } from './shelf-label';
 import { getShellSource, allBooks, liveBooks, shellPrefs, shellSettings } from './source';
+import { openSupportDialog } from './support-dialog';
 import { debugSnapshot } from '../data/debug-log';
 import { TAP_MENU_PRESSURE_MS } from '../core/tap';
 import { aiCardDrop, aiCardKey, aiModeOf } from './ai-card';
@@ -975,7 +976,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
 
     /* ── 关于条 ──
-       四个出口都是「离开设置页去别处」：不写数据、不改偏好，所以这里
+       五个出口都是「离开设置页去别处」：不写数据、不改偏好，所以这里
        一不 commit()、二不重绘，只把用户送到目的地。 */
     case 'aboutgithub':
       window.open(REPO_URL, '_blank', 'noopener,noreferrer');
@@ -987,6 +988,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     case 'copygroup':
       void copyGroupId();
+      break;
+    /* 支持作者（2026-11-10）：上排第五个出口。打赏与激活码是两条线——
+       基础版用户也能在这里支持作者，所以这里不设 requireCap 门禁。 */
+    case 'support':
+      openSupportDialog();
       break;
     /* 关于条里的「更新日志」：回看任意一版，不动「已看过」记录。
        自动弹只有升级后那一次，没有常驻入口就再也找不回来。 */

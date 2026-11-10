@@ -450,8 +450,23 @@ export const PT: Record<MsgKey, string> = {
   'settings.about.videoTip': 'Assistir ao tutorial em vídeo no Bilibili',
   'settings.about.group': 'Comunidade',
   'settings.about.groupTip': 'Clique para copiar o número do grupo e pesquise no QQ',
+  'settings.about.support': 'Support the author',
+  'settings.about.supportTip': 'See ways to support the author',
   'settings.about.changelog': 'Registro de versões',
   'settings.about.changelogTip': 'Ver o que mudou em cada versão',
+
+  /* ── 支持作者弹窗 ────────────────────────────────────────── */
+  'support.title': 'Support the author',
+  'support.lead': 'This plugin and these tutorials are made by one person.',
+  'support.ways': 'WeChat QR',
+  'support.sponsor': 'Or become a sponsor',
+  'support.note': 'Supporters are listed below.',
+  'support.list': 'Supporters',
+  'support.empty': 'No one has tipped yet',
+  'support.amountPatron': 'Sponsor',
+  'support.codeAlt': 'WeChat tip QR code',
+  'support.done': 'Got it',
+  'support.close': 'Close the support dialog',
 
   /* ── Configurações: títulos de grupo ────────────────────── */
   'settings.grp.ui': 'Interface',

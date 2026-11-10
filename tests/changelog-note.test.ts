@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { installDomStub } from './helpers/dom-stub';
 import { CHANGELOG_RELEASES } from '../src/shell/changelog';
-import { openChangelogNote } from '../src/shell/changelog-note';
+import { changelogNoteHtml, openChangelogNote } from '../src/shell/changelog-note';
+import { REWARD_NAMES } from '../src/data/reward';
 
 /* ============================================================
  * 弹窗的挂载与收口。
@@ -18,6 +19,21 @@ beforeAll(() => {
 
 afterAll(() => {
   uninstall();
+});
+
+describe('更新日志 · 页脚的支持作者入口', () => {
+  /* 位置（右下角）与人数都靠标记与文案钉住：人数只有名单长度一个来源，
+     别在别处再存一份计数（bz 那边的 `REWARD_COUNT` 就是反面教材）。 */
+  it('桌面页脚有一枚带人数的支持作者', () => {
+    const html = changelogNoteHtml(CHANGELOG_RELEASES, '0.4.1');
+    expect(html).toContain('data-role="chgnsupport"');
+    expect(html).toContain(`已有 ${REWARD_NAMES.length} 位`);
+  });
+
+  it('手机底条也有同一枚（两端共用一份数据，不另画一个）', () => {
+    const html = changelogNoteHtml(CHANGELOG_RELEASES, '0.4.1');
+    expect([...html.matchAll(/data-role="chgnsupport"/g)]).toHaveLength(2);
+  });
 });
 
 describe('打开更新日志', () => {

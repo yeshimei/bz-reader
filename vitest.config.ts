@@ -9,6 +9,10 @@ export default defineConfig({
     __BZ_DEV__: 'true',
     __BZ_BUILD_TAG__: '"test"',
   },
+  // 赞赏码是构建期 dataurl 内联的 png（esbuild 的 loader，见 esbuild.config.mjs）。
+  // 测试里也要能 import：assetsInclude 让 Vite 当资源处理、返回一个路径字符串，
+  // 不会去解析二进制。断言只看结构，不看 src 的内容。
+  assetsInclude: ['**/*.png'],
   resolve: {
     // obsidian 只有类型没有运行时（main 为空），运行时 import 它会解析失败。
     // 凡是 import 了 Notice / Platform 的模块（core/notice、core/mobile）走这个替身。

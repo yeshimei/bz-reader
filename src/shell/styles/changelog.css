@@ -516,6 +516,39 @@
   flex: none;
 }
 
+/* 支持作者（2026-11-10）：页脚右侧一枚图标 + 人数，排在「知道了」左边。
+   只给图标是因为这一行已经有两个文字入口了；人数是它唯一的信息量。
+   选择器同样带 .bzs-chgn / .bzs-chgn-m 前缀，压过上面的按钮 reset。 */
+.bzs-chgn .bzs-chgn-support,
+.bzs-chgn-m .bzs-chgn-support {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--chg-ink-2);
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.bzs-chgn .bzs-chgn-support svg,
+.bzs-chgn-m .bzs-chgn-support svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--chg-accent);
+}
+
+@media (hover: hover) {
+  .bzs-chgn .bzs-chgn-support:hover,
+  .bzs-chgn-m .bzs-chgn-support:hover {
+    background: var(--chg-accent-soft);
+    color: var(--chg-ink);
+  }
+}
+
 /* 主按钮：只有它带底色——这是「看完了」的唯一出口 */
 .bzs-chgn .bzs-chgn-done,
 .bzs-chgn-m .bzs-chgn-done {
@@ -747,6 +780,14 @@
 
   .bzs-chgn-mtools .bzs-chgn-link span {
     display: none;
+  }
+
+  /* 支持作者在底条上占一格：图标 + 人数，跟入口同宽 */
+  .bzs-chgn-mtools .bzs-chgn-support {
+    width: 44px;
+    justify-content: center;
+    padding: 0;
+    gap: 3px;
   }
 }
 

@@ -12,10 +12,21 @@ vi.mock('../src/core/notice', () => ({
   notify: (text: string) => void notices.push(text),
 }));
 
+/* 支持作者弹窗要碰 DOM：这条测试只关心「点一下有没有把它叫起来」，
+   弹窗自己的挂载与收口在 tests/support-dialog.test.ts 里测。 */
+const supportOpened = vi.hoisted(() => ({ count: 0 }));
+vi.mock('../src/shell/support-dialog', () => ({
+  openSupportDialog: () => {
+    supportOpened.count += 1;
+    return { close: () => undefined };
+  },
+}));
+
 afterEach(() => {
   setShellSource(null);
   setState({ ...DEFAULT_SHELL_STATE });
   notices.length = 0;
+  supportOpened.count = 0;
   vi.unstubAllGlobals();
 });
 
@@ -92,5 +103,15 @@ describe('关于组 · 更新日志', () => {
     dispatchAction('changelog', el());
 
     expect(openChangelog).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('关于组 · 支持作者', () => {
+  /* 打赏与激活码是两条线：基础版用户也能支持作者。
+     所以这里不设 requireCap 门禁——有这个门禁，没买码的人点了会弹解锁说明。 */
+  it('点一下打开赞赏弹窗（不看激活状态）', () => {
+    dispatchAction('support', el());
+
+    expect(supportOpened.count).toBe(1);
   });
 });

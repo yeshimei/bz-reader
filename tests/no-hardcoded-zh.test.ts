@@ -74,7 +74,10 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/shell/book-menu.ts': 10,
   'src/shell/card-image.ts': 4,
   'src/shell/card-template.ts': 8,
-  'src/shell/changelog-note.ts': 17,
+  /* 2026-11-10 +2（17 → 19）：更新日志页脚多一枚「支持作者（已有 N 位）」，
+     那半句是弹窗框架文案，跟更新日志一样只有中英两版（`changelogLang`），
+     不走八语言 t()——否则日文界面会出现「日文按钮 + 中文条目」的半翻状态。 */
+  'src/shell/changelog-note.ts': 19,
   'src/shell/domain.ts': 14,
   'src/shell/idea-sheet.ts': 2,
   'src/shell/overlay.ts': 179,
@@ -98,8 +101,13 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/view/side-view.ts': 1,
 };
 
-/** 纯文案数据文件：与 i18n 同口径豁免（见文件头） */
-const EXEMPT = new Set(['src/shell/changelog.ts']);
+/** 纯文案数据文件：与 i18n 同口径豁免（见文件头）
+ *
+ *  2026-11-10 加 `src/data/reward.ts`：支持者名单。里面的昵称与留言是**别人
+ *  写下的字**，不是界面文案——它们不翻译、也不该随界面语言变，所以不进
+ *  语言包。界面那一层（序号、金额符号、「赞助人」）都走 t()。
+ */
+const EXEMPT = new Set(['src/shell/changelog.ts', 'src/data/reward.ts']);
 
 const SRC = join(__dirname, '../src');
 

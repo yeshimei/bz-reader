@@ -68,9 +68,11 @@ const BUILD_TAG = process.env.BZ_BUILD_TAG || MANIFEST.version;
  * 放在最后，确保不被旧域样式意外覆盖。
  */
 /* mobile.css 必须排在最后：它是覆盖层，同特异性靠顺序取胜。
-   changelog.css 是独立弹窗（挂 body、选择器全以 .bzs- 开头，不被加壳前缀），
-   放在 mobile.css 之前，让手机的覆盖层仍然最后生效。 */
-const SHELL_STYLES = ["tokens.css", "common.css", "study.css", "sidebar.css", "reader.css", "overlay.css", "changelog.css", "mobile.css"];
+   changelog.css / support.css 是独立弹窗（挂 body、选择器全以 .bzs- 开头，
+   不被加壳前缀），放在 mobile.css 之前，让手机的覆盖层仍然最后生效。
+   support.css 排在 changelog.css 之后：两者各自只碰自己的 .bzs-sup-* /
+   .bzs-chgn-* 类，顺序只为读起来顺。 */
+const SHELL_STYLES = ["tokens.css", "common.css", "study.css", "sidebar.css", "reader.css", "overlay.css", "changelog.css", "support.css", "mobile.css"];
 
 /**
  * 给壳层样式加作用域前缀。
@@ -182,6 +184,10 @@ for (const target of TARGETS) {
     treeShaking: true,
     minify: prod,
     charset: "utf8",
+    /* 赞赏码内置（src/shell/assets/reward-code.png）：png import 直接变 data URI
+       字符串，源码里就是一行 import。为什么不走远端：图固定不变、68KB，
+       为它单开一条二进制下载通道不划算（bz 那边同口径）。 */
+    loader: { ".png": "dataurl" },
     define: {
       __BZ_READER_PRO__: "true",
       __BZ_DEV__: DEV ? "true" : "false",

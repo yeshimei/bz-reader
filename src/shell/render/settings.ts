@@ -151,6 +151,10 @@ function aboutBar(version: string, paid: boolean, patron: boolean, name?: string
         ${ico('group')}<b>${t('settings.about.group')}</b><i>${esc(GROUP_ID)}</i>
       </button>
       <span class="dot"></span>
+      <button class="bzs-about-link" data-act="support" title="${t('settings.about.supportTip')}">
+        ${ico('heart')}<b>${t('settings.about.support')}</b>
+      </button>
+      <span class="dot"></span>
       <button class="bzs-about-link" data-act="changelog" title="${t('settings.about.changelogTip')}">
         ${ico('history')}<b>${t('settings.about.changelog')}</b>
       </button>

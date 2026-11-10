@@ -454,8 +454,25 @@ export const ZH = {
   'settings.about.videoTip': '在 B 站观看教程视频',
   'settings.about.group': 'QQ 交流群',
   'settings.about.groupTip': '点一下复制群号，去 QQ 搜索',
+  'settings.about.support': '支持作者',
+  'settings.about.supportTip': '看看支持作者的方式',
   'settings.about.changelog': '更新日志',
   'settings.about.changelogTip': '看看每一版改了什么',
+
+  /* ── 支持作者弹窗 ────────────────────────────────────────── */
+  'support.title': '支持作者',
+  /* 那句实话（2026-11-10 用户定稿）。bz 原本写「完全免费、无广告」，
+     但这边的高级功能是要买码的，照搬就成了假话——只留「一个人在做」。 */
+  'support.lead': '这个插件和这些教程都是一个人在做。',
+  'support.ways': '微信扫码',
+  'support.sponsor': '或者成为赞助人',
+  'support.note': '打赏后会出现在这份名单里。',
+  'support.list': '支持者',
+  'support.empty': '还没有人打赏',
+  'support.amountPatron': '赞助人',
+  'support.codeAlt': '微信赞赏码',
+  'support.done': '知道了',
+  'support.close': '关闭支持作者',
 
   /* ── 授权状态（设置页状态行、解锁弹层共用） ──────────────── */
   'tier.base': '基础版',

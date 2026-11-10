@@ -442,8 +442,23 @@ export const JA: Record<MsgKey, string> = {
   'settings.about.videoTip': 'Bilibili でチュートリアル動画を見る',
   'settings.about.group': '交流グループ',
   'settings.about.groupTip': 'クリックでグループ番号をコピー。QQ で検索してください',
+  'settings.about.support': 'Support the author',
+  'settings.about.supportTip': 'See ways to support the author',
   'settings.about.changelog': '更新履歴',
   'settings.about.changelogTip': '各バージョンの変更点を見る',
+
+  /* ── 支持作者弹窗 ────────────────────────────────────────── */
+  'support.title': 'Support the author',
+  'support.lead': 'This plugin and these tutorials are made by one person.',
+  'support.ways': 'WeChat QR',
+  'support.sponsor': 'Or become a sponsor',
+  'support.note': 'Supporters are listed below.',
+  'support.list': 'Supporters',
+  'support.empty': 'No one has tipped yet',
+  'support.amountPatron': 'Sponsor',
+  'support.codeAlt': 'WeChat tip QR code',
+  'support.done': 'Got it',
+  'support.close': 'Close the support dialog',
 
   /* ── 設定：グループ見出し ───────────────────────────────── */
   'settings.grp.ui': '表示',

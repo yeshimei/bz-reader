@@ -440,8 +440,23 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.about.videoTip': '在 B 站觀看教學影片',
   'settings.about.group': 'QQ 交流群',
   'settings.about.groupTip': '點一下複製群號，去 QQ 搜尋',
+  'settings.about.support': '支持作者',
+  'settings.about.supportTip': '看看支持作者的方式',
   'settings.about.changelog': '更新日誌',
   'settings.about.changelogTip': '看看每一版改了什麼',
+
+  /* ── 支持作者弹窗 ────────────────────────────────────────── */
+  'support.title': '支持作者',
+  'support.lead': '這個外掛和這些教學都是一個人在做。',
+  'support.ways': '微信掃碼',
+  'support.sponsor': '或者成為贊助人',
+  'support.note': '打賞後會出現在這份名單裡。',
+  'support.list': '支持者',
+  'support.empty': '還沒有人打賞',
+  'support.amountPatron': '贊助人',
+  'support.codeAlt': '微信讚賞碼',
+  'support.done': '知道了',
+  'support.close': '關閉支持作者',
 
   /* ── 設定頁：分組標題 ────────────────────────────────────── */
   'settings.grp.ui': '介面',

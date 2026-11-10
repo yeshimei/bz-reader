@@ -15,8 +15,10 @@
 import { uiModal } from '../core/ui/modal';
 import { changelogLang } from '../i18n';
 import { setHtml } from '../ui/dom';
-import { esc, githubIcon } from './render/html';
+import { esc, githubIcon, ico } from './render/html';
 import { REPO_URL } from '../data/entitlement';
+import { REWARD_NAMES } from '../data/reward';
+import { openSupportDialog } from './support-dialog';
 import {
   normalizeVersion,
   releaseEntryCount,
@@ -49,6 +51,8 @@ interface ChangelogCopy {
   current: string;
   github: string;
   issues: string;
+  /** 页脚右侧那枚「支持作者」的人话（读屏与悬停都念这句） */
+  supportTitle: (n: number) => string;
 }
 
 const COPY: Record<'zh' | 'en', ChangelogCopy> = {
@@ -69,6 +73,9 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     current: '当前',
     github: 'GitHub 仓库',
     issues: '问题反馈',
+    /* 页脚右侧那枚：只有图标 + 人数，读屏念的是这一句。
+       与 bz 同一个位置、同一个口径（人数取名单长度，不在别处再存一份）。 */
+    supportTitle: (n: number) => `支持作者（已有 ${n} 位）`,
   },
   en: {
     added: 'New',
@@ -87,6 +94,7 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     current: 'Current',
     github: 'GitHub repository',
     issues: 'Report an issue',
+    supportTitle: (n: number) => `Support the author (${n} backers so far)`,
   },
 } as const;
 
@@ -244,6 +252,23 @@ function linksHtml(): string {
     .join('');
 }
 
+/**
+ * 页脚右侧的「支持作者」：图标 + 人数。
+ *
+ * 只给图标不给文字：这一行已经有两个文字入口加一个「知道了」，再塞第四段
+ * 文字会压成字墙。人数是这枚按钮唯一的信息量——「已经有多少人支持过」；
+ * 读屏与悬停念完整那句（`supportTitle`）。
+ */
+function supportBtnHtml(): string {
+  const c = copy();
+  const n = REWARD_NAMES.length;
+  const label = c.supportTitle(n);
+  return (
+    `<button class="bzs-chgn-support" type="button" data-role="chgnsupport" ` +
+    `title="${esc(label)}" aria-label="${esc(label)}">${ico('heart')}<span>${n}</span></button>`
+  );
+}
+
 /* ── 桌面：时间轴 + 单版正文 ───────────────── */
 
 function railHtml(list: readonly ChangelogRelease[], active: number): string {
@@ -290,7 +315,7 @@ export function changelogNoteHtml(releases: readonly ChangelogRelease[], expectV
     '<div class="bzs-chgn-fade-bot"></div>' +
     '</div>' +
     '</main>' +
-    `<footer class="bzs-chgn-ft">${linksHtml()}<span class="bzs-chgn-grow"></span>` +
+    `<footer class="bzs-chgn-ft">${linksHtml()}<span class="bzs-chgn-grow"></span>${supportBtnHtml()}` +
     `<button class="bzs-chgn-done" type="button" data-role="chgndone">${c.done}</button>` +
     '</footer>' +
     `<button class="bzs-chgn-close" type="button" aria-label="${c.close}" title="${c.close}">${CLOSE_SVG}</button>` +
@@ -302,7 +327,7 @@ export function changelogNoteHtml(releases: readonly ChangelogRelease[], expectV
     `<button class="bzs-chgn-close" type="button" aria-label="${c.close}" title="${c.close}">${CLOSE_SVG}</button>` +
     '</div>' +
     `<div class="bzs-chgn-mpage">${list.map((r, i) => mobReleaseHtml(r, i === 0)).join('')}</div>` +
-    `<div class="bzs-chgn-mtools">${linksHtml()}` +
+    `<div class="bzs-chgn-mtools">${linksHtml()}${supportBtnHtml()}` +
     `<button class="bzs-chgn-done" type="button" data-role="chgndone">${c.done}</button>` +
     '</div>' +
     '</div>';
@@ -389,7 +414,7 @@ export function openChangelogNote(
     if (typeof window !== 'undefined') window.requestAnimationFrame(syncFade);
   };
 
-  /* 一处事件委托管四件事：切版本 / 关闭 / 知道了 / 外链。
+  /* 一处事件委托管五件事：切版本 / 关闭 / 知道了 / 外链 / 支持作者。
      两类端（桌面 + 手机）的标记都在同一棵 DOM 里，绑一次全管上。 */
   popup.addEventListener('click', (e) => {
     const target = e.target as HTMLElement | null;
@@ -401,6 +426,13 @@ export function openChangelogNote(
     }
     if (target.closest('.bzs-chgn-close') || target.closest('[data-role="chgndone"]')) {
       modal.close();
+      return;
+    }
+    /* 支持作者（2026-11-10）：先收日志窗再开赞赏窗——两层遮罩叠着，
+       关掉上面那层下面还在，看着像关不掉。这里不弹提醒，点了就是点了。 */
+    if (target.closest('[data-role="chgnsupport"]')) {
+      modal.close();
+      openSupportDialog();
       return;
     }
     const link = target.closest<HTMLElement>('[data-href]');
