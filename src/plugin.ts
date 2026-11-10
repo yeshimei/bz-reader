@@ -1585,7 +1585,7 @@ export function createPlugin(cfg: PluginConfig) {
         const text = await this.app.vault.adapter.read(path);
         await this.app.vault.adapter.remove(path);
         const raw = JSON.parse(text) as { command?: string; bookId?: string };
-        console.info('[bz-reader] debug-open 收到指令：', raw.command ?? '(空)');
+        console.warn('[bz-reader] debug-open 收到指令：', raw.command ?? '(空)');
         if (raw.command === 'open') this.openStudy();
         else if (raw.command === 'continue') await this.continueReading();
         else if (raw.command === 'book' && raw.bookId) {

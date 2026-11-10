@@ -56,7 +56,7 @@ export function mergeRects(
       const overlap = Math.min(bottom, rowBottom) - Math.max(rect.top, rowTop);
       const shorter = Math.min(rect.height, rowBottom - rowTop);
       if (overlap > 0 && overlap >= shorter * ROW_OVERLAP) {
-        rows[rows.length - 1]!.push(rect);
+        rows[rows.length - 1].push(rect);
         rowBottom = Math.max(rowBottom, bottom);
         continue;
       }

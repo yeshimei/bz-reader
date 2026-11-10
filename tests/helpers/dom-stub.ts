@@ -568,18 +568,44 @@ export function installDomStub(): () => void {
   g.document = stub;
   g.getComputedStyle = () => ({ getPropertyValue: () => '' });
   g.DOMParser = MiniDomParser;
-  /* Obsidian 的全局助手 createEl：插件代码里到处在用，桩里得有一份，
-     否则「换元素走 createEl」的地方一进测试就 ReferenceError。 */
-  const hadCreateEl = 'createEl' in g;
-  const prevCreateEl = g.createEl;
-  g.createEl = (tag: string) => makeEl(tag);
+  /* Obsidian 的全局助手 createEl / createDiv / createSpan / createFragment：
+     插件代码里到处在用（PDF 缩略图、文件批注卡最近也改走它们了），桩里得
+     有一份，否则这些路径一进测试就 ReferenceError。第二参数按 Obsidian 的
+     写法收 string（当 class）或对象（cls / text / attr）。 */
+  type ElOpts =
+    | string
+    | { cls?: string; text?: string; attr?: Record<string, string | number | boolean | null> };
+  const makeObsidianEl = (tag: string, o?: ElOpts): FakeEl => {
+    const el = makeEl(tag);
+    if (typeof o === 'string') el.className = o;
+    else if (o) {
+      if (o.cls) el.className = o.cls;
+      if (o.text != null) el.textContent = o.text;
+      for (const [k, v] of Object.entries(o.attr ?? {})) {
+        if (v != null) el.setAttribute(k, String(v));
+      }
+    }
+    return el;
+  };
+  const helpers: Record<string, unknown> = {
+    createEl: makeObsidianEl,
+    createDiv: (o?: ElOpts) => makeObsidianEl('div', o),
+    createSpan: (o?: ElOpts) => makeObsidianEl('span', o),
+    createFragment: () => makeEl('fragment'),
+  };
+  const prevHelpers = Object.fromEntries(
+    Object.keys(helpers).map((k) => [k, { had: k in g, val: g[k] }]),
+  ) as Record<string, { had: boolean; val: unknown }>;
+  Object.assign(g, helpers);
   return () => {
     if (!hadDoc) delete g.document;
     if (!hadGcs) delete g.getComputedStyle;
     if (!hadWindow) delete (g as { window?: unknown }).window;
     if (hadParser) g.DOMParser = prevParser;
     else delete g.DOMParser;
-    if (hadCreateEl) g.createEl = prevCreateEl;
-    else delete g.createEl;
+    for (const [k, prev] of Object.entries(prevHelpers)) {
+      if (prev.had) g[k] = prev.val;
+      else delete g[k];
+    }
   };
 }

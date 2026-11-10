@@ -54,7 +54,9 @@ export function searchPageTexts(
   opts: PdfSearchOptions = {},
 ): PdfSearchResult {
   const q = String(query ?? '').trim();
-  if (!q || !Array.isArray(pages)) return { hits: [], total: 0 };
+  /* 别用 Array.isArray 守卫：它把 ReadonlyArray<T> 收窄成 any[]，
+     后面每个字段访问都会掉成 any（上架 lint 的 no-unsafe-* 一串红）。 */
+  if (!q || !pages || typeof pages.length !== 'number') return { hits: [], total: 0 };
   const limit = intOr(opts.limit, DEFAULT_LIMIT);
   const perPage = intOr(opts.perPage, DEFAULT_PER_PAGE);
   const needle = q.toLowerCase();

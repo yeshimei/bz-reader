@@ -75,7 +75,7 @@ export class PdfEngineHost implements ReaderEngine {
     if (this.destroyed) throw new OpenCancelledError();
     this.phase = 'parse';
     this.doc = await PdfDocument.load(new Uint8Array(buf.slice(0)));
-    this.tocItems = (await this.doc.getToc()) as FoliateTOCItem[];
+    this.tocItems = await this.doc.getToc();
     this.meta = await this.buildMeta(vaultPath);
     if (this.destroyed) {
       await this.doc.destroy();

@@ -64,5 +64,5 @@ export function formatRewardDate(iso: string): string {
   const raw = String(iso ?? '').trim();
   const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(raw);
   if (!m) return raw;
-  return `${m[1]}.${m[2]!.padStart(2, '0')}.${m[3]!.padStart(2, '0')}`;
+  return `${m[1]}.${m[2].padStart(2, '0')}.${m[3].padStart(2, '0')}`;
 }

@@ -66,14 +66,14 @@ export class PdfThumbPanel {
 
   open(host: HTMLElement): void {
     this.close();
-    const root = document.createElement('div');
+    const root = createDiv();
     root.className = 'bzr-pdf-thumbs';
 
-    const head = document.createElement('div');
+    const head = createDiv();
     head.className = 'bzr-pdf-thumbs-head';
-    const title = document.createElement('span');
+    const title = createSpan();
     title.textContent = this.opts.label;
-    const close = document.createElement('button');
+    const close = createEl('button');
     close.type = 'button';
     close.className = 'bzr-pdf-thumbs-close';
     close.textContent = '×';
@@ -84,7 +84,7 @@ export class PdfThumbPanel {
     });
     head.append(title, close);
 
-    const grid = document.createElement('div');
+    const grid = createDiv();
     grid.className = 'bzr-pdf-thumbs-grid';
 
     if (typeof IntersectionObserver !== 'undefined') {
@@ -100,16 +100,16 @@ export class PdfThumbPanel {
       );
     }
 
-    const frag = document.createDocumentFragment();
+    const frag = createFragment();
     for (let page = 1; page <= this.doc.numPages; page += 1) {
-      const cell = document.createElement('button');
+      const cell = createEl('button');
       cell.type = 'button';
       cell.className = 'bzr-pdf-thumb';
       cell.dataset.page = String(page);
-      const no = document.createElement('span');
+      const no = createSpan();
       no.className = 'bzr-pdf-thumb-no';
       no.textContent = String(page);
-      const box = document.createElement('span');
+      const box = createSpan();
       box.className = 'bzr-pdf-thumb-box';
       cell.append(box, no);
       cell.addEventListener('click', () => {
@@ -119,7 +119,7 @@ export class PdfThumbPanel {
       /* 拖到笔记里生成一条带页码的链接：拖拽本身由调用方填数据 */
       if (this.opts.onDragPage) {
         cell.draggable = true;
-        cell.addEventListener('dragstart', (ev) => this.opts.onDragPage?.(page, ev as DragEvent));
+        cell.addEventListener('dragstart', (ev) => this.opts.onDragPage?.(page, ev));
       }
       this.observer?.observe(cell);
       frag.appendChild(cell);
@@ -141,7 +141,7 @@ export class PdfThumbPanel {
     this.urls.push(url);
     const box = cell.querySelector('.bzr-pdf-thumb-box');
     if (!box) return;
-    const img = document.createElement('img');
+    const img = createEl('img');
     img.src = url;
     img.alt = '';
     img.loading = 'lazy';

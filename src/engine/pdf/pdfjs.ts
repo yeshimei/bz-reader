@@ -140,7 +140,7 @@ export function loadPdfjs(): Promise<PdfjsModule> {
       const worker = (await import('pdfjs-dist/build/pdf.worker.min.mjs')) as unknown as {
         WorkerMessageHandler: unknown;
       };
-      (globalThis as { pdfjsWorker?: unknown }).pdfjsWorker = worker;
+      (window as { pdfjsWorker?: unknown }).pdfjsWorker = worker;
       return lib;
     })().catch((err: unknown) => {
       loaded = null;

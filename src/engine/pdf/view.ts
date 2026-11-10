@@ -239,11 +239,11 @@ export class PdfView {
     this.doc = doc;
     this.opts = opts;
 
-    this.root = document.createElement('div');
+    this.root = createDiv();
     this.root.className = 'bzr-pdf';
-    this.scroller = document.createElement('div');
+    this.scroller = createDiv();
     this.scroller.className = 'bzr-pdf-scroll';
-    this.pagesBox = document.createElement('div');
+    this.pagesBox = createDiv();
     this.pagesBox.className = 'bzr-pdf-pages';
     this.scroller.appendChild(this.pagesBox);
     this.root.appendChild(this.scroller);
@@ -541,10 +541,10 @@ export class PdfView {
 
   /** 右下角缩放条：PDF 必须有「放大看细节」的入口，否则小字页看不清 */
   private mountToolbar(): void {
-    const bar = document.createElement('div');
+    const bar = createDiv();
     bar.className = 'bzr-pdf-toolbar';
     const add = (label: string, title: string, run: () => void): HTMLButtonElement => {
-      const btn = document.createElement('button');
+      const btn = createEl('button');
       btn.type = 'button';
       btn.textContent = label;
       btn.title = title;
@@ -565,12 +565,12 @@ export class PdfView {
     add('宽', '适合宽度', () => this.setFitMode('width'));
     add('页', '适合页面', () => this.setFitMode('page'));
     /* 页码：滚动到哪一页比百分比准，278 页的书尤其需要 */
-    const pageNo = document.createElement('span');
+    const pageNo = createSpan();
     pageNo.className = 'bzr-pdf-pageno';
     bar.appendChild(pageNo);
     this.pageLabelEl = pageNo;
     /* 可拖的页码滑块。278 页的书先拖到大概位置再微调，比滚轮快得多 */
-    const range = document.createElement('input');
+    const range = createEl('input');
     range.type = 'range';
     range.className = 'bzr-pdf-range';
     range.min = '1';
@@ -661,7 +661,7 @@ export class PdfView {
     el.querySelectorAll('.bzr-pdf-searchhit').forEach((node) => node.remove());
     const query = this.searchQuery;
     if (!query) return;
-    const layer = el.querySelector('.textLayer') as HTMLElement | null;
+    const layer = el.querySelector<HTMLElement>('.textLayer');
     if (!layer) return;
     const text = layer.textContent ?? '';
     if (!text) return;
@@ -681,7 +681,7 @@ export class PdfView {
     for (const piece of pieces) {
       /* 第一处给重一点的颜色：一眼能看出「跳过来落在哪」 */
       for (const rect of mergeRects(piece.rects)) {
-        const mark = document.createElement('div');
+        const mark = createDiv();
         mark.className = `bzr-pdf-searchhit${piece.first ? ' is-first' : ''}`;
         mark.style.left = `${rect.left * 100}%`;
         mark.style.top = `${rect.top * 100}%`;
@@ -751,7 +751,7 @@ export class PdfView {
       this.closeCopyMenu();
       return;
     }
-    const menu = document.createElement('div');
+    const menu = createDiv();
     menu.className = 'bzr-pdf-menu';
     menu.setAttribute('role', 'menu');
     const items: Array<[PdfCopyKind, string]> = [
@@ -761,7 +761,7 @@ export class PdfView {
       ['marks', t('pdf.copy.marks')],
     ];
     for (const [kind, label] of items) {
-      const item = document.createElement('button');
+      const item = createEl('button');
       item.type = 'button';
       item.setAttribute('role', 'menuitem');
       item.dataset.kind = kind;
@@ -782,10 +782,10 @@ export class PdfView {
     if (anchor) {
       menu.style.top = `${Math.round(anchor.bottom - rootBox.top + 6)}px`;
       menu.style.right = `${Math.max(8, Math.round(rootBox.right - anchor.right))}px`;
-      menu.style.bottom = 'auto';
+      menu.setCssProps({ bottom: 'auto' });
     } else {
       const bar = this.toolbarEl?.getBoundingClientRect();
-      if (bar && bar.height > 0) menu.style.bottom = `${Math.round(rootBox.bottom - bar.top + 6)}px`;
+      if (bar && bar.height > 0) menu.setCssProps({ bottom: `${Math.round(rootBox.bottom - bar.top + 6)}px` });
     }
   }
 
@@ -805,7 +805,7 @@ export class PdfView {
       this.closeLayoutPanel();
       return;
     }
-    const panel = document.createElement('div');
+    const panel = createDiv();
     panel.className = 'bzr-pdf-layout bzs-float is-corner no-head';
     /* 卡片里的点击不能漏到正文（正文的 click 会关掉复制菜单、点批注等） */
     panel.addEventListener('click', (ev) => ev.stopPropagation());
@@ -845,7 +845,7 @@ export class PdfView {
       row.createEl('label', { text: label });
       const box = row.createDiv({ cls: 'bzs-seg' });
       for (const opt of opts) {
-        const btn = document.createElement('button');
+        const btn = createEl('button');
         btn.type = 'button';
         btn.textContent = opt.text;
         btn.className = opt.on ? 'on' : '';
@@ -921,7 +921,7 @@ export class PdfView {
     el.querySelectorAll('.bzr-pdf-fileannot').forEach((node) => node.remove());
     list.forEach((annot, index) => {
       for (const rect of mergeRects(annot.rects)) {
-        const mark = document.createElement('div');
+        const mark = createDiv();
         mark.className = `bzr-pdf-fileannot is-${annot.kind}${annot.contents ? ' has-note' : ''}`;
         mark.dataset.annot = String(index);
         mark.style.left = `${rect.left * 100}%`;
@@ -1020,12 +1020,12 @@ export class PdfView {
     this.linkPreviewTimer = window.setTimeout(() => {
       this.linkPreviewTimer = null;
       if (this.destroyed || !hot.isConnected) return;
-      const el = document.createElement('div');
+      const el = createDiv();
       el.className = 'bzr-pdf-linkprev is-empty';
-      const cap = document.createElement('span');
+      const cap = createSpan();
       cap.className = 'cap';
       cap.textContent = t('pdf.preview.page', { n: page });
-      const body = document.createElement('div');
+      const body = createDiv();
       body.className = 'body';
       el.append(cap, body);
       this.root.appendChild(el);
@@ -1035,7 +1035,7 @@ export class PdfView {
         if (!blob || this.linkPreviewEl !== el) return;
         const url = URL.createObjectURL(blob);
         this.linkPreviewUrl = url;
-        const img = document.createElement('img');
+        const img = createEl('img');
         img.src = url;
         img.alt = '';
         body.replaceChildren(img);
@@ -1073,17 +1073,17 @@ export class PdfView {
     const source = mark.dataset.source ?? '';
     if (this.blTipEl && this.blTipEl.dataset.source === source) return;
     this.hideBacklinkTip();
-    const el = document.createElement('div');
+    const el = createDiv();
     el.className = 'bzr-pdf-btip';
     el.dataset.source = source;
-    const name = document.createElement('span');
+    const name = createSpan();
     name.className = 'nm';
     const base = source.split('/').pop()?.replace(/\.md$/i, '') ?? source;
     name.textContent = t('pdf.backlink.citedBy', { name: base });
     el.appendChild(name);
     const label = mark.dataset.label ?? '';
     if (label) {
-      const quote = document.createElement('span');
+      const quote = createSpan();
       quote.className = 'qt';
       quote.textContent = label;
       el.appendChild(quote);
@@ -1104,15 +1104,15 @@ export class PdfView {
     const key = `annot:${page}:${mark.dataset.annot}`;
     if (this.blTipEl?.dataset.source === key) return;
     this.hideBacklinkTip();
-    const el = document.createElement('div');
+    const el = createDiv();
     el.className = 'bzr-pdf-btip is-note';
     el.dataset.source = key;
-    const name = document.createElement('span');
+    const name = createSpan();
     name.className = 'nm';
     name.textContent = annot.author
       ? t('pdf.fileannot.by', { name: annot.author })
       : t('pdf.fileannot.note');
-    const quote = document.createElement('span');
+    const quote = createSpan();
     quote.className = 'qt';
     quote.textContent = annot.contents;
     el.append(name, quote);
@@ -1181,7 +1181,7 @@ export class PdfView {
     if (!el) return;
     const old = el.querySelector('.bzr-pdf-pulse');
     old?.remove();
-    const mark = document.createElement('div');
+    const mark = createDiv();
     mark.className = 'bzr-pdf-pulse';
     el.appendChild(mark);
     if (this.pulseTimer !== null) window.clearTimeout(this.pulseTimer);
@@ -1272,10 +1272,10 @@ export class PdfView {
   private buildShells(): void {
     this.pagesBox.empty();
     this.pageEls = [];
-    const frag = document.createDocumentFragment();
+    const frag = createFragment();
     for (let page = 1; page <= this.numPages; page += 1) {
       const size = this.pageSize(page);
-      const el = document.createElement('div');
+      const el = createDiv();
       el.className = 'bzr-pdf-page';
       el.dataset.page = String(page);
       el.style.width = `${Math.round(size.width * this.scale)}px`;
@@ -1470,7 +1470,7 @@ export class PdfView {
     let root = this.liveSel?.page === page && this.liveSel.root.isConnected ? this.liveSel.root : null;
     if (!root) {
       this.clearLiveSelection();
-      root = document.createElement('div');
+      root = createDiv();
       root.className = 'bzr-pdf-selpaint';
       el.appendChild(root);
       this.liveSel = { page, root };
@@ -1478,7 +1478,7 @@ export class PdfView {
     const merged = mergeRects(rects);
     root.replaceChildren(
       ...merged.map((rect) => {
-        const band = document.createElement('div');
+        const band = createDiv();
         band.className = 'bzr-pdf-selband';
         band.style.left = `${rect.left * 100}%`;
         band.style.top = `${rect.top * 100}%`;
@@ -1631,7 +1631,7 @@ export class PdfView {
       }
       this.framing = true;
       this.scroller.classList.add('is-framing');
-      const box = document.createElement('div');
+      const box = createDiv();
       box.className = 'bzr-pdf-frame';
       start.pageEl.appendChild(box);
       this.frameBoxEl = box;
@@ -1723,7 +1723,7 @@ export class PdfView {
        旋转 90° 后 pdf.js 给文字层挂的是 CSS transform，它自己的包围盒还是
        未旋转的 595×842，而页面已经变成 842×595——拿文字层的尺寸当分母，
        高亮就会整体错位（真机上就是「转一下，划线横成一条线」）。 */
-    const pageEl = layer.closest('.bzr-pdf-page') as HTMLElement | null;
+    const pageEl = layer.closest<HTMLElement>('.bzr-pdf-page');
     const box = (pageEl ?? layer).getBoundingClientRect();
     if (box.width <= 0 || box.height <= 0) return [];
     /* 竖向要用**文字块自己的盒子**，不能用 Range 的行盒。
@@ -1886,9 +1886,9 @@ export class PdfView {
       el.style.width = `${Math.round(box.width * this.scale)}px`;
       el.style.height = `${Math.round(box.height * this.scale)}px`;
       if (sizeChanged) this.recomputeOffsets();
-      const canvas = document.createElement('canvas');
+      const canvas = createEl('canvas');
       canvas.className = 'bzr-pdf-canvas';
-      const layer = document.createElement('div');
+      const layer = createDiv();
       layer.className = 'textLayer';
       layer.dataset.page = String(page);
       el.replaceChildren(canvas, layer);
@@ -1935,7 +1935,7 @@ export class PdfView {
       this.failed.add(page);
       el.classList.add('is-failed');
       el.textContent = '';
-      const tip = document.createElement('div');
+      const tip = createDiv();
       tip.className = 'bzr-pdf-page-error';
       /* 把引擎给的原因直接写到页上：真机排查时没人愿意为了看一行报错
          去开控制台，截图就能说明问题。 */
@@ -1993,7 +1993,7 @@ export class PdfView {
     if (this.destroyed || !el.isConnected) return;
     for (const link of links) {
       if (!link.page || link.page === page) continue;
-      const hot = document.createElement('div');
+      const hot = createDiv();
       hot.className = 'bzr-pdf-linkhot';
       hot.dataset.target = String(link.page);
       hot.title = `跳到第 ${link.page} 页`;
@@ -2017,7 +2017,7 @@ export class PdfView {
        `getClientRects()` 给的是变换后的屏幕矩形——两者都在同一个旋转坐标系里，
        除出来就是对的。旋转时 `setRotation` 顺手清掉 `selectionRects`，
        逼所有标注重走这条「从 DOM 现算」的路。 */
-    const layer = el.querySelector('.textLayer') as HTMLElement | null;
+    const layer = el.querySelector<HTMLElement>('.textLayer');
     for (const [locator, annot] of this.annots) {
       if (annot.page !== page) continue;
       /* 三种来源，优先级按「坐标系是否还成立」排：
@@ -2046,7 +2046,7 @@ export class PdfView {
          一页要塞上千个绝对定位 div，滚动直接掉帧，块与块之间的亚像素缝还
          会在深色底上连成白线（见 rects.ts） */
       for (const rect of mergeRects(rects)) {
-        const mark = document.createElement('div');
+        const mark = createDiv();
         mark.className = 'bzr-pdf-annot-mark';
         mark.dataset.locator = locator;
         mark.style.left = `${rect.left * 100}%`;
@@ -2087,7 +2087,7 @@ export class PdfView {
     if (!el) return;
     el.querySelectorAll('.bzr-pdf-backlink, .bzr-pdf-backlink-edge').forEach((node) => node.remove());
     if (!this.backlinks.length || !this.pref().backlinks) return;
-    const layer = el.querySelector('.textLayer') as HTMLElement | null;
+    const layer = el.querySelector<HTMLElement>('.textLayer');
     for (const hit of this.backlinks) {
       if (hit.page !== page) continue;
       let rects: NormRect[] | null = null;
@@ -2120,7 +2120,7 @@ export class PdfView {
       }
       if (!rects?.length) {
         /* 只有页码：页边画一条竖线，表示「这一页被引用过」 */
-        const edge = document.createElement('div');
+        const edge = createDiv();
         edge.className = 'bzr-pdf-backlink-edge';
         edge.dataset.source = hit.sourcePath;
         if (hit.label) edge.dataset.label = hit.label;
@@ -2130,7 +2130,7 @@ export class PdfView {
         continue;
       }
       for (const rect of mergeRects(rects)) {
-        const mark = document.createElement('div');
+        const mark = createDiv();
         mark.className = 'bzr-pdf-backlink';
         mark.dataset.source = hit.sourcePath;
         if (hit.label) mark.dataset.label = hit.label;

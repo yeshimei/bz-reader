@@ -114,7 +114,7 @@ export class SideView extends ItemView {
       if (!row || !bookId) return;
       const book = liveBooks().find((b) => b.id === bookId);
       const page = pdfLocatorPage(row.dataset.href || '');
-      const dt = (e as DragEvent).dataTransfer;
+      const dt = e.dataTransfer;
       if (!book || !page || !dt) return;
       const label = (row.dataset.label || '').trim() || t('pdf.label.page', { n: page });
       dt.setData('text/plain', wikilinkTo(book, { cfi: pdfPageLocator(page) }, label));

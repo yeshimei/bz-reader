@@ -155,9 +155,11 @@ export function mapFileAnnots(
   const rotation = num(opts.rotation);
   const out: PdfFileAnnot[] = [];
   for (const item of annots ?? []) {
-    const annot = (item ?? null) as AnnotLike | null;
-    if (!annot || typeof annot !== 'object') continue;
-    const kind = KINDS[String(annot.subtype ?? '')];
+    /* 先收窄成 object 再断言：直接 `unknown as AnnotLike` 会被判成
+       「多余的类型断言」，而 JS 侧的 typeof 守卫又不给字段类型。 */
+    if (!item || typeof item !== 'object') continue;
+    const annot = item as AnnotLike;
+    const kind = KINDS[typeof annot.subtype === 'string' ? annot.subtype : ''];
     if (!kind) continue;
     const rects = quadRects(annot.quadPoints, box, rotation);
     if (!rects.length) {

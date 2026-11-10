@@ -12,6 +12,7 @@
  *     把主线程排满。
  * ============================================================ */
 
+import { Platform } from 'obsidian';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPdfjs } from './pdfjs';
 import { mapPdfOutline, synthPdfToc, type PdfTocItem } from './outline';
@@ -104,7 +105,7 @@ export class PdfDocument {
     const n = Math.min(Math.max(1, Math.floor(page)), this.numPages);
     let hit = this.pages.get(n);
     if (!hit) {
-      hit = this.pdf.getPage(n) as Promise<unknown>;
+      hit = this.pdf.getPage(n);
       this.pages.set(n, hit);
     }
     return (await hit) as import('pdfjs-dist').PDFPageProxy;
@@ -161,7 +162,7 @@ export class PdfDocument {
     try {
       const got = await this.pdf.getMetadata();
       info = (got?.info ?? {}) as Record<string, unknown>;
-      metadata = (got?.metadata ?? null) as { get?: (key: string) => unknown } | null;
+      metadata = got?.metadata ?? null;
     } catch {
       /* 坏元数据不影响打开 */
     }
@@ -261,7 +262,7 @@ export class PdfDocument {
       if (cached) return cached;
       /* 分母用未旋转的 MediaBox：getViewport 的宽高已含 /Rotate，
          拿它当分母会把横置页的标注全部算错位（和链接同一个坑） */
-      const box = (p.view as number[]) ?? [0, 0, 612, 792];
+      const box = p.view ?? [0, 0, 612, 792];
       const annots = (await p.getAnnotations({ intent: 'display' })) as unknown[];
       const out = mapFileAnnots(annots, { box, rotation: rotate });
       this.fileAnnots.set(key, out);
@@ -305,7 +306,7 @@ export class PdfDocument {
        多传一个 canvas 参数会让依赖追踪器走另一条分支；foliate 的 PDF
        实现就是只传 canvasContext，这条路径最稳。 */
     const task = p.render({ canvasContext: ctx, viewport } as unknown as Parameters<typeof p.render>[0]);
-    return task as unknown as PdfRenderTask;
+    return task;
   }
 
   /** 在容器里铺透明文字层（选择、搜索高亮、朗读都靠它） */
@@ -360,7 +361,7 @@ export class PdfDocument {
       if (cached) return cached;
       /* 分母必须用未旋转的 MediaBox/CropBox：getViewport 的宽高已经含 /Rotate，
          拿它当分母会把横置页的链接全部算错位 */
-      const box = (p.view as number[]) ?? [0, 0, 612, 792];
+      const box = p.view ?? [0, 0, 612, 792];
       const bw = Math.max(1, box[2] - box[0]);
       const bh = Math.max(1, box[3] - box[1]);
       const annots = (await p.getAnnotations({ intent: 'display' })) as PdfAnnotLike[];
@@ -418,7 +419,7 @@ export class PdfDocument {
   async renderPng(page: number, scale = 2): Promise<Blob | null> {
     try {
       const target = Math.max(1, Math.min(this.numPages, Math.floor(page)));
-      const canvas = document.createElement('canvas');
+      const canvas = createEl('canvas');
       const task = await this.renderPage(target, canvas, Math.max(0.5, Math.min(4, scale)), 1);
       await task.promise;
       return await new Promise<Blob | null>((resolve) => {
@@ -439,7 +440,7 @@ export class PdfDocument {
       const target = Math.max(1, Math.min(this.numPages, Math.floor(page)));
       const size = await this.getPageSize(target);
       const scale = Math.min(2, Math.max(0.05, maxWidth / Math.max(1, size.width)));
-      const canvas = document.createElement('canvas');
+      const canvas = createEl('canvas');
       const task = await this.renderPage(target, canvas, scale, 1);
       await task.promise;
       return await new Promise<Blob | null>((resolve) => {
@@ -516,10 +517,11 @@ export function canvasBudget(input: CanvasBudgetInput): CanvasBudget {
   return { ratio, width, height };
 }
 
-/** 移动端判定（UA 命中即视为移动端，走更保守的画布预算） */
+/* 移动端判定交给宿主：Platform.isMobile 覆盖 iOS / Android / 手机版桌面壳，
+   比嗅 UA 准，也是上架 lint 唯一认的写法（obsidianmd/platform）。
+   注意它必须在使用时读——测试里替身的 isMobile 是固定值。 */
 function detectMobile(): boolean {
-  if (typeof navigator === 'undefined' || !navigator.userAgent) return false;
-  return /Mobi|iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  return Platform.isMobile;
 }
 
 /**

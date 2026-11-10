@@ -2115,12 +2115,12 @@ export class ReaderView extends ItemView {
     this.hideFileAnnot();
     const root = this.rootEl;
     if (!root) return;
-    const card = document.createElement('div');
+    const card = createDiv();
     card.className = 'bzr-fa-card';
-    const head = document.createElement('div');
+    const head = createDiv();
     head.className = 'bzr-fa-h';
     head.textContent = info.author ? t('pdf.fileannot.by', { name: info.author }) : t('pdf.fileannot.note');
-    const body = document.createElement('div');
+    const body = createDiv();
     body.className = 'bzr-fa-b';
     body.textContent = info.contents || t('pdf.fileannot.empty');
     card.append(head, body);
