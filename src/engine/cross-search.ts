@@ -14,24 +14,13 @@ import type { ReaderBook } from '../data/schema';
 import type { ReaderPrefs } from '../data/prefs';
 import { type SearchHit } from './host';
 import { createEngine } from './reader-engine';
-import { t } from '../i18n';
-import { parsePdfLocator } from './pdf/locator';
+import { hitChapterLabel } from '../data/pdf-link';
 
 export type CrossBookHit = SearchHit & { chapterLabel: string };
 
-/**
- * 命中行首的小字。
- *
- * EPUB 引擎自己会给章节名；PDF 引擎只给 `pdf/<页>` 这种定位串，没有章节——
- * 不给它补一个页码，全库搜索里 PDF 的每一条都只剩一个「正文」，看不出在
- * 书的哪个位置。认不出来的也退回空串（界面会显示成「正文」），不硬编。
- */
-export function hitChapterLabel(hit: { cfi: string; chapterLabel?: string }): string {
-  const given = String(hit?.chapterLabel ?? '').trim();
-  if (given) return given;
-  const loc = parsePdfLocator(String(hit?.cfi ?? ''));
-  return loc ? t('pdf.label.page', { n: loc.page }) : '';
-}
+/* 位置小字挪到 data/pdf-link：本书搜索（当前打开的那本）也要用同一套，
+   放在引擎里会让壳层反向依赖引擎实现。这里转出去，老引用不用改。 */
+export { hitChapterLabel };
 
 /**
  * 整轮共用的离屏舞台。

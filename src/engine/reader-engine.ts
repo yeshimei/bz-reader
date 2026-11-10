@@ -101,8 +101,9 @@ export interface ReaderEngine {
    * 从跨书搜索点一条结果跳过来时用：那一次搜索是在临时的离屏引擎里跑的，
    * 落到手上的书这里什么都没标，用户跳到那一页还得自己找那个词。
    * 只有 PDF 实现（EPUB 走 foliate 自己的 search）。
+   * `locator` 是「点中的那一处」：同一页多处命中时，标出来的第一处要是它。
    */
-  highlightQuery?(kw: string): void;
+  highlightQuery?(kw: string, locator?: string): void;
   setAnnotations(list: HostAnnotation[]): void;
   clearSelection(): void;
   refreshTheme(): void;

@@ -192,6 +192,8 @@ export class PdfView {
   private tipOutTimer: number | null = null;
   /** 当前搜索词：命中要落到页面上，否则跳过去还得自己找 */
   private searchQuery = '';
+  /** 从搜索结果点进来的那一处（文字层字符区间）：同一页多处命中时先标它 */
+  private searchFocus: { page: number; start: number; end: number } | null = null;
 
   private observer: IntersectionObserver | null = null;
   private resizeObserver: ResizeObserver | null = null;
@@ -610,11 +612,26 @@ export class PdfView {
    * 搜索面板只告诉用户「在第几页」；跳过去之后整页字，还得自己找那一个词。
    * 这里按文字层里的字符区间反推矩形，和划线用同一套坐标（滚动缩放都不用重算）。
    * 传空串 = 清掉。
+   *
+   * `focus` 是「点中的那一处」（文字层字符区间）：同一页有好几处时，
+   * 先把它标成第一处，用户一眼能看出自己点的是哪一条。
    */
-  setSearchQuery(query: string | null | undefined): void {
+  setSearchQuery(
+    query: string | null | undefined,
+    focus: { page: number; start: number; end: number } | null = null,
+  ): void {
     const next = String(query ?? '').trim();
-    if (next === this.searchQuery) return;
+    const nextFocus =
+      next && focus && focus.end > focus.start
+        ? { page: focus.page, start: focus.start, end: focus.end }
+        : null;
+    const sameFocus =
+      nextFocus?.page === this.searchFocus?.page &&
+      nextFocus?.start === this.searchFocus?.start &&
+      nextFocus?.end === this.searchFocus?.end;
+    if (next === this.searchQuery && sameFocus) return;
     this.searchQuery = next;
+    this.searchFocus = nextFocus;
     for (const page of this.rendered) this.paintSearch(page);
   }
 
@@ -634,23 +651,29 @@ export class PdfView {
     if (!text) return;
     const ranges = rangesInText(text, query, 40);
     if (!ranges.length) return;
-    const rects: NormRect[] = [];
-    for (const range of ranges) {
-      const got = this.rectsOfOffset(layer, range.start, range.end);
-      if (got?.length) rects.push(...got);
+    const focus = this.searchFocus?.page === page ? this.searchFocus : null;
+    const pieces: Array<{ rects: NormRect[]; first: boolean }> = [];
+    if (focus) {
+      const rects = this.rectsOfOffset(layer, focus.start, focus.end);
+      if (rects?.length) pieces.push({ rects, first: true });
     }
-    if (!rects.length) return;
-    const merged = mergeRects(rects);
-    merged.forEach((rect, index) => {
-      const mark = document.createElement('div');
-      /* 第一处给重一点的颜色：一眼能看出「跳过来落在哪」 */
-      mark.className = `bzr-pdf-searchhit${index === 0 ? ' is-first' : ''}`;
-      mark.style.left = `${rect.left * 100}%`;
-      mark.style.top = `${rect.top * 100}%`;
-      mark.style.width = `${rect.width * 100}%`;
-      mark.style.height = `${rect.height * 100}%`;
-      el.appendChild(mark);
+    ranges.forEach((range, index) => {
+      if (focus && range.start === focus.start && range.end === focus.end) return;
+      const rects = this.rectsOfOffset(layer, range.start, range.end);
+      if (rects?.length) pieces.push({ rects, first: !focus && index === 0 });
     });
+    for (const piece of pieces) {
+      /* 第一处给重一点的颜色：一眼能看出「跳过来落在哪」 */
+      for (const rect of mergeRects(piece.rects)) {
+        const mark = document.createElement('div');
+        mark.className = `bzr-pdf-searchhit${piece.first ? ' is-first' : ''}`;
+        mark.style.left = `${rect.left * 100}%`;
+        mark.style.top = `${rect.top * 100}%`;
+        mark.style.width = `${rect.width * 100}%`;
+        mark.style.height = `${rect.height * 100}%`;
+        el.appendChild(mark);
+      }
+    }
   }
 
   /* ── 跳转历史 ── */

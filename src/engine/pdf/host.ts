@@ -23,8 +23,8 @@ import type { FoliateBook, FoliateTOCItem } from '../../types/foliate';
 import { OpenCancelledError, type HostAnnotation, type MountOptions, type SearchHit } from '../host';
 import type { ReaderEngine } from '../reader-engine';
 import { PdfDocument } from './document';
-import { pdfPageLocator } from './locator';
-import { searchPageTexts } from './search';
+import { parsePdfLocator, pdfPageLocator } from './locator';
+import { pdfHitLocator, searchPageTexts } from './search';
 import { PdfView } from './view';
 
 export class PdfEngineHost implements ReaderEngine {
@@ -340,14 +340,19 @@ export class PdfEngineHost implements ReaderEngine {
     const doc = this.doc;
     if (!doc) return [];
     const pages: Array<{ page: number; text: string }> = [];
+    /* 页文本与文字层映射一起取：命中要写 `pdf/页/起-止`，而那个区间
+       必须是文字层坐标，不能用搜索文本里的下标（差在补出来的空格上）。 */
+    const layerIndex = new Map<number, number[]>();
     for (let page = 1; page <= doc.numPages; page += 1) {
       if (opts.shouldStop?.()) break;
-      pages.push({ page, text: await doc.getText(page) });
+      const layout = await doc.getTextLayout(page);
+      pages.push({ page, text: layout.text });
+      layerIndex.set(page, layout.layerIndex);
     }
     /* 命中也要落到页面上：点一条结果跳过去，整页字里得能看见自己在找什么 */
     this.view?.setSearchQuery(kw);
-    return searchPageTexts(pages, kw, 200).map((hit) => ({
-      cfi: pdfPageLocator(hit.page),
+    return searchPageTexts(pages, kw).hits.map((hit) => ({
+      cfi: pdfHitLocator(hit, layerIndex.get(hit.page) ?? []),
       excerpt: `${hit.excerpt.pre}${hit.excerpt.match}${hit.excerpt.post}`,
     }));
   }
@@ -356,11 +361,18 @@ export class PdfEngineHost implements ReaderEngine {
     this.view?.clearSearchHighlight();
   }
 
-  /** 跨书搜索跳过来时，只标词不重扫（重扫要好几秒） */
-  highlightQuery(kw: string): void {
+  /**
+   * 跨书搜索跳过来时，只标词不重扫（重扫要好几秒）。
+   *
+   * 带 `locator` 时连「点中的是哪一处」一起给：同一页有好几个命中，
+   * 不指定就只能全标，用户看不出自己点的是哪一条。
+   */
+  highlightQuery(kw: string, locator?: string): void {
     const next = String(kw ?? '').trim();
     if (!next) return;
-    this.view?.setSearchQuery(next);
+    const target = locator ? parsePdfLocator(locator) : null;
+    const focus = target && target.end > target.start ? target : null;
+    this.view?.setSearchQuery(next, focus);
   }
 
   setAnnotations(list: HostAnnotation[]): void {

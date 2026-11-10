@@ -18,7 +18,7 @@ import { mapPdfOutline, synthPdfToc, type PdfTocItem } from './outline';
 import { rotateNormRect } from './locator';
 import { mapFileAnnots, type PdfFileAnnot } from './annots';
 import { labelsFromPdf } from './pagelabels';
-import { pageTextOf, type PdfTextItemLike } from './text';
+import { pageTextLayoutOf, type PdfPageTextLayout, type PdfTextItemLike } from './text';
 
 export interface PdfPageSize {
   /** 1 缩放下的 CSS 像素宽高（已含页面旋转） */
@@ -66,7 +66,7 @@ export class PdfDocument {
   readonly numPages: number;
 
   private readonly pages = new Map<number, Promise<unknown>>();
-  private readonly texts = new Map<number, string>();
+  private readonly texts = new Map<number, PdfPageTextLayout>();
   private readonly sizes = new Map<number, PdfPageSize>();
   private readonly links = new Map<string, PdfPageLink[]>();
   private readonly fileAnnots = new Map<string, PdfFileAnnot[]>();
@@ -121,26 +121,37 @@ export class PdfDocument {
     return size;
   }
 
-  /** 页文本（已归一空白）。失败返回空串：一页解析失败不该拖垮搜索 */
-  async getText(page: number): Promise<string> {
+  /**
+   * 页文本与文字层映射。失败返回空：一页解析失败不该拖垮搜索。
+   *
+   * 搜索要用 `layerIndex` 把「页文本里的下标」换成「文字层里的下标」——
+   * 划线与页内高亮都按后者还原，两套下标差在补出来的那些空格上。
+   */
+  async getTextLayout(page: number): Promise<PdfPageTextLayout> {
     const n = Math.min(Math.max(1, Math.floor(page)), this.numPages);
     const cached = this.texts.get(n);
     if (cached !== undefined) return cached;
     try {
       const p = await this.page(n);
       const content = await p.getTextContent();
-      const text = pageTextOf((content?.items ?? []) as PdfTextItemLike[]);
-      this.texts.set(n, text);
-      return text;
+      const layout = pageTextLayoutOf((content?.items ?? []) as PdfTextItemLike[]);
+      this.texts.set(n, layout);
+      return layout;
     } catch {
-      this.texts.set(n, '');
-      return '';
+      const empty: PdfPageTextLayout = { text: '', layerIndex: [] };
+      this.texts.set(n, empty);
+      return empty;
     }
+  }
+
+  /** 页文本（已归一空白） */
+  async getText(page: number): Promise<string> {
+    return (await this.getTextLayout(page)).text;
   }
 
   /** 已解析过的页文本（同步取，供 currentText 用） */
   cachedText(page: number): string {
-    return this.texts.get(page) ?? '';
+    return this.texts.get(page)?.text ?? '';
   }
 
   async getMetadata(): Promise<PdfDocMeta> {

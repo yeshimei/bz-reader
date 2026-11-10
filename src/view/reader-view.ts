@@ -294,11 +294,11 @@ export class ReaderView extends ItemView {
   }
 
   /** 已经开着这本书时从外面（跨书搜索）再点一条结果：只补标词 */
-  highlightQuery(query: string): void {
+  highlightQuery(query: string, locator?: string): void {
     const q = String(query ?? '').trim();
     if (!q) return;
     if (!this.mounted) this.pendingQuery = q;
-    else this.host.highlightQuery?.(q);
+    else this.host.highlightQuery?.(q, locator);
   }
 
   jumpTo(cfi: string): void {
@@ -1877,7 +1877,7 @@ export class ReaderView extends ItemView {
          这里不补一次，落到页面上的就只有一张没有记号的书页。 */
       const query = this.pendingQuery;
       this.pendingQuery = '';
-      if (query) this.host.highlightQuery?.(query);
+      if (query) this.host.highlightQuery?.(query, pending);
       /* 书本来没开着、从划线 / 书签点过来的：落点同样要闪一下 */
       if (pending) void this.host.pulseAt(pending);
       /* 重试挂载时上一段会话还没结算：begin() 会把它收掉并返回，

@@ -19,6 +19,21 @@
  * ============================================================ */
 
 import { t } from '../i18n';
+import { parsePdfLocator } from '../engine/pdf/locator';
+
+/**
+ * 命中行的位置小字。
+ *
+ * EPUB 引擎自己会给章节名；PDF 引擎只给 `pdf/<页>` 这种定位串，没有章节——
+ * 不给它补一个页码，全库搜索里 PDF 的每一条都只剩一个「正文」，看不出在
+ * 书的哪个位置。认不出来的也退回空串（界面会显示成「正文」），不硬编。
+ */
+export function hitChapterLabel(hit: { cfi: string; chapterLabel?: string }): string {
+  const given = String(hit?.chapterLabel ?? '').trim();
+  if (given) return given;
+  const loc = parsePdfLocator(String(hit?.cfi ?? ''));
+  return loc ? t('pdf.label.page', { n: loc.page }) : '';
+}
 
 export interface PdfLinkSelection {
   beginIndex: number;

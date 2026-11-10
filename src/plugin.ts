@@ -1372,7 +1372,7 @@ export function createPlugin(cfg: PluginConfig) {
         if (opened) {
           if (cfi) void (opened.view as ReaderView).jumpTo(cfi);
           /* 同一本书开着时再点一条跨书搜索结果：词也要重新标上 */
-          if (query) (opened.view as ReaderView).highlightQuery(query);
+          if (query) (opened.view as ReaderView).highlightQuery(query, cfi);
           await ws.revealLeaf(opened);
           // 书已经有 tab 在：阅读视图不会重发 relocate，目录得手动切过来
           (opened.view as ReaderView).activate();
