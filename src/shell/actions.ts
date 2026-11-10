@@ -134,7 +134,7 @@ import { TAP_MENU_PRESSURE_MS } from '../core/tap';
 import { aiCardDrop, aiCardFollowBegin, aiCardFollowDone, aiCardFollowFail, aiCardGet, aiCardKey, aiModeOf, followHistory } from './ai-card';
 import { runAiForOverlay } from './overlay';
 import { aiTurnsHtml } from './reader-cards';
-import { aiAnswerBlock, appendAiIdea, type AiSaveTask } from '../data/ai-save';
+import { aiAnswerBlock, aiConversationMarkdown, appendAiIdea, type AiSaveTask } from '../data/ai-save';
 import { DEFAULT_SETTINGS, aiReady } from '../data/settings';
 import { copyGroupId } from './group';
 import { collectStats, dayKey } from '../data/stats';
@@ -449,15 +449,13 @@ function insideExportDir(path: string, dir: string): boolean {
 }
 
 /**
- * 追加一段进导出目录里这本书的笔记（书摘「存笔记」与 AI「存为笔记」共用）。
+ * 追加一段进某个目录里这本书的笔记。
  *
- * 不覆盖已有内容：同一本书可以连着存好几段，路径与导出功能一致
- * （设置里的导出目录 + 书名），用户之后手动整理也在同一处。
+ * 不覆盖已有内容：同一本书可以连着存好几段。抽出来是因为「书摘/存为笔记」
+ * 与「AI 对话存档」只有目录不同，其余规则（清洗、防越界、原子性靠追加）
+ * 一字不差——两处各写一份迟早会有一边忘了防越界。
  */
-async function appendToExport(app: App, book: ReaderBook | undefined, block: string): Promise<void> {
-  const fallback = DEFAULT_SETTINGS.exportDir;
-  const dir = safeExportDir(shellSettings().exportDir || fallback, fallback);
-  const name = safeExportName(book?.meta.title || t('export.loose'));
+async function appendBlock(app: App, dir: string, name: string, block: string, done: string): Promise<void> {
   const path = `${dir}/${name}.md`;
   try {
     /* 清洗之后理论上不会越界；这条是给以后改清洗规则的人留的门闩——
@@ -466,10 +464,31 @@ async function appendToExport(app: App, book: ReaderBook | undefined, block: str
     if (!(await app.vault.adapter.exists(dir))) await app.vault.adapter.mkdir(dir);
     const head = (await app.vault.adapter.exists(path)) ? await app.vault.adapter.read(path) : `# ${name}\n`;
     await app.vault.adapter.write(path, `${head.trimEnd()}\n\n${block}\n`);
-    notify(t('notice.note.saved', { path }));
+    notify(done);
   } catch (e) {
     notify(t('notice.note.saveFailed', { why: (e as Error).message }));
   }
+}
+
+/**
+ * 追加一段进导出目录里这本书的笔记（书摘「存笔记」与 AI「存为笔记」共用）。
+ *
+ * 路径与导出功能一致（设置里的导出目录 + 书名），用户之后手动整理也在同一处。
+ */
+async function appendToExport(app: App, book: ReaderBook | undefined, block: string): Promise<void> {
+  const fallback = DEFAULT_SETTINGS.exportDir;
+  const dir = safeExportDir(shellSettings().exportDir || fallback, fallback);
+  const name = safeExportName(book?.meta.title || t('export.loose'));
+  await appendBlock(app, dir, name, block, t('notice.note.saved', { path: `${dir}/${name}.md` }));
+}
+
+/** AI 对话存档：落导出目录下的「AI 对话」，与书摘笔记分开放 */
+async function appendAiLog(app: App, book: ReaderBook | undefined, block: string): Promise<void> {
+  const fallback = DEFAULT_SETTINGS.exportDir;
+  const base = safeExportDir(shellSettings().exportDir || fallback, fallback);
+  const dir = `${base}/${safeExportName(t('ai.log.dir'))}`;
+  const name = safeExportName(book?.meta.title || t('export.loose'));
+  await appendBlock(app, dir, name, block, t('notice.ai.logSaved', { path: `${dir}/${name}.md` }));
 }
 
 /* ─────────── 书签 / 标注 ─────────── */
@@ -2906,6 +2925,26 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         day: dayKey(Date.now()),
       });
       if (block) void appendToExport(app, book, block);
+      break;
+    }
+    /* 存档这段对话（2026-11-11）：侧栏的多轮问答落成一篇笔记。
+       与「存为笔记」不同——那是卡上一条答案，这里是整场对话，关掉侧栏
+       之后还能回去看当时问过什么、依据是哪几章。 */
+    case 'aisavelog': {
+      const app = getShellSource()?.app;
+      if (!app) break;
+      if (!RT.aiLog.length) {
+        notify(t('notice.ai.logEmpty'), 'info');
+        break;
+      }
+      const book = currentBook();
+      const block = aiConversationMarkdown({
+        bookTitle: book?.meta.title,
+        day: dayKey(Date.now()),
+        turns: RT.aiLog.map((m) => ({ me: m.me, text: m.text, sources: m.sources })),
+      });
+      if (!block) break;
+      void appendAiLog(app, book, block);
       break;
     }
 

@@ -526,6 +526,13 @@ function indexChat(v: SidebarView, idx: AiIndexView): string {
         <input data-role="aiask" placeholder="${t('side.ai.ask.ph')}" value="${esc(v.aiDraft ?? '')}">
         <button class="bzs-btn sm pri" data-act="aiask">${t('side.ai.ask')}</button>
       </div>
+      ${
+        /* 对话只活在内存里：关掉插件就没了。有内容时才给存档入口，
+           空对话点了只会得到一句「还没有可以存档的对话」。 */
+        v.aiLog.length
+          ? `<div class="bzs-aimeta"><button class="lnk" data-act="aisavelog">${t('side.ai.saveLog')}</button></div>`
+          : ''
+      }
     </div>`;
 }
 

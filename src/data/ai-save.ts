@@ -95,3 +95,51 @@ export function appendAiReview(card: string, answer: string): string {
   if (at < 0) return `${src.trimEnd()}\n\n${block}\n`;
   return `${src.slice(0, at).trimEnd()}\n\n${block}\n\n${src.slice(at)}`;
 }
+
+/* ─────────── 对话存档（2026-11-11） ─────────── */
+
+/** 存档段落的末尾标记：下次再存时认得出这是插件写的 */
+export const AI_LOG_MARK = '<!-- bz-reader:ai-log -->';
+
+export interface AiLogLine {
+  /** true = 用户问的 */
+  me: boolean;
+  text: string;
+  /** 这一条答完之后附的来源（侧栏里能点开的那几条） */
+  sources?: Array<{ title?: string; note?: string }>;
+}
+
+/**
+ * 把侧栏的一轮对话整理成一段 Markdown。
+ *
+ * 与「存为笔记」的区别：那是**一条答案**，这里是**整场对话**——用户
+ * 关掉侧栏之后还能回去看当时问过什么、依据是哪几章。
+ *
+ * 空对话返回空串：调用方据此不写盘、也不弹「已存档」。
+ */
+export function aiConversationMarkdown(input: {
+  bookTitle?: string;
+  day: string;
+  turns: readonly AiLogLine[];
+}): string {
+  const turns = (input.turns ?? []).filter((turn) => String(turn?.text ?? '').trim());
+  if (!turns.length) return '';
+
+  const book = String(input.bookTitle ?? '').trim();
+  const day = String(input.day ?? '').trim();
+  const head = `## ${t('ai.log.title')}${book ? ` · ${book}` : ''}${day ? ` · ${day}` : ''}`;
+  const lines = [head, ''];
+
+  for (const turn of turns) {
+    const who = turn.me ? t('ai.log.me') : t('ai.log.ai');
+    const body = String(turn.text).trim().replace(/\n{3,}/g, '\n\n');
+    lines.push(`**${who}**：${body}`, '');
+    const src = (turn.sources ?? [])
+      .map((s) => [String(s?.title ?? '').trim(), String(s?.note ?? '').trim()].filter(Boolean).join(' · '))
+      .filter(Boolean);
+    if (src.length) lines.push(`> ${t('ai.log.sources')}${src.join('；')}`, '');
+  }
+
+  lines.push(AI_LOG_MARK);
+  return lines.join('\n');
+}
