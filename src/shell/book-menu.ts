@@ -4,7 +4,7 @@
  * 菜单外壳走 Obsidian 原生 `Menu`：桌面弹在鼠标处，手机是底部动作面板。
  * 这里只定**条目、顺序、图标与禁用条件**，不另造一套视觉。
  *
- * 顺序即使用频次：前三项是高频（打开、看详情、收藏），
+ * 顺序即使用频次：前几项是高频（打开、看详情、导出、收藏），
  * 管理类动作沉底、并用一道分隔线与上面隔开。
  *
  * 文件丢失时「阅读」禁用而不是隐藏，并补一条「重新定位文件…」：
@@ -17,6 +17,7 @@
 export type BookMenuAction =
   | 'open'
   | 'detail'
+  | 'export'
   | 'fav'
   | 'done'
   | 'rename'
@@ -52,6 +53,9 @@ export function bookMenuItems(input: BookMenuInput): BookMenuItem[] {
       ? [{ act: 'relocate' as const, title: '重新定位文件…', icon: 'folder-open' }]
       : []),
     { act: 'detail', title: '书籍详情', icon: 'info' },
+    /* 导出紧跟详情：两者都回答「这本书能产出什么」。摘录存在本机，
+       书文件丢了也能导，所以这一条不看 missing。 */
+    { act: 'export', title: '导出这本书', icon: 'download' },
     { act: 'fav', title: input.fav ? '取消收藏' : '收藏', icon: 'star' },
     /* 两个方向用两枚图标：check 是「完成」，refresh 是「回到未读完」。
        共用一枚 check 的话，「标为在读」看起来像又要把它标成读完。 */

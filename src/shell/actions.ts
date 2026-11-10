@@ -57,9 +57,8 @@ import { pickFolder } from '../core/folder-pick';
 import { PURCHASE_URL, REPO_URL, can, capLabel, type Cap } from '../data/entitlement';
 import { HEADER_ACTION_IDS } from '../view/header-actions';
 import type { ReaderPrefs } from '../data/prefs';
-import { snippet } from '../data/deeplink';
-import { wikilinkOf, wikilinkOfMark, wikilinkTo } from '../data/wikilink';
-import { exportBookNotes, safeName } from '../data/export';
+import { wikilinkOf, wikilinkOfMark } from '../data/wikilink';
+import { buildNotesBody, exportBookNotes, safeName } from '../data/export';
 import { jumpTo, getToc } from '../view/toc-state';
 import { LIB_FILTERS, LIB_SORTS } from './render/study';
 import { copyQuoteCardImage } from './card-image';
@@ -829,6 +828,13 @@ async function copyText(text: string): Promise<void> {
   }
 }
 
+/**
+ * 复制到剪贴板的 Markdown：与落盘版共用一份正文生成器。
+ *
+ * 以前这里另写了一套（标题变成「书名 · 摘录」、想法用 `**想法**：`、
+ * 末尾再挂一条 `— [在原文中查看]`），同一本书导出的文件和复制的文字
+ * 长得不一样，用户改哪份都别扭。
+ */
 function exportMarkdown(bookId?: string): string {
   const src = getShellSource();
   if (!src) return t('export.noData');
@@ -836,29 +842,37 @@ function exportMarkdown(bookId?: string): string {
   const books = bookId ? liveBooks().filter((b) => b.id === bookId) : liveBooks();
   const parts = books
     .filter((b) => (b.notes?.highlights ?? []).length)
-    .map((b) => buildMdFor(b, settings.exportComments));
+    .map((b) => buildNotesBody(b, settings));
   return parts.join('\n\n---\n\n') || t('export.noNotes');
 }
 
-/** 轻量预览版：与 data/export.ts 的落盘版同一结构，但不写文件 */
-function buildMdFor(book: ReaderBook, withComments: boolean): string {
-  const lines: string[] = [`# ${book.meta.title || '未命名'} · 摘录`, ''];
-  if (book.meta.author) lines.push(`> ${book.meta.author}`, '');
-  const groups = new Map<string, typeof book.notes.highlights>();
-  for (const h of [...book.notes.highlights].sort((a, b) => (a.chapterIndex ?? 0) - (b.chapterIndex ?? 0))) {
-    const key = h.chapterTitle?.trim() || '未命名章节';
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key)!.push(h);
+/**
+ * 导出一本书到「书摘/书名.md」。
+ *
+ * 两个入口共用：笔记页每本书头部的「导出这本」，和书卡右键的「导出这本书」。
+ * 不弹预览、不复制剪贴板——一次点击就是落一份笔记。
+ */
+function exportBookFile(bookId: string): void {
+  const book = liveBooks().find((b) => b.id === bookId);
+  if (!book) {
+    notify(t('notice.export.needBook'));
+    return;
   }
-  for (const [chapter, items] of groups) {
-    lines.push(`## ${chapter}`, '');
-    for (const h of items) {
-      lines.push(`> ${h.text.replace(/\s*\n\s*/g, ' ')}`, '');
-      if (withComments && h.comment?.trim()) lines.push(`**想法**：${h.comment.trim()}`, '');
-      if (h.cfiRange) lines.push(`— ${wikilinkTo(book, { cfi: h.cfiRange, text: snippet(h.text), chapter: h.chapterTitle }, '在原文中查看')}`, '');
+  void (async () => {
+    const src = getShellSource();
+    if (!src) return;
+    try {
+      const res = await exportBookNotes(src.app, book, shellSettings());
+      if (!res) {
+        notify(t('notice.export.empty'));
+        return;
+      }
+      closeOverlay();
+      notify(t('notice.export.done', { n: res.highlights, path: res.path }));
+    } catch (e) {
+      notify(t('notice.export.failed', { why: (e as Error)?.message || t('common.unknownError') }), 'error');
     }
-  }
-  return lines.join('\n');
+  })();
 }
 
 /* ─────────── 详情弹层需要的数据 ─────────── */
@@ -1072,6 +1086,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
           if (it.act === 'open') i.onClick(() => openBookById(id));
           if (it.act === 'relocate') i.onClick(() => overlay('missing', { bookId: id }));
           if (it.act === 'detail') i.onClick(() => overlay('detail', { bookId: id }));
+          /* 导出没解锁就弹对照表，不悄悄降级成「复制一段纯文本」 */
+          if (it.act === 'export')
+            i.onClick(() => {
+              if (requireCap('export')) exportBookFile(id);
+            });
           if (it.act === 'fav')
             i.onClick(() => {
               const on = toggleFav(id);
@@ -1433,26 +1452,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'exportfile': {
       if (!requireCap('export')) break;
       const id = d.id || d.book || getState().bookId;
-      const book = id ? liveBooks().find((b) => b.id === id) : undefined;
-      if (!book) {
-        notify(t('notice.export.needBook'));
-        break;
-      }
-      void (async () => {
-        const src = getShellSource();
-        if (!src) return;
-        try {
-          const res = await exportBookNotes(src.app, book, shellSettings());
-          if (!res) {
-            notify(t('notice.export.empty'));
-            return;
-          }
-          closeOverlay();
-          notify(t('notice.export.done', { n: res.highlights, path: res.path }));
-        } catch (e) {
-          notify(t('notice.export.failed', { why: (e as Error)?.message || t('common.unknownError') }), 'error');
-        }
-      })();
+      if (id) exportBookFile(id);
+      else notify(t('notice.export.needBook'));
       break;
     }
     case 'copytext':

@@ -11,16 +11,27 @@ import { bookMenuItems } from '../src/shell/book-menu';
 const plain = { done: false, fav: false };
 
 describe('bookMenuItems · 条目与顺序', () => {
-  it('七条都在，顺序是 阅读 / 详情 / 收藏 / 标为读完 / 改名 / 归入分类 / 移出书架', () => {
+  it('八条都在，顺序是 阅读 / 详情 / 导出 / 收藏 / 标为读完 / 改名 / 归入分类 / 移出书架', () => {
     expect(bookMenuItems(plain).map((i) => i.title)).toEqual([
       '阅读',
       '书籍详情',
+      '导出这本书',
       '收藏',
       '标为读完',
       '改名',
       '归入分类…',
       '移出书架',
     ]);
+  });
+
+  /* 导出紧跟在「书籍详情」后面：它和详情一样是「看这本书产出什么」，
+     不该沉到底部管理组，也不该插进收藏/读完这种状态开关中间。 */
+  it('导出排在详情之后、收藏之前，且不带分隔线', () => {
+    const list = bookMenuItems(plain);
+    const acts = list.map((i) => i.act);
+    expect(acts.indexOf('export')).toBe(acts.indexOf('detail') + 1);
+    expect(acts.indexOf('export')).toBe(acts.indexOf('fav') - 1);
+    expect(list.find((i) => i.act === 'export')?.sepBefore).toBeFalsy();
   });
 
   /* 归类是「整理书架」的动作，和改名同一组：它不该插到阅读/收藏这些
@@ -47,7 +58,7 @@ describe('bookMenuItems · 条目与顺序', () => {
 
   it('每条都有自己的图标', () => {
     const icons = bookMenuItems(plain).map((i) => i.icon);
-    expect(icons).toEqual(['book-open', 'info', 'star', 'check', 'pencil', 'folder', 'trash']);
+    expect(icons).toEqual(['book-open', 'info', 'download', 'star', 'check', 'pencil', 'folder', 'trash']);
   });
 });
 
@@ -83,6 +94,14 @@ describe('bookMenuItems · 文件丢失', () => {
     const list = bookMenuItems({ ...plain, missing: true });
     expect(list.find((i) => i.act === 'relocate')?.title).toBe('重新定位文件…');
     expect(list.filter((i) => i.disabled).map((i) => i.act)).toEqual(['open']);
-    expect(list).toHaveLength(8);
+    expect(list).toHaveLength(9);
+  });
+
+  /* 书文件丢了，摘录和书签还在本机：导出不该跟着禁用 */
+  it('文件丢失时「导出这本书」仍可点', () => {
+    const list = bookMenuItems({ ...plain, missing: true });
+    const ex = list.find((i) => i.act === 'export');
+    expect(ex?.disabled).toBeFalsy();
+    expect(ex?.title).toBe('导出这本书');
   });
 });

@@ -41,7 +41,7 @@ describe('导出 · 知识盒链接', () => {
     const h = book.notes.highlights[0];
     h.comment = '我的想法';
     const md = buildNotesMarkdown(book, settings, 0);
-    expect(md).toContain('想法：我的想法');
+    expect(md).toContain('*我的想法*');
     expect(md).toContain('知识盒（名词）');
   });
 });

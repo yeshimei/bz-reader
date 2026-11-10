@@ -3,25 +3,30 @@
  *
  * 一本书 → 一份 Markdown。导出的东西必须能当笔记直接用，而不是
  * 「数据 dump 到一个 .md 里」：
- *   · frontmatter 带书名/作者/进度/条数，Obsidian 的搜索与 Dataview 才认；
+ *   · frontmatter 只留书名/作者/导出日/书摘标签/bookId，属性表不堆机器字段；
  *   · 按章节分组，组内按书中位置排——顺序乱了，读第二遍时对不上；
- *   · 想法压在引用下面一行，不缩进、不套 callout，正文里能直接读。
+ *   · **每条摘录本身就是一条双链**，文字即链，点一下回到原文那一句；
+ *   · 想法斜体一段压在引用下面，不写「想法：」前缀（每行都重复，像表单）。
  *
- * 三条不做的事：
+ * 三段导出（落盘 / 复制 / 弹层预览）共用 buildNotesBody：以前各写各的，
+ * 同一本书在三个入口是三种样子。落盘只比正文多一个 frontmatter。
+ *
+ * 四条不做的事：
  *   1. **不覆盖别人的笔记**。同名文件若不含本插件的标记，改名让开
  *      （`书名 (2).md`）。用户手写的读书笔记被一次导出冲掉是灾难。
  *   2. **不增量追加**。每次整份重写：增删改划线之后，追加会让同一段
  *      原文在文件里出现两遍，而用户没法判断哪条是删掉的。
  *   3. **不碰原文**。摘录里带 `>`、`#`、`*` 一律不转义（引用块里是安全的），
  *      但会把换行压平——多行摘录在 blockquote 里会断成两块，读起来像两条。
+ *   4. **不在链接里塞全文**。别名是原文，`t=` 只带 20 字定位片段：
+ *      两处都放全文，一条划线的链接会长到没法读。
  * ============================================================ */
 import type { App } from 'obsidian';
 import type { KbLink, ReaderBook } from './schema';
 import type { ReaderSettings } from './settings';
 import { bookmarksOf, highlightsOf } from './notes';
 import { kbLinkMarkdown } from './kb-link';
-import { wikilinkTo } from './wikilink';
-import { pdfLocatorPage, pdfPageLocator } from '../engine/pdf/locator';
+import { wikilinkOf, wikilinkTo } from './wikilink';
 import { t } from '../i18n';
 
 /** 导出文件第一行。再次导出靠它判断「这份是不是我们写的」 */
@@ -108,38 +113,43 @@ interface Group {
   key: string;
   title: string;
   order: number;
-  items: Array<{ text: string; comment?: string; kb?: KbLink[]; createdAt: number; page?: number }>;
+  items: Array<{ text: string; comment?: string; kb?: KbLink[]; createdAt: number; cfi?: string; color?: string }>;
 }
 
-export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, now = Date.now()): string {
+/**
+ * 想法的 Markdown 形态。
+ *
+ * 大多数想法是纯文字，用斜体让它比摘录轻一档；但想法里**本来就写了**
+ * `*` / `_` / 反引号的（用户自己在强调、写代码），再包一层斜体会把
+ * 他的格式弄乱，这种原样输出。
+ */
+function ideaLine(comment: string): string {
+  const one = oneLine(comment);
+  return /[*_`]/.test(one) ? one : `*${one}*`;
+}
+
+/**
+ * 一本书的正文（不含 frontmatter）。
+ *
+ * 落盘、复制到剪贴板、弹层预览都调这一个函数：同一本书不管从哪个入口
+ * 出去，排版和双链都得一模一样。
+ */
+export function buildNotesBody(book: ReaderBook, settings: ReaderSettings): string {
   const highlights = highlightsOf(book);
   const bookmarks = bookmarksOf(book);
   const percent = Math.round((book.reading.position.percent || 0) * 100);
   const author = book.meta.author?.trim() || '';
 
   const lines: string[] = [];
-  lines.push('---');
-  lines.push(`title: ${yamlStr(book.meta.title)}`);
-  /* bookId 是「同名书认领自己那份导出」的唯一依据（A-16）：
-     两本都叫《活着》时，只按书名找文件会让后导出的那本覆盖前一本。 */
-  lines.push(`bookId: ${yamlStr(book.id)}`);
-  if (author) lines.push(`author: ${yamlStr(author)}`);
-  lines.push(`progress: ${percent}`);
-  lines.push(`highlights: ${highlights.length}`);
-  lines.push(`bookmarks: ${bookmarks.length}`);
-  lines.push(`exported: ${ymd(now)}`);
-  lines.push('tags:');
-  lines.push('  - 书摘');
-  lines.push('---');
-  lines.push(MARK);
-  lines.push('');
   lines.push(`# ${oneLine(book.meta.title)}`);
   lines.push('');
 
+  /* 元信息是一行正文，不再走 frontmatter：属性表每多一行，打开笔记第一眼
+     就多一块机器字段。读到几成、几条，这一行看得更直接。 */
   const sub = [oneLine(author || ''), `读到 ${percent}%`, `${highlights.length} 条划线`, bookmarks.length ? `${bookmarks.length} 个书签` : '']
     .filter(Boolean)
     .join(' · ');
-  lines.push(`> ${sub}`);
+  lines.push(sub);
   lines.push('');
 
   /* 按章分组：章号相同归一组；没有章号的（老数据、TXT）统一落到最后 */
@@ -158,9 +168,8 @@ export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, n
       comment: h.comment?.trim(),
       kb: h.kb,
       createdAt: h.createdAt,
-      /* PDF 划线的定位串就是「第几页」；导出后没有页码，几天后再看
-         就只剩一句话，回不到原文。EPUB 没有页这个概念，留空。 */
-      page: pdfLocatorPage(h.cfiRange ?? '') ?? undefined,
+      cfi: h.cfiRange,
+      color: h.color,
     });
   }
 
@@ -175,29 +184,30 @@ export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, n
        下面那半句变成正文段落（P3-08）。压成一行再进标题。 */
     lines.push(`## ${oneLine(g.title)}`);
     lines.push('');
-    g.items.forEach((it, i) => {
-      if (i > 0) lines.push('');
-      /* PDF 划线：引用后面缀一条回链。放在同一行而不是另起一段——
-         一条划线配一条空行链接，几十条下来就是满屏链接。 */
-      const pageLink =
-        it.page && it.page > 0
-          ? wikilinkTo(book, { cfi: pdfPageLocator(it.page) }, t('pdf.label.page', { n: it.page }))
-          : '';
-      lines.push(pageLink ? `> ${it.text} — ${pageLink}` : `> ${it.text}`);
+    g.items.forEach((it) => {
+      /* 摘录自己就是双链，别名用原文：点文字跳回原文那一句。
+         EPUB 走 `bzr-cfi=…`，PDF 走 `page=…&bzr=…`，都由 wikilink 那层拼。 */
+      const link = wikilinkOf(book, {
+        text: it.text,
+        cfiRange: it.cfi,
+        chapterTitle: g.title,
+        color: it.color,
+      });
+      lines.push(`> ${link || it.text}`);
       if (settings.exportComments && it.comment) {
         lines.push('');
-        lines.push(`想法：${oneLine(it.comment)}`);
+        lines.push(ideaLine(it.comment));
       }
       /* 知识盒链接单独一行：它不算想法（导出时不受「带想法」开关影响——
          没有这一行，导出到库里的笔记就看不出这段存过名词 / 段落了）。 */
       for (const kb of it.kb ?? []) {
-        const link = kbLinkMarkdown(kb.path);
-        if (!link) continue;
+        const kbText = kbLinkMarkdown(kb.path);
+        if (!kbText) continue;
         lines.push('');
-        lines.push(`${t(kb.kind === 'term' ? 'export.kb.term' : 'export.kb.passage')}：${link}`);
+        lines.push(`${t(kb.kind === 'term' ? 'export.kb.term' : 'export.kb.passage')}：${kbText}`);
       }
+      lines.push('');
     });
-    lines.push('');
   }
 
   if (bookmarks.length) {
@@ -205,11 +215,16 @@ export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, n
     lines.push('');
     const sorted = [...bookmarks].sort((a, b) => (a.percent || 0) - (b.percent || 0));
     for (const b of sorted) {
-      const where = b.chapterTitle ? oneLine(b.chapterTitle) : '';
       const p = `${Math.round((b.percent || 0) * 100)}%`;
       // 书签标签同理：带换行会把一条列表拆成两条（P3-08）
       const label = b.label ? oneLine(b.label) : '';
-      const parts = [`**${p}**`, where, label, ymd(b.createdAt)].filter(Boolean);
+      const where = b.chapterTitle ? oneLine(b.chapterTitle) : '';
+      /* 书签也带双链：按 CFI + 百分比跳回那一段。别名优先用章节名，没有
+         章节名（老数据）就用百分比——总之别名不能空，空着 wikilinkTo 会把
+         整条链接丢掉。没有章节名时也不再重复写一遍 `**34%**`。 */
+      const alias = where || p;
+      const link = wikilinkTo(book, { cfi: b.cfi, pct: b.percent, chapter: b.chapterTitle?.trim() || undefined }, alias) || alias;
+      const parts = [where ? `**${p}**` : '', link, label].filter(Boolean);
       lines.push(`- ${parts.join(' · ')}`);
     }
     lines.push('');
@@ -221,6 +236,25 @@ export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, n
   }
 
   return lines.join('\n');
+}
+
+export function buildNotesMarkdown(book: ReaderBook, settings: ReaderSettings, now = Date.now()): string {
+  const author = book.meta.author?.trim() || '';
+  const head: string[] = [];
+  head.push('---');
+  head.push(`title: ${yamlStr(book.meta.title)}`);
+  if (author) head.push(`author: ${yamlStr(author)}`);
+  head.push(`exported: ${ymd(now)}`);
+  head.push('tags:');
+  head.push('  - 书摘');
+  /* bookId 是「同名书认领自己那份导出」的唯一依据（A-16）：
+     两本都叫《活着》时，只按书名找文件会让后导出的那本覆盖前一本。
+     放最后一行：机器字段，人看笔记时先看到书名和作者。 */
+  head.push(`bookId: ${yamlStr(book.id)}`);
+  head.push('---');
+  head.push(MARK);
+  head.push('');
+  return `${head.join('\n')}\n${buildNotesBody(book, settings)}`;
 }
 
 /** 取 frontmatter 段；没有头部就是空串（正文里恰好以 bookId: 开头的行不算） */

@@ -70,8 +70,9 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/shell/adapt.ts': 9,
   /* 2026-11-08 +1：书卡菜单多一条「归入分类…」。这一列菜单本来就是
      硬编码中文（六条老条目都在），只给新条目单独走 i18n 会变成中英混排，
-     所以整组留到以后一次性收。 */
-  'src/shell/book-menu.ts': 10,
+     所以整组留到以后一次性收。
+     2026-11-10 +1（10 → 11）：同理多一条「导出这本书」。 */
+  'src/shell/book-menu.ts': 11,
   'src/shell/card-image.ts': 4,
   'src/shell/card-template.ts': 8,
   /* 2026-11-10 +2（17 → 19）：更新日志页脚多一枚「支持作者（已有 N 位）」，

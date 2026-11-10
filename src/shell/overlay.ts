@@ -52,7 +52,7 @@ import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
 import { bindRangeTouch } from './range-touch';
 import { PLAN_GROUPS, PLAN_TABLE, can, entitlement, type Cap, type PlanCell } from '../data/entitlement';
-import { protocolUrl } from '../data/deeplink';
+import { buildNotesBody } from '../data/export';
 import { dataDirOf } from '../core/plugin-path';
 import { clampDailyGoal } from '../data/goal';
 import { shelfLabel } from './shelf-label';
@@ -251,35 +251,18 @@ function overlayExport(bookId?: string): string {
   );
 }
 
+/**
+ * 弹层里的预览：直接用落盘那份正文生成器。
+ *
+ * 以前这里手写了一套（`# 书名 · 摘录` + `**想法**：` + `[在原文中查看](obsidian://…)`），
+ * 和真正导出的文件不是一回事——预览里看到的排版，存下来就变了。现在预览
+ * 就是存下来的东西，一个字都不差（只少 frontmatter）。
+ */
 function buildPreview(book?: ReaderBook): string {
   const books = book ? [book] : liveBooks().filter((b) => (b.notes?.highlights ?? []).length);
-  if (!books.length) return '（还没有划线。去阅读页选中一段文字试试。）';
-  const withComments = shellSettings().exportComments;
-  return books
-    .map((b) => {
-      const lines = [`# ${b.meta.title || '未命名'} · 摘录`, ''];
-      const groups = new Map<string, string[]>();
-      for (const h of marksOf(b)) {
-        const key = h.chapterTitle || '未命名章节';
-        if (!groups.has(key)) groups.set(key, []);
-        const block = [`> ${h.text.replace(/\s*\n\s*/g, ' ')}`, ''];
-        if (withComments && h.comment) block.push(`**想法**：${h.comment}`, '');
-        if (h.cfiRange)
-          block.push(
-            `— [在原文中查看](${protocolUrl({
-              bookId: b.id,
-              cfi: h.cfiRange,
-              text: h.text.replace(/\s+/g, ' ').slice(0, 20),
-              chapter: h.chapterTitle,
-            })})`,
-            '',
-          );
-        groups.get(key)!.push(block.join('\n'));
-      }
-      for (const [chapter, blocks] of groups) lines.push(`## ${chapter}`, '', ...blocks);
-      return lines.join('\n');
-    })
-    .join('\n\n---\n\n');
+  if (!books.length) return t('export.noNotes');
+  const settings = shellSettings();
+  return books.map((b) => buildNotesBody(b, settings)).join('\n\n---\n\n');
 }
 
 function overlayBookmap(): string {
