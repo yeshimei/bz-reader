@@ -44,7 +44,6 @@ import {
   setIdeaDraft,
 } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
-import { planCardMoves } from '../data/review-migrate';
 import { bzEmbedder, bzEntryReady, reviewPlanOf } from '../data/bz-bridge';
 import { kbLinkOf } from '../data/kb-link';
 import { hydrateToolbarIcons } from './toolbar-icons';
@@ -627,33 +626,6 @@ function overlayConfirmReview(bookId: string): string {
     })}</div>`,
     `<span class="sp"></span><button class="bzs-btn" data-act="close">${t('review.batch.cancel')}</button>
      <button class="bzs-btn pri" data-act="reviewbookdo" data-book="${esc(bookId)}">${t('review.batch.confirm')}</button>`,
-    '',
-    isMobileEnv() ? 'bzs-text-scrim' : '',
-  );
-}
-
-/**
- * 复习卡目录改了、旧卡还在原处（2026-11-11）。
- *
- * 不静默搬：搬一张卡要同时改划线路径和 bz 排期表里的路径，只改一处就得到
- * 一批打不开的排期。所以先把数量与两个目录摆出来，让用户自己决定。
- * 选「先不搬」也完全可用——划线上记着路径，旧卡照样能从划线打开。
- */
-function overlayConfirmMigrate(newDir: string): string {
-  const from = String(shellSettings().reviewDir ?? '').replace(/^\/+|\/+$/g, '');
-  const moves = planCardMoves(liveBooks(), from, newDir);
-  if (!moves.length) {
-    return modal(t('review.migrate.title', { count: 0 }), '', `<div class="bzs-empty">${t('review.migrate.none')}</div>`, closeBtn());
-  }
-  return modal(
-    t('review.migrate.title', { count: moves.length }),
-    '',
-    `<div class="bzs-mini" style="line-height:1.9">${t('review.migrate.body', {
-      from: from || '/',
-      to: newDir || '/',
-    })}</div>`,
-    `<span class="sp"></span><button class="bzs-btn" data-act="reviewmigrateskip">${t('review.migrate.no')}</button>
-     <button class="bzs-btn pri" data-act="reviewmigratedo">${t('review.migrate.yes')}</button>`,
     '',
     isMobileEnv() ? 'bzs-text-scrim' : '',
   );
@@ -1396,8 +1368,6 @@ export function overlayHtml(): string {
       return overlayConfirmDrop();
     case 'confirmreview':
       return overlayConfirmReview(o.bookId ?? '');
-    case 'confirmmigrate':
-      return overlayConfirmMigrate(o.text ?? '');
     case 'footnote':
       return overlayFootnote(o.text);
     case 'ai':

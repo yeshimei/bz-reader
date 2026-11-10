@@ -87,8 +87,7 @@ import { RT, emitNotesChanged, pushAi, resetAi } from './runtime';
 import { HITS_PAGE } from './search-hits';
 import { kickBodySearch, refreshBodyHits, resetBodySearch, stopBodySearch } from './search-run';
 import { bzEmbedder, bzNotesReady, openBzPreview, probeBz, openBzEntry, reviewPlanOf, reviewBridgeProblem, type BzEntryKind } from '../data/bz-bridge';
-import { syncReviewCard, refreshReviewCard } from '../data/review-sync';
-import { planCardMoves } from '../data/review-migrate';
+import { cardOf, cardKeyOf } from '../data/review-deliver';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
 import { AI_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../core/links';
@@ -855,41 +854,35 @@ function addToReview(markId?: string, bookId?: string): void {
     return;
   }
 
-  const remembered = String(h.review?.path ?? '').trim();
-  const existing = remembered ? app.vault.getFileByPath(remembered) : null;
-  if (existing) {
-    void app.workspace.getLeaf(false).openFile(existing);
-    /* 卡片在、期没排上（当初 bz 没装 / 没启用 / 版本旧）：后台补一次登记。
-       以前这里直接 return，于是「卡片写了但没排期」是条死路——再点多少次都
-       只是打开那张卡，排期永远补不回来。补上了就改写划线，补不上不打扰，
-       下次点还会再试一次。 */
-    if (h.review?.scheduled !== true) rescheduleReview(book, h);
-    return;
-  }
-
   const target = book;
   const mark = h;
   const plan = reviewPlanOf(app);
+  const payload = cardOf(target, mark);
   void (async () => {
     try {
-      const res = await syncReviewCard({ app, book: target, highlight: mark, settings, plan });
-      /* 写文件与排期是两件事，分开记：只有真的排上了（新增，或本来就在计划里）
-         才标 scheduled，否则划线上留着「卡在、期没排上」的待补状态 */
-      const scheduled = res.added || res.reason === 'exists';
-      if (setHighlightReview(target, mark.id, { path: res.path, at: Date.now(), scheduled })) {
-        src.store.touch();
-        repaint();
-        emitNotesChanged();
+      if (!plan) {
+        notify(reviewBridgeProblem(probeBz(app)) ?? t('notice.review.noPlan'), 'info');
+        return;
+      }
+      const res = await plan.addCards([payload]);
+      const scheduled = res.added > 0 || res.exists > 0;
+      if (scheduled) {
+        if (setHighlightReview(target, mark.id, { path: payload.key, at: Date.now(), scheduled: true })) {
+          src.store.touch();
+          repaint();
+          emitNotesChanged();
+        }
       }
       if (res.added) {
         /* 排上了就顺手把「下次什么时候复习」说出来：用户点这一下的目的就是
            把这段交给记忆，什么时候回来见他应该当场知道 */
-        const due = await nextReviewLabel(plan, res.path);
+        const due = await nextReviewLabel(plan, payload.key);
         notify(due ? t('notice.review.addedDue', { date: due }) : t('notice.review.added'));
-      } else if (res.reason === 'exists') notify(t('notice.review.exists'), 'info');
-      /* 没加进去、也不是「已经在计划里」：把 bz 那边的具体原因说清楚
-         （没装 / 没启用 / 版本旧），这比一句「卡片已生成」有用得多 */
-      else notify(reviewBridgeProblem(probeBz(app)) ?? t('notice.review.noPlan'), 'info');
+      } else if (res.exists) {
+        notify(t('notice.review.exists'), 'info');
+      } else {
+        notify(reviewBridgeProblem(probeBz(app)) ?? t('notice.review.noPlan'), 'info');
+      }
     } catch {
       notify(t('common.unknownError'), 'error');
     }
@@ -950,38 +943,10 @@ async function nextReviewLabel(plan: ReturnType<typeof reviewPlanOf>, path: stri
 }
 
 /**
- * 卡片已经在、但没排进复习计划时的后台补登记。
+ * 划线工具条「移出复习」：撤销这张卡的排期。
  *
- * 只在用户再次点「已复习」时触发，所以不会平白多读盘；成功就改写划线，
- * 失败静默——这条路径不该打断「打开卡片」这个主意图。
- */
-function rescheduleReview(book: ReaderBook, h: Highlight): void {
-  const src = getShellSource();
-  if (!src) return;
-  const path = String(h.review?.path ?? '').trim();
-  if (!path) return;
-  const plan = reviewPlanOf(src.app);
-  if (!plan) return;
-  void (async () => {
-    try {
-      const res = await plan.addNote(path);
-      if (!res.added && res.reason !== 'exists') return;
-      if (setHighlightReview(book, h.id, { path, at: Date.now(), scheduled: true })) {
-        src.store.touch();
-        emitNotesChanged();
-      }
-    } catch {
-      /* 补不上就留着待补状态，下次点再试 */
-    }
-  })();
-}
-
-/**
- * 划线工具条「移出复习」：撤销排期，卡片文件留着。
- *
- * 两颗按钮分工明确——「已复习」是打开那张卡，「移出复习」是撤销排期。
- * 撤销是低频动作但必须有出口：否则误点一次，用户只能跑去 bz 的复习面板里
- * 慢慢找怎么删。文件不删：那已经是用户库里的一篇笔记，可能写了东西。
+ * 两颗按钮分工明确——「已加入」是再看一眼状态，这颗是撤掉。撤销是低频动作
+ * 但必须有出口：否则误点一次，用户只能跑去 bz 的复习面板里慢慢找怎么删。
  */
 function removeFromReview(markId?: string, bookId?: string): void {
   const src = getShellSource();
@@ -995,7 +960,7 @@ function removeFromReview(markId?: string, bookId?: string): void {
   const path = String(h.review?.path ?? '').trim();
   const plan = reviewPlanOf(src.app);
   if (plan && path) {
-    void plan.removeNote(path).catch(() => undefined);
+    void plan.removeCard(path).catch(() => undefined);
   }
   clearHighlightReview(book, h.id);
   src.store.touch();
@@ -1004,97 +969,17 @@ function removeFromReview(markId?: string, bookId?: string): void {
   notify(t('notice.review.removed'), 'info');
 }
 
-/**
- * 把旧目录里的复习卡搬到新目录，并同步两处路径。
- *
- * 顺序不能反：**先搬文件，再改划线路径，最后改 bz 排期**。文件没到新位置就
- * 改排期，复习时点开是一片空白；排期没跟上就改划线，那条划线看起来「已复习」
- * 但点开是一张不存在的卡。中途失败的逐条跳过并计数，已搬的保持已搬。
- */
-async function migrateReviewCards(fromDir: string, toDir: string): Promise<void> {
-  const src = getShellSource();
-  if (!src) return;
-  const app = src.app;
-  const moves = planCardMoves(liveBooks(), fromDir, toDir);
-  if (!moves.length) return;
-  await ensureDir(app, toDir.replace(/^\/+|\/+$/g, ''));
-  const plan = reviewPlanOf(app);
-  let moved = 0;
-  let skipped = 0;
-
-  for (const mv of moves) {
-    try {
-      /* 目标重名就退到 (2)(3)…：绝不覆盖别人的笔记，与导出同一套规矩 */
-      let to = mv.to;
-      for (let n = 2; n <= 50 && (await app.vault.adapter.exists(to)); n += 1) {
-        to = mv.to.replace(/\.md$/i, ` (${n}).md`);
-      }
-      await app.vault.adapter.rename(mv.from, to);
-      const book = liveBooks().find((b) => b.id === mv.bookId);
-      if (!book) {
-        skipped += 1;
-        continue;
-      }
-      setHighlightReview(book, mv.highlightId, { path: to, at: Date.now(), scheduled: true });
-      if (plan) {
-        /* 旧路径的排期要摘掉，否则复习面板里会留一条指向已不存在文件的记录 */
-        void plan.removeNote(mv.from).catch(() => undefined);
-        void plan.addNote(to).catch(() => undefined);
-      }
-      moved += 1;
-    } catch {
-      skipped += 1;
-    }
-  }
-  src.store.touch();
-  repaint();
-  emitNotesChanged();
-  notify(t('notice.review.migrated', { moved, skipped }));
-}
 
 /**
- * 书卡右键「重建复习卡」：按当前划线内容重写这本书的全部卡片。
+ * 书卡右键「加入复习计划」：把这本书还没进计划的划线一次交出去。
  *
- * 单条失败不打断整批（一张卡读不出来不该让另外十九张也停在旧版本）；想法
- * 段落由 refreshReviewCard 从旧文件里捞回来，用户写的东西不动。
+ * 不再逐条写卡片文件：内容直接进 bz 的排期表，一趟 addCards 交给门面。
+ * 以前是「循环 N 次写盘 + N 次登记」，现在是一次调用——卡片不落文件之后，
+ * 单条链路本身已经便宜到不值得再省。
+ *
+ * 已经把钥匙记在划线上（`review.path` 存的就是卡钥匙），重复点不会加两次。
  */
-async function refreshBookReviewCards(bookId: string): Promise<void> {
-  const src = getShellSource();
-  if (!src) return;
-  const book = liveBooks().find((b) => b.id === bookId);
-  if (!book) return;
-  const cards = (book.notes?.highlights ?? []).filter((h) => String(h.review?.path ?? '').trim());
-  if (!cards.length) {
-    notify(t('notice.review.noCards'), 'info');
-    return;
-  }
-  const settings = shellSettings();
-  const plan = reviewPlanOf(src.app);
-  if (cards.length >= 8) notify(t('review.batch.running', { count: cards.length }), 'info');
-  let updated = 0;
-  for (const h of cards) {
-    try {
-      const res = await refreshReviewCard({ app: src.app, book, highlight: h, settings, plan });
-      if (res.updated) updated += 1;
-    } catch {
-      /* 单条失败跳过 */
-    }
-  }
-  src.store.touch();
-  repaint();
-  notify(t('notice.review.refreshed', { count: updated }));
-}
-
-/**
- * 书卡右键「划线加入复习」：把这本书还没进复习的划线一次做成卡片。
- *
- * 逐条调用单条链路而不是另写一套批量：写卡与登记的逻辑只有一份，批量只是
- * 循环 + 汇总，接口不会分叉。代价是几十条就是几十次读改写——对本地文件
- * 来说可以接受，真卡住再改成「先全部写盘、再一趟登记」。
- *
- * 已经加过的跳过（划线上记着路径），所以重复点不会造出重复卡片。
- */
-async function addBookToReview(bookId: string, withAi = false): Promise<void> {
+async function addBookToReview(bookId: string): Promise<void> {
   const src = getShellSource();
   if (!src) return;
   const book = liveBooks().find((b) => b.id === bookId);
@@ -1111,43 +996,26 @@ async function addBookToReview(bookId: string, withAi = false): Promise<void> {
   }
 
   const plan = reviewPlanOf(src.app);
-  const settings = shellSettings();
-  /* 没配 AI 时「AI 出题」整批退化成普通卡片：不要每条都抛一次错再兜底 */
-  const quiz = withAi && !!settings.ai.baseUrl && !!settings.ai.apiKey && !!settings.ai.model;
-  /* 条数多时先报一句：几十次读写要跑一两秒，没有反馈用户会以为点空了 */
-  if (todo.length >= 8) notify(t('review.batch.running', { count: todo.length }), 'info');
-  let added = 0;
-  let skipped = 0;
-  let quizzed = 0;
-  for (const h of todo) {
-    let question = '';
-    if (quiz) {
-      try {
-        const res = await aiAsk(settings, { task: 'quiz', text: h.text, context: h.comment ?? '' });
-        question = res.text.trim();
-        if (question) quizzed += 1;
-      } catch {
-        /* 出题失败不让「加入复习」整条链路失败：退回不带题的普通卡片 */
-        question = '';
-      }
-    }
-    try {
-      const res = await syncReviewCard({ app: src.app, book, highlight: h, settings, plan, question });
-      if (res.added) added += 1;
-      else skipped += 1;
-      setHighlightReview(book, h.id, {
-        path: res.path,
-        at: Date.now(),
-        scheduled: res.added || res.reason === 'exists',
-      });
-    } catch {
-      skipped += 1;
-    }
+  if (!plan) {
+    notify(reviewBridgeProblem(probeBz(src.app)) ?? t('notice.review.noPlan'), 'info');
+    return;
   }
-  src.store.touch();
-  repaint();
-  emitNotesChanged();
-  notify(quiz ? t('notice.review.batchAi', { added, skipped, n: quizzed }) : t('notice.review.batch', { added, skipped }));
+  if (todo.length >= 8) notify(t('review.batch.running', { count: todo.length }), 'info');
+
+  try {
+    const res = await plan.addCards(todo.map((h) => cardOf(book, h)));
+    if (res.added > 0 || res.exists > 0) {
+      for (const h of todo) {
+        setHighlightReview(book, h.id, { path: cardKeyOf(book, h), at: Date.now(), scheduled: true });
+      }
+      src.store.touch();
+      repaint();
+      emitNotesChanged();
+    }
+    notify(t('notice.review.batch', { added: res.added, skipped: res.exists + res.notFound }));
+  } catch {
+    notify(t('common.unknownError'), 'error');
+  }
 }
 
 /**
@@ -1581,17 +1449,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
             i.onClick(() => {
               if (requireCap('review')) overlay('confirmreview', { bookId: id });
             });
-          /* AI 出题同时要复习与 AI 两个能力位：缺哪个都只弹一次对照表 */
-          if (it.act === 'reviewai')
-            i.onClick(() => {
-              if (requireCap('review') && requireCap('ai')) void addBookToReview(id, true);
-            });
-          /* 重建：卡片写一次就不再覆盖，改了划线文字之后卡还是旧的。
-             成批重建，想法段落从旧卡里原样捞回来。 */
-          if (it.act === 'reviewrefresh')
-            i.onClick(() => {
-              if (requireCap('review')) void refreshBookReviewCards(id);
-            });
           if (it.act === 'fav')
             i.onClick(() => {
               const on = toggleFav(id);
@@ -1935,30 +1792,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'notedropdo':
       dropSelectedMarks();
       break;
-    /* 复习卡目录迁移：搬家 + 同步两处路径。from 必须在改设置之前读出来，
-       改完再读就是新目录，规划会得到空列表。 */
-    case 'reviewmigratedo': {
-      const target = String(getState().overlay?.text ?? '');
-      const from = shellSettings().reviewDir;
-      const src = getShellSource();
-      closeOverlay();
-      if (src && target) {
-        src.setSettings({ reviewDir: target });
-        void migrateReviewCards(from, target);
-      }
-      break;
-    }
-    case 'reviewmigrateskip': {
-      const target = String(getState().overlay?.text ?? '');
-      const src = getShellSource();
-      closeOverlay();
-      if (src && target) {
-        src.setSettings({ reviewDir: target });
-        notify(t('notice.review.dirChanged', { dir: target }));
-        repaint();
-      }
-      break;
-    }
     /* 批量加复习：确认卡上点了「加入」。先收卡再干活，几十条要跑一会儿，
        卡片留在屏幕中央只会挡住进度提示 */
     case 'reviewbookdo': {
@@ -2112,26 +1945,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
           return;
         }
         overlay('movedir', { mode: 'export', text: JSON.stringify({ from: cur, to: picked }) });
-      });
-      break;
-    }
-    case 'pickreviewdir': {
-      /* 复习卡目录：改配置本身不搬卡，但旧卡还在原处时先问一句。
-         搬一张卡要同时改划线路径和 bz 排期表里的路径，只改一处就得到一批
-         打不开的排期——所以这件事必须显式确认，不能静默做。 */
-      const src = getShellSource();
-      if (!src) break;
-      const cur = shellSettings().reviewDir || DEFAULT_SETTINGS.reviewDir;
-      void pickFolder(src.app, cur).then((picked) => {
-        if (picked === null || picked === cur) return;
-        const target = picked || DEFAULT_SETTINGS.reviewDir;
-        if (planCardMoves(liveBooks(), cur, target).length) {
-          overlay('confirmmigrate', { text: target });
-          return;
-        }
-        src.setSettings({ reviewDir: target });
-        notify(t('notice.review.dirChanged', { dir: target }));
-        repaint();
       });
       break;
     }

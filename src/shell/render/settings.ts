@@ -22,7 +22,6 @@ import { t, LOCALES, LOCALE_NAMES, type MsgKey } from '../../i18n';
 import { ACCENT_OPTIONS, accentLabel, FONT_FAMILIES, fontLabel, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARGIN_RANGE, TTS_RATE_RANGE, type ReaderPrefs } from '../../data/prefs';
 import { HIGHLIGHT_COLORS, colorLabel } from '../../data/notes';
 import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
-import { DEFAULT_BODY_TEMPLATE } from '../../data/review-card';
 import { can, entitlement, GROUP_ID, tierText } from '../../data/entitlement';
 import { dataDirOf } from '../../core/plugin-path';
 import type { HotkeyRow } from '../../core/hotkeys';
@@ -403,14 +402,6 @@ export function viewSettings(v: SettingsView): string {
           <span>${esc(s.exportDir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>
         </button></div>
       ${toggle('exportComments', s.exportComments, t('settings.exportComments'))}
-      <div class="bzs-setrow"><label>${t('settings.reviewDir')}</label>
-        <button class="bzs-pickdir" data-act="pickreviewdir" title="${t('settings.pickFromList')}">
-          <span>${esc(s.reviewDir || DEFAULT_SETTINGS.reviewDir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>
-        </button></div>
-      <div class="bzs-setrow bzs-setrow-col"><label>${t('settings.reviewTemplate')}</label>
-        <textarea class="bzs-input" data-role="setting" data-k="reviewTemplate" rows="6" spellcheck="false"
-          placeholder="${esc(DEFAULT_BODY_TEMPLATE)}">${esc(s.reviewTemplate)}</textarea>
-        <div class="bzs-mini">${t('settings.reviewTemplateHint')}</div></div>
     </div>`;
 
   /* 入口平权：AI 组始终出现。基础版整组灰掉、点一下就弹高级功能说明——

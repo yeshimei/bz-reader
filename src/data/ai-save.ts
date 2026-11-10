@@ -12,7 +12,6 @@
  * 三条都幂等：同一段答案重复点，不会在笔记里出现两遍。
  * ============================================================ */
 import { t, type MsgKey } from '../i18n';
-import { REVIEW_CARD_MARK } from './review-card';
 
 /** 末尾标记：导出文件里认「这段是插件写的」 */
 export const AI_MARK = '<!-- bz-reader:ai -->';
@@ -77,23 +76,6 @@ export function appendAiIdea(comment: string | undefined, answer: string): strin
   if (!prev) return block;
   if (prev.includes(block)) return prev;
   return `${prev}\n\n${block}`;
-}
-
-/**
- * 把答案拼进复习卡的「AI 提示」段。
- *
- * 放在末尾标记之前：标记必须在最后一行，重新生成卡片时靠它认
- * 「这篇能覆盖」，提示段在它后面就会被一起冲掉。
- */
-export function appendAiReview(card: string, answer: string): string {
-  const src = String(card ?? '');
-  const body = String(answer ?? '').trim();
-  if (!body) return src;
-  const block = `**${t('ai.save.review')}**\n\n${body}`;
-  if (src.includes(block)) return src;
-  const at = src.indexOf(REVIEW_CARD_MARK);
-  if (at < 0) return `${src.trimEnd()}\n\n${block}\n`;
-  return `${src.slice(0, at).trimEnd()}\n\n${block}\n\n${src.slice(at)}`;
 }
 
 /* ─────────── 对话存档（2026-11-11） ─────────── */

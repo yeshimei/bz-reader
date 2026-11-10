@@ -82,6 +82,16 @@ export interface BzReviewNoteStatus {
   totalReviews: number;
 }
 
+/** 交给 bz 的一张划线卡（内容进排期表，不落文件） */
+export interface BzReviewCardInput {
+  key: string;
+  bookTitle: string;
+  chapterTitle?: string;
+  text: string;
+  comment?: string;
+  backlink?: string;
+}
+
 export interface BzReviewFacade {
   /** 复习域本身能不能用（bz 那边面板能打开） */
   isReady(): boolean;
@@ -89,6 +99,10 @@ export interface BzReviewFacade {
   addNote(path: string): Promise<{ added: boolean; reason?: BzReviewAddReason }>;
   addNotes(paths: string[]): Promise<{ added: number; exists: number; notFound: number }>;
   removeNote(path: string): Promise<boolean>;
+  /** 批量加划线卡：内容进排期表，复习时不打开任何文件 */
+  addCards(cards: BzReviewCardInput[]): Promise<{ added: number; exists: number; notFound: number }>;
+  /** 移出一张划线卡 */
+  removeCard(key: string): Promise<boolean>;
   /**
    * 批量查排期现状。**可选**：门面上加这一条比加「加/删」晚，
    * 老版本 bz 没有它——缺了就只是不显示「下次复习日期」，
@@ -150,7 +164,7 @@ function aiOf(plugin: Record<string, unknown> | null): BzAiFacade | null {
 }
 
 /** 复习门面要齐的五个动作：缺一个就整块当没有 */
-const REVIEW_METHODS = ['isReady', 'hasNote', 'addNote', 'addNotes', 'removeNote'] as const;
+const REVIEW_METHODS = ['isReady', 'addCards', 'removeCard'] as const;
 
 function reviewOf(plugin: Record<string, unknown> | null): BzReviewFacade | null {
   const r = plugin?.reviewPlan as Partial<BzReviewFacade> | undefined;

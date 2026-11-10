@@ -20,8 +20,6 @@ export type BookMenuAction =
   | 'enrich'
   | 'export'
   | 'review'
-  | 'reviewai'
-  | 'reviewrefresh'
   | 'fav'
   | 'done'
   | 'rename'
@@ -63,17 +61,11 @@ export function bookMenuItems(input: BookMenuInput): BookMenuItem[] {
     /* 导出紧跟详情：两者都回答「这本书能产出什么」。摘录存在本机，
        书文件丢了也能导，所以这一条不看 missing。 */
     { act: 'export', title: '导出这本书', icon: 'download' },
-    /* 复习紧跟导出：两者都是「这本书能产出什么」。点它把本书还没进复习的
-       划线一次做成卡片——几十条划线逐条点太折磨，批量入口要在这里。 */
-    { act: 'review', title: '划线加入复习', icon: 'rotate-ccw' },
-    /* 2026-11-10：同一条链路多一颗「带 AI 出题」——每张卡先让模型出一道
-       自测题再排期。放在复习下面而不是替换它：不想花 AI 额度的人要有
-       一条不调模型的路线。 */
-    { act: 'reviewai', title: '划线加入复习（AI 出题）', icon: 'sparkles' },
-    /* 重建紧跟批量加入：卡片写一次就不再覆盖（怕冲掉用户的想法），于是改了
-       划线文字之后卡还是旧的。要刷新得有入口，且必须成批——逐条点二十次
-       不是交互。想法段落会从旧卡里原样捞回来。 */
-    { act: 'reviewrefresh', title: '重建复习卡', icon: 'refresh-cw' },
+    /* 复习紧跟导出：两者都是「这本书能产出什么」。点它把本书还没进计划的
+       划线一次交出去——几十条划线逐条点太折磨，批量入口要在这里。
+       2026-11-11 起不再生成卡片笔记：内容直接进复习排期表，抽认卡还是做题
+       由 bz 的复习面板决定，阅读器只负责把内容交过去。 */
+    { act: 'review', title: '加入复习计划', icon: 'rotate-ccw' },
     { act: 'fav', title: input.fav ? '取消收藏' : '收藏', icon: 'star' },
     /* 两个方向用两枚图标：check 是「完成」，refresh 是「回到未读完」。
        共用一枚 check 的话，「标为在读」看起来像又要把它标成读完。 */

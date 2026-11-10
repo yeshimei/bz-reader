@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AI_MARK, aiAnswerBlock, appendAiIdea, appendAiReview } from '../src/data/ai-save';
+import { AI_MARK, aiAnswerBlock, appendAiIdea } from '../src/data/ai-save';
 
 /**
  * AI 答案落库（2026-11-10）。
@@ -66,24 +66,5 @@ describe('appendAiIdea', () => {
   it('空答案不动原文', () => {
     expect(appendAiIdea('想法', '  ')).toBe('想法');
     expect(appendAiIdea(undefined, '')).toBe('');
-  });
-});
-
-describe('appendAiReview', () => {
-  it('把答案拼进复习卡的「AI 提示」段，重复点只有一份', () => {
-    const card = '# 标题\n\n> 原文\n\n<!-- bz-reader:review-card -->\n';
-    const once = appendAiReview(card, '这句在讲知行合一');
-    expect(once).toContain('AI 提示');
-    expect(once).toContain('这句在讲知行合一');
-    expect(once.indexOf('AI 提示')).toBeLessThan(once.indexOf('<!-- bz-reader:review-card -->'));
-    expect(appendAiReview(once, '这句在讲知行合一')).toBe(once);
-  });
-
-  it('没有卡片标记时照样能拼（手写的卡片不该被拒之门外）', () => {
-    expect(appendAiReview('手写内容\n', '补充')).toContain('补充');
-  });
-
-  it('空答案不动卡片', () => {
-    expect(appendAiReview('卡片', '')).toBe('卡片');
   });
 });

@@ -221,6 +221,8 @@ describe('复习计划门面', () => {
     addNote: vi.fn(async () => ({ added: true })),
     addNotes: vi.fn(async () => ({ added: 1, exists: 0, notFound: 0 })),
     removeNote: vi.fn(async () => true),
+    addCards: vi.fn(async () => ({ added: 1, exists: 0, notFound: 0 })),
+    removeCard: vi.fn(async () => true),
   });
 
   it('门面齐全：探测到，取得到', () => {
@@ -239,7 +241,7 @@ describe('复习计划门面', () => {
 
   it('缺一个方法：整块判为不可用，不拿半套门面去调', () => {
     const partial = reviewPlan() as Record<string, unknown>;
-    delete partial.removeNote;
+    delete partial.addCards;
     const p = probeBz(app({ reviewPlan: partial }));
     expect(p.review).toBeNull();
   });
