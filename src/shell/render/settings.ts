@@ -22,6 +22,7 @@ import { t, LOCALES, LOCALE_NAMES, type MsgKey } from '../../i18n';
 import { ACCENT_OPTIONS, accentLabel, FONT_FAMILIES, fontLabel, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARGIN_RANGE, TTS_RATE_RANGE, type ReaderPrefs } from '../../data/prefs';
 import { HIGHLIGHT_COLORS, colorLabel } from '../../data/notes';
 import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
+import { AI_PROVIDERS, aiProviderLabel, aiProviderSpec } from '../../data/ai-providers';
 import { can, entitlement, GROUP_ID, tierText } from '../../data/entitlement';
 import { dataDirOf } from '../../core/plugin-path';
 import type { HotkeyRow } from '../../core/hotkeys';
@@ -405,9 +406,21 @@ export function viewSettings(v: SettingsView): string {
     </div>`;
 
   /* 入口平权：AI 组始终出现。基础版整组灰掉、点一下就弹高级功能说明——
-     只读输入框既不说明为什么不能改，也点不出任何出口。 */
+     只读输入框既不说明为什么不能改，也点不出任何出口。
+     2026-11-11：改成「选服务商 → 填密钥 → 选模型」——服务商是按钮组，
+     选中一家只露这一家的必填项；地址由注册表带（只有自定义要手填），
+     模型留空用该家默认，所以用户只填密钥就能用。 */
   const aiUnlocked = can('ai');
   const aiReadonly = aiUnlocked ? '' : ' readonly';
+  const aiDisabled = aiUnlocked ? '' : ' disabled';
+  const aiSpec = aiProviderSpec(s.ai.provider);
+  const aiKey = s.ai.keys?.[aiSpec.id] ?? '';
+  const aiModel = s.ai.models?.[aiSpec.id] ?? '';
+  const aiVendorSeg = segHtml(
+    AI_PROVIDERS.map((p) => ({ v: p.id, k: aiProviderLabel(p.id) })),
+    aiSpec.id,
+    { act: 'setai', cls: 'bzs-seg bzs-seg-wrap bzs-seg-ai4', disabled: !aiUnlocked },
+  );
   /* 「连上了」= bz 在且有嵌入模型。bz 装着但没选模型，索引照样建不了，
      对用户来说就是没连上——所以门禁看 model，不看 bz 在不在。 */
   const kbLinked = !!v.bz?.model;
@@ -415,9 +428,20 @@ export function viewSettings(v: SettingsView): string {
     aiUnlocked ? '' : ` data-act="unlock" data-mode="ai" title="${t('settings.locked')}"`
   }>
       <h3>${t('settings.grp.ai')}</h3>
-      <div class="bzs-setrow"><label>${t('settings.ai.baseUrl')}</label><input data-role="setting" data-k="ai.baseUrl" placeholder="${t('settings.ai.baseUrl.ph')}" value="${esc(s.ai.baseUrl)}" style="flex:1"${aiReadonly}></div>
-      <div class="bzs-setrow"><label>${t('settings.ai.model')}</label><input data-role="setting" data-k="ai.model" placeholder="${t('settings.ai.model.ph')}" value="${esc(s.ai.model)}" style="flex:1"${aiReadonly}></div>
-      <div class="bzs-setrow"><label>${t('settings.ai.key')}</label><input type="password" data-role="setting" data-k="ai.apiKey" placeholder="${t('settings.ai.key.ph')}" value="${esc(s.ai.apiKey)}" style="flex:1"${aiReadonly}></div>
+      <div class="bzs-setrow"><label>${t('settings.ai.vendor')}</label>${aiVendorSeg}</div>
+      ${
+        aiSpec.id === 'custom'
+          ? `<div class="bzs-setrow"><label>${t('settings.ai.customUrl')}</label><input data-role="setting" data-k="ai.baseUrl" placeholder="${t('settings.ai.baseUrl.ph')}" value="${esc(s.ai.baseUrl)}" style="flex:1"${aiReadonly}></div>`
+          : ''
+      }
+      <div class="bzs-setrow"><label>${t('settings.ai.key')}</label><input type="password" data-role="setting" data-k="ai.key" placeholder="${
+        aiSpec.keyRequired ? t('settings.ai.key.ph') : t('settings.ai.key.ph.optional')
+      }" value="${esc(aiKey)}" style="flex:1"${aiReadonly}></div>
+      <div class="bzs-setrow"><label>${t('settings.ai.model')}</label><input data-role="setting" data-k="ai.model" placeholder="${
+        aiSpec.model || t('settings.ai.model.ph')
+      }" value="${esc(aiModel)}" style="flex:1"${aiReadonly}><button class="bzs-btn sm" data-act="aimodels"${aiDisabled}>${t(
+        'settings.ai.getModels',
+      )}</button></div>
       ${
         /* 知识库归 BZ AI：这里只报「连没连上」，不给选——留一个能填错的框，
            就留了一条静默错误（模型不一致 → 检索全错）。

@@ -8,7 +8,7 @@
  * 无 key 不静默失败：ready() 为 false 时上层给出配置引导，
  * 用户应该被带到设置页，而不是看着按钮点了没反应。
  * ============================================================ */
-import type { ReaderSettings } from './settings';
+import { resolveAi, aiReady, type ReaderSettings } from './settings';
 import { buildEnrichMessages } from './book-enrich';
 import { buildGuideMessages } from './chapter-guide';
 import { buildRouteMessages, type RouteBook } from './topic-route';
@@ -266,9 +266,11 @@ export async function aiAsk(
   input: AiAskInput,
   opts: AiAskOptions = {},
 ): Promise<AiResult> {
-  const { baseUrl, apiKey, model } = settings.ai;
-  if (!baseUrl || !apiKey || !model) {
-    throw new Error('还没配置 AI 接口：到 书架 · 设置 的「AI 助手」里填好服务商、模型与密钥');
+  /* 地址、密钥、模型从「当前选中的服务商」解析出来：模型留空走该家默认，
+     密钥留空只在 Ollama / 自定义这类不需要鉴权的通道才放行（aiReady 判）。 */
+  const { baseUrl, apiKey, model } = resolveAi(settings);
+  if (!aiReady(settings)) {
+    throw new Error('还没配置 AI 接口：到 书架 · 设置 的「AI 助手」里选好服务商，填上密钥');
   }
   const messages = buildMessages(input);
   /* 超时（P2-12）+ 外部取消：没有超时的时候，接口地址填错、代理挂掉，
@@ -282,15 +284,16 @@ export async function aiAsk(
   const onAbort = (): void => ctrl.abort();
   opts.signal?.addEventListener('abort', onAbort);
   let res: Response;
+  /* 无鉴权的本地服务（Ollama、自建网关）不带 Authorization：空 Bearer 头
+     有些服务端会当成「给了错的凭据」直接 401，比不带还糟。 */
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
   try {
     /* 用 window.fetch 而不是 requestUrl：后者不接受 AbortSignal，超时与
        「取消请求」都会失效；这个端点由用户自己配置，不需要 Obsidian 代发 CORS。 */
     res = await window.fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers,
       body: JSON.stringify({
         model,
         temperature: 0.3,

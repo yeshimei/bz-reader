@@ -824,15 +824,17 @@ export function createPlugin(cfg: PluginConfig) {
       const legacy = (this.store.get() as { settings?: unknown }).settings;
       if (!legacy || typeof legacy !== 'object') return;
       const old = normalizeSettings(legacy);
-      // data.json 里已经有值就不覆盖（用户可能在新版本里改过）
+      /* data.json 里已经有值就不覆盖（用户可能在新版本里改过）。
+         AI 设置 2026-11-11 改成分服务商存（provider / keys / models / baseUrl）：
+         三个存值的字段全空才算「没配过」，此时整份用业务 JSON 里的老配置；
+         只要有一处填过，就整份以 data.json 为准——不逐字段拼，省得把旧服务商
+         的密钥拼进新选的服务商槽位里。 */
+      const aiNow = this.cfg.settings.ai;
+      const aiEmpty = !aiNow.baseUrl && !Object.keys(aiNow.keys).length && !Object.keys(aiNow.models).length;
       this.cfg.settings = normalizeSettings({
         ...old,
         ...this.cfg.settings,
-        ai: {
-          baseUrl: this.cfg.settings.ai.baseUrl || old.ai.baseUrl,
-          apiKey: this.cfg.settings.ai.apiKey || old.ai.apiKey,
-          model: this.cfg.settings.ai.model || old.ai.model,
-        },
+        ai: aiEmpty ? old.ai : aiNow,
       });
       delete (this.store.get() as { settings?: unknown }).settings;
       this.store.touch();

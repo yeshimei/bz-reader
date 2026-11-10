@@ -13,11 +13,13 @@ describe('data.json 收口径', () => {
     }
   });
 
-  it('settings 缺字段时补齐，设置页不会因为读 ai.baseUrl 白屏', () => {
+  it('settings 缺字段时补齐，设置页不会因为读服务商表白屏', () => {
     const d = normalizePluginData({ settings: { exportDir: '我的书摘' } });
     expect(d.settings.exportDir).toBe('我的书摘');
+    expect(d.settings.ai.provider).toBe('deepseek');
     expect(d.settings.ai.baseUrl).toBe('');
-    expect(d.settings.ai.apiKey).toBe('');
+    expect(d.settings.ai.keys).toEqual({});
+    expect(d.settings.ai.models).toEqual({});
   });
 
   it('dataDir 拒绝上跳与隐藏目录，正常目录原样保留', () => {

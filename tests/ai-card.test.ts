@@ -48,7 +48,16 @@ function install(): void {
     app: makeApp(),
     repo: { all: () => [], byId: () => undefined },
     store: makeStore(),
-    settings: () => ({ ...DEFAULT_SETTINGS, ai: { baseUrl: 'https://api.test/v1', apiKey: 'k', model: 'm' } }),
+    settings: () => ({
+      ...DEFAULT_SETTINGS,
+      /* 2026-11-11：AI 设置分服务商存；测试走「自定义」这一档（地址/密钥/模型齐备） */
+      ai: {
+        provider: 'custom' as const,
+        baseUrl: 'https://api.test/v1',
+        keys: { custom: 'k' },
+        models: { custom: 'm' },
+      },
+    }),
     searchText: async () => [],
     hasOpenReader: () => true,
     setGoal: () => undefined,

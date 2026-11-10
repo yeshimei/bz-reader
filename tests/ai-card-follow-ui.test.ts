@@ -29,7 +29,15 @@ function install(configured = true): void {
     store: makeStore(),
     settings: () => ({
       ...DEFAULT_SETTINGS,
-      ai: configured ? { baseUrl: 'https://api.test/v1', apiKey: 'k', model: 'm' } : { baseUrl: '', apiKey: '', model: '' },
+      /* 2026-11-11：AI 设置分服务商存，测试统一走「自定义」（地址/密钥/模型齐备） */
+      ai: configured
+        ? {
+            provider: 'custom' as const,
+            baseUrl: 'https://api.test/v1',
+            keys: { custom: 'k' },
+            models: { custom: 'm' },
+          }
+        : { provider: 'custom' as const, baseUrl: '', keys: {}, models: {} },
     }),
     searchText: async () => [],
     hasOpenReader: () => true,

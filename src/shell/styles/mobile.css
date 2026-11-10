@@ -408,6 +408,11 @@
   .bzs-seg-pdf3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  /* AI 服务商四档：手机上一行两颗，两行放得下（桌面是 4 列，见 study.css） */
+  .bzs-seg-ai4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════

@@ -44,6 +44,7 @@ import {
   setIdeaDraft,
 } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
+import { aiReady } from '../data/settings';
 import { bzEmbedder, bzEntryReady, reviewPlanOf } from '../data/bz-bridge';
 import { kbLinkOf } from '../data/kb-link';
 import { hydrateToolbarIcons } from './toolbar-icons';
@@ -739,7 +740,7 @@ function overlayAi(markId?: string, bookId?: string): string {
   let html = '';
   if (__BZ_READER_PRO__) {
     const s = shellSettings();
-    const ready = !!s.ai.baseUrl && !!s.ai.apiKey && !!s.ai.model;
+    const ready = aiReady(s);
     const o = getState().overlay;
     const text = o?.text || RT.sel?.text || '';
     const mode = aiModeOf(o?.mode);
@@ -1455,7 +1456,7 @@ export async function runAiForOverlay(): Promise<void> {
   /* 到期 / 未解锁不再发请求：弹层可能是在有码时打开的，跑完再点重试也得拦 */
   if (!can('ai')) return;
   const s = shellSettings();
-  if (!s.ai.baseUrl || !s.ai.apiKey || !s.ai.model) return;
+  if (!aiReady(s)) return;
   const text = o.text || RT.sel?.text || '';
   const task: AiTask = aiModeOf(o.mode);
   const key = aiCardKey(o.kind, task, text);

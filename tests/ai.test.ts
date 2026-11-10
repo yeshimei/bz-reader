@@ -2,12 +2,23 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AI_TIMEOUT_MS, aiAsk } from '../src/data/ai';
 import type { ReaderSettings } from '../src/data/settings';
 
+/** 2026-11-11：走「自定义」这条路——地址、密钥、模型齐备，与旧口径的测试数据等价 */
 function settings(patch: Partial<ReaderSettings['ai']> = {}): ReaderSettings {
   return {
     exportDir: 'bz-reader/notes',
     exportComments: true,
     importDir: 'bz-reader/books',
-    ai: { baseUrl: 'https://api.example.com/v1', apiKey: 'sk-test', model: 'test-model', ...patch },
+    reviewDir: 'bz-reader/review',
+    language: 'auto',
+    aiAck: false,
+    debugLog: false,
+    ai: {
+      provider: 'custom',
+      baseUrl: 'https://api.example.com/v1',
+      keys: { custom: 'sk-test' },
+      models: { custom: 'test-model' },
+      ...patch,
+    },
   };
 }
 
@@ -20,7 +31,11 @@ describe('AI 请求（P2-12：没有超时就会一直转圈）', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it('没配置时给人话，不是静默失败', async () => {
-    await expect(aiAsk(settings({ apiKey: '' }), { task: 'explain', text: 'x' })).rejects.toThrow('还没配置 AI 接口');
+    /* DeepSeek 是必填密钥的一家：清空密钥才算「没配置」
+       （自定义允许空密钥，拿它测这条会误判为已配好） */
+    await expect(
+      aiAsk(settings({ provider: 'deepseek', keys: {} }), { task: 'explain', text: 'x' }),
+    ).rejects.toThrow('还没配置 AI');
   });
 
   it('超时错误变成「60 秒没有响应」', async () => {
@@ -53,8 +68,7 @@ describe('AI 请求（P2-12：没有超时就会一直转圈）', () => {
     await expect(aiAsk(settings(), { task: 'explain', text: 'x' })).resolves.toEqual({ text: 'hello' });
   });
 
-  it('请求真的带上 60 秒超时信号，且地址拼成 /chat/completions', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(okResponse('ok'));
+  it('请求真的带上 60 秒超时信号，且地址拼成 /chat/completions', async () => {    const fetchMock = vi.fn().mockResolvedValue(okResponse('ok'));
     vi.stubGlobal('fetch', fetchMock);
     await aiAsk(settings(), { task: 'explain', text: 'x' });
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -62,6 +76,14 @@ describe('AI 请求（P2-12：没有超时就会一直转圈）', () => {
     expect(AI_TIMEOUT_MS).toBe(60_000);
     expect(init.signal).toBeInstanceOf(AbortSignal);
     expect(String(init.headers && (init.headers as Record<string, string>).Authorization)).toContain('Bearer sk-test');
+  });
+
+  it('自定义无密钥：不带 Authorization 头（本地网关不必收一个空 Bearer）', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okResponse('ok'));
+    vi.stubGlobal('fetch', fetchMock);
+    await aiAsk(settings({ keys: {} }), { task: 'explain', text: 'x' });
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Record<string, string>).Authorization).toBeUndefined();
   });
 
   it('外部取消给出「已取消」，不冒充超时', async () => {
