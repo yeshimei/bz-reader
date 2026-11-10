@@ -105,6 +105,21 @@ export interface ReaderPrefs {
    * 就切「书名 + 页码」。
    */
   pdfLinkLabel: PdfLinkLabelMode;
+  /**
+   * PDF 自己的翻页方式：连续滚动还是一屏一页。
+   *
+   * 与 EPUB 的 `flow` **分开**（2026-11-11）：两者共用一个开关时，
+   * 在 PDF 排版面板里切一次「连续」，读 EPUB 也跟着变，反过来也一样。
+   * 默认 **连续滚动**：PDF 多是论文、图表、扫描件，来回对照比从头读到尾多。
+   */
+  pdfFlow: FlowMode;
+  /**
+   * PDF 的单页 / 双页排法。
+   *
+   * 和 EPUB 的 `columns`（单栏 / 双栏）互不相干：前者是「一屏并排两页扫描」，
+   * 后者是「正文分成两栏」。默认单页。
+   */
+  pdfSpread: boolean;
   /** 开书时的缩放档（自动 / 适合宽度 / 适合页面 / 实际大小） */
   pdfZoom: PdfZoomMode;
   /**
@@ -113,7 +128,12 @@ export interface ReaderPrefs {
    * 默认**开**：那是文件内容的一部分，藏起来用户会以为对方没标过。
    */
   pdfAnnots: boolean;
-  /** 页面上画「这句被笔记引过」的反链高亮。默认开 */
+  /**
+   * 页面上画「这一页被笔记引过」的反链高亮。
+   *
+   * 默认**关**（2026-11-11）：反链框是插件自己叠上去的一层，绝大多数 PDF
+   * 没有引用时它就是纯噪音；需要的人自己去设置里开。老数据里开着的不动。
+   */
   pdfBacklinks: boolean;
   /** 导出本页为图片时的倍率（1×/2×/3×）。默认 2× —— 1× 放大了糊 */
   pdfExportScale: number;
@@ -138,9 +158,11 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   headerHidden: [],
   pdfAutoLink: false,
   pdfLinkLabel: 'text',
+  pdfFlow: 'scroll',
+  pdfSpread: false,
   pdfZoom: 'auto',
   pdfAnnots: true,
-  pdfBacklinks: true,
+  pdfBacklinks: false,
   pdfExportScale: 2,
 };
 
@@ -332,13 +354,25 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     pdfLinkLabel: p.pdfLinkLabel === 'page' || p.pdfLinkLabel === 'titlePage' || p.pdfLinkLabel === 'emoji'
       ? p.pdfLinkLabel
       : 'text',
+    pdfFlow: pdfFlowOf(p),
+    pdfSpread: p.pdfSpread === true,
     pdfZoom: p.pdfZoom === 'width' || p.pdfZoom === 'page' || p.pdfZoom === 'actual' ? p.pdfZoom : 'auto',
-    /* 这两个开关只在显式 false 时关：老数据里没有这两个键，脏值（'no' / 0）
-       也不该被当成「用户想关」——藏起别人的批注是有代价的，宁可多显示。 */
+    /* 文件批注只认显式 false：藏起别人的标注是有代价的，宁可多显示；
+       反链只认显式 true：新默认是关，老数据里开着的照旧开（不覆盖）。 */
     pdfAnnots: p.pdfAnnots !== false,
-    pdfBacklinks: p.pdfBacklinks !== false,
+    pdfBacklinks: p.pdfBacklinks === true,
     pdfExportScale: exportScaleOf(p.pdfExportScale),
   };
+}
+
+/**
+ * PDF 的翻页方式：显式值优先；**老数据没有 PDF 专属项时继承原来的翻页值**，
+ * 这样升级不会把人从「一屏一页」突然拽到连续滚动；全新数据才拿到连续。
+ */
+function pdfFlowOf(p: Partial<ReaderPrefs>): FlowMode {
+  if (p.pdfFlow === 'paged' || p.pdfFlow === 'scroll') return p.pdfFlow;
+  if (p.flow === 'paged' || p.flow === 'scroll') return p.flow;
+  return DEFAULT_PREFS.pdfFlow;
 }
 
 /** 导出倍率：有限数就夹到 1～3，非数（老数据 / 脏值）落回默认 2 */

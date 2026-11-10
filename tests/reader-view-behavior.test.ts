@@ -298,3 +298,65 @@ describe('关书收尾（A-29）', () => {
     expect(view.api.store.flush).toHaveBeenCalled();
   });
 });
+
+describe('PDF 的翻页 / 单双页与 EPUB 分开', () => {
+  /** PDF 视图：只需要键盘与偏好要碰的那几个字段 */
+  function pdfView(prefs: Record<string, unknown>) {
+    const app = makeApp();
+    const { view, leaf } = makeReaderView(app);
+    app.workspace.activeLeaf = leaf as never;
+    (view as unknown as { host: unknown }).host = {
+      destroy: async () => undefined,
+      isPdf: true,
+      contentVertical: false,
+      contentRtl: false,
+      pageKey: '',
+      applyPrefs: vi.fn(),
+      pdfUi: { setSpread: vi.fn() },
+    };
+    (view as unknown as { prefs: unknown }).prefs = normalizePrefs(prefs);
+    return view;
+  }
+
+  it('PDF 设成连续：EPUB 那边是分页，方向键也照样不翻页', () => {
+    const view = pdfView({ flow: 'paged', pdfFlow: 'scroll' });
+    const run = vi.spyOn(view, 'runCommand').mockImplementation(() => undefined);
+
+    const e = key('ArrowRight');
+    view.handleKey(e);
+
+    expect(run).not.toHaveBeenCalled();
+    expect((e.preventDefault as ReturnType<typeof vi.fn>).mock.calls.length).toBe(0);
+  });
+
+  it('PDF 设成一屏一页：EPUB 那边是滚动，方向键照样翻页', () => {
+    const view = pdfView({ flow: 'scroll', pdfFlow: 'paged' });
+    const run = vi.spyOn(view, 'runCommand').mockImplementation(() => undefined);
+
+    const e = key('ArrowRight');
+    view.handleKey(e);
+
+    expect(e.preventDefault).toHaveBeenCalledTimes(1);
+    expect(run).toHaveBeenCalledWith('next');
+  });
+
+  it('设置页改单双页：推给当前这本 PDF', () => {
+    const view = pdfView({ pdfSpread: false });
+    const setSpread = (view as unknown as { host: { pdfUi: { setSpread: ReturnType<typeof vi.fn> } } }).host.pdfUi
+      .setSpread;
+
+    view.updatePrefs(normalizePrefs({ pdfSpread: true }));
+
+    expect(setSpread).toHaveBeenCalledWith(true);
+  });
+
+  it('单双页没变就不碰当前书：打开时的全局默认不能冲掉按书记忆', () => {
+    const view = pdfView({ pdfSpread: true });
+    const setSpread = (view as unknown as { host: { pdfUi: { setSpread: ReturnType<typeof vi.fn> } } }).host.pdfUi
+      .setSpread;
+
+    view.updatePrefs(normalizePrefs({ pdfSpread: true, fontSize: 22 }));
+
+    expect(setSpread).not.toHaveBeenCalled();
+  });
+});

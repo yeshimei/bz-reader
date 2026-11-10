@@ -107,11 +107,11 @@ export class PdfEngineHost implements ReaderEngine {
       onFileAnnotTap: (info) => opts.onPdfFileAnnotTap?.(info),
       onFlowChange: (mode) => opts.onPdfFlow?.(mode),
       onHistoryChange: (count) => opts.onHistoryChange?.(count),
-      /* PDF 组的三项偏好：缩放档只在开书时读，两个开关随时读 */
+      /* PDF 组的偏好：缩放档只在开书时读，两个开关随时读 */
       pdfPrefs: () => ({
         zoom: this.prefs?.pdfZoom ?? 'auto',
         annots: this.prefs?.pdfAnnots !== false,
-        backlinks: this.prefs?.pdfBacklinks !== false,
+        backlinks: this.prefs?.pdfBacklinks === true,
       }),
       /* 缩略图拖到笔记：引擎只给「这条链接长什么样」，怎么显示由设置决定 */
       linkForPage: (page) => {
@@ -173,9 +173,18 @@ export class PdfEngineHost implements ReaderEngine {
     this.phase = 'ready';
   }
 
-  /** 打开书时还原上次的视角（旋转 / 双页）。没有记录就保持默认 */
+  /**
+   * 打开书时还原上次的视角（旋转 / 双页）。没有记录时按设置页的 PDF 默认排法。
+   *
+   * 只认「这本书有没有存过」：有记录就完全按记录来，全局默认不能顶掉它——
+   * 否则用户每本书调好的单双页，每次打开都被设置页的默认值冲回原形。
+   */
   restorePdfView(state: { rotation?: number; spread?: boolean } | null | undefined): void {
-    this.view?.restoreView(state);
+    const hasSpread = state && typeof state.spread === 'boolean';
+    this.view?.restoreView({
+      rotation: state?.rotation,
+      spread: hasSpread ? state?.spread === true : this.prefs?.pdfSpread === true,
+    });
   }
 
   /**
@@ -392,8 +401,9 @@ export class PdfEngineHost implements ReaderEngine {
   applyPrefs(prefs: ReaderPrefs): void {
     this.prefs = prefs;
     this.view?.applyPrefs();
-    /* 排版偏好对 PDF 没意义，只有「翻页 / 滚动」要跟着走 */
-    this.view?.setPaged(prefs.flow === 'paged');
+    /* 排版偏好对 PDF 没意义，只有 PDF 自己的「翻页 / 滚动」要跟着走。
+       注意这里读的是 pdfFlow，不是 EPUB 的 flow——两者已经分开。 */
+    this.view?.setPaged(prefs.pdfFlow === 'paged');
     /* 批注 / 反链两个开关改完要立刻生效，不能等翻页才重画 */
     this.view?.refreshPdfPrefs();
   }

@@ -501,8 +501,9 @@ export class ReaderView extends ItemView {
       }
       const now = Date.now();
       /* 滚动模式（P2-02）：滚轮/触控板已经在滚，点一下再跳一屏会很吓人。
-         选字、点链接、关浮层仍然照常，只是不再把点击当翻页。 */
-      if (this.prefs.flow === 'scroll') {
+         选字、点链接、关浮层仍然照常，只是不再把点击当翻页。
+         PDF 与 EPUB 的翻页方式已经分开，这里取「当前这本书」的那一项。 */
+      if (this.currentFlow() === 'scroll') {
         this.renderProbe();
         return;
       }
@@ -1007,6 +1008,16 @@ export class ReaderView extends ItemView {
   }
 
   /**
+   * 当前这本书的翻页方式。
+   *
+   * PDF 与 EPUB 各存一项（2026-11-11）：以前共用一项，在 PDF 面板里切一次
+   * 「连续」，读 EPUB 也跟着变。键盘、点按、排版面板统一问这里，别再各读各的。
+   */
+  private currentFlow(): 'paged' | 'scroll' {
+    return this.host.isPdf ? this.prefs.pdfFlow : this.prefs.flow;
+  }
+
+  /**
    * 键盘处理：主窗口 document 与正文 iframe 共用同一份规则。
    *
    * 2026-11-04 起**不再硬编码单字母**（P2-03）：`f/b/t/m/s/r/g` 全部交给
@@ -1031,10 +1042,12 @@ export class ReaderView extends ItemView {
     }
     /* 滚动模式（A-26）：Escape 之后就不再接管键盘——方向键 / 空格交给
        foliate 的滚动容器。以前这里照旧 preventDefault + 翻页，滚到一半
-       按一下方向键就整页跳走。 */
-    if (this.prefs.flow === 'scroll') return;
+       按一下方向键就整页跳走。
+       PDF 与 EPUB 的翻页方式已经分开，这里取「当前这本书」的那一项。 */
+    const flow = this.currentFlow();
+    if (flow === 'scroll') return;
     const dir = pagingKeyAction(e.key, {
-      flow: this.prefs.flow,
+      flow,
       contentVertical: this.host.contentVertical,
       contentRtl: this.host.contentRtl,
       /* PDF 是纵向的一叠纸：上下键就是翻页。EPUB 的分页器里没有对应动作 */
@@ -1063,7 +1076,7 @@ export class ReaderView extends ItemView {
         case 'pdf-fit-page': pdf.fitPage(); break;
         case 'pdf-rotate': pdf.rotate((pdf.rotation() + 90) % 360); break;
         case 'pdf-spread': pdf.setSpread(!pdf.spread()); break;
-        /* 一屏一页 / 连续滚动是全局偏好：setPaged 里一并落盘 */
+        /* 一屏一页 / 连续滚动是 PDF 自己的偏好：setPaged 里一并落盘 */
         case 'pdf-paged': pdf.setPaged(!pdf.paged()); break;
         case 'pdf-thumbs': pdf.toggleThumbs(); break;
         case 'pdf-copy-link': pdf.copyLink('page'); break;
@@ -1860,8 +1873,8 @@ export class ReaderView extends ItemView {
         onPdfBacklinkTap: (info) => this.openPdfSource(info),
         /* 点文件自带批注 → 就地弹卡 */
         onPdfFileAnnotTap: (info) => this.showFileAnnot(info),
-        /* 排版面板里切了「一屏一页 / 连续滚动」：和 EPUB 共用一个全局偏好 */
-        onPdfFlow: (mode) => getShellSource()?.setPrefs({ flow: mode }),
+        /* 排版面板里切了「一屏一页 / 连续滚动」：写 PDF 自己那一项，不牵动 EPUB */
+        onPdfFlow: (mode) => getShellSource()?.setPrefs({ pdfFlow: mode }),
         /* 跳转历史条数变了：头栏那颗「回到上一处」跟着亮 / 灰。两个引擎都报 */
         onHistoryChange: (count) =>
           this.headerEls.get('history')?.classList.toggle('is-off', count === 0),
@@ -2438,11 +2451,17 @@ export class ReaderView extends ItemView {
 
   /** 外部（书架 · 设置页）改排版：整份覆盖并立即重排 */
   updatePrefs(next: ReaderPrefs): void {
+    const prev = this.prefs;
     this.prefs = normalizePrefs(next);
     this.host.applyPrefs(this.prefs);
     /* 副卷是另一份引擎、另一份样式：只给主卷 push 的话，调字号/行距/主题
        时并排的右半边一直不动，看起来像「设置只对左半边生效」。 */
     this.host2?.applyPrefs(this.prefs);
+    /* 设置页改「单页 / 双页」：值真的变了才动当前这本，并记进这本书。
+       打开书时不走这里，所以全局默认不会冲掉每本书自己的记忆。 */
+    if (this.host.isPdf && prev.pdfSpread !== this.prefs.pdfSpread) {
+      this.host.pdfUi?.setSpread(this.prefs.pdfSpread);
+    }
     this.api.store.touch();
     this.applyChrome();
     /* 头栏图标的顺序 / 显隐也是偏好：改完立刻重挂，不用等切 tab */

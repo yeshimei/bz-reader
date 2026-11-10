@@ -152,10 +152,19 @@ describe('设置页渲染', () => {
     expect((out.match(/data-act="headertoggle"/g) ?? []).length).toBe(14);
   });
 
-  it('PDF 单成一组：开书缩放 / 批注 / 反链 / 导出倍率 / 自动复制链接 / 别名都在里面', () => {
+  it('PDF 单成一组：翻页 / 单双页 / 开书缩放 / 批注 / 反链 / 导出倍率 / 自动复制链接 / 别名都在里面', () => {
     const out = html();
     expect(out).toContain('<h3>PDF</h3>');
-    for (const k of ['pdfZoom', 'pdfAnnots', 'pdfBacklinks', 'pdfExportScale', 'pdfAutoLink', 'pdfLinkLabel']) {
+    for (const k of [
+      'pdfFlow',
+      'pdfSpread',
+      'pdfZoom',
+      'pdfAnnots',
+      'pdfBacklinks',
+      'pdfExportScale',
+      'pdfAutoLink',
+      'pdfLinkLabel',
+    ]) {
       expect(out, k).toContain(`data-k="${k}"`);
     }
     /* 这六项不该还留在「外观」组里 */

@@ -284,6 +284,22 @@ export function viewSettings(v: SettingsView): string {
     pdfUnlocked ? '' : ` data-act="unlock" data-mode="pdf" title="${t('settings.locked')}"`
   }>
       <h3>${t('settings.grp.pdf')}</h3>
+      <div class="bzs-setrow is-segrow"><label>${t('pdf.layout.flow')}</label>${seg(
+        'pdfFlow',
+        [
+          ['scroll', t('pdf.layout.scroll')],
+          ['paged', t('pdf.layout.paged')],
+        ],
+        p.pdfFlow,
+      )}</div>
+      <div class="bzs-setrow is-segrow"><label>${t('pdf.layout.pages')}</label>${seg(
+        'pdfSpread',
+        [
+          ['single', t('pdf.layout.single')],
+          ['spread', t('pdf.layout.spread')],
+        ],
+        p.pdfSpread ? 'spread' : 'single',
+      )}</div>
       <div class="bzs-setrow is-segrow"><label>${t('settings.pdfZoom')}</label>${seg(
         'pdfZoom',
         [

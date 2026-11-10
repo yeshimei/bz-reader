@@ -3072,6 +3072,14 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
     case 'flow':
       src.setPrefs({ flow: v === 'scroll' ? 'scroll' : 'paged' });
       break;
+    case 'pdfFlow':
+      /* PDF 自己的翻页方式（2026-11-11）：和 EPUB 的 flow 分开，改它不牵动 EPUB */
+      src.setPrefs({ pdfFlow: v === 'paged' ? 'paged' : 'scroll' });
+      break;
+    case 'pdfSpread':
+      /* PDF 的单页 / 双页：和 EPUB 的栏数无关 */
+      src.setPrefs({ pdfSpread: v === 'spread' });
+      break;
     case 'fontFamily':
       src.setPrefs({ fontFamily: v as ReaderPrefs['fontFamily'] });
       break;

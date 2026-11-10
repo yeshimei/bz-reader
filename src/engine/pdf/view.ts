@@ -65,7 +65,7 @@ export interface PdfViewCallbacks {
   linkForPage?: (page: number) => string;
   /** 当前 PDF 相关偏好（开书缩放 / 批注 / 反链开关），每次用的时候现取 */
   pdfPrefs?: () => PdfViewPrefs;
-  /** 面板里切了「一屏一页 / 连续滚动」：写回全局偏好（和 EPUB 的翻页同一项） */
+  /** 面板里切了「一屏一页 / 连续滚动」：写回 **PDF 自己的**翻页偏好 */
   onFlowChange?: (mode: 'paged' | 'scroll') => void;
   /** 跳转历史条数变了：头栏那颗「回到上一处」据此亮 / 灰 */
   onHistoryChange?: (count: number) => void;
@@ -381,7 +381,7 @@ export class PdfView {
     this.paged = on;
     this.root.classList.toggle('is-paged', on);
     if (on) this.goToPage(this.current, false);
-    /* 这里**不**发 onViewState：翻页/滚动是全局偏好（prefs.flow），
+    /* 这里**不**发 onViewState：翻页/滚动是 PDF 自己的偏好（prefs.pdfFlow），
        不是「这本书的角度与排法」。早期版本在这里发，打开书时先按默认
        发一次 `{spread:false}`，把上次存的双页直接冲掉了。 */
   }
@@ -891,7 +891,7 @@ export class PdfView {
       (v) => {
         const on = v === 'paged';
         this.setPaged(on);
-        /* 翻页/滚动是全局偏好（和 EPUB 的「翻页」同一项），交给宿主落盘 */
+        /* 翻页/滚动是 PDF 自己的偏好（prefs.pdfFlow），交给宿主落盘 */
         this.opts.onFlowChange?.(on ? 'paged' : 'scroll');
         this.renderLayoutPanel();
       },
@@ -2122,7 +2122,7 @@ export class PdfView {
 
   /** 现取 PDF 偏好：设置页改完不必重开书 */
   private pref(): PdfViewPrefs {
-    return this.opts.pdfPrefs?.() ?? { zoom: 'auto', annots: true, backlinks: true };
+    return this.opts.pdfPrefs?.() ?? { zoom: 'auto', annots: true, backlinks: false };
   }
 
   private paintBacklinks(page: number): void {

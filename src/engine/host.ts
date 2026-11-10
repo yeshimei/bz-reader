@@ -225,8 +225,8 @@ export interface MountOptions {
   /**
    * PDF 排版面板里切了「一屏一页 / 连续滚动」。
    *
-   * 和 EPUB 的「翻页」是同一项全局偏好（prefs.flow），所以由壳层落盘再回灌，
-   * 引擎自己不存——存两份就会「这本书滚、那本书翻」。
+   * 存的是 PDF 自己的 `prefs.pdfFlow`（2026-11-11 起与 EPUB 的 `flow` 分开），
+   * 由壳层落盘再回灌，引擎自己不存——存两份就会「这本书滚、那本书翻」。
    */
   onPdfFlow?: (mode: 'paged' | 'scroll') => void;
   /** 跳转历史条数变了：头栏那颗「回到上一处」据此亮 / 灰。两个引擎共用 */
