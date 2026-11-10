@@ -18,7 +18,7 @@
 import { t } from '../../i18n';
 import { marksOf } from '../domain';
 import { highlightEscaped } from '../highlight';
-import { searchHits, type SearchRow } from '../search-hits';
+import { searchHits, visibleHits, type SearchRow } from '../search-hits';
 import { getState } from '../state';
 import { liveBooks } from '../source';
 import { RT } from '../runtime';
@@ -98,6 +98,47 @@ function progressHtml(): string {
   })}</span><button class="bzs-btn sm" data-act="searchstop">${t('search.body.stop')}</button></div>`;
 }
 
+/** 「显示更多」的状态键：换词就是另一轮，旧值自然用不上 */
+function moreKey(kw: string, bookId: string): string {
+  return `${kw}\u0001${bookId}`;
+}
+
+/**
+ * 一本书的结果块。
+ *
+ * 先画 50 条，多出来的不丢也不硬画：分组头写「共 N 处 · 已显示 M 处」，
+ * 底下给「显示更多」。以前每本只画 10/20 行、头里却写真实总数，数字和
+ * 行数对不上，用户以为结果丢了。
+ */
+function groupHtml(group: { bookId: string; title: string; rows: SearchRow[] }, kw: string): string {
+  const total = group.rows.length;
+  const visible = visibleHits(total, RT.body.more[moreKey(kw, group.bookId)] ?? 0);
+  const hidden = total - visible;
+  const head = esc(
+    hidden > 0
+      ? t('search.group.shown', { title: group.title, n: total, m: visible })
+      : t('search.group', { title: group.title, n: total }),
+  );
+  const rows = group.rows
+    .slice(0, visible)
+    .map((r) => rowHtml(r, kw))
+    .join('');
+  const more =
+    hidden > 0
+      ? `<button class="bzs-btn sm bzs-more" data-act="searchmore" data-book="${esc(group.bookId)}">${esc(
+          t('search.more', { n: hidden }),
+        )}</button>`
+      : '';
+  return `<div class="bzs-hitgroup">${head}</div>${rows}${more}`;
+}
+
+/** 没搜成的书：单列一行，不能静默当它「没有命中」 */
+function failsHtml(): string {
+  return RT.body.failed
+    .map((f) => `<div class="bzs-srch-fail">${esc(t('search.failed.one', { title: f.title }))}</div>`)
+    .join('');
+}
+
 export function searchResultsHtml(kw: string, scope: SearchScope): string {
   const q = kw.trim();
   if (!q) return `<div class="bzs-empty">${t('search.empty')}</div>`;
@@ -131,24 +172,22 @@ export function searchResultsHtml(kw: string, scope: SearchScope): string {
     g.total += 1;
   }
 
-  const hits = merged.reduce((n, g) => n + g.total, 0);
+  const hits = merged.reduce((n, g) => n + g.rows.length, 0);
   const progress = progressHtml();
+  const fails = failsHtml();
   const heads = merged
     .filter((g) => g.rows.length)
-    .map(
-      (g) =>
-        `<div class="bzs-hitgroup">${esc(t('search.group', { title: g.title, n: g.total }))}</div>${g.rows
-          .map((r) => rowHtml(r, q))
-          .join('')}`,
-    )
+    .map((g) => groupHtml(g, q))
     .join('');
 
   if (!hits) {
     if (RT.body.noBook) return `<div class="bzs-empty">${t('search.needBook')}</div>`;
     if (RT.body.running) return `${progress}<div class="bzs-empty">${t('search.body.finding', { kw: q })}</div>`;
-    return `${progress}<div class="bzs-empty">${t('search.noHit', { kw: q })}</div>`;
+    /* 有书没搜成时不能说「没有找到」——用户会以为整库都搜过了 */
+    const miss = fails ? t('search.noHitRest', { kw: q }) : t('search.noHit', { kw: q });
+    return `${progress}${fails}<div class="bzs-empty">${miss}</div>`;
   }
-  return `${progress}${heads}`;
+  return `${progress}${heads}${fails}`;
 }
 
 /** 搜索表单本体：输入框 + 范围切换。整页与浮层共用 */

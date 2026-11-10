@@ -24,8 +24,8 @@ export interface RawTextHit {
   chapterIndex?: number;
 }
 
-/** 正文搜索最多列这么多条：几百条命中会把弹层撑成一条无底洞 */
-const MAX_HITS = 100;
+/** 正文搜索一次最多留这么多条：再多由界面按 50 条一屏展开，不一次性画满 */
+const MAX_HITS = 300;
 
 function flatExcerpt(e: RawTextHit['excerpt']): string {
   if (typeof e === 'string') return e;

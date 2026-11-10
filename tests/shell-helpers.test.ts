@@ -48,7 +48,7 @@ describe('searchHits', () => {
     expect(searchHits(t, 'abc').total).toBe(1);
   });
 
-  it('单本最多 10 条，但 total 记全量', () => {
+  it('单本命中全部留着，截断交给界面按 50 条一屏明说', () => {
     const many: SearchTarget[] = [
       {
         id: 'b',
@@ -57,7 +57,7 @@ describe('searchHits', () => {
       },
     ];
     const r = searchHits(many, '同样');
-    expect(r.groups[0]!.rows).toHaveLength(10);
+    expect(r.groups[0]!.rows).toHaveLength(15);
     expect(r.groups[0]!.total).toBe(15);
     expect(r.total).toBe(15);
   });

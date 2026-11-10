@@ -12,6 +12,7 @@
  *   3. 结果只替换命中列表，不整页重绘——重绘会把输入框和光标换掉。
  * ============================================================ */
 import { can } from '../data/entitlement';
+import { hitChapterLabel } from '../data/pdf-link';
 import { getState } from './state';
 import { getShellSource, liveBooks } from './source';
 import { RT } from './runtime';
@@ -50,6 +51,11 @@ function notify(): void {
   }
 }
 
+/** 点「显示更多」之后让宿主只重画命中列表（搜索框与光标不动） */
+export function refreshBodyHits(): void {
+  notify();
+}
+
 /** 进/离开搜索页、清空关键词：把现场收干净 */
 export function resetBodySearch(): void {
   clearTimer();
@@ -61,6 +67,8 @@ export function resetBodySearch(): void {
   RT.body.done = 0;
   RT.body.total = 0;
   RT.body.noBook = false;
+  RT.body.more = {};
+  RT.body.failed = [];
   notify();
 }
 
@@ -92,6 +100,8 @@ export function kickBodySearch(kw: string, scope: 'book' | 'all'): void {
   RT.body.done = 0;
   RT.body.total = 0;
   RT.body.noBook = false;
+  RT.body.more = {};
+  RT.body.failed = [];
 
   if (!q) {
     notify();
@@ -137,26 +147,44 @@ async function run(seq: number, q: string, books: Array<{ id: string; title: str
   const src = getShellSource();
   if (!src || seq !== RT.body.seq) return;
 
+  /* 搜不成的书：失联、文件没了、格式坏了。都要在结果里单列一行——
+     静默跳过会让用户以为「这本书里没有」。同一本只记一次。 */
+  const fail = (book: { id: string; title: string }): void => {
+    if (seq !== RT.body.seq) return;
+    if (RT.body.failed.some((f) => f.id === book.id)) return;
+    RT.body.failed.push({ id: book.id, title: book.title });
+    notify();
+  };
+
   const finished = await runBodySearch({
     kw: q,
     books,
     shouldStop: () => seq !== RT.body.seq,
     searchOne: async (book, shouldStop) => {
       const full = liveBooks().find((b) => b.id === book.id);
-      if (!full) return [];
+      if (!full) {
+        fail(book);
+        return [];
+      }
       /* 当前打开的书直接用阅读视图里的引擎：不必为了搜一本书把文件重新解一遍 */
       if (book.id === src.openBookId() && src.hasOpenReader()) {
         const hits = await src.searchText(q);
-        return hits.map((h) => ({ cfi: h.cfi, excerpt: h.excerpt, chapterLabel: h.chapterLabel }));
+        return hits.map((h) => ({
+          cfi: h.cfi,
+          excerpt: h.excerpt,
+          /* PDF 没有章节名，靠定位串补「第 N 页」；否则本书结果全是「正文」 */
+          chapterLabel: hitChapterLabel(h),
+        }));
       }
       const hits = await src.searchBookBody(full, q, shouldStop);
-      return hits.map((h) => ({ cfi: h.cfi, excerpt: h.excerpt, chapterLabel: h.chapterLabel }));
+      return hits.map((h) => ({ cfi: h.cfi, excerpt: h.excerpt, chapterLabel: hitChapterLabel(h) }));
     },
     onHits: (_book, hits) => {
       if (seq !== RT.body.seq) return;
       RT.body.hits = mergeBodyHits(RT.body.hits, hits);
       notify();
     },
+    onFail: fail,
     onProgress: (done, total) => {
       if (seq !== RT.body.seq) return;
       RT.body.done = done;

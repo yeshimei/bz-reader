@@ -80,7 +80,8 @@ import {
   toggleFav,
 } from './state';
 import { RT, emitNotesChanged, pushAi, resetAi } from './runtime';
-import { kickBodySearch, resetBodySearch, stopBodySearch } from './search-run';
+import { HITS_PAGE } from './search-hits';
+import { kickBodySearch, refreshBodyHits, resetBodySearch, stopBodySearch } from './search-run';
 import { bzEmbedder, bzNotesReady, openBzPreview, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
@@ -2195,6 +2196,16 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       bumpOverlayRev();
       repaint();
       break;
+    case 'searchmore': {
+      /* 展开一组：只重画命中列表，搜索框与光标不动 */
+      const kw = getState().searchKw.trim();
+      const bookId = d.book || '';
+      if (!kw || !bookId) break;
+      const key = `${kw}\u0001${bookId}`;
+      RT.body.more[key] = (RT.body.more[key] ?? 0) + HITS_PAGE;
+      refreshBodyHits();
+      break;
+    }
     case 'searchclear':
       setState({ searchKw: '' });
       resetBodySearch();

@@ -38,6 +38,8 @@ afterEach(() => {
   RT.body.stopped = false;
   RT.body.noBook = false;
   RT.body.kw = '';
+  RT.body.more = {};
+  RT.body.failed = [];
   RT.body.seq += 1;
 });
 
@@ -125,5 +127,71 @@ describe('搜索结果', () => {
     expect(html).toContain('正在搜正文');
     expect(html).toContain('data-act="searchstop"');
     expect(html).not.toContain('没有找到');
+  });
+});
+
+/* ============================================================
+ * 截断要明说（2026-11-10）。
+ *
+ * 以前每本只画 20 条、分组头却写真实总数，多出来的部分既不显示也不提示；
+ * PDF 更狠——同一页的命中在去重时塌成一条。现在：先画 50 条，头写
+ * 「共 N 处 · 已显示 M 处」，点「显示更多」按 50 递增。
+ * ============================================================ */
+describe('搜索结果的截断提示', () => {
+  const dense = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      bookId: 'b2',
+      bookTitle: '血与蜜之地',
+      cfi: `pdf/3/${i}-${i + 1}`,
+      chapterLabel: '第 3 页',
+      excerpt: `第 ${i} 处摘录`,
+    }));
+
+  function rowsOf(html: string): number {
+    return (html.match(/data-act="hittotext"/g) ?? []).length;
+  }
+
+  it('超过 50 条：先画 50 条，头写真实条数与已显示条数', () => {
+    installSource();
+    setState({ ...DEFAULT_SHELL_STATE, bookId: 'b1' });
+    RT.body.kw = '的';
+    RT.body.hits = dense(60);
+    const html = searchResultsHtml('的', 'all');
+    expect(rowsOf(html)).toBe(50);
+    expect(html).toContain('共 60 处');
+    expect(html).toContain('已显示 50 处');
+    expect(html).toContain('data-act="searchmore"');
+  });
+
+  it('展开之后按 50 递增，全部画完就不再给「显示更多」', () => {
+    installSource();
+    setState({ ...DEFAULT_SHELL_STATE, bookId: 'b1' });
+    RT.body.kw = '的';
+    RT.body.hits = dense(60);
+    RT.body.more[`的\u0001b2`] = 50;
+    const html = searchResultsHtml('的', 'all');
+    expect(rowsOf(html)).toBe(60);
+    expect(html).not.toContain('data-act="searchmore"');
+    expect(html).not.toContain('已显示');
+  });
+
+  it('没超上限时不加「已显示」这种废话', () => {
+    installSource();
+    setState({ ...DEFAULT_SHELL_STATE, bookId: 'b1' });
+    RT.body.kw = '的';
+    RT.body.hits = dense(3);
+    const html = searchResultsHtml('的', 'all');
+    expect(rowsOf(html)).toBe(3);
+    expect(html).not.toContain('已显示');
+    expect(html).not.toContain('data-act="searchmore"');
+  });
+
+  it('打不开的书单列一行：不能静默当它「没有命中」', () => {
+    installSource();
+    setState({ ...DEFAULT_SHELL_STATE, bookId: 'b1' });
+    RT.body.kw = '巴尔干';
+    RT.body.failed = [{ id: 'b2', title: '血与蜜之地' }];
+    const html = searchResultsHtml('巴尔干', 'all');
+    expect(html).toContain('《血与蜜之地》打不开，未能搜索');
   });
 });

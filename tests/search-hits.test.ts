@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { searchHits, type SearchTarget } from '../src/shell/search-hits';
+import { searchHits, visibleHits, type SearchTarget } from '../src/shell/search-hits';
 
 /* ============================================================
  * 搜索命中：书名 / 作者 / 章节名 / 标注原文 / 想法。
@@ -74,7 +74,7 @@ describe('搜索命中来源（fix/search-body）', () => {
     expect(searchHits(books, '不存在的字')).toEqual({ groups: [], total: 0 });
   });
 
-  it('章节名命中按书分组、计入总数与单本上限', () => {
+  it('章节名命中按书分组，全部行都留着，由渲染层决定先画几条', () => {
     const many: SearchTarget[] = [
       {
         id: 'b',
@@ -83,8 +83,26 @@ describe('搜索命中来源（fix/search-body）', () => {
       },
     ];
     const r = searchHits(many, '同一个章节');
-    expect(r.groups[0]!.rows).toHaveLength(10);
+    /* 以前这里截到 10 条、total 写 15：分组头写 15 处，下面只画 10 行，
+       数字和行数对不上。现在全留着，截断由界面明说。 */
+    expect(r.groups[0]!.rows).toHaveLength(15);
     expect(r.groups[0]!.total).toBe(15);
     expect(r.total).toBe(15);
+  });
+});
+
+describe('分组可见条数（50 条 + 显示更多）', () => {
+  it('不满 50 条：全画', () => {
+    expect(visibleHits(12, 0)).toBe(12);
+  });
+
+  it('超过 50 条：先画 50，每次「显示更多」多 50', () => {
+    expect(visibleHits(160, 0)).toBe(50);
+    expect(visibleHits(160, 50)).toBe(100);
+    expect(visibleHits(160, 500)).toBe(160);
+  });
+
+  it('额外条数是负数也不倒扣', () => {
+    expect(visibleHits(160, -30)).toBe(50);
   });
 });

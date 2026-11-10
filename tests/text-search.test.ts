@@ -34,8 +34,17 @@ describe('正文搜索命中归一（toTextHits）', () => {
     expect(toTextHits([{ cfi: 'c', excerpt: 'x' }])[0]!.chapterLabel).toBe('');
   });
 
-  it('最多 100 条：几百条命中不该把弹层撑爆', () => {
-    const many = Array.from({ length: 150 }, (_, i) => ({ cfi: `c${i}`, excerpt: `x${i}` }));
-    expect(toTextHits(many)).toHaveLength(100);
+  it('最多 300 条：几百条命中不该把弹层撑爆', () => {
+    const many = Array.from({ length: 450 }, (_, i) => ({ cfi: `c${i}`, excerpt: `x${i}` }));
+    expect(toTextHits(many)).toHaveLength(300);
+  });
+
+  it('PDF 同页多处命中：定位串带页内区间，各自成行', () => {
+    /* 以前 PDF 命中的 cfi 只有 `pdf/3`：同一页不管几处，去重后只剩一条 */
+    const hits = toTextHits([
+      { cfi: 'pdf/3/0-6', excerpt: 'parity' },
+      { cfi: 'pdf/3/40-46', excerpt: 'parity' },
+    ]);
+    expect(hits.map((h) => h.cfi)).toEqual(['pdf/3/0-6', 'pdf/3/40-46']);
   });
 });

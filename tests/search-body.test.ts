@@ -60,6 +60,11 @@ describe('mergeBodyHits', () => {
     const merged = mergeBodyHits([hit('a', 'c1'), hit('a', 'c2')], [hit('a', 'c3')], 2);
     expect(merged.map((h) => h.cfi)).toEqual(['c1', 'c2']);
   });
+
+  it('默认每本留 300 条：以前只留 20 条，长书后面的命中永远看不见', () => {
+    const next = Array.from({ length: 250 }, (_, i) => hit('a', `c${i}`));
+    expect(mergeBodyHits([], next)).toHaveLength(250);
+  });
 });
 
 describe('runBodySearch', () => {
@@ -126,7 +131,8 @@ describe('runBodySearch', () => {
     expect(searchOne).not.toHaveBeenCalled();
   });
 
-  it('某本书打不开：跳过它，后面的书照常扫', async () => {
+  it('某本书打不开：跳过它，后面的书照常扫，并把它报给界面', async () => {
+    const failed: string[] = [];
     const done = await runBodySearch({
       kw: '词',
       books,
@@ -138,9 +144,12 @@ describe('runBodySearch', () => {
       onHits: (_book, hits) => {
         expect(hits[0]!.bookId).toBe('b');
       },
+      onFail: (book) => failed.push(book.title),
       onProgress: () => undefined,
     });
     expect(done).toBe(true);
+    /* 静默跳过 = 用户看到「没有找到」，却不知道有一本根本没搜 */
+    expect(failed).toEqual(['书-a']);
   });
 });
 

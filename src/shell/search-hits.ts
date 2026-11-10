@@ -57,8 +57,24 @@ export interface SearchResult {
   total: number;
 }
 
+/** 每组先画多少条；点「显示更多」按这个数递增 */
+export const HITS_PAGE = 50;
+
+/**
+ * 一组里先画几条。
+ *
+ * `extra` 是用户点了几次「显示更多」累加出来的额外条数。截断本身由渲染层
+ * 明说（「共 N 处 · 已显示 M 处」），不再像以前那样悄悄只画 10 行、
+ * 分组头却写着真实总数——数字和行数对不上，用户以为结果丢了。
+ */
+export function visibleHits(total: number, extra: number): number {
+  const all = Math.max(0, Math.floor(Number.isFinite(total) ? total : 0));
+  const more = Math.max(0, Math.floor(Number.isFinite(extra) ? extra : 0));
+  return Math.min(all, HITS_PAGE + more);
+}
+
 /** 大小写不敏感；关键词为空直接返回空结果（不把整库列出来） */
-export function searchHits(books: SearchTarget[], keyword: string, maxPerBook = 10): SearchResult {
+export function searchHits(books: SearchTarget[], keyword: string, maxPerBook = 0): SearchResult {
   const kw = keyword.trim().toLowerCase();
   if (!kw) return { groups: [], total: 0 };
 
@@ -94,7 +110,13 @@ export function searchHits(books: SearchTarget[], keyword: string, maxPerBook = 
     }
     if (!rows.length) continue;
     total += rows.length;
-    groups.push({ bookId: b.id, title: b.title, rows: rows.slice(0, maxPerBook), total: rows.length });
+    groups.push({
+      bookId: b.id,
+      title: b.title,
+      /* 行全留着：截断由渲染层按 50 条一屏明说，不在这里悄悄丢 */
+      rows: maxPerBook > 0 ? rows.slice(0, maxPerBook) : rows,
+      total: rows.length,
+    });
   }
   return { groups, total };
 }

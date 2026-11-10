@@ -34,7 +34,7 @@ export function planBodyBooks<T extends { id: string }>(
 }
 
 /** 合并正文命中：同一本书的同一个 CFI 只留一条；每本最多 maxPerBook 条 */
-export function mergeBodyHits(prev: BodyHit[], next: BodyHit[], maxPerBook = 20): BodyHit[] {
+export function mergeBodyHits(prev: BodyHit[], next: BodyHit[], maxPerBook = 300): BodyHit[] {
   const out = prev.slice();
   const seen = new Set(out.map((h) => `${h.bookId}\u0001${h.cfi}`));
   const perBook = new Map<string, number>();
@@ -65,6 +65,8 @@ export interface BodySearchOpts {
   shouldStop: () => boolean;
   onHits: (book: BodyBook, hits: BodyHit[]) => void;
   onProgress: (done: number, total: number) => void;
+  /** 这本书没能搜（文件丢了 / 打不开）：界面要单列一行，不能静默当它没命中 */
+  onFail?: (book: BodyBook) => void;
 }
 
 /**
@@ -96,7 +98,9 @@ export async function runBodySearch(opts: BodySearchOpts): Promise<boolean> {
         );
       }
     } catch {
-      /* 打不开的书跳过：搜索不该被一本坏文件打断 */
+      /* 打不开的书跳过：搜索不该被一本坏文件打断。但要说出来——
+         静默跳过等于让用户对着「没有找到」猜。 */
+      opts.onFail?.(book);
     }
     done += 1;
     opts.onProgress(done, total);
