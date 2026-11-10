@@ -29,8 +29,11 @@ const CHANGED: ReadonlyArray<readonly [string, string]> = [
   ['reading', 'EPUB / TXT 打开即读'],
   ['bilink', '划线存成双链：笔记里点回原文'],
   ['export', '导出整本摘录：每条带双链'],
-  ['pdfView', 'PDF 阅读：缩放、旋转、单双页、滚动，每本记住视角'],
-  ['pdfLink', '复制页链接：页码 / 视图 / 嵌入 / 批注，可划词自动复制'],
+  ['back', '回到上一处：跳走之后一键回来'],
+  ['footnote', '脚注浮窗：小注不用离页'],
+  ['formats', 'Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画'],
+  ['pdfView', '打开 PDF：缩放、旋转、单双页、滚动，每本记住视角'],
+  ['pdfLink', '复制页链接：页码 / 视图 / 嵌入 / 批注'],
   ['pdfAnnots', '本页反链与文件自带批注'],
   ['stats', '数据面板：时长、趋势、节律、书籍明细'],
   ['poster', '阅读海报：年度总结与数据长图'],
@@ -39,7 +42,7 @@ const CHANGED: ReadonlyArray<readonly [string, string]> = [
   ['vertical', '竖排排版：EPUB / TXT'],
   ['tts', '朗读：EPUB、TXT 与 PDF，念完自动翻页'],
   ['parallel', '与另一本书并排对照'],
-  ['kb', '连接 BZ AI 知识库，需另装 bz'],
+  ['kb', '连接 BZ AI 知识库（需另装 bz）'],
 ];
 
 describe('1.0.0 对照表 · 引用页签归入高级版', () => {
@@ -83,16 +86,20 @@ describe('1.0.0 对照表 · 书摘下放与行名', () => {
     }
   });
 
-  it('行名仍然不带括号补充说明（formats 的扩展名枚举是唯一例外）', () => {
+  it('行名不带括号补充说明（只有 formats 的族名枚举与 kb 的前置条件例外）', () => {
+    /* formats 的括号是「族 → 枚举」（Kindle 系（MOBI / AZW3）），不是解释；
+       kb 的「（需另装 bz）」是前置条件，写进正文会读成「知识库要另装」。
+       除了这两行，行名里不该再出现括号。 */
+    const ALLOWED = new Set(['formats', 'kb']);
     for (const r of PLAN_TABLE) {
-      if (r.key === 'formats') continue;
+      if (ALLOWED.has(r.key)) continue;
       expect(r.name, r.name).not.toMatch(/[（(]/);
     }
   });
 
   it('表尾仍是知识库那一行', () => {
     expect(PLAN_TABLE.at(-1)?.key).toBe('kb');
-    expect(PLAN_TABLE.at(-1)?.name).toBe('连接 BZ AI 知识库，需另装 bz');
+    expect(PLAN_TABLE.at(-1)?.name).toBe('连接 BZ AI 知识库（需另装 bz）');
   });
 });
 
@@ -118,7 +125,7 @@ describe('1.0.0 对照表 · 上架前把英文占位换成正式翻译', () => 
     setLocale('de');
     expect(planLabel('pdfView')).toBe(PLAN_TEXT_PACK.pdfView.de);
     setLocale('zh');
-    expect(planLabel('pdfView')).toBe('PDF 阅读：缩放、旋转、单双页、滚动，每本记住视角');
+    expect(planLabel('pdfView')).toBe('打开 PDF：缩放、旋转、单双页、滚动，每本记住视角');
     expect(planGroupNameZh('pdf')).toBe('PDF 阅读');
   });
 });

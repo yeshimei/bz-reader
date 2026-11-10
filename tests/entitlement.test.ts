@@ -183,10 +183,12 @@ describe('界面文案', () => {
   });
 
   it('功能名只用短名，不带括号补充说明', () => {
-    /* 例外只有 formats：括号里是「Kindle 系」这一族的扩展名枚举，
-       不是在给功能名打补丁（「书摘（图片版）」那种才是要拦的）。 */
+    /* 两个例外，都不是「给功能名打补丁」（「书摘（图片版）」那种才是要拦的）：
+       formats 括号里是「Kindle 系」这一族的扩展名枚举；
+       kb 的「（需另装 bz）」是前置条件，写进正文会读成「知识库要另装」。 */
+    const ALLOWED = new Set(['formats', 'kb']);
     for (const row of PLAN_TABLE) {
-      if (row.key === 'formats') continue;
+      if (ALLOWED.has(row.key)) continue;
       expect(row.name, row.name).not.toMatch(/[（(]/);
     }
   });
@@ -233,7 +235,7 @@ describe('界面文案', () => {
   it('对照表不再单列向量检索，表尾只剩 BZ 知识库', () => {
     expect(PLAN_TABLE.some((r) => r.name.includes('向量'))).toBe(false);
     expect(PLAN_TABLE.slice(-1).map((r) => r.key)).toEqual(['kb']);
-    expect(PLAN_TABLE.slice(-1).map((r) => r.name)).toEqual(['连接 BZ AI 知识库，需另装 bz']);
+    expect(PLAN_TABLE.slice(-1).map((r) => r.name)).toEqual(['连接 BZ AI 知识库（需另装 bz）']);
   });
 
   it('数据面板那一行写全：时长、趋势、节律、书籍明细', () => {

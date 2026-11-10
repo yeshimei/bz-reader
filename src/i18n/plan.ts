@@ -103,24 +103,24 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
      PDF 早就有（点目录 / 链接跳走之前记一手，翻页不算）；EPUB 现在补上同一条。
      两边共用一个动作，所以它能进「阅读与书架」这一段，两栏都打勾。 */
   back: {
-    zh: '回到上一处',
-    'zh-TW': '回到上一處',
-    en: 'Back to previous spot',
-    ja: '前の位置に戻る',
-    de: 'Zur vorherigen Stelle zurück',
-    fr: 'Revenir à la position précédente',
-    es: 'Volver a la posición anterior',
-    pt: 'Voltar à posição anterior',
+    zh: '回到上一处：跳走之后一键回来',
+    'zh-TW': '回到上一處：跳走之後一鍵回來',
+    en: 'Back to your previous spot: one tap after any jump',
+    ja: '前の位置に戻る：移動したあとワンタップで戻れる',
+    de: 'Zur vorherigen Stelle zurück – nach jedem Sprung ein Klick',
+    fr: 'Revenir à votre position précédente : un clic après un saut',
+    es: 'Volver a la posición anterior: un toque tras cualquier salto',
+    pt: 'Voltar à posição anterior: um toque depois de qualquer salto',
   },
   footnote: {
-    zh: '脚注浮窗预览',
-    'zh-TW': '腳註浮窗預覽',
-    en: 'Footnote preview in a popover',
-    ja: '脚注のポップアップ表示',
-    de: 'Fußnoten als Pop-up',
-    fr: 'Aperçu des notes de bas de page',
-    es: 'Vista previa de notas al pie',
-    pt: 'Prévia das notas de rodapé',
+    zh: '脚注浮窗：小注不用离页',
+    'zh-TW': '腳註浮窗：小註不用離頁',
+    en: 'Footnotes in a popover: no need to leave the page',
+    ja: '脚注ポップアップ：ページを離れずに読める',
+    de: 'Fußnoten im Pop-up – ohne die Seite zu verlassen',
+    fr: 'Notes de bas de page en bulle : sans quitter la page',
+    es: 'Notas al pie en ventana: sin salir de la página',
+    pt: 'Notas de rodapé em pop-up: sem sair da página',
   },
   /* 2026-11-09 新增：分类管理（免费）。 */
   classify: {
@@ -148,18 +148,17 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
   formats: {
     /* 只写**真机实测能打开**的格式。AZW（不带 3）/ PRC / FBZ 看着像 Kindle
        家族，但 EXT_TO_FORMAT 里没有它们，写上去就是空头承诺。
-       1.0.0 定稿：这一行把高级版能多开的**全部**格式按「族名（枚举）」写全
-       ——EPUB 与 TXT 属基础版，PDF 也在这行点一次（它自己的段只讲能力，
-       不再重复「能不能开」）。括号在这里是「族 → 枚举」，不是行名解释，
-       允许这一行例外。 */
-    zh: 'Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画、PDF',
-    'zh-TW': 'Kindle 系（MOBI / AZW3）、FB2、CBZ 漫畫、PDF',
-    en: 'Kindle family (MOBI / AZW3), FB2, CBZ comics, PDF',
-    ja: 'Kindle 系（MOBI / AZW3）、FB2、CBZ コミック、PDF',
-    de: 'Kindle-Familie (MOBI / AZW3), FB2, CBZ-Comics, PDF',
-    fr: 'Famille Kindle (MOBI / AZW3), FB2, BD en CBZ, PDF',
-    es: 'Familia Kindle (MOBI / AZW3), FB2, cómics en CBZ, PDF',
-    pt: 'Família Kindle (MOBI / AZW3), FB2, quadrinhos em CBZ, PDF',
+       1.0.0 定稿：这一行把高级版能多开的格式按「族名（枚举）」写全。
+       括号在这里是「族 → 枚举」，不是行名解释，允许这一行例外。
+       PDF 不在这行：它下面是独立的一段，写两遍会让人以为要买两次。 */
+    zh: 'Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画',
+    'zh-TW': 'Kindle 系（MOBI / AZW3）、FB2、CBZ 漫畫',
+    en: 'Kindle family (MOBI / AZW3), FB2, CBZ comics',
+    ja: 'Kindle 系（MOBI / AZW3）、FB2、CBZ コミック',
+    de: 'Kindle-Familie (MOBI / AZW3), FB2, CBZ-Comics',
+    fr: 'Famille Kindle (MOBI / AZW3), FB2, BD en CBZ',
+    es: 'Familia Kindle (MOBI / AZW3), FB2, cómics en CBZ',
+    pt: 'Família Kindle (MOBI / AZW3), FB2, quadrinhos em CBZ',
   },
   bilink: {
     /* 1.0.0 定稿：行名把「点得回来」这层意思说出来——只写「复制为双链」
@@ -206,14 +205,14 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
    *   pdfExport  存下来：本页存成图片
    * 「能不能打开 PDF」由上一段 formats 那一行说，这里只讲能做到什么。 */
   pdfView: {
-    zh: 'PDF 阅读：缩放、旋转、单双页、滚动，每本记住视角',
-    'zh-TW': 'PDF 閱讀：縮放、旋轉、單雙頁、捲動，每本記住視角',
-    en: 'PDF reading: zoom, rotate, one or two pages, scroll; view remembered per book',
-    ja: 'PDF リーディング：ズーム・回転・見開き・スクロール、本ごとに表示を記憶',
-    de: 'PDF lesen: zoomen, drehen, Einzel- / Doppelseite, Scrollen; Ansicht pro Buch',
-    fr: 'Lecture PDF : zoom, rotation, page simple ou double, défilement ; vue mémorisée par livre',
-    es: 'Lectura de PDF: zoom, rotación, una o dos páginas, desplazamiento; vista por libro',
-    pt: 'Leitura de PDF: zoom, rotação, uma ou duas páginas, rolagem; vista por livro',
+    zh: '打开 PDF：缩放、旋转、单双页、滚动，每本记住视角',
+    'zh-TW': '開啟 PDF：縮放、旋轉、單雙頁、捲動，每本記住視角',
+    en: 'Open a PDF: zoom, rotate, one or two pages, scroll; view remembered per book',
+    ja: 'PDF を開く：ズーム・回転・見開き・スクロール、本ごとに表示を記憶',
+    de: 'PDF öffnen: zoomen, drehen, Einzel- / Doppelseite, Scrollen; Ansicht pro Buch',
+    fr: 'Ouvrir un PDF : zoom, rotation, page simple ou double, défilement ; vue mémorisée par livre',
+    es: 'Abrir un PDF: zoom, rotación, una o dos páginas, desplazamiento; vista por libro',
+    pt: 'Abrir um PDF: zoom, rotação, uma ou duas páginas, rolagem; vista por livro',
   },
   pdfThumbs: {
     zh: '页缩略图：几百页也能一屏找',
@@ -226,14 +225,14 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     pt: 'Miniaturas: achar uma página num livro longo',
   },
   pdfLink: {
-    zh: '复制页链接：页码 / 视图 / 嵌入 / 批注，可划词自动复制',
-    'zh-TW': '複製頁連結：頁碼 / 檢視 / 嵌入 / 批註，可劃詞自動複製',
-    en: 'Copy page links: page / view / embed / annotation, auto-copy on selection',
-    ja: 'ページリンクをコピー：ページ / ビュー / 埋め込み / 注釈、選択時に自動コピー',
-    de: 'Seitenlinks kopieren: Seite / Ansicht / Einbettung / Anmerkung, automatisch bei Auswahl',
-    fr: 'Copier les liens de page : page / vue / intégration / annotation, copie auto à la sélection',
-    es: 'Copiar enlaces de página: página / vista / incrustación / anotación, copia automática al seleccionar',
-    pt: 'Copiar links de página: página / vista / incorporação / anotação, cópia automática ao selecionar',
+    zh: '复制页链接：页码 / 视图 / 嵌入 / 批注',
+    'zh-TW': '複製頁連結：頁碼 / 檢視 / 嵌入 / 批註',
+    en: 'Copy page links: page / view / embed / annotation',
+    ja: 'ページリンクをコピー：ページ / ビュー / 埋め込み / 注釈',
+    de: 'Seitenlinks kopieren: Seite / Ansicht / Einbettung / Anmerkung',
+    fr: 'Copier les liens de page : page / vue / intégration / annotation',
+    es: 'Copiar enlaces de página: página / vista / incrustación / anotación',
+    pt: 'Copiar links de página: página / vista / incorporação / anotação',
   },
   pdfAnnots: {
     zh: '本页反链与文件自带批注',
@@ -359,14 +358,14 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
      让用户以为要买两次。1.0.0 在行名里点明「需另装 bz」，免得看着像
      一项能单独买的功能。 */
   kb: {
-    zh: '连接 BZ AI 知识库，需另装 bz',
-    'zh-TW': '連接 BZ AI 知識庫，需另裝 bz',
-    en: 'Connect to the BZ AI knowledge base; requires bz',
-    ja: 'BZ AI ナレッジベースに接続、bz が必要',
-    de: 'Mit der BZ-KI-Wissensdatenbank verbinden; bz erforderlich',
-    fr: 'Se connecter à la base BZ AI ; nécessite bz',
-    es: 'Conectar con la base de conocimiento BZ AI; requiere bz',
-    pt: 'Conectar à base de conhecimento BZ AI; requer bz',
+    zh: '连接 BZ AI 知识库（需另装 bz）',
+    'zh-TW': '連接 BZ AI 知識庫（需另裝 bz）',
+    en: 'Connect to the BZ AI knowledge base (requires bz)',
+    ja: 'BZ AI ナレッジベースに接続（bz が必要）',
+    de: 'Mit der BZ-KI-Wissensdatenbank verbinden (bz erforderlich)',
+    fr: 'Se connecter à la base BZ AI (nécessite bz)',
+    es: 'Conectar con la base de conocimiento BZ AI (requiere bz)',
+    pt: 'Conectar à base de conhecimento BZ AI (requer bz)',
   },
 };
 

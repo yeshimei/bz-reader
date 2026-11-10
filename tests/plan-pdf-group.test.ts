@@ -78,23 +78,23 @@ describe('对照表 · PDF 段的位置与内容', () => {
   });
 });
 
-describe('对照表 · 格式那一行把 PDF 一起说全（1.0.0 定稿）', () => {
-  it('中文行名按「族名（枚举）」写全，含 PDF', () => {
-    expect(row('formats')?.name).toBe('Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画、PDF');
+describe('对照表 · 格式那行与 PDF 段各说各的（1.0.0 定稿）', () => {
+  it('中文行名按「族名（枚举）」写全', () => {
+    expect(row('formats')?.name).toBe('Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画');
   });
 
-  it('八种语言这一行都点到 pdf', () => {
+  it('八种语言这一行都不再点 PDF：它下面有独立的一段', () => {
+    /* 1.0.0 定稿：PDF 从「更多格式」挪进自己的段。两处都写的话，看表的人会
+       以为 PDF 要单独再买一次；真被拦时的引子也分不清该高亮哪一行。 */
     for (const l of LOCALES) {
-      expect(PLAN_TEXT_PACK.formats[l], l).toMatch(/pdf/i);
+      expect(PLAN_TEXT_PACK.formats[l], l).not.toMatch(/pdf/i);
     }
   });
 
-  it('PDF 段首行不再重复「能不能打开」，只讲能做到什么', () => {
-    /* 格式归上一段，PDF 段讲能力——同一件事说两遍，用户会以为要买两次。 */
-    expect(planNameZh('pdfView')).toBe('PDF 阅读：缩放、旋转、单双页、滚动，每本记住视角');
-    for (const l of LOCALES) {
-      expect(PLAN_TEXT_PACK.pdfView[l].includes('打开'), l).toBe(false);
-    }
+  it('PDF 段首行改成「打开 PDF」：能不能开归它自己说', () => {
+    expect(planNameZh('pdfView')).toBe('打开 PDF：缩放、旋转、单双页、滚动，每本记住视角');
+    expect(PLAN_TEXT_PACK.pdfView.zh).toContain('打开');
+    expect(PLAN_TEXT_PACK.pdfView['zh-TW']).toContain('開啟');
   });
 });
 
@@ -144,9 +144,9 @@ describe('对照表 · PDF 段八种语言', () => {
 
   it('切到英文，行名跟着换', () => {
     setLocale('en');
-    expect(planNameZh('pdfView')).toBe('PDF 阅读：缩放、旋转、单双页、滚动，每本记住视角');
+    expect(planNameZh('pdfView')).toBe('打开 PDF：缩放、旋转、单双页、滚动，每本记住视角');
     expect(PLAN_TEXT_PACK.pdfView.en).toBe(
-      'PDF reading: zoom, rotate, one or two pages, scroll; view remembered per book',
+      'Open a PDF: zoom, rotate, one or two pages, scroll; view remembered per book',
     );
     setLocale('zh');
   });
