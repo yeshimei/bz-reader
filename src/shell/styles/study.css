@@ -1223,11 +1223,19 @@
   border-radius: 0;
 }
 
-/* 通栏组的标记：关于条与快捷键都带这个 class。设置页拆成两条列流后它俩
-   已在 grid 之外、天然占满整栏；这条 grid-column 留给将来放进 grid 的通栏组
-   ——列流（.bzs-set-col）里没有 grid，塞进去不会生效。 */
+/* 通栏组的标记：关于条、阅读页图标与快捷键都带这个 class。设置页拆成两条
+   列流后它们已在 grid 之外、天然占满整栏；这条 grid-column 留给将来放进
+   grid 的通栏组——列流（.bzs-set-col）里没有 grid，塞进去不会生效。 */
 .bzs-setgrp.wide {
   grid-column: 1 / -1;
+}
+
+/* 「阅读页图标」挪到页尾通栏后每行宽了近一倍：标签吃掉多余宽度，↑ ↓ 与
+   开关一起贴右，读法与下面快捷键组的「文字在左、键位在右」一致。窄屏也
+   适用——手机上 label 会折行，右侧三颗控件仍然齐平。 */
+.bzs-setgrp-header .bzs-setrow label {
+  flex: 1 1 auto;
+  max-width: none;
 }
 
 /* 基础版整组灰掉：点击弹高级功能说明（data-act="unlock" 挂在组上） */

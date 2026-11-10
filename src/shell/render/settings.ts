@@ -363,7 +363,7 @@ export function viewSettings(v: SettingsView): string {
       </div>`;
     })
     .join('');
-  const header = `<div class="bzs-setgrp bzs-setgrp-header">
+  const header = `<div class="bzs-setgrp wide bzs-setgrp-header">
       <h3>${t('settings.grp.header')}</h3>
       <div class="bzs-mini" style="margin:0 0 8px">${t('settings.header.hint')}</div>
       ${headerRows}
@@ -513,12 +513,14 @@ export function viewSettings(v: SettingsView): string {
     </div>`;
 
   /* 两列各自成流（布局说明见 study.css 的 .bzs-set-page）。
-     切在「阅读页图标 / 外观」之间：左列是界面 + 版式 + 图标表，
-     右列是外观 + PDF + 其余六组。PDF 组跟在外观后面——它原来那两项就
-     摆在「外观」里，搬出来之后仍挨着，找的人不用重新适应位置。
-     DOM 顺序不变，窄屏叠成一列时仍是原来的阅读顺序。 */
-  const leftCol = `${languageGrp}${layout}${header}`;
+     左列是界面 + 版式，右列是外观 + PDF + 其余五组。PDF 组跟在外观后面——
+     它原来那两项就摆在「外观」里，搬出来之后仍挨着，找的人不用重新适应位置。
+     DOM 顺序不变，窄屏叠成一列时仍是原来的阅读顺序。
+
+     「阅读页图标」从 2026-11-11 起挪到两列之外、紧挨快捷键上方：调图标
+     顺序和查快捷键的人常是同一时刻滚到页尾，两组挨着就不用再往回翻。 */
+  const leftCol = `${languageGrp}${layout}`;
   const rightCol = `${look}${pdf}${tts}${marks}${data}${ai}${lic}`;
 
-  return `<div class="bzs-set-page">${aboutBar(v.version || '', paid, ent.patron, ent.name)}<div class="bzs-set-grid"><div class="bzs-set-col">${leftCol}</div><div class="bzs-set-col">${rightCol}</div></div>${keys}</div>`;
+  return `<div class="bzs-set-page">${aboutBar(v.version || '', paid, ent.patron, ent.name)}<div class="bzs-set-grid"><div class="bzs-set-col">${leftCol}</div><div class="bzs-set-col">${rightCol}</div></div>${header}${keys}</div>`;
 }

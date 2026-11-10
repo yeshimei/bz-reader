@@ -213,13 +213,13 @@ describe('设置页渲染', () => {
     expect(row).not.toContain('bzs-seg-pdf4');
   });
 
-  it('分组顺序：阅读页图标排在外观之前', () => {
+  /* 「阅读页图标」是阅读页外观的一部分，但与快捷键同属「调完马上去用」的
+     细项：收在页尾、紧挨快捷键上面，滚到底一次就能把两边都调完。 */
+  it('分组顺序：阅读页图标紧挨在快捷键上方', () => {
     const out = html();
-    const headerAt = out.indexOf('<h3>阅读页图标</h3>');
-    const lookAt = out.indexOf('<h3>外观</h3>');
-    expect(headerAt).toBeGreaterThan(0);
-    expect(lookAt).toBeGreaterThan(0);
-    expect(headerAt).toBeLessThan(lookAt);
+    const order = [...out.matchAll(/<h3>(.*?)<\/h3>/g)].map((m) => m[1]);
+    expect(order[order.length - 1]).toBe('快捷键');
+    expect(order[order.length - 2]).toBe('阅读页图标');
   });
 
   it('收起的去向写明是 Obsidian 自带的 ⋮，不是插件自己的菜单', () => {
@@ -428,28 +428,32 @@ describe('授权组 · 重新激活', () => {
 });
 
 /**
- * 两列各自成流（2026-11-05）。
+ * 两列各自成流（2026-11-05），页尾两组通栏（2026-11-11）。
  *
  * 原来是一条 grid 里两两配对：矮组和高组同行，行高按高者算，矮组下方
  * 就空出一大块——「界面」贴着「版式」空约 400px，「外观」贴着「阅读页
  * 图标」又空约 400px，最后「授权」右边还空一格。改成左、右两条独立的
  * 列流后，卡片在列内紧贴，空白只会落在两列末端，不再出现在页面中间。
  *
- * 这一组钉的是「谁在左、谁在右」和「关于 / 快捷键仍在列外通栏」：
- * 挪错一组，列高就会重新歪掉。
+ * 「阅读页图标」原先在左列末尾，与快捷键隔着一整页：调图标顺序的人滚到
+ * 页尾发现快捷键在眼前、图标表却在上头。现在它跟快捷键一样是页尾通栏
+ * 组，且紧挨快捷键上方。
+ *
+ * 这一组钉的是「谁在左、谁在右」和「关于 / 阅读页图标 / 快捷键仍在列外
+ * 通栏」：挪错一组，列高就会重新歪掉。
  */
 describe('设置页 · 两列各自成流', () => {
   const COL = '<div class="bzs-set-col">';
 
-  /** 左列范围 [第一个 col, 第二个 col)；右列范围 [第二个 col, 快捷键组之前) */
+  /** 左列范围 [第一个 col, 第二个 col)；右列范围 [第二个 col, 阅读页图标组之前) */
   function splitCols(out: string): [string, string] {
     const a = out.indexOf(COL);
     const b = out.indexOf(COL, a + COL.length);
     expect(a, '有左列').toBeGreaterThan(-1);
     expect(b, '有右列').toBeGreaterThan(a);
-    const keysAt = out.indexOf('<h3>快捷键</h3>', b);
-    expect(keysAt, '快捷键排在两列之后').toBeGreaterThan(b);
-    return [out.slice(a, b), out.slice(b, keysAt)];
+    const headerAt = out.indexOf('<h3>阅读页图标</h3>', b);
+    expect(headerAt, '阅读页图标排在两列之后').toBeGreaterThan(b);
+    return [out.slice(a, b), out.slice(b, headerAt)];
   }
 
   it('最外层是设置页容器，两列在它里面', () => {
@@ -458,26 +462,31 @@ describe('设置页 · 两列各自成流', () => {
     expect((out.match(/class="bzs-set-col"/g) ?? []).length).toBe(2);
   });
 
-  it('左列三组：界面、版式、阅读页图标', () => {
+  it('左列两组：界面、版式', () => {
     const [left] = splitCols(html());
-    for (const h of ['界面', '版式', '阅读页图标']) expect(left, h).toContain(`<h3>${h}</h3>`);
-    for (const h of ['外观', '朗读', '标注', '数据', 'AI 助手', '授权']) expect(left, h).not.toContain(`<h3>${h}</h3>`);
+    for (const h of ['界面', '版式']) expect(left, h).toContain(`<h3>${h}</h3>`);
+    for (const h of ['阅读页图标', '外观', '朗读', '标注', '数据', 'AI 助手', '授权'])
+      expect(left, h).not.toContain(`<h3>${h}</h3>`);
   });
 
-  it('右列六组：外观、朗读、标注、数据、AI 助手、授权', () => {
+  it('右列七组：外观、PDF、朗读、标注、数据、AI 助手、授权', () => {
     const [, right] = splitCols(html());
-    for (const h of ['外观', '朗读', '标注', '数据', 'AI 助手', '授权']) expect(right, h).toContain(`<h3>${h}</h3>`);
+    for (const h of ['外观', 'PDF', '朗读', '标注', '数据', 'AI 助手', '授权'])
+      expect(right, h).toContain(`<h3>${h}</h3>`);
     for (const h of ['界面', '版式', '阅读页图标']) expect(right, h).not.toContain(`<h3>${h}</h3>`);
   });
 
-  /* 关于条与快捷键是整页的题头 / 页脚，横跨两栏：
+  /* 关于条是题头，阅读页图标与快捷键是页脚，三者都横跨两栏：
      关进列里会被挤成半宽，也会把两列的高度重新带歪。 */
-  it('关于与快捷键都在两列之外', () => {
+  it('关于、阅读页图标与快捷键都在两列之外', () => {
     const out = html();
     const gridAt = out.indexOf('<div class="bzs-set-grid">');
+    const gridEnd = out.lastIndexOf('<h3>授权</h3>');
     expect(out.indexOf('<h3>关于</h3>')).toBeLessThan(gridAt);
     expect(out.indexOf('<h3>界面</h3>')).toBeGreaterThan(gridAt);
-    expect(out.indexOf('<h3>快捷键</h3>')).toBeGreaterThan(gridAt);
+    /* 右列最后一组是授权，页脚两组的标题都排在它后面 */
+    expect(out.indexOf('<h3>阅读页图标</h3>')).toBeGreaterThan(gridEnd);
+    expect(out.indexOf('<h3>快捷键</h3>')).toBeGreaterThan(out.indexOf('<h3>阅读页图标</h3>'));
   });
 
   /* 窄屏会把两列叠成一列：「左列全部 → 右列全部」必须仍是原来的阅读顺序，
@@ -489,7 +498,6 @@ describe('设置页 · 两列各自成流', () => {
       '关于',
       '界面',
       '版式',
-      '阅读页图标',
       '外观',
       'PDF',
       '朗读',
@@ -497,6 +505,7 @@ describe('设置页 · 两列各自成流', () => {
       '数据',
       'AI 助手',
       '授权',
+      '阅读页图标',
       '快捷键',
     ]);
   });
