@@ -82,6 +82,15 @@ describe('命令名', () => {
       expect(EN[c.key], c.id).toMatch(/^(Shelf|Reader): /);
     }
   });
+
+  it('「回到上一处」不再是 PDF 专属：EPUB 也能用，命令名里不该带 PDF', () => {
+    /* id 仍是 pdf-back（用户绑过的快捷键不能失效），文案要去掉格式限定 */
+    const back = COMMANDS.find((c) => c.id === 'pdf-back');
+    expect(back).toBeTruthy();
+    expect(ZH[back!.key]).not.toContain('PDF');
+    expect(EN[back!.key]).not.toContain('PDF');
+    expect(ZH[back!.key]).toContain('回到上一处');
+  });
 });
 
 describe('命令分发', () => {

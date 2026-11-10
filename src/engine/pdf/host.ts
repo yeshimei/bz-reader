@@ -104,7 +104,7 @@ export class PdfEngineHost implements ReaderEngine {
       onBacklinkTap: (info) => opts.onPdfBacklinkTap?.(info),
       onFileAnnotTap: (info) => opts.onPdfFileAnnotTap?.(info),
       onFlowChange: (mode) => opts.onPdfFlow?.(mode),
-      onHistoryChange: (count) => opts.onPdfHistory?.(count),
+      onHistoryChange: (count) => opts.onHistoryChange?.(count),
       /* PDF 组的三项偏好：缩放档只在开书时读，两个开关随时读 */
       pdfPrefs: () => ({
         zoom: this.prefs?.pdfZoom ?? 'auto',
@@ -231,6 +231,9 @@ export class PdfEngineHost implements ReaderEngine {
    *
    * 每次现取一个新的壳：里面的每个动作都直接打到当前的 view 上，
    * 缓存住对象反而会在「切书后重挂」时指向旧视图。
+   *
+   * 「回到上一处」不在这张表里（2026-11-10）：EPUB 也补上了同一条历史，
+   * 两边共用 `historyUi`。
    */
   get pdfUi(): PdfUi | undefined {
     const view = this.view;
@@ -239,7 +242,6 @@ export class PdfEngineHost implements ReaderEngine {
       rotation: () => view.rotation,
       spread: () => view.isSpread,
       paged: () => view.isPaged,
-      canBack: () => view.canBack,
       zoomIn: () => view.zoomIn(),
       zoomOut: () => view.zoomOut(),
       fitWidth: () => view.setFitMode('width'),
@@ -252,7 +254,6 @@ export class PdfEngineHost implements ReaderEngine {
         view.setPaged(on);
         this.opts?.onPdfFlow?.(on ? 'paged' : 'scroll');
       },
-      back: () => void view.back(),
       toggleLayout: () => view.toggleLayoutPanel(),
       toggleThumbs: () => view.toggleThumbsPanel(),
       openCopyMenu: (anchor) => view.toggleCopyMenu(anchor),
@@ -262,6 +263,19 @@ export class PdfEngineHost implements ReaderEngine {
           page: view.page,
           offset: view.currentViewOffset(),
         }),
+    };
+  }
+
+  /**
+   * 跳转历史：PDF 的栈本来就在 view 里（点目录 / 链接之前记一手），这里只转发。
+   * 与 EPUB 的 `EngineHost.historyUi` 同一形状，视图层不用分格式。
+   */
+  get historyUi() {
+    const view = this.view;
+    if (!view) return undefined;
+    return {
+      back: () => void view.back(),
+      canBack: () => view.canBack,
     };
   }
 

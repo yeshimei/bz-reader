@@ -21,13 +21,15 @@ export interface PdfActionRun {
   type(): void;
   thumb(): void;
   copy(anchor?: PdfCopyAnchor): void;
-  history(): void;
   export(): void;
 }
 
 /**
  * @param getPdf   点击时现取，没有 PDF 视图就返回 undefined（安静退出）
  * @param typography 非 PDF 时的「排版」去处
+ *
+ * 「回到上一处」不在这里（2026-11-10）：EPUB 也有这条历史了，视图层直接走
+ * `host.historyUi`，不再借 PDF 的壳。
  */
 export function pdfActionRun(
   getPdf: () => PdfUi | undefined,
@@ -41,7 +43,6 @@ export function pdfActionRun(
     },
     thumb: () => getPdf()?.toggleThumbs(),
     copy: (anchor) => getPdf()?.openCopyMenu(anchor),
-    history: () => getPdf()?.back(),
     export: () => getPdf()?.exportPage(),
   };
 }

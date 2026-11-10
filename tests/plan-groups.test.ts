@@ -6,10 +6,10 @@ import { PLAN_GROUP_TEXT_PACK, planGroupLabel, planGroupNameZh } from '../src/i1
 /**
  * 对照表分组（`PLAN_GROUPS`）。
  *
- * 19 行一长串看不清结构，弹窗要给「阅读与书架 / 格式与导出 / 统计与检索 / AI /
- * 进阶」五段。分组只描述**顺序与归属**，不改行本身：组里存的是行的 key，
- * 渲染时按组切表。所以这里钉三件事——每一行归且只归一组、组的先后就是表的先后、
- * 组名八种语言齐全。
+ * 27 行一长串看不清结构，弹窗要给「阅读与书架 / 格式与导出 / PDF 阅读 / 统计与
+ * 检索 / AI / 进阶」六段。分组只描述**顺序与归属**，不改行本身：组里存的是行的
+ * key，渲染时按组切表。所以这里钉三件事——每一行归且只归一组、组的先后就是表的
+ * 先后、组名八种语言齐全。
  */
 
 const CJK = /[\u4e00-\u9fff]/;
@@ -18,7 +18,7 @@ const LATIN = ['en', 'de', 'fr', 'es', 'pt'] as const;
 afterEach(() => setLocale('zh'));
 
 describe('对照表分组 · 归属与顺序', () => {
-  it('19 行按表里的顺序、不重不漏地分进各组', () => {
+  it('每一行按表里的顺序、不重不漏地分进各组', () => {
     const flat = PLAN_GROUPS.flatMap((g) => g.rows);
     expect(flat).toEqual(PLAN_TABLE.map((r) => r.key));
     expect(new Set(flat).size).toBe(flat.length);

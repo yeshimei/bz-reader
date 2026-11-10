@@ -55,7 +55,7 @@ export const ES: Record<MsgKey, string> = {
   'cmd.pdfThumbs': 'Reader: PDF page thumbnails',
   'cmd.pdfCopyLink': 'Reader: PDF copy page link',
   'cmd.pdfExportPage': 'Reader: PDF export page as image',
-  'cmd.pdfBack': 'Reader: PDF back to previous spot',
+  'cmd.pdfBack': 'Reader: Back to previous spot',
   'notice.needBook': 'Abre primero un libro y vuelve a ejecutar el comando',
   'notice.diag.on': 'Diagnostic badge on (this session only, turns off on restart)',
   'notice.diag.off': 'Diagnostic badge off',
@@ -599,7 +599,7 @@ export const ES: Record<MsgKey, string> = {
   'key.pdfThumbs': 'PDF page thumbnails',
   'key.pdfCopyLink': 'PDF copy page link',
   'key.pdfExportPage': 'PDF export page as image',
-  'key.pdfBack': 'PDF back to previous spot',
+  'key.pdfBack': 'Back to previous spot',
 
   /* ── AI 知识库（2026-11-07） ─────────────────── */
   'bz.missing': 'bz aún no está instalado: instálalo desde los plugins de la comunidad de Obsidian',

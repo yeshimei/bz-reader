@@ -320,6 +320,17 @@ export class ReaderView extends ItemView {
   }
 
   /**
+   * 回到上一处。2026-11-10 起 EPUB 也有这条历史，两个引擎各存一份栈，
+   * 视图层只认 `historyUi`（形状见 engine/reader-engine.ts）。
+   *
+   * 没有历史就安静退出：头栏那颗图标本身会压暗，但 ⋮ 菜单与快捷键还能点，
+   * 点空不该弹提示。
+   */
+  private goBack(): void {
+    this.host.historyUi?.back();
+  }
+
+  /**
    * 从笔记里的位置链接落回原文，返回是否真的定位到了。
    *
    * 三级降级，因为「同一本书换了个文件」是真实会发生的（重新下载、换排版版）：
@@ -679,7 +690,7 @@ export class ReaderView extends ItemView {
         const box = ev?.currentTarget instanceof HTMLElement ? ev.currentTarget.getBoundingClientRect() : null;
         pdfRun.copy(box ? { right: box.right, bottom: box.bottom } : null);
       },
-      history: () => pdfRun.history(),
+      history: () => this.goBack(),
       export: () => pdfRun.export(),
       para: () => void this.toggleParallel(),
       paraBook: (ev) => this.openParallelPicker(ev),
@@ -729,8 +740,9 @@ export class ReaderView extends ItemView {
       this.headerEls.set(item.id, btn);
     }
     /* 「回到上一处」没有历史时压暗：一颗永远点不动的亮图标是误导。
-       跳转历史由引擎回调（onPdfHistory）随时刷新，这里只管重挂后的初值。 */
-    this.headerEls.get('history')?.classList.toggle('is-off', !this.host.pdfUi?.canBack());
+       跳转历史由引擎回调（onHistoryChange）随时刷新，这里只管重挂后的初值。
+       2026-11-10 起 EPUB 也有这条历史，所以不再读 pdfUi。 */
+    this.headerEls.get('history')?.classList.toggle('is-off', !this.host.historyUi?.canBack());
 
     /* 收起的图标不另建菜单：宿主最右侧的 ⋮ 里本来就有这些项
        （见 onPaneMenu），再挂一颗自己的 ⋮ 只会变成两个入口。
@@ -1000,7 +1012,13 @@ export class ReaderView extends ItemView {
   }
 
   runCommand(kind: ReaderCommand): void {
-    /* PDF 那一组先分流：EPUB 上没有 pdfUi，绑了全局键也不该弹提示或报错 */
+    /* PDF 那一组先分流：EPUB 上没有 pdfUi，绑了全局键也不该弹提示或报错。
+       「回到上一处」单独拿出来——它已经不属于 PDF（2026-11-10 起 EPUB 也有），
+       命令 id 保留 `pdf-back` 是为了不弄丢用户已经绑好的快捷键。 */
+    if (kind === 'pdf-back') {
+      this.goBack();
+      return;
+    }
     if (kind.startsWith('pdf-')) {
       const pdf = this.host.pdfUi;
       if (!pdf) return;
@@ -1016,7 +1034,6 @@ export class ReaderView extends ItemView {
         case 'pdf-thumbs': pdf.toggleThumbs(); break;
         case 'pdf-copy-link': pdf.copyLink('page'); break;
         case 'pdf-export-page': pdf.exportPage(); break;
-        case 'pdf-back': pdf.back(); break;
         default: break;
       }
       return;
@@ -1101,7 +1118,7 @@ export class ReaderView extends ItemView {
       thumb: () => pdfRun.thumb(),
       /* ⋮ 里没有稳定的按钮坐标，复制菜单退回工具条上沿那个老位置 */
       copy: () => pdfRun.copy(null),
-      history: () => pdfRun.history(),
+      history: () => this.goBack(),
       export: () => pdfRun.export(),
       para: () => void this.toggleParallel(),
       paraBook: (evt?: MouseEvent) => this.openParallelPicker(evt),
@@ -1791,8 +1808,8 @@ export class ReaderView extends ItemView {
         onPdfFileAnnotTap: (info) => this.showFileAnnot(info),
         /* 排版面板里切了「一屏一页 / 连续滚动」：和 EPUB 共用一个全局偏好 */
         onPdfFlow: (mode) => getShellSource()?.setPrefs({ flow: mode }),
-        /* 跳转历史条数变了：头栏那颗「回到上一处」跟着亮 / 灰 */
-        onPdfHistory: (count) =>
+        /* 跳转历史条数变了：头栏那颗「回到上一处」跟着亮 / 灰。两个引擎都报 */
+        onHistoryChange: (count) =>
           this.headerEls.get('history')?.classList.toggle('is-off', count === 0),
         /* 脚注：默认在注释号上方开一小块浮窗，读完接着读。
            设置里选「跳到章末」就退回 foliate 的老行为——我们在同一条链路上

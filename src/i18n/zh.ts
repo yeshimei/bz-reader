@@ -59,7 +59,7 @@ export const ZH = {
   'cmd.pdfThumbs': '阅读：PDF 页缩略图',
   'cmd.pdfCopyLink': '阅读：PDF 复制页链接',
   'cmd.pdfExportPage': '阅读：PDF 导出本页图片',
-  'cmd.pdfBack': '阅读：PDF 回到上一处',
+  'cmd.pdfBack': '阅读：回到上一处',
   'notice.needBook': '先打开一本书再用这个命令',
   'notice.language.changed': '界面语言已切换，命令名需重启 Obsidian 后更新',
 
@@ -611,7 +611,7 @@ export const ZH = {
   'key.pdfThumbs': 'PDF 页缩略图',
   'key.pdfCopyLink': 'PDF 复制页链接',
   'key.pdfExportPage': 'PDF 导出本页图片',
-  'key.pdfBack': 'PDF 回到上一处',
+  'key.pdfBack': '回到上一处',
 
   /* ── AI 知识库（2026-11-07） ─────────────────────────── */
   'bz.missing': 'bz 插件还没装：先在 Obsidian 的第三方插件里装上 bz',

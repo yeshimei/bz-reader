@@ -18,17 +18,33 @@ import { EngineHost } from './host';
 import { PdfEngineHost } from './pdf/host';
 
 /**
- * PDF 独有的那套动作（头栏四颗图标 + 排版面板 + 几条快捷键）。
+ * 跳转历史（「回到上一处」）。
+ *
+ * 2026-11-10 起两个引擎都有这条栈：PDF 本来就有（点目录 / 链接之前记一手），
+ * EPUB 这次补上同一条。视图层只认这两个方法，不关心栈存在哪。
+ *
+ * 和 `pdfUi` 同一条约定：**现取，不缓存**——换书后旧对象作废。
+ */
+export interface HistoryUi {
+  /** 回到上一处；没有历史时什么都不做 */
+  back(): void;
+  /** 有没有可退回的位置（头栏那颗图标据此决定亮不亮） */
+  canBack(): boolean;
+}
+
+/**
+ * PDF 独有的那套动作（头栏四颗图标里的三颗 + 排版面板 + 几条快捷键）。
  *
  * 不塞进 `ReaderEngine` 是因为 EPUB 上这些根本没有对应物：塞进去就得让
  * `EngineHost` 写十几个空实现，读代码的人分不清「没实现」和「故意不实现」。
  * 视图层按 `host.pdfUi?.` 取，没有就是这本不支持。
+ *
+ * 「回到上一处」曾经在这张表里，现在挪到 `HistoryUi`：EPUB 也要用。
  */
 export interface PdfUi {
   rotation(): number;
   spread(): boolean;
   paged(): boolean;
-  canBack(): boolean;
   zoomIn(): void;
   zoomOut(): void;
   fitWidth(): void;
@@ -37,7 +53,6 @@ export interface PdfUi {
   rotate(deg: number): void;
   setSpread(on: boolean): void;
   setPaged(on: boolean): void;
-  back(): void;
   /** 头栏「排版」：旋转 / 单双页 / 翻页三行 */
   toggleLayout(): void;
   toggleThumbs(): void;
@@ -98,6 +113,8 @@ export interface ReaderEngine {
   restorePdfView?(state: { rotation?: number; spread?: boolean } | null | undefined): void;
   /** PDF 专用动作集；EPUB/TXT/CBZ 没有 */
   readonly pdfUi?: PdfUi;
+  /** 跳转历史。两个引擎都实现（EPUB 2026-11-10 补上） */
+  readonly historyUi?: HistoryUi;
   destroy(): Promise<void>;
 }
 

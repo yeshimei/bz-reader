@@ -52,7 +52,10 @@ export const COMMANDS: readonly CommandSpec[] = [
   /* ── PDF 专用 ──
    * 头栏图标与排版面板在手机上会折进 ⋮，命令面板是另一条稳定入口；
    * 放大 / 旋转这类高频动作也值得单独绑键。EPUB 上按下安静退出（见
-   * ReaderView.runCommand 的 pdf-* 分流），不弹「不支持」。 */
+   * ReaderView.runCommand 的 pdf-* 分流），不弹「不支持」。
+   *
+   * `pdf-back` 是例外（2026-11-10）：EPUB 也有跳转历史了，这条命令两边都生效。
+   * id 仍保留 pdf- 前缀——改名会让用户已经绑好的快捷键静默失效。 */
   { id: 'pdf-zoom-in', key: 'cmd.pdfZoomIn', reader: 'pdf-zoom-in' },
   { id: 'pdf-zoom-out', key: 'cmd.pdfZoomOut', reader: 'pdf-zoom-out' },
   { id: 'pdf-fit-width', key: 'cmd.pdfFitWidth', reader: 'pdf-fit-width' },

@@ -47,8 +47,10 @@ const SPEC: ReadonlyArray<{ id: HeaderActionId; icon: string }> = [
   { id: 'search', icon: 'search' },
   { id: 'mark', icon: 'bookmark' },
   { id: 'type', icon: 'type' },
-  /* 以下四颗只在 PDF 里出现（见 PDF_ONLY_ACTIONS）。顺序也照顾到手机：
-     前 3 颗是目录 / 搜索 / 书签，PDF 的四颗进 ⋮，与「放不下就折起来」一致。 */
+  /* thumb / copy / export 三颗只在 PDF 里出现（见 PDF_ONLY_ACTIONS）。
+     history 夹在它们中间是为了 PDF 那一排的连贯性，但它本身对 EPUB 也成立
+     （2026-11-10 起 EPUB 也有跳转历史）。顺序也照顾到手机：前 3 颗是
+     目录 / 搜索 / 书签，其余进 ⋮，与「放不下就折起来」一致。 */
   { id: 'thumb', icon: 'layout-grid' },
   { id: 'copy', icon: 'copy' },
   { id: 'history', icon: 'undo-2' },
@@ -216,10 +218,13 @@ export const HEADER_ACTION_IDS: HeaderActionId[] = SPEC.map((s) => s.id);
  * 只对 PDF 有意义的图标。
  *
  * 单个功能包只有一份产物，所以这里不做「构建时裁掉」，而是**运行时按书过滤**：
- * 引擎不是 PDF 时这四颗一律不露（也不进 ⋮），用户配的顺序照样保留在偏好里，
+ * 引擎不是 PDF 时这三颗一律不露（也不进 ⋮），用户配的顺序照样保留在偏好里，
  * 换回 PDF 时原位复现。
+ *
+ * 「回到上一处」2026-11-10 从这里移走了：EPUB 也补上了同一条跳转历史，
+ * 两边共用一颗按钮。
  */
-export const PDF_ONLY_ACTIONS: readonly HeaderActionId[] = ['thumb', 'copy', 'history', 'export'];
+export const PDF_ONLY_ACTIONS: readonly HeaderActionId[] = ['thumb', 'copy', 'export'];
 
 export function isPdfAction(id: HeaderActionId): boolean {
   return PDF_ONLY_ACTIONS.includes(id);

@@ -39,7 +39,7 @@ afterEach(() => setLocale('zh'));
 const groupRow = /<div class="bzs-plan-row is-group"><span>([^<]*)<\/span><\/div>/g;
 
 describe('解锁弹层 · 分组', () => {
-  it('五个组标题全部渲染，顺序与 PLAN_GROUPS 一致', () => {
+  it('每一段的组标题全部渲染，顺序与 PLAN_GROUPS 一致', () => {
     const html = overlayUnlock();
     const names = [...html.matchAll(groupRow)].map((m) => m[1]);
     expect(names).toEqual(PLAN_GROUPS.map((g) => planGroupNameZh(g.key)));

@@ -34,6 +34,7 @@ import { locale, t, type Locale } from '../i18n';
 import { planNameZh, type PlanGroupKey, type PlanKey } from '../i18n/plan';
 import { devTierOverride } from '../core/dev-tier';
 import { parseLicense, verifyLicense, type LicenseFail, type LicensePayload } from './license';
+import type { BookFormat } from './schema';
 
 /** 高级能力。只有能判断的地方才列进来，别造没人问的开关。 */
 export type Cap =
@@ -44,12 +45,21 @@ export type Cap =
   | 'aiSel' // 划词 AI：解释 / 翻译 / 摘要（工具栏那颗）
   | 'ai' // 侧栏 AI：全书问答
   | 'kb' // 连接至 BZ AI 知识库（划词录入 / 笔记当依据）
-  | 'fullFormats' // mobi / azw3 / fb2 / cbz
+  | 'fullFormats' // mobi / azw3 / fb2 / cbz（PDF 2026-11-10 起单列，见 pdf）
   | 'vertical' // 竖排（双栏已于 2026-11-05 下放基础版，不再挂在这个能力上）
   | 'tts' // 朗读
   | 'parallel' // 并排 / 双语
   | 'bookmap' // 全书鸟瞰
-  | 'bilink'; // 划线 → 双向链接
+  | 'bilink' // 划线 → 双向链接
+  /**
+   * PDF 整段（2026-11-10）。
+   *
+   * 和别的 cap 不一样：它代表**一整段七行**，不是某颗按钮。原因是基础版
+   * 根本进不了 PDF，缩略图 / 导出页图 / 反链这些动作对他们不存在，给每行
+   * 各配一个能力位只是摆样子。整段共用一个拦点（打开 PDF）——被拦时高亮
+   * 段首那一行，用户就知道「PDF 这一整块要买」。
+   */
+  | 'pdf';
   // 'footnote' 已并入基础版（2026-11-03）：浮窗代码本来就在共享的 shell 里，
   // 留在 Cap 表里只会让设置页和对照表撒谎。
 
@@ -553,14 +563,16 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     pt: 'Responder usando também as notas da base de conhecimento BZ AI',
   },
   fullFormats: {
-    zh: 'mobi / azw3 / fb2 / PDF / 漫画支持',
-    'zh-TW': 'mobi / azw3 / fb2 / PDF / 漫畫支援',
-    en: 'mobi / azw3 / fb2 / PDF / comic support',
-    ja: 'mobi / azw3 / fb2 / PDF / コミック対応',
-    de: 'mobi / azw3 / fb2 / PDF / Comic-Unterstützung',
-    fr: 'Prise en charge mobi / azw3 / fb2 / PDF / BD',
-    es: 'Compatibilidad con mobi / azw3 / fb2 / PDF / cómic',
-    pt: 'Suporte a mobi / azw3 / fb2 / PDF / quadrinhos',
+    /* 2026-11-10：PDF 从这条卖点里摘出去了——它在对照表里有自己的段
+       （cap 'pdf'），锁标 tooltip 不该再把用户往「更多格式」引。 */
+    zh: 'mobi / azw3 / fb2 / 漫画支持',
+    'zh-TW': 'mobi / azw3 / fb2 / 漫畫支援',
+    en: 'mobi / azw3 / fb2 / comic support',
+    ja: 'mobi / azw3 / fb2 / コミック対応',
+    de: 'mobi / azw3 / fb2 / Comic-Unterstützung',
+    fr: 'mobi / azw3 / fb2 / BD',
+    es: 'Compatibilidad con mobi / azw3 / fb2 / cómic',
+    pt: 'Suporte a mobi / azw3 / fb2 / quadrinhos',
   },
   vertical: {
     zh: '竖排排版',
@@ -602,6 +614,18 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     fr: 'Copier un surlignage en lien bidirectionnel',
     es: 'Copiar un subrayado como enlace bidireccional',
     pt: 'Copiar um destaque como link bidirecional',
+  },
+  /* PDF 整段的卖点（2026-11-10）。基础版点开 PDF 时弹层第一句就是它，
+     所以不能只写「PDF」两个字——用户要立刻知道买了能多出哪几件事。 */
+  pdf: {
+    zh: 'PDF：缩放旋转、复制页链接、笔记反链与导出页图',
+    'zh-TW': 'PDF：縮放旋轉、複製頁連結、筆記反鏈與匯出頁圖',
+    en: 'PDF: zoom, page links, note backlinks, and page export',
+    ja: 'PDF: zoom, page links, note backlinks, and page export',
+    de: 'PDF: zoom, page links, note backlinks, and page export',
+    fr: 'PDF: zoom, page links, note backlinks, and page export',
+    es: 'PDF: zoom, page links, note backlinks, and page export',
+    pt: 'PDF: zoom, page links, note backlinks, and page export',
   },
 };
 
@@ -653,13 +677,18 @@ export const PLAN_TABLE: PlanRow[] = [
   row('columns', 'yes', 'yes'),
   row('marks', 'yes', 'yes'),
   row('inbookSearch', 'yes', 'yes'),
-  /* 基础版六行连着放，别让付费项插进来 */
+  /* 2026-11-10 新增：跳转历史。PDF 早就有这条栈，EPUB 这次补上同一条，
+     所以它是两栏都打勾的免费项——不是「PDF 的附赠」，两个引擎共用一颗按钮。
+     插在这里只为贴近「找位置」那几行（搜索之后、脚注之前）。 */
+  row('back', 'yes', 'yes'),
+  /* 基础版七行连着放，别让付费项插进来 */
   row('footnote', 'yes', 'yes'),
   /* 2026-11-09 新增：分类管理按用户要求跟在脚注浮窗下面，基础版就有——
      新建 / 改名 / 排序 / 删除分类、把书归入某一类，都不拦。 */
   row('classify', 'yes', 'yes'),
   /* 「更多格式」紧跟阅读能力：它决定「哪些书能打开」，和后面的加工类
-     能力不是一回事。2026-11-07 按真机对照顺序上移到这里。 */
+     能力不是一回事。2026-11-07 按真机对照顺序上移到这里。
+     2026-11-10：PDF 不再由这一行代表——它有自己的段（见下面的 pdfView…）。 */
   row('formats', 'no', 'yes', 'fullFormats'),
   /* 双向链接整条是高级版能力（copylink 走 requireCap('bilink')）。
      2026-11-08：没有 UI 入口的免费路径 copylinkurl 已删除，表里不再
@@ -668,6 +697,20 @@ export const PLAN_TABLE: PlanRow[] = [
   row('export', 'no', 'yes', 'export'),
   /* 书摘卡片（文字卡）基础版就有，锁的只是「复制成图片」这一下 */
   row('card', 'no', 'yes', 'card'),
+  /* ── PDF 段（2026-11-10） ──
+   * 以前 PDF 只由「更多格式」一句话代表，用户看不出买高级版在 PDF 上还多
+   * 什么。现在整段七行逐条讲；勾叉仍是「基础版没有、高级版才有」——PDF
+   * 整本进不来，缩略图 / 导出这些按钮对基础版用户根本不存在。
+   *
+   * 只有段首那行挂 cap：整段共用一个拦点（打开 PDF）。给七行各配一个能力位
+   * 是摆样子——那七个能力位在运行期永远不会被抛出。 */
+  row('pdfView', 'no', 'yes', 'pdf'),
+  row('pdfThumbs', 'no', 'yes'),
+  row('pdfLink', 'no', 'yes'),
+  row('pdfAutoLink', 'no', 'yes'),
+  row('pdfAnnots', 'no', 'yes'),
+  row('pdfExport', 'no', 'yes'),
+  row('pdfZoom', 'no', 'yes'),
   row('stats', 'no', 'yes', 'stats'),
   row('crossSearch', 'no', 'yes', 'crossSearch'),
   /* 工具栏那颗 AI 是「解释 / 翻译 / 摘要」划选文字，和侧栏的「全书问答」
@@ -685,9 +728,23 @@ export const PLAN_TABLE: PlanRow[] = [
   row('kb', 'no', 'yes', 'kb'),
 ];
 
+/**
+ * 打不开一本书时，解锁弹层该把视线引到哪一段。
+ *
+ * 2026-11-10 之前一律是 `fullFormats`，「更多格式」那一行同时替 PDF 说话；
+ * PDF 单独成段之后，点开 PDF 还被高亮到「格式与导出」就错位了——用户明明
+ * 点的是 PDF，弹层却指着一行说他刚才想开 Kindle。
+ *
+ * 返回值直接当 `overlay: { kind: 'unlock', mode }` 用，所以只承认真能对上
+ * 一段的两个值；调用方只在「这本书打不开」时问它，基础格式不该走到这里。
+ */
+export function unlockModeFor(format: BookFormat): 'pdf' | 'fullFormats' {
+  return format === 'pdf' ? 'pdf' : 'fullFormats';
+}
+
 /* ─────────── 对照表的分组（2026-11-09） ───────────
- * 19 行一长串看不出结构：用户从上滚到下，只记得「很多功能」，分不清哪几行
- * 是一类。这里把同一批行按使用场景切成五段，渲染时插组标题——**行本身、
+ * 27 行一长串看不出结构：用户从上滚到下，只记得「很多功能」，分不清哪几行
+ * 是一类。这里把同一批行按使用场景切成六段，渲染时插组标题——**行本身、
  * 勾叉、顺序都没变**，所以被拦时的高亮与滚动位置照旧。
  *
  * 两条约束：
@@ -697,8 +754,9 @@ export const PLAN_TABLE: PlanRow[] = [
  *      `i18n/plan.ts` 的 PLAN_GROUP_TEXT，渲染走 planGroupLabel()。
  *
  * 切法按「读 → 归档 → 回看 → 问 AI → 进阶」走：
- *   · 阅读与书架：基础版六行，正好是免费区全部；
+ *   · 阅读与书架：基础版七行，正好是免费区全部；
  *   · 格式与导出：能打开哪些书 + 把划线搬出去；
+ *   · PDF 阅读：PDF 整段（2026-11-10 新增）；
  *   · 统计与检索：回看读了多少、找回某句话；
  *   · AI：划词与全书问答；
  *   · 进阶：排版、朗读、对照、鸟瞰，最后落在知识库。
@@ -712,11 +770,15 @@ export interface PlanGroup {
 export const PLAN_GROUPS: PlanGroup[] = [
   {
     key: 'read',
-    rows: ['reading', 'columns', 'marks', 'inbookSearch', 'footnote', 'classify'],
+    rows: ['reading', 'columns', 'marks', 'inbookSearch', 'back', 'footnote', 'classify'],
   },
   {
     key: 'output',
     rows: ['formats', 'bilink', 'export', 'card'],
+  },
+  {
+    key: 'pdf',
+    rows: ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfAutoLink', 'pdfAnnots', 'pdfExport', 'pdfZoom'],
   },
   {
     key: 'insight',

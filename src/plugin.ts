@@ -48,7 +48,7 @@ import { isDeferredViewOf } from './view/leaf-reuse';
 import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-state';
 import { mountImport } from './ui/import-panel';
 import { releaseCovers } from './data/cover';
-import { activateLicense as applyLicense, can, entitlement, recordActivity, revalidateLicense, setEntBackend, setProBuild } from './data/entitlement';
+import { activateLicense as applyLicense, can, entitlement, recordActivity, revalidateLicense, setEntBackend, setProBuild, unlockModeFor } from './data/entitlement';
 import { initDevTier, resetDevTier, setDevTier } from './core/dev-tier';
 import { normalizePluginData, type PluginDataFile } from './data/plugin-data';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
@@ -1339,9 +1339,13 @@ export function createPlugin(cfg: PluginConfig) {
 
     async openBook(book: ReaderBook, cfi?: string, query?: string): Promise<void> {
       // 多格式属于高级能力：升级前导入的 mobi / azw3 也要拦住，
-      // 否则「书架里能点开」就等于绕过付费门
+      // 否则「书架里能点开」就等于绕过付费门。
+      // PDF 2026-11-10 起在对照表里单独成段，所以点开 PDF 要把视线引到那一段，
+      // 不再落到「更多格式」那一行（用户点的是 PDF，弹层不该指着一行说 Kindle）。
       if (!BASE_FORMATS.includes(book.fileRef.format) && !can('fullFormats')) {
-        setState({ overlay: { kind: 'unlock', mode: 'fullFormats', text: book.fileRef.format } });
+        setState({
+          overlay: { kind: 'unlock', mode: unlockModeFor(book.fileRef.format), text: book.fileRef.format },
+        });
         return;
       }
       /* 文件不在了：不进阅读视图、不抛底层错误，直接开「重新定位」弹层。

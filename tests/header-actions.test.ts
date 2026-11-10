@@ -12,12 +12,13 @@ describe('headerActionIds', () => {
     expect(headerActionIds(true)).toEqual(['toc', 'search', 'mark']);
   });
 
-  it('桌面端默认十颗（菜单里的功能都能摆出来，由用户自己收）', () => {
+  it('桌面端默认十一颗（菜单里的功能都能摆出来，由用户自己收）', () => {
     expect(headerActionIds(false)).toEqual([
       'toc',
       'search',
       'mark',
       'type',
+      'history',
       'para',
       'paraBook',
       'tts',
@@ -77,12 +78,13 @@ const cfg = (order: string[] = [], hidden: string[] = []) => ({ order, hidden })
  * 收起来的（显式隐藏 + 被名额挤出的）都进 ⋮。
  */
 describe('headerActionsFor：排序、隐藏与移动端上限', () => {
-  it('桌面十颗、移动三颗（与默认一致）', () => {
+  it('桌面十一颗、移动三颗（与默认一致）', () => {
     expect(headerActionsFor(false, cfg())).toEqual([
       'toc',
       'search',
       'mark',
       'type',
+      'history',
       'para',
       'paraBook',
       'tts',
@@ -100,6 +102,7 @@ describe('headerActionsFor：排序、隐藏与移动端上限', () => {
       'toc',
       'search',
       'type',
+      'history',
       'paraBook',
       'tts',
       'bookmap',
@@ -117,6 +120,7 @@ describe('headerActionsFor：排序、隐藏与移动端上限', () => {
   it('移动端第四颗起进 ⋮', () => {
     expect(headerOverflowFor(true, cfg())).toEqual([
       'type',
+      'history',
       'para',
       'paraBook',
       'tts',
@@ -132,6 +136,7 @@ describe('headerActionsFor：排序、隐藏与移动端上限', () => {
       'search',
       'mark',
       'type',
+      'history',
       'para',
       'paraBook',
       'tts',
@@ -143,18 +148,21 @@ describe('headerActionsFor：排序、隐藏与移动端上限', () => {
 });
 
 /**
- * PDF 专属的四颗（2026-11-10）。
+ * PDF 专属的三颗（2026-11-10）。
  *
- * 页缩略图 / 复制链接 / 回到上一处 / 导出页图 以前全挤在 PDF 右下角那条工具条里，
+ * 页缩略图 / 复制链接 / 导出页图 以前全挤在 PDF 右下角那条工具条里，
  * 翻页工具和「拿走内容」的动作混在一排。它们现在和目录、搜索一样挂在头栏，
- * 但**只对 PDF 出现**——EPUB 上多四颗点不动的图标就是噪声。
+ * 但**只对 PDF 出现**——EPUB 上多三颗点不动的图标就是噪声。
+ *
+ * 「回到上一处」不在这三颗里：2026-11-10 起 EPUB 也有同一条跳转历史，
+ * 两边共用一颗按钮。
  */
 describe('PDF 专属动作', () => {
-  it('EPUB 里一颗都不出现，默认顺序也不变', () => {
+  it('EPUB 里只出现「回到上一处」，其余三颗一颗都不出现', () => {
     const ids = headerActionsFor(false, null);
+    expect(ids).toContain('history');
     expect(ids).not.toContain('thumb');
     expect(ids).not.toContain('copy');
-    expect(ids).not.toContain('history');
     expect(ids).not.toContain('export');
     expect(ids).toEqual(headerActionIds(false));
   });
@@ -182,10 +190,10 @@ describe('PDF 专属动作', () => {
   });
 
   it('用户把它们收起来之后，PDF 里也不再露', () => {
-    const cfg = { order: [], hidden: ['thumb', 'history'] };
+    const cfg = { order: [], hidden: ['thumb', 'export'] };
     const ids = headerActionsFor(false, cfg, true);
     expect(ids).not.toContain('thumb');
-    expect(ids).not.toContain('history');
-    expect(headerOverflowFor(false, cfg, true)).toEqual(['thumb', 'history']);
+    expect(ids).not.toContain('export');
+    expect(headerOverflowFor(false, cfg, true)).toEqual(['thumb', 'export']);
   });
 });

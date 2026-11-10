@@ -168,7 +168,9 @@ describe('设置页渲染', () => {
   it('基础版：PDF 组整组灰化，点击弹高级功能说明', () => {
     entState.unlocked = false;
     const out = html();
-    expect(out).toMatch(/class="bzs-setgrp[^"]*is-locked"[^>]*data-act="unlock" data-mode="fullFormats"/);
+    /* 2026-11-10：PDF 在对照表里单独成段，锁标指向那一小段（mode 'pdf'），
+       不再借用「更多格式」那一行。 */
+    expect(out).toMatch(/class="bzs-setgrp[^"]*is-locked"[^>]*data-act="unlock" data-mode="pdf"/);
     entState.unlocked = false;
   });
 

@@ -43,6 +43,7 @@ import {
 import { DEFAULT_PREFS, gatedPrefs, type ReaderPrefs } from '../data/prefs';
 import { can } from '../data/entitlement';
 import { engineMetaFromBook, type EngineMeta } from '../data/book-meta';
+import { NavHistory } from '../core/nav-history';
 import { accumulateEdgeTurn, scrollEdgeOf } from './scroll-edge';
 import { isReplayTap, touchTapVerdict, type TapGesture, type TapMark } from './tap-replay';
 import { needsGestureBind, pickGestureDoc, zoneFromFrameY } from './gesture-binding';
@@ -228,8 +229,8 @@ export interface MountOptions {
    * 引擎自己不存——存两份就会「这本书滚、那本书翻」。
    */
   onPdfFlow?: (mode: 'paged' | 'scroll') => void;
-  /** 跳转历史条数变了：头栏那颗「回到上一处」据此亮 / 灰 */
-  onPdfHistory?: (count: number) => void;
+  /** 跳转历史条数变了：头栏那颗「回到上一处」据此亮 / 灰。两个引擎共用 */
+  onHistoryChange?: (count: number) => void;
 }
 
 /** 滚轮累计到多少才翻一页（像素）。触控板一次轻扫约 30–60，鼠标滚轮一格约 100。 */
@@ -404,6 +405,16 @@ export class EngineHost {
   private sectionIndex = 0;
   /** 最近一次 relocate 的 CFI：竖排/布局切换重载章节时靠它回到原处 */
   private lastLocationCfi = '';
+  /**
+   * 跳转历史（「回到上一处」，2026-11-10）。
+   *
+   * 规则和 PDF 那边一致：**只在显式跳转之前**记一手（目录 / 书签 / 正文链接 /
+   * 深链），翻页与滚动不算——否则一路翻过去，回退要按十几次。
+   * 退回过程中（`navBacking`）不能再记，否则来回弹的那一处会被反复压进栈。
+   */
+  private nav = new NavHistory();
+  /** 正在执行 back()：这一次 goToCfi 不要把当前位置再记一遍 */
+  private navBacking = false;
   /** 待画标注 + CFI → 颜色索引（draw-annotation 回调只能拿到 value） */
   private annots: HostAnnotation[] = [];
   private annotColors = new Map<string, string>();
@@ -479,6 +490,10 @@ export class EngineHost {
     this.opts = opts;
     this.prefs = opts.prefs;
     this.container = container;
+    /* 换书：上一本记下的「上一处」不能拿来跳这一本 */
+    this.nav.clear();
+    this.navBacking = false;
+    this.lastLocationCfi = '';
 
     this.phase = 'read';
     const { book, meta } = await this.buildBook(vaultPath);
@@ -1630,6 +1645,7 @@ export class EngineHost {
 
   /** 跳到 TOC 项（href 由 foliate 解析成章节 + 锚点） */
   async goToHref(href: string): Promise<void> {
+    this.recordSpot();
     await this.enqueue(() => this.navigate(() => this.view?.goTo(href), '跳到这一章'));
   }
 
@@ -1715,7 +1731,48 @@ export class EngineHost {
    */
   async goToCfi(cfi: string): Promise<boolean> {
     if (!cfi) return false;
+    this.recordSpot();
     return (await this.enqueue(() => this.navigate(() => this.view?.goTo(cfi), '定位到这一页'))) === 'ok';
+  }
+
+  /* ─────────── 跳转历史（「回到上一处」） ─────────── */
+
+  /**
+   * 头栏那颗图标要的两个动作。和 picUi 一样**现取**：换书后旧对象作废。
+   *
+   * 没有 `view` 也给得出来：EPUB 在解包阶段还建不出页面，但那时栈是空的，
+   * `canBack()` 为 false，按钮本来就不亮。
+   */
+  get historyUi() {
+    return {
+      back: () => this.backStep(),
+      canBack: () => this.nav.canBack,
+    };
+  }
+
+  /**
+   * 记下「现在在哪」，供 back() 退回去。
+   *
+   * 只由显式跳转调用（goToCfi / goToHref）；翻页、滚动、进度条都不记——
+   * PDF 那边是同一套规则，两边对不齐时用户会发现「翻几页再回退」跳得莫名其妙。
+   */
+  private recordSpot(): void {
+    if (this.navBacking) return;
+    if (this.nav.push({ cfi: this.lastLocationCfi, label: this.chapterTitle })) {
+      this.opts.onHistoryChange?.(this.nav.size);
+    }
+  }
+
+  /** 退回上一处；没有历史就安静地什么都不做 */
+  private backStep(): void {
+    const spot = this.nav.pop();
+    this.opts.onHistoryChange?.(this.nav.size);
+    if (!spot) return;
+    /* 这一次 goToCfi 是「退回」，不能把当前这一处又压回栈里 */
+    this.navBacking = true;
+    void this.goToCfi(spot.cfi).finally(() => {
+      this.navBacking = false;
+    });
   }
 
   /**

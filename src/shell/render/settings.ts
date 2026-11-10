@@ -259,8 +259,10 @@ export function viewSettings(v: SettingsView): string {
 
   /* PDF 单独一组：自动复制链接 / 链接别名原来混在「外观」里，跟强调色、
      工具条样式摆在一起，找的人不会想到去那里翻。PDF 整本都属高级版，
-     基础版照朗读 / AI 的口径整组灰掉，点一下弹高级功能说明。 */
-  const pdfUnlocked = can('fullFormats');
+     基础版照朗读 / AI 的口径整组灰掉，点一下弹高级功能说明。
+     2026-11-10：PDF 在对照表里单独成段，锁标指向那一小段（cap 'pdf'），
+     不再借用「更多格式」那一行。 */
+  const pdfUnlocked = can('pdf');
   /* 本组三套分段控件一律带 bzs-seg-wrap，并按档数挂 pdf4 / pdf3：
      手机上设置卡片只有 ~300px，flex 平分会把四档挤成「3 个一行 + 最后一个
      被拉成整条」；桌面右列 ~340px 时 auto-fit 也只算得出 3 列，四档会变 3+1。
@@ -273,7 +275,7 @@ export function viewSettings(v: SettingsView): string {
     'bzs-seg bzs-seg-wrap bzs-seg-pdf3',
   );
   const pdf = `<div class="bzs-setgrp bzs-setgrp-pdf${pdfUnlocked ? '' : ' is-locked'}"${
-    pdfUnlocked ? '' : ` data-act="unlock" data-mode="fullFormats" title="${t('settings.locked')}"`
+    pdfUnlocked ? '' : ` data-act="unlock" data-mode="pdf" title="${t('settings.locked')}"`
   }>
       <h3>${t('settings.grp.pdf')}</h3>
       <div class="bzs-setrow"><label>${t('settings.pdfZoom')}</label>${seg(

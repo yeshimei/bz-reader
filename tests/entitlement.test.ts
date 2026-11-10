@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  PLAN_GROUPS,
   PLAN_TABLE,
   PURCHASE_URL,
   activateLicense,
@@ -245,9 +246,17 @@ describe('界面文案', () => {
     expect(capLabel('card')).toContain('书摘图片');
   });
 
-  it('每个付费行都有唯一 cap：解锁弹层才能高亮并滚到正确那一行', () => {
-    const caps = PLAN_TABLE.filter((r) => r.free === 'no').map((r) => r.cap);
-    expect(caps.every(Boolean)).toBe(true);
+  it('每个付费行都能被高亮：组里至少一行挂 cap，且 cap 不重复', () => {
+    /* 2026-11-10 起不再是「每行各挂一个」：PDF 整段共用一个拦点（打开 PDF），
+       基础版根本进不了 PDF，缩略图 / 导出这些按钮对他们不存在，给每行各配一个
+       能力位只是摆样子。改成按组校验——付费段的头一行必须能高亮。 */
+    for (const g of PLAN_GROUPS) {
+      const rows = g.rows.map((k) => PLAN_TABLE.find((r) => r.key === k));
+      const paid = rows.filter((r) => r?.free === 'no');
+      if (!paid.length) continue;
+      expect(paid.some((r) => !!r?.cap), `组 ${g.key} 没有一行能高亮`).toBe(true);
+    }
+    const caps = PLAN_TABLE.map((r) => r.cap).filter((c): c is NonNullable<typeof c> => !!c);
     expect(new Set(caps).size).toBe(caps.length);
     /* 基础版行不该挂 cap：它们没有「被拦下」的时刻 */
     for (const r of PLAN_TABLE.filter((r) => r.free === 'yes')) expect(r.cap).toBeUndefined();

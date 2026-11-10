@@ -52,7 +52,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'cmd.pdfThumbs': '閱讀：PDF 頁縮圖',
   'cmd.pdfCopyLink': '閱讀：PDF 複製頁連結',
   'cmd.pdfExportPage': '閱讀：PDF 匯出本頁圖片',
-  'cmd.pdfBack': '閱讀：PDF 回到上一處',
+  'cmd.pdfBack': '閱讀：回到上一處',
   'notice.needBook': '先開啟一本書再使用這個指令',
   'notice.diag.on': '診斷角標已開啟（本次工作階段有效，重新啟動後自動關閉）',
   'notice.diag.off': '診斷角標已關閉',
@@ -588,7 +588,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'key.pdfThumbs': 'PDF 頁縮圖',
   'key.pdfCopyLink': 'PDF 複製頁連結',
   'key.pdfExportPage': 'PDF 匯出本頁圖片',
-  'key.pdfBack': 'PDF 回到上一處',
+  'key.pdfBack': '回到上一處',
 
   /* ── AI 知识库（2026-11-07） ─────────────────── */
   'bz.missing': 'bz 外掛還沒裝：先在 Obsidian 的第三方外掛裡裝上 bz',

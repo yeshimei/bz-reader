@@ -1,7 +1,7 @@
 /* ============================================================
  * bz-reader · 功能对照表的八语言行名（i18n/plan.ts）
  *
- * 为什么是集中表而不是八份语言包：这 19 行是**成套**的清单，拆进
+ * 为什么是集中表而不是八份语言包：这 27 行是**成套**的清单，拆进
  * `<lang>.ts` 之后漏翻一条 tsc 看不出来（key 还在，值抄成中文），
  * 表现就是「德语界面的解锁弹层里孤零零一行中文」。
  * `Record<PlanKey, Record<Locale, string>>` 把「八种齐」变成类型约束。
@@ -19,12 +19,22 @@ export type PlanKey =
   | 'columns'
   | 'marks'
   | 'inbookSearch'
+  | 'back'
   | 'footnote'
   | 'classify'
   | 'formats'
   | 'bilink'
   | 'export'
   | 'card'
+  /* PDF 段（2026-11-10）：以前只由「更多格式」一句话带过，用户看不出
+     买高级版在 PDF 上还多了什么。七行按「怎么读 → 怎么拿出来」排。 */
+  | 'pdfView'
+  | 'pdfThumbs'
+  | 'pdfLink'
+  | 'pdfAutoLink'
+  | 'pdfAnnots'
+  | 'pdfExport'
+  | 'pdfZoom'
   | 'stats'
   | 'crossSearch'
   | 'aiSel'
@@ -40,7 +50,7 @@ export type PlanKey =
  * 名字刻意不重合，免得代码里 `PLAN_TABLE[0].key` 与 `PLAN_GROUPS[0].key`
  * 读起来像同一个东西。归属关系在 `data/entitlement.ts` 的 PLAN_GROUPS。
  */
-export type PlanGroupKey = 'read' | 'output' | 'insight' | 'ai' | 'advanced';
+export type PlanGroupKey = 'read' | 'output' | 'pdf' | 'insight' | 'ai' | 'advanced';
 
 const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
   reading: {
@@ -83,6 +93,19 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'Búsqueda dentro del libro',
     pt: 'Pesquisa dentro do livro',
   },
+  /* 2026-11-10 新增：跳转历史。
+     PDF 早就有（点目录 / 链接跳走之前记一手，翻页不算）；EPUB 现在补上同一条。
+     两边共用一个动作，所以它能进「阅读与书架」这一段，两栏都打勾。 */
+  back: {
+    zh: '回到上一处',
+    'zh-TW': '回到上一處',
+    en: 'Back to previous spot',
+    ja: 'Back to previous spot',
+    de: 'Back to previous spot',
+    fr: 'Back to previous spot',
+    es: 'Back to previous spot',
+    pt: 'Back to previous spot',
+  },
   footnote: {
     zh: '脚注浮窗预览',
     'zh-TW': '腳註浮窗預覽',
@@ -107,16 +130,17 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
   formats: {
     /* 2026-11-09 改：只写**真机实测能打开**的格式。AZW / PRC / FBZ 看着像
        Kindle 家族，但 EXT_TO_FORMAT 里没有它们，写上去就是空头承诺。
-       2026-11-10：PDF 整本在高级版里，这一行漏了它等于对照表在撒谎。
+       2026-11-10：PDF 从这一行挪进独立的「PDF 阅读」段——这一行只说「还能
+       多开哪几种」，PDF 由下一段逐条讲它能做到什么，两处不再各说一半。
        括号在这里是「族 → 枚举」，不是行名解释，允许这一行例外。 */
-    zh: 'PDF、Kindle 系（MOBI / AZW3）、FB2 与 CBZ 漫画',
-    'zh-TW': 'PDF、Kindle 系（MOBI / AZW3）、FB2 與 CBZ 漫畫',
-    en: 'PDF, Kindle family (MOBI / AZW3), FB2, and CBZ comics',
-    ja: 'pdf / mobi / azw3 / fb2 / コミック',
-    de: 'pdf / mobi / azw3 / fb2 / Comics',
-    fr: 'pdf / mobi / azw3 / fb2 / BD',
-    es: 'pdf / mobi / azw3 / fb2 / cómic',
-    pt: 'pdf / mobi / azw3 / fb2 / quadrinhos',
+    zh: 'Kindle 系（MOBI / AZW3）、FB2 与 CBZ 漫画',
+    'zh-TW': 'Kindle 系（MOBI / AZW3）、FB2 與 CBZ 漫畫',
+    en: 'Kindle family (MOBI / AZW3), FB2, and CBZ comics',
+    ja: 'mobi / azw3 / fb2 / コミック',
+    de: 'mobi / azw3 / fb2 / Comics',
+    fr: 'mobi / azw3 / fb2 / BD',
+    es: 'mobi / azw3 / fb2 / cómic',
+    pt: 'mobi / azw3 / fb2 / quadrinhos',
   },
   bilink: {
     zh: '划线复制成双向链接',
@@ -147,6 +171,86 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     fr: 'Images de cartes de citation',
     es: 'Imágenes de tarjetas de cita',
     pt: 'Imagens de cartões de citação',
+  },
+  /* ── PDF 段（2026-11-10） ──
+   * 七行按「怎么读 → 怎么拿出来」排：
+   *   pdfView    打开之后怎么翻（缩放 / 旋转 / 双页 / 滚动）
+   *   pdfThumbs  278 页的书靠缩略图找页
+   *   pdfLink    四种链接（页 / 视图 / 嵌入 / 本页标注）+ 显示文字四档
+   *   pdfAutoLink 划完字自动把链接放进剪贴板（默认关）
+   *   pdfAnnots  笔记引用了这一页 → 画出来；PDF 自带批注 → 点开读
+   *   pdfExport  本页存成图片
+   *   pdfZoom    下次打开这本书，还是上次的缩放与角度
+   * 开发期只写实中文 / 繁体 / 英文，其余五种先放英文占位（见 AGENTS）。 */
+  pdfView: {
+    zh: '缩放、旋转、单双页与滚动',
+    'zh-TW': '縮放、旋轉、單雙頁與捲動',
+    en: 'Zoom, rotate, two-up, and scroll',
+    ja: 'Zoom, rotate, two-up, and scroll',
+    de: 'Zoom, rotate, two-up, and scroll',
+    fr: 'Zoom, rotate, two-up, and scroll',
+    es: 'Zoom, rotate, two-up, and scroll',
+    pt: 'Zoom, rotate, two-up, and scroll',
+  },
+  pdfThumbs: {
+    zh: '页缩略图',
+    'zh-TW': '頁縮圖',
+    en: 'Page thumbnails',
+    ja: 'Page thumbnails',
+    de: 'Page thumbnails',
+    fr: 'Page thumbnails',
+    es: 'Page thumbnails',
+    pt: 'Page thumbnails',
+  },
+  pdfLink: {
+    zh: '复制页链接',
+    'zh-TW': '複製頁連結',
+    en: 'Copy page links',
+    ja: 'Copy page links',
+    de: 'Copy page links',
+    fr: 'Copy page links',
+    es: 'Copy page links',
+    pt: 'Copy page links',
+  },
+  pdfAutoLink: {
+    zh: '划词自动复制链接',
+    'zh-TW': '劃詞自動複製連結',
+    en: 'Auto-copy links on selection',
+    ja: 'Auto-copy links on selection',
+    de: 'Auto-copy links on selection',
+    fr: 'Auto-copy links on selection',
+    es: 'Auto-copy links on selection',
+    pt: 'Auto-copy links on selection',
+  },
+  pdfAnnots: {
+    zh: '笔记反链与文件批注',
+    'zh-TW': '筆記反鏈與檔案批註',
+    en: 'Note backlinks and file annotations',
+    ja: 'Note backlinks and file annotations',
+    de: 'Note backlinks and file annotations',
+    fr: 'Note backlinks and file annotations',
+    es: 'Note backlinks and file annotations',
+    pt: 'Note backlinks and file annotations',
+  },
+  pdfExport: {
+    zh: '导出本页为图片',
+    'zh-TW': '匯出本頁為圖片',
+    en: 'Export a page as an image',
+    ja: 'Export a page as an image',
+    de: 'Export a page as an image',
+    fr: 'Export a page as an image',
+    es: 'Export a page as an image',
+    pt: 'Export a page as an image',
+  },
+  pdfZoom: {
+    zh: '开书缩放记忆',
+    'zh-TW': '開書縮放記憶',
+    en: 'Remember zoom per book',
+    ja: 'Remember zoom per book',
+    de: 'Remember zoom per book',
+    fr: 'Remember zoom per book',
+    es: 'Remember zoom per book',
+    pt: 'Remember zoom per book',
   },
   stats: {
     /* 2026-11-09 改名：统计页早已不只是热力图 + 每本进度，还有 KPI、投入
@@ -257,9 +361,9 @@ export function planNameZh(key: PlanKey): string {
 }
 
 /* ─────────── 分组标题（2026-11-09 新增） ───────────
- * 19 行一长串看不出结构，弹窗里按「阅读与书架 / 格式与导出 / 统计与检索 /
- * AI / 进阶」分五段。组名同样是界面文案，走同一套八语言约束，别写回
- * `data/entitlement.ts`——那里多一句中文就撞硬编码门禁。
+ * 27 行一长串看不出结构，弹窗里按「阅读与书架 / 格式与导出 / PDF 阅读 /
+ * 统计与检索 / AI / 进阶」分六段。组名同样是界面文案，走同一套八语言约束，
+ * 别写回 `data/entitlement.ts`——那里多一句中文就撞硬编码门禁。
  *
  * 开发期规则：只写实中文 / 繁体 / 英文，其余五种先放英文占位顶住类型，
  * 上架前统一换正式翻译。 */
@@ -283,6 +387,20 @@ const PLAN_GROUP_TEXT: Record<PlanGroupKey, Record<Locale, string>> = {
     fr: 'Formats & export',
     es: 'Formatos y exportación',
     pt: 'Formatos e exportação',
+  },
+  /* 2026-11-10 新增。**不能只写「PDF」**：上一段「更多格式」行名里原来就带
+     PDF 两个字，组名与它撞字时，表格按文字定位会把组标题认成那一行的一部分
+     （自检直接红，真机上高亮也会跳段）。「更多格式」那行已同步去掉 PDF，
+     这里仍加「阅读」两个字，读起来也更像一段而不是一个图标名。 */
+  pdf: {
+    zh: 'PDF 阅读',
+    'zh-TW': 'PDF 閱讀',
+    en: 'PDF Reading',
+    ja: 'PDF Reading',
+    de: 'PDF Reading',
+    fr: 'PDF Reading',
+    es: 'PDF Reading',
+    pt: 'PDF Reading',
   },
   insight: {
     zh: '统计与检索',
