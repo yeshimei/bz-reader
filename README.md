@@ -10,6 +10,7 @@
     <a href="https://github.com/yeshimei/bz-reader/releases"><img src="https://img.shields.io/github/downloads/yeshimei/bz-reader/total?style=flat-square&label=DOWNLOADS&labelColor=1f1f1e&color=6d8795" alt="下载量"></a>
     <img src="https://img.shields.io/badge/PLATFORM-DESKTOP%20%2B%20MOBILE-5f7f57?style=flat-square&labelColor=1f1f1e" alt="桌面 + 移动">
     <a href="LICENSE"><img src="https://img.shields.io/github/license/yeshimei/bz-reader?style=flat-square&label=LICENSE&labelColor=1f1f1e&color=5f7f57" alt="MIT"></a>
+    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-DIARY%20%C2%B7%20SECOND%20BRAIN-7c3aed?style=flat-square&labelColor=1f1f1e" alt="配套插件 bz：日记与第二大脑"></a>
   </p>
 
   <p><sub><a href="https://www.bilibili.com/video/BV1tK4E6KE1B">视频教程 · Video tutorial</a></sub></p>
