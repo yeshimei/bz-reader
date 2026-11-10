@@ -89,7 +89,10 @@ function pushCode() {
   log(`推送 master 与 tag ${tag}`);
   if (DRY) return;
   execFileSync('git', ['push', 'gitee', 'master'], { cwd: ROOT, stdio: 'inherit' });
-  execFileSync('git', ['push', 'gitee', `refs/tags/${tag}`], { cwd: ROOT, stdio: 'inherit' });
+  /* 同一个版本号重打 tag（过审后覆盖发布、或修完再发）时远端 tag 已存在，
+     不带 --force 会被拒。只在 --force 下强推，平时误改 tag 仍然推不上去。 */
+  const refspec = `${FORCE ? '+' : ''}refs/tags/${tag}`;
+  execFileSync('git', ['push', 'gitee', refspec], { cwd: ROOT, stdio: 'inherit' });
 }
 
 /** 确保 Release 在位，标题/正文与 GitHub 一致 */
