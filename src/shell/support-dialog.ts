@@ -4,6 +4,7 @@
  * 设置页顶部栏与更新日志页脚的「支持作者」共用这一个窗：
  *   · 抬头一句实话（插件与教程都是一个人在做）；
  *   · 一张微信赞赏码 + 「或者成为赞助人」的备用出口；
+ *   · 再下一行「或者给个 Star」：不花钱的另一种支持，点开 GitHub 仓库；
  *   · 支持者名单（时间倒序、序号倒排，空名单时给一张空态）。
  *
  * 版式**不照搬 bz 那张米白描金纸**：bz 是免费插件，那张纸是它的气质；
@@ -18,6 +19,7 @@
 import { uiModal } from '../core/ui/modal';
 import { t } from '../i18n';
 import { REWARD_NAMES, SPONSOR_URL, formatRewardDate, type RewardName } from '../data/reward';
+import { REPO_URL } from '../data/entitlement';
 import { esc } from './render/html';
 import { ACCENT_VAR, shellAccentColor } from './theme-accent';
 import rewardCodeUrl from './assets/reward-code.png';
@@ -85,6 +87,8 @@ export function supportDialogHtml(
     `<div class="bzs-sup-code-box"><img src="${esc(codeUrl)}" alt="${esc(t('support.codeAlt'))}" /></div>` +
     `<p class="bzs-sup-ways">${esc(t('support.ways'))}</p>` +
     `<button class="bzs-sup-sponsor" type="button" data-role="supsponsor">${esc(t('support.sponsor'))}</button>` +
+    /* 收藏入口（2026-11-10）：不花钱的另一种支持。打开仓库页，Star 按钮在右上角。 */
+    `<button class="bzs-sup-star" type="button" data-role="supstar">${esc(t('support.star'))}</button>` +
     '</div>' +
     '<div class="bzs-sup-list">' +
     `<div class="bzs-sup-list-hd"><b>${esc(t('support.list'))}</b><span>${names.length}</span></div>` +
@@ -132,8 +136,8 @@ export function openSupportDialog(): SupportDialogHandle {
   const accent = shellAccentColor();
   if (accent) modal.popup.style.setProperty(ACCENT_VAR, accent);
 
-  /* 一处委托管三件事：关闭 / 知道了 / 赞助商店。
-     赞助链接不走 <a>：Obsidian 会把裸链交给阅读视图，移动端常常点了没反应。 */
+  /* 一处委托管四件事：关闭 / 知道了 / 赞助商店 / GitHub 收藏。
+     两个去处都不走 <a>：Obsidian 会把裸链交给阅读视图，移动端常常点了没反应。 */
   modal.popup.addEventListener('click', (e) => {
     const target = e.target as HTMLElement | null;
     if (!target?.closest) return;
@@ -143,6 +147,10 @@ export function openSupportDialog(): SupportDialogHandle {
     }
     if (target.closest('[data-role="supsponsor"]')) {
       window.open(SPONSOR_URL, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (target.closest('[data-role="supstar"]')) {
+      window.open(REPO_URL, '_blank', 'noopener,noreferrer');
     }
   });
 

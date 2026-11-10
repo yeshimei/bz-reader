@@ -470,6 +470,9 @@ export const ZH = {
   'support.lead': '这个插件和这些教程都是一个人在做。',
   'support.ways': '微信扫码',
   'support.sponsor': '或者成为赞助人',
+  /* 免费的另一种支持（2026-11-10）：点开 GitHub 仓库，右上角点 Star。
+     不写「收藏」也不写「关注」——「关注」在 GitHub 是 Watch/Follow，会把人引错按钮。 */
+  'support.star': '或者给个 Star',
   'support.note': '打赏后会出现在这份名单里。',
   'support.list': '支持者',
   'support.empty': '还没有人打赏',

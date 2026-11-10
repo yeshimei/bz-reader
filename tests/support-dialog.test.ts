@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { installDomStub } from './helpers/dom-stub';
 import { setLocale } from '../src/i18n';
 import { REWARD_NAMES, formatRewardDate, type RewardName } from '../src/data/reward';
+import { REPO_URL } from '../src/data/entitlement';
 import { openSupportDialog, supportDialogHtml, supportListHtml } from '../src/shell/support-dialog';
 
 /* ============================================================
@@ -100,12 +101,24 @@ describe('支持者名单 · 留言与空态', () => {
 });
 
 describe('弹窗内容', () => {
-  it('该有的四件：码、扫码说明、赞助入口、知道了', () => {
+  it('该有的五件：码、扫码说明、赞助入口、收藏入口、知道了', () => {
     const html = supportDialogHtml(NAMES);
     expect(html).toContain('bzs-sup-code');
     expect(html).toContain('微信扫码');
     expect(html).toContain('或者成为赞助人');
+    expect(html).toContain('或者给个 Star');
     expect(html).toContain('知道了');
+  });
+
+  /* 收藏入口在赞助入口下面一行：两个都是「或者……」的并列出口。
+     地址单源在 entitlement 的 REPO_URL——这里不另写字面量，也不钉死两处。 */
+  it('收藏入口：紧跟赞助入口，指向 GitHub 仓库', () => {
+    const html = supportDialogHtml(NAMES);
+    const sponsorAt = html.indexOf('data-role="supsponsor"');
+    const starAt = html.indexOf('data-role="supstar"');
+    expect(sponsorAt).toBeGreaterThan(-1);
+    expect(starAt).toBeGreaterThan(sponsorAt);
+    expect(REPO_URL).toBe('https://github.com/yeshimei/bz-reader');
   });
 
   it('名单跟着进来：人数就是名单长度', () => {

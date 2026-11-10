@@ -456,6 +456,7 @@ export const JA: Record<MsgKey, string> = {
   'support.lead': 'This plugin and these tutorials are made by one person.',
   'support.ways': 'WeChat QR',
   'support.sponsor': 'Or become a sponsor',
+  'support.star': 'Or give it a Star',
   'support.note': 'Supporters are listed below.',
   'support.list': 'Supporters',
   'support.empty': 'No one has tipped yet',
