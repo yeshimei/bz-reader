@@ -2,13 +2,14 @@
 
 ## 核心原则
 1. **只有一个完整功能包**：功能是否可用由激活码在运行期决定（`can()` → `entitlement().unlocked`），没有 base / pro 两个入口；不要写 `dist/base`（历史产物）。
-2. **改代码前先讲人话**：先勘察相关代码细节，不要直接修改代码；然后按顺序列四个清单，每个清单和清单内每项都要编号，用通俗简洁的话说明，不附代码细节/技术细节：
+2. **改代码前先讲人话**：先勘察相关代码细节，不要直接修改代码；然后按顺序列五个清单，每个清单和清单内每项都要编号，用通俗简洁的话说明，不附代码细节/技术细节：
    1. 针对需求，说明如何理解、准备怎么做；
    2. 指出我可能疏忽、会导致问题的地方，并附建议；
    3. 就以上问题列出可优化、增强的方向；
-   4. 列出你不确认、需要我回答的问题。
+   4. 列出你不确认、需要我回答的问题；
+   5. 涉及 UI 的改动，说明做完后要在真机上跑哪些相关功能、交哪些截图（桌面一遍，移动端形态再一遍）。
    等我确认后再改动代码。
-3. **再走 TDD**：先写 `tests/<模块>.test.ts` 让它红，再改实现让它绿；修 bug 先写复现断言并永久保留，测试与实现同一提交；纯样式（CSS）例外，提交信息写「无逻辑变更，走真机冒烟」并说明冒烟了什么。
+3. **再走 TDD**：先写 `tests/<模块>.test.ts` 让它红，再改实现让它绿；修 bug 先写复现断言并永久保留，测试与实现同一提交；纯样式（CSS）例外，提交信息写「无逻辑变更，走真机冒烟」并说明冒烟了什么、附截图。
 4. **多语言只在准备上架那一版时补齐**：日常开发、修 bug、feature 分支**不**给外语配翻译。新增文案只把 `zh`（基准包）和 `en` 写实，其余六包放占位顶住门禁——`ja`/`de`/`fr`/`es`/`pt` 直接放英文原值，`zh-TW` 必须放繁体写法（`tests/i18n-packs.test.ts` 会查简体字）。正式翻译、术语统一、润色统一放到发版前一次做完，见「上架」的上架顺序第 2 步。
    - 更新日志永远只有中英两版（`changelogLang()`），任何版本都不补其余六种。
 
@@ -22,16 +23,22 @@ node esbuild.config.mjs once
 三条全绿才能 commit；只跑 tsc 不算过门。上架前再加 `node scripts/lint-obsidian.mjs`（见「上架」一节）。
 
 ## 部署
-- “部署”= 同一份产物同时落到**三处**：主仓库根、测试库插件目录、真实库（`叫我包仔`）插件目录，缺一不算。
-- 先过三道门，在 `D:\Obsidian\bz-reader` 跑：
+- 日常开发**只把产物部署到测试库**；真实库（`叫我包仔`）只在发版时跟一份，平时不碰。
+- “部署”按目标算：日常部署 = 测试库一处；发版部署 = 三处（仓库根 + 测试库 + 真实库），缺一不算。
+- 先过三道门，在 `D:\Obsidian\bz-reader` 跑日常构建（`BZ_READER_VAULT` 显式设 `test`，只落测试库）：
+```powershell
+$env:BZ_READER_VAULT='test'
+node esbuild.config.mjs once
+```
+- 发版才用 `production`，并显式 `all`，一次落三处：
 ```powershell
 $env:BZ_READER_VAULT='all'
 node esbuild.config.mjs production
 ```
-- `production` 压缩、无 sourcemap，**只有它**落仓库根；`once` 只写 `dist/pro` 和 vault，不是部署。
+- `production` 压缩、无 sourcemap，**只有它**落仓库根；`once` 只写 `dist/pro` 和测试库，不是发版部署。
 - `BZ_READER_VAULT` 指**插件目录**，不是库根；`all` = 测试库 + 真实库，也可填 `test` / `main`（缺省 `test`），或用 `;` 分隔多个完整路径。
 - 只部署已合并到 master 的产物；worktree 内构建把 `BZ_READER_VAULT` 指向不存在的目录，只验产物。
-- 验收：仓库根与两个库的 `main.js` 字节数一致、时间戳都是本次构建；两个库重载后生效。
+- 验收：日常只查测试库 `main.js` 时间戳是本次构建、重载生效；发版再查仓库根与两个库 `main.js` 字节数一致。
 - 部署 ≠ 发版；tag / Release 走 `bz-release`。
 
 ## 改动流程
@@ -50,6 +57,13 @@ New-Item -ItemType Junction -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules
 - 需要 `document` 的用 `tests/helpers/dom-stub.ts` 的 `installDomStub()`，`afterAll` 卸掉。
 - 没装 jsdom：不测真实布局、`getBoundingClientRect`、触摸事件。
 - 断言行为，不断言实现细节（状态翻转 + 重渲被调用，而不是某个 class 字符串）。
+
+## UI 改动真机验收
+- 涉及 UI 的改动（界面、布局、弹窗、样式、手势、交互反馈）做完，必须先在真机上把相关功能跑一遍，再把截图贴给用户；没跑过、没截图不算完成。
+- 真机验证一律在**测试库**做（`E:\Obsidian\bz reader`）；不要新建库，也不要在真实库（叫我包仔）里试。
+- 移动端形态：Obsidian 桌面端控制台（`Ctrl+Shift+I`）执行一行 `app.emulateMobile(true)`，整个界面切成移动端视图；验完 `app.emulateMobile(false)` 切回。涉及移动端布局/手势的改动，必须在这个形态下跑过并截图。
+- 只切插件壳层（不动整体界面）另有开关：`localStorage['bz-reader:force-mobile']='1'`，验收插件内部布局时可用；清掉即恢复。
+- 截图要能看出改的是哪一块：关键步骤各一张，必要时改前/改后对照，并标出位置。
 
 ## 真机排查
 - 插件不往库里写日志，插件目录保持只读（只有 Obsidian 自己的 `main.js` / `manifest.json` / `styles.css` / `data.json`）。
