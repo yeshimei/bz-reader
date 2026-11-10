@@ -366,6 +366,48 @@
   .bzs-setrow label {
     min-width: 72px;
   }
+
+  /* 「阅读页图标」组里「复制链接（页 / 视图 / 嵌入 / 标注）」这行标签最长：
+     study.css 给 label 写了 nowrap + flex-shrink:0，390px 下它会把 ↑↓ 和
+     开关顶到 458px，整页横向滚出 107px（2026-11-09 手机截图）。只在这一组
+     放开折行并允许收缩，短标签的行观感不动。 */
+  .bzs-setgrp-header .bzs-setrow label {
+    min-width: 0;
+    flex-shrink: 1;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
+  }
+
+  .bzs-setgrp-header .bzs-setrow > button {
+    flex-shrink: 0;
+  }
+
+  /* PDF 组三套分段控件：最长标签 144px，同行布局只留给控件 119px，grid
+     只算得出 1 列，四档按钮竖成一条。带分段控件的行改成上下两行让控件
+     吃满整行，列数按档数写死，不再随标签长短摇摆；宽屏不命中这段，
+     列数由 study.css 定（4 / 3）。 */
+  .bzs-setgrp-pdf .bzs-setrow:has(.bzs-seg-wrap) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  .bzs-setgrp-pdf .bzs-setrow:has(.bzs-seg-wrap) > label {
+    min-width: 0;
+  }
+
+  .bzs-setgrp-pdf .bzs-setrow:has(.bzs-seg-wrap) > .bzs-seg {
+    flex: none;
+  }
+
+  .bzs-seg-pdf4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bzs-seg-pdf3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════

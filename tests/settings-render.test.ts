@@ -168,8 +168,21 @@ describe('设置页渲染', () => {
   it('基础版：PDF 组整组灰化，点击弹高级功能说明', () => {
     entState.unlocked = false;
     const out = html();
-    expect(out).toMatch(/class="bzs-setgrp is-locked"[^>]*data-act="unlock" data-mode="fullFormats"/);
+    expect(out).toMatch(/class="bzs-setgrp[^"]*is-locked"[^>]*data-act="unlock" data-mode="fullFormats"/);
     entState.unlocked = false;
+  });
+
+  it('PDF 组三套分段控件都带窄栏折行 class，长标签组可单独收窄', () => {
+    const out = html();
+    /* 四档两组（开书缩放 / 链接别名）、三档一组（导出倍率）：手机上
+       label 最长 144px，同行布局会把控件挤成一列。这些 class 是窄栏
+       两行布局的挂点，缺一个就会退回「四档竖成一条」。 */
+    expect((out.match(/bzs-seg-pdf4/g) ?? []).length).toBe(2);
+    expect((out.match(/bzs-seg-pdf3/g) ?? []).length).toBe(1);
+    expect((out.match(/bzs-seg bzs-seg-wrap/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect(out).toContain('bzs-setgrp-pdf');
+    /* 「复制链接（页 / 视图 / 嵌入 / 标注）」那行标签最长，需要定点放开折行 */
+    expect(out).toContain('bzs-setgrp-header');
   });
 
   it('分组顺序：阅读页图标排在外观之前', () => {

@@ -87,11 +87,11 @@ export const KEY_COMMANDS: Array<{ id: string; key: MsgKey; builtin?: string }> 
   { id: 'bz-reader:pdf-back', key: 'key.pdfBack' },
 ];
 
-function seg(name: string, opts: Array<[string, string]>, cur: string, act = 'setpref'): string {
+function seg(name: string, opts: Array<[string, string]>, cur: string, act = 'setpref', cls = 'bzs-seg'): string {
   return segHtml(
     opts.map(([v, k]) => ({ v, k })),
     cur,
-    { act, name },
+    { act, name, cls },
   );
 }
 
@@ -261,12 +261,18 @@ export function viewSettings(v: SettingsView): string {
      工具条样式摆在一起，找的人不会想到去那里翻。PDF 整本都属高级版，
      基础版照朗读 / AI 的口径整组灰掉，点一下弹高级功能说明。 */
   const pdfUnlocked = can('fullFormats');
+  /* 本组三套分段控件一律带 bzs-seg-wrap，并按档数挂 pdf4 / pdf3：
+     手机上设置卡片只有 ~300px，flex 平分会把四档挤成「3 个一行 + 最后一个
+     被拉成整条」；桌面右列 ~340px 时 auto-fit 也只算得出 3 列，四档会变 3+1。
+     列数统一交给 study.css（桌面 4/3）与 mobile.css（窄屏 2/3）。 */
   const exportScaleBtns = seg(
     'pdfExportScale',
     [1, 2, 3].map((n) => [String(n), `${n}×`] as [string, string]),
     String(p.pdfExportScale),
+    'setpref',
+    'bzs-seg bzs-seg-wrap bzs-seg-pdf3',
   );
-  const pdf = `<div class="bzs-setgrp${pdfUnlocked ? '' : ' is-locked'}"${
+  const pdf = `<div class="bzs-setgrp bzs-setgrp-pdf${pdfUnlocked ? '' : ' is-locked'}"${
     pdfUnlocked ? '' : ` data-act="unlock" data-mode="fullFormats" title="${t('settings.locked')}"`
   }>
       <h3>${t('settings.grp.pdf')}</h3>
@@ -279,6 +285,8 @@ export function viewSettings(v: SettingsView): string {
           ['actual', t('settings.pdfZoom.actual')],
         ],
         p.pdfZoom,
+        'setpref',
+        'bzs-seg bzs-seg-wrap bzs-seg-pdf4',
       )}</div>
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfZoom.hint')}</div>
       <div class="bzs-setrow"><label>${t('settings.pdfAnnots')}</label><button class="bzs-switch${
@@ -307,6 +315,8 @@ export function viewSettings(v: SettingsView): string {
           ['emoji', t('settings.pdfLinkLabel.emoji')],
         ],
         p.pdfLinkLabel,
+        'setpref',
+        'bzs-seg bzs-seg-wrap bzs-seg-pdf4',
       )}</div>
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfLinkLabel.hint')}</div>
     </div>`;
@@ -329,7 +339,7 @@ export function viewSettings(v: SettingsView): string {
       </div>`;
     })
     .join('');
-  const header = `<div class="bzs-setgrp">
+  const header = `<div class="bzs-setgrp bzs-setgrp-header">
       <h3>${t('settings.grp.header')}</h3>
       <div class="bzs-mini" style="margin:0 0 8px">${t('settings.header.hint')}</div>
       ${headerRows}

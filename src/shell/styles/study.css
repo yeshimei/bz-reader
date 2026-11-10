@@ -1551,6 +1551,17 @@
   gap: 3px;
 }
 
+/* PDF 设置组按档数定列，不跟 auto-fit：桌面右列只有 ~340px，88px 下限
+   只算得出 3 列，四档会排成 3+1，最后一颗孤零零掉到第二行（2026-11-09
+   桌面截图）。窄屏由 mobile.css 覆盖成 2 列 / 3 列。 */
+.bzs-seg-pdf4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.bzs-seg-pdf3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .bzs-seg-wrap button {
   white-space: normal;
   overflow-wrap: anywhere;

@@ -47,6 +47,7 @@ import {
   type HeaderActionId,
 } from './header-actions';
 import { planHeaderVisibility, roleOf } from './header-layout';
+import { pdfActionRun } from './pdf-actions';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
 import { hydrateToolbarIcons } from '../shell/toolbar-icons';
@@ -661,26 +662,25 @@ export class ReaderView extends ItemView {
     const prefs = pickPrefs(this.api.store.get(), mobile);
 
     /* PDF 的「排版」不是字号行距，而是旋转 / 单双页 / 翻页——点同一颗图标，
-       换成贴右上角的那张小卡（外观与 EPUB 的排版浮层一致）。 */
-    const pdf = this.host.pdfUi;
+       换成贴右上角的那张小卡（外观与 EPUB 的排版浮层一致）。
+       `pdfActionRun` 收的是「现取」函数：按钮比 PDF 引擎早建好，且复用时
+       不重挂监听，闭包里存当时的 pdfUi 会让这五颗永远点不动。 */
+    const pdfRun = pdfActionRun(
+      () => this.host.pdfUi,
+      () => dispatchAction('typography', this.rootEl ?? document.body),
+    );
     const run: Record<string, (ev?: MouseEvent) => void> = {
       toc: () => this.api.openTocSidebar('toc'),
       search: () => dispatchAction('search', this.rootEl ?? document.body),
       mark: () => this.toggleBookmark(),
-      type: () =>
-        pdf
-          ? pdf.toggleLayout()
-          : dispatchAction('typography', this.rootEl ?? document.body),
-      thumb: (ev) => {
-        void ev;
-        pdf?.toggleThumbs();
-      },
+      type: () => pdfRun.type(),
+      thumb: () => pdfRun.thumb(),
       copy: (ev) => {
         const box = ev?.currentTarget instanceof HTMLElement ? ev.currentTarget.getBoundingClientRect() : null;
-        pdf?.openCopyMenu(box ? { right: box.right, bottom: box.bottom } : null);
+        pdfRun.copy(box ? { right: box.right, bottom: box.bottom } : null);
       },
-      history: () => pdf?.back(),
-      export: () => pdf?.exportPage(),
+      history: () => pdfRun.history(),
+      export: () => pdfRun.export(),
       para: () => void this.toggleParallel(),
       paraBook: (ev) => this.openParallelPicker(ev),
       tts: () => this.toggleTts(),
@@ -710,7 +710,6 @@ export class ReaderView extends ItemView {
       if (!ids.includes(id as HeaderActionId)) this.headerEls.delete(id);
     }
 
-    const fresh: HTMLElement[] = [];
     for (const item of spec) {
       const found = box.querySelector<HTMLElement>(`[data-bzr-action="${item.id}"]`);
       if (found) {
@@ -728,15 +727,22 @@ export class ReaderView extends ItemView {
         item.run(ev);
       });
       this.headerEls.set(item.id, btn);
-      fresh.push(btn);
     }
     /* 「回到上一处」没有历史时压暗：一颗永远点不动的亮图标是误导。
        跳转历史由引擎回调（onPdfHistory）随时刷新，这里只管重挂后的初值。 */
     this.headerEls.get('history')?.classList.toggle('is-off', !this.host.pdfUi?.canBack());
 
-    /* 收起的图标不另建菜单：宿主最右侧的 ⋮ 里本来就有这十项
-       （见 onPaneMenu），再挂一颗自己的 ⋮ 只会变成两个入口。 */
-    if (fresh.length) box.prepend(...fresh);
+    /* 收起的图标不另建菜单：宿主最右侧的 ⋮ 里本来就有这些项
+       （见 onPaneMenu），再挂一颗自己的 ⋮ 只会变成两个入口。
+
+       `prepend` 传的是**全部**按钮而不只是这次新建的：视图挂载早期按 EPUB
+       建过一批按钮，PDF 引擎就绪后才补四颗，只 prepend 新建的会把它们顶到
+       目录 / 搜索前面，和用户排的顺序正好相反。`prepend` 会移动已有节点，
+       每次重挂都按 spec 排一遍是幂等的。 */
+    const ordered = spec
+      .map((s) => this.headerEls.get(s.id))
+      .filter((el): el is HTMLElement => !!el);
+    if (ordered.length) box.prepend(...ordered);
     this.trimHeaderActions(box, spec.length);
   }
 
@@ -1078,9 +1084,12 @@ export class ReaderView extends ItemView {
        tooltip 是 `headerActionSpec().label`，菜单里如果另写一套中文字面量，
        就会出现「界面语言是德语、⋮ 里还是中文」——而这排菜单恰好是手机端
        唯一的入口（头栏图标只露 3 颗，其余全折在这里）。 */
-    const pdfUi = this.host.pdfUi;
     const other = this.parallelId ? this.api.repo.byId(this.parallelId) : null;
     const root = this.rootEl ?? document.body;
+    const pdfRun = pdfActionRun(
+      () => this.host.pdfUi,
+      () => dispatchAction('typography', root),
+    );
     /* 头栏与 ⋮ 共用同一张动作表。以前这里手写十项，加一颗图标要记得改两处，
        漏了就是「头栏有、⋮ 里没有」——手机端尤其致命，⋮ 是唯一入口。
        PDF 四颗只在 PDF 里出现；EPUB 上多四颗点不动的条目就是噪声。 */
@@ -1088,12 +1097,12 @@ export class ReaderView extends ItemView {
       toc: () => this.api.openTocSidebar('toc'),
       search: () => dispatchAction('search', root),
       mark: () => this.toggleBookmark(),
-      type: () => (pdfUi ? pdfUi.toggleLayout() : dispatchAction('typography', root)),
-      thumb: () => pdfUi?.toggleThumbs(),
+      type: () => pdfRun.type(),
+      thumb: () => pdfRun.thumb(),
       /* ⋮ 里没有稳定的按钮坐标，复制菜单退回工具条上沿那个老位置 */
-      copy: () => pdfUi?.openCopyMenu(null),
-      history: () => pdfUi?.back(),
-      export: () => pdfUi?.exportPage(),
+      copy: () => pdfRun.copy(null),
+      history: () => pdfRun.history(),
+      export: () => pdfRun.export(),
       para: () => void this.toggleParallel(),
       paraBook: (evt?: MouseEvent) => this.openParallelPicker(evt),
       tts: () => this.toggleTts(),
