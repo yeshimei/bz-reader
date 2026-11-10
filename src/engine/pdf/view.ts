@@ -16,6 +16,7 @@
 
 import type { Rect, RelocateInfo, SelectionInfo } from '../host';
 import { parsePdfLinkHash } from '../../data/pdf-link';
+import { debugEvent } from '../../data/debug-log';
 import type { PdfDocument, PdfPageSize, PdfRenderTask } from './document';
 import type { PdfBacklinkHit } from '../../data/pdf-backlink';
 import { pdfColorFromName, type PdfLinkSelection } from '../../data/pdf-link';
@@ -36,6 +37,7 @@ import {
   pdfPageLocator,
   rotateNormRect,
 } from './locator';
+import { beginTwoFinger, endTwoFinger, moveTwoFinger, type FingerPoint, type TwoFingerTapState } from './two-finger-tap';
 
 export interface PdfViewCallbacks {
   onRelocate?: (info: RelocateInfo) => void;
@@ -217,6 +219,8 @@ export class PdfView {
   private lastSelectionAt = 0;
   private suppressClickUntil = 0;
   private lastWidth = 0;
+  /** 两指轻按（切沉浸）正在判的这一轮；判定完 / 手势作废时清空 */
+  private twoFinger: TwoFingerTapState | null = null;
 
   /* ── 框选（矩形） ── */
   private frameStart: { pageEl: HTMLElement; page: number; x: number; y: number; forced: boolean } | null =
@@ -1211,6 +1215,11 @@ export class PdfView {
     this.scroller.removeEventListener('pointerdown', this.onFrameDown);
     document.removeEventListener('pointermove', this.onFrameMove);
     document.removeEventListener('pointerup', this.onFrameUp);
+    this.scroller.removeEventListener('touchstart', this.onTouchStart);
+    this.scroller.removeEventListener('touchmove', this.onTouchMove);
+    this.scroller.removeEventListener('touchend', this.onTouchEnd);
+    this.scroller.removeEventListener('touchcancel', this.onTouchCancel);
+    this.twoFinger = null;
     this.clearFrame();
     this.clearLiveSelection();
     this.hideLinkPreview();
@@ -1362,7 +1371,11 @@ export class PdfView {
     document.addEventListener('pointerup', this.onFrameUp);
     this.scroller.addEventListener('click', this.onClick);
     this.scroller.addEventListener('touchstart', this.onTouchStart, { passive: true });
+    /* 移动端两指轻按 = 切沉浸：move 攒位移（防把滚动 / 捏合当轻按），
+       end 定案，cancel 收尾。 */
+    this.scroller.addEventListener('touchmove', this.onTouchMove, { passive: true });
     this.scroller.addEventListener('touchend', this.onTouchEnd, { passive: true });
+    this.scroller.addEventListener('touchcancel', this.onTouchCancel, { passive: true });
   }
 
   private onScroll(): void {
@@ -1768,6 +1781,11 @@ export class PdfView {
     if (this.copyMenuEl && !target?.closest('.bzr-pdf-menu, .bzr-pdf-copy')) {
       this.closeCopyMenu();
     }
+    /* 划词 / 框选刚结束、或上一处跳转刚处理过：这段窗口里来的点击多半是同一次
+       手势的尾巴（长按结尾松手、手指滑了一下），有副作用的动作一律不做——
+       否则「选完一个字手一抖」就顺带跳页、弹批注。上面收起下拉照做，那一步
+       没有副作用，留着更顺手。 */
+    if (Date.now() < this.suppressClickUntil) return;
     /* PDF 文件里自带的批注：点开看正文。
        框本身不吃指针事件（会挡住划词），坐标反查；多个框叠在一起时取
        面积最小的那一处——最具体的那一条才是用户想看的。 */
@@ -1819,17 +1837,42 @@ export class PdfView {
        一个字，结果跑了两页。真正的翻页键是 ← / →（和 ↑ / ↓）与工具条。 */
   };
 
-  private touchStartAt = 0;
+  /* ── 两指轻按 = 切沉浸 ──
+   * 移动端一进沉浸，头栏就被藏掉，双指是唯一出口，所以这里必须「第一根手指
+   * 抬起就定案」。早先要求所有手指都抬离才认，可每次抬手都会把计时清掉：
+   * 真人两指不可能同时离屏，于是永远不触发（2026-11-10 真机，进了出不来）。
+   * 判据本身在 ./two-finger-tap.ts，纯函数，可单测。 */
 
   private onTouchStart = (ev: TouchEvent): void => {
-    this.touchStartAt = ev.touches.length === 2 ? Date.now() : 0;
+    /* 单指点按不走这条路（PDF 点正文不翻页）。手指数量一变就重来一轮：
+       只有两指落下才起手，其余情况顺手把上一轮的残留清掉。 */
+    this.twoFinger = beginTwoFinger(pointsOf(ev.touches), Date.now());
+    debugEvent('touch', { phase: 'pdf-start', n: ev.touches.length, armed: !!this.twoFinger });
+  };
+
+  private onTouchMove = (ev: TouchEvent): void => {
+    if (!this.twoFinger) return;
+    this.twoFinger = moveTwoFinger(this.twoFinger, pointsOf(ev.touches));
   };
 
   private onTouchEnd = (ev: TouchEvent): void => {
-    if (!this.touchStartAt) return;
-    const quick = Date.now() - this.touchStartAt <= 300;
-    if (quick && ev.touches.length === 0) this.opts.onTwoFingerTap?.();
-    this.touchStartAt = 0;
+    if (!this.twoFinger) return;
+    const { fire, state } = endTwoFinger(this.twoFinger, Date.now(), ev.touches.length);
+    this.twoFinger = state;
+    /* 真机上「按了没反应」只能靠这条日志分清三种情况：事件根本没到（连
+       pdf-start 都没有）、到了但判否（fire: false，多半超时或被系统打断）、
+       判了却没切沉浸（fire: true）。 */
+    debugEvent('touch', { phase: 'pdf-end', n: ev.touches.length, fire });
+    if (!fire) return;
+    /* 吞掉同一手势末尾可能合成的那次 click：不然两指轻按会顺带点到页内
+       链接 / 文件批注（PDF 的 onClick 会跳页、会弹卡）。 */
+    this.suppressClickUntil = Date.now() + 500;
+    this.opts.onTwoFingerTap?.();
+  };
+
+  /** 系统手势 / 来电把触摸序列掐断：这一轮作废，别拖到下一次 */
+  private onTouchCancel = (): void => {
+    this.twoFinger = null;
   };
 
   /* ── 渲染队列 ── */
@@ -2275,4 +2318,9 @@ function rectOf(range: Range): Rect {
   } catch {
     return { left: 0, top: 0, width: 0, height: 0 };
   }
+}
+
+/** TouchList → 判定器认的纯数据：node 里没有 TouchList，只留 x/y 两个数 */
+function pointsOf(touches: TouchList): FingerPoint[] {
+  return Array.from(touches).map((touch) => ({ x: touch.clientX, y: touch.clientY }));
 }

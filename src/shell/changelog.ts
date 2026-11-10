@@ -164,6 +164,13 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
           en: 'A long note no longer pushes a horizontal scrollbar into the sidebar.',
         },
       },
+      {
+        domain: { zh: 'PDF 双指', en: 'PDF gestures' },
+        text: {
+          zh: '手机上两指轻按正文能进入或退出沉浸模式。',
+          en: 'A two-finger tap in a PDF toggles immersive mode on mobile.',
+        },
+      },
     ],
   },
   {
