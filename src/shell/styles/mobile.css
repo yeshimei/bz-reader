@@ -812,6 +812,14 @@
     background: rgba(255, 255, 255, .84);
   }
 
+  /* 图标模式在手机上比桌面略窄一档：色点这里已经 18px（四个就 72px），
+     桌面那套 30px 按钮 + 6px 间距在 320 宽屏要顶到 --bzr-float-max 上限。
+     28px 按钮 + 6px 间距仍是净空 18px，比改前的 13px 松，又留得下。 */
+  .bzs-tb.is-icon {
+    --bzr-ibtn: 28px;
+    gap: 6px;
+  }
+
   .bzs-tb .bzs-sbtn {
     padding: 5px 7px;
     font-size: 12.5px;
@@ -1385,6 +1393,13 @@
   .bzs-tb .bzs-pendot {
     --bzr-dot: 15px;
   }
+
+  /* 图标模式在最窄的一档（320 屏）再收回去：色点 15px、按钮 26px、
+     间距 3px，整条约 211px，仍留在 --bzr-float-max 里。 */
+  .bzs-tb.is-icon {
+    --bzr-ibtn: 26px;
+    gap: 3px;
+  }
 }
 
 /* ── 触摸目标（S-03）──
@@ -1416,10 +1431,11 @@
     inset: -12px;
   }
 
-  /* 图标模式的划词按钮只有 26px 宽（见 overlay.css）：高度已被上面的
-     min-height:44 撑开，宽度用透明伪元素补到 44（左右各 9px）。
-     相邻按钮的热区会有几像素重叠——取「宁可重叠也别点不中」：
-     26px 宽在这条密集工具条上必误触，手指点到的永远是隔壁那颗。 */
+  /* 图标模式的划词按钮比 44px 窄（见 overlay.css）：高度已被上面的
+     min-height:44 撑开，宽度用透明伪元素补到 44——差多少补多少，
+     按钮宽度读同一个 --bzr-ibtn，改间距档位时热区不会跟着缩水。
+     相邻按钮的热区仍会重叠几像素——取「宁可重叠也别点不中」：
+     这条密集工具条上按钮做不进 44px，手指点到的永远是隔壁那颗。 */
   .bzs-shell .bzs-tb.is-icon .bzs-sbtn {
     position: relative;
   }
@@ -1427,7 +1443,7 @@
   .bzs-shell .bzs-tb.is-icon .bzs-sbtn::before {
     content: "";
     position: absolute;
-    inset: 0 -9px;
+    inset: 0 calc((var(--bzr-ibtn, 30px) - 44px) * .5);
   }
 }
 

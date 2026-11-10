@@ -697,22 +697,29 @@ body.theme-dark .bzs-tb .div {
 
 /* ── 图标模式（设置 · 外观 · 工具条样式）──
    一颗按钮只剩一枚 16px 宿主图标，文案在 title / aria-label 里。
-   宽度写死是刻意的：图标本身宽度不一，不钉住会让整排忽宽忽窄。 */
+   宽度写死是刻意的：图标本身宽度不一，不钉住会让整排忽宽忽窄。
+
+   2026-11-10 真机反馈「太拥挤」：色点之间只隔 3px，五枚图标各 26px 宽、
+   净空 13px，悬停底色块几乎连成一片。这里把间距放到 6px、按钮放宽到
+   30×26（图标净空 20px），整条从 240px 到约 287px——仍比文字模式窄一截，
+   但看得出是一颗一颗的按钮。手机上另有两档（见 mobile.css）。 */
 .bzs-tb.is-icon {
-  gap: 3px;
+  --bzr-ibtn: 30px;
+  gap: 6px;
 }
 
 .bzs-tb.is-icon .bzs-sbtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 24px;
+  width: var(--bzr-ibtn);
+  height: 26px;
   padding: 0;
 }
 
+/* 「⋯」和相邻的动作按钮同宽正好，不用和图标一样宽——它本身就是个更瘦的符号 */
 .bzs-tb.is-icon .bzs-sbtn.more {
-  width: 24px;
+  width: calc(var(--bzr-ibtn) - 2px);
 }
 
 .bzs-tb .bzs-tbi {
