@@ -109,25 +109,23 @@ function toggle(k: string, on: boolean, label: string): string {
  */
 function aboutBar(version: string, paid: boolean, patron: boolean, name?: string): string {
   const ver = version ? `v${esc(version)}` : t('settings.about.version');
-  /* 两枚徽章，档位在前、身份在后（2026-11-10 定稿）：
-     · 档位那枚永远在——普通码、赞助人码、定制昵称码，三种都得看见「高级版」；
-     · 赞助人身份是**外加**一枚，写作「赞助人」，报过昵称就写昵称。
-     两枚同款铜印胶囊，只换文字。并排出现时会让人以为它们是两档权益，所以
-     文案上把「赞助人」当成身份修饰，不改档位那枚。
+  /* 授权徽章只有一枚（2026-11-10）：普通码写「高级版」，赞助人码换成
+     「赞助人」，报过 nickname 就写昵称。两枚同款铜印胶囊、只换文字——
+     并排两枚会让人以为「高级版」和「赞助人」是两档不同权益，而事实是
+     赞助人本来就包含高级版。
      昵称来自我们签的码，照样转义——签名保证来源，不保证字符安全。 */
-  const tierBadge = paid
-    ? `<span class="bzs-about-badge" role="img" aria-label="${t('settings.about.paid')}" title="${t('settings.about.paid')}">${ico('seal', 'bzs-badge-seal')}${t('settings.about.paid')}</span>`
-    : `<span class="bzs-about-badge is-base">${t('settings.about.base')}</span>`;
-  /* 读屏读「赞助人 · 面包」：只念名字等于没说身份。基础版不挂 role/title——
-     没买的人不该被打上身份。 */
-  const patronText = name ? esc(name) : t('settings.about.patron');
-  const patronAria = name ? `${t('settings.about.patron')} · ${esc(name)}` : t('settings.about.patron');
-  const patronBadge = paid && patron
-    ? `<span class="bzs-about-badge is-patron" role="img" aria-label="${patronAria}" title="${t('settings.about.patron')}">${ico('seal', 'bzs-badge-seal')}${patronText}</span>`
-    : '';
+  const paidLabel = patron ? (name ? esc(name) : t('settings.about.patron')) : t('settings.about.paid');
+  const label = paid ? paidLabel : t('settings.about.base');
+  /* 读屏读「赞助人 · 面包」：只念名字等于没说身份。悬停提示说清这枚标记。
+     基础版不挂 role/title——没买的人不该被打上身份。 */
+  const hint = patron ? t('settings.about.patron') : t('settings.about.paid');
+  const aria = patron && name ? `${hint} · ${esc(name)}` : hint;
+  const seal = paid ? ico('seal', 'bzs-badge-seal') : '';
+  const attrs = paid ? ` role="img" aria-label="${aria}" title="${hint}"` : '';
+  const badge = `<span class="bzs-about-badge${paid ? '' : ' is-base'}${paid && patron ? ' is-patron' : ''}"${attrs}>${seal}${label}</span>`;
   return `<div class="bzs-setgrp wide bzs-about">
       <h3>${t('settings.about')}</h3>
-      <span class="bzs-about-meta"><span class="bzs-about-ver">${ver}</span>${tierBadge}${patronBadge}</span>
+      <span class="bzs-about-meta"><span class="bzs-about-ver">${ver}</span>${badge}</span>
       <span class="sp"></span>
       <button class="bzs-about-link" data-act="aboutgithub" title="${t('settings.about.repo')}">
         ${githubIcon(15)}<b>GitHub</b>

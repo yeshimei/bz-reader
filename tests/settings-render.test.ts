@@ -538,9 +538,9 @@ describe('调试日志出口', () => {
  * 徽章挂在「关于」条上，只在已激活时出现——基础版不显示，
  * 免得没买的人也被打上标。
  *
- * 2026-11-10 定稿：普通码、赞助人码、定制昵称码，三种都**保留「高级版」**——
- * 档位是档位，身份是外加一枚。两枚同款铜印胶囊，只换文字。
- * 基础版只有一枚中性线框，不画铜印。
+ * 2026-11-10 改规则：不再是「高级版 + 赞助人」两枚并排，而是**一枚**——
+ * 普通码写「高级版」，赞助人码换成「赞助人」（有昵称就写昵称）。两枚同款，
+ * 铜印胶囊；基础版那枚退成中性线框，不画铜印。
  */
 describe('赞助人徽章', () => {
   /** 截出「关于」组那一段：只看组内，不误判别的组 */
@@ -550,30 +550,13 @@ describe('赞助人徽章', () => {
     return out.slice(start, next < 0 ? undefined : next);
   }
 
-  const seals = (html: string): number => (html.match(/bzs-badge-seal/g) || []).length;
-
-  it('已激活 + 赞助人：两枚，高级版在前、赞助人在后', () => {
+  it('已激活 + 赞助人：只此一枚，文字换成赞助人', () => {
     entState.unlocked = true;
     entState.patron = true;
     const g = aboutGroup(html());
-    expect(g).toContain('高级版');
     expect(g).toContain('is-patron');
-    expect(seals(g)).toBe(2);
-    /* 顺序固定：先档位再身份，读起来是「我是高级版，且是赞助人」 */
-    expect(g.indexOf('高级版')).toBeLessThan(g.indexOf('is-patron'));
-    entState.patron = false;
-    entState.unlocked = false;
-  });
-
-  it('赞助人 + 定制昵称：高级版照在，第二枚写昵称', () => {
-    entState.unlocked = true;
-    entState.patron = true;
-    entState.name = '面包';
-    const g = aboutGroup(html());
-    expect(g).toContain('高级版');
-    expect(seals(g)).toBe(2);
-    expect(g).toContain('面包');
-    entState.name = '';
+    expect(g).toContain('bzs-badge-seal');
+    expect(g).not.toContain('高级版');
     entState.patron = false;
     entState.unlocked = false;
   });
@@ -582,7 +565,7 @@ describe('赞助人徽章', () => {
     entState.unlocked = true;
     const g = aboutGroup(html());
     expect(g).toContain('高级版');
-    expect(seals(g)).toBe(1);
+    expect(g).toContain('bzs-badge-seal');
     expect(g).not.toContain('is-patron');
     entState.unlocked = false;
   });
@@ -599,7 +582,7 @@ describe('赞助人徽章', () => {
     const g = aboutGroup(html());
     expect(g).not.toContain('is-patron');
     expect(g).toContain('is-base');
-    expect(seals(g)).toBe(0);
+    expect(g).not.toContain('bzs-badge-seal');
     entState.patron = false;
   });
 
