@@ -532,6 +532,7 @@ export const ZH_TW: Record<MsgKey, string> = {
 
   /* ── 設定頁：標註 ────────────────────────────────────────── */
   'settings.pen': '預設筆色',
+  'settings.pen.hint': '點划詞條上的色點就會記在這裡，下次划詞、雙鏈、存知識盒都用這個顏色。',
   'settings.exportDir': '匯出目錄',
   'settings.pickFromList': '從資料夾清單裡選',
   'settings.pick': '選擇…',

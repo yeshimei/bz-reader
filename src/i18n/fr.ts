@@ -542,6 +542,7 @@ export const FR: Record<MsgKey, string> = {
 
   /* ── Réglages : surlignages ─────────────────────────────── */
   'settings.pen': 'Couleur par défaut',
+  'settings.pen.hint': 'Pick a swatch on the reader toolbar and it sticks here — your next highlight, link or knowledge-box save uses it.',
   'settings.exportDir': 'Dossier d’export',
   'settings.pickFromList': 'Choisir dans la liste des dossiers',
   'settings.pick': 'Choisir…',

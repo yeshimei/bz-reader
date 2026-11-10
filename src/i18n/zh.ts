@@ -555,7 +555,8 @@ export const ZH = {
   'settings.locked': '高级版功能：点一下看看包含什么',
 
   /* ── 设置页：标注 ────────────────────────────────────────── */
-  'settings.pen': '默认笔色',
+  'settings.pen': '划线颜色',
+  'settings.pen.hint': '点划词条上的色点就会记在这里，下次划词、双链、存知识盒都用这个颜色。',
   'settings.exportDir': '导出目录',
   'settings.pickFromList': '从文件夹清单里选',
   'settings.pick': '选择…',

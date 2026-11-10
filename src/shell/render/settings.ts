@@ -378,6 +378,7 @@ export function viewSettings(v: SettingsView): string {
         (c) =>
           `<button class="${v.pen === c.value ? 'on' : ''}" data-act="setpen" data-v="${c.value}"><span class="dot" style="background:${c.css}"></span>${colorLabel(c.value)}</button>`,
       ).join('')}</div></div>
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pen.hint')}</div>
       <div class="bzs-setrow"><label>${t('settings.exportDir')}</label>
         <button class="bzs-pickdir" data-act="pickexportdir" title="${t('settings.pickFromList')}">
           <span>${esc(s.exportDir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>

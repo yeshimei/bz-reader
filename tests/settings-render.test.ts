@@ -25,11 +25,11 @@ import { DEFAULT_SETTINGS } from '../src/data/settings';
 import { HIGHLIGHT_COLORS } from '../src/data/notes';
 import { viewSettings } from '../src/shell/render/settings';
 
-const html = (relicense = false, settings = DEFAULT_SETTINGS): string =>
+const html = (relicense = false, settings = DEFAULT_SETTINGS, pen = 'amber'): string =>
   viewSettings({
     prefs: DEFAULT_PREFS,
     settings,
-    pen: 'amber',
+    pen,
     hotkeys: [],
     relicense,
     version: '0.1.2',
@@ -696,5 +696,30 @@ describe('赞助人徽章 · 定制昵称', () => {
     expect(out).not.toContain('is-patron');
     entState.name = '';
     entState.unlocked = false;
+  });
+});
+
+/**
+ * 划线颜色（2026-11-10）
+ *
+ * 设置页这一行不是「一个独立的默认值」，它就是划词条上那四个色点：
+ * 点过哪个，这里选中哪个；这里的改动，下次划词、双链、存知识盒都用它。
+ * 所以设置页必须**看得见上次用的颜色**，并且说清楚它是同一处。
+ */
+describe('划线颜色 · 与划词条同一份', () => {
+  const selectedPen = (out: string): string[] =>
+    Array.from(out.matchAll(/class="on" data-act="setpen" data-v="(\w+)"/g)).map((m) => m[1]);
+
+  it('上次用的颜色在设置页里亮着', () => {
+    expect(selectedPen(html(false, DEFAULT_SETTINGS, 'blue'))).toEqual(['blue']);
+    expect(selectedPen(html(false, DEFAULT_SETTINGS, 'green'))).toEqual(['green']);
+  });
+
+  it('同一时刻只有一个色亮着（不是四选多）', () => {
+    expect(selectedPen(html(false, DEFAULT_SETTINGS, 'vermilion'))).toHaveLength(1);
+  });
+
+  it('说明写清楚"点色点会记住"，不是一句孤零零的默认值', () => {
+    expect(html()).toContain('点划词条上的色点就会记在这里');
   });
 });

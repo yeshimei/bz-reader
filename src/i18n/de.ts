@@ -540,6 +540,7 @@ export const DE: Record<MsgKey, string> = {
 
   /* ── Einstellungen: Markierungen ────────────────────────── */
   'settings.pen': 'Standardfarbe',
+  'settings.pen.hint': 'Pick a swatch on the reader toolbar and it sticks here — your next highlight, link or knowledge-box save uses it.',
   'settings.exportDir': 'Exportordner',
   'settings.pickFromList': 'Aus der Ordnerliste wählen',
   'settings.pick': 'Wählen…',

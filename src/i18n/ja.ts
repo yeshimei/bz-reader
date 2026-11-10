@@ -534,6 +534,7 @@ export const JA: Record<MsgKey, string> = {
 
   /* ── 設定：ハイライト ───────────────────────────────────── */
   'settings.pen': '既定の色',
+  'settings.pen.hint': 'Pick a swatch on the reader toolbar and it sticks here — your next highlight, link or knowledge-box save uses it.',
   'settings.exportDir': 'エクスポート先',
   'settings.pickFromList': 'フォルダ一覧から選ぶ',
   'settings.pick': '選択…',

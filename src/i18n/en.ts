@@ -543,7 +543,8 @@ export const EN: Record<MsgKey, string> = {
   'settings.locked': 'Pro feature — click to see what it includes',
 
   /* ── Settings: highlights ───────────────────────────────── */
-  'settings.pen': 'Default colour',
+  'settings.pen': 'Highlight colour',
+  'settings.pen.hint': 'Pick a swatch on the reader toolbar and it sticks here — your next highlight, link or knowledge-box save uses it.',
   'settings.exportDir': 'Export folder',
   'settings.pickFromList': 'Pick from the folder list',
   'settings.pick': 'Choose…',

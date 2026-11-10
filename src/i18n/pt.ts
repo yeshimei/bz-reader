@@ -542,6 +542,7 @@ export const PT: Record<MsgKey, string> = {
 
   /* ── Configurações: destaques ───────────────────────────── */
   'settings.pen': 'Cor padrão',
+  'settings.pen.hint': 'Pick a swatch on the reader toolbar and it sticks here — your next highlight, link or knowledge-box save uses it.',
   'settings.exportDir': 'Pasta de exportação',
   'settings.pickFromList': 'Escolher da lista de pastas',
   'settings.pick': 'Escolher…',

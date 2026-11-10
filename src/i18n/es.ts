@@ -541,6 +541,7 @@ export const ES: Record<MsgKey, string> = {
 
   /* ── Ajustes: subrayados ────────────────────────────────── */
   'settings.pen': 'Color predeterminado',
+  'settings.pen.hint': 'Pick a swatch on the reader toolbar and it sticks here — your next highlight, link or knowledge-box save uses it.',
   'settings.exportDir': 'Carpeta de exportación',
   'settings.pickFromList': 'Elegir de la lista de carpetas',
   'settings.pick': 'Elegir…',

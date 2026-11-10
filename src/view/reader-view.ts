@@ -1566,7 +1566,10 @@ export class ReaderView extends ItemView {
        按 CFI 再找一次，那两颗才会写「看名词 / 看段落」。以前只看 marked，
        刚存完再选中同一段，按钮还写「存为名词」，点下去却打开了笔记。 */
     const saved = marked ?? (book && info.cfiRange ? findHighlight(book, info.cfiRange) : undefined);
-    const activeColor = marked?.color ?? '';
+    /* 划词时色点也要亮出「当前用哪个色」：设置页那行和这里读的是同一份
+       state.pen。以前只按 marked 判，划词时四个色点都不亮，用户看不出
+       上次选的颜色还记着。点已有划线时仍按那条线的颜色亮。 */
+    const activeColor = marked?.color ?? getShellState().pen;
 
     const bar = el('div', 'bzs-selbar');
     if (live) bar.classList.add('is-marked');
