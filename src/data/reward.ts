@@ -24,7 +24,7 @@ export interface RewardName {
   name: string;
   /**
    * 金额位。
-   *  - 数字：微信赞赏码收到的金额（元，整数）；
+   *  - 数字：微信赞赏码收到的金额（元，按实际收到的记，3.14 就是 3.14）；
    *  - `'patron'`：不在赞赏码这条路（赞助商店买了东西），显示「赞助人」。
    */
   amount: number | 'patron';
@@ -38,9 +38,11 @@ export interface RewardName {
  * 留名名单（**时间倒序，最新在前**）。
  *
  * 2026-11-10 从 bz 抄来两位：面包（赞助人，同日）、执徐（12 元，2026-11-08）。
+ * 同日记入第三位 Sailing Fish（扫码 3.14 元，留言照登）——两笔同一天照记两条。
  * 新的一位插在数组最前面，别往末尾加——序号是倒着排的。
  */
 export const REWARD_NAMES: readonly RewardName[] = [
+  { name: 'Sailing Fish', amount: 3.14, date: '2026-11-10', message: '不错不错' },
   { name: '面包', amount: 'patron', date: '2026-11-10' },
   { name: '执徐', amount: 12, date: '2026-11-08', message: '伟大无需多言！' },
 ];

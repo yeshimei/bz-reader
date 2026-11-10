@@ -113,11 +113,23 @@ describe('弹窗内容', () => {
     expect(supportDialogHtml([])).toContain('还没有人打赏');
   });
 
-  it('内置名单与两位真人对得上（面包在前，执徐在后）', () => {
-    expect(REWARD_NAMES[0]?.name).toBe('面包');
-    expect(REWARD_NAMES[1]?.name).toBe('执徐');
-    expect(REWARD_NAMES[0]?.amount).toBe('patron');
-    expect(REWARD_NAMES[1]?.amount).toBe(12);
+  /* 别把真人姓名钉进断言：名单每来一笔就多一行，钉死人名等于每记一位都要改测试。
+     这里守的是名单的形态——非空、时间倒序、金额位只有两种写法。 */
+  it('内置名单：非空、最新在前、金额位只有数字或 patron', () => {
+    expect(REWARD_NAMES.length).toBeGreaterThan(0);
+
+    const stamps = REWARD_NAMES.map((r) => Date.parse(`${r.date}T00:00:00Z`));
+    for (let i = 1; i < stamps.length; i++) {
+      expect(stamps[i]!).toBeLessThanOrEqual(stamps[i - 1]!);
+    }
+
+    for (const r of REWARD_NAMES) {
+      expect(typeof r.amount === 'number' || r.amount === 'patron').toBe(true);
+    }
+  });
+
+  it('内置名单真的进了弹窗：第一行就是最新那一位', () => {
+    expect(supportDialogHtml(REWARD_NAMES)).toContain(REWARD_NAMES[0]!.name);
   });
 });
 
