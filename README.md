@@ -32,40 +32,47 @@
   <img src="docs/images/read-mobile-dark.webp" width="288" alt="阅读 · 移动端 · 暗色">
 </p>
 
+## 安装
+
+在社区市场安装（首次上架审核通过后可见）：
+
+1. 打开 **设置 → 第三方插件**，关闭安全模式。
+2. 点 **浏览**，搜索 **bz Reader**，安装。
+3. 启用后左侧出现 bz 图标，从书架开始。
+
+审核期间或搜不到时，用 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 添加本仓库安装，或手动下载 Release 里的 `main.js`、`manifest.json`、`styles.css`，放进 `<你的库>/.obsidian/plugins/bz-reader/` 后启用。
+
 ## 功能
 
 | 类别 | 功能 | 基础版 | 高级版 |
 |---|:---|:---:|:---:|
-| **阅读与书架** | EPUB / TXT 阅读与排版 | ✓ | ✓ |
+| **阅读与书架** | EPUB / TXT 打开即读 | ✓ | ✓ |
 |  | 单栏 / 双栏 | ✓ | ✓ |
 |  | 目录、书签、四色划线、想法 | ✓ | ✓ |
 |  | 书内搜索 | ✓ | ✓ |
-|  | 回到上一处 | ✓ | ✓ |
-|  | 脚注浮窗预览 | ✓ | ✓ |
+|  | 回到上一处：跳走之后一键回来 | ✓ | ✓ |
+|  | 脚注浮窗：小注不用离页 | ✓ | ✓ |
+|  | 划线做成书摘图片 | ✓ | ✓ |
 |  | 分类管理 | ✓ | ✓ |
-| **格式与导出** | Kindle 系（MOBI / AZW3）、FB2 与 CBZ 漫画 | — | ✓ |
-|  | 划线复制为双向链接 | — | ✓ |
+| **格式与导出** | Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画 | — | ✓ |
+|  | 划线存成双链：笔记里点回原文 | — | ✓ |
 |  | 引用页签：看哪些笔记引了这本书 | — | ✓ |
-|  | 导出整本摘录为 Markdown，每条带双链 | — | ✓ |
-|  | 划线做成书摘图片 | 部分 | ✓ |
-| **PDF 阅读** | 打开 PDF：缩放、旋转、单双页与滚动 | — | ✓ |
-|  | 页缩略图 | — | ✓ |
+|  | 导出整本摘录：每条带双链 | — | ✓ |
+| **PDF 阅读** | 打开 PDF：缩放、旋转、单双页、滚动，每本记住视角 | — | ✓ |
+|  | 页缩略图：几百页也能一屏找 | — | ✓ |
 |  | 复制页链接：页码 / 视图 / 嵌入 / 批注 | — | ✓ |
-|  | 划词自动复制页链接 | — | ✓ |
 |  | 本页反链与文件自带批注 | — | ✓ |
 |  | 导出本页为图片 | — | ✓ |
-|  | 记住每本书的缩放 | — | ✓ |
-| **统计与检索** | 阅读统计、打卡与目标 | — | ✓ |
-|  | 全库搜索 | — | ✓ |
-| **AI** | AI 解释、翻译与摘要 | — | ✓ |
+| **统计与检索** | 数据面板：时长、趋势、节律、书籍明细 | — | ✓ |
+|  | 阅读海报：年度总结与数据长图 | — | ✓ |
+|  | 全库搜索：PDF 正文也搜得到 | — | ✓ |
+| **AI（需自填接口与密钥）** | AI 解释、翻译与摘要：划词即用 | — | ✓ |
 |  | AI 全书问答 | — | ✓ |
-| **进阶** | 竖排排版 | — | ✓ |
-|  | 朗读 EPUB、TXT 与 PDF | — | ✓ |
+| **进阶** | 竖排排版：EPUB / TXT | — | ✓ |
+|  | 朗读：EPUB、TXT 与 PDF，念完自动翻页 | — | ✓ |
 |  | 与另一本书并排对照 | — | ✓ |
 |  | 全书鸟瞰 | — | ✓ |
-|  | 连接 BZ AI 知识库，需另装 bz | — | ✓ |
-
-「部分」＝文字书摘卡基础版可用，复制成图片需高级版。
+|  | 连接 BZ AI 知识库（需另装 bz） | — | ✓ |
 
 ## 界面语言
 
@@ -93,21 +100,9 @@
 ## 常见问题
 
 - **支持哪些格式？** EPUB 与 TXT 开箱即读；mobi、azw3、fb2、漫画与 PDF 在高级版。
-- **引用页签为什么是空的？** 引用页签属于高级版；升级后它列的是笔记里指向本书具体位置的链接，不是插件替你攒的笔记。「划线复制为双向链接」是生成这类链接最方便的方式，也可以自己在笔记里写一条。
-- **PDF 有什么限制？** 文字版 PDF 可以选字、划线、搜索与朗读，排版来自原文件（字号/行距不可调）；扫描版没有文字层，只能阅读和截图摘录，不提供 OCR。
 - **会和其他插件打架吗？** 阅读页是 Obsidian 原生视图，目录是左侧栏里的一个页签；划线可以复制成带定位的 Markdown 链接，点一下跳回原文那一句，不另建索引。
 - **换电脑怎么办？** 库同步过去，书架、进度和标注跟着走；高级版在新设备上重新填一次激活码。
 - **手机上要单独买吗？** 不用，同一个包，桌面与移动都包含在内。
-
-## 安装
-
-在社区市场安装（首次上架审核通过后可见）：
-
-1. 打开 **设置 → 第三方插件**，关闭安全模式。
-2. 点 **浏览**，搜索 **bz Reader**，安装。
-3. 启用后左侧出现 bz 图标，从书架开始。
-
-审核期间或搜不到时，用 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 添加本仓库安装，或手动下载 Release 里的 `main.js`、`manifest.json`、`styles.css`，放进 `<你的库>/.obsidian/plugins/bz-reader/` 后启用。
 
 ## 插件推荐
 
@@ -125,9 +120,7 @@
 
 插件的开发、维护和教程视频都是作者一个人在做。
 
-
 打赏后会出现在 bz 所有插件的感谢名单里（插件里走 设置 → 支持作者 就能看到）。
-
 
 **或者成为赞助人：[点击这里](https://wzyp.cn/shop/IFCEI5I3)**
 
@@ -139,40 +132,47 @@
 
 ## English
 
+### Installation
+
+Install from the community directory (visible once the initial review passes):
+
+1. Open **Settings → Community plugins** and turn off Restricted mode.
+2. Click **Browse**, search for **bz Reader**, and install.
+3. Enable it — a bz icon appears in the left ribbon; start from the shelf.
+
+While the review is pending, or if search doesn't find it, install with [BRAT](https://github.com/TfTHacker/obsidian42-brat), or download `main.js`, `manifest.json`, and `styles.css` from the Release and place them in `<your vault>/.obsidian/plugins/bz-reader/`, then enable the plugin.
+
 ### Features
 
 | Group | Feature | Free | Pro |
 |---|:---|:---:|:---:|
-| **Reading & Shelf** | EPUB / TXT reading and typography | ✓ | ✓ |
+| **Reading & Shelf** | EPUB / TXT, open and read | ✓ | ✓ |
 |  | One or two columns | ✓ | ✓ |
 |  | Contents, bookmarks, four-color highlights, notes | ✓ | ✓ |
 |  | In-book search | ✓ | ✓ |
-|  | Back to previous spot | ✓ | ✓ |
-|  | Footnote preview in a popover | ✓ | ✓ |
+|  | Back to your previous spot: one tap after any jump | ✓ | ✓ |
+|  | Footnotes in a popover: no need to leave the page | ✓ | ✓ |
+|  | Highlights as quote card images | ✓ | ✓ |
 |  | Shelf categories | ✓ | ✓ |
-| **Formats & Export** | Kindle family (MOBI / AZW3), FB2, and CBZ comics | — | ✓ |
-|  | Copy highlights as wikilinks | — | ✓ |
+| **Formats & Export** | Kindle family (MOBI / AZW3), FB2, CBZ comics | — | ✓ |
+|  | Highlights as wikilinks: click back from your notes | — | ✓ |
 |  | Citations tab: see which notes cite this book | — | ✓ |
-|  | Export every excerpt as Markdown, each with a wikilink | — | ✓ |
-|  | Highlights as quote card images | Partial | ✓ |
-| **PDF Reading** | Open PDFs: zoom, rotate, one- or two-page, and scroll | — | ✓ |
-|  | Page thumbnails | — | ✓ |
+|  | Export every excerpt, each with a wikilink | — | ✓ |
+| **PDF Reading** | Open a PDF: zoom, rotate, one or two pages, scroll; view remembered per book | — | ✓ |
+|  | Page thumbnails: find a page in a long book | — | ✓ |
 |  | Copy page links: page / view / embed / annotation | — | ✓ |
-|  | Auto-copy page links on selection | — | ✓ |
 |  | Backlinks on this page and annotations in the file | — | ✓ |
 |  | Export a page as an image | — | ✓ |
-|  | Remember zoom per book | — | ✓ |
-| **Stats & Search** | Reading stats, check-ins, and goals | — | ✓ |
-|  | Search the whole library | — | ✓ |
-| **AI** | Explain, translate, summarize a selection | — | ✓ |
+| **Stats & Search** | Stats panel: time, trends, rhythm, per-book detail | — | ✓ |
+|  | Reading poster: yearly recap and stats long image | — | ✓ |
+|  | Whole-library search, PDF text included | — | ✓ |
+| **AI (bring your own API key)** | Explain, translate, summarize a selection | — | ✓ |
 |  | AI Q&A over the whole book | — | ✓ |
-| **Advanced** | Vertical typesetting | — | ✓ |
-|  | Read EPUB, TXT and PDF aloud | — | ✓ |
+| **Advanced** | Vertical typesetting: EPUB / TXT | — | ✓ |
+|  | Read aloud: EPUB, TXT and PDF, auto page-turn | — | ✓ |
 |  | Read two books side by side | — | ✓ |
 |  | Book overview | — | ✓ |
-|  | Connect to the BZ AI knowledge base; requires bz | — | ✓ |
-
-Partial = the text quote card is free; exporting it as an image requires Pro.
+|  | Connect to the BZ AI knowledge base (requires bz) | — | ✓ |
 
 ### Interface languages
 
@@ -206,21 +206,9 @@ Only the AI features go online; everything else works fully offline.
 ### FAQ
 
 - **Which formats?** EPUB and TXT out of the box; mobi, azw3, fb2, comics, and PDF with Pro.
-- **Why is the Citations tab empty?** The Citations tab is part of Pro; once unlocked it lists links in your notes that point to a specific place in the book, not notes that bz-reader collects for you. "Copy highlight as wikilink" is the easiest way to make such a link, but you can also write one yourself.
-- **Any PDF caveats?** Text-based PDFs support selection, highlights, search, and read-aloud; the layout comes from the file itself (font size and line height are fixed). Scanned PDFs have no text layer, so only reading and screenshot excerpts are available — there is no OCR.
 - **Does it conflict with other plugins?** The reader is a native Obsidian view and the contents are a tab in the left sidebar. Highlights can be copied as locator Markdown links that jump back to the exact passage — no separate index is built.
 - **Switching computers?** Your vault carries the shelf, progress, and annotations. Re-enter the license key on the new device.
 - **Do I pay again on mobile?** No. One build covers desktop and mobile.
-
-### Installation
-
-Install from the community directory (visible once the initial review passes):
-
-1. Open **Settings → Community plugins** and turn off Restricted mode.
-2. Click **Browse**, search for **bz Reader**, and install.
-3. Enable it — a bz icon appears in the left ribbon; start from the shelf.
-
-While the review is pending, or if search doesn't find it, install with [BRAT](https://github.com/TfTHacker/obsidian42-brat), or download `main.js`, `manifest.json`, and `styles.css` from the Release and place them in `<your vault>/.obsidian/plugins/bz-reader/`, then enable the plugin.
 
 ### Recommended plugins
 
@@ -239,40 +227,47 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 
 把 Obsidian 變成一個能讀書的地方。桌面端 + 行動端、多格式（包括 PDF）、多語言支援、AI 全書問答、雙向連結，資料全部本地。
 
+### 安裝
+
+在社群市集安裝（首次上架審核通過後可見）：
+
+1. 開啟 **設定 → 第三方外掛**，關閉安全模式。
+2. 點 **瀏覽**，搜尋 **bz Reader**，安裝。
+3. 啟用後左側出現 bz 圖示，從書架開始。
+
+審核期間或搜不到時，用 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 加入本倉庫安裝，或手動下載 Release 裡的 `main.js`、`manifest.json`、`styles.css`，放進 `<你的庫>/.obsidian/plugins/bz-reader/` 後啟用。
+
 ### 功能
 
 | 類別 | 功能 | 基礎版 | 高級版 |
 |---|:---|:---:|:---:|
-| **閱讀與書架** | EPUB / TXT 閱讀與排版 | ✓ | ✓ |
+| **閱讀與書架** | EPUB / TXT 開啟即讀 | ✓ | ✓ |
 |  | 單欄 / 雙欄 | ✓ | ✓ |
 |  | 目錄、書籤、四色劃線、想法 | ✓ | ✓ |
 |  | 書內搜尋 | ✓ | ✓ |
-|  | 回到上一處 | ✓ | ✓ |
-|  | 腳註浮窗預覽 | ✓ | ✓ |
+|  | 回到上一處：跳走之後一鍵回來 | ✓ | ✓ |
+|  | 腳註浮窗：小註不用離頁 | ✓ | ✓ |
+|  | 劃線做成書摘圖片 | ✓ | ✓ |
 |  | 分類管理 | ✓ | ✓ |
-| **格式與匯出** | Kindle 系（MOBI / AZW3）、FB2 與 CBZ 漫畫 | — | ✓ |
-|  | 劃線複製為雙向連結 | — | ✓ |
+| **格式與匯出** | Kindle 系（MOBI / AZW3）、FB2、CBZ 漫畫 | — | ✓ |
+|  | 劃線存成雙鏈：筆記裡點回原文 | — | ✓ |
 |  | 引用頁籤：看哪些筆記引用了本書 | — | ✓ |
-|  | 匯出整本摘錄為 Markdown，每條帶雙鏈 | — | ✓ |
-|  | 劃線做成書摘圖片 | 部分 | ✓ |
-| **PDF 閱讀** | 開啟 PDF：縮放、旋轉、單雙頁與捲動 | — | ✓ |
-|  | 頁縮圖 | — | ✓ |
+|  | 匯出整本摘錄：每條帶雙鏈 | — | ✓ |
+| **PDF 閱讀** | 開啟 PDF：縮放、旋轉、單雙頁、捲動，每本記住視角 | — | ✓ |
+|  | 頁縮圖：幾百頁也能一屏找 | — | ✓ |
 |  | 複製頁連結：頁碼 / 檢視 / 嵌入 / 批註 | — | ✓ |
-|  | 劃詞自動複製頁連結 | — | ✓ |
 |  | 本頁反鏈與檔案自帶批註 | — | ✓ |
 |  | 匯出本頁為圖片 | — | ✓ |
-|  | 記住每本書的縮放 | — | ✓ |
-| **統計與搜尋** | 閱讀統計、打卡與目標 | — | ✓ |
-|  | 全庫搜尋 | — | ✓ |
-| **AI** | AI 解釋、翻譯與摘要 | — | ✓ |
+| **統計與搜尋** | 資料面板：時長、趨勢、節律、書籍明細 | — | ✓ |
+|  | 閱讀海報：年度總結與資料長圖 | — | ✓ |
+|  | 全庫搜尋：PDF 正文也搜得到 | — | ✓ |
+| **AI（需自填介面與金鑰）** | AI 解釋、翻譯與摘要：劃詞即用 | — | ✓ |
 |  | AI 全書問答 | — | ✓ |
-| **進階** | 豎排排版 | — | ✓ |
-|  | 朗讀 EPUB、TXT 與 PDF | — | ✓ |
+| **進階** | 豎排排版：EPUB / TXT | — | ✓ |
+|  | 朗讀：EPUB、TXT 與 PDF，念完自動翻頁 | — | ✓ |
 |  | 與另一本書並排對照 | — | ✓ |
 |  | 全書鳥瞰 | — | ✓ |
-|  | 連接 BZ AI 知識庫，需另裝 bz | — | ✓ |
-
-「部分」＝文字書摘卡基礎版可用，複製成圖片需高級版。
+|  | 連接 BZ AI 知識庫（需另裝 bz） | — | ✓ |
 
 ### 介面語言
 
@@ -300,21 +295,9 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 ### 常見問題
 
 - **支援哪些格式？** EPUB 與 TXT 開箱即讀；mobi、azw3、fb2、漫畫與 PDF 在高級版。
-- **引用頁籤為什麼是空的？** 引用頁籤屬於高級版；升級後它列的是筆記裡指向本書具體位置的連結，不是插件替你攢的筆記。「劃線複製為雙向連結」是產生這類連結最方便的方式，也可以自己在筆記裡寫一條。
-- **PDF 有什麼限制？** 文字版 PDF 可以選字、劃線、搜尋與朗讀，排版來自原檔（字級/行距不可調）；掃描版沒有文字層，只能閱讀與截圖摘錄，不提供 OCR。
 - **會和其他外掛衝突嗎？** 閱讀頁是 Obsidian 原生檢視，目錄是左側欄裡的一個頁籤；劃線可以複製成帶定位的 Markdown 連結，點一下跳回原文那一句，不另建索引。
 - **換電腦怎麼辦？** 庫同步過去，書架、進度與標註跟著走；高級版在新裝置上重新填一次啟用碼。
 - **手機上要單獨買嗎？** 不用，同一個包，桌面與行動都包含在內。
-
-### 安裝
-
-在社群市集安裝（首次上架審核通過後可見）：
-
-1. 開啟 **設定 → 第三方外掛**，關閉安全模式。
-2. 點 **瀏覽**，搜尋 **bz Reader**，安裝。
-3. 啟用後左側出現 bz 圖示，從書架開始。
-
-審核期間或搜不到時，用 [BRAT](https://github.com/TfTHacker/obsidian42-brat) 加入本倉庫安裝，或手動下載 Release 裡的 `main.js`、`manifest.json`、`styles.css`，放進 `<你的庫>/.obsidian/plugins/bz-reader/` 後啟用。
 
 ### 外掛推薦
 
@@ -333,38 +316,47 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 
 Obsidian を「本を読む場所」に。デスクトップ + モバイル、複数フォーマット（PDF を含む）、多言語対応、AI 全書 Q&A、双方向リンク。データはすべてローカル。
 
+### インストール
+
+コミュニティディレクトリからインストールします（初回審査の通過後に表示されます）。
+
+1. **設定 → コミュニティプラグイン** を開き、制限モードを解除します。
+2. **閲覧** をクリックし、**bz Reader** を検索してインストールします。
+3. 有効にすると左リボンに bz アイコンが現れます。本棚から始めてください。
+
+審査中で見つからない場合は、[BRAT](https://github.com/TfTHacker/obsidian42-brat) でこのリポジトリを追加するか、Release から `main.js`・`manifest.json`・`styles.css` をダウンロードして `<保管庫>/.obsidian/plugins/bz-reader/` に置き、有効化してください。
+
 ### 機能
 
 | 区分 | 機能 | ベーシック版 | プロ版 |
 |---|:---|:---:|:---:|
-| **読書と本棚** | EPUB / TXT の読書・ページ送り・組版 | ✓ | ✓ |
+| **読書と本棚** | EPUB / TXT をすぐ読める | ✓ | ✓ |
 |  | 1 段 / 2 段組 | ✓ | ✓ |
 |  | 目次・ブックマーク・4 色ハイライトとメモ | ✓ | ✓ |
 |  | 本文内検索 | ✓ | ✓ |
-|  | 前の位置に戻る | ✓ | ✓ |
-|  | 脚注のポップアップ表示 | ✓ | ✓ |
+|  | 前の位置に戻る：移動したあとワンタップで戻れる | ✓ | ✓ |
+|  | 脚注ポップアップ：ページを離れずに読める | ✓ | ✓ |
+|  | 引用カード画像 | ✓ | ✓ |
 |  | カテゴリ管理 | ✓ | ✓ |
-| **形式と書き出し** | mobi / azw3 / fb2 / コミック | — | ✓ |
-|  | ハイライトを双方向リンクとしてコピー | — | ✓ |
+| **形式と書き出し** | Kindle 系（MOBI / AZW3）、FB2、CBZ コミック | — | ✓ |
+|  | ハイライトを双方向リンクに：ノートから原文へ | — | ✓ |
 |  | 引用タブ：この本を引用したノート | — | ✓ |
-|  | 全ての抜粋を Markdown に書き出し、各項目に双方向リンク | — | ✓ |
-|  | 引用カード画像 | 一部 | ✓ |
-| **PDF を読む** | PDF を開く：ズーム・回転・見開き・スクロール | — | ✓ |
-|  | ページのサムネイル | — | ✓ |
+|  | 抜粋をまとめて書き出し、各項目に双方向リンク | — | ✓ |
+| **PDF を読む** | PDF を開く：ズーム・回転・見開き・スクロール、本ごとに表示を記憶 | — | ✓ |
+|  | ページサムネイル：長い本でも一画面で探せる | — | ✓ |
 |  | ページリンクをコピー：ページ / ビュー / 埋め込み / 注釈 | — | ✓ |
-|  | 選択時にページリンクを自動コピー | — | ✓ |
 |  | このページへの被リンクとファイル内の注釈 | — | ✓ |
 |  | このページを画像として書き出す | — | ✓ |
-|  | 本ごとにズームを記憶 | — | ✓ |
-| **統計と検索** | 読書統計・チェックイン・目標 | — | ✓ |
-|  | ライブラリ全体を検索 | — | ✓ |
-| **AI** | AI による解説 / 翻訳 / 要約 | — | ✓ |
+| **統計と検索** | データパネル：時間・推移・リズム・書籍別の内訳 | — | ✓ |
+|  | 読書ポスター：年間まとめとデータ長画像 | — | ✓ |
+|  | ライブラリ全体を検索：PDF 本文も対象 | — | ✓ |
+| **AI（API キーはご自身で）** | AI 解説・翻訳・要約：選択するだけ | — | ✓ |
 |  | AI 全書 Q&A | — | ✓ |
-| **上級** | 縦組み | — | ✓ |
-|  | EPUB・TXT・PDF の読み上げ | — | ✓ |
+| **上級** | 縦組み：EPUB / TXT | — | ✓ |
+|  | 読み上げ：EPUB・TXT・PDF、読み終えたら自動で次のページ | — | ✓ |
 |  | 別の本と並べて対照 | — | ✓ |
 |  | 全体マップ | — | ✓ |
-|  | BZ AI ナレッジベースに接続、bz が必要 | — | ✓ |
+|  | BZ AI ナレッジベースに接続（bz が必要） | — | ✓ |
 
 「一部」＝テキストの引用カードはベーシック版で利用可、画像として書き出すにはプロ版が必要です。
 
@@ -394,21 +386,9 @@ Obsidian を「本を読む場所」に。デスクトップ + モバイル、�
 ### よくある質問
 
 - **対応フォーマットは？** EPUB と TXT はすぐ読めます。mobi・azw3・fb2・コミックと PDF はプロ版です。
-- **「引用」タブが空なのはなぜ？** 「引用」タブはプロ版の機能です。有効にすると、ノートの中で本の特定の場所を指すリンクが並びます（プラグインが集めたメモではありません）。「ハイライトを双方向リンクとしてコピー」が一番手軽ですが、自分でノートに書いても表示されます。
-- **PDF の制限は？** テキスト型 PDF は文字選択・ハイライト・検索・読み上げに対応し、組版は元ファイルのままです（文字サイズと行間は固定）。スキャン版には文字レイヤーがないため、閲覧とページの画像書き出しのみで、OCR はありません。
 - **他のプラグインと衝突しますか？** 読書画面は Obsidian のネイティブビュー、目次は左サイドバーのタブです。ハイライトは位置情報つきの Markdown リンクとしてコピーでき、クリックすると元の一文に戻ります。別途インデックスは作りません。
 - **PC を買い替えたら？** 保管庫を同期すれば本棚・進捗・注釈もついてきます。プロ版は新しい端末でキーを再入力してください。
 - **モバイルで別途購入が必要？** いいえ。1 つのビルドでデスクトップもモバイルも使えます。
-
-### インストール
-
-コミュニティディレクトリからインストールします（初回審査の通過後に表示されます）。
-
-1. **設定 → コミュニティプラグイン** を開き、制限モードを解除します。
-2. **閲覧** をクリックし、**bz Reader** を検索してインストールします。
-3. 有効にすると左リボンに bz アイコンが現れます。本棚から始めてください。
-
-審査中で見つからない場合は、[BRAT](https://github.com/TfTHacker/obsidian42-brat) でこのリポジトリを追加するか、Release から `main.js`・`manifest.json`・`styles.css` をダウンロードして `<保管庫>/.obsidian/plugins/bz-reader/` に置き、有効化してください。
 
 ### おすすめプラグイン
 
@@ -427,40 +407,47 @@ Obsidian を「本を読む場所」に。デスクトップ + モバイル、�
 
 Mach aus Obsidian einen Ort zum Lesen. Desktop und Mobil, mehrere Formate (einschließlich PDF), mehrsprachige Oberfläche, KI-Fragen zum ganzen Buch, Wikilinks. Alle Daten bleiben lokal.
 
+### Installation
+
+Installation über das Community-Verzeichnis (sichtbar, sobald die erste Prüfung durch ist):
+
+1. **Einstellungen → Community-Plugins** öffnen und den eingeschränkten Modus ausschalten.
+2. Auf **Durchsuchen** klicken, nach **bz Reader** suchen und installieren.
+3. Aktivieren — links erscheint ein bz-Symbol; das Regal ist der Einstieg.
+
+Solange die Prüfung läuft oder die Suche nichts findet: mit [BRAT](https://github.com/TfTHacker/obsidian42-brat) dieses Repository hinzufügen, oder `main.js`, `manifest.json` und `styles.css` aus dem Release herunterladen, nach `<dein Vault>/.obsidian/plugins/bz-reader/` legen und aktivieren.
+
 ### Funktionen
 
 | Bereich | Funktion | Basis | Pro |
 |---|:---|:---:|:---:|
-| **Lesen & Regal** | EPUB / TXT lesen, blättern, Satz einstellen | ✓ | ✓ |
+| **Lesen & Regal** | EPUB / TXT sofort lesbar | ✓ | ✓ |
 |  | Eine oder zwei Spalten | ✓ | ✓ |
 |  | Inhalt, Lesezeichen, vier Markierungsfarben und Notizen | ✓ | ✓ |
 |  | Suche im Buch | ✓ | ✓ |
-|  | Zur vorherigen Stelle zurück | ✓ | ✓ |
-|  | Fußnoten als Pop-up | ✓ | ✓ |
+|  | Zur vorherigen Stelle zurück – nach jedem Sprung ein Klick | ✓ | ✓ |
+|  | Fußnoten im Pop-up – ohne die Seite zu verlassen | ✓ | ✓ |
+|  | Zitatkarten als Bild | ✓ | ✓ |
 |  | Regal-Kategorien | ✓ | ✓ |
-| **Formate & Export** | mobi / azw3 / fb2 / Comics | — | ✓ |
-|  | Markierungen als Wikilink kopieren | — | ✓ |
+| **Formate & Export** | Kindle-Familie (MOBI / AZW3), FB2, CBZ-Comics | — | ✓ |
+|  | Markierungen als Wikilinks: aus der Notiz zur Stelle | — | ✓ |
 |  | Zitate-Tab: welche Notizen dieses Buch zitieren | — | ✓ |
-|  | Alle Exzerpte als Markdown exportieren, jeweils mit Wikilink | — | ✓ |
-|  | Zitatkarten als Bild | Teilweise | ✓ |
-| **PDF lesen** | PDF öffnen: zoomen, drehen, Einzelseite / Doppelseite, Scrollen | — | ✓ |
-|  | Seitenminiaturen | — | ✓ |
+|  | Alle Exzerpte exportieren, jeweils mit Wikilink | — | ✓ |
+| **PDF lesen** | PDF öffnen: zoomen, drehen, Einzel- / Doppelseite, Scrollen; Ansicht pro Buch | — | ✓ |
+|  | Seitenminiaturen: auch in langen Büchern schnell finden | — | ✓ |
 |  | Seitenlinks kopieren: Seite / Ansicht / Einbettung / Anmerkung | — | ✓ |
-|  | Seitenlinks bei Auswahl automatisch kopieren | — | ✓ |
 |  | Backlinks auf dieser Seite und Anmerkungen in der Datei | — | ✓ |
 |  | Seite als Bild exportieren | — | ✓ |
-|  | Zoom pro Buch merken | — | ✓ |
-| **Statistik & Suche** | Lesestatistik, Check-ins und Ziele | — | ✓ |
-|  | Die ganze Bibliothek durchsuchen | — | ✓ |
-| **AI** | KI: Erklärungen / Übersetzung / Zusammenfassungen | — | ✓ |
+| **Statistik & Suche** | Statistikpanel: Zeit, Verlauf, Rhythmus, Details je Buch | — | ✓ |
+|  | Leseposter: Jahresrückblick und Daten-Langbild | — | ✓ |
+|  | Bibliothek durchsuchen, PDF-Text inklusive | — | ✓ |
+| **KI (eigener API-Schlüssel)** | KI: erklären, übersetzen, zusammenfassen — direkt zur Auswahl | — | ✓ |
 |  | KI: Fragen zum ganzen Buch | — | ✓ |
-| **Fortgeschritten** | Vertikaler Satz | — | ✓ |
-|  | EPUB, TXT und PDF vorlesen | — | ✓ |
+| **Fortgeschritten** | Vertikaler Satz: EPUB / TXT | — | ✓ |
+|  | Vorlesen: EPUB, TXT und PDF, blättert automatisch weiter | — | ✓ |
 |  | Zwei Bücher nebeneinander lesen | — | ✓ |
 |  | Buchübersicht | — | ✓ |
-|  | Mit der BZ-KI-Wissensdatenbank verbinden; bz erforderlich | — | ✓ |
-
-Teilweise = die Text-Zitatkarte ist in der Basisversion nutzbar; der Bildexport erfordert Pro.
+|  | Mit der BZ-KI-Wissensdatenbank verbinden (bz erforderlich) | — | ✓ |
 
 ### Oberflächensprachen
 
@@ -488,21 +475,9 @@ Nur die KI-Funktionen gehen online; alles andere arbeitet vollständig offline.
 ### Häufige Fragen
 
 - **Welche Formate?** EPUB und TXT sofort; mobi, azw3, fb2, Comics und PDF mit Pro.
-- **Warum bleibt die Registerkarte „Zitate“ leer?** Das Register gehört zur Pro-Version; nach dem Freischalten listet es Links in deinen Notizen auf, die auf eine bestimmte Stelle im Buch verweisen — keine Notizen, die das Plugin für dich sammelt. „Markierung als Wikilink kopieren“ ist der bequemste Weg, so einen Link zu erzeugen; du kannst ihn aber auch selbst in eine Notiz schreiben.
-- **Gibt es Einschränkungen bei PDF?** Textbasierte PDFs unterstützen Auswahl, Markierungen, Suche und Vorlesen; das Layout stammt aus der Datei (Schriftgröße und Zeilenhöhe sind fest). Scans ohne Textschicht erlauben nur Lesen und den Seitenexport als Bild – OCR gibt es nicht.
 - **Kollidiert es mit anderen Plugins?** Die Leseansicht ist eine native Obsidian-Ansicht, der Inhalt ein Tab in der linken Seitenleiste. Markierungen lassen sich als Markdown-Links mit Positionsangabe kopieren, die zur genauen Stelle zurückspringen — ein eigener Index wird nicht angelegt.
 - **Rechnerwechsel?** Der Vault nimmt Regal, Fortschritt und Anmerkungen mit. Den Lizenzschlüssel auf dem neuen Gerät erneut eingeben.
 - **Muss ich mobil noch einmal zahlen?** Nein. Ein Build deckt Desktop und Mobil ab.
-
-### Installation
-
-Installation über das Community-Verzeichnis (sichtbar, sobald die erste Prüfung durch ist):
-
-1. **Einstellungen → Community-Plugins** öffnen und den eingeschränkten Modus ausschalten.
-2. Auf **Durchsuchen** klicken, nach **bz Reader** suchen und installieren.
-3. Aktivieren — links erscheint ein bz-Symbol; das Regal ist der Einstieg.
-
-Solange die Prüfung läuft oder die Suche nichts findet: mit [BRAT](https://github.com/TfTHacker/obsidian42-brat) dieses Repository hinzufügen, oder `main.js`, `manifest.json` und `styles.css` aus dem Release herunterladen, nach `<dein Vault>/.obsidian/plugins/bz-reader/` legen und aktivieren.
 
 ### Empfohlene Plugins
 
@@ -521,40 +496,47 @@ Veröffentlicht unter der [MIT](LICENSE)-Lizenz. Die Rendering-Engine ist [folia
 
 Faites d'Obsidian un endroit où lire. Bureau et mobile, plusieurs formats (dont PDF), interface multilingue, questions IA sur tout le livre, wikiliens. Toutes les données restent en local.
 
+### Installation
+
+Installation depuis le répertoire communautaire (visible une fois la première validation passée) :
+
+1. Ouvrir **Réglages → Modules complémentaires** et désactiver le mode restreint.
+2. Cliquer sur **Parcourir**, chercher **bz Reader** et installer.
+3. Activer — une icône bz apparaît dans le ruban de gauche ; commencez par la bibliothèque.
+
+Pendant la validation, ou si la recherche ne donne rien : ajoutez ce dépôt avec [BRAT](https://github.com/TfTHacker/obsidian42-brat), ou téléchargez `main.js`, `manifest.json` et `styles.css` depuis la Release, placez-les dans `<votre coffre>/.obsidian/plugins/bz-reader/`, puis activez.
+
 ### Fonctionnalités
 
 | Catégorie | Fonction | Base | Pro |
 |---|:---|:---:|:---:|
-| **Lecture & bibliothèque** | Lecture EPUB / TXT, pagination et composition | ✓ | ✓ |
+| **Lecture & bibliothèque** | EPUB / TXT prêts à lire | ✓ | ✓ |
 |  | Une ou deux colonnes | ✓ | ✓ |
 |  | Sommaire, signets, quatre couleurs de surlignage et notes | ✓ | ✓ |
 |  | Recherche dans le livre | ✓ | ✓ |
-|  | Revenir à la position précédente | ✓ | ✓ |
-|  | Aperçu des notes de bas de page | ✓ | ✓ |
+|  | Revenir à votre position précédente : un clic après un saut | ✓ | ✓ |
+|  | Notes de bas de page en bulle : sans quitter la page | ✓ | ✓ |
+|  | Images de cartes de citation | ✓ | ✓ |
 |  | Gestion des catégories | ✓ | ✓ |
-| **Formats & export** | mobi / azw3 / fb2 / BD | — | ✓ |
-|  | Copier les surlignages en wikiliens | — | ✓ |
+| **Formats & export** | Famille Kindle (MOBI / AZW3), FB2, BD en CBZ | — | ✓ |
+|  | Surlignages en wikiliens : revenir au texte depuis la note | — | ✓ |
 |  | Onglet Citations : quelles notes citent ce livre | — | ✓ |
-|  | Exporter tous les extraits en Markdown, chacun avec un wikilien | — | ✓ |
-|  | Images de cartes de citation | Partiel | ✓ |
-| **Lecture PDF** | Ouvrir un PDF : zoom, rotation, page simple / double et défilement | — | ✓ |
-|  | Miniatures des pages | — | ✓ |
+|  | Exporter tous les extraits, chacun avec un wikilien | — | ✓ |
+| **Lecture PDF** | Ouvrir un PDF : zoom, rotation, page simple ou double, défilement ; vue mémorisée par livre | — | ✓ |
+|  | Miniatures : retrouver une page dans un long livre | — | ✓ |
 |  | Copier les liens de page : page / vue / intégration / annotation | — | ✓ |
-|  | Copier automatiquement le lien de page à la sélection | — | ✓ |
 |  | Rétroliens sur cette page et annotations du fichier | — | ✓ |
 |  | Exporter une page en image | — | ✓ |
-|  | Mémoriser le zoom par livre | — | ✓ |
-| **Statistiques & recherche** | Statistiques de lecture, pointages et objectifs | — | ✓ |
-|  | Rechercher dans toute la bibliothèque | — | ✓ |
-| **IA** | IA : explications / traduction / résumés | — | ✓ |
+| **Statistiques & recherche** | Panneau de stats : temps, tendances, rythme, détail par livre | — | ✓ |
+|  | Affiche de lecture : bilan annuel et image longue | — | ✓ |
+|  | Recherche dans toute la bibliothèque, texte des PDF inclus | — | ✓ |
+| **IA (clé API à fournir)** | IA : expliquer, traduire, résumer une sélection | — | ✓ |
 |  | Questions IA sur tout le livre | — | ✓ |
-| **Avancé** | Composition verticale | — | ✓ |
-|  | Lecture vocale EPUB, TXT et PDF | — | ✓ |
+| **Avancé** | Composition verticale : EPUB / TXT | — | ✓ |
+|  | Lecture vocale : EPUB, TXT et PDF, page suivante automatique | — | ✓ |
 |  | Lire deux livres côte à côte | — | ✓ |
 |  | Vue d'ensemble du livre | — | ✓ |
-|  | Se connecter à la base BZ AI ; nécessite bz | — | ✓ |
-
-Partiel = la carte de citation texte est disponible en Base ; l'export en image demande Pro.
+|  | Se connecter à la base BZ AI (nécessite bz) | — | ✓ |
 
 ### Langues de l'interface
 
@@ -582,21 +564,9 @@ Seules les fonctions d'IA vont en ligne ; tout le reste fonctionne hors ligne.
 ### Questions fréquentes
 
 - **Quels formats ?** EPUB et TXT d'emblée ; mobi, azw3, fb2, BD et PDF avec Pro.
-- **Pourquoi l'onglet Citations est-il vide ?** L'onglet Citations fait partie de la version Pro ; une fois déverrouillé, il liste les liens dans vos notes qui pointent vers un endroit précis du livre, pas des notes collectées par le greffon. « Copier le surlignage comme wikilien » est le moyen le plus simple d'en créer un, mais vous pouvez aussi l'écrire vous-même.
-- **Des limites pour les PDF ?** Les PDF avec couche de texte permettent la sélection, le surlignage, la recherche et la lecture vocale ; la mise en page vient du fichier (taille de police et interligne fixes). Les PDF scannés n'ont pas de couche de texte : lecture et export de la page en image seulement, pas d'OCR.
 - **Des conflits avec d'autres plugins ?** Le lecteur est une vue native d'Obsidian et le sommaire un onglet du panneau latéral gauche. Les surlignages se copient en liens Markdown avec repère qui reviennent au passage exact — aucun index séparé n'est construit.
 - **Changer d'ordinateur ?** Le coffre emporte la bibliothèque, la progression et les annotations. Ressaisissez la clé de licence sur le nouvel appareil.
 - **Faut-il payer à nouveau sur mobile ?** Non. Une seule version couvre bureau et mobile.
-
-### Installation
-
-Installation depuis le répertoire communautaire (visible une fois la première validation passée) :
-
-1. Ouvrir **Réglages → Modules complémentaires** et désactiver le mode restreint.
-2. Cliquer sur **Parcourir**, chercher **bz Reader** et installer.
-3. Activer — une icône bz apparaît dans le ruban de gauche ; commencez par la bibliothèque.
-
-Pendant la validation, ou si la recherche ne donne rien : ajoutez ce dépôt avec [BRAT](https://github.com/TfTHacker/obsidian42-brat), ou téléchargez `main.js`, `manifest.json` et `styles.css` depuis la Release, placez-les dans `<votre coffre>/.obsidian/plugins/bz-reader/`, puis activez.
 
 ### Extensions recommandées
 
@@ -615,40 +585,47 @@ Publié sous licence [MIT](LICENSE). Le moteur de rendu est [foliate-js](https:/
 
 Convierte Obsidian en un lugar donde leer. Escritorio y móvil, varios formatos (incluido PDF), interfaz multilingüe, preguntas de IA sobre todo el libro, wikienlaces. Todos los datos se guardan en local.
 
+### Instalación
+
+Instalación desde el directorio comunitario (visible cuando pase la primera revisión):
+
+1. Abre **Ajustes → Complementos de la comunidad** y desactiva el modo restringido.
+2. Pulsa **Explorar**, busca **bz Reader** e instala.
+3. Actívalo: aparece un icono bz en la cinta izquierda; empieza por la estantería.
+
+Mientras la revisión esté pendiente, o si la búsqueda no lo encuentra, añade este repositorio con [BRAT](https://github.com/TfTHacker/obsidian42-brat), o descarga `main.js`, `manifest.json` y `styles.css` desde la Release y colócalos en `<tu bóveda>/.obsidian/plugins/bz-reader/`, luego actívalo.
+
 ### Funciones
 
 | Categoría | Función | Base | Pro |
 |---|:---|:---:|:---:|
-| **Lectura y estantería** | Lectura EPUB / TXT, paginación y tipografía | ✓ | ✓ |
+| **Lectura y estantería** | EPUB / TXT listos para leer | ✓ | ✓ |
 |  | Una o dos columnas | ✓ | ✓ |
 |  | Índice, marcadores, cuatro colores de subrayado y notas | ✓ | ✓ |
 |  | Búsqueda dentro del libro | ✓ | ✓ |
-|  | Volver a la posición anterior | ✓ | ✓ |
-|  | Vista previa de notas al pie | ✓ | ✓ |
+|  | Volver a la posición anterior: un toque tras cualquier salto | ✓ | ✓ |
+|  | Notas al pie en ventana: sin salir de la página | ✓ | ✓ |
+|  | Imágenes de tarjetas de cita | ✓ | ✓ |
 |  | Gestión de categorías | ✓ | ✓ |
-| **Formatos y exportación** | mobi / azw3 / fb2 / cómic | — | ✓ |
-|  | Copiar subrayados como wikienlaces | — | ✓ |
+| **Formatos y exportación** | Familia Kindle (MOBI / AZW3), FB2, cómics en CBZ | — | ✓ |
+|  | Subrayados como wikienlaces: volver al texto desde la nota | — | ✓ |
 |  | Pestaña Citas: qué notas citan este libro | — | ✓ |
-|  | Exportar todos los extractos a Markdown, cada uno con un wikienlace | — | ✓ |
-|  | Imágenes de tarjetas de cita | Parcial | ✓ |
-| **Lectura de PDF** | Abrir PDF: zoom, rotación, una o dos páginas y desplazamiento | — | ✓ |
-|  | Miniaturas de páginas | — | ✓ |
+|  | Exportar todos los extractos, cada uno con un wikienlace | — | ✓ |
+| **Lectura de PDF** | Abrir un PDF: zoom, rotación, una o dos páginas, desplazamiento; vista por libro | — | ✓ |
+|  | Miniaturas: encontrar una página en un libro largo | — | ✓ |
 |  | Copiar enlaces de página: página / vista / incrustación / anotación | — | ✓ |
-|  | Copiar automáticamente el enlace de página al seleccionar | — | ✓ |
 |  | Retroenlaces de esta página y anotaciones del archivo | — | ✓ |
 |  | Exportar una página como imagen | — | ✓ |
-|  | Recordar el zoom de cada libro | — | ✓ |
-| **Estadísticas y búsqueda** | Estadísticas de lectura, registro diario y objetivos | — | ✓ |
-|  | Buscar en toda la biblioteca | — | ✓ |
-| **IA** | IA: explicaciones / traducción / resúmenes | — | ✓ |
+| **Estadísticas y búsqueda** | Panel de datos: tiempo, tendencias, ritmo, detalle por libro | — | ✓ |
+|  | Póster de lectura: resumen anual e imagen larga | — | ✓ |
+|  | Búsqueda en toda la biblioteca, texto de PDF incluido | — | ✓ |
+| **IA (clave API propia)** | IA: explicar, traducir, resumir una selección | — | ✓ |
 |  | Preguntas de IA sobre todo el libro | — | ✓ |
-| **Avanzado** | Composición vertical | — | ✓ |
-|  | Lectura en voz alta de EPUB, TXT y PDF | — | ✓ |
+| **Avanzado** | Composición vertical: EPUB / TXT | — | ✓ |
+|  | Lectura en voz alta: EPUB, TXT y PDF, pasa de página sola | — | ✓ |
 |  | Leer dos libros en paralelo | — | ✓ |
 |  | Vista general del libro | — | ✓ |
-|  | Conectar con la base de conocimiento BZ AI; requiere bz | — | ✓ |
-
-Parcial = la tarjeta de cita de texto está disponible en Base; exportarla como imagen requiere Pro.
+|  | Conectar con la base de conocimiento BZ AI (requiere bz) | — | ✓ |
 
 ### Idiomas de la interfaz
 
@@ -676,21 +653,9 @@ Solo las funciones de IA se conectan; todo lo demás funciona sin conexión.
 ### Preguntas frecuentes
 
 - **¿Qué formatos?** EPUB y TXT de serie; mobi, azw3, fb2, cómic y PDF con Pro.
-- **¿Por qué la pestaña Citas está vacía?** La pestaña Citas forma parte de la versión Pro; una vez activada, muestra los enlaces de tus notas que apuntan a un lugar concreto del libro, no notas que el plugin recopile por su cuenta. «Copiar subrayado como wikienlace» es la forma más cómoda de crearlos, pero también puedes escribir uno tú mismo.
-- **¿Limitaciones con PDF?** Los PDF con capa de texto permiten seleccionar, subrayar, buscar y leer en voz alta; la composición viene del archivo (tamaño de letra e interlineado fijos). Los escaneos no tienen capa de texto: solo lectura y exportación de la página como imagen, sin OCR.
 - **¿Choca con otros plugins?** El lector es una vista nativa de Obsidian y el índice una pestaña del panel lateral izquierdo. Los subrayados se copian como enlaces Markdown con posición que vuelven al pasaje exacto: no se construye ningún índice aparte.
 - **¿Cambio de ordenador?** La bóveda se lleva la estantería, el progreso y las anotaciones. Vuelve a introducir la clave de licencia en el nuevo dispositivo.
 - **¿Pago otra vez en el móvil?** No. Una sola compilación cubre escritorio y móvil.
-
-### Instalación
-
-Instalación desde el directorio comunitario (visible cuando pase la primera revisión):
-
-1. Abre **Ajustes → Complementos de la comunidad** y desactiva el modo restringido.
-2. Pulsa **Explorar**, busca **bz Reader** e instala.
-3. Actívalo: aparece un icono bz en la cinta izquierda; empieza por la estantería.
-
-Mientras la revisión esté pendiente, o si la búsqueda no lo encuentra, añade este repositorio con [BRAT](https://github.com/TfTHacker/obsidian42-brat), o descarga `main.js`, `manifest.json` y `styles.css` desde la Release y colócalos en `<tu bóveda>/.obsidian/plugins/bz-reader/`, luego actívalo.
 
 ### Plugins recomendados
 
@@ -709,40 +674,47 @@ Publicado bajo licencia [MIT](LICENSE). El motor de renderizado es [foliate-js](
 
 Transforme o Obsidian num lugar para ler. Desktop e celular, vários formatos (incluindo PDF), interface multilíngue, perguntas de IA sobre o livro inteiro, wikilinks. Todos os dados ficam locais.
 
+### Instalação
+
+Instalação pelo diretório da comunidade (visível quando a primeira revisão passar):
+
+1. Abra **Configurações → Plugins da comunidade** e desative o modo restrito.
+2. Clique em **Procurar**, pesquise **bz Reader** e instale.
+3. Ative — um ícone bz aparece na faixa da esquerda; comece pela estante.
+
+Enquanto a revisão estiver pendente, ou se a busca não encontrar, adicione este repositório com o [BRAT](https://github.com/TfTHacker/obsidian42-brat), ou baixe `main.js`, `manifest.json` e `styles.css` do Release e coloque em `<seu cofre>/.obsidian/plugins/bz-reader/`, depois ative.
+
 ### Recursos
 
 | Categoria | Recurso | Base | Pro |
 |---|:---|:---:|:---:|
-| **Leitura e estante** | Leitura EPUB / TXT, paginação e tipografia | ✓ | ✓ |
+| **Leitura e estante** | EPUB / TXT prontos para ler | ✓ | ✓ |
 |  | Uma ou duas colunas | ✓ | ✓ |
 |  | Sumário, marcadores, quatro cores de destaque e notas | ✓ | ✓ |
 |  | Pesquisa dentro do livro | ✓ | ✓ |
-|  | Voltar à posição anterior | ✓ | ✓ |
-|  | Prévia das notas de rodapé | ✓ | ✓ |
+|  | Voltar à posição anterior: um toque depois de qualquer salto | ✓ | ✓ |
+|  | Notas de rodapé em pop-up: sem sair da página | ✓ | ✓ |
+|  | Imagens de cartões de citação | ✓ | ✓ |
 |  | Gestão de categorias | ✓ | ✓ |
-| **Formatos e exportação** | mobi / azw3 / fb2 / quadrinhos | — | ✓ |
-|  | Copiar destaques como wikilinks | — | ✓ |
+| **Formatos e exportação** | Família Kindle (MOBI / AZW3), FB2, quadrinhos em CBZ | — | ✓ |
+|  | Destaques como wikilinks: voltar ao texto pela nota | — | ✓ |
 |  | Aba Citações: quais notas citam este livro | — | ✓ |
-|  | Exportar todos os excertos em Markdown, cada um com um wikilink | — | ✓ |
-|  | Imagens de cartões de citação | Parcial | ✓ |
-| **Leitura de PDF** | Abrir PDF: zoom, rotação, uma ou duas páginas e rolagem | — | ✓ |
-|  | Miniaturas das páginas | — | ✓ |
+|  | Exportar todos os excertos, cada um com um wikilink | — | ✓ |
+| **Leitura de PDF** | Abrir um PDF: zoom, rotação, uma ou duas páginas, rolagem; vista por livro | — | ✓ |
+|  | Miniaturas: achar uma página num livro longo | — | ✓ |
 |  | Copiar links de página: página / vista / incorporação / anotação | — | ✓ |
-|  | Copiar automaticamente o link da página ao selecionar | — | ✓ |
 |  | Retrolinks desta página e anotações do arquivo | — | ✓ |
 |  | Exportar uma página como imagem | — | ✓ |
-|  | Lembrar o zoom de cada livro | — | ✓ |
-| **Estatísticas e busca** | Estatísticas de leitura, check-ins e metas | — | ✓ |
-|  | Pesquisar em toda a biblioteca | — | ✓ |
-| **IA** | IA: explicações / tradução / resumos | — | ✓ |
+| **Estatísticas e busca** | Painel de dados: tempo, tendências, ritmo, detalhe por livro | — | ✓ |
+|  | Pôster de leitura: resumo anual e imagem longa | — | ✓ |
+|  | Pesquisa em toda a biblioteca, texto de PDF incluído | — | ✓ |
+| **IA (chave de API própria)** | IA: explicar, traduzir, resumir uma seleção | — | ✓ |
 |  | Perguntas de IA sobre o livro inteiro | — | ✓ |
-| **Avançado** | Composição vertical | — | ✓ |
-|  | Leitura em voz alta de EPUB, TXT e PDF | — | ✓ |
+| **Avançado** | Composição vertical: EPUB / TXT | — | ✓ |
+|  | Leitura em voz alta: EPUB, TXT e PDF, vira a página sozinha | — | ✓ |
 |  | Ler dois livros lado a lado | — | ✓ |
 |  | Visão geral do livro | — | ✓ |
-|  | Conectar à base de conhecimento BZ AI; requer bz | — | ✓ |
-
-Parcial = o cartão de citação em texto está disponível na Base; exportá-lo como imagem requer Pro.
+|  | Conectar à base de conhecimento BZ AI (requer bz) | — | ✓ |
 
 ### Idiomas da interface
 
@@ -770,21 +742,9 @@ Só os recursos de IA acessam a rede; todo o resto funciona offline.
 ### Perguntas frequentes
 
 - **Quais formatos?** EPUB e TXT de imediato; mobi, azw3, fb2, quadrinhos e PDF no Pro.
-- **Por que a aba Citações está vazia?** A aba Citações faz parte da versão Pro; depois de desbloqueada, ela lista os links nas suas notas que apontam para um trecho específico do livro, não notas que o plugin reúne por conta própria. «Copiar destaque como wikilink» é o jeito mais fácil de criar um, mas você também pode escrever um você mesmo.
-- **Limitações com PDF?** PDFs com camada de texto permitem seleção, destaque, pesquisa e leitura em voz alta; o layout vem do arquivo (tamanho da fonte e entrelinha fixos). Digitalizações não têm camada de texto: apenas leitura e exportação da página como imagem, sem OCR.
 - **Conflita com outros plugins?** O leitor é uma view nativa do Obsidian e o sumário é uma aba do painel lateral esquerdo. Os destaques podem ser copiados como links Markdown com posição que voltam ao trecho exato — nenhum índice separado é criado.
 - **Troquei de computador?** O cofre leva a estante, o progresso e as anotações. Informe a chave de licença de novo no novo aparelho.
 - **Preciso pagar de novo no celular?** Não. Uma única compilação cobre desktop e celular.
-
-### Instalação
-
-Instalação pelo diretório da comunidade (visível quando a primeira revisão passar):
-
-1. Abra **Configurações → Plugins da comunidade** e desative o modo restrito.
-2. Clique em **Procurar**, pesquise **bz Reader** e instale.
-3. Ative — um ícone bz aparece na faixa da esquerda; comece pela estante.
-
-Enquanto a revisão estiver pendente, ou se a busca não encontrar, adicione este repositório com o [BRAT](https://github.com/TfTHacker/obsidian42-brat), ou baixe `main.js`, `manifest.json` e `styles.css` do Release e coloque em `<seu cofre>/.obsidian/plugins/bz-reader/`, depois ative.
 
 ### Plugins recomendados
 
@@ -795,4 +755,3 @@ Enquanto a revisão estiver pendente, ou se a busca não encontrar, adicione est
 Publicado sob a licença [MIT](LICENSE). O motor de renderização é o [foliate-js](https://github.com/johnfactotum/foliate-js) 1.0.1 (MIT, distribuído como dependência npm; patches locais em [patches/foliate-js@1.0.1.patch](patches/foliate-js@1.0.1.patch)).
 
 </details>
-
