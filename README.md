@@ -10,7 +10,8 @@
     <a href="https://github.com/yeshimei/bz-reader/releases"><img src="https://img.shields.io/github/downloads/yeshimei/bz-reader/total?style=flat-square&label=DOWNLOADS&labelColor=1f1f1e&color=6d8795" alt="下载量"></a>
     <img src="https://img.shields.io/badge/PLATFORM-DESKTOP%20%2B%20MOBILE-5f7f57?style=flat-square&labelColor=1f1f1e" alt="桌面 + 移动">
     <a href="LICENSE"><img src="https://img.shields.io/github/license/yeshimei/bz-reader?style=flat-square&label=LICENSE&labelColor=1f1f1e&color=5f7f57" alt="MIT"></a>
-    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-DIARY%20%C2%B7%20SECOND%20BRAIN-7c3aed?style=flat-square&labelColor=1f1f1e" alt="配套插件 bz：日记与第二大脑"></a>
+    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-%E9%A2%9C%E5%80%BC%20%2B%20%E9%9B%86%E5%A4%A7%E6%88%90-7c3aed?style=flat-square&labelColor=1f1f1e" alt="配套插件 bz：颜值 + 集大成"></a>
+    <img src="https://img.shields.io/badge/QQ%E7%BE%A4-1130883117-12b7f5?style=flat-square&logo=tencentqq&logoColor=white&labelColor=1f1f1e" alt="QQ 交流群 1130883117">
   </p>
 
   <p><sub><a href="https://www.bilibili.com/video/BV1tK4E6KE1B">视频教程 · Video tutorial</a></sub></p>
