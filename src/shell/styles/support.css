@@ -16,8 +16,10 @@
 
 .bzs-sup-dialog,
 .bzs-sup {
-  --sup-accent: var(--interactive-accent, var(--text-accent, #7856d6));
-  --sup-accent-soft: color-mix(in srgb, var(--interactive-accent, var(--text-accent, #7856d6)) 12%, transparent);
+  /* 强调色优先吃打开弹窗时从壳层读来的 --bzs-accent（用户选的档位，见
+     shell/theme-accent.ts）；读不到才退回宿主 accent。 */
+  --sup-accent: var(--bzs-accent, var(--interactive-accent, var(--text-accent, #7856d6)));
+  --sup-accent-soft: color-mix(in srgb, var(--sup-accent) 12%, transparent);
   --sup-panel: var(--background-primary, #ffffff);
   --sup-ink: var(--text-normal, #1f1f23);
   --sup-ink-2: var(--text-muted, #5a5a63);

@@ -19,6 +19,7 @@ import { esc, githubIcon, ico } from './render/html';
 import { REPO_URL } from '../data/entitlement';
 import { REWARD_NAMES } from '../data/reward';
 import { openSupportDialog } from './support-dialog';
+import { ACCENT_VAR, shellAccentColor } from './theme-accent';
 import {
   normalizeVersion,
   releaseEntryCount,
@@ -388,6 +389,9 @@ export function openChangelogNote(
     },
   });
   modal.mask.classList.add('bzs-chgn-mask');
+  /* 跟随设置页选的那一档强调色（弹窗不在 .bzs-shell 里，带不过来） */
+  const accent = shellAccentColor();
+  if (accent) modal.popup.style.setProperty(ACCENT_VAR, accent);
   const popup = modal.popup;
 
   const hd = popup.querySelector<HTMLElement>('.bzs-chgn-hd');

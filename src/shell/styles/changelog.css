@@ -16,8 +16,10 @@
 /* 局部令牌 + 基础字体（弹窗不在 .bzs-shell 里，这一层自己给） */
 .bzs-chgn,
 .bzs-chgn-m {
-  --chg-accent: var(--interactive-accent, var(--text-accent, #7856d6));
-  --chg-accent-soft: color-mix(in srgb, var(--interactive-accent, var(--text-accent, #7856d6)) 12%, transparent);
+  /* 与支持作者弹窗同一口径：优先吃壳层读来的 --bzs-accent（用户选的那一档），
+     读不到才退回宿主 accent——两个弹窗挨着打开时不能一个铜一个紫。 */
+  --chg-accent: var(--bzs-accent, var(--interactive-accent, var(--text-accent, #7856d6)));
+  --chg-accent-soft: color-mix(in srgb, var(--chg-accent) 12%, transparent);
   --chg-panel: var(--background-primary, #ffffff);
   --chg-ink: var(--text-normal, #1f1f23);
   --chg-ink-2: var(--text-muted, #5a5a63);

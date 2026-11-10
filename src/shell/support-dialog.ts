@@ -19,6 +19,7 @@ import { uiModal } from '../core/ui/modal';
 import { t } from '../i18n';
 import { REWARD_NAMES, SPONSOR_URL, formatRewardDate, type RewardName } from '../data/reward';
 import { esc } from './render/html';
+import { ACCENT_VAR, shellAccentColor } from './theme-accent';
 import rewardCodeUrl from './assets/reward-code.png';
 
 const CLOSE_SVG =
@@ -125,6 +126,11 @@ export function openSupportDialog(): SupportDialogHandle {
   /* 遮罩要能被样式认出来：手机的「贴底抽屉」是靠 .bzs-sup-mask 覆盖
      .bzr-overlay-mask 的居中排布（changelog-note 的抽屉同口径）。 */
   modal.mask.classList.add('bzs-sup-mask');
+
+  /* 跟随设置页里选的那一档强调色：弹窗不在 .bzs-shell 里，只能把壳层算好的
+     颜色带过来（读不到就不设，样式会退回宿主 accent）。 */
+  const accent = shellAccentColor();
+  if (accent) modal.popup.style.setProperty(ACCENT_VAR, accent);
 
   /* 一处委托管三件事：关闭 / 知道了 / 赞助商店。
      赞助链接不走 <a>：Obsidian 会把裸链交给阅读视图，移动端常常点了没反应。 */
