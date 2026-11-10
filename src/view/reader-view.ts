@@ -53,7 +53,7 @@ import { SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../
 import { hydrateToolbarIcons } from '../shell/toolbar-icons';
 import { can } from '../data/entitlement';
 import { bzEntryReady } from '../data/bz-bridge';
-import { kbLinkOf } from '../data/kb-link';
+import { kbDoneOf } from '../data/kb-link';
 import { VIEW_TYPE_TOC } from './side-view';
 
 /* 注意：本类为了给 Obsidian 存 view 状态，重写了 getState()。
@@ -1529,6 +1529,10 @@ export class ReaderView extends ItemView {
     RT.selMarkId = live;
     const book = this.book;
     const marked = live && book ? findHighlight(book, live) : undefined;
+    /* 划词时 `marked` 是空的（选中不落线），可这段字可能已经存过名词/段落：
+       按 CFI 再找一次，那两颗才会写「看名词 / 看段落」。以前只看 marked，
+       刚存完再选中同一段，按钮还写「存为名词」，点下去却打开了笔记。 */
+    const saved = marked ?? (book && info.cfiRange ? findHighlight(book, info.cfiRange) : undefined);
     const activeColor = marked?.color ?? '';
 
     const bar = el('div', 'bzs-selbar');
@@ -1553,7 +1557,7 @@ export class ReaderView extends ItemView {
            只留「双链」「复制」，色点也收起来（框选高亮走标注那条路） */
         only: info.region ? ['bilink', 'copy'] : undefined,
         /* 存的这本划线已经存过名词 / 段落：那两颗显示成「看名词 / 看段落」 */
-        kbDone: { term: !!kbLinkOf(marked?.kb, 'term'), passage: !!kbLinkOf(marked?.kb, 'passage') },
+        kbDone: kbDoneOf(saved?.kb),
         /* 设置里的工具条样式：文字 / 图标（默认文字） */
         icon: shellPrefs().toolbarStyle === 'icon',
       }),

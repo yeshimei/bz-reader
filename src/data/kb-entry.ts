@@ -16,7 +16,7 @@ import type { BzEntryOptions } from './bz-bridge';
 export type { KbLink };
 /* 知识盒链接的纯计算在 data/kb-link.ts（不 import deeplink，避免循环）；
    这里 re-export，调用方仍可以从一开始的 kb-entry 取。 */
-export { kbLinkLabel, kbLinkMarkdown, kbLinkOf, upsertKbLink } from './kb-link';
+export { kbDoneOf, kbLinkLabel, kbLinkMarkdown, kbLinkOf, upsertKbLink } from './kb-link';
 
 export interface KbTarget {
   text: string;

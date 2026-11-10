@@ -18,6 +18,7 @@ import {
   DEFAULT_HIGHLIGHT_COLOR,
   addHighlight,
   colorCss,
+  ensureHighlight,
   isHighlightColor,
   removeBookmark,
   removeHighlight,
@@ -114,6 +115,7 @@ import {
 import { kbSource } from '../data/kb-entry';
 import { kbLinkOf } from '../data/kb-link';
 import { endsSelection } from './selection-end';
+import { autoMarks } from './auto-mark';
 import { fromSidebarHit, shouldCollapseSidebar } from './sidebar-jump';
 import { shelfLabel } from './shelf-label';
 import { getShellSource, allBooks, liveBooks, shellPrefs, shellSettings } from './source';
@@ -509,6 +511,49 @@ export function createMark(color: string, opts: { silent?: boolean } = {}): stri
   return h.id;
 }
 
+/**
+ * 给当前选区落一条线（同位置已有就复用），返回这条线的 id。
+ *
+ * 2026-11-10 起和「想法」共用同一条路：想法以前直接 createMark，同一段字
+ * 先点过双链再点想法就会长出两条一模一样的线。
+ */
+function markSelection(): string | null {
+  const sel = RT.sel;
+  const book = sel ? liveBooks().find((b) => b.id === sel.bookId) : undefined;
+  if (!sel || !book) return null;
+  /* PDF 框选只有一块矩形、没有字：落了线侧栏也是一条空标注，不落 */
+  if (!sel.text.trim()) return null;
+  const pen = getState().pen;
+  const { highlight, created } = ensureHighlight(book, {
+    text: sel.text,
+    cfiRange: sel.cfiRange,
+    chapterTitle: sel.chapterTitle,
+    color: isHighlightColor(pen) ? pen : DEFAULT_HIGHLIGHT_COLOR,
+  });
+  if (created) {
+    getShellSource()?.store.touch();
+    repaint();
+    emitNotesChanged();
+  }
+  return highlight.id;
+}
+
+/**
+ * 点完先给这段文字落一条线（双链 / 存为名词 / 存为段落共用）。
+ *
+ * 2026-11-10 起与「想法」同款：点下去就留痕，用户回原文找得到。这三颗以前
+ * 都把结果放在别处——双链进剪贴板、知识盒等 bz 保存成功才补一条线——关上
+ * 弹窗就什么也看不见。
+ *
+ * 三条边界：
+ *   · 同位置已有线就复用（见 data/notes.ts 的 ensureHighlight），不叠第二条；
+ *   · 复用不改色，也不重复播「已划线」——用户点的是双链 / 存名词；
+ *   · 只认这三颗动作：复制不该留痕。
+ */
+function autoMarkSelection(act: string): string | null {
+  return autoMarks(act) ? markSelection() : null;
+}
+
 /** 改一条已有标注的颜色（划词条上点色点，改的是刚落下的那条） */
 function recolorMark(id: string, color: string): boolean {
   const sel = RT.sel;
@@ -533,8 +578,10 @@ function colorLabel(v: string): string {
  *
  * 三条界线：
  *   · **先问 bz 在不在**（probeBz + openBzEntry），缺哪一半都只说一句人话；
- *   · **不预造划线**：用户可能在中途取消，取消就不该在书里留一条空标注，
- *     所以标记与链接都挂在 bz 的「写入成功」回调上；
+ *   · **划线由动作层先落**（2026-11-10 反转）：划词条点「存为名词 / 段落」时
+ *     actions 先调 autoMarkSelection 把线落下、把 markId 递进来，这里只负责
+ *     把回写的链接挂到那条线上。bz 里取消也不撤线——用户点它就是要留着这段。
+ *     不带 markId 的老路径仍按「写入成功再落线」兜底；
  *   · **输入框里那一段原文归 bz 管**，我们不复制一份到自己的数据里，
  *     只有回写的链接是这本书的。
  *
@@ -1813,17 +1860,24 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     /* ── 划词浮层 ── */
     case 'selpen': {
+      /* 选过的色就是下次的默认色（2026-11-10）：state.pen 落 localStorage，
+         重开 Obsidian 还是这个色。以前只有设置页的「默认笔色」能改它，
+         在划词条上点色点只影响这一条，下次又回到琥珀。 */
+      const color = d.v && isHighlightColor(d.v) ? d.v : getState().pen;
+      if (color !== getState().pen) setState({ pen: color });
       // 手机上选中即已划上一条，色点只改它的颜色；桌面上是「选色才落笔」
       const reuse = RT.selMarkId;
-      if (reuse && recolorMark(reuse, d.v || getState().pen)) break;
-      const id = createMark(d.v || getState().pen);
+      if (reuse && recolorMark(reuse, color)) break;
+      const id = createMark(color);
       if (id) RT.selMarkId = id;
       /* 落笔即结束：选区收掉，手机上的系统手柄与菜单一起退场 */
       finishSelection('selpen');
       break;
     }
     case 'selidea': {
-      const id = RT.selMarkId || createMark(d.v || getState().pen, { silent: true });
+      /* 和这三颗走同一条落线路（markSelection）：同位置已有线就复用，
+         不叠第二条；手机上刚点色点落的那条（RT.selMarkId）直接接手。 */
+      const id = RT.selMarkId || markSelection();
       if (id) {
         RT.selMarkId = id;
         overlay('idea', { markId: id, bookId: RT.sel?.bookId || '', anchor: RT.sel?.anchor });
@@ -1862,17 +1916,22 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     /* 两颗知识库按钮和 AI 问答同一道门：按钮在授权掉了之后不再渲染，
        但动作本身也该拦——data-act 是 DOM 属性，不是权限。
        用 kb 这个 cap：解锁弹层才能滚到「连接至 BZ AI 知识库」那一行。 */
-    case 'selterm':
+    case 'selterm': {
       if (!requireCap('kb')) break;
-      knowledgeEntry('term');
+      /* 先落线：用户点它 = 这段我要留着。bz 里取消也不撤，回原文找得到。 */
+      const id = autoMarkSelection('selterm');
+      knowledgeEntry('term', id ?? undefined);
       /* 录入界面已经打开 / 已有链接已转交出去：这段字用完了，收选区 */
       finishSelection('selterm');
       break;
-    case 'selpassage':
+    }
+    case 'selpassage': {
       if (!requireCap('kb')) break;
-      knowledgeEntry('passage');
+      const id = autoMarkSelection('selpassage');
+      knowledgeEntry('passage', id ?? undefined);
       finishSelection('selpassage');
       break;
+    }
     case 'hlterm':
       if (!requireCap('kb')) break;
       knowledgeEntry('term', d.id, d.book);
@@ -1883,7 +1942,9 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     case 'selbilink': {
       /* 还没落下标注，只能拿选区 + 当前章名拼双向链接；
-         与笔记页的「双向链接」按钮同源（data/wikilink.ts 的 wikilinkOf）。 */
+         与笔记页的「双向链接」按钮同源（data/wikilink.ts 的 wikilinkOf）。
+         复制之前先把这段字标出来（autoMarkSelection）：链接只进剪贴板，
+         书里不留痕的话，用户回头找不到这段是在哪儿。 */
       if (!requireCap('bilink')) break;
       const sel = RT.sel;
       const book = sel ? liveBooks().find((b) => b.id === sel.bookId) : undefined;
@@ -1891,6 +1952,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         notify(t('notice.sel.empty'), 'error');
         break;
       }
+      autoMarkSelection('selbilink');
       void copyText(
         wikilinkOf(book, {
           text: sel.text,

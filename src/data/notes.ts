@@ -174,6 +174,25 @@ export function findHighlight(book: ReaderBook, idOrCfi: string): Highlight | un
   return n.highlights.find((h) => h.id === idOrCfi || h.cfiRange === idOrCfi);
 }
 
+/**
+ * 落一条线，同位置已有就复用（2026-11-10）。
+ *
+ * 「双链 / 存为名词 / 存为段落」点下去要顺手标出这段字，可用户可能**已经**
+ * 自己划过它——再叠一条就会出现两条一模一样的线，删的时候还得删两次。
+ *
+ * 两条规矩：
+ *   · 复用**不改色**：颜色是用户自己选的，不该被一次点击覆盖；
+ *   · 没有 CFI 的输入不去重：空串会让所有「无定位」的线互相命中。
+ */
+export function ensureHighlight(
+  book: ReaderBook,
+  input: NewHighlight,
+): { highlight: Highlight; created: boolean } {
+  const existing = input.cfiRange ? findHighlight(book, input.cfiRange) : undefined;
+  if (existing) return { highlight: existing, created: false };
+  return { highlight: addHighlight(book, input), created: true };
+}
+
 export function setHighlightComment(book: ReaderBook, id: string, comment: string): boolean {
   const n = notes(book);
   const h = n.highlights.find((x) => x.id === id);

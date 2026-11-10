@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { kbLinkLabel, kbLinkOf, upsertKbLink, type KbLink } from '../src/data/kb-entry';
+import { kbDoneOf, kbLinkLabel, kbLinkOf, upsertKbLink, type KbLink } from '../src/data/kb-entry';
 
 /**
  * 知识盒双链：**存在划线自己身上，不写进想法**。
@@ -59,5 +59,27 @@ describe('kbLinkLabel · 显示名', () => {
   it('空路径给空串，不抛错', () => {
     expect(kbLinkLabel('')).toBe('');
     expect(kbLinkLabel(undefined as unknown as string)).toBe('');
+  });
+});
+
+/**
+ * 按钮文案：这一格存过就该写「看名词 / 看段落」。
+ *
+ * 不按 `RT.selMarkId` 判：划词时那个是空的（选中不落线），刚存完名词再选中
+ * 同一段，按钮还写「存为名词」，点下去却打开了笔记——按钮在说谎。
+ */
+describe('kbDoneOf · 两颗按钮该不该变「看」', () => {
+  it('都存过：两颗都变「看」', () => {
+    const list = [...upsertKbLink([], term('文献/心流.md')), ...upsertKbLink([], passage('文献/注意力.md'))];
+    expect(kbDoneOf(list)).toEqual({ term: true, passage: true });
+  });
+
+  it('只存过名词：段落那颗还是「存为段落」', () => {
+    expect(kbDoneOf([term('a.md')])).toEqual({ term: true, passage: false });
+  });
+
+  it('空 / 没存过：都不是「看」', () => {
+    expect(kbDoneOf(undefined)).toEqual({ term: false, passage: false });
+    expect(kbDoneOf([])).toEqual({ term: false, passage: false });
   });
 });

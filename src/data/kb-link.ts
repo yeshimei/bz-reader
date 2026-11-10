@@ -42,6 +42,17 @@ export function kbLinkOf(list: KbLink[] | undefined, kind: KbLink['kind']): KbLi
   return (list ?? []).find((x) => x.kind === kind);
 }
 
+/**
+ * 工具条上那两颗该不该写「看名词 / 看段落」（2026-11-10）。
+ *
+ * 判据是**这条划线自己身上**有没有链接，不是「刚刚是不是点过」——
+ * 划词时 `RT.selMarkId` 是空的，只按它判的话，刚存完名词再选中同一段，
+ * 按钮还写着「存为名词」，点下去却打开了笔记。
+ */
+export function kbDoneOf(list: KbLink[] | undefined): { term: boolean; passage: boolean } {
+  return { term: !!kbLinkOf(list, 'term'), passage: !!kbLinkOf(list, 'passage') };
+}
+
 /** 链接的显示名：笔记名（去 .md，取最后一段） */
 export function kbLinkLabel(path: string): string {
   const p = cleanKbPath(path).replace(/\.md$/i, '');
