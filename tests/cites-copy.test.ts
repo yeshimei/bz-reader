@@ -66,16 +66,16 @@ const TABLE_CITES: Record<Locale, string> = {
   pt: 'Aba Citações: quais notas citam este livro',
 };
 
-/** 功能表里「双向链接」那一行 */
+/** 功能表里「双向链接」那一行（与 i18n/plan.ts 同一份文案） */
 const TABLE_BILINK: Record<Locale, string> = {
-  zh: '划线复制为双向链接',
-  'zh-TW': '劃線複製為雙向連結',
-  en: 'Copy highlights as wikilinks',
-  ja: 'ハイライトを双方向リンクとしてコピー',
-  de: 'Markierungen als Wikilink kopieren',
-  fr: 'Copier les surlignages en wikiliens',
-  es: 'Copiar subrayados como wikienlaces',
-  pt: 'Copiar destaques como wikilinks',
+  zh: '划线存成双链：笔记里点回原文',
+  'zh-TW': '劃線存成雙鏈：筆記裡點回原文',
+  en: 'Highlights as wikilinks: click back from your notes',
+  ja: 'ハイライトを双方向リンクに：ノートから原文へ',
+  de: 'Markierungen als Wikilinks: aus der Notiz zur Stelle',
+  fr: 'Surlignages en wikiliens : revenir au texte depuis la note',
+  es: 'Subrayados como wikienlaces: volver al texto desde la nota',
+  pt: 'Destaques como wikilinks: voltar ao texto pela nota',
 };
 
 describe('引用页签 · 空态提示', () => {
@@ -95,12 +95,13 @@ describe('引用页签 · 空态提示', () => {
 });
 
 describe('README · 引用页签的依赖说明', () => {
-  it('八种语言的常见问题里都有这一条，且提到链接与高级版', () => {
+  it('常见问题不再单列这一条：空态提示与功能表已经把归属讲清', () => {
+    /* 1.0.0 上架前删掉了「引用页签为什么是空的」那条一问一答——
+       它是解释性文字，功能表的「基础版 — / 高级版 ✓」已经说明白，
+       同一件事在 README 里说两遍反而像在辩解。 */
     for (const l of LOCALES) {
       const line = README_LINES.find((x) => x.startsWith('- **') && x.includes(FAQ_TITLE[l]));
-      expect(line, l).toBeTruthy();
-      expect(line?.toLowerCase(), l).toContain(LINK_WORD[l].toLowerCase());
-      expect(line?.toLowerCase(), l).toContain(PRO_WORD[l].toLowerCase());
+      expect(line, l).toBeUndefined();
     }
   });
 });

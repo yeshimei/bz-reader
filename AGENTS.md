@@ -87,7 +87,12 @@ node scripts/issue-license.mjs --plan lifetime --id BZR-AF-2026-0021
 - **不许**从 0001 重来，**不许**复用已发、删掉或 revoked 的号；号段只增不减。不要往 git 跟踪的文件里放码；`docs/afdian-store.md` 只留两行示例。
 
 ## 上架
-上架 = 打 tag 发 Release + 在 `community.obsidian.md` 提交；不走 `obsidian-releases` 的 PR，社区目录改为网页提交。
+上架分两段：**先送审，再发版**。不走 `obsidian-releases` 的 PR，社区目录在 `community.obsidian.md` 网页提交。
+
+顺序是硬要求：先让仓库里这份源码过官方审评，通过之后才打 tag、发 Release。
+审评没结果之前，**只推 master，不打 tag、不发 Release、不镜像码云**——Release 一旦发出去，
+下载三件套的用户拿到的就是没过审的产物；审评失败要改，版本号与资产又得跟着变，等于发了个假版。
+
 每次上架前必须跑官方 lint：
 ```powershell
 node scripts/lint-obsidian.mjs
@@ -97,18 +102,24 @@ node scripts/lint-obsidian.mjs
 - 脚本自己生成、跑完删掉 `eslint.config.mjs`；不要把配置文件提交进仓库。
 - 唯一豁免 `@typescript-eslint/no-deprecated`：`caretRangeFromPoint` 与 `Workspace.activeLeaf` 在 minAppVersion 1.7.2 下没有等价替代。
 
-上架顺序：
+### 第一段：送审（只到推送为止）
 1. `node scripts/lint-obsidian.mjs` → 0/0；
 2. **补齐本版多语言**：把本次改动新增/改动的文案在 `src/i18n/` 里七种外语全部换成正式翻译（替换开发期留的英文/繁体占位）。自查四条——key 集合与 `zh.ts` 一致、无空串、`{占位符}`与中文逐条相同、拉丁语系包无汉字且 `zh-TW` 无简体字（跑 `vitest run tests/i18n-packs.test.ts` 就是这套）；
 3. 三道门（tsc / vitest / esbuild once）；
 4. `manifest.json` 的 `version`、`versions.json` 同步（README 徽章由 shields 实时取 GitHub，不用再手动刷图）；
-5. `node esbuild.config.mjs production`（落仓库根三件套：`main.js` / `manifest.json` / `styles.css`）；
-6. 提交、推送、打 tag——**tag 与 `manifest.version` 逐字相同，不带 `v`**；
-7. `gh release create <版本> --title <版本> --notes-file docs/note-v<版本>.md main.js manifest.json styles.css`（`--title` 必须与版本逐字相同：社区目录会检查 Release name 是否匹配 `manifest.version`）；
-8. `node scripts/push-gitee.mjs`：镜像到码云（Release 页 + 三件套资产）；
-9. 在 `community.obsidian.md` 提交。
+5. 提交并推送 master；
+6. 在 `community.obsidian.md` 提交，等官方审评（预览检查）。
+   - **不通过**：照报错继续在 master 上改（改完重跑第 1–5 步，再审一次）。同一个版本号可以反复送审，只有通过才往下走。
+   - **通过**：才进第二段。
 
-目录审核要点：仓库根有 `README.md` / `LICENSE` / `manifest.json`；Release 附三件套；`README` 披露「完整功能需付费」与网络访问。
+### 第二段：发版（审评通过之后）
+7. `node esbuild.config.mjs production`（落仓库根三件套：`main.js` / `manifest.json` / `styles.css`）；
+8. 打 tag 并推送——**tag 与 `manifest.version` 逐字相同，不带 `v`**，且只能打在送审通过的那个提交上（此后不再改代码，要改就回第一段重审）；
+9. `gh release create <版本> --title <版本> --notes-file docs/note-v<版本>.md main.js manifest.json styles.css`（`--title` 必须与版本逐字相同：社区目录会检查 Release name 是否匹配 `manifest.version`），随后 `gh release view <版本>` 确认已转正、不再是 draft；
+10. `node scripts/push-gitee.mjs`：镜像到码云（Release 页 + 三件套资产）；
+11. 发版部署：`BZ_READER_VAULT=all node esbuild.config.mjs production` 落三处（仓库根 + 测试库 + 真实库），核对三处 `main.js` 字节数一致。
+
+目录审核要点：仓库根有 `README.md` / `LICENSE` / `manifest.json`；`manifest.json` 的 `description` **不能出现 “Obsidian”**（目录规则：上下文已蕴含，重复即 Error，会让预览直接 Failed）；Release 附三件套；`README` 披露「完整功能需付费」与网络访问。
 
 ## 不要做
 - 不提交 `.scratch*` 临时脚本、`dist/`、库里的调试日志。

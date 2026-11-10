@@ -2329,6 +2329,9 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         title: book?.meta.title,
         author: book?.meta.author,
         chapter: getState().overlay?.chapterTitle || RT.sel?.chapterTitle,
+        /* 出图跟着展示窗里选的那一版：四个模板预览各不相同，
+           图片也必须各自成版，否则「换了模板复制出来还是第一张」。 */
+        template: RT.cardTpl,
       })
         .then(() => notify(t('notice.card.copied')))
         .catch((e: Error) => notify(e.message || t('notice.card.copyFailed'), 'error'));

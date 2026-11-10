@@ -6,8 +6,10 @@
  * 字体、行距、留白全部自己算，好处是无依赖、字体可控，
  * 代价是断行要自己写（中文没有空格，不能按 word 切）。
  *
- * 断行是纯函数，画布只负责量宽度——这样排版规则能在 node 里测。
+ * 断行与配色都是纯函数，画布只负责量宽度——这样排版规则能在 node 里测。
  * ============================================================ */
+
+import { normalizeCardTemplate, type CardTemplate } from './card-template';
 
 export interface QuoteCardImageInput {
   /** 引文正文 */
@@ -15,12 +17,13 @@ export interface QuoteCardImageInput {
   title?: string;
   author?: string;
   chapter?: string;
+  /** 展示窗里选中的版式；不传/认不出都按经典出图 */
+  template?: string;
 }
 
 /** 卡片尺寸（2× 出图，粘进笔记里也清楚） */
 export const CARD_W = 720;
 const PAD = 56;
-const TEXT_W = CARD_W - PAD * 2;
 
 /**
  * 按可用宽度把文字切成行。
@@ -59,30 +62,126 @@ export function wrapText(text: string, maxWidth: number, measure: (s: string) =>
 const SERIF = '"Songti SC", "Noto Serif CJK SC", "SimSun", serif';
 const SANS = '"PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
 
+/* ─────────── 四套配色 ───────────
+ * 展示窗里能选四种版式，图片必须跟着变：2026-11-10 晚的真机反馈是
+ * 「四个模板预览各不相同，复制出来永远是第一张」。所以配色不再是写死的
+ * 米纸，而是跟模板一一对应的数据表，画布只按表取值。
+ */
+export interface CardPalette {
+  /** 纸底 */
+  paper: string;
+  /** 引文 */
+  ink: string;
+  /** 出处那一行 */
+  meta: string;
+  /** 左侧竖条 / 细线 */
+  accent: string;
+  /** 信笺横线（只有 letter 用） */
+  rule?: string;
+  badgeBg: string;
+  badgeBorder: string;
+  badgeInk: string;
+  /** 深底：文字描边、徽章配色都要跟着翻 */
+  dark: boolean;
+}
+
+export const CARD_PALETTES: Record<CardTemplate, CardPalette> = {
+  /** 经典：墨与铜，像从书里撕下来的一页 */
+  classic: {
+    paper: '#fbf9f4',
+    ink: '#2b2620',
+    meta: '#8a7f6d',
+    accent: '#9a7434',
+    badgeBg: '#f1e8d6',
+    badgeBorder: '#cbb489',
+    badgeInk: '#6f5a34',
+    dark: false,
+  },
+  /** 信笺：白一点的横线纸，横线跟着正文行距走 */
+  letter: {
+    paper: '#fffdf7',
+    ink: '#2b2620',
+    meta: '#8a7f6d',
+    accent: '#c0a97d',
+    rule: '#e6decc',
+    badgeBg: '#f6efdf',
+    badgeBorder: '#d6c8ab',
+    badgeInk: '#6f5a34',
+    dark: false,
+  },
+  /** 夜读：深色底，夜里发出去不刺眼 */
+  night: {
+    paper: '#171513',
+    ink: '#ece7dd',
+    meta: '#a49b8b',
+    accent: '#c39a4e',
+    badgeBg: '#26242a',
+    badgeBorder: '#4c4540',
+    badgeInk: '#e4d9c2',
+    dark: true,
+  },
+  /** 胶片：大留白 + 右侧竖排片名，像一张票根 */
+  film: {
+    paper: '#f5f2ea',
+    ink: '#1f1c18',
+    meta: '#7d7466',
+    accent: '#9a7434',
+    badgeBg: '#e8e0cf',
+    badgeBorder: '#c9b189',
+    badgeInk: '#5f4d2c',
+    dark: false,
+  },
+};
+
+/** 任意输入 → 配色；认不出的模板退回经典（和展示窗同一个判定） */
+export function cardPaletteOf(template?: string): CardPalette {
+  return CARD_PALETTES[normalizeCardTemplate(template)];
+}
+
+/* ─────────── 徽章 ─────────── */
+
 /**
  * 插件名徽章。2026-11-10 起书摘图片下放基础版，两版出的是同一张图：
  * 这枚小标是署名，不是付费水印，所以不查授权、不做翻译（专名八语言同形）。
  */
 export const CARD_BADGE_TEXT = 'bz reader';
-export const CARD_BADGE_H = 28;
-const BADGE_FONT = 13;
+export const CARD_BADGE_H = 30;
+/** 徽章字号：14px 是「缩到手机相册缩略图还能认出字」的下限，
+    再小就退化成一块看不出内容的色块。 */
+const BADGE_FONT = 14;
+/** 左侧铜条的宽度：它才是这枚徽章的识别点，比底色更早被眼睛抓到 */
+const BADGE_BAR = 4;
 
 /** 徽章固定在底部留白里，永远在引文与出处之后（纯函数，位置可断言） */
 export function cardBadgeY(cardHeight: number): number {
   return cardHeight - PAD - CARD_BADGE_H;
 }
 
-/** 一枚低调的胶囊：浅纸底 + 左侧铜色细条 + 插件名，不抢引文 */
-export function drawCardBadge(ctx: CanvasRenderingContext2D, y: number): void {
-  ctx.font = `500 ${BADGE_FONT}px ${SANS}`;
-  const w = ctx.measureText(CARD_BADGE_TEXT).width + 26;
-  ctx.fillStyle = '#efe9dc';
+/**
+ * 一枚铜色描边胶囊：亮一档的纸底 + 左侧粗铜条 + 深棕字。
+ *
+ * 原来底色 #efe9dc 与纸底 #fbf9f4 只差一档、字色又偏浅，正文是纯黑，
+ * 眼睛扫过整张图时这枚小标等于隐形——真机上被当成「没画徽章」。
+ * 现在描一圈 1px 边、字色压深，缩图也认得出，高度仍只有正文的四分之一。
+ * 配色跟着模板走：夜读深底上是浅字浅边，不会出现一块白补丁。
+ */
+export function drawCardBadge(
+  ctx: CanvasRenderingContext2D,
+  y: number,
+  palette: CardPalette = CARD_PALETTES.classic,
+): void {
+  ctx.font = `600 ${BADGE_FONT}px ${SANS}`;
+  const w = ctx.measureText(CARD_BADGE_TEXT).width + 30;
+  ctx.fillStyle = palette.badgeBg;
   ctx.fillRect(PAD, y, w, CARD_BADGE_H);
-  ctx.fillStyle = '#9a7434';
-  ctx.fillRect(PAD, y, 3, CARD_BADGE_H);
-  ctx.fillStyle = '#8a7f6d';
+  ctx.strokeStyle = palette.badgeBorder;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(PAD + 0.5, y + 0.5, w - 1, CARD_BADGE_H - 1);
+  ctx.fillStyle = palette.accent;
+  ctx.fillRect(PAD, y, BADGE_BAR, CARD_BADGE_H);
+  ctx.fillStyle = palette.badgeInk;
   ctx.textBaseline = 'middle';
-  ctx.fillText(CARD_BADGE_TEXT, PAD + 13, y + CARD_BADGE_H / 2);
+  ctx.fillText(CARD_BADGE_TEXT, PAD + BADGE_BAR + 12, y + CARD_BADGE_H / 2);
 }
 
 function pick2x(): number {
@@ -94,11 +193,19 @@ function pick2x(): number {
 /**
  * 把一张书摘卡画成 PNG。
  *
- * 版式：纸色底 + 左侧一条铜色竖线，引文衬线大字，落款是
- * 「章节 · 书名」，底部留白里放一枚 bz reader 徽章（署名，不是水印）。
- * 不做封面、不做统计数字，这些东西在手机上会挤掉引文本来的呼吸感。
+ * 版式随展示窗里选的模板走：
+ *   classic 纸色底 + 左侧铜线，衬线大字；
+ *   letter  更白的横线纸，横线跟着行距；
+ *   night   深底浅字，左线换成亮铜；
+ *   film    去掉框，上下两道铜线，像一张票根。
+ * 四版底部都有一枚 bz reader 徽章（署名，不是水印），位置一致。
  */
 export async function renderQuoteCard(input: QuoteCardImageInput): Promise<Blob> {
+  const tpl = normalizeCardTemplate(input.template);
+  const p = CARD_PALETTES[tpl];
+  const pad = tpl === 'film' ? 64 : PAD;
+  const textW = CARD_W - pad * 2;
+
   const scale = pick2x();
   const canvas = createEl('canvas');
   const ctx = canvas.getContext('2d');
@@ -115,41 +222,64 @@ export async function renderQuoteCard(input: QuoteCardImageInput): Promise<Blob>
 
   /* 先量一遍再定画布高度：canvas 尺寸定了就改不了，只能重画 */
   setFont(quote, SERIF);
-  const lines = wrapText(input.text.trim(), TEXT_W, (s) => ctx.measureText(s).width);
+  const lines = wrapText(input.text.trim(), textW, (s) => ctx.measureText(s).width);
   const lineCount = lines.length;
 
   const headH = input.title ? titleSize + 34 : 0;
   const bodyH = Math.max(lineH, lineCount * lineH);
   /* 底部多留一枚徽章的高度：它贴底，不随引文长短上下跳 */
-  const H = Math.max(420, PAD + headH + bodyH + 26 + metaSize + 16 + CARD_BADGE_H + PAD);
+  const H = Math.max(420, pad + headH + bodyH + 26 + metaSize + 16 + CARD_BADGE_H + PAD);
 
   canvas.width = CARD_W * scale;
   canvas.height = H * scale;
   ctx.scale(scale, scale);
 
-  /* 纸色底：纯白在深色主题的笔记里会亮得刺眼，米色更接近书页 */
-  ctx.fillStyle = '#fbf9f4';
+  /* 底色随模板：深色底在深色主题的笔记里比米纸更稳 */
+  ctx.fillStyle = p.paper;
   ctx.fillRect(0, 0, CARD_W, H);
 
-  /* 左侧铜色竖线：这是整张卡唯一的重色，位置和内边距对齐 */
-  ctx.fillStyle = '#9a7434';
-  ctx.fillRect(PAD - 24, PAD, 2, H - PAD * 2);
+  /* 信笺：展示窗是虚线框，图片上也拉一圈，缩图时版式认得出来 */
+  if (tpl === 'letter') {
+    ctx.strokeStyle = p.badgeBorder;
+    ctx.lineWidth = 1;
+    if (typeof ctx.setLineDash === 'function') ctx.setLineDash([5, 5]);
+    ctx.strokeRect(pad - 24 + 0.5, 24.5, CARD_W - (pad - 24) * 2 - 1, H - 32);
+    if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
+  }
 
-  let y = PAD;
+  /* 左侧铜色竖线：信笺用横线立版式、胶片用上下两道铜线，这两版不画 */
+  if (tpl !== 'letter' && tpl !== 'film') {
+    ctx.fillStyle = p.accent;
+    ctx.fillRect(pad - 24, pad, 2, H - pad * 2);
+  }
 
-  if (input.title) {
+  let y = pad;
+
+  if (input.title && tpl !== 'film') {
     setFont(titleSize, SERIF, '600');
-    ctx.fillStyle = '#2b2620';
+    ctx.fillStyle = p.ink;
     ctx.textBaseline = 'top';
-    ctx.fillText(input.title, PAD, y);
+    ctx.fillText(input.title, pad, y);
     y += titleSize + 34;
   }
 
+  /* 胶片：票根的两道铜线（上 2px 重、下 1px 轻），位置与展示窗一致 */
+  if (tpl === 'film') {
+    ctx.fillStyle = p.accent;
+    ctx.fillRect(pad - 12, 38, CARD_W - (pad - 12) * 2, 2);
+  }
+
   setFont(quote, SERIF);
-  ctx.fillStyle = '#2b2620';
+  ctx.fillStyle = p.ink;
   ctx.textBaseline = 'top';
   for (const line of lines) {
-    if (line) ctx.fillText(line, PAD, y);
+    if (line) ctx.fillText(line, pad, y);
+    /* 信笺：每行落款下方一条横线，宽度跨到右边界，像真的信纸 */
+    if (tpl === 'letter') {
+      ctx.fillStyle = p.rule ?? p.accent;
+      ctx.fillRect(pad - 12, y + lineH - 7, CARD_W - pad - 4, 1);
+      ctx.fillStyle = p.ink;
+    }
     y += lineH;
   }
 
@@ -158,12 +288,19 @@ export async function renderQuoteCard(input: QuoteCardImageInput): Promise<Blob>
   const from = [input.chapter, input.author].filter((s) => !!s && s.trim()).join(' · ');
   if (from) {
     setFont(metaSize, SANS);
-    ctx.fillStyle = '#8a7f6d';
-    ctx.fillText(`— ${from}`, PAD, y);
+    ctx.fillStyle = p.meta;
+    ctx.textBaseline = 'top';
+    ctx.fillText(`— ${from}`, pad, y);
+  }
+
+  /* 胶片的下线：徽章贴底，线在徽章下面 16px，不压署名 */
+  if (tpl === 'film') {
+    ctx.fillStyle = p.badgeBorder;
+    ctx.fillRect(pad - 12, H - 30, CARD_W - (pad - 12) * 2, 1);
   }
 
   /* 徽章落在底部留白，跟出处不抢行；不查授权，两版出的是同一张图。 */
-  drawCardBadge(ctx, cardBadgeY(H));
+  drawCardBadge(ctx, cardBadgeY(H), p);
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
