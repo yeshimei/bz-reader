@@ -20,8 +20,9 @@ export function esc(s: string | number | null | undefined): string {
 /** 铅笔：改名用的通用形状（分类行与「写」共用，不另画一份） */
 const PENCIL_PATH = '<path d="M4 20l4.6-1.1L19 8.5 15.5 5 5.1 15.4z"/><path d="M14 6.5L17.5 10"/>';
 
-/** 线描图标：16px、1.5 描边、圆头圆角，与原型同一套 */
-export function ico(name: string): string {
+/** 线描图标：16px、1.5 描边、圆头圆角，与原型同一套。
+ *  `cls` 只给需要单独挑出来的那一枚（授权徽章的铜印要能被样式和测试定位）。 */
+export function ico(name: string, cls = ''): string {
   const paths: Record<string, string> = {
     shelf: '<path d="M3 4h6v16H3zM11 4h4v16h-4zM17 5l3 15"/>',
     /* 书架页签那一组：书库 / 笔记 / 统计 / 设置，同一套线宽 */
@@ -72,9 +73,13 @@ export function ico(name: string): string {
     group:
       '<path d="M20.5 11.4a7.9 7.9 0 0 1-8.5 7.9 8.6 8.6 0 0 1-3.5-.8L4.6 20.4l1.5-4A7.7 7.7 0 0 1 4 11.4 7.9 7.9 0 0 1 12.2 3.5a7.9 7.9 0 0 1 8.3 7.9Z"/><path d="M9 11.5h.01M12.2 11.5h.01M15.4 11.5h.01"/>',
     history: '<path d="M3.4 12a8.6 8.6 0 1 0 2.9-6.4L3.4 8"/><path d="M3.2 3.4v4.9h4.9"/><path d="M12 7.4v5l3.1 2"/>',
+    /* 铜印（2026-11-10）：授权徽章用。双环 + 中心点——实心五角星在 16px 下
+       会糊成一个墨点，围在它旁边的又是 11px 的字，所以这里只留最省细节的形状。 */
+    seal:
+      '<circle cx="12" cy="12" r="10.2"/><circle cx="12" cy="12" r="6.9" stroke-width="1.1" opacity=".6"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>',
   };
   const p = paths[name] || '';
-  return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+  return `<svg${cls ? ` class="${cls}"` : ''} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 }
 
 /**

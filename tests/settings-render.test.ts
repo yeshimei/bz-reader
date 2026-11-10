@@ -532,34 +532,96 @@ describe('调试日志出口', () => {
 });
 
 /**
- * 赞助人徽章（2026-11-09）。
+ * 赞助人徽章（2026-11-09 立项，2026-11-10 换铜印胶囊）。
  *
  * 商品页承诺「使用此高级版激活码，会额外在插件中标识赞助人身份」。
  * 徽章挂在「关于」条上，只在已激活时出现——基础版不显示，
  * 免得没买的人也被打上标。
+ *
+ * 2026-11-10 改规则：不再是「高级版 + 赞助人」两枚并排，而是**一枚**——
+ * 普通码写「高级版」，赞助人码换成「赞助人」（有昵称就写昵称）。两枚同款，
+ * 铜印胶囊；基础版那枚退成中性线框，不画铜印。
  */
 describe('赞助人徽章', () => {
-  it('已激活 + 赞助人：关于条多一枚「赞助人」徽章', () => {
+  /** 截出「关于」组那一段：只看组内，不误判别的组 */
+  function aboutGroup(out: string): string {
+    const start = out.indexOf('<h3>关于</h3>');
+    const next = out.indexOf('<h3>', start + 1);
+    return out.slice(start, next < 0 ? undefined : next);
+  }
+
+  it('已激活 + 赞助人：只此一枚，文字换成赞助人', () => {
     entState.unlocked = true;
     entState.patron = true;
-    const out = html();
-    expect(out).toContain('is-patron');
+    const g = aboutGroup(html());
+    expect(g).toContain('is-patron');
+    expect(g).toContain('bzs-badge-seal');
+    expect(g).not.toContain('高级版');
     entState.patron = false;
     entState.unlocked = false;
   });
 
-  it('已激活但老码没有赞助人：不出现徽章', () => {
+  it('已激活的普通码：一枚「高级版」，同样带铜印', () => {
     entState.unlocked = true;
-    const out = html();
-    expect(out).not.toContain('is-patron');
+    const g = aboutGroup(html());
+    expect(g).toContain('高级版');
+    expect(g).toContain('bzs-badge-seal');
+    expect(g).not.toContain('is-patron');
     entState.unlocked = false;
   });
 
-  it('基础版即使码里带赞助人也不显示', () => {
+  it('已激活但老码没有赞助人：不出现赞助人徽章', () => {
+    entState.unlocked = true;
+    const g = aboutGroup(html());
+    expect(g).not.toContain('is-patron');
+    entState.unlocked = false;
+  });
+
+  it('基础版即使码里带赞助人也不显示，且不画铜印', () => {
     entState.patron = true;
-    const out = html();
-    expect(out).not.toContain('is-patron');
+    const g = aboutGroup(html());
+    expect(g).not.toContain('is-patron');
+    expect(g).toContain('is-base');
+    expect(g).not.toContain('bzs-badge-seal');
     entState.patron = false;
+  });
+
+  it('徽章带悬停说明与读屏文字', () => {
+    entState.unlocked = true;
+    entState.patron = true;
+    entState.name = '面包';
+    const g = aboutGroup(html());
+    expect(g).toContain('title="赞助人"');
+    expect(g).toContain('aria-label="赞助人 · 面包"');
+    entState.name = '';
+    entState.patron = false;
+    entState.unlocked = false;
+  });
+
+  it('昵称里的引号与尖括号照样转义', () => {
+    entState.unlocked = true;
+    entState.patron = true;
+    entState.name = '"><b>x';
+    const g = aboutGroup(html());
+    expect(g).not.toContain('"><b>');
+    expect(g).toContain('&quot;&gt;&lt;b&gt;');
+    entState.name = '';
+    entState.patron = false;
+    entState.unlocked = false;
+  });
+
+  it('授权状态行：赞助人也画一枚小铜印', () => {
+    entState.unlocked = true;
+    entState.patron = true;
+    expect(html()).toContain('bzs-licstat');
+    entState.patron = false;
+    entState.unlocked = false;
+  });
+
+  it('授权状态行：普通码不画铜印', () => {
+    entState.unlocked = true;
+    expect(html()).not.toContain('bzs-licstat');
+    entState.unlocked = false;
   });
 });
 

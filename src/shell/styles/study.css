@@ -1280,36 +1280,65 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* 授权徽章：高级版吃强调色，基础版退成中性。
-   这是整页唯一带色的一块——「买没买」扫一眼就该知道。 */
+/* 授权徽章（2026-11-10 换铜印胶囊）：整页唯一带色的一块。
+   一枚而不是两枚——普通码「高级版」，赞助人码换成「赞助人」或昵称，
+   同款只换字。铜印是双环 + 中心点，跟着强调色走（用户要它随主题变）。 */
 .bzs-about-badge {
   display: inline-flex;
   align-items: center;
-  height: 17px;
-  padding: 0 7px;
-  border-radius: var(--r-chip);
+  gap: 5px;
+  height: 20px;
+  /* 左 2px 让铜印贴着胶囊边缘，读起来像印章压在纸上 */
+  padding: 0 10px 0 2px;
+  border-radius: var(--r-pill);
   font-size: var(--fs-caption);
   line-height: 1;
-  letter-spacing: .04em;
+  letter-spacing: .08em;
   white-space: nowrap;
   border: 1px solid var(--copper-line);
-  background: var(--copper-soft);
+  background: color-mix(in srgb, var(--copper) 6%, transparent);
   color: var(--copper);
+  transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
+.bzs-about-badge svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* 悬停只亮一层内环，不做位移：这是页眉，抖一下很廉价 */
+.bzs-about-badge:hover {
+  background: color-mix(in srgb, var(--copper) 10%, transparent);
+  box-shadow: inset 0 0 0 1px var(--copper-line);
+}
+
+/* 基础版退成中性线框，也不画铜印——没买的人不该被打上身份 */
 .bzs-about-badge.is-base {
+  padding: 0 8px;
   border-color: var(--line-2);
   background: none;
   color: var(--t3);
 }
 
-/* 赞助人徽章（2026-11-09）：实底反白，与「高级版」的软底拉开一档。
-   只在已激活的赞助人码上出现；基础版没有这一枚。 */
+/* 赞助人那枚与普通码同款（2026-11-10 定的：同一枚徽章换文字），
+   只把字重加一档，让「面包」读起来是身份而不是档位 */
 .bzs-about-badge.is-patron {
-  border-color: var(--copper);
-  background: var(--copper);
-  color: var(--text-on-accent, #fff);
   font-weight: 600;
+}
+
+/* 授权状态行里的小铜印：与关于条同形，缩到 13px 跟 11px 的正文并排 */
+.bzs-licstat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.bzs-licstat svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: var(--copper);
 }
 
 .bzs-about .sp {

@@ -109,16 +109,23 @@ function toggle(k: string, on: boolean, label: string): string {
  */
 function aboutBar(version: string, paid: boolean, patron: boolean, name?: string): string {
   const ver = version ? `v${esc(version)}` : t('settings.about.version');
-  const badge = `<span class="bzs-about-badge${paid ? '' : ' is-base'}">${paid ? t('settings.about.paid') : t('settings.about.base')}</span>`;
-  /* 赞助人徽章（2026-11-09）：只在已激活时画——基础版不该被打标。
-     与「高级版」并排：一个是档位，一个是身份，两件事不互相替代。
-     定制码（payload 带 name）把徽章文字换成买家报的昵称；批次码没名字，
-     仍写「赞助人」。昵称来自我们签的码，照样转义——签名保证来源，不保证字符安全。 */
-  const patronLabel = name ? esc(name) : t('settings.about.patron');
-  const patronBadge = paid && patron ? `<span class="bzs-about-badge is-patron">${patronLabel}</span>` : '';
+  /* 授权徽章只有一枚（2026-11-10）：普通码写「高级版」，赞助人码换成
+     「赞助人」，报过 nickname 就写昵称。两枚同款铜印胶囊、只换文字——
+     并排两枚会让人以为「高级版」和「赞助人」是两档不同权益，而事实是
+     赞助人本来就包含高级版。
+     昵称来自我们签的码，照样转义——签名保证来源，不保证字符安全。 */
+  const paidLabel = patron ? (name ? esc(name) : t('settings.about.patron')) : t('settings.about.paid');
+  const label = paid ? paidLabel : t('settings.about.base');
+  /* 读屏读「赞助人 · 面包」：只念名字等于没说身份。悬停提示说清这枚标记。
+     基础版不挂 role/title——没买的人不该被打上身份。 */
+  const hint = patron ? t('settings.about.patron') : t('settings.about.paid');
+  const aria = patron && name ? `${hint} · ${esc(name)}` : hint;
+  const seal = paid ? ico('seal', 'bzs-badge-seal') : '';
+  const attrs = paid ? ` role="img" aria-label="${aria}" title="${hint}"` : '';
+  const badge = `<span class="bzs-about-badge${paid ? '' : ' is-base'}${paid && patron ? ' is-patron' : ''}"${attrs}>${seal}${label}</span>`;
   return `<div class="bzs-setgrp wide bzs-about">
       <h3>${t('settings.about')}</h3>
-      <span class="bzs-about-meta"><span class="bzs-about-ver">${ver}</span>${badge}${patronBadge}</span>
+      <span class="bzs-about-meta"><span class="bzs-about-ver">${ver}</span>${badge}</span>
       <span class="sp"></span>
       <button class="bzs-about-link" data-act="aboutgithub" title="${t('settings.about.repo')}">
         ${githubIcon(15)}<b>GitHub</b>
@@ -350,9 +357,14 @@ export function viewSettings(v: SettingsView): string {
      如果输入框只读又没有按钮，就变成「买了却填不进去」。
      点「重新激活」进入一次性的替换态（relicense），取消即回只读。 */
   const editingLicense = paid && !!v.relicense;
+  /* 赞助人码在状态行也画一枚小铜印（2026-11-10）：这一句本来只有文字，
+     和关于条的身份标记呼应不上。普通码不加，免得人人都有印。 */
+  const licStatus = paid && ent.patron
+    ? `<span class="bzs-mini bzs-licstat" style="flex:1">${ico('seal', 'bzs-lic-seal')}${esc(tierText(ent))}</span>`
+    : `<span class="bzs-mini" style="flex:1">${esc(tierText(ent))}</span>`;
   const lic = `<div class="bzs-setgrp">
       <h3>${t('settings.grp.lic')}</h3>
-      <div class="bzs-setrow"><label>${t('settings.lic.status')}</label><span class="bzs-mini" style="flex:1">${esc(tierText(ent))}</span></div>
+      <div class="bzs-setrow"><label>${t('settings.lic.status')}</label>${licStatus}</div>
       <div class="bzs-setrow"><label>${t('settings.lic.code')}</label>
         <input data-role="license" placeholder="BZR2.… 或 BZR1.…" value="${esc(ent.license)}" spellcheck="false" style="flex:1"${
           paid && !editingLicense ? ' readonly' : ''
