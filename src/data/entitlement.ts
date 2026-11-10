@@ -39,7 +39,7 @@ import type { BookFormat } from './schema';
 /** 高级能力。只有能判断的地方才列进来，别造没人问的开关。 */
 export type Cap =
   | 'export' // 结构化导出 Markdown
-  | 'card' // 书摘卡片
+  | 'poster' // 导出图片周报（书摘图片 2026-11-10 下放基础版，不再需要能力位）
   | 'stats' // 阅读统计
   | 'crossSearch' // 跨书搜索
   | 'aiSel' // 划词 AI：解释 / 翻译 / 摘要（工具栏那颗）
@@ -495,17 +495,17 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     es: 'Exportar los subrayados como Markdown estructurado',
     pt: 'Exportar destaques como Markdown estruturado',
   },
-  card: {
-    /* 2026-11-07 改：基础版本来就有「书摘卡片」（文字卡），被 can('card')
-       拦住的只有「复制成图片」那一刻。写「书摘卡片 · 高级版」是在撒谎。 */
-    zh: '把划线做成可分享的书摘图片',
-    'zh-TW': '把劃線做成可分享的書摘圖片',
-    en: 'Turn highlights into shareable quote card images',
-    ja: 'ハイライトを共有できる引用カード画像にする',
-    de: 'Markierungen in teilbare Zitatkarten-Bilder verwandeln',
-    fr: 'Transformer les surlignages en images de cartes à partager',
-    es: 'Convertir los subrayados en imágenes de tarjetas para compartir',
-    pt: 'Transformar destaques em imagens de cartões compartilháveis',
+  poster: {
+    /* 2026-11-10：书摘图片下放基础版，这枚能力位改归「导出图片周报」专用。
+       以前两者共用 card，解锁弹窗会说「书摘图片」——书摘免费后那是谎话。 */
+    zh: '导出图片周报',
+    'zh-TW': '匯出圖片週報',
+    en: 'Export a reading stats poster as an image',
+    ja: '読書統計を画像ポスターとして書き出す',
+    de: 'Lesestatistik als Bildposter exportieren',
+    fr: 'Exporter les statistiques de lecture en image',
+    es: 'Exportar las estadísticas de lectura como imagen',
+    pt: 'Exportar as estatísticas de leitura como imagem',
   },
   stats: {
     /* 2026-11-09 改名：统计页早有 KPI、投入趋势、节律、年度目标与每日打卡，
@@ -513,11 +513,11 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     zh: '阅读统计、打卡与目标',
     'zh-TW': '閱讀統計、打卡與目標',
     en: 'Reading stats, check-ins, and goals',
-    ja: 'Reading stats, check-ins, and goals',
-    de: 'Reading stats, check-ins, and goals',
-    fr: 'Reading stats, check-ins, and goals',
-    es: 'Reading stats, check-ins, and goals',
-    pt: 'Reading stats, check-ins, and goals',
+    ja: '読書統計・チェックイン・目標',
+    de: 'Lesestatistik, Check-ins und Ziele',
+    fr: 'Statistiques de lecture, pointages et objectifs',
+    es: 'Estadísticas de lectura, registro diario y objetivos',
+    pt: 'Estatísticas de leitura, check-ins e metas',
   },
   crossSearch: {
     zh: '在所有书里搜索',
@@ -606,8 +606,8 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     pt: 'Visão geral do livro',
   },
   bilink: {
-    zh: '把划线复制成双向链接',
-    'zh-TW': '把劃線複製成雙向連結',
+    zh: '把划线复制为双向链接',
+    'zh-TW': '把劃線複製為雙向連結',
     en: 'Copy a highlight as a bidirectional link',
     ja: 'ハイライトを双方向リンクとしてコピー',
     de: 'Markierung als bidirektionalen Link kopieren',
@@ -621,11 +621,11 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     zh: 'PDF：缩放旋转、复制页链接、笔记反链与导出页图',
     'zh-TW': 'PDF：縮放旋轉、複製頁連結、筆記反鏈與匯出頁圖',
     en: 'PDF: zoom, page links, note backlinks, and page export',
-    ja: 'PDF: zoom, page links, note backlinks, and page export',
-    de: 'PDF: zoom, page links, note backlinks, and page export',
-    fr: 'PDF: zoom, page links, note backlinks, and page export',
-    es: 'PDF: zoom, page links, note backlinks, and page export',
-    pt: 'PDF: zoom, page links, note backlinks, and page export',
+    ja: 'PDF：ズーム、ページリンク、ノートの被リンク、ページの画像書き出し',
+    de: 'PDF: zoomen, Seitenlinks, Notiz-Backlinks und Seitenexport',
+    fr: 'PDF : zoom, liens de page, rétroliens et export de page',
+    es: 'PDF: zoom, enlaces de página, retroenlaces y exportar páginas',
+    pt: 'PDF: zoom, links de página, retrolinks e exportar páginas',
   },
 };
 
@@ -681,7 +681,7 @@ export const PLAN_TABLE: PlanRow[] = [
      所以它是两栏都打勾的免费项——不是「PDF 的附赠」，两个引擎共用一颗按钮。
      插在这里只为贴近「找位置」那几行（搜索之后、脚注之前）。 */
   row('back', 'yes', 'yes'),
-  /* 基础版七行连着放，别让付费项插进来 */
+  /* 基础版连着放，别让付费项插进来 */
   row('footnote', 'yes', 'yes'),
   /* 2026-11-09 新增：分类管理按用户要求跟在脚注浮窗下面，基础版就有——
      新建 / 改名 / 排序 / 删除分类、把书归入某一类，都不拦。 */
@@ -694,9 +694,16 @@ export const PLAN_TABLE: PlanRow[] = [
      2026-11-08：没有 UI 入口的免费路径 copylinkurl 已删除，表里不再
      承诺「基础版部分可用」。 */
   row('bilink', 'no', 'yes', 'bilink'),
+  /* 引用页签（2026-11-10）：它列的正是上面这条双链产生的反链，按书聚在
+     一起。1.0.0 定稿归入高级版，紧排在双向链接下面——点它被拦时弹层高亮
+     双链那行，往下一行就是「你刚点的」。不另配 cap：两项是同一次购买、
+     同一个拦点，跟 PDF 整段共用一个 cap 是同一个道理。 */
+  row('cites', 'no', 'yes'),
   row('export', 'no', 'yes', 'export'),
-  /* 书摘卡片（文字卡）基础版就有，锁的只是「复制成图片」这一下 */
-  row('card', 'no', 'yes', 'card'),
+  /* 2026-11-10：书摘图片下放基础版，两版都能复制，图片一律带 bz reader
+     徽章。不再挂 cap，也没「部分可用」这回事——被拦的那一刻不存在了。
+     导出图片周报另立 poster 能力位，仍留在高级版。 */
+  row('card', 'yes', 'yes'),
   /* ── PDF 段（2026-11-10） ──
    * 以前 PDF 只由「更多格式」一句话代表，用户看不出买高级版在 PDF 上还多
    * 什么。现在整段七行逐条讲；勾叉仍是「基础版没有、高级版才有」——PDF
@@ -743,7 +750,7 @@ export function unlockModeFor(format: BookFormat): 'pdf' | 'fullFormats' {
 }
 
 /* ─────────── 对照表的分组（2026-11-09） ───────────
- * 27 行一长串看不出结构：用户从上滚到下，只记得「很多功能」，分不清哪几行
+ * 28 行一长串看不出结构：用户从上滚到下，只记得「很多功能」，分不清哪几行
  * 是一类。这里把同一批行按使用场景切成六段，渲染时插组标题——**行本身、
  * 勾叉、顺序都没变**，所以被拦时的高亮与滚动位置照旧。
  *
@@ -755,7 +762,8 @@ export function unlockModeFor(format: BookFormat): 'pdf' | 'fullFormats' {
  *
  * 切法按「读 → 归档 → 回看 → 问 AI → 进阶」走：
  *   · 阅读与书架：基础版七行，正好是免费区全部；
- *   · 格式与导出：能打开哪些书 + 把划线搬出去；
+ *   · 格式与导出：能打开哪些书 + 把划线搬出去，连引用页签一起（它列的是
+ *     双链反链，排在双向链接下面）；
  *   · PDF 阅读：PDF 整段（2026-11-10 新增）；
  *   · 统计与检索：回看读了多少、找回某句话；
  *   · AI：划词与全书问答；
@@ -774,7 +782,7 @@ export const PLAN_GROUPS: PlanGroup[] = [
   },
   {
     key: 'output',
-    rows: ['formats', 'bilink', 'export', 'card'],
+    rows: ['formats', 'bilink', 'cites', 'export', 'card'],
   },
   {
     key: 'pdf',

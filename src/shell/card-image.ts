@@ -59,6 +59,32 @@ export function wrapText(text: string, maxWidth: number, measure: (s: string) =>
 const SERIF = '"Songti SC", "Noto Serif CJK SC", "SimSun", serif';
 const SANS = '"PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
 
+/**
+ * 插件名徽章。2026-11-10 起书摘图片下放基础版，两版出的是同一张图：
+ * 这枚小标是署名，不是付费水印，所以不查授权、不做翻译（专名八语言同形）。
+ */
+export const CARD_BADGE_TEXT = 'bz reader';
+export const CARD_BADGE_H = 28;
+const BADGE_FONT = 13;
+
+/** 徽章固定在底部留白里，永远在引文与出处之后（纯函数，位置可断言） */
+export function cardBadgeY(cardHeight: number): number {
+  return cardHeight - PAD - CARD_BADGE_H;
+}
+
+/** 一枚低调的胶囊：浅纸底 + 左侧铜色细条 + 插件名，不抢引文 */
+export function drawCardBadge(ctx: CanvasRenderingContext2D, y: number): void {
+  ctx.font = `500 ${BADGE_FONT}px ${SANS}`;
+  const w = ctx.measureText(CARD_BADGE_TEXT).width + 26;
+  ctx.fillStyle = '#efe9dc';
+  ctx.fillRect(PAD, y, w, CARD_BADGE_H);
+  ctx.fillStyle = '#9a7434';
+  ctx.fillRect(PAD, y, 3, CARD_BADGE_H);
+  ctx.fillStyle = '#8a7f6d';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(CARD_BADGE_TEXT, PAD + 13, y + CARD_BADGE_H / 2);
+}
+
 function pick2x(): number {
   /* 至少 2×：1× 出图在手机上一放大就糊。3× 以上没有意义，
      720 宽的卡乘 3 已经是 2160。 */
@@ -69,8 +95,8 @@ function pick2x(): number {
  * 把一张书摘卡画成 PNG。
  *
  * 版式：纸色底 + 左侧一条铜色竖线，引文衬线大字，落款是
- * 「章节 · 书名」。不做封面、不做统计数字，也不印自家水印——
- * 这些东西在手机上会挤掉引文本来的呼吸感。
+ * 「章节 · 书名」，底部留白里放一枚 bz reader 徽章（署名，不是水印）。
+ * 不做封面、不做统计数字，这些东西在手机上会挤掉引文本来的呼吸感。
  */
 export async function renderQuoteCard(input: QuoteCardImageInput): Promise<Blob> {
   const scale = pick2x();
@@ -94,7 +120,8 @@ export async function renderQuoteCard(input: QuoteCardImageInput): Promise<Blob>
 
   const headH = input.title ? titleSize + 34 : 0;
   const bodyH = Math.max(lineH, lineCount * lineH);
-  const H = Math.max(420, PAD + headH + bodyH + 26 + PAD);
+  /* 底部多留一枚徽章的高度：它贴底，不随引文长短上下跳 */
+  const H = Math.max(420, PAD + headH + bodyH + 26 + metaSize + 16 + CARD_BADGE_H + PAD);
 
   canvas.width = CARD_W * scale;
   canvas.height = H * scale;
@@ -135,7 +162,8 @@ export async function renderQuoteCard(input: QuoteCardImageInput): Promise<Blob>
     ctx.fillText(`— ${from}`, PAD, y);
   }
 
-  /* 右下角不画签名：与展示窗一致，出处那一行下面留白。 */
+  /* 徽章落在底部留白，跟出处不抢行；不查授权，两版出的是同一张图。 */
+  drawCardBadge(ctx, cardBadgeY(H));
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {

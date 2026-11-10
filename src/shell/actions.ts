@@ -933,9 +933,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
     case 'sbtab':
-      /* AI 页签入口平权：基础版也看得见，点了弹高级版对照页，不切过去。
-         以前整枚页签都不渲染，用户连「有 AI」都不知道。 */
+      /* 入口平权：AI 与引用页签基础版也看得见，点了弹高级版对照页，不切过去。
+         以前整枚页签都不渲染，用户连「有 AI」都不知道。
+         引用页签跟双向链接共用一道门禁：弹层高亮双链那行，引用页签紧排其下。 */
       if (d.tab === 'ai' && !requireCap('ai')) break;
+      if (d.tab === 'cites' && !requireCap('bilink')) break;
       if (d.tab) setState({ sideTab: d.tab as never });
       break;
     case 'swap':
@@ -960,7 +962,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       overlay('bookmap');
       break;
     case 'poster':
-      if (!requireCap('card')) break;
+      /* 周报和书摘图片以前共用 card；书摘下放基础版后，周报自己立一道门禁 */
+      if (!requireCap('poster')) break;
       overlay('poster');
       break;
     case 'setgoal':
@@ -2315,10 +2318,9 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     }
 
     /* 书摘卡转图片：canvas 手绘，直接写剪贴板。
-       这是高级版能力位 cap:'card'，按钮本身由 overlayQuote 按权限决定出不出现；
-       这里再判一次是因为动作入口也能被脚本触发。 */
+       2026-11-10 下放基础版，不设门禁——两版出的是同一张图，都带
+       bz reader 徽章。按钮与动作都不查授权，免得表里两栏打勾却弹付费窗。 */
     case 'quotecopyimg': {
-      if (!requireCap('card')) break;
       const text = getState().overlay?.text || RT.sel?.text || '';
       if (!text) break;
       const book = currentBook();

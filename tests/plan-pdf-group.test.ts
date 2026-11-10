@@ -133,8 +133,8 @@ describe('对照表 · PDF 段八种语言', () => {
 
   it('切到英文，行名跟着换', () => {
     setLocale('en');
-    expect(planNameZh('pdfView')).toBe('缩放、旋转、单双页与滚动');
-    expect(PLAN_TEXT_PACK.pdfView.en).toBe('Zoom, rotate, two-up, and scroll');
+    expect(planNameZh('pdfView')).toBe('打开 PDF：缩放、旋转、单双页与滚动');
+    expect(PLAN_TEXT_PACK.pdfView.en).toBe('Open PDFs: zoom, rotate, one- or two-page, and scroll');
     setLocale('zh');
   });
 });

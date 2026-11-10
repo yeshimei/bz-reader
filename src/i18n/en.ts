@@ -301,7 +301,7 @@ export const EN: Record<MsgKey, string> = {
   'side.tab.bookmarks': 'Bookmarks',
   'side.tab.highlights': 'Highlights',
   'side.tab.cites': 'Citations',
-  'side.cites.empty': 'No notes cite this book yet.',
+  'side.cites.empty': 'No notes cite this book yet. Only links that point to a specific place in the book show up here — copy one from a highlight, or write one in a note yourself.',
   'side.cites.bookPlace': 'Elsewhere in the book',
   'side.cites.page': 'Page {n}',
   'side.cites.count': '{n}',
@@ -565,7 +565,7 @@ export const EN: Record<MsgKey, string> = {
   'settings.lic.relicense': 'Re-activate',
   'settings.lic.activate': 'Activate',
   'settings.lic.paid': 'Pro',
-  'settings.lic.benefits': 'Export, stats, cross-book search, AI, more formats',
+  'settings.lic.benefits': 'Export, stats, whole-library search, AI, more formats',
   'settings.lic.compare': 'Compare features',
 
   /* ── 解锁弹层：功能对照表 ─────────────────────────────── */

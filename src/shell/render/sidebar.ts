@@ -95,9 +95,11 @@ export interface AiIndexView {
 /**
  * 侧栏页签：书的坐标。书架是中心 tab，不在这里（封面墙需要宽度）。
  * 顺序即优先级：目录 → 书签 → 划线 → 引用 → AI；打开一本书自动落在目录。
- * 「引用」只有 PDF 有内容（EPUB 没有页内定位），没数据时给空态。
+ * 「引用」列的是笔记里指向本书具体位置的链接，EPUB / PDF 各有各的反链，
+ * 没数据时给空态。
  *
- * 入口平权：AI 页签始终存在，基础版点它由 actions 弹高级版对照页。
+ * 入口平权：AI 与引用页签始终存在，基础版点它由 actions 弹高级版对照页、
+ * 不切过去；引用页签跟双向链接共用一道门禁。
  */
 export const SIDE_TABS: Array<{ value: SideTab; key: MsgKey; icon: string }> = [
   { value: 'toc', key: 'side.tab.toc', icon: 'book-open' },
@@ -317,8 +319,9 @@ function citesBody(
   onlyPage = false,
 ): string {
   if (!rows.length) {
-    /* 只说一句。引导语（在笔记里写 `#page=`）是 PDF 的语法，
-        在 epub 上是教错话；真不知道怎么来，从书里复制划线就是。 */
+    /* 空态要讲清依赖：这里列的是笔记里「带书内定位」的链接，不是插件替用户
+       攒的笔记。不写 `#page=` 这类 PDF 专用语法（EPUB 上照着写会教错话），
+       也不点名高级版——链接可以自己写，页签本身免费。 */
     return `<div class="bzs-empty">${t('side.cites.empty')}</div>`;
   }
   /* EPUB 没有页码：一行一个位置，不摆「只看本页」那枚开关 */

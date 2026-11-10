@@ -236,7 +236,7 @@ const ACCENT_LABELS: Record<AccentName, Record<Locale, string>> = {
     de: 'Seladon',
     fr: 'Céladon',
     es: 'Celadón',
-    pt: 'Celadon',
+    pt: 'Celadão',
   },
 };
 

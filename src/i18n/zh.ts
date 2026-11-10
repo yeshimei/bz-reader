@@ -305,7 +305,7 @@ export const ZH = {
   'side.tab.bookmarks': '书签',
   'side.tab.highlights': '划线',
   'side.tab.cites': '引用',
-  'side.cites.empty': '还没有笔记引用这本书。',
+  'side.cites.empty': '还没有笔记引用这本书。这里只收指向本书具体位置的链接：可以从划线复制，也可以在笔记里自己写一条。',
   'side.cites.bookPlace': '其他位置',
   'side.cites.page': '第 {n} 页',
   'side.cites.count': '{n} 处',
@@ -579,7 +579,7 @@ export const ZH = {
   'settings.lic.relicense': '重新激活',
   'settings.lic.activate': '激活',
   'settings.lic.paid': '高级版',
-  'settings.lic.benefits': '导出、统计、跨书搜索、AI 与多格式等',
+  'settings.lic.benefits': '导出、统计、全库搜索、AI 与多格式等',
   'settings.lic.compare': '查看功能对照',
 
   /* ── 解锁弹层：功能对照表 ─────────────────────────────── */

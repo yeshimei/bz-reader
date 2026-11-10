@@ -365,7 +365,7 @@ function overlayQuote(
     <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
       <button class="bzs-btn pri" data-act="copytext" data-text="${esc(quoteMd)}">复制引用</button>
       <button class="bzs-btn" data-act="quotesave">存笔记</button>
-      ${__BZ_READER_PRO__ && can('card') ? '<button class="bzs-btn" data-act="quotecopyimg">复制图片</button>' : ''}
+      <button class="bzs-btn" data-act="quotecopyimg">复制图片</button>
     </div>`;
   /* 从划线打开时带 markId：工具条走 hl*，删除/复制都有据可依；
      从刚划的选区打开时没有 markId，退回 sel*（此时删除本来也不该出现）。 */

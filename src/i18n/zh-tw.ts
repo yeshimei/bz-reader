@@ -293,7 +293,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'side.tab.bookmarks': '書籤',
   'side.tab.highlights': '劃線',
   'side.tab.cites': '引用',
-  'side.cites.empty': '還沒有筆記引用這本書。',
+  'side.cites.empty': '還沒有筆記引用這本書。這裡只收指向本書具體位置的連結：可以從劃線複製，也可以在筆記裡自己寫一條。',
   'side.cites.bookPlace': '其他位置',
   'side.cites.page': '第 {n} 頁',
   'side.cites.count': '{n} 處',
@@ -553,7 +553,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.lic.relicense': '重新啟用',
   'settings.lic.activate': '啟用',
   'settings.lic.paid': '高級版',
-  'settings.lic.benefits': '匯出、統計、跨書搜尋、AI 與多格式等',
+  'settings.lic.benefits': '匯出、統計、全庫搜尋、AI 與多格式等',
   'settings.lic.compare': '查看功能對照',
 
   /* ── 解锁弹层：功能对照表 ─────────────────────────────── */

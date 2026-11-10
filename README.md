@@ -2,7 +2,7 @@
   <img src="docs/images/mark.svg" width="76" height="76" alt="">
   <h1>bz Reader</h1>
   <p><b>把 Obsidian 变成一个能读书的地方。</b><br>
-  <sub>桌面端 + 移动端、多格式支持、八种界面语言、AI 问答、双向链接，数据全部本地。</sub></p>
+  <sub>桌面端 + 移动端、多格式（包括 PDF），多语言支持、AI 全书问答、双向链接，数据全部本地。</sub></p>
 
   <p>
     <a href="https://obsidian.md"><img src="https://img.shields.io/badge/OBSIDIAN-%E2%89%A5%201.8.7-8a6a3a?style=flat-square&logo=obsidian&logoColor=white" alt="Obsidian 1.8.7+"></a>
@@ -38,25 +38,37 @@
 
 | 类别 | 功能 | 基础版 | 高级版 |
 |---|:---|:---:|:---:|
-| **阅读与书架** | EPUB / TXT / PDF 阅读与翻页 | ✓ | ✓ |
-| | 单栏 / 双栏 | ✓ | ✓ |
-| | 目录、书签、四色划线与想法 | ✓ | ✓ |
-| | 书内搜索 | ✓ | ✓ |
-| | 脚注浮窗预览 | ✓ | ✓ |
-| | 分类管理 | ✓ | ✓ |
-| **格式与导出** | mobi / azw3 / fb2 / 漫画 / PDF | — | ✓ |
-| | 划线复制为双向链接 | — | ✓ |
-| | 导出结构化 Markdown | — | ✓ |
-| | 书摘图片 | — | ✓ |
+| **阅读与书架** | EPUB / TXT 阅读与排版 | ✓ | ✓ |
+|  | 单栏 / 双栏 | ✓ | ✓ |
+|  | 目录、书签、四色划线、想法 | ✓ | ✓ |
+|  | 书内搜索 | ✓ | ✓ |
+|  | 回到上一处 | ✓ | ✓ |
+|  | 脚注浮窗预览 | ✓ | ✓ |
+|  | 分类管理 | ✓ | ✓ |
+| **格式与导出** | Kindle 系（MOBI / AZW3）、FB2 与 CBZ 漫画 | — | ✓ |
+|  | 划线复制为双向链接 | — | ✓ |
+|  | 引用页签：看哪些笔记引了这本书 | — | ✓ |
+|  | 导出整本摘录为 Markdown，每条带双链 | — | ✓ |
+|  | 划线做成书摘图片 | 部分 | ✓ |
+| **PDF 阅读** | 打开 PDF：缩放、旋转、单双页与滚动 | — | ✓ |
+|  | 页缩略图 | — | ✓ |
+|  | 复制页链接：页码 / 视图 / 嵌入 / 批注 | — | ✓ |
+|  | 划词自动复制页链接 | — | ✓ |
+|  | 本页反链与文件自带批注 | — | ✓ |
+|  | 导出本页为图片 | — | ✓ |
+|  | 记住每本书的缩放 | — | ✓ |
 | **统计与检索** | 阅读统计、打卡与目标 | — | ✓ |
-| | 跨书搜索 | — | ✓ |
-| **AI** | AI 解释 / 翻译 / 摘要 | — | ✓ |
-| | AI 全书问答 | — | ✓ |
+|  | 全库搜索 | — | ✓ |
+| **AI** | AI 解释、翻译与摘要 | — | ✓ |
+|  | AI 全书问答 | — | ✓ |
 | **进阶** | 竖排排版 | — | ✓ |
-| | 朗读 | — | ✓ |
-| | 原文与译文并排 | — | ✓ |
-| | 全书鸟瞰 | — | ✓ |
-| | 连接至 BZ AI 知识库 | — | ✓ |
+|  | 朗读 EPUB、TXT 与 PDF | — | ✓ |
+|  | 与另一本书并排对照 | — | ✓ |
+|  | 全书鸟瞰 | — | ✓ |
+|  | 连接 BZ AI 知识库，需另装 bz | — | ✓ |
+
+「部分」＝文字书摘卡基础版可用，复制成图片需高级版。
+
 ## 界面语言
 
 界面跟着 Obsidian 的语言走，也可以在 **书架 → 设置 → 界面** 里手动指定：简体中文、繁體中文、English、日本語、Deutsch、Français、Español、Português。
@@ -83,6 +95,7 @@
 ## 常见问题
 
 - **支持哪些格式？** EPUB 与 TXT 开箱即读；mobi、azw3、fb2、漫画与 PDF 在高级版。
+- **引用页签为什么是空的？** 引用页签属于高级版；升级后它列的是笔记里指向本书具体位置的链接，不是插件替你攒的笔记。「划线复制为双向链接」是生成这类链接最方便的方式，也可以自己在笔记里写一条。
 - **PDF 有什么限制？** 文字版 PDF 可以选字、划线、搜索与朗读，排版来自原文件（字号/行距不可调）；扫描版没有文字层，只能阅读和截图摘录，不提供 OCR。
 - **会和其他插件打架吗？** 阅读页是 Obsidian 原生视图，目录是左侧栏里的一个页签；划线可以复制成带定位的 Markdown 链接，点一下跳回原文那一句，不另建索引。
 - **换电脑怎么办？** 库同步过去，书架、进度和标注跟着走；高级版在新设备上重新填一次激活码。
@@ -112,27 +125,38 @@
 
 ### Features
 
-| | Free | Pro |
-|---|:---:|:---:|
-| EPUB / TXT / PDF reading and pagination | ✓ | ✓ |
-| One or two columns | ✓ | ✓ |
-| Contents, bookmarks, four-color highlights, and notes | ✓ | ✓ |
-| In-book search | ✓ | ✓ |
-| Footnote preview in a popover | ✓ | ✓ |
-| Shelf categories | ✓ | ✓ |
-| mobi / azw3 / fb2 / comics / PDF | — | ✓ |
-| Copy highlights as wikilinks | — | ✓ |
-| Structured Markdown export | — | ✓ |
-| Quote card images | — | ✓ |
-| Reading stats, check-ins, and goals | — | ✓ |
-| Cross-book search | — | ✓ |
-| AI explanations / translation / summaries | — | ✓ |
-| AI Q&A over the whole book | — | ✓ |
-| Vertical typesetting | — | ✓ |
-| Text-to-speech | — | ✓ |
-| Original and translation side by side | — | ✓ |
-| Book overview | — | ✓ |
-| Connect to the BZ AI knowledge base | — | ✓ |
+| Group | Feature | Free | Pro |
+|---|:---|:---:|:---:|
+| **Reading & Shelf** | EPUB / TXT reading and typography | ✓ | ✓ |
+|  | One or two columns | ✓ | ✓ |
+|  | Contents, bookmarks, four-color highlights, notes | ✓ | ✓ |
+|  | In-book search | ✓ | ✓ |
+|  | Back to previous spot | ✓ | ✓ |
+|  | Footnote preview in a popover | ✓ | ✓ |
+|  | Shelf categories | ✓ | ✓ |
+| **Formats & Export** | Kindle family (MOBI / AZW3), FB2, and CBZ comics | — | ✓ |
+|  | Copy highlights as wikilinks | — | ✓ |
+|  | Citations tab: see which notes cite this book | — | ✓ |
+|  | Export every excerpt as Markdown, each with a wikilink | — | ✓ |
+|  | Highlights as quote card images | Partial | ✓ |
+| **PDF Reading** | Open PDFs: zoom, rotate, one- or two-page, and scroll | — | ✓ |
+|  | Page thumbnails | — | ✓ |
+|  | Copy page links: page / view / embed / annotation | — | ✓ |
+|  | Auto-copy page links on selection | — | ✓ |
+|  | Backlinks on this page and annotations in the file | — | ✓ |
+|  | Export a page as an image | — | ✓ |
+|  | Remember zoom per book | — | ✓ |
+| **Stats & Search** | Reading stats, check-ins, and goals | — | ✓ |
+|  | Search the whole library | — | ✓ |
+| **AI** | Explain, translate, summarize a selection | — | ✓ |
+|  | AI Q&A over the whole book | — | ✓ |
+| **Advanced** | Vertical typesetting | — | ✓ |
+|  | Read EPUB, TXT and PDF aloud | — | ✓ |
+|  | Read two books side by side | — | ✓ |
+|  | Book overview | — | ✓ |
+|  | Connect to the BZ AI knowledge base; requires bz | — | ✓ |
+
+Partial = the text quote card is free; exporting it as an image requires Pro.
 
 ### Interface languages
 
@@ -166,6 +190,7 @@ Only the AI features go online; everything else works fully offline.
 ### FAQ
 
 - **Which formats?** EPUB and TXT out of the box; mobi, azw3, fb2, comics, and PDF with Pro.
+- **Why is the Citations tab empty?** The Citations tab is part of Pro; once unlocked it lists links in your notes that point to a specific place in the book, not notes that bz-reader collects for you. "Copy highlight as wikilink" is the easiest way to make such a link, but you can also write one yourself.
 - **Any PDF caveats?** Text-based PDFs support selection, highlights, search, and read-aloud; the layout comes from the file itself (font size and line height are fixed). Scanned PDFs have no text layer, so only reading and screenshot excerpts are available — there is no OCR.
 - **Does it conflict with other plugins?** The reader is a native Obsidian view and the contents are a tab in the left sidebar. Highlights can be copied as locator Markdown links that jump back to the exact passage — no separate index is built.
 - **Switching computers?** Your vault carries the shelf, progress, and annotations. Re-enter the license key on the new device.
@@ -196,31 +221,42 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 
 ## 繁體中文
 
-把 Obsidian 變成一個能讀書的地方。桌面端 + 行動端、多格式、八種介面語言、AI 問答、雙向連結，資料全部本地。
+把 Obsidian 變成一個能讀書的地方。桌面端 + 行動端、多格式（包括 PDF）、多語言支援、AI 全書問答、雙向連結，資料全部本地。
 
 ### 功能
 
-| | 基礎版 | 高級版 |
-|---|:---:|:---:|
-| EPUB / TXT / PDF 閱讀與翻頁 | ✓ | ✓ |
-| 單欄 / 雙欄 | ✓ | ✓ |
-| 目錄、書籤、四色劃線與想法 | ✓ | ✓ |
-| 書內搜尋 | ✓ | ✓ |
-| 腳註浮窗預覽 | ✓ | ✓ |
-| 分類管理 | ✓ | ✓ |
-| mobi / azw3 / fb2 / 漫畫 / PDF | — | ✓ |
-| 劃線複製為雙向連結 | — | ✓ |
-| 匯出結構化 Markdown | — | ✓ |
-| 書摘圖片 | — | ✓ |
-| 閱讀統計、打卡與目標 | — | ✓ |
-| 跨書搜尋 | — | ✓ |
-| AI 解釋 / 翻譯 / 摘要 | — | ✓ |
-| AI 全書問答 | — | ✓ |
-| 豎排排版 | — | ✓ |
-| 朗讀 | — | ✓ |
-| 原文與譯文並排 | — | ✓ |
-| 全書鳥瞰 | — | ✓ |
-| 連接至 BZ AI 知識庫 | — | ✓ |
+| 類別 | 功能 | 基礎版 | 高級版 |
+|---|:---|:---:|:---:|
+| **閱讀與書架** | EPUB / TXT 閱讀與排版 | ✓ | ✓ |
+|  | 單欄 / 雙欄 | ✓ | ✓ |
+|  | 目錄、書籤、四色劃線、想法 | ✓ | ✓ |
+|  | 書內搜尋 | ✓ | ✓ |
+|  | 回到上一處 | ✓ | ✓ |
+|  | 腳註浮窗預覽 | ✓ | ✓ |
+|  | 分類管理 | ✓ | ✓ |
+| **格式與匯出** | Kindle 系（MOBI / AZW3）、FB2 與 CBZ 漫畫 | — | ✓ |
+|  | 劃線複製為雙向連結 | — | ✓ |
+|  | 引用頁籤：看哪些筆記引用了本書 | — | ✓ |
+|  | 匯出整本摘錄為 Markdown，每條帶雙鏈 | — | ✓ |
+|  | 劃線做成書摘圖片 | 部分 | ✓ |
+| **PDF 閱讀** | 開啟 PDF：縮放、旋轉、單雙頁與捲動 | — | ✓ |
+|  | 頁縮圖 | — | ✓ |
+|  | 複製頁連結：頁碼 / 檢視 / 嵌入 / 批註 | — | ✓ |
+|  | 劃詞自動複製頁連結 | — | ✓ |
+|  | 本頁反鏈與檔案自帶批註 | — | ✓ |
+|  | 匯出本頁為圖片 | — | ✓ |
+|  | 記住每本書的縮放 | — | ✓ |
+| **統計與搜尋** | 閱讀統計、打卡與目標 | — | ✓ |
+|  | 全庫搜尋 | — | ✓ |
+| **AI** | AI 解釋、翻譯與摘要 | — | ✓ |
+|  | AI 全書問答 | — | ✓ |
+| **進階** | 豎排排版 | — | ✓ |
+|  | 朗讀 EPUB、TXT 與 PDF | — | ✓ |
+|  | 與另一本書並排對照 | — | ✓ |
+|  | 全書鳥瞰 | — | ✓ |
+|  | 連接 BZ AI 知識庫，需另裝 bz | — | ✓ |
+
+「部分」＝文字書摘卡基礎版可用，複製成圖片需高級版。
 
 ### 介面語言
 
@@ -248,6 +284,7 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 ### 常見問題
 
 - **支援哪些格式？** EPUB 與 TXT 開箱即讀；mobi、azw3、fb2、漫畫與 PDF 在高級版。
+- **引用頁籤為什麼是空的？** 引用頁籤屬於高級版；升級後它列的是筆記裡指向本書具體位置的連結，不是插件替你攢的筆記。「劃線複製為雙向連結」是產生這類連結最方便的方式，也可以自己在筆記裡寫一條。
 - **PDF 有什麼限制？** 文字版 PDF 可以選字、劃線、搜尋與朗讀，排版來自原檔（字級/行距不可調）；掃描版沒有文字層，只能閱讀與截圖摘錄，不提供 OCR。
 - **會和其他外掛衝突嗎？** 閱讀頁是 Obsidian 原生檢視，目錄是左側欄裡的一個頁籤；劃線可以複製成帶定位的 Markdown 連結，點一下跳回原文那一句，不另建索引。
 - **換電腦怎麼辦？** 庫同步過去，書架、進度與標註跟著走；高級版在新裝置上重新填一次啟用碼。
@@ -278,31 +315,42 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 
 ## 日本語
 
-Obsidian を「本を読む場所」に。デスクトップとモバイル、複数フォーマット、8 つの表示言語、AI への質問、双方向リンク。データはすべてローカルに保存されます。
+Obsidian を「本を読む場所」に。デスクトップ + モバイル、複数フォーマット（PDF を含む）、多言語対応、AI 全書 Q&A、双方向リンク。データはすべてローカル。
 
 ### 機能
 
-| | ベーシック版 | プロ版 |
-|---|:---:|:---:|
-| EPUB / TXT の読書・ページ送り・組版 | ✓ | ✓ |
-| 1 段 / 2 段組 | ✓ | ✓ |
-| 目次・ブックマーク・4 色ハイライトとメモ | ✓ | ✓ |
-| 本文内検索 | ✓ | ✓ |
-| 脚注のポップアップ表示 | ✓ | ✓ |
-| カテゴリ管理 | ✓ | ✓ |
-| mobi / azw3 / fb2 / コミック / PDF | — | ✓ |
-| ハイライトを双方向リンクとしてコピー | — | ✓ |
-| 構造化 Markdown への書き出し | — | ✓ |
-| 引用カード画像 | — | ✓ |
-| 読書統計・チェックイン・目標 | — | ✓ |
-| 本をまたぐ検索 | — | ✓ |
-| AI による解説 / 翻訳 / 要約 | — | ✓ |
-| AI 全書 Q&A | — | ✓ |
-| 縦組み | — | ✓ |
-| 読み上げ | — | ✓ |
-| 原文と訳文の並列表示 | — | ✓ |
-| 全体マップ | — | ✓ |
-| BZ AI ナレッジベースに接続 | — | ✓ |
+| 区分 | 機能 | ベーシック版 | プロ版 |
+|---|:---|:---:|:---:|
+| **読書と本棚** | EPUB / TXT の読書・ページ送り・組版 | ✓ | ✓ |
+|  | 1 段 / 2 段組 | ✓ | ✓ |
+|  | 目次・ブックマーク・4 色ハイライトとメモ | ✓ | ✓ |
+|  | 本文内検索 | ✓ | ✓ |
+|  | 前の位置に戻る | ✓ | ✓ |
+|  | 脚注のポップアップ表示 | ✓ | ✓ |
+|  | カテゴリ管理 | ✓ | ✓ |
+| **形式と書き出し** | mobi / azw3 / fb2 / コミック | — | ✓ |
+|  | ハイライトを双方向リンクとしてコピー | — | ✓ |
+|  | 引用タブ：この本を引用したノート | — | ✓ |
+|  | 全ての抜粋を Markdown に書き出し、各項目に双方向リンク | — | ✓ |
+|  | 引用カード画像 | 一部 | ✓ |
+| **PDF を読む** | PDF を開く：ズーム・回転・見開き・スクロール | — | ✓ |
+|  | ページのサムネイル | — | ✓ |
+|  | ページリンクをコピー：ページ / ビュー / 埋め込み / 注釈 | — | ✓ |
+|  | 選択時にページリンクを自動コピー | — | ✓ |
+|  | このページへの被リンクとファイル内の注釈 | — | ✓ |
+|  | このページを画像として書き出す | — | ✓ |
+|  | 本ごとにズームを記憶 | — | ✓ |
+| **統計と検索** | 読書統計・チェックイン・目標 | — | ✓ |
+|  | ライブラリ全体を検索 | — | ✓ |
+| **AI** | AI による解説 / 翻訳 / 要約 | — | ✓ |
+|  | AI 全書 Q&A | — | ✓ |
+| **上級** | 縦組み | — | ✓ |
+|  | EPUB・TXT・PDF の読み上げ | — | ✓ |
+|  | 別の本と並べて対照 | — | ✓ |
+|  | 全体マップ | — | ✓ |
+|  | BZ AI ナレッジベースに接続、bz が必要 | — | ✓ |
+
+「一部」＝テキストの引用カードはベーシック版で利用可、画像として書き出すにはプロ版が必要です。
 
 ### 表示言語
 
@@ -329,7 +377,9 @@ Obsidian を「本を読む場所」に。デスクトップとモバイル、�
 
 ### よくある質問
 
-- **対応フォーマットは？** EPUB と TXT はすぐ読めます。mobi・azw3・fb2・コミックはプロ版です。
+- **対応フォーマットは？** EPUB と TXT はすぐ読めます。mobi・azw3・fb2・コミックと PDF はプロ版です。
+- **「引用」タブが空なのはなぜ？** 「引用」タブはプロ版の機能です。有効にすると、ノートの中で本の特定の場所を指すリンクが並びます（プラグインが集めたメモではありません）。「ハイライトを双方向リンクとしてコピー」が一番手軽ですが、自分でノートに書いても表示されます。
+- **PDF の制限は？** テキスト型 PDF は文字選択・ハイライト・検索・読み上げに対応し、組版は元ファイルのままです（文字サイズと行間は固定）。スキャン版には文字レイヤーがないため、閲覧とページの画像書き出しのみで、OCR はありません。
 - **他のプラグインと衝突しますか？** 読書画面は Obsidian のネイティブビュー、目次は左サイドバーのタブです。ハイライトは位置情報つきの Markdown リンクとしてコピーでき、クリックすると元の一文に戻ります。別途インデックスは作りません。
 - **PC を買い替えたら？** 保管庫を同期すれば本棚・進捗・注釈もついてきます。プロ版は新しい端末でキーを再入力してください。
 - **モバイルで別途購入が必要？** いいえ。1 つのビルドでデスクトップもモバイルも使えます。
@@ -359,31 +409,42 @@ Obsidian を「本を読む場所」に。デスクトップとモバイル、�
 
 ## Deutsch
 
-Mach aus Obsidian einen Ort zum Lesen. Desktop und Mobil, mehrere Formate, acht Oberflächensprachen, KI-Fragen, Wikilinks. Alle Daten bleiben lokal.
+Mach aus Obsidian einen Ort zum Lesen. Desktop und Mobil, mehrere Formate (einschließlich PDF), mehrsprachige Oberfläche, KI-Fragen zum ganzen Buch, Wikilinks. Alle Daten bleiben lokal.
 
 ### Funktionen
 
-| | Basis | Pro |
-|---|:---:|:---:|
-| EPUB / TXT lesen, blättern, Satz einstellen | ✓ | ✓ |
-| Eine oder zwei Spalten | ✓ | ✓ |
-| Inhalt, Lesezeichen, vier Markierungsfarben und Notizen | ✓ | ✓ |
-| Suche im Buch | ✓ | ✓ |
-| Fußnoten als Pop-up | ✓ | ✓ |
-| Kategorien verwalten | ✓ | ✓ |
-| mobi / azw3 / fb2 / Comics / PDF | — | ✓ |
-| Markierungen als Wikilink kopieren | — | ✓ |
-| Strukturierter Markdown-Export | — | ✓ |
-| Zitatkarten als Bild | — | ✓ |
-| Lesestatistik, Check-ins und Ziele | — | ✓ |
-| Suche über alle Bücher | — | ✓ |
-| KI: Erklärungen / Übersetzung / Zusammenfassungen | — | ✓ |
-| KI: Fragen zum ganzen Buch | — | ✓ |
-| Vertikaler Satz | — | ✓ |
-| Vorlesen | — | ✓ |
-| Original und Übersetzung nebeneinander | — | ✓ |
-| Buchübersicht | — | ✓ |
-| Verbindung zur BZ-KI-Wissensdatenbank | — | ✓ |
+| Bereich | Funktion | Basis | Pro |
+|---|:---|:---:|:---:|
+| **Lesen & Regal** | EPUB / TXT lesen, blättern, Satz einstellen | ✓ | ✓ |
+|  | Eine oder zwei Spalten | ✓ | ✓ |
+|  | Inhalt, Lesezeichen, vier Markierungsfarben und Notizen | ✓ | ✓ |
+|  | Suche im Buch | ✓ | ✓ |
+|  | Zur vorherigen Stelle zurück | ✓ | ✓ |
+|  | Fußnoten als Pop-up | ✓ | ✓ |
+|  | Regal-Kategorien | ✓ | ✓ |
+| **Formate & Export** | mobi / azw3 / fb2 / Comics | — | ✓ |
+|  | Markierungen als Wikilink kopieren | — | ✓ |
+|  | Zitate-Tab: welche Notizen dieses Buch zitieren | — | ✓ |
+|  | Alle Exzerpte als Markdown exportieren, jeweils mit Wikilink | — | ✓ |
+|  | Zitatkarten als Bild | Teilweise | ✓ |
+| **PDF lesen** | PDF öffnen: zoomen, drehen, Einzelseite / Doppelseite, Scrollen | — | ✓ |
+|  | Seitenminiaturen | — | ✓ |
+|  | Seitenlinks kopieren: Seite / Ansicht / Einbettung / Anmerkung | — | ✓ |
+|  | Seitenlinks bei Auswahl automatisch kopieren | — | ✓ |
+|  | Backlinks auf dieser Seite und Anmerkungen in der Datei | — | ✓ |
+|  | Seite als Bild exportieren | — | ✓ |
+|  | Zoom pro Buch merken | — | ✓ |
+| **Statistik & Suche** | Lesestatistik, Check-ins und Ziele | — | ✓ |
+|  | Die ganze Bibliothek durchsuchen | — | ✓ |
+| **AI** | KI: Erklärungen / Übersetzung / Zusammenfassungen | — | ✓ |
+|  | KI: Fragen zum ganzen Buch | — | ✓ |
+| **Fortgeschritten** | Vertikaler Satz | — | ✓ |
+|  | EPUB, TXT und PDF vorlesen | — | ✓ |
+|  | Zwei Bücher nebeneinander lesen | — | ✓ |
+|  | Buchübersicht | — | ✓ |
+|  | Mit der BZ-KI-Wissensdatenbank verbinden; bz erforderlich | — | ✓ |
+
+Teilweise = die Text-Zitatkarte ist in der Basisversion nutzbar; der Bildexport erfordert Pro.
 
 ### Oberflächensprachen
 
@@ -410,7 +471,9 @@ Nur die KI-Funktionen gehen online; alles andere arbeitet vollständig offline.
 
 ### Häufige Fragen
 
-- **Welche Formate?** EPUB und TXT sofort; mobi, azw3, fb2 und Comics mit Pro.
+- **Welche Formate?** EPUB und TXT sofort; mobi, azw3, fb2, Comics und PDF mit Pro.
+- **Warum bleibt die Registerkarte „Zitate“ leer?** Das Register gehört zur Pro-Version; nach dem Freischalten listet es Links in deinen Notizen auf, die auf eine bestimmte Stelle im Buch verweisen — keine Notizen, die das Plugin für dich sammelt. „Markierung als Wikilink kopieren“ ist der bequemste Weg, so einen Link zu erzeugen; du kannst ihn aber auch selbst in eine Notiz schreiben.
+- **Gibt es Einschränkungen bei PDF?** Textbasierte PDFs unterstützen Auswahl, Markierungen, Suche und Vorlesen; das Layout stammt aus der Datei (Schriftgröße und Zeilenhöhe sind fest). Scans ohne Textschicht erlauben nur Lesen und den Seitenexport als Bild – OCR gibt es nicht.
 - **Kollidiert es mit anderen Plugins?** Die Leseansicht ist eine native Obsidian-Ansicht, der Inhalt ein Tab in der linken Seitenleiste. Markierungen lassen sich als Markdown-Links mit Positionsangabe kopieren, die zur genauen Stelle zurückspringen — ein eigener Index wird nicht angelegt.
 - **Rechnerwechsel?** Der Vault nimmt Regal, Fortschritt und Anmerkungen mit. Den Lizenzschlüssel auf dem neuen Gerät erneut eingeben.
 - **Muss ich mobil noch einmal zahlen?** Nein. Ein Build deckt Desktop und Mobil ab.
@@ -440,31 +503,42 @@ Veröffentlicht unter der [MIT](LICENSE)-Lizenz. Die Rendering-Engine ist [folia
 
 ## Français
 
-Faites d'Obsidian un endroit où lire. Bureau et mobile, plusieurs formats, huit langues d'interface, questions à l'IA, wikiliens. Toutes les données restent en local.
+Faites d'Obsidian un endroit où lire. Bureau et mobile, plusieurs formats (dont PDF), interface multilingue, questions IA sur tout le livre, wikiliens. Toutes les données restent en local.
 
 ### Fonctionnalités
 
-| | Base | Pro |
-|---|:---:|:---:|
-| Lecture EPUB / TXT, pagination et composition | ✓ | ✓ |
-| Une ou deux colonnes | ✓ | ✓ |
-| Sommaire, signets, quatre couleurs de surlignage et notes | ✓ | ✓ |
-| Recherche dans le livre | ✓ | ✓ |
-| Aperçu des notes de bas de page | ✓ | ✓ |
-| Gestion des catégories | ✓ | ✓ |
-| mobi / azw3 / fb2 / BD / PDF | — | ✓ |
-| Copier les surlignages en wikiliens | — | ✓ |
-| Export Markdown structuré | — | ✓ |
-| Images de cartes de citation | — | ✓ |
-| Statistiques, check-ins et objectifs | — | ✓ |
-| Recherche dans tous les livres | — | ✓ |
-| IA : explications / traduction / résumés | — | ✓ |
-| Questions IA sur tout le livre | — | ✓ |
-| Composition verticale | — | ✓ |
-| Lecture à voix haute | — | ✓ |
-| Original et traduction côte à côte | — | ✓ |
-| Vue d'ensemble du livre | — | ✓ |
-| Connexion à la base de connaissances BZ AI | — | ✓ |
+| Catégorie | Fonction | Base | Pro |
+|---|:---|:---:|:---:|
+| **Lecture & bibliothèque** | Lecture EPUB / TXT, pagination et composition | ✓ | ✓ |
+|  | Une ou deux colonnes | ✓ | ✓ |
+|  | Sommaire, signets, quatre couleurs de surlignage et notes | ✓ | ✓ |
+|  | Recherche dans le livre | ✓ | ✓ |
+|  | Revenir à la position précédente | ✓ | ✓ |
+|  | Aperçu des notes de bas de page | ✓ | ✓ |
+|  | Gestion des catégories | ✓ | ✓ |
+| **Formats & export** | mobi / azw3 / fb2 / BD | — | ✓ |
+|  | Copier les surlignages en wikiliens | — | ✓ |
+|  | Onglet Citations : quelles notes citent ce livre | — | ✓ |
+|  | Exporter tous les extraits en Markdown, chacun avec un wikilien | — | ✓ |
+|  | Images de cartes de citation | Partiel | ✓ |
+| **Lecture PDF** | Ouvrir un PDF : zoom, rotation, page simple / double et défilement | — | ✓ |
+|  | Miniatures des pages | — | ✓ |
+|  | Copier les liens de page : page / vue / intégration / annotation | — | ✓ |
+|  | Copier automatiquement le lien de page à la sélection | — | ✓ |
+|  | Rétroliens sur cette page et annotations du fichier | — | ✓ |
+|  | Exporter une page en image | — | ✓ |
+|  | Mémoriser le zoom par livre | — | ✓ |
+| **Statistiques & recherche** | Statistiques de lecture, pointages et objectifs | — | ✓ |
+|  | Rechercher dans toute la bibliothèque | — | ✓ |
+| **IA** | IA : explications / traduction / résumés | — | ✓ |
+|  | Questions IA sur tout le livre | — | ✓ |
+| **Avancé** | Composition verticale | — | ✓ |
+|  | Lecture vocale EPUB, TXT et PDF | — | ✓ |
+|  | Lire deux livres côte à côte | — | ✓ |
+|  | Vue d'ensemble du livre | — | ✓ |
+|  | Se connecter à la base BZ AI ; nécessite bz | — | ✓ |
+
+Partiel = la carte de citation texte est disponible en Base ; l'export en image demande Pro.
 
 ### Langues de l'interface
 
@@ -491,7 +565,9 @@ Seules les fonctions d'IA vont en ligne ; tout le reste fonctionne hors ligne.
 
 ### Questions fréquentes
 
-- **Quels formats ?** EPUB et TXT d'emblée ; mobi, azw3, fb2 et BD avec Pro.
+- **Quels formats ?** EPUB et TXT d'emblée ; mobi, azw3, fb2, BD et PDF avec Pro.
+- **Pourquoi l'onglet Citations est-il vide ?** L'onglet Citations fait partie de la version Pro ; une fois déverrouillé, il liste les liens dans vos notes qui pointent vers un endroit précis du livre, pas des notes collectées par le greffon. « Copier le surlignage comme wikilien » est le moyen le plus simple d'en créer un, mais vous pouvez aussi l'écrire vous-même.
+- **Des limites pour les PDF ?** Les PDF avec couche de texte permettent la sélection, le surlignage, la recherche et la lecture vocale ; la mise en page vient du fichier (taille de police et interligne fixes). Les PDF scannés n'ont pas de couche de texte : lecture et export de la page en image seulement, pas d'OCR.
 - **Des conflits avec d'autres plugins ?** Le lecteur est une vue native d'Obsidian et le sommaire un onglet du panneau latéral gauche. Les surlignages se copient en liens Markdown avec repère qui reviennent au passage exact — aucun index séparé n'est construit.
 - **Changer d'ordinateur ?** Le coffre emporte la bibliothèque, la progression et les annotations. Ressaisissez la clé de licence sur le nouvel appareil.
 - **Faut-il payer à nouveau sur mobile ?** Non. Une seule version couvre bureau et mobile.
@@ -521,31 +597,42 @@ Publié sous licence [MIT](LICENSE). Le moteur de rendu est [foliate-js](https:/
 
 ## Español
 
-Convierte Obsidian en un lugar donde leer. Escritorio y móvil, varios formatos, ocho idiomas de interfaz, preguntas a la IA, wikienlaces. Todos los datos se guardan en local.
+Convierte Obsidian en un lugar donde leer. Escritorio y móvil, varios formatos (incluido PDF), interfaz multilingüe, preguntas de IA sobre todo el libro, wikienlaces. Todos los datos se guardan en local.
 
 ### Funciones
 
-| | Base | Pro |
-|---|:---:|:---:|
-| Lectura EPUB / TXT, paginación y tipografía | ✓ | ✓ |
-| Una o dos columnas | ✓ | ✓ |
-| Índice, marcadores, cuatro colores de subrayado y notas | ✓ | ✓ |
-| Búsqueda dentro del libro | ✓ | ✓ |
-| Vista previa de notas al pie | ✓ | ✓ |
-| Gestión de categorías | ✓ | ✓ |
-| mobi / azw3 / fb2 / cómic / PDF | — | ✓ |
-| Copiar subrayados como wikienlaces | — | ✓ |
-| Exportación a Markdown estructurado | — | ✓ |
-| Imágenes de tarjetas de cita | — | ✓ |
-| Estadísticas, registros y objetivos | — | ✓ |
-| Búsqueda entre libros | — | ✓ |
-| IA: explicaciones / traducción / resúmenes | — | ✓ |
-| Preguntas de IA sobre todo el libro | — | ✓ |
-| Composición vertical | — | ✓ |
-| Lectura en voz alta | — | ✓ |
-| Original y traducción en paralelo | — | ✓ |
-| Vista general del libro | — | ✓ |
-| Conexión con la base de conocimiento BZ AI | — | ✓ |
+| Categoría | Función | Base | Pro |
+|---|:---|:---:|:---:|
+| **Lectura y estantería** | Lectura EPUB / TXT, paginación y tipografía | ✓ | ✓ |
+|  | Una o dos columnas | ✓ | ✓ |
+|  | Índice, marcadores, cuatro colores de subrayado y notas | ✓ | ✓ |
+|  | Búsqueda dentro del libro | ✓ | ✓ |
+|  | Volver a la posición anterior | ✓ | ✓ |
+|  | Vista previa de notas al pie | ✓ | ✓ |
+|  | Gestión de categorías | ✓ | ✓ |
+| **Formatos y exportación** | mobi / azw3 / fb2 / cómic | — | ✓ |
+|  | Copiar subrayados como wikienlaces | — | ✓ |
+|  | Pestaña Citas: qué notas citan este libro | — | ✓ |
+|  | Exportar todos los extractos a Markdown, cada uno con un wikienlace | — | ✓ |
+|  | Imágenes de tarjetas de cita | Parcial | ✓ |
+| **Lectura de PDF** | Abrir PDF: zoom, rotación, una o dos páginas y desplazamiento | — | ✓ |
+|  | Miniaturas de páginas | — | ✓ |
+|  | Copiar enlaces de página: página / vista / incrustación / anotación | — | ✓ |
+|  | Copiar automáticamente el enlace de página al seleccionar | — | ✓ |
+|  | Retroenlaces de esta página y anotaciones del archivo | — | ✓ |
+|  | Exportar una página como imagen | — | ✓ |
+|  | Recordar el zoom de cada libro | — | ✓ |
+| **Estadísticas y búsqueda** | Estadísticas de lectura, registro diario y objetivos | — | ✓ |
+|  | Buscar en toda la biblioteca | — | ✓ |
+| **IA** | IA: explicaciones / traducción / resúmenes | — | ✓ |
+|  | Preguntas de IA sobre todo el libro | — | ✓ |
+| **Avanzado** | Composición vertical | — | ✓ |
+|  | Lectura en voz alta de EPUB, TXT y PDF | — | ✓ |
+|  | Leer dos libros en paralelo | — | ✓ |
+|  | Vista general del libro | — | ✓ |
+|  | Conectar con la base de conocimiento BZ AI; requiere bz | — | ✓ |
+
+Parcial = la tarjeta de cita de texto está disponible en Base; exportarla como imagen requiere Pro.
 
 ### Idiomas de la interfaz
 
@@ -572,7 +659,9 @@ Solo las funciones de IA se conectan; todo lo demás funciona sin conexión.
 
 ### Preguntas frecuentes
 
-- **¿Qué formatos?** EPUB y TXT de serie; mobi, azw3, fb2 y cómic con Pro.
+- **¿Qué formatos?** EPUB y TXT de serie; mobi, azw3, fb2, cómic y PDF con Pro.
+- **¿Por qué la pestaña Citas está vacía?** La pestaña Citas forma parte de la versión Pro; una vez activada, muestra los enlaces de tus notas que apuntan a un lugar concreto del libro, no notas que el plugin recopile por su cuenta. «Copiar subrayado como wikienlace» es la forma más cómoda de crearlos, pero también puedes escribir uno tú mismo.
+- **¿Limitaciones con PDF?** Los PDF con capa de texto permiten seleccionar, subrayar, buscar y leer en voz alta; la composición viene del archivo (tamaño de letra e interlineado fijos). Los escaneos no tienen capa de texto: solo lectura y exportación de la página como imagen, sin OCR.
 - **¿Choca con otros plugins?** El lector es una vista nativa de Obsidian y el índice una pestaña del panel lateral izquierdo. Los subrayados se copian como enlaces Markdown con posición que vuelven al pasaje exacto: no se construye ningún índice aparte.
 - **¿Cambio de ordenador?** La bóveda se lleva la estantería, el progreso y las anotaciones. Vuelve a introducir la clave de licencia en el nuevo dispositivo.
 - **¿Pago otra vez en el móvil?** No. Una sola compilación cubre escritorio y móvil.
@@ -602,31 +691,42 @@ Publicado bajo licencia [MIT](LICENSE). El motor de renderizado es [foliate-js](
 
 ## Português
 
-Transforme o Obsidian num lugar para ler. Desktop e celular, vários formatos, oito idiomas de interface, perguntas à IA, wikilinks. Todos os dados ficam locais.
+Transforme o Obsidian num lugar para ler. Desktop e celular, vários formatos (incluindo PDF), interface multilíngue, perguntas de IA sobre o livro inteiro, wikilinks. Todos os dados ficam locais.
 
 ### Recursos
 
-| | Base | Pro |
-|---|:---:|:---:|
-| Leitura EPUB / TXT, paginação e tipografia | ✓ | ✓ |
-| Uma ou duas colunas | ✓ | ✓ |
-| Sumário, marcadores, quatro cores de destaque e notas | ✓ | ✓ |
-| Pesquisa dentro do livro | ✓ | ✓ |
-| Prévia das notas de rodapé | ✓ | ✓ |
-| Gerenciar categorias | ✓ | ✓ |
-| mobi / azw3 / fb2 / quadrinhos / PDF | — | ✓ |
-| Copiar destaques como wikilinks | — | ✓ |
-| Exportação em Markdown estruturado | — | ✓ |
-| Imagens de cartões de citação | — | ✓ |
-| Estatísticas, check-ins e metas | — | ✓ |
-| Pesquisa entre livros | — | ✓ |
-| IA: explicações / tradução / resumos | — | ✓ |
-| Perguntas de IA sobre o livro inteiro | — | ✓ |
-| Composição vertical | — | ✓ |
-| Leitura em voz alta | — | ✓ |
-| Original e tradução lado a lado | — | ✓ |
-| Visão geral do livro | — | ✓ |
-| Conexão com a base de conhecimento BZ AI | — | ✓ |
+| Categoria | Recurso | Base | Pro |
+|---|:---|:---:|:---:|
+| **Leitura e estante** | Leitura EPUB / TXT, paginação e tipografia | ✓ | ✓ |
+|  | Uma ou duas colunas | ✓ | ✓ |
+|  | Sumário, marcadores, quatro cores de destaque e notas | ✓ | ✓ |
+|  | Pesquisa dentro do livro | ✓ | ✓ |
+|  | Voltar à posição anterior | ✓ | ✓ |
+|  | Prévia das notas de rodapé | ✓ | ✓ |
+|  | Gestão de categorias | ✓ | ✓ |
+| **Formatos e exportação** | mobi / azw3 / fb2 / quadrinhos | — | ✓ |
+|  | Copiar destaques como wikilinks | — | ✓ |
+|  | Aba Citações: quais notas citam este livro | — | ✓ |
+|  | Exportar todos os excertos em Markdown, cada um com um wikilink | — | ✓ |
+|  | Imagens de cartões de citação | Parcial | ✓ |
+| **Leitura de PDF** | Abrir PDF: zoom, rotação, uma ou duas páginas e rolagem | — | ✓ |
+|  | Miniaturas das páginas | — | ✓ |
+|  | Copiar links de página: página / vista / incorporação / anotação | — | ✓ |
+|  | Copiar automaticamente o link da página ao selecionar | — | ✓ |
+|  | Retrolinks desta página e anotações do arquivo | — | ✓ |
+|  | Exportar uma página como imagem | — | ✓ |
+|  | Lembrar o zoom de cada livro | — | ✓ |
+| **Estatísticas e busca** | Estatísticas de leitura, check-ins e metas | — | ✓ |
+|  | Pesquisar em toda a biblioteca | — | ✓ |
+| **IA** | IA: explicações / tradução / resumos | — | ✓ |
+|  | Perguntas de IA sobre o livro inteiro | — | ✓ |
+| **Avançado** | Composição vertical | — | ✓ |
+|  | Leitura em voz alta de EPUB, TXT e PDF | — | ✓ |
+|  | Ler dois livros lado a lado | — | ✓ |
+|  | Visão geral do livro | — | ✓ |
+|  | Conectar à base de conhecimento BZ AI; requer bz | — | ✓ |
+
+Parcial = o cartão de citação em texto está disponível na Base; exportá-lo como imagem requer Pro.
 
 ### Idiomas da interface
 
@@ -653,7 +753,9 @@ Só os recursos de IA acessam a rede; todo o resto funciona offline.
 
 ### Perguntas frequentes
 
-- **Quais formatos?** EPUB e TXT de imediato; mobi, azw3, fb2 e quadrinhos no Pro.
+- **Quais formatos?** EPUB e TXT de imediato; mobi, azw3, fb2, quadrinhos e PDF no Pro.
+- **Por que a aba Citações está vazia?** A aba Citações faz parte da versão Pro; depois de desbloqueada, ela lista os links nas suas notas que apontam para um trecho específico do livro, não notas que o plugin reúne por conta própria. «Copiar destaque como wikilink» é o jeito mais fácil de criar um, mas você também pode escrever um você mesmo.
+- **Limitações com PDF?** PDFs com camada de texto permitem seleção, destaque, pesquisa e leitura em voz alta; o layout vem do arquivo (tamanho da fonte e entrelinha fixos). Digitalizações não têm camada de texto: apenas leitura e exportação da página como imagem, sem OCR.
 - **Conflita com outros plugins?** O leitor é uma view nativa do Obsidian e o sumário é uma aba do painel lateral esquerdo. Os destaques podem ser copiados como links Markdown com posição que voltam ao trecho exato — nenhum índice separado é criado.
 - **Troquei de computador?** O cofre leva a estante, o progresso e as anotações. Informe a chave de licença de novo no novo aparelho.
 - **Preciso pagar de novo no celular?** Não. Uma única compilação cobre desktop e celular.

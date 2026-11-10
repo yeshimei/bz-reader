@@ -52,21 +52,20 @@ describe('quoteCardHtml · 书摘', () => {
     expect(quoteCardHtml(input)).toContain('红楼梦 · 曹雪芹 · 第一回');
   });
 
-  it('右栏默认两颗：复制引用 / 存笔记（没有「关闭」）', () => {
+  it('右栏三颗：复制引用 / 存笔记 / 复制图片（没有「关闭」）', () => {
     const html = quoteCardHtml(input);
-    expect(html.match(/<button/g)?.length).toBe(2);
+    expect(html.match(/<button/g)?.length).toBe(3);
     expect(html).toContain('复制引用');
     expect(html).toContain('存笔记');
+    expect(html).toContain('复制图片');
     expect(html).not.toContain('关闭');
   });
 
-  /* 「书摘卡片（可分享图片）」是高级版能力位 cap: 'card'。
-     没解锁时整颗不出现（不做灰锁——每次划词都提醒一次没买更难受）。 */
-  it('解锁后多一颗「复制图片」', () => {
-    const html = quoteCardHtml({ ...input, canImage: true });
-    expect(html.match(/<button/g)?.length).toBe(3);
+  /* 2026-11-10：书摘图片下放基础版，不再有「解锁后多一颗」这回事。
+     图片一律带 bz reader 徽章，没解锁的人也看得见这颗按钮。 */
+  it('复制图片不带授权判断，谁都能看见', () => {
+    const html = quoteCardHtml(input);
     expect(html).toContain('data-act="quotecopyimg"');
-    expect(html).toContain('复制图片');
   });
 
   it('复制引用带上引文与出处，粘进笔记就是一条完整的引用', () => {

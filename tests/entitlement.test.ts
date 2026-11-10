@@ -221,16 +221,18 @@ describe('界面文案', () => {
     expect(classify.cap).toBeUndefined();
   });
 
-  it('更多格式仍排在基础版第一块之后', () => {
-    const footnote = PLAN_TABLE.findIndex((r) => r.name.includes('脚注'));
-    expect(PLAN_TABLE[footnote + 2].key).toBe('formats');
-    expect(PLAN_TABLE[footnote + 2].cap).toBe('fullFormats');
+  it('更多格式仍是第一个付费项，紧跟在免费区之后', () => {
+    /* 1.0.0 免费区补了「引用页签」，写死 footnote + 2 会跟着错位；
+       这里按「第一行不是两栏都打勾」定位，加多少免费行都不会误判。 */
+    const firstPaid = PLAN_TABLE.find((r) => r.free === 'no');
+    expect(firstPaid?.key).toBe('formats');
+    expect(firstPaid?.cap).toBe('fullFormats');
   });
 
   it('对照表不再单列向量检索，表尾只剩 BZ 知识库', () => {
     expect(PLAN_TABLE.some((r) => r.name.includes('向量'))).toBe(false);
     expect(PLAN_TABLE.slice(-1).map((r) => r.key)).toEqual(['kb']);
-    expect(PLAN_TABLE.slice(-1).map((r) => r.name)).toEqual(['接入 BZ AI 知识库']);
+    expect(PLAN_TABLE.slice(-1).map((r) => r.name)).toEqual(['连接 BZ AI 知识库，需另装 bz']);
   });
 
   it('统计那一行写全：统计、打卡与目标', () => {
@@ -240,10 +242,11 @@ describe('界面文案', () => {
     expect(capLabel('stats')).toBe('阅读统计、打卡与目标');
   });
 
-  it('书摘那一行写「图片」：书摘卡片本身是基础版就有的', () => {
-    const card = PLAN_TABLE.find((r) => r.cap === 'card');
+  it('书摘图片下放基础版：两栏都能用，不挂能力位', () => {
+    const card = PLAN_TABLE.find((r) => r.key === 'card');
     expect(card?.name).toBe('划线做成书摘图片');
-    expect(capLabel('card')).toContain('书摘图片');
+    expect(card?.free).toBe('yes');
+    expect(card?.cap).toBeUndefined();
   });
 
   it('每个付费行都能被高亮：组里至少一行挂 cap，且 cap 不重复', () => {

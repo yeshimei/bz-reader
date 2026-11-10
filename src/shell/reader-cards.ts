@@ -41,8 +41,6 @@ export interface QuoteCardInput {
   title?: string;
   author?: string;
   chapter?: string;
-  /** 高级能力位 cap:'card'：把这张卡画成图片复制 */
-  canImage?: boolean;
 }
 
 /**
@@ -54,9 +52,9 @@ export interface QuoteCardInput {
 export function quoteCardHtml(input: QuoteCardInput): string {
   const from = [input.title, input.author, input.chapter].filter(Boolean).join(' · ');
   const md = `「${input.text}」${from ? `\n— ${from}` : ''}`;
-  /* 「复制图片」只在解锁「书摘卡片」之后出现：卡转图要读 canvas，
-     没有这项能力的人给它一颗点了报错的按钮没有意义。 */
-  const img = input.canImage ? `<button class="bzs-btn" data-act="quotecopyimg">复制图片</button>` : '';
+  /* 2026-11-10：书摘图片下放基础版，复制图片对所有人都可见。
+     图片一律带 bz reader 徽章，不再按授权决定这颗按钮出不出现。 */
+  const img = `<button class="bzs-btn" data-act="quotecopyimg">复制图片</button>`;
   return `<div class="bzs-quote-card">
     <div class="main"><p class="q">${esc(input.text)}</p><div class="from">${esc(from)}</div></div>
     <div class="side">
