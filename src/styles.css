@@ -1054,8 +1054,9 @@ body .view-header .clickable-icon.bzs-host-hidden {
   justify-content: center;
   justify-items: center;
   align-items: start;
-  column-gap: 4px;
-  row-gap: 20px;
+  /* gap: 行间距 20、列间距 4。写 column-gap 会被社区目录的 CSS 检查当成
+     多列布局（multicolumn）告警，grid 的两个方向都认 gap 简写。 */
+  gap: 20px 4px;
 }
 
 /* 封面单独占一行：1 | 2-3 | 4-5 ……

@@ -387,17 +387,17 @@
      只算得出 1 列，四档按钮竖成一条。带分段控件的行改成上下两行让控件
      吃满整行，列数按档数写死，不再随标签长短摇摆；宽屏不命中这段，
      列数由 study.css 定（4 / 3）。 */
-  .bzs-setgrp-pdf .bzs-setrow:has(.bzs-seg-wrap) {
+  .bzs-setgrp-pdf .bzs-setrow.is-segrow {
     flex-direction: column;
     align-items: stretch;
     gap: 6px;
   }
 
-  .bzs-setgrp-pdf .bzs-setrow:has(.bzs-seg-wrap) > label {
+  .bzs-setgrp-pdf .bzs-setrow.is-segrow > label {
     min-width: 0;
   }
 
-  .bzs-setgrp-pdf .bzs-setrow:has(.bzs-seg-wrap) > .bzs-seg {
+  .bzs-setgrp-pdf .bzs-setrow.is-segrow > .bzs-seg {
     flex: none;
   }
 

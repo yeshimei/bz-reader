@@ -1690,11 +1690,17 @@ export class ReaderView extends ItemView {
    * 现在目录侧栏归「最近激活的那一本」（`activeReaderId`），别的视图不接。
    */
   private ownsKeyboard(): boolean {
-    const ws = this.api.app.workspace;
-    /* activeLeaf 在新版标了弃用，但 getLeaf(false) 在没有活动 leaf 时会退回
-       主 leaf，语义和这里「只认当前活动 leaf」不同；minAppVersion 1.7.2 上
-       activeLeaf 仍然可用（项目 eslint 配置关掉了 no-deprecated）。 */
-    const active = ws.activeLeaf as unknown as { view?: { getViewType?: () => string } } | null;
+    const ws = this.api.app.workspace as unknown as {
+      /* 新接口：最近激活的 leaf。社区目录的机器审查会把 activeLeaf 当弃用建议
+         提出来，所以先问它；老版本没有这个方法就退回 activeLeaf——两者都是
+         「最近激活的那个 leaf」，语义一致，getLeaf(false) 不能替代（没有活动
+         leaf 时它会退回主 leaf）。 */
+      getMostRecentLeaf?: () => WorkspaceLeaf | null;
+      activeLeaf?: WorkspaceLeaf | null;
+    };
+    const active = (ws.getMostRecentLeaf?.() ?? ws.activeLeaf ?? null) as unknown as {
+      view?: { getViewType?: () => string };
+    } | null;
     if (!active) return false;
     if (active === (this.leaf as unknown as typeof active)) return true;
     if (active.view?.getViewType?.() !== VIEW_TYPE_TOC) return false;

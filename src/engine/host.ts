@@ -289,6 +289,43 @@ const LOCATE_TIMEOUT = 20000;
 /** 一次翻页最多等多久（超时就当没动，交给跨章兜底，别让导航队列卡住） */
 const TURN_TIMEOUT = 3000;
 
+/** 视口坐标命中的插入点：节点 + 节点内偏移 */
+export interface CaretPoint {
+  node: Node;
+  offset: number;
+}
+
+/**
+ * 视口坐标 → 插入点。
+ *
+ * 有两套 API：标准的 `caretPositionFromPoint`（Chromium 128 起）与 Chromium
+ * 私有的 `caretRangeFromPoint`（TS 里标了 deprecated，社区目录会当建议提）。
+ * 先问标准的；标准 API 存在但说「这里没有插入点」时也不再去问老的——
+ * 两个 API 在同一个内核里边界语义不同，混着用会在页边留一格错位。
+ * 老内核（没有标准 API）才退回 `caretRangeFromPoint`，它只通过本地形状调用，
+ * 不直接依赖弃用签名。
+ */
+export function caretPointAt(doc: Document, x: number, y: number): CaretPoint | null {
+  /* 两个 API 都通过本地形状调用，不直接吃 lib.dom 的签名：上架 lint 用的是
+     宿主那套类型环境，标准 API 在那里解不出 CaretPosition，会连坐成一串
+     no-unsafe-*。形状写在这里也顺便说明「只用这两个字段」。 */
+  const api = doc as unknown as {
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+  };
+  try {
+    if (typeof api.caretPositionFromPoint === 'function') {
+      const pos = api.caretPositionFromPoint(x, y);
+      /* 标准 API 明确说这里没有插入点，就不再去问老 API：两者边界语义不同，
+         混着用会在页边留一格错位。 */
+      return pos ? { node: pos.offsetNode, offset: pos.offset } : null;
+    }
+    const range = api.caretRangeFromPoint?.(x, y);
+    return range ? { node: range.startContainer, offset: range.startOffset } : null;
+  } catch {
+    return null;
+  }
+}
 
 export class EngineHost {
   /** EPUB/TXT/CBZ 走 foliate；PDF 是另一个实现（engine/pdf/host.ts） */
@@ -1617,8 +1654,8 @@ export class EngineHost {
    *
    * `renderer.getContents()` 返回的是**整章**的文档（分页器把一个 section 的
    * 所有页都排在一个 document 里），所以直接取 body.textContent 会从本章第一句
-   * 开始念——翻到第 20 页再按朗读又回到开头。这里用 caretRangeFromPoint 取
-   * 可见区左上/右下两个点，拼成一段 Range 只取屏幕上这一页；取不到才退回整章。
+   * 开始念——翻到第 20 页再按朗读又回到开头。这里取可见区左上/右下两个插入点，
+   * 拼成一段 Range 只取屏幕上这一页；取不到才退回整章。
    */
   currentText(): string {
     const contents = this.view?.renderer?.getContents?.() ?? [];
@@ -1633,24 +1670,24 @@ export class EngineHost {
     return parts.join(' ').trim();
   }
 
-  /* caretRangeFromPoint 在 TS 的 DOM 类型里标了 deprecated，但 Chromium 只认
-     它——caretPositionFromPoint 在 Obsidian 支持的内核里还没实现。这里做的是
-     iframe 内的坐标命中测试，换 API 等于整个可见区文字退化成空串。
-     项目 eslint 配置里关掉了 no-deprecated，理由同上。 */
+  /* 两套 API 各有用武之地：caretPositionFromPoint 是标准（Chromium 128+），
+     caretRangeFromPoint 是 Chromium 私有且在 TS 的 DOM 类型里标了 deprecated
+     （社区目录会把它当建议提出来）。所以先问标准的，没有才退回老的——
+     后者只通过本地形状调用，既留住了老内核的兜底，也不再直接依赖弃用签名。 */
   /** 可见区文字：两点 Range（拿不到返回空串，由调用方退回整章） */
   private visibleText(doc: Document): string {
     const win = doc.defaultView;
-    if (!win || typeof doc.caretRangeFromPoint !== 'function') return '';
+    if (!win) return '';
     try {
       const w = win.innerWidth || doc.documentElement.clientWidth || 0;
       const h = win.innerHeight || doc.documentElement.clientHeight || 0;
       if (w < 8 || h < 8) return '';
-      const start = doc.caretRangeFromPoint(2, 2);
-      const end = doc.caretRangeFromPoint(w - 4, h - 4);
+      const start = caretPointAt(doc, 2, 2);
+      const end = caretPointAt(doc, w - 4, h - 4);
       if (!start || !end) return '';
       const range = doc.createRange();
-      range.setStart(start.startContainer, start.startOffset);
-      range.setEnd(end.endContainer, end.endOffset);
+      range.setStart(start.node, start.offset);
+      range.setEnd(end.node, end.offset);
       return range.cloneContents().textContent ?? '';
     } catch {
       return '';

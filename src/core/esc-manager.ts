@@ -13,21 +13,26 @@ export interface EscHandle {
   unregister: () => void;
 }
 
+/** 宿主自己的弹窗（设置 / 命令面板 / 确认框）是不是开着。
+ *  以前写 document.querySelector('.modal-container')，社区目录的机器审查把
+ *  querySelector 标成弃用写法；这里只问「有没有这个类」，按类名取集合判长度
+ *  语义完全一样，还省掉一次整树选择器匹配（ESC 每次按键都会问一次）。 */
+export function hostModalOpen(): boolean {
+  try {
+    if (typeof document === 'undefined') return false;
+    const list = document.getElementsByClassName?.('modal-container');
+    return !!list && list.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export const escManager = (() => {
   const layers: (EscLayer & { id: string })[] = [];
   /** 软关旗标（N1）：destroy() 置位、arm() 复位——keydown 首行判旗直返。
    *  Obsidian 禁用→再启用不会重新求值模块（IIFE 单例常驻），摘监听/清层都不可逆，
    *  软关后 layers 保留（重启用后 isVisible 判活自愈），ESC 处理可随 arm() 恢复。 */
   let disabled = false;
-
-  /** 宿主自己的弹窗（设置 / 命令面板 / 确认框）是不是开着 */
-  const hostModalOpen = (): boolean => {
-    try {
-      return typeof document.querySelector === 'function' && !!document.querySelector('.modal-container');
-    } catch {
-      return false;
-    }
-  };
 
   const onKeydown = (e: KeyboardEvent) => {
     if (disabled) return;

@@ -283,7 +283,7 @@ export function viewSettings(v: SettingsView): string {
     pdfUnlocked ? '' : ` data-act="unlock" data-mode="pdf" title="${t('settings.locked')}"`
   }>
       <h3>${t('settings.grp.pdf')}</h3>
-      <div class="bzs-setrow"><label>${t('settings.pdfZoom')}</label>${seg(
+      <div class="bzs-setrow is-segrow"><label>${t('settings.pdfZoom')}</label>${seg(
         'pdfZoom',
         [
           ['auto', t('settings.pdfZoom.auto')],
@@ -306,14 +306,14 @@ export function viewSettings(v: SettingsView): string {
       }" data-act="setpref" data-k="pdfBacklinks" data-v="${p.pdfBacklinks ? '0' : '1'}" aria-label="${t(
         'settings.pdfBacklinks',
       )}"></button></div>
-      <div class="bzs-setrow"><label>${t('settings.pdfExportScale')}</label>${exportScaleBtns}</div>
+      <div class="bzs-setrow is-segrow"><label>${t('settings.pdfExportScale')}</label>${exportScaleBtns}</div>
       <div class="bzs-setrow"><label>${t('settings.pdfAutoLink')}</label><button class="bzs-switch${
         p.pdfAutoLink ? ' on' : ''
       }" data-act="setpref" data-k="pdfAutoLink" data-v="${p.pdfAutoLink ? '0' : '1'}" aria-label="${t(
         'settings.pdfAutoLink',
       )}"></button></div>
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfAutoLink.hint')}</div>
-      <div class="bzs-setrow"><label>${t('settings.pdfLinkLabel')}</label>${seg(
+      <div class="bzs-setrow is-segrow"><label>${t('settings.pdfLinkLabel')}</label>${seg(
         'pdfLinkLabel',
         /* 只列三档：📖（emoji）档从面板收起（2026-11-10），面板更干净；
            prefs / 链接渲染仍认 'emoji'，已选该档的老数据照旧生效。 */

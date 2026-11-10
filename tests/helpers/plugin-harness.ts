@@ -31,6 +31,11 @@ export function makeLeaf(view: unknown = null): TestLeaf {
 export function makeWorkspace(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     activeLeaf: null,
+    /* 生产代码先问这个（社区目录嫌 activeLeaf 弃用），替身跟着给一份：
+       语义就是「最近激活的 leaf」，测试里等价于 activeLeaf。 */
+    getMostRecentLeaf(this: Record<string, unknown>) {
+      return this.activeLeaf ?? null;
+    },
     getLeavesOfType: () => [],
     getActiveViewOfType: () => null,
     revealLeaf: async () => undefined,

@@ -191,7 +191,9 @@ describe('设置页渲染', () => {
     const out = html();
     const at = out.indexOf('data-k="pdfLinkLabel"');
     expect(at).toBeGreaterThan(0);
-    const rowStart = out.lastIndexOf('<div class="bzs-setrow"', at);
+    /* 只按类名前缀找行首：这一行现在挂着 is-segrow（窄栏两行布局的挂点），
+       写死 `class="bzs-setrow"` 会退到上一行去，切片把两行一起吃进来。 */
+    const rowStart = out.lastIndexOf('<div class="bzs-setrow', at);
     const row = out.slice(rowStart, out.indexOf('</div>', at));
     /* 「只藏图标、不删能力」：三段按钮里不再出现 📖 与 emoji 值，
        但 prefs 仍认识 'emoji'（见 tests/prefs.test.ts）。 */
