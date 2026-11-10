@@ -87,7 +87,7 @@ import { RT, emitNotesChanged, pushAi, resetAi } from './runtime';
 import { HITS_PAGE } from './search-hits';
 import { kickBodySearch, refreshBodyHits, resetBodySearch, stopBodySearch } from './search-run';
 import { bzEmbedder, bzNotesReady, openBzPreview, probeBz, openBzEntry, reviewPlanOf, reviewBridgeProblem, type BzEntryKind } from '../data/bz-bridge';
-import { syncReviewCard } from '../data/review-sync';
+import { syncReviewCard, refreshReviewCard } from '../data/review-sync';
 import { planCardMoves } from '../data/review-migrate';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
@@ -862,8 +862,12 @@ function addToReview(markId?: string, bookId?: string): void {
         repaint();
         emitNotesChanged();
       }
-      if (res.added) notify(t('notice.review.added'));
-      else if (res.reason === 'exists') notify(t('notice.review.exists'), 'info');
+      if (res.added) {
+        /* 排上了就顺手把「下次什么时候复习」说出来：用户点这一下的目的就是
+           把这段交给记忆，什么时候回来见他应该当场知道 */
+        const due = await nextReviewLabel(plan, res.path);
+        notify(due ? t('notice.review.addedDue', { date: due }) : t('notice.review.added'));
+      } else if (res.reason === 'exists') notify(t('notice.review.exists'), 'info');
       /* 没加进去、也不是「已经在计划里」：把 bz 那边的具体原因说清楚
          （没装 / 没启用 / 版本旧），这比一句「卡片已生成」有用得多 */
       else notify(reviewBridgeProblem(probeBz(app)) ?? t('notice.review.noPlan'), 'info');
@@ -902,6 +906,27 @@ async function probeReview(markId: string, bookId?: string): Promise<void> {
     setState({
       notesProbe: { id: markId, text: (e as Error)?.message || t('common.unknownError'), status: 'error' },
     });
+  }
+}
+
+/**
+ * 问一句「这张卡下次什么时候复习」，给成功提示用。
+ *
+ * 只读、只问一条：门面一趟读盘，代价可以忽略；拿不到就不显示日期（宁可不提，
+ * 也不要写一个猜出来的日子）。
+ */
+async function nextReviewLabel(plan: ReturnType<typeof reviewPlanOf>, path: string): Promise<string> {
+  if (!plan || !path) return '';
+  if (typeof plan.statusOf !== 'function') return '';
+  try {
+    const rows = await plan.statusOf([path]);
+    const iso = String(rows[0]?.nextReviewDate ?? '');
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return `${d.getMonth() + 1} 月 ${d.getDate()} 日`;
+  } catch {
+    return '';
   }
 }
 
@@ -1006,6 +1031,39 @@ async function migrateReviewCards(fromDir: string, toDir: string): Promise<void>
   repaint();
   emitNotesChanged();
   notify(t('notice.review.migrated', { moved, skipped }));
+}
+
+/**
+ * 书卡右键「重建复习卡」：按当前划线内容重写这本书的全部卡片。
+ *
+ * 单条失败不打断整批（一张卡读不出来不该让另外十九张也停在旧版本）；想法
+ * 段落由 refreshReviewCard 从旧文件里捞回来，用户写的东西不动。
+ */
+async function refreshBookReviewCards(bookId: string): Promise<void> {
+  const src = getShellSource();
+  if (!src) return;
+  const book = liveBooks().find((b) => b.id === bookId);
+  if (!book) return;
+  const cards = (book.notes?.highlights ?? []).filter((h) => String(h.review?.path ?? '').trim());
+  if (!cards.length) {
+    notify(t('notice.review.noCards'), 'info');
+    return;
+  }
+  const settings = shellSettings();
+  const plan = reviewPlanOf(src.app);
+  if (cards.length >= 8) notify(t('review.batch.running', { count: cards.length }), 'info');
+  let updated = 0;
+  for (const h of cards) {
+    try {
+      const res = await refreshReviewCard({ app: src.app, book, highlight: h, settings, plan });
+      if (res.updated) updated += 1;
+    } catch {
+      /* 单条失败跳过 */
+    }
+  }
+  src.store.touch();
+  repaint();
+  notify(t('notice.review.refreshed', { count: updated }));
 }
 
 /**
@@ -1508,6 +1566,12 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
           if (it.act === 'reviewai')
             i.onClick(() => {
               if (requireCap('review') && requireCap('ai')) void addBookToReview(id, true);
+            });
+          /* 重建：卡片写一次就不再覆盖，改了划线文字之后卡还是旧的。
+             成批重建，想法段落从旧卡里原样捞回来。 */
+          if (it.act === 'reviewrefresh')
+            i.onClick(() => {
+              if (requireCap('review')) void refreshBookReviewCards(id);
             });
           if (it.act === 'fav')
             i.onClick(() => {
@@ -3537,6 +3601,9 @@ export function dispatchInput(
     /* 目录类设置已经没有输入框了（只走文件夹选择器），这里只剩 AI 三个字段 */
     if (k === 'ai.baseUrl' || k === 'ai.model' || k === 'ai.apiKey') {
       src.setSettings({ ai: { ...shellSettings().ai, [k.slice(3)]: value } });
+    } else if (k === 'reviewTemplate') {
+      /* 复习卡正文模板：多行，松手才落盘（不该一边敲一边重建卡片） */
+      src.setSettings({ reviewTemplate: value });
     }
     return;
   }

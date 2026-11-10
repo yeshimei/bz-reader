@@ -71,6 +71,17 @@ export type BzReviewAddReason = 'exists' | 'notFound';
  * 与「问你只读算力」（readerAi）。复习排期表以文件路径为钥匙，所以我们写出的
  * 卡片必须先落盘、再通过这里登记，顺序反了会留下一条挂起记录。
  */
+/** 一张卡在 bz 排期表里的现状（只读查询的返回） */
+export interface BzReviewNoteStatus {
+  path: string;
+  planned: boolean;
+  /** 下次复习日期（ISO）；没排期时为 null */
+  nextReviewDate: string | null;
+  stage: number;
+  phase: 'ladder' | 'fsrs';
+  totalReviews: number;
+}
+
 export interface BzReviewFacade {
   /** 复习域本身能不能用（bz 那边面板能打开） */
   isReady(): boolean;
@@ -78,6 +89,12 @@ export interface BzReviewFacade {
   addNote(path: string): Promise<{ added: boolean; reason?: BzReviewAddReason }>;
   addNotes(paths: string[]): Promise<{ added: number; exists: number; notFound: number }>;
   removeNote(path: string): Promise<boolean>;
+  /**
+   * 批量查排期现状。**可选**：门面上加这一条比加「加/删」晚，
+   * 老版本 bz 没有它——缺了就只是不显示「下次复习日期」，
+   * 不能因此把整个复习按钮判成不可用。
+   */
+  statusOf?(paths: string[]): Promise<BzReviewNoteStatus[]>;
 }
 
 /** missing = 没装；disabled = 装了没启用；ok = 实例在（门面可能缺半边） */

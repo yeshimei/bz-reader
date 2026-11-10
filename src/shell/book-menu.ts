@@ -21,6 +21,7 @@ export type BookMenuAction =
   | 'export'
   | 'review'
   | 'reviewai'
+  | 'reviewrefresh'
   | 'fav'
   | 'done'
   | 'rename'
@@ -69,6 +70,10 @@ export function bookMenuItems(input: BookMenuInput): BookMenuItem[] {
        自测题再排期。放在复习下面而不是替换它：不想花 AI 额度的人要有
        一条不调模型的路线。 */
     { act: 'reviewai', title: '划线加入复习（AI 出题）', icon: 'sparkles' },
+    /* 重建紧跟批量加入：卡片写一次就不再覆盖（怕冲掉用户的想法），于是改了
+       划线文字之后卡还是旧的。要刷新得有入口，且必须成批——逐条点二十次
+       不是交互。想法段落会从旧卡里原样捞回来。 */
+    { act: 'reviewrefresh', title: '重建复习卡', icon: 'refresh-cw' },
     { act: 'fav', title: input.fav ? '取消收藏' : '收藏', icon: 'star' },
     /* 两个方向用两枚图标：check 是「完成」，refresh 是「回到未读完」。
        共用一枚 check 的话，「标为在读」看起来像又要把它标成读完。 */

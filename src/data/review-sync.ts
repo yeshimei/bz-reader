@@ -21,7 +21,7 @@ import type { Highlight, ReaderBook } from './schema';
 import type { ReaderSettings } from './settings';
 import type { BzReviewFacade } from './bz-bridge';
 import { ensureDir } from './export';
-import { buildReviewCard, isOurCardOf, reviewCardName } from './review-card';
+import { buildReviewCard, extractIdea, isOurCardOf, reviewCardName } from './review-card';
 import { wikilinkOfMark } from './wikilink';
 import { t } from '../i18n';
 
@@ -105,7 +105,10 @@ async function writeAtomic(app: App, path: string, text: string): Promise<void> 
 }
 
 /** 卡片 Markdown（拆出来是为了测试能单独钉住产物，不碰盘） */
-export function reviewCardFor(input: Omit<ReviewSyncInput, 'app' | 'settings' | 'plan'>, now = Date.now()): string {
+export function reviewCardFor(
+  input: Omit<ReviewSyncInput, 'app' | 'settings' | 'plan'> & { template?: string },
+  now = Date.now(),
+): string {
   const { book, highlight: h } = input;
   return buildReviewCard({
     bookTitle: String(book.meta.title ?? '').trim() || t('common.untitled'),
@@ -117,7 +120,42 @@ export function reviewCardFor(input: Omit<ReviewSyncInput, 'app' | 'settings' | 
     chapterTitle: h.chapterTitle,
     backlink: wikilinkOfMark(book, h),
     createdAt: now,
+    template: input.template,
   });
+}
+
+/**
+ * 按当前划线内容重建一张已存在的卡片，**保留用户写过的想法**。
+ *
+ * 为什么要有它：卡片写一次就不再覆盖（怕冲掉用户手补的内容），于是改了划线
+ * 文字、补了想法之后卡片还是旧的。刷新把「原文 / 章节 / 书名 / 回链」换成新的，
+ * 想法那一段从旧文件里原样捞回来——用户写的东西一个字都不动。
+ *
+ * 三道闸：不是我们写的卡（没有末尾标记）不碰；文件不在不碰；读不出来不碰。
+ */
+export async function refreshReviewCard(input: ReviewSyncInput, now = Date.now()): Promise<{ updated: boolean }> {
+  const { app, book, highlight: h, settings } = input;
+  const path = String(h.review?.path ?? '').trim();
+  if (!path) return { updated: false };
+  const adapter = app.vault.adapter;
+  if (!(await adapter.exists(path))) return { updated: false };
+
+  let old = '';
+  try {
+    old = await adapter.read(path);
+  } catch {
+    return { updated: false };
+  }
+  if (!isOurCardOf(old, h.id)) return { updated: false };
+
+  /* 想法以旧文件为准：那可能是用户手补的，highlight.comment 只是当初那一份 */
+  const idea = extractIdea(old) || String(h.comment ?? '').trim();
+  const text = reviewCardFor(
+    { book, highlight: { ...h, comment: idea }, template: settings.reviewTemplate },
+    now,
+  );
+  await writeAtomic(app, path, text);
+  return { updated: true };
 }
 
 /**
@@ -142,7 +180,11 @@ export async function syncReviewCard(input: ReviewSyncInput, now = Date.now()): 
   if (!path) {
     await ensureDir(app, dir);
     path = await resolveNewPath(app, dir, reviewCardName({ text: h.text }), h.id);
-    await writeAtomic(app, path, reviewCardFor({ book, highlight: h, question: input.question }, now));
+    await writeAtomic(
+      app,
+      path,
+      reviewCardFor({ book, highlight: h, question: input.question, template: settings.reviewTemplate }, now),
+    );
     written = true;
   }
 

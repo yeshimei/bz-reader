@@ -8,8 +8,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { FakeAdapter } from './helpers/fake-adapter';
 import { makeApp, testBook } from './helpers/plugin-harness';
 import { DEFAULT_SETTINGS } from '../src/data/settings';
-import { normalizeReviewDir, reviewCardFor, syncReviewCard } from '../src/data/review-sync';
-import { REVIEW_CARD_MARK } from '../src/data/review-card';
+import { normalizeReviewDir, refreshReviewCard, reviewCardFor, syncReviewCard } from '../src/data/review-sync';
+import { REVIEW_CARD_MARK, REVIEW_IDEA_END, REVIEW_IDEA_START } from '../src/data/review-card';
 import type { Highlight, ReaderBook } from '../src/data/schema';
 import type { BzReviewFacade } from '../src/data/bz-bridge';
 
@@ -182,5 +182,37 @@ describe('卡片正文', () => {
     expect(md).toContain('> 她转过身');
     expect(md).toContain('书/b1.epub#bzr-cfi=');
     expect(app).toBeTruthy();
+  });
+});
+
+describe('重建卡片：换掉自动区，留住用户写的想法', () => {
+  it('划线文字改了，重建后是新原文；想法那一段原样捞回来', async () => {
+    const { adapter, app, book, h } = fixture();
+    adapter.files.set(
+      'bz-reader/review/卡片.md',
+      '---' + String.fromCharCode(10) + 'highlight: "hl-1"' + String.fromCharCode(10) + '---' + String.fromCharCode(10) + String.fromCharCode(10) + '# 活着' + String.fromCharCode(10) + String.fromCharCode(10) + '> 旧的原文' + String.fromCharCode(10) + String.fromCharCode(10) + REVIEW_IDEA_START + String.fromCharCode(10) + '我自己补的' + String.fromCharCode(10) + REVIEW_IDEA_END + String.fromCharCode(10) + String.fromCharCode(10) + REVIEW_CARD_MARK,
+    );
+    const mark = { ...h, text: '改过的原文', review: { path: 'bz-reader/review/卡片.md', at: 1, scheduled: true } };
+    const res = await refreshReviewCard({ app, book, highlight: mark, settings, plan: null });
+    expect(res.updated).toBe(true);
+    const now = adapter.files.get('bz-reader/review/卡片.md')!;
+    expect(now).toContain('> 改过的原文');
+    expect(now).toContain('我自己补的');
+  });
+
+  it('不是我们写的卡：一个字都不动', async () => {
+    const { adapter, app, book, h } = fixture();
+    adapter.files.set('bz-reader/review/别人的.md', '# 别人手写的');
+    const mark = { ...h, review: { path: 'bz-reader/review/别人的.md', at: 1, scheduled: true } };
+    const res = await refreshReviewCard({ app, book, highlight: mark, settings, plan: null });
+    expect(res.updated).toBe(false);
+    expect(adapter.files.get('bz-reader/review/别人的.md')).toBe('# 别人手写的');
+  });
+
+  it('文件不在了：返回没更新，不造新卡', async () => {
+    const { app, book, h } = fixture();
+    const mark = { ...h, review: { path: 'bz-reader/review/不存在.md', at: 1, scheduled: true } };
+    const res = await refreshReviewCard({ app, book, highlight: mark, settings, plan: null });
+    expect(res.updated).toBe(false);
   });
 });

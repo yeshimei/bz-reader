@@ -6,7 +6,16 @@
  * 这里钉住的是**产物形状**，不是拼字符串的实现。
  */
 import { describe, it, expect } from 'vitest';
-import { REVIEW_CARD_MARK, buildReviewCard, reviewCardName, type ReviewCardInput } from '../src/data/review-card';
+import {
+  REVIEW_CARD_MARK,
+  REVIEW_IDEA_END,
+  REVIEW_IDEA_START,
+  buildReviewCard,
+  extractIdea,
+  renderBody,
+  reviewCardName,
+  type ReviewCardInput,
+} from '../src/data/review-card';
 
 const base: ReviewCardInput = {
   bookTitle: '活着',
@@ -90,5 +99,40 @@ describe('复习卡正文', () => {
 
   it('多行原文压成一行：引用块里换行会被当成两段（中文之间连空格也吃掉，与导出口径一致）', () => {
     expect(buildReviewCard({ ...base, text: '第一行\n第二行' })).toContain('> 第一行第二行');
+  });
+});
+
+describe('正文模板', () => {
+  it('只含空占位符的行整行消失，有内容时那行还在', () => {
+    const tpl = '# {{book}}' + String.fromCharCode(10) + '{{comment}}' + String.fromCharCode(10) + '> {{text}}';
+    expect(renderBody(tpl, { book: '书', text: '原文', comment: '' })).toBe('# 书' + String.fromCharCode(10) + '> 原文');
+    expect(renderBody(tpl, { book: '书', text: '原文', comment: '**想法**' + String.fromCharCode(10) + '一句' })).toContain('一句');
+  });
+
+  it('自定义模板只换正文：frontmatter 与末尾标记仍在（否则下次生成会认不出这张卡）', () => {
+    const md = buildReviewCard({ ...base, template: '## {{book}}' + String.fromCharCode(10) + String.fromCharCode(10) + '{{text}}' });
+    expect(md).toContain('highlight: "hl-3a91"');
+    expect(md).toContain('## 活着');
+    expect(md.trimEnd().endsWith(REVIEW_CARD_MARK)).toBe(true);
+  });
+
+  it('模板留空等于内置格式', () => {
+    expect(buildReviewCard({ ...base, template: '' })).toBe(buildReviewCard(base));
+  });
+});
+
+describe('从旧卡里捞回想法', () => {
+  it('认边界标记', () => {
+    const md = '正文' + String.fromCharCode(10) + REVIEW_IDEA_START + String.fromCharCode(10) + '我的想法' + String.fromCharCode(10) + REVIEW_IDEA_END;
+    expect(extractIdea(md)).toBe('我的想法');
+  });
+
+  it('老格式（没有标记）按「我的想法」标题兜底', () => {
+    const md = '# 书' + String.fromCharCode(10) + String.fromCharCode(10) + '> 原文' + String.fromCharCode(10) + String.fromCharCode(10) + '**我的想法**' + String.fromCharCode(10) + String.fromCharCode(10) + '补的一段' + String.fromCharCode(10) + String.fromCharCode(10) + '回到原文：[[x]]';
+    expect(extractIdea(md)).toBe('补的一段');
+  });
+
+  it('都没有就返回空：宁可丢一次刷新，也不把整篇当想法搬走', () => {
+    expect(extractIdea('# 随便一篇' + String.fromCharCode(10) + String.fromCharCode(10) + '正文')).toBe('');
   });
 });

@@ -49,6 +49,8 @@ export interface ReaderSettings {
    * 这里改一次就行。
    */
   reviewDir: string;
+  /** 复习卡正文模板（空串 = 用内置那份，见 data/review-card 的 DEFAULT_BODY_TEMPLATE） */
+  reviewTemplate: string;
   /**
    * 界面语言：`auto` 跟随 Obsidian，`zh` / `en` 由用户在设置页手动指定。
    *
@@ -97,6 +99,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   exportComments: true,
   importDir: 'bz-reader/books',
   reviewDir: 'bz-reader/review',
+  reviewTemplate: '',
   language: 'auto',
   ai: {
     baseUrl: '',
@@ -142,6 +145,8 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     exportComments: s.exportComments !== false,
     importDir: cleanDir(str(s.importDir, DEFAULT_SETTINGS.importDir), DEFAULT_SETTINGS.importDir),
     reviewDir: cleanDir(str(s.reviewDir, DEFAULT_SETTINGS.reviewDir), DEFAULT_SETTINGS.reviewDir),
+    /* 模板原样存：它是要被用户手改的多行文本，任何归一化都会吃掉缩进 */
+    reviewTemplate: String(s.reviewTemplate ?? '').slice(0, 4000),
     /* 只认八种语言 + auto：手改坏的 JSON、旧版本没有这个字段、写了别的语言，
        都退回 auto——宁可跟随宿主，也不要钉死一个用户没选过的语言。 */
     language: isLocale(s.language) ? s.language : 'auto',
