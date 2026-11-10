@@ -2394,6 +2394,23 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
           v === 'page' || v === 'titlePage' || v === 'emoji' ? v : 'text',
       });
       break;
+    case 'pdfZoom':
+      /* 开书缩放四档：窗口外的值回「自动」，与 normalizePrefs 同一口径 */
+      src.setPrefs({
+        pdfZoom: v === 'width' || v === 'page' || v === 'actual' ? v : 'auto',
+      });
+      break;
+    case 'pdfAnnots':
+      /* 两个「画不画」的开关：改完 applyPrefs 会立刻重画已渲染的页 */
+      src.setPrefs({ pdfAnnots: v !== '0' });
+      break;
+    case 'pdfBacklinks':
+      src.setPrefs({ pdfBacklinks: v !== '0' });
+      break;
+    case 'pdfExportScale':
+      /* 导出倍率 1~3：手写 data-v 也不该让渲染出一张几十 MB 的图 */
+      src.setPrefs({ pdfExportScale: Math.min(3, Math.max(1, Number(v) || 2)) });
+      break;
     default:
       break;
   }

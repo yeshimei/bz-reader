@@ -105,17 +105,18 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     pt: 'Gestão de categorias',
   },
   formats: {
-    /* 2026-11-09 改：只写**真机实测能打开**的四种。AZW / PRC / FBZ 看着像
+    /* 2026-11-09 改：只写**真机实测能打开**的格式。AZW / PRC / FBZ 看着像
        Kindle 家族，但 EXT_TO_FORMAT 里没有它们，写上去就是空头承诺。
+       2026-11-10：PDF 整本在高级版里，这一行漏了它等于对照表在撒谎。
        括号在这里是「族 → 枚举」，不是行名解释，允许这一行例外。 */
-    zh: 'Kindle 系（MOBI / AZW3）、FB2 与 CBZ 漫画',
-    'zh-TW': 'Kindle 系（MOBI / AZW3）、FB2 與 CBZ 漫畫',
-    en: 'Kindle family (MOBI / AZW3), FB2, and CBZ comics',
-    ja: 'mobi / azw3 / fb2 / コミック',
-    de: 'mobi / azw3 / fb2 / Comics',
-    fr: 'mobi / azw3 / fb2 / BD',
-    es: 'mobi / azw3 / fb2 / cómic',
-    pt: 'mobi / azw3 / fb2 / quadrinhos',
+    zh: 'PDF、Kindle 系（MOBI / AZW3）、FB2 与 CBZ 漫画',
+    'zh-TW': 'PDF、Kindle 系（MOBI / AZW3）、FB2 與 CBZ 漫畫',
+    en: 'PDF, Kindle family (MOBI / AZW3), FB2, and CBZ comics',
+    ja: 'pdf / mobi / azw3 / fb2 / コミック',
+    de: 'pdf / mobi / azw3 / fb2 / Comics',
+    fr: 'pdf / mobi / azw3 / fb2 / BD',
+    es: 'pdf / mobi / azw3 / fb2 / cómic',
+    pt: 'pdf / mobi / azw3 / fb2 / quadrinhos',
   },
   bilink: {
     zh: '划线复制成双向链接',

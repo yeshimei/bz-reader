@@ -21,7 +21,7 @@ import type { PdfBacklinkHit } from '../../data/pdf-backlink';
 import { pdfColorFromName, type PdfLinkSelection } from '../../data/pdf-link';
 import { colorCss } from '../../data/notes';
 import { t } from '../../i18n';
-import { fitScaleFor, needsFitWidth, pickFitSize, type PdfBox } from './fit';
+import { fitScaleFor, needsFitWidth, pickFitSize, resolveInitialZoom, type PdfBox, type PdfZoomMode } from './fit';
 import { pageAtRow, turnPage } from './layout';
 import { pageLabelText } from './pagelabels';
 import { mergeRects } from './rects';
@@ -61,6 +61,22 @@ export interface PdfViewCallbacks {
    * 引擎不知道书名与库内路径，所以只问一句、不自己拼。
    */
   linkForPage?: (page: number) => string;
+  /** 当前 PDF 相关偏好（开书缩放 / 批注 / 反链开关），每次用的时候现取 */
+  pdfPrefs?: () => PdfViewPrefs;
+  /** 面板里切了「一屏一页 / 连续滚动」：写回全局偏好（和 EPUB 的翻页同一项） */
+  onFlowChange?: (mode: 'paged' | 'scroll') => void;
+  /** 跳转历史条数变了：头栏那颗「回到上一处」据此亮 / 灰 */
+  onHistoryChange?: (count: number) => void;
+}
+
+/** 视图要从排版偏好里拿的那几项（PDF 的字号行距来自原文件，与正文无关） */
+export interface PdfViewPrefs {
+  /** 开书缩放档 */
+  zoom: PdfZoomMode;
+  /** 画文件自带的标注 */
+  annots: boolean;
+  /** 画笔记反链高亮 */
+  backlinks: boolean;
 }
 
 /** 「复制」菜单的四种产出（见 PdfViewCallbacks.onCopy） */
@@ -120,9 +136,11 @@ export class PdfView {
   /** 适配基准：整本里最宽最高的那页，见 fit.ts 的注释 */
   private fitSize: PdfBox = { width: 612, height: 792 };
   /** 额外旋转角度（0/90/180/270），叠加在 PDF 自带的 /Rotate 之上 */
-  private rotation = 0;
+  /** 当前旋转角（0 / 90 / 180 / 270）。头栏与面板要读它 */
+  rotation = 0;
   /** false = 连续滚动单栏；true = 双页并排（跨页扫描件） */
-  private spread = false;
+  /** 双页并排开着没有（面板与快捷键要读它） */
+  spread = false;
   /** true = 一屏一页（翻页像 EPUB）；false = 连续滚动 */
   private paged = false;
   private current = 1;
@@ -153,10 +171,6 @@ export class PdfView {
   private pageLabelEl: HTMLSpanElement | null = null;
   /** 可拖的页码滑块：278 页的书只靠滚轮找一页太慢 */
   private progressEl: HTMLInputElement | null = null;
-  private rotateBtn: HTMLButtonElement | null = null;
-  private spreadBtn: HTMLButtonElement | null = null;
-  private pagedBtn: HTMLButtonElement | null = null;
-  private thumbsBtn: HTMLButtonElement | null = null;
   private thumbs: PdfThumbPanel | null = null;
 
   /** 书的页码标签（`/PageLabels`）：论文前置页是 i、ii…；null = 没有 */
@@ -165,8 +179,6 @@ export class PdfView {
   private readonly fileAnnots = new Map<string, PdfFileAnnot[]>();
   /** 跳转历史：从笔记 / 目录跳进某一页之后能一键回来 */
   private readonly history: Array<{ page: number; top: number }> = [];
-  private backBtn: HTMLButtonElement | null = null;
-  private copyBtn: HTMLButtonElement | null = null;
   private copyMenuEl: HTMLDivElement | null = null;
   /** 工具栏本体：菜单要贴着它的上沿摆（窄栏/手机会换行成两排，高度不是常量） */
   private toolbarEl: HTMLDivElement | null = null;
@@ -252,14 +264,19 @@ export class PdfView {
     /* 每页尺寸可能不同（封面、插页、最后一页都常见），骨架高度和适配基准
        都必须按真实尺寸来，否则滚动条长度和缩放比例一开始就是错的 */
     await this.sampleSizes();
-    this.fitSize = pickFitSize(this.sizes);    /* 默认 100%：真机上按「适合宽度」开局，窄封面的书会被放大到 356%，
-       一屏只看得到页面上半截，第一眼就是「页面溢出了」 */
+    this.fitSize = pickFitSize(this.sizes);
     this.scale = 1;
-    /* 但窄分栏 / 手机竖屏上 100% 又摆不下：A4 正文 595pt 放进 390px 的屏幕，
-       右边半页直接裁在屏幕外。这种开局就该退到「适合宽度」——用户手动缩放
-       之后 fitMode 不再是 width，这里也不会再抢他的比例。 */
-    if (needsFitWidth(this.fitSize.width, this.root.clientWidth, SIDE_PAD)) this.fitMode = 'width';
-    if (this.fitMode === 'width') this.scale = this.fitScale('width');
+    /* 开书缩放：设置页「PDF · 默认缩放」决定。`auto`（默认）是以前的行为——
+       窄分栏 / 手机竖屏上 100% 摆不下（A4 正文 595pt 放进 390px 的屏幕，右边
+       半页裁在屏幕外）就退到「适合宽度」，摆得下就按原大。 */
+    const zoom = resolveInitialZoom(
+      this.opts.pdfPrefs?.().zoom ?? 'auto',
+      needsFitWidth(this.fitSize.width, this.root.clientWidth, SIDE_PAD),
+    );
+    if (zoom === 'width' || zoom === 'page') {
+      this.fitMode = zoom;
+      this.scale = this.fitScale(zoom);
+    }
     this.buildShells();
     this.mountToolbar();
     this.bindEvents();
@@ -341,8 +358,6 @@ export class PdfView {
     if (on === this.paged) return;
     this.paged = on;
     this.root.classList.toggle('is-paged', on);
-    this.pagedBtn?.classList.toggle('is-on', on);
-    if (this.pagedBtn) this.pagedBtn.title = on ? '连续滚动' : '一屏一页';
     if (on) this.goToPage(this.current, false);
     /* 这里**不**发 onViewState：翻页/滚动是全局偏好（prefs.flow），
        不是「这本书的角度与排法」。早期版本在这里发，打开书时先按默认
@@ -398,14 +413,13 @@ export class PdfView {
   }
 
   /** 页缩略图面板：278 页的书靠滚动条找页太慢 */
-  private toggleThumbs(): void {
+  toggleThumbsPanel(): void {
     if (this.thumbs?.isOpen) {
       this.thumbs.close();
-      this.thumbsBtn?.classList.remove('is-on');
       return;
     }
     this.thumbs = new PdfThumbPanel(this.doc, {
-      label: '页缩略图',
+      label: t('pdf.tool.thumb'),
       closeLabel: '关闭',
       onPick: (page) => this.goToPage(page, false),
       /* 缩略图拖到笔记里 = 一条带页码的链接（PDF++ 的拖放） */
@@ -417,12 +431,10 @@ export class PdfView {
       },
       onClose: () => {
         this.thumbs?.close();
-        this.thumbsBtn?.classList.remove('is-on');
       },
     });
     this.thumbs.open(this.root);
     this.thumbs.setCurrent(this.current);
-    this.thumbsBtn?.classList.add('is-on');
   }
 
   /** 双页并排：跨页扫描件（一张图两页）按单栏看会很别扭 */
@@ -430,7 +442,6 @@ export class PdfView {
     if (on === this.spread) return;
     this.spread = on;
     this.pagesBox.classList.toggle('is-spread', on);
-    this.spreadBtn?.classList.toggle('is-on', on);
     /* 双页时一屏要放两页：直接切到「适合宽度」，100% 会横向溢出 */
     this.fitMode = 'width';
     /* 并排时行距交给 grid 的 row-gap，页自己的 marginBottom 必须清零，
@@ -475,7 +486,6 @@ export class PdfView {
       for (const el of this.pageEls) this.observer.observe(el);
     }
     this.applyScale(this.scale, true);
-    this.updateRotationButton();
     /* 页宽高互换后原来的滚动位置未必还在页首，重新对齐一次 */
     this.goToPage(this.current, false);
     this.opts.onViewState?.({ rotation: this.rotation, spread: this.spread });
@@ -490,12 +500,6 @@ export class PdfView {
 
   get rotationDeg(): number {
     return this.rotation;
-  }
-
-  private updateRotationButton(): void {
-    if (!this.rotateBtn) return;
-    this.rotateBtn.classList.toggle('is-on', this.rotation !== 0);
-    this.rotateBtn.title = `旋转 ${this.rotation}°`;
   }
 
   zoomIn(): void {
@@ -533,26 +537,15 @@ export class PdfView {
       bar.appendChild(btn);
       return btn;
     };
-    /* 跳转历史：从笔记 / 目录 / 引用面板跳进来之后，能一键退回原处。
-       没有历史时把它藏起来——常驻一颗永远灰着的按钮只是占地方。 */
-    this.backBtn = add('↩', t('pdf.tool.back'), () => this.back());
-    this.backBtn.classList.add('bzr-pdf-back');
-    this.syncBackButton();
+    /* 这一条只管「放大看细节」和「跳页」。
+       旋转 / 单双页 / 一屏一页 搬进头栏的「排版」面板（和 EPUB 一致），
+       缩略图 / 复制 / 回到上一处 / 导出页图 搬进头栏图标——十三个控件挤在
+       右下角时，手机上横向滚动永远划不到最后几颗。 */
     add('−', '缩小', () => this.zoomOut());
     this.zoomLabelEl = add('100%', '当前缩放', () => this.setFitMode('width'));
     add('＋', '放大', () => this.zoomIn());
     add('宽', '适合宽度', () => this.setFitMode('width'));
     add('页', '适合页面', () => this.setFitMode('page'));
-    this.rotateBtn = add('⟳', '旋转 90°', () => this.setRotation(this.rotation + 90));
-    this.spreadBtn = add('双页', '双页并排', () => this.setSpread(!this.spread));
-    this.pagedBtn = add('翻', '一屏一页', () => this.setPaged(!this.paged));
-    this.thumbsBtn = add('页图', '页缩略图', () => this.toggleThumbs());
-    add('存', '导出本页为图片', () => void this.exportCurrentPage());
-    /* 复制菜单：页链接 / 视图链接 / 嵌入 / 本页标注。
-       四种产出都不常点，摊成四颗会把工具栏挤满，收进一枚下拉更合适。 */
-    this.copyBtn = add('⧉', t('pdf.tool.copy'), () => this.toggleCopyMenu());
-    this.copyBtn.classList.add('bzr-pdf-copy');
-    this.copyBtn.setAttribute('aria-haspopup', 'menu');
     /* 页码：滚动到哪一页比百分比准，278 页的书尤其需要 */
     const pageNo = document.createElement('span');
     pageNo.className = 'bzr-pdf-pageno';
@@ -581,7 +574,7 @@ export class PdfView {
   }
 
   /** 导出当前页：渲染和落盘都交给宿主（它才知道库里的路径规则） */
-  private async exportCurrentPage(): Promise<void> {
+  async exportCurrentPage(): Promise<void> {
     const run = this.opts.onExportPage;
     if (!run) return;
     const page = this.current;
@@ -672,22 +665,23 @@ export class PdfView {
     if (last && last.page === this.current && Math.abs(last.top - top) < 0.02) return;
     this.history.push({ page: this.current, top });
     if (this.history.length > 50) this.history.shift();
-    this.syncBackButton();
+    this.opts.onHistoryChange?.(this.history.length);
+  }
+
+  /** 有没有可以退回的位置（头栏那颗图标据此决定亮不亮） */
+  get canBack(): boolean {
+    return this.history.length > 0;
   }
 
   /** 回到跳转之前的位置；没有历史返回 false */
   back(): boolean {
     const entry = this.history.pop();
-    this.syncBackButton();
+    this.opts.onHistoryChange?.(this.history.length);
     if (!entry) return false;
     this.goToPage(entry.page, true, entry.top);
     return true;
   }
 
-  private syncBackButton(): void {
-    if (!this.backBtn) return;
-    this.backBtn.style.display = this.history.length ? '' : 'none';
-  }
 
   /**
    * 当前视图：页内位置 + 缩放。「复制当前视图链接」用它，
@@ -707,7 +701,13 @@ export class PdfView {
 
   /* ── 复制菜单 ── */
 
-  private toggleCopyMenu(): void {
+  /**
+   * 复制菜单。
+   *
+   * `anchor` 是触发它的那颗按钮（头栏图标）的位置：给了就贴着按钮下沿摆，
+   * 不给（老入口）仍然贴在工具条上沿。
+   */
+  toggleCopyMenu(anchor?: { right: number; bottom: number } | null): void {
     if (this.copyMenuEl) {
       this.closeCopyMenu();
       return;
@@ -739,16 +739,120 @@ export class PdfView {
     this.copyMenuEl = menu;
     /* 菜单贴着工具栏的上沿：窄栏 / 手机上工具栏会换行成两排，写死的
        `bottom: 52px` 会把第二排按钮压住，菜单项和按钮叠在一起。 */
-    const bar = this.toolbarEl?.getBoundingClientRect();
     const rootBox = this.root.getBoundingClientRect();
-    if (bar && bar.height > 0) menu.style.bottom = `${Math.round(rootBox.bottom - bar.top + 6)}px`;
-    this.copyBtn?.classList.add('is-on');
+    if (anchor) {
+      menu.style.top = `${Math.round(anchor.bottom - rootBox.top + 6)}px`;
+      menu.style.right = `${Math.max(8, Math.round(rootBox.right - anchor.right))}px`;
+      menu.style.bottom = 'auto';
+    } else {
+      const bar = this.toolbarEl?.getBoundingClientRect();
+      if (bar && bar.height > 0) menu.style.bottom = `${Math.round(rootBox.bottom - bar.top + 6)}px`;
+    }
   }
 
   private closeCopyMenu(): void {
     this.copyMenuEl?.remove();
     this.copyMenuEl = null;
-    this.copyBtn?.classList.remove('is-on');
+  }
+
+  /* ── 排版面板（旋转 / 单双页 / 翻页） ──
+   * PDF 的「排版」不是字号行距（那些来自原文件），而是这一套版面参数。
+   * 外观与 EPUB 的排版浮层一致：贴着阅读区右上角的一张小卡，改一项立刻生效，
+   * 点外面或再点一次头栏图标收起。 */
+  private layoutEl: HTMLDivElement | null = null;
+
+  toggleLayoutPanel(): void {
+    if (this.layoutEl) {
+      this.closeLayoutPanel();
+      return;
+    }
+    const panel = document.createElement('div');
+    panel.className = 'bzr-pdf-layout bzs-float is-corner no-head';
+    /* 卡片里的点击不能漏到正文（正文的 click 会关掉复制菜单、点批注等） */
+    panel.addEventListener('click', (ev) => ev.stopPropagation());
+    this.root.appendChild(panel);
+    this.layoutEl = panel;
+    this.renderLayoutPanel();
+    const off = (ev: PointerEvent): void => {
+      if (panel.contains(ev.target as Node)) return;
+      this.closeLayoutPanel();
+    };
+    this.layoutOff = off;
+    /* 捕获阶段：免得被正文的 pointerdown 先吃掉 */
+    window.setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
+  }
+
+  private layoutOff: ((ev: PointerEvent) => void) | null = null;
+
+  closeLayoutPanel(): void {
+    if (this.layoutOff) document.removeEventListener('pointerdown', this.layoutOff, true);
+    this.layoutOff = null;
+    this.layoutEl?.remove();
+    this.layoutEl = null;
+  }
+
+  get layoutOpen(): boolean {
+    return this.layoutEl !== null;
+  }
+
+  private renderLayoutPanel(): void {
+    const el = this.layoutEl;
+    if (!el) return;
+    el.textContent = '';
+    const body = el.createDiv({ cls: 'bzs-mbody' });
+    const grp = body.createDiv({ cls: 'bzs-setgrp flat bzs-typo' });
+    const seg = (label: string, opts: Array<{ v: string; text: string; on: boolean }>, run: (v: string) => void): void => {
+      const row = grp.createDiv({ cls: 'bzs-setrow' });
+      row.createEl('label', { text: label });
+      const box = row.createDiv({ cls: 'bzs-seg' });
+      for (const opt of opts) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = opt.text;
+        btn.className = opt.on ? 'on' : '';
+        btn.dataset.v = opt.v;
+        btn.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          run(opt.v);
+        });
+        box.appendChild(btn);
+      }
+    };
+    const deg = this.rotation;
+    seg(
+      t('pdf.layout.rotate'),
+      [0, 90, 180, 270].map((v) => ({ v: String(v), text: `${v}°`, on: deg === v })),
+      (v) => {
+        this.setRotation(Number(v));
+        this.renderLayoutPanel();
+      },
+    );
+    seg(
+      t('pdf.layout.pages'),
+      [
+        { v: 'single', text: t('pdf.layout.single'), on: !this.spread },
+        { v: 'spread', text: t('pdf.layout.spread'), on: this.spread },
+      ],
+      (v) => {
+        this.setSpread(v === 'spread');
+        this.renderLayoutPanel();
+      },
+    );
+    seg(
+      t('pdf.layout.flow'),
+      [
+        { v: 'paged', text: t('pdf.layout.paged'), on: this.paged },
+        { v: 'scroll', text: t('pdf.layout.scroll'), on: !this.paged },
+      ],
+      (v) => {
+        const on = v === 'paged';
+        this.setPaged(on);
+        /* 翻页/滚动是全局偏好（和 EPUB 的「翻页」同一项），交给宿主落盘 */
+        this.opts.onFlowChange?.(on ? 'paged' : 'scroll');
+        this.renderLayoutPanel();
+      },
+    );
   }
 
   /* ── PDF 自带标注 ── */
@@ -762,6 +866,11 @@ export class PdfView {
   private async paintFileAnnots(page: number): Promise<void> {
     const el = this.pageEls[page - 1];
     if (!el) return;
+    /* 设置里关掉「显示文件自带批注」：连解析都省了，也别留旧的一层 */
+    if (!this.pref().annots) {
+      el.querySelectorAll('.bzr-pdf-fileannot').forEach((node) => node.remove());
+      return;
+    }
     const key = `${page}@${this.rotation}`;
     let list = this.fileAnnots.get(key);
     if (!list) {
@@ -1052,6 +1161,7 @@ export class PdfView {
   }
 
   destroy(): void {
+    this.closeLayoutPanel();
     if (this.destroyed) return;
     this.destroyed = true;
     this.thumbs?.close();
@@ -1664,14 +1774,10 @@ export class PdfView {
       }
       return;
     }
-    if (Date.now() < this.suppressClickUntil) return;
-    const sel = document.getSelection();
-    if (sel && !sel.isCollapsed) return;
-    const box = this.scroller.getBoundingClientRect();
-    const y = ev.clientY - box.top;
-    const ratio = box.height > 0 ? y / box.height : 0.5;
-    if (ratio < 0.3) this.prev();
-    else if (ratio > 0.7) this.next();
+    /* 点正文不翻页。
+       EPUB 是「一屏正好一页」，点上下半屏翻页是顺手；PDF 是一叠纸，正文
+       中间随时可能落在一页的任意位置，点一下就把整页卷走——用户只想选中
+       一个字，结果跑了两页。真正的翻页键是 ← / →（和 ↑ / ↓）与工具条。 */
   };
 
   private touchStartAt = 0;
@@ -1918,11 +2024,26 @@ export class PdfView {
     for (const page of this.rendered) this.paintBacklinks(page);
   }
 
+  /** PDF 相关偏好改了就重画那两层（开关关了要立刻消失，不能等翻页） */
+  refreshPdfPrefs(): void {
+    const want = this.pref();
+    for (const page of this.rendered) {
+      this.paintBacklinks(page);
+      if (want.annots) void this.paintFileAnnots(page);
+      else this.pageEls[page - 1]?.querySelectorAll('.bzr-pdf-fileannot').forEach((n) => n.remove());
+    }
+  }
+
+  /** 现取 PDF 偏好：设置页改完不必重开书 */
+  private pref(): PdfViewPrefs {
+    return this.opts.pdfPrefs?.() ?? { zoom: 'auto', annots: true, backlinks: true };
+  }
+
   private paintBacklinks(page: number): void {
     const el = this.pageEls[page - 1];
     if (!el) return;
     el.querySelectorAll('.bzr-pdf-backlink, .bzr-pdf-backlink-edge').forEach((node) => node.remove());
-    if (!this.backlinks.length) return;
+    if (!this.backlinks.length || !this.pref().backlinks) return;
     const layer = el.querySelector('.textLayer') as HTMLElement | null;
     for (const hit of this.backlinks) {
       if (hit.page !== page) continue;

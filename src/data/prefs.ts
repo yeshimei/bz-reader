@@ -12,6 +12,7 @@
 /* 字体与强调色的档名走集中表（见下方 FONT_LABELS / ACCENT_LABELS）：成套选项
    不进主语言包，`Record<Locale, string>` 保证八种语言都齐。 */
 import { locale, type Locale } from '../i18n';
+import type { PdfZoomMode } from '../engine/pdf/fit';
 import type { PdfLinkLabelMode } from './pdf-link';
 
 /**
@@ -104,6 +105,18 @@ export interface ReaderPrefs {
    * 就切「书名 + 页码」。
    */
   pdfLinkLabel: PdfLinkLabelMode;
+  /** 开书时的缩放档（自动 / 适合宽度 / 适合页面 / 实际大小） */
+  pdfZoom: PdfZoomMode;
+  /**
+   * 显示 PDF 文件里自带的标注（别的软件画的）。
+   *
+   * 默认**开**：那是文件内容的一部分，藏起来用户会以为对方没标过。
+   */
+  pdfAnnots: boolean;
+  /** 页面上画「这句被笔记引过」的反链高亮。默认开 */
+  pdfBacklinks: boolean;
+  /** 导出本页为图片时的倍率（1×/2×/3×）。默认 2× —— 1× 放大了糊 */
+  pdfExportScale: number;
 }
 
 export const DEFAULT_PREFS: ReaderPrefs = {
@@ -125,6 +138,10 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   headerHidden: [],
   pdfAutoLink: false,
   pdfLinkLabel: 'text',
+  pdfZoom: 'auto',
+  pdfAnnots: true,
+  pdfBacklinks: true,
+  pdfExportScale: 2,
 };
 
 export const FONT_SIZE_RANGE = { min: 14, max: 30, step: 1 } as const;
@@ -315,7 +332,19 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     pdfLinkLabel: p.pdfLinkLabel === 'page' || p.pdfLinkLabel === 'titlePage' || p.pdfLinkLabel === 'emoji'
       ? p.pdfLinkLabel
       : 'text',
+    pdfZoom: p.pdfZoom === 'width' || p.pdfZoom === 'page' || p.pdfZoom === 'actual' ? p.pdfZoom : 'auto',
+    /* 这两个开关只在显式 false 时关：老数据里没有这两个键，脏值（'no' / 0）
+       也不该被当成「用户想关」——藏起别人的批注是有代价的，宁可多显示。 */
+    pdfAnnots: p.pdfAnnots !== false,
+    pdfBacklinks: p.pdfBacklinks !== false,
+    pdfExportScale: exportScaleOf(p.pdfExportScale),
   };
+}
+
+/** 导出倍率：有限数就夹到 1～3，非数（老数据 / 脏值）落回默认 2 */
+function exportScaleOf(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.min(3, Math.max(1, Math.round(n))) : DEFAULT_PREFS.pdfExportScale;
 }
 
 /**

@@ -39,10 +39,11 @@ import { probeEnabled } from './debug-probe';
 import { el, setHtml } from '../ui/dom';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
 import {
-  headerActionLabel,
+  HEADER_ACTION_IDS,
   headerActionSpec,
   headerActionsFor,
   headerActive,
+  isPdfAction,
   type HeaderActionId,
 } from './header-actions';
 import { planHeaderVisibility, roleOf } from './header-layout';
@@ -89,8 +90,34 @@ import { dispatchAction, requireCap } from '../shell/actions';
 
 export const VIEW_TYPE_READER = 'bzr-reader-view';
 
-/** 命令面板可触发的阅读动作（plugin.ts 注册命令时用这个类型） */
-export type ReaderCommand = 'next' | 'prev' | 'focus' | 'fullscreen' | 'bookmark' | 'typography' | 'bookmap' | 'tts' | 'help';
+/**
+ * 命令面板可触发的阅读动作（plugin.ts 注册命令时用这个类型）。
+ *
+ * `pdf-*` 那一组只在 PDF 上有对应物：EPUB 上按下就是什么都不做，所以
+ * 分派里统一用 `host.pdfUi?.` 取值，取不到就安静退出，不弹「不支持」——
+ * 用户给一条命令绑了全局键，切到 EPUB 时最烦的就是每按一次弹一次提示。
+ */
+export type ReaderCommand =
+  | 'next'
+  | 'prev'
+  | 'focus'
+  | 'fullscreen'
+  | 'bookmark'
+  | 'typography'
+  | 'bookmap'
+  | 'tts'
+  | 'help'
+  | 'pdf-zoom-in'
+  | 'pdf-zoom-out'
+  | 'pdf-fit-width'
+  | 'pdf-fit-page'
+  | 'pdf-rotate'
+  | 'pdf-spread'
+  | 'pdf-paged'
+  | 'pdf-thumbs'
+  | 'pdf-copy-link'
+  | 'pdf-export-page'
+  | 'pdf-back';
 
 /** 读到 99% 以上就算读完，不必真翻到最后一页的最后一个字 */
 const COMPLETE_THRESHOLD = 0.99;
@@ -633,11 +660,27 @@ export class ReaderView extends ItemView {
        视图里那份副本就停在旧配置，隐藏 / 排序看起来「没生效」。 */
     const prefs = pickPrefs(this.api.store.get(), mobile);
 
+    /* PDF 的「排版」不是字号行距，而是旋转 / 单双页 / 翻页——点同一颗图标，
+       换成贴右上角的那张小卡（外观与 EPUB 的排版浮层一致）。 */
+    const pdf = this.host.pdfUi;
     const run: Record<string, (ev?: MouseEvent) => void> = {
       toc: () => this.api.openTocSidebar('toc'),
       search: () => dispatchAction('search', this.rootEl ?? document.body),
       mark: () => this.toggleBookmark(),
-      type: () => dispatchAction('typography', this.rootEl ?? document.body),
+      type: () =>
+        pdf
+          ? pdf.toggleLayout()
+          : dispatchAction('typography', this.rootEl ?? document.body),
+      thumb: (ev) => {
+        void ev;
+        pdf?.toggleThumbs();
+      },
+      copy: (ev) => {
+        const box = ev?.currentTarget instanceof HTMLElement ? ev.currentTarget.getBoundingClientRect() : null;
+        pdf?.openCopyMenu(box ? { right: box.right, bottom: box.bottom } : null);
+      },
+      history: () => pdf?.back(),
+      export: () => pdf?.exportPage(),
       para: () => void this.toggleParallel(),
       paraBook: (ev) => this.openParallelPicker(ev),
       tts: () => this.toggleTts(),
@@ -645,14 +688,14 @@ export class ReaderView extends ItemView {
       immersive: () => this.toggleImmersive(),
       library: () => getShellSource()?.openStudy('library'),
     };
-    const spec = headerActionsFor(mobile, { order: prefs.headerOrder, hidden: prefs.headerHidden })
-      /* PDF 的排版面板没有意义：字号、行距、字体都来自原文档。
-         并排对照对 PDF 同样可用（每边一套引擎），只收走排版那颗。 */
-      .filter((id) => !(this.host.isPdf && id === 'type'))
-      .map((id) => ({
-        ...headerActionSpec(id),
-        run: run[id],
-      }));
+    const spec = headerActionsFor(
+      mobile,
+      { order: prefs.headerOrder, hidden: prefs.headerHidden },
+      this.host.isPdf,
+    ).map((id) => ({
+      ...headerActionSpec(id),
+      run: run[id],
+    }));
     const ids = spec.map((s) => s.id);
 
     /* 收走不该露的按钮：按 DOM 查，不只按 headerEls——视图复用或热重载时，
@@ -687,6 +730,9 @@ export class ReaderView extends ItemView {
       this.headerEls.set(item.id, btn);
       fresh.push(btn);
     }
+    /* 「回到上一处」没有历史时压暗：一颗永远点不动的亮图标是误导。
+       跳转历史由引擎回调（onPdfHistory）随时刷新，这里只管重挂后的初值。 */
+    this.headerEls.get('history')?.classList.toggle('is-off', !this.host.pdfUi?.canBack());
 
     /* 收起的图标不另建菜单：宿主最右侧的 ⋮ 里本来就有这十项
        （见 onPaneMenu），再挂一颗自己的 ⋮ 只会变成两个入口。 */
@@ -948,6 +994,27 @@ export class ReaderView extends ItemView {
   }
 
   runCommand(kind: ReaderCommand): void {
+    /* PDF 那一组先分流：EPUB 上没有 pdfUi，绑了全局键也不该弹提示或报错 */
+    if (kind.startsWith('pdf-')) {
+      const pdf = this.host.pdfUi;
+      if (!pdf) return;
+      switch (kind) {
+        case 'pdf-zoom-in': pdf.zoomIn(); break;
+        case 'pdf-zoom-out': pdf.zoomOut(); break;
+        case 'pdf-fit-width': pdf.fitWidth(); break;
+        case 'pdf-fit-page': pdf.fitPage(); break;
+        case 'pdf-rotate': pdf.rotate((pdf.rotation() + 90) % 360); break;
+        case 'pdf-spread': pdf.setSpread(!pdf.spread()); break;
+        /* 一屏一页 / 连续滚动是全局偏好：setPaged 里一并落盘 */
+        case 'pdf-paged': pdf.setPaged(!pdf.paged()); break;
+        case 'pdf-thumbs': pdf.toggleThumbs(); break;
+        case 'pdf-copy-link': pdf.copyLink('page'); break;
+        case 'pdf-export-page': pdf.exportPage(); break;
+        case 'pdf-back': pdf.back(); break;
+        default: break;
+      }
+      return;
+    }
     switch (kind) {
       case 'next':
       case 'prev':
@@ -964,10 +1031,10 @@ export class ReaderView extends ItemView {
         this.toggleTts();
         break;
       case 'typography': {
-        /* PDF 的字号/行距来自原文件，改不了。与其打开一个点了没反应的
-           面板，不如直接说清楚。 */
+        /* PDF 的「排版」是旋转 / 单双页 / 翻页，不是字号行距（那些来自原文件）。
+           内置键 t 与头栏那颗图标走同一个面板，别再弹「PDF 不可调」的提示。 */
         if (this.host.isPdf) {
-          notify(t('notice.pdf.typography'), 'info');
+          this.host.pdfUi?.toggleLayout();
           break;
         }
         const host = this.rootEl;
@@ -1008,52 +1075,49 @@ export class ReaderView extends ItemView {
     super.onPaneMenu?.(menu, source);
     menu.addSeparator();
     /* 十项图标与这里一一对应，标签也只该有一份真源：头栏那颗图标的
-       tooltip 是 `headerActionLabel()`，菜单里如果另写一套中文字面量，
+       tooltip 是 `headerActionSpec().label`，菜单里如果另写一套中文字面量，
        就会出现「界面语言是德语、⋮ 里还是中文」——而这排菜单恰好是手机端
        唯一的入口（头栏图标只露 3 颗，其余全折在这里）。 */
+    const pdfUi = this.host.pdfUi;
     const other = this.parallelId ? this.api.repo.byId(this.parallelId) : null;
     const root = this.rootEl ?? document.body;
+    /* 头栏与 ⋮ 共用同一张动作表。以前这里手写十项，加一颗图标要记得改两处，
+       漏了就是「头栏有、⋮ 里没有」——手机端尤其致命，⋮ 是唯一入口。
+       PDF 四颗只在 PDF 里出现；EPUB 上多四颗点不动的条目就是噪声。 */
+    const run: Record<HeaderActionId, (evt?: MouseEvent) => void> = {
+      toc: () => this.api.openTocSidebar('toc'),
+      search: () => dispatchAction('search', root),
+      mark: () => this.toggleBookmark(),
+      type: () => (pdfUi ? pdfUi.toggleLayout() : dispatchAction('typography', root)),
+      thumb: () => pdfUi?.toggleThumbs(),
+      /* ⋮ 里没有稳定的按钮坐标，复制菜单退回工具条上沿那个老位置 */
+      copy: () => pdfUi?.openCopyMenu(null),
+      history: () => pdfUi?.back(),
+      export: () => pdfUi?.exportPage(),
+      para: () => void this.toggleParallel(),
+      paraBook: (evt?: MouseEvent) => this.openParallelPicker(evt),
+      tts: () => this.toggleTts(),
+      bookmap: () => dispatchAction('bookmap', root),
+      immersive: () => this.toggleImmersive(),
+      library: () => getShellSource()?.openStudy('library'),
+    };
     /* 三个会变的标题（并排 / 朗读 / 沉浸）说的是「点了会怎样」：
        开着的时候应该是「关闭 / 停止 / 退出」，不是图标名。 */
-    const items: Array<{ id: HeaderActionId; label?: string; run: (evt?: MouseEvent) => void }> = [
-      { id: 'toc', run: () => this.api.openTocSidebar('toc') },
-      { id: 'search', run: () => dispatchAction('search', root) },
-      { id: 'mark', run: () => this.toggleBookmark() },
-      /* PDF 没有排版可调，菜单里不摆一个点开只弹提示的入口 */
-      ...(this.host.isPdf ? [] : [{ id: 'type' as HeaderActionId, run: () => dispatchAction('typography', root) }]),
-      {
-        id: 'para' as HeaderActionId,
-        label: this.parallelOn ? t('menu.para.close') : headerActionLabel('para'),
-        run: () => void this.toggleParallel(),
-      },
-      {
-        id: 'paraBook' as HeaderActionId,
-        label: t('menu.compare.title', {
-          title: other?.meta.title ?? t('menu.compare.none'),
-        }),
-        run: (evt?: MouseEvent) => this.openParallelPicker(evt),
-      },
-      {
-        id: 'tts',
-        label: this.speaking ? t('menu.tts.stop') : headerActionLabel('tts'),
-        run: () => this.toggleTts(),
-      },
-      { id: 'bookmap', run: () => dispatchAction('bookmap', root) },
-      {
-        id: 'immersive',
-        label: this.immersive ? t('menu.immersive.exit') : headerActionLabel('immersive'),
-        run: () => this.toggleImmersive(),
-      },
-      { id: 'library', run: () => getShellSource()?.openStudy('library') },
-    ];
-    for (const item of items) {
-      const spec = headerActionSpec(item.id);
+    const dynamic: Partial<Record<HeaderActionId, string>> = {
+      para: this.parallelOn ? t('menu.para.close') : undefined,
+      paraBook: t('menu.compare.title', { title: other?.meta.title ?? t('menu.compare.none') }),
+      tts: this.speaking ? t('menu.tts.stop') : undefined,
+      immersive: this.immersive ? t('menu.immersive.exit') : undefined,
+    };
+    for (const id of HEADER_ACTION_IDS.filter((x) => this.host.isPdf || !isPdfAction(x))) {
+      const spec = headerActionSpec(id);
+      const action = run[id];
       menu.addItem((i) =>
         i
-          .setTitle(item.label ?? spec.label)
+          .setTitle(dynamic[id] ?? spec.label)
           .setIcon(spec.icon)
           /* 二级菜单（选对照书）要落在手指/鼠标的位置上，坐标只有事件里有 */
-          .onClick((evt) => item.run(evt instanceof MouseEvent ? evt : undefined)),
+          .onClick((evt) => action(evt instanceof MouseEvent ? evt : undefined)),
       );
     }
   }
@@ -1716,6 +1780,11 @@ export class ReaderView extends ItemView {
         onPdfBacklinkTap: (info) => this.openPdfSource(info),
         /* 点文件自带批注 → 就地弹卡 */
         onPdfFileAnnotTap: (info) => this.showFileAnnot(info),
+        /* 排版面板里切了「一屏一页 / 连续滚动」：和 EPUB 共用一个全局偏好 */
+        onPdfFlow: (mode) => getShellSource()?.setPrefs({ flow: mode }),
+        /* 跳转历史条数变了：头栏那颗「回到上一处」跟着亮 / 灰 */
+        onPdfHistory: (count) =>
+          this.headerEls.get('history')?.classList.toggle('is-off', count === 0),
         /* 脚注：默认在注释号上方开一小块浮窗，读完接着读。
            设置里选「跳到章末」就退回 foliate 的老行为——我们在同一条链路上
            自己调 goTo，保证两种模式只有一处判断。 */

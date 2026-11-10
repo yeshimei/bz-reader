@@ -49,6 +49,21 @@ export const COMMANDS: readonly CommandSpec[] = [
   { id: 'typography', key: 'cmd.typography', reader: 'typography' },
   { id: 'bookmap', key: 'cmd.bookmap', reader: 'bookmap' },
   { id: 'tts', key: 'cmd.tts', reader: 'tts' },
+  /* ── PDF 专用 ──
+   * 头栏图标与排版面板在手机上会折进 ⋮，命令面板是另一条稳定入口；
+   * 放大 / 旋转这类高频动作也值得单独绑键。EPUB 上按下安静退出（见
+   * ReaderView.runCommand 的 pdf-* 分流），不弹「不支持」。 */
+  { id: 'pdf-zoom-in', key: 'cmd.pdfZoomIn', reader: 'pdf-zoom-in' },
+  { id: 'pdf-zoom-out', key: 'cmd.pdfZoomOut', reader: 'pdf-zoom-out' },
+  { id: 'pdf-fit-width', key: 'cmd.pdfFitWidth', reader: 'pdf-fit-width' },
+  { id: 'pdf-fit-page', key: 'cmd.pdfFitPage', reader: 'pdf-fit-page' },
+  { id: 'pdf-rotate', key: 'cmd.pdfRotate', reader: 'pdf-rotate' },
+  { id: 'pdf-spread', key: 'cmd.pdfSpread', reader: 'pdf-spread' },
+  { id: 'pdf-paged', key: 'cmd.pdfPaged', reader: 'pdf-paged' },
+  { id: 'pdf-thumbs', key: 'cmd.pdfThumbs', reader: 'pdf-thumbs' },
+  { id: 'pdf-copy-link', key: 'cmd.pdfCopyLink', reader: 'pdf-copy-link' },
+  { id: 'pdf-export-page', key: 'cmd.pdfExportPage', reader: 'pdf-export-page' },
+  { id: 'pdf-back', key: 'cmd.pdfBack', reader: 'pdf-back' },
   /* 排查用：手机上开不了控制台，这是唯一能把链路计数显示出来的入口。
      会话内生效、不落盘，重启自动关。 */
   { id: 'diag', key: 'cmd.diag' },

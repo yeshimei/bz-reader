@@ -15,6 +15,9 @@ export interface PdfBox {
   height: number;
 }
 
+/** 开书时的缩放档。`auto` = 老行为（窄屏适合宽度，否则原大） */
+export type PdfZoomMode = 'auto' | 'width' | 'page' | 'actual';
+
 /** 一页尺寸都没有时的兜底：Letter，比 0 强（0 会让缩放算成无穷大） */
 const LETTER: PdfBox = { width: 612, height: 792 };
 
@@ -73,4 +76,19 @@ export function needsFitWidth(pageWidth: number, availWidth: number, pad: number
   const avail = Number(availWidth);
   if (!(page > 0) || !(avail > 0)) return false;
   return page * scale > avail - pad * 2;
+}
+
+/**
+ * 开书时该用哪种缩放（设置页「PDF · 默认缩放」）。
+ *
+ * `auto` 是以前写死的行为：窄屏（手机竖屏、窄分栏）适合宽度，摆得下就按原大。
+ * 其余三档是用户的显式选择，不再看屏宽——选了「实际大小」的人，多半是要
+ * 拿 100% 去比着看排版。
+ */
+export function resolveInitialZoom(
+  mode: PdfZoomMode,
+  narrow: boolean,
+): 'width' | 'page' | 'actual' {
+  if (mode === 'width' || mode === 'page' || mode === 'actual') return mode;
+  return narrow ? 'width' : 'actual';
 }

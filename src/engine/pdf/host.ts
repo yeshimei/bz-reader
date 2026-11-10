@@ -11,6 +11,7 @@
  * ============================================================ */
 
 import type { App, EventRef } from 'obsidian';
+import type { PdfUi } from '../reader-engine';
 import { normalizePath } from 'obsidian';
 import { notify } from '../../core/notice';
 import type { EngineMeta } from '../../data/book-meta';
@@ -102,6 +103,14 @@ export class PdfEngineHost implements ReaderEngine {
         }),
       onBacklinkTap: (info) => opts.onPdfBacklinkTap?.(info),
       onFileAnnotTap: (info) => opts.onPdfFileAnnotTap?.(info),
+      onFlowChange: (mode) => opts.onPdfFlow?.(mode),
+      onHistoryChange: (count) => opts.onPdfHistory?.(count),
+      /* PDF 组的三项偏好：缩放档只在开书时读，两个开关随时读 */
+      pdfPrefs: () => ({
+        zoom: this.prefs?.pdfZoom ?? 'auto',
+        annots: this.prefs?.pdfAnnots !== false,
+        backlinks: this.prefs?.pdfBacklinks !== false,
+      }),
       /* 缩略图拖到笔记：引擎只给「这条链接长什么样」，怎么显示由设置决定 */
       linkForPage: (page) => {
         const mode = this.prefs?.pdfLinkLabel ?? 'text';
@@ -177,7 +186,8 @@ export class PdfEngineHost implements ReaderEngine {
     const doc = this.doc;
     if (!doc) return;
     try {
-      const blob = await doc.renderPng(page, 2);
+      /* 倍率走设置页（1×/2×/3×）：1× 放大了糊，3× 长文档会几十 MB */
+      const blob = await doc.renderPng(page, this.prefs?.pdfExportScale ?? 2);
       if (!blob) {
         notify(t('notice.pdf.exportFailed'), 'error');
         return;
@@ -214,6 +224,45 @@ export class PdfEngineHost implements ReaderEngine {
       console.warn('[bz-reader] PDF export failed:', err);
       return null;
     }
+  }
+
+  /**
+   * 头栏 / 快捷键要的这一套 PDF 动作。
+   *
+   * 每次现取一个新的壳：里面的每个动作都直接打到当前的 view 上，
+   * 缓存住对象反而会在「切书后重挂」时指向旧视图。
+   */
+  get pdfUi(): PdfUi | undefined {
+    const view = this.view;
+    if (!view) return undefined;
+    return {
+      rotation: () => view.rotation,
+      spread: () => view.isSpread,
+      paged: () => view.isPaged,
+      canBack: () => view.canBack,
+      zoomIn: () => view.zoomIn(),
+      zoomOut: () => view.zoomOut(),
+      fitWidth: () => view.setFitMode('width'),
+      fitPage: () => view.setFitMode('page'),
+      rotate: (deg) => view.setRotation(deg),
+      setSpread: (on) => view.setSpread(on),
+      /* 翻页 / 滚动是全局偏好（和 EPUB 同一项）：命令面板与排版面板都从这儿走，
+         只改视图不落盘的话，换本书又退回旧值。 */
+      setPaged: (on) => {
+        view.setPaged(on);
+        this.opts?.onPdfFlow?.(on ? 'paged' : 'scroll');
+      },
+      back: () => void view.back(),
+      toggleLayout: () => view.toggleLayoutPanel(),
+      toggleThumbs: () => view.toggleThumbsPanel(),
+      openCopyMenu: (anchor) => view.toggleCopyMenu(anchor),
+      exportPage: () => void view.exportCurrentPage(),
+      copyLink: (kind) =>
+        this.opts?.onPdfCopy?.(kind, {
+          page: view.page,
+          offset: view.currentViewOffset(),
+        }),
+    };
   }
 
   async next(): Promise<void> {
@@ -317,6 +366,8 @@ export class PdfEngineHost implements ReaderEngine {
     this.view?.applyPrefs();
     /* 排版偏好对 PDF 没意义，只有「翻页 / 滚动」要跟着走 */
     this.view?.setPaged(prefs.flow === 'paged');
+    /* 批注 / 反链两个开关改完要立刻生效，不能等翻页才重画 */
+    this.view?.refreshPdfPrefs();
   }
 
   clearPulse(): void {

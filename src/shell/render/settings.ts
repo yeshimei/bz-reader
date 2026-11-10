@@ -73,6 +73,18 @@ export const KEY_COMMANDS: Array<{ id: string; key: MsgKey; builtin?: string }> 
   { id: 'bz-reader:bookmap', key: 'key.bookmap', builtin: 'm' },
   { id: 'bz-reader:tts', key: 'key.tts', builtin: 'r' },
   { id: 'bz-reader:continue', key: 'key.continue' },
+  /* PDF 专用：都从命令面板注册，这里只是把它们摆进同一张键位表让人看得见 */
+  { id: 'bz-reader:pdf-zoom-in', key: 'key.pdfZoomIn' },
+  { id: 'bz-reader:pdf-zoom-out', key: 'key.pdfZoomOut' },
+  { id: 'bz-reader:pdf-fit-width', key: 'key.pdfFitWidth' },
+  { id: 'bz-reader:pdf-fit-page', key: 'key.pdfFitPage' },
+  { id: 'bz-reader:pdf-rotate', key: 'key.pdfRotate' },
+  { id: 'bz-reader:pdf-spread', key: 'key.pdfSpread' },
+  { id: 'bz-reader:pdf-paged', key: 'key.pdfPaged' },
+  { id: 'bz-reader:pdf-thumbs', key: 'key.pdfThumbs' },
+  { id: 'bz-reader:pdf-copy-link', key: 'key.pdfCopyLink' },
+  { id: 'bz-reader:pdf-export-page', key: 'key.pdfExportPage' },
+  { id: 'bz-reader:pdf-back', key: 'key.pdfBack' },
 ];
 
 function seg(name: string, opts: Array<[string, string]>, cur: string, act = 'setpref'): string {
@@ -243,6 +255,43 @@ export function viewSettings(v: SettingsView): string {
       <h3>${t('settings.grp.look')}</h3>
       <div class="bzs-setrow"><label>${t('settings.accent')}</label><div class="bzs-seg bzs-seg-wrap">${accentBtns}</div></div>
       <div class="bzs-setrow"><label>${t('settings.toolbarStyle')}</label>${toolbarStyleBtns}</div>
+    </div>`;
+
+  /* PDF 单独一组：自动复制链接 / 链接别名原来混在「外观」里，跟强调色、
+     工具条样式摆在一起，找的人不会想到去那里翻。PDF 整本都属高级版，
+     基础版照朗读 / AI 的口径整组灰掉，点一下弹高级功能说明。 */
+  const pdfUnlocked = can('fullFormats');
+  const exportScaleBtns = seg(
+    'pdfExportScale',
+    [1, 2, 3].map((n) => [String(n), `${n}×`] as [string, string]),
+    String(p.pdfExportScale),
+  );
+  const pdf = `<div class="bzs-setgrp${pdfUnlocked ? '' : ' is-locked'}"${
+    pdfUnlocked ? '' : ` data-act="unlock" data-mode="fullFormats" title="${t('settings.locked')}"`
+  }>
+      <h3>${t('settings.grp.pdf')}</h3>
+      <div class="bzs-setrow"><label>${t('settings.pdfZoom')}</label>${seg(
+        'pdfZoom',
+        [
+          ['auto', t('settings.pdfZoom.auto')],
+          ['width', t('settings.pdfZoom.width')],
+          ['page', t('settings.pdfZoom.page')],
+          ['actual', t('settings.pdfZoom.actual')],
+        ],
+        p.pdfZoom,
+      )}</div>
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfZoom.hint')}</div>
+      <div class="bzs-setrow"><label>${t('settings.pdfAnnots')}</label><button class="bzs-switch${
+        p.pdfAnnots ? ' on' : ''
+      }" data-act="setpref" data-k="pdfAnnots" data-v="${p.pdfAnnots ? '0' : '1'}" aria-label="${t(
+        'settings.pdfAnnots',
+      )}"></button></div>
+      <div class="bzs-setrow"><label>${t('settings.pdfBacklinks')}</label><button class="bzs-switch${
+        p.pdfBacklinks ? ' on' : ''
+      }" data-act="setpref" data-k="pdfBacklinks" data-v="${p.pdfBacklinks ? '0' : '1'}" aria-label="${t(
+        'settings.pdfBacklinks',
+      )}"></button></div>
+      <div class="bzs-setrow"><label>${t('settings.pdfExportScale')}</label>${exportScaleBtns}</div>
       <div class="bzs-setrow"><label>${t('settings.pdfAutoLink')}</label><button class="bzs-switch${
         p.pdfAutoLink ? ' on' : ''
       }" data-act="setpref" data-k="pdfAutoLink" data-v="${p.pdfAutoLink ? '0' : '1'}" aria-label="${t(
@@ -429,12 +478,12 @@ export function viewSettings(v: SettingsView): string {
     </div>`;
 
   /* 两列各自成流（布局说明见 study.css 的 .bzs-set-page）。
-     切在「阅读页图标 / 外观」之间：左列是界面 + 版式 + 那张十行的图标表，
-     右列是外观 + 其余六组，两列总高接近；DOM 顺序与原来完全一致，窄屏
-     叠成一列时仍是原来的阅读顺序，现有「阅读页图标在 外观之前」的断言
-     也不必改。 */
+     切在「阅读页图标 / 外观」之间：左列是界面 + 版式 + 图标表，
+     右列是外观 + PDF + 其余六组。PDF 组跟在外观后面——它原来那两项就
+     摆在「外观」里，搬出来之后仍挨着，找的人不用重新适应位置。
+     DOM 顺序不变，窄屏叠成一列时仍是原来的阅读顺序。 */
   const leftCol = `${languageGrp}${layout}${header}`;
-  const rightCol = `${look}${tts}${marks}${data}${ai}${lic}`;
+  const rightCol = `${look}${pdf}${tts}${marks}${data}${ai}${lic}`;
 
   return `<div class="bzs-set-page">${aboutBar(v.version || '', paid, ent.patron, ent.name)}<div class="bzs-set-grid"><div class="bzs-set-col">${leftCol}</div><div class="bzs-set-col">${rightCol}</div></div>${keys}</div>`;
 }

@@ -40,6 +40,18 @@ describe('命令 id', () => {
         'stats',
         'tts',
         'typography',
+        /* PDF 专用：头栏图标在手机上折进 ⋮，命令面板是另一条稳定入口 */
+        'pdf-zoom-in',
+        'pdf-zoom-out',
+        'pdf-fit-width',
+        'pdf-fit-page',
+        'pdf-rotate',
+        'pdf-spread',
+        'pdf-paged',
+        'pdf-thumbs',
+        'pdf-copy-link',
+        'pdf-export-page',
+        'pdf-back',
       ].sort(),
     );
   });
@@ -76,7 +88,11 @@ describe('命令分发', () => {
   it('阅读器类命令带动作，书架类不带', () => {
     const ids = (pred: (c: (typeof COMMANDS)[number]) => boolean) => COMMANDS.filter(pred).map((c) => c.id);
     expect(ids((c) => !!c.reader).sort()).toEqual(
-      ['bookmark', 'bookmap', 'focus', 'fullscreen', 'page-next', 'page-prev', 'tts', 'typography'].sort(),
+      [
+        'bookmark', 'bookmap', 'focus', 'fullscreen', 'page-next', 'page-prev', 'tts', 'typography',
+        'pdf-zoom-in', 'pdf-zoom-out', 'pdf-fit-width', 'pdf-fit-page', 'pdf-rotate',
+        'pdf-spread', 'pdf-paged', 'pdf-thumbs', 'pdf-copy-link', 'pdf-export-page', 'pdf-back',
+      ].sort(),
     );
   });
 

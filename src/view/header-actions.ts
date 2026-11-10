@@ -17,6 +17,10 @@ export type HeaderActionId =
   | 'search'
   | 'mark'
   | 'type'
+  | 'thumb'
+  | 'copy'
+  | 'history'
+  | 'export'
   | 'para'
   | 'paraBook'
   | 'tts'
@@ -43,6 +47,12 @@ const SPEC: ReadonlyArray<{ id: HeaderActionId; icon: string }> = [
   { id: 'search', icon: 'search' },
   { id: 'mark', icon: 'bookmark' },
   { id: 'type', icon: 'type' },
+  /* 以下四颗只在 PDF 里出现（见 PDF_ONLY_ACTIONS）。顺序也照顾到手机：
+     前 3 颗是目录 / 搜索 / 书签，PDF 的四颗进 ⋮，与「放不下就折起来」一致。 */
+  { id: 'thumb', icon: 'layout-grid' },
+  { id: 'copy', icon: 'copy' },
+  { id: 'history', icon: 'undo-2' },
+  { id: 'export', icon: 'download' },
   { id: 'para', icon: 'columns-2' },
   { id: 'paraBook', icon: 'book' },
   { id: 'tts', icon: 'volume-2' },
@@ -91,6 +101,46 @@ const LABELS: Record<HeaderActionId, Record<Locale, string>> = {
     fr: 'Typographie (t)',
     es: 'Tipografía (t)',
     pt: 'Tipografia (t)',
+  },
+  thumb: {
+    zh: '页缩略图',
+    'zh-TW': '頁縮圖',
+    en: 'Page thumbnails',
+    ja: 'ページサムネイル',
+    de: 'Seitenvorschau',
+    fr: 'Vignettes des pages',
+    es: 'Miniaturas de páginas',
+    pt: 'Miniaturas das páginas',
+  },
+  copy: {
+    zh: '复制链接（页 / 视图 / 嵌入 / 标注）',
+    'zh-TW': '複製連結（頁 / 檢視 / 嵌入 / 標註）',
+    en: 'Copy link (page / view / embed / marks)',
+    ja: 'リンクをコピー（ページ / 表示 / 埋め込み / 注釈）',
+    de: 'Link kopieren (Seite / Ansicht / Einbetten / Markierungen)',
+    fr: 'Copier le lien (page / vue / intégration / annotations)',
+    es: 'Copiar enlace (página / vista / incrustar / anotaciones)',
+    pt: 'Copiar link (página / visualização / incorporar / anotações)',
+  },
+  history: {
+    zh: '回到上一处',
+    'zh-TW': '回到上一處',
+    en: 'Back to previous spot',
+    ja: '前の位置に戻る',
+    de: 'Zurück zur letzten Stelle',
+    fr: 'Revenir au point précédent',
+    es: 'Volver al punto anterior',
+    pt: 'Voltar ao ponto anterior',
+  },
+  export: {
+    zh: '导出本页为图片',
+    'zh-TW': '匯出本頁為圖片',
+    en: 'Export page as image',
+    ja: 'このページを画像で書き出す',
+    de: 'Seite als Bild exportieren',
+    fr: 'Exporter la page en image',
+    es: 'Exportar la página como imagen',
+    pt: 'Exportar a página como imagem',
   },
   para: {
     zh: '并排对照',
@@ -162,6 +212,19 @@ export function headerActionLabel(id: HeaderActionId): string {
 /** 全部图标 id（也是默认顺序） */
 export const HEADER_ACTION_IDS: HeaderActionId[] = SPEC.map((s) => s.id);
 
+/**
+ * 只对 PDF 有意义的图标。
+ *
+ * 单个功能包只有一份产物，所以这里不做「构建时裁掉」，而是**运行时按书过滤**：
+ * 引擎不是 PDF 时这四颗一律不露（也不进 ⋮），用户配的顺序照样保留在偏好里，
+ * 换回 PDF 时原位复现。
+ */
+export const PDF_ONLY_ACTIONS: readonly HeaderActionId[] = ['thumb', 'copy', 'history', 'export'];
+
+export function isPdfAction(id: HeaderActionId): boolean {
+  return PDF_ONLY_ACTIONS.includes(id);
+}
+
 export interface HeaderCfg {
   order: string[];
   hidden: string[];
@@ -181,21 +244,29 @@ function orderedIds(cfg?: HeaderCfg | null): HeaderActionId[] {
  * @param mobile 真实移动端（`isMobileEnv()`，**不是** `isMobileShell()`——
  *   后者含桌面验收用的 force-mobile，会让桌面也折起来）
  */
-export function headerActionsFor(mobile: boolean, cfg?: HeaderCfg | null): HeaderActionId[] {
+export function headerActionsFor(
+  mobile: boolean,
+  cfg?: HeaderCfg | null,
+  pdf = false,
+): HeaderActionId[] {
   const hidden = new Set(cfg?.hidden ?? []);
-  const list = orderedIds(cfg).filter((id) => !hidden.has(id));
+  const list = orderedIds(cfg).filter((id) => !hidden.has(id) && (pdf || !isPdfAction(id)));
   return mobile ? list.slice(0, 3) : list;
 }
 
 /** ⋮ 里的：显式隐藏的 + 移动端被名额挤出去的 */
-export function headerOverflowFor(mobile: boolean, cfg?: HeaderCfg | null): HeaderActionId[] {
-  const shown = headerActionsFor(mobile, cfg);
-  return orderedIds(cfg).filter((id) => !shown.includes(id));
+export function headerOverflowFor(
+  mobile: boolean,
+  cfg?: HeaderCfg | null,
+  pdf = false,
+): HeaderActionId[] {
+  const shown = headerActionsFor(mobile, cfg, pdf);
+  return orderedIds(cfg).filter((id) => !shown.includes(id) && (pdf || !isPdfAction(id)));
 }
 
 /** 不带用户配置时的默认清单（老入口，保留兼容） */
-export function headerActionIds(mobile: boolean): HeaderActionId[] {
-  return headerActionsFor(mobile, null);
+export function headerActionIds(mobile: boolean, pdf = false): HeaderActionId[] {
+  return headerActionsFor(mobile, null, pdf);
 }
 
 export function headerActionSpec(id: HeaderActionId): HeaderActionSpec {

@@ -141,3 +141,51 @@ describe('headerActionsFor：排序、隐藏与移动端上限', () => {
     ]);
   });
 });
+
+/**
+ * PDF 专属的四颗（2026-11-10）。
+ *
+ * 页缩略图 / 复制链接 / 回到上一处 / 导出页图 以前全挤在 PDF 右下角那条工具条里，
+ * 翻页工具和「拿走内容」的动作混在一排。它们现在和目录、搜索一样挂在头栏，
+ * 但**只对 PDF 出现**——EPUB 上多四颗点不动的图标就是噪声。
+ */
+describe('PDF 专属动作', () => {
+  it('EPUB 里一颗都不出现，默认顺序也不变', () => {
+    const ids = headerActionsFor(false, null);
+    expect(ids).not.toContain('thumb');
+    expect(ids).not.toContain('copy');
+    expect(ids).not.toContain('history');
+    expect(ids).not.toContain('export');
+    expect(ids).toEqual(headerActionIds(false));
+  });
+
+  it('PDF 里四颗都在，且排在排版之后', () => {
+    const ids = headerActionsFor(false, null, true);
+    expect(ids.slice(0, 8)).toEqual([
+      'toc',
+      'search',
+      'mark',
+      'type',
+      'thumb',
+      'copy',
+      'history',
+      'export',
+    ]);
+  });
+
+  it('手机上仍然只露 3 颗，其余进 ⋮', () => {
+    const shown = headerActionsFor(true, null, true);
+    expect(shown).toHaveLength(3);
+    const overflow = headerOverflowFor(true, null, true);
+    expect(overflow).toContain('thumb');
+    expect(overflow).toContain('export');
+  });
+
+  it('用户把它们收起来之后，PDF 里也不再露', () => {
+    const cfg = { order: [], hidden: ['thumb', 'history'] };
+    const ids = headerActionsFor(false, cfg, true);
+    expect(ids).not.toContain('thumb');
+    expect(ids).not.toContain('history');
+    expect(headerOverflowFor(false, cfg, true)).toEqual(['thumb', 'history']);
+  });
+});

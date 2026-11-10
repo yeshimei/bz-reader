@@ -89,7 +89,10 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/ui/cross-search-panel.ts': 20,
   'src/ui/dom.ts': 7,
   'src/ui/import-panel.ts': 24,
-  'src/view/header-actions.ts': 29,
+  /* 2026-11-10 +11（29 → 40）：新增四颗 PDF 专属图标。这个文件里的十个
+     标签本来就是一张 Record<Locale, string> 集中表（见文件头），不是散落
+     的界面文案；四颗 × zh / zh-TW 两份写法加进来，存量自然要跟着抬。 */
+  'src/view/header-actions.ts': 40,
   'src/view/reader-fault.ts': 1,
   'src/view/reader-view.ts': 9,
   'src/view/side-view.ts': 1,

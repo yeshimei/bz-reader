@@ -81,7 +81,6 @@ import { resetBodySearch } from './shell/search-run';
 import type { TextHit } from './shell/text-search';
 import { portraitBuilder } from './data/portrait-build';
 import { hrefCandidates, interceptableClick, wrapOpenLinkText } from './shell/link-postprocessor';
-import { installPdfHover } from './shell/pdf-hover';
 import { CHANGELOG_RELEASES, pickReleaseFor, planChangelog, releaseEntryCount } from './shell/changelog';
 import { openChangelogNote } from './shell/changelog-note';
 
@@ -401,8 +400,6 @@ export function createPlugin(cfg: PluginConfig) {
       this.registerDomEvent(window, 'click', onLinkClick, true);
       this.registerDomEvent(document, 'pointerdown', onLinkClick, true);
       this.registerDomEvent(document, 'click', onLinkClick, true);
-      /* 悬停预览：笔记里 hover PDF 链接时弹一页缩略图。失败只是不弹，不影响点击。 */
-      this.register(installPdfHover(this.app));
       this.registerMarkdownPostProcessor((el) => {
         el.querySelectorAll('a').forEach((link) => {
           const target = interceptableClick(link, (p) => this.repo.byPath(p));

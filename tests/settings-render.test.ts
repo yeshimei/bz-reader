@@ -144,12 +144,32 @@ describe('设置页渲染', () => {
     expect(out).toContain('data-act="headermove"');
   });
 
-  it('阅读页图标列出全部十项（含对照书籍 / 朗读 / 鸟瞰 / 沉浸 / 返回书架）', () => {
+  it('阅读页图标列出全部十四项（含 PDF 四颗与对照书籍 / 朗读 / 鸟瞰 / 沉浸 / 返回书架）', () => {
     const out = html();
-    for (const id of ['paraBook', 'tts', 'bookmap', 'immersive', 'library']) {
+    for (const id of ['paraBook', 'tts', 'bookmap', 'immersive', 'library', 'thumb', 'copy', 'history', 'export']) {
       expect(out, id).toContain(`data-k="${id}"`);
     }
-    expect((out.match(/data-act="headertoggle"/g) ?? []).length).toBe(10);
+    expect((out.match(/data-act="headertoggle"/g) ?? []).length).toBe(14);
+  });
+
+  it('PDF 单成一组：开书缩放 / 批注 / 反链 / 导出倍率 / 自动复制链接 / 别名都在里面', () => {
+    const out = html();
+    expect(out).toContain('<h3>PDF</h3>');
+    for (const k of ['pdfZoom', 'pdfAnnots', 'pdfBacklinks', 'pdfExportScale', 'pdfAutoLink', 'pdfLinkLabel']) {
+      expect(out, k).toContain(`data-k="${k}"`);
+    }
+    /* 这六项不该还留在「外观」组里 */
+    const start = out.indexOf('<h3>外观</h3>');
+    const lookGroup = out.slice(start, out.indexOf('<h3>', start + 1));
+    expect(lookGroup).not.toContain('data-k="pdfAutoLink"');
+    expect(lookGroup).not.toContain('data-k="pdfZoom"');
+  });
+
+  it('基础版：PDF 组整组灰化，点击弹高级功能说明', () => {
+    entState.unlocked = false;
+    const out = html();
+    expect(out).toMatch(/class="bzs-setgrp is-locked"[^>]*data-act="unlock" data-mode="fullFormats"/);
+    entState.unlocked = false;
   });
 
   it('分组顺序：阅读页图标排在外观之前', () => {
@@ -430,6 +450,7 @@ describe('设置页 · 两列各自成流', () => {
       '版式',
       '阅读页图标',
       '外观',
+      'PDF',
       '朗读',
       '标注',
       '数据',

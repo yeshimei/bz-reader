@@ -933,6 +933,12 @@ body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .nav-buttons
    往头栏塞的图标排在它后面时，这条会把别人的图标强显、把真 ⋮ 藏掉
    （inline 的 display:none 压不过 !important）。别再按位置写死。 */
 
+/* PDF 的「回到上一处」：没有跳转历史时压暗，但留着可点（点了什么也不做），
+   不用 disabled——Obsidian 的 clickable-icon 在 disabled 下连 tooltip 都不给。 */
+.workspace-leaf-content[data-type='bzr-reader-view'] .bzr-action.is-off {
+  opacity: .38;
+}
+
 /* 沉浸：按 f 或调色板命令时藏掉宿主的上头栏与下导航条。
    桌面端以前只藏了 view-header，tab 栏、状态栏还在，正文上下各被切掉一条，
    看起来不像「全屏阅读」——所以这里把桌面那两圈边框也一起收掉。 */
@@ -1183,57 +1189,8 @@ body .view-header .clickable-icon.bzs-host-hidden {
   cursor: pointer;
 }
 
-/* 笔记里悬停 PDF 链接时的小卡片（shell/pdf-hover.ts） */
-.bzr-pdf-hover {
-  position: fixed;
-  z-index: 9999;
-  width: 280px;
-  max-width: 80vw;
-  padding: 8px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 10px;
-  background: var(--background-primary);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
-  pointer-events: none;
-  animation: bzr-pdf-hover-in 0.12s ease-out;
-}
-
-.bzr-pdf-hover-cap {
-  display: flex;
-  gap: 6px;
-  align-items: baseline;
-  margin-bottom: 6px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.bzr-pdf-hover-cap .name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-normal);
-}
-
-.bzr-pdf-hover-body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 80px;
-  overflow: hidden;
-  border-radius: 6px;
-  background: var(--background-secondary);
-}
-
-.bzr-pdf-hover-body img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.bzr-pdf-hover.is-empty .bzr-pdf-hover-body {
-  display: none;
-}
-
+/* 悬停预览已下线（2026-11-10）：卡片位置飘、内容不可靠，以后重做。
+   keyframes 留着——划词条与页缩略图的面板入场动画复用它。 */
 @keyframes bzr-pdf-hover-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: none; }

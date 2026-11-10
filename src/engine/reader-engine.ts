@@ -17,6 +17,37 @@ import type { HostAnnotation, MountOptions, SearchHit } from './host';
 import { EngineHost } from './host';
 import { PdfEngineHost } from './pdf/host';
 
+/**
+ * PDF 独有的那套动作（头栏四颗图标 + 排版面板 + 几条快捷键）。
+ *
+ * 不塞进 `ReaderEngine` 是因为 EPUB 上这些根本没有对应物：塞进去就得让
+ * `EngineHost` 写十几个空实现，读代码的人分不清「没实现」和「故意不实现」。
+ * 视图层按 `host.pdfUi?.` 取，没有就是这本不支持。
+ */
+export interface PdfUi {
+  rotation(): number;
+  spread(): boolean;
+  paged(): boolean;
+  canBack(): boolean;
+  zoomIn(): void;
+  zoomOut(): void;
+  fitWidth(): void;
+  fitPage(): void;
+  /** 转到指定角度（0 / 90 / 180 / 270） */
+  rotate(deg: number): void;
+  setSpread(on: boolean): void;
+  setPaged(on: boolean): void;
+  back(): void;
+  /** 头栏「排版」：旋转 / 单双页 / 翻页三行 */
+  toggleLayout(): void;
+  toggleThumbs(): void;
+  /** 复制菜单；`anchor` 给了就贴着那颗按钮摆 */
+  openCopyMenu(anchor?: { right: number; bottom: number } | null): void;
+  exportPage(): void;
+  /** 直接产出一条链接（快捷键用，不弹菜单） */
+  copyLink(kind: 'page' | 'view' | 'embed' | 'marks'): void;
+}
+
 export interface ReaderEngine {
   /** PDF 走另一套渲染；视图层据此隐藏排版面板、改页码文案 */
   readonly isPdf: boolean;
@@ -65,6 +96,8 @@ export interface ReaderEngine {
   setViewportWidth(width: number, left?: number): void;
   /** PDF 专用：还原上次的旋转角与双页排法。别的引擎不实现 */
   restorePdfView?(state: { rotation?: number; spread?: boolean } | null | undefined): void;
+  /** PDF 专用动作集；EPUB/TXT/CBZ 没有 */
+  readonly pdfUi?: PdfUi;
   destroy(): Promise<void>;
 }
 

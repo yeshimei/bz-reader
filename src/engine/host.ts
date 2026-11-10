@@ -221,6 +221,15 @@ export interface MountOptions {
   onPdfBacklinkTap?: (info: { sourcePath: string; event: MouseEvent }) => void;
   /** 点 PDF 自带的批注：把正文交给壳层弹卡 */
   onPdfFileAnnotTap?: (info: { contents: string; author: string; anchor: Rect }) => void;
+  /**
+   * PDF 排版面板里切了「一屏一页 / 连续滚动」。
+   *
+   * 和 EPUB 的「翻页」是同一项全局偏好（prefs.flow），所以由壳层落盘再回灌，
+   * 引擎自己不存——存两份就会「这本书滚、那本书翻」。
+   */
+  onPdfFlow?: (mode: 'paged' | 'scroll') => void;
+  /** 跳转历史条数变了：头栏那颗「回到上一处」据此亮 / 灰 */
+  onPdfHistory?: (count: number) => void;
 }
 
 /** 滚轮累计到多少才翻一页（像素）。触控板一次轻扫约 30–60，鼠标滚轮一格约 100。 */
