@@ -122,6 +122,9 @@ export function openSupportDialog(): SupportDialogHandle {
     // 不抢焦点：这是「看看怎么支持」的窗，打开就把焦点从用户手上拽走很粗暴
     autofocus: false,
   });
+  /* 遮罩要能被样式认出来：手机的「贴底抽屉」是靠 .bzs-sup-mask 覆盖
+     .bzr-overlay-mask 的居中排布（changelog-note 的抽屉同口径）。 */
+  modal.mask.classList.add('bzs-sup-mask');
 
   /* 一处委托管三件事：关闭 / 知道了 / 赞助商店。
      赞助链接不走 <a>：Obsidian 会把裸链交给阅读视图，移动端常常点了没反应。 */
