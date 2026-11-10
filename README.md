@@ -54,7 +54,7 @@
 |  | 脚注浮窗：小注不用离页 | ✓ | ✓ |
 |  | 划线做成书摘图片 | ✓ | ✓ |
 |  | 分类管理 | ✓ | ✓ |
-| **格式与导出** | Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画 | — | ✓ |
+| **格式与导出** | Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画、PDF | — | ✓ |
 |  | 划线存成双链：笔记里点回原文 | — | ✓ |
 |  | 引用页签：看哪些笔记引了这本书 | — | ✓ |
 |  | 导出整本摘录：每条带双链 | — | ✓ |
@@ -66,7 +66,7 @@
 | **统计与检索** | 数据面板：时长、趋势、节律、书籍明细 | — | ✓ |
 |  | 阅读海报：年度总结与数据长图 | — | ✓ |
 |  | 全库搜索：PDF 正文也搜得到 | — | ✓ |
-| **AI（需自填接口与密钥）** | AI 解释、翻译与摘要：划词即用 | — | ✓ |
+| **AI** | AI 解释、翻译与摘要：划词即用 | — | ✓ |
 |  | AI 全书问答 | — | ✓ |
 | **进阶** | 竖排排版：EPUB / TXT | — | ✓ |
 |  | 朗读：EPUB、TXT 与 PDF，念完自动翻页 | — | ✓ |
@@ -154,7 +154,7 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 |  | Footnotes in a popover: no need to leave the page | ✓ | ✓ |
 |  | Highlights as quote card images | ✓ | ✓ |
 |  | Shelf categories | ✓ | ✓ |
-| **Formats & Export** | Kindle family (MOBI / AZW3), FB2, CBZ comics | — | ✓ |
+| **Formats & Export** | Kindle family (MOBI / AZW3), FB2, CBZ comics, PDF | — | ✓ |
 |  | Highlights as wikilinks: click back from your notes | — | ✓ |
 |  | Citations tab: see which notes cite this book | — | ✓ |
 |  | Export every excerpt, each with a wikilink | — | ✓ |
@@ -166,7 +166,7 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 | **Stats & Search** | Stats panel: time, trends, rhythm, per-book detail | — | ✓ |
 |  | Reading poster: yearly recap and stats long image | — | ✓ |
 |  | Whole-library search, PDF text included | — | ✓ |
-| **AI (bring your own API key)** | Explain, translate, summarize a selection | — | ✓ |
+| **AI** | Explain, translate, summarize a selection | — | ✓ |
 |  | AI Q&A over the whole book | — | ✓ |
 | **Advanced** | Vertical typesetting: EPUB / TXT | — | ✓ |
 |  | Read aloud: EPUB, TXT and PDF, auto page-turn | — | ✓ |
@@ -249,7 +249,7 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 |  | 腳註浮窗：小註不用離頁 | ✓ | ✓ |
 |  | 劃線做成書摘圖片 | ✓ | ✓ |
 |  | 分類管理 | ✓ | ✓ |
-| **格式與匯出** | Kindle 系（MOBI / AZW3）、FB2、CBZ 漫畫 | — | ✓ |
+| **格式與匯出** | Kindle 系（MOBI / AZW3）、FB2、CBZ 漫畫、PDF | — | ✓ |
 |  | 劃線存成雙鏈：筆記裡點回原文 | — | ✓ |
 |  | 引用頁籤：看哪些筆記引用了本書 | — | ✓ |
 |  | 匯出整本摘錄：每條帶雙鏈 | — | ✓ |
@@ -261,7 +261,7 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 | **統計與搜尋** | 資料面板：時長、趨勢、節律、書籍明細 | — | ✓ |
 |  | 閱讀海報：年度總結與資料長圖 | — | ✓ |
 |  | 全庫搜尋：PDF 正文也搜得到 | — | ✓ |
-| **AI（需自填介面與金鑰）** | AI 解釋、翻譯與摘要：劃詞即用 | — | ✓ |
+| **AI** | AI 解釋、翻譯與摘要：劃詞即用 | — | ✓ |
 |  | AI 全書問答 | — | ✓ |
 | **進階** | 豎排排版：EPUB / TXT | — | ✓ |
 |  | 朗讀：EPUB、TXT 與 PDF，念完自動翻頁 | — | ✓ |
@@ -338,7 +338,7 @@ Obsidian を「本を読む場所」に。デスクトップ + モバイル、�
 |  | 脚注ポップアップ：ページを離れずに読める | ✓ | ✓ |
 |  | 引用カード画像 | ✓ | ✓ |
 |  | カテゴリ管理 | ✓ | ✓ |
-| **形式と書き出し** | Kindle 系（MOBI / AZW3）、FB2、CBZ コミック | — | ✓ |
+| **形式と書き出し** | Kindle 系（MOBI / AZW3）、FB2、CBZ コミック、PDF | — | ✓ |
 |  | ハイライトを双方向リンクに：ノートから原文へ | — | ✓ |
 |  | 引用タブ：この本を引用したノート | — | ✓ |
 |  | 抜粋をまとめて書き出し、各項目に双方向リンク | — | ✓ |
@@ -350,7 +350,7 @@ Obsidian を「本を読む場所」に。デスクトップ + モバイル、�
 | **統計と検索** | データパネル：時間・推移・リズム・書籍別の内訳 | — | ✓ |
 |  | 読書ポスター：年間まとめとデータ長画像 | — | ✓ |
 |  | ライブラリ全体を検索：PDF 本文も対象 | — | ✓ |
-| **AI（API キーはご自身で）** | AI 解説・翻訳・要約：選択するだけ | — | ✓ |
+| **AI** | AI 解説・翻訳・要約：選択するだけ | — | ✓ |
 |  | AI 全書 Q&A | — | ✓ |
 | **上級** | 縦組み：EPUB / TXT | — | ✓ |
 |  | 読み上げ：EPUB・TXT・PDF、読み終えたら自動で次のページ | — | ✓ |
@@ -429,7 +429,7 @@ Solange die Prüfung läuft oder die Suche nichts findet: mit [BRAT](https://git
 |  | Fußnoten im Pop-up – ohne die Seite zu verlassen | ✓ | ✓ |
 |  | Zitatkarten als Bild | ✓ | ✓ |
 |  | Regal-Kategorien | ✓ | ✓ |
-| **Formate & Export** | Kindle-Familie (MOBI / AZW3), FB2, CBZ-Comics | — | ✓ |
+| **Formate & Export** | Kindle-Familie (MOBI / AZW3), FB2, CBZ-Comics, PDF | — | ✓ |
 |  | Markierungen als Wikilinks: aus der Notiz zur Stelle | — | ✓ |
 |  | Zitate-Tab: welche Notizen dieses Buch zitieren | — | ✓ |
 |  | Alle Exzerpte exportieren, jeweils mit Wikilink | — | ✓ |
@@ -441,7 +441,7 @@ Solange die Prüfung läuft oder die Suche nichts findet: mit [BRAT](https://git
 | **Statistik & Suche** | Statistikpanel: Zeit, Verlauf, Rhythmus, Details je Buch | — | ✓ |
 |  | Leseposter: Jahresrückblick und Daten-Langbild | — | ✓ |
 |  | Bibliothek durchsuchen, PDF-Text inklusive | — | ✓ |
-| **KI (eigener API-Schlüssel)** | KI: erklären, übersetzen, zusammenfassen — direkt zur Auswahl | — | ✓ |
+| **KI** | KI: erklären, übersetzen, zusammenfassen — direkt zur Auswahl | — | ✓ |
 |  | KI: Fragen zum ganzen Buch | — | ✓ |
 | **Fortgeschritten** | Vertikaler Satz: EPUB / TXT | — | ✓ |
 |  | Vorlesen: EPUB, TXT und PDF, blättert automatisch weiter | — | ✓ |
@@ -518,7 +518,7 @@ Pendant la validation, ou si la recherche ne donne rien : ajoutez ce dépôt ave
 |  | Notes de bas de page en bulle : sans quitter la page | ✓ | ✓ |
 |  | Images de cartes de citation | ✓ | ✓ |
 |  | Gestion des catégories | ✓ | ✓ |
-| **Formats & export** | Famille Kindle (MOBI / AZW3), FB2, BD en CBZ | — | ✓ |
+| **Formats & export** | Famille Kindle (MOBI / AZW3), FB2, BD en CBZ, PDF | — | ✓ |
 |  | Surlignages en wikiliens : revenir au texte depuis la note | — | ✓ |
 |  | Onglet Citations : quelles notes citent ce livre | — | ✓ |
 |  | Exporter tous les extraits, chacun avec un wikilien | — | ✓ |
@@ -530,7 +530,7 @@ Pendant la validation, ou si la recherche ne donne rien : ajoutez ce dépôt ave
 | **Statistiques & recherche** | Panneau de stats : temps, tendances, rythme, détail par livre | — | ✓ |
 |  | Affiche de lecture : bilan annuel et image longue | — | ✓ |
 |  | Recherche dans toute la bibliothèque, texte des PDF inclus | — | ✓ |
-| **IA (clé API à fournir)** | IA : expliquer, traduire, résumer une sélection | — | ✓ |
+| **IA** | IA : expliquer, traduire, résumer une sélection | — | ✓ |
 |  | Questions IA sur tout le livre | — | ✓ |
 | **Avancé** | Composition verticale : EPUB / TXT | — | ✓ |
 |  | Lecture vocale : EPUB, TXT et PDF, page suivante automatique | — | ✓ |
@@ -607,7 +607,7 @@ Mientras la revisión esté pendiente, o si la búsqueda no lo encuentra, añade
 |  | Notas al pie en ventana: sin salir de la página | ✓ | ✓ |
 |  | Imágenes de tarjetas de cita | ✓ | ✓ |
 |  | Gestión de categorías | ✓ | ✓ |
-| **Formatos y exportación** | Familia Kindle (MOBI / AZW3), FB2, cómics en CBZ | — | ✓ |
+| **Formatos y exportación** | Familia Kindle (MOBI / AZW3), FB2, cómics en CBZ, PDF | — | ✓ |
 |  | Subrayados como wikienlaces: volver al texto desde la nota | — | ✓ |
 |  | Pestaña Citas: qué notas citan este libro | — | ✓ |
 |  | Exportar todos los extractos, cada uno con un wikienlace | — | ✓ |
@@ -619,7 +619,7 @@ Mientras la revisión esté pendiente, o si la búsqueda no lo encuentra, añade
 | **Estadísticas y búsqueda** | Panel de datos: tiempo, tendencias, ritmo, detalle por libro | — | ✓ |
 |  | Póster de lectura: resumen anual e imagen larga | — | ✓ |
 |  | Búsqueda en toda la biblioteca, texto de PDF incluido | — | ✓ |
-| **IA (clave API propia)** | IA: explicar, traducir, resumir una selección | — | ✓ |
+| **IA** | IA: explicar, traducir, resumir una selección | — | ✓ |
 |  | Preguntas de IA sobre todo el libro | — | ✓ |
 | **Avanzado** | Composición vertical: EPUB / TXT | — | ✓ |
 |  | Lectura en voz alta: EPUB, TXT y PDF, pasa de página sola | — | ✓ |
@@ -696,7 +696,7 @@ Enquanto a revisão estiver pendente, ou se a busca não encontrar, adicione est
 |  | Notas de rodapé em pop-up: sem sair da página | ✓ | ✓ |
 |  | Imagens de cartões de citação | ✓ | ✓ |
 |  | Gestão de categorias | ✓ | ✓ |
-| **Formatos e exportação** | Família Kindle (MOBI / AZW3), FB2, quadrinhos em CBZ | — | ✓ |
+| **Formatos e exportação** | Família Kindle (MOBI / AZW3), FB2, quadrinhos em CBZ, PDF | — | ✓ |
 |  | Destaques como wikilinks: voltar ao texto pela nota | — | ✓ |
 |  | Aba Citações: quais notas citam este livro | — | ✓ |
 |  | Exportar todos os excertos, cada um com um wikilink | — | ✓ |
@@ -708,7 +708,7 @@ Enquanto a revisão estiver pendente, ou se a busca não encontrar, adicione est
 | **Estatísticas e busca** | Painel de dados: tempo, tendências, ritmo, detalhe por livro | — | ✓ |
 |  | Pôster de leitura: resumo anual e imagem longa | — | ✓ |
 |  | Pesquisa em toda a biblioteca, texto de PDF incluído | — | ✓ |
-| **IA (chave de API própria)** | IA: explicar, traduzir, resumir uma seleção | — | ✓ |
+| **IA** | IA: explicar, traduzir, resumir uma seleção | — | ✓ |
 |  | Perguntas de IA sobre o livro inteiro | — | ✓ |
 | **Avançado** | Composição vertical: EPUB / TXT | — | ✓ |
 |  | Leitura em voz alta: EPUB, TXT e PDF, vira a página sozinha | — | ✓ |

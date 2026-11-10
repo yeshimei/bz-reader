@@ -78,16 +78,17 @@ describe('对照表 · PDF 段的位置与内容', () => {
   });
 });
 
-describe('对照表 · 格式那行与 PDF 段各说各的（1.0.0 定稿）', () => {
-  it('中文行名按「族名（枚举）」写全', () => {
-    expect(row('formats')?.name).toBe('Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画');
+describe('对照表 · 格式那行把能开的格式写全（2026-11-10 用户改口径）', () => {
+  it('中文行名按「族名（枚举）」写全，末尾带上 PDF', () => {
+    expect(row('formats')?.name).toBe('Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画、PDF');
   });
 
-  it('八种语言这一行都不再点 PDF：它下面有独立的一段', () => {
-    /* 1.0.0 定稿：PDF 从「更多格式」挪进自己的段。两处都写的话，看表的人会
-       以为 PDF 要单独再买一次；真被拦时的引子也分不清该高亮哪一行。 */
+  it('八种语言这一行都点出 PDF：能不能打开归这行说', () => {
+    /* 1.0.0 原本把 PDF 摘出去、只留在下面的独立段。2026-11-10 用户改口径：
+       格式是卖点，一行里要看全。下面「PDF 阅读」段管的是打开以后能做什么
+       （缩放、缩略图、页链接、导出页图），跟「能不能打开」不是一回事。 */
     for (const l of LOCALES) {
-      expect(PLAN_TEXT_PACK.formats[l], l).not.toMatch(/pdf/i);
+      expect(PLAN_TEXT_PACK.formats[l], l).toMatch(/pdf/i);
     }
   });
 

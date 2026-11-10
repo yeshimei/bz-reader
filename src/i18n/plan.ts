@@ -150,15 +150,17 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
        家族，但 EXT_TO_FORMAT 里没有它们，写上去就是空头承诺。
        1.0.0 定稿：这一行把高级版能多开的格式按「族名（枚举）」写全。
        括号在这里是「族 → 枚举」，不是行名解释，允许这一行例外。
-       PDF 不在这行：它下面是独立的一段，写两遍会让人以为要买两次。 */
-    zh: 'Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画',
-    'zh-TW': 'Kindle 系（MOBI / AZW3）、FB2、CBZ 漫畫',
-    en: 'Kindle family (MOBI / AZW3), FB2, CBZ comics',
-    ja: 'Kindle 系（MOBI / AZW3）、FB2、CBZ コミック',
-    de: 'Kindle-Familie (MOBI / AZW3), FB2, CBZ-Comics',
-    fr: 'Famille Kindle (MOBI / AZW3), FB2, BD en CBZ',
-    es: 'Familia Kindle (MOBI / AZW3), FB2, cómics en CBZ',
-    pt: 'Família Kindle (MOBI / AZW3), FB2, quadrinhos em CBZ',
+       2026-11-10 用户改口径：PDF 也写进来——格式是卖点，一行里要能看全。
+       下面「PDF 阅读」段讲的是打开以后能做什么（缩放/缩略图/页链接/导出），
+       跟「能不能打开」不是同一件事，两处都出现不冲突。 */
+    zh: 'Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画、PDF',
+    'zh-TW': 'Kindle 系（MOBI / AZW3）、FB2、CBZ 漫畫、PDF',
+    en: 'Kindle family (MOBI / AZW3), FB2, CBZ comics, PDF',
+    ja: 'Kindle 系（MOBI / AZW3）、FB2、CBZ コミック、PDF',
+    de: 'Kindle-Familie (MOBI / AZW3), FB2, CBZ-Comics, PDF',
+    fr: 'Famille Kindle (MOBI / AZW3), FB2, BD en CBZ, PDF',
+    es: 'Familia Kindle (MOBI / AZW3), FB2, cómics en CBZ, PDF',
+    pt: 'Família Kindle (MOBI / AZW3), FB2, quadrinhos em CBZ, PDF',
   },
   bilink: {
     /* 1.0.0 定稿：行名把「点得回来」这层意思说出来——只写「复制为双链」
@@ -429,16 +431,17 @@ const PLAN_GROUP_TEXT: Record<PlanGroupKey, Record<Locale, string>> = {
     pt: 'Estatísticas e busca',
   },
   ai: {
-    /* 1.0.0 定稿：AI 两行都得先自己填接口地址、密钥与模型名（设置页里配），
-       组名把这件事明说出来——不写，用户买了高级版才发现还要自备密钥。 */
-    zh: 'AI（需自填接口与密钥）',
-    'zh-TW': 'AI（需自填介面與金鑰）',
-    en: 'AI (bring your own API key)',
-    ja: 'AI（API キーはご自身で）',
-    de: 'KI (eigener API-Schlüssel)',
-    fr: 'IA (clé API à fournir)',
-    es: 'IA (clave API propia)',
-    pt: 'IA (chave de API própria)',
+    /* 段标题只留「AI」（2026-11-10 用户定）：一屏里要一眼看出结构，标题越短
+       越好。自备接口与密钥不在表头说——设置页的 AI 分组、`side.ai.notReady`
+       与请求失败时的报错都在原地讲了，标题再重复一遍只是把表撑宽。 */
+    zh: 'AI',
+    'zh-TW': 'AI',
+    en: 'AI',
+    ja: 'AI',
+    de: 'KI',
+    fr: 'IA',
+    es: 'IA',
+    pt: 'IA',
   },
   advanced: {
     zh: '进阶',

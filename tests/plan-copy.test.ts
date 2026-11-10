@@ -31,7 +31,7 @@ const CHANGED: ReadonlyArray<readonly [string, string]> = [
   ['export', '导出整本摘录：每条带双链'],
   ['back', '回到上一处：跳走之后一键回来'],
   ['footnote', '脚注浮窗：小注不用离页'],
-  ['formats', 'Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画'],
+  ['formats', 'Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画、PDF'],
   ['pdfView', '打开 PDF：缩放、旋转、单双页、滚动，每本记住视角'],
   ['pdfLink', '复制页链接：页码 / 视图 / 嵌入 / 批注'],
   ['pdfAnnots', '本页反链与文件自带批注'],
