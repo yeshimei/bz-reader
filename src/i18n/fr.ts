@@ -208,7 +208,6 @@ export const FR: Record<MsgKey, string> = {
   'fault.openFailed': 'Impossible d’ouvrir ce livre',
   'notice.load.stalled': '{what} ne s’est pas terminé — veuillez réessayer',
   'notice.pdf.typography': "Les réglages typographiques ne s'appliquent pas aux PDF : la mise en page vient du fichier d'origine.",
-  'notice.pdf.scanned': 'Ce PDF est une numérisation (sans couche de texte) : lecture, zoom et sélection rectangulaire pour liens sont possibles, mais pas la sélection de texte ni la recherche.',
   'notice.pdf.exported': 'Enregistré dans {path}',
   'notice.pdf.exportFailed': "Impossible d'exporter cette page en image",
   'notice.locate.notReady': 'Cette page n’est pas encore localisée — tournez une page et réessayez',

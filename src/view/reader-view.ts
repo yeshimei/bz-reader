@@ -1891,12 +1891,6 @@ export class ReaderView extends ItemView {
           notifyShell();
         },
       });
-      /* 扫描件：一打开就说清楚能做什么、不能做什么。
-         每本书只提醒一次，翻来翻去重复弹就成了噪音。 */
-      if (this.host.isPdf && this.host.isScanned && !RT.scanWarned.has(book.id)) {
-        RT.scanWarned.add(book.id);
-        notify(t('notice.pdf.scanned'), 'info');
-      }
       /* 视角必须在这里还原（而不是 mount 之前）：旋转要重建页骨架、
          双页要重算适配比例，都得等视图挂好。顺序也不能反——先按书记忆的
          角度/排法摆好，再套全局的翻页/滚动偏好，否则全局偏好会顶着默认值

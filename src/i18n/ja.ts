@@ -207,7 +207,6 @@ export const JA: Record<MsgKey, string> = {
   'fault.openFailed': 'この本を開けません',
   'notice.load.stalled': '{what}が完了しませんでした。もう一度お試しください',
   'notice.pdf.typography': 'PDF では組版設定は使えません。フォントと行間は元のファイルのままです',
-  'notice.pdf.scanned': 'この PDF はスキャン画像です（文字レイヤーなし）：閲覧・ズーム・枠選択でのリンク取得はできますが、文字選択と検索は使えません。',
   'notice.pdf.exported': '{path} に保存しました',
   'notice.pdf.exportFailed': 'このページを画像として書き出せませんでした',
   'notice.locate.notReady': 'このページはまだ位置が決まっていません。ページをめくってからもう一度お試しください',

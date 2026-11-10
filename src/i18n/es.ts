@@ -207,7 +207,6 @@ export const ES: Record<MsgKey, string> = {
   'fault.openFailed': 'No se puede abrir este libro',
   'notice.load.stalled': '{what} no terminó; inténtalo de nuevo',
   'notice.pdf.typography': 'Los ajustes de tipografía no se aplican a los PDF: la composición viene del archivo original.',
-  'notice.pdf.scanned': 'Este PDF es un escaneo (sin capa de texto): puedes leer, ampliar y seleccionar un área para enlaces, pero no seleccionar texto ni buscar.',
   'notice.pdf.exported': 'Guardado en {path}',
   'notice.pdf.exportFailed': 'No se pudo exportar esta página como imagen',
   'notice.locate.notReady': 'Esta página aún no está localizada: pasa una página e inténtalo de nuevo',

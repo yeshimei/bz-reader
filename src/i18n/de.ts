@@ -208,7 +208,6 @@ export const DE: Record<MsgKey, string> = {
   'fault.openFailed': 'Dieses Buch lässt sich nicht öffnen',
   'notice.load.stalled': '{what} wurde nicht abgeschlossen – bitte erneut versuchen',
   'notice.pdf.typography': 'Typografie-Einstellungen gelten nicht für PDFs – Schrift und Zeilenhöhe kommen aus der Originaldatei.',
-  'notice.pdf.scanned': 'Dieses PDF ist ein Scan (ohne Textschicht): Lesen, Zoomen und Rahmenauswahl für Links sind möglich, Textauswahl und Suche jedoch nicht.',
   'notice.pdf.exported': 'Gespeichert unter {path}',
   'notice.pdf.exportFailed': 'Diese Seite konnte nicht als Bild exportiert werden',
   'notice.locate.notReady': 'Diese Seite ist noch nicht verortet – blättere weiter und versuche es erneut',

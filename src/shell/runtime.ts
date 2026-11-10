@@ -143,8 +143,6 @@ export const RT = {
    * 重新点一次开关就是折磨。不落盘——下次开书默认还是看全书的引用。
    */
   citesOnlyPage: false,
-  /** 已经提醒过「这是扫描件」的书号：同一本只打扰一次 */
-  scanWarned: new Set<string>(),
   /**
    * 手机上「选中即划」刚落下的那条标注 id。
    *
