@@ -62,6 +62,9 @@ export function shelfRenderKey(state: ShellState, books: ReaderBook[], compact =
     state.noteSelect ? '1' : '0',
     state.noteSel.join(','),
     state.reviewIdx,
+    /* AI 追问也是画面的一部分：请求回来时指纹不变，笔记页就不会重画，
+       用户点完「问问 AI」等到的是一个空块。 */
+    state.notesProbe ? `${state.notesProbe.id}:${state.notesProbe.status}:${state.notesProbe.text}` : '',
     compact ? 'c' : 'f',
     /* 「今天 / 昨天」和每日回顾都按本地日期算：跨过零点画面就该变一次，
        所以日子也是指纹的一部分（不然它会一直停在前一天）。 */
@@ -139,6 +142,7 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
           reviewIdx: state.reviewIdx,
           select: state.noteSelect,
           picked: state.noteSel,
+          probe: state.notesProbe,
         }),
         counts,
       };

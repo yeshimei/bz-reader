@@ -247,6 +247,21 @@ export function overlayRenderKey(s: { overlay: OverlayState | null; ideaConfirm:
   return s.overlay?.kind === 'idea' && s.ideaConfirm ? `${base}|confirm` : base;
 }
 
+/**
+ * 每日回顾里那句「问问 AI」的结果（2026-11-10）。
+ *
+ * 为什么不放 RT：它要跟着笔记页一起重画。放 RT 只会在下一次 repaint 时
+ * 被忘掉，用户点完「问问 AI」等十秒，回来的是一张空回顾块。
+ * 也不落盘：一句一次性的追问，下次打开不该还挂在 11 月的某条旧划线上。
+ */
+export interface NotesProbe {
+  /** 属于哪条划线：换一条回顾时，上一条的追问不该跟过来 */
+  id: string;
+  /** busy 时为空；done 是问题；error 是原因 */
+  text: string;
+  status: 'busy' | 'done' | 'error';
+}
+
 export interface ShellState {
   /* 承载 */
   studyPage: StudyPage;
@@ -268,6 +283,8 @@ export interface ShellState {
   noteFilter: string;
   noteKw: string;
   reviewIdx: number;
+  /** 每日回顾的 AI 追问（临时状态，不落盘） */
+  notesProbe: NotesProbe | null;
   /** 笔记页是否处于批量选择模式 */
   noteSelect: boolean;
   /** 已选中的标注 id（不落盘：退出插件后不该还留着上次的选择） */
@@ -348,6 +365,7 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   noteFilter: 'all',
   noteKw: '',
   reviewIdx: 0,
+  notesProbe: null,
   noteSelect: false,
   noteSel: [],
   goal: 20,
@@ -460,7 +478,7 @@ export function mutateState(fn: (s: ShellState) => void): void {
 
 function persist(): void {
   try {
-    const { overlay, libKw, noteKw, noteSelect, noteSel, searchKw, ideaDraft, pdfPage, ...rest } = state;
+    const { overlay, libKw, noteKw, noteSelect, noteSel, searchKw, ideaDraft, pdfPage, notesProbe, ...rest } = state;
     // 浮层与输入框内容不落盘：下次打开还停在上次的弹窗上很怪
     window.localStorage.setItem(LS_KEY, JSON.stringify(rest));
   } catch {

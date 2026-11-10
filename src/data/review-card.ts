@@ -37,6 +37,13 @@ export interface ReviewCardInput {
   text: string;
   /** 想法（有才写） */
   comment?: string;
+  /**
+   * 自测题（2026-11-10，可选）。
+   *
+   * 由用户在菜单里明确点了「AI 出题」才传：**不自动调用 AI** 是这张卡
+   * 从第一天起就守着的边界，这条同样不例外。
+   */
+  question?: string;
   /** 章节名（没有就只写书名） */
   chapterTitle?: string;
   /** 回到原文的双链（data/wikilink.ts 的 wikilinkOfMark 产出；空串不出那一行） */
@@ -80,6 +87,16 @@ export function buildReviewCard(input: ReviewCardInput): string {
      变成正文段落——oneLine 已经压平过了 */
   lines.push(chapter ? `# ${book} · ${chapter}` : `# ${book}`);
   lines.push('');
+  /* 自测题（2026-11-10）：放在原文**之前**——复习的顺序是先看题、自己想，
+     再往下看原文自评。反过来题目就成了读后感的标题，回忆被跳过。 */
+  const question = oneLine(String(input.question ?? '').trim());
+  if (question) {
+    lines.push(`**${t('review.card.ask')}**`);
+    lines.push('');
+    lines.push(question);
+    lines.push('');
+  }
+
   lines.push(`> ${oneLine(input.text)}`);
   lines.push('');
 

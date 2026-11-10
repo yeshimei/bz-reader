@@ -18,12 +18,12 @@ import { kbLinksHtml } from './kb-links';
 import { AI_CARD_MODES, type AiFollowTurn } from './ai-card';
 import { esc } from './render/html';
 
-/** 三档页签上的字。`ask` 是侧栏的全书问答、`follow` 是卡里的追问，都不进页签 */
+/** 三档页签上的字。`ask` / `follow` / `probe` / `quiz` 都不进页签，只列三档 */
 const MODE_KEYS = {
   explain: 'ai.mode.explain',
   translate: 'ai.mode.translate',
   summarize: 'ai.mode.summarize',
-} as const satisfies Record<Exclude<AiTask, 'ask' | 'follow'>, MsgKey>;
+} as const satisfies Record<Exclude<AiTask, 'ask' | 'follow' | 'probe' | 'quiz'>, MsgKey>;
 
 /**
  * ① 脚注：左侧一枚「注」小印，其余全是注文。

@@ -754,6 +754,38 @@ function addToReview(markId?: string, bookId?: string): void {
 }
 
 /**
+ * 每日回顾的「问问 AI」（2026-11-10）。
+ *
+ * 把这条划线与当时写的想法一起交给模型，只要一句追问。不落盘、不自动跑；
+ * 结果放 shell state，跟着笔记页重画。失败也留在块里——一次 401 不该把
+ * 用户刚想聊的那句话弄丢，他可以再点一次。
+ */
+async function probeReview(markId: string, bookId?: string): Promise<void> {
+  if (!can('ai')) return;
+  const src = getShellSource();
+  const book = findBookOfMark(markId, bookId);
+  const h = book ? findHighlight(book, markId) : undefined;
+  if (!src || !h) return;
+  const settings = shellSettings();
+  if (!settings.ai.baseUrl || !settings.ai.apiKey || !settings.ai.model) {
+    notify(t('notice.ai.needSetup'), 'info');
+    return;
+  }
+  setState({ notesProbe: { id: markId, text: '', status: 'busy' } });
+  try {
+    const res = await aiAsk(settings, { task: 'probe', text: h.text, context: h.comment ?? '' });
+    /* 用户已经换了一条回顾 / 关掉了笔记页：这份结果不属于当前画面 */
+    if (getState().notesProbe?.id !== markId) return;
+    setState({ notesProbe: { id: markId, text: res.text.trim(), status: 'done' } });
+  } catch (e) {
+    if (getState().notesProbe?.id !== markId) return;
+    setState({
+      notesProbe: { id: markId, text: (e as Error)?.message || t('common.unknownError'), status: 'error' },
+    });
+  }
+}
+
+/**
  * 书卡右键「划线加入复习」：把这本书还没进复习的划线一次做成卡片。
  *
  * 逐条调用单条链路而不是另写一套批量：写卡与登记的逻辑只有一份，批量只是
@@ -762,7 +794,7 @@ function addToReview(markId?: string, bookId?: string): void {
  *
  * 已经加过的跳过（划线上记着路径），所以重复点不会造出重复卡片。
  */
-async function addBookToReview(bookId: string): Promise<void> {
+async function addBookToReview(bookId: string, withAi = false): Promise<void> {
   const src = getShellSource();
   if (!src) return;
   const book = liveBooks().find((b) => b.id === bookId);
@@ -780,11 +812,25 @@ async function addBookToReview(bookId: string): Promise<void> {
 
   const plan = reviewPlanOf(src.app);
   const settings = shellSettings();
+  /* 没配 AI 时「AI 出题」整批退化成普通卡片：不要每条都抛一次错再兜底 */
+  const quiz = withAi && !!settings.ai.baseUrl && !!settings.ai.apiKey && !!settings.ai.model;
   let added = 0;
   let skipped = 0;
+  let quizzed = 0;
   for (const h of todo) {
+    let question = '';
+    if (quiz) {
+      try {
+        const res = await aiAsk(settings, { task: 'quiz', text: h.text, context: h.comment ?? '' });
+        question = res.text.trim();
+        if (question) quizzed += 1;
+      } catch {
+        /* 出题失败不让「加入复习」整条链路失败：退回不带题的普通卡片 */
+        question = '';
+      }
+    }
     try {
-      const res = await syncReviewCard({ app: src.app, book, highlight: h, settings, plan });
+      const res = await syncReviewCard({ app: src.app, book, highlight: h, settings, plan, question });
       if (res.added) added += 1;
       else skipped += 1;
       setHighlightReview(book, h.id, { path: res.path, at: Date.now() });
@@ -795,7 +841,7 @@ async function addBookToReview(bookId: string): Promise<void> {
   src.store.touch();
   repaint();
   emitNotesChanged();
-  notify(t('notice.review.batch', { added, skipped }));
+  notify(quiz ? t('notice.review.batchAi', { added, skipped, n: quizzed }) : t('notice.review.batch', { added, skipped }));
 }
 
 /**
@@ -1214,6 +1260,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
             i.onClick(() => {
               if (requireCap('review')) void addBookToReview(id);
             });
+          /* AI 出题同时要复习与 AI 两个能力位：缺哪个都只弹一次对照表 */
+          if (it.act === 'reviewai')
+            i.onClick(() => {
+              if (requireCap('review') && requireCap('ai')) void addBookToReview(id, true);
+            });
           if (it.act === 'fav')
             i.onClick(() => {
               const on = toggleFav(id);
@@ -1497,8 +1548,31 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'reviewnext':
       mutateState((s) => {
         s.reviewIdx += 1;
+        /* 换一条回顾：上一条的追问不跟过去（它属于上一条划线） */
+        s.notesProbe = null;
       });
       break;
+    /* 每日回顾的「问问 AI」：基于这条划线 + 想法出一句追问 */
+    case 'reviewask':
+      if (d.id) void probeReview(d.id, d.book);
+      break;
+    /* 追问存进想法：只追加，不动原文与别的想法 */
+    case 'probeidea': {
+      const probe = getState().notesProbe;
+      const id = d.id || probe?.id || '';
+      const book = id ? findBookOfMark(id, d.book) : undefined;
+      const h = book && id ? findHighlight(book, id) : undefined;
+      if (!probe || probe.status !== 'done' || !book || !h || !probe.text.trim()) break;
+      const next = appendAiIdea(h.comment, probe.text);
+      if (next === (h.comment ?? '')) break;
+      if (setHighlightComment(book, h.id, next)) {
+        getShellSource()?.store.touch();
+        emitNotesChanged();
+        setState({ notesProbe: null });
+        notify(t('notice.probe.saved'));
+      }
+      break;
+    }
     case 'jumpmark':
       jumpMark(d.id, d.book);
       break;

@@ -19,6 +19,7 @@ export type BookMenuAction =
   | 'detail'
   | 'export'
   | 'review'
+  | 'reviewai'
   | 'fav'
   | 'done'
   | 'rename'
@@ -60,6 +61,10 @@ export function bookMenuItems(input: BookMenuInput): BookMenuItem[] {
     /* 复习紧跟导出：两者都是「这本书能产出什么」。点它把本书还没进复习的
        划线一次做成卡片——几十条划线逐条点太折磨，批量入口要在这里。 */
     { act: 'review', title: '划线加入复习', icon: 'rotate-ccw' },
+    /* 2026-11-10：同一条链路多一颗「带 AI 出题」——每张卡先让模型出一道
+       自测题再排期。放在复习下面而不是替换它：不想花 AI 额度的人要有
+       一条不调模型的路线。 */
+    { act: 'reviewai', title: '划线加入复习（AI 出题）', icon: 'sparkles' },
     { act: 'fav', title: input.fav ? '取消收藏' : '收藏', icon: 'star' },
     /* 两个方向用两枚图标：check 是「完成」，refresh 是「回到未读完」。
        共用一枚 check 的话，「标为在读」看起来像又要把它标成读完。 */

@@ -32,6 +32,13 @@ export interface ReviewSyncInput {
   settings: ReaderSettings;
   /** bz 的复习门面；null = 这台 bz 没有这个能力（老版本 / 没装） */
   plan: BzReviewFacade | null;
+  /**
+   * 自测题（2026-11-10，可选）。
+   *
+   * 用户在菜单里明确点了「AI 出题」才传：卡片生成前先请求一次模型，
+   * 失败就退回普通卡片（调用方兜底），不能让「加进复习」整个失败。
+   */
+  question?: string;
 }
 
 export interface ReviewSyncResult {
@@ -106,6 +113,7 @@ export function reviewCardFor(input: Omit<ReviewSyncInput, 'app' | 'settings' | 
     highlightId: h.id,
     text: h.text,
     comment: h.comment,
+    question: input.question,
     chapterTitle: h.chapterTitle,
     backlink: wikilinkOfMark(book, h),
     createdAt: now,
@@ -134,7 +142,7 @@ export async function syncReviewCard(input: ReviewSyncInput, now = Date.now()): 
   if (!path) {
     await ensureDir(app, dir);
     path = await resolveNewPath(app, dir, reviewCardName({ text: h.text }), h.id);
-    await writeAtomic(app, path, reviewCardFor({ book, highlight: h }, now));
+    await writeAtomic(app, path, reviewCardFor({ book, highlight: h, question: input.question }, now));
     written = true;
   }
 
