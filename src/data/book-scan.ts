@@ -59,7 +59,8 @@ export async function readBookMeta(app: App, path: string, size = 0): Promise<En
      XMP 字典，页数就是「章节数」（进度、目录都按页走）。 */
   if (format === 'pdf') {
     const { PdfDocument } = await import('../engine/pdf/document');
-    const doc = await PdfDocument.load(new Uint8Array(data.slice(0)));
+    /* 同 host：读出来这块就交给 pdf.js，不再复制一份 */
+    const doc = await PdfDocument.load(new Uint8Array(data));
     try {
       const raw = await doc.getMetadata();
       return {

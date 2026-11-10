@@ -74,7 +74,9 @@ export class PdfEngineHost implements ReaderEngine {
     const buf = await this.app.vault.adapter.readBinary(vaultPath);
     if (this.destroyed) throw new OpenCancelledError();
     this.phase = 'parse';
-    this.doc = await PdfDocument.load(new Uint8Array(buf.slice(0)));
+    /* 直接把这块内存交给 pdf.js：buf 是 readBinary 刚读出来的、之后没人再用，
+       再 slice 一份只是让几百 MB 的扫描件在解析期多占一倍内存。 */
+    this.doc = await PdfDocument.load(new Uint8Array(buf));
     this.tocItems = await this.doc.getToc();
     this.meta = await this.buildMeta(vaultPath);
     if (this.destroyed) {

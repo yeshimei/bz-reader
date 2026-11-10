@@ -273,7 +273,7 @@ export class PdfView {
   async mount(host: HTMLElement): Promise<void> {
     /* 零页 PDF：循环根本不会执行，界面上什么都没有；抛一个带明确原因的错误，
        让 reader-view 现有的「打不开」错误页显示出来（不在这里自己做 UI）。 */
-    if (this.numPages === 0) throw new Error('这本 PDF 没有任何页面');
+    if (this.numPages === 0) throw new Error(t('pdf.err.empty'));
     host.empty();
     host.appendChild(this.root);
     const first = await this.doc.getPageSize(1);

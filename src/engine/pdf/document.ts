@@ -13,6 +13,7 @@
  * ============================================================ */
 
 import { Platform } from 'obsidian';
+import { t } from '../../i18n';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { loadPdfjs } from './pdfjs';
 import { mapPdfOutline, synthPdfToc, type PdfTocItem } from './outline';
@@ -82,7 +83,9 @@ export class PdfDocument {
 
   static async load(data: Uint8Array): Promise<PdfDocument> {
     const lib = await loadPdfjs();
-    /* data 会被 pdf.js 接管（可能 transfer 走），调用方传进来的必须是副本 */
+    /* data 会被 pdf.js 接管（可能 transfer 走）：调用方给完就别再用这块内存。
+       反过来，调用方也别再额外复制一份——一本 300 MB 的扫描件复制一次就是
+       多占 300 MB，手机端正好卡在内存红线上。 */
     const task = lib.getDocument({
       data,
       isEvalSupported: false,
@@ -97,7 +100,15 @@ export class PdfDocument {
          没有地方放 PDF 的 CMap 与标准字体文件。现代 PDF 带 ToUnicode，
          中文能出字；缺字体时 pdf.js 会退回系统字体并 warn。 */
     });
-    const pdf = await task.promise;
+    const pdf = await task.promise.catch((err: unknown) => {
+      /* 加密 PDF 与坏文件在这里各给一句人话：pdf.js 抛的是 PasswordException /
+         InvalidPDFException，把原始报错直接丢到失败页上，用户看到的是
+         「No password given」这种英文栈信息。 */
+      const name = (err as { name?: string } | null)?.name ?? '';
+      if (name === 'PasswordException') throw new Error(t('pdf.err.password'));
+      if (name === 'InvalidPDFException') throw new Error(t('pdf.err.broken'));
+      throw err;
+    });
     return new PdfDocument(pdf);
   }
 
