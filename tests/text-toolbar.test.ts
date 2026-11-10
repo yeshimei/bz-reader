@@ -411,4 +411,25 @@ describe('复习按钮', () => {
   it('复习按钮自己也带图标名（图标模式下画得出来）', () => {
     expect(REVIEW_ITEM.icon).toBeTruthy();
   });
+
+  it('已进计划：多出「移出复习」，紧挨在复习后面', () => {
+    const l = toolbarLayout({ marked: true, review: true, unReview: true });
+    const keys = l.visible.map((i) => i.key);
+    expect(keys.indexOf('tool.unreview')).toBe(keys.indexOf('tool.review') + 1);
+  });
+
+  it('没进计划：不出现「移出复习」', () => {
+    const l = toolbarLayout({ marked: true, review: true });
+    expect(l.visible.map((i) => i.key)).not.toContain('tool.unreview');
+  });
+
+  it('窄窗：「移出复习」跟复习一起去「⋯」', () => {
+    const l = toolbarLayout({ marked: true, review: true, unReview: true, narrow: true });
+    expect(l.overflow.map((i) => t(i.key))).toEqual(['复习', '移出复习']);
+  });
+
+  it('点划线时「移出复习」发 hlunreview', () => {
+    const html = toolbarHtml({ marked: true, review: true, unReview: true, acts: MARK_ACTS });
+    expect(html).toContain('data-act="hlunreview"');
+  });
 });

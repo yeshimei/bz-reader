@@ -95,6 +95,12 @@ export type OverlayKind =
   | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedir' | 'finish' | 'footnote'
   | 'rename' | 'removebook' | 'confirmdel' | 'notedrop' | 'missing' | 'ack' | 'ptclean'
   | 'rebuildidx'
+  /* 批量加复习前的确认（2026-11-11）：一次几十条会写几十个文件、排几十条
+     计划，点错没有退路，所以先给一张「要加哪些、共几条、放到哪」的卡。 */
+  | 'confirmreview'
+  /* 复习卡目录改了、旧卡还在原处（2026-11-11）：问一句要不要一起搬。
+     搬要同时改划线路径与 bz 排期表，所以不静默做、也不默认做。 */
+  | 'confirmmigrate'
   /* 想法全文（2026-11-09）：气泡只露一截，长想法点「展开全文」进这张
      只读弹窗。它不是浮层——带遮罩、居中，读完整篇再关。 */
   | 'ideaall'

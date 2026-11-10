@@ -44,6 +44,7 @@ import {
   setIdeaDraft,
 } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
+import { planCardMoves } from '../data/review-migrate';
 import { bzEmbedder, bzEntryReady, reviewPlanOf } from '../data/bz-bridge';
 import { kbLinkOf } from '../data/kb-link';
 import { hydrateToolbarIcons } from './toolbar-icons';
@@ -464,6 +465,8 @@ function overlayHltools(markId?: string, bookId?: string): string {
     attrs: `data-id="${esc(mark.id)}" data-book="${esc(book.id)}"`,
     kbDone: { term: !!kbLinkOf(mark.kb, 'term'), passage: !!kbLinkOf(mark.kb, 'passage') },
     reviewDone: !!mark.review?.path,
+    /* 已进计划才给「移出复习」一颗：没加过的划线不该出现撤销入口 */
+    unReview: !!mark.review?.path,
     icon: shellPrefs().toolbarStyle === 'icon',
   });
   /* 想法为空、但有知识盒链接时气泡也要出：点划线的人可能就是来点那枚链接的 */
@@ -597,6 +600,66 @@ function overlayConfirmDrop(): string {
 }
 
 /**
+ * 批量加复习前的确认（2026-11-11）。
+ *
+ * 一次几十条 = 几十个文件 + 几十条排期，点错没有撤销按钮（只能逐条移出），
+ * 所以先给一张「加哪些、共几条、卡片写到哪」的卡。前三条给原文，让人确认
+ * 加的是这本书而不是记错的那本。列出的目录是当前设置——用户改了目录会
+ * 立刻在这里看到。
+ */
+function overlayConfirmReview(bookId: string): string {
+  const book = liveBooks().find((b) => b.id === bookId);
+  const todo = (book?.notes?.highlights ?? []).filter((h) => !String(h.review?.path ?? '').trim());
+  if (!book || !todo.length) {
+    return modal(t('review.batch.title', { count: 0 }), '', `<div class="bzs-empty">${t('review.batch.none')}</div>`, closeBtn());
+  }
+  const preview = todo
+    .slice(0, 3)
+    .map((h) => `<div class="bzs-qcard"><div class="q">${esc(h.text)}</div></div>`)
+    .join('');
+  const more = todo.length > 3 ? `<div class="bzs-mini">${t('review.batch.more', { count: todo.length - 3 })}</div>` : '';
+  const dir = String(shellSettings().reviewDir ?? '').replace(/^\/+|\/+$/g, '');
+  return modal(
+    t('review.batch.title', { count: todo.length }),
+    esc(book.meta.title ?? ''),
+    `${preview}${more}<div class="bzs-mini" style="margin-top:12px;line-height:1.9">${t('review.batch.dir', {
+      dir: dir || '/',
+    })}</div>`,
+    `<span class="sp"></span><button class="bzs-btn" data-act="close">${t('review.batch.cancel')}</button>
+     <button class="bzs-btn pri" data-act="reviewbookdo" data-book="${esc(bookId)}">${t('review.batch.confirm')}</button>`,
+    '',
+    isMobileEnv() ? 'bzs-text-scrim' : '',
+  );
+}
+
+/**
+ * 复习卡目录改了、旧卡还在原处（2026-11-11）。
+ *
+ * 不静默搬：搬一张卡要同时改划线路径和 bz 排期表里的路径，只改一处就得到
+ * 一批打不开的排期。所以先把数量与两个目录摆出来，让用户自己决定。
+ * 选「先不搬」也完全可用——划线上记着路径，旧卡照样能从划线打开。
+ */
+function overlayConfirmMigrate(newDir: string): string {
+  const from = String(shellSettings().reviewDir ?? '').replace(/^\/+|\/+$/g, '');
+  const moves = planCardMoves(liveBooks(), from, newDir);
+  if (!moves.length) {
+    return modal(t('review.migrate.title', { count: 0 }), '', `<div class="bzs-empty">${t('review.migrate.none')}</div>`, closeBtn());
+  }
+  return modal(
+    t('review.migrate.title', { count: moves.length }),
+    '',
+    `<div class="bzs-mini" style="line-height:1.9">${t('review.migrate.body', {
+      from: from || '/',
+      to: newDir || '/',
+    })}</div>`,
+    `<span class="sp"></span><button class="bzs-btn" data-act="reviewmigrateskip">${t('review.migrate.no')}</button>
+     <button class="bzs-btn pri" data-act="reviewmigratedo">${t('review.migrate.yes')}</button>`,
+    '',
+    isMobileEnv() ? 'bzs-text-scrim' : '',
+  );
+}
+
+/**
  * 浮层外壳：**没有遮罩**，也不吃正文上的点击。
  *
  * 排版面板、划线卡、脚注与想法都得「一边看正文一边操作」：遮罩一压，
@@ -669,6 +732,7 @@ function textPanel(
     attrs,
     kbDone: { term: !!kbLinkOf(marked?.kb, 'term'), passage: !!kbLinkOf(marked?.kb, 'passage') },
     reviewDone: !!marked?.review?.path,
+    unReview: !!marked?.review?.path,
     icon: shellPrefs().toolbarStyle === 'icon',
   });
   /* 外壳透明，底板交给 `${cls}-body`：工具条要露在卡片外面，
@@ -1330,6 +1394,10 @@ export function overlayHtml(): string {
       return overlayConfirmDel(o.markId, o.bookId, o.bookmarkId, o.anchor);
     case 'notedrop':
       return overlayConfirmDrop();
+    case 'confirmreview':
+      return overlayConfirmReview(o.bookId ?? '');
+    case 'confirmmigrate':
+      return overlayConfirmMigrate(o.text ?? '');
     case 'footnote':
       return overlayFootnote(o.text);
     case 'ai':

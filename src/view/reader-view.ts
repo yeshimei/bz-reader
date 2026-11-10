@@ -1601,6 +1601,7 @@ export class ReaderView extends ItemView {
         kbDone: kbDoneOf(saved?.kb),
         /* 已经生成过复习卡：那颗显示成「已复习」，点它是打开那张卡 */
         reviewDone: !!saved?.review?.path,
+        unReview: !!saved?.review?.path,
         /* 设置里的工具条样式：文字 / 图标（默认文字） */
         icon: shellPrefs().toolbarStyle === 'icon',
       }),

@@ -234,8 +234,24 @@ export function setHighlightReview(book: ReaderBook, id: string, link: ReviewLin
   const n = notes(book);
   const h = n.highlights.find((x) => x.id === id);
   if (!h) return false;
-  h.review = { path: link.path, at: link.at };
+  h.review = { path: link.path, at: link.at, scheduled: link.scheduled === true };
   h.updatedAt = link.at;
+  touchNotes(book, h.updatedAt);
+  return true;
+}
+
+/**
+ * 抹掉划线 → 复习卡的链接（「移出复习计划」）。
+ *
+ * 只摘排期与记录，**卡片文件留着**：那是用户库里的一篇笔记，可能已经写了
+ * 自己的想法，插件不该替人删文件。要删让他自己去文件列表里删。
+ */
+export function clearHighlightReview(book: ReaderBook, id: string): boolean {
+  const n = notes(book);
+  const h = n.highlights.find((x) => x.id === id);
+  if (!h || !h.review) return false;
+  delete h.review;
+  h.updatedAt = Date.now();
   touchNotes(book, h.updatedAt);
   return true;
 }
