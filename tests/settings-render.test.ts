@@ -176,15 +176,30 @@ describe('设置页渲染', () => {
 
   it('PDF 组三套分段控件都带窄栏折行 class，长标签组可单独收窄', () => {
     const out = html();
-    /* 四档两组（开书缩放 / 链接别名）、三档一组（导出倍率）：手机上
+    /* 四档一组（开书缩放）、三档两组（链接别名 / 导出倍率）：手机上
        label 最长 144px，同行布局会把控件挤成一列。这些 class 是窄栏
        两行布局的挂点，缺一个就会退回「四档竖成一条」。 */
-    expect((out.match(/bzs-seg-pdf4/g) ?? []).length).toBe(2);
-    expect((out.match(/bzs-seg-pdf3/g) ?? []).length).toBe(1);
+    expect((out.match(/bzs-seg-pdf4/g) ?? []).length).toBe(1);
+    expect((out.match(/bzs-seg-pdf3/g) ?? []).length).toBe(2);
     expect((out.match(/bzs-seg bzs-seg-wrap/g) ?? []).length).toBeGreaterThanOrEqual(3);
     expect(out).toContain('bzs-setgrp-pdf');
     /* 「复制链接（页 / 视图 / 嵌入 / 标注）」那行标签最长，需要定点放开折行 */
     expect(out).toContain('bzs-setgrp-header');
+  });
+
+  it('链接别名的 emoji 档已从设置里收起，只列原文 / 页码 / 书名 + 页码', () => {
+    const out = html();
+    const at = out.indexOf('data-k="pdfLinkLabel"');
+    expect(at).toBeGreaterThan(0);
+    const rowStart = out.lastIndexOf('<div class="bzs-setrow"', at);
+    const row = out.slice(rowStart, out.indexOf('</div>', at));
+    /* 「只藏图标、不删能力」：三段按钮里不再出现 📖 与 emoji 值，
+       但 prefs 仍认识 'emoji'（见 tests/prefs.test.ts）。 */
+    expect(row).not.toContain('📖');
+    expect(row).not.toContain('data-v="emoji"');
+    expect((row.match(/data-v="/g) ?? []).length).toBe(3);
+    expect(row).toContain('bzs-seg-pdf3');
+    expect(row).not.toContain('bzs-seg-pdf4');
   });
 
   it('分组顺序：阅读页图标排在外观之前', () => {

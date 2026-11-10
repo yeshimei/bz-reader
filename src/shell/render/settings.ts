@@ -270,7 +270,8 @@ export function viewSettings(v: SettingsView): string {
   /* 本组三套分段控件一律带 bzs-seg-wrap，并按档数挂 pdf4 / pdf3：
      手机上设置卡片只有 ~300px，flex 平分会把四档挤成「3 个一行 + 最后一个
      被拉成整条」；桌面右列 ~340px 时 auto-fit 也只算得出 3 列，四档会变 3+1。
-     列数统一交给 study.css（桌面 4/3）与 mobile.css（窄屏 2/3）。 */
+     列数统一交给 study.css（桌面 4/3）与 mobile.css（窄屏 2/3）。
+     链接别名只列三档（📖 档收起来了，见下方 seg），挂 pdf3。 */
   const exportScaleBtns = seg(
     'pdfExportScale',
     [1, 2, 3].map((n) => [String(n), `${n}×`] as [string, string]),
@@ -314,15 +315,16 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfAutoLink.hint')}</div>
       <div class="bzs-setrow"><label>${t('settings.pdfLinkLabel')}</label>${seg(
         'pdfLinkLabel',
+        /* 只列三档：📖（emoji）档从面板收起（2026-11-10），面板更干净；
+           prefs / 链接渲染仍认 'emoji'，已选该档的老数据照旧生效。 */
         [
           ['text', t('settings.pdfLinkLabel.text')],
           ['page', t('settings.pdfLinkLabel.page')],
           ['titlePage', t('settings.pdfLinkLabel.titlePage')],
-          ['emoji', t('settings.pdfLinkLabel.emoji')],
         ],
         p.pdfLinkLabel,
         'setpref',
-        'bzs-seg bzs-seg-wrap bzs-seg-pdf4',
+        'bzs-seg bzs-seg-wrap bzs-seg-pdf3',
       )}</div>
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfLinkLabel.hint')}</div>
     </div>`;
