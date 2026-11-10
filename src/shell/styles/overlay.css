@@ -361,6 +361,59 @@ body.theme-dark .bzs-float.is-dialog {
   font-size: 12px;
 }
 
+/* 追问（2026-11-10）：轮次垫在答案与输入行之间，用虚线隔开——
+   实线会把每一轮都画成一张独立的卡，追问就不再像同一场对话了。 */
+.bzs-ai-card .turns:not(:empty) {
+  padding: 0 18px 4px;
+}
+
+.bzs-ai-card .bzs-ai-turn {
+  padding: 10px 0;
+  border-top: 1px dashed var(--line);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.bzs-ai-card .bzs-ai-turn .q {
+  color: var(--t2);
+  font-size: 12px;
+}
+
+.bzs-ai-card .bzs-ai-turn .a {
+  color: var(--t1);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bzs-ai-card .bzs-ai-turn .a.is-bad,
+.bzs-ai-card .bzs-ai-turn.is-busy .a {
+  color: var(--vermilion);
+}
+
+.bzs-ai-card .askrow {
+  display: flex;
+  gap: 8px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--line);
+}
+
+.bzs-ai-card .askrow input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--t1);
+  font: 400 12.5px/1.5 var(--ui);
+}
+
+/* 追问中不该是「错误色」：那只是等待。上面 is-busy 与 is-bad 同一条规则
+   会把它染红，这里收回来。 */
+.bzs-ai-card .bzs-ai-turn.is-busy .a {
+  color: var(--t2);
+}
+
 /* 卡片里的按钮：原型是 8px 圆角、白底、12.5px，
    pri 是实心铜底白字——「复制引用」是这张卡唯一的主路径 */
 .bzs-quote-card .bzs-btn,

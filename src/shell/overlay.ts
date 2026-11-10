@@ -687,6 +687,10 @@ function overlayAi(markId?: string, bookId?: string): string {
         text: entry?.text,
         /* 没有记账 = 请求正要发出去：先画占位，别让卡片空着 */
         busy: entry ? entry.status === 'busy' : true,
+        /* 追问轮次跟着账本走：重画之后还画得出问过的那几轮 */
+        turns: entry?.turns,
+        /* 有划线才给「存成想法」：纯选区没有可挂的地方，按钮点了也没处放 */
+        canMark: !!markId,
       }),
       'bzs-ai-panel',
       {
@@ -1588,6 +1592,17 @@ export class OverlayLayer {
          只有「状态变了但内容键没体现」的变化（换笔色、勾选）才需要补一次。 */
       if (!getState().overlay || plan.act === 'rate') return;
       if (overlayRenderKey(getState()) === before) this.paint();
+    });
+
+    /* 追问输入框的回车（2026-11-10）：卡里的输入框是渲染出来的 HTML，
+       没法在节点上挂事件——在根节点委托一层。输入法组字中的回车不算，
+       否则选词那一下会把半句话发出去。 */
+    this.root.addEventListener('keydown', (e) => {
+      const el = e.target as HTMLElement | null;
+      if (el?.dataset?.role !== 'aifollow') return;
+      if (e.key !== 'Enter' || e.isComposing) return;
+      e.preventDefault();
+      this.onAction('aifollow', el);
     });
 
     this.root.addEventListener('input', (e) => {

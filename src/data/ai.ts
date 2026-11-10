@@ -10,14 +10,23 @@
  * ============================================================ */
 import type { ReaderSettings } from './settings';
 
-export type AiTask = 'summarize' | 'explain' | 'translate' | 'ask';
+export type AiTask = 'summarize' | 'explain' | 'translate' | 'ask' | 'follow';
 
 export const AI_TASK_LABELS: Record<AiTask, string> = {
   summarize: '摘要',
   explain: '释',
   translate: '译',
   ask: '问',
+  follow: '追问',
 };
+
+/**
+ * 追问时原文最多带多少字。
+ *
+ * 2000 字约 1.3k token：足够模型看清这一段的上下文，又不至于每次追问
+ * 都把一整章塞进去。划词通常几十到几百字，这个上限只在选中整页时才碰到。
+ */
+export const FOLLOW_QUOTE_LIMIT = 2000;
 
 /**
  * 问答带多少正文。
@@ -72,7 +81,7 @@ export function clipContext(text: string, limit = ASK_CONTEXT_LIMIT): string {
 }
 
 /** 摘录 / 解释 / 翻译的老口径，一字不改（回归测试锁着） */
-function buildPrompt(task: Exclude<AiTask, 'ask'>, text: string): string {
+function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow'>, text: string): string {
   if (task === 'summarize') {
     return `请把下面这段文字压缩成不超过 100 字的摘要，直接给摘要正文，不要任何开场白或前缀：\n\n${text}`;
   }
@@ -87,6 +96,32 @@ function buildPrompt(task: Exclude<AiTask, 'ask'>, text: string): string {
 }
 
 /**
+ * 追问：围绕划词的那一段继续聊。
+ *
+ * 与 ask 的区别是依据的来源——ask 允许用「书里的块」冒充依据并严格要求
+ * 「书里没有就说没有」，follow 的原文就是用户眼前这一段，允许模型补充
+ * 书外知识，但必须说明哪些是补充。少了这条说明，用户会把模型的发挥
+ * 当成书里的观点。
+ *
+ * 原文放 system 而不是 user：它在整场对话里是常量，逐轮重发只会多烧
+ * token；模型仍能从 system 里看到「我们在聊哪一段」。
+ */
+function buildFollowMessages(input: AiAskInput): AiMessage[] {
+  const quote = clipContext(input.context ?? '', FOLLOW_QUOTE_LIMIT);
+  const system = quote
+    ? '你是读者的共读助手。下面这段是读者正在读的原文。回答读者关于它的问题；可以用书外的知识补充，但要说明哪些是补充。用中文，先给结论，不寒暄。'
+    : '你是读者的共读助手。这次没有原文，只能凭问题本身作答，回答前先说明这一点。用中文，简洁。';
+
+  const messages: AiMessage[] = [{ role: 'system', content: system }];
+  if (quote) messages.push({ role: 'system', content: `【原文】\n${quote}` });
+  for (const turn of (input.history ?? []).slice(-ASK_HISTORY_MAX)) {
+    if (turn.content.trim()) messages.push({ role: turn.role, content: turn.content });
+  }
+  messages.push({ role: 'user', content: `【问题】\n${input.text}` });
+  return messages;
+}
+
+/**
  * 拼出要发给模型的 messages。
  *
  * ask 与其余三个任务的区别不只是 prompt：它带 system（角色与边界）、
@@ -94,6 +129,7 @@ function buildPrompt(task: Exclude<AiTask, 'ask'>, text: string): string {
  * 用户问「讲了什么」会被当成一段要解释的名词。
  */
 export function buildMessages(input: AiAskInput): AiMessage[] {
+  if (input.task === 'follow') return buildFollowMessages(input);
   if (input.task !== 'ask') {
     return [{ role: 'user', content: buildPrompt(input.task, input.text) }];
   }

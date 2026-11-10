@@ -15,15 +15,15 @@ import type { AiTask } from '../data/ai';
 import type { KbLink } from '../data/schema';
 import { t, type MsgKey } from '../i18n';
 import { kbLinksHtml } from './kb-links';
-import { AI_CARD_MODES } from './ai-card';
+import { AI_CARD_MODES, type AiFollowTurn } from './ai-card';
 import { esc } from './render/html';
 
-/** 三档页签上的字。`ask` 不进这张卡（那是侧栏的全书问答），所以只列三档 */
+/** 三档页签上的字。`ask` 是侧栏的全书问答、`follow` 是卡里的追问，都不进页签 */
 const MODE_KEYS = {
   explain: 'ai.mode.explain',
   translate: 'ai.mode.translate',
   summarize: 'ai.mode.summarize',
-} as const satisfies Record<Exclude<AiTask, 'ask'>, MsgKey>;
+} as const satisfies Record<Exclude<AiTask, 'ask' | 'follow'>, MsgKey>;
 
 /**
  * ① 脚注：左侧一枚「注」小印，其余全是注文。
@@ -76,6 +76,32 @@ export interface AiCardInput {
   text?: string;
   /** 请求还在路上：没有正文时据此画占位文案 */
   busy?: boolean;
+  /** 追问轮次：重画时从账本取回，初次问答不在里面 */
+  turns?: AiFollowTurn[];
+  /** 有没有一条自己的划线可以承接「存成想法」 */
+  canMark?: boolean;
+}
+
+/**
+ * 追问轮次：问题一行、答案一段；失败的那轮只留原因。
+ *
+ * 单独导出是给"追问中"那一路用的：请求发出去之后不整卡重画（输入框在卡里，
+ * 换掉会丢焦点），只把这一块 innerHTML 换掉。
+ */
+export function aiTurnsHtml(turns?: AiFollowTurn[], pending?: string): string {
+  const list = (turns ?? [])
+    .map((turn) => {
+      const q = turn.q ? `<div class="q">${esc(t('ai.follow.you'))}：${esc(turn.q)}</div>` : '';
+      const a = turn.error
+        ? `<div class="a is-bad">${esc(turn.error)}</div>`
+        : `<div class="a">${esc(turn.a)}</div>`;
+      return `<div class="bzs-ai-turn">${q}${a}</div>`;
+    })
+    .join('');
+  const wait = String(pending ?? '').trim()
+    ? `<div class="bzs-ai-turn is-busy"><div class="q">${esc(t('ai.follow.you'))}：${esc(pending ?? '')}</div><div class="a">${esc(t('ai.follow.busy'))}</div></div>`
+    : '';
+  return list + wait;
 }
 
 /**
@@ -87,12 +113,15 @@ export interface AiCardInput {
  *
  * 正文取自记账（shell/ai-card），不是「有结果就写 text、没有就写正在请求」：
  * 重画之后还得画得出同一份答案，否则切档、点按钮都会把答案冲掉。
+ *
+ * 2026-11-10 加追问：答案下面一条输入框，问完续在轮次里。追问与三档共用
+ * 同一份账，切档时整份跟着档走。
  */
 export function aiCardHtml(input: AiCardInput): string {
   const mode = input.mode ?? 'explain';
   const body = !input.ready
-    ? '还没有配置 AI 服务。到 书架 · 设置 里填好服务商、模型与密钥。'
-    : input.text || (input.busy ? '正在请求…' : '');
+    ? t('ai.card.needSetup')
+    : input.text || (input.busy ? t('ai.card.busy') : '');
   const quote = input.quote ? `<div class="quote">「${esc(input.quote)}」</div>` : '';
   /* 没配服务时不摆页签：切了也不会有结果，三颗亮着的按钮只会误导 */
   const modes = input.ready
@@ -103,15 +132,28 @@ export function aiCardHtml(input: AiCardInput): string {
         )}</button>`;
       }).join('')}</div>`
     : '';
+  /* 追问行：没配服务不摆（点了也只会得到一句「还没配置」） */
+  const askrow = input.ready
+    ? `<div class="askrow">
+      <input type="text" data-role="aifollow" placeholder="${esc(t('ai.follow.ph'))}">
+      <button type="button" class="bzs-btn sm pri" data-act="aifollow">${esc(t('ai.follow.send'))}</button>
+    </div>`
+    : '';
+  const mark = input.canMark
+    ? `<button class="bzs-btn" data-act="aitomark">${esc(t('ai.save.mark'))}</button>`
+    : '';
   return `<div class="bzs-ai-card">
     ${quote}
     ${modes}
     <div class="body" data-role="aibody">${esc(body)}</div>
+    <div class="turns" data-role="aiturns">${aiTurnsHtml(input.turns)}</div>
+    ${askrow}
     <div class="foot">
-      <button class="bzs-btn" data-act="aicopy">复制</button>
-      <button class="bzs-btn" data-act="airetry">重试</button>
+      <button class="bzs-btn" data-act="aicopy">${esc(t('ai.card.copy'))}</button>
+      <button class="bzs-btn" data-act="airetry">${esc(t('ai.card.retry'))}</button>
+      ${mark}
       <span class="sp"></span>
-      <button class="bzs-btn pri" data-act="aisave">存为笔记</button>
+      <button class="bzs-btn pri" data-act="aisave">${esc(t('ai.card.save'))}</button>
     </div>
   </div>`;
 }

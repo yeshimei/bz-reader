@@ -20,6 +20,7 @@ import {
   addHighlight,
   colorCss,
   ensureHighlight,
+  findHighlight,
   highlightsOf,
   isHighlightColor,
   removeBookmark,
@@ -126,11 +127,13 @@ import { getShellSource, allBooks, liveBooks, shellPrefs, shellSettings } from '
 import { openSupportDialog } from './support-dialog';
 import { debugSnapshot } from '../data/debug-log';
 import { TAP_MENU_PRESSURE_MS } from '../core/tap';
-import { aiCardDrop, aiCardKey, aiModeOf } from './ai-card';
+import { aiCardDrop, aiCardFollowBegin, aiCardFollowDone, aiCardFollowFail, aiCardGet, aiCardKey, aiModeOf, followHistory } from './ai-card';
 import { runAiForOverlay } from './overlay';
+import { aiTurnsHtml } from './reader-cards';
+import { aiAnswerBlock, appendAiIdea, type AiSaveTask } from '../data/ai-save';
 import { DEFAULT_SETTINGS, aiReady } from '../data/settings';
 import { copyGroupId } from './group';
-import { collectStats } from '../data/stats';
+import { collectStats, dayKey } from '../data/stats';
 import { statsModelOf, statsReportOf, type StatsView } from './render/stats';
 import { downloadStatsPoster } from './stats-poster';
 import { getStatsUi, setStatsUi } from './stats-ui';
@@ -2426,14 +2429,54 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       void runAiForOverlay();
       break;
     }
-    /* 存为笔记：落进导出目录，不伪造一条没有出处的标注 */
+    /* 追问：围绕卡上这段继续问（2026-11-10） */
+    case 'aifollow': {
+      const card = el.closest('.bzs-ai-card');
+      const input = card?.querySelector<HTMLInputElement>('[data-role="aifollow"]');
+      void followAi(input?.value ?? '');
+      break;
+    }
+    /* 把答案存成这条划线的想法：只追加，不覆盖用户自己写的字 */
+    case 'aitomark': {
+      const o = getState().overlay;
+      const book = currentBook();
+      const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
+      const answer = node?.textContent?.trim() || '';
+      if (!o?.markId || !book || !answer) {
+        if (!o?.markId) notify(t('notice.ai.noMark'), 'info');
+        break;
+      }
+      const h = findHighlight(book, o.markId);
+      if (!h) {
+        notify(t('notice.mark.gone'), 'info');
+        break;
+      }
+      const next = appendAiIdea(h.comment, answer);
+      /* 同一段答案再点一次：什么都不变，连提示都不弹 */
+      if (next === (h.comment ?? '')) break;
+      if (setHighlightComment(book, h.id, next)) {
+        getShellSource()?.store.touch();
+        emitNotesChanged();
+        repaint();
+        notify(t('notice.ai.savedMark'));
+      }
+      break;
+    }
+    /* 存为笔记：带任务、日期与出处引用，末尾留标记（2026-11-10 升级） */
     case 'aisave': {
       const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
       const answer = node?.textContent?.trim() || '';
       const app = getShellSource()?.app;
       const book = currentBook();
       if (!answer || !app) break;
-      void appendToExport(app, book, `## AI 回答\n\n${answer}\n`);
+      const o = getState().overlay;
+      const block = aiAnswerBlock({
+        task: aiModeOf(o?.mode) as AiSaveTask,
+        quote: o?.text || RT.sel?.text || '',
+        answer,
+        day: dayKey(Date.now()),
+      });
+      if (block) void appendToExport(app, book, block);
       break;
     }
 
@@ -2994,6 +3037,74 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
     if (RT.askAbort === ctrl) RT.askAbort = null;
   }
   repaint();
+}
+
+/* ─────────── 划词卡的追问（2026-11-10） ─────────── */
+
+/**
+ * 正在追问的那一句。
+ *
+ * 追问不整卡重画（输入框就在卡里，换掉会丢焦点），只把轮次这一块换掉；
+ * 这个变量让「换块」时还能画出一行「正在追问」。
+ */
+let aiFollowPending = '';
+
+/** 从账本把卡上的正文与轮次重画一遍 */
+function refreshAiCard(): void {
+  const o = getState().overlay;
+  if (!o || o.kind !== 'ai') return;
+  const text = o.text || RT.sel?.text || '';
+  const key = aiCardKey('ai', aiModeOf(o.mode), text);
+  const entry = aiCardGet(key);
+  const body = document.querySelector<HTMLElement>('[data-role="aibody"]');
+  if (body && entry?.text) body.textContent = entry.text;
+  const turns = document.querySelector<HTMLElement>('[data-role="aiturns"]');
+  if (turns) turns.innerHTML = aiTurnsHtml(entry?.turns, aiFollowPending);
+}
+
+/**
+ * 追问：围绕卡上那段原文继续问。
+ *
+ * 不带全书依据，也不带侧栏的问答记录——这是「问这一小段」的第二问，
+ * 与「问整本书」是两条链路（上下文、花费、追问方式都不同）。
+ */
+async function followAi(question: string): Promise<void> {
+  const q = String(question ?? '').trim();
+  if (!q) return;
+  const o = getState().overlay;
+  if (!o || o.kind !== 'ai') return;
+  const s = shellSettings();
+  if (!s.ai.baseUrl || !s.ai.apiKey || !s.ai.model) return;
+  const text = o.text || RT.sel?.text || '';
+  const key = aiCardKey('ai', aiModeOf(o.mode), text);
+  const entry = aiCardGet(key);
+  /* 初次还没答完（或者还没发出去）：没有可追问的答案，不发 */
+  if (!entry || !entry.text) return;
+  /* 一次只跑一条追问：连点两下不该扣两次费 */
+  if (aiFollowPending) return;
+
+  aiFollowPending = q;
+  aiCardFollowBegin(key);
+  refreshAiCard();
+  const ctrl = new AbortController();
+  RT.aiAbort = ctrl;
+  try {
+    const res = await aiAsk(
+      s,
+      { task: 'follow', text: q, context: text, history: followHistory(entry.text, entry.turns) },
+      { signal: ctrl.signal },
+    );
+    aiCardFollowDone(key, q, res.text);
+  } catch (e) {
+    /* 被掐掉（换档 / 关卡）不留假结果；真失败把原因写进这一轮 */
+    if (!ctrl.signal.aborted) aiCardFollowFail(key, q, (e as Error)?.message || t('common.unknownError'));
+  } finally {
+    if (RT.aiAbort === ctrl) RT.aiAbort = null;
+    aiFollowPending = '';
+    refreshAiCard();
+    const input = document.querySelector<HTMLInputElement>('[data-role="aifollow"]');
+    if (input) input.value = '';
+  }
 }
 
 /* ─────────── 输入与快捷键 ─────────── */

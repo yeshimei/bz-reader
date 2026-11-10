@@ -30,7 +30,11 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/core/diagnose.ts': 18,
   'src/core/folder-pick.ts': 3,
   'src/core/move-plan.ts': 5,
-  'src/data/ai.ts': 27,
+  /* 2026-11-10 +5（27 → 32）：追问任务的两段 system 指令与「【原文】/【问题】」
+     标签。这些是发给模型的 prompt，不是界面文案——同文件既有 27 处全是这个
+     性质（explain / summarize / translate 的口径），界面文案早在别的文件里
+     走 t() 了。 */
+  'src/data/ai.ts': 32,
   'src/data/backup.ts': 4,
   'src/data/book-scan.ts': 1,
   'src/data/deeplink.ts': 4,

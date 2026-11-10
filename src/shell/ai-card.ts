@@ -13,14 +13,33 @@
  * 是三条独立的问答，各记各的，切回去还是那一份；换一段文字自然也不串。
  * 关掉卡片整册清空——再次打开同一段应该重新问，而不是给一份看不懂来历的旧答案。
  * ============================================================ */
-import type { AiTask } from '../data/ai';
+import type { AiTask, AiTurn } from '../data/ai';
 
 export type AiCardStatus = 'busy' | 'done' | 'error';
+
+/**
+ * 一轮追问。
+ *
+ * 失败也留一条（`error` 非空、`a` 为空）：卡片重画之后用户至少能看到
+ * 「刚才问的那句没答上来」，而不是一段凭空消失的对话。
+ */
+export interface AiFollowTurn {
+  q: string;
+  a: string;
+  error?: string;
+}
 
 export interface AiCardEntry {
   status: AiCardStatus;
   /** 结果正文；`busy` 时是空串，失败时是给人看的那句原因 */
   text: string;
+  /**
+   * 追问轮次（2026-11-10）。
+   *
+   * 初次那问不进这里：它的答案就是 `text`。追问与初次共用同一个键，
+   * 切档时整份跟着档走——解释档的追问不会出现在翻译档里。
+   */
+  turns?: AiFollowTurn[];
 }
 
 /**
@@ -74,4 +93,57 @@ export function aiCardDrop(key: string): void {
 /** 离开 AI 卡时整册清空：下次打开重新问 */
 export function aiCardReset(): void {
   entries.clear();
+}
+
+/* ─────────── 追问（2026-11-10） ─────────── */
+
+/**
+ * 开始一轮追问。
+ *
+ * 与 `aiCardBegin` 的区别是**不清旧账**：初次答案与之前的轮次都要留着，
+ * 重画之后用户还能往上翻。追问失败也不抹掉它们。
+ */
+export function aiCardFollowBegin(key: string): void {
+  const cur = entries.get(key);
+  if (!cur) {
+    entries.set(key, { status: 'busy', text: '', turns: [] });
+    return;
+  }
+  entries.set(key, { ...cur, status: 'busy' });
+}
+
+/** 一轮追问拿到了答案：追加到轮次末尾，初次答案不动 */
+export function aiCardFollowDone(key: string, q: string, a: string): void {
+  const cur = entries.get(key) ?? { status: 'done' as const, text: '' };
+  const turns = [...(cur.turns ?? []), { q, a }];
+  entries.set(key, { ...cur, status: 'done', turns });
+}
+
+/** 一轮追问失败：问题与原因都留在轮次里，供「重试」和用户回看 */
+export function aiCardFollowFail(key: string, q: string, text: string): void {
+  const cur = entries.get(key) ?? { status: 'error' as const, text: '' };
+  const turns = [...(cur.turns ?? []), { q, a: '', error: text }];
+  /* 有初次答案时状态退回 done：卡片正文该继续显示答案，而不是被
+     一句「追问失败」顶掉；没有初次答案才把错误亮在正文里。 */
+  entries.set(key, { ...cur, status: cur.text ? 'done' : 'error', turns });
+}
+
+/**
+ * 追问要带给模型的历史。
+ *
+ * 先放刚才那份答案（`assistant`），再按顺序放轮次。失败的轮次跳过——
+ * 没答出来的问题喂回去，模型会把它当成「说过的话」接着圆。
+ */
+export function followHistory(text: string, turns: readonly AiFollowTurn[] = []): AiTurn[] {
+  const out: AiTurn[] = [];
+  const first = String(text ?? '').trim();
+  if (first) out.push({ role: 'assistant', content: first });
+  for (const turn of turns ?? []) {
+    if (turn?.error) continue;
+    const q = String(turn?.q ?? '').trim();
+    const a = String(turn?.a ?? '').trim();
+    if (q) out.push({ role: 'user', content: q });
+    if (a) out.push({ role: 'assistant', content: a });
+  }
+  return out;
 }
