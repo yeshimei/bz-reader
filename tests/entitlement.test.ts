@@ -209,13 +209,14 @@ describe('界面文案', () => {
     expect(capLabel('ai')).toBe('AI 全书问答');
   });
 
-  it('分类管理紧跟在脚注浮窗下面，两栏都打勾', () => {
-    const footnote = PLAN_TABLE.findIndex((r) => r.name.includes('脚注'));
-    expect(footnote).toBeGreaterThan(-1);
-    const classify = PLAN_TABLE[footnote + 1];
+  it('分类管理是免费区最后一行：跟着书摘图片，两栏都打勾', () => {
+    /* 1.0.0：书摘图片下放免费区，插在脚注浮窗与分类管理之间，所以
+       「紧跟脚注浮窗」不再成立。真正要守的是「它在免费段最末」——
+       后面一行就是付费的「更多格式」，免费项不许漏到付费段里去。 */
+    const free = PLAN_TABLE.filter((r) => r.free === 'yes');
+    const classify = free[free.length - 1];
     expect(classify.key).toBe('classify');
     expect(classify.name).toBe('分类管理');
-    expect(classify.free).toBe('yes');
     expect(classify.pro).toBe('yes');
     /* 基础版行不挂 cap：它没有「被拦下」的时刻 */
     expect(classify.cap).toBeUndefined();
@@ -235,11 +236,12 @@ describe('界面文案', () => {
     expect(PLAN_TABLE.slice(-1).map((r) => r.name)).toEqual(['连接 BZ AI 知识库，需另装 bz']);
   });
 
-  it('统计那一行写全：统计、打卡与目标', () => {
+  it('数据面板那一行写全：时长、趋势、节律、书籍明细', () => {
     const stats = PLAN_TABLE.find((r) => r.cap === 'stats');
-    expect(stats?.name).toBe('阅读统计、打卡与目标');
-    /* 被锁时弹层显示的那句卖点，与行名同一个说法 */
-    expect(capLabel('stats')).toBe('阅读统计、打卡与目标');
+    expect(stats?.name).toBe('数据面板：时长、趋势、节律、书籍明细');
+    /* 被锁时弹层显示的那句卖点，指的还是同一个「数据面板」，别退回
+       「阅读统计」这种说法——用户点的是数据面板，弹层得说同一件事。 */
+    expect(capLabel('stats')).toContain('数据面板');
   });
 
   it('书摘图片下放基础版：两栏都能用，不挂能力位', () => {

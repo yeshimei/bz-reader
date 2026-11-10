@@ -21,16 +21,23 @@ function row(key: string) {
   return PLAN_TABLE.find((r) => r.key === key);
 }
 
+/**
+ * 1.0.0 定稿改过口径的行：这一版按「两版定位」重写过一遍行名——
+ * 看得懂、不重复、把卖点点出来。中文基准与 PLAN_TABLE 必须同源。
+ */
 const CHANGED: ReadonlyArray<readonly [string, string]> = [
-  ['bilink', '划线复制为双向链接'],
-  ['export', '导出整本摘录为 Markdown，每条带双链'],
-  ['pdfView', '打开 PDF：缩放、旋转、单双页与滚动'],
-  ['pdfLink', '复制页链接：页码 / 视图 / 嵌入 / 批注'],
-  ['pdfAutoLink', '划词自动复制页链接'],
+  ['reading', 'EPUB / TXT 打开即读'],
+  ['bilink', '划线存成双链：笔记里点回原文'],
+  ['export', '导出整本摘录：每条带双链'],
+  ['pdfView', 'PDF 阅读：缩放、旋转、单双页、滚动，每本记住视角'],
+  ['pdfLink', '复制页链接：页码 / 视图 / 嵌入 / 批注，可划词自动复制'],
   ['pdfAnnots', '本页反链与文件自带批注'],
-  ['pdfZoom', '记住每本书的缩放'],
-  ['crossSearch', '全库搜索'],
-  ['tts', '朗读 EPUB、TXT 与 PDF'],
+  ['stats', '数据面板：时长、趋势、节律、书籍明细'],
+  ['poster', '阅读海报：年度总结与数据长图'],
+  ['crossSearch', '全库搜索：PDF 正文也搜得到'],
+  ['aiSel', 'AI 解释、翻译与摘要：划词即用'],
+  ['vertical', '竖排排版：EPUB / TXT'],
+  ['tts', '朗读：EPUB、TXT 与 PDF，念完自动翻页'],
   ['parallel', '与另一本书并排对照'],
   ['kb', '连接 BZ AI 知识库，需另装 bz'],
 ];
@@ -90,9 +97,9 @@ describe('1.0.0 对照表 · 书摘下放与行名', () => {
 });
 
 describe('1.0.0 对照表 · 上架前把英文占位换成正式翻译', () => {
-  const PDF_KEYS = ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfAutoLink', 'pdfAnnots', 'pdfExport', 'pdfZoom'] as const;
+  const PDF_KEYS = ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfAnnots', 'pdfExport'] as const;
 
-  it('PDF 段七行与组名在五种外语里不再照抄英文', () => {
+  it('PDF 段五行与组名在五种外语里不再照抄英文', () => {
     for (const l of ['ja', 'de', 'fr', 'es', 'pt'] as const) {
       expect(PLAN_GROUP_TEXT_PACK.pdf[l], l).not.toBe(PLAN_GROUP_TEXT_PACK.pdf.en);
       for (const key of PDF_KEYS) {
@@ -111,7 +118,7 @@ describe('1.0.0 对照表 · 上架前把英文占位换成正式翻译', () => 
     setLocale('de');
     expect(planLabel('pdfView')).toBe(PLAN_TEXT_PACK.pdfView.de);
     setLocale('zh');
-    expect(planLabel('pdfView')).toBe('打开 PDF：缩放、旋转、单双页与滚动');
+    expect(planLabel('pdfView')).toBe('PDF 阅读：缩放、旋转、单双页、滚动，每本记住视角');
     expect(planGroupNameZh('pdf')).toBe('PDF 阅读');
   });
 });

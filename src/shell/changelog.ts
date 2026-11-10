@@ -65,8 +65,8 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
       {
         domain: { zh: 'PDF 阅读', en: 'PDF reading' },
         text: {
-          zh: 'PDF 成为第八种格式，文字版能选字、划线、搜索与朗读。',
-          en: 'PDF joins as the eighth format: text-based files support selection, highlights, search, and read-aloud.',
+          zh: '支持 PDF 阅读。',
+          en: 'PDFs open in the reader.',
         },
       },
       {
@@ -107,8 +107,8 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
       {
         domain: { zh: '引用页签', en: 'Citations tab' },
         text: {
-          zh: '高级版可用；笔记里指向本书具体位置的链接按书聚在一起，点一条回到原文那一句。',
-          en: 'Pro only: links in your notes that point to a specific place in the book gather here; click one to return to that sentence.',
+          zh: '笔记里指向本书具体位置的链接按书聚在一起，点一条回到原文那一句。',
+          en: 'Links in your notes that point to a specific place in the book gather here; click one to return to that sentence.',
         },
       },
       {
@@ -123,27 +123,6 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
         text: {
           zh: '设置页里选默认笔色，和划词条上的色点用的是同一份。',
           en: 'Pick the default pen colour in settings; the dots on the selection bar share the same value.',
-        },
-      },
-      {
-        domain: { zh: '支持作者', en: 'Support the author' },
-        text: {
-          zh: '设置页顶部与更新日志页脚都能打开赞赏窗，附支持者名单。',
-          en: 'The support dialog opens from the top of settings or the changelog footer, with the list of supporters.',
-        },
-      },
-      {
-        domain: { zh: '赞助人身份', en: 'Sponsor badge' },
-        text: {
-          zh: '赞助码的徽章改用买家昵称，设置页另外标出「赞助人」。',
-          en: 'Sponsor keys show the buyer’s name on the badge, with a separate Sponsor mark in settings.',
-        },
-      },
-      {
-        domain: { zh: '高级版对照表', en: 'Upgrade table' },
-        text: {
-          zh: '新增「PDF 阅读」一段，引用页签归入高级版并排在双向链接下面，书摘图片下放基础版，行名与界面用词对齐。',
-          en: 'A new PDF section, the Citations row moved under wikilinks as a Pro feature, quote card images opened up to the free tier, and row names aligned with the UI wording.',
         },
       },
     ],
@@ -163,20 +142,6 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
         },
       },
       {
-        domain: { zh: '链接别名', en: 'Link labels' },
-        text: {
-          zh: '设置里收成三档文字，不再留一档藏在面板里的图标。',
-          en: 'Four options folded into three text labels — no icon-only mode tucked inside a panel.',
-        },
-      },
-      {
-        domain: { zh: '更新日志', en: 'Changelog' },
-        text: {
-          zh: '底栏改版，版本行留出行距。',
-          en: 'A new footer, with room around the version line.',
-        },
-      },
-      {
         domain: { zh: '支持弹窗', en: 'Support dialog' },
         text: {
           zh: '跟随设置页的强调色，手机端贴底并避开安全距。',
@@ -186,82 +151,12 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
       {
         domain: { zh: '书摘图片', en: 'Quote card images' },
         text: {
-          zh: '基础版也能把划线复制成图片，图片一律带 bz reader 徽章。',
-          en: 'The free tier can copy highlights as images too; every image carries a bz reader badge.',
-        },
-      },
-      {
-        domain: { zh: '权限调整', en: 'Entitlement change' },
-        text: {
-          zh: '引用页签这版起归入高级版，与双向链接共用一道门禁；书摘图片反过来下放基础版，两版都能复制。',
-          en: 'The Citations tab is now Pro, sharing one gate with wikilinks; quote card images go the other way and open up to both tiers.',
-        },
-      },
-      {
-        domain: { zh: '升级说明', en: 'Upgrading' },
-        text: {
-          zh: '从 0.4.1 跨到 1.0.0 只是版本号变化，数据格式没动：旧库直接升级，书架、进度、标注与设置原样保留。',
-          en: 'The jump from 0.4.1 to 1.0.0 is a version number only: the data format is unchanged, so existing vaults upgrade in place with their shelf, progress, annotations and settings intact.',
+          zh: '基础版也能把划线复制成图片。',
+          en: 'The free tier can copy highlights as images too.',
         },
       },
     ],
     fixed: [
-      {
-        domain: { zh: 'PDF 白屏', en: 'PDF blank screen' },
-        text: {
-          zh: 'Obsidian 内核较旧时打开 PDF 不再白屏。',
-          en: 'PDFs no longer open to a blank screen on older Obsidian builds.',
-        },
-      },
-      {
-        domain: { zh: 'PDF 划词', en: 'PDF selection' },
-        text: {
-          zh: '有文字层的页默认走划词，框选退到 Shift 加拖动。',
-          en: 'Pages with a text layer select text by default; box selection moves to Shift-drag.',
-        },
-      },
-      {
-        domain: { zh: 'PDF 错位', en: 'PDF alignment' },
-        text: {
-          zh: '缩放之后划线、反链与搜索命中不再整体偏移。',
-          en: 'Highlights, backlinks, and search hits stay where they belong after zooming.',
-        },
-      },
-      {
-        domain: { zh: 'PDF 搜索', en: 'PDF search' },
-        text: {
-          zh: '全库搜索能搜到 PDF 正文，跳过去也会标出关键词。',
-          en: 'Library search reaches PDF text and marks the keyword once you jump there.',
-        },
-      },
-      {
-        domain: { zh: 'PDF 批注', en: 'PDF annotations' },
-        text: {
-          zh: '文件自带的标注不再丢颜色与批注正文。',
-          en: 'Annotations already in the file keep their colour and note text.',
-        },
-      },
-      {
-        domain: { zh: 'PDF 词间距', en: 'PDF word spacing' },
-        text: {
-          zh: '带字距的词不再被空格撕开。',
-          en: 'Words with letter spacing are no longer torn apart by stray spaces.',
-        },
-      },
-      {
-        domain: { zh: 'PDF 页溢出', en: 'PDF page overflow' },
-        text: {
-          zh: '窄栏与手机首屏不再被裁掉一截。',
-          en: 'Narrow columns and phone screens no longer clip the page.',
-        },
-      },
-      {
-        domain: { zh: '设置徽章', en: 'Settings badges' },
-        text: {
-          zh: '三种码各显示各的，赞助人码也保留高级版徽章。',
-          en: 'Each key type shows its own badge, and sponsor keys keep the Pro mark.',
-        },
-      },
       {
         domain: { zh: '长想法', en: 'Long notes' },
         text: {

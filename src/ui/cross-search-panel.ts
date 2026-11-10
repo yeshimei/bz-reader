@@ -75,6 +75,9 @@ export function openCrossSearch(deps: CrossSearchDeps): void {
     const total = deps.books.length;
     let done = 0;
     let found = 0;
+    let failed = 0;
+    /** 打不开的书写在最前面，单独一组——别让它们混进「命中」里 */
+    let failBox: HTMLElement | null = null;
 
     await searchAcrossBooks({
       app: deps.app,
@@ -108,20 +111,34 @@ export function openCrossSearch(deps: CrossSearchDeps): void {
         found += list.length;
         status.textContent = `已扫 ${done}/${total} 本 · 命中 ${found} 处`;
       },
+      /* 1.0.0：书打不开不再悄悄跳过——正文搜索早就单列一行失败，全库搜索
+         漏掉一本却只说「没有找到」，用户会以为搜索不全。 */
+      onBookFail: (book) => {
+        if (mySeq !== seq) return;
+        if (!failBox) {
+          failBox = el('div', 'bzr-xs-group');
+          failBox.appendChild(el('span', 'bzr-xs-group-t', '打不开的书'));
+          hits.prepend(failBox);
+        }
+        failBox.appendChild(el('div', 'bzr-xs-more', `《${book.meta.title}》已跳过，搜不到里面的字`));
+        failed += 1;
+      },
       onBookDone: () => {
         if (mySeq !== seq) return;
         done += 1;
-        status.textContent = `已扫 ${done}/${total} 本 · 命中 ${found} 处`;
+        status.textContent =
+          `已扫 ${done}/${total} 本 · 命中 ${found} 处` + (failed ? ` · 跳过 ${failed} 本` : '');
       },
     });
     if (mySeq !== seq) return;
     setBusy(false);
+    const skip = failed ? ` · 跳过 ${failed} 本` : '';
     status.textContent = stopFlag
-      ? '已停止'
+      ? '已停止' + skip
       : found
-        ? `已扫 ${total} 本 · 命中 ${found} 处`
+        ? `已扫 ${total} 本 · 命中 ${found} 处` + skip
         : total
-          ? '全库没有匹配'
+          ? '全库没有匹配' + skip
           : '书架是空的';
   }
 

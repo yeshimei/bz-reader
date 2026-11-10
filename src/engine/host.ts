@@ -349,11 +349,13 @@ export class EngineHost {
    * 它们和系统 / 宿主的缩放手势抢同一只手，而且和「点按翻页」互相误伤——
    * 想放大看一张图，结果翻了三页。改字号回设置面板里去调。
    */
-  /** 两指轻按的判定：按下时间 + 两指间距的最大变化 */
+  /** 两指轻按的判定：按下时间 + 两指间距的最大变化 + 手指自身位移 */
   private twoFingerAt = 0;
   private twoFingerMove = 0;
   /** 两指落下时的间距：算「这两指几乎没动」 */
   private twoFingerSpan = 0;
+  /** 两指各自的落点：手指**平行**滑走时间距不变，只有这个测得出 */
+  private twoFingerPoints: Array<{ x: number; y: number }> = [];
   /**
    * 上一次真的上报出去的点按。
    *
@@ -1049,6 +1051,7 @@ export class EngineHost {
       this.twoFingerSpan = distance(ev.touches);
       this.twoFingerAt = Date.now();
       this.twoFingerMove = 0;
+      this.twoFingerPoints = Array.from(ev.touches).map((t) => ({ x: t.clientX, y: t.clientY }));
     };
     const onTouchMove = (ev: TouchEvent): void => {
       /* 滚动模式下的「滚到章末继续上滑 → 下一章」。
@@ -1075,6 +1078,13 @@ export class EngineHost {
       if (ev.touches.length !== 2) return;
       const span = distance(ev.touches);
       this.twoFingerMove = Math.max(this.twoFingerMove, Math.abs(span - this.twoFingerSpan));
+      /* 每指自己走了多远：平行拖动时间距不变，只看间距会误判成「没动」 */
+      const from = this.twoFingerPoints;
+      Array.from(ev.touches).forEach((t, i) => {
+        const p0 = from[i];
+        if (!p0) return;
+        this.twoFingerMove = Math.max(this.twoFingerMove, Math.hypot(t.clientX - p0.x, t.clientY - p0.y));
+      });
     };
     const onTouchEnd = (ev: TouchEvent): void => {
       /* 两指轻按：时间短、两指间距几乎没变 */
@@ -1083,7 +1093,11 @@ export class EngineHost {
         const moved = this.twoFingerMove;
         this.twoFingerAt = 0;
         this.twoFingerMove = 0;
-        if (Date.now() - startedAt < 400 && moved < 14) {
+        this.twoFingerPoints = [];
+        /* 1.0.0 收紧：原来 400ms / 14px 太松——两指同时划过屏幕、或读屏软件的
+           两指手势都会被当成「切沉浸」，静读时也容易误触。现在要求更短的按压
+           （≤320ms）与更小的位移（≤10px，且两指**各自**都要没怎么动）。 */
+        if (Date.now() - startedAt <= 320 && moved <= 10) {
           /* 吞掉同一手势末尾合成的那次 click，免得顺带翻一页 */
           this.suppressClickUntil = Date.now() + 500;
           this.opts.onTwoFingerTap?.();

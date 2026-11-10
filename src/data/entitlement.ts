@@ -39,7 +39,7 @@ import type { BookFormat } from './schema';
 /** 高级能力。只有能判断的地方才列进来，别造没人问的开关。 */
 export type Cap =
   | 'export' // 结构化导出 Markdown
-  | 'poster' // 导出图片周报（书摘图片 2026-11-10 下放基础版，不再需要能力位）
+  | 'poster' // 阅读海报（书摘图片 2026-11-10 下放基础版，不再需要能力位）
   | 'stats' // 阅读统计
   | 'crossSearch' // 跨书搜索
   | 'aiSel' // 划词 AI：解释 / 翻译 / 摘要（工具栏那颗）
@@ -486,48 +486,50 @@ export function tierText(v: EntitlementView = entitlement()): string {
  */
 const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
   export: {
-    zh: '把划线导出成结构化 Markdown',
-    'zh-TW': '把劃線匯出成結構化 Markdown',
-    en: 'Export highlights as structured Markdown',
-    ja: 'ハイライトを構造化 Markdown に書き出す',
-    de: 'Markierungen als strukturiertes Markdown exportieren',
-    fr: 'Exporter les surlignages en Markdown structuré',
-    es: 'Exportar los subrayados como Markdown estructurado',
-    pt: 'Exportar destaques como Markdown estruturado',
+    zh: '把整本摘录导出成 Markdown，每条都能点回原文',
+    'zh-TW': '把整本摘錄匯出成 Markdown，每條都能點回原文',
+    en: 'Export every excerpt as Markdown, each one links back to the page',
+    ja: '抜粋を Markdown に書き出し、各項目から原文へ戻れる',
+    de: 'Alle Exzerpte als Markdown exportieren, jeder Eintrag führt zur Stelle',
+    fr: 'Exporter tous les extraits en Markdown, chacun ramène au texte',
+    es: 'Exportar los extractos a Markdown, cada uno vuelve al texto',
+    pt: 'Exportar os excertos em Markdown, cada um volta ao texto',
   },
   poster: {
-    /* 2026-11-10：书摘图片下放基础版，这枚能力位改归「导出图片周报」专用。
-       以前两者共用 card，解锁弹窗会说「书摘图片」——书摘免费后那是谎话。 */
-    zh: '导出图片周报',
-    'zh-TW': '匯出圖片週報',
-    en: 'Export a reading stats poster as an image',
-    ja: '読書統計を画像ポスターとして書き出す',
-    de: 'Lesestatistik als Bildposter exportieren',
-    fr: 'Exporter les statistiques de lecture en image',
-    es: 'Exportar las estadísticas de lectura como imagen',
-    pt: 'Exportar as estatísticas de leitura como imagem',
+    /* 2026-11-10：书摘图片下放基础版，这枚能力位改归「阅读海报」专用
+       （统计页的数据长图 + 年度海报浮层）。以前两者共用 card，解锁弹窗会
+       说「书摘图片」——书摘免费之后那就是谎话。 */
+    zh: '把一年的阅读做成一张图',
+    'zh-TW': '把一年的閱讀做成一張圖',
+    en: 'Turn a year of reading into one image',
+    ja: '一年の読書を 1 枚の画像に',
+    de: 'Ein Lesejahr als ein Bild',
+    fr: 'Une année de lecture en une image',
+    es: 'Un año de lectura en una imagen',
+    pt: 'Um ano de leitura numa imagem',
   },
   stats: {
-    /* 2026-11-09 改名：统计页早有 KPI、投入趋势、节律、年度目标与每日打卡，
-       不再只是「统计 + 热力图」。与对照表行名同一句，被锁时看到的是同一个说法。 */
-    zh: '阅读统计、打卡与目标',
-    'zh-TW': '閱讀統計、打卡與目標',
-    en: 'Reading stats, check-ins, and goals',
-    ja: '読書統計・チェックイン・目標',
-    de: 'Lesestatistik, Check-ins und Ziele',
-    fr: 'Statistiques de lecture, pointages et objectifs',
-    es: 'Estadísticas de lectura, registro diario y objetivos',
-    pt: 'Estatísticas de leitura, check-ins e metas',
+    /* 1.0.0：行名从「阅读统计、打卡与目标」改成「数据面板」，卖点句也跟着
+       改口径——这一块是概览、对比、趋势、节律、热力、目标、书籍明细、口径
+       对照八块，只提打卡与目标会让人以为就这么点。 */
+    zh: '时长、趋势、节律与每本书的明细，都在数据面板里',
+    'zh-TW': '時長、趨勢、節律與每本書的明細，都在資料面板裡',
+    en: 'Time, trends, rhythm and per-book detail, all in the stats panel',
+    ja: '時間・推移・リズム・書籍ごとの内訳をデータパネルに',
+    de: 'Zeit, Verlauf, Rhythmus und Details je Buch im Statistikpanel',
+    fr: 'Temps, tendances, rythme et détail par livre dans le panneau de stats',
+    es: 'Tiempo, tendencias, ritmo y detalle por libro en el panel de datos',
+    pt: 'Tempo, tendências, ritmo e detalhe por livro no painel de dados',
   },
   crossSearch: {
-    zh: '在所有书里搜索',
-    'zh-TW': '在所有書裡搜尋',
-    en: 'Search across every book',
-    ja: 'すべての本を横断検索',
-    de: 'Alle Bücher durchsuchen',
-    fr: 'Rechercher dans tous les livres',
-    es: 'Buscar en todos los libros',
-    pt: 'Pesquisar em todos os livros',
+    zh: '在所有书里搜索，PDF 正文也算',
+    'zh-TW': '在所有書裡搜尋，PDF 正文也算',
+    en: 'Search across every book, PDF text included',
+    ja: 'すべての本を横断検索、PDF 本文も対象',
+    de: 'Alle Bücher durchsuchen, PDF-Text inklusive',
+    fr: 'Rechercher dans tous les livres, texte des PDF inclus',
+    es: 'Buscar en todos los libros, texto de PDF incluido',
+    pt: 'Pesquisar em todos os livros, texto de PDF incluído',
   },
   aiSel: {
     zh: '划词 AI：解释 · 翻译 · 摘要',
@@ -564,15 +566,16 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
   },
   fullFormats: {
     /* 2026-11-10：PDF 从这条卖点里摘出去了——它在对照表里有自己的段
-       （cap 'pdf'），锁标 tooltip 不该再把用户往「更多格式」引。 */
-    zh: 'mobi / azw3 / fb2 / 漫画支持',
-    'zh-TW': 'mobi / azw3 / fb2 / 漫畫支援',
-    en: 'mobi / azw3 / fb2 / comic support',
-    ja: 'mobi / azw3 / fb2 / コミック対応',
-    de: 'mobi / azw3 / fb2 / Comic-Unterstützung',
-    fr: 'mobi / azw3 / fb2 / BD',
-    es: 'Compatibilidad con mobi / azw3 / fb2 / cómic',
-    pt: 'Suporte a mobi / azw3 / fb2 / quadrinhos',
+       （cap 'pdf'），锁标 tooltip 不该再把用户往「更多格式」引。
+       1.0.0：与 formats 那一行同口径（族名 + 枚举）。 */
+    zh: 'Kindle 系、FB2 与漫画格式',
+    'zh-TW': 'Kindle 系、FB2 與漫畫格式',
+    en: 'Kindle family, FB2 and comics',
+    ja: 'Kindle 系・FB2・コミック',
+    de: 'Kindle-Familie, FB2 und Comics',
+    fr: 'Famille Kindle, FB2 et BD',
+    es: 'Familia Kindle, FB2 y cómics',
+    pt: 'Família Kindle, FB2 e quadrinhos',
   },
   vertical: {
     zh: '竖排排版',
@@ -584,16 +587,26 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     es: 'Composición vertical',
     pt: 'Composição vertical',
   },
-  tts: { zh: '朗读', 'zh-TW': '朗讀', en: 'Read aloud', ja: '読み上げ', de: 'Vorlesen', fr: 'Lecture vocale', es: 'Lectura en voz alta', pt: 'Leitura em voz alta' },
+  tts: {
+    zh: '让它念给你听，念完自动翻页',
+    'zh-TW': '讓它念給你聽，念完自動翻頁',
+    en: 'Have it read to you, turning pages on its own',
+    ja: '読み上げ、読み終えたら自動で次のページへ',
+    de: 'Vorlesen lassen, blättert selbst weiter',
+    fr: 'Se faire lire, la page tourne toute seule',
+    es: 'Que te lo lea, pasando de página solo',
+    pt: 'Deixe ler para você, virando a página sozinho',
+  },
   parallel: {
-    zh: '原文与译文并排',
-    'zh-TW': '原文與譯文並排',
-    en: 'Original and translation side by side',
-    ja: '原文と訳文を並べて表示',
-    de: 'Original und Übersetzung nebeneinander',
-    fr: 'Original et traduction côte à côte',
-    es: 'Original y traducción en paralelo',
-    pt: 'Original e tradução lado a lado',
+    /* 1.0.0：并排的是任意两本书、段落同步，不是「原文 + 译文」。 */
+    zh: '两本书并排，段落跟着一起走',
+    'zh-TW': '兩本書並排，段落跟著一起走',
+    en: 'Two books side by side, scrolling in step',
+    ja: '2 冊を並べ、段落が一緒に動く',
+    de: 'Zwei Bücher nebeneinander, Absätze laufen mit',
+    fr: 'Deux livres côte à côte, les paragraphes suivent',
+    es: 'Dos libros en paralelo, los párrafos avanzan juntos',
+    pt: 'Dois livros lado a lado, os parágrafos acompanham',
   },
   bookmap: {
     zh: '全书鸟瞰',
@@ -606,14 +619,14 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     pt: 'Visão geral do livro',
   },
   bilink: {
-    zh: '把划线复制为双向链接',
-    'zh-TW': '把劃線複製為雙向連結',
-    en: 'Copy a highlight as a bidirectional link',
-    ja: 'ハイライトを双方向リンクとしてコピー',
-    de: 'Markierung als bidirektionalen Link kopieren',
-    fr: 'Copier un surlignage en lien bidirectionnel',
-    es: 'Copiar un subrayado como enlace bidireccional',
-    pt: 'Copiar um destaque como link bidirecional',
+    zh: '把划线存成双链，笔记里点得回来',
+    'zh-TW': '把劃線存成雙鏈，筆記裡點得回來',
+    en: 'Save a highlight as a wikilink you can click back from',
+    ja: 'ハイライトを双方向リンクに、ノートから原文へ戻れる',
+    de: 'Markierung als Wikilink speichern, aus der Notiz zurück zur Stelle',
+    fr: 'Enregistrer un surlignage en wikilien, cliquable depuis la note',
+    es: 'Guardar el subrayado como wikienlace, clicable desde la nota',
+    pt: 'Salvar o destaque como wikilink, clicável da nota',
   },
   /* PDF 整段的卖点（2026-11-10）。基础版点开 PDF 时弹层第一句就是它，
      所以不能只写「PDF」两个字——用户要立刻知道买了能多出哪几件事。 */
@@ -683,8 +696,11 @@ export const PLAN_TABLE: PlanRow[] = [
   row('back', 'yes', 'yes'),
   /* 基础版连着放，别让付费项插进来 */
   row('footnote', 'yes', 'yes'),
-  /* 2026-11-09 新增：分类管理按用户要求跟在脚注浮窗下面，基础版就有——
+  /* 1.0.0 定稿：书摘图片下放基础版之后，它一直排在付费段里（「格式与导出」），
+     看表的人会以为要买。它属于「读的时候就想要」的东西，挪进免费区。
+     2026-11-09 新增：分类管理按用户要求跟在脚注浮窗下面，基础版就有——
      新建 / 改名 / 排序 / 删除分类、把书归入某一类，都不拦。 */
+  row('card', 'yes', 'yes'),
   row('classify', 'yes', 'yes'),
   /* 「更多格式」紧跟阅读能力：它决定「哪些书能打开」，和后面的加工类
      能力不是一回事。2026-11-07 按真机对照顺序上移到这里。
@@ -700,25 +716,24 @@ export const PLAN_TABLE: PlanRow[] = [
      同一个拦点，跟 PDF 整段共用一个 cap 是同一个道理。 */
   row('cites', 'no', 'yes'),
   row('export', 'no', 'yes', 'export'),
-  /* 2026-11-10：书摘图片下放基础版，两版都能复制，图片一律带 bz reader
-     徽章。不再挂 cap，也没「部分可用」这回事——被拦的那一刻不存在了。
-     导出图片周报另立 poster 能力位，仍留在高级版。 */
-  row('card', 'yes', 'yes'),
-  /* ── PDF 段（2026-11-10） ──
+  /* ── PDF 段（2026-11-10，1.0.0 定稿压成五行） ──
    * 以前 PDF 只由「更多格式」一句话代表，用户看不出买高级版在 PDF 上还多
-   * 什么。现在整段七行逐条讲；勾叉仍是「基础版没有、高级版才有」——PDF
-   * 整本进不来，缩略图 / 导出这些按钮对基础版用户根本不存在。
+   * 什么。七行压成五类（「记住视角」并进阅读、「划词自动复制」并进页链接）：
+   * 七行全打叉再全打勾，读起来像凑数。勾叉仍是「基础版没有、高级版才有」
+   * ——PDF 整本进不来，缩略图 / 导出这些按钮对基础版用户根本不存在。
    *
-   * 只有段首那行挂 cap：整段共用一个拦点（打开 PDF）。给七行各配一个能力位
-   * 是摆样子——那七个能力位在运行期永远不会被抛出。 */
+   * 只有段首那行挂 cap：整段共用一个拦点（打开 PDF）。给每行各配一个能力位
+   * 是摆样子——那些能力位在运行期永远不会被抛出。 */
   row('pdfView', 'no', 'yes', 'pdf'),
   row('pdfThumbs', 'no', 'yes'),
   row('pdfLink', 'no', 'yes'),
-  row('pdfAutoLink', 'no', 'yes'),
   row('pdfAnnots', 'no', 'yes'),
   row('pdfExport', 'no', 'yes'),
-  row('pdfZoom', 'no', 'yes'),
   row('stats', 'no', 'yes', 'stats'),
+  /* 2026-11-10 新增：阅读海报。poster 能力位一直有拦点（统计页那颗按钮与
+     海报浮层都过 requireCap('poster')），表里却一直没有行——用户看表看不
+     出买到了什么。跟着统计后面，同属「回看」那一段。 */
+  row('poster', 'no', 'yes', 'poster'),
   row('crossSearch', 'no', 'yes', 'crossSearch'),
   /* 工具栏那颗 AI 是「解释 / 翻译 / 摘要」划选文字，和侧栏的「全书问答」
      不是一个入口，各自一行，各自有 cap——点被拦的那颗就滚到对应那行。 */
@@ -761,11 +776,12 @@ export function unlockModeFor(format: BookFormat): 'pdf' | 'fullFormats' {
  *      `i18n/plan.ts` 的 PLAN_GROUP_TEXT，渲染走 planGroupLabel()。
  *
  * 切法按「读 → 归档 → 回看 → 问 AI → 进阶」走：
- *   · 阅读与书架：基础版七行，正好是免费区全部；
+ *   · 阅读与书架：基础版八行，正好是免费区全部（1.0.0 起书摘图片从付费段
+ *     挪进来——它两版都有，排在付费段里会让人以为要买）；
  *   · 格式与导出：能打开哪些书 + 把划线搬出去，连引用页签一起（它列的是
  *     双链反链，排在双向链接下面）；
- *   · PDF 阅读：PDF 整段（2026-11-10 新增）；
- *   · 统计与检索：回看读了多少、找回某句话；
+ *   · PDF 阅读：PDF 整段（2026-11-10 新增，1.0.0 压成五行）；
+ *   · 统计与检索：回看读了多少、把一年做成长图、找回某句话；
  *   · AI：划词与全书问答；
  *   · 进阶：排版、朗读、对照、鸟瞰，最后落在知识库。
  * 「连接至 BZ AI 知识库」必须留最后一行（有测试钉住），所以归在「进阶」尾巴。 */
@@ -778,19 +794,19 @@ export interface PlanGroup {
 export const PLAN_GROUPS: PlanGroup[] = [
   {
     key: 'read',
-    rows: ['reading', 'columns', 'marks', 'inbookSearch', 'back', 'footnote', 'classify'],
+    rows: ['reading', 'columns', 'marks', 'inbookSearch', 'back', 'footnote', 'card', 'classify'],
   },
   {
     key: 'output',
-    rows: ['formats', 'bilink', 'cites', 'export', 'card'],
+    rows: ['formats', 'bilink', 'cites', 'export'],
   },
   {
     key: 'pdf',
-    rows: ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfAutoLink', 'pdfAnnots', 'pdfExport', 'pdfZoom'],
+    rows: ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfAnnots', 'pdfExport'],
   },
   {
     key: 'insight',
-    rows: ['stats', 'crossSearch'],
+    rows: ['stats', 'poster', 'crossSearch'],
   },
   {
     key: 'ai',

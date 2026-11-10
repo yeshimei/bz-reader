@@ -71,6 +71,9 @@ export interface BzModalOpts {
   /** 初始焦点管理开关（效率整改 2）：缺省 true = 打开聚焦首个可交互元素 + 关闭还原焦点；
    *  传 false 逃生口——特殊弹窗（如需聚焦特定控件的域自管焦点）完全跳过本组件的焦点接管 */
   autofocus?: boolean;
+  /** 焦点圈闭开关（1.0.0）：与 `autofocus` 拆开——「不抢焦点」不等于「允许 Tab
+   *  跑出弹窗」。缺省 true；只有真的想放野（如纯展示的浮层）才传 false。 */
+  trapFocus?: boolean;
   /** 关闭方式开关（首次引导用）：缺省 true = 点遮罩 / ESC 都能关；
    *  false = 只能由代码显式 close()，遮罩点击与 ESC 都不理会。
    *  适用场景只有一个——**必须走完的流程**（引导没走完就被关掉等于静默中断，
@@ -83,6 +86,9 @@ export function uiModal(opts: BzModalOpts): { mask: HTMLElement; popup: HTMLElem
   // 打开前记录焦点归属，关闭时还原（遮罩/ESC/requestClose 放行均走 close）
   const prevActive = document.activeElement;
   const focusEnabled = opts.autofocus !== false;
+  /* Tab 圈闭独立于「初始聚焦」：支持作者窗刻意不抢焦点，但它是模态，
+     键盘用户的 Tab 不该跑到弹窗外面去。 */
+  const trapEnabled = opts.trapFocus !== false;
 
   const mask = createDiv();
   mask.className = 'bzr-overlay-mask';
@@ -115,7 +121,7 @@ export function uiModal(opts: BzModalOpts): { mask: HTMLElement; popup: HTMLElem
 
   let closed = false;
   let escHandle: ReturnType<typeof escManager.register> | null = null;
-  const releaseTrap = focusEnabled ? trapFocus(popup) : null;
+  const releaseTrap = trapEnabled ? trapFocus(popup) : null;
   function close() {
     if (closed) return;
     closed = true;

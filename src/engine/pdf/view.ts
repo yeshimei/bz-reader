@@ -120,6 +120,19 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
 }
 
+/**
+ * 旋转后的页面盒尺寸（纯函数，便于单测）。
+ *
+ * 0/180 度不变，90/270 度交换宽高。负值与 360 的倍数都归一到 0/90：
+ * `-90 ≡ 270`（交换）、`360 ≡ 0`（不变）。`rotation` 是叠加在文件
+ * `/Rotate` 之上的额外角度（0/90/180/270）。
+ */
+export function boxSizeFor(raw: PdfPageSize, rotation: number): PdfPageSize {
+  const turned = (((rotation % 180) + 180) % 180) === 90;
+  // 旋转后画布尺寸与页框必须一致，否则页面被裁一块（#2 修复）
+  return turned ? { width: raw.height, height: raw.width } : { ...raw };
+}
+
 export class PdfView {
   private readonly doc: PdfDocument;
   private readonly opts: PdfViewCallbacks;
@@ -258,6 +271,9 @@ export class PdfView {
 
   /** 挂进舞台并建好所有页的骨架（不渲染内容） */
   async mount(host: HTMLElement): Promise<void> {
+    /* 零页 PDF：循环根本不会执行，界面上什么都没有；抛一个带明确原因的错误，
+       让 reader-view 现有的「打不开」错误页显示出来（不在这里自己做 UI）。 */
+    if (this.numPages === 0) throw new Error('这本 PDF 没有任何页面');
     host.empty();
     host.appendChild(this.root);
     const first = await this.doc.getPageSize(1);
@@ -1242,7 +1258,7 @@ export class PdfView {
   private pageSize(page: number): PdfPageSize {
     const raw = this.sizes[page - 1] ?? this.sizes[0] ?? { width: 600, height: 800 };
     /* 90/270 度旋转后宽高互换；页面 shell 与适配基准都要用旋转后的尺寸 */
-    return this.rotation % 180 === 90 ? { width: raw.height, height: raw.width } : raw;
+    return boxSizeFor(raw, this.rotation);
   }
 
   /** 适配基准要跟着旋转走，否则转 90 度后「适合宽度」会按旧宽度算 */
@@ -1863,8 +1879,12 @@ export class PdfView {
          放大 1.4 倍还往上飘。offset 只在真的变了时才重算，省一次重排。 */
       const sizeChanged = size.width !== this.sizes[page - 1]?.width || size.height !== this.sizes[page - 1]?.height;
       this.sizes[page - 1] = size;
-      el.style.width = `${Math.round(size.width * this.scale)}px`;
-      el.style.height = `${Math.round(size.height * this.scale)}px`;
+      /* 页框用旋转后的尺寸：画布是按 combined rotation 画的，这里若仍用
+         原始宽高（buildShells 已交换过，renderPage 漏了），页面会被裁一块（#2 修复）。
+         this.sizes[] 继续存原始值（未经额外旋转交换），交换交给 boxSizeFor。 */
+      const box = boxSizeFor(size, this.rotation);
+      el.style.width = `${Math.round(box.width * this.scale)}px`;
+      el.style.height = `${Math.round(box.height * this.scale)}px`;
       if (sizeChanged) this.recomputeOffsets();
       const canvas = document.createElement('canvas');
       canvas.className = 'bzr-pdf-canvas';

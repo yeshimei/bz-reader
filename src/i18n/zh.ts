@@ -273,7 +273,7 @@ export const ZH = {
   'stats.lockedHint': '累计时长、热力图、每本书的进度与读完记录，解锁后都在这里。',
   'stats.locked.cta': '查看高级版功能',
   'stats.lock.title': '高级版',
-  'stats.lock.tags': '趋势 · 对比 · 热力 · 书籍 · 周报 · 体检',
+  'stats.lock.tags': '时长 · 趋势 · 对比 · 节律 · 热力 · 书籍明细',
 
   /* ── 笔记页 ──────────────────────────────────────────────── */
   'notes.pick': '选中',
@@ -811,7 +811,7 @@ export const ZH = {
   'stats.f.q.drift': '累计与会话一致',
   'stats.f.q.done': '已读完',
   'stats.f.copy': '复制文字报告',
-  'stats.f.poster': '导出图片周报',
+  'stats.f.poster': '导出图片海报',
   'stats.f.report.title': '【阅读统计 · {date}】',
   'stats.f.report.line1': '总时长 {total} · 今日 {today} · 有记录 {active} 天 · 连续 {streak} 天 · 会话 {sessions} 段',
   'stats.f.report.line2': '本周 {week} · 上周 {lastWeek} · 本月 {month} · 上月同期 {lastMonth}',
@@ -820,7 +820,7 @@ export const ZH = {
   'stats.f.report.line5': '投入最多 {top} {topSec} · 进度最快 {fastest} {fastestPct}',
   'stats.f.report.line6': '最长单日 {label} {sec}',
   'stats.f.report.byBook': '按书 ·',
-  'stats.f.poster.title': '阅读周报',
+  'stats.f.poster.title': '阅读海报',
   'stats.f.poster.total': '总有效时长 · 分:秒',
   'stats.f.poster.daily': '每日时长',
   'stats.f.poster.invest': '书籍投入',

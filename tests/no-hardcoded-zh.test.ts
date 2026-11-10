@@ -65,7 +65,10 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/engine/pdf/view.ts': 32,
   'src/engine/theme.ts': 3,
   'src/engine/txt.ts': 4,
-  'src/plugin.ts': 26,
+  /* 2026-11-10 +3（26 → 29）：debug-open 调试入口两条控制台痕迹
+     （收到指令 / 执行失败）。这个仓库的控制台日志一律中文——同一文件里
+     十几条老告警都是中文，翻译成英文反而看不出是哪一处。 */
+  'src/plugin.ts': 29,
   'src/shell/actions.ts': 16,
   'src/shell/adapt.ts': 9,
   /* 2026-11-08 +1：书卡菜单多一条「归入分类…」。这一列菜单本来就是
@@ -93,7 +96,11 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/shell/search-hits.ts': 2,
   'src/shell/state.ts': 2,
   'src/shell/study-view.ts': 1,
-  'src/ui/cross-search-panel.ts': 20,
+  /* 2026-11-10 +6（20 → 26）：跨书搜索多一组「打不开的书」提示（组标题、
+     跳过提示、状态里的跳过计数）。整个面板仍是老样子硬编码中文、没有
+     t() 入口，只给新条目单独走 i18n 会变成中英混排——整面板翻译留到
+     1.0.1 一次做完（见 docs 里的后续清单）。 */
+  'src/ui/cross-search-panel.ts': 26,
   'src/ui/dom.ts': 7,
   'src/ui/import-panel.ts': 24,
   /* 2026-11-10 +11（29 → 40）：新增四颗 PDF 专属图标。这个文件里的十个

@@ -554,7 +554,9 @@
 
   /* 功能对照表：表头与行都要能在窄屏显示，把「备注」列折到第二行 */
   .bzs-plan-row {
-    grid-template-columns: 1fr 54px 54px;
+    /* 首列改 minmax(0,1fr) 允许长功能名折行；勾选列下限 54px（与现宽接近），
+       外语表头更长时随内容伸长，不再顶到对齐线。 */
+    grid-template-columns: minmax(0, 1fr) minmax(54px, max-content) minmax(54px, max-content);
     row-gap: 0;
   }
 

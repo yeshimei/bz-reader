@@ -39,7 +39,7 @@ describe('对照表行名 · 八种语言', () => {
   it('切换界面语言，行名跟着变；切回中文恢复', () => {
     expect(planLabel('aiBook')).toBe('AI 全书问答');
     expect(planNameZh('classify')).toBe('分类管理');
-    expect(planNameZh('stats')).toBe('阅读统计、打卡与目标');
+    expect(planNameZh('stats')).toBe('数据面板：时长、趋势、节律、书籍明细');
     setLocale('en');
     expect(locale()).toBe('en');
     expect(planLabel('aiBook')).toBe('AI Q&A over the whole book');

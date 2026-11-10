@@ -267,7 +267,7 @@ export const PT: Record<MsgKey, string> = {
     'Tempo total, mapa de calor, progresso por livro e livros concluídos aparecerão aqui ao desbloquear.',
   'stats.locked.cta': 'Ver o que o Pro inclui',
   'stats.lock.title': 'Pro',
-  'stats.lock.tags': 'Tendências · Comparação · Mapa de calor · Livros · Semanal · Auditoria',
+  'stats.lock.tags': 'Tempo · Tendências · Comparação · Ritmo · Calor · Por livro',
 
   /* ── Página de notas ────────────────────────────────────── */
   'notes.pick': 'Selecionar',
@@ -806,7 +806,7 @@ export const PT: Record<MsgKey, string> = {
   'stats.f.q.drift': 'Totais = sessões',
   'stats.f.q.done': 'Concluídos',
   'stats.f.copy': 'Copiar relatório em texto',
-  'stats.f.poster': 'Exportar relatório em imagem',
+  'stats.f.poster': 'Exportar o pôster em imagem',
   'stats.f.report.title': '[Estatísticas de leitura · {date}]',
   'stats.f.report.line1': 'Tempo total {total} · Hoje {today} · {active} dias com atividade · Sequência de {streak} dias · {sessions} sessões',
   'stats.f.report.line2': 'Esta semana {week} · Semana passada {lastWeek} · Este mês {month} · Mês passado até à data {lastMonth}',
@@ -815,7 +815,7 @@ export const PT: Record<MsgKey, string> = {
   'stats.f.report.line5': 'Mais tempo {top} {topSec} · Mais avançado {fastest} {fastestPct}',
   'stats.f.report.line6': 'Dia mais longo {label} {sec}',
   'stats.f.report.byBook': 'Por livro ·',
-  'stats.f.poster.title': 'Relatório semanal de leitura',
+  'stats.f.poster.title': 'Pôster de leitura',
   'stats.f.poster.total': 'Tempo ativo total · min:seg',
   'stats.f.poster.daily': 'Tempo diário',
   'stats.f.poster.invest': 'Tempo por livro',

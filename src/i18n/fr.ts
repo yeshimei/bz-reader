@@ -267,7 +267,7 @@ export const FR: Record<MsgKey, string> = {
     'Temps total, carte de chaleur, progression par livre et livres terminés apparaîtront ici après déverrouillage.',
   'stats.locked.cta': 'Voir ce qu’apporte Pro',
   'stats.lock.title': 'Pro',
-  'stats.lock.tags': 'Tendances · Comparaison · Carte de chaleur · Livres · Rapport hebdo · Audit',
+  'stats.lock.tags': 'Temps · Tendances · Comparaison · Rythme · Chaleur · Par livre',
 
   /* ── Page notes ─────────────────────────────────────────── */
   'notes.pick': 'Sélectionner',
@@ -806,7 +806,7 @@ export const FR: Record<MsgKey, string> = {
   'stats.f.q.drift': 'Cumuls cohérents avec les sessions',
   'stats.f.q.done': 'Terminés',
   'stats.f.copy': 'Copier le rapport texte',
-  'stats.f.poster': 'Exporter le rapport en image',
+  'stats.f.poster': 'Exporter l’affiche en image',
   'stats.f.report.title': '[Statistiques de lecture · {date}]',
   'stats.f.report.line1': 'Total {total} · Aujourd’hui {today} · {active} jours actifs · Série {streak} jours · {sessions} sessions',
   'stats.f.report.line2': 'Cette semaine {week} · La semaine dernière {lastWeek} · Ce mois-ci {month} · Même période du mois dernier {lastMonth}',
@@ -815,7 +815,7 @@ export const FR: Record<MsgKey, string> = {
   'stats.f.report.line5': 'Temps maximal {top} {topSec} · Progression maximale {fastest} {fastestPct}',
   'stats.f.report.line6': 'Jour le plus long {label} {sec}',
   'stats.f.report.byBook': 'Par livre ·',
-  'stats.f.poster.title': 'Rapport hebdo de lecture',
+  'stats.f.poster.title': 'Affiche de lecture',
   'stats.f.poster.total': 'Temps actif total · min:s',
   'stats.f.poster.daily': 'Temps quotidien',
   'stats.f.poster.invest': 'Temps par livre',

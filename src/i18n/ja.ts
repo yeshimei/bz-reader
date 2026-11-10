@@ -263,7 +263,7 @@ export const JA: Record<MsgKey, string> = {
   'stats.lockedHint': '累計時間・ヒートマップ・本ごとの進捗と読了記録は、解放するとここに表示されます。',
   'stats.locked.cta': 'プロ版の機能を見る',
   'stats.lock.title': 'プロ版',
-  'stats.lock.tags': 'トレンド · 比較 · ヒートマップ · 書籍 · 週報 · 診断',
+  'stats.lock.tags': '時間 · 推移 · 比較 · リズム · ヒートマップ · 書籍別',
 
   /* ── ノートページ ───────────────────────────────────────── */
   'notes.pick': '選択',
@@ -797,7 +797,7 @@ export const JA: Record<MsgKey, string> = {
   'stats.f.q.drift': '累計とセッションが一致',
   'stats.f.q.done': '読了',
   'stats.f.copy': 'テキストレポートをコピー',
-  'stats.f.poster': '画像レポートを書き出す',
+  'stats.f.poster': 'ポスター画像を書き出す',
   'stats.f.report.title': '【読書統計 · {date}】',
   'stats.f.report.line1': '総時間 {total} · 今日 {today} · 記録あり {active} 日 · 連続 {streak} 日 · セッション {sessions} 回',
   'stats.f.report.line2': '今週 {week} · 先週 {lastWeek} · 今月 {month} · 前月同期 {lastMonth}',
@@ -806,7 +806,7 @@ export const JA: Record<MsgKey, string> = {
   'stats.f.report.line5': '最も時間をかけた本 {top} {topSec} · 最も進んだ本 {fastest} {fastestPct}',
   'stats.f.report.line6': '最長の 1 日 {label} {sec}',
   'stats.f.report.byBook': '本ごと ·',
-  'stats.f.poster.title': '読書レポート',
+  'stats.f.poster.title': '読書ポスター',
   'stats.f.poster.total': '総有効時間 · 分:秒',
   'stats.f.poster.daily': '毎日の読書時間',
   'stats.f.poster.invest': '本ごとの時間',

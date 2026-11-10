@@ -831,8 +831,11 @@ function overlayDetail(bookId?: string): string {
   }
   const body = `<div class="bzs-detail">${coverHtml({
     coverUrl: null, // 真封面异步回填（paint 末尾 hydrateCovers），这里只出占位色块
-    bg: 'linear-gradient(150deg,#4a3a28,#2c2115)',
-    fg: '#e9dcc3',
+    /* 1.0.0：占位色块以前写死棕色渐变 + 米色字，换主题（尤其浅色）时像贴了
+       一张深色方片。改成跟宿主走的两级底色 + 次要文字色，glyph 仍用铜色
+       （由 .bzs-cover 自己的样式给）。 */
+    bg: 'linear-gradient(150deg, var(--background-secondary), var(--background-primary))',
+    fg: 'var(--text-muted)',
     glyph: glyphOf(b.meta.title || '无题'),
     title: b.meta.title || '',
     id: b.id,

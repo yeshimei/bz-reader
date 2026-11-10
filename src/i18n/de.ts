@@ -267,7 +267,7 @@ export const DE: Record<MsgKey, string> = {
     'Gesamtzeit, Heatmap, Fortschritt pro Buch und Gelesen-Liste erscheinen hier, sobald du freischaltest.',
   'stats.locked.cta': 'Pro-Funktionen ansehen',
   'stats.lock.title': 'Pro',
-  'stats.lock.tags': 'Trends · Vergleich · Heatmap · Bücher · Wochenbericht · Datencheck',
+  'stats.lock.tags': 'Zeit · Trends · Vergleich · Rhythmus · Heatmap · Pro Buch',
 
   /* ── Notizenseite ───────────────────────────────────────── */
   'notes.pick': 'Auswählen',
@@ -804,7 +804,7 @@ export const DE: Record<MsgKey, string> = {
   'stats.f.q.drift': 'Summen passen zu Sitzungen',
   'stats.f.q.done': 'Gelesen',
   'stats.f.copy': 'Textbericht kopieren',
-  'stats.f.poster': 'Wochenbericht als Bild exportieren',
+  'stats.f.poster': 'Poster als Bild exportieren',
   'stats.f.report.title': '[Lesestatistik · {date}]',
   'stats.f.report.line1': 'Gesamt {total} · Heute {today} · {active} Tage mit Aufzeichnung · {streak} Tage in Folge · {sessions} Sitzungen',
   'stats.f.report.line2': 'Diese Woche {week} · Letzte Woche {lastWeek} · Dieser Monat {month} · Vormonat bis heute {lastMonth}',
@@ -813,7 +813,7 @@ export const DE: Record<MsgKey, string> = {
   'stats.f.report.line5': 'Meiste Zeit {top} {topSec} · Am weitesten {fastest} {fastestPct}',
   'stats.f.report.line6': 'Längster Tag {label} {sec}',
   'stats.f.report.byBook': 'Pro Buch ·',
-  'stats.f.poster.title': 'Wochenbericht',
+  'stats.f.poster.title': 'Leseposter',
   'stats.f.poster.total': 'Aktive Gesamtzeit · Min:Sek',
   'stats.f.poster.daily': 'Zeit pro Tag',
   'stats.f.poster.invest': 'Zeit pro Buch',

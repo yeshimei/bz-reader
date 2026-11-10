@@ -572,7 +572,8 @@
   justify-content: center;
   border-radius: 999px;
   background: var(--chg-accent);
-  color: var(--text-on-accent, #ffffff);
+  /* 铜色底上 --text-on-accent 仍是白 → 白字浅底；改用 --bg 随明暗取反色（同 overlay 主按钮）。 */
+  color: var(--bg);
   font-size: 9px;
   font-weight: 600;
   line-height: 1;
@@ -784,7 +785,6 @@
     border: 1px solid var(--chg-line);
     border-radius: 13px;
     background: color-mix(in srgb, var(--chg-panel) 90%, transparent);
-    backdrop-filter: blur(9px);
     box-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.5);
   }
 

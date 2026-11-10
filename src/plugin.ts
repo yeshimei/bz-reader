@@ -147,6 +147,8 @@ export function createPlugin(cfg: PluginConfig) {
     private changelogBusy = false;
     /** 正在打开的书的 id：双击书卡 / 连点结果时防重复开（P1-14） */
     private opening = new Set<string>();
+    /** 已进入卸载：重试之类的延时任务醒来后据此止损 */
+    private closed = false;
     private overlay: OverlayLayer | null = null;
     private offShell: (() => void) | null = null;
 
@@ -285,7 +287,17 @@ export function createPlugin(cfg: PluginConfig) {
          首帧就是正确状态。
          只对「码本身是假的」清码；过期保留、环境异常也不放行（见 revalidateLicense）。 */
       try {
-        const r = await revalidateLicense();
+        /* 环境抖动不该让付费用户整场会话掉档（1.0.0 修）：
+           WebCrypto 偶发抛错 / 系统刚唤醒时 crypto.subtle 还没就绪，验签会
+           报 env-error。以前一次失败就定死到下次启动，用户开着 App 突然变
+           基础版，还查不出原因。这里退避重试三次——判定口径一点没放宽
+           （失败仍然不放行），只是不让「一次抖动」等于「这次会话废了」。 */
+        let r = await revalidateLicense();
+        for (let i = 0; i < 3 && r.reason === 'env-error'; i += 1) {
+          await new Promise((done) => window.setTimeout(done, [800, 2400, 6000][i] ?? 6000));
+          if (this.closed) return;
+          r = await revalidateLicense();
+        }
         /* 首帧在 await 之后才画，不需要为 changed 补重绘。但环境异常要明说：
            验签跑不了时这一版按「未激活」处理，付费用户只看到「未激活」会
            以为码失效了。 */
@@ -1563,22 +1575,31 @@ export function createPlugin(cfg: PluginConfig) {
     private async autoOpenIfRequested(): Promise<void> {
       /* 调试入口：往 <数据目录>/debug-open.json 写一份，启动时读一次就删。
          读一次就删是有意的——误留一份在盘上，每次启动都会替用户开书，而他
-         会以为插件坏了，还找不到是谁干的。 */
+         会以为插件坏了，还找不到是谁干的。
+         1.0.0：先删再解析。原来解析失败会走 catch 把文件留在盘上，于是一份
+         内容坏掉的文件会**每次启动都重试一遍**，控制台里什么都没有；现在坏
+         文件同样只影响这一次，并在控制台留一行痕迹。 */
+      const path = debugOpenPath(this.app);
       try {
-        const path = debugOpenPath(this.app);
         if (!(await this.app.vault.adapter.exists(path))) return;
-        const raw = JSON.parse(await this.app.vault.adapter.read(path)) as { command?: string; bookId?: string };
-        // 调试入口读一次就删：留着的话每次启动都会替你开书 / 开书架，
-        // 想正常启动还得去数据目录里手动删文件
+        const text = await this.app.vault.adapter.read(path);
         await this.app.vault.adapter.remove(path);
+        const raw = JSON.parse(text) as { command?: string; bookId?: string };
+        console.info('[bz-reader] debug-open 收到指令：', raw.command ?? '(空)');
         if (raw.command === 'open') this.openStudy();
         else if (raw.command === 'continue') await this.continueReading();
         else if (raw.command === 'book' && raw.bookId) {
           const book = this.repo.byId(raw.bookId);
           if (book) await this.openBook(book);
         }
-      } catch {
-        /* 调试入口失败不影响正常启动 */
+      } catch (e) {
+        /* 调试入口失败不影响正常启动，但留一行：否则「文件写了没反应」无从查起 */
+        console.warn('[bz-reader] debug-open 执行失败（文件已清掉）：', e);
+        try {
+          await this.app.vault.adapter.remove(path);
+        } catch {
+          /* 已经删掉 / 从来没建过 */
+        }
       }
     }
   };

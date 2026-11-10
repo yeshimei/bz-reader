@@ -38,6 +38,30 @@ export function unescapeForWikilink(v: string): string {
   return v.replace(/%5B/gi, '[').replace(/%5D/gi, ']').replace(/%7C/gi, '|');
 }
 
+/**
+ * wikilink 解析不了的四个字符：`#` 是子路径分隔符、`|` 是别名分隔符、
+ * `[` `]` 会提前闭合 `[[…]]`。路径里带它们时不能硬拼 `[[路径#子路径|别名]]`，
+ * 否则整条双链在 Obsidian 眼里是错位的（书名里的 `#` 最常见，如「C# 入门.pdf」）。
+ */
+const WIKILINK_UNSAFE = /[#|[\]]/;
+
+function needsMarkdownLink(path: string): boolean {
+  return WIKILINK_UNSAFE.test(path);
+}
+
+/**
+ * 把路径里那四个 wikilink 无法表达的字符按 URL 编码，塞进 markdown 链接的
+ * 目标里。解析时整段 decode 就能原样还原——这是「生成什么、解析回什么」的
+ * 往返一致的关键（普通路径不编码，因此绝大多数用户链接形态不变）。
+ */
+function encodePathForMarkdown(p: string): string {
+  return p
+    .replace(/#/g, '%23')
+    .replace(/\|/g, '%7C')
+    .replace(/\[/g, '%5B')
+    .replace(/\]/g, '%5D');
+}
+
 /** `decodeURIComponent` 遇到半截编码不抛错，原样退回 */
 function safeDecode(v: string): string {
   try {
@@ -120,11 +144,22 @@ export interface ParsedWikilink {
  * 一律返回 null，让调用方交给 Obsidian 默认处理。
  */
 export function parseWikilinkHref(href: string): ParsedWikilink | null {
-  const raw = String(href || '').trim();
+  let raw = String(href || '').trim();
+  if (!raw) return null;
+
+  /* 先认 markdown 链接外壳 `[文字](目标)`：生成侧对带 # | [ ] 的书名走这种
+     形态，反链扫描与点击都只看目标，先把文字那段剥掉再走同一套解析。
+     目标里可能带括号（CFI 形如 epubcfi(/6/4)），所以取到最后一个 `)` 为止。 */
+  const md = raw.match(/^\[[^\]]*\]\(([\s\S]+)\)$/);
+  if (md) raw = md[1];
+  /* 极少数来源会带 wikilink 外壳 [[ ]]，剥掉后走同一套解析 */
+  if (raw.startsWith('[[')) raw = raw.slice(2);
+  if (raw.endsWith(']]')) raw = raw.slice(0, -2);
   if (!raw) return null;
 
   /* 分隔符可能是 `#`，也可能被编码成 `%23`（app:// 形式的 href）。
-     `t=` 里的 `%23` 在分隔符之后，不会被误切。 */
+     `t=` 里的 `%23` 在分隔符之后，不会被误切。markdown 目标里路径被编码的
+     `%23` 在分隔符之前，第一个 `#` 一定是真正的分隔符。 */
   let hash = raw.indexOf('#');
   let sepLen = 1;
   if (hash < 0) {
@@ -136,7 +171,8 @@ export function parseWikilinkHref(href: string): ParsedWikilink | null {
   if (hash <= 0) return null;
 
   const rawPath = raw.slice(0, hash);
-  /* 路径被 URL 编码过（中文文件名常见）时先解回来，否则按路径查不到书 */
+  /* 路径被 URL 编码过（markdown 目标里的 %23/%7C/%5B/%5D，或中文文件名）时
+     先解回来，否则按路径查不到书、书名里的真 # 也被切走 */
   const vaultPath = rawPath.includes('%') ? safeDecode(rawPath) : rawPath;
   const subpath = raw.slice(hash + sepLen);
   /* 只认书文件：笔记的 .md、附件的 .png 都不该被当成书 */
@@ -201,7 +237,14 @@ export function wikilinkTo(book: ReaderBook, fields: LocatorFields, label: strin
   if (!sub) return '';
   const text = aliasOf(cleanLabel(label));
   if (!text) return '';
-  return `[[${book.fileRef.vaultPath}#${sub}|${text}]]`;
+  const path = book.fileRef.vaultPath;
+  /* 路径里带 # | [ ] 时 wikilink 会把它们当成语法分隔符，整条双链失效；
+     改走 Obsidian 也支持的 markdown 链接 [文字](目标)，目标里的特殊字符
+     按 URL 编码，点开仍能跳到书里那一段。绝大多数用户的普通路径不受影响。 */
+  if (needsMarkdownLink(path)) {
+    return `[${text}](${encodePathForMarkdown(path)}#${sub})`;
+  }
+  return `[[${path}#${sub}|${text}]]`;
 }
 
 /**

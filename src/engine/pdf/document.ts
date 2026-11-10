@@ -288,15 +288,17 @@ export class PdfDocument {
        空白且不抛错。文字层仍按 cssScale 摆，与 canvas 的 CSS 尺寸对齐。 */
     const rotation = rotationOf(p, extraRotation);
     const base = p.getViewport({ scale: cssScale, rotation });
-    /* 画布边长兜底：超过 8192 时 Chromium 会静默不画（或整块变空），
-       降低像素倍率比让整页白屏好。 */
-    const maxSide = 8192;
-    const ratio = Math.max(1, Math.min(Math.max(1, dpr), maxSide / Math.max(1, Math.max(base.width, base.height))));
+    /* 画布分辨率预算（#1 修复）：移动端（尤其 iOS Safari）2D canvas 在总像素
+       过大时**不报错、直接整页空白**，所以移动端套更保守的边长/总像素上限；
+       超预算就压低像素倍率 ratio，最低 1（宁可糊一点也不要白屏）。 */
+    const budget = canvasBudget({ cssWidth: base.width, cssHeight: base.height, dpr, mobile: detectMobile() });
+    const ratio = budget.ratio;
     const viewport = p.getViewport({ scale: cssScale * ratio, rotation });
-    canvas.width = Math.max(1, Math.floor(viewport.width));
-    canvas.height = Math.max(1, Math.floor(viewport.height));
-    canvas.style.width = `${Math.max(1, Math.round(viewport.width / ratio))}px`;
-    canvas.style.height = `${Math.max(1, Math.round(viewport.height / ratio))}px`;
+    canvas.width = budget.width;
+    canvas.height = budget.height;
+    /* 文字层按 cssScale 摆（base 即 CSS 显示尺寸），不受 ratio 影响，不能跟着变 */
+    canvas.style.width = `${Math.max(1, Math.round(base.width))}px`;
+    canvas.style.height = `${Math.max(1, Math.round(base.height))}px`;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('canvas 2d 不可用');
     /* 只传 canvasContext（pdf.js 默认 canvas = canvasContext.canvas）。
@@ -466,6 +468,58 @@ export class PdfDocument {
       /* 已经销毁过就算了 */
     }
   }
+}
+
+/**
+ * 画布分辨率预算（纯函数，便于单测）。
+ *
+ * 桌面端沿用旧逻辑：边长上限 8192、总像素约 6.7e7。移动端（iOS Safari 尤甚）
+ * 2D canvas 在总像素过大时**不报错、直接整页空白**，所以移动端套更保守的
+ * 边长上限（4096）与总像素预算（约 16e6）——两者任一超限就把像素倍率 `ratio`
+ * 往下压，最低 1（宁可糊一点也不要白屏）。
+ *
+ * 返回的 `width/height` 是 canvas 内部分辨率；`ratio` 是相对 CSS 显示尺寸
+ * 的实际倍率：文字层不乘它，只还原到 CSS 尺寸（`base`）。
+ */
+export interface CanvasBudgetInput {
+  /** 页面在屏幕上的 CSS 像素宽高（已含旋转与缩放，即 getViewport({ scale: cssScale }) 的结果） */
+  cssWidth: number;
+  cssHeight: number;
+  /** 设备像素比；只用来提高内部分辨率，最低按 1 算 */
+  dpr: number;
+  /** 是否移动端：移动端套更保守的边长 / 总像素上限 */
+  mobile?: boolean;
+}
+
+export interface CanvasBudget {
+  /** 实际像素倍率（1 ≤ ratio ≤ dpr），必要时为压到预算内而低于 dpr */
+  ratio: number;
+  /** canvas.width（内部分辨率） */
+  width: number;
+  /** canvas.height（内部分辨率） */
+  height: number;
+}
+
+export function canvasBudget(input: CanvasBudgetInput): CanvasBudget {
+  const { cssWidth, cssHeight, dpr = 1, mobile = false } = input;
+  const w = Math.max(1, cssWidth);
+  const h = Math.max(1, cssHeight);
+  // 移动端边长上限 4096、桌面 8192；移动端总像素约 16e6、桌面约 6.7e7
+  const maxSide = mobile ? 4096 : 8192;
+  const maxPixels = mobile ? 16e6 : 6.7e7;
+  // 先按设备像素比提清晰度，再被「边长上限」和「总像素预算」两个约束夹住
+  const sideCap = maxSide / Math.max(1, Math.max(w, h));
+  const pxCap = Math.sqrt(maxPixels / Math.max(1, w * h));
+  const ratio = Math.max(1, Math.min(Math.max(1, dpr), sideCap, pxCap));
+  const width = Math.max(1, Math.floor(w * ratio));
+  const height = Math.max(1, Math.floor(h * ratio));
+  return { ratio, width, height };
+}
+
+/** 移动端判定（UA 命中即视为移动端，走更保守的画布预算） */
+function detectMobile(): boolean {
+  if (typeof navigator === 'undefined' || !navigator.userAgent) return false;
+  return /Mobi|iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 }
 
 /**

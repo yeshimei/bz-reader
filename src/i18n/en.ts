@@ -269,7 +269,7 @@ export const EN: Record<MsgKey, string> = {
   'stats.lockedHint': 'Total time, heatmap, per-book progress and finished books all live here once unlocked.',
   'stats.locked.cta': 'See what Pro adds',
   'stats.lock.title': 'Pro',
-  'stats.lock.tags': 'Trends · Compare · Heatmap · Books · Weekly · Audit',
+  'stats.lock.tags': 'Time · Trends · Compare · Rhythm · Heatmap · Per-book',
 
   /* ── Notes page ─────────────────────────────────────────── */
   'notes.pick': 'Select',
@@ -808,7 +808,7 @@ export const EN: Record<MsgKey, string> = {
   'stats.f.q.drift': 'Totals match sessions',
   'stats.f.q.done': 'Finished',
   'stats.f.copy': 'Copy text report',
-  'stats.f.poster': 'Export image report',
+  'stats.f.poster': 'Export poster image',
   'stats.f.report.title': '[Reading stats · {date}]',
   'stats.f.report.line1': 'Total {total} · Today {today} · Active {active} days · Streak {streak} days · {sessions} sessions',
   'stats.f.report.line2': 'This week {week} · Last week {lastWeek} · This month {month} · Last month {lastMonth}',
@@ -817,7 +817,7 @@ export const EN: Record<MsgKey, string> = {
   'stats.f.report.line5': 'Most time {top} {topSec} · Furthest {fastest} {fastestPct}',
   'stats.f.report.line6': 'Longest day {label} {sec}',
   'stats.f.report.byBook': 'By book ·',
-  'stats.f.poster.title': 'Reading report',
+  'stats.f.poster.title': 'Reading poster',
   'stats.f.poster.total': 'Total active · mm:ss',
   'stats.f.poster.daily': 'Daily time',
   'stats.f.poster.invest': 'Time by book',

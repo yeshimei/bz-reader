@@ -37,11 +37,15 @@ describe('书摘图片 · 门禁已拆', () => {
     expect(cardImage).not.toContain('entitlement');
   });
 
-  it('周报导出仍留在高级版，解锁弹窗说的是周报不是书摘', () => {
+  it('阅读海报仍留在高级版，解锁弹窗说的是海报不是书摘', () => {
     const at = actions.indexOf("case 'poster'");
     expect(at).toBeGreaterThan(-1);
     expect(actions.slice(at, at + 120)).toContain("requireCap('poster')");
-    expect(capLabel('poster')).toContain('周报');
+    /* 1.0.0 定稿把「周报 / 年报 / 体检」三种叫法统一成「阅读海报」：
+       对照表行名与弹层卖点都得跟着这个说法走。 */
+    const poster = PLAN_TABLE.find((r) => r.key === 'poster');
+    expect(poster?.name).toBe('阅读海报：年度总结与数据长图');
+    expect(capLabel('poster')).toContain('阅读');
     expect(capLabel('poster')).not.toContain('书摘');
   });
 });

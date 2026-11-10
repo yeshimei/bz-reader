@@ -1691,7 +1691,9 @@ textarea.idea:focus {
 
 .bzs-plan-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px 72px;
+  /* 两档勾选列下限 72px（中文表头与现宽接近），内容更长（外语 Basisversion/Premiumversion）
+     时随内容伸长不溢出；首列 minmax(0,1fr) 允许长功能名折行。 */
+  grid-template-columns: minmax(0, 1fr) minmax(72px, max-content) minmax(72px, max-content);
   align-items: center;
   gap: 8px;
   padding: 6px 12px;

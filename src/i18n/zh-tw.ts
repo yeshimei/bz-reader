@@ -261,7 +261,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'stats.lockedHint': '累計時長、熱力圖、每本書的進度與讀完記錄，解鎖後都在這裡。',
   'stats.locked.cta': '查看高級版功能',
   'stats.lock.title': '高級版',
-  'stats.lock.tags': '趨勢 · 對比 · 熱力 · 書籍 · 週報 · 體檢',
+  'stats.lock.tags': '時長 · 趨勢 · 對比 · 節律 · 熱力 · 書籍明細',
 
   /* ── 筆記頁 ──────────────────────────────────────────────── */
   'notes.pick': '選取',
@@ -794,7 +794,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'stats.f.q.drift': '累計與會話一致',
   'stats.f.q.done': '已讀完',
   'stats.f.copy': '複製文字報告',
-  'stats.f.poster': '導出圖片週報',
+  'stats.f.poster': '匯出圖片海報',
   'stats.f.report.title': '【閱讀統計 · {date}】',
   'stats.f.report.line1': '總時長 {total} · 今日 {today} · 有記錄 {active} 天 · 連續 {streak} 天 · 會話 {sessions} 段',
   'stats.f.report.line2': '本週 {week} · 上週 {lastWeek} · 本月 {month} · 上月同期 {lastMonth}',
@@ -803,7 +803,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'stats.f.report.line5': '投入最多 {top} {topSec} · 進度最快 {fastest} {fastestPct}',
   'stats.f.report.line6': '最長單日 {label} {sec}',
   'stats.f.report.byBook': '按書 ·',
-  'stats.f.poster.title': '閱讀週報',
+  'stats.f.poster.title': '閱讀海報',
   'stats.f.poster.total': '總有效時長 · 分:秒',
   'stats.f.poster.daily': '每日時長',
   'stats.f.poster.invest': '書籍投入',

@@ -139,15 +139,31 @@ export function collectPdfBacklinks(
   },
   bookPath: string,
 ): PdfBacklinkSource[] {
-  const cached = memo.get(bookPath);
-  if (cached) return cached;
-
   const cache = app?.metadataCache;
+  if (!cache) return [];
+  /* 按「当前 metadataCache 的解析版本」缓存整份索引结果，一次全量扫描被同一
+     时刻开多本书共享，不再每本书各扫一遍大库的 resolvedLinks。版本号用
+     resolvedLinks 的对象引用——Obsidian 重建索引会换一个新对象，引用一变就
+     判定为变了。索引内部的数据我们一份都不攥着（只存自己算出来的 byPath）。 */
+  const version = cache.resolvedLinks;
+  if (!indexCache || indexCache.version !== version) {
+    indexCache = { version, byPath: scanBacklinkIndex(app) };
+  }
+  return indexCache.byPath.get(bookPath) ?? [];
+}
+
+/**
+ * 一次全量扫描：把 resolvedLinks 里所有链接解析成「书路径 → 指向它的链接」。
+ * 结果按书路径分桶，开任意一本书都复用同一份，不必每本重扫。
+ * 只存自己算出来的数组，不长期持有 resolvedLinks 对象（Obsidian 会给新对象）。
+ */
+function scanBacklinkIndex(
+  app: Parameters<typeof collectPdfBacklinks>[0],
+): Map<string, PdfBacklinkSource[]> {
+  const cache = app.metadataCache;
   const resolved = cache?.resolvedLinks ?? {};
-  const out: PdfBacklinkSource[] = [];
+  const byPath = new Map<string, PdfBacklinkSource[]>();
   for (const source of Object.keys(resolved)) {
-    const targets = resolved[source];
-    if (!targets || !(bookPath in targets)) continue;
     const file = app.vault.getFileByPath(source);
     if (!file) continue;
     const links = cache.getFileCache(file)?.links ?? [];
@@ -161,23 +177,24 @@ export function collectPdfBacklinks(
       } catch {
         dest = null;
       }
-      if (dest?.path !== bookPath) continue;
-      out.push({ path: source, link: link.original || link.link });
+      if (!dest) continue;
+      const arr = byPath.get(dest.path) ?? [];
+      arr.push({ path: source, link: link.original || link.link });
+      byPath.set(dest.path, arr);
     }
   }
-  memo.set(bookPath, out);
-  return out;
+  return byPath;
 }
 
 /**
- * 一本书记一份扫描结果。
+ * 整份索引按 metadataCache 的解析版本缓存，跨书共享。
  *
  * `resolvedLinks` 是一次 O(笔记数) 的扫描，大库里每次开书都要几百毫秒；
- * 索引没动就没必要重算。索引一动（插件在 metadataCache 的 `resolved`
- * 事件里调用 `invalidatePdfBacklinks`）整份作废，宁可重扫也不留旧账。
+ * 索引没动就没必要重算。版本变了（引用不同）或 `invalidatePdfBacklinks` 被调，
+ * 整份作废，宁可重扫也不留旧账——书改名后旧路径的缓存也不会再被命中。
  */
-const memo = new Map<string, PdfBacklinkSource[]>();
+let indexCache: { version: unknown; byPath: Map<string, PdfBacklinkSource[]> } | null = null;
 
 export function invalidatePdfBacklinks(): void {
-  memo.clear();
+  indexCache = null;
 }

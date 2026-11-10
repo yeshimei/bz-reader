@@ -31,16 +31,15 @@ export type PlanKey =
   | 'bilink'
   | 'export'
   | 'card'
-  /* PDF 段（2026-11-10）：以前只由「更多格式」一句话带过，用户看不出
-     买高级版在 PDF 上还多了什么。七行按「怎么读 → 怎么拿出来」排。 */
+  /* PDF 段（2026-11-10 新增，1.0.0 定稿压成五行）：以前只由「更多格式」
+     一句话带过，用户看不出买高级版在 PDF 上还多了什么。 */
   | 'pdfView'
   | 'pdfThumbs'
   | 'pdfLink'
-  | 'pdfAutoLink'
   | 'pdfAnnots'
   | 'pdfExport'
-  | 'pdfZoom'
   | 'stats'
+  | 'poster'
   | 'crossSearch'
   | 'aiSel'
   | 'aiBook'
@@ -59,14 +58,16 @@ export type PlanGroupKey = 'read' | 'output' | 'pdf' | 'insight' | 'ai' | 'advan
 
 const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
   reading: {
-    zh: 'EPUB / TXT 阅读与排版',
-    'zh-TW': 'EPUB / TXT 閱讀與排版',
-    en: 'EPUB / TXT reading and typography',
-    ja: 'EPUB / TXT の読書・ページ送り・組版',
-    de: 'EPUB / TXT lesen, blättern, Satz einstellen',
-    fr: 'Lecture EPUB / TXT, pagination et composition',
-    es: 'Lectura EPUB / TXT, paginación y tipografía',
-    pt: 'Leitura EPUB / TXT, paginação e tipografia',
+    /* 1.0.0 定稿：单栏/双栏、竖排各有自己的行，行名不再写「与排版」，
+       只说「打开即读」——去掉与另外两行的重复。 */
+    zh: 'EPUB / TXT 打开即读',
+    'zh-TW': 'EPUB / TXT 開啟即讀',
+    en: 'EPUB / TXT, open and read',
+    ja: 'EPUB / TXT をすぐ読める',
+    de: 'EPUB / TXT sofort lesbar',
+    fr: 'EPUB / TXT prêts à lire',
+    es: 'EPUB / TXT listos para leer',
+    pt: 'EPUB / TXT prontos para ler',
   },
   columns: {
     zh: '单栏 / 双栏',
@@ -132,8 +133,8 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'Gestión de categorías',
     pt: 'Gestão de categorias',
   },
-  /* 2026-11-10 新增：引用页签。EPUB 与 PDF 的笔记反链都收在这里，且免费，
-     所以两栏都打勾。行名不用括号——对照表有「短名」门禁，说明放在冒号后。 */
+  /* 1.0.0 定稿：引用页签归高级版（与双向链接共用一道门禁），所以这条注释
+     也改回「两栏不都打勾」——上一版这里写着「免费」，和表里的 no/yes 打架。 */
   cites: {
     zh: '引用页签：看哪些笔记引了这本书',
     'zh-TW': '引用頁籤：看哪些筆記引用了本書',
@@ -145,39 +146,42 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     pt: 'Aba Citações: quais notas citam este livro',
   },
   formats: {
-    /* 只写**真机实测能打开**的格式。AZW / PRC / FBZ 看着像 Kindle 家族，
-       但 EXT_TO_FORMAT 里没有它们，写上去就是空头承诺。
-       2026-11-10：PDF 从这一行挪进独立的「PDF 阅读」段——这一行只说「还能
-       多开哪几种」，PDF 由下一段逐条讲它能做到什么，两处不再各说一半。
-       括号在这里是「族 → 枚举」，不是行名解释，允许这一行例外。 */
-    zh: 'Kindle 系（MOBI / AZW3）、FB2 与 CBZ 漫画',
-    'zh-TW': 'Kindle 系（MOBI / AZW3）、FB2 與 CBZ 漫畫',
-    en: 'Kindle family (MOBI / AZW3), FB2, and CBZ comics',
-    ja: 'mobi / azw3 / fb2 / コミック',
-    de: 'mobi / azw3 / fb2 / Comics',
-    fr: 'mobi / azw3 / fb2 / BD',
-    es: 'mobi / azw3 / fb2 / cómic',
-    pt: 'mobi / azw3 / fb2 / quadrinhos',
+    /* 只写**真机实测能打开**的格式。AZW（不带 3）/ PRC / FBZ 看着像 Kindle
+       家族，但 EXT_TO_FORMAT 里没有它们，写上去就是空头承诺。
+       1.0.0 定稿：这一行把高级版能多开的**全部**格式按「族名（枚举）」写全
+       ——EPUB 与 TXT 属基础版，PDF 也在这行点一次（它自己的段只讲能力，
+       不再重复「能不能开」）。括号在这里是「族 → 枚举」，不是行名解释，
+       允许这一行例外。 */
+    zh: 'Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画、PDF',
+    'zh-TW': 'Kindle 系（MOBI / AZW3）、FB2、CBZ 漫畫、PDF',
+    en: 'Kindle family (MOBI / AZW3), FB2, CBZ comics, PDF',
+    ja: 'Kindle 系（MOBI / AZW3）、FB2、CBZ コミック、PDF',
+    de: 'Kindle-Familie (MOBI / AZW3), FB2, CBZ-Comics, PDF',
+    fr: 'Famille Kindle (MOBI / AZW3), FB2, BD en CBZ, PDF',
+    es: 'Familia Kindle (MOBI / AZW3), FB2, cómics en CBZ, PDF',
+    pt: 'Família Kindle (MOBI / AZW3), FB2, quadrinhos em CBZ, PDF',
   },
   bilink: {
-    zh: '划线复制为双向链接',
-    'zh-TW': '劃線複製為雙向連結',
-    en: 'Copy highlights as wikilinks',
-    ja: 'ハイライトを双方向リンクとしてコピー',
-    de: 'Markierungen als Wikilink kopieren',
-    fr: 'Copier les surlignages en wikiliens',
-    es: 'Copiar subrayados como wikienlaces',
-    pt: 'Copiar destaques como wikilinks',
+    /* 1.0.0 定稿：行名把「点得回来」这层意思说出来——只写「复制为双链」
+       时，用户不知道笔记里的链接能跳回原文那句。 */
+    zh: '划线存成双链：笔记里点回原文',
+    'zh-TW': '劃線存成雙鏈：筆記裡點回原文',
+    en: 'Highlights as wikilinks: click back from your notes',
+    ja: 'ハイライトを双方向リンクに：ノートから原文へ',
+    de: 'Markierungen als Wikilinks: aus der Notiz zur Stelle',
+    fr: 'Surlignages en wikiliens : revenir au texte depuis la note',
+    es: 'Subrayados como wikienlaces: volver al texto desde la nota',
+    pt: 'Destaques como wikilinks: voltar ao texto pela nota',
   },
   export: {
-    zh: '导出整本摘录为 Markdown，每条带双链',
-    'zh-TW': '匯出整本摘錄為 Markdown，每條帶雙鏈',
-    en: 'Export every excerpt as Markdown, each with a wikilink',
-    ja: '全ての抜粋を Markdown に書き出し、各項目に双方向リンク',
-    de: 'Alle Exzerpte als Markdown exportieren, jeweils mit Wikilink',
-    fr: 'Exporter tous les extraits en Markdown, chacun avec un wikilien',
-    es: 'Exportar todos los extractos a Markdown, cada uno con un wikienlace',
-    pt: 'Exportar todos os excertos em Markdown, cada um com um wikilink',
+    zh: '导出整本摘录：每条带双链',
+    'zh-TW': '匯出整本摘錄：每條帶雙鏈',
+    en: 'Export every excerpt, each with a wikilink',
+    ja: '抜粋をまとめて書き出し、各項目に双方向リンク',
+    de: 'Alle Exzerpte exportieren, jeweils mit Wikilink',
+    fr: 'Exporter tous les extraits, chacun avec un wikilien',
+    es: 'Exportar todos los extractos, cada uno con un wikienlace',
+    pt: 'Exportar todos os excertos, cada um com um wikilink',
   },
   card: {
     /* 1.0.0 定稿：书摘图片下放基础版，两栏都打勾，图片一律带 bz reader
@@ -191,55 +195,45 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'Imágenes de tarjetas de cita',
     pt: 'Imagens de cartões de citação',
   },
-  /* ── PDF 段（2026-11-10） ──
-   * 七行按「怎么读 → 怎么拿出来」排：
-   *   pdfView    打开 PDF 本身 + 怎么翻（缩放 / 旋转 / 双页 / 滚动）
-   *   pdfThumbs  278 页的书靠缩略图找页
-   *   pdfLink    四种链接（页 / 视图 / 嵌入 / 本页标注）+ 显示文字四档
-   *   pdfAutoLink 划完字自动把链接放进剪贴板（默认关）
-   *   pdfAnnots  笔记引用了这一页 → 画出来；PDF 自带批注 → 点开读
-   *   pdfExport  本页存成图片
-   *   pdfZoom    下次打开这本书，还是上次的缩放与角度
-   * 1.0.0 上架版已把开发期留下的五种英文占位换成正式翻译。 */
+  /* ── PDF 段（2026-11-10，1.0.0 定稿压成五行） ──
+   * 七行里「记住每本书的缩放」并进「PDF 阅读」、「划词自动复制」并进
+   * 「复制页链接」——七行全打叉再全打勾，读起来像凑数，信息量也就是这五类。
+   * 顺序仍是「怎么读 → 怎么拿出来」：
+   *   pdfView    读：缩放 / 旋转 / 双页 / 滚动，每本记住视角
+   *   pdfThumbs  找页：278 页的书靠缩略图
+   *   pdfLink    拿出来：四种链接 + 划词自动复制
+   *   pdfAnnots  看见：笔记引了这页 → 画出来；文件自带批注 → 点开读
+   *   pdfExport  存下来：本页存成图片
+   * 「能不能打开 PDF」由上一段 formats 那一行说，这里只讲能做到什么。 */
   pdfView: {
-    zh: '打开 PDF：缩放、旋转、单双页与滚动',
-    'zh-TW': '開啟 PDF：縮放、旋轉、單雙頁與捲動',
-    en: 'Open PDFs: zoom, rotate, one- or two-page, and scroll',
-    ja: 'PDF を開く：ズーム・回転・見開き・スクロール',
-    de: 'PDF öffnen: zoomen, drehen, Einzelseite / Doppelseite, Scrollen',
-    fr: 'Ouvrir un PDF : zoom, rotation, page simple / double et défilement',
-    es: 'Abrir PDF: zoom, rotación, una o dos páginas y desplazamiento',
-    pt: 'Abrir PDF: zoom, rotação, uma ou duas páginas e rolagem',
+    zh: 'PDF 阅读：缩放、旋转、单双页、滚动，每本记住视角',
+    'zh-TW': 'PDF 閱讀：縮放、旋轉、單雙頁、捲動，每本記住視角',
+    en: 'PDF reading: zoom, rotate, one or two pages, scroll; view remembered per book',
+    ja: 'PDF リーディング：ズーム・回転・見開き・スクロール、本ごとに表示を記憶',
+    de: 'PDF lesen: zoomen, drehen, Einzel- / Doppelseite, Scrollen; Ansicht pro Buch',
+    fr: 'Lecture PDF : zoom, rotation, page simple ou double, défilement ; vue mémorisée par livre',
+    es: 'Lectura de PDF: zoom, rotación, una o dos páginas, desplazamiento; vista por libro',
+    pt: 'Leitura de PDF: zoom, rotação, uma ou duas páginas, rolagem; vista por livro',
   },
   pdfThumbs: {
-    zh: '页缩略图',
-    'zh-TW': '頁縮圖',
-    en: 'Page thumbnails',
-    ja: 'ページのサムネイル',
-    de: 'Seitenminiaturen',
-    fr: 'Miniatures des pages',
-    es: 'Miniaturas de páginas',
-    pt: 'Miniaturas das páginas',
+    zh: '页缩略图：几百页也能一屏找',
+    'zh-TW': '頁縮圖：幾百頁也能一屏找',
+    en: 'Page thumbnails: find a page in a long book',
+    ja: 'ページサムネイル：長い本でも一画面で探せる',
+    de: 'Seitenminiaturen: auch in langen Büchern schnell finden',
+    fr: 'Miniatures : retrouver une page dans un long livre',
+    es: 'Miniaturas: encontrar una página en un libro largo',
+    pt: 'Miniaturas: achar uma página num livro longo',
   },
   pdfLink: {
-    zh: '复制页链接：页码 / 视图 / 嵌入 / 批注',
-    'zh-TW': '複製頁連結：頁碼 / 檢視 / 嵌入 / 批註',
-    en: 'Copy page links: page / view / embed / annotation',
-    ja: 'ページリンクをコピー：ページ / ビュー / 埋め込み / 注釈',
-    de: 'Seitenlinks kopieren: Seite / Ansicht / Einbettung / Anmerkung',
-    fr: 'Copier les liens de page : page / vue / intégration / annotation',
-    es: 'Copiar enlaces de página: página / vista / incrustación / anotación',
-    pt: 'Copiar links de página: página / vista / incorporação / anotação',
-  },
-  pdfAutoLink: {
-    zh: '划词自动复制页链接',
-    'zh-TW': '劃詞自動複製頁連結',
-    en: 'Auto-copy page links on selection',
-    ja: '選択時にページリンクを自動コピー',
-    de: 'Seitenlinks bei Auswahl automatisch kopieren',
-    fr: 'Copier automatiquement le lien de page à la sélection',
-    es: 'Copiar automáticamente el enlace de página al seleccionar',
-    pt: 'Copiar automaticamente o link da página ao selecionar',
+    zh: '复制页链接：页码 / 视图 / 嵌入 / 批注，可划词自动复制',
+    'zh-TW': '複製頁連結：頁碼 / 檢視 / 嵌入 / 批註，可劃詞自動複製',
+    en: 'Copy page links: page / view / embed / annotation, auto-copy on selection',
+    ja: 'ページリンクをコピー：ページ / ビュー / 埋め込み / 注釈、選択時に自動コピー',
+    de: 'Seitenlinks kopieren: Seite / Ansicht / Einbettung / Anmerkung, automatisch bei Auswahl',
+    fr: 'Copier les liens de page : page / vue / intégration / annotation, copie auto à la sélection',
+    es: 'Copiar enlaces de página: página / vista / incrustación / anotación, copia automática al seleccionar',
+    pt: 'Copiar links de página: página / vista / incorporação / anotação, cópia automática ao selecionar',
   },
   pdfAnnots: {
     zh: '本页反链与文件自带批注',
@@ -261,48 +255,52 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'Exportar una página como imagen',
     pt: 'Exportar uma página como imagem',
   },
-  pdfZoom: {
-    zh: '记住每本书的缩放',
-    'zh-TW': '記住每本書的縮放',
-    en: 'Remember zoom per book',
-    ja: '本ごとにズームを記憶',
-    de: 'Zoom pro Buch merken',
-    fr: 'Mémoriser le zoom par livre',
-    es: 'Recordar el zoom de cada libro',
-    pt: 'Lembrar o zoom de cada livro',
-  },
   stats: {
-    /* 统计页早已不只是热力图 + 每本进度，还有 KPI、投入趋势、节律、
-       年度目标与每日打卡。行名只留三块最显眼的，其余交给页面本身。 */
-    zh: '阅读统计、打卡与目标',
-    'zh-TW': '閱讀統計、打卡與目標',
-    en: 'Reading stats, check-ins, and goals',
-    ja: '読書統計・チェックイン・目標',
-    de: 'Lesestatistik, Check-ins und Ziele',
-    fr: 'Statistiques de lecture, pointages et objectifs',
-    es: 'Estadísticas de lectura, registro diario y objetivos',
-    pt: 'Estatísticas de leitura, check-ins e metas',
+    /* 1.0.0 定稿：原来写「阅读统计、打卡与目标」，把整块压成了两件小事。
+       实际是完整数据面板——概览、对比、投入趋势、节律、140 天热力、
+       年度目标、书籍明细、口径对照。行名取四块最显眼的，其余交给页面。 */
+    zh: '数据面板：时长、趋势、节律、书籍明细',
+    'zh-TW': '資料面板：時長、趨勢、節律、書籍明細',
+    en: 'Stats panel: time, trends, rhythm, per-book detail',
+    ja: 'データパネル：時間・推移・リズム・書籍別の内訳',
+    de: 'Statistikpanel: Zeit, Verlauf, Rhythmus, Details je Buch',
+    fr: 'Panneau de stats : temps, tendances, rythme, détail par livre',
+    es: 'Panel de datos: tiempo, tendencias, ritmo, detalle por libro',
+    pt: 'Painel de dados: tempo, tendências, ritmo, detalhe por livro',
+  },
+  /* 2026-11-10 新增：阅读海报。这个能力位一直有拦点、统计页也有入口，
+     表里却没有行——用户买到了什么，看表看不出来。 */
+  poster: {
+    zh: '阅读海报：年度总结与数据长图',
+    'zh-TW': '閱讀海報：年度總結與資料長圖',
+    en: 'Reading poster: yearly recap and stats long image',
+    ja: '読書ポスター：年間まとめとデータ長画像',
+    de: 'Leseposter: Jahresrückblick und Daten-Langbild',
+    fr: 'Affiche de lecture : bilan annuel et image longue',
+    es: 'Póster de lectura: resumen anual e imagen larga',
+    pt: 'Pôster de leitura: resumo anual e imagem longa',
   },
   crossSearch: {
-    /* 1.0.0：界面里这一档叫「全库」，表里原来写「跨书搜索」，两边对齐。 */
-    zh: '全库搜索',
-    'zh-TW': '全庫搜尋',
-    en: 'Search the whole library',
-    ja: 'ライブラリ全体を検索',
-    de: 'Die ganze Bibliothek durchsuchen',
-    fr: 'Rechercher dans toute la bibliothèque',
-    es: 'Buscar en toda la biblioteca',
-    pt: 'Pesquisar em toda a biblioteca',
+    /* 1.0.0：界面里这一档叫「全库」，表里原来写「跨书搜索」，两边对齐。
+       这版 PDF 正文也进索引，行名把这件事说出来。 */
+    zh: '全库搜索：PDF 正文也搜得到',
+    'zh-TW': '全庫搜尋：PDF 正文也搜得到',
+    en: 'Whole-library search, PDF text included',
+    ja: 'ライブラリ全体を検索：PDF 本文も対象',
+    de: 'Bibliothek durchsuchen, PDF-Text inklusive',
+    fr: 'Recherche dans toute la bibliothèque, texte des PDF inclus',
+    es: 'Búsqueda en toda la biblioteca, texto de PDF incluido',
+    pt: 'Pesquisa em toda a biblioteca, texto de PDF incluído',
   },
   aiSel: {
-    zh: 'AI 解释、翻译与摘要',
-    'zh-TW': 'AI 解釋、翻譯與摘要',
+    zh: 'AI 解释、翻译与摘要：划词即用',
+    'zh-TW': 'AI 解釋、翻譯與摘要：劃詞即用',
     en: 'Explain, translate, summarize a selection',
-    ja: 'AI による解説 / 翻訳 / 要約',
-    de: 'KI: Erklärungen / Übersetzung / Zusammenfassungen',
-    fr: 'IA : explications / traduction / résumés',
-    es: 'IA: explicaciones / traducción / resúmenes',
-    pt: 'IA: explicações / tradução / resumos',
+    ja: 'AI 解説・翻訳・要約：選択するだけ',
+    de: 'KI: erklären, übersetzen, zusammenfassen — direkt zur Auswahl',
+    fr: 'IA : expliquer, traduire, résumer une sélection',
+    es: 'IA: explicar, traducir, resumir una selección',
+    pt: 'IA: explicar, traduzir, resumir uma seleção',
   },
   aiBook: {
     zh: 'AI 全书问答',
@@ -315,25 +313,26 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     pt: 'Perguntas de IA sobre o livro inteiro',
   },
   vertical: {
-    zh: '竖排排版',
-    'zh-TW': '豎排排版',
-    en: 'Vertical typesetting',
-    ja: '縦組み',
-    de: 'Vertikaler Satz',
-    fr: 'Composition verticale',
-    es: 'Composición vertical',
-    pt: 'Composição vertical',
+    /* 竖排只在 EPUB / TXT 生效：PDF 的排版来自文件本身，不参与竖排。 */
+    zh: '竖排排版：EPUB / TXT',
+    'zh-TW': '豎排排版：EPUB / TXT',
+    en: 'Vertical typesetting: EPUB / TXT',
+    ja: '縦組み：EPUB / TXT',
+    de: 'Vertikaler Satz: EPUB / TXT',
+    fr: 'Composition verticale : EPUB / TXT',
+    es: 'Composición vertical: EPUB / TXT',
+    pt: 'Composição vertical: EPUB / TXT',
   },
   tts: {
-    /* 1.0.0：PDF 这版也能朗读，行名把三种格式说全。 */
-    zh: '朗读 EPUB、TXT 与 PDF',
-    'zh-TW': '朗讀 EPUB、TXT 與 PDF',
-    en: 'Read EPUB, TXT and PDF aloud',
-    ja: 'EPUB・TXT・PDF の読み上げ',
-    de: 'EPUB, TXT und PDF vorlesen',
-    fr: 'Lecture vocale EPUB, TXT et PDF',
-    es: 'Lectura en voz alta de EPUB, TXT y PDF',
-    pt: 'Leitura em voz alta de EPUB, TXT e PDF',
+    /* 1.0.0：PDF 这版也能朗读，念完这一页会自动翻下一页接着念。 */
+    zh: '朗读：EPUB、TXT 与 PDF，念完自动翻页',
+    'zh-TW': '朗讀：EPUB、TXT 與 PDF，念完自動翻頁',
+    en: 'Read aloud: EPUB, TXT and PDF, auto page-turn',
+    ja: '読み上げ：EPUB・TXT・PDF、読み終えたら自動で次のページ',
+    de: 'Vorlesen: EPUB, TXT und PDF, blättert automatisch weiter',
+    fr: 'Lecture vocale : EPUB, TXT et PDF, page suivante automatique',
+    es: 'Lectura en voz alta: EPUB, TXT y PDF, pasa de página sola',
+    pt: 'Leitura em voz alta: EPUB, TXT e PDF, vira a página sozinha',
   },
   parallel: {
     /* 1.0.0：并排的是任意两本书、段落同步，不是「原文 + 译文」。 */
@@ -431,14 +430,16 @@ const PLAN_GROUP_TEXT: Record<PlanGroupKey, Record<Locale, string>> = {
     pt: 'Estatísticas e busca',
   },
   ai: {
-    zh: 'AI',
-    'zh-TW': 'AI',
-    en: 'AI',
-    ja: 'AI',
-    de: 'AI',
-    fr: 'IA',
-    es: 'IA',
-    pt: 'IA',
+    /* 1.0.0 定稿：AI 两行都得先自己填接口地址、密钥与模型名（设置页里配），
+       组名把这件事明说出来——不写，用户买了高级版才发现还要自备密钥。 */
+    zh: 'AI（需自填接口与密钥）',
+    'zh-TW': 'AI（需自填介面與金鑰）',
+    en: 'AI (bring your own API key)',
+    ja: 'AI（API キーはご自身で）',
+    de: 'KI (eigener API-Schlüssel)',
+    fr: 'IA (clé API à fournir)',
+    es: 'IA (clave API propia)',
+    pt: 'IA (chave de API própria)',
   },
   advanced: {
     zh: '进阶',

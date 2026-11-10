@@ -8,6 +8,9 @@
  * ============================================================ */
 import type { App } from 'obsidian';
 import { emptyNotes, emptyReading, type BookFormat, type ReaderBook } from './schema';
+/* 改名（relocate）后清掉 PDF 反链索引缓存：否则旧路径的缓存一直留着、
+   新路径又查不到，引用页签不刷新。pdf-backlink 不反向依赖本模块，单向 import 无循环。 */
+import { invalidatePdfBacklinks } from './pdf-backlink';
 
 /** 基础版认得的格式。高级版放开全部，由调用方传 allowed 覆盖。 */
 export const BASE_FORMATS: BookFormat[] = ['epub', 'txt'];
@@ -178,6 +181,8 @@ export class BookRepo {
     book.fileRef.vaultPath = to;
     book.fileRef.fileMissing = false;
     book.updatedAt = Date.now();
+    /* 路径变了，按旧路径缓存的 PDF 反链索引已经失效，清掉让下次开书重扫 */
+    invalidatePdfBacklinks();
   }
 
   remove(id: string): boolean {

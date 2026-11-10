@@ -55,6 +55,13 @@ export interface CrossSearchDeps {
   onBookStart?: (book: ReaderBook) => void;
   onHits: (book: ReaderBook, hits: CrossBookHit[]) => void;
   onBookDone?: (book: ReaderBook) => void;
+  /**
+   * 这本书打不开（文件坏了 / 格式不支持 / 解析抛错）。
+   *
+   * 1.0.0 修：以前只有 catch 静默跳过，面板照样写「没有找到」——用户不知道
+   * 有书被漏掉，还以为插件搜不全。正文搜索那边早就单列一行失败，这里对齐。
+   */
+  onBookFail?: (book: ReaderBook, err: unknown) => void;
   /** 返回 true 时在下一本书开扫前停下 */
   shouldStop?: () => boolean;
 }
@@ -80,8 +87,9 @@ export async function searchAcrossBooks(deps: CrossSearchDeps): Promise<void> {
           hits.map((h) => ({ ...h, chapterLabel: hitChapterLabel(h as CrossBookHit) })),
         );
       }
-    } catch {
-      /* 打不开的书跳过——搜索不该被一本坏文件打断 */
+    } catch (err) {
+      /* 打不开的书跳过——搜索不该被一本坏文件打断，但要让面板说出来 */
+      deps.onBookFail?.(book, err);
     } finally {
       await host.destroy().catch(() => undefined);
     }

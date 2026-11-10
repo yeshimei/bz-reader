@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeBook } from '../src/data/book-repo';
+import { formatOf, makeBook } from '../src/data/book-repo';
 import { addHighlight } from '../src/data/notes';
 import {
   escapeForWikilink,
@@ -8,7 +8,9 @@ import {
   unescapeForWikilink,
   wikilinkOf,
   wikilinkOfMark,
+  wikilinkTo,
 } from '../src/data/wikilink';
+import type { BookFormat } from '../src/data/schema';
 
 /**
  * 双链：`[[书.epub#bzr-cfi=epubcfi(…)|划线文字]]`。
@@ -229,5 +231,70 @@ describe('wikilinkOf · PDF 采用 PDF++ 形状', () => {
 
   it('不是书的 PDF 子路径（恶作剧链接）不会拦下来', () => {
     expect(parseWikilinkHref('笔记.md#page=42')).toBeNull();
+  });
+});
+
+/* 书名里带 wikilink 表达不了的字符（# | [ ]）时，硬拼 [[路径#子路径|别名]] 会把
+   这些字符当成语法分隔符，整条双链在 Obsidian 眼里错位、查不到书（如「C# 入门.pdf」）。
+   生成侧改走 markdown 链接 [文字](目标)，目标里特殊字符按 URL 编码；解析侧两种形态都要认，
+   且「生成什么、解析回什么」必须往返一致。绝大多数普通路径仍走 [[ ]] 形态。 */
+describe('wikilink · 书名含 # | [ ] 的特殊字符', () => {
+  function roundtrip(path: string, cfi = 'epubcfi(/6/4)', text = '划线文字', chapter = '第一章') {
+    const fmt = (formatOf(path) ?? 'pdf') as BookFormat;
+    const book = makeBook(path, fmt);
+    book.meta.title = path;
+    const link = wikilinkTo(book, { cfi, text, chapter }, text);
+    const parsed = parseWikilinkHref(link);
+    return { link, parsed };
+  }
+
+  it('C# 入门.pdf：生成 markdown 链接且能解析回原书名', () => {
+    const { link, parsed } = roundtrip('C# 入门.pdf');
+    // markdown 形态：不是 wikilink 外壳
+    expect(link.startsWith('[[')).toBe(false);
+    expect(link).toMatch(/^\[.+\]\(.+\)$/);
+    // 路径里的真 # 被编码成 %23，不会把后面那段当成子路径
+    expect(link).toContain('C%23 入门.pdf');
+    expect(link).not.toContain('C# 入门.pdf');
+    expect(parsed).not.toBeNull();
+    expect(parsed!.vaultPath).toBe('C# 入门.pdf');
+    expect(parsed!.target.cfi).toBe('epubcfi(/6/4)');
+    expect(parsed!.target.text).toBe('划线文字');
+    expect(parsed!.target.chapter).toBe('第一章');
+  });
+
+  it('a|b.epub：竖线书名生成 markdown 链接、解析回原书名', () => {
+    const { link, parsed } = roundtrip('a|b.epub');
+    expect(link.startsWith('[[')).toBe(false);
+    expect(link).toContain('a%7Cb.epub');
+    expect(parsed!.vaultPath).toBe('a|b.epub');
+  });
+
+  it('[草稿] 笔记.pdf：方括号书名生成 markdown 链接、解析回原书名', () => {
+    const { link, parsed } = roundtrip('[草稿] 笔记.pdf');
+    expect(link.startsWith('[[')).toBe(false);
+    expect(link).toContain('%5B草稿%5D 笔记.pdf');
+    expect(parsed!.vaultPath).toBe('[草稿] 笔记.pdf');
+  });
+
+  it('带中文与空格的普通书名仍生成 [[ ]] 形态（绝大多数用户链接不变）', () => {
+    const { link, parsed } = roundtrip('我的 书.epub');
+    expect(link.startsWith('[[')).toBe(true);
+    expect(link.endsWith(']]')).toBe(true);
+    expect(parsed!.vaultPath).toBe('我的 书.epub');
+  });
+
+  it('带子目录路径的普通书名仍生成 [[ ]] 形态', () => {
+    const { link, parsed } = roundtrip('子目录/我的书.pdf');
+    expect(link.startsWith('[[')).toBe(true);
+    expect(parsed!.vaultPath).toBe('子目录/我的书.pdf');
+  });
+
+  it('生成的 markdown 链接把整条地址喂回 parse 也还原（含外壳）', () => {
+    const { link, parsed } = roundtrip('C# 入门.pdf');
+    // parse 应能直接吃下 [文字](目标) 的完整外壳
+    const reparsed = parseWikilinkHref(link);
+    expect(reparsed!.vaultPath).toBe('C# 入门.pdf');
+    expect(reparsed!.target.cfi).toBe('epubcfi(/6/4)');
   });
 });

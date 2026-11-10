@@ -1442,10 +1442,13 @@
 .bzs-setrow label {
   color: var(--t2);
   min-width: 86px;
-  flex-shrink: 0;
+  /* 中文短标签仍按自然宽度占 86px（控制右对齐不动）；外语长词（Exportverzeichnis）
+     允许收缩并折行、最长占半行，不再把右侧控件挤成一条缝或顶破窄侧栏。 */
+  flex: 0 1 auto;
+  max-width: 50%;
   letter-spacing: .05em;
-  /* 标签最多 7 个字（导出时带上想法），窄栏下不许折行 */
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .bzs-setrow .val {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { pageAtRow, pageLabel, pageStep, rowStartIndex, screenRange, turnPage } from '../src/engine/pdf/layout';
+import { boxSizeFor } from '../src/engine/pdf/view';
 
 describe('pdf layout · 行首与页码', () => {
   it('单栏时 offsetTop 严格递增，查到哪页就是哪页', () => {
@@ -84,3 +85,40 @@ describe('pdf layout · 按屏翻页', () => {
     expect(turnPage(1, 1, -1, false)).toBe(1);
   });
 });
+
+describe('pdf layout · 旋转后的页框尺寸（问题 #2）', () => {
+  const RAW = { width: 600, height: 800 };
+
+  it('0 / 180 度不变', () => {
+    expect(boxSizeFor(RAW, 0)).toEqual({ width: 600, height: 800 });
+    expect(boxSizeFor(RAW, 180)).toEqual({ width: 600, height: 800 });
+  });
+
+  it('90 / 270 度交换宽高', () => {
+    expect(boxSizeFor(RAW, 90)).toEqual({ width: 800, height: 600 });
+    expect(boxSizeFor(RAW, 270)).toEqual({ width: 800, height: 600 });
+  });
+
+  it('负角度归一到等效正角度：-90 ≡ 270（交换）、-180 ≡ 0（不变）', () => {
+    expect(boxSizeFor(RAW, -90)).toEqual({ width: 800, height: 600 });
+    expect(boxSizeFor(RAW, -180)).toEqual({ width: 600, height: 800 });
+  });
+
+  it('360 及 450 归一到 0 / 90', () => {
+    expect(boxSizeFor(RAW, 360)).toEqual({ width: 600, height: 800 });
+    expect(boxSizeFor(RAW, 450)).toEqual({ width: 800, height: 600 });
+  });
+
+  it('不修改入参（原始尺寸继续由 this.sizes[] 持有）', () => {
+    const src = { width: 600, height: 800 };
+    boxSizeFor(src, 90);
+    expect(src).toEqual({ width: 600, height: 800 });
+  });
+});
+
+/* 问题 #3：零页 / 残缺到没有页的 PDF 打开是一块空白。
+ * 修复在 view.ts 的 mount() 顶部：`if (this.numPages === 0) throw new Error('这本 PDF 没有任何页面')`。
+ * 它不是纯函数，且 mount() 会建 DOM、依赖 PdfDocument / pdf.js，node 环境里不好单测；
+ * 按 team-lead 约定此处靠真机冒烟：用一本空 PDF（numPages === 0）在 reader-view 里打开，
+ * 应看到「打不开」错误页显示「这本 PDF 没有任何页面」，而不是一片空白。 */
+

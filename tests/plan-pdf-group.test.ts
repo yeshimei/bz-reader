@@ -9,14 +9,17 @@ import { PLAN_GROUP_TEXT_PACK, PLAN_TEXT_PACK, planGroupLabel, planGroupNameZh, 
  * 以前 PDF 只在「更多格式」那一行里被一句「PDF、Kindle 系…」带过，用户看不出
  * 买高级版在 PDF 上还多了什么。现在 PDF 单独成一段，逐行列出真能做的事。
  *
+ * 1.0.0 定稿：七行压成五类——「记住每本书的缩放」并进「PDF 阅读」、「划词
+ * 自动复制」并进「复制页链接」。七行全打叉再全打勾，读起来像凑数。
+ *
  * 两条硬约束：
- *   · 组名不能只写「PDF」——「更多格式」那行的正文里就有「PDF」，表格按文字
- *     定位时会把组标题认成那一行的一部分，高亮与自检都会错位；
+ *   · 组名不能只写「PDF」——表里按名字找行的地方会把组标题认成那一行，所以
+ *     组名带「阅读」二字，且没有任何一行与组名同名；
  *   · 整段共用一个拦点（打开 PDF）。基础版根本进不了 PDF，缩略图 / 导出这些
  *     按钮对他们不存在，给每行各配一个能力位只是摆样子。
  */
 
-const PDF_ROWS = ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfAutoLink', 'pdfAnnots', 'pdfExport', 'pdfZoom'] as const;
+const PDF_ROWS = ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfAnnots', 'pdfExport'] as const;
 const CJK = /[\u4e00-\u9fff]/;
 const LATIN = ['en', 'de', 'fr', 'es', 'pt'] as const;
 
@@ -33,12 +36,12 @@ describe('对照表 · PDF 段的位置与内容', () => {
     expect(keys.indexOf('pdf')).toBe(keys.indexOf('output') + 1);
   });
 
-  it('七行按顺序、不多不少', () => {
+  it('五行按顺序、不多不少', () => {
     const g = PLAN_GROUPS.find((x) => x.key === 'pdf');
     expect(g?.rows).toEqual([...PDF_ROWS]);
   });
 
-  it('七行都是基础版没有、高级版才有', () => {
+  it('五行都是基础版没有、高级版才有', () => {
     for (const key of PDF_ROWS) {
       const r = row(key);
       expect(r, key).toBeTruthy();
@@ -75,14 +78,22 @@ describe('对照表 · PDF 段的位置与内容', () => {
   });
 });
 
-describe('对照表 · 更多格式不再替 PDF 说话', () => {
-  it('中文行名里没有 PDF 了', () => {
-    expect(row('formats')?.name).not.toContain('PDF');
+describe('对照表 · 格式那一行把 PDF 一起说全（1.0.0 定稿）', () => {
+  it('中文行名按「族名（枚举）」写全，含 PDF', () => {
+    expect(row('formats')?.name).toBe('Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画、PDF');
   });
 
-  it('八种语言的这一行都不再提 pdf', () => {
+  it('八种语言这一行都点到 pdf', () => {
     for (const l of LOCALES) {
-      expect(PLAN_TEXT_PACK.formats[l], l).not.toMatch(/pdf/i);
+      expect(PLAN_TEXT_PACK.formats[l], l).toMatch(/pdf/i);
+    }
+  });
+
+  it('PDF 段首行不再重复「能不能打开」，只讲能做到什么', () => {
+    /* 格式归上一段，PDF 段讲能力——同一件事说两遍，用户会以为要买两次。 */
+    expect(planNameZh('pdfView')).toBe('PDF 阅读：缩放、旋转、单双页、滚动，每本记住视角');
+    for (const l of LOCALES) {
+      expect(PLAN_TEXT_PACK.pdfView[l].includes('打开'), l).toBe(false);
     }
   });
 });
@@ -103,7 +114,7 @@ describe('对照表 · 回到上一处是基础版能力', () => {
 });
 
 describe('对照表 · PDF 段八种语言', () => {
-  it('组名与七行都填了，没有空串', () => {
+  it('组名与五行都填了，没有空串', () => {
     for (const l of LOCALES) {
       expect(String(PLAN_GROUP_TEXT_PACK.pdf[l]).trim().length, l).toBeGreaterThan(0);
       for (const key of PDF_ROWS) {
@@ -133,8 +144,10 @@ describe('对照表 · PDF 段八种语言', () => {
 
   it('切到英文，行名跟着换', () => {
     setLocale('en');
-    expect(planNameZh('pdfView')).toBe('打开 PDF：缩放、旋转、单双页与滚动');
-    expect(PLAN_TEXT_PACK.pdfView.en).toBe('Open PDFs: zoom, rotate, one- or two-page, and scroll');
+    expect(planNameZh('pdfView')).toBe('PDF 阅读：缩放、旋转、单双页、滚动，每本记住视角');
+    expect(PLAN_TEXT_PACK.pdfView.en).toBe(
+      'PDF reading: zoom, rotate, one or two pages, scroll; view remembered per book',
+    );
     setLocale('zh');
   });
 });

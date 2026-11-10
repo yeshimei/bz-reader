@@ -403,7 +403,9 @@
   padding: 0 16px;
   border-radius: 8px;
   background: var(--sup-accent);
-  color: var(--text-on-accent, #ffffff);
+  /* 铜色底（尤其深色主题下的浅铜档）上 --text-on-accent 仍是白，会白字浅底；
+     用 --bg：亮主题白字压深铜、暗主题深字压浅铜，两档都够对比（同 overlay 主按钮）。 */
+  color: var(--bg);
   font-size: 12.5px;
   font-weight: 600;
   text-align: center;
