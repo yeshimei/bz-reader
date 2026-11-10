@@ -13,11 +13,9 @@
     <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-%E9%A2%9C%E5%80%BC%20%2B%20%E9%9B%86%E5%A4%A7%E6%88%90-7c3aed?style=flat-square&labelColor=1f1f1e" alt="配套插件 bz：颜值 + 集大成"></a>
   </p>
 
-  <p><sub><a href="https://www.bilibili.com/video/BV1tK4E6KE1B">视频教程 · Video tutorial</a></sub></p>
+  <p><sub><a href="https://www.bilibili.com/video/BV1tK4E6KE1B">视频教程</a> · QQ 群 1130883117 · <a href="#support">支持作者</a></sub></p>
 
   <p><sub><b>简体中文</b> · <a href="#english">English</a> · <a href="#繁體中文">繁體中文</a> · <a href="#日本語">日本語</a> · <a href="#deutsch">Deutsch</a> · <a href="#français">Français</a> · <a href="#español">Español</a> · <a href="#português">Português</a></sub></p>
-
-  <p><sub>QQ 群 1130883117 · <a href="#support">支持作者</a></sub></p>
 </div>
 
 <p align="center">
@@ -119,9 +117,17 @@
 
 ## 支持作者
 
+<p align="center">
+  <img src="src/shell/assets/reward-code.png" width="230" alt="微信赞赏码">
+</p>
+
+<p align="center"><sub>微信扫一扫，请作者喝杯咖啡</sub></p>
+
 插件的开发、维护和教程视频都是作者一个人在做。
 
-打赏后会出现在 bz 与 bz Reader 的感谢名单里（插件设置页顶部能打开赞赏窗）。
+
+打赏后会出现在 bz 所有插件的感谢名单里（插件里走 设置 → 支持作者 就能看到）。
+
 
 **或者成为赞助人：[点击这里](https://wzyp.cn/shop/IFCEI5I3)**
 
