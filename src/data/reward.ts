@@ -39,9 +39,11 @@ export interface RewardName {
  *
  * 2026-11-10 从 bz 抄来两位：面包（赞助人，同日）、执徐（12 元，2026-11-08）。
  * 同日记入第三位 Sailing Fish（扫码 3.14 元，留言照登）——两笔同一天照记两条。
+ * 2026-11-11 记入第四位沁弦（扫码 6.66 元，留言照登），两处名单同步加。
  * 新的一位插在数组最前面，别往末尾加——序号是倒着排的。
  */
 export const REWARD_NAMES: readonly RewardName[] = [
+  { name: '沁弦', amount: 6.66, date: '2026-11-11', message: 'KEEP IT UP!Love from Charis523' },
   { name: 'Sailing Fish', amount: 3.14, date: '2026-11-10', message: '不错不错' },
   { name: '面包', amount: 'patron', date: '2026-11-10' },
   { name: '执徐', amount: 12, date: '2026-11-08', message: '伟大无需多言！' },
