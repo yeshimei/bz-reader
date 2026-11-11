@@ -256,10 +256,9 @@ export const FR: Record<MsgKey, string> = {
   /* ── Notifications : groupe (QQ) ────────────────────────── */
   'notice.group.plainOk': 'Numéro de groupe {id} copié — recherchez-le dans QQ pour le rejoindre',
   'notice.group.plainFail': 'Échec de la copie. Le groupe est {id} — recherchez-le dans QQ pour le rejoindre',
-  /* Dev-build only: feedback from the tier toggle commands */
-  'notice.dev.tier.free': 'Dev : passé en version de base (coffre de test uniquement)',
-  'notice.dev.tier.paid': 'Dev : passé en version pro (coffre de test uniquement)',
-  'notice.dev.tier.real': 'Dev : licence réelle rétablie',
+  /* Dev-build only: one-way "switch to free" command in the palette */
+  'notice.dev.tier.free': 'Dev: switched to the free tier (test vault only)',
+  'notice.dev.tier.already': 'Dev: already on the free tier (test vault only)',
 
   /* ── État de la licence ─────────────────────────────────── */
   'tier.base': 'Base',

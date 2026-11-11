@@ -1,38 +1,65 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { can, entitlement, setEntBackend, setProBuild } from '../src/data/entitlement';
-import { devTierOverride, initDevTier, resetDevTier, setDevTier } from '../src/core/dev-tier';
+import { can, entitlement, setEntBackend, setLicense, setProBuild } from '../src/data/entitlement';
+import { devTierForced, forceBaseTier, initDevTier } from '../src/core/dev-tier';
 
 /**
- * 测试库专用：授权档位覆盖。
+ * 测试库专用：强制基础版。
  *
- * 需求是「在测试库里一键看基础版 / 高级版界面」，不是造一枚假码——
- * 覆盖只影响 entitlement() 的结论，不动 data.json 里的真实激活码。
- * 这段逻辑只在开发构建（__BZ_DEV__）里生效，发布包整块摇掉。
+ * 需求是「命令面板只留一条切换为基础版的命令」——**切到高级版与恢复真实
+ * 授权都删掉**。所以这层只认一个方向：把界面压到基础版，没有反向入口。
+ * 覆盖不碰 data.json 里的真实激活码；这段逻辑只在开发构建（__BZ_DEV__）里
+ * 生效，发布包整块摇掉。
  */
 
-let saved: unknown = null;
+let savedTier: unknown = null;
+let ent: Record<string, unknown> = {};
+
+function emptyEnt(): Record<string, unknown> {
+  return {
+    installId: 'test',
+    activeDays: [],
+    lastSeenTs: 0,
+    clockAnomaly: 0,
+    trialVoid: false,
+    license: '',
+    checkedTs: 0,
+  };
+}
 
 function wire(persisted: unknown = null): void {
-  saved = persisted;
+  savedTier = persisted;
+  ent = emptyEnt();
   initDevTier({
-    read: () => saved,
+    read: () => savedTier,
     write: (raw) => {
-      saved = raw;
+      savedTier = raw;
     },
   });
   setEntBackend({
-    read: () => ({
-      installId: 'test',
-      activeDays: [],
-      lastSeenTs: 0,
-      clockAnomaly: 0,
-      trialVoid: false,
-      license: '',
-      checkedTs: 0,
-    }),
-    write: () => {},
+    read: () => ent,
+    write: (raw) => {
+      ent = raw as Record<string, unknown>;
+    },
   });
   setProBuild(true);
+}
+
+/**
+ * 造一枚「已验签」的高级版码。
+ *
+ * `setLicense` 是验签通过之后才走的写入点，它直接置 verifyState = ok；
+ * 判定档位只需要能拆出 payload，所以不必动发行私钥。
+ */
+function paidCode(): string {
+  const payload = Buffer.from(
+    JSON.stringify({ v: 2, id: 'BZR-TEST-0001', plan: 'lifetime' }),
+  ).toString('base64url');
+  return `BZR2.${payload}.sig`;
+}
+
+function makePaid(): void {
+  setLicense(paidCode());
+  expect(entitlement().tier).toBe('paid');
 }
 
 afterEach(() => {
@@ -41,51 +68,67 @@ afterEach(() => {
   setProBuild(false);
 });
 
-describe('测试库档位覆盖', () => {
-  it('没启用时完全不干预：基础版还是基础版', () => {
-    setEntBackend({ read: () => null, write: () => {} });
-    setProBuild(true);
-    expect(devTierOverride()).toBeNull();
-    expect(entitlement().tier).toBe('free');
-  });
-
-  it('切到高级版：tier 与 unlocked 一起变，can() 立刻放行', () => {
+describe('测试库 · 只能切到基础版', () => {
+  it('没启用时完全不干预：真实判定是什么就是什么', () => {
     wire();
-    setDevTier('paid');
+    makePaid();
+    expect(devTierForced()).toBe(false);
     expect(entitlement().tier).toBe('paid');
-    expect(entitlement().unlocked).toBe(true);
-    expect(can('ai')).toBe(true);
   });
 
-  it('切回基础版：界面按 free 算，但真实激活码没被动过', () => {
+  it('强制基础版：真实码是高级版也压成 free，can() 立刻收紧', () => {
     wire();
-    setDevTier('paid');
-    setDevTier('free');
+    makePaid();
+    expect(forceBaseTier()).toBe(true);
+    expect(devTierForced()).toBe(true);
     expect(entitlement().tier).toBe('free');
+    expect(entitlement().unlocked).toBe(false);
     expect(can('ai')).toBe(false);
   });
 
-  it('重启后能接着用：覆盖值由 data.json 持久化', () => {
+  it('单向：没有切回高级版的入口，重复调用只会说「已经是基础版」', () => {
     wire();
-    setDevTier('paid');
-    expect(saved).toBe('paid');
-    /* 模拟下次启动：同一份存储重新读一遍 */
-    initDevTier({ read: () => saved, write: () => {} });
+    makePaid();
+    forceBaseTier();
+    expect(forceBaseTier()).toBe(false);
+    expect(entitlement().tier).toBe('free');
+    expect(savedTier).toBe('free');
+  });
+
+  it('真实激活码没被动过：只覆盖界面判定，码还躺在配置里', () => {
+    wire();
+    makePaid();
+    const code = ent.license;
+    forceBaseTier();
+    expect(ent.license).toBe(code);
+  });
+
+  it('重启后接着生效：持久化只写 free', () => {
+    wire();
+    makePaid();
+    forceBaseTier();
+    expect(savedTier).toBe('free');
+    initDevTier({ read: () => savedTier, write: () => {} });
+    expect(devTierForced()).toBe(true);
+    expect(entitlement().tier).toBe('free');
+  });
+
+  it('旧版本留下的 paid 覆盖不再生效（切高级版已删）', () => {
+    wire('paid');
+    makePaid();
+    expect(devTierForced()).toBe(false);
     expect(entitlement().tier).toBe('paid');
   });
 
-  it('恢复真实授权：清掉覆盖，回到归档里的原始判定', () => {
-    wire();
-    setDevTier('paid');
-    resetDevTier();
-    expect(devTierOverride()).toBeNull();
-    expect(entitlement().tier).toBe('free');
-    expect(saved).toBeNull();
+  it('坏数据当没设置', () => {
+    wire('trial');
+    expect(devTierForced()).toBe(false);
   });
 
-  it('只有 free / paid 是合法覆盖值，坏数据当没设置', () => {
-    wire('trial');
-    expect(devTierOverride()).toBeNull();
-    expect(entitlement().tier).toBe('free');
+  it('没初始化时强制不了：正式构建里这条路径根本不存在', () => {
+    initDevTier(null);
+    setProBuild(true);
+    expect(forceBaseTier()).toBe(false);
+    expect(devTierForced()).toBe(false);
   });
 });

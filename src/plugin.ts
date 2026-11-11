@@ -49,7 +49,7 @@ import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-st
 import { mountImport } from './ui/import-panel';
 import { releaseCovers } from './data/cover';
 import { activateLicense as applyLicense, can, entitlement, recordActivity, revalidateLicense, setEntBackend, setProBuild, unlockModeFor } from './data/entitlement';
-import { initDevTier, resetDevTier, setDevTier } from './core/dev-tier';
+import { forceBaseTier, initDevTier } from './core/dev-tier';
 import { normalizePluginData, type PluginDataFile } from './data/plugin-data';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
 import { installBlobSrcdocPatches, uninstallBlobSrcdocPatches } from './engine/blob-srcdoc';
@@ -166,22 +166,15 @@ export function createPlugin(cfg: PluginConfig) {
     }
 
     /**
-     * 测试库专用：在基础版 / 高级版之间来回切。
+     * 测试库专用：把界面压到基础版。
      *
-     * 只改界面判定，不动 data.json 里的真实激活码；切完立刻重绘壳层，
-     * 书架的授权行、AI 页签灰化、解锁弹层都跟着变。发布构建没有这个命令。
+     * 只有这一个方向——切高级版与恢复真实授权的命令都删掉了，开发构建里
+     * 也不该留绕过付费的入口。只改界面判定，不动 data.json 里的真实激活码；
+     * 切完立刻重绘壳层，书架的授权行、AI 页签灰化、解锁弹层都跟着变。
+     * 发布构建没有这个命令。
      */
-    private devToggleTier(): void {
-      const next = entitlement().tier === 'paid' ? 'free' : 'paid';
-      setDevTier(next);
-      notify(t(next === 'paid' ? 'notice.dev.tier.paid' : 'notice.dev.tier.free'));
-      notifyShell();
-    }
-
-    /** 测试库专用：清掉切档覆盖，回到激活码的真实判定 */
-    private devResetTier(): void {
-      resetDevTier();
-      notify(t('notice.dev.tier.real'));
+    private devForceBase(): void {
+      notify(t(forceBaseTier() ? 'notice.dev.tier.free' : 'notice.dev.tier.already'));
       notifyShell();
     }
 
@@ -277,12 +270,12 @@ export function createPlugin(cfg: PluginConfig) {
           this.persistCfg();
         },
       });
-      /* 仅开发构建（测试库）：授权档位覆盖。发布包里整块被摇掉，dev-tier 不进包。 */
+      /* 仅开发构建（测试库）：强制基础版开关。发布包里整块被摇掉，dev-tier 不进包。 */
       if (__BZ_DEV__) {
         initDevTier({
           read: () => this.cfg.devTier,
           write: (raw) => {
-            this.cfg.devTier = raw === 'free' || raw === 'paid' ? raw : null;
+            this.cfg.devTier = raw === 'free' ? 'free' : null;
             this.persistCfg();
           },
         });
@@ -483,17 +476,14 @@ export function createPlugin(cfg: PluginConfig) {
           callback: () => this.runCommandById(cmd.id),
         });
       }
-      /* 测试库专用：切基础版 / 高级版（只有开发构建有，见 esbuild 的 __BZ_DEV__） */
+      /* 测试库专用：只留「切换为基础版」一条（只有开发构建有，见 esbuild 的
+         __BZ_DEV__）。切高级版与恢复真实授权都删掉了：开发构建也不该留
+         绕过付费的入口。 */
       if (__BZ_DEV__) {
         this.addCommand({
-          id: 'bzr-dev-tier-toggle',
-          name: '开发：切换基础版 / 高级版',
-          callback: () => this.devToggleTier(),
-        });
-        this.addCommand({
-          id: 'bzr-dev-tier-reset',
-          name: '开发：恢复真实授权',
-          callback: () => this.devResetTier(),
+          id: 'bzr-dev-tier-free',
+          name: '开发：切换为基础版',
+          callback: () => this.devForceBase(),
         });
       }
 

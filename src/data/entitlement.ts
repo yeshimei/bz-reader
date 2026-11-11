@@ -32,7 +32,7 @@
 
 import { locale, t, type Locale } from '../i18n';
 import { planNameZh, type PlanGroupKey, type PlanKey } from '../i18n/plan';
-import { devTierOverride } from '../core/dev-tier';
+import { devTierForced } from '../core/dev-tier';
 import { parseLicense, verifyLicense, type LicenseFail, type LicensePayload } from './license';
 import type { BookFormat } from './schema';
 
@@ -348,9 +348,9 @@ export function entitlement(now = Date.now()): EntitlementView {
   const trialAlive = TRIAL_ACTIVE && !e.trialVoid && used <= TRIAL_DAYS;
   let tier: Tier = paid ? 'paid' : trialAlive ? 'trial' : 'free';
 
-  /* 测试库的开发构建：命令面板可以强制切档，方便看两套界面。
+  /* 测试库的开发构建：命令面板只有「切换为基础版」这一个方向。
      发布构建 __BZ_DEV__ 为 false，整块被 esbuild 删掉，dev-tier 也不进包。 */
-  if (__BZ_DEV__) tier = devTierOverride() ?? tier;
+  if (__BZ_DEV__ && devTierForced()) tier = 'free';
 
   const left = used <= 0 ? TRIAL_DAYS : Math.max(0, TRIAL_DAYS - used + 1);
 

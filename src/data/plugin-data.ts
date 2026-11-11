@@ -38,15 +38,16 @@ export interface PluginDataFile {
    */
   changelogSeenVersion: string;
   /**
-   * 仅开发构建：测试库的授权档位覆盖（free / paid / null）。
+   * 仅开发构建：测试库的「强制基础版」开关（free / null）。
    *
-   * 命令面板「开发：切换基础版 / 高级版」写这里，重启后接着生效。
-   * 发布包里 normalize 一律收成 null；entitlement 的读取分支也被摇掉。
+   * 命令面板「开发：切换为基础版」写这里，重启后接着生效。
+   * 只有这一个方向：旧版本留下的 paid 覆盖在 normalize 时收成 null，
+   * 发布包里同样收成 null，entitlement 的读取分支也被摇掉。
    */
   devTier: DevTierValue;
 }
 
-export type DevTierValue = 'free' | 'paid' | null;
+export type DevTierValue = 'free' | null;
 
 export const EMPTY_PLUGIN_DATA: PluginDataFile = {
   version: 1,
@@ -72,6 +73,6 @@ export function normalizePluginData(raw: unknown): PluginDataFile {
     entitlement: d.entitlement ?? null,
     dataDir: normalizeDataDir(typeof d.dataDir === 'string' ? d.dataDir : ''),
     changelogSeenVersion: typeof d.changelogSeenVersion === 'string' ? d.changelogSeenVersion : '',
-    devTier: d.devTier === 'free' || d.devTier === 'paid' ? d.devTier : null,
+    devTier: d.devTier === 'free' ? 'free' : null,
   };
 }

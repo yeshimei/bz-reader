@@ -255,10 +255,9 @@ export const JA: Record<MsgKey, string> = {
   /* ── 通知：交流グループ（QQ） ───────────────────────────── */
   'notice.group.plainOk': 'グループ番号 {id} をコピーしました。QQ で検索して参加できます',
   'notice.group.plainFail': 'コピーできませんでした。グループ番号は {id} です。QQ で検索して参加してください',
-  /* Dev-build only: feedback from the tier toggle commands */
-  'notice.dev.tier.free': '開発：ベーシック版に切り替えました（テスト保管庫のみ）',
-  'notice.dev.tier.paid': '開発：プロ版に切り替えました（テスト保管庫のみ）',
-  'notice.dev.tier.real': '開発：実際のライセンスに戻しました',
+  /* Dev-build only: one-way "switch to free" command in the palette */
+  'notice.dev.tier.free': 'Dev: switched to the free tier (test vault only)',
+  'notice.dev.tier.already': 'Dev: already on the free tier (test vault only)',
 
   /* ── ライセンス状態 ─────────────────────────────────────── */
   'tier.base': 'ベーシック版',
