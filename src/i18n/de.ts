@@ -35,7 +35,7 @@ export const DE: Record<MsgKey, string> = {
   'cmd.prefs': 'Regal: Einstellungen',
   'cmd.semantic': 'Regal: Nach Bedeutung suchen',
   'cmd.shelfAsk': 'Regal: Diese Bücher befragen',
-  'cmd.route': 'Regal: Leseliste nach Thema',
+  'cmd.route': 'Regal: Leseliste nach Thema erstellen',
 
   /* ── Befehle: Leseansicht ───────────────────────────────── */
   'cmd.search': 'Lesen: Suche (Buch / Bibliothek)',
@@ -198,7 +198,7 @@ export const DE: Record<MsgKey, string> = {
   'route.title': 'Leseliste',
   'route.ph': 'Welches Thema möchtest du lesen?',
   'route.go': 'Liste erstellen',
-  'route.hint': 'Thema eingeben – wir suchen in den Gesamtbildern des Regals nach passenden Büchern und Kapiteln und legen eine Leseroute fest.',
+  'route.hint': 'Thema eingeben: Die Gesamtbilder im Regal liefern passende Bücher und Kapitel, daraus entsteht eine Leseroute.',
   'route.searching': 'Suche passende Bücher…',
   'route.thinking': '{n} Bücher gefunden, Leseroute wird geplant…',
   'route.done': 'Leseroute beruht auf {n} Büchern',
