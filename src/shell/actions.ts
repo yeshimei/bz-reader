@@ -838,23 +838,24 @@ export async function enrichBookMeta(bookId: string): Promise<void> {
       context: enrichSample(portrait),
     });
     const next = mergeMetaPatch(book.meta, parseEnrichReply(res.text));
-    /* 说这次真的写了哪个字段：以前补到什么都弹「简介与分类」，用户看到的是
-       「简介明明有，怎么又补了一遍」 */
-    const kind = enrichDoneKind(next);
-    if (kind === 'none') {
+    /* 「有没有写出东西」看 next 本身，不看文案的种类：模型偶尔只回了语言那一行，
+       那也是模型给的信息，该落盘。kind 只决定说哪句话。 */
+    if (!Object.keys(next).length) {
       notify(t('notice.enrich.none'), 'info');
       return;
     }
+    const kind = enrichDoneKind(next);
     Object.assign(book.meta, next);
     book.updatedAt = Date.now();
     src.store.touch();
     repaint();
     notify(
-      kind === 'both'
-        ? t('notice.enrich.done')
-        : kind === 'desc'
-          ? t('notice.enrich.doneDesc')
-          : t('notice.enrich.doneTags'),
+      kind === 'desc'
+        ? t('notice.enrich.doneDesc')
+        : kind === 'tags'
+          ? t('notice.enrich.doneTags')
+          /* 两样都补了，或只补到语言那一行：都是「补上了一些信息」 */
+          : t('notice.enrich.done'),
     );
   } catch {
     notify(t('notice.enrich.fail'), 'error');
