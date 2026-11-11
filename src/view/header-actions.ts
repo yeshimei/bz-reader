@@ -283,16 +283,22 @@ function orderedIds(cfg?: HeaderCfg | null): HeaderActionId[] {
 /**
  * 外露的图标：用户顺序 → 去掉显式隐藏的 → 移动端最多 3 颗。
  *
- * @param mobile 真实移动端（`isMobileEnv()`，**不是** `isMobileShell()`——
- *   后者含桌面验收用的 force-mobile，会让桌面也折起来）
+ * 两个「手机」参数分工不同，别合并：
+ *   @param mobile  **露几颗**只看真实设备（`isMobileEnv()`）。桌面窗口放得下
+ *     12 颗，开了 force-mobile 验收也不该收成 3 颗——用户原话是「能放得下
+ *     就别用下拉」。
+ *   @param phoneForm  **有哪些动作**看手机形态（`isMobileShell()`）。桌面
+ *     按手机形态验收时，本该和真机看到同一套入口，否则「隐藏生没生效」
+ *     只能拿手机试。缺省跟 mobile 走（老调用点行为不变）。
  */
 export function headerActionsFor(
   mobile: boolean,
   cfg?: HeaderCfg | null,
   pdf = false,
+  phoneForm = mobile,
 ): HeaderActionId[] {
   const hidden = new Set(cfg?.hidden ?? []);
-  const allowed = new Set(availableActions(mobile, pdf));
+  const allowed = new Set(availableActions(phoneForm, pdf));
   const list = orderedIds(cfg).filter((id) => allowed.has(id) && !hidden.has(id));
   return mobile ? list.slice(0, 3) : list;
 }
@@ -302,9 +308,10 @@ export function headerOverflowFor(
   mobile: boolean,
   cfg?: HeaderCfg | null,
   pdf = false,
+  phoneForm = mobile,
 ): HeaderActionId[] {
-  const shown = headerActionsFor(mobile, cfg, pdf);
-  const allowed = new Set(availableActions(mobile, pdf));
+  const shown = headerActionsFor(mobile, cfg, pdf, phoneForm);
+  const allowed = new Set(availableActions(phoneForm, pdf));
   return orderedIds(cfg).filter((id) => allowed.has(id) && !shown.includes(id));
 }
 

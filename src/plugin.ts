@@ -25,7 +25,7 @@ import { COMMANDS } from './plugin-commands';
 import { setApp } from './core/app';
 import { setPluginRelDir, dataDirOf, debugLogPath, debugOpenPath, normalizeDataDir, setDataDir, DEFAULT_DATA_DIR, PLUGIN_ID } from './core/plugin-path';
 import { debugEnabled, flushDebugLog, installDebugHook, startDebugLog, stopDebugLog } from './data/debug-log';
-import { isMobileEnv } from './core/mobile';
+import { isMobileEnv, isMobileShell } from './core/mobile';
 import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
 import { BookRepo, BASE_FORMATS, PRO_FORMATS, formatOf, planRelocations, scanVault } from './data/book-repo';
@@ -472,8 +472,9 @@ export function createPlugin(cfg: PluginConfig) {
        * 改成自己顺手的键，壳层设置页只负责把绑定读回来显示（点一下跳过去改）。
        * 注册表在 plugin-commands.ts：id 是稳定契约，名字走 t() 随语言变。
        * 手机上不提供的（见 mobileDisabled）干脆不注册：留着也会在命令面板
-       * 里露一条点了没反应的条目。 */
-      const phone = isMobileEnv();
+       * 里露一条点了没反应的条目。判据用手机形态：桌面 force-mobile 验收时
+       * 命令面板也要和真机一致。 */
+      const phone = isMobileShell();
       for (const cmd of COMMANDS) {
         if (phone && cmd.mobileDisabled) continue;
         this.addCommand({

@@ -160,9 +160,10 @@ function overlaySearch(): string {
  * 命令面板兜底弹层。**同一个函数**，避免两处控件长歪。
  *
  * @param mobile 手机上不出现「栏数」：引擎的竖屏规则写死单栏，
- *   给了选择也是白给（缺省读真实设备，测试直接传两端）
+ *   给了选择也是白给（缺省 `isMobileShell()`，桌面 force-mobile 验收时
+ *   看到的也是手机上那一套；测试直接传两端）
  */
-export function typographyFormHtml(mobile = isMobileEnv()): string {
+export function typographyFormHtml(mobile = isMobileShell()): string {
   const p = shellPrefs();
 
   const seg = (name: string, opts: Array<[string, string]>, cur: string): string =>

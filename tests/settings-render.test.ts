@@ -528,17 +528,17 @@ describe('设置页 · 两列各自成流', () => {
     expect((out.match(/class="bzs-set-col"/g) ?? []).length).toBe(2);
   });
 
-  it('左列五组：界面、版式、外观、PDF、朗读', () => {
+  it('左列四组：界面、版式、外观、PDF', () => {
     const [left] = splitCols(html());
-    for (const h of ['界面', '版式', '外观', 'PDF', '朗读']) expect(left, h).toContain(`<h3>${h}</h3>`);
-    for (const h of ['阅读页图标', '标注', '数据', 'AI 助手', '授权'])
+    for (const h of ['界面', '版式', '外观', 'PDF']) expect(left, h).toContain(`<h3>${h}</h3>`);
+    for (const h of ['阅读页图标', '标注', '数据', '朗读', 'AI 助手', '授权'])
       expect(left, h).not.toContain(`<h3>${h}</h3>`);
   });
 
-  it('右列四组：标注、数据、AI 助手、授权', () => {
+  it('右列五组：标注、数据、朗读、AI 助手、授权', () => {
     const [, right] = splitCols(html());
-    for (const h of ['标注', '数据', 'AI 助手', '授权']) expect(right, h).toContain(`<h3>${h}</h3>`);
-    for (const h of ['界面', '版式', '外观', 'PDF', '朗读', '阅读页图标'])
+    for (const h of ['标注', '数据', '朗读', 'AI 助手', '授权']) expect(right, h).toContain(`<h3>${h}</h3>`);
+    for (const h of ['界面', '版式', '外观', 'PDF', '阅读页图标'])
       expect(right, h).not.toContain(`<h3>${h}</h3>`);
   });
 
@@ -555,9 +555,10 @@ describe('设置页 · 两列各自成流', () => {
     expect(out.indexOf('<h3>快捷键</h3>')).toBeGreaterThan(out.indexOf('<h3>阅读页图标</h3>'));
   });
 
-  /* 窄屏会把两列叠成一列：「左列全部 → 右列全部」必须仍是原来的阅读顺序，
-     否则手机上「外观」会掉到「授权」后面。 */
-  it('摊平后仍是原来的组分顺序', () => {
+  /* 窄屏会把两列叠成一列：「左列全部 → 右列全部」就是线性阅读顺序。
+     朗读 2026-11-11 从「PDF 之后」挪到「AI 之上」（用户要求放在右列），
+     所以它在序号里往后走了一格，其余顺序不动。 */
+  it('摊平后的组分顺序：朗读排在 AI 之上', () => {
     const out = html();
     const order = [...out.matchAll(/<h3>(.*?)<\/h3>/g)].map((m) => m[1]);
     expect(order).toEqual([
@@ -566,9 +567,9 @@ describe('设置页 · 两列各自成流', () => {
       '版式',
       '外观',
       'PDF',
-      '朗读',
       '标注',
       '数据',
+      '朗读',
       'AI 助手',
       '授权',
       '阅读页图标',

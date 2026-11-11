@@ -13,11 +13,12 @@ import { makeApp, makeReaderView } from './helpers/plugin-harness';
  * 这里钉住的是**入口不出现**：不是把功能删掉，桌面端行为一字不动。
  */
 
-const { flags } = vi.hoisted(() => ({ flags: { mobile: false } }));
+const { flags } = vi.hoisted(() => ({ flags: { mobile: false, shell: false } }));
 
 vi.mock('../src/core/mobile', () => ({
   isMobileEnv: () => flags.mobile,
-  isMobileShell: () => flags.mobile,
+  /* 「手机形态」：真机恒等于 mobile，桌面开 force-mobile 时只 shell 为真 */
+  isMobileShell: () => flags.mobile || flags.shell,
   isIosEnv: () => false,
   LIBRARY_WIDE: 1000,
   isCompactLibrary: () => false,
@@ -43,6 +44,7 @@ beforeEach(() => {
 afterEach(() => {
   uninstall();
   flags.mobile = false;
+  flags.shell = false;
   vi.restoreAllMocks();
 });
 
@@ -237,5 +239,69 @@ describe('命令面板：手机上不注册朗读命令', () => {
     expect(tts?.mobileDisabled).toBe(true);
     const marked = COMMANDS.filter((c) => c.mobileDisabled).map((c) => c.id);
     expect(marked).toEqual(['tts']);
+  });
+});
+
+/**
+ * 手机形态 ≠ 真实设备（2026-11-11）。
+ *
+ * 桌面开 force-mobile 验收手机布局时，`isMobileEnv()` 仍是 false、
+ * `isMobileShell()` 为 true。上一版拿真实设备判，结果「隐藏生没生效」
+ * 只能在真机上看，一轮几分钟——现在入口可见性统一看手机形态。
+ * 露几颗仍只看真实设备（开着 force-mobile 的桌面窗口放得下 12 颗，
+ * 不该收成 3 颗）。
+ */
+describe('手机形态（桌面 force-mobile 验收）也要收起', () => {
+  it('设置页：不带 mobile 参数时按手机形态收起朗读组 / 快捷键组 / 分栏', () => {
+    flags.shell = true;
+    const html = viewSettings({
+      prefs: DEFAULT_PREFS,
+      settings: DEFAULT_SETTINGS,
+      pen: 'amber',
+      hotkeys: [],
+      version: '1.1.1',
+    });
+    expect(html).not.toContain('data-k="ttsRate"');
+    expect(html).not.toContain('data-k="ttsFollow"');
+    expect(html).not.toContain('data-k="columns"');
+    expect(html).not.toContain('<h3>快捷键</h3>');
+  });
+
+  it('排版浮层：不带 mobile 参数时按手机形态收起「栏数」', () => {
+    flags.shell = true;
+    expect(typographyFormHtml()).not.toContain('data-k="columns"');
+  });
+
+  it('头栏：动作减三项，但颗数不折（放得下就摊开）', () => {
+    flags.shell = true;
+    const shown = headerActionsFor(false, null, false, true);
+    expect(shown).not.toContain('para');
+    expect(shown).not.toContain('tts');
+    expect(shown).toHaveLength(9);
+    /* 不传第 4 参的老调用点：仍按桌面全套走 */
+    expect(headerActionsFor(false, null)).toHaveLength(12);
+  });
+});
+
+/**
+ * 朗读组的位置（2026-11-11 用户要求）：右列、AI 组的正上方。
+ * 左列只留界面 / 版式 / 外观 / PDF。
+ */
+describe('朗读组排在右列 AI 之上', () => {
+  it('朗读紧跟 AI 前面，且不在左列', () => {
+    const out = settingsHtml(false);
+    const a = out.indexOf('<div class="bzs-set-col">');
+    const b = out.indexOf('<div class="bzs-set-col">', a + 1);
+    const left = out.slice(a, b);
+    const right = out.slice(b, out.indexOf('<h3>阅读页图标</h3>', b));
+    expect(left).not.toContain('<h3>朗读</h3>');
+    expect(right).toContain('<h3>朗读</h3>');
+    /* 右列里朗读紧挨在 AI 之前：中间不再夹别的组 */
+    const ttsAt = right.indexOf('<h3>朗读</h3>');
+    const aiAt = right.indexOf('<h3>AI 助手</h3>');
+    const between = right.slice(ttsAt, aiAt);
+    expect(ttsAt).toBeGreaterThan(-1);
+    expect(aiAt).toBeGreaterThan(ttsAt);
+    expect(between.match(/<h3>/g) ?? []).toHaveLength(1);
   });
 });

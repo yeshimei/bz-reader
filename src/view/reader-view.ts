@@ -738,6 +738,9 @@ export class ReaderView extends ItemView {
       mobile,
       { order: prefs.headerOrder, hidden: prefs.headerHidden },
       this.host.isPdf,
+      /* 颗数看真实设备（上面的 mobile），哪些动作存在看手机形态：
+         桌面开 force-mobile 验收时，入口要和真机一致才验得出来。 */
+      isMobileShell(),
     ).map((id) => ({
       ...headerActionSpec(id),
       run: run[id],
@@ -1100,7 +1103,7 @@ export class ReaderView extends ItemView {
       case 'tts':
         /* 手机不提供朗读：命令在命令面板里也不注册（见 plugin-commands），
            这条兜底防别的入口（内置键 / 深链）把它再叫起来。 */
-        if (!isMobileEnv()) this.toggleTts();
+        if (!isMobileShell()) this.toggleTts();
         break;
       case 'typography': {
         /* PDF 的「排版」是旋转 / 单双页 / 翻页，不是字号行距（那些来自原文件）。
@@ -1188,8 +1191,9 @@ export class ReaderView extends ItemView {
       immersive: this.immersive ? t('menu.immersive.exit') : undefined,
     };
     /* 头栏、这里、设置页的图标列表共用 availableActions：手机上 ⋮ 是主入口，
-       这里漏一处就等于「头栏藏了、菜单里还在」。 */
-    for (const id of availableActions(isMobileEnv(), this.host.isPdf)) {
+       这里漏一处就等于「头栏藏了、菜单里还在」。判据是手机形态而不是真实设备：
+       桌面 force-mobile 验收时，菜单也要和真机一致。 */
+    for (const id of availableActions(isMobileShell(), this.host.isPdf)) {
       const spec = headerActionSpec(id);
       const action = run[id];
       menu.addItem((i) =>

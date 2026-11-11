@@ -24,7 +24,7 @@ import { HIGHLIGHT_COLORS, colorLabel } from '../../data/notes';
 import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
 import { can, entitlement, GROUP_ID, tierText } from '../../data/entitlement';
 import { dataDirOf } from '../../core/plugin-path';
-import { isMobileEnv } from '../../core/mobile';
+import { isMobileShell } from '../../core/mobile';
 import type { HotkeyRow } from '../../core/hotkeys';
 import { HEADER_ACTION_IDS, headerActionSpec, isMobileHiddenAction, type HeaderActionId } from '../../view/header-actions';
 import { rangeFill } from '../range-fill';
@@ -50,13 +50,17 @@ export interface SettingsView {
    */
   bz?: { ok: boolean; version: string; model: string; entry: boolean; notes: boolean };
   /**
-   * 是不是手机形态（缺省读真实设备）。
+   * 是不是手机形态（缺省 `isMobileShell()`——含桌面验收用的 force-mobile）。
    *
    * 手机上没有的几项（分栏、朗读、快捷键）直接不渲染：
    *   · 分栏——引擎竖屏规则写死单栏，给了选择也是白给；
    *   · 朗读——手机浏览器内核没有稳定的语音合成通道；
    *   · 快捷键——点一行打开的是桌面快捷键面板，手机没有这一页。
    * 参数留给测试直接钉两端，不必去模拟 Platform。
+   *
+   * 这里用 `isMobileShell` 而不是 `isMobileEnv`：桌面验收时只要按手机形态
+   * 跑（force-mobile），看到的就该是手机上那套设置，否则「隐藏生没生效」
+   * 只能在真机上看，一轮几分钟。
    */
   mobile?: boolean;
 }
@@ -175,7 +179,7 @@ function aboutBar(version: string, paid: boolean, patron: boolean, name?: string
 export function viewSettings(v: SettingsView): string {
   const p = v.prefs;
   const s = v.settings;
-  const mobile = v.mobile ?? isMobileEnv();
+  const mobile = v.mobile ?? isMobileShell();
   /* 授权结论页头（关于条）与页尾（授权组）都要用，取一次 */
   const ent = entitlement();
   const paid = ent.tier === 'paid';
@@ -547,15 +551,14 @@ export function viewSettings(v: SettingsView): string {
     </div>`;
 
   /* 两列各自成流（布局说明见 study.css 的 .bzs-set-page）。
-     切点按「两列高度接近」定，不按功能类别硬分：原来左列只有界面 + 版式
-     两组，右列七组，滚到下半页左列整条是空白（2026-11-11 反馈的「左边
-     一大片空」）。现在左列排到朗读，右列从标注起——两列估高约 1.4k / 1.4k。
-     手机收起朗读后左列仍多出「数据」的一半，但差距已从 700 收到 200 以内。
+     2026-11-11 两轮调整：
+       ① 原来左列只有界面 + 版式，右列七组，下半页左边整条空白；
+       ② 朗读组按用户要求挪到**右列、AI 之上**，左列只留界面 / 版式 / 外观 / PDF。
 
-     切点仍按**原顺序**切，不重排分组：窄屏叠成一列时「左列全部 → 右列全部」
-     必须还是原来的阅读顺序。 */
-  const leftCol = `${languageGrp}${layout}${look}${pdf}${tts}`;
-  const rightCol = `${marks}${data}${ai}${lic}`;
+     切点仍按原顺序切，不重排其余分组：窄屏叠成一列时「左列全部 → 右列全部」
+     仍是界面 → 版式 → 外观 → PDF → 标注 → 数据 → 朗读 → AI → 授权。 */
+  const leftCol = `${languageGrp}${layout}${look}${pdf}`;
+  const rightCol = `${marks}${data}${tts}${ai}${lic}`;
 
   return `<div class="bzs-set-page">${aboutBar(v.version || '', paid, ent.patron, ent.name)}<div class="bzs-set-grid"><div class="bzs-set-col">${leftCol}</div><div class="bzs-set-col">${rightCol}</div></div>${header}${keys}</div>`;
 }
