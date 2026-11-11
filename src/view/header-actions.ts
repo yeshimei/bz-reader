@@ -238,6 +238,35 @@ export function isPdfAction(id: HeaderActionId): boolean {
   return PDF_ONLY_ACTIONS.includes(id);
 }
 
+/**
+ * 手机上不提供的动作（2026-11-11）。
+ *
+ * 和 PDF 那三颗同一个道理：只有一个包，所以不做构建裁剪，运行时按设备收起。
+ *   · 并排对照 —— 屏幕一分为二，每边不到 200px，副卷还没有划词工具条；
+ *   · 对照书籍 —— 只服务并排，并排没了它没有去处；
+ *   · 朗读 —— 手机浏览器内核没有稳定的语音合成通道。
+ *
+ * 收在入口层而不是删功能：桌面端一颗不少，排序偏好里留着它们的位置，
+ * 换回电脑原位复现。
+ */
+export const MOBILE_HIDDEN_ACTIONS: readonly HeaderActionId[] = ['para', 'paraBook', 'tts'];
+
+export function isMobileHiddenAction(id: HeaderActionId): boolean {
+  return MOBILE_HIDDEN_ACTIONS.includes(id);
+}
+
+/**
+ * 这台设备上能用的动作（默认顺序）。
+ *
+ * 头栏、⋮ 菜单、设置页的图标列表都读它：三处各判一次的话，漏一处就是
+ * 「头栏藏了、⋮ 里还在」——而手机上 ⋮ 才是主入口。
+ */
+export function availableActions(mobile: boolean, pdf = false): HeaderActionId[] {
+  return HEADER_ACTION_IDS.filter(
+    (id) => (pdf || !isPdfAction(id)) && !(mobile && isMobileHiddenAction(id)),
+  );
+}
+
 export interface HeaderCfg {
   order: string[];
   hidden: string[];
@@ -263,18 +292,20 @@ export function headerActionsFor(
   pdf = false,
 ): HeaderActionId[] {
   const hidden = new Set(cfg?.hidden ?? []);
-  const list = orderedIds(cfg).filter((id) => !hidden.has(id) && (pdf || !isPdfAction(id)));
+  const allowed = new Set(availableActions(mobile, pdf));
+  const list = orderedIds(cfg).filter((id) => allowed.has(id) && !hidden.has(id));
   return mobile ? list.slice(0, 3) : list;
 }
 
-/** ⋮ 里的：显式隐藏的 + 移动端被名额挤出去的 */
+/** ⋮ 里的：显式隐藏的 + 移动端被名额挤出去的（不含这台设备不提供的） */
 export function headerOverflowFor(
   mobile: boolean,
   cfg?: HeaderCfg | null,
   pdf = false,
 ): HeaderActionId[] {
   const shown = headerActionsFor(mobile, cfg, pdf);
-  return orderedIds(cfg).filter((id) => !shown.includes(id) && (pdf || !isPdfAction(id)));
+  const allowed = new Set(availableActions(mobile, pdf));
+  return orderedIds(cfg).filter((id) => allowed.has(id) && !shown.includes(id));
 }
 
 /** 不带用户配置时的默认清单（老入口，保留兼容） */

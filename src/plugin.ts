@@ -470,8 +470,12 @@ export function createPlugin(cfg: PluginConfig) {
       /* ── 命令 ──
        * 键盘上能做的动作这里都注册一份：用户在 Obsidian 的「快捷键」里
        * 改成自己顺手的键，壳层设置页只负责把绑定读回来显示（点一下跳过去改）。
-       * 注册表在 plugin-commands.ts：id 是稳定契约，名字走 t() 随语言变。 */
+       * 注册表在 plugin-commands.ts：id 是稳定契约，名字走 t() 随语言变。
+       * 手机上不提供的（见 mobileDisabled）干脆不注册：留着也会在命令面板
+       * 里露一条点了没反应的条目。 */
+      const phone = isMobileEnv();
       for (const cmd of COMMANDS) {
+        if (phone && cmd.mobileDisabled) continue;
         this.addCommand({
           id: cmd.id,
           name: t(cmd.key),

@@ -158,8 +158,11 @@ function overlaySearch(): string {
  *
  * 它现在有两个出口：阅读页右上角的浮层（主路径，边调边看）与
  * 命令面板兜底弹层。**同一个函数**，避免两处控件长歪。
+ *
+ * @param mobile 手机上不出现「栏数」：引擎的竖屏规则写死单栏，
+ *   给了选择也是白给（缺省读真实设备，测试直接传两端）
  */
-export function typographyFormHtml(): string {
+export function typographyFormHtml(mobile = isMobileEnv()): string {
   const p = shellPrefs();
 
   const seg = (name: string, opts: Array<[string, string]>, cur: string): string =>
@@ -208,14 +211,18 @@ export function typographyFormHtml(): string {
     <div class="bzs-setrow bzs-setrow-dir"><label>方向</label>
       <div class="bzs-dirpick">${dir('horizontal')}${dir('vertical')}</div>
     </div>
-    <div class="bzs-setrow"><label>栏数</label>${seg(
-      'columns',
-      [
-        ['1', '单栏'],
-        ['2', '双栏'],
-      ],
-      String(p.columns),
-    )}</div>
+    ${
+      mobile
+        ? ''
+        : `<div class="bzs-setrow"><label>栏数</label>${seg(
+            'columns',
+            [
+              ['1', '单栏'],
+              ['2', '双栏'],
+            ],
+            String(p.columns),
+          )}</div>`
+    }
     <div class="bzs-setrow"><label>翻页</label>${seg(
       'flow',
       [

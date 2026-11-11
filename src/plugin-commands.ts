@@ -21,6 +21,14 @@ export interface CommandSpec {
    * 没有 = 书架侧命令，随时可跑。
    */
   reader?: ReaderCommand;
+  /**
+   * 手机上不注册这条命令（2026-11-11）。
+   *
+   * 目前只有朗读：手机浏览器内核没有稳定的语音合成通道，入口全收之后
+   * 命令面板再留一条「阅读：朗读」，点了只是没反应。id 仍保留给桌面，
+   * 用户已经绑好的快捷键不受影响。
+   */
+  mobileDisabled?: boolean;
 }
 
 /**
@@ -56,7 +64,7 @@ export const COMMANDS: readonly CommandSpec[] = [
   { id: 'bookmap', key: 'cmd.bookmap', reader: 'bookmap' },
   /* 本章导读（2026-11-11）：读中随手看一眼「这一章要带着什么读」 */
   { id: 'guide', key: 'cmd.guide', reader: 'guide' },
-  { id: 'tts', key: 'cmd.tts', reader: 'tts' },
+  { id: 'tts', key: 'cmd.tts', reader: 'tts', mobileDisabled: true },
   /* ── PDF 专用 ──
    * 头栏图标与排版面板在手机上会折进 ⋮，命令面板是另一条稳定入口；
    * 放大 / 旋转这类高频动作也值得单独绑键。EPUB 上按下安静退出（见

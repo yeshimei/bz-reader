@@ -24,8 +24,9 @@ import { HIGHLIGHT_COLORS, colorLabel } from '../../data/notes';
 import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
 import { can, entitlement, GROUP_ID, tierText } from '../../data/entitlement';
 import { dataDirOf } from '../../core/plugin-path';
+import { isMobileEnv } from '../../core/mobile';
 import type { HotkeyRow } from '../../core/hotkeys';
-import { HEADER_ACTION_IDS, headerActionSpec, type HeaderActionId } from '../../view/header-actions';
+import { HEADER_ACTION_IDS, headerActionSpec, isMobileHiddenAction, type HeaderActionId } from '../../view/header-actions';
 import { rangeFill } from '../range-fill';
 import { esc, githubIcon, ico } from './html';
 import { segHtml } from './seg';
@@ -48,6 +49,16 @@ export interface SettingsView {
    * 还没探测到，按「未连接」画状态并给教程出口，不摆假开关。
    */
   bz?: { ok: boolean; version: string; model: string; entry: boolean; notes: boolean };
+  /**
+   * 是不是手机形态（缺省读真实设备）。
+   *
+   * 手机上没有的几项（分栏、朗读、快捷键）直接不渲染：
+   *   · 分栏——引擎竖屏规则写死单栏，给了选择也是白给；
+   *   · 朗读——手机浏览器内核没有稳定的语音合成通道；
+   *   · 快捷键——点一行打开的是桌面快捷键面板，手机没有这一页。
+   * 参数留给测试直接钉两端，不必去模拟 Platform。
+   */
+  mobile?: boolean;
 }
 
 /**
@@ -164,6 +175,7 @@ function aboutBar(version: string, paid: boolean, patron: boolean, name?: string
 export function viewSettings(v: SettingsView): string {
   const p = v.prefs;
   const s = v.settings;
+  const mobile = v.mobile ?? isMobileEnv();
   /* 授权结论页头（关于条）与页尾（授权组）都要用，取一次 */
   const ent = entitlement();
   const paid = ent.tier === 'paid';
@@ -218,14 +230,19 @@ export function viewSettings(v: SettingsView): string {
         ],
         p.layout,
       )}</div>
-      <div class="bzs-setrow"><label>${t('settings.columns')}</label>${seg(
-        'columns',
-        [
-          ['1', t('settings.columns.1')],
-          ['2', t('settings.columns.2')],
-        ],
-        String(p.columns),
-      )}</div>
+      ${
+        /* 手机竖屏恒为单栏（引擎的容器方向规则写死 1），这一行给了也白给 */
+        mobile
+          ? ''
+          : `<div class="bzs-setrow"><label>${t('settings.columns')}</label>${seg(
+              'columns',
+              [
+                ['1', t('settings.columns.1')],
+                ['2', t('settings.columns.2')],
+              ],
+              String(p.columns),
+            )}</div>`
+      }
       <div class="bzs-setrow"><label>${t('settings.footnote')}</label>${seg(
         'footnote',
         // 浮窗已并入基础版：两个选项都是真实可用的
@@ -345,8 +362,15 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfLinkLabel.hint')}</div>
     </div>`;
 
-  /* 阅读页右上角图标：可排序、可收起。收起的进 ⋮；移动端最多露 3 颗。 */
-  const headerOrder: string[] = p.headerOrder.length ? p.headerOrder : HEADER_ACTION_IDS.slice();
+  /* 阅读页右上角图标：可排序、可收起。收起的进 ⋮；移动端最多露 3 颗。
+     手机上不提供的那几项（并排 / 对照书籍 / 朗读）不列出来——
+     列出来的话，用户能把它们拖进前三颗，头栏就多一颗点不动的按钮。
+     PDF 那三颗照旧列出：它们在桌面 PDF 里还有用。 */
+  const listed = HEADER_ACTION_IDS.filter((id) => !(mobile && isMobileHiddenAction(id)));
+  const headerOrder: string[] = (p.headerOrder.length ? p.headerOrder : HEADER_ACTION_IDS.slice())
+    .filter((id) => listed.includes(id as HeaderActionId));
+  /* 用户顺序里没有的（新加的动作、或刚从手机切回桌面）按默认顺序补在后面 */
+  for (const id of listed) if (!headerOrder.includes(id)) headerOrder.push(id);
   const headerRows = headerOrder
     .map((id, i) => {
       const spec = headerActionSpec(id as HeaderActionId);
@@ -370,11 +394,14 @@ export function viewSettings(v: SettingsView): string {
     </div>`;
 
   /* 朗读：语速与「念完续页」原来塞在阅读页的排版浮层里，调的时候浮层本身
-     就挡着正文。这两项属于「怎么读」，搬到设置页单起一组。 */
+     就挡着正文。这两项属于「怎么读」，搬到设置页单起一组。
+     手机上没有朗读入口，这组一起收起：留着两个调不出来的参数更费解。 */
   const ttsUnlocked = can('tts');
-  const tts = `<div class="bzs-setgrp${ttsUnlocked ? '' : ' is-locked'}"${
-    ttsUnlocked ? '' : ` data-act="unlock" data-mode="tts" title="${t('settings.locked')}"`
-  }>
+  const tts = mobile
+    ? ''
+    : `<div class="bzs-setgrp${ttsUnlocked ? '' : ' is-locked'}"${
+        ttsUnlocked ? '' : ` data-act="unlock" data-mode="tts" title="${t('settings.locked')}"`
+      }>
       <h3>${t('settings.grp.tts')}</h3>
       ${range('ttsRate', t('settings.ttsRate'), p.ttsRate, TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, TTS_RATE_RANGE.step, (x) => `${x.toFixed(1)}×`)}
       <div class="bzs-setrow"><label>${t('settings.ttsFollow')}</label>${seg(
@@ -508,7 +535,10 @@ export function viewSettings(v: SettingsView): string {
     })
     .join('');
 
-  const keys = `<div class="bzs-setgrp wide">
+  /* 手机没有物理键盘、也没有那一页设置，整组收起。 */
+  const keys = mobile
+    ? ''
+    : `<div class="bzs-setgrp wide">
       <h3>${t('settings.grp.keys')}</h3>
       <div class="bzs-keys">${keyRows}</div>
     </div>`;

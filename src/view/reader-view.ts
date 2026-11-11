@@ -39,11 +39,10 @@ import { probeEnabled } from './debug-probe';
 import { el, setHtml } from '../ui/dom';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
 import {
-  HEADER_ACTION_IDS,
+  availableActions,
   headerActionSpec,
   headerActionsFor,
   headerActive,
-  isPdfAction,
   type HeaderActionId,
 } from './header-actions';
 import { planHeaderVisibility, roleOf } from './header-layout';
@@ -1099,7 +1098,9 @@ export class ReaderView extends ItemView {
         this.toggleBookmark();
         break;
       case 'tts':
-        this.toggleTts();
+        /* 手机不提供朗读：命令在命令面板里也不注册（见 plugin-commands），
+           这条兜底防别的入口（内置键 / 深链）把它再叫起来。 */
+        if (!isMobileEnv()) this.toggleTts();
         break;
       case 'typography': {
         /* PDF 的「排版」是旋转 / 单双页 / 翻页，不是字号行距（那些来自原文件）。
@@ -1178,14 +1179,17 @@ export class ReaderView extends ItemView {
       library: () => getShellSource()?.openStudy('library'),
     };
     /* 三个会变的标题（并排 / 朗读 / 沉浸）说的是「点了会怎样」：
-       开着的时候应该是「关闭 / 停止 / 退出」，不是图标名。 */
+       开着的时候应该是「关闭 / 停止 / 退出」，不是图标名。
+       手机上没有这三项（见 availableActions），dynamic 里留着也不影响。 */
     const dynamic: Partial<Record<HeaderActionId, string>> = {
       para: this.parallelOn ? t('menu.para.close') : undefined,
       paraBook: t('menu.compare.title', { title: other?.meta.title ?? t('menu.compare.none') }),
       tts: this.speaking ? t('menu.tts.stop') : undefined,
       immersive: this.immersive ? t('menu.immersive.exit') : undefined,
     };
-    for (const id of HEADER_ACTION_IDS.filter((x) => this.host.isPdf || !isPdfAction(x))) {
+    /* 头栏、这里、设置页的图标列表共用 availableActions：手机上 ⋮ 是主入口，
+       这里漏一处就等于「头栏藏了、菜单里还在」。 */
+    for (const id of availableActions(isMobileEnv(), this.host.isPdf)) {
       const spec = headerActionSpec(id);
       const action = run[id];
       menu.addItem((i) =>
