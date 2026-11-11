@@ -495,6 +495,7 @@ export const EN: Record<MsgKey, string> = {
   'tool.quote': 'Quote',
   'tool.ai': 'AI',
   'tool.bilink': 'Link',
+  'tool.ocr': 'Recognize',
   'tool.copy': 'Copy',
   'tool.del': 'Delete',
   'tool.more': 'More',

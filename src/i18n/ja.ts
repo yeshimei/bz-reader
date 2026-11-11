@@ -462,6 +462,8 @@ export const JA: Record<MsgKey, string> = {
   'notice.enrich.fail': 'AI から使える情報が返ってきませんでした。あとで再試行',
   'tool.quote': '引用',
   'tool.ai': 'AI',
+
+  'tool.ocr': 'Recognize',
   'tool.bilink': 'リンク',
   'tool.copy': 'コピー',
   'tool.del': '削除',

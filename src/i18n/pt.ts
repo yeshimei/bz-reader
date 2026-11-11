@@ -469,6 +469,8 @@ export const PT: Record<MsgKey, string> = {
   'notice.enrich.fail': 'A IA não retornou informações úteis; tente mais tarde',
   'tool.quote': 'Citação',
   'tool.ai': 'IA',
+
+  'tool.ocr': 'Recognize',
   'tool.bilink': 'Wikilink',
   'tool.copy': 'Copiar',
   'tool.del': 'Excluir',

@@ -87,8 +87,11 @@ export interface PdfOcrUi {
   applyPage(page: number, ocr: OcrPage | null): void;
   /** 页文本（识别优先）：判断「这页有没有字」的最终口径 */
   pageText(page: number): Promise<string>;
-  /** 一页渲染成位图（识别用），带出图时的显示角度 */
-  image(page: number, maxWidth: number): Promise<{ blob: Blob; rotation: number } | null>;
+  /** 一页渲染成位图（识别用），带出图时的显示角度与像素宽高 */
+  image(
+    page: number,
+    maxWidth: number,
+  ): Promise<{ blob: Blob; rotation: number; width: number; height: number } | null>;
 }
 
 export interface ReaderEngine {

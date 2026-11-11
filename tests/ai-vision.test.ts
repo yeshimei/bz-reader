@@ -110,6 +110,39 @@ describe('外部 OCR 服务', () => {
     expect(got.text).toBe('整页字');
   });
 
+  it('请求体同时带 image 与 base64（Umi-OCR 只认后者），像素坐标按出图尺寸换算', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        code: 100,
+        data: [
+          {
+            text: '第一行',
+            box: [
+              [100, 200],
+              [500, 200],
+              [500, 240],
+              [100, 240],
+            ],
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const got = await recognizeViaHttp({
+      url: 'http://127.0.0.1:1224/api/ocr',
+      image: 'QUJD',
+      mime: 'image/jpeg',
+      width: 1000,
+      height: 2000,
+    });
+    expect(got.layout).toBe(true);
+    expect(got.lines[0]?.rect).toEqual({ left: 0.1, top: 0.1, width: 0.4, height: 0.02 });
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as Record<string, unknown>;
+    expect(body.base64).toBe('QUJD');
+    expect(body.image).toBe('QUJD');
+  });
+
   it('没填地址 / 连不上 / 非 200 / 非 JSON 都给一句人话', async () => {
     await expect(recognizeViaHttp({ url: '', image: 'x', mime: 'image/jpeg' })).rejects.toThrow('还没填 OCR 服务地址');
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));

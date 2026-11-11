@@ -42,7 +42,12 @@ function depsOf(host: PdfOcrHostLike | null, adapter: FakeAdapter, notes: string
     book: () => ({ id: 'b1' }),
     host: () => host,
     settings: () => settings(),
-    image: async () => ({ blob: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' }), rotation: 0 }),
+    image: async () => ({
+      blob: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' }),
+      rotation: 0,
+      width: 1600,
+      height: 2200,
+    }),
     notify: (message) => notes.push(message),
   };
 }

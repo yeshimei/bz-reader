@@ -468,6 +468,8 @@ export const ES: Record<MsgKey, string> = {
   'notice.enrich.fail': 'La IA no devolvió información útil; inténtalo más tarde',
   'tool.quote': 'Cita',
   'tool.ai': 'IA',
+
+  'tool.ocr': 'Recognize',
   'tool.bilink': 'Enlace',
   'tool.copy': 'Copiar',
   'tool.del': 'Eliminar',

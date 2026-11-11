@@ -100,8 +100,11 @@ export interface PdfOcrDeps {
   host: () => PdfOcrHostLike | null;
   /** 现取设置：设置页改完不用重开书 */
   settings: () => ReaderSettings;
-  /** 出图（一页 → 位图 + 出图时的显示角度）。由引擎实现，壳层不认识 pdf.js */
-  image: (page: number, maxWidth: number) => Promise<{ blob: Blob; rotation: number } | null>;
+  /** 出图（一页 → 位图 + 出图时的显示角度 + 像素宽高）。由引擎实现，壳层不认识 pdf.js */
+  image: (
+    page: number,
+    maxWidth: number,
+  ) => Promise<{ blob: Blob; rotation: number; width: number; height: number } | null>;
   onProgress?: (state: PdfOcrState) => void;
   notify?: (message: string, kind?: 'info' | 'error' | 'success') => void;
 }
@@ -217,6 +220,8 @@ export class PdfOcrRunner {
           url: settings.pdfOcrUrl,
           image: bytesToBase64(bytes),
           mime,
+          width: shot.width,
+          height: shot.height,
         });
         ocr = unrotateOcrPage(toOcrPage(parsed, 'http', 'http'), shot.rotation);
       } else {

@@ -61,32 +61,32 @@ export interface ReaderSettings {
   language: LanguagePref;
   ai: AiSettings;
   /**
-* 本地语音服务（2026-11-14）。
-*
-* 和 `ai` 一样是「服务配置」，放 settings 不放 prefs：它跟着这台机器走，
-* 换台电脑该连那台机器的 127.0.0.1。音色不在这里——那是听感，跟书走，
-* 在 prefs.ttsVoiceLocal。
-*/
-ttsLocal: LocalTtsSettings;
-/**
-* 在线语音服务（2026-11-14 从 AI 组独立出来）。
-*
-* 以前朗读借 `ai.baseUrl` 与 `ai.apiKey`，等于把「朗读用哪家」绑死在
-* 「AI 问答用哪家」上。现在自带地址 / 模型 / 密钥：两件事的账号未必
-* 相同，地址也可能是不同的代理。空地址 = 用 DeepSeek 官方默认。
-*/
-ttsOnline: OnlineTtsSettings;
-/**
-* 扫描页识别走哪条通道（2026-11-11）：
-*   `vision` 用上面配好的 AI（多模态看图），不用装任何东西；
-*   `http`   把图 POST 给用户自己的 OCR 服务（Umi-OCR / PaddleOCR 都行）。
-*
-* 故意**没有**「本地引擎」这一档：模型与 wasm 无法随插件三件套发布，
-* 打包进 main.js 会把 2.6 MB 撑到十几 MB，而且 iOS 上跑不稳。
-*/
-pdfOcrEngine: PdfOcrEngine;
-/** `http` 通道的服务地址（`http://127.0.0.1:9000/ocr` 这种） */
-pdfOcrUrl: string;
+   * 本地语音服务（2026-11-14）。
+   *
+   * 和 `ai` 一样是「服务配置」，放 settings 不放 prefs：它跟着这台机器走，
+   * 换台电脑该连那台机器的 127.0.0.1。音色不在这里——那是听感，跟书走，
+   * 在 prefs.ttsVoiceLocal。
+   */
+  ttsLocal: LocalTtsSettings;
+  /**
+   * 在线语音服务（2026-11-14 从 AI 组独立出来）。
+   *
+   * 以前朗读借 `ai.baseUrl` 与 `ai.apiKey`，等于把「朗读用哪家」绑死在
+   * 「AI 问答用哪家」上。现在自带地址 / 模型 / 密钥：两件事的账号未必
+   * 相同，地址也可能是不同的代理。空地址 = 用 DeepSeek 官方默认。
+   */
+  ttsOnline: OnlineTtsSettings;
+  /**
+   * 扫描页识别走哪条通道（2026-11-11）：
+   *   `vision` 用上面配好的 AI（多模态看图），不用装任何东西；
+   *   `http`   把图 POST 给用户自己的 OCR 服务（Umi-OCR / PaddleOCR 都行）。
+   *
+   * 故意**没有**「本地引擎」这一档：模型与 wasm 无法随插件三件套发布，
+   * 打包进 main.js 会把 2.6 MB 撑到十几 MB，而且 iOS 上跑不稳。
+   */
+  pdfOcrEngine: PdfOcrEngine;
+  /** `http` 通道的服务地址（`http://127.0.0.1:9000/ocr` 这种） */
+  pdfOcrUrl: string;
   /*
    * 这里**故意没有**「连接至 BZ AI 知识库」开关。
    *

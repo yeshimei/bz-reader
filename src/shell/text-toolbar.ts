@@ -22,6 +22,7 @@ export interface ToolbarColor {
 }
 
 export type ToolbarAct =
+  | 'ocr'
   | 'idea'
   | 'quote'
   | 'ai'
@@ -90,6 +91,18 @@ export function toolbarItems(kb?: boolean): ToolbarItem[] {
 export const DELETE_ITEM: ToolbarItem = { act: 'del', key: 'tool.del', icon: 'trash-2', danger: true };
 
 /**
+ * 扫描页框选时的「识别」。
+ *
+ * 不出现在普通划词条里：有文字层的页能直接划词，这一颗只会让用户以为
+ * 要「转换」什么。只在 PDF 框选（`only: ['ocr', ...]`）时插到最左——
+ * 那一刻用户想做的第一件事就是「让这块能选」。
+ *
+ * 点下去认**整页**，不是框里那一块：只有整页都有文字层，之后才能在页面上
+ * 任意划线；只认一块的话，出了这块就又不能选了。
+ */
+export const OCR_ITEM: ToolbarItem = { act: 'ocr', key: 'tool.ocr', icon: 'scan' };
+
+/**
  * 已存过知识盒的那两颗：文案换成「看名词 / 看段落」。
  *
  * 动作名不变——同一个 data-act 由动作表自己判断「存过就打开、没存过就录入」；
@@ -145,6 +158,9 @@ export function toolbarLayout(input: ToolbarLayoutInput): ToolbarLayout {
   const items = toolbarItems(input.kb).filter(
     (i) => !input.only || input.only.includes(i.act),
   );
+  /* 扫描页框选：把「识别」插到最左（它就是这一刻的主路径），
+     其余两颗（双链 / 复制）不动。 */
+  if (input.only?.includes('ocr')) items.unshift(OCR_ITEM);
   if (input.compact) {
     return {
       visible: items.slice(0, COMPACT_MAIN),
@@ -170,6 +186,8 @@ export function toolbarLayout(input: ToolbarLayoutInput): ToolbarLayout {
  */
 export interface ToolbarActs {
   dot: string;
+  /** 扫描页框选时的「识别本页」 */
+  ocr?: string;
   idea?: string;
   quote?: string;
   ai?: string;
@@ -182,6 +200,7 @@ export interface ToolbarActs {
 
 export const SELECTION_ACTS: ToolbarActs = {
   dot: 'selpen',
+  ocr: 'selocr',
   idea: 'selidea',
   quote: 'selquote',
   ai: 'selai',

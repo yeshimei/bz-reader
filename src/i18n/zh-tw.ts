@@ -461,6 +461,8 @@ export const ZH_TW: Record<MsgKey, string> = {
   'notice.enrich.fail': 'AI 沒有回傳可用的資訊，稍後再試',
   'tool.quote': '書摘',
   'tool.ai': 'AI',
+
+  'tool.ocr': '辨識',
   'tool.bilink': '雙鏈',
   'tool.copy': '複製',
   'tool.del': '刪除',

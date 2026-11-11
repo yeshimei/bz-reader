@@ -199,6 +199,35 @@ describe('模型返回的 JSON 解析', () => {
     expect(got.layout).toBe(true);
     expect(got.lines[0]?.text).toBe('甲');
   });
+
+  it('四边形多边形 + 像素坐标（Umi-OCR 的形状）也收成行', () => {
+    const data = [
+      {
+        text: '第一行',
+        /* 左上 / 右上 / 右下 / 左下 四个点，像素单位 */
+        box: [
+          [100, 200],
+          [500, 200],
+          [500, 240],
+          [100, 240],
+        ],
+        score: 0.96,
+      },
+    ];
+    const got = parseOcrValue(data, { width: 1000, height: 2000 });
+    expect(got.layout).toBe(true);
+    expect(got.lines[0]?.rect).toEqual({ left: 0.1, top: 0.1, width: 0.4, height: 0.02 });
+  });
+
+  it('只取前四个点会把框算歪——八个数必须走多边形那条', () => {
+    /* 前四个数是「左上 x,y + 右上 x,y」，按宽高收的话 width 会变成 500（像素） */
+    const got = normalizeOcrLine(
+      { text: '甲', box: [[100, 200], [500, 200], [500, 240], [100, 240]] },
+      { width: 1000, height: 1000 },
+    );
+    expect(got?.rect.width).toBeCloseTo(0.4, 6);
+    expect(got?.rect.height).toBeCloseTo(0.04, 6);
+  });
 });
 
 describe('扫描件判定', () => {

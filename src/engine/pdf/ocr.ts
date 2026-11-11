@@ -91,15 +91,50 @@ function roundRect(rect: PdfRectArea): PdfRectArea {
   return { left: fix(rect.left), top: fix(rect.top), width: fix(rect.width), height: fix(rect.height) };
 }
 
+/** 把「扁平的数数组」或「点数组」拍成扁平数数组；有一个不是数就返回 null */
+function flatNums(value: unknown[]): number[] | null {
+  const out: number[] = [];
+  for (const item of value) {
+    if (Array.isArray(item)) {
+      for (const v of item) {
+        const n = num(v);
+        if (n === null) return null;
+        out.push(n);
+      }
+      continue;
+    }
+    const n = num(item);
+    if (n === null) return null;
+    out.push(n);
+  }
+  return out;
+}
+
 /** 从一堆候选键里取四个数；认不出来返回 null */
 function boxOf(raw: Record<string, unknown>): { nums: number[]; corners: boolean } | null {
   for (const [key, value] of Object.entries(raw)) {
     const k = key.toLowerCase();
     if (k !== 'box' && k !== 'bbox' && k !== 'bounds' && k !== 'rect' && k !== 'quad' && k !== 'polygon') continue;
-    if (!Array.isArray(value) || value.length < 4) continue;
-    const nums = value.slice(0, 4).map((v) => num(v));
-    if (nums.some((n) => n === null)) continue;
-    return { nums: nums as number[], corners: CORNER_KEYS.has(k) };
+    if (!Array.isArray(value)) continue;
+    const flat = flatNums(value);
+    if (!flat) continue;
+    /* 四边形：Umi-OCR 给 `[[x1,y1],[x2,y2],[x3,y3],[x4,y4]]`（四点数组），
+       PaddleOCR 给扁平八个数。两种都拍成八个数，取外包矩形。
+       只取前四个数会把框算成「左上点 + 右上点当宽高」，整页歪到右上角。 */
+    if (flat.length >= 8 && flat.length % 2 === 0) {
+      const xs: number[] = [];
+      const ys: number[] = [];
+      for (let i = 0; i < flat.length; i += 2) {
+        xs.push(flat[i]!);
+        ys.push(flat[i + 1]!);
+      }
+      return {
+        nums: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)],
+        corners: true,
+      };
+    }
+    if (flat.length < 4) continue;
+    return { nums: flat.slice(0, 4), corners: CORNER_KEYS.has(k) };
   }
   const x = num(raw.x);
   const y = num(raw.y);

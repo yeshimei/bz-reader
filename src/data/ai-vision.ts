@@ -94,9 +94,11 @@ export async function recognizeOnPage(
  * 外部服务的约定（极简，方便用 Umi-OCR / PaddleOCR 自己包一层）：
  *
  *   请求 POST <url>
- *        {"image":"<base64，不含 data: 前缀>","mime":"image/jpeg"}
+ *        {"image":"<base64，不含 data: 前缀>","base64":"<同一份>","mime":"image/jpeg"}
+ *        （`base64` 是为 Umi-OCR 这类只认这个字段的服务多带的，多一个字段没坏处）
  *   响应 200，任选其一：
- *        {"lines":[{"text":"…","box":[x,y,w,h]}]}      ← 推荐（0..1 或 0..1000）
+ *        {"lines":[{"text":"…","box":[x,y,w,h]}]}      ← 0..1 或 0..1000
+ *        {"data":[{"text":"…","box":[[x1,y1],[x2,y2],…]}]}  ← Umi-OCR：八个数多边形 + 像素
  *        {"text":"整页文字"}                            ← 只有字，不能划词
  *        [{"text":"…","bbox":[x1,y1,x2,y2]}]            ← 裸数组
  *
@@ -107,6 +109,14 @@ export interface HttpOcrInput {
   /** 纯 base64（不含 data: 前缀） */
   image: string;
   mime: string;
+  /**
+   * 出图时的像素宽高。
+   *
+   * Umi-OCR 这一类回的是**像素坐标**，没有这两个数就算不出比例，整页会被
+   * 判成「只有文本、不能划词」——明明识别是对的，画不出来就白认了。
+   */
+  width?: number;
+  height?: number;
   signal?: AbortSignal;
 }
 
@@ -128,7 +138,11 @@ export async function recognizeViaHttp(input: HttpOcrInput): Promise<ParsedOcr> 
     res = await window.fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: input.image, mime: input.mime || 'image/jpeg' }),
+      body: JSON.stringify({
+        image: input.image,
+        base64: input.image,
+        mime: input.mime || 'image/jpeg',
+      }),
       signal: input.signal,
     });
   } catch (e) {
@@ -142,7 +156,11 @@ export async function recognizeViaHttp(input: HttpOcrInput): Promise<ParsedOcr> 
   } catch {
     throw new Error(t('notice.pdf.ocrBadJson'));
   }
-  const parsed = parseOcrValue(unwrapOcrBody(body));
+  const ref =
+    input.width && input.height && input.width > 0 && input.height > 0
+      ? { width: input.width, height: input.height }
+      : undefined;
+  const parsed = parseOcrValue(unwrapOcrBody(body), ref);
   if (!parsed.lines.length && !parsed.text) throw new Error(t('notice.pdf.ocrEmpty'));
   return parsed;
 }

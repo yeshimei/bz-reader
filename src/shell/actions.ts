@@ -70,6 +70,7 @@ import { userFacingActionIds, isMobileHiddenAction, type HeaderActionId } from '
 import { moveHeaderAction } from './header-order';
 import type { ReaderPrefs } from '../data/prefs';
 import { wikilinkOf, wikilinkOfMark } from '../data/wikilink';
+import { pdfLocatorPage } from '../engine/pdf/locator';
 import { buildNotesBody, exportBookNotes, safeName } from '../data/export';
 import { jumpTo, getToc } from '../view/toc-state';
 import { LIB_FILTERS, LIB_SORTS } from './render/study';
@@ -2580,6 +2581,20 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (!requireCap('kb')) break;
       knowledgeEntry('passage', d.id, d.book);
       break;
+    case 'selocr': {
+      /* 扫描页框选后的那颗「识别」。
+         认整页而不是框里那一块：只有整页都有文字层，之后才能在页面上随便划；
+         只认一块的话，出了这块又选不中了。 */
+      const sel = RT.sel;
+      const page = sel ? pdfLocatorPage(sel.cfiRange) : null;
+      if (!sel || !page) {
+        notify(t('notice.locate.notReady'), 'info');
+        break;
+      }
+      getShellSource()?.recognizePage(page, sel.bookId);
+      finishSelection('selocr');
+      break;
+    }
     case 'selbilink': {
       /* 还没落下标注，只能拿选区 + 当前章名拼双向链接；
          与笔记页的「双向链接」按钮同源（data/wikilink.ts 的 wikilinkOf）。

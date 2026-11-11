@@ -1008,6 +1008,7 @@ export class PdfView {
           );
           break;
       }
+    }
     /* 扫描页才需要这一行：认过字的页显示「已识别」，点一下重认。
        有文字层的页不出现——那页本来就能划词，多一行只会让人以为要转换。
        判据用「文字已知为空」而不是「页上有没有 span」：还没渲染出来的页
@@ -1328,10 +1329,13 @@ export class PdfView {
    * `rotation` 一并带回去：识别结果是在这个方向上量的，存之前要按它反算回
    * 未旋转页面坐标，否则「开着 90° 认的字，转回 0° 看就整体歪掉」。
    */
-  async ocrImage(page: number, maxWidth = 1600): Promise<{ blob: Blob; rotation: number } | null> {
-    const blob = await this.doc.renderImage(page, maxWidth, this.rotation);
-    if (!blob) return null;
-    return { blob, rotation: this.rotation };
+  async ocrImage(
+    page: number,
+    maxWidth = 1600,
+  ): Promise<{ blob: Blob; rotation: number; width: number; height: number } | null> {
+    const shot = await this.doc.renderImage(page, maxWidth, this.rotation);
+    if (!shot) return null;
+    return { ...shot, rotation: this.rotation };
   }
 
   setAnnotations(list: ReadonlyArray<{ cfiRange: string; color?: string; text?: string }>): void {

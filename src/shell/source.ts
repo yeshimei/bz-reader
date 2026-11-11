@@ -138,6 +138,13 @@ export interface ShellSource {
    */
   currentText: () => string;
   /**
+   * 扫描页识别：认当前打开这本的某一页。
+   *
+   * 从划词条那颗「识别」进来（框选之后才有）。`bookId` 用来挡掉「划词条
+   * 还挂在另一本书上」的情况——认错书比不认更糟。
+   */
+  recognizePage: (page: number, bookId?: string) => void;
+  /**
    * 激活码：验签 → 写 entitlement（data.json）→ 重绘。
    * 书架设置页与解锁弹层都必须走它，否则会出现「显示已激活、功能锁死」。
    */

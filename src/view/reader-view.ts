@@ -580,7 +580,18 @@ export class ReaderView extends ItemView {
 
   /* ─────────────────── 扫描页识别 ─────────────────── */
 
-  /** 认指定的一页（命令 / 排版面板那颗按钮都走这里） */
+  /**
+   * 认指定的一页（命令 / 排版面板 / 划词条那颗「识别」都走这里）。
+   *
+   * `bookId` 给了就先核对：划词条可能还挂在另一本书上（切书后没重挂），
+   * 认错书比不认更糟。
+   */
+  recognizePageAt(page: number, bookId?: string): void {
+    if (bookId && this.book?.id !== bookId) return;
+    this.recognizePage(page);
+  }
+
+  /** 认指定的一页（内部的实现） */
   private recognizePage(page = this.currentPageNumber()): void {
     if (!this.host.isPdf) {
       notify(t('notice.pdf.ocrOnly'), 'info');
@@ -3910,9 +3921,10 @@ export class ReaderView extends ItemView {
         kb,
         narrow: (root.clientWidth || 0) < 520,
         acts: SELECTION_ACTS,
-        /* 框选没有文字：想法 / 书摘 / AI / 名词 / 段落 全都无从下手，
-           只留「双链」「复制」，色点也收起来（框选高亮走标注那条路） */
-        only: info.region ? ['bilink', 'copy'] : undefined,
+        /* 框选没有文字：想法 / 书摘 / AI / 名词 / 段落 全都无从下手。
+           第一颗是「识别」——认完整页就有字了，之后随便划；
+           另两颗是「双链」「复制」，不认也能搬出去。色点收起来（框选高亮走标注那条路）。 */
+        only: info.region ? ['ocr', 'bilink', 'copy'] : undefined,
         /* 存的这本划线已经存过名词 / 段落：那两颗显示成「看名词 / 看段落」 */
         kbDone: kbDoneOf(saved?.kb),
         /* 设置里的工具条样式：文字 / 图标（默认文字） */

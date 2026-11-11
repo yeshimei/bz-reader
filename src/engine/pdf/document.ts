@@ -535,7 +535,11 @@ export class PdfDocument {
    * 「显示方向」的），调用方识别完用 `rotateNormRect(rect, -rotation)` 反算回
    * 未旋转坐标再存——渲染那一步会按当前角度再转回来，两头对得上。
    */
-  async renderImage(page: number, maxWidth = 1600, rotation = 0): Promise<Blob | null> {
+  async renderImage(
+    page: number,
+    maxWidth = 1600,
+    rotation = 0,
+  ): Promise<{ blob: Blob; width: number; height: number } | null> {
     try {
       const target = Math.max(1, Math.min(this.numPages, Math.floor(page)));
       const size = await this.getPageSize(target);
@@ -543,13 +547,16 @@ export class PdfDocument {
       const canvas = createEl('canvas');
       const task = await this.renderPage(target, canvas, scale, 1, rotation);
       await task.promise;
-      return await new Promise<Blob | null>((resolve) => {
+      const blob = await new Promise<Blob | null>((resolve) => {
         try {
-          canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.86);
+          canvas.toBlob((out) => resolve(out), 'image/jpeg', 0.86);
         } catch {
           resolve(null);
         }
       });
+      if (!blob) return null;
+      /* 像素宽高一起带出去：外部 OCR 服务回的是像素坐标，没有它算不出比例 */
+      return { blob, width: canvas.width, height: canvas.height };
     } catch {
       return null;
     }

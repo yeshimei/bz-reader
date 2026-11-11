@@ -467,6 +467,8 @@ export const DE: Record<MsgKey, string> = {
   'notice.enrich.fail': 'Die KI hat keine verwertbaren Angaben geliefert – versuche es später erneut.',
   'tool.quote': 'Zitat',
   'tool.ai': 'KI',
+
+  'tool.ocr': 'Recognize',
   'tool.bilink': 'Wikilink',
   'tool.copy': 'Kopieren',
   'tool.del': 'Löschen',

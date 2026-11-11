@@ -501,6 +501,7 @@ export const ZH = {
   'tool.quote': '书摘',
   'tool.ai': 'AI',
   'tool.bilink': '双链',
+  'tool.ocr': '识别',
   'tool.copy': '复制',
   'tool.del': '删除',
   'tool.more': '更多',
