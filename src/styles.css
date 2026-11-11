@@ -1781,9 +1781,3 @@ body.is-mobile .bzr-pdf-toolbar {
   /* 手机上工具栏直接压在正文上：半透明会让底下的字透上来，看着像糊了 */
   opacity: 1;
 }
-.bzr-mat-idea {
-  margin-top: 4px;
-  font-size: 12px;
-  color: var(--bzr-text-2);
-  font-style: italic;
-}
