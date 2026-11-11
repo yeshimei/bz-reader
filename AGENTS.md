@@ -92,16 +92,17 @@ node scripts/issue-license.mjs --plan lifetime --id BZR-AF-2026-0021
 - 名单是公开只读数据，README「网络访问」已披露；改动读取逻辑时别绕过 `requestUrl`（码云 raw 没有跨域头）。
 
 ## 上架
-上架分两段：**先提交代码送审，审评通过之后再发 Release**。不走 `obsidian-releases` 的 PR，社区目录在 `community.obsidian.md` 网页提交。
+上架分两段：**先推代码做预览扫描，通过之后再发 Release**。不走 `obsidian-releases` 的 PR，社区目录在 `community.obsidian.md` 网页提交。
 
 这是用户 2026-11-11 拍板的硬顺序，**不许再改回去**：
 
-**推 master → 送审 → 审评通过 → 打 tag → 发 Release（挂三件套）→ 部署三处 → 镜像码云**
+**推 master → Review branch 预览扫描 → 有 Error 就修 → 打 tag → 发 Release（挂三件套）→ 催 Check for new releases 并轮询到通过 → 部署三处 → 镜像码云**
 
-- 送审前只做「提交并推送 master」：不打 tag、不发 Release、不部署真实库，审评期间用户装不到未审版本。
-- 审评系统可能拿 `manifest.version` 去 GitHub 找同名 Release（2026-11-11 的 1.1.0 撞过「没有发布能匹配你的清单版本」）。若因此被打回，按官方报错处理并补提交，不要擅自改回「先 Release」。
-- 审评不通过：在 master 上改代码、涨个补丁号，重新提交送审；过审之前没有 tag，不涉及挪 tag。
-- 码云镜像放在最后：审评通过、Release 与三件套都上线之后再镜像，别让国内通道先于正本上线。
+- 「Review branch」是**预览扫描**（自动查 Manifest / Releases / 源码 / 构建），不是人工审评：选分支、tag 或 commit，点 Run preview scan，**不创建 Release**。
+- 发 Release 后目录会再自动扫一次，通过后条目才更新；`Check for new releases` 只是催目录立刻去查，别指望它替代发布。
+- 预览扫描通过前不打 tag、不发 Release、不部署真实库，用户装不到未审版本。
+- 扫出 Error：在 master 上改，重推、重扫；通过之前没有 tag，不涉及挪 tag。Warning / Recommendation 不阻断，但尽量清掉。
+- 码云镜像放在最后：目录扫描通过、Release 与三件套都上线之后再镜像，别让国内通道先于正本上线。
 
 每次上架前必须跑官方 lint：
 ```powershell
@@ -112,22 +113,23 @@ node scripts/lint-obsidian.mjs
 - 脚本自己生成、跑完删掉 `eslint.config.mjs`；不要把配置文件提交进仓库。
 - 唯一豁免 `@typescript-eslint/no-deprecated`：`caretRangeFromPoint` 与 `Workspace.activeLeaf` 在 minAppVersion 1.7.2 下没有等价替代。
 
-### 第一段：提交代码并送审
+### 第一段：提交代码并预览扫描
 1. `node scripts/lint-obsidian.mjs` → 0/0（TypeScript 与 CSS 两道都在这条命令里）；
 2. **补齐本版多语言**：把本次改动新增/改动的文案在 `src/i18n/` 里七种外语全部换成正式翻译（替换开发期留的英文/繁体占位）。自查四条——key 集合与 `zh.ts` 一致、无空串、`{占位符}`与中文逐条相同、拉丁语系包无汉字且 `zh-TW` 无简体字（跑 `vitest run tests/i18n-packs.test.ts` 就是这套）；
 3. 三道门（tsc / vitest / esbuild）；
 4. `manifest.json` 的 `version`、`versions.json` 同步（README 徽章由 shields 实时取 GitHub，不用再手动刷图）；
 5. 提交并推送 master；
-6. 在 `community.obsidian.md` 提交，等官方审评（预览检查）。
-    - **不通过**：照报错在 master 上改。只是配置或素材没对上 → 修好补提交同一版本再送审；**动过代码** → 涨补丁号（1.1.0 → 1.1.1），从第 1 步重来。
-    - **通过**：进第二段。
+6. 跑预览扫描：`node scripts/community-review.mjs scan --ref=master`（等价于网页 Review branch → Run preview scan，自动扫描器查 Manifest / Releases / 源码 / 构建）。
+    - **有 Error**：照结果在 master 上改，重跑第 1–6 步；
+    - **0 Error**：进第二段。
 
-### 第二段：过审之后发布与镜像
+### 第二段：发布、催扫描与镜像
 7. `node esbuild.config.mjs production`（落仓库根三件套：`main.js` / `manifest.json` / `styles.css`）。这一步必须在打 tag 之前，仓库根的三件套常常还是上一版；
 8. 打 tag 并推送——**tag 与 `manifest.version` 逐字相同，不带 `v`**；
 9. `gh release create <版本> --title <版本> --notes-file docs/note-v<版本>.md main.js manifest.json styles.css`（`--title` 必须与版本逐字相同：社区目录会检查 Release name 是否匹配 `manifest.version`），随后 `gh release view <版本>` 确认已转正、不再是 draft；
-10. 发版部署：`BZ_READER_VAULT=all node esbuild.config.mjs production` 落三处（仓库根 + 测试库 + 真实库），核对三处 `main.js` 字节数一致；
-11. `node scripts/push-gitee.mjs`：镜像到码云（Release 页 + 三件套资产）。
+10. 催目录扫描：`node scripts/community-review.mjs check`，轮询到本次 Release 被识别、扫描通过、条目更新；**不通过**就按报错回 master 改，涨补丁号重发（不挪已发出去的 tag）；
+11. 发版部署：`BZ_READER_VAULT=all node esbuild.config.mjs production` 落三处（仓库根 + 测试库 + 真实库），核对三处 `main.js` 字节数一致；
+12. `node scripts/push-gitee.mjs`：镜像到码云（Release 页 + 三件套资产）。
 
 目录审核要点：仓库根有 `README.md` / `LICENSE` / `manifest.json`；`manifest.json` 的 `description` **不能出现 “Obsidian”**（目录规则：上下文已蕴含，重复即 Error，会让预览直接 Failed）；Release 附三件套；`README` 披露「完整功能需付费」与网络访问。
 
