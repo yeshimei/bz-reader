@@ -69,7 +69,10 @@
   display: flex;
 }
 
-/* 弹窗里的按钮从零开始：宿主给 button 的底色 / 边框 / 行高在这里全是噪音 */
+/* 弹窗里的按钮从零开始：宿主给 button 的底色 / 边框 / 行高在这里全是噪音。
+   2026-11-11：宿主的 `button` 还带 `height: var(--input-height)`（默认 30px），
+   这里统一放开；原本靠这个默认高撑着的文字链接与「重试」在下面自己写了 30px，
+   外观不变。 */
 .bzs-sup button {
   margin: 0;
   padding: 0;
@@ -81,6 +84,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+  height: auto;
 }
 
 /* ── 纸面 ── */
@@ -227,6 +231,7 @@
 
 .bzs-sup .bzs-sup-sponsor,
 .bzs-sup .bzs-sup-star {
+  height: 30px;
   padding-bottom: 2px;
   border-bottom: 1px solid var(--sup-accent-soft);
   font-size: 11.5px;
@@ -272,8 +277,8 @@
   font-weight: 600;
   letter-spacing: 0.18em;
   color: var(--sup-ink-2);
-  /* 标题吃掉剩余空间：刷新钮与人数一起贴右边（2026-11-11 加刷新钮时改的，
-     原来是给人数 span 一个 margin-left:auto） */
+  /* 标题吃掉剩余空间，人数贴右边（2026-11-11 去掉刷新钮后仍是这条：
+     名单只在打开弹窗时自动拉一次，不再给手动刷新入口） */
   margin-right: auto;
 }
 
@@ -282,35 +287,6 @@
   font-size: 10px;
   letter-spacing: 0.04em;
   color: var(--sup-ink-3);
-}
-
-/* 手动刷新名单：一枚小图标，不抢名单标题的视线；点下去由 data/patrons 的
-   60 秒节流兜住，连点不会把 CDN 当接口刷 */
-.bzs-sup-list-hd .bzs-sup-refresh {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  margin: -4px 0 -4px 0;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--sup-ink-3);
-  cursor: pointer;
-  opacity: 0.72;
-  transition: opacity 0.15s ease, background-color 0.15s ease;
-}
-
-.bzs-sup-list-hd .bzs-sup-refresh:hover {
-  opacity: 1;
-  background: var(--sup-line-soft);
-}
-
-.bzs-sup-list-hd .bzs-sup-refresh:focus-visible {
-  outline: 2px solid var(--sup-accent, var(--bzs-accent, #b8924a));
-  outline-offset: 1px;
 }
 
 /* 名单自己滚：弹窗高度可预测，长名单不会把「知道了」顶出屏幕 */
@@ -415,6 +391,7 @@
 }
 
 .bzs-sup-retry {
+  height: 30px;
   padding: 2px 8px;
   border: 1px solid var(--sup-line-soft);
   border-radius: 999px;

@@ -562,11 +562,10 @@ export const ZH = {
   'support.note': '打赏后会出现在这份名单里。',
   'support.list': '支持者',
   'support.empty': '还没有人打赏',
-  /* 名单是在线拉的（2026-11-11）：加载中、拉失败给重试、手动刷新 */
+  /* 名单是在线拉的（2026-11-11）：加载中、拉失败给重试；打开弹窗即拉一次 */
   'support.loading': '名单加载中…',
   'support.loadFailed': '名单没加载出来',
   'support.retry': '重试',
-  'support.refresh': '刷新名单',
   'support.amountPatron': '赞助人',
   'support.codeAlt': '微信赞赏码',
   'support.done': '知道了',

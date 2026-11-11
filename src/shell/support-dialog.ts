@@ -41,12 +41,6 @@ const CLOSE_SVG =
   '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" ' +
   'stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
 
-/* 刷新：同一枚「转一圈的箭头」，比两个弯箭头省笔画，14px 下认得出来 */
-const REFRESH_SVG =
-  '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" ' +
-  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-  '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>';
-
 /** 金额位：数字补 ¥；「赞助人」走语言包，不在这里写死中文 */
 function amountHtml(amount: number | 'patron'): string {
   return amount === 'patron' ? esc(t('support.amountPatron')) : `¥${amount}`;
@@ -112,7 +106,6 @@ export function supportDialogHtml(
   status: PatronsStatus = patronsStatus(),
 ): string {
   const close = t('support.close');
-  const refresh = t('support.refresh');
   return (
     '<div class="bzs-sup">' +
     `<button class="bzs-sup-close" type="button" data-role="supclose" aria-label="${esc(close)}" title="${esc(close)}">${CLOSE_SVG}</button>` +
@@ -133,7 +126,6 @@ export function supportDialogHtml(
     '<div class="bzs-sup-list">' +
     '<div class="bzs-sup-list-hd">' +
     `<b>${esc(t('support.list'))}</b>` +
-    `<button class="bzs-sup-refresh" type="button" data-role="suprefresh" aria-label="${esc(refresh)}" title="${esc(refresh)}">${REFRESH_SVG}</button>` +
     `<span data-role="supcount">${names.length}</span>` +
     '</div>' +
     `<div class="bzs-sup-list-body" data-role="suplistbody">${supportListHtml(names, status)}</div>` +
@@ -195,12 +187,14 @@ export function openSupportDialog(): SupportDialogHandle {
   off = onPatronsChange(render);
 
   /* 先起请求：它会把状态同步置为 loading，首帧就画出「加载中」，不会先闪一下
-     「还没有人打赏」；60 秒内重复开关不会重复请求（节流在 data/patrons）。 */
-  const first = refreshPatrons();
+     「还没有人打赏」。2026-11-11 去掉手动刷新钮后改为**每次打开都强制拉一次**
+     （force 只跳过 60 秒节流；已有请求在飞时仍复用同一个 Promise）：名单是
+     在线数据，打开这一窗就是想看最新的。 */
+  const first = refreshPatrons({ force: true });
   if (!currentPatrons().length) render();
   void first.then(() => render());
 
-  /* 一处委托管五件事：关闭 / 知道了 / 赞助商店 / GitHub 收藏 / 重试与刷新。
+  /* 一处委托管这几件事：关闭 / 知道了 / 赞助商店 / GitHub 收藏 / 失败重试。
      两个去处都不走 <a>：Obsidian 会把裸链交给阅读视图，移动端常常点了没反应。 */
   modal.popup.addEventListener('click', (e) => {
     const target = e.target as HTMLElement | null;
@@ -217,8 +211,8 @@ export function openSupportDialog(): SupportDialogHandle {
       window.open(REPO_URL, '_blank', 'noopener,noreferrer');
       return;
     }
-    if (target.closest('[data-role="supretry"]') || target.closest('[data-role="suprefresh"]')) {
-      /* 手动刷新：先把「加载中」摆出来，再强制拉（绕过 60 秒节流） */
+    if (target.closest('[data-role="supretry"]')) {
+      /* 失败重试：先把「加载中」摆出来，再强制拉（绕过 60 秒节流） */
       if (!currentPatrons().length) {
         if (listBody) setHtml(listBody, supportListHtml([], 'loading'));
       }

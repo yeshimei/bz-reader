@@ -553,7 +553,6 @@ export const DE: Record<MsgKey, string> = {
   'support.loading': 'Unterstützer werden geladen…',
   'support.loadFailed': 'Liste konnte nicht geladen werden',
   'support.retry': 'Erneut versuchen',
-  'support.refresh': 'Liste aktualisieren',
   'support.amountPatron': 'Förderer',
   'support.codeAlt': 'WeChat-Spenden-QR-Code',
   'support.done': 'Verstanden',

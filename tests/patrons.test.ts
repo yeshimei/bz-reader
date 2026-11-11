@@ -251,7 +251,7 @@ describe('节流与订阅', () => {
     expect(calls.length).toBe(first);
   });
 
-  it('force 绕过节流（手动刷新按钮用）', async () => {
+  it('force 绕过节流（打开弹窗 / 失败重试用）', async () => {
     setHttp(() => doc(GOOD));
     await refreshPatrons();
     const first = calls.length;

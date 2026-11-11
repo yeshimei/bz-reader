@@ -547,7 +547,6 @@ export const JA: Record<MsgKey, string> = {
   'support.loading': '支援者を読み込み中…',
   'support.loadFailed': '一覧を読み込めませんでした',
   'support.retry': '再試行',
-  'support.refresh': '一覧を更新',
   'support.amountPatron': 'サポーター',
   'support.codeAlt': 'WeChat 賞賛コードの QR',
   'support.done': 'わかりました',

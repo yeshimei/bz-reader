@@ -555,7 +555,6 @@ export const PT: Record<MsgKey, string> = {
   'support.loading': 'Carregando apoiadores…',
   'support.loadFailed': 'Não foi possível carregar a lista',
   'support.retry': 'Tentar novamente',
-  'support.refresh': 'Atualizar lista',
   'support.amountPatron': 'Patrocinador',
   'support.codeAlt': 'QR code de gorjeta WeChat',
   'support.done': 'Entendi',

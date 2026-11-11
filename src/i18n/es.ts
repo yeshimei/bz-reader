@@ -554,7 +554,6 @@ export const ES: Record<MsgKey, string> = {
   'support.loading': 'Cargando mecenas…',
   'support.loadFailed': 'No se pudo cargar la lista',
   'support.retry': 'Reintentar',
-  'support.refresh': 'Actualizar lista',
   'support.amountPatron': 'Mecenas',
   'support.codeAlt': 'Código QR de propina WeChat',
   'support.done': 'Entendido',

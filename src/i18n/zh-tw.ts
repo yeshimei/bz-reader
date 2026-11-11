@@ -545,7 +545,6 @@ export const ZH_TW: Record<MsgKey, string> = {
   'support.loading': '名單載入中…',
   'support.loadFailed': '名單沒載入出來',
   'support.retry': '重試',
-  'support.refresh': '重新整理名單',
   'support.amountPatron': '贊助人',
   'support.codeAlt': '微信讚賞碼',
   'support.done': '知道了',

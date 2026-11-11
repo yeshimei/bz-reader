@@ -556,7 +556,6 @@ export const EN: Record<MsgKey, string> = {
   'support.loading': 'Loading supporters…',
   'support.loadFailed': 'Could not load the list',
   'support.retry': 'Retry',
-  'support.refresh': 'Refresh list',
   'support.amountPatron': 'Sponsor',
   'support.codeAlt': 'WeChat tip QR code',
   'support.done': 'Got it',

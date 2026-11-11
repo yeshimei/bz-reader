@@ -131,6 +131,14 @@ describe('弹窗内容', () => {
     expect(supportDialogHtml([])).toContain('还没有人打赏');
   });
 
+  /* 2026-11-11 用户拍板去掉名单标题旁的手动刷新钮：名单只在打开弹窗时
+     自动拉一次，拉失败另有「重试」。这条钉住结构，防止有人顺手加回来。 */
+  it('名单标题行不再有手动刷新钮，人数还在', () => {
+    const html = supportDialogHtml(NAMES);
+    expect(html).not.toContain('data-role="suprefresh"');
+    expect(html).toContain('data-role="supcount"');
+  });
+
   /* 名单 2026-11-11 起是在线拉的：弹窗得能说出「正在拉」「没拉到」，
      不能两种情况都写成「还没有人打赏」——那是在替网络故障撒谎。 */
   it('加载中：空名单但文案是加载中，不是「还没有人」', () => {
