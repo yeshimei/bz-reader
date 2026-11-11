@@ -30,9 +30,6 @@ export type PlanKey =
   | 'formats'
   | 'bilink'
   | 'export'
-  /* 划线 → 复习卡（2026-11-11 新增）：排在导出后面——它也是「把划线搬出去」，
-     只不过搬进的是复习排期而不是笔记。 */
-  | 'review'
   | 'card'
   /* PDF 段（2026-11-10 新增，1.0.0 定稿压成五行）：以前只由「更多格式」
      一句话带过，用户看不出买高级版在 PDF 上还多了什么。 */
@@ -186,16 +183,6 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     fr: 'Exporter tous les extraits, chacun avec un wikilien',
     es: 'Exportar todos los extractos, cada uno con un wikienlace',
     pt: 'Exportar todos os excertos, cada um com um wikilink',
-  },
-  review: {
-    zh: '划线加入复习计划',
-    'zh-TW': '劃線加入複習計畫',
-    en: 'Send a highlight to the review plan',
-    ja: 'Send a highlight to the review plan',
-    de: 'Send a highlight to the review plan',
-    fr: 'Send a highlight to the review plan',
-    es: 'Send a highlight to the review plan',
-    pt: 'Send a highlight to the review plan',
   },
   card: {
     /* 1.0.0 定稿：书摘图片下放基础版，两栏都打勾，图片一律带 bz reader

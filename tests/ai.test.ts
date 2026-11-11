@@ -8,7 +8,6 @@ function settings(patch: Partial<ReaderSettings['ai']> = {}): ReaderSettings {
     exportDir: 'bz-reader/notes',
     exportComments: true,
     importDir: 'bz-reader/books',
-    reviewDir: 'bz-reader/review',
     language: 'auto',
     aiAck: false,
     debugLog: false,

@@ -52,14 +52,6 @@ export type Cap =
   | 'bookmap' // 全书鸟瞰
   | 'bilink' // 划线 → 双向链接
   /**
-   * 划线 → 复习卡（2026-11-11）。
-   *
-   * 与 kb 分开：知识盒是「把这段存成名词 / 段落」，复习是「把这段排进
-   * 记忆计划」，两件事在用户眼里不是一回事。都依赖 bz，但依赖的是它
-   * 不同的两个门面，升级节奏也不同。
-   */
-  | 'review'
-  /**
    * PDF 整段（2026-11-10）。
    *
    * 和别的 cap 不一样：它代表**一整段七行**，不是某颗按钮。原因是基础版
@@ -636,19 +628,6 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     es: 'Guardar el subrayado como wikienlace, clicable desde la nota',
     pt: 'Salvar o destaque como wikilink, clicável da nota',
   },
-  /* 复习卡（2026-11-11）。与 bilink 拆成两项能力：一个把划线搬进笔记，
-     一个把划线排进记忆计划。都依赖 bz，但依赖的是它不同的两个门面，
-     升级节奏也不一样——所以解锁弹层的句子不能互相代劳。 */
-  review: {
-    zh: '划一条线就排进复习计划，读了不会忘',
-    'zh-TW': '劃一條線就排進複習計畫，讀了不會忘',
-    en: 'Turn a highlight into a review card, so what you read sticks',
-    ja: 'Turn a highlight into a review card, so what you read sticks',
-    de: 'Turn a highlight into a review card, so what you read sticks',
-    fr: 'Turn a highlight into a review card, so what you read sticks',
-    es: 'Turn a highlight into a review card, so what you read sticks',
-    pt: 'Turn a highlight into a review card, so what you read sticks',
-  },
   /* PDF 整段的卖点（2026-11-10）。基础版点开 PDF 时弹层第一句就是它，
      所以不能只写「PDF」两个字——用户要立刻知道买了能多出哪几件事。 */
   pdf: {
@@ -737,9 +716,6 @@ export const PLAN_TABLE: PlanRow[] = [
      同一个拦点，跟 PDF 整段共用一个 cap 是同一个道理。 */
   row('cites', 'no', 'yes'),
   row('export', 'no', 'yes', 'export'),
-  /* 复习卡（2026-11-11）：紧跟导出——两者都是「把划线搬出去」，一个搬进
-     笔记、一个搬进复习排期。放在这组末尾，不插进 PDF 段。 */
-  row('review', 'no', 'yes', 'review'),
   /* ── PDF 段（2026-11-10，1.0.0 定稿压成五行） ──
    * 以前 PDF 只由「更多格式」一句话代表，用户看不出买高级版在 PDF 上还多
    * 什么。七行压成五类（「记住视角」并进阅读、「划词自动复制」并进页链接）：
@@ -822,7 +798,7 @@ export const PLAN_GROUPS: PlanGroup[] = [
   },
   {
     key: 'output',
-    rows: ['formats', 'bilink', 'cites', 'export', 'review'],
+    rows: ['formats', 'bilink', 'cites', 'export'],
   },
   {
     key: 'pdf',

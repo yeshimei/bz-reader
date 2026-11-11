@@ -60,16 +60,6 @@ export interface ReaderSettings {
   /** 本地文件导入时写进哪个文件夹（vault 相对路径，默认 `bz-reader/books`；'/' = 库根目录） */
   importDir: string;
   /**
-   * 复习卡目录（vault 相对路径，默认 `bz-reader/review`）。
-   *
-   * 单独一个目录而不是并进导出目录：复习卡会被 bz 的复习排期接管，
-   * 和「整本书摘录」用途不同；用户想把卡片放进自己的读书笔记体系时，
-   * 这里改一次就行。
-   */
-  reviewDir: string;
-  /** 复习卡正文模板（空串 = 用内置那份，见 data/review-card 的 DEFAULT_BODY_TEMPLATE） */
-  reviewTemplate: string;
-  /**
    * 界面语言：`auto` 跟随 Obsidian，`zh` / `en` 由用户在设置页手动指定。
    *
    * 放 settings（设备本地）而不是 prefs（跟库走）：语言是这台机器的偏好，
@@ -116,8 +106,6 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   exportDir: 'bz-reader/notes',
   exportComments: true,
   importDir: 'bz-reader/books',
-  reviewDir: 'bz-reader/review',
-  reviewTemplate: '',
   language: 'auto',
   ai: {
     provider: DEFAULT_AI_PROVIDER,
@@ -203,9 +191,6 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     exportDir: cleanDir(str(s.exportDir, DEFAULT_SETTINGS.exportDir)),
     exportComments: s.exportComments !== false,
     importDir: cleanDir(str(s.importDir, DEFAULT_SETTINGS.importDir), DEFAULT_SETTINGS.importDir),
-    reviewDir: cleanDir(str(s.reviewDir, DEFAULT_SETTINGS.reviewDir), DEFAULT_SETTINGS.reviewDir),
-    /* 模板原样存：它是要被用户手改的多行文本，任何归一化都会吃掉缩进 */
-    reviewTemplate: String(s.reviewTemplate ?? '').slice(0, 4000),
     /* 只认八种语言 + auto：手改坏的 JSON、旧版本没有这个字段、写了别的语言，
        都退回 auto——宁可跟随宿主，也不要钉死一个用户没选过的语言。 */
     language: isLocale(s.language) ? s.language : 'auto',

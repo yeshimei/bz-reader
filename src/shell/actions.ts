@@ -23,14 +23,12 @@ import {
   findHighlight,
   highlightsOf,
   isHighlightColor,
-  clearHighlightReview,
   removeBookmark,
   removeHighlight,
   removeHighlights,
   setHighlightColor,
   setHighlightComment,
   setHighlightKb,
-  setHighlightReview,
   toggleBookmark,
 } from '../data/notes';
 import { allMarks, filterMarks, shelfOf } from './domain';
@@ -86,8 +84,7 @@ import {
 import { RT, emitNotesChanged, pushAi, resetAi } from './runtime';
 import { HITS_PAGE } from './search-hits';
 import { kickBodySearch, refreshBodyHits, resetBodySearch, stopBodySearch } from './search-run';
-import { bzEmbedder, bzNotesReady, openBzPreview, probeBz, openBzEntry, reviewPlanOf, reviewBridgeProblem, type BzEntryKind } from '../data/bz-bridge';
-import { cardOf, cardKeyOf } from '../data/review-deliver';
+import { bzEmbedder, bzNotesReady, openBzPreview, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
 import { AI_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../core/links';
@@ -716,17 +713,6 @@ function finishSelection(act: string): void {  if (!endsSelection(act)) return;
 }
 
 /**
- * 划词条 / 划线工具条上的「复习」：一条划线 → 一张卡片笔记 → 进 bz 的复习计划。
- *
- * 三条界线：
- *   · **加过就打开**：按钮字已经变成「已复习」，点它是打开那张卡，不是再生成
- *     一份；卡片被删了才回退成重新生成。
- *   · **卡片归用户**：写一次之后不再覆盖。用户往卡片里补的想法是他自己的，
- *     一次点击不该冲掉；要改就打开那张卡自己改。
- *   · **没有 bz 也写卡**：卡片本身有用（能当笔记用），只是排不进复习。这时
- *     提示的是「更新 bz 后可用」，而不是把用户刚划的那段丢掉。
- */
-/**
  * 本章导读（2026-11-11）。
  *
  * 有缓存直接显示；没有才发请求——用户点了命令才走到这里，符合
@@ -862,192 +848,6 @@ export async function enrichBookMeta(bookId: string): Promise<void> {
     notify(t('notice.enrich.fail'), 'error');
   } finally {
     enrichRunning.delete(bookId);
-  }
-}
-
-function addToReview(markId?: string, bookId?: string): void {
-  const src = getShellSource();
-  if (!src) return;
-  const app: App = src.app;
-  const settings = shellSettings();
-
-  let book: ReaderBook | undefined;
-  let h: Highlight | undefined;
-  if (markId) {
-    book = findBookOfMark(markId, bookId);
-    h = book?.notes?.highlights.find((x) => x.id === markId);
-  } else {
-    /* 划词路径：线已经由 autoMarkSelection 落下，取刚落笔的那一条 */
-    const sel = RT.sel;
-    book = sel ? liveBooks().find((b) => b.id === sel.bookId) : undefined;
-    h = book && RT.selMarkId ? book.notes?.highlights.find((x) => x.id === RT.selMarkId) : undefined;
-  }
-  if (!book || !h) {
-    notify(t('notice.mark.notFound'), 'error');
-    return;
-  }
-
-  const target = book;
-  const mark = h;
-  const plan = reviewPlanOf(app);
-  const payload = cardOf(target, mark);
-  void (async () => {
-    try {
-      if (!plan) {
-        notify(reviewBridgeProblem(probeBz(app)) ?? t('notice.review.noPlan'), 'info');
-        return;
-      }
-      const res = await plan.addCards([payload]);
-      const scheduled = res.added > 0 || res.exists > 0;
-      if (scheduled) {
-        if (setHighlightReview(target, mark.id, { path: payload.key, at: Date.now(), scheduled: true })) {
-          src.store.touch();
-          repaint();
-          emitNotesChanged();
-        }
-      }
-      if (res.added) {
-        /* 排上了就顺手把「下次什么时候复习」说出来：用户点这一下的目的就是
-           把这段交给记忆，什么时候回来见他应该当场知道 */
-        const due = await nextReviewLabel(plan, payload.key);
-        notify(due ? t('notice.review.addedDue', { date: due }) : t('notice.review.added'));
-      } else if (res.exists) {
-        notify(t('notice.review.exists'), 'info');
-      } else {
-        notify(reviewBridgeProblem(probeBz(app)) ?? t('notice.review.noPlan'), 'info');
-      }
-    } catch {
-      notify(t('common.unknownError'), 'error');
-    }
-  })();
-}
-
-/**
- * 每日回顾的「问问 AI」（2026-11-10）。
- *
- * 把这条划线与当时写的想法一起交给模型，只要一句追问。不落盘、不自动跑；
- * 结果放 shell state，跟着笔记页重画。失败也留在块里——一次 401 不该把
- * 用户刚想聊的那句话弄丢，他可以再点一次。
- */
-async function probeReview(markId: string, bookId?: string): Promise<void> {
-  if (!can('ai')) return;
-  const src = getShellSource();
-  const book = findBookOfMark(markId, bookId);
-  const h = book ? findHighlight(book, markId) : undefined;
-  if (!src || !h) return;
-  const settings = shellSettings();
-  if (!aiReady(settings)) {
-    notify(t('notice.ai.needSetup'), 'info');
-    return;
-  }
-  setState({ notesProbe: { id: markId, text: '', status: 'busy' } });
-  try {
-    const res = await aiAsk(settings, { task: 'probe', text: h.text, context: h.comment ?? '' });
-    /* 用户已经换了一条回顾 / 关掉了笔记页：这份结果不属于当前画面 */
-    if (getState().notesProbe?.id !== markId) return;
-    setState({ notesProbe: { id: markId, text: res.text.trim(), status: 'done' } });
-  } catch (e) {
-    if (getState().notesProbe?.id !== markId) return;
-    setState({
-      notesProbe: { id: markId, text: (e as Error)?.message || t('common.unknownError'), status: 'error' },
-    });
-  }
-}
-
-/**
- * 问一句「这张卡下次什么时候复习」，给成功提示用。
- *
- * 只读、只问一条：门面一趟读盘，代价可以忽略；拿不到就不显示日期（宁可不提，
- * 也不要写一个猜出来的日子）。
- */
-async function nextReviewLabel(plan: ReturnType<typeof reviewPlanOf>, path: string): Promise<string> {
-  if (!plan || !path) return '';
-  if (typeof plan.statusOf !== 'function') return '';
-  try {
-    const rows = await plan.statusOf([path]);
-    const iso = String(rows[0]?.nextReviewDate ?? '');
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '';
-    return `${d.getMonth() + 1} 月 ${d.getDate()} 日`;
-  } catch {
-    return '';
-  }
-}
-
-/**
- * 划线工具条「移出复习」：撤销这张卡的排期。
- *
- * 两颗按钮分工明确——「已加入」是再看一眼状态，这颗是撤掉。撤销是低频动作
- * 但必须有出口：否则误点一次，用户只能跑去 bz 的复习面板里慢慢找怎么删。
- */
-function removeFromReview(markId?: string, bookId?: string): void {
-  const src = getShellSource();
-  if (!src) return;
-  const book = findBookOfMark(markId, bookId);
-  const h = markId ? book?.notes?.highlights.find((x) => x.id === markId) : undefined;
-  if (!book || !h) {
-    notify(t('notice.mark.notFound'), 'error');
-    return;
-  }
-  const path = String(h.review?.path ?? '').trim();
-  const plan = reviewPlanOf(src.app);
-  if (plan && path) {
-    void plan.removeCard(path).catch(() => undefined);
-  }
-  clearHighlightReview(book, h.id);
-  src.store.touch();
-  repaint();
-  emitNotesChanged();
-  notify(t('notice.review.removed'), 'info');
-}
-
-
-/**
- * 书卡右键「加入复习计划」：把这本书还没进计划的划线一次交出去。
- *
- * 不再逐条写卡片文件：内容直接进 bz 的排期表，一趟 addCards 交给门面。
- * 以前是「循环 N 次写盘 + N 次登记」，现在是一次调用——卡片不落文件之后，
- * 单条链路本身已经便宜到不值得再省。
- *
- * 已经把钥匙记在划线上（`review.path` 存的就是卡钥匙），重复点不会加两次。
- */
-async function addBookToReview(bookId: string): Promise<void> {
-  const src = getShellSource();
-  if (!src) return;
-  const book = liveBooks().find((b) => b.id === bookId);
-  if (!book) return;
-  const all = highlightsOf(book);
-  if (!all.length) {
-    notify(t('notice.review.noMarks'), 'info');
-    return;
-  }
-  const todo = all.filter((h) => !String(h.review?.path ?? '').trim());
-  if (!todo.length) {
-    notify(t('notice.review.allIn'), 'info');
-    return;
-  }
-
-  const plan = reviewPlanOf(src.app);
-  if (!plan) {
-    notify(reviewBridgeProblem(probeBz(src.app)) ?? t('notice.review.noPlan'), 'info');
-    return;
-  }
-  if (todo.length >= 8) notify(t('review.batch.running', { count: todo.length }), 'info');
-
-  try {
-    const res = await plan.addCards(todo.map((h) => cardOf(book, h)));
-    if (res.added > 0 || res.exists > 0) {
-      for (const h of todo) {
-        setHighlightReview(book, h.id, { path: cardKeyOf(book, h), at: Date.now(), scheduled: true });
-      }
-      src.store.touch();
-      repaint();
-      emitNotesChanged();
-    }
-    notify(t('notice.review.batch', { added: res.added, skipped: res.exists + res.notFound }));
-  } catch {
-    notify(t('common.unknownError'), 'error');
   }
 }
 
@@ -1476,12 +1276,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
             i.onClick(() => {
               if (requireCap('export')) exportBookFile(id);
             });
-          /* 复习没解锁就弹对照表，与导出同一口径（不悄悄只做一半）。
-             解锁后先弹确认卡：一次几十条会写几十个文件，点了就没退路。 */
-          if (it.act === 'review')
-            i.onClick(() => {
-              if (requireCap('review')) overlay('confirmreview', { bookId: id });
-            });
           if (it.act === 'fav')
             i.onClick(() => {
               const on = toggleFav(id);
@@ -1765,31 +1559,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'reviewnext':
       mutateState((s) => {
         s.reviewIdx += 1;
-        /* 换一条回顾：上一条的追问不跟过去（它属于上一条划线） */
-        s.notesProbe = null;
       });
       break;
-    /* 每日回顾的「问问 AI」：基于这条划线 + 想法出一句追问 */
-    case 'reviewask':
-      if (d.id) void probeReview(d.id, d.book);
-      break;
-    /* 追问存进想法：只追加，不动原文与别的想法 */
-    case 'probeidea': {
-      const probe = getState().notesProbe;
-      const id = d.id || probe?.id || '';
-      const book = id ? findBookOfMark(id, d.book) : undefined;
-      const h = book && id ? findHighlight(book, id) : undefined;
-      if (!probe || probe.status !== 'done' || !book || !h || !probe.text.trim()) break;
-      const next = appendAiIdea(h.comment, probe.text);
-      if (next === (h.comment ?? '')) break;
-      if (setHighlightComment(book, h.id, next)) {
-        getShellSource()?.store.touch();
-        emitNotesChanged();
-        setState({ notesProbe: null });
-        notify(t('notice.probe.saved'));
-      }
-      break;
-    }
     case 'jumpmark':
       jumpMark(d.id, d.book);
       break;
@@ -1825,14 +1596,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'notedropdo':
       dropSelectedMarks();
       break;
-    /* 批量加复习：确认卡上点了「加入」。先收卡再干活，几十条要跑一会儿，
-       卡片留在屏幕中央只会挡住进度提示 */
-    case 'reviewbookdo': {
-      const bookId = d.book || '';
-      closeOverlay();
-      if (bookId) void addBookToReview(bookId);
-      break;
-    }
     /* ── 读完仪式 ──
        星星只改 class 不重绘：重绘会把用户刚输入的一句话清掉 */
     case 'rate': {
@@ -2425,28 +2188,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (!requireCap('kb')) break;
       knowledgeEntry('passage', d.id, d.book);
       break;
-    /* 复习：点已有划线时，划线上已经记着卡片路径，加过就直接打开 */
-    case 'hlreview':
-      if (!requireCap('review')) break;
-      addToReview(d.id, d.book);
-      break;
-    /* 移出复习：只摘排期，卡片文件留在库里 */
-    case 'hlunreview':
-      if (!requireCap('review')) break;
-      removeFromReview(d.id, d.book);
-      break;
-    /* 划词路径：先落线（autoMarkSelection），再拿刚落笔的那条去生成卡片 */
-    case 'selreview': {
-      if (!requireCap('review')) break;
-      /* 必须接住返回的 id：autoMarkSelection 会先把选区落成划线并返回它，
-         而 RT.selMarkId 在换选区时就被清空了——丢了返回值，addToReview 只能
-         拿到 null，弹一句「没找到划线」然后什么都不做（2026-11-10 真机复现）。
-         同行的「存为名词 / 存为段落」正是这个写法，只有复习漏了。 */
-      const id = autoMarkSelection('selreview');
-      addToReview(id ?? RT.selMarkId ?? undefined);
-      finishSelection('selreview');
-      break;
-    }
     case 'selbilink': {
       /* 还没落下标注，只能拿选区 + 当前章名拼双向链接；
          与笔记页的「双向链接」按钮同源（data/wikilink.ts 的 wikilinkOf）。
@@ -3569,7 +3310,7 @@ export function dispatchInput(
        移动端软键盘会在同步 IO 的间隙收起，表现成「打一个字就失焦」。
        松手（change）或输入法上屏（compositionend）才收口。 */
     if (dragging) return;
-    /* 目录类设置已经没有输入框了（只走文件夹选择器），这里只剩 AI 输入与复习卡模板。
+    /* 目录类设置已经没有输入框了（只走文件夹选择器），这里只剩 AI 输入。
        2026-11-11：AI 分服务商存——密钥与模型按「当前选中那一家」各存一格，
        切换服务商不会把上一家的值盖过去，也不会把别家的密钥带过去。 */
     if (k === 'ai.baseUrl') {
@@ -3582,9 +3323,6 @@ export function dispatchInput(
             ? { ...ai, keys: { ...ai.keys, [ai.provider]: value } }
             : { ...ai, models: { ...ai.models, [ai.provider]: value } },
       });
-    } else if (k === 'reviewTemplate') {
-      /* 复习卡正文模板：多行，松手才落盘（不该一边敲一边重建卡片） */
-      src.setSettings({ reviewTemplate: value });
     }
     return;
   }

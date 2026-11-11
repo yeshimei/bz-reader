@@ -19,8 +19,6 @@ export type AiTask =
   | 'translate'
   | 'ask'
   | 'follow'
-  | 'probe'
-  | 'quiz'
   | 'shelf'
   | 'enrich'
   | 'guide'
@@ -33,9 +31,6 @@ export type AiTask =
  * 都把一整章塞进去。划词通常几十到几百字，这个上限只在选中整页时才碰到。
  */
 export const FOLLOW_QUOTE_LIMIT = 2000;
-
-/** 出题时「当时的想法」最多带多少字：想法是提示不是正文，一截就够 */
-export const PROBE_IDEA_LIMIT = 1000;
 
 /**
  * 问答带多少正文。
@@ -94,7 +89,7 @@ export function clipContext(text: string, limit = ASK_CONTEXT_LIMIT): string {
 }
 
 /** 摘录 / 解释 / 翻译的老口径，一字不改（回归测试锁着） */
-function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow' | 'probe' | 'quiz' | 'shelf' | 'enrich' | 'guide' | 'route'>, text: string): string {
+function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow' | 'shelf' | 'enrich' | 'guide' | 'route'>, text: string): string {
   if (task === 'summarize') {
     return `请把下面这段文字压缩成不超过 100 字的摘要，直接给摘要正文，不要任何开场白或前缀：\n\n${text}`;
   }
@@ -138,29 +133,6 @@ function buildFollowMessages(input: AiAskInput): AiMessage[] {
 }
 
 /**
- * 出题类任务（probe / quiz）。
- *
- * 两个任务只差一句话：`probe` 是「想深一层的追问」，`quiz` 是「能自测的问题」。
- * 共同点是**只要一个问题**——prompt 里必须把「不要回答、不要解释」写死，
- * 否则模型会热心地附上一整段讲解，卡片就变回摘要了。
- *
- * 不接 history：出题是一次性的，上一道题不该影响下一道。
- */
-function buildCoachMessages(input: AiAskInput): AiMessage[] {
-  const quote = clipContext(input.text, FOLLOW_QUOTE_LIMIT);
-  const idea = clipContext(input.context ?? '', PROBE_IDEA_LIMIT);
-  const system =
-    input.task === 'quiz'
-      ? '你是读书教练。根据下面这段原文，出一道能自测理解的问题。只给问题本身，不超过 30 字，不要答案、不要解释、不要客套。'
-      : '你是读书教练。根据读者划下的一段原文和他当时写的想法，提一个能让他想深一层的问题。只给问题本身，不超过 40 字，不要回答问题、不要解释、不要客套。';
-  const user = idea ? `【原文】\n${quote}\n\n【当时的想法】\n${idea}` : `【原文】\n${quote}`;
-  return [
-    { role: 'system', content: system },
-    { role: 'user', content: user },
-  ];
-}
-
-/**
  * 问这摞书（shelf，2026-11-10）。
  *
  * 与 ask 的差别只在依据：ask 的依据来自一本书，shelf 的依据来自几本，
@@ -195,7 +167,6 @@ function buildShelfMessages(input: AiAskInput): AiMessage[] {
  */
 export function buildMessages(input: AiAskInput): AiMessage[] {
   if (input.task === 'follow') return buildFollowMessages(input);
-  if (input.task === 'probe' || input.task === 'quiz') return buildCoachMessages(input);
   if (input.task === 'enrich') {
     /* 补元数据：书名 + 作者 + 画像里的一段样本。格式约定在 book-enrich 里，
        这里只把三个字段递过去（两边各守一半，测试也各测一半）。 */

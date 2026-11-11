@@ -52,7 +52,7 @@ import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
 import { hydrateToolbarIcons } from '../shell/toolbar-icons';
 import { can } from '../data/entitlement';
-import { bzEntryReady, reviewPlanOf } from '../data/bz-bridge';
+import { bzEntryReady } from '../data/bz-bridge';
 import { kbDoneOf } from '../data/kb-link';
 import { VIEW_TYPE_TOC } from './side-view';
 
@@ -1593,18 +1593,15 @@ export class ReaderView extends ItemView {
     /* 知识库两颗：授权在、且 bz 的录入门面在，才出现（自动识别，没有开关）。
        没装 bz 时这两颗按钮按下去只会弹一句「还没装」——不如不出现。 */
     const kb = can('ai') && bzEntryReady(this.app);
-    /* 复习一颗：同理，判的是 bz 的复习门面在不在（老版本 bz 没有） */
-    const review = can('review') && !!reviewPlanOf(this.app);
     setHtml(
       bar,
       toolbarHtml({
         marked: !!live,
         color: activeColor,
         colors: info.region ? [] : HIGHLIGHT_COLORS,
-        /* 手机只留三颗主路径；桌面窄到放不下时，把知识库两颗与复习收进「⋯」 */
+        /* 手机只留三颗主路径；桌面窄到放不下时，把知识库两颗收进「⋯」 */
         compact: isMobileEnv(),
         kb,
-        review,
         narrow: (root.clientWidth || 0) < 520,
         acts: SELECTION_ACTS,
         /* 框选没有文字：想法 / 书摘 / AI / 名词 / 段落 全都无从下手，
@@ -1612,9 +1609,6 @@ export class ReaderView extends ItemView {
         only: info.region ? ['bilink', 'copy'] : undefined,
         /* 存的这本划线已经存过名词 / 段落：那两颗显示成「看名词 / 看段落」 */
         kbDone: kbDoneOf(saved?.kb),
-        /* 已经生成过复习卡：那颗显示成「已复习」，点它是打开那张卡 */
-        reviewDone: !!saved?.review?.path,
-        unReview: !!saved?.review?.path,
         /* 设置里的工具条样式：文字 / 图标（默认文字） */
         icon: shellPrefs().toolbarStyle === 'icon',
       }),

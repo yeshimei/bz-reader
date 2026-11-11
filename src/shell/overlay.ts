@@ -46,7 +46,7 @@ import {
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { aiReady } from '../data/settings';
 import { renderAiMarkdown } from './ai-md';
-import { bzEmbedder, bzEntryReady, reviewPlanOf } from '../data/bz-bridge';
+import { bzEmbedder, bzEntryReady } from '../data/bz-bridge';
 import { kbLinkOf } from '../data/kb-link';
 import { hydrateToolbarIcons } from './toolbar-icons';
 import { aiCardBegin, aiCardDone, aiCardDrop, aiCardFail, aiCardGet, aiCardKey, aiCardReset, aiModeOf } from './ai-card';
@@ -458,16 +458,12 @@ function overlayHltools(markId?: string, bookId?: string): string {
     marked: true,
     compact: isMobileEnv(),
     kb: can('ai') && bzEntryReady(getShellSource()?.app),
-    review: can('review') && !!reviewPlanOf(getShellSource()?.app),
     narrow: window.innerWidth < 520,
     color: mark.color ?? 'amber',
     colors: HIGHLIGHT_COLORS,
     acts: MARK_ACTS,
     attrs: `data-id="${esc(mark.id)}" data-book="${esc(book.id)}"`,
     kbDone: { term: !!kbLinkOf(mark.kb, 'term'), passage: !!kbLinkOf(mark.kb, 'passage') },
-    reviewDone: !!mark.review?.path,
-    /* 已进计划才给「移出复习」一颗：没加过的划线不该出现撤销入口 */
-    unReview: !!mark.review?.path,
     icon: shellPrefs().toolbarStyle === 'icon',
   });
   /* 想法为空、但有知识盒链接时气泡也要出：点划线的人可能就是来点那枚链接的 */
@@ -601,39 +597,6 @@ function overlayConfirmDrop(): string {
 }
 
 /**
- * 批量加复习前的确认（2026-11-11）。
- *
- * 一次几十条 = 几十个文件 + 几十条排期，点错没有撤销按钮（只能逐条移出），
- * 所以先给一张「加哪些、共几条、卡片写到哪」的卡。前三条给原文，让人确认
- * 加的是这本书而不是记错的那本。列出的目录是当前设置——用户改了目录会
- * 立刻在这里看到。
- */
-function overlayConfirmReview(bookId: string): string {
-  const book = liveBooks().find((b) => b.id === bookId);
-  const todo = (book?.notes?.highlights ?? []).filter((h) => !String(h.review?.path ?? '').trim());
-  if (!book || !todo.length) {
-    return modal(t('review.batch.title', { count: 0 }), '', `<div class="bzs-empty">${t('review.batch.none')}</div>`, closeBtn());
-  }
-  const preview = todo
-    .slice(0, 3)
-    .map((h) => `<div class="bzs-qcard"><div class="q">${esc(h.text)}</div></div>`)
-    .join('');
-  const more = todo.length > 3 ? `<div class="bzs-mini">${t('review.batch.more', { count: todo.length - 3 })}</div>` : '';
-  const dir = String(shellSettings().reviewDir ?? '').replace(/^\/+|\/+$/g, '');
-  return modal(
-    t('review.batch.title', { count: todo.length }),
-    esc(book.meta.title ?? ''),
-    `${preview}${more}<div class="bzs-mini" style="margin-top:12px;line-height:1.9">${t('review.batch.dir', {
-      dir: dir || '/',
-    })}</div>`,
-    `<span class="sp"></span><button class="bzs-btn" data-act="close">${t('review.batch.cancel')}</button>
-     <button class="bzs-btn pri" data-act="reviewbookdo" data-book="${esc(bookId)}">${t('review.batch.confirm')}</button>`,
-    '',
-    isMobileEnv() ? 'bzs-text-scrim' : '',
-  );
-}
-
-/**
  * 浮层外壳：**没有遮罩**，也不吃正文上的点击。
  *
  * 排版面板、划线卡、脚注与想法都得「一边看正文一边操作」：遮罩一压，
@@ -699,14 +662,11 @@ function textPanel(
     color: opts.color,
     colors: HIGHLIGHT_COLORS,
     kb: can('ai') && bzEntryReady(getShellSource()?.app),
-    review: can('review') && !!reviewPlanOf(getShellSource()?.app),
     narrow: window.innerWidth < 520,
     acts: opts.markId ? MARK_ACTS : SELECTION_ACTS,
     active: opts.active,
     attrs,
     kbDone: { term: !!kbLinkOf(marked?.kb, 'term'), passage: !!kbLinkOf(marked?.kb, 'passage') },
-    reviewDone: !!marked?.review?.path,
-    unReview: !!marked?.review?.path,
     icon: shellPrefs().toolbarStyle === 'icon',
   });
   /* 外壳透明，底板交给 `${cls}-body`：工具条要露在卡片外面，
@@ -1368,8 +1328,6 @@ export function overlayHtml(): string {
       return overlayConfirmDel(o.markId, o.bookId, o.bookmarkId, o.anchor);
     case 'notedrop':
       return overlayConfirmDrop();
-    case 'confirmreview':
-      return overlayConfirmReview(o.bookId ?? '');
     case 'footnote':
       return overlayFootnote(o.text);
     case 'ai':

@@ -25,8 +25,6 @@ export type ToolbarAct =
   | 'idea'
   | 'quote'
   | 'ai'
-  | 'review'
-  | 'unreview'
   | 'term'
   | 'passage'
   | 'bilink'
@@ -75,41 +73,16 @@ export const KB_ITEMS: readonly ToolbarItem[] = [
 ];
 
 /**
- * 「复习」——只有这台 bz 有复习门面时才出现（与知识盒两颗同一种按需出现）。
- *
- * 放在 AI 之后、知识盒之前：它是「把这段交给记忆」的动作，和「交给 AI」
- * 同属从划线派生出的加工，而双链 / 复制是「搬出去」。
- */
-export const REVIEW_ITEM: ToolbarItem = { act: 'review', key: 'tool.review', icon: 'rotate-ccw' };
-
-/**
- * 「移出复习」——只在**这条划线已经进了复习计划**时出现。
- *
- * 与「已复习」并排：那颗负责打开卡片，这颗负责撤销排期（卡片文件留着，
- * 用户想删自己去删）。低频但必须有个明确的出口——不然误点一次就只能在
- * bz 的复习面板里翻半天才找得到怎么撤。
- */
-export const UNREVIEW_ITEM: ToolbarItem = { act: 'unreview', key: 'tool.unreview', icon: 'undo-2' };
-
-/**
  * 整排按钮（顺序即最终顺序）。
  *
- * 两个可选项各插在自己该在的位置：复习接在知识盒两颗之后、双链之前
- * （三颗都是「把这段文字加工成别的东西」），双链 / 复制这类「搬出去」的
- * 动作仍在右边。
+ * 知识盒两颗插在 AI 之后：它们都是「把这段文字加工成别的东西」，
+ * 双链 / 复制这类「搬出去」的动作仍在右边。
  */
-export function toolbarItems(kb?: boolean, review?: boolean, unReview?: boolean): ToolbarItem[] {
+export function toolbarItems(kb?: boolean): ToolbarItem[] {
   let items = [...TOOLBAR_ITEMS];
   if (kb) {
     const at = items.findIndex((i) => i.act === 'ai');
     items = [...items.slice(0, at + 1), ...KB_ITEMS, ...items.slice(at + 1)];
-  }
-  if (review) {
-    /* 接在知识盒之后：有知识盒时它落在「段落」右边，没有时紧跟 AI */
-    const at = items.findIndex((i) => i.act === 'passage');
-    const at2 = at >= 0 ? at : items.findIndex((i) => i.act === 'ai');
-    const add = unReview ? [REVIEW_ITEM, UNREVIEW_ITEM] : [REVIEW_ITEM];
-    items = [...items.slice(0, at2 + 1), ...add, ...items.slice(at2 + 1)];
   }
   return items;
 }
@@ -137,10 +110,6 @@ export interface ToolbarLayoutInput {
   compact?: boolean;
   /** AI 知识库开着：多出「存为名词 / 存为段落」两颗 */
   kb?: boolean;
-  /** bz 的复习门面在：多出「复习」一颗（划线 → 复习卡） */
-  review?: boolean;
-  /** 这条划线已经在复习计划里：多出「移出复习」一颗 */
-  unReview?: boolean;
   /**
    * 窄窗口：放不下七颗时，把知识库那两颗收进「⋯」。
    *
@@ -173,7 +142,7 @@ export function toolbarLayout(input: ToolbarLayoutInput): ToolbarLayout {
   const marked = !!input.marked;
   const del = marked ? [DELETE_ITEM] : [];
   /* `only` 过一遍：不在这几颗里的动作连按钮都不出现，免得点了没反应 */
-  const items = toolbarItems(input.kb, input.review, input.unReview).filter(
+  const items = toolbarItems(input.kb).filter(
     (i) => !input.only || input.only.includes(i.act),
   );
   if (input.compact) {
@@ -182,13 +151,9 @@ export function toolbarLayout(input: ToolbarLayoutInput): ToolbarLayout {
       overflow: [...items.slice(COMPACT_MAIN), ...del],
     };
   }
-  /* 窄窗里先牺牲「用得少」的：知识盒两颗与复习一起进「⋯」，顺序与摊开时
-     一致——用户从菜单里找同一颗按钮，位置不该变。 */
-  const extras: ToolbarItem[] = [
-    ...(input.kb ? KB_ITEMS : []),
-    ...(input.review ? [REVIEW_ITEM] : []),
-    ...(input.review && input.unReview ? [UNREVIEW_ITEM] : []),
-  ];
+  /* 窄窗里先牺牲「用得少」的：知识盒两颗进「⋯」，顺序与摊开时一致——
+     用户从菜单里找同一颗按钮，位置不该变。 */
+  const extras: ToolbarItem[] = [...(input.kb ? KB_ITEMS : [])];
   if (input.narrow && extras.length) {
     return {
       visible: [...items.filter((i) => !extras.some((k) => k.act === i.act)), ...del],
@@ -208,8 +173,6 @@ export interface ToolbarActs {
   idea?: string;
   quote?: string;
   ai?: string;
-  review?: string;
-  unreview?: string;
   term?: string;
   passage?: string;
   bilink?: string;
@@ -222,7 +185,6 @@ export const SELECTION_ACTS: ToolbarActs = {
   idea: 'selidea',
   quote: 'selquote',
   ai: 'selai',
-  review: 'selreview',
   term: 'selterm',
   passage: 'selpassage',
   bilink: 'selbilink',
@@ -234,8 +196,6 @@ export const MARK_ACTS: ToolbarActs = {
   idea: 'hlidea',
   quote: 'hlquote',
   ai: 'hlai',
-  review: 'hlreview',
-  unreview: 'hlunreview',
   term: 'hlterm',
   passage: 'hlpassage',
   bilink: 'copylink',
@@ -321,12 +281,6 @@ export interface ToolbarHtmlInput extends ToolbarLayoutInput {
    * 只影响文案，`data-act` 不变——动作表自己会判断「存过就打开」。
    */
   kbDone?: Partial<Record<'term' | 'passage', boolean>>;
-  /**
-   * 这条划线已经生成过复习卡：按钮从「复习」变「已复习」。
-   *
-   * 与 kbDone 同理只改文案，`data-act` 不变——动作表自己判断「加过就打开」。
-   */
-  reviewDone?: boolean;
 }
 
 /* 转义只有一份：render/html.ts 的 esc（D8）。这里原先自己抄了一份，
@@ -368,8 +322,6 @@ export function toolbarHtml(input: ToolbarHtmlInput): string {
     .join('');
 
   const labelOf = (item: ToolbarItem): string => {
-    /* 复习有自己的「已加过」态，和知识盒那两颗的改名规则并行 */
-    if (item.act === 'review' && input.reviewDone) return t('tool.reviewDone');
     const viewKey = KB_VIEW_KEYS[item.act];
     return t(viewKey && input.kbDone?.[item.act as 'term' | 'passage'] ? viewKey : item.key);
   };

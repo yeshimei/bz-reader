@@ -10,7 +10,7 @@
  * 一个管「留什么」，一个管「收什么」。
  * ============================================================ */
 
-const AUTO_MARK_ACTS: ReadonlySet<string> = new Set(['selbilink', 'selterm', 'selpassage', 'selreview']);
+const AUTO_MARK_ACTS: ReadonlySet<string> = new Set(['selbilink', 'selterm', 'selpassage']);
 
 /** 这个动作点完要不要先把这段文字落成一条划线 */
 export function autoMarks(act: string | null | undefined): boolean {

@@ -15,7 +15,6 @@ import { filterMarks, fmtWhen, groupByBook } from '../domain';
 import { allPicked } from '../note-select';
 import { kbLinksHtml } from '../kb-links';
 import { MAG, esc, ico } from './html';
-import type { NotesProbe } from '../state';
 
 export interface NotesView {
   marks: MarkRow[];
@@ -26,8 +25,6 @@ export interface NotesView {
   select?: boolean;
   /** 已选中的标注 id */
   picked?: string[];
-  /** 每日回顾的 AI 追问（属于哪条、问到哪儿了） */
-  probe?: NotesProbe | null;
 }
 
 /** 一条标注卡；`showLoc` 为 false 时是详情弹层里用的紧凑版 */
@@ -79,33 +76,14 @@ export function viewNotes(v: NotesView): string {
   const reviewAt = recalls.length ? (day + v.reviewIdx) % recalls.length : 0;
   const rv = recalls.length ? recalls[reviewAt] : null;
 
-  const probe = rv && v.probe && v.probe.id === rv.id ? v.probe : null;
-  const probeHtml =
-    rv && probe
-      ? `<div class="bzs-rprobe${probe.status === 'error' ? ' is-bad' : ''}">
-        <div class="q">${probe.status === 'busy' ? esc(t('notes.review.asking')) : esc(probe.text)}</div>
-        ${
-          probe.status === 'done'
-            ? `<button class="bzs-btn sm" data-act="probeidea" data-id="${esc(rv.id)}" data-book="${esc(
-                rv.bookId,
-              )}">${t('notes.review.save')}</button>`
-            : ''
-        }
-      </div>`
-      : '';
-
   const review =
     rv && !select
       ? `<div class="bzs-review">
         <div class="kick">${t('notes.review.kick')}</div>
         <h3>${t('notes.review.title')}</h3>
         <div class="q">「${esc(rv.text)}」</div>
-        ${probeHtml}
         <div class="acts">
           <button class="bzs-btn sm" data-act="reviewnext">${t('notes.review.next')}</button>
-          <button class="bzs-btn sm" data-act="reviewask" data-id="${esc(rv.id)}" data-book="${esc(rv.bookId)}">${
-            probe?.status === 'done' ? t('notes.review.again') : t('notes.review.ask')
-          }</button>
           <button class="bzs-btn sm" data-act="jumpmark" data-id="${esc(rv.id)}" data-book="${esc(rv.bookId)}">${t('notes.jump')}</button>
           <span class="idx">${reviewAt + 1} / ${recalls.length}</span>
         </div>

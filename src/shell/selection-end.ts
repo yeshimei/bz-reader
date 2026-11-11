@@ -1,9 +1,9 @@
 /* ============================================================
  * bz-reader · 动作结束后的选区收尾（shell/selection-end.ts）
  *
- * 划词工具条上这六颗动作，点完这件事就结束了：
+ * 划词工具条上这五颗动作，点完这件事就结束了：
  *   划线（selpen）、双链（selbilink）、复制（selcopy）、
- *   存为名词（selterm）、存为段落（selpassage）、复习（selreview）
+ *   存为名词（selterm）、存为段落（selpassage）
  *
  * 结果已经落袋，选区继续亮着只会挡住正文；手机上更糟——系统会把两端手柄和
  * 「复制 / 全选 / 搜索」菜单一直挂着，压在刚弹出来的浮层下面。
@@ -18,7 +18,6 @@ const ENDS_SELECTION: ReadonlySet<string> = new Set([
   'selcopy',
   'selterm',
   'selpassage',
-  'selreview',
 ]);
 
 /** 这个动作点完要不要把正文里的选区收掉 */

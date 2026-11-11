@@ -19,7 +19,6 @@ export type BookMenuAction =
   | 'detail'
   | 'enrich'
   | 'export'
-  | 'review'
   | 'fav'
   | 'done'
   | 'rename'
@@ -61,11 +60,6 @@ export function bookMenuItems(input: BookMenuInput): BookMenuItem[] {
     /* 导出紧跟详情：两者都回答「这本书能产出什么」。摘录存在本机，
        书文件丢了也能导，所以这一条不看 missing。 */
     { act: 'export', title: '导出这本书', icon: 'download' },
-    /* 复习紧跟导出：两者都是「这本书能产出什么」。点它把本书还没进计划的
-       划线一次交出去——几十条划线逐条点太折磨，批量入口要在这里。
-       2026-11-11 起不再生成卡片笔记：内容直接进复习排期表，抽认卡还是做题
-       由 bz 的复习面板决定，阅读器只负责把内容交过去。 */
-    { act: 'review', title: '加入复习计划', icon: 'rotate-ccw' },
     { act: 'fav', title: input.fav ? '取消收藏' : '收藏', icon: 'star' },
     /* 两个方向用两枚图标：check 是「完成」，refresh 是「回到未读完」。
        共用一枚 check 的话，「标为在读」看起来像又要把它标成读完。 */

@@ -4,7 +4,6 @@ import {
   KB_ITEMS,
   MARK_ACTS,
   MORE_ACT,
-  REVIEW_ITEM,
   SELECTION_ACTS,
   TOOLBAR_ITEMS,
   moreMenuOpensUp,
@@ -353,83 +352,3 @@ describe('toolbarHtml · 图标模式', () => {
   });
 });
 
-/**
- * 复习按钮（2026-11-11，划线 → 复习卡）。
- *
- * 与知识盒两颗同一种「按需出现」：bz 没有复习门面时整颗不存在。
- * 加过之后只改字、不改动作——同一个 data-act 由动作表判断「加过就打开」。
- */
-describe('复习按钮', () => {
-  it('门面不在：桌面仍是五颗，不凭空多一颗', () => {
-    expect(toolbarLayout({ marked: false }).visible.map((i) => t(i.key))).toEqual([
-      '想法',
-      '书摘',
-      'AI',
-      '双链',
-      '复制',
-    ]);
-  });
-
-  it('门面在：接在知识盒之后、双链之前', () => {
-    const l = toolbarLayout({ marked: false, review: true });
-    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI', '复习', '双链', '复制']);
-  });
-
-  it('与知识盒同时出现：存为名词、存为段落、复习依次排', () => {
-    const l = toolbarLayout({ marked: false, kb: true, review: true });
-    expect(l.visible.map((i) => t(i.key))).toEqual([
-      '想法',
-      '书摘',
-      'AI',
-      '存为名词',
-      '存为段落',
-      '复习',
-      '双链',
-      '复制',
-    ]);
-  });
-
-  it('窄窗：知识盒与复习一起收进 ⋯，顺序与摊开时一致', () => {
-    const l = toolbarLayout({ marked: false, kb: true, review: true, narrow: true });
-    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI', '双链', '复制']);
-    expect(l.overflow.map((i) => t(i.key))).toEqual(['存为名词', '存为段落', '复习']);
-  });
-
-  it('已加过：字变「已复习」，动作还是同一个', () => {
-    const html = toolbarHtml({ marked: true, review: true, reviewDone: true, acts: MARK_ACTS });
-    expect(labels(html)).toContain('已复习');
-    expect(html).toContain('data-act="hlreview"');
-  });
-
-  it('划词与点划线：复习各发各的动作', () => {
-    const sel = toolbarHtml({ marked: false, review: true, acts: SELECTION_ACTS });
-    const mark = toolbarHtml({ marked: true, review: true, acts: MARK_ACTS });
-    expect(sel).toContain('data-act="selreview"');
-    expect(mark).toContain('data-act="hlreview"');
-  });
-
-  it('复习按钮自己也带图标名（图标模式下画得出来）', () => {
-    expect(REVIEW_ITEM.icon).toBeTruthy();
-  });
-
-  it('已进计划：多出「移出复习」，紧挨在复习后面', () => {
-    const l = toolbarLayout({ marked: true, review: true, unReview: true });
-    const keys = l.visible.map((i) => i.key);
-    expect(keys.indexOf('tool.unreview')).toBe(keys.indexOf('tool.review') + 1);
-  });
-
-  it('没进计划：不出现「移出复习」', () => {
-    const l = toolbarLayout({ marked: true, review: true });
-    expect(l.visible.map((i) => i.key)).not.toContain('tool.unreview');
-  });
-
-  it('窄窗：「移出复习」跟复习一起去「⋯」', () => {
-    const l = toolbarLayout({ marked: true, review: true, unReview: true, narrow: true });
-    expect(l.overflow.map((i) => t(i.key))).toEqual(['复习', '移出复习']);
-  });
-
-  it('点划线时「移出复习」发 hlunreview', () => {
-    const html = toolbarHtml({ marked: true, review: true, unReview: true, acts: MARK_ACTS });
-    expect(html).toContain('data-act="hlunreview"');
-  });
-});

@@ -963,37 +963,6 @@
   margin-left: auto;
 }
 
-/* 每日回顾的 AI 追问（2026-11-10）：贴在引文下面的一条铜边注。
-   用左边线而不是再加一张卡——追问是这张回顾卡的延伸，不该比卡片更重。 */
-.bzs-rprobe {
-  margin: 4px 0 2px;
-  padding: 10px 14px;
-  border-left: 2px solid var(--copper);
-  background: color-mix(in srgb, var(--copper) 6%, transparent);
-  border-radius: 0 8px 8px 0;
-}
-
-.bzs-rprobe .q {
-  font-size: 13px;
-  line-height: 1.85;
-  color: var(--t1);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  min-height: 0;
-}
-
-.bzs-rprobe .bzs-btn {
-  margin-top: 8px;
-}
-
-.bzs-rprobe.is-bad {
-  border-left-color: var(--vermilion);
-}
-
-.bzs-rprobe.is-bad .q {
-  color: var(--vermilion);
-}
-
 /* ═══════════ 统计（一比一复刻 prototype/stats/index.html） ═══════════
    选择器全部收在 .bzs-statspage 里，变量沿用 tokens.css：
    --bg / --surface / --sunken / --line / --t1..t3 / --copper* / --serif。 */
