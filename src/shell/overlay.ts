@@ -54,7 +54,7 @@ import { aiCardBegin, aiCardDone, aiCardDrop, aiCardFail, aiCardGet, aiCardKey, 
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
 import { bindRangeTouch } from './range-touch';
-import { PLAN_GROUPS, PLAN_TABLE, can, entitlement, type Cap, type PlanCell } from '../data/entitlement';
+import { PLAN_GROUPS, PLAN_TABLE, can, entitlement, planTotals, type Cap, type PlanCell } from '../data/entitlement';
 import { buildNotesBody } from '../data/export';
 import { dataDirOf } from '../core/plugin-path';
 import { clampDailyGoal } from '../data/goal';
@@ -942,14 +942,21 @@ function overlayDetail(bookId?: string): string {
  * 所以第一句仍是他想做的那件事，第二句直接给一张对照表：差在哪，自己看。
  * 面板里**不写价格**——价格会变、渠道会变，写进插件里就成了每次调价都要发版；
  * 只在商店页标价，这里只负责把人送过去。
+ *
+ * 2026-11-11 版式照商店详情那张对照长图（`docs/images/plan-compare.png`）：
+ * 表头两行（列名 + 副标）、高级版整列淡底色、勾分色、底部合计。
+ * 图与弹层是同一套行名、同一套勾叉，所以「图上看到的」就是「弹层里的」。
  */
 function planCell(kind: 'free' | 'pro', v: PlanCell): string {
-  if (v === 'yes') return `<i class="y">${ico('check')}</i>`;
-  if (v === 'part') return `<i class="p">${t('unlock.part')}</i>`;
+  /* `kind` 决定这一格属于哪一列：高级版那列要带 `pro`，样式才铺得上底色、
+   * 勾才用铜金。以前这个参数没人用，两列长得一模一样。 */
+  const cls = kind === 'pro' ? 'c pro' : 'c';
+  if (v === 'yes') return `<i class="${cls} y">${ico('check')}</i>`;
+  if (v === 'part') return `<i class="${cls} p">${t('unlock.part')}</i>`;
   /* 空勾位以前写「—」字符：靠 text-align 居中，和 SVG 勾不是一套对齐，
      72px 列里偏左 29px。现在留空格子，横线交给 CSS 的 ::before 画，
      三种格子都从同一条中心线起。 */
-  return `<i class="n"></i>`;
+  return `<i class="${cls} n"></i>`;
 }
 
 /* 导出给测试：这一屏是免费用户最常看到的，按钮与群号值得单独钉住 */
@@ -969,7 +976,9 @@ export function overlayUnlock(mode?: string, codeOpen = false): string {
      里那 19 行，所以高亮与滚动位置不受影响。 */
   const byKey = new Map(PLAN_TABLE.map((r) => [r.key, r]));
   const rows = PLAN_GROUPS.map((g) => {
-    const head = `<div class="bzs-plan-row is-group"><span>${esc(planGroupLabel(g.key))}</span></div>`;
+    /* 组行也带两个空格子：高级版那一列的淡底色是**逐格**铺出来的，
+       组行缺格就会把整列切断成几截。格子是空的，不带勾叉。 */
+    const group = `<div class="bzs-plan-row is-group"><span>${esc(planGroupLabel(g.key))}</span><i class="c"></i><i class="c pro"></i></div>`;
     const body = g.rows
       .map((key) => {
         const r = byKey.get(key);
@@ -981,13 +990,31 @@ export function overlayUnlock(mode?: string, codeOpen = false): string {
       </div>`;
       })
       .join('');
-    return head + body;
+    return group + body;
   }).join('');
 
+  /* 表头是常驻的（样式里 sticky，见 overlay.css）：34 行要滚两屏，
+     滚到「探索中」那一段还得知道哪一列是哪版。副标跟商店页同一口径——
+     「免费不限时」和「一次买断永久」正是商品详情里写的那两句。 */
+  const planHead = `<div class="bzs-plan-head">
+      <span>${t('unlock.col.feature')}</span>
+      <i class="c">${t('unlock.col.base')}<small>${t('unlock.col.base.sub')}</small></i>
+      <i class="c pro">${t('unlock.col.pro')}<small>${t('unlock.col.pro.sub')}</small></i>
+    </div>`;
+
+  /* 合计与表同源：加一行就跟着变，不另写一份数字（图上的 8 / 29 也是这么来的）。 */
+  const totals = planTotals();
+  const total = `<div class="bzs-plan-row is-total">
+      <span>${t('unlock.total')}</span>
+      <i class="c"><b>${totals.free}</b><em>${t('unlock.unit')}</em></i>
+      <i class="c pro"><b>${totals.pro}</b><em>${t('unlock.unit')}</em></i>
+    </div>`;
+
   const body = `<div class="bzs-unlock">
+      ${planHead}
       <div class="bzs-plan">
-        <div class="bzs-plan-row head"><span>${t('unlock.col.feature')}</span><b>${t('unlock.col.base')}</b><b>${t('unlock.col.pro')}</b></div>
         ${rows}
+        ${total}
       </div>
     </div>`;
 
@@ -1014,7 +1041,7 @@ export function overlayUnlock(mode?: string, codeOpen = false): string {
       ${act}
     </div>`;
 
-  return modal(t('unlock.title'), paid ? t('unlock.activated') : '', body, foot, 'wide tall');
+  return modal(t('unlock.title'), paid ? t('unlock.activated') : '', body, foot, 'wide tall unlock');
 }
 
 function overlayPtClean(): string {

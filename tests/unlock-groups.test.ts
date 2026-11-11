@@ -9,6 +9,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  *
  * 另一件事：空的勾位以前写的是「—」字符，靠 `text-align` 居中，和 SVG 勾
  * 不同心（72px 列里偏左 29px）。现在改成空格子，横线交给 CSS 画。
+ *
+ * 2026-11-11 照商品图改版：组行也要带两个空格子——高级版那一列的淡底色
+ * 是逐格铺出来的，组行缺格就会把整列切断。格子是空的，不带勾叉。
  */
 
 vi.mock('../src/data/entitlement', async (importOriginal) => {
@@ -36,13 +39,18 @@ import { overlayUnlock } from '../src/shell/overlay';
 
 afterEach(() => setLocale('zh'));
 
-const groupRow = /<div class="bzs-plan-row is-group"><span>([^<]*)<\/span><\/div>/g;
+/** 一条组行（单层 div，里面没有嵌套 div） */
+const groupRow = /<div class="bzs-plan-row is-group">([\s\S]*?)<\/div>/g;
+
+/** 组行第一格里的组名 */
+function groupNames(html: string): string[] {
+  return [...html.matchAll(groupRow)].map((m) => /<span>([^<]*)<\/span>/.exec(m[1])?.[1] ?? '');
+}
 
 describe('解锁弹层 · 分组', () => {
   it('每一段的组标题全部渲染，顺序与 PLAN_GROUPS 一致', () => {
     const html = overlayUnlock();
-    const names = [...html.matchAll(groupRow)].map((m) => m[1]);
-    expect(names).toEqual(PLAN_GROUPS.map((g) => planGroupNameZh(g.key)));
+    expect(groupNames(html)).toEqual(PLAN_GROUPS.map((g) => planGroupNameZh(g.key)));
   });
 
   it('每一行都落在自己那段的标题之后、下一段标题之前', () => {
@@ -63,14 +71,24 @@ describe('解锁弹层 · 分组', () => {
 
   it('组标题不带勾位，读起来不像一项功能', () => {
     const html = overlayUnlock();
-    const rows = html.match(groupRow) ?? [];
+    const rows = [...html.matchAll(groupRow)];
     expect(rows).toHaveLength(PLAN_GROUPS.length);
-    for (const r of rows) expect(r).not.toContain('<i');
+    for (const r of rows) {
+      expect(r[1], '组标题行里不该有勾 / 横线格子').not.toMatch(/class="c [ynp]"/);
+      expect(r[1]).not.toContain('<b>');
+    }
+  });
+
+  it('组行仍带两个空格子，高级版那一列的底色才连得上', () => {
+    const html = overlayUnlock();
+    const first = html.match(groupRow)?.[1] ?? '';
+    expect(first).toContain('<i class="c"></i>');
+    expect(first).toContain('<i class="c pro"></i>');
   });
 
   it('空勾位不再写字符「—」，交给 CSS 画', () => {
     const html = overlayUnlock();
-    expect(html).toContain('<i class="n"></i>');
+    expect(html).toContain('<i class="c n"></i>');
     expect(html).not.toContain('—');
   });
 

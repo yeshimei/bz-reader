@@ -33,8 +33,8 @@ vi.mock('../src/data/entitlement', async (importOriginal) => {
   };
 });
 
-import { GROUP_ID, TRIAL_ACTIVE } from '../src/data/entitlement';
-import { setLocale } from '../src/i18n';
+import { GROUP_ID, TRIAL_ACTIVE, planTotals } from '../src/data/entitlement';
+import { setLocale, t } from '../src/i18n';
 import { copyGroupId, groupButtonHtml } from '../src/shell/group';
 import { overlayUnlock } from '../src/shell/overlay';
 
@@ -98,5 +98,53 @@ describe('解锁弹层 · 点按钮', () => {
     expect(writes).toEqual([GROUP_ID]);
     expect(notices.join('')).toContain(GROUP_ID);
     expect(notices.join('')).not.toContain('试用');
+  });
+});
+
+/**
+ * 版式：照商品图（docs/images/plan-compare.png）那一版。
+ *
+ * 钉的是「图和弹层说的是同一件事」：
+ *   · 表头两列都有副标，跟商店页的口径一致（免费不限时 / 一次买断永久）；
+ *   · 底部合计与 `PLAN_TABLE` 同源——加一行就变，不是另一份手写数字；
+ *   · 表头在表上面，滚到第 30 行时还看得见「哪列是哪版」（样式上钉住它）。
+ */
+describe('解锁弹层 · 商品图那版版式', () => {
+  it('表头两列都带副标：基础版免费不限时、高级版一次买断永久', () => {
+    const html = overlayUnlock();
+    expect(html).toContain('bzs-plan-head');
+    expect(html).toContain(t('unlock.col.base'));
+    expect(html).toContain(t('unlock.col.base.sub'));
+    expect(html).toContain(t('unlock.col.pro'));
+    expect(html).toContain(t('unlock.col.pro.sub'));
+  });
+
+  it('表头排在表格上面，滚到表尾也知道哪列是哪版', () => {
+    const html = overlayUnlock();
+    const head = html.indexOf('bzs-plan-head');
+    const first = html.indexOf('阅读与书架');
+    expect(head).toBeGreaterThan(-1);
+    expect(first).toBeGreaterThan(-1);
+    expect(head).toBeLessThan(first);
+  });
+
+  it('底部合计跟着表走，不是另一份写死的数字', () => {
+    const html = overlayUnlock();
+    const at = html.indexOf('bzs-plan-row is-total');
+    expect(at).toBeGreaterThan(-1);
+    /* 合计行里只有两个数字：基础版项数、高级版项数 */
+    const nums = [...html.slice(at).matchAll(/<b>(\d+)<\/b>/g)].map((m) => Number(m[1]));
+    const totals = planTotals();
+    expect(nums.slice(0, 2)).toEqual([totals.free, totals.pro]);
+    expect(html).toContain(t('unlock.total'));
+    expect(html).toContain(t('unlock.unit'));
+  });
+
+  it('换语言后副标与合计一起换，不残留中文', () => {
+    setLocale('en');
+    const html = overlayUnlock();
+    expect(html).toContain(t('unlock.col.base.sub'));
+    expect(html).toContain(t('unlock.total'));
+    expect(html).not.toContain('免费 · 不限时');
   });
 });

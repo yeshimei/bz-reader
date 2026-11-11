@@ -145,6 +145,25 @@ body.theme-dark .bzs-shell[data-bzaccent="celadon"] { --copper: #8fc6c6; }
   --copper-line: color-mix(in srgb, var(--copper) 38%, transparent);
 }
 
+/* ── 功能对照表（解锁弹层）的列色（2026-11-11） ──
+   高级版那一列要一眼看出来「这边是买的」，所以整列铺淡底、列头反白。
+   浅色照商店详情那张对照长图：深墨列头 + 铜金字。
+   深色主题不能照搬——深色弹窗里嵌一块更黑的方块像没画完，改成铜色系：
+   列头用铜色混进下沉底，字用暖白，跟暗底同族。 */
+.bzs-shell {
+  --plan-tint: color-mix(in srgb, var(--copper) 8%, transparent);
+  --plan-head-bg: #2b261e;
+  --plan-head-fg: #f2e6cb;
+  --plan-head-sub: rgba(201, 164, 99, .85);
+}
+
+body.theme-dark .bzs-shell {
+  --plan-tint: color-mix(in srgb, var(--copper) 9%, transparent);
+  --plan-head-bg: color-mix(in srgb, var(--copper) 20%, var(--sunken));
+  --plan-head-fg: #f0dcb4;
+  --plan-head-sub: color-mix(in srgb, var(--copper) 72%, var(--t3));
+}
+
 /* ── 基础：只在本壳内生效 ── */
 .bzs-shell,
 .bzs-shell * {

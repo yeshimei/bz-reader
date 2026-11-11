@@ -657,8 +657,13 @@ export const FR: Record<MsgKey, string> = {
   'unlock.activated': 'Activé',
   'unlock.col.feature': 'Fonction',
   'unlock.col.base': 'Base',
+  /* Espace réservé de développement (anglais) ; à traduire avant la sortie */
+  'unlock.col.base.sub': 'No time limit',
   'unlock.col.pro': 'Pro',
+  'unlock.col.pro.sub': 'One-time purchase · forever',
   'unlock.part': 'Partiel',
+  'unlock.total': 'Total',
+  'unlock.unit': 'items',
   'unlock.buy': 'Acheter Pro',
   'unlock.group': 'Groupe QQ {id}',
   'unlock.hint': 'Vous recevrez un code de licence après l’achat ; saisissez-le ci-dessous.',

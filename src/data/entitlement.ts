@@ -792,6 +792,23 @@ export const PLAN_TABLE: PlanRow[] = [
 ];
 
 /**
+ * 对照表底部的合计：各档打勾的项数。
+ *
+ * 商品图上写的「8 项 / 29 项」不是手工维护的数字——它就是这张表里
+ * `free === 'yes'` 与 `pro === 'yes'` 的行数。写死的话，下次加一行忘了改，
+ * 弹层就会对外少报一项；这张表是用户决定要不要付钱的地方，数字得跟着表走。
+ *
+ * 「探索中」那五行两版都不打勾，所以天然不计入：不是特例，是同一条规则。
+ * 反过来说，哪天给探索中的某项打了勾，它会自动进合计——这正是想要的。
+ */
+export function planTotals(): { free: number; pro: number } {
+  return {
+    free: PLAN_TABLE.filter((r) => r.free === 'yes').length,
+    pro: PLAN_TABLE.filter((r) => r.pro === 'yes').length,
+  };
+}
+
+/**
  * 打不开一本书时，解锁弹层该把视线引到哪一段。
  *
  * 2026-11-10 之前一律是 `fullFormats`，「更多格式」那一行同时替 PDF 说话；

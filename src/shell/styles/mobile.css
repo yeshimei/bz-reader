@@ -552,18 +552,30 @@
     height: 186px;
   }
 
-  /* 功能对照表：表头与行都要能在窄屏显示，把「备注」列折到第二行 */
-  .bzs-plan-row {
-    /* 首列改 minmax(0,1fr) 允许长功能名折行；勾选列下限 54px（与现宽接近），
-       外语表头更长时随内容伸长，不再顶到对齐线。 */
-    grid-template-columns: minmax(0, 1fr) minmax(54px, max-content) minmax(54px, max-content);
-    row-gap: 0;
+  /* 功能对照表（2026-11-11 照商品图改版）：
+     列宽压到 66px——中文「基础版」三个字 11px 刚好放得下，外语会折成
+     两行，比挤成一条缝好读；表头副标在窄屏收掉，它每屏都在，两行字会把
+     表头撑高、吃掉一行功能。 */
+  .bzs-unlock {
+    --pcol: 66px;
   }
 
-  .bzs-plan-row .note {
-    grid-column: 1 / -1;
-    padding-top: 0;
-    padding-bottom: 8px;
+  .bzs-plan-head > .c small {
+    display: none;
+  }
+
+  .bzs-plan-head > .c {
+    font-size: 11px;
+  }
+
+  .bzs-plan-row > span {
+    font-size: 12px;
+    padding-left: 10px;
+    padding-right: 8px;
+  }
+
+  .bzs-plan-row.is-total > .c b {
+    font-size: 17px;
   }
 
   /* 方向预览卡只有 ~150px 宽，书名会一字一行排到底。
@@ -1271,14 +1283,15 @@
     font-size: 12px;
   }
 
-  .bzs-plan-row.head,
-  .bzs-plan-row span em,
-  .bzs-plan-row b,
-  .bzs-plan-row i.p {
+  /* 触屏上字号统一抬一级：表头两行、备注、勾位里的「部分」。
+     合计的大数字不在此列——它有自己的 21px（手机 17px），压到 12px 就没了。 */
+  .bzs-plan-head > .c,
+  .bzs-plan-row > span em,
+  .bzs-plan-row > .c.p {
     font-size: 12px;
   }
 
-  .bzs-plan-row span {
+  .bzs-plan-row > span {
     font-size: 13px;
   }
 
@@ -1457,8 +1470,10 @@
     display: none;
   }
 
-  .bzs-plan-row {
-    padding: 3px 10px;
-    gap: 6px;
+  /* 窄屏再压一点行距：padding 现在在格子里（行上没有），所以写格子这一层 */
+  .bzs-plan-row > span,
+  .bzs-plan-row > .c {
+    padding-top: 4px;
+    padding-bottom: 4px;
   }
 }

@@ -649,8 +649,13 @@ export const JA: Record<MsgKey, string> = {
   'unlock.activated': '有効化済み',
   'unlock.col.feature': '機能',
   'unlock.col.base': 'ベーシック版',
+  /* 開発期のプレースホルダ（英語のまま）。発売前に正式な日本語へ */
+  'unlock.col.base.sub': 'No time limit',
   'unlock.col.pro': 'プロ版',
+  'unlock.col.pro.sub': 'One-time purchase · forever',
   'unlock.part': '一部',
+  'unlock.total': 'Total',
+  'unlock.unit': 'items',
   'unlock.buy': '購入する',
   'unlock.group': 'QQ グループ {id}',
   'unlock.hint': '購入後に届くライセンスコードを下に入力してください',

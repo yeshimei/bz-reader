@@ -1725,10 +1725,16 @@ textarea.idea:focus {
 
 /* ── 解锁弹层 ──
    出现的时机永远是「用户刚想做一件事被拦下」，所以先给他想做的事，
-   价格与按钮放后面。一行价格、两个出口、一个激活码框，不要更多。 */
+   价格与按钮放后面。一行价格、两个出口、一个激活码框，不要更多。
+
+   `--pcol` 是两列勾位的宽度、`--plan-rule` 是行间淡线：都放在这一层，
+   表头与表格、桌面与手机（mobile.css 覆盖 --pcol）共用同一份。 */
 .bzs-unlock {
-  display: grid;
-  gap: 14px;
+  --pcol: 96px;
+  --plan-rule: color-mix(in srgb, var(--line) 62%, transparent);
+  /* 表头与表格必须上下紧贴：留 gap 会让 sticky 表头与第一行之间空一截，
+     滚起来像表格从表头下面漏出来。 */
+  display: block;
 }
 
 .bzs-unlock-list {
@@ -1760,94 +1766,149 @@ textarea.idea:focus {
   opacity: .7;
 }
 
-/* 功能对照表：两列定宽，右边两列表头与勾位对齐 */
-.bzs-plan {
-  border: 1px solid var(--line);
-  border-radius: var(--r-card);
-  overflow: hidden;
-}
+/* ── 功能对照表（2026-11-11 照商店详情那张长图重做） ──
+   版式与 `docs/images/plan-compare.png` 同源：表头两行（列名 + 副标）、
+   高级版整列淡底、勾分色、底部合计。行与勾叉仍是 PLAN_TABLE 那 34 行。
 
+   列宽用同一个变量，不再逐行按内容算：两列勾位必须逐行对齐，整列底色
+   才能连成一条——以前用 max-content，中文看着齐，换成德语就歪。 */
+.bzs-plan-head,
 .bzs-plan-row {
   display: grid;
-  /* 两档勾选列下限 72px（中文表头与现宽接近），内容更长（外语 Basisversion/Premiumversion）
-     时随内容伸长不溢出；首列 minmax(0,1fr) 允许长功能名折行。 */
-  grid-template-columns: minmax(0, 1fr) minmax(72px, max-content) minmax(72px, max-content);
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-top: 1px solid var(--line);
+  grid-template-columns: minmax(0, 1fr) var(--pcol) var(--pcol);
+  align-items: stretch;
 }
 
-.bzs-plan-row:first-child {
-  border-top: 0;
+/* 表头常驻：34 行要滚两屏，滚到「探索中」那一段也得知道哪列是哪版。
+   底色必须不透明，才遮得住从下面滑过去的行（见 .bzs-modal.unlock 把
+   正文的 padding-top 收掉，表头才贴得住标题栏）。 */
+.bzs-plan-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--glass);
+  border-bottom: 2px solid var(--line);
 }
 
-.bzs-plan-row.head {
-  background: var(--sunken);
-  font-size: 11px;
-  letter-spacing: 0;
-  color: var(--ink);
-  opacity: .66;
+/* 表格本体不描外框，照图直排：行间淡线，表头下与合计上各一条粗线分段。 */
+.bzs-plan-row {
+  border-bottom: 1px solid var(--plan-rule);
 }
 
-.bzs-plan-row span {
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--ink);
-  opacity: .9;
+.bzs-plan-row:last-child {
+  border-bottom: 0;
 }
 
-.bzs-plan-row span em {
-  font-style: normal;
-  margin-left: 6px;
-  font-size: 11px;
-  opacity: .55;
-}
-
-.bzs-plan-row b {
-  text-align: center;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: .06em;
-}
-
-/* 三种格子（勾 / 部分 / 横线）用同一套居中。
-   2026-11-09 修：原来 i.y 是 inline-flex 却没写 justify-content，SVG 贴左；
-   i.n 靠 text-align 让「—」字形居中。两套逻辑在 72px 列里差 29px，
-   看起来就是「对号和横线不在一条线上」。 */
-.bzs-plan-row i {
+/* padding 落在每一格里，不在行上：整列底色要上下连成一条，行与行之间
+   不能有缝，也不能让底色短一截。 */
+.bzs-plan-head > span,
+.bzs-plan-head > i,
+.bzs-plan-row > span,
+.bzs-plan-row > i {
   display: flex;
   align-items: center;
+  min-width: 0;
+  padding: 5px 8px;
+}
+
+.bzs-plan-head > span,
+.bzs-plan-row > span {
+  padding-left: 14px;
+  padding-right: 12px;
+}
+
+.bzs-plan-row > span {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink);
+  opacity: .92;
+}
+
+.bzs-plan-row > span em {
+  font-style: normal;
+  margin-left: 6px;
+  font-size: 10.5px;
+  color: var(--t3);
+}
+
+/* 两列勾位：高级版那格带 `pro`，底色与勾色都靠它分。 */
+.bzs-plan-head > .c,
+.bzs-plan-row > .c {
   justify-content: center;
-  text-align: center;
   font-style: normal;
   font-size: 13px;
   line-height: 1;
+  text-align: center;
 }
 
-.bzs-plan-row i.y {
+.bzs-plan-row > .c.pro {
+  background: var(--plan-tint);
+}
+
+/* ── 表头：左「功能」灰小字，右侧两列名 + 副标；高级版整格反白 ── */
+.bzs-plan-head > span {
+  font-size: 10.5px;
+  letter-spacing: .18em;
+  color: var(--t3);
+  padding-top: 10px;
+  padding-bottom: 9px;
+}
+
+.bzs-plan-head > .c {
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  color: var(--ink);
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.bzs-plan-head > .c small {
+  font-size: 9.5px;
+  font-weight: 400;
+  letter-spacing: .05em;
+  color: var(--t3);
+}
+
+.bzs-plan-head > .c.pro {
+  background: var(--plan-head-bg);
+  color: var(--plan-head-fg);
+}
+
+.bzs-plan-head > .c.pro small {
+  color: var(--plan-head-sub);
+}
+
+/* 勾分色：基础版列暖灰、高级版列铜金——一眼分出哪列是谁的。
+   三种格子（勾 / 部分 / 横线）用同一套居中：2026-11-09 修过一次，
+   那时 i.y 是 inline-flex 却没写 justify-content，SVG 贴左。 */
+.bzs-plan-row > .c.y {
+  color: color-mix(in srgb, var(--ink) 42%, transparent);
+}
+
+.bzs-plan-row > .c.pro.y {
   color: var(--copper);
 }
 
-.bzs-plan-row i.y svg {
-  width: 14px;
-  height: 14px;
+.bzs-plan-row > .c.y svg {
+  width: 15px;
+  height: 15px;
 }
 
-.bzs-plan-row i.p {
+.bzs-plan-row > .c.p {
   font-size: 11px;
-  color: var(--ink);
-  opacity: .58;
+  color: var(--t3);
 }
 
-.bzs-plan-row i.n {
-  color: var(--ink);
-  opacity: .26;
+.bzs-plan-row > .c.n {
+  color: color-mix(in srgb, var(--ink) 24%, transparent);
 }
 
 /* 横线画出来，不用「—」字符：字符居中受字体字形框左右留白影响，
    换一套主题字体就又歪了。 */
-.bzs-plan-row i.n::before {
+.bzs-plan-row > .c.n::before {
   content: "";
   width: 12px;
   height: 1.5px;
@@ -1855,24 +1916,23 @@ textarea.idea:focus {
   background: currentColor;
 }
 
-/* 分组标题：跨三列的一条浅底，字比功能行小一号、字距拉开。
-   它只是分隔线，不该比功能行还显眼（2026-11-09）。
-   左边原来有一根铜色短条，真机看下来像多余的装饰线——组名靠字距和底色
-   已经能分开，去掉。 */
+/* 组标题：照图做成铜色小字栏目名，不再是一条灰底横条——它只是分段，
+   不该比功能行还显眼。两个空格子保留：高级版那列的底色不能断。 */
 .bzs-plan-row.is-group {
-  grid-column: 1 / -1;
-  grid-template-columns: 1fr;
-  padding: 12px 12px 5px;
-  border-top: 1px solid var(--line);
-  background: color-mix(in srgb, var(--sunken) 55%, transparent);
+  border-bottom: 0;
 }
 
-.bzs-plan-row.is-group span {
-  font-size: 11px;
+.bzs-plan-row.is-group > span {
+  padding: 15px 12px 5px 14px;
+  font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: .13em;
-  color: var(--ink);
-  opacity: .62;
+  letter-spacing: .15em;
+  color: var(--copper);
+  opacity: 1;
+}
+
+.bzs-plan-row.is-group > .c {
+  padding: 0;
 }
 
 /* 「你刚点的就是这个」：基础版点付费按钮被拦下时，对照表里那一行
@@ -1883,9 +1943,56 @@ textarea.idea:focus {
   box-shadow: inset 0 0 0 1px var(--copper-line);
 }
 
-.bzs-plan-row.is-cap span {
+.bzs-plan-row.is-cap > span {
   opacity: 1;
   font-weight: 500;
+}
+
+/* 高亮行的高级版格子要跟着加深，否则整列底色会把高亮「压平」 */
+.bzs-plan-row.is-cap > .c.pro {
+  background: color-mix(in srgb, var(--copper) 15%, transparent);
+}
+
+/* 合计：数字从 PLAN_TABLE 现算（planTotals），加一行就跟着变。
+   衬线大号 + 单位小字，跟图上一模一样。 */
+.bzs-plan-row.is-total {
+  border-top: 2px solid var(--line);
+  border-bottom: 0;
+}
+
+.bzs-plan-row.is-total > span {
+  font-size: 10.5px;
+  letter-spacing: .18em;
+  color: var(--t3);
+  padding-top: 12px;
+  padding-bottom: 14px;
+}
+
+.bzs-plan-row.is-total > .c {
+  gap: 4px;
+  padding-top: 9px;
+  padding-bottom: 11px;
+}
+
+.bzs-plan-row.is-total > .c b {
+  font: 500 21px/1.1 var(--serif);
+  color: var(--ink);
+}
+
+.bzs-plan-row.is-total > .c em {
+  font-style: normal;
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  color: var(--t3);
+}
+
+.bzs-plan-row.is-total > .c.pro b {
+  color: var(--copper);
+}
+
+/* 解锁弹层的正文顶部不留白：表头要贴住标题栏，sticky 才不会「跳」一下。 */
+.bzs-modal.unlock .bzs-mbody {
+  padding-top: 0;
 }
 
 .bzs-unlock-buy {

@@ -657,8 +657,13 @@ export const PT: Record<MsgKey, string> = {
   'unlock.activated': 'Ativado',
   'unlock.col.feature': 'Recurso',
   'unlock.col.base': 'Base',
+  /* Placeholder de desenvolvimento (inglês); traduzir antes de publicar */
+  'unlock.col.base.sub': 'No time limit',
   'unlock.col.pro': 'Pro',
+  'unlock.col.pro.sub': 'One-time purchase · forever',
   'unlock.part': 'Parcial',
+  'unlock.total': 'Total',
+  'unlock.unit': 'items',
   'unlock.buy': 'Comprar Pro',
   'unlock.group': 'Grupo QQ {id}',
   'unlock.hint': 'Após a compra você recebe um código de licência; digite-o abaixo.',
