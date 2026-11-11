@@ -49,14 +49,17 @@ export type PlanKey =
   | 'tts'
   | 'parallel'
   | 'bookmap'
-  | 'kb';
+  | 'kb'
+  /* 探索中（2026-11-11）：两项都还没实现，先占表尾两行；行内不标状态，靠段名说。 */
+  | 'pdfOcr'
+  | 'review';
 
 /**
  * 分组 id。和 `PlanKey` 是**两套命名空间**：这里是「段」，那里是「行」。
  * 名字刻意不重合，免得代码里 `PLAN_TABLE[0].key` 与 `PLAN_GROUPS[0].key`
  * 读起来像同一个东西。归属关系在 `data/entitlement.ts` 的 PLAN_GROUPS。
  */
-export type PlanGroupKey = 'read' | 'output' | 'pdf' | 'insight' | 'ai' | 'advanced';
+export type PlanGroupKey = 'read' | 'output' | 'pdf' | 'insight' | 'ai' | 'advanced' | 'explore';
 
 const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
   reading: {
@@ -393,6 +396,35 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'Conectar con la base de conocimiento BZ AI (requiere bz)',
     pt: 'Conectar à base de conhecimento BZ AI (requer bz)',
   },
+  /* ── 探索中（2026-11-11） ──
+   * 两项都还没实现，先占表尾两行。行里不写「开发中」——状态由段名说，
+   * 两版都不打勾，也不挂能力位。
+   *
+   * OCR 与 AI 视觉是两条技术路线、同一个目标：让扫描件拥有文字版的
+   * 选中 / 搜索 / 划线体验。复习是全文回顾 + AI 抽认卡 + AI 出题。
+   *
+   * 八语言按日常开发规矩：zh / en 写实，其余六包占位（ja/de/fr/es/pt 放
+   * 英文原文、zh-TW 放繁体）。准备上架那一版再统一补正式翻译。 */
+  pdfOcr: {
+    zh: 'PDF OCR+AI视觉：扫描件像文字版一样能选能搜能划',
+    'zh-TW': 'PDF OCR+AI視覺：掃描件像文字版一樣能選能搜能劃',
+    en: 'PDF OCR + AI vision: scanned pages work like text — select, search, highlight',
+    ja: 'PDF OCR + AI vision: scanned pages work like text — select, search, highlight',
+    de: 'PDF OCR + AI vision: scanned pages work like text — select, search, highlight',
+    fr: 'PDF OCR + AI vision: scanned pages work like text — select, search, highlight',
+    es: 'PDF OCR + AI vision: scanned pages work like text — select, search, highlight',
+    pt: 'PDF OCR + AI vision: scanned pages work like text — select, search, highlight',
+  },
+  review: {
+    zh: '复习：全文回顾，AI 生成抽认卡与题目',
+    'zh-TW': '複習：全文回顧，AI 生成抽認卡與題目',
+    en: 'Review: reread in full, with AI flashcards and quizzes',
+    ja: 'Review: reread in full, with AI flashcards and quizzes',
+    de: 'Review: reread in full, with AI flashcards and quizzes',
+    fr: 'Review: reread in full, with AI flashcards and quizzes',
+    es: 'Review: reread in full, with AI flashcards and quizzes',
+    pt: 'Review: reread in full, with AI flashcards and quizzes',
+  },
 };
 
 /** 对照表行名 → 当前界面语言的说法 */
@@ -476,6 +508,18 @@ const PLAN_GROUP_TEXT: Record<PlanGroupKey, Record<Locale, string>> = {
     fr: 'Avancé',
     es: 'Avanzado',
     pt: 'Avançado',
+  },
+  /* 探索中（2026-11-11）：段名说明状态，行里不再重复「开发中」。
+     英文用 Explorations 而不是 In development——它是栏目名，不是警告语。 */
+  explore: {
+    zh: '探索中',
+    'zh-TW': '探索中',
+    en: 'Explorations',
+    ja: 'Explorations',
+    de: 'Explorations',
+    fr: 'Explorations',
+    es: 'Explorations',
+    pt: 'Explorations',
   },
 };
 

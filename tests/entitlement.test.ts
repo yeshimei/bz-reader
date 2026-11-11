@@ -232,10 +232,14 @@ describe('界面文案', () => {
     expect(firstPaid?.cap).toBe('fullFormats');
   });
 
-  it('对照表不再单列向量检索，表尾只剩 BZ 知识库', () => {
+  it('对照表不再单列向量检索，知识库后只跟探索中段', () => {
     expect(PLAN_TABLE.some((r) => r.name.includes('向量'))).toBe(false);
-    expect(PLAN_TABLE.slice(-1).map((r) => r.key)).toEqual(['kb']);
-    expect(PLAN_TABLE.slice(-1).map((r) => r.name)).toEqual(['连接 BZ AI 知识库（需另装 bz）']);
+    const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
+    expect(kbAt).toBeGreaterThan(-1);
+    expect(PLAN_TABLE[kbAt]?.name).toBe('连接 BZ AI 知识库（需另装 bz）');
+    /* 2026-11-11：知识库仍是正式段的收尾，探索中两项接在它后面；
+       它们不是「买到了什么」，不该把表尾那句承诺顶掉。 */
+    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key)).toEqual(['pdfOcr', 'review']);
   });
 
   it('数据面板那一行写全：时长、趋势、节律、书籍明细', () => {
@@ -259,7 +263,9 @@ describe('界面文案', () => {
        能力位只是摆样子。改成按组校验——付费段的头一行必须能高亮。 */
     for (const g of PLAN_GROUPS) {
       const rows = g.rows.map((k) => PLAN_TABLE.find((r) => r.key === k));
-      const paid = rows.filter((r) => r?.free === 'no');
+      /* 付费行 = 基础版没有、高级版有。探索中的行两版都没有（还没实现），
+         既不参与合计，也没有可高亮的入口，按组校验时要排除。 */
+      const paid = rows.filter((r) => r?.free === 'no' && r?.pro === 'yes');
       if (!paid.length) continue;
       expect(paid.some((r) => !!r?.cap), `组 ${g.key} 没有一行能高亮`).toBe(true);
     }

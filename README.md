@@ -75,6 +75,8 @@
 |  | 与另一本书并排对照 | — | ✓ |
 |  | 全书鸟瞰 | — | ✓ |
 |  | 连接 BZ AI 知识库（需另装 bz） | — | ✓ |
+| **探索中** | PDF OCR+AI视觉：扫描件像文字版一样能选能搜能划 | — | — |
+|  | 复习：全文回顾，AI 生成抽认卡与题目 | — | — |
 
 ## 界面语言
 
@@ -178,6 +180,8 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 |  | Read two books side by side | — | ✓ |
 |  | Book overview | — | ✓ |
 |  | Connect to the BZ AI knowledge base (requires bz) | — | ✓ |
+| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
+|  | Review: reread in full, with AI flashcards and quizzes | — | — |
 
 ### Interface languages
 
@@ -274,6 +278,8 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 |  | 與另一本書並排對照 | — | ✓ |
 |  | 全書鳥瞰 | — | ✓ |
 |  | 連接 BZ AI 知識庫（需另裝 bz） | — | ✓ |
+| **探索中** | PDF OCR+AI視覺：掃描件像文字版一樣能選能搜能劃 | — | — |
+|  | 複習：全文回顧，AI 生成抽認卡與題目 | — | — |
 
 ### 介面語言
 
@@ -364,6 +370,8 @@ Obsidian を「本を読む場所」に。デスクトップ + モバイル、�
 |  | 別の本と並べて対照 | — | ✓ |
 |  | 全体マップ | — | ✓ |
 |  | BZ AI ナレッジベースに接続（bz が必要） | — | ✓ |
+| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
+|  | Review: reread in full, with AI flashcards and quizzes | — | — |
 
 「一部」＝テキストの引用カードはベーシック版で利用可、画像として書き出すにはプロ版が必要です。
 
@@ -456,6 +464,8 @@ Solange die Prüfung läuft oder die Suche nichts findet: mit [BRAT](https://git
 |  | Zwei Bücher nebeneinander lesen | — | ✓ |
 |  | Buchübersicht | — | ✓ |
 |  | Mit der BZ-KI-Wissensdatenbank verbinden (bz erforderlich) | — | ✓ |
+| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
+|  | Review: reread in full, with AI flashcards and quizzes | — | — |
 
 ### Oberflächensprachen
 
@@ -546,6 +556,8 @@ Pendant la validation, ou si la recherche ne donne rien : ajoutez ce dépôt ave
 |  | Lire deux livres côte à côte | — | ✓ |
 |  | Vue d'ensemble du livre | — | ✓ |
 |  | Se connecter à la base BZ AI (nécessite bz) | — | ✓ |
+| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
+|  | Review: reread in full, with AI flashcards and quizzes | — | — |
 
 ### Langues de l'interface
 
@@ -636,6 +648,8 @@ Mientras la revisión esté pendiente, o si la búsqueda no lo encuentra, añade
 |  | Leer dos libros en paralelo | — | ✓ |
 |  | Vista general del libro | — | ✓ |
 |  | Conectar con la base de conocimiento BZ AI (requiere bz) | — | ✓ |
+| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
+|  | Review: reread in full, with AI flashcards and quizzes | — | — |
 
 ### Idiomas de la interfaz
 
@@ -726,6 +740,8 @@ Enquanto a revisão estiver pendente, ou se a busca não encontrar, adicione est
 |  | Ler dois livros lado a lado | — | ✓ |
 |  | Visão geral do livro | — | ✓ |
 |  | Conectar à base de conhecimento BZ AI (requer bz) | — | ✓ |
+| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
+|  | Review: reread in full, with AI flashcards and quizzes | — | — |
 
 ### Idiomas da interface
 

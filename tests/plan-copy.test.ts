@@ -97,9 +97,11 @@ describe('1.0.0 对照表 · 书摘下放与行名', () => {
     }
   });
 
-  it('表尾仍是知识库那一行', () => {
-    expect(PLAN_TABLE.at(-1)?.key).toBe('kb');
-    expect(PLAN_TABLE.at(-1)?.name).toBe('连接 BZ AI 知识库（需另装 bz）');
+  it('知识库仍是正式段最后一行，探索中段接在表尾', () => {
+    const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
+    expect(kbAt).toBeGreaterThan(-1);
+    expect(PLAN_TABLE[kbAt]?.name).toBe('连接 BZ AI 知识库（需另装 bz）');
+    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key)).toEqual(['pdfOcr', 'review']);
   });
 });
 
