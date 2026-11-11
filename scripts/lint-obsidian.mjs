@@ -120,9 +120,24 @@ try {
   if (fix) args.push('--fix');
   const r = spawnSync(process.execPath, args, { cwd: process.cwd(), stdio: 'inherit' });
   exitCode = r.status ?? 1;
-  if (exitCode === 0) console.log('[lint] 干净：0 error / 0 warning');
+  if (exitCode === 0) console.log('[lint] TypeScript 干净：0 error / 0 warning');
   else console.error('[lint] 有问题，上架前必须修完（或按 AGENTS.md 的例外说明处理）');
 } finally {
   cleanup();
+}
+
+/**
+ * 样式另有一道（2026-11-11 加上）。
+ *
+ * 社区目录的自动审核不只扫 TS：`!important` / `:has()` / 重复属性 / `text-indent`
+ * 都是它单独报的。1.1.0 送审时本地这条命令是 0/0，网页上却是一屏——
+ * 缺的就是这一半，别再靠记性补。
+ */
+if (exitCode === 0) {
+  const css = spawnSync(process.execPath, [path.join(process.cwd(), 'scripts', 'lint-css.mjs')], {
+    cwd: process.cwd(),
+    stdio: 'inherit',
+  });
+  exitCode = css.status ?? 1;
 }
 process.exit(exitCode);

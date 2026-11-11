@@ -738,22 +738,6 @@
   }
 }
 
-/* ── 无锚点的文字浮层（从侧栏打开）：移动端贴底小卡 ──
-   正文里的工具条 / 想法框都带锚点，一律贴字弹（overlay.ts 算 left/top），
-   这里绝不能再把它们拉到底部——那正是「点划线弹抽屉、离文字很远」的来源。 */
-@media (max-width: 820px) {
-  .bzs-float.is-sheet {
-    left: 10px !important;
-    right: 10px !important;
-    bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
-    top: auto !important;
-    width: auto !important;
-    max-height: 62vh;
-    transform: none !important;
-    border-radius: 16px;
-  }
-}
-
 /* ── 想法输入卡：一个输入框 + 取消/保存 ── */
 .bzs-sheet-input {
   width: 100%;

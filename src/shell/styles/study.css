@@ -369,9 +369,13 @@
   color: var(--bg);
 }
 
-/* 笔色圆点跟着选中一起翻：渲染处把颜色写成了内联样式，只能在这里盖 */
+/* 笔色圆点跟着选中一起翻。渲染处把颜色写成 `--dot` 变量而不是 background：
+   变量在内联样式里不直接决定背景，选中那条规则靠权重就能盖住，不用 `!important`。 */
+.bzs-noteshead .bzs-chip .dot {
+  background: var(--dot, var(--copper));
+}
 .bzs-noteshead .bzs-chip.on .dot {
-  background: var(--bg) !important;
+  background: var(--bg);
 }
 
 /* 搜索井：同一套圆头，去掉边框 */

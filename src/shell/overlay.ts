@@ -674,7 +674,9 @@ function textPanel(
      不能跟卡片共用一个底——两层白底叠起来像套了个相框。 */
   return bareFloat(
     `<div class="bzs-tb-stack"><div class="bzs-panel-body ${cls}-body">${body}</div>${toolbar}</div>`,
-    'has-stack',
+    /* `cls` 同时挂在浮层上：样式要按「里面装的是哪张卡」分支
+       （AI 卡要内部滚动），用类名比 `:has()` 便宜得多。 */
+    `${cls} has-stack`,
   );
 }
 

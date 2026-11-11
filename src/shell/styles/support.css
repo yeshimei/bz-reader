@@ -132,7 +132,6 @@
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.34em;
-  text-indent: 0.34em;
   color: var(--sup-accent);
 }
 
@@ -203,7 +202,6 @@
   gap: 9px;
   font-size: 10px;
   letter-spacing: 0.16em;
-  text-indent: 0.16em;
   color: var(--sup-ink-3);
 }
 

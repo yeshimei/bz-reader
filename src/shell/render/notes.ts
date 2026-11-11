@@ -95,7 +95,7 @@ export function viewNotes(v: NotesView): string {
     `<button class="bzs-chip${v.filter === 'comment' ? ' on' : ''}" data-act="notefilter" data-v="comment">${t('notes.filter.comment')}</button>`,
     ...HIGHLIGHT_COLORS.map(
       (c) =>
-        `<button class="bzs-chip${v.filter === c.value ? ' on' : ''}" data-act="notefilter" data-v="${c.value}"><span class="dot" style="background:${c.css}"></span>${colorLabel(c.value)}</button>`,
+        `<button class="bzs-chip${v.filter === c.value ? ' on' : ''}" data-act="notefilter" data-v="${c.value}"><span class="dot" style="--dot:${c.css}"></span>${colorLabel(c.value)}</button>`,
     ),
   ].join('');
 

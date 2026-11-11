@@ -1056,10 +1056,11 @@ body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .view-header
 }
 
 /* 阅读时头栏只留阅读自己的三个动作 + 宿主的 ⋮：
-   其他插件（Commander 等）注入的图标先让位，关掉书回到别的视图自动恢复。 */
+   其他插件（Commander 等）注入的图标先让位，关掉书回到别的视图自动恢复。
+   选择器已经压到 0,3,1，不再需要 `!important`（官方审核不收它）。 */
 body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .view-actions > .cmdr,
 body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .nav-buttons-container > .cmdr {
-  display: none !important;
+  display: none;
 }
 
 /* ⋮ 的可见性交给 view/header-layout.ts 按图标身份保证。
@@ -1078,15 +1079,15 @@ body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .nav-buttons
    桌面端以前只藏了 view-header，tab 栏、状态栏还在，正文上下各被切掉一条，
    看起来不像「全屏阅读」——所以这里把桌面那两圈边框也一起收掉。 */
 body.bzr-immersive .workspace-leaf-content[data-type='bzr-reader-view'] .view-header {
-  display: none !important;
+  display: none;
 }
 body.bzr-immersive .mobile-navbar,
 body.bzr-immersive .status-bar {
-  display: none !important;
+  display: none;
 }
 /* 桌面：tab 栏收掉（切 tab 用快捷键或先退出沉浸），上下不再留白 */
 body.bzr-immersive .workspace-tab-header-container {
-  display: none !important;
+  display: none;
 }
 body.bzr-immersive .workspace-leaf-content[data-type='bzr-reader-view'] {
   --view-top-spacing: 0px;
@@ -1131,10 +1132,11 @@ body.bzr-immersive .workspace-leaf-content[data-type='bzr-reader-view'] .view-co
 }
 
 /* 头栏里「别人的」按钮藏掉（reader-view 按角色判定后加这个 class）。
-   必须 !important：主题和别的插件常给自己的 .clickable-icon 写 !important。
-   选择器故意写长，靠特异性压过去——单靠一个 class 压不住 0,2,0 的规则。 */
+   选择器故意写长，靠特异性压过主题里 0,2,0 的规则。官方审核不收
+   `!important`，这条不再用它——万一某个主题自己带 !important，
+   那颗图标会露出来，不会连累别的样式。 */
 body .view-header .clickable-icon.bzs-host-hidden {
-  display: none !important;
+  display: none;
 }
 
 /* ============================================================

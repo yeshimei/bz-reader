@@ -265,12 +265,16 @@ body.theme-dark .bzs-shell[data-bzaccent="celadon"] { --copper: #8fc6c6; }
   padding: 0;
   border: 0;
   margin: 0;
-  height: 16px !important;
-  min-height: 0 !important;
+  height: 16px;
+  min-height: 0;
   background: transparent;
   box-shadow: none;
   -webkit-appearance: none;
   appearance: none;
+  /* 宿主给 thumb 的 `top` 读的就是这个变量（深色 -6px、移动端 -9px，
+     按它自己 3px 细轨算的）。我们的轨是 16px，归零后圆点才与线正中重合——
+     以前用 `!important` 硬压 top，现在改变量，不用抢优先级。 */
+  --slider-thumb-y: 0px;
 }
 
 /* 滑杆外的手势层（只在移动端接管，见 shell/range-touch.ts）。
@@ -307,8 +311,8 @@ body.theme-dark .bzs-shell[data-bzaccent="celadon"] { --copper: #8fc6c6; }
    （纯 CSS 画不出「填充到当前值」；只在拖动时写，首次渲染会停在缺省的 50%）。
    排版浮层与设置页走同一份，粗细永远一致。 */
 .bzs-shell input[type="range"]::-webkit-slider-runnable-track {
-  height: 16px !important;
-  margin-top: 0 !important;
+  height: 16px;
+  margin-top: 0;
   border-radius: var(--r-book);
   background:
     linear-gradient(to right, var(--copper) 0 var(--fill, 50%), var(--line-2) var(--fill, 50%) 100%)
@@ -318,16 +322,15 @@ body.theme-dark .bzs-shell[data-bzaccent="celadon"] { --copper: #8fc6c6; }
 .bzs-shell input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 12px !important;
-  height: 12px !important;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  background: var(--copper) !important;
-  margin-top: 2px !important; /* (16-12)/2，与线正中重合 */
-  /* 宿主默认给 thumb 挂了 `position: relative; top: var(--slider-thumb-y)`
-     （深色默认 -6px、移动端 -9px），是按它自己 3px 细轨算的。我们的轨是 16px，
-     不把 top 归零，圆点就会整体浮在线上方——真机反馈第 6 条。 */
-  position: static !important;
-  top: 0 !important;
+  background: var(--copper);
+  margin-top: 2px; /* (16-12)/2，与线正中重合 */
+  /* 变量归零之外再写一条 `top`：宿主若没用变量而是写死偏移，这条（0,2,1）
+     也压得住它。 */
+  position: relative;
+  top: 0;
   border: 0;
   box-shadow: 0 0 0 3px var(--copper-soft);
 }
@@ -355,14 +358,17 @@ body.theme-dark .bzs-shell[data-bzaccent="celadon"] { --copper: #8fc6c6; }
 /* ── 动效偏好 ──
    以前全仓 0 处 prefers-reduced-motion：朗读波形是无限动画，各处 transition
    也不短。系统开了「减少动态效果」就必须收掉——这不是审美，是前庭敏感人群
-   真的会不适。只作用在壳内，不动宿主。 */
+   真的会不适。只作用在壳内，不动宿主。
+
+   这里故意用 `html … [class]` 把权重抬到 0,2,1：动画声明散在各个文件里
+   （有的自己就到 0,2,0），没有 `!important` 也要压得住它们。 */
 @media (prefers-reduced-motion: reduce) {
-  .bzs-shell *,
-  .bzs-shell *::before,
-  .bzs-shell *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+  html .bzs-shell[class] *,
+  html .bzs-shell[class] *::before,
+  html .bzs-shell[class] *::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    transition-duration: 0.01ms;
+    scroll-behavior: auto;
   }
 }

@@ -80,14 +80,6 @@
   max-height: min(420px, calc(100vh - 160px));
 }
 
-/* 没有锚点的浮层（从侧栏打开）：桌面居中靠上；手机在 mobile.css 里改成贴底。 */
-.bzs-float.is-sheet {
-  top: 72px;
-  left: 50%;
-  width: min(360px, calc(100vw - 24px));
-  transform: translateX(-50%);
-}
-
 /* ── 手机上的文字面板：一张独立卡片（S11）──
    手机没有「工具条常驻」的位置，想法 / 书摘 / AI 改成遮罩弹窗；
    居中的偏上位置由 .bzs-text-scrim 的 padding-bottom 压出来（见 mobile.css）。
@@ -95,7 +87,6 @@
 .bzs-float.is-dialog {
   position: relative;
   width: min(420px, calc(100vw - 32px));
-  max-height: min(72vh, 640px);
   /* 手机地址栏伸缩、键盘弹出都会改可视高度：dvh 跟着真实视口，卡片不会被顶出屏幕 */
   max-height: min(72dvh, 640px);
   overflow: auto;
@@ -107,34 +98,18 @@
 }
 
 /* 装着 AI 卡的弹窗（2026-11-11）：滚动交给卡片内部的 .ai-scroll。
-   外层再滚一次，输入行与底部按钮会跟着答案一起滚出屏幕。 */
-.bzs-float.is-dialog:has(.bzs-ai-card) {
+   外层再滚一次，输入行与底部按钮会跟着答案一起滚出屏幕。
+   判据是浮层自己的 `bzs-ai-panel` 类（生成时挂上，见 overlay.ts）：
+   `:has()` 会触发整棵子树的选择器失效，官方审核按性能问题报。 */
+.bzs-float.bzs-ai-panel {
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
-.bzs-float.is-dialog:has(.bzs-ai-card) .bzs-ai-card {
+.bzs-float.bzs-ai-panel .bzs-ai-card {
   flex: 1 1 auto;
   min-height: 0;
-}
-
-/* 贴字 / 从侧栏打开的浮层同样要内部滚动（2026-11-11）：
-   追问几轮之后内容比浮层高，外层 overflow:hidden 会把输入行和底部按钮
-   直接裁掉——用户看到的是「按钮没了」，不是「还能往下滚」。 */
-.bzs-float.is-anchored:has(.bzs-ai-card),
-.bzs-float.is-sheet:has(.bzs-ai-card) {
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.bzs-float.is-anchored:has(.bzs-ai-card) .bzs-ai-card,
-.bzs-float.is-sheet:has(.bzs-ai-card) .bzs-ai-card {
-  flex: 1 1 auto;
-  min-height: 0;
-  /* 跟浮层同宽：卡片自己那 430px 比浮层宽，右边会被裁掉一截 */
-  width: 100%;
 }
 
 body.theme-dark .bzs-float.is-dialog {
