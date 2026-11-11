@@ -3,8 +3,8 @@
  *
  * 设置页顶部栏与更新日志页脚的「支持作者」共用这一个窗：
  *   · 抬头一句实话（插件与教程都是一个人在做）；
- *   · 一张微信赞赏码 + 「或者成为赞助人」的备用出口；
- *   · 再下一行「或者给个 Star」：不花钱的另一种支持，点开 GitHub 仓库；
+ *   · 一张微信赞赏码 + 一行「成为赞助人 · 给个 Star」的出口——两条并列的
+ *     支持路径（赞助商店 / GitHub 仓库），中点只作分隔、不可点；
  *   · 支持者名单（时间倒序、序号倒排，空名单时给一张空态）。
  *
  * 版式**不照搬 bz 那张米白描金纸**：bz 是免费插件，那张纸是它的气质；
@@ -86,9 +86,12 @@ export function supportDialogHtml(
     '<div class="bzs-sup-code">' +
     `<div class="bzs-sup-code-box"><img src="${esc(codeUrl)}" alt="${esc(t('support.codeAlt'))}" /></div>` +
     `<p class="bzs-sup-ways">${esc(t('support.ways'))}</p>` +
+    '<div class="bzs-sup-exits">' +
     `<button class="bzs-sup-sponsor" type="button" data-role="supsponsor">${esc(t('support.sponsor'))}</button>` +
-    /* 收藏入口（2026-11-10）：不花钱的另一种支持。打开仓库页，Star 按钮在右上角。 */
+    /* 分隔点：不可点，只把两条支持路径隔开；读屏跳过（否则会念出一个「点」）。 */
+    '<span class="bzs-sup-exit-sep" aria-hidden="true">·</span>' +
     `<button class="bzs-sup-star" type="button" data-role="supstar">${esc(t('support.star'))}</button>` +
+    '</div>' +
     '</div>' +
     '<div class="bzs-sup-list">' +
     `<div class="bzs-sup-list-hd"><b>${esc(t('support.list'))}</b><span>${names.length}</span></div>` +

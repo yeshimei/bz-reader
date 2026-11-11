@@ -105,19 +105,22 @@ describe('弹窗内容', () => {
     const html = supportDialogHtml(NAMES);
     expect(html).toContain('bzs-sup-code');
     expect(html).toContain('微信扫码');
-    expect(html).toContain('或者成为赞助人');
-    expect(html).toContain('或者给个 Star');
+    expect(html).toContain('成为赞助人');
+    expect(html).toContain('给个 Star');
     expect(html).toContain('知道了');
   });
 
-  /* 收藏入口在赞助入口下面一行：两个都是「或者……」的并列出口。
-     地址单源在 entitlement 的 REPO_URL——这里不另写字面量，也不钉死两处。 */
-  it('收藏入口：紧跟赞助入口，指向 GitHub 仓库', () => {
+  /* 两个出口并成一行（2026-11-11 用户拍板）：赞助在前、收藏在后，中间一个
+     不可点的间隔点；地址单源在 data 层——这里不另写字面量，也不钉死两处。 */
+  it('收藏入口：与赞助入口同一行，中间的点只作分隔', () => {
     const html = supportDialogHtml(NAMES);
+    const rowAt = html.indexOf('bzs-sup-exits');
     const sponsorAt = html.indexOf('data-role="supsponsor"');
     const starAt = html.indexOf('data-role="supstar"');
-    expect(sponsorAt).toBeGreaterThan(-1);
+    expect(rowAt).toBeGreaterThan(-1);
+    expect(sponsorAt).toBeGreaterThan(rowAt);
     expect(starAt).toBeGreaterThan(sponsorAt);
+    expect(html).toContain('bzs-sup-exit-sep');
     expect(REPO_URL).toBe('https://github.com/yeshimei/bz-reader');
   });
 
