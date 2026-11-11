@@ -375,8 +375,11 @@ export function viewSettings(v: SettingsView): string {
     .map((id, i) => {
       const spec = headerActionSpec(id as HeaderActionId);
       const hidden = p.headerHidden.includes(id);
+      /* 标题前补一枚与头栏同款的图标：阅读页右上角只画图标、不写字，
+         这里按名字找的人得靠形状把两处对上。图标先留空壳，页面挂上之后
+         由 hydrateIcons 交给宿主的 setIcon 画（本插件不自绘近似图形）。 */
       return `<div class="bzs-setrow">
-        <label>${esc(spec.label)}</label>
+        <label><span class="bzs-hicon" data-icon="${esc(spec.icon)}"></span>${esc(spec.label)}</label>
         <button class="bzs-btn sm" data-act="headermove" data-k="${id}" data-v="-1" ${i === 0 ? 'disabled' : ''}>↑</button>
         <button class="bzs-btn sm" data-act="headermove" data-k="${id}" data-v="1" ${
           i === headerOrder.length - 1 ? 'disabled' : ''
@@ -544,14 +547,15 @@ export function viewSettings(v: SettingsView): string {
     </div>`;
 
   /* 两列各自成流（布局说明见 study.css 的 .bzs-set-page）。
-     左列是界面 + 版式，右列是外观 + PDF + 其余五组。PDF 组跟在外观后面——
-     它原来那两项就摆在「外观」里，搬出来之后仍挨着，找的人不用重新适应位置。
-     DOM 顺序不变，窄屏叠成一列时仍是原来的阅读顺序。
+     切点按「两列高度接近」定，不按功能类别硬分：原来左列只有界面 + 版式
+     两组，右列七组，滚到下半页左列整条是空白（2026-11-11 反馈的「左边
+     一大片空」）。现在左列排到朗读，右列从标注起——两列估高约 1.4k / 1.4k。
+     手机收起朗读后左列仍多出「数据」的一半，但差距已从 700 收到 200 以内。
 
-     「阅读页图标」从 2026-11-11 起挪到两列之外、紧挨快捷键上方：调图标
-     顺序和查快捷键的人常是同一时刻滚到页尾，两组挨着就不用再往回翻。 */
-  const leftCol = `${languageGrp}${layout}`;
-  const rightCol = `${look}${pdf}${tts}${marks}${data}${ai}${lic}`;
+     切点仍按**原顺序**切，不重排分组：窄屏叠成一列时「左列全部 → 右列全部」
+     必须还是原来的阅读顺序。 */
+  const leftCol = `${languageGrp}${layout}${look}${pdf}${tts}`;
+  const rightCol = `${marks}${data}${ai}${lic}`;
 
   return `<div class="bzs-set-page">${aboutBar(v.version || '', paid, ent.patron, ent.name)}<div class="bzs-set-grid"><div class="bzs-set-col">${leftCol}</div><div class="bzs-set-col">${rightCol}</div></div>${header}${keys}</div>`;
 }

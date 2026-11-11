@@ -21,6 +21,7 @@ import { kickBodySearch } from './search-run';
 import { noteSemanticInput } from './search-semantic';
 import { buildShelfPage, shelfRenderKey } from './shelf-page';
 import { hydrateCovers } from './covers';
+import { hydrateIcons } from './toolbar-icons';
 import { focusSelector, type FocusMemo } from './focus-memo';
 import { bindRangeTouch } from './range-touch';
 import { setHtml } from '../ui/dom';
@@ -196,6 +197,9 @@ export class ShelfPanel {
     this.mountSubPage(state.studyPage);
     this.restoreFocus();
     this.bindHitlist(state.studyPage);
+    /* 设置页「阅读页图标」每行标题前那枚图标是空壳，挂上之后补画：
+       纯字符串渲染画不出宿主图标（见 toolbar-icons.ts）。 */
+    hydrateIcons(root);
     // 封面是异步的：先出的是色块，真封面到了就地换图（不重绘，否则滚动位置会跳）
     hydrateCovers(getShellSource()?.app, books, root);
   }

@@ -24,6 +24,7 @@ import { ACCENT_OPTIONS, DEFAULT_PREFS } from '../src/data/prefs';
 import { DEFAULT_SETTINGS } from '../src/data/settings';
 import { HIGHLIGHT_COLORS } from '../src/data/notes';
 import { viewSettings } from '../src/shell/render/settings';
+import { headerActionSpec, type HeaderActionId } from '../src/view/header-actions';
 
 const html = (relicense = false, settings = DEFAULT_SETTINGS, pen = 'amber'): string =>
   viewSettings({
@@ -141,6 +142,20 @@ describe('设置页渲染', () => {
     expect(out).toContain('<h3>阅读页图标</h3>');
     expect(out).toContain('data-act="headertoggle"');
     expect(out).toContain('data-act="headermove"');
+  });
+
+  /* 2026-11-11：阅读页右上角只画图标、不写字。设置页这一组如果只有文字，
+     用户没法把「目录」和那颗 list 图标对上，所以每行标题前补一枚同款图标。 */
+  it('每个图标行标题前都挂一枚与头栏同款的图标', () => {
+    const out = html();
+    const slots = [...out.matchAll(/<span class="bzs-hicon" data-icon="([^"]+)"><\/span>/g)].map((m) => m[1]);
+    expect(slots).toHaveLength(15);
+    /* 顺序跟动作表一致：第一行是目录（list），第二行是搜索 */
+    expect(slots.slice(0, 3)).toEqual(['list', 'search', 'bookmark']);
+    /* 图标名直接从动作表取，不在设置页另抄一份 */
+    for (const id of ['para', 'paraBook', 'tts', 'bookmap', 'guide', 'immersive', 'library']) {
+      expect(out, id).toContain(`data-icon="${headerActionSpec(id as HeaderActionId).icon}"`);
+    }
   });
 
   it('阅读页图标列出全部十五项（含 PDF 四颗与对照书籍 / 朗读 / 鸟瞰 / 导读 / 沉浸 / 返回书架）', () => {
@@ -513,18 +528,18 @@ describe('设置页 · 两列各自成流', () => {
     expect((out.match(/class="bzs-set-col"/g) ?? []).length).toBe(2);
   });
 
-  it('左列两组：界面、版式', () => {
+  it('左列五组：界面、版式、外观、PDF、朗读', () => {
     const [left] = splitCols(html());
-    for (const h of ['界面', '版式']) expect(left, h).toContain(`<h3>${h}</h3>`);
-    for (const h of ['阅读页图标', '外观', '朗读', '标注', '数据', 'AI 助手', '授权'])
+    for (const h of ['界面', '版式', '外观', 'PDF', '朗读']) expect(left, h).toContain(`<h3>${h}</h3>`);
+    for (const h of ['阅读页图标', '标注', '数据', 'AI 助手', '授权'])
       expect(left, h).not.toContain(`<h3>${h}</h3>`);
   });
 
-  it('右列七组：外观、PDF、朗读、标注、数据、AI 助手、授权', () => {
+  it('右列四组：标注、数据、AI 助手、授权', () => {
     const [, right] = splitCols(html());
-    for (const h of ['外观', 'PDF', '朗读', '标注', '数据', 'AI 助手', '授权'])
-      expect(right, h).toContain(`<h3>${h}</h3>`);
-    for (const h of ['界面', '版式', '阅读页图标']) expect(right, h).not.toContain(`<h3>${h}</h3>`);
+    for (const h of ['标注', '数据', 'AI 助手', '授权']) expect(right, h).toContain(`<h3>${h}</h3>`);
+    for (const h of ['界面', '版式', '外观', 'PDF', '朗读', '阅读页图标'])
+      expect(right, h).not.toContain(`<h3>${h}</h3>`);
   });
 
   /* 关于条是题头，阅读页图标与快捷键是页脚，三者都横跨两栏：

@@ -1209,6 +1209,27 @@
 .bzs-setgrp-header .bzs-setrow label {
   flex: 1 1 auto;
   max-width: none;
+  /* 标题前挂一枚与头栏同款的图标（2026-11-11）：阅读页右上角只画图标、
+     不写字，这里按名字找的人得靠形状把两处对上。 */
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 空壳图标：先占住 16px，hydrateIcons 补画之后不会把整行顶跳 */
+.bzs-hicon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--t2);
+}
+
+.bzs-hicon svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* 基础版整组灰掉：点击弹高级功能说明（data-act="unlock" 挂在组上） */
