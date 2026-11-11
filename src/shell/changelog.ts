@@ -121,49 +121,14 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
         },
       },
       {
-        domain: { zh: 'AI 设置', en: 'AI settings' },
-        text: {
-          zh: '第一个框改叫「接口地址」，填的就是地址本身。',
-          en: 'The first field is called Endpoint again — that is what goes in it.',
-        },
-      },
-      {
-        domain: { zh: '扫描件', en: 'Scanned PDFs' },
-        text: {
-          zh: '打开扫描版 PDF 不再先弹一句提醒。',
-          en: 'Opening a scanned PDF no longer greets you with a warning first.',
-        },
-      },
-      {
         domain: { zh: '设置页', en: 'Settings' },
         text: {
           zh: '阅读页图标挪到页尾，紧挨快捷键。',
           en: 'The reader icon list moved to the end of the page, right above the hotkeys.',
         },
       },
-      {
-        domain: { zh: '支持作者', en: 'Support dialog' },
-        text: {
-          zh: '两个出口并成一行。',
-          en: 'The two ways to support fit on one line.',
-        },
-      },
     ],
     fixed: [
-      {
-        domain: { zh: '追问', en: 'Follow-up' },
-        text: {
-          zh: '刚发出的那句马上显示，答案按 Markdown 排版，底部按钮不会被滚走。',
-          en: 'Your question shows the moment you send it, answers render as Markdown, and the buttons at the bottom stay put.',
-        },
-      },
-      {
-        domain: { zh: '补全信息', en: 'Fill in details' },
-        text: {
-          zh: '信息齐了不再多问一次模型，点了先应一声。',
-          en: 'Once the details are complete it stops calling the model, and answers as soon as you click.',
-        },
-      },
       {
         domain: { zh: 'PDF 双指', en: 'PDF two-finger tap' },
         text: {
