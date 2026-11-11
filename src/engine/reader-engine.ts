@@ -53,8 +53,13 @@ export interface PdfUi {
   rotate(deg: number): void;
   setSpread(on: boolean): void;
   setPaged(on: boolean): void;
-  /** 头栏「排版」：旋转 / 单双页 / 翻页三行 */
-  toggleLayout(): void;
+  /**
+   * 头栏「排版」：缩放 / 旋转 / 单双页 / 翻页四行。
+   *
+   * `anchor` 是那颗按钮的视口矩形（`getBoundingClientRect()`），给了就把
+   * 面板贴着它弹；命令面板 / 快捷键 / ⋮ 菜单没有坐标，传 null 回 CSS 兜底位。
+   */
+  toggleLayout(anchor?: { left: number; top: number; width: number; height: number } | null): void;
   toggleThumbs(): void;
   /** 复制菜单；`anchor` 给了就贴着那颗按钮摆 */
   openCopyMenu(anchor?: { right: number; bottom: number } | null): void;

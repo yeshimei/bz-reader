@@ -60,14 +60,23 @@
 }
 
 /* 排版：贴右上角，避开阅读页的悬浮工具条。
-   no-head：没有标题头，第一行就是控件——少一行，工具栏少被盖一截。 */
+   no-head：没有标题头，第一行就是控件——少一行，工具栏少被盖一截。
+   有按钮坐标时 overlay.ts 会用内联 left/top 覆盖这两个值（贴着按钮弹）。 */
 .bzs-float.is-corner {
   top: 60px;
   right: 18px;
 }
 
+/* 浮层第一行不要上分隔线（2026-11-10 真机截图）：
+   设置行的 border-top 是为「一行一行往下读」画的，但浮层顶上没有上一行，
+   那条线就成了一道悬在卡片里的横杠。行与行之间的分隔线照旧保留。 */
+.bzs-float .bzs-mbody > .bzs-setrow:first-child,
+.bzs-float .bzs-mbody > .bzs-setgrp > .bzs-setrow:first-child {
+  border-top: 0;
+}
+
 .bzs-float.no-head .bzs-mbody {
-  padding-top: 12px;
+  padding-top: 6px;
 }
 
 /* 贴字的浮层：位置由 overlay.ts 量完尺寸后写 left/top（移动端下方、桌面端上方）。
@@ -970,8 +979,14 @@ body.theme-dark .bzs-tb-more {
   /* 手机上右上一个 320px 的浮层等于半屏，改成贴着底部的一整条 */
   .bzs-float.is-corner {
     top: auto;
-    /* 手机底部安全区（S-11）：iPhone 的 Home 指示条占 34px，贴底 12px 会把最下面一排按钮压住 */
-    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    /* 贴底要让开两块东西（2026-11-10 真机验收）：
+       · iPhone 的 Home 指示条（安全区 34px）；
+       · Obsidian 自己的移动底栏（--mobile-toolbar-height，通常 52px）。
+       只让安全区的话，宿主底栏压在「翻页」那一行上，最下面的档位点不到。 */
+    bottom: calc(
+      12px + max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px)) +
+        var(--mobile-toolbar-height, 0px)
+    );
     left: calc(12px + env(safe-area-inset-left, 0px));
     right: calc(12px + env(safe-area-inset-right, 0px));
     width: auto;

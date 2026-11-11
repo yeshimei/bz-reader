@@ -12,7 +12,7 @@
 import { isIosEnv, isMobileEnv, isMobileShell } from '../core/mobile';
 import { t } from '../i18n';
 import { planGroupLabel, planLabel } from '../i18n/plan';
-import { anchoredPlacement } from './anchored-style';
+import { anchoredBelowRight, anchoredPlacement } from './anchored-style';
 import { drawerLiftFor, keyboardHeightFromCss, sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
 import { fitIdeaInput } from './idea-grow';
@@ -1806,15 +1806,18 @@ export class OverlayLayer {
    * 尺寸拿不到（还没布局）时保留 CSS 兜底位置，不会闪到屏幕角上。
    */
   private placeAnchored(): void {
-    const anchor = getState().overlay?.anchor;
+    const o = getState().overlay;
+    const anchor = o?.anchor;
     if (!anchor) return;
+    /* 排版浮层不是「贴文字」：它贴的是头栏那颗按钮，右缘对齐、按钮下方 8px。
+       按同一条 anchor 传进来，但落点规则不同（见 anchoredBelowRight）。 */
+    if (o?.kind === 'typography') {
+      this.placeCorner(anchor);
+      return;
+    }
     const el = this.root.querySelector<HTMLElement>('.bzs-float.is-anchored');
     if (!el) return;
-    const vv = window.visualViewport;
-    const view =
-      isMobileShell() && vv
-        ? { width: vv.width, height: vv.height, top: vv.offsetTop }
-        : { width: window.innerWidth, height: window.innerHeight };
+    const view = this.viewBox();
     const pos = anchoredPlacement(
       anchor,
       { width: el.offsetWidth, height: el.offsetHeight },
@@ -1834,6 +1837,36 @@ export class OverlayLayer {
         stack.classList.toggle('is-down', pos.side === 'below');
       }
     }
+  }
+
+  /** 可视区尺寸：手机上按视觉视口（键盘弹起时缩小），桌面用窗口 */
+  private viewBox(): { width: number; height: number; top: number } {
+    const vv = window.visualViewport;
+    return isMobileShell() && vv
+      ? { width: vv.width, height: vv.height, top: vv.offsetTop }
+      : { width: window.innerWidth, height: window.innerHeight, top: 0 };
+  }
+
+  /**
+   * 排版浮层贴着头栏「排版」按钮。
+   *
+   * 没有按钮坐标（命令面板 / 快捷键 t / 手机 ⋮ 菜单）时不写内联样式，
+   * 交回 CSS 的兜底位置（桌面右上角、手机贴底整条）——硬算一个旧坐标
+   * 比不贴更糟。
+   */
+  private placeCorner(anchor: { left: number; top: number; width?: number; height?: number }): void {
+    const el = this.root.querySelector<HTMLElement>('.bzs-float.is-corner');
+    if (!el) return;
+    const pos = anchoredBelowRight(anchor, { width: el.offsetWidth, height: el.offsetHeight }, this.viewBox());
+    /* right / bottom 要写掉：窄窗时容器查询会把 is-corner 改成贴底整条，
+       只写 top/left 会让卡片同时被 top 与 bottom 拉长。 */
+    el.setCssProps({
+      left: `${pos.left}px`,
+      top: `${pos.top}px`,
+      right: 'auto',
+      bottom: 'auto',
+      transform: 'none',
+    });
   }
 
   /** 视口变化后的统一收口：锚点浮层重新贴字，贴底小卡与抽屉避让键盘 */

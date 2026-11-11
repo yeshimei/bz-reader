@@ -265,7 +265,7 @@ export class PdfEngineHost implements ReaderEngine {
         view.setPaged(on);
         this.opts?.onPdfFlow?.(on ? 'paged' : 'scroll');
       },
-      toggleLayout: () => view.toggleLayoutPanel(),
+      toggleLayout: (anchor) => view.toggleLayoutPanel(anchor),
       toggleThumbs: () => view.toggleThumbsPanel(),
       openCopyMenu: (anchor) => view.toggleCopyMenu(anchor),
       exportPage: () => void view.exportCurrentPage(),

@@ -23,6 +23,8 @@ import { pdfColorFromName, type PdfLinkSelection } from '../../data/pdf-link';
 import { colorCss } from '../../data/notes';
 import { t } from '../../i18n';
 import { fitScaleFor, needsFitWidth, pickFitSize, resolveInitialZoom, type PdfBox, type PdfZoomMode } from './fit';
+import { PDF_BAR_ITEMS, PDF_LAYOUT_ROWS, PDF_ZOOM_MODES, zoomTargetPlan, type PdfZoomTarget } from './panel';
+import { anchoredBelowRightIn } from '../../shell/anchored-style';
 import { pageAtRow, turnPage } from './layout';
 import { pageLabelText } from './pagelabels';
 import { mergeRects } from './rects';
@@ -429,9 +431,12 @@ export class PdfView {
     return false;
   }
 
-  setFitMode(mode: 'width' | 'page'): void {
-    this.fitMode = mode;
-    this.applyScale(this.fitScale(mode), true);
+  setFitMode(mode: 'width' | 'page' | 'actual'): void {
+    /* 三档的落点由 panel.ts 的 zoomTargetPlan 决定：宽/页要现算，
+       实际大小固定 100% 并把 fitMode 退回 none（窗口变化不再抢）。 */
+    const plan = zoomTargetPlan(mode);
+    this.fitMode = plan.fitMode;
+    this.applyScale(plan.scale ?? this.fitScale(mode === 'page' ? 'page' : 'width'), true);
   }
 
   /** 页缩略图面板：278 页的书靠滚动条找页太慢 */
@@ -543,10 +548,21 @@ export class PdfView {
     /* 颜色全走 CSS 变量，主题切换不需要重算 */
   }
 
-  /** 右下角缩放条：PDF 必须有「放大看细节」的入口，否则小字页看不清 */
+  /**
+   * 右下角浮条：PDF 必须有「放大看细节」的入口，否则小字页看不清。
+   *
+   * 2026-11-10 重做：原来这里还挂着「宽 / 页」两颗独立按钮，和头栏「排版」
+   * 面板里的旋转 / 单双页分成两个角落，同一件版面的事要往两处找。现在
+   * 浮条只留「放大看细节 + 跳页」，缩放档全在面板第一行；外观与壳层浮层
+   * 同一套（发丝边 + 卡片圆角）。控件清单见 `panel.ts` 的 PDF_BAR_ITEMS。
+   */
   private mountToolbar(): void {
     const bar = createDiv();
     bar.className = 'bzr-pdf-toolbar';
+    /* 缩放三颗并成一组：宿主默认的方按钮之间没有分组，三个一簇才看得懂 */
+    const zoomBox = createDiv();
+    zoomBox.className = 'bzr-pdf-zoomgrp';
+    bar.appendChild(zoomBox);
     const add = (label: string, title: string, run: () => void): HTMLButtonElement => {
       const btn = createEl('button');
       btn.type = 'button';
@@ -556,43 +572,58 @@ export class PdfView {
         ev.stopPropagation();
         run();
       });
-      bar.appendChild(btn);
+      zoomBox.appendChild(btn);
       return btn;
     };
-    /* 这一条只管「放大看细节」和「跳页」。
-       旋转 / 单双页 / 一屏一页 搬进头栏的「排版」面板（和 EPUB 一致），
-       缩略图 / 复制 / 回到上一处 / 导出页图 搬进头栏图标——十三个控件挤在
-       右下角时，手机上横向滚动永远划不到最后几颗。 */
-    add('−', '缩小', () => this.zoomOut());
-    this.zoomLabelEl = add('100%', '当前缩放', () => this.setFitMode('width'));
-    add('＋', '放大', () => this.zoomIn());
-    add('宽', '适合宽度', () => this.setFitMode('width'));
-    add('页', '适合页面', () => this.setFitMode('page'));
-    /* 页码：滚动到哪一页比百分比准，278 页的书尤其需要 */
-    const pageNo = createSpan();
-    pageNo.className = 'bzr-pdf-pageno';
-    bar.appendChild(pageNo);
-    this.pageLabelEl = pageNo;
-    /* 可拖的页码滑块。278 页的书先拖到大概位置再微调，比滚轮快得多 */
-    const range = createEl('input');
-    range.type = 'range';
-    range.className = 'bzr-pdf-range';
-    range.min = '1';
-    range.max = String(this.numPages);
-    range.step = '1';
-    range.value = '1';
-    range.setAttribute('aria-label', '跳页');
-    range.addEventListener('input', () => {
-      this.goToPage(Number(range.value), false);
-    });
-    /* 拖滑块不该顺带触发「点一下翻页」 */
-    range.addEventListener('click', (ev) => ev.stopPropagation());
-    bar.appendChild(range);
-    this.progressEl = range;
+    /* 右边那几样（缩略图 / 复制 / 回到上一处 / 导出页图）在头栏图标里：
+       十三个控件挤在右下角时，手机上横向滚动永远划不到最后几颗。 */
+    for (const item of PDF_BAR_ITEMS) {
+      switch (item) {
+        case 'out':
+          add('−', t('pdf.zoom.out'), () => this.zoomOut());
+          break;
+        case 'zoom':
+          this.zoomLabelEl = add('100%', t('pdf.zoom.reset'), () => this.setFitMode('width'));
+          this.zoomLabelEl.classList.add('bzr-pdf-zoom');
+          break;
+        case 'in':
+          add('＋', t('pdf.zoom.in'), () => this.zoomIn());
+          break;
+        case 'pageno': {
+          /* 页码：滚动到哪一页比百分比准，278 页的书尤其需要 */
+          const pageNo = createSpan();
+          pageNo.className = 'bzr-pdf-pageno';
+          bar.appendChild(pageNo);
+          this.pageLabelEl = pageNo;
+          break;
+        }
+        case 'range': {
+          /* 可拖的页码滑块。278 页的书先拖到大概位置再微调，比滚轮快得多 */
+          const range = createEl('input');
+          range.type = 'range';
+          range.className = 'bzr-pdf-range';
+          range.min = '1';
+          range.max = String(this.numPages);
+          range.step = '1';
+          range.value = '1';
+          range.setAttribute('aria-label', t('pdf.zoom.jump'));
+          range.addEventListener('input', () => {
+            this.syncRangeFill();
+            this.goToPage(Number(range.value), false);
+          });
+          /* 拖滑块不该顺带触发「点一下翻页」 */
+          range.addEventListener('click', (ev) => ev.stopPropagation());
+          bar.appendChild(range);
+          this.progressEl = range;
+          break;
+        }
+      }
+    }
     this.toolbarEl = bar;
     this.root.appendChild(bar);
     this.updateZoomLabel();
     this.updatePageLabel();
+    this.syncRangeFill();
   }
 
   /** 导出当前页：渲染和落盘都交给宿主（它才知道库里的路径规则） */
@@ -615,7 +646,25 @@ export class PdfView {
     this.pageLabelEl.textContent = pageLabelText(this.current, this.numPages, this.spread, this.pageLabels);
     this.progressEl?.setAttribute('max', String(Math.max(1, this.numPages)));
     if (this.progressEl) this.progressEl.value = String(this.current);
+    this.syncRangeFill();
     this.thumbs?.setCurrent(this.current);
+  }
+
+  /**
+   * 滑块上「已经走过的部分」涂成铜色。
+   *
+   * 轨道是 16px 高的透明框、线画在正中（见 styles.css），填充只能由 JS 写进
+   * `--fill`——纯 CSS 算不出当前值的位置。两端的圆点半径也要让出来，否则
+   * 1% 和 99% 看着都像没填满 / 已经填满。
+   */
+  private syncRangeFill(): void {
+    const range = this.progressEl;
+    if (!range) return;
+    const min = Number(range.min) || 1;
+    const max = Number(range.max) || 1;
+    const value = Number(range.value) || min;
+    const ratio = max > min ? (value - min) / (max - min) : 0;
+    range.style.setProperty('--fill', `${Math.round(Math.min(1, Math.max(0, ratio)) * 1000) / 10}%`);
   }
 
   /** 书的页码标签（`/PageLabels`）。null = 没有，页脚保持物理页号 */
@@ -798,13 +847,19 @@ export class PdfView {
     this.copyMenuEl = null;
   }
 
-  /* ── 排版面板（旋转 / 单双页 / 翻页） ──
+  /* ── 排版面板（缩放 / 旋转 / 单双页 / 翻页） ──
    * PDF 的「排版」不是字号行距（那些来自原文件），而是这一套版面参数。
-   * 外观与 EPUB 的排版浮层一致：贴着阅读区右上角的一张小卡，改一项立刻生效，
+   * 外观与 EPUB 的排版浮层一致：贴着头栏按钮下沿的一张小卡，改一项立刻生效，
    * 点外面或再点一次头栏图标收起。 */
   private layoutEl: HTMLDivElement | null = null;
+  /** 打开时按钮的视口矩形：窗口一变就按它重新摆位（老坐标会错位） */
+  private layoutAnchor: { left: number; top: number; width: number; height: number } | null = null;
 
-  toggleLayoutPanel(): void {
+  /**
+   * @param anchor 触发按钮的视口矩形。没有（命令面板 / 快捷键 / ⋮ 菜单）时
+   *   退回 CSS 的右上角固定位——硬算一个旧坐标比不贴更糟。
+   */
+  toggleLayoutPanel(anchor?: { left: number; top: number; width: number; height: number } | null): void {
     if (this.layoutEl) {
       this.closeLayoutPanel();
       return;
@@ -815,7 +870,9 @@ export class PdfView {
     panel.addEventListener('click', (ev) => ev.stopPropagation());
     this.root.appendChild(panel);
     this.layoutEl = panel;
+    this.layoutAnchor = anchor ?? null;
     this.renderLayoutPanel();
+    this.placeLayoutPanel();
     const off = (ev: PointerEvent): void => {
       if (panel.contains(ev.target as Node)) return;
       this.closeLayoutPanel();
@@ -832,10 +889,34 @@ export class PdfView {
     this.layoutOff = null;
     this.layoutEl?.remove();
     this.layoutEl = null;
+    this.layoutAnchor = null;
   }
 
   get layoutOpen(): boolean {
     return this.layoutEl !== null;
+  }
+
+  /**
+   * 面板贴着按钮：右缘对齐按钮右缘、顶边在按钮下方 8px。
+   *
+   * 坐标是视口坐标，面板挂在 `.bzr-pdf` 里，所以要减去阅读区左上角
+   * （换算规则见 `anchoredBelowRightIn`）。为什么不用 `position: fixed`
+   * 直接按视口算：Obsidian 的 `.workspace-leaf` 带 `contain: strict`，
+   * fixed 的包含块被它劫持，卡片会整体偏移半个屏幕。
+   *
+   * 换算后顶部常常小于 0（按钮在头栏、阅读区从它下面开始），夹到 8px——
+   * 卡片就贴在阅读区上沿，看起来正是「从按钮下面弹出来」。
+   */
+  private placeLayoutPanel(): void {
+    const el = this.layoutEl;
+    const anchor = this.layoutAnchor;
+    if (!el || !anchor) return;
+    const pos = anchoredBelowRightIn(anchor, { width: el.offsetWidth || 320, height: el.offsetHeight || 0 }, this.root.getBoundingClientRect());
+    el.style.left = `${pos.left}px`;
+    el.style.top = `${pos.top}px`;
+    /* right / bottom 必须写掉：窄窗时容器查询会把 is-corner 改成贴底整条 */
+    el.style.right = 'auto';
+    el.style.bottom = 'auto';
   }
 
   private renderLayoutPanel(): void {
@@ -863,39 +944,67 @@ export class PdfView {
       }
     };
     const deg = this.rotation;
-    seg(
-      t('pdf.layout.rotate'),
-      [0, 90, 180, 270].map((v) => ({ v: String(v), text: `${v}°`, on: deg === v })),
-      (v) => {
-        this.setRotation(Number(v));
-        this.renderLayoutPanel();
-      },
-    );
-    seg(
-      t('pdf.layout.pages'),
-      [
-        { v: 'single', text: t('pdf.layout.single'), on: !this.spread },
-        { v: 'spread', text: t('pdf.layout.spread'), on: this.spread },
-      ],
-      (v) => {
-        this.setSpread(v === 'spread');
-        this.renderLayoutPanel();
-      },
-    );
-    seg(
-      t('pdf.layout.flow'),
-      [
-        { v: 'paged', text: t('pdf.layout.paged'), on: this.paged },
-        { v: 'scroll', text: t('pdf.layout.scroll'), on: !this.paged },
-      ],
-      (v) => {
-        const on = v === 'paged';
-        this.setPaged(on);
-        /* 翻页/滚动是 PDF 自己的偏好（prefs.pdfFlow），交给宿主落盘 */
-        this.opts.onFlowChange?.(on ? 'paged' : 'scroll');
-        this.renderLayoutPanel();
-      },
-    );
+    /* 行序见 panel.ts 的 PDF_LAYOUT_ROWS：缩放从右下角浮条搬来之后排第一行 */
+    for (const row of PDF_LAYOUT_ROWS) {
+      switch (row) {
+        case 'zoom': {
+          const fit = this.fitMode;
+          seg(
+            t('pdf.layout.zoom'),
+            PDF_ZOOM_MODES.map((v) => ({
+              v,
+              text: v === 'width' ? t('pdf.layout.zoomWidth') : v === 'page' ? t('pdf.layout.zoomPage') : t('pdf.layout.zoomActual'),
+              /* 「实际大小」和手动缩放都落在 none 上：两者都是「别再替我适配」 */
+              on: v === 'actual' ? fit === 'none' : fit === v,
+            })),
+            (v) => {
+              this.setFitMode(v as PdfZoomTarget);
+              this.renderLayoutPanel();
+            },
+          );
+          break;
+        }
+        case 'rotate':
+          seg(
+            t('pdf.layout.rotate'),
+            [0, 90, 180, 270].map((v) => ({ v: String(v), text: `${v}°`, on: deg === v })),
+            (v) => {
+              this.setRotation(Number(v));
+              this.renderLayoutPanel();
+            },
+          );
+          break;
+        case 'pages':
+          seg(
+            t('pdf.layout.pages'),
+            [
+              { v: 'single', text: t('pdf.layout.single'), on: !this.spread },
+              { v: 'spread', text: t('pdf.layout.spread'), on: this.spread },
+            ],
+            (v) => {
+              this.setSpread(v === 'spread');
+              this.renderLayoutPanel();
+            },
+          );
+          break;
+        case 'flow':
+          seg(
+            t('pdf.layout.flow'),
+            [
+              { v: 'paged', text: t('pdf.layout.paged'), on: this.paged },
+              { v: 'scroll', text: t('pdf.layout.scroll'), on: !this.paged },
+            ],
+            (v) => {
+              const on = v === 'paged';
+              this.setPaged(on);
+              /* 翻页/滚动是 PDF 自己的偏好（prefs.pdfFlow），交给宿主落盘 */
+              this.opts.onFlowChange?.(on ? 'paged' : 'scroll');
+              this.renderLayoutPanel();
+            },
+          );
+          break;
+      }
+    }
   }
 
   /* ── PDF 自带标注 ── */
@@ -1354,10 +1463,14 @@ export class PdfView {
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => {
         /* 只记录宽度：用户手动定过比例（none）就别再抢他的缩放 */
-        const width = this.root.clientWidth;        if (width > 0 && Math.abs(width - this.lastWidth) >= 2) {
+        const width = this.root.clientWidth;
+        if (width > 0 && Math.abs(width - this.lastWidth) >= 2) {
           this.lastWidth = width;
           if (this.fitMode !== 'none') this.applyScale(this.fitScale(this.fitMode), true);
         }
+        /* 排版面板贴着按钮：阅读区尺寸一变（分栏拖动 / 窗口缩放），
+           按当初那个按钮重新摆位——绝对坐标不会自己跟着走 */
+        if (this.layoutEl) this.placeLayoutPanel();
       });
       this.resizeObserver.observe(this.root);
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ANCHOR_GAP, anchoredBelowRight, anchoredPlacement } from '../src/shell/anchored-style';
+import { ANCHOR_GAP, anchoredBelowRight, anchoredBelowRightIn, anchoredPlacement } from '../src/shell/anchored-style';
 
 /**
  * 文字浮层贴哪儿 = 这个函数的输出。
@@ -149,5 +149,56 @@ describe('anchoredBelowRight · 排版浮层贴按钮', () => {
     const visible = { width: 1200, height: 500, top: 300 };
     const pos = anchoredBelowRight({ left: 700, top: 310, width: 32, height: 32 }, { width: 320, height: 600 }, visible, 8);
     expect(pos.top).toBeGreaterThanOrEqual(visible.top + 8);
+  });
+});
+
+/**
+ * 面板挂在阅读区里（绝对定位），按钮矩形却是视口坐标。
+ *
+ * PDF 的排版面板就是这种情况：`anchor` 来自头栏按钮的
+ * `getBoundingClientRect()`，面板 `appendChild` 到 `.bzr-pdf`，用的是容器内
+ * 偏移。少减这一下，卡片就会整体偏出「阅读区顶部 - 头栏高度」那一截——
+ * 头栏越高偏得越多，看起来像浮在正文中间（2026-11-10 真机截图）。
+ */
+describe('anchoredBelowRightIn · 面板挂在容器里', () => {
+  const rootBox = { left: 60, top: 120, width: 900, height: 700 };
+  const button = { left: 860, top: 20, width: 32, height: 32 };
+  const card = { width: 320, height: 300 };
+
+  it('落点是容器内坐标：右缘仍对齐按钮', () => {
+    const pos = anchoredBelowRightIn(button, card, rootBox);
+    const buttonInRoot = button.left - rootBox.left + button.width;
+    expect(pos.left + card.width).toBe(buttonInRoot);
+  });
+
+  it('顶边在按钮下方 8px，且以容器顶为界', () => {
+    const pos = anchoredBelowRightIn(button, card, rootBox);
+    /* 按钮在容器上方（头栏里）：换算后顶边是负的，夹到容器内 8px */
+    expect(pos.top).toBe(8);
+  });
+
+  it('容器完全在视口里时等价于先换算再调用 anchoredBelowRight', () => {
+    const anchorInRoot = {
+      left: 400 - rootBox.left,
+      top: 300 - rootBox.top,
+      width: 32,
+      height: 32,
+    };
+    expect(
+      anchoredBelowRightIn({ left: 400, top: 300, width: 32, height: 32 }, card, rootBox, 8),
+    ).toEqual(anchoredBelowRight(anchorInRoot, card, { width: rootBox.width, height: rootBox.height }, 8));
+  });
+
+  it('容器放不下卡片时靠左贴边，不会把右缘再往外推', () => {
+    const narrow = { left: 0, top: 0, width: 240, height: 700 };
+    const pos = anchoredBelowRightIn({ left: 200, top: 20, width: 32, height: 32 }, card, narrow);
+    /* 卡片（320）比容器（240）还宽：只能靠左，保证左边不越界 */
+    expect(pos.left).toBe(8);
+  });
+
+  it('容器比卡片略窄但放得下时，仍是右缘对齐后夹回', () => {
+    const narrow = { left: 0, top: 0, width: 400, height: 700 };
+    const pos = anchoredBelowRightIn({ left: 380, top: 20, width: 32, height: 32 }, card, narrow);
+    expect(pos.left).toBe(narrow.width - card.width - 8);
   });
 });

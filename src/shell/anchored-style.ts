@@ -127,3 +127,41 @@ export function anchoredBelowRight(
   );
   return { left: Math.round(left), top: Math.round(top) };
 }
+
+/** 容器的视口矩形：面板挂在它里面，写的是容器内偏移 */
+export interface RootBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * 面板绝对定位在某个容器里、锚点却是视口坐标时的落点。
+ *
+ * PDF 的排版面板就是这样：按钮矩形来自头栏 `getBoundingClientRect()`（视口
+ * 坐标），卡片却 `appendChild` 到 `.bzr-pdf`（容器内坐标）。少减这一下，
+ * 卡片会整体偏出「头栏高度」那一截——头栏越高偏得越多，看起来像浮在正文
+ * 中间，而不是从按钮下面弹出来（2026-11-10 真机截图）。
+ *
+ * 换算成容器坐标后仍走 `anchoredBelowRight`：右缘对齐、下沿 8px、
+ * 越界夹回，规则只有一份。
+ */
+export function anchoredBelowRightIn(
+  anchor: AnchorRect,
+  panel: PanelBox,
+  rootBox: RootBox,
+  gap = ANCHOR_BUTTON_GAP,
+): { left: number; top: number } {
+  return anchoredBelowRight(
+    {
+      left: anchor.left - rootBox.left,
+      top: anchor.top - rootBox.top,
+      width: anchor.width,
+      height: anchor.height,
+    },
+    panel,
+    { width: rootBox.width, height: rootBox.height, top: 0 },
+    gap,
+  );
+}

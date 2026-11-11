@@ -16,9 +16,17 @@ import type { PdfUi } from '../engine/reader-engine';
 
 export type PdfCopyAnchor = { right: number; bottom: number } | null;
 
+/**
+ * 触发按钮的视口矩形：排版浮层贴着它下沿弹。
+ *
+ * 没有（命令面板 / 快捷键 / ⋮ 菜单）时传 null，浮层回 CSS 兜底位置——
+ * 硬算一个旧坐标比不贴更糟。
+ */
+export type PanelAnchor = { left: number; top: number; width: number; height: number } | null;
+
 export interface PdfActionRun {
-  /** 排版：PDF 打开旋转/单双页/翻页面板；EPUB 走原来的字号行距面板 */
-  type(): void;
+  /** 排版：PDF 打开缩放/旋转/单双页/翻页面板；EPUB 走原来的字号行距面板 */
+  type(anchor?: PanelAnchor): void;
   thumb(): void;
   copy(anchor?: PdfCopyAnchor): void;
   export(): void;
@@ -33,13 +41,13 @@ export interface PdfActionRun {
  */
 export function pdfActionRun(
   getPdf: () => PdfUi | undefined,
-  typography: () => void,
+  typography: (anchor?: PanelAnchor) => void,
 ): PdfActionRun {
   return {
-    type: () => {
+    type: (anchor) => {
       const ui = getPdf();
-      if (ui) ui.toggleLayout();
-      else typography();
+      if (ui) ui.toggleLayout(anchor ?? null);
+      else typography(anchor ?? null);
     },
     thumb: () => getPdf()?.toggleThumbs(),
     copy: (anchor) => getPdf()?.openCopyMenu(anchor),

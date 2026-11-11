@@ -46,7 +46,7 @@ import {
   type HeaderActionId,
 } from './header-actions';
 import { planHeaderVisibility, roleOf } from './header-layout';
-import { pdfActionRun } from './pdf-actions';
+import { pdfActionRun, type PanelAnchor } from './pdf-actions';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
 import { hydrateToolbarIcons } from '../shell/toolbar-icons';
@@ -707,18 +707,27 @@ export class ReaderView extends ItemView {
     const prefs = pickPrefs(this.api.store.get(), mobile);
 
     /* PDF 的「排版」不是字号行距，而是旋转 / 单双页 / 翻页——点同一颗图标，
-       换成贴右上角的那张小卡（外观与 EPUB 的排版浮层一致）。
+       换成贴按钮下沿的那张小卡（外观与 EPUB 的排版浮层一致）。
        `pdfActionRun` 收的是「现取」函数：按钮比 PDF 引擎早建好，且复用时
-       不重挂监听，闭包里存当时的 pdfUi 会让这五颗永远点不动。 */
-    const pdfRun = pdfActionRun(
-      () => this.host.pdfUi,
-      () => dispatchAction('typography', this.rootEl ?? document.body),
-    );
+       不重挂监听，闭包里存当时的 pdfUi 会让这五颗永远点不动。
+       浮层贴按钮：点了哪颗就把它的矩形带过去，命令面板 / ⋮ 菜单没有坐标。 */
+    const typography = (anchor?: PanelAnchor): void => {
+      if (anchor) openOverlay({ kind: 'typography', anchor });
+      else dispatchAction('typography', this.rootEl ?? document.body);
+    };
+    const pdfRun = pdfActionRun(() => this.host.pdfUi, typography);
+    /* 触发按钮的视口矩形；菜单 / 命令面板没有 currentTarget 时返回 null */
+    const anchorOf = (ev?: MouseEvent): PanelAnchor => {
+      const target = ev?.currentTarget ?? ev?.target;
+      if (!(target instanceof HTMLElement)) return null;
+      const box = target.getBoundingClientRect();
+      return { left: box.left, top: box.top, width: box.width, height: box.height };
+    };
     const run: Record<string, (ev?: MouseEvent) => void> = {
       toc: () => this.api.openTocSidebar('toc'),
       search: () => dispatchAction('search', this.rootEl ?? document.body),
       mark: () => this.toggleBookmark(),
-      type: () => pdfRun.type(),
+      type: (ev) => pdfRun.type(anchorOf(ev)),
       thumb: () => pdfRun.thumb(),
       copy: (ev) => {
         const box = ev?.currentTarget instanceof HTMLElement ? ev.currentTarget.getBoundingClientRect() : null;
@@ -1158,7 +1167,8 @@ export class ReaderView extends ItemView {
     const root = this.rootEl ?? document.body;
     const pdfRun = pdfActionRun(
       () => this.host.pdfUi,
-      () => dispatchAction('typography', root),
+      /* ⋮ 菜单没有能对齐的按钮：选完排版项浮层回到默认位置 */
+      (anchor) => (anchor ? openOverlay({ kind: 'typography', anchor }) : dispatchAction('typography', root)),
     );
     /* 头栏与 ⋮ 共用同一张动作表。以前这里手写十项，加一颗图标要记得改两处，
        漏了就是「头栏有、⋮ 里没有」——手机端尤其致命，⋮ 是唯一入口。
@@ -1167,7 +1177,7 @@ export class ReaderView extends ItemView {
       toc: () => this.api.openTocSidebar('toc'),
       search: () => dispatchAction('search', root),
       mark: () => this.toggleBookmark(),
-      type: () => pdfRun.type(),
+      type: () => pdfRun.type(null),
       thumb: () => pdfRun.thumb(),
       /* ⋮ 里没有稳定的按钮坐标，复制菜单退回工具条上沿那个老位置 */
       copy: () => pdfRun.copy(null),

@@ -1708,21 +1708,31 @@ body .view-header .clickable-icon.bzs-host-hidden {
   background: var(--background-modifier-hover);
 }
 
+/* ── 右下角浮条（2026-11-11 重做） ──
+   原来是一排宿主默认的方按钮 + 原生滑块：灰底、直角，和书页的暖色不是一套；
+   「宽 / 页」两颗又和头栏排版面板重复（同一件事分在两上角找）。现在只留
+   「缩放 + 页码 + 滑块」，皮肤跟壳层浮层一致：发丝边、卡片圆角、一层很轻的
+   抬升，底色用主背景的不透明混合——压住正文也不会透字。 */
 .bzr-pdf-toolbar {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
+  right: 14px;
+  bottom: 14px;
   z-index: 6;
   display: flex;
-  gap: 2px;
-  padding: 3px;
-  border-radius: 10px;
-  background: var(--background-secondary);
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 4px 4px;
+  border-radius: var(--r-card, 10px);
+  /* 先给主背景色兜底：color-mix 在某些 Chromium 版本/主题变量缺失时整条
+     声明会失效，底栏就变成透明的一条（字压在两页之间看不清）。
+     支持的浏览器会走第二行，混一点点文字色，压住正文也不透字。 */
+  background: var(--background-primary, #ffffff);
+  background: color-mix(in srgb, var(--background-primary, #ffffff) 97%, var(--text-normal, #1f1f23));
   border: 1px solid var(--background-modifier-border);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.16);
-  opacity: 0.92;
-  /* 十来个按钮在手机和窄分栏里放不下：横向滚，不要把它们挤成一条缝 */
-  max-width: calc(100% - 24px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.13), 0 1px 2px rgba(0, 0, 0, 0.06);
+  color: var(--text-normal);
+  /* 手机上换行时不横向滚：横向滚没有滚动条，后面的控件永远藏在屏幕外 */
+  max-width: calc(100% - 28px);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -1731,64 +1741,133 @@ body .view-header .clickable-icon.bzs-host-hidden {
   display: none;
 }
 
+/* 缩放三颗并成一组：底色再沉一档，一眼看出「这三个是一件事」 */
+.bzr-pdf-zoomgrp {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px;
+  border-radius: 7px;
+  background: var(--background-modifier-hover);
+}
+
 .bzr-pdf-toolbar button {
   flex: none;
-  min-width: 30px;
-  height: 28px;
-  padding: 0 8px;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 7px;
   border: 0;
-  border-radius: 7px;
+  border-radius: 6px;
   background: transparent;
-  color: var(--text-normal);
+  box-shadow: none;
+  color: var(--text-muted);
   font-size: 12px;
+  line-height: 1;
   cursor: pointer;
 }
 
-/* 页码滑块：278 页的书先拖到大概位置再微调，比滚轮快 */
-.bzr-pdf-range {
-  flex: 1 1 90px;
-  min-width: 70px;
-  max-width: 160px;
-  height: 28px;
-  margin: 0 4px;
-  accent-color: var(--interactive-accent);
-  cursor: pointer;
+.bzr-pdf-toolbar button:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
 }
 
-/* 页码：滚动时比百分比直观，用等宽数字免得宽度跳 */
+/* 百分比：等宽数字，100% 与 8% 之间不跳宽 */
+.bzr-pdf-toolbar .bzr-pdf-zoom {
+  min-width: 46px;
+  color: var(--text-normal);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 页码：等宽数字 + 浅色，和滑块一起读。分组底与间距已经把「缩放 / 跳页」
+   分开了，不再画竖线 */
 .bzr-pdf-pageno {
   display: inline-flex;
   align-items: center;
-  height: 28px;
-  padding: 0 8px 0 10px;
-  margin-left: 2px;
-  border-left: 1px solid var(--background-modifier-border);
-  color: var(--text-muted);
+  height: 26px;
+  padding: 0 3px;
+  color: var(--text-faint);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.bzr-pdf-toolbar button:hover {
-  background: var(--background-modifier-hover);
+/* 滑块：几何整份写死，不向宿主主题借尺寸。
+   框高 16、球 12、margin-top (16-12)/2=2，线画在正中 2px——三者是同一组
+   算术，圆点与线永远同一条中线（宿主默认的 thumb 是给 3px 细轨算的，
+   套到 16px 框上就会浮起来）。
+   选择器比 tokens.css 的壳层滑杆多一层：不靠 !important，靠特异性赢。 */
+.bzs-reader .bzr-pdf-toolbar .bzr-pdf-range {
+  flex: 1 1 96px;
+  min-width: 64px;
+  max-width: 150px;
+  height: 16px;
+  min-height: 0;
+  margin: 0 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  /* 当前页占比：JS 在 updatePageLabel / input 时写（纯 CSS 算不出） */
+  --fill: 0%;
 }
 
-.bzr-pdf-toolbar button.is-on {
+.bzs-reader .bzr-pdf-toolbar .bzr-pdf-range::-webkit-slider-runnable-track {
+  height: 16px;
+  margin-top: 0;
+  border-radius: var(--r-book, 2px);
+  background:
+    linear-gradient(
+        to right,
+        var(--interactive-accent) 0 var(--fill, 0%),
+        var(--background-modifier-border) var(--fill, 0%) 100%
+      )
+      no-repeat center / 100% 2px;
+}
+
+.bzs-reader .bzr-pdf-toolbar .bzr-pdf-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
   background: var(--interactive-accent);
-  color: var(--text-on-accent);
+  margin-top: 2px; /* (16-12)/2：圆心与 2px 线重合 */
+  position: static;
+  top: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-accent) 16%, transparent);
+}
+
+/* Firefox：轨道与球由引擎自己居中，不用算 margin */
+.bzs-reader .bzr-pdf-toolbar .bzr-pdf-range::-moz-range-track {
+  height: 2px;
+  border-radius: var(--r-book, 2px);
+  background: linear-gradient(
+    to right,
+    var(--interactive-accent) 0 var(--fill, 0%),
+    var(--background-modifier-border) var(--fill, 0%) 100%
+  );
+}
+
+.bzs-reader .bzr-pdf-toolbar .bzr-pdf-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--interactive-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-accent) 16%, transparent);
 }
 
 /* 手机上工具坞/底栏会压住右下角，把缩放条抬高一点。
    桌面端开 emulateMobile 时 env() 恒为 0，Obsidian 自己的 --safe-area-inset-bottom
    才是真高度，两个取大的那个。 */
 body.is-mobile .bzr-pdf-toolbar {
-  bottom: calc(12px + max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px)));
-  /* 十来个按钮在 390px 里排不下：换行，别横向滚——
-     横向滚没有滚动条也没有提示，「复制」「页码」会永远藏在屏幕外 */
+  right: 12px;
+  bottom: calc(14px + max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px)));
+  /* 390px 里三件套 + 滑块排不下：换行，别横向滚 */
   flex-wrap: wrap;
-  overflow-x: visible;
-  row-gap: 2px;
+  row-gap: 4px;
   max-width: calc(100% - 24px);
-  /* 手机上工具栏直接压在正文上：半透明会让底下的字透上来，看着像糊了 */
-  opacity: 1;
 }
