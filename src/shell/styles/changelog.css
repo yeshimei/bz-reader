@@ -69,7 +69,11 @@
   display: flex;
 }
 
-/* 弹窗里的按钮从零开始：宿主给 button 的底色 / 边框 / 行高在这里全是噪音 */
+/* 弹窗里的按钮从零开始：宿主给 button 的底色 / 边框 / 行高在这里全是噪音。
+   2026-11-11：宿主 `button` 还带着 `height: var(--input-height)`（默认 30px），
+   版本行里是「版本号 + N 处改动」两行字，被卡进 30px 后第二行溢出、压住下一版
+   （用户截图为证）。这里统一把高度放开，按钮各按内容撑开；需要固定高度的
+   （关闭钮、页脚图标、支持作者）都在下面自己写了 height。 */
 .bzs-chgn button,
 .bzs-chgn-m button {
   margin: 0;
@@ -82,6 +86,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+  height: auto;
 }
 
 /* ── 桌面：时间轴 + 单版正文 ── */
@@ -145,7 +150,9 @@
 
 /* 版本行：一根细线串起所有版本，每个版本在线上一个点（当前版实心 + 光晕）。
    2026-11-10：行距从 10 放到 13——选中项下面还要多一行「N 处改动」，
-   10 的上下内边距会让 v0.4.1 / 4 处改动 / v0.4.0 三行糊成一团。 */
+   10 的上下内边距会让 v0.4.1 / 4 处改动 / v0.4.0 三行糊成一团。
+   2026-11-11：再补 height: auto——宿主的按钮固定高会压扁这行（见上面 reset
+   的注释），光靠内边距解决不了；这行必须由内容撑开。 */
 .bzs-chgn .bzs-chgn-v {
   position: relative;
   display: flex;
@@ -153,6 +160,7 @@
   align-items: baseline;
   gap: 0 8px;
   width: 100%;
+  height: auto;
   padding: 13px 8px 13px 22px;
 }
 
