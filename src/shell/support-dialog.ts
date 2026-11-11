@@ -5,7 +5,12 @@
  *   · 抬头一句实话（插件与教程都是一个人在做）；
  *   · 一张微信赞赏码 + 一行「成为赞助人 · 给个 Star」的出口——两条并列的
  *     支持路径（赞助商店 / GitHub 仓库），中点只作分隔、不可点；
- *   · 支持者名单（时间倒序、序号倒排，空名单时给一张空态）。
+ *   · 支持者名单（时间倒序、序号倒排）。
+ *
+ * 名单 2026-11-11 起是**在线数据**（bz 主仓 docs/patrons.json，取法见
+ * data/patrons）。所以这一窗有四种名单状态：缓存秒开 / 加载中 / 没拉到 /
+ * 真的没人。弹窗先按缓存画出来，拉到新名单就**只换名单区**，不重开弹窗、
+ * 不动焦点；关窗时要退订，否则每开一次就多挂一个订阅者。
  *
  * 版式**不照搬 bz 那张米白描金纸**：bz 是免费插件，那张纸是它的气质；
  * bz-reader 的弹窗一律跟随宿主主题与强调色，跟更新日志弹窗同一族
@@ -18,15 +23,29 @@
  * ============================================================ */
 import { uiModal } from '../core/ui/modal';
 import { t } from '../i18n';
-import { REWARD_NAMES, SPONSOR_URL, formatRewardDate, type RewardName } from '../data/reward';
+import { SPONSOR_URL, formatRewardDate, type RewardName } from '../data/reward';
+import {
+  currentPatrons,
+  onPatronsChange,
+  patronsStatus,
+  refreshPatrons,
+  type PatronsStatus,
+} from '../data/patrons';
 import { REPO_URL } from '../data/entitlement';
 import { esc } from './render/html';
+import { setHtml } from '../ui/dom';
 import { ACCENT_VAR, shellAccentColor } from './theme-accent';
 import rewardCodeUrl from './assets/reward-code.png';
 
 const CLOSE_SVG =
   '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" ' +
   'stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
+
+/* 刷新：同一枚「转一圈的箭头」，比两个弯箭头省笔画，14px 下认得出来 */
+const REFRESH_SVG =
+  '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" ' +
+  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>';
 
 /** 金额位：数字补 ¥；「赞助人」走语言包，不在这里写死中文 */
 function amountHtml(amount: number | 'patron'): string {
@@ -37,10 +56,25 @@ function amountHtml(amount: number | 'patron'): string {
  * 名单本体。
  *
  * 序号是**倒着排的**：名单按时间倒序存，最新一位是最大号——读起来像
- * 「第几位来过」，而不是「第几行」。一个都没有时给空态，不留一张空白纸。
+ * 「第几位来过」，而不是「第几行」。没有名单时按状态给三张不同的空态：
+ * 加载中不吓人、拉失败给重试、真的没人就照旧。
  */
-export function supportListHtml(names: readonly RewardName[]): string {
+export function supportListHtml(
+  names: readonly RewardName[],
+  status: PatronsStatus = 'ready',
+): string {
   if (!names.length) {
+    if (status === 'loading') {
+      return `<div class="bzs-sup-empty">${esc(t('support.loading'))}</div>`;
+    }
+    if (status === 'failed') {
+      return (
+        '<div class="bzs-sup-empty bzs-sup-empty-failed">' +
+        `<span>${esc(t('support.loadFailed'))}</span>` +
+        `<button class="bzs-sup-retry" type="button" data-role="supretry">${esc(t('support.retry'))}</button>` +
+        '</div>'
+      );
+    }
     return `<div class="bzs-sup-empty">${esc(t('support.empty'))}</div>`;
   }
   const total = names.length;
@@ -69,13 +103,16 @@ export function supportListHtml(names: readonly RewardName[]): string {
 /**
  * 弹窗正文（整块 HTML）。
  *
- * `names` 与 `codeUrl` 可注入：测试用短名单、真机用内置的那份与内联的码。
+ * `names` / `codeUrl` / `status` 可注入：测试用短名单与固定状态、真机用
+ * 当前名单与内联的码。三样都有缺省值，调用方一般什么都不传。
  */
 export function supportDialogHtml(
-  names: readonly RewardName[] = REWARD_NAMES,
+  names: readonly RewardName[] = currentPatrons(),
   codeUrl: string = rewardCodeUrl,
+  status: PatronsStatus = patronsStatus(),
 ): string {
   const close = t('support.close');
+  const refresh = t('support.refresh');
   return (
     '<div class="bzs-sup">' +
     `<button class="bzs-sup-close" type="button" data-role="supclose" aria-label="${esc(close)}" title="${esc(close)}">${CLOSE_SVG}</button>` +
@@ -94,8 +131,12 @@ export function supportDialogHtml(
     '</div>' +
     '</div>' +
     '<div class="bzs-sup-list">' +
-    `<div class="bzs-sup-list-hd"><b>${esc(t('support.list'))}</b><span>${names.length}</span></div>` +
-    `<div class="bzs-sup-list-body">${supportListHtml(names)}</div>` +
+    '<div class="bzs-sup-list-hd">' +
+    `<b>${esc(t('support.list'))}</b>` +
+    `<button class="bzs-sup-refresh" type="button" data-role="suprefresh" aria-label="${esc(refresh)}" title="${esc(refresh)}">${REFRESH_SVG}</button>` +
+    `<span data-role="supcount">${names.length}</span>` +
+    '</div>' +
+    `<div class="bzs-sup-list-body" data-role="suplistbody">${supportListHtml(names, status)}</div>` +
     '</div>' +
     '<footer class="bzs-sup-ft">' +
     `<span class="bzs-sup-note">${esc(t('support.note'))}</span>` +
@@ -123,12 +164,15 @@ export function openSupportDialog(): SupportDialogHandle {
   live?.close();
   live = null;
 
+  let off: () => void = () => undefined;
+
   const modal = uiModal({
     content: supportDialogHtml(),
     className: 'bzs-sup-dialog',
     title: t('support.title'),
     // 不抢焦点：这是「看看怎么支持」的窗，打开就把焦点从用户手上拽走很粗暴
     autofocus: false,
+    onClose: () => off(),
   });
   /* 遮罩要能被样式认出来：手机的「贴底抽屉」是靠 .bzs-sup-mask 覆盖
      .bzr-overlay-mask 的居中排布（changelog-note 的抽屉同口径）。 */
@@ -139,7 +183,24 @@ export function openSupportDialog(): SupportDialogHandle {
   const accent = shellAccentColor();
   if (accent) modal.popup.style.setProperty(ACCENT_VAR, accent);
 
-  /* 一处委托管四件事：关闭 / 知道了 / 赞助商店 / GitHub 收藏。
+  const listBody = modal.popup.querySelector<HTMLElement>('[data-role="suplistbody"]');
+  const countEl = modal.popup.querySelector<HTMLElement>('[data-role="supcount"]');
+
+  /* 只换名单区：码、出口、页脚都不动，焦点也不会被抢走 */
+  const render = (): void => {
+    const list = currentPatrons();
+    if (listBody) setHtml(listBody, supportListHtml(list, patronsStatus()));
+    if (countEl) countEl.textContent = String(list.length);
+  };
+  off = onPatronsChange(render);
+
+  /* 先起请求：它会把状态同步置为 loading，首帧就画出「加载中」，不会先闪一下
+     「还没有人打赏」；60 秒内重复开关不会重复请求（节流在 data/patrons）。 */
+  const first = refreshPatrons();
+  if (!currentPatrons().length) render();
+  void first.then(() => render());
+
+  /* 一处委托管五件事：关闭 / 知道了 / 赞助商店 / GitHub 收藏 / 重试与刷新。
      两个去处都不走 <a>：Obsidian 会把裸链交给阅读视图，移动端常常点了没反应。 */
   modal.popup.addEventListener('click', (e) => {
     const target = e.target as HTMLElement | null;
@@ -154,6 +215,14 @@ export function openSupportDialog(): SupportDialogHandle {
     }
     if (target.closest('[data-role="supstar"]')) {
       window.open(REPO_URL, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (target.closest('[data-role="supretry"]') || target.closest('[data-role="suprefresh"]')) {
+      /* 手动刷新：先把「加载中」摆出来，再强制拉（绕过 60 秒节流） */
+      if (!currentPatrons().length) {
+        if (listBody) setHtml(listBody, supportListHtml([], 'loading'));
+      }
+      void refreshPatrons({ force: true }).then(() => render());
     }
   });
 

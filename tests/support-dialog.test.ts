@@ -1,7 +1,8 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { installDomStub } from './helpers/dom-stub';
 import { setLocale } from '../src/i18n';
-import { REWARD_NAMES, formatRewardDate, type RewardName } from '../src/data/reward';
+import { formatRewardDate, type RewardName } from '../src/data/reward';
+import { _resetPatronsForTests } from '../src/data/patrons';
 import { REPO_URL } from '../src/data/entitlement';
 import { openSupportDialog, supportDialogHtml, supportListHtml } from '../src/shell/support-dialog';
 
@@ -33,6 +34,7 @@ afterAll(() => {
 
 afterEach(() => {
   setLocale('zh');
+  _resetPatronsForTests();
 });
 
 describe('支持者名单 · 编号', () => {
@@ -129,23 +131,26 @@ describe('弹窗内容', () => {
     expect(supportDialogHtml([])).toContain('还没有人打赏');
   });
 
-  /* 别把真人姓名钉进断言：名单每来一笔就多一行，钉死人名等于每记一位都要改测试。
-     这里守的是名单的形态——非空、时间倒序、金额位只有两种写法。 */
-  it('内置名单：非空、最新在前、金额位只有数字或 patron', () => {
-    expect(REWARD_NAMES.length).toBeGreaterThan(0);
-
-    const stamps = REWARD_NAMES.map((r) => Date.parse(`${r.date}T00:00:00Z`));
-    for (let i = 1; i < stamps.length; i++) {
-      expect(stamps[i]!).toBeLessThanOrEqual(stamps[i - 1]!);
-    }
-
-    for (const r of REWARD_NAMES) {
-      expect(typeof r.amount === 'number' || r.amount === 'patron').toBe(true);
-    }
+  /* 名单 2026-11-11 起是在线拉的：弹窗得能说出「正在拉」「没拉到」，
+     不能两种情况都写成「还没有人打赏」——那是在替网络故障撒谎。 */
+  it('加载中：空名单但文案是加载中，不是「还没有人」', () => {
+    const html = supportListHtml([], 'loading');
+    expect(html).toContain('bzs-sup-empty');
+    expect(html).toContain('名单加载中');
+    expect(html).not.toContain('还没有人打赏');
   });
 
-  it('内置名单真的进了弹窗：第一行就是最新那一位', () => {
-    expect(supportDialogHtml(REWARD_NAMES)).toContain(REWARD_NAMES[0]!.name);
+  it('拉失败：一句话 + 重试按钮', () => {
+    const html = supportListHtml([], 'failed');
+    expect(html).toContain('名单没加载出来');
+    expect(html).toContain('data-role="supretry"');
+    expect(html).toContain('重试');
+  });
+
+  it('真没人：照旧显示空态，不出现重试按钮', () => {
+    const html = supportListHtml([], 'ready');
+    expect(html).toContain('还没有人打赏');
+    expect(html).not.toContain('data-role="supretry"');
   });
 });
 

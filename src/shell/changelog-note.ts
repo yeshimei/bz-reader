@@ -22,7 +22,8 @@ import { changelogLang } from '../i18n';
 import { setHtml } from '../ui/dom';
 import { esc, githubIcon } from './render/html';
 import { GROUP_ID, REPO_URL } from '../data/entitlement';
-import { REWARD_NAMES } from '../data/reward';
+import { currentPatrons, onPatronsChange, refreshPatrons } from '../data/patrons';
+import type { RewardName } from '../data/reward';
 import { copyGroupId } from './group';
 import { openSupportDialog } from './support-dialog';
 import { ACCENT_VAR, shellAccentColor } from './theme-accent';
@@ -297,9 +298,9 @@ function linksHtml(): string {
  * 心形与 bz 的 `ICON_HEART` 逐字相同（15px、1.8 描边）——同一枚图标在
  * 两个插件里粗细不一样，是这套底线最容易被看出来的地方。
  */
-function supportBtnHtml(): string {
+function supportBtnHtml(names: readonly RewardName[] = currentPatrons()): string {
   const c = copy();
-  const n = REWARD_NAMES.length;
+  const n = names.length;
   const label = c.supportTitle(n);
   const badge =
     n > 0 ? `<span class="bzs-chgn-count" aria-hidden="true">+${n > 99 ? '99+' : n}</span>` : '';
@@ -307,6 +308,37 @@ function supportBtnHtml(): string {
     `<button class="bzs-chgn-support" type="button" data-role="chgnsupport" ` +
     `title="${esc(label)}" aria-label="${esc(label)}">${HEART_SVG}<span>${esc(c.support)}</span>${badge}</button>`
   );
+}
+
+/**
+ * 名单是异步来的：打开时按钮先按缓存画（没有就是 0），拉到之后把页脚和
+ * 手机工具条两处的数字**原地**改掉——不重开弹窗，用户不会看到闪一下。
+ *
+ * 两处一起改是因为桌面页脚与手机工具条各有一套同名按钮（≤768px 由 CSS 切），
+ * 只改其中一套，换端看就是旧数字。
+ */
+function syncSupportBadges(root: HTMLElement): void {
+  const c = copy();
+  const n = currentPatrons().length;
+  const label = c.supportTitle(n);
+  root.querySelectorAll<HTMLElement>('[data-role="chgnsupport"]').forEach((btn) => {
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+    const old = btn.querySelector('.bzs-chgn-count');
+    if (n > 0) {
+      const text = `+${n > 99 ? '99+' : n}`;
+      if (old) old.textContent = text;
+      else {
+        const badge = document.createElement('span');
+        badge.className = 'bzs-chgn-count';
+        badge.setAttribute('aria-hidden', 'true');
+        badge.textContent = text;
+        btn.appendChild(badge);
+      }
+    } else {
+      old?.remove();
+    }
+  });
 }
 
 /* ── 桌面：时间轴 + 单版正文 ───────────────── */
@@ -337,7 +369,11 @@ function railHtml(list: readonly ChangelogRelease[], active: number): string {
  * 弹窗内容（桌面 + 手机两套标记，CSS 媒体查询切换）。
  * `expectVersion` 找不到时落在最新一版——手动从设置页打开就走这条。
  */
-export function changelogNoteHtml(releases: readonly ChangelogRelease[], expectVersion = ''): string {
+export function changelogNoteHtml(
+  releases: readonly ChangelogRelease[],
+  expectVersion = '',
+  names: readonly RewardName[] = currentPatrons(),
+): string {
   const c = copy();
   const list = usable(releases);
   if (!list.length) return '';
@@ -355,7 +391,7 @@ export function changelogNoteHtml(releases: readonly ChangelogRelease[], expectV
     '<div class="bzs-chgn-fade-bot"></div>' +
     '</div>' +
     '</main>' +
-    `<footer class="bzs-chgn-ft">${linksHtml()}${supportBtnHtml()}</footer>` +
+    `<footer class="bzs-chgn-ft">${linksHtml()}${supportBtnHtml(names)}</footer>` +
     `<button class="bzs-chgn-close" type="button" aria-label="${c.close}" title="${c.close}">${CLOSE_SVG}</button>` +
     '</div>';
 
@@ -365,7 +401,7 @@ export function changelogNoteHtml(releases: readonly ChangelogRelease[], expectV
     `<button class="bzs-chgn-close" type="button" aria-label="${c.close}" title="${c.close}">${CLOSE_SVG}</button>` +
     '</div>' +
     `<div class="bzs-chgn-mpage">${list.map((r, i) => mobReleaseHtml(r, i === 0)).join('')}</div>` +
-    `<div class="bzs-chgn-mtools">${linksHtml()}${supportBtnHtml()}</div>` +
+    `<div class="bzs-chgn-mtools">${linksHtml()}${supportBtnHtml(names)}</div>` +
     '</div>';
 
   return desktop + mobile;
@@ -404,6 +440,8 @@ export function openChangelogNote(
   let bodyEl: HTMLElement | null = null;
   let fadeTop: HTMLElement | null = null;
   let fadeBot: HTMLElement | null = null;
+  /* 名单订阅要在 onClose 里退：这个弹窗可以反复开关，不退就会一次多挂一个 */
+  let offSupport: () => void = () => undefined;
 
   /* 上下渐隐：真有溢出才提示，到头/到底就撤——别拿假的「还有内容」骗人。
      声明成函数声明，供 onClose 引用（调用时 popup 一定已存在）。 */
@@ -421,6 +459,7 @@ export function openChangelogNote(
     onClose: () => {
       window.removeEventListener('resize', syncFade);
       bodyEl?.removeEventListener('scroll', syncFade);
+      offSupport();
     },
   });
   modal.mask.classList.add('bzs-chgn-mask');
@@ -434,6 +473,11 @@ export function openChangelogNote(
   fadeTop = popup.querySelector<HTMLElement>('.bzs-chgn-fade-top');
   fadeBot = popup.querySelector<HTMLElement>('.bzs-chgn-fade-bot');
   const body = bodyEl;
+
+  /* 名单跟更新日志没关系，但页脚那枚按钮的人数要靠它：打开时拉一次
+     （60 秒节流在 data/patrons 里），拉到就原地改数字。 */
+  offSupport = onPatronsChange(() => syncSupportBadges(popup));
+  void refreshPatrons();
 
   /* 切版本：只换头部与正文两处，不重建整个弹窗（页脚的链接与关闭钮不用重绑） */
   const select = (i: number): void => {

@@ -86,6 +86,11 @@ node scripts/issue-license.mjs --plan lifetime --id BZR-AF-2026-0021
   5. 码写进新的 `scripts/keys/issued/afdian-batch-XX.txt`，同时更新 `docs/license-ledger.md` 号段表。
 - **不许**从 0001 重来，**不许**复用已发、删掉或 revoked 的号；号段只增不减。不要往 git 跟踪的文件里放码；`docs/afdian-store.md` 只留两行示例。
 
+## 支持者名单
+- 名单**不在本仓库**：唯一源是 bz 主仓的 `docs/patrons.json`，运行期由 `src/data/patrons.ts` 从 GitHub / 码云两个地址并发读取，本机缓存 6 小时。
+- 加人 / 改名 / 删除去 bz 仓库跑 `node scripts/patron-add.mjs --name … --amount …`（流程见 skill `bz-reward`）。**不要改代码、不要为名单发版**。
+- 名单是公开只读数据，README「网络访问」已披露；改动读取逻辑时别绕过 `requestUrl`（码云 raw 没有跨域头）。
+
 ## 上架
 上架分两段：**先发 Release，再送审**。不走 `obsidian-releases` 的 PR，社区目录在 `community.obsidian.md` 网页提交。
 

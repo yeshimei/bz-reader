@@ -272,14 +272,45 @@
   font-weight: 600;
   letter-spacing: 0.18em;
   color: var(--sup-ink-2);
+  /* 标题吃掉剩余空间：刷新钮与人数一起贴右边（2026-11-11 加刷新钮时改的，
+     原来是给人数 span 一个 margin-left:auto） */
+  margin-right: auto;
 }
 
 .bzs-sup-list-hd span {
-  margin-left: auto;
   font-family: var(--sup-mono);
   font-size: 10px;
   letter-spacing: 0.04em;
   color: var(--sup-ink-3);
+}
+
+/* 手动刷新名单：一枚小图标，不抢名单标题的视线；点下去由 data/patrons 的
+   60 秒节流兜住，连点不会把 CDN 当接口刷 */
+.bzs-sup-list-hd .bzs-sup-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin: -4px 0 -4px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--sup-ink-3);
+  cursor: pointer;
+  opacity: 0.72;
+  transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.bzs-sup-list-hd .bzs-sup-refresh:hover {
+  opacity: 1;
+  background: var(--sup-line-soft);
+}
+
+.bzs-sup-list-hd .bzs-sup-refresh:focus-visible {
+  outline: 2px solid var(--sup-accent, var(--bzs-accent, #b8924a));
+  outline-offset: 1px;
 }
 
 /* 名单自己滚：弹窗高度可预测，长名单不会把「知道了」顶出屏幕 */
@@ -372,6 +403,35 @@
   font-size: 12px;
   letter-spacing: 0.04em;
   color: var(--sup-ink-3);
+}
+
+/* 拉失败的空态：一句实话 + 一个「重试」；不给重试等于让人只能关窗再开 */
+.bzs-sup-empty-failed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bzs-sup-retry {
+  padding: 2px 8px;
+  border: 1px solid var(--sup-line-soft);
+  border-radius: 999px;
+  background: none;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--sup-ink-2);
+  cursor: pointer;
+}
+
+.bzs-sup-retry:hover {
+  background: var(--sup-line-soft);
+}
+
+.bzs-sup-retry:focus-visible {
+  outline: 2px solid var(--sup-accent, var(--bzs-accent, #b8924a));
+  outline-offset: 1px;
 }
 
 /* ── 页脚 ── */

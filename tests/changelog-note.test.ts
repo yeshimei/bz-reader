@@ -2,7 +2,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { installDomStub } from './helpers/dom-stub';
 import { CHANGELOG_RELEASES } from '../src/shell/changelog';
 import { changelogNoteHtml, openChangelogNote } from '../src/shell/changelog-note';
-import { REWARD_NAMES } from '../src/data/reward';
+import type { RewardName } from '../src/data/reward';
+
+/** 名单 2026-11-11 起是在线拉的：测试传一份固定名单，别去碰网络 */
+const NAMES: readonly RewardName[] = [
+  { name: '面包', amount: 'patron', date: '2026-11-10' },
+  { name: '执徐', amount: 12, date: '2026-11-08' },
+];
 
 /* ============================================================
  * 弹窗的挂载与收口。
@@ -26,7 +32,7 @@ describe('更新日志 · 页脚入口', () => {
      最后一个是「支持作者」胶囊（文字 + 淡底 + 右上角「+人数」角标）；
      不再有「知道了」，关窗只走右上角 × / 点遮罩 / ESC。
      入口就 bz 那三个：GitHub / QQ 群 / B 站；「问题反馈」不要。 */
-  const html = () => changelogNoteHtml(CHANGELOG_RELEASES, '0.4.1');
+  const html = () => changelogNoteHtml(CHANGELOG_RELEASES, '0.4.1', NAMES);
 
   it('三个图标入口：GitHub / QQ 群 / B 站', () => {
     const s = html();
@@ -54,9 +60,9 @@ describe('更新日志 · 页脚入口', () => {
   it('支持作者是带文字与人数的胶囊，角标带 + 号', () => {
     const s = html();
     expect([...s.matchAll(/data-role="chgnsupport"/g)]).toHaveLength(2);
-    expect(s).toContain(`+${REWARD_NAMES.length}</span>`);
+    expect(s).toContain(`+${NAMES.length}</span>`);
     expect(s).toContain('>支持作者</span>');
-    expect(s).toContain(`已有 ${REWARD_NAMES.length} 位`);
+    expect(s).toContain(`已有 ${NAMES.length} 位`);
   });
 });
 

@@ -1,7 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { installDomStub } from './helpers/dom-stub';
 import { setLocale } from '../src/i18n';
-import { REWARD_NAMES } from '../src/data/reward';
 import { ACCENT_VAR, shellAccentColor } from '../src/shell/theme-accent';
 import { openSupportDialog, supportDialogHtml } from '../src/shell/support-dialog';
 
@@ -88,7 +87,7 @@ describe('弹窗把强调色带过去', () => {
   });
 
   it('弹窗正文本身不写死颜色：颜色只从变量来', () => {
-    const html = supportDialogHtml(REWARD_NAMES);
+    const html = supportDialogHtml([]);
     expect(html).not.toMatch(/#9a7434|#b0452f|#7856d6/i);
   });
 });
