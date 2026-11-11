@@ -7,7 +7,7 @@
    2. 指出我可能疏忽、会导致问题的地方，并附建议；
    3. 就以上问题列出可优化、增强的方向；
    4. 列出你不确认、需要我回答的问题；**每个问题末尾都要附上你推荐的选择**（写成「建议：…」），这样我可以只说「都按你的来」，不必逐条回答；
-   5. 做完就直接合并到主分支，部署到测试库。
+   5. 每次都在 worktree 里改代码，改完只部署到测试库；没有我的明确指令，不得合并到主分支。
    等我确认后再改动代码。
 3. **再走 TDD**：先写 `tests/<模块>.test.ts` 让它红，再改实现让它绿；修 bug 先写复现断言并永久保留，测试与实现同一提交；纯样式（CSS）例外，提交信息写「无逻辑变更，走真机冒烟」并说明冒烟了什么。
 4. **多语言只在准备上架那一版时补齐**：日常开发、修 bug、feature 分支**不**给外语配翻译。新增文案只把 `zh`（基准包）和 `en` 写实，其余六包放占位顶住门禁——`ja`/`de`/`fr`/`es`/`pt` 直接放英文原值，`zh-TW` 必须放繁体写法（`tests/i18n-packs.test.ts` 会查简体字）。正式翻译、术语统一、润色统一放到发版前一次做完，见「上架」的上架顺序第 2 步。
@@ -92,13 +92,16 @@ node scripts/issue-license.mjs --plan lifetime --id BZR-AF-2026-0021
 - 名单是公开只读数据，README「网络访问」已披露；改动读取逻辑时别绕过 `requestUrl`（码云 raw 没有跨域头）。
 
 ## 上架
-上架分两段：**先发 Release，再送审**。不走 `obsidian-releases` 的 PR，社区目录在 `community.obsidian.md` 网页提交。
+上架分两段：**先提交代码送审，审评通过之后再发 Release**。不走 `obsidian-releases` 的 PR，社区目录在 `community.obsidian.md` 网页提交。
 
-顺序由平台定，不是我们挑的：审评系统拿 `manifest.version` 去 GitHub 找同名 Release，**找不到就直接报「没有发布能匹配你的清单版本」**，连扫描都不会开始。2026-11-11 的 1.1.0 撞过这一条——manifest 已经是 1.1.0，Release 还停在 1.0.0，页面上只有那一句错误，看不出别的毛病。
+这是用户 2026-11-11 拍板的硬顺序，**不许再改回去**：
 
-所以现在的硬顺序是：**推 master → 打 tag → 发 Release（挂三件套）→ 再去送审**。
-代价要认：审评期间用户已经能从 Release 装到这一版；审评不过就改代码、涨个补丁号（1.1.0 → 1.1.1）重发一版，不要挪已经发出去的 tag。
-码云镜像仍放在最后——审评通过之后再镜像，别让国内通道先于正本上线。
+**推 master → 送审 → 审评通过 → 打 tag → 发 Release（挂三件套）→ 部署三处 → 镜像码云**
+
+- 送审前只做「提交并推送 master」：不打 tag、不发 Release、不部署真实库，审评期间用户装不到未审版本。
+- 审评系统可能拿 `manifest.version` 去 GitHub 找同名 Release（2026-11-11 的 1.1.0 撞过「没有发布能匹配你的清单版本」）。若因此被打回，按官方报错处理并补提交，不要擅自改回「先 Release」。
+- 审评不通过：在 master 上改代码、涨个补丁号，重新提交送审；过审之前没有 tag，不涉及挪 tag。
+- 码云镜像放在最后：审评通过、Release 与三件套都上线之后再镜像，别让国内通道先于正本上线。
 
 每次上架前必须跑官方 lint：
 ```powershell
@@ -109,21 +112,21 @@ node scripts/lint-obsidian.mjs
 - 脚本自己生成、跑完删掉 `eslint.config.mjs`；不要把配置文件提交进仓库。
 - 唯一豁免 `@typescript-eslint/no-deprecated`：`caretRangeFromPoint` 与 `Workspace.activeLeaf` 在 minAppVersion 1.7.2 下没有等价替代。
 
-### 第一段：准备并发 Release
+### 第一段：提交代码并送审
 1. `node scripts/lint-obsidian.mjs` → 0/0（TypeScript 与 CSS 两道都在这条命令里）；
 2. **补齐本版多语言**：把本次改动新增/改动的文案在 `src/i18n/` 里七种外语全部换成正式翻译（替换开发期留的英文/繁体占位）。自查四条——key 集合与 `zh.ts` 一致、无空串、`{占位符}`与中文逐条相同、拉丁语系包无汉字且 `zh-TW` 无简体字（跑 `vitest run tests/i18n-packs.test.ts` 就是这套）；
 3. 三道门（tsc / vitest / esbuild）；
 4. `manifest.json` 的 `version`、`versions.json` 同步（README 徽章由 shields 实时取 GitHub，不用再手动刷图）；
 5. 提交并推送 master；
-6. `node esbuild.config.mjs production`（落仓库根三件套：`main.js` / `manifest.json` / `styles.css`）。这一步必须在打 tag 之前，仓库根的三件套常常还是上一版；
-7. 打 tag 并推送——**tag 与 `manifest.version` 逐字相同，不带 `v`**；
-8. `gh release create <版本> --title <版本> --notes-file docs/note-v<版本>.md main.js manifest.json styles.css`（`--title` 必须与版本逐字相同：社区目录会检查 Release name 是否匹配 `manifest.version`），随后 `gh release view <版本>` 确认已转正、不再是 draft；
-9. 发版部署：`BZ_READER_VAULT=all node esbuild.config.mjs production` 落三处（仓库根 + 测试库 + 真实库），核对三处 `main.js` 字节数一致。
+6. 在 `community.obsidian.md` 提交，等官方审评（预览检查）。
+    - **不通过**：照报错在 master 上改。只是配置或素材没对上 → 修好补提交同一版本再送审；**动过代码** → 涨补丁号（1.1.0 → 1.1.1），从第 1 步重来。
+    - **通过**：进第二段。
 
-### 第二段：送审与镜像
-10. 在 `community.obsidian.md` 提交，等官方审评（预览检查）。
-    - **不通过**：照报错在 master 上改。只是配置或资产没对上（Release 缺资产、名字不匹配、CSS 告警）→ 修好补发同一个版本再提交；**动过代码** → 涨补丁号（1.1.0 → 1.1.1），从第 6 步重来，**不要挪已经发出去的 tag**。
-    - **通过**：进第 11 步。
+### 第二段：过审之后发布与镜像
+7. `node esbuild.config.mjs production`（落仓库根三件套：`main.js` / `manifest.json` / `styles.css`）。这一步必须在打 tag 之前，仓库根的三件套常常还是上一版；
+8. 打 tag 并推送——**tag 与 `manifest.version` 逐字相同，不带 `v`**；
+9. `gh release create <版本> --title <版本> --notes-file docs/note-v<版本>.md main.js manifest.json styles.css`（`--title` 必须与版本逐字相同：社区目录会检查 Release name 是否匹配 `manifest.version`），随后 `gh release view <版本>` 确认已转正、不再是 draft；
+10. 发版部署：`BZ_READER_VAULT=all node esbuild.config.mjs production` 落三处（仓库根 + 测试库 + 真实库），核对三处 `main.js` 字节数一致；
 11. `node scripts/push-gitee.mjs`：镜像到码云（Release 页 + 三件套资产）。
 
 目录审核要点：仓库根有 `README.md` / `LICENSE` / `manifest.json`；`manifest.json` 的 `description` **不能出现 “Obsidian”**（目录规则：上下文已蕴含，重复即 Error，会让预览直接 Failed）；Release 附三件套；`README` 披露「完整功能需付费」与网络访问。
