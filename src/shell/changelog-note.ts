@@ -329,7 +329,7 @@ function syncSupportBadges(root: HTMLElement): void {
       const text = `+${n > 99 ? '99+' : n}`;
       if (old) old.textContent = text;
       else {
-        const badge = document.createElement('span');
+        const badge = createSpan();
         badge.className = 'bzs-chgn-count';
         badge.setAttribute('aria-hidden', 'true');
         badge.textContent = text;

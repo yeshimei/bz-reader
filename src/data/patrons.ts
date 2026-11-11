@@ -45,7 +45,10 @@ export const PATRON_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 export const PATRON_REFRESH_GAP_MS = 60 * 1000;
 
 const CACHE_VERSION = 1;
-const FETCH_TIMEOUT_MS = 8000;
+/* 4 秒：首次没有缓存时，两个源都挂就等这么久才给「没加载出来」。
+   8 秒对弹窗太久了——有缓存的用户不会走到这一步（先画缓存、后台再拉），
+   新装用户的「加载中」没必要硬扛到近十秒。 */
+const FETCH_TIMEOUT_MS = 4000;
 const MAX_PATRONS = 500;
 const MAX_NAME = 40;
 const MAX_MESSAGE = 120;
@@ -70,10 +73,10 @@ function bust(url: string): string {
 
 /** 生产通道：requestUrl（移动端可用、免 CORS）。race 兜超时，迟到的结果弃用 */
 async function requestText(url: string, timeoutMs: number): Promise<string | null> {
-  let timer: ReturnType<typeof setTimeout> | null = null;
+  let timer: number | null = null;
   try {
     const timeout = new Promise<null>((resolve) => {
-      timer = setTimeout(() => resolve(null), timeoutMs);
+      timer = window.setTimeout(() => resolve(null), timeoutMs);
     });
     const req = requestUrl({ url, method: 'GET', throw: false }).then((resp) => {
       if (!resp || resp.status < 200 || resp.status >= 300) return null;
@@ -83,7 +86,7 @@ async function requestText(url: string, timeoutMs: number): Promise<string | nul
   } catch {
     return null;
   } finally {
-    if (timer) clearTimeout(timer);
+    if (timer !== null) window.clearTimeout(timer);
   }
 }
 
@@ -92,10 +95,14 @@ let http: PatronHttp = requestText;
 /* ── 解析 ─────────────────────────────────────────────────── */
 
 function cleanText(v: string): string {
-  return v
-    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  /* 控制字符逐字符换成空格：写成正则会被 lint 的 no-control-regex 拦下，
+     而这里要处理的正是「远端 JSON 里可能夹着看不见的控制字符」。 */
+  let out = '';
+  for (const ch of v) {
+    const code = ch.codePointAt(0) ?? 0;
+    out += code < 0x20 || code === 0x7f ? ' ' : ch;
+  }
+  return out.replace(/\s+/g, ' ').trim();
 }
 
 /** `YYYY-MM-DD`，且是真实存在的日子（2026-13-01、2026-02-30 都不算） */

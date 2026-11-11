@@ -56,7 +56,8 @@ import { rangeFill } from './range-fill';
 import { openHotkeySettings } from '../core/hotkeys';
 import { pickFolder } from '../core/folder-pick';
 import { PURCHASE_URL, REPO_URL, can, capLabel, type Cap } from '../data/entitlement';
-import { HEADER_ACTION_IDS } from '../view/header-actions';
+import { HEADER_ACTION_IDS, isMobileHiddenAction, type HeaderActionId } from '../view/header-actions';
+import { moveHeaderAction } from './header-order';
 import type { ReaderPrefs } from '../data/prefs';
 import { wikilinkOf, wikilinkOfMark } from '../data/wikilink';
 import { buildNotesBody, exportBookNotes, safeName } from '../data/export';
@@ -1875,18 +1876,23 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
     case 'headermove': {
-      /* 图标排序：跟相邻一位交换。顺序一旦动过就整份落盘，不再回退默认 */
+      /* 图标排序：跟这台设备上**看得见**的相邻一位交换。顺序一旦动过就整份落盘，
+         不再回退默认。
+
+         跳过看不见的（2026-11-11）：手机上并排 / 对照书籍 / 朗读不列在设置页里，
+         但顺序偏好仍留着它们的位置，切回电脑要原位复现。按完整顺序换相邻一位的话，
+         用户点「下移」可能换掉的是屏幕里根本不存在的项——画面毫无变化，看起来像
+         按钮坏了。判据与设置页那三处共用同一份「手机形态 + 不提供的动作」。 */
       const src = getShellSource();
       if (!src) break;
       const id = d.k || '';
       const dir = Number(d.v) || 0;
+      if (dir !== 1 && dir !== -1) break;
       const p = shellPrefs();
       const base: string[] = p.headerOrder.length ? p.headerOrder : HEADER_ACTION_IDS.slice();
-      const i = base.indexOf(id);
-      const j = i + dir;
-      if (i < 0 || j < 0 || j >= base.length) break;
-      const next = base.slice();
-      [next[i], next[j]] = [next[j], next[i]];
+      const mobile = isMobileShell();
+      const next = moveHeaderAction(base, id, dir, (x) => !(mobile && isMobileHiddenAction(x as HeaderActionId)));
+      if (!next) break;
       src.setPrefs({ headerOrder: next });
       rerender();
       break;

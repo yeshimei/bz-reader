@@ -259,6 +259,20 @@ describe('节流与订阅', () => {
     expect(calls.length).toBe(first * 2);
   });
 
+  it('单源最多等 4 秒：首次没缓存时别让人盯着「加载中」太久', async () => {
+    const timeouts: number[] = [];
+    _setPatronsHttpForTests(async (_url, timeoutMs) => {
+      timeouts.push(timeoutMs);
+      return null;
+    });
+
+    await refreshPatrons({ force: true });
+
+    /* 两个源并发，各一次请求，封顶都是 4 秒（改这个数要连这条测试一起改） */
+    expect(timeouts.length).toBe(2);
+    expect(timeouts).toEqual([4000, 4000]);
+  });
+
   it('名单变了通知订阅者；退订之后不再收到', async () => {
     setHttp(() => doc(GOOD));
     const seen: number[] = [];
