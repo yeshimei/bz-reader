@@ -87,21 +87,23 @@ export interface AiCardInput {
  *
  * 单独导出是给"追问中"那一路用的：请求发出去之后不整卡重画（输入框在卡里，
  * 换掉会丢焦点），只把这一块 innerHTML 换掉。
+ *
+ * 2026-11-11：`pending` 那一轮画成「正在回复…」。问题一发出就在轮次里
+ * （见 shell/ai-card 的 aiCardFollowBegin），所以用户点完立刻能看到自己
+ * 问的那句和一个占位，而不是一张纹丝不动的卡。
  */
-export function aiTurnsHtml(turns?: AiFollowTurn[], pending?: string): string {
-  const list = (turns ?? [])
+export function aiTurnsHtml(turns?: AiFollowTurn[]): string {
+  return (turns ?? [])
     .map((turn) => {
       const q = turn.q ? `<div class="q">${esc(t('ai.follow.you'))}：${esc(turn.q)}</div>` : '';
       const a = turn.error
         ? `<div class="a is-bad">${esc(turn.error)}</div>`
-        : `<div class="a">${esc(turn.a)}</div>`;
-      return `<div class="bzs-ai-turn">${q}${a}</div>`;
+        : turn.pending
+          ? `<div class="a is-busy">${esc(t('ai.follow.thinking'))}</div>`
+          : `<div class="a" data-ai-md>${esc(turn.a)}</div>`;
+      return `<div class="bzs-ai-turn${turn.pending ? ' is-busy' : ''}">${q}${a}</div>`;
     })
     .join('');
-  const wait = String(pending ?? '').trim()
-    ? `<div class="bzs-ai-turn is-busy"><div class="q">${esc(t('ai.follow.you'))}：${esc(pending ?? '')}</div><div class="a">${esc(t('ai.follow.busy'))}</div></div>`
-    : '';
-  return list + wait;
 }
 
 /**
@@ -116,6 +118,10 @@ export function aiTurnsHtml(turns?: AiFollowTurn[], pending?: string): string {
  *
  * 2026-11-10 加追问：答案下面一条输入框，问完续在轮次里。追问与三档共用
  * 同一份账，切档时整份跟着档走。
+ *
+ * 2026-11-11 改结构（真机反馈）：内容区单独滚，输入行与底部按钮钉在卡片下沿。
+ * 以前整张卡是一个滚动容器，答案一长，输入框下面的「复制 / 重试 / 存为笔记」
+ * 就被推出可视区，用户以为按钮没了。
  */
 export function aiCardHtml(input: AiCardInput): string {
   const mode = input.mode ?? 'explain';
@@ -143,10 +149,12 @@ export function aiCardHtml(input: AiCardInput): string {
     ? `<button class="bzs-btn" data-act="aitomark">${esc(t('ai.save.mark'))}</button>`
     : '';
   return `<div class="bzs-ai-card">
-    ${quote}
-    ${modes}
-    <div class="body" data-role="aibody">${esc(body)}</div>
-    <div class="turns" data-role="aiturns">${aiTurnsHtml(input.turns)}</div>
+    <div class="ai-scroll">
+      ${quote}
+      ${modes}
+      <div class="body" data-role="aibody" data-ai-md>${esc(body)}</div>
+      <div class="turns" data-role="aiturns">${aiTurnsHtml(input.turns)}</div>
+    </div>
     ${askrow}
     <div class="foot">
       <button class="bzs-btn" data-act="aicopy">${esc(t('ai.card.copy'))}</button>

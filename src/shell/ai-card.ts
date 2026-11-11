@@ -27,6 +27,13 @@ export interface AiFollowTurn {
   q: string;
   a: string;
   error?: string;
+  /**
+   * 问题已发出、答案还在路上（2026-11-11）。
+   *
+   * 以前这一轮要等答案回来才进轮次，中间卡片一动不动——用户以为没点中。
+   * 现在发出就先占一行，回来再换成答案（见 settleTurn）。
+   */
+  pending?: boolean;
 }
 
 export interface AiCardEntry {
@@ -102,27 +109,50 @@ export function aiCardReset(): void {
  *
  * 与 `aiCardBegin` 的区别是**不清旧账**：初次答案与之前的轮次都要留着，
  * 重画之后用户还能往上翻。追问失败也不抹掉它们。
+ *
+ * 2026-11-11：问题**立刻**进轮次（`pending`）。发出即回声——不然用户点了
+ * 「追问」只看到卡片纹丝不动，等十几秒才突然多出一整段。
  */
-export function aiCardFollowBegin(key: string): void {
+export function aiCardFollowBegin(key: string, q: string): void {
   const cur = entries.get(key);
-  if (!cur) {
-    entries.set(key, { status: 'busy', text: '', turns: [] });
-    return;
+  const turns = [...(cur?.turns ?? []), { q: String(q ?? ''), a: '', pending: true }];
+  entries.set(key, { status: 'busy', text: cur?.text ?? '', turns });
+}
+
+/**
+ * 把最后一条「在路上」的换成结果。
+ *
+ * 按问题文本对上那一轮；对不上（理论上不该发生）就追加，宁可多一条也
+ * 不能把答案丢掉。
+ */
+function settleTurn(
+  turns: readonly AiFollowTurn[] | undefined,
+  q: string,
+  next: AiFollowTurn,
+): AiFollowTurn[] {
+  const list = [...(turns ?? [])];
+  for (let i = list.length - 1; i >= 0; i -= 1) {
+    const turn = list[i]!;
+    if (turn.pending && turn.q === q) {
+      list[i] = next;
+      return list;
+    }
   }
-  entries.set(key, { ...cur, status: 'busy' });
+  list.push(next);
+  return list;
 }
 
 /** 一轮追问拿到了答案：追加到轮次末尾，初次答案不动 */
 export function aiCardFollowDone(key: string, q: string, a: string): void {
   const cur = entries.get(key) ?? { status: 'done' as const, text: '' };
-  const turns = [...(cur.turns ?? []), { q, a }];
+  const turns = settleTurn(cur.turns, q, { q, a });
   entries.set(key, { ...cur, status: 'done', turns });
 }
 
 /** 一轮追问失败：问题与原因都留在轮次里，供「重试」和用户回看 */
 export function aiCardFollowFail(key: string, q: string, text: string): void {
   const cur = entries.get(key) ?? { status: 'error' as const, text: '' };
-  const turns = [...(cur.turns ?? []), { q, a: '', error: text }];
+  const turns = settleTurn(cur.turns, q, { q, a: '', error: text });
   /* 有初次答案时状态退回 done：卡片正文该继续显示答案，而不是被
      一句「追问失败」顶掉；没有初次答案才把错误亮在正文里。 */
   entries.set(key, { ...cur, status: cur.text ? 'done' : 'error', turns });
@@ -133,13 +163,14 @@ export function aiCardFollowFail(key: string, q: string, text: string): void {
  *
  * 先放刚才那份答案（`assistant`），再按顺序放轮次。失败的轮次跳过——
  * 没答出来的问题喂回去，模型会把它当成「说过的话」接着圆。
+ * 还在路上的（`pending`）同样跳过：它没有答案，带过去只是一句孤儿提问。
  */
 export function followHistory(text: string, turns: readonly AiFollowTurn[] = []): AiTurn[] {
   const out: AiTurn[] = [];
   const first = String(text ?? '').trim();
   if (first) out.push({ role: 'assistant', content: first });
   for (const turn of turns ?? []) {
-    if (turn?.error) continue;
+    if (turn?.error || turn?.pending) continue;
     const q = String(turn?.q ?? '').trim();
     const a = String(turn?.a ?? '').trim();
     if (q) out.push({ role: 'user', content: q });

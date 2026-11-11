@@ -60,6 +60,7 @@ import { openShelfAsk } from './ui/shelf-ask-panel';
 import { openTopicRoute } from './ui/topic-route-panel';
 import { openMaterials } from './ui/material-panel';
 import { allMarks } from './shell/domain';
+import { installAiMarkdown, uninstallAiMarkdown } from './shell/ai-md';
 import { aiAsk } from './data/ai';
 import { safeName } from './data/export';
 import { DEFAULT_SETTINGS } from './data/settings';
@@ -262,6 +263,9 @@ export function createPlugin(cfg: PluginConfig) {
     async onload(): Promise<void> {
       setApp(this.app);
       setPluginRelDir(this.manifest.dir);
+      /* AI 正文的 Markdown 渲染器（2026-11-11）：握住 app 与组件，渲染出来的
+         链接、图片才能跟着插件一起释放。必须在任何一处 AI 输出之前装好。 */
+      installAiMarkdown(this.app, this);
 
       /* 配置先读：设置、授权、数据目录全在 data.json 里，而且 store 要知道
          数据目录在哪才能 load()。顺序反了就会「设置读到了、书架是空的」。
@@ -583,6 +587,8 @@ export function createPlugin(cfg: PluginConfig) {
         /* 两个全局函数（createObjectURL / iframe.src）是我们改的，要还回去，
            否则禁用插件后它们还在收别的插件造的 Blob（P2-13） */
         uninstallBlobSrcdocPatches();
+        /* AI 正文渲染器握着 app 与组件：插件禁用后必须还回去 */
+        uninstallAiMarkdown();
         /* 壳层的数据源必须断：它握着 store / repo / app，不断的话禁用插件后
            任何一次误触（残留的按钮、还没销毁的监听）都能继续改数据。 */
         setShellSource(null);

@@ -430,6 +430,7 @@ export const ZH = {
   'ai.mode.summarize': '摘要',
   'ai.mode.follow': '追问',
   'ai.follow.busy': '正在追问…',
+  'ai.follow.thinking': '正在回复…',
   'ai.card.copy': '复制',
   'ai.card.retry': '重试',
   'ai.card.save': '存为笔记',

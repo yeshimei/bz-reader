@@ -96,12 +96,27 @@
   position: relative;
   width: min(420px, calc(100vw - 32px));
   max-height: min(72vh, 640px);
+  /* 手机地址栏伸缩、键盘弹出都会改可视高度：dvh 跟着真实视口，卡片不会被顶出屏幕 */
+  max-height: min(72dvh, 640px);
   overflow: auto;
   padding: 14px;
   border: 0;
   border-radius: var(--r-card);
   background: var(--surface);
   box-shadow: 0 24px 60px rgba(40, 32, 20, .26), 0 0 0 1px rgba(60, 48, 28, .08);
+}
+
+/* 装着 AI 卡的弹窗（2026-11-11）：滚动交给卡片内部的 .ai-scroll。
+   外层再滚一次，输入行与底部按钮会跟着答案一起滚出屏幕。 */
+.bzs-float.is-dialog:has(.bzs-ai-card) {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.bzs-float.is-dialog:has(.bzs-ai-card) .bzs-ai-card {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 body.theme-dark .bzs-float.is-dialog {
@@ -276,6 +291,22 @@ body.theme-dark .bzs-float.is-dialog {
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 16px 40px rgba(40, 32, 20, .12), 0 2px 6px rgba(40, 32, 20, .05);
+  /* 2026-11-11 真机反馈：答案一长，输入行下方的「复制 / 重试 / 存为笔记」
+     就被挤出可视区，用户以为按钮没了。改成纵向三段：
+     内容区自己滚，输入行与底部按钮永远钉在卡片下沿。 */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+}
+
+/* 内容区：引文 + 页签 + 答案 + 追问轮次。滚动只发生在这里 */
+.bzs-ai-card .ai-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* 问的是哪一段：两行截断。它只是让切档时能确认问的是哪句话，

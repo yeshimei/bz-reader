@@ -133,6 +133,7 @@ import { TAP_MENU_PRESSURE_MS } from '../core/tap';
 import { aiCardDrop, aiCardFollowBegin, aiCardFollowDone, aiCardFollowFail, aiCardGet, aiCardKey, aiModeOf, followHistory } from './ai-card';
 import { runAiForOverlay } from './overlay';
 import { aiTurnsHtml } from './reader-cards';
+import { renderAiMarkdown } from './ai-md';
 import { aiAnswerBlock, aiConversationMarkdown, appendAiIdea, type AiSaveTask } from '../data/ai-save';
 import { DEFAULT_SETTINGS, aiReady, resolveAi } from '../data/settings';
 import { aiProviderSpec, isAiProviderId } from '../data/ai-providers';
@@ -3424,14 +3425,21 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
 /* ─────────── 划词卡的追问（2026-11-10） ─────────── */
 
 /**
- * 正在追问的那一句。
+ * 一次只跑一条追问。
  *
- * 追问不整卡重画（输入框就在卡里，换掉会丢焦点），只把轮次这一块换掉；
- * 这个变量让「换块」时还能画出一行「正在追问」。
+ * 2026-11-11：原来这里是「正在追问的那句话」，渲染时靠它画占位；现在那一行
+ * 已经在账本的轮次里（`pending`），这个变量只负责防重入——连点两下不该扣
+ * 两次费。
  */
-let aiFollowPending = '';
+let aiFollowBusy = false;
 
-/** 从账本把卡上的正文与轮次重画一遍 */
+/** 追问的轮次区滚到底：新的一行不该出现在可视区之外 */
+function scrollAiCardToEnd(): void {
+  const box = document.querySelector<HTMLElement>('.bzs-ai-card .ai-scroll');
+  if (box) box.scrollTop = box.scrollHeight;
+}
+
+/** 从账本把卡上的正文与轮次重画一遍，并补上 Markdown 渲染 */
 function refreshAiCard(): void {
   const o = getState().overlay;
   if (!o || o.kind !== 'ai') return;
@@ -3439,9 +3447,16 @@ function refreshAiCard(): void {
   const key = aiCardKey('ai', aiModeOf(o.mode), text);
   const entry = aiCardGet(key);
   const body = document.querySelector<HTMLElement>('[data-role="aibody"]');
-  if (body && entry?.text) body.textContent = entry.text;
+  if (body && entry?.text) {
+    body.textContent = entry.text;
+    /* 刚写过纯文本：标记清掉，交给 renderAiMarkdown 重新渲染 */
+    delete body.dataset.aiRendered;
+  }
   const turns = document.querySelector<HTMLElement>('[data-role="aiturns"]');
-  if (turns) turns.innerHTML = aiTurnsHtml(entry?.turns, aiFollowPending);
+  if (turns) turns.innerHTML = aiTurnsHtml(entry?.turns);
+  const card = document.querySelector<HTMLElement>('.bzs-ai-card');
+  renderAiMarkdown(card);
+  scrollAiCardToEnd();
 }
 
 /**
@@ -3463,10 +3478,15 @@ async function followAi(question: string): Promise<void> {
   /* 初次还没答完（或者还没发出去）：没有可追问的答案，不发 */
   if (!entry || !entry.text) return;
   /* 一次只跑一条追问：连点两下不该扣两次费 */
-  if (aiFollowPending) return;
+  if (aiFollowBusy) return;
 
-  aiFollowPending = q;
-  aiCardFollowBegin(key);
+  aiFollowBusy = true;
+  /* 发出即回声：这一问立刻进轮次（带 pending），卡片上马上出现
+     「你：…」和「正在回复…」，不用等模型 */
+  aiCardFollowBegin(key, q);
+  /* 输入框当场清空：这句已经进轮次了，留在框里会像没发出去 */
+  const box = document.querySelector<HTMLInputElement>('[data-role="aifollow"]');
+  if (box) box.value = '';
   refreshAiCard();
   const ctrl = new AbortController();
   RT.aiAbort = ctrl;
@@ -3482,10 +3502,8 @@ async function followAi(question: string): Promise<void> {
     if (!ctrl.signal.aborted) aiCardFollowFail(key, q, (e as Error)?.message || t('common.unknownError'));
   } finally {
     if (RT.aiAbort === ctrl) RT.aiAbort = null;
-    aiFollowPending = '';
+    aiFollowBusy = false;
     refreshAiCard();
-    const input = document.querySelector<HTMLInputElement>('[data-role="aifollow"]');
-    if (input) input.value = '';
   }
 }
 

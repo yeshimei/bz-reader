@@ -12,6 +12,7 @@ import type { App } from 'obsidian';
 import { semanticSearch } from '../data/book-search';
 import { buildRouteMessages, routeCandidates, routeMarkdown, type RouteBook } from '../data/topic-route';
 import { clear, el } from './dom';
+import { renderAiMarkdown } from '../shell/ai-md';
 import { uiModal } from '../core/ui/modal';
 import { t } from '../i18n';
 
@@ -36,6 +37,7 @@ export function openTopicRoute(deps: TopicRouteDeps): void {
 
   const status = el('div', 'bzr-xs-status', t('route.hint'));
   const body = el('div', 'bzr-sask-answer');
+  body.dataset.aiMd = '';
   const foot = el('div', 'bzr-sask-sources');
 
   root.append(bar, status, body, foot);
@@ -83,6 +85,8 @@ export function openTopicRoute(deps: TopicRouteDeps): void {
     go.disabled = false;
     status.textContent = books.length ? t('route.done', { n: books.length }) : t('route.none');
     body.textContent = text;
+    delete body.dataset.aiRendered;
+    renderAiMarkdown(body);
 
     const today = new Date();
     const day = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;

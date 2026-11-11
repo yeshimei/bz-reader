@@ -121,9 +121,12 @@ function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow' | 'probe' | 'quiz' |
  */
 function buildFollowMessages(input: AiAskInput): AiMessage[] {
   const quote = clipContext(input.context ?? '', FOLLOW_QUOTE_LIMIT);
+  /* 2026-11-11 真机反馈：追问的回答动辄一整屏，手机上一段分析要翻两屏才看完。
+     追问是「接着聊」，不是「再写一篇」——所以把长度写成硬约束，并明确
+     「读者要求展开」才放长，免得模型把简练当成不许解释。 */
   const system = quote
-    ? '你是读者的共读助手。下面这段是读者正在读的原文。回答读者关于它的问题；可以用书外的知识补充，但要说明哪些是补充。用中文，先给结论，不寒暄。'
-    : '你是读者的共读助手。这次没有原文，只能凭问题本身作答，回答前先说明这一点。用中文，简洁。';
+    ? '你是读者的共读助手。下面这段是读者正在读的原文。回答读者关于它的问题；可以用书外的知识补充，但要说明哪些是补充。用中文，先给结论，不寒暄。回答要短：通常三到五句、100 字以内，不复述原文，不要长清单；只有读者明确要求「详细说说」时才展开。'
+    : '你是读者的共读助手。这次没有原文，只能凭问题本身作答，回答前先说明这一点。用中文，三到五句以内，不寒暄。';
 
   const messages: AiMessage[] = [{ role: 'system', content: system }];
   if (quote) messages.push({ role: 'system', content: `【原文】\n${quote}` });

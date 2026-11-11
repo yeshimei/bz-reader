@@ -45,6 +45,7 @@ import {
 } from './state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { aiReady } from '../data/settings';
+import { renderAiMarkdown } from './ai-md';
 import { bzEmbedder, bzEntryReady, reviewPlanOf } from '../data/bz-bridge';
 import { kbLinkOf } from '../data/kb-link';
 import { hydrateToolbarIcons } from './toolbar-icons';
@@ -287,7 +288,7 @@ function overlayGuide(): string {
     : error
       ? `<div class="bzs-guide is-bad">${esc(text || t('guide.fail'))}</div>`
       : text
-        ? `<div class="bzs-guide">${esc(text)}</div>`
+        ? `<div class="bzs-guide" data-ai-md>${esc(text)}</div>`
         : `<div class="bzs-guide is-empty">${esc(t('guide.empty'))}</div>`;
   const foot = busy
     ? closeBtn()
@@ -1443,7 +1444,11 @@ function writeAiBody(key: string): void {
   /* 还在路上（正文是空的）：占位文案由渲染那一侧画，这里不要写一个空串进去 */
   if (!entry || !entry.text) return;
   const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
-  if (node) node.textContent = entry.text;
+  if (!node) return;
+  node.textContent = entry.text;
+  /* 换了新文本：清掉「已渲染」标记，否则会被当成渲染过而停在纯文本 */
+  delete node.dataset.aiRendered;
+  renderAiMarkdown(node);
 }
 
 /** 正在跑的请求：`RT.aiAbort` 给「取消请求」用，这里额外记着它是哪一档 */
@@ -1939,6 +1944,9 @@ export class OverlayLayer {
     this.untrap = null;
     this.setAccent(shellPrefs().accent);
     setHtml(this.root, overlayHtml());
+    /* AI 正文按 Markdown 渲染（2026-11-11）：模板里只打 data-ai-md 标记，
+       注入完在这里统一换成渲染结果。渲染是异步的，不阻塞这一帧。 */
+    renderAiMarkdown(this.root);
     if (keepLicense) {
       const box = this.root.querySelector<HTMLInputElement>('[data-role="license"]');
       if (box && !box.value) box.value = keepLicense;

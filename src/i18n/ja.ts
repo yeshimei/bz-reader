@@ -419,6 +419,7 @@ export const JA: Record<MsgKey, string> = {
   'ai.mode.summarize': '要約',
   'ai.mode.follow': 'Ask',
   'ai.follow.busy': 'Asking…',
+  'ai.follow.thinking': 'Replying…',
   'ai.card.copy': 'Copy',
   'ai.card.retry': 'Retry',
   'ai.card.save': 'Save to note',

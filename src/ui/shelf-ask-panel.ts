@@ -15,6 +15,7 @@ import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
 import { askShelf, mergeShelfEvidence, shelfSources } from '../data/shelf-ask';
 import { clear, el } from './dom';
+import { renderAiMarkdown } from '../shell/ai-md';
 import { uiModal } from '../core/ui/modal';
 import { t } from '../i18n';
 
@@ -65,6 +66,7 @@ export function openShelfAsk(deps: ShelfAskDeps): void {
   bar.append(input, go);
 
   const answer = el('div', 'bzr-sask-answer');
+  answer.dataset.aiMd = '';
   const sources = el('div', 'bzr-sask-sources');
   root.append(head, list, bar, status, answer, sources);
 
@@ -118,6 +120,9 @@ export function openShelfAsk(deps: ShelfAskDeps): void {
     go.disabled = false;
     status.textContent = t('shelf.ask.done', { n: res.books });
     answer.textContent = text;
+    /* 答案可能是 Markdown（列表、加粗）：注入后统一渲染 */
+    delete answer.dataset.aiRendered;
+    renderAiMarkdown(answer);
 
     const label = el('div', 'bzr-sask-srch', t('shelf.ask.sources'));
     sources.appendChild(label);

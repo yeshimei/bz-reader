@@ -5,11 +5,14 @@ import { setShellSource, type ShellSource } from '../src/shell/source';
 import { DEFAULT_SETTINGS } from '../src/data/settings';
 import {
   aiCardDone,
+  aiCardFollowBegin,
   aiCardFollowDone,
   aiCardFollowFail,
   aiCardKey,
   aiCardReset,
+  followHistory,
 } from '../src/shell/ai-card';
+import { t } from '../src/i18n';
 import { makeApp, makeStore } from './helpers/plugin-harness';
 
 /**
@@ -50,6 +53,71 @@ afterEach(() => {
   aiCardReset();
   setShellSource(null);
   setState({ ...DEFAULT_SHELL_STATE });
+});
+
+describe('AI 卡 · 发出即回声（2026-11-11 真机反馈）', () => {
+  /**
+   * 以前：点「追问」之后卡片一动不动，要等十几秒答案回来才「突然多出一大段」。
+   * 现在：这一问发出时就进轮次，卡上立刻有「你：…」与「正在回复…」。
+   */
+  it('点了追问立刻能看到自己那句话与「正在回复」', () => {
+    install();
+    aiCardDone(KEY, '这是解释');
+    aiCardFollowBegin(KEY, '那作者为什么这么写？');
+    const html = overlayHtml();
+    expect(html).toContain('那作者为什么这么写？');
+    expect(html).toContain(t('ai.follow.thinking'));
+  });
+
+  it('答案回来之后占位被替换，同一问不会留下两条', () => {
+    install();
+    aiCardDone(KEY, '这是解释');
+    aiCardFollowBegin(KEY, '为什么要这样写');
+    aiCardFollowDone(KEY, '为什么要这样写', '因为要留白。');
+    const html = overlayHtml();
+    expect(html).not.toContain(t('ai.follow.thinking'));
+    expect(html).toContain('因为要留白。');
+    expect(html.split('为什么要这样写').length - 1).toBe(1);
+  });
+
+  it('失败的一轮同样把问题留住，只把占位换成原因', () => {
+    install();
+    aiCardDone(KEY, '这是解释');
+    aiCardFollowBegin(KEY, '一个问不出来的问题');
+    aiCardFollowFail(KEY, '一个问不出来的问题', '接口 500');
+    const html = overlayHtml();
+    expect(html).toContain('一个问不出来的问题');
+    expect(html).toContain('接口 500');
+    expect(html).not.toContain(t('ai.follow.thinking'));
+  });
+
+  it('还在路上的那轮不喂给模型（没有答案的孤儿提问）', () => {
+    const turns = [
+      { q: '问过的', a: '答过的' },
+      { q: '还在路上', a: '', pending: true },
+    ];
+    const history = followHistory('初次答案', turns);
+    const text = history.map((h) => h.content).join('|');
+    expect(text).toContain('问过的');
+    expect(text).toContain('答过的');
+    expect(text).not.toContain('还在路上');
+  });
+});
+
+describe('AI 卡 · 底部按钮固定在卡片下沿', () => {
+  /* 真机反馈：答案一长，输入行下面的「复制 / 重试 / 存为笔记」被挤出可视区。
+     结构上把可滚动的部分单独包一层，输入行与按钮放在它外面。 */
+  it('输入行与底部按钮在滚动区之外', () => {
+    install();
+    aiCardDone(KEY, '这是解释');
+    const html = overlayHtml();
+    const scrollEnd = html.indexOf('data-role="aiturns"');
+    expect(html).toContain('class="ai-scroll"');
+    expect(scrollEnd).toBeGreaterThan(-1);
+    /* 追问输入行与底部按钮都出现在轮次之后 */
+    expect(html.indexOf('data-role="aifollow"')).toBeGreaterThan(scrollEnd);
+    expect(html.indexOf('data-act="aisave"')).toBeGreaterThan(scrollEnd);
+  });
 });
 
 describe('AI 卡 · 追问入口', () => {

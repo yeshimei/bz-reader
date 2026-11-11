@@ -417,6 +417,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'ai.mode.summarize': '摘要',
   'ai.mode.follow': '追問',
   'ai.follow.busy': '正在追問…',
+  'ai.follow.thinking': '正在回覆…',
   'ai.card.copy': '複製',
   'ai.card.retry': '重試',
   'ai.card.save': '存為筆記',

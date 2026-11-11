@@ -65,15 +65,27 @@ describe('buildMessages · follow', () => {
     const user = msgs.filter((m) => m.role === 'user').at(-1)!;
     expect(user.content.length).toBeLessThan(long.length);
   });
+
+  /* 2026-11-11 真机反馈：追问的回答动辄一整屏，手机要翻两屏才看完。
+     追问是「接着聊」，不是「再写一篇」——长度写成硬约束。 */
+  it('追问要求简短：三五句、100 字以内，只在明确要求时才展开', () => {
+    const msgs = buildMessages({ task: 'follow', text: '继续', context: '原文' });
+    const system = msgs.find((m) => m.role === 'system')!.content;
+    expect(system).toContain('100 字');
+    expect(system).toContain('三到五句');
+  });
 });
 
 describe('账本 · 追问轮次', () => {
   it('追问不清掉初次答案', () => {
     const key = aiCardKey('ai', 'explain', TEXT);
     aiCardDone(key, '初次答案');
-    aiCardFollowBegin(key);
+    aiCardFollowBegin(key, '为什么');
     expect(aiCardGet(key)).toMatchObject({ status: 'busy', text: '初次答案' });
-    expect(aiCardGet(key)?.turns ?? []).toHaveLength(0);
+    /* 2026-11-11：问题一发出就进轮次（pending），不再是「等答案才出现」 */
+    const turns = aiCardGet(key)!.turns!;
+    expect(turns).toHaveLength(1);
+    expect(turns[0]).toMatchObject({ q: '为什么', pending: true });
   });
 
   it('追问成功追加一轮，问题和答案都在', () => {
@@ -89,7 +101,7 @@ describe('账本 · 追问轮次', () => {
   it('追问失败留一条带原因的记录，不覆盖初次答案', () => {
     const key = aiCardKey('ai', 'explain', TEXT);
     aiCardDone(key, '初次答案');
-    aiCardFollowBegin(key);
+    aiCardFollowBegin(key, '话说了一半');
     aiCardFollowFail(key, '话说了一半', '接口 401');
     const turns = aiCardGet(key)!.turns!;
     expect(turns).toHaveLength(1);

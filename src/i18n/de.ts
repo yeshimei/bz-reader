@@ -424,6 +424,7 @@ export const DE: Record<MsgKey, string> = {
   'ai.mode.summarize': 'Zusammenfassen',
   'ai.mode.follow': 'Ask',
   'ai.follow.busy': 'Asking…',
+  'ai.follow.thinking': 'Replying…',
   'ai.card.copy': 'Copy',
   'ai.card.retry': 'Retry',
   'ai.card.save': 'Save to note',

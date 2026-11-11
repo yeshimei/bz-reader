@@ -18,6 +18,7 @@ import { ItemView, type WorkspaceLeaf } from 'obsidian';
 import type { FoliateTOCItem } from '../types/foliate';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { dispatchAction, dispatchInput } from '../shell/actions';
+import { renderAiMarkdown } from '../shell/ai-md';
 import { getState, setState, subscribe, type SideTab } from '../shell/state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from '../shell/source';
 import { RT } from '../shell/runtime';
@@ -298,6 +299,8 @@ export class SideView extends ItemView {
         tocDraggable: book?.fileRef.format === 'pdf',
       }),
     );
+    /* 侧栏里的 AI 答按 Markdown 渲染（2026-11-11）：模板只打标记，注入后统一换 */
+    renderAiMarkdown(root);
     this.paintedItems = snap?.items ?? null;
     this.paintedBook = snap?.bookId ?? '';
     this.paintedActive = snap?.activeLabel ?? '';

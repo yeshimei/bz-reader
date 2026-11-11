@@ -519,7 +519,12 @@ function indexChat(v: SidebarView, idx: AiIndexView): string {
           (m) =>
             `<div class="bzs-aibubble${m.me ? ' me' : ''}"><span class="tag">${m.me ? t('side.ai.me') : esc(
               m.tag,
-            )}</span>${esc(m.text)}${aiSourcesRow(m)}</div>`,
+            )}</span>${
+              /* AI 的答按 Markdown 渲染（2026-11-11），用户自己那句保持纯文本 */
+              m.me
+                ? esc(m.text)
+                : `<div class="txt" data-ai-md>${esc(m.text)}</div>`
+            }${aiSourcesRow(m)}</div>`,
         )
         .join('')}
       <div class="bzs-aiask">
