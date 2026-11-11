@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { ReaderBook } from '../src/data/schema';
-import { headerActionIds, headerActionsFor, headerActive, headerOverflowFor } from '../src/view/header-actions';
+import { t } from '../src/i18n';
+import {
+  headerActionIds,
+  headerActionSpec,
+  headerActionsFor,
+  headerActive,
+  headerOverflowFor,
+} from '../src/view/header-actions';
 
 /**
  * 头栏动作。两条真机反馈：
@@ -12,7 +19,7 @@ describe('headerActionIds', () => {
     expect(headerActionIds(true)).toEqual(['toc', 'search', 'mark']);
   });
 
-  it('桌面端默认十一颗（菜单里的功能都能摆出来，由用户自己收）', () => {
+  it('桌面端默认十二颗（菜单里的功能都能摆出来，由用户自己收）', () => {
     expect(headerActionIds(false)).toEqual([
       'toc',
       'search',
@@ -23,6 +30,7 @@ describe('headerActionIds', () => {
       'paraBook',
       'tts',
       'bookmap',
+      'guide',
       'immersive',
       'library',
     ]);
@@ -48,6 +56,20 @@ function book(): ReaderBook {
     updatedAt: 1,
   };
 }
+
+describe('本章导读入口', () => {
+  it('头栏里有一枚「本章导读」：图标走 Obsidian 图标集，标签读八语言包', () => {
+    const spec = headerActionSpec('guide');
+    expect(spec.icon).toBe('book-open');
+    expect(spec.label).toBe(t('guide.title'));
+    expect(headerActionIds(false)).toContain('guide');
+  });
+
+  it('手机上它跟其它功能一样进 ⋮，不占前三颗的名额', () => {
+    expect(headerActionIds(true)).not.toContain('guide');
+    expect(headerOverflowFor(true, null)).toContain('guide');
+  });
+});
 
 describe('headerActive', () => {
   it('这一页有书签 → 书签图标点亮', () => {
@@ -78,7 +100,7 @@ const cfg = (order: string[] = [], hidden: string[] = []) => ({ order, hidden })
  * 收起来的（显式隐藏 + 被名额挤出的）都进 ⋮。
  */
 describe('headerActionsFor：排序、隐藏与移动端上限', () => {
-  it('桌面十一颗、移动三颗（与默认一致）', () => {
+  it('桌面十二颗、移动三颗（与默认一致）', () => {
     expect(headerActionsFor(false, cfg())).toEqual([
       'toc',
       'search',
@@ -89,6 +111,7 @@ describe('headerActionsFor：排序、隐藏与移动端上限', () => {
       'paraBook',
       'tts',
       'bookmap',
+      'guide',
       'immersive',
       'library',
     ]);
@@ -106,6 +129,7 @@ describe('headerActionsFor：排序、隐藏与移动端上限', () => {
       'paraBook',
       'tts',
       'bookmap',
+      'guide',
       'immersive',
       'library',
     ]);
@@ -125,6 +149,7 @@ describe('headerActionsFor：排序、隐藏与移动端上限', () => {
       'paraBook',
       'tts',
       'bookmap',
+      'guide',
       'immersive',
       'library',
     ]);
@@ -141,6 +166,7 @@ describe('headerActionsFor：排序、隐藏与移动端上限', () => {
       'paraBook',
       'tts',
       'bookmap',
+      'guide',
       'immersive',
       'library',
     ]);

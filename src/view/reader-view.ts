@@ -731,6 +731,7 @@ export class ReaderView extends ItemView {
       paraBook: (ev) => this.openParallelPicker(ev),
       tts: () => this.toggleTts(),
       bookmap: () => dispatchAction('bookmap', this.rootEl ?? document.body),
+      guide: () => dispatchAction('guide', this.rootEl ?? document.body),
       immersive: () => this.toggleImmersive(),
       library: () => getShellSource()?.openStudy('library'),
     };
@@ -1172,6 +1173,7 @@ export class ReaderView extends ItemView {
       paraBook: (evt?: MouseEvent) => this.openParallelPicker(evt),
       tts: () => this.toggleTts(),
       bookmap: () => dispatchAction('bookmap', root),
+      guide: () => dispatchAction('guide', root),
       immersive: () => this.toggleImmersive(),
       library: () => getShellSource()?.openStudy('library'),
     };

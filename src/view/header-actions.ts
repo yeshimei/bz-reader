@@ -8,7 +8,7 @@
  *   · 书签图标要「这一页签过了就亮」，判据是 `bookmarkAt(book, 当前 cfi)`；
  *     这段以前写在视图里、还被 `void on` 吞掉，测不到也修不掉。
  */
-import { locale, type Locale } from '../i18n';
+import { locale, t, type Locale, type MsgKey } from '../i18n';
 import { bookmarkAt } from '../data/notes';
 import type { ReaderBook } from '../data/schema';
 
@@ -25,6 +25,7 @@ export type HeaderActionId =
   | 'paraBook'
   | 'tts'
   | 'bookmap'
+  | 'guide'
   | 'immersive'
   | 'library';
 
@@ -42,7 +43,7 @@ export interface HeaderActionSpec {
  * 的话，切语言后要重载插件才变——而这个列表就在设置页里，用户改完语言
  * 立刻看见它还是中文，会以为切换失败。
  */
-const SPEC: ReadonlyArray<{ id: HeaderActionId; icon: string }> = [
+const SPEC: ReadonlyArray<{ id: HeaderActionId; icon: string; labelKey?: MsgKey }> = [
   { id: 'toc', icon: 'list' },
   { id: 'search', icon: 'search' },
   { id: 'mark', icon: 'bookmark' },
@@ -59,6 +60,9 @@ const SPEC: ReadonlyArray<{ id: HeaderActionId; icon: string }> = [
   { id: 'paraBook', icon: 'book' },
   { id: 'tts', icon: 'volume-2' },
   { id: 'bookmap', icon: 'map' },
+  /* 本章导读（2026-11-11）：与「全书鸟瞰」相邻，都是「先看个大概再读」。
+     标签复用语言包里已有的 guide.title（八包齐全），不另抄一份。 */
+  { id: 'guide', icon: 'book-open', labelKey: 'guide.title' },
   { id: 'immersive', icon: 'maximize' },
   { id: 'library', icon: 'library' },
 ];
@@ -72,7 +76,7 @@ const SPEC: ReadonlyArray<{ id: HeaderActionId; icon: string }> = [
  *
  * 括号里的字母是阅读页内置单键，**各语言都保留原样**——那是物理键位，不翻译。
  */
-const LABELS: Record<HeaderActionId, Record<Locale, string>> = {
+const LABELS: Partial<Record<HeaderActionId, Record<Locale, string>>> = {
   toc: {
     zh: '目录（s）',
     'zh-TW': '目錄（s）',
@@ -208,6 +212,10 @@ const LABELS: Record<HeaderActionId, Record<Locale, string>> = {
 
 /** 图标标签 → 当前界面语言的说法 */
 export function headerActionLabel(id: HeaderActionId): string {
+  /* 有 labelKey 的（目前只有「本章导读」）直接读八语言包：
+     `guide.title` 本来就是这句话，再在 LABELS 里抄一份只会两处走散。 */
+  const spec = SPEC.find((s) => s.id === id);
+  if (spec?.labelKey) return t(spec.labelKey);
   return LABELS[id]?.[locale()] ?? LABELS[id]?.zh ?? String(id);
 }
 

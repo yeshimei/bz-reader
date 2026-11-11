@@ -143,12 +143,23 @@ describe('设置页渲染', () => {
     expect(out).toContain('data-act="headermove"');
   });
 
-  it('阅读页图标列出全部十四项（含 PDF 四颗与对照书籍 / 朗读 / 鸟瞰 / 沉浸 / 返回书架）', () => {
+  it('阅读页图标列出全部十五项（含 PDF 四颗与对照书籍 / 朗读 / 鸟瞰 / 导读 / 沉浸 / 返回书架）', () => {
     const out = html();
-    for (const id of ['paraBook', 'tts', 'bookmap', 'immersive', 'library', 'thumb', 'copy', 'history', 'export']) {
+    for (const id of [
+      'paraBook',
+      'tts',
+      'bookmap',
+      'guide',
+      'immersive',
+      'library',
+      'thumb',
+      'copy',
+      'history',
+      'export',
+    ]) {
       expect(out, id).toContain(`data-k="${id}"`);
     }
-    expect((out.match(/data-act="headertoggle"/g) ?? []).length).toBe(14);
+    expect((out.match(/data-act="headertoggle"/g) ?? []).length).toBe(15);
   });
 
   it('PDF 单成一组：翻页 / 单双页 / 开书缩放 / 批注 / 反链 / 导出倍率 / 自动复制链接 / 别名都在里面', () => {
