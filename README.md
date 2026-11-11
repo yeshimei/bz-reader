@@ -201,12 +201,13 @@ The free edition covers everyday reading. Pro features require a paid license ke
 
 ### Network access
 
-Only the AI features go online; everything else works fully offline.
+Only the AI features and the supporter list in **Support the author** go online; everything else works fully offline.
 
 - Requests go to the OpenAI-compatible endpoint you configure (your own server or a third-party API). The plugin has no server of its own.
 - Building the whole-book index sends the book's text to your embedding service in chunks; a question only sends the few retrieved chunks, plus the book title, chapter name, and the last few turns when needed. Vectors and the index stay in the plugin folder and are never uploaded.
 - Embeddings come from the bz (second brain) plugin: without it there is no vector search, only the compressed-key-points path.
 - Your API key is stored with the rest of your settings in `data.json` inside the plugin folder. It is never sent to the plugin author; it only travels to the endpoint you configured, as a request header.
+- Opening **Support the author** (or the changelog) reads a public supporter list: the same static JSON from GitHub and Gitee is requested at the same time, and whichever answers first is used. Only that list is fetched — no personal data, no analytics. It is cached locally; if both sources fail, "couldn't load" and a retry button appear. The list is public data, identical in both plugins.
 
 ### FAQ
 
@@ -290,12 +291,13 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 
 ### 網路存取
 
-只有 AI 功能會連網，其餘功能完全離線。
+只有 AI 功能與「支持作者」名單會連網，其餘功能完全離線。
 
 - 請求發往你在設定裡填寫的 OpenAI 相容介面（自建服務或第三方 API 均可），外掛沒有自己的伺服器。
 - 建全書索引時，整本書的正文會分塊發給嵌入服務；提問時只發檢索命中的那幾塊，必要時再帶上書名、章節名與最近幾輪問答。向量與索引都存在外掛目錄裡，不上傳。
 - 嵌入由 bz（第二大腦）外掛提供：沒裝它就沒有向量檢索，只能走壓縮要點那一檔。
 - API 金鑰與其他設定一起保存在外掛目錄的 `data.json` 裡，不會上傳給外掛作者；只有請求你自己填寫的那個介面時，它才會以請求標頭的形式送過去。
+- 打開「支持作者」視窗（或更新日誌）時，會讀取一份公開的支援者名單：同時請求 GitHub 與碼雲上的同一個靜態 JSON，誰先回用誰。只取這一份名單，不發送任何個人資訊、不做統計上報；名單會快取在本機，兩個來源都不通時顯示「名單沒載入出來」和重試。名單是公開資料，內容與兩個外掛裡顯示的完全一致。
 
 ### 常見問題
 
@@ -381,12 +383,13 @@ Obsidian を「本を読む場所」に。デスクトップ + モバイル、�
 
 ### ネットワークアクセス
 
-ネットワークを使うのは AI 機能だけです。それ以外は完全にオフラインで動作します。
+ネットワークを使うのは AI 機能と「作者を支援する」の支援者名簿だけです。それ以外は完全にオフラインで動作します。
 
 - リクエストは、設定で入力した OpenAI 互換のエンドポイント（自前のサーバーでも第三者 API でも可）に送られます。プラグイン独自のサーバーはありません。
 - 全書インデックスを作るときは、本の本文を分割して埋め込みサービスに送ります。質問時は検索でヒットした数ブロックだけを送り、必要に応じて書名・章名・直近数ターンを添えます。ベクトルとインデックスはプラグインフォルダに保存され、アップロードされません。
 - 埋め込みは bz（セカンドブレイン）プラグインが提供します。入っていないとベクトル検索は使えず、要点圧縮の方式だけになります。
 - API キーは他の設定とともにプラグインフォルダの `data.json` に保存されます。作者に送信されることはなく、設定したエンドポイントへのリクエストヘッダーとしてのみ送られます。
+- 「作者を支援する」ダイアログ（および更新履歴）を開くと、公開の支援者名簿を読み込みます。GitHub と Gitee 上の同じ静的 JSON を同時に要求し、先に返った方を使います。取得するのはこの名簿だけで、個人情報の送信やアクセス解析は行いません。名簿は端末にキャッシュされ、両方の取得元が失敗したときは「読み込めませんでした」と再試行を表示します。名簿は公開データで、2 つのプラグインで表示内容は同じです。
 
 ### よくある質問
 
@@ -470,12 +473,13 @@ Die Basisversion ist kostenlos. Für die Pro-Funktionen braucht es einen Lizenzs
 
 ### Netzwerkzugriff
 
-Nur die KI-Funktionen gehen online; alles andere arbeitet vollständig offline.
+Nur die KI-Funktionen und die Unterstützerliste in „Den Autor unterstützen“ gehen online; alles andere arbeitet vollständig offline.
 
 - Anfragen gehen an den OpenAI-kompatiblen Endpunkt, den du einstellst (eigener Server oder Drittanbieter-API). Das Plugin hat keinen eigenen Server.
 - Beim Aufbau des Buchindex wird der Buchtext in Blöcken an deinen Embedding-Dienst geschickt; eine Frage sendet nur die wenigen gefundenen Blöcke, bei Bedarf plus Buchtitel, Kapitelname und die letzten Gesprächsrunden. Vektoren und Index bleiben im Plugin-Ordner und werden nicht hochgeladen.
 - Die Embeddings liefert das bz-Plugin (zweites Gehirn): ohne es gibt es keine Vektorsuche, nur den Weg über verdichtete Kernpunkte.
 - Der API-Schlüssel liegt mit den übrigen Einstellungen in `data.json` im Plugin-Ordner. Er geht nie an den Autor, sondern nur als Request-Header an den von dir eingestellten Endpunkt.
+- Beim Öffnen von „Den Autor unterstützen“ (oder des Änderungsprotokolls) wird eine öffentliche Unterstützerliste geladen: dieselbe statische JSON-Datei von GitHub und Gitee gleichzeitig, die zuerst antwortet, gewinnt. Es wird nur diese Liste abgerufen – keine persönlichen Daten, keine Statistik. Die Liste wird lokal zwischengespeichert; sind beide Quellen nicht erreichbar, erscheint „Liste konnte nicht geladen werden“ mit einem erneuten Versuch. Die Liste ist öffentlich und in beiden Plugins identisch.
 
 ### Häufige Fragen
 
@@ -559,12 +563,13 @@ L'édition de base est gratuite. Les fonctions Pro demandent une clé de licence
 
 ### Accès réseau
 
-Seules les fonctions d'IA vont en ligne ; tout le reste fonctionne hors ligne.
+Seules les fonctions d'IA et la liste des soutiens dans « Soutenir l'auteur » vont en ligne ; tout le reste fonctionne hors ligne.
 
 - Les requêtes partent vers le point d'accès compatible OpenAI que vous configurez (votre serveur ou une API tierce). Le plugin n'a pas de serveur propre.
 - La construction de l'index du livre envoie le texte par blocs à votre service d'embedding ; une question n'envoie que les quelques blocs retrouvés, plus le titre du livre, le nom du chapitre et les derniers échanges si nécessaire. Les vecteurs et l'index restent dans le dossier du plugin et ne sont jamais téléversés.
 - Les embeddings viennent du plugin bz (second cerveau) : sans lui, pas de recherche vectorielle, seulement la voie des points clés condensés.
 - Votre clé d'API est stockée avec le reste des réglages dans `data.json`, dans le dossier du plugin. Elle n'est jamais envoyée à l'auteur ; elle ne part que vers le point d'accès que vous avez configuré, en en-tête de requête.
+- À l'ouverture de « Soutenir l'auteur » (ou du journal des modifications), une liste publique de soutiens est chargée : le même fichier JSON statique sur GitHub et Gitee en même temps, la première réponse l'emporte. Seule cette liste est récupérée, sans aucune donnée personnelle ni statistique. La liste est mise en cache localement ; si les deux sources échouent, « Impossible de charger la liste » s'affiche avec un bouton Réessayer. La liste est publique et identique dans les deux plugins.
 
 ### Questions fréquentes
 
@@ -648,12 +653,13 @@ La edición base es gratuita. Las funciones Pro requieren una clave de licencia;
 
 ### Acceso a la red
 
-Solo las funciones de IA se conectan; todo lo demás funciona sin conexión.
+Solo las funciones de IA y la lista de mecenas de «Apoyar al autor» se conectan; todo lo demás funciona sin conexión.
 
 - Las peticiones van al punto de acceso compatible con OpenAI que configures (tu propio servidor o una API de terceros). El plugin no tiene servidor propio.
 - Al construir el índice del libro se envía el texto por bloques a tu servicio de embeddings; una pregunta solo envía los pocos bloques recuperados, y cuando hace falta el título del libro, el nombre del capítulo y los últimos turnos. Los vectores y el índice se quedan en la carpeta del plugin y no se suben.
 - Los embeddings los aporta el plugin bz (segundo cerebro): sin él no hay búsqueda vectorial, solo la vía de los puntos clave condensados.
 - Tu clave de API se guarda con el resto de ajustes en `data.json`, dentro de la carpeta del plugin. Nunca se envía al autor; solo viaja al punto de acceso que hayas configurado, como cabecera de la petición.
+- Al abrir «Apoyar al autor» (y el registro de cambios) se carga una lista pública de mecenas: el mismo JSON estático de GitHub y Gitee a la vez, gana la primera respuesta. Solo se recoge esa lista, sin datos personales ni estadísticas. La lista se guarda en caché local; si fallan las dos fuentes, aparece «No se pudo cargar la lista» con un botón para reintentar. La lista es pública e idéntica en los dos plugins.
 
 ### Preguntas frecuentes
 
@@ -737,12 +743,13 @@ A edição base é gratuita. Os recursos Pro exigem uma chave de licença; o pre
 
 ### Acesso à rede
 
-Só os recursos de IA acessam a rede; todo o resto funciona offline.
+Só os recursos de IA e a lista de apoiadores em «Apoiar o autor» acessam a rede; todo o resto funciona offline.
 
 - As requisições vão para o endpoint compatível com OpenAI que você configurar (servidor próprio ou API de terceiros). O plugin não tem servidor próprio.
 - Ao montar o índice do livro, o texto é enviado em blocos ao seu serviço de embeddings; uma pergunta envia só os poucos blocos recuperados, além do título do livro, nome do capítulo e as últimas trocas quando necessário. Os vetores e o índice ficam na pasta do plugin e não são enviados.
 - Os embeddings vêm do plugin bz (segundo cérebro): sem ele não há busca vetorial, só o caminho dos pontos-chave condensados.
 - Sua chave de API fica com os demais ajustes em `data.json`, na pasta do plugin. Ela nunca é enviada ao autor; só vai para o endpoint que você configurou, como cabeçalho da requisição.
+- Ao abrir «Apoiar o autor» (e o registro de alterações), uma lista pública de apoiadores é carregada: o mesmo JSON estático do GitHub e do Gitee ao mesmo tempo, vence a primeira resposta. Apenas essa lista é buscada, sem dados pessoais nem estatísticas. A lista fica em cache local; se as duas fontes falharem, aparece «Não foi possível carregar a lista» com um botão para tentar de novo. A lista é pública e idêntica nos dois plugins.
 
 ### Perguntas frequentes
 

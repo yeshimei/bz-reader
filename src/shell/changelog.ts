@@ -59,6 +59,33 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '1.1.1',
+    date: '2026-11-11',
+    improved: [
+      {
+        domain: { zh: '手机设置', en: 'Phone settings' },
+        text: {
+          zh: '分栏、朗读、快捷键收起来，头栏和菜单也不再出现这几项。',
+          en: 'Columns, read-aloud and hotkeys are gone on phones — and so are those entries in the header and menu.',
+        },
+      },
+      {
+        domain: { zh: '设置页', en: 'Settings' },
+        text: {
+          zh: '两列重新分档，朗读挪到 AI 上方，图标表每行补上同款图标。',
+          en: 'The two columns are rebalanced, read-aloud sits above AI, and each icon row now shows its icon.',
+        },
+      },
+      {
+        domain: { zh: '默认版式', en: 'Default layout' },
+        text: {
+          zh: '新装默认 26px 字号、1.7 行距、8px 边距，手机上一屏读一段。',
+          en: 'Fresh installs start at 26px type, 1.7 line height and 8px margins — one comfortable paragraph per screen on a phone.',
+        },
+      },
+    ],
+  },
+  {
     version: '1.1.0',
     date: '2026-11-11',
     added: [
