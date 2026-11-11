@@ -32,6 +32,7 @@ import { centeredModal, isCenterClass, isDrawerClass, scrimClasses } from './ren
 import { cardTemplateChipsHtml, quoteCardHtml, quoteRefMarkdown } from './render/quote-card';
 import { searchFormHtml, searchResultsHtml } from './render/search';
 import { kickBodySearch, searchQueryKey, stopBodySearch } from './search-run';
+import { noteSemanticInput } from './search-semantic';
 import {
   bumpOverlayRev,
   closeOverlay,
@@ -146,7 +147,7 @@ function overlaySearch(): string {
   return modal(
     '搜索',
     '本书 / 全库',
-    `${searchFormHtml()}<div data-role="hitlist">${searchResultsHtml(searchKw, searchScope)}</div>`,
+    `${searchFormHtml('book')}<div data-role="hitlist">${searchResultsHtml(searchKw, searchScope, 'book')}</div>`,
     '',
     'wide tall',
   );
@@ -1632,6 +1633,24 @@ export class OverlayLayer {
        否则选词那一下会把半句话发出去。 */
     this.root.addEventListener('keydown', (e) => {
       const el = e.target as HTMLElement | null;
+      /* 按意思搜只在回车时发请求：输入法组字中的回车不算，否则选词那一下
+         就把半句话拿去检索了。 */
+      if (el?.dataset?.role === 'searchkw') {
+        if (e.key !== 'Enter' || e.isComposing) return;
+        if (getState().searchMode !== 'semantic') return;
+        e.preventDefault();
+        this.onAction('semrun', el);
+        return;
+      }
+      /* 语义结果行是 div + role=button：键盘 Enter / Space 与点击同效 */
+      if ((e.key === 'Enter' || e.key === ' ') && el && !/^(INPUT|TEXTAREA)$/.test(el.tagName)) {
+        const row = el.closest<HTMLElement>('[data-act="semhittotext"]');
+        if (row) {
+          e.preventDefault();
+          this.onAction('semhittotext', row);
+          return;
+        }
+      }
       if (el?.dataset?.role !== 'aifollow') return;
       if (e.key !== 'Enter' || e.isComposing) return;
       e.preventDefault();
@@ -1662,8 +1681,13 @@ export class OverlayLayer {
            （shelf-panel.ts）用同一条 setStateQuiet；关闭浮层时由 closeOverlay
            走一次正常持久化。 */
         setStateQuiet({ searchKw: t.value });
+        /* 按意思搜不边打边搜：一次嵌入要钱，只清旧结果、等回车 */
+        if (getState().searchMode === 'semantic') {
+          noteSemanticInput(t.value);
+          return;
+        }
         const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
-        if (list) setHtml(list, searchResultsHtml(t.value, getState().searchScope));
+        if (list) setHtml(list, searchResultsHtml(t.value, getState().searchScope, 'book'));
         kickBodySearch(t.value, getState().searchScope);
         return;
       }
@@ -1722,13 +1746,17 @@ export class OverlayLayer {
     if (prev === 'search' && kind !== 'search') {
       this.stashSearch();
       persistShellState();
-      stopBodySearch();
+      /* 按意思搜的请求不掐：它已经花过钱了，回来还能在下次打开时直接看到；
+         字面搜索的逐本扫描则是纯本地开销，关掉就该停。 */
+      if (getState().searchMode !== 'semantic') stopBodySearch();
     }
     /* 打开搜索浮层：缓存的词还跟当前状态对得上就直接复用旧屏；
        对不上（书架搜索页可能已经改过词）就丢掉重开，免得输入框和结果各说各话。 */
     if (opening && kind === 'search') {
       if (this.searchStash && !this.stashMatches()) this.searchStash = null;
-      if (!this.searchStash) kickBodySearch(getState().searchKw, getState().searchScope);
+      if (!this.searchStash && getState().searchMode === 'literal') {
+        kickBodySearch(getState().searchKw, getState().searchScope);
+      }
     }
     this.paint(opening);
   }
@@ -2000,13 +2028,17 @@ export class OverlayLayer {
     this.unbindHitlist();
     this.hitlistCb = () => {
       const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
-      if (list) setHtml(list, searchResultsHtml(getState().searchKw, getState().searchScope));
+      if (list) setHtml(list, searchResultsHtml(getState().searchKw, getState().searchScope, 'book'));
     };
     RT.body.listeners.add(this.hitlistCb);
+    RT.semantic.listeners.add(this.hitlistCb);
   }
 
   private unbindHitlist(): void {
-    if (this.hitlistCb) RT.body.listeners.delete(this.hitlistCb);
+    if (this.hitlistCb) {
+      RT.body.listeners.delete(this.hitlistCb);
+      RT.semantic.listeners.delete(this.hitlistCb);
+    }
     this.hitlistCb = null;
   }
 
@@ -2020,7 +2052,11 @@ export class OverlayLayer {
     const scrim = this.root.firstElementChild as HTMLElement | null;
     if (!scrim) return;
     this.searchScroll = this.root.querySelector<HTMLElement>('.bzs-mbody')?.scrollTop ?? 0;
-    this.searchStashKey = searchQueryKey(getState().searchKw, getState().searchScope);
+    this.searchStashKey = searchQueryKey(
+      getState().searchKw,
+      getState().searchScope,
+      getState().searchMode,
+    );
     this.unbindHitlist();
     const holder = createDiv();
     holder.appendChild(scrim);
@@ -2029,7 +2065,11 @@ export class OverlayLayer {
 
   /** 缓存的那一屏是不是当前这一轮搜索（词 + 范围都对得上才复用） */
   private stashMatches(): boolean {
-    return !!this.searchStash && this.searchStashKey === searchQueryKey(getState().searchKw, getState().searchScope);
+    return (
+      !!this.searchStash &&
+      this.searchStashKey ===
+        searchQueryKey(getState().searchKw, getState().searchScope, getState().searchMode)
+    );
   }
 
   /** 再次打开搜索：把收起来的节点原样挂回，不重渲染 */
@@ -2056,6 +2096,12 @@ export class OverlayLayer {
     const dialog = this.root.querySelector<HTMLElement>('[aria-modal="true"]');
     if (dialog) this.untrap = trapFocus(dialog);
     this.bindHitlist();
+    /* 按意思搜的结果可能是在浮层关着的时候回来的：把挂回的这一屏按现场
+       重画一次，不然用户看到的还是关闭那一刻的「正在检索…」。 */
+    if (getState().searchMode === 'semantic') {
+      const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
+      if (list) setHtml(list, searchResultsHtml(getState().searchKw, getState().searchScope, 'book'));
+    }
     if (refocus) {
       const input = this.root.querySelector<HTMLInputElement>('[data-role="searchkw"]');
       input?.focus();

@@ -57,6 +57,9 @@ export function shelfRenderKey(state: ShellState, books: ReaderBook[], compact =
     state.libShelf,
     state.libKw,
     state.libSearchOpen ? '1' : '0',
+    /* 搜索方式切换是同一页里的可见变化：不进指纹，点「按意思搜」后
+       整页会按旧指纹直接跳过重绘。 */
+    state.searchMode,
     state.noteFilter,
     state.noteKw,
     state.noteSelect ? '1' : '0',

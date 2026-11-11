@@ -51,6 +51,11 @@ export interface ShellSource {
    * 走 `openBook` 只能带 CFI，那条链接就会落在「哪儿也没去」。
    */
   openTarget?: (target: LinkTarget) => void;
+  /**
+   * 打开一本书并用一段原文定位（语义命中没有 CFI，只能拿片段开头在书内搜）。
+   * 与命令面板的「按意思搜」走同一条路，别在壳层里再抄一遍定位逻辑。
+   */
+  jumpIntoBook: (book: ReaderBook, snippet: string) => void;
   /** 在当前打开的书里按章名跳转（AI 来源点开用）；找不到就不动 */
   goToChapter: (title: string) => void;
   /** 打开导入页（整页，S1 定稿） */

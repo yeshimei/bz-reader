@@ -58,6 +58,22 @@ export function searchablePortraits(list: readonly PortraitFile[], model: string
 }
 
 /**
+ * 只留指定书号的画像。
+ *
+ * 书内搜索要「只搜这一本」，但画像文件是按库铺开的；没有这一道，界面说
+ * 「本书」、结果却从别的书里冒出来。`bookIds` 为空 = 不限制（全库）。
+ */
+export function restrictPortraits(
+  list: readonly PortraitFile[],
+  bookIds?: readonly string[] | null,
+): PortraitFile[] {
+  if (!bookIds) return [...(list ?? [])];
+  const ids = new Set((bookIds ?? []).map((id) => String(id ?? '').trim()).filter(Boolean));
+  if (!ids.size) return [];
+  return (list ?? []).filter((p) => !!p && ids.has(String(p.bookId ?? '')));
+}
+
+/**
  * 结果收口：按书限量、总量封顶。
  *
  * 入参已按分数降序（rankBlocks 排好），这里只做截断，不重排——跨查询的
@@ -89,6 +105,7 @@ export async function semanticSearch(
   app: App | null | undefined,
   query: string,
   topK = PORTRAIT_TOP_K * 4,
+  bookIds?: readonly string[] | null,
 ): Promise<SemanticResult> {
   const q = String(query ?? '').trim();
   if (!q) return { hits: [], problem: null, books: 0 };
@@ -99,7 +116,7 @@ export async function semanticSearch(
 
   let list: PortraitFile[];
   try {
-    list = searchablePortraits(await loadPortraits(app), emb.model);
+    list = restrictPortraits(searchablePortraits(await loadPortraits(app), emb.model), bookIds);
   } catch {
     return { hits: [], problem: t('search.semantic.noIndex'), books: 0 };
   }

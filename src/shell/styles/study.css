@@ -1697,6 +1697,12 @@
   margin-left: auto;
 }
 
+/* 「按意思搜」入口与范围 chips 分开一点：它是并列的另一种搜索方式，
+   不是第三个范围档位 */
+.bzs-searchbar .bzs-chip-sem {
+  margin-left: auto;
+}
+
 .bzs-hits {
   padding-bottom: 10px;
   /* 结果只上下滚：某一行万一还是溢出（超长拉丁串、表格化的摘录），

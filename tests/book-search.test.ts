@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pickSemanticHits, searchablePortraits, type SemanticHit } from '../src/data/book-search';
+import { pickSemanticHits, restrictPortraits, searchablePortraits, type SemanticHit } from '../src/data/book-search';
 import type { PortraitFile } from '../src/data/portrait';
 
 /**
@@ -42,6 +42,24 @@ describe('searchablePortraits', () => {
 
   it('当前模型名未知时一本都不给（不认识来源的向量不能假装可比）', () => {
     expect(searchablePortraits([portrait()], '')).toEqual([]);
+  });
+});
+
+describe('restrictPortraits', () => {
+  const list = [portrait({ bookId: 'a' }), portrait({ bookId: 'b' }), portrait({ bookId: 'c' })];
+
+  it('不传书号 = 不限制（全库）', () => {
+    expect(restrictPortraits(list).map((p) => p.bookId)).toEqual(['a', 'b', 'c']);
+    expect(restrictPortraits(list, null).map((p) => p.bookId)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('只留指定书号：书内搜索不能从别的书里冒结果', () => {
+    expect(restrictPortraits(list, ['b']).map((p) => p.bookId)).toEqual(['b']);
+  });
+
+  it('空名单一本都不给，不退回「全库」', () => {
+    expect(restrictPortraits(list, [])).toEqual([]);
+    expect(restrictPortraits(list, ['', '  '])).toEqual([]);
   });
 });
 

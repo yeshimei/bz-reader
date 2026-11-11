@@ -84,6 +84,7 @@ import {
 import { RT, emitNotesChanged, pushAi, resetAi } from './runtime';
 import { HITS_PAGE } from './search-hits';
 import { kickBodySearch, refreshBodyHits, resetBodySearch, stopBodySearch } from './search-run';
+import { currentSearchSurface, kickSemanticSearch, resetSemanticSearch } from './search-semantic';
 import { bzEmbedder, bzNotesReady, openBzPreview, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
@@ -2375,8 +2376,42 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     }
 
     /* ── 搜索 ── */
+    case 'searchmode': {
+      const next = d.v === 'semantic' ? 'semantic' : 'literal';
+      if (next === getState().searchMode) break;
+      const surface = currentSearchSurface();
+      setState({ searchMode: next });
+      if (next === 'semantic') {
+        /* 切到按意思：字面正文扫描停掉（本地开销），语义结果从干净的一轮开始 */
+        stopBodySearch();
+        resetSemanticSearch();
+        if (getState().searchKw.trim()) kickSemanticSearch(getState().searchKw, surface);
+      } else {
+        resetSemanticSearch();
+        /* 切回字面：词与范围都还在，照原样重开一轮正文搜索 */
+        kickBodySearch(getState().searchKw, getState().searchScope);
+      }
+      break;
+    }
+    case 'semrun':
+      if (getState().searchMode !== 'semantic') break;
+      kickSemanticSearch(getState().searchKw, currentSearchSurface());
+      break;
+    case 'semhittotext': {
+      /* 语义命中没有 CFI：打开那本书，再用这一段开头在书内搜一次定位。
+         这段逻辑在插件侧（jumpIntoBook），这里只负责把书与片段交过去。 */
+      const hit = RT.semantic.hits[Number(d.idx)];
+      if (!hit) break;
+      /* 归档书也能点开：画像还在，结果就不该是一条死行 */
+      const book = allBooks().find((b) => b.id === (d.book || hit.bookId));
+      if (!book || book.id !== hit.bookId) break;
+      closeOverlay();
+      getShellSource()?.jumpIntoBook(book, hit.chunk);
+      break;
+    }
     case 'searchscope': {
       // 本书搜索免费，跨书搜索属于高级版；切换时拦，不要在结果里悄悄少几本
+      if (getState().searchMode === 'semantic') break;
       if (d.v === 'all' && !requireCap('crossSearch')) break;
       if (d.v !== 'book' && d.v !== 'all') break;
       /* 书架页没有当前书时，「本书」给一句明确提示，而不是静默空结果 */
@@ -2407,6 +2442,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'searchclear':
       setState({ searchKw: '' });
       resetBodySearch();
+      if (getState().searchMode === 'semantic') resetSemanticSearch();
       repaint();
       break;
     case 'hittotext': {

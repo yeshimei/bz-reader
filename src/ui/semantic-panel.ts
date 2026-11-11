@@ -13,7 +13,8 @@
 import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
 import { semanticSearch, type SemanticHit } from '../data/book-search';
-import { clear, el } from './dom';
+import { clear, el, setHtml } from './dom';
+import { semanticGroupsHtml, semanticStatusText, type SemanticView } from '../shell/render/semantic';
 import { uiModal } from '../core/ui/modal';
 import { t } from '../i18n';
 
@@ -24,10 +25,9 @@ export interface SemanticSearchDeps {
   onJump: (book: ReaderBook, hit: SemanticHit) => void;
 }
 
-/** 结果行里最多露多少字：够认出是哪一段，又不至于把面板撑成阅读器 */
-const ROW_CHARS = 90;
-
 export function openSemanticSearch(deps: SemanticSearchDeps): void {
+  /** 当前这一轮命中：行上只带下标，完整片段从这里取 */
+  let currentHits: SemanticHit[] = [];
   const root = el('div', 'bzr-xs bzr-sem');
   const bar = el('div', 'bzr-xs-bar');
   const input = el('input');
@@ -44,19 +44,13 @@ export function openSemanticSearch(deps: SemanticSearchDeps): void {
   let seq = 0;
   let running = false;
 
-  function rowText(chunk: string): string {
-    const flat = String(chunk ?? '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    return flat.length > ROW_CHARS ? `${flat.slice(0, ROW_CHARS)}…` : flat;
-  }
-
   async function run(): Promise<void> {
     const q = input.value.trim();
     if (!q || running) return;
     const my = ++seq;
     running = true;
     go.disabled = true;
+    currentHits = [];
     clear(hits);
     status.textContent = t('search.semantic.searching');
 
@@ -65,50 +59,40 @@ export function openSemanticSearch(deps: SemanticSearchDeps): void {
     running = false;
     go.disabled = false;
 
-    if (res.problem) {
-      status.textContent = res.problem;
-      return;
-    }
-    if (!res.hits.length) {
-      status.textContent = t('search.semantic.empty', { n: res.books });
-      return;
-    }
-    status.textContent = t('search.semantic.found', { n: res.hits.length, books: res.books });
-
-    /* 按书分组：接口已按分数排好，这里只把同书的归到一起，不重排 */
-    const byBook = new Map<string, SemanticHit[]>();
-    for (const hit of res.hits) {
-      const list = byBook.get(hit.bookId) ?? [];
-      list.push(hit);
-      byBook.set(hit.bookId, list);
-    }
-    for (const [bookId, list] of byBook) {
-      const book = deps.books.find((b) => b.id === bookId);
-      const group = el('div', 'bzr-xs-group');
-      const title = book?.meta.title || list[0]?.title || t('common.untitled');
-      group.appendChild(el('span', 'bzr-xs-group-t', title));
-      for (const hit of list) {
-        const row = el('div', 'bzr-xs-hit');
-        row.setAttribute('role', 'button');
-        row.tabIndex = 0;
-        if (hit.chapter) row.appendChild(el('span', 'bzr-xs-loc', hit.chapter));
-        row.appendChild(document.createTextNode(rowText(hit.chunk)));
-        const jump = (): void => {
-          if (!book) return;
-          close();
-          deps.onJump(book, hit);
-        };
-        row.addEventListener('click', jump);
-        row.addEventListener('keydown', (e) => {
-          if (e.key !== 'Enter' && e.key !== ' ') return;
-          e.preventDefault();
-          jump();
-        });
-        group.appendChild(row);
-      }
-      hits.appendChild(group);
-    }
+    currentHits = res.hits;
+    const view: SemanticView = {
+      kw: q,
+      running: false,
+      ran: true,
+      hits: res.hits,
+      problem: res.problem,
+      books: res.books,
+    };
+    status.textContent = semanticStatusText(view, 'shelf', true);
+    /* 按书分组：与两个搜索入口共用同一份结果呈现，不再各画一套 */
+    setHtml(hits, res.hits.length ? semanticGroupsHtml(res.hits, deps.books) : '');
   }
+
+  /** 行上只带下标：完整片段从这一轮的 hits 里取，避免把长文塞进属性 */
+  function jumpAt(row: HTMLElement): void {
+    const hit = currentHits[Number(row.dataset.idx)];
+    const book = hit ? deps.books.find((b) => b.id === hit.bookId) : undefined;
+    if (!hit || !book) return;
+    close();
+    deps.onJump(book, hit);
+  }
+
+  hits.addEventListener('click', (e) => {
+    const row = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-idx]');
+    if (row) jumpAt(row);
+  });
+  hits.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const row = (e.target as HTMLElement | null)?.closest<HTMLElement>('[data-idx]');
+    if (!row) return;
+    e.preventDefault();
+    jumpAt(row);
+  });
 
   go.addEventListener('click', () => void run());
   input.addEventListener('keydown', (e) => {

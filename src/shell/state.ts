@@ -248,10 +248,17 @@ export function overlayKey(o?: OverlayState | null): string {
  * 订阅方认为「内容没变」直接跳过，确认条就永远不出现；而状态里其实已经
  * 置了「已确认」，下一下点击就把用户写了一半的字丢掉。
  */
-export function overlayRenderKey(s: { overlay: OverlayState | null; ideaConfirm: boolean }): string {
+export function overlayRenderKey(s: {
+  overlay: OverlayState | null;
+  ideaConfirm: boolean;
+  searchMode?: 'literal' | 'semantic';
+}): string {
   const base = overlayKey(s.overlay);
   if (!base) return '';
-  return s.overlay?.kind === 'idea' && s.ideaConfirm ? `${base}|confirm` : base;
+  /* 搜索浮层里「字面 / 按意思」是同一张弹层里的可见状态：不进这个键，
+     切方式时 sync 会认为内容没变，界面停在旧结果上。 */
+  const mode = s.overlay?.kind === 'search' ? `|${s.searchMode ?? 'literal'}` : '';
+  return s.overlay?.kind === 'idea' && s.ideaConfirm ? `${base}|confirm${mode}` : `${base}${mode}`;
 }
 
 export interface ShellState {
@@ -271,6 +278,13 @@ export interface ShellState {
   searchKw: string;
   /** 搜索范围：「本书 / 全库」两档（2026-11-08 起正文已并入这两档） */
   searchScope: 'book' | 'all';
+  /**
+   * 搜索方式：字面 / 按意思（2026-11-11）。
+   *
+   * 两种方式并列，不是替换：切到按意思不会改动搜索词与范围，切回来还能接着搜。
+   * 不落盘——下次打开停在「按意思」却没有词，会让人以为搜索坏了。
+   */
+  searchMode: 'literal' | 'semantic';
   /* 笔记 */
   noteFilter: string;
   noteKw: string;
@@ -352,6 +366,7 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   libSearchOpen: false,
   searchKw: '',
   searchScope: 'book',
+  searchMode: 'literal',
   noteFilter: 'all',
   noteKw: '',
   reviewIdx: 0,
@@ -467,7 +482,7 @@ export function mutateState(fn: (s: ShellState) => void): void {
 
 function persist(): void {
   try {
-    const { overlay, libKw, noteKw, noteSelect, noteSel, searchKw, ideaDraft, pdfPage, ...rest } = state;
+    const { overlay, libKw, noteKw, noteSelect, noteSel, searchKw, searchMode, ideaDraft, pdfPage, ...rest } = state;
     // 浮层与输入框内容不落盘：下次打开还停在上次的弹窗上很怪
     window.localStorage.setItem(LS_KEY, JSON.stringify(rest));
   } catch {

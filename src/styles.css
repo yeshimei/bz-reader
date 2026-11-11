@@ -445,6 +445,26 @@
   max-height: calc(100vh - 160px);
   font-family: var(--bzr-font-ui);
 }
+/* 搜索页 / 搜索浮层里的内联版：去掉弹窗那份固定高度与内边距，
+   跟着结果列表一起排；状态句照旧在最上面，不静默失败。 */
+.bzr-xs.is-inline {
+  padding: 0;
+  min-height: 0;
+  max-height: none;
+  gap: 8px;
+}
+.bzr-xs.is-inline .bzr-xs-hits {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+/* 内联版跟着搜索页走：真机字号与搜索命中一致，不因为复用了弹窗的
+   `bzr-xs-*` 就缩回 12px */
+.bzs-shell.is-mobile .bzr-xs.is-inline .bzr-xs-hit {
+  font-size: 15px;
+}
+.bzs-shell.is-mobile .bzr-xs.is-inline .bzr-xs-loc {
+  font-size: 12px;
+}
 .bzr-xs-bar {
   display: flex;
   gap: 8px;

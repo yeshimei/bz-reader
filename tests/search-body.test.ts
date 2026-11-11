@@ -162,6 +162,10 @@ describe('searchQueryKey（搜索浮层缓存的复用判据）', () => {
     expect(searchQueryKey('文明', 'all')).not.toBe(searchQueryKey('文明', 'book'));
     expect(searchQueryKey('文明', 'all')).not.toBe(searchQueryKey('文明史', 'all'));
   });
+
+  it('字面 / 按意思各是一屏：切了方式不能还原上一屏的 DOM', () => {
+    expect(searchQueryKey('文明', 'all', 'literal')).not.toBe(searchQueryKey('文明', 'all', 'semantic'));
+  });
 });
 
 describe('settleBodySearch（真机出现过「跑完却显示已停止」）', () => {

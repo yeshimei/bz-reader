@@ -20,8 +20,10 @@ import { marksOf } from '../domain';
 import { highlightEscaped } from '../highlight';
 import { searchHits, visibleHits, type SearchRow } from '../search-hits';
 import { getState } from '../state';
-import { liveBooks } from '../source';
+import { allBooks, liveBooks } from '../source';
 import { RT } from '../runtime';
+import { semanticScopeFor, type SearchSurface } from '../search-semantic';
+import { semanticResultsHtml, type SemanticView } from './semantic';
 import { esc, MAG } from './html';
 
 /**
@@ -139,10 +141,38 @@ function failsHtml(): string {
     .join('');
 }
 
-export function searchResultsHtml(kw: string, scope: SearchScope): string {
+export function searchResultsHtml(
+  kw: string,
+  scope: SearchScope,
+  surface: SearchSurface = 'shelf',
+): string {
   const q = kw.trim();
+  const state = getState();
+  if (state.searchMode === 'semantic') {
+    const s = RT.semantic;
+    /* 输入框里已经是新词、语义结果还停在旧词，或者这一轮是另一个入口搜的
+       （书架搜全库 / 书内只搜当前书），或者书内入口已经换了书：都按
+       「还没搜」处理，不要把别处的旧结果挂在这个入口下面。 */
+    const sameBook = surface !== 'book' || s.bookId === String(state.bookId ?? '');
+    const fresh =
+      s.kw === q && s.scope === semanticScopeFor(surface) && sameBook;
+    const view: SemanticView = {
+      kw: q,
+      running: s.running && fresh,
+      ran: s.ran && fresh,
+      hits: fresh ? s.hits : [],
+      problem: fresh ? s.problem : null,
+      books: fresh ? s.books : 0,
+    };
+    /* 语义命中可能来自「移出书架」但没删的书：画像还在，结果就该能点开。
+       与命令面板的按意思搜同一口径（全库、只排除失联文件）。 */
+    const semanticBooks = allBooks().filter(
+      (b) => !(b.fileRef as { fileMissing?: boolean } | undefined)?.fileMissing,
+    );
+    return semanticResultsHtml(view, semanticBooks, surface, !!state.bookId);
+  }
   if (!q) return `<div class="bzs-empty">${t('search.empty')}</div>`;
-  if (scope === 'book' && !getState().bookId) {
+  if (scope === 'book' && !state.bookId) {
     return `<div class="bzs-empty">${t('search.needBook')}</div>`;
   }
 
@@ -191,25 +221,34 @@ export function searchResultsHtml(kw: string, scope: SearchScope): string {
 }
 
 /** 搜索表单本体：输入框 + 范围切换。整页与浮层共用 */
-export function searchFormHtml(): string {
-  const { searchKw, searchScope } = getState();
+export function searchFormHtml(surface: SearchSurface = 'shelf'): string {
+  const { searchKw, searchScope, searchMode } = getState();
   const books = liveBooks().length;
+  const semantic = searchMode === 'semantic';
+  const entry = t(surface === 'book' ? 'search.semantic.entryBook' : 'search.semantic.entry');
+  const chips = semantic
+    ? `<button class="bzs-chip on" data-act="searchmode" data-v="semantic">${esc(entry)}</button>
+       <button class="bzs-chip" data-act="searchmode" data-v="literal">${esc(t('search.semantic.literal'))}</button>
+       <span class="bzs-mini">${esc(t(semanticScopeFor(surface) === 'book' ? 'search.scope.book' : 'search.scope.all'))}</span>
+       <button class="bzs-btn sm" data-act="semrun">${esc(t('search.semantic.go'))}</button>`
+    : `${SCOPES.map(
+        (s) =>
+          `<button class="bzs-chip${searchScope === s.value ? ' on' : ''}" data-act="searchscope" data-v="${s.value}">${
+            s.value === 'all' ? esc(t('search.scope.allCount', { n: books })) : esc(t(s.key))
+          }</button>`,
+      ).join('')}
+       <button class="bzs-chip bzs-chip-sem" data-act="searchmode" data-v="semantic">${esc(entry)}</button>`;
   return `<div class="bzs-search-in">${MAG}
-      <input data-role="searchkw" placeholder="${esc(t('search.ph'))}" value="${esc(searchKw)}">${
+      <input data-role="searchkw" placeholder="${esc(
+        semantic ? t('search.semantic.ph') : t('search.ph'),
+      )}" value="${esc(searchKw)}">${
         searchKw.trim()
           ? `<button class="bzs-srch-clear" data-act="searchclear" title="${esc(t('search.clear'))}" aria-label="${esc(
               t('search.clear'),
             )}">×</button>`
           : ''
       }</div>
-    <div class="bzs-searchbar">
-      ${SCOPES.map(
-        (s) =>
-          `<button class="bzs-chip${searchScope === s.value ? ' on' : ''}" data-act="searchscope" data-v="${s.value}">${
-            s.value === 'all' ? esc(t('search.scope.allCount', { n: books })) : esc(t(s.key))
-          }</button>`,
-      ).join('')}
-    </div>`;
+    <div class="bzs-searchbar">${chips}</div>`;
 }
 
 /**
@@ -221,7 +260,7 @@ export function searchFormHtml(): string {
 export function viewSearch(): string {
   const { searchKw, searchScope } = getState();
   return `<div class="bzs-searchpage">
-    ${searchFormHtml()}
-    <div class="bzs-hits" data-role="hitlist">${searchResultsHtml(searchKw, searchScope)}</div>
+    ${searchFormHtml('shelf')}
+    <div class="bzs-hits" data-role="hitlist">${searchResultsHtml(searchKw, searchScope, 'shelf')}</div>
   </div>`;
 }

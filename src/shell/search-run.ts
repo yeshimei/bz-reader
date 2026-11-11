@@ -27,8 +27,12 @@ const DEBOUNCE_MS = 320;
  * 搜索浮层「关闭只收起、再开还回去」的缓存靠它判断能不能复用：书架搜索页
  * 可能已经把词换掉了，还按旧 DOM 还原就会出现输入框与状态各说各话。
  */
-export function searchQueryKey(kw: string, scope: 'book' | 'all'): string {
-  return `${kw.trim()}\u0001${scope}`;
+export function searchQueryKey(
+  kw: string,
+  scope: 'book' | 'all',
+  mode: 'literal' | 'semantic' = 'literal',
+): string {
+  return `${kw.trim()}\u0001${scope}\u0001${mode}`;
 }
 
 let timer: number | null = null;

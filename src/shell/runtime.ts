@@ -10,6 +10,7 @@
  * ============================================================ */
 import type { AiSource } from '../data/ai-evidence';
 import type { PortraitPlan } from '../data/portrait';
+import type { SemanticHit } from '../data/book-search';
 import type { BodyHit } from './search-body';
 
 export interface SelectionPayload {
@@ -70,6 +71,36 @@ export const RT = {
      * 正文命中到达时，只替换命中列表（不整页重绘）。
      * 由当前显示的搜索宿主（书架整页 / 阅读页浮层）注册；两个宿主同时
      * 存在时各自收自己的，不互相覆盖。
+     */
+    listeners: new Set<() => void>(),
+  },
+  /**
+   * 按意思搜的现场（2026-11-11）。
+   *
+   * 与 `body` 并列，不是同一轮搜索：那边逐本扫字面、边到边追加；这边一次
+   * 嵌入请求，结果按书收口。两套结果各自记现场，切回字面搜索时字面结果
+   * 还在，不会互相清空。
+   */
+  semantic: {
+    /** 轮次号：换词 / 换模式 / 重开都 +1，旧请求回来对不上就丢 */
+    seq: 0,
+    /** 这一轮检索的词（空串 = 还没搜） */
+    kw: '',
+    /** 这一轮搜的范围：书内入口只搜当前书，书架入口搜全库 */
+    scope: 'all' as 'book' | 'all',
+    /** 书内入口发起时记下的书号；书架入口为空串。换书后旧结果不能再挂上来 */
+    bookId: '',
+    /** 是否已经真正跑过一轮（区分「没按回车」与「跑完 0 条」） */
+    ran: false,
+    running: false,
+    hits: [] as SemanticHit[],
+    /** 不能搜的原因（没建画像 / 没激活 / 嵌入服务挂了）；null = 正常 */
+    problem: null as string | null,
+    /** 参与检索的书本数 */
+    books: 0,
+    /**
+     * 结果到达时只替换命中列表，不整页重绘。
+     * 书架整页与阅读页浮层各自注册自己的，跟 `body.listeners` 同一套路。
      */
     listeners: new Set<() => void>(),
   },

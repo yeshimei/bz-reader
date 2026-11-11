@@ -18,6 +18,7 @@ import { studyShell } from './render/study';
 import { searchResultsHtml } from './render/search';
 import { RT } from './runtime';
 import { kickBodySearch } from './search-run';
+import { noteSemanticInput } from './search-semantic';
 import { buildShelfPage, shelfRenderKey } from './shelf-page';
 import { hydrateCovers } from './covers';
 import { focusSelector, type FocusMemo } from './focus-memo';
@@ -90,7 +91,10 @@ export class ShelfPanel {
     this.offSource = null;
     this.rangeTouchOff?.();
     this.rangeTouchOff = null;
-    if (this.hitlistCb) RT.body.listeners.delete(this.hitlistCb);
+    if (this.hitlistCb) {
+      RT.body.listeners.delete(this.hitlistCb);
+      RT.semantic.listeners.delete(this.hitlistCb);
+    }
     this.hitlistCb = null;
     /* 监听挂在 host 上（宿主 contentEl 活得比面板久），摘不掉也不能再管事：
        先摘掉自己那层 root，旧监听进来一律按「目标不在树里」丢弃（D3）。 */
@@ -201,16 +205,20 @@ export class ShelfPanel {
    * 不整页重绘——整页重绘会把正在打字的输入框换掉。
    */
   private bindHitlist(page: StudyPage): void {
-    if (this.hitlistCb) RT.body.listeners.delete(this.hitlistCb);
+    if (this.hitlistCb) {
+      RT.body.listeners.delete(this.hitlistCb);
+      RT.semantic.listeners.delete(this.hitlistCb);
+    }
     this.hitlistCb = null;
     if (page !== 'search') return;
     this.hitlistCb = () => {
       const root = this.root;
       if (!root) return;
       const list = root.querySelector<HTMLElement>('[data-role="hitlist"]');
-      if (list) setHtml(list, searchResultsHtml(getState().searchKw, getState().searchScope));
+      if (list) setHtml(list, searchResultsHtml(getState().searchKw, getState().searchScope, 'shelf'));
     };
     RT.body.listeners.add(this.hitlistCb);
+    RT.semantic.listeners.add(this.hitlistCb);
   }
 
   /** 子页里需要真实 DOM 的那几个（目前只有导入）挂进来 */
@@ -268,6 +276,18 @@ export class ShelfPanel {
     /* 键盘可达性（S-02）：书卡与列表行都有 role=button + tabindex=0，
        但以前只有 click 委托——Tab 得过去、按 Enter/Space 毫无反应。 */
     el.addEventListener('keydown', (e) => {
+      /* 按意思搜只在回车时发请求：输入法组字中的回车不算 */
+      const target = e.target as HTMLElement;
+      if (
+        target?.dataset?.role === 'searchkw' &&
+        e.key === 'Enter' &&
+        !e.isComposing &&
+        getState().searchMode === 'semantic'
+      ) {
+        e.preventDefault();
+        dispatchAction('semrun', target, { repaint: () => this.render() });
+        return;
+      }
       if (e.key !== 'Enter' && e.key !== ' ') return;
       if (this.outside(e.target)) return;
       const t = e.target as HTMLElement;
@@ -352,8 +372,13 @@ export class ShelfPanel {
       if (role === 'searchkw') {
         const v = (t as HTMLInputElement).value;
         setStateQuiet({ searchKw: v });
+        /* 按意思搜不边打边搜：一次嵌入要钱，只清旧结果、等回车 */
+        if (getState().searchMode === 'semantic') {
+          noteSemanticInput(v);
+          return;
+        }
         const list = this.root?.querySelector<HTMLElement>('[data-role="hitlist"]');
-        if (list) setHtml(list, searchResultsHtml(v, getState().searchScope));
+        if (list) setHtml(list, searchResultsHtml(v, getState().searchScope, 'shelf'));
         /* 快结果已经画上了，正文命中随后异步追加（防抖在 search-run 里） */
         kickBodySearch(v, getState().searchScope);
         return;
