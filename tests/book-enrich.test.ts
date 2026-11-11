@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { BookMeta } from '../src/data/schema';
 import type { PortraitFile } from '../src/data/portrait';
-import { buildEnrichMessages, enrichSample, mergeMetaPatch, parseEnrichReply } from '../src/data/book-enrich';
+import {
+  buildEnrichMessages,
+  enrichDoneKind,
+  enrichNeeds,
+  enrichSample,
+  mergeMetaPatch,
+  parseEnrichReply,
+} from '../src/data/book-enrich';
 
 /**
  * 导入补元数据（2026-11-11）。
@@ -86,8 +93,16 @@ describe('mergeMetaPatch', () => {
     expect(out.language).toBeUndefined();
   });
 
-  it('分类是合并去重，不是覆盖', () => {
+  /* 2026-11-11 真机反馈：AI 的标签一直往已有分类上追加，于是「补全信息」每点一次
+     都能凑出几条新标签、每点一次都弹「已补上」，而用户原来的分类被越搅越乱。
+     分类和简介同一条规矩：只填空，有就不动。 */
+  it('已有分类时不再追加（用户归过的就是他的分类）', () => {
     const out = mergeMetaPatch(meta({ subjects: ['小说'] }), { subjects: ['小说', '历史'] });
+    expect(out.subjects).toBeUndefined();
+  });
+
+  it('没有分类时写入模型给的标签', () => {
+    const out = mergeMetaPatch(meta(), { subjects: ['小说', '历史'] });
     expect(out.subjects).toEqual(['小说', '历史']);
   });
 
@@ -98,6 +113,63 @@ describe('mergeMetaPatch', () => {
   it('分类太多时只留前几个', () => {
     const out = mergeMetaPatch(meta(), { subjects: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] });
     expect(out.subjects!.length).toBeLessThanOrEqual(6);
+  });
+});
+
+/* 「这本书还缺什么」：调模型之前先问一遍。两项都齐了就根本不该发请求——
+   2026-11-11 真机反馈的核心：点一次弹一次，模型每次换个说法又能凑出「新增」，
+   额度白花，用户还以为是在重复补简介。 */
+describe('enrichNeeds', () => {
+  it('两项都空：都要补', () => {
+    expect(enrichNeeds(meta())).toEqual({ description: true, subjects: true });
+  });
+
+  it('只有简介：只补分类', () => {
+    expect(enrichNeeds(meta({ description: '已有简介' }))).toEqual({
+      description: false,
+      subjects: true,
+    });
+  });
+
+  it('只有分类：只补简介', () => {
+    expect(enrichNeeds(meta({ subjects: ['小说'] }))).toEqual({
+      description: true,
+      subjects: false,
+    });
+  });
+
+  it('两项都有：都不用补（调用方据此不发请求）', () => {
+    expect(enrichNeeds(meta({ description: '已有', subjects: ['小说'] }))).toEqual({
+      description: false,
+      subjects: false,
+    });
+  });
+
+  it('空白串与空数组不算「有」', () => {
+    expect(enrichNeeds(meta({ description: '   ', subjects: ['  '] }))).toEqual({
+      description: true,
+      subjects: true,
+    });
+  });
+});
+
+/* 写完之后说哪句话：以前不管补到什么都弹「已补上简介与分类」，用户看到的是
+   「简介明明有，怎么又补了」。按这次真的写了哪个字段说。 */
+describe('enrichDoneKind', () => {
+  it('两样都写了', () => {
+    expect(enrichDoneKind({ description: '一段', subjects: ['a'] })).toBe('both');
+  });
+
+  it('只写了简介', () => {
+    expect(enrichDoneKind({ description: '一段' })).toBe('desc');
+  });
+
+  it('只写了分类', () => {
+    expect(enrichDoneKind({ subjects: ['a'] })).toBe('tags');
+  });
+
+  it('什么都没写', () => {
+    expect(enrichDoneKind({})).toBe('none');
   });
 });
 

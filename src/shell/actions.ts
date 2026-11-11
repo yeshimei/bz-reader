@@ -119,7 +119,7 @@ import {
   type PortraitPlan,
 } from '../data/portrait';
 import { chapterDigestOf, guideOf, withGuide } from '../data/chapter-guide';
-import { enrichSample, mergeMetaPatch, parseEnrichReply } from '../data/book-enrich';
+import { enrichDoneKind, enrichNeeds, enrichSample, mergeMetaPatch, parseEnrichReply } from '../data/book-enrich';
 import { kbSource } from '../data/kb-entry';
 import { kbLinkOf } from '../data/kb-link';
 import { endsSelection } from './selection-end';
@@ -795,14 +795,23 @@ async function openGuide(force = false): Promise<void> {
   }
 }
 
+/** 正在补的书（一本书一次）：连点不该发第二个请求，一次请求要跑十几秒 */
+const enrichRunning = new Set<string>();
+
 /**
  * 补全书籍信息（2026-11-11）。
  *
  * 用户点菜单才发请求：书名 + 作者 + 画像里的样本 → 简介 / 分类 / 语言。
  * 只写空白字段——用户改过的简介、已有的分类一律不动；模型没按约定格式
  * 回答时什么都不写，宁可这次白问，也不往详情页塞一段散文。
+ *
+ * 2026-11-11 真机反馈补三条：
+ *   · 缺什么先算一遍，两项都齐就一个请求都不发（以前齐了也问，标签每次换
+ *     个说法又能凑出「新增」，于是每点一次都弹成功）；
+ *   · 点了立刻说一句「正在补全…」，模型要跑十几秒，中间不该是一片空白；
+ *   · 同一本书在途时忽略后续点击。
  */
-async function enrichBookMeta(bookId: string): Promise<void> {
+export async function enrichBookMeta(bookId: string): Promise<void> {
   const src = getShellSource();
   const book = src ? liveBooks().find((b) => b.id === bookId) : undefined;
   if (!src || !book) return;
@@ -811,8 +820,16 @@ async function enrichBookMeta(bookId: string): Promise<void> {
     notify(t('notice.ai.needSetup'), 'info');
     return;
   }
-  const portrait = await readPortrait(src.app, book.id);
+  const need = enrichNeeds(book.meta);
+  if (!need.description && !need.subjects) {
+    notify(t('notice.enrich.none'), 'info');
+    return;
+  }
+  if (enrichRunning.has(bookId)) return;
+  enrichRunning.add(bookId);
+  notify(t('notice.enrich.busy', { title: book.meta.title }), 'info');
   try {
+    const portrait = await readPortrait(src.app, book.id);
     const res = await aiAsk(settings, {
       task: 'enrich',
       text: '',
@@ -821,7 +838,10 @@ async function enrichBookMeta(bookId: string): Promise<void> {
       context: enrichSample(portrait),
     });
     const next = mergeMetaPatch(book.meta, parseEnrichReply(res.text));
-    if (!Object.keys(next).length) {
+    /* 说这次真的写了哪个字段：以前补到什么都弹「简介与分类」，用户看到的是
+       「简介明明有，怎么又补了一遍」 */
+    const kind = enrichDoneKind(next);
+    if (kind === 'none') {
       notify(t('notice.enrich.none'), 'info');
       return;
     }
@@ -829,9 +849,17 @@ async function enrichBookMeta(bookId: string): Promise<void> {
     book.updatedAt = Date.now();
     src.store.touch();
     repaint();
-    notify(t('notice.enrich.done'));
+    notify(
+      kind === 'both'
+        ? t('notice.enrich.done')
+        : kind === 'desc'
+          ? t('notice.enrich.doneDesc')
+          : t('notice.enrich.doneTags'),
+    );
   } catch {
     notify(t('notice.enrich.fail'), 'error');
+  } finally {
+    enrichRunning.delete(bookId);
   }
 }
 

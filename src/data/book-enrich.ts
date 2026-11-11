@@ -5,10 +5,13 @@
  * 这一层让用户**点一下菜单**让模型补：
  *
  *   1. **只填空白**：用户改过的简介、已有的分类不动——模型写的东西不该
- *      覆盖人写的东西；
- *   2. **格式固定**：要求严格输出「简介 / 标签 / 语言」三行。解析不出来就
+ *      覆盖人写的东西，**也不该往上面追加**（追加意味着每次调用都能凑出
+ *      「新增」，于是每点一次都报成功，用户自己归的分类还被越搅越乱）；
+ *   2. **齐了就不问**：enrichNeeds 先说清缺哪项，两项都齐时调用方一个
+ *      请求都不发；
+ *   3. **格式固定**：要求严格输出「简介 / 标签 / 语言」三行。解析不出来就
  *      什么都不写，绝不把一段散文塞进简介字段；
- *   3. **样本来自画像**：有画像就带一段正文，没有就只凭书名与作者。
+ *   4. **样本来自画像**：有画像就带一段正文，没有就只凭书名与作者。
  *      不为了补信息去解析整本书——那是另一件事，也违背「不自动花额度」。
  * ============================================================ */
 import type { BookMeta } from './schema';
@@ -84,16 +87,48 @@ export function mergeMetaPatch(
   if (desc && !String(meta.description ?? '').trim()) out.description = desc;
 
   const add = (patch.subjects ?? []).map((s) => String(s ?? '').trim()).filter(Boolean);
-  if (add.length) {
-    const cur = (meta.subjects ?? []).map((s) => String(s ?? '').trim()).filter(Boolean);
-    const merged = [...new Set([...cur, ...add])].slice(0, Math.max(1, Math.floor(maxTags) || TAGS_MAX));
-    if (merged.length > cur.length) out.subjects = merged;
+  /* 已经有分类就一个都不写：合并追加会让每次调用都「有新增」，于是每点一次
+     都报成功（2026-11-11 真机反馈），而用户自己归的分类被越搅越乱。 */
+  const cur = (meta.subjects ?? []).map((s) => String(s ?? '').trim()).filter(Boolean);
+  if (add.length && !cur.length) {
+    out.subjects = [...new Set(add)].slice(0, Math.max(1, Math.floor(maxTags) || TAGS_MAX));
   }
 
   const lang = String(patch.language ?? '').trim();
   if (lang && !String(meta.language ?? '').trim()) out.language = lang;
 
   return out;
+}
+
+export interface EnrichNeed {
+  /** 缺简介 */
+  description: boolean;
+  /** 缺分类 */
+  subjects: boolean;
+}
+
+/**
+ * 这本书还缺什么。
+ *
+ * 两项都 false = 信息齐了，调用方**不该**再发请求。以前没有这一层，齐了
+ * 也照样问模型，答回来时标签总能凑出「新增」，于是永远「写成功了」。
+ */
+export function enrichNeeds(meta: BookMeta): EnrichNeed {
+  const desc = String(meta.description ?? '').trim();
+  const subs = (meta.subjects ?? []).map((s) => String(s ?? '').trim()).filter(Boolean);
+  return { description: !desc, subjects: !subs.length };
+}
+
+/** 这次到底补上了什么：决定说哪句话（以前不管补到什么都弹「简介与分类」） */
+export type EnrichDone = 'both' | 'desc' | 'tags' | 'none';
+
+export function enrichDoneKind(patch: Partial<BookMeta>): EnrichDone {
+  const desc = !!(patch.description ?? '').trim();
+  const tags = Array.isArray(patch.subjects) && patch.subjects.length > 0;
+  if (desc && tags) return 'both';
+  if (desc) return 'desc';
+  if (tags) return 'tags';
+  return 'none';
 }
 
 /**
