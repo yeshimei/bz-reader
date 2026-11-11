@@ -237,9 +237,11 @@ describe('界面文案', () => {
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
     expect(PLAN_TABLE[kbAt]?.name).toBe('连接 BZ AI 知识库（需另装 bz）');
-    /* 2026-11-11：知识库仍是正式段的收尾，探索中两项接在它后面；
+    /* 2026-11-11：知识库仍是正式段的收尾，探索中段接在它后面；
        它们不是「买到了什么」，不该把表尾那句承诺顶掉。 */
-    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key)).toEqual(['pdfOcr', 'review']);
+    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key)).toEqual(
+      PLAN_GROUPS.find((g) => g.key === 'explore')?.rows,
+    );
   });
 
   it('数据面板那一行写全：时长、趋势、节律、书籍明细', () => {

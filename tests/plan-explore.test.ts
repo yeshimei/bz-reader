@@ -6,11 +6,13 @@ import { PLAN_GROUP_TEXT_PACK, PLAN_TEXT_PACK, planGroupLabel, planGroupNameZh, 
 /**
  * 对照表 · 探索中段（2026-11-11）。
  *
- * 两项都还没实现、还在开发中：PDF OCR+AI 视觉把扫描件做到「像文字版」的
- * 选中 / 搜索 / 划线体验；复习支持全文回顾、AI 抽认卡与 AI 出题。
+ * 五项都还没实现、还在开发中：PDF OCR+AI 视觉把扫描件做到「像文字版」的
+ * 选中 / 搜索 / 划线体验；PDF 重排把固定版式变成流式；漫画模式补上分格 /
+ * 右到左 / 跨页；整章翻译做原文译文对照；复习支持全文回顾、AI 抽认卡与
+ * AI 出题。
  *
  * 写进表里是为了让「高级版能力只增不减」有落点，但不能假装已经能用：
- *   · 两行两版都不打勾（free / pro 都是 no），也不挂能力位；
+ *   · 五行两版都不打勾（free / pro 都是 no），也不挂能力位；
  *   · 段名「探索中」说明状态，行里不再加「开发中」小字；
  *   · 不进合计——图上基础版 8 项、高级版 29 项保持不变。
  */
@@ -18,8 +20,8 @@ import { PLAN_GROUP_TEXT_PACK, PLAN_TEXT_PACK, planGroupLabel, planGroupNameZh, 
 const CJK = /[\u4e00-\u9fff]/;
 const LATIN = ['en', 'de', 'fr', 'es', 'pt'] as const;
 /** 简繁必然异形的字：繁中行名里出现任何一个就说明抄了简体 */
-const SIMPLIFIED = /[选线图复认可与题扫样]/;
-const EXPLORE_ROWS = ['pdfOcr', 'review'] as const;
+const SIMPLIFIED = /[选线图复认可与题扫样页读译对]/;
+const EXPLORE_ROWS = ['pdfOcr', 'pdfReflow', 'manga', 'transChapter', 'review'] as const;
 
 afterEach(() => setLocale('zh'));
 
@@ -28,13 +30,13 @@ function row(key: string) {
 }
 
 describe('对照表 · 探索中段的位置与内容', () => {
-  it('放在最末一段，只收两行，顺序固定', () => {
+  it('放在最末一段，只收五行，顺序固定', () => {
     const last = PLAN_GROUPS.at(-1);
     expect(last?.key).toBe('explore');
     expect(last?.rows).toEqual([...EXPLORE_ROWS]);
   });
 
-  it('两行都是两版暂无：不打勾，也不挂能力位', () => {
+  it('每行都是两版暂无：不打勾，也不挂能力位', () => {
     for (const key of EXPLORE_ROWS) {
       const r = row(key);
       expect(r, key).toBeTruthy();
@@ -44,8 +46,11 @@ describe('对照表 · 探索中段的位置与内容', () => {
     }
   });
 
-  it('中文行名就是图上的那两行', () => {
+  it('中文行名就是图上的那五行', () => {
     expect(planNameZh('pdfOcr')).toBe('PDF OCR+AI视觉：扫描件像文字版一样能选能搜能划');
+    expect(planNameZh('pdfReflow')).toBe('PDF 重排：固定版式也能流式读');
+    expect(planNameZh('manga')).toBe('漫画模式：分格、右到左、跨页');
+    expect(planNameZh('transChapter')).toBe('整章翻译：原文译文对照读');
     expect(planNameZh('review')).toBe('复习：全文回顾，AI 生成抽认卡与题目');
   });
 
@@ -55,12 +60,12 @@ describe('对照表 · 探索中段的位置与内容', () => {
     expect(names.has('探索中')).toBe(false);
   });
 
-  it('探索行不计入已实现项：基础版 8、高级版 29、共 31 行的口径不变', () => {
-    /* 图上的合计只看已实现：高级版 29 个勾、基础版 8 个勾。探索两行加进
-       来之后，行数变 31，但两个合计数字一个都不能动。 */
+  it('探索行不计入已实现项：基础版 8、高级版 29、共 34 行的口径不变', () => {
+    /* 图上的合计只看已实现：高级版 29 个勾、基础版 8 个勾。探索五行加进
+       来之后，行数变 34，但两个合计数字一个都不能动。 */
     expect(PLAN_TABLE.filter((r) => r.pro === 'yes')).toHaveLength(29);
     expect(PLAN_TABLE.filter((r) => r.free === 'yes')).toHaveLength(8);
-    expect(PLAN_TABLE).toHaveLength(31);
+    expect(PLAN_TABLE).toHaveLength(34);
   });
 
   it('知识库仍是正式段的最后一行，探索段接在它后面', () => {
@@ -71,7 +76,7 @@ describe('对照表 · 探索中段的位置与内容', () => {
 });
 
 describe('对照表 · 探索中段八种语言', () => {
-  it('段名与两行都填了八种语言，没有空串', () => {
+  it('段名与五行都填了八种语言，没有空串', () => {
     for (const l of LOCALES) {
       expect(String(PLAN_GROUP_TEXT_PACK.explore[l]).trim().length, l).toBeGreaterThan(0);
       for (const key of EXPLORE_ROWS) {
@@ -99,6 +104,9 @@ describe('对照表 · 探索中段八种语言', () => {
     setLocale('en');
     expect(planGroupLabel('explore')).toBe('Explorations');
     expect(planLabel('pdfOcr')).toContain('OCR');
+    expect(planLabel('pdfReflow')).toContain('reflow');
+    expect(planLabel('manga')).toContain('Manga');
+    expect(planLabel('transChapter')).toContain('translation');
     expect(planLabel('review')).toContain('Review');
     setLocale('zh');
     expect(planGroupLabel('explore')).toBe('探索中');

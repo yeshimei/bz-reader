@@ -50,8 +50,11 @@ export type PlanKey =
   | 'parallel'
   | 'bookmap'
   | 'kb'
-  /* 探索中（2026-11-11）：两项都还没实现，先占表尾两行；行内不标状态，靠段名说。 */
+  /* 探索中（2026-11-11）：五项都还没实现，先占表尾五行；行内不标状态，靠段名说。 */
   | 'pdfOcr'
+  | 'pdfReflow'
+  | 'manga'
+  | 'transChapter'
   | 'review';
 
 /**
@@ -397,11 +400,13 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     pt: 'Conectar à base de conhecimento BZ AI (requer bz)',
   },
   /* ── 探索中（2026-11-11） ──
-   * 两项都还没实现，先占表尾两行。行里不写「开发中」——状态由段名说，
+   * 五项都还没实现，先占表尾五行。行里不写「开发中」——状态由段名说，
    * 两版都不打勾，也不挂能力位。
    *
    * OCR 与 AI 视觉是两条技术路线、同一个目标：让扫描件拥有文字版的
-   * 选中 / 搜索 / 划线体验。复习是全文回顾 + AI 抽认卡 + AI 出题。
+   * 选中 / 搜索 / 划线体验；PDF 重排把固定版式变成流式；漫画模式补上
+   * 分格 / 右到左 / 跨页；整章翻译做原文译文对照；复习是全文回顾 +
+   * AI 抽认卡 + AI 出题。
    *
    * 八语言按日常开发规矩：zh / en 写实，其余六包占位（ja/de/fr/es/pt 放
    * 英文原文、zh-TW 放繁体）。准备上架那一版再统一补正式翻译。 */
@@ -414,6 +419,36 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     fr: 'PDF OCR + AI vision: scanned pages work like text — select, search, highlight',
     es: 'PDF OCR + AI vision: scanned pages work like text — select, search, highlight',
     pt: 'PDF OCR + AI vision: scanned pages work like text — select, search, highlight',
+  },
+  pdfReflow: {
+    zh: 'PDF 重排：固定版式也能流式读',
+    'zh-TW': 'PDF 重排：固定版式也能流式讀',
+    en: 'PDF reflow: fixed layouts read as flowing text',
+    ja: 'PDF reflow: fixed layouts read as flowing text',
+    de: 'PDF reflow: fixed layouts read as flowing text',
+    fr: 'PDF reflow: fixed layouts read as flowing text',
+    es: 'PDF reflow: fixed layouts read as flowing text',
+    pt: 'PDF reflow: fixed layouts read as flowing text',
+  },
+  manga: {
+    zh: '漫画模式：分格、右到左、跨页',
+    'zh-TW': '漫畫模式：分格、右到左、跨頁',
+    en: 'Manga mode: panels, right-to-left, spreads',
+    ja: 'Manga mode: panels, right-to-left, spreads',
+    de: 'Manga mode: panels, right-to-left, spreads',
+    fr: 'Manga mode: panels, right-to-left, spreads',
+    es: 'Manga mode: panels, right-to-left, spreads',
+    pt: 'Manga mode: panels, right-to-left, spreads',
+  },
+  transChapter: {
+    zh: '整章翻译：原文译文对照读',
+    'zh-TW': '整章翻譯：原文譯文對照讀',
+    en: 'Chapter translation: source and translation side by side',
+    ja: 'Chapter translation: source and translation side by side',
+    de: 'Chapter translation: source and translation side by side',
+    fr: 'Chapter translation: source and translation side by side',
+    es: 'Chapter translation: source and translation side by side',
+    pt: 'Chapter translation: source and translation side by side',
   },
   review: {
     zh: '复习：全文回顾，AI 生成抽认卡与题目',

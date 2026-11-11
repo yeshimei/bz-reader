@@ -777,13 +777,17 @@ export const PLAN_TABLE: PlanRow[] = [
      的是「AI 全书问答」那一行（见 shell/actions.ts 的 indexCap）。 */
   row('kb', 'no', 'yes', 'kb'),
   /* ── 探索中（2026-11-11） ──
-   * 两项都还没实现，只占表尾，别当已上线卖点用：两版都不打勾（free / pro
+   * 五项都还没实现，只占表尾，别当已上线卖点用：两版都不打勾（free / pro
    * 都是 no）、不挂能力位，状态由段名「探索中」说，行里不加小字。
    * 它们不进合计——图上的基础版 8 项、高级版 29 项保持不变。
    *
    * OCR 与 AI 视觉是两条技术路线、同一个目标：让扫描件拥有文字版的选中 /
-   * 搜索 / 划线体验。复习是全文回顾 + AI 抽认卡 + AI 出题。 */
+   * 搜索 / 划线体验；PDF 重排把固定版式变成流式；漫画模式补上分格 / 右到左 /
+   * 跨页；整章翻译做原文译文对照；复习是全文回顾 + AI 抽认卡 + AI 出题。 */
   row('pdfOcr', 'no', 'no'),
+  row('pdfReflow', 'no', 'no'),
+  row('manga', 'no', 'no'),
+  row('transChapter', 'no', 'no'),
   row('review', 'no', 'no'),
 ];
 
@@ -802,7 +806,7 @@ export function unlockModeFor(format: BookFormat): 'pdf' | 'fullFormats' {
 }
 
 /* ─────────── 对照表的分组（2026-11-09） ───────────
- * 31 行一长串看不出结构：用户从上滚到下，只记得「很多功能」，分不清哪几行
+ * 34 行一长串看不出结构：用户从上滚到下，只记得「很多功能」，分不清哪几行
  * 是一类。这里把同一批行按使用场景切成七段，渲染时插组标题——**行本身、
  * 勾叉、顺序都没变**，所以被拦时的高亮与滚动位置照旧。
  *
@@ -821,7 +825,7 @@ export function unlockModeFor(format: BookFormat): 'pdf' | 'fullFormats' {
  *   · 统计与检索：回看读了多少、把一年做成长图、找回某句话；
  *   · AI：划词与全书问答；
  *   · 进阶：排版、朗读、对照、鸟瞰，最后落在知识库；
- *   · 探索中：还没实现的两项，两版都不打勾，只作为路线图收尾。
+ *   · 探索中：还没实现的五项，两版都不打勾，只作为路线图收尾。
  * 「连接至 BZ AI 知识库」仍是正式段的最后一行（有测试钉住），探索中段
  * 接在它后面，不动它的位置。 */
 export interface PlanGroup {
@@ -855,10 +859,10 @@ export const PLAN_GROUPS: PlanGroup[] = [
     key: 'advanced',
     rows: ['vertical', 'tts', 'parallel', 'bookmap', 'kb'],
   },
-  /* 2026-11-11 新增：探索中。放最后一段，只收两行还没实现的功能，
+  /* 2026-11-11 新增：探索中。放最后一段，只收五项还没实现的功能，
      两版都不打勾，所以它不参与「被拦时高亮」那一套。 */
   {
     key: 'explore',
-    rows: ['pdfOcr', 'review'],
+    rows: ['pdfOcr', 'pdfReflow', 'manga', 'transChapter', 'review'],
   },
 ];

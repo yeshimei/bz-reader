@@ -101,7 +101,9 @@ describe('1.0.0 对照表 · 书摘下放与行名', () => {
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
     expect(PLAN_TABLE[kbAt]?.name).toBe('连接 BZ AI 知识库（需另装 bz）');
-    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key)).toEqual(['pdfOcr', 'review']);
+    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key)).toEqual(
+      PLAN_GROUPS.find((g) => g.key === 'explore')?.rows,
+    );
   });
 });
 
