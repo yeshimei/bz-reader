@@ -132,10 +132,7 @@ import { runAiForOverlay } from './overlay';
 import { aiTurnsHtml } from './reader-cards';
 import { renderAiMarkdown } from './ai-md';
 import { aiAnswerBlock, aiConversationMarkdown, appendAiIdea, type AiSaveTask } from '../data/ai-save';
-import { DEFAULT_SETTINGS, aiReady, resolveAi } from '../data/settings';
-import { aiProviderSpec, isAiProviderId } from '../data/ai-providers';
-import { fetchProviderModels } from '../data/ai-models';
-import { openModelPicker } from '../ui/model-picker';
+import { DEFAULT_SETTINGS, aiReady } from '../data/settings';
 import { copyGroupId } from './group';
 import { collectStats, dayKey } from '../data/stats';
 import { statsModelOf, statsReportOf, type StatsView } from './render/stats';
@@ -896,7 +893,7 @@ function portraitDeps(bookId: string): PortraitBuildDeps | null {
     },
     overview: async (evidence, signal) => (await aiAsk(settings, { task: 'summarize', text: evidence }, { signal })).text.trim(),
     embedModel: () => bzEmbedder(src.app).model,
-    chatModel: () => resolveAi(settings).model,
+    chatModel: () => settings.ai.model || '',
   };
 }
 
@@ -1831,67 +1828,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     }
 
     /* ── 设置 ── */
-    /**
-     * AI 服务商切换（2026-11-11）。
-     *
-     * 选了哪家就只露哪家的配置：地址与默认模型由注册表带，用户只填密钥。
-     * 密钥与模型按服务商分开存（切回来还是上次的值），所以这里只改 provider，
-     * 不碰其他家的字段。
-     */
-    case 'setai': {
-      const src = getShellSource();
-      if (!src) break;
-      const id = d.v || '';
-      if (!isAiProviderId(id)) break;
-      const ai = shellSettings().ai;
-      if (ai.provider === id) break;
-      src.setSettings({ ai: { ...ai, provider: id } });
-      repaint();
-      break;
-    }
-    /**
-     * 「获取模型」：拉当前服务商的模型列表，弹窗选一个回填模型框。
-     *
-     * 入口先做两道前置判断（缺地址 / 缺密钥），把话说在前面，而不是让
-     * fetch 拿个 401 回来。拉不到也不锁死：模型框始终能手填——有的服务商
-     * 根本没有列表接口。
-     */
-    case 'aimodels': {
-      const src = getShellSource();
-      if (!src) break;
-      const settings = shellSettings();
-      const spec = aiProviderSpec(settings.ai.provider);
-      const r = resolveAi(settings);
-      if (!r.baseUrl) {
-        notify(t('notice.ai.needUrl'), 'info');
-        break;
-      }
-      if (spec.keyRequired && !r.apiKey) {
-        notify(t('notice.ai.needKey'), 'info');
-        break;
-      }
-      void (async () => {
-        try {
-          const models = await fetchProviderModels({ listApi: spec.listApi, baseUrl: r.baseUrl, apiKey: r.apiKey });
-          openModelPicker({
-            title: t('settings.ai.models.title'),
-            current: r.model,
-            currentLabel: t('settings.ai.models.current'),
-            models,
-            onPick: (model) => {
-              /* 弹窗开着这段时间服务商仍可能被切：按选择那一刻的 provider 落，
-                 且只写这一家的模型格（与输入框同口径）。 */
-              const cur = shellSettings().ai;
-              src.setSettings({ ai: { ...cur, models: { ...cur.models, [cur.provider]: model } } });
-              repaint();
-            },
-          });
-        } catch (e) {
-          notify(t('notice.ai.modelsFail', { msg: (e as Error)?.message || String(e) }), 'error');
-        }
-      })();
-      break;
-    }
     case 'setpref':
       setPref(d.k, d.v);
       break;
@@ -3153,7 +3089,7 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
     );
     /* 答案回来时已经换书：这份答案不属于当前这本，丢掉（C4） */
     if (!sameBook()) return;
-    pushAi(false, `AI · ${resolveAi(settings).model || '模型'}`, res.text, evidence.sources);
+    pushAi(false, `AI · ${settings.ai.model || '模型'}`, res.text, evidence.sources);
   } catch (e) {
     if (!sameBook()) return;
     pushAi(false, 'AI', (e as Error).message || '请求失败');
@@ -3310,19 +3246,9 @@ export function dispatchInput(
        移动端软键盘会在同步 IO 的间隙收起，表现成「打一个字就失焦」。
        松手（change）或输入法上屏（compositionend）才收口。 */
     if (dragging) return;
-    /* 目录类设置已经没有输入框了（只走文件夹选择器），这里只剩 AI 输入。
-       2026-11-11：AI 分服务商存——密钥与模型按「当前选中那一家」各存一格，
-       切换服务商不会把上一家的值盖过去，也不会把别家的密钥带过去。 */
-    if (k === 'ai.baseUrl') {
-      src.setSettings({ ai: { ...shellSettings().ai, baseUrl: value } });
-    } else if (k === 'ai.key' || k === 'ai.model') {
-      const ai = shellSettings().ai;
-      src.setSettings({
-        ai:
-          k === 'ai.key'
-            ? { ...ai, keys: { ...ai.keys, [ai.provider]: value } }
-            : { ...ai, models: { ...ai.models, [ai.provider]: value } },
-      });
+    /* 目录类设置已经没有输入框了（只走文件夹选择器），这里只剩 AI 三个字段 */
+    if (k === 'ai.baseUrl' || k === 'ai.model' || k === 'ai.apiKey') {
+      src.setSettings({ ai: { ...shellSettings().ai, [k.slice(3)]: value } });
     }
     return;
   }

@@ -51,7 +51,7 @@ function installSource(book: ReaderBook): void {
     /* 密钥填好：这样卡住的不会是「没配置 AI」那一步 */
     settings: () => ({
       ...DEFAULT_SETTINGS,
-      ai: { provider: 'deepseek', baseUrl: '', keys: { deepseek: 'sk-test' }, models: {} },
+      ai: { baseUrl: 'https://api.test/v1', apiKey: 'sk-test', model: 'test-model' },
     }),
   } as unknown as ShellSource);
 }

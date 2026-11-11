@@ -825,12 +825,11 @@ export function createPlugin(cfg: PluginConfig) {
       if (!legacy || typeof legacy !== 'object') return;
       const old = normalizeSettings(legacy);
       /* data.json 里已经有值就不覆盖（用户可能在新版本里改过）。
-         AI 设置 2026-11-11 改成分服务商存（provider / keys / models / baseUrl）：
-         三个存值的字段全空才算「没配过」，此时整份用业务 JSON 里的老配置；
-         只要有一处填过，就整份以 data.json 为准——不逐字段拼，省得把旧服务商
-         的密钥拼进新选的服务商槽位里。 */
+         AI 设置是地址 / 密钥 / 模型三件套：三样全空才算「没配过」，此时整份
+         用业务 JSON 里的老配置；只要有一处填过，就整份以 data.json 为准——
+         不逐字段拼，省得把旧地址拼进新密钥那一组里。 */
       const aiNow = this.cfg.settings.ai;
-      const aiEmpty = !aiNow.baseUrl && !Object.keys(aiNow.keys).length && !Object.keys(aiNow.models).length;
+      const aiEmpty = !aiNow.baseUrl && !aiNow.apiKey && !aiNow.model;
       this.cfg.settings = normalizeSettings({
         ...old,
         ...this.cfg.settings,

@@ -105,46 +105,6 @@
   cursor: default;
 }
 
-/* 模型选择弹窗（设置页「获取模型」，2026-11-11）
-   一行一个模型名，当前值置顶并高亮：有的服务商一次返回几十个，
-   光看一串名字认不出「我现在用的是哪个」。 */
-.bzr-model-picker {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: var(--bzr-space-md) var(--bzr-space-lg) var(--bzr-space-lg);
-  min-height: 0;
-  overflow: hidden;
-}
-.bzr-model-picker-cur {
-  flex: none;
-  font-size: 11px;
-  color: var(--bzr-text-2);
-}
-.bzr-model-picker-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-height: 0;
-  overflow: auto;
-}
-.bzr-model-picker-row {
-  justify-content: flex-start;
-  width: 100%;
-  height: auto;
-  min-height: 26px;
-  padding: 4px 10px;
-  font-size: 12px;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.bzr-model-picker-row.is-current {
-  border-color: var(--bzr-brand);
-  background: var(--bzr-brand-soft, var(--bzr-surface-sunken));
-  color: var(--bzr-text-1);
-}
 
 /* 文字链 */
 .bzr-link {

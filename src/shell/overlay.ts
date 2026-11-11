@@ -737,7 +737,7 @@ function overlayDict(word?: string): string {
   const body = `<div class="bzs-dict"><div class="w">${esc(w)}</div>
       <div class="py">选中的词</div>
       <div class="df">插件本身不带离线词典。要查这个词，用下面的 AI 解释——它会结合你正在读的这段来解释，比通用词典更贴近上下文。</div></div>
-    <div class="bzs-ai-src">词条来源：AI（需在设置里配置服务商与密钥）</div>`;
+    <div class="bzs-ai-src">词条来源：AI（需在设置里配置接口地址、模型与密钥）</div>`;
   return modal(
     '查词',
     '结合上下文解释',

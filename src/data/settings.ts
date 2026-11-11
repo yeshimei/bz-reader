@@ -15,33 +15,20 @@
  * 空字符串，一律夹回可用范围——一个地址少个 https:// 的代价是
  * 「AI 按钮点了没反应」，而用户不会想到去看设置。
  *
- * 2026-11-11：AI 设置从「地址 / 密钥 / 模型」三件套改成分服务商存——选中哪家
- * 就用哪家的密钥与模型（切回来还是上次的值）。旧数据在这里一次性搬进「自定义」：
- * 老版本填的地址本来就是某个 OpenAI 兼容服务，正好对上自定义那一档。
+ * 2026-11-11 同日回摆：AI 配置还原成「地址 / 模型 / 密钥」三个自由输入框，
+ * 不提供服务商选择。前一版按服务商存的结构（provider / keys[provider] /
+ * models[provider]）在 normalizeSettings 里一次性搬回三件套——老 data.json
+ * 升级后地址、密钥、模型都还在，不会因为换回自由输入而丢配置。
  * ============================================================ */
 
 import { isLocale, type LanguagePref } from '../i18n';
-import {
-  DEFAULT_AI_PROVIDER,
-  aiProviderSpec,
-  isAiProviderId,
-  type AiProviderId,
-} from './ai-providers';
 
 export interface AiSettings {
-  /**
-   * 当前服务商（data/ai-providers 的注册表 id）。
-   *
-   * 选它就等于选了一组默认值：地址与默认模型由注册表给，用户只需要填密钥。
-   * 存 id 而不是存地址，是为了让「切到智谱」这种操作不必让用户动手改三个框。
-   */
-  provider: AiProviderId;
-  /** 自定义服务商的接口地址（仅 provider === 'custom' 时生效；其他家由注册表带） */
+  /** OpenAI 兼容根地址，不带结尾斜杠，例如 https://api.openai.com/v1 */
   baseUrl: string;
-  /** 各服务商的密钥（键 = 服务商 id；空 = 没填） */
-  keys: Partial<Record<AiProviderId, string>>;
-  /** 各服务商的模型（键 = 服务商 id；空 = 用该服务商的默认模型） */
-  models: Partial<Record<AiProviderId, string>>;
+  apiKey: string;
+  /** 对话模型（压缩方案、提问、摘录） */
+  model: string;
   /*
    * 这里**故意没有**嵌入模型。
    *
@@ -108,10 +95,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   importDir: 'bz-reader/books',
   language: 'auto',
   ai: {
-    provider: DEFAULT_AI_PROVIDER,
     baseUrl: '',
-    keys: {},
-    models: {},
+    apiKey: '',
+    model: '',
   },
   aiAck: false,
   debugLog: false,
@@ -144,45 +130,52 @@ function cleanUrl(v: string): string {
   return /^https?:\/\//i.test(s) ? s : `https://${s}`;
 }
 
-/** 只收认识的服务商 id、只收非空字符串：手改坏的 JSON 不该把对象带进请求里 */
-function cleanProviderMap(raw: unknown): Partial<Record<AiProviderId, string>> {
-  const out: Partial<Record<AiProviderId, string>> = {};
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
-  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-    if (!isAiProviderId(k)) continue;
-    const s = typeof v === 'string' ? v.trim() : '';
-    if (s) out[k] = s;
-  }
-  return out;
+/**
+ * 2026-11-11 分服务商结构里写死的地址与默认模型，只用来搬旧数据。
+ * 新配置本身不再认服务商，这张表也不会被设置页读取。
+ */
+const LEGACY_AI_PROVIDERS: Record<string, { endpoint: string; model: string }> = {
+  deepseek: { endpoint: 'https://api.deepseek.com', model: 'deepseek-v4-flash' },
+  'zhipu-plan': { endpoint: 'https://open.bigmodel.cn/api/coding/paas/v4', model: 'glm-5.3-flash' },
+  ollama: { endpoint: 'http://localhost:11434/v1', model: 'llama3.1' },
+};
+
+/** 从按服务商分存的对象里取一项；非字符串、空串都当没填 */
+function providerValue(raw: unknown, id: string): string {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return '';
+  const v = (raw as Record<string, unknown>)[id];
+  return typeof v === 'string' ? v.trim() : '';
 }
 
 /**
- * AI 设置收口（含 v0.1 一次性搬家）。
+ * AI 设置收口（含两次结构变更的搬家）。
  *
- * 判据是「有没有 provider 字段」：有 = 新结构；没有 = 旧版三件套
- * （baseUrl / apiKey / model）。旧数据里填了地址的，说明他在用一个 OpenAI
- * 兼容服务——整份搬进「自定义」，升级后按钮照样能点。旧数据只有密钥、
- * 没填地址的，留作 DeepSeek 的密钥（他们多半就是想用 DeepSeek，只是没填完）。
+ * 判据是「有没有 provider 字段」：没有 = 旧版三件套（baseUrl / apiKey / model），
+ * 有 = 2026-11-11 的分服务商结构。后者把当时选中的那一家搬回三件套：
+ *   · custom（以及认不出的 id）用旧 baseUrl 与 keys.custom / models.custom；
+ *   · 三家预设用当时写死的地址与默认模型，模型没填过就补默认值——不补的话
+ *     升级后 aiReady 会突然变 false，用户以为配置丢了。
  */
 function normalizeAi(raw: unknown): AiSettings {
   const ai = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  const legacy = !('provider' in ai);
-  const baseUrl = cleanUrl(str(ai.baseUrl));
-  const provider: AiProviderId = isAiProviderId(ai.provider)
-    ? ai.provider
-    : legacy && baseUrl
-      ? 'custom'
-      : DEFAULT_AI_PROVIDER;
-  const keys = cleanProviderMap(ai.keys);
-  const models = cleanProviderMap(ai.models);
-  if (legacy) {
-    const legacyKey = str(ai.apiKey).trim();
-    const legacyModel = str(ai.model).trim();
-    const slot: AiProviderId = provider === 'custom' ? 'custom' : 'deepseek';
-    if (legacyKey) keys[slot] = legacyKey;
-    if (legacyModel) models[slot] = legacyModel;
+  const provider = str(ai.provider).trim();
+  if (!provider) {
+    return {
+      baseUrl: cleanUrl(str(ai.baseUrl)),
+      apiKey: str(ai.apiKey).trim(),
+      model: str(ai.model).trim(),
+    };
   }
-  return { provider, baseUrl, keys, models };
+  const preset = LEGACY_AI_PROVIDERS[provider];
+  const customOnly = !preset;
+  return {
+    baseUrl: preset ? preset.endpoint : cleanUrl(str(ai.baseUrl)),
+    apiKey: providerValue(ai.keys, provider) || (customOnly ? providerValue(ai.keys, 'custom') : ''),
+    model:
+      providerValue(ai.models, provider) ||
+      preset?.model ||
+      (customOnly ? providerValue(ai.models, 'custom') : ''),
+  };
 }
 
 export function normalizeSettings(raw: unknown): ReaderSettings {
@@ -200,40 +193,9 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
   };
 }
 
-/** 一次请求要用的真实配置（服务商表 + 用户填的值合出来的结果） */
-export interface ResolvedAi {
-  provider: AiProviderId;
-  baseUrl: string;
-  apiKey: string;
-  model: string;
-}
-
-/**
- * 把设置解析成「这次请求实际用哪个地址、密钥、模型」。
- *
- * 这是全仓唯一的解析口：aiAsk 发请求、设置页画「获取模型」按钮、
- * 各处的可用判断都从这里取，禁止在别处再拼一遍。模型留空 = 用该服务商
- * 的注册表默认（这正是「只填密钥就能用」成立的原因）。
- */
-export function resolveAi(s: ReaderSettings): ResolvedAi {
-  const spec = aiProviderSpec(s.ai.provider);
-  /* keys/models 用 ?. 防御：设置页之外还会有测试或旧对象直接拼 ReaderSettings */
-  return {
-    provider: spec.id,
-    baseUrl: spec.endpoint || s.ai.baseUrl,
-    apiKey: (s.ai.keys?.[spec.id] ?? '').trim(),
-    model: ((s.ai.models?.[spec.id] ?? '') || spec.model).trim(),
-  };
-}
-
-/**
- * AI 是否可用：当前服务商地址与模型齐备，密钥按该家要求（Ollama 本地、
- * 无鉴权的自建服务可以留空）。缺一样都不该把按钮点亮。
- */
+/** AI 是否可用了：三样齐了才算配好，缺一样都不该把按钮点亮 */
 export function aiReady(s: ReaderSettings): boolean {
-  const spec = aiProviderSpec(s.ai.provider);
-  const r = resolveAi(s);
-  return !!r.baseUrl && !!r.model && (!!r.apiKey || !spec.keyRequired);
+  return !!s.ai.baseUrl && !!s.ai.apiKey && !!s.ai.model;
 }
 
 /* 建索引要不要「嵌入配好了」这个判断？不用了：嵌入由第二大脑提供，

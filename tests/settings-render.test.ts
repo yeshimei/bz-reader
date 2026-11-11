@@ -122,19 +122,11 @@ describe('设置页渲染', () => {
     expect(out).toMatch(/class="bzs-setgrp is-locked"[^>]*data-act="unlock" data-mode="ai"/);
   });
 
-  it('placeholder 说人话：服务商默认模型如实标出，密钥仍是「填写…」句式', () => {
+  it('placeholder 说人话：地址、模型、密钥三行都有', () => {
     const out = html();
-    /* 模型留空就用这一家的默认模型——把名字写进 placeholder 是如实告知，
-       不是在冒充「已经填好了」（输入框的 value 仍是空的）。 */
-    expect(out).toContain('placeholder="deepseek-v4-flash"');
+    expect(out).toContain('placeholder="填写接口地址，以 https:// 开头"');
+    expect(out).toContain('placeholder="填写你的账号可用的模型名"');
     expect(out).toContain('placeholder="填写 API 密钥"');
-    /* 非自定义服务商不露地址框：地址由注册表带，不给填错的机会 */
-    expect(out).not.toContain('data-k="ai.baseUrl"');
-    const custom = html(false, {
-      ...DEFAULT_SETTINGS,
-      ai: { ...DEFAULT_SETTINGS.ai, provider: 'custom' },
-    });
-    expect(custom).toContain('placeholder="填写服务商接口地址，以 https:// 开头"');
   });
 
   it('朗读语速与朗读跟随在设置页，单成一组', () => {
@@ -264,15 +256,15 @@ describe('设置页渲染', () => {
   /* 入口平权：基础版也看得见 AI 组。但没解锁时配置只能看不能改——
      让基础版改一个用不了的配置只会制造「我填了为什么不行」的困惑。
      AI 组里不放「查看功能对照」这类提示：要解锁去授权组，别在配置区塞推销。 */
-  it('基础版：AI 组仍在，输入框只读、服务商按钮与「获取模型」都禁用', () => {
+  it('基础版：AI 组仍在，三个输入框只读、没有服务商按钮', () => {
     entState.unlocked = false;
     const out = html();
     expect(out).toContain('<h3>AI 助手</h3>');
-    for (const k of ['ai.key', 'ai.model']) {
+    for (const k of ['ai.baseUrl', 'ai.model', 'ai.apiKey']) {
       expect(out, k).toMatch(new RegExp(`data-k="${k.replace('.', '\\.')}"[^>]*readonly`));
     }
-    expect(out).toMatch(/data-act="setai"[^>]*disabled/);
-    expect(out).toMatch(/data-act="aimodels"[^>]*disabled/);
+    expect(out).not.toContain('data-act="setai"');
+    expect(out).not.toContain('data-act="aimodels"');
   });
 
   it('基础版：AI 组里没有查看 / 对照按钮', () => {
@@ -299,60 +291,48 @@ describe('设置页渲染', () => {
   it('解锁后 AI 输入框可编辑，且不再提示解锁', () => {
     entState.unlocked = true;
     const out = html();
-    expect(out).not.toMatch(/data-k="ai\.key"[^>]*readonly/);
-    expect(out).not.toMatch(/data-act="setai"[^>]*disabled/);
+    for (const k of ['ai.baseUrl', 'ai.model', 'ai.apiKey']) {
+      expect(out).not.toMatch(new RegExp(`data-k="${k.replace('.', '\\.')}"[^>]*readonly`));
+    }
     expect(out).not.toContain('data-act="unlock"');
     entState.unlocked = false;
   });
 });
 
 /**
- * AI 组（2026-11-11：改成「选服务商 → 填密钥 → 选模型」）。
+ * AI 组（2026-11-11 同日回摆：地址 / 模型 / 密钥三个自由输入框）。
  *
- * 这里钉三件事：服务商是四选一按钮、选中一家只露这一家的必填项、
- * 模型行带「获取模型」。用户能不能只填密钥就用上，全靠这三条。
+ * 这里钉三件事：不提供服务商按钮、不提供「获取模型」、三个输入框按
+ * 地址 → 模型 → 密钥排列，值来自设置里的三个字段。
  */
-describe('AI 组：选服务商', () => {
-  const withProvider = (patch: Record<string, unknown>): string =>
-    html(false, {
-      ...DEFAULT_SETTINGS,
-      ai: { ...DEFAULT_SETTINGS.ai, ...patch } as never,
-    });
-
-  it('四家都在，且不是自由输入框', () => {
-    const out = withProvider({});
-    expect(out).toContain('data-act="setai"');
-    for (const id of ['deepseek', 'zhipu-plan', 'ollama', 'custom']) {
-      expect(out, id).toContain(`data-v="${id}"`);
+describe('AI 组：三个自由输入框', () => {
+  it('只有地址、模型、密钥三行，没有服务商按钮与「获取模型」', () => {
+    const out = html();
+    for (const k of ['ai.baseUrl', 'ai.model', 'ai.apiKey']) {
+      expect(out, k).toContain(`data-k="${k}"`);
     }
-    expect(out).not.toContain('data-role="setting" data-k="ai.provider"');
+    expect(out).not.toContain('data-act="setai"');
+    expect(out).not.toContain('data-act="aimodels"');
+    expect(out).not.toContain('data-k="ai.key"');
+    expect(out).not.toContain('data-k="ai.provider"');
   });
 
-  it('选中 DeepSeek：不出现自定义地址行，只有密钥与模型', () => {
-    const out = withProvider({ provider: 'deepseek' });
-    expect(out).not.toContain('data-k="ai.baseUrl"');
-    expect(out).toContain('data-k="ai.key"');
-    expect(out).toContain('data-k="ai.model"');
-    expect(out).toContain('data-act="aimodels"');
+  it('三行按地址、模型、密钥排列', () => {
+    const out = html();
+    const at = (k: string): number => out.indexOf(`data-k="${k}"`);
+    expect(at('ai.baseUrl')).toBeGreaterThan(-1);
+    expect(at('ai.model')).toBeGreaterThan(at('ai.baseUrl'));
+    expect(at('ai.apiKey')).toBeGreaterThan(at('ai.model'));
   });
 
-  it('选中自定义：多一行接口地址（必填项），密钥与模型照旧', () => {
-    const out = withProvider({ provider: 'custom' });
-    expect(out).toContain('data-k="ai.baseUrl"');
-    expect(out).toContain('data-k="ai.key"');
-    expect(out).toContain('data-k="ai.model"');
-  });
-
-  it('模型框的提示语跟着服务商默认模型走（不选也知道会用哪个）', () => {
-    const out = withProvider({ provider: 'zhipu-plan' });
-    expect(out).toContain('placeholder="glm-5.3-flash"');
-  });
-
-  it('当前选中态看得出来（on 类只给一家）', () => {
-    const out = withProvider({ provider: 'ollama' });
-    expect(out).toContain(`class="on" data-act="setai" data-v="ollama"`);
-    const on = out.match(/class="on" data-act="setai" data-v="[^"]+"/g) ?? [];
-    expect(on.length).toBe(1);
+  it('输入框的值来自设置里的三个字段', () => {
+    const out = html(false, {
+      ...DEFAULT_SETTINGS,
+      ai: { baseUrl: 'https://api.x/v1', model: 'chat-x', apiKey: 'sk-1' },
+    });
+    expect(out).toContain('value="https://api.x/v1"');
+    expect(out).toContain('value="chat-x"');
+    expect(out).toContain('value="sk-1"');
   });
 });
 

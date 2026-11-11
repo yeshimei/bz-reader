@@ -32,15 +32,14 @@ function install(configured = true): void {
     store: makeStore(),
     settings: () => ({
       ...DEFAULT_SETTINGS,
-      /* 2026-11-11：AI 设置分服务商存，测试统一走「自定义」（地址/密钥/模型齐备） */
+      /* AI 三件套：配置齐 / 未配置两种状态 */
       ai: configured
         ? {
-            provider: 'custom' as const,
             baseUrl: 'https://api.test/v1',
-            keys: { custom: 'k' },
-            models: { custom: 'm' },
+            apiKey: 'k',
+            model: 'm',
           }
-        : { provider: 'custom' as const, baseUrl: '', keys: {}, models: {} },
+        : { baseUrl: '', apiKey: '', model: '' },
     }),
     searchText: async () => [],
     hasOpenReader: () => true,

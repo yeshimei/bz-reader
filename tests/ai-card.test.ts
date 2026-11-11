@@ -50,12 +50,11 @@ function install(): void {
     store: makeStore(),
     settings: () => ({
       ...DEFAULT_SETTINGS,
-      /* 2026-11-11：AI 设置分服务商存；测试走「自定义」这一档（地址/密钥/模型齐备） */
+      /* 地址、密钥、模型齐备：AI 卡走的是真实的 aiReady 判断 */
       ai: {
-        provider: 'custom' as const,
         baseUrl: 'https://api.test/v1',
-        keys: { custom: 'k' },
-        models: { custom: 'm' },
+        apiKey: 'k',
+        model: 'm',
       },
     }),
     searchText: async () => [],

@@ -66,7 +66,7 @@ export function quoteCardHtml(input: QuoteCardInput): string {
 }
 
 export interface AiCardInput {
-  /** 服务商、模型、密钥是否都配好了 */
+  /** 地址、模型、密钥是否都配好了 */
   ready: boolean;
   /** 当前问的是哪一档（解释 / 翻译 / 摘要），缺省 = 解释 */
   mode?: AiTask;
