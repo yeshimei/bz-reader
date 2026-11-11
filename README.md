@@ -29,7 +29,7 @@
 <p align="center">
   <img src="docs/images/shelf-mobile-light.webp" width="288" alt="阅读 · 移动端 · 亮色">
   &nbsp;&nbsp;
-  <img src="docs/images/read-mobile-dark.webp" width="288" alt="阅读 · 移动端：划线、图标工具条与想法">
+  <img src="docs/images/read-mobile-dark.webp" width="288" alt="阅读 · 移动端 · 暗色">
 </p>
 
 ## 安装
