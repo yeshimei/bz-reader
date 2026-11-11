@@ -52,8 +52,10 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/data/deeplink.ts': 4,
   /* 2026-11-11 +2（42 → 44）：新增「划线加入复习计划」这一行能力的卖点句
      （CAP_TEXT 的 zh 与 zh-TW 两份）。这张表本来就是八语言的集中表，
-     不是散落的界面句子——与 header-actions.ts 的标签表同理。 */
-  'src/data/entitlement.ts': 44,
+     不是散落的界面句子——与 header-actions.ts 的标签表同理。
+     2026-11-11 +4（44 → 48）：新增「语义搜索」「AI 伴读」两行卖点，
+     同样是 zh 与 zh-TW 各一份。 */
+  'src/data/entitlement.ts': 48,
   'src/data/export.ts': 9,
   'src/data/importer.ts': 1,
   'src/data/license.ts': 16,

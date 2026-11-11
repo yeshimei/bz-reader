@@ -51,6 +51,8 @@ export type Cap =
   | 'parallel' // 并排 / 双语
   | 'bookmap' // 全书鸟瞰
   | 'bilink' // 划线 → 双向链接
+  | 'aiChat' // AI 伴读：追问 / 导读 / 补全 / 对话存档
+  | 'semantic' // 语义搜索：本书与全库，按意思找
   /**
    * PDF 整段（2026-11-10）。
    *
@@ -531,6 +533,17 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     es: 'Buscar en todos los libros, texto de PDF incluido',
     pt: 'Pesquisar em todos os livros, texto de PDF incluído',
   },
+  /* 语义搜索（2026-11-11）：本书与全库两个入口共用一道门禁。 */
+  semantic: {
+    zh: '本书与全库，按意思找',
+    'zh-TW': '本書與全庫，按意思找',
+    en: 'By meaning, in this book or the shelf',
+    ja: '意味で検索、本書でも本棚でも',
+    de: 'Nach Bedeutung suchen, im Buch oder Regal',
+    fr: 'Par le sens, dans ce livre ou le rayon',
+    es: 'Por significado, en este libro o el estante',
+    pt: 'Por significado, neste livro ou na estante',
+  },
   aiSel: {
     zh: '划词 AI：解释 · 翻译 · 摘要',
     'zh-TW': '劃詞 AI：解釋 · 翻譯 · 摘要',
@@ -550,6 +563,17 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     fr: 'Questions IA sur tout le livre',
     es: 'Preguntas de IA sobre todo el libro',
     pt: 'Perguntas de IA sobre o livro inteiro',
+  },
+  /* AI 伴读（2026-11-11）：追问、导读、补全、对话存档共用一道门禁。 */
+  aiChat: {
+    zh: '边读边问，按章导读',
+    'zh-TW': '邊讀邊問，按章導讀',
+    en: 'Ask as you read, with a per-chapter guide',
+    ja: '読みながら質問、章ごとのガイド',
+    de: 'Beim Lesen fragen, mit Kapitelführer',
+    fr: 'Demandez en lisant, guide par chapitre',
+    es: 'Pregunta mientras lees, guía por capítulo',
+    pt: 'Pergunte enquanto lê, guia por capítulo',
   },
   /* 2026-11-09 删：书籍本地化向量检索不再单列，也不再有 cap——建索引被拦时
      高亮「AI 全书问答」。能力本身还在（侧栏 AI 页签），只是不再作为一项
@@ -735,10 +759,14 @@ export const PLAN_TABLE: PlanRow[] = [
      出买到了什么。跟着统计后面，同属「回看」那一段。 */
   row('poster', 'no', 'yes', 'poster'),
   row('crossSearch', 'no', 'yes', 'crossSearch'),
+  /* 语义搜索（2026-11-11）：本书与全库都能按意思找，跟字面搜索并列。 */
+  row('semantic', 'no', 'yes', 'semantic'),
   /* 工具栏那颗 AI 是「解释 / 翻译 / 摘要」划选文字，和侧栏的「全书问答」
      不是一个入口，各自一行，各自有 cap——点被拦的那颗就滚到对应那行。 */
   row('aiSel', 'no', 'yes', 'aiSel'),
   row('aiBook', 'no', 'yes', 'ai'),
+  /* AI 伴读（2026-11-11）：追问、导读、补全、对话存档共用一道门禁。 */
+  row('aiChat', 'no', 'yes', 'aiChat'),
   row('vertical', 'no', 'yes', 'vertical'),
   row('tts', 'no', 'yes', 'tts'),
   row('parallel', 'no', 'yes', 'parallel'),
@@ -806,11 +834,11 @@ export const PLAN_GROUPS: PlanGroup[] = [
   },
   {
     key: 'insight',
-    rows: ['stats', 'poster', 'crossSearch'],
+    rows: ['stats', 'poster', 'crossSearch', 'semantic'],
   },
   {
     key: 'ai',
-    rows: ['aiSel', 'aiBook'],
+    rows: ['aiSel', 'aiBook', 'aiChat'],
   },
   {
     key: 'advanced',

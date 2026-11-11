@@ -67,7 +67,7 @@ import type { SemanticHit } from './data/book-search';
 /* 壳层 */
 import { StudyView, VIEW_TYPE_STUDY } from './shell/study-view';
 import { OverlayLayer } from './shell/overlay';
-import { dispatchAction } from './shell/actions';
+import { dispatchAction, requireCap } from './shell/actions';
 import { clampDailyGoal } from './shell/checkin';
 import {
   DEFAULT_SHELL_STATE,
@@ -1335,6 +1335,7 @@ export function createPlugin(cfg: PluginConfig) {
      * 结果面板上点一条 → 打开那本书 → 用这一段开头在书内再搜一次定位。
      */
     openSemanticSearchPanel(): void {
+      if (!requireCap('semantic')) return;
       openSemanticPanel({
         app: this.app,
         books: this.repo.all().filter((b) => !(b.fileRef as { fileMissing?: boolean }).fileMissing),

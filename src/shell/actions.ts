@@ -1129,11 +1129,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     /* 本章导读（2026-11-11）：命令与「重新生成」都走同一个函数 */
     case 'guide':
-      if (!requireCap('ai')) break;
+      if (!requireCap('aiChat')) break;
       void openGuide();
       break;
     case 'guidetry':
-      if (!requireCap('ai')) break;
+      if (!requireCap('aiChat')) break;
       void openGuide(true);
       break;
     case 'poster':
@@ -1267,7 +1267,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
           /* 补全信息（2026-11-11）：用户点了才发请求，只填空白字段 */
           if (it.act === 'enrich')
             i.onClick(() => {
-              if (requireCap('ai')) void enrichBookMeta(id);
+              if (requireCap('aiChat')) void enrichBookMeta(id);
             });
           /* 导出没解锁就弹对照表，不悄悄降级成「复制一段纯文本」 */
           if (it.act === 'export')
@@ -2379,6 +2379,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'searchmode': {
       const next = d.v === 'semantic' ? 'semantic' : 'literal';
       if (next === getState().searchMode) break;
+      /* 语义搜索是高级版能力：被拦时弹对照表并高亮「语义搜索」那一行 */
+      if (next === 'semantic' && !requireCap('semantic')) break;
       const surface = currentSearchSurface();
       setState({ searchMode: next });
       if (next === 'semantic') {
@@ -2395,6 +2397,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     }
     case 'semrun':
       if (getState().searchMode !== 'semantic') break;
+      if (!requireCap('semantic')) break;
       kickSemanticSearch(getState().searchKw, currentSearchSurface());
       break;
     case 'semhittotext': {
@@ -2551,6 +2554,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
        与「存为笔记」不同——那是卡上一条答案，这里是整场对话，关掉侧栏
        之后还能回去看当时问过什么、依据是哪几章。 */
     case 'aisavelog': {
+      if (!requireCap('aiChat')) break;
       const app = getShellSource()?.app;
       if (!app) break;
       if (!RT.aiLog.length) {

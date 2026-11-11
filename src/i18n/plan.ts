@@ -41,8 +41,10 @@ export type PlanKey =
   | 'stats'
   | 'poster'
   | 'crossSearch'
+  | 'semantic'
   | 'aiSel'
   | 'aiBook'
+  | 'aiChat'
   | 'vertical'
   | 'tts'
   | 'parallel'
@@ -293,6 +295,17 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'Búsqueda en toda la biblioteca, texto de PDF incluido',
     pt: 'Pesquisa em toda a biblioteca, texto de PDF incluído',
   },
+  /* 语义搜索（2026-11-11）：本书与全库都能按意思找。 */
+  semantic: {
+    zh: '语义搜索：本书与全库，按意思找',
+    'zh-TW': '語意搜尋：本書與全庫，按意思找',
+    en: 'Semantic search: this book or the whole shelf',
+    ja: 'セマンティック検索：本書・本棚',
+    de: 'Semantische Suche: Buch oder Regal',
+    fr: 'Recherche sémantique : ce livre ou le rayon',
+    es: 'Búsqueda semántica: este libro o el estante',
+    pt: 'Busca semântica: este livro ou a estante',
+  },
   aiSel: {
     zh: 'AI 解释、翻译与摘要：划词即用',
     'zh-TW': 'AI 解釋、翻譯與摘要：劃詞即用',
@@ -312,6 +325,17 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     fr: 'Questions IA sur tout le livre',
     es: 'Preguntas de IA sobre todo el libro',
     pt: 'Perguntas de IA sobre o livro inteiro',
+  },
+  /* AI 伴读（2026-11-11）：追问、导读、补全、对话存档共用一道门禁。 */
+  aiChat: {
+    zh: 'AI 伴读：边读边问，按章导读',
+    'zh-TW': 'AI 伴讀：邊讀邊問，按章導讀',
+    en: 'AI companion: ask as you read, per-chapter guide',
+    ja: 'AI 伴読：読みながら質問、章ごとのガイド',
+    de: 'KI-Begleiter: beim Lesen fragen, Kapitelführer',
+    fr: 'Compagnon IA : demandez en lisant, guide par chapitre',
+    es: 'Compañero IA: pregunta mientras lees, guía por capítulo',
+    pt: 'Companheiro IA: pergunte enquanto lê, guia por capítulo',
   },
   vertical: {
     /* 竖排只在 EPUB / TXT 生效：PDF 的排版来自文件本身，不参与竖排。 */
