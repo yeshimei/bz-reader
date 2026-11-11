@@ -66,17 +66,28 @@ describe('normalizePrefs', () => {
 });
 
 /**
- * 正文口径（ui-spec「尺寸口径」）：桌面 18px / 行高 2.05 / 单栏 648px。
- * 行高这条踩过：按 0.1 取整会把 2.05 存成 2.1，界面上永远显示不出定稿值。
+ * 正文口径（2026-11-11 改）：字号 26px / 行高 1.7 / 页边距 8（下限）。
+ * 行高这条踩过：按 0.1 取整会把非整档值抹平，界面上永远显示不出定稿值。
  */
 describe('正文口径', () => {
-  it('默认行高就是 2.05', () => {
-    expect(DEFAULT_PREFS.lineHeight).toBe(2.05);
-    expect(DEFAULT_PREFS.fontSize).toBe(18);
+  it('默认字号 26px、行高 1.7、页边距 8', () => {
+    expect(DEFAULT_PREFS.fontSize).toBe(26);
+    expect(DEFAULT_PREFS.lineHeight).toBe(1.7);
+    expect(DEFAULT_PREFS.margin).toBe(MARGIN_RANGE.min);
   });
 
-  it('2.05 存取一个来回不被改掉', () => {
-    expect(normalizePrefs({ lineHeight: 2.05 }).lineHeight).toBe(2.05);
+  it('默认值都落在滑块的 min/max/step 线上', () => {
+    /* 默认值掉出范围时 normalizePrefs 会把它夹成边界值，
+       界面上看见的默认值就不是代码里写的那一个。 */
+    const onGrid = (v: number, r: { min: number; max: number; step: number }): boolean =>
+      v >= r.min && v <= r.max && Math.abs(Math.round((v - r.min) / r.step) * r.step + r.min - v) < 1e-9;
+    expect(onGrid(DEFAULT_PREFS.fontSize, FONT_SIZE_RANGE)).toBe(true);
+    expect(onGrid(DEFAULT_PREFS.lineHeight, LINE_HEIGHT_RANGE)).toBe(true);
+    expect(onGrid(DEFAULT_PREFS.margin, MARGIN_RANGE)).toBe(true);
+  });
+
+  it('1.7 存取一个来回不被改掉', () => {
+    expect(normalizePrefs({ lineHeight: 1.7 }).lineHeight).toBe(1.7);
   });
 
   it('行高按 0.05 取整（滑块步长同档）', () => {

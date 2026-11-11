@@ -140,10 +140,12 @@ export interface ReaderPrefs {
 }
 
 export const DEFAULT_PREFS: ReaderPrefs = {
-  fontSize: 18,
-  /* 2.05 是定稿量出来的：2.0 在中文字里太挤，2.1 又散（ui-spec 的「尺寸口径」） */
-  lineHeight: 2.05,
-  margin: 32,
+  fontSize: 26,
+  /* 1.7 是 2026-11-11 定下的口径：26px 字配 1.7 行高，一行二十来字，
+     手机上刚好一屏一段；再松就只剩半屏正文。步长 0.05，1.7 落在档位上。 */
+  lineHeight: 1.7,
+  /* 左右边距取下限 8：手机窄屏把宽度全让给正文，桌面也按同一份默认走。 */
+  margin: 8,
   fontFamily: 'book',
   align: 'justify',
   accent: 'copper',
@@ -167,7 +169,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
 };
 
 export const FONT_SIZE_RANGE = { min: 14, max: 30, step: 1 } as const;
-/* 步长 0.05：定稿默认 2.05 就落在这条线上，step 0.1 会把它四舍五入成 2.1 */
+/* 步长 0.05:默认 1.7 落在档位上，也留出 1.65 这类中间档；step 0.1 会抹掉它们 */
 export const LINE_HEIGHT_RANGE = { min: 1.4, max: 2.4, step: 0.05 } as const;
 export const MARGIN_RANGE = { min: 8, max: 120, step: 4 } as const;
 export const TTS_RATE_RANGE = { min: 0.6, max: 2, step: 0.1 } as const;
@@ -334,7 +336,7 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     : DEFAULT_PREFS.fontFamily;
   return {
     fontSize: Math.round(clamp(p.fontSize, FONT_SIZE_RANGE.min, FONT_SIZE_RANGE.max, DEFAULT_PREFS.fontSize)),
-    /* 按 0.05 取整：滑块步长与默认值都是这档，按 0.1 存会把 2.05 变成 2.1 */
+    /* 按 0.05 取整：滑块步长与默认值都是这档，按 0.1 存会丢掉 1.65 这类中间档 */
     lineHeight:
       Math.round(clamp(p.lineHeight, LINE_HEIGHT_RANGE.min, LINE_HEIGHT_RANGE.max, DEFAULT_PREFS.lineHeight) * 20) / 20,
     margin: Math.round(clamp(p.margin, MARGIN_RANGE.min, MARGIN_RANGE.max, DEFAULT_PREFS.margin)),
