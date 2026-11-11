@@ -2052,6 +2052,16 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (changed) notify(t('notice.language.changed'));
       break;
     }
+    case 'setocr': {
+      /* 扫描页识别的通道：只切开关不重认，用户上一批认过的结果照旧可用 */
+      const src = getShellSource();
+      if (!src) break;
+      if (d.k === 'pdfOcrEngine') {
+        src.setSettings({ pdfOcrEngine: d.v === 'http' ? 'http' : 'vision' });
+        repaint();
+      }
+      break;
+    }
     case 'headertoggle': {
       /* 图标显隐：隐藏的进 ⋮（不是彻底消失） */
       const src = getShellSource();
@@ -3788,9 +3798,14 @@ export function dispatchInput(
        移动端软键盘会在同步 IO 的间隙收起，表现成「打一个字就失焦」。
        松手（change）或输入法上屏（compositionend）才收口。 */
     if (dragging) return;
-    /* 目录类设置已经没有输入框了（只走文件夹选择器），这里只剩 AI 三个字段 */
+    /* 目录类设置已经没有输入框了（只走文件夹选择器），这里只剩 AI 三个字段
+       与扫描页识别的服务地址 */
     if (k === 'ai.baseUrl' || k === 'ai.model' || k === 'ai.apiKey') {
       src.setSettings({ ai: { ...shellSettings().ai, [k.slice(3)]: value } });
+      return;
+    }
+    if (k === 'pdfOcrUrl') {
+      src.setSettings({ pdfOcrUrl: value });
       return;
     }
     if (k.startsWith('ttsLocal.') || k.startsWith('ttsOnline.')) {

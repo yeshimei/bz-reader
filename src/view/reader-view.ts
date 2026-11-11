@@ -165,6 +165,7 @@ import { addChapterSeconds, clipLanding, type ClipLanding } from '../data/clip-e
 import { carryMeasuredPages, clipStructureChanged, migrateClipKey, syncClipChapterMeta } from '../data/clip-epub/refresh';
 import { DEFAULT_CLIP_SCOPE, type ClipScope } from '../data/clip-epub/scope';
 import { getShellSource, shellPrefs, shellSettings } from '../shell/source';
+import { OCR_BATCH, PdfOcrRunner, type PdfOcrHostLike } from '../shell/pdf-ocr';
 import { collectPdfBacklinks, invalidatePdfBacklinks } from '../data/pdf-backlink';
 import { epubBacklinkHits } from '../data/epub-backlink';
 import { dispatchAction, requireCap } from '../shell/actions';
@@ -199,6 +200,10 @@ export type ReaderCommand =
   | 'pdf-thumbs'
   | 'pdf-copy-link'
   | 'pdf-export-page'
+  | 'pdf-ocr-page'
+  | 'pdf-ocr-batch'
+  | 'pdf-ocr-stop'
+  | 'pdf-ocr-clear'
   | 'pdf-back';
 
 /** 读到 99% 以上就算读完，不必真翻到最后一页的最后一个字 */
@@ -526,14 +531,97 @@ export class ReaderView extends ItemView {
   private offNotes: (() => void) | null = null;
   private lastTapAt = 0;
 
+  /* 扫描页识别：编排在壳层（shell/pdf-ocr），引擎只负责出图与铺层 */
+  private readonly ocr: PdfOcrRunner;
+  /** 「这本是扫描件」只提醒一次，别每次开书都弹 */
+  private scannedNoticed = false;
+
   constructor(leaf: WorkspaceLeaf, api: ReaderHostApi) {
     super(leaf);
     this.api = api;
     this.host = new EngineHost(api.app);
+    this.ocr = new PdfOcrRunner({
+      app: api.app,
+      book: () => this.book,
+      host: () => this.ocrHost(),
+      settings: () => shellSettings(),
+      image: (page, maxWidth) => {
+        const host = this.host;
+        return host.ocrUi?.image(page, maxWidth) ?? Promise.resolve(null);
+      },
+      notify: (message, kind) => notify(message, kind === 'error' ? 'error' : kind === 'success' ? 'success' : 'info'),
+    });
     /* 按平台取：桌面 prefsDesktop、手机 prefsMobile，新槽空着才回落旧的全局
        prefs。直接读 `store.get().prefs` 会永远拿到升级前那一份——手机上调好的
        字号行距都写在自己的槽里，重启后打开书版式就回到默认。 */
     this.prefs = pickPrefs(api.store.get(), isMobileEnv());
+  }
+
+  /**
+   * 把 PDF 宿主的识别能力收成壳层要的形状。
+   *
+   * `ocrUi` 是 getter（每次现取），所以先取一次存进局部变量：不然下面每个
+   * 回调都会再去拿一个新壳，切书之后指向的还是旧视图。
+   */
+  private ocrHost(): PdfOcrHostLike | null {
+    const host = this.host;
+    if (!host.isPdf) return null;
+    const ui = host.ocrUi;
+    if (!ui) return null;
+    return {
+      isScanned: host.isScanned === true,
+      ocrOf: (page) => ui.of(page),
+      ocrStats: () => ui.stats(),
+      applyOcr: (pages) => ui.apply(pages),
+      applyOcrPage: (page, ocr) => ui.applyPage(page, ocr),
+      textOfPage: (page) => ui.pageText(page),
+    };
+  }
+
+  /* ─────────────────── 扫描页识别 ─────────────────── */
+
+  /** 认指定的一页（命令 / 排版面板那颗按钮都走这里） */
+  private recognizePage(page = this.currentPageNumber()): void {
+    if (!this.host.isPdf) {
+      notify(t('notice.pdf.ocrOnly'), 'info');
+      return;
+    }
+    const target = Math.max(1, Math.floor(Number(page) || 1));
+    void this.ocr.runPage(target).then((ok) => {
+      if (!ok) return;
+      const ocr = this.ocrHost()?.ocrOf(target);
+      notify(
+        ocr?.layout
+          ? t('notice.pdf.ocrDone', { n: String(target) })
+          : t('notice.pdf.ocrTextOnly', { n: String(target) }),
+        ocr?.layout ? 'success' : 'info',
+      );
+    });
+  }
+
+  /** 从当前页起认一批：读到哪儿认到哪儿，不默认整本烧钱 */
+  private recognizeBatch(): void {
+    if (!this.host.isPdf) {
+      notify(t('notice.pdf.ocrOnly'), 'info');
+      return;
+    }
+    const from = this.currentPageNumber();
+    notify(t('notice.pdf.ocrStart', { n: String(OCR_BATCH) }), 'info');
+    void this.ocr.runBatch(from);
+  }
+
+  /** 当前页号（PDF 的 pageKey 就是 `pdf:<页>`；取不到按 1） */
+  private currentPageNumber(): number {
+    const n = Number(String(this.host.pageKey ?? '').split(':')[1]);
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
+  }
+
+  /** 扫描件第一次开书时说明一句：不给提示，用户只会以为插件坏了 */
+  private noticeScanned(): void {
+    if (this.scannedNoticed) return;
+    if (!this.host.isPdf || !this.host.isScanned) return;
+    this.scannedNoticed = true;
+    notify(t('notice.pdf.ocrScanned'), 'info');
   }
 
   getViewType(): string {
@@ -673,6 +761,8 @@ export class ReaderView extends ItemView {
   }
 
   async onClose(): Promise<void> {
+    /* 关掉 tab 还在跑的识别要停：它每页都要发一次请求，人已经走了 */
+    this.ocr.cancel();
     this.teardown();
     /* 反链防抖计时器：关书之后到点还会跑，算出来的东西也没地方放 */
     if (this.citesTimer !== null) window.clearTimeout(this.citesTimer);
@@ -1438,6 +1528,24 @@ export class ReaderView extends ItemView {
        命令 id 保留 `pdf-back` 是为了不弄丢用户已经绑好的快捷键。 */
     if (kind === 'pdf-back') {
       this.goBack();
+      return;
+    }
+    /* 扫描页识别不属于 pdfUi：它要出图、要落盘、要等网络，pdfUi 是「视图动作」。
+       但这几条也不需要 pdfUi 在——扫描件上照样能点。 */
+    if (kind === 'pdf-ocr-page') {
+      this.recognizePage();
+      return;
+    }
+    if (kind === 'pdf-ocr-batch') {
+      this.recognizeBatch();
+      return;
+    }
+    if (kind === 'pdf-ocr-stop') {
+      this.ocr.cancel();
+      return;
+    }
+    if (kind === 'pdf-ocr-clear') {
+      void this.ocr.clear();
       return;
     }
     if (kind.startsWith('pdf-')) {
@@ -4133,6 +4241,8 @@ export class ReaderView extends ItemView {
         onPdfFileAnnotTap: (info) => this.showFileAnnot(info),
         /* 排版面板里切了「一屏一页 / 连续滚动」：写 PDF 自己那一项，不牵动 EPUB */
         onPdfFlow: (mode) => getShellSource()?.setPrefs({ pdfFlow: mode }),
+        /* 排版面板里的「识别本页」（扫描件）：识别编排在壳层 */
+        onPdfOcr: (page) => this.recognizePage(page),
         /* 跳转历史条数变了：头栏那颗「回到上一处」跟着亮 / 灰。两个引擎都报 */
         onHistoryChange: (count) =>
           this.headerEls.get('history')?.classList.toggle('is-off', count === 0),
@@ -4180,7 +4290,16 @@ export class ReaderView extends ItemView {
          角度/排法摆好，再套全局的翻页/滚动偏好，否则全局偏好会顶着默认值
          先把「双页」冲掉。 */
       this.host.restorePdfView?.(book.pdfView);
-      if (this.host.isPdf) this.host.applyPrefs(this.prefs);
+      if (this.host.isPdf) {
+        this.host.applyPrefs(this.prefs);
+        /* 识别结果随书一起进来。顺序要在 start() 之前：晚一步的话，先渲染
+           的那几页永远停在「拖动 = 框选」，用户得滚动一下才看见能划词。 */
+        this.ocr.reset();
+        void this.ocr
+          .load()
+          .then(() => this.noticeScanned())
+          .catch(() => undefined);
+      }
       /* 点按分区要用「可见宽度」当分母：分页器的文档宽度比屏幕大一个量级 */
       this.host.setViewportWidth(
         (this.stage).clientWidth,

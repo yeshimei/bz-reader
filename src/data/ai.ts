@@ -234,17 +234,31 @@ export interface AiAskOptions {
   signal?: AbortSignal;
 }
 
-/** 调 OpenAI 兼容的 /chat/completions。失败抛 Error，消息给人看。 */
-export async function aiAsk(
+/** 调一次 /chat/completions 的通用选项。扫描页识别（视觉 OCR）也走这条路 */
+export interface AiChatOptions extends AiAskOptions {
+  /** 采样温度；默认 0.3（识别这类任务调用方会给更低的） */
+  temperature?: number;
+  /** 输出上限；不传就交给服务商的默认值 */
+  maxTokens?: number;
+}
+
+/**
+ * 调 OpenAI 兼容的 `/chat/completions`，返回第一条消息的文字。
+ *
+ * `messages` 的 content 由调用方决定：普通问答是字符串，视觉识别是
+ * `[{type:'text'},{type:'image_url',image_url:{url}}]` 数组——OpenAI、
+ * 智谱、Gemini 兼容层都认这个形状，所以不必给「多模态」另开一条请求链路。
+ * 失败抛 Error，消息给人看。
+ */
+export async function aiPostChat(
   settings: ReaderSettings,
-  input: AiAskInput,
-  opts: AiAskOptions = {},
-): Promise<AiResult> {
+  messages: ReadonlyArray<{ role: string; content: unknown }>,
+  opts: AiChatOptions = {},
+): Promise<string> {
   const { baseUrl, apiKey, model } = settings.ai;
   if (!aiReady(settings)) {
     throw new Error('还没配置 AI 接口：到 书架 · 设置 的「AI 助手」里填好地址、模型与密钥');
   }
-  const messages = buildMessages(input);
   /* 超时（P2-12）+ 外部取消：没有超时的时候，接口地址填错、代理挂掉，
      界面就一直「正在请求…」；没有取消，用户只能关掉整个弹层干等。 */
   let timedOut = false;
@@ -255,6 +269,12 @@ export async function aiAsk(
   }, AI_TIMEOUT_MS);
   const onAbort = (): void => ctrl.abort();
   opts.signal?.addEventListener('abort', onAbort);
+  const body: Record<string, unknown> = {
+    model,
+    temperature: opts.temperature ?? 0.3,
+    messages,
+  };
+  if (opts.maxTokens) body.max_tokens = opts.maxTokens;
   let res: Response;
   try {
     /* 用 window.fetch 而不是 requestUrl：后者不接受 AbortSignal，超时与
@@ -265,11 +285,7 @@ export async function aiAsk(
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model,
-        temperature: 0.3,
-        messages,
-      }),
+      body: JSON.stringify(body),
       signal: ctrl.signal,
     });
   } catch (e) {
@@ -300,5 +316,15 @@ export async function aiAsk(
   if (data.error?.message) throw new Error(`AI 接口报错：${data.error.message}`);
   const content = data.choices?.[0]?.message?.content;
   if (typeof content !== 'string' || !content.trim()) throw new Error('AI 没有返回内容');
-  return { text: content.trim() };
+  return content.trim();
+}
+
+/** 调 OpenAI 兼容的 /chat/completions。失败抛 Error，消息给人看。 */
+export async function aiAsk(
+  settings: ReaderSettings,
+  input: AiAskInput,
+  opts: AiAskOptions = {},
+): Promise<AiResult> {
+  const messages = buildMessages(input);
+  return { text: await aiPostChat(settings, messages, opts) };
 }

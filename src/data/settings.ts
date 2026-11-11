@@ -42,6 +42,9 @@ export interface AiSettings {
    */
 }
 
+/** 扫描页识别的通道（见 ReaderSettings.pdfOcrEngine） */
+export type PdfOcrEngine = 'vision' | 'http';
+
 export interface ReaderSettings {
   /** 书摘导出目录（vault 相对路径，默认 `bz-reader/notes`） */
   exportDir: string;
@@ -58,21 +61,32 @@ export interface ReaderSettings {
   language: LanguagePref;
   ai: AiSettings;
   /**
-   * 本地语音服务（2026-11-14）。
-   *
-   * 和 `ai` 一样是「服务配置」，放 settings 不放 prefs：它跟着这台机器走，
-   * 换台电脑该连那台机器的 127.0.0.1。音色不在这里——那是听感，跟书走，
-   * 在 prefs.ttsVoiceLocal。
-   */
-  ttsLocal: LocalTtsSettings;
-  /**
-   * 在线语音服务（2026-11-14 从 AI 组独立出来）。
-   *
-   * 以前朗读借 `ai.baseUrl` 与 `ai.apiKey`，等于把「朗读用哪家」绑死在
-   * 「AI 问答用哪家」上。现在自带地址 / 模型 / 密钥：两件事的账号未必
-   * 相同，地址也可能是不同的代理。空地址 = 用 DeepSeek 官方默认。
-   */
-  ttsOnline: OnlineTtsSettings;
+* 本地语音服务（2026-11-14）。
+*
+* 和 `ai` 一样是「服务配置」，放 settings 不放 prefs：它跟着这台机器走，
+* 换台电脑该连那台机器的 127.0.0.1。音色不在这里——那是听感，跟书走，
+* 在 prefs.ttsVoiceLocal。
+*/
+ttsLocal: LocalTtsSettings;
+/**
+* 在线语音服务（2026-11-14 从 AI 组独立出来）。
+*
+* 以前朗读借 `ai.baseUrl` 与 `ai.apiKey`，等于把「朗读用哪家」绑死在
+* 「AI 问答用哪家」上。现在自带地址 / 模型 / 密钥：两件事的账号未必
+* 相同，地址也可能是不同的代理。空地址 = 用 DeepSeek 官方默认。
+*/
+ttsOnline: OnlineTtsSettings;
+/**
+* 扫描页识别走哪条通道（2026-11-11）：
+*   `vision` 用上面配好的 AI（多模态看图），不用装任何东西；
+*   `http`   把图 POST 给用户自己的 OCR 服务（Umi-OCR / PaddleOCR 都行）。
+*
+* 故意**没有**「本地引擎」这一档：模型与 wasm 无法随插件三件套发布，
+* 打包进 main.js 会把 2.6 MB 撑到十几 MB，而且 iOS 上跑不稳。
+*/
+pdfOcrEngine: PdfOcrEngine;
+/** `http` 通道的服务地址（`http://127.0.0.1:9000/ocr` 这种） */
+pdfOcrUrl: string;
   /*
    * 这里**故意没有**「连接至 BZ AI 知识库」开关。
    *
@@ -169,6 +183,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     apiKey: '',
     format: 'mp3',
   },
+  pdfOcrEngine: 'vision',
+  pdfOcrUrl: '',
   aiAck: false,
   ttsAck: false,
   ttsStats: { chars: 0, cost: 0 },
@@ -329,6 +345,8 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     ai,
     ttsLocal: normalizeTtsLocal(s.ttsLocal),
     ttsOnline: normalizeTtsOnline(s.ttsOnline, ai),
+    pdfOcrEngine: s.pdfOcrEngine === 'http' ? 'http' : 'vision',
+    pdfOcrUrl: cleanUrl(str(s.pdfOcrUrl)),
     aiAck: s.aiAck === true,
     ttsAck: s.ttsAck === true,
     ttsStats: {
@@ -341,6 +359,19 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     /* 缺字段（1.3.1 之前没有）= 未读：这是用户定的默认值，不是「没选」 */
     clipScope: normalizeClipScope(s.clipScope),
   };
+}
+
+/**
+ * 识别通道的最终判定。
+ *
+ * `http` 但没填地址时退回 `vision`：用户切了通道却忘了填地址，跑起来直接
+ * 报「还没填 OCR 服务地址」比静默不认更糟——但更糟的是他根本没配 AI，
+ * 那时两边都用不了，报错要指明去哪配。这里只做「能不能选它」的判断，
+ * 真正的错误留给识别那一步说。
+ */
+export function pdfOcrEngineOf(s: ReaderSettings): PdfOcrEngine {
+  if (s.pdfOcrEngine !== 'http') return 'vision';
+  return s.pdfOcrUrl ? 'http' : 'vision';
 }
 
 /** AI 是否可用了：三样齐了才算配好，缺一样都不该把按钮点亮 */

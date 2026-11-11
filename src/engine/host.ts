@@ -247,6 +247,13 @@ export interface MountOptions {
    * 由壳层落盘再回灌，引擎自己不存——存两份就会「这本书滚、那本书翻」。
    */
   onPdfFlow?: (mode: 'paged' | 'scroll') => void;
+  /**
+   * 扫描件里点了「识别本页」。
+   *
+   * 识别不在引擎里做：出图之后要调 AI 或外部 OCR 服务、要落盘、要防并发写。
+   * 引擎只报页码，剩下的由壳层的 PdfOcrRunner 编排。
+   */
+  onPdfOcr?: (page: number) => void;
   /** 跳转历史条数变了：头栏那颗「回到上一处」据此亮 / 灰。两个引擎共用 */
   onHistoryChange?: (count: number) => void;
   /**

@@ -69,6 +69,13 @@ export interface PdfViewCallbacks {
   pdfPrefs?: () => PdfViewPrefs;
   /** 面板里切了「一屏一页 / 连续滚动」：写回 **PDF 自己的**翻页偏好 */
   onFlowChange?: (mode: 'paged' | 'scroll') => void;
+  /**
+   * 排版面板里点了「识别本页」（扫描件）。
+   *
+   * 出图、调识别、落盘都在壳层：引擎不认识网络、不认识书的 id，也不该认识。
+   * 回调只报「哪一页」。
+   */
+  onOcr?: (page: number) => void;
   /** 跳转历史条数变了：头栏那颗「回到上一处」据此亮 / 灰 */
   onHistoryChange?: (count: number) => void;
 }
@@ -1001,6 +1008,27 @@ export class PdfView {
           );
           break;
       }
+    /* 扫描页才需要这一行：认过字的页显示「已识别」，点一下重认。
+       有文字层的页不出现——那页本来就能划词，多一行只会让人以为要转换。
+       判据用「文字已知为空」而不是「页上有没有 span」：还没渲染出来的页
+       没有 span，露一颗按钮等于让用户点了看不见结果。 */
+    const ocr = this.doc.ocrOf(this.current);
+    if (ocr || this.doc.textKnownEmpty(this.current)) {
+      const row = grp.createDiv({ cls: 'bzs-setrow' });
+      row.createEl('label', { text: t('pdf.layout.text') });
+      const box = row.createDiv({ cls: 'bzs-seg' });
+      const btn = createEl('button');
+      btn.type = 'button';
+      btn.textContent = ocr ? t('pdf.layout.ocrDone') : t('pdf.layout.ocr');
+      btn.className = ocr?.layout ? 'on' : '';
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        /* 面板先收：识别要几百毫秒到几秒，弹着面板像卡住了 */
+        this.toggleLayoutPanel();
+        this.opts.onOcr?.(this.current);
+      });
+      box.appendChild(btn);
     }
   }
 
@@ -1261,8 +1289,49 @@ export class PdfView {
     return text;
   }
 
+  /** 整页文本（朗读 / AI 取文）：识别过的页会拿到识别结果 */
   async pageText(page: number): Promise<string> {
     return this.doc.getText(page);
+  }
+
+  /**
+   * 一页的识别结果到了：换掉这一页的文字层。
+   *
+   * 不整页重渲：画布已经画好了，重画一次要多等一百多毫秒并且会闪一下；
+   * 只换文字层 + 重画依赖文字的三层（标注 / 反链 / 搜索命中）就够。
+   * 换完之后这页就「有字可选」了——拖动会自动从框选变成划词。
+   */
+  repaintOcr(page: number): void {
+    if (this.destroyed) return;
+    const el = this.pageEls[page - 1];
+    const layer = el?.querySelector<HTMLElement>('.textLayer');
+    if (!el || !layer || !this.rendered.has(page)) return;
+    void this.doc
+      .renderTextLayer(page, layer, this.scale, this.rotation)
+      .then(() => {
+        if (this.destroyed || !el.isConnected) return;
+        this.paintAnnotations(page);
+        this.paintBacklinks(page);
+        this.paintSearch(page);
+      })
+      .catch(() => undefined);
+  }
+
+  /** 整本的识别结果到了：已经渲染出来的页立刻换层 */
+  repaintOcrAll(): void {
+    for (const page of [...this.rendered]) this.repaintOcr(page);
+  }
+
+  /**
+   * 识别用的一页位图。
+   *
+   * `rotation` 一并带回去：识别结果是在这个方向上量的，存之前要按它反算回
+   * 未旋转页面坐标，否则「开着 90° 认的字，转回 0° 看就整体歪掉」。
+   */
+  async ocrImage(page: number, maxWidth = 1600): Promise<{ blob: Blob; rotation: number } | null> {
+    const blob = await this.doc.renderImage(page, maxWidth, this.rotation);
+    if (!blob) return null;
+    return { blob, rotation: this.rotation };
   }
 
   setAnnotations(list: ReadonlyArray<{ cfiRange: string; color?: string; text?: string }>): void {

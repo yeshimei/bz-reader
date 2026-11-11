@@ -22,7 +22,7 @@ import { t, LOCALES, LOCALE_NAMES, type MsgKey } from '../../i18n';
 import { ACCENT_OPTIONS, accentLabel, FONT_FAMILIES, fontLabel, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARGIN_RANGE, TTS_CACHE_RANGE, TTS_RATE_RANGE, type ReaderPrefs } from '../../data/prefs';
 import { ttsEngineReady, type TtsEngine } from '../../core/tts-engine';
 import { HIGHLIGHT_COLORS, colorLabel } from '../../data/notes';
-import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
+import { DEFAULT_SETTINGS, pdfOcrEngineOf, type ReaderSettings } from '../../data/settings';
 import { can, entitlement, GROUP_ID, tierText } from '../../data/entitlement';
 import { dataDirOf } from '../../core/plugin-path';
 import { isMobileShell } from '../../core/mobile';
@@ -406,6 +406,26 @@ export function viewSettings(v: SettingsView): string {
         'bzs-seg bzs-seg-wrap bzs-seg-pdf3',
       )}</div>
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfLinkLabel.hint')}</div>
+    </div>
+    <div class="bzs-setgrp">
+      <h3>${t('settings.grp.pdfOcr')}</h3>
+      <div class="bzs-setrow is-segrow"><label>${t('settings.pdfOcrEngine')}</label>${seg(
+        'pdfOcrEngine',
+        [
+          ['vision', t('settings.pdfOcrEngine.vision')],
+          ['http', t('settings.pdfOcrEngine.http')],
+        ],
+        /* 显示「实际生效的那一档」：选了外部服务却没填地址时会退回 AI 看图，
+           按钮要跟着退，否则用户以为改成功了 */
+        pdfOcrEngineOf(s),
+        'setocr',
+        'bzs-seg bzs-seg-pdf2',
+      )}</div>
+      <div class="bzs-setrow"><label>${t('settings.pdfOcrUrl')}</label><input data-role="setting" data-k="pdfOcrUrl" placeholder="http://127.0.0.1:9000/ocr" value="${esc(
+        s.pdfOcrUrl,
+      )}" style="flex:1" spellcheck="false"></div>
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfOcrUrl.hint')}</div>
+      <div class="bzs-mini">${t('settings.pdfOcrHint')}</div>
     </div>`;
 
   /* 阅读页右上角图标：可排序、可收起。收起的进 ⋮；移动端最多露 3 颗。

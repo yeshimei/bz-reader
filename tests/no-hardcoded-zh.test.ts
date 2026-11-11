@@ -42,6 +42,10 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
      是模型输出里的字段名，解析器必须认得这几个字；它们不显示给用户，
      与 data/ai.ts 里的 prompt 同一性质）。 */
   'src/data/book-enrich.ts': 10,
+  /* 2026-11-11 新文件：扫描页识别的 prompt（要模型按「一行一条 + 0..1 坐标」
+     回 JSON）与两条模型侧指令。只发给模型、不显示给用户，与 data/ai.ts 同一
+     性质；界面那几句（认没认出、失败原因）走的是 i18n 的 notice.pdf.ocr*。 */
+  'src/data/ai-vision.ts': 12,
   /* 2026-11-11 新文件：开章导读的 prompt 与「这一章 / 带着三个问题」的段落名，
      只发给模型、不显示给用户，与 data/ai.ts 同一性质。 */
   'src/data/chapter-guide.ts': 7,

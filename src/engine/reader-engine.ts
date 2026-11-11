@@ -14,6 +14,7 @@ import type { BookFormat } from '../data/schema';
 import type { ReaderPrefs } from '../data/prefs';
 import type { FoliateTOCItem } from '../types/foliate';
 import type { HostAnnotation, MountOptions, SearchHit } from './host';
+import type { OcrPage } from './pdf/ocr';
 import { EngineHost } from './host';
 import type { Anchor } from '../core/tts-anchor';
 import { PdfEngineHost } from './pdf/host';
@@ -67,6 +68,27 @@ export interface PdfUi {
   exportPage(): void;
   /** 直接产出一条链接（快捷键用，不弹菜单） */
   copyLink(kind: 'page' | 'view' | 'embed' | 'marks'): void;
+}
+
+/**
+ * PDF 扫描页识别（OCR）的能力面。EPUB/TXT/CBZ 没有——它们天生有文字层。
+ *
+ * 和 `PdfUi` 同一条约定：**现取，不缓存**。壳层的识别编排只认这个形状，
+ * 不 import PDF 引擎类。
+ */
+export interface PdfOcrUi {
+  /** 这一页已识别出来的结果（没有就是 null） */
+  of(page: number): OcrPage | null;
+  /** 已认页数 / 总页数（界面写「已认 12 / 278 页」） */
+  stats(): { done: number; total: number };
+  /** 灌整本（开书时一次）：已经渲染的页会立刻换层 */
+  apply(pages: Record<string, OcrPage> | null): void;
+  /** 单页结果落地：替换这一页的文字层 */
+  applyPage(page: number, ocr: OcrPage | null): void;
+  /** 页文本（识别优先）：判断「这页有没有字」的最终口径 */
+  pageText(page: number): Promise<string>;
+  /** 一页渲染成位图（识别用），带出图时的显示角度 */
+  image(page: number, maxWidth: number): Promise<{ blob: Blob; rotation: number } | null>;
 }
 
 export interface ReaderEngine {
@@ -200,6 +222,8 @@ export interface ReaderEngine {
   restorePdfView?(state: { rotation?: number; spread?: boolean } | null | undefined): void;
   /** PDF 专用动作集；EPUB/TXT/CBZ 没有 */
   readonly pdfUi?: PdfUi;
+  /** PDF 专用：扫描页识别。别的引擎没有 */
+  readonly ocrUi?: PdfOcrUi;
   /** 跳转历史。两个引擎都实现（EPUB 2026-11-10 补上） */
   readonly historyUi?: HistoryUi;
   destroy(): Promise<void>;

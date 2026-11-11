@@ -11,7 +11,7 @@
  * ============================================================ */
 
 import type { App, EventRef } from 'obsidian';
-import type { PdfUi } from '../reader-engine';
+import type { PdfOcrUi, PdfUi } from '../reader-engine';
 import { normalizePath } from 'obsidian';
 import { notify } from '../../core/notice';
 import type { EngineMeta } from '../../data/book-meta';
@@ -26,10 +26,16 @@ import { PdfDocument } from './document';
 import { parsePdfLocator, pdfPageLocator } from './locator';
 import { pdfHitLocator, searchPageTexts } from './search';
 import { PdfView } from './view';
+import { looksScanned, scanSamplePages, type OcrPage } from './ocr';
 
 export class PdfEngineHost implements ReaderEngine {
   readonly isPdf = true;
-  /** 首页没有文字 = 纯扫描件；划词、搜索都没有素材 */
+  /**
+   * 抽样几页都没有文字 = 扫描件；划词、搜索、朗读都没有素材。
+   *
+   * 只看首页会误判：很多书第一页是封面图、第二页开始才是字。`applyOcr`
+   * 灌进识别结果之后要重算一次——认过字的书就不再是「完全没法划词」。
+   */
   isScanned = false;
   readonly contentVertical = false;
   readonly contentRtl = false;
@@ -106,6 +112,7 @@ export class PdfEngineHost implements ReaderEngine {
       onBacklinkTap: (info) => opts.onPdfBacklinkTap?.(info),
       onFileAnnotTap: (info) => opts.onPdfFileAnnotTap?.(info),
       onFlowChange: (mode) => opts.onPdfFlow?.(mode),
+      onOcr: (page) => opts.onPdfOcr?.(page),
       onHistoryChange: (count) => opts.onHistoryChange?.(count),
       /* PDF 组的偏好：缩放档只在开书时读，两个开关随时读 */
       pdfPrefs: () => ({
@@ -148,14 +155,9 @@ export class PdfEngineHost implements ReaderEngine {
       console.warn('[bz-reader] PDF 反链事件注册失败：', err);
     }
 
-    /* 扫描件判定：首页一个字都没有，划词、搜索、朗读全都无从下手。
+    /* 扫描件判定：抽样三页都没字，划词、搜索、朗读全都无从下手。
        宿主据此先说明一句，别让用户以为是插件坏了。 */
-    try {
-      const first = await this.doc.getText(1);
-      this.isScanned = !String(first ?? '').trim();
-    } catch {
-      this.isScanned = false;
-    }
+    await this.recomputeScanned();
 
     /* 视图层拿到一个「书」的形状做封面/元数据回填；PDF 的 sections 为空，
        getCover 走 pdf.js 渲染首页。 */
@@ -331,6 +333,85 @@ export class PdfEngineHost implements ReaderEngine {
 
   currentText(): string {
     return this.view?.currentText() ?? '';
+  }
+
+  /* ─────────── 扫描页识别（OCR） ─────────── */
+
+  /**
+   * 外壳那一套识别能力。每次现取一个新壳：里面的动作都打到当前的 view/doc 上，
+   * 缓存住对象会在「切书后重挂」时指向旧视图（和 pdfUi 同一处坑）。
+   */
+  get ocrUi(): PdfOcrUi | undefined {
+    if (!this.view || !this.doc) return undefined;
+    return {
+      of: (page) => this.doc?.ocrOf(page) ?? null,
+      stats: () => ({ done: this.doc?.ocrPageCount ?? 0, total: this.doc?.numPages ?? 0 }),
+      apply: (pages) => this.applyOcr(pages),
+      applyPage: (page, ocr) => this.applyOcrPage(page, ocr),
+      pageText: (page) => this.textOfPage(page),
+      image: (page, maxWidth) => this.view?.ocrImage(page, maxWidth) ?? Promise.resolve(null),
+    };
+  }
+
+  /** 这一页已识别出来的文字（没有就是 null） */
+  ocrOf(page: number): OcrPage | null {
+    return this.doc?.ocrOf(page) ?? null;
+  }
+
+  /** 已识别页数 / 总页数（界面写「已认 12 / 278 页」） */
+  ocrStats(): { done: number; total: number } {
+    return { done: this.doc?.ocrPageCount ?? 0, total: this.doc?.numPages ?? 0 };
+  }
+
+  /**
+   * 整本的识别结果到了（开书时一次）。
+   *
+   * 已经渲染出来的页要立刻换层——晚一步用户就得滚动一下才看见「能划词了」。
+   */
+  applyOcr(pages: Record<string, OcrPage> | null): void {
+    this.doc?.setOcrPages(pages);
+    /* 同步把「扫描件」摘掉：`recomputeScanned` 是异步的，而调用方紧接着就会
+       问 isScanned（开书提示）。不同步清的话，认过字的书还会弹「这是扫描件」。 */
+    if ((this.doc?.ocrPageCount ?? 0) > 0) this.isScanned = false;
+    this.view?.repaintOcrAll();
+    void this.recomputeScanned();
+  }
+
+  /** 单页识别完成：替换这一页并就地换层 */
+  applyOcrPage(page: number, ocr: OcrPage | null): void {
+    this.doc?.setOcrPage(page, ocr);
+    this.view?.repaintOcr(page);
+    void this.recomputeScanned();
+  }
+
+  /** 页文本（识别优先）。壳层「这页有没有字」的最终判断也走它 */
+  async textOfPage(page: number): Promise<string> {
+    return this.doc?.getText(page) ?? '';
+  }
+
+  /**
+   * 重算「是不是扫描件」。
+   *
+   * 认过一页就不再是「整本没法划词」：界面会按覆盖率另外提示还有多少页没认。
+   * 一页都没认时才抽样三页看——只看首页会把「封面是图、正文是字」判错。
+   */
+  private async recomputeScanned(): Promise<void> {
+    const doc = this.doc;
+    if (!doc) {
+      this.isScanned = false;
+      return;
+    }
+    if (doc.ocrPageCount > 0) {
+      this.isScanned = false;
+      return;
+    }
+    try {
+      const pages = scanSamplePages(doc.numPages);
+      const texts = await Promise.all(pages.map((page) => doc.getText(page).catch(() => '')));
+      this.isScanned = looksScanned(texts);
+    } catch {
+      this.isScanned = false;
+    }
   }
 
   async exportChapters(

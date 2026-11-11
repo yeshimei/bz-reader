@@ -21,6 +21,8 @@ import { rotateNormRect } from './locator';
 import { mapFileAnnots, type PdfFileAnnot } from './annots';
 import { labelsFromPdf } from './pagelabels';
 import { pageTextLayoutOf, type PdfPageTextLayout, type PdfTextItemLike } from './text';
+import { ocrPageTextLayout, type OcrPage } from './ocr';
+import { paintOcrTextLayer } from './ocr-layer';
 
 export interface PdfPageSize {
   /** 1 缩放下的 CSS 像素宽高（已含页面旋转） */
@@ -69,6 +71,10 @@ export class PdfDocument {
 
   private readonly pages = new Map<number, Promise<unknown>>();
   private readonly texts = new Map<number, PdfPageTextLayout>();
+  /** 识别过的页（扫描件）。有它就压过 pdf.js 的空文字层 */
+  private readonly ocrPages = new Map<number, OcrPage>();
+  /** 识别页的文本布局缓存：一页几十行，每次朗读/搜索都重算会卡 */
+  private readonly ocrTexts = new Map<number, PdfPageTextLayout>();
   private readonly sizes = new Map<number, PdfPageSize>();
   private readonly links = new Map<string, PdfPageLink[]>();
   private readonly fileAnnots = new Map<string, PdfFileAnnot[]>();
@@ -141,6 +147,9 @@ export class PdfDocument {
    */
   async getTextLayout(page: number): Promise<PdfPageTextLayout> {
     const n = Math.min(Math.max(1, Math.floor(page)), this.numPages);
+    /* 识别过的页压过 pdf.js：扫描页的 pdf.js 文本是空的，不压就永远取不到字 */
+    const ocr = this.ocrPages.get(n);
+    if (ocr) return this.ocrLayoutOf(n, ocr);
     const cached = this.texts.get(n);
     if (cached !== undefined) return cached;
     try {
@@ -156,14 +165,80 @@ export class PdfDocument {
     }
   }
 
+  /** 识别页的文本布局（算一次缓存住：一页几十行，朗读/搜索会反复取） */
+  private ocrLayoutOf(n: number, ocr: OcrPage): PdfPageTextLayout {
+    const hit = this.ocrTexts.get(n);
+    if (hit) return hit;
+    const layout = ocrPageTextLayout(ocr);
+    this.ocrTexts.set(n, layout);
+    return layout;
+  }
+
   /** 页文本（已归一空白） */
   async getText(page: number): Promise<string> {
     return (await this.getTextLayout(page)).text;
   }
 
-  /** 已解析过的页文本（同步取，供 currentText 用） */
+  /** 已解析过的页文本（同步取，供 currentText 用）。识别页同样优先 */
   cachedText(page: number): string {
-    return this.texts.get(page)?.text ?? '';
+    const n = Math.min(Math.max(1, Math.floor(page)), this.numPages);
+    const ocr = this.ocrPages.get(n);
+    if (ocr) return this.ocrLayoutOf(n, ocr).text;
+    return this.texts.get(n)?.text ?? '';
+  }
+
+  /* ─────────── 扫描页识别（OCR） ─────────── */
+
+  /** 灌入整本的识别结果（开书时一次）。传空 = 清掉 */
+  setOcrPages(pages: Readonly<Record<string, OcrPage>> | null | undefined): void {
+    this.ocrPages.clear();
+    this.ocrTexts.clear();
+    for (const [key, value] of Object.entries(pages ?? {})) {
+      const n = Number(key);
+      if (!value || !Number.isFinite(n) || n < 1) continue;
+      this.ocrPages.set(Math.floor(n), value);
+    }
+  }
+
+  /** 单页识别完成：替换这一页，别的页不动 */
+  setOcrPage(page: number, ocr: OcrPage | null): void {
+    const n = Math.min(Math.max(1, Math.floor(page)), this.numPages);
+    if (ocr) this.ocrPages.set(n, ocr);
+    else this.ocrPages.delete(n);
+    this.ocrTexts.delete(n);
+  }
+
+  ocrOf(page: number): OcrPage | null {
+    const n = Math.min(Math.max(1, Math.floor(page)), this.numPages);
+    return this.ocrPages.get(n) ?? null;
+  }
+
+  /** 已识别的页数（界面写「已认 12 / 278 页」） */
+  get ocrPageCount(): number {
+    return this.ocrPages.size;
+  }
+
+  /**
+   * 这一页有没有可造层的识别结果。
+   *
+   * 只有 `layout: true` 才算：模型没给坐标时文字虽然有，但铺不回页面上——
+   * 硬铺会让划线落到别的行，那比不能划更糟。
+   */
+  hasOcrLayout(page: number): boolean {
+    return this.ocrOf(page)?.layout === true;
+  }
+
+  /**
+   * 这一页的文字**已知**为空（解析过、没字）。
+   *
+   * 排版面板据此决定要不要露出「识别本页」：还没解析过的页返回 false，
+   * 面板上不出现那一行——在没渲染出来的页上点识别，用户其实是看不见结果的。
+   */
+  textKnownEmpty(page: number): boolean {
+    const n = Math.min(Math.max(1, Math.floor(page)), this.numPages);
+    if (this.ocrPages.has(n)) return false;
+    const hit = this.texts.get(n);
+    return hit !== undefined && !hit.text.trim();
   }
 
   async getMetadata(): Promise<PdfDocMeta> {
@@ -327,11 +402,18 @@ export class PdfDocument {
     cssScale: number,
     extraRotation = 0,
   ): Promise<void> {
-    const lib = await loadPdfjs();
     const p = await this.page(page);
     /* 文字层的旋转必须和 canvas 完全一致，差 90 度就是「字和画错位」 */
     const rotation = rotationOf(p, extraRotation);
     const viewport = p.getViewport({ scale: cssScale, rotation });
+    /* 识别过的页用自己的层：pdf.js 在这页一个字都没有，调它只会得到空壳，
+       于是「拖动 = 框选」永远不变成「拖动 = 划词」。 */
+    const ocr = this.ocrOf(page);
+    if (ocr?.layout) {
+      paintOcrTextLayer(container, ocr, { width: viewport.width, height: viewport.height }, rotation);
+      return;
+    }
+    const lib = await loadPdfjs();
     /* pdf.js 4 的文字层靠 `--total-scale-factor` 算字号：
          --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size))
          font-size: calc(var(--text-scale-factor) * var(--font-height))
@@ -445,6 +527,34 @@ export class PdfDocument {
     }
   }
 
+  /**
+   * 识别用的位图：按**用户在屏幕上看到的方向**出图，JPEG。
+   *
+   * 为什么方向跟着视图走：扫描件常见「页存横了、元数据没写」的情况，模型
+   * 看一张横躺的正文会认得很差。出图时按 `rotation` 摆正（0..1 坐标随之是
+   * 「显示方向」的），调用方识别完用 `rotateNormRect(rect, -rotation)` 反算回
+   * 未旋转坐标再存——渲染那一步会按当前角度再转回来，两头对得上。
+   */
+  async renderImage(page: number, maxWidth = 1600, rotation = 0): Promise<Blob | null> {
+    try {
+      const target = Math.max(1, Math.min(this.numPages, Math.floor(page)));
+      const size = await this.getPageSize(target);
+      const scale = Math.min(3, Math.max(0.5, (Number(maxWidth) || 1600) / Math.max(1, size.width)));
+      const canvas = createEl('canvas');
+      const task = await this.renderPage(target, canvas, scale, 1, rotation);
+      await task.promise;
+      return await new Promise<Blob | null>((resolve) => {
+        try {
+          canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.86);
+        } catch {
+          resolve(null);
+        }
+      });
+    } catch {
+      return null;
+    }
+  }
+
   /** 任意一页的缩略图（悬浮预览用）；取不到返回 null，别把整条链路拖挂 */
   async renderThumb(page: number, maxWidth = 600): Promise<Blob | null> {
     try {
@@ -471,6 +581,8 @@ export class PdfDocument {
     this.destroyed = true;
     this.pages.clear();
     this.texts.clear();
+    this.ocrPages.clear();
+    this.ocrTexts.clear();
     this.sizes.clear();
     this.links.clear();
     this.fileAnnots.clear();

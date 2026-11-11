@@ -15,6 +15,7 @@ import type { ReaderPrefs } from '../data/prefs';
 import { type SearchHit } from './host';
 import { createEngine } from './reader-engine';
 import { hitChapterLabel } from '../data/pdf-link';
+import { readOcr } from '../data/pdf-ocr';
 
 export type CrossBookHit = SearchHit & { chapterLabel: string };
 
@@ -77,6 +78,12 @@ export async function searchAcrossBooks(deps: CrossSearchDeps): Promise<void> {
     const host = createEngine(book.fileRef.format, deps.app);
     try {
       await host.mount(stage, book.fileRef.vaultPath, { prefs: deps.prefs });
+      /* 扫描件：正文在识别结果里（数据目录的那份 JSON）。不灌进来的话，
+         全库搜索永远搜不到这本的字，面板还会写「没有找到」。 */
+      if (book.fileRef.format === 'pdf') {
+        const ocr = await readOcr(deps.app, book.id).catch(() => null);
+        if (ocr) host.ocrUi?.apply(ocr.pages);
+      }
       // 不调 start()/init()：foliate 的 search 自己逐章 load，不依赖当前渲染
       /* shouldStop 一路传进逐章循环（P2-05）：只判「下一本书之前」的话，
          点了停止当前这本仍会把剩下的章节扫完，界面还要再转好几秒。 */

@@ -84,6 +84,12 @@ export const COMMANDS: readonly CommandSpec[] = [
   { id: 'pdf-thumbs', key: 'cmd.pdfThumbs', reader: 'pdf-thumbs' },
   { id: 'pdf-copy-link', key: 'cmd.pdfCopyLink', reader: 'pdf-copy-link' },
   { id: 'pdf-export-page', key: 'cmd.pdfExportPage', reader: 'pdf-export-page' },
+  /* 扫描页识别（2026-11-11）：扫描件没有文字层，认过之后划词、搜索、朗读才成立。
+     按页 / 按批两条入口——默认不整本跑，视觉识别是按页计费的。 */
+  { id: 'pdf-ocr-page', key: 'cmd.pdfOcrPage', reader: 'pdf-ocr-page' },
+  { id: 'pdf-ocr-batch', key: 'cmd.pdfOcrBatch', reader: 'pdf-ocr-batch' },
+  { id: 'pdf-ocr-stop', key: 'cmd.pdfOcrStop', reader: 'pdf-ocr-stop' },
+  { id: 'pdf-ocr-clear', key: 'cmd.pdfOcrClear', reader: 'pdf-ocr-clear' },
   { id: 'pdf-back', key: 'cmd.pdfBack', reader: 'pdf-back' },
   /* 排查用：手机上开不了控制台，这是唯一能把链路计数显示出来的入口。
      会话内生效、不落盘，重启自动关。 */
