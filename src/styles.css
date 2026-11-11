@@ -94,11 +94,15 @@
 }
 .bzr-btn.is-primary {
   border-color: transparent;
-  background: var(--bzr-brand);
+  /* 弹窗挂在 body 上，读不到壳层的 `--copper`：打开时由 JS 把壳层强调色
+     挂成 `--bzs-accent`（见 shell/theme-accent）。读不到就退回品牌橙，
+     与接上强调色之前的表现一致。 */
+  background: var(--bzs-accent, var(--bzr-brand));
   color: var(--bzr-on-brand);
 }
 .bzr-btn.is-primary:hover {
-  background: var(--bzr-brand-hover);
+  background: var(--bzs-accent, var(--bzr-brand-hover));
+  filter: brightness(1.06);
 }
 .bzr-btn:disabled {
   opacity: 0.45;
@@ -467,11 +471,14 @@
 }
 .bzr-xs-bar {
   display: flex;
+  /* 外语（英 / 德 / 法）的按钮字比中文长一截：一行排不下就换行，
+     否则「搜索」会被顶到屏幕外面（2026-11-11 上架 review）。 */
+  flex-wrap: wrap;
   gap: 8px;
   flex: none;
 }
 .bzr-xs-bar input {
-  flex: 1;
+  flex: 1 1 160px;
   min-width: 0;
   height: 30px;
   padding: 0 10px;
@@ -642,6 +649,28 @@
 .bzr-sask-src:hover {
   border-color: var(--bzr-border-hover);
   color: var(--bzr-text-1);
+}
+/* 主题书单的出处只是说明，点不动：不能跟「问这几本书」那种可点标签
+   长成一个样子（悬停变手型、点下去没反应，用户会以为坏了）。 */
+.bzr-sask-src.is-static,
+.bzr-sask-src.is-static:hover {
+  cursor: default;
+  border-color: var(--bzr-border);
+  color: var(--bzr-text-3);
+}
+/* 主题书单底部那行动作：「存成笔记」单独一行、主按钮尺寸，
+   不挤在出处标签里跟它们抢位置。 */
+.bzr-route-act {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+/* 跟面板里其他按钮同高（那一排是 30px）：25px 在弹窗里像一枚小标签 */
+.bzr-route-act .bzr-btn {
+  height: 30px;
+  font-size: 12.5px;
+  padding: 0 16px;
 }
 .bzr-sask.is-mobile .bzr-sask-list {
   max-height: 130px;

@@ -1,7 +1,7 @@
 {
   "id": "bz-reader",
   "name": "bz Reader",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minAppVersion": "1.8.7",
   "description": "Turn your vault into a reading app: EPUB, TXT, Kindle formats, FB2, comics and PDF on desktop and mobile — AI Q&A over a whole book, highlights as backlinks, everything kept locally.",
   "author": "叫我包仔",

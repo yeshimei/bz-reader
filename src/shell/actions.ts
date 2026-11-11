@@ -13,7 +13,6 @@
 import { Menu } from 'obsidian';
 import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
-import type { Highlight } from '../data/schema';
 import { aiAsk, type AiTask } from '../data/ai';
 import {
   DEFAULT_HIGHLIGHT_COLOR,
@@ -21,7 +20,6 @@ import {
   colorCss,
   ensureHighlight,
   findHighlight,
-  highlightsOf,
   isHighlightColor,
   removeBookmark,
   removeHighlight,
@@ -61,11 +59,12 @@ import { PURCHASE_URL, REPO_URL, can, capLabel, type Cap } from '../data/entitle
 import { HEADER_ACTION_IDS } from '../view/header-actions';
 import type { ReaderPrefs } from '../data/prefs';
 import { wikilinkOf, wikilinkOfMark } from '../data/wikilink';
-import { buildNotesBody, ensureDir, exportBookNotes, safeName } from '../data/export';
+import { buildNotesBody, exportBookNotes, safeName } from '../data/export';
 import { jumpTo, getToc } from '../view/toc-state';
 import { LIB_FILTERS, LIB_SORTS } from './render/study';
 import { copyQuoteCardImage } from './card-image';
 import { quoteRefMarkdown } from './render/quote-card';
+import { setHtml } from '../ui/dom';
 import type { OverlayKind, StudyPage } from './state';
 import {
   bumpOverlayRev,
@@ -724,6 +723,10 @@ async function openGuide(force = false): Promise<void> {
     notify(t('notice.needBook'), 'info');
     return;
   }
+  /* 正在写就别再发一次（2026-11-11 上架 review）：连点「重新生成」会
+     同时挂好几个请求，先回来的那份还会被后到的覆盖，白花几次调用。 */
+  const cur = getState().overlay;
+  if (cur?.kind === 'guide' && cur.busy) return;
   const chapter = String(book.reading.position.chapterTitle ?? '').trim();
   if (!chapter) {
     notify(t('notice.guide.noChapter'), 'info');
@@ -3170,7 +3173,7 @@ function refreshAiCard(): void {
     delete body.dataset.aiRendered;
   }
   const turns = document.querySelector<HTMLElement>('[data-role="aiturns"]');
-  if (turns) turns.innerHTML = aiTurnsHtml(entry?.turns);
+  if (turns) setHtml(turns, aiTurnsHtml(entry?.turns));
   const card = document.querySelector<HTMLElement>('.bzs-ai-card');
   renderAiMarkdown(card);
   scrollAiCardToEnd();

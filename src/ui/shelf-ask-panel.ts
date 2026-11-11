@@ -12,12 +12,14 @@
  * （`ask`），这里不碰设置、不算计费。
  * ============================================================ */
 import type { App } from 'obsidian';
+import { Platform } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
 import { askShelf, mergeShelfEvidence, shelfSources } from '../data/shelf-ask';
 import { clear, el } from './dom';
 import { renderAiMarkdown } from '../shell/ai-md';
 import { uiModal } from '../core/ui/modal';
 import { t } from '../i18n';
+import { ACCENT_VAR, shellAccentColor } from '../shell/theme-accent';
 
 export interface ShelfAskDeps {
   app: App;
@@ -33,7 +35,7 @@ export function openShelfAsk(deps: ShelfAskDeps): void {
   const books = deps.books ?? [];
   const chosen = new Set<string>();
 
-  const root = el('div', 'bzr-sask');
+  const root = el('div', 'bzr-sask' + (Platform.isMobile ? ' is-mobile' : ''));
 
   const head = el('div', 'bzr-sask-h', t('shelf.ask.pick'));
   const list = el('div', 'bzr-sask-list');
@@ -88,55 +90,64 @@ export function openShelfAsk(deps: ShelfAskDeps): void {
     clear(sources);
     status.textContent = t('shelf.ask.searching');
 
-    const res = await askShelf(deps.app, q, [...chosen]);
-    if (my !== seq) return;
-    if (res.problem) {
-      running = false;
-      go.disabled = false;
-      status.textContent = res.problem;
-      return;
-    }
-    if (!res.hits.length) {
-      running = false;
-      go.disabled = false;
-      status.textContent = t('shelf.ask.empty');
-      return;
-    }
-
-    status.textContent = t('shelf.ask.thinking');
-    let text = '';
     try {
-      text = await deps.ask(q, mergeShelfEvidence(res.hits));
-    } catch (e) {
+      /* 检索层自己会兜住常见失败；这里再包一层，万一漏出来也不能让
+         按钮永久变成灰的（用户只能关窗重开）。 */
+      let res;
+      try {
+        res = await askShelf(deps.app, q, [...chosen]);
+      } catch {
+        if (my !== seq) return;
+        status.textContent = t('search.semantic.embedFail');
+        return;
+      }
       if (my !== seq) return;
-      running = false;
-      go.disabled = false;
-      status.textContent = (e as Error)?.message || t('common.unknownError');
-      return;
-    }
-    if (my !== seq) return;
+      if (res.problem) {
+        status.textContent = res.problem;
+        return;
+      }
+      if (!res.hits.length) {
+        status.textContent = t('shelf.ask.empty');
+        return;
+      }
 
-    running = false;
-    go.disabled = false;
-    status.textContent = t('shelf.ask.done', { n: res.books });
-    answer.textContent = text;
-    /* 答案可能是 Markdown（列表、加粗）：注入后统一渲染 */
-    delete answer.dataset.aiRendered;
-    renderAiMarkdown(answer);
+      status.textContent = t('shelf.ask.thinking');
+      let text = '';
+      try {
+        text = await deps.ask(q, mergeShelfEvidence(res.hits));
+      } catch (e) {
+        if (my !== seq) return;
+        status.textContent = (e as Error)?.message || t('common.unknownError');
+        return;
+      }
+      if (my !== seq) return;
 
-    const label = el('div', 'bzr-sask-srch', t('shelf.ask.sources'));
-    sources.appendChild(label);
-    for (const src of shelfSources(res.hits)) {
-      const book = books.find((b) => b.id === src.bookId);
-      const chip = el('button', 'bzr-sask-src', `${src.title}${src.chapter ? ` · ${src.chapter}` : ''}`);
-      chip.type = 'button';
-      chip.addEventListener('click', () => {
-        if (!book) return;
-        close();
-        /* 有章节名就按章名定位，没有就退回用命中片段 */
-        deps.onJump(book, src.chapter || src.note);
-      });
-      sources.appendChild(chip);
+      status.textContent = t('shelf.ask.done', { n: res.books });
+      answer.textContent = text;
+      /* 答案可能是 Markdown（列表、加粗）：注入后统一渲染 */
+      delete answer.dataset.aiRendered;
+      renderAiMarkdown(answer);
+
+      const label = el('div', 'bzr-sask-srch', t('shelf.ask.sources'));
+      sources.appendChild(label);
+      for (const src of shelfSources(res.hits)) {
+        const book = books.find((b) => b.id === src.bookId);
+        const chip = el('button', 'bzr-sask-src', `${src.title}${src.chapter ? ` · ${src.chapter}` : ''}`);
+        chip.type = 'button';
+        chip.addEventListener('click', () => {
+          if (!book) return;
+          close();
+          /* 有章节名就按章名定位，没有就退回用命中片段 */
+          deps.onJump(book, src.chapter || src.note);
+        });
+        sources.appendChild(chip);
+      }
+    } finally {
+      /* 面板已关或已开下一轮就不再复位，免得把新那轮的按钮提前解锁 */
+      if (my === seq) {
+        running = false;
+        go.disabled = false;
+      }
     }
   }
 
@@ -147,7 +158,7 @@ export function openShelfAsk(deps: ShelfAskDeps): void {
     void run();
   });
 
-  const { close } = uiModal({
+  const { close, popup } = uiModal({
     content: root,
     className: 'bzr-sask-popup',
     title: t('shelf.ask.title'),
@@ -158,5 +169,7 @@ export function openShelfAsk(deps: ShelfAskDeps): void {
       seq += 1;
     },
   });
+  const accent = shellAccentColor();
+  if (accent) popup.style.setProperty(ACCENT_VAR, accent);
   window.setTimeout(() => input.focus(), 0);
 }

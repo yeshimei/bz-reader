@@ -738,20 +738,24 @@
   color: var(--t3);
 }
 
+/* 存档对话（2026-11-11）：原来是 11px 的下划线小字，手机上几乎点不中，
+   也不像旁边那些按钮一样看得出来能点。改成跟元信息同一行的胶囊小按钮。 */
 .bzs-aimeta .lnk {
   margin-left: auto;
-  border: 0;
-  background: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 999px;
   cursor: pointer;
-  font: 11px var(--ui);
-  color: var(--t3);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  padding: 0;
+  font: 11.5px var(--ui);
+  color: var(--t2);
+  text-decoration: none;
+  padding: 4px 10px;
+  line-height: 1.4;
 }
 
 .bzs-aimeta .lnk:hover {
   color: var(--copper);
+  border-color: var(--copper);
 }
 
 /* 来源：答完之后附在气泡里；能点开的是一枚小按钮，点不开的只是说明 */

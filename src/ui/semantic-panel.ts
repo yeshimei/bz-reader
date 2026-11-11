@@ -11,12 +11,14 @@
  *     ——定位交给已有的全文搜索，不另造一套坐标。
  * ============================================================ */
 import type { App } from 'obsidian';
+import { Platform } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
 import { semanticSearch, type SemanticHit } from '../data/book-search';
 import { clear, el, setHtml } from './dom';
 import { semanticGroupsHtml, semanticStatusText, type SemanticView } from '../shell/render/semantic';
 import { uiModal } from '../core/ui/modal';
 import { t } from '../i18n';
+import { ACCENT_VAR, shellAccentColor } from '../shell/theme-accent';
 
 export interface SemanticSearchDeps {
   app: App;
@@ -28,7 +30,9 @@ export interface SemanticSearchDeps {
 export function openSemanticSearch(deps: SemanticSearchDeps): void {
   /** 当前这一轮命中：行上只带下标，完整片段从这里取 */
   let currentHits: SemanticHit[] = [];
-  const root = el('div', 'bzr-xs bzr-sem');
+  /* 手机端要带 is-mobile：输入框 16px、结果 15px 那套字号只在真机生效，
+     漏了会跟旁边的跨书搜索差一号（2026-11-11 上架 review）。 */
+  const root = el('div', 'bzr-xs bzr-sem' + (Platform.isMobile ? ' is-mobile' : ''));
   const bar = el('div', 'bzr-xs-bar');
   const input = el('input');
   input.type = 'search';
@@ -54,23 +58,33 @@ export function openSemanticSearch(deps: SemanticSearchDeps): void {
     clear(hits);
     status.textContent = t('search.semantic.searching');
 
-    const res = await semanticSearch(deps.app, q);
-    if (my !== seq) return;
-    running = false;
-    go.disabled = false;
-
-    currentHits = res.hits;
-    const view: SemanticView = {
-      kw: q,
-      running: false,
-      ran: true,
-      hits: res.hits,
-      problem: res.problem,
-      books: res.books,
-    };
-    status.textContent = semanticStatusText(view, 'shelf', true);
-    /* 按书分组：与两个搜索入口共用同一份结果呈现，不再各画一套 */
-    setHtml(hits, res.hits.length ? semanticGroupsHtml(res.hits, deps.books) : '');
+    try {
+      const res = await semanticSearch(deps.app, q);
+      if (my !== seq) return;
+      currentHits = res.hits;
+      const view: SemanticView = {
+        kw: q,
+        running: false,
+        ran: true,
+        hits: res.hits,
+        problem: res.problem,
+        books: res.books,
+      };
+      status.textContent = semanticStatusText(view, 'shelf', true);
+      /* 按书分组：与两个搜索入口共用同一份结果呈现，不再各画一套 */
+      setHtml(hits, res.hits.length ? semanticGroupsHtml(res.hits, deps.books) : '');
+    } catch {
+      /* 检索层自己会兜住常见失败；真漏到这里也不能把按钮永久禁掉——
+         用户看到「正在检索…」再点不动，只能关窗重开。 */
+      if (my !== seq) return;
+      status.textContent = t('search.semantic.embedFail');
+    } finally {
+      /* seq 变了说明面板已关或已开下一轮，这一轮不该再改界面 */
+      if (my === seq) {
+        running = false;
+        go.disabled = false;
+      }
+    }
   }
 
   /** 行上只带下标：完整片段从这一轮的 hits 里取，避免把长文塞进属性 */
@@ -101,7 +115,7 @@ export function openSemanticSearch(deps: SemanticSearchDeps): void {
     void run();
   });
 
-  const { close } = uiModal({
+  const { close, popup } = uiModal({
     content: root,
     className: 'bzr-xs-popup',
     title: t('search.semantic.title'),
@@ -112,5 +126,9 @@ export function openSemanticSearch(deps: SemanticSearchDeps): void {
       seq += 1;
     },
   });
+  /* 弹窗挂在 body 上，拿不到壳层的 `--copper`：把当前强调色挂上去，
+     主按钮才不会永远是默认那枚橙色（2026-11-11 上架 review）。 */
+  const accent = shellAccentColor();
+  if (accent) popup.style.setProperty(ACCENT_VAR, accent);
   window.setTimeout(() => input.focus(), 0);
 }

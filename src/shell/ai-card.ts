@@ -132,7 +132,7 @@ function settleTurn(
 ): AiFollowTurn[] {
   const list = [...(turns ?? [])];
   for (let i = list.length - 1; i >= 0; i -= 1) {
-    const turn = list[i]!;
+    const turn = list[i];
     if (turn.pending && turn.q === q) {
       list[i] = next;
       return list;

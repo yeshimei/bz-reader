@@ -160,7 +160,6 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 |  | Highlights as wikilinks: click back from your notes | — | ✓ |
 |  | Citations tab: see which notes cite this book | — | ✓ |
 |  | Export every excerpt, each with a wikilink | — | ✓ |
-|  | Highlights to review: a card per highlight, scheduled by bz (needs bz) | — | ✓ |
 | **PDF Reading** | Open a PDF: zoom, rotate, one or two pages, scroll; view remembered per book | — | ✓ |
 |  | Page thumbnails: find a page in a long book | — | ✓ |
 |  | Copy page links: page / view / embed / annotation | — | ✓ |
@@ -169,8 +168,10 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 | **Stats & Search** | Stats panel: time, trends, rhythm, per-book detail | — | ✓ |
 |  | Reading poster: yearly recap and stats long image | — | ✓ |
 |  | Whole-library search, PDF text included | — | ✓ |
+|  | Semantic search: by meaning, in this book or the shelf | — | ✓ |
 | **AI** | Explain, translate, summarize a selection | — | ✓ |
 |  | AI Q&A over the whole book | — | ✓ |
+|  | AI companion: ask as you read, with a per-chapter guide | — | ✓ |
 | **Advanced** | Vertical typesetting: EPUB / TXT | — | ✓ |
 |  | Read aloud: EPUB, TXT and PDF, auto page-turn | — | ✓ |
 |  | Read two books side by side | — | ✓ |

@@ -143,7 +143,7 @@ export async function askShelf(
 ): Promise<ShelfAskResult> {
   const q = String(query ?? '').trim();
   if (!q) return { hits: [], problem: null, books: 0 };
-  if (!can('ai')) return { hits: [], problem: t('search.semantic.pro'), books: 0 };
+  if (!can('ai')) return { hits: [], problem: t('shelf.ask.pro'), books: 0 };
 
   const emb = bzEmbedder(app);
   if (!emb.ai) return { hits: [], problem: emb.problem, books: 0 };

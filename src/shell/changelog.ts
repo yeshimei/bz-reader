@@ -59,6 +59,121 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '1.1.0',
+    date: '2026-11-11',
+    added: [
+      {
+        domain: { zh: '按意思搜', en: 'Search by meaning' },
+        text: {
+          zh: '书架和书里都能按意思找，不用先想到原话。',
+          en: 'Search by meaning, in this book or across the shelf — the exact wording is not needed.',
+        },
+      },
+      {
+        domain: { zh: '本章导读', en: 'Chapter guide' },
+        text: {
+          zh: '读的时候点一下，先看这一章该带着什么读。',
+          en: 'One tap while reading shows what this chapter is worth carrying into it.',
+        },
+      },
+      {
+        domain: { zh: '问这摞书', en: 'Ask these books' },
+        text: {
+          zh: '勾几本一起问，答案标明出自哪一本。',
+          en: 'Tick a few books and ask them together; every answer says which book it came from.',
+        },
+      },
+      {
+        domain: { zh: '主题书单', en: 'Reading list' },
+        text: {
+          zh: '给一个主题，找出相关的书并排成一条阅读路线。',
+          en: 'Give a topic and the matching books come back as one reading route.',
+        },
+      },
+      {
+        domain: { zh: 'AI 追问', en: 'AI follow-up' },
+        text: {
+          zh: '对着一段话接着问，答案能存进想法。',
+          en: 'Keep asking about the passage you selected, and keep any answer as a note.',
+        },
+      },
+      {
+        domain: { zh: '对话存档', en: 'Archive a chat' },
+        text: {
+          zh: '侧栏聊完，整段存成一篇笔记。',
+          en: 'Save a whole sidebar conversation as one note.',
+        },
+      },
+      {
+        domain: { zh: '补全信息', en: 'Fill in details' },
+        text: {
+          zh: '书卡菜单一下补齐简介与分类。',
+          en: 'One menu item fills a book’s missing description and categories.',
+        },
+      },
+    ],
+    improved: [
+      {
+        domain: { zh: 'PDF 翻页', en: 'PDF paging' },
+        text: {
+          zh: '翻页方式与单双页归 PDF 自己管，打开就是连续滚动。',
+          en: 'Paging and spread are PDF settings of their own now, and a PDF opens in continuous scroll.',
+        },
+      },
+      {
+        domain: { zh: 'AI 设置', en: 'AI settings' },
+        text: {
+          zh: '第一个框改叫「接口地址」，填的就是地址本身。',
+          en: 'The first field is called Endpoint again — that is what goes in it.',
+        },
+      },
+      {
+        domain: { zh: '扫描件', en: 'Scanned PDFs' },
+        text: {
+          zh: '打开扫描版 PDF 不再先弹一句提醒。',
+          en: 'Opening a scanned PDF no longer greets you with a warning first.',
+        },
+      },
+      {
+        domain: { zh: '设置页', en: 'Settings' },
+        text: {
+          zh: '阅读页图标挪到页尾，紧挨快捷键。',
+          en: 'The reader icon list moved to the end of the page, right above the hotkeys.',
+        },
+      },
+      {
+        domain: { zh: '支持作者', en: 'Support dialog' },
+        text: {
+          zh: '两个出口并成一行。',
+          en: 'The two ways to support fit on one line.',
+        },
+      },
+    ],
+    fixed: [
+      {
+        domain: { zh: '追问', en: 'Follow-up' },
+        text: {
+          zh: '刚发出的那句马上显示，答案按 Markdown 排版，底部按钮不会被滚走。',
+          en: 'Your question shows the moment you send it, answers render as Markdown, and the buttons at the bottom stay put.',
+        },
+      },
+      {
+        domain: { zh: '补全信息', en: 'Fill in details' },
+        text: {
+          zh: '信息齐了不再多问一次模型，点了先应一声。',
+          en: 'Once the details are complete it stops calling the model, and answers as soon as you click.',
+        },
+      },
+      {
+        domain: { zh: 'PDF 双指', en: 'PDF two-finger tap' },
+        text: {
+          zh: '两指轻按真的切得动沉浸，划词后的点击不再误跳页。',
+          en: 'A two-finger tap really toggles immersive mode, and a tap after selecting text no longer jumps the page.',
+        },
+      },
+    ],
+  },
+  {
     version: '1.0.0',
     date: '2026-11-10',
     added: [

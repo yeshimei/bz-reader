@@ -119,6 +119,24 @@
   min-height: 0;
 }
 
+/* 贴字 / 从侧栏打开的浮层同样要内部滚动（2026-11-11）：
+   追问几轮之后内容比浮层高，外层 overflow:hidden 会把输入行和底部按钮
+   直接裁掉——用户看到的是「按钮没了」，不是「还能往下滚」。 */
+.bzs-float.is-anchored:has(.bzs-ai-card),
+.bzs-float.is-sheet:has(.bzs-ai-card) {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.bzs-float.is-anchored:has(.bzs-ai-card) .bzs-ai-card,
+.bzs-float.is-sheet:has(.bzs-ai-card) .bzs-ai-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  /* 跟浮层同宽：卡片自己那 430px 比浮层宽，右边会被裁掉一截 */
+  width: 100%;
+}
+
 body.theme-dark .bzs-float.is-dialog {
   background: #35322c;
   box-shadow: 0 24px 60px rgba(0, 0, 0, .68), 0 0 0 1px rgba(255, 255, 255, .09);
@@ -371,8 +389,9 @@ body.theme-dark .bzs-float.is-dialog {
   color: var(--t1);
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 42vh;
-  overflow: auto;
+  /* 自己不再滚（2026-11-11）：里面滚一层、外面 .ai-scroll 再滚一层，
+     答案一长就得先滑到底再滑一次，看着像下面的追问到不了。
+     长答案交给外层统一滚。 */
 }
 
 .bzs-ai-card .foot {

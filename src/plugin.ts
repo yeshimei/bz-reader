@@ -62,7 +62,6 @@ import { installAiMarkdown, uninstallAiMarkdown } from './shell/ai-md';
 import { aiAsk } from './data/ai';
 import { safeName } from './data/export';
 import { DEFAULT_SETTINGS } from './data/settings';
-import type { SemanticHit } from './data/book-search';
 
 /* 壳层 */
 import { StudyView, VIEW_TYPE_STUDY } from './shell/study-view';

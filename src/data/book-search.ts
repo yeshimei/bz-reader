@@ -18,7 +18,7 @@ import { bzEmbedder } from './bz-bridge';
 import { can } from './entitlement';
 import { loadPortraits, rankBlocks } from './book-ai';
 import { PORTRAIT_TOP_K, type PortraitFile } from './portrait';
-import { t } from '../i18n';
+import { t, type MsgKey } from '../i18n';
 
 export interface SemanticHit {
   bookId: string;
@@ -106,10 +106,15 @@ export async function semanticSearch(
   query: string,
   topK = PORTRAIT_TOP_K * 4,
   bookIds?: readonly string[] | null,
+  /**
+   * 没激活时要说的那句话。默认是「按意思搜」，主题书单这类借道进来的
+   * 入口换成自己的，否则用户点「生成书单」却被告知「按意思搜是高级功能」。
+   */
+  proKey: MsgKey = 'search.semantic.pro',
 ): Promise<SemanticResult> {
   const q = String(query ?? '').trim();
   if (!q) return { hits: [], problem: null, books: 0 };
-  if (!can('ai')) return { hits: [], problem: t('search.semantic.pro'), books: 0 };
+  if (!can('ai')) return { hits: [], problem: t(proKey), books: 0 };
 
   const emb = bzEmbedder(app);
   if (!emb.ai) return { hits: [], problem: emb.problem, books: 0 };

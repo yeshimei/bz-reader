@@ -45,8 +45,11 @@ export function renderAiMarkdown(root: ParentNode | null | undefined): void {
   const c = ctx;
   if (!c || !root) return;
   const list = Array.from(root.querySelectorAll<HTMLElement>('[data-ai-md]'));
-  /* root 自己也可能是目标（刷新单个节点时传的就是它） */
-  if (root instanceof Element && root.matches('[data-ai-md]')) list.unshift(root as HTMLElement);
+  /* root 自己也可能是目标（刷新单个节点时传的就是它）。
+     nodeType 1 = Element：跨窗口时 instanceof 不可靠，审核规则也不认它。 */
+  if (root.nodeType === 1 && (root as Element).matches('[data-ai-md]')) {
+    list.unshift(root as HTMLElement);
+  }
   for (const el of list) {
     if (el.dataset.aiRendered === '1') continue;
     const md = el.textContent ?? '';
