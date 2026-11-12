@@ -348,6 +348,17 @@ export class EngineHost {
   private chapterIndex = 0;
   private chapterTitle = '';
   private chapterHref = '';
+  /**
+   * 每章字节数（`book.sections[i].size`）：全本页码拿它估算没读过的章节。
+   * 换书时重填，空书就是空数组——拿不到 size 的格式（个别 CBZ）估算会跳过。
+   */
+  private sectionSizes: number[] = [];
+  /**
+   * 每章实测页数（章节序号 → 页数）。换章时把上一章的页数写进来，
+   * 全本页码据此累加；改字号 / 页边距 / 栏数 / 翻页方式后整份作废——
+   * 那几项一改，所有章节的页数都会变。
+   */
+  private chapterPages = new Map<number, number>();
   /** 文档级监听（每换一章重建）与容器级监听（整本书只建一次）分开存，
    *  否则换章时顺手把容器滚轮也解掉了 */
   private docDetachers: Array<() => void> = [];
@@ -552,6 +563,10 @@ export class EngineHost {
       throw new OpenCancelledError();
     }
     this.book = book;
+    /* 全本页码的估算底数：每章字节数。换书必须重填、旧实测页数必须清掉，
+       否则上一本的页数会累加进这一本 */
+    this.sectionSizes = (book.sections ?? []).map((s) => Number(s.size) || 0);
+    this.chapterPages.clear();
 
     /* 上层可能先画了「正在打开」占位；foliate 要独占这个容器 */
     container.empty();
@@ -569,8 +584,6 @@ export class EngineHost {
         time?: { total: number };
         tocItem?: FoliateTOCItem | null;
         cfi?: string;
-        /** foliate 按字节估的全书位置（`progress.js` 的 SectionProgress） */
-        location?: { current?: number; total?: number };
       };
       const percent = typeof d.fraction === 'number' ? Math.min(1, Math.max(0, d.fraction)) : 0;
       /* 正文真的出字了。诊断页靠这个把「卡在读/解包/分页」和「只是在排版」分开 */
@@ -592,14 +605,22 @@ export class EngineHost {
       const waiters = this.relocateWaiters;
       this.relocateWaiters = [];
       for (const w of waiters) w();
-      /* 页码口径统一在这里整理：本章用分页器的屏数，全书用 foliate 的
-         location（按字数估）。滚动模式本章没有「屏」，交给 chapterPageInfo
-         自己判成未知，上层只显示百分比。 */
+      /* 页码口径统一在这里整理：本章用分页器的屏数；全书按章累加——
+         前面各章用实测页数（没读过的按字节数估），本章用当前屏号。
+         滚动模式本章没有「屏」，交给 chapterPageInfo 自己判成未知。 */
       const chapter = chapterPageInfo(
         view.renderer as unknown as { page?: number; pages?: number } | undefined,
         this.prefs.flow === 'scroll',
       );
-      const book = bookPageInfo(d.location);
+      /* 先记下本章实测页数，再算全书：换章后的第一次 relocate 就能接上上一章 */
+      if (chapter.pages > 0) this.chapterPages.set(this.chapterIndex, chapter.pages);
+      const book = bookPageInfo({
+        sizes: this.sectionSizes,
+        measured: this.chapterPages,
+        index: this.chapterIndex,
+        pageInChapter: chapter.page,
+        pagesInChapter: chapter.pages,
+      });
       this.opts.onRelocate?.({
         percent,
         cfi: d.cfi ?? '',
@@ -1514,6 +1535,18 @@ export class EngineHost {
   applyPrefs(prefs: ReaderPrefs): void {
     const prev = this.prefs;
     this.prefs = prefs;
+    /* 版式一改，所有章节的页数都会变：全本页码的实测缓存整份作废，
+       等翻页时重新测。字号/页边距/栏数/翻页方式/方向各算一项。 */
+    if (
+      prev &&
+      (prev.fontSize !== prefs.fontSize ||
+        prev.margin !== prefs.margin ||
+        prev.columns !== prefs.columns ||
+        prev.flow !== prefs.flow ||
+        prev.layout !== prefs.layout)
+    ) {
+      this.chapterPages.clear();
+    }
     // 竖排仍是高级能力：到期或未解锁时按横排渲染，用户存的选择留在
     // prefs 里，重新激活后自动恢复。双栏已下放基础版，不参与门控。
     const verticalOk = can('vertical');
