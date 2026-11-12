@@ -993,7 +993,7 @@ export function overlayUnlock(mode?: string, codeOpen = false): string {
     return group + body;
   }).join('');
 
-  /* 表头是常驻的（样式里 sticky，见 overlay.css）：34 行要滚两屏，
+  /* 表头是常驻的（样式里 sticky，见 overlay.css）：36 行要滚两屏，
      滚到「探索中」那一段还得知道哪一列是哪版。副标跟商店页同一口径——
      「免费不限时」和「一次买断永久」正是商品详情里写的那两句。 */
   const planHead = `<div class="bzs-plan-head">

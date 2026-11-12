@@ -80,6 +80,8 @@
 |  | 漫画模式：分格、右到左、跨页 | — | — |
 |  | 整章翻译：原文译文对照读 | — | — |
 |  | 复习：全文回顾，AI 生成抽认卡与题目 | — | — |
+|  | 墨水屏优化：黑白更清、翻页不闪 | — | — |
+|  | 界面动效：翻页、切章与书架过渡，可随时关 | — | — |
 
 ## 界面语言
 
@@ -188,6 +190,8 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
 |  | Review: reread in full, with AI flashcards and quizzes | — | — |
+|  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
+|  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
 
 ### Interface languages
 
@@ -289,6 +293,8 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 |  | 漫畫模式：分格、右到左、跨頁 | — | — |
 |  | 整章翻譯：原文譯文對照讀 | — | — |
 |  | 複習：全文回顧，AI 生成抽認卡與題目 | — | — |
+|  | 墨水屏優化：黑白更清、翻頁不閃 | — | — |
+|  | 介面動效：翻頁、切章與書架過渡，可隨時關 | — | — |
 
 ### 介面語言
 
@@ -384,6 +390,8 @@ Obsidian を「本を読む場所」に。デスクトップ + モバイル、�
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
 |  | Review: reread in full, with AI flashcards and quizzes | — | — |
+|  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
+|  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
 
 「一部」＝テキストの引用カードはベーシック版で利用可、画像として書き出すにはプロ版が必要です。
 
@@ -481,6 +489,8 @@ Solange die Prüfung läuft oder die Suche nichts findet: mit [BRAT](https://git
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
 |  | Review: reread in full, with AI flashcards and quizzes | — | — |
+|  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
+|  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
 
 ### Oberflächensprachen
 
@@ -576,6 +586,8 @@ Pendant la validation, ou si la recherche ne donne rien : ajoutez ce dépôt ave
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
 |  | Review: reread in full, with AI flashcards and quizzes | — | — |
+|  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
+|  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
 
 ### Langues de l'interface
 
@@ -671,6 +683,8 @@ Mientras la revisión esté pendiente, o si la búsqueda no lo encuentra, añade
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
 |  | Review: reread in full, with AI flashcards and quizzes | — | — |
+|  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
+|  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
 
 ### Idiomas de la interfaz
 
@@ -766,6 +780,8 @@ Enquanto a revisão estiver pendente, ou se a busca não encontrar, adicione est
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
 |  | Review: reread in full, with AI flashcards and quizzes | — | — |
+|  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
+|  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
 
 ### Idiomas da interface
 
