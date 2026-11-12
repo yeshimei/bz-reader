@@ -499,9 +499,14 @@ export class ReaderView extends ItemView {
     this.pageNoEl = pageNo;
 
     /* 手机底栏浮在内容上：量一次它压住多少。第一次量时布局可能还没落定，
-       再补一帧——量到 0 也不会多留白（见 syncBottomGap）。 */
+       再补一帧——量到 0 也不会多留白（见 syncBottomGap）。
+       同一帧里再量一次安全区：首帧 rootEl 的 rect 还是 0，那时算出来的
+       safe-top 会把状态栏叠两遍，正文顶上白白多一截。 */
     this.syncBottomGap();
-    window.requestAnimationFrame(() => this.syncBottomGap());
+    window.requestAnimationFrame(() => {
+      this.syncBottomGap();
+      this.applyChrome();
+    });
 
     /* 点正文：移动端上下分区翻页；两指同时按切换沉浸（判定在引擎侧）。
        翻页延后由 host 的队列保证，这里只管按区定方向。 */
@@ -1541,28 +1546,28 @@ export class ReaderView extends ItemView {
   }
 
   /**
-   * 状态栏占掉的高度（px）。
+   * 状态栏还占着多少高度（px）——是「阅读区顶边之上」的那一段，不是屏幕顶。
    *
-   * 沉浸模式下阅读区从屏幕最顶上开始（Obsidian 安卓是 edge-to-edge），
-   * 章节名写死 `top: 10px` 正好压在系统状态栏底下——真机截图里「第一章」
-   * 和时钟叠在一起，看上去像飞出了屏幕。
+   * 手机沉浸时章节名写死 `top: 10px` 会压进系统状态栏。但 Obsidian 自己
+   * 已经按 `--safe-area-inset-top` 把阅读区往下推过一截了（真机量到
+   * `.bzs-reader` 的顶边就在 59px），再照变量整段叠一遍，正文顶上会白白
+   * 多出 59px——用户说的「上方空隙太大」就是这个。
    *
-   * `env(safe-area-inset-top)` 在 Obsidian 的 WebView 里读出来是 0，所以先
-   * 用探针量一次；量不到就给移动端一个够用的保守值（安卓状态栏 24–32dp）。
-   * 桌面端恒为 0：那里阅读区本来就在标题栏下面。
+   * 所以取「安全区 - 阅读区已经让掉的量」：宿主让够了就是 0，一点没让才补
+   * 到 44（刘海屏实测的最小值）。`env()` 在 Obsidian 的 WebView 里恒为 0，
+   * 只能读它自己维护的变量。
    */
   private measureSafeTop(): number {
     if (!isMobileEnv()) return 0;
-    /* Obsidian 自己在移动端维护 --safe-area-inset-top（`view-content` 的
-       padding、lightbox 的 padding 都用它），刘海 / 挖孔 / 状态栏高度都在里面。
-       比 env() 靠谱：env() 在 Obsidian 的 WebView 里读出来是 0。 */
+    let inset = SAFE_TOP_MIN;
     try {
       const v = parseFloat(getComputedStyle(document.body).getPropertyValue('--safe-area-inset-top'));
-      if (Number.isFinite(v) && v > 0) return Math.round(Math.max(v, SAFE_TOP_MIN));
+      if (Number.isFinite(v) && v > 0) inset = Math.max(v, SAFE_TOP_MIN);
     } catch {
-      /* 读不到就走下面的兜底 */
+      /* 读不到就用下限 */
     }
-    return SAFE_TOP_MIN;
+    const rootTop = this.rootEl?.getBoundingClientRect().top ?? 0;
+    return Math.max(0, Math.round(inset - rootTop));
   }
 
   /**

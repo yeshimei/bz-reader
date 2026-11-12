@@ -101,7 +101,11 @@ export function buildChapterCSS(prefs: ReaderPrefs): string {
   const padBottom = mobile ? '14px' : '40px';
   const paged = prefs.flow !== 'scroll';
 
-  return `
+  /* 双栏时标题横跨两栏：不然它只在左栏里居中，整页看上去偏左一大截。
+   字距在最后一个字后面也会留一份，居中时整体看着偏左半个字距，用等量的
+   首行缩进抵回来，标题长一点短一点都还是正的。 */
+const h1Span = prefs.columns === 2 ? 'column-span: all !important;' : '';
+return `
 html {
   /* 分页器每页的上下留白（columns 的 padding 读这两个变量） */
   --_pad-top: ${padTop};
@@ -141,6 +145,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 h1 {
   text-align: center !important;
+  ${h1Span}
+  text-indent: 0.08em !important;
   font-size: 1.5em !important;
   font-weight: 500 !important;
   letter-spacing: 0.08em !important;

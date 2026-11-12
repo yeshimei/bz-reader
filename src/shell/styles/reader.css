@@ -90,16 +90,16 @@
    桌面端正文居中（最多 720px），max-width 跟着正文宽度收，别横跨整个窗口。 */
 .bzs-chapter {
   left: var(--bzr-page-left, calc(var(--bzr-page-margin, 8px) + 3.763%));
-  top: calc(var(--bzr-safe-top, 0px) + 10px);
+  top: calc(var(--bzr-safe-top, 0px) + 6px);
   max-width: min(62%, 32em);
 }
 
-/* 右下页码：贴着正文右缘，导航栏上方 30px。
+/* 右下页码：贴着正文右缘，导航栏上方 20px。
    手机底部导航栏是浮在内容上的：--bzr-bottom-gap 由 syncBottomGap 量出来，
    页码跟着让位，不钻到栏下面。 */
 .bzs-pageno {
   right: var(--bzr-page-right, calc(var(--bzr-page-margin, 8px) + 3.763%));
-  bottom: calc(30px + var(--bzr-bottom-gap, 0px));
+  bottom: calc(20px + var(--bzr-bottom-gap, 0px));
 }
 
 .bzs-chapter:empty,
@@ -109,9 +109,10 @@
 
 /* 章节名有字时正文顶部让出那一行（连同状态栏），别压第一行字。
    2026-11-12：原来挂在 .is-immersive 上，桌面端非全屏就顶头了——
-   改成看「章节名到底有没有字」，桌面、手机、沉浸与否一套规则。 */
+   改成看「章节名到底有没有字」，桌面、手机、沉浸与否一套规则。
+   28px 收到 20px：真机上那条空带比章节名本身还高一截，看着发空。 */
 .bzs-reader.has-chapter .bzs-rpages {
-  padding-top: calc(28px + var(--bzr-safe-top, 0px));
+  padding-top: calc(20px + var(--bzr-safe-top, 0px));
 }
 
 /* 并排对照：两角小字只跟主卷（左半）。落在右半会让人以为是右边那本的 */
