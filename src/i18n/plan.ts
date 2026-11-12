@@ -50,7 +50,7 @@ export type PlanKey =
   | 'parallel'
   | 'bookmap'
   | 'kb'
-  /* 探索中（2026-11-11，2026-11-12 增至七项）：都还没实现，先占表尾七行；
+  /* 探索中（2026-11-11，2026-11-12 增至八项）：都还没实现，先占表尾八行；
      行内不标状态，靠段名说。 */
   | 'pdfOcr'
   | 'pdfReflow'
@@ -58,7 +58,8 @@ export type PlanKey =
   | 'transChapter'
   | 'review'
   | 'eink'
-  | 'motion';
+  | 'motion'
+  | 'clipEpub';
 
 /**
  * 分组 id。和 `PlanKey` 是**两套命名空间**：这里是「段」，那里是「行」。
@@ -402,15 +403,16 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'Conectar con la base de conocimiento BZ AI (requiere bz)',
     pt: 'Conectar à base de conhecimento BZ AI (requer bz)',
   },
-  /* ── 探索中（2026-11-11，2026-11-12 增至七项） ──
-   * 七项都还没实现，先占表尾七行。行里不写「开发中」——状态由段名说，
+  /* ── 探索中（2026-11-11，2026-11-12 增至八项） ──
+   * 八项都还没实现，先占表尾八行。行里不写「开发中」——状态由段名说，
    * 两版都不打勾，也不挂能力位。
    *
    * OCR 与 AI 视觉是两条技术路线、同一个目标：让扫描件拥有文字版的
    * 选中 / 搜索 / 划线体验；PDF 重排把固定版式变成流式；漫画模式补上
    * 分格 / 右到左 / 跨页；整章翻译做原文译文对照；复习是全文回顾 +
    * AI 抽认卡 + AI 出题；墨水屏优化把黑白对比拉高、翻页不闪；界面动效
-   * 给翻页、切章与书架切换加过渡，且随时可关。
+   * 给翻页、切章与书架切换加过渡，且随时可关；剪藏成书把 bz 剪藏本里的
+   * 文章合成一本 EPUB，进书架当普通书读。
    *
    * 八语言按日常开发规矩：zh / en 写实，其余六包占位（ja/de/fr/es/pt 放
    * 英文原文、zh-TW 放繁体）。准备上架那一版再统一补正式翻译。 */
@@ -483,6 +485,19 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     fr: 'Interface motion: page turns, chapter changes and shelf transitions, can be turned off',
     es: 'Interface motion: page turns, chapter changes and shelf transitions, can be turned off',
     pt: 'Interface motion: page turns, chapter changes and shelf transitions, can be turned off',
+  },
+  /* 2026-11-12 新增：把 bz 剪藏本的文章合成一本 EPUB，进书架当普通书读。
+     走的是「一次生成、当书来读」，阅读体验（划线、想法、统计、AI）与普通
+     EPUB 完全一致，不为剪藏单独做一套阅读界面。 */
+  clipEpub: {
+    zh: '剪藏成书：把剪藏本的文章合成 EPUB，在书架里读',
+    'zh-TW': '剪藏成書：把剪藏本的文章合成 EPUB，在書架裡讀',
+    en: 'Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf',
+    ja: 'Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf',
+    de: 'Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf',
+    fr: 'Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf',
+    es: 'Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf',
+    pt: 'Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf',
   },
 };
 

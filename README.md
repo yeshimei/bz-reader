@@ -82,6 +82,7 @@
 |  | 复习：全文回顾，AI 生成抽认卡与题目 | — | — |
 |  | 墨水屏优化：黑白更清、翻页不闪 | — | — |
 |  | 界面动效：翻页、切章与书架过渡，可随时关 | — | — |
+|  | 剪藏成书：把剪藏本的文章合成 EPUB，在书架里读 | — | — |
 
 ## 界面语言
 
@@ -192,6 +193,7 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 |  | Review: reread in full, with AI flashcards and quizzes | — | — |
 |  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
 |  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
+|  | Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf | — | — |
 
 ### Interface languages
 
@@ -295,6 +297,7 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 |  | 複習：全文回顧，AI 生成抽認卡與題目 | — | — |
 |  | 墨水屏優化：黑白更清、翻頁不閃 | — | — |
 |  | 介面動效：翻頁、切章與書架過渡，可隨時關 | — | — |
+|  | 剪藏成書：把剪藏本的文章合成 EPUB，在書架裡讀 | — | — |
 
 ### 介面語言
 
@@ -392,6 +395,7 @@ Obsidian を「本を読む場所」に。デスクトップ + モバイル、�
 |  | Review: reread in full, with AI flashcards and quizzes | — | — |
 |  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
 |  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
+|  | Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf | — | — |
 
 「一部」＝テキストの引用カードはベーシック版で利用可、画像として書き出すにはプロ版が必要です。
 
@@ -491,6 +495,7 @@ Solange die Prüfung läuft oder die Suche nichts findet: mit [BRAT](https://git
 |  | Review: reread in full, with AI flashcards and quizzes | — | — |
 |  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
 |  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
+|  | Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf | — | — |
 
 ### Oberflächensprachen
 
@@ -588,6 +593,7 @@ Pendant la validation, ou si la recherche ne donne rien : ajoutez ce dépôt ave
 |  | Review: reread in full, with AI flashcards and quizzes | — | — |
 |  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
 |  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
+|  | Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf | — | — |
 
 ### Langues de l'interface
 
@@ -685,6 +691,7 @@ Mientras la revisión esté pendiente, o si la búsqueda no lo encuentra, añade
 |  | Review: reread in full, with AI flashcards and quizzes | — | — |
 |  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
 |  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
+|  | Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf | — | — |
 
 ### Idiomas de la interfaz
 
@@ -782,6 +789,7 @@ Enquanto a revisão estiver pendente, ou se a busca não encontrar, adicione est
 |  | Review: reread in full, with AI flashcards and quizzes | — | — |
 |  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
 |  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
+|  | Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf | — | — |
 
 ### Idiomas da interface
 

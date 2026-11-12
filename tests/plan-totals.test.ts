@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
  * 加一行忘了改，弹层就会对外少报一项——这张表是用户决定要不要付钱的
  * 地方，数字必须跟着表走。
  *
- * 「探索中」那七行两版都不打勾，所以天然不计入：不是特例，是同一条规则。
+ * 「探索中」那八行两版都不打勾，所以天然不计入：不是特例，是同一条规则。
  */
 
 import { PLAN_GROUPS, PLAN_TABLE, planTotals } from '../src/data/entitlement';
@@ -21,15 +21,15 @@ describe('对照表合计', () => {
     const t = planTotals();
     expect(t.free).toBe(PLAN_TABLE.filter((r) => r.free === 'yes').length);
     expect(t.pro).toBe(PLAN_TABLE.filter((r) => r.pro === 'yes').length);
-    /* 目前有七行两版都不打勾；把它们算进去就会变成 36 */
+    /* 目前有八行两版都不打勾；把它们算进去就会变成 37 */
     expect(t.pro).toBeLessThan(PLAN_TABLE.length);
-    expect(PLAN_TABLE.length - t.pro).toBe(7);
+    expect(PLAN_TABLE.length - t.pro).toBe(8);
   });
 
-  it('探索中的七行两边都不打勾，所以不进合计', () => {
+  it('探索中的八行两边都不打勾，所以不进合计', () => {
     const explore = new Set(PLAN_GROUPS.find((g) => g.key === 'explore')?.rows ?? []);
     const rows = PLAN_TABLE.filter((r) => explore.has(r.key));
-    expect(rows.length).toBe(7);
+    expect(rows.length).toBe(8);
     for (const r of rows) {
       expect(r.free, r.key).toBe('no');
       expect(r.pro, r.key).toBe('no');
