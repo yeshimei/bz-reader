@@ -148,7 +148,7 @@ function videoHtml(v: VideoRef, resolved: string | null, L: ClipBookLabels): str
     if (embed) {
       /* `data-bzr-keep` 是给 blob-srcdoc 的通行证：它默认删掉所有 iframe（防书里
          夹带框架），只放行打了这个标记、且地址是 https 的那一个。 */
-      const frame = `<div class="bzr-video-frame"><iframe ${KEEP_FRAME_ATTR}="video" src="${escXhtml(embed)}" width="100%" height="320" style="width:100%;height:320px;border:0;display:block" scrolling="no" frameborder="0" allowfullscreen="true"></iframe></div>`;
+      const frame = `<div class="bzr-video-frame"><iframe ${KEEP_FRAME_ATTR}="video" src="${escXhtml(embed)}" width="100%" height="240" style="width:100%;height:240px;border:0;display:block;break-inside:avoid" scrolling="no" frameborder="0" allowfullscreen="true"></iframe></div>`;
       /* 播放器起不来（网络 / 站点拒绝内嵌 / 宿主策略）时，至少还有一条路走：
          链接永远渲染，点一下到浏览器里看。 */
       const fallback = `<p class="bzr-video-link"><a href="${escXhtml(v.src)}">${escXhtml(L.videoLink)}</a></p>`;

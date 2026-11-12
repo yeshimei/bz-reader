@@ -43,6 +43,7 @@ import {
 } from './footnote';
 import { DEFAULT_PREFS, gatedPrefs, type ReaderPrefs } from '../data/prefs';
 import { bookPageInfo, chapterPageInfo } from './page-info';
+import { safeFraction } from './progress-fraction';
 import { can } from '../data/entitlement';
 import { engineMetaFromBook, type EngineMeta } from '../data/book-meta';
 import { NavHistory } from '../core/nav-history';
@@ -591,7 +592,7 @@ export class EngineHost {
         tocItem?: FoliateTOCItem | null;
         cfi?: string;
       };
-      const percent = typeof d.fraction === 'number' ? Math.min(1, Math.max(0, d.fraction)) : 0;
+      const percent = safeFraction(d.fraction);
       /* 正文真的出字了。诊断页靠这个把「卡在读/解包/分页」和「只是在排版」分开 */
       if (this.phase !== 'ready') this.phase = 'ready';
       this.chapterIndex = d.section?.current ?? this.chapterIndex;
