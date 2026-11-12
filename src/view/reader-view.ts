@@ -2379,7 +2379,6 @@ export class ReaderView extends ItemView {
       pagesInChapter: info.pagesInChapter,
       bookPage: info.bookPage,
       bookPages: info.bookPages,
-      percent: info.percent,
     };
     /* 页码要贴着正文右缘：宽屏时正文区居中、分页器还有列间距，
        只按页边距算会偏到屏幕边上。引擎量出真实距离，这里写成变量。 */

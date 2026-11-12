@@ -283,7 +283,6 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>${t('settings.accent')}</label><div class="bzs-seg bzs-seg-wrap">${accentBtns}</div></div>
       <div class="bzs-setrow"><label>${t('settings.toolbarStyle')}</label>${toolbarStyleBtns}</div>
       <div class="bzs-setrow"><label>${t('settings.pageLabel')}</label>${pageLabelBtns}</div>
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pageLabel.hint')}</div>
       <div class="bzs-setrow"><label>${t('settings.footnote')}</label>${seg(
         'footnote',
         // 浮窗已并入基础版：两个选项都是真实可用的

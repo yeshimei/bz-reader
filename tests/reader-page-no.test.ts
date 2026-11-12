@@ -68,22 +68,22 @@ describe('阅读页页码 · 显示', () => {
     expect(pageNo(view)).toBe('');
   });
 
-  it('本章口径：本章第几屏 / 共几屏 + 百分比', () => {
+  it('本章口径：本章第几屏 / 共几屏', () => {
     const view = wire({ pageLabel: 'chapter' });
     relocate(view);
-    expect(pageNo(view)).toBe('3 / 12 · 42%');
+    expect(pageNo(view)).toBe('3 / 12');
   });
 
-  it('全书口径：估算的全书页码 + 百分比', () => {
+  it('全书口径：估算的全书页码', () => {
     const view = wire({ pageLabel: 'book' });
     relocate(view);
-    expect(pageNo(view)).toBe('123 / 456 · 42%');
+    expect(pageNo(view)).toBe('123 / 456');
   });
 
-  it('滚动模式没有本章页数：只留百分比', () => {
+  it('滚动模式没有本章页数：整块不显示', () => {
     const view = wire({ pageLabel: 'chapter' });
     relocate(view, { pageInChapter: 0, pagesInChapter: 0 });
-    expect(pageNo(view)).toBe('42%');
+    expect(pageNo(view)).toBe('');
   });
 
   it('PDF 不画：右下角已经有页码浮条，不重复', () => {
@@ -96,10 +96,10 @@ describe('阅读页页码 · 显示', () => {
   it('设置里切口径：不用等下一次翻页就重算', () => {
     const view = wire({ pageLabel: 'chapter' });
     relocate(view);
-    expect(pageNo(view)).toBe('3 / 12 · 42%');
+    expect(pageNo(view)).toBe('3 / 12');
 
     view.updatePrefs(normalizePrefs({ pageLabel: 'book' }));
-    expect(pageNo(view)).toBe('123 / 456 · 42%');
+    expect(pageNo(view)).toBe('123 / 456');
 
     view.updatePrefs(normalizePrefs({ pageLabel: 'off' }));
     expect(pageNo(view)).toBe('');
@@ -108,7 +108,7 @@ describe('阅读页页码 · 显示', () => {
   it('加载态收走上一本的页码：新书还没定位时不报假数', () => {
     const view = wire({ pageLabel: 'chapter' });
     relocate(view);
-    expect(pageNo(view)).toBe('3 / 12 · 42%');
+    expect(pageNo(view)).toBe('3 / 12');
 
     (view as unknown as { renderLoading(t: string): void }).renderLoading('新书');
     expect(pageNo(view)).toBe('');

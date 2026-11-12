@@ -608,7 +608,6 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.pageLabel.off': '關',
   'settings.pageLabel.chapter': '本章',
   'settings.pageLabel.book': '全書',
-  'settings.pageLabel.hint': '本章按真實螢幕數計；全書按字數估算，翻頁時可能不跳數。',
   'settings.toolbarStyle': '工具列樣式',
   'settings.toolbarStyle.text': '文字',
   'settings.toolbarStyle.icon': '圖示',

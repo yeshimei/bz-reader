@@ -619,7 +619,6 @@ export const EN: Record<MsgKey, string> = {
   'settings.pageLabel.off': 'Off',
   'settings.pageLabel.chapter': 'Chapter',
   'settings.pageLabel.book': 'Whole book',
-  'settings.pageLabel.hint': 'Chapter counts real screens; whole book is estimated by word count, so the number may stay put for a page.',
   'settings.toolbarStyle': 'Toolbar style',
   'settings.toolbarStyle.text': 'Text',
   'settings.toolbarStyle.icon': 'Icons',

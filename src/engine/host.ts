@@ -1658,10 +1658,18 @@ export class EngineHost {
     const doc = this.view?.renderer?.getContents?.()[0]?.doc;
     if (!root || !doc?.documentElement || !doc.body) return 0;
     try {
+      /* 一定要用 iframe 自己的 window 读样式：主 window 的 getComputedStyle
+         对另一个文档的元素会给出默认值（paddingRight 读成 0），页码就只
+         让出了 body 的页边距，漏掉列间距的一半——真机上看着比正文靠右一截。 */
+      const win = doc.defaultView;
+      const padRight = (el: Element): number => {
+        if (!win) return 0;
+        return parseFloat(win.getComputedStyle(el).paddingRight) || 0;
+      };
       const rootW = root.clientWidth;
       const frameW = doc.documentElement.clientWidth;
-      const htmlPad = parseFloat(getComputedStyle(doc.documentElement).paddingRight) || 0;
-      const bodyPad = parseFloat(getComputedStyle(doc.body).paddingRight) || 0;
+      const htmlPad = padRight(doc.documentElement);
+      const bodyPad = padRight(doc.body);
       const centered = Math.max(0, (rootW - frameW) / 2);
       return Math.round(centered + htmlPad + bodyPad);
     } catch {
