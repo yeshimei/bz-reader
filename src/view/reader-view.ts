@@ -1492,6 +1492,11 @@ export class ReaderView extends ItemView {
     const root = this.rootEl;
     if (!root) return;
     if (root.dataset.bzaccent !== this.prefs.accent) root.dataset.bzaccent = this.prefs.accent;
+    /* 页码要跟正文的页边距、字号比例走，但正文在 iframe 里，宿主侧读不到
+       那些值：在 root 上写一份，CSS 用 calc 算位置与字号（见 reader.css）。
+       只写两个变量，不碰 DOM 结构——改字号/页边距时每本书都会走这里。 */
+    root.style.setProperty('--bzr-page-margin', `${this.prefs.margin}px`);
+    root.style.setProperty('--bzr-page-font', `${this.prefs.fontSize}px`);
     /* 设置里切了页码口径：不用等下一次翻页，拿最近一次的数字立刻重算 */
     this.renderPageNo();
   }

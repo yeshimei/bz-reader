@@ -31,6 +31,9 @@ function wire(prefs: Record<string, unknown> = {}): ReaderView {
   (view as unknown as { prefs: unknown }).prefs = normalizePrefs(prefs);
   (view as unknown as { book: unknown }).book = testBook('b1');
   (view as unknown as { buildShell(): void }).buildShell();
+  /* 真机上 buildShell 之后 updatePrefs 会走 applyChrome：这里手动补一次，
+     让「页边距 / 字号写进 root 变量」那一步也发生在测试里 */
+  (view as unknown as { applyChrome(): void }).applyChrome();
   return view;
 }
 
@@ -109,5 +112,17 @@ describe('阅读页页码 · 显示', () => {
 
     (view as unknown as { renderLoading(t: string): void }).renderLoading('新书');
     expect(pageNo(view)).toBe('');
+  });
+
+  it('页码的位置与字号跟页边距、正文字号走（写进 root 的两个变量）', () => {
+    const view = wire({ pageLabel: 'chapter', margin: 32, fontSize: 22 });
+    const style = (view as unknown as { rootEl: { style: Record<string, string> } }).rootEl.style;
+    expect(style['--bzr-page-margin']).toBe('32px');
+    expect(style['--bzr-page-font']).toBe('22px');
+
+    /* 改页边距/字号后跟着变：页码不是写死的 18px / 11px */
+    view.updatePrefs(normalizePrefs({ pageLabel: 'chapter', margin: 64, fontSize: 28 }));
+    expect(style['--bzr-page-margin']).toBe('64px');
+    expect(style['--bzr-page-font']).toBe('28px');
   });
 });
