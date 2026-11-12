@@ -677,7 +677,12 @@ export class ReaderView extends ItemView {
       /* 手机 / 桌面形态切换（含 force-mobile 验收）：类跟着换，样式才有归处 */
       this.headTitleEl.classList.toggle('is-desktop', desktop);
     }
-    const text = headerTitleText(book.meta.title, this.headerChapter());
+    /* 桌面：章节名优先；手机：书名（2026-11-12 用户要求移动端别改） */
+    const text = headerTitleText(
+      book.meta.title,
+      this.headerChapter(),
+      desktop ? 'desktop' : 'mobile',
+    );
     if (this.headTitleEl.textContent !== text) this.headTitleEl.textContent = text;
     /* 点头栏标题 = 打开左侧栏的目录页签（与头栏那颗目录图标同一条路） */
     this.bindTitleToToc(this.headTitleEl, text);

@@ -22,14 +22,22 @@
 export const HEAD_TITLE_GAP = 10;
 
 /**
- * 头栏实际显示的那一行字：章节名优先，没有就退回书名。
+ * 头栏实际显示的那一行字。
  *
- * 传之前已经把两级来源合过一次（`lastChapterTitle || 上次读到的那章`），
- * 这里只处理「有章节名用章节名 / 没有用书名 / 都没有留空」。
+ * 桌面：章节名优先（拿不到退回书名）——书名在 tab、书架、侧栏都有，
+ *       「现在读到哪」只有头栏这一处能一直看见。
+ * 手机：只显示书名（2026-11-12 用户要求移动端别改）——窄屏 fetch 标题空间少，
+ *       书名更能说明「在读哪本」。
+ * 都没有时留空，不写「阅读」这种没有信息量的兜底词。
  */
-export function headerTitleText(bookTitle: string | undefined, chapter: string | undefined): string {
-  const ch = (chapter ?? '').trim();
-  return ch || (bookTitle ?? '').trim();
+export function headerTitleText(
+  bookTitle: string | undefined,
+  chapter: string | undefined,
+  mode: 'desktop' | 'mobile' = 'desktop',
+): string {
+  const book = (bookTitle ?? '').trim();
+  if (mode === 'mobile') return book;
+  return (chapter ?? '').trim() || book;
 }
 
 export interface HeadTitleBoxInput {

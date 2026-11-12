@@ -30,6 +30,12 @@ describe('头栏标题：章节名优先', () => {
     expect(headerTitleText(undefined, undefined)).toBe('');
     expect(headerTitleText('', '')).toBe('');
   });
+
+  it('手机形态只显示书名：章节名再清楚也不换（2026-11-12 用户要求）', () => {
+    expect(headerTitleText('围城', '第一章', 'mobile')).toBe('围城');
+    expect(headerTitleText('围城', '', 'mobile')).toBe('围城');
+    expect(headerTitleText(undefined, '第一章', 'mobile')).toBe('');
+  });
 });
 
 describe('自绘标题的位置', () => {
