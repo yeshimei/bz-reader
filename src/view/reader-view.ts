@@ -1497,21 +1497,26 @@ export class ReaderView extends ItemView {
   /** 强调色 → data-bzaccent；底色、文字、边框全部来自 Obsidian 变量 */
   private applyChrome(): void {
     const root = this.rootEl;
-    if (!root) return;
-    if (root.dataset.bzaccent !== this.prefs.accent) root.dataset.bzaccent = this.prefs.accent;
     /* 页码与书名都要跟正文的页边距、字号走，但正文在 iframe 里，宿主侧读不到
        那些值：在 root 上写一份给页码，在 leaf-content 上再写一份给头栏书名
-       （书名不在 .bzs-shell 里，继承不到 root 的变量）。只写变量，不碰 DOM 结构。 */
+       （书名不在 .bzs-shell 里，继承不到 root 的变量）。只写变量，不碰 DOM 结构。
+       leaf-content 那一份写在 root 判空之前：壳还没建出来的首帧也要有值，
+       而 leaf-content 本身不会随重开书换掉，写一次就一直有效。 */
     const fontPx = `${this.prefs.fontSize}px`;
+    /* 标题、章节名、页码的字体跟着正文字体走：正文在 iframe 里用
+       FONT_FAMILIES 的 css，宿主侧照抄一份（book 档不覆盖，退回宿主正文字体）。 */
+    const family = FONT_FAMILIES.find((f) => f.value === this.prefs.fontFamily)?.css || 'var(--font-text, inherit)';
+    const safeTop = `${this.measureSafeTop()}px`;
+    this.containerEl.style.setProperty('--bzr-font-size', fontPx);
+    this.containerEl.style.setProperty('--bzr-font-family', family);
+    this.containerEl.style.setProperty('--bzr-page-margin', `${this.prefs.margin}px`);
+    this.containerEl.style.setProperty('--bzr-safe-top', safeTop);
+    if (!root) return;
+    if (root.dataset.bzaccent !== this.prefs.accent) root.dataset.bzaccent = this.prefs.accent;
     root.style.setProperty('--bzr-page-margin', `${this.prefs.margin}px`);
     root.style.setProperty('--bzr-font-size', fontPx);
-    this.containerEl.style.setProperty('--bzr-font-size', fontPx);
-    /* 标题、章节名、页码的字体跟着正文字体走：正文在 iframe 里用
-       FONT_FAMILIES 的 css，宿主侧照抄一份（book 档不覆盖，退回宿主正文字体）。
-       同样要写两份：root 给两角小字，leaf-content 给头栏书名。 */
-    const family = FONT_FAMILIES.find((f) => f.value === this.prefs.fontFamily)?.css || 'var(--font-text, inherit)';
     root.style.setProperty('--bzr-font-family', family);
-    this.containerEl.style.setProperty('--bzr-font-family', family);
+    root.style.setProperty('--bzr-safe-top', safeTop);
     /* 头栏书名不在 .bzs-shell 里，拿不到壳层的 --copper：把算出来的强调色
        写到 leaf-content 上，标题 hover 与焦点环跟着设置里的强调色走
        （点标题是打开右侧栏目录，颜色得和「强调色」这项对得上）。
@@ -1524,6 +1529,32 @@ export class ReaderView extends ItemView {
     }
     /* 设置里切了页码口径 / 正文字体：拿最近一次的数字与章节名立刻重算 */
     this.renderChromeText();
+  }
+
+  /**
+   * 状态栏占掉的高度（px）。
+   *
+   * 沉浸模式下阅读区从屏幕最顶上开始（Obsidian 安卓是 edge-to-edge），
+   * 章节名写死 `top: 10px` 正好压在系统状态栏底下——真机截图里「第一章」
+   * 和时钟叠在一起，看上去像飞出了屏幕。
+   *
+   * `env(safe-area-inset-top)` 在 Obsidian 的 WebView 里读出来是 0，所以先
+   * 用探针量一次；量不到就给移动端一个够用的保守值（安卓状态栏 24–32dp）。
+   * 桌面端恒为 0：那里阅读区本来就在标题栏下面。
+   */
+  private measureSafeTop(): number {
+    try {
+      const probe = document.createElement('div');
+      probe.style.cssText =
+        'position:fixed;top:0;left:0;width:0;height:0;padding-top:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none';
+      document.body.appendChild(probe);
+      const inset = parseFloat(getComputedStyle(probe).paddingTop) || 0;
+      probe.remove();
+      if (inset > 0) return Math.round(inset);
+    } catch {
+      /* 读不到就走下面的平台兜底 */
+    }
+    return isMobileEnv() ? 28 : 0;
   }
 
   /**

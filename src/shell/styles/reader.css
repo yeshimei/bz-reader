@@ -63,15 +63,17 @@
    左上章节名、右下页码。只在沉浸时出现（非沉浸时头栏有书名、侧栏有进度，
    正文上再多两行就是噪音），两角的字体、字号、透明度完全一致：
    · 字体跟正文字体走（--bzr-font-family，book 档退回宿主正文字体）；
-   · 字号 = 正文字号 × 0.6，夹在 12–18px；
-   · 左缘 / 右缘分别用引擎量出的正文边距对齐（--bzr-page-left / --bzr-page-right）。
+   · 字号 = 正文字号 × 0.5，夹在 12–18px（0.6 在真机上偏大，压过正文）；
+   · 左缘 / 右缘用引擎量出的正文边缘对齐（--bzr-page-left / --bzr-page-right，
+     含分页器把 iframe 横向平移的那一截）；
+   · 顶部让出状态栏（--bzr-safe-top，安卓 WebView 里 env() 拿不到高度）。
    关掉或拿不到内容时 textContent 是空串，`:empty` 把整块收走，不留空 div。 */
 .bzs-chapter,
 .bzs-pageno {
   position: absolute;
   z-index: 5;
   font-family: var(--bzr-font-family, var(--font-text, inherit));
-  font-size: clamp(12px, calc(var(--bzr-font-size, 26px) * 0.6), 18px);
+  font-size: clamp(12px, calc(var(--bzr-font-size, 26px) * 0.5), 18px);
   line-height: 1;
   letter-spacing: 0.02em;
   color: var(--t3);
@@ -84,10 +86,10 @@
   text-overflow: ellipsis;
 }
 
-/* 左上章节名：贴着正文左缘 */
+/* 左上章节名：贴着正文左缘，落在状态栏下方 */
 .bzs-chapter {
   left: var(--bzr-page-left, calc(var(--bzr-page-margin, 8px) + 3.763%));
-  top: 10px;
+  top: calc(var(--bzr-safe-top, 0px) + 10px);
   max-width: 62%;
 }
 
@@ -104,9 +106,9 @@
   display: none;
 }
 
-/* 沉浸时正文顶部让出章节名那一行，别压第一行字 */
+/* 沉浸时正文顶部让出章节名那一行（连同状态栏），别压第一行字 */
 .bzs-reader.is-immersive .bzs-rpages {
-  padding-top: 28px;
+  padding-top: calc(28px + var(--bzr-safe-top, 0px));
 }
 
 /* 并排对照：两角小字只跟主卷（左半）。落在右半会让人以为是右边那本的 */

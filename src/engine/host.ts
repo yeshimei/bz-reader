@@ -27,6 +27,7 @@ import type {
   ShowAnnotationDetail,
 } from '../types/foliate';
 import { buildChapterCSS } from './theme';
+import { contentInset } from './content-inset';
 import { makeTxtBook, countWords } from './txt';
 import { decodeTxtBytes } from './encoding';
 import { findTocHref } from './toc';
@@ -1644,63 +1645,59 @@ export class EngineHost {
   }
 
   /**
-   * 正文右缘距阅读区右边的距离（px）。
+   * 量一次正文边缘要用的几何量。
    *
-   * 页码要跟正文右缘在一条线上，但正文在 iframe 里、还隔着分页器的列内边距：
-   *   · iframe 可能比阅读区窄（宽屏时正文区居中，最多 720/1440px）；
-   *   · iframe 里的 html 还有列间距的一半（分页器 `gap/2`）；
-   *   · body 还有用户设的页边距（prefs.margin）。
-   * 三截加起来才是「正文右缘」的真实位置。拿不到就返回 0，让 CSS 的
-   * 百分比兜底——宁可差几像素，也别把页码甩到屏幕边上。
+   * 2026-11-12 修：以前这里用 `(阅读区宽 - html.clientWidth) / 2` 猜 iframe
+   * 的居中量，但分页器把 iframe 的宽度撑成了「所有列加起来」（真机上是
+   * 34129px），于是那个差值恒为负数、被 clamp 成 0——分页器实际把 iframe
+   * 横向平移的那十几像素整段漏掉，两角小字就贴着屏幕边、和正文对不上。
+   *
+   * 现在直接量 iframe 元素自己的位置：`frame.getBoundingClientRect().left`
+   * 减阅读区左边，翻到哪一页就是哪一页的平移量。
+   *
+   * 拿不到 iframe / 样式（换章空窗）时返回 null，调用方退回 0 让 CSS 兜底。
    */
-  contentRightInset(): number {
+  private contentGeometry(): { left: number; right: number } | null {
     const root = this.container;
     const doc = this.view?.renderer?.getContents?.()[0]?.doc;
-    if (!root || !doc?.documentElement || !doc.body) return 0;
+    if (!root || !doc?.documentElement || !doc.body) return null;
     try {
       /* 一定要用 iframe 自己的 window 读样式：主 window 的 getComputedStyle
-         对另一个文档的元素会给出默认值（paddingRight 读成 0），页码就只
-         让出了 body 的页边距，漏掉列间距的一半——真机上看着比正文靠右一截。 */
+         对另一个文档的元素会给出默认值（padding 读成 0）。 */
       const win = doc.defaultView;
-      const padRight = (el: Element): number => {
-        if (!win) return 0;
-        return parseFloat(win.getComputedStyle(el).paddingRight) || 0;
-      };
-      const rootW = root.clientWidth;
-      const frameW = doc.documentElement.clientWidth;
-      const htmlPad = padRight(doc.documentElement);
-      const bodyPad = padRight(doc.body);
-      const centered = Math.max(0, (rootW - frameW) / 2);
-      return Math.round(centered + htmlPad + bodyPad);
+      if (!win) return null;
+      const rootRect = root.getBoundingClientRect();
+      const frame = win.frameElement as HTMLElement | null;
+      const frameLeft = frame ? frame.getBoundingClientRect().left - rootRect.left : 0;
+      const htmlStyle = win.getComputedStyle(doc.documentElement);
+      const bodyStyle = win.getComputedStyle(doc.body);
+      return contentInset({
+        rootWidth: rootRect.width,
+        frameLeft,
+        htmlPadLeft: parseFloat(htmlStyle.paddingLeft) || 0,
+        bodyWidth: doc.body.offsetWidth,
+        bodyPadLeft: parseFloat(bodyStyle.paddingLeft) || 0,
+        bodyPadRight: parseFloat(bodyStyle.paddingRight) || 0,
+      });
     } catch {
       /* 换章的空窗里 getContents 可能给不出样式：退回 CSS 兜底 */
-      return 0;
+      return null;
     }
   }
 
   /**
+   * 正文右缘距阅读区右边的距离（px）。页码贴着这条线。
+   * 算法见 `engine/content-inset.ts`。
+   */
+  contentRightInset(): number {
+    return this.contentGeometry()?.right ?? 0;
+  }
+
+  /**
    * 正文左缘距阅读区左边的距离（px）。沉浸模式左上角的章节名贴着这条线。
-   * 与 `contentRightInset` 同一套算法，只是取左边。
    */
   contentLeftInset(): number {
-    const root = this.container;
-    const doc = this.view?.renderer?.getContents?.()[0]?.doc;
-    if (!root || !doc?.documentElement || !doc.body) return 0;
-    try {
-      const win = doc.defaultView;
-      const padLeft = (el: Element): number => {
-        if (!win) return 0;
-        return parseFloat(win.getComputedStyle(el).paddingLeft) || 0;
-      };
-      const rootW = root.clientWidth;
-      const frameW = doc.documentElement.clientWidth;
-      const htmlPad = padLeft(doc.documentElement);
-      const bodyPad = padLeft(doc.body);
-      const centered = Math.max(0, (rootW - frameW) / 2);
-      return Math.round(centered + htmlPad + bodyPad);
-    } catch {
-      return 0;
-    }
+    return this.contentGeometry()?.left ?? 0;
   }
 
   /**
