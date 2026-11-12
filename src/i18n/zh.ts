@@ -633,6 +633,11 @@ export const ZH = {
 
   /* ── 设置页：外观 ────────────────────────────────────────── */
   'settings.accent': '强调色',
+  'settings.pageLabel': '阅读页页码',
+  'settings.pageLabel.off': '关',
+  'settings.pageLabel.chapter': '本章',
+  'settings.pageLabel.book': '全书',
+  'settings.pageLabel.hint': '本章按真实屏数计；全书按字数估算，翻页时可能不跳数。',
   'settings.toolbarStyle': '工具条样式',
   'settings.toolbarStyle.text': '文字',
   'settings.toolbarStyle.icon': '图标',

@@ -137,6 +137,10 @@ export function stubHost(view: ReaderView): void {
     destroy: async () => undefined,
     contentVertical: false,
     pageKey: '',
+    isPdf: false,
+    /* 设置页改偏好会走 updatePrefs → host.applyPrefs：空壳要有这一口，
+       否则「改设置立刻生效」这类测试会在半路炸掉 */
+    applyPrefs: () => undefined,
   };
 }
 

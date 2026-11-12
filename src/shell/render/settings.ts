@@ -276,10 +276,23 @@ export function viewSettings(v: SettingsView): string {
     ],
     p.toolbarStyle,
   );
+  /* 阅读页页码：关（默认）/ 本章 / 全书。正文上一行小字，不占高度；
+     默认关是老用户的界面不该变，想要的人自己开。 */
+  const pageLabelBtns = seg(
+    'pageLabel',
+    [
+      ['off', t('settings.pageLabel.off')],
+      ['chapter', t('settings.pageLabel.chapter')],
+      ['book', t('settings.pageLabel.book')],
+    ],
+    p.pageLabel,
+  );
   const look = `<div class="bzs-setgrp">
       <h3>${t('settings.grp.look')}</h3>
       <div class="bzs-setrow"><label>${t('settings.accent')}</label><div class="bzs-seg bzs-seg-wrap">${accentBtns}</div></div>
       <div class="bzs-setrow"><label>${t('settings.toolbarStyle')}</label>${toolbarStyleBtns}</div>
+      <div class="bzs-setrow"><label>${t('settings.pageLabel')}</label>${pageLabelBtns}</div>
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pageLabel.hint')}</div>
     </div>`;
 
   /* PDF 单独一组：自动复制链接 / 链接别名原来混在「外观」里，跟强调色、

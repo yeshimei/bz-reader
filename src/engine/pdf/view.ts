@@ -1545,6 +1545,11 @@ export class PdfView {
       chapterHref: pdfPageLocator(this.current),
       sectionCurrent: this.current - 1,
       sectionTotal: total,
+      /* PDF 的页就是真页：本章口径与全书口径同一个数字（页码只给 EPUB/TXT 画） */
+      pageInChapter: this.current,
+      pagesInChapter: total,
+      bookPage: this.current,
+      bookPages: total,
       remainingSeconds: 0,
     });
   }

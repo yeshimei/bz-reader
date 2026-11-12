@@ -37,6 +37,7 @@ import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
 import { probeEnabled } from './debug-probe';
 import { el, setHtml } from '../ui/dom';
+import { pageLabelText, type PageLabelInput } from './page-label';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
 import {
   availableActions,
@@ -205,6 +206,10 @@ export class ReaderView extends ItemView {
   private selbar: HTMLElement | null = null;
   private selbarHideTimer: number | null = null;
   private pagesEl: HTMLElement | null = null;
+  /** 右下角的页码小字（关的时候是空串，CSS 按 :empty 收走） */
+  private pageNoEl: HTMLElement | null = null;
+  /** 最近一次进度里的页码数字：设置里切口径时不用等下一次翻页就能重算 */
+  private lastPageInfo: PageLabelInput | null = null;
   /** 挂进宿主头栏的动作（按 id 索引，重画时复用） */
   private headerEls = new Map<string, HTMLElement>();
   /** 手机上自绘的书名元素（宿主那个在窄屏会被挤成 0 宽） */
@@ -441,6 +446,10 @@ export class ReaderView extends ItemView {
     await this.closeParallel().catch(() => undefined);
     await this.settle();
     this.contentEl.empty();
+    /* 页码元素跟着 contentEl 一起没了：引用要清掉，免得下次开书
+        renderPageNo 往一个已经摘下来的节点里写 */
+    this.pageNoEl = null;
+    this.lastPageInfo = null;
   }
 
   async forceClose(): Promise<void> {
@@ -464,12 +473,17 @@ export class ReaderView extends ItemView {
     const stage = el('div', 'bzs-stage');
     const pages = el('div', 'bzs-rpages is-hosted');
     pages.append(stage);
-    root.append(pages);
+    /* 页码是绝对定位的一行小字，不占正文高度；关的时候 textContent 为空，
+       CSS 的 :empty 把它整个收走。点击穿透（pointer-events:none），
+       底部那片仍然按「点正文 = 下一页」翻。 */
+    const pageNo = el('div', 'bzs-pageno');
+    root.append(pages, pageNo);
     this.contentEl.appendChild(root);
 
     this.rootEl = root;
     this.stage = stage;
     this.pagesEl = pages;
+    this.pageNoEl = pageNo;
 
     /* 手机底栏浮在内容上：量一次它压住多少。第一次量时布局可能还没落定，
        再补一帧——量到 0 也不会多留白（见 syncBottomGap）。 */
@@ -1478,6 +1492,24 @@ export class ReaderView extends ItemView {
     const root = this.rootEl;
     if (!root) return;
     if (root.dataset.bzaccent !== this.prefs.accent) root.dataset.bzaccent = this.prefs.accent;
+    /* 设置里切了页码口径：不用等下一次翻页，拿最近一次的数字立刻重算 */
+    this.renderPageNo();
+  }
+
+  /**
+   * 右下角页码小字。
+   *
+   * 三个前提：
+   *   · PDF 不画——它右下角已经有页码浮条（`4 / 278` + 滑杆），再画一块就是两套；
+   *   · 口径为「关」或还没有进度时写空串，CSS 的 `:empty` 把整块收走；
+   *   · 只改 textContent，不重建节点：翻页是热路径，每页重建一次 DOM 没必要。
+   */
+  private renderPageNo(): void {
+    const node = this.pageNoEl;
+    if (!node) return;
+    const text =
+      this.host.isPdf || !this.lastPageInfo ? '' : pageLabelText(this.prefs.pageLabel, this.lastPageInfo);
+    if (node.textContent !== text) node.textContent = text;
   }
 
   /* ─────────────────── 划词条 ─────────────────── */
@@ -1998,6 +2030,9 @@ export class ReaderView extends ItemView {
     const stage = this.stage;
     if (!stage) return;
     stage.empty();
+    /* 打不开的书没有「第几页」：留着上一本的页码会像在报假数 */
+    this.lastPageInfo = null;
+    this.renderPageNo();
     const diag: FaultDiagLine[] = envSummary(this.host.loadPhase).map((line) => {
       const i = line.indexOf('：');
       return i > 0 ? { k: line.slice(0, i), v: line.slice(i + 1) } : { k: '信息', v: line };
@@ -2034,6 +2069,9 @@ export class ReaderView extends ItemView {
     const stage = this.stage;
     if (!stage) return;
     stage.empty();
+    /* 换书时先把上一本的页码收走：新书还没定位，旧数字会骗人 */
+    this.lastPageInfo = null;
+    this.renderPageNo();
     const box = el('div', '');
     setHtml(box, loadingHtml(title));
     stage.appendChild(box);
@@ -2317,6 +2355,16 @@ export class ReaderView extends ItemView {
       patchToc({ activeLabel: info.chapterTitle, activeHref: info.chapterHref });
     }
     this.lastPct = info.percent;
+    /* 页码：数字先存下来（设置里切口径时不用等下一次翻页），再画右下角。
+       引擎已经把本章 / 全书两种口径都整理好了（见 engine/page-info.ts）。 */
+    this.lastPageInfo = {
+      pageInChapter: info.pageInChapter,
+      pagesInChapter: info.pagesInChapter,
+      bookPage: info.bookPage,
+      bookPages: info.bookPages,
+      percent: info.percent,
+    };
+    this.renderPageNo();
     this.renderProbe();
     /* 每翻一页都可能换到「有书签 / 没书签」的页：图标亮不亮得跟着走 */
     this.syncToolState();

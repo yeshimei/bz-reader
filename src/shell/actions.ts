@@ -2737,6 +2737,11 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
     case 'flow':
       src.setPrefs({ flow: v === 'scroll' ? 'scroll' : 'paged' });
       break;
+    case 'pageLabel':
+      /* 阅读页页码三档：关 / 本章 / 全书。窗口外的值回「关」——默认就是关，
+         手改过的 data-v 不该把正文上多画一块东西 */
+      src.setPrefs({ pageLabel: v === 'chapter' || v === 'book' ? v : 'off' });
+      break;
     case 'pdfFlow':
       /* PDF 自己的翻页方式（2026-11-11）：和 EPUB 的 flow 分开，改它不牵动 EPUB */
       src.setPrefs({ pdfFlow: v === 'paged' ? 'paged' : 'scroll' });

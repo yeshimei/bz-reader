@@ -41,6 +41,20 @@ export type FootnoteMode = 'popup' | 'jump';
 export type FlowMode = 'paged' | 'scroll';
 
 /**
+ * 阅读页页码（2026-11-12 用户拍板「两种都做，默认关」）。
+ *
+ *   · off     —— 不显示（默认：老用户升级后正文上不多一块东西）
+ *   · chapter —— 本章第几屏 / 本章共几屏 + 全书百分比
+ *   · book    —— 按字数估算的全书第几页 / 共几页 + 全书百分比
+ *
+ * EPUB 没有固定页码，两种口径都只是近似；真数字是 `chapter`。
+ */
+export type PageLabelMode = 'off' | 'chapter' | 'book';
+
+export const PAGE_LABEL_MODES: readonly PageLabelMode[] = ['off', 'chapter', 'book'];
+
+
+/**
  * 划词工具条长什么样：文字 / 图标（2026-11-08）。
  *
  * 默认文字：老用户升级后界面不该变样。图标模式给窄屏省地方，
@@ -83,6 +97,8 @@ export interface ReaderPrefs {
   ttsFollow: boolean;
   /** 翻页 / 滚动（见 FlowMode） */
   flow: FlowMode;
+  /** 阅读页右下角的页码口径：关 / 本章 / 全书（见 PageLabelMode） */
+  pageLabel: PageLabelMode;
   /** 划词工具条：文字 / 图标（见 ToolbarStyle） */
   toolbarStyle: ToolbarStyle;
   /**
@@ -155,6 +171,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   ttsRate: 1,
   ttsFollow: true,
   flow: 'paged',
+  pageLabel: 'off',
   toolbarStyle: 'text',
   headerOrder: [],
   headerHidden: [],
@@ -349,6 +366,10 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     ttsRate: Math.round(clamp(p.ttsRate, TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, DEFAULT_PREFS.ttsRate) * 10) / 10,
     ttsFollow: p.ttsFollow !== false,
     flow: p.flow === 'scroll' ? 'scroll' : 'paged',
+    /* 页码：只认三档白名单；老数据没有这一项时落回「关」，升级后不自己冒出来 */
+    pageLabel: PAGE_LABEL_MODES.includes(p.pageLabel as PageLabelMode)
+      ? (p.pageLabel as PageLabelMode)
+      : DEFAULT_PREFS.pageLabel,
     toolbarStyle: p.toolbarStyle === 'icon' ? 'icon' : 'text',
     headerOrder: headerIds(p.headerOrder),
     headerHidden: headerIds(p.headerHidden),

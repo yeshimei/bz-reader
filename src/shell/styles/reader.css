@@ -59,6 +59,42 @@
   min-height: 0;
 }
 
+/* ── 右下角页码（2026-11-12）──
+   一行不占正文高度的小字：绝对定位在阅读区右下，半透明、不接收点击。
+   关掉口径时 textContent 是空串，`:empty` 把整块收走，不留一个空 div
+   压在正文上（真机排查时那种空节点最容易被当成「有个东西没画出来」）。
+   手机底部导航栏是浮在内容上的：`--bzr-bottom-gap` 由 syncBottomGap 量出来，
+   页码跟着让位，不钻到栏下面。 */
+.bzs-pageno {
+  position: absolute;
+  right: 14px;
+  bottom: calc(10px + var(--bzr-bottom-gap, 0px));
+  z-index: 5;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--t3);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.8;
+}
+
+.bzs-pageno:empty {
+  display: none;
+}
+
+/* 并排对照：页码只跟主卷（左半）。落在右半会让人以为是右边那本的页数 */
+.bzs-rpages.is-parallel ~ .bzs-pageno {
+  right: calc(50% + 14px);
+}
+
+/* 沉浸：更淡一档。沉浸时最需要知道进度，所以不藏，只是不抢正文 */
+body.bzr-immersive .bzs-pageno {
+  opacity: 0.55;
+}
+
+
 /* 2026-11-04 删（S-08）：这里原来有 `.bzs-rpending .bzs-btn` 与
    `.bzs-rpending.is-diag .bzs-btn` 两条，但 `bzs-rpending` 这个类
    全仓没有一处 DOM 在用——阅读页的加载/故障占位现在走 `bzr-*` 那套。 */

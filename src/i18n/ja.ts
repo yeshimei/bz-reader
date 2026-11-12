@@ -606,6 +606,11 @@ export const JA: Record<MsgKey, string> = {
 
   /* ── 設定：外観 ─────────────────────────────────────────── */
   'settings.accent': 'アクセント色',
+  'settings.pageLabel': 'Page numbers',
+  'settings.pageLabel.off': 'Off',
+  'settings.pageLabel.chapter': 'Chapter',
+  'settings.pageLabel.book': 'Whole book',
+  'settings.pageLabel.hint': 'Chapter counts real screens; whole book is estimated by word count, so the number may stay put for a page.',
   'settings.toolbarStyle': 'ツールバーのスタイル',
   'settings.toolbarStyle.text': '文字',
   'settings.toolbarStyle.icon': 'アイコン',

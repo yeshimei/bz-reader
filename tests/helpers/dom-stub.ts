@@ -11,6 +11,8 @@ type FakeEl = {
   children: FakeEl[];
   /** 挂上去的父节点：remove() 要真的从父亲里摘掉（弹窗测试靠这个收尾） */
   parent: FakeEl | null;
+  /** 真实 DOM 的 dataset（阅读区把强调色写在 root.dataset.bzaccent 上） */
+  dataset: Record<string, string>;
   style: Record<string, string> & { setProperty(k: string, v: string): void; removeProperty(k: string): void };
   classList: {
     add(...c: string[]): void;
@@ -23,6 +25,8 @@ type FakeEl = {
   hasAttribute(k: string): boolean;
   removeAttribute(k: string): void;
   setCssProps(props: Record<string, string>): void;
+  /** Obsidian 的 empty()：清空子节点（加载态 / 故障态先清舞台） */
+  empty(): void;
   appendChild(el: FakeEl): FakeEl;
   append(...els: FakeEl[]): void;
   /** setHtml 走 replaceChildren(fragment)：桩里把片段的子节点搬进容器 */
@@ -63,6 +67,7 @@ function makeEl(tagName = 'div'): FakeEl {
     textContent: '',
     children: [],
     parent: null,
+    dataset: {},
     style,
     classList: {
       add: (...c: string[]) => c.forEach((x) => classes.add(x)),
@@ -83,6 +88,10 @@ function makeEl(tagName = 'div'): FakeEl {
     removeAttribute: (k: string) => void attrs.delete(k),
     setCssProps: (props) => {
       for (const [k, v] of Object.entries(props)) style.setProperty(k, v);
+    },
+    empty: () => {
+      for (const child of el.children) child.parent = null;
+      el.children = [];
     },
     appendChild: (child) => {
       child.parent = el;

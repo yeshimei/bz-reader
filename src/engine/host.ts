@@ -41,6 +41,7 @@ import {
   splitFootnoteHref,
 } from './footnote';
 import { DEFAULT_PREFS, gatedPrefs, type ReaderPrefs } from '../data/prefs';
+import { bookPageInfo, chapterPageInfo } from './page-info';
 import { can } from '../data/entitlement';
 import { engineMetaFromBook, type EngineMeta } from '../data/book-meta';
 import { NavHistory } from '../core/nav-history';
@@ -119,6 +120,14 @@ export interface RelocateInfo {
   chapterHref: string;
   sectionCurrent: number;
   sectionTotal: number;
+  /** 1 基：本章当前屏；0 = 未知（滚动模式 / 整章一屏） */
+  pageInChapter: number;
+  /** 本章正文屏数；0 = 未知 */
+  pagesInChapter: number;
+  /** 1 基：按字数估算的全书页码；0 = 未知 */
+  bookPage: number;
+  /** 全书估算总页数；0 = 未知 */
+  bookPages: number;
   /** 剩余阅读时间（秒，foliate 按 1500 字节/秒 估） */
   remainingSeconds: number;
 }
@@ -560,6 +569,8 @@ export class EngineHost {
         time?: { total: number };
         tocItem?: FoliateTOCItem | null;
         cfi?: string;
+        /** foliate 按字节估的全书位置（`progress.js` 的 SectionProgress） */
+        location?: { current?: number; total?: number };
       };
       const percent = typeof d.fraction === 'number' ? Math.min(1, Math.max(0, d.fraction)) : 0;
       /* 正文真的出字了。诊断页靠这个把「卡在读/解包/分页」和「只是在排版」分开 */
@@ -581,6 +592,14 @@ export class EngineHost {
       const waiters = this.relocateWaiters;
       this.relocateWaiters = [];
       for (const w of waiters) w();
+      /* 页码口径统一在这里整理：本章用分页器的屏数，全书用 foliate 的
+         location（按字数估）。滚动模式本章没有「屏」，交给 chapterPageInfo
+         自己判成未知，上层只显示百分比。 */
+      const chapter = chapterPageInfo(
+        view.renderer as unknown as { page?: number; pages?: number } | undefined,
+        this.prefs.flow === 'scroll',
+      );
+      const book = bookPageInfo(d.location);
       this.opts.onRelocate?.({
         percent,
         cfi: d.cfi ?? '',
@@ -589,6 +608,10 @@ export class EngineHost {
         chapterHref: this.chapterHref,
         sectionCurrent: d.section?.current ?? 0,
         sectionTotal: d.section?.total ?? 0,
+        pageInChapter: chapter.page,
+        pagesInChapter: chapter.pages,
+        bookPage: book.page,
+        bookPages: book.pages,
         remainingSeconds: Math.round(d.time?.total ?? 0),
       });
     });

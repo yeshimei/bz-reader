@@ -63,6 +63,16 @@ describe('normalizePrefs', () => {
     expect(normalizePrefs({ flow: 'paged' }).flow).toBe('paged');
     expect(normalizePrefs({ flow: 'nope' }).flow).toBe('paged');
   });
+
+  it('阅读页页码：默认关，只认 off / chapter / book', () => {
+    expect(DEFAULT_PREFS.pageLabel).toBe('off');
+    expect(normalizePrefs({ pageLabel: 'chapter' }).pageLabel).toBe('chapter');
+    expect(normalizePrefs({ pageLabel: 'book' }).pageLabel).toBe('book');
+    expect(normalizePrefs({ pageLabel: 'off' }).pageLabel).toBe('off');
+    expect(normalizePrefs({ pageLabel: 'nope' }).pageLabel).toBe('off');
+    /* 老数据没有这一项：升级后不该自己冒出来 */
+    expect(normalizePrefs({ fontSize: 20 }).pageLabel).toBe('off');
+  });
 });
 
 /**
