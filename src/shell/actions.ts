@@ -1902,6 +1902,16 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
 
+    case 'preftoggle': {
+      /* 阅读偏好（prefs）上的开关，目前只有「章节名」。按按钮当前状态翻转：
+         拿 el 的 class 比读一遍 prefs 更省事，也不会和还没落盘的值打架。 */
+      const src = getShellSource();
+      if (!src) break;
+      if (d.k === 'chapterLabel') src.setPrefs({ chapterLabel: !el.classList.contains('on') });
+      repaint();
+      break;
+    }
+
     /* ── 侧栏：目录 / 书签 / 划线 ── */
     case 'jumpch': {
       if (d.href) {

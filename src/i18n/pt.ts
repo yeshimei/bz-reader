@@ -614,6 +614,7 @@ export const PT: Record<MsgKey, string> = {
 
   /* ── Configurações: aparência ───────────────────────────── */
   'settings.accent': 'Cor de destaque',
+  'settings.chapterLabel': 'Chapter name',
   'settings.pageLabel': 'Page numbers',
   'settings.pageLabel.off': 'Off',
   'settings.pageLabel.chapter': 'Chapter',

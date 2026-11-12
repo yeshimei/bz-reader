@@ -64,14 +64,22 @@ describe('normalizePrefs', () => {
     expect(normalizePrefs({ flow: 'nope' }).flow).toBe('paged');
   });
 
-  it('阅读页页码：默认关，只认 off / chapter / book', () => {
-    expect(DEFAULT_PREFS.pageLabel).toBe('off');
+  it('阅读页页码：默认全书，只认 off / chapter / book', () => {
+    expect(DEFAULT_PREFS.pageLabel).toBe('book');
     expect(normalizePrefs({ pageLabel: 'chapter' }).pageLabel).toBe('chapter');
     expect(normalizePrefs({ pageLabel: 'book' }).pageLabel).toBe('book');
     expect(normalizePrefs({ pageLabel: 'off' }).pageLabel).toBe('off');
-    expect(normalizePrefs({ pageLabel: 'nope' }).pageLabel).toBe('off');
-    /* 老数据没有这一项：升级后不该自己冒出来 */
-    expect(normalizePrefs({ fontSize: 20 }).pageLabel).toBe('off');
+    expect(normalizePrefs({ pageLabel: 'nope' }).pageLabel).toBe('book');
+    /* 老数据没有这一项：跟默认走（全书） */
+    expect(normalizePrefs({ fontSize: 20 }).pageLabel).toBe('book');
+  });
+
+  it('章节名开关：默认开，老数据也开，只有明确写 false 才关', () => {
+    expect(DEFAULT_PREFS.chapterLabel).toBe(true);
+    expect(normalizePrefs({}).chapterLabel).toBe(true);
+    expect(normalizePrefs({ fontSize: 20 }).chapterLabel).toBe(true);
+    expect(normalizePrefs({ chapterLabel: false }).chapterLabel).toBe(false);
+    expect(normalizePrefs({ chapterLabel: true }).chapterLabel).toBe(true);
   });
 });
 

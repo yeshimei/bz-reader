@@ -1672,15 +1672,14 @@ export class EngineHost {
       const frameLeft = frame ? frame.getBoundingClientRect().left - rootRect.left : 0;
       const htmlStyle = win.getComputedStyle(doc.documentElement);
       const bodyStyle = win.getComputedStyle(doc.body);
-      /* body 的 CSS width 才是「一列」的宽；offsetWidth 在多列布局里会被撑成
-         整本书的总宽（34828），右边距会算成负数。 */
-      const bodyWidth = parseFloat(bodyStyle.width) || doc.body.offsetWidth;
       return contentInset({
         rootWidth: rootRect.width,
         frameLeft,
-        columnWidth: parseFloat(htmlStyle.width) || 0,
+        /* html 的 CSS width 是「一整页」：手机单栏、桌面双栏时是两栏 + 列间距。
+           分页器一次翻一整页，右缘也从整页右边算，双栏时页码才落在右栏外沿。 */
+        pageWidth: parseFloat(htmlStyle.width) || 0,
         htmlPadLeft: parseFloat(htmlStyle.paddingLeft) || 0,
-        bodyWidth,
+        htmlPadRight: parseFloat(htmlStyle.paddingRight) || 0,
         bodyPadLeft: parseFloat(bodyStyle.paddingLeft) || 0,
         bodyPadRight: parseFloat(bodyStyle.paddingRight) || 0,
       });

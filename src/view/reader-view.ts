@@ -38,6 +38,15 @@ import { envSummary, probeBlobIframe } from '../core/diagnose';
 import { probeEnabled } from './debug-probe';
 import { el, setHtml } from '../ui/dom';
 import { pageLabelText, type PageLabelInput } from './page-label';
+
+/**
+ * 移动端顶部安全区的下限（px）。
+ *
+ * 刘海屏 / 挖孔屏上 Obsidian 给的 --safe-area-inset-top 有时是 0（老安卓
+ * WebView 不报），两角小字就会压进状态栏。真机实测至少要 44px 才让得开，
+ * 所以取两者的大值。
+ */
+const SAFE_TOP_MIN = 44;
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
 import {
   availableActions,
@@ -1543,18 +1552,17 @@ export class ReaderView extends ItemView {
    * 桌面端恒为 0：那里阅读区本来就在标题栏下面。
    */
   private measureSafeTop(): number {
+    if (!isMobileEnv()) return 0;
+    /* Obsidian 自己在移动端维护 --safe-area-inset-top（`view-content` 的
+       padding、lightbox 的 padding 都用它），刘海 / 挖孔 / 状态栏高度都在里面。
+       比 env() 靠谱：env() 在 Obsidian 的 WebView 里读出来是 0。 */
     try {
-      const probe = document.createElement('div');
-      probe.style.cssText =
-        'position:fixed;top:0;left:0;width:0;height:0;padding-top:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none';
-      document.body.appendChild(probe);
-      const inset = parseFloat(getComputedStyle(probe).paddingTop) || 0;
-      probe.remove();
-      if (inset > 0) return Math.round(inset);
+      const v = parseFloat(getComputedStyle(document.body).getPropertyValue('--safe-area-inset-top'));
+      if (Number.isFinite(v) && v > 0) return Math.round(Math.max(v, SAFE_TOP_MIN));
     } catch {
-      /* 读不到就走下面的平台兜底 */
+      /* 读不到就走下面的兜底 */
     }
-    return isMobileEnv() ? 28 : 0;
+    return SAFE_TOP_MIN;
   }
 
   /**
@@ -1568,11 +1576,15 @@ export class ReaderView extends ItemView {
    * 只改 textContent，不重建节点：翻页是热路径，每页重建一次 DOM 没必要。
    */
   private renderChromeText(): void {
-    const show = this.immersive && !this.host.isPdf;
+    /* 手机只在沉浸时露两角：非沉浸时头栏有书名、底栏有进度，再摆一行就是噪音。
+       桌面反过来——非沉浸也没有任何地方显示「第几章 / 第几页」，所以只要
+       开关开着就一直显示（2026-11-12 用户要求：桌面全屏与非全屏都显示）。 */
+    const show = !this.host.isPdf && (this.immersive || !isMobileShell());
     const chapter = this.chapterEl;
+    let chapterText = '';
     if (chapter) {
-      const title = show ? this.lastChapterTitle.trim() : '';
-      if (chapter.textContent !== title) chapter.textContent = title;
+      chapterText = show && this.prefs.chapterLabel ? this.lastChapterTitle.trim() : '';
+      if (chapter.textContent !== chapterText) chapter.textContent = chapterText;
     }
     const node = this.pageNoEl;
     if (node) {
@@ -1581,6 +1593,9 @@ export class ReaderView extends ItemView {
       if (node.textContent !== text) node.textContent = text;
     }
     this.rootEl?.classList.toggle('is-immersive', this.immersive);
+    /* 正文顶部要不要给章节名让位，只看它到底有没有字：关掉开关后
+       不该白留一条 28px 的空带 */
+    this.rootEl?.classList.toggle('has-chapter', chapterText.length > 0);
   }
 
   /* ─────────────────── 划词条 ─────────────────── */

@@ -612,6 +612,7 @@ export const DE: Record<MsgKey, string> = {
 
   /* ── Einstellungen: Aussehen ────────────────────────────── */
   'settings.accent': 'Akzentfarbe',
+  'settings.chapterLabel': 'Chapter name',
   'settings.pageLabel': 'Page numbers',
   'settings.pageLabel.off': 'Off',
   'settings.pageLabel.chapter': 'Chapter',

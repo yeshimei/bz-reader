@@ -604,6 +604,7 @@ export const ZH_TW: Record<MsgKey, string> = {
 
   /* ── 設定頁：外觀 ────────────────────────────────────────── */
   'settings.accent': '強調色',
+  'settings.chapterLabel': '章節名',
   'settings.pageLabel': '閱讀頁頁碼',
   'settings.pageLabel.off': '關',
   'settings.pageLabel.chapter': '本章',

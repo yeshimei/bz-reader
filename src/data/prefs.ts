@@ -99,6 +99,13 @@ export interface ReaderPrefs {
   flow: FlowMode;
   /** 阅读页右下角的页码口径：关 / 本章 / 全书（见 PageLabelMode） */
   pageLabel: PageLabelMode;
+  /**
+   * 阅读页左上角的章节名。
+   *
+   * 2026-11-12：和页码分开成两个开关——有人只想看页码、不想被章节名分心。
+   * 默认开：页码已经默认「全书」，两角配成一对才像一本书的页眉页脚。
+   */
+  chapterLabel: boolean;
   /** 划词工具条：文字 / 图标（见 ToolbarStyle） */
   toolbarStyle: ToolbarStyle;
   /**
@@ -171,7 +178,8 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   ttsRate: 1,
   ttsFollow: true,
   flow: 'paged',
-  pageLabel: 'off',
+  pageLabel: 'book',
+  chapterLabel: true,
   toolbarStyle: 'text',
   headerOrder: [],
   headerHidden: [],
@@ -366,10 +374,12 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     ttsRate: Math.round(clamp(p.ttsRate, TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, DEFAULT_PREFS.ttsRate) * 10) / 10,
     ttsFollow: p.ttsFollow !== false,
     flow: p.flow === 'scroll' ? 'scroll' : 'paged',
-    /* 页码：只认三档白名单；老数据没有这一项时落回「关」，升级后不自己冒出来 */
+    /* 页码：只认三档白名单；老数据没有这一项时落回默认（全书） */
     pageLabel: PAGE_LABEL_MODES.includes(p.pageLabel as PageLabelMode)
       ? (p.pageLabel as PageLabelMode)
       : DEFAULT_PREFS.pageLabel,
+    /* 章节名：老数据没有这一项 → 开（和页码配成一对） */
+    chapterLabel: p.chapterLabel !== false,
     toolbarStyle: p.toolbarStyle === 'icon' ? 'icon' : 'text',
     headerOrder: headerIds(p.headerOrder),
     headerHidden: headerIds(p.headerHidden),

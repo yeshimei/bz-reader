@@ -633,6 +633,7 @@ export const ZH = {
 
   /* ── 设置页：外观 ────────────────────────────────────────── */
   'settings.accent': '强调色',
+  'settings.chapterLabel': '章节名',
   'settings.pageLabel': '阅读页页码',
   'settings.pageLabel.off': '关',
   'settings.pageLabel.chapter': '本章',

@@ -123,6 +123,11 @@ function toggle(k: string, on: boolean, label: string): string {
   return `<div class="bzs-setrow"><label>${label}</label><button class="bzs-switch${on ? ' on' : ''}" data-act="toggle" data-k="${k}" aria-label="${label}"></button></div>`;
 }
 
+/** 阅读偏好（prefs）上的开关：和上面 shell 设置那类 toggle 分开走 */
+function prefToggle(k: string, on: boolean, label: string): string {
+  return `<div class="bzs-setrow"><label>${label}</label><button class="bzs-switch${on ? ' on' : ''}" data-act="preftoggle" data-k="${k}" aria-label="${label}"></button></div>`;
+}
+
 /**
  * 设置页顶部那条「关于」（横跨两栏）。
  *
@@ -283,6 +288,7 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>${t('settings.accent')}</label><div class="bzs-seg bzs-seg-wrap">${accentBtns}</div></div>
       <div class="bzs-setrow"><label>${t('settings.toolbarStyle')}</label>${toolbarStyleBtns}</div>
       <div class="bzs-setrow"><label>${t('settings.pageLabel')}</label>${pageLabelBtns}</div>
+      ${prefToggle('chapterLabel', p.chapterLabel !== false, t('settings.chapterLabel'))}
       <div class="bzs-setrow"><label>${t('settings.footnote')}</label>${seg(
         'footnote',
         // 浮窗已并入基础版：两个选项都是真实可用的

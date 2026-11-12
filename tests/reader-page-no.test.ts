@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { Platform } from 'obsidian';
 import { installDomStub } from './helpers/dom-stub';
 import { makeApp, makeReaderView, stubHost, testBook } from './helpers/plugin-harness';
 import { normalizePrefs } from '../src/data/prefs';
@@ -67,10 +68,20 @@ const pageNo = (view: ReaderView): string => textOf(view, 'pageNoEl');
 const chapterName = (view: ReaderView): string => textOf(view, 'chapterEl');
 
 describe('沉浸模式的两角小字', () => {
-  it('默认关：全屏下右下角也是空的', () => {
+  it('桌面端默认全书：不沉浸也显示页码与章节名', () => {
     const view = wire();
     relocate(view);
-    expect(pageNo(view)).toBe('');
+    expect(pageNo(view)).toBe('123 / 456');
+    expect(chapterName(view)).toBe('第二章');
+  });
+
+  it('章节名开关关掉：只剩页码，正文也不用再让位', () => {
+    const view = wire({ chapterLabel: false });
+    relocate(view);
+    expect(chapterName(view)).toBe('');
+    expect(pageNo(view)).toBe('123 / 456');
+    const root = (view as unknown as { rootEl: { classList: { contains(c: string): boolean } } }).rootEl;
+    expect(root.classList.contains('has-chapter')).toBe(false);
   });
 
   it('本章口径：本章第几屏 / 本章共几屏', () => {
@@ -91,11 +102,28 @@ describe('沉浸模式的两角小字', () => {
     expect(chapterName(view)).toBe('第二章');
   });
 
-  it('非沉浸：两角都不显示（页码再开也不画）', () => {
-    const view = wire({ pageLabel: 'chapter' }, false);
-    relocate(view);
-    expect(pageNo(view)).toBe('');
-    expect(chapterName(view)).toBe('');
+  it('手机非沉浸：两角都不显示（页码再开也不画）', () => {
+    Platform.isMobile = true;
+    try {
+      const view = wire({ pageLabel: 'chapter' }, false);
+      relocate(view);
+      expect(pageNo(view)).toBe('');
+      expect(chapterName(view)).toBe('');
+    } finally {
+      Platform.isMobile = false;
+    }
+  });
+
+  it('手机沉浸：两角都显示', () => {
+    Platform.isMobile = true;
+    try {
+      const view = wire({ pageLabel: 'chapter' }, true);
+      relocate(view);
+      expect(pageNo(view)).toBe('3 / 12');
+      expect(chapterName(view)).toBe('第二章');
+    } finally {
+      Platform.isMobile = false;
+    }
   });
 
   it('滚动模式没有本章页数：整块不显示', () => {

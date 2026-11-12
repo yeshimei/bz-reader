@@ -606,6 +606,7 @@ export const JA: Record<MsgKey, string> = {
 
   /* ── 設定：外観 ─────────────────────────────────────────── */
   'settings.accent': 'アクセント色',
+  'settings.chapterLabel': 'Chapter name',
   'settings.pageLabel': 'Page numbers',
   'settings.pageLabel.off': 'Off',
   'settings.pageLabel.chapter': 'Chapter',
