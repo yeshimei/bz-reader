@@ -1104,6 +1104,17 @@ body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .nav-buttons
   opacity: .38;
 }
 
+/* 桌面非沉浸：页码挂在宿主状态栏的最后（右下角会被状态栏挡住，2026-11-12）。
+   与正文里两角小字同色；没有页码时收起，不留一格空白。 */
+.bzr-status-page {
+  color: var(--text-faint, #93939c);
+  font-variant-numeric: tabular-nums;
+}
+
+.bzr-status-page:empty {
+  display: none;
+}
+
 /* 沉浸：按 f 或调色板命令时藏掉宿主的上头栏与下导航条。
    桌面端以前只藏了 view-header，tab 栏、状态栏还在，正文上下各被切掉一条，
    看起来不像「全屏阅读」——所以这里把桌面那两圈边框也一起收掉。 */

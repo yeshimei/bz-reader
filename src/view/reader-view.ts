@@ -221,6 +221,8 @@ export class ReaderView extends ItemView {
   private chapterEl: HTMLElement | null = null;
   /** 沉浸模式右下角的页码小字（关的时候是空串，CSS 按 :empty 收走） */
   private pageNoEl: HTMLElement | null = null;
+  /** 桌面非沉浸：挂进宿主状态栏的页码（右下角会被状态栏挡住，2026-11-12 用户要求） */
+  private statusPageEl: HTMLElement | null = null;
   /** 最近一次进度里的页码数字：设置里切口径时不用等下一次翻页就能重算 */
   private lastPageInfo: PageLabelInput | null = null;
   /** 挂进宿主头栏的动作（按 id 索引，重画时复用） */
@@ -428,6 +430,7 @@ export class ReaderView extends ItemView {
 
   async onOpen(): Promise<void> {
     this.buildShell();
+    this.syncStatusPage();
     await this.maybeMount();
   }
 
@@ -444,8 +447,11 @@ export class ReaderView extends ItemView {
       this.headTitleEl.remove();
     }
     this.headTitleEl = null;
+    /* 状态栏里那一项也要收：它挂在宿主元素上，不跟视图一起销毁 */
+    this.statusPageEl?.remove();
+    this.statusPageEl = null;
     /* 头栏标题从 2026-11-12 起是自绘的（见 mountTitleInHeader），宿主那一行
-       我们只加过一个「收起来」的类；它带 data-type 作用域，切视图自动失效。 */
+       我们只加过一个「藏起来」的类；它带 data-type 作用域，切视图自动失效。 */
     this.headerEls.forEach((node) => node.remove());
     this.headerEls.clear();
     this.teardown = () => undefined;
@@ -620,6 +626,8 @@ export class ReaderView extends ItemView {
     this.registerEvent(
       this.api.app.workspace.on('active-leaf-change', (leaf) => {
         if (leaf === this.leaf) this.mountHeader();
+        /* 状态栏那份页码只给活动 tab 写：切走要把自己那一段清掉 */
+        this.renderStatusPage();
       }),
     );
 
@@ -1633,6 +1641,79 @@ export class ReaderView extends ItemView {
   }
 
   /**
+   * 桌面：页码挂进宿主状态栏的最后（2026-11-12 用户要求）。
+   *
+   * 阅读区右下角那条页码在桌面会被窗口底部的状态栏挡住；状态栏本来就常驻，
+   * 挂进它里面比在正文上再垫高一层干净。沉浸模式下状态栏会被藏起来，
+   * 那时页码回到阅读区右下角（见 chromeLabelMode）。
+   *
+   * 每个阅读 tab 各挂一个 item，但只有活动的那本写字，别的 tab 留空——
+   * 否则切 tab 会看到两段页码并排。
+   */
+  private ensureStatusPage(): void {
+    if (this.statusPageEl) return;
+    const doc = (this.containerEl as HTMLElement | undefined)?.ownerDocument;
+    if (!doc) return;
+    const bar = doc.querySelector<HTMLElement>('.status-bar');
+    if (!bar) return;
+    const el0 = doc.createElement('div');
+    el0.className = 'status-bar-item bzr-status-page';
+    /* 放最后：状态栏最右是宿主留给「常驻信息」的位置，别插到别人的插件项前面 */
+    bar.appendChild(el0);
+    this.statusPageEl = el0;
+  }
+
+  /** 宿主状态栏现在可见吗（用户可能在设置里把它关掉） */
+  private statusBarVisible(): boolean {
+    /* 单测里的假视图没有 containerEl：当状态栏不存在，页码走正文那条路 */
+    const doc = (this.containerEl as HTMLElement | undefined)?.ownerDocument;
+    const bar = doc?.querySelector<HTMLElement>('.status-bar');
+    if (!bar) return false;
+    return getComputedStyle(bar).display !== 'none' && bar.getBoundingClientRect().height > 0;
+  }
+
+  /**
+   * 页码去状态栏还是留正文（2026-11-12 用户要求）。
+   *
+   * 设置里关掉状态栏：把状态栏那一项摘掉，页码退回正文右下角；
+   * 又打开：重新挂上。沉浸时状态栏是我们自己藏起来的，不能当成「用户关了」，
+   * 这一拍直接跳过——否则每次全屏都会把那一项摘掉。
+   */
+  private syncStatusPage(): void {
+    if (isMobileShell() || this.host.isPdf) {
+      this.statusPageEl?.remove();
+      this.statusPageEl = null;
+      return;
+    }
+    if (this.immersive) return;
+    if (!this.statusBarVisible()) {
+      this.statusPageEl?.remove();
+      this.statusPageEl = null;
+      return;
+    }
+    this.ensureStatusPage();
+  }
+
+  /** 这个阅读 tab 是不是当前活动的那一个（页码只给活动 tab 写） */
+  private isActiveLeaf(): boolean {
+    const ws = this.api.app.workspace as unknown as {
+      getMostRecentLeaf?: () => WorkspaceLeaf | null;
+      activeLeaf?: WorkspaceLeaf | null;
+    };
+    return (ws.getMostRecentLeaf?.() ?? ws.activeLeaf ?? null) === this.leaf;
+  }
+
+  private renderStatusPage(): void {
+    const node = this.statusPageEl;
+    if (!node) return;
+    const text =
+      this.isActiveLeaf() && this.lastPageInfo
+        ? pageLabelText(this.prefs.pageLabel, this.lastPageInfo)
+        : '';
+    if (node.textContent !== text) node.textContent = text;
+  }
+
+  /**
    * 沉浸模式的两角小字：左上章节名、右下页码。
    *
    * 只在沉浸时出现——非沉浸时头栏有书名、侧栏有进度，正文上再多两行就是噪音。
@@ -1644,12 +1725,15 @@ export class ReaderView extends ItemView {
    */
   private renderChromeText(): void {
     /* 2026-11-12 用户改的口径：非全屏时章节名只在头栏标题里（同色），左上角
-       不再重复；全屏头栏藏起来，章节名回到左上角；页码两种模式都留。
-       口径本身在 view/chrome-labels.ts（有单测）。 */
+       不再重复；全屏头栏藏起来，章节名回到左上角；页码非沉浸挂在状态栏里，
+       沉浸（状态栏也藏起来）才回到右下角。口径本身在 view/chrome-labels.ts。 */
+    /* 页码在状态栏还是在正文，取决于宿主状态栏还在不在：先对齐挂载再判断口径 */
+    this.syncStatusPage();
     const mode = chromeLabelMode({
       immersive: this.immersive,
       mobileShell: isMobileShell(),
       pdf: !!this.host.isPdf,
+      statusBar: !!this.statusPageEl,
     });
     const chapter = this.chapterEl;
     let chapterText = '';
@@ -1667,6 +1751,8 @@ export class ReaderView extends ItemView {
     /* 正文顶部要不要给章节名让位，只看它到底有没有字：关掉开关后
        不该白留一条 28px 的空带 */
     this.rootEl?.classList.toggle('has-chapter', chapterText.length > 0);
+    /* 桌面非沉浸的页码在宿主状态栏里，跟两角小字同一个数字来源 */
+    this.renderStatusPage();
   }
 
   /* ─────────────────── 划词条 ─────────────────── */
@@ -1982,6 +2068,8 @@ export class ReaderView extends ItemView {
       setShellState({ bookId: book.id, activeReaderId: book.id, cites: this.cites });
     }
     this.publishToc();
+    /* 状态栏那份页码只给活动 tab 写：切回来要立刻显示自己这本的页 */
+    this.renderStatusPage();
   }
 
   private async maybeMount(): Promise<void> {
