@@ -37,17 +37,10 @@ export interface PluginDataFile {
    * 空串 = 没记过（老库升级上来就是这一档）。
    */
   changelogSeenVersion: string;
-  /**
-   * 仅开发构建：测试库的「强制基础版」开关（free / null）。
-   *
-   * 命令面板「开发：切换为基础版」写这里，重启后接着生效。
-   * 只有这一个方向：旧版本留下的 paid 覆盖在 normalize 时收成 null，
-   * 发布包里同样收成 null，entitlement 的读取分支也被摇掉。
-   */
-  devTier: DevTierValue;
+  /* 旧版本这里还有一个 `devTier`（测试库「强制基础版」的覆盖开关）：
+     2026-11-12 起那条命令改成真降级（清码），覆盖字段随之删除。老 data.json
+     里残留的值读进来就丢，下一次落盘自然消失，不会再压住授权。 */
 }
-
-export type DevTierValue = 'free' | null;
 
 export const EMPTY_PLUGIN_DATA: PluginDataFile = {
   version: 1,
@@ -55,7 +48,6 @@ export const EMPTY_PLUGIN_DATA: PluginDataFile = {
   entitlement: null,
   dataDir: DEFAULT_DATA_DIR,
   changelogSeenVersion: '',
-  devTier: null,
 };
 
 /**
@@ -73,6 +65,5 @@ export function normalizePluginData(raw: unknown): PluginDataFile {
     entitlement: d.entitlement ?? null,
     dataDir: normalizeDataDir(typeof d.dataDir === 'string' ? d.dataDir : ''),
     changelogSeenVersion: typeof d.changelogSeenVersion === 'string' ? d.changelogSeenVersion : '',
-    devTier: d.devTier === 'free' ? 'free' : null,
   };
 }

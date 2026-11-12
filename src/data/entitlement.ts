@@ -1,5 +1,3 @@
-/* global __BZ_DEV__ -- 构建期 define，声明在 types/globals.d.ts；eslint 的 no-undef 读不到 .d.ts */
-
 /* ============================================================
  * bz-reader · 授权状态机（data/entitlement.ts）
  *
@@ -32,7 +30,6 @@
 
 import { locale, t, type Locale } from '../i18n';
 import { planNameZh, type PlanGroupKey, type PlanKey } from '../i18n/plan';
-import { devTierForced } from '../core/dev-tier';
 import { parseLicense, verifyLicense, type LicenseFail, type LicensePayload } from './license';
 import type { BookFormat } from './schema';
 
@@ -346,11 +343,10 @@ export function entitlement(now = Date.now()): EntitlementView {
   // 第 1..TRIAL_DAYS 个活跃日都在试用内；第 TRIAL_DAYS+1 天开始结束
   // TRIAL_ACTIVE=false 时这一支永远不成立（试用不发放，但记录照旧）
   const trialAlive = TRIAL_ACTIVE && !e.trialVoid && used <= TRIAL_DAYS;
-  let tier: Tier = paid ? 'paid' : trialAlive ? 'trial' : 'free';
-
-  /* 测试库的开发构建：命令面板只有「切换为基础版」这一个方向。
-     发布构建 __BZ_DEV__ 为 false，整块被 esbuild 删掉，dev-tier 也不进包。 */
-  if (__BZ_DEV__ && devTierForced()) tier = 'free';
+  /* 没有「开发构建强制基础版」这一层了（2026-11-12）：那条命令改成真降级
+     （清码），授权判定只剩真实码这一个真相。否则覆盖一旦生效就再也解不掉，
+     重新填码也不认——就是这次修的 bug。 */
+  const tier: Tier = paid ? 'paid' : trialAlive ? 'trial' : 'free';
 
   const left = used <= 0 ? TRIAL_DAYS : Math.max(0, TRIAL_DAYS - used + 1);
 
@@ -458,13 +454,21 @@ export async function revalidateLicense(): Promise<{ changed: boolean; reason?: 
   return { changed: false, reason: res.reason };
 }
 
-/** 清掉激活码（退回免费判定） */
-export function clearLicense(): void {
+/**
+ * 清掉激活码（退回免费判定）。
+ *
+ * 返回清之前**有没有码**——测试库的「切换为基础版」用它区分「真降级了」
+ * 与「本来就是基础版」。没码也照写一遍：镜像和文件两边保持一致，不给
+ * 旧码留复活的机会。
+ */
+export function clearLicense(): boolean {
   const e = load();
+  const had = e.license !== '';
   payloadCache.delete(e.license);
   e.license = '';
   e.checkedTs = 0;
   save();
+  return had;
 }
 
 /** 报错用的人话。对外只有两种状态——试用相关信息一律不出现。 */

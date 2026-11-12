@@ -274,7 +274,7 @@ export const ZH = {
   'notice.group.plainOk': '已复制群号 {id}，去 QQ 搜索就能加群',
   'notice.group.plainFail': '复制失败，群号是 {id}，去 QQ 搜索加群',
   /* 仅开发构建（测试库）：命令面板只有「切换为基础版」一条 */
-  'notice.dev.tier.free': '开发：已切到基础版（仅测试库）',
+  'notice.dev.tier.free': '开发：已切到基础版，激活码已清空（仅测试库）',
   'notice.dev.tier.already': '开发：已经是基础版（仅测试库）',
 
   /* ── 统计页 ──────────────────────────────────────────────── */

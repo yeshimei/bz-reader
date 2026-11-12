@@ -48,7 +48,7 @@ import { isDeferredViewOf } from './view/leaf-reuse';
 import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-state';
 import { mountImport } from './ui/import-panel';
 import { releaseCovers } from './data/cover';
-import { activateLicense as applyLicense, can, entitlement, recordActivity, revalidateLicense, setEntBackend, setProBuild, unlockModeFor } from './data/entitlement';
+import { activateLicense as applyLicense, can, clearLicense, entitlement, recordActivity, revalidateLicense, setEntBackend, setProBuild, unlockModeFor } from './data/entitlement';
 import { forceBaseTier, initDevTier } from './core/dev-tier';
 import { normalizePluginData, type PluginDataFile } from './data/plugin-data';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';
@@ -166,15 +166,19 @@ export function createPlugin(cfg: PluginConfig) {
     }
 
     /**
-     * 测试库专用：把界面压到基础版。
+     * 测试库专用：真正退回基础版（2026-11-12 修）。
      *
-     * 只有这一个方向——切高级版与恢复真实授权的命令都删掉了，开发构建里
-     * 也不该留绕过付费的入口。只改界面判定，不动 data.json 里的真实激活码；
-     * 切完立刻重绘壳层，书架的授权行、AI 页签灰化、解锁弹层都跟着变。
-     * 发布构建没有这个命令。
+     * 以前只压界面判定、把码留在 data.json 里，于是重新填高级版码也永远
+     * 停在基础版——覆盖没人解。现在清掉激活码本身：基础版就是基础版，
+     * 设置页 / 解锁层重新输入合法码立刻回到高级版。没有「切高级版」命令，
+     * 开发构建里不留绕过付费的入口。发布构建没有这个命令。
      */
     private devForceBase(): void {
-      notify(t(forceBaseTier() ? 'notice.dev.tier.free' : 'notice.dev.tier.already'));
+      const dropped = forceBaseTier();
+      notify(t(dropped ? 'notice.dev.tier.free' : 'notice.dev.tier.already'));
+      /* 清码是立刻生效的（内存 cache 已改），但落盘走防抖；这里直接写一次，
+         免得刚切完就重载插件、码又从上一次存档里冒出来。 */
+      if (dropped) void this.flushCfg();
       notifyShell();
     }
 
@@ -270,15 +274,9 @@ export function createPlugin(cfg: PluginConfig) {
           this.persistCfg();
         },
       });
-      /* 仅开发构建（测试库）：强制基础版开关。发布包里整块被摇掉，dev-tier 不进包。 */
+      /* 仅开发构建（测试库）：退回基础版。发布包里整块被摇掉，dev-tier 不进包。 */
       if (__BZ_DEV__) {
-        initDevTier({
-          read: () => this.cfg.devTier,
-          write: (raw) => {
-            this.cfg.devTier = raw === 'free' ? 'free' : null;
-            this.persistCfg();
-          },
-        });
+        initDevTier({ dropLicense: clearLicense });
       }
       setDataDir(this.cfg.dataDir);
       /* 指针可能是空的（清过缓存 / 只拷了书没带 .obsidian）：扫一遍库根找回来，
@@ -477,8 +475,8 @@ export function createPlugin(cfg: PluginConfig) {
         });
       }
       /* 测试库专用：只留「切换为基础版」一条（只有开发构建有，见 esbuild 的
-         __BZ_DEV__）。切高级版与恢复真实授权都删掉了：开发构建也不该留
-         绕过付费的入口。 */
+         __BZ_DEV__）。没有「切高级版」命令：开发构建也不该留绕过付费的入口；
+         要回高级版就重新填一枚真码，激活入口本来就通。 */
       if (__BZ_DEV__) {
         this.addCommand({
           id: 'bzr-dev-tier-free',

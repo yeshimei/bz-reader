@@ -262,7 +262,7 @@ export const EN: Record<MsgKey, string> = {
   'notice.group.plainOk': 'Copied group {id} — search for it in QQ to join',
   'notice.group.plainFail': 'Copy failed. Group is {id} — search for it in QQ to join',
   /* Dev-build only: one-way "switch to free" command in the palette */
-  'notice.dev.tier.free': 'Dev: switched to the free tier (test vault only)',
+  'notice.dev.tier.free': 'Dev: switched to the free tier, license cleared (test vault only)',
   'notice.dev.tier.already': 'Dev: already on the free tier (test vault only)',
 
   /* ── Licence status ─────────────────────────────────────── */

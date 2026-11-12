@@ -37,4 +37,13 @@ describe('data.json 收口径', () => {
     const snap = { installId: 'i1', license: 'BZR1.a.b' };
     expect(normalizePluginData({ entitlement: snap }).entitlement).toEqual(snap);
   });
+
+  /* 2026-11-12：「切换为基础版」改成真降级（清码），旧的覆盖字段随之作废。
+     老库 data.json 里残留的 devTier:'free' 不能被带进新配置——它以前会
+     永久压住授权，重新填码也不生效。读一次就丢掉，下次落盘自然消失。 */
+  it('devTier 历史字段不再保留（旧覆盖不可能回魂）', () => {
+    const d = normalizePluginData({ devTier: 'free', entitlement: { license: 'BZR2.x.y' } });
+    expect('devTier' in d).toBe(false);
+    expect(d.entitlement).toEqual({ license: 'BZR2.x.y' });
+  });
 });

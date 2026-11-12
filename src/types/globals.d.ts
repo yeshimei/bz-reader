@@ -10,6 +10,6 @@ declare const __BZ_BUILD_TAG__: string;
 
 /**
  * 构建期注入：开发构建（非 production 且产物要落到测试库）为 true。
- * 只有这时才注册「切基础版 / 高级版」两条命令；发布包整块摇掉。
+ * 只有这时才注册「开发：切换为基础版」一条命令；发布包整块摇掉。
  */
 declare const __BZ_DEV__: boolean;
