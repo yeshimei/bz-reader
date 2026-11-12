@@ -67,8 +67,10 @@
    页码跟着让位，不钻到栏下面。 */
 .bzs-pageno {
   position: absolute;
-  right: 14px;
-  bottom: calc(10px + var(--bzr-bottom-gap, 0px));
+  right: 18px;
+  /* 抬离底边：导航栏高度 + 30px。以前是 +10，页码几乎贴着导航栏胶囊上沿，
+     真机截图里像要掉下去；抬到 30 之后它落在正文下方那片留白里 */
+  bottom: calc(30px + var(--bzr-bottom-gap, 0px));
   z-index: 5;
   font-size: 11px;
   line-height: 1;
