@@ -31,10 +31,15 @@ import fs from 'node:fs';
 const argv = process.argv.slice(2);
 const arg = (name, fallback) => {
   const hit = argv.find((a) => a.startsWith(`--${name}=`));
-  return hit ? hit.slice(name.length + 3) : fallback;
+  if (hit) return hit.slice(name.length + 3);
+  /* 也接受 `--emulate on` 这种空格写法 */
+  const i = argv.indexOf(`--${name}`);
+  if (i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--')) return argv[i + 1];
+  return fallback;
 };
 const evals = argv.filter((a) => a.startsWith('--eval=')).map((a) => a.slice(7));
-const out = argv.find((a) => !a.startsWith('--')) ?? null;
+/* 只认 .png 结尾的位置参数，别把 `--emulate on` 里的 on 当成输出文件名 */
+const out = argv.find((a) => !a.startsWith('--') && /\.png$/i.test(a)) ?? null;
 const port = Number(arg('port', 9222));
 const vault = arg('vault', 'bz reader');
 const [vw, vh] = arg('size', '390x844').split('x').map(Number);
@@ -92,6 +97,9 @@ const emulate = arg('emulate', null);
 
 if (emulate) {
   const cdp = await connect();
+  /* 退出时把视口撤掉，别让 Obsidian 卡在 390 宽（clear 会把 innerWidth 还原成
+     窗口宽，实测有效；但 clear 之后不能再 set，否则又把 390 写回去了）。 */
+  if (emulate !== 'on') await cdp.send('Emulation.clearDeviceMetricsOverride');
   await evaluate(cdp, `app.emulateMobile(${emulate === 'on'}); 1`);
   cdp.close();
   /* emulateMobile 会 reload 整个 app，等它回来再确认 */
@@ -135,6 +143,8 @@ if (!out) {
     `JSON.stringify({ vault: app.vault.getName(), mobile: app.isMobile, w: innerWidth, h: innerHeight, dpr: devicePixelRatio })`,
   );
   console.log(state);
+  /* 只查询也要把视口还回去，否则 Obsidian 会一直停在 390 宽 */
+  await cdp.send('Emulation.clearDeviceMetricsOverride');
   cdp.close();
   process.exit(0);
 }
@@ -142,4 +152,7 @@ if (!out) {
 const shot = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
 fs.writeFileSync(out, Buffer.from(shot.result.data, 'base64'));
 console.log(`已截图 ${out}`);
+/* 截完立刻还原视口：这个 override 会一直挂在 target 上，不还回去下次开
+   Obsidian 还是 390 宽的手机预览。 */
+await cdp.send('Emulation.clearDeviceMetricsOverride');
 cdp.close();
