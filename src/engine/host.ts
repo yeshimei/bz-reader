@@ -1652,8 +1652,9 @@ export class EngineHost {
    * 34129px），于是那个差值恒为负数、被 clamp 成 0——分页器实际把 iframe
    * 横向平移的那十几像素整段漏掉，两角小字就贴着屏幕边、和正文对不上。
    *
-   * 现在直接量 iframe 元素自己的位置：`frame.getBoundingClientRect().left`
-   * 减阅读区左边，翻到哪一页就是哪一页的平移量。
+   * 现在直接量 iframe 元素自己的位置，再对「一列的宽度」取余：翻到第几页
+   * `frame.left` 都是 -18503 这种大数，但余数恒为 13.54px，那才是正文相对
+   * 阅读区左边真正挪动的量（见 `engine/content-inset.ts`）。
    *
    * 拿不到 iframe / 样式（换章空窗）时返回 null，调用方退回 0 让 CSS 兜底。
    */
@@ -1671,11 +1672,15 @@ export class EngineHost {
       const frameLeft = frame ? frame.getBoundingClientRect().left - rootRect.left : 0;
       const htmlStyle = win.getComputedStyle(doc.documentElement);
       const bodyStyle = win.getComputedStyle(doc.body);
+      /* body 的 CSS width 才是「一列」的宽；offsetWidth 在多列布局里会被撑成
+         整本书的总宽（34828），右边距会算成负数。 */
+      const bodyWidth = parseFloat(bodyStyle.width) || doc.body.offsetWidth;
       return contentInset({
         rootWidth: rootRect.width,
         frameLeft,
+        columnWidth: parseFloat(htmlStyle.width) || 0,
         htmlPadLeft: parseFloat(htmlStyle.paddingLeft) || 0,
-        bodyWidth: doc.body.offsetWidth,
+        bodyWidth,
         bodyPadLeft: parseFloat(bodyStyle.paddingLeft) || 0,
         bodyPadRight: parseFloat(bodyStyle.paddingRight) || 0,
       });
