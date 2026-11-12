@@ -995,24 +995,23 @@
 }
 
 /* ═══════════ 阅读 · 宿主头栏（bz-reader） ═══════════
-   书名与动作都借宿主的头栏显示，阅读区里不再多一行。
+   标题与动作都借宿主的头栏显示，阅读区里不再多一行。
    这些选择器作用在 .bzs-shell 之外，所以必须放在不参与壳层作用域化的这里。 */
 
-/* 手机：书名挂在左侧按钮后面。宿主自己的 .view-header-title 在窄屏会被
-   动作区挤成 0 宽（真机上整块是空白），所以另起一个元素用 flex 抢位置。 */
+/* 头栏标题（2026-11-12 起两端都自绘）：宿主 `.view-header-title` 有
+   `.is-focused …` 规则，窗口一聚焦就把颜色改回正常色；容器还是 flex 居中，
+   左对齐得反着改。所以另起一个元素，宿主那一行由 `.bzr-head-title-on` 收起来。
+   手机：flex 抢位置；桌面：绝对定位到「正文左缘 → 动作区左边」（.is-desktop）。 */
 .bzr-head-title {
   flex: 1 1 auto;
-  /* 不吃到 0：右侧图标再多，书名也留住一块 */
+  /* 不吃到 0：右侧图标再多，标题也留住一块 */
   min-width: 88px;
   align-self: center;
-  /* 左边留白与右侧图标组的右边距（14px）对称：头栏两头一样宽，
-     书名不会像贴在屏幕边上 */
+  /* 左边留白与右侧图标组的右边距（14px）对称：头栏两头一样宽 */
   margin-left: 14px;
   /* 字体跟正文字体走（设置里的「字体」一档）；book 档不覆盖，退回宿主正文字体 */
   font-family: var(--bzr-font-family, var(--font-text, inherit));
-  /* 和右边那组 36px 细线图标比，17px/600 太重、像第二排按钮；
-     16px/500 + 一点字距，读起来是「书名」而不是「控件」。
-     字号跟正文字号成比例：0.83 倍（2026-11-12 用户要求比 0.62 再放大 1/3），
+  /* 字号跟正文字号成比例：0.83 倍（2026-11-12 用户要求比 0.62 再放大 1/3），
      夹在 16–22px。正文 26px 时约 21.6px。 */
   font-size: clamp(16px, calc(var(--bzr-font-size, 26px) * 0.83), 22px);
   font-weight: 500;
@@ -1025,17 +1024,40 @@
   opacity: .92;
 }
 
-/* 书名可点：点一下 = 打开左侧栏的目录页签（2026-11-08）。
-   只在本视图里给手型与 hover；桌面原生 .view-header-title 在别的视图里
-   不是这个含义，所以两处都挂在 data-type='bzr-reader-view' 下面。 */
+/* 桌面：钉在正文左缘上，颜色跟原来的左上角章节名一致（--t3 = --text-faint）。
+   左右偏移由 reader-view 按头栏 / 正文 / 动作区的实测位置算好写进变量；
+   头栏不可见（沉浸）时不重量，变量停在上一帧，不会来回跳。 */
+.workspace-leaf-content[data-type='bzr-reader-view'] .bzr-head-title.is-desktop {
+  position: absolute;
+  left: var(--bzr-head-title-left, 24px);
+  right: var(--bzr-head-title-right, 24px);
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  /* 跟宿主标题同一档字号：它不是正文，别按正文字号放大 */
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.4;
+  opacity: .8;
+  color: var(--text-faint, #93939c);
+}
+
+/* 标题可点：点一下 = 打开左侧栏的目录页签（2026-11-08）。
+   只在本视图里给手型与 hover，两处标题都挂在 data-type='bzr-reader-view' 下面。 */
 .workspace-leaf-content[data-type='bzr-reader-view'] .bzr-title-toc {
   cursor: pointer;
 }
 
-.bzr-title-toc:hover {
+/* hover 换成强调色。挂上 [data-bzr-toc] 是为了压过 .is-desktop 那条同色规则
+   （那条带 data-type，特异性比裸的 :hover 高）。 */
+body .workspace-leaf-content[data-type='bzr-reader-view'] .bzr-title-toc[data-bzr-toc]:hover {
   /* 跟随设置里的强调色（applyChrome 把壳层的 --copper 写到 leaf-content 上）；
      读不到时退回宿主 accent */
   color: var(--bzr-accent, var(--text-accent));
+  opacity: 1;
 }
 
 .bzr-title-toc:focus-visible {
@@ -1052,12 +1074,14 @@ body.is-mobile .workspace-leaf-content[data-type='bzr-reader-view'] .view-header
   padding: 0;
 }
 
-/* 书名已经由 .bzr-head-title 画出来时，宿主原生标题容器收起，避免两个书名。
+/* 标题已经由 .bzr-head-title 画出来时，宿主原生标题容器**只藏不拆**：
+   它是 flex:1 的那一项，动作区靠它撑到右边；用 display:none 把它从布局里
+   拿走，动作图标会全挤到左侧（2026-11-12 用户截图）。所以留原位、只藏字。
    判据挂在 leaf-content 的类上而不是 `body.is-mobile`：桌面开 force-mobile
    验收时同样走这条分支，只靠 is-mobile 会漏掉，屏幕上就多出一个「阅读」。
    选择器带 data-type，切到别的视图后规则自动失效，不会把别人的标题也藏了。 */
 .workspace-leaf-content[data-type='bzr-reader-view'].bzr-head-title-on .view-header-title-container {
-  display: none;
+  visibility: hidden;
 }
 
 /* 阅读时头栏只留阅读自己的三个动作 + 宿主的 ⋮：

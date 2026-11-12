@@ -38,6 +38,8 @@ import { envSummary, probeBlobIframe } from '../core/diagnose';
 import { probeEnabled } from './debug-probe';
 import { el, setHtml } from '../ui/dom';
 import { pageLabelText, type PageLabelInput } from './page-label';
+import { headTitleBox, headerTitleText, HEAD_TITLE_GAP } from './header-title';
+import { chromeLabelMode } from './chrome-labels';
 
 /**
  * 移动端顶部安全区的下限（px）。
@@ -435,13 +437,15 @@ export class ReaderView extends ItemView {
     if (this.citesTimer !== null) window.clearTimeout(this.citesTimer);
     this.citesTimer = null;
     this.toggleImmersive(false);
-    /* 头栏元素是宿主的、会被复用：关书前先把「书名可点」那套属性摘掉，
+    /* 头栏元素是宿主的、会被复用：关书前先把「标题可点」那套属性摘掉，
        再把元素删掉（宿主随后会重建一块干净的）。 */
     if (this.headTitleEl) {
       clearTitleToc(this.headTitleEl, this.book?.meta.title || '');
       this.headTitleEl.remove();
     }
     this.headTitleEl = null;
+    /* 头栏标题从 2026-11-12 起是自绘的（见 mountTitleInHeader），宿主那一行
+       我们只加过一个「收起来」的类；它带 data-type 作用域，切视图自动失效。 */
     this.headerEls.forEach((node) => node.remove());
     this.headerEls.clear();
     this.teardown = () => undefined;
@@ -577,7 +581,11 @@ export class ReaderView extends ItemView {
     const onKey = (e: KeyboardEvent): void => this.handleKey(e);
     document.addEventListener('keydown', onKey, true);
     /* 底栏在键盘弹起 / 沉浸切换时会挪位置，跟着重量一次 */
-    const gapSync = (): void => this.syncBottomGap();
+    /* 底栏高度与头栏标题的对齐都吃窗口尺寸：一次 resize 里一起重量 */
+    const gapSync = (): void => {
+      this.syncBottomGap();
+      this.syncHeaderTitle();
+    };
     window.addEventListener('resize', gapSync);
     const vv = window.visualViewport;
     vv?.addEventListener('resize', gapSync);
@@ -632,52 +640,90 @@ export class ReaderView extends ItemView {
       this.renderProbe();
       return;
     }
-    if (isMobileShell()) this.mountTitleInHeader(header);
-    else this.applyHeaderTitle(header);
+    /* 先摆动作区，再量标题的位置：右边界是按动作区左缘算的 */
     this.ensureHeaderActions(header);
+    this.mountTitleInHeader(header);
     this.renderProbe();
   }
 
-  /** 手机：书名挂在左侧按钮后面，用 flex 抢宽度 */
+  /**
+   * 头栏标题：两端都自绘一个元素，宿主那一行收起来。
+   *
+   * 为什么不再改宿主的 `.view-header-title`：它有
+   * `.is-focused .workspace-leaf.mod-active .view-header-title`（4 个类），
+   * 窗口一聚焦就把颜色写回 --text-normal——失焦是灰的、点一下正文就变黑
+   * （2026-11-12 用户反馈）；容器本身还是 flex 居中，左对齐得反着改。
+   * 收掉宿主那一行、自己画一个，颜色、位置、点击语义就都在手里了。
+   *
+   * 内容是**当前章节名**（拿不到才退回书名）：书名在 tab、书架、侧栏都有，
+   * 「现在读到哪」只有头栏这一处能一直看见。书还没解析出来时留空，
+   * 不写「阅读」——那是宿主的兜底文案，在头栏里没有信息量。
+   */
   private mountTitleInHeader(header: HTMLElement): void {
     const book = this.book;
     if (!book) return;
-    /* 标记「书名已经由我们画了」：宿主原生的 .view-header-title 要收起来。
-       以前只靠 `body.is-mobile` 隐藏标题容器——桌面开 force-mobile 验收时
-       两个书名会同时出现（左边「红楼梦」、中间「阅读」）。
+    /* 标记「标题已经由我们画了」：宿主原生的标题容器要收起来，否则两头都有。
        类挂在 leaf-content 上，且选择器带 data-type：切到别的视图后自动失效。 */
     header.closest('.workspace-leaf-content')?.classList.add('bzr-head-title-on');
+    const desktop = !isMobileShell();
     if (!this.headTitleEl || !this.headTitleEl.isConnected) {
       const el0 = createDiv();
-      el0.className = 'bzr-head-title';
+      el0.className = desktop ? 'bzr-head-title is-desktop' : 'bzr-head-title';
       const left = header.querySelector<HTMLElement>('.view-header-left');
       if (left) left.insertAdjacentElement('afterend', el0);
       else header.insertBefore(el0, header.firstElementChild);
       this.headTitleEl = el0;
+    } else {
+      /* 手机 / 桌面形态切换（含 force-mobile 验收）：类跟着换，样式才有归处 */
+      this.headTitleEl.classList.toggle('is-desktop', desktop);
     }
-    if (this.headTitleEl.textContent !== book.meta.title) {
-      this.headTitleEl.textContent = book.meta.title;
-      this.headTitleEl.setAttribute('title', book.meta.title);
-    }
-    /* 点书名 = 打开左侧栏的目录页签（与头栏那颗目录图标同一条路） */
-    this.bindTitleToToc(this.headTitleEl, book.meta.title);
+    const text = headerTitleText(book.meta.title, this.headerChapter());
+    if (this.headTitleEl.textContent !== text) this.headTitleEl.textContent = text;
+    /* 点头栏标题 = 打开左侧栏的目录页签（与头栏那颗目录图标同一条路） */
+    this.bindTitleToToc(this.headTitleEl, text);
+    if (desktop) this.placeHeadTitle(header);
+  }
+
+  /** 头栏那一行字的上游：最近一次定位到的章节，其次是用上次读到的那章 */
+  private headerChapter(): string {
+    if (this.lastChapterTitle.trim()) return this.lastChapterTitle;
+    return this.book?.reading.position.chapterTitle ?? '';
   }
 
   /**
-   * 桌面：书名顶上原生标题。
+   * 桌面：把自绘标题钉在「正文左缘 → 动作区左边」这条带上（2026-11-12）。
    *
-   * 书还没解析出来时把标题**留空**，不写「阅读」——那是宿主的兜底文案，
-   * 在头栏里等于多一个没有信息量的词（真机反馈：左边已经有书名了）。
-   * 也不再调 updateHeader()：它会用 getDisplayText() 把刚写进去的书名盖回
-   * 「阅读」，这正是以前「改了标题又变回去」的原因。
+   * 量的是头栏、阅读区与两块按钮区，不是标题自己的 rect：
+   * 标题的 margin / padding 以后再改，也不会把定位一圈圈带偏。
+   * 头栏在沉浸时是 display:none，量出来全 0，交给退出沉浸那一拍再算。
    */
-  private applyHeaderTitle(header: HTMLElement): void {
-    const title = this.book?.meta.title || '';
-    const el0 = header.querySelector<HTMLElement>('.view-header-title');
+  private placeHeadTitle(header: HTMLElement): void {
+    const el0 = this.headTitleEl;
     if (!el0) return;
-    if (el0.textContent !== title) el0.textContent = title;
-    /* 桌面同样可点：同一颗元素在别的视图里有别的含义，所以只从本视图挂 */
-    this.bindTitleToToc(el0, title);
+    const headerBox = header.getBoundingClientRect();
+    if (!headerBox.width) return;
+    const rootBox = this.rootEl?.getBoundingClientRect();
+    const leftRegion = header.querySelector<HTMLElement>('.view-header-left');
+    const actions = header.querySelector<HTMLElement>('.view-actions');
+    const box = headTitleBox({
+      headerLeft: headerBox.left,
+      headerWidth: headerBox.width,
+      rootLeft: rootBox?.left ?? headerBox.left,
+      contentLeft: this.host.contentLeftInset?.() ?? 0,
+      leftRegionRight: leftRegion?.getBoundingClientRect().right ?? headerBox.left,
+      actionsLeft: actions?.getBoundingClientRect().left ?? null,
+      gap: HEAD_TITLE_GAP,
+    });
+    if (!box) return;
+    el0.style.setProperty('--bzr-head-title-left', `${box.left}px`);
+    el0.style.setProperty('--bzr-head-title-right', `${box.right}px`);
+  }
+
+  /** 章节变了 / 窗口变了 / 退出沉浸：重写头栏那一行字并重新定位 */
+  private syncHeaderTitle(): void {
+    const header = this.containerEl.querySelector<HTMLElement>('.view-header');
+    if (!header) return;
+    this.mountTitleInHeader(header);
   }
 
   /**
@@ -965,8 +1011,12 @@ export class ReaderView extends ItemView {
        不等下一次翻页 */
     this.renderChromeText();
     /* 底栏藏起来了：再量一次「底栏压住多少」，全屏时那一段应该是 0。
-       不重量的话，退出全屏会少一截、进入全屏会多一截。 */
-    window.requestAnimationFrame(() => this.syncBottomGap());
+       不重量的话，退出全屏会少一截、进入全屏会多一截。
+       头栏同理：沉浸时它是 display:none，退出后要重新量一次才能贴正文左缘。 */
+    window.requestAnimationFrame(() => {
+      this.syncBottomGap();
+      this.syncHeaderTitle();
+    });
   }
 
   /**
@@ -1543,6 +1593,8 @@ export class ReaderView extends ItemView {
     }
     /* 设置里切了页码口径 / 正文字体：拿最近一次的数字与章节名立刻重算 */
     this.renderChromeText();
+    /* 正文字号 / 页边距 / 字体变了，正文左缘跟着变：头栏标题的对齐也要重量 */
+    this.syncHeaderTitle();
   }
 
   /**
@@ -1581,20 +1633,24 @@ export class ReaderView extends ItemView {
    * 只改 textContent，不重建节点：翻页是热路径，每页重建一次 DOM 没必要。
    */
   private renderChromeText(): void {
-    /* 手机只在沉浸时露两角：非沉浸时头栏有书名、底栏有进度，再摆一行就是噪音。
-       桌面反过来——非沉浸也没有任何地方显示「第几章 / 第几页」，所以只要
-       开关开着就一直显示（2026-11-12 用户要求：桌面全屏与非全屏都显示）。 */
-    const show = !this.host.isPdf && (this.immersive || !isMobileShell());
+    /* 2026-11-12 用户改的口径：非全屏时章节名只在头栏标题里（同色），左上角
+       不再重复；全屏头栏藏起来，章节名回到左上角；页码两种模式都留。
+       口径本身在 view/chrome-labels.ts（有单测）。 */
+    const mode = chromeLabelMode({
+      immersive: this.immersive,
+      mobileShell: isMobileShell(),
+      pdf: !!this.host.isPdf,
+    });
     const chapter = this.chapterEl;
     let chapterText = '';
     if (chapter) {
-      chapterText = show && this.prefs.chapterLabel ? this.lastChapterTitle.trim() : '';
+      chapterText = mode.chapter && this.prefs.chapterLabel ? this.lastChapterTitle.trim() : '';
       if (chapter.textContent !== chapterText) chapter.textContent = chapterText;
     }
     const node = this.pageNoEl;
     if (node) {
       const text =
-        show && this.lastPageInfo ? pageLabelText(this.prefs.pageLabel, this.lastPageInfo) : '';
+        mode.page && this.lastPageInfo ? pageLabelText(this.prefs.pageLabel, this.lastPageInfo) : '';
       if (node.textContent !== text) node.textContent = text;
     }
     this.rootEl?.classList.toggle('is-immersive', this.immersive);
@@ -2032,6 +2088,9 @@ export class ReaderView extends ItemView {
               this.api.store.touch();
             }
           });
+          /* 先让宿主 updateHeader 把 tab 标题重建成它自己的样子，再写我们
+             的章节名：反过来会被 getDisplayText() 的书名盖回去。 */
+          this.syncTabTitle();
           this.mountHeader();
           this.publishToc();
           /* EPUB 的反链在挂载完成后再扫：解析 cfi 要这本书的路径，
@@ -2039,7 +2098,6 @@ export class ReaderView extends ItemView {
              扫描结果有缓存（按书路径），开书时清一次，别拿上一次的旧账。 */
           invalidatePdfBacklinks();
           this.publishEpubCites();
-          this.syncTabTitle();
           this.api.store.touch();
           notifyShell();
         },
@@ -2462,6 +2520,8 @@ export class ReaderView extends ItemView {
     const leftInset = this.host.contentLeftInset?.() ?? 0;
     if (leftInset > 0) this.rootEl?.style.setProperty('--bzr-page-left', `${leftInset}px`);
     this.renderChromeText();
+    /* 头栏标题是「现在读到哪」：换章才重写，同章翻页不碰 DOM（翻页是热路径） */
+    if (chapterChanged) this.syncHeaderTitle();
     this.renderProbe();
     /* 每翻一页都可能换到「有书签 / 没书签」的页：图标亮不亮得跟着走 */
     this.syncToolState();

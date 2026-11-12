@@ -87,10 +87,12 @@
 }
 
 /* 左上章节名：贴着正文左缘，落在状态栏下方。
-   桌面端正文居中（最多 720px），max-width 跟着正文宽度收，别横跨整个窗口。 */
+   桌面端正文居中（最多 720px），max-width 跟着正文宽度收，别横跨整个窗口。
+   2026-11-12 用户要求：全屏时它离屏幕顶部要有点距离，不能顶在最边缘，
+   所以 safe-top 之上再加 20px。 */
 .bzs-chapter {
   left: var(--bzr-page-left, calc(var(--bzr-page-margin, 8px) + 3.763%));
-  top: var(--bzr-safe-top, 0px);
+  top: calc(20px + var(--bzr-safe-top, 0px));
   max-width: min(62%, 32em);
 }
 
@@ -112,9 +114,11 @@
    改成看「章节名到底有没有字」，桌面、手机、沉浸与否一套规则。
    28 → 20 → 16 → 4：真机上那条空带比章节名本身还高一截，看着发空。
    分页器还会把不满一屏的内容垂直居中（桌面实测又让出 48px），所以这条
-   留白几乎可以不要，章节名贴住顶边即可。 */
+   留白几乎可以不要，章节名贴住顶边即可。
+   2026-11-12 晚：章节名整体下移 20px（全屏时离屏幕顶部留距），正文让位
+   同步 +20，章节名与第一行之间的间距保持原来的 4px。 */
 .bzs-reader.has-chapter .bzs-rpages {
-  padding-top: calc(4px + var(--bzr-safe-top, 0px));
+  padding-top: calc(24px + var(--bzr-safe-top, 0px));
 }
 
 /* 并排对照：两角小字只跟主卷（左半）。落在右半会让人以为是右边那本的 */
