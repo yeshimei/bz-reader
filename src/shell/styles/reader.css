@@ -59,24 +59,18 @@
   min-height: 0;
 }
 
-/* ── 右下角页码（2026-11-12）──
-   一行不占正文高度的小字：绝对定位在阅读区右下，半透明、不接收点击。
-   关掉口径时 textContent 是空串，`:empty` 把整块收走，不留一个空 div
-   压在正文上（真机排查时那种空节点最容易被当成「有个东西没画出来」）。
-   手机底部导航栏是浮在内容上的：`--bzr-bottom-gap` 由 syncBottomGap 量出来，
-   页码跟着让位，不钻到栏下面。 */
+/* ── 沉浸模式的两角小字（2026-11-12）──
+   左上章节名、右下页码。只在沉浸时出现（非沉浸时头栏有书名、侧栏有进度，
+   正文上再多两行就是噪音），两角的字体、字号、透明度完全一致：
+   · 字体跟正文字体走（--bzr-font-family，book 档退回宿主正文字体）；
+   · 字号 = 正文字号 × 0.6，夹在 12–18px；
+   · 左缘 / 右缘分别用引擎量出的正文边距对齐（--bzr-page-left / --bzr-page-right）。
+   关掉或拿不到内容时 textContent 是空串，`:empty` 把整块收走，不留空 div。 */
+.bzs-chapter,
 .bzs-pageno {
   position: absolute;
-  /* 跟正文右缘对齐：引擎量出「iframe 居中留白 + 列间距一半 + 页边距」三截，
-     写成 --bzr-page-right；量不到时退回「页边距 + 7% 列间距的一半」。
-     以前只写 margin，手机上差出约 15px，肉眼一看就不在一条线上。 */
-  right: var(--bzr-page-right, calc(var(--bzr-page-margin, 8px) + 3.763%));
-  /* 抬离底边：导航栏高度 + 30px。以前是 +10，页码几乎贴着导航栏胶囊上沿，
-     真机截图里像要掉下去；抬到 30 之后它落在正文下方那片留白里 */
-  bottom: calc(30px + var(--bzr-bottom-gap, 0px));
   z-index: 5;
-  /* 字号跟正文字号成比例：0.6 倍，夹在 12–18px。正文 26px 时约 15.6px——
-     比原来的 11px 大一档，又不像 20px 那样抢正文。 */
+  font-family: var(--bzr-font-family, var(--font-text, inherit));
   font-size: clamp(12px, calc(var(--bzr-font-size, 26px) * 0.6), 18px);
   line-height: 1;
   letter-spacing: 0.02em;
@@ -85,18 +79,47 @@
   pointer-events: none;
   user-select: none;
   opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* 左上章节名：贴着正文左缘 */
+.bzs-chapter {
+  left: var(--bzr-page-left, calc(var(--bzr-page-margin, 8px) + 3.763%));
+  top: 10px;
+  max-width: 62%;
+}
+
+/* 右下页码：贴着正文右缘，导航栏上方 30px。
+   手机底部导航栏是浮在内容上的：--bzr-bottom-gap 由 syncBottomGap 量出来，
+   页码跟着让位，不钻到栏下面。 */
+.bzs-pageno {
+  right: var(--bzr-page-right, calc(var(--bzr-page-margin, 8px) + 3.763%));
+  bottom: calc(30px + var(--bzr-bottom-gap, 0px));
+}
+
+.bzs-chapter:empty,
 .bzs-pageno:empty {
   display: none;
 }
 
-/* 并排对照：页码只跟主卷（左半）。落在右半会让人以为是右边那本的页数 */
+/* 沉浸时正文顶部让出章节名那一行，别压第一行字 */
+.bzs-reader.is-immersive .bzs-rpages {
+  padding-top: 28px;
+}
+
+/* 并排对照：两角小字只跟主卷（左半）。落在右半会让人以为是右边那本的 */
+.bzs-rpages.is-parallel ~ .bzs-chapter {
+  left: var(--bzr-page-left, calc(var(--bzr-page-margin, 8px) + 1.882%));
+}
+
 .bzs-rpages.is-parallel ~ .bzs-pageno {
   right: calc(50% + var(--bzr-page-right, calc(var(--bzr-page-margin, 8px) + 1.882%)));
 }
 
 /* 沉浸：更淡一档。沉浸时最需要知道进度，所以不藏，只是不抢正文 */
+body.bzr-immersive .bzs-chapter,
 body.bzr-immersive .bzs-pageno {
   opacity: 0.55;
 }

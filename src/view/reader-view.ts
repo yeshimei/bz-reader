@@ -14,7 +14,7 @@
 import { ItemView, Menu, setIcon, type WorkspaceLeaf } from 'obsidian';
 import { EngineHost, OpenCancelledError, type FootnoteInfo, type Rect, type RelocateInfo, type SelectionInfo } from '../engine/host';
 import { createEngine, type ReaderEngine } from '../engine/reader-engine';
-import { normalizePrefs, pickPrefs, type ReaderPrefs } from '../data/prefs';
+import { FONT_FAMILIES, normalizePrefs, pickPrefs, type ReaderPrefs } from '../data/prefs';
 import { recordPosition, type ReaderBook } from '../data/schema';
 import type { LinkTarget } from '../data/deeplink';
 import { parseWikilinkHref, wikilinkOf } from '../data/wikilink';
@@ -206,7 +206,9 @@ export class ReaderView extends ItemView {
   private selbar: HTMLElement | null = null;
   private selbarHideTimer: number | null = null;
   private pagesEl: HTMLElement | null = null;
-  /** 右下角的页码小字（关的时候是空串，CSS 按 :empty 收走） */
+  /** 沉浸模式左上角的章节名（非沉浸时是空串，CSS 按 :empty 收走） */
+  private chapterEl: HTMLElement | null = null;
+  /** 沉浸模式右下角的页码小字（关的时候是空串，CSS 按 :empty 收走） */
   private pageNoEl: HTMLElement | null = null;
   /** 最近一次进度里的页码数字：设置里切口径时不用等下一次翻页就能重算 */
   private lastPageInfo: PageLabelInput | null = null;
@@ -447,7 +449,7 @@ export class ReaderView extends ItemView {
     await this.settle();
     this.contentEl.empty();
     /* 页码元素跟着 contentEl 一起没了：引用要清掉，免得下次开书
-        renderPageNo 往一个已经摘下来的节点里写 */
+        renderChromeText 往一个已经摘下来的节点里写 */
     this.pageNoEl = null;
     this.lastPageInfo = null;
   }
@@ -473,16 +475,18 @@ export class ReaderView extends ItemView {
     const stage = el('div', 'bzs-stage');
     const pages = el('div', 'bzs-rpages is-hosted');
     pages.append(stage);
-    /* 页码是绝对定位的一行小字，不占正文高度；关的时候 textContent 为空，
-       CSS 的 :empty 把它整个收走。点击穿透（pointer-events:none），
-       底部那片仍然按「点正文 = 下一页」翻。 */
+    /* 沉浸模式的两角小字：左上章节名、右下页码。都是绝对定位的一行小字，
+       不占正文高度；非沉浸或关掉时 textContent 为空，CSS 的 :empty 收走。
+       点击穿透（pointer-events:none），底部那片仍然按「点正文 = 下一页」翻。 */
+    const chapter = el('div', 'bzs-chapter');
     const pageNo = el('div', 'bzs-pageno');
-    root.append(pages, pageNo);
+    root.append(pages, chapter, pageNo);
     this.contentEl.appendChild(root);
 
     this.rootEl = root;
     this.stage = stage;
     this.pagesEl = pages;
+    this.chapterEl = chapter;
     this.pageNoEl = pageNo;
 
     /* 手机底栏浮在内容上：量一次它压住多少。第一次量时布局可能还没落定，
@@ -943,6 +947,9 @@ export class ReaderView extends ItemView {
     /* 只释放自己这一份持有（A-27）：另一个阅读 tab 还沉浸时 class 必须留着 */
     const stillImmersive = updateImmersiveHolders(immersiveHolders, this, this.immersive);
     document.body.classList.toggle('bzr-immersive', stillImmersive);
+    /* 两角小字（左上章节名 / 右下页码）只在沉浸时出现：切完立刻画，
+       不等下一次翻页 */
+    this.renderChromeText();
     /* 底栏藏起来了：再量一次「底栏压住多少」，全屏时那一段应该是 0。
        不重量的话，退出全屏会少一截、进入全屏会多一截。 */
     window.requestAnimationFrame(() => this.syncBottomGap());
@@ -1499,6 +1506,12 @@ export class ReaderView extends ItemView {
     root.style.setProperty('--bzr-page-margin', `${this.prefs.margin}px`);
     root.style.setProperty('--bzr-font-size', fontPx);
     this.containerEl.style.setProperty('--bzr-font-size', fontPx);
+    /* 标题、章节名、页码的字体跟着正文字体走：正文在 iframe 里用
+       FONT_FAMILIES 的 css，宿主侧照抄一份（book 档不覆盖，退回宿主正文字体）。
+       同样要写两份：root 给两角小字，leaf-content 给头栏书名。 */
+    const family = FONT_FAMILIES.find((f) => f.value === this.prefs.fontFamily)?.css || 'var(--font-text, inherit)';
+    root.style.setProperty('--bzr-font-family', family);
+    this.containerEl.style.setProperty('--bzr-font-family', family);
     /* 头栏书名不在 .bzs-shell 里，拿不到壳层的 --copper：把算出来的强调色
        写到 leaf-content 上，标题 hover 与焦点环跟着设置里的强调色走
        （点标题是打开右侧栏目录，颜色得和「强调色」这项对得上）。
@@ -1509,24 +1522,34 @@ export class ReaderView extends ItemView {
     } catch {
       /* 宿主换主题的瞬间可能读不到：退回 CSS 回退值，不影响标题可用 */
     }
-    /* 设置里切了页码口径：不用等下一次翻页，拿最近一次的数字立刻重算 */
-    this.renderPageNo();
+    /* 设置里切了页码口径 / 正文字体：拿最近一次的数字与章节名立刻重算 */
+    this.renderChromeText();
   }
 
   /**
-   * 右下角页码小字。
+   * 沉浸模式的两角小字：左上章节名、右下页码。
    *
-   * 三个前提：
-   *   · PDF 不画——它右下角已经有页码浮条（`4 / 278` + 滑杆），再画一块就是两套；
-   *   · 口径为「关」或还没有进度时写空串，CSS 的 `:empty` 把整块收走；
-   *   · 只改 textContent，不重建节点：翻页是热路径，每页重建一次 DOM 没必要。
+   * 只在沉浸时出现——非沉浸时头栏有书名、侧栏有进度，正文上再多两行就是噪音。
+   * 两角字号、字体完全一致（同一份 CSS 规则），都按正文字号的比例缩放；
+   * 左缘 / 右缘分别用引擎量出的正文边距对齐。
+   *
+   * PDF 不画：它右下角已经有页码浮条（`4 / 278` + 滑杆），再画一块就是两套。
+   * 只改 textContent，不重建节点：翻页是热路径，每页重建一次 DOM 没必要。
    */
-  private renderPageNo(): void {
+  private renderChromeText(): void {
+    const show = this.immersive && !this.host.isPdf;
+    const chapter = this.chapterEl;
+    if (chapter) {
+      const title = show ? this.lastChapterTitle.trim() : '';
+      if (chapter.textContent !== title) chapter.textContent = title;
+    }
     const node = this.pageNoEl;
-    if (!node) return;
-    const text =
-      this.host.isPdf || !this.lastPageInfo ? '' : pageLabelText(this.prefs.pageLabel, this.lastPageInfo);
-    if (node.textContent !== text) node.textContent = text;
+    if (node) {
+      const text =
+        show && this.lastPageInfo ? pageLabelText(this.prefs.pageLabel, this.lastPageInfo) : '';
+      if (node.textContent !== text) node.textContent = text;
+    }
+    this.rootEl?.classList.toggle('is-immersive', this.immersive);
   }
 
   /* ─────────────────── 划词条 ─────────────────── */
@@ -2049,7 +2072,7 @@ export class ReaderView extends ItemView {
     stage.empty();
     /* 打不开的书没有「第几页」：留着上一本的页码会像在报假数 */
     this.lastPageInfo = null;
-    this.renderPageNo();
+    this.renderChromeText();
     const diag: FaultDiagLine[] = envSummary(this.host.loadPhase).map((line) => {
       const i = line.indexOf('：');
       return i > 0 ? { k: line.slice(0, i), v: line.slice(i + 1) } : { k: '信息', v: line };
@@ -2088,7 +2111,7 @@ export class ReaderView extends ItemView {
     stage.empty();
     /* 换书时先把上一本的页码收走：新书还没定位，旧数字会骗人 */
     this.lastPageInfo = null;
-    this.renderPageNo();
+    this.renderChromeText();
     const box = el('div', '');
     setHtml(box, loadingHtml(title));
     stage.appendChild(box);
@@ -2381,10 +2404,13 @@ export class ReaderView extends ItemView {
       bookPages: info.bookPages,
     };
     /* 页码要贴着正文右缘：宽屏时正文区居中、分页器还有列间距，
-       只按页边距算会偏到屏幕边上。引擎量出真实距离，这里写成变量。 */
+       只按页边距算会偏到屏幕边上。引擎量出真实距离，这里写成变量。
+       章节名在左上角，同一套算法取左边。 */
     const inset = this.host.contentRightInset?.() ?? 0;
     if (inset > 0) this.rootEl?.style.setProperty('--bzr-page-right', `${inset}px`);
-    this.renderPageNo();
+    const leftInset = this.host.contentLeftInset?.() ?? 0;
+    if (leftInset > 0) this.rootEl?.style.setProperty('--bzr-page-left', `${leftInset}px`);
+    this.renderChromeText();
     this.renderProbe();
     /* 每翻一页都可能换到「有书签 / 没书签」的页：图标亮不亮得跟着走 */
     this.syncToolState();

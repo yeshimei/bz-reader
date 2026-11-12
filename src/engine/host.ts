@@ -1679,6 +1679,31 @@ export class EngineHost {
   }
 
   /**
+   * 正文左缘距阅读区左边的距离（px）。沉浸模式左上角的章节名贴着这条线。
+   * 与 `contentRightInset` 同一套算法，只是取左边。
+   */
+  contentLeftInset(): number {
+    const root = this.container;
+    const doc = this.view?.renderer?.getContents?.()[0]?.doc;
+    if (!root || !doc?.documentElement || !doc.body) return 0;
+    try {
+      const win = doc.defaultView;
+      const padLeft = (el: Element): number => {
+        if (!win) return 0;
+        return parseFloat(win.getComputedStyle(el).paddingLeft) || 0;
+      };
+      const rootW = root.clientWidth;
+      const frameW = doc.documentElement.clientWidth;
+      const htmlPad = padLeft(doc.documentElement);
+      const bodyPad = padLeft(doc.body);
+      const centered = Math.max(0, (rootW - frameW) / 2);
+      return Math.round(centered + htmlPad + bodyPad);
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
    * 所有会动 iframe 的导航都排成一条队（P1-15）。
    *
    * 两次翻页并发时，后一次会在分页器 `#locked` 期间被吞掉，或者两次各跳一节、

@@ -116,10 +116,12 @@ export interface ReaderEngine {
   pulseAt(cfi: string): Promise<void>;
   setViewportWidth(width: number, left?: number): void;
   /**
-   * 正文右缘距阅读区右边的距离（px）。页码贴着这条线走。
+   * 正文右缘距阅读区右边的距离（px）。沉浸模式右下角的页码贴着这条线走。
    * 只有 EPUB/TXT/CBZ 实现；PDF 没有页码小字，不实现。
    */
   contentRightInset?(): number;
+  /** 正文左缘距阅读区左边的距离（px）。沉浸模式左上角的章节名贴着这条线 */
+  contentLeftInset?(): number;
   /** PDF 专用：还原上次的旋转角与双页排法。别的引擎不实现 */
   restorePdfView?(state: { rotation?: number; spread?: boolean } | null | undefined): void;
   /** PDF 专用动作集；EPUB/TXT/CBZ 没有 */

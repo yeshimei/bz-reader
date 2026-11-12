@@ -5,9 +5,10 @@ import { normalizePrefs } from '../src/data/prefs';
 import type { RelocateInfo } from '../src/engine/host';
 import type { ReaderView } from '../src/view/reader-view';
 
-/* 阅读页右下角的页码（2026-11-12）。
-   这里只测「画不画、画什么」：数字怎么整理在 page-info / page-label 的纯函数
-   测试里，这条只保证视图把两者接上了。 */
+/* 沉浸模式的两角小字（2026-11-12 用户拍板）：
+   · 只在全屏（沉浸）时出现；
+   · 左上章节名、右下页码，字体字号一致；
+   · 非沉浸时不显示（头栏有书名、侧栏有进度，正文上不再多两行）。 */
 
 let uninstall: () => void = () => undefined;
 
@@ -19,7 +20,7 @@ afterEach(() => {
   uninstall();
 });
 
-function wire(prefs: Record<string, unknown> = {}): ReaderView {
+function wire(prefs: Record<string, unknown> = {}, immersive = true): ReaderView {
   const app = makeApp();
   /* buildShell 会订阅 metadataCache 的 resolved（引用页签跟着链接变）：
      替身里补一个只会返回可注销句柄的 on() */
@@ -30,6 +31,7 @@ function wire(prefs: Record<string, unknown> = {}): ReaderView {
   stubHost(view);
   (view as unknown as { prefs: unknown }).prefs = normalizePrefs(prefs);
   (view as unknown as { book: unknown }).book = testBook('b1');
+  (view as unknown as { immersive: boolean }).immersive = immersive;
   (view as unknown as { buildShell(): void }).buildShell();
   /* 真机上 buildShell 之后 updatePrefs 会走 applyChrome：这里手动补一次，
      让「页边距 / 字号写进 root 变量」那一步也发生在测试里 */
@@ -56,28 +58,44 @@ function relocate(view: ReaderView, over: Partial<RelocateInfo> = {}): void {
   (view as unknown as { saveRelocate(i: RelocateInfo): void }).saveRelocate(info);
 }
 
-function pageNo(view: ReaderView): string {
-  const node = (view as unknown as { pageNoEl: { textContent: string } | null }).pageNoEl;
+function textOf(view: ReaderView, field: 'pageNoEl' | 'chapterEl'): string {
+  const node = (view as unknown as Record<string, { textContent: string } | null>)[field];
   return node?.textContent ?? '';
 }
 
-describe('阅读页页码 · 显示', () => {
-  it('默认关：翻页后右下角仍然是空的', () => {
+const pageNo = (view: ReaderView): string => textOf(view, 'pageNoEl');
+const chapterName = (view: ReaderView): string => textOf(view, 'chapterEl');
+
+describe('沉浸模式的两角小字', () => {
+  it('默认关：全屏下右下角也是空的', () => {
     const view = wire();
     relocate(view);
     expect(pageNo(view)).toBe('');
   });
 
-  it('本章口径：本章第几屏 / 共几屏', () => {
+  it('本章口径：本章第几屏 / 本章共几屏', () => {
     const view = wire({ pageLabel: 'chapter' });
     relocate(view);
     expect(pageNo(view)).toBe('3 / 12');
   });
 
-  it('全书口径：估算的全书页码', () => {
+  it('全书口径：按字数估算的全书页码', () => {
     const view = wire({ pageLabel: 'book' });
     relocate(view);
     expect(pageNo(view)).toBe('123 / 456');
+  });
+
+  it('左上角显示当前章节名', () => {
+    const view = wire({ pageLabel: 'chapter' });
+    relocate(view);
+    expect(chapterName(view)).toBe('第二章');
+  });
+
+  it('非沉浸：两角都不显示（页码再开也不画）', () => {
+    const view = wire({ pageLabel: 'chapter' }, false);
+    relocate(view);
+    expect(pageNo(view)).toBe('');
+    expect(chapterName(view)).toBe('');
   });
 
   it('滚动模式没有本章页数：整块不显示', () => {
@@ -91,6 +109,7 @@ describe('阅读页页码 · 显示', () => {
     (view as unknown as { host: { isPdf: boolean } }).host.isPdf = true;
     relocate(view);
     expect(pageNo(view)).toBe('');
+    expect(chapterName(view)).toBe('');
   });
 
   it('设置里切口径：不用等下一次翻页就重算', () => {
@@ -114,19 +133,21 @@ describe('阅读页页码 · 显示', () => {
     expect(pageNo(view)).toBe('');
   });
 
-  it('页码与书名的字号/位置跟页边距、正文字号走', () => {
-    const view = wire({ pageLabel: 'chapter', margin: 32, fontSize: 22 });
+  it('字号与位置跟页边距、正文字号走；字体跟正文字体走', () => {
+    const view = wire({ pageLabel: 'chapter', margin: 32, fontSize: 22, fontFamily: 'serif' });
     const rootStyle = (view as unknown as { rootEl: { style: Record<string, string> } }).rootEl.style;
     const leafStyle = (view as unknown as { containerEl: { style: Record<string, string> } }).containerEl.style;
     expect(rootStyle['--bzr-page-margin']).toBe('32px');
     expect(rootStyle['--bzr-font-size']).toBe('22px');
-    /* 书名在头栏里，不在 .bzs-shell 内：字号变量要同时写到 leaf-content */
+    /* 书名在头栏里，不在 .bzs-shell 内：字号/字体变量要同时写到 leaf-content */
     expect(leafStyle['--bzr-font-size']).toBe('22px');
+    expect(rootStyle['--bzr-font-family']).toContain('Songti');
+    expect(leafStyle['--bzr-font-family']).toContain('Songti');
 
     /* 改页边距/字号后跟着变：页码不是写死的 18px / 11px */
-    view.updatePrefs(normalizePrefs({ pageLabel: 'chapter', margin: 64, fontSize: 28 }));
+    view.updatePrefs(normalizePrefs({ pageLabel: 'chapter', margin: 64, fontSize: 28, fontFamily: 'sans' }));
     expect(rootStyle['--bzr-page-margin']).toBe('64px');
     expect(rootStyle['--bzr-font-size']).toBe('28px');
-    expect(leafStyle['--bzr-font-size']).toBe('28px');
+    expect(rootStyle['--bzr-font-family']).toContain('PingFang');
   });
 });
