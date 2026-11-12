@@ -1105,9 +1105,10 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'sbtab':
       /* 入口平权：AI 与引用页签基础版也看得见，点了弹高级版对照页，不切过去。
          以前整枚页签都不渲染，用户连「有 AI」都不知道。
-         引用页签跟双向链接共用一道门禁：弹层高亮双链那行，引用页签紧排其下。 */
+         引用页签有自己的能力位（2026-11-12）：它列的是笔记里的反链，与
+         「划线存成双链」是两件事，被拦时弹层要点亮用户刚点的那一行。 */
       if (d.tab === 'ai' && !requireCap('ai')) break;
-      if (d.tab === 'cites' && !requireCap('bilink')) break;
+      if (d.tab === 'cites' && !requireCap('cites')) break;
       if (d.tab) setState({ sideTab: d.tab as never });
       break;
     case 'swap':
@@ -1671,14 +1672,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'buy':
       window.open(PURCHASE_URL, '_blank');
       break;
-    case 'showcode': {
-      /* 手机解锁层：展开激活码框。收起态不带输入框，弹层才拿得到接近
-         满屏的高度；展开后由 paint() 把光标放进输入框。 */
-      const o = getState().overlay;
-      if (!o || o.kind !== 'unlock') break;
-      setState({ overlay: { ...o, codeOpen: true } });
-      break;
-    }
     case 'relicense':
       /* 已激活的人换码（试用 → 正式版）：直接放开输入框，原码留着方便替换 */
       setState({ relicense: true });

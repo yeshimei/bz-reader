@@ -960,7 +960,7 @@ function planCell(kind: 'free' | 'pro', v: PlanCell): string {
 }
 
 /* 导出给测试：这一屏是免费用户最常看到的，按钮与群号值得单独钉住 */
-export function overlayUnlock(mode?: string, codeOpen = false): string {
+export function overlayUnlock(mode?: string): string {
   const v = entitlement();
   /* 不传 mode = 只是「查看功能对照」（设置页那颗按钮），不高亮任何一行。
      以前这里兜底成 export，结果从设置页进来看全表，视线总被拽到导出那行。 */
@@ -1018,30 +1018,28 @@ export function overlayUnlock(mode?: string, codeOpen = false): string {
       </div>
     </div>`;
 
-  /* 购买区与激活框都放进页脚：正文里的对照表再长、滚多远，这两个出口
-     也钉在底部。以前购买条在正文里，表一长就被推出可视区。
-     手机上默认收起激活框：页脚只剩一行，弹层也不再因为「页脚有输入框」
-     被压到七成屏高；点一下才展开，展开后软键盘避让照旧（modal() 按
-     HTML 里有没有输入框自动判定）。桌面维持原样，输入框一直可见。 */
-  const showCode = !isMobileEnv() || codeOpen;
-  const act = showCode
-    ? `<div class="bzs-unlock-act">
-        <label>${t('unlock.haveCode')}</label>
-        <input data-role="license" placeholder="BZR2.…" value="${esc(v.license)}" spellcheck="false">
-        <button class="bzs-btn sm pri" data-act="activate">${t('settings.lic.activate')}</button>
-      </div>`
-    : '';
-  const foot = `<div class="bzs-unlock-foot ${showCode ? 'is-open' : 'is-closed'}">
-      <div class="bzs-unlock-buy">
-        <button class="bzs-btn pri" data-act="buy">${t('unlock.buy')}</button>
-        ${groupButtonHtml()}
-        <span class="bzs-mini">${t('unlock.hint')}</span>
-        ${showCode ? '' : `<button class="bzs-btn" data-act="showcode">${t('unlock.haveCode')}</button>`}
-      </div>
-      ${act}
-    </div>`;
+  /* 购买区固定在页脚：正文的对照表再长、滚多远，它也钉在底部。以前购买条
+     在正文里，表一长就被推出可视区。
 
-  return modal(t('unlock.title'), paid ? t('unlock.activated') : '', body, foot, 'wide tall unlock');
+     2026-11-12 删掉页脚的激活码框与「购买后拿到激活码，填在下面即可」那句
+     提示：填码只有书架设置页的授权组一条正路，在这张「刚被拦下」的弹层里
+     再放一枚输入框，只是让用户多找一次入口。手机上「收起 / 展开」两态也
+     跟着一起消失——页脚不再有第二行。
+
+     已激活的人看这张表只有一个出口：交流群。再摆一颗「去购买」，等于向
+     已经付过钱的人推销一次。 */
+  const foot = paid
+    ? `<span class="sp"></span>${groupButtonHtml()}`
+    : `<div class="bzs-unlock-foot">
+        <div class="bzs-unlock-buy">
+          <button class="bzs-btn pri" data-act="buy">${t('unlock.buy')}</button>
+          ${groupButtonHtml()}
+        </div>
+      </div>`;
+
+  /* 遮罩带 `bzs-unlock-scrim`：页脚没有输入框之后，手机上的中上落位不再
+     由 `has-input` 捎带，得有一枚自己的类（见 mobile.css）。 */
+  return modal(t('unlock.title'), paid ? t('unlock.activated') : '', body, foot, 'wide tall unlock', 'bzs-unlock-scrim');
 }
 
 function overlayPtClean(): string {
@@ -1383,7 +1381,7 @@ export function overlayHtml(): string {
     case 'finish':
       return overlayFinish(o.bookId);
     case 'unlock':
-      return overlayUnlock(o.mode, o.codeOpen);
+      return overlayUnlock(o.mode);
     case 'movedir':
       return overlayMoveDir(o.mode || 'data', o.text || '');
     case 'rename':
@@ -1987,11 +1985,7 @@ export class OverlayLayer {
       this.restoreSearchStash(refocus);
       return;
     }
-    /* 重画前把激活码输入框的现值记下来（P2-08）：粘贴一枚长码 → 点「激活」→
-       同步 paint() 按旧 entitlement 重建 DOM，输入框回到空——再点一次「激活」
-       发出去的是空码。 */
-    const keepLicense = this.root.querySelector<HTMLInputElement>('[data-role="license"]')?.value ?? '';
-    /* 整棵 DOM 换掉 = 滚动位置与光标一起归零（C7）：解锁表翻到一半点一下
+    /* 整棵 DOM 换掉 = 滚动位置与光标一起归零（C7）：弹层翻到一半点一下
        按钮，列表跳回顶部；在输入框里打字时点别的控件，键盘会收起。
        这两样都是「用户刚放好的位置」，记下来还回去。 */
     const keepScroll = this.root.querySelector<HTMLElement>('.bzs-mbody')?.scrollTop ?? 0;
@@ -2003,10 +1997,6 @@ export class OverlayLayer {
     /* AI 正文按 Markdown 渲染（2026-11-11）：模板里只打 data-ai-md 标记，
        注入完在这里统一换成渲染结果。渲染是异步的，不阻塞这一帧。 */
     renderAiMarkdown(this.root);
-    if (keepLicense) {
-      const box = this.root.querySelector<HTMLInputElement>('[data-role="license"]');
-      if (box && !box.value) box.value = keepLicense;
-    }
     if (keepScroll) {
       const body = this.root.querySelector<HTMLElement>('.bzs-mbody');
       if (body) body.scrollTop = keepScroll;
@@ -2033,11 +2023,6 @@ export class OverlayLayer {
     this.placeAnchored();
     /* 把焦点还给刚才那个输入框；下面几段「一打开就聚焦」的再覆盖它 */
     if (keepInput) this.restoreInput(keepInput);
-    /* 手机上点「已有激活码」展开输入框：重画完立刻把光标放进去，
-       省掉再点一次。聚焦会让软键盘弹起，位置已由 placeAnchored() 先摆好。 */
-    if (o?.kind === 'unlock' && o.codeOpen) {
-      this.root.querySelector<HTMLInputElement>('[data-role="license"]')?.focus({ preventScroll: true });
-    }
     if (o?.kind === 'search') {
       const input = this.root.querySelector<HTMLInputElement>('[data-role="searchkw"]');
       input?.focus();

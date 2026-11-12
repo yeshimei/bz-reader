@@ -663,8 +663,6 @@ export const ZH_TW: Record<MsgKey, string> = {
   'unlock.unit': '項',
   'unlock.buy': '前往購買',
   'unlock.group': 'QQ交流群 {id}',
-  'unlock.hint': '購買後取得啟用碼，填在下面即可',
-  'unlock.haveCode': '已有啟用碼',
 
   /* ── 設定頁：資料 ────────────────────────────────────────── */
   'settings.importDir': '書籍匯入位置',

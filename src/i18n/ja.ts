@@ -666,8 +666,6 @@ export const JA: Record<MsgKey, string> = {
   'unlock.unit': 'items',
   'unlock.buy': '購入する',
   'unlock.group': 'QQ グループ {id}',
-  'unlock.hint': '購入後に届くライセンスコードを下に入力してください',
-  'unlock.haveCode': 'ライセンスコードをお持ちの方',
 
   /* ── 設定：データ ───────────────────────────────────────── */
   'settings.importDir': '書籍のインポート先',

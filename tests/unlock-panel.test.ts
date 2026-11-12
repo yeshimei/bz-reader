@@ -68,10 +68,11 @@ describe('解锁弹层 · 交流群入口', () => {
     expect(html).toContain('QQ');
   });
 
-  it('带输入框的弹层要有 has-input：不然手机键盘把激活码框盖住', () => {
-    /* 激活码输入框在页脚（foot），弹层自带的判定只看正文，
-       手机上仍按底部抽屉弹，软键盘一开输入框就落在屏幕外。 */
-    expect(overlayUnlock()).toMatch(/class="bzs-scrim[^"]*\bhas-input\b/);
+  it('不再带输入框，也就不再挂 has-input', () => {
+    /* 2026-11-12 删掉弹层里的激活码框：填码只在设置页。手机上的中上
+       落位改由专门的遮罩类承担，不再借用「键盘避让」那一档。 */
+    expect(overlayUnlock()).not.toMatch(/class="bzs-scrim[^"]*\bhas-input\b/);
+    expect(overlayUnlock()).toMatch(/class="bzs-scrim[^"]*\bbzs-unlock-scrim\b/);
   });
 
   it('购买入口固定在页脚：正文对照表再长，也滚不走它', () => {
@@ -81,7 +82,7 @@ describe('解锁弹层 · 交流群入口', () => {
     const body = html.slice(0, footAt);
     const foot = html.slice(footAt);
     expect(foot).toContain('bzs-unlock-buy');
-    expect(foot).toContain('bzs-unlock-act');
+    expect(foot).not.toContain('bzs-unlock-act');
     expect(body).not.toContain('bzs-unlock-buy');
   });
 });

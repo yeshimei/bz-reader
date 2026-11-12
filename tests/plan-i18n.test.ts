@@ -59,8 +59,6 @@ describe('解锁弹层的其余文案', () => {
     'unlock.col.pro',
     'unlock.part',
     'unlock.buy',
-    'unlock.hint',
-    'unlock.haveCode',
   ] as const;
 
   it('八种语言都补齐了，且没留空串', () => {

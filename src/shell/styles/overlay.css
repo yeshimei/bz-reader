@@ -2038,12 +2038,6 @@ textarea.idea:focus {
   filter: brightness(1.08);
 }
 
-.bzs-unlock-buy .bzs-mini {
-  margin-left: auto;
-  text-align: right;
-  line-height: 1.5;
-}
-
 /* ── 迁移数据目录 ── */
 .bzs-move {
   display: grid;
@@ -2081,60 +2075,11 @@ textarea.idea:focus {
   background: var(--copper-soft);
 }
 
-.bzs-unlock-act {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* 解锁弹层的页脚：购买条在上、激活框在下，两行都随 .bzs-mfoot 固定在底部 */
+/* 解锁弹层的页脚：只剩购买条一行，随 .bzs-mfoot 固定在底部。
+   2026-11-12 删掉激活码框，这里不再需要「购买在上、填码在下」的两行网格。 */
 .bzs-unlock-foot {
-  display: grid;
-  gap: 10px;
   flex: 1;
   min-width: 0;
-}
-
-/* 窄屏（手机）把激活框压成两行：标签独占一行，输入框与按钮并排。
-   页脚固定在底部，正文对照表只剩上面一截——两行排布比挤成一条更省高度。 */
-@media (max-width: 480px) {
-  .bzs-unlock-foot {
-    gap: 8px;
-  }
-
-  .bzs-mfoot .bzs-unlock-act {
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .bzs-mfoot .bzs-unlock-act label {
-    flex-basis: 100%;
-  }
-}
-
-/* 放在页脚时占满左侧剩余宽度，输入框才不会被压成一条缝 */
-.bzs-mfoot .bzs-unlock-act {
-  flex: 1;
-  min-width: 0;
-}
-
-.bzs-unlock-act label {
-  font-size: 12px;
-  color: var(--ink);
-  opacity: .68;
-  white-space: nowrap;
-}
-
-.bzs-unlock-act input {
-  flex: 1;
-  min-width: 0;
-  padding: 7px 10px;
-  font-family: var(--ui);
-  font-size: 12px;
-  color: var(--ink);
-  background: var(--sunken);
-  border: 1px solid var(--line);
-  border-radius: var(--r-ctl);
 }
 
 

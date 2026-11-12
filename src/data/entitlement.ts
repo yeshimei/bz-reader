@@ -48,6 +48,15 @@ export type Cap =
   | 'parallel' // 并排 / 双语
   | 'bookmap' // 全书鸟瞰
   | 'bilink' // 划线 → 双向链接
+  /**
+   * 引用页签（2026-11-12 从 bilink 拆出来）。
+   *
+   * 它列的是「笔记里指向本书具体位置的链接」，与「把划线做成链接」是两件事。
+   * 以前两项共用 bilink：基础版点引用页签被拦，弹层点亮的却是双链那一行。
+   * 授权判定不按能力位细分（有码全解锁），这里只负责让弹层高亮对得上
+   * 用户刚点的那一行。
+   */
+  | 'cites'
   | 'aiChat' // AI 伴读：追问 / 导读 / 补全 / 对话存档
   | 'semantic' // 语义搜索：本书与全库，按意思找
   /**
@@ -656,6 +665,19 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     es: 'Guardar el subrayado como wikienlace, clicable desde la nota',
     pt: 'Salvar o destaque como wikilink, clicável da nota',
   },
+  /* 引用页签（2026-11-12）：它列的是笔记里的反链，和「把划线做成双链」是
+     两件事。八包里先写实简中 / 繁中 / 英三种；日德法西葡沿用英文占位，
+     按仓库规矩留到发版前统一翻。 */
+  cites: {
+    zh: '哪些笔记引了这本书，按页聚在一起',
+    'zh-TW': '哪些筆記引了這本書，按頁聚在一起',
+    en: 'Which notes cite this book, grouped by page',
+    ja: 'Which notes cite this book, grouped by page',
+    de: 'Which notes cite this book, grouped by page',
+    fr: 'Which notes cite this book, grouped by page',
+    es: 'Which notes cite this book, grouped by page',
+    pt: 'Which notes cite this book, grouped by page',
+  },
   /* PDF 整段的卖点（2026-11-10）。基础版点开 PDF 时弹层第一句就是它，
      所以不能只写「PDF」两个字——用户要立刻知道买了能多出哪几件事。 */
   pdf: {
@@ -738,11 +760,12 @@ export const PLAN_TABLE: PlanRow[] = [
      2026-11-08：没有 UI 入口的免费路径 copylinkurl 已删除，表里不再
      承诺「基础版部分可用」。 */
   row('bilink', 'no', 'yes', 'bilink'),
-  /* 引用页签（2026-11-10）：它列的正是上面这条双链产生的反链，按书聚在
-     一起。1.0.0 定稿归入高级版，紧排在双向链接下面——点它被拦时弹层高亮
-     双链那行，往下一行就是「你刚点的」。不另配 cap：两项是同一次购买、
-     同一个拦点，跟 PDF 整段共用一个 cap 是同一个道理。 */
-  row('cites', 'no', 'yes'),
+  /* 引用页签（2026-11-10）：它列的是笔记里指向本书的链接，按书聚在一起。
+     1.0.0 定稿归入高级版，紧排在双向链接下面。
+     2026-11-12：以前它与双链共用 bilink，点它被拦时弹层点亮的是「划线存成
+     双链」——用户看的不是自己刚点的那一行。现在它有独立的能力位，弹层
+     精确点亮「引用页签」；授权判定仍是一刀切，不会变成两项分开卖。 */
+  row('cites', 'no', 'yes', 'cites'),
   row('export', 'no', 'yes', 'export'),
   /* ── PDF 段（2026-11-10，1.0.0 定稿压成五行） ──
    * 以前 PDF 只由「更多格式」一句话代表，用户看不出买高级版在 PDF 上还多

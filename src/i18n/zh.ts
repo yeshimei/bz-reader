@@ -692,8 +692,6 @@ export const ZH = {
   'unlock.unit': '项',
   'unlock.buy': '去购买',
   'unlock.group': 'QQ交流群 {id}',
-  'unlock.hint': '购买后拿到激活码，填在下面即可',
-  'unlock.haveCode': '已有激活码',
 
   /* ── 设置页：数据 ────────────────────────────────────────── */
   'settings.importDir': '书籍导入位置',

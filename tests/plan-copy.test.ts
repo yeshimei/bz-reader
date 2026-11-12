@@ -46,12 +46,15 @@ const CHANGED: ReadonlyArray<readonly [string, string]> = [
 ];
 
 describe('1.0.0 对照表 · 引用页签归入高级版', () => {
-  it('基础版打叉、高级版打勾：不挂自己的 cap，跟双向链接共用一道门禁', () => {
+  it('基础版打叉、高级版打勾：挂自己的 cap，点它时高亮这一行', () => {
+    /* 2026-11-12 改：以前引用页签与双向链接共用一道门禁，点引用页签被拦
+       时弹层点亮的是「划线存成双链」，用户看的不是自己刚点的那一行。
+       现在它有自己的能力位，只影响这条入口的归属，不影响授权判定。 */
     const r = row('cites');
     expect(r).toBeTruthy();
     expect(r?.free).toBe('no');
     expect(r?.pro).toBe('yes');
-    expect(r?.cap).toBeUndefined();
+    expect(r?.cap).toBe('cites');
   });
 
   it('在表和「格式与导出」段里都紧排在双向链接下面', () => {

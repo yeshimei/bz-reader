@@ -673,8 +673,6 @@ export const ES: Record<MsgKey, string> = {
   'unlock.unit': 'items',
   'unlock.buy': 'Comprar Pro',
   'unlock.group': 'Grupo QQ {id}',
-  'unlock.hint': 'Tras la compra recibirás un código de licencia; introdúcelo abajo.',
-  'unlock.haveCode': 'Ya tengo un código',
 
   /* ── Ajustes: datos ─────────────────────────────────────── */
   'settings.importDir': 'Importar libros en',
