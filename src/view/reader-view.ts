@@ -2381,6 +2381,10 @@ export class ReaderView extends ItemView {
       bookPages: info.bookPages,
       percent: info.percent,
     };
+    /* 页码要贴着正文右缘：宽屏时正文区居中、分页器还有列间距，
+       只按页边距算会偏到屏幕边上。引擎量出真实距离，这里写成变量。 */
+    const inset = this.host.contentRightInset?.() ?? 0;
+    if (inset > 0) this.rootEl?.style.setProperty('--bzr-page-right', `${inset}px`);
     this.renderPageNo();
     this.renderProbe();
     /* 每翻一页都可能换到「有书签 / 没书签」的页：图标亮不亮得跟着走 */

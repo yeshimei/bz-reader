@@ -115,6 +115,11 @@ export interface ReaderEngine {
   applyPrefs(prefs: ReaderPrefs): void;
   pulseAt(cfi: string): Promise<void>;
   setViewportWidth(width: number, left?: number): void;
+  /**
+   * 正文右缘距阅读区右边的距离（px）。页码贴着这条线走。
+   * 只有 EPUB/TXT/CBZ 实现；PDF 没有页码小字，不实现。
+   */
+  contentRightInset?(): number;
   /** PDF 专用：还原上次的旋转角与双页排法。别的引擎不实现 */
   restorePdfView?(state: { rotation?: number; spread?: boolean } | null | undefined): void;
   /** PDF 专用动作集；EPUB/TXT/CBZ 没有 */

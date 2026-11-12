@@ -1010,9 +1010,9 @@
   margin-left: 14px;
   /* 和右边那组 36px 细线图标比，17px/600 太重、像第二排按钮；
      16px/500 + 一点字距，读起来是「书名」而不是「控件」。
-     字号跟正文字号成比例：0.62 倍，夹在 16–22px（正文 26px 时还是 16px，
-     字号拉到 30 才涨到 18.6px）——书名不能比正文还抢眼。 */
-  font-size: clamp(16px, calc(var(--bzr-font-size, 26px) * 0.62), 22px);
+     字号跟正文字号成比例：0.83 倍（2026-11-12 用户要求比 0.62 再放大 1/3），
+     夹在 16–22px。正文 26px 时约 21.6px。 */
+  font-size: clamp(16px, calc(var(--bzr-font-size, 26px) * 0.83), 22px);
   font-weight: 500;
   letter-spacing: .03em;
   line-height: 1.2;

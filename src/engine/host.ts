@@ -1644,6 +1644,33 @@ export class EngineHost {
   }
 
   /**
+   * 正文右缘距阅读区右边的距离（px）。
+   *
+   * 页码要跟正文右缘在一条线上，但正文在 iframe 里、还隔着分页器的列内边距：
+   *   · iframe 可能比阅读区窄（宽屏时正文区居中，最多 720/1440px）；
+   *   · iframe 里的 html 还有列间距的一半（分页器 `gap/2`）；
+   *   · body 还有用户设的页边距（prefs.margin）。
+   * 三截加起来才是「正文右缘」的真实位置。拿不到就返回 0，让 CSS 的
+   * 百分比兜底——宁可差几像素，也别把页码甩到屏幕边上。
+   */
+  contentRightInset(): number {
+    const root = this.container;
+    const doc = this.view?.renderer?.getContents?.()[0]?.doc;
+    if (!root || !doc?.documentElement || !doc.body) return 0;
+    try {
+      const rootW = root.clientWidth;
+      const frameW = doc.documentElement.clientWidth;
+      const htmlPad = parseFloat(getComputedStyle(doc.documentElement).paddingRight) || 0;
+      const bodyPad = parseFloat(getComputedStyle(doc.body).paddingRight) || 0;
+      const centered = Math.max(0, (rootW - frameW) / 2);
+      return Math.round(centered + htmlPad + bodyPad);
+    } catch {
+      /* 换章的空窗里 getContents 可能给不出样式：退回 CSS 兜底 */
+      return 0;
+    }
+  }
+
+  /**
    * 所有会动 iframe 的导航都排成一条队（P1-15）。
    *
    * 两次翻页并发时，后一次会在分页器 `#locked` 期间被吞掉，或者两次各跳一节、
