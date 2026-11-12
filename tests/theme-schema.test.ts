@@ -71,31 +71,34 @@ describe('buildChapterCSS', () => {
   /**
    * 分页器每页的 padding 是 `var(--_pad-top) ... var(--_pad-bottom)`。
    * 变量必须定义在**书页文档**里（宿主元素上的变量跨不进 iframe）。
-   * 「上下边距」撤档之后，这里就是写死的呼吸边，跟 body 那组同源。
+   *
+   * 2026-11-12：分页模式下顶部归零——章节名已经占掉一行，再叠 8/28 的
+   * 页内留白，正文第一行离章节名二十几像素，用户说「上方空隙太大」。
+   * 底部仍然保留呼吸边。
    */
-  it('分页器的每页留白：--_pad-* 是写死值（桌面 28/40）', () => {
+  it('分页器每页留白：顶部归零、底部保留', () => {
     const css = buildChapterCSS(DEFAULT_PREFS);
-    expect(css).toMatch(/--_pad-top:\s*28px/);
+    expect(css).toMatch(/--_pad-top:\s*0px/);
     expect(css).toMatch(/--_pad-bottom:\s*40px/);
   });
 
   it('偏好里再带 marginY 也不影响（这一档已经撤了）', () => {
     const css = buildChapterCSS({ ...DEFAULT_PREFS, marginY: 120 } as unknown as ReaderPrefs);
-    expect(css).toMatch(/--_pad-top:\s*28px/);
+    expect(css).toMatch(/--_pad-top:\s*0px/);
     expect(css).toMatch(/--_pad-bottom:\s*40px/);
   });
 
   /**
    * 手机上没开全屏时，宿主头栏 + 系统底栏已经占掉不少，
    * 书页里再留 18/48 就是三笔留白叠在一起（真机反馈：上下空太多）。
-   * 收成 8/14；底部让位由宿主侧另算（见 mobile.css），不在这里叠加。
+   * 顶部同样归零（章节名占了一行），底部收成 14。
    */
-  it('手机：上下留白收到 8/14', () => {
+  it('手机：顶部归零、底部 14', () => {
     Platform.isMobile = true;
     Platform.isDesktop = false;
     try {
       const css = buildChapterCSS(DEFAULT_PREFS);
-      expect(css).toMatch(/--_pad-top:\s*8px/);
+      expect(css).toMatch(/--_pad-top:\s*0px/);
       expect(css).toMatch(/--_pad-bottom:\s*14px/);
     } finally {
       Platform.isMobile = false;

@@ -97,13 +97,16 @@ export function buildChapterCSS(prefs: ReaderPrefs): string {
   // 宿主元素上的 CSS 变量不会跨 iframe 继承。
   // 这里同时写 body 的 padding：滚动模式没有分页器，留白只能靠它。
   const mobile = isMobileEnv();
-  const padTop = mobile ? '8px' : '28px';
-  const padBottom = mobile ? '14px' : '40px';
   const paged = prefs.flow !== 'scroll';
+  /* 2026-11-12：分页模式下每页的顶部留白归零。章节名已经占掉一行，
+     再叠 8/28 的页内留白，正文第一行离章节名就有二十几像素，看着发空。
+     滚动模式仍然要留白，那里没有章节名那一行。 */
+  const padTop = paged ? '0px' : mobile ? '8px' : '28px';
+  const padBottom = mobile ? '14px' : '40px';
 
-  /* 双栏时标题横跨两栏：不然它只在左栏里居中，整页看上去偏左一大截。
-   字距在最后一个字后面也会留一份，居中时整体看着偏左半个字距，用等量的
-   首行缩进抵回来，标题长一点短一点都还是正的。 */
+  /* 标题始终横跨整页：双栏时它原来只在左栏里居中，整页看上去偏左一大截。
+    字距在最后一个字后面也会留一份，居中时整体看着偏左半个字距，用等量的
+    首行缩进抵回来，标题长一点短一点都还是正的。 */
 const h1Span = prefs.columns === 2 ? 'column-span: all !important;' : '';
 return `
 html {
