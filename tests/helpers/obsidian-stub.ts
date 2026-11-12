@@ -61,6 +61,8 @@ type StubEl = {
   className: string;
   textContent: string;
   children: unknown[];
+  /** CSS 变量与内联样式：阅读视图会往 leaf-content 上写 --bzr-font-size 等 */
+  style: Record<string, string> & { setProperty(k: string, v: string): void; removeProperty(k: string): void };
   classList: { add(...c: string[]): void; remove(...c: string[]): void; toggle(c: string, on?: boolean): boolean; contains(c: string): boolean };
   empty(): void;
   addClass(...c: string[]): void;
@@ -79,10 +81,19 @@ type StubEl = {
 
 function stubEl(): StubEl {
   const classes = new Set<string>();
+  const style = {
+    setProperty(k: string, v: string): void {
+      (style as unknown as Record<string, string>)[k] = v;
+    },
+    removeProperty(k: string): void {
+      delete (style as unknown as Record<string, string>)[k];
+    },
+  } as unknown as StubEl['style'];
   const el: StubEl = {
     className: '',
     textContent: '',
     children: [],
+    style,
     classList: {
       add: (...c: string[]) => c.forEach((x) => classes.add(x)),
       remove: (...c: string[]) => c.forEach((x) => classes.delete(x)),

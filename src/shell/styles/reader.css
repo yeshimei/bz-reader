@@ -67,16 +67,16 @@
    页码跟着让位，不钻到栏下面。 */
 .bzs-pageno {
   position: absolute;
-  /* 跟正文的页边距走：正文左右 padding 就是 prefs.margin，页码右缘再内收 4px。
-     页边距拉大时页码跟着往里走，不会孤零零贴在屏幕边上。 */
-  right: calc(var(--bzr-page-margin, 8px) + 4px);
+  /* 跟正文的页边距走：右缘和正文右缘同一条线（正文 padding = prefs.margin），
+     不再额外内收。页边距拉大时页码跟着往里走。 */
+  right: var(--bzr-page-margin, 8px);
   /* 抬离底边：导航栏高度 + 30px。以前是 +10，页码几乎贴着导航栏胶囊上沿，
      真机截图里像要掉下去；抬到 30 之后它落在正文下方那片留白里 */
   bottom: calc(30px + var(--bzr-bottom-gap, 0px));
   z-index: 5;
-  /* 字号跟正文字号成比例，不照抄数值：正文 26px → 11px，14px 落到 10px 下限，
-     30px 封顶 13px。小屏不糊、大字号不抢正文。 */
-  font-size: clamp(10px, calc(var(--bzr-page-font, 26px) * 0.42), 13px);
+  /* 字号跟正文字号成比例：0.84 倍（2026-11-12 用户要求再放大一倍），
+     夹在 12–20px。正文 26px 时页码 20px（封顶），小屏不糊、大字号不无限涨。 */
+  font-size: clamp(12px, calc(var(--bzr-font-size, 26px) * 0.84), 20px);
   line-height: 1;
   letter-spacing: 0.02em;
   color: var(--t3);
@@ -92,7 +92,7 @@
 
 /* 并排对照：页码只跟主卷（左半）。落在右半会让人以为是右边那本的页数 */
 .bzs-rpages.is-parallel ~ .bzs-pageno {
-  right: calc(50% + var(--bzr-page-margin, 8px) + 4px);
+  right: calc(50% + var(--bzr-page-margin, 8px));
 }
 
 /* 沉浸：更淡一档。沉浸时最需要知道进度，所以不藏，只是不抢正文 */

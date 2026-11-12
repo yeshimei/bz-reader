@@ -114,15 +114,19 @@ describe('阅读页页码 · 显示', () => {
     expect(pageNo(view)).toBe('');
   });
 
-  it('页码的位置与字号跟页边距、正文字号走（写进 root 的两个变量）', () => {
+  it('页码与书名的字号/位置跟页边距、正文字号走', () => {
     const view = wire({ pageLabel: 'chapter', margin: 32, fontSize: 22 });
-    const style = (view as unknown as { rootEl: { style: Record<string, string> } }).rootEl.style;
-    expect(style['--bzr-page-margin']).toBe('32px');
-    expect(style['--bzr-page-font']).toBe('22px');
+    const rootStyle = (view as unknown as { rootEl: { style: Record<string, string> } }).rootEl.style;
+    const leafStyle = (view as unknown as { containerEl: { style: Record<string, string> } }).containerEl.style;
+    expect(rootStyle['--bzr-page-margin']).toBe('32px');
+    expect(rootStyle['--bzr-font-size']).toBe('22px');
+    /* 书名在头栏里，不在 .bzs-shell 内：字号变量要同时写到 leaf-content */
+    expect(leafStyle['--bzr-font-size']).toBe('22px');
 
     /* 改页边距/字号后跟着变：页码不是写死的 18px / 11px */
     view.updatePrefs(normalizePrefs({ pageLabel: 'chapter', margin: 64, fontSize: 28 }));
-    expect(style['--bzr-page-margin']).toBe('64px');
-    expect(style['--bzr-page-font']).toBe('28px');
+    expect(rootStyle['--bzr-page-margin']).toBe('64px');
+    expect(rootStyle['--bzr-font-size']).toBe('28px');
+    expect(leafStyle['--bzr-font-size']).toBe('28px');
   });
 });

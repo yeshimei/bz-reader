@@ -1492,11 +1492,13 @@ export class ReaderView extends ItemView {
     const root = this.rootEl;
     if (!root) return;
     if (root.dataset.bzaccent !== this.prefs.accent) root.dataset.bzaccent = this.prefs.accent;
-    /* 页码要跟正文的页边距、字号比例走，但正文在 iframe 里，宿主侧读不到
-       那些值：在 root 上写一份，CSS 用 calc 算位置与字号（见 reader.css）。
-       只写两个变量，不碰 DOM 结构——改字号/页边距时每本书都会走这里。 */
+    /* 页码与书名都要跟正文的页边距、字号走，但正文在 iframe 里，宿主侧读不到
+       那些值：在 root 上写一份给页码，在 leaf-content 上再写一份给头栏书名
+       （书名不在 .bzs-shell 里，继承不到 root 的变量）。只写变量，不碰 DOM 结构。 */
+    const fontPx = `${this.prefs.fontSize}px`;
     root.style.setProperty('--bzr-page-margin', `${this.prefs.margin}px`);
-    root.style.setProperty('--bzr-page-font', `${this.prefs.fontSize}px`);
+    root.style.setProperty('--bzr-font-size', fontPx);
+    this.containerEl.style.setProperty('--bzr-font-size', fontPx);
     /* 头栏书名不在 .bzs-shell 里，拿不到壳层的 --copper：把算出来的强调色
        写到 leaf-content 上，标题 hover 与焦点环跟着设置里的强调色走
        （点标题是打开右侧栏目录，颜色得和「强调色」这项对得上）。
