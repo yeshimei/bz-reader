@@ -247,15 +247,6 @@ export function viewSettings(v: SettingsView): string {
               String(p.columns),
             )}</div>`
       }
-      <div class="bzs-setrow"><label>${t('settings.footnote')}</label>${seg(
-        'footnote',
-        // 浮窗已并入基础版：两个选项都是真实可用的
-        [
-          ['popup', t('settings.footnote.popup')],
-          ['jump', t('settings.footnote.jump')],
-        ],
-        p.footnote,
-      )}</div>
     </div>`;
 
   /* 外观只剩强调色一项：底色与文字跟随 Obsidian，不再有皮肤可挑。
@@ -293,6 +284,15 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>${t('settings.toolbarStyle')}</label>${toolbarStyleBtns}</div>
       <div class="bzs-setrow"><label>${t('settings.pageLabel')}</label>${pageLabelBtns}</div>
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pageLabel.hint')}</div>
+      <div class="bzs-setrow"><label>${t('settings.footnote')}</label>${seg(
+        'footnote',
+        // 浮窗已并入基础版：两个选项都是真实可用的
+        [
+          ['popup', t('settings.footnote.popup')],
+          ['jump', t('settings.footnote.jump')],
+        ],
+        p.footnote,
+      )}</div>
     </div>`;
 
   /* PDF 单独一组：自动复制链接 / 链接别名原来混在「外观」里，跟强调色、

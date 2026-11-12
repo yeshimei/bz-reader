@@ -1497,6 +1497,16 @@ export class ReaderView extends ItemView {
        只写两个变量，不碰 DOM 结构——改字号/页边距时每本书都会走这里。 */
     root.style.setProperty('--bzr-page-margin', `${this.prefs.margin}px`);
     root.style.setProperty('--bzr-page-font', `${this.prefs.fontSize}px`);
+    /* 头栏书名不在 .bzs-shell 里，拿不到壳层的 --copper：把算出来的强调色
+       写到 leaf-content 上，标题 hover 与焦点环跟着设置里的强调色走
+       （点标题是打开右侧栏目录，颜色得和「强调色」这项对得上）。
+       读不到就退回 CSS 里的 --text-accent。 */
+    try {
+      const accent = getComputedStyle(root).getPropertyValue('--copper').trim();
+      if (accent) this.containerEl.style.setProperty('--bzr-accent', accent);
+    } catch {
+      /* 宿主换主题的瞬间可能读不到：退回 CSS 回退值，不影响标题可用 */
+    }
     /* 设置里切了页码口径：不用等下一次翻页，拿最近一次的数字立刻重算 */
     this.renderPageNo();
   }
