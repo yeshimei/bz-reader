@@ -606,6 +606,8 @@ export const DE: Record<MsgKey, string> = {
   'settings.columns': 'Spalten',
   'settings.columns.1': 'Eine',
   'settings.columns.2': 'Zwei',
+  'settings.desktopTapTurn': 'Click to turn pages',
+  'settings.desktopTapTurn.hint': 'Click the left or right side of the text to turn pages on desktop. Turn this on if you read on a touchscreen laptop.',
   'settings.footnote': 'Fußnoten',
   'settings.footnote.popup': 'Pop-up oben',
   'settings.footnote.jump': 'Zum Kapitelende',

@@ -225,3 +225,22 @@ describe('PDF 链接别名', () => {
     expect(normalizePrefs({ pdfLinkLabel: 2 } as unknown as Record<string, unknown>).pdfLinkLabel).toBe('text');
   });
 });
+
+/**
+ * 桌面端点正文翻页（2026-11-12）：默认关。
+ *
+ * 正文点下去第一用途是选字 / 点链接 / 落焦点，把整页卷走比「没反应」更恼人；
+ * 触屏笔记本想用手指点，自己去设置里开。手机端不用这一项。
+ */
+describe('桌面点击翻页', () => {
+  it('默认关，老数据（没有这一项）也是关', () => {
+    expect(DEFAULT_PREFS.desktopTapTurn).toBe(false);
+    expect(normalizePrefs({}).desktopTapTurn).toBe(false);
+  });
+
+  it('只认显式 true，脏值一律当关', () => {
+    expect(normalizePrefs({ desktopTapTurn: true }).desktopTapTurn).toBe(true);
+    expect(normalizePrefs({ desktopTapTurn: '1' } as unknown as Record<string, unknown>).desktopTapTurn).toBe(false);
+    expect(normalizePrefs({ desktopTapTurn: 1 } as unknown as Record<string, unknown>).desktopTapTurn).toBe(false);
+  });
+});

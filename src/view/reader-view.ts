@@ -512,8 +512,9 @@ export class ReaderView extends ItemView {
       this.applyChrome();
     });
 
-    /* 点正文：移动端上下分区翻页；两指同时按切换沉浸（判定在引擎侧）。
-       翻页延后由 host 的队列保证，这里只管按区定方向。 */
+    /* 点正文：移动端上下分区翻页；桌面端默认只收条子 / 关浮层，不翻页
+       （设置里打开「点击翻页」才按左右分区翻）。两指同时按切换沉浸
+       （判定在引擎侧）。翻页延后由 host 的队列保证，这里只管按区定方向。 */
     this.tapHandler = (zone, info) => {
       /* 这一下该干什么，全交给 tapIntent：划词条 > 浮层 > 翻页。
          iframe 里的点按不冒泡到宿主文档，document 级的收口收不到，
@@ -522,6 +523,8 @@ export class ReaderView extends ItemView {
         selbar: !!this.selbar,
         overlayKind: getShellState().overlay?.kind,
         mobile: isMobileShell(),
+        /* 桌面点正文翻页默认关（2026-11-12），设置里打开才走下面的翻页分支 */
+        desktopTurn: this.prefs.desktopTapTurn,
       });
       debugEvent('intent', { intent, zone, selbar: !!this.selbar });
       if (intent !== 'turn') {
@@ -546,8 +549,7 @@ export class ReaderView extends ItemView {
       this.lastZone = zone === 'prev' ? 'U' : 'D';
       /* 连点就连续翻：去重已经在引擎侧按手势做过，这里不再压时间窗 */
       this.lastTurnAt = now;
-      /* 桌面也支持点击翻页（P2-10）：以前这里直接 return，桌面上点一下正文
-         什么都不发生，只能滚轮或键盘——很多人第一次用会以为插件坏了。
+      /* 桌面只在设置里开了「点击翻页」时才走到这里（默认关，见 tapIntent）。
          桌面是横向分页，所以按**左右**分区；移动端仍按上下（AGENTS.md 的约定，
          手指在手机上上下点比左右点自然）。
          方向本身交给 tapDirection：竖排 / RTL 的左右反转只有那一份规则，
@@ -1389,6 +1391,9 @@ export class ReaderView extends ItemView {
       await host2.mount(inner, other.fileRef.vaultPath, {
         prefs: this.prefs,
         onTap: (zone) => {
+          /* 副卷与主栏同一条规矩：桌面点正文默认不翻页，只有设置里开了才翻。
+             副卷只在桌面出现，所以这里不判手机。 */
+          if (!this.prefs.desktopTapTurn) return;
           void (zone === 'prev' ? host2.prev() : host2.next());
         },
         onTurn: (dir) => {

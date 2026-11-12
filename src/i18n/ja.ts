@@ -600,6 +600,8 @@ export const JA: Record<MsgKey, string> = {
   'settings.columns': '段組',
   'settings.columns.1': '1 段',
   'settings.columns.2': '2 段',
+  'settings.desktopTapTurn': 'Click to turn pages',
+  'settings.desktopTapTurn.hint': 'Click the left or right side of the text to turn pages on desktop. Turn this on if you read on a touchscreen laptop.',
   'settings.footnote': '脚注',
   'settings.footnote.popup': '上にポップアップ',
   'settings.footnote.jump': '章末へ移動',

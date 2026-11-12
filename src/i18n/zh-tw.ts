@@ -598,6 +598,8 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.columns': '分欄',
   'settings.columns.1': '單欄',
   'settings.columns.2': '雙欄',
+  'settings.desktopTapTurn': '點擊翻頁',
+  'settings.desktopTapTurn.hint': '桌面端點擊正文左右兩側翻頁。觸控筆記本想用手指點就開啟；預設關閉。',
   'settings.footnote': '腳註',
   'settings.footnote.popup': '上方浮窗',
   'settings.footnote.jump': '跳到章末',

@@ -627,6 +627,8 @@ export const ZH = {
   'settings.columns': '分栏',
   'settings.columns.1': '单栏',
   'settings.columns.2': '双栏',
+  'settings.desktopTapTurn': '点击翻页',
+  'settings.desktopTapTurn.hint': '桌面端点击正文左右两侧翻页。触屏笔记本想用手指点就打开；默认关。',
   'settings.footnote': '脚注',
   'settings.footnote.popup': '上方浮窗',
   'settings.footnote.jump': '跳到章末',

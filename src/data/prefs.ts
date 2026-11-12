@@ -106,6 +106,14 @@ export interface ReaderPrefs {
    * 默认开：页码已经默认「全书」，两角配成一对才像一本书的页眉页脚。
    */
   chapterLabel: boolean;
+  /**
+   * 桌面端点正文翻页（2026-11-12）。
+   *
+   * 默认**关**：桌面正文的第一用途是选字、点链接、落焦点，点一下就把整页
+   * 卷走，比「点了没反应」更恼人。触屏笔记本想用手指点，自己在设置里开。
+   * 手机端不读这一项——那里点按就是唯一的翻页手势。
+   */
+  desktopTapTurn: boolean;
   /** 划词工具条：文字 / 图标（见 ToolbarStyle） */
   toolbarStyle: ToolbarStyle;
   /**
@@ -180,6 +188,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   flow: 'paged',
   pageLabel: 'book',
   chapterLabel: true,
+  desktopTapTurn: false,
   toolbarStyle: 'text',
   headerOrder: [],
   headerHidden: [],
@@ -380,6 +389,8 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
       : DEFAULT_PREFS.pageLabel,
     /* 章节名：老数据没有这一项 → 开（和页码配成一对） */
     chapterLabel: p.chapterLabel !== false,
+    /* 桌面点按翻页：只认显式 true——新默认是关，老数据里没有这一项自然也是关 */
+    desktopTapTurn: p.desktopTapTurn === true,
     toolbarStyle: p.toolbarStyle === 'icon' ? 'icon' : 'text',
     headerOrder: headerIds(p.headerOrder),
     headerHidden: headerIds(p.headerHidden),

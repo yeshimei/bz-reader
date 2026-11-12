@@ -608,6 +608,8 @@ export const PT: Record<MsgKey, string> = {
   'settings.columns': 'Colunas',
   'settings.columns.1': 'Uma',
   'settings.columns.2': 'Duas',
+  'settings.desktopTapTurn': 'Click to turn pages',
+  'settings.desktopTapTurn.hint': 'Click the left or right side of the text to turn pages on desktop. Turn this on if you read on a touchscreen laptop.',
   'settings.footnote': 'Notas de rodapé',
   'settings.footnote.popup': 'Janela acima',
   'settings.footnote.jump': 'Ir para o fim do capítulo',

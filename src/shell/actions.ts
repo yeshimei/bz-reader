@@ -1903,11 +1903,13 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     }
 
     case 'preftoggle': {
-      /* 阅读偏好（prefs）上的开关，目前只有「章节名」。按按钮当前状态翻转：
+      /* 阅读偏好（prefs）上的开关：章节名、桌面点击翻页。按按钮当前状态翻转：
          拿 el 的 class 比读一遍 prefs 更省事，也不会和还没落盘的值打架。 */
       const src = getShellSource();
       if (!src) break;
       if (d.k === 'chapterLabel') src.setPrefs({ chapterLabel: !el.classList.contains('on') });
+      /* 桌面点正文翻页（2026-11-12）：默认关，要用的人自己打开 */
+      if (d.k === 'desktopTapTurn') src.setPrefs({ desktopTapTurn: !el.classList.contains('on') });
       repaint();
       break;
     }

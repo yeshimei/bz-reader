@@ -252,6 +252,14 @@ export function viewSettings(v: SettingsView): string {
               String(p.columns),
             )}</div>`
       }
+      ${
+        /* 桌面点正文翻页：默认关（正文点下去是选字 / 点链接，不是翻页）。
+           只有桌面有这一项——手机那儿点按就是唯一的翻页手势，没有开关可关。 */
+        mobile
+          ? ''
+          : `${prefToggle('desktopTapTurn', p.desktopTapTurn === true, t('settings.desktopTapTurn'))}
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.desktopTapTurn.hint')}</div>`
+      }
     </div>`;
 
   /* 外观只剩强调色一项：底色与文字跟随 Obsidian，不再有皮肤可挑。

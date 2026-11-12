@@ -30,10 +30,19 @@ describe('tapIntent', () => {
 
   it('移动端没有浮层：翻页', () => {
     expect(tapIntent({ selbar: false, mobile: true })).toBe('turn');
+    /* 手机不看桌面那个开关：那里点按是唯一的翻页手势 */
+    expect(tapIntent({ selbar: false, mobile: true, desktopTurn: false })).toBe('turn');
   });
 
-  it('桌面没有浮层：也翻页（P2-10 桌面点按翻页）', () => {
-    expect(tapIntent({ selbar: false, mobile: false })).toBe('turn');
+  /* 2026-11-12：桌面默认不再点一下就翻页——正文点下去是用来选字的，
+     一页被卷走比「点了没反应」更恼人。触屏笔记本想用手指点，去设置里打开。 */
+  it('桌面没有浮层：默认不翻页', () => {
+    expect(tapIntent({ selbar: false, mobile: false })).toBe('idle');
+    expect(tapIntent({ selbar: false, mobile: false, desktopTurn: false })).toBe('idle');
+  });
+
+  it('桌面打开了「点击翻页」：翻页', () => {
+    expect(tapIntent({ selbar: false, mobile: false, desktopTurn: true })).toBe('turn');
   });
 
   it('划词条与浮层同时在：先收条子', () => {

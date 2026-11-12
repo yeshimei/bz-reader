@@ -4,7 +4,7 @@
  * 为什么单独抽出来：判断分散在 reader-view 的两处（桌面一次、移动端一次），
  * 新加一个「划词条」状态时两边都没补，真机上就变成「点别处先翻一页」。
  *
- * 优先级：划词条 > 浮层 > 翻页。
+ * 优先级：划词条 > 浮层 > 翻页。桌面端默认连「翻页」都没有（见下）。
  */
 import { dismissesOnTap, isFloatOverlay, type OverlayKind } from '../shell/state';
 
@@ -17,6 +17,11 @@ export interface TapContext {
   overlayKind?: OverlayKind | null;
   /** 真实移动端布局 */
   mobile: boolean;
+  /**
+   * 桌面端「点击翻页」开关（prefs.desktopTapTurn）。
+   * 手机不读它；缺省 = 关。
+   */
+  desktopTurn?: boolean;
 }
 
 export function tapIntent(ctx: TapContext): TapIntent {
@@ -28,8 +33,10 @@ export function tapIntent(ctx: TapContext): TapIntent {
   if (isFloatOverlay(ctx.overlayKind)) {
     return dismissesOnTap(ctx.overlayKind) ? 'dismiss-overlay' : 'idle';
   }
-  /* 桌面也翻页（P2-10）：以前桌面返回 idle，点正文什么都不发生，
-     只能用滚轮或键盘。方向由调用方按横向/纵向分区分，这里只回答
-     「这一下算翻页」。 */
-  return 'turn';
+  /* 手机：点按是唯一的翻页手势，一直翻。
+     桌面：默认**不翻**（2026-11-12 改）——以前点正文按左右半区翻页，
+     可桌面这点下去的第一用途是选字、点链接、落焦点，一页被卷走比
+     「点了没反应」更恼人。触屏笔记本想用手指点，去设置里打开「点击翻页」；
+     开了才走和手机一样的翻页分支，方向仍由调用方按平台分区。 */
+  return ctx.mobile || ctx.desktopTurn ? 'turn' : 'idle';
 }
