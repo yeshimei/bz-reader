@@ -56,8 +56,9 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
      2026-11-11 +4（44 → 48）：新增「语义搜索」「AI 伴读」两行卖点，
      同样是 zh 与 zh-TW 各一份。
      2026-11-12 +2（48 → 50）：引用页签有了自己的能力位，卖点句同样是
-     zh 与 zh-TW 各一份（其余六包走外语表）。 */
-  'src/data/entitlement.ts': 50,
+     zh 与 zh-TW 各一份（其余六包走外语表）。
+     2026-11-13 +2（50 → 52）：剪藏成书转正，同样是一句卖点 × 两种中文。 */
+  'src/data/entitlement.ts': 52,
   'src/data/export.ts': 9,
   'src/data/importer.ts': 1,
   'src/data/license.ts': 16,

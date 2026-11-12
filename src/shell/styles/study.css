@@ -564,6 +564,13 @@
   background: color-mix(in srgb, var(--vermilion) 12%, var(--glass));
 }
 
+/* 剪藏本：与失联的红色角标错开，用主色说「这本是活的」 */
+.bzs-bkcard .flag.is-clip {
+  color: var(--interactive-accent);
+  border-color: color-mix(in srgb, var(--interactive-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--interactive-accent) 12%, var(--glass));
+}
+
 .bzs-bkcard.is-missing .bzs-cov {
   filter: grayscale(.55);
   opacity: .55;

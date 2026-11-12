@@ -32,7 +32,6 @@ const EXPLORE_ROWS = [
   'review',
   'eink',
   'motion',
-  'clipEpub',
 ] as const;
 
 afterEach(() => setLocale('zh'));
@@ -42,7 +41,7 @@ function row(key: string) {
 }
 
 describe('对照表 · 探索中段的位置与内容', () => {
-  it('放在最末一段，只收八行，顺序固定', () => {
+  it('放在最末一段，只收七行（剪藏成书已实现转正），顺序固定', () => {
     const last = PLAN_GROUPS.at(-1);
     expect(last?.key).toBe('explore');
     expect(last?.rows).toEqual([...EXPLORE_ROWS]);
@@ -58,7 +57,7 @@ describe('对照表 · 探索中段的位置与内容', () => {
     }
   });
 
-  it('中文行名就是图上的那八行', () => {
+  it('中文行名就是图上的那七行', () => {
     expect(planNameZh('pdfOcr')).toBe('PDF OCR+AI视觉：扫描件像文字版一样能选能搜能划');
     expect(planNameZh('pdfReflow')).toBe('PDF 重排：固定版式也能流式读');
     expect(planNameZh('manga')).toBe('漫画模式：分格、右到左、跨页');
@@ -66,8 +65,6 @@ describe('对照表 · 探索中段的位置与内容', () => {
     expect(planNameZh('review')).toBe('复习：全文回顾，AI 生成抽认卡与题目');
     expect(planNameZh('eink')).toBe('墨水屏优化：黑白更清、翻页不闪');
     expect(planNameZh('motion')).toBe('界面动效：翻页、切章与书架过渡，可随时关');
-    /* 2026-11-12 新增：把 bz 剪藏本的文章合成一本 EPUB，进书架当普通书读。 */
-    expect(planNameZh('clipEpub')).toBe('剪藏成书：把剪藏本的文章合成 EPUB，在书架里读');
   });
 
   it('段名叫「探索中」，且不和任何行名撞字', () => {
@@ -76,18 +73,17 @@ describe('对照表 · 探索中段的位置与内容', () => {
     expect(names.has('探索中')).toBe(false);
   });
 
-  it('探索行不计入已实现项：基础版 8、高级版 29、共 37 行的口径不变', () => {
-    /* 图上的合计只看已实现：高级版 29 个勾、基础版 8 个勾。探索八行加进
-       来之后，行数变 37，但两个合计数字一个都不能动。 */
-    expect(PLAN_TABLE.filter((r) => r.pro === 'yes')).toHaveLength(29);
+  it('探索行不计入已实现项：基础版 8、高级版 30、共 37 行的口径不变', () => {
+    /* 图上的合计只看已实现：高级版 30 个勾（剪藏成书 2026-11-13 转正）、\n       基础版 8 个勾。探索七行加进来之后，行数仍是 37。 */
+    expect(PLAN_TABLE.filter((r) => r.pro === 'yes')).toHaveLength(30);
     expect(PLAN_TABLE.filter((r) => r.free === 'yes')).toHaveLength(8);
     expect(PLAN_TABLE).toHaveLength(37);
   });
 
-  it('知识库仍是正式段的最后一行，探索段接在它后面', () => {
+  it('知识库之后是剪藏成书（已转正），再往后才是探索段', () => {
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
-    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key)).toEqual([...EXPLORE_ROWS]);
+    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key)).toEqual(['clipEpub', ...EXPLORE_ROWS]);
   });
 });
 

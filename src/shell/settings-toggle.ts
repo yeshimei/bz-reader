@@ -9,7 +9,7 @@ export interface ToggleState {
   exportComments: boolean;
   /** 调试日志（数据组）：默认关，开了才往 debug.json 写事件 */
   debugLog: boolean;
-  /** 剪藏本（bz 组）：书架多一本跟着剪藏更新的书，默认关 */
+  /** 剪藏本（bz 组）：书架多一本跟着剪藏更新的书，内容实时读 bz 剪藏本，默认关 */
   clipBook: boolean;
   /* 曾经这里还有 aiKnowledge：2026-11-07 改成自动识别，开关撤掉，
      判断在 data/bz-bridge（bz 在不在）。2026-11-13 抽进 bz 组后

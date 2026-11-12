@@ -84,6 +84,11 @@ export interface ReaderEngine {
   readonly probe: { binds: number; taps: number; blocked: number };
 
   mount(container: HTMLElement, vaultPath: string, opts: MountOptions): Promise<void>;
+  /**
+   * 换掉当前书的内容（剪藏本实时刷新）：剪藏本没有文件、内容会随数据变，
+   * 换完由调用方 `start()` 回原位。PDF 引擎不实现。
+   */
+  reopen?(book: import('../types/foliate').FoliateBook): Promise<void>;
   start(cfi?: string, fraction?: number): Promise<void>;
   next(): Promise<void>;
   prev(): Promise<void>;
@@ -93,6 +98,8 @@ export interface ReaderEngine {
   goToChapter(title: string): Promise<boolean>;
   toc(): FoliateTOCItem[];
   currentChapterHref(): string;
+  /** 当前章节序号（0 起）；剪藏本用它认「这是哪一篇」 */
+  readonly currentChapterIndex: number;
   currentText(): string;
   exportChapters(opts?: {
     onProgress?: (done: number, total: number, title: string) => void;

@@ -101,7 +101,7 @@ type AnyApp = {
   };
 };
 
-function pluginOf(app: App | null | undefined): Record<string, unknown> | null {
+export function bzPluginInstance(app: App | null | undefined): Record<string, unknown> | null {
   const plugins = (app as AnyApp | null | undefined)?.plugins;
   if (!plugins) return null;
   /* getPlugin 是较新的官方口子；拿不到就退回 plugins 表（两边都在的环境取到的是同一个实例） */
@@ -110,7 +110,7 @@ function pluginOf(app: App | null | undefined): Record<string, unknown> | null {
   return raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null;
 }
 
-function versionOf(app: App | null | undefined, plugin: Record<string, unknown> | null): string {
+export function bzPluginVersion(app: App | null | undefined, plugin: Record<string, unknown> | null): string {
   const fromManifest = (app as AnyApp | null | undefined)?.plugins?.manifests?.[BZ_PLUGIN_ID]?.version;
   if (typeof fromManifest === 'string' && fromManifest) return fromManifest;
   const own = (plugin as { manifest?: { version?: unknown } } | null)?.manifest?.version;
@@ -152,7 +152,7 @@ function clipbookOf(plugin: Record<string, unknown> | null): BzClipbookFacade | 
 export function probeBz(app: App | null | undefined): BzProbe {
   let plugin: Record<string, unknown> | null = null;
   try {
-    plugin = pluginOf(app);
+    plugin = bzPluginInstance(app);
   } catch {
     return ABSENT;
   }
@@ -162,7 +162,7 @@ export function probeBz(app: App | null | undefined): BzProbe {
     const hasManifest = !!(app as AnyApp | null | undefined)?.plugins?.manifests?.[BZ_PLUGIN_ID];
     return {
       status: hasManifest ? 'disabled' : 'missing',
-      version: versionOf(app, null),
+      version: bzPluginVersion(app, null),
       knowledge: null,
       ai: null,
       clipbook: null,
@@ -170,7 +170,7 @@ export function probeBz(app: App | null | undefined): BzProbe {
   }
   return {
     status: 'ok',
-    version: versionOf(app, plugin),
+    version: bzPluginVersion(app, plugin),
     knowledge: knowledgeOf(plugin),
     ai: aiOf(plugin),
     clipbook: clipbookOf(plugin),

@@ -100,11 +100,12 @@ describe('1.0.0 对照表 · 书摘下放与行名', () => {
     }
   });
 
-  it('知识库仍是正式段最后一行，探索中段接在表尾', () => {
+  it('知识库之后是剪藏成书（正式行），探索中段收在表尾', () => {
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
     expect(PLAN_TABLE[kbAt]?.name).toBe('连接 BZ AI 知识库（需另装 bz）');
-    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key)).toEqual(
+    expect(PLAN_TABLE[kbAt + 1]?.key).toBe('clipEpub');
+    expect(PLAN_TABLE.slice(kbAt + 2).map((r) => r.key)).toEqual(
       PLAN_GROUPS.find((g) => g.key === 'explore')?.rows,
     );
   });

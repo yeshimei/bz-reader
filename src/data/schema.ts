@@ -78,6 +78,16 @@ export interface BookMeta {
   subtitle?: string;
   /** 章节数（EPUB 的 spine 篇数；漫画等固定版式可能不准） */
   chapterCount?: number;
+  /**
+   * 剪藏成书标记（2026-11-13）。
+   *
+   * 书架据此显示「剪藏成书」徽标；阅读页据此加载侧车（章 ↔ 文章对照）、
+   * 做进章已读与每章时长。外部消费者读到不认识的键会忽略，不影响数据同构。
+   */
+  clipBook?: boolean;
+  /** 生成时收进的订阅源数 / 文章数（徽标与详情用） */
+  clipSourceCount?: number;
+  clipArticleCount?: number;
 }
 
 export interface BookFileRef {
@@ -225,6 +235,13 @@ export interface ReadingBlock {
   lastPosition?: PositionSnapshot;
   stats: ReadingStats;
   sessions: ReadingSession[];
+  /**
+   * 剪藏本：每章累计阅读秒数（键 = 文章 key，2026-11-13）。
+   *
+   * 键用文章标识而不是章节序号：剪藏本会随数据增删，序号会变，标识不会。
+   * 普通 EPUB 没有这一段（读到不认识的键会忽略）。
+   */
+  chapterSeconds?: Record<string, number>;
 }
 
 export interface ReaderBook {

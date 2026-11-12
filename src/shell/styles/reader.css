@@ -264,3 +264,68 @@ body.bzr-immersive .bzs-pageno {
     transform: rotate(360deg);
   }
 }
+
+/* ── 剪藏本底条（2026-11-13）────────────────────────────────
+ * 壳层 flex 列的最后一行：左边这一章的来源/状态/时长，右边几个动作。
+ * 不做浮层——阅读区高度会被宿主 tab 栏 / 状态栏撑出视口，absolute/fixed
+ * 要么被裁掉、要么被底栏盖住（真机连踩两次）。占一行永远可见，也不遮正文。
+ * 条子本身点击穿透（不挡翻页），只有按钮收事件。 */
+.bzs-clipbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 20px);
+  margin: 0 auto 6px;
+  padding: 5px 10px;
+  border-radius: 10px;
+  background: var(--background-secondary, rgba(0, 0, 0, 0.55));
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.bzs-clipbar.is-hidden {
+  display: none;
+}
+
+.bzs-clipbar-meta {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bzs-clipbar-acts {
+  display: flex;
+  gap: 4px;
+  flex: none;
+  pointer-events: auto;
+}
+
+.bzs-clipbar-btn {
+  pointer-events: auto;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 1px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  cursor: pointer;
+}
+
+.bzs-clipbar-btn:hover {
+  background: var(--background-modifier-active-hover, var(--background-modifier-hover));
+}
+
+.bzs-clipbar-btn.is-hidden {
+  display: none;
+}
+
+.bzs-reader.is-mobile .bzs-clipbar {
+  font-size: 11px;
+  padding: 4px 8px;
+}

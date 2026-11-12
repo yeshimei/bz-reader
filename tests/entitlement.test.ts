@@ -232,14 +232,15 @@ describe('界面文案', () => {
     expect(firstPaid?.cap).toBe('fullFormats');
   });
 
-  it('对照表不再单列向量检索，知识库后只跟探索中段', () => {
+  it('对照表不再单列向量检索，知识库后是剪藏成书，再往后是探索中段', () => {
     expect(PLAN_TABLE.some((r) => r.name.includes('向量'))).toBe(false);
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
     expect(PLAN_TABLE[kbAt]?.name).toBe('连接 BZ AI 知识库（需另装 bz）');
-    /* 2026-11-11：知识库仍是正式段的收尾，探索中段接在它后面；
-       它们不是「买到了什么」，不该把表尾那句承诺顶掉。 */
-    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key)).toEqual(
+    /* 2026-11-13：剪藏成书实现后从探索中转正，排在正式段末尾；
+       探索中段仍收在表尾，它们不是「买到了什么」。 */
+    expect(PLAN_TABLE[kbAt + 1]?.key).toBe('clipEpub');
+    expect(PLAN_TABLE.slice(kbAt + 2).map((r) => r.key)).toEqual(
       PLAN_GROUPS.find((g) => g.key === 'explore')?.rows,
     );
   });

@@ -13,6 +13,7 @@ import type { ReaderBook } from '../data/schema';
 import { orderShelves } from '../data/shelves';
 import { getState, isFav } from './state';
 import { shelfOf } from './domain';
+import { isClipBookRecord } from '../data/clip-book-entry';
 
 export type BookStatus = 'reading' | 'done' | 'new';
 
@@ -40,6 +41,8 @@ export interface BookRow {
   noteCount: number;
   /** 文件不在登记的路径上：书卡压暗 + 角标，点它进「重新定位」 */
   missing: boolean;
+  /** 剪藏本（虚拟书，2026-11-13）：书卡上显示「剪藏成书」而不是格式 */
+  clip: boolean;
 }
 
 /** 封面配色：12 组暖调，都压过饱和度，避免封面墙花成调色盘 */
@@ -130,6 +133,7 @@ export function toRow(app: App, b: ReaderBook): BookRow {
     chapterTitle: b.reading.position.chapterTitle || '',
     noteCount,
     missing: b.fileRef.fileMissing === true,
+    clip: isClipBookRecord(b),
   };
 }
 

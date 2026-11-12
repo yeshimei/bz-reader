@@ -21,6 +21,7 @@
  * ============================================================ */
 import { Plugin, TFile, type WorkspaceLeaf } from 'obsidian';
 import { hostLanguageCode, resolveLocale, setLocale, t } from './i18n';
+import { syncClipBookEntry } from './data/clip-book-entry';
 import { COMMANDS } from './plugin-commands';
 import { setApp } from './core/app';
 import { setPluginRelDir, dataDirOf, debugLogPath, debugOpenPath, normalizeDataDir, setDataDir, DEFAULT_DATA_DIR, PLUGIN_ID } from './core/plugin-path';
@@ -326,6 +327,9 @@ export function createPlugin(cfg: PluginConfig) {
       this.store = new ReaderStore(this.app);
       await this.store.load();
       this.repo = new BookRepo(this.store.get().books);
+      /* 剪藏本（2026-11-13）：设置开关决定书架里那本固定入口在不在。
+         开过又关掉的，记录只是归档，进度与每章时长都还在。 */
+      this.syncClipBookEntry();
       this.bookAi = createBookAi({ app: this.app });
       /* 老版本把 AI 配置和激活码写进业务 JSON；搬到 data.json 之后把残留清掉，
          否则用户把 bz-reader.json 发给别人时会顺手把自己的 Key 也发出去。 */
@@ -510,6 +514,8 @@ export function createPlugin(cfg: PluginConfig) {
         this.app.vault.on('delete', (file) => {
           const book = this.repo.byPath(file.path);
           if (!book) return;
+          /* 剪藏本是虚拟书：文件系统事件与它无关（路径为空串） */
+          if (book.meta.clipBook) return;
           book.fileRef.fileMissing = true;
           book.updatedAt = Date.now();
           this.store.touch();
@@ -1126,6 +1132,21 @@ export function createPlugin(cfg: PluginConfig) {
       this.cfg.settings = normalizeSettings({ ...this.cfg.settings, ...patch });
       this.persistCfg();
       this.applyDebugLog();
+      if ('clipBook' in patch) this.syncClipBookEntry();
+      notifyShell();
+    }
+
+    /** 剪藏本开关 → 书架入口。幂等，只有真的变了才落盘与重绘。 */
+    private syncClipBookEntry(): void {
+      if (!this.repo || !this.store) return;
+      const r = syncClipBookEntry(
+        this.repo.all(),
+        this.cfg.settings?.clipBook === true,
+        t('clip.bookTitle'),
+      );
+      if (!r.changed) return;
+      this.store.touch();
+      notifyShelf();
       notifyShell();
     }
 
@@ -1466,8 +1487,9 @@ export function createPlugin(cfg: PluginConfig) {
         return;
       }
       /* 文件不在了：不进阅读视图、不抛底层错误，直接开「重新定位」弹层。
-         顺手把失联标记写上，书架下一次重绘就压暗封面、显示角标。 */
-      if (!this.app.vault.getAbstractFileByPath(book.fileRef.vaultPath)) {
+         顺手把失联标记写上，书架下一次重绘就压暗封面、显示角标。
+         剪藏本是虚拟书（没有文件），不走这条。 */
+      if (!book.meta.clipBook && !this.app.vault.getAbstractFileByPath(book.fileRef.vaultPath)) {
         book.fileRef.fileMissing = true;
         book.updatedAt = Date.now();
         this.store.touch();
@@ -1609,6 +1631,14 @@ export function createPlugin(cfg: PluginConfig) {
       let changed = false;
       for (const b of this.repo.all()) {
         if (b.archivedAt) continue;
+        /* 虚拟书没有文件路径，按文件存在性判会永远「失联」 */
+        if (b.meta.clipBook) {
+          if (b.fileRef.fileMissing) {
+            b.fileRef.fileMissing = false;
+            changed = true;
+          }
+          continue;
+        }
         const ok = !!this.app.vault.getAbstractFileByPath(b.fileRef.vaultPath);
         if (b.fileRef.fileMissing === !ok) continue;
         b.fileRef.fileMissing = !ok;

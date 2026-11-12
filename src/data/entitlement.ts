@@ -59,6 +59,8 @@ export type Cap =
   | 'cites'
   | 'aiChat' // AI 伴读：追问 / 导读 / 补全 / 对话存档
   | 'semantic' // 语义搜索：本书与全库，按意思找
+  /** 剪藏成书（2026-11-13）：把剪藏本里的订阅文章合成 EPUB，进书架读 */
+  | 'clipBook'
   /**
    * PDF 整段（2026-11-10）。
    *
@@ -690,6 +692,16 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     es: 'PDF: zoom, enlaces de página, retroenlaces y exportar páginas',
     pt: 'PDF: zoom, links de página, retrolinks e exportar páginas',
   },
+  clipBook: {
+    zh: '剪藏成书：把 bz 剪藏本里的订阅文章合成一本 EPUB，进书架读',
+    'zh-TW': '剪藏成書：把 bz 剪藏本裡的訂閱文章合成一本 EPUB，進書架讀',
+    en: 'Clipbook to EPUB: bind your bz subscription articles into one EPUB and read it on the shelf',
+    ja: 'Clipbook to EPUB: bind your bz subscription articles into one EPUB and read it on the shelf',
+    de: 'Clipbook to EPUB: bind your bz subscription articles into one EPUB and read it on the shelf',
+    fr: 'Clipbook to EPUB: bind your bz subscription articles into one EPUB and read it on the shelf',
+    es: 'Clipbook to EPUB: bind your bz subscription articles into one EPUB and read it on the shelf',
+    pt: 'Clipbook to EPUB: bind your bz subscription articles into one EPUB and read it on the shelf',
+  },
 };
 
 /** 能力卖点 → 当前界面语言的说法 */
@@ -803,6 +815,9 @@ export const PLAN_TABLE: PlanRow[] = [
      全书问答的前置步骤，拆成两行只让用户以为要买两次；建索引被拦时高亮
      的是「AI 全书问答」那一行（见 shell/actions.ts 的 indexCap）。 */
   row('kb', 'no', 'yes', 'kb'),
+  /* 剪藏成书（2026-11-13 实现，从「探索中」转正）：高级版权益。
+     放在「进阶」段末尾：它依赖 bz 生态，是重度用户场景。 */
+  row('clipEpub', 'no', 'yes', 'clipBook'),
   /* ── 探索中（2026-11-11，2026-11-12 增至八项） ──
    * 八项都还没实现，只占表尾，别当已上线卖点用：两版都不打勾（free / pro
    * 都是 no）、不挂能力位，状态由段名「探索中」说，行里不加小字。
@@ -821,7 +836,6 @@ export const PLAN_TABLE: PlanRow[] = [
   row('review', 'no', 'no'),
   row('eink', 'no', 'no'),
   row('motion', 'no', 'no'),
-  row('clipEpub', 'no', 'no'),
 ];
 
 /**
@@ -907,12 +921,13 @@ export const PLAN_GROUPS: PlanGroup[] = [
   },
   {
     key: 'advanced',
-    rows: ['vertical', 'tts', 'parallel', 'bookmap', 'kb'],
+    rows: ['vertical', 'tts', 'parallel', 'bookmap', 'kb', 'clipEpub'],
   },
-  /* 2026-11-11 新增：探索中。放最后一段，只收八项还没实现的功能，
-     两版都不打勾，所以它不参与「被拦时高亮」那一套。 */
+  /* 2026-11-11 新增：探索中。放最后一段，只收还没实现的功能，
+     两版都不打勾，所以它不参与「被拦时高亮」那一套。剪藏成书 2026-11-13
+     已实现并转正（进 advanced 段），不在这个清单里了。 */
   {
     key: 'explore',
-    rows: ['pdfOcr', 'pdfReflow', 'manga', 'transChapter', 'review', 'eink', 'motion', 'clipEpub'],
+    rows: ['pdfOcr', 'pdfReflow', 'manga', 'transChapter', 'review', 'eink', 'motion'],
   },
 ];

@@ -147,6 +147,12 @@ const MAX_CSS_DEPTH = 8;
  */
 const CSP_META = `<meta http-equiv="Content-Security-Policy" content="script-src 'none'">`;
 
+/**
+ * 「这个 iframe 是章节内容，不是书里夹带的」——由剪藏本的视频渲染层打上。
+ * 值目前只有 `video`；校验见 inlineMarkup（必须同时是 https 地址）。
+ */
+export const KEEP_FRAME_ATTR = 'data-bzr-keep';
+
 /** CSS 里的 url(blob:…) 换成 data:；@import blob: 直接展开 */
 async function inlineCss(
   css: string,
@@ -274,7 +280,21 @@ export async function inlineMarkup(raw: string): Promise<string> {
   /* 整章一份上下文：CSS 图与正文图片共用一个字节池，同一地址只读一次 */
   const ctx = newCtx();
 
-  for (const el of Array.from(doc.querySelectorAll('script, iframe, object, embed'))) el.remove();
+  for (const el of Array.from(doc.querySelectorAll('script, object, embed'))) el.remove();
+  /* iframe 默认一律删（书里夹带的框架就是攻击面）。唯一的例外是**我们自己
+     生成的**视频播放器：剪藏本的章节 HTML 出来时给它打 `data-bzr-keep`，表明
+     「这是内容，不是夹带」。标记只对 https 地址生效，用完立刻摘掉——留着一个
+     约定属性，等于给书里伪造它的机会。 */
+  for (const el of Array.from(doc.querySelectorAll('iframe'))) {
+    const keep =
+      el.getAttribute(KEEP_FRAME_ATTR) === 'video' &&
+      /^https:\/\//i.test((el.getAttribute('src') || '').trim());
+    if (!keep) {
+      el.remove();
+      continue;
+    }
+    el.removeAttribute(KEEP_FRAME_ATTR);
+  }
 
   for (const meta of Array.from(doc.querySelectorAll('meta[http-equiv]'))) {
     const kind = (meta.getAttribute('http-equiv') || '').trim().toLowerCase();

@@ -241,6 +241,11 @@ export interface MountOptions {
   onPdfFlow?: (mode: 'paged' | 'scroll') => void;
   /** 跳转历史条数变了：头栏那颗「回到上一处」据此亮 / 灰。两个引擎共用 */
   onHistoryChange?: (count: number) => void;
+  /**
+   * 虚拟书（剪藏本，2026-11-13）：不经 vault 文件，直接把造好的 foliate book
+   * 交给引擎。有它时 `vaultPath` 只当标识用，不会去读盘。
+   */
+  virtualBook?: { book: FoliateBook; meta: EngineMeta };
 }
 
 /** 滚轮累计到多少才翻一页（像素）。触控板一次轻扫约 30–60，鼠标滚轮一格约 100。 */
@@ -556,7 +561,7 @@ export class EngineHost {
     this.lastLocationCfi = '';
 
     this.phase = 'read';
-    const { book, meta } = await this.buildBook(vaultPath);
+    const { book, meta } = opts.virtualBook ?? (await this.buildBook(vaultPath));
     /* 解包期间可能已经被关书 / 换书（看门狗、用户点回书架）：这一轮就作废，
        别把书挂到一个已经不存在的画布上。 */
     if (this.container !== container) {
@@ -766,6 +771,31 @@ export class EngineHost {
        否则诊断页会把「分页卡死」显示成「已经就绪」，等于没有线索。 */
     this.applyPrefs(this.prefs);
     opts.onReady?.(book, meta);
+  }
+
+  /**
+   * 换掉当前这本书的内容（剪藏本实时刷新用）。
+   *
+   * 不重建 foliate-view，只把新 book 塞进去重新 open——DOM 与手势监听都留下，
+   * 刷新后调用方自己 `start(cfi)` 回到原位。
+   */
+  async reopen(book: FoliateBook): Promise<void> {
+    const view = this.view;
+    if (!view) return;
+    try {
+      this.book?.destroy?.();
+    } catch {
+      /* 旧书回收失败不拦换书 */
+    }
+    this.book = book;
+    this.sectionSizes = (book.sections ?? []).map((s) => Number(s.size) || 0);
+    this.chapterPages.clear();
+    this.chapterIndex = 0;
+    this.chapterTitle = '';
+    this.chapterHref = '';
+    this.lastLocationCfi = '';
+    await view.open(book);
+    this.applyPrefs(this.prefs);
   }
 
   /**

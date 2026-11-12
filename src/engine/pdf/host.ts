@@ -324,6 +324,11 @@ export class PdfEngineHost implements ReaderEngine {
     return pdfPageLocator(this.view?.page ?? 1);
   }
 
+  /** PDF 的「章」就是页：页号 - 1，与 EPUB 的 section 序号同口径 */
+  get currentChapterIndex(): number {
+    return Math.max(0, (this.view?.page ?? 1) - 1);
+  }
+
   currentText(): string {
     return this.view?.currentText() ?? '';
   }

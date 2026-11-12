@@ -291,3 +291,45 @@ describe('inlineMarkup · 原有安全清理不回退', () => {  it('删 script 
     expect(out).not.toContain(url);
   });
 });
+
+/*
+ * 剪藏本的视频章要在书页里放播放器（2026-11-13）：
+ * 章节 HTML 由我们自己生成，里面那个 `<iframe>` 是**内容**，不是书里夹带的脚本。
+ * 一律删掉的话，B 站视频章就只剩一行「下面应该是一个播放器」。
+ * 约定：生成方打 `data-bzr-keep` 标记；标记只对 https 地址生效，且用完就摘掉。
+ */
+describe('inlineMarkup · 剪藏本内嵌视频', () => {
+  const BILI = 'https://player.bilibili.com/player.html?bvid=BV1xx411c7mD&page=1';
+
+  it('带标记、https 地址的 iframe 保留，标记属性摘掉', async () => {
+    const out = await inlineMarkup(page(`<p>视频</p><iframe data-bzr-keep="video" src="${BILI}"></iframe>`));
+    expect(out).toContain('<iframe');
+    expect(out).toContain('player.bilibili.com');
+    expect(out).not.toContain('data-bzr-keep');
+  });
+
+  it('没标记的 iframe 照旧删掉（书里夹带的一律不认）', async () => {
+    const out = await inlineMarkup(page(`<iframe src="${BILI}"></iframe><p>字</p>`));
+    expect(out).not.toContain('<iframe');
+    expect(out).toContain('字');
+  });
+
+  it('标记了但地址不是 https 的一样删（javascript: / http: 都不放行）', async () => {
+    const out = await inlineMarkup(
+      page(
+        `<iframe data-bzr-keep="video" src="javascript:alert(1)"></iframe>` +
+          `<iframe data-bzr-keep="video" src="http://plain.example/x"></iframe>`,
+      ),
+    );
+    expect(out).not.toContain('<iframe');
+    expect(out).not.toContain('javascript:');
+  });
+
+  it('保留下来的视频 iframe 仍然要过 on* 清理', async () => {
+    const out = await inlineMarkup(
+      page(`<iframe data-bzr-keep="video" src="${BILI}" onload="alert(1)"></iframe>`),
+    );
+    expect(out).toContain('<iframe');
+    expect(out).not.toContain('onload');
+  });
+});

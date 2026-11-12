@@ -97,6 +97,20 @@ import { RT, onNotesChanged } from '../shell/runtime';
 import { addCheckin } from '../shell/checkin';
 import { toTextHits, type TextHit } from '../shell/text-search';
 import { shouldNotifyRelocate } from './relocate-notify';
+import { isClipBookRecord } from '../data/clip-book-entry';
+import {
+  clipSaveText,
+  currentClipVersion,
+  loadClipBook,
+  makeClipBookForApp,
+  markClipChapterRead,
+  openClipbookPanel,
+  saveClipChapter,
+  type ClipBookSnapshot,
+} from '../data/clip-book';
+import type { ClipBookHandle, ClipChapter } from '../engine/clipbook';
+import { ChapterClock } from '../data/clip-epub/chapter-clock';
+import { addChapterSeconds, migrateCfi } from '../data/clip-epub/sidecar';
 import { getShellSource, shellPrefs } from '../shell/source';
 import { collectPdfBacklinks, invalidatePdfBacklinks } from '../data/pdf-backlink';
 import { epubBacklinkHits } from '../data/epub-backlink';
@@ -242,6 +256,26 @@ export class ReaderView extends ItemView {
   private lastTurnAt = 0;
   private lastKeyBefore = '';
   private lastKeyAfter = '';
+
+  /* ── 剪藏本（活书，2026-11-13） ─────────────────────────
+   * 书架上那本固定入口没有文件：数据从 bz 剪藏本现拉，章节按需渲染。
+   * 这里管三件事：清单快照、按章计时、以及「数据变了就换一本」。 */
+  private clipSnap: ClipBookSnapshot | null = null;
+  private clipHandle: ClipBookHandle | null = null;
+  private clipVersion = '';
+  private clipKey = '';
+  private clipClock = new ChapterClock();
+  /** 已回写「已读」的 key：同一次打开不重复调 bz */
+  private clipReported = new Set<string>();
+  /** 数据版本轮询（20s 一次；只在剪藏书里跑） */
+  private clipWatch: number | null = null;
+  private clipRefreshing = false;
+  private clipBarEl: HTMLElement | null = null;
+  private clipMetaEl: HTMLElement | null = null;
+  private clipActSource: HTMLButtonElement | null = null;
+  private clipActSave: HTMLButtonElement | null = null;
+  private clipActNote: HTMLButtonElement | null = null;
+  private clipActPanel: HTMLButtonElement | null = null;
   /** 构建时注入（manifest 版本 + 时间戳），见 esbuild.config.mjs 的 __BZ_BUILD_TAG__ */
   private static readonly BUILD_TAG = __BZ_BUILD_TAG__;
 
@@ -282,6 +316,8 @@ export class ReaderView extends ItemView {
   private lastCfi = '';
   private lastPercent = 0;
   private lastChapterTitle = '';
+  /** 上一拍的章节序号：剪藏书的 tocItem 可能拿不到标题，靠序号认换章 */
+  private lastChapterIndex = -1;
   /** 上一次壳层浮层的种类：用来判断「刚打开文字面板」那一下（见 opensTextPanel） */
   private lastOverlayKind: OverlayKind | '' = '';
   private offShell: (() => void) | null = null;
@@ -450,6 +486,11 @@ export class ReaderView extends ItemView {
     /* 状态栏里那一项也要收：它挂在宿主元素上，不跟视图一起销毁 */
     this.statusPageEl?.remove();
     this.statusPageEl = null;
+    /* 剪藏本底条挂在 body 上（见 buildShell），关书必须手动摘；
+       计时与 handle 的收尾交给 settle 的 teardownClip（它还要结最后一笔账） */
+    this.clipBarEl?.remove();
+    this.clipBarEl = null;
+    this.clipMetaEl = null;
     /* 头栏标题从 2026-11-12 起是自绘的（见 mountTitleInHeader），宿主那一行
        我们只加过一个「藏起来」的类；它带 data-type 作用域，切视图自动失效。 */
     this.headerEls.forEach((node) => node.remove());
@@ -499,7 +540,32 @@ export class ReaderView extends ItemView {
        点击穿透（pointer-events:none），底部那片仍然按「点正文 = 下一页」翻。 */
     const chapter = el('div', 'bzs-chapter');
     const pageNo = el('div', 'bzs-pageno');
-    root.append(pages, chapter, pageNo);
+    /* 剪藏本底条（2026-11-13）：只在剪藏书里出现，显示这一章的来源/状态/时长，
+       以及「原文 / 存为剪藏 / 剪藏笔记 / 剪藏本」四个动作。浮在正文下沿，
+       点击穿透不挡翻页，只有按钮本身收事件。 */
+    const clipBar = el('div', 'bzs-clipbar is-hidden');
+    const clipMeta = el('div', 'bzs-clipbar-meta');
+    const clipActs = el('div', 'bzs-clipbar-acts');
+    const mkClipBtn = (label: string): HTMLButtonElement => {
+      const b = el('button', 'bzs-clipbar-btn', label);
+      b.type = 'button';
+      b.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        this.onClipBarAction(b);
+      });
+      return b;
+    };
+    this.clipActSource = mkClipBtn(t('clip.action.openSource'));
+    this.clipActSave = mkClipBtn(t('clip.action.save'));
+    this.clipActNote = mkClipBtn(t('clip.action.openNote'));
+    this.clipActPanel = mkClipBtn(t('clip.action.openClipbook'));
+    clipActs.append(this.clipActSource, this.clipActSave, this.clipActNote, this.clipActPanel);
+    clipBar.append(clipMeta, clipActs);
+    /* 底条是壳层里的**一行**（不是浮层）：阅读区高度会被宿主 tab 栏/状态栏
+       撑出视口，浮在上面要么被裁、要么被状态栏盖住（真机连踩两次）。
+       放在 flex 列尾部占一行，永远可见、也不挡正文。 */
+    root.append(pages, chapter, pageNo, clipBar);
     this.contentEl.appendChild(root);
 
     this.rootEl = root;
@@ -507,6 +573,8 @@ export class ReaderView extends ItemView {
     this.pagesEl = pages;
     this.chapterEl = chapter;
     this.pageNoEl = pageNo;
+    this.clipBarEl = clipBar;
+    this.clipMetaEl = clipMeta;
 
     /* 手机底栏浮在内容上：量一次它压住多少。第一次量时布局可能还没落定，
        再补一帧——量到 0 也不会多留白（见 syncBottomGap）。
@@ -2077,13 +2145,44 @@ export class ReaderView extends ItemView {
       this.renderFault('这本书不在书架上', '它可能被移出书架了。回书架重新打开一次。');
       return;
     }
-    if ((book.fileRef as { fileMissing?: boolean }).fileMissing) {
+    const clipBook = isClipBookRecord(book);
+    if (!clipBook && (book.fileRef as { fileMissing?: boolean }).fileMissing) {
       this.renderFault('找不到这本书的文件', `书架记录还在，但 ${book.fileRef.vaultPath} 已经不在了。`);
       return;
     }
 
     this.mounting = true;
     this.book = book;
+    this.lastChapterIndex = -1;
+    /* 换书时先把上一本的剪藏 handle 收掉（两个 tab 各开一本时，
+       旧 handle 里的 blob 与轮询不能跟着新书活着） */
+    if (this.clipHandle) {
+      this.stopClipWatch();
+      this.clipHandle.destroy();
+      this.clipHandle = null;
+      this.clipSnap = null;
+      this.clipKey = '';
+    }
+    /* 剪藏本：没有文件可读，打开时现拉一份清单，造一本 foliate 认得的书。
+       拉不到（bz 没装 / 没启用 / 剪藏本读不出来）就画错误页，别白屏。 */
+    let virtualBook: { book: import('../types/foliate').FoliateBook; meta: import('../data/book-meta').EngineMeta } | undefined;
+    if (clipBook) {
+      try {
+        const snap = await loadClipBook(this.api.app);
+        const handle = makeClipBookForApp(this.api.app, snap);
+        this.clipSnap = snap;
+        this.clipHandle = handle;
+        this.clipVersion = snap.version;
+        virtualBook = {
+          book: handle.book,
+          meta: { title: snap.title, author: t('clip.author'), wordCount: 0 },
+        };
+      } catch (e) {
+        this.mounting = false;
+        this.renderFault(t('clip.title'), (e as Error)?.message || t('bz.missing'));
+        return;
+      }
+    }
     /* PDF 走另一套引擎：切书时连同实例一起换。EPUB/TXT/CBZ 复用同一个
        EngineHost（它自己会在 mount 时 destroy 上一本）。 */
     if ((book.fileRef.format === 'pdf') !== this.host.isPdf) {
@@ -2114,6 +2213,7 @@ export class ReaderView extends ItemView {
     try {
       await this.host.mount(this.stage, book.fileRef.vaultPath, {
         prefs: this.prefs,
+        virtualBook,
         onRelocate: (info) => this.saveRelocate(info),
         /* 导航超时/异常时给一句人话：以前 onStall 声明了却没人接，
            所有「点了没反应」都是静默的。 */
@@ -2171,18 +2271,23 @@ export class ReaderView extends ItemView {
            自己调 goTo，保证两种模式只有一处判断。 */
         onFootnote: (info) => this.handleFootnote(info),
         onReady: (fb, m) => {
+          /* 剪藏本：先把底条与计时挂上，再走书目/头栏那一套——后者任何一步
+             出岔子都不该让底条消失（它只是阅读页的附属条）。 */
+          if (clipBook) this.armClipBook();
           /* 用户改过名就不再拿文件里的书名覆盖（见 data/book-meta.ts） */
           applyEngineMeta(book, m);
           /* 封面：复用刚解出来的 book 顺手落缓存并回填 coverPath。
              只读书、不开书架的用户也要有这条数据——外部读数据文件时，
-             没有它就只能看到一片色块。 */
-          void ensureCoverFromFoliate(this.api.app, book, fb).then(() => {
-            const path = coverPathOf(book.id);
-            if (path && book.meta.coverPath !== path) {
-              book.meta.coverPath = path;
-              this.api.store.touch();
-            }
-          });
+             没有它就只能看到一片色块。剪藏本是虚拟书，没有封面可解。 */
+          if (!clipBook) {
+            void ensureCoverFromFoliate(this.api.app, book, fb).then(() => {
+              const path = coverPathOf(book.id);
+              if (path && book.meta.coverPath !== path) {
+                book.meta.coverPath = path;
+                this.api.store.touch();
+              }
+            });
+          }
           /* 先让宿主 updateHeader 把 tab 标题重建成它自己的样子，再写我们
              的章节名：反过来会被 getDisplayText() 的书名盖回去。 */
           this.syncTabTitle();
@@ -2192,7 +2297,7 @@ export class ReaderView extends ItemView {
              太早扫会拿到上一本的书单。PDF 由引擎自己推，这里直接返回。
              扫描结果有缓存（按书路径），开书时清一次，别拿上一次的旧账。 */
           invalidatePdfBacklinks();
-          this.publishEpubCites();
+          if (!clipBook) this.publishEpubCites();
           this.api.store.touch();
           notifyShell();
         },
@@ -2556,7 +2661,9 @@ export class ReaderView extends ItemView {
   private saveRelocate(info: RelocateInfo): void {
     const book = this.book;
     if (!book) return;
-    const chapterChanged = !!info.chapterTitle && info.chapterTitle !== this.lastChapterTitle;
+    const chapterChanged =
+      (typeof info.chapterIndex === 'number' && info.chapterIndex >= 0 && info.chapterIndex !== this.lastChapterIndex) ||
+      (!!info.chapterTitle && info.chapterTitle !== this.lastChapterTitle);
     /* 位置写入统一走 schema.recordPosition：顺带把被顶掉的旧位置存进
        lastPosition（冗余字段，给未来的「返回上一处」用）。 */
     recordPosition(book.reading, {
@@ -2580,6 +2687,7 @@ export class ReaderView extends ItemView {
       }
     }
     if (info.chapterTitle) this.lastChapterTitle = info.chapterTitle;
+    if (typeof info.chapterIndex === 'number') this.lastChapterIndex = info.chapterIndex;
     book.reading.stats.lastReadTime = Date.now();
     if (!book.reading.stats.startReadTime) book.reading.stats.startReadTime = Date.now();
     if (info.percent >= COMPLETE_THRESHOLD && !book.reading.stats.completedTime) {
@@ -2617,6 +2725,8 @@ export class ReaderView extends ItemView {
     this.renderChromeText();
     /* 头栏标题是「现在读到哪」：换章才重写，同章翻页不碰 DOM（翻页是热路径） */
     if (chapterChanged) this.syncHeaderTitle();
+    /* 剪藏本：换章就切计时目标、未读的顺手标已读（只在这本书里有 handle） */
+    if (chapterChanged) this.onClipChapter(info.chapterHref || '', info.chapterIndex);
     this.renderProbe();
     /* 每翻一页都可能换到「有书签 / 没书签」的页：图标亮不亮得跟着走 */
     this.syncToolState();
@@ -2724,6 +2834,202 @@ export class ReaderView extends ItemView {
     this.syncToolState();
   }
 
+  /* ─────────────────── 剪藏本（活书） ───────────────────
+   * 三个入口：进章（标已读 + 切计时）、数据变了（换一本并回原位）、
+   * 底条（原文 / 存剪藏 / 剪藏笔记 / 剪藏本）。 */
+
+  private armClipBook(): void {
+    if (!this.clipSnap || !this.clipHandle) return;
+    this.clipClock = new ChapterClock();
+    this.clipReported.clear();
+    this.tracker.setSink((sec) => this.clipClock.add(sec));
+    /* 打开书时先认一遍当前章：首拍 relocate 不一定被算成「换章」
+       （spine 0 与初始值相同时），底条不能等下一次翻页才出现。 */
+    const ch = this.currentClipChapter();
+    if (ch) {
+      this.clipKey = ch.key;
+      this.clipClock.setKey(ch.key);
+    }
+    this.renderClipBar();
+    this.startClipWatch();
+  }
+
+  /** 当前章：优先按 key，其次按引擎的脊柱序号 */
+  private currentClipChapter(): ClipChapter | null {
+    const handle = this.clipHandle;
+    if (!handle) return null;
+    if (this.clipKey) {
+      const hit = handle.byKey(this.clipKey);
+      if (hit) return hit;
+    }
+    const idx = this.host.currentChapterIndex;
+    return idx >= 0 ? handle.chapters[idx] ?? null : null;
+  }
+
+  private startClipWatch(): void {
+    this.stopClipWatch();
+    this.clipWatch = window.setInterval(() => {
+      void this.refreshIfChanged();
+    }, 20_000);
+  }
+
+  private stopClipWatch(): void {
+    if (this.clipWatch !== null) {
+      window.clearInterval(this.clipWatch);
+      this.clipWatch = null;
+    }
+  }
+
+  /** 轮询数据版本：变了才重建，没变一个字节都不动 */
+  private async refreshIfChanged(): Promise<void> {
+    if (this.clipRefreshing || !this.clipSnap || this.closed) return;
+    const v = await currentClipVersion(this.api.app).catch(() => null);
+    if (!v || v === this.clipVersion) return;
+    await this.refreshClipBook();
+  }
+
+  /**
+   * 换一本新的剪藏书，并尽量回到原处。
+   *
+   * 位置迁移只换 CFI 的脊柱段（章节文件名按文章 key 稳定，章内部分继续有效）；
+   * 同一篇文章被删了才退回百分比。换书期间不动旧 handle，成功了才收掉。
+   */
+  private async refreshClipBook(): Promise<void> {
+    if (this.clipRefreshing || !this.clipHandle || this.closed) return;
+    this.clipRefreshing = true;
+    const oldHandle = this.clipHandle;
+    const oldKey = this.clipKey || oldHandle.byHref(this.host.currentChapterHref())?.key || '';
+    const oldIndex = oldKey ? oldHandle.indexOf(oldKey) : -1;
+    const oldCfi = this.lastCfi;
+    const oldPct = this.lastPct;
+    try {
+      const snap = await loadClipBook(this.api.app);
+      const handle = makeClipBookForApp(this.api.app, snap);
+      await this.host.reopen?.(handle.book);
+      const newIndex = oldKey ? handle.indexOf(oldKey) : -1;
+      const cfi = oldCfi && oldIndex >= 0 && newIndex >= 0 ? migrateCfi(oldCfi, oldIndex, newIndex) : '';
+      this.clipHandle = handle;
+      this.clipSnap = snap;
+      this.clipVersion = snap.version;
+      this.clipKey = oldKey;
+      this.clipClock.setKey(oldKey);
+      await this.host.start(cfi || undefined, oldPct || 0);
+      oldHandle.destroy();
+      this.renderClipBar();
+      this.publishToc();
+    } catch {
+      /* 新书没造出来：旧书继续读，下一拍再试 */
+    } finally {
+      this.clipRefreshing = false;
+    }
+  }
+
+  /** 进章：切计时目标 + 未读的标已读（href 优先，拿不到按脊柱序号认） */
+  private onClipChapter(href: string, index = -1): void {
+    const handle = this.clipHandle;
+    if (!handle) return;
+    const ch = (href ? handle.byHref(href) : null) ?? (index >= 0 ? handle.chapters[index] : null);
+    if (!ch) return;
+    if (ch.key !== this.clipKey) {
+      this.flushClipSeconds();
+      this.clipKey = ch.key;
+      this.clipClock.setKey(ch.key);
+    }
+    this.renderClipBar();
+    if (ch.state === 'unread' && !this.clipReported.has(ch.key)) {
+      this.clipReported.add(ch.key);
+      void markClipChapterRead(this.api.app, ch.key).then((ok) => {
+        if (ok) {
+          ch.state = 'read';
+          this.renderClipBar();
+        }
+      });
+    }
+  }
+
+  /** 把当前章还没结账的秒数写进书的数据（切章 / 关书时调） */
+  private flushClipSeconds(): void {
+    const tick = this.clipClock.take();
+    if (!tick || !this.book) return;
+    const reading = this.book.reading;
+    reading.chapterSeconds = addChapterSeconds(reading.chapterSeconds || {}, tick.key, tick.seconds);
+    this.api.store.touch();
+  }
+
+  private teardownClip(): void {
+    this.stopClipWatch();
+    this.flushClipSeconds();
+    this.tracker.setSink(null);
+    this.clipHandle?.destroy();
+    this.clipHandle = null;
+    this.clipSnap = null;
+    this.clipKey = '';
+    this.clipReported.clear();
+    this.clipBarEl?.classList.add('is-hidden');
+  }
+
+  /** 底条：这一章的来源 / 状态 / 时长 + 四个动作 */
+  private renderClipBar(): void {
+    const bar = this.clipBarEl;
+    if (!bar) return;
+    const ch = this.currentClipChapter();
+    if (!ch) {
+      bar.classList.add('is-hidden');
+      return;
+    }
+    if (!this.clipKey) this.clipKey = ch.key;
+    bar.classList.remove('is-hidden');
+    const stateText =
+      ch.state === 'saved' ? t('clip.state.saved') : ch.state === 'read' ? t('clip.state.read') : t('clip.state.unread');
+    const bits = [ch.sourceName, stateText];
+    const sec = this.book?.reading.chapterSeconds?.[ch.key] || 0;
+    const mins = Math.floor(sec / 60);
+    if (mins > 0) bits.push(t('clip.chapter.minutes', { m: mins }));
+    if (this.clipMetaEl) this.clipMetaEl.textContent = bits.filter(Boolean).join(' · ');
+
+    const show = (b: HTMLButtonElement | null, on: boolean): void => {
+      b?.classList.toggle('is-hidden', !on);
+    };
+    show(this.clipActSource, /^https?:\/\//i.test(ch.url));
+    show(this.clipActSave, ch.state !== 'saved');
+    show(this.clipActNote, !!ch.notePath);
+    show(this.clipActPanel, true);
+  }
+
+  private onClipBarAction(btn: HTMLButtonElement): void {
+    const ch = this.currentClipChapter();
+    if (!ch) return;
+    if (btn === this.clipActSource) {
+      if (/^https?:\/\//i.test(ch.url)) window.open(ch.url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (btn === this.clipActNote) {
+      if (ch.notePath) void this.api.app.workspace.openLinkText(ch.notePath, '', false);
+      return;
+    }
+    if (btn === this.clipActPanel) {
+      if (!openClipbookPanel(this.api.app)) notify(t('bz.missing'), 'error');
+      return;
+    }
+    if (btn === this.clipActSave) {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      void saveClipChapter(this.api.app, ch.key)
+        .then((r) => {
+          if (r.ok || r.code === 'alreadySaved') {
+            ch.state = 'saved';
+            notify(t('clip.save.done'), 'success');
+          } else {
+            notify(clipSaveText(r.code), 'error');
+          }
+          this.renderClipBar();
+        })
+        .finally(() => {
+          btn.disabled = false;
+        });
+    }
+  }
+
   async settle(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
@@ -2737,6 +3043,8 @@ export class ReaderView extends ItemView {
     const book = this.book;
     if (book) {
       const session = this.tracker.end();
+      /* 剪藏本：会话最后一拍已经进了章节时钟，这里结账并清池 */
+      this.teardownClip();
       if (session) {
         book.reading.sessions.push({
           ...attachChapter(session, book.reading.position),

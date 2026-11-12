@@ -11,6 +11,7 @@ import { emptyNotes, emptyReading, type BookFormat, type ReaderBook } from './sc
 /* 改名（relocate）后清掉 PDF 反链索引缓存：否则旧路径的缓存一直留着、
    新路径又查不到，引用页签不刷新。pdf-backlink 不反向依赖本模块，单向 import 无循环。 */
 import { invalidatePdfBacklinks } from './pdf-backlink';
+import { isClipBookRecord } from './clip-book-entry';
 
 /** 基础版认得的格式。高级版放开全部，由调用方传 allowed 覆盖。 */
 export const BASE_FORMATS: BookFormat[] = ['epub', 'txt'];
@@ -172,6 +173,11 @@ export class BookRepo {
   /** 清掉指向已不存在文件的记录（不删用户数据，只是标记 fileMissing） */
   markMissing(existingPaths: Set<string>): void {
     for (const b of this.books) {
+      /* 剪藏本是虚拟书（没有文件）：不能因为路径是空串就标成失联 */
+      if (isClipBookRecord(b)) {
+        b.fileRef.fileMissing = false;
+        continue;
+      }
       b.fileRef.fileMissing = !existingPaths.has(b.fileRef.vaultPath);
     }
   }

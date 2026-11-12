@@ -80,6 +80,26 @@ export class ActivityTracker {
   private timer: number | null = null;
   private lastPercent = 0;
   private running = false;
+  /**
+   * 每一拍「有效阅读秒数」的去处（剪藏本按章计时用）。
+   *
+   * tracker 本身只管全书会话；章节归属是另一维度，不能混进 SessionResult
+   * （一次会话可能跨好几章）。阅读视图在这里接一个 ChapterClock。
+   */
+  private sink: ((seconds: number) => void) | null = null;
+
+  setSink(fn: ((seconds: number) => void) | null): void {
+    this.sink = fn;
+  }
+
+  /** 把这一拍的增量同时交给会话累计与章节计时 */
+  private accrue(now: number): number {
+    const gained = accrueTick({ now, lastTickAt: this.lastTickAt, lastActive: this.lastActive });
+    this.lastTickAt = now;
+    this.accumulated += gained;
+    if (gained > 0) this.sink?.(gained / 1000);
+    return gained;
+  }
 
   /**
    * 开始一次阅读会话（打开书时调）。
@@ -109,9 +129,7 @@ export class ActivityTracker {
 
   private tick(): void {
     if (!this.running) return;
-    const now = Date.now();
-    this.accumulated += accrueTick({ now, lastTickAt: this.lastTickAt, lastActive: this.lastActive });
-    this.lastTickAt = now;
+    this.accrue(Date.now());
   }
 
   /** 结算一次会话。太短或没读到时长 → null（不产生垃圾数据）。 */
@@ -124,7 +142,7 @@ export class ActivityTracker {
     }
     const now = Date.now();
     // 收尾补最后一段：距上次活动仍在 IDLE 内就把「上次 tick 到现在」算上
-    this.accumulated += accrueTick({ now, lastTickAt: this.lastTickAt, lastActive: this.lastActive });
+    this.accrue(now);
     if (this.accumulated < MIN_SESSION_MS) return null;
     return {
       start: this.sessionStart,
