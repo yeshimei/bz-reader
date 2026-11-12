@@ -59,6 +59,107 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '1.2.0',
+    date: '2026-11-12',
+    added: [
+      {
+        domain: { zh: '页码', en: 'Page numbers' },
+        text: {
+          zh: '阅读页右下角可以显示页码，关掉、只数本章、还是全书累计，自己挑。',
+          en: 'Page numbers in the corner of the reading view — off, per chapter, or counted across the whole book.',
+        },
+      },
+      {
+        domain: { zh: '章节名', en: 'Chapter name' },
+        text: {
+          zh: '沉浸模式左上角显示当前章节，也可以单独关掉。',
+          en: 'Immersive mode shows the current chapter in the top corner, and you can switch it off.',
+        },
+      },
+      {
+        domain: { zh: '点击翻页', en: 'Click to turn' },
+        text: {
+          zh: '桌面端点正文左右两侧就能翻页，默认关，触屏笔记本可以打开。',
+          en: 'On desktop, clicking either side of the text turns the page. Off by default; handy on a touchscreen laptop.',
+        },
+      },
+      {
+        domain: { zh: 'PDF 缩放', en: 'PDF zoom' },
+        text: {
+          zh: '排版面板补上放大缩小，以及适合宽度、适合页面、实际大小。',
+          en: 'The PDF layout panel now has zoom in and out, plus fit width, fit page and actual size.',
+        },
+      },
+      {
+        domain: { zh: '高级版', en: 'Pro sheet' },
+        text: {
+          zh: '解锁弹窗照商品图重做，表头、整列底色和底部合计都补齐了。',
+          en: 'The Pro sheet is redrawn after the storefront art, with column shading and a total row.',
+        },
+      },
+    ],
+    improved: [
+      {
+        domain: { zh: '两角小字', en: 'Corner labels' },
+        text: {
+          zh: '章节名与页码贴正文边缘、避开状态栏，字号跟着正文字号走。',
+          en: 'Chapter name and page number hug the text edge, clear the status bar, and scale with the type size.',
+        },
+      },
+      {
+        domain: { zh: '头栏标题', en: 'Header title' },
+        text: {
+          zh: '显示当前章节，不再一直是书名。',
+          en: 'The header shows the current chapter instead of the book title.',
+        },
+      },
+      {
+        domain: { zh: '桌面页码', en: 'Desktop page number' },
+        text: {
+          zh: '可以挂进 Obsidian 状态栏，状态栏关掉时退回正文右下角。',
+          en: 'On desktop it can sit in the Obsidian status bar, falling back to the page corner when the bar is hidden.',
+        },
+      },
+      {
+        domain: { zh: 'PDF 面板', en: 'PDF panel' },
+        text: {
+          zh: '排版面板贴着按钮弹出，底栏改成卡片。',
+          en: 'The layout panel opens against its button, and the bottom bar is now a card.',
+        },
+      },
+      {
+        domain: { zh: '支持者', en: 'Supporters' },
+        text: {
+          zh: '去掉手动刷新，打开弹窗就拉一次名单。',
+          en: 'The manual refresh button is gone — the list loads when you open the sheet.',
+        },
+      },
+    ],
+    fixed: [
+      {
+        domain: { zh: '手机头栏', en: 'Phone header' },
+        text: {
+          zh: '恢复显示书名。',
+          en: 'The phone header shows the book title again.',
+        },
+      },
+      {
+        domain: { zh: '顶部留白', en: 'Top spacing' },
+        text: {
+          zh: '分页顶部空带收窄，标题跨栏居中，安全区不再叠两遍。',
+          en: 'Less dead space at the top of a page, titles centred across columns, and safe-area insets no longer applied twice.',
+        },
+      },
+      {
+        domain: { zh: '更新日志', en: 'Changelog' },
+        text: {
+          zh: '版本行不再被按钮压扁，条目也不会串到下一版。',
+          en: 'Version rows no longer get squashed by the buttons, and entries stay in their own version.',
+        },
+      },
+    ],
+  },
+  {
     version: '1.1.1',
     date: '2026-11-11',
     improved: [

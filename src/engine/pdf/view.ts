@@ -912,11 +912,8 @@ export class PdfView {
     const anchor = this.layoutAnchor;
     if (!el || !anchor) return;
     const pos = anchoredBelowRightIn(anchor, { width: el.offsetWidth || 320, height: el.offsetHeight || 0 }, this.root.getBoundingClientRect());
-    el.style.left = `${pos.left}px`;
-    el.style.top = `${pos.top}px`;
     /* right / bottom 必须写掉：窄窗时容器查询会把 is-corner 改成贴底整条 */
-    el.style.right = 'auto';
-    el.style.bottom = 'auto';
+    el.setCssProps({ left: `${pos.left}px`, top: `${pos.top}px`, right: 'auto', bottom: 'auto' });
   }
 
   private renderLayoutPanel(): void {

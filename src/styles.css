@@ -1765,9 +1765,12 @@ body .view-header .clickable-icon.bzs-host-hidden {
   border-radius: var(--r-card, 10px);
   /* 先给主背景色兜底：color-mix 在某些 Chromium 版本/主题变量缺失时整条
      声明会失效，底栏就变成透明的一条（字压在两页之间看不清）。
-     支持的浏览器会走第二行，混一点点文字色，压住正文也不透字。 */
+     支持的浏览器走 @supports 里那条，混一点点文字色，压住正文也不透字；
+     写成嵌套块而不是两行同属性，免得 lint 把这种刻意回退判成重复。 */
   background: var(--background-primary, #ffffff);
-  background: color-mix(in srgb, var(--background-primary, #ffffff) 97%, var(--text-normal, #1f1f23));
+  @supports (background: color-mix(in srgb, red 50%, blue)) {
+    background: color-mix(in srgb, var(--background-primary, #ffffff) 97%, var(--text-normal, #1f1f23));
+  }
   border: 1px solid var(--background-modifier-border);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.13), 0 1px 2px rgba(0, 0, 0, 0.06);
   color: var(--text-normal);

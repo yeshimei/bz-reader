@@ -48,7 +48,7 @@ import { isDeferredViewOf } from './view/leaf-reuse';
 import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-state';
 import { mountImport } from './ui/import-panel';
 import { releaseCovers } from './data/cover';
-import { activateLicense as applyLicense, can, clearLicense, entitlement, recordActivity, revalidateLicense, setEntBackend, setProBuild, unlockModeFor } from './data/entitlement';
+import { activateLicense as applyLicense, can, clearLicense, recordActivity, revalidateLicense, setEntBackend, setProBuild, unlockModeFor } from './data/entitlement';
 import { forceBaseTier, initDevTier } from './core/dev-tier';
 import { normalizePluginData, type PluginDataFile } from './data/plugin-data';
 import { PROTOCOL, parseProtocolParams, type LinkTarget } from './data/deeplink';

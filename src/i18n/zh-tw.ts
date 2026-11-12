@@ -254,7 +254,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'notice.group.plainOk': '已複製群號 {id}，到 QQ 搜尋就能加入',
   'notice.group.plainFail': '複製失敗，群號是 {id}，到 QQ 搜尋加入',
   /* 僅開發建置（測試庫）：指令面板只有「切換為基礎版」一條 */
-  'notice.dev.tier.free': '開發：已切到基礎版（僅測試庫）',
+  'notice.dev.tier.free': '開發：已切到基礎版，啟用碼已清空（僅測試庫）',
   'notice.dev.tier.already': '開發：已經是基礎版（僅測試庫）',
 
   /* ── 授權狀態 ────────────────────────────────────────────── */

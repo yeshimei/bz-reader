@@ -1656,11 +1656,8 @@ export class ReaderView extends ItemView {
     if (!doc) return;
     const bar = doc.querySelector<HTMLElement>('.status-bar');
     if (!bar) return;
-    const el0 = doc.createElement('div');
-    el0.className = 'status-bar-item bzr-status-page';
     /* 放最后：状态栏最右是宿主留给「常驻信息」的位置，别插到别人的插件项前面 */
-    bar.appendChild(el0);
-    this.statusPageEl = el0;
+    this.statusPageEl = bar.createDiv({ cls: 'status-bar-item bzr-status-page' });
   }
 
   /** 宿主状态栏现在可见吗（用户可能在设置里把它关掉） */
