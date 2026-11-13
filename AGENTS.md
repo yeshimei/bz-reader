@@ -86,9 +86,9 @@ node scripts/issue-license.mjs --plan lifetime --id BZR-AF-2026-0021
 - 名单是公开只读数据，README「网络访问」已披露；改动读取逻辑时别绕过 `requestUrl`（码云 raw 没有跨域头）。
 
 ## 上架
-社区目录的**预览扫描、正式提交、催扫描与码云镜像都由作者本人手动做**，agent 不跑这几步——2026-11-13 起改为人工。agent 只负责把这一版做干净、发 GitHub Release、部署三处。
+社区目录的**预览扫描、正式提交与催目录检查由作者本人手动做**，agent 不跑这三步——2026-11-13 起改为人工。其余照旧由 agent 完成：lint、版本号、Release、三处部署、码云镜像与网盘同步。
 
-**lint 0/0 → 补齐多语言 → 三道门 → 版本号 → 提交并推送 master → production 构建 → 打 tag → 发 Release（挂三件套）→ 确认转正 → 部署三处**
+**lint 0/0 → 补齐多语言 → 三道门 → 版本号 → 提交并推送 master → production 构建 → 打 tag → 发 Release（挂三件套）→ 确认转正 → 部署三处 → 镜像码云（含网盘）**
 
 每次上架前必须跑官方 lint：
 ```powershell
@@ -108,9 +108,10 @@ node scripts/lint-obsidian.mjs
 6. `node esbuild.config.mjs production`（落仓库根三件套：`main.js` / `manifest.json` / `styles.css`）。这一步必须在打 tag 之前，仓库根的三件套常常还是上一版；
 7. 打 tag 并推送——**tag 与 `manifest.version` 逐字相同，不带 `v`**；
 8. `gh release create <版本> --title <版本> --notes-file docs/note-v<版本>.md main.js manifest.json styles.css`（`--title` 必须与版本逐字相同：社区目录会检查 Release name 是否匹配 `manifest.version`），随后 `gh release view <版本>` 确认已转正、不再是 draft；
-9. 发版部署：`BZ_READER_VAULT=all node esbuild.config.mjs production` 落三处（仓库根 + 测试库 + 真实库），核对三处 `main.js` 字节数一致。
+9. 发版部署：`BZ_READER_VAULT=all node esbuild.config.mjs production` 落三处（仓库根 + 测试库 + 真实库），核对三处 `main.js` 字节数一致；
+10. `node scripts/push-gitee.mjs`：镜像到码云（代码 + tag + Release 页 + 三件套），跑完顺带 `push-quark --product=reader` 更新网盘。
 
-Release 发出后目录条目何时更新由作者手动跟进；若目录报 Error 要改，涨补丁号重发，**不挪已经发出去的 tag**。
+镜像放在最后：等 Release 与三处部署都完成再推国内通道，别让码云先于正本上线。Release 发出后目录条目何时更新由作者手动跟进；若目录报 Error 要改，涨补丁号重发，**不挪已经发出去的 tag**。
 
 目录规则约束（人工上架前自查）：仓库根有 `README.md` / `LICENSE` / `manifest.json`；`manifest.json` 的 `description` **不能出现 “Obsidian”**（目录规则：上下文已蕴含，重复即 Error）；Release 附三件套；`README` 披露「完整功能需付费」与网络访问。
 
