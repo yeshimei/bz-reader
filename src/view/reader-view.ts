@@ -11,7 +11,7 @@
  * 目录/书签/划线在左侧栏，搜索/排版/书摘/AI 在全局弹层层，划词条用壳层样式。
  * 这一版只有一条界面语言，不再有第二套。
  * ============================================================ */
-import { ItemView, Menu, setIcon, type WorkspaceLeaf } from 'obsidian';
+import { ItemView, Menu, Modal, setIcon, type WorkspaceLeaf } from 'obsidian';
 import { EngineHost, OpenCancelledError, type FootnoteInfo, type Rect, type RelocateInfo, type SelectionInfo } from '../engine/host';
 import { createEngine, type ReaderEngine } from '../engine/reader-engine';
 import { FONT_FAMILIES, normalizePrefs, pickPrefs, type ReaderPrefs } from '../data/prefs';
@@ -1932,11 +1932,36 @@ export class ReaderView extends ItemView {
     return this.prefs.ttsVoice;
   }
 
+  /** 预生成前的确认：走 Obsidian 自己的弹窗，不用原生 confirm */
+  private askPrefetch(chars: number, cost: number): Promise<'all' | 'some' | null> {
+    return new Promise((resolve) => {
+      let picked: 'all' | 'some' | null = null;
+      const modal = new Modal(this.app);
+      modal.titleEl.setText(t('notice.tts.confirmTitle'));
+      modal.contentEl.createEl('p', {
+        text: t('notice.tts.confirmPrefetch', { chars: String(chars), cost: cost.toFixed(2) }),
+      });
+      const row = modal.contentEl.createDiv({ cls: 'modal-button-container' });
+      const close = (v: 'all' | 'some' | null): void => {
+        picked = v;
+        modal.close();
+      };
+      row.createEl('button', { text: t('notice.tts.confirmCancel') }).addEventListener('click', () => close(null));
+      row.createEl('button', { text: t('notice.tts.confirmSome') }).addEventListener('click', () => close('some'));
+      row
+        .createEl('button', { text: t('notice.tts.confirmAll'), cls: 'mod-cta' })
+        .addEventListener('click', () => close('all'));
+      modal.onClose = () => resolve(picked);
+      modal.open();
+    });
+  }
+
   /**
    * 预生成整章音频（2026-11-13）。
    *
    * 逐段合成写缓存，翻页时直接命中，不再等 2–6 秒。代价是这一章的费用
    * 一次付清——超过 5 元先问一句，别让一次误点烧掉一整本书的钱。
+   * 问的时候给「只做接下来 20 句」：一章两三万字，整章要好几块。
    * 再点一次按钮 = 取消（当前这段合完就停）。
    */
   private async prefetchChapter(): Promise<void> {
@@ -1949,14 +1974,18 @@ export class ReaderView extends ItemView {
       notify(t('notice.tts.noKey'));
       return;
     }
-    const segments = buildScript(this.host.currentChapterBlocks?.() ?? []);
+    let segments = buildScript(this.host.currentChapterBlocks?.() ?? []);
     if (!segments.length) {
       notify(t('notice.tts.noText'));
       return;
     }
     const chars = segments.reduce((n, s) => n + billedChars(s.text), 0);
     const cost = estimateCost(chars);
-    if (cost >= 5 && !window.confirm(t('notice.tts.confirmPrefetch', { cost: cost.toFixed(2) }))) return;
+    if (cost >= 5) {
+      const picked = await this.askPrefetch(chars, cost);
+      if (!picked) return;
+      if (picked === 'some') segments = segments.slice(0, 20);
+    }
     this.prefetching = true;
     notify(t('notice.tts.prefetching'), 'info', 4000);
     const cacheMB = this.prefs.ttsCacheMB;
