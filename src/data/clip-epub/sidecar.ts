@@ -105,6 +105,43 @@ export function migrateCfi(cfi: string, fromIndex: number, toIndex: number): str
   return s.replace(/^epubcfi\(\/6\/\d+/, `epubcfi(/6/${2 * (toIndex + 1)}`);
 }
 
+/** 换书后该落到哪：三选一，按优先级 section > cfi > fraction */
+export interface ClipLanding {
+  /** 迁移后的 CFI；空串表示这次不用 CFI */
+  cfi: string;
+  /** ≥ 0：直接跳第几章第一页 */
+  section: number;
+  /** 没有可信位置时的百分比退路 */
+  fraction: number;
+}
+
+/**
+ * 换书后的落点。
+ *
+ * 只有两种情况：正文没变就换 CFI 的脊柱段接着读；正文变了（生成摘要在章首
+ * 插了导语）就必须丢掉 CFI——字符偏移记的是旧正文，新正文里那个偏移会落到
+ * 一个更短的文本节点上，foliate 解析时抛 setEnd 越界，整本书直接打不开
+ * （真机：摘要生成后一屏「这本书打不开」）。这时退到这一篇第一页，
+ * 用户至少还在同一篇文章里，新摘要也正好在眼前。
+ */
+export function clipLanding(opts: {
+  oldCfi?: string;
+  oldIndex?: number;
+  newIndex?: number;
+  oldPct?: number;
+  /** 正文改过（摘要）：放弃 CFI，落这一篇第一页 */
+  chapterStart?: boolean;
+}): ClipLanding {
+  const oldIndex = opts.oldIndex ?? -1;
+  const newIndex = opts.newIndex ?? -1;
+  const fraction = opts.oldPct ?? 0;
+  if (opts.chapterStart && newIndex >= 0) return { cfi: '', section: newIndex, fraction: 0 };
+  const cfi =
+    opts.oldCfi && oldIndex >= 0 && newIndex >= 0 ? migrateCfi(opts.oldCfi, oldIndex, newIndex) : '';
+  return { cfi, section: -1, fraction };
+}
+
+
 /** 每章时长累加（取走时清零由调用方负责） */
 export function addChapterSeconds(
   map: Record<string, number>,

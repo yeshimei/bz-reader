@@ -8,18 +8,23 @@
  * 原则：只放**被测试模块真正用到的那几个符号**，不追求 API 完整。
  */
 export class Notice {
+  /** 本进程里弹过的通知，按弹出顺序。测试用来断言「弹了几条、关没关」 */
+  static instances: Notice[] = [];
   message: string;
   timeout?: number;
+  /** hide() 过没有：常驻通知（timeout 0）靠它判断有没有被收掉 */
+  hidden = false;
   constructor(message: string, timeout?: number) {
     this.message = message;
     this.timeout = timeout;
+    Notice.instances.push(this);
   }
   setMessage(m: string): this {
     this.message = m;
     return this;
   }
   hide(): void {
-    /* noop */
+    this.hidden = true;
   }
 }
 

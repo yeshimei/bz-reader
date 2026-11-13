@@ -846,22 +846,60 @@ export class EngineHost {
   async start(cfi?: string, fraction = 0): Promise<void> {
     const view = this.view;
     if (!view) return;
-    this.phase = 'locate';
-
-    const render = async (): Promise<void> => {
+    await this.locate(async () => {
       if (cfi) {
-        const resolved = view.resolveNavigation(cfi);
+        const resolved = view.resolveNavigation(cfi) as { index?: number } | null | undefined;
         if (resolved) {
-          await view.init({ lastLocation: cfi });
-          return;
+          try {
+            await view.init({ lastLocation: cfi });
+            return;
+          } catch {
+            /* CFI 里带的是重建前正文的字符偏移：正文改过之后（生成摘要在章首
+               插了导语），同一个偏移会落到一个更短的文本节点上，foliate 解析
+               range 时直接抛 setEnd 越界——真机上就是整本书变「这本书打不开」。
+               位置退化到这一章第一页：书能开，人还在这一篇，正文接着读。 */
+            const index = Number(resolved.index);
+            await view.init({ lastLocation: Number.isFinite(index) ? index : 0 });
+            return;
+          }
         }
       }
       await view.init({ showTextStart: true });
       if (fraction > 0.002) {
         await view.goToFraction(Math.min(1, fraction)).catch(() => undefined);
       }
-    };
+    });
+  }
 
+  /**
+   * 定位到第 index 章的第一页。
+   *
+   * 和 `start(cfi)` 的分工：正文没变就迁 CFI 接着读原位置；正文变了（摘要
+   * 插进章首）CFI 一定对不上，调用方直接用这条落到这一篇开头，不要拿旧
+   * CFI 去赌能不能解析出来。
+   */
+  async startSection(index: number): Promise<void> {
+    const view = this.view;
+    if (!view) return;
+    const count = this.book?.sections?.length ?? 0;
+    if (!Number.isFinite(index) || index < 0 || index >= count) {
+      await this.start();
+      return;
+    }
+    await this.locate(async () => {
+      /* foliate 的 init 收 number 就是「跳到这一章第一页」：
+         resolveNavigation(number) → { index } → renderer.goTo({ index })，
+         不经过任何 CFI，正文怎么改都不会越界。
+         但 `lastLocation: 0` 是假值，foliate 内部会当成「没给位置」而去翻下一页，
+         `next()` 在章尾又不动——表现就是「点了没反应」。第 0 章走 text start，
+         和用户从书首打开是同一页。 */
+      await view.init(index === 0 ? { showTextStart: true } : { lastLocation: index });
+    });
+  }
+
+  /** 定位的公共流程：掐表、失败拆视图、成功后翻牌（start / startSection 共用） */
+  private async locate(render: () => Promise<void>): Promise<void> {
+    this.phase = 'locate';
     let timer = 0;
     try {
       const done = await Promise.race([

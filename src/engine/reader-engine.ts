@@ -98,6 +98,13 @@ export interface ReaderEngine {
   measuredPages?(): Map<number, number>;
   restoreMeasuredPages?(pages: ReadonlyMap<number, number>): void;
   start(cfi?: string, fraction?: number): Promise<void>;
+  /**
+   * 直接跳到第 index 章第一页（不经过 CFI）。
+   *
+   * 剪藏本生成摘要后正文变了，旧 CFI 的字符偏移会越界，重开这本书时
+   * 只能按章节落。PDF 引擎不实现。
+   */
+  startSection?(index: number): Promise<void>;
   next(): Promise<void>;
   prev(): Promise<void>;
   goToPercent(fraction: number): Promise<void>;

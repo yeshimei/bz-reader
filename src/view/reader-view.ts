@@ -33,7 +33,7 @@ import { ClipOwnerRegistry } from './clip-owner';
 import { applyEngineMeta } from '../data/book-meta';
 import { coverPathOf, ensureCoverFromFoliate } from '../data/cover';
 import { speak, speakLang, type SpeakHandle } from '../core/speak';
-import { notify } from '../core/notice';
+import { notify, notifyNow, type NoticeHandle } from '../core/notice';
 import { localeTag, t } from '../i18n';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
@@ -116,7 +116,7 @@ import {
 } from '../data/clip-book';
 import type { ClipBookHandle, ClipChapter } from '../engine/clipbook';
 import { ChapterClock } from '../data/clip-epub/chapter-clock';
-import { addChapterSeconds, migrateCfi } from '../data/clip-epub/sidecar';
+import { addChapterSeconds, clipLanding, type ClipLanding } from '../data/clip-epub/sidecar';
 import { carryMeasuredPages, clipStructureChanged, migrateClipKey, syncClipChapterMeta } from '../data/clip-epub/refresh';
 import { getShellSource, shellPrefs } from '../shell/source';
 import { collectPdfBacklinks, invalidatePdfBacklinks } from '../data/pdf-backlink';
@@ -209,6 +209,13 @@ export class ReaderView extends ItemView {
   private api: ReaderHostApi;
   private bookId = '';
   private pendingCfi = '';
+  /**
+   * 和 `pendingCfi` 二选一：直接跳到第几章第一页。
+   *
+   * 摘要改过正文之后旧 CFI 一定对不上（字符偏移会越界），重开这本书时
+   * 只能按章节落，不能把那个 CFI 再喂给引擎。
+   */
+  private pendingSection = -1;
   /** 从跨书搜索跳过来时「要找的词」：挂好之后标在页面上，别让人自己找 */
   private pendingQuery = '';
   private book: ReaderBook | null = null;
@@ -300,6 +307,13 @@ export class ReaderView extends ItemView {
   private clipSaving = false;
   /** 「生成摘要」在途：AI 要几秒，期间再点一次会重复烧 token */
   private clipSummarizing = false;
+  /**
+   * 「正在生成摘要」那条常驻通知的句柄。
+   *
+   * timeout 传 0（生成要十几秒，3 秒就消失像没点上），出结果或关 tab 时
+   * 由这里收掉——绝不能留一条只能手动点的通知挂在屏幕上。
+   */
+  private clipSummaryNotice: NoticeHandle | null = null;
   /**
    * 下一轮剪藏本刷新**强制重建**。
    *
@@ -2396,10 +2410,17 @@ export class ReaderView extends ItemView {
         );
       }
       const pending = this.pendingCfi;
-      await this.host.start(
-        pending || book.reading.position.cfi,
-        pending ? 0 : book.reading.position.percent || 0,
-      );
+      const pendingSection = this.pendingSection;
+      this.pendingSection = -1;
+      if (pendingSection >= 0 && this.host.startSection) {
+        /* 正文改过（摘要）后重开：按章节落，旧 CFI 的字符偏移已经越界了 */
+        await this.host.startSection(pendingSection);
+      } else {
+        await this.host.start(
+          pending || book.reading.position.cfi,
+          pending ? 0 : book.reading.position.percent || 0,
+        );
+      }
       this.pendingCfi = '';
       /* 从跨书搜索点过来：词也要标上。搜索本身是在临时引擎里跑的，
          这里不补一次，落到页面上的就只有一张没有记号的书页。 */
@@ -3006,9 +3027,13 @@ export class ReaderView extends ItemView {
    * 换一本新的剪藏书，并尽量回到原处。
    *
    * 位置迁移只换 CFI 的脊柱段（章节文件名按文章 key 稳定，章内部分继续有效）；
-   * 同一篇文章被删了才退回百分比。换书期间不动旧 handle，成功了才收掉。
+   * 同一篇文章被删了才退回百分比。
+   *
+   * `chapterStart`：正文本身改过（生成摘要在章首插了导语）。这时章内字符偏移
+   * 全变了，旧 CFI 一个字都不能信——真机上 foliate 解析它会抛 setEnd 越界，
+   * 整本书变成「这本书打不开」。直接落到这一篇第一页。
    */
-  private async refreshClipBook(): Promise<void> {
+  private async refreshClipBook(opts: { chapterStart?: boolean } = {}): Promise<void> {
     if (this.clipRefreshing || !this.clipHandle || this.closed) return;
     this.clipRefreshing = true;
     const oldHandle = this.clipHandle;
@@ -3017,6 +3042,8 @@ export class ReaderView extends ItemView {
     const oldIndex = oldKey ? oldHandle.indexOf(oldKey) : -1;
     const oldCfi = this.lastCfi;
     const oldPct = this.lastPct;
+    /* 失败时要知道「别拿这个 CFI 重开」：坏 CFI 会再炸一次，从错误页里出不来 */
+    let landing: ClipLanding = { cfi: '', section: -1, fraction: oldPct };
     try {
       const snap = await loadClipBook(this.api.app);
       /* 数据突然一篇都没有（订阅被清空 / 读盘失败）：不要把正在读的书换成
@@ -3056,14 +3083,18 @@ export class ReaderView extends ItemView {
          漂到相邻一章（真机：停在 417 期，剪藏后跳到 418 期）。 */
       const newKey = migrateClipKey(handle, oldKey, oldChapter?.url ?? '');
       const newIndex = newKey ? handle.indexOf(newKey) : -1;
-      const cfi = oldCfi && oldIndex >= 0 && newIndex >= 0 ? migrateCfi(oldCfi, oldIndex, newIndex) : '';
+      landing = clipLanding({ oldCfi, oldIndex, newIndex, oldPct, chapterStart: opts.chapterStart });
       this.clipHandle = handle;
       this.clipSnap = snap;
       this.clipVersion = snap.version;
       this.clipKey = newKey;
       this.clipClock.setKey(newKey);
       this.clipEmptyNotified = false;
-      await this.host.start(cfi || undefined, oldPct || 0);
+      if (landing.section >= 0 && this.host.startSection) {
+        await this.host.startSection(landing.section);
+      } else {
+        await this.host.start(landing.cfi || undefined, landing.fraction);
+      }
       oldHandle.destroy();
       this.rememberClipCounts();
       this.renderClipBar();
@@ -3073,8 +3104,9 @@ export class ReaderView extends ItemView {
          （destroy()），在残壳上再 open 旧书就是「一屏空白」——真机：
          生成摘要后 410 页变 1235 页、正文全白，只能关掉重开。
          这里直接按「重新打开这本书」重来一次（和用户手动重开同一条路），
-         位置由 pendingCfi 带回；重开时万一还失败，会落到错误页而不是白板。 */
-      this.recoverClipBook(oldCfi);
+         位置由 pendingCfi / pendingSection 带回；重开时万一还失败，
+         会落到错误页而不是白板。 */
+      this.recoverClipBook(landing.cfi, landing.section);
     } finally {
       this.clipRefreshing = false;
       this.forceClipRebuild = false;
@@ -3087,9 +3119,13 @@ export class ReaderView extends ItemView {
    * 不共用 refreshClipBook 的 reopen：start() 一旦超时会先 destroy() 掉
    * host 里的视图，那个 host 已经不能再用（destroyed=true），reopen 只会
    * 留下白屏。走 maybeMount 的完整路径——重新 loadClipBook + 新建视图，
-   * 和用户手动关掉再打开一模一样；pendingCfi 把位置带回原处。
+   * 和用户手动关掉再打开一模一样；pendingCfi / pendingSection 把位置带回原处。
+   *
+   * **绝不把已经失败的 CFI 再喂回去**：能确认坏掉的 CFI 重开一次就是再炸一次，
+   * 用户从错误页里出不来。有 section 就按章落（CFI 一律丢掉），没有才用书里
+   * 记的位置——而 `host.start` 现在对解析不出来的 CFI 也有兜底（退到章首）。
    */
-  private recoverClipBook(cfi: string): void {
+  private recoverClipBook(cfi: string, section = -1): void {
     this.stopClipWatch();
     try {
       this.clipHandle?.destroy();
@@ -3103,8 +3139,9 @@ export class ReaderView extends ItemView {
     this.forceClipRebuild = false;
     this.mounted = false;
     this.mounting = false;
-    /* cfi 优先；没有/失效时 start() 自己会退回第一页，不会白屏 */
-    this.pendingCfi = cfi || '';
+    this.pendingSection = section;
+    /* 按章落时 CFI 一律丢掉；没有章节可依才退回书里记的位置 */
+    this.pendingCfi = section >= 0 ? '' : cfi;
     void this.maybeMount();
   }
 
@@ -3299,38 +3336,57 @@ export class ReaderView extends ItemView {
          门面只给「还没落地成笔记」的订阅文章生成摘要，这里先分流，
          别让用户点完收到「没有正文」——那会以为文章坏了。 */
       if (ch.notePath) {
-        notify(t('clip.summary.clipNote'), 'info');
+        notifyNow(t('clip.summary.clipNote'), 'info');
         return;
       }
       /* 已经有摘要就不重复花一次 AI：内容没变，重算只会得到同一段话。
          想重算的入口在 bz 那边（对剪藏笔记「重新生成当前剪藏摘要」）。 */
       if (ch.summary) {
-        notify(t('clip.summary.exists'), 'info');
+        notifyNow(t('clip.summary.exists'), 'info');
         return;
       }
       this.clipSummarizing = true;
       this.renderClipBar();
-      notify(t('clip.summary.running'), 'info');
+      /* 生成要十几秒：进度条常驻到出结果（默认 3 秒就消失，看着像没点上）。
+         出结果时由这里亲手收掉——绝不能留一条只能手动点的通知挂着。 */
+      this.dismissClipSummaryNotice();
+      this.clipSummaryNotice = notify(t('clip.summary.running'), 'info', 0);
       void summarizeClipChapter(this.api.app, ch.key)
         .then((r) => {
+          this.dismissClipSummaryNotice();
           if (r.ok && r.summary) {
             /* 先进内存：这一轮重建用新快照，用户在摘要还没落盘时翻页也能看到 */
             ch.summary = r.summary;
-            notify(t('clip.summary.done'), 'success');
-            /* 摘要改了正文内容，就地同步不会重渲染这一章 → 强制换一次书 */
+            /* 这颗按钮和通知的位置几乎重合：鼠标压着，宿主的倒计时永远不走。
+               用 notifyNow 自己掐表，3 秒后无条件收掉。 */
+            notifyNow(t('clip.summary.done'), 'success');
+            /* 摘要改了正文内容（章首多一段导语），两个后果：
+               1) 就地同步不会重渲染这一章 → 强制换一次书；
+               2) 章内字符偏移全变，旧 CFI 一解析就越界 → 落到这一篇第一页。 */
             this.forceClipRebuild = true;
-            void this.refreshClipBook();
+            void this.refreshClipBook({ chapterStart: true });
           } else {
-            notify(clipSummaryText(r.code), 'error');
+            notifyNow(clipSummaryText(r.code), 'error');
           }
           this.clipSummarizing = false;
           this.renderClipBar();
         })
         .catch(() => {
+          this.dismissClipSummaryNotice();
           this.clipSummarizing = false;
           this.renderClipBar();
         });
     }
+  }
+
+  /** 收掉「正在生成摘要」那条常驻通知（重复调用无害） */
+  private dismissClipSummaryNotice(): void {
+    try {
+      this.clipSummaryNotice?.hide();
+    } catch {
+      /* 通知已经自己没了：不拦流程 */
+    }
+    this.clipSummaryNotice = null;
   }
 
   async settle(): Promise<void> {
@@ -3338,6 +3394,8 @@ export class ReaderView extends ItemView {
     this.closed = true;
     /* 在跑的那次全书搜索立刻作废：它对每一条命中都会回调界面 */
     this.searchGen += 1;
+    /* 摘要进度条是常驻的：关 tab 时必须收掉，否则它会一直留在屏幕上 */
+    this.dismissClipSummaryNotice();
     this.stopCheckinTimer();
     /* 两本书各开一个 tab 时，关掉 A 不该把 B 的目录一起清空——
        目录快照是全局一份，只认自己那本。 */
