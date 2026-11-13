@@ -14,7 +14,8 @@
 import { locale, type Locale } from '../i18n';
 import type { PdfZoomMode } from '../engine/pdf/fit';
 import type { PdfLinkLabelMode } from './pdf-link';
-import type { TtsVoice } from '../core/tts-api';
+import type { DeepseekVoice } from '../core/tts-api';
+import type { TtsEngine } from '../core/tts-engine';
 
 /**
  * 书页配色：只有一档「跟随 Obsidian」。
@@ -63,6 +64,12 @@ export const PAGE_LABEL_MODES: readonly PageLabelMode[] = ['off', 'chapter', 'bo
  */
 export type ToolbarStyle = 'text' | 'icon';
 
+/**
+ * 本地音色名是自由的（服务叫什么就是什么），默认空串 = 用服务自己的默认
+ * 音色——我们不知道用户装的是哪家服务，猜一个只会「音色不存在」。
+ */
+export const DEFAULT_LOCAL_VOICE = '';
+
 export interface ReaderPrefs {
   fontSize: number;
   lineHeight: number;
@@ -103,11 +110,18 @@ export interface ReaderPrefs {
    * 把人带到设置页，而不是悄悄退回系统声音（用户明确要求不回退）。
    */
   ttsEngine: TtsEngine;
-  /** 单音色模式用的声音 */
-  ttsVoice: TtsVoice;
+  /** 单音色模式用的声音（DeepSeek 的两把嗓子） */
+  ttsVoice: DeepseekVoice;
+  /**
+   * 本地引擎的音色名（2026-11-14）。
+   *
+   * 服务叫什么就填什么：`zf_xiaobei`、`af_heart`、`0`…没有固定集合，
+   * 所以是自由的字符串。空 = 用服务自己的默认音色。
+   */
+  ttsVoiceLocal: string;
   /** 旁白 / 对话两把嗓子（多角色模式） */
-  ttsNarrator: TtsVoice;
-  ttsDialogue: TtsVoice;
+  ttsNarrator: DeepseekVoice;
+  ttsDialogue: DeepseekVoice;
   /** 旁白与对话分开念。关掉 = 整页一个声音 */
   ttsMultiVoice: boolean;
   /** 只念引号里的对白，跳过旁白（省一半以上的钱） */
@@ -212,6 +226,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   ttsFollow: true,
   ttsEngine: 'deepseek',
   ttsVoice: 'stella',
+  ttsVoiceLocal: DEFAULT_LOCAL_VOICE,
   ttsNarrator: 'stella',
   ttsDialogue: 'tide',
   ttsMultiVoice: true,
@@ -242,10 +257,17 @@ export const MARGIN_RANGE = { min: 8, max: 120, step: 4 } as const;
 export const TTS_RATE_RANGE = { min: 0.6, max: 2, step: 0.1 } as const;
 export const TTS_CACHE_RANGE = { min: 0, max: 2000, step: 50 } as const;
 
-/** 朗读引擎：DeepSeek 的真人声，或系统自带语音 */
-export type TtsEngine = 'deepseek' | 'system';
+/**
+ * 朗读引擎（2026-11-14 加本地）：DeepSeek 的真人声、本机跑的 TTS 服务、
+ * 或系统自带语音。
+ *
+ * 类型定义在 core/tts-engine：判断「用哪个引擎」的那一层在 core，
+ * 这里只是存偏好，不该反向定义它。
+ */
+export type { TtsEngine };
 
-function voiceOf(raw: unknown, fallback: TtsVoice): TtsVoice {
+/** 本地音色名是自由的（服务叫什么就是什么），默认值给一个常见的英文女声 */
+function voiceOf(raw: unknown, fallback: DeepseekVoice): DeepseekVoice {
   return raw === 'stella' || raw === 'tide' ? raw : fallback;
 }
 
@@ -423,8 +445,9 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     footnote: p.footnote === 'jump' ? 'jump' : 'popup',
     ttsRate: Math.round(clamp(p.ttsRate, TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, DEFAULT_PREFS.ttsRate) * 10) / 10,
     ttsFollow: p.ttsFollow !== false,
-    ttsEngine: p.ttsEngine === 'system' ? 'system' : 'deepseek',
+    ttsEngine: p.ttsEngine === 'system' ? 'system' : p.ttsEngine === 'local' ? 'local' : 'deepseek',
     ttsVoice: voiceOf(p.ttsVoice, DEFAULT_PREFS.ttsVoice),
+    ttsVoiceLocal: typeof p.ttsVoiceLocal === 'string' ? p.ttsVoiceLocal.trim() : DEFAULT_PREFS.ttsVoiceLocal,
     ttsNarrator: voiceOf(p.ttsNarrator, DEFAULT_PREFS.ttsNarrator),
     ttsDialogue: voiceOf(p.ttsDialogue, DEFAULT_PREFS.ttsDialogue),
     ttsMultiVoice: p.ttsMultiVoice !== false,

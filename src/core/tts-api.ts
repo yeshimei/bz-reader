@@ -8,14 +8,35 @@
  * 插件里可以直接 fetch，AbortSignal 与超时都能用（requestUrl 不支持取消）。
  * ============================================================ */
 
-export type TtsVoice = 'stella' | 'tide';
+/**
+ * DeepSeek 的两把嗓子。
+ *
+ * 2026-11-14 本地 TTS 接进来之后，音色不再只有这两个：本地服务动辄几十个
+ * 音色名（`zf_xiaobei` / `af_heart` …）。所以对外用 `TtsVoice`，这一个
+ * 联合类型只用来给 DeepSeek 留自动补全。
+ */
+export type DeepseekVoice = 'stella' | 'tide';
+
+/** 任意引擎的音色名。`string & {}` 保留字面量补全，又接受任意字符串。 */
+export type TtsVoice = DeepseekVoice | (string & {});
 
 /** 音色 id；显示名在设置页走 t()，这里不放中文（硬编码文案检查） */
-export const TTS_VOICE_IDS: readonly TtsVoice[] = ['stella', 'tide'];
+export const TTS_VOICE_IDS: readonly DeepseekVoice[] = ['stella', 'tide'];
+
+export function isDeepseekVoice(v: unknown): v is DeepseekVoice {
+  return v === 'stella' || v === 'tide';
+}
 
 export type TtsErrorCode =
   | 'unauthorized'
   | 'rejected'
+  /**
+   * 配置不对：地址为空、端点 404、音色名服务不认（2026-11-14 本地服务）。
+   *
+   * 和 `rejected` 分开：那条说的是「这段文字被审核拒了，跳过它继续念」，
+   * 这条要停下来让人去改设置——继续念只会一路失败。
+   */
+  | 'config'
   | 'rate'
   | 'busy'
   | 'network'

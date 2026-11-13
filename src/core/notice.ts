@@ -50,3 +50,23 @@ export function notifyNow(text: string, kind: NoticeKind = 'info', ms?: number):
   }
   return handle;
 }
+
+/** 一条会自己改字的常驻通知（2026-11-14 整本预生成用） */
+export interface ProgressHandle {
+  setMessage(text: string): void;
+  hide(): void;
+}
+
+/**
+ * 常驻进度通知：timeout 0，自己 hide()。
+ *
+ * 不走 `notify()`：那条路有 800ms 去重，而进度要每十段改一次字，
+ * 撞上去重就会「跳到 30%，然后卡着不动」。
+ */
+export function notifyProgress(text: string): ProgressHandle {
+  const n = new Notice(text, 0);
+  return {
+    setMessage: (next: string) => n.setMessage(next),
+    hide: () => n.hide(),
+  };
+}

@@ -258,6 +258,7 @@ function overlayTypography(): string {
  */
 export function ttsFormHtml(): string {
   const p = shellPrefs();
+  const s = shellSettings();
   const seg = (name: string, opts: Array<[string, string]>, cur: string): string =>
     segHtml(
       opts.map(([v, k]) => ({ v, k })),
@@ -268,22 +269,30 @@ export function ttsFormHtml(): string {
     id,
     t(id === 'stella' ? 'settings.ttsVoice.stella' : 'settings.ttsVoice.tide'),
   ]);
-  /* 手机不列系统语音：手机 WebView 的 speechSynthesis 不稳定，中文音色常缺 */
+  /* 手机不列系统语音与本地服务：前者在 WebView 里时好时坏，后者要连电脑上
+     那个 127.0.0.1，手机上没有。 */
   const mobile = isMobileShell();
+  const engineOpts: Array<[string, string]> = mobile
+    ? [['deepseek', t('settings.ttsEngine.deepseek')]]
+    : [
+        ['deepseek', t('settings.ttsEngine.deepseek')],
+        ['local', t('settings.ttsEngine.local')],
+        ['system', t('settings.ttsEngine.system')],
+      ];
+  const engine = mobile && p.ttsEngine === 'system' ? 'deepseek' : p.ttsEngine;
+  const isLocal = engine === 'local';
+  const isDeepseek = engine === 'deepseek';
   return `<div class="bzs-setgrp flat bzs-typo">
-    <div class="bzs-setrow"><label>${t('settings.ttsEngine')}</label>${seg(
-      'ttsEngine',
-      mobile
-        ? [['deepseek', t('settings.ttsEngine.deepseek')]]
-        : [
-            ['deepseek', t('settings.ttsEngine.deepseek')],
-            ['system', t('settings.ttsEngine.system')],
-          ],
-      mobile && p.ttsEngine === 'system' ? 'deepseek' : p.ttsEngine,
-    )}</div>
+    <div class="bzs-setrow"><label>${t('settings.ttsEngine')}</label>${seg('ttsEngine', engineOpts, engine)}</div>
     ${
-      p.ttsEngine === 'deepseek'
+      isDeepseek
         ? `<div class="bzs-setrow"><label>${t('settings.ttsVoice')}</label>${seg('ttsVoice', voices, p.ttsVoice)}</div>`
+        : ''
+    }
+    ${
+      isLocal
+        ? `<div class="bzs-setrow"><label>${t('settings.ttsVoice.local')}</label>
+      <input data-role="preftext" data-k="ttsVoiceLocal" placeholder="${t('settings.ttsVoice.local')}" value="${esc(p.ttsVoiceLocal)}" style="flex:1"></div>`
         : ''
     }
     <div class="bzs-setrow"><label>${t('settings.ttsRate')}</label>
@@ -300,6 +309,10 @@ export function ttsFormHtml(): string {
     <div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
       <button class="bzs-btn sm pri" data-act="ttstest">${t('settings.ttsTest')}</button>
       <span class="bzs-mini" data-role="ttstest-out"></span>
+    </div>
+    <div class="bzs-setrow">
+      <button class="bzs-btn sm" data-act="ttsexportchapter">${t('tts.tune.exportChapter')}</button>
+      ${isLocal ? `<button class="bzs-btn sm" data-act="ttsprefetchbook">${t('tts.tune.prefetchBook')}</button>` : ''}
     </div>
   </div>`;
 }

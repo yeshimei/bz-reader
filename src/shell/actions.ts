@@ -32,7 +32,9 @@ import {
 import { allMarks, filterMarks, shelfOf } from './domain';
 import { toggleAll, togglePick } from './note-select';
 import { notify } from '../core/notice';
-import { synthesizeSpeech } from '../core/tts-api';
+import { synthesizeFor, ttsEngineReady, type TtsRoute } from '../core/tts-engine';
+import { fetchLocalVoices } from '../core/tts-local';
+import { localRequester } from '../data/tts-request';
 import { TtsCache } from '../data/tts-cache';
 import {
   ALL_SHELF,
@@ -1091,10 +1093,10 @@ export interface ActionEnv {
   repaint?: () => void;
 }
 
-/** 试听用：播一段 wav，播完（或失败）就 resolve，不把 Promise 挂在那里 */
-function playWav(buf: ArrayBuffer): Promise<void> {
+/** 试听用：播一段音频，播完（或失败）就 resolve，不把 Promise 挂在那里 */
+function playWav(buf: ArrayBuffer, mime = 'audio/wav'): Promise<void> {
   return new Promise((resolve) => {
-    const url = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+    const url = URL.createObjectURL(new Blob([buf], { type: mime }));
     const audio = new Audio(url);
     let settled = false;
     const done = (): void => {
@@ -1997,40 +1999,61 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
 
-    /* 试听（2026-11-13）：不用开书，合成两句就够判断音色合不合口味。
-       多角色开着时旁白/对白各念一句——只听一句听不出「两台声音」的差别。 */
+    /* 试听（2026-11-13）：不用开书，合成一句就够判断音色合不合口味。
+       2026-11-14：跟着当前引擎走——本地服务也能试听，不用先配 DeepSeek。 */
     case 'ttstest': {
       const s = shellSettings();
-      if (!s.ai.apiKey.trim()) {
-        notify(t('notice.tts.noKey'));
+      const p = shellPrefs();
+      const route: TtsRoute = { engine: p.ttsEngine, ai: s.ai, local: s.ttsLocal };
+      if (!ttsEngineReady(route)) {
+        notify(t(route.engine === 'local' ? 'notice.tts.noLocal' : 'notice.tts.noKey'));
         break;
       }
-      const p = shellPrefs();
       const out = el.closest('.bzs-setgrp')?.querySelector<HTMLElement>('[data-role="ttstest-out"]');
       const zh = locale() === 'zh' || locale() === 'zh-TW';
-      const plan = p.ttsMultiVoice
-        ? [
-            { text: zh ? '这是朗读试听。' : 'This is a reading preview.', voice: p.ttsNarrator },
-            { text: zh ? '“这一句是对白。”' : '"This line is dialogue."', voice: p.ttsDialogue },
-          ]
-        : [{ text: zh ? '这是朗读试听。' : 'This is a reading preview.', voice: p.ttsVoice }];
+      const voice = p.ttsEngine === 'local' ? p.ttsVoiceLocal : p.ttsVoice;
+      const plan = [{ text: zh ? '这是朗读试听。' : 'This is a reading preview.', voice }];
       if (out) out.textContent = t('notice.tts.testing');
       void (async () => {
         try {
           for (const item of plan) {
-            const buf = await synthesizeSpeech({
-              baseUrl: s.ai.baseUrl,
-              apiKey: s.ai.apiKey,
-              text: item.text,
-              voice: item.voice,
+            const got = await synthesizeFor(route, item.text, item.voice, undefined, {
+              request: localRequester(),
             });
-            await playWav(buf);
+            await playWav(got.buf, got.mime);
           }
           if (out) out.textContent = '';
         } catch (e) {
           if (out) out.textContent = '';
           notify(`${t('notice.tts.failed')}：${(e as Error)?.message || ''}`);
         }
+      })();
+      break;
+    }
+    /* 整本预生成 / 导出本章（2026-11-14）：真正的活干在阅读视图里，这里只转发 */
+    case 'ttsprefetchbook':
+      closeOverlay();
+      getShellSource()?.prefetchBookAudio?.();
+      break;
+    case 'ttsexportchapter':
+      closeOverlay();
+      getShellSource()?.exportChapterAudio?.();
+      break;
+    /* 拉本地服务的音色列表（2026-11-14）：拉不到就退回手填，别报错 */
+    case 'ttslocalvoices': {
+      const s = shellSettings();
+      const out = el.closest('.bzs-setgrp')?.querySelector<HTMLElement>('[data-role="voices-out"]');
+      if (out) out.textContent = t('notice.tts.testing');
+      void (async () => {
+        const list = await fetchLocalVoices({
+          baseUrl: s.ttsLocal.url,
+          apiKey: s.ttsLocal.apiKey,
+          request: localRequester(),
+        });
+        if (!out) return;
+        out.textContent = list.length
+          ? `${t('settings.ttsLocal.voicesOk', { n: String(list.length) })} · ${list.slice(0, 12).join(' / ')}`
+          : t('settings.ttsLocal.voicesFail');
       })();
       break;
     }
@@ -2898,7 +2921,14 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
     /* 朗读引擎与音色（2026-11-13）：一套老数据里没有这些 key，
        normalizePrefs 已给默认值；这里只负责把界面选的值收口。 */
     case 'ttsEngine':
-      src.setPrefs({ ttsEngine: v === 'system' ? 'system' : 'deepseek' });
+      src.setPrefs({ ttsEngine: v === 'system' ? 'system' : v === 'local' ? 'local' : 'deepseek' });
+      break;
+    /* 本地服务的输出格式（2026-11-14）：mp3 体积小一个数量级，整章才装得下 */
+    case 'ttsLocalFormat': {
+      const fmt = v === 'wav' ? 'wav' : v === 'opus' ? 'opus' : 'mp3';
+      src.setSettings({ ttsLocal: { ...shellSettings().ttsLocal, format: fmt } });
+      break;
+    }
       break;
     case 'ttsVoice':
       src.setPrefs({ ttsVoice: v === 'tide' ? 'tide' : 'stella' });
@@ -3480,7 +3510,18 @@ export function dispatchInput(
     /* 目录类设置已经没有输入框了（只走文件夹选择器），这里只剩 AI 三个字段 */
     if (k === 'ai.baseUrl' || k === 'ai.model' || k === 'ai.apiKey') {
       src.setSettings({ ai: { ...shellSettings().ai, [k.slice(3)]: value } });
+      return;
     }
+    if (k.startsWith('ttsLocal.')) {
+      const field = k.slice('ttsLocal.'.length) as 'url' | 'model' | 'apiKey';
+      src.setSettings({ ttsLocal: { ...shellSettings().ttsLocal, [field]: value } });
+    }
+    return;
+  }
+  /* 自由文本的阅读偏好（2026-11-14：本地音色名，服务叫什么就是什么） */
+  if (role === 'preftext' && k) {
+    if (dragging) return;
+    if (k === 'ttsVoiceLocal') getShellSource()?.setPrefs({ ttsVoiceLocal: value.trim() });
     return;
   }
   if (role === 'goal') {

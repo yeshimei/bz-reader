@@ -442,10 +442,12 @@ export function viewSettings(v: SettingsView): string {
       <h3>${t('settings.grp.tts')}</h3>
       <div class="bzs-setrow"><label>${t('settings.ttsEngine')}</label>${seg(
         'ttsEngine',
-        /* 手机上不列系统语音：WKWebView / Android WebView 里 speechSynthesis
-           时好时坏，中文音色也常缺，选了只会听到没声。DeepSeek 是稳定的那条。 */
+        /* 手机上不列系统语音与本地服务：WKWebView / Android WebView 里
+           speechSynthesis 时好时坏，本地服务则要连电脑上那个 127.0.0.1。
+           DeepSeek 是手机上唯一稳定的那条。 */
         ttsMobile ? [['deepseek', t('settings.ttsEngine.deepseek')]] : [
           ['deepseek', t('settings.ttsEngine.deepseek')],
+          ['local', t('settings.ttsEngine.local')],
           ['system', t('settings.ttsEngine.system')],
         ],
         ttsMobile && p.ttsEngine === 'system' ? 'deepseek' : p.ttsEngine,
@@ -462,6 +464,38 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-mini" style="margin:0 0 8px">${t('settings.ttsSpent', {
         chars: String(s.ttsStats.chars),
       })}</div>
+      <div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
+        <button class="bzs-btn sm pri" data-act="ttstest">${t('settings.ttsTest')}</button>
+        <span class="bzs-mini" data-role="ttstest-out"></span>
+      </div>`
+          : ''
+      }
+      ${
+        p.ttsEngine === 'local'
+          ? `<div class="bzs-setrow"><label>${t('settings.ttsLocal.url')}</label>
+        <input data-role="setting" data-k="ttsLocal.url" placeholder="http://127.0.0.1:8880" value="${esc(s.ttsLocal.url)}" style="flex:1"></div>
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsLocal.hint')}</div>
+      <div class="bzs-setrow"><label>${t('settings.ttsLocal.model')}</label>
+        <input data-role="setting" data-k="ttsLocal.model" placeholder="kokoro" value="${esc(s.ttsLocal.model)}" style="flex:1"></div>
+      <div class="bzs-setrow"><label>${t('settings.ttsLocal.key')}</label>
+        <input type="password" data-role="setting" data-k="ttsLocal.apiKey" value="${esc(s.ttsLocal.apiKey)}" style="flex:1"></div>
+      <div class="bzs-setrow"><label>${t('settings.ttsLocal.format')}</label>${seg(
+        'ttsLocalFormat',
+        [
+          ['mp3', 'MP3'],
+          ['wav', 'WAV'],
+          ['opus', 'Opus'],
+        ],
+        s.ttsLocal.format,
+      )}</div>
+      <div class="bzs-setrow"><label>${t('settings.ttsVoice')}</label>
+        <input data-role="preftext" data-k="ttsVoiceLocal" placeholder="${t('settings.ttsVoice.local')}" value="${esc(p.ttsVoiceLocal)}" style="flex:1">
+        <button class="bzs-btn sm" data-act="ttslocalvoices">${t('settings.ttsLocal.voices')}</button></div>
+      <div class="bzs-mini" style="margin:-4px 0 8px" data-role="voices-out"></div>
+      ${range('ttsCacheMB', t('settings.ttsCache'), p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, TTS_CACHE_RANGE.step, (x) => `${x} MB`)}
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsCache.hint')}
+        <button class="bzs-btn sm" data-act="ttscacheclear">${t('settings.ttsCache.clear')}</button>
+      </div>
       <div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
         <button class="bzs-btn sm pri" data-act="ttstest">${t('settings.ttsTest')}</button>
         <span class="bzs-mini" data-role="ttstest-out"></span>

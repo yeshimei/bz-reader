@@ -22,6 +22,8 @@
  * ============================================================ */
 
 import { isLocale, type LanguagePref } from '../i18n';
+import { normalizeFormat } from '../core/tts-local';
+import type { LocalTtsSettings } from '../core/tts-engine';
 import { DEFAULT_CLIP_SCOPE, normalizeClipScope, type ClipScope } from './clip-epub/scope';
 
 export interface AiSettings {
@@ -55,6 +57,14 @@ export interface ReaderSettings {
    */
   language: LanguagePref;
   ai: AiSettings;
+  /**
+   * 本地语音服务（2026-11-14）。
+   *
+   * 和 `ai` 一样是「服务配置」，放 settings 不放 prefs：它跟着这台机器走，
+   * 换台电脑该连那台机器的 127.0.0.1。音色不在这里——那是听感，跟书走，
+   * 在 prefs.ttsVoiceLocal。
+   */
+  ttsLocal: LocalTtsSettings;
   /*
    * 这里**故意没有**「连接至 BZ AI 知识库」开关。
    *
@@ -133,6 +143,14 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     baseUrl: '',
     apiKey: '',
     model: '',
+  },
+  /* 空地址 = 没配。格式默认 mp3：本地一章 wav 要 290 MB，mp3 只要 48 MB，
+     「预下载整章」这件事只有 mp3 才成立。 */
+  ttsLocal: {
+    url: '',
+    model: '',
+    apiKey: '',
+    format: 'mp3',
   },
   aiAck: false,
   ttsAck: false,
@@ -217,6 +235,29 @@ function normalizeAi(raw: unknown): AiSettings {
   };
 }
 
+/**
+ * 本地服务地址。
+ *
+ * 和 `cleanUrl` 分开：那边是云端 API，少个协议就补 https；本地服务默认
+ * 是明文 http（127.0.0.1:8880 / 192.168.1.9:8080），补 https 只会连不上。
+ * 已经写了协议的照原样，不替人改。
+ */
+function cleanLocalUrl(v: string): string {
+  const s = v.trim().replace(/\/+$/, '');
+  if (!s) return '';
+  return /^https?:\/\//i.test(s) ? s : `http://${s}`;
+}
+
+function normalizeTtsLocal(raw: unknown): LocalTtsSettings {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  return {
+    url: cleanLocalUrl(str(o.url)),
+    model: str(o.model).trim(),
+    apiKey: str(o.apiKey).trim(),
+    format: normalizeFormat(o.format),
+  };
+}
+
 export function normalizeSettings(raw: unknown): ReaderSettings {
   const s = (raw ?? {}) as Partial<ReaderSettings>;
   return {
@@ -227,6 +268,7 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
        都退回 auto——宁可跟随宿主，也不要钉死一个用户没选过的语言。 */
     language: isLocale(s.language) ? s.language : 'auto',
     ai: normalizeAi(s.ai),
+    ttsLocal: normalizeTtsLocal(s.ttsLocal),
     aiAck: s.aiAck === true,
     ttsAck: s.ttsAck === true,
     ttsStats: {

@@ -34,12 +34,15 @@ import { applyEngineMeta } from '../data/book-meta';
 import { coverPathOf, ensureCoverFromFoliate } from '../data/cover';
 import { speak, speakLang, type SpeakHandle } from '../core/speak';
 import { billedChars, buildScript, estimateCost, ttsLangSupported, type ScriptKind, type ScriptSegment } from '../core/tts-script';
-import { synthesizeSpeech, type TtsErrorCode, type TtsVoice } from '../core/tts-api';
+import type { TtsErrorCode } from '../core/tts-api';
+import { isFreeEngine, synthesizeFor, ttsCacheTag, ttsEngineReady, ttsMimeOf, type TtsRoute } from '../core/tts-engine';
+import { concatMp3, type LocalRequester } from '../core/tts-local';
 import { TtsPlayer } from '../core/tts-player';
 import { concatWav } from '../core/wav';
 import { TtsCache, cacheKey } from '../data/tts-cache';
+import { localRequester } from '../data/tts-request';
 import { ttsBarHtml } from './tts-bar';
-import { notify, notifyNow, type NoticeHandle } from '../core/notice';
+import { notify, notifyNow, notifyProgress, type NoticeHandle } from '../core/notice';
 import { localeTag, t, type MsgKey } from '../i18n';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
@@ -398,10 +401,19 @@ export class ReaderView extends ItemView {
   private ttsChars = 0;
   private ttsCost = 0;
   private ttsTotal = 0;
+  /**
+   * 这一轮合成的音频是什么格式（2026-11-14）。
+   *
+   * DeepSeek 只会给 wav，本地服务可能是 mp3 / opus。`<audio>` 靠 MIME 猜
+   * 解码器，写错了有的平台直接不出声。每次合成回来就更新它，建 blob URL 时用。
+   */
+  private ttsMime = 'audio/wav';
   /** 每次开始朗读 +1：等 AI 标角色的那几秒里用户可能已经停了 */
   private ttsRun = 0;
   /** 正在预生成本章音频（再点一次取消） */
   private prefetching = false;
+  /** 正在整本预生成（浮层按钮按第二下 = 停） */
+  private prefetchingBook = false;
 
   /* 每日打卡：按 tracker 的已读秒数增量记账。
      以前只在关 tab 时 addCheckin 一次——开着 tab 读一整天，统计页永远 0。 */
@@ -1691,9 +1703,10 @@ export class ReaderView extends ItemView {
       this.stopTts();
       return;
     }
-    /* 手机恒走 DeepSeek：手机 WebView 的 speechSynthesis 不稳定，
-       旧配置里存的 system 在这里也不再照做。 */
-    if (this.prefs.ttsEngine === 'deepseek' || isMobileShell()) {
+    /* 手机恒走网络语音：手机 WebView 的 speechSynthesis 不稳定，旧配置里
+       存的 system 在这里也不再照做。本地服务同理——手机连不上电脑上那个
+       127.0.0.1，具体原因在 speakPageAi 里说。 */
+    if (this.prefs.ttsEngine !== 'system' || isMobileShell()) {
       void this.speakPageAi(text);
       return;
     }
@@ -1750,21 +1763,52 @@ export class ReaderView extends ItemView {
    *
    * 不做自动退回系统语音（用户明确要求）：失败就停并说清原因。
    */
-  private async speakPageAi(text: string): Promise<void> {
+  /**
+   * 当前该用哪个引擎。
+   *
+   * 手机不列本地（跑不了，也连不上电脑上的 127.0.0.1），但 prefs 跟着库走，
+   * 桌面选过本地之后再在手机打开会读到它——这时说清原因，别悄悄换成云端
+   * 花用户的钱。
+   */
+  private ttsRoute(): TtsRoute {
     const settings = shellSettings();
-    const ai = settings.ai;
-    if (!ai.apiKey.trim()) {
-      notify(t('notice.tts.noKey'));
+    return {
+      engine: this.prefs.ttsEngine,
+      ai: { baseUrl: settings.ai.baseUrl, apiKey: settings.ai.apiKey },
+      local: settings.ttsLocal,
+    };
+  }
+
+  /**
+   * 本地服务的请求通道。
+   *
+   * 走 `requestUrl` 而不是 fetch：本地服务不会给 `app://obsidian.md` 放行
+   * 跨域头，直接 fetch 会被浏览器拦下来，而 `requestUrl` 走宿主自己的网络栈。
+   * 代价是没有 AbortSignal——请求发出去就收不回，只能「不等了」（见 tts-local）。
+   */
+  private localRequest(): LocalRequester {
+    return localRequester();
+  }
+
+  private async speakPageAi(text: string): Promise<void> {
+    const route = this.ttsRoute();
+    if (route.engine === 'local' && isMobileShell()) {
+      notify(t('notice.tts.localMobile'));
       return;
     }
-    /* 第一次用朗读：讲清楚「这一页的正文会发给语音服务」，只讲一次。
-       与 AI 问答那份 aiAck 分开记——两条出网路径互不代表。 */
-    if (!settings.ttsAck) {
+    if (!ttsEngineReady(route)) {
+      notify(t(route.engine === 'local' ? 'notice.tts.noLocal' : 'notice.tts.noKey'));
+      return;
+    }
+    const settings = shellSettings();
+    /* 隐私提示只对云端讲：本地服务不出网 */
+    if (route.engine !== 'local' && !settings.ttsAck) {
       notify(t('notice.tts.privacy'));
       getShellSource()?.setSettings({ ttsAck: true });
     }
     const lang = speakLang(text, this.book?.meta.language, localeTag());
-    if (!ttsLangSupported(lang)) {
+    /* 语种只约束 DeepSeek：本地能念什么取决于用户装的模型，我们不知道 */
+    if (route.engine === 'deepseek' && !ttsLangSupported(lang)) {
       notify(t('notice.tts.unsupportedLang'));
       return;
     }
@@ -1780,10 +1824,13 @@ export class ReaderView extends ItemView {
     const run = ++this.ttsRun;
     if (this.closed || run !== this.ttsRun) return;
 
-    const voiceOf = (): TtsVoice => this.prefs.ttsVoice;
+    const voice = this.ttsVoice(route.engine);
     this.ttsChars = segments.reduce((n, s) => n + billedChars(s.text), 0);
-    this.ttsCost = estimateCost(this.ttsChars);
-    this.addTtsSpend(this.ttsChars, this.ttsCost);
+    /* 本地引擎不要钱：不记花费，也不累加那本「花了多少」的账 */
+    const free = isFreeEngine(route.engine);
+    this.ttsCost = free ? 0 : estimateCost(this.ttsChars);
+    if (!free) this.addTtsSpend(this.ttsChars, this.ttsCost);
+    this.ttsMime = ttsMimeOf(route.engine, route.local.format);
     this.ttsTotal = segments.length;
     this.ttsIndex = 0;
     this.ttsKind = segments[0].kind;
@@ -1792,16 +1839,22 @@ export class ReaderView extends ItemView {
     const cacheMB = this.prefs.ttsCacheMB;
     const cache = cacheMB > 0 ? new TtsCache() : null;
     const bookId = this.bookId;
-    const player = new TtsPlayer(segments, voiceOf, {
-      synthesize: (body, voice, signal) =>
-        synthesizeSpeech({ baseUrl: ai.baseUrl, apiKey: ai.apiKey, text: body, voice, signal }),
+    const player = new TtsPlayer(segments, () => voice, {
+      synthesize: async (body, v, signal) => {
+        const got = await synthesizeFor(route, body, v, signal, { request: this.localRequest() });
+        /* 本地可能是 mp3、DeepSeek 一定是 wav：建 blob 时要按实际格式说 */
+        this.ttsMime = got.mime;
+        return got.buf;
+      },
+      makeUrl: (buf) => URL.createObjectURL(new Blob([buf], { type: this.ttsMime })),
       ...(cache
         ? {
             cache: {
               get: (k) => cache.get(k),
               put: (k, data) => cache.put(k, data, cacheMB * 1024 * 1024),
             },
-            cacheKey: (body, voice) => cacheKey(bookId, voice, body),
+            /* 引擎进键（`local:` 前缀）：云端老缓存保持原样继续命中 */
+            cacheKey: (body, v) => cacheKey(bookId, ttsCacheTag(route.engine, v), body),
           }
         : {}),
       onSegment: (index, seg) => {
@@ -1828,11 +1881,14 @@ export class ReaderView extends ItemView {
     const map: Partial<Record<TtsErrorCode | 'audio', MsgKey>> = {
       unauthorized: 'notice.tts.noKey',
       rejected: 'notice.tts.rejected',
+      config: 'notice.tts.config',
       rate: 'notice.tts.rate',
       busy: 'notice.tts.busy',
       network: 'notice.tts.network',
     };
-    const key: MsgKey = map[code] ?? 'notice.tts.failed';
+    let key: MsgKey = map[code] ?? 'notice.tts.failed';
+    /* 本地服务的「连不上」几乎总是「服务没启动」，和云端断网不是一回事 */
+    if (code === 'network' && this.prefs.ttsEngine === 'local') key = 'notice.tts.networkLocal';
     notify(t(key));
     /* 单段被审核拒绝：播放器自己会跳过继续，这里只提示，不掐整页 */
     if (code === 'rejected') return;
@@ -1922,19 +1978,21 @@ export class ReaderView extends ItemView {
     }
   }
 
-  /** 朗读只有一把嗓子（2026-11-14 去掉旁白/对白分声） */
-  private ttsVoice(): TtsVoice {
-    return this.prefs.ttsVoice;
+  /** 当前引擎的音色：云端两把嗓子，本地是服务里那个名字（可能是空的） */
+  private ttsVoice(engine: TtsRoute['engine'] = this.prefs.ttsEngine): string {
+    return engine === 'local' ? this.prefs.ttsVoiceLocal : this.prefs.ttsVoice;
   }
 
   /** 预生成前的确认：走 Obsidian 自己的弹窗，不用原生 confirm */
-  private askPrefetch(chars: number, someChars: number): Promise<'all' | 'some' | null> {
+  private askPrefetch(chars: number, someChars: number, free = false): Promise<'all' | 'some' | null> {
     return new Promise((resolve) => {
       let picked: 'all' | 'some' | null = null;
       const modal = new Modal(this.app);
       modal.titleEl.setText(t('notice.tts.confirmTitle'));
       modal.contentEl.createEl('p', {
-        text: t('notice.tts.confirmPrefetch', { chars: String(chars) }),
+        text: t(free ? 'notice.tts.confirmPrefetchFree' : 'notice.tts.confirmPrefetch', {
+          chars: String(chars),
+        }),
       });
       const row = modal.contentEl.createDiv({ cls: 'modal-button-container' });
       const close = (v: 'all' | 'some' | null): void => {
@@ -1966,9 +2024,9 @@ export class ReaderView extends ItemView {
       this.prefetching = false;
       return;
     }
-    const ai = shellSettings().ai;
-    if (!ai.apiKey.trim()) {
-      notify(t('notice.tts.noKey'));
+    const route = this.ttsRoute();
+    if (!ttsEngineReady(route)) {
+      notify(t(route.engine === 'local' ? 'notice.tts.noLocal' : 'notice.tts.noKey'));
       return;
     }
     let segments = buildScript(this.host.currentChapterBlocks?.() ?? []);
@@ -1976,12 +2034,13 @@ export class ReaderView extends ItemView {
       notify(t('notice.tts.noText'));
       return;
     }
+    const free = isFreeEngine(route.engine);
     const chars = segments.reduce((n, s) => n + billedChars(s.text), 0);
-    /* 按字数问一句（不报钱：官方价格随时会变，写死一个数只会误导）。
-       两万计费字符约一万汉字，够听小半章了。 */
+    /* 按字数问一句（云端不报钱：官方价格随时会变，写死一个数只会误导）。
+       本地免费，但整章也要跑几分钟，仍然给「只做 20 句」——那是为了先听效果。 */
     if (chars >= 20000) {
       const someChars = segments.slice(0, 20).reduce((n, s) => n + s.text.length, 0);
-      const picked = await this.askPrefetch(chars, someChars);
+      const picked = await this.askPrefetch(chars, someChars, free);
       if (!picked) return;
       if (picked === 'some') segments = segments.slice(0, 20);
     }
@@ -1989,24 +2048,25 @@ export class ReaderView extends ItemView {
     notify(t('notice.tts.prefetching'), 'info', 4000);
     const cacheMB = this.prefs.ttsCacheMB;
     const cache = cacheMB > 0 ? new TtsCache() : null;
+    const voice = this.ttsVoice(route.engine);
     let done = 0;
     let spentChars = 0;
     try {
       for (const seg of segments) {
         if (!this.prefetching || this.closed) break;
-        const voice = this.ttsVoice();
-        const key = cacheKey(this.bookId, voice, seg.text);
+        const key = cacheKey(this.bookId, ttsCacheTag(route.engine, voice), seg.text);
         let buf = cache ? await cache.get(key) : null;
         if (!buf) {
           try {
-            buf = await synthesizeSpeech({ baseUrl: ai.baseUrl, apiKey: ai.apiKey, text: seg.text, voice });
+            buf = (await synthesizeFor(route, seg.text, voice, undefined, { request: this.localRequest() }))
+              .buf;
           } catch (e) {
             /* 审核拒了这一段就跳过，别让整章预生成停在这里 */
             if ((e as { code?: string }).code === 'rejected') continue;
             throw e;
           }
           if (cache) await cache.put(key, buf, cacheMB * 1024 * 1024);
-          spentChars += billedChars(seg.text);
+          if (!free) spentChars += billedChars(seg.text);
         }
         done++;
       }
@@ -2020,13 +2080,167 @@ export class ReaderView extends ItemView {
   }
 
   /**
-   * 导出当前页音频（2026-11-13）：逐段合成（缓存优先）→ 拼成一个 wav →
+   * 逐段合成（缓存优先）→ 拼成一个文件。导出当前页与导出整章共用。
+   *
+   * 扩展名跟着引擎走：DeepSeek 只会给 wav，本地可能是 mp3 / opus。
+   */
+  private async renderAudio(
+    route: TtsRoute,
+    segments: readonly ScriptSegment[],
+  ): Promise<{ data: ArrayBuffer; ext: string } | null> {
+    const cacheMB = this.prefs.ttsCacheMB;
+    const cache = cacheMB > 0 ? new TtsCache() : null;
+    const voice = this.ttsVoice(route.engine);
+    const tag = ttsCacheTag(route.engine, voice, route.local.format);
+    const free = isFreeEngine(route.engine);
+    const bufs: ArrayBuffer[] = [];
+    let spent = 0;
+    for (const seg of segments) {
+      const key = cacheKey(this.bookId, tag, seg.text);
+      let buf = cache ? await cache.get(key) : null;
+      if (!buf) {
+        buf = (await synthesizeFor(route, seg.text, voice, undefined, { request: this.localRequest() })).buf;
+        if (cache) await cache.put(key, buf, cacheMB * 1024 * 1024);
+        if (!free) spent += billedChars(seg.text);
+      }
+      bufs.push(buf);
+    }
+    if (spent) this.addTtsSpend(spent, estimateCost(spent));
+    const mime = ttsMimeOf(route.engine, route.local.format);
+    if (mime === 'audio/wav') {
+      const wav = concatWav(bufs);
+      return wav ? { data: wav, ext: 'wav' } : null;
+    }
+    const mp3 = concatMp3(bufs);
+    return mp3 ? { data: mp3, ext: mime === 'audio/ogg' ? 'ogg' : 'mp3' } : null;
+  }
+
+  /** 通用确认弹窗（Obsidian 原生样式，和书库一致） */
+  private askModalText(title: string, body: string, okText: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      let ok = false;
+      const modal = new Modal(this.app);
+      modal.titleEl.setText(title);
+      modal.contentEl.createEl('p', { text: body });
+      const row = modal.contentEl.createDiv({ cls: 'modal-button-container' });
+      row.createEl('button', { text: t('notice.tts.confirmCancel') }).addEventListener('click', () => modal.close());
+      row
+        .createEl('button', { text: okText, cls: 'mod-cta' })
+        .addEventListener('click', () => {
+          ok = true;
+          modal.close();
+        });
+      modal.onClose = () => resolve(ok);
+      modal.open();
+    });
+  }
+
+  /**
+   * 整本预生成（2026-11-14，增强项）。
+   *
+   * 只对本地引擎开放：云端按字数计费，整本一笔就是几十块，不该被一个按钮
+   * 误触。本地免费，跑多久都只是时间。
+   *
+   * 不存「做到哪了」的游标——缓存就是游标：下次再点，命中的段秒过，
+   * 关掉插件重开也一样。这比维护一份会被写坏的进度文件可靠。
+   */
+  async prefetchBook(): Promise<void> {
+    if (this.prefetchingBook) {
+      this.prefetchingBook = false;
+      notify(t('notice.tts.prefetchCancelled'));
+      return;
+    }
+    const route = this.ttsRoute();
+    if (route.engine !== 'local') {
+      notify(t('notice.tts.bookLocalOnly'));
+      return;
+    }
+    if (!ttsEngineReady(route)) {
+      notify(t('notice.tts.noLocal'));
+      return;
+    }
+
+    const prepping = notifyProgress(t('notice.tts.bookPreparing'));
+    let chapters: Array<{ title: string; text: string }> = [];
+    try {
+      chapters = await this.exportChapters();
+    } catch {
+      prepping.hide();
+      notify(t('notice.tts.failed'));
+      return;
+    }
+    prepping.hide();
+    const scripts = chapters.map((c) => buildScript([{ tag: 'p', text: c.text }])).filter((s) => s.length);
+    if (!scripts.length) {
+      notify(t('notice.tts.noText'));
+      return;
+    }
+
+    const total = scripts.reduce((n, s) => n + s.length, 0);
+    const chars = scripts.reduce((n, s) => n + s.reduce((m, x) => m + billedChars(x.text), 0), 0);
+    const ok = await this.askModalText(
+      t('notice.tts.confirmBookTitle'),
+      t('notice.tts.confirmBook', { chapters: String(scripts.length), chars: String(chars) }),
+      t('tts.tune.prefetchBook'),
+    );
+    if (!ok) return;
+
+    this.prefetchingBook = true;
+    const cacheMB = this.prefs.ttsCacheMB;
+    const cache = cacheMB > 0 ? new TtsCache() : null;
+    const voice = this.ttsVoice(route.engine);
+    const tag = ttsCacheTag(route.engine, voice, route.local.format);
+    const progress = notifyProgress('');
+    let done = 0;
+    const paint = (ci: number): void => {
+      progress.setMessage(
+        t('notice.tts.bookProgress', {
+          pct: String(total ? Math.round((done / total) * 100) : 0),
+          chapter: String(ci + 1),
+          chapters: String(scripts.length),
+          done: String(done),
+          total: String(total),
+        }),
+      );
+    };
+    paint(0);
+    try {
+      for (let ci = 0; ci < scripts.length; ci++) {
+        paint(ci);
+        for (const seg of scripts[ci]) {
+          if (!this.prefetchingBook || this.closed) {
+            progress.hide();
+            notify(t('notice.tts.prefetchCancelled'));
+            return;
+          }
+          const key = cacheKey(this.bookId, tag, seg.text);
+          const hit = cache ? await cache.get(key) : null;
+          if (!hit) {
+            const buf = (await synthesizeFor(route, seg.text, voice, undefined, { request: this.localRequest() })).buf;
+            if (cache) await cache.put(key, buf, cacheMB * 1024 * 1024);
+          }
+          done++;
+          if (done % 5 === 0) paint(ci);
+        }
+      }
+      progress.hide();
+      notify(t('notice.tts.prefetchBookDone', { done: String(done) }));
+    } catch {
+      progress.hide();
+      notify(t('notice.tts.failed'));
+    } finally {
+      this.prefetchingBook = false;
+    }
+  }
+
+  /**
+   * 导出当前页音频（2026-11-13）：逐段合成（缓存优先）→ 拼成一个文件 →
    * 写进 `bz-reader/audio/`。不写库根、不覆盖同名旧文件。
    */
   private async exportSpeech(): Promise<void> {
-    const ai = shellSettings().ai;
-    if (!ai.apiKey.trim()) {
-      notify(t('notice.tts.noKey'));
+    const route = this.ttsRoute();
+    if (!ttsEngineReady(route)) {
+      notify(t(route.engine === 'local' ? 'notice.tts.noLocal' : 'notice.tts.noKey'));
       return;
     }
     const segments = buildScript(this.host.currentBlocks?.() ?? []);
@@ -2034,29 +2248,14 @@ export class ReaderView extends ItemView {
       notify(t('notice.tts.exportEmpty'));
       return;
     }
-    const cacheMB = this.prefs.ttsCacheMB;
-    const cache = cacheMB > 0 ? new TtsCache() : null;
-    const bufs: ArrayBuffer[] = [];
-    let spentChars = 0;
+    let out: { data: ArrayBuffer; ext: string } | null = null;
     try {
-      for (const seg of segments) {
-        const voice = this.ttsVoice();
-        const key = cacheKey(this.bookId, voice, seg.text);
-        let buf = cache ? await cache.get(key) : null;
-        if (!buf) {
-          buf = await synthesizeSpeech({ baseUrl: ai.baseUrl, apiKey: ai.apiKey, text: seg.text, voice });
-          if (cache) await cache.put(key, buf, cacheMB * 1024 * 1024);
-          spentChars += billedChars(seg.text);
-        }
-        bufs.push(buf);
-      }
+      out = await this.renderAudio(route, segments);
     } catch {
       notify(t('notice.tts.failed'));
       return;
     }
-    if (spentChars) this.addTtsSpend(spentChars, estimateCost(spentChars));
-    const wav = concatWav(bufs);
-    if (!wav) {
+    if (!out) {
       notify(t('notice.tts.exportEmpty'));
       return;
     }
@@ -2064,10 +2263,56 @@ export class ReaderView extends ItemView {
     const vault = this.api.app.vault;
     try {
       if (!(await vault.adapter.exists(dir))) await vault.createFolder(dir);
-      const name = `${safeFileName(this.book?.meta.title ?? 'book')}-${safeFileName(this.host.pageKey || 'page')}.wav`;
+      const name = `${safeFileName(this.book?.meta.title ?? 'book')}-${safeFileName(this.host.pageKey || 'page')}.${out.ext}`;
       const path = `${dir}/${name}`;
       if (await vault.adapter.exists(path)) await vault.adapter.remove(path);
-      await vault.createBinary(path, wav);
+      await vault.createBinary(path, out.data);
+      notify(t('notice.tts.exported', { name }));
+    } catch (e) {
+      notify(`${t('notice.tts.failed')}：${(e as Error)?.message || ''}`);
+    }
+  }
+
+  /**
+   * 导出整章音频（2026-11-14）：一章拼成一个文件，写进
+   * `bz-reader/audio/<书名>/<章节>.mp3`。
+   *
+   * 为什么按章拆、不做整本一个大文件：整本 mp3 有 1–2 GB，一次性读进内存
+   * 直接崩；一章几十 MB，写完就释放。手机上按章管理也比一个巨型文件好用。
+   */
+  async exportChapterAudio(): Promise<void> {
+    const route = this.ttsRoute();
+    if (!ttsEngineReady(route)) {
+      notify(t(route.engine === 'local' ? 'notice.tts.noLocal' : 'notice.tts.noKey'));
+      return;
+    }
+    const segments = buildScript(this.host.currentChapterBlocks?.() ?? []);
+    if (!segments.length) {
+      notify(t('notice.tts.exportEmpty'));
+      return;
+    }
+    notify(t('notice.tts.exportingChapter'), 'info', 4000);
+    let out: { data: ArrayBuffer; ext: string } | null = null;
+    try {
+      out = await this.renderAudio(route, segments);
+    } catch {
+      notify(t('notice.tts.failed'));
+      return;
+    }
+    if (!out) {
+      notify(t('notice.tts.exportEmpty'));
+      return;
+    }
+    const bookTitle = safeFileName(this.book?.meta.title ?? 'book');
+    const dir = `bz-reader/audio/${bookTitle}`;
+    const vault = this.api.app.vault;
+    const chapter = safeFileName(this.host.currentChapterTitle?.() || this.host.pageKey || 'chapter');
+    const name = `${chapter}.${out.ext}`;
+    try {
+      if (!(await vault.adapter.exists(dir))) await vault.createFolder(dir);
+      const path = `${dir}/${name}`;
+      if (await vault.adapter.exists(path)) await vault.adapter.remove(path);
+      await vault.createBinary(path, out.data);
       notify(t('notice.tts.exported', { name }));
     } catch (e) {
       notify(`${t('notice.tts.failed')}：${(e as Error)?.message || ''}`);
