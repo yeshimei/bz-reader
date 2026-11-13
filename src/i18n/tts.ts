@@ -29,7 +29,7 @@ export const TTS_ZH = {
   'settings.ttsCache.hint': '听过的不再重复计费；0 = 不缓存。',
   'settings.ttsTest': '试听',
   'settings.ttsKey.hint': '用上面「AI 助手」里的接口地址与密钥；没填密钥时点朗读会带你去设置。',
-  'settings.ttsSpent': '累计约 {cost} 元（{chars} 计费字符，本地估算）',
+  'settings.ttsSpent': '累计已朗读 {chars} 计费字符',
 
   'notice.tts.noKey': '还没有配置 DeepSeek 密钥：去「设置 · AI 助手」填好再用朗读',
   'notice.tts.unsupportedLang': '这本书的语言 DeepSeek 语音不支持（仅中、粤、英、日、韩等），换系统语音试试',
@@ -38,7 +38,7 @@ export const TTS_ZH = {
   'notice.tts.rate': '请求太频繁，稍后再试',
   'notice.tts.busy': '语音服务繁忙，稍后再试',
   'notice.tts.network': '连不上语音服务，检查网络后重试',
-  'notice.tts.cost': '本页约 {chars} 字，约 {cost} 元',
+  'notice.tts.cost': '本页约 {chars} 字',
   'notice.tts.cacheCleared': '朗读缓存已清空',
   'notice.tts.testing': '正在合成试听…',
   'notice.tts.privacy': '朗读会把当前这一页的正文发送给 DeepSeek 做语音合成；只在点朗读时发送。',
@@ -46,7 +46,7 @@ export const TTS_ZH = {
   'notice.tts.exportEmpty': '这一页没有可导出的音频',
   'notice.tts.prefetching': '正在预生成本章音频，做完后翻页即听',
   'notice.tts.prefetched': '本章已缓存 {done} 段',
-  'notice.tts.confirmPrefetch': '本章正文约 {chars} 字，整章预生成约 {cost} 元（DeepSeek 按字数计费）。',
+  'notice.tts.confirmPrefetch': '本章正文约 {chars} 字。预生成会把整章发给语音服务，计费以 DeepSeek 官网为准。',
   'notice.tts.confirmTitle': '预生成整章音频',
   'notice.tts.confirmSome': '只做接下来 20 句',
   'notice.tts.confirmAll': '整章都做',
@@ -62,7 +62,7 @@ export const TTS_ZH = {
   'tts.bar.prefetch': '预生成本章',
   'tts.bar.export': '导出音频',
   'tts.bar.tune': '朗读设置',
-  'tts.bar.cost': '{cost} 元',
+  'tts.bar.cost': '{chars} 字',
 } as const;
 
 export const TTS_ZH_TW = {
@@ -85,7 +85,7 @@ export const TTS_ZH_TW = {
   'settings.ttsCache.hint': '聽過的不再重複計費；0 = 不快取。',
   'settings.ttsTest': '試聽',
   'settings.ttsKey.hint': '用上面「AI 助手」裡的介面位址與金鑰；沒填金鑰時點朗讀會帶你去設定。',
-  'settings.ttsSpent': '累計約 {cost} 元（{chars} 計費字元，本機估算）',
+  'settings.ttsSpent': '累計已朗讀 {chars} 計費字元',
 
   'notice.tts.noKey': '還沒有設定 DeepSeek 金鑰：去「設定 · AI 助手」填好再用朗讀',
   'notice.tts.unsupportedLang': '這本書的語言 DeepSeek 語音不支援（僅中、粵、英、日、韓等），換系統語音試試',
@@ -94,7 +94,7 @@ export const TTS_ZH_TW = {
   'notice.tts.rate': '請求太頻繁，稍後再試',
   'notice.tts.busy': '語音服務繁忙，稍後再試',
   'notice.tts.network': '連不上語音服務，檢查網路後重試',
-  'notice.tts.cost': '本頁約 {chars} 字，約 {cost} 元',
+  'notice.tts.cost': '本頁約 {chars} 字',
   'notice.tts.cacheCleared': '朗讀快取已清空',
   'notice.tts.testing': '正在合成試聽…',
   'notice.tts.privacy': '朗讀會把當前這一頁的正文傳送給 DeepSeek 做語音合成；只在點朗讀時傳送。',
@@ -102,7 +102,7 @@ export const TTS_ZH_TW = {
   'notice.tts.exportEmpty': '這一頁沒有可匯出的音訊',
   'notice.tts.prefetching': '正在預生成本章音訊，做完後翻頁即聽',
   'notice.tts.prefetched': '本章已快取 {done} 段',
-  'notice.tts.confirmPrefetch': '本章正文約 {chars} 字，整章預生成約 {cost} 元（DeepSeek 按字數計費）。',
+  'notice.tts.confirmPrefetch': '本章正文約 {chars} 字。預生成會把整章發給語音服務，計費以 DeepSeek 官網為準。',
   'notice.tts.confirmTitle': '預生成整章音訊',
   'notice.tts.confirmSome': '只做接下來 20 句',
   'notice.tts.confirmAll': '整章都做',
@@ -118,7 +118,7 @@ export const TTS_ZH_TW = {
   'tts.bar.prefetch': '預生成本章',
   'tts.bar.export': '匯出音訊',
   'tts.bar.tune': '朗讀設定',
-  'tts.bar.cost': '{cost} 元',
+  'tts.bar.cost': '{chars} 字',
 } as const;
 
 const TTS_EN_BASE = {
@@ -141,7 +141,7 @@ const TTS_EN_BASE = {
   'settings.ttsCache.hint': 'Anything heard once is not billed again; 0 = no cache.',
   'settings.ttsTest': 'Preview',
   'settings.ttsKey.hint': 'Uses the endpoint and key from “AI assistant” above. Without a key, read aloud takes you to settings.',
-  'settings.ttsSpent': 'About {cost} yuan so far ({chars} billed characters, local estimate)',
+  'settings.ttsSpent': '{chars} billed characters read so far',
 
   'notice.tts.noKey': 'No DeepSeek key yet: fill in “Settings · AI assistant” before using read aloud',
   'notice.tts.unsupportedLang': 'DeepSeek speech does not support this book’s language (zh, yue, en, ja, ko and a few more); try the system voice',
@@ -150,7 +150,7 @@ const TTS_EN_BASE = {
   'notice.tts.rate': 'Too many requests, try again later',
   'notice.tts.busy': 'Speech service is busy, try again later',
   'notice.tts.network': 'Cannot reach the speech service; check the network and retry',
-  'notice.tts.cost': 'About {chars} characters on this page, about {cost} yuan',
+  'notice.tts.cost': 'About {chars} characters on this page',
   'notice.tts.cacheCleared': 'Read-aloud cache cleared',
   'notice.tts.testing': 'Synthesizing a preview…',
   'notice.tts.privacy': 'Read aloud sends the current page to DeepSeek for speech synthesis, and only when you start it.',
@@ -158,7 +158,7 @@ const TTS_EN_BASE = {
   'notice.tts.exportEmpty': 'Nothing on this page to export',
   'notice.tts.prefetching': 'Pre-building this chapter; pages will play instantly once done',
   'notice.tts.prefetched': 'Cached {done} segments for this chapter',
-  'notice.tts.confirmPrefetch': 'This chapter is about {chars} characters; pre-building all of it costs about {cost} yuan (DeepSeek bills per character).',
+  'notice.tts.confirmPrefetch': 'This chapter is about {chars} characters. Pre-building sends the whole chapter to the speech service; billing follows the DeepSeek pricing page.',
   'notice.tts.confirmTitle': 'Pre-build chapter audio',
   'notice.tts.confirmSome': 'Only the next 20 sentences',
   'notice.tts.confirmAll': 'The whole chapter',
@@ -174,7 +174,7 @@ const TTS_EN_BASE = {
   'tts.bar.prefetch': 'Pre-build chapter',
   'tts.bar.export': 'Export audio',
   'tts.bar.tune': 'Reading settings',
-  'tts.bar.cost': '{cost} yuan',
+  'tts.bar.cost': '{chars} chars',
 } as const;
 
 /* 开发期占位：ja / de / fr / es / pt 先复用英文；上架那版统一翻译。 */

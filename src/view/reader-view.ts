@@ -1786,13 +1786,6 @@ export class ReaderView extends ItemView {
     this.ttsIndex = 0;
     this.ttsKind = segments[0].kind;
     this.ttsSnippet = snippetOf(segments[0].text);
-    this.ttsChars = segments.reduce((n, s) => n + billedChars(s.text), 0);
-    this.ttsCost = estimateCost(this.ttsChars);
-    this.addTtsSpend(this.ttsChars, this.ttsCost);
-    this.ttsTotal = segments.length;
-    this.ttsIndex = 0;
-    this.ttsKind = segments[0].kind;
-    this.ttsSnippet = snippetOf(segments[0].text);
 
     const cacheMB = this.prefs.ttsCacheMB;
     const cache = cacheMB > 0 ? new TtsCache() : null;
@@ -1933,13 +1926,13 @@ export class ReaderView extends ItemView {
   }
 
   /** 预生成前的确认：走 Obsidian 自己的弹窗，不用原生 confirm */
-  private askPrefetch(chars: number, cost: number): Promise<'all' | 'some' | null> {
+  private askPrefetch(chars: number): Promise<'all' | 'some' | null> {
     return new Promise((resolve) => {
       let picked: 'all' | 'some' | null = null;
       const modal = new Modal(this.app);
       modal.titleEl.setText(t('notice.tts.confirmTitle'));
       modal.contentEl.createEl('p', {
-        text: t('notice.tts.confirmPrefetch', { chars: String(chars), cost: cost.toFixed(2) }),
+        text: t('notice.tts.confirmPrefetch', { chars: String(chars) }),
       });
       const row = modal.contentEl.createDiv({ cls: 'modal-button-container' });
       const close = (v: 'all' | 'some' | null): void => {
@@ -1980,9 +1973,10 @@ export class ReaderView extends ItemView {
       return;
     }
     const chars = segments.reduce((n, s) => n + billedChars(s.text), 0);
-    const cost = estimateCost(chars);
-    if (cost >= 5) {
-      const picked = await this.askPrefetch(chars, cost);
+    /* 按字数问一句（不报钱：官方价格随时会变，写死一个数只会误导）。
+       两万计费字符约一万汉字，够听小半章了。 */
+    if (chars >= 20000) {
+      const picked = await this.askPrefetch(chars);
       if (!picked) return;
       if (picked === 'some') segments = segments.slice(0, 20);
     }

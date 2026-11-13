@@ -456,7 +456,6 @@ export function viewSettings(v: SettingsView): string {
       </div>
       <div class="bzs-mini" style="margin:0 0 8px;line-height:1.9">${t('settings.ttsKey.hint')}</div>
       <div class="bzs-mini" style="margin:0 0 8px">${t('settings.ttsSpent', {
-        cost: s.ttsStats.cost.toFixed(2),
         chars: String(s.ttsStats.chars),
       })}</div>
       <div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
