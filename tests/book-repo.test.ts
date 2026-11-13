@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BookRepo, makeBook, planRelocations, type ScannedFile } from '../src/data/book-repo';
+import { BookRepo, bookNeedsRelocate, makeBook, planRelocations, type ScannedFile } from '../src/data/book-repo';
+import { makeClipBookRecord } from '../src/data/clip-book-entry';
 
 function book(path: string, size: number, format: 'epub' | 'txt' = 'epub') {
   const b = makeBook(path, format, size);
@@ -97,6 +98,38 @@ describe('BookRepo 按内容指纹去重（同一份文件只登记一次）', (
   });
 });
 
+describe('剪藏本（虚拟书）不参与失联判定', () => {
+  /* 真机复现（2026-11-13 录屏库）：书架上点「剪藏本」弹「文件失联」。
+     vaultPath 是空串，但 markMissing 拿空串去 existingPaths 里查永远是 false，
+     于是整本书被画成失联角标；openBookById 的「文件在不在」同样把它拦进
+     重新定位弹层。剪藏本本来就没有文件——这类检查必须整本跳过。 */
+  const clip = () => makeClipBookRecord('剪藏本', 'bz');
+
+  it('markMissing 跳过虚拟书，不给它打失联标', () => {
+    const c = clip();
+    const real = book('书/a.epub', 1024);
+    const repo = new BookRepo([c, real]);
+    repo.markMissing(new Set(['书/a.epub']));
+    expect((c.fileRef as { fileMissing?: boolean }).fileMissing).toBeFalsy();
+    expect((real.fileRef as { fileMissing?: boolean }).fileMissing).toBe(false);
+  });
+
+  it('真书文件真丢了，照旧标失联（别把整条判定弄哑）', () => {
+    const gone = book('书/gone.epub', 1024);
+    const repo = new BookRepo([gone]);
+    repo.markMissing(new Set());
+    expect((gone.fileRef as { fileMissing?: boolean }).fileMissing).toBe(true);
+  });
+
+  it('虚拟书上一轮残留的 fileMissing 会被清掉（升级上来的旧记录）', () => {
+    const c = clip();
+    (c.fileRef as { fileMissing?: boolean }).fileMissing = true;
+    const repo = new BookRepo([c]);
+    repo.markMissing(new Set());
+    expect((c.fileRef as { fileMissing?: boolean }).fileMissing).toBe(false);
+  });
+});
+
 describe('BookRepo.relocate', () => {
   it('只改路径：id / 进度 / 划线全部保留，fileMissing 清掉', () => {
     const b = book('书/旧名.epub', 1024);
@@ -109,5 +142,35 @@ describe('BookRepo.relocate', () => {
     expect(b.id).toBe(book('书/旧名.epub', 1024).id);
     expect(b.reading.position.percent).toBe(0.42);
     expect(b.notes.highlights).toHaveLength(1);
+  });
+});
+
+describe('bookNeedsRelocate（点开一本书之前要不要先送去重新定位）', () => {
+  const exists = (p: string) => p === '书/a.epub';
+
+  it('剪藏本没有文件，也必须能直接读（真机：书架上点它弹「文件失联」）', () => {
+    const c = makeClipBookRecord('剪藏本', 'bz');
+    expect(bookNeedsRelocate(c, exists)).toBe(false);
+  });
+
+  it('剪藏本即便残留了 fileMissing 也不拦（旧记录升级上来的）', () => {
+    const c = makeClipBookRecord('剪藏本', 'bz');
+    (c.fileRef as { fileMissing?: boolean }).fileMissing = true;
+    expect(bookNeedsRelocate(c, exists)).toBe(false);
+  });
+
+  it('真书文件不见了 → 要重新定位', () => {
+    const gone = book('书/gone.epub', 1024);
+    expect(bookNeedsRelocate(gone, exists)).toBe(true);
+  });
+
+  it('真书被标过失联 → 即便文件这时又能访问也要先定位', () => {
+    const b = book('书/a.epub', 1024);
+    (b.fileRef as { fileMissing?: boolean }).fileMissing = true;
+    expect(bookNeedsRelocate(b, exists)).toBe(true);
+  });
+
+  it('真书文件在、没被标失联 → 正常打开', () => {
+    expect(bookNeedsRelocate(book('书/a.epub', 1024), exists)).toBe(false);
   });
 });

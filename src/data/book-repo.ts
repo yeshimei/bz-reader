@@ -171,8 +171,7 @@ export class BookRepo {
   }
 
   /** 清掉指向已不存在文件的记录（不删用户数据，只是标记 fileMissing） */
-  markMissing(existingPaths: Set<string>): void {
-    for (const b of this.books) {
+  markMissing(existingPaths: Set<string>): void {    for (const b of this.books) {
       /* 剪藏本是虚拟书（没有文件）：不能因为路径是空串就标成失联 */
       if (isClipBookRecord(b)) {
         b.fileRef.fileMissing = false;
@@ -208,6 +207,18 @@ export class BookRepo {
     });
     return limit > 0 ? sorted.slice(0, limit) : sorted;
   }
+}
+
+/**
+ * 点开这本书时，该不该先送去「重新定位」而不是直接读。
+ *
+ * 剪藏本是虚拟书（`vaultPath` 空串、磁盘上没有对应文件）：任何「文件在不在」
+ * 的检查对它都恒为否。不单独让路的话，书架点它必弹「文件失联」——2026-11-13
+ * 录屏库真机复现。真书的判定一字不动：标记失联的、或文件确实不见了的，照旧拦。
+ */
+export function bookNeedsRelocate(book: ReaderBook, fileExists: (path: string) => boolean): boolean {
+  if (isClipBookRecord(book)) return false;
+  return book.fileRef.fileMissing === true || !fileExists(book.fileRef.vaultPath);
 }
 
 export interface ScannedFile {

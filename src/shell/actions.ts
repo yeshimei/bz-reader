@@ -46,7 +46,7 @@ import {
 } from '../data/shelves';
 import { hostLanguageCode, isLocale, resolveLocale, setLocale, t, type LanguagePref, type MsgKey } from '../i18n';
 import { bookMenuItems } from './book-menu';
-import { scanVault } from '../data/book-repo';
+import { bookNeedsRelocate, scanVault } from '../data/book-repo';
 import { readFingerprint } from '../data/book-scan';
 import { MAX_FINGERPRINT_BYTES, fingerprintOf } from '../data/fingerprint';
 import { importFolderOf, uniquePath } from '../data/importer';
@@ -154,8 +154,10 @@ function openBookById(id: string, cfi?: string): void {
   const book = liveBooks().find((b) => b.id === id);
   if (!src || !book) return;
   /* 文件不在登记的路径上：不当成「打开失败」，直接进「重新定位」弹层。
-     顺手把失联标记写上——书架下一次重绘就压暗封面，用户也能看见。 */
-  if (book.fileRef.fileMissing || !src.app.vault.getAbstractFileByPath(book.fileRef.vaultPath)) {
+     顺手把失联标记写上——书架下一次重绘就压暗封面，用户也能看见。
+     剪藏本没有文件（vaultPath 是空串），这个检查对它恒为否：交给
+     bookNeedsRelocate 统一让路，否则书架上点它只会弹「文件失联」。 */
+  if (bookNeedsRelocate(book, (p) => !!src.app.vault.getAbstractFileByPath(p))) {
     book.fileRef.fileMissing = true;
     src.store.touch();
     openOverlay({ kind: 'missing', bookId: id });
