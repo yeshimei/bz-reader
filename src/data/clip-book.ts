@@ -5,7 +5,7 @@
  * 翻到哪一章 = 拉哪一篇正文；图片视频 = 用的时候才读。剪藏本一变，
  * 阅读页轮询 `dataVersion()` 就能知道，重建目录即可。
  */
-import type { App, TFile } from 'obsidian';
+import type { App } from 'obsidian';
 import { t } from '../i18n';
 import { probeClipbook, clipbookProblem, type ClipbookArticle, type ClipbookFacade, type ClipReadEntry } from './clipbook-bridge';
 import { planClipBook, type PlanArticle } from './clip-epub/plan';
@@ -150,6 +150,12 @@ function mimeOf(path: string, kind: 'image' | 'video'): string {
   return (kind === 'video' ? VIDEO_EXT : IMAGE_EXT)[ext] || 'application/octet-stream';
 }
 
+/** 库内文件的最小形状：只要路径与文件名，免得为了读盘去 cast TFile */
+interface ClipAssetFile {
+  path: string;
+  name: string;
+}
+
 /**
  * 正文里的资源名 → 库内文件。
  *
@@ -157,18 +163,38 @@ function mimeOf(path: string, kind: 'image' | 'video'): string {
  * 如 CONFIG/APPENDIX），只按库根路径找会全部落空——真机上整篇文章
  * 的图都变成「[图片]」（2026-11-13 截图）。这里交给 data/clip-asset 的三级
  * 解析：路径直查 → Obsidian 链接解析 → 全库同名兜底。
+ *
+ * 只转换出 `{ path, name }`、不 cast `TFile`：上架 lint 禁止
+ * `no-tfile-tfolder-cast`，而读盘用 `adapter.readBinary(path)` 本来就不需要
+ * TFile 实例。
  */
-function clipFileOf(app: App, path: string): TFile | null {
-  const byPath = (p: string): TFile | null => {
+function clipFileOf(app: App, path: string): ClipAssetFile | null {
+  const byPath = (p: string): ClipAssetFile | null => {
     const f = app.vault.getAbstractFileByPath(p);
-    return f && 'extension' in f ? (f as TFile) : null;
+    /* 目录也走这里（TAbstractFile）；目录没有 extension，用它区分文件 */
+    return f && 'extension' in f ? { path: f.path, name: f.name } : null;
   };
   const mc = app.metadataCache as
-    | { getFirstLinkpathDest?: (link: string, source: string) => TFile | null }
+    | {
+        getFirstLinkpathDest?: (
+          link: string,
+          source: string,
+        ) => { path: string; name: string } | null;
+      }
     | undefined;
-  const byLink = (n: string): TFile | null =>
-    typeof mc?.getFirstLinkpathDest === 'function' ? mc.getFirstLinkpathDest(n, '') : null;
-  return pickClipImageFile({ byPath, byLink, all: () => app.vault.getFiles() }, path);
+  const byLink = (n: string): ClipAssetFile | null => {
+    const f =
+      typeof mc?.getFirstLinkpathDest === 'function' ? mc.getFirstLinkpathDest(n, '') : null;
+    return f ? { path: f.path, name: f.name } : null;
+  };
+  return pickClipImageFile<ClipAssetFile>(
+    {
+      byPath,
+      byLink,
+      all: () => app.vault.getFiles().map((f) => ({ path: f.path, name: f.name })),
+    },
+    path,
+  );
 }
 
 /**
@@ -185,8 +211,8 @@ export function clipAssetResolver(app: App): (kind: 'image' | 'video', path: str
       try {
         const file = clipFileOf(app, path);
         if (!file) return null;
-        const buf = await app.vault.readBinary(file);
-        return URL.createObjectURL(new Blob([buf], { type: mimeOf(path, kind) }));
+        const buf = await app.vault.adapter.readBinary(file.path);
+        return URL.createObjectURL(new Blob([buf], { type: mimeOf(file.path, kind) }));
       } catch {
         return null;
       }
