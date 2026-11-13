@@ -392,6 +392,8 @@ export class ReaderView extends ItemView {
   private voice: SpeakHandle | null = null;
   private ttsPlayer: TtsPlayer | null = null;
   private ttsBarEl: HTMLElement | null = null;
+  /** 正在念的那一句的框（宿主坐标，一句可能跨几行） */
+  private ttsMarks: HTMLElement[] = [];
   private ttsIndex = 0;
   private ttsKind: ScriptKind = 'narration';
   private ttsSnippet = '';
@@ -1380,9 +1382,9 @@ export class ReaderView extends ItemView {
         this.toggleBookmark();
         break;
       case 'tts':
-        /* 手机不提供朗读：命令在命令面板里也不注册（见 plugin-commands），
-           这条兜底防别的入口（内置键 / 深链）把它再叫起来。 */
-        if (!isMobileShell()) this.toggleTts();
+        /* 手机端也放开朗读（2026-11-14 用户要求）：以前这里按平台拦一道，
+           现在头栏、命令面板、这条兜底三处都能唤起。 */
+        this.toggleTts();
         break;
       case 'typography': {
         /* PDF 的「排版」是旋转 / 单双页 / 翻页，不是字号行距（那些来自原文件）。
@@ -1812,7 +1814,7 @@ export class ReaderView extends ItemView {
         this.ttsIndex = index;
         this.ttsKind = seg.kind;
         this.ttsSnippet = snippetOf(seg.text);
-        this.host.markSpeechBlocks?.(seg.blocks);
+        this.showSpeechMark(this.host.speechRects?.(seg.blocks, seg.text) ?? []);
         this.renderTtsBar();
       },
       onEnd: () => this.onPageSpoken(),
@@ -1872,21 +1874,44 @@ export class ReaderView extends ItemView {
 
   private renderTtsBar(): void {
     if (!this.ttsBarEl) return;
-    this.ttsBarEl.innerHTML = ttsBarHtml({
-      active: !!this.ttsPlayer,
-      paused: this.ttsPlayer?.stateName === 'paused',
-      index: this.ttsIndex,
-      total: this.ttsTotal,
-      kind: this.ttsKind,
-      snippet: this.ttsSnippet,
-      chars: this.ttsChars,
-      cost: this.ttsCost,
-    });
+    this.ttsBarEl.innerHTML = ttsBarHtml({ paused: this.ttsPlayer?.stateName === 'paused' });
+    /* 条子上只有图标：按 data-icon 交给 Obsidian 的图标集，
+       不自己拼 SVG，也就不用跟着主题换颜色。 */
+    for (const slot of this.ttsBarEl.querySelectorAll<HTMLElement>('[data-icon]')) {
+      setIcon(slot, slot.dataset.icon ?? '');
+    }
   }
 
   private hideTtsBar(): void {
     this.ttsBarEl?.remove();
     this.ttsBarEl = null;
+  }
+
+  /**
+   * 把「正在念的这一句」框出来（2026-11-14）。
+   *
+   * 用宿主上的绝对定位 div，不用 foliate 的 overlayer：分栏模式下后者的
+   * 坐标系跟宿主对不上，框会画到侧栏外侧。矩形由引擎统一换算成宿主坐标。
+   */
+  private showSpeechMark(rects: Array<{ left: number; top: number; width: number; height: number }>): void {
+    this.clearSpeechMark();
+    const root = this.rootEl;
+    if (!root || !rects.length) return;
+    const base = root.getBoundingClientRect();
+    for (const r of rects) {
+      const box = el('div', 'bzr-tts-mark');
+      box.style.left = `${r.left - base.left}px`;
+      box.style.top = `${r.top - base.top}px`;
+      box.style.width = `${r.width}px`;
+      box.style.height = `${r.height}px`;
+      root.appendChild(box);
+      this.ttsMarks.push(box);
+    }
+  }
+
+  private clearSpeechMark(): void {
+    for (const box of this.ttsMarks) box.remove();
+    this.ttsMarks = [];
   }
 
   private onTtsBarClick(ev: MouseEvent): void {
@@ -2092,6 +2117,7 @@ export class ReaderView extends ItemView {
     this.voice = null;
     this.ttsPlayer?.stop();
     this.ttsPlayer = null;
+    this.clearSpeechMark();
     this.host.clearSpeechMark?.();
     this.hideTtsBar();
     this.syncToolState();

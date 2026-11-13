@@ -127,8 +127,8 @@ export interface ReaderEngine {
   currentChapterBlocks?(): Array<{ tag: string; text: string }>;
   /** 当前章标题（预生成 / 导出音频命名用） */
   currentChapterTitle?(): string;
-  /** 把正在念的那一段框出来（角色高亮）；没有覆盖层的引擎不实现 */
-  markSpeechBlocks?(indexes: readonly number[]): void;
+  /** 正在念的那一句在宿主坐标里的矩形（视图层画框用）；不实现就不高亮 */
+  speechRects?(indexes: readonly number[], text: string): Array<{ left: number; top: number; width: number; height: number }>;
   clearSpeechMark?(): void;
   exportChapters(opts?: {
     onProgress?: (done: number, total: number, title: string) => void;

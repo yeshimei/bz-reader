@@ -4,6 +4,7 @@ import {
   buildScript,
   estimateCost,
   splitQuotes,
+  splitSentences,
   ttsLangSupported,
 } from '../src/core/tts-script';
 
@@ -46,28 +47,48 @@ describe('引号切分（旁白 / 对话）', () => {
   });
 });
 
-describe('朗读脚本合并', () => {
-  it('连续同角色合并，跨角色的段不合并', () => {
-    const script = buildScript([
-      { text: '第一段旁白。' },
-      { text: '第二段旁白。' },
-      { text: '“对白。”' },
+describe('按句切分', () => {
+  it('句号、叹号、问号各自收尾', () => {
+    expect(splitSentences('这是一句足够长的旁白文字。这是第二句够长的话！第三句也够长了？')).toEqual([
+      '这是一句足够长的旁白文字。',
+      '这是第二句够长的话！',
+      '第三句也够长了？',
     ]);
-    expect(script.map((s) => s.kind)).toEqual(['narration', 'dialogue']);
-    expect(script[0].blocks).toEqual([0, 1]);
-    expect(script[1].blocks).toEqual([2]);
   });
 
-  it('同一段里旁白与对话交替时拆开，block 号相同', () => {
-    const script = buildScript([{ text: '他推开门。“谁？”她问。' }]);
-    expect(script.map((s) => s.kind)).toEqual(['narration', 'dialogue', 'narration']);
+  it('连续标点一起收尾，不拆成两句', () => {
+    expect(splitSentences('他说什么？！我不知道……真的吗')).toEqual(['他说什么？！', '我不知道……真的吗']);
+  });
+
+  it('太短的碎片并进前一句', () => {
+    expect(splitSentences('这是一句足够长的话。好。')).toEqual(['这是一句足够长的话。好。']);
+  });
+
+  it('没有句末标点时整段算一句', () => {
+    expect(splitSentences('这句话没有标点结尾')).toEqual(['这句话没有标点结尾']);
+  });
+
+  it('空白返回空数组', () => {
+    expect(splitSentences('   ')).toEqual([]);
+  });
+});
+
+describe('朗读脚本', () => {
+  it('一句一段（高亮要跟着句子走）', () => {
+    const script = buildScript([{ text: '这是一句足够长的旁白文字。这是第二句够长的话。' }]);
+    expect(script.map((s) => s.text)).toEqual(['这是一句足够长的旁白文字。', '这是第二句够长的话。']);
     expect(script.every((s) => s.blocks[0] === 0)).toBe(true);
   });
 
-  it('合并不超过目标字数', () => {
-    const long = '甲'.repeat(150);
-    const script = buildScript([{ text: long }, { text: long }], { target: 200 });
-    expect(script).toHaveLength(2);
+  it('旁白与对白分属两种角色，不合并', () => {
+    const script = buildScript([{ text: '他推开门，屋里很暗很静。“谁？”一个女人的声音。' }]);
+    expect(script.map((s) => s.kind)).toEqual(['narration', 'dialogue', 'narration']);
+  });
+
+  it('块的序号保留在每一句上（高亮按块定位）', () => {
+    const script = buildScript([{ text: '“好。”' }, { text: '“走。”' }]);
+    expect(script.map((s) => s.text)).toEqual(['好。', '走。']);
+    expect(script.map((s) => s.blocks[0])).toEqual([0, 1]);
   });
 
   it('空白段落不产出空段', () => {

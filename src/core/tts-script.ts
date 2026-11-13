@@ -131,35 +131,72 @@ export function splitQuotes(text: string): Array<{ kind: ScriptKind; text: strin
 }
 
 /**
+ * 一段文字切成「一句一段」（朗读与高亮都以句为单位，2026-11-14）。
+ *
+ * 以前按 240 字合并成一块：一页只有两三段，播放条上的高亮只能框住整段，
+ * 跨页的长段落还会把整段（含屏幕外的字）念出来。改成一句一次合成之后，
+ * 高亮能跟着句子走，首句出声也更快；代价是请求数变多（每句一次），
+ * 靠播放器的预取盖住。
+ *
+ * 句末标点跟在句尾；连续标点（「！？」「……」）一起收尾。太短的碎片
+ * （少于 6 字，常见于「“是。”」）并进前一句，免得为两个字单跑一次请求。
+ */
+export function splitSentences(text: string): string[] {
+  const src = String(text ?? '').replace(/\s+/g, ' ').trim();
+  if (!src) return [];
+  const parts: string[] = [];
+  let buf = '';
+  for (let i = 0; i < src.length; i += 1) {
+    buf += src[i];
+    if (!SENTENCE_END.test(src[i])) continue;
+    while (i + 1 < src.length && SENTENCE_END.test(src[i + 1])) {
+      buf += src[i + 1];
+      i += 1;
+    }
+    const one = buf.trim();
+    if (one) parts.push(one);
+    buf = '';
+  }
+  const tail = buf.trim();
+  if (tail) parts.push(tail);
+  return mergeShort(parts);
+}
+
+const SENTENCE_END = /[。！？；!?;…]/;
+const SHORT_SENTENCE = 6;
+
+function mergeShort(parts: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const s of parts) {
+    const prev = out[out.length - 1];
+    if (prev !== undefined && (s.length < SHORT_SENTENCE || prev.length < SHORT_SENTENCE)) {
+      out[out.length - 1] = prev + s;
+      continue;
+    }
+    out.push(s);
+  }
+  return out;
+}
+
+/**
  * 一页正文 → 朗读脚本。
  *
- * 段落顺序即朗读顺序；同一段里旁白与对话交替时按出现顺序拆开。
- * 合并只在**连续同角色**之间发生，且不跨过 240 字——跨角色合并没有意义。
+ * 段落顺序即朗读顺序；同一段里旁白与对话交替时按出现顺序拆开；每种角色
+ * 内部再按句切（见 splitSentences）。不跨角色合并——旁白和对白要让两把
+ * 嗓子分开念。
  */
 export function buildScript(
   blocks: readonly ScriptBlock[],
-  opts: { target?: number } = {},
+  _opts: { target?: number } = {},
 ): ScriptSegment[] {
-  const target = Math.max(60, opts.target ?? SEGMENT_TARGET);
   const out: ScriptSegment[] = [];
-  let pending: ScriptSegment | null = null;
-  const push = (kind: ScriptKind, text: string, index: number): void => {
-    const body = text.trim();
-    if (!body) return;
-    if (pending && pending.kind === kind && pending.text.length + body.length <= target) {
-      pending.text += `\n${body}`;
-      if (!pending.blocks.includes(index)) pending.blocks.push(index);
-      return;
-    }
-    if (pending) out.push(pending);
-    pending = { kind, text: body, blocks: [index] };
-  };
-
   blocks.forEach((block, index) => {
-    const pieces = splitQuotes(block.text);
-    for (const piece of pieces) push(piece.kind, piece.text, index);
+    for (const piece of splitQuotes(block.text)) {
+      for (const sentence of splitSentences(piece.text)) {
+        out.push({ kind: piece.kind, text: sentence, blocks: [index] });
+      }
+    }
   });
-  if (pending) out.push(pending);
   return out;
 }
 

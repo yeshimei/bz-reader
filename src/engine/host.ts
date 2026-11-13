@@ -28,6 +28,8 @@ import type {
   ShowAnnotationDetail,
 } from '../types/foliate';
 import { buildChapterCSS } from './theme';
+import { overlapsSpan, visibleSpan, type Span } from './visible-span';
+import { cropToSpan, findInRange } from './range-text';
 import { contentInset } from './content-inset';
 import { makeTxtBook, countWords } from './txt';
 import { decodeTxtBytes } from './encoding';
@@ -358,13 +360,13 @@ export class EngineHost {
   private chapterTitle = '';
   private chapterHref = '';
   /**
-   * 当前页每个朗读段对应的原始块元素（2026-11-13）。
+   * 当前页每个朗读块对应的一段原文 Range（2026-11-13，2026-11-14 改成裁到本屏）。
    *
-   * 高亮要的是**原文档里的元素**，不能拿 `cloneContents()` 的副本——副本
-   * 不在 iframe 文档里，`selectNodeContents` 画不出框。所以 currentBlocks
-   * 改走「整章元素 + 与视口相交过滤」，顺手把元素记在这里。
+   * 高亮要的是**原文档里的 Range**，不能拿 `cloneContents()` 的副本——副本
+   * 不在 iframe 文档里，画不出框。所以 currentBlocks 在过滤可见块时顺手把
+   * 「块 ∩ 本屏」的 Range 记在这里；`markSpeechText` 再在里面按句子定位。
    */
-  private speechSpots: Array<{ el: HTMLElement; content: FoliateContent }> = [];
+  private speechSpots: Array<{ content: FoliateContent; range: Range }> = [];
   /**
    * 每章字节数（`book.sections[i].size`）：全本页码拿它估算没读过的章节。
    * 换书时重填，空书就是空数组——拿不到 size 的格式（个别 CBZ）估算会跳过。
@@ -1954,16 +1956,10 @@ export class EngineHost {
    * 拼成一段 Range 只取屏幕上这一页；取不到才退回整章。
    */
   currentText(): string {
-    const contents = this.view?.renderer?.getContents?.() ?? [];
-    const parts: string[] = [];
-    for (const c of contents) {
-      const doc = c.doc;
-      if (!doc?.body) continue;
-      const visible = this.visibleText(doc);
-      const t = (visible || doc.body.textContent || '').replace(/\s+/g, ' ').trim();
-      if (t) parts.push(t);
-    }
-    return parts.join(' ').trim();
+    return this.currentBlocks()
+      .map((b) => b.text)
+      .join(' ')
+      .trim();
   }
 
   /**
@@ -1976,31 +1972,33 @@ export class EngineHost {
    * 分页器把整章排在一个 document 里，用「块与视口相交」筛出这一页。
    * 一块都筛不出来（固定版式 / 没有块级元素的 TXT）时退回可见 Range 文本。
    */
+  /**
+   * 当前屏幕上这一页的文字（朗读脚本用）。
+   *
+   * 分栏模式有两套坐标：块元素与 `getClientRects()` 是整章布局坐标
+   * （0–38529），caret 只认 iframe 视口（0–632）。所以「这一屏从哪开始」
+   * 不能问 caret，只能用块的逐字符矩形跟可见区间比（cropToSpan）。
+   * 这样起点就是屏幕第一个字，跨页段落也只念屏幕上那一段。
+   */
   currentBlocks(): Array<{ tag: string; text: string }> {
     this.speechSpots = [];
     const contents = this.view?.renderer?.getContents?.() ?? [];
     const out: Array<{ tag: string; text: string }> = [];
     for (const c of contents) {
       const doc = c.doc;
-      const win = doc?.defaultView;
-      if (!doc?.body || !win) continue;
-      const w = win.innerWidth || doc.documentElement.clientWidth || 0;
-      const h = win.innerHeight || doc.documentElement.clientHeight || 0;
-      if (w < 8 || h < 8) continue;
+      if (!doc?.body) continue;
+      const h = doc.defaultView?.innerHeight || doc.documentElement.clientHeight || 0;
+      if (h < 8) continue;
+      const span = this.visibleSpanOf(doc);
+      if (!span) continue;
       for (const el of leafBlocks(doc.body)) {
-        if (!inViewport(el, w, h)) continue;
-        const text = blockText(el);
+        const range = cropToSpan(el, span, h);
+        if (!range) continue;
+        const text = (range.toString() || '').replace(/\s+/g, ' ').trim();
         if (!text) continue;
         out.push({ tag: el.tagName.toLowerCase(), text });
-        this.speechSpots.push({ el, content: c });
+        this.speechSpots.push({ content: c, range });
       }
-    }
-    if (out.length) return out;
-    for (const c of contents) {
-      const doc = c.doc;
-      if (!doc?.body) continue;
-      const t = (this.visibleFragment(doc)?.textContent ?? '').replace(/\s+/g, ' ').trim();
-      if (t) out.push({ tag: 'p', text: t });
     }
     return out;
   }
@@ -2021,21 +2019,42 @@ export class EngineHost {
     return fromToc || this.chapterTitle.trim();
   }
 
-  /** 朗读到某一段时把原文框出来；`indexes` 是 currentBlocks 的序号 */
-  markSpeechBlocks(indexes: readonly number[]): void {
-    this.clearSpeechMark();
+  /**
+   * 朗读到某一句时，这一句在**宿主坐标**里的几行矩形（给阅读视图画框）。
+   *
+   * 不走 foliate 的 `overlayer`：分栏模式下它的坐标系跟宿主对不上，框会画到
+   * 侧栏外侧（真机实测）。改为把 `range.getClientRects()` 过 `frameGeom`
+   * 换回宿主坐标，由视图层用绝对定位的 div 画——和划词工具条同一套坐标。
+   *
+   * 找不到精确位置（句子跨节点、引号被去掉后对不上）就退这一块，宁可多亮。
+   */
+  speechRects(indexes: readonly number[], text: string): Rect[] {
     const spot = indexes.length ? this.speechSpots[indexes[0]] : undefined;
-    if (!spot?.content.overlayer) return;
+    if (!spot) return [];
+    let range: Range;
     try {
-      const range = spot.content.doc.createRange();
-      range.selectNodeContents(spot.el);
-      const color =
-        getComputedStyle(spot.content.doc.documentElement).getPropertyValue('--interactive-accent').trim() ||
-        '#c8a464';
-      spot.content.overlayer.add(SPEECH_KEY, range, Overlayer.outline, { color, width: 2 });
+      range = findInRange(spot.range, text) ?? spot.range;
     } catch {
-      /* 章已经卸载 / 覆盖层不在：不画就是了 */
+      return [];
     }
+    const g = this.frameGeom(spot.content.doc);
+    const span = this.visibleSpanOf(spot.content.doc);
+    const viewBox = this.view?.getBoundingClientRect?.();
+    /* 行矩形是布局坐标，`span.x0` 就是「阅读区左边」对应的布局位置：减掉
+       再回到宿主坐标。用 frame.left 会整体偏一栏（真机偏 390px）。 */
+    const originX = span && viewBox ? viewBox.left - span.x0 : g.left;
+    const originY = viewBox ? viewBox.top : g.top;
+    const out: Rect[] = [];
+    for (const r of Array.from(range.getClientRects())) {
+      if (r.width < 1 || r.height < 1) continue;
+      out.push({
+        left: originX + r.left * g.scale,
+        top: originY + r.top * g.scale,
+        width: r.width * g.scale,
+        height: r.height * g.scale,
+      });
+    }
+    return out;
   }
 
   /** 撤掉朗读高亮（停止、换页、念完时调） */
@@ -2060,22 +2079,56 @@ export class EngineHost {
 
   /** 可见区的 DOM 片段：朗读取段落、正文取纯文本共用同一刀 */
   private visibleFragment(doc: Document): DocumentFragment | null {
+    const r = this.pageRange(doc);
+    return r ? r.cloneContents() : null;
+  }
+
+  /**
+   * 这一屏的 Range：左上角落一次 caret、右下角落一次 caret。
+   *
+   * caret API 吃的是 **iframe 视口坐标**（分栏模式下就是当前那一栏，宽 632），
+   * 不是 `getClientRects()` 那种整章布局坐标（0–38529）。两者混用会取到
+   * 「屏幕外左边一栏」的字——真机表现为从段落中间靠前的位置开始念。
+   */
+  private pageRange(doc: Document): Range | null {
     const win = doc.defaultView;
     if (!win) return null;
     try {
-      const w = win.innerWidth || doc.documentElement.clientWidth || 0;
+      /* 分栏模式下 `win.innerWidth` 是整章宽（实测 38577），文档元素的
+         渲染宽才是当前一栏（632）。caret 只认后者。 */
+      const w = doc.documentElement.getBoundingClientRect().width || win.innerWidth || 0;
       const h = win.innerHeight || doc.documentElement.clientHeight || 0;
       if (w < 8 || h < 8) return null;
       const start = caretPointAt(doc, 2, 2);
       const end = caretPointAt(doc, w - 4, h - 4);
       if (!start || !end) return null;
-      const range = doc.createRange();
-      range.setStart(start.node, start.offset);
-      range.setEnd(end.node, end.offset);
-      return range.cloneContents();
+      const r = doc.createRange();
+      r.setStart(start.node, start.offset);
+      r.setEnd(end.node, end.offset);
+      return r;
     } catch {
       return null;
     }
+  }
+
+  /**
+   * 这一屏在 iframe 内容坐标里的横区间；拿不到 iframe 位置时 null。
+   *
+   * 「阅读区」取 foliate-view 元素的位置，不是整个窗口：左边还有侧栏，
+   * 按窗口算会把侧栏底下那半栏字也算成可见（真机偏 390px）。
+   */
+  private visibleSpanOf(doc: Document): Span | null {
+    const win = doc.defaultView;
+    if (!win) return null;
+    const frame = win.frameElement as HTMLElement | null;
+    if (!frame) return null;
+    const box = this.view?.getBoundingClientRect?.();
+    const host =
+      box && box.width >= 8
+        ? { left: box.left, width: box.width }
+        : { left: 0, width: frame.ownerDocument.documentElement.clientWidth };
+    if (host.width < 8) return null;
+    return visibleSpan(frame.getBoundingClientRect(), host);
   }
 
   /** 跳到 TOC 项（href 由 foliate 解析成章节 + 锚点） */
@@ -2483,10 +2536,6 @@ const SPEECH_KEY = 'bzr-tts-speech';
 function leafBlocks(root: ParentNode): HTMLElement[] {
   const all = Array.from(root.querySelectorAll<HTMLElement>(BLOCK_TAGS));
   return all.filter((el) => !el.querySelector(BLOCK_TAGS));
-}
-
-function blockText(el: HTMLElement): string {
-  return (el.textContent ?? '').replace(/\s+/g, ' ').trim();
 }
 
 /** 块与 iframe 视口相交就算「这一页的」 */
