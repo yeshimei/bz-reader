@@ -13,8 +13,10 @@
  * de phrase) — sinon la palette affiche un espace bizarre en début de nom.
  */
 import type { MsgKey } from './zh';
+import { TTS_FR } from './tts';
 
 export const FR: Record<MsgKey, string> = {
+  ...TTS_FR,
   /* ── Mots courants ──────────────────────────────────────── */
   'common.default': 'par défaut',
   'common.untitled': 'Sans titre',

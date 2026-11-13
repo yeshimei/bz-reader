@@ -13,8 +13,10 @@
  * «ecrã»/«tela») aparecem justamente nos termos que usamos aqui.
  */
 import type { MsgKey } from './zh';
+import { TTS_PT } from './tts';
 
 export const PT: Record<MsgKey, string> = {
+  ...TTS_PT,
   /* ── Palavras comuns ────────────────────────────────────── */
   'common.default': 'padrão',
   'common.untitled': 'Sem título',

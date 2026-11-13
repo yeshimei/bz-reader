@@ -12,8 +12,10 @@
  * レビュー、「想法」に当たるのは「メモ」か「コメント」。UI では短い方が強い。
  */
 import type { MsgKey } from './zh';
+import { TTS_JA } from './tts';
 
 export const JA: Record<MsgKey, string> = {
+  ...TTS_JA,
   /* ── 共通語 ──────────────────────────────────────────────── */
   'common.default': '既定',
   'common.untitled': '無題',

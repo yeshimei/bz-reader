@@ -13,8 +13,10 @@
  * kürzere Formulierung gewählt (z. B. „Regal" statt „Bücherregal").
  */
 import type { MsgKey } from './zh';
+import { TTS_DE } from './tts';
 
 export const DE: Record<MsgKey, string> = {
+  ...TTS_DE,
   /* ── Gemeinsame Wörter ──────────────────────────────────── */
   'common.default': 'Standard',
   'common.untitled': 'Ohne Titel',

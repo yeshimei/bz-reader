@@ -205,12 +205,13 @@ describe('headerActionsFor：排序、隐藏与移动端上限', () => {
     expect(headerOverflowFor(false, c)).toContain('type');
   });
 
-  it('移动端第四颗起进 ⋮（并排 / 对照书籍 / 朗读不进：手机不提供）', () => {
-    /* 2026-11-11：这三项在手机上不出现，⋮ 里也不留——
-       留一条点了没反应的条目比没有更糟。见 MOBILE_HIDDEN_ACTIONS。 */
+  it('移动端第四颗起进 ⋮（并排 / 对照书籍不进；朗读 2026-11-13 起保留）', () => {
+    /* 手机上并排与对照书籍不出现，⋮ 里也不留——留一条点了没反应的条目
+       比没有更糟。朗读换成音频播放后手机可用，不再收。 */
     expect(headerOverflowFor(true, cfg())).toEqual([
       'type',
       'history',
+      'tts',
       'bookmap',
       'guide',
       'immersive',

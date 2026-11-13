@@ -18,8 +18,10 @@
  */
 
 import type { MsgKey } from './zh';
+import { TTS_EN } from './tts';
 
 export const EN: Record<MsgKey, string> = {
+  ...TTS_EN,
   /* ── Shared words ───────────────────────────────────────── */
   'common.default': 'default',
   'common.untitled': 'Untitled',

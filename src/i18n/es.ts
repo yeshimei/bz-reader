@@ -12,8 +12,10 @@
  * «Vault» se traduce como «bóveda», que es el término de Obsidian en español.
  */
 import type { MsgKey } from './zh';
+import { TTS_ES } from './tts';
 
 export const ES: Record<MsgKey, string> = {
+  ...TTS_ES,
   /* ── Palabras comunes ───────────────────────────────────── */
   'common.default': 'predeterminado',
   'common.untitled': 'Sin título',

@@ -1957,27 +1957,54 @@ export class EngineHost {
     return parts.join(' ').trim();
   }
 
+  /**
+   * 当前屏幕上的**段落**（朗读脚本用，2026-11-13）。
+   *
+   * `currentText()` 把整页压成一串字，段落边界和引号位置都丢了；朗读要
+   * 分「旁白 / 对话」就必须保留段落。这里取同一块可见 Range，但返回
+   * 片段再按块级元素收集，顺序就是阅读顺序。
+   *
+   * 取不到可见 Range 时退回整章——与 currentText 同一套兜底：宁可多念，
+   * 也不要「这一页没字」。
+   */
+  currentBlocks(): Array<{ tag: string; text: string }> {
+    const contents = this.view?.renderer?.getContents?.() ?? [];
+    const out: Array<{ tag: string; text: string }> = [];
+    for (const c of contents) {
+      const doc = c.doc;
+      if (!doc?.body) continue;
+      const frag = this.visibleFragment(doc) ?? doc.body;
+      collectBlocks(frag, out);
+    }
+    return out;
+  }
+
   /* 两套 API 各有用武之地：caretPositionFromPoint 是标准（Chromium 128+），
      caretRangeFromPoint 是 Chromium 私有且在 TS 的 DOM 类型里标了 deprecated
      （社区目录会把它当建议提出来）。所以先问标准的，没有才退回老的——
      后者只通过本地形状调用，既留住了老内核的兜底，也不再直接依赖弃用签名。 */
   /** 可见区文字：两点 Range（拿不到返回空串，由调用方退回整章） */
   private visibleText(doc: Document): string {
+    return this.visibleFragment(doc)?.textContent ?? '';
+  }
+
+  /** 可见区的 DOM 片段：朗读取段落、正文取纯文本共用同一刀 */
+  private visibleFragment(doc: Document): DocumentFragment | null {
     const win = doc.defaultView;
-    if (!win) return '';
+    if (!win) return null;
     try {
       const w = win.innerWidth || doc.documentElement.clientWidth || 0;
       const h = win.innerHeight || doc.documentElement.clientHeight || 0;
-      if (w < 8 || h < 8) return '';
+      if (w < 8 || h < 8) return null;
       const start = caretPointAt(doc, 2, 2);
       const end = caretPointAt(doc, w - 4, h - 4);
-      if (!start || !end) return '';
+      if (!start || !end) return null;
       const range = doc.createRange();
       range.setStart(start.node, start.offset);
       range.setEnd(end.node, end.offset);
-      return range.cloneContents().textContent ?? '';
+      return range.cloneContents();
     } catch {
-      return '';
+      return null;
     }
   }
 
@@ -2374,5 +2401,30 @@ export class EngineHost {
     }
     book?.destroy?.();
     this.container = null;
+  }
+}
+
+/** 块级元素：一页正文按这些切开朗读（li / blockquote 里常再套 p，下面只取叶子） */
+const BLOCK_TAGS = 'p, h1, h2, h3, h4, h5, h6, blockquote, li, pre, dd, dt';
+
+/**
+ * 从可见 Range 的片段里收集段落。
+ *
+ * 只取叶子块：`<li><p>…</p></li>` 收 p 不收 li，否则同一句话念两遍。
+ * 一个块都没有的文档（TXT 常见：纯文本 + `<br>`）退回按换行切。
+ */
+function collectBlocks(root: ParentNode, out: Array<{ tag: string; text: string }>): void {
+  const before = out.length;
+  const all = Array.from(root.querySelectorAll<HTMLElement>(BLOCK_TAGS));
+  const leaves = all.filter((el) => !el.querySelector(BLOCK_TAGS));
+  for (const el of leaves) {
+    const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+    if (text) out.push({ tag: el.tagName.toLowerCase(), text });
+  }
+  if (out.length > before) return;
+  const raw = (root.textContent ?? '').replace(/\r/g, '');
+  for (const line of raw.split(/\n+/)) {
+    const text = line.replace(/\s+/g, ' ').trim();
+    if (text) out.push({ tag: 'p', text });
   }
 }

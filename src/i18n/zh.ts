@@ -17,7 +17,10 @@
  * （license / backup / store）也还没错误码化，同样留给后续阶段。
  */
 
+import { TTS_ZH } from './tts';
+
 export const ZH = {
+  ...TTS_ZH,
   /* ── 通用词 ──────────────────────────────────────────────── */
   'common.default': '默认',
   'common.untitled': '未命名',

@@ -58,16 +58,16 @@ const settingsHtml = (mobile: boolean): string =>
     mobile,
   });
 
-describe('动作清单：手机上去掉三项', () => {
-  it('清单只含并排对照、对照书籍、朗读', () => {
-    expect([...MOBILE_HIDDEN_ACTIONS].sort()).toEqual(['para', 'paraBook', 'tts']);
+describe('动作清单：手机上去掉两项', () => {
+  it('清单只含并排对照、对照书籍（朗读已放开）', () => {
+    expect([...MOBILE_HIDDEN_ACTIONS].sort()).toEqual(['para', 'paraBook']);
   });
 
-  it('availableActions：手机少三项，桌面一颗不少', () => {
+  it('availableActions：手机少两项，朗读与桌面一样在', () => {
     const phone = availableActions(true);
     expect(phone).not.toContain('para');
     expect(phone).not.toContain('paraBook');
-    expect(phone).not.toContain('tts');
+    expect(phone).toContain('tts');
 
     const desk = availableActions(false);
     expect(desk).toContain('para');
@@ -75,7 +75,7 @@ describe('动作清单：手机上去掉三项', () => {
     expect(desk).toContain('tts');
   });
 
-  it('头栏：手机露出前三颗，折进 ⋮ 的也不含这三项', () => {
+  it('头栏：手机露出前三颗，折进 ⋮ 的也不含这两项', () => {
     const shown = headerActionsFor(true);
     const overflow = headerOverflowFor(true);
     for (const id of MOBILE_HIDDEN_ACTIONS) {
@@ -140,7 +140,7 @@ describe('阅读页 ⋮ 菜单：手机上也不出现', () => {
     return titles;
   }
 
-  it('手机上菜单里没有并排 / 对照书籍 / 朗读', () => {
+  it('手机上菜单里没有并排 / 对照书籍，朗读还在', () => {
     flags.mobile = true;
     const app = makeApp();
     const { view } = makeReaderView(app);
@@ -154,13 +154,15 @@ describe('阅读页 ⋮ 菜单：手机上也不出现', () => {
 
     const titles = menuTitles(view);
     expect(titles.length).toBeGreaterThan(0);
-    for (const banned of ['并排对照', '对照书籍：未选', '朗读（r）']) {
+    for (const banned of ['并排对照', '对照书籍：未选']) {
       expect(titles, banned).not.toContain(banned);
     }
+    /* 朗读 2026-11-13 起手机也有：换成音频播放，不再依赖系统语音内核 */
+    expect(titles).toContain('朗读（r）');
     expect(titles).toContain('目录（s）');
   });
 
-  it('桌面上三项还在', () => {
+  it('桌面上两项还在', () => {
     const app = makeApp();
     const { view } = makeReaderView(app);
     (view as unknown as { book: unknown }).book = {
@@ -195,12 +197,13 @@ describe('排版浮层：手机上不出现「栏数」', () => {
   });
 });
 
-describe('设置页：手机上收起三项', () => {
-  it('手机：没有快捷键组、朗读组、分栏', () => {
+describe('设置页：手机上只收快捷键', () => {
+  it('手机：没有快捷键组；朗读组照常给（手机也听书）', () => {
     const html = settingsHtml(true);
     expect(html).not.toContain('data-act="hotkey"');
-    expect(html).not.toContain('data-k="ttsRate"');
-    expect(html).not.toContain('data-k="ttsFollow"');
+    expect(html).toContain('data-k="ttsRate"');
+    expect(html).toContain('data-k="ttsFollow"');
+    expect(html).toContain('data-k="ttsEngine"');
     expect(html).not.toContain('data-k="columns"');
   });
 
@@ -214,16 +217,17 @@ describe('设置页：手机上收起三项', () => {
     expect(html).toContain('data-role="license"');
   });
 
-  it('手机：「阅读页图标」里不列这三项', () => {
+  it('手机：「阅读页图标」里只省略并排两项', () => {
     const html = settingsHtml(true);
     for (const id of MOBILE_HIDDEN_ACTIONS) {
       expect(html, id).not.toContain(`data-act="headermove" data-k="${id}"`);
       expect(html, id).not.toContain(`data-act="headertoggle" data-k="${id}"`);
     }
     expect(html).toContain('data-act="headermove" data-k="toc"');
+    expect(html).toContain('data-act="headermove" data-k="tts"');
   });
 
-  it('桌面：三项都还在', () => {
+  it('桌面：朗读、分栏、快捷键都还在', () => {
     const html = settingsHtml(false);
     /* hotkeys 传的是空数组，所以按键行本身不渲染；组标题在就说明整组还在 */
     expect(html).toContain('<h3>快捷键</h3>');
@@ -233,12 +237,11 @@ describe('设置页：手机上收起三项', () => {
   });
 });
 
-describe('命令面板：手机上不注册朗读命令', () => {
-  it('朗读命令标了「手机不提供」，其余命令没被误标', () => {
+describe('命令面板：手机上朗读命令也注册', () => {
+  it('朗读命令不再标「手机不提供」，也没有别的命令被误标', () => {
     const tts = COMMANDS.find((c) => c.id === 'tts');
-    expect(tts?.mobileDisabled).toBe(true);
-    const marked = COMMANDS.filter((c) => c.mobileDisabled).map((c) => c.id);
-    expect(marked).toEqual(['tts']);
+    expect(tts?.mobileDisabled).toBeUndefined();
+    expect(COMMANDS.filter((c) => c.mobileDisabled).map((c) => c.id)).toEqual([]);
   });
 });
 
@@ -252,7 +255,7 @@ describe('命令面板：手机上不注册朗读命令', () => {
  * 不该收成 3 颗）。
  */
 describe('手机形态（桌面 force-mobile 验收）也要收起', () => {
-  it('设置页：不带 mobile 参数时按手机形态收起朗读组 / 快捷键组 / 分栏', () => {
+  it('设置页：不带 mobile 参数时收起快捷键组与分栏，朗读组照常', () => {
     flags.shell = true;
     const html = viewSettings({
       prefs: DEFAULT_PREFS,
@@ -261,8 +264,8 @@ describe('手机形态（桌面 force-mobile 验收）也要收起', () => {
       hotkeys: [],
       version: '1.1.1',
     });
-    expect(html).not.toContain('data-k="ttsRate"');
-    expect(html).not.toContain('data-k="ttsFollow"');
+    expect(html).toContain('data-k="ttsRate"');
+    expect(html).toContain('data-k="ttsFollow"');
     expect(html).not.toContain('data-k="columns"');
     expect(html).not.toContain('<h3>快捷键</h3>');
   });
@@ -272,12 +275,12 @@ describe('手机形态（桌面 force-mobile 验收）也要收起', () => {
     expect(typographyFormHtml()).not.toContain('data-k="columns"');
   });
 
-  it('头栏：动作减三项，但颗数不折（放得下就摊开）', () => {
+  it('头栏：并排与对照书籍收起，朗读保留', () => {
     flags.shell = true;
     const shown = headerActionsFor(false, null, false, true);
     expect(shown).not.toContain('para');
-    expect(shown).not.toContain('tts');
-    expect(shown).toHaveLength(9);
+    expect(shown).toContain('tts');
+    expect(shown).toHaveLength(10);
     /* 不传第 4 参的老调用点：仍按桌面全套走 */
     expect(headerActionsFor(false, null)).toHaveLength(12);
   });

@@ -267,17 +267,19 @@ export function isPdfAction(id: HeaderActionId): boolean {
 }
 
 /**
- * 手机上不提供的动作（2026-11-11）。
+ * 手机上不提供的动作（2026-11-11，2026-11-13 朗读已放开）。
  *
  * 和 PDF 那三颗同一个道理：只有一个包，所以不做构建裁剪，运行时按设备收起。
  *   · 并排对照 —— 屏幕一分为二，每边不到 200px，副卷还没有划词工具条；
- *   · 对照书籍 —— 只服务并排，并排没了它没有去处；
- *   · 朗读 —— 手机浏览器内核没有稳定的语音合成通道。
+ *   · 对照书籍 —— 只服务并排，并排没了它没有去处。
+ *
+ * 朗读不再收在这里：换成 DeepSeek / 系统语音的音频播放后，手机比原来的
+ * speechSynthesis 稳，入口该和桌面一样有。
  *
  * 收在入口层而不是删功能：桌面端一颗不少，排序偏好里留着它们的位置，
  * 换回电脑原位复现。
  */
-export const MOBILE_HIDDEN_ACTIONS: readonly HeaderActionId[] = ['para', 'paraBook', 'tts'];
+export const MOBILE_HIDDEN_ACTIONS: readonly HeaderActionId[] = ['para', 'paraBook'];
 
 export function isMobileHiddenAction(id: HeaderActionId): boolean {
   return MOBILE_HIDDEN_ACTIONS.includes(id);

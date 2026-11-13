@@ -64,7 +64,9 @@ export const COMMANDS: readonly CommandSpec[] = [
   { id: 'bookmap', key: 'cmd.bookmap', reader: 'bookmap' },
   /* 本章导读（2026-11-11）：读中随手看一眼「这一章要带着什么读」 */
   { id: 'guide', key: 'cmd.guide', reader: 'guide' },
-  { id: 'tts', key: 'cmd.tts', reader: 'tts', mobileDisabled: true },
+  /* 朗读（2026-11-13 手机也放开）：换成音频播放后，手机内核不再是问题。
+     id 不动，用户已经绑好的快捷键继续有效。 */
+  { id: 'tts', key: 'cmd.tts', reader: 'tts' },
   /* ── PDF 专用 ──
    * 头栏图标与排版面板在手机上会折进 ⋮，命令面板是另一条稳定入口；
    * 放大 / 旋转这类高频动作也值得单独绑键。EPUB 上按下安静退出（见

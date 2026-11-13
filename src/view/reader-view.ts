@@ -33,8 +33,13 @@ import { ClipOwnerRegistry } from './clip-owner';
 import { applyEngineMeta } from '../data/book-meta';
 import { coverPathOf, ensureCoverFromFoliate } from '../data/cover';
 import { speak, speakLang, type SpeakHandle } from '../core/speak';
+import { billedChars, buildScript, estimateCost, ttsLangSupported, type ScriptKind, type ScriptSegment } from '../core/tts-script';
+import { synthesizeSpeech, type TtsErrorCode } from '../core/tts-api';
+import { TtsPlayer } from '../core/tts-player';
+import { TtsCache, cacheKey } from '../data/tts-cache';
+import { ttsBarHtml } from './tts-bar';
 import { notify, notifyNow, type NoticeHandle } from '../core/notice';
-import { localeTag, t } from '../i18n';
+import { localeTag, t, type MsgKey } from '../i18n';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
 import { probeEnabled } from './debug-probe';
@@ -121,7 +126,7 @@ import { ClipReportQueue } from '../data/clip-epub/report-queue';
 import { addChapterSeconds, clipLanding, type ClipLanding } from '../data/clip-epub/sidecar';
 import { carryMeasuredPages, clipStructureChanged, migrateClipKey, syncClipChapterMeta } from '../data/clip-epub/refresh';
 import { DEFAULT_CLIP_SCOPE, type ClipScope } from '../data/clip-epub/scope';
-import { getShellSource, shellPrefs } from '../shell/source';
+import { getShellSource, shellPrefs, shellSettings } from '../shell/source';
 import { collectPdfBacklinks, invalidatePdfBacklinks } from '../data/pdf-backlink';
 import { epubBacklinkHits } from '../data/epub-backlink';
 import { dispatchAction, requireCap } from '../shell/actions';
@@ -217,6 +222,12 @@ const clipOwners = new ClipOwnerRegistry<ReaderView>();
  * 一直显示 0 分钟。切章和关书另有立即补发，不依赖这个窗口。
  */
 const CLIP_REPORT_WINDOW_MS = 60_000;
+
+/** 控制条上显示的这一小段，认位置用，不抢正文的注意力 */
+function snippetOf(text: string): string {
+  const flat = String(text ?? '').replace(/\s+/g, ' ').trim();
+  return flat.length > 42 ? `${flat.slice(0, 42)}…` : flat;
+}
 
 export class ReaderView extends ItemView {
   private api: ReaderHostApi;
@@ -362,9 +373,18 @@ export class ReaderView extends ItemView {
   private parallelOpening = false;
   private stage2: HTMLElement | null = null;
 
-  /* 朗读：交给系统语音，不额外引依赖。翻页即停，避免「翻过去了还在念上一页」 */
+  /* 朗读：DeepSeek 真人声走 ttsPlayer，系统语音走 voice；两条路共用一个开关。
+     翻页即停，避免「翻过去了还在念上一页」 */
   private speaking = false;
   private voice: SpeakHandle | null = null;
+  private ttsPlayer: TtsPlayer | null = null;
+  private ttsBarEl: HTMLElement | null = null;
+  private ttsIndex = 0;
+  private ttsKind: ScriptKind = 'narration';
+  private ttsSnippet = '';
+  private ttsChars = 0;
+  private ttsCost = 0;
+  private ttsTotal = 0;
 
   /* 每日打卡：按 tracker 的已读秒数增量记账。
      以前只在关 tab 时 addCheckin 一次——开着 tab 读一整天，统计页永远 0。 */
@@ -1644,8 +1664,8 @@ export class ReaderView extends ItemView {
   /**
    * 念当前这一页；按 `prefs.ttsFollow` 决定念完要不要自动翻页续读。
    *
-   * 这就是「TTS 跟随阅读位置」：以前念完当前页就结束，翻页也不续，
-   * 想接着听只能再点一次朗读——而且每次重新从这一页的第一句开始。
+   * 两条路：DeepSeek 真人声（默认）与系统语音。切段、音色、缓存都在
+   * `speakPageAi` 里；系统语音原样保留，没配 Key 或用户手动切回时用。
    */
   private speakPage(): void {
     const text = this.host.currentText();
@@ -1654,36 +1674,17 @@ export class ReaderView extends ItemView {
       this.stopTts();
       return;
     }
-    const rate = this.prefs.ttsRate;
-    const follow = this.prefs.ttsFollow;
+    if (this.prefs.ttsEngine === 'deepseek') {
+      this.speakPageAi(text);
+      return;
+    }
     // 基础版包里 speak() 返回 null —— 那就是「这个环境没有朗读」
     const handle = speak(text, {
-      rate,
+      rate: this.prefs.ttsRate,
       /* 书的语言优先（元数据是作者写的，比统计猜测可靠），其次界面语言，
          最后才按内容猜；细节见 core/speak.ts 的 speakLang */
       lang: speakLang(text, this.book?.meta.language, localeTag()),
-      onEnd: () => {
-        if (this.closed || !this.speaking) return;
-        if (!follow) {
-          this.stopTts();
-          return;
-        }
-        /* 念完一页自动翻下一页接着念。翻页本身会走导航队列，
-           等它落定再取新页的文字（否则拿到的还是上一页）。
-           书末 next() 不前进：页码没变就停，不然会无限重念同一页。 */
-        const before = this.host.pageKey;
-        void this
-          .advanceForTts()
-          .then(() => {
-            if (this.closed || !this.speaking) return;
-            if (this.host.pageKey === before) {
-              this.stopTts();
-              return;
-            }
-            this.speakPage();
-          })
-          .catch(() => this.stopTts());
-      },
+      onEnd: () => this.onPageSpoken(),
     });
     if (!handle) {
       notify(t('notice.tts.unsupported'));
@@ -1692,6 +1693,174 @@ export class ReaderView extends ItemView {
     this.voice = handle;
     this.speaking = true;
     this.syncToolState();
+  }
+
+  /**
+   * 一页念完了：跟随就翻页续读，不跟随就停。
+   *
+   * 系统语音与 DeepSeek 共用——续页是朗读行为，不该因为换了引擎而变。
+   */
+  private onPageSpoken(): void {
+    if (this.closed || !this.speaking) return;
+    if (!this.prefs.ttsFollow) {
+      this.stopTts();
+      return;
+    }
+    /* 翻页本身会走导航队列，等它落定再取新页（否则拿到的还是上一页）。
+       书末 next() 不前进：页码没变就停，不然会无限重念同一页。 */
+    const before = this.host.pageKey;
+    void this
+      .advanceForTts()
+      .then(() => {
+        if (this.closed || !this.speaking) return;
+        if (this.host.pageKey === before) {
+          this.stopTts();
+          return;
+        }
+        this.speakPage();
+      })
+      .catch(() => this.stopTts());
+  }
+
+  /**
+   * DeepSeek 朗读：按「旁白 / 对白」切段，两把嗓子交替。
+   *
+   * 不做自动退回系统语音（用户明确要求）：失败就停并说清原因，
+   * 要不要换引擎由用户自己决定。
+   */
+  private speakPageAi(text: string): void {
+    const ai = shellSettings().ai;
+    if (!ai.apiKey.trim()) {
+      notify(t('notice.tts.noKey'));
+      return;
+    }
+    const lang = speakLang(text, this.book?.meta.language, localeTag());
+    if (!ttsLangSupported(lang)) {
+      notify(t('notice.tts.unsupportedLang'));
+      return;
+    }
+    /* PDF / TXT 取不到块结构时退回整页一段：至少还能念，只是不分角色 */
+    const blocks = this.host.currentBlocks?.() ?? [];
+    let segments = buildScript(blocks.length ? blocks : [{ tag: 'p', text }]);
+    if (this.prefs.ttsDialogueOnly) segments = segments.filter((s) => s.kind === 'dialogue');
+    if (!segments.length) {
+      notify(t('notice.tts.noText'));
+      return;
+    }
+    /* 先停旧的：换页重念时不能两条音频叠在一起 */
+    this.stopTts();
+
+    const voices = this.prefs.ttsMultiVoice
+      ? { narration: this.prefs.ttsNarrator, dialogue: this.prefs.ttsDialogue }
+      : { narration: this.prefs.ttsVoice, dialogue: this.prefs.ttsVoice };
+    this.ttsChars = segments.reduce((n, s) => n + billedChars(s.text), 0);
+    this.ttsCost = estimateCost(this.ttsChars);
+    this.ttsTotal = segments.length;
+    this.ttsIndex = 0;
+    this.ttsKind = segments[0].kind;
+    this.ttsSnippet = snippetOf(segments[0].text);
+
+    const cacheMB = this.prefs.ttsCacheMB;
+    const cache = cacheMB > 0 ? new TtsCache() : null;
+    const bookId = this.bookId;
+    const player = new TtsPlayer(segments, voices, {
+      synthesize: (body, voice, signal) =>
+        synthesizeSpeech({ baseUrl: ai.baseUrl, apiKey: ai.apiKey, text: body, voice, signal }),
+      ...(cache
+        ? {
+            cache: {
+              get: (k) => cache.get(k),
+              put: (k, data) => cache.put(k, data, cacheMB * 1024 * 1024),
+            },
+            cacheKey: (body, voice) => cacheKey(bookId, voice, body),
+          }
+        : {}),
+      onSegment: (index, seg) => {
+        this.ttsIndex = index;
+        this.ttsKind = seg.kind;
+        this.ttsSnippet = snippetOf(seg.text);
+        this.renderTtsBar();
+      },
+      onEnd: () => this.onPageSpoken(),
+      onError: (code, err) => this.onTtsError(code, err),
+      onState: () => this.renderTtsBar(),
+    });
+    this.ttsPlayer = player;
+    this.speaking = true;
+    this.syncToolState();
+    this.showTtsBar();
+    player.setRate(this.prefs.ttsRate);
+    player.start();
+  }
+
+  /** 朗读失败：按错误类型说人话，然后停（不回退系统语音） */
+  private onTtsError(code: TtsErrorCode | 'audio', error: unknown): void {
+    const map: Partial<Record<TtsErrorCode | 'audio', MsgKey>> = {
+      unauthorized: 'notice.tts.noKey',
+      rejected: 'notice.tts.rejected',
+      rate: 'notice.tts.rate',
+      busy: 'notice.tts.busy',
+      network: 'notice.tts.network',
+    };
+    const key: MsgKey = map[code] ?? 'notice.tts.failed';
+    notify(t(key));
+    /* 单段被审核拒绝：播放器自己会跳过继续，这里只提示，不掐整页 */
+    if (code === 'rejected') return;
+    this.stopTts();
+  }
+
+  /* ── 朗读控制条 ── */
+
+  private showTtsBar(): void {
+    const root = this.rootEl;
+    if (!root) return;
+    if (!this.ttsBarEl) {
+      this.ttsBarEl = el('div', 'bzr-ttsbar-wrap');
+      this.ttsBarEl.addEventListener('click', (ev) => this.onTtsBarClick(ev));
+      root.appendChild(this.ttsBarEl);
+    }
+    this.renderTtsBar();
+  }
+
+  private renderTtsBar(): void {
+    if (!this.ttsBarEl) return;
+    this.ttsBarEl.innerHTML = ttsBarHtml({
+      active: !!this.ttsPlayer,
+      paused: this.ttsPlayer?.stateName === 'paused',
+      index: this.ttsIndex,
+      total: this.ttsTotal,
+      kind: this.ttsKind,
+      snippet: this.ttsSnippet,
+      chars: this.ttsChars,
+      cost: this.ttsCost,
+    });
+  }
+
+  private hideTtsBar(): void {
+    this.ttsBarEl?.remove();
+    this.ttsBarEl = null;
+  }
+
+  private onTtsBarClick(ev: MouseEvent): void {
+    const target = (ev.target as HTMLElement | null)?.closest<HTMLElement>('[data-act]');
+    if (!target) return;
+    /* 条子浮在正文上：不拦住会一路冒到翻页那一层 */
+    ev.preventDefault();
+    ev.stopPropagation();
+    const act = target.dataset.act;
+    const p = this.ttsPlayer;
+    if (!p) return;
+    if (act === 'ttstoggle') {
+      if (p.stateName === 'paused') p.resume();
+      else p.pause();
+      this.renderTtsBar();
+    } else if (act === 'ttsstop') {
+      this.stopTts();
+    } else if (act === 'ttsnext') {
+      p.next();
+    } else if (act === 'ttsprev') {
+      p.prev();
+    }
   }
 
   /**
@@ -1720,10 +1889,13 @@ export class ReaderView extends ItemView {
   }
 
   private stopTts(): void {
-    if (!this.speaking) return;
+    if (!this.speaking && !this.ttsPlayer) return;
     this.speaking = false;
     this.voice?.stop();
     this.voice = null;
+    this.ttsPlayer?.stop();
+    this.ttsPlayer = null;
+    this.hideTtsBar();
     this.syncToolState();
   }
 

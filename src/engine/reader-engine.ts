@@ -116,6 +116,13 @@ export interface ReaderEngine {
   /** 当前章节序号（0 起）；剪藏本用它认「这是哪一篇」 */
   readonly currentChapterIndex: number;
   currentText(): string;
+  /**
+   * 当前屏幕上的段落（朗读切「旁白 / 对白」用）。
+   *
+   * 与 `currentText()` 的分工：那个给 AI 看，压平即可；这个要保段落边界，
+   * 否则整页只有一个声音。PDF 没有块结构，不实现。
+   */
+  currentBlocks?(): Array<{ tag: string; text: string }>;
   exportChapters(opts?: {
     onProgress?: (done: number, total: number, title: string) => void;
     shouldStop?: () => boolean;

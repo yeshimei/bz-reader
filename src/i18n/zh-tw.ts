@@ -9,8 +9,10 @@
  * 复制」）：六成以上条目必须写法不同，并禁掉简体高频字。
  */
 import type { MsgKey } from './zh';
+import { TTS_ZH_TW } from './tts';
 
 export const ZH_TW: Record<MsgKey, string> = {
+  ...TTS_ZH_TW,
   /* ── 通用詞 ──────────────────────────────────────────────── */
   'common.default': '預設',
   'common.untitled': '未命名',

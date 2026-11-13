@@ -14,6 +14,7 @@
 import { locale, type Locale } from '../i18n';
 import type { PdfZoomMode } from '../engine/pdf/fit';
 import type { PdfLinkLabelMode } from './pdf-link';
+import type { TtsVoice } from '../core/tts-api';
 
 /**
  * 书页配色：只有一档「跟随 Obsidian」。
@@ -95,6 +96,24 @@ export interface ReaderPrefs {
    * 关：只念当前页，念完就结束。
    */
   ttsFollow: boolean;
+  /**
+   * 朗读引擎（2026-11-13）：DeepSeek 真人声 / 系统语音。
+   *
+   * 默认 DeepSeek：这是这版功能的主路径；没配 API Key 时界面会直接
+   * 把人带到设置页，而不是悄悄退回系统声音（用户明确要求不回退）。
+   */
+  ttsEngine: TtsEngine;
+  /** 单音色模式用的声音 */
+  ttsVoice: TtsVoice;
+  /** 旁白 / 对话两把嗓子（多角色模式） */
+  ttsNarrator: TtsVoice;
+  ttsDialogue: TtsVoice;
+  /** 旁白与对话分开念。关掉 = 整页一个声音 */
+  ttsMultiVoice: boolean;
+  /** 只念引号里的对白，跳过旁白（省一半以上的钱） */
+  ttsDialogueOnly: boolean;
+  /** 音频缓存上限（MB），0 = 不缓存 */
+  ttsCacheMB: number;
   /** 翻页 / 滚动（见 FlowMode） */
   flow: FlowMode;
   /** 阅读页右下角的页码口径：关 / 本章 / 全书（见 PageLabelMode） */
@@ -185,6 +204,13 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   footnote: 'popup',
   ttsRate: 1,
   ttsFollow: true,
+  ttsEngine: 'deepseek',
+  ttsVoice: 'stella',
+  ttsNarrator: 'stella',
+  ttsDialogue: 'tide',
+  ttsMultiVoice: true,
+  ttsDialogueOnly: false,
+  ttsCacheMB: 300,
   flow: 'paged',
   pageLabel: 'book',
   chapterLabel: true,
@@ -207,6 +233,14 @@ export const FONT_SIZE_RANGE = { min: 14, max: 30, step: 1 } as const;
 export const LINE_HEIGHT_RANGE = { min: 1.4, max: 2.4, step: 0.05 } as const;
 export const MARGIN_RANGE = { min: 8, max: 120, step: 4 } as const;
 export const TTS_RATE_RANGE = { min: 0.6, max: 2, step: 0.1 } as const;
+export const TTS_CACHE_RANGE = { min: 0, max: 2000, step: 50 } as const;
+
+/** 朗读引擎：DeepSeek 的真人声，或系统自带语音 */
+export type TtsEngine = 'deepseek' | 'system';
+
+function voiceOf(raw: unknown, fallback: TtsVoice): TtsVoice {
+  return raw === 'stella' || raw === 'tide' ? raw : fallback;
+}
 
 /** 字体选项：值 → 注入 iframe 的 font-family；book = 不覆盖，跟随书自带 */
 export const FONT_FAMILIES: Array<{ value: FontFamilyName; css: string }> = [
@@ -382,6 +416,13 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     footnote: p.footnote === 'jump' ? 'jump' : 'popup',
     ttsRate: Math.round(clamp(p.ttsRate, TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, DEFAULT_PREFS.ttsRate) * 10) / 10,
     ttsFollow: p.ttsFollow !== false,
+    ttsEngine: p.ttsEngine === 'system' ? 'system' : 'deepseek',
+    ttsVoice: voiceOf(p.ttsVoice, DEFAULT_PREFS.ttsVoice),
+    ttsNarrator: voiceOf(p.ttsNarrator, DEFAULT_PREFS.ttsNarrator),
+    ttsDialogue: voiceOf(p.ttsDialogue, DEFAULT_PREFS.ttsDialogue),
+    ttsMultiVoice: p.ttsMultiVoice !== false,
+    ttsDialogueOnly: p.ttsDialogueOnly === true,
+    ttsCacheMB: Math.round(clamp(p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, DEFAULT_PREFS.ttsCacheMB)),
     flow: p.flow === 'scroll' ? 'scroll' : 'paged',
     /* 页码：只认三档白名单；老数据没有这一项时落回默认（全书） */
     pageLabel: PAGE_LABEL_MODES.includes(p.pageLabel as PageLabelMode)

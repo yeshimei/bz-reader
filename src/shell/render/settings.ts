@@ -19,7 +19,8 @@
  *     用户在某一个档位上看到中文。集中表用 `Record<Locale, string>` 锁八种齐。
  * ============================================================ */
 import { t, LOCALES, LOCALE_NAMES, type MsgKey } from '../../i18n';
-import { ACCENT_OPTIONS, accentLabel, FONT_FAMILIES, fontLabel, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARGIN_RANGE, TTS_RATE_RANGE, type ReaderPrefs } from '../../data/prefs';
+import { ACCENT_OPTIONS, accentLabel, FONT_FAMILIES, fontLabel, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARGIN_RANGE, TTS_CACHE_RANGE, TTS_RATE_RANGE, type ReaderPrefs } from '../../data/prefs';
+import { TTS_VOICE_IDS } from '../../core/tts-api';
 import { HIGHLIGHT_COLORS, colorLabel } from '../../data/notes';
 import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
 import { can, entitlement, GROUP_ID, tierText } from '../../data/entitlement';
@@ -426,16 +427,46 @@ export function viewSettings(v: SettingsView): string {
       ${headerRows}
     </div>`;
 
-  /* 朗读：语速与「念完续页」原来塞在阅读页的排版浮层里，调的时候浮层本身
-     就挡着正文。这两项属于「怎么读」，搬到设置页单起一组。
-     手机上没有朗读入口，这组一起收起：留着两个调不出来的参数更费解。 */
+  /* 朗读（2026-11-13 接 DeepSeek TTS）：这一组从「语速 + 跟随」两项涨成
+     一整套听书设置。手机上也给——换成音频播放之后，手机比系统语音稳，
+     入口在头栏 / ⋮，不再按设备收起。 */
   const ttsUnlocked = can('tts');
-  const tts = mobile
-    ? ''
-    : `<div class="bzs-setgrp${ttsUnlocked ? '' : ' is-locked'}"${
-        ttsUnlocked ? '' : ` data-act="unlock" data-mode="tts" title="${t('settings.locked')}"`
-      }>
+  const voiceOpts: Array<[string, string]> = TTS_VOICE_IDS.map((id) => [
+    id,
+    t(id === 'stella' ? 'settings.ttsVoice.stella' : 'settings.ttsVoice.tide'),
+  ]);
+  const tts = `<div class="bzs-setgrp${ttsUnlocked ? '' : ' is-locked'}"${
+    ttsUnlocked ? '' : ` data-act="unlock" data-mode="tts" title="${t('settings.locked')}"`
+  }>
       <h3>${t('settings.grp.tts')}</h3>
+      <div class="bzs-setrow"><label>${t('settings.ttsEngine')}</label>${seg(
+        'ttsEngine',
+        [
+          ['deepseek', t('settings.ttsEngine.deepseek')],
+          ['system', t('settings.ttsEngine.system')],
+        ],
+        p.ttsEngine,
+      )}</div>
+      ${
+        p.ttsEngine === 'deepseek'
+          ? `<div class="bzs-setrow"><label>${t('settings.ttsVoice')}</label>${seg('ttsVoice', voiceOpts, p.ttsVoice)}</div>
+      ${prefToggle('ttsMultiVoice', p.ttsMultiVoice, t('settings.ttsMultiVoice'))}
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsMultiVoice.hint')}</div>
+      <div class="bzs-setrow"><label>${t('settings.ttsNarrator')}</label>${seg('ttsNarrator', voiceOpts, p.ttsNarrator)}</div>
+      <div class="bzs-setrow"><label>${t('settings.ttsDialogue')}</label>${seg('ttsDialogue', voiceOpts, p.ttsDialogue)}</div>
+      ${prefToggle('ttsDialogueOnly', p.ttsDialogueOnly, t('settings.ttsDialogueOnly'))}
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsDialogueOnly.hint')}</div>
+      ${range('ttsCacheMB', t('settings.ttsCache'), p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, TTS_CACHE_RANGE.step, (x) => `${x} MB`)}
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsCache.hint')}
+        <button class="bzs-btn sm" data-act="ttscacheclear">${t('settings.ttsCache.clear')}</button>
+      </div>
+      <div class="bzs-mini" style="margin:0 0 8px;line-height:1.9">${t('settings.ttsKey.hint')}</div>
+      <div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
+        <button class="bzs-btn sm pri" data-act="ttstest">${t('settings.ttsTest')}</button>
+        <span class="bzs-mini" data-role="ttstest-out"></span>
+      </div>`
+          : ''
+      }
       ${range('ttsRate', t('settings.ttsRate'), p.ttsRate, TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, TTS_RATE_RANGE.step, (x) => `${x.toFixed(1)}×`)}
       <div class="bzs-setrow"><label>${t('settings.ttsFollow')}</label>${seg(
         'ttsFollow',

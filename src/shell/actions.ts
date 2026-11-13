@@ -32,6 +32,8 @@ import {
 import { allMarks, filterMarks, shelfOf } from './domain';
 import { toggleAll, togglePick } from './note-select';
 import { notify } from '../core/notice';
+import { synthesizeSpeech } from '../core/tts-api';
+import { TtsCache } from '../data/tts-cache';
 import {
   ALL_SHELF,
   NO_SHELF,
@@ -44,7 +46,7 @@ import {
   shelfNameError,
   shelfOfName,
 } from '../data/shelves';
-import { hostLanguageCode, isLocale, resolveLocale, setLocale, t, type LanguagePref, type MsgKey } from '../i18n';
+import { hostLanguageCode, isLocale, locale, resolveLocale, setLocale, t, type LanguagePref, type MsgKey } from '../i18n';
 import { bookMenuItems } from './book-menu';
 import { bookNeedsRelocate, scanVault } from '../data/book-repo';
 import { readFingerprint } from '../data/book-scan';
@@ -1089,6 +1091,24 @@ export interface ActionEnv {
   repaint?: () => void;
 }
 
+/** 试听用：播一段 wav，播完（或失败）就 resolve，不把 Promise 挂在那里 */
+function playWav(buf: ArrayBuffer): Promise<void> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+    const audio = new Audio(url);
+    let settled = false;
+    const done = (): void => {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(url);
+      resolve();
+    };
+    audio.onended = done;
+    audio.onerror = done;
+    void audio.play().catch(done);
+  });
+}
+
 export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {}): void {
   const d = el.dataset;
   /**
@@ -1965,9 +1985,53 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (d.k === 'chapterLabel') src.setPrefs({ chapterLabel: !el.classList.contains('on') });
       /* 桌面点正文翻页（2026-11-12）：默认关，要用的人自己打开 */
       if (d.k === 'desktopTapTurn') src.setPrefs({ desktopTapTurn: !el.classList.contains('on') });
+      /* 朗读的两个开关（2026-11-13）：按当前 class 翻转，和上面同一套 */
+      if (d.k === 'ttsMultiVoice') src.setPrefs({ ttsMultiVoice: !el.classList.contains('on') });
+      if (d.k === 'ttsDialogueOnly') src.setPrefs({ ttsDialogueOnly: !el.classList.contains('on') });
       repaint();
       break;
     }
+
+    /* 试听（2026-11-13）：不用开书，合成两句就够判断音色合不合口味。
+       多角色开着时旁白/对白各念一句——只听一句听不出「两台声音」的差别。 */
+    case 'ttstest': {
+      const s = shellSettings();
+      if (!s.ai.apiKey.trim()) {
+        notify(t('notice.tts.noKey'));
+        break;
+      }
+      const p = shellPrefs();
+      const out = el.closest('.bzs-setgrp')?.querySelector<HTMLElement>('[data-role="ttstest-out"]');
+      const zh = locale() === 'zh' || locale() === 'zh-TW';
+      const plan = p.ttsMultiVoice
+        ? [
+            { text: zh ? '这是朗读试听。' : 'This is a reading preview.', voice: p.ttsNarrator },
+            { text: zh ? '“这一句是对白。”' : '"This line is dialogue."', voice: p.ttsDialogue },
+          ]
+        : [{ text: zh ? '这是朗读试听。' : 'This is a reading preview.', voice: p.ttsVoice }];
+      if (out) out.textContent = t('notice.tts.testing');
+      void (async () => {
+        try {
+          for (const item of plan) {
+            const buf = await synthesizeSpeech({
+              baseUrl: s.ai.baseUrl,
+              apiKey: s.ai.apiKey,
+              text: item.text,
+              voice: item.voice,
+            });
+            await playWav(buf);
+          }
+          if (out) out.textContent = '';
+        } catch (e) {
+          if (out) out.textContent = '';
+          notify(`${t('notice.tts.failed')}：${(e as Error)?.message || ''}`);
+        }
+      })();
+      break;
+    }
+    case 'ttscacheclear':
+      void new TtsCache().clear().then(() => notify(t('notice.tts.cacheCleared')));
+      break;
 
     /* ── 侧栏：目录 / 书签 / 划线 ── */
     case 'jumpch': {
@@ -2814,6 +2878,29 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
       break;
     case 'ttsFollow':
       src.setPrefs({ ttsFollow: v !== '0' });
+      break;
+    /* 朗读引擎与音色（2026-11-13）：一套老数据里没有这些 key，
+       normalizePrefs 已给默认值；这里只负责把界面选的值收口。 */
+    case 'ttsEngine':
+      src.setPrefs({ ttsEngine: v === 'system' ? 'system' : 'deepseek' });
+      break;
+    case 'ttsVoice':
+      src.setPrefs({ ttsVoice: v === 'tide' ? 'tide' : 'stella' });
+      break;
+    case 'ttsNarrator':
+      src.setPrefs({ ttsNarrator: v === 'tide' ? 'tide' : 'stella' });
+      break;
+    case 'ttsDialogue':
+      src.setPrefs({ ttsDialogue: v === 'tide' ? 'tide' : 'stella' });
+      break;
+    case 'ttsMultiVoice':
+      src.setPrefs({ ttsMultiVoice: v !== '0' });
+      break;
+    case 'ttsDialogueOnly':
+      src.setPrefs({ ttsDialogueOnly: v !== '0' });
+      break;
+    case 'ttsCacheMB':
+      src.setPrefs({ ttsCacheMB: Number(v) });
       break;
     case 'flow':
       src.setPrefs({ flow: v === 'scroll' ? 'scroll' : 'paged' });
