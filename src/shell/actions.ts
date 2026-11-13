@@ -1703,6 +1703,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'buy':
       window.open(PURCHASE_URL, '_blank');
       break;
+    case 'openvid':
+      /* 对照表行尾的「看视频」：地址是渲染时从 core/links 写进 data-url 的，
+         只允许 http(s)——别让 DOM 属性变成任意协议的执行口。 */
+      if (d.url && /^https?:\/\//i.test(d.url)) window.open(d.url, '_blank');
+      break;
     case 'relicense':
       /* 已激活的人换码（试用 → 正式版）：直接放开输入框，原码留着方便替换 */
       setState({ relicense: true });
@@ -2164,7 +2169,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     /* 两颗知识库按钮和 AI 问答同一道门：按钮在授权掉了之后不再渲染，
        但动作本身也该拦——data-act 是 DOM 属性，不是权限。
-       用 kb 这个 cap：解锁弹层才能滚到「连接至 BZ AI 知识库」那一行。 */
+       用 kb 这个 cap：解锁弹层才能滚到「AI 知识盒」那一行（2026-11-14
+       行名按 bz 的文案统一，能力位不变）。 */
     case 'selterm': {
       if (!requireCap('kb')) break;
       /* 先落线：用户点它 = 这段我要留着。bz 里取消也不撤，回原文找得到。 */

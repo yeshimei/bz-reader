@@ -391,17 +391,18 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     pt: 'Visão geral do livro',
   },
   /* 向量检索不再单独占一行——它是「AI 全书问答」的前置步骤，拆成两行只会
-     让用户以为要买两次。1.0.0 在行名里点明「需另装 bz」，免得看着像
-     一项能单独买的功能。 */
+     让用户以为要买两次。
+     2026-11-14：行名按 bz 的文案统一成「AI 知识盒」——bz 设置页里就叫
+     这个，以前写「连接至 BZ AI 知识库」是另一套叫法，用户对不上。 */
   kb: {
-    zh: '连接 BZ AI 知识库（需另装 bz）',
-    'zh-TW': '連接 BZ AI 知識庫（需另裝 bz）',
-    en: 'Connect to the BZ AI knowledge base (requires bz)',
-    ja: 'BZ AI ナレッジベースに接続（bz が必要）',
-    de: 'Mit der BZ-KI-Wissensdatenbank verbinden (bz erforderlich)',
-    fr: 'Se connecter à la base BZ AI (nécessite bz)',
-    es: 'Conectar con la base de conocimiento BZ AI (requiere bz)',
-    pt: 'Conectar à base de conhecimento BZ AI (requer bz)',
+    zh: 'AI 知识盒',
+    'zh-TW': 'AI 知識盒',
+    en: 'AI knowledge box',
+    ja: 'AI ナレッジボックス',
+    de: 'KI-Wissensbox',
+    fr: 'Boîte à savoir IA',
+    es: 'Caja de conocimiento IA',
+    pt: 'Caixa de conhecimento IA',
   },
   /* ── 探索中（2026-11-11，2026-11-12 增至八项） ──
    * 八项都还没实现，先占表尾八行。行里不写「开发中」——状态由段名说，

@@ -78,6 +78,13 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
           en: 'Clipbook is now a premium feature. On the free tier the switch opens the plan comparison instead of turning on.',
         },
       },
+      {
+        domain: { zh: '看视频', en: 'Watch' },
+        text: {
+          zh: '功能对照里 AI 知识盒与剪藏成书两行带「看视频」，点开就是对应的教程。',
+          en: 'The plan table links straight to the tutorial for the AI knowledge box and the clipbook.',
+        },
+      },
     ],
     fixed: [
       {

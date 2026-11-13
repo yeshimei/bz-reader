@@ -11,7 +11,8 @@
  * ============================================================ */
 import { isIosEnv, isMobileEnv, isMobileShell } from '../core/mobile';
 import { t } from '../i18n';
-import { planGroupLabel, planLabel } from '../i18n/plan';
+import { planGroupLabel, planLabel, type PlanKey } from '../i18n/plan';
+import { AI_TUTORIAL_URL, CLIP_TUTORIAL_URL } from '../core/links';
 import { anchoredBelowRight, anchoredPlacement } from './anchored-style';
 import { drawerLiftFor, keyboardHeightFromCss, sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
@@ -959,9 +960,19 @@ function planCell(kind: 'free' | 'pro', v: PlanCell): string {
   return `<i class="${cls} n"></i>`;
 }
 
+/**
+ * 对照表里带教程视频的那几行（2026-11-14）：键与行的 key 同名。
+ *
+ * 视频是这个功能怎么用的唯一说明，挂在行尾比另开一屏靠谱——用户正看着
+ * 「AI 知识盒」「剪藏成书」两行，顺手就能看那两期。
+ */
+const PLAN_VIDEO: Partial<Record<PlanKey, string>> = {
+  kb: AI_TUTORIAL_URL,
+  clipEpub: CLIP_TUTORIAL_URL,
+};
+
 /* 导出给测试：这一屏是免费用户最常看到的，按钮与群号值得单独钉住 */
-export function overlayUnlock(mode?: string): string {
-  const v = entitlement();
+export function overlayUnlock(mode?: string): string {  const v = entitlement();
   /* 不传 mode = 只是「查看功能对照」（设置页那颗按钮），不高亮任何一行。
      以前这里兜底成 export，结果从设置页进来看全表，视线总被拽到导出那行。 */
   const cap = mode ? (mode as Cap) : undefined;
@@ -984,8 +995,12 @@ export function overlayUnlock(mode?: string): string {
         const r = byKey.get(key);
         if (!r) return '';
         const hot = !paid && !!cap && r.cap === cap;
+        const video = PLAN_VIDEO[r.key];
+        const videoLink = video
+          ? ` <a class="bzs-plan-video" data-act="openvid" data-url="${esc(video)}">${esc(t('unlock.watchVideo'))}</a>`
+          : '';
         return `<div class="bzs-plan-row${hot ? ' is-cap' : ''}">
-        <span>${esc(planLabel(r.key))}${r.note ? `<em>${esc(r.note)}</em>` : ''}</span>
+        <span>${esc(planLabel(r.key))}${r.note ? `<em>${esc(r.note)}</em>` : ''}${videoLink}</span>
         ${planCell('free', r.free)}${planCell('pro', r.pro)}
       </div>`;
       })

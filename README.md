@@ -74,8 +74,8 @@
 |  | 朗读：EPUB、TXT 与 PDF，念完自动翻页 | — | ✓ |
 |  | 与另一本书并排对照 | — | ✓ |
 |  | 全书鸟瞰 | — | ✓ |
-|  | 连接 BZ AI 知识库（需另装 bz） | — | ✓ |
-|  | 剪藏成书：把剪藏本的文章合成 EPUB，在书架里读 | — | ✓ |
+|  | AI 知识盒 · [看视频](https://www.bilibili.com/video/BV1bR4s6dEjH) | — | ✓ |
+|  | 剪藏成书：把剪藏本的文章合成 EPUB，在书架里读 · [看视频](https://www.bilibili.com/video/BV1h3WB6XEL4) | — | ✓ |
 | **探索中** | PDF OCR+AI视觉：扫描件像文字版一样能选能搜能划 | — | — |
 |  | PDF 重排：固定版式也能流式读 | — | — |
 |  | 漫画模式：分格、右到左、跨页 | — | — |
@@ -289,8 +289,8 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 |  | 朗讀：EPUB、TXT 與 PDF，念完自動翻頁 | — | ✓ |
 |  | 與另一本書並排對照 | — | ✓ |
 |  | 全書鳥瞰 | — | ✓ |
-|  | 連接 BZ AI 知識庫（需另裝 bz） | — | ✓ |
-|  | 剪藏成書：把剪藏本的文章合成 EPUB，在書架裡讀 | — | ✓ |
+|  | AI 知識盒 · [看影片](https://www.bilibili.com/video/BV1bR4s6dEjH) | — | ✓ |
+|  | 剪藏成書：把剪藏本的文章合成 EPUB，在書架裡讀 · [看影片](https://www.bilibili.com/video/BV1h3WB6XEL4) | — | ✓ |
 | **探索中** | PDF OCR+AI視覺：掃描件像文字版一樣能選能搜能劃 | — | — |
 |  | PDF 重排：固定版式也能流式讀 | — | — |
 |  | 漫畫模式：分格、右到左、跨頁 | — | — |

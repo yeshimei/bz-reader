@@ -663,6 +663,7 @@ export const JA: Record<MsgKey, string> = {
   /* ── 解锁弹层：功能对照表 ─────────────────────────────── */
   'unlock.title': 'プロ版',
   'unlock.activated': '有効化済み',
+  'unlock.watchVideo': '動画を見る',
   'unlock.col.feature': '機能',
   'unlock.col.base': 'ベーシック版',
   /* 開発期のプレースホルダ（英語のまま）。発売前に正式な日本語へ */

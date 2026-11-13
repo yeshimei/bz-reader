@@ -41,7 +41,7 @@ export type Cap =
   | 'crossSearch' // 跨书搜索
   | 'aiSel' // 划词 AI：解释 / 翻译 / 摘要（工具栏那颗）
   | 'ai' // 侧栏 AI：全书问答
-  | 'kb' // 连接至 BZ AI 知识库（划词录入 / 笔记当依据）
+  | 'kb' // BZ AI 知识盒（划词录入 / 笔记当依据；行名按 bz 的文案）
   | 'fullFormats' // mobi / azw3 / fb2 / cbz（PDF 2026-11-10 起单列，见 pdf）
   | 'vertical' // 竖排（双栏已于 2026-11-05 下放基础版，不再挂在这个能力上）
   | 'tts' // 朗读
@@ -593,15 +593,17 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
   /* 2026-11-09 删：书籍本地化向量检索不再单列，也不再有 cap——建索引被拦时
      高亮「AI 全书问答」。能力本身还在（侧栏 AI 页签），只是不再作为一项
      独立的付费开关对外承诺。 */
+  /* 2026-11-14：行名按 bz 的文案统一成「AI 知识盒」（bz 设置页里就叫这个，
+     以前这里写「连接至 BZ AI 知识库」是另一套叫法，用户对不上）。 */
   kb: {
-    zh: '用 BZ AI 知识库里的笔记一起回答',
-    'zh-TW': '用 BZ AI 知識庫裡的筆記一起回答',
-    en: 'Answer with notes from your BZ AI knowledge base',
-    ja: 'BZ AI ナレッジベースのノートも参考に回答',
-    de: 'Antworten unter Einbeziehung der Notizen aus der BZ-KI-Wissensdatenbank',
-    fr: 'Répondre en s’appuyant aussi sur les notes de la base de connaissances BZ AI',
-    es: 'Responder usando también las notas de la base de conocimiento BZ AI',
-    pt: 'Responder usando também as notas da base de conhecimento BZ AI',
+    zh: '用 BZ AI 知识盒里的笔记一起回答',
+    'zh-TW': '用 BZ AI 知識盒裡的筆記一起回答',
+    en: 'Answer with notes from your BZ AI knowledge box',
+    ja: 'BZ AI ナレッジボックスのノートも参考に回答',
+    de: 'Antworten unter Einbeziehung der Notizen aus der BZ-KI-Wissensbox',
+    fr: 'Répondre en s’appuyant aussi sur les notes de la boîte à savoir BZ AI',
+    es: 'Responder usando también las notas de la caja de conocimiento BZ AI',
+    pt: 'Responder usando também as notas da caixa de conhecimento BZ AI',
   },
   fullFormats: {
     /* 2026-11-10：PDF 从这条卖点里摘出去了——它在对照表里有自己的段
@@ -810,10 +812,12 @@ export const PLAN_TABLE: PlanRow[] = [
   row('tts', 'no', 'yes', 'tts'),
   row('parallel', 'no', 'yes', 'parallel'),
   row('bookmap', 'no', 'yes', 'bookmap'),
-  /* 表尾只剩「知识库」一个环节：它是「全书问答」取依据的那一步，不是用户
-     会单独点的一颗按钮。2026-11-09 起「向量检索」不再单列——整本索引是
-     全书问答的前置步骤，拆成两行只让用户以为要买两次；建索引被拦时高亮
-     的是「AI 全书问答」那一行（见 shell/actions.ts 的 indexCap）。 */
+  /* 表尾这一步是「全书问答」取依据的那一步，不是单独一颗按钮。
+     2026-11-09 起「向量检索」不再单列——整本索引是全书问答的前置步骤，
+     拆成两行只让用户以为要买两次；建索引被拦时高亮的是「AI 全书问答」
+     那一行（见 shell/actions.ts 的 indexCap）。
+     2026-11-14：行名按 bz 的文案改叫「AI 知识盒」（bz 设置页同名），
+     不再叫「连接至 BZ AI 知识库」——同一个东西两套叫法，用户对不上。 */
   row('kb', 'no', 'yes', 'kb'),
   /* 剪藏成书（2026-11-13 实现，从「探索中」转正）：高级版权益。
      放在「进阶」段末尾：它依赖 bz 生态，是重度用户场景。 */

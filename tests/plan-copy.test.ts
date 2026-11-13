@@ -42,7 +42,7 @@ const CHANGED: ReadonlyArray<readonly [string, string]> = [
   ['vertical', '竖排排版：EPUB / TXT'],
   ['tts', '朗读：EPUB、TXT 与 PDF，念完自动翻页'],
   ['parallel', '与另一本书并排对照'],
-  ['kb', '连接 BZ AI 知识库（需另装 bz）'],
+  ['kb', 'AI 知识盒'],
 ];
 
 describe('1.0.0 对照表 · 引用页签归入高级版', () => {
@@ -91,9 +91,9 @@ describe('1.0.0 对照表 · 书摘下放与行名', () => {
 
   it('行名不带括号补充说明（只有 formats 的族名枚举与 kb 的前置条件例外）', () => {
     /* formats 的括号是「族 → 枚举」（Kindle 系（MOBI / AZW3）），不是解释；
-       kb 的「（需另装 bz）」是前置条件，写进正文会读成「知识库要另装」。
+       kb 2026-11-14 起按 bz 的文案统一叫「AI 知识盒」，行名不带括号。
        除了这两行，行名里不该再出现括号。 */
-    const ALLOWED = new Set(['formats', 'kb']);
+    const ALLOWED = new Set(['formats']);
     for (const r of PLAN_TABLE) {
       if (ALLOWED.has(r.key)) continue;
       expect(r.name, r.name).not.toMatch(/[（(]/);
@@ -103,7 +103,7 @@ describe('1.0.0 对照表 · 书摘下放与行名', () => {
   it('知识库之后是剪藏成书（正式行），探索中段收在表尾', () => {
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
-    expect(PLAN_TABLE[kbAt]?.name).toBe('连接 BZ AI 知识库（需另装 bz）');
+    expect(PLAN_TABLE[kbAt]?.name).toBe('AI 知识盒');
     expect(PLAN_TABLE[kbAt + 1]?.key).toBe('clipEpub');
     expect(PLAN_TABLE.slice(kbAt + 2).map((r) => r.key)).toEqual(
       PLAN_GROUPS.find((g) => g.key === 'explore')?.rows,

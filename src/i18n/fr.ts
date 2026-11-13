@@ -671,6 +671,7 @@ export const FR: Record<MsgKey, string> = {
   /* ── 解锁弹层：功能对照表 ─────────────────────────────── */
   'unlock.title': 'Pro',
   'unlock.activated': 'Activé',
+  'unlock.watchVideo': 'Voir la vidéo',
   'unlock.col.feature': 'Fonction',
   'unlock.col.base': 'Base',
   /* Espace réservé de développement (anglais) ; à traduire avant la sortie */

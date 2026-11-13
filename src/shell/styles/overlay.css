@@ -2360,3 +2360,18 @@ textarea.idea:focus {
 .bzs-guide.is-bad {
   color: var(--vermilion);
 }
+
+/* 对照表行尾的「看视频」（2026-11-14）：不是按钮，是行名后的补充说明——
+   小一号、下划线、与正文同色系，不抢勾叉的视线。 */
+.bzs-plan-video {
+  margin-left: .45em;
+  font-size: .82em;
+  color: var(--gold, inherit);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bzs-plan-video:hover {
+  color: var(--t1, inherit);
+}

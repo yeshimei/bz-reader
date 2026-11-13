@@ -185,8 +185,8 @@ describe('界面文案', () => {
   it('功能名只用短名，不带括号补充说明', () => {
     /* 两个例外，都不是「给功能名打补丁」（「书摘（图片版）」那种才是要拦的）：
        formats 括号里是「Kindle 系」这一族的扩展名枚举；
-       kb 的「（需另装 bz）」是前置条件，写进正文会读成「知识库要另装」。 */
-    const ALLOWED = new Set(['formats', 'kb']);
+       kb 2026-11-14 起按 bz 的文案统一叫「AI 知识盒」，行名不带括号。 */
+    const ALLOWED = new Set(['formats']);
     for (const row of PLAN_TABLE) {
       if (ALLOWED.has(row.key)) continue;
       expect(row.name, row.name).not.toMatch(/[（(]/);
@@ -236,7 +236,7 @@ describe('界面文案', () => {
     expect(PLAN_TABLE.some((r) => r.name.includes('向量'))).toBe(false);
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
-    expect(PLAN_TABLE[kbAt]?.name).toBe('连接 BZ AI 知识库（需另装 bz）');
+    expect(PLAN_TABLE[kbAt]?.name).toBe('AI 知识盒');
     /* 2026-11-13：剪藏成书实现后从探索中转正，排在正式段末尾；
        探索中段仍收在表尾，它们不是「买到了什么」。 */
     expect(PLAN_TABLE[kbAt + 1]?.key).toBe('clipEpub');
