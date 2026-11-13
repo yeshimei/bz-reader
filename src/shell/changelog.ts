@@ -59,6 +59,72 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '1.3.0',
+    date: '2026-11-13',
+    added: [
+      {
+        domain: { zh: '剪藏成书', en: 'Clipbook book' },
+        text: {
+          zh: '书架里多一本活书，内容直接读 bz 剪藏本，按订阅分卷；进章自动标已读，每章读了几分钟也记在里面。',
+          en: 'A live volume on your shelf that reads your bz clipbook directly, grouped by subscription — chapters are marked read as you enter them, and time per chapter is kept.',
+        },
+      },
+      {
+        domain: { zh: '生成摘要', en: 'Summaries' },
+        text: {
+          zh: '读订阅文章时，头栏可以按篇生成 AI 摘要，写在标题下方；剪藏本更新后按文章迁回原来的位置。',
+          en: 'In a subscription article, the header can generate an AI summary per piece and place it under the title; after the clipbook changes, your place moves back by article.',
+        },
+      },
+      {
+        domain: { zh: 'bz 组', en: 'bz group' },
+        text: {
+          zh: '设置页把剪藏本和 AI 知识盒归到「bz」组，检测到 bz 才出现开关，两项各有自己的教程。',
+          en: 'Settings now gathers the clipbook and the AI knowledge box into a “bz” group: the switches only appear when bz is detected, and each item has its own tutorial.',
+        },
+      },
+    ],
+    improved: [
+      {
+        domain: { zh: '宽屏', en: 'Wide screens' },
+        text: {
+          zh: '每栏宽度跟着阅读区走，宽屏下不再两侧一片空白。',
+          en: 'Column widths follow the reading area, so wide screens no longer leave blank bands on both sides.',
+        },
+      },
+      {
+        domain: { zh: '空剪藏本', en: 'Empty clipbook' },
+        text: {
+          zh: '剪藏本里一篇文章都没有时，打开开关会提醒先去配源或看教程，而不是弹一本空书。',
+          en: 'When the clipbook has no articles at all, turning the switch on now offers to set up sources or watch the tutorial instead of opening an empty book.',
+        },
+      },
+    ],
+    fixed: [
+      {
+        domain: { zh: '章节判定', en: 'Chapter end' },
+        text: {
+          zh: '本章正好两页时不再误判「读完了」。',
+          en: 'A chapter that is exactly two pages long is no longer mistaken for the end of the book.',
+        },
+      },
+      {
+        domain: { zh: '摘要位置', en: 'Summary position' },
+        text: {
+          zh: '生成摘要后停在那一篇开头，坏 CFI 不再把整本书弄崩。',
+          en: 'Generating a summary now lands at the start of that article, and a bad CFI no longer takes the whole book down.',
+        },
+      },
+      {
+        domain: { zh: '剪藏本细节', en: 'Clipbook details' },
+        text: {
+          zh: '长标题、坏图、B 站视频占位、目录折叠这些真机问题一并修掉。',
+          en: 'Long titles, broken images, Bilibili video placeholders and the folding table of contents are all fixed after checking on real devices.',
+        },
+      },
+    ],
+  },
+  {
     version: '1.2.0',
     date: '2026-11-12',
     added: [
