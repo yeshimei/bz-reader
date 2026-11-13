@@ -1856,3 +1856,40 @@
   height: 34px;
   background: var(--sunken);
 }
+
+/* ── 剪藏本空库提醒（shell/clip-empty-dialog） ──
+   这一层挂在 body 上，取不到 .bzs-shell 里的强调色与文字色，一律用宿主主题
+   变量：深浅色自动跟随，也不用在这里再抄一份色阶。 */
+.bzs-clipempty {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.bzs-clipempty-lead {
+  margin: 0;
+  font-size: var(--font-ui-small, 13px);
+  line-height: 1.75;
+  color: var(--text-normal);
+}
+
+/* 下一步那句退一档：第一段解释为什么是空的，这句只说去哪儿 */
+.bzs-clipempty-hint {
+  margin: 0;
+  font-size: var(--font-ui-smaller, 12px);
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+/* 两个出口都不吃满宽：满宽的一对会被读成「二选一」，而这里两个都是可选的 */
+.bzs-clipempty-acts {
+  display: flex;
+  gap: 8px;
+  margin-top: 3px;
+}
+
+.bzs-clipempty-acts .bzr-btn {
+  height: 30px;
+  padding: 0 14px;
+  font-size: 12px;
+}

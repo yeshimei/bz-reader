@@ -64,14 +64,32 @@ export interface BzAiFacade {
 /** missing = 没装；disabled = 装了没启用；ok = 实例在（门面可能缺半边） */
 export type BzStatus = 'ok' | 'disabled' | 'missing';
 
+/**
+ * 剪藏本门面（2026-11-13，bz 侧同日起挂）。
+ *
+ * 只服务一个场景：阅读器的剪藏本开关从关拨到开时，如果 bz 的剪藏本里还什么
+ * 都没有，提醒一句「先去配源或看教程」。判据必须由数据主人给——剪藏本的
+ * news.json 缺省落在 bz 插件目录下的点前缀目录里，别的插件既读不到也不该猜。
+ *
+ * 两项都可缺：老版本 bz 没有这个门面，或只有一半。缺 isUsed 就不提醒，
+ * 缺 open 就只留一个教程出口。
+ */
+export interface BzClipbookFacade {
+  /** 有文章 / 配了 RSS 源 / 加过 B 站 UP 主 → true。可以是同步或异步 */
+  isUsed?: () => boolean | Promise<boolean>;
+  /** 打开剪藏本主界面 */
+  open?: () => void;
+}
+
 export interface BzProbe {
   status: BzStatus;
   version: string;
   knowledge: BzKnowledgeFacade | null;
   ai: BzAiFacade | null;
+  clipbook: BzClipbookFacade | null;
 }
 
-const ABSENT: BzProbe = { status: 'missing', version: '', knowledge: null, ai: null };
+const ABSENT: BzProbe = { status: 'missing', version: '', knowledge: null, ai: null, clipbook: null };
 
 type AnyApp = {
   plugins?: {
@@ -112,6 +130,18 @@ function aiOf(plugin: Record<string, unknown> | null): BzAiFacade | null {
 }
 
 /**
+ * 取剪藏本门面：两项任一在就返回——不要求齐全，老版本 bz 可能只放了打开
+ * 主界面这一半。两项都不在才叫「没有这一项」。
+ */
+function clipbookOf(plugin: Record<string, unknown> | null): BzClipbookFacade | null {
+  const c = plugin?.clipbook as Partial<BzClipbookFacade> | undefined;
+  if (!c) return null;
+  const open = typeof c.open === 'function';
+  const isUsed = typeof c.isUsed === 'function';
+  return open || isUsed ? (c as BzClipbookFacade) : null;
+}
+
+/**
  * 探测 bz。任何时候都能调：没装、禁用、老版本、插件列表拿不到，一律返回结构化结果，
  * 不抛错、不打日志——这条路径在每次重绘里都可能走到。
  */
@@ -131,6 +161,7 @@ export function probeBz(app: App | null | undefined): BzProbe {
       version: versionOf(app, null),
       knowledge: null,
       ai: null,
+      clipbook: null,
     };
   }
   return {
@@ -138,6 +169,7 @@ export function probeBz(app: App | null | undefined): BzProbe {
     version: versionOf(app, plugin),
     knowledge: knowledgeOf(plugin),
     ai: aiOf(plugin),
+    clipbook: clipbookOf(plugin),
   };
 }
 
@@ -244,6 +276,38 @@ export function openBzPreview(app: App | null | undefined, path: string): boolea
     return false;
   }
   return true;
+}
+
+/**
+ * 剪藏本里有没有东西：只有明确 false 才意味着「该提醒用户先去配源」。
+ *
+ * 判不出来（门面缺、bz 太旧、读盘抛错、返回非布尔）一律当有——少一次提示
+ * 可以接受，对着一个装满文章的库说「你还是空的」不行。
+ */
+export async function bzClipbookUsed(app: App | null | undefined): Promise<boolean> {
+  const fn = probeBz(app).clipbook?.isUsed;
+  if (typeof fn !== 'function') return true;
+  try {
+    const out = await fn();
+    return out !== false;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * 打开剪藏本主界面。返回**是否真的转交出去**：false 时调用方提示一句，
+ * 而不是让按钮点下去什么也不发生。
+ */
+export function openBzClipbook(app: App | null | undefined): boolean {
+  const fn = probeBz(app).clipbook?.open;
+  if (typeof fn !== 'function') return false;
+  try {
+    fn();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

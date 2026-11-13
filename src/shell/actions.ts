@@ -85,7 +85,7 @@ import { RT, emitNotesChanged, pushAi, resetAi } from './runtime';
 import { HITS_PAGE } from './search-hits';
 import { kickBodySearch, refreshBodyHits, resetBodySearch, stopBodySearch } from './search-run';
 import { currentSearchSurface, kickSemanticSearch, resetSemanticSearch } from './search-semantic';
-import { bzEmbedder, bzNotesReady, openBzPreview, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
+import { bzClipbookUsed, bzEmbedder, bzNotesReady, openBzClipbook, openBzPreview, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
 import { AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../core/links';
@@ -126,6 +126,7 @@ import { fromSidebarHit, shouldCollapseSidebar } from './sidebar-jump';
 import { shelfLabel } from './shelf-label';
 import { getShellSource, allBooks, liveBooks, shellPrefs, shellSettings } from './source';
 import { openSupportDialog } from './support-dialog';
+import { openClipEmptyDialog } from './clip-empty-dialog';
 import { debugSnapshot } from '../data/debug-log';
 import { TAP_MENU_PRESSURE_MS } from '../core/tap';
 import { aiCardDrop, aiCardFollowBegin, aiCardFollowDone, aiCardFollowFail, aiCardGet, aiCardKey, aiModeOf, followHistory } from './ai-card';
@@ -229,6 +230,34 @@ function repaint(): void {
 
 function overlay(kind: OverlayKind, extra: Record<string, unknown> = {}): void {
   openOverlay({ kind, ...extra });
+}
+
+/**
+ * 剪藏本刚被打开时查一次库：空的就提醒先去配源（2026-11-13）。
+ *
+ * 不挡开关：设置已经写下去、界面也已经重绘，这里只补一句「你现在打开的
+ * 是一个空库」。查询失败、bz 太旧（没有这个门面）都不提醒——bzClipbookUsed
+ * 在那几种情况下返回 true，宁可不提，也别对着有数据的库说它是空的。
+ */
+function promptClipEmpty(app: App): void {
+  void (async () => {
+    if (await bzClipbookUsed(app)) return;
+    /* 查询期间用户又把它关掉了：这会儿弹出来像是自己冒出来的 */
+    if (!shellSettings().clipBook) return;
+    openClipEmptyDialog({
+      settings: () => {
+        if (!openBzClipbook(app)) notify(t('clip.empty.openFailed'), 'error');
+      },
+      tutorial: () => {
+        /* 链接还没定（core/links 里是空串）：说一句，不去打开不相干的视频 */
+        if (!CLIP_TUTORIAL_URL) {
+          notify(t('notice.tut.pending'), 'info');
+          return;
+        }
+        window.open(CLIP_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
+      },
+    });
+  })();
 }
 
 /* ─────────── 分类（2026-11-08） ───────────
@@ -1899,6 +1928,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       /* 必须自己重绘：setSettings 只落盘 + notifyShell，设置页那块的 DOM
          不会因为状态变了就重建，开关会停在旧位置（用户报的「点了不实时显示」）。 */
       repaint();
+      /* 剪藏本由关到开：库里还空着就提醒一句（走异步，不压开关的响应） */
+      if (d.k === 'clipBook' && patch.clipBook === true) promptClipEmpty(src.app);
       break;
     }
 
