@@ -308,6 +308,10 @@ export function clipSummaryText(code?: string): string {
   switch (code) {
     case 'notFound':
       return t('clip.summary.notFound');
+    case 'clipNote':
+      /* 剪藏笔记的摘要来自它自己的 frontmatter，门面不给它生成。
+         以前这里落到 notFound 的「没有正文」文案，用户以为文章坏了。 */
+      return t('clip.summary.clipNote');
     case 'aiFailed':
       return t('clip.summary.aiFailed');
     case 'writeFailed':

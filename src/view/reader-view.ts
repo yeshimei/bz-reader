@@ -3072,19 +3072,43 @@ export class ReaderView extends ItemView {
       this.renderClipBar();
       this.publishToc();
     } catch {
-      /* 新书没造出来：把旧书重新打开，下一拍再试。
-         以前这里只写一句注释就走人——可 reopen 已经把旧的渲染器关掉了，
-         结果是一屏空白（真机：生成摘要后 410 页变 1235 页、正文全白）。 */
-      try {
-        await this.host.reopen?.(oldHandle.book);
-        await this.host.start(oldCfi || undefined, oldPct || 0);
-      } catch {
-        /* 连旧书都打不开：交给下一次轮询 */
-      }
+      /* 热重建失败：`start()` 的清理可能已经把整个 host 视图拆成空壳
+         （destroy()），在残壳上再 open 旧书就是「一屏空白」——真机：
+         生成摘要后 410 页变 1235 页、正文全白，只能关掉重开。
+         这里直接按「重新打开这本书」重来一次（和用户手动重开同一条路），
+         位置由 pendingCfi 带回；重开时万一还失败，会落到错误页而不是白板。 */
+      this.recoverClipBook(oldCfi);
     } finally {
       this.clipRefreshing = false;
       this.forceClipRebuild = false;
     }
+  }
+
+  /**
+   * 热重建失败后的兜底：整页重开这本书。
+   *
+   * 不共用 refreshClipBook 的 reopen：start() 一旦超时会先 destroy() 掉
+   * host 里的视图，那个 host 已经不能再用（destroyed=true），reopen 只会
+   * 留下白屏。走 maybeMount 的完整路径——重新 loadClipBook + 新建视图，
+   * 和用户手动关掉再打开一模一样；pendingCfi 把位置带回原处。
+   */
+  private recoverClipBook(cfi: string): void {
+    this.stopClipWatch();
+    try {
+      this.clipHandle?.destroy();
+    } catch {
+      /* 旧书回收失败不拦重开 */
+    }
+    this.clipHandle = null;
+    this.clipSnap = null;
+    this.clipKey = '';
+    this.clipVersion = '';
+    this.forceClipRebuild = false;
+    this.mounted = false;
+    this.mounting = false;
+    /* cfi 优先；没有/失效时 start() 自己会退回第一页，不会白屏 */
+    this.pendingCfi = cfi || '';
+    void this.maybeMount();
   }
 
   /** 剪藏本突然读不到文章：只提示一次，别每 20 秒刷一条 */
@@ -3279,6 +3303,13 @@ export class ReaderView extends ItemView {
     }
     if (id === 'clipSummary') {
       if (this.clipSummarizing) return;
+      /* 剪藏笔记的摘要来自它自己的 frontmatter（bz 剪藏本里维护）。
+         门面只给「还没落地成笔记」的订阅文章生成摘要，这里先分流，
+         别让用户点完收到「没有正文」——那会以为文章坏了。 */
+      if (ch.notePath) {
+        notify(t('clip.summary.clipNote'), 'info');
+        return;
+      }
       /* 已经有摘要就不重复花一次 AI：内容没变，重算只会得到同一段话。
          想重算的入口在 bz 那边（对剪藏笔记「重新生成当前剪藏摘要」）。 */
       if (ch.summary) {
