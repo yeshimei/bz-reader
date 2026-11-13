@@ -92,6 +92,10 @@ export const TTS_ZH = {
   'tts.tune.prefetchBook': '预生成整本',
   'tts.tune.prefetchStop': '停止预生成',
   'tts.tune.exportChapter': '导出本章',
+  'tts.cacheClear.title': '清除朗读缓存',
+  'tts.cacheClear.body': '本机存了 {count} 段音频，约 {mb} MB。清掉之后，再听这些段会重新向语音服务请求、重新计费。这个操作不可撤销。',
+  'tts.cacheClear.bodyFree': '本机存了 {count} 段音频，约 {mb} MB。清掉之后，再听这些段要重新合成一遍；本地合成不要钱，只是要点时间。这个操作不可撤销。',
+  'tts.cacheClear.ok': '清除',
   'tts.bar.cost': '{chars} 字',
 } as const;
 
@@ -178,6 +182,10 @@ export const TTS_ZH_TW = {
   'tts.tune.prefetchBook': '預生成整本',
   'tts.tune.prefetchStop': '停止預生成',
   'tts.tune.exportChapter': '匯出本章',
+  'tts.cacheClear.title': '清除朗讀快取',
+  'tts.cacheClear.body': '本機存了 {count} 段音訊，約 {mb} MB。清掉之後，再聽這些段會重新向語音服務請求、重新計費。這個操作不可撤銷。',
+  'tts.cacheClear.bodyFree': '本機存了 {count} 段音訊，約 {mb} MB。清掉之後，再聽這些段要重新合成一遍；本機合成不要錢，只是要點時間。這個操作不可撤銷。',
+  'tts.cacheClear.ok': '清除',
   'tts.bar.cost': '{chars} 字',
 } as const;
 
@@ -264,6 +272,10 @@ const TTS_EN_BASE = {
   'tts.tune.prefetchBook': 'Pre-build book',
   'tts.tune.prefetchStop': 'Stop pre-building',
   'tts.tune.exportChapter': 'Export chapter',
+  'tts.cacheClear.title': 'Clear read-aloud cache',
+  'tts.cacheClear.body': 'This device holds {count} segments, about {mb} MB. After clearing, those segments are requested from the speech service again and billed again. This cannot be undone.',
+  'tts.cacheClear.bodyFree': 'This device holds {count} segments, about {mb} MB. After clearing, those segments are synthesized again; local synthesis is free, it just takes time. This cannot be undone.',
+  'tts.cacheClear.ok': 'Clear',
   'tts.bar.cost': '{chars} chars',
 } as const;
 

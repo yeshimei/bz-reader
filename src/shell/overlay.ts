@@ -282,6 +282,7 @@ export function ttsFormHtml(): string {
   const engine = mobile && p.ttsEngine === 'system' ? 'deepseek' : p.ttsEngine;
   const isLocal = engine === 'local';
   const isDeepseek = engine === 'deepseek';
+  const bookBusy = getShellSource()?.isPrefetchingBook?.() ?? false;
   return `<div class="bzs-setgrp flat bzs-typo">
     <div class="bzs-setrow"><label>${t('settings.ttsEngine')}</label>${seg('ttsEngine', engineOpts, engine)}</div>
     ${
@@ -312,7 +313,7 @@ export function ttsFormHtml(): string {
     </div>
     <div class="bzs-setrow">
       <button class="bzs-btn sm" data-act="ttsexportchapter">${t('tts.tune.exportChapter')}</button>
-      ${isLocal ? `<button class="bzs-btn sm" data-act="ttsprefetchbook">${t('tts.tune.prefetchBook')}</button>` : ''}
+      ${isLocal ? `<button class="bzs-btn sm${bookBusy ? ' pri' : ''}" data-act="ttsprefetchbook">${t(bookBusy ? 'tts.tune.prefetchStop' : 'tts.tune.prefetchBook')}</button>` : ''}
     </div>
   </div>`;
 }
@@ -324,17 +325,20 @@ function overlayTts(): string {
 }
 
 function overlayTtsClear(info: string): string {
-  const [count, mb] = info.split('|');
+  const [count, mb, free] = info.split('|');
   return modal(
-    '清除朗读缓存',
+    t('tts.cacheClear.title'),
     '',
     `<div style="font-size:13px;line-height:2;color:var(--t2)">
-      本机存了 <b>${esc(count)}</b> 段音频，约 <b>${esc(mb)} MB</b>。<br>
-      清掉之后，再听这些段会重新向语音服务请求、重新计费。<br>
-      这个操作不可撤销。
+      ${esc(
+        t(free === '1' ? 'tts.cacheClear.bodyFree' : 'tts.cacheClear.body', {
+          count: count ?? '0',
+          mb: mb ?? '0',
+        }),
+      )}
     </div>`,
-    `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
-     <button class="bzs-btn pri" data-act="ttscachecleardo">清除</button>`,
+    `<span class="sp"></span><button class="bzs-btn" data-act="close">${t('common.cancel')}</button>
+     <button class="bzs-btn pri" data-act="ttscachecleardo">${t('tts.cacheClear.ok')}</button>`,
   );
 }
 

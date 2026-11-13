@@ -67,6 +67,15 @@ export function notifyProgress(text: string): ProgressHandle {
   const n = new Notice(text, 0);
   return {
     setMessage: (next: string) => n.setMessage(next),
-    hide: () => n.hide(),
+    hide: () => {
+      n.hide();
+      /* `hide()` 只让它开始淡出；进度条是常驻通知，走慢了会把屏幕占着
+         （2026-11-14 真机上「停止预生成后进度还挂着」就是这条），直接摘掉 */
+      try {
+        (n as unknown as { containerEl?: HTMLElement }).containerEl?.remove();
+      } catch {
+        /* 老版本没有 containerEl，靠 hide() 也行 */
+      }
+    },
   };
 }

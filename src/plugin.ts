@@ -668,6 +668,7 @@ export function createPlugin(cfg: PluginConfig) {
         currentText: () => this.activeReader()?.pageText() ?? '',
         prefetchBookAudio: () => void this.activeReader()?.prefetchBook(),
         exportChapterAudio: () => void this.activeReader()?.exportChapterAudio(),
+        isPrefetchingBook: () => this.activeReader()?.prefetchingBookActive ?? false,
         exportChapters: async (opts) => {
           const view = this.activeReader();
           /* 建画像要的是「这本书」的正文：视图里开着另一本时宁可返回空，

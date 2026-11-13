@@ -42,7 +42,7 @@ import { concatWav } from '../core/wav';
 import { TtsCache, cacheKey } from '../data/tts-cache';
 import { localRequester } from '../data/tts-request';
 import { ttsBarHtml } from './tts-bar';
-import { notify, notifyNow, notifyProgress, type NoticeHandle } from '../core/notice';
+import { notify, notifyNow, notifyProgress, type NoticeHandle, type ProgressHandle } from '../core/notice';
 import { localeTag, t, type MsgKey } from '../i18n';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
@@ -414,6 +414,8 @@ export class ReaderView extends ItemView {
   private prefetching = false;
   /** 正在整本预生成（浮层按钮按第二下 = 停） */
   private prefetchingBook = false;
+  /** 整本预生成那张常驻进度通知：点「停止」要立刻收掉，不能等当前那句合完 */
+  private bookProgress: ProgressHandle | null = null;
 
   /* 每日打卡：按 tracker 的已读秒数增量记账。
      以前只在关 tab 时 addCheckin 一次——开着 tab 读一整天，统计页永远 0。 */
@@ -2135,6 +2137,11 @@ export class ReaderView extends ItemView {
     });
   }
 
+  /** 整本预生成是否在跑（浮层按钮据此换成「停止」） */
+  get prefetchingBookActive(): boolean {
+    return this.prefetchingBook;
+  }
+
   /**
    * 整本预生成（2026-11-14，增强项）。
    *
@@ -2147,6 +2154,10 @@ export class ReaderView extends ItemView {
   async prefetchBook(): Promise<void> {
     if (this.prefetchingBook) {
       this.prefetchingBook = false;
+      /* 立刻收掉进度条：否则要等当前这句合完（两三秒）才消失，
+         用户以为没停下来 */
+      this.bookProgress?.hide();
+      this.bookProgress = null;
       notify(t('notice.tts.prefetchCancelled'));
       return;
     }
@@ -2191,6 +2202,7 @@ export class ReaderView extends ItemView {
     const voice = this.ttsVoice(route.engine);
     const tag = ttsCacheTag(route.engine, voice, route.local.format);
     const progress = notifyProgress('');
+    this.bookProgress = progress;
     let done = 0;
     const paint = (ci: number): void => {
       progress.setMessage(
@@ -2230,6 +2242,7 @@ export class ReaderView extends ItemView {
       notify(t('notice.tts.failed'));
     } finally {
       this.prefetchingBook = false;
+      this.bookProgress = null;
     }
   }
 

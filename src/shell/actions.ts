@@ -2058,11 +2058,14 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
     case 'ttscacheclear':
-      /* 先问一句再清（与书库「移出书架」同一副弹窗）：缓存清了要重新花钱生成 */
+      /* 先问一句再清（与书库「移出书架」同一副弹窗）。本地引擎不要钱，
+         文案不能说「重新计费」——那会把看过价格的人吓退。 */
       void new TtsCache()
         .stats()
         .then((st) =>
-          overlay('ttsclear', { text: `${st.count}|${Math.round(st.bytes / 1048576)}` }),
+          overlay('ttsclear', {
+            text: `${st.count}|${Math.round(st.bytes / 1048576)}|${shellPrefs().ttsEngine === 'local' ? '1' : '0'}`,
+          }),
         );
       break;
     case 'ttscachecleardo':

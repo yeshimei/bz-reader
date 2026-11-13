@@ -48,6 +48,8 @@ export interface ShellSource {
   prefetchBookAudio?: () => void;
   /** 把当前章导成一个音频文件（浮层按钮用） */
   exportChapterAudio?: () => void;
+  /** 整本预生成是否正在跑：浮层按钮据此把「预生成整本」换成「停止预生成」 */
+  isPrefetchingBook?: () => boolean;
   /**
    * 打开一本书（带 cfi 落到那一页）；已有同书 tab 就复用。
    * `query` = 从搜索结果点过来时正在搜的词：落到页面上要标出来。
