@@ -88,7 +88,7 @@ import { currentSearchSurface, kickSemanticSearch, resetSemanticSearch } from '.
 import { bzEmbedder, bzNotesReady, openBzPreview, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
-import { AI_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../core/links';
+import { AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../core/links';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
 import { forgetPortrait, setPortrait } from './portrait-cache';
@@ -2341,6 +2341,19 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       /* 没装 bz 的人最需要它：从这儿知道索引是怎么建的。看的是讲索引
          的那期，不是关于条上的推荐向视频。 */
       window.open(AI_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
+      break;
+    case 'bzinstall':
+      /* bz 组的安装入口：同一支视频的第 2P（第 1P 是推荐向总览） */
+      window.open(BZ_INSTALL_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
+      break;
+    case 'cliptut':
+      /* 剪藏本的教程还没定（core/links 里是空串）。空着就说一句，
+         不去打开一条不相干的视频——指错比没有更糟。 */
+      if (!CLIP_TUTORIAL_URL) {
+        notify(t('notice.tut.pending'), 'info');
+        break;
+      }
+      window.open(CLIP_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
       break;
     case 'ptpause':
       portraitBuilder().pause();

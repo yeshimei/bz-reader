@@ -479,21 +479,44 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>${t('settings.ai.baseUrl')}</label><input data-role="setting" data-k="ai.baseUrl" placeholder="${t('settings.ai.baseUrl.ph')}" value="${esc(s.ai.baseUrl)}" style="flex:1"${aiReadonly}></div>
       <div class="bzs-setrow"><label>${t('settings.ai.model')}</label><input data-role="setting" data-k="ai.model" placeholder="${t('settings.ai.model.ph')}" value="${esc(s.ai.model)}" style="flex:1"${aiReadonly}></div>
       <div class="bzs-setrow"><label>${t('settings.ai.key')}</label><input type="password" data-role="setting" data-k="ai.apiKey" placeholder="${t('settings.ai.key.ph')}" value="${esc(s.ai.apiKey)}" style="flex:1"${aiReadonly}></div>
+    </div>`;
+
+  /* bz 组（2026-11-13）：两项外部能力从 AI 组里抽出来单独成组。
+        · 剪藏本——要人主动打开，所以是开关；装了 bz 才画开关，没装只留说明。
+          摆一颗点不动的灰开关，人会以为是自己点坏了。
+        · AI 知识盒——检测到 bz 就自动连（data/bz-bridge 逐项降级），没有
+          「关掉」这个动作，所以永远只报连没连上，不给开关。
+     两项各有自己的教程：剪藏本讲成书，知识盒讲索引怎么建，共一颗就会指错。 */
+  const bzOk = !!v.bz?.ok;
+  const tutBtn = (act: string, key: MsgKey): string =>
+    `<button class="bzs-bztut" data-act="${act}">${ico('video')}<span>${t(key)}</span></button>`;
+  const bzClip = `<div class="bzs-bzitem">
       ${
-        /* 知识库归 BZ AI：这里只报「连没连上」，不给选——留一个能填错的框，
-           就留了一条静默错误（模型不一致 → 检索全错）。
-           连不上时给一个教程出口：此刻唯一有意义的下一步是去看怎么装，
-           把安装步骤原样写在这行，只是把教程复述一遍。 */
-        `<div class="bzs-setrow"><label>${t('settings.ai.kb')}</label>
-            <span class="bzs-kbstate${kbLinked ? ' on' : ''}"><i></i>${
-              kbLinked ? t('settings.ai.kb.on') : t('settings.ai.kb.off')
-            }</span></div>
-          <div class="bzs-mini" style="margin:-2px 0 ${kbLinked ? '8' : '10'}px;line-height:1.7">${t('settings.ai.kb.hint')}</div>
-          ${
-            kbLinked
-              ? ''
-              : `<div class="bzs-kbacts"><button class="bzs-btn sm pri" data-act="aitutorial">${t('side.ai.index.tutorial')}</button></div>`
-          }`
+        bzOk
+          ? toggle('clipBook', s.clipBook, t('settings.bz.clip'))
+          : `<div class="bzs-setrow"><label>${t('settings.bz.clip')}</label></div>`
+      }
+      <div class="bzs-bznote">${t('settings.bz.clip.hint')}${tutBtn('cliptut', 'settings.bz.tut')}</div>
+    </div>`;
+  const bzKb = `<div class="bzs-bzitem">
+      <div class="bzs-setrow"><label>${t('settings.bz.kb')}</label>
+        <span class="bzs-kbstate${kbLinked ? ' on' : ''}"><i></i>${
+          kbLinked ? t('settings.ai.kb.on') : t('settings.ai.kb.off')
+        }</span></div>
+      <div class="bzs-bznote">${t('settings.ai.kb.hint')}${tutBtn('aitutorial', 'settings.bz.tut')}</div>
+    </div>`;
+  /* 没装 bz 时补一句「为什么现在不能用」+ 安装教程（第 2P）。
+     装了就整块不渲染：装完这一节没有第二次用途。 */
+  const bz = `<div class="bzs-setgrp">
+      <h3>${t('settings.grp.bz')}</h3>
+      ${bzClip}${bzKb}
+      ${
+        bzOk
+          ? ''
+          : `<div class="bzs-bzguide"><div class="bzs-bznote">${t('settings.bz.missing')}${tutBtn(
+              'bzinstall',
+              'settings.bz.install',
+            )}</div></div>`
       }
     </div>`;
 
@@ -584,7 +607,7 @@ export function viewSettings(v: SettingsView): string {
      切点仍按原顺序切，不重排其余分组：窄屏叠成一列时「左列全部 → 右列全部」
      仍是界面 → 版式 → 外观 → PDF → 标注 → 数据 → 朗读 → AI → 授权。 */
   const leftCol = `${languageGrp}${layout}${look}${pdf}`;
-  const rightCol = `${marks}${data}${tts}${ai}${lic}`;
+  const rightCol = `${marks}${data}${tts}${ai}${bz}${lic}`;
 
   return `<div class="bzs-set-page">${aboutBar(v.version || '', paid, ent.patron, ent.name)}<div class="bzs-set-grid"><div class="bzs-set-col">${leftCol}</div><div class="bzs-set-col">${rightCol}</div></div>${header}${keys}</div>`;
 }

@@ -77,6 +77,16 @@ export interface ReaderSettings {
    * 遇到问题时能自己开一次抓现场，比让他连着电脑看控制台现实。
    */
   debugLog: boolean;
+  /**
+   * 剪藏本：书架里多一本「剪藏成书」，跟着 bz 剪藏本的文章同步（2026-11-13）。
+   *
+   * 默认**关**：这是要用户主动开的功能，不像知识盒那样检测到 bz 就自动连——
+   * 书架突然多出一本不是自己放进去的书，比「没有这本书」更让人困惑。
+   *
+   * 开关只在检测到 bz 时出现（render/settings.ts 的 bz 组），
+   * 但**值照常存**：拆了 bz 再装回来，用户上次的选择还在。
+   */
+  clipBook: boolean;
   /*
    * 这里**故意没有** license。
    *
@@ -101,6 +111,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   },
   aiAck: false,
   debugLog: false,
+  clipBook: false,
 };
 
 function str(v: unknown, fallback = ''): string {
@@ -190,6 +201,8 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     ai: normalizeAi(s.ai),
     aiAck: s.aiAck === true,
     debugLog: s.debugLog === true,
+    /* 缺字段（旧版本没有它）= 关：剪藏成书要人主动开，不能靠缺省值替人选 */
+    clipBook: s.clipBook === true,
   };
 }
 

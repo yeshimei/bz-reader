@@ -1537,8 +1537,81 @@
 }
 
 /* 教程按钮紧贴说明文字：吃一条 .bzs-setrow 的分隔线会把一句话拆成两条设置 */
-.bzs-kbacts {
-  margin: -2px 0 2px;
+/* ── bz 组（2026-11-13）：剪藏本 + AI 知识盒 ──
+   两项从 AI 组里抽出来单独成组。剪藏本是开关（装了 bz 才画），
+   AI 知识盒自动连接、只报状态；每项末尾挂一颗自己的教程链接。
+
+   链接做成文字而不是按钮：这一组里唯一的主动作是那颗开关，
+   再做两颗按钮会把「要不要开」稀释成三件平级的事。 */
+.bzs-bzitem + .bzs-bzitem {
+  /* 一项的说明与下一项的标签之间要留一道呼吸，否则两段说明会连成一片 */
+  margin-top: 10px;
+}
+
+.bzs-bznote {
+  /* 紧贴上面那一行（-2）：它讲的是这一项开了会怎样，不是又一条设置 */
+  margin: -2px 0 12px;
+  padding-right: 4px;
+  font-size: var(--fs-caption);
+  line-height: 1.8;
+  color: var(--t3);
+  letter-spacing: .02em;
+}
+
+/* 组里最后一项不留底部空隙；有安装引导时它是 last-child，这里的清零不生效 */
+.bzs-bzitem:last-child .bzs-bznote {
+  margin-bottom: 0;
+}
+
+/* 知识盒没有开关，状态跟着开关那根轴线走——两行一个贴左一个贴右会显脏 */
+.bzs-bzitem .bzs-kbstate {
+  margin-left: auto;
+}
+
+.bzs-bztut {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--copper);
+  font-size: var(--fs-caption);
+  letter-spacing: .03em;
+  vertical-align: -2px;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.bzs-bztut svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+/* 下划线只在下划线上出现：常态让它和说明文字同一行读顺，
+   悬停才显形，不用整块底色把句子切断 */
+.bzs-bztut span {
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--dur) var(--ease);
+}
+
+.bzs-bztut:hover span {
+  border-bottom-color: currentColor;
+}
+
+/* 没装 bz 时的那一句：它说的是整组的状态，不是第三项设置，
+   所以用一道发丝线跟上面两项断开 */
+.bzs-bzguide {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.bzs-bzguide .bzs-bznote {
+  margin: 0;
 }
 
 /* 分段选择器 */

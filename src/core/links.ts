@@ -23,3 +23,19 @@ export const VIDEO_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1tK4E6KE1B';
  * 与设置页的推荐向视频不是同一条，别合并回去。
  */
 export const AI_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1bR4s6dEjH';
+
+/**
+ * 设置页 bz 组「怎么装 bz」专用：同一支视频的第 **2P**（`?p=2`），
+ * 第 1P 是推荐向总览。p 参数是这条链接唯一的作用，别删。
+ *
+ * 只有没检测到 bz 时才出现——装完这一节就不需要了。
+ */
+export const BZ_INSTALL_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1vNsZ6pE7i/?p=2';
+
+/**
+ * 剪藏本的教程（bz 组里那颗「看教程」）。
+ *
+ * **待定**：链接还没定，先留空串。动作层拿到空串只提示一句「教程还没上线」，
+ * 不去打开一条不相干的视频——指错比没有更糟。链接定下来填这里即可。
+ */
+export const CLIP_TUTORIAL_URL = '';
