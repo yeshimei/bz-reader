@@ -7,7 +7,7 @@
  */
 import type { App } from 'obsidian';
 import { t } from '../i18n';
-import { probeClipbook, clipbookProblem, type ClipbookArticle, type ClipbookFacade } from './clipbook-bridge';
+import { probeClipbook, clipbookProblem, type ClipbookArticle, type ClipbookFacade, type ClipReadEntry } from './clipbook-bridge';
 import { planClipBook, type PlanArticle } from './clip-epub/plan';
 import { makeClipBook, type ClipBookHandle, type ClipChapter, type ClipGroup } from '../engine/clipbook';
 
@@ -210,6 +210,25 @@ export async function markClipChapterRead(app: App, key: string): Promise<boolea
     return (await probe.facade.markRead([key])) > 0;
   } catch {
     return false;
+  }
+}
+
+/**
+ * 把这一批阅读秒数回写给剪藏本（2026-11-13）。返回落账篇数。
+ *
+ * 三步都是一样的边界：没装 bz / 老版本没有 recordRead / 写盘失败，
+ * 一律返回 0 且不抛。时长回写是「锦上添花」，绝不能因为它让阅读中断——
+ * 剪藏本那边最坏就是少记这一批，书里的 chapterSeconds 还是准的。
+ */
+export async function reportClipSeconds(app: App, entries: ClipReadEntry[]): Promise<number> {
+  if (!entries || !entries.length) return 0;
+  const probe = probeClipbook(app);
+  const facade = probe.facade;
+  if (!facade || typeof facade.recordRead !== 'function') return 0;
+  try {
+    return (await facade.recordRead(entries)) || 0;
+  } catch {
+    return 0;
   }
 }
 

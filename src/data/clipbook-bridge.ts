@@ -51,6 +51,18 @@ export interface ClipSummaryResult {
   code?: 'notFound' | 'aiFailed' | 'writeFailed';
 }
 
+/** 一篇的阅读时长上报（阅读器按章计时后交给剪藏本） */
+export interface ClipReadEntry {
+  /** 文章标识（与 articles() 的 key 同一套） */
+  key: string;
+  /** 新增秒数（≥1；调用方已合并、已取整） */
+  seconds: number;
+  /** 展示用：剪藏本列表与报告的条目名 */
+  title?: string;
+  /** 展示用：来源名（B站 UP / 平台 / 站点） */
+  src?: string;
+}
+
 /** bz 挂在插件实例上的剪藏本门面（形状只在这里声明） */
 export interface ClipbookFacade {
   readonly version: 1;
@@ -64,6 +76,14 @@ export interface ClipbookFacade {
    * 形状声明成可选，调用方一律 typeof 探测，不要拿版本号当判据。
    */
   summarizeArticle?(key: string): Promise<ClipSummaryResult>;
+  /**
+   * 回写阅读时长（可选：老版本 bz 没有这个能力）。
+   *
+   * 剪藏本这边把秒数累进侧写、凑满的整分钟进阅读流水；阅读器只报增量。
+   * 同样是 typeof 探测，缺了就当没这个功能——读照常读，只是剪藏本里
+   * 看不到「读了几分钟」。
+   */
+  recordRead?(entries: ClipReadEntry[]): Promise<number>;
   isReady(): { ok: boolean; code?: 'noFolder' };
   /** 数据版本：变了说明剪藏本有新文章 / 状态变化 / 笔记改动（阅读页轮询它） */
   dataVersion(): Promise<string>;

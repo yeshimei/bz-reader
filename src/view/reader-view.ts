@@ -112,10 +112,12 @@ import {
   openClipbookPanel,
   saveClipChapter,
   summarizeClipChapter,
+  reportClipSeconds,
   type ClipBookSnapshot,
 } from '../data/clip-book';
 import type { ClipBookHandle, ClipChapter } from '../engine/clipbook';
 import { ChapterClock } from '../data/clip-epub/chapter-clock';
+import { ClipReportQueue } from '../data/clip-epub/report-queue';
 import { addChapterSeconds, clipLanding, type ClipLanding } from '../data/clip-epub/sidecar';
 import { carryMeasuredPages, clipStructureChanged, migrateClipKey, syncClipChapterMeta } from '../data/clip-epub/refresh';
 import { getShellSource, shellPrefs } from '../shell/source';
@@ -204,6 +206,16 @@ export interface ReaderHostApi {
  * 把 tab 拖到新窗口会开第二个视图，两边各记一遍时长、页码也各走各的。
  */
 const clipOwners = new ClipOwnerRegistry<ReaderView>();
+
+/**
+ * 剪藏本阅读时长的上报窗口（2026-11-13）。
+ *
+ * 时间线：每 15 秒一拍攒进队列 → 最多等这么久批量发一次。60 秒的理由：
+ * 剪藏本那边的流水是整分钟入账，窗口太短会让每次上报都凑不满 1 分钟
+ * （零头留在账上，报告里看不见），太长则关书前长时间不落地、剪藏本列表
+ * 一直显示 0 分钟。切章和关书另有立即补发，不依赖这个窗口。
+ */
+const CLIP_REPORT_WINDOW_MS = 60_000;
 
 export class ReaderView extends ItemView {
   private api: ReaderHostApi;
@@ -294,6 +306,15 @@ export class ReaderView extends ItemView {
   private clipEmptyNotified = false;
   /** 认领了哪本剪藏本（关书时按它释放计时权） */
   private clipOwnerId = '';
+  /**
+   * 待回写给剪藏本的秒数（切章时攒、窗口到了一次发走）。
+   *
+   * 不能每拍都写盘：15 秒一拍，读一小时就是两百多次读改写。也不能等关书
+   * 才发——用户开着书去干别的，那一篇永远显示 0 分钟。
+   */
+  private clipReportQueue = new ClipReportQueue();
+  /** 上报节流定时器（60 秒窗口；关书 / 切走时立刻补发并清掉） */
+  private clipReportTimer: number | null = null;
   /**
    * 剪藏状态栏项（2026-11-13）：桌面左下角那行「来源 · 已读」。
    *
@@ -2948,6 +2969,13 @@ export class ReaderView extends ItemView {
     this.clipClock = new ChapterClock();
     this.clipReported.clear();
     this.clipEmptyNotified = false;
+    /* 上一任视图交接时已经把队列发空（yieldClipBook）；这里换新队列防止
+       重试挂载时把上一轮的时长再报一次。 */
+    this.clipReportQueue = new ClipReportQueue();
+    if (this.clipReportTimer !== null) {
+      window.clearTimeout(this.clipReportTimer);
+      this.clipReportTimer = null;
+    }
     this.tracker.setSink((sec) => this.clipClock.add(sec));
     /* 打开书时先认一遍当前章：首拍 relocate 不一定被算成「换章」
        （spine 0 与初始值相同时），底条不能等下一次翻页才出现。 */
@@ -2985,6 +3013,8 @@ export class ReaderView extends ItemView {
   private yieldClipBook(): void {
     this.stopClipWatch();
     this.flushClipSeconds();
+    /* 交接前把攒的秒数发掉：新视图会重建队列，不发就丢了这一段 */
+    void this.sendClipReport();
     this.tracker.setSink(null);
     this.clipClock = new ChapterClock();
   }
@@ -3177,21 +3207,61 @@ export class ReaderView extends ItemView {
     }
   }
 
-  /** 把当前章还没结账的秒数写进书的数据（切章 / 关书时调） */
+  /** 把当前章还没结账的秒数写进书的数据（切章 / 关书时调）+ 攒进待上报队列 */
   private flushClipSeconds(): void {
     /* 先结算「上次整拍到现在」：只 take 整拍的话，停 20 秒切走只记 15 秒、
        停 5 秒切走记 0 秒（真机：连续 3 章各停 5 秒，只有前一章记到 15 秒）。 */
     this.tracker.settle();
     const tick = this.clipClock.take();
-    if (!tick || !this.book) return;
+    if (!tick) return;
+    const ch = this.clipHandle?.byKey(tick.key) ?? null;
+    /* 剪藏本那边也要这份时长：同一笔秒数写两处——书里 chapterSeconds 给
+       状态栏 / 断点续读，bz 那边 readSeconds 给剪藏本列表的「· 3 分钟」。 */
+    this.queueClipReport(tick.key, tick.seconds, ch);
+    if (!this.book) return;
     const reading = this.book.reading;
     reading.chapterSeconds = addChapterSeconds(reading.chapterSeconds || {}, tick.key, tick.seconds);
     this.api.store.touch();
   }
 
+  /** 攒一段待回写的秒数，并保证有一个节流窗口在跑 */
+  private queueClipReport(key: string, seconds: number, ch: ClipChapter | null): void {
+    if (!key || seconds <= 0) return;
+    this.clipReportQueue.add({
+      key,
+      seconds,
+      title: ch?.title ?? '',
+      src: ch?.sourceName ?? '',
+    });
+    if (this.clipReportTimer !== null) return;
+    /* 60 秒窗口：一窗口一次批量上报，同篇在这段时间里翻进翻出会合并成一条 */
+    this.clipReportTimer = window.setTimeout(() => {
+      this.clipReportTimer = null;
+      void this.sendClipReport();
+    }, CLIP_REPORT_WINDOW_MS);
+  }
+
+  /**
+   * 现在就发（关书 / 切走 / 窗口到点）。
+   *
+   * 发失败不重排：剪藏本那边最坏少记一批，书里的 chapterSeconds 已经是准的，
+   * 下一次切章会带新的秒数。反过来（失败就塞回队列）会让长期写不进盘的机器
+   * 无限攒内存，不值得。
+   */
+  private async sendClipReport(): Promise<void> {
+    if (this.clipReportTimer !== null) {
+      window.clearTimeout(this.clipReportTimer);
+      this.clipReportTimer = null;
+    }
+    const batch = this.clipReportQueue.take();
+    if (!batch.length) return;
+    await reportClipSeconds(this.api.app, batch);
+  }
+
   private teardownClip(): void {
     this.stopClipWatch();
     this.flushClipSeconds();
+    void this.sendClipReport();
     if (this.clipOwnerId) {
       clipOwners.release(this.clipOwnerId, this);
       this.clipOwnerId = '';
