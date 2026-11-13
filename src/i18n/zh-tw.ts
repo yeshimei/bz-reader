@@ -17,6 +17,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'common.close': '關閉',
   'common.cancel': '取消',
   'common.unknownError': '未知錯誤',
+  'fault.details': '詳情',
   'common.dialog': '對話框',
 
   /* ── 外掛入口 ────────────────────────────────────────────── */
@@ -957,10 +958,14 @@ export const ZH_TW: Record<MsgKey, string> = {
   'clip.err.failed': '剪藏成書沒生成成功：{why}',
   'clip.update.hint': '剪藏本有更新：新增 {a} 篇、刪除 {r} 篇、狀態變化 {c} 篇。更新後按文章遷回原來的位置。',
   'clip.badge': '剪藏成書',
+  'clip.count.articles': '{n} 篇',
+  'clip.count.sources': '{n} 源',
+  'clip.live': '即時更新',
   'clip.state.unread': '未讀',
   'clip.state.read': '已讀',
   'clip.state.saved': '已保存',
   'clip.chapter.minutes': '這一章讀了 {m} 分鐘',
+  'clip.chapter.empty': '（這篇沒有正文，可能抓取失敗）',
   'clip.action.openSource': '原文',
   'clip.action.save': '存為剪藏',
   'clip.action.saved': '已保存',

@@ -132,6 +132,18 @@ export class ActivityTracker {
     this.accrue(Date.now());
   }
 
+  /**
+   * 立刻结算「上次整拍到现在」这一段。
+   *
+   * 切章时用：只 take 已经结算的整拍会丢掉最后一截——停 20 秒切走只记 15 秒，
+   * 停 5 秒切走记 0 秒（真机：连续 3 章各停 5 秒，只有前一章记到 15 秒）。
+   * 会话累计与章节计时同时受益。
+   */
+  settle(now = Date.now()): number {
+    if (!this.running) return 0;
+    return this.accrue(now);
+  }
+
   /** 结算一次会话。太短或没读到时长 → null（不产生垃圾数据）。 */
   end(): SessionResult | null {
     if (!this.running) return null;

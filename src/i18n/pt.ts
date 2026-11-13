@@ -21,6 +21,7 @@ export const PT: Record<MsgKey, string> = {
   'common.close': 'Fechar',
   'common.cancel': 'Cancelar',
   'common.unknownError': 'Erro desconhecido',
+  'fault.details': 'Details',
   'common.dialog': 'Diálogo',
 
   /* ── Entrada do plugin ──────────────────────────────────── */
@@ -969,10 +970,14 @@ export const PT: Record<MsgKey, string> = {
   'clip.err.failed': 'Could not build the book: {why}',
   'clip.update.hint': 'The clipbook changed: {a} added, {r} removed, {c} changed. Updating moves your place back by article.',
   'clip.badge': 'From clipbook',
+  'clip.count.articles': '{n} articles',
+  'clip.count.sources': '{n} sources',
+  'clip.live': 'Live',
   'clip.state.unread': 'Unread',
   'clip.state.read': 'Read',
   'clip.state.saved': 'Saved',
   'clip.chapter.minutes': 'Read {m} min in this chapter',
+  'clip.chapter.empty': '(No text in this article — the fetch may have failed.)',
   'clip.action.openSource': 'Source',
   'clip.action.save': 'Save to clipbook',
   'clip.action.saved': 'Saved',

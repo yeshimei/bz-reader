@@ -9,6 +9,10 @@ export interface FoliateTOCItem {
   label: string;
   href: string;
   subitems?: FoliateTOCItem[];
+  /** 剪藏本：这一组下面有几篇文章（EPUB 目录不带这个字段） */
+  count?: number;
+  /** 剪藏本：这一篇的阅读状态（目录行据此显示已读/已存标记） */
+  state?: 'unread' | 'read' | 'saved';
 }
 
 /**

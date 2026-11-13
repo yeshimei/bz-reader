@@ -28,6 +28,8 @@ import {
   toggleBookmark,
 } from '../data/notes';
 import { ActivityTracker, attachChapter } from '../engine/activity';
+import { shouldMarkComplete } from '../engine/progress-fraction';
+import { ClipOwnerRegistry } from './clip-owner';
 import { applyEngineMeta } from '../data/book-meta';
 import { coverPathOf, ensureCoverFromFoliate } from '../data/cover';
 import { speak, speakLang, type SpeakHandle } from '../core/speak';
@@ -90,7 +92,7 @@ import { clearTitleToc, isTitleToc, markTitleToc } from './title-toc';
 import { pagingKeyAction, type PagingDirection } from './paging-key';
 import { tapDirection, type TapSide } from './tap-direction';
 import { immersiveExitHint, updateImmersiveHolders } from './immersive';
-import { navBottomGap } from './bottom-gap';
+import { chromeBottomOverlap } from './bottom-gap';
 import { destroyQuietly } from '../core/safe-destroy';
 import { anchoredPlacement } from '../shell/anchored-style';
 import { RT, onNotesChanged } from '../shell/runtime';
@@ -100,6 +102,7 @@ import { shouldNotifyRelocate } from './relocate-notify';
 import { isClipBookRecord } from '../data/clip-book-entry';
 import {
   clipSaveText,
+  clipBookIsEmpty,
   currentClipVersion,
   loadClipBook,
   makeClipBookForApp,
@@ -111,6 +114,7 @@ import {
 import type { ClipBookHandle, ClipChapter } from '../engine/clipbook';
 import { ChapterClock } from '../data/clip-epub/chapter-clock';
 import { addChapterSeconds, migrateCfi } from '../data/clip-epub/sidecar';
+import { carryMeasuredPages, clipStructureChanged, migrateClipKey, syncClipChapterMeta } from '../data/clip-epub/refresh';
 import { getShellSource, shellPrefs } from '../shell/source';
 import { collectPdfBacklinks, invalidatePdfBacklinks } from '../data/pdf-backlink';
 import { epubBacklinkHits } from '../data/epub-backlink';
@@ -192,6 +196,12 @@ export interface ReaderHostApi {
   openTocSidebar: (tab?: 'toc' | 'bookmarks' | 'highlights' | 'ai') => void;
 }
 
+/**
+ * 剪藏本的「计时 + 轮询」主人：同一个 bookId 只允许一个。
+ * 把 tab 拖到新窗口会开第二个视图，两边各记一遍时长、页码也各走各的。
+ */
+const clipOwners = new ClipOwnerRegistry<ReaderView>();
+
 export class ReaderView extends ItemView {
   private api: ReaderHostApi;
   private bookId = '';
@@ -270,6 +280,10 @@ export class ReaderView extends ItemView {
   /** 数据版本轮询（20s 一次；只在剪藏书里跑） */
   private clipWatch: number | null = null;
   private clipRefreshing = false;
+  /** 「一篇都没有」只提示一次（数据被清空时别每 20 秒刷一条） */
+  private clipEmptyNotified = false;
+  /** 认领了哪本剪藏本（关书时按它释放计时权） */
+  private clipOwnerId = '';
   private clipBarEl: HTMLElement | null = null;
   private clipMetaEl: HTMLElement | null = null;
   private clipActSource: HTMLButtonElement | null = null;
@@ -1156,13 +1170,22 @@ export class ReaderView extends ItemView {
   private syncBottomGap(): void {
     const root = this.rootEl;
     if (!root) return;
-    if (!isMobileShell()) {
-      root.style.removeProperty('--bzr-bottom-gap');
-      return;
+    /* 测试环境里 rAF 可能在 DOM 桩卸载之后才跑（真机不会） */
+    if (typeof document === 'undefined') return;
+    /* 手机导航栏与桌面状态栏都是 fixed，压在阅读区上。取两者中更靠上的
+       那条顶边算重叠；两条都在时（iPad 带状态栏）也不会算两遍。 */
+    const tops: number[] = [];
+    for (const sel of ['.mobile-navbar', '.status-bar']) {
+      const el = document.querySelector<HTMLElement>(sel);
+      if (!el) continue;
+      const r = el.getBoundingClientRect();
+      /* 沉浸/隐藏时高度是 0、或者元素根本不在视口里 → 不让位 */
+      if (r.height <= 0 || r.top <= 0) continue;
+      tops.push(r.top);
     }
-    const nav = document.querySelector<HTMLElement>('.mobile-navbar');
-    /* 全屏（沉浸）时导航栏常常只是 display:none，rect 高度是 0 → 不让位 */
-    const gap = navBottomGap(nav?.getBoundingClientRect().height);
+    const barTop = tops.length ? Math.min(...tops) : null;
+    const paneBottom = root.getBoundingClientRect().bottom;
+    const gap = chromeBottomOverlap(paneBottom, barTop);
     if (gap > 0) root.style.setProperty('--bzr-bottom-gap', `${gap}px`);
     else root.style.removeProperty('--bzr-bottom-gap');
   }
@@ -2101,7 +2124,7 @@ export class ReaderView extends ItemView {
     setToc({
       bookId: book.id,
       bookTitle: book.meta.title,
-      items: this.host.toc(),
+      items: this.tocItems(),
       activeLabel: book.reading.position.chapterTitle || '',
       /* 切回阅读页时 publishToc 会重放一次：href 取引擎里的当前值，
          不然这一瞬间目录会退回按 label 比对，同名章节又一起亮。 */
@@ -2114,6 +2137,25 @@ export class ReaderView extends ItemView {
         void this.host.goToHref(href);
         this.tracker.touch();
       },
+    });
+  }
+
+  /**
+   * 目录快照：剪藏本额外带「每组几篇 / 每篇读没读过」。
+   *
+   * 这些状态只存在 handle 里，foliate 的 book.toc 只有 label/href。以前目录
+   * 行只有标题，读者看不出哪篇读过、每个源有多长（真机三组都提了）。
+   */
+  private tocItems(): import('../types/foliate').FoliateTOCItem[] {
+    const items = this.host.toc();
+    const handle = this.clipHandle;
+    if (!handle) return items;
+    return items.map((group) => {
+      const kids = (group.subitems ?? []).map((sub) => {
+        const ch = handle.byHref(sub.href);
+        return ch ? { ...sub, state: ch.state } : { ...sub };
+      });
+      return { ...group, subitems: kids, count: kids.length };
     });
   }
 
@@ -2169,7 +2211,14 @@ export class ReaderView extends ItemView {
     if (clipBook) {
       try {
         const snap = await loadClipBook(this.api.app);
-        const handle = makeClipBookForApp(this.api.app, snap);
+        /* 一篇都收不到：0 章节的虚拟书交给 foliate 就是整屏纯白（不 relocate、
+           不报错）。直接画错误页，和「bz 没启用」同一条降级路径。 */
+        if (clipBookIsEmpty(snap)) {
+          this.mounting = false;
+          this.renderFault(t('clip.bookTitle'), t('clip.err.empty'));
+          return;
+        }
+        const handle = makeClipBookForApp(this.api.app, snap, (index, size) => this.host.setSectionSize?.(index, size));
         this.clipSnap = snap;
         this.clipHandle = handle;
         this.clipVersion = snap.version;
@@ -2273,7 +2322,10 @@ export class ReaderView extends ItemView {
         onReady: (fb, m) => {
           /* 剪藏本：先把底条与计时挂上，再走书目/头栏那一套——后者任何一步
              出岔子都不该让底条消失（它只是阅读页的附属条）。 */
-          if (clipBook) this.armClipBook();
+          if (clipBook) {
+            this.armClipBook();
+            this.rememberClipCounts();
+          }
           /* 用户改过名就不再拿文件里的书名覆盖（见 data/book-meta.ts） */
           applyEngineMeta(book, m);
           /* 封面：复用刚解出来的 book 顺手落缓存并回填 coverPath。
@@ -2321,6 +2373,8 @@ export class ReaderView extends ItemView {
           this.api.app.workspace.on('resize', () => {
             const box = this.stage;
             if (box) this.host.setViewportWidth(box.clientWidth, box.getBoundingClientRect().left);
+            /* 底栏/状态栏的高度与位置也跟着窗口变（移动端旋转、桌面改缩放） */
+            this.syncBottomGap();
           }),
         );
       }
@@ -2690,7 +2744,14 @@ export class ReaderView extends ItemView {
     if (typeof info.chapterIndex === 'number') this.lastChapterIndex = info.chapterIndex;
     book.reading.stats.lastReadTime = Date.now();
     if (!book.reading.stats.startReadTime) book.reading.stats.startReadTime = Date.now();
-    if (info.percent >= COMPLETE_THRESHOLD && !book.reading.stats.completedTime) {
+    if (
+      shouldMarkComplete({
+        percent: info.percent,
+        live: book.meta.clipBook === true,
+        completed: !!book.reading.stats.completedTime,
+        threshold: COMPLETE_THRESHOLD,
+      })
+    ) {
       book.reading.stats.completedTime = Date.now();
       /* 读完那一刻弹一张卡。已经打过分的重读不再打扰——
          判断放在这里而不是弹层里，是因为弹层不该知道「为什么弹」。 */
@@ -2840,8 +2901,15 @@ export class ReaderView extends ItemView {
 
   private armClipBook(): void {
     if (!this.clipSnap || !this.clipHandle) return;
+    /* 同一本书只留一个计时器：后开的视图接管，前一个停表停轮询
+       （否则同一章秒数被两边各加一遍，时长静默翻倍）。 */
+    const bookId = this.book?.id ?? '';
+    const prev = clipOwners.claim(bookId, this);
+    this.clipOwnerId = bookId;
+    prev?.yieldClipBook();
     this.clipClock = new ChapterClock();
     this.clipReported.clear();
+    this.clipEmptyNotified = false;
     this.tracker.setSink((sec) => this.clipClock.add(sec));
     /* 打开书时先认一遍当前章：首拍 relocate 不一定被算成「换章」
        （spine 0 与初始值相同时），底条不能等下一次翻页才出现。 */
@@ -2852,6 +2920,30 @@ export class ReaderView extends ItemView {
     }
     this.renderClipBar();
     this.startClipWatch();
+  }
+
+  /** 把「几篇 · 几个源」记进书里：书架封面与卡片不用打开书就能显示。 */
+  private rememberClipCounts(): void {
+    const snap = this.clipSnap;
+    const book = this.book;
+    if (!snap || !book) return;
+    if (
+      book.meta.clipArticleCount === snap.articleCount &&
+      book.meta.clipSourceCount === snap.sourceCount
+    ) {
+      return;
+    }
+    book.meta.clipArticleCount = snap.articleCount;
+    book.meta.clipSourceCount = snap.sourceCount;
+    this.api.store.touch();
+  }
+
+  /** 另一个视图接管了这本书：停表、停轮询，正文照常显示 */
+  private yieldClipBook(): void {
+    this.stopClipWatch();
+    this.flushClipSeconds();
+    this.tracker.setSink(null);
+    this.clipClock = new ChapterClock();
   }
 
   /** 当前章：优先按 key，其次按引擎的脊柱序号 */
@@ -2899,22 +2991,58 @@ export class ReaderView extends ItemView {
     this.clipRefreshing = true;
     const oldHandle = this.clipHandle;
     const oldKey = this.clipKey || oldHandle.byHref(this.host.currentChapterHref())?.key || '';
+    const oldChapter = oldKey ? oldHandle.byKey(oldKey) : null;
     const oldIndex = oldKey ? oldHandle.indexOf(oldKey) : -1;
     const oldCfi = this.lastCfi;
     const oldPct = this.lastPct;
     try {
       const snap = await loadClipBook(this.api.app);
-      const handle = makeClipBookForApp(this.api.app, snap);
+      /* 数据突然一篇都没有（订阅被清空 / 读盘失败）：不要把正在读的书换成
+         一本 0 章节的书（那会整屏空白），保留旧书并提示一次。 */
+      if (clipBookIsEmpty(snap)) {
+        this.noteClipEmpty();
+        return;
+      }
+      /* 只变了已读 / 已剪藏这类状态：就地改，不动排版。
+         以前一律重建，标一篇已读就把整本书重排一遍，同一处页码能翻三倍。 */
+      if (this.clipSnap && !clipStructureChanged(this.clipSnap, snap)) {
+        syncClipChapterMeta(oldHandle, snap);
+        this.clipSnap = snap;
+        this.clipVersion = snap.version;
+        this.clipEmptyNotified = false;
+        this.renderClipBar();
+        this.publishToc();
+        return;
+      }
+      const handle = makeClipBookForApp(this.api.app, snap, (index, size) =>
+        this.host.setSectionSize?.(index, size),
+      );
+      /* 换书会清掉实测页数；把「同一位置还是同一篇」的那些带过去，
+         否则总页数只能拿当前这一章反推（剪藏一篇后 441 → 622）。 */
+      const measured = this.host.measuredPages?.() ?? new Map<number, number>();
+      const oldKeys = oldHandle.chapters.map((c) => c.key);
       await this.host.reopen?.(handle.book);
-      const newIndex = oldKey ? handle.indexOf(oldKey) : -1;
+      this.host.restoreMeasuredPages?.(
+        carryMeasuredPages(
+          oldKeys,
+          handle.chapters.map((c) => c.key),
+          measured,
+        ),
+      );
+      /* 存为剪藏会把 key 从 url: 换成 clip:：按 URL 认回同一篇，别让位置
+         漂到相邻一章（真机：停在 417 期，剪藏后跳到 418 期）。 */
+      const newKey = migrateClipKey(handle, oldKey, oldChapter?.url ?? '');
+      const newIndex = newKey ? handle.indexOf(newKey) : -1;
       const cfi = oldCfi && oldIndex >= 0 && newIndex >= 0 ? migrateCfi(oldCfi, oldIndex, newIndex) : '';
       this.clipHandle = handle;
       this.clipSnap = snap;
       this.clipVersion = snap.version;
-      this.clipKey = oldKey;
-      this.clipClock.setKey(oldKey);
+      this.clipKey = newKey;
+      this.clipClock.setKey(newKey);
+      this.clipEmptyNotified = false;
       await this.host.start(cfi || undefined, oldPct || 0);
       oldHandle.destroy();
+      this.rememberClipCounts();
       this.renderClipBar();
       this.publishToc();
     } catch {
@@ -2922,6 +3050,13 @@ export class ReaderView extends ItemView {
     } finally {
       this.clipRefreshing = false;
     }
+  }
+
+  /** 剪藏本突然读不到文章：只提示一次，别每 20 秒刷一条 */
+  private noteClipEmpty(): void {
+    if (this.clipEmptyNotified) return;
+    this.clipEmptyNotified = true;
+    notify(t('clip.err.empty'), 'info');
   }
 
   /** 进章：切计时目标 + 未读的标已读（href 优先，拿不到按脊柱序号认） */
@@ -2942,6 +3077,8 @@ export class ReaderView extends ItemView {
         if (ok) {
           ch.state = 'read';
           this.renderClipBar();
+          /* 目录行也要立刻变成已读，别等下一轮 20 秒刷新 */
+          this.publishToc();
         }
       });
     }
@@ -2949,6 +3086,9 @@ export class ReaderView extends ItemView {
 
   /** 把当前章还没结账的秒数写进书的数据（切章 / 关书时调） */
   private flushClipSeconds(): void {
+    /* 先结算「上次整拍到现在」：只 take 整拍的话，停 20 秒切走只记 15 秒、
+       停 5 秒切走记 0 秒（真机：连续 3 章各停 5 秒，只有前一章记到 15 秒）。 */
+    this.tracker.settle();
     const tick = this.clipClock.take();
     if (!tick || !this.book) return;
     const reading = this.book.reading;
@@ -2959,6 +3099,10 @@ export class ReaderView extends ItemView {
   private teardownClip(): void {
     this.stopClipWatch();
     this.flushClipSeconds();
+    if (this.clipOwnerId) {
+      clipOwners.release(this.clipOwnerId, this);
+      this.clipOwnerId = '';
+    }
     this.tracker.setSink(null);
     this.clipHandle?.destroy();
     this.clipHandle = null;

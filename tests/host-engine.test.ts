@@ -111,6 +111,41 @@ describe('host · TXT 编码（A-06）', () => {
   });
 });
 
+describe('host · 换书先释放旧渲染器（剪藏本实时刷新）', () => {
+  it('reopen 先 close 再 open：旧渲染器不能留在屏幕上', async () => {
+    const host = newHost();
+    const calls: string[] = [];
+    const renderer = {
+      setStyles: vi.fn(),
+      setCssProps: vi.fn(),
+      render: vi.fn(),
+      style: { setProperty: vi.fn() },
+      getAttribute: () => null,
+      setAttribute: vi.fn(),
+    };
+    const view = {
+      renderer,
+      open: vi.fn(async () => {
+        calls.push('open');
+      }),
+      close: vi.fn(() => {
+        calls.push('close');
+      }),
+      goTo: vi.fn(async () => undefined),
+    };
+    const oldBook = { sections: [{ id: 'old', href: 'a.xhtml', size: 100 }], destroy: vi.fn() };
+    Object.assign(host as unknown as Record<string, unknown>, { view, book: oldBook });
+
+    await host.reopen({ sections: [{ id: 'new', href: 'b.xhtml', size: 200 }] });
+
+    /* foliate 的 View.open 每调一次就新 append 一个 renderer，自己不收旧的。
+       剪藏本刷新时如果不先 close，新 renderer 会被排到旧的正下方（整体下移
+       一个阅读区高度），屏幕上一直停在刷新前那一页——真机量到过 y=78 → 752。 */
+    expect(calls).toEqual(['close', 'open']);
+    expect(oldBook.destroy).toHaveBeenCalled();
+  });
+});
+
 describe('host · 竖排/横排切换走导航队列（A-34）', () => {
   it('goTo 失败时报 onStall，而不是静默吞掉', async () => {
     const host = newHost();

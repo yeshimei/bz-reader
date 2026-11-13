@@ -32,6 +32,8 @@ export interface ClipbookArticle {
   date: string;
   ts: number;
   summary: string;
+  /** 正文长度（字符数）；剪藏笔记清单阶段给 0，渲染后回填 */
+  size?: number;
   state: 'unread' | 'read' | 'saved';
   notePath: string | null;
   tags: string[];

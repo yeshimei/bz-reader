@@ -187,6 +187,65 @@ describe('makeClipBook', () => {
     expect(loadBody).toHaveBeenCalledTimes(1);
   });
 
+  it('章节字节数用门面给的真实正文长度（不是一律 1200）', () => {
+    const g = groups();
+    g[0].chapters[0].size = 9000;
+    const h = makeClipBook({ title: 'x', groups: g });
+    expect(h.book.sections[0].size).toBe(9000);
+    /* 没给长度（剪藏笔记清单阶段）：仍退回旧下限，0 会让封面进度条一开始就满 */
+    expect(h.book.sections[1].size).toBe(1200);
+  });
+
+  it('渲染某章后把真实长度报回去（供整本书的页数估算修正）', async () => {
+    const onSectionSize = vi.fn();
+    const h = makeClipBook({
+      title: 'x',
+      groups: [{ id: 's', name: '源', chapters: [{ ...groups()[0].chapters[0], body: '正文正文' }] }],
+      onSectionSize,
+    });
+    await htmlOf(h.book.sections[0]);
+    expect(onSectionSize).toHaveBeenCalledTimes(1);
+    expect(onSectionSize.mock.calls[0][0]).toBe(0);
+    expect(onSectionSize.mock.calls[0][1]).toBeGreaterThanOrEqual(400);
+  });
+
+  it('副标题里同一个源名只出现一次（author 常常就等于源名）', async () => {
+    const g = groups();
+    g[0].chapters[0].author = '少数派';
+    const h = makeClipBook({ title: 'x', groups: g });
+    const html = await htmlOf(h.book.sections[0]);
+    const meta = /<p class="bzr-clip-meta">([^<]*)<\/p>/.exec(html)?.[1] ?? '';
+    expect(meta).toBe('少数派 · 2026-11-01');
+  });
+
+  it('CDATA 尾标记 `]]>` 不进正文', async () => {
+    const g = groups();
+    g[0].chapters[0].body = '第一段\n\n]]>\n\n第二段';
+    const h = makeClipBook({ title: 'x', groups: g });
+    const html = await htmlOf(h.book.sections[0]);
+    expect(html).not.toContain(']]>');
+    expect(html).toContain('第二段');
+  });
+
+  it('空正文给一行占位，而不是整页只剩标题', async () => {
+    const g = groups();
+    g[0].chapters[0].body = '';
+    const h = makeClipBook({ title: 'x', groups: g, labels: { emptyBody: '（没有正文）' } });
+    const html = await htmlOf(h.book.sections[0]);
+    expect(html).toContain('bzr-clip-empty');
+    expect(html).toContain('（没有正文）');
+  });
+
+  it('splitTOCHref 返回章节 id（foliate 的 TOCProgress 按 id 归组）', async () => {
+    const h = build();
+    const href = h.hrefOf('clip:b');
+    const out = await h.book.splitTOCHref?.(href);
+    expect(out?.[0]).toBe('clip-1');
+    expect(out?.[1]).toBeNull();
+    /* 带锚点的目录项：id 不变，fragment 原样带回去 */
+    expect(await h.book.splitTOCHref?.(`${href}#sec-2`)).toEqual(['clip-1', 'sec-2']);
+  });
+
   it('destroy 收掉章节与资源 blob', async () => {
     const h = build();
     await h.book.sections[0].load();

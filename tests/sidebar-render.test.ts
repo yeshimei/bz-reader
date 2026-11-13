@@ -241,3 +241,36 @@ describe('书签列表', () => {
     expect(head).toContain('葬花');
   });
 });
+
+describe('目录计数与剪藏本状态', () => {
+  const grouped: FoliateTOCItem[] = [
+    {
+      label: '少数派',
+      href: 'a#0',
+      count: 2,
+      subitems: [
+        { label: '城市漫步指南', href: 'a#1', state: 'read' },
+        { label: '派早报：Apple 公布 Swift Student Challenge 安排、微软发布 Auto SR 等', href: 'a#2', state: 'unread' },
+      ],
+    },
+  ];
+
+  it('「共 N 节」只数文章，不把源分组算进去', () => {
+    const html = view({ toc: grouped });
+    expect(html).toContain('共 2 节');
+    expect(html).not.toContain('共 3 节');
+  });
+
+  it('源分组行显示篇数', () => {
+    const html = view({ toc: grouped });
+    const groupRow = html.slice(html.indexOf('data-href="a#0"'));
+    expect(groupRow).toContain('<span class="n">2</span>');
+  });
+
+  it('目录行带完整标题（悬浮可看全）与阅读状态', () => {
+    const html = view({ toc: grouped });
+    expect(html).toContain('title="派早报：Apple 公布 Swift Student Challenge 安排、微软发布 Auto SR 等"');
+    expect(html).toContain('data-state="read"');
+    expect(html).toContain('data-state="unread"');
+  });
+});

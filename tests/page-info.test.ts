@@ -95,6 +95,33 @@ describe('全书页码（按章累加）', () => {
     expect(r.pages).toBe(2 + 4);
   });
 
+  it('短文（标题页量级）不参与「每页字节数」：不会把长篇估成几百页', () => {
+    /* 剪藏本真机：第 0 章 63 字却被切成 2 页（RSS 只给摘要），拿它算出来
+       31.5 字节/页，10KB 的周刊被估成 317 页。跳过短文后按 10KB/68 页算。 */
+    const r = bookPageInfo({
+      sizes: [63, 10000, 10000],
+      measured: new Map([
+        [0, 2],
+        [1, 68],
+      ]),
+      index: 1,
+      pageInChapter: 1,
+      pagesInChapter: 68,
+    });
+    expect(r.pages).toBe(2 + 68 + 68);
+  });
+
+  it('全都短于样本下限时退回全部已测章，不凭空取默认值', () => {
+    const r = bookPageInfo({
+      sizes: [100, 200],
+      measured: new Map([[0, 2]]),
+      index: 0,
+      pageInChapter: 1,
+      pagesInChapter: 2,
+    });
+    expect(r.pages).toBe(2 + 4);
+  });
+
   it('空章节（封面 / 版权页）算 0 页，不硬凑 1 页', () => {
     const r = bookPageInfo({
       sizes: [0, 3000],

@@ -779,6 +779,13 @@ export class EngineHost {
    *
    * 不重建 foliate-view，只把新 book 塞进去重新 open——DOM 与手势监听都留下，
    * 刷新后调用方自己 `start(cfi)` 回到原位。
+   *
+   * **必须先 `close()` 再 `open()`**：foliate 的 View.open 每调一次都会
+   * `append` 一个新的 renderer（paginator），自己不收旧的、也不复用。只
+   * open 的话旧的那份还占着原来的位置，新的被排到它下面（整体下移一个阅读
+   * 区高度）：页码、底条、目录高亮都跟着新 renderer 走，屏幕上却一直是刷新
+   * 前那一页，翻页/换章都不动。这是剪藏本「读 20 秒就成死书」的根因。
+   * close() 只拆 renderer 与历史，不碰宿主 DOM 与事件监听。
    */
   async reopen(book: FoliateBook): Promise<void> {
     const view = this.view;
@@ -787,6 +794,11 @@ export class EngineHost {
       this.book?.destroy?.();
     } catch {
       /* 旧书回收失败不拦换书 */
+    }
+    try {
+      view.close();
+    } catch {
+      /* 旧 renderer 收尾失败也不能拦新书（最多多留一份到下次开书） */
     }
     this.book = book;
     this.sectionSizes = (book.sections ?? []).map((s) => Number(s.size) || 0);
@@ -797,6 +809,30 @@ export class EngineHost {
     this.lastLocationCfi = '';
     await view.open(book);
     this.applyPrefs(this.prefs);
+  }
+
+  /**
+   * 某一章的正文长度变准了（剪藏本按需渲染后回填）。
+   *
+   * 只改估算底数，不动已实测的页数：本章页数来自分页器，其它章按字节估。
+   * 下一次 relocate 就会用新底数算全书页码。
+   */
+  setSectionSize(index: number, size: number): void {
+    const n = Number(size);
+    if (!Number.isFinite(n) || n <= 0 || index < 0 || index >= this.sectionSizes.length) return;
+    this.sectionSizes[index] = n;
+  }
+
+  /** 实测页数快照（换书重建时带给新书，避免总页数从当前这一章反推） */
+  measuredPages(): Map<number, number> {
+    return new Map(this.chapterPages);
+  }
+
+  /** 重建后恢复实测页数（调用方只传「同一位置还是同一篇」的那些） */
+  restoreMeasuredPages(pages: ReadonlyMap<number, number>): void {
+    for (const [index, n] of pages) {
+      if (index >= 0 && index < this.sectionSizes.length && n > 0) this.chapterPages.set(index, n);
+    }
   }
 
   /**

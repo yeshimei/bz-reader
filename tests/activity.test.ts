@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accrueTick } from '../src/engine/activity';
+import { ActivityTracker, accrueTick } from '../src/engine/activity';
 
 /**
  * 回归目标：频繁翻页时阅读时长被严重少记。
@@ -33,5 +33,32 @@ describe('accrueTick', () => {
   it('时间倒流 / 非法值不记', () => {
     expect(accrueTick({ now: 100, lastTickAt: 200, lastActive: 0 })).toBe(0);
     expect(accrueTick({ now: NaN, lastTickAt: 0, lastActive: 0 })).toBe(0);
+  });
+});
+
+describe('ActivityTracker.settle · 切章不丢尾段', () => {
+  it('停 20 秒切走：整拍 15 秒 + 尾段 5 秒都要结算给章节时钟', () => {
+    const orig = (globalThis as { window?: unknown }).window;
+    (globalThis as { window?: unknown }).window = {
+      setInterval: () => 1,
+      clearInterval: () => undefined,
+    };
+    try {
+      const tracker = new ActivityTracker();
+      const got: number[] = [];
+      tracker.setSink((sec) => got.push(sec));
+      tracker.begin(0);
+      /* 模拟「已经过了一拍 15 秒 + 又过了 5 秒」：上一拍记在 15 秒前，
+         用户 1 秒前还有动作（活跃）。 */
+      const t = tracker as unknown as { lastTickAt: number; lastActive: number };
+      t.lastTickAt = Date.now() - 5_000;
+      t.lastActive = Date.now() - 1_000;
+      tracker.settle();
+      expect(got.reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(4.5);
+      expect(got.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(5.5);
+      tracker.end();
+    } finally {
+      (globalThis as { window?: unknown }).window = orig;
+    }
   });
 });

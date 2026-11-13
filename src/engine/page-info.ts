@@ -29,6 +29,18 @@ const UNKNOWN: PagePair = { page: 0, pages: 0 };
 /** foliate 自己用的每页字节数：一章都没测过时的兜底 */
 const FALLBACK_BYTES_PER_PAGE = 1500;
 
+/**
+ * 样本下限：太短的章（标题页 / 只有几行摘要的 RSS 文章）页数里绝大部分是
+ * 章首固定开销（标题、副标题、页脚），拿它算「每页多少字节」会把比例压到
+ * 十几字节/页，于是长篇全被估成几百页。
+ *
+ * 真机（2026-11-13）：剪藏本第 1 篇 63 字的摘要被切成 2 页，用它反推出
+ * 17.6 字节/页；同一本书里 10KB 的周刊因此显示 749/1564，而实际读到页底
+ * 是 396/405。改成只用 600 字节以上的章当样本；一章都不够长时再退回全部
+ * 已测章，最后才用兜底值。
+ */
+const MIN_SAMPLE_SIZE = 600;
+
 function positiveInt(n: unknown): number {
   const v = Number(n);
   return Number.isFinite(v) && v > 0 ? Math.floor(v) : 0;
@@ -75,17 +87,28 @@ export function bookPageInfo(input: BookPageInput): PagePair {
   if (pagesInChapter <= 0 || pageInChapter <= 0) return UNKNOWN;
 
   /* 每页字节数：已测章节的加权平均（总字节 / 总页数）。
-     一章都没测过就退回 foliate 的 1500——只是估算起点，读完第一章就换成实测。 */
+     只采信「够长」的章（见 MIN_SAMPLE_SIZE）；都不够长时退回全部已测章，
+     一章都没测过再用 foliate 的 1500。 */
   let sizeSum = 0;
   let pageSum = 0;
+  let allSize = 0;
+  let allPage = 0;
   for (const [i, pages] of measured) {
     const size = positiveInt(sizes[i]);
-    if (size > 0 && pages > 0) {
+    if (size <= 0 || pages <= 0) continue;
+    allSize += size;
+    allPage += pages;
+    if (size >= MIN_SAMPLE_SIZE) {
       sizeSum += size;
       pageSum += pages;
     }
   }
-  const bytesPerPage = pageSum > 0 && sizeSum > 0 ? sizeSum / pageSum : FALLBACK_BYTES_PER_PAGE;
+  const bytesPerPage =
+    pageSum > 0 && sizeSum > 0
+      ? sizeSum / pageSum
+      : allPage > 0 && allSize > 0
+        ? allSize / allPage
+        : FALLBACK_BYTES_PER_PAGE;
 
   const pagesOf = (i: number): number => {
     if (i === index) return pagesInChapter;

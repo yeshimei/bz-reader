@@ -11,6 +11,7 @@
  */
 
 import { ico } from '../shell/render/html';
+import { t } from '../i18n';
 
 function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
@@ -37,10 +38,12 @@ export interface FaultInput {
 }
 
 export function faultHtml(input: FaultInput): string {
+  /* 自检信息默认折起来：普通读者看到「内核 Chromium 142 / iframe·blob ✓」
+     只会困惑（真机两次提到），真机排查时展开「详情」即可。 */
   const diag = input.diag?.length
-    ? `<div class="bzs-fault-diag">${input.diag
+    ? `<details class="bzs-fault-more"><summary>${esc(t('fault.details'))}</summary><div class="bzs-fault-diag">${input.diag
         .map((l) => `<div data-k="${esc(l.k)}"><span class="k">${esc(l.k)}</span>${esc(l.v)}</div>`)
-        .join('')}</div>`
+        .join('')}</div></details>`
     : '';
   const acts = input.actions
     .map(

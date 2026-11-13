@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { safeFraction } from '../src/engine/progress-fraction';
+import { safeFraction, shouldMarkComplete } from '../src/engine/progress-fraction';
 
 /*
  * 真机回归（2026-11-13）：剪藏本每翻一章都弹「读完一本书」。
@@ -27,5 +27,17 @@ describe('safeFraction · 进度小数', () => {
     expect(safeFraction(undefined)).toBe(0);
     expect(safeFraction(null)).toBe(0);
     expect(safeFraction('abc')).toBe(0);
+  });
+});
+
+describe('shouldMarkComplete · 活书不结书', () => {
+  it('剪藏本（live）翻到最后一页也不标读完', () => {
+    expect(shouldMarkComplete({ percent: 1, live: true, completed: false })).toBe(false);
+  });
+
+  it('普通书到 99% 标读完；已标过不重复', () => {
+    expect(shouldMarkComplete({ percent: 0.995, live: false, completed: false })).toBe(true);
+    expect(shouldMarkComplete({ percent: 0.9, live: false, completed: false })).toBe(false);
+    expect(shouldMarkComplete({ percent: 1, live: false, completed: true })).toBe(false);
   });
 });

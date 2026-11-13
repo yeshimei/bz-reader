@@ -198,6 +198,55 @@
   letter-spacing: .03em;
 }
 
+/* 剪藏本：源分组的篇数（「少数派 10」） */
+.bzs-chaprow .n {
+  flex: none;
+  font-size: 10px;
+  color: var(--t3);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* 剪藏本：长中文标题最多折两行。一行 213px 只放得下十来个字，
+   「派早报：Apple 公布 Swift Student C…」和另一篇几乎分不出来。 */
+.bzs-chaprow[data-state] {
+  align-items: flex-start;
+}
+
+.bzs-chaprow[data-state] .tw {
+  margin-top: 1px;
+}
+
+.bzs-chaprow[data-state] .t {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.45;
+}
+
+/* 已读：整行压暗 + 末尾一枚小圆点；已剪藏：铜色圆点。 */
+.bzs-chaprow[data-state="read"] .t {
+  opacity: .55;
+}
+
+.bzs-chaprow[data-state="read"]::after,
+.bzs-chaprow[data-state="saved"]::after {
+  content: "";
+  flex: none;
+  width: 4px;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--t3);
+  opacity: .7;
+}
+
+.bzs-chaprow[data-state="saved"]::after {
+  background: var(--copper);
+  opacity: 1;
+}
+
 /* 当前章只铺整行浅铜底。左侧那根 2px 铜条已去掉：
    整行底色已经够定位，多一根短竖线反而和书签栏那条发丝竖线撞在一起。 */
 .bzs-chaprow.on {

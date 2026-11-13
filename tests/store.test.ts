@@ -99,6 +99,29 @@ describe('数据形状自愈（sanitizeData）', () => {
     expect(res?.dropped).toHaveLength(2);
   });
 
+  it('剪藏本（虚拟书，vaultPath 为空）不当坏记录丢掉：进度/划线要留到下次启动', () => {
+    /* 真机：剪藏本读到 2% 后重启，书架显示 0%。原因是落盘记录被这里当成
+       「没有文件路径」整本丢进 dropped，再被开关重新建成一本 0% 的新书。 */
+    const res = sanitizeDataDetailed({
+      version: 1,
+      books: [
+        {
+          id: 'clipbook',
+          meta: { title: '剪藏本', clipBook: true },
+          fileRef: { vaultPath: '', format: 'epub' },
+          reading: {
+            position: { percent: 0.021739, cfi: 'epubcfi(/6/2!/4/2)' },
+            stats: { totalReadTime: 60, lastReadTime: 1 },
+          },
+        },
+        { id: 'bad', fileRef: { vaultPath: '', format: 'epub' } },
+      ],
+    });
+    expect(res?.data.books.map((b) => b.id)).toEqual(['clipbook']);
+    expect(res?.data.books[0]!.reading.position.percent).toBeCloseTo(0.021739, 6);
+    expect(res?.dropped).toHaveLength(1);
+  });
+
   it('标注 id 不合规的单条丢弃，同数组里合规的照留', () => {
     const res = sanitizeDataDetailed({
       version: 1,

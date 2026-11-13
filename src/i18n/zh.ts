@@ -24,6 +24,7 @@ export const ZH = {
   'common.close': '关闭',
   'common.cancel': '取消',
   'common.unknownError': '未知错误',
+  'fault.details': '详情',
   'common.dialog': '对话框',
 
   /* ── 插件入口 ────────────────────────────────────────────── */
@@ -979,10 +980,14 @@ export const ZH = {
   'clip.err.failed': '剪藏成书没生成成功：{why}',
   'clip.update.hint': '剪藏本有更新：新增 {a} 篇、删除 {r} 篇、状态变化 {c} 篇。更新后按文章迁回原位置。',
   'clip.badge': '剪藏成书',
+  'clip.count.articles': '{n} 篇',
+  'clip.count.sources': '{n} 源',
+  'clip.live': '实时更新',
   'clip.state.unread': '未读',
   'clip.state.read': '已读',
   'clip.state.saved': '已保存',
   'clip.chapter.minutes': '这一章读了 {m} 分钟',
+  'clip.chapter.empty': '（这篇没有正文，可能抓取失败）',
   'clip.action.openSource': '原文',
   'clip.action.save': '存为剪藏',
   'clip.action.saved': '已保存',

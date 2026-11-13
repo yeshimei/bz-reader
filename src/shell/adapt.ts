@@ -43,6 +43,9 @@ export interface BookRow {
   missing: boolean;
   /** 剪藏本（虚拟书，2026-11-13）：书卡上显示「剪藏成书」而不是格式 */
   clip: boolean;
+  /** 剪藏本：上次打开时收进的文章数 / 源数（封面与副标题用；没打开过就没有） */
+  clipArticleCount?: number;
+  clipSourceCount?: number;
 }
 
 /** 封面配色：12 组暖调，都压过饱和度，避免封面墙花成调色盘 */
@@ -117,7 +120,9 @@ export function toRow(app: App, b: ReaderBook): BookRow {
   return {
     id: b.id,
     title,
-    author: b.meta.author || '佚名',
+    /* 剪藏本的 author 是来源标签（「bz 剪藏本」），占着作者位会被当成作者名
+       （真机：读者以为这是作者）。作者位只留来源「bz」。 */
+    author: isClipBookRecord(b) ? 'bz' : b.meta.author || '佚名',
     percent,
     status,
     fav: isFav(b.id),
@@ -134,6 +139,8 @@ export function toRow(app: App, b: ReaderBook): BookRow {
     noteCount,
     missing: b.fileRef.fileMissing === true,
     clip: isClipBookRecord(b),
+    clipArticleCount: isClipBookRecord(b) ? b.meta.clipArticleCount : undefined,
+    clipSourceCount: isClipBookRecord(b) ? b.meta.clipSourceCount : undefined,
   };
 }
 

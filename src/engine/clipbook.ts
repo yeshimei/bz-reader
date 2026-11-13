@@ -30,6 +30,8 @@ export interface ClipChapter {
   state: ClipChapterState;
   notePath: string | null;
   body: string;
+  /** 正文长度（字符数）。清单阶段可能没有（0/缺省），渲染这一章时回填。 */
+  size?: number;
 }
 
 export interface ClipGroup {
@@ -64,6 +66,12 @@ export interface ClipBookBuildOptions {
   loadBody?: (key: string) => Promise<string>;
   /** 书页里的几个短文案（由调用方按当前语言给；缺省英文，别把中文写进渲染层） */
   labels?: Partial<ClipBookLabels>;
+  /**
+   * 某章的正文长度已知了（第一次真正渲染这一章时）。
+   * 阅读器拿它修正整本书的页数估算：清单阶段拿不到正文的章节（剪藏笔记）
+   * 之前只能按 1200 兜底，整本总页数会偏小。
+   */
+  onSectionSize?: (index: number, size: number) => void;
 }
 
 export interface ClipBookLabels {
@@ -73,6 +81,8 @@ export interface ClipBookLabels {
   videoLink: string;
   videoMissing: string;
   missingImage: string;
+  /** 这一章没有正文时的占位（抓取失败 / body 被清空） */
+  emptyBody: string;
 }
 
 const DEFAULT_LABELS: ClipBookLabels = {
@@ -82,6 +92,7 @@ const DEFAULT_LABELS: ClipBookLabels = {
   videoLink: 'Watch in browser',
   videoMissing: '[video]',
   missingImage: '[image]',
+  emptyBody: '[This article has no text.]',
 };
 
 function hashId(input: string): string {
@@ -101,7 +112,13 @@ html, body { margin: 0; padding: 0; }
 body { font-family: serif; line-height: 1.75; padding: 1.2em; overflow-wrap: break-word; }
 h1 { font-size: 1.5em; line-height: 1.35; margin: 0 0 .55em; }
 .bzr-clip-meta { color: #888; font-size: .82em; margin: 0 0 1.4em; }
-.bzr-clip-body img { max-width: 100%; height: auto; }
+.bzr-clip-body img { max-width: 100%; height: auto; break-inside: avoid; }
+/* Keep a heading on the same page as the line after it: an h2 left alone at
+   the page bottom makes the next page start without a title. */
+.bzr-clip-body h1, .bzr-clip-body h2, .bzr-clip-body h3, .bzr-clip-body h4 {
+  break-after: avoid; break-inside: avoid;
+}
+.bzr-clip-empty { color: #999; font-style: italic; }
 .bzr-clip-body pre { overflow-x: auto; padding: .7em; background: rgba(0,0,0,.05); }
 .bzr-clip-body blockquote { margin: 1em 0; padding-left: 1em; border-left: 3px solid #bbb; color: #555; }
 .bzr-clip-foot { margin-top: 2.4em; padding-top: .8em; border-top: 1px solid #ddd; font-size: .82em; color: #888; }
@@ -161,11 +178,23 @@ function videoHtml(v: VideoRef, resolved: string | null, L: ClipBookLabels): str
 }
 
 function chapterHtml(ch: ClipChapter, bodyHtml: string, L: ClipBookLabels): string {
-  const meta = [ch.sourceName, ch.author, ch.date].map((s) => String(s || '').trim()).filter(Boolean);
+  /* 副标题去重：bz 数据里 author 常常就是源名（RSS 只给站点），直接拼会
+     变成「少数派 · 少数派 · 2026-11-12」，长源名还会折成两行（真机）。 */
+  const seen = new Set<string>();
+  const meta = [ch.sourceName, ch.author, ch.date]
+    .map((s) => String(s || '').trim())
+    .filter((s) => {
+      if (!s || seen.has(s)) return false;
+      seen.add(s);
+      return true;
+    });
   const foot = [
     /^https?:\/\//i.test(ch.url) ? `<a href="${escXhtml(ch.url)}">${escXhtml(L.original)}</a>` : '',
     ch.state === 'saved' ? `<span>${escXhtml(L.saved)}</span>` : '',
   ].filter(Boolean);
+  /* 空正文（抓取失败 / body 被清空）给一行占位：整页只剩标题和日期，读者
+     会以为书坏了（真机红队：一篇 body 置空后整页空白）。 */
+  const body = bodyHtml.trim() ? bodyHtml : `<p class="bzr-clip-empty">${escXhtml(L.emptyBody)}</p>`;
   return [
     '<!DOCTYPE html>',
     '<html lang="zh-CN">',
@@ -179,7 +208,7 @@ function chapterHtml(ch: ClipChapter, bodyHtml: string, L: ClipBookLabels): stri
     `<h1>${escXhtml(ch.title)}</h1>`,
     meta.length ? `<p class="bzr-clip-meta">${escXhtml(meta.join(' · '))}</p>` : '',
     '</header>',
-    `<div class="bzr-clip-body">${bodyHtml}</div>`,
+    `<div class="bzr-clip-body">${body}</div>`,
     foot.length ? `<footer class="bzr-clip-foot">${foot.join(' · ')}</footer>` : '',
     '</article>',
     '</body>',
@@ -218,8 +247,18 @@ export function makeClipBook(opts: ClipBookBuildOptions): ClipBookHandle {
     return url;
   };
 
-  const render = async (ch: ClipChapter): Promise<string> => {
+  const render = async (ch: ClipChapter, index: number): Promise<string> => {
     const raw = ch.body || (opts.loadBody ? await opts.loadBody(ch.key).catch(() => '') : '');
+    /* 正文长度第一次真的知道了：交给宿主修正页数估算（同一章只报一次，
+       渲染结果有缓存）。下限 400 是为了别把极短的文章报成 0 页。 */
+    if (opts.onSectionSize) {
+      const chars = Math.max(400, (ch.title || '').length + (raw || '').length);
+      try {
+        opts.onSectionSize(index, chars);
+      } catch {
+        /* 估算修正失败不影响这一章渲染 */
+      }
+    }
     const { body, videos } = extractVideos(raw || '');
     const refs = collectImageRefs(body);
     const imageMap = new Map<string, string>();
@@ -252,13 +291,15 @@ export function makeClipBook(opts: ClipBookBuildOptions): ClipBookHandle {
   const sections: FoliateSection[] = all.map((ch, i) => {
     let html: string | null = null;
     let current: string | null = null;
-    const ensure = async (): Promise<string> => (html ??= await render(ch));
+    const ensure = async (): Promise<string> => (html ??= await render(ch, i));
     return {
       id: `clip-${i}`,
       href: hrefList[i],
       linear: 'yes',
-      /* 正文还没拉时给一个估算值：页数估算按字节走，0 会让封面进度条一开始就满 */
-      size: Math.max(1200, (ch.body || '').length),
+      /* 正文长度：门面给了就用（真长度），没给（剪藏笔记）退回旧下限。
+         以前一律 Math.max(1200, …) 而清单阶段 body 恒为空，23 章全是 1200，
+         整本书的总页数因此在 23 / 46 / 1541 之间乱跳。 */
+      size: Number(ch.size) > 0 ? Number(ch.size) : Math.max(1200, (ch.body || '').length),
       load: async () => {
         const url = URL.createObjectURL(new Blob([await ensure()], { type: 'text/html' }));
         sectionUrls.push(url);
@@ -298,7 +339,12 @@ export function makeClipBook(opts: ClipBookBuildOptions): ClipBookHandle {
     dir: 'ltr',
     splitTOCHref: async (href: string) => {
       const [file, frag] = String(href).split('#');
-      return [file, frag ?? null];
+      /* foliate 的 TOCProgress 拿这个返回值的第一段去比对**章节 id**
+         （`book.sections[].id`），不是文件名。以前直接回文件名，目录项
+         一个都对不上：relocate 的 tocItem 恒为 null → 目录不高亮、不跟随、
+         章节名也报不出来（真机：目录高亮只能靠点击本身带过去）。 */
+      const index = hrefList.indexOf(file);
+      return [index >= 0 ? `clip-${index}` : file, frag ?? null];
     },
     getTOCFragment: (doc: Document, id: string) => doc.getElementById(id),
     resolveHref: (href: string) => {

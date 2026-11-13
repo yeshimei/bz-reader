@@ -89,6 +89,14 @@ export interface ReaderEngine {
    * 换完由调用方 `start()` 回原位。PDF 引擎不实现。
    */
   reopen?(book: import('../types/foliate').FoliateBook): Promise<void>;
+  /**
+   * 某一章的正文长度变准了（剪藏本渲染完一章时回填）。
+   * 整本书的页数估算是按章字节数算的，缺了这一步就只能拿 1200 兜底。
+   */
+  setSectionSize?(index: number, size: number): void;
+  /** 实测页数快照 / 恢复（剪藏本重建后总页数不要从当前这一章反推） */
+  measuredPages?(): Map<number, number>;
+  restoreMeasuredPages?(pages: ReadonlyMap<number, number>): void;
   start(cfi?: string, fraction?: number): Promise<void>;
   next(): Promise<void>;
   prev(): Promise<void>;

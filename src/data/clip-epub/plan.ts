@@ -16,6 +16,8 @@ export interface ClipPlanArticle {
   author: string;
   date: string;
   body: string;
+  /** 正文长度（字符数）；0/缺省表示清单阶段还不知道 */
+  size?: number;
   saved: boolean;
   state: ClipChapterState;
   notePath?: string | null;

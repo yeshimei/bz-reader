@@ -58,6 +58,9 @@ describe('faultHtml · 三种失败', () => {
     expect(html.match(/<span class="k">/g)?.length).toBe(3);
     expect(html).toContain('阶段');
     expect(html).toContain('unpack');
+    /* 普通读者不该一眼看到内核版本与能力检测：自检信息折在「详情」里 */
+    expect(html).toContain('<details class="bzs-fault-more">');
+    expect(html).toContain('<summary>详情</summary>');
   });
 
   it('没有自检信息时不渲染空的诊断框', () => {

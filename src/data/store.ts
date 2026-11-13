@@ -130,7 +130,11 @@ export function sanitizeDataDetailed(v: unknown): SanitizeResult | null {
       continue;
     }
     const ref = b.fileRef;
-    if (!isObj(ref) || typeof ref.vaultPath !== 'string' || !ref.vaultPath) {
+    /* 剪藏本是虚拟书：没有文件，vaultPath 就该是空串。以前这里按「缺路径」
+       整本丢进 dropped，重启后开关又把它重建成一本 0% 的新书——进度、划线、
+       每章时长全丢（真机：读到 2% 重启变 0%）。 */
+    const virtual = isObj(b.meta) && b.meta.clipBook === true;
+    if (!isObj(ref) || typeof ref.vaultPath !== 'string' || (!ref.vaultPath && !virtual)) {
       dropped.push(raw);
       continue;
     }

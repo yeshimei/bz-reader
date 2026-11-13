@@ -374,6 +374,40 @@
   z-index: var(--z-sticky);
 }
 
+/* 剪藏本封面：完整书名竖排 + 底部一行「23 篇 · 3 源 · 实时更新」。
+   它没有封面图，以前只有竖排两个字，和真书并排像占位卡。 */
+.bzs-cov.is-clipcov {
+  align-content: center;
+  gap: 8px;
+  padding: 10px 8px;
+}
+
+.bzs-cov.is-clipcov .ct {
+  writing-mode: vertical-rl;
+  font-size: 14px;
+  line-height: 1.25;
+  letter-spacing: .12em;
+  /* 用 em 不用 %：竖排元素在横向父级里是「正交书写模式」，百分比 max-height
+     会按父级宽度解出来（真机封面被折成两列「本 / 剪藏」）。6em 足够放下
+     3–4 个字，更长的书名由 overflow 收掉。 */
+  max-height: 6em;
+  overflow: hidden;
+}
+
+.bzs-cov .cl {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 7px;
+  z-index: var(--z-sticky);
+  font-size: 8px;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-align: center;
+  opacity: .82;
+  writing-mode: horizontal-tb;
+}
+
 /* ── 输入井：下沉一档，比容器更暗 ── */
 .bzs-well {
   display: flex;

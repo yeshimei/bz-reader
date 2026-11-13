@@ -21,6 +21,7 @@ export const DE: Record<MsgKey, string> = {
   'common.close': 'Schließen',
   'common.cancel': 'Abbrechen',
   'common.unknownError': 'Unbekannter Fehler',
+  'fault.details': 'Details',
   'common.dialog': 'Dialog',
 
   /* ── Einstieg ───────────────────────────────────────────── */
@@ -967,10 +968,14 @@ export const DE: Record<MsgKey, string> = {
   'clip.err.failed': 'Could not build the book: {why}',
   'clip.update.hint': 'The clipbook changed: {a} added, {r} removed, {c} changed. Updating moves your place back by article.',
   'clip.badge': 'From clipbook',
+  'clip.count.articles': '{n} articles',
+  'clip.count.sources': '{n} sources',
+  'clip.live': 'Live',
   'clip.state.unread': 'Unread',
   'clip.state.read': 'Read',
   'clip.state.saved': 'Saved',
   'clip.chapter.minutes': 'Read {m} min in this chapter',
+  'clip.chapter.empty': '(No text in this article — the fetch may have failed.)',
   'clip.action.openSource': 'Source',
   'clip.action.save': 'Save to clipbook',
   'clip.action.saved': 'Saved',

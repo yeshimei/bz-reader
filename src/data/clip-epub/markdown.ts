@@ -90,7 +90,13 @@ function inline(raw: string, assets: MarkdownAssets): string {
 
 /** 块级：逐行状态机 */
 export function markdownToXhtml(md: string, assets: MarkdownAssets = {}): string {
-  const lines = String(md ?? '').replace(/\r\n?/g, '\n').split('\n');
+  const lines = String(md ?? '')
+    .replace(/\r\n?/g, '\n')
+    /* RSS 的 CDATA 尾标记偶尔会跟着正文一起落盘，单独占一行（阮一峰周刊
+       每篇 3 处，真机在插图下方看到一个孤零零的 `]]>`）。只清整行，免得
+       误伤正文里正常出现的字符。 */
+    .replace(/^[ \t]*\]\]>[ \t]*$/gm, '')
+    .split('\n');
   const out: string[] = [];
   let i = 0;
 

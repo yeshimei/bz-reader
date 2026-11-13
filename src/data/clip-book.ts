@@ -50,6 +50,7 @@ function toPlanArticle(a: ClipbookArticle): PlanArticle {
     author: a.author,
     date: a.date,
     body: '',
+    size: a.size,
     saved: a.state === 'saved',
     state: a.state,
     notePath: a.notePath,
@@ -85,6 +86,7 @@ export async function loadClipBook(app: App): Promise<ClipBookSnapshot> {
       state: (a.state ?? 'unread') as ClipChapter['state'],
       notePath: a.notePath ?? null,
       body: '',
+      size: a.size,
     })),
   }));
   return {
@@ -95,6 +97,17 @@ export async function loadClipBook(app: App): Promise<ClipBookSnapshot> {
     articleCount: plan.articleCount,
     sourceCount: plan.sourceCount,
   };
+}
+
+/**
+ * 剪藏本里一篇都收不到（新装 bz、订阅全清空、剪藏目录还没配）。
+ *
+ * 这类书不能交给 foliate：0 个 section 的 open 不派发 relocate、也不报错，
+ * 界面上就是一整屏纯白（真机：新用户第一次点开 100% 命中）。阅读页拿到
+ * 这个判定就画错误页，不要假装书打开了。
+ */
+export function clipBookIsEmpty(snap: ClipBookSnapshot | null | undefined): boolean {
+  return !snap || snap.chapters.length === 0;
 }
 
 const VIDEO_EXT: Record<string, string> = {
@@ -161,7 +174,11 @@ export function clipBodyLoader(facade: ClipbookFacade): (key: string) => Promise
 }
 
 /** 造一本可在 View.open 里用的剪藏书（清单已就绪，正文按章拉） */
-export function makeClipBookForApp(app: App, snap: ClipBookSnapshot): ClipBookHandle {
+export function makeClipBookForApp(
+  app: App,
+  snap: ClipBookSnapshot,
+  onSectionSize?: (index: number, size: number) => void,
+): ClipBookHandle {
   const facade = requireClipbook(app);
   const loadBody = clipBodyLoader(facade);
   return makeClipBook({
@@ -170,6 +187,7 @@ export function makeClipBookForApp(app: App, snap: ClipBookSnapshot): ClipBookHa
     groups: snap.groups,
     resolveAsset: clipAssetResolver(app),
     loadBody,
+    onSectionSize,
     labels: {
       author: t('clip.author'),
       original: t('clip.action.openSource'),
@@ -177,6 +195,7 @@ export function makeClipBookForApp(app: App, snap: ClipBookSnapshot): ClipBookHa
       videoLink: t('clip.video.browser'),
       videoMissing: t('clip.video.missing'),
       missingImage: t('clip.image.missing'),
+      emptyBody: t('clip.chapter.empty'),
     },
   });
 }

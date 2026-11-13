@@ -3,7 +3,7 @@
  * 全部是纯函数：输入数据，输出 HTML 字符串。不碰 DOM、不碰状态。
  * ============================================================ */
 
-import { locale } from '../../i18n';
+import { locale, t } from '../../i18n';
 
 /** 转义：拼 HTML 必须过这一道，书名里出现 < 不能让页面塌。
  *  **全仓只此一份**（D8）：浮卡、工具条、想法输入条以前各抄了一份，
@@ -166,7 +166,17 @@ export const MAG = '<svg width="13" height="13" viewBox="0 0 14 14" fill="none">
  * 由 shell/covers.ts 的 hydrateCovers 就地换图，不走重绘。
  */
 export function coverHtml(
-  r: { coverUrl: string | null; bg: string; fg: string; glyph: string; title: string; id?: string },
+  r: {
+    coverUrl: string | null;
+    bg: string;
+    fg: string;
+    glyph: string;
+    title: string;
+    id?: string;
+    clip?: boolean;
+    clipArticleCount?: number;
+    clipSourceCount?: number;
+  },
   cls = '',
 ): string {
   const cid = r.id ? ` data-cid="${esc(r.id)}" data-title="${esc(r.title)}"` : '';
@@ -174,6 +184,18 @@ export function coverHtml(
     return `<div class="bzs-cov ${cls}"${cid} style="background:${r.bg}"><img class="bzs-covimg" src="${esc(
       r.coverUrl,
     )}" alt="${esc(r.title)}" loading="lazy"></div>`;
+  }
+  /* 剪藏本：完整书名 + 「23 篇 · 3 源 · 实时更新」。
+     以前只竖排两个字「剪藏」，和真 EPUB 并排像一张没做完的占位卡
+     （真机两组都提了）。统计来自上次打开时记下的数，没打开过就只有书名。 */
+  if (r.clip) {
+    const bits: string[] = [];
+    if (r.clipArticleCount) bits.push(t('clip.count.articles', { n: r.clipArticleCount }));
+    if (r.clipSourceCount) bits.push(t('clip.count.sources', { n: r.clipSourceCount }));
+    bits.push(t('clip.live'));
+    return `<div class="bzs-cov is-clipcov ${cls}"${cid} style="background:${r.bg};color:${r.fg}"><span class="spine"></span><span class="ct">${esc(
+      r.title,
+    )}</span><span class="cl">${esc(bits.join(' · '))}</span></div>`;
   }
   return `<div class="bzs-cov ${cls}"${cid} style="background:${r.bg};color:${r.fg}"><span class="spine"></span><span class="ct">${esc(
     r.glyph,

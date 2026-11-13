@@ -233,6 +233,32 @@ body.bzr-immersive .bzs-pageno {
   font-variant-numeric: tabular-nums;
 }
 
+/* 自检信息默认折起来（普通读者看不懂内核版本与 iframe 能力检测） */
+.bzs-fault-more {
+  margin-top: 8px;
+  max-width: 100%;
+}
+
+.bzs-fault-more > summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--t3);
+  list-style: none;
+  opacity: .8;
+}
+
+.bzs-fault-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.bzs-fault-more > summary::after {
+  content: " ▾";
+}
+
+.bzs-fault-more[open] > summary::after {
+  content: " ▴";
+}
+
 .bzs-fault-diag .k {
   display: inline-block;
   min-width: 66px;
@@ -276,7 +302,10 @@ body.bzr-immersive .bzs-pageno {
   align-items: center;
   gap: 10px;
   max-width: calc(100% - 20px);
-  margin: 0 auto 6px;
+  /* 底条是 flex 列的最后一行，阅读区一直顶到视口底：手机导航栏 / 桌面状态栏
+     是 fixed，正好压在它上面（按钮点不到）。--bzr-bottom-gap 由 syncBottomGap
+     量出「阅读区底边 − 浮层顶边」，这里跟着让位。 */
+  margin: 0 auto calc(6px + var(--bzr-bottom-gap, 0px));
   padding: 5px 10px;
   border-radius: 10px;
   background: var(--background-secondary, rgba(0, 0, 0, 0.55));

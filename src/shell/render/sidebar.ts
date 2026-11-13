@@ -144,11 +144,13 @@ function tocBody(
   collapsed: ReadonlySet<string>,
   draggable = false,
 ): string {
+  /* 计数只算文章行：源分组是「卷名」，不是要读的一节。以前 3 个源 + 23 篇
+     显示「共 26 节」，读者会以为多了 3 篇（真机反复报）。 */
   let total = 0;
   const count = (items: FoliateTOCItem[]): void => {
     for (const it of items) {
-      total += 1;
       if (it.subitems?.length) count(it.subitems);
+      else total += 1;
     }
   };
   count(toc);
@@ -174,13 +176,18 @@ function tocBody(
         : foldable
           ? `<span class="tw is-empty"></span>`
           : '';
+      /* 长中文标题在 300px 里只显示半句，「派早报」两篇几乎分不出来：
+         行上带完整 title（悬浮可看全），剪藏本的行 CSS 还允许折两行。 */
+      const state = it.state ? ` data-state="${esc(it.state)}"` : '';
+      const num = kids && it.count != null ? `<span class="n">${it.count}</span>` : '';
       rows.push(`<div class="bzs-chaprow${depth ? ' d1' : ''}${on ? ' on' : ''}${
         isCollapsed ? ' is-collapsed' : ''
-      }" data-act="jumpch" data-href="${esc(it.href)}" data-label="${esc(it.label)}" role="button" tabindex="0"${
-        draggable ? ' draggable="true"' : ''
-      }>
+      }" data-act="jumpch" data-href="${esc(it.href)}" data-label="${esc(it.label)}"${state} title="${esc(
+        it.label,
+      )}" role="button" tabindex="0"${draggable ? ' draggable="true"' : ''}>
         ${tw}
         <span class="t">${esc(stripTocLabel(it.label))}</span>
+        ${num}
       </div>`);
       if (kids && !isCollapsed) walk(kids, depth + 1);
     }

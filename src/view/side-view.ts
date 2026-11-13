@@ -26,6 +26,7 @@ import { viewSidebar, type AiIndexView } from '../shell/render/sidebar';
 import { focusSelector, type FocusMemo } from '../shell/focus-memo';
 import { isTocItemActive, type TocActiveRef } from '../shell/toc-active';
 import { getToc, subscribeToc, tocPaintMode } from './toc-state';
+import { revealScrollTop } from './toc-reveal';
 import { pdfLocatorPage, pdfPageLocator } from '../engine/pdf/locator';
 import { wikilinkTo } from '../data/wikilink';
 import { t } from '../i18n';
@@ -231,7 +232,30 @@ export class SideView extends ItemView {
     this.paintedActiveHref = activeHref;
     if (mode === 'row' && this.root) {
       this.patchActiveRow(this.root, { label: activeLabel, href: activeHref });
+      this.revealActiveRow();
     }
+  }
+
+  /**
+   * 把高亮的目录行滚进可视区。
+   *
+   * 只在高亮真的变了（换章 / 跳目录）时调：用户自己滚目录浏览时不能抢。
+   * 用 revealScrollTop 自己算 scrollTop，避免 scrollIntoView 连带滚外层。
+   */
+  private revealActiveRow(): void {
+    const root = this.root;
+    if (!root) return;
+    const scroller = root.querySelector<HTMLElement>('.bzs-sbbody');
+    /* 源分组行与它的第一篇共用同一个 href，两行都会亮：要滚的是**最后一
+       行**（文章本身）。取第一行的话，分组行贴底了、文章行被切在面板外
+       （真机截图里只露出半行标题）。 */
+    const hits = root.querySelectorAll<HTMLElement>('.bzs-chaprow.on');
+    const row = hits.length ? hits[hits.length - 1] : null;
+    if (!scroller || !row) return;
+    const item = row.getBoundingClientRect();
+    const view = scroller.getBoundingClientRect();
+    const next = revealScrollTop(scroller.scrollTop, item, view);
+    if (next !== scroller.scrollTop) scroller.scrollTop = next;
   }
 
   /** 只切 `.on`：按 href 定位唯一一行；href 缺失才退回 data-label（老快照） */
@@ -308,6 +332,8 @@ export class SideView extends ItemView {
 
     const scroller = root.querySelector<HTMLElement>('.bzs-sbbody');
     if (scroller) scroller.scrollTop = this.scrollTops[state.sideTab] ?? 0;
+    /* 首屏目录也要落在当前章：打开一本书点目录，最该先看到的是「我读到哪」 */
+    this.revealActiveRow();
     this.restoreFocus();
   }
 }
