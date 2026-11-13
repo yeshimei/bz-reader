@@ -33,9 +33,9 @@ export const AI_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1bR4s6dEjH';
 export const BZ_INSTALL_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1vNsZ6pE7i/?p=2';
 
 /**
- * 剪藏本的教程（bz 组里那颗「看教程」）。
+ * 剪藏本的教程（bz 组里那颗「看教程」）：讲剪藏成书怎么开、怎么同步。
  *
- * **待定**：链接还没定，先留空串。动作层拿到空串只提示一句「教程还没上线」，
- * 不去打开一条不相干的视频——指错比没有更糟。链接定下来填这里即可。
+ * 动作层仍留着「空串就只提示一句」的兜底——这条地址要是哪天被下线，
+ * 退化成提示也比打开一条不相干的视频强。
  */
-export const CLIP_TUTORIAL_URL = '';
+export const CLIP_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1h3WB6XEL4';
