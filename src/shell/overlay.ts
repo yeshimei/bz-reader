@@ -61,6 +61,8 @@ import { dataDirOf } from '../core/plugin-path';
 import { clampDailyGoal } from '../data/goal';
 import { shelfLabel } from './shelf-label';
 import { segHtml } from './render/seg';
+import { TTS_RATE_RANGE } from '../data/prefs';
+import { TTS_VOICE_IDS } from '../core/tts-api';
 import { bindMaskDismiss } from '../core/mask-dismiss';
 import { escManager } from '../core/esc-manager';
 import { trapFocus } from '../core/ui/focus-trap';
@@ -245,6 +247,62 @@ export function typographyFormHtml(mobile = isMobileShell()): string {
 function overlayTypography(): string {
   return `<div class="bzs-float is-corner no-head" data-role="float">
     <div class="bzs-mbody">${typographyFormHtml()}</div>
+  </div>`;
+}
+
+/**
+ * 朗读表单本体（2026-11-14）。
+ *
+ * 和排版面板同一副样子：改一项立刻生效（语速改的是播放中的 `<audio>`），
+ * 不遮正文。音色只有两把嗓子，所以只给一个「音色」行——不再按旁白/对白分。
+ */
+export function ttsFormHtml(): string {
+  const p = shellPrefs();
+  const seg = (name: string, opts: Array<[string, string]>, cur: string): string =>
+    segHtml(
+      opts.map(([v, k]) => ({ v, k })),
+      cur,
+      { name },
+    );
+  const voices: Array<[string, string]> = TTS_VOICE_IDS.map((id) => [
+    id,
+    t(id === 'stella' ? 'settings.ttsVoice.stella' : 'settings.ttsVoice.tide'),
+  ]);
+  return `<div class="bzs-setgrp flat bzs-typo">
+    <div class="bzs-setrow"><label>${t('settings.ttsEngine')}</label>${seg(
+      'ttsEngine',
+      [
+        ['deepseek', t('settings.ttsEngine.deepseek')],
+        ['system', t('settings.ttsEngine.system')],
+      ],
+      p.ttsEngine,
+    )}</div>
+    ${
+      p.ttsEngine === 'deepseek'
+        ? `<div class="bzs-setrow"><label>${t('settings.ttsVoice')}</label>${seg('ttsVoice', voices, p.ttsVoice)}</div>`
+        : ''
+    }
+    <div class="bzs-setrow"><label>${t('settings.ttsRate')}</label>
+      <span class="bzs-range"><input type="range" data-role="pref" data-k="ttsRate" min="${TTS_RATE_RANGE.min}" max="${TTS_RATE_RANGE.max}" step="${TTS_RATE_RANGE.step}" value="${p.ttsRate}" style="--fill:${rangeFill(TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, p.ttsRate)}"></span>
+      <span class="val">${p.ttsRate.toFixed(1)}×</span></div>
+    <div class="bzs-setrow"><label>${t('settings.ttsFollow')}</label>${seg(
+      'ttsFollow',
+      [
+        ['1', t('settings.ttsFollow.on')],
+        ['0', t('settings.ttsFollow.off')],
+      ],
+      p.ttsFollow ? '1' : '0',
+    )}</div>
+    <div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
+      <button class="bzs-btn sm pri" data-act="ttstest">${t('settings.ttsTest')}</button>
+      <span class="bzs-mini" data-role="ttstest-out"></span>
+    </div>
+  </div>`;
+}
+
+function overlayTts(): string {
+  return `<div class="bzs-float is-corner no-head" data-role="float">
+    <div class="bzs-mbody">${ttsFormHtml()}</div>
   </div>`;
 }
 
@@ -1361,6 +1419,8 @@ export function overlayHtml(): string {
       return overlaySearch();
     case 'typography':
       return overlayTypography();
+    case 'tts':
+      return overlayTts();
     case 'export':
       return overlayExport(o.bookId);
     case 'bookmap':

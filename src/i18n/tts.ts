@@ -57,6 +57,7 @@ export const TTS_ZH = {
   'tts.bar.next': '下一段',
   'tts.bar.prefetch': '预生成本章',
   'tts.bar.export': '导出音频',
+  'tts.bar.tune': '朗读设置',
   'tts.bar.cost': '{cost} 元',
 } as const;
 
@@ -108,6 +109,7 @@ export const TTS_ZH_TW = {
   'tts.bar.next': '下一段',
   'tts.bar.prefetch': '預生成本章',
   'tts.bar.export': '匯出音訊',
+  'tts.bar.tune': '朗讀設定',
   'tts.bar.cost': '{cost} 元',
 } as const;
 
@@ -159,6 +161,7 @@ const TTS_EN_BASE = {
   'tts.bar.next': 'Next',
   'tts.bar.prefetch': 'Pre-build chapter',
   'tts.bar.export': 'Export audio',
+  'tts.bar.tune': 'Reading settings',
   'tts.bar.cost': '{cost} yuan',
 } as const;
 

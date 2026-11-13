@@ -12,8 +12,8 @@ describe('ttsBarHtml', () => {
     expect(html).not.toContain('元');
   });
 
-  it('六个动作都在：上一段、暂停、停止、下一段、预生成、导出', () => {
-    for (const act of ['ttsprev', 'ttstoggle', 'ttsstop', 'ttsnext', 'ttsprefetch', 'ttsexport']) {
+  it('七个动作都在：上一段、暂停、停止、下一段、预生成、导出、朗读设置', () => {
+    for (const act of ['ttsprev', 'ttstoggle', 'ttsstop', 'ttsnext', 'ttsprefetch', 'ttsexport', 'ttstune']) {
       expect(html).toContain(`data-act="${act}"`);
     }
   });

@@ -26,6 +26,7 @@ const ICONS = {
   next: 'skip-forward',
   prefetch: 'download',
   export: 'share',
+  tune: 'sliders-horizontal',
 } as const;
 
 export function ttsBarHtml(s: TtsBarState): string {
@@ -35,6 +36,7 @@ export function ttsBarHtml(s: TtsBarState): string {
   const next = t('tts.bar.next');
   const prefetch = t('tts.bar.prefetch');
   const exp = t('tts.bar.export');
+  const tune = t('tts.bar.tune');
   return `<div class="bzr-ttsbar" data-role="ttsbar">
     ${button('ttsprev', ICONS.prev, prev)}
     ${button('ttstoggle', s.paused ? ICONS.play : ICONS.pause, playLabel, ' is-main')}
@@ -42,6 +44,7 @@ export function ttsBarHtml(s: TtsBarState): string {
     ${button('ttsnext', ICONS.next, next)}
     ${button('ttsprefetch', ICONS.prefetch, prefetch, ' is-minor')}
     ${button('ttsexport', ICONS.export, exp, ' is-minor')}
+    ${button('ttstune', ICONS.tune, tune, ' is-minor')}
   </div>`;
 }
 

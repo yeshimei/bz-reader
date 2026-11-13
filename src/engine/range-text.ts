@@ -65,6 +65,47 @@ export function cropToSpan(el: Element, span: Span, height: number): Range | nul
 }
 
 /**
+ * 在「本屏可见的字」里找 needle，返回精确 Range。
+ *
+ * 和 findInRange 的区别：这里只收集**可见**字符（逐字符比矩形），所以
+ * 1) 不会命中上一页的同一句话；2) 坐标、文本、节点三者天然对齐。
+ * 一页八百来字，逐字符扫一次几十毫秒，只在换句时调用。
+ */
+export function findVisibleText(el: Element, span: Span, height: number, needle: string): Range | null {
+  const text = needle.replace(/\s+/g, '');
+  if (!text) return null;
+  const doc = el.ownerDocument;
+  const walker = doc.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const probe = doc.createRange();
+  const chars: Array<{ node: Text; offset: number; ch: string }> = [];
+  let node = walker.nextNode();
+  while (node) {
+    const t = node as Text;
+    const data = t.data;
+    for (let i = 0; i < data.length; i += 1) {
+      const ch = data[i];
+      if (/\s/.test(ch)) continue;
+      probe.setStart(t, i);
+      probe.setEnd(t, i + 1);
+      const r = probe.getBoundingClientRect();
+      if (!(r.right > span.x0 && r.left < span.x1 && r.bottom > 0 && r.top < height)) continue;
+      chars.push({ node: t, offset: i, ch });
+    }
+    node = walker.nextNode();
+  }
+  const flat = chars.map((c) => c.ch).join('');
+  const at = flat.indexOf(text);
+  if (at < 0) return null;
+  const start = chars[at];
+  const end = chars[at + text.length - 1];
+  if (!start || !end) return null;
+  const out = doc.createRange();
+  out.setStart(start.node, start.offset);
+  out.setEnd(end.node, end.offset + 1);
+  return out;
+}
+
+/**
  * 在 Range 里找第一处 needle，返回精确子 Range；找不到返回 null。
  *
  * 把 Range 覆盖的文本节点拼成一个字符串再 `indexOf`，所以句子跨节点也

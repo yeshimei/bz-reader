@@ -450,14 +450,6 @@ export function viewSettings(v: SettingsView): string {
       ${
         p.ttsEngine === 'deepseek'
           ? `<div class="bzs-setrow"><label>${t('settings.ttsVoice')}</label>${seg('ttsVoice', voiceOpts, p.ttsVoice)}</div>
-      ${prefToggle('ttsMultiVoice', p.ttsMultiVoice, t('settings.ttsMultiVoice'))}
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsMultiVoice.hint')}</div>
-      <div class="bzs-setrow"><label>${t('settings.ttsNarrator')}</label>${seg('ttsNarrator', voiceOpts, p.ttsNarrator)}</div>
-      <div class="bzs-setrow"><label>${t('settings.ttsDialogue')}</label>${seg('ttsDialogue', voiceOpts, p.ttsDialogue)}</div>
-      ${prefToggle('ttsDialogueOnly', p.ttsDialogueOnly, t('settings.ttsDialogueOnly'))}
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsDialogueOnly.hint')}</div>
-      ${prefToggle('ttsAiRoles', p.ttsAiRoles, t('settings.ttsAiRoles'))}
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsAiRoles.hint')}</div>
       ${range('ttsCacheMB', t('settings.ttsCache'), p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, TTS_CACHE_RANGE.step, (x) => `${x} MB`)}
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsCache.hint')}
         <button class="bzs-btn sm" data-act="ttscacheclear">${t('settings.ttsCache.clear')}</button>

@@ -36,9 +36,7 @@ import { speak, speakLang, type SpeakHandle } from '../core/speak';
 import { billedChars, buildScript, estimateCost, ttsLangSupported, type ScriptKind, type ScriptSegment } from '../core/tts-script';
 import { synthesizeSpeech, type TtsErrorCode, type TtsVoice } from '../core/tts-api';
 import { TtsPlayer } from '../core/tts-player';
-import { applyGenders, parseRoleGenders, type SegmentWithGender } from '../core/tts-roles';
 import { concatWav } from '../core/wav';
-import { aiAsk } from '../data/ai';
 import { TtsCache, cacheKey } from '../data/tts-cache';
 import { ttsBarHtml } from './tts-bar';
 import { notify, notifyNow, type NoticeHandle } from '../core/notice';
@@ -1742,10 +1740,13 @@ export class ReaderView extends ItemView {
   }
 
   /**
-   * DeepSeek 朗读：按「旁白 / 对白」切段，两把嗓子交替。
+   * DeepSeek 朗读：整页一句一段，一把嗓子念到底。
    *
-   * 不做自动退回系统语音（用户明确要求）：失败就停并说清原因，
-   * 要不要换引擎由用户自己决定。
+   * 不再按「旁白 / 对白」分声（2026-11-14 用户决定）：DeepSeek 只有两把
+   * 嗓子，靠引号和模型猜角色都不准，换声反而像串台。音色、语速放在
+   * 「朗读」设置组和正文里的朗读浮层。
+   *
+   * 不做自动退回系统语音（用户明确要求）：失败就停并说清原因。
    */
   private async speakPageAi(text: string): Promise<void> {
     const settings = shellSettings();
@@ -1765,10 +1766,9 @@ export class ReaderView extends ItemView {
       notify(t('notice.tts.unsupportedLang'));
       return;
     }
-    /* PDF / TXT 取不到块结构时退回整页一段：至少还能念，只是不分角色 */
+    /* PDF / TXT 取不到块结构时退回整页一段：至少还能念 */
     const blocks = this.host.currentBlocks?.() ?? [];
-    let segments: SegmentWithGender[] = buildScript(blocks.length ? blocks : [{ tag: 'p', text }]);
-    if (this.prefs.ttsDialogueOnly) segments = segments.filter((s) => s.kind === 'dialogue');
+    const segments = buildScript(blocks.length ? blocks : [{ tag: 'p', text }]);
     if (!segments.length) {
       notify(t('notice.tts.noText'));
       return;
@@ -1776,17 +1776,16 @@ export class ReaderView extends ItemView {
     /* 先停旧的：换页重念时不能两条音频叠在一起 */
     this.stopTts();
     const run = ++this.ttsRun;
+    if (this.closed || run !== this.ttsRun) return;
 
-    /* 让模型认角色：多等 1–3 秒，换来「男声/女声」；标注失败就按双音色念 */
-    if (this.prefs.ttsAiRoles && segments.some((s) => s.kind === 'dialogue')) {
-      segments = await this.annotateRoles(segments, blocks);
-      if (this.closed || run !== this.ttsRun) return;
-    }
-
-    const voices = this.prefs.ttsMultiVoice
-      ? { narration: this.prefs.ttsNarrator, dialogue: this.prefs.ttsDialogue }
-      : { narration: this.prefs.ttsVoice, dialogue: this.prefs.ttsVoice };
-    const voiceOf = (seg: SegmentWithGender): TtsVoice => this.ttsVoiceOf(seg, voices);
+    const voiceOf = (): TtsVoice => this.prefs.ttsVoice;
+    this.ttsChars = segments.reduce((n, s) => n + billedChars(s.text), 0);
+    this.ttsCost = estimateCost(this.ttsChars);
+    this.addTtsSpend(this.ttsChars, this.ttsCost);
+    this.ttsTotal = segments.length;
+    this.ttsIndex = 0;
+    this.ttsKind = segments[0].kind;
+    this.ttsSnippet = snippetOf(segments[0].text);
     this.ttsChars = segments.reduce((n, s) => n + billedChars(s.text), 0);
     this.ttsCost = estimateCost(this.ttsChars);
     this.addTtsSpend(this.ttsChars, this.ttsCost);
@@ -1827,20 +1826,6 @@ export class ReaderView extends ItemView {
     this.showTtsBar();
     player.setRate(this.prefs.ttsRate);
     player.start();
-  }
-
-  /** 调模型标角色；失败返回原样（听书不能因为一次标注失败就停） */
-  private async annotateRoles(
-    segments: SegmentWithGender[],
-    blocks: Array<{ text: string }>,
-  ): Promise<SegmentWithGender[]> {
-    try {
-      const res = await aiAsk(shellSettings(), { task: 'roles', text: '', blocks });
-      const genders = parseRoleGenders(res.text, blocks.length);
-      return applyGenders(segments, genders);
-    } catch {
-      return segments;
-    }
   }
 
   /** 朗读失败：按错误类型说人话，然后停（不回退系统语音） */
@@ -1937,18 +1922,14 @@ export class ReaderView extends ItemView {
       void this.prefetchChapter();
     } else if (act === 'ttsexport') {
       void this.exportSpeech();
+    } else if (act === 'ttstune') {
+      dispatchAction('ttstune', this.rootEl ?? document.body);
     }
   }
 
-  /** 按段选声音：旁白一把；对白在开了「模型认角色」时按男女分 */
-  private ttsVoiceOf(
-    seg: SegmentWithGender,
-    voices: { narration: TtsVoice; dialogue: TtsVoice },
-  ): TtsVoice {
-    if (seg.kind === 'narration') return voices.narration;
-    if (this.prefs.ttsAiRoles && seg.gender === 'm') return 'tide';
-    if (this.prefs.ttsAiRoles && seg.gender === 'f') return 'stella';
-    return voices.dialogue;
+  /** 朗读只有一把嗓子（2026-11-14 去掉旁白/对白分声） */
+  private ttsVoice(): TtsVoice {
+    return this.prefs.ttsVoice;
   }
 
   /**
@@ -1985,7 +1966,7 @@ export class ReaderView extends ItemView {
     try {
       for (const seg of segments) {
         if (!this.prefetching || this.closed) break;
-        const voice = this.ttsVoiceOf(seg, this.ttsVoices());
+        const voice = this.ttsVoice();
         const key = cacheKey(this.bookId, voice, seg.text);
         let buf = cache ? await cache.get(key) : null;
         if (!buf) {
@@ -2031,7 +2012,7 @@ export class ReaderView extends ItemView {
     let spentChars = 0;
     try {
       for (const seg of segments) {
-        const voice = this.ttsVoiceOf(seg, this.ttsVoices());
+        const voice = this.ttsVoice();
         const key = cacheKey(this.bookId, voice, seg.text);
         let buf = cache ? await cache.get(key) : null;
         if (!buf) {
@@ -2063,13 +2044,6 @@ export class ReaderView extends ItemView {
     } catch (e) {
       notify(`${t('notice.tts.failed')}：${(e as Error)?.message || ''}`);
     }
-  }
-
-  /** 当前偏好下的旁白 / 对白两把嗓子 */
-  private ttsVoices(): { narration: TtsVoice; dialogue: TtsVoice } {
-    return this.prefs.ttsMultiVoice
-      ? { narration: this.prefs.ttsNarrator, dialogue: this.prefs.ttsDialogue }
-      : { narration: this.prefs.ttsVoice, dialogue: this.prefs.ttsVoice };
   }
 
   /** 本地估算累加；只记在这台机器上，不跟库同步 */

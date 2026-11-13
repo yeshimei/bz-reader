@@ -391,14 +391,13 @@ body.is-mobile .bzr-ttsbar-wrap {
   background: var(--interactive-accent-hover);
 }
 
-/* 正在念的那一句：每行一个框，淡底 + 下缘一条实线（2026-11-14） */
+/* 正在念的那一句：每行一个淡底框，不加下划线（2026-11-14 用户要求） */
 .bzr-tts-mark {
   position: absolute;
   z-index: 30;
   pointer-events: none;
   border-radius: 3px;
   background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
-  box-shadow: inset 0 -2px 0 var(--interactive-accent);
 }
 
 

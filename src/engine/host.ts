@@ -29,7 +29,7 @@ import type {
 } from '../types/foliate';
 import { buildChapterCSS } from './theme';
 import { overlapsSpan, visibleSpan, type Span } from './visible-span';
-import { cropToSpan, findInRange } from './range-text';
+import { cropToSpan, findInRange, findVisibleText } from './range-text';
 import { contentInset } from './content-inset';
 import { makeTxtBook, countWords } from './txt';
 import { decodeTxtBytes } from './encoding';
@@ -366,7 +366,7 @@ export class EngineHost {
    * 不在 iframe 文档里，画不出框。所以 currentBlocks 在过滤可见块时顺手把
    * 「块 ∩ 本屏」的 Range 记在这里；`markSpeechText` 再在里面按句子定位。
    */
-  private speechSpots: Array<{ content: FoliateContent; range: Range }> = [];
+  private speechSpots: Array<{ content: FoliateContent; range: Range; el: HTMLElement }> = [];
   /**
    * 每章字节数（`book.sections[i].size`）：全本页码拿它估算没读过的章节。
    * 换书时重填，空书就是空数组——拿不到 size 的格式（个别 CBZ）估算会跳过。
@@ -1997,7 +1997,7 @@ export class EngineHost {
         const text = (range.toString() || '').replace(/\s+/g, ' ').trim();
         if (!text) continue;
         out.push({ tag: el.tagName.toLowerCase(), text });
-        this.speechSpots.push({ content: c, range });
+        this.speechSpots.push({ content: c, range, el });
       }
     }
     return out;
@@ -2031,19 +2031,27 @@ export class EngineHost {
   speechRects(indexes: readonly number[], text: string): Rect[] {
     const spot = indexes.length ? this.speechSpots[indexes[0]] : undefined;
     if (!spot) return [];
+    const g = this.frameGeom(spot.content.doc);
+    const span = this.visibleSpanOf(spot.content.doc);
+    const h = spot.content.doc.defaultView?.innerHeight || spot.content.doc.documentElement.clientHeight || 0;
     let range: Range;
     try {
-      range = findInRange(spot.range, text) ?? spot.range;
+      /* 先在「本屏可见的字」里找整句（最准）；找不到再退句首 8 字；
+         还找不到才框整块。 */
+      range =
+        (span ? findVisibleText(spot.el, span, h, text) : null) ??
+        findInRange(spot.range, text) ??
+        findInRange(spot.range, text.slice(0, 8)) ??
+        spot.range;
     } catch {
       return [];
     }
-    const g = this.frameGeom(spot.content.doc);
-    const span = this.visibleSpanOf(spot.content.doc);
     const viewBox = this.view?.getBoundingClientRect?.();
     /* 行矩形是布局坐标，`span.x0` 就是「阅读区左边」对应的布局位置：减掉
-       再回到宿主坐标。用 frame.left 会整体偏一栏（真机偏 390px）。 */
+       再回到宿主坐标。y 方向没有横向平移，直接用 iframe 的 top（不是阅读区
+       顶边——iframe 里还有页眉与内边距，差 48px 就会把框盖到上一行）。 */
     const originX = span && viewBox ? viewBox.left - span.x0 : g.left;
-    const originY = viewBox ? viewBox.top : g.top;
+    const originY = g.top;
     const out: Rect[] = [];
     for (const r of Array.from(range.getClientRects())) {
       if (r.width < 1 || r.height < 1) continue;

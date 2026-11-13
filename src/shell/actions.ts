@@ -1179,6 +1179,10 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'typography':
       overlay('typography');
       break;
+    /* 朗读快速设置（2026-11-14）：和排版同一副浮层，边听边改音色/语速 */
+    case 'ttstune':
+      overlay('tts');
+      break;
     case 'bookmap':
       if (!requireCap('bookmap')) break;
       overlay('bookmap');
