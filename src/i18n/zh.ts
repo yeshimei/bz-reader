@@ -991,7 +991,7 @@ export const ZH = {
   'clip.action.openSource': '原文',
   'clip.action.save': '存为剪藏',
   'clip.action.saved': '已保存',
-  'clip.action.openClipbook': '剪藏本',
+  'clip.action.openClipbook': '打开剪藏本',
   'clip.action.openNote': '剪藏笔记',
   'clip.action.saveToKb': '存进知识盒',
   'clip.action.summary': '生成摘要',

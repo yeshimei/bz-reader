@@ -980,7 +980,7 @@ export const ES: Record<MsgKey, string> = {
   'clip.action.openSource': 'Source',
   'clip.action.save': 'Save to clipbook',
   'clip.action.saved': 'Saved',
-  'clip.action.openClipbook': 'Clipbook',
+  'clip.action.openClipbook': 'Open clipbook',
   'clip.action.openNote': 'Clip note',
 'clip.action.summary': 'Summary',
 'clip.summary.running': 'Generating summary…',

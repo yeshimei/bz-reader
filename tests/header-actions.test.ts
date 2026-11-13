@@ -16,27 +16,30 @@ import {
  *   · 桌面端右侧明明放得下，却只露出 3 颗，其余折进 ⋮；
  *   · 翻到已经加过书签的页面，书签图标不亮——看不出「这一页签过了」。
  */
-describe('剪藏本四颗（2026-11-13：底条改头栏 / ⋮）', () => {
-  it('桌面剪藏本：四颗都进头栏，且排在普通动作之后', () => {
+describe('剪藏本三颗（2026-11-13：底条改头栏 / ⋮；原文入口收进正文脚注）', () => {
+  it('桌面剪藏本：三颗都进头栏，且排在普通动作之后', () => {
     const ids = headerActionsFor(false, null, false, false, true);
     expect(ids).toEqual(
-      expect.arrayContaining(['clipSource', 'clipSave', 'clipNote', 'clipPanel']),
+      expect.arrayContaining(['clipSave', 'clipNote', 'clipPanel']),
     );
+    /* 「原文」已从动作里去掉：正文末尾的脚注仍保留原链接，不占一颗图标 */
+    expect(ids).not.toContain('clipSource');
     /* 别插到「目录 / 搜索 / 书签」前面——那三颗是任何一本书的前三位 */
     expect(ids.slice(0, 3)).toEqual(['toc', 'search', 'mark']);
-    expect(ids.indexOf('clipSource')).toBeGreaterThan(ids.indexOf('library'));
+    expect(ids.indexOf('clipSave')).toBeGreaterThan(ids.indexOf('library'));
   });
 
-  it('手机剪藏本：四颗不进头栏（那 3 个名额留给目录/搜索/书签），只走 ⋮', () => {
+  it('手机剪藏本：三颗不进头栏（那 3 个名额留给目录/搜索/书签），只走 ⋮', () => {
     const shown = headerActionsFor(true, null, false, true, true);
     expect(shown).toEqual(['toc', 'search', 'mark']);
     const overflow = headerOverflowFor(true, null, false, true, true);
     expect(overflow).toEqual(
-      expect.arrayContaining(['clipSource', 'clipSave', 'clipNote', 'clipPanel']),
+      expect.arrayContaining(['clipSave', 'clipNote', 'clipPanel']),
     );
+    expect(overflow).not.toContain('clipSource');
   });
 
-  it('不是剪藏本时四颗根本不提供（普通 EPUB / PDF 头栏不受影响）', () => {
+  it('不是剪藏本时三颗根本不提供（普通 EPUB / PDF 头栏不受影响）', () => {
     expect(availableActions(false, false, false)).not.toContain('clipSave');
     expect(headerActionsFor(false, null, false, false, false)).toEqual(
       headerActionIds(false),
@@ -46,18 +49,17 @@ describe('剪藏本四颗（2026-11-13：底条改头栏 / ⋮）', () => {
     expect(pdf).not.toContain('clipPanel');
   });
 
-  it('剪藏四颗的标签走语言包，不另写一套中文字面量', () => {
-    for (const id of ['clipSource', 'clipSave', 'clipNote', 'clipPanel'] as const) {
+  it('剪藏三颗的标签走语言包，不另写一套中文字面量', () => {
+    for (const id of ['clipSave', 'clipNote', 'clipPanel'] as const) {
       const spec = headerActionSpec(id);
       expect(spec.label.length).toBeGreaterThan(0);
       expect(spec.label).not.toMatch(/^\{|^clip\./);
       expect(spec.icon).toBeTruthy();
     }
-    expect(headerActionSpec('clipSource').label).toBe(t('clip.action.openSource'));
     expect(headerActionSpec('clipPanel').label).toBe(t('clip.action.openClipbook'));
   });
 
-  it('「生成摘要」第五颗：桌面进头栏、排在四颗之后（它改内容，不是离开这一章）', () => {
+  it('「生成摘要」第四颗：桌面进头栏、排在三颗之后（它改内容，不是离开这一章）', () => {
     const ids = headerActionsFor(false, null, false, false, true);
     expect(ids).toContain('clipSummary');
     expect(ids.indexOf('clipSummary')).toBeGreaterThan(ids.indexOf('clipPanel'));

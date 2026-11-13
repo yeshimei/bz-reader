@@ -28,7 +28,6 @@ export type HeaderActionId =
   | 'guide'
   | 'immersive'
   | 'library'
-  | 'clipSource'
   | 'clipSave'
   | 'clipNote'
   | 'clipPanel'
@@ -70,12 +69,13 @@ const SPEC: ReadonlyArray<{ id: HeaderActionId; icon: string; labelKey?: MsgKey 
   { id: 'guide', icon: 'book-open', labelKey: 'guide.title' },
   { id: 'immersive', icon: 'maximize' },
   { id: 'library', icon: 'library' },
-  /* 剪藏本专用四颗（2026-11-13）：只在剪藏本里出现——桌面进头栏，手机进 ⋮。
+  /* 剪藏本专用三颗（2026-11-13）：只在剪藏本里出现——桌面进头栏，手机进 ⋮。
      以前是正文下方一条底条：除了占掉一行，还要为宿主状态栏 / 移动导航条让位
      （桌面 35px、手机 84px），左边那串「来源 · 已读 · 本章时长」又和章节副标题
      重复。拆下来后阅读区整块还回去，动作和「目录 / 搜索」同族。
-     标签复用语言包已有的 clip.action.*（八包齐全），不另抄一份。 */
-  { id: 'clipSource', icon: 'external-link', labelKey: 'clip.action.openSource' },
+     标签复用语言包已有的 clip.action.*（八包齐全），不另抄一份。
+     「原文」不在这里：它只是打开一个链接，正文末尾的脚注已经保留，
+     占一颗图标不如留给真正会改变状态的动作。 */
   { id: 'clipSave', icon: 'scissors', labelKey: 'clip.action.save' },
   { id: 'clipNote', icon: 'file-text', labelKey: 'clip.action.openNote' },
   { id: 'clipPanel', icon: 'newspaper', labelKey: 'clip.action.openClipbook' },
@@ -290,7 +290,6 @@ export function isMobileHiddenAction(id: HeaderActionId): boolean {
  * 名额（见 headerActionsFor）。否则要么挤掉目录/搜索，要么手机上彻底找不到。
  */
 export const CLIP_ACTIONS: readonly HeaderActionId[] = [
-  'clipSource',
   'clipSave',
   'clipNote',
   'clipPanel',

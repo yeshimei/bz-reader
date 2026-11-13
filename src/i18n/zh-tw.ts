@@ -969,7 +969,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'clip.action.openSource': '原文',
   'clip.action.save': '存為剪藏',
   'clip.action.saved': '已保存',
-  'clip.action.openClipbook': '剪藏本',
+  'clip.action.openClipbook': '開啟剪藏本',
   'clip.action.openNote': '剪藏筆記',
 'clip.action.summary': '產生摘要',
 'clip.summary.running': '正在產生摘要…',

@@ -909,8 +909,7 @@ export class ReaderView extends ItemView {
       guide: () => dispatchAction('guide', this.rootEl ?? document.body),
       immersive: () => this.toggleImmersive(),
       library: () => getShellSource()?.openStudy('library'),
-      /* 剪藏本四颗（2026-11-13）：以前是正文底条上的按钮 */
-      clipSource: () => this.onClipAction('clipSource'),
+      /* 剪藏本三颗（2026-11-13）：以前是正文底条上的按钮 */
       clipSave: () => this.onClipAction('clipSave'),
       clipNote: () => this.onClipAction('clipNote'),
       clipPanel: () => this.onClipAction('clipPanel'),
@@ -1381,8 +1380,7 @@ export class ReaderView extends ItemView {
       guide: () => dispatchAction('guide', root),
       immersive: () => this.toggleImmersive(),
       library: () => getShellSource()?.openStudy('library'),
-      /* 剪藏本四颗（2026-11-13）：以前是正文底条上的按钮 */
-      clipSource: () => this.onClipAction('clipSource'),
+      /* 剪藏本三颗（2026-11-13）：以前是正文底条上的按钮 */
       clipSave: () => this.onClipAction('clipSave'),
       clipNote: () => this.onClipAction('clipNote'),
       clipPanel: () => this.onClipAction('clipPanel'),
@@ -1403,14 +1401,13 @@ export class ReaderView extends ItemView {
     const clipCh = this.clipSnap ? this.currentClipChapter() : null;
     let clipSepDone = false;
     for (const id of availableActions(isMobileShell(), this.host.isPdf, !!this.clipSnap)) {
-      /* 剪藏四颗按「这一章能不能用」再筛一遍：底条时代它们按需显隐，
+      /* 剪藏三颗按「这一章能不能用」再筛一遍：底条时代它们按需显隐，
          搬进菜单后不筛的话「剪藏笔记」会在没有笔记的章节里常驻、
          「存为剪藏」在已剪藏的章节里还能点到（点了只会 alreadySaved）。 */
-      if (id === 'clipSource' && !clipCh) continue;
       if (id === 'clipSave' && (!clipCh || clipCh.state === 'saved')) continue;
       if (id === 'clipNote' && !clipCh?.notePath) continue;
       if (id === 'clipPanel' && !clipCh) continue;
-      /* 剪藏四项自己一组，别和「返回书架」粘在一起 */
+      /* 剪藏三项自己一组，别和「返回书架」粘在一起 */
       if (isClipAction(id) && !clipSepDone) {
         menu.addSeparator();
         clipSepDone = true;
@@ -3186,9 +3183,8 @@ export class ReaderView extends ItemView {
       return;
     }
     if (!this.clipKey) this.clipKey = ch.key;
-    const act = (id: 'clipSource' | 'clipSave' | 'clipNote' | 'clipPanel'): HTMLElement | undefined =>
+    const act = (id: 'clipSave' | 'clipNote' | 'clipPanel'): HTMLElement | undefined =>
       this.headerEls.get(id);
-    act('clipSource')?.classList.toggle('is-hidden', !/^https?:\/\//i.test(ch.url));
     const saveBtn = act('clipSave');
     if (saveBtn) {
       /* 已保存就不再给「存为剪藏」：留着只会被点成 alreadySaved */
@@ -3200,9 +3196,9 @@ export class ReaderView extends ItemView {
     this.renderStatusClip(ch);
   }
 
-  /** 离开剪藏书：四颗全部收起（普通 EPUB / PDF 里不该出现） */
+  /** 离开剪藏书：三颗全部收起（普通 EPUB / PDF 里不该出现） */
   private hideClipActions(): void {
-    for (const id of ['clipSource', 'clipSave', 'clipNote', 'clipPanel'] as const) {
+    for (const id of ['clipSave', 'clipNote', 'clipPanel'] as const) {
       this.headerEls.get(id)?.classList.add('is-hidden');
     }
   }
@@ -3265,10 +3261,6 @@ export class ReaderView extends ItemView {
   private onClipAction(id: HeaderActionId): void {
     const ch = this.currentClipChapter();
     if (!ch) return;
-    if (id === 'clipSource') {
-      if (/^https?:\/\//i.test(ch.url)) window.open(ch.url, '_blank', 'noopener,noreferrer');
-      return;
-    }
     if (id === 'clipNote') {
       if (ch.notePath) void this.api.app.workspace.openLinkText(ch.notePath, '', false);
       return;
