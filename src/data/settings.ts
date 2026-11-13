@@ -71,6 +71,13 @@ export interface ReaderSettings {
    */
   aiAck: boolean;
   /**
+   * 「朗读会把正文发给语音服务」那条说明是否已经提示过。
+   *
+   * 与 aiAck 分开：AI 问答与朗读是两条独立的出网路径，用户可能只开其中
+   * 一条。记在这台机器上（settings 不跟库同步），换台电脑再讲一遍。
+   */
+  ttsAck: boolean;
+  /**
    * 调试日志：把触摸、选区、翻页、跳转写进数据目录的 `debug.json`。
    *
    * 只在排查「划词时页面乱跳」这类真机问题时要打开。默认关，关着时
@@ -121,6 +128,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     model: '',
   },
   aiAck: false,
+  ttsAck: false,
   debugLog: false,
   clipBook: false,
   clipScope: DEFAULT_CLIP_SCOPE,
@@ -212,6 +220,7 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     language: isLocale(s.language) ? s.language : 'auto',
     ai: normalizeAi(s.ai),
     aiAck: s.aiAck === true,
+    ttsAck: s.ttsAck === true,
     debugLog: s.debugLog === true,
     /* 缺字段（旧版本没有它）= 关：剪藏成书要人主动开，不能靠缺省值替人选 */
     clipBook: s.clipBook === true,

@@ -1729,10 +1729,17 @@ export class ReaderView extends ItemView {
    * 要不要换引擎由用户自己决定。
    */
   private speakPageAi(text: string): void {
-    const ai = shellSettings().ai;
+    const settings = shellSettings();
+    const ai = settings.ai;
     if (!ai.apiKey.trim()) {
       notify(t('notice.tts.noKey'));
       return;
+    }
+    /* 第一次用朗读：讲清楚「这一页的正文会发给语音服务」，只讲一次。
+       与 AI 问答那份 aiAck 分开记——两条出网路径互不代表。 */
+    if (!settings.ttsAck) {
+      notify(t('notice.tts.privacy'));
+      getShellSource()?.setSettings({ ttsAck: true });
     }
     const lang = speakLang(text, this.book?.meta.language, localeTag());
     if (!ttsLangSupported(lang)) {

@@ -38,6 +38,7 @@ export const TTS_ZH = {
   'notice.tts.cost': '本页约 {chars} 字，约 {cost} 元',
   'notice.tts.cacheCleared': '朗读缓存已清空',
   'notice.tts.testing': '正在合成试听…',
+  'notice.tts.privacy': '朗读会把当前这一页的正文发送给 DeepSeek 做语音合成；只在点朗读时发送。',
 
   'tts.bar.narration': '旁白',
   'tts.bar.dialogue': '对白',
@@ -78,6 +79,7 @@ export const TTS_ZH_TW = {
   'notice.tts.cost': '本頁約 {chars} 字，約 {cost} 元',
   'notice.tts.cacheCleared': '朗讀快取已清空',
   'notice.tts.testing': '正在合成試聽…',
+  'notice.tts.privacy': '朗讀會把當前這一頁的正文傳送給 DeepSeek 做語音合成；只在點朗讀時傳送。',
 
   'tts.bar.narration': '旁白',
   'tts.bar.dialogue': '對白',
@@ -118,6 +120,7 @@ const TTS_EN_BASE = {
   'notice.tts.cost': 'About {chars} characters on this page, about {cost} yuan',
   'notice.tts.cacheCleared': 'Read-aloud cache cleared',
   'notice.tts.testing': 'Synthesizing a preview…',
+  'notice.tts.privacy': 'Read aloud sends the current page to DeepSeek for speech synthesis, and only when you start it.',
 
   'tts.bar.narration': 'Narration',
   'tts.bar.dialogue': 'Dialogue',
