@@ -11,7 +11,7 @@
 import type { ClipReadEntry } from '../clipbook-bridge';
 
 function normKey(key: unknown): string {
-  return String(key ?? '').trim();
+  return typeof key === 'string' ? key.trim() : '';
 }
 
 export class ClipReportQueue {

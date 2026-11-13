@@ -142,7 +142,7 @@ function clipbookOf(plugin: Record<string, unknown> | null): BzClipbookFacade | 
     typeof c.open === 'function' ||
     typeof c.sources === 'function' ||
     typeof c.articles === 'function';
-  return usable ? (c as BzClipbookFacade) : null;
+  return usable ? c : null;
 }
 
 /**

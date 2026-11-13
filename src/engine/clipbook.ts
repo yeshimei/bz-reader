@@ -143,7 +143,7 @@ video { max-width: 100%; height: auto; display: block; margin: 1em 0; background
 `;
 
 /** 视频占位：Markdown 里单独成行，渲染后整段替换成播放器 */
-const VIDEO_RE = /!\[\[([^\]|]+\.(?:mp4|webm|ogv|m4v|mov))(?:\|[^\]]*)?\]\]|(?<![(\[])(https?:\/\/\S+?\.(?:mp4|webm|ogv|m4v))(?![)\w])|^\s*(https?:\/\/(?:www\.)?(?:bilibili\.com\/video\/|b23\.tv\/)\S+)\s*$/gim;
+const VIDEO_RE = /!\[\[([^\]|]+\.(?:mp4|webm|ogv|m4v|mov))(?:\|[^\]]*)?\]\]|(?<![([])(https?:\/\/\S+?\.(?:mp4|webm|ogv|m4v))(?![)\w])|^\s*(https?:\/\/(?:www\.)?(?:bilibili\.com\/video\/|b23\.tv\/)\S+)\s*$/gim;
 
 interface VideoRef {
   kind: 'local' | 'direct' | 'bilibili';

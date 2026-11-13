@@ -84,7 +84,7 @@ export async function loadClipBook(app: App): Promise<ClipBookSnapshot> {
       author: a.author,
       date: a.date,
       url: a.url,
-      state: (a.state ?? 'unread') as ClipChapter['state'],
+      state: a.state ?? 'unread',
       notePath: a.notePath ?? null,
       body: '',
       size: a.size,
