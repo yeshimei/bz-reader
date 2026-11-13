@@ -2035,7 +2035,18 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     }
     case 'ttscacheclear':
-      void new TtsCache().clear().then(() => notify(t('notice.tts.cacheCleared')));
+      /* 先问一句再清（与书库「移出书架」同一副弹窗）：缓存清了要重新花钱生成 */
+      void new TtsCache()
+        .stats()
+        .then((st) =>
+          overlay('ttsclear', { text: `${st.count}|${Math.round(st.bytes / 1048576)}` }),
+        );
+      break;
+    case 'ttscachecleardo':
+      void new TtsCache().clear().then(() => {
+        closeOverlay();
+        notify(t('notice.tts.cacheCleared'));
+      });
       break;
 
     /* ── 侧栏：目录 / 书签 / 划线 ── */

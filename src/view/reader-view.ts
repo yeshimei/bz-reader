@@ -1926,7 +1926,7 @@ export class ReaderView extends ItemView {
   }
 
   /** 预生成前的确认：走 Obsidian 自己的弹窗，不用原生 confirm */
-  private askPrefetch(chars: number): Promise<'all' | 'some' | null> {
+  private askPrefetch(chars: number, someChars: number): Promise<'all' | 'some' | null> {
     return new Promise((resolve) => {
       let picked: 'all' | 'some' | null = null;
       const modal = new Modal(this.app);
@@ -1940,7 +1940,9 @@ export class ReaderView extends ItemView {
         modal.close();
       };
       row.createEl('button', { text: t('notice.tts.confirmCancel') }).addEventListener('click', () => close(null));
-      row.createEl('button', { text: t('notice.tts.confirmSome') }).addEventListener('click', () => close('some'));
+      row
+        .createEl('button', { text: t('notice.tts.confirmSome', { some: String(someChars) }) })
+        .addEventListener('click', () => close('some'));
       row
         .createEl('button', { text: t('notice.tts.confirmAll'), cls: 'mod-cta' })
         .addEventListener('click', () => close('all'));
@@ -1976,7 +1978,8 @@ export class ReaderView extends ItemView {
     /* 按字数问一句（不报钱：官方价格随时会变，写死一个数只会误导）。
        两万计费字符约一万汉字，够听小半章了。 */
     if (chars >= 20000) {
-      const picked = await this.askPrefetch(chars);
+      const someChars = segments.slice(0, 20).reduce((n, s) => n + s.text.length, 0);
+      const picked = await this.askPrefetch(chars, someChars);
       if (!picked) return;
       if (picked === 'some') segments = segments.slice(0, 20);
     }

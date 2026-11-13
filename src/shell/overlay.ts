@@ -306,6 +306,21 @@ function overlayTts(): string {
   </div>`;
 }
 
+function overlayTtsClear(info: string): string {
+  const [count, mb] = info.split('|');
+  return modal(
+    '清除朗读缓存',
+    '',
+    `<div style="font-size:13px;line-height:2;color:var(--t2)">
+      本机存了 <b>${esc(count)}</b> 段音频，约 <b>${esc(mb)} MB</b>。<br>
+      清掉之后，再听这些段会重新向语音服务请求、重新计费。<br>
+      这个操作不可撤销。
+    </div>`,
+    `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
+     <button class="bzs-btn pri" data-act="ttscachecleardo">清除</button>`,
+  );
+}
+
 function overlayExport(bookId?: string): string {
   const book = bookById(bookId);
   const md = buildPreview(book);
@@ -1421,6 +1436,8 @@ export function overlayHtml(): string {
       return overlayTypography();
     case 'tts':
       return overlayTts();
+    case 'ttsclear':
+      return overlayTtsClear(o.text ?? '0|0');
     case 'export':
       return overlayExport(o.bookId);
     case 'bookmap':
