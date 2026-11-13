@@ -696,11 +696,11 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     zh: '剪藏成书：把 bz 剪藏本里的订阅文章合成一本 EPUB，进书架读',
     'zh-TW': '剪藏成書：把 bz 剪藏本裡的訂閱文章合成一本 EPUB，進書架讀',
     en: 'Clipbook to EPUB: bind your bz subscription articles into one EPUB and read it on the shelf',
-    ja: 'Clipbook to EPUB: bind your bz subscription articles into one EPUB and read it on the shelf',
-    de: 'Clipbook to EPUB: bind your bz subscription articles into one EPUB and read it on the shelf',
-    fr: 'Clipbook to EPUB: bind your bz subscription articles into one EPUB and read it on the shelf',
-    es: 'Clipbook to EPUB: bind your bz subscription articles into one EPUB and read it on the shelf',
-    pt: 'Clipbook to EPUB: bind your bz subscription articles into one EPUB and read it on the shelf',
+    ja: 'クリップブックを EPUB に：bz の購読記事を 1 冊の EPUB にまとめ、本棚で読む',
+    de: 'Clipbook als EPUB: deine bz-Aboartikel in ein EPUB binden und im Regal lesen',
+    fr: 'Le cahier de clips en EPUB : relier vos articles d’abonnement bz en un EPUB à lire dans la bibliothèque',
+    es: 'Clipbook a EPUB: encuaderna tus artículos de suscripción de bz en un EPUB y léelo en el estante',
+    pt: 'Clipbook em EPUB: encaderne os seus artigos de subscrição do bz num EPUB e leia-o na estante',
   },
 };
 

@@ -57,8 +57,11 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
      同样是 zh 与 zh-TW 各一份。
      2026-11-12 +2（48 → 50）：引用页签有了自己的能力位，卖点句同样是
      zh 与 zh-TW 各一份（其余六包走外语表）。
-     2026-11-13 +2（50 → 52）：剪藏成书转正，同样是一句卖点 × 两种中文。 */
-  'src/data/entitlement.ts': 52,
+     2026-11-13 +2（50 → 52）：剪藏成书转正，同样是一句卖点 × 两种中文。
+     2026-11-14 +1（52 → 53）：上架前把 clipBook 卖点的日文版补成正式翻译，
+     日文里的汉字（「本棚」「購読記事」）也命中 CJK 正则——与 zh / zh-TW 同口径，
+     这张表就是八语言集中表。 */
+  'src/data/entitlement.ts': 53,
   'src/data/export.ts': 9,
   'src/data/importer.ts': 1,
   'src/data/license.ts': 16,

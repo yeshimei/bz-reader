@@ -493,11 +493,11 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     zh: '剪藏成书：把剪藏本的文章合成 EPUB，在书架里读',
     'zh-TW': '剪藏成書：把剪藏本的文章合成 EPUB，在書架裡讀',
     en: 'Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf',
-    ja: 'Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf',
-    de: 'Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf',
-    fr: 'Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf',
-    es: 'Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf',
-    pt: 'Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf',
+    ja: 'クリップブックを EPUB に：クリップ記事を 1 冊の EPUB にまとめ、本棚で読む',
+    de: 'Clipbook als EPUB: geclippte Artikel in ein EPUB binden und im Regal lesen',
+    fr: 'Le cahier de clips en EPUB : relier les articles clippés en un EPUB à lire sur l’étagère',
+    es: 'Clipbook a EPUB: encuaderna los artículos recortados en un EPUB y léelo en el estante',
+    pt: 'Clipbook em EPUB: encaderne os artigos recortados num EPUB e leia-o na estante',
   },
 };
 
