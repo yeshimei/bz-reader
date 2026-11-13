@@ -693,8 +693,6 @@ export const PT: Record<MsgKey, string> = {
   'settings.restore': 'Restaurar',
   'settings.restore.tip':
     'Restaurar a partir de um arquivo de backup (substitui tudo, sobrescreve os dados atuais)',
-  'settings.clipBook': 'Clipbook',
-  'settings.clipBook.hint': 'Adds a persistent “Clipbook” to your shelf: it reads your bz clipbook live, grouped by subscription, marks chapters read and tracks time per chapter. Turning it off only removes it from the shelf; progress stays.',
   'settings.debugLog': 'Depuração',
   'settings.debugLog.hint': 'Ative apenas para diagnosticar problemas.',
   'settings.debugLog.copy': 'Copiar dados de depuração',

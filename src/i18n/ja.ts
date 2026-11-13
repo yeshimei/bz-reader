@@ -684,8 +684,6 @@ export const JA: Record<MsgKey, string> = {
   'settings.backup.tip': 'データフォルダに JSON を 1 つ書き出します',
   'settings.restore': '復元',
   'settings.restore.tip': 'バックアップファイルから復元（全体を置き換え、現在のデータを上書きします）',
-  'settings.clipBook': 'Clipbook',
-  'settings.clipBook.hint': 'Adds a persistent “Clipbook” to your shelf: it reads your bz clipbook live, grouped by subscription, marks chapters read and tracks time per chapter. Turning it off only removes it from the shelf; progress stays.',
   'settings.debugLog': 'デバッグ',
   'settings.debugLog.hint': '問題を調べるときだけオンにしてください。',
   'settings.debugLog.copy': 'デバッグデータをコピー',

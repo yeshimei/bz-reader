@@ -682,8 +682,6 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.backup.tip': '匯出成一份 JSON，存進資料目錄',
   'settings.restore': '還原',
   'settings.restore.tip': '從備份檔還原（整份替換，會覆蓋當前資料）',
-  'settings.clipBook': '剪藏本',
-  'settings.clipBook.hint': '開啟後書架上多一本「剪藏本」：內容即時讀 bz 剪藏本，按訂閱分卷，進章標已讀、每章記時長。關掉只是把它從書架移開，進度還在。',
   'settings.debugLog': '偵錯',
   'settings.debugLog.hint': '只在排查問題時打開。',
   'settings.debugLog.copy': '複製偵錯資料',

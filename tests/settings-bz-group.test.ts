@@ -99,6 +99,12 @@ describe('设置页 bz 组 · 剪藏本', () => {
   it('剪藏本有自己的教程出口，不是组头共用一颗', () => {
     expect(bzGroup(html(LINKED))).toContain('data-act="cliptut"');
   });
+
+  /* 2026-11-13 合并剪藏成书那条线时，它自己也在「数据」组里加过一颗
+     clipBook 开关，和 bz 组这颗同名同值。整页只该有一颗。 */
+  it('整页只有一颗剪藏本开关', () => {
+    expect(html(LINKED).split('data-k="clipBook"').length - 1).toBe(1);
+  });
 });
 
 describe('设置页 bz 组 · AI 知识盒', () => {

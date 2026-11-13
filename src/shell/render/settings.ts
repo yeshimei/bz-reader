@@ -573,10 +573,6 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-mini" style="margin-top:2px;line-height:1.9">
         ${t('settings.data.hint')}
       </div>
-      ${toggle('clipBook', s.clipBook, t('settings.clipBook'))}
-      <div class="bzs-mini" style="margin-top:2px;line-height:1.9">
-        ${t('settings.clipBook.hint')}
-      </div>
       ${toggle('debugLog', s.debugLog, t('settings.debugLog'))}
       <div class="bzs-mini" style="margin-top:2px;line-height:1.9">
         ${t('settings.debugLog.hint')}

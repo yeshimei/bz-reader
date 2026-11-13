@@ -711,8 +711,6 @@ export const ZH = {
   'settings.backup.tip': '导出成一份 JSON，存进数据目录',
   'settings.restore': '恢复',
   'settings.restore.tip': '从备份文件恢复（整份替换，会覆盖当前数据）',
-  'settings.clipBook': '剪藏本',
-  'settings.clipBook.hint': '打开后书架上多一本「剪藏本」：内容实时读 bz 剪藏本，按订阅分卷，进章标已读、每章记时长。关掉只是把它从书架移开，进度还在。',
   'settings.debugLog': '调试',
   'settings.debugLog.hint': '只在排查问题时打开。',
   'settings.debugLog.copy': '复制调试数据',

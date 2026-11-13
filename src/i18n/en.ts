@@ -694,8 +694,6 @@ export const EN: Record<MsgKey, string> = {
   'settings.backup.tip': 'Write a single JSON file into the data folder',
   'settings.restore': 'Restore',
   'settings.restore.tip': 'Restore from a backup file (full replacement — current data is not kept)',
-  'settings.clipBook': 'Clipbook',
-  'settings.clipBook.hint': 'Adds a persistent “Clipbook” to your shelf: it reads your bz clipbook live, grouped by subscription, marks chapters read and tracks time per chapter. Turning it off only removes it from the shelf; progress stays.',
   'settings.debugLog': 'Debug',
   'settings.debugLog.hint': 'Only turn this on when troubleshooting.',
   'settings.debugLog.copy': 'Copy debug data',
