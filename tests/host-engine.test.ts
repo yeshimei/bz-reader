@@ -268,6 +268,131 @@ describe('host · 分栏（已下放基础版）', () => {
   });
 });
 
+describe('host · 每栏宽度（2026-11-13 宽屏两侧空白）', () => {
+  type WidthHost = {
+    prefs: import('../src/data/prefs').ReaderPrefs;
+    view: unknown;
+    opts: unknown;
+    applyColumnWidth: () => void;
+  };
+
+  function wire(host: InstanceType<EngineHostCtor>): ReturnType<typeof fakeView> {
+    const goTo = vi.fn(async () => undefined);
+    const fake = fakeView(goTo);
+    const prefs = { ...(host as unknown as WidthHost).prefs } as import('../src/data/prefs').ReaderPrefs;
+    Object.assign(host as unknown as Record<string, unknown>, {
+      view: fake.view,
+      prefs,
+      opts: { prefs },
+    });
+    return fake;
+  }
+
+  /** 防抖到期后真正下发的那一步（测试不等真定时器） */
+  function flush(host: InstanceType<EngineHostCtor>): void {
+    (host as unknown as WidthHost).applyColumnWidth();
+  }
+
+  const sizes = (renderer: ReturnType<typeof fakeView>['renderer']): string[] =>
+    renderer.setAttribute.mock.calls
+      .filter((c) => c[0] === 'max-inline-size')
+      .map((c) => String(c[1]));
+
+  it('阅读区 2386 双栏：每栏 880，正文区从 1440 变成 1760', () => {
+    const host = newHost();
+    const { renderer } = wire(host);
+
+    host.setViewportWidth(2386);
+    flush(host);
+
+    expect(sizes(renderer)).toEqual(['880px']);
+  });
+
+  it('宽屏单栏也走同一个上限（以前锁在 720，只占窗口三成）', () => {
+    const host = newHost();
+    const { renderer } = wire(host);
+
+    host.setViewportWidth(2386);
+    flush(host);
+
+    expect(sizes(renderer)).toEqual(['880px']);
+  });
+
+  it('窄窗口按窗口一半算，与旧行为逐像素一致', () => {
+    const host = newHost();
+    const { renderer } = wire(host);
+    Object.assign(host as unknown as Record<string, unknown>, { prefs: { ...(host as unknown as WidthHost).prefs, columns: 2 } });
+
+    host.setViewportWidth(1365);
+    flush(host);
+
+    expect(sizes(renderer)).toEqual(['682px']);
+  });
+
+  it('同一个宽度重复上报只下发一次（拖动窗口不能每次重排整章）', () => {
+    const host = newHost();
+    const { renderer } = wire(host);
+
+    host.setViewportWidth(2386);
+    flush(host);
+    host.setViewportWidth(2386);
+    flush(host);
+
+    expect(sizes(renderer)).toEqual(['880px']);
+  });
+
+  it('窗口变宽后重新下发', () => {
+    const host = newHost();
+    const { renderer } = wire(host);
+    Object.assign(host as unknown as Record<string, unknown>, { prefs: { ...(host as unknown as WidthHost).prefs, columns: 2 } });
+
+    host.setViewportWidth(1200);
+    flush(host);
+    host.setViewportWidth(2000);
+    flush(host);
+
+    expect(sizes(renderer)).toEqual(['600px', '880px']);
+  });
+
+  it('切栏数时按新栏数重算（1700 宽：单栏 880、双栏 850）', () => {
+    const host = newHost();
+    const { renderer } = wire(host);
+    const prefs = (host as unknown as WidthHost).prefs;
+
+    host.setViewportWidth(1700);
+    host.applyPrefs({ ...prefs, columns: 1 });
+    host.applyPrefs({ ...prefs, columns: 2 });
+
+    expect(sizes(renderer)).toEqual(['880px', '850px']);
+  });
+
+  it('竖屏（宽 < 高）：不按栏数平分，正文照旧铺满', () => {
+    /* 分页器在竖屏里把栏数强制成 1（--_max-column-count-portrait）。
+       以前这里仍按「窗口 ÷ 栏数」下发，双栏偏好会变成半屏宽的单栏，
+       两侧各空一半——比不修还难看。 */
+    const host = newHost();
+    const { renderer } = wire(host);
+    Object.assign(host as unknown as Record<string, unknown>, {
+      prefs: { ...(host as unknown as WidthHost).prefs, columns: 2 },
+      container: { clientWidth: 680, clientHeight: 745 },
+    });
+
+    host.setViewportWidth(680);
+    flush(host);
+
+    expect(sizes(renderer)).toEqual(['680px']);
+  });
+
+  it('拿不到阅读区宽度时不下发，让分页器保持默认 720', () => {
+    const host = newHost();
+    const { renderer } = wire(host);
+
+    flush(host);
+
+    expect(sizes(renderer)).toEqual(['720px']);
+  });
+});
+
 describe('host · 滚动模式（一章滚完自动进下一章）', () => {
   type ScrollHost = {
     prefs: import('../src/data/prefs').ReaderPrefs;

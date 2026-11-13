@@ -44,6 +44,7 @@ import {
 import { DEFAULT_PREFS, gatedPrefs, type ReaderPrefs } from '../data/prefs';
 import { bookPageInfo, chapterPageInfo } from './page-info';
 import { safeFraction } from './progress-fraction';
+import { COLUMN_APPLY_DELAY, columnMaxInlineSize } from './column-width';
 import { can } from '../data/entitlement';
 import { engineMetaFromBook, type EngineMeta } from '../data/book-meta';
 import { NavHistory } from '../core/nav-history';
@@ -440,6 +441,15 @@ export class EngineHost {
   private viewportWidth = 0;
   /** 阅读区左边界（应用坐标系），用来把 iframe 里的坐标换算回屏幕位置 */
   private viewportLeft = 0;
+  /**
+   * 每栏宽度下发的防抖句柄与上一次的值。
+   *
+   * 分发器每次收到新宽度都要整章重排（分页器 `max-inline-size` 的
+   * attributeChangedCallback 直接调 render），拖动窗口时不能一帧一次。
+   * 值没变也必须跳过：同一次拖动里大量 resize 事件算出来的宽度是一样的。
+   */
+  private colWidthTimer: number | null = null;
+  private colWidthApplied = -1;
 
   /** relocate 序号与最近一次定位的 cfi：换页是否真的发生，看这两个 */
   private relocateSeq = 0;
@@ -462,6 +472,51 @@ export class EngineHost {
   setViewportWidth(width: number, left = 0): void {
     if (Number.isFinite(width) && width > 0) this.viewportWidth = Math.round(width);
     if (Number.isFinite(left)) this.viewportLeft = Math.round(left);
+    this.scheduleColumnWidth();
+  }
+
+  /**
+   * 每栏宽度跟着阅读区走。
+   *
+   * 分页器默认每栏 720px 封顶（`--_max-inline-size`），双栏就是整块正文
+   * 1440 —— 而且这个上限**完全不看窗口有多大**。于是窗口一宽，多出来的
+   * 地方全变成两侧空白：2.7K 的窗口上正文只占一半，两边各空 600 多像素。
+   * 2026-11-13 用户报的「两边空白特别多、文字挤在中间」就是这一条。
+   *
+   * 设置里的页边距管不到这里：它写的是 iframe 里 body 的左右 padding
+   * （文字到列边框），而空白来自「列边框到屏幕边」那一层，是分页器的
+   * 另一套尺寸计算。所以页边距调到最小也一点用没有。
+   *
+   * 现在改成「阅读区宽 ÷ 栏数、每栏不超过 880」：窄窗口与旧行为逐像素一致
+   * （正文照旧铺满，分页器自己还会按窗口收窄），宽窗口才用上多出来的空间。
+   */
+  private scheduleColumnWidth(): void {
+    if (this.colWidthTimer !== null) return;
+    this.colWidthTimer = window.setTimeout(() => {
+      this.colWidthTimer = null;
+      this.applyColumnWidth();
+    }, COLUMN_APPLY_DELAY);
+  }
+
+  /** 真正把每栏宽度写给分页器（宽度没变就不碰，重排很贵） */
+  private applyColumnWidth(): void {
+    if (this.destroyed) return;
+    const pag = this.view?.renderer as unknown as
+      | { setAttribute?: (name: string, value: string) => void }
+      | undefined;
+    if (!pag?.setAttribute) return;
+    /* 优先用视图报上来的宽度（它量的是阅读区），拿不到才回落到容器 */
+    const width = this.viewportWidth || this.container?.clientWidth || 0;
+    const height = this.container?.clientHeight || 0;
+    /* 分页器在「阅读区宽 < 高」时把栏数强制成 1（`--_max-column-count-portrait`，
+       见 vendor 里 `@container (orientation: portrait)`），这时每栏宽不该再
+       除以栏数——否则用户选的双栏会退化成「半屏宽的单栏 + 两侧大空白」，
+       比不修还难看。竖屏按单栏算，正文照旧铺满。 */
+    const cols = height > width ? 1 : gatedPrefs(this.prefs, can('vertical')).columns;
+    const px = Math.round(columnMaxInlineSize(width, cols));
+    if (px === this.colWidthApplied) return;
+    this.colWidthApplied = px;
+    pag.setAttribute('max-inline-size', `${px}px`);
   }
 
   /** 装载到哪一步了。出错时告诉用户卡在哪，而不是「打不开」三个字 */
@@ -549,6 +604,10 @@ export class EngineHost {
     /* 上一个 destroy 立的旗子在这里放下：同一个 host 会被反复用来开不同的书，
        旗子不清掉的话，重开之后的标注与搜索全被当成「关书后的迟到回调」丢掉。 */
     this.destroyed = false;
+    /* 换书会换一个新的分页器（新元素上没有 max-inline-size 属性）。
+       不清掉「上一次下发的值」，同宽度的下一本书就会被判定成「没变化」、
+       永远停在默认 720——正是这次要修的那个现象。 */
+    this.colWidthApplied = -1;
     /* 换书/重开时上一次点按的记录要丢掉：留着它的话，新书打开后 80ms 内
        在第一下位置点下去会被当成「刚才那一下的重播」，无端少翻一页。 */
     this.lastTap = null;
@@ -919,6 +978,9 @@ export class EngineHost {
       window.clearTimeout(timer);
     }
     this.phase = 'ready';
+    /* 首章渲染出来之后再下发每栏宽度：mount 结束时 renderer 还没挂上，
+       那一次 applyColumnWidth 会被跳过，页面就停在分页器默认的 720。 */
+    this.applyColumnWidth();
   }
 
   /* ─────────────────── 输入 ─────────────────── */
@@ -1671,6 +1733,9 @@ export class EngineHost {
       const cols = String(eff.columns);
       pag.setCssProps?.({ '--_column-count': cols });
       if (pag.getAttribute?.('max-column-count') !== cols) pag.setAttribute?.('max-column-count', cols);
+      /* 栏数变了「每栏多宽」也跟着变（双栏要平分）。放在栏数之后：
+         分页器的 --_max-width 是「每栏宽 × 栏数」，先定栏数才算得准。 */
+      this.applyColumnWidth();
     }
     /* 分页器的每页上下留白（--_pad-top/--_pad-bottom）由注入进书页文档的
        buildChapterCSS 给，值写死在 theme.ts。宿主元素上的变量跨不进 iframe，
@@ -2286,6 +2351,12 @@ export class EngineHost {
       window.clearTimeout(this.selTimer);
       this.selTimer = null;
     }
+    /* 列宽防抖还挂着的就撤掉：关书后再触发会去碰已经拆掉的分页器 */
+    if (this.colWidthTimer !== null) {
+      window.clearTimeout(this.colWidthTimer);
+      this.colWidthTimer = null;
+    }
+    this.colWidthApplied = -1;
     this.annots = [];
     this.annotColors.clear();
     this.lastSelKey = '';
