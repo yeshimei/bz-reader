@@ -22,6 +22,7 @@
  * ============================================================ */
 
 import { isLocale, type LanguagePref } from '../i18n';
+import { DEFAULT_CLIP_SCOPE, normalizeClipScope, type ClipScope } from './clip-epub/scope';
 
 export interface AiSettings {
   /** OpenAI 兼容根地址，不带结尾斜杠，例如 https://api.openai.com/v1 */
@@ -89,6 +90,14 @@ export interface ReaderSettings {
    * 移开，进度与每章时长留在数据里，再开还在。
    */
   clipBook: boolean;
+  /**
+   * 剪藏成书的「汇总范围」（2026-11-14）：这本书收哪些文章。
+   *
+   * 三档：全部 / 未读 / 今日+未读，默认**未读**——这是一本「活书」，
+   * 每天打开都该是还没读的部分，把读过的几百篇一起塞进来只会让人找不到
+   * 今天要读的那几篇。口径见 data/clip-epub/scope.ts（saved 算没读过）。
+   */
+  clipScope: ClipScope;
   /*
    * 这里**故意没有** license。
    *
@@ -114,6 +123,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   aiAck: false,
   debugLog: false,
   clipBook: false,
+  clipScope: DEFAULT_CLIP_SCOPE,
 };
 
 function str(v: unknown, fallback = ''): string {
@@ -205,6 +215,8 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     debugLog: s.debugLog === true,
     /* 缺字段（旧版本没有它）= 关：剪藏成书要人主动开，不能靠缺省值替人选 */
     clipBook: s.clipBook === true,
+    /* 缺字段（1.3.1 之前没有）= 未读：这是用户定的默认值，不是「没选」 */
+    clipScope: normalizeClipScope(s.clipScope),
   };
 }
 

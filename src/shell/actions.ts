@@ -1926,12 +1926,29 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (!src) break;
       const patch = flipSetting(shellSettings(), d.k ?? '');
       if (!patch) break;
+      /* 剪藏成书是高级版能力（2026-11-14）：未解锁时点开关只弹解锁层，
+         **不落盘**——否则设置里显示「已开」、书架里却没有书，用户会当成坏掉。
+         requireCap 自己会弹层并高亮对照表里「剪藏成书」那一行。 */
+      if (d.k === 'clipBook' && patch.clipBook === true && !requireCap('clipBook')) break;
       src.setSettings(patch);
       /* 必须自己重绘：setSettings 只落盘 + notifyShell，设置页那块的 DOM
          不会因为状态变了就重建，开关会停在旧位置（用户报的「点了不实时显示」）。 */
       repaint();
       /* 剪藏本由关到开：库里还空着就提醒一句（走异步，不压开关的响应） */
       if (d.k === 'clipBook' && patch.clipBook === true) promptClipEmpty(src.app);
+      break;
+    }
+
+    case 'setscope': {
+      /* 剪藏成书汇总范围（2026-11-14）：全部 / 未读 / 今日+未读。
+         改完只重绘设置页；正在读的剪藏本由阅读页轮询发现范围变了、自己重建。 */
+      const src = getShellSource();
+      if (!src) break;
+      if (d.k !== 'clipScope') break;
+      const next = d.v;
+      if (next !== 'all' && next !== 'unread' && next !== 'todayUnread') break;
+      src.setSettings({ clipScope: next });
+      repaint();
       break;
     }
 

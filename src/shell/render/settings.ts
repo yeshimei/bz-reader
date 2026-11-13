@@ -490,12 +490,35 @@ export function viewSettings(v: SettingsView): string {
   const bzOk = !!v.bz?.ok;
   const tutBtn = (act: string, key: MsgKey): string =>
     `<button class="bzs-bztut" data-act="${act}">${ico('video')}<span>${t(key)}</span></button>`;
+  /* 剪藏成书是高级版能力（2026-11-14 补的门禁）。基础版用户在设置里看到的
+     是一颗点了就弹解锁层的开关——不是灰着不动的死开关，那样人只会以为坏了。
+     范围内三选只在解锁后画：没解锁时选了也不会生效，摆出来等于骗人。 */
+  const clipUnlocked = can('clipBook');
+  const clipOn = clipUnlocked && s.clipBook === true;
+  const clipScopeSeg = clipUnlocked
+    ? `<div class="bzs-setrow"><label>${t('settings.bz.clip.scope')}</label>${seg(
+        'clipScope',
+        [
+          ['all', t('settings.bz.clip.scope.all')],
+          ['unread', t('settings.bz.clip.scope.unread')],
+          ['todayUnread', t('settings.bz.clip.scope.today')],
+        ],
+        s.clipScope,
+        'setscope',
+      )}</div>`
+    : '';
   const bzClip = `<div class="bzs-bzitem">
       ${
         bzOk
-          ? toggle('clipBook', s.clipBook, t('settings.bz.clip'))
+          ? clipUnlocked
+            ? toggle('clipBook', clipOn, t('settings.bz.clip'))
+            : `<div class="bzs-setrow"><label>${t('settings.bz.clip')}</label>
+                <button class="bzs-switch" data-act="unlock" data-mode="clipBook" title="${t(
+                  'settings.locked',
+                )}" aria-label="${t('settings.bz.clip')}"></button></div>`
           : `<div class="bzs-setrow"><label>${t('settings.bz.clip')}</label></div>`
       }
+      ${clipScopeSeg}
       <div class="bzs-bznote">${t('settings.bz.clip.hint')}${tutBtn('cliptut', 'settings.bz.tut')}</div>
     </div>`;
   const bzKb = `<div class="bzs-bzitem">

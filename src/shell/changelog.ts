@@ -59,6 +59,37 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '1.3.1',
+    date: '2026-11-14',
+    added: [
+      {
+        domain: { zh: '汇总范围', en: 'Summary scope' },
+        text: {
+          zh: '设置里给剪藏成书加了三选一：全部 / 未读 / 今日+未读，默认未读——每天翻开的都是还没读的部分。',
+          en: 'Clipbook gets a three-way scope in settings — everything, unread, or today plus unread. Unread is the default, so the volume opens on what you have not read yet.',
+        },
+      },
+    ],
+    improved: [
+      {
+        domain: { zh: '剪藏成书', en: 'Clipbook' },
+        text: {
+          zh: '归入高级版。基础版在设置里点那颗开关，弹出的是功能对照，不再白用。',
+          en: 'Clipbook is now a premium feature. On the free tier the switch opens the plan comparison instead of turning on.',
+        },
+      },
+    ],
+    fixed: [
+      {
+        domain: { zh: '剪藏本图片', en: 'Clipbook images' },
+        text: {
+          zh: '文章里的图片不再显示成「[图片]」——短名图片会先去 bz 的图片文件夹里找。',
+          en: 'Images in clipped articles no longer collapse into a placeholder — short-name images are now looked up in the bz image folder.',
+        },
+      },
+    ],
+  },
+  {
     version: '1.3.0',
     date: '2026-11-13',
     added: [

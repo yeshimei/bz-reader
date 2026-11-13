@@ -7,6 +7,7 @@
  * - 源内可按最新/最早排序，源之间按源清单顺序（订阅列表即编排序）。
  */
 import type { ClipChapterState } from '../../engine/clipbook';
+import { scopeKeeps, type ClipScope } from './scope';
 
 /** 计划用文章：正文留空，生成/渲染时按需取 */
 export interface ClipPlanArticle {
@@ -50,6 +51,11 @@ export interface ClipPlanOptions {
   /** 是否收未保存的订阅文章（默认 true） */
   includeUnsaved?: boolean;
   order?: ClipOrder;
+  /**
+   * 汇总范围（2026-11-14）：全部 / 未读 / 今日+未读。缺省 `all`——调用方从
+   * 设置里取值传进来，纯函数不替用户做决定（默认未读是设置层的默认值）。
+   */
+  scope?: ClipScope;
 }
 
 export interface ClipPlan {
@@ -68,10 +74,13 @@ export function planClipBook(
   const picked = opts.sources && opts.sources.length ? new Set(opts.sources) : null;
   const includeUnsaved = opts.includeUnsaved !== false;
   const order = opts.order === 'oldest' ? 'oldest' : 'newest';
+  const scope = opts.scope ?? 'all';
 
   const kept = articles.filter((a) => {
     if (picked && !picked.has(a.sourceId)) return false;
     if (!includeUnsaved && a.state !== 'saved') return false;
+    /* 范围在源勾选之后再过一道：`filtered` 因此算的是「按用户设置没进书」的篇数 */
+    if (!scopeKeeps(a, scope)) return false;
     return true;
   });
   const filtered = articles.length - kept.length;

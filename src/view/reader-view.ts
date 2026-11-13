@@ -120,6 +120,7 @@ import { ChapterClock } from '../data/clip-epub/chapter-clock';
 import { ClipReportQueue } from '../data/clip-epub/report-queue';
 import { addChapterSeconds, clipLanding, type ClipLanding } from '../data/clip-epub/sidecar';
 import { carryMeasuredPages, clipStructureChanged, migrateClipKey, syncClipChapterMeta } from '../data/clip-epub/refresh';
+import { DEFAULT_CLIP_SCOPE, type ClipScope } from '../data/clip-epub/scope';
 import { getShellSource, shellPrefs } from '../shell/source';
 import { collectPdfBacklinks, invalidatePdfBacklinks } from '../data/pdf-backlink';
 import { epubBacklinkHits } from '../data/epub-backlink';
@@ -343,6 +344,13 @@ export class ReaderView extends ItemView {
    * 置这个位，让这一次刷新走换书路径（位置由 CFI 迁移保住）。
    */
   private forceClipRebuild = false;
+  /**
+   * 这本书是按哪个「汇总范围」建的（2026-11-14）。
+   *
+   * 设置里改了范围不会改 bz 的 dataVersion，轮询就看不到变化——所以轮询
+   * 每次顺带比一次这个值，不一致就走重建路径，读者改完三秒内就看到新书。
+   */
+  private clipScope: ClipScope | null = null;
   /** 构建时注入（manifest 版本 + 时间戳），见 esbuild.config.mjs 的 __BZ_BUILD_TAG__ */
   private static readonly BUILD_TAG = __BZ_BUILD_TAG__;
 
@@ -2256,13 +2264,17 @@ export class ReaderView extends ItemView {
       this.clipHandle = null;
       this.clipSnap = null;
       this.clipKey = '';
+      this.clipScope = null;
     }
     /* 剪藏本：没有文件可读，打开时现拉一份清单，造一本 foliate 认得的书。
        拉不到（bz 没装 / 没启用 / 剪藏本读不出来）就画错误页，别白屏。 */
     let virtualBook: { book: import('../types/foliate').FoliateBook; meta: import('../data/book-meta').EngineMeta } | undefined;
     if (clipBook) {
       try {
-        const snap = await loadClipBook(this.api.app);
+        /* 范围从设置里取：库里几百篇读过的文章不该每次打开都重排一遍 */
+        const scope = getShellSource()?.settings().clipScope ?? DEFAULT_CLIP_SCOPE;
+        const snap = await loadClipBook(this.api.app, scope);
+        this.clipScope = scope;
         /* 一篇都收不到：0 章节的虚拟书交给 foliate 就是整屏纯白（不 relocate、
            不报错）。直接画错误页，和「bz 没启用」同一条降级路径。 */
         if (clipBookIsEmpty(snap)) {
@@ -3048,6 +3060,12 @@ export class ReaderView extends ItemView {
   /** 轮询数据版本：变了才重建，没变一个字节都不动 */
   private async refreshIfChanged(): Promise<void> {
     if (this.clipRefreshing || !this.clipSnap || this.closed) return;
+    /* 范围改了不算 bz 的数据变化：这里先比一次，不一致直接重建（2026-11-14） */
+    const scope = getShellSource()?.settings().clipScope ?? DEFAULT_CLIP_SCOPE;
+    if (scope !== this.clipScope) {
+      await this.refreshClipBook();
+      return;
+    }
     const v = await currentClipVersion(this.api.app).catch(() => null);
     if (!v || v === this.clipVersion) return;
     await this.refreshClipBook();
@@ -3075,7 +3093,11 @@ export class ReaderView extends ItemView {
     /* 失败时要知道「别拿这个 CFI 重开」：坏 CFI 会再炸一次，从错误页里出不来 */
     let landing: ClipLanding = { cfi: '', section: -1, fraction: oldPct };
     try {
-      const snap = await loadClipBook(this.api.app);
+      const scope = getShellSource()?.settings().clipScope ?? DEFAULT_CLIP_SCOPE;
+      const snap = await loadClipBook(this.api.app, scope);
+      /* 先把「这本书按哪个范围建的」记下来：范围不变但内容没变时走就地同步，
+         若不记，下一轮轮询又会判成范围变了，整本书每几秒重建一次。 */
+      this.clipScope = scope;
       /* 数据突然一篇都没有（订阅被清空 / 读盘失败）：不要把正在读的书换成
          一本 0 章节的书（那会整屏空白），保留旧书并提示一次。 */
       if (clipBookIsEmpty(snap)) {

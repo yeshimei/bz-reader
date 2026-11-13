@@ -1139,11 +1139,11 @@ export function createPlugin(cfg: PluginConfig) {
     /** 剪藏本开关 → 书架入口。幂等，只有真的变了才落盘与重绘。 */
     private syncClipBookEntry(): void {
       if (!this.repo || !this.store) return;
-      const r = syncClipBookEntry(
-        this.repo.all(),
-        this.cfg.settings?.clipBook === true,
-        t('clip.bookTitle'),
-      );
+      /* 授权与开关**同时**成立才上架（2026-11-14）：基础版用户即使老数据里
+         开关是开的，书架上也不该有一本点不开的书。开关在设置里被锁住，
+         这里再兜一次运行期——「设置页骗人」比「书架上少一本」更难解释。 */
+      const on = this.cfg.settings?.clipBook === true && can('clipBook');
+      const r = syncClipBookEntry(this.repo.all(), on, t('clip.bookTitle'));
       if (!r.changed) return;
       this.store.touch();
       notifyShelf();
@@ -1484,6 +1484,13 @@ export function createPlugin(cfg: PluginConfig) {
         setState({
           overlay: { kind: 'unlock', mode: unlockModeFor(book.fileRef.format), text: book.fileRef.format },
         });
+        return;
+      }
+      /* 剪藏成书是高级版能力（2026-11-14）：书架上可能留着老版本建的书、
+         或用户切回基础版之后那本书还在——只锁设置开关挡不住这条路径。
+         弹层高亮对照表里的「剪藏成书」（mode 与行的 cap 同名）。 */
+      if (book.meta.clipBook && !can('clipBook')) {
+        setState({ overlay: { kind: 'unlock', mode: 'clipBook' } });
         return;
       }
       /* 文件不在了：不进阅读视图、不抛底层错误，直接开「重新定位」弹层。

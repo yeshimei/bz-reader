@@ -5,10 +5,12 @@
  * 翻到哪一章 = 拉哪一篇正文；图片视频 = 用的时候才读。剪藏本一变，
  * 阅读页轮询 `dataVersion()` 就能知道，重建目录即可。
  */
-import type { App } from 'obsidian';
+import type { App, TFile } from 'obsidian';
 import { t } from '../i18n';
 import { probeClipbook, clipbookProblem, type ClipbookArticle, type ClipbookFacade, type ClipReadEntry } from './clipbook-bridge';
 import { planClipBook, type PlanArticle } from './clip-epub/plan';
+import { DEFAULT_CLIP_SCOPE, type ClipScope } from './clip-epub/scope';
+import { pickClipImageFile } from './clip-asset';
 import { makeClipBook, type ClipBookHandle, type ClipChapter, type ClipGroup } from '../engine/clipbook';
 
 export class ClipBookError extends Error {
@@ -61,8 +63,17 @@ function toPlanArticle(a: ClipbookArticle): PlanArticle {
   };
 }
 
-/** 拉一次清单：源 + 文章元数据，不含正文 */
-export async function loadClipBook(app: App): Promise<ClipBookSnapshot> {
+/**
+ * 拉一次清单：源 + 文章元数据，不含正文。
+ *
+ * `scope` 是设置里的汇总范围（2026-11-14）：缺省按「未读」——调用方没传
+ * （老代码路径 / 测试）也不该把读过的几百篇全塞进书里。**全量**才显式传
+ * `'all'`，别把默认值写成全部。
+ */
+export async function loadClipBook(
+  app: App,
+  scope: ClipScope = DEFAULT_CLIP_SCOPE,
+): Promise<ClipBookSnapshot> {
   const facade = requireClipbook(app);
   let version = '';
   try {
@@ -72,7 +83,11 @@ export async function loadClipBook(app: App): Promise<ClipBookSnapshot> {
   }
   const sources = await facade.sources();
   const articles = await facade.articles({ includeRead: true });
-  const plan = planClipBook(sources, articles.map(toPlanArticle), { includeUnsaved: true, order: 'newest' });
+  const plan = planClipBook(sources, articles.map(toPlanArticle), {
+    includeUnsaved: true,
+    order: 'newest',
+    scope,
+  });
   const groups: ClipGroup[] = plan.sources.map((s) => ({
     id: s.id,
     name: s.name,
@@ -136,6 +151,27 @@ function mimeOf(path: string, kind: 'image' | 'video'): string {
 }
 
 /**
+ * 正文里的资源名 → 库内文件。
+ *
+ * 剪藏文章的图是 `![[xxx.jpg]]` 短名（bz 把图存进自设的图片文件夹，
+ * 如 CONFIG/APPENDIX），只按库根路径找会全部落空——真机上整篇文章
+ * 的图都变成「[图片]」（2026-11-13 截图）。这里交给 data/clip-asset 的三级
+ * 解析：路径直查 → Obsidian 链接解析 → 全库同名兜底。
+ */
+function clipFileOf(app: App, path: string): TFile | null {
+  const byPath = (p: string): TFile | null => {
+    const f = app.vault.getAbstractFileByPath(p);
+    return f && 'extension' in f ? (f as TFile) : null;
+  };
+  const mc = app.metadataCache as
+    | { getFirstLinkpathDest?: (link: string, source: string) => TFile | null }
+    | undefined;
+  const byLink = (n: string): TFile | null =>
+    typeof mc?.getFirstLinkpathDest === 'function' ? mc.getFirstLinkpathDest(n, '') : null;
+  return pickClipImageFile({ byPath, byLink, all: () => app.vault.getFiles() }, path);
+}
+
+/**
  * 本地资源解析：vault 文件读成 blob URL。
  * 同一个文件只读一次；blob 的生命周期交给 clip book 的 destroy。
  */
@@ -147,8 +183,9 @@ export function clipAssetResolver(app: App): (kind: 'image' | 'video', path: str
     if (hit) return hit;
     const task = (async (): Promise<string | null> => {
       try {
-        if (!(await app.vault.adapter.exists(path))) return null;
-        const buf = await app.vault.adapter.readBinary(path);
+        const file = clipFileOf(app, path);
+        if (!file) return null;
+        const buf = await app.vault.readBinary(file);
         return URL.createObjectURL(new Blob([buf], { type: mimeOf(path, kind) }));
       } catch {
         return null;
