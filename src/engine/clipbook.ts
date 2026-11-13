@@ -32,6 +32,11 @@ export interface ClipChapter {
   body: string;
   /** 正文长度（字符数）。清单阶段可能没有（0/缺省），渲染这一章时回填。 */
   size?: number;
+  /**
+   * 这一篇的 AI 摘要（2026-11-13）：有就在标题下面长出一段导语。
+   * 空串/缺省 = 还没生成，这一章和以前长得一样。
+   */
+  summary?: string;
 }
 
 export interface ClipGroup {
@@ -112,6 +117,14 @@ html, body { margin: 0; padding: 0; }
 body { font-family: serif; line-height: 1.75; padding: 1.2em; overflow-wrap: break-word; }
 h1 { font-size: 1.5em; line-height: 1.35; margin: 0 0 .55em; }
 .bzr-clip-meta { color: #888; font-size: .82em; margin: 0 0 1.4em; }
+/* AI summary lead: first paragraph of the body. Only horizontal decoration
+   (border-left + padding-left) plus font-size / colour / margin.
+   Do NOT add vertical padding, background or break-inside:avoid here —
+   those made the paginator produce 1235 mostly-blank pages out of 410. */
+.bzr-clip-summary {
+  color: #666; font-size: .94em; margin: 0 0 1.5em;
+  border-left: 3px solid #c9b79a; padding-left: .9em;
+}
 .bzr-clip-body img { max-width: 100%; height: auto; break-inside: avoid; }
 /* Keep a heading on the same page as the line after it: an h2 left alone at
    the page bottom makes the next page start without a title. */
@@ -195,6 +208,16 @@ function chapterHtml(ch: ClipChapter, bodyHtml: string, L: ClipBookLabels): stri
   /* 空正文（抓取失败 / body 被清空）给一行占位：整页只剩标题和日期，读者
      会以为书坏了（真机红队：一篇 body 置空后整页空白）。 */
   const body = bodyHtml.trim() ? bodyHtml : `<p class="bzr-clip-empty">${escXhtml(L.emptyBody)}</p>`;
+  /* 摘要块（2026-11-13）：AI 生成过就作为正文的第一段，当作这一章的「内容简介」。
+     没有就整段不出现——不要画一个空框，那会让人以为摘要加载失败了。
+     两点踩过的坑：
+       1. 早期版本放在 `<header>` 里、套 `<div><p>` 两层：foliate 重建时
+          `Range.setEnd` 直接越界，整章打不开；
+       2. 加上 `padding` + `border-left` + `break-inside:avoid` 之后书能打开，
+          但总页数从 410 跳到 1235、正文全白——分栏里那种盒子会把排版撑坏。
+     所以这里只留最基本的三条：字号、颜色、下边距。装饰一律不做。 */
+  const summary = String(ch.summary || '').trim();
+  const summaryHtml = summary ? `<p class="bzr-clip-summary">${escXhtml(summary)}</p>` : '';
   return [
     '<!DOCTYPE html>',
     '<html lang="zh-CN">',
@@ -208,7 +231,7 @@ function chapterHtml(ch: ClipChapter, bodyHtml: string, L: ClipBookLabels): stri
     `<h1>${escXhtml(ch.title)}</h1>`,
     meta.length ? `<p class="bzr-clip-meta">${escXhtml(meta.join(' · '))}</p>` : '',
     '</header>',
-    `<div class="bzr-clip-body">${body}</div>`,
+    `<div class="bzr-clip-body">${summaryHtml}${body}</div>`,
     foot.length ? `<footer class="bzr-clip-foot">${foot.join(' · ')}</footer>` : '',
     '</article>',
     '</body>',

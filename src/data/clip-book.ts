@@ -51,6 +51,7 @@ function toPlanArticle(a: ClipbookArticle): PlanArticle {
     date: a.date,
     body: '',
     size: a.size,
+    summary: a.summary,
     saved: a.state === 'saved',
     state: a.state,
     notePath: a.notePath,
@@ -87,6 +88,7 @@ export async function loadClipBook(app: App): Promise<ClipBookSnapshot> {
       notePath: a.notePath ?? null,
       body: '',
       size: a.size,
+      summary: a.summary,
     })),
   }));
   return {
@@ -269,6 +271,47 @@ export function clipSaveText(code?: string): string {
       return t('clip.save.noFolder');
     case 'alreadySaved':
       return t('clip.save.already');
+    case 'noBridge':
+      return t('bz.missing');
+    default:
+      return t('clip.save.failed', { why: code || t('common.unknownError') });
+  }
+}
+
+/**
+ * 单篇摘要（2026-11-13）：调 bz 门面生成并写回，成功后这一段会出现在这一章
+ * 的标题下方。只对「还没落地成剪藏笔记」的订阅文章有效——剪藏笔记的摘要来自
+ * 它自己的 frontmatter，由 bz 那边维护。
+ *
+ * 门面可能来自老版本 bz（没有这个能力）：按 typeof 探测，缺失时报 noBridge，
+ * 不要假装成功、也不要把整本书判成不可用。
+ */
+export async function summarizeClipChapter(
+  app: App,
+  key: string,
+): Promise<{ ok: boolean; summary?: string; code?: string }> {
+  const probe = probeClipbook(app);
+  const facade = probe.facade;
+  if (!facade) return { ok: false, code: 'noBridge' };
+  if (typeof facade.summarizeArticle !== 'function') return { ok: false, code: 'noBridge' };
+  try {
+    const out = await facade.summarizeArticle(key);
+    if (out && out.ok && out.summary) return { ok: true, summary: out.summary };
+    return { ok: false, code: out?.code || 'unknown' };
+  } catch {
+    return { ok: false, code: 'unknown' };
+  }
+}
+
+/** 摘要失败原因码 → 一句人话（阅读器自己翻译，bz 只给码） */
+export function clipSummaryText(code?: string): string {
+  switch (code) {
+    case 'notFound':
+      return t('clip.summary.notFound');
+    case 'aiFailed':
+      return t('clip.summary.aiFailed');
+    case 'writeFailed':
+      return t('clip.summary.writeFailed');
     case 'noBridge':
       return t('bz.missing');
     default:

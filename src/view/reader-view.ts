@@ -103,6 +103,7 @@ import { shouldNotifyRelocate } from './relocate-notify';
 import { isClipBookRecord } from '../data/clip-book-entry';
 import {
   clipSaveText,
+  clipSummaryText,
   clipBookIsEmpty,
   currentClipVersion,
   loadClipBook,
@@ -110,6 +111,7 @@ import {
   markClipChapterRead,
   openClipbookPanel,
   saveClipChapter,
+  summarizeClipChapter,
   type ClipBookSnapshot,
 } from '../data/clip-book';
 import type { ClipBookHandle, ClipChapter } from '../engine/clipbook';
@@ -296,6 +298,16 @@ export class ReaderView extends ItemView {
   private statusClipEl: HTMLElement | null = null;
   /** 「存为剪藏」在途：头栏图标是 div，没有 disabled，用标志位防连点 */
   private clipSaving = false;
+  /** 「生成摘要」在途：AI 要几秒，期间再点一次会重复烧 token */
+  private clipSummarizing = false;
+  /**
+   * 下一轮剪藏本刷新**强制重建**。
+   *
+   * 摘要只改一章的内容，不改章节结构（key / 标题都没动），`clipStructureChanged`
+   * 会判成「没变」而走就地同步——那样新段落根本不会重新渲染。摘要一旦成功就
+   * 置这个位，让这一次刷新走换书路径（位置由 CFI 迁移保住）。
+   */
+  private forceClipRebuild = false;
   /** 构建时注入（manifest 版本 + 时间戳），见 esbuild.config.mjs 的 __BZ_BUILD_TAG__ */
   private static readonly BUILD_TAG = __BZ_BUILD_TAG__;
 
@@ -902,6 +914,7 @@ export class ReaderView extends ItemView {
       clipSave: () => this.onClipAction('clipSave'),
       clipNote: () => this.onClipAction('clipNote'),
       clipPanel: () => this.onClipAction('clipPanel'),
+      clipSummary: () => this.onClipAction('clipSummary'),
     };
     const spec = headerActionsFor(
       mobile,
@@ -1373,6 +1386,7 @@ export class ReaderView extends ItemView {
       clipSave: () => this.onClipAction('clipSave'),
       clipNote: () => this.onClipAction('clipNote'),
       clipPanel: () => this.onClipAction('clipPanel'),
+      clipSummary: () => this.onClipAction('clipSummary'),
     };
     /* 三个会变的标题（并排 / 朗读 / 沉浸）说的是「点了会怎样」：
        开着的时候应该是「关闭 / 停止 / 退出」，不是图标名。
@@ -3015,8 +3029,9 @@ export class ReaderView extends ItemView {
         return;
       }
       /* 只变了已读 / 已剪藏这类状态：就地改，不动排版。
-         以前一律重建，标一篇已读就把整本书重排一遍，同一处页码能翻三倍。 */
-      if (this.clipSnap && !clipStructureChanged(this.clipSnap, snap)) {
+         以前一律重建，标一篇已读就把整本书重排一遍，同一处页码能翻三倍。
+         例外：刚生成的摘要改了正文内容，必须重排才能出现（forceClipRebuild）。 */
+      if (!this.forceClipRebuild && this.clipSnap && !clipStructureChanged(this.clipSnap, snap)) {
         syncClipChapterMeta(oldHandle, snap);
         this.clipSnap = snap;
         this.clipVersion = snap.version;
@@ -3057,9 +3072,18 @@ export class ReaderView extends ItemView {
       this.renderClipBar();
       this.publishToc();
     } catch {
-      /* 新书没造出来：旧书继续读，下一拍再试 */
+      /* 新书没造出来：把旧书重新打开，下一拍再试。
+         以前这里只写一句注释就走人——可 reopen 已经把旧的渲染器关掉了，
+         结果是一屏空白（真机：生成摘要后 410 页变 1235 页、正文全白）。 */
+      try {
+        await this.host.reopen?.(oldHandle.book);
+        await this.host.start(oldCfi || undefined, oldPct || 0);
+      } catch {
+        /* 连旧书都打不开：交给下一次轮询 */
+      }
     } finally {
       this.clipRefreshing = false;
+      this.forceClipRebuild = false;
     }
   }
 
@@ -3249,6 +3273,38 @@ export class ReaderView extends ItemView {
         })
         .catch(() => {
           this.clipSaving = false;
+          this.renderClipBar();
+        });
+      return;
+    }
+    if (id === 'clipSummary') {
+      if (this.clipSummarizing) return;
+      /* 已经有摘要就不重复花一次 AI：内容没变，重算只会得到同一段话。
+         想重算的入口在 bz 那边（对剪藏笔记「重新生成当前剪藏摘要」）。 */
+      if (ch.summary) {
+        notify(t('clip.summary.exists'), 'info');
+        return;
+      }
+      this.clipSummarizing = true;
+      this.renderClipBar();
+      notify(t('clip.summary.running'), 'info');
+      void summarizeClipChapter(this.api.app, ch.key)
+        .then((r) => {
+          if (r.ok && r.summary) {
+            /* 先进内存：这一轮重建用新快照，用户在摘要还没落盘时翻页也能看到 */
+            ch.summary = r.summary;
+            notify(t('clip.summary.done'), 'success');
+            /* 摘要改了正文内容，就地同步不会重渲染这一章 → 强制换一次书 */
+            this.forceClipRebuild = true;
+            void this.refreshClipBook();
+          } else {
+            notify(clipSummaryText(r.code), 'error');
+          }
+          this.clipSummarizing = false;
+          this.renderClipBar();
+        })
+        .catch(() => {
+          this.clipSummarizing = false;
           this.renderClipBar();
         });
     }

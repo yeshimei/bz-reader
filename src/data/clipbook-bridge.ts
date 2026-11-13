@@ -45,6 +45,12 @@ export interface ClipSaveResult {
   code?: 'bilibili' | 'alreadySaved' | 'notFound' | 'noFolder';
 }
 
+export interface ClipSummaryResult {
+  ok: boolean;
+  summary?: string;
+  code?: 'notFound' | 'aiFailed' | 'writeFailed';
+}
+
 /** bz 挂在插件实例上的剪藏本门面（形状只在这里声明） */
 export interface ClipbookFacade {
   readonly version: 1;
@@ -53,6 +59,11 @@ export interface ClipbookFacade {
   articleBody(key: string): Promise<string>;
   markRead(keys: string[]): Promise<number>;
   saveArticle(key: string): Promise<ClipSaveResult>;
+  /**
+   * 生成单篇 AI 摘要并写回（可选：老版本 bz 没有这个能力）。
+   * 形状声明成可选，调用方一律 typeof 探测，不要拿版本号当判据。
+   */
+  summarizeArticle?(key: string): Promise<ClipSummaryResult>;
   isReady(): { ok: boolean; code?: 'noFolder' };
   /** 数据版本：变了说明剪藏本有新文章 / 状态变化 / 笔记改动（阅读页轮询它） */
   dataVersion(): Promise<string>;

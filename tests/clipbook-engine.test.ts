@@ -126,6 +126,38 @@ describe('makeClipBook', () => {
     expect(html).toContain('href="https://a.com/1"');
   });
 
+  it('有 AI 摘要：在标题下面、正文之前长出一段导语', async () => {
+    const g = groups();
+    g[0]!.chapters[0]!.summary = '这段是 AI 写的摘要。';
+    const h = makeClipBook({ title: 'x', groups: g, resolveAsset: async () => null });
+    const html = await htmlOf(h.book.sections[0]);
+    /* 断言实际元素而不是类名：CHAPTER_CSS 里也有 `.bzr-clip-summary` 这几个字 */
+    expect(html).toContain('<p class="bzr-clip-summary">这段是 AI 写的摘要。</p>');
+    expect(html).toContain('这段是 AI 写的摘要。');
+    /* 位置：标题之后，并且是正文的第一个块（2026-11-13 起摘要进正文流，
+       header 里只留标题和来源——把装饰性盒子放进 header 会把分页器搞崩） */
+    const iSummary = html.indexOf('<p class="bzr-clip-summary">');
+    const iBody = html.indexOf('<div class="bzr-clip-body">');
+    expect(iSummary).toBeGreaterThan(html.indexOf('<h1>文章 A</h1>'));
+    expect(iSummary).toBeGreaterThan(iBody);
+    expect(html.slice(iBody, iBody + 140)).toContain('bzr-clip-summary');
+  });
+
+  it('没有摘要：不留空框（不画一个「摘要加载失败」的样子）', async () => {
+    const h = build();
+    const html = await htmlOf(h.book.sections[0]);
+    expect(html).not.toContain('<p class="bzr-clip-summary">');
+  });
+
+  it('摘要里的尖括号被转义（AI 吐出来的东西不能当标签执行）', async () => {
+    const g = groups();
+    g[0]!.chapters[0]!.summary = '对比 <b>与</b> & <script>alert(1)</script>';
+    const h = makeClipBook({ title: 'x', groups: g, resolveAsset: async () => null });
+    const html = await htmlOf(h.book.sections[0]);
+    expect(html).toContain('&lt;b&gt;');
+    expect(html).not.toContain('<script>alert(1)</script>');
+  });
+
   it('本地图走 resolveAsset；缺图给占位', async () => {
     const h = build();
     const html = await htmlOf(h.book.sections[0]);

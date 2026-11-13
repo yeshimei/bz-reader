@@ -8,6 +8,7 @@ import {
   headerActive,
   headerOverflowFor,
   availableActions,
+  userFacingActionIds,
 } from '../src/view/header-actions';
 
 /**
@@ -54,6 +55,24 @@ describe('剪藏本四颗（2026-11-13：底条改头栏 / ⋮）', () => {
     }
     expect(headerActionSpec('clipSource').label).toBe(t('clip.action.openSource'));
     expect(headerActionSpec('clipPanel').label).toBe(t('clip.action.openClipbook'));
+  });
+
+  it('「生成摘要」第五颗：桌面进头栏、排在四颗之后（它改内容，不是离开这一章）', () => {
+    const ids = headerActionsFor(false, null, false, false, true);
+    expect(ids).toContain('clipSummary');
+    expect(ids.indexOf('clipSummary')).toBeGreaterThan(ids.indexOf('clipPanel'));
+    /* 普通书里不能冒出这颗：它只对剪藏本有意义 */
+    expect(headerActionsFor(false, null, false, false, false)).not.toContain('clipSummary');
+    expect(availableActions(false, false, false)).not.toContain('clipSummary');
+  });
+
+  it('手机上「生成摘要」也只走 ⋮，不占那 3 个名额', () => {
+    expect(headerActionsFor(true, null, false, true, true)).toEqual(['toc', 'search', 'mark']);
+    expect(headerOverflowFor(true, null, false, true, true)).toContain('clipSummary');
+  });
+
+  it('设置页不给用户排序这五颗（它们只在剪藏本里出现）', () => {
+    expect(userFacingActionIds()).not.toContain('clipSummary');
   });
 });
 

@@ -18,6 +18,8 @@ export interface ClipPlanArticle {
   body: string;
   /** 正文长度（字符数）；0/缺省表示清单阶段还不知道 */
   size?: number;
+  /** 这一篇的 AI 摘要；空串/缺省 = 还没生成（章节里不出现摘要块） */
+  summary?: string;
   saved: boolean;
   state: ClipChapterState;
   notePath?: string | null;

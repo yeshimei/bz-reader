@@ -31,7 +31,8 @@ export type HeaderActionId =
   | 'clipSource'
   | 'clipSave'
   | 'clipNote'
-  | 'clipPanel';
+  | 'clipPanel'
+  | 'clipSummary';
 
 export interface HeaderActionSpec {
   id: HeaderActionId;
@@ -78,6 +79,10 @@ const SPEC: ReadonlyArray<{ id: HeaderActionId; icon: string; labelKey?: MsgKey 
   { id: 'clipSave', icon: 'scissors', labelKey: 'clip.action.save' },
   { id: 'clipNote', icon: 'file-text', labelKey: 'clip.action.openNote' },
   { id: 'clipPanel', icon: 'newspaper', labelKey: 'clip.action.openClipbook' },
+  /* 生成摘要（2026-11-13）：排在最后——它改的是这一章的内容（在标题下方长出
+     一段导语），不是「离开这一章」的动作，和左边四颗不是一类。图标用 sparkles
+     而不是一段文字图标：后者在 16px 下和「剪藏笔记」的 file-text 分不清。 */
+  { id: 'clipSummary', icon: 'sparkles', labelKey: 'clip.action.summary' },
 ];
 
 /**
@@ -284,7 +289,13 @@ export function isMobileHiddenAction(id: HeaderActionId): boolean {
  * 不放进 MOBILE_HIDDEN_ACTIONS —— 手机上这些动作照样要有，只是不占头栏那三颗
  * 名额（见 headerActionsFor）。否则要么挤掉目录/搜索，要么手机上彻底找不到。
  */
-export const CLIP_ACTIONS: readonly HeaderActionId[] = ['clipSource', 'clipSave', 'clipNote', 'clipPanel'];
+export const CLIP_ACTIONS: readonly HeaderActionId[] = [
+  'clipSource',
+  'clipSave',
+  'clipNote',
+  'clipPanel',
+  'clipSummary',
+];
 
 export function isClipAction(id: HeaderActionId): boolean {
   return CLIP_ACTIONS.includes(id);
