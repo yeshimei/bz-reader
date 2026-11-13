@@ -56,7 +56,7 @@ import { rangeFill } from './range-fill';
 import { openHotkeySettings } from '../core/hotkeys';
 import { pickFolder } from '../core/folder-pick';
 import { PURCHASE_URL, REPO_URL, can, capLabel, type Cap } from '../data/entitlement';
-import { HEADER_ACTION_IDS, isMobileHiddenAction, type HeaderActionId } from '../view/header-actions';
+import { userFacingActionIds, isMobileHiddenAction, type HeaderActionId } from '../view/header-actions';
 import { moveHeaderAction } from './header-order';
 import type { ReaderPrefs } from '../data/prefs';
 import { wikilinkOf, wikilinkOfMark } from '../data/wikilink';
@@ -1892,7 +1892,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const hidden = p.headerHidden.includes(id);
       src.setPrefs({
         headerHidden: hidden ? p.headerHidden.filter((x) => x !== id) : [...p.headerHidden, id],
-        headerOrder: p.headerOrder.length ? p.headerOrder : HEADER_ACTION_IDS.slice(),
+        headerOrder: p.headerOrder.length ? p.headerOrder : userFacingActionIds().slice(),
       });
       rerender();
       break;
@@ -1911,7 +1911,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const dir = Number(d.v) || 0;
       if (dir !== 1 && dir !== -1) break;
       const p = shellPrefs();
-      const base: string[] = p.headerOrder.length ? p.headerOrder : HEADER_ACTION_IDS.slice();
+      const base: string[] = p.headerOrder.length ? p.headerOrder : userFacingActionIds().slice();
       const mobile = isMobileShell();
       const next = moveHeaderAction(base, id, dir, (x) => !(mobile && isMobileHiddenAction(x as HeaderActionId)));
       if (!next) break;

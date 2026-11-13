@@ -26,7 +26,7 @@ import { can, entitlement, GROUP_ID, tierText } from '../../data/entitlement';
 import { dataDirOf } from '../../core/plugin-path';
 import { isMobileShell } from '../../core/mobile';
 import type { HotkeyRow } from '../../core/hotkeys';
-import { HEADER_ACTION_IDS, headerActionSpec, isMobileHiddenAction, type HeaderActionId } from '../../view/header-actions';
+import { headerActionSpec, isMobileHiddenAction, userFacingActionIds, type HeaderActionId } from '../../view/header-actions';
 import { rangeFill } from '../range-fill';
 import { esc, githubIcon, ico } from './html';
 import { segHtml } from './seg';
@@ -396,8 +396,8 @@ export function viewSettings(v: SettingsView): string {
      手机上不提供的那几项（并排 / 对照书籍 / 朗读）不列出来——
      列出来的话，用户能把它们拖进前三颗，头栏就多一颗点不动的按钮。
      PDF 那三颗照旧列出：它们在桌面 PDF 里还有用。 */
-  const listed = HEADER_ACTION_IDS.filter((id) => !(mobile && isMobileHiddenAction(id)));
-  const headerOrder: string[] = (p.headerOrder.length ? p.headerOrder : HEADER_ACTION_IDS.slice())
+  const listed = userFacingActionIds().filter((id) => !(mobile && isMobileHiddenAction(id)));
+  const headerOrder: string[] = (p.headerOrder.length ? p.headerOrder : userFacingActionIds().slice())
     .filter((id) => listed.includes(id as HeaderActionId));
   /* 用户顺序里没有的（新加的动作、或刚从手机切回桌面）按默认顺序补在后面 */
   for (const id of listed) if (!headerOrder.includes(id)) headerOrder.push(id);

@@ -7,6 +7,7 @@ import {
   headerActionsFor,
   headerActive,
   headerOverflowFor,
+  availableActions,
 } from '../src/view/header-actions';
 
 /**
@@ -14,6 +15,48 @@ import {
  *   · 桌面端右侧明明放得下，却只露出 3 颗，其余折进 ⋮；
  *   · 翻到已经加过书签的页面，书签图标不亮——看不出「这一页签过了」。
  */
+describe('剪藏本四颗（2026-11-13：底条改头栏 / ⋮）', () => {
+  it('桌面剪藏本：四颗都进头栏，且排在普通动作之后', () => {
+    const ids = headerActionsFor(false, null, false, false, true);
+    expect(ids).toEqual(
+      expect.arrayContaining(['clipSource', 'clipSave', 'clipNote', 'clipPanel']),
+    );
+    /* 别插到「目录 / 搜索 / 书签」前面——那三颗是任何一本书的前三位 */
+    expect(ids.slice(0, 3)).toEqual(['toc', 'search', 'mark']);
+    expect(ids.indexOf('clipSource')).toBeGreaterThan(ids.indexOf('library'));
+  });
+
+  it('手机剪藏本：四颗不进头栏（那 3 个名额留给目录/搜索/书签），只走 ⋮', () => {
+    const shown = headerActionsFor(true, null, false, true, true);
+    expect(shown).toEqual(['toc', 'search', 'mark']);
+    const overflow = headerOverflowFor(true, null, false, true, true);
+    expect(overflow).toEqual(
+      expect.arrayContaining(['clipSource', 'clipSave', 'clipNote', 'clipPanel']),
+    );
+  });
+
+  it('不是剪藏本时四颗根本不提供（普通 EPUB / PDF 头栏不受影响）', () => {
+    expect(availableActions(false, false, false)).not.toContain('clipSave');
+    expect(headerActionsFor(false, null, false, false, false)).toEqual(
+      headerActionIds(false),
+    );
+    expect(headerOverflowFor(false, null, false, false, false)).not.toContain('clipSource');
+    const pdf = availableActions(false, true, false);
+    expect(pdf).not.toContain('clipPanel');
+  });
+
+  it('剪藏四颗的标签走语言包，不另写一套中文字面量', () => {
+    for (const id of ['clipSource', 'clipSave', 'clipNote', 'clipPanel'] as const) {
+      const spec = headerActionSpec(id);
+      expect(spec.label.length).toBeGreaterThan(0);
+      expect(spec.label).not.toMatch(/^\{|^clip\./);
+      expect(spec.icon).toBeTruthy();
+    }
+    expect(headerActionSpec('clipSource').label).toBe(t('clip.action.openSource'));
+    expect(headerActionSpec('clipPanel').label).toBe(t('clip.action.openClipbook'));
+  });
+});
+
 describe('headerActionIds', () => {
   it('移动端 3 颗（横向像素最贵）', () => {
     expect(headerActionIds(true)).toEqual(['toc', 'search', 'mark']);

@@ -291,70 +291,35 @@ body.bzr-immersive .bzs-pageno {
   }
 }
 
-/* ── 剪藏本底条（2026-11-13）────────────────────────────────
- * 壳层 flex 列的最后一行：左边这一章的来源/状态/时长，右边几个动作。
- * 不做浮层——阅读区高度会被宿主 tab 栏 / 状态栏撑出视口，absolute/fixed
- * 要么被裁掉、要么被底栏盖住（真机连踩两次）。占一行永远可见，也不遮正文。
- * 条子本身点击穿透（不挡翻页），只有按钮收事件。 */
-.bzs-clipbar {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: calc(100% - 20px);
-  /* 底条是 flex 列的最后一行，阅读区一直顶到视口底：手机导航栏 / 桌面状态栏
-     是 fixed，正好压在它上面（按钮点不到）。--bzr-bottom-gap 由 syncBottomGap
-     量出「阅读区底边 − 浮层顶边」，这里跟着让位。 */
-  margin: 0 auto calc(6px + var(--bzr-bottom-gap, 0px));
-  padding: 5px 10px;
-  border-radius: 10px;
-  background: var(--background-secondary, rgba(0, 0, 0, 0.55));
-  border: 1px solid var(--background-modifier-border);
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.4;
+/* ── 剪藏本状态栏项（2026-11-13）──────────────────────────────
+ * 原本是正文下方一条底条：左边「来源 · 已读 · 本章时长」，右边四个按钮。
+ * 底条占一行，还要为宿主状态栏 / 移动导航条让位（桌面 35px、手机 84px）；
+ * 左边那串状态又和章节副标题重复。现在动作进头栏（手机进 ⋮），
+ * 状态只剩桌面左下角这一小段，时长只进 aria-label 的悬停提示。
+ * 手机没有状态栏、沉浸时状态栏是我们自己藏起来的，两种情况都不挂
+ * （见 renderStatusClip）；多个阅读 tab 各挂一个，只有活动的那本写字。 */
+.bzr-status-clip {
+  cursor: default;
+  max-width: 30ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* 右边紧跟着同步状态与别的插件项、底色又一样，不留缝会连成一句 */
+  margin-right: 8px;
+}
+
+/* 没内容时整项收起：空着也占一小段，还会把右边的项挤歪 */
+.bzr-status-clip.is-idle {
+  display: none;
+}
+
+/* 头栏那四颗：已保存 / 不可用时的状态。基样式沿用 .clickable-icon */
+.bzr-action.is-hidden {
+  display: none;
+}
+
+.bzr-action.is-busy {
+  opacity: 0.4;
   pointer-events: none;
 }
 
-.bzs-clipbar.is-hidden {
-  display: none;
-}
-
-.bzs-clipbar-meta {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.bzs-clipbar-acts {
-  display: flex;
-  gap: 4px;
-  flex: none;
-  pointer-events: auto;
-}
-
-.bzs-clipbar-btn {
-  pointer-events: auto;
-  font-size: 12px;
-  line-height: 1.6;
-  padding: 1px 8px;
-  border: 0;
-  border-radius: 6px;
-  background: var(--background-modifier-hover);
-  color: var(--text-normal);
-  cursor: pointer;
-}
-
-.bzs-clipbar-btn:hover {
-  background: var(--background-modifier-active-hover, var(--background-modifier-hover));
-}
-
-.bzs-clipbar-btn.is-hidden {
-  display: none;
-}
-
-.bzs-reader.is-mobile .bzs-clipbar {
-  font-size: 11px;
-  padding: 4px 8px;
-}

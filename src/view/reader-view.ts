@@ -57,6 +57,7 @@ import {
   headerActionSpec,
   headerActionsFor,
   headerActive,
+  isClipAction,
   type HeaderActionId,
 } from './header-actions';
 import { planHeaderVisibility, roleOf } from './header-layout';
@@ -284,12 +285,17 @@ export class ReaderView extends ItemView {
   private clipEmptyNotified = false;
   /** 认领了哪本剪藏本（关书时按它释放计时权） */
   private clipOwnerId = '';
-  private clipBarEl: HTMLElement | null = null;
-  private clipMetaEl: HTMLElement | null = null;
-  private clipActSource: HTMLButtonElement | null = null;
-  private clipActSave: HTMLButtonElement | null = null;
-  private clipActNote: HTMLButtonElement | null = null;
-  private clipActPanel: HTMLButtonElement | null = null;
+  /**
+   * 剪藏状态栏项（2026-11-13）：桌面左下角那行「来源 · 已读」。
+   *
+   * 以前是正文下方一条底条，左边写着来源/状态/本章时长，右边四个按钮。
+   * 底条占一行，还要为宿主状态栏 / 移动导航条让位（桌面 35px、手机 84px）；
+   * 那串状态又和章节副标题重复（副标题本来就有来源和日期）。
+   * 现在动作进头栏 / ⋮，状态挪到状态栏，底条整个撤掉。
+   */
+  private statusClipEl: HTMLElement | null = null;
+  /** 「存为剪藏」在途：头栏图标是 div，没有 disabled，用标志位防连点 */
+  private clipSaving = false;
   /** 构建时注入（manifest 版本 + 时间戳），见 esbuild.config.mjs 的 __BZ_BUILD_TAG__ */
   private static readonly BUILD_TAG = __BZ_BUILD_TAG__;
 
@@ -497,14 +503,12 @@ export class ReaderView extends ItemView {
       this.headTitleEl.remove();
     }
     this.headTitleEl = null;
-    /* 状态栏里那一项也要收：它挂在宿主元素上，不跟视图一起销毁 */
+    /* 状态栏里那两项也要收：它们挂在宿主元素上，不跟视图一起销毁
+       （页码在右、剪藏状态在左） */
     this.statusPageEl?.remove();
     this.statusPageEl = null;
-    /* 剪藏本底条挂在 body 上（见 buildShell），关书必须手动摘；
-       计时与 handle 的收尾交给 settle 的 teardownClip（它还要结最后一笔账） */
-    this.clipBarEl?.remove();
-    this.clipBarEl = null;
-    this.clipMetaEl = null;
+    this.statusClipEl?.remove();
+    this.statusClipEl = null;
     /* 头栏标题从 2026-11-12 起是自绘的（见 mountTitleInHeader），宿主那一行
        我们只加过一个「藏起来」的类；它带 data-type 作用域，切视图自动失效。 */
     this.headerEls.forEach((node) => node.remove());
@@ -554,32 +558,10 @@ export class ReaderView extends ItemView {
        点击穿透（pointer-events:none），底部那片仍然按「点正文 = 下一页」翻。 */
     const chapter = el('div', 'bzs-chapter');
     const pageNo = el('div', 'bzs-pageno');
-    /* 剪藏本底条（2026-11-13）：只在剪藏书里出现，显示这一章的来源/状态/时长，
-       以及「原文 / 存为剪藏 / 剪藏笔记 / 剪藏本」四个动作。浮在正文下沿，
-       点击穿透不挡翻页，只有按钮本身收事件。 */
-    const clipBar = el('div', 'bzs-clipbar is-hidden');
-    const clipMeta = el('div', 'bzs-clipbar-meta');
-    const clipActs = el('div', 'bzs-clipbar-acts');
-    const mkClipBtn = (label: string): HTMLButtonElement => {
-      const b = el('button', 'bzs-clipbar-btn', label);
-      b.type = 'button';
-      b.addEventListener('click', (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        this.onClipBarAction(b);
-      });
-      return b;
-    };
-    this.clipActSource = mkClipBtn(t('clip.action.openSource'));
-    this.clipActSave = mkClipBtn(t('clip.action.save'));
-    this.clipActNote = mkClipBtn(t('clip.action.openNote'));
-    this.clipActPanel = mkClipBtn(t('clip.action.openClipbook'));
-    clipActs.append(this.clipActSource, this.clipActSave, this.clipActNote, this.clipActPanel);
-    clipBar.append(clipMeta, clipActs);
-    /* 底条是壳层里的**一行**（不是浮层）：阅读区高度会被宿主 tab 栏/状态栏
-       撑出视口，浮在上面要么被裁、要么被状态栏盖住（真机连踩两次）。
-       放在 flex 列尾部占一行，永远可见、也不挡正文。 */
-    root.append(pages, chapter, pageNo, clipBar);
+    /* 剪藏本不再有底条（2026-11-13）：四个动作进了宿主头栏 / ⋮，
+       「来源 · 已读」进了左侧状态栏。以前这里是一条 flex 尾行，
+       占掉一行高度，还要为宿主状态栏 / 移动导航条让位（桌面 35px、手机 84px）。 */
+    root.append(pages, chapter, pageNo);
     this.contentEl.appendChild(root);
 
     this.rootEl = root;
@@ -587,8 +569,6 @@ export class ReaderView extends ItemView {
     this.pagesEl = pages;
     this.chapterEl = chapter;
     this.pageNoEl = pageNo;
-    this.clipBarEl = clipBar;
-    this.clipMetaEl = clipMeta;
 
     /* 手机底栏浮在内容上：量一次它压住多少。第一次量时布局可能还没落定，
        再补一帧——量到 0 也不会多留白（见 syncBottomGap）。
@@ -917,6 +897,11 @@ export class ReaderView extends ItemView {
       guide: () => dispatchAction('guide', this.rootEl ?? document.body),
       immersive: () => this.toggleImmersive(),
       library: () => getShellSource()?.openStudy('library'),
+      /* 剪藏本四颗（2026-11-13）：以前是正文底条上的按钮 */
+      clipSource: () => this.onClipAction('clipSource'),
+      clipSave: () => this.onClipAction('clipSave'),
+      clipNote: () => this.onClipAction('clipNote'),
+      clipPanel: () => this.onClipAction('clipPanel'),
     };
     const spec = headerActionsFor(
       mobile,
@@ -925,6 +910,8 @@ export class ReaderView extends ItemView {
       /* 颗数看真实设备（上面的 mobile），哪些动作存在看手机形态：
          桌面开 force-mobile 验收时，入口要和真机一致才验得出来。 */
       isMobileShell(),
+      /* 剪藏本：四颗只在剪藏书里出现（手机不占那 3 个名额，走 ⋮） */
+      !!this.clipSnap,
     ).map((id) => ({
       ...headerActionSpec(id),
       run: run[id],
@@ -1381,6 +1368,11 @@ export class ReaderView extends ItemView {
       guide: () => dispatchAction('guide', root),
       immersive: () => this.toggleImmersive(),
       library: () => getShellSource()?.openStudy('library'),
+      /* 剪藏本四颗（2026-11-13）：以前是正文底条上的按钮 */
+      clipSource: () => this.onClipAction('clipSource'),
+      clipSave: () => this.onClipAction('clipSave'),
+      clipNote: () => this.onClipAction('clipNote'),
+      clipPanel: () => this.onClipAction('clipPanel'),
     };
     /* 三个会变的标题（并排 / 朗读 / 沉浸）说的是「点了会怎样」：
        开着的时候应该是「关闭 / 停止 / 退出」，不是图标名。
@@ -1394,7 +1386,21 @@ export class ReaderView extends ItemView {
     /* 头栏、这里、设置页的图标列表共用 availableActions：手机上 ⋮ 是主入口，
        这里漏一处就等于「头栏藏了、菜单里还在」。判据是手机形态而不是真实设备：
        桌面 force-mobile 验收时，菜单也要和真机一致。 */
-    for (const id of availableActions(isMobileShell(), this.host.isPdf)) {
+    const clipCh = this.clipSnap ? this.currentClipChapter() : null;
+    let clipSepDone = false;
+    for (const id of availableActions(isMobileShell(), this.host.isPdf, !!this.clipSnap)) {
+      /* 剪藏四颗按「这一章能不能用」再筛一遍：底条时代它们按需显隐，
+         搬进菜单后不筛的话「剪藏笔记」会在没有笔记的章节里常驻、
+         「存为剪藏」在已剪藏的章节里还能点到（点了只会 alreadySaved）。 */
+      if (id === 'clipSource' && !clipCh) continue;
+      if (id === 'clipSave' && (!clipCh || clipCh.state === 'saved')) continue;
+      if (id === 'clipNote' && !clipCh?.notePath) continue;
+      if (id === 'clipPanel' && !clipCh) continue;
+      /* 剪藏四项自己一组，别和「返回书架」粘在一起 */
+      if (isClipAction(id) && !clipSepDone) {
+        menu.addSeparator();
+        clipSepDone = true;
+      }
       const spec = headerActionSpec(id);
       const action = run[id];
       menu.addItem((i) =>
@@ -2918,6 +2924,11 @@ export class ReaderView extends ItemView {
       this.clipKey = ch.key;
       this.clipClock.setKey(ch.key);
     }
+    /* 头栏四颗要在 snap 就绪后再挂一遍：建壳时剪藏书还没加载完，
+       ensureHeaderActions 那一刻拿不到 clipSnap，不会带上这四颗。
+       （ensureHeaderActions 幂等：已存在的按 data-bzr-action 复用。） */
+    const header = this.containerEl.querySelector<HTMLElement>('.view-header');
+    if (header) this.ensureHeaderActions(header);
     this.renderClipBar();
     this.startClipWatch();
   }
@@ -3109,67 +3120,136 @@ export class ReaderView extends ItemView {
     this.clipSnap = null;
     this.clipKey = '';
     this.clipReported.clear();
-    this.clipBarEl?.classList.add('is-hidden');
+    this.hideClipActions();
+    this.renderStatusClip(null);
   }
 
-  /** 底条：这一章的来源 / 状态 / 时长 + 四个动作 */
+  /**
+   * 剪藏外壳：头栏四颗的可见性 / 保存态，以及左下角状态栏那一行。
+   *
+   * 2026-11-13 由底条迁来：动作进头栏（手机进 ⋮），状态进状态栏。
+   * 时长不写进状态栏（每 15 秒跳一次太吵），只进 aria-label（悬停可见）。
+   */
   private renderClipBar(): void {
-    const bar = this.clipBarEl;
-    if (!bar) return;
     const ch = this.currentClipChapter();
     if (!ch) {
-      bar.classList.add('is-hidden');
+      this.hideClipActions();
+      this.renderStatusClip(null);
       return;
     }
     if (!this.clipKey) this.clipKey = ch.key;
-    bar.classList.remove('is-hidden');
-    const stateText =
-      ch.state === 'saved' ? t('clip.state.saved') : ch.state === 'read' ? t('clip.state.read') : t('clip.state.unread');
-    const bits = [ch.sourceName, stateText];
-    const sec = this.book?.reading.chapterSeconds?.[ch.key] || 0;
-    const mins = Math.floor(sec / 60);
-    if (mins > 0) bits.push(t('clip.chapter.minutes', { m: mins }));
-    if (this.clipMetaEl) this.clipMetaEl.textContent = bits.filter(Boolean).join(' · ');
-
-    const show = (b: HTMLButtonElement | null, on: boolean): void => {
-      b?.classList.toggle('is-hidden', !on);
-    };
-    show(this.clipActSource, /^https?:\/\//i.test(ch.url));
-    show(this.clipActSave, ch.state !== 'saved');
-    show(this.clipActNote, !!ch.notePath);
-    show(this.clipActPanel, true);
+    const act = (id: 'clipSource' | 'clipSave' | 'clipNote' | 'clipPanel'): HTMLElement | undefined =>
+      this.headerEls.get(id);
+    act('clipSource')?.classList.toggle('is-hidden', !/^https?:\/\//i.test(ch.url));
+    const saveBtn = act('clipSave');
+    if (saveBtn) {
+      /* 已保存就不再给「存为剪藏」：留着只会被点成 alreadySaved */
+      saveBtn.classList.toggle('is-hidden', ch.state === 'saved');
+      saveBtn.classList.toggle('is-busy', this.clipSaving);
+    }
+    act('clipNote')?.classList.toggle('is-hidden', !ch.notePath);
+    act('clipPanel')?.classList.remove('is-hidden');
+    this.renderStatusClip(ch);
   }
 
-  private onClipBarAction(btn: HTMLButtonElement): void {
+  /** 离开剪藏书：四颗全部收起（普通 EPUB / PDF 里不该出现） */
+  private hideClipActions(): void {
+    for (const id of ['clipSource', 'clipSave', 'clipNote', 'clipPanel'] as const) {
+      this.headerEls.get(id)?.classList.add('is-hidden');
+    }
+  }
+
+  /** 桌面左下角的状态栏项（只挂一次；视图销毁时在 onClose 摘掉） */
+  private ensureStatusClip(): void {
+    if (this.statusClipEl) return;
+    const doc = (this.containerEl as HTMLElement | undefined)?.ownerDocument;
+    if (!doc) return;
+    const bar = doc.querySelector<HTMLElement>('.status-bar');
+    if (!bar) return;
+    const node = bar.createDiv({ cls: 'status-bar-item bzr-status-clip' });
+    /* 左下角：左侧是宿主自己的库名 / 同步状态，插在它们前面 */
+    bar.prepend(node);
+    this.statusClipEl = node;
+  }
+
+  /**
+   * 状态栏那行「来源 · 已读」。
+   *
+   * 只放这么短的一段：更长的串（这一章读了 N 分钟）会每 15 秒跳一次。
+   * 手机没有状态栏、沉浸时状态栏是我们自己藏起来的，两种情况都不挂；
+   * 多个阅读 tab 各挂一个，但只有活动的那本写字（与页码同款，免得并排两段）。
+   */
+  private renderStatusClip(ch: ClipChapter | null): void {
+    const doc = (this.containerEl as HTMLElement | undefined)?.ownerDocument;
+    const bar = doc?.querySelector<HTMLElement>('.status-bar');
+    const usable =
+      !isMobileShell() &&
+      !!this.clipSnap &&
+      !!bar &&
+      !this.immersive &&
+      getComputedStyle(bar).display !== 'none' &&
+      bar.getBoundingClientRect().height > 0;
+    if (!usable) {
+      this.statusClipEl?.remove();
+      this.statusClipEl = null;
+      return;
+    }
+    this.ensureStatusClip();
+    const node = this.statusClipEl;
+    if (!node) return;
+    if (!ch || !this.isActiveLeaf()) {
+      if (node.textContent) node.textContent = '';
+      node.removeAttribute('aria-label');
+      node.classList.add('is-idle');
+      return;
+    }
+    node.classList.remove('is-idle');
+    const stateText =
+      ch.state === 'saved' ? t('clip.state.saved') : ch.state === 'read' ? t('clip.state.read') : t('clip.state.unread');
+    const text = [ch.sourceName, stateText].filter(Boolean).join(' · ');
+    if (node.textContent !== text) node.textContent = text;
+    const sec = this.book?.reading.chapterSeconds?.[ch.key] || 0;
+    const mins = Math.floor(sec / 60);
+    node.setAttribute('aria-label', mins > 0 ? t('clip.chapter.minutes', { m: mins }) : text);
+  }
+
+  /** 头栏 / ⋮ 里那四颗被点中 */
+  private onClipAction(id: HeaderActionId): void {
     const ch = this.currentClipChapter();
     if (!ch) return;
-    if (btn === this.clipActSource) {
+    if (id === 'clipSource') {
       if (/^https?:\/\//i.test(ch.url)) window.open(ch.url, '_blank', 'noopener,noreferrer');
       return;
     }
-    if (btn === this.clipActNote) {
+    if (id === 'clipNote') {
       if (ch.notePath) void this.api.app.workspace.openLinkText(ch.notePath, '', false);
       return;
     }
-    if (btn === this.clipActPanel) {
+    if (id === 'clipPanel') {
       if (!openClipbookPanel(this.api.app)) notify(t('bz.missing'), 'error');
       return;
     }
-    if (btn === this.clipActSave) {
-      if (btn.disabled) return;
-      btn.disabled = true;
+    if (id === 'clipSave') {
+      if (this.clipSaving || ch.state === 'saved') return;
+      this.clipSaving = true;
+      this.renderClipBar();
       void saveClipChapter(this.api.app, ch.key)
         .then((r) => {
           if (r.ok || r.code === 'alreadySaved') {
             ch.state = 'saved';
+            /* 剪藏刚刚把笔记写出来：立刻把路径补上，「剪藏笔记」那颗图标
+               就不用等下一轮 20 秒轮询才出现 */
+            if (r.notePath) ch.notePath = r.notePath;
             notify(t('clip.save.done'), 'success');
           } else {
             notify(clipSaveText(r.code), 'error');
           }
+          this.clipSaving = false;
           this.renderClipBar();
         })
-        .finally(() => {
-          btn.disabled = false;
+        .catch(() => {
+          this.clipSaving = false;
+          this.renderClipBar();
         });
     }
   }
@@ -3264,3 +3344,4 @@ export class ReaderView extends ItemView {
   }
 
 }
+

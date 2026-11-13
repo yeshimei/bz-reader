@@ -27,7 +27,11 @@ export type HeaderActionId =
   | 'bookmap'
   | 'guide'
   | 'immersive'
-  | 'library';
+  | 'library'
+  | 'clipSource'
+  | 'clipSave'
+  | 'clipNote'
+  | 'clipPanel';
 
 export interface HeaderActionSpec {
   id: HeaderActionId;
@@ -65,6 +69,15 @@ const SPEC: ReadonlyArray<{ id: HeaderActionId; icon: string; labelKey?: MsgKey 
   { id: 'guide', icon: 'book-open', labelKey: 'guide.title' },
   { id: 'immersive', icon: 'maximize' },
   { id: 'library', icon: 'library' },
+  /* 剪藏本专用四颗（2026-11-13）：只在剪藏本里出现——桌面进头栏，手机进 ⋮。
+     以前是正文下方一条底条：除了占掉一行，还要为宿主状态栏 / 移动导航条让位
+     （桌面 35px、手机 84px），左边那串「来源 · 已读 · 本章时长」又和章节副标题
+     重复。拆下来后阅读区整块还回去，动作和「目录 / 搜索」同族。
+     标签复用语言包已有的 clip.action.*（八包齐全），不另抄一份。 */
+  { id: 'clipSource', icon: 'external-link', labelKey: 'clip.action.openSource' },
+  { id: 'clipSave', icon: 'scissors', labelKey: 'clip.action.save' },
+  { id: 'clipNote', icon: 'file-text', labelKey: 'clip.action.openNote' },
+  { id: 'clipPanel', icon: 'newspaper', labelKey: 'clip.action.openClipbook' },
 ];
 
 /**
@@ -223,6 +236,16 @@ export function headerActionLabel(id: HeaderActionId): string {
 export const HEADER_ACTION_IDS: HeaderActionId[] = SPEC.map((s) => s.id);
 
 /**
+ * 用户能在设置页排序 / 隐藏的动作。
+ *
+ * 排除剪藏四颗：它们只在剪藏本里出现，设置页里给一排「拖动排序 / 隐藏」
+ * 只会让人以为普通书上也能露出来；`headerOrder` 也不该存它们。
+ */
+export function userFacingActionIds(): HeaderActionId[] {
+  return HEADER_ACTION_IDS.filter((id) => !isClipAction(id));
+}
+
+/**
  * 只对 PDF 有意义的图标。
  *
  * 单个功能包只有一份产物，所以这里不做「构建时裁掉」，而是**运行时按书过滤**：
@@ -256,14 +279,31 @@ export function isMobileHiddenAction(id: HeaderActionId): boolean {
 }
 
 /**
+ * 剪藏本专用动作（2026-11-13）。只在剪藏本里出现：桌面进头栏，手机进 ⋮。
+ *
+ * 不放进 MOBILE_HIDDEN_ACTIONS —— 手机上这些动作照样要有，只是不占头栏那三颗
+ * 名额（见 headerActionsFor）。否则要么挤掉目录/搜索，要么手机上彻底找不到。
+ */
+export const CLIP_ACTIONS: readonly HeaderActionId[] = ['clipSource', 'clipSave', 'clipNote', 'clipPanel'];
+
+export function isClipAction(id: HeaderActionId): boolean {
+  return CLIP_ACTIONS.includes(id);
+}
+
+/**
  * 这台设备上能用的动作（默认顺序）。
  *
  * 头栏、⋮ 菜单、设置页的图标列表都读它：三处各判一次的话，漏一处就是
  * 「头栏藏了、⋮ 里还在」——而手机上 ⋮ 才是主入口。
+ *
+ * @param clip 是不是剪藏本：剪藏四颗只在这本书里存在
  */
-export function availableActions(mobile: boolean, pdf = false): HeaderActionId[] {
+export function availableActions(mobile: boolean, pdf = false, clip = false): HeaderActionId[] {
   return HEADER_ACTION_IDS.filter(
-    (id) => (pdf || !isPdfAction(id)) && !(mobile && isMobileHiddenAction(id)),
+    (id) =>
+      (pdf || !isPdfAction(id)) &&
+      (clip || !isClipAction(id)) &&
+      !(mobile && isMobileHiddenAction(id)),
   );
 }
 
@@ -296,11 +336,15 @@ export function headerActionsFor(
   cfg?: HeaderCfg | null,
   pdf = false,
   phoneForm = mobile,
+  clip = false,
 ): HeaderActionId[] {
   const hidden = new Set(cfg?.hidden ?? []);
-  const allowed = new Set(availableActions(phoneForm, pdf));
+  const allowed = new Set(availableActions(phoneForm, pdf, clip));
   const list = orderedIds(cfg).filter((id) => allowed.has(id) && !hidden.has(id));
-  return mobile ? list.slice(0, 3) : list;
+  /* 手机上剪藏四颗不参与那 3 个名额：它们只在剪藏本里有意义，挤掉目录 / 搜索
+     会让同一台机器上的普通书也少一颗。四颗全部走 ⋮（见 headerOverflowFor）。 */
+  const usable = mobile ? list.filter((id) => !isClipAction(id)) : list;
+  return mobile ? usable.slice(0, 3) : usable;
 }
 
 /** ⋮ 里的：显式隐藏的 + 移动端被名额挤出去的（不含这台设备不提供的） */
@@ -309,9 +353,10 @@ export function headerOverflowFor(
   cfg?: HeaderCfg | null,
   pdf = false,
   phoneForm = mobile,
+  clip = false,
 ): HeaderActionId[] {
-  const shown = headerActionsFor(mobile, cfg, pdf, phoneForm);
-  const allowed = new Set(availableActions(phoneForm, pdf));
+  const shown = headerActionsFor(mobile, cfg, pdf, phoneForm, clip);
+  const allowed = new Set(availableActions(phoneForm, pdf, clip));
   return orderedIds(cfg).filter((id) => allowed.has(id) && !shown.includes(id));
 }
 
