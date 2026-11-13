@@ -431,6 +431,7 @@ export function viewSettings(v: SettingsView): string {
      一整套听书设置。手机上也给——换成音频播放之后，手机比系统语音稳，
      入口在头栏 / ⋮，不再按设备收起。 */
   const ttsUnlocked = can('tts');
+  const ttsMobile = isMobileShell();
   const voiceOpts: Array<[string, string]> = TTS_VOICE_IDS.map((id) => [
     id,
     t(id === 'stella' ? 'settings.ttsVoice.stella' : 'settings.ttsVoice.tide'),
@@ -441,12 +442,15 @@ export function viewSettings(v: SettingsView): string {
       <h3>${t('settings.grp.tts')}</h3>
       <div class="bzs-setrow"><label>${t('settings.ttsEngine')}</label>${seg(
         'ttsEngine',
-        [
+        /* 手机上不列系统语音：WKWebView / Android WebView 里 speechSynthesis
+           时好时坏，中文音色也常缺，选了只会听到没声。DeepSeek 是稳定的那条。 */
+        ttsMobile ? [['deepseek', t('settings.ttsEngine.deepseek')]] : [
           ['deepseek', t('settings.ttsEngine.deepseek')],
           ['system', t('settings.ttsEngine.system')],
         ],
-        p.ttsEngine,
+        ttsMobile && p.ttsEngine === 'system' ? 'deepseek' : p.ttsEngine,
       )}</div>
+      ${ttsMobile ? `<div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsEngine.mobileHint')}</div>` : ''}
       ${
         p.ttsEngine === 'deepseek'
           ? `<div class="bzs-setrow"><label>${t('settings.ttsVoice')}</label>${seg('ttsVoice', voiceOpts, p.ttsVoice)}</div>

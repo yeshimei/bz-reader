@@ -1691,7 +1691,9 @@ export class ReaderView extends ItemView {
       this.stopTts();
       return;
     }
-    if (this.prefs.ttsEngine === 'deepseek') {
+    /* 手机恒走 DeepSeek：手机 WebView 的 speechSynthesis 不稳定，
+       旧配置里存的 system 在这里也不再照做。 */
+    if (this.prefs.ttsEngine === 'deepseek' || isMobileShell()) {
       void this.speakPageAi(text);
       return;
     }

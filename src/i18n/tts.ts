@@ -12,6 +12,7 @@
 export const TTS_ZH = {
   'settings.ttsEngine': '朗读方式',
   'settings.ttsEngine.deepseek': 'DeepSeek 语音',
+  'settings.ttsEngine.mobileHint': '手机端只用 DeepSeek 语音：系统语音在手机 WebView 里时好时坏，中文音色也常缺。',
   'settings.ttsEngine.system': '系统语音',
   'settings.ttsVoice': '音色',
   'settings.ttsVoice.stella': '海星 · 女声',
@@ -68,6 +69,7 @@ export const TTS_ZH = {
 export const TTS_ZH_TW = {
   'settings.ttsEngine': '朗讀方式',
   'settings.ttsEngine.deepseek': 'DeepSeek 語音',
+  'settings.ttsEngine.mobileHint': '手機端只用 DeepSeek 語音：系統語音在手機 WebView 裡時好時壞，中文音色也常缺。',
   'settings.ttsEngine.system': '系統語音',
   'settings.ttsVoice': '音色',
   'settings.ttsVoice.stella': '海星 · 女聲',
@@ -124,6 +126,7 @@ export const TTS_ZH_TW = {
 const TTS_EN_BASE = {
   'settings.ttsEngine': 'Read-aloud engine',
   'settings.ttsEngine.deepseek': 'DeepSeek voice',
+  'settings.ttsEngine.mobileHint': 'On mobile only DeepSeek speech is available: system speech is unreliable in mobile WebViews and often lacks Chinese voices.',
   'settings.ttsEngine.system': 'System voice',
   'settings.ttsVoice': 'Voice',
   'settings.ttsVoice.stella': 'Stella · female',

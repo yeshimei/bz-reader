@@ -268,14 +268,18 @@ export function ttsFormHtml(): string {
     id,
     t(id === 'stella' ? 'settings.ttsVoice.stella' : 'settings.ttsVoice.tide'),
   ]);
+  /* 手机不列系统语音：手机 WebView 的 speechSynthesis 不稳定，中文音色常缺 */
+  const mobile = isMobileShell();
   return `<div class="bzs-setgrp flat bzs-typo">
     <div class="bzs-setrow"><label>${t('settings.ttsEngine')}</label>${seg(
       'ttsEngine',
-      [
-        ['deepseek', t('settings.ttsEngine.deepseek')],
-        ['system', t('settings.ttsEngine.system')],
-      ],
-      p.ttsEngine,
+      mobile
+        ? [['deepseek', t('settings.ttsEngine.deepseek')]]
+        : [
+            ['deepseek', t('settings.ttsEngine.deepseek')],
+            ['system', t('settings.ttsEngine.system')],
+          ],
+      mobile && p.ttsEngine === 'system' ? 'deepseek' : p.ttsEngine,
     )}</div>
     ${
       p.ttsEngine === 'deepseek'
