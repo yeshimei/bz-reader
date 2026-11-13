@@ -67,6 +67,16 @@ New-Item -ItemType Junction -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules
   - 调试入口：往 `<数据目录>/debug-open.json` 写 `{"command":"open"|"continue"|"book","bookId":"…"}`，下次启动执行一次后自删。
 - 已知坑：iframe 分页被整体平移导致坐标偏差；点击用 `screenX/screenY`，不要用带平移量的 `clientX/clientY`；选区 rect 先过 `frameGeom()` 换回宿主坐标，别直接拿 `getClientRects()`。
 
+## 本地 TTS（2026-11-14 实测）
+- 插件**只是客户端**，不内置模型：认 OpenAI 兼容的 `/v1/audio/speech`（`input` / `voice` / `response_format`），音色列表 `GET /v1/audio/voices`。
+- 必须走 `requestUrl`，不能 fetch：本地服务不会给 `app://obsidian.md` 放行跨域头，桌面端直接 fetch 会被浏览器拦掉。代价是**没有 AbortSignal**，「取消」只能做到「不等了」。
+- 缓存键带引擎前缀 `local:<格式>:<音色>`；云端老缓存保持原样（`stella`，那是花过钱生成的，不能作废）。
+- 整本预生成只对本地开放（云端一笔几十块，不该被一次点击误触）；进度靠常驻 Notice，点停止要**立刻** `hide()`，否则要等当前那句合完才消失。
+- 手机端不列本地：它要连电脑上那个 `127.0.0.1`。
+- 模型选型：`CosyVoice2-0.5B` **没有预置音色**（`list_available_spks()` 返回空，只能 zero-shot + 参考音频）；要 `中文女 / 中文男 / 粤语女 / 英文女…` 这七个预置音色用 `CosyVoice-300M-SFT`。
+- 速度参考（RTX 4070 + 300M-SFT + fp16）：单句约 3 秒；《围城》整本 10649 句约 9 小时，整章（约 200 句）约 10 分钟。别把「整本预生成」说成几分钟的事。
+- 体积：同一页 wav 2156 KB、mp3 364 KB。**整章 wav 约 290 MB，只有 mp3 才装得下**，所以本地默认 mp3。
+
 ## 发激活码
 - 私钥和已发码都在 `scripts/keys/`（整目录 gitignore）。**永远不要**提交、贴进 `docs/`、`README` 或 issue。
 - 台账 `scripts/keys/issued/ledger.json`，`nextSeq` 是下一个可用序号；码文件 `scripts/keys/issued/afdian-batch-XX.txt`，一行一枚；号段表 `docs/license-ledger.md`。
