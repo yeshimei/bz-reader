@@ -4,9 +4,10 @@
  * 与 bz 的跨插件关系只有两种形态，这里只管第三种：**运行期调用**。
  *   · 文件级：bz 直接读 `<数据目录>/bz-reader.json`（那边的事）；
  *   · 协议级：`obsidian://bz-reader?…` 跳回原文（data/deeplink.ts）；
- *   · 运行期：本文件。bz 在插件实例上挂了两个门面（bz 侧 ADR-0215 / ADR-0294）：
+ *   · 运行期：本文件。bz 在插件实例上挂了三个门面（bz 侧 ADR-0215 / ADR-0294 / clipbook 门面）：
  *       plugin.knowledge = { openTermNote, openPassageNote }
  *       plugin.readerAi  = { isIndexReady, embeddingModel, searchNotes, embedDocuments, embedQuery }
+ *       plugin.clipbook  = { sources, articles, open, … }（只取判据与打开主界面）
  *
  * 三条硬要求：
  *   1. **探测一律 typeof 守卫**，版本号只用于给人看的提示，不用于判定能力；
@@ -65,18 +66,19 @@ export interface BzAiFacade {
 export type BzStatus = 'ok' | 'disabled' | 'missing';
 
 /**
- * 剪藏本门面（2026-11-13，bz 侧同日起挂）。
+ * 剪藏本门面（2026-11-13，bz 侧同日挂：`plugin.clipbook`，见 bz 的 clipbook/facade）。
  *
- * 只服务一个场景：阅读器的剪藏本开关从关拨到开时，如果 bz 的剪藏本里还什么
- * 都没有，提醒一句「先去配源或看教程」。判据必须由数据主人给——剪藏本的
- * news.json 缺省落在 bz 插件目录下的点前缀目录里，别的插件既读不到也不该猜。
+ * 这里只取三样：列源、列文章、打开主界面。判「用没用过」用前两项——源配上
+ * 但还没抓第一轮时文章是空的，只看文章会把人误判成没用过。
  *
- * 两项都可缺：老版本 bz 没有这个门面，或只有一半。缺 isUsed 就不提醒，
+ * 三项都可缺：老版本 bz 没有这个门面，或只挂了一半。缺判据就不提醒，
  * 缺 open 就只留一个教程出口。
  */
 export interface BzClipbookFacade {
-  /** 有文章 / 配了 RSS 源 / 加过 B 站 UP 主 → true。可以是同步或异步 */
-  isUsed?: () => boolean | Promise<boolean>;
+  /** 订阅源行（RSS + B 站 UP + 平台） */
+  sources?: () => Promise<unknown[]>;
+  /** 剪藏本里的文章（订阅文章 + 剪藏笔记） */
+  articles?: (opts?: { savedOnly?: boolean; includeRead?: boolean }) => Promise<unknown[]>;
   /** 打开剪藏本主界面 */
   open?: () => void;
 }
@@ -130,15 +132,17 @@ function aiOf(plugin: Record<string, unknown> | null): BzAiFacade | null {
 }
 
 /**
- * 取剪藏本门面：两项任一在就返回——不要求齐全，老版本 bz 可能只放了打开
- * 主界面这一半。两项都不在才叫「没有这一项」。
+ * 取剪藏本门面：任一项在就返回——不要求齐全，老版本 bz 可能只放了一半。
+ * 三项都不在才叫「没有这一项」。
  */
 function clipbookOf(plugin: Record<string, unknown> | null): BzClipbookFacade | null {
   const c = plugin?.clipbook as Partial<BzClipbookFacade> | undefined;
   if (!c) return null;
-  const open = typeof c.open === 'function';
-  const isUsed = typeof c.isUsed === 'function';
-  return open || isUsed ? (c as BzClipbookFacade) : null;
+  const usable =
+    typeof c.open === 'function' ||
+    typeof c.sources === 'function' ||
+    typeof c.articles === 'function';
+  return usable ? (c as BzClipbookFacade) : null;
 }
 
 /**
@@ -279,20 +283,35 @@ export function openBzPreview(app: App | null | undefined, path: string): boolea
 }
 
 /**
- * 剪藏本里有没有东西：只有明确 false 才意味着「该提醒用户先去配源」。
+ * 一项判据的状态：有没有数据；`absent` = 门面没给这一项，`error` = 问了但没问明白。
  *
- * 判不出来（门面缺、bz 太旧、读盘抛错、返回非布尔）一律当有——少一次提示
- * 可以接受，对着一个装满文章的库说「你还是空的」不行。
+ * 两者必须分开：门面只挂了半边的老版本 bz 该让另一半说话；而抛错是「不知道」，
+ * 不能顺手判成空。
  */
-export async function bzClipbookUsed(app: App | null | undefined): Promise<boolean> {
-  const fn = probeBz(app).clipbook?.isUsed;
-  if (typeof fn !== 'function') return true;
+async function rowsState(fn?: () => Promise<unknown[]>): Promise<'yes' | 'no' | 'absent' | 'error'> {
+  if (typeof fn !== 'function') return 'absent';
   try {
     const out = await fn();
-    return out !== false;
+    if (!Array.isArray(out)) return 'error';
+    return out.length > 0 ? 'yes' : 'no';
   } catch {
-    return true;
+    return 'error';
   }
+}
+
+/**
+ * 剪藏本里有没有东西：只有「问明白了、并且明确为空」才算空。
+ *
+ * 任何一项说有 → 有；任何一项问不明白（抛错、返回非数组）→ 当有；两项都是
+ * `absent`（只挂了 open 的半门面）→ 当有。少一次提示可以接受，对着一个装
+ * 满文章的库说「你还是空的」不行。
+ */
+export async function bzClipbookUsed(app: App | null | undefined): Promise<boolean> {
+  const f = probeBz(app).clipbook;
+  if (!f) return true;
+  const states = await Promise.all([rowsState(f.sources), rowsState(f.articles)]);
+  if (states.includes('yes') || states.includes('error')) return true;
+  return !states.includes('no');
 }
 
 /**

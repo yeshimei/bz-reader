@@ -3,8 +3,8 @@
  *
  * 这一项只服务一个场景：设置页把剪藏本开关从关拨到开时，库里还空着就提醒
  * 一句「先去配源或看教程」。所以底线是**判不出来时不要拦人**——门面缺、
- * 读盘抛错、返回 undefined，统统按「用过」处理，宁可不提醒也别对着一个
- * 装满文章的库说「你还是空的」。
+ * 读盘抛错、返回非数组，统统按「用过」处理，宁可不提醒也别对着一个装满
+ * 文章的库说「你还是空的」。
  */
 import { describe, expect, it, vi } from 'vitest';
 import { bzClipbookUsed, openBzClipbook, probeBz } from '../src/data/bz-bridge';
@@ -20,11 +20,13 @@ function app(patch: Record<string, unknown> = {}) {
 }
 
 describe('剪藏本门面探测', () => {
-  it('门面在：两项都拿到', () => {
-    const isUsed = vi.fn(async () => true);
+  it('门面在：三项都拿到', () => {
+    const sources = vi.fn(async () => []);
+    const articles = vi.fn(async () => []);
     const open = vi.fn();
-    const p = probeBz(app({ clipbook: { isUsed, open } }));
-    expect(p.clipbook?.isUsed).toBe(isUsed);
+    const p = probeBz(app({ clipbook: { sources, articles, open } }));
+    expect(p.clipbook?.sources).toBe(sources);
+    expect(p.clipbook?.articles).toBe(articles);
     expect(p.clipbook?.open).toBe(open);
   });
 
@@ -34,22 +36,30 @@ describe('剪藏本门面探测', () => {
     expect(p.knowledge).not.toBeNull();
   });
 
-  it('只有 open 没有 isUsed 也算在（半可用门面）', () => {
+  it('只有 open 没有判据也算在（半可用门面）', () => {
     expect(probeBz(app({ clipbook: { open: vi.fn() } })).clipbook).not.toBeNull();
+  });
+
+  it('三项都不是函数：当成没有这一项', () => {
+    expect(probeBz(app({ clipbook: { version: 1 } })).clipbook).toBeNull();
   });
 });
 
 describe('bzClipbookUsed', () => {
-  it('门面说空 → false（该提醒了）', async () => {
-    expect(await bzClipbookUsed(app({ clipbook: { isUsed: async () => false } }))).toBe(false);
+  it('源和文章都空 → false（该提醒了）', async () => {
+    expect(await bzClipbookUsed(app({ clipbook: { sources: async () => [], articles: async () => [] } }))).toBe(false);
   });
 
-  it('门面说有 → true', async () => {
-    expect(await bzClipbookUsed(app({ clipbook: { isUsed: async () => true } }))).toBe(true);
+  it('有文章 → true', async () => {
+    expect(
+      await bzClipbookUsed(app({ clipbook: { sources: async () => [], articles: async () => [{ key: 'a' }] } })),
+    ).toBe(true);
   });
 
-  it('同步返回值也认', async () => {
-    expect(await bzClipbookUsed(app({ clipbook: { isUsed: () => false } }))).toBe(false);
+  it('只配了源、还没抓到文章 → 也算用过', async () => {
+    expect(
+      await bzClipbookUsed(app({ clipbook: { sources: async () => [{ id: 'rss' }], articles: async () => [] } })),
+    ).toBe(true);
   });
 
   it('没有门面 → true（判不出来就不提醒）', async () => {
@@ -58,14 +68,23 @@ describe('bzClipbookUsed', () => {
   });
 
   it('查询抛错 → true（一次 IO 失败不该变成「你是空的」）', async () => {
-    const isUsed = vi.fn(async () => {
+    const sources = vi.fn(async () => {
       throw new Error('EACCES');
     });
-    expect(await bzClipbookUsed(app({ clipbook: { isUsed } }))).toBe(true);
+    expect(await bzClipbookUsed(app({ clipbook: { sources, articles: async () => [] } }))).toBe(true);
   });
 
-  it('返回 undefined / 非布尔 → 当用过', async () => {
-    expect(await bzClipbookUsed(app({ clipbook: { isUsed: async () => undefined as never } }))).toBe(true);
+  it('返回非数组 → 当判不出来，按用过处理', async () => {
+    expect(
+      await bzClipbookUsed(app({ clipbook: { sources: async () => undefined as never, articles: async () => [] } })),
+    ).toBe(true);
+  });
+
+  it('只有一项判据时，它说空才说空', async () => {
+    expect(await bzClipbookUsed(app({ clipbook: { articles: async () => [] } }))).toBe(false);
+    expect(await bzClipbookUsed(app({ clipbook: { articles: async () => [{ key: 'a' }] } }))).toBe(true);
+    /* 只有 open、没有判据：不提醒 */
+    expect(await bzClipbookUsed(app({ clipbook: { open: () => undefined } }))).toBe(true);
   });
 });
 
