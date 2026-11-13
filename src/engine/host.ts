@@ -21,6 +21,7 @@ import { makeBook, Overlayer } from './foliate';
 import type {
   DrawAnnotationDetail,
   FoliateBook,
+  FoliateContent,
   FoliateSection,
   FoliateTOCItem,
   FoliateView,
@@ -356,6 +357,14 @@ export class EngineHost {
   private chapterIndex = 0;
   private chapterTitle = '';
   private chapterHref = '';
+  /**
+   * 当前页每个朗读段对应的原始块元素（2026-11-13）。
+   *
+   * 高亮要的是**原文档里的元素**，不能拿 `cloneContents()` 的副本——副本
+   * 不在 iframe 文档里，`selectNodeContents` 画不出框。所以 currentBlocks
+   * 改走「整章元素 + 与视口相交过滤」，顺手把元素记在这里。
+   */
+  private speechSpots: Array<{ el: HTMLElement; content: FoliateContent }> = [];
   /**
    * 每章字节数（`book.sections[i].size`）：全本页码拿它估算没读过的章节。
    * 换书时重填，空书就是空数组——拿不到 size 的格式（个别 CBZ）估算会跳过。
@@ -1961,22 +1970,83 @@ export class EngineHost {
    * 当前屏幕上的**段落**（朗读脚本用，2026-11-13）。
    *
    * `currentText()` 把整页压成一串字，段落边界和引号位置都丢了；朗读要
-   * 分「旁白 / 对话」就必须保留段落。这里取同一块可见 Range，但返回
-   * 片段再按块级元素收集，顺序就是阅读顺序。
+   * 分「旁白 / 对话」就必须保留段落。
    *
-   * 取不到可见 Range 时退回整章——与 currentText 同一套兜底：宁可多念，
-   * 也不要「这一页没字」。
+   * 取元素而不是 `cloneContents()` 的片段：高亮要拿原文档里的元素画框。
+   * 分页器把整章排在一个 document 里，用「块与视口相交」筛出这一页。
+   * 一块都筛不出来（固定版式 / 没有块级元素的 TXT）时退回可见 Range 文本。
    */
   currentBlocks(): Array<{ tag: string; text: string }> {
+    this.speechSpots = [];
     const contents = this.view?.renderer?.getContents?.() ?? [];
     const out: Array<{ tag: string; text: string }> = [];
     for (const c of contents) {
       const doc = c.doc;
+      const win = doc?.defaultView;
+      if (!doc?.body || !win) continue;
+      const w = win.innerWidth || doc.documentElement.clientWidth || 0;
+      const h = win.innerHeight || doc.documentElement.clientHeight || 0;
+      if (w < 8 || h < 8) continue;
+      for (const el of leafBlocks(doc.body)) {
+        if (!inViewport(el, w, h)) continue;
+        const text = blockText(el);
+        if (!text) continue;
+        out.push({ tag: el.tagName.toLowerCase(), text });
+        this.speechSpots.push({ el, content: c });
+      }
+    }
+    if (out.length) return out;
+    for (const c of contents) {
+      const doc = c.doc;
       if (!doc?.body) continue;
-      const frag = this.visibleFragment(doc) ?? doc.body;
-      collectBlocks(frag, out);
+      const t = (this.visibleFragment(doc)?.textContent ?? '').replace(/\s+/g, ' ').trim();
+      if (t) out.push({ tag: 'p', text: t });
     }
     return out;
+  }
+
+  /** 当前章的全部段落（预生成整章音频用，不做可见过滤） */
+  currentChapterBlocks(): Array<{ tag: string; text: string }> {
+    const contents = this.view?.renderer?.getContents?.() ?? [];
+    const out: Array<{ tag: string; text: string }> = [];
+    for (const c of contents) {
+      if (c.doc?.body) collectBlocks(c.doc.body, out);
+    }
+    return out;
+  }
+
+  /** 当前章标题（预生成 / 导出音频时命名用） */
+  currentChapterTitle(): string {
+    const fromToc = (this.toc()[this.currentChapterIndex]?.label ?? '').trim();
+    return fromToc || this.chapterTitle.trim();
+  }
+
+  /** 朗读到某一段时把原文框出来；`indexes` 是 currentBlocks 的序号 */
+  markSpeechBlocks(indexes: readonly number[]): void {
+    this.clearSpeechMark();
+    const spot = indexes.length ? this.speechSpots[indexes[0]] : undefined;
+    if (!spot?.content.overlayer) return;
+    try {
+      const range = spot.content.doc.createRange();
+      range.selectNodeContents(spot.el);
+      const color =
+        getComputedStyle(spot.content.doc.documentElement).getPropertyValue('--interactive-accent').trim() ||
+        '#c8a464';
+      spot.content.overlayer.add(SPEECH_KEY, range, Overlayer.outline, { color, width: 2 });
+    } catch {
+      /* 章已经卸载 / 覆盖层不在：不画就是了 */
+    }
+  }
+
+  /** 撤掉朗读高亮（停止、换页、念完时调） */
+  clearSpeechMark(): void {
+    for (const c of this.view?.renderer?.getContents?.() ?? []) {
+      try {
+        c.overlayer?.remove(SPEECH_KEY);
+      } catch {
+        /* 覆盖层跟着章一起拆了 */
+      }
+    }
   }
 
   /* 两套 API 各有用武之地：caretPositionFromPoint 是标准（Chromium 128+），
@@ -2406,6 +2476,28 @@ export class EngineHost {
 
 /** 块级元素：一页正文按这些切开朗读（li / blockquote 里常再套 p，下面只取叶子） */
 const BLOCK_TAGS = 'p, h1, h2, h3, h4, h5, h6, blockquote, li, pre, dd, dt';
+
+/** 朗读高亮在覆盖层里的 key（与划线、落点框分开） */
+const SPEECH_KEY = 'bzr-tts-speech';
+
+function leafBlocks(root: ParentNode): HTMLElement[] {
+  const all = Array.from(root.querySelectorAll<HTMLElement>(BLOCK_TAGS));
+  return all.filter((el) => !el.querySelector(BLOCK_TAGS));
+}
+
+function blockText(el: HTMLElement): string {
+  return (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+}
+
+/** 块与 iframe 视口相交就算「这一页的」 */
+function inViewport(el: HTMLElement, w: number, h: number): boolean {
+  try {
+    const r = el.getBoundingClientRect();
+    return r.bottom > 0 && r.top < h && r.right > 0 && r.left < w;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * 从可见 Range 的片段里收集段落。

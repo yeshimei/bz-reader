@@ -12,6 +12,7 @@ import { aiReady, type ReaderSettings } from './settings';
 import { buildEnrichMessages } from './book-enrich';
 import { buildGuideMessages } from './chapter-guide';
 import { buildRouteMessages, type RouteBook } from './topic-route';
+import { buildRoleMessages } from '../core/tts-roles';
 
 export type AiTask =
   | 'summarize'
@@ -22,7 +23,9 @@ export type AiTask =
   | 'shelf'
   | 'enrich'
   | 'guide'
-  | 'route';
+  | 'route'
+  /* 朗读角色标注：一页正文 → 每段对白的性别（2026-11-13） */
+  | 'roles';
 
 /**
  * 追问时原文最多带多少字。
@@ -64,6 +67,8 @@ export interface AiAskInput {
   history?: AiTurn[];
   /** 主题书单的候选（只有 route 用）：书 + 命中的章节 + 相关度 */
   books?: RouteBook[];
+  /** 角色标注用的段落（只有 roles 用） */
+  blocks?: Array<{ text: string }>;
 }
 
 export interface AiMessage {
@@ -89,7 +94,7 @@ export function clipContext(text: string, limit = ASK_CONTEXT_LIMIT): string {
 }
 
 /** 摘录 / 解释 / 翻译的老口径，一字不改（回归测试锁着） */
-function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow' | 'shelf' | 'enrich' | 'guide' | 'route'>, text: string): string {
+function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow' | 'shelf' | 'enrich' | 'guide' | 'route' | 'roles'>, text: string): string {
   if (task === 'summarize') {
     return `请把下面这段文字压缩成不超过 100 字的摘要，直接给摘要正文，不要任何开场白或前缀：\n\n${text}`;
   }
@@ -166,6 +171,7 @@ function buildShelfMessages(input: AiAskInput): AiMessage[] {
  * 用户问「讲了什么」会被当成一段要解释的名词。
  */
 export function buildMessages(input: AiAskInput): AiMessage[] {
+  if (input.task === 'roles') return buildRoleMessages(input.blocks ?? []);
   if (input.task === 'follow') return buildFollowMessages(input);
   if (input.task === 'enrich') {
     /* 补元数据：书名 + 作者 + 画像里的一段样本。格式约定在 book-enrich 里，

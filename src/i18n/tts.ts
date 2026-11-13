@@ -22,11 +22,14 @@ export const TTS_ZH = {
   'settings.ttsDialogue': '对白音色',
   'settings.ttsDialogueOnly': '只念对白',
   'settings.ttsDialogueOnly.hint': '跳过旁白，只念引号里的对话，费用大约省三分之二。',
+  'settings.ttsAiRoles': '让模型认角色',
+  'settings.ttsAiRoles.hint': '每页多一次模型请求（约 1–3 秒），认出「他说 / 她说」后男声用暗潮、女声用海星。',
   'settings.ttsCache': '音频缓存',
   'settings.ttsCache.clear': '清空',
   'settings.ttsCache.hint': '听过的不再重复计费；0 = 不缓存。',
   'settings.ttsTest': '试听',
   'settings.ttsKey.hint': '用上面「AI 助手」里的接口地址与密钥；没填密钥时点朗读会带你去设置。',
+  'settings.ttsSpent': '累计约 {cost} 元（{chars} 计费字符，本地估算）',
 
   'notice.tts.noKey': '还没有配置 DeepSeek 密钥：去「设置 · AI 助手」填好再用朗读',
   'notice.tts.unsupportedLang': '这本书的语言 DeepSeek 语音不支持（仅中、粤、英、日、韩等），换系统语音试试',
@@ -39,6 +42,11 @@ export const TTS_ZH = {
   'notice.tts.cacheCleared': '朗读缓存已清空',
   'notice.tts.testing': '正在合成试听…',
   'notice.tts.privacy': '朗读会把当前这一页的正文发送给 DeepSeek 做语音合成；只在点朗读时发送。',
+  'notice.tts.exported': '已导出 {name}',
+  'notice.tts.exportEmpty': '这一页没有可导出的音频',
+  'notice.tts.prefetching': '正在预生成本章音频，做完后翻页即听',
+  'notice.tts.prefetched': '本章已缓存 {done} 段',
+  'notice.tts.confirmPrefetch': '本章预生成约需 {cost} 元，继续吗？',
 
   'tts.bar.narration': '旁白',
   'tts.bar.dialogue': '对白',
@@ -47,6 +55,8 @@ export const TTS_ZH = {
   'tts.bar.stop': '停止',
   'tts.bar.prev': '上一段',
   'tts.bar.next': '下一段',
+  'tts.bar.prefetch': '预生成本章',
+  'tts.bar.export': '导出音频',
   'tts.bar.cost': '{cost} 元',
 } as const;
 
@@ -63,11 +73,14 @@ export const TTS_ZH_TW = {
   'settings.ttsDialogue': '對白音色',
   'settings.ttsDialogueOnly': '只念對白',
   'settings.ttsDialogueOnly.hint': '跳過旁白，只念引號裡的對話，費用大約省三分之二。',
+  'settings.ttsAiRoles': '讓模型認角色',
+  'settings.ttsAiRoles.hint': '每頁多一次模型請求（約 1–3 秒），認出「他說 / 她說」後男聲用暗潮、女聲用海星。',
   'settings.ttsCache': '音訊快取',
   'settings.ttsCache.clear': '清空',
   'settings.ttsCache.hint': '聽過的不再重複計費；0 = 不快取。',
   'settings.ttsTest': '試聽',
   'settings.ttsKey.hint': '用上面「AI 助手」裡的介面位址與金鑰；沒填金鑰時點朗讀會帶你去設定。',
+  'settings.ttsSpent': '累計約 {cost} 元（{chars} 計費字元，本機估算）',
 
   'notice.tts.noKey': '還沒有設定 DeepSeek 金鑰：去「設定 · AI 助手」填好再用朗讀',
   'notice.tts.unsupportedLang': '這本書的語言 DeepSeek 語音不支援（僅中、粵、英、日、韓等），換系統語音試試',
@@ -80,6 +93,11 @@ export const TTS_ZH_TW = {
   'notice.tts.cacheCleared': '朗讀快取已清空',
   'notice.tts.testing': '正在合成試聽…',
   'notice.tts.privacy': '朗讀會把當前這一頁的正文傳送給 DeepSeek 做語音合成；只在點朗讀時傳送。',
+  'notice.tts.exported': '已匯出 {name}',
+  'notice.tts.exportEmpty': '這一頁沒有可匯出的音訊',
+  'notice.tts.prefetching': '正在預生成本章音訊，做完後翻頁即聽',
+  'notice.tts.prefetched': '本章已快取 {done} 段',
+  'notice.tts.confirmPrefetch': '本章預生成約需 {cost} 元，繼續嗎？',
 
   'tts.bar.narration': '旁白',
   'tts.bar.dialogue': '對白',
@@ -88,6 +106,8 @@ export const TTS_ZH_TW = {
   'tts.bar.stop': '停止',
   'tts.bar.prev': '上一段',
   'tts.bar.next': '下一段',
+  'tts.bar.prefetch': '預生成本章',
+  'tts.bar.export': '匯出音訊',
   'tts.bar.cost': '{cost} 元',
 } as const;
 
@@ -104,11 +124,14 @@ const TTS_EN_BASE = {
   'settings.ttsDialogue': 'Dialogue voice',
   'settings.ttsDialogueOnly': 'Dialogue only',
   'settings.ttsDialogueOnly.hint': 'Skip narration and read only quoted speech; about two thirds cheaper.',
+  'settings.ttsAiRoles': 'Model-detected characters',
+  'settings.ttsAiRoles.hint': 'One extra model request per page (about 1–3 s). Detected male lines use Tide, female lines use Stella.',
   'settings.ttsCache': 'Audio cache',
   'settings.ttsCache.clear': 'Clear',
   'settings.ttsCache.hint': 'Anything heard once is not billed again; 0 = no cache.',
   'settings.ttsTest': 'Preview',
   'settings.ttsKey.hint': 'Uses the endpoint and key from “AI assistant” above. Without a key, read aloud takes you to settings.',
+  'settings.ttsSpent': 'About {cost} yuan so far ({chars} billed characters, local estimate)',
 
   'notice.tts.noKey': 'No DeepSeek key yet: fill in “Settings · AI assistant” before using read aloud',
   'notice.tts.unsupportedLang': 'DeepSeek speech does not support this book’s language (zh, yue, en, ja, ko and a few more); try the system voice',
@@ -121,6 +144,11 @@ const TTS_EN_BASE = {
   'notice.tts.cacheCleared': 'Read-aloud cache cleared',
   'notice.tts.testing': 'Synthesizing a preview…',
   'notice.tts.privacy': 'Read aloud sends the current page to DeepSeek for speech synthesis, and only when you start it.',
+  'notice.tts.exported': 'Exported {name}',
+  'notice.tts.exportEmpty': 'Nothing on this page to export',
+  'notice.tts.prefetching': 'Pre-building this chapter; pages will play instantly once done',
+  'notice.tts.prefetched': 'Cached {done} segments for this chapter',
+  'notice.tts.confirmPrefetch': 'Pre-building this chapter costs about {cost} yuan. Continue?',
 
   'tts.bar.narration': 'Narration',
   'tts.bar.dialogue': 'Dialogue',
@@ -129,6 +157,8 @@ const TTS_EN_BASE = {
   'tts.bar.stop': 'Stop',
   'tts.bar.prev': 'Previous',
   'tts.bar.next': 'Next',
+  'tts.bar.prefetch': 'Pre-build chapter',
+  'tts.bar.export': 'Export audio',
   'tts.bar.cost': '{cost} yuan',
 } as const;
 

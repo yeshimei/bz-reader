@@ -112,6 +112,12 @@ export interface ReaderPrefs {
   ttsMultiVoice: boolean;
   /** 只念引号里的对白，跳过旁白（省一半以上的钱） */
   ttsDialogueOnly: boolean;
+  /**
+   * 让模型认角色（2026-11-13）：每页多一次 deepseek-flash 请求，
+   * 认出「他说 / 她说」之后男声用暗潮、女声用海星。
+   * 默认关：多一次请求就多 1–3 秒等待，先让人听到正常念法再开。
+   */
+  ttsAiRoles: boolean;
   /** 音频缓存上限（MB），0 = 不缓存 */
   ttsCacheMB: number;
   /** 翻页 / 滚动（见 FlowMode） */
@@ -210,6 +216,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   ttsDialogue: 'tide',
   ttsMultiVoice: true,
   ttsDialogueOnly: false,
+  ttsAiRoles: false,
   ttsCacheMB: 300,
   flow: 'paged',
   pageLabel: 'book',
@@ -422,6 +429,7 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     ttsDialogue: voiceOf(p.ttsDialogue, DEFAULT_PREFS.ttsDialogue),
     ttsMultiVoice: p.ttsMultiVoice !== false,
     ttsDialogueOnly: p.ttsDialogueOnly === true,
+    ttsAiRoles: p.ttsAiRoles === true,
     ttsCacheMB: Math.round(clamp(p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, DEFAULT_PREFS.ttsCacheMB)),
     flow: p.flow === 'scroll' ? 'scroll' : 'paged',
     /* 页码：只认三档白名单；老数据没有这一项时落回默认（全书） */

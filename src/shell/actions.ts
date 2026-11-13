@@ -1988,6 +1988,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       /* 朗读的两个开关（2026-11-13）：按当前 class 翻转，和上面同一套 */
       if (d.k === 'ttsMultiVoice') src.setPrefs({ ttsMultiVoice: !el.classList.contains('on') });
       if (d.k === 'ttsDialogueOnly') src.setPrefs({ ttsDialogueOnly: !el.classList.contains('on') });
+      if (d.k === 'ttsAiRoles') src.setPrefs({ ttsAiRoles: !el.classList.contains('on') });
       repaint();
       break;
     }

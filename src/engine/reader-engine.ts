@@ -123,6 +123,13 @@ export interface ReaderEngine {
    * 否则整页只有一个声音。PDF 没有块结构，不实现。
    */
   currentBlocks?(): Array<{ tag: string; text: string }>;
+  /** 当前章的全部段落（预生成整章音频用） */
+  currentChapterBlocks?(): Array<{ tag: string; text: string }>;
+  /** 当前章标题（预生成 / 导出音频命名用） */
+  currentChapterTitle?(): string;
+  /** 把正在念的那一段框出来（角色高亮）；没有覆盖层的引擎不实现 */
+  markSpeechBlocks?(indexes: readonly number[]): void;
+  clearSpeechMark?(): void;
   exportChapters(opts?: {
     onProgress?: (done: number, total: number, title: string) => void;
     shouldStop?: () => boolean;

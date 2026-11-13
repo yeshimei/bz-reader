@@ -34,8 +34,11 @@ import { applyEngineMeta } from '../data/book-meta';
 import { coverPathOf, ensureCoverFromFoliate } from '../data/cover';
 import { speak, speakLang, type SpeakHandle } from '../core/speak';
 import { billedChars, buildScript, estimateCost, ttsLangSupported, type ScriptKind, type ScriptSegment } from '../core/tts-script';
-import { synthesizeSpeech, type TtsErrorCode } from '../core/tts-api';
+import { synthesizeSpeech, type TtsErrorCode, type TtsVoice } from '../core/tts-api';
 import { TtsPlayer } from '../core/tts-player';
+import { applyGenders, parseRoleGenders, type SegmentWithGender } from '../core/tts-roles';
+import { concatWav } from '../core/wav';
+import { aiAsk } from '../data/ai';
 import { TtsCache, cacheKey } from '../data/tts-cache';
 import { ttsBarHtml } from './tts-bar';
 import { notify, notifyNow, type NoticeHandle } from '../core/notice';
@@ -229,6 +232,16 @@ function snippetOf(text: string): string {
   return flat.length > 42 ? `${flat.slice(0, 42)}…` : flat;
 }
 
+/** 导出文件名：去掉路径分隔符与 Windows 不认的字符 */
+function safeFileName(raw: string): string {
+  const s = String(raw ?? '')
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+  return s || 'audio';
+}
+
 export class ReaderView extends ItemView {
   private api: ReaderHostApi;
   private bookId = '';
@@ -385,6 +398,10 @@ export class ReaderView extends ItemView {
   private ttsChars = 0;
   private ttsCost = 0;
   private ttsTotal = 0;
+  /** 每次开始朗读 +1：等 AI 标角色的那几秒里用户可能已经停了 */
+  private ttsRun = 0;
+  /** 正在预生成本章音频（再点一次取消） */
+  private prefetching = false;
 
   /* 每日打卡：按 tracker 的已读秒数增量记账。
      以前只在关 tab 时 addCheckin 一次——开着 tab 读一整天，统计页永远 0。 */
@@ -1675,7 +1692,7 @@ export class ReaderView extends ItemView {
       return;
     }
     if (this.prefs.ttsEngine === 'deepseek') {
-      this.speakPageAi(text);
+      void this.speakPageAi(text);
       return;
     }
     // 基础版包里 speak() 返回 null —— 那就是「这个环境没有朗读」
@@ -1728,7 +1745,7 @@ export class ReaderView extends ItemView {
    * 不做自动退回系统语音（用户明确要求）：失败就停并说清原因，
    * 要不要换引擎由用户自己决定。
    */
-  private speakPageAi(text: string): void {
+  private async speakPageAi(text: string): Promise<void> {
     const settings = shellSettings();
     const ai = settings.ai;
     if (!ai.apiKey.trim()) {
@@ -1748,7 +1765,7 @@ export class ReaderView extends ItemView {
     }
     /* PDF / TXT 取不到块结构时退回整页一段：至少还能念，只是不分角色 */
     const blocks = this.host.currentBlocks?.() ?? [];
-    let segments = buildScript(blocks.length ? blocks : [{ tag: 'p', text }]);
+    let segments: SegmentWithGender[] = buildScript(blocks.length ? blocks : [{ tag: 'p', text }]);
     if (this.prefs.ttsDialogueOnly) segments = segments.filter((s) => s.kind === 'dialogue');
     if (!segments.length) {
       notify(t('notice.tts.noText'));
@@ -1756,12 +1773,21 @@ export class ReaderView extends ItemView {
     }
     /* 先停旧的：换页重念时不能两条音频叠在一起 */
     this.stopTts();
+    const run = ++this.ttsRun;
+
+    /* 让模型认角色：多等 1–3 秒，换来「男声/女声」；标注失败就按双音色念 */
+    if (this.prefs.ttsAiRoles && segments.some((s) => s.kind === 'dialogue')) {
+      segments = await this.annotateRoles(segments, blocks);
+      if (this.closed || run !== this.ttsRun) return;
+    }
 
     const voices = this.prefs.ttsMultiVoice
       ? { narration: this.prefs.ttsNarrator, dialogue: this.prefs.ttsDialogue }
       : { narration: this.prefs.ttsVoice, dialogue: this.prefs.ttsVoice };
+    const voiceOf = (seg: SegmentWithGender): TtsVoice => this.ttsVoiceOf(seg, voices);
     this.ttsChars = segments.reduce((n, s) => n + billedChars(s.text), 0);
     this.ttsCost = estimateCost(this.ttsChars);
+    this.addTtsSpend(this.ttsChars, this.ttsCost);
     this.ttsTotal = segments.length;
     this.ttsIndex = 0;
     this.ttsKind = segments[0].kind;
@@ -1770,7 +1796,7 @@ export class ReaderView extends ItemView {
     const cacheMB = this.prefs.ttsCacheMB;
     const cache = cacheMB > 0 ? new TtsCache() : null;
     const bookId = this.bookId;
-    const player = new TtsPlayer(segments, voices, {
+    const player = new TtsPlayer(segments, voiceOf, {
       synthesize: (body, voice, signal) =>
         synthesizeSpeech({ baseUrl: ai.baseUrl, apiKey: ai.apiKey, text: body, voice, signal }),
       ...(cache
@@ -1786,6 +1812,7 @@ export class ReaderView extends ItemView {
         this.ttsIndex = index;
         this.ttsKind = seg.kind;
         this.ttsSnippet = snippetOf(seg.text);
+        this.host.markSpeechBlocks?.(seg.blocks);
         this.renderTtsBar();
       },
       onEnd: () => this.onPageSpoken(),
@@ -1800,8 +1827,22 @@ export class ReaderView extends ItemView {
     player.start();
   }
 
+  /** 调模型标角色；失败返回原样（听书不能因为一次标注失败就停） */
+  private async annotateRoles(
+    segments: SegmentWithGender[],
+    blocks: Array<{ text: string }>,
+  ): Promise<SegmentWithGender[]> {
+    try {
+      const res = await aiAsk(shellSettings(), { task: 'roles', text: '', blocks });
+      const genders = parseRoleGenders(res.text, blocks.length);
+      return applyGenders(segments, genders);
+    } catch {
+      return segments;
+    }
+  }
+
   /** 朗读失败：按错误类型说人话，然后停（不回退系统语音） */
-  private onTtsError(code: TtsErrorCode | 'audio', error: unknown): void {
+  private onTtsError(code: TtsErrorCode | 'audio', _error: unknown): void {
     const map: Partial<Record<TtsErrorCode | 'audio', MsgKey>> = {
       unauthorized: 'notice.tts.noKey',
       rejected: 'notice.tts.rejected',
@@ -1867,7 +1908,155 @@ export class ReaderView extends ItemView {
       p.next();
     } else if (act === 'ttsprev') {
       p.prev();
+    } else if (act === 'ttsprefetch') {
+      void this.prefetchChapter();
+    } else if (act === 'ttsexport') {
+      void this.exportSpeech();
     }
+  }
+
+  /** 按段选声音：旁白一把；对白在开了「模型认角色」时按男女分 */
+  private ttsVoiceOf(
+    seg: SegmentWithGender,
+    voices: { narration: TtsVoice; dialogue: TtsVoice },
+  ): TtsVoice {
+    if (seg.kind === 'narration') return voices.narration;
+    if (this.prefs.ttsAiRoles && seg.gender === 'm') return 'tide';
+    if (this.prefs.ttsAiRoles && seg.gender === 'f') return 'stella';
+    return voices.dialogue;
+  }
+
+  /**
+   * 预生成整章音频（2026-11-13）。
+   *
+   * 逐段合成写缓存，翻页时直接命中，不再等 2–6 秒。代价是这一章的费用
+   * 一次付清——超过 5 元先问一句，别让一次误点烧掉一整本书的钱。
+   * 再点一次按钮 = 取消（当前这段合完就停）。
+   */
+  private async prefetchChapter(): Promise<void> {
+    if (this.prefetching) {
+      this.prefetching = false;
+      return;
+    }
+    const ai = shellSettings().ai;
+    if (!ai.apiKey.trim()) {
+      notify(t('notice.tts.noKey'));
+      return;
+    }
+    const segments = buildScript(this.host.currentChapterBlocks?.() ?? []);
+    if (!segments.length) {
+      notify(t('notice.tts.noText'));
+      return;
+    }
+    const chars = segments.reduce((n, s) => n + billedChars(s.text), 0);
+    const cost = estimateCost(chars);
+    if (cost >= 5 && !window.confirm(t('notice.tts.confirmPrefetch', { cost: cost.toFixed(2) }))) return;
+    this.prefetching = true;
+    notify(t('notice.tts.prefetching'), 'info', 4000);
+    const cacheMB = this.prefs.ttsCacheMB;
+    const cache = cacheMB > 0 ? new TtsCache() : null;
+    let done = 0;
+    let spentChars = 0;
+    try {
+      for (const seg of segments) {
+        if (!this.prefetching || this.closed) break;
+        const voice = this.ttsVoiceOf(seg, this.ttsVoices());
+        const key = cacheKey(this.bookId, voice, seg.text);
+        let buf = cache ? await cache.get(key) : null;
+        if (!buf) {
+          try {
+            buf = await synthesizeSpeech({ baseUrl: ai.baseUrl, apiKey: ai.apiKey, text: seg.text, voice });
+          } catch (e) {
+            /* 审核拒了这一段就跳过，别让整章预生成停在这里 */
+            if ((e as { code?: string }).code === 'rejected') continue;
+            throw e;
+          }
+          if (cache) await cache.put(key, buf, cacheMB * 1024 * 1024);
+          spentChars += billedChars(seg.text);
+        }
+        done++;
+      }
+      if (done) notify(t('notice.tts.prefetched', { done: String(done) }));
+    } catch {
+      notify(t('notice.tts.failed'));
+    } finally {
+      this.prefetching = false;
+      if (spentChars) this.addTtsSpend(spentChars, estimateCost(spentChars));
+    }
+  }
+
+  /**
+   * 导出当前页音频（2026-11-13）：逐段合成（缓存优先）→ 拼成一个 wav →
+   * 写进 `bz-reader/audio/`。不写库根、不覆盖同名旧文件。
+   */
+  private async exportSpeech(): Promise<void> {
+    const ai = shellSettings().ai;
+    if (!ai.apiKey.trim()) {
+      notify(t('notice.tts.noKey'));
+      return;
+    }
+    const segments = buildScript(this.host.currentBlocks?.() ?? []);
+    if (!segments.length) {
+      notify(t('notice.tts.exportEmpty'));
+      return;
+    }
+    const cacheMB = this.prefs.ttsCacheMB;
+    const cache = cacheMB > 0 ? new TtsCache() : null;
+    const bufs: ArrayBuffer[] = [];
+    let spentChars = 0;
+    try {
+      for (const seg of segments) {
+        const voice = this.ttsVoiceOf(seg, this.ttsVoices());
+        const key = cacheKey(this.bookId, voice, seg.text);
+        let buf = cache ? await cache.get(key) : null;
+        if (!buf) {
+          buf = await synthesizeSpeech({ baseUrl: ai.baseUrl, apiKey: ai.apiKey, text: seg.text, voice });
+          if (cache) await cache.put(key, buf, cacheMB * 1024 * 1024);
+          spentChars += billedChars(seg.text);
+        }
+        bufs.push(buf);
+      }
+    } catch {
+      notify(t('notice.tts.failed'));
+      return;
+    }
+    if (spentChars) this.addTtsSpend(spentChars, estimateCost(spentChars));
+    const wav = concatWav(bufs);
+    if (!wav) {
+      notify(t('notice.tts.exportEmpty'));
+      return;
+    }
+    const dir = 'bz-reader/audio';
+    const vault = this.api.app.vault;
+    try {
+      if (!(await vault.adapter.exists(dir))) await vault.createFolder(dir);
+      const name = `${safeFileName(this.book?.meta.title ?? 'book')}-${safeFileName(this.host.pageKey || 'page')}.wav`;
+      const path = `${dir}/${name}`;
+      if (await vault.adapter.exists(path)) await vault.adapter.remove(path);
+      await vault.createBinary(path, wav);
+      notify(t('notice.tts.exported', { name }));
+    } catch (e) {
+      notify(`${t('notice.tts.failed')}：${(e as Error)?.message || ''}`);
+    }
+  }
+
+  /** 当前偏好下的旁白 / 对白两把嗓子 */
+  private ttsVoices(): { narration: TtsVoice; dialogue: TtsVoice } {
+    return this.prefs.ttsMultiVoice
+      ? { narration: this.prefs.ttsNarrator, dialogue: this.prefs.ttsDialogue }
+      : { narration: this.prefs.ttsVoice, dialogue: this.prefs.ttsVoice };
+  }
+
+  /** 本地估算累加；只记在这台机器上，不跟库同步 */
+  private addTtsSpend(chars: number, cost: number): void {
+    if (!chars) return;
+    const stats = shellSettings().ttsStats;
+    getShellSource()?.setSettings({
+      ttsStats: {
+        chars: stats.chars + chars,
+        cost: Math.round((stats.cost + cost) * 1000) / 1000,
+      },
+    });
   }
 
   /**
@@ -1897,11 +2086,13 @@ export class ReaderView extends ItemView {
 
   private stopTts(): void {
     if (!this.speaking && !this.ttsPlayer) return;
+    this.ttsRun++;
     this.speaking = false;
     this.voice?.stop();
     this.voice = null;
     this.ttsPlayer?.stop();
     this.ttsPlayer = null;
+    this.host.clearSpeechMark?.();
     this.hideTtsBar();
     this.syncToolState();
   }

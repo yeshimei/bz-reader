@@ -144,6 +144,9 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/view/header-actions.ts': 40,
   'src/view/reader-fault.ts': 1,
   'src/view/reader-view.ts': 9,
+  /* 2026-11-13：朗读角色标注的 prompt。这是发给模型的指令，不是界面文案；
+     中文指令对中文小说的角色判断更稳，不翻译。 */
+  'src/core/tts-roles.ts': 3,
   'src/view/side-view.ts': 1,
 };
 

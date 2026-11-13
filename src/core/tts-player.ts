@@ -50,6 +50,9 @@ export interface TtsVoicePair {
   dialogue: TtsVoice;
 }
 
+/** 按段挑声音：角色标注（男女）需要逐段决定，不能只按旁白/对白两类 */
+export type TtsVoicePicker = (segment: ScriptSegment) => TtsVoice;
+
 interface Ready {
   url: string;
   audio: TtsAudioLike;
@@ -68,7 +71,7 @@ function defaultRevoke(url: string): void {
 
 export class TtsPlayer {
   private readonly segments: readonly ScriptSegment[];
-  private readonly voices: TtsVoicePair;
+  private readonly voices: TtsVoicePair | TtsVoicePicker;
   private readonly deps: TtsPlayerDeps;
   private index = 0;
   private rate = 1;
@@ -83,7 +86,7 @@ export class TtsPlayer {
   private readonly ready = new Map<number, Ready>();
   private readonly pending = new Set<number>();
 
-  constructor(segments: readonly ScriptSegment[], voices: TtsVoicePair, deps: TtsPlayerDeps) {
+  constructor(segments: readonly ScriptSegment[], voices: TtsVoicePair | TtsVoicePicker, deps: TtsPlayerDeps) {
     this.segments = segments;
     this.voices = voices;
     this.deps = deps;
@@ -186,6 +189,11 @@ export class TtsPlayer {
     });
   }
 
+  private voiceOf(seg: ScriptSegment): TtsVoice {
+    if (typeof this.voices === 'function') return this.voices(seg);
+    return seg.kind === 'dialogue' ? this.voices.dialogue : this.voices.narration;
+  }
+
   private async acquire(index: number, token: number): Promise<Ready | null> {
     const ready = this.ready.get(index);
     if (ready) {
@@ -194,7 +202,7 @@ export class TtsPlayer {
     }
     const seg = this.segments[index];
     if (!seg) return null;
-    const voice = seg.kind === 'dialogue' ? this.voices.dialogue : this.voices.narration;
+    const voice = this.voiceOf(seg);
     const key = this.deps.cacheKey?.(seg.text, voice) ?? `${voice}|${seg.text.length}`;
     try {
       let buf: ArrayBuffer | null = null;

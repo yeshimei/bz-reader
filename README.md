@@ -106,6 +106,7 @@
 - 建全书索引时，整本书的正文会分块发给嵌入服务；提问时只发检索命中的那几块，必要时再带上书名、章节名与最近几轮问答。向量与索引都存在插件目录里，不上传。
 - 嵌入由 bz（第二大脑）插件提供：没装它就没有向量检索，只能走压缩要点那一档。
 - API Key 与其他设置一起保存在插件目录的 `data.json` 里，不会上传给插件作者；只有请求你自己填写的那个接口时，它才会以请求头的形式发过去。
+- 朗读用 DeepSeek 语音时，只把**当前这一页的正文**发往 `https://api.deepseek.com/v1/tools/tts`（或你在设置里填的兼容地址）合成音频；不点朗读、不预生成就不发。合成结果缓存在本机 IndexedDB，不上传。
 - 打开「支持作者」弹窗（或更新日志）时，会读取一份公开的支持者名单：同时请求 GitHub 与码云上的同一个静态 JSON，谁先回用谁。只取这一份名单，不发送任何个人信息、不做统计上报；名单在本机缓存，两个源都不通时显示「没加载出来」和重试。名单是公开数据，内容与两个插件里显示的完全一致。
 
 ## 常见问题
@@ -223,6 +224,7 @@ Only the AI features and the supporter list in **Support the author** go online;
 - Building the whole-book index sends the book's text to your embedding service in chunks; a question only sends the few retrieved chunks, plus the book title, chapter name, and the last few turns when needed. Vectors and the index stay in the plugin folder and are never uploaded.
 - Embeddings come from the bz (second brain) plugin: without it there is no vector search, only the compressed-key-points path.
 - Your API key is stored with the rest of your settings in `data.json` inside the plugin folder. It is never sent to the plugin author; it only travels to the endpoint you configured, as a request header.
+- Read aloud with DeepSeek speech sends only the current page to `https://api.deepseek.com/v1/tools/tts` (or the compatible endpoint you configured) for synthesis; nothing is sent unless you start read aloud or pre-build a chapter. Audio is cached in local IndexedDB and never uploaded.
 - Opening **Support the author** (or the changelog) reads a public supporter list: the same static JSON from GitHub and Gitee is requested at the same time, and whichever answers first is used. Only that list is fetched — no personal data, no analytics. It is cached locally; if both sources fail, "couldn't load" and a retry button appear. The list is public data, identical in both plugins.
 
 ### FAQ

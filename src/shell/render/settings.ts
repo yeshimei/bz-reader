@@ -456,11 +456,17 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>${t('settings.ttsDialogue')}</label>${seg('ttsDialogue', voiceOpts, p.ttsDialogue)}</div>
       ${prefToggle('ttsDialogueOnly', p.ttsDialogueOnly, t('settings.ttsDialogueOnly'))}
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsDialogueOnly.hint')}</div>
+      ${prefToggle('ttsAiRoles', p.ttsAiRoles, t('settings.ttsAiRoles'))}
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsAiRoles.hint')}</div>
       ${range('ttsCacheMB', t('settings.ttsCache'), p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, TTS_CACHE_RANGE.step, (x) => `${x} MB`)}
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsCache.hint')}
         <button class="bzs-btn sm" data-act="ttscacheclear">${t('settings.ttsCache.clear')}</button>
       </div>
       <div class="bzs-mini" style="margin:0 0 8px;line-height:1.9">${t('settings.ttsKey.hint')}</div>
+      <div class="bzs-mini" style="margin:0 0 8px">${t('settings.ttsSpent', {
+        cost: s.ttsStats.cost.toFixed(2),
+        chars: String(s.ttsStats.chars),
+      })}</div>
       <div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
         <button class="bzs-btn sm pri" data-act="ttstest">${t('settings.ttsTest')}</button>
         <span class="bzs-mini" data-role="ttstest-out"></span>

@@ -46,6 +46,12 @@ export function ttsBarHtml(s: TtsBarState): string {
       }</button>
       <button class="bzr-ttsbtn" data-act="ttsstop" title="${t('tts.bar.stop')}" aria-label="${t('tts.bar.stop')}">■</button>
       <button class="bzr-ttsbtn" data-act="ttsnext" title="${t('tts.bar.next')}" aria-label="${t('tts.bar.next')}">⏭</button>
+      <button class="bzr-ttsbtn is-minor" data-act="ttsprefetch" title="${t('tts.bar.prefetch')}" aria-label="${t(
+        'tts.bar.prefetch',
+      )}">⤓</button>
+      <button class="bzr-ttsbtn is-minor" data-act="ttsexport" title="${t('tts.bar.export')}" aria-label="${t(
+        'tts.bar.export',
+      )}">⭳</button>
     </div>
   </div>`;
 }

@@ -78,6 +78,13 @@ export interface ReaderSettings {
    */
   ttsAck: boolean;
   /**
+   * 朗读花掉的估算（2026-11-13）：计费字符与元。
+   *
+   * 只是**本地估算**，不是账单：按刊例价与送出的文本累加，缓存命中的
+   * 也算进去了（宁可高估）。存在 settings（本机），不跟库同步。
+   */
+  ttsStats: { chars: number; cost: number };
+  /**
    * 调试日志：把触摸、选区、翻页、跳转写进数据目录的 `debug.json`。
    *
    * 只在排查「划词时页面乱跳」这类真机问题时要打开。默认关，关着时
@@ -129,6 +136,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   },
   aiAck: false,
   ttsAck: false,
+  ttsStats: { chars: 0, cost: 0 },
   debugLog: false,
   clipBook: false,
   clipScope: DEFAULT_CLIP_SCOPE,
@@ -221,6 +229,10 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     ai: normalizeAi(s.ai),
     aiAck: s.aiAck === true,
     ttsAck: s.ttsAck === true,
+    ttsStats: {
+      chars: Math.max(0, Math.round(Number(s.ttsStats?.chars) || 0)),
+      cost: Math.max(0, Number(s.ttsStats?.cost) || 0),
+    },
     debugLog: s.debugLog === true,
     /* 缺字段（旧版本没有它）= 关：剪藏成书要人主动开，不能靠缺省值替人选 */
     clipBook: s.clipBook === true,
