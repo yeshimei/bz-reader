@@ -11,7 +11,8 @@
    5. 每次都在 worktree 里改代码，改完只部署到测试库；没有我的明确指令，不得合并到主分支。
    等我确认后再改动代码。
 4. **再走 TDD**：先写 `tests/<模块>.test.ts` 让它红，再改实现让它绿；修 bug 先写复现断言并永久保留，测试与实现同一提交；纯样式（CSS）例外，提交信息写「无逻辑变更，走真机冒烟」并说明冒烟了什么。
-5. **多语言只在准备上架那一版时补齐**：日常开发、修 bug、feature 分支**不**给外语配翻译。新增文案只把 `zh`（基准包）和 `en` 写实，其余六包放占位顶住门禁——`ja`/`de`/`fr`/`es`/`pt` 直接放英文原值，`zh-TW` 必须放繁体写法（`tests/i18n-packs.test.ts` 会查简体字）。正式翻译、术语统一、润色统一放到发版前一次做完，见「上架」的发版步骤第 2 步。
+5. **多语言只在发版流程补齐**：日常开发、修 bug、feature 分支**只写 `src/i18n/zh.ts` 的中文**——不给外语包写翻译，也不在开发期逐字推敲英文 / 繁体。中文包是 key 的类型真源，加完 key 跑一次 `node scripts/i18n-placeholders.mjs`，脚本自动给其余七包补 `[TODO]` 占位顶住门禁（只补缺失 key、不覆盖已有译文，`{占位符}`与中文逐条相同）。正式翻译、术语统一、润色统一放到上架第一段第 2 步一次做完。
+   - 上架前必须跑 `node scripts/i18n-placeholders.mjs --check`，还有占位或漏 key 就停。
    - 更新日志永远只有中英两版（`changelogLang()`），任何版本都不补其余六种。
 
 ## 提交前必过三道门
@@ -106,7 +107,7 @@ node scripts/lint-obsidian.mjs
 
 ### 第一段：做到推 master
 1. `node scripts/lint-obsidian.mjs` → 0/0（TypeScript 与 CSS 两道都在这条命令里）；
-2. **补齐本版多语言**：把本次改动新增/改动的文案在 `src/i18n/` 里七种外语全部换成正式翻译（替换开发期留的英文/繁体占位）。自查四条——key 集合与 `zh.ts` 一致、无空串、`{占位符}`与中文逐条相同、拉丁语系包无汉字且 `zh-TW` 无简体字（跑 `vitest run tests/i18n-packs.test.ts` 就是这套）；
+2. **补齐本版多语言**：先跑 `node scripts/i18n-placeholders.mjs --check` 列出待补条目，把开发期留下的 `[TODO]` 占位在 `src/i18n/` 里七种外语全部换成正式翻译；补完再跑一次 `--check`，必须为空才继续。自查四条——key 集合与 `zh.ts` 一致、无空串、`{占位符}`与中文逐条相同、拉丁语系包无汉字且 `zh-TW` 无简体字（跑 `vitest run tests/i18n-packs.test.ts` 就是这套）；
 3. 三道门（tsc / vitest / esbuild）；
 4. `manifest.json` 的 `version`、`versions.json` 同步（README 徽章由 shields 实时取 GitHub，不用再手动刷图）；`docs/note-v<版本>.md` 与 `src/shell/changelog.ts` 的本版块逐条同口径（`tests/changelog-data.test.ts` 对账）；
 5. 提交并推送 master；
