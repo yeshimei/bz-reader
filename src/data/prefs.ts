@@ -142,6 +142,14 @@ export interface ReaderPrefs {
    * 关掉就只填 IndexedDB 缓存（只在本机有效，换设备听不到）。
    */
   ttsOfflineSave: boolean;
+  /**
+   * 本地引擎：先备好整章音频再朗读（2026-11-14，默认开）。
+   *
+   * 开：点朗读时这一章没有音频，就弹窗问要不要现在备（整章 / 整本）。
+   * 关：回到「边合边念」——本地一句 3–8 秒，会一直卡，只留给调试和
+   * 想边听边等的人。
+   */
+  ttsPackFirst: boolean;
   /** 翻页 / 滚动（见 FlowMode） */
   flow: FlowMode;
   /** 阅读页右下角的页码口径：关 / 本章 / 全书（见 PageLabelMode） */
@@ -242,6 +250,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   ttsAiRoles: false,
   ttsCacheMB: 300,
   ttsOfflineSave: true,
+  ttsPackFirst: true,
   flow: 'paged',
   pageLabel: 'book',
   chapterLabel: true,
@@ -465,6 +474,7 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     ttsCacheMB: Math.round(clamp(p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, DEFAULT_PREFS.ttsCacheMB)),
     /* 离线包默认开：老数据里没有这一项 → 开（这是听书的主路径） */
     ttsOfflineSave: p.ttsOfflineSave !== false,
+  ttsPackFirst: p.ttsPackFirst !== false,
     flow: p.flow === 'scroll' ? 'scroll' : 'paged',
     /* 页码：只认三档白名单；老数据没有这一项时落回默认（全书） */
     pageLabel: PAGE_LABEL_MODES.includes(p.pageLabel as PageLabelMode)

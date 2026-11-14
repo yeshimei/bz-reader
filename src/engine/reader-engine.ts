@@ -130,6 +130,16 @@ export interface ReaderEngine {
   /** 正在念的那一句在宿主坐标里的矩形（视图层画框用）；不实现就不高亮 */
   speechRects?(indexes: readonly number[], text: string): Array<{ left: number; top: number; width: number; height: number }>;
   /**
+   * 同上，但按**整章块序号**定位（离线包朗读用，2026-11-14）。
+   *
+   * 和 `speechRects` 必须是两份坐标表：页级那份会被任何一次「取当前页
+   * 文字」重置，拿它配整章序号就是整体偏移。
+   */
+  speechRectsChapter?(
+    indexes: readonly number[],
+    text: string,
+  ): Array<{ left: number; top: number; width: number; height: number }>;
+  /**
    * 把某一句滚到眼前（离线整章播放跟随用，2026-11-14）。
    *
    * 交给分页器自己按 range 算页码（foliate-js 的 tts.js 同一套做法），

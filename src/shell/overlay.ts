@@ -309,6 +309,18 @@ export function ttsFormHtml(): string {
       ],
       p.ttsFollow ? '1' : '0',
     )}</div>
+    ${
+      isLocal
+        ? `<div class="bzs-setrow"><label>${t('settings.ttsPackFirst')}</label>${seg(
+            'ttsPackFirst',
+            [
+              ['1', t('settings.ttsPackFirst.on')],
+              ['0', t('settings.ttsPackFirst.off')],
+            ],
+            p.ttsPackFirst ? '1' : '0',
+          )}</div>`
+        : ''
+    }
     <div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
       <button class="bzs-btn sm pri" data-act="ttstest">${t('settings.ttsTest')}</button>
       <span class="bzs-mini" data-role="ttstest-out"></span>

@@ -665,6 +665,9 @@ export const ZH = {
   'settings.ttsFollow': '朗读跟随',
   'settings.ttsFollow.on': '念完续页',
   'settings.ttsFollow.off': '只念本页',
+  'settings.ttsPackFirst': '本地朗读前先备音频',
+  'settings.ttsPackFirst.on': '先备整章',
+  'settings.ttsPackFirst.off': '边合边念',
   'settings.locked': '高级版功能：点一下看看包含什么',
 
   /* ── 设置页：标注 ────────────────────────────────────────── */

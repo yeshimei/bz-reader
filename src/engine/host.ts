@@ -368,6 +368,14 @@ export class EngineHost {
    */
   private speechSpots: Array<{ content: FoliateContent; range: Range; el: HTMLElement }> = [];
   /**
+   * 整章块对应的 Range（离线包朗读用，2026-11-14）。
+   *
+   * 和 `speechSpots` 分开存是**修 bug**，不是整洁癖：`speechSpots` 会被
+   * 任何一次「取当前页文字」重置成页内块，而离线播放器传的是整章块序号，
+   * 一重置就整体错位——真机表现就是「高亮的字有偏移」「念的和亮的不一致」。
+   */
+  private chapterSpots: Array<{ content: FoliateContent; range: Range; el: HTMLElement }> = [];
+  /**
    * 每章字节数（`book.sections[i].size`）：全本页码拿它估算没读过的章节。
    * 换书时重填，空书就是空数组——拿不到 size 的格式（个别 CBZ）估算会跳过。
    */
@@ -2012,7 +2020,7 @@ export class EngineHost {
    * 「有声音、没高亮」。
    */
   currentChapterBlocks(): Array<{ tag: string; text: string }> {
-    this.speechSpots = [];
+    this.chapterSpots = [];
     const contents = this.view?.renderer?.getContents?.() ?? [];
     const out: Array<{ tag: string; text: string }> = [];
     for (const c of contents) {
@@ -2023,12 +2031,12 @@ export class EngineHost {
         const range = c.doc.createRange();
         range.selectNodeContents(el);
         out.push({ tag: el.tagName.toLowerCase(), text });
-        this.speechSpots.push({ content: c, range, el });
+        this.chapterSpots.push({ content: c, range, el });
       }
     }
     /* 没有块标签的纯文本（TXT）：退回按换行切，高亮会瞎，但至少念得出来 */
     if (!out.length) {
-      this.speechSpots = [];
+      this.chapterSpots = [];
       for (const c of contents) if (c.doc?.body) collectBlocks(c.doc.body, out);
     }
     return out;
@@ -2054,7 +2062,7 @@ export class EngineHost {
    * 幂等：这句已经在当前页时，分页器算出的偏移与当前一致，直接返回。
    */
   async revealSentence(indexes: readonly number[], text: string): Promise<boolean> {
-    const spot = indexes.length ? this.speechSpots[indexes[0]] : undefined;
+    const spot = indexes.length ? this.chapterSpots[indexes[0]] : undefined;
     if (!spot) return false;
     const renderer = this.view?.renderer as unknown as
       | { scrollToAnchor?: (anchor: Range, select?: boolean) => Promise<void> }
@@ -2089,19 +2097,40 @@ export class EngineHost {
    */
   speechRects(indexes: readonly number[], text: string): Rect[] {
     const spot = indexes.length ? this.speechSpots[indexes[0]] : undefined;
+    return this.rectsOf(spot, text);
+  }
+
+  /**
+   * 整章块的高亮矩形（离线包朗读用）。
+   *
+   * 必须和 `speechRects` 分开取坐标表：页级那份会被翻页重填，整章序号
+   * 一旦按页内序号去取，整章往后全部偏移。
+   */
+  speechRectsChapter(indexes: readonly number[], text: string): Rect[] {
+    const spot = indexes.length ? this.chapterSpots[indexes[0]] : undefined;
+    return this.rectsOf(spot, text);
+  }
+
+  private rectsOf(
+    spot: { content: FoliateContent; range: Range; el: HTMLElement } | undefined,
+    text: string,
+  ): Rect[] {
     if (!spot) return [];
     const g = this.frameGeom(spot.content.doc);
     const span = this.visibleSpanOf(spot.content.doc);
     const h = spot.content.doc.defaultView?.innerHeight || spot.content.doc.documentElement.clientHeight || 0;
-    let range: Range;
+    let range: Range | null;
     try {
-      /* 先在「本屏可见的字」里找整句（最准）；找不到再退句首 8 字；
-         还找不到才框整块。 */
+      /* 先在「本屏可见的字」里找整句（最准）；找不到再退句首 8 字。
+         都找不到就**不框**（2026-11-14 改）：以前退成整块，真机上就是
+         「念第一句、亮整段」，比不亮更像坏了。唯一例外：这一块本身就是
+         这一句（短段落），那框整块才是对的。 */
       range =
         (span ? findVisibleText(spot.el, span, h, text) : null) ??
         findInRange(spot.range, text) ??
-        findInRange(spot.range, text.slice(0, 8)) ??
-        spot.range;
+        findInRange(spot.range, text.slice(0, 8));
+      if (!range && squash(spot.range.toString()) === squash(text)) range = spot.range;
+      if (!range) return [];
     } catch {
       return [];
     }
@@ -2623,6 +2652,11 @@ function inViewport(el: HTMLElement, w: number, h: number): boolean {
  * 只取叶子块：`<li><p>…</p></li>` 收 p 不收 li，否则同一句话念两遍。
  * 一个块都没有的文档（TXT 常见：纯文本 + `<br>`）退回按换行切。
  */
+/** 去掉所有空白再比：原文里的换行、缩进不该让「同一句」判成不同 */
+function squash(s: string): string {
+  return String(s ?? '').replace(/\s+/g, '');
+}
+
 function collectBlocks(root: ParentNode, out: Array<{ tag: string; text: string }>): void {
   const before = out.length;
   const all = Array.from(root.querySelectorAll<HTMLElement>(BLOCK_TAGS));

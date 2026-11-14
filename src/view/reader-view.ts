@@ -42,7 +42,7 @@ import { OfflinePlayer, type OfflineAudioLike } from '../core/offline-player';
 import { emptyBook, buildChapter, reorderChapters, upsertChapter, type ChapterSource } from '../core/offline-build';
 import {
   OFFLINE_ROOT,
-  alignMarks,
+  matchChapter,
   packagePath,
   type OfflineBook,
   type OfflineChapter,
@@ -1728,6 +1728,7 @@ export class ReaderView extends ItemView {
     }
     /* 朗读本体 2026-11-14 下放基础版：不联网、不花服务费的动作不设门禁。
        收费的只剩「整章 / 整本预生成」，见 prefetchChapter / prefetchBook。 */
+    this.offlineTried.clear();
     this.speakPage();
   }
 
@@ -1748,10 +1749,16 @@ export class ReaderView extends ItemView {
        存的 system 在这里也不再照做。本地服务同理——手机连不上电脑上那个
        127.0.0.1，具体原因在 speakPageAi 里说。 */
     if (this.prefs.ttsEngine !== 'system' || isMobileShell()) {
+      /* 本地引擎 + 「先备整章」开着：没有音频就不实时合，先问要不要备。
+         本地一句 3–8 秒，边合边念在真机上就是一直卡（2026-11-14 拍板）。 */
+      if (this.localPackFirst()) {
+        void this.speakLocalFirst(text);
+        return;
+      }
       /* 有离线包先播包：整章连着放，不联网、不跑模型——手机也能用 */
       if (this.offlinePack) {
-        void this.speakOffline(text).then((used) => {
-          if (!used && !this.closed) void this.speakPageAi(text);
+        void this.speakOffline(text).then((res) => {
+          if (res !== 'ok' && !this.closed) void this.speakPageAi(text);
         });
         return;
       }
@@ -1932,39 +1939,120 @@ export class ReaderView extends ItemView {
   }
 
   /**
-   * 有离线包就播包，没有就返回 false 走在线合成。
+   * 本地引擎是否走「先备好再念」。
+   *
+   * 手机连不上电脑上那个本地服务，这条路在手机上根本不成立，所以
+   * 只对桌面 + 本地引擎 + 开关开着生效（开关见「设置 · 朗读」）。
+   */
+  private localPackFirst(): boolean {
+    return this.prefs.ttsEngine === 'local' && this.prefs.ttsPackFirst !== false && !isMobileShell();
+  }
+
+  /**
+   * 本地引擎的主路径：这一章有音频就念，没有就问要不要现在备。
+   *
+   * `tried` 用来防打转：备完之后如果还是对不上（正文又变了 / 生成失败），
+   * 只提示、不再弹窗，否则用户会被同一张窗反复拦住。
+   */
+  private async speakLocalFirst(pageText: string, tried = false): Promise<void> {
+    const res = await this.speakOffline(pageText);
+    if (res === 'ok' || this.closed) return;
+    if (res === 'empty') {
+      notify(t('notice.tts.noText'));
+      return;
+    }
+    if (tried) {
+      notify(t('tts.pack.notReady'));
+      return;
+    }
+    if (res === 'stale') {
+      /* 包过期：问一句重备，别再静默回落实时合成——那才是「点了没反应」 */
+      const again = await this.askModalText(
+        t('tts.pack.staleTitle'),
+        t('tts.pack.staleBody'),
+        t('tts.pack.rebuild'),
+      );
+      if (!again || this.closed) return;
+      await this.prefetchChapter();
+      if (this.closed) return;
+      void this.speakLocalFirst(pageText, true);
+      return;
+    }
+    const pick = await this.askPackFirst();
+    if (!pick || this.closed) return;
+    if (pick === 'book') await this.prefetchBook();
+    else await this.prefetchChapter();
+    if (this.closed) return;
+    void this.speakLocalFirst(pageText, true);
+  }
+
+  /** 「本地要先备好」的确认窗：整章 / 整本 / 取消 */
+  private askPackFirst(): Promise<'chapter' | 'book' | null> {
+    const n = buildScript(this.host.currentChapterBlocks?.() ?? []).length;
+    /* 本地 mp3 大约 64 kbps ≈ 8 KB/s，一句 5 秒上下：粗估个量级就够，
+       目的是让用户知道这不是「几秒钟」的事 */
+    const mb = Math.max(1, Math.round(n * 0.04));
+    return new Promise((resolve) => {
+      let pick: 'chapter' | 'book' | null = null;
+      const modal = new Modal(this.app);
+      modal.titleEl.setText(t('tts.pack.title'));
+      modal.contentEl.createEl('p', { text: t('tts.pack.body', { n: String(n), mb: String(mb) }) });
+      const row = modal.contentEl.createDiv({ cls: 'modal-button-container' });
+      row.createEl('button', { text: t('notice.tts.confirmCancel') }).addEventListener('click', () => modal.close());
+      row
+        .createEl('button', { text: t('tts.pack.book') })
+        .addEventListener('click', () => {
+          pick = 'book';
+          modal.close();
+        });
+      row
+        .createEl('button', { text: t('tts.pack.chapter'), cls: 'mod-cta' })
+        .addEventListener('click', () => {
+          pick = 'chapter';
+          modal.close();
+        });
+      modal.onClose = () => resolve(pick);
+      modal.open();
+    });
+  }
+
+  /**
+   * 有离线包就播包，没有就返回 'missing' 走原来的路。
    *
    * 离线包播的是**整章**，不是当前页：文件里本来就整章连着，切成页反而
    * 每页都要 seek 一次。所以这里的 `segments` 取整章，起点按「当前页第
    * 一句」在整章里的位置算。
    *
    * 不自动翻页：整章连续播，翻页交给用户；高亮只在当前页可见的句子上
-   * 出现（`speechRects` 对屏幕外的句子返回空），翻过去会接着亮。
+   * 出现（`speechRectsChapter` 对屏幕外的句子返回空），翻过去会接着亮。
    */
-  private async speakOffline(pageText: string): Promise<boolean> {
+  private async speakOffline(
+    pageText: string,
+  ): Promise<'ok' | 'missing' | 'stale' | 'empty'> {
     const pack = this.offlinePack;
-    if (!pack) return false;
-    const chapterTitle = this.host.currentChapterTitle?.() || '';
-    const chapter = chapterTitle
-      ? pack.book.chapters.find((c) => c.title === chapterTitle)
-      : undefined;
-    if (!chapter) return false;
+    if (!pack) return 'missing';
 
-    /* 取整章块：它同时把 `speechSpots` 填成整章，后面 `speechRects(seg.blocks)`
-       才定位得到（不填就只有第一块对得上，表现为「有声音没高亮」）。
-       注意顺序——`currentText()` 内部会重置 spots 成当前页，所以页文本只能
-       用调用方传进来的那一份。 */
+    /* 取整章块：`speechRectsChapter(seg.blocks)` 靠它填的整章坐标表定位。
+       注意顺序——`currentText()` 内部会重置页级坐标，所以页文本只能用
+       调用方传进来的那一份。 */
     const chapterBlocks = this.host.currentChapterBlocks?.() ?? [];
     const segments = buildScript(chapterBlocks);
-    if (!segments.length) return false;
+    if (!segments.length) return 'empty';
 
-    const align = alignMarks(chapter.marks, segments.map((s) => s.text));
-    if (!align.some((m) => m >= 0)) {
-      /* 正文和包对不上（换过版本 / 重新排版）。说出来，别让用户以为播放器坏了，
-         然后老老实实走在线合成，至少还能听 */
-      notify(t('notice.tts.offlineStale'));
-      return false;
-    }
+    /* 找章：以前只认章名相等，章名一有出入就静默回落到实时合成——本地
+       一句要合 3–8 秒，用户看到的就是「点了朗读没反应」。现在章名 / 章序 /
+       正文相似度三级兜底（见 offline-pack 的 matchChapter）。 */
+    const match = matchChapter(pack.book, {
+      title: this.host.currentChapterTitle?.() || '',
+      index: this.host.currentChapterIndex,
+      texts: segments.map((s) => s.text),
+    });
+    if (!match) return 'missing';
+    /* 章名对上了但正文对不上：包过期。交给调用方问要不要重备，不再静默
+       走慢路径（那才是「点了没反应」的根源）。 */
+    if (!match.matched) return 'stale';
+    const chapter = match.chapter;
+    const align = match.align;
 
     /* 当前页第一句在整章里的位置：翻到第 5 页点朗读，就该从第 5 页开始。
        段落跨页时这一页只有后半截，起点既不能落在章首、也不能退到段落开头
@@ -1994,16 +2082,16 @@ export class ReaderView extends ItemView {
         this.ttsIndex = index;
         this.ttsKind = seg.kind;
         this.ttsSnippet = snippetOf(seg.text);
-        this.showSpeechMark(this.host.speechRects?.(seg.blocks, seg.text) ?? []);
+        this.showSpeechMark(this.host.speechRectsChapter?.(seg.blocks, seg.text) ?? []);
         this.renderTtsBar();
         /* 念到屏幕外的句子：翻过去跟上。放在画框之后——先框住这一页能看到的
            部分，再去翻页，中间不会有一帧空白 */
         void this.followOffline();
       },
       onEnd: () => {
-        /* 整章播完：默认就停。不在离线模式里自动翻章——用户是为了「离线」
-           才用包的，音频已经放完，翻不翻页该由他自己决定 */
-        this.stopTts();
+        /* 整章播完：包里还有下一章就接着念（2026-11-14 用户要求）。
+           没有下一章才停——整本备好的人本来就指望一口气听下去 */
+        void this.continueOffline();
       },
       onError: () => {
         notify(t('notice.tts.offlineBroken'));
@@ -2028,7 +2116,38 @@ export class ReaderView extends ItemView {
     const chars = segments[startAt]?.text.replace(/\s+/g, '').length ?? 0;
     const skipMs = mark && chars > 0 ? Math.round((mark.ms * start.skip) / chars) : 0;
     player.start(startAt, skipMs);
-    return true;
+    return 'ok';
+  }
+
+  /**
+   * 离线整章播完：包里还有下一章就翻过去接着念。
+   *
+   * 防打转：翻章失败（目录里没有这一章）时 `speakPage` 会重新进离线，
+   * 又播到末尾再回来。所以同一个章名只尝试一次；试过的不再试，直接停。
+   */
+  private async continueOffline(): Promise<void> {
+    const pack = this.offlinePack;
+    const cur = this.offlineChapter;
+    if (!pack || !cur || this.closed) {
+      this.stopTts();
+      return;
+    }
+    const at = pack.book.chapters.findIndex((c) => c.title === cur.title && c.file === cur.file);
+    const next = at >= 0 ? pack.book.chapters[at + 1] : undefined;
+    if (!next || this.offlineTried.has(next.title)) {
+      this.stopTts();
+      return;
+    }
+    this.offlineTried.add(next.title);
+    this.stopTts();
+    try {
+      await this.host.goToChapter(next.title);
+    } catch {
+      /* 目录里找不到这一章：停在这里，别循环 */
+      return;
+    }
+    if (this.closed) return;
+    this.speakPage();
   }
 
   /** 朗读失败：按错误类型说人话，然后停（不回退系统语音） */
@@ -2289,12 +2408,6 @@ export class ReaderView extends ItemView {
   }
 
   /**
-   * 当前引擎实际产出的音频格式。
-   *
-   * DeepSeek 只会给 wav，本地服务看设置；离线包的文件名与时长算法都按它
-   * 决定，所以只在这里推一次，别各处再抄一份 if。
-   */
-  /**
    * 错误码 → 人话。
    *
    * 朗读失败的通知和预生成进度卡上的失败原因共用这一处：两边各写一套
@@ -2315,6 +2428,12 @@ export class ReaderView extends ItemView {
     return key;
   }
 
+  /**
+   * 当前引擎实际产出的音频格式。
+   *
+   * DeepSeek 只会给 wav，本地服务看设置；离线包的文件名与时长算法都按它
+   * 决定，所以只在这里推一次，别各处再抄一份 if。
+   */
   private ttsFormat(route: TtsRoute = this.ttsRoute()): string {
     const mime = ttsMimeOf(route.engine, route.local.format);
     return mime === 'audio/wav' ? 'wav' : mime === 'audio/ogg' ? 'ogg' : 'mp3';
@@ -2390,6 +2509,10 @@ export class ReaderView extends ItemView {
     /* 进度卡取代原来那条 4 秒通知：这一章要跑几分钟，通知连百分比都给不了 */
     this.showTtsProgress('chapter', () => void this.prefetchChapter());
     this.paintTtsProgress({ stage: 'synth', done: 0, total: segments.length });
+    /* 用户点的是「朗读」、被请来先备音频：备完就该自己开口，别再让他点第二次 */
+    const afterTick = (): void => {
+      if (!this.closed && !this.speaking) this.speakPage();
+    };
     const cacheMB = this.prefs.ttsCacheMB;
     const cache = cacheMB > 0 ? new TtsCache() : null;
     const voice = this.ttsVoice(route.engine);
@@ -2455,6 +2578,7 @@ export class ReaderView extends ItemView {
         }
       }
       this.finishTtsProgress('done', { done: seen, total });
+      afterTick();
     } catch (e) {
       this.finishTtsProgress('failed', {
         reason: t(this.ttsErrorKey((e as { code?: TtsErrorCode }).code)),
@@ -2552,6 +2676,8 @@ export class ReaderView extends ItemView {
   private offlineChapter: OfflineChapter | null = null;
   /** 离线播放用的整章脚本：翻页后要按它重画当前句的高亮 */
   private offlineSegments: ScriptSegment[] | null = null;
+  /** 本次朗读里「自动接下一章」已经试过的章名：防目录对不上时来回打转 */
+  private readonly offlineTried = new Set<string>();
 
   private packFS(): ReturnType<typeof vaultPackFS> {
     return vaultPackFS(this.api.app);
@@ -2605,14 +2731,16 @@ export class ReaderView extends ItemView {
    * 翻页之后把「正在念的这一句」重新框一次。
    *
    * 离线播的是整章，人翻到新一页时当前句可能就在这页上；不重画就要等下一句
-   * 才亮，中间那段看着像「高亮坏了」。`speechSpots` 会被 `currentBlocks()`
-   * 重置成当前页，所以每次重画前先按整章重填一次。
+   * 才亮，中间那段看着像「高亮坏了」。
+   *
+   * 2026-11-14：整章块坐标改成单独一份（`speechRectsChapter`），不再靠
+   * 「每次重画前按整章重填」——那份表和页级共用时，任何一次取当前页文字
+   * 都会把它顶掉，整章往后全偏。
    */
   private repaintOfflineMark(): void {
     const seg = this.offlineSegments?.[this.ttsIndex];
     if (!seg) return;
-    this.host.currentChapterBlocks?.();
-    this.showSpeechMark(this.host.speechRects?.(seg.blocks, seg.text) ?? []);
+    this.showSpeechMark(this.host.speechRectsChapter?.(seg.blocks, seg.text) ?? []);
   }
 
   /**

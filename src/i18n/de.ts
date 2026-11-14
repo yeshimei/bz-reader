@@ -642,6 +642,9 @@ export const DE: Record<MsgKey, string> = {
   'settings.ttsFollow': 'Nach dieser Seite',
   'settings.ttsFollow.on': 'Weiterlesen',
   'settings.ttsFollow.off': 'Hier stoppen',
+  'settings.ttsPackFirst': 'Before local playback',
+  'settings.ttsPackFirst.on': 'Build chapter first',
+  'settings.ttsPackFirst.off': 'Synthesize as you go',
   'settings.locked': 'Pro-Funktion – klicken, um den Umfang zu sehen',
 
   /* ── Einstellungen: Markierungen ────────────────────────── */

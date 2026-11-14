@@ -636,6 +636,9 @@ export const JA: Record<MsgKey, string> = {
   'settings.ttsFollow': 'ページ末の動作',
   'settings.ttsFollow.on': '続けて読む',
   'settings.ttsFollow.off': 'このページで終了',
+  'settings.ttsPackFirst': 'Before local playback',
+  'settings.ttsPackFirst.on': 'Build chapter first',
+  'settings.ttsPackFirst.off': 'Synthesize as you go',
   'settings.locked': 'プロ版の機能です。クリックで内容を確認できます',
 
   /* ── 設定：ハイライト ───────────────────────────────────── */

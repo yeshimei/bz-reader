@@ -162,6 +162,51 @@ export function alignMarks(marks: readonly OfflineMark[], texts: readonly string
   return out;
 }
 
+/** 正文和包里某一章的对应关系 */
+export interface ChapterMatch {
+  chapter: OfflineChapter;
+  /** 正文句 → 清单句序号；-1 = 这句没有音频 */
+  align: number[];
+  /** 对上了几句；0 = 这一章和正文对不上（改过 / 换过版本） */
+  matched: number;
+}
+
+/**
+ * 找出包里和当前正文对应的那一章。
+ *
+ * 2026-11-14：以前只按「章名完全相等」找。章名一有出入（TOC 标签和正文
+ * 标题不同、书重新导入过），就静默回落到逐句实时合成——本地一句要合
+ * 3–8 秒，用户看到的就是「点了朗读没反应」。现在三级兜底：
+ *   1. 章名相等（最准，TOC 和包都来自同一份目录时必然命中）；
+ *   2. 章序（章名变了但书没变）；
+ *   3. 按正文找最像的一章（前两条都不中时兜底，比如只导过几章）。
+ */
+export function matchChapter(
+  book: OfflineBook,
+  opts: { title?: string; index?: number; texts: readonly string[] },
+): ChapterMatch | null {
+  const chapters = book.chapters ?? [];
+  if (!chapters.length) return null;
+  const title = String(opts.title ?? '').trim();
+  const byTitle = title ? chapters.find((c) => c.title.trim() === title) : undefined;
+  const byIndex =
+    typeof opts.index === 'number' && opts.index >= 0 && opts.index < chapters.length
+      ? chapters[opts.index]
+      : undefined;
+  const score = (chapter: OfflineChapter): ChapterMatch => {
+    const align = alignMarks(chapter.marks, opts.texts);
+    return { chapter, align, matched: align.filter((m) => m >= 0).length };
+  };
+  if (byTitle) return score(byTitle);
+  if (byIndex) return score(byIndex);
+  let best: ChapterMatch | null = null;
+  for (const chapter of chapters) {
+    const got = score(chapter);
+    if (got.matched > 0 && (!best || got.matched > best.matched)) best = got;
+  }
+  return best;
+}
+
 /** 整包的章数 / 总时长 / 总字节，给「已导入几章、多大」用 */
 export function offlineTotals(book: OfflineBook): { chapters: number; ms: number; bytes: number } {
   return book.chapters.reduce(

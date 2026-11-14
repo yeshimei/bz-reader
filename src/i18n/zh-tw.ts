@@ -635,6 +635,9 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.ttsFollow': '朗讀跟隨',
   'settings.ttsFollow.on': '念完續頁',
   'settings.ttsFollow.off': '只念本頁',
+  'settings.ttsPackFirst': '本地朗讀前先備音訊',
+  'settings.ttsPackFirst.on': '先備整章',
+  'settings.ttsPackFirst.off': '邊合邊念',
   'settings.locked': '高級版功能：點一下看看包含什麼',
 
   /* ── 設定頁：標註 ────────────────────────────────────────── */

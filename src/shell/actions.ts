@@ -2974,6 +2974,10 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
     case 'ttsFollow':
       src.setPrefs({ ttsFollow: v !== '0' });
       break;
+    /* 本地引擎：先备好整章再朗读（2026-11-14）。关掉回到边合边念 */
+    case 'ttsPackFirst':
+      src.setPrefs({ ttsPackFirst: v !== '0' });
+      break;
     /* 朗读引擎与音色（2026-11-13）：一套老数据里没有这些 key，
        normalizePrefs 已给默认值；这里只负责把界面选的值收口。 */
     case 'ttsEngine':

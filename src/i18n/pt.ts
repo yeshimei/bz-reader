@@ -644,6 +644,9 @@ export const PT: Record<MsgKey, string> = {
   'settings.ttsFollow': 'Depois desta página',
   'settings.ttsFollow.on': 'Continuar lendo',
   'settings.ttsFollow.off': 'Parar aqui',
+  'settings.ttsPackFirst': 'Before local playback',
+  'settings.ttsPackFirst.on': 'Build chapter first',
+  'settings.ttsPackFirst.off': 'Synthesize as you go',
   'settings.locked': 'Recurso Pro — clique para ver o que inclui',
 
   /* ── Configurações: destaques ───────────────────────────── */

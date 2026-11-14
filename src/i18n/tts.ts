@@ -154,6 +154,18 @@ export const TTS_ZH = {
   'tts.prog.retry': '重试',
   'tts.prog.close': '关闭',
   'notice.tts.busyTask': '另一个预生成任务还在跑：先在上面那张卡片上停掉它',
+
+  /* 本地引擎「先备好再念」（2026-11-14）：不备就念会一直卡，所以点朗读时
+     先问一句；详情与取舍见 reader-view 的 speakLocalFirst */
+  'tts.pack.title': '先把这一章备好',
+  'tts.pack.body':
+    '本地模型逐句合成要 3–8 秒，边合边念会一直卡。本章约 {n} 段，先备好再念（约 {mb} MB）；整本要更久，但一次备完以后都不用等。',
+  'tts.pack.chapter': '预生成整章',
+  'tts.pack.book': '预生成整本',
+  'tts.pack.staleTitle': '这一章的音频和正文对不上',
+  'tts.pack.staleBody': '可能是正文改过、或者重新排过版。重备本章后就能继续听。',
+  'tts.pack.rebuild': '重备本章',
+  'tts.pack.notReady': '本章还没有可用的音频，先预生成再念',
 } as const;
 
 export const TTS_ZH_TW = {
@@ -300,6 +312,17 @@ export const TTS_ZH_TW = {
   'tts.prog.retry': '重試',
   'tts.prog.close': '關閉',
   'notice.tts.busyTask': '另一個預生成任務還在跑：先在上面那張卡片上停掉它',
+
+  /* 本地引擎「先備好再念」（2026-11-14） */
+  'tts.pack.title': '先把這一章備好',
+  'tts.pack.body':
+    '本地模型逐句合成要 3–8 秒，邊合邊念會一直卡。本章約 {n} 段，先備好再念（約 {mb} MB）；整本要更久，但一次備完以後都不用等。',
+  'tts.pack.chapter': '預生成整章',
+  'tts.pack.book': '預生成整本',
+  'tts.pack.staleTitle': '這一章的音訊和正文對不上',
+  'tts.pack.staleBody': '可能是正文改過、或者重新排過版。重備本章後就能繼續聽。',
+  'tts.pack.rebuild': '重備本章',
+  'tts.pack.notReady': '本章還沒有可用的音訊，先預生成再念',
 } as const;
 
 const TTS_EN_BASE = {
@@ -446,6 +469,17 @@ const TTS_EN_BASE = {
   'tts.prog.retry': 'Retry',
   'tts.prog.close': 'Close',
   'notice.tts.busyTask': 'Another pre-build is still running: stop it on the progress card first',
+
+  /* Local engine: prepare before reading (2026-11-14) */
+  'tts.pack.title': 'Prepare this chapter first',
+  'tts.pack.body':
+    'The local model takes 3–8 seconds per sentence, so synthesizing while you read keeps stalling. This chapter is about {n} segments (roughly {mb} MB). Preparing the whole book takes longer, but you never wait again.',
+  'tts.pack.chapter': 'Build this chapter',
+  'tts.pack.book': 'Build the whole book',
+  'tts.pack.staleTitle': 'This chapter\u2019s audio no longer matches the text',
+  'tts.pack.staleBody': 'The text may have changed or been re-flowed. Rebuild this chapter to keep listening.',
+  'tts.pack.rebuild': 'Rebuild this chapter',
+  'tts.pack.notReady': 'This chapter has no audio yet — build it before reading',
 } as const;
 
 /* 开发期占位：ja / de / fr / es / pt 先复用英文；上架那版统一翻译。 */

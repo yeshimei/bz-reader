@@ -14,11 +14,14 @@ import {
   buildMarks,
   estimateMs,
   markIndexAt,
+  matchChapter,
   offlineTotals,
   packagePath,
   parseOfflineBook,
   safeName,
   serializeOfflineBook,
+  type OfflineBook,
+  type OfflineChapter,
 } from '../src/core/offline-pack';
 
 const chapter = (
@@ -135,6 +138,58 @@ describe('正文与时间轴重新对齐', () => {
 
   it('没有时间轴时全部 -1', () => {
     expect(alignMarks([], ['甲'])).toEqual([-1]);
+  });
+});
+
+describe('找出包里对应的那一章', () => {
+  const ch = (title: string, texts: string[]): OfflineChapter => ({
+    title,
+    file: `${title}.mp3`,
+    ms: texts.length * 1000,
+    bytes: 100,
+    marks: buildMarks(texts, texts.map(() => 1000)),
+  });
+  const pack: OfflineBook = {
+    version: OFFLINE_VERSION,
+    title: '围城',
+    bookId: 'b1',
+    engine: 'local',
+    voice: '中文女',
+    format: 'mp3',
+    madeAt: 1,
+    chapters: [ch('第一章', ['甲一', '甲二']), ch('第二章', ['乙一', '乙二']), ch('第三章', ['丙一', '丙二'])],
+  };
+
+  it('章名对上就用章名，不管包里的先后', () => {
+    const got = matchChapter(pack, { title: '第三章', index: 0, texts: ['丙一', '丙二'] });
+    expect(got?.chapter.title).toBe('第三章');
+    expect(got?.matched).toBe(2);
+  });
+
+  it('章名对不上（TOC 与正文标题不同）时用章序兜底', () => {
+    const got = matchChapter(pack, { title: '第三卷 第三章', index: 1, texts: ['乙一', '乙二'] });
+    expect(got?.chapter.title).toBe('第二章');
+    expect(got?.matched).toBe(2);
+  });
+
+  it('章名与章序都不对：按正文找最像的一章，而不是静默失败', () => {
+    const got = matchChapter(pack, { title: '没这章', index: 9, texts: ['丙一', '丙二'] });
+    expect(got?.chapter.title).toBe('第三章');
+    expect(got?.matched).toBe(2);
+  });
+
+  it('正文和每一章都对不上：返回 null，由调用方提示「对不上」', () => {
+    expect(matchChapter(pack, { title: '没这章', index: 9, texts: ['完全', '无关'] })).toBeNull();
+  });
+
+  it('章名命中但正文改过：仍然返回这一章，matched 为 0（判过期）', () => {
+    const got = matchChapter(pack, { title: '第一章', texts: ['被改掉的', '正文'] });
+    expect(got?.chapter.title).toBe('第一章');
+    expect(got?.matched).toBe(0);
+  });
+
+  it('包里一章都没有时返回 null', () => {
+    expect(matchChapter({ ...pack, chapters: [] }, { texts: ['甲一'] })).toBeNull();
   });
 });
 
