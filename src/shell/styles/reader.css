@@ -400,4 +400,212 @@ body.is-mobile .bzr-ttsbar-wrap {
   background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
 }
 
+/* ── 预生成进度卡（2026-11-14） ─────────────────────────────
+   取代原来的常驻通知：通知只能改一行字，说不出「现在在哪一段、还剩
+   多少、为什么停了」。卡片把阶段名、进度条、剩余量分开摆，卡住与失败
+   各有自己的提示行；没有「还要多久」的时间预估（作者点名排除）。 */
+.bzr-ttsprog-wrap {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  z-index: 41;
+  width: min(440px, calc(100% - 24px));
+}
+
+/* 朗读条也在底部：条子出现时卡片往上让。信号是根节点上的 has-ttsbar，
+   不在 JS 里各算一套坐标 */
+.has-ttsbar .bzr-ttsprog-wrap {
+  bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+}
+
+.bzr-ttsprog {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 12px 11px;
+  border-radius: 12px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+
+.bzr-ttsprog-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bzr-ttsprog-chip {
+  flex: none;
+  font-size: 11px;
+  line-height: 1.7;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--background-modifier-hover);
+  color: var(--text-muted);
+}
+
+.bzr-ttsprog.is-synth .bzr-ttsprog-chip,
+.bzr-ttsprog.is-pack .bzr-ttsprog-chip {
+  background: color-mix(in srgb, var(--interactive-accent) 16%, transparent);
+  color: var(--interactive-accent);
+}
+
+.bzr-ttsprog.is-done .bzr-ttsprog-chip {
+  background: color-mix(in srgb, var(--text-success) 16%, transparent);
+  color: var(--text-success);
+}
+
+.bzr-ttsprog.is-failed .bzr-ttsprog-chip {
+  background: color-mix(in srgb, var(--text-error) 16%, transparent);
+  color: var(--text-error);
+}
+
+.bzr-ttsprog-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.bzr-ttsprog-pct {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-normal);
+  font-variant-numeric: tabular-nums;
+}
+
+.bzr-ttsprog-bar {
+  position: relative;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--background-modifier-border);
+  overflow: hidden;
+}
+
+.bzr-ttsprog-bar i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--interactive-accent);
+  transition: width 0.2s ease;
+}
+
+.bzr-ttsprog.is-failed .bzr-ttsprog-bar i {
+  background: var(--text-error);
+}
+
+.bzr-ttsprog-note {
+  font-size: 11.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bzr-ttsprog-hint {
+  font-size: 11.5px;
+  color: var(--text-warning);
+}
+
+/* 卡得太久：提示从「可能卡住」升级成「建议停止」 */
+.bzr-ttsprog.is-stalled .bzr-ttsprog-hint {
+  color: var(--text-error);
+}
+
+.bzr-ttsprog-btn {
+  flex: none;
+  font-size: 11.5px;
+  padding: 3px 10px;
+  border: none;
+  border-radius: 6px;
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+  cursor: pointer;
+}
+
+.bzr-ttsprog-btn:hover {
+  background: var(--background-modifier-active-hover);
+}
+
+.bzr-ttsprog-btn.is-main {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.bzr-ttsprog-x {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.bzr-ttsprog-x:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.bzr-ttsprog-x svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 手机上压成单行（阶段 + 百分比 + 剩余段数 + ×）：卡片浮在正文上，
+   两行以上会挡住太多字；进度条让位给百分比，读得出来就够了。 */
+body.is-mobile .bzr-ttsprog-wrap {
+  bottom: calc(126px + env(safe-area-inset-bottom, 0px));
+}
+
+body.is-mobile .bzr-ttsprog {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+body.is-mobile .bzr-ttsprog-head {
+  display: contents;
+}
+
+body.is-mobile .bzr-ttsprog-title,
+body.is-mobile .bzr-ttsprog-bar {
+  display: none;
+}
+
+/* `display: contents` 让 head 里的阶段、百分比变成卡片这一行的直接子项，
+   于是可以用 order 把「剩余段数」排到按钮前面，读起来是
+   「处理中 62% 还剩 80 段 [停止]」 */
+body.is-mobile .bzr-ttsprog-note {
+  order: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+body.is-mobile .bzr-ttsprog-btn,
+body.is-mobile .bzr-ttsprog-x {
+  order: 2;
+}
+
+body.is-mobile .bzr-ttsprog-hint {
+  order: 3;
+  flex: 1 1 100%;
+}
+
 
