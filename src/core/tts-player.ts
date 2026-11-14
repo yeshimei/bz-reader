@@ -51,6 +51,13 @@ export interface TtsPlayerDeps {
   makeUrl?: (buf: ArrayBuffer) => string;
   revokeUrl?: (url: string) => void;
   onSegment?: (index: number, segment: ScriptSegment) => void;
+  /**
+   * 这一段的音频是哪来的：`cached` 命中本机缓存，`live` 现合成的。
+   *
+   * 界面要如实告诉用户「这段是存的还是刚花钱合的」——尤其云端按字计费，
+   * 看着「实时 12」一条条涨起来，比事后看账单直观。
+   */
+  onSource?: (index: number, source: 'cached' | 'live') => void;
   onState?: (state: TtsPlayerState, index: number) => void;
   onEnd?: () => void;
   onError?: (code: TtsErrorCode | 'audio', error: unknown) => void;
@@ -253,6 +260,7 @@ export class TtsPlayer {
       if (this.deps.cache) {
         buf = await this.deps.cache.get(key).catch(() => null);
       }
+      const fromCache = Boolean(buf);
       if (!buf) {
         buf = await this.deps.synthesize(seg.text, voice, this.ctrl?.signal ?? new AbortController().signal);
         if (token !== this.token) return null;
@@ -260,6 +268,7 @@ export class TtsPlayer {
           void this.deps.cache.put(key, buf).catch(() => undefined);
         }
       }
+      if (buf) this.deps.onSource?.(index, fromCache ? 'cached' : 'live');
       const url = this.makeUrl(buf);
       const audio = this.makeAudio(url);
       return { url, audio };

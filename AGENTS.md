@@ -95,6 +95,13 @@ New-Item -ItemType Junction -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules
 - 正文改过之后按**文本**重新对齐（`alignMarks` 贪心窗口 32 句），不按下标硬配：改一句只影响那一句，其余照常对。
 - 整章导出要独占服务：`exportChapterAudio` 开头 `stopTts()`，否则两边抢模型，每句慢一倍。
 
+## 朗读交互（2026-11-14）
+- **三条路共用章级脚本**：在线、本地、离线都从 `currentChapterBlocks()` 建 script，起播位置按「这一页第一句」的 `text + len` 去整章脚本里找（`startPointOf` 的前缀匹配只当兜底）。按页建脚本的话，翻页就把脚本切断，跟随只能「念完这页再翻」。
+- **跟随共用一个方法**（`followSpeech(seg, chapter)`）：先 `speechInView` 判在不在眼前，不在就 `revealAnchor` 翻过去，落定再 `paintSpeech`。读者手动翻页后 **8 秒内不跟随**（`ttsManualTurnAt`），否则「往回看注释被拽回去」。
+- 程序自己翻页时置 `ttsRevealing`，翻页回调里见到它就不记「手动翻页」——否则朗读会把自己刚翻的位置当成用户意图，跟随直接停掉。
+- **浮条只留 4 个常驻按钮 + 「更多」**：预生成 / 导出 / 朗读设置收进 `tts.bar.more`。左边是来源徽标（`缓存 12 · 实时 3` / `离线`），**只统计已经念到的段**（`ttsHeard`）——预取会提前合成后面几段，算进去就成了「还没听先报账」。
+- 在线引擎点「预生成本章」**一律先弹确认**（`!free || chars >= 20000`）：按字计费，文案不写死金额，官方价格会变。
+
 ## 发激活码
 - 私钥和已发码都在 `scripts/keys/`（整目录 gitignore）。**永远不要**提交、贴进 `docs/`、`README` 或 issue。
 - 台账 `scripts/keys/issued/ledger.json`，`nextSeq` 是下一个可用序号；码文件 `scripts/keys/issued/afdian-batch-XX.txt`，一行一枚；号段表 `docs/license-ledger.md`。

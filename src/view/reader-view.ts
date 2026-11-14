@@ -53,7 +53,7 @@ import { vaultPackFS } from '../data/vault-pack-fs';
 import { concatWav } from '../core/wav';
 import { TtsCache, cacheKey } from '../data/tts-cache';
 import { localRequester } from '../data/tts-request';
-import { ttsBarHtml } from './tts-bar';
+import { ttsBarHtml, ttsSourceLabel } from './tts-bar';
 import { ttsProgressHtml, type TtsTaskKind, type TtsTaskState } from './tts-progress';
 import { notify, notifyNow, type NoticeHandle } from '../core/notice';
 import { localeTag, t, type MsgKey } from '../i18n';
@@ -418,6 +418,18 @@ export class ReaderView extends ItemView {
   private ttsIndex = 0;
   private ttsKind: ScriptKind = 'narration';
   private ttsSnippet = '';
+  /** 「更多」展开中：浮条每次重画都按这个字段来，不读 DOM */
+  private ttsMore = false;
+  /** 这一段音频是哪来的（按整章句序号记，重播同一句会覆盖，不重复计数） */
+  private ttsSourceMap = new Map<number, 'cached' | 'live'>();
+  /** 已经念到的段：预取会提前合成好几段，徽标只算「听过的」 */
+  private ttsHeard = new Set<number>();
+  /** 正在播的是离线包（整章都来自包，不再统计缓存/实时） */
+  private ttsOffline = false;
+  /** 程序自己在翻页（用来和「读者手动翻页」区分，别把手动翻页当成跟随失败） */
+  private ttsRevealing = false;
+  /** 读者最后一次手动翻页的时间：之后 8 秒内不抢页面 */
+  private ttsManualTurnAt = 0;
   private ttsChars = 0;
   private ttsCost = 0;
   private ttsTotal = 0;
@@ -1769,11 +1781,11 @@ export class ReaderView extends ItemView {
       /* 有离线包先播包：整章连着放，不联网、不跑模型——手机也能用 */
       if (this.offlinePack) {
         void this.speakOffline(text, pageBlocks).then((res) => {
-          if (res !== 'ok' && !this.closed) void this.speakPageAi(text);
+          if (res !== 'ok' && !this.closed) void this.speakPageAi(text, pageBlocks);
         });
         return;
       }
-      void this.speakPageAi(text);
+      void this.speakPageAi(text, pageBlocks);
       return;
     }
     // 基础版包里 speak() 返回 null —— 那就是「这个环境没有朗读」
@@ -1794,9 +1806,10 @@ export class ReaderView extends ItemView {
   }
 
   /**
-   * 一页念完了：跟随就翻页续读，不跟随就停。
+   * 念完了（系统语音是一页，在线 AI 是整章）：跟随就往后翻续读，不跟随就停。
    *
-   * 系统语音与 DeepSeek 共用——续页是朗读行为，不该因为换了引擎而变。
+   * 2026-11-14：在线 AI 改成章级脚本后，这里收到的是「整章念完」；翻一页
+   * 正好落到下一章开头，`speakPage()` 会重新取那一章。
    */
   private onPageSpoken(): void {
     if (this.closed || !this.speaking) return;
@@ -1856,7 +1869,10 @@ export class ReaderView extends ItemView {
     return localRequester();
   }
 
-  private async speakPageAi(text: string): Promise<void> {
+  private async speakPageAi(
+    text: string,
+    pageBlocks: Array<{ tag: string; text: string; raw: string }> = [],
+  ): Promise<void> {
     const route = this.ttsRoute();
     if (route.engine === 'local' && isMobileShell()) {
       notify(t('notice.tts.localMobile'));
@@ -1878,12 +1894,21 @@ export class ReaderView extends ItemView {
       notify(t('notice.tts.unsupportedLang'));
       return;
     }
-    /* PDF / TXT 取不到块结构时退回整页一段：至少还能念 */
-    const blocks = this.host.currentBlocks?.() ?? [];
+    /* 章级脚本（2026-11-14）：高亮跟随和自动翻页都要跨页，脚本必须比一页长。
+       以前按页建脚本，翻页把脚本切断，跟随只能「念完这一页再翻」。
+       PDF / TXT 取不到块结构时退回整页一段：至少还能念。 */
+    const blocks = this.host.currentChapterBlocks?.() ?? [];
     const segments = buildScript(blocks.length ? blocks : [{ tag: 'p', text }]);
     if (!segments.length) {
       notify(t('notice.tts.noText'));
       return;
+    }
+    /* 起播位置：这一页第一句在整章里的位置（和离线同一套口径） */
+    let startAt = 0;
+    const firstPage = buildScript(pageBlocks)[0];
+    if (firstPage) {
+      const hit = segments.findIndex((s) => s.text === firstPage.text && s.len === firstPage.len);
+      if (hit >= 0) startAt = hit;
     }
     /* 先停旧的：换页重念时不能两条音频叠在一起 */
     this.stopTts();
@@ -1898,9 +1923,12 @@ export class ReaderView extends ItemView {
     if (!free) this.addTtsSpend(this.ttsChars, this.ttsCost);
     this.ttsMime = ttsMimeOf(route.engine, route.local.format);
     this.ttsTotal = segments.length;
-    this.ttsIndex = 0;
-    this.ttsKind = segments[0].kind;
-    this.ttsSnippet = snippetOf(segments[0].text);
+    this.ttsOffline = false;
+    this.ttsSourceMap.clear();
+    this.ttsHeard.clear();
+    this.ttsIndex = startAt;
+    this.ttsKind = segments[startAt]?.kind ?? 'narration';
+    this.ttsSnippet = snippetOf(segments[startAt]?.text ?? '');
 
     const cacheMB = this.prefs.ttsCacheMB;
     const cache = cacheMB > 0 ? new TtsCache() : null;
@@ -1927,8 +1955,16 @@ export class ReaderView extends ItemView {
         this.ttsIndex = index;
         this.ttsKind = seg.kind;
         this.ttsSnippet = snippetOf(seg.text);
-        /* 逐句朗读不翻页（念完一页才由 onPageSpoken 翻），直接画 */
-        this.paintSpeech(seg, false);
+        /* 真正念到了才算「听过」，徽标从这里起算 */
+        this.ttsHeard.add(index);
+        this.renderTtsBar();
+        /* 念到屏外的句子就翻过去（在线 / 离线同一套跟随） */
+        void this.followSpeech(seg, true);
+      },
+      /* 这段是缓存还是现合的：写在浮条左边，云端按字计费的用户最在意这个 */
+      onSource: (index, src) => {
+        if (this.ttsSourceMap.get(index) === src) return;
+        this.ttsSourceMap.set(index, src);
         this.renderTtsBar();
       },
       /* 本地免费：整页都备，才追得上「点一下就一直念」；云端按字计费，
@@ -1947,7 +1983,8 @@ export class ReaderView extends ItemView {
     this.syncToolState();
     this.showTtsBar();
     player.setRate(this.prefs.ttsRate);
-    player.start();
+    /* 从这一页第一句开始念，不是从章首 */
+    player.start(startAt);
   }
 
   /**
@@ -2090,6 +2127,9 @@ export class ReaderView extends ItemView {
     this.ttsMime = this.ttsFormat() === 'wav' ? 'audio/wav' : 'audio/mpeg';
     this.ttsChars = 0;
     this.ttsCost = 0;
+    /* 整章音频都来自离线包：浮条左边直接写「离线」，不统计缓存/实时 */
+    this.ttsOffline = true;
+    this.ttsSourceMap.clear();
     this.ttsTotal = segments.length;
     this.ttsIndex = startAt;
     this.ttsKind = segments[startAt].kind;
@@ -2111,7 +2151,7 @@ export class ReaderView extends ItemView {
         this.renderTtsBar();
         /* 跟随改成「先翻页、再画」（2026-11-14）：高亮挂在 Range 上跟文字
            走，翻完再画一定落在新页；反过来是先按旧页坐标画一帧再去纠正 */
-        void this.followOffline(seg);
+        void this.followSpeech(seg, true);
       },
       onEnd: () => {
         /* 整章播完：包里还有下一章就接着念（2026-11-14 用户要求）。
@@ -2199,6 +2239,21 @@ export class ReaderView extends ItemView {
     this.renderTtsBar();
   }
 
+  /**
+   * 浮条左边那句话：听过的音频是离线、缓存还是现合的。
+   *
+   * 只算「已经念到」的段——预取会提前合成后面几段，把预取算进去就成了
+   * 「还没听先报账」，云端用户会以为已经花了那么多。
+   */
+  private ttsSourceText(): string {
+    const counts = { cached: 0, live: 0, offline: this.ttsOffline ? 1 : 0 };
+    for (const [index, src] of this.ttsSourceMap) {
+      if (!this.ttsHeard.has(index)) continue;
+      counts[src] += 1;
+    }
+    return ttsSourceLabel(counts);
+  }
+
   private renderTtsBar(): void {
     if (!this.ttsBarEl) return;
     const state = this.ttsCtl?.stateName;
@@ -2206,6 +2261,8 @@ export class ReaderView extends ItemView {
     this.ttsBarEl.innerHTML = ttsBarHtml({
       paused: state === 'paused',
       loading: state === 'loading',
+      more: this.ttsMore,
+      source: this.ttsSourceText(),
     });
     /* 条子上只有图标：按 data-icon 交给 Obsidian 的图标集，
        不自己拼 SVG，也就不用跟着主题换颜色。 */
@@ -2438,11 +2495,21 @@ export class ReaderView extends ItemView {
       p.next();
     } else if (act === 'ttsprev') {
       p.prev();
+    } else if (act === 'ttsmore') {
+      /* 「更多」是个开关：预生成 / 导出 / 设置都在里面，常驻位只留四个 */
+      this.ttsMore = !this.ttsMore;
+      this.renderTtsBar();
     } else if (act === 'ttsprefetch') {
+      this.ttsMore = false;
+      this.renderTtsBar();
       void this.prefetchChapter();
     } else if (act === 'ttsexport') {
+      this.ttsMore = false;
+      this.renderTtsBar();
       void this.exportSpeech();
     } else if (act === 'ttstune') {
+      this.ttsMore = false;
+      this.renderTtsBar();
       dispatchAction('ttstune', this.rootEl ?? document.body);
     }
   }
@@ -2542,9 +2609,10 @@ export class ReaderView extends ItemView {
     }
     const free = isFreeEngine(route.engine);
     const chars = segments.reduce((n, s) => n + billedChars(s.text), 0);
-    /* 按字数问一句（云端不报钱：官方价格随时会变，写死一个数只会误导）。
-       本地免费，但整章也要跑几分钟，仍然给「只做 20 句」——那是为了先听效果。 */
-    if (chars >= 20000) {
+    /* 收费引擎**一律先问**（2026-11-14 用户要求）：在线按字计费，点一下
+       可能就是几十块，别让人点完才发现。文案不写死金额——官方价格会变。
+       本地免费，但整章要跑几分钟，超过 2 万字也值得先问一句。 */
+    if (!free || chars >= 20000) {
       const someChars = segments.slice(0, 20).reduce((n, s) => n + s.text.length, 0);
       const picked = await this.askPrefetch(chars, someChars, free);
       if (!picked) return;
@@ -2809,18 +2877,22 @@ export class ReaderView extends ItemView {
    * `getClientRects()` 就是当前栏的视口坐标，屏外那一栏是负数或大于宽度。
    * 以前把矩形搬回宿主跟阅读区比，四个换算量串成一条链，翻一页偏一次。
    */
-  private async followOffline(seg: ScriptSegment): Promise<void> {
-    if (!this.offlinePlayer || this.closed) return;
+  private async followSpeech(seg: ScriptSegment, chapter: boolean): Promise<void> {
+    if (this.closed) return;
     const anchor = { block: seg.blocks[0] ?? -1, at: seg.at, len: seg.len };
     if (anchor.block < 0) return;
     const follow = this.prefs.ttsFollow;
-    if (follow && !(this.host.speechInView?.(anchor, true) ?? false)) {
-      const moved = (await this.host.revealAnchor?.(anchor, true)) ?? false;
+    /* 读者刚自己翻过页：八成是在往回看或查别处，8 秒内别把他拽回来 */
+    const yielded = this.ttsManualTurnAt > 0 && Date.now() - this.ttsManualTurnAt < 8000;
+    if (follow && !yielded && !(this.host.speechInView?.(anchor, chapter) ?? false)) {
+      this.ttsRevealing = true;
+      const moved = (await this.host.revealAnchor?.(anchor, chapter)) ?? false;
+      this.ttsRevealing = false;
       /* 翻页是异步落定的：等一帧再画，拿到的才是新页 */
       if (moved) await new Promise((r) => setTimeout(r, 100));
       if (this.closed) return;
     }
-    this.paintSpeech(seg, true);
+    this.paintSpeech(seg, chapter);
   }
 
   /** 把一章写进离线包（音频 + 更新清单），返回写好的章或 null */
@@ -3235,6 +3307,11 @@ export class ReaderView extends ItemView {
     this.offlineSegments = null;
     /* 两条高亮路径一起收：CSS Highlight 在书页文档里，覆盖层图形在宿主侧 */
     this.clearSpeechMark();
+    /* 来源统计、「更多」展开状态都跟着这一次朗读走，下次重新开始 */
+    this.ttsOffline = false;
+    this.ttsSourceMap.clear();
+    this.ttsHeard.clear();
+    this.ttsMore = false;
     this.hideTtsBar();
     this.syncToolState();
   }
@@ -4324,7 +4401,10 @@ export class ReaderView extends ItemView {
     });
     this.lastPercent = info.percent;
     if (info.cfi) this.lastCfi = info.cfi;
-    /* 高亮不用在这里重画：它挂在 Range 上跟文字走，翻页由浏览器跟着挪 */
+    /* 高亮不用在这里重画：它挂在 Range 上跟文字走，翻页由浏览器跟着挪。
+       但要记一笔「这次翻页是读者自己点的」——程序跟随翻的页不算，否则
+       朗读会把自己刚翻的位置当成用户意图，跟着就不动了。 */
+    if (!this.ttsRevealing) this.ttsManualTurnAt = Date.now();
     /* 「引用」页签的「只看本页」要知道眼前是第几页。翻一页就整页广播一次
        会把侧栏重绘得很勤，所以常态只静默写入；只有开关真的开着、人又正
        看着引用页签时，才广播一次让列表跟着翻。 */
