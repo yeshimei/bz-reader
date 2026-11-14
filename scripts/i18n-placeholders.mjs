@@ -77,6 +77,14 @@ for (const [loc, file] of Object.entries(PACKS)) {
   console.log(`${loc}: 补 ${missing.length} 条占位`);
 }
 
+/* tts.ts 一个文件里装着 TTS_ZH / TTS_ZH_TW / TTS_EN_BASE 三块，按上面的
+   按文件统计查不到它——朗读那批文案曾经因此带着 92 条 [TODO] 走到发版门口。
+   单列一条，宁可多查一次也别再漏。 */
+const ttsTodo = read('tts.ts')
+  .split(/\r?\n/)
+  .filter((l) => l.includes(TODO)).length;
+if (ttsTodo) pending.push(`tts.ts: ${ttsTodo} 条待翻译`);
+
 if (check) {
   if (pending.length) {
     console.error(`还有未补齐的多语言：\n  ${pending.join('\n  ')}`);

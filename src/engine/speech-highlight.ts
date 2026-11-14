@@ -37,7 +37,7 @@ interface HighlightRealm {
 
 function realmOf(doc: Document): HighlightRealm | null {
   const win = doc.defaultView;
-  return win ? (win as unknown as HighlightRealm) : null;
+  return win ? win : null;
 }
 
 /** 这个文档支不支持 CSS Custom Highlight（决定走 Range 还是退回 overlayer） */

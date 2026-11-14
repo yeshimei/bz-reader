@@ -86,7 +86,7 @@ export async function readManifest(fs: PackFS, title: string): Promise<OfflineBo
 export async function writeManifest(fs: PackFS, book: OfflineBook): Promise<void> {
   await ensureDir(fs, packagePath(book.title));
   const text = serializeOfflineBook(book);
-  await fs.writeBinary(manifestPath(book.title), new TextEncoder().encode(text).buffer as ArrayBuffer);
+  await fs.writeBinary(manifestPath(book.title), new TextEncoder().encode(text).buffer);
   const back = await readManifest(fs, book.title);
   if (!back) throw new Error('manifest write failed');
 }

@@ -2714,16 +2714,6 @@ function textOffsetOf(el: HTMLElement, range: Range): number {
   }
 }
 
-/** 块与 iframe 视口相交就算「这一页的」 */
-function inViewport(el: HTMLElement, w: number, h: number): boolean {
-  try {
-    const r = el.getBoundingClientRect();
-    return r.bottom > 0 && r.top < h && r.right > 0 && r.left < w;
-  } catch {
-    return false;
-  }
-}
-
 /**
  * 从可见 Range 的片段里收集段落。
  *

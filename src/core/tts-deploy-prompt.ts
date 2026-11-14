@@ -15,9 +15,14 @@
 export interface TtsDeployPromptInput {
   /** 库的绝对路径：能拿到就写进去，AI 可以直接改 data.json */
   vaultPath?: string;
+  /**
+   * Obsidian 的配置目录名（`app.vault.configDir`）。
+   *
+   * 用户可以把它改成别的名字，所以调用方要把真实值传进来；拿不到就写
+   * 「配置目录」占位，让 AI 自己找——写死 `.obsidian` 会指错文件。
+   */
+  configDir?: string;
 }
-
-const DATA_HINT = '<你的库路径>/.obsidian/plugins/bz-reader/data.json';
 
 /**
  * 生成提示词。
@@ -26,9 +31,9 @@ const DATA_HINT = '<你的库路径>/.obsidian/plugins/bz-reader/data.json';
  * AI 自由发挥时最容易漏掉跨域和音色接口，装完在插件里照样连不上。
  */
 export function ttsDeployPrompt(input: TtsDeployPromptInput = {}): string {
-  const dataPath = input.vaultPath
-    ? `${input.vaultPath.replace(/[\\/]+$/, '')}/.obsidian/plugins/bz-reader/data.json`
-    : DATA_HINT;
+  const cfg = (input.configDir ?? '').trim().replace(/^[\\/]+|[\\/]+$/g, '');
+  const root = input.vaultPath ? input.vaultPath.replace(/[\\/]+$/, '') : '<你的库路径>';
+  const dataPath = `${root}/${cfg || '<配置目录>'}/plugins/bz-reader/data.json`;
 
   return `我要在这台电脑上装一个本地语音合成（TTS）服务，供 Obsidian 插件 bz Reader 的朗读功能使用。请直接动手装好、跑通，最后把参数写回插件设置。
 

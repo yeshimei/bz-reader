@@ -43,16 +43,21 @@ describe('提示词要求回填设置', () => {
   });
 
   it('知道库路径就写成绝对路径，省得 AI 猜', () => {
-    const withPath = ttsDeployPrompt({ vaultPath: 'D:\\Obsidian\\叫我包仔' });
+    const withPath = ttsDeployPrompt({ vaultPath: 'D:\\Obsidian\\叫我包仔', configDir: '.obsidian' });
     expect(withPath).toContain('D:\\Obsidian\\叫我包仔/.obsidian/plugins/bz-reader/data.json');
   });
 
+  it('配置目录用调用方给的真实值：用户改过名字也不会指错', () => {
+    const custom = ttsDeployPrompt({ vaultPath: 'D:\\vault', configDir: '.my-config' });
+    expect(custom).toContain('D:\\vault/.my-config/plugins/bz-reader/data.json');
+  });
+
   it('不知道库路径时留占位，不编一个假目录', () => {
-    expect(p).toContain('<你的库路径>/.obsidian/plugins/bz-reader/data.json');
+    expect(p).toContain('<你的库路径>/<配置目录>/plugins/bz-reader/data.json');
   });
 
   it('尾斜杠不会拼出双斜杠', () => {
-    expect(ttsDeployPrompt({ vaultPath: 'D:\\vault\\' })).toContain('D:\\vault/.obsidian');
+    expect(ttsDeployPrompt({ vaultPath: 'D:\\vault\\', configDir: '.obsidian/' })).toContain('D:\\vault/.obsidian');
   });
 });
 

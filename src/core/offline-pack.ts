@@ -166,7 +166,7 @@ const ALIGN_WINDOW = 32;
  * 文本顺序找，找到才算，找不到这一句就没声音（跳过它继续），其余照常。
  */
 export function alignMarks(marks: readonly OfflineMark[], texts: readonly string[]): number[] {
-  const out: number[] = new Array(texts.length).fill(-1);
+  const out = new Array<number>(texts.length).fill(-1);
   if (!marks.length) return out;
   let j = 0;
   for (let i = 0; i < texts.length; i++) {

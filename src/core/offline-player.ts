@@ -126,7 +126,7 @@ export class OfflinePlayer {
     this.wantPlay = true;
     this.at = index;
     this.setState('loading');
-    this.ensure(index).then((ok) => {
+    void this.ensure(index).then((ok) => {
       if (!ok || !this.wantPlay) return;
       this.playFrom(index, index === textIndex ? offsetMs : 0);
     });
@@ -183,7 +183,7 @@ export class OfflinePlayer {
 
   private jump(index: number): void {
     this.at = index;
-    this.ensure(index).then((ok) => {
+    void this.ensure(index).then((ok) => {
       if (!ok) return;
       this.playFrom(index);
     });

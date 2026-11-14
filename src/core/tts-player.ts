@@ -127,7 +127,7 @@ export class TtsPlayer {
     this.deps = deps;
     const ahead = deps.bufferAhead;
     this.buffer = ahead === undefined ? DEFAULT_AHEAD : ahead === Infinity ? Infinity : Math.max(1, ahead);
-    this.makeAudio = deps.makeAudio ?? ((url) => new Audio(url) as unknown as TtsAudioLike);
+    this.makeAudio = deps.makeAudio ?? ((url) => new Audio(url));
     this.makeUrl = deps.makeUrl ?? defaultMakeUrl;
     this.revokeUrl = deps.revokeUrl ?? defaultRevoke;
   }

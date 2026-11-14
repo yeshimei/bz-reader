@@ -11,7 +11,7 @@
  * 其它地址走 OpenAI 兼容的 `/v1/audio/speech`——和本地那套同一个函数。
  * ============================================================ */
 
-import { synthesizeSpeech, type TtsVoice } from './tts-api';
+import { synthesizeSpeech } from './tts-api';
 import { LOCAL_MIME, synthesizeLocal, type LocalRequester, type TtsFormat } from './tts-local';
 import { DEEPSEEK_TTS_BASE, ttsProtocolOf } from './tts-protocol';
 
@@ -171,7 +171,7 @@ export async function synthesizeFor(
         baseUrl: onlineBase(route),
         apiKey: route.online.apiKey,
         text,
-        voice: voice as TtsVoice,
+        voice,
         signal,
         ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
         ...(deps.timeoutMs ? { timeoutMs: deps.timeoutMs } : {}),

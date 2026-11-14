@@ -107,9 +107,9 @@ export async function localServiceAlive(input: {
   const url = localVoicesEndpoint(input.baseUrl);
   if (!url) return false;
   const timeoutMs = Math.max(50, input.timeoutMs ?? LOCAL_PROBE_MS);
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timer: number | undefined;
   const timeout = new Promise<null>((resolve) => {
-    timer = setTimeout(() => resolve(null), timeoutMs);
+    timer = window.setTimeout(() => resolve(null), timeoutMs);
   });
   try {
     const res = await Promise.race([input.request({ url, method: 'GET' }), timeout]);
@@ -117,7 +117,7 @@ export async function localServiceAlive(input: {
   } catch {
     return false;
   } finally {
-    if (timer) clearTimeout(timer);
+    if (timer) window.clearTimeout(timer);
   }
 }
 
@@ -299,11 +299,14 @@ export async function synthesizeLocal(input: LocalSynthesisInput): Promise<Array
 
   /* 下限给 50ms 而不是 1s：测试要跑得快，正常调用方给的是几十秒 */
   const timeoutMs = Math.max(50, input.timeoutMs ?? LOCAL_TIMEOUT_MS);
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timer: number | undefined;
   let onAbort: (() => void) | undefined;
 
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new TtsError('timeout', 0, `Local speech timed out after ${Math.round(timeoutMs / 1000)}s`)), timeoutMs);
+    timer = window.setTimeout(
+      () => reject(new TtsError('timeout', 0, `Local speech timed out after ${Math.round(timeoutMs / 1000)}s`)),
+      timeoutMs,
+    );
   });
   const aborted = new Promise<never>((_, reject) => {
     onAbort = (): void => reject(new TtsError('aborted', 0, 'Cancelled'));
@@ -326,7 +329,7 @@ export async function synthesizeLocal(input: LocalSynthesisInput): Promise<Array
     if (e instanceof TtsError) throw e;
     throw new TtsError('network', 0, `Cannot reach the local speech service: ${(e as Error)?.message || 'network error'}`);
   } finally {
-    if (timer) clearTimeout(timer);
+    if (timer) window.clearTimeout(timer);
     if (onAbort) input.signal?.removeEventListener('abort', onAbort);
   }
 
@@ -360,10 +363,10 @@ export async function fetchLocalVoices(input: {
   const key = String(input.apiKey ?? '').trim();
   if (key) headers.Authorization = `Bearer ${key}`;
 
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timer: number | undefined;
   const timeoutMs = Math.max(50, input.timeoutMs ?? 10_000);
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('timeout')), timeoutMs);
+    timer = window.setTimeout(() => reject(new Error('timeout')), timeoutMs);
   });
   try {
     const res = await Promise.race([input.request({ url, method: 'GET', headers }), timeout]);
@@ -374,6 +377,6 @@ export async function fetchLocalVoices(input: {
   } catch {
     return [];
   } finally {
-    if (timer) clearTimeout(timer);
+    if (timer) window.clearTimeout(timer);
   }
 }

@@ -88,8 +88,7 @@ export function ttsBody(text: string, voice: TtsVoice): TtsBody {
 }
 
 /** HTTP 状态码 + 响应体 → 给人看的错误分类（文案在视图层翻） */
-export function ttsErrorCode(status: number, body: string): TtsErrorCode {
-  const text = String(body ?? '');
+export function ttsErrorCode(status: number, _body: string): TtsErrorCode {
   if (status === 400) return 'rejected';
   if (status === 401 || status === 403) return 'unauthorized';
   if (status === 429) return 'rate';

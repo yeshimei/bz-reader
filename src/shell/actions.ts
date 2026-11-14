@@ -2220,14 +2220,19 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
        带上库的真实路径，AI 才能直接改 data.json 把参数填回来。 */
     case 'ttscopyprompt': {
       let vaultPath = '';
+      let configDir = '';
       try {
-        /* 手机上是 MemoryAdapter，没有 getBasePath；拿不到就让提示词留占位 */
-        const adapter = getShellSource()?.app.vault.adapter as { getBasePath?: () => string } | undefined;
+        /* 手机上是 MemoryAdapter，没有 getBasePath；拿不到就让提示词留占位。
+           配置目录名也一起带上：用户可能把它改过，写死 .obsidian 会指错文件。 */
+        const src = getShellSource();
+        const adapter = src?.app.vault.adapter as { getBasePath?: () => string } | undefined;
         vaultPath = adapter?.getBasePath?.() ?? '';
+        configDir = src?.app.vault.configDir ?? '';
       } catch {
         vaultPath = '';
+        configDir = '';
       }
-      void copyText(ttsDeployPrompt({ vaultPath }));
+      void copyText(ttsDeployPrompt({ vaultPath, configDir }));
       break;
     }
     /* 本地服务的「连接」：点一下就知道地址对不对、有几个音色 */

@@ -98,13 +98,11 @@ export function mp3DurationMs(buf: ArrayBuffer): number {
   if (view.byteLength < 4) return 0;
   let at = id3End(view);
   let total = 0;
-  let frames = 0;
   let misses = 0;
   while (at + 4 <= view.byteLength) {
     const frame = readFrame(view, at);
     if (frame) {
       total += frame.ms;
-      frames += 1;
       at += frame.size;
       misses = 0;
       continue;
