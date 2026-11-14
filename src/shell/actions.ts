@@ -30,6 +30,8 @@ import {
   toggleBookmark,
 } from '../data/notes';
 import { allMarks, filterMarks, shelfOf } from './domain';
+import { filterRows, toRows } from './adapt';
+import { visiblePicked } from './book-select';
 import { toggleAll, togglePick } from './note-select';
 import { notify } from '../core/notice';
 import { synthesizeFor, ttsEngineReady, ttsVoiceFor, type TtsRoute } from '../core/tts-engine';
@@ -329,12 +331,29 @@ function reshapeShelfCache(from: string, to: string): void {
 }
 
 /**
+ * 当前书库这一屏能看见的书 id。
+ * 与书架页渲染同源（toRows → filterRows）：全选、批量归类、批量移出都读它，
+ * 否则「全选」会把筛选 / 分类 / 搜索词之外的书一起选上。
+ */
+function visibleBookIds(): string[] {
+  const app = getShellSource()?.app;
+  if (!app) return [];
+  return filterRows(toRows(app, liveBooks()), getState()).map((r) => r.id);
+}
+
+/** 批量动作真正要动的书：选中 ∩ 当前可见。 */
+function selectedBookIds(): string[] {
+  return visiblePicked(getState().libSel, visibleBookIds());
+}
+
+/**
  * 把一批书归到某个分类。`name` 是分类条上显示的那一格（含「未分类」）。
  *
  * 回执只报结果，不带按钮：归类是低频动作，提示条上再挂一个白底「撤销」
  * 在手机通知里太抢眼，改错分类直接再点另一格就行。
+ * 单本沿用原来那句，多本改成按本数汇总——批量时不该弹 N 条一样的提示。
  */
-function assignShelf(ids: string[], name: string): void {
+export function assignShelf(ids: string[], name: string): void {
   const src = getShellSource();
   if (!src || !ids.length) return;
   const want = shelfOfName(name);
@@ -350,7 +369,16 @@ function assignShelf(ids: string[], name: string): void {
     /* 空串照写：归类到「未分类」是一次明确的表态，不是「忘了设」 */
     for (const id of hit) s.shelves[id] = want;
   });
-  notify(want ? t('shelves.assigned', { name: want }) : t('shelves.assigned.none'));
+  const many = hit.length > 1;
+  notify(
+    want
+      ? many
+        ? t('shelves.assignedN', { n: hit.length, name: want })
+        : t('shelves.assigned', { name: want })
+      : many
+        ? t('shelves.assignedNoneN', { n: hit.length })
+        : t('shelves.assigned.none'),
+  );
 }
 
 /** 名字不合法时给哪一句人话 */
@@ -1507,6 +1535,75 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'done':
       toggleDone(d.id);
       break;
+    /* ── 书库批量选择 ──
+       勾选、全选、批量归类、批量移出共用同一份选中集合；执行时只认
+       「选中 ∩ 当前可见」，换过筛选 / 分类 / 搜索词也不会误伤别的书。
+       选完不清空：同一批书常常要连着归一次类、再移出书架。 */
+    case 'libsel':
+      mutateState((s) => {
+        s.libSelect = !s.libSelect;
+        s.libSel = [];
+      });
+      break;
+    case 'libselpick':
+      if (d.id) {
+        mutateState((s) => {
+          s.libSel = togglePick(s.libSel, d.id as string);
+        });
+      }
+      break;
+    case 'libselall':
+      mutateState((s) => {
+        s.libSel = toggleAll(s.libSel, visibleBookIds());
+      });
+      break;
+    case 'libselclass': {
+      const ids = selectedBookIds();
+      if (!ids.length) {
+        notify(t('shelf.batch.needPick'), 'info');
+        break;
+      }
+      /* 从工具条点进来没有右键坐标：菜单贴着这颗按钮的下沿弹 */
+      const box = el.getBoundingClientRect();
+      openShelfMenu(ids, { x: box.left, y: box.bottom + 4 });
+      break;
+    }
+    case 'libselremove': {
+      const ids = selectedBookIds();
+      if (!ids.length) {
+        notify(t('shelf.batch.needPick'), 'info');
+        break;
+      }
+      overlay('removebooks', { ids });
+      break;
+    }
+    case 'removebooksdo': {
+      /* 从确认框进来认弹层带着的那份 ids（按钮上写的是这个本数）；
+         别的入口没有弹层就现场算一次。 */
+      const ids = getState().overlay?.ids ?? selectedBookIds();
+      const src = getShellSource();
+      if (!src || !ids.length) break;
+      /* 移出书架 = 归档：记录与数据一条不删，重新导入同一份文件会复活。
+         循环里跳过已经不在架上的书，最后按真正归档的本数回报。 */
+      let n = 0;
+      for (const id of ids) {
+        const book = liveBooks().find((b) => b.id === id);
+        if (!book) continue;
+        src.repo.archive(book);
+        n += 1;
+      }
+      if (!n) break;
+      src.store.touch();
+      /* 正打开的书也在这一批里：别让阅读页还挂着一本地位已变的书 */
+      if (ids.includes(getState().bookId ?? '')) setState({ bookId: null });
+      mutateState((s) => {
+        s.libSelect = false;
+        s.libSel = [];
+      });
+      closeOverlay();
+      notify(t('notice.book.archivedN', { n }));
+      break;
+    }
     case 'libfilter':
       if (d.v) setState({ libFilter: d.v as never });
       break;
@@ -1582,10 +1679,12 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const name = cleanShelfName(raw);
       saveShelfList([...getState().shelfList, name]);
       const bookId = d.id || '';
-      if (bookId) {
-        /* 从书卡「新建分类…」进来的：建好顺手把这本书放进去，少绕一圈 */
+      /* 从批量归类的「新建分类…」进来时，建好要把整批都放进去，
+         不是只放菜单顺带带过来的第一本。单本入口仍按原来的走。 */
+      const ids = getState().libSelect ? selectedBookIds() : bookId ? [bookId] : [];
+      if (ids.length) {
         closeOverlay();
-        assignShelf([bookId], name);
+        assignShelf(ids, name);
       } else {
         bumpOverlayRev();
       }

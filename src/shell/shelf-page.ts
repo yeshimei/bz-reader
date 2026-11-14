@@ -57,6 +57,10 @@ export function shelfRenderKey(state: ShellState, books: ReaderBook[], compact =
     state.libShelf,
     state.libKw,
     state.libSearchOpen ? '1' : '0',
+    /* 书库多选：勾选圈、已选本数、批量按钮的禁用态都长在这一页。
+       漏了这两项，点一下卡片看着没反应，再点一下才连跳两格。 */
+    state.libSelect ? '1' : '0',
+    state.libSel.join(','),
     /* 搜索方式切换是同一页里的可见变化：不进指纹，点「按意思搜」后
        整页会按旧指纹直接跳过重绘。 */
     state.searchMode,

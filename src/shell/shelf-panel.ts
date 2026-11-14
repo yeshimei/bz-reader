@@ -317,6 +317,9 @@ export class ShelfPanel {
       this.outside(t) || !(t instanceof HTMLElement) ? null : t.closest<HTMLElement>('[data-bookmenu]');
 
     el.addEventListener('contextmenu', (e) => {
+      /* 多选期间不弹单本菜单：里面那项「移出书架」只动一本，和批量状态
+         混在一起容易点错；提前 return 也免得菜单没开却压住了下一次 click。 */
+      if (getState().libSelect) return;
       if (this.outside(e.target)) return;
       const card = cardOf(e.target);
       if (!card) return;
@@ -338,6 +341,9 @@ export class ShelfPanel {
       pressCard = null;
     };
     el.addEventListener('pointerdown', (e) => {
+      /* 多选期间长按不再出单本菜单：手指按住卡片时计时器若还开着，
+         到点会压住随后的 click，勾一下看起来像没反应。 */
+      if (getState().libSelect) return;
       if (!isMobileShell()) return;
       const card = cardOf(e.target);
       if (!card) return;

@@ -47,43 +47,43 @@
 | 类别 | 功能 | 基础版 | 高级版 |
 |---|:---|:---:|:---:|
 | **阅读与书架** | EPUB / TXT 打开即读 | ✓ | ✓ |
-|  | 单栏 / 双栏 | ✓ | ✓ |
+|  | 单栏 / 双栏排版 | ✓ | ✓ |
 |  | 目录、书签、四色划线、想法 | ✓ | ✓ |
-|  | 书内搜索 | ✓ | ✓ |
-|  | 回到上一处：跳走之后一键回来 | ✓ | ✓ |
-|  | 脚注浮窗：小注不用离页 | ✓ | ✓ |
 |  | 划线做成书摘图片 | ✓ | ✓ |
-|  | 分类管理 | ✓ | ✓ |
-|  | 朗读：EPUB、TXT 与 PDF，念完自动翻页 | ✓ | ✓ |
-| **格式与导出** | Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画、PDF | — | ✓ |
-|  | 划线存成双链：笔记里点回原文 | — | ✓ |
+|  | 书内搜索 | ✓ | ✓ |
+|  | 跳转历史：一键回到上一处 | ✓ | ✓ |
+|  | 脚注浮窗：小注不用离页 | ✓ | ✓ |
+|  | 分类管理：自建分类归书 | ✓ | ✓ |
+| **打开与导入** | Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画、PDF | — | ✓ |
+|  | 剪藏成书：剪藏本合成一本 EPUB · [看视频](https://www.bilibili.com/video/BV1h3WB6XEL4) | — | ✓ |
+| **PDF 阅读** | PDF 阅读：缩放、旋转、单双页、滚动 | — | ✓ |
+|  | 页缩略图：几百页也能一屏找 | — | ✓ |
+|  | 复制页链接：页码、视图、嵌入、批注 | — | ✓ |
+|  | 本页反链：笔记引了这页就画出来 | — | ✓ |
+|  | 文件自带批注：别人标的也能读 | — | ✓ |
+|  | 导出本页为图片 | — | ✓ |
+| **笔记与导出** | 划线存成双链：笔记里点回原文 | — | ✓ |
 |  | 引用页签：看哪些笔记引了这本书 | — | ✓ |
 |  | 导出整本摘录：每条带双链 | — | ✓ |
-| **PDF 阅读** | 打开 PDF：缩放、旋转、单双页、滚动，每本记住视角 | — | ✓ |
-|  | 页缩略图：几百页也能一屏找 | — | ✓ |
-|  | 复制页链接：页码 / 视图 / 嵌入 / 批注 | — | ✓ |
-|  | 本页反链与文件自带批注 | — | ✓ |
-|  | 导出本页为图片 | — | ✓ |
-| **统计与检索** | 数据面板：时长、趋势、节律、书籍明细 | — | ✓ |
+| **数据与搜索** | 数据面板：时长、趋势、节律、书籍明细 | — | ✓ |
 |  | 阅读海报：年度总结与数据长图 | — | ✓ |
-|  | 全库搜索：PDF 正文也搜得到 | — | ✓ |
-|  | 语义搜索：本书与全库，按意思找 | — | ✓ |
+|  | 全库搜索：按字面搜所有书，含 PDF | — | ✓ |
+|  | 语义搜索：按意思找，本书或全库 | — | ✓ |
 | **AI** | AI 解释、翻译与摘要：划词即用 | — | ✓ |
-|  | AI 全书问答 | — | ✓ |
+|  | AI 全书问答：先建索引，再问整本 | — | ✓ |
 |  | AI 伴读：边读边问，按章导读 | — | ✓ |
-| **进阶** | 竖排排版：EPUB / TXT | — | ✓ |
-|  | 整章 / 整本预生成：备好再听，可存离线音频拷到手机 | — | ✓ |
-|  | 与另一本书并排对照 | — | ✓ |
-|  | 全书鸟瞰 | — | ✓ |
-|  | AI 知识盒 · [看视频](https://www.bilibili.com/video/BV1bR4s6dEjH) | — | ✓ |
-|  | 剪藏成书：把剪藏本的文章合成 EPUB，在书架里读 · [看视频](https://www.bilibili.com/video/BV1h3WB6XEL4) | — | ✓ |
-| **探索中** | PDF OCR+AI视觉：扫描件像文字版一样能选能搜能划 | — | — |
-|  | PDF 重排：固定版式也能流式读 | — | — |
+|  | AI 知识库：划线、想法、增量阅读存进去，提问带上笔记 · [看视频](https://www.bilibili.com/video/BV1bR4s6dEjH) | — | ✓ |
+| **阅读方式** | 竖排排版：EPUB / TXT | — | ✓ |
+|  | 朗读：EPUB、TXT 与 PDF，念完自动翻页 | — | ✓ |
+|  | 并排对照：与另一本书同步段落 | — | ✓ |
+|  | 全书鸟瞰：各章划线数与一句话摘要 | — | ✓ |
+| **探索中** | OCR 扫描件：像文字版一样选、搜、划 | — | — |
+|  | PDF 重排：固定版式变流式 | — | — |
 |  | 漫画模式：分格、右到左、跨页 | — | — |
-|  | 整章翻译：原文译文对照读 | — | — |
-|  | 复习：全文回顾，AI 生成抽认卡与题目 | — | — |
-|  | 墨水屏优化：黑白更清、翻页不闪 | — | — |
-|  | 界面动效：翻页、切章与书架过渡，可随时关 | — | — |
+|  | 整章翻译：原文译文对照 | — | — |
+|  | 复习：全文回顾，AI 抽认卡与出题 | — | — |
+|  | 墨水屏：黑白更清、翻页不闪 | — | — |
+|  | 界面动效：翻页与切章过渡，可关 | — | — |
 
 ## 界面语言
 
@@ -107,8 +107,6 @@
 - 建全书索引时，整本书的正文会分块发给嵌入服务；提问时只发检索命中的那几块，必要时再带上书名、章节名与最近几轮问答。向量与索引都存在插件目录里，不上传。
 - 嵌入由 bz（第二大脑）插件提供：没装它就没有向量检索，只能走压缩要点那一档。
 - API Key 与其他设置一起保存在插件目录的 `data.json` 里，不会上传给插件作者；只有请求你自己填写的那个接口时，它才会以请求头的形式发过去。
-- 朗读用 DeepSeek 语音时，只把**当前这一页的正文**发往 `https://api.deepseek.com/v1/tools/tts`（或你在设置里填的兼容地址）合成音频；不点朗读、不预生成就不发。合成结果缓存在本机 IndexedDB，不上传。用本地语音服务时音频不出你的电脑。
-- 预生成时若开着「同时存离线音频」，每章会拼成一个 mp3 连同逐句时间轴写进库里的 `bz-reader/offline/`。它是**库里的普通文件**，会跟着你的同步走；拷到手机后不联网也能听。
 - 打开「支持作者」弹窗（或更新日志）时，会读取一份公开的支持者名单：同时请求 GitHub 与码云上的同一个静态 JSON，谁先回用谁。只取这一份名单，不发送任何个人信息、不做统计上报；名单在本机缓存，两个源都不通时显示「没加载出来」和重试。名单是公开数据，内容与两个插件里显示的完全一致。
 
 ## 常见问题
@@ -226,7 +224,6 @@ Only the AI features and the supporter list in **Support the author** go online;
 - Building the whole-book index sends the book's text to your embedding service in chunks; a question only sends the few retrieved chunks, plus the book title, chapter name, and the last few turns when needed. Vectors and the index stay in the plugin folder and are never uploaded.
 - Embeddings come from the bz (second brain) plugin: without it there is no vector search, only the compressed-key-points path.
 - Your API key is stored with the rest of your settings in `data.json` inside the plugin folder. It is never sent to the plugin author; it only travels to the endpoint you configured, as a request header.
-- Read aloud with DeepSeek speech sends only the current page to `https://api.deepseek.com/v1/tools/tts` (or the compatible endpoint you configured) for synthesis; nothing is sent unless you start read aloud or pre-build a chapter. Audio is cached in local IndexedDB and never uploaded.
 - Opening **Support the author** (or the changelog) reads a public supporter list: the same static JSON from GitHub and Gitee is requested at the same time, and whichever answers first is used. Only that list is fetched — no personal data, no analytics. It is cached locally; if both sources fail, "couldn't load" and a retry button appear. The list is public data, identical in both plugins.
 
 ### FAQ

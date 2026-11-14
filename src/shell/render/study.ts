@@ -15,6 +15,8 @@
 import { t, type MsgKey } from '../../i18n';
 import type { BookRow } from '../adapt';
 import { continueRow, shelfNames } from '../adapt';
+import { visiblePicked } from '../book-select';
+import { allPicked } from '../note-select';
 import type { ShellState, StudyPage } from '../state';
 import { MAG, barHtml, coverHtml, esc, ico } from './html';
 import { shelfLabel } from '../shelf-label';
@@ -153,6 +155,30 @@ export function viewLibrary(v: LibraryView): string {
   const shown = v.rows;
   const shelves = shelfNames(rows, state.shelfList);
 
+  /* 批量选择：只认当前可见的这批书。切筛选 / 分类 / 搜索词会由 state 的
+     守卫退出多选，这里再求一次交集，挡住「选择还留着但书已不在架上」。 */
+  const select = state.libSelect;
+  const shownIds = shown.map((b) => b.id);
+  const picked = select ? visiblePicked(state.libSel, shownIds) : [];
+  const pickedSet = new Set(picked);
+  const selectBtn = select
+    ? ''
+    : `<button class="bzs-round" data-act="libsel" aria-label="${t('shelf.select')}" title="${t('shelf.select')}">${ico('listchecks')}</button>`;
+  const selBar = select
+    ? `<div class="bzs-libselbar">
+        <span class="bzs-mini">${t('shelf.selected', { n: picked.length })}</span>
+        <span class="sp"></span>
+        <button class="bzs-btn sm" data-act="libselall">${allPicked(picked, shownIds) ? t('shelf.selectNone') : t('shelf.selectAll')}</button>
+        <button class="bzs-btn sm" data-act="libselclass"${picked.length ? '' : ' disabled'}>${t('shelf.batch.classify')}</button>
+        <button class="bzs-btn sm danger" data-act="libselremove"${picked.length ? '' : ' disabled'}>${t('shelf.batch.remove')}</button>
+        <button class="bzs-btn sm" data-act="libsel">${t('shelf.select.exit')}</button>
+      </div>`
+    : '';
+  const pickBox = (b: BookRow): string =>
+    select ? `<span class="bzs-bkpick${pickedSet.has(b.id) ? ' on' : ''}">${ico('check')}</span>` : '';
+  const cardTitle = (b: BookRow): string =>
+    select ? t('shelf.select.tip') : b.missing ? t('shelf.missing.tip') : t('shelf.more');
+
   const cont = recent
     ? `<div class="bzs-cont2">
         ${coverHtml(recent)}
@@ -203,6 +229,7 @@ export function viewLibrary(v: LibraryView): string {
           <button class="bzs-round" data-act="libview" data-v="${toView}" aria-label="${toViewLabel}" title="${toViewLabel}">${ico(
             toView,
           )}</button>
+          ${selectBtn}
         </div>`
     : `<div class="bzs-filters">
       <div class="bzs-well">${MAG}<input data-role="libkw" placeholder="${t('shelf.search.ph')}" value="${esc(state.libKw)}"></div>
@@ -219,6 +246,7 @@ export function viewLibrary(v: LibraryView): string {
       <span class="bzs-vsep" aria-hidden="true"></span>
       <button class="bzs-chip${state.libView === 'grid' ? ' on' : ''}" data-act="libview" data-v="grid">${t('shelf.view.grid')}</button>
       <button class="bzs-chip${state.libView === 'list' ? ' on' : ''}" data-act="libview" data-v="list">${t('shelf.view.list')}</button>
+      ${selectBtn}
     </div>`;
 
   const shelfline = `<div class="bzs-shelfline">
@@ -235,8 +263,9 @@ export function viewLibrary(v: LibraryView): string {
       .map(
         /* 卡片上不再钉三颗按钮：点一下开书；文件失联时点它进「重新定位」，
            右键（手机长按）出菜单，详情与其它动作都在里面。 */
-        (b) => `<div class="bzs-bkcard${b.status === 'done' ? ' is-done' : ''}${b.missing ? ' is-missing' : ''}${b.clip ? ' is-clip' : ''}" data-act="openbook" data-id="${esc(b.id)}"
-          data-bookmenu="${esc(b.id)}" role="button" tabindex="0" title="${b.missing ? t('shelf.missing.tip') : t('shelf.more')}">
+        (b) => `<div class="bzs-bkcard${b.status === 'done' ? ' is-done' : ''}${b.missing ? ' is-missing' : ''}${b.clip ? ' is-clip' : ''}${select && pickedSet.has(b.id) ? ' is-picked' : ''}" data-act="${select ? 'libselpick' : 'openbook'}" data-id="${esc(b.id)}"
+          data-bookmenu="${esc(b.id)}" role="button" tabindex="0" title="${cardTitle(b)}">
+        ${pickBox(b)}
         ${
           b.missing
             ? `<span class="flag is-missing">${t('shelf.missing')}</span>`
@@ -261,7 +290,8 @@ export function viewLibrary(v: LibraryView): string {
   } else {
     body = `<div class="bzs-list">${shown
       .map(
-        (b) => `<div class="bzs-bkrow2${b.missing ? ' is-missing' : ''}${b.clip ? ' is-clip' : ''}" data-act="openbook" data-id="${esc(b.id)}" data-bookmenu="${esc(b.id)}" role="button" tabindex="0" title="${b.missing ? t('shelf.missing.tip') : t('shelf.more')}">
+        (b) => `<div class="bzs-bkrow2${b.missing ? ' is-missing' : ''}${b.clip ? ' is-clip' : ''}${select && pickedSet.has(b.id) ? ' is-picked' : ''}" data-act="${select ? 'libselpick' : 'openbook'}" data-id="${esc(b.id)}" data-bookmenu="${esc(b.id)}" role="button" tabindex="0" title="${cardTitle(b)}">
+        ${pickBox(b)}
         ${coverHtml(b)}
         <div class="bi"><b>${esc(b.title)}</b><div class="sub">${esc(b.author)} · ${esc(b.shelf)} · ${b.clip ? t('clip.badge') : b.format}${b.missing ? ` · <span class="miss">${t('shelf.missing')}</span>` : ''}</div></div>
         ${barHtml(b.percent)}
@@ -272,5 +302,5 @@ export function viewLibrary(v: LibraryView): string {
       .join('')}</div>`;
   }
 
-  return `${cont}${filters}${shelfline}${body}`;
+  return `${cont}${filters}${selBar}${shelfline}${body}`;
 }

@@ -803,6 +803,69 @@
   flex: 1;
 }
 
+/* ── 书库批量选择（2026-11-14）──
+   工具条与笔记页同形；勾选圈浮在封面左上角，列表行则排在封面之前。
+   两种视图都靠 .is-picked 描边，免得「勾了没反应」。 */
+.bzs-libselbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+}
+
+.bzs-libselbar .sp {
+  flex: 1;
+}
+
+.bzs-bkpick {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: transparent;
+  box-shadow: var(--shadow);
+}
+
+.bzs-bkpick svg {
+  width: 14px;
+  height: 14px;
+}
+
+.bzs-bkcard.is-picked .bzs-bkpick,
+.bzs-bkrow2.is-picked .bzs-bkpick {
+  background: var(--copper);
+  border-color: var(--copper);
+  color: var(--surface);
+}
+
+.bzs-bkcard.is-picked .bzs-cov,
+.bzs-bkrow2.is-picked .bzs-cov {
+  box-shadow: 0 0 0 2px var(--copper), var(--shadow);
+}
+
+.bzs-bkrow2 .bzs-bkpick {
+  position: static;
+  flex: 0 0 24px;
+}
+
+.bzs-bkrow2.is-picked {
+  background: var(--copper-soft);
+  border-radius: var(--r-card);
+}
+
 .bzs-ncard.pick {
   padding-left: 50px;
   cursor: pointer;

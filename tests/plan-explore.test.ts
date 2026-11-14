@@ -58,13 +58,13 @@ describe('对照表 · 探索中段的位置与内容', () => {
   });
 
   it('中文行名就是图上的那七行', () => {
-    expect(planNameZh('pdfOcr')).toBe('PDF OCR+AI视觉：扫描件像文字版一样能选能搜能划');
-    expect(planNameZh('pdfReflow')).toBe('PDF 重排：固定版式也能流式读');
+    expect(planNameZh('pdfOcr')).toBe('OCR 扫描件：像文字版一样选、搜、划');
+    expect(planNameZh('pdfReflow')).toBe('PDF 重排：固定版式变流式');
     expect(planNameZh('manga')).toBe('漫画模式：分格、右到左、跨页');
-    expect(planNameZh('transChapter')).toBe('整章翻译：原文译文对照读');
-    expect(planNameZh('review')).toBe('复习：全文回顾，AI 生成抽认卡与题目');
-    expect(planNameZh('eink')).toBe('墨水屏优化：黑白更清、翻页不闪');
-    expect(planNameZh('motion')).toBe('界面动效：翻页、切章与书架过渡，可随时关');
+    expect(planNameZh('transChapter')).toBe('整章翻译：原文译文对照');
+    expect(planNameZh('review')).toBe('复习：全文回顾，AI 抽认卡与出题');
+    expect(planNameZh('eink')).toBe('墨水屏：黑白更清、翻页不闪');
+    expect(planNameZh('motion')).toBe('界面动效：翻页与切章过渡，可关');
   });
 
   it('段名叫「探索中」，且不和任何行名撞字', () => {
@@ -73,18 +73,22 @@ describe('对照表 · 探索中段的位置与内容', () => {
     expect(names.has('探索中')).toBe(false);
   });
 
-  it('探索行不计入已实现项：基础版 9、高级版 31、共 38 行的口径不变', () => {
-    /* 图上的合计只看已实现：高级版 31 个勾（2026-11-14 朗读下放、预生成
-       单列一行）、基础版 9 个勾。探索七行加进来之后，行数仍是 38。 */
+  it('探索行不计入已实现项：基础版 8、高级版 31、共 38 行', () => {
     expect(PLAN_TABLE.filter((r) => r.pro === 'yes')).toHaveLength(31);
-    expect(PLAN_TABLE.filter((r) => r.free === 'yes')).toHaveLength(9);
+    expect(PLAN_TABLE.filter((r) => r.free === 'yes')).toHaveLength(8);
     expect(PLAN_TABLE).toHaveLength(38);
   });
 
-  it('知识库之后是剪藏成书（已转正），再往后才是探索段', () => {
+  it('知识库之后是阅读方式，再往后才是探索段', () => {
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
-    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key)).toEqual(['clipEpub', ...EXPLORE_ROWS]);
+    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key)).toEqual([
+      'vertical',
+      'tts',
+      'parallel',
+      'bookmap',
+      ...EXPLORE_ROWS,
+    ]);
   });
 });
 

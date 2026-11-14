@@ -2695,7 +2695,7 @@ export class ReaderView extends ItemView {
       return;
     }
     /* 取消永远放行，只有「开始备好一整章」要高级版（2026-11-14 分级）。 */
-    if (!requireCap('ttsPregen')) return;
+    if (!requireCap('tts')) return;
     if (this.ttsTaskBusy('chapter')) return;
     const route = this.ttsRoute();
     if (!(await this.ttsStartable(route))) return;
@@ -3079,7 +3079,7 @@ export class ReaderView extends ItemView {
       return;
     }
     /* 整本也是「预生成」，与整章同档：取消放行，开始才要高级版。 */
-    if (!requireCap('ttsPregen')) return;
+    if (!requireCap('tts')) return;
     if (this.ttsTaskBusy('book')) return;
     const route = this.ttsRoute();
     if (route.engine !== 'local') {
@@ -3274,7 +3274,7 @@ export class ReaderView extends ItemView {
    */
   async exportChapterAudio(): Promise<void> {
     /* 导出一章要把整章合成一遍，和「预生成」是同一笔账：同一个能力位。 */
-    if (!requireCap('ttsPregen')) return;
+    if (!requireCap('tts')) return;
     if (this.ttsTaskBusy('export')) return;
     const route = this.ttsRoute();
     if (!(await this.ttsStartable(route))) return;

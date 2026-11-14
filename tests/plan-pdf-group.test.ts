@@ -4,22 +4,22 @@ import { LOCALES, setLocale } from '../src/i18n';
 import { PLAN_GROUP_TEXT_PACK, PLAN_TEXT_PACK, planGroupLabel, planGroupNameZh, planNameZh } from '../src/i18n/plan';
 
 /**
- * 高级版对照表 · PDF 段（2026-11-10）。
+ * 高级版对照表 · PDF 段。
  *
  * 以前 PDF 只在「更多格式」那一行里被一句「PDF、Kindle 系…」带过，用户看不出
  * 买高级版在 PDF 上还多了什么。现在 PDF 单独成一段，逐行列出真能做的事。
  *
- * 1.0.0 定稿：七行压成五类——「记住每本书的缩放」并进「PDF 阅读」、「划词
- * 自动复制」并进「复制页链接」。七行全打叉再全打勾，读起来像凑数。
+ * 2026-11-14：五行变六行——「本页反链」与「文件自带批注」拆开。两件事各有
+ * 一个开关（prefs.pdfBacklinks / prefs.pdfAnnots），一行说两件事读着别扭。
  *
  * 两条硬约束：
- *   · 组名不能只写「PDF」——表里按名字找行的地方会把组标题认成那一行，所以
- *     组名带「阅读」二字，且没有任何一行与组名同名；
+ *   · 组名不能只写「PDF」——格式那行里有 PDF 两个字，组名与它撞字时容易被
+ *     当成那一行的一部分；组名带「阅读」二字，且没有任何一行与组名同名；
  *   · 整段共用一个拦点（打开 PDF）。基础版根本进不了 PDF，缩略图 / 导出这些
  *     按钮对他们不存在，给每行各配一个能力位只是摆样子。
  */
 
-const PDF_ROWS = ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfAnnots', 'pdfExport'] as const;
+const PDF_ROWS = ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfBacklink', 'pdfAnnots', 'pdfExport'] as const;
 const CJK = /[\u4e00-\u9fff]/;
 const LATIN = ['en', 'de', 'fr', 'es', 'pt'] as const;
 
@@ -30,18 +30,18 @@ function row(key: string) {
 }
 
 describe('对照表 · PDF 段的位置与内容', () => {
-  it('PDF 自成一段，紧跟格式与导出之后', () => {
+  it('PDF 自成一段，紧跟「打开与导入」之后', () => {
     const keys = PLAN_GROUPS.map((g) => g.key);
     expect(keys).toContain('pdf');
-    expect(keys.indexOf('pdf')).toBe(keys.indexOf('output') + 1);
+    expect(keys.indexOf('pdf')).toBe(keys.indexOf('import') + 1);
   });
 
-  it('五行按顺序、不多不少', () => {
+  it('六行按顺序、不多不少', () => {
     const g = PLAN_GROUPS.find((x) => x.key === 'pdf');
     expect(g?.rows).toEqual([...PDF_ROWS]);
   });
 
-  it('五行都是基础版没有、高级版才有', () => {
+  it('六行都是基础版没有、高级版才有', () => {
     for (const key of PDF_ROWS) {
       const r = row(key);
       expect(r, key).toBeTruthy();
@@ -57,7 +57,7 @@ describe('对照表 · PDF 段的位置与内容', () => {
     for (const r of rows.slice(1)) expect(r?.cap, r?.key).toBeUndefined();
   });
 
-  it('组名叫「PDF 阅读」：只写 PDF 会和更多格式那行撞字', () => {
+  it('组名叫「PDF 阅读」：只写 PDF 会和格式那行撞字', () => {
     expect(planGroupNameZh('pdf')).toBe('PDF 阅读');
     expect(planGroupLabel('pdf')).toBe('PDF 阅读');
     setLocale('en');
@@ -92,10 +92,10 @@ describe('对照表 · 格式那行把能开的格式写全（2026-11-10 用户�
     }
   });
 
-  it('PDF 段首行改成「打开 PDF」：能不能开归它自己说', () => {
-    expect(planNameZh('pdfView')).toBe('打开 PDF：缩放、旋转、单双页、滚动，每本记住视角');
-    expect(PLAN_TEXT_PACK.pdfView.zh).toContain('打开');
-    expect(PLAN_TEXT_PACK.pdfView['zh-TW']).toContain('開啟');
+  it('PDF 段首行说「PDF 阅读」：怎么读归它自己讲', () => {
+    expect(planNameZh('pdfView')).toBe('PDF 阅读：缩放、旋转、单双页、滚动');
+    expect(PLAN_TEXT_PACK.pdfView.zh).toContain('缩放');
+    expect(PLAN_TEXT_PACK.pdfView['zh-TW']).toContain('縮放');
   });
 });
 
@@ -115,7 +115,7 @@ describe('对照表 · 回到上一处是基础版能力', () => {
 });
 
 describe('对照表 · PDF 段八种语言', () => {
-  it('组名与五行都填了，没有空串', () => {
+  it('组名与六行都填了，没有空串', () => {
     for (const l of LOCALES) {
       expect(String(PLAN_GROUP_TEXT_PACK.pdf[l]).trim().length, l).toBeGreaterThan(0);
       for (const key of PDF_ROWS) {
@@ -135,7 +135,6 @@ describe('对照表 · PDF 段八种语言', () => {
 
   it('繁体行名不用简体字', () => {
     const SIMPLIFIED = /[读写页缩图关双页]|复制|链接|笔记|导出/;
-    /* 直接按词表查：繁中这七行里不该出现这些简体字形 */
     for (const key of PDF_ROWS) {
       expect(SIMPLIFIED.test(PLAN_TEXT_PACK[key]['zh-TW']), key).toBe(false);
     }
@@ -145,10 +144,8 @@ describe('对照表 · PDF 段八种语言', () => {
 
   it('切到英文，行名跟着换', () => {
     setLocale('en');
-    expect(planNameZh('pdfView')).toBe('打开 PDF：缩放、旋转、单双页、滚动，每本记住视角');
-    expect(PLAN_TEXT_PACK.pdfView.en).toBe(
-      'Open a PDF: zoom, rotate, one or two pages, scroll; view remembered per book',
-    );
+    expect(planNameZh('pdfView')).toBe('PDF 阅读：缩放、旋转、单双页、滚动');
+    expect(PLAN_TEXT_PACK.pdfView.en).toBe('Read PDFs: zoom, rotate, one or two pages, scroll');
     setLocale('zh');
   });
 });
