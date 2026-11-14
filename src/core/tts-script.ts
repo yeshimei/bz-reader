@@ -154,12 +154,24 @@ export function splitSentences(text: string): string[] {
       i += 1;
     }
     const one = buf.trim();
-    if (one) parts.push(one);
+    if (one && readable(one)) parts.push(one);
     buf = '';
   }
   const tail = buf.trim();
-  if (tail) parts.push(tail);
+  if (tail && readable(tail)) parts.push(tail);
   return mergeShort(parts);
+}
+
+/**
+ * 这段有没有能念出声的字符。
+ *
+ * 2026-11-14 真机：EPUB 排版里常把「、」「——」「……」单放成一个段落，
+ * 它们会被切句切成「一句」，发给语音服务后本地模型吐不出音频
+ * （`no audio produced`），整章导出就断在这。没有字母 / 数字 / 汉字的
+ * 碎片一律不念——它们本来也不是话。
+ */
+function readable(text: string): boolean {
+  return /[\p{L}\p{N}]/u.test(text);
 }
 
 const SENTENCE_END = /[。！？；!?;…]/;

@@ -36,6 +36,8 @@ import { synthesizeFor, ttsEngineReady, type TtsRoute } from '../core/tts-engine
 import { fetchLocalVoices } from '../core/tts-local';
 import { localRequester } from '../data/tts-request';
 import { TtsCache } from '../data/tts-cache';
+import { deletePack, packBytes, scanPacks } from '../data/offline-store';
+import { vaultPackFS } from '../data/vault-pack-fs';
 import {
   ALL_SHELF,
   NO_SHELF,
@@ -1995,6 +1997,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (d.k === 'ttsMultiVoice') src.setPrefs({ ttsMultiVoice: !el.classList.contains('on') });
       if (d.k === 'ttsDialogueOnly') src.setPrefs({ ttsDialogueOnly: !el.classList.contains('on') });
       if (d.k === 'ttsAiRoles') src.setPrefs({ ttsAiRoles: !el.classList.contains('on') });
+      /* 预生成时顺手写离线包（2026-11-14）：默认开，关掉就只填本机缓存 */
+      if (d.k === 'ttsOfflineSave') src.setPrefs({ ttsOfflineSave: !el.classList.contains('on') });
       repaint();
       break;
     }
@@ -2039,6 +2043,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       closeOverlay();
       getShellSource()?.exportChapterAudio?.();
       break;
+    /* 用户刚把离线包目录拷进库：重扫一遍，不重开书也能认到 */
+    case 'ttsofflinereload':
+      closeOverlay();
+      getShellSource()?.reloadOfflineAudio?.();
+      break;
     /* 拉本地服务的音色列表（2026-11-14）：拉不到就退回手填，别报错 */
     case 'ttslocalvoices': {
       const s = shellSettings();
@@ -2074,6 +2083,36 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         notify(t('notice.tts.cacheCleared'));
       });
       break;
+    /* 清理离线音频（2026-11-14）：整目录删。与清缓存同一副弹窗，
+       但说的是「库里的文件」而不是「本机缓存」，别把两件事混成一件。 */
+    case 'ttsofflineclear': {
+      const app = getShellSource()?.app;
+      if (!app) break;
+      void scanPacks(vaultPackFS(app)).then((packs) => {
+        if (!packs.length) {
+          notify(t('notice.tts.offlineNone'));
+          return;
+        }
+        const bytes = packs.reduce((n, p) => n + packBytes(p.book), 0);
+        /* 一本书常常不到 1 MB：取整会显示成「约 0 MB」，让人以为没占地方 */
+        overlay('ttsofflineclear', {
+          text: `${packs.length}|${Math.max(0.1, Math.round((bytes / 1048576) * 10) / 10)}`,
+        });
+      });
+      break;
+    }
+    case 'ttsofflinecleardo': {
+      const app = getShellSource()?.app;
+      if (!app) break;
+      void (async () => {
+        const fs = vaultPackFS(app);
+        const packs = await scanPacks(fs);
+        for (const p of packs) await deletePack(fs, p.book.title);
+        closeOverlay();
+        notify(t('notice.tts.offlineCleared'));
+      })();
+      break;
+    }
 
     /* ── 侧栏：目录 / 书签 / 划线 ── */
     case 'jumpch': {

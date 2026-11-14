@@ -38,6 +38,17 @@ import type { TtsErrorCode } from '../core/tts-api';
 import { isFreeEngine, synthesizeFor, ttsCacheTag, ttsEngineReady, ttsMimeOf, type TtsRoute } from '../core/tts-engine';
 import { concatMp3, type LocalRequester } from '../core/tts-local';
 import { TtsPlayer } from '../core/tts-player';
+import { OfflinePlayer, type OfflineAudioLike } from '../core/offline-player';
+import { emptyBook, buildChapter, reorderChapters, upsertChapter, type ChapterSource } from '../core/offline-build';
+import {
+  OFFLINE_ROOT,
+  alignMarks,
+  packagePath,
+  type OfflineBook,
+  type OfflineChapter,
+} from '../core/offline-pack';
+import { deletePack, findPack, packBytes, readChapter, readManifest, writeChapter, writeManifest } from '../data/offline-store';
+import { vaultPackFS } from '../data/vault-pack-fs';
 import { concatWav } from '../core/wav';
 import { TtsCache, cacheKey } from '../data/tts-cache';
 import { localRequester } from '../data/tts-request';
@@ -1709,6 +1720,13 @@ export class ReaderView extends ItemView {
        存的 system 在这里也不再照做。本地服务同理——手机连不上电脑上那个
        127.0.0.1，具体原因在 speakPageAi 里说。 */
     if (this.prefs.ttsEngine !== 'system' || isMobileShell()) {
+      /* 有离线包先播包：整章连着放，不联网、不跑模型——手机也能用 */
+      if (this.offlinePack) {
+        void this.speakOffline(text).then((used) => {
+          if (!used && !this.closed) void this.speakPageAi(text);
+        });
+        return;
+      }
       void this.speakPageAi(text);
       return;
     }
@@ -1878,6 +1896,90 @@ export class ReaderView extends ItemView {
     player.start();
   }
 
+  /**
+   * 有离线包就播包，没有就返回 false 走在线合成。
+   *
+   * 离线包播的是**整章**，不是当前页：文件里本来就整章连着，切成页反而
+   * 每页都要 seek 一次。所以这里的 `segments` 取整章，起点按「当前页第
+   * 一句」在整章里的位置算。
+   *
+   * 不自动翻页：整章连续播，翻页交给用户；高亮只在当前页可见的句子上
+   * 出现（`speechRects` 对屏幕外的句子返回空），翻过去会接着亮。
+   */
+  private async speakOffline(pageText: string): Promise<boolean> {
+    const pack = this.offlinePack;
+    if (!pack) return false;
+    const chapterTitle = this.host.currentChapterTitle?.() || '';
+    const chapter = chapterTitle
+      ? pack.book.chapters.find((c) => c.title === chapterTitle)
+      : undefined;
+    if (!chapter) return false;
+
+    /* 取整章块：它同时把 `speechSpots` 填成整章，后面 `speechRects(seg.blocks)`
+       才定位得到（不填就只有第一块对得上，表现为「有声音没高亮」）。
+       注意顺序——`currentText()` 内部会重置 spots 成当前页，所以页文本只能
+       用调用方传进来的那一份。 */
+    const chapterBlocks = this.host.currentChapterBlocks?.() ?? [];
+    const segments = buildScript(chapterBlocks);
+    if (!segments.length) return false;
+
+    const align = alignMarks(chapter.marks, segments.map((s) => s.text));
+    if (!align.some((m) => m >= 0)) {
+      /* 正文和包对不上（换过版本 / 重新排版）。说出来，别让用户以为播放器坏了，
+         然后老老实实走在线合成，至少还能听 */
+      notify(t('notice.tts.offlineStale'));
+      return false;
+    }
+
+    /* 当前页第一句在整章里的位置：翻到第 5 页点朗读，就该从第 5 页开始 */
+    const startAt = Math.max(0, segments.findIndex((s) => pageText.includes(s.text)));
+
+    this.stopTts();
+    this.ttsMime = this.ttsFormat() === 'wav' ? 'audio/wav' : 'audio/mpeg';
+    this.ttsChars = 0;
+    this.ttsCost = 0;
+    this.ttsTotal = segments.length;
+    this.ttsIndex = startAt;
+    this.ttsKind = segments[startAt].kind;
+    this.ttsSnippet = snippetOf(segments[startAt].text);
+
+    const fs = this.packFS();
+    const player = new OfflinePlayer({
+      marks: chapter.marks,
+      align,
+      loadAudio: async () => (await readChapter(fs, pack.title, chapter)) ?? new ArrayBuffer(0),
+      makeAudio: (url) => new Audio(url) as unknown as OfflineAudioLike,
+      makeUrl: (buf) => URL.createObjectURL(new Blob([buf], { type: this.ttsMime })),
+      onSentence: (index) => {
+        const seg = segments[index];
+        if (!seg) return;
+        this.ttsIndex = index;
+        this.ttsKind = seg.kind;
+        this.ttsSnippet = snippetOf(seg.text);
+        this.showSpeechMark(this.host.speechRects?.(seg.blocks, seg.text) ?? []);
+        this.renderTtsBar();
+      },
+      onEnd: () => {
+        /* 整章播完：默认就停。不在离线模式里自动翻章——用户是为了「离线」
+           才用包的，音频已经放完，翻不翻页该由他自己决定 */
+        this.stopTts();
+      },
+      onError: () => {
+        notify(t('notice.tts.offlineBroken'));
+        this.stopTts();
+      },
+      onState: () => this.renderTtsBar(),
+    });
+    this.offlinePlayer = player;
+    this.offlineChapter = chapter;
+    this.speaking = true;
+    this.syncToolState();
+    this.showTtsBar();
+    player.setRate(this.prefs.ttsRate);
+    player.start(startAt);
+    return true;
+  }
+
   /** 朗读失败：按错误类型说人话，然后停（不回退系统语音） */
   private onTtsError(code: TtsErrorCode | 'audio', _error: unknown): void {
     const map: Partial<Record<TtsErrorCode | 'audio', MsgKey>> = {
@@ -1912,7 +2014,7 @@ export class ReaderView extends ItemView {
 
   private renderTtsBar(): void {
     if (!this.ttsBarEl) return;
-    this.ttsBarEl.innerHTML = ttsBarHtml({ paused: this.ttsPlayer?.stateName === 'paused' });
+    this.ttsBarEl.innerHTML = ttsBarHtml({ paused: this.ttsCtl?.stateName === 'paused' });
     /* 条子上只有图标：按 data-icon 交给 Obsidian 的图标集，
        不自己拼 SVG，也就不用跟着主题换颜色。 */
     for (const slot of this.ttsBarEl.querySelectorAll<HTMLElement>('[data-icon]')) {
@@ -1959,7 +2061,7 @@ export class ReaderView extends ItemView {
     ev.preventDefault();
     ev.stopPropagation();
     const act = target.dataset.act;
-    const p = this.ttsPlayer;
+    const p = this.ttsCtl;
     if (!p) return;
     if (act === 'ttstoggle') {
       if (p.stateName === 'paused') p.resume();
@@ -1983,6 +2085,17 @@ export class ReaderView extends ItemView {
   /** 当前引擎的音色：云端两把嗓子，本地是服务里那个名字（可能是空的） */
   private ttsVoice(engine: TtsRoute['engine'] = this.prefs.ttsEngine): string {
     return engine === 'local' ? this.prefs.ttsVoiceLocal : this.prefs.ttsVoice;
+  }
+
+  /**
+   * 当前引擎实际产出的音频格式。
+   *
+   * DeepSeek 只会给 wav，本地服务看设置；离线包的文件名与时长算法都按它
+   * 决定，所以只在这里推一次，别各处再抄一份 if。
+   */
+  private ttsFormat(route: TtsRoute = this.ttsRoute()): string {
+    const mime = ttsMimeOf(route.engine, route.local.format);
+    return mime === 'audio/wav' ? 'wav' : mime === 'audio/ogg' ? 'ogg' : 'mp3';
   }
 
   /** 预生成前的确认：走 Obsidian 自己的弹窗，不用原生 confirm */
@@ -2051,28 +2164,57 @@ export class ReaderView extends ItemView {
     const cacheMB = this.prefs.ttsCacheMB;
     const cache = cacheMB > 0 ? new TtsCache() : null;
     const voice = this.ttsVoice(route.engine);
+    const tag = ttsCacheTag(route.engine, voice, route.local.format);
     let done = 0;
     let spentChars = 0;
+    let skipped = 0;
+    /* 攒齐这一章的每段音频：预生成本来就一段不落，顺手就能拼成离线包，
+       不用再合成一遍 */
+    const parts: ArrayBuffer[] = [];
+    const okTexts: string[] = [];
     try {
       for (const seg of segments) {
         if (!this.prefetching || this.closed) break;
-        const key = cacheKey(this.bookId, ttsCacheTag(route.engine, voice), seg.text);
+        const key = cacheKey(this.bookId, tag, seg.text);
         let buf = cache ? await cache.get(key) : null;
         if (!buf) {
           try {
             buf = (await synthesizeFor(route, seg.text, voice, undefined, { request: this.localRequest() }))
               .buf;
           } catch (e) {
-            /* 审核拒了这一段就跳过，别让整章预生成停在这里 */
-            if ((e as { code?: string }).code === 'rejected') continue;
+            /* 这一句念不出来（审核拒 / 本地模型没吐音频）：跳过它，别让
+               整章预生成停在这里。时间轴里会缺这一句，播放时高亮跳过。 */
+            const code = (e as { code?: string }).code;
+            if (code === 'rejected' || code === 'http') {
+              skipped += 1;
+              continue;
+            }
             throw e;
           }
           if (cache) await cache.put(key, buf, cacheMB * 1024 * 1024);
           if (!free) spentChars += billedChars(seg.text);
         }
+        parts.push(buf);
+        okTexts.push(seg.text);
         done++;
       }
       if (done) notify(t('notice.tts.prefetched', { done: String(done) }));
+      if (skipped) notify(t('notice.tts.exportSkipped', { n: String(skipped) }), 'info', 6000);
+      /* 只拼「每句都有音频」的那一版：texts 与 parts 一一对应，时间轴才对得上 */
+      if (this.prefs.ttsOfflineSave && parts.length) {
+        try {
+          const saved = await this.saveOfflineChapter({
+            title: this.host.currentChapterTitle?.() || this.host.pageKey || 'chapter',
+            texts: okTexts,
+            parts,
+            format: this.ttsFormat(route),
+          });
+          if (saved) notify(t('notice.tts.offlineSaved', { name: saved.file }));
+        } catch {
+          /* 存包失败不影响「已经合成好、缓存命中」，只说一句 */
+          notify(t('notice.tts.offlineFailed'));
+        }
+      }
     } catch {
       notify(t('notice.tts.failed'));
     } finally {
@@ -2082,40 +2224,165 @@ export class ReaderView extends ItemView {
   }
 
   /**
-   * 逐段合成（缓存优先）→ 拼成一个文件。导出当前页与导出整章共用。
+   * 逐段合成（缓存优先），返回**每一段的字节**、对应文本与格式，先不拼。
    *
-   * 扩展名跟着引擎走：DeepSeek 只会给 wav，本地可能是 mp3 / opus。
+   * 拆成「拿到每段」而不是「拿到一个文件」，是因为离线包需要逐段算时长
+   * 才能写出时间轴；而导出当前页只要一个整文件。两边共用这一段合成逻辑，
+   * 拼装各做各的。
+   *
+   * 单句合成失败就**跳过这一句**，不中断整章：本地模型偶尔对某些文本吐不出
+   * 音频（CosyVoice 的 `no audio produced`），云端也会偶发 5xx。跳过的句子
+   * 不进 texts/parts，时间轴里自然没有它，播放时 `alignMarks` 会给它 -1，
+   * 高亮跳过它继续——比整章白跑一遍好得多。
    */
-  private async renderAudio(
+  private async renderParts(
     route: TtsRoute,
     segments: readonly ScriptSegment[],
-  ): Promise<{ data: ArrayBuffer; ext: string } | null> {
+    onProgress?: (done: number, total: number) => void,
+  ): Promise<{ parts: ArrayBuffer[]; texts: string[]; format: string; skipped: number } | null> {
     const cacheMB = this.prefs.ttsCacheMB;
     const cache = cacheMB > 0 ? new TtsCache() : null;
     const voice = this.ttsVoice(route.engine);
     const tag = ttsCacheTag(route.engine, voice, route.local.format);
     const free = isFreeEngine(route.engine);
-    const bufs: ArrayBuffer[] = [];
+    const parts: ArrayBuffer[] = [];
+    const texts: string[] = [];
     let spent = 0;
-    for (const seg of segments) {
+    let skipped = 0;
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
       const key = cacheKey(this.bookId, tag, seg.text);
       let buf = cache ? await cache.get(key) : null;
       if (!buf) {
-        buf = (await synthesizeFor(route, seg.text, voice, undefined, { request: this.localRequest() })).buf;
+        try {
+          buf = (await synthesizeFor(route, seg.text, voice, undefined, { request: this.localRequest() })).buf;
+        } catch (e) {
+          /* 只有「这一句念不出来」才跳过；配置错 / 断网这类会让后面全错的，
+             继续抛，让调用方说清楚 */
+          const code = (e as { code?: string }).code;
+          if (code !== 'http' && code !== 'rejected') throw e;
+          console.warn('[bzr-tts] sentence skipped', code, seg.text.slice(0, 40), e);
+          skipped += 1;
+          onProgress?.(i + 1, segments.length);
+          continue;
+        }
         if (cache) await cache.put(key, buf, cacheMB * 1024 * 1024);
         if (!free) spent += billedChars(seg.text);
       }
-      bufs.push(buf);
+      parts.push(buf);
+      texts.push(seg.text);
+      onProgress?.(i + 1, segments.length);
     }
     if (spent) this.addTtsSpend(spent, estimateCost(spent));
     const mime = ttsMimeOf(route.engine, route.local.format);
-    if (mime === 'audio/wav') {
-      const wav = concatWav(bufs);
+    const format = mime === 'audio/wav' ? 'wav' : mime === 'audio/ogg' ? 'ogg' : 'mp3';
+    return parts.length ? { parts, texts, format, skipped } : null;
+  }
+
+  /** 逐段合成 → 拼成一个文件。导出当前页用。 */
+  private async renderAudio(
+    route: TtsRoute,
+    segments: readonly ScriptSegment[],
+  ): Promise<{ data: ArrayBuffer; ext: string } | null> {
+    const got = await this.renderParts(route, segments);
+    if (!got) return null;
+    if (got.format === 'wav') {
+      const wav = concatWav(got.parts);
       return wav ? { data: wav, ext: 'wav' } : null;
     }
-    const mp3 = concatMp3(bufs);
-    return mp3 ? { data: mp3, ext: mime === 'audio/ogg' ? 'ogg' : 'mp3' } : null;
+    if (got.format === 'mp3') {
+      const mp3 = concatMp3(got.parts);
+      return mp3 ? { data: mp3, ext: 'mp3' } : null;
+    }
+    return null;
   }
+
+  /* ── 离线听书包 ── */
+
+  /** 当前这本书的离线包（打开书时扫一次，导出后刷新） */
+  private offlinePack: { title: string; book: OfflineBook } | null = null;
+  /** 正在用离线包播的播放器 */
+  private offlinePlayer: OfflinePlayer | null = null;
+  /** 离线包对应的本章（play 时用） */
+  private offlineChapter: OfflineChapter | null = null;
+
+  private packFS(): ReturnType<typeof vaultPackFS> {
+    return vaultPackFS(this.api.app);
+  }
+
+  /** 这本书在库里的目录名：与正文完全解耦，用户可以直接拷走 */
+  private packTitle(): string {
+    return this.book?.meta.title || this.bookId || 'book';
+  }
+
+  /**
+   * 扫一遍离线包。打开书、导出之后各调一次。
+   *
+   * 只读清单，不读音频：一本几十 MB 的 mp3 不该在打开书的时候就读进内存。
+   */
+  private async refreshOfflinePack(): Promise<void> {
+    try {
+      const hit = await findPack(this.packFS(), { title: this.packTitle(), bookId: this.bookId });
+      this.offlinePack = hit ? { title: hit.ref.title, book: hit.book } : null;
+    } catch {
+      this.offlinePack = null;
+    }
+  }
+
+  /**
+   * 当前这本书已有几章离线音频（浮层显示用）。
+   *
+   * 返回 null 表示「没有包」；空包（0 章）也当没有。
+   */
+  offlineAudioInfo(): { chapters: number; mb: number } | null {
+    const pack = this.offlinePack;
+    if (!pack?.book.chapters.length) return null;
+    return {
+      chapters: pack.book.chapters.length,
+      /* 一章常常不到 1 MB：取整会显示成 0 */
+      mb: Math.max(0.1, Math.round((packBytes(pack.book) / 1048576) * 10) / 10),
+    };
+  }
+
+  /** 用户刚把包目录拷进库：重扫一次并说一句结果（浮层按钮用） */
+  reloadOfflineAudio(): void {
+    void this.refreshOfflinePack().then(() => {
+      if (this.closed) return;
+      const info = this.offlineAudioInfo();
+      if (info) notify(t('notice.tts.offlinePackFound', { chapters: String(info.chapters) }));
+      else notify(t('notice.tts.offlineNoPack'));
+    });
+  }
+
+  /** 把一章写进离线包（音频 + 更新清单），返回写好的章或 null */
+  private async saveOfflineChapter(
+    source: ChapterSource,
+    chapterOrder: readonly string[] = [],
+  ): Promise<OfflineChapter | null> {
+    const built = buildChapter(source);
+    if (!built) return null;
+    const fs = this.packFS();
+    const title = this.packTitle();
+    /* 每次都重读清单再合并：导出本章与整本预生成可能同时在跑，
+       内存里那份可能已经旧了 */
+    const existing =
+      (await readManifest(fs, title)) ??
+      emptyBook({
+        title,
+        bookId: this.bookId,
+        engine: source.format,
+        voice: this.ttsVoice(),
+        format: source.format,
+      });
+    const upserted = upsertChapter(existing, built.chapter);
+    /* 有章序就按书里的顺序重排；单章导出手上没有全书的章名，就追加 */
+    const merged = chapterOrder.length ? reorderChapters(upserted, chapterOrder) : upserted;
+    await writeChapter(fs, title, built.chapter, built.data);
+    await writeManifest(fs, merged);
+    this.offlinePack = { title, book: merged };
+    return built.chapter;
+  }
+
 
   /** 通用确认弹窗（Obsidian 原生样式，和书库一致） */
   private askModalText(title: string, body: string, okText: string): Promise<boolean> {
@@ -2216,9 +2483,17 @@ export class ReaderView extends ItemView {
       );
     };
     paint(0);
+    const order = chapters.map((c) => c.title);
+    let savedChapters = 0;
+    let totalSkipped = 0;
     try {
       for (let ci = 0; ci < scripts.length; ci++) {
         paint(ci);
+        /* 一章的每段音频攒在这里：合成完立刻拼成这一章的离线包，
+           中途停下来也已经攒下前面几章 */
+        const parts: ArrayBuffer[] = [];
+        const okTexts: string[] = [];
+        let skipped = 0;
         for (const seg of scripts[ci]) {
           if (!this.prefetchingBook || this.closed) {
             progress.hide();
@@ -2226,17 +2501,55 @@ export class ReaderView extends ItemView {
             return;
           }
           const key = cacheKey(this.bookId, tag, seg.text);
-          const hit = cache ? await cache.get(key) : null;
-          if (!hit) {
-            const buf = (await synthesizeFor(route, seg.text, voice, undefined, { request: this.localRequest() })).buf;
+          let buf = cache ? await cache.get(key) : null;
+          if (!buf) {
+            try {
+              buf = (await synthesizeFor(route, seg.text, voice, undefined, { request: this.localRequest() })).buf;
+            } catch (e) {
+              /* 这一句念不出来（审核拒 / 本地模型没吐音频）：跳过它，
+                 时间轴里没有它，播放时高亮跳过；别让整本停下 */
+              const code = (e as { code?: string }).code;
+              if (code === 'rejected' || code === 'http') {
+                skipped += 1;
+                continue;
+              }
+              throw e;
+            }
             if (cache) await cache.put(key, buf, cacheMB * 1024 * 1024);
           }
+          parts.push(buf);
+          okTexts.push(seg.text);
           done++;
           if (done % 5 === 0) paint(ci);
         }
+        if (skipped) totalSkipped += skipped;
+        if (this.prefs.ttsOfflineSave && parts.length) {
+          try {
+            const saved = await this.saveOfflineChapter(
+              {
+                title: chapters[ci].title,
+                texts: okTexts,
+                parts,
+                format: this.ttsFormat(route),
+              },
+              order,
+            );
+            if (saved) savedChapters += 1;
+          } catch {
+            /* 存包失败不该让整本预生成停下：音频已经进了缓存，重听仍然命中 */
+          }
+        }
       }
       progress.hide();
-      notify(t('notice.tts.prefetchBookDone', { done: String(done) }));
+      if (totalSkipped) notify(t('notice.tts.exportSkipped', { n: String(totalSkipped) }), 'info', 8000);
+      notify(
+        this.prefs.ttsOfflineSave
+          ? t('notice.tts.prefetchBookDoneOffline', {
+              done: String(done),
+              chapters: String(savedChapters),
+            })
+          : t('notice.tts.prefetchBookDone', { done: String(done) }),
+      );
     } catch {
       progress.hide();
       notify(t('notice.tts.failed'));
@@ -2287,8 +2600,10 @@ export class ReaderView extends ItemView {
   }
 
   /**
-   * 导出整章音频（2026-11-14）：一章拼成一个文件，写进
-   * `bz-reader/audio/<书名>/<章节>.mp3`。
+   * 导出整章音频（2026-11-14，2026-11-14 晚改成离线包）。
+   *
+   * 现在不再往 `bz-reader/audio/` 扔一个孤立 mp3，而是写进离线包：
+   * `bz-reader/offline/<书名>/<章节>.mp3` + 更新 `manifest.json`。
    *
    * 为什么按章拆、不做整本一个大文件：整本 mp3 有 1–2 GB，一次性读进内存
    * 直接崩；一章几十 MB，写完就释放。手机上按章管理也比一个巨型文件好用。
@@ -2304,31 +2619,61 @@ export class ReaderView extends ItemView {
       notify(t('notice.tts.exportEmpty'));
       return;
     }
-    notify(t('notice.tts.exportingChapter'), 'info', 4000);
-    let out: { data: ArrayBuffer; ext: string } | null = null;
+    const chapterTitle = this.host.currentChapterTitle?.() || this.host.pageKey || 'chapter';
+    /* 导出要独占语音服务：朗读还开着的话两边抢同一个模型，每句都慢一倍 */
+    this.stopTts();
+    /* 整章要合几十上百句，本地也要跑几分钟：必须有进度，不然用户以为没反应 */
+    const progress = notifyProgress('');
+    let got: { parts: ArrayBuffer[]; texts: string[]; format: string; skipped: number } | null = null;
     try {
-      out = await this.renderAudio(route, segments);
-    } catch {
-      notify(t('notice.tts.failed'));
+      got = await this.renderParts(route, segments, (done, total) => {
+        progress.setMessage(t('notice.tts.exportProgress', { done: String(done), total: String(total) }));
+      });
+    } catch (e) {
+      progress.hide();
+      const err = e as { code?: string; status?: number; message?: string };
+      console.error('[bzr-tts] export chapter failed', err);
+      notify(
+        `${t('notice.tts.failed')}（${err.code ?? '?'} ${err.status ?? ''} ${String(err.message ?? '').slice(0, 120)}）`,
+        'error',
+        20_000,
+      );
       return;
     }
-    if (!out) {
+    progress.hide();
+    if (!got) {
       notify(t('notice.tts.exportEmpty'));
       return;
     }
-    const bookTitle = safeFileName(this.book?.meta.title ?? 'book');
-    const dir = `bz-reader/audio/${bookTitle}`;
-    const vault = this.api.app.vault;
-    const chapter = safeFileName(this.host.currentChapterTitle?.() || this.host.pageKey || 'chapter');
-    const name = `${chapter}.${out.ext}`;
+    if (got.skipped) {
+      /* 跳过的是「模型吐不出音频」的句子：时间轴里没有它们，播放时高亮会跳过。
+         不用拦着不让导出，但要说清楚少了哪几句。 */
+      notify(t('notice.tts.exportSkipped', { n: String(got.skipped) }), 'info', 6000);
+    }
     try {
-      if (!(await vault.adapter.exists(dir))) await vault.createFolder(dir);
-      const path = `${dir}/${name}`;
-      if (await vault.adapter.exists(path)) await vault.adapter.remove(path);
-      await vault.createBinary(path, out.data);
-      notify(t('notice.tts.exported', { name }));
+      const chapter = await this.saveOfflineChapter({
+        title: chapterTitle,
+        texts: got.texts,
+        parts: got.parts,
+        format: got.format,
+      });
+      if (!chapter) {
+        /* 算不出时间轴（格式不支持 / 某段音频坏了）：宁可不给包，
+           也不要给一个稳定偏的高亮 */
+        const sizes = got.parts.map((b) => b.byteLength);
+        const zero = sizes.filter((n) => !n).length;
+        console.error('[bzr-tts] offline pack skipped', { format: got.format, parts: got.parts.length, zero, head: sizes.slice(0, 3) });
+        notify(
+          `${t('notice.tts.offlineUnsupported')} [${got.format} ${got.parts.length} parts, empty ${zero}]`,
+          'error',
+          10_000,
+        );
+        return;
+      }
+      notify(t('notice.tts.offlineSaved', { name: chapter.file }));
     } catch (e) {
-      notify(`${t('notice.tts.failed')}：${(e as Error)?.message || ''}`);
+      console.error('[bzr-tts] offline pack write failed', e);
+      notify(`${t('notice.tts.failed')}：${(e as Error)?.message || String(e)}`, 'error', 10_000);
     }
   }
 
@@ -2370,17 +2715,30 @@ export class ReaderView extends ItemView {
   }
 
   private stopTts(): void {
-    if (!this.speaking && !this.ttsPlayer) return;
+    if (!this.speaking && !this.ttsPlayer && !this.offlinePlayer) return;
     this.ttsRun++;
     this.speaking = false;
     this.voice?.stop();
     this.voice = null;
     this.ttsPlayer?.stop();
     this.ttsPlayer = null;
+    this.offlinePlayer?.stop();
+    this.offlinePlayer = null;
+    this.offlineChapter = null;
     this.clearSpeechMark();
     this.host.clearSpeechMark?.();
     this.hideTtsBar();
     this.syncToolState();
+  }
+
+  /**
+   * 当前活跃的朗读控制。逐句播放器与整章离线播放器二选一。
+   *
+   * 两者都实现了暂停 / 继续 / 上下句 / 语速 / 状态，工具条只认这一个接口，
+   * 不用在每个按钮里各写一遍「是哪种播放器」。
+   */
+  private get ttsCtl(): TtsPlayer | OfflinePlayer | null {
+    return this.ttsPlayer ?? this.offlinePlayer;
   }
 
   /** 强调色 → data-bzaccent；底色、文字、边框全部来自 Obsidian 变量 */
@@ -2961,6 +3319,8 @@ export class ReaderView extends ItemView {
     /* 调试日志要能认出这会儿在读哪本：切书后 meta 跟着换，真机把日志
        发回来时才分得清「划词乱跳」发生在这本书还是上一本。 */
     setDebugMeta({ book: book.meta.title || book.id });
+    /* 顺手扫一眼有没有离线音频：只读 manifest，几十字节，不拖慢打开 */
+    void this.refreshOfflinePack();
     /* 阅读视图是「当前在读哪本」的唯一真相。
        壳层状态要跟着它走，否则侧栏与排版面板会一直以为没有打开的书
        （表现为侧栏一屏「没有打开的书」、方向预览卡写着「这本书」）。 */

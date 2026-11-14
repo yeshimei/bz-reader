@@ -2003,12 +2003,33 @@ export class EngineHost {
     return out;
   }
 
-  /** 当前章的全部段落（预生成整章音频用，不做可见过滤） */
+  /**
+   * 当前章的全部段落（预生成整章音频用，不做可见过滤）。
+   *
+   * 2026-11-14：**同时填 `speechSpots`**。离线包播的是整章，脚本里的
+   * `blocks` 是整章块序号，而 `speechRects` 按 `speechSpots[index]` 定位；
+   * 不在这里填，整章播放就只有第一块对得上（其余全空），手机上表现为
+   * 「有声音、没高亮」。
+   */
   currentChapterBlocks(): Array<{ tag: string; text: string }> {
+    this.speechSpots = [];
     const contents = this.view?.renderer?.getContents?.() ?? [];
     const out: Array<{ tag: string; text: string }> = [];
     for (const c of contents) {
-      if (c.doc?.body) collectBlocks(c.doc.body, out);
+      if (!c.doc?.body) continue;
+      for (const el of leafBlocks(c.doc.body)) {
+        const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+        if (!text) continue;
+        const range = c.doc.createRange();
+        range.selectNodeContents(el);
+        out.push({ tag: el.tagName.toLowerCase(), text });
+        this.speechSpots.push({ content: c, range, el });
+      }
+    }
+    /* 没有块标签的纯文本（TXT）：退回按换行切，高亮会瞎，但至少念得出来 */
+    if (!out.length) {
+      this.speechSpots = [];
+      for (const c of contents) if (c.doc?.body) collectBlocks(c.doc.body, out);
     }
     return out;
   }

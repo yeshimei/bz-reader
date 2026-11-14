@@ -90,7 +90,7 @@ const LIB_SORT_VALUES: readonly LibSort[] = ['recent', 'title', 'progress'];
 
 /** 浮层：同一时刻只开一个 */
 export type OverlayKind =
-  | 'search' | 'typography' | 'tts' | 'ttsclear' | 'export' | 'bookmap'
+  | 'search' | 'typography' | 'tts' | 'ttsclear' | 'ttsofflineclear' | 'export' | 'bookmap'
   | 'quote' | 'idea' | 'hltools' | 'ai' | 'dict' | 'poster'
   | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedir' | 'finish' | 'footnote'
   | 'rename' | 'removebook' | 'confirmdel' | 'notedrop' | 'missing' | 'ack' | 'ptclean'

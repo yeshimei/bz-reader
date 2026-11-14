@@ -134,6 +134,14 @@ export interface ReaderPrefs {
   ttsAiRoles: boolean;
   /** 音频缓存上限（MB），0 = 不缓存 */
   ttsCacheMB: number;
+  /**
+   * 预生成时顺手写离线包（2026-11-14，默认开）。
+   *
+   * 离线包 = `bz-reader/offline/<书名>/` 下的「每章一个 mp3 + 一份时间轴」，
+   * 拷到手机 / 别的库就能不联网、不跑模型直接听，且逐句高亮照常。
+   * 关掉就只填 IndexedDB 缓存（只在本机有效，换设备听不到）。
+   */
+  ttsOfflineSave: boolean;
   /** 翻页 / 滚动（见 FlowMode） */
   flow: FlowMode;
   /** 阅读页右下角的页码口径：关 / 本章 / 全书（见 PageLabelMode） */
@@ -233,6 +241,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   ttsDialogueOnly: false,
   ttsAiRoles: false,
   ttsCacheMB: 300,
+  ttsOfflineSave: true,
   flow: 'paged',
   pageLabel: 'book',
   chapterLabel: true,
@@ -454,6 +463,8 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     ttsDialogueOnly: p.ttsDialogueOnly === true,
     ttsAiRoles: p.ttsAiRoles === true,
     ttsCacheMB: Math.round(clamp(p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, DEFAULT_PREFS.ttsCacheMB)),
+    /* 离线包默认开：老数据里没有这一项 → 开（这是听书的主路径） */
+    ttsOfflineSave: p.ttsOfflineSave !== false,
     flow: p.flow === 'scroll' ? 'scroll' : 'paged',
     /* 页码：只认三档白名单；老数据没有这一项时落回默认（全书） */
     pageLabel: PAGE_LABEL_MODES.includes(p.pageLabel as PageLabelMode)

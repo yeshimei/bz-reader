@@ -71,6 +71,25 @@ describe('按句切分', () => {
   it('空白返回空数组', () => {
     expect(splitSentences('   ')).toEqual([]);
   });
+
+  /* 2026-11-14 真机：EPUB 里有一个孤立的「、」段落，被当成一句发给语音服务，
+     本地模型对纯标点吐不出音频（`no audio produced`），整章导出就断在这。
+     没有可读字符的碎片一律不念。 */
+  it('纯标点的碎片不念', () => {
+    expect(splitSentences('、')).toEqual([]);
+    expect(splitSentences('——')).toEqual([]);
+    expect(splitSentences('……')).toEqual([]);
+    expect(splitSentences('﹒﹒')).toEqual([]);
+  });
+
+  it('句子里混着标点照样念，只丢纯标点的碎片', () => {
+    expect(splitSentences('甲。、')).toEqual(['甲。']);
+  });
+
+  it('数字和字母也算可读字符', () => {
+    expect(splitSentences('2024')).toEqual(['2024']);
+    expect(splitSentences('OK')).toEqual(['OK']);
+  });
 });
 
 describe('朗读脚本', () => {
@@ -93,6 +112,11 @@ describe('朗读脚本', () => {
 
   it('空白段落不产出空段', () => {
     expect(buildScript([{ text: '   ' }, { text: '\n' }])).toEqual([]);
+  });
+
+  /* 真机踩过：EPUB 排版里单放一个「、」当分隔，它是块，但不是话 */
+  it('只有标点的段落不产出脚本', () => {
+    expect(buildScript([{ text: '、' }, { text: '这是正文。' }]).map((s) => s.text)).toEqual(['这是正文。']);
   });
 });
 

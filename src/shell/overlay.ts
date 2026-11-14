@@ -283,6 +283,8 @@ export function ttsFormHtml(): string {
   const isLocal = engine === 'local';
   const isDeepseek = engine === 'deepseek';
   const bookBusy = getShellSource()?.isPrefetchingBook?.() ?? false;
+  /* 这本书有没有离线音频：拷进来的包认到没有，靠这一行说清楚 */
+  const offline = getShellSource()?.offlineAudioInfo?.() ?? null;
   return `<div class="bzs-setgrp flat bzs-typo">
     <div class="bzs-setrow"><label>${t('settings.ttsEngine')}</label>${seg('ttsEngine', engineOpts, engine)}</div>
     ${
@@ -315,6 +317,13 @@ export function ttsFormHtml(): string {
       <button class="bzs-btn sm" data-act="ttsexportchapter">${t('tts.tune.exportChapter')}</button>
       ${isLocal ? `<button class="bzs-btn sm${bookBusy ? ' pri' : ''}" data-act="ttsprefetchbook">${t(bookBusy ? 'tts.tune.prefetchStop' : 'tts.tune.prefetchBook')}</button>` : ''}
     </div>
+    <div class="bzs-setrow">
+      <label>${t('tts.offline.title')}</label>
+      <span class="bzs-mini" data-role="offline-state">${
+        offline ? t('tts.offline.state', { chapters: String(offline.chapters), mb: String(offline.mb) }) : t('tts.offline.none')
+      }</span>
+      <button class="bzs-btn sm" data-act="ttsofflinereload">${t('tts.offline.reload')}</button>
+    </div>
   </div>`;
 }
 
@@ -339,6 +348,25 @@ function overlayTtsClear(info: string): string {
     </div>`,
     `<span class="sp"></span><button class="bzs-btn" data-act="close">${t('common.cancel')}</button>
      <button class="bzs-btn pri" data-act="ttscachecleardo">${t('tts.cacheClear.ok')}</button>`,
+  );
+}
+
+/**
+ * 清理离线音频（2026-11-14）：和清缓存同一副弹窗。
+ *
+ * 说的不是「缓存」而是「库里的文件」：离线包是可以被拷进 U 盘、跟着同步
+ * 走的东西，删掉之前得让人明白删的是哪一层。
+ */
+function overlayOfflineClear(info: string): string {
+  const [books, mb] = info.split('|');
+  return modal(
+    t('tts.offlineClear.title'),
+    '',
+    `<div style="font-size:13px;line-height:2;color:var(--t2)">
+      ${esc(t('tts.offlineClear.body', { books: books ?? '0', mb: mb ?? '0' }))}
+    </div>`,
+    `<span class="sp"></span><button class="bzs-btn" data-act="close">${t('common.cancel')}</button>
+     <button class="bzs-btn pri" data-act="ttsofflinecleardo">${t('tts.offlineClear.ok')}</button>`,
   );
 }
 
@@ -1459,6 +1487,8 @@ export function overlayHtml(): string {
       return overlayTts();
     case 'ttsclear':
       return overlayTtsClear(o.text ?? '0|0');
+    case 'ttsofflineclear':
+      return overlayOfflineClear(o.text ?? '0|0');
     case 'export':
       return overlayExport(o.bookId);
     case 'bookmap':

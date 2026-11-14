@@ -455,19 +455,15 @@ export function viewSettings(v: SettingsView): string {
       ${ttsMobile ? `<div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsEngine.mobileHint')}</div>` : ''}
       ${
         p.ttsEngine === 'deepseek'
-          ? `<div class="bzs-setrow"><label>${t('settings.ttsVoice')}</label>${seg('ttsVoice', voiceOpts, p.ttsVoice)}</div>
-      ${range('ttsCacheMB', t('settings.ttsCache'), p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, TTS_CACHE_RANGE.step, (x) => `${x} MB`)}
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsCache.hint')}
-        <button class="bzs-btn sm" data-act="ttscacheclear">${t('settings.ttsCache.clear')}</button>
-      </div>
-      <div class="bzs-mini" style="margin:0 0 8px;line-height:1.9">${t('settings.ttsKey.hint')}</div>
+          ? `<div class="bzs-setrow"><label>${t('settings.ttsVoice')}</label>${seg('ttsVoice', voiceOpts, p.ttsVoice)}</div>`
+          : ''
+      }
+      ${
+        p.ttsEngine === 'deepseek'
+          ? `<div class="bzs-mini" style="margin:0 0 8px;line-height:1.9">${t('settings.ttsKey.hint')}</div>
       <div class="bzs-mini" style="margin:0 0 8px">${t('settings.ttsSpent', {
         chars: String(s.ttsStats.chars),
-      })}</div>
-      <div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
-        <button class="bzs-btn sm pri" data-act="ttstest">${t('settings.ttsTest')}</button>
-        <span class="bzs-mini" data-role="ttstest-out"></span>
-      </div>`
+      })}</div>`
           : ''
       }
       ${
@@ -491,17 +487,21 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>${t('settings.ttsVoice')}</label>
         <input data-role="preftext" data-k="ttsVoiceLocal" placeholder="${t('settings.ttsVoice.local')}" value="${esc(p.ttsVoiceLocal)}" style="flex:1">
         <button class="bzs-btn sm" data-act="ttslocalvoices">${t('settings.ttsLocal.voices')}</button></div>
-      <div class="bzs-mini" style="margin:-4px 0 8px" data-role="voices-out"></div>
+      <div class="bzs-mini" style="margin:-4px 0 8px" data-role="voices-out"></div>`
+          : ''
+      }
+      <div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
+        <button class="bzs-btn sm pri" data-act="ttstest">${t('settings.ttsTest')}</button>
+        <span class="bzs-mini" data-role="ttstest-out"></span>
+      </div>
       ${range('ttsCacheMB', t('settings.ttsCache'), p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, TTS_CACHE_RANGE.step, (x) => `${x} MB`)}
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsCache.hint')}
         <button class="bzs-btn sm" data-act="ttscacheclear">${t('settings.ttsCache.clear')}</button>
       </div>
-      <div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
-        <button class="bzs-btn sm pri" data-act="ttstest">${t('settings.ttsTest')}</button>
-        <span class="bzs-mini" data-role="ttstest-out"></span>
-      </div>`
-          : ''
-      }
+      ${prefToggle('ttsOfflineSave', p.ttsOfflineSave, t('settings.ttsOffline.save'))}
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsOffline.hint')}
+        <button class="bzs-btn sm" data-act="ttsofflineclear">${t('settings.ttsOffline.clear')}</button>
+      </div>
       ${range('ttsRate', t('settings.ttsRate'), p.ttsRate, TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, TTS_RATE_RANGE.step, (x) => `${x.toFixed(1)}×`)}
       <div class="bzs-setrow"><label>${t('settings.ttsFollow')}</label>${seg(
         'ttsFollow',

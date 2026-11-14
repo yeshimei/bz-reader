@@ -51,6 +51,15 @@ export interface ShellSource {
   /** 整本预生成是否正在跑：浮层按钮据此把「预生成整本」换成「停止预生成」 */
   isPrefetchingBook?: () => boolean;
   /**
+   * 当前这本书已导出的离线音频（2026-11-14）。
+   *
+   * 没开书 / 没有包时返回 null。浮层用它说一句「这本书有几章可以直接离线听」，
+   * 也顺带让用户知道「拷进来的包认到了没有」。
+   */
+  offlineAudioInfo?: () => { chapters: number; mb: number } | null;
+  /** 重新扫一遍库里的离线包（用户刚把目录拷进来时点一下） */
+  reloadOfflineAudio?: () => void;
+  /**
    * 打开一本书（带 cfi 落到那一页）；已有同书 tab 就复用。
    * `query` = 从搜索结果点过来时正在搜的词：落到页面上要标出来。
    */
