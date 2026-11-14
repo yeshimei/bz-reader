@@ -203,7 +203,9 @@ describe('设置页：手机上只收快捷键', () => {
     expect(html).not.toContain('data-act="hotkey"');
     expect(html).toContain('data-k="ttsRate"');
     expect(html).toContain('data-k="ttsFollow"');
-    expect(html).toContain('data-k="ttsEngine"');
+    /* 2026-11-14 二轮：引擎从 seg 换成三张卡，手机上照样给（本地可填局域网地址） */
+    expect(html).toContain('data-act="ttsengine"');
+    expect(html).toContain('data-v="local"');
     expect(html).not.toContain('data-k="columns"');
   });
 

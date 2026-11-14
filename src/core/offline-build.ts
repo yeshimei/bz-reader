@@ -16,7 +16,7 @@ import {
   type OfflineBook,
   type OfflineChapter,
 } from './offline-pack';
-import { concatMp3 } from './tts-local';
+import { concatMp3Slices } from './tts-local';
 import { concatWav } from './wav';
 
 export interface ChapterSource {
@@ -57,12 +57,19 @@ export function buildChapter(src: ChapterSource): BuiltChapter | null {
   }
 
   let data: ArrayBuffer | null;
-  if (format === 'wav') data = concatWav(parts);
-  else if (format === 'mp3') data = concatMp3(parts);
-  else return null;
+  let slices: Array<{ off: number; bytes: number }> = [];
+  if (format === 'wav') {
+    /* wav 拼完只剩一条 PCM 流，句子切片得重写 44 字节头才能播；先不记
+       区间，播放器会退回整章播放。本地 mp3 才是离线包的主路径。 */
+    data = concatWav(parts);
+  } else if (format === 'mp3') {
+    const joined = concatMp3Slices(parts);
+    data = joined?.data ?? null;
+    slices = joined?.slices ?? [];
+  } else return null;
   if (!data || !data.byteLength) return null;
 
-  const marks = buildMarks(texts, ms);
+  const marks = buildMarks(texts, ms, slices);
   const chapter: OfflineChapter = {
     title: src.title,
     file: chapterFile(src.title, format),

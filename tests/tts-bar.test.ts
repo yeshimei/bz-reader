@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ttsBarHtml, ttsSourceLabel } from '../src/view/tts-bar';
+import { ttsBarHtml, ttsBarLift, ttsSourceLabel } from '../src/view/tts-bar';
 
 describe('ttsBarHtml', () => {
   const html = ttsBarHtml({ paused: false });
@@ -12,34 +12,38 @@ describe('ttsBarHtml', () => {
     expect(html).not.toContain('元');
   });
 
-  /* 2026-11-14 收敛入口：常驻只留听得最顺手的四个，其余收进「更多」 */
-  it('常驻只有四个：上一段、暂停、下一段、停止，外加一个「更多」', () => {
-    for (const act of ['ttsprev', 'ttstoggle', 'ttsnext', 'ttsstop', 'ttsmore']) {
+  /* 2026-11-14 二轮：用户要求摊平——「那个工具栏不要折叠，把图标都给平铺」 */
+  it('八颗图标全平铺：听得四个 + 音色 / 预生成 / 导出 / 设置', () => {
+    for (const act of [
+      'ttsprev',
+      'ttstoggle',
+      'ttsnext',
+      'ttsstop',
+      'ttsvoices',
+      'ttsprefetch',
+      'ttsexport',
+      'ttstune',
+    ]) {
       expect(html).toContain(`data-act="${act}"`);
     }
   });
 
-  it('预生成 / 导出 / 朗读设置收在「更多」里，默认收起', () => {
-    for (const act of ['ttsprefetch', 'ttsexport', 'ttstune']) {
-      expect(html).toContain(`data-act="${act}"`);
-    }
-    expect(html).toMatch(/data-role="ttsmore"[^>]*hidden/);
+  it('没有「更多」、没有隐藏的二级面板：任何一颗都不许收起来', () => {
+    expect(html).not.toContain('ttsmore');
+    expect(html).not.toContain('more-horizontal');
+    /* 注意别把 aria-hidden 也算进来：那道分隔线本来就不给屏幕阅读器念 */
+    expect(html).not.toMatch(/(^|\s)hidden[\s=>]/);
   });
 
-  it('点开「更多」后面板展开，按钮本体还在', () => {
-    const open = ttsBarHtml({ paused: false, more: true });
-    expect(open).not.toMatch(/data-role="ttsmore"[^>]*hidden/);
-    for (const act of ['ttsprefetch', 'ttsexport', 'ttstune']) {
-      expect(open).toContain(`data-act="${act}"`);
-    }
+  it('音色按钮带着引擎：本地开本地列表，其余按在线开', () => {
+    expect(ttsBarHtml({ paused: false, voiceEngine: 'local' })).toMatch(/data-act="ttsvoices" data-v="local"/);
+    expect(ttsBarHtml({ paused: false, voiceEngine: 'online' })).toMatch(/data-act="ttsvoices" data-v="online"/);
   });
 
   it('图标走 data-icon 占位，交给 Obsidian 的 setIcon，不用 emoji 字符', () => {
-    expect(html).toContain('data-icon="skip-back"');
-    expect(html).toContain('data-icon="pause"');
-    expect(html).toContain('data-icon="square"');
-    expect(html).toContain('data-icon="skip-forward"');
-    expect(html).toContain('data-icon="more-horizontal"');
+    for (const icon of ['skip-back', 'pause', 'square', 'skip-forward', 'mic', 'download', 'share', 'settings']) {
+      expect(html).toContain(`data-icon="${icon}"`);
+    }
     for (const emoji of ['⏮', '⏸', '⏭', '■', '⤓', '⭳', '▶']) {
       expect(html).not.toContain(emoji);
     }
@@ -95,5 +99,26 @@ describe('ttsSourceLabel', () => {
 
   it('还没开始：空串，浮条上不留空壳', () => {
     expect(ttsSourceLabel({ cached: 0, live: 0, offline: 0 })).toBe('');
+  });
+});
+
+/* 状态栏压在朗读条上（2026-11-14 真机截图）：按实测高度抬，别写死数值 */
+describe('ttsBarLift', () => {
+  const fake = (h: number): HTMLElement =>
+    ({ getBoundingClientRect: () => ({ height: h }) }) as unknown as HTMLElement;
+
+  it('量到多高就抬多高，取整', () => {
+    expect(ttsBarLift(fake(26.4))).toBe(26);
+  });
+
+  it('没有状态栏（全屏 / 隐藏）：不抬', () => {
+    expect(ttsBarLift(null)).toBe(0);
+    expect(ttsBarLift(undefined)).toBe(0);
+    expect(ttsBarLift(fake(0))).toBe(0);
+  });
+
+  it('量出怪值也不抬：宁可贴底，别把条子顶到正文中间', () => {
+    expect(ttsBarLift(fake(-5))).toBe(0);
+    expect(ttsBarLift(fake(Number.NaN))).toBe(0);
   });
 });

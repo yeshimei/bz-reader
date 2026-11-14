@@ -34,3 +34,52 @@ describe('目录设置收口', () => {
     expect(normalizeSettings({ importDir: '' }).importDir).toBe(DEFAULT_SETTINGS.importDir);
   });
 });
+
+/**
+ * 在线语音组（2026-11-14）：以前朗读借 AI 组的地址与密钥，现在自带一份。
+ * 升级时若这份配置根本不存在，必须从 AI 组搬一次，否则老用户点朗读
+ * 直接变「没配置」——这是事故。
+ */
+describe('在线语音设置', () => {
+  it('老数据没有 ttsOnline：把 AI 组的地址与密钥搬过来', () => {
+    const s = normalizeSettings({ ai: { baseUrl: 'https://proxy.example.com', apiKey: 'sk-old' } });
+    expect(s.ttsOnline).toEqual({ url: 'https://proxy.example.com', model: '', apiKey: 'sk-old', format: 'mp3' });
+  });
+
+  it('AI 组也没配：预填官方地址，密钥留空', () => {
+    const s = normalizeSettings({});
+    expect(s.ttsOnline.url).toBe('https://api.deepseek.com');
+    expect(s.ttsOnline.apiKey).toBe('');
+  });
+
+  it('本地地址预填本机默认端口，用户照着改即可', () => {
+    expect(normalizeSettings({}).ttsLocal.url).toBe('http://127.0.0.1:8880');
+  });
+
+  it('用户自己清空本地地址：保持空，不再填回来', () => {
+    expect(normalizeSettings({ ttsLocal: { url: '', model: '', apiKey: '', format: 'mp3' } }).ttsLocal.url).toBe('');
+  });
+
+  it('已经有 ttsOnline：用户清空就保持空，不再回填 AI 组的值', () => {
+    const s = normalizeSettings({
+      ai: { baseUrl: 'https://api.deepseek.com', apiKey: 'sk-ai' },
+      ttsOnline: { url: '', model: '', apiKey: '', format: 'mp3' },
+    });
+    expect(s.ttsOnline.url).toBe('');
+    expect(s.ttsOnline.apiKey).toBe('');
+  });
+
+  it('地址按云端口径补协议：本机 / 内网补 http，域名补 https', () => {
+    const withUrl = (url: string): string => normalizeSettings({ ttsOnline: { url, model: '', apiKey: '' } }).ttsOnline.url;
+    expect(withUrl('127.0.0.1:8880')).toBe('http://127.0.0.1:8880');
+    expect(withUrl('localhost:8880')).toBe('http://localhost:8880');
+    expect(withUrl('192.168.1.9:9000')).toBe('http://192.168.1.9:9000');
+    expect(withUrl('api.deepseek.com')).toBe('https://api.deepseek.com');
+    expect(withUrl('https://tts.example.com/')).toBe('https://tts.example.com');
+  });
+
+  it('模型名去掉首尾空格：粘进来常带', () => {
+    const s = normalizeSettings({ ttsOnline: { url: '', model: '  cosyvoice-2 ', apiKey: '' } });
+    expect(s.ttsOnline.model).toBe('cosyvoice-2');
+  });
+});

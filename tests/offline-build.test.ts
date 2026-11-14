@@ -61,14 +61,24 @@ const src = (over: Record<string, unknown> = {}): {
 });
 
 describe('一章打包', () => {
-  it('时间轴按每段真实时长累加，文件名字带上格式', () => {
+  it('时间轴按每段真实时长累加，每句还记下自己的字节区间', () => {
     const built = buildChapter(src())!;
     expect(built.chapter.file).toBe('第一章.mp3');
     expect(built.chapter.ms).toBe(522);
     expect(built.chapter.marks).toEqual([
-      { text: '甲', at: 0, ms: 261 },
-      { text: '乙', at: 261, ms: 261 },
+      { text: '甲', at: 0, ms: 261, off: 0, bytes: 208 * 10 },
+      { text: '乙', at: 261, ms: 261, off: 208 * 10, bytes: 208 * 10 },
     ]);
+  });
+
+  it('按区间切出来的就是那一句自己的音频，不用猜帧头', () => {
+    const parts = [mp3(10), mp3(10)];
+    const built = buildChapter(src({ parts }))!;
+    const data = new Uint8Array(built.data);
+    const slices = built.chapter.marks.map((m) => [
+      ...data.slice(m.off ?? 0, (m.off ?? 0) + (m.bytes ?? 0)),
+    ]);
+    expect(slices).toEqual(parts.map((p) => [...new Uint8Array(p)]));
   });
 
   it('拼出来的字节数是各段之和，不含被剥掉的标签', () => {
@@ -91,6 +101,9 @@ describe('一章打包', () => {
     const built = buildChapter(src({ parts: [wav(48000)], texts: ['甲'], format: 'wav' }))!;
     expect(built.chapter.file).toBe('第一章.wav');
     expect(built.chapter.marks[0].ms).toBe(1000);
+    /* wav 拼完是一条 PCM 流，不给逐句区间：播放时退回整章模式 */
+    expect(built.chapter.marks[0].off).toBeUndefined();
+    expect(built.chapter.marks[0].bytes).toBeUndefined();
   });
 
   it('没有音频 / 没有句子都返回 null', () => {

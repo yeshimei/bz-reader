@@ -32,8 +32,9 @@ import {
 import { allMarks, filterMarks, shelfOf } from './domain';
 import { toggleAll, togglePick } from './note-select';
 import { notify } from '../core/notice';
-import { synthesizeFor, ttsEngineReady, type TtsRoute } from '../core/tts-engine';
-import { fetchLocalVoices } from '../core/tts-local';
+import { synthesizeFor, ttsEngineReady, ttsVoiceFor, type TtsRoute } from '../core/tts-engine';
+import { clearVoiceCache, currentVoiceOf, loadVoices, setVoiceOf } from './voice-store';
+import { reconcileVoice } from '../core/tts-voices';
 import { localRequester } from '../data/tts-request';
 import { TtsCache } from '../data/tts-cache';
 import { deletePack, packBytes, scanPacks } from '../data/offline-store';
@@ -238,6 +239,32 @@ function repaint(): void {
 
 function overlay(kind: OverlayKind, extra: Record<string, unknown> = {}): void {
   openOverlay({ kind, ...extra });
+}
+
+/** 当前朗读路由（阅读页与设置页共用同一份判定） */
+function ttsRouteNow(): TtsRoute {
+  const s = shellSettings();
+  return { engine: shellPrefs().ttsEngine, online: s.ttsOnline, local: s.ttsLocal };
+}
+
+/**
+ * 跳到设置页的朗读组并闪一下（2026-11-14）。
+ *
+ * 阅读页那颗齿轮以前弹右上角浮层，挡正文、也挡翻页；用户要求直接去设置页。
+ * 设置页是异步挂上去的（换页签 + 重画），所以这里按帧重试找锚点，
+ * 找不到就安静放弃——跳页本身已经发生了，没必要为「没闪一下」报错。
+ */
+function focusTtsSettings(tries = 20): void {
+  const el = document.getElementById('bz-set-tts');
+  if (!el) {
+    if (tries > 0) window.setTimeout(() => focusTtsSettings(tries - 1), 120);
+    return;
+  }
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  el.classList.remove('is-flash');
+  void el.offsetWidth;
+  el.classList.add('is-flash');
+  window.setTimeout(() => el.classList.remove('is-flash'), 1400);
 }
 
 /**
@@ -1183,9 +1210,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'typography':
       overlay('typography');
       break;
-    /* 朗读快速设置（2026-11-14）：和排版同一副浮层，边听边改音色/语速 */
+    /* 朗读设置（2026-11-14 二轮）：不再在正文右上角弹面板（挡字、挡翻页），
+       直接去设置页的朗读组。底条那颗齿轮走的就是这里。 */
     case 'ttstune':
-      overlay('tts');
+      getShellSource()?.openStudy('settings');
+      focusTtsSettings();
       break;
     case 'bookmap':
       if (!requireCap('bookmap')) break;
@@ -2004,18 +2033,18 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     }
 
     /* 试听（2026-11-13）：不用开书，合成一句就够判断音色合不合口味。
-       2026-11-14：跟着当前引擎走——本地服务也能试听，不用先配 DeepSeek。 */
+       2026-11-14：跟着当前引擎走——本地服务也能试听，不用先配在线服务。 */
     case 'ttstest': {
-      const s = shellSettings();
-      const p = shellPrefs();
-      const route: TtsRoute = { engine: p.ttsEngine, ai: s.ai, local: s.ttsLocal };
+      const route = ttsRouteNow();
       if (!ttsEngineReady(route)) {
-        notify(t(route.engine === 'local' ? 'notice.tts.noLocal' : 'notice.tts.noKey'));
+        notify(
+          t(route.engine === 'local' ? 'notice.tts.noLocal' : route.engine === 'online' ? 'notice.tts.noOnline' : 'notice.tts.noKey'),
+        );
         break;
       }
       const out = el.closest('.bzs-setgrp')?.querySelector<HTMLElement>('[data-role="ttstest-out"]');
       const zh = locale() === 'zh' || locale() === 'zh-TW';
-      const voice = p.ttsEngine === 'local' ? p.ttsVoiceLocal : p.ttsVoice;
+      const voice = ttsVoiceFor(route, shellPrefs());
       const plan = [{ text: zh ? '这是朗读试听。' : 'This is a reading preview.', voice }];
       if (out) out.textContent = t('notice.tts.testing');
       void (async () => {
@@ -2062,22 +2091,84 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       closeOverlay();
       getShellSource()?.deleteOfflineAudio?.();
       break;
-    /* 拉本地服务的音色列表（2026-11-14）：拉不到就退回手填，别报错 */
-    case 'ttslocalvoices': {
-      const s = shellSettings();
-      const out = el.closest('.bzs-setgrp')?.querySelector<HTMLElement>('[data-role="voices-out"]');
+    /* 朗读方式（2026-11-14 二轮）：三张卡里选一张，只展开那张的字段 */
+    case 'ttsengine': {
+      const v = d.v;
+      if (v !== 'online' && v !== 'local' && v !== 'system') break;
+      getShellSource()?.setPrefs({ ttsEngine: v });
+      repaint();
+      break;
+    }
+    /* 音色选择弹窗（2026-11-14 二轮）：点开就拉列表，按「地址 + 模型」缓存。
+       音色属于模型，换模型后这里读到的是另一份列表。 */
+    case 'ttsvoices': {
+      const engine = d.v === 'online' ? 'online' : 'local';
+      overlay('ttsvoices', { mode: engine });
+      void loadVoices(engine).then((entry) => {
+        const o = getState().overlay;
+        if (o?.kind !== 'ttsvoices' || o.mode !== engine) return;
+        /* 列表回来了：原来选的音色要是这个模型没有，就退回服务默认，
+           别拿一个不存在的名字去请求（只会得到 400）。 */
+        const cur = currentVoiceOf(engine);
+        const fixed = reconcileVoice(entry.list, cur);
+        if (fixed !== cur) setVoiceOf(engine, fixed);
+        setState({ overlay: { ...o, word: fixed } });
+      });
+      break;
+    }
+    /* 本地服务的「连接」：点一下就知道地址对不对、有几个音色 */
+    case 'ttsprobe': {
+      const out = el.closest('.bzs-setgrp')?.querySelector<HTMLElement>('[data-role="probe-out"]');
       if (out) out.textContent = t('notice.tts.testing');
-      void (async () => {
-        const list = await fetchLocalVoices({
-          baseUrl: s.ttsLocal.url,
-          apiKey: s.ttsLocal.apiKey,
-          request: localRequester(),
-        });
+      void loadVoices('local', true).then((entry) => {
         if (!out) return;
-        out.textContent = list.length
-          ? `${t('settings.ttsLocal.voicesOk', { n: String(list.length) })} · ${list.slice(0, 12).join(' / ')}`
+        out.textContent = entry.list.length
+          ? t('settings.ttsLocal.voicesOk', { n: String(entry.list.length) })
           : t('settings.ttsLocal.voicesFail');
+      });
+      break;
+    }
+    case 'ttsvoicesretry': {
+      const o = getState().overlay;
+      if (o?.kind !== 'ttsvoices') break;
+      const engine = o.mode === 'online' ? 'online' : 'local';
+      void loadVoices(engine, true).then(() => {
+        const still = getState().overlay;
+        if (still?.kind === 'ttsvoices') setState({ overlay: { ...still, rev: (still.rev ?? 0) + 1 } });
+      });
+      break;
+    }
+    case 'ttsvoicepick': {
+      const o = getState().overlay;
+      if (o?.kind !== 'ttsvoices' || !d.v) break;
+      setState({ overlay: { ...o, word: d.v } });
+      break;
+    }
+    /* 列表里逐个试听：用这一行的音色合一句，不用先保存 */
+    case 'ttsvoicelisten': {
+      const route = ttsRouteNow();
+      if (!ttsEngineReady(route) || !d.v) break;
+      notify(t('notice.tts.testing'));
+      void (async () => {
+        try {
+          const got = await synthesizeFor(route, t('settings.ttsVoice.sample'), d.v ?? '', undefined, {
+            request: localRequester(),
+          });
+          await playWav(got.buf, got.mime);
+        } catch (e) {
+          notify(`${t('notice.tts.failed')}：${(e as Error)?.message || ''}`);
+        }
       })();
+      break;
+    }
+    case 'ttsvoicesok': {
+      const o = getState().overlay;
+      if (o?.kind !== 'ttsvoices') break;
+      const engine = o.mode === 'online' ? 'online' : 'local';
+      /* 没选中又没有已保存的值 = 用服务默认（空串），这是合法状态 */
+      setVoiceOf(engine, o.word ?? currentVoiceOf(engine));
+      closeOverlay();
+      repaint();
       break;
     }
     case 'ttscacheclear':
@@ -2981,7 +3072,7 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
     /* 朗读引擎与音色（2026-11-13）：一套老数据里没有这些 key，
        normalizePrefs 已给默认值；这里只负责把界面选的值收口。 */
     case 'ttsEngine':
-      src.setPrefs({ ttsEngine: v === 'system' ? 'system' : v === 'local' ? 'local' : 'deepseek' });
+      src.setPrefs({ ttsEngine: v === 'system' ? 'system' : v === 'local' ? 'local' : 'online' });
       break;
     /* 本地服务的输出格式（2026-11-14）：mp3 体积小一个数量级，整章才装得下 */
     case 'ttsLocalFormat': {
@@ -3572,9 +3663,21 @@ export function dispatchInput(
       src.setSettings({ ai: { ...shellSettings().ai, [k.slice(3)]: value } });
       return;
     }
-    if (k.startsWith('ttsLocal.')) {
-      const field = k.slice('ttsLocal.'.length) as 'url' | 'model' | 'apiKey';
-      src.setSettings({ ttsLocal: { ...shellSettings().ttsLocal, [field]: value } });
+    if (k.startsWith('ttsLocal.') || k.startsWith('ttsOnline.')) {
+      const group = k.startsWith('ttsLocal.') ? 'ttsLocal' : 'ttsOnline';
+      const field = k.slice(group.length + 1) as 'url' | 'model' | 'apiKey';
+      const cur = shellSettings()[group];
+      if (value === String(cur[field] ?? '')) return;
+      if (group === 'ttsLocal') src.setSettings({ ttsLocal: { ...cur, [field]: value } });
+      else src.setSettings({ ttsOnline: { ...cur, [field]: value } });
+      /* 地址或模型变了：音色是跟着它们来的（用户 2026-11-14 指出），
+         旧的音色名对新服务/新模型没有意义，退回服务默认让用户重选。 */
+      if (field === 'url' || field === 'model') {
+        if (group === 'ttsLocal') src.setPrefs({ ttsVoiceLocal: '' });
+        else src.setPrefs({ ttsVoiceOnline: '' });
+        clearVoiceCache();
+      }
+      repaint();
     }
     return;
   }
@@ -3582,6 +3685,12 @@ export function dispatchInput(
   if (role === 'preftext' && k) {
     if (dragging) return;
     if (k === 'ttsVoiceLocal') getShellSource()?.setPrefs({ ttsVoiceLocal: value.trim() });
+    return;
+  }
+  /* 音色弹窗里的手填：只在服务不提供音色列表时才出现 */
+  if (role === 'ttsvoicemanual' && k) {
+    if (dragging) return;
+    setVoiceOf(k === 'ttsVoiceLocal' ? 'local' : 'online', value.trim());
     return;
   }
   if (role === 'goal') {

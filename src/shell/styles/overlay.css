@@ -2375,3 +2375,121 @@ textarea.idea:focus {
 .bzs-plan-video:hover {
   color: var(--t1, inherit);
 }
+
+/* ── 音色选择弹窗（2026-11-14 二轮） ─────────────────────
+   一行一个音色：名字 + 服务里的 id + 「试听」；选中的整行染铜色。
+   列表限高，几十个音色也不会把弹窗顶出屏幕。 */
+.bzs-vsrc {
+  font-size: 11px;
+  color: var(--t3);
+  padding: 2px 2px 8px;
+  word-break: break-all;
+}
+
+.bzs-vsearch {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  background: var(--sunken);
+  color: var(--t1);
+  font-size: 12.5px;
+}
+
+.bzs-vlist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  max-height: 46vh;
+  overflow: auto;
+}
+
+.bzs-vrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--r-ctl);
+  background: none;
+  color: var(--t1);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+}
+
+.bzs-vrow:hover {
+  background: var(--sunken);
+}
+
+.bzs-vrow.on {
+  background: var(--copper-soft);
+}
+
+.bzs-vrow .nm {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bzs-vrow .code {
+  color: var(--t3);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bzs-vrow .sp {
+  flex: 1;
+}
+
+.bzs-vrow .listen {
+  flex: none;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  font-size: 11px;
+  color: var(--t2);
+}
+
+.bzs-vrow .listen:hover {
+  color: var(--copper);
+  border-color: var(--copper-line);
+}
+
+.bzs-vrow svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--copper);
+}
+
+.bzs-vempty {
+  padding: 18px 4px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--t3);
+  line-height: 1.9;
+}
+
+.bzs-vmanual {
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  background: var(--sunken);
+  color: var(--t1);
+  font-size: 12.5px;
+}
+
+/* 搜索过滤掉的行走 hidden：display:none 的兜底，主题不定义 [hidden] 时也不露 */
+.bzs-vrow[hidden] {
+  display: none;
+}

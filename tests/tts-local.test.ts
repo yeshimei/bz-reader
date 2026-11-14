@@ -9,9 +9,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   concatMp3,
+  concatMp3Slices,
   localBody,
   localEndpoint,
   localErrorCode,
+  localServiceAlive,
   localVoicesEndpoint,
   parseVoiceList,
   synthesizeLocal,
@@ -63,6 +65,88 @@ describe('localVoicesEndpoint', () => {
   it('跟着根地址走，补 /v1/audio/voices', () => {
     expect(localVoicesEndpoint('http://127.0.0.1:8880')).toBe('http://127.0.0.1:8880/v1/audio/voices');
     expect(localVoicesEndpoint('http://127.0.0.1:8880/v1')).toBe('http://127.0.0.1:8880/v1/audio/voices');
+  });
+
+  it('带模型时附上 ?model=：音色属于模型，服务按模型回列表', () => {
+    expect(localVoicesEndpoint('http://127.0.0.1:8880', 'cosyvoice-2')).toBe(
+      'http://127.0.0.1:8880/v1/audio/voices?model=cosyvoice-2',
+    );
+  });
+
+  it('模型名里的特殊字符要转义，别拼出一个坏 URL', () => {
+    expect(localVoicesEndpoint('http://h:1', 'a b&c')).toBe('http://h:1/v1/audio/voices?model=a%20b%26c');
+  });
+
+  it('不填模型就不带参数：老服务不认这个查询串也不受影响', () => {
+    expect(localVoicesEndpoint('http://127.0.0.1:8880', '  ')).toBe('http://127.0.0.1:8880/v1/audio/voices');
+  });
+});
+
+describe('localServiceAlive', () => {
+  const reply = (status: number): LocalResponse => ({ status, arrayBuffer: new ArrayBuffer(0), text: '' });
+
+  it('GET 音色列表端点，正常应答就算活着', async () => {
+    const seen: string[] = [];
+    const ok = await localServiceAlive({
+      baseUrl: 'http://127.0.0.1:8880',
+      request: async (req) => {
+        seen.push(`${req.method} ${req.url}`);
+        return reply(200);
+      },
+    });
+    expect(ok).toBe(true);
+    expect(seen).toEqual(['GET http://127.0.0.1:8880/v1/audio/voices']);
+  });
+
+  it('401 / 403 也算活着：服务在，只是 key 不对', async () => {
+    for (const status of [401, 403]) {
+      const ok = await localServiceAlive({ baseUrl: 'http://127.0.0.1:8880', request: async () => reply(status) });
+      expect(ok).toBe(true);
+    }
+  });
+
+  it('404 也算活着：它只是不提供音色列表，照样能合成', async () => {
+    const ok = await localServiceAlive({ baseUrl: 'http://127.0.0.1:8880', request: async () => reply(404) });
+    expect(ok).toBe(true);
+  });
+
+  it('5xx 算没起来', async () => {
+    for (const status of [500, 502, 503]) {
+      const ok = await localServiceAlive({ baseUrl: 'http://127.0.0.1:8880', request: async () => reply(status) });
+      expect(ok).toBe(false);
+    }
+  });
+
+  it('连不上（服务没启动）算没起来，不抛', async () => {
+    const ok = await localServiceAlive({
+      baseUrl: 'http://127.0.0.1:8880',
+      request: async () => {
+        throw new Error('connect ECONNREFUSED 127.0.0.1:8880');
+      },
+    });
+    expect(ok).toBe(false);
+  });
+
+  it('地址悬着不回也按没起来处理，别把播放按钮卡死', async () => {
+    const ok = await localServiceAlive({
+      baseUrl: 'http://10.255.255.1:8880',
+      timeoutMs: 10,
+      request: () => new Promise<LocalResponse>(() => undefined),
+    });
+    expect(ok).toBe(false);
+  });
+
+  it('没配地址直接算没起来，不发请求', async () => {
+    let called = false;
+    const ok = await localServiceAlive({
+      baseUrl: '   ',
+      request: async () => {
+        called = true;
+        return reply(200);
+      },
+    });
+    expect(ok).toBe(false);
+    expect(called).toBe(false);
   });
 });
 
@@ -146,6 +230,34 @@ describe('concatMp3', () => {
   it('没有可拼的东西返回 null', () => {
     expect(concatMp3([])).toBeNull();
     expect(concatMp3([new ArrayBuffer(0)])).toBeNull();
+  });
+});
+
+describe('concatMp3Slices', () => {
+  it('区间按剥掉 ID3 后的真实长度累计，切出来正好是那一句', () => {
+    const joined = concatMp3Slices([mp3([0xaa, 0xbb], 4), mp3([0xcc], 2)])!;
+    expect(joined.slices).toEqual([
+      { off: 0, bytes: 2 },
+      { off: 2, bytes: 1 },
+    ]);
+    const data = new Uint8Array(joined.data);
+    expect([...data]).toEqual([0xaa, 0xbb, 0xcc]);
+    expect([...data.slice(2, 3)]).toEqual([0xcc]);
+  });
+
+  it('空片段留 0 长度占位，后面的句子不会错位', () => {
+    const joined = concatMp3Slices([mp3([0xaa], 0), new ArrayBuffer(0), mp3([0xbb], 0)])!;
+    expect(joined.slices).toEqual([
+      { off: 0, bytes: 1 },
+      { off: 1, bytes: 0 },
+      { off: 1, bytes: 1 },
+    ]);
+    expect([...new Uint8Array(joined.data)]).toEqual([0xaa, 0xbb]);
+  });
+
+  it('全空返回 null', () => {
+    expect(concatMp3Slices([])).toBeNull();
+    expect(concatMp3Slices([new ArrayBuffer(0)])).toBeNull();
   });
 });
 

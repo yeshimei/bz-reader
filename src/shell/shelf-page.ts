@@ -182,6 +182,10 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
           /* 「连接至 BZ AI 知识库」那一行是自动识别的，这里现探一次：切换 bz 后
              重进设置页看到的就是新状态，不缓存。 */
           bz: bzSnapshot(getShellSource()?.app),
+          /* 离线音频与整本预生成的状态（2026-11-14 从朗读浮层搬过来）：
+             浮层没了，这两项得在设置页仍看得见。 */
+          offline: getShellSource()?.offlineAudioInfo?.() ?? null,
+          prefetchingBook: getShellSource()?.isPrefetchingBook?.() ?? false,
         }),
         counts,
       };

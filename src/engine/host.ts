@@ -28,10 +28,11 @@ import type {
   ShowAnnotationDetail,
 } from '../types/foliate';
 import { buildChapterCSS } from './theme';
-import { cropToSpan, pageSpan, type Span } from './range-text';
+import { cropToSpan, type Span } from './range-text';
 /* 2026-11-14：句子定位改用「块序号 + 块内偏移」，高亮改用 iframe 内的
    CSS Custom Highlight。这两样都不再需要宿主坐标换算。 */
 import { anyRectInView, rangeOfAnchor, type Anchor } from '../core/tts-anchor';
+import type { PageAnchor } from '../core/tts-script';
 import { contentInset } from './content-inset';
 import { makeTxtBook, countWords } from './txt';
 import { decodeTxtBytes } from './encoding';
@@ -377,6 +378,16 @@ export class EngineHost {
    * 一重置就整体错位——真机表现就是「高亮的字有偏移」「念的和亮的不一致」。
    */
   private chapterSpots: Array<{ content: FoliateContent; range: Range; el: HTMLElement }> = [];
+  /**
+   * 屏幕第一个字在整章正文里的位置（2026-11-14）。
+   *
+   * 朗读起播靠它，不再拿页首十几个字去整章正文里搜：跨页段落、页首是小
+   * 标题、残句都搜不到，静默回到章首——真机表现就是「站在第 20 页点朗读，
+   * 它从第一章开头念」。序号是取这一页段落时顺手数出来的，没有搜索这回事。
+   *
+   * 取不到（PDF / TXT 退路 / 视口算不出来）就是 null，调用方退回文本匹配。
+   */
+  private pageStartAnchor: PageAnchor | null = null;
   /**
    * 每章字节数（`book.sections[i].size`）：全本页码拿它估算没读过的章节。
    * 换书时重填，空书就是空数组——拿不到 size 的格式（个别 CBZ）估算会跳过。
@@ -1992,16 +2003,23 @@ export class EngineHost {
    */
   currentBlocks(): Array<{ tag: string; text: string; raw: string }> {
     this.speechSpots = [];
+    this.pageStartAnchor = null;
     const contents = this.view?.renderer?.getContents?.() ?? [];
     const out: Array<{ tag: string; text: string; raw: string }> = [];
+    /* 整章块序号：必须与 `currentChapterBlocks` 完全同一套遍历（同顺序、
+       同「空文本跳过」规则），否则这个序号在起播定位时对不上句子。 */
+    let chapterBlock = 0;
     for (const c of contents) {
       const doc = c.doc;
       if (!doc?.body) continue;
       const h = doc.defaultView?.innerHeight || doc.documentElement.clientHeight || 0;
-      if (h < 8) continue;
-      const span = this.visibleSpanOf(doc);
+      const span = h >= 8 ? this.visibleSpanOf(doc) : null;
       if (!span) continue;
       for (const el of leafBlocks(doc.body)) {
+        /* 计数按「整章有文本的块」走：这一块在本页看不见也要占一个号 */
+        const whole = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+        if (!whole) continue;
+        const index = chapterBlock++;
         const range = cropToSpan(el, span, h);
         if (!range) continue;
         /* raw 必须与 range 同源：句子锚点是「相对这个 range 的起点」记的，
@@ -2009,12 +2027,29 @@ export class EngineHost {
         const raw = range.toString() || '';
         const text = raw.replace(/\s+/g, ' ').trim();
         if (!text) continue;
+        if (!this.pageStartAnchor) {
+          this.pageStartAnchor = { block: index, offset: textOffsetOf(el, range) };
+        }
         out.push({ tag: el.tagName.toLowerCase(), text, raw });
         this.speechSpots.push({ content: c, range, el });
       }
     }
-    debugEvent('tts.page', { n: out.length, first: out[0]?.text.slice(0, 24) ?? '' });
+    debugEvent('tts.page', {
+      n: out.length,
+      first: out[0]?.text.slice(0, 24) ?? '',
+      block: this.pageStartAnchor?.block ?? -1,
+      offset: this.pageStartAnchor?.offset ?? -1,
+    });
     return out;
+  }
+
+  /**
+   * 屏幕第一个字在整章正文里的位置（见 `pageStartAnchor`）。
+   *
+   * 只在上一次 `currentBlocks()` 成功数出来时才有值。
+   */
+  pageAnchor(): PageAnchor | null {
+    return this.pageStartAnchor;
   }
 
   /**
@@ -2217,54 +2252,37 @@ export class EngineHost {
   }
 
   /**
-   * 这一屏在 iframe 内容坐标里的横区间；拿不到 iframe 位置时 null。
+   * 这一屏在 iframe 内容坐标里的横区间（2026-11-14 重做）。
    *
-   * 「阅读区」取 foliate-view 元素的位置，不是整个窗口：左边还有侧栏，
-   * 按窗口算会把侧栏底下那半栏字也算成可见（真机偏 390px）。
+   * 三套量以前混着用，谁跟谁都比不上：块的 `getBoundingClientRect()` 是
+   * iframe 内坐标（实测首块 left=32、跨栏段落 left=1297），foliate 的
+   * `renderer.start` 是另一个数（实测 2530），`renderer.viewSize` 又是整章
+   * 宽（5059）。拿 `viewSize` 当一页宽，区间 [0, 5059] 覆盖整章，每块都算
+   * 可见——`currentBlocks()` 返回整章 23 块，朗读永远从章首念。
+   *
+   * 唯一恒成立的换算是：iframe 在宿主里被平移（实测 left=-1530），所以
+   * 「内容坐标 = 宿主坐标 − iframe.left」。把阅读区（foliate-view）的左右
+   * 边界减掉 iframe.left，就是这一屏在内容坐标里的区间，跟块矩形同口径。
    */
   private visibleSpanOf(doc: Document): Span | null {
-    /* 页起点和一页宽都用 foliate 自己算的量：`start` 是当前页在内容里的
-       起点像素，`viewSize` 是视口宽。不要自己去拼——按「文档元素渲染宽」
-       拼出来是整章（0..38529），前面所有页都会被算成可见，真机表现就是
-       「站在第二页点朗读，它从第一页开头念」（2026-11-14 返工两次）。 */
-    const renderer = this.view?.renderer as unknown as
-      | { start?: unknown; viewSize?: unknown }
-      | undefined;
-    const start = typeof renderer?.start === 'number' ? renderer.start : 0;
-    const size =
-      typeof renderer?.viewSize === 'number' && renderer.viewSize >= 8
-        ? renderer.viewSize
-        : doc.documentElement?.clientWidth || 0;
-    const probeLeft = this.probeLeftOf(doc);
-    const span = pageSpan({ start, size, probeLeft });
-    /* 这条埋点专门为「起播位置」留的：这一页的区间怎么算出来的，三个输入
-       加两个输出都在。真机再偏一次，开调试抓这行就知道是哪一步不对。 */
-    debugEvent('tts.span', {
-      start: Math.round(start),
-      size: Math.round(size),
-      probe: Number.isFinite(probeLeft) ? Math.round(probeLeft) : -1,
-      x0: span ? Math.round(span.x0) : -1,
-      x1: span ? Math.round(span.x1) : -1,
-    });
-    return span;
-  }
-
-  /**
-   * 当前页左上角那个字所在元素的 `left`，只拿来判断坐标系。
-   *
-   * caret 只认 iframe 视口坐标（0..632 就是眼前这一页），所以 (2, 2) 取到的
-   * 一定是「这一页第一个字」。它的矩形贴着 0，说明块矩形是视口坐标；贴着
-   * 页起点，说明是内容坐标。取不到就给 NaN，`pageSpan` 会按内容坐标处理。
-   */
-  private probeLeftOf(doc: Document): number {
+    const view = this.view as unknown as Element | null;
+    const frame = doc.defaultView?.frameElement ?? null;
+    if (!view || !frame) return null;
     try {
-      const pos = doc.caretPositionFromPoint?.(2, 2) ?? null;
-      const node = pos?.offsetNode ?? null;
-      if (!node) return Number.NaN;
-      const el = node.nodeType === 1 ? (node as unknown as Element) : node.parentElement;
-      return el ? el.getBoundingClientRect().left : Number.NaN;
+      const vr = view.getBoundingClientRect();
+      const fr = frame.getBoundingClientRect();
+      if (!(vr.width >= 8) || !(fr.width >= 8)) return null;
+      const span = { x0: vr.left - fr.left, x1: vr.right - fr.left };
+      debugEvent('tts.span', {
+        frame: Math.round(fr.left),
+        view: Math.round(vr.left),
+        width: Math.round(vr.width),
+        x0: Math.round(span.x0),
+        x1: Math.round(span.x1),
+      });
+      return span;
     } catch {
-      return Number.NaN;
+      return null;
     }
   }
 
@@ -2673,6 +2691,27 @@ const SPEECH_KEY = 'bzr-tts-speech';
 function leafBlocks(root: ParentNode): HTMLElement[] {
   const all = Array.from(root.querySelectorAll<HTMLElement>(BLOCK_TAGS));
   return all.filter((el) => !el.querySelector(BLOCK_TAGS));
+}
+
+/**
+ * 一个 Range 的起点在所在块原始文本里的字符偏移（2026-11-14）。
+ *
+ * 不用 `el.textContent.indexOf(raw)`：同一块里重复的短语会把偏移算到前一处，
+ * 起播就偏到前面去。两段 Range 之间有几个字符，DOM 自己最清楚。
+ * 取不到给 -1——调用方会当块首处理，比从章首念强。
+ */
+function textOffsetOf(el: HTMLElement, range: Range): number {
+  try {
+    const doc = el.ownerDocument;
+    const whole = doc.createRange();
+    whole.selectNodeContents(el);
+    const pre = doc.createRange();
+    pre.setStart(whole.startContainer, whole.startOffset);
+    pre.setEnd(range.startContainer, range.startOffset);
+    return pre.toString().length;
+  } catch {
+    return -1;
+  }
 }
 
 /** 块与 iframe 视口相交就算「这一页的」 */

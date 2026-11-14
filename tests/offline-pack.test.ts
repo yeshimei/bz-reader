@@ -182,6 +182,21 @@ describe('找出包里对应的那一章', () => {
     expect(matchChapter(pack, { title: '没这章', index: 9, texts: ['完全', '无关'] })).toBeNull();
   });
 
+  /* 2026-11-14 真机：「高亮在当前页、声音从章首念」。根因是撞上一句到处都
+     有的短句就认了章，播的是别的章的音频。相似度兜底要够像才算。 */
+  it('只凑出一句通用短句：不认这一章，宁可回落实时合成', () => {
+    const texts = ['他说。', '第一句别的', '第二句别的', '第三句别的', '第四句别的'];
+    const got = matchChapter(pack, { title: '没这章', index: 9, texts });
+    expect(got).toBeNull();
+  });
+
+  it('对上两成以上：按最像的一章认下来', () => {
+    const texts = ['丙一', '丙二', '别的甲', '别的乙', '别的丙'];
+    const got = matchChapter(pack, { title: '没这章', index: 9, texts });
+    expect(got?.chapter.title).toBe('第三章');
+    expect(got?.matched).toBe(2);
+  });
+
   it('章名命中但正文改过：仍然返回这一章，matched 为 0（判过期）', () => {
     const got = matchChapter(pack, { title: '第一章', texts: ['被改掉的', '正文'] });
     expect(got?.chapter.title).toBe('第一章');
@@ -200,14 +215,29 @@ describe('清单读写', () => {
     expect(parsed?.chapters[0].marks[1]).toEqual({ text: '乙', at: 1000, ms: 2000 });
   });
 
+  it('逐句字节区间写出去再读回来不丢', () => {
+    const marks = buildMarks(['甲', '乙'], [1000, 2000], [
+      { off: 0, bytes: 400 },
+      { off: 400, bytes: 800 },
+    ]);
+    const parsed = parseOfflineBook(
+      JSON.parse(serializeOfflineBook(book({ chapters: [chapter(marks)] }) as never)),
+    );
+    expect(parsed?.chapters[0].marks).toEqual([
+      { text: '甲', at: 0, ms: 1000, off: 0, bytes: 400 },
+      { text: '乙', at: 1000, ms: 2000, off: 400, bytes: 800 },
+    ]);
+  });
+
   it('版本不一致就不认，免得半懂不懂地播', () => {
     expect(parseOfflineBook(book({ version: OFFLINE_VERSION + 1 }))).toBeNull();
     expect(parseOfflineBook(book({ version: 0 }))).toBeNull();
   });
 
-  /* 2026-11-14 升到 v2：旧包的高亮是按文本搜索配的，新路径按块内偏移
-     定位，两代混着用会把问题说不清。插件还在开发阶段，直接不认。 */
-  it('第一代包（v1）不认', () => {
+  /* 2026-11-14 升到 v3：清单多记了每句的字节区间，播放器按区间一句一个
+     音频对象播。v2 及更早的包没有区间，直接不认，免得又退回从章首念。 */
+  it('v2 及第一代包（v1）不认', () => {
+    expect(parseOfflineBook(book({ version: 2 }))).toBeNull();
     expect(parseOfflineBook(book({ version: 1 }))).toBeNull();
   });
 

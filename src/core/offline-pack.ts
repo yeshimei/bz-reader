@@ -28,7 +28,7 @@
  * 配新定位才有意义——留着一代旧包，用户会拿「按文本配的包」去跑新的
  * 锚点路径，出的问题说不清是哪一代的。插件还在开发阶段，直接不认。
  */
-export const OFFLINE_VERSION = 2;
+export const OFFLINE_VERSION = 3;
 
 /** 库内根目录。整目录可被用户直接拷走 / 放进别的库。 */
 export const OFFLINE_ROOT = 'bz-reader/offline';
@@ -44,6 +44,15 @@ export interface OfflineMark {
   at: number;
   /** 这句有多长（毫秒） */
   ms: number;
+  /**
+   * 这句音频在章文件里的精确字节区间（v3，2026-11-14）。
+   *
+   * 拼文件的时候量的，不是按码率估的。播放时按它切出一个句子的小 blob，
+   * 一句一个 `<audio>` 从 0 播完接下一句——和社区里 TTS 插件的结构一样，
+   * 整章 mp3 的 seek 再也插不上手。
+   */
+  off?: number;
+  bytes?: number;
 }
 
 export interface OfflineChapter {
@@ -97,14 +106,29 @@ export function chapterFile(title: string, format: string): string {
   return `${safeName(title)}.${format || 'mp3'}`;
 }
 
-/** 时长数组 → 时间轴。两边长度不一致就按短的截，绝不猜。 */
-export function buildMarks(texts: readonly string[], ms: readonly number[]): OfflineMark[] {
+/**
+ * 时长数组 → 时间轴。两边长度不一致就按短的截，绝不猜。
+ *
+ * `slices` 是拼文件时量出来的每句字节区间；给了就写进 mark，播放时按它
+ * 逐句切 blob。没给（wav / 老调用方）就留空，播放器退回整章播放。
+ */
+export function buildMarks(
+  texts: readonly string[],
+  ms: readonly number[],
+  slices: readonly { off: number; bytes: number }[] = [],
+): OfflineMark[] {
   const n = Math.min(texts.length, ms.length);
   const out: OfflineMark[] = [];
   let at = 0;
   for (let i = 0; i < n; i++) {
     const dur = Number.isFinite(ms[i]) ? Math.max(0, Math.round(ms[i])) : 0;
-    out.push({ text: String(texts[i] ?? ''), at, ms: dur });
+    const slice = slices[i];
+    const mark: OfflineMark = { text: String(texts[i] ?? ''), at, ms: dur };
+    if (slice && slice.bytes > 0) {
+      mark.off = Math.max(0, Math.round(slice.off));
+      mark.bytes = Math.max(0, Math.round(slice.bytes));
+    }
+    out.push(mark);
     at += dur;
   }
   return out;
@@ -206,10 +230,14 @@ export function matchChapter(
   };
   if (byTitle) return score(byTitle);
   if (byIndex) return score(byIndex);
+  /* 相似度兜底要够像才算。只要「对上一句」就认，会把「他说。」这种到处
+     都有的短句当成证据，把别的章的音频当成这一章的播出去（真机症状：
+     声音在章首、高亮在当前页）。 */
+  const need = Math.max(2, Math.ceil(opts.texts.length * 0.2));
   let best: ChapterMatch | null = null;
   for (const chapter of chapters) {
     const got = score(chapter);
-    if (got.matched > 0 && (!best || got.matched > best.matched)) best = got;
+    if (got.matched >= need && (!best || got.matched > best.matched)) best = got;
   }
   return best;
 }
@@ -258,7 +286,14 @@ function parseMarks(raw: unknown): OfflineMark[] {
     if (!isRecord(m)) continue;
     const text = str(m.text);
     if (!text) continue;
-    out.push({ text, at: Math.max(0, num(m.at)), ms: Math.max(0, num(m.ms)) });
+    const mark: OfflineMark = { text, at: Math.max(0, num(m.at)), ms: Math.max(0, num(m.ms)) };
+    const off = Math.max(0, Math.round(num(m.off)));
+    const bytes = Math.max(0, Math.round(num(m.bytes)));
+    if (bytes > 0) {
+      mark.off = off;
+      mark.bytes = bytes;
+    }
+    out.push(mark);
   }
   return out;
 }

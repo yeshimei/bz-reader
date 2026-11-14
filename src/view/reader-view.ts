@@ -33,11 +33,30 @@ import { ClipOwnerRegistry } from './clip-owner';
 import { applyEngineMeta } from '../data/book-meta';
 import { coverPathOf, ensureCoverFromFoliate } from '../data/cover';
 import { speak, speakLang, type SpeakHandle } from '../core/speak';
-import { billedChars, buildScript, estimateCost, startPointOf, ttsLangSupported, type ScriptKind, type ScriptSegment } from '../core/tts-script';
+import {
+  billedChars,
+  buildScript,
+  estimateCost,
+  startFromAnchor,
+  startPointOf,
+  ttsLangSupported,
+  type PageAnchor,
+  type ScriptKind,
+  type ScriptSegment,
+} from '../core/tts-script';
 import { applySpeechHighlight, clearSpeechHighlight } from '../engine/speech-highlight';
 import type { TtsErrorCode } from '../core/tts-api';
-import { isFreeEngine, synthesizeFor, ttsCacheTag, ttsEngineReady, ttsMimeOf, type TtsRoute } from '../core/tts-engine';
-import { concatMp3, type LocalRequester } from '../core/tts-local';
+import {
+  isFreeEngine,
+  synthesizeFor,
+  ttsCacheTag,
+  ttsEngineReady,
+  ttsMimeOf,
+  ttsOnlineIsDeepseek,
+  ttsVoiceFor,
+  type TtsRoute,
+} from '../core/tts-engine';
+import { concatMp3, localServiceAlive, type LocalRequester } from '../core/tts-local';
 import { TtsPlayer } from '../core/tts-player';
 import { OfflinePlayer, type OfflineAudioLike } from '../core/offline-player';
 import { emptyBook, buildChapter, reorderChapters, upsertChapter, type ChapterSource } from '../core/offline-build';
@@ -53,7 +72,7 @@ import { vaultPackFS } from '../data/vault-pack-fs';
 import { concatWav } from '../core/wav';
 import { TtsCache, cacheKey } from '../data/tts-cache';
 import { localRequester } from '../data/tts-request';
-import { ttsBarHtml, ttsSourceLabel } from './tts-bar';
+import { ttsBarHtml, ttsBarLift, ttsSourceLabel } from './tts-bar';
 import { ttsProgressHtml, type TtsTaskKind, type TtsTaskState } from './tts-progress';
 import { notify, notifyNow, type NoticeHandle } from '../core/notice';
 import { localeTag, t, type MsgKey } from '../i18n';
@@ -419,7 +438,7 @@ export class ReaderView extends ItemView {
   private ttsKind: ScriptKind = 'narration';
   private ttsSnippet = '';
   /** 「更多」展开中：浮条每次重画都按这个字段来，不读 DOM */
-  private ttsMore = false;
+
   /** 这一段音频是哪来的（按整章句序号记，重播同一句会覆盖，不重复计数） */
   private ttsSourceMap = new Map<number, 'cached' | 'live'>();
   /** 已经念到的段：预取会提前合成好几段，徽标只算「听过的」 */
@@ -1762,6 +1781,8 @@ export class ReaderView extends ItemView {
     /* 先取一次「这一页的段落」：拼页文本、给离线起播定位都用它，别让
        currentBlocks() 为同一页扫三遍（一页八百字，逐字符比矩形） */
     const pageBlocks = this.host.currentBlocks?.() ?? [];
+    /* 紧跟着取，不能晚：翻页 / 重排会重填它，晚一步就是上一页的锚点 */
+    const anchor = this.host.pageAnchor?.() ?? null;
     const text = pageBlocks.map((b) => b.text).join(' ').trim() || this.host.currentText();
     if (!text) {
       notify(t('notice.tts.noText'));
@@ -1775,17 +1796,17 @@ export class ReaderView extends ItemView {
       /* 本地引擎 + 「先备整章」开着：没有音频就不实时合，先问要不要备。
          本地一句 3–8 秒，边合边念在真机上就是一直卡（2026-11-14 拍板）。 */
       if (this.localPackFirst()) {
-        void this.speakLocalFirst(text);
+        void this.speakLocalFirst(text, anchor);
         return;
       }
       /* 有离线包先播包：整章连着放，不联网、不跑模型——手机也能用 */
       if (this.offlinePack) {
-        void this.speakOffline(text, pageBlocks).then((res) => {
-          if (res !== 'ok' && !this.closed) void this.speakPageAi(text, pageBlocks);
+        void this.speakOffline(text, pageBlocks, anchor).then((res) => {
+          if (res !== 'ok' && !this.closed) void this.speakPageAi(text, pageBlocks, anchor);
         });
         return;
       }
-      void this.speakPageAi(text, pageBlocks);
+      void this.speakPageAi(text, pageBlocks, anchor);
       return;
     }
     // 基础版包里 speak() 返回 null —— 那就是「这个环境没有朗读」
@@ -1853,7 +1874,7 @@ export class ReaderView extends ItemView {
     const settings = shellSettings();
     return {
       engine: this.prefs.ttsEngine,
-      ai: { baseUrl: settings.ai.baseUrl, apiKey: settings.ai.apiKey },
+      online: settings.ttsOnline,
       local: settings.ttsLocal,
     };
   }
@@ -1872,16 +1893,10 @@ export class ReaderView extends ItemView {
   private async speakPageAi(
     text: string,
     pageBlocks: Array<{ tag: string; text: string; raw: string }> = [],
+    anchor: PageAnchor | null = null,
   ): Promise<void> {
     const route = this.ttsRoute();
-    if (route.engine === 'local' && isMobileShell()) {
-      notify(t('notice.tts.localMobile'));
-      return;
-    }
-    if (!ttsEngineReady(route)) {
-      notify(t(route.engine === 'local' ? 'notice.tts.noLocal' : 'notice.tts.noKey'));
-      return;
-    }
+    if (!(await this.ttsStartable(route))) return;
     const settings = shellSettings();
     /* 隐私提示只对云端讲：本地服务不出网 */
     if (route.engine !== 'local' && !settings.ttsAck) {
@@ -1889,8 +1904,9 @@ export class ReaderView extends ItemView {
       getShellSource()?.setSettings({ ttsAck: true });
     }
     const lang = speakLang(text, this.book?.meta.language, localeTag());
-    /* 语种只约束 DeepSeek：本地能念什么取决于用户装的模型，我们不知道 */
-    if (route.engine === 'deepseek' && !ttsLangSupported(lang)) {
+    /* 语种只约束 DeepSeek 官方那两把嗓子：本地 / 兼容服务的音色取决于
+       用户填的模型，我们不知道它能念什么，不该替它拦 */
+    if (route.engine === 'online' && ttsOnlineIsDeepseek(route) && !ttsLangSupported(lang)) {
       notify(t('notice.tts.unsupportedLang'));
       return;
     }
@@ -1903,25 +1919,32 @@ export class ReaderView extends ItemView {
       notify(t('notice.tts.noText'));
       return;
     }
-    /* 起播位置：这一页第一句在整章里的位置（和离线同一套口径） */
+    /* 起播位置：先按页首锚点（块序号 + 块内偏移）对位；拿不到才退回
+       「拿页首那句去整章里找」。文本那条路遇上跨页段落、短标题就会
+       静默落到第 0 句——正是「站第 20 页点朗读，从章首念」的真身。 */
     let startAt = 0;
-    const firstPage = buildScript(pageBlocks)[0];
-    if (firstPage) {
-      const hit = segments.findIndex((s) => s.text === firstPage.text && s.len === firstPage.len);
-      if (hit >= 0) startAt = hit;
+    const anchored = anchor && blocks.length ? startFromAnchor(segments, blocks, anchor) : null;
+    if (anchored) {
+      startAt = anchored.index;
+    } else {
+      const firstPage = buildScript(pageBlocks)[0];
+      if (firstPage) {
+        const hit = segments.findIndex((s) => s.text === firstPage.text && s.len === firstPage.len);
+        if (hit >= 0) startAt = hit;
+      }
     }
     /* 先停旧的：换页重念时不能两条音频叠在一起 */
     this.stopTts();
     const run = ++this.ttsRun;
     if (this.closed || run !== this.ttsRun) return;
 
-    const voice = this.ttsVoice(route.engine);
+    const voice = this.ttsVoice(route);
     this.ttsChars = segments.reduce((n, s) => n + billedChars(s.text), 0);
     /* 本地引擎不要钱：不记花费，也不累加那本「花了多少」的账 */
     const free = isFreeEngine(route.engine);
     this.ttsCost = free ? 0 : estimateCost(this.ttsChars);
     if (!free) this.addTtsSpend(this.ttsChars, this.ttsCost);
-    this.ttsMime = ttsMimeOf(route.engine, route.local.format);
+    this.ttsMime = ttsMimeOf(route);
     this.ttsTotal = segments.length;
     this.ttsOffline = false;
     this.ttsSourceMap.clear();
@@ -1948,7 +1971,7 @@ export class ReaderView extends ItemView {
               put: (k, data) => cache.put(k, data, cacheMB * 1024 * 1024),
             },
             /* 引擎进键（`local:` 前缀）：云端老缓存保持原样继续命中 */
-            cacheKey: (body, v) => cacheKey(bookId, ttsCacheTag(route.engine, v), body),
+            cacheKey: (body, v) => cacheKey(bookId, ttsCacheTag(route, v), body),
           }
         : {}),
       onSegment: (index, seg) => {
@@ -2003,13 +2026,21 @@ export class ReaderView extends ItemView {
    * `tried` 用来防打转：备完之后如果还是对不上（正文又变了 / 生成失败），
    * 只提示、不再弹窗，否则用户会被同一张窗反复拦住。
    */
-  private async speakLocalFirst(pageText: string, tried = false): Promise<void> {
-    const res = await this.speakOffline(pageText);
+  private async speakLocalFirst(
+    pageText: string,
+    anchor: PageAnchor | null = null,
+    tried = false,
+  ): Promise<void> {
+    const res = await this.speakOffline(pageText, [], anchor);
     if (res === 'ok' || this.closed) return;
     if (res === 'empty') {
       notify(t('notice.tts.noText'));
       return;
     }
+    /* 走到这儿就得靠服务现合了：它不在的话，「先预生成」什么也做不成，
+       只会和「连不上」叠成两条自相矛盾的提示（真机 2026-11-14 截图）。
+       有包能播的情况在上面就返回了，不受这一道影响。 */
+    if (!(await this.ttsStartable(this.ttsRoute()))) return;
     if (tried) {
       notify(t('tts.pack.notReady'));
       return;
@@ -2022,17 +2053,17 @@ export class ReaderView extends ItemView {
         t('tts.pack.rebuild'),
       );
       if (!again || this.closed) return;
-      await this.prefetchChapter();
+      await this.prefetchChapter(false);
       if (this.closed) return;
-      void this.speakLocalFirst(pageText, true);
+      void this.speakLocalFirst(pageText, anchor, true);
       return;
     }
     const pick = await this.askPackFirst();
     if (!pick || this.closed) return;
     if (pick === 'book') await this.prefetchBook();
-    else await this.prefetchChapter();
+    else await this.prefetchChapter(false);
     if (this.closed) return;
-    void this.speakLocalFirst(pageText, true);
+    void this.speakLocalFirst(pageText, anchor, true);
   }
 
   /** 「本地要先备好」的确认窗：整章 / 整本 / 取消 */
@@ -2078,6 +2109,7 @@ export class ReaderView extends ItemView {
   private async speakOffline(
     pageText: string,
     pageBlocks: Array<{ tag: string; text: string; raw: string }> = [],
+    anchor: PageAnchor | null = null,
   ): Promise<'ok' | 'missing' | 'stale' | 'empty'> {
     const pack = this.offlinePack;
     if (!pack) return 'missing';
@@ -2098,23 +2130,26 @@ export class ReaderView extends ItemView {
       texts: segments.map((s) => s.text),
     });
     if (!match) return 'missing';
-    /* 章名对上了但正文对不上：包过期。交给调用方问要不要重备，不再静默
-       走慢路径（那才是「点了没反应」的根源）。 */
-    if (!match.matched) return 'stale';
+    /* 章名 / 章序对上了，但正文只有零星几句能对上：包过期（正文改过、或者
+       包里那章其实是另一章）。门槛不能只是「> 0」——正文翻到别的章时，包里
+       唯一那章也能凑出几句「他说。」这类通用短句，硬播就成了「声音在别人
+       家的章首、高亮在当前页」（真机 2026-11-14）。 */
+    if (match.matched < Math.max(2, Math.ceil(segments.length * 0.2))) return 'stale';
     const chapter = match.chapter;
     const align = match.align;
 
     /* 当前页第一句在整章里的位置：翻到第 5 页点朗读，就该从第 5 页开始。
-       先按「这一页第一句」的 text + len 去整章脚本里找同一句（两边同一套
-       切分，比文本前缀可靠）；找不到才退回 `startPointOf` 的前缀匹配。
-       踩过：只用前缀匹配时，页文本一旦带了前面的段落（或整章），前缀就
-       命中章首——真机表现「站在第二页点朗读，从第一页开头念」。 */
-    const located = startPointOf(segments, pageText);
+       首选页首锚点（块序号 + 块内偏移）——文本匹配遇上跨页段落、短标题、
+       残句就会静默落到第 0 句，真机表现「站在第 20 页点朗读，从章首念」。
+       拿不到锚点才退回文本：先按「这一页第一句」的 text + len 找同一句，
+       再退 `startPointOf` 的前缀匹配。 */
+    const anchored = anchor && chapterBlocks.length ? startFromAnchor(segments, chapterBlocks, anchor) : null;
+    const located = anchored ?? startPointOf(segments, pageText);
     let startAt = located.index;
     /* 句内跳过几个字：跨页段落只有后半截在屏幕上，从这里开始念而不是
        退回段首（真机反馈过「声音从整段开头念」） */
     let skip = located.skip;
-    const firstPage = buildScript(pageBlocks)[0];
+    const firstPage = anchored ? undefined : buildScript(pageBlocks)[0];
     if (firstPage) {
       const hit = segments.findIndex((s) => s.text === firstPage.text && s.len === firstPage.len);
       if (hit >= 0) {
@@ -2122,6 +2157,14 @@ export class ReaderView extends ItemView {
         skip = 0;
       }
     }
+
+    /* 起播这一句必须在清单里有音频，而且对位不能明显偏前。别硬播：
+       `start()` 会往后找第一句有音频的，那可能是几十句之前的章首，于是
+       「声音在章首、高亮在当前句，两边对不上」（真机 2026-11-14）。
+       对位正常时 mark 序号 ≈ 正文序号（只差几句 -1），偏出两成就是包过期。 */
+    const markStart = align[startAt];
+    if (!(markStart >= 0)) return 'stale';
+    if (markStart < startAt - Math.max(8, Math.round(startAt * 0.2))) return 'stale';
 
     this.stopTts();
     this.ttsMime = this.ttsFormat() === 'wav' ? 'audio/wav' : 'audio/mpeg';
@@ -2236,6 +2279,12 @@ export class ReaderView extends ItemView {
          用根节点上的类做信号，别让两处各算一套坐标 */
       root.classList.add('has-ttsbar');
     }
+    /* 右下角状态栏压着条子右半边（真机截图：齿轮被它盖住），按它的实测
+       高度把整条抬起来。每次显示都量：主题/缩放/插件图标数量都会变。 */
+    this.ttsBarEl.style.setProperty(
+      '--bzr-tts-lift',
+      `${ttsBarLift(document.querySelector<HTMLElement>('.status-bar'))}px`,
+    );
     this.renderTtsBar();
   }
 
@@ -2261,8 +2310,9 @@ export class ReaderView extends ItemView {
     this.ttsBarEl.innerHTML = ttsBarHtml({
       paused: state === 'paused',
       loading: state === 'loading',
-      more: this.ttsMore,
       source: this.ttsSourceText(),
+      /* 音色按钮给哪个引擎开弹窗：本地就本地，其它（含系统语音）按在线开 */
+      voiceEngine: this.prefs.ttsEngine === 'local' ? 'local' : 'online',
     });
     /* 条子上只有图标：按 data-icon 交给 Obsidian 的图标集，
        不自己拼 SVG，也就不用跟着主题换颜色。 */
@@ -2495,28 +2545,61 @@ export class ReaderView extends ItemView {
       p.next();
     } else if (act === 'ttsprev') {
       p.prev();
-    } else if (act === 'ttsmore') {
-      /* 「更多」是个开关：预生成 / 导出 / 设置都在里面，常驻位只留四个 */
-      this.ttsMore = !this.ttsMore;
-      this.renderTtsBar();
+    } else if (act === 'ttsvoices') {
+      /* 音色（2026-11-14 二轮）：开选择弹窗，列表按当前地址与模型拉 */
+      dispatchAction('ttsvoices', target);
     } else if (act === 'ttsprefetch') {
-      this.ttsMore = false;
-      this.renderTtsBar();
       void this.prefetchChapter();
     } else if (act === 'ttsexport') {
-      this.ttsMore = false;
-      this.renderTtsBar();
       void this.exportSpeech();
     } else if (act === 'ttstune') {
-      this.ttsMore = false;
-      this.renderTtsBar();
+      /* 不再弹右上角面板：直接去设置页的朗读组 */
       dispatchAction('ttstune', this.rootEl ?? document.body);
     }
   }
 
-  /** 当前引擎的音色：云端两把嗓子，本地是服务里那个名字（可能是空的） */
-  private ttsVoice(engine: TtsRoute['engine'] = this.prefs.ttsEngine): string {
-    return engine === 'local' ? this.prefs.ttsVoiceLocal : this.prefs.ttsVoice;
+  /**
+   * 起播前的统一体检：地址填了、本地服务也真活着。
+   *
+   * `ttsEngineReady` 只看「地址填了没」，服务没起来它照样说准备好了；真点
+   * 下去就是进度卡闪一下 0%、再报连不上（真机 2026-11-14 截图）。所以本地
+   * 多一步探活，把话说在起播之前。
+   *
+   * 云端不探活：有 key 就试，真出错时错误码说得比探活准（余额、限流、
+   * 模型名不对，逐个都有自己的话）。探活失败只说「连不上」——服务没启动、
+   * 端口写错、防火墙拦了，用户能做的都是同一件事。
+   */
+  private async ttsStartable(route: TtsRoute): Promise<boolean> {
+    if (!ttsEngineReady(route)) {
+      notify(
+        t(
+          route.engine === 'local'
+            ? 'notice.tts.noLocal'
+            : route.engine === 'online'
+              ? 'notice.tts.noOnline'
+              : 'notice.tts.noKey',
+        ),
+      );
+      return false;
+    }
+    if (route.engine !== 'local') return true;
+    if (await localServiceAlive({ baseUrl: route.local.url, request: this.localRequest() })) return true;
+    notify(t('notice.tts.localDown'));
+    return false;
+  }
+
+  /**
+   * 当前该用哪把嗓子。
+   *
+   * 在线 · 官方：只有 stella / tide 两把，空值兜底成老默认 stella；
+   * 在线 · 兼容：用户从服务列表里选的那个名字（空 = 服务默认）；
+   * 本地：服务里那个名字；系统语音不走音色。
+   *
+   * 2026-11-14 分开存（`ttsVoiceOnline`）：在线换成别家之后，
+   * 原来的 stella / tide 没有意义，不能再拿旧值去请求。
+   */
+  private ttsVoice(route: TtsRoute = this.ttsRoute()): string {
+    return ttsVoiceFor(route, this.prefs);
   }
 
   /**
@@ -2547,7 +2630,7 @@ export class ReaderView extends ItemView {
    * 决定，所以只在这里推一次，别各处再抄一份 if。
    */
   private ttsFormat(route: TtsRoute = this.ttsRoute()): string {
-    const mime = ttsMimeOf(route.engine, route.local.format);
+    const mime = ttsMimeOf(route);
     return mime === 'audio/wav' ? 'wav' : mime === 'audio/ogg' ? 'ogg' : 'mp3';
   }
 
@@ -2587,7 +2670,24 @@ export class ReaderView extends ItemView {
    * 问的时候给「只做接下来 20 句」：一章两三万字，整章要好几块。
    * 再点一次按钮 = 取消（当前这段合完就停）。
    */
-  private async prefetchChapter(): Promise<void> {
+  /**
+   * 本章是不是已经有音频了。
+   *
+   * 和播放时同一套找章口径（`matchChapter`），阈值也一致：只凑上一两句不
+   * 算「已有」——那种包播出来是别人家的章首，该当没备过。
+   */
+  private hasChapterAudio(texts: string[]): boolean {
+    const pack = this.offlinePack;
+    if (!pack || !texts.length) return false;
+    const match = matchChapter(pack.book, {
+      title: this.host.currentChapterTitle?.() || '',
+      index: this.host.currentChapterIndex,
+      texts,
+    });
+    return !!match && match.matched >= Math.max(2, Math.ceil(texts.length * 0.2));
+  }
+
+  private async prefetchChapter(confirmRebuild = true): Promise<void> {
     if (this.prefetching) {
       this.prefetching = false;
       /* 朗读条上那颗按钮也是开关：按第二下同样要立刻给出「已取消」 */
@@ -2598,14 +2698,24 @@ export class ReaderView extends ItemView {
     if (!requireCap('ttsPregen')) return;
     if (this.ttsTaskBusy('chapter')) return;
     const route = this.ttsRoute();
-    if (!ttsEngineReady(route)) {
-      notify(t(route.engine === 'local' ? 'notice.tts.noLocal' : 'notice.tts.noKey'));
-      return;
-    }
+    if (!(await this.ttsStartable(route))) return;
     let segments = buildScript(this.host.currentChapterBlocks?.() ?? []);
     if (!segments.length) {
       notify(t('notice.tts.noText'));
       return;
+    }
+    /* 本章已经有音频：再点一次是「重备」。以前缓存全命中时一秒闪过、一个
+       提示都没有，用户以为按钮坏了（2026-11-14）。先问一句，确认了才逐句
+       重跑——不复用缓存，否则「重新生成」还是秒完，等于没重生成。 */
+    let regen = false;
+    if (confirmRebuild && this.hasChapterAudio(segments.map((s) => s.text))) {
+      const again = await this.askModalText(
+        t('tts.pack.againTitle'),
+        t('tts.pack.againBody'),
+        t('tts.pack.againOk'),
+      );
+      if (!again || this.closed) return;
+      regen = true;
     }
     const free = isFreeEngine(route.engine);
     const chars = segments.reduce((n, s) => n + billedChars(s.text), 0);
@@ -2628,8 +2738,8 @@ export class ReaderView extends ItemView {
     };
     const cacheMB = this.prefs.ttsCacheMB;
     const cache = cacheMB > 0 ? new TtsCache() : null;
-    const voice = this.ttsVoice(route.engine);
-    const tag = ttsCacheTag(route.engine, voice, route.local.format);
+    const voice = this.ttsVoice(route);
+    const tag = ttsCacheTag(route, voice);
     const total = segments.length;
     /** 处理过的段数（含跳过的）：进度条按它走，才会真的到 100% */
     let seen = 0;
@@ -2648,7 +2758,8 @@ export class ReaderView extends ItemView {
         /* 卡片上的「停止」已经把终态画出来了，这里只管退出 */
         if (!this.prefetching) return;
         const key = cacheKey(this.bookId, tag, seg.text);
-        let buf = cache ? await cache.get(key) : null;
+        /* 重备时不读缓存：否则「重新生成」跟第一次一样秒完，用户白点 */
+        let buf = cache && !regen ? await cache.get(key) : null;
         if (!buf) {
           try {
             buf = (await synthesizeFor(route, seg.text, voice, undefined, { request: this.localRequest() }))
@@ -2723,8 +2834,8 @@ export class ReaderView extends ItemView {
   ): Promise<{ parts: ArrayBuffer[]; texts: string[]; format: string; skipped: number } | null> {
     const cacheMB = this.prefs.ttsCacheMB;
     const cache = cacheMB > 0 ? new TtsCache() : null;
-    const voice = this.ttsVoice(route.engine);
-    const tag = ttsCacheTag(route.engine, voice, route.local.format);
+    const voice = this.ttsVoice(route);
+    const tag = ttsCacheTag(route, voice);
     const free = isFreeEngine(route.engine);
     const parts: ArrayBuffer[] = [];
     const texts: string[] = [];
@@ -2756,7 +2867,7 @@ export class ReaderView extends ItemView {
       onProgress?.(i + 1, segments.length);
     }
     if (spent) this.addTtsSpend(spent, estimateCost(spent));
-    const mime = ttsMimeOf(route.engine, route.local.format);
+    const mime = ttsMimeOf(route);
     const format = mime === 'audio/wav' ? 'wav' : mime === 'audio/ogg' ? 'ogg' : 'mp3';
     return parts.length ? { parts, texts, format, skipped } : null;
   }
@@ -2975,10 +3086,7 @@ export class ReaderView extends ItemView {
       notify(t('notice.tts.bookLocalOnly'));
       return;
     }
-    if (!ttsEngineReady(route)) {
-      notify(t('notice.tts.noLocal'));
-      return;
-    }
+    if (!(await this.ttsStartable(route))) return;
 
     /* 阶段一「排队」：读全书正文 + 等确认，两个都可能耗几秒到几十秒 */
     this.showTtsProgress('book', () => void this.prefetchBook());
@@ -3011,8 +3119,8 @@ export class ReaderView extends ItemView {
     this.prefetchingBook = true;
     const cacheMB = this.prefs.ttsCacheMB;
     const cache = cacheMB > 0 ? new TtsCache() : null;
-    const voice = this.ttsVoice(route.engine);
-    const tag = ttsCacheTag(route.engine, voice, route.local.format);
+    const voice = this.ttsVoice(route);
+    const tag = ttsCacheTag(route, voice);
     /** 处理过的段数（含跳过的）：进度条按它走 */
     let seen = 0;
     const paint = (ci: number): void => {
@@ -3124,10 +3232,7 @@ export class ReaderView extends ItemView {
    */
   private async exportSpeech(): Promise<void> {
     const route = this.ttsRoute();
-    if (!ttsEngineReady(route)) {
-      notify(t(route.engine === 'local' ? 'notice.tts.noLocal' : 'notice.tts.noKey'));
-      return;
-    }
+    if (!(await this.ttsStartable(route))) return;
     const segments = buildScript(this.host.currentBlocks?.() ?? []);
     if (!segments.length) {
       notify(t('notice.tts.exportEmpty'));
@@ -3172,10 +3277,7 @@ export class ReaderView extends ItemView {
     if (!requireCap('ttsPregen')) return;
     if (this.ttsTaskBusy('export')) return;
     const route = this.ttsRoute();
-    if (!ttsEngineReady(route)) {
-      notify(t(route.engine === 'local' ? 'notice.tts.noLocal' : 'notice.tts.noKey'));
-      return;
-    }
+    if (!(await this.ttsStartable(route))) return;
     const segments = buildScript(this.host.currentChapterBlocks?.() ?? []);
     if (!segments.length) {
       notify(t('notice.tts.exportEmpty'));
@@ -3307,11 +3409,10 @@ export class ReaderView extends ItemView {
     this.offlineSegments = null;
     /* 两条高亮路径一起收：CSS Highlight 在书页文档里，覆盖层图形在宿主侧 */
     this.clearSpeechMark();
-    /* 来源统计、「更多」展开状态都跟着这一次朗读走，下次重新开始 */
+    /* 来源统计跟着这一次朗读走，下次重新开始 */
     this.ttsOffline = false;
     this.ttsSourceMap.clear();
     this.ttsHeard.clear();
-    this.ttsMore = false;
     this.hideTtsBar();
     this.syncToolState();
   }

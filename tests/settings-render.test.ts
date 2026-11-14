@@ -827,3 +827,56 @@ describe('划线颜色 · 与划词条同一份', () => {
     expect(html()).toContain('点划词条上的色点就会记在这里');
   });
 });
+
+/**
+ * 朗读组（2026-11-14 二轮）：引擎换成三张卡，输入框不再带示例值，
+ * 音色从手填改成点开选。
+ */
+describe('朗读组 · 三张引擎卡', () => {
+  const ttsHtml = (over: Partial<typeof DEFAULT_PREFS> = {}): string =>
+    viewSettings({
+      prefs: { ...DEFAULT_PREFS, ...over },
+      settings: DEFAULT_SETTINGS,
+      pen: 'amber',
+      hotkeys: [],
+      relicense: false,
+      version: '0.1.2',
+    });
+
+  it('三种出声方式都在，当前那张亮着', () => {
+    const out = ttsHtml({ ttsEngine: 'local' });
+    for (const id of ['online', 'local', 'system']) {
+      expect(out).toContain(`data-act="ttsengine" data-v="${id}"`);
+    }
+    expect(out).toMatch(/class="bzs-engcard on" data-act="ttsengine" data-v="local"/);
+  });
+
+  it('选中在线才展开在线的地址、模型、密钥', () => {
+    const online = ttsHtml({ ttsEngine: 'online' });
+    expect(online).toContain('data-k="ttsOnline.url"');
+    expect(online).toContain('data-k="ttsOnline.model"');
+    expect(online).toContain('data-k="ttsOnline.apiKey"');
+    expect(online).not.toContain('data-k="ttsLocal.url"');
+  });
+
+  it('输入框里没有示例值：placeholder 一个都不许有', () => {
+    for (const engine of ['online', 'local', 'system'] as const) {
+      const out = ttsHtml({ ttsEngine: engine });
+      expect(out, engine).not.toMatch(/data-k="tts(Online|Local)\.(url|model|apiKey)"[^>]*placeholder/);
+    }
+  });
+
+  it('音色是按钮（点开弹窗），不是手填输入框', () => {
+    const local = ttsHtml({ ttsEngine: 'local' });
+    expect(local).toContain('data-act="ttsvoices" data-v="local"');
+    expect(local).not.toContain('data-k="ttsVoiceLocal"');
+    const online = ttsHtml({ ttsEngine: 'online' });
+    expect(online).toContain('data-act="ttsvoices" data-v="online"');
+  });
+
+  it('本地的高级项收在折叠里：模型、密钥、格式默认不占视线', () => {
+    const local = ttsHtml({ ttsEngine: 'local' });
+    expect(local).toContain('bzs-adv');
+    expect(local).toContain('data-k="ttsLocal.model"');
+  });
+});

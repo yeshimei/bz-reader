@@ -23,7 +23,7 @@
 
 import { isLocale, type LanguagePref } from '../i18n';
 import { normalizeFormat } from '../core/tts-local';
-import type { LocalTtsSettings } from '../core/tts-engine';
+import type { LocalTtsSettings, OnlineTtsSettings } from '../core/tts-engine';
 import { DEFAULT_CLIP_SCOPE, normalizeClipScope, type ClipScope } from './clip-epub/scope';
 
 export interface AiSettings {
@@ -65,6 +65,14 @@ export interface ReaderSettings {
    * 在 prefs.ttsVoiceLocal。
    */
   ttsLocal: LocalTtsSettings;
+  /**
+   * 在线语音服务（2026-11-14 从 AI 组独立出来）。
+   *
+   * 以前朗读借 `ai.baseUrl` 与 `ai.apiKey`，等于把「朗读用哪家」绑死在
+   * 「AI 问答用哪家」上。现在自带地址 / 模型 / 密钥：两件事的账号未必
+   * 相同，地址也可能是不同的代理。空地址 = 用 DeepSeek 官方默认。
+   */
+  ttsOnline: OnlineTtsSettings;
   /*
    * 这里**故意没有**「连接至 BZ AI 知识库」开关。
    *
@@ -144,10 +152,19 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     apiKey: '',
     model: '',
   },
-  /* 空地址 = 没配。格式默认 mp3：本地一章 wav 要 290 MB，mp3 只要 48 MB，
-     「预下载整章」这件事只有 mp3 才成立。 */
+  /* 地址预填好：装机最常见的两种服务各给一条，用户照着改比从空框开始容易
+     （2026-11-14 用户要求）。格式默认 mp3：本地一章 wav 要 290 MB，
+     mp3 只要 48 MB，「预下载整章」这件事只有 mp3 才成立。 */
   ttsLocal: {
-    url: '',
+    url: 'http://127.0.0.1:8880',
+    model: '',
+    apiKey: '',
+    format: 'mp3',
+  },
+  /* 预填 DeepSeek 官方地址；密钥默认空：老用户升级时由 normalizeSettings
+     从 AI 组搬一份过来。 */
+  ttsOnline: {
+    url: 'https://api.deepseek.com',
     model: '',
     apiKey: '',
     format: 'mp3',
@@ -249,7 +266,9 @@ function cleanLocalUrl(v: string): string {
 }
 
 function normalizeTtsLocal(raw: unknown): LocalTtsSettings {
-  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  /* 整份配置都没有（全新安装）= 用预填的地址；用户自己清空则保持空 */
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_SETTINGS.ttsLocal };
+  const o = raw as Record<string, unknown>;
   return {
     url: cleanLocalUrl(str(o.url)),
     model: str(o.model).trim(),
@@ -258,8 +277,48 @@ function normalizeTtsLocal(raw: unknown): LocalTtsSettings {
   };
 }
 
+/**
+ * 在线语音设置（2026-11-14）。
+ *
+ * 地址按云端口径补 https（用户的在线服务基本都是域名，不是本机回环）；
+ * 例外是内网网关写的 192.168.x.x —— 那种补 https 会连不上，所以和本地
+ * 一样：没写协议时，本机 / 内网地址补 http，其余补 https。
+ *
+ * `fallback` 只在**这份配置根本不存在**时用（老版本升级）：把 AI 组当时的
+ * 地址与密钥搬一份过来，否则升级后点朗读直接变「未配置」——这是事故。
+ * 用户之后主动清空地址不会再次被搬回来（对象存在就不搬）。
+ */
+function normalizeTtsOnline(raw: unknown, fallback: AiSettings): OnlineTtsSettings {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      /* AI 组填过就沿用它，没填过就预填官方地址，别留一个空框 */
+      url: cleanServiceUrl(fallback.baseUrl) || DEFAULT_SETTINGS.ttsOnline.url,
+      model: '',
+      apiKey: fallback.apiKey,
+      format: 'mp3',
+    };
+  }
+  const o = raw as Record<string, unknown>;
+  return {
+    url: cleanServiceUrl(str(o.url)),
+    model: str(o.model).trim(),
+    apiKey: str(o.apiKey).trim(),
+    format: normalizeFormat(o.format),
+  };
+}
+
+/** 在线服务地址：本机 / 内网补 http，公网域名补 https */
+function cleanServiceUrl(v: string): string {
+  const s = v.trim().replace(/\/+$/, '');
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return s;
+  const local = /^(localhost|127\.|0\.0\.0\.0|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(s);
+  return `${local ? 'http' : 'https'}://${s}`;
+}
+
 export function normalizeSettings(raw: unknown): ReaderSettings {
   const s = (raw ?? {}) as Partial<ReaderSettings>;
+  const ai = normalizeAi(s.ai);
   return {
     exportDir: cleanDir(str(s.exportDir, DEFAULT_SETTINGS.exportDir)),
     exportComments: s.exportComments !== false,
@@ -267,8 +326,9 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     /* 只认八种语言 + auto：手改坏的 JSON、旧版本没有这个字段、写了别的语言，
        都退回 auto——宁可跟随宿主，也不要钉死一个用户没选过的语言。 */
     language: isLocale(s.language) ? s.language : 'auto',
-    ai: normalizeAi(s.ai),
+    ai,
     ttsLocal: normalizeTtsLocal(s.ttsLocal),
+    ttsOnline: normalizeTtsOnline(s.ttsOnline, ai),
     aiAck: s.aiAck === true,
     ttsAck: s.ttsAck === true,
     ttsStats: {

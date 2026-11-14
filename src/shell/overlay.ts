@@ -61,8 +61,8 @@ import { dataDirOf } from '../core/plugin-path';
 import { clampDailyGoal } from '../data/goal';
 import { shelfLabel } from './shelf-label';
 import { segHtml } from './render/seg';
-import { TTS_RATE_RANGE } from '../data/prefs';
-import { TTS_VOICE_IDS } from '../core/tts-api';
+import { voiceKeyOf } from '../core/tts-voices';
+import { currentVoiceOf, voiceEntryOf, voiceTargetOf } from './voice-store';
 import { bindMaskDismiss } from '../core/mask-dismiss';
 import { escManager } from '../core/esc-manager';
 import { trapFocus } from '../core/ui/focus-trap';
@@ -251,99 +251,70 @@ function overlayTypography(): string {
 }
 
 /**
- * 朗读表单本体（2026-11-14）。
+ * 音色选择弹窗（2026-11-14 二轮）。
  *
- * 和排版面板同一副样子：改一项立刻生效（语速改的是播放中的 `<audio>`），
- * 不遮正文。音色只有两把嗓子，所以只给一个「音色」行——不再按旁白/对白分。
+ * 用户的要求：音色点开选，不要手填。列表按「地址 + 模型」取（音色属于
+ * 模型，换模型就换一批），拉不到列表的服务才露出手填——不提供列表的
+ * 本地服务照样能用。
+ *
+ * 单选按钮而不是下拉：这里一屏能看全，试听就在名字右边，选完点「用这个」。
  */
-export function ttsFormHtml(): string {
-  const p = shellPrefs();
-  const s = shellSettings();
-  const seg = (name: string, opts: Array<[string, string]>, cur: string): string =>
-    segHtml(
-      opts.map(([v, k]) => ({ v, k })),
-      cur,
-      { name },
-    );
-  const voices: Array<[string, string]> = TTS_VOICE_IDS.map((id) => [
-    id,
-    t(id === 'stella' ? 'settings.ttsVoice.stella' : 'settings.ttsVoice.tide'),
-  ]);
-  /* 手机不列系统语音与本地服务：前者在 WebView 里时好时坏，后者要连电脑上
-     那个 127.0.0.1，手机上没有。 */
-  const mobile = isMobileShell();
-  const engineOpts: Array<[string, string]> = mobile
-    ? [['deepseek', t('settings.ttsEngine.deepseek')]]
-    : [
-        ['deepseek', t('settings.ttsEngine.deepseek')],
-        ['local', t('settings.ttsEngine.local')],
-        ['system', t('settings.ttsEngine.system')],
-      ];
-  const engine = mobile && p.ttsEngine === 'system' ? 'deepseek' : p.ttsEngine;
-  const isLocal = engine === 'local';
-  const isDeepseek = engine === 'deepseek';
-  const bookBusy = getShellSource()?.isPrefetchingBook?.() ?? false;
-  /* 这本书有没有离线音频：拷进来的包认到没有，靠这一行说清楚 */
-  const offline = getShellSource()?.offlineAudioInfo?.() ?? null;
-  return `<div class="bzs-setgrp flat bzs-typo">
-    <div class="bzs-setrow"><label>${t('settings.ttsEngine')}</label>${seg('ttsEngine', engineOpts, engine)}</div>
-    ${
-      isDeepseek
-        ? `<div class="bzs-setrow"><label>${t('settings.ttsVoice')}</label>${seg('ttsVoice', voices, p.ttsVoice)}</div>`
-        : ''
-    }
-    ${
-      isLocal
-        ? `<div class="bzs-setrow"><label>${t('settings.ttsVoice.local')}</label>
-      <input data-role="preftext" data-k="ttsVoiceLocal" placeholder="${t('settings.ttsVoice.local')}" value="${esc(p.ttsVoiceLocal)}" style="flex:1"></div>`
-        : ''
-    }
-    <div class="bzs-setrow"><label>${t('settings.ttsRate')}</label>
-      <span class="bzs-range"><input type="range" data-role="pref" data-k="ttsRate" min="${TTS_RATE_RANGE.min}" max="${TTS_RATE_RANGE.max}" step="${TTS_RATE_RANGE.step}" value="${p.ttsRate}" style="--fill:${rangeFill(TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, p.ttsRate)}"></span>
-      <span class="val">${p.ttsRate.toFixed(1)}×</span></div>
-    <div class="bzs-setrow"><label>${t('settings.ttsFollow')}</label>${seg(
-      'ttsFollow',
-      [
-        ['1', t('settings.ttsFollow.on')],
-        ['0', t('settings.ttsFollow.off')],
-      ],
-      p.ttsFollow ? '1' : '0',
-    )}</div>
-    ${
-      isLocal
-        ? `<div class="bzs-setrow"><label>${t('settings.ttsPackFirst')}</label>${seg(
-            'ttsPackFirst',
-            [
-              ['1', t('settings.ttsPackFirst.on')],
-              ['0', t('settings.ttsPackFirst.off')],
-            ],
-            p.ttsPackFirst ? '1' : '0',
-          )}</div>`
-        : ''
-    }
-    <div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
-      <button class="bzs-btn sm pri" data-act="ttstest">${t('settings.ttsTest')}</button>
-      <span class="bzs-mini" data-role="ttstest-out"></span>
-    </div>
-    <div class="bzs-setrow">
-      <button class="bzs-btn sm" data-act="ttsexportchapter">${t('tts.tune.exportChapter')}</button>
-      ${isLocal ? `<button class="bzs-btn sm${bookBusy ? ' pri' : ''}" data-act="ttsprefetchbook">${t(bookBusy ? 'tts.tune.prefetchStop' : 'tts.tune.prefetchBook')}</button>` : ''}
-    </div>
-    <div class="bzs-setrow">
-      <label>${t('tts.offline.title')}</label>
-      <span class="bzs-mini" data-role="offline-state">${
-        offline ? t('tts.offline.state', { chapters: String(offline.chapters), mb: String(offline.mb) }) : t('tts.offline.none')
-      }</span>
-      <button class="bzs-btn sm" data-act="ttsofflinereload">${t('tts.offline.reload')}</button>
-      ${offline ? `<button class="bzs-btn sm" data-act="ttsofflinedel">${t('tts.offline.del')}</button>` : ''}
-    </div>
-  </div>`;
-}
-
-function overlayTts(): string {
-  return `<div class="bzs-float is-corner no-head" data-role="float">
-    <div class="bzs-mbody">${ttsFormHtml()}</div>
-  </div>`;
+function overlayTtsVoices(): string {
+  const o = getState().overlay;
+  const engine: 'local' | 'online' = o?.mode === 'online' ? 'online' : 'local';
+  const target = voiceTargetOf(engine);
+  const entry = voiceEntryOf(voiceKeyOf(target.url, target.model));
+  const saved = currentVoiceOf(engine);
+  const selected = o?.word ?? saved;
+  const status = entry?.status ?? 'loading';
+  const list = entry?.list ?? [];
+  const name = (v: string): string =>
+    v === 'stella' ? t('settings.ttsVoice.stella') : v === 'tide' ? t('settings.ttsVoice.tide') : v;
+  const rows = list
+    .map(
+      (id) => `<button class="bzs-vrow${id === selected ? ' on' : ''}" data-act="ttsvoicepick" data-v="${esc(id)}">
+        <span class="nm">${esc(name(id))}</span>
+        <span class="code">${esc(id)}</span>
+        <span class="sp"></span>
+        <span class="listen" data-act="ttsvoicelisten" data-v="${esc(id)}">${t('settings.ttsVoice.listen')}</span>
+        ${id === selected ? ico('check') : ''}
+      </button>`,
+    )
+    .join('');
+  const manualKey = engine === 'local' ? 'ttsVoiceLocal' : 'ttsVoiceOnline';
+  const body = !target.url
+    ? `<div class="bzs-vempty">${t('settings.ttsVoice.noUrl')}</div>`
+    : `<div class="bzs-vsrc">${esc(
+        target.model ? t('settings.ttsVoice.modelTag', { model: target.model }) : target.url,
+      )}</div>
+      ${status === 'loading' ? `<div class="bzs-vempty">${t('settings.ttsVoice.loading')}</div>` : ''}
+      ${
+        status === 'fail'
+          ? `<div class="bzs-vempty">${t('settings.ttsVoice.none')}
+        <input class="bzs-vmanual" data-role="ttsvoicemanual" data-k="${manualKey}" value="${esc(saved)}" placeholder="${t(
+          'settings.ttsVoice.manual',
+        )}"></div>`
+          : ''
+      }
+      ${
+        status === 'ok'
+          ? `<input class="bzs-vsearch" data-role="ttsvoicesearch" placeholder="${t('settings.ttsVoice.search')}">
+        <div class="bzs-vlist" data-role="voiceslist">${rows}</div>`
+          : ''
+      }`;
+  const foot = `<button class="bzs-btn sm" data-act="ttsvoicesretry">${t('settings.ttsVoice.retry')}</button>
+    <span class="sp"></span>
+    <button class="bzs-btn" data-act="close">${t('common.cancel')}</button>
+    <button class="bzs-btn pri" data-act="ttsvoicesok"${status === 'ok' ? '' : ' disabled'}>${t(
+      'settings.ttsVoice.use',
+    )}</button>`;
+  return modal(
+    t('settings.ttsVoice.title'),
+    t(engine === 'local' ? 'settings.ttsEngine.local' : 'settings.ttsEngine.online'),
+    body,
+    foot,
+    'is-center',
+  );
 }
 
 function overlayTtsClear(info: string): string {
@@ -1515,8 +1486,8 @@ export function overlayHtml(): string {
       return overlaySearch();
     case 'typography':
       return overlayTypography();
-    case 'tts':
-      return overlayTts();
+    case 'ttsvoices':
+      return overlayTtsVoices();
     case 'ttsclear':
       return overlayTtsClear(o.text ?? '0|0');
     case 'ttsofflineclear':
@@ -1901,6 +1872,17 @@ export class OverlayLayer {
         const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
         if (list) setHtml(list, searchResultsHtml(t.value, getState().searchScope, 'book'));
         kickBodySearch(t.value, getState().searchScope);
+        return;
+      }
+      /* 音色搜索（2026-11-14）：就地过滤行，不整页重绘——重绘会把输入框
+         换掉，中文输入法正组着词就被打断。 */
+      if (role === 'ttsvoicesearch') {
+        const q = t.value.trim().toLowerCase();
+        const listEl = this.root.querySelector<HTMLElement>('[data-role="voiceslist"]');
+        for (const row of listEl?.querySelectorAll<HTMLElement>('.bzs-vrow') ?? []) {
+          const text = (row.textContent ?? '').toLowerCase();
+          row.hidden = !!q && !text.includes(q);
+        }
         return;
       }
       // 排版滑块（pref）、年度目标（goal）、设置项（setting）走与书架同一条链路。

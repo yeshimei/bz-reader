@@ -5,10 +5,9 @@
  * 图标由阅读视图用 Obsidian 的 `setIcon` 填（`data-icon` 占位）——
  * 这里不 import obsidian，测试里也就能直接比字符串。
  *
- * 2026-11-14 收敛入口：常驻只留「上一段 / 播放暂停 / 下一段 / 停止」，
- * 预生成、导出、朗读设置收进「更多」。听书时眼睛不在屏幕上，一排按钮
- * 铺七八个，每个都变小、每个都难点。左边再加一个来源徽标（缓存 / 离线 /
- * 实时），让用户知道这段声音是存的还是刚合的。
+ * 2026-11-14 收敛成「更多」之后，用户要求再摊开：听书时最常见的
+ * 音色、生成本章、导出、设置各占一颗，藏进二级菜单等于每次多点一下。
+ * 现在是一排平铺、不折叠，窄窗口整条左右滑（CSS 负责）。
  * ============================================================ */
 
 import { t } from '../i18n';
@@ -23,8 +22,6 @@ export interface TtsBarState {
    * 以为点了没反应、或者已经在播了。转圈 + 点一下就停，比一个死按钮诚实。
    */
   loading?: boolean;
-  /** 「更多」展开中 */
-  more?: boolean;
   /**
    * 音频来源说明，比如「缓存 12 · 实时 3」「离线」。
    *
@@ -32,6 +29,12 @@ export interface TtsBarState {
    * 空串 = 还不知道（刚点开），整块不画，别留一个空壳占位置。
    */
   source?: string;
+  /**
+   * 「音色」按钮为谁来开弹窗。
+   *
+   * 系统语音没有音色可选，这时按在线服务开——总比弹一个空列表好。
+   */
+  voiceEngine?: 'local' | 'online';
 }
 
 /** 已经听过的音频来源统计 */
@@ -62,45 +65,51 @@ const ICONS = {
   play: 'play',
   stop: 'square',
   next: 'skip-forward',
+  voice: 'mic',
   prefetch: 'download',
   export: 'share',
-  tune: 'sliders-horizontal',
-  more: 'more-horizontal',
+  tune: 'settings',
 } as const;
+
+/**
+ * 状态栏会挡住朗读条右下角的那几颗（2026-11-14 真机截图：齿轮被状态栏
+ * 里的图标压住）。
+ *
+ * 不写死高度：主题 / 缩放 / 插件图标数量都会变，量一次再写入
+ * `--bzr-tts-lift`，CSS 那边只负责加。量不到（全屏、隐藏状态栏）就当 0。
+ */
+export function ttsBarLift(statusBar?: HTMLElement | null): number {
+  if (!statusBar) return 0;
+  const h = statusBar.getBoundingClientRect?.().height ?? 0;
+  return Number.isFinite(h) && h > 0 ? Math.round(h) : 0;
+}
 
 export function ttsBarHtml(s: TtsBarState): string {
   const playLabel = s.paused ? t('tts.bar.resume') : t('tts.bar.pause');
-  const prev = t('tts.bar.prev');
-  const stop = t('tts.bar.stop');
-  const next = t('tts.bar.next');
-  const prefetch = t('tts.bar.prefetch');
-  const exp = t('tts.bar.export');
-  const tune = t('tts.bar.tune');
-  const more = t('tts.bar.more');
   const main = s.loading
     ? `<button class="bzr-ttsbtn is-main is-loading" data-act="ttstoggle" title="${escapeHtml(
         t('tts.bar.loading'),
       )}" aria-label="${escapeHtml(t('tts.bar.loading'))}" aria-busy="true"><span class="bzr-ttsspin"></span></button>`
     : button('ttstoggle', s.paused ? ICONS.play : ICONS.pause, playLabel, ' is-main');
   const src = String(s.source ?? '').trim();
+  const engine = s.voiceEngine === 'local' ? 'local' : 'online';
   return `<div class="bzr-ttsbar" data-role="ttsbar">
     ${src ? `<span class="bzr-ttssrc" title="${escapeHtml(src)}">${escapeHtml(src)}</span>` : ''}
-    ${button('ttsprev', ICONS.prev, prev)}
+    ${button('ttsprev', ICONS.prev, t('tts.bar.prev'))}
     ${main}
-    ${button('ttsnext', ICONS.next, next)}
-    ${button('ttsstop', ICONS.stop, stop)}
-    ${button('ttsmore', ICONS.more, more, ` is-minor${s.more ? ' is-on' : ''}`)}
-  </div>
-  <div class="bzr-ttsmore" data-role="ttsmore"${s.more ? '' : ' hidden'}>
-    ${button('ttsprefetch', ICONS.prefetch, prefetch, ' is-minor')}
-    ${button('ttsexport', ICONS.export, exp, ' is-minor')}
-    ${button('ttstune', ICONS.tune, tune, ' is-minor')}
+    ${button('ttsnext', ICONS.next, t('tts.bar.next'))}
+    ${button('ttsstop', ICONS.stop, t('tts.bar.stop'))}
+    <span class="bzr-ttssep" aria-hidden="true"></span>
+    ${button('ttsvoices', ICONS.voice, t('tts.bar.voice'), ' is-minor', ` data-v="${engine}"`)}
+    ${button('ttsprefetch', ICONS.prefetch, t('tts.bar.prefetch'), ' is-minor')}
+    ${button('ttsexport', ICONS.export, t('tts.bar.export'), ' is-minor')}
+    ${button('ttstune', ICONS.tune, t('tts.bar.settings'), ' is-minor')}
   </div>`;
 }
 
-function button(act: string, icon: string, label: string, extra = ''): string {
+function button(act: string, icon: string, label: string, extra = '', attrs = ''): string {
   const safe = escapeHtml(label);
-  return `<button class="bzr-ttsbtn${extra}" data-act="${act}" title="${safe}" aria-label="${safe}"><span class="bzr-ttsicon" data-icon="${icon}"></span></button>`;
+  return `<button class="bzr-ttsbtn${extra}" data-act="${act}"${attrs} title="${safe}" aria-label="${safe}"><span class="bzr-ttsicon" data-icon="${icon}"></span></button>`;
 }
 
 function escapeHtml(s: string): string {

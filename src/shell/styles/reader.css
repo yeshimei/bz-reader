@@ -323,22 +323,24 @@ body.bzr-immersive .bzs-pageno {
   pointer-events: none;
 }
 
-/* ── 朗读控制条（2026-11-13） ─────────────────────────────
-   浮在正文底部，只有一排图标：上一段 / 暂停 / 停止 / 下一段 /
-   整章预生成 / 导出音频。不占正文高度，也不显示旁白、段号、
-   费用和正在念的原文（2026-11-14 用户要求）——听书时眼睛多半
-   不在屏幕上，那些字只会挡住正文。 */
+/* ── 朗读控制条（2026-11-13，2026-11-14 摊平） ─────────────
+   浮在正文底部，一排图标全平铺：上一段 / 暂停 / 停止 / 下一段 /
+   音色 / 整章预生成 / 导出 / 设置。不折叠、不藏二级菜单——听书时
+   眼睛多半不在屏幕上，少一次点击就少一次摸错。
+   窄窗口整条左右滑，绝不折成第二行（折行会把正文压掉半屏）。 */
 .bzr-ttsbar-wrap {
   position: absolute;
   left: 50%;
-  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  /* 状态栏高度由阅读视图实测后写进 --bzr-tts-lift（2026-11-14 真机：
+     右下角的版本号 / 插件图标把齿轮和导出压住了）。 */
+  bottom: calc(14px + var(--bzr-tts-lift, 0px) + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
   z-index: 40;
   max-width: calc(100% - 20px);
 }
 
 /* 手机上 Obsidian 自己的底栏（搜索 / 加号 / 标签）压在上面，
-   抬到底栏之上，不然六个按钮只露一条边（2026-11-14 真机截图）。 */
+   抬到底栏之上，不然按钮只露一条边（2026-11-14 真机截图）。 */
 body.is-mobile .bzr-ttsbar-wrap {
   bottom: calc(74px + env(safe-area-inset-bottom, 0px));
 }
@@ -352,6 +354,35 @@ body.is-mobile .bzr-ttsbar-wrap {
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.bzr-ttsbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* 来源徽标：缓存 / 离线 / 实时，只占一行小字 */
+.bzr-ttssrc {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  padding: 0 4px;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 听的控制与「工具」之间一道细线，扫一眼就能分开两组 */
+.bzr-ttssep {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--background-modifier-border);
 }
 
 .bzr-ttsbtn {
@@ -366,6 +397,7 @@ body.is-mobile .bzr-ttsbar-wrap {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
   cursor: pointer;
+  flex: none;
 }
 
 .bzr-ttsbtn:hover {

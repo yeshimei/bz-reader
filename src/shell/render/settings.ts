@@ -20,7 +20,7 @@
  * ============================================================ */
 import { t, LOCALES, LOCALE_NAMES, type MsgKey } from '../../i18n';
 import { ACCENT_OPTIONS, accentLabel, FONT_FAMILIES, fontLabel, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARGIN_RANGE, TTS_CACHE_RANGE, TTS_RATE_RANGE, type ReaderPrefs } from '../../data/prefs';
-import { TTS_VOICE_IDS } from '../../core/tts-api';
+import { ttsEngineReady, type TtsEngine } from '../../core/tts-engine';
 import { HIGHLIGHT_COLORS, colorLabel } from '../../data/notes';
 import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
 import { can, entitlement, GROUP_ID, tierText } from '../../data/entitlement';
@@ -50,6 +50,10 @@ export interface SettingsView {
    * 还没探测到，按「未连接」画状态并给教程出口，不摆假开关。
    */
   bz?: { ok: boolean; version: string; model: string; entry: boolean; notes: boolean };
+  /** 当前这本书的离线音频（烤进书库的包）：null = 还没识别到 */
+  offline?: { chapters: number; mb: number } | null;
+  /** 整本预生成是否正在跑（按钮据此换成「停止」） */
+  prefetchingBook?: boolean;
   /**
    * 是不是手机形态（缺省 `isMobileShell()`——含桌面验收用的 force-mobile）。
    *
@@ -427,79 +431,122 @@ export function viewSettings(v: SettingsView): string {
       ${headerRows}
     </div>`;
 
-  /* 朗读（2026-11-13 接 DeepSeek TTS）：这一组从「语速 + 跟随」两项涨成
-     一整套听书设置。手机上也给——换成音频播放之后，手机比系统语音稳，
-     入口在头栏 / ⋮，不再按设备收起。
-     2026-11-14：朗读本体下放基础版，整组不再加锁；只有「整章 / 整本
-     预生成」那个按钮过 requireCap('ttsPregen')。 */
-  const ttsMobile = isMobileShell();
-  const voiceOpts: Array<[string, string]> = TTS_VOICE_IDS.map((id) => [
-    id,
-    t(id === 'stella' ? 'settings.ttsVoice.stella' : 'settings.ttsVoice.tide'),
-  ]);
-  const tts = `<div class="bzs-setgrp">
+  /* 朗读（2026-11-14 二轮重做）：三张引擎卡，选中哪张只展开那张的字段。
+     以前三档 seg 把所有字段堆在一起，换引擎要在一屏里找哪几行属于自己；
+     现在「用哪个」和「怎么配」分成两步，一眼能看出当前在哪台引擎上。
+     手机上也给本地：允许填局域网地址，连同一 Wi-Fi 的电脑。 */
+  const ttsState = (id: TtsEngine): boolean =>
+    ttsEngineReady({ engine: id, online: s.ttsOnline, local: s.ttsLocal });
+  /* 卡上只留「名字 + 状态」：说明文字塞进三张小卡会把字挤成一片
+     （2026-11-14 真机截图），要解释的挪到选中引擎下面一行，且只说一句。 */
+  const engCard = (
+    id: TtsEngine,
+    icon: string,
+    name: string,
+    desc: string,
+    state: string,
+    ok: boolean,
+  ): string => `<button class="bzs-engcard${p.ttsEngine === id ? ' on' : ''}" data-act="ttsengine" data-v="${id}" title="${esc(desc)}">
+      <span class="bzs-engicon">${ico(icon)}</span>
+      <span class="bzs-engtx"><b>${name}</b></span>
+      <span class="bzs-engst"><span class="dot${ok ? ' ok' : ''}"></span>${state}</span>
+    </button>`;
+  /* DeepSeek 的两把嗓子有中文名；其它服务的音色名就是服务里的 id，原样显示 */
+  const voiceName = (v: string): string =>
+    v === 'stella'
+      ? t('settings.ttsVoice.stella')
+      : v === 'tide'
+        ? t('settings.ttsVoice.tide')
+        : v || t('settings.ttsVoice.default');
+  const voicePick = (engine: 'local' | 'online'): string => {
+    const cur = engine === 'local' ? p.ttsVoiceLocal : p.ttsVoiceOnline;
+    return `<div class="bzs-setrow"><label>${t('settings.ttsVoice')}</label>
+      <button class="bzs-voicepick" data-act="ttsvoices" data-v="${engine}">
+        <span class="who">${esc(voiceName(cur))}</span>
+        <span class="code">${esc(cur)}</span>
+        ${ico('chevron-right')}
+      </button></div>`;
+  };
+  const tts = `<div class="bzs-setgrp" id="bz-set-tts">
       <h3>${t('settings.grp.tts')}</h3>
-      <div class="bzs-setrow"><label>${t('settings.ttsEngine')}</label>${seg(
-        'ttsEngine',
-        /* 手机上不列系统语音与本地服务：WKWebView / Android WebView 里
-           speechSynthesis 时好时坏，本地服务则要连电脑上那个 127.0.0.1。
-           DeepSeek 是手机上唯一稳定的那条。 */
-        ttsMobile ? [['deepseek', t('settings.ttsEngine.deepseek')]] : [
-          ['deepseek', t('settings.ttsEngine.deepseek')],
-          ['local', t('settings.ttsEngine.local')],
-          ['system', t('settings.ttsEngine.system')],
-        ],
-        ttsMobile && p.ttsEngine === 'system' ? 'deepseek' : p.ttsEngine,
-      )}</div>
-      ${ttsMobile ? `<div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsEngine.mobileHint')}</div>` : ''}
+      <div class="bzs-engines">
+        ${engCard(
+          'online',
+          'cloud',
+          t('settings.ttsEngine.online'),
+          t('settings.ttsEngine.onlineDesc'),
+          t(ttsState('online') ? 'settings.ttsEngine.ready' : 'settings.ttsEngine.notReady'),
+          ttsState('online'),
+        )}
+        ${engCard(
+          'local',
+          'server',
+          t('settings.ttsEngine.local'),
+          t('settings.ttsEngine.localDesc'),
+          t(ttsState('local') ? 'settings.ttsEngine.ready' : 'settings.ttsEngine.notReady'),
+          ttsState('local'),
+        )}
+        ${engCard(
+          'system',
+          'monitor',
+          t('settings.ttsEngine.system'),
+          t('settings.ttsEngine.systemDesc'),
+          t('settings.ttsEngine.ready'),
+          true,
+        )}
+      </div>
+      ${isMobileShell() ? `<div class="bzs-mini">${t('settings.ttsEngine.mobileHint')}</div>` : ''}
       ${
-        p.ttsEngine === 'deepseek'
-          ? `<div class="bzs-setrow"><label>${t('settings.ttsVoice')}</label>${seg('ttsVoice', voiceOpts, p.ttsVoice)}</div>`
-          : ''
-      }
-      ${
-        p.ttsEngine === 'deepseek'
-          ? `<div class="bzs-mini" style="margin:0 0 8px;line-height:1.9">${t('settings.ttsKey.hint')}</div>
-      <div class="bzs-mini" style="margin:0 0 8px">${t('settings.ttsSpent', {
-        chars: String(s.ttsStats.chars),
-      })}</div>`
+        p.ttsEngine === 'online'
+          ? `<div class="bzs-setrow"><label>${t('settings.ttsOnline.url')}</label>
+        <input data-role="setting" data-k="ttsOnline.url" value="${esc(s.ttsOnline.url)}" style="flex:1"></div>
+      ${s.ttsOnline.url ? '' : `<div class="bzs-mini">${t('settings.ttsOnline.urlHint')}</div>`}
+      <div class="bzs-setrow"><label>${t('settings.ttsOnline.model')}</label>
+        <input data-role="setting" data-k="ttsOnline.model" value="${esc(s.ttsOnline.model)}" style="flex:1"></div>
+      <div class="bzs-setrow"><label>${t('settings.ttsOnline.key')}</label>
+        <input type="password" data-role="setting" data-k="ttsOnline.apiKey" value="${esc(s.ttsOnline.apiKey)}" style="flex:1"></div>
+      ${voicePick('online')}
+      <div class="bzs-mini">${t('settings.ttsVoice.modelHint')}</div>`
           : ''
       }
       ${
         p.ttsEngine === 'local'
           ? `<div class="bzs-setrow"><label>${t('settings.ttsLocal.url')}</label>
-        <input data-role="setting" data-k="ttsLocal.url" placeholder="http://127.0.0.1:8880" value="${esc(s.ttsLocal.url)}" style="flex:1"></div>
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsLocal.hint')}</div>
-      <div class="bzs-setrow"><label>${t('settings.ttsLocal.model')}</label>
-        <input data-role="setting" data-k="ttsLocal.model" placeholder="kokoro" value="${esc(s.ttsLocal.model)}" style="flex:1"></div>
-      <div class="bzs-setrow"><label>${t('settings.ttsLocal.key')}</label>
-        <input type="password" data-role="setting" data-k="ttsLocal.apiKey" value="${esc(s.ttsLocal.apiKey)}" style="flex:1"></div>
-      <div class="bzs-setrow"><label>${t('settings.ttsLocal.format')}</label>${seg(
-        'ttsLocalFormat',
-        [
-          ['mp3', 'MP3'],
-          ['wav', 'WAV'],
-          ['opus', 'Opus'],
-        ],
-        s.ttsLocal.format,
-      )}</div>
-      <div class="bzs-setrow"><label>${t('settings.ttsVoice')}</label>
-        <input data-role="preftext" data-k="ttsVoiceLocal" placeholder="${t('settings.ttsVoice.local')}" value="${esc(p.ttsVoiceLocal)}" style="flex:1">
-        <button class="bzs-btn sm" data-act="ttslocalvoices">${t('settings.ttsLocal.voices')}</button></div>
-      <div class="bzs-mini" style="margin:-4px 0 8px" data-role="voices-out"></div>`
+        <input data-role="setting" data-k="ttsLocal.url" value="${esc(s.ttsLocal.url)}" style="flex:1">
+        <button class="bzs-btn sm" data-act="ttsprobe">${t('settings.ttsProbe')}</button></div>
+      <div class="bzs-mini" data-role="probe-out">${s.ttsLocal.url ? '' : t('settings.ttsLocal.urlHint')}</div>
+      ${voicePick('local')}
+      <div class="bzs-mini">${t('settings.ttsVoice.modelHint')}</div>
+      <details class="bzs-adv">
+        <summary>${t('settings.ttsLocal.advanced')}</summary>
+        <div class="bzs-setrow"><label>${t('settings.ttsLocal.model')}</label>
+          <input data-role="setting" data-k="ttsLocal.model" value="${esc(s.ttsLocal.model)}" style="flex:1"></div>
+        <div class="bzs-setrow"><label>${t('settings.ttsLocal.key')}</label>
+          <input type="password" data-role="setting" data-k="ttsLocal.apiKey" value="${esc(s.ttsLocal.apiKey)}" style="flex:1"></div>
+        <div class="bzs-setrow"><label>${t('settings.ttsLocal.format')}</label>${seg(
+          'ttsLocalFormat',
+          [
+            ['mp3', 'MP3'],
+            ['wav', 'WAV'],
+            ['opus', 'Opus'],
+          ],
+          s.ttsLocal.format,
+        )}</div>
+        <div class="bzs-mini">${t('settings.ttsLocal.modelHint')}</div>
+      </details>`
+          : ''
+      }
+      ${
+        p.ttsEngine === 'system'
+          ? `<div class="bzs-mini">${t('settings.ttsEngine.systemHint')}</div>`
           : ''
       }
       <div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
-        <button class="bzs-btn sm pri" data-act="ttstest">${t('settings.ttsTest')}</button>
+        <button class="bzs-btn sm pri" data-act="ttstest">${t('settings.ttsTestNow')}</button>
         <span class="bzs-mini" data-role="ttstest-out"></span>
-      </div>
-      ${range('ttsCacheMB', t('settings.ttsCache'), p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, TTS_CACHE_RANGE.step, (x) => `${x} MB`)}
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsCache.hint')}
-        <button class="bzs-btn sm" data-act="ttscacheclear">${t('settings.ttsCache.clear')}</button>
-      </div>
-      ${prefToggle('ttsOfflineSave', p.ttsOfflineSave, t('settings.ttsOffline.save'))}
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ttsOffline.hint')}
-        <button class="bzs-btn sm" data-act="ttsofflineclear">${t('settings.ttsOffline.clear')}</button>
+        <span class="bzs-mini" style="margin:0 0 0 auto">${
+          p.ttsEngine === 'online' ? t('settings.ttsSpent', { chars: String(s.ttsStats.chars) }) : ''
+        }</span>
       </div>
       ${range('ttsRate', t('settings.ttsRate'), p.ttsRate, TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, TTS_RATE_RANGE.step, (x) => `${x.toFixed(1)}×`)}
       <div class="bzs-setrow"><label>${t('settings.ttsFollow')}</label>${seg(
@@ -510,6 +557,31 @@ export function viewSettings(v: SettingsView): string {
         ],
         p.ttsFollow ? '1' : '0',
       )}</div>
+      <details class="bzs-adv">
+        <summary>${t('settings.ttsCache.title')}</summary>
+        ${range('ttsCacheMB', t('settings.ttsCache'), p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, TTS_CACHE_RANGE.step, (x) => `${x} MB`)}
+        <div class="bzs-setrow"><label></label>
+          <span class="bzs-mini" style="margin:0;flex:1">${t('settings.ttsCache.hint')}</span>
+          <button class="bzs-btn sm" data-act="ttscacheclear">${t('settings.ttsCache.clear')}</button>
+        </div>
+        ${prefToggle('ttsOfflineSave', p.ttsOfflineSave, t('settings.ttsOffline.save'))}
+        <div class="bzs-setrow"><label>${t('settings.ttsOffline.title')}</label>
+          <span class="bzs-mini" style="margin:0;flex:1">${
+            v.offline
+              ? t('settings.ttsOffline.state', { chapters: String(v.offline.chapters), mb: String(v.offline.mb) })
+              : t('settings.ttsOffline.none')
+          }</span>
+          <button class="bzs-btn sm" data-act="ttsofflinereload">${t('settings.ttsOffline.reload')}</button>
+          ${v.offline ? `<button class="bzs-btn sm" data-act="ttsofflinedel">${t('settings.ttsOffline.clear')}</button>` : ''}
+        </div>
+        ${prefToggle('ttsPackFirst', p.ttsPackFirst, t('settings.ttsPackFirst'))}
+        <div class="bzs-setrow"><label>${t('settings.ttsBook')}</label>
+          <button class="bzs-btn sm${v.prefetchingBook ? ' pri' : ''}" data-act="ttsprefetchbook">${t(
+            v.prefetchingBook ? 'settings.ttsBook.stop' : 'settings.ttsBook.start',
+          )}</button>
+          <span class="bzs-mini" style="margin:0">${t('settings.ttsBook.hint')}</span>
+        </div>
+      </details>
     </div>`;
 
   /* 标注组只剩能动手的三项：画笔、导出目录、带想法。「摘录链接」那一行没有

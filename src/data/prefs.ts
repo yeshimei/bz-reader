@@ -104,13 +104,14 @@ export interface ReaderPrefs {
    */
   ttsFollow: boolean;
   /**
-   * 朗读引擎（2026-11-13）：DeepSeek 真人声 / 系统语音。
+   * 朗读引擎（2026-11-13）：在线 / 本地 / 系统语音。
    *
-   * 默认 DeepSeek：这是这版功能的主路径；没配 API Key 时界面会直接
+   * 默认在线：这是这版功能的主路径；没配地址或密钥时界面会直接
    * 把人带到设置页，而不是悄悄退回系统声音（用户明确要求不回退）。
+   * 2026-11-14 起「在线」不再是 DeepSeek 专属，老值 `deepseek` 归一成它。
    */
   ttsEngine: TtsEngine;
-  /** 单音色模式用的声音（DeepSeek 的两把嗓子） */
+  /** 单音色模式用的声音（DeepSeek 的两把嗓子，多角色模式也用它） */
   ttsVoice: DeepseekVoice;
   /**
    * 本地引擎的音色名（2026-11-14）。
@@ -119,6 +120,13 @@ export interface ReaderPrefs {
    * 所以是自由的字符串。空 = 用服务自己的默认音色。
    */
   ttsVoiceLocal: string;
+  /**
+   * 在线引擎的音色名（2026-11-14）。
+   *
+   * 音色是模型给的：换模型 / 换地址时设置页会把它清空，逼着重新选一次，
+   * 免得拿旧模型的名字去请求。空 = 用服务默认（本地兼容服务常见）。
+   */
+  ttsVoiceOnline: string;
   /** 旁白 / 对话两把嗓子（多角色模式） */
   ttsNarrator: DeepseekVoice;
   ttsDialogue: DeepseekVoice;
@@ -240,9 +248,11 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   footnote: 'popup',
   ttsRate: 1,
   ttsFollow: true,
-  ttsEngine: 'deepseek',
+  ttsEngine: 'online',
   ttsVoice: 'stella',
   ttsVoiceLocal: DEFAULT_LOCAL_VOICE,
+  /* 空 = 服务默认；DeepSeek 官方两把嗓子由引擎层兜底成 stella */
+  ttsVoiceOnline: '',
   ttsNarrator: 'stella',
   ttsDialogue: 'tide',
   ttsMultiVoice: true,
@@ -463,9 +473,21 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     footnote: p.footnote === 'jump' ? 'jump' : 'popup',
     ttsRate: Math.round(clamp(p.ttsRate, TTS_RATE_RANGE.min, TTS_RATE_RANGE.max, DEFAULT_PREFS.ttsRate) * 10) / 10,
     ttsFollow: p.ttsFollow !== false,
-    ttsEngine: p.ttsEngine === 'system' ? 'system' : p.ttsEngine === 'local' ? 'local' : 'deepseek',
+    /* 旧值 `deepseek`（1.3.x）归一成 `online`：引擎改名不能让设置丢 */
+    ttsEngine:
+      p.ttsEngine === 'system' ? 'system' : p.ttsEngine === 'local' ? 'local' : 'online',
     ttsVoice: voiceOf(p.ttsVoice, DEFAULT_PREFS.ttsVoice),
     ttsVoiceLocal: typeof p.ttsVoiceLocal === 'string' ? p.ttsVoiceLocal.trim() : DEFAULT_PREFS.ttsVoiceLocal,
+    /* 老数据没有这一项：沿用 DeepSeek 模式里选过的那把嗓子，别默默换声；
+       全新安装（连 ttsVoice 都没有）就留空，由引擎层兜底成 stella */
+    ttsVoiceOnline:
+      typeof p.ttsVoiceOnline === 'string'
+        ? p.ttsVoiceOnline.trim()
+        : p.ttsVoice === 'tide'
+          ? 'tide'
+          : p.ttsVoice === 'stella'
+            ? 'stella'
+            : '',
     ttsNarrator: voiceOf(p.ttsNarrator, DEFAULT_PREFS.ttsNarrator),
     ttsDialogue: voiceOf(p.ttsDialogue, DEFAULT_PREFS.ttsDialogue),
     ttsMultiVoice: p.ttsMultiVoice !== false,

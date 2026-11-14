@@ -1265,6 +1265,181 @@
   margin: 0 0 14px;
 }
 
+/* ── 朗读：三张引擎卡（2026-11-14 二轮） ─────────────────
+   以前是一档三格的 seg，三套字段堆在同一屏里；现在先选「用哪个出声」，
+   下面只展开那一套。卡片三列，窄屏一列。 */
+.bzs-engines {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+
+.bzs-engcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--sunken);
+  color: var(--t1);
+  cursor: pointer;
+  appearance: none;
+  overflow: hidden;
+}
+
+.bzs-engcard:hover {
+  border-color: var(--line-2);
+}
+
+.bzs-engcard.on {
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+}
+
+.bzs-engicon {
+  display: inline-flex;
+  color: var(--t3);
+}
+
+.bzs-engcard.on .bzs-engicon {
+  color: var(--copper);
+}
+
+.bzs-engicon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.bzs-engtx {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bzs-engtx b {
+  display: block;
+  font-weight: 500;
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bzs-engst {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: var(--t3);
+}
+
+.bzs-engst .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--t3);
+}
+
+.bzs-engst .dot.ok {
+  background: var(--copper);
+}
+
+@media (max-width: 820px) {
+  .bzs-engines {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 音色按钮：一行里给名字 + 服务里的原始 id，点开才是列表 */
+.bzs-voicepick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  background: var(--sunken);
+  color: var(--t1);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+}
+
+.bzs-voicepick:hover {
+  border-color: var(--line-2);
+}
+
+.bzs-voicepick .who {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bzs-voicepick .code {
+  flex: 0 1 auto;
+  min-width: 0;
+  color: var(--t3);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bzs-voicepick svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--t3);
+}
+
+/* 高级（模型 / 密钥 / 格式）：默认收起，不占视线 */
+.bzs-adv {
+  border-top: 1px solid var(--line);
+  margin: 2px 0 0;
+}
+
+.bzs-adv > summary {
+  padding: 9px 0;
+  font-size: 11.5px;
+  color: var(--t3);
+  cursor: pointer;
+  list-style: none;
+  letter-spacing: .05em;
+}
+
+.bzs-adv > summary::-webkit-details-marker {
+  display: none;
+}
+
+.bzs-adv > summary::before {
+  content: '▸ ';
+}
+
+.bzs-adv[open] > summary::before {
+  content: '▾ ';
+}
+
+/* 阅读页齿轮跳到设置页时，朗读组闪一下告诉人「就是这块」 */
+.bzs-setgrp.is-flash {
+  animation: bzs-flash 1.3s ease-out;
+}
+
+@keyframes bzs-flash {
+  0% { box-shadow: 0 0 0 0 var(--copper-line); }
+  30% { box-shadow: 0 0 0 4px var(--copper-line); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
 /* ── 关于条 ──
    设置页顶部横跨两栏的一条：左边「关于」+ 版本号 + 授权徽章，右边四个出口
    （GitHub / 视频教程 / 交流群 / 更新日志）。它不是又一个设置块，是整页的
@@ -1467,8 +1642,8 @@
 .bzs-setrow {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 9px 0;
+  gap: 12px;
+  padding: 7px 0;
   border-top: 1px solid var(--line);
   font-size: 12px;
 }

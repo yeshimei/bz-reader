@@ -90,7 +90,7 @@ const LIB_SORT_VALUES: readonly LibSort[] = ['recent', 'title', 'progress'];
 
 /** 浮层：同一时刻只开一个 */
 export type OverlayKind =
-  | 'search' | 'typography' | 'tts' | 'ttsclear' | 'ttsofflineclear' | 'ttsofflinedel' | 'export' | 'bookmap'
+  | 'search' | 'typography' | 'ttsvoices' | 'ttsclear' | 'ttsofflineclear' | 'ttsofflinedel' | 'export' | 'bookmap'
   | 'quote' | 'idea' | 'hltools' | 'ai' | 'dict' | 'poster'
   | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedir' | 'finish' | 'footnote'
   | 'rename' | 'removebook' | 'confirmdel' | 'notedrop' | 'missing' | 'ack' | 'ptclean'
@@ -118,7 +118,6 @@ export type OverlayKind =
  */
 const FLOAT_KINDS: readonly OverlayKind[] = [
   'typography',
-  'tts',
   'hltools',
   'footnote',
   'idea',

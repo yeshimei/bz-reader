@@ -126,6 +126,13 @@ export interface ReaderEngine {
   currentBlocks?(): Array<{ tag: string; text: string; raw: string }>;
   /** 当前章的全部段落（预生成整章音频用） */
   currentChapterBlocks?(): Array<{ tag: string; text: string; raw: string }>;
+  /**
+   * 屏幕第一个字在整章正文里的位置（朗读起播定位用，2026-11-14）。
+   *
+   * 在 `currentBlocks()` 那一趟里顺手数出来，所以必须先取段落再读它；
+   * 拿不到（PDF、纯文本退路）返回 null，调用方退回文本匹配。
+   */
+  pageAnchor?(): { block: number; offset: number } | null;
   /** 当前章标题（预生成 / 导出音频命名用） */
   currentChapterTitle?(): string;
   /**

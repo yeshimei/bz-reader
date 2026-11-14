@@ -64,14 +64,61 @@ export function localEndpoint(baseUrl: string | null | undefined): string {
  *
  * 只有部分服务提供（Kokoro-FastAPI、openedai-speech 有），拉不到就让用户
  * 手填——这件事不该拦住整个功能。
+ *
+ * 2026-11-14：带上 `?model=`。音色是模型给的（用户原话），同一个服务换模型
+ * 之后音色集合可以完全不同；服务不认这个参数会忽略它，认的就能按模型回列表。
  */
-export function localVoicesEndpoint(baseUrl: string | null | undefined): string {
+export function localVoicesEndpoint(baseUrl: string | null | undefined, model?: string | null): string {
   const raw = trimBase(baseUrl);
   if (!raw) return '';
-  if (/\/audio\/voices$/i.test(raw)) return raw;
-  if (/\/audio\/speech$/i.test(raw)) return raw.replace(/\/audio\/speech$/i, '/audio/voices');
-  if (/\/v1$/i.test(raw)) return `${raw}/audio/voices`;
-  return `${raw}/v1/audio/voices`;
+  const base = /\/audio\/voices$/i.test(raw)
+    ? raw
+    : /\/audio\/speech$/i.test(raw)
+      ? raw.replace(/\/audio\/speech$/i, '/audio/voices')
+      : /\/v1$/i.test(raw)
+        ? `${raw}/audio/voices`
+        : `${raw}/v1/audio/voices`;
+  const m = String(model ?? '').trim();
+  return m ? `${base}?model=${encodeURIComponent(m)}` : base;
+}
+
+/**
+ * 探活最多等这么久。
+ *
+ * 地址误填成一个不通的 IP 时请求会一直挂着不返回：没有这道上限，用户点
+ * 「朗读」之后按钮毫无反应，比报错更让人迷惑。3000ms 够本地回环应答，
+ * 也不至于让真·离线等太久。
+ */
+export const LOCAL_PROBE_MS = 3000;
+
+/**
+ * 服务在不在。
+ *
+ * 只发一个 GET 音色列表的轻请求，按「答没答」判活，不看内容对不对：
+ * 401/403 也是活着——服务在、只是 key 不对，那种错该由合成时的具体提示
+ * 来说；404 说明它不提供音色列表，照样活着。只有 5xx、连不上、超时才算
+ * 没起来。
+ */
+export async function localServiceAlive(input: {
+  baseUrl: string | null | undefined;
+  request: LocalRequester;
+  timeoutMs?: number;
+}): Promise<boolean> {
+  const url = localVoicesEndpoint(input.baseUrl);
+  if (!url) return false;
+  const timeoutMs = Math.max(50, input.timeoutMs ?? LOCAL_PROBE_MS);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), timeoutMs);
+  });
+  try {
+    const res = await Promise.race([input.request({ url, method: 'GET' }), timeout]);
+    return res !== null && res.status > 0 && res.status < 500;
+  } catch {
+    return false;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 /**
@@ -168,18 +215,41 @@ export function stripId3(buf: ArrayBuffer): ArrayBuffer {
   return buf.slice(start);
 }
 
-/** 把一堆 mp3 片段拼成一个文件。全空返回 null。 */
-export function concatMp3(parts: readonly ArrayBuffer[]): ArrayBuffer | null {
-  const pieces = parts.map(stripId3).filter((b) => b.byteLength > 0);
-  if (!pieces.length) return null;
+/** 一段音频在拼好的文件里的字节区间（2026-11-14）。 */
+export interface AudioSlice {
+  off: number;
+  bytes: number;
+}
+
+/**
+ * 把一堆 mp3 片段拼成一个文件，同时记下每段的字节区间。
+ *
+ * 区间是**拼的时候量的**，不是事后按码率估的：每段的起点天然是帧头，
+ * 直接切出来就是一段合法 mp3。播放时一句一个 blob，不用 seek、不用
+ * 猜帧对齐（社区里 TTS 插件都是这个结构）。
+ *
+ * 空片段保留 `bytes: 0` 的占位，好让区间数组和句子一一对应。
+ */
+export function concatMp3Slices(
+  parts: readonly ArrayBuffer[],
+): { data: ArrayBuffer; slices: AudioSlice[] } | null {
+  const pieces = parts.map(stripId3);
   const total = pieces.reduce((n, b) => n + b.byteLength, 0);
+  if (!total) return null;
   const out = new Uint8Array(total);
+  const slices: AudioSlice[] = [];
   let at = 0;
   for (const b of pieces) {
-    out.set(new Uint8Array(b), at);
+    slices.push({ off: at, bytes: b.byteLength });
+    if (b.byteLength) out.set(new Uint8Array(b), at);
     at += b.byteLength;
   }
-  return out.buffer;
+  return { data: out.buffer, slices };
+}
+
+/** 把一堆 mp3 片段拼成一个文件。全空返回 null。 */
+export function concatMp3(parts: readonly ArrayBuffer[]): ArrayBuffer | null {
+  return concatMp3Slices(parts)?.data ?? null;
 }
 
 export interface LocalRequest {
@@ -279,10 +349,12 @@ export async function synthesizeLocal(input: LocalSynthesisInput): Promise<Array
 export async function fetchLocalVoices(input: {
   baseUrl: string | null | undefined;
   apiKey?: string;
+  /** 音色属于模型：带上它，服务才能回这个模型能用的那几个 */
+  model?: string;
   request: LocalRequester;
   timeoutMs?: number;
 }): Promise<string[]> {
-  const url = localVoicesEndpoint(input.baseUrl);
+  const url = localVoicesEndpoint(input.baseUrl, input.model);
   if (!url) return [];
   const headers: Record<string, string> = {};
   const key = String(input.apiKey ?? '').trim();

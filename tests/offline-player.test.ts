@@ -3,6 +3,10 @@
  *
  * 用假 <audio> 跑状态机：真实播放器没法在 node 里出声，但「点下一句该
  * 跳到哪、正文改过之后该跳过哪几句、播到底该不该收尾」全是纯逻辑。
+ *
+ * 2026-11-14 换成「一句一个音频对象」之后，起播不再靠 currentTime：
+ * 清单里每句有精确字节区间，播放器切出那一句单独建 <audio> 从 0 播完，
+ * 再接下一句。所以断言看的是「现在放的是第几句」，不是秒数。
  * ============================================================ */
 
 import { describe, expect, it } from 'vitest';
@@ -14,7 +18,6 @@ class FakeAudio implements OfflineAudioLike {
   playbackRate = 1;
   paused = true;
   played = 0;
-  /** 真机默认给 4（HAVE_ENOUGH_DATA）；要测「还没加载完」就调成 0 */
   readyState = 4;
   private listeners: Record<string, Array<() => void>> = {};
 
@@ -47,17 +50,30 @@ class FakeAudio implements OfflineAudioLike {
 
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
 
-const MARKS: OfflineMark[] = buildMarks(['甲', '乙', '丙'], [1000, 1000, 1000]);
+const TEXTS = ['甲', '乙', '丙'];
+const MS = [1000, 1000, 1000];
+/** 每句在章文件里的精确字节区间：拼文件的时候量的 */
+const SLICES = [
+  { off: 0, bytes: 3 },
+  { off: 3, bytes: 3 },
+  { off: 6, bytes: 3 },
+];
+const MARKS: OfflineMark[] = buildMarks(TEXTS, MS, SLICES);
+/** 老包 / wav 包没有区间：退回整章播放 + 时间轴高亮 */
+const PLAIN_MARKS: OfflineMark[] = buildMarks(TEXTS, MS);
+const DATA = new Uint8Array(9).buffer;
 
 interface Rig {
   player: OfflinePlayer;
-  audio: FakeAudio;
+  readonly audio: FakeAudio;
+  audios: FakeAudio[];
   sentences: number[];
-  ends: number;
-  errors: unknown[];
+  readonly ends: number;
+  readonly errors: unknown[];
   states: string[];
   loads: () => number;
   revoked: string[];
+  urls: number[];
   play(): Promise<void>;
 }
 
@@ -66,23 +82,35 @@ function rig(over: {
   align?: number[];
   audio?: FakeAudio;
   data?: ArrayBuffer;
+  plain?: boolean;
+  /** 模拟读盘抛错：文件没拷全、权限不够等 */
+  loadError?: unknown;
 } = {}): Rig {
-  const audio = over.audio ?? new FakeAudio();
+  const audios: FakeAudio[] = [];
   const sentences: number[] = [];
   const revoked: string[] = [];
+  const urls: number[] = [];
   let ends = 0;
-  let errors: unknown[] = [];
+  const errors: unknown[] = [];
   let loads = 0;
   const states: string[] = [];
   const player = new OfflinePlayer({
-    marks: over.marks ?? MARKS,
+    marks: over.marks ?? (over.plain ? PLAIN_MARKS : MARKS),
     align: over.align ?? [0, 1, 2],
     loadAudio: async () => {
       loads++;
-      return over.data ?? new Uint8Array([1, 2, 3]).buffer;
+      if (over.loadError !== undefined) throw over.loadError;
+      return over.data ?? DATA;
     },
-    makeAudio: () => audio,
-    makeUrl: () => 'blob:test',
+    makeAudio: () => {
+      const a = over.audio ?? new FakeAudio();
+      audios.push(a);
+      return a;
+    },
+    makeUrl: (buf) => {
+      urls.push(buf.byteLength);
+      return 'blob:test';
+    },
     revokeUrl: (url) => revoked.push(url),
     onSentence: (i) => sentences.push(i),
     onState: (s) => states.push(s),
@@ -93,7 +121,10 @@ function rig(over: {
   });
   return {
     player,
-    audio,
+    get audio() {
+      return audios[audios.length - 1];
+    },
+    audios,
     sentences,
     get ends() {
       return ends;
@@ -104,30 +135,34 @@ function rig(over: {
     states,
     loads: () => loads,
     revoked,
+    urls,
     play: flush,
   };
 }
 
-describe('起播', () => {
-  it('从第 0 句开始：seek 到 0，回调报第 0 句', async () => {
+describe('逐句起播', () => {
+  it('从第 0 句开始：只把第 0 句的字节交给 audio，回调报第 0 句', async () => {
     const r = rig();
     r.player.start(0);
     await r.play();
+    expect(r.urls).toEqual([3]);
     expect(r.audio.currentTime).toBe(0);
     expect(r.audio.played).toBe(1);
     expect(r.sentences).toEqual([0]);
     expect(r.player.stateName).toBe('playing');
   });
 
-  it('从第 2 句开始：seek 到它的起点', async () => {
+  it('从第 2 句开始：只切第 2 句，不会从章首念', async () => {
     const r = rig();
     r.player.start(2);
     await r.play();
-    expect(r.audio.currentTime).toBe(2);
+    expect(r.urls).toEqual([3]); /* 仍是「一句」的长度，不是整章 */
+    expect(r.audio.currentTime).toBe(0);
+    expect(r.player.textIndex).toBe(2);
     expect(r.sentences).toEqual([2]);
   });
 
-  it('音频只在真正要播的时候读一次', async () => {
+  it('整章音频只读一次：换句不重复读盘', async () => {
     const r = rig();
     expect(r.loads()).toBe(0);
     r.player.start(0);
@@ -137,61 +172,33 @@ describe('起播', () => {
     expect(r.loads()).toBe(1);
   });
 
-  it('音频还没加载完时先等 metadata，别在 readyState 0 上设 currentTime', async () => {
-    /* 真机现象：从第 12 页点朗读，声音却从章首开始，高亮还在第 12 页。
-       `<audio>` 刚挂上 blob 时 readyState 是 0，此时写 currentTime 会被
-       丢掉，play() 于是从 0 秒起——等 loadedmetadata 再 seek 才对。 */
+  it('不看 readyState：音频一建出来就响', async () => {
     const audio = new FakeAudio();
     audio.readyState = 0;
     const r = rig({ audio });
     r.player.start(2);
     await r.play();
-    expect(audio.currentTime).toBe(0);
-    expect(audio.played).toBe(0);
-
-    audio.readyState = 4;
-    audio.fire('loadedmetadata');
-    expect(audio.currentTime).toBe(2);
     expect(audio.played).toBe(1);
     expect(r.sentences).toEqual([2]);
   });
 
-  it('等 metadata 期间被叫停，就不要在之后偷偷播起来', async () => {
-    const audio = new FakeAudio();
-    audio.readyState = 0;
-    const r = rig({ audio });
+  it('起播后被叫停，之后不再偷偷播起来', async () => {
+    const r = rig();
     r.player.start(1);
     await r.play();
     r.player.stop();
-    audio.readyState = 4;
-    audio.fire('loadedmetadata');
-    expect(audio.played).toBe(0);
+    await r.play();
+    expect(r.audio.played).toBe(1);
   });
 
-  it('带偏移起播：跳过这一句开头那几百毫秒', async () => {
-    /* 段落跨页时，这一页从段落中间开始，整句音频却只能从句首放；
-       不跳的话用户听到的是上一页末尾那几个字 */
+  it('句内偏移被忽略：一句一个文件，没有中间起播', async () => {
+    /* 段落跨页时最多差一句开头，但绝不会退回章首 */
     const r = rig();
     r.player.start(1, 500);
     await r.play();
-    expect(r.audio.currentTime).toBe(1.5);
-  });
-
-  it('偏移只对这一次起播生效，翻到下一句就回到句首', async () => {
-    const r = rig();
-    r.player.start(1, 500);
-    await r.play();
-    r.player.next();
-    await r.play();
-    expect(r.audio.currentTime).toBe(2);
-  });
-
-  it('偏移超过这一句的长度时不越界，最多到这句末尾', async () => {
-    const r = rig();
-    r.player.start(0, 99999);
-    await r.play();
-    expect(r.audio.currentTime).toBeLessThan(1);
-    expect(r.audio.currentTime).toBeGreaterThan(0.9);
+    expect(r.audio.currentTime).toBe(0);
+    expect(r.player.textIndex).toBe(1);
+    expect(r.sentences).toEqual([1]);
   });
 
   it('整章一句能播的都没有：直接收尾，不报错', async () => {
@@ -204,66 +211,47 @@ describe('起播', () => {
   });
 });
 
-describe('时间轴驱动高亮', () => {
-  it('播到第二句时报第二句', async () => {
+describe('逐句接龙', () => {
+  it('一句播完自动接下一句，每次都是一句的新音频', async () => {
     const r = rig();
     r.player.start(0);
     await r.play();
-    r.audio.currentTime = 1.2;
-    r.audio.fire('timeupdate');
+    r.audio.fire('ended');
+    await r.play();
     expect(r.sentences).toEqual([0, 1]);
+    expect(r.urls).toEqual([3, 3]);
+    expect(r.player.textIndex).toBe(1);
   });
 
-  it('同一句里连续 timeupdate 不重复回调', async () => {
-    const r = rig();
-    r.player.start(0);
-    await r.play();
-    for (const t of [0.1, 0.2, 0.9]) {
-      r.audio.currentTime = t;
-      r.audio.fire('timeupdate');
-    }
-    expect(r.sentences).toEqual([0]);
-  });
-
-  it('拖回上一句时高亮跟着回去', async () => {
+  it('最后一句播完收尾', async () => {
     const r = rig();
     r.player.start(2);
     await r.play();
-    r.audio.currentTime = 0.4;
-    r.audio.fire('timeupdate');
-    expect(r.sentences).toEqual([2, 0]);
+    r.audio.fire('ended');
+    await r.play();
+    expect(r.ends).toBe(1);
+    expect(r.player.stateName).toBe('idle');
   });
 
-  it('暂停后 timeupdate 不再改高亮', async () => {
+  it('逐句模式下 timeupdate 不把高亮拉回章首', async () => {
     const r = rig();
-    r.player.start(0);
+    r.player.start(2);
     await r.play();
-    r.player.pause();
-    r.audio.currentTime = 2.5;
+    r.audio.currentTime = 0.2;
     r.audio.fire('timeupdate');
-    expect(r.sentences).toEqual([0]);
-    expect(r.player.stateName).toBe('paused');
+    expect(r.sentences).toEqual([2]);
   });
 });
 
 describe('跳句', () => {
-  it('下一句 seek 到下一段起点', async () => {
-    const r = rig();
-    r.player.start(0);
-    await r.play();
-    r.player.next();
-    await r.play();
-    expect(r.audio.currentTime).toBe(1);
-    expect(r.sentences).toEqual([0, 1]);
-  });
-
-  it('下一句会跳过正文里没有音频的句子', async () => {
+  it('下一句跳到下一句，跳过没音频的句子', async () => {
     const r = rig({ align: [0, -1, 2] });
     r.player.start(0);
     await r.play();
     r.player.next();
     await r.play();
     expect(r.sentences).toEqual([0, 2]);
+    expect(r.player.textIndex).toBe(2);
   });
 
   it('上一句同样跳过没音频的句子', async () => {
@@ -295,37 +283,14 @@ describe('跳句', () => {
   });
 });
 
-describe('播完一章', () => {
-  it('中途 ended 自动接下一句', async () => {
-    const r = rig();
-    r.player.start(0);
-    await r.play();
-    r.audio.fire('ended');
-    await r.play();
-    expect(r.sentences).toEqual([0, 1]);
-  });
-
-  it('最后一句 ended 收尾', async () => {
-    const r = rig();
-    r.player.start(2);
-    await r.play();
-    r.audio.fire('ended');
-    await r.play();
-    expect(r.ends).toBe(1);
-    expect(r.player.stateName).toBe('idle');
-  });
-});
-
 describe('暂停 / 继续 / 停止', () => {
   it('暂停后再继续，还从原位置播', async () => {
     const r = rig();
     r.player.start(1);
     await r.play();
     r.player.pause();
-    r.audio.currentTime = 1.6;
     r.player.resume();
     expect(r.audio.played).toBe(2);
-    expect(r.audio.currentTime).toBe(1.6);
   });
 
   it('停止会解绑事件、收回 blob', async () => {
@@ -334,7 +299,7 @@ describe('暂停 / 继续 / 停止', () => {
     await r.play();
     r.player.stop();
     expect(r.audio.paused).toBe(true);
-    expect(r.revoked).toEqual(['blob:test']);
+    expect(r.revoked.length).toBeGreaterThan(0);
     expect(r.audio.listenerCount('timeupdate')).toBe(0);
     expect(r.player.stateName).toBe('idle');
   });
@@ -343,13 +308,10 @@ describe('暂停 / 继续 / 停止', () => {
     const r = rig();
     r.player.start(0);
     await r.play();
-    r.audio.fire('ended');
-    await r.play();
-    const before = r.sentences.length;
     r.player.stop();
     r.audio.fire('ended');
     await r.play();
-    expect(r.sentences.length).toBe(before);
+    expect(r.sentences).toEqual([0]);
   });
 });
 
@@ -360,24 +322,58 @@ describe('语速', () => {
     await r.play();
     r.player.setRate(1.5);
     expect(r.audio.playbackRate).toBe(1.5);
-  });
-
-  it('超出范围时夹到 0.6–2', async () => {
-    const r = rig();
-    r.player.start(0);
-    await r.play();
     r.player.setRate(9);
     expect(r.audio.playbackRate).toBe(2);
-    r.player.setRate(0);
+    r.player.setRate(0.1);
     expect(r.audio.playbackRate).toBe(0.6);
   });
 });
 
-describe('读音频失败', () => {
-  it('读不到音频时报错并回到 idle，不卡在 loading', async () => {
-    const r = rig({ marks: [], align: [] });
+describe('老包 / wav 包（没有逐句区间）', () => {
+  it('整章一次播完，高亮按时间轴推', async () => {
+    const r = rig({ plain: true });
     r.player.start(0);
     await r.play();
+    expect(r.urls).toEqual([DATA.byteLength]);
+    r.audio.currentTime = 1.2;
+    r.audio.fire('timeupdate');
+    expect(r.sentences).toEqual([0, 1]);
+  });
+
+  it('整章播完就收尾，不会从头重放', async () => {
+    const r = rig({ plain: true });
+    r.player.start(0);
+    await r.play();
+    r.audio.fire('ended');
+    await r.play();
     expect(r.ends).toBe(1);
+    expect(r.urls).toEqual([DATA.byteLength]);
+  });
+
+  it('逐句区间越界：当作没有区间，退回整章播放', async () => {
+    const r = rig({ data: new Uint8Array(2).buffer });
+    r.player.start(0);
+    await r.play();
+    expect(r.urls).toEqual([2]);
+    expect(r.sentences).toEqual([0]);
+  });
+});
+
+describe('读音频失败', () => {
+  it('读盘抛错时报错并回到 idle，不卡在 loading', async () => {
+    const r = rig({ loadError: new Error('read failed') });
+    r.player.start(0);
+    await r.play();
+    expect(r.errors.length).toBeGreaterThan(0);
+    expect(r.player.stateName).toBe('idle');
+    expect(r.loads()).toBe(1);
+  });
+
+  it('读出来是空文件：同样报错并回到 idle', async () => {
+    const r = rig({ data: new ArrayBuffer(0) });
+    r.player.start(0);
+    await r.play();
+    expect(r.errors.length).toBeGreaterThan(0);
+    expect(r.player.stateName).toBe('idle');
   });
 });

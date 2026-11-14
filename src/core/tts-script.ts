@@ -282,6 +282,55 @@ export function buildScript(
 }
 
 /**
+ * 屏幕第一个字在整章正文里的位置：第几个块、块内第几个字符（2026-11-14）。
+ *
+ * 由引擎在「取这一页段落」的同一趟遍历里顺手记下来。和 `startPointOf` 那套
+ * 文本搜索是两条路：这个不会因为页首是半截句、小标题、跨页段落而失手。
+ */
+export interface PageAnchor {
+  block: number;
+  offset: number;
+}
+
+/**
+ * 页首锚点 → 整章脚本里从第几句、句内第几个字开始念。
+ *
+ * 只认块序号和字符偏移，不搜文本：`at` / `len` 是建脚本时按同一份原文算的，
+ * 播放时按它们直接对位，没有第二种解释。
+ *
+ * 三种落空时给 null，交给调用方退回文本匹配：
+ *   · 块序号对不上（正文改过、块结构变了）；
+ *   · 偏移超出这一块最后一句；
+ *   · 这个块一句都没切出来。
+ *
+ * 页首落在句子之间的空隙（引号、空白）时从下一句开头念——那半句本来
+ * 就听不全，硬跳进去只会变成半截话。
+ */
+export function startFromAnchor(
+  segments: readonly ScriptSegment[],
+  blocks: readonly ScriptBlock[],
+  anchor: PageAnchor,
+): { index: number; skip: number } | null {
+  const block = blocks[anchor.block];
+  if (!block) return null;
+  const raw = String(block.raw ?? block.text ?? '');
+  const offset = Math.max(0, Math.min(Math.round(anchor.offset), raw.length));
+
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (!seg.blocks.includes(anchor.block)) continue;
+    /* 句间空隙：从下一句开头念 */
+    if (offset < seg.at) return { index: i, skip: 0 };
+    if (offset < seg.at + seg.len) {
+      const skipped = raw.slice(seg.at, offset).replace(/\s+/g, '').length;
+      return { index: i, skip: skipped };
+    }
+  }
+  /* 落在该块最后一句之后（或这一块一句都没切出来）：交给文本兜底 */
+  return null;
+}
+
+/**
  * 当前这一页该从整章脚本的第几句开始念（2026-11-14）。
  *
  * 离线包播的是整章 mp3，起点只能靠文本对。`pageText` 是屏幕上这一页裁出来的

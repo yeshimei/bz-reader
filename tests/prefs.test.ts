@@ -244,3 +244,32 @@ describe('桌面点击翻页', () => {
     expect(normalizePrefs({ desktopTapTurn: 1 } as unknown as Record<string, unknown>).desktopTapTurn).toBe(false);
   });
 });
+
+/**
+ * 在线语音改名（2026-11-14）：引擎从 `deepseek` 变成 `online`。
+ *
+ * 老数据必须原样可用：引擎名归一、选过的嗓子搬进新字段，不能升级之后
+ * 让人突然听见另一个声音，或者直接「未配置」。
+ */
+describe('朗读引擎迁移', () => {
+  it('旧值 deepseek 归一成 online，其它脏值也当 online', () => {
+    expect(normalizePrefs({ ttsEngine: 'deepseek' } as unknown as Record<string, unknown>).ttsEngine).toBe('online');
+    expect(normalizePrefs({ ttsEngine: 'nope' } as unknown as Record<string, unknown>).ttsEngine).toBe('online');
+    expect(normalizePrefs({ ttsEngine: 'local' }).ttsEngine).toBe('local');
+    expect(normalizePrefs({ ttsEngine: 'system' }).ttsEngine).toBe('system');
+  });
+
+  it('老数据选过的嗓子搬进 ttsVoiceOnline，不默默换声', () => {
+    expect(normalizePrefs({ ttsVoice: 'tide' }).ttsVoiceOnline).toBe('tide');
+    expect(normalizePrefs({ ttsVoice: 'stella' }).ttsVoiceOnline).toBe('stella');
+  });
+
+  it('全新安装留空：由引擎层按服务兜底，不把 stella 硬塞给别家服务', () => {
+    expect(DEFAULT_PREFS.ttsVoiceOnline).toBe('');
+    expect(normalizePrefs({}).ttsVoiceOnline).toBe('');
+  });
+
+  it('已经存了在线音色就听它的，去掉首尾空格', () => {
+    expect(normalizePrefs({ ttsVoice: 'tide', ttsVoiceOnline: ' alice ' }).ttsVoiceOnline).toBe('alice');
+  });
+});
