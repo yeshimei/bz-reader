@@ -596,14 +596,14 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
   /* 2026-11-14：行名按 bz 的文案统一成「AI 知识盒」（bz 设置页里就叫这个，
      以前这里写「连接至 BZ AI 知识库」是另一套叫法，用户对不上）。 */
   kb: {
-    zh: '用 BZ AI 知识盒里的笔记一起回答',
-    'zh-TW': '用 BZ AI 知識盒裡的筆記一起回答',
-    en: 'Answer with notes from your BZ AI knowledge box',
-    ja: 'BZ AI ナレッジボックスのノートも参考に回答',
-    de: 'Antworten unter Einbeziehung der Notizen aus der BZ-KI-Wissensbox',
-    fr: 'Répondre en s’appuyant aussi sur les notes de la boîte à savoir BZ AI',
-    es: 'Responder usando también las notas de la caja de conocimiento BZ AI',
-    pt: 'Responder usando também as notas da caixa de conhecimento BZ AI',
+    zh: '用 BZ AI 知识库里的笔记一起回答',
+    'zh-TW': '用 BZ AI 知識庫裡的筆記一起回答',
+    en: 'Answer with notes from your BZ AI knowledge base',
+    ja: 'BZ AI ナレッジベースのノートも参考に回答',
+    de: 'Antworten unter Einbeziehung der Notizen aus der BZ-KI-Wissensbasis',
+    fr: 'Répondre en s’appuyant aussi sur les notes de la base de connaissances BZ AI',
+    es: 'Responder usando también las notas de la base de conocimiento BZ AI',
+    pt: 'Responder usando também as notas da base de conhecimento BZ AI',
   },
   fullFormats: {
     /* 2026-11-10：PDF 从这条卖点里摘出去了——它在对照表里有自己的段
@@ -749,90 +749,67 @@ function row(key: PlanKey, free: PlanCell, pro: PlanCell, cap?: Cap): PlanRow {
 }
 
 export const PLAN_TABLE: PlanRow[] = [
+  /* ── 阅读与书架：基础版八行，顺序按「打开 → 排版 → 标注 → 成图 → 找 → 回 → 注 → 书架」 ── */
   row('reading', 'yes', 'yes'),
   /* 分栏 2026-11-05 下放基础版：单独一行，免得用户以为双栏还要买 */
   row('columns', 'yes', 'yes'),
   row('marks', 'yes', 'yes'),
+  /* 2026-11-09 书摘图片下放基础版（1.0.0 定稿），紧跟划线：它属于「读的
+     时候就想要」的东西，排在付费段里会让人以为要买。 */
+  row('card', 'yes', 'yes'),
   row('inbookSearch', 'yes', 'yes'),
   /* 2026-11-10 新增：跳转历史。PDF 早就有这条栈，EPUB 这次补上同一条，
-     所以它是两栏都打勾的免费项——不是「PDF 的附赠」，两个引擎共用一颗按钮。
-     插在这里只为贴近「找位置」那几行（搜索之后、脚注之前）。 */
+     所以它是两栏都打勾的免费项——两个引擎共用一颗按钮。 */
   row('back', 'yes', 'yes'),
-  /* 基础版连着放，别让付费项插进来 */
   row('footnote', 'yes', 'yes'),
-  /* 1.0.0 定稿：书摘图片下放基础版之后，它一直排在付费段里（「格式与导出」），
-     看表的人会以为要买。它属于「读的时候就想要」的东西，挪进免费区。
-     2026-11-09 新增：分类管理按用户要求跟在脚注浮窗下面，基础版就有——
-     新建 / 改名 / 排序 / 删除分类、把书归入某一类，都不拦。 */
-  row('card', 'yes', 'yes'),
+  /* 2026-11-09 新增：分类管理（免费）——新建 / 改名 / 排序 / 删除分类、
+     把书归入某一类，都不拦。 */
   row('classify', 'yes', 'yes'),
-  /* 「更多格式」紧跟阅读能力：它决定「哪些书能打开」，和后面的加工类
-     能力不是一回事。2026-11-07 按真机对照顺序上移到这里。
-     2026-11-10：PDF 不再由这一行代表——它有自己的段（见下面的 pdfView…）。 */
+  /* ── 打开与导入：书从哪儿来 ──
+   * 2026-11-10：PDF 不再由 formats 代表——它有自己的段（见下面的 pdfView…）。
+   * 剪藏成书 2026-11-13 从「探索中」转正，与 formats 同类：都是「书怎么进来」。 */
   row('formats', 'no', 'yes', 'fullFormats'),
-  /* 双向链接整条是高级版能力（copylink 走 requireCap('bilink')）。
-     2026-11-08：没有 UI 入口的免费路径 copylinkurl 已删除，表里不再
-     承诺「基础版部分可用」。 */
-  row('bilink', 'no', 'yes', 'bilink'),
-  /* 引用页签（2026-11-10）：它列的是笔记里指向本书的链接，按书聚在一起。
-     1.0.0 定稿归入高级版，紧排在双向链接下面。
-     2026-11-12：以前它与双链共用 bilink，点它被拦时弹层点亮的是「划线存成
-     双链」——用户看的不是自己刚点的那一行。现在它有独立的能力位，弹层
-     精确点亮「引用页签」；授权判定仍是一刀切，不会变成两项分开卖。 */
-  row('cites', 'no', 'yes', 'cites'),
-  row('export', 'no', 'yes', 'export'),
-  /* ── PDF 段（2026-11-10，1.0.0 定稿压成五行） ──
-   * 以前 PDF 只由「更多格式」一句话代表，用户看不出买高级版在 PDF 上还多
-   * 什么。七行压成五类（「记住视角」并进阅读、「划词自动复制」并进页链接）：
-   * 七行全打叉再全打勾，读起来像凑数。勾叉仍是「基础版没有、高级版才有」
-   * ——PDF 整本进不来，缩略图 / 导出这些按钮对基础版用户根本不存在。
-   *
+  row('clipEpub', 'no', 'yes', 'clipBook'),
+  /* ── PDF 段：怎么读 → 怎么拿出来 ──
    * 只有段首那行挂 cap：整段共用一个拦点（打开 PDF）。给每行各配一个能力位
-   * 是摆样子——那些能力位在运行期永远不会被抛出。 */
+   * 是摆样子——基础版根本进不了 PDF，那些能力位在运行期永远不会被抛出。 */
   row('pdfView', 'no', 'yes', 'pdf'),
   row('pdfThumbs', 'no', 'yes'),
   row('pdfLink', 'no', 'yes'),
+  /* 2026-11-14：从「本页反链与文件自带批注」拆出来。两件事各有一个开关
+     （prefs.pdfBacklinks / prefs.pdfAnnots），一行说两件事读着别扭。 */
+  row('pdfBacklink', 'no', 'yes'),
   row('pdfAnnots', 'no', 'yes'),
   row('pdfExport', 'no', 'yes'),
+  /* ── 笔记与导出：读完怎么存 ──
+   * 双向链接整条是高级版能力（copylink 走 requireCap('bilink')）。
+   * 引用页签 2026-11-12 有独立能力位，点它被拦时点亮的是它自己那一行。 */
+  row('bilink', 'no', 'yes', 'bilink'),
+  row('cites', 'no', 'yes', 'cites'),
+  row('export', 'no', 'yes', 'export'),
+  /* ── 数据与搜索 ── */
   row('stats', 'no', 'yes', 'stats'),
-  /* 2026-11-10 新增：阅读海报。poster 能力位一直有拦点（统计页那颗按钮与
-     海报浮层都过 requireCap('poster')），表里却一直没有行——用户看表看不
-     出买到了什么。跟着统计后面，同属「回看」那一段。 */
+  /* 2026-11-10 新增：阅读海报（poster 能力位一直有拦点，表里却一直没有行）。 */
   row('poster', 'no', 'yes', 'poster'),
   row('crossSearch', 'no', 'yes', 'crossSearch'),
-  /* 语义搜索（2026-11-11）：本书与全库都能按意思找，跟字面搜索并列。 */
   row('semantic', 'no', 'yes', 'semantic'),
-  /* 工具栏那颗 AI 是「解释 / 翻译 / 摘要」划选文字，和侧栏的「全书问答」
-     不是一个入口，各自一行，各自有 cap——点被拦的那颗就滚到对应那行。 */
+  /* ── AI ── */
   row('aiSel', 'no', 'yes', 'aiSel'),
   row('aiBook', 'no', 'yes', 'ai'),
-  /* AI 伴读（2026-11-11）：追问、导读、补全、对话存档共用一道门禁。 */
   row('aiChat', 'no', 'yes', 'aiChat'),
+  /* 2026-11-09 起「向量检索」不再单列：整本索引是全书问答的前置步骤，
+     建索引被拦时高亮的是「AI 全书问答」那一行（见 shell/actions.ts 的 indexCap）。
+     2026-11-14：行名按作者口径从「AI 知识盒」改成「AI 知识库」。 */
+  row('kb', 'no', 'yes', 'kb'),
+  /* ── 阅读方式 ── */
   row('vertical', 'no', 'yes', 'vertical'),
   row('tts', 'no', 'yes', 'tts'),
+  /* 1.0.0：并排的是任意两本书、段落同步，不是「原文 + 译文」。 */
   row('parallel', 'no', 'yes', 'parallel'),
   row('bookmap', 'no', 'yes', 'bookmap'),
-  /* 表尾这一步是「全书问答」取依据的那一步，不是单独一颗按钮。
-     2026-11-09 起「向量检索」不再单列——整本索引是全书问答的前置步骤，
-     拆成两行只让用户以为要买两次；建索引被拦时高亮的是「AI 全书问答」
-     那一行（见 shell/actions.ts 的 indexCap）。
-     2026-11-14：行名按 bz 的文案改叫「AI 知识盒」（bz 设置页同名），
-     不再叫「连接至 BZ AI 知识库」——同一个东西两套叫法，用户对不上。 */
-  row('kb', 'no', 'yes', 'kb'),
-  /* 剪藏成书（2026-11-13 实现，从「探索中」转正）：高级版权益。
-     放在「进阶」段末尾：它依赖 bz 生态，是重度用户场景。 */
-  row('clipEpub', 'no', 'yes', 'clipBook'),
-  /* ── 探索中（2026-11-11，2026-11-12 增至八项） ──
-   * 八项都还没实现，只占表尾，别当已上线卖点用：两版都不打勾（free / pro
-   * 都是 no）、不挂能力位，状态由段名「探索中」说，行里不加小字。
-   * 它们不进合计——图上的基础版 8 项、高级版 29 项保持不变。
-   *
-   * OCR 与 AI 视觉是两条技术路线、同一个目标：让扫描件拥有文字版的选中 /
-   * 搜索 / 划线体验；PDF 重排把固定版式变成流式；漫画模式补上分格 / 右到左 /
-   * 跨页；整章翻译做原文译文对照；复习是全文回顾 + AI 抽认卡 + AI 出题；
-   * 墨水屏优化拉高黑白对比、翻页不闪；界面动效给翻页、切章与书架切换加
-   * 过渡，且随时可关；剪藏成书把 bz 剪藏本里的文章合成一本 EPUB，进书架
-   * 当普通书读。 */
+  /* ── 探索中（2026-11-11，2026-11-12 增至七项） ──
+   * 七项都还没实现：两版都不打勾、不挂能力位，状态由段名说。
+   * 它们不进合计——图上的基础版与高级版项数只数打勾的行。 */
   row('pdfOcr', 'no', 'no'),
   row('pdfReflow', 'no', 'no'),
   row('manga', 'no', 'no'),
@@ -845,11 +822,11 @@ export const PLAN_TABLE: PlanRow[] = [
 /**
  * 对照表底部的合计：各档打勾的项数。
  *
- * 商品图上写的「8 项 / 29 项」不是手工维护的数字——它就是这张表里
+ * 商品图上写的「8 项 / 31 项」不是手工维护的数字——它就是这张表里
  * `free === 'yes'` 与 `pro === 'yes'` 的行数。写死的话，下次加一行忘了改，
  * 弹层就会对外少报一项；这张表是用户决定要不要付钱的地方，数字得跟着表走。
  *
- * 「探索中」那八行两版都不打勾，所以天然不计入：不是特例，是同一条规则。
+ * 「探索中」那七行两版都不打勾，所以天然不计入：不是特例，是同一条规则。
  * 反过来说，哪天给探索中的某项打了勾，它会自动进合计——这正是想要的。
  */
 export function planTotals(): { free: number; pro: number } {
@@ -873,9 +850,9 @@ export function unlockModeFor(format: BookFormat): 'pdf' | 'fullFormats' {
   return format === 'pdf' ? 'pdf' : 'fullFormats';
 }
 
-/* ─────────── 对照表的分组（2026-11-09） ───────────
- * 37 行一长串看不出结构：用户从上滚到下，只记得「很多功能」，分不清哪几行
- * 是一类。这里把同一批行按使用场景切成七段，渲染时插组标题——**行本身、
+/* ─────────── 对照表的分组（2026-11-14 重切） ───────────
+ * 38 行一长串看不出结构：用户从上滚到下，只记得「很多功能」，分不清哪几行
+ * 是一类。这里把同一批行按使用场景切成八段，渲染时插组标题——**行本身、
  * 勾叉、顺序都没变**，所以被拦时的高亮与滚动位置照旧。
  *
  * 两条约束：
@@ -884,18 +861,15 @@ export function unlockModeFor(format: BookFormat): 'pdf' | 'fullFormats' {
  *   2. 组名不写在这个文件里——`data/` 有硬编码中文门禁，组名在
  *      `i18n/plan.ts` 的 PLAN_GROUP_TEXT，渲染走 planGroupLabel()。
  *
- * 切法按「读 → 归档 → 回看 → 问 AI → 进阶 → 探索中」走：
- *   · 阅读与书架：基础版八行，正好是免费区全部（1.0.0 起书摘图片从付费段
- *     挪进来——它两版都有，排在付费段里会让人以为要买）；
- *   · 格式与导出：能打开哪些书 + 把划线搬出去，连引用页签一起（它列的是
- *     双链反链，排在双向链接下面）；
- *   · PDF 阅读：PDF 整段（2026-11-10 新增，1.0.0 压成五行）；
- *   · 统计与检索：回看读了多少、把一年做成长图、找回某句话；
- *   · AI：划词与全书问答；
- *   · 进阶：排版、朗读、对照、鸟瞰，最后落在知识库；
- *   · 探索中：还没实现的八项，两版都不打勾，只作为路线图收尾。
- * 「连接至 BZ AI 知识库」仍是正式段的最后一行（有测试钉住），探索中段
- * 接在它后面，不动它的位置。 */
+ * 切法每段只回答一个问题：
+ *   · 阅读与书架：基础版够不够用（八行全打勾）；
+ *   · 打开与导入：书从哪儿来（更多格式 + 剪藏成书）；
+ *   · PDF 阅读：PDF 怎么读、怎么拿出来；
+ *   · 笔记与导出：读完怎么存回笔记库；
+ *   · 数据与搜索：回看读了多少、找回某句话；
+ *   · AI：划词、全书问答、伴读、知识库；
+ *   · 阅读方式：竖排、朗读、并排、鸟瞰；
+ *   · 探索中：还没实现的七项，两版都不打勾，只作为路线图收尾。 */
 export interface PlanGroup {
   key: PlanGroupKey;
   /** 这一段包含哪些行，按表里的顺序 */
@@ -905,31 +879,34 @@ export interface PlanGroup {
 export const PLAN_GROUPS: PlanGroup[] = [
   {
     key: 'read',
-    rows: ['reading', 'columns', 'marks', 'inbookSearch', 'back', 'footnote', 'card', 'classify'],
+    rows: ['reading', 'columns', 'marks', 'card', 'inbookSearch', 'back', 'footnote', 'classify'],
   },
   {
-    key: 'output',
-    rows: ['formats', 'bilink', 'cites', 'export'],
+    key: 'import',
+    rows: ['formats', 'clipEpub'],
   },
   {
     key: 'pdf',
-    rows: ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfAnnots', 'pdfExport'],
+    rows: ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfBacklink', 'pdfAnnots', 'pdfExport'],
   },
   {
-    key: 'insight',
+    key: 'notes',
+    rows: ['bilink', 'cites', 'export'],
+  },
+  {
+    key: 'data',
     rows: ['stats', 'poster', 'crossSearch', 'semantic'],
   },
   {
     key: 'ai',
-    rows: ['aiSel', 'aiBook', 'aiChat'],
+    rows: ['aiSel', 'aiBook', 'aiChat', 'kb'],
   },
   {
-    key: 'advanced',
-    rows: ['vertical', 'tts', 'parallel', 'bookmap', 'kb', 'clipEpub'],
+    key: 'modes',
+    rows: ['vertical', 'tts', 'parallel', 'bookmap'],
   },
-  /* 2026-11-11 新增：探索中。放最后一段，只收还没实现的功能，
-     两版都不打勾，所以它不参与「被拦时高亮」那一套。剪藏成书 2026-11-13
-     已实现并转正（进 advanced 段），不在这个清单里了。 */
+  /* 探索中放最后一段，只收还没实现的功能，两版都不打勾，也不参与
+     「被拦时高亮」那一套。 */
   {
     key: 'explore',
     rows: ['pdfOcr', 'pdfReflow', 'manga', 'transChapter', 'review', 'eink', 'motion'],

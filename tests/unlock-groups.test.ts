@@ -96,7 +96,7 @@ describe('解锁弹层 · 分组', () => {
     setLocale('en');
     const html = overlayUnlock();
     expect(html).toContain('Reading &amp; Shelf');
-    expect(html).toContain('Advanced');
+    expect(html).toContain('Reading Modes');
     expect(html).not.toContain('阅读与书架');
   });
 });

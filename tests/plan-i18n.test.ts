@@ -37,15 +37,15 @@ describe('对照表行名 · 八种语言', () => {
   });
 
   it('切换界面语言，行名跟着变；切回中文恢复', () => {
-    expect(planLabel('aiBook')).toBe('AI 全书问答');
-    expect(planNameZh('classify')).toBe('分类管理');
+    expect(planLabel('aiBook')).toBe('AI 全书问答：先建索引，再问整本');
+    expect(planNameZh('classify')).toBe('分类管理：自建分类归书');
     expect(planNameZh('stats')).toBe('数据面板：时长、趋势、节律、书籍明细');
     setLocale('en');
     expect(locale()).toBe('en');
-    expect(planLabel('aiBook')).toBe('AI Q&A over the whole book');
-    expect(planLabel('classify')).toBe('Shelf categories');
+    expect(planLabel('aiBook')).toBe('AI Q&A over the whole book: index first, then ask');
+    expect(planLabel('classify')).toBe('Shelf categories: make your own and file books');
     setLocale('zh');
-    expect(planLabel('aiBook')).toBe('AI 全书问答');
+    expect(planLabel('aiBook')).toBe('AI 全书问答：先建索引，再问整本');
   });
 });
 

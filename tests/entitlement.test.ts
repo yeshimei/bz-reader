@@ -183,9 +183,8 @@ describe('界面文案', () => {
   });
 
   it('功能名只用短名，不带括号补充说明', () => {
-    /* 两个例外，都不是「给功能名打补丁」（「书摘（图片版）」那种才是要拦的）：
-       formats 括号里是「Kindle 系」这一族的扩展名枚举；
-       kb 2026-11-14 起按 bz 的文案统一叫「AI 知识盒」，行名不带括号。 */
+    /* 唯一例外：formats 括号里是「Kindle 系」这一族的扩展名枚举。
+       2026-11-14 起 kb 的「（需另装 bz）」不再写进行名，改走行尾小字。 */
     const ALLOWED = new Set(['formats']);
     for (const row of PLAN_TABLE) {
       if (ALLOWED.has(row.key)) continue;
@@ -207,21 +206,22 @@ describe('界面文案', () => {
     expect(sel).toBeGreaterThan(-1);
     expect(book).toBe(sel + 1);
     expect(PLAN_TABLE[sel].name).toContain('解释');
-    expect(PLAN_TABLE[book].name).toBe('AI 全书问答');
+    expect(PLAN_TABLE[book].name).toContain('AI 全书问答');
     expect(capLabel('ai')).toBe('AI 全书问答');
   });
 
-  it('分类管理是免费区最后一行：跟着书摘图片，两栏都打勾', () => {
+  it('分类管理是「阅读与书架」段最后一行，两栏都打勾', () => {
     /* 1.0.0：书摘图片下放免费区，插在脚注浮窗与分类管理之间，所以
        「紧跟脚注浮窗」不再成立。真正要守的是「它在免费段最末」——
        后面一行就是付费的「更多格式」，免费项不许漏到付费段里去。 */
-    const free = PLAN_TABLE.filter((r) => r.free === 'yes');
-    const classify = free[free.length - 1];
-    expect(classify.key).toBe('classify');
-    expect(classify.name).toBe('分类管理');
-    expect(classify.pro).toBe('yes');
+    const read = PLAN_GROUPS.find((g) => g.key === 'read');
+    expect(read?.rows.at(-1)).toBe('classify');
+    const classify = PLAN_TABLE.find((r) => r.key === 'classify');
+    expect(classify?.name).toBe('分类管理：自建分类归书');
+    expect(classify?.free).toBe('yes');
+    expect(classify?.pro).toBe('yes');
     /* 基础版行不挂 cap：它没有「被拦下」的时刻 */
-    expect(classify.cap).toBeUndefined();
+    expect(classify?.cap).toBeUndefined();
   });
 
   it('更多格式仍是第一个付费项，紧跟在免费区之后', () => {
@@ -232,15 +232,14 @@ describe('界面文案', () => {
     expect(firstPaid?.cap).toBe('fullFormats');
   });
 
-  it('对照表不再单列向量检索，知识库后是剪藏成书，再往后是探索中段', () => {
+  it('对照表不再单列向量检索，知识库后面是阅读方式，再往后是探索中段', () => {
     expect(PLAN_TABLE.some((r) => r.name.includes('向量'))).toBe(false);
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
-    expect(PLAN_TABLE[kbAt]?.name).toBe('AI 知识盒');
-    /* 2026-11-13：剪藏成书实现后从探索中转正，排在正式段末尾；
-       探索中段仍收在表尾，它们不是「买到了什么」。 */
-    expect(PLAN_TABLE[kbAt + 1]?.key).toBe('clipEpub');
-    expect(PLAN_TABLE.slice(kbAt + 2).map((r) => r.key)).toEqual(
+    expect(PLAN_TABLE[kbAt]?.name).toBe('AI 知识库：划线、想法、增量阅读存进去，提问带上笔记');
+    /* 2026-11-14：AI 段收在知识库；后面是阅读方式与探索中。 */
+    expect(PLAN_TABLE[kbAt + 1]?.key).toBe('vertical');
+    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key).slice(-7)).toEqual(
       PLAN_GROUPS.find((g) => g.key === 'explore')?.rows,
     );
   });
