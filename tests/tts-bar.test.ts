@@ -34,4 +34,12 @@ describe('ttsBarHtml', () => {
     expect(paused).not.toContain('data-icon="pause"');
     expect(paused).toContain('is-main');
   });
+
+  it('等待音频时主按钮转圈，不再是暂停图标', () => {
+    const loading = ttsBarHtml({ paused: false, loading: true });
+    expect(loading).toContain('is-loading');
+    expect(loading).toContain('bzr-ttsspin');
+    expect(loading).not.toContain('data-icon="pause"');
+    expect(loading).not.toContain('data-icon="play"');
+  });
 });

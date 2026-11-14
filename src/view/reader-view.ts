@@ -1459,6 +1459,15 @@ export class ReaderView extends ItemView {
        图标永远是一副「这一页没签」的样子。 */
     this.headerEls.get('mark')?.classList.toggle('is-active', on.mark);
     root?.classList.toggle('is-parallel', this.parallelOn);
+    /* 等音频时头栏那颗朗读图标转圈：用户点的就是它，静止的图标看起来像
+       没点动。转圈期间再点一下就是取消（toggleTts 里 speaking 已经为 true） */
+    const ttsEl = this.headerEls.get('tts');
+    if (ttsEl) {
+      const loading = (this.ttsPlayer ?? this.offlinePlayer)?.stateName === 'loading';
+      ttsEl.classList.toggle('is-loading', loading);
+      ttsEl.setAttribute('aria-busy', loading ? 'true' : 'false');
+      ttsEl.setAttribute('aria-label', loading ? t('tts.preparing') : headerActionSpec('tts').label);
+    }
   }
 
   /* ─────────────────── 更多菜单（手机专用） ─────────────────── */
@@ -1903,9 +1912,16 @@ export class ReaderView extends ItemView {
         this.showSpeechMark(this.host.speechRects?.(seg.blocks, seg.text) ?? []);
         this.renderTtsBar();
       },
+      /* 本地免费：整页都备，才追得上「点一下就一直念」；云端按字计费，
+         备 3 段够盖一次网络往返，再多就是用户还没听先把钱花了 */
+      bufferAhead: free ? Number.POSITIVE_INFINITY : 3,
       onEnd: () => this.onPageSpoken(),
       onError: (code, err) => this.onTtsError(code, err),
-      onState: () => this.renderTtsBar(),
+      onState: () => {
+        this.renderTtsBar();
+        /* 头栏那颗朗读图标也要跟着转圈：用户点的是它，不能只有浮条有反馈 */
+        this.syncToolState();
+      },
     });
     this.ttsPlayer = player;
     this.speaking = true;
@@ -1993,7 +2009,10 @@ export class ReaderView extends ItemView {
         notify(t('notice.tts.offlineBroken'));
         this.stopTts();
       },
-      onState: () => this.renderTtsBar(),
+      onState: () => {
+        this.renderTtsBar();
+        this.syncToolState();
+      },
     });
     this.offlinePlayer = player;
     this.offlineChapter = chapter;
@@ -2038,7 +2057,12 @@ export class ReaderView extends ItemView {
 
   private renderTtsBar(): void {
     if (!this.ttsBarEl) return;
-    this.ttsBarEl.innerHTML = ttsBarHtml({ paused: this.ttsCtl?.stateName === 'paused' });
+    const state = this.ttsCtl?.stateName;
+    /* 等音频时主按钮转圈（本地一句要合 3–8 秒，静止的暂停图标像「没点动」） */
+    this.ttsBarEl.innerHTML = ttsBarHtml({
+      paused: state === 'paused',
+      loading: state === 'loading',
+    });
     /* 条子上只有图标：按 data-icon 交给 Obsidian 的图标集，
        不自己拼 SVG，也就不用跟着主题换颜色。 */
     for (const slot of this.ttsBarEl.querySelectorAll<HTMLElement>('[data-icon]')) {
@@ -2239,7 +2263,9 @@ export class ReaderView extends ItemView {
     const p = this.ttsCtl;
     if (!p) return;
     if (act === 'ttstoggle') {
-      if (p.stateName === 'paused') p.resume();
+      /* 转圈时这颗按钮就是「别等了」：停止比一个点不动的暂停更符合直觉 */
+      if (p.stateName === 'loading') this.stopTts();
+      else if (p.stateName === 'paused') p.resume();
       else p.pause();
       this.renderTtsBar();
     } else if (act === 'ttsstop') {

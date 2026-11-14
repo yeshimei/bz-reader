@@ -400,6 +400,41 @@ body.is-mobile .bzr-ttsbar-wrap {
   background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
 }
 
+/* 等音频时的转圈（2026-11-14）：本地一句要合 3–8 秒，主按钮如果还画着
+   「暂停」，看起来像没点动。环形代替图标，点一下就是停止。 */
+.bzr-ttsspin {
+  width: 15px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  opacity: 0.75;
+  animation: bzs-spin 0.75s linear infinite;
+}
+
+/* 头栏那颗朗读图标同理：转圈代替图标，点一下取消 */
+.bzr-action.is-loading {
+  position: relative;
+}
+
+.bzr-action.is-loading > svg,
+.bzr-action.is-loading > .svg-icon {
+  opacity: 0;
+}
+
+.bzr-action.is-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: bzs-spin 0.75s linear infinite;
+}
+
 /* ── 预生成进度卡（2026-11-14） ─────────────────────────────
    取代原来的常驻通知：通知只能改一行字，说不出「现在在哪一段、还剩
    多少、为什么停了」。卡片把阶段名、进度条、剩余量分开摆，卡住与失败

@@ -36,23 +36,35 @@ const flush = async (): Promise<void> => {
   await new Promise((r) => setTimeout(r, 0));
 };
 
-function setup(opts: { text?: string; cached?: boolean } = {}) {
+function setup(
+  opts: {
+    text?: string;
+    cached?: boolean;
+    bufferAhead?: number;
+    list?: ScriptSegment[];
+    synth?: (text: string) => Promise<ArrayBuffer>;
+  } = {},
+) {
   const audios: FakeAudio[] = [];
-  const synth = vi.fn(async () => new Uint8Array(opts.text ? opts.text.length : 4).buffer);
+  const synth = vi.fn(
+    opts.synth ?? (async () => new Uint8Array(opts.text ? opts.text.length : 4).buffer),
+  );
   const states: string[] = [];
   const onEnd = vi.fn();
   const onError = vi.fn();
+  const revokeUrl = vi.fn();
   const player = new TtsPlayer(
-    segments,
+    opts.list ?? segments,
     { narration: 'stella', dialogue: 'tide' },
     {
-      synthesize: synth,
+      synthesize: (text) => synth(text),
       cacheKey: (text, voice) => `${voice}|${text}`,
       ...(opts.cached
         ? { cache: { get: async () => new Uint8Array([1, 2]).buffer, put: async () => undefined } }
         : {}),
+      ...(opts.bufferAhead !== undefined ? { bufferAhead: opts.bufferAhead } : {}),
       makeUrl: () => `blob:${audios.length}`,
-      revokeUrl: () => undefined,
+      revokeUrl,
       makeAudio: (url) => {
         const a = new FakeAudio(url);
         audios.push(a);
@@ -63,7 +75,7 @@ function setup(opts: { text?: string; cached?: boolean } = {}) {
       onError,
     },
   );
-  return { player, audios, synth, states, onEnd, onError };
+  return { player, audios, synth, states, onEnd, onError, revokeUrl };
 }
 
 describe('播放器状态机', () => {
@@ -151,5 +163,108 @@ describe('播放器的缓存与失败', () => {
     await flush();
     expect(onError).toHaveBeenCalledWith('unauthorized', expect.any(Error));
     expect(audios).toHaveLength(0);
+  });
+});
+
+/* 一批更长的段：缓冲池的行为要跨过 3 段才看得出来 */
+const many: ScriptSegment[] = Array.from({ length: 8 }, (_, i) => ({
+  kind: 'narration' as const,
+  text: `第 ${i + 1} 句。`,
+  blocks: [i],
+}));
+
+describe('预取：开声前就把后面的音频备好', () => {
+  it('开始播放时同时预取后面几段，不等第一段播完', async () => {
+    const { player, synth, audios } = setup({ list: many });
+    player.start();
+    await flush();
+    /* 默认缓冲 3 段：正在播的一段 + 备好三段 */
+    expect(audios).toHaveLength(4);
+    expect(synth).toHaveBeenCalledTimes(4);
+  });
+
+  it('bufferAhead 可调：云端只备 1 段', async () => {
+    const { player, audios } = setup({ bufferAhead: 1 });
+    player.start();
+    await flush();
+    expect(audios).toHaveLength(2);
+  });
+
+  it('整页缓冲（Infinity）把这一页全部备完', async () => {
+    const { player, audios } = setup({ bufferAhead: Number.POSITIVE_INFINITY, list: many });
+    player.start();
+    await flush();
+    await flush();
+    expect(audios).toHaveLength(many.length);
+  });
+
+  it('念完一段立刻把缓冲补满', async () => {
+    const { player, audios } = setup({ bufferAhead: 1 });
+    player.start();
+    await flush();
+    expect(audios).toHaveLength(2);
+    const cur = audios.find((a) => !a.paused)!;
+    cur.emit('ended');
+    cur.paused = true;
+    await flush();
+    expect(audios).toHaveLength(3);
+  });
+
+  it('暂停后不再发起新的合成', async () => {
+    const { player, synth } = setup({ bufferAhead: 2, list: many });
+    player.start();
+    await flush();
+    /* 缓冲 2 段 + 正在播的一段 */
+    expect(synth.mock.calls.length).toBe(3);
+    player.pause();
+    await flush();
+    expect(synth.mock.calls.length).toBe(3);
+    /* 继续时缓冲还是满的，不该凭空多合一段 */
+    player.resume();
+    await flush();
+    expect(synth.mock.calls.length).toBe(3);
+  });
+
+  it('继续之后念到下一段，仍然把缓冲补上', async () => {
+    const { player, synth, audios } = setup({ bufferAhead: 1, list: many });
+    player.start();
+    await flush();
+    expect(synth.mock.calls.length).toBe(2);
+    const cur = audios.find((a) => !a.paused)!;
+    player.pause();
+    player.resume();
+    cur.emit('ended');
+    cur.paused = true;
+    await flush();
+    expect(synth.mock.calls.length).toBe(3);
+  });
+
+  it('停止后不再合成，已经备好的音频被释放', async () => {
+    const { player, synth, revokeUrl } = setup({ bufferAhead: 2, list: many });
+    player.start();
+    await flush();
+    const before = synth.mock.calls.length;
+    player.stop();
+    expect(revokeUrl.mock.calls.length).toBeGreaterThan(0);
+    await flush();
+    expect(synth.mock.calls.length).toBe(before);
+    expect(player.stateName).toBe('idle');
+  });
+
+  it('后面某段被审核拒掉，不会把正在念的这段往前拽', async () => {
+    const { player, onError } = setup({
+      list: many.slice(0, 4),
+      bufferAhead: Number.POSITIVE_INFINITY,
+      synth: async (text) => {
+        if (text === '第 3 句。') throw Object.assign(new Error('rejected'), { code: 'rejected' });
+        return new Uint8Array(4).buffer;
+      },
+    });
+    player.start();
+    await flush();
+    await flush();
+    expect(player.currentIndex).toBe(0);
+    expect(player.stateName).toBe('playing');
+    expect(onError).toHaveBeenCalledWith('rejected', expect.any(Error));
   });
 });

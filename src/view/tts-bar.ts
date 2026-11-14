@@ -15,6 +15,13 @@ import { t } from '../i18n';
 export interface TtsBarState {
   /** 暂停中：主按钮换成「继续」的播放图标 */
   paused: boolean;
+  /**
+   * 正在等音频（首次开声，或缓冲被念空）。
+   *
+   * 本地模型一句要合 3–8 秒，这段时间如果主按钮还画着「暂停」，用户会
+   * 以为点了没反应、或者已经在播了。转圈 + 点一下就停，比一个死按钮诚实。
+   */
+  loading?: boolean;
 }
 
 /** 图标名都是 Obsidian 自带的 lucide（setIcon 按名取） */
@@ -37,9 +44,14 @@ export function ttsBarHtml(s: TtsBarState): string {
   const prefetch = t('tts.bar.prefetch');
   const exp = t('tts.bar.export');
   const tune = t('tts.bar.tune');
+  const main = s.loading
+    ? `<button class="bzr-ttsbtn is-main is-loading" data-act="ttstoggle" title="${escapeHtml(
+        t('tts.bar.loading'),
+      )}" aria-label="${escapeHtml(t('tts.bar.loading'))}" aria-busy="true"><span class="bzr-ttsspin"></span></button>`
+    : button('ttstoggle', s.paused ? ICONS.play : ICONS.pause, playLabel, ' is-main');
   return `<div class="bzr-ttsbar" data-role="ttsbar">
     ${button('ttsprev', ICONS.prev, prev)}
-    ${button('ttstoggle', s.paused ? ICONS.play : ICONS.pause, playLabel, ' is-main')}
+    ${main}
     ${button('ttsstop', ICONS.stop, stop)}
     ${button('ttsnext', ICONS.next, next)}
     ${button('ttsprefetch', ICONS.prefetch, prefetch, ' is-minor')}
