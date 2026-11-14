@@ -647,8 +647,16 @@ body.is-mobile .bzr-ttsprog {
   padding: 8px 10px;
 }
 
+/* 手机上一行排开：阶段、百分比、剩余段数、停止按钮。
+   head 用它自己的 flex 排 chip 与 pct（不再用 display: contents —— 目录扫描
+   会对它报「Obsidian 1.7.4 只部分支持」，而这个盒子只为了排两个 span，
+   让它自己当一行更省事）。阅读顺序仍是
+   「处理中 62% 还剩 80 段 [停止]」 */
 body.is-mobile .bzr-ttsprog-head {
-  display: contents;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
 }
 
 body.is-mobile .bzr-ttsprog-title,
@@ -656,9 +664,6 @@ body.is-mobile .bzr-ttsprog-bar {
   display: none;
 }
 
-/* `display: contents` 让 head 里的阶段、百分比变成卡片这一行的直接子项，
-   于是可以用 order 把「剩余段数」排到按钮前面，读起来是
-   「处理中 62% 还剩 80 段 [停止]」 */
 body.is-mobile .bzr-ttsprog-note {
   order: 1;
   flex: 1 1 auto;
