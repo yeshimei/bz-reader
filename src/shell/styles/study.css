@@ -1321,6 +1321,16 @@
   letter-spacing: .06em;
 }
 
+/* 组标题右侧挂教程链接（2026-11-14 朗读组）：标题保持纯文本，按钮不进
+   h3——标题一旦夹带标记，按 <h3> 认组的地方（设置页分组断言、窄屏摊平
+   顺序）都会把它读成「朗读 看教程」。 */
+.bzs-setgrp-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .bzs-setgrp .hint {
   font-size: 11px;
   color: var(--t3);
@@ -1343,6 +1353,9 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* 卡里是「图标 + 名字 + 状态」三行，不能跟着按钮那套固定高度走：
+     触屏主题给 button 的 44px 会把状态行压在边框上（2026-11-14 手机截图）。 */
+  height: auto;
   padding: 8px 10px;
   text-align: left;
   border: 1px solid var(--line);
@@ -1412,9 +1425,21 @@
   background: var(--copper);
 }
 
-@media (max-width: 820px) {
+/* 手机上也保持三张并排（2026-11-14）：390px 下每张约 100px，名字四个字
+   加一颗状态点放得下；改成一列会把这一段拉长到两百多像素，比挤一点更难受。 */
+@media (max-width: 480px) {
   .bzs-engines {
-    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .bzs-engcard {
+    padding: 7px 6px;
+    align-items: center;
+    text-align: center;
+  }
+
+  .bzs-engtx b {
+    font-size: 12px;
   }
 }
 

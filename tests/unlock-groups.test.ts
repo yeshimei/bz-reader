@@ -42,9 +42,17 @@ afterEach(() => setLocale('zh'));
 /** 一条组行（单层 div，里面没有嵌套 div） */
 const groupRow = /<div class="bzs-plan-row is-group">([\s\S]*?)<\/div>/g;
 
-/** 组行第一格里的组名 */
+/**
+ * 组行第一格里的组名。
+ *
+ * 2026-11-14 起有的段标题后面挂一颗「看教程」（朗读与听书那一支讲整段），
+ * 所以先摘掉链接再取文字——不然组名会读成「朗读与听书 看教程」。
+ */
 function groupNames(html: string): string[] {
-  return [...html.matchAll(groupRow)].map((m) => /<span>([^<]*)<\/span>/.exec(m[1])?.[1] ?? '');
+  return [...html.matchAll(groupRow)].map((m) => {
+    const span = /<span>([\s\S]*?)<\/span>/.exec(m[1])?.[1] ?? '';
+    return span.replace(/<a[\s\S]*?<\/a>/g, '').replace(/<[^>]*>/g, '').trim();
+  });
 }
 
 describe('解锁弹层 · 分组', () => {

@@ -668,7 +668,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   /* ── 解锁弹层：功能对照表 ─────────────────────────────── */
   'unlock.title': '高級版',
   'unlock.activated': '已啟用',
-  'unlock.watchVideo': '看影片',
+  'unlock.watchVideo': '看教學',
   'unlock.col.feature': '功能',
   'unlock.col.base': '基礎版',
   'unlock.col.base.sub': '免費 · 不限時',

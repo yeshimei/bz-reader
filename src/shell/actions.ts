@@ -98,7 +98,7 @@ import { currentSearchSurface, kickSemanticSearch, resetSemanticSearch } from '.
 import { bzClipbookUsed, bzEmbedder, bzNotesReady, openBzClipbook, openBzPreview, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
-import { AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../core/links';
+import { AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../core/links';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
 import { forgetPortrait, setPortrait } from './portrait-cache';
@@ -2785,6 +2785,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         break;
       }
       window.open(CLIP_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
+      break;
+    case 'ttstut':
+      /* 朗读组的「看教程」：讲三种引擎怎么配、预生成怎么用、离线包怎么拷。
+         与对照表「朗读」行的那颗是同一支视频。 */
+      window.open(TTS_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
       break;
     case 'ptpause':
       portraitBuilder().pause();

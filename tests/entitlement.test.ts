@@ -232,13 +232,13 @@ describe('界面文案', () => {
     expect(firstPaid?.cap).toBe('fullFormats');
   });
 
-  it('对照表不再单列向量检索，知识库后面是阅读方式，再往后是探索中段', () => {
+  it('对照表不再单列向量检索，知识库后面是朗读与听书，再往后是探索中段', () => {
     expect(PLAN_TABLE.some((r) => r.name.includes('向量'))).toBe(false);
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
     expect(PLAN_TABLE[kbAt]?.name).toBe('AI 知识库：划线、想法、增量阅读存进去，提问带上笔记');
-    /* 2026-11-14：AI 段收在知识库；后面是阅读方式与探索中。 */
-    expect(PLAN_TABLE[kbAt + 1]?.key).toBe('vertical');
+    /* 2026-11-14：AI 段收在知识库；后面是朗读与听书、阅读方式与探索中。 */
+    expect(PLAN_TABLE[kbAt + 1]?.key).toBe('tts');
     expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key).slice(-7)).toEqual(
       PLAN_GROUPS.find((g) => g.key === 'explore')?.rows,
     );

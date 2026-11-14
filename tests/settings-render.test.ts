@@ -874,10 +874,14 @@ describe('朗读组 · 三张引擎卡', () => {
     expect(online).toContain('data-act="ttsvoices" data-v="online"');
   });
 
-  it('本地的高级项收在折叠里：模型、密钥、格式默认不占视线', () => {
+  /* 2026-11-14 作者定稿：这一段不要折叠。收起来的三项每次都要多点一下才
+     看得到，而它们本来就是「填一次就不动」的东西，摊开反而更短。 */
+  it('本地的高级项直接摊开：模型、密钥、格式都在明面上', () => {
     const local = ttsHtml({ ttsEngine: 'local' });
-    expect(local).toContain('bzs-adv');
+    expect(local).not.toContain('bzs-adv');
     expect(local).toContain('data-k="ttsLocal.model"');
+    expect(local).toContain('data-k="ttsLocal.apiKey"');
+    expect(local).toContain('data-k="ttsLocalFormat"');
   });
 
   /* 2026-11-14：自部署提示词只给一颗复制按钮，正文不进 DOM——

@@ -13,8 +13,9 @@
  * 界面渲染取 `planLabel(key)`，两处不会各写一份中文。
  *
  * 2026-11-14 重排（作者定稿）：
- *   · 分组从七段改成八段，每段只讲一类事——阅读与书架 / 打开与导入 /
- *     PDF 阅读 / 笔记与导出 / 数据与搜索 / AI / 阅读方式 / 探索中；
+ *   · 分组从七段改成九段，每段只讲一类事——阅读与书架 / 打开与导入 /
+ *     PDF 阅读 / 笔记与导出 / 数据与搜索 / AI / 朗读与听书 / 阅读方式 /
+ *     探索中（朗读这一段同日从「阅读方式」里拆出来单独成段）；
  *   · 新增「本页反链」，与「文件自带批注」拆开（两件事、两个开关）；
  *   · 「AI 知识盒」按作者口径改叫「AI 知识库」，小字说清存什么；
  *   · 一批行名补上说明（全书鸟瞰、AI 全书问答、分类管理、并排对照）。
@@ -55,9 +56,17 @@ export type PlanKey =
   | 'aiBook'
   | 'aiChat'
   | 'kb'
+  /* ── 朗读与听书 ──
+   * 2026-11-14 定稿：朗读本体下放基础版，收费的只剩「备材料」与「带走」。 */
+  | 'tts'
+  | 'ttsEngine'
+  | 'ttsVoice'
+  | 'ttsRate'
+  | 'ttsChapter'
+  | 'ttsWhole'
+  | 'ttsOffline'
   /* ── 阅读方式 ── */
   | 'vertical'
-  | 'tts'
   | 'parallel'
   | 'bookmap'
   /* ── 探索中 ── */
@@ -81,6 +90,7 @@ export type PlanGroupKey =
   | 'notes'
   | 'data'
   | 'ai'
+  | 'voice'
   | 'modes'
   | 'explore';
 
@@ -370,6 +380,79 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'Base de conocimiento IA: subrayados, notas y lectura incremental entran; las respuestas usan tus notas',
     pt: 'Base de conhecimento IA: destaques, notas e leitura incremental entram; as respostas usam suas notas',
   },
+  /* ── 朗读与听书（2026-11-14 定稿） ──
+   * 五行免费：点一下就念，不花我们的钱，也不该设门；
+   * 三行付费：整章 / 整本要先花时间备，离线书是把文件带走。 */
+  tts: {
+    zh: '朗读：EPUB、TXT、PDF，念完自动翻页',
+    'zh-TW': '朗讀：EPUB、TXT、PDF，念完自動翻頁',
+    en: 'Read aloud: EPUB, TXT and PDF, turns the page on its own',
+    ja: '読み上げ：EPUB・TXT・PDF、読み終えたら自動で次ページ',
+    de: 'Vorlesen: EPUB, TXT und PDF, blättert selbst weiter',
+    fr: 'Lecture vocale : EPUB, TXT et PDF, tourne la page toute seule',
+    es: 'Lectura en voz alta: EPUB, TXT y PDF, pasa de página sola',
+    pt: 'Leitura em voz alta: EPUB, TXT e PDF, vira a página sozinha',
+  },
+  ttsEngine: {
+    zh: '三种引擎：系统语音、在线、本地自建',
+    'zh-TW': '三種引擎：系統語音、線上、本機自建',
+    en: 'Three engines: system voice, online, self-hosted',
+    ja: '3 つのエンジン：OS の音声・オンライン・自前サーバー',
+    de: 'Drei Stimmen: System, online, selbst gehostet',
+    fr: 'Trois moteurs : voix système, en ligne, auto-hébergé',
+    es: 'Tres motores: voz del sistema, en línea, propio',
+    pt: 'Três motores: voz do sistema, online, próprio',
+  },
+  ttsVoice: {
+    zh: '音色与试听',
+    'zh-TW': '音色與試聽',
+    en: 'Voices and preview',
+    ja: '声の選択と試聴',
+    de: 'Stimmen und Probehören',
+    fr: 'Voix et écoute',
+    es: 'Voces y prueba',
+    pt: 'Vozes e teste',
+  },
+  ttsRate: {
+    zh: '语速与高亮跟随',
+    'zh-TW': '語速與高亮跟隨',
+    en: 'Speed and highlight follow',
+    ja: '速度とハイライト追従',
+    de: 'Tempo und mitlaufende Hervorhebung',
+    fr: 'Vitesse et surlignage qui suit',
+    es: 'Velocidad y resaltado que sigue',
+    pt: 'Velocidade e destaque que acompanha',
+  },
+  ttsChapter: {
+    zh: '整章预生成',
+    'zh-TW': '整章預先產生',
+    en: 'Pre-build the chapter',
+    ja: '章をまとめて先に生成',
+    de: 'Kapitel vorab erzeugen',
+    fr: 'Pré-générer le chapitre',
+    es: 'Pregenerar el capítulo',
+    pt: 'Pré-gerar o capítulo',
+  },
+  ttsWhole: {
+    zh: '整本预生成',
+    'zh-TW': '整本預先產生',
+    en: 'Pre-build the whole book',
+    ja: '本全体を先に生成',
+    de: 'Ganzes Buch vorab erzeugen',
+    fr: 'Pré-générer tout le livre',
+    es: 'Pregenerar el libro entero',
+    pt: 'Pré-gerar o livro inteiro',
+  },
+  ttsOffline: {
+    zh: '离线听书：mp3 拷进手机照样听',
+    'zh-TW': '離線聽書：mp3 拷進手機照樣聽',
+    en: 'Offline audio: copy the mp3s to your phone and keep listening',
+    ja: 'オフライン再生：mp3 をスマホにコピーしても聴ける',
+    de: 'Offline hören: MP3s aufs Handy kopieren und weiterhören',
+    fr: 'Écoute hors ligne : copiez les mp3 sur le téléphone',
+    es: 'Escucha sin conexión: copia los mp3 al móvil',
+    pt: 'Escuta offline: copie os mp3 para o celular',
+  },
   /* ── 阅读方式 ── */
   vertical: {
     zh: '竖排排版：EPUB / TXT',
@@ -380,18 +463,6 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     fr: 'Composition verticale : EPUB / TXT',
     es: 'Composición vertical: EPUB / TXT',
     pt: 'Composição vertical: EPUB / TXT',
-  },
-  /* 朗读：这一行 2026-11-14 仍是高级版（点朗读、逐句高亮、自动翻页、
-     导出音频这件在这一版是一整套能力；下放要等朗读增强合入后再谈）。 */
-  tts: {
-    zh: '朗读：EPUB、TXT 与 PDF，念完自动翻页',
-    'zh-TW': '朗讀：EPUB、TXT 與 PDF，念完自動翻頁',
-    en: 'Read aloud: EPUB, TXT and PDF, auto page-turn',
-    ja: '読み上げ：EPUB・TXT・PDF、読み終えたら自動で次のページ',
-    de: 'Vorlesen: EPUB, TXT und PDF, blättert automatisch weiter',
-    fr: 'Lecture vocale : EPUB, TXT et PDF, page suivante automatique',
-    es: 'Lectura en voz alta: EPUB, TXT y PDF, pasa de página sola',
-    pt: 'Leitura em voz alta: EPUB, TXT e PDF, vira a página sozinha',
   },
   parallel: {
     /* 并排的是任意两本书、段落同步，不是「原文 + 译文」。 */
@@ -565,6 +636,18 @@ const PLAN_GROUP_TEXT: Record<PlanGroupKey, Record<Locale, string>> = {
     fr: 'IA',
     es: 'IA',
     pt: 'IA',
+  },
+  /* 朗读与听书（2026-11-14）：不叫「TTS」，那是行内话；用户要的是
+     「能听」，组名说人话。 */
+  voice: {
+    zh: '朗读与听书',
+    'zh-TW': '朗讀與聽書',
+    en: 'Read Aloud & Listening',
+    ja: '読み上げと聴書',
+    de: 'Vorlesen & Hören',
+    fr: 'Lecture vocale & écoute',
+    es: 'Voz alta y escucha',
+    pt: 'Leitura em voz alta e escuta',
   },
   modes: {
     zh: '阅读方式',

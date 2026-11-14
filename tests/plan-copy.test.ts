@@ -46,7 +46,7 @@ const CHANGED: ReadonlyArray<readonly [string, string]> = [
   ['aiBook', 'AI 全书问答：先建索引，再问整本'],
   ['kb', 'AI 知识库：划线、想法、增量阅读存进去，提问带上笔记'],
   ['vertical', '竖排排版：EPUB / TXT'],
-  ['tts', '朗读：EPUB、TXT 与 PDF，念完自动翻页'],
+  ['tts', '朗读：EPUB、TXT、PDF，念完自动翻页'],
   ['parallel', '并排对照：与另一本书同步段落'],
   ['bookmap', '全书鸟瞰：各章划线数与一句话摘要'],
 ];
@@ -105,18 +105,18 @@ describe('对照表 · 稿子与勾叉', () => {
     }
   });
 
-  it('AI 段收在知识库，之后是阅读方式与探索段', () => {
+  it('AI 段收在知识库，之后是朗读与听书、阅读方式与探索段', () => {
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
     expect(PLAN_TABLE[kbAt]?.name).toBe('AI 知识库：划线、想法、增量阅读存进去，提问带上笔记');
-    expect(PLAN_TABLE[kbAt + 1]?.key).toBe('vertical');
+    expect(PLAN_TABLE[kbAt + 1]?.key).toBe('tts');
     const modes = PLAN_GROUPS.find((g) => g.key === 'modes');
-    expect(modes?.rows).toEqual(['vertical', 'tts', 'parallel', 'bookmap']);
+    expect(modes?.rows).toEqual(['vertical', 'parallel', 'bookmap']);
   });
 });
 
-describe('对照表 · 八段分组', () => {
-  it('八段顺序固定', () => {
+describe('对照表 · 九段分组', () => {
+  it('九段顺序固定', () => {
     expect(PLAN_GROUPS.map((g) => g.key)).toEqual([
       'read',
       'import',
@@ -124,6 +124,7 @@ describe('对照表 · 八段分组', () => {
       'notes',
       'data',
       'ai',
+      'voice',
       'modes',
       'explore',
     ]);

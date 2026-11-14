@@ -680,7 +680,7 @@ export const EN: Record<MsgKey, string> = {
   /* ── 解锁弹层：功能对照表 ─────────────────────────────── */
   'unlock.title': 'Pro',
   'unlock.activated': 'Activated',
-  'unlock.watchVideo': 'Watch',
+  'unlock.watchVideo': 'Tutorial',
   'unlock.col.feature': 'Feature',
   'unlock.col.base': 'Free',
   'unlock.col.base.sub': 'No time limit',

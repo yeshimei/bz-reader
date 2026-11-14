@@ -3118,8 +3118,9 @@ export class ReaderView extends ItemView {
       this.finishTtsProgress('cancelled');
       return;
     }
-    /* 整本也是「预生成」，与整章同档：取消放行，开始才要高级版。 */
-    if (!requireCap('tts')) return;
+    /* 整本预生成（2026-11-14）：与整章分开挂门，弹层才能高亮对那一行
+       ——用户点的是「整本」，被指到「整章」会以为点错了。取消永远放行。 */
+    if (!requireCap('ttsBook')) return;
     if (this.ttsTaskBusy('book')) return;
     const route = this.ttsRoute();
     if (route.engine !== 'local') {
@@ -3316,8 +3317,9 @@ export class ReaderView extends ItemView {
    * 直接崩；一章几十 MB，写完就释放。手机上按章管理也比一个巨型文件好用。
    */
   async exportChapterAudio(): Promise<void> {
-    /* 导出一章要把整章合成一遍，和「预生成」是同一笔账：同一个能力位。 */
-    if (!requireCap('tts')) return;
+    /* 导出本章音频 2026-11-14 下放基础版：它花的是用户自己的 key 或自己的
+       机器，我们这边没有成本；对照表里那一行也是两版都打勾，这里不能再拦，
+       否则就是「表上说能用、点了弹购买」。 */
     /* 连点两下就是两份并发合成、写同一个文件，钱花两遍。
        第二下当「停」，和预生成那两颗按钮一致。 */
     if (this.exportingChapter) {

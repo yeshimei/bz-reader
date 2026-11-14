@@ -39,3 +39,13 @@ export const BZ_INSTALL_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1vNsZ6p
  * 退化成提示也比打开一条不相干的视频强。
  */
 export const CLIP_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1h3WB6XEL4';
+
+/**
+ * 朗读 / 听书的教程（2026-11-14）：三种引擎怎么配、预生成怎么用、
+ * 离线包怎么拷进手机。
+ *
+ * 两个入口共用这一条——设置页朗读组标题右侧的「看教程」，以及高级版
+ * 对照表「朗读与听书」那一段标题后面的「看教程」。它们讲的是同一件事，
+ * 分成两条只会在换视频时漏改一处。
+ */
+export const TTS_TUTORIAL_URL = 'https://www.bilibili.com/video/BV17psV6wEP7';

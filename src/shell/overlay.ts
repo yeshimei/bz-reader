@@ -12,7 +12,7 @@
 import { isIosEnv, isMobileEnv, isMobileShell } from '../core/mobile';
 import { t } from '../i18n';
 import { planGroupLabel, planLabel, type PlanKey } from '../i18n/plan';
-import { AI_TUTORIAL_URL, CLIP_TUTORIAL_URL } from '../core/links';
+import { AI_TUTORIAL_URL, CLIP_TUTORIAL_URL, TTS_TUTORIAL_URL } from '../core/links';
 import { anchoredBelowRight, anchoredPlacement } from './anchored-style';
 import { drawerLiftFor, keyboardHeightFromCss, sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
@@ -55,7 +55,7 @@ import { aiCardBegin, aiCardDone, aiCardDrop, aiCardFail, aiCardGet, aiCardKey, 
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
 import { bindRangeTouch } from './range-touch';
-import { PLAN_GROUPS, PLAN_TABLE, can, entitlement, planTotals, type Cap, type PlanCell } from '../data/entitlement';
+import { PLAN_GROUPS, PLAN_TABLE, can, entitlement, planTotals, type Cap, type PlanCell, type PlanGroup } from '../data/entitlement';
 import { buildNotesBody } from '../data/export';
 import { dataDirOf } from '../core/plugin-path';
 import { clampDailyGoal } from '../data/goal';
@@ -1096,6 +1096,17 @@ const PLAN_VIDEO: Partial<Record<PlanKey, string>> = {
   clipEpub: CLIP_TUTORIAL_URL,
 };
 
+/**
+ * 整组一起讲的教程（2026-11-14）：挂在这一段的标题后面，不落到某一行。
+ *
+ * 朗读这一支讲的是整段怎么用——三种引擎怎么配、预生成怎么开、离线包怎么
+ * 拷，不是「朗读这一行怎么做」。挂在「朗读与听书」后面正好对上它的身份；
+ * 塞进行尾反而像在说某一行设置。
+ */
+const PLAN_GROUP_VIDEO: Partial<Record<PlanGroup['key'], string>> = {
+  voice: TTS_TUTORIAL_URL,
+};
+
 /* 导出给测试：这一屏是免费用户最常看到的，按钮与群号值得单独钉住 */
 export function overlayUnlock(mode?: string): string {  const v = entitlement();
   /* 不传 mode = 只是「查看功能对照」（设置页那颗按钮），不高亮任何一行。
@@ -1114,7 +1125,11 @@ export function overlayUnlock(mode?: string): string {  const v = entitlement();
   const rows = PLAN_GROUPS.map((g) => {
     /* 组行也带两个空格子：高级版那一列的淡底色是**逐格**铺出来的，
        组行缺格就会把整列切断成几截。格子是空的，不带勾叉。 */
-    const group = `<div class="bzs-plan-row is-group"><span>${esc(planGroupLabel(g.key))}</span><i class="c"></i><i class="c pro"></i></div>`;
+    const groupVideo = PLAN_GROUP_VIDEO[g.key];
+    const groupTut = groupVideo
+      ? ` <a class="bzs-plan-video" data-act="openvid" data-url="${esc(groupVideo)}">${esc(t('unlock.watchVideo'))}</a>`
+      : '';
+    const group = `<div class="bzs-plan-row is-group"><span>${esc(planGroupLabel(g.key))}${groupTut}</span><i class="c"></i><i class="c pro"></i></div>`;
     const body = g.rows
       .map((key) => {
         const r = byKey.get(key);

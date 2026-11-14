@@ -60,8 +60,11 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
      2026-11-13 +2（50 → 52）：剪藏成书转正，同样是一句卖点 × 两种中文。
      2026-11-14 +1（52 → 53）：上架前把 clipBook 卖点的日文版补成正式翻译，
      日文里的汉字（「本棚」「購読記事」）也命中 CJK 正则——与 zh / zh-TW 同口径，
-     这张表就是八语言集中表。 */
-  'src/data/entitlement.ts': 53,
+     这张表就是八语言集中表。
+     2026-11-14 +3（53 → 56）：朗读分级新增「整本预生成」卖点位，
+     zh / zh-TW / ja 三份（日文「本全体」「生成」同样命中正则）。原来的
+     「朗读」那条改了口径，条数不变。 */
+  'src/data/entitlement.ts': 56,
   'src/data/export.ts': 9,
   'src/data/importer.ts': 1,
   'src/data/license.ts': 16,

@@ -44,7 +44,15 @@ export type Cap =
   | 'kb' // BZ AI 知识盒（划词录入 / 笔记当依据；行名按 bz 的文案）
   | 'fullFormats' // mobi / azw3 / fb2 / cbz（PDF 2026-11-10 起单列，见 pdf）
   | 'vertical' // 竖排（双栏已于 2026-11-05 下放基础版，不再挂在这个能力上）
-  | 'tts' // 朗读
+  /**
+   * 朗读 · 预生成（2026-11-14 分级）。
+   *
+   * 朗读本体已下放基础版：点一下就念、逐句高亮、自动翻页、导出本章音频
+   * 都不设门。这道门只剩「整章预生成」——先把这一章的音频备好再听。
+   */
+  | 'tts'
+  /** 朗读 · 整本预生成（2026-11-14）。与整章分开，弹层才能高亮对那一行 */
+  | 'ttsBook'
   | 'parallel' // 并排 / 双语
   | 'bookmap' // 全书鸟瞰
   | 'bilink' // 划线 → 双向链接
@@ -628,15 +636,28 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     es: 'Composición vertical',
     pt: 'Composição vertical',
   },
+  /* 2026-11-14 分级：朗读本体下放基础版，这道门只剩「整章预生成」。
+     卖点句跟着改口径——被拦的用户点的是浮条上那颗「预生成」。 */
   tts: {
-    zh: '让它念给你听，念完自动翻页',
-    'zh-TW': '讓它念給你聽，念完自動翻頁',
-    en: 'Have it read to you, turning pages on its own',
-    ja: '読み上げ、読み終えたら自動で次のページへ',
-    de: 'Vorlesen lassen, blättert selbst weiter',
-    fr: 'Se faire lire, la page tourne toute seule',
-    es: 'Que te lo lea, pasando de página solo',
-    pt: 'Deixe ler para você, virando a página sozinho',
+    zh: '整章先备好，点开就是声音，不用一句一句等',
+    'zh-TW': '整章先備好，點開就是聲音，不用一句一句等',
+    en: 'Build the chapter first, then listen without waiting between sentences',
+    ja: '章を先に生成、文ごとの待ち時間なしで聴ける',
+    de: 'Kapitel vorab erzeugen, hören ohne Warten zwischen den Sätzen',
+    fr: 'Pré-générez le chapitre, écoutez sans attendre entre les phrases',
+    es: 'Genera el capítulo antes y escucha sin esperas entre frases',
+    pt: 'Gere o capítulo antes e ouça sem esperar entre as frases',
+  },
+  /* 整本预生成（2026-11-14）：只有本地引擎能整本备，卖点是「路上听」。 */
+  ttsBook: {
+    zh: '整本一次备完，路上从头听到尾',
+    'zh-TW': '整本一次備完，路上從頭聽到尾',
+    en: 'Build the whole book in one go, listen all the way through',
+    ja: '本全体を一度に生成、移動中も最初から最後まで',
+    de: 'Das ganze Buch auf einmal, durchhören von Anfang bis Ende',
+    fr: 'Tout le livre en une fois, à écouter de bout en bout',
+    es: 'Todo el libro de una vez, para escuchar del tirón',
+    pt: 'O livro inteiro de uma vez, para ouvir do começo ao fim',
   },
   parallel: {
     /* 1.0.0：并排的是任意两本书、段落同步，不是「原文 + 译文」。 */
@@ -801,9 +822,26 @@ export const PLAN_TABLE: PlanRow[] = [
      建索引被拦时高亮的是「AI 全书问答」那一行（见 shell/actions.ts 的 indexCap）。
      2026-11-14：行名按作者口径从「AI 知识盒」改成「AI 知识库」。 */
   row('kb', 'no', 'yes', 'kb'),
+  /* ── 朗读与听书（2026-11-14 从「阅读方式」里拆出来，单独成段） ──
+   * 分档口径一句话：**免费听一页，收费听整本**。
+   * 前四行两版都打勾——点一下就念、三种引擎、音色与试听、语速与高亮跟随：
+   * 它们都不花我们的钱（用的是用户自己的 key 或自己的机器），把用户挡在
+   * 门外只是把功能藏起来。后三行要先花时间备材料（整章 / 整本）或者把
+   * 文件带走（离线书），才是高级版。
+   *
+   * 「导出本章音频」2026-11-14 决定不上表：功能照旧（免费、不设门），
+   * 但对照表里不列——它是一次性动作，讲出来只会让表格变长。 */
+  row('tts', 'yes', 'yes'),
+  row('ttsEngine', 'yes', 'yes'),
+  row('ttsVoice', 'yes', 'yes'),
+  row('ttsRate', 'yes', 'yes'),
+  row('ttsChapter', 'no', 'yes', 'tts'),
+  row('ttsWhole', 'no', 'yes', 'ttsBook'),
+  /* 离线听书没有自己的按钮：它是整本预生成的产物，被拦时整本那一行已经亮着，
+     再给它一个能力位只是摆样子。 */
+  row('ttsOffline', 'no', 'yes'),
   /* ── 阅读方式 ── */
   row('vertical', 'no', 'yes', 'vertical'),
-  row('tts', 'no', 'yes', 'tts'),
   /* 1.0.0：并排的是任意两本书、段落同步，不是「原文 + 译文」。 */
   row('parallel', 'no', 'yes', 'parallel'),
   row('bookmap', 'no', 'yes', 'bookmap'),
@@ -851,8 +889,8 @@ export function unlockModeFor(format: BookFormat): 'pdf' | 'fullFormats' {
 }
 
 /* ─────────── 对照表的分组（2026-11-14 重切） ───────────
- * 38 行一长串看不出结构：用户从上滚到下，只记得「很多功能」，分不清哪几行
- * 是一类。这里把同一批行按使用场景切成八段，渲染时插组标题——**行本身、
+ * 45 行一长串看不出结构：用户从上滚到下，只记得「很多功能」，分不清哪几行
+ * 是一类。这里把同一批行按使用场景切成九段，渲染时插组标题——**行本身、
  * 勾叉、顺序都没变**，所以被拦时的高亮与滚动位置照旧。
  *
  * 两条约束：
@@ -868,7 +906,8 @@ export function unlockModeFor(format: BookFormat): 'pdf' | 'fullFormats' {
  *   · 笔记与导出：读完怎么存回笔记库；
  *   · 数据与搜索：回看读了多少、找回某句话；
  *   · AI：划词、全书问答、伴读、知识库；
- *   · 阅读方式：竖排、朗读、并排、鸟瞰；
+ *   · 朗读与听书：朗读、三台引擎、音色、语速、导出、预生成与离线书；
+ *   · 阅读方式：竖排、并排、鸟瞰；
  *   · 探索中：还没实现的七项，两版都不打勾，只作为路线图收尾。 */
 export interface PlanGroup {
   key: PlanGroupKey;
@@ -901,9 +940,15 @@ export const PLAN_GROUPS: PlanGroup[] = [
     key: 'ai',
     rows: ['aiSel', 'aiBook', 'aiChat', 'kb'],
   },
+  /* 朗读拆出来单独成段（2026-11-14）：它已经不是「一种排版」了——三台引擎、
+     预生成、离线书，塞在竖排和并排中间读不出结构。 */
+  {
+    key: 'voice',
+    rows: ['tts', 'ttsEngine', 'ttsVoice', 'ttsRate', 'ttsChapter', 'ttsWhole', 'ttsOffline'],
+  },
   {
     key: 'modes',
-    rows: ['vertical', 'tts', 'parallel', 'bookmap'],
+    rows: ['vertical', 'parallel', 'bookmap'],
   },
   /* 探索中放最后一段，只收还没实现的功能，两版都不打勾，也不参与
      「被拦时高亮」那一套。 */

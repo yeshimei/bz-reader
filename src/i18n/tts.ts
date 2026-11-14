@@ -27,16 +27,12 @@ export const TTS_ZH = {
   'settings.ttsLocal.url': '服务地址',
   'settings.ttsLocal.urlHint': '例如 http://127.0.0.1:8880，认 /v1/audio/speech。',
   'settings.ttsLocal.model': '模型名',
-  'settings.ttsLocal.modelHint': '多数本地服务不用填。',
   'settings.ttsProbe': '连接',
   'settings.ttsTestNow': '念一句',
   'settings.ttsDeploy': '自部署',
   'settings.ttsDeploy.copy': '复制提示词',
-  'settings.ttsDeploy.hint': '丢给 AI，装好会把地址和音色填回来',
   'settings.ttsLocal.key': '密钥（可留空）',
   'settings.ttsLocal.format': '音频格式',
-  'settings.ttsLocal.formatHint': 'mp3 体积最小，预生成整章只能用它。',
-  'settings.ttsLocal.advanced': '高级：模型、密钥、格式',
   'settings.ttsLocal.hint': '填本机或局域网上的语音服务地址，例如 http://127.0.0.1:8880。认 OpenAI 兼容的 /v1/audio/speech。',
   'settings.ttsLocal.voices': '获取音色',
   'settings.ttsLocal.voicesOk': '取到 {n} 个音色',
@@ -82,7 +78,6 @@ export const TTS_ZH = {
   'settings.ttsCache': '音频缓存',
   'settings.ttsCache.title': '缓存与离线',
   'settings.ttsCache.clear': '清空',
-  'settings.ttsCache.hint': '同一段再听直接播放；0 = 不缓存。',
   'settings.ttsTest': '试听',
   'settings.ttsOffline.save': '同时存离线音频',
   'settings.ttsOffline.hint': '每章拼成一个 mp3，不联网也能听。',
@@ -221,6 +216,8 @@ export const TTS_ZH = {
   'tts.pack.againBody':
     '直接朗读就行，不用重新生成。重新生成会逐句重跑一遍，覆盖现在的音频和时间轴。',
   'tts.pack.againOk': '重新生成',
+  'settings.ttsSub.conn': '连接',
+  'settings.ttsSub.play': '播放',
 } as const;
 
 export const TTS_ZH_TW = {
@@ -253,7 +250,6 @@ export const TTS_ZH_TW = {
   'settings.ttsAiRoles.hint': '每頁多一次模型請求（約 1–3 秒），認出「他說 / 她說」後男聲用暗潮、女聲用海星。',
   'settings.ttsCache': '音訊快取',
   'settings.ttsCache.clear': '清空',
-  'settings.ttsCache.hint': '預設開啟：生成的音訊存在本機，同一段再聽直接播放，不再請求語音服務。0 = 不快取。',
   'settings.ttsTest': '試聽',
   'settings.ttsOffline.save': '同時存離線音訊',
   'settings.ttsOffline.hint': '預生成時把每章拼成一個 mp3，連同逐句時間軸存進書庫的 bz-reader/offline 目錄。拷到手機或別的庫，不連網也能聽，高亮照常。',
@@ -395,9 +391,6 @@ export const TTS_ZH_TW = {
   'settings.ttsEngine.notReady': '未設定',
   'settings.ttsEngine.systemHint': '音色由系統決定；長句偶爾斷得生硬。',
   'settings.ttsLocal.urlHint': '例如 http://127.0.0.1:8880，認 /v1/audio/speech。',
-  'settings.ttsLocal.modelHint': '多數本機服務不用填。',
-  'settings.ttsLocal.formatHint': 'mp3 體積最小，預生成整章只能用它。',
-  'settings.ttsLocal.advanced': '進階：模型、金鑰、格式',
   'settings.ttsOnline.url': '服務位址',
   'settings.ttsOnline.model': '模型',
   'settings.ttsOnline.key': '金鑰',
@@ -432,7 +425,8 @@ export const TTS_ZH_TW = {
   'settings.ttsCache.title': '快取與離線',
   'settings.ttsDeploy': '自行部署',
   'settings.ttsDeploy.copy': '複製提示詞',
-  'settings.ttsDeploy.hint': '丟給 AI，裝好會把位址和音色填回來',
+  'settings.ttsSub.conn': '連線',
+  'settings.ttsSub.play': '播放',
 } as const;
 
 const TTS_EN_BASE = {
@@ -465,7 +459,6 @@ const TTS_EN_BASE = {
   'settings.ttsAiRoles.hint': 'One extra model request per page (about 1–3 s). Detected male lines use Tide, female lines use Stella.',
   'settings.ttsCache': 'Audio cache',
   'settings.ttsCache.clear': 'Clear',
-  'settings.ttsCache.hint': 'On by default: generated audio is stored on this device and replayed without another request. 0 = no cache.',
   'settings.ttsTest': 'Preview',
   'settings.ttsOffline.save': 'Also save offline audio',
   'settings.ttsOffline.hint': 'While pre-building, joins each chapter into one mp3 and stores it with a per-sentence timeline under bz-reader/offline in your vault. Copy it to a phone or another vault and it plays without a network, with highlighting.',
@@ -607,9 +600,6 @@ const TTS_EN_BASE = {
   'settings.ttsEngine.notReady': 'Not set up',
   'settings.ttsEngine.systemHint': 'The system picks the voice; long sentences sometimes break awkwardly.',
   'settings.ttsLocal.urlHint': 'e.g. http://127.0.0.1:8880 — speaks /v1/audio/speech.',
-  'settings.ttsLocal.modelHint': 'Most local services leave this blank.',
-  'settings.ttsLocal.formatHint': 'mp3 is the smallest; whole-chapter pre-building needs it.',
-  'settings.ttsLocal.advanced': 'Advanced: model, key, format',
   'settings.ttsOnline.url': 'Service URL',
   'settings.ttsOnline.model': 'Model',
   'settings.ttsOnline.key': 'API key',
@@ -644,7 +634,8 @@ const TTS_EN_BASE = {
   'settings.ttsCache.title': 'Cache and offline',
   'settings.ttsDeploy': 'Self-host',
   'settings.ttsDeploy.copy': 'Copy prompt',
-  'settings.ttsDeploy.hint': 'Hand it to an AI; once installed it fills the URL and voice back in',
+  'settings.ttsSub.conn': 'Connection',
+  'settings.ttsSub.play': 'Playback',
 } as const;
 
 /* 上架版：ja / de / fr / es / pt 按各自语言译出，只列与英文不同的条目，
@@ -661,9 +652,6 @@ export const TTS_JA = {
   'settings.ttsEngine.notReady': '未設定',
   'settings.ttsEngine.systemHint': '音声は OS が決めます。長い文はときどき不自然に切れます。',
   'settings.ttsLocal.urlHint': '例：http://127.0.0.1:8880。/v1/audio/speech に対応。',
-  'settings.ttsLocal.modelHint': '多くのローカルサービスでは空欄のままで構いません。',
-  'settings.ttsLocal.formatHint': 'mp3 が最も小さく、章まるごとの事前生成はこれだけ対応しています。',
-  'settings.ttsLocal.advanced': '詳細：モデル・キー・形式',
   'settings.ttsOnline.url': 'サービス URL',
   'settings.ttsOnline.model': 'モデル',
   'settings.ttsOnline.key': 'API キー',
@@ -699,7 +687,8 @@ export const TTS_JA = {
   'settings.ttsCache.title': 'キャッシュとオフライン',
   'settings.ttsDeploy': 'セルフホスト',
   'settings.ttsDeploy.copy': 'プロンプトをコピー',
-  'settings.ttsDeploy.hint': 'AI に渡してください。導入後に URL と音声を書き戻します',
+  'settings.ttsSub.conn': '接続',
+  'settings.ttsSub.play': '再生',
 } as const;
 
 export const TTS_DE = {
@@ -713,9 +702,6 @@ export const TTS_DE = {
   'settings.ttsEngine.systemHint':
     'Die Stimme kommt vom System; lange Sätze brechen manchmal hart ab.',
   'settings.ttsLocal.urlHint': 'z. B. http://127.0.0.1:8880 — spricht /v1/audio/speech.',
-  'settings.ttsLocal.modelHint': 'Bei den meisten lokalen Diensten leer lassen.',
-  'settings.ttsLocal.formatHint': 'mp3 ist am kleinsten; ganze Kapitel vorab zu erzeugen geht nur damit.',
-  'settings.ttsLocal.advanced': 'Erweitert: Modell, Schlüssel, Format',
   'settings.ttsOnline.url': 'Dienst-URL',
   'settings.ttsOnline.model': 'Modell',
   'settings.ttsOnline.key': 'API-Schlüssel',
@@ -753,8 +739,8 @@ export const TTS_DE = {
   'settings.ttsCache.title': 'Cache und Offline',
   'settings.ttsDeploy': 'Selbst hosten',
   'settings.ttsDeploy.copy': 'Prompt kopieren',
-  'settings.ttsDeploy.hint':
-    'An eine KI geben; nach der Installation trägt sie URL und Stimme wieder ein',
+  'settings.ttsSub.conn': 'Verbindung',
+  'settings.ttsSub.play': 'Wiedergabe',
 } as const;
 
 export const TTS_FR = {
@@ -768,10 +754,6 @@ export const TTS_FR = {
   'settings.ttsEngine.systemHint':
     'La voix est choisie par le système ; les longues phrases se coupent parfois mal.',
   'settings.ttsLocal.urlHint': 'p. ex. http://127.0.0.1:8880 — parle /v1/audio/speech.',
-  'settings.ttsLocal.modelHint': 'La plupart des services locaux laissent ce champ vide.',
-  'settings.ttsLocal.formatHint':
-    'Le mp3 est le plus léger ; la pré-génération d’un chapitre entier n’existe qu’avec lui.',
-  'settings.ttsLocal.advanced': 'Avancé : modèle, clé, format',
   'settings.ttsOnline.url': 'URL du service',
   'settings.ttsOnline.model': 'Modèle',
   'settings.ttsOnline.key': 'Clé API',
@@ -810,8 +792,8 @@ export const TTS_FR = {
   'settings.ttsCache.title': 'Cache et hors ligne',
   'settings.ttsDeploy': 'Auto-héberger',
   'settings.ttsDeploy.copy': 'Copier le prompt',
-  'settings.ttsDeploy.hint':
-    'À donner à une IA ; une fois installée, elle remplit l’URL et la voix',
+  'settings.ttsSub.conn': 'Connexion',
+  'settings.ttsSub.play': 'Lecture',
 } as const;
 
 export const TTS_ES = {
@@ -825,10 +807,6 @@ export const TTS_ES = {
   'settings.ttsEngine.systemHint':
     'La voz la elige el sistema; las frases largas a veces se cortan de forma brusca.',
   'settings.ttsLocal.urlHint': 'p. ej. http://127.0.0.1:8880 — admite /v1/audio/speech.',
-  'settings.ttsLocal.modelHint': 'La mayoría de los servicios locales lo dejan vacío.',
-  'settings.ttsLocal.formatHint':
-    'El mp3 es el más ligero; la pregeneración de un capítulo entero solo existe con él.',
-  'settings.ttsLocal.advanced': 'Avanzado: modelo, clave, formato',
   'settings.ttsOnline.url': 'URL del servicio',
   'settings.ttsOnline.model': 'Modelo',
   'settings.ttsOnline.key': 'Clave de API',
@@ -867,7 +845,8 @@ export const TTS_ES = {
   'settings.ttsCache.title': 'Caché y sin conexión',
   'settings.ttsDeploy': 'Autoalojar',
   'settings.ttsDeploy.copy': 'Copiar el prompt',
-  'settings.ttsDeploy.hint': 'Dáselo a una IA; al instalarlo rellena la URL y la voz',
+  'settings.ttsSub.conn': 'Conexión',
+  'settings.ttsSub.play': 'Reproducción',
 } as const;
 
 export const TTS_PT = {
@@ -881,10 +860,6 @@ export const TTS_PT = {
   'settings.ttsEngine.systemHint':
     'A voz é escolhida pelo sistema; frases longas às vezes cortam de forma estranha.',
   'settings.ttsLocal.urlHint': 'ex.: http://127.0.0.1:8880 — aceita /v1/audio/speech.',
-  'settings.ttsLocal.modelHint': 'A maioria dos serviços locais deixa em branco.',
-  'settings.ttsLocal.formatHint':
-    'O mp3 é o menor; a pré-geração de capítulo inteiro só existe nele.',
-  'settings.ttsLocal.advanced': 'Avançado: modelo, chave, formato',
   'settings.ttsOnline.url': 'URL do serviço',
   'settings.ttsOnline.model': 'Modelo',
   'settings.ttsOnline.key': 'Chave de API',
@@ -923,5 +898,6 @@ export const TTS_PT = {
   'settings.ttsCache.title': 'Cache e offline',
   'settings.ttsDeploy': 'Auto-hospedar',
   'settings.ttsDeploy.copy': 'Copiar o prompt',
-  'settings.ttsDeploy.hint': 'Entregue a uma IA; depois de instalar, ela preenche a URL e a voz',
+  'settings.ttsSub.conn': 'Conexão',
+  'settings.ttsSub.play': 'Reprodução',
 } as const;

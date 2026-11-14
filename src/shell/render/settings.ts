@@ -115,13 +115,24 @@ function seg(name: string, opts: Array<[string, string]>, cur: string, act = 'se
   );
 }
 
-function range(k: string, label: string, val: number, min: number, max: number, step: number, fmt: (v: number) => string): string {
+function range(
+  k: string,
+  label: string,
+  val: number,
+  min: number,
+  max: number,
+  step: number,
+  fmt: (v: number) => string,
+  /* 行尾补一颗动作（2026-11-14）：缓存滑杆后面的「清空」原本单独占一行，
+     删掉那行说明以后只剩一个孤零零的按钮，索性收进滑杆这一行。 */
+  extra = '',
+): string {
   /* --fill 必须在渲染时就写：缺省 50% 会让「已填充」段和圆点对不上。
      `.bzs-range` 是移动端的手势层（见 shell/range-touch.ts）：原生滑块按下
      即跳值，手机上滚动时扫过滑轨就会误改，所以触摸由外面这层接管。 */
   return `<div class="bzs-setrow"><label>${label}</label>
     <span class="bzs-range"><input type="range" data-role="pref" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${val}" style="--fill:${rangeFill(min, max, val)}"></span>
-    <span class="val">${fmt(val)}</span></div>`;
+    <span class="val">${fmt(val)}</span>${extra}</div>`;
 }
 
 function toggle(k: string, on: boolean, label: string): string {
@@ -435,6 +446,11 @@ export function viewSettings(v: SettingsView): string {
      以前三档 seg 把所有字段堆在一起，换引擎要在一屏里找哪几行属于自己；
      现在「用哪个」和「怎么配」分成两步，一眼能看出当前在哪台引擎上。
      手机上也给本地：允许填局域网地址，连同一 Wi-Fi 的电脑。 */
+  /* 教程链接：bz 组与朗读组共用同一颗（铜色小字 + 播放图标，悬停显下划线）。
+     2026-11-14 提到朗读组之前——朗读组在页面上出现得更早，定义留在后面
+     会「使用前未声明」。 */
+  const tutBtn = (act: string, key: MsgKey): string =>
+    `<button class="bzs-bztut" data-act="${act}">${ico('video')}<span>${t(key)}</span></button>`;
   const ttsState = (id: TtsEngine): boolean =>
     ttsEngineReady({ engine: id, online: s.ttsOnline, local: s.ttsLocal });
   /* 卡上只留「名字 + 状态」：说明文字塞进三张小卡会把字挤成一片
@@ -460,15 +476,19 @@ export function viewSettings(v: SettingsView): string {
         : v || t('settings.ttsVoice.default');
   const voicePick = (engine: 'local' | 'online'): string => {
     const cur = engine === 'local' ? p.ttsVoiceLocal : p.ttsVoiceOnline;
+    /* 「音色属于模型」这句进 title：它只在换完模型之后才用得上，常驻一行
+       等于每屏都在讲一句大多数人当次不看的话（2026-11-14 版面瘦身）。 */
     return `<div class="bzs-setrow"><label>${t('settings.ttsVoice')}</label>
-      <button class="bzs-voicepick" data-act="ttsvoices" data-v="${engine}">
+      <button class="bzs-voicepick" data-act="ttsvoices" data-v="${engine}" title="${esc(
+        t('settings.ttsVoice.modelHint'),
+      )}">
         <span class="who">${esc(voiceName(cur))}</span>
         <span class="code">${esc(cur)}</span>
         ${ico('chevron-right')}
       </button></div>`;
   };
   const tts = `<div class="bzs-setgrp" id="bz-set-tts">
-      <h3>${t('settings.grp.tts')}</h3>
+      <div class="bzs-setgrp-head"><h3>${t('settings.grp.tts')}</h3>${tutBtn('ttstut', 'settings.bz.tut')}</div>
       <div class="bzs-engines">
         ${engCard(
           'online',
@@ -496,6 +516,7 @@ export function viewSettings(v: SettingsView): string {
         )}
       </div>
       ${isMobileShell() ? `<div class="bzs-mini">${t('settings.ttsEngine.mobileHint')}</div>` : ''}
+      ${p.ttsEngine === 'system' ? '' : `<div class="bzs-subh">${t('settings.ttsSub.conn')}</div>`}
       ${
         p.ttsEngine === 'online'
           ? `<div class="bzs-setrow"><label>${t('settings.ttsOnline.url')}</label>
@@ -505,8 +526,7 @@ export function viewSettings(v: SettingsView): string {
         <input data-role="setting" data-k="ttsOnline.model" value="${esc(s.ttsOnline.model)}" style="flex:1"></div>
       <div class="bzs-setrow"><label>${t('settings.ttsOnline.key')}</label>
         <input type="password" data-role="setting" data-k="ttsOnline.apiKey" value="${esc(s.ttsOnline.apiKey)}" style="flex:1"></div>
-      ${voicePick('online')}
-      <div class="bzs-mini">${t('settings.ttsVoice.modelHint')}</div>`
+      ${voicePick('online')}`
           : ''
       }
       ${
@@ -515,29 +535,23 @@ export function viewSettings(v: SettingsView): string {
         <input data-role="setting" data-k="ttsLocal.url" value="${esc(s.ttsLocal.url)}" style="flex:1">
         <button class="bzs-btn sm" data-act="ttsprobe">${t('settings.ttsProbe')}</button></div>
       <div class="bzs-mini" data-role="probe-out">${s.ttsLocal.url ? '' : t('settings.ttsLocal.urlHint')}</div>
+      <div class="bzs-setrow"><label>${t('settings.ttsLocal.model')}</label>
+        <input data-role="setting" data-k="ttsLocal.model" value="${esc(s.ttsLocal.model)}" style="flex:1"></div>
+      <div class="bzs-setrow"><label>${t('settings.ttsLocal.key')}</label>
+        <input type="password" data-role="setting" data-k="ttsLocal.apiKey" value="${esc(s.ttsLocal.apiKey)}" style="flex:1"></div>
+      <div class="bzs-setrow"><label>${t('settings.ttsLocal.format')}</label>${seg(
+        'ttsLocalFormat',
+        [
+          ['mp3', 'MP3'],
+          ['wav', 'WAV'],
+          ['opus', 'Opus'],
+        ],
+        s.ttsLocal.format,
+      )}</div>
       ${voicePick('local')}
-      <div class="bzs-mini">${t('settings.ttsVoice.modelHint')}</div>
       <div class="bzs-setrow"><label>${t('settings.ttsDeploy')}</label>
         <button class="bzs-btn sm" data-act="ttscopyprompt">${t('settings.ttsDeploy.copy')}</button>
-        <span class="bzs-mini" style="margin:0">${t('settings.ttsDeploy.hint')}</span>
-      </div>
-      <details class="bzs-adv">
-        <summary>${t('settings.ttsLocal.advanced')}</summary>
-        <div class="bzs-setrow"><label>${t('settings.ttsLocal.model')}</label>
-          <input data-role="setting" data-k="ttsLocal.model" value="${esc(s.ttsLocal.model)}" style="flex:1"></div>
-        <div class="bzs-setrow"><label>${t('settings.ttsLocal.key')}</label>
-          <input type="password" data-role="setting" data-k="ttsLocal.apiKey" value="${esc(s.ttsLocal.apiKey)}" style="flex:1"></div>
-        <div class="bzs-setrow"><label>${t('settings.ttsLocal.format')}</label>${seg(
-          'ttsLocalFormat',
-          [
-            ['mp3', 'MP3'],
-            ['wav', 'WAV'],
-            ['opus', 'Opus'],
-          ],
-          s.ttsLocal.format,
-        )}</div>
-        <div class="bzs-mini">${t('settings.ttsLocal.modelHint')}</div>
-      </details>`
+      </div>`
           : ''
       }
       ${
@@ -545,6 +559,7 @@ export function viewSettings(v: SettingsView): string {
           ? `<div class="bzs-mini">${t('settings.ttsEngine.systemHint')}</div>`
           : ''
       }
+      <div class="bzs-subh">${t('settings.ttsSub.play')}</div>
       <div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
         <button class="bzs-btn sm pri" data-act="ttstest">${t('settings.ttsTestNow')}</button>
         <span class="bzs-mini" data-role="ttstest-out"></span>
@@ -562,11 +577,16 @@ export function viewSettings(v: SettingsView): string {
         p.ttsFollow ? '1' : '0',
       )}</div>
       <div class="bzs-subh">${t('settings.ttsCache.title')}</div>
-      ${range('ttsCacheMB', t('settings.ttsCache'), p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, TTS_CACHE_RANGE.step, (x) => `${x} MB`)}
-        <div class="bzs-setrow"><label></label>
-          <span class="bzs-mini" style="margin:0;flex:1">${t('settings.ttsCache.hint')}</span>
-          <button class="bzs-btn sm" data-act="ttscacheclear">${t('settings.ttsCache.clear')}</button>
-        </div>
+      ${range(
+        'ttsCacheMB',
+        t('settings.ttsCache'),
+        p.ttsCacheMB,
+        TTS_CACHE_RANGE.min,
+        TTS_CACHE_RANGE.max,
+        TTS_CACHE_RANGE.step,
+        (x) => `${x} MB`,
+        `<button class="bzs-btn sm" data-act="ttscacheclear">${t('settings.ttsCache.clear')}</button>`,
+      )}
         ${prefToggle('ttsOfflineSave', p.ttsOfflineSave, t('settings.ttsOffline.save'))}
         <div class="bzs-setrow"><label>${t('settings.ttsOffline.title')}</label>
           <span class="bzs-mini" style="margin:0;flex:1">${
@@ -577,13 +597,12 @@ export function viewSettings(v: SettingsView): string {
           <button class="bzs-btn sm" data-act="ttsofflinereload">${t('settings.ttsOffline.reload')}</button>
           ${v.offline ? `<button class="bzs-btn sm" data-act="ttsofflinedel">${t('settings.ttsOffline.clear')}</button>` : ''}
         </div>
-        ${prefToggle('ttsPackFirst', p.ttsPackFirst, t('settings.ttsPackFirst'))}
-        <div class="bzs-setrow"><label>${t('settings.ttsBook')}</label>
-          <button class="bzs-btn sm${v.prefetchingBook ? ' pri' : ''}" data-act="ttsprefetchbook">${t(
-            v.prefetchingBook ? 'settings.ttsBook.stop' : 'settings.ttsBook.start',
-          )}</button>
-          <span class="bzs-mini" style="margin:0">${t('settings.ttsBook.hint')}</span>
+        <div class="bzs-setrow"><label title="${esc(t('settings.ttsBook.hint'))}">${t('settings.ttsBook')}</label>
+          <button class="bzs-btn sm${v.prefetchingBook ? ' pri' : ''}" data-act="ttsprefetchbook" title="${esc(
+            t('settings.ttsBook.hint'),
+          )}">${t(v.prefetchingBook ? 'settings.ttsBook.stop' : 'settings.ttsBook.start')}</button>
         </div>
+        ${prefToggle('ttsPackFirst', p.ttsPackFirst, t('settings.ttsPackFirst'))}
     </div>`;
 
   /* 标注组只剩能动手的三项：画笔、导出目录、带想法。「摘录链接」那一行没有
@@ -627,8 +646,6 @@ export function viewSettings(v: SettingsView): string {
           「关掉」这个动作，所以永远只报连没连上，不给开关。
      两项各有自己的教程：剪藏本讲成书，知识盒讲索引怎么建，共一颗就会指错。 */
   const bzOk = !!v.bz?.ok;
-  const tutBtn = (act: string, key: MsgKey): string =>
-    `<button class="bzs-bztut" data-act="${act}">${ico('video')}<span>${t(key)}</span></button>`;
   /* 剪藏成书是高级版能力（2026-11-14 补的门禁）。基础版用户在设置里看到的
      是一颗点了就弹解锁层的开关——不是灰着不动的死开关，那样人只会以为坏了。
      范围内三选只在解锁后画：没解锁时选了也不会生效，摆出来等于骗人。 */

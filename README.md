@@ -55,7 +55,7 @@
 |  | 脚注浮窗：小注不用离页 | ✓ | ✓ |
 |  | 分类管理：自建分类归书 | ✓ | ✓ |
 | **打开与导入** | Kindle 系（MOBI / AZW3）、FB2、CBZ 漫画、PDF | — | ✓ |
-|  | 剪藏成书：剪藏本合成一本 EPUB · [看视频](https://www.bilibili.com/video/BV1h3WB6XEL4) | — | ✓ |
+|  | 剪藏成书：剪藏本合成一本 EPUB · [看教程](https://www.bilibili.com/video/BV1h3WB6XEL4) | — | ✓ |
 | **PDF 阅读** | PDF 阅读：缩放、旋转、单双页、滚动 | — | ✓ |
 |  | 页缩略图：几百页也能一屏找 | — | ✓ |
 |  | 复制页链接：页码、视图、嵌入、批注 | — | ✓ |
@@ -72,9 +72,15 @@
 | **AI** | AI 解释、翻译与摘要：划词即用 | — | ✓ |
 |  | AI 全书问答：先建索引，再问整本 | — | ✓ |
 |  | AI 伴读：边读边问，按章导读 | — | ✓ |
-|  | AI 知识库：划线、想法、增量阅读存进去，提问带上笔记 · [看视频](https://www.bilibili.com/video/BV1bR4s6dEjH) | — | ✓ |
+|  | AI 知识库：划线、想法、增量阅读存进去，提问带上笔记 · [看教程](https://www.bilibili.com/video/BV1bR4s6dEjH) | — | ✓ |
+| **朗读与听书** · [看教程](https://www.bilibili.com/video/BV17psV6wEP7) | 朗读：EPUB、TXT、PDF，念完自动翻页 | ✓ | ✓ |
+|  | 三种引擎：系统语音、在线、本地自建 | ✓ | ✓ |
+|  | 音色与试听 | ✓ | ✓ |
+|  | 语速与高亮跟随 | ✓ | ✓ |
+|  | 整章预生成 | — | ✓ |
+|  | 整本预生成 | — | ✓ |
+|  | 离线听书：mp3 拷进手机照样听 | — | ✓ |
 | **阅读方式** | 竖排排版：EPUB / TXT | — | ✓ |
-|  | 朗读：EPUB、TXT 与 PDF，念完自动翻页 | — | ✓ |
 |  | 并排对照：与另一本书同步段落 | — | ✓ |
 |  | 全书鸟瞰：各章划线数与一句话摘要 | — | ✓ |
 | **探索中** | OCR 扫描件：像文字版一样选、搜、划 | — | — |
@@ -286,12 +292,18 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 |  | 全庫搜尋：PDF 正文也搜得到 | — | ✓ |
 | **AI** | AI 解釋、翻譯與摘要：劃詞即用 | — | ✓ |
 |  | AI 全書問答 | — | ✓ |
+| **朗讀與聽書** · [看教學](https://www.bilibili.com/video/BV17psV6wEP7) | 朗讀：EPUB、TXT、PDF，念完自動翻頁 | ✓ | ✓ |
+|  | 三種引擎：系統語音、線上、本機自建 | ✓ | ✓ |
+|  | 音色與試聽 | ✓ | ✓ |
+|  | 語速與高亮跟隨 | ✓ | ✓ |
+|  | 整章預先產生 | — | ✓ |
+|  | 整本預先產生 | — | ✓ |
+|  | 離線聽書：mp3 拷進手機照樣聽 | — | ✓ |
 | **進階** | 豎排排版：EPUB / TXT | — | ✓ |
-|  | 朗讀：EPUB、TXT 與 PDF，念完自動翻頁 | — | ✓ |
 |  | 與另一本書並排對照 | — | ✓ |
 |  | 全書鳥瞰 | — | ✓ |
-|  | AI 知識盒 · [看影片](https://www.bilibili.com/video/BV1bR4s6dEjH) | — | ✓ |
-|  | 剪藏成書：把剪藏本的文章合成 EPUB，在書架裡讀 · [看影片](https://www.bilibili.com/video/BV1h3WB6XEL4) | — | ✓ |
+|  | AI 知識盒 · [看教學](https://www.bilibili.com/video/BV1bR4s6dEjH) | — | ✓ |
+|  | 剪藏成書：把剪藏本的文章合成 EPUB，在書架裡讀 · [看教學](https://www.bilibili.com/video/BV1h3WB6XEL4) | — | ✓ |
 | **探索中** | PDF OCR+AI視覺：掃描件像文字版一樣能選能搜能劃 | — | — |
 |  | PDF 重排：固定版式也能流式讀 | — | — |
 |  | 漫畫模式：分格、右到左、跨頁 | — | — |

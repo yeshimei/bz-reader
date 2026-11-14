@@ -16,7 +16,7 @@ import { PLAN_GROUP_TEXT_PACK, PLAN_TEXT_PACK, planGroupLabel, planGroupNameZh, 
  * 写进表里是为了让「高级版能力只增不减」有落点，但不能假装已经能用：
  *   · 八行两版都不打勾（free / pro 都是 no），也不挂能力位；
  *   · 段名「探索中」说明状态，行里不再加「开发中」小字；
- *   · 不进合计——图上基础版 8 项、高级版 29 项保持不变。
+ *   · 不进合计——图上基础版 12 项、高级版 37 项保持不变。
  */
 
 const CJK = /[\u4e00-\u9fff]/;
@@ -73,18 +73,24 @@ describe('对照表 · 探索中段的位置与内容', () => {
     expect(names.has('探索中')).toBe(false);
   });
 
-  it('探索行不计入已实现项：基础版 8、高级版 31、共 38 行', () => {
-    expect(PLAN_TABLE.filter((r) => r.pro === 'yes')).toHaveLength(31);
-    expect(PLAN_TABLE.filter((r) => r.free === 'yes')).toHaveLength(8);
-    expect(PLAN_TABLE).toHaveLength(38);
+  it('探索行不计入已实现项：基础版 12、高级版 37、共 44 行', () => {
+    expect(PLAN_TABLE.filter((r) => r.pro === 'yes')).toHaveLength(37);
+    expect(PLAN_TABLE.filter((r) => r.free === 'yes')).toHaveLength(12);
+    expect(PLAN_TABLE).toHaveLength(44);
   });
 
-  it('知识库之后是阅读方式，再往后才是探索段', () => {
+  it('知识库之后是朗读与听书、阅读方式，再往后才是探索段', () => {
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
     expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key)).toEqual([
-      'vertical',
       'tts',
+      'ttsEngine',
+      'ttsVoice',
+      'ttsRate',
+      'ttsChapter',
+      'ttsWhole',
+      'ttsOffline',
+      'vertical',
       'parallel',
       'bookmap',
       ...EXPLORE_ROWS,

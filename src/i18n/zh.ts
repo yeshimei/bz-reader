@@ -714,7 +714,7 @@ export const ZH = {
   /* ── 解锁弹层：功能对照表 ─────────────────────────────── */
   'unlock.title': '高级版',
   'unlock.activated': '已激活',
-  'unlock.watchVideo': '看视频',
+  'unlock.watchVideo': '看教程',
   'unlock.col.feature': '功能',
   'unlock.col.base': '基础版',
   'unlock.col.base.sub': '免费 · 不限时',

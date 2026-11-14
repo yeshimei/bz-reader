@@ -8,19 +8,20 @@
  * 这条守两件事：
  *   1. README 顶部的推荐视频必须还是 `VIDEO_TUTORIAL_URL`；
  *   2. README 里出现的每条 B 站视频，必须是 `core/links.ts` 里登记过的那几条
- *      （2026-11-14 起功能表里还有两条专属教程：AI 知识盒与剪藏成书）。
+ *      （2026-11-14 起功能表里还有三条专属教程：AI 知识盒、剪藏成书、
+ *      朗读与听书）。
  *
  * 加新视频时：先往 links.ts 加常量，再来这里登记，最后改 README——
  * 任何一步漏掉都会在这里红，而不是等用户点开一条 404。
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { AI_TUTORIAL_URL, CLIP_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../src/core/links';
+import { AI_TUTORIAL_URL, CLIP_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../src/core/links';
 
 const VIDEO_LINK = /https:\/\/www\.bilibili\.com\/video\/[A-Za-z0-9]+/g;
 
 /** 插件里登记过的全部教程视频 */
-const KNOWN = new Set([VIDEO_TUTORIAL_URL, AI_TUTORIAL_URL, CLIP_TUTORIAL_URL]);
+const KNOWN = new Set([VIDEO_TUTORIAL_URL, AI_TUTORIAL_URL, CLIP_TUTORIAL_URL, TTS_TUTORIAL_URL]);
 
 describe('README · 视频教程地址', () => {
   it('顶部推荐视频仍是 VIDEO_TUTORIAL_URL', () => {
