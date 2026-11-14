@@ -11,6 +11,7 @@
  * ============================================================ */
 import { ACCENT_OPTIONS, FONT_FAMILIES, type AccentName, type ReaderPrefs } from '../data/prefs';
 import { isMobileEnv } from '../core/mobile';
+import { speechHighlightCss } from './speech-highlight';
 
 export interface ResolvedTheme {
   textColor: string;
@@ -108,6 +109,10 @@ export function buildChapterCSS(prefs: ReaderPrefs): string {
     字距在最后一个字后面也会留一份，居中时整体看着偏左半个字距，用等量的
     首行缩进抵回来，标题长一点短一点都还是正的。 */
 const h1Span = prefs.columns === 2 ? 'column-span: all !important;' : '';
+/* 朗读高亮（`speechHighlightCss`）必须跟正文样式一起注入书页文档：
+   `::highlight()` 是伪元素，宿主 styles.css 管不到 iframe 里。
+   注意别把中文注释写进下面这个模板字符串——那是字符串内容，
+   `tests/no-hardcoded-zh` 会当成界面文案计入。 */
 return `
 html {
   /* 分页器每页的上下留白（columns 的 padding 读这两个变量） */
@@ -184,5 +189,6 @@ body > div, body > section { max-width: none !important; }
   --overlayer-highlight-opacity: ${theme.dark ? '0.34' : '0.42'};
   --overlayer-highlight-blend-mode: ${theme.dark ? 'normal' : 'multiply'};
 }
+${speechHighlightCss(accent)}
 `;
 }

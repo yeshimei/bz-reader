@@ -61,19 +61,6 @@ export function overlapsSpan(box: Box, span: Span, height: number): boolean {
   return true;
 }
 
-/**
- * 朗读高亮的那一行在不在当前页上（2026-11-14）。
- *
- * 描出来的框必须和「读的是不是这一屏」一致：分栏模式下 `getClientRects()`
- * 给的是整章布局坐标，屏外的句子照样有矩形，照画就会把框画到看不见的地方；
- * 更糟的是视图层用「有没有框」判断这句在不在眼前，框一多就永远不翻页
- * （真机表现：整章播完，页面一动不动）。所以这里跟 `overlapsSpan` 同一套
- * 边界规则，只是作用在单行矩形上。
- *
- * `span` 为 null（拿不到 iframe 位置，比如滚动模式）时一律放行：宁可框歪，
- * 也别把高亮整个吞掉。
- */
-export function lineInSpan(rect: { left: number; right: number }, span: Span | null): boolean {
-  if (!span) return true;
-  return rect.right > span.x0 && rect.left < span.x1;
-}
+/* 2026-11-14 删掉 lineInSpan：高亮不再逐行裁矩形（交给浏览器排版），
+   「这句在不在眼前」改由 core/tts-anchor.ts 的 anyRectInView 在 iframe
+   视口内判断。 */

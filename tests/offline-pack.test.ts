@@ -205,6 +205,12 @@ describe('清单读写', () => {
     expect(parseOfflineBook(book({ version: 0 }))).toBeNull();
   });
 
+  /* 2026-11-14 升到 v2：旧包的高亮是按文本搜索配的，新路径按块内偏移
+     定位，两代混着用会把问题说不清。插件还在开发阶段，直接不认。 */
+  it('第一代包（v1）不认', () => {
+    expect(parseOfflineBook(book({ version: 1 }))).toBeNull();
+  });
+
   it('缺书名字段不认', () => {
     expect(parseOfflineBook(book({ title: '' }))).toBeNull();
     expect(parseOfflineBook(book({ title: 123 }))).toBeNull();

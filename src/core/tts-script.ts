@@ -22,6 +22,14 @@ export type ScriptKind = 'narration' | 'dialogue';
 export interface ScriptBlock {
   /** 一段的纯文本（段落内不保留换行） */
   text: string;
+  /**
+   * 原始 textContent（2026-11-14）。
+   *
+   * 切句的 `at` / `len` 是相对**它**记的：`text` 把空白压成了一个空格，
+   * 长度已经变了，拿它当偏移基准，DOM 那边一定对不上。给了 raw 就用 raw，
+   * 没给就退回 text（老调用方 / 测试）。
+   */
+  raw?: string;
   /** 原段落标签（p / h2 / blockquote …），高亮定位用，可缺省 */
   tag?: string;
 }
@@ -31,6 +39,15 @@ export interface ScriptSegment {
   text: string;
   /** 这段来自第几个 block（可能合并了多个） */
   blocks: number[];
+  /**
+   * 这一句在 `blocks[0]` 原始文本里的起点与长度（2026-11-14）。
+   *
+   * 高亮**只认这个**，不再拿 text 去 DOM 里搜：同一块里的重复短语、
+   * 标点差异、正文改过，都会让文本搜索命到别处。区间是建脚本时算好的，
+   * 播放时按块序号 + 字符偏移直接造 Range，没有第二种解释。
+   */
+  at: number;
+  len: number;
 }
 
 /** 一段合并到多少字就断开。太长：首句要等整段合成完；太短：请求数爆炸。 */
@@ -66,6 +83,87 @@ const CLOSERS = new Set(Object.values(QUOTE_PAIRS));
 /** 段首破折号（中文小说里常见的对白排版） */
 const DASH_DIALOGUE = /^\s*(?:——|—|--)\s*/;
 
+/** 原文里的一段（相对整块原始文本） */
+interface Span {
+  at: number;
+  len: number;
+}
+
+/** 两端去空白后的区间；全空白返回 null */
+function trimSpan(src: string, at: number, end: number): Span | null {
+  let a = at;
+  let b = end;
+  while (a < b && /\s/.test(src[a])) a += 1;
+  while (b > a && /\s/.test(src[b - 1])) b -= 1;
+  return b > a ? { at: a, len: b - a } : null;
+}
+
+/** 区间 → 可念文本：空白压成一个空格，两端不留 */
+function speakable(src: string, span: Span): string {
+  return src.slice(span.at, span.at + span.len).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * 按引号切分，**保留每段在原文里的区间**。
+ *
+ * 规则与 `splitQuotes` 逐条相同，只是不返回字符串：给的是 `at` / `len`，
+ * 由调用方自己决定要不要转成可念文本。引号本身不落在任何区间里。
+ */
+function splitQuoteSpans(src: string): Array<{ kind: ScriptKind } & Span> {
+  if (!src.trim()) return [];
+
+  /* 段首破折号：整段对白，不用再找引号 */
+  const dash = src.match(DASH_DIALOGUE);
+  if (dash) {
+    const body = trimSpan(src, dash[0].length, src.length);
+    if (!body || !speakable(src, body)) return [];
+    return [{ kind: 'dialogue', ...body }];
+  }
+
+  const out: Array<{ kind: ScriptKind } & Span> = [];
+  const stack: string[] = [];
+  let kind: ScriptKind = 'narration';
+  let from = 0;
+
+  /* 一段结束：把 [from, to) 收成一条。开 / 闭引号自身落在区间外——
+     念出来是多余的停顿；但原文里它们占着位置，所以下一段从 +1 起。 */
+  const flush = (to: number): void => {
+    const span = trimSpan(src, from, to);
+    if (span && speakable(src, span)) out.push({ kind, ...span });
+  };
+
+  for (let i = 0; i < src.length; i += 1) {
+    const ch = src[i];
+    const opening = OPENERS.has(ch);
+    const closing = CLOSERS.has(ch);
+    /* 中文引号成对，直接开；英文直引号只有「不在引号里」时才算开 */
+    if (opening && !(ch === '"' && stack.length && stack[stack.length - 1] === '"')) {
+      if (!stack.length) {
+        flush(i);
+        kind = 'dialogue';
+        from = i + 1;
+      }
+      /* 内层引号留在本段里，字符照常算进区间 */
+      stack.push(ch);
+      continue;
+    }
+    if (closing && stack.length) {
+      const top = stack[stack.length - 1];
+      if (QUOTE_PAIRS[top] === ch) {
+        stack.pop();
+        if (!stack.length) {
+          flush(i);
+          kind = 'narration';
+          from = i + 1;
+        }
+      }
+    }
+  }
+  /* 引号没闭合：剩下的都算对话，不能让半句对白变旁白 */
+  flush(src.length);
+  return out;
+}
+
 /**
  * 按引号把一段文字拆成旁白 / 对话。
  *
@@ -74,60 +172,7 @@ const DASH_DIALOGUE = /^\s*(?:——|—|--)\s*/;
  */
 export function splitQuotes(text: string): Array<{ kind: ScriptKind; text: string }> {
   const src = String(text ?? '');
-  if (!src.trim()) return [];
-
-  /* 段首破折号：整段对白，不用再找引号 */
-  if (DASH_DIALOGUE.test(src)) {
-    const body = src.replace(DASH_DIALOGUE, '').trim();
-    return body ? [{ kind: 'dialogue', text: body }] : [];
-  }
-
-  const out: Array<{ kind: ScriptKind; text: string }> = [];
-  const stack: string[] = [];
-  let buf = '';
-  let kind: ScriptKind = 'narration';
-
-  const flush = (next: ScriptKind): void => {
-    const body = buf.trim();
-    if (body) out.push({ kind, text: body });
-    buf = '';
-    kind = next;
-  };
-
-  for (const ch of src) {
-    const opening = OPENERS.has(ch);
-    const closing = CLOSERS.has(ch);
-    /* 中文引号成对，直接开；英文直引号只有「不在引号里」时才算开 */
-    if (opening && !(ch === '"' && stack.length && stack[stack.length - 1] === '"')) {
-      if (!stack.length) {
-        flush('dialogue');
-        /* 开引号本身不进朗读文本：念出来是多余的停顿。栈要记住它，
-           否则英文直引号第二个会被当成又一个开头（整段都变对白）。 */
-        stack.push(ch);
-        continue;
-      }
-      /* 内层引号：保留字符，内容仍归外层 */
-      stack.push(ch);
-      buf += ch;
-      continue;
-    }
-    if (closing && stack.length) {
-      const top = stack[stack.length - 1];
-      if (QUOTE_PAIRS[top] === ch) {
-        stack.pop();
-        if (!stack.length) {
-          flush('narration');
-          continue;
-        }
-        buf += ch;
-        continue;
-      }
-    }
-    buf += ch;
-  }
-  /* 引号没闭合：剩下的都算对话，不能让半句对白变旁白 */
-  flush(stack.length ? 'dialogue' : 'narration');
-  return out;
+  return splitQuoteSpans(src).map((p) => ({ kind: p.kind, text: speakable(src, p) }));
 }
 
 /**
@@ -142,24 +187,35 @@ export function splitQuotes(text: string): Array<{ kind: ScriptKind; text: strin
  * （少于 6 字，常见于「“是。”」）并进前一句，免得为两个字单跑一次请求。
  */
 export function splitSentences(text: string): string[] {
-  const src = String(text ?? '').replace(/\s+/g, ' ').trim();
-  if (!src) return [];
-  const parts: string[] = [];
-  let buf = '';
-  for (let i = 0; i < src.length; i += 1) {
-    buf += src[i];
+  const src = String(text ?? '');
+  const span = trimSpan(src, 0, src.length);
+  if (!span) return [];
+  return splitSentenceSpans(src, span).map((s) => s.text);
+}
+
+/** 同上，但返回区间：`at` / `len` 相对整块原始文本 */
+function splitSentenceSpans(src: string, base: Span): Array<Span & { text: string }> {
+  const end = base.at + base.len;
+  const out: Array<Span & { text: string }> = [];
+
+  const push = (a: number, b: number): void => {
+    const span = trimSpan(src, a, b);
+    if (!span) return;
+    const text = speakable(src, span);
+    if (!text || !readable(text)) return;
+    out.push({ ...span, text });
+  };
+
+  let from = base.at;
+  for (let i = base.at; i < end; i += 1) {
     if (!SENTENCE_END.test(src[i])) continue;
-    while (i + 1 < src.length && SENTENCE_END.test(src[i + 1])) {
-      buf += src[i + 1];
-      i += 1;
-    }
-    const one = buf.trim();
-    if (one && readable(one)) parts.push(one);
-    buf = '';
+    /* 连续标点（「！？」「……」）一起收尾，不拆成两句 */
+    while (i + 1 < end && SENTENCE_END.test(src[i + 1])) i += 1;
+    push(from, i + 1);
+    from = i + 1;
   }
-  const tail = buf.trim();
-  if (tail && readable(tail)) parts.push(tail);
-  return mergeShort(parts);
+  push(from, end);
+  return mergeShortSpans(src, out);
 }
 
 /**
@@ -177,12 +233,17 @@ function readable(text: string): boolean {
 const SENTENCE_END = /[。！？；!?;…]/;
 const SHORT_SENTENCE = 6;
 
-function mergeShort(parts: readonly string[]): string[] {
-  const out: string[] = [];
+function mergeShortSpans(
+  src: string,
+  parts: Array<Span & { text: string }>,
+): Array<Span & { text: string }> {
+  const out: Array<Span & { text: string }> = [];
   for (const s of parts) {
     const prev = out[out.length - 1];
-    if (prev !== undefined && (s.length < SHORT_SENTENCE || prev.length < SHORT_SENTENCE)) {
-      out[out.length - 1] = prev + s;
+    if (prev && (s.text.length < SHORT_SENTENCE || prev.text.length < SHORT_SENTENCE)) {
+      /* 合并后区间连成一片：从上一句的起点到这一句的终点，中间的空白一起包进来 */
+      const merged: Span = { at: prev.at, len: s.at + s.len - prev.at };
+      out[out.length - 1] = { ...merged, text: speakable(src, merged) };
       continue;
     }
     out.push(s);
@@ -203,9 +264,17 @@ export function buildScript(
 ): ScriptSegment[] {
   const out: ScriptSegment[] = [];
   blocks.forEach((block, index) => {
-    for (const piece of splitQuotes(block.text)) {
-      for (const sentence of splitSentences(piece.text)) {
-        out.push({ kind: piece.kind, text: sentence, blocks: [index] });
+    const raw = String(block.raw ?? block.text ?? '');
+    if (!raw) return;
+    for (const piece of splitQuoteSpans(raw)) {
+      for (const sentence of splitSentenceSpans(raw, piece)) {
+        out.push({
+          kind: piece.kind,
+          text: sentence.text,
+          blocks: [index],
+          at: sentence.at,
+          len: sentence.len,
+        });
       }
     }
   });

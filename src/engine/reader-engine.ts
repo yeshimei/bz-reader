@@ -15,6 +15,7 @@ import type { ReaderPrefs } from '../data/prefs';
 import type { FoliateTOCItem } from '../types/foliate';
 import type { HostAnnotation, MountOptions, SearchHit } from './host';
 import { EngineHost } from './host';
+import type { Anchor } from '../core/tts-anchor';
 import { PdfEngineHost } from './pdf/host';
 
 /**
@@ -122,31 +123,43 @@ export interface ReaderEngine {
    * 与 `currentText()` 的分工：那个给 AI 看，压平即可；这个要保段落边界，
    * 否则整页只有一个声音。PDF 没有块结构，不实现。
    */
-  currentBlocks?(): Array<{ tag: string; text: string }>;
+  currentBlocks?(): Array<{ tag: string; text: string; raw: string }>;
   /** 当前章的全部段落（预生成整章音频用） */
-  currentChapterBlocks?(): Array<{ tag: string; text: string }>;
+  currentChapterBlocks?(): Array<{ tag: string; text: string; raw: string }>;
   /** 当前章标题（预生成 / 导出音频命名用） */
   currentChapterTitle?(): string;
-  /** 正在念的那一句在宿主坐标里的矩形（视图层画框用）；不实现就不高亮 */
-  speechRects?(indexes: readonly number[], text: string): Array<{ left: number; top: number; width: number; height: number }>;
   /**
-   * 同上，但按**整章块序号**定位（离线包朗读用，2026-11-14）。
+   * 句子锚点 → 这一句的 Range（页级，逐句朗读用）。不实现就不高亮。
    *
-   * 和 `speechRects` 必须是两份坐标表：页级那份会被任何一次「取当前页
+   * 2026-11-14 起不再返回「宿主坐标里的矩形」：高亮在 iframe 内注册
+   * CSS Custom Highlight，坐标交给浏览器排版，视图层不画框。
+   */
+  speechRange?(anchor: Anchor): Range | null;
+  /**
+   * 同上，但按**整章块序号**定位（离线包朗读用）。
+   *
+   * 和 `speechRange` 必须是两份坐标表：页级那份会被任何一次「取当前页
    * 文字」重置，拿它配整章序号就是整体偏移。
    */
-  speechRectsChapter?(
-    indexes: readonly number[],
-    text: string,
-  ): Array<{ left: number; top: number; width: number; height: number }>;
+  speechRangeChapter?(anchor: Anchor): Range | null;
+  /** 这一句落在哪个书页文档里（高亮要在它自己的 realm 里注册） */
+  speechDoc?(anchor: Anchor, chapter?: boolean): Document | null;
   /**
-   * 把某一句滚到眼前（离线整章播放跟随用，2026-11-14）。
+   * 这一句在不在眼前（跟随用）。
    *
-   * 交给分页器自己按 range 算页码（foliate-js 的 tts.js 同一套做法），
-   * 不在这里做「在不在屏上」的几何判断——分栏模式有两套坐标系，怎么比
-   * 都是错的。返回 false 表示拿不到位置，调用方别再重试。
+   * 只在 iframe 视口内比，不搬宿主坐标——分栏模式下 `getClientRects()`
+   * 是当前栏的视口坐标，屏外那一栏是负数或大于宽度。
    */
-  revealSentence?(indexes: readonly number[], text: string): Promise<boolean>;
+  speechInView?(anchor: Anchor, chapter?: boolean): boolean;
+  /**
+   * 把某一句滚到眼前（离线整章播放跟随用）。
+   *
+   * 交给分页器按 Range 算页码（foliate-js 的 tts.js 同一套做法）。
+   * 返回 false 表示拿不到位置，调用方别再重试。
+   */
+  revealAnchor?(anchor: Anchor, chapter?: boolean): Promise<boolean>;
+  /** 兜底高亮：老内核没有 CSS Custom Highlight 时用（覆盖层） */
+  drawSpeechOverlay?(anchor: Anchor, chapter?: boolean): boolean;
   clearSpeechMark?(): void;
   exportChapters(opts?: {
     onProgress?: (done: number, total: number, title: string) => void;

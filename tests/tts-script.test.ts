@@ -122,6 +122,54 @@ describe('朗读脚本', () => {
   });
 });
 
+/* 2026-11-14 新方案：高亮不再靠文本搜索定位，每句自带「原文区间」。
+   at/len 相对块的**原始** textContent（引号、破折号、空白都算在原文里），
+   朗读用的 text 仍是规范化后的可念文本。两者必须指向同一段原文。 */
+describe('句子锚点（原文区间）', () => {
+  it('多句：每句的 at/len 精确落在原文上', () => {
+    const raw = '这是一句足够长的旁白文字。这是第二句够长的话。';
+    const segs = buildScript([{ text: raw, raw }]);
+    expect(segs.map((s) => raw.slice(s.at, s.at + s.len))).toEqual([
+      '这是一句足够长的旁白文字。',
+      '这是第二句够长的话。',
+    ]);
+  });
+
+  it('引号不进朗读文本，但区间跳过引号本身', () => {
+    const raw = '他推开门，屋里很暗。“谁？”一个女人的声音。';
+    const segs = buildScript([{ text: raw, raw }]);
+    expect(segs.map((s) => s.text)).toEqual(['他推开门，屋里很暗。', '谁？', '一个女人的声音。']);
+    expect(segs.map((s) => s.at)).toEqual([0, 11, 14]);
+    expect(segs.map((s) => s.len)).toEqual([10, 2, 8]);
+  });
+
+  it('换行与缩进不挪动区间', () => {
+    const raw = '第一句话足够长。\n\n  第二句话也够长。';
+    const segs = buildScript([{ text: raw.replace(/\s+/g, ' ').trim(), raw }]);
+    expect(segs.map((s) => raw.slice(s.at, s.at + s.len).replace(/\s+/g, ' '))).toEqual([
+      '第一句话足够长。',
+      '第二句话也够长。',
+    ]);
+  });
+
+  it('短句合并后区间连成一片', () => {
+    const raw = '这是一句足够长的话。好。';
+    const segs = buildScript([{ text: raw, raw }]);
+    expect(segs).toHaveLength(1);
+    expect(segs[0].at).toBe(0);
+    expect(segs[0].len).toBe(raw.length);
+  });
+
+  it('没有 raw 时区间相对 text 本身，不崩', () => {
+    const text = '这是一句足够长的旁白文字。这是第二句够长的话。';
+    const segs = buildScript([{ text }]);
+    expect(segs.map((s) => text.slice(s.at, s.at + s.len))).toEqual([
+      '这是一句足够长的旁白文字。',
+      '这是第二句够长的话。',
+    ]);
+  });
+});
+
 describe('计费口径', () => {
   it('汉字算 2、英文字母与空格算 1', () => {
     expect(billedChars('中文')).toBe(4);

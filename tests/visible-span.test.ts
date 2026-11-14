@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lineInSpan, overlapsSpan, visibleSpan } from '../src/engine/visible-span';
+import { overlapsSpan, visibleSpan } from '../src/engine/visible-span';
 
 /** 阅读区：桌面侧栏 344px + 正文 680px（真机 1024 宽窗口） */
 const HOST = { left: 344, width: 680 };
@@ -51,37 +51,5 @@ describe('overlapsSpan', () => {
   });
 });
 
-describe('lineInSpan', () => {
-  /* 朗读高亮画的是一行一行的矩形，不是段落外接框：一句话在屏外时
-     `getClientRects()` 仍然会给出整章布局坐标，不裁就会把框画到看不见的
-     地方，上层还会据此以为「这句在眼前」，自动翻页永远不触发 */
-  const span = { x0: 1530, x1: 2554 };
-
-  it('落在当前页的那一行要画', () => {
-    expect(lineInSpan({ left: 1600, right: 2200 }, span)).toBe(true);
-  });
-
-  it('上一页的行不画', () => {
-    expect(lineInSpan({ left: 32, right: 1233 }, span)).toBe(false);
-  });
-
-  it('下一页的行不画', () => {
-    expect(lineInSpan({ left: 2600, right: 3200 }, span)).toBe(false);
-  });
-
-  it('跨页的那一行只要压到当前页就画（后半个字还在屏上）', () => {
-    expect(lineInSpan({ left: 2400, right: 2700 }, span)).toBe(true);
-  });
-
-  it('右边缘正好等于页起点时不画', () => {
-    expect(lineInSpan({ left: 1200, right: 1530 }, span)).toBe(false);
-  });
-
-  it('左边缘正好等于页终点时不画', () => {
-    expect(lineInSpan({ left: 2554, right: 2700 }, span)).toBe(false);
-  });
-
-  it('没有可见区间（拿不到 iframe 位置）时一律照画，别把高亮吞掉', () => {
-    expect(lineInSpan({ left: 32, right: 1233 }, null)).toBe(true);
-  });
-});
+/* lineInSpan 已删（2026-11-14）：高亮不再逐行裁矩形，「在不在眼前」
+   改由 tts-anchor.test.ts 的 anyRectInView 覆盖。 */

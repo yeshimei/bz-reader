@@ -34,6 +34,7 @@ import { applyEngineMeta } from '../data/book-meta';
 import { coverPathOf, ensureCoverFromFoliate } from '../data/cover';
 import { speak, speakLang, type SpeakHandle } from '../core/speak';
 import { billedChars, buildScript, estimateCost, startPointOf, ttsLangSupported, type ScriptKind, type ScriptSegment } from '../core/tts-script';
+import { applySpeechHighlight, clearSpeechHighlight } from '../engine/speech-highlight';
 import type { TtsErrorCode } from '../core/tts-api';
 import { isFreeEngine, synthesizeFor, ttsCacheTag, ttsEngineReady, ttsMimeOf, type TtsRoute } from '../core/tts-engine';
 import { concatMp3, type LocalRequester } from '../core/tts-local';
@@ -405,8 +406,15 @@ export class ReaderView extends ItemView {
   private voice: SpeakHandle | null = null;
   private ttsPlayer: TtsPlayer | null = null;
   private ttsBarEl: HTMLElement | null = null;
-  /** 正在念的那一句的框（宿主坐标，一句可能跨几行） */
-  private ttsMarks: HTMLElement[] = [];
+  /**
+   * 正在念的那一句挂在哪份书页文档上（2026-11-14）。
+   *
+   * 高亮在 iframe 自己的 `CSS.highlights` 里注册，停止 / 换句时要落到
+   * **同一份文档**去删——宿主那份注册表管不到书页。
+   */
+  private speechDoc: Document | null = null;
+  /** 这一句有没有画上（跟随用它决定要不要翻页） */
+  private speechShown = false;
   private ttsIndex = 0;
   private ttsKind: ScriptKind = 'narration';
   private ttsSnippet = '';
@@ -1916,7 +1924,8 @@ export class ReaderView extends ItemView {
         this.ttsIndex = index;
         this.ttsKind = seg.kind;
         this.ttsSnippet = snippetOf(seg.text);
-        this.showSpeechMark(this.host.speechRects?.(seg.blocks, seg.text) ?? []);
+        /* 逐句朗读不翻页（念完一页才由 onPageSpoken 翻），直接画 */
+        this.paintSpeech(seg, false);
         this.renderTtsBar();
       },
       /* 本地免费：整页都备，才追得上「点一下就一直念」；云端按字计费，
@@ -2082,11 +2091,10 @@ export class ReaderView extends ItemView {
         this.ttsIndex = index;
         this.ttsKind = seg.kind;
         this.ttsSnippet = snippetOf(seg.text);
-        this.showSpeechMark(this.host.speechRectsChapter?.(seg.blocks, seg.text) ?? []);
         this.renderTtsBar();
-        /* 念到屏幕外的句子：翻过去跟上。放在画框之后——先框住这一页能看到的
-           部分，再去翻页，中间不会有一帧空白 */
-        void this.followOffline();
+        /* 跟随改成「先翻页、再画」（2026-11-14）：高亮挂在 Range 上跟文字
+           走，翻完再画一定落在新页；反过来是先按旧页坐标画一帧再去纠正 */
+        void this.followOffline(seg);
       },
       onEnd: () => {
         /* 整章播完：包里还有下一章就接着念（2026-11-14 用户要求）。
@@ -2351,25 +2359,45 @@ export class ReaderView extends ItemView {
    * 用宿主上的绝对定位 div，不用 foliate 的 overlayer：分栏模式下后者的
    * 坐标系跟宿主对不上，框会画到侧栏外侧。矩形由引擎统一换算成宿主坐标。
    */
-  private showSpeechMark(rects: Array<{ left: number; top: number; width: number; height: number }>): void {
+  /**
+   * 把「正在念的这一句」高亮出来（2026-11-14 换的做法）。
+   *
+   * 不再算矩形、不再在宿主里画 div：拿到这一句的 Range 就注册进**书页
+   * 文档自己的** CSS Custom Highlight，排版、翻页、缩放、双栏、竖排全交给
+   * 浏览器。以前那条链要把 rect 乘 scale、减 span.x0、加 viewBox.left，
+   * 翻页时任何一环没跟上就整体偏——真机表现正是「离线朗读的高亮偏几个字，
+   * 实时朗读不偏」。
+   *
+   * 老内核没有这个 API 时退回 foliate 的覆盖层（仍在 iframe 内画 SVG）。
+   */
+  private paintSpeech(seg: ScriptSegment, chapter: boolean): void {
     this.clearSpeechMark();
-    const root = this.rootEl;
-    if (!root || !rects.length) return;
-    const base = root.getBoundingClientRect();
-    for (const r of rects) {
-      const box = el('div', 'bzr-tts-mark');
-      box.style.left = `${r.left - base.left}px`;
-      box.style.top = `${r.top - base.top}px`;
-      box.style.width = `${r.width}px`;
-      box.style.height = `${r.height}px`;
-      root.appendChild(box);
-      this.ttsMarks.push(box);
+    const anchor = { block: seg.blocks[0] ?? -1, at: seg.at, len: seg.len };
+    if (anchor.block < 0) return;
+    const range = chapter
+      ? (this.host.speechRangeChapter?.(anchor) ?? null)
+      : (this.host.speechRange?.(anchor) ?? null);
+    if (!range) return;
+    const doc = range.startContainer.ownerDocument;
+    if (doc) {
+      this.speechDoc = doc;
+      if (applySpeechHighlight(doc, range)) {
+        this.speechShown = true;
+        return;
+      }
     }
+    /* 兜底：覆盖层也是按 Range 画的，只是要在翻页后 redraw */
+    this.speechShown = chapter
+      ? Boolean(this.host.drawSpeechOverlay?.(anchor, true) ?? false)
+      : Boolean(this.host.drawSpeechOverlay?.(anchor) ?? false);
   }
 
   private clearSpeechMark(): void {
-    for (const box of this.ttsMarks) box.remove();
-    this.ttsMarks = [];
+    if (this.speechDoc) clearSpeechHighlight(this.speechDoc);
+    this.speechDoc = null;
+    this.speechShown = false;
+    /* 兜底那条路画的是覆盖层图形，一并不收会留在页上 */
+    this.host.clearSpeechMark?.();
   }
 
   private onTtsBarClick(ev: MouseEvent): void {
@@ -2727,21 +2755,7 @@ export class ReaderView extends ItemView {
     });
   }
 
-  /**
-   * 翻页之后把「正在念的这一句」重新框一次。
-   *
-   * 离线播的是整章，人翻到新一页时当前句可能就在这页上；不重画就要等下一句
-   * 才亮，中间那段看着像「高亮坏了」。
-   *
-   * 2026-11-14：整章块坐标改成单独一份（`speechRectsChapter`），不再靠
-   * 「每次重画前按整章重填」——那份表和页级共用时，任何一次取当前页文字
-   * 都会把它顶掉，整章往后全偏。
-   */
-  private repaintOfflineMark(): void {
-    const seg = this.offlineSegments?.[this.ttsIndex];
-    if (!seg) return;
-    this.showSpeechMark(this.host.speechRectsChapter?.(seg.blocks, seg.text) ?? []);
-  }
+
 
   /**
    * 删掉这本书的离线音频（只删 `bz-reader/offline/<书名>/`）。
@@ -2770,24 +2784,26 @@ export class ReaderView extends ItemView {
    * 在线朗读是一页一页念的，翻页由「念完这页」触发；离线包是整章连着放，
    * 音频不会等人——念到下一屏时如果页面还停着，用户就只听声看不着字。
    *
-   * 翻页交给分页器（`revealSentence` → `scrollToAnchor(range)`，foliate-js
-   * 自己的 TTS 也是这么跟的）。在宿主侧自己比矩形、调 `next()` 走过四遍
-   * 都是死路：分栏模式下块与 `getClientRects()` 是整章布局坐标，`innerWidth`
-   * 却是当前一栏，两套坐标系混着比，整章永远「在眼前」，一次都不会翻。
+   * 顺序是「先翻、再画」：这句不在眼前就先让分页器滚过去（`revealAnchor`
+   * → `scrollToAnchor(range)`），落定之后再注册高亮。高亮挂在 Range 上跟
+   * 文字走，翻完再画一定落在新页；反过来是先按旧页画一帧再纠正。
    *
-   * `speechRects` 只给屏内的行返回矩形，所以「有框」就等于「已经在眼前」。
+   * 判「在不在眼前」只看 iframe 视口（`speechInView`）：分栏模式下
+   * `getClientRects()` 就是当前栏的视口坐标，屏外那一栏是负数或大于宽度。
+   * 以前把矩形搬回宿主跟阅读区比，四个换算量串成一条链，翻一页偏一次。
    */
-  private async followOffline(): Promise<void> {
-    if (!this.offlinePlayer || !this.prefs.ttsFollow || this.closed) return;
-    if (this.ttsMarks.length) return;
-    const seg = this.offlineSegments?.[this.ttsIndex];
-    if (!seg) return;
-    const moved = (await this.host.revealSentence?.(seg.blocks, seg.text)) ?? false;
-    if (!moved) return;
-    /* 滚动本身是同步的，但 relocate 要等下一帧才落定：不等这一下再画框，
-       拿到的还是上一页的可见区间，框会画在旧位置上 */
-    await new Promise((r) => setTimeout(r, 100));
-    this.repaintOfflineMark();
+  private async followOffline(seg: ScriptSegment): Promise<void> {
+    if (!this.offlinePlayer || this.closed) return;
+    const anchor = { block: seg.blocks[0] ?? -1, at: seg.at, len: seg.len };
+    if (anchor.block < 0) return;
+    const follow = this.prefs.ttsFollow;
+    if (follow && !(this.host.speechInView?.(anchor, true) ?? false)) {
+      const moved = (await this.host.revealAnchor?.(anchor, true)) ?? false;
+      /* 翻页是异步落定的：等一帧再画，拿到的才是新页 */
+      if (moved) await new Promise((r) => setTimeout(r, 100));
+      if (this.closed) return;
+    }
+    this.paintSpeech(seg, true);
   }
 
   /** 把一章写进离线包（音频 + 更新清单），返回写好的章或 null */
@@ -3200,8 +3216,8 @@ export class ReaderView extends ItemView {
     this.offlinePlayer = null;
     this.offlineChapter = null;
     this.offlineSegments = null;
+    /* 两条高亮路径一起收：CSS Highlight 在书页文档里，覆盖层图形在宿主侧 */
     this.clearSpeechMark();
-    this.host.clearSpeechMark?.();
     this.hideTtsBar();
     this.syncToolState();
   }
@@ -4291,8 +4307,7 @@ export class ReaderView extends ItemView {
     });
     this.lastPercent = info.percent;
     if (info.cfi) this.lastCfi = info.cfi;
-    /* 离线播放时翻页：把当前句在新页上重画一次，别等下一句才亮 */
-    if (this.offlinePlayer) this.repaintOfflineMark();
+    /* 高亮不用在这里重画：它挂在 Range 上跟文字走，翻页由浏览器跟着挪 */
     /* 「引用」页签的「只看本页」要知道眼前是第几页。翻一页就整页广播一次
        会把侧栏重绘得很勤，所以常态只静默写入；只有开关真的开着、人又正
        看着引用页签时，才广播一次让列表跟着翻。 */

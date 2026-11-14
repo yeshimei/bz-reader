@@ -28,8 +28,11 @@ import type {
   ShowAnnotationDetail,
 } from '../types/foliate';
 import { buildChapterCSS } from './theme';
-import { lineInSpan, overlapsSpan, visibleSpan, type Span } from './visible-span';
-import { cropToSpan, findInRange, findVisibleText } from './range-text';
+import { overlapsSpan, visibleSpan, type Span } from './visible-span';
+import { cropToSpan } from './range-text';
+/* 2026-11-14：句子定位改用「块序号 + 块内偏移」，高亮改用 iframe 内的
+   CSS Custom Highlight。这两样都不再需要宿主坐标换算。 */
+import { anyRectInView, rangeOfAnchor, type Anchor } from '../core/tts-anchor';
 import { contentInset } from './content-inset';
 import { makeTxtBook, countWords } from './txt';
 import { decodeTxtBytes } from './encoding';
@@ -1988,10 +1991,10 @@ export class EngineHost {
    * 不能问 caret，只能用块的逐字符矩形跟可见区间比（cropToSpan）。
    * 这样起点就是屏幕第一个字，跨页段落也只念屏幕上那一段。
    */
-  currentBlocks(): Array<{ tag: string; text: string }> {
+  currentBlocks(): Array<{ tag: string; text: string; raw: string }> {
     this.speechSpots = [];
     const contents = this.view?.renderer?.getContents?.() ?? [];
-    const out: Array<{ tag: string; text: string }> = [];
+    const out: Array<{ tag: string; text: string; raw: string }> = [];
     for (const c of contents) {
       const doc = c.doc;
       if (!doc?.body) continue;
@@ -2002,9 +2005,12 @@ export class EngineHost {
       for (const el of leafBlocks(doc.body)) {
         const range = cropToSpan(el, span, h);
         if (!range) continue;
-        const text = (range.toString() || '').replace(/\s+/g, ' ').trim();
+        /* raw 必须与 range 同源：句子锚点是「相对这个 range 的起点」记的，
+           拿 el.textContent 当基准，跨页段落一定错位。 */
+        const raw = range.toString() || '';
+        const text = raw.replace(/\s+/g, ' ').trim();
         if (!text) continue;
-        out.push({ tag: el.tagName.toLowerCase(), text });
+        out.push({ tag: el.tagName.toLowerCase(), text, raw });
         this.speechSpots.push({ content: c, range, el });
       }
     }
@@ -2019,18 +2025,19 @@ export class EngineHost {
    * 不在这里填，整章播放就只有第一块对得上（其余全空），手机上表现为
    * 「有声音、没高亮」。
    */
-  currentChapterBlocks(): Array<{ tag: string; text: string }> {
+  currentChapterBlocks(): Array<{ tag: string; text: string; raw: string }> {
     this.chapterSpots = [];
     const contents = this.view?.renderer?.getContents?.() ?? [];
-    const out: Array<{ tag: string; text: string }> = [];
+    const out: Array<{ tag: string; text: string; raw: string }> = [];
     for (const c of contents) {
       if (!c.doc?.body) continue;
       for (const el of leafBlocks(c.doc.body)) {
-        const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+        const raw = el.textContent ?? '';
+        const text = raw.replace(/\s+/g, ' ').trim();
         if (!text) continue;
         const range = c.doc.createRange();
         range.selectNodeContents(el);
-        out.push({ tag: el.tagName.toLowerCase(), text });
+        out.push({ tag: el.tagName.toLowerCase(), text, raw });
         this.chapterSpots.push({ content: c, range, el });
       }
     }
@@ -2049,32 +2056,70 @@ export class EngineHost {
   }
 
   /**
-   * 把「正在念的这一句」滚到眼前（离线整章播放跟随用，2026-11-14）。
+   * 句子锚点 → Range（页级朗读用）。
    *
-   * 交给分页器自己算，别自己数页。`paginator.scrollToAnchor(range)` 取
-   * range 的第一个非零矩形，按页宽折成页码再滚过去——foliate-js 自己的
-   * `tts.js` 就是这么跟着念的（它给 renderer 的那个默认高亮回调调的正是
-   * `scrollToAnchor`）。自己比「这句在不在屏上」在这套布局里没有解：
-   * 分栏模式下 `getClientRects()` 是整章布局坐标（0–38529），`innerWidth`
-   * 却是当前一栏（632），两套坐标系混着比，整章永远「在眼前」——真机
-   * 表现就是整章播完、页面一动不动。
-   *
-   * 幂等：这句已经在当前页时，分页器算出的偏移与当前一致，直接返回。
+   * 2026-11-14：定位从「拿文本去 DOM 里搜」改成「块序号 + 块内偏移」。
+   * 文本搜索的最后一级退路是在整块里找，同一块里的重复短语、标点差异
+   * 都会命到别处——真机表现就是离线朗读的高亮偏几个字、实时朗读不偏。
    */
-  async revealSentence(indexes: readonly number[], text: string): Promise<boolean> {
-    const spot = indexes.length ? this.chapterSpots[indexes[0]] : undefined;
-    if (!spot) return false;
+  speechRange(anchor: Anchor): Range | null {
+    return this.rangeOfSpot(this.speechSpots[anchor.block], anchor);
+  }
+
+  /**
+   * 整章块的 Range（离线包朗读用）。
+   *
+   * 必须和 `speechRange` 分开取坐标表：页级那份会被翻页重填，整章序号
+   * 一旦按页内序号去取，整章往后全部偏移。
+   */
+  speechRangeChapter(anchor: Anchor): Range | null {
+    return this.rangeOfSpot(this.chapterSpots[anchor.block], anchor);
+  }
+
+  /** 这一句落在哪个书页文档里（高亮要在它自己的 realm 里注册） */
+  speechDoc(anchor: Anchor, chapter = false): Document | null {
+    const spot = (chapter ? this.chapterSpots : this.speechSpots)[anchor.block];
+    return spot?.content.doc ?? null;
+  }
+
+  /**
+   * 这一句在不在眼前。
+   *
+   * 只在 iframe 内比：`getClientRects()` 是当前栏的视口坐标，屏外那一栏
+   * 是负数或大于宽度。以前把它搬回宿主再跟阅读区比，中间每一步换算都是
+   * 一个偏差来源。
+   */
+  speechInView(anchor: Anchor, chapter = false): boolean {
+    const spot = (chapter ? this.chapterSpots : this.speechSpots)[anchor.block];
+    const range = this.rangeOfSpot(spot, anchor);
+    if (!spot || !range) return false;
+    const doc = spot.content.doc;
+    const w = doc.documentElement.getBoundingClientRect().width || doc.defaultView?.innerWidth || 0;
+    const h = doc.defaultView?.innerHeight || doc.documentElement.clientHeight || 0;
+    try {
+      return anyRectInView(range.getClientRects(), w, h);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 把「正在念的这一句」滚到眼前（离线整章播放跟随用）。
+   *
+   * 交给分页器：`scrollToAnchor(range)` 取 range 的第一个非零矩形、按页宽
+   * 折成页码再滚过去，foliate-js 自己的 `tts.js` 也是这么跟着念的。
+   * 自己数页在这套布局里没有解——分栏下有整章布局与视口两套坐标系。
+   *
+   * 幂等：这句已经在当前页时，分页器算出的偏移与当前一致。
+   */
+  async revealAnchor(anchor: Anchor, chapter = false): Promise<boolean> {
+    const spot = (chapter ? this.chapterSpots : this.speechSpots)[anchor.block];
+    const range = this.rangeOfSpot(spot, anchor);
+    if (!range) return false;
     const renderer = this.view?.renderer as unknown as
       | { scrollToAnchor?: (anchor: Range, select?: boolean) => Promise<void> }
       | undefined;
     if (!renderer?.scrollToAnchor) return false;
-    let range: Range | null = null;
-    try {
-      range = findInRange(spot.range, text) ?? findInRange(spot.range, text.slice(0, 8));
-    } catch {
-      range = null;
-    }
-    if (!range) return false;
     try {
       /* 第二个参数 false：只滚动，不把用户的选区改成这一句 */
       await renderer.scrollToAnchor(range, false);
@@ -2084,78 +2129,40 @@ export class EngineHost {
     }
   }
 
-  /**
-   * 朗读到某一句时，这一句在**宿主坐标**里的几行矩形（给阅读视图画框）。
-   *
-   * 不走 foliate 的 `overlayer`：分栏模式下它的坐标系跟宿主对不上，框会画到
-   * 侧栏外侧（真机实测）。改为把 `range.getClientRects()` 过 `frameGeom`
-   * 换回宿主坐标，由视图层用绝对定位的 div 画——和划词工具条同一套坐标。
-   *
-   * 找不到精确位置（句子跨节点、引号被去掉后对不上）就退这一块，宁可多亮。
-   * 屏外的行会被裁掉（`lineInSpan`）：视图层拿「有没有框」当「这句在不在
-   * 眼前」，画到看不见的地方等于骗它。
-   */
-  speechRects(indexes: readonly number[], text: string): Rect[] {
-    const spot = indexes.length ? this.speechSpots[indexes[0]] : undefined;
-    return this.rectsOf(spot, text);
-  }
-
-  /**
-   * 整章块的高亮矩形（离线包朗读用）。
-   *
-   * 必须和 `speechRects` 分开取坐标表：页级那份会被翻页重填，整章序号
-   * 一旦按页内序号去取，整章往后全部偏移。
-   */
-  speechRectsChapter(indexes: readonly number[], text: string): Rect[] {
-    const spot = indexes.length ? this.chapterSpots[indexes[0]] : undefined;
-    return this.rectsOf(spot, text);
-  }
-
-  private rectsOf(
+  private rangeOfSpot(
     spot: { content: FoliateContent; range: Range; el: HTMLElement } | undefined,
-    text: string,
-  ): Rect[] {
-    if (!spot) return [];
-    const g = this.frameGeom(spot.content.doc);
-    const span = this.visibleSpanOf(spot.content.doc);
-    const h = spot.content.doc.defaultView?.innerHeight || spot.content.doc.documentElement.clientHeight || 0;
-    let range: Range | null;
+    anchor: Anchor,
+  ): Range | null {
+    if (!spot) return null;
     try {
-      /* 先在「本屏可见的字」里找整句（最准）；找不到再退句首 8 字。
-         都找不到就**不框**（2026-11-14 改）：以前退成整块，真机上就是
-         「念第一句、亮整段」，比不亮更像坏了。唯一例外：这一块本身就是
-         这一句（短段落），那框整块才是对的。 */
-      range =
-        (span ? findVisibleText(spot.el, span, h, text) : null) ??
-        findInRange(spot.range, text) ??
-        findInRange(spot.range, text.slice(0, 8));
-      if (!range && squash(spot.range.toString()) === squash(text)) range = spot.range;
-      if (!range) return [];
+      return rangeOfAnchor(spot.range, anchor);
     } catch {
-      return [];
+      return null;
     }
-    const viewBox = this.view?.getBoundingClientRect?.();
-    /* 行矩形是布局坐标，`span.x0` 就是「阅读区左边」对应的布局位置：减掉
-       再回到宿主坐标。y 方向没有横向平移，直接用 iframe 的 top（不是阅读区
-       顶边——iframe 里还有页眉与内边距，差 48px 就会把框盖到上一行）。 */
-    const originX = span && viewBox ? viewBox.left - span.x0 : g.left;
-    const originY = g.top;
-    const out: Rect[] = [];
-    for (const r of Array.from(range.getClientRects())) {
-      if (r.width < 1 || r.height < 1) continue;
-      /* 屏外的行不画：分栏模式下这是整章布局坐标，别的页也有矩形 */
-      if (!lineInSpan(r, span)) continue;
-      out.push({
-        left: originX + r.left * g.scale,
-        top: originY + r.top * g.scale,
-        width: r.width * g.scale,
-        height: r.height * g.scale,
-      });
-    }
-    return out;
   }
 
-  /** 撤掉朗读高亮（停止、换页、念完时调） */
+  /**
+   * 兜底高亮：老内核没有 CSS Custom Highlight 时，用 foliate 的覆盖层。
+   *
+   * SVG 在 iframe 内，矩形由 `getClientRects()` 直接给，不经宿主坐标。
+   * 缺点是要在翻页后 `redraw()`，所以只当兜底，主路径仍交给浏览器。
+   */
+  drawSpeechOverlay(anchor: Anchor, chapter = false): boolean {
+    const spot = (chapter ? this.chapterSpots : this.speechSpots)[anchor.block];
+    const range = this.rangeOfSpot(spot, anchor);
+    const overlayer = spot?.content.overlayer;
+    if (!range || !overlayer) return false;
+    try {
+      overlayer.add(SPEECH_KEY, range, Overlayer.highlight, {
+        color: 'var(--interactive-accent, #9a7434)',
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** 撤掉朗读高亮（兜底路径用：CSS Highlight 那条由视图层清） */
   clearSpeechMark(): void {
     for (const c of this.view?.renderer?.getContents?.() ?? []) {
       try {
@@ -2652,23 +2659,24 @@ function inViewport(el: HTMLElement, w: number, h: number): boolean {
  * 只取叶子块：`<li><p>…</p></li>` 收 p 不收 li，否则同一句话念两遍。
  * 一个块都没有的文档（TXT 常见：纯文本 + `<br>`）退回按换行切。
  */
-/** 去掉所有空白再比：原文里的换行、缩进不该让「同一句」判成不同 */
-function squash(s: string): string {
-  return String(s ?? '').replace(/\s+/g, '');
-}
-
-function collectBlocks(root: ParentNode, out: Array<{ tag: string; text: string }>): void {
+function collectBlocks(
+  root: ParentNode,
+  out: Array<{ tag: string; text: string; raw: string }>,
+): void {
   const before = out.length;
   const all = Array.from(root.querySelectorAll<HTMLElement>(BLOCK_TAGS));
   const leaves = all.filter((el) => !el.querySelector(BLOCK_TAGS));
   for (const el of leaves) {
-    const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
-    if (text) out.push({ tag: el.tagName.toLowerCase(), text });
+    const raw = el.textContent ?? '';
+    const text = raw.replace(/\s+/g, ' ').trim();
+    if (text) out.push({ tag: el.tagName.toLowerCase(), text, raw });
   }
   if (out.length > before) return;
-  const raw = (root.textContent ?? '').replace(/\r/g, '');
-  for (const line of raw.split(/\n+/)) {
+  /* 纯文本 + <br> 的书没有块可锚：句子只能按行切，高亮整章那边对不上，
+     但念得出来。raw 用行本身，至少文本匹配的那套兜底还能用 */
+  const all2 = (root.textContent ?? '').replace(/\r/g, '');
+  for (const line of all2.split(/\n+/)) {
     const text = line.replace(/\s+/g, ' ').trim();
-    if (text) out.push({ tag: 'p', text });
+    if (text) out.push({ tag: 'p', text, raw: line });
   }
 }
