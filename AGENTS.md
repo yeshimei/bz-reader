@@ -77,6 +77,16 @@ New-Item -ItemType Junction -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules
 - 速度参考（RTX 4070 + 300M-SFT + fp16）：单句约 3 秒；《围城》整本 10649 句约 9 小时，整章（约 200 句）约 10 分钟。别把「整本预生成」说成几分钟的事。
 - 体积：同一页 wav 2156 KB、mp3 364 KB。**整章 wav 约 290 MB，只有 mp3 才装得下**，所以本地默认 mp3。
 
+## 离线听书包（2026-11-14 实测）
+- 包 = `bz-reader/offline/<书名>/` 下「每章一个 mp3 + 一份 `manifest.json`（逐句 `at`/`ms` 时间轴）」。IndexedDB 缓存不跟库同步，这个目录才跟；用户把目录拷进别的库，打开书就认。
+- 时间轴靠**数 mp3 帧**算（`core/audio-length.ts`），不是按码率估：逐帧精确到 26ms，整章累计不飘。算不出就整章不给包——稳定偏的高亮比没有更糟。
+- 播放走 `core/offline-player.ts`：整章一个文件 + 时间轴驱动高亮（不是逐句 blob）。所以**离线包不需要引擎**，手机不跑模型也能听本地音色——这是它最大的价值。
+- `speechSpots` 是**全局一份**，`currentBlocks()` 会把它们重置成当前页；整章播放前必须调 `currentChapterBlocks()` 重填，否则只有第一块对得上（表现为「有声音、没高亮」，手机上尤其明显）。翻页后要 `repaintOfflineMark()` 重画一次。
+- `adapter.remove` 只删单个文件，**对目录无效**；删离线包必须 `adapter.rmdir(path, true)`。踩过：点了清理、弹了提示、文件还在。
+- CosyVoice 对**纯标点**（EPUB 里常单放一个「、」当分隔）会吐 `no audio produced`，重试三次也空。切句时过滤掉没有 `[\p{L}\p{N}]` 的碎片；单句合成失败改成跳过该句而不是整章作废，时间轴里没有它，`alignMarks` 会给它 -1。
+- 正文改过之后按**文本**重新对齐（`alignMarks` 贪心窗口 32 句），不按下标硬配：改一句只影响那一句，其余照常对。
+- 整章导出要独占服务：`exportChapterAudio` 开头 `stopTts()`，否则两边抢模型，每句慢一倍。
+
 ## 发激活码
 - 私钥和已发码都在 `scripts/keys/`（整目录 gitignore）。**永远不要**提交、贴进 `docs/`、`README` 或 issue。
 - 台账 `scripts/keys/issued/ledger.json`，`nextSeq` 是下一个可用序号；码文件 `scripts/keys/issued/afdian-batch-XX.txt`，一行一枚；号段表 `docs/license-ledger.md`。
