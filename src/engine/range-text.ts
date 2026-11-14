@@ -25,16 +25,31 @@ export interface Box {
   bottom: number;
 }
 
+export interface PageSpanInput {
+  /** foliate 给的当前页起点（内容坐标像素）。第一页、滚动模式都是 0 */
+  start: number;
+  /** 一页宽（视口宽） */
+  size: number;
+  /** 当前页左上角那个字符所在元素的 `left`；取不到传 NaN */
+  probeLeft: number;
+}
+
 /**
- * 当前屏的横区间：iframe 视口里从 0 到文档元素的渲染宽。
+ * 当前页的横区间，口径与 `cropToSpan` 里的块矩形一致。
  *
- * 分栏模式下文档元素被限成一栏（实测 632），这个宽度就是「眼前这一页」。
- * **别换成 iframe 元素的 `getBoundingClientRect().width`**：那是整章宽
- * （38577），区间一变大，前面所有页的块都「可见」，朗读就从第一页开头念。
+ * 页起点与一页宽都取自 foliate 自己的量（`renderer.start` / `renderer.viewSize`），
+ * 不从宿主矩形推。唯一要现场判断的是「块矩形给的是内容坐标还是视口坐标」：
+ * 用 caret 取到的那根字符的 `left` 当标尺——贴着 0 就是视口坐标，贴着页起点
+ * 就是内容坐标。
+ *
+ * **别按「文档元素的渲染宽」拼区间**：那是整章宽，前面所有页都会算成可见，
+ * 真机表现就是「站在第二页点朗读，它从第一页开头念」。
  */
-export function viewportSpan(htmlWidth: number): Span | null {
-  if (!(htmlWidth >= 8)) return null;
-  return { x0: 0, x1: htmlWidth };
+export function pageSpan({ start, size, probeLeft }: PageSpanInput): Span | null {
+  if (!(size >= 8)) return null;
+  if (!(start >= 1)) return { x0: 0, x1: size };
+  const viewport = Number.isFinite(probeLeft) && Math.abs(probeLeft) < Math.abs(probeLeft - start);
+  return viewport ? { x0: 0, x1: size } : { x0: start, x1: start + size };
 }
 
 /** 元素的全部内容包成 Range */

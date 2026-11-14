@@ -28,7 +28,7 @@ import type {
   ShowAnnotationDetail,
 } from '../types/foliate';
 import { buildChapterCSS } from './theme';
-import { cropToSpan, viewportSpan, type Span } from './range-text';
+import { cropToSpan, pageSpan, type Span } from './range-text';
 /* 2026-11-14：句子定位改用「块序号 + 块内偏移」，高亮改用 iframe 内的
    CSS Custom Highlight。这两样都不再需要宿主坐标换算。 */
 import { anyRectInView, rangeOfAnchor, type Anchor } from '../core/tts-anchor';
@@ -2222,15 +2222,38 @@ export class EngineHost {
    * 按窗口算会把侧栏底下那半栏字也算成可见（真机偏 390px）。
    */
   private visibleSpanOf(doc: Document): Span | null {
-    /* 「这一屏」用文档元素的渲染宽：分栏模式下它被限成一栏（632），正好是
-       读者眼前这一页。**不能用 iframe 元素的 rect 宽**——那是整章宽
-       （实测 38577），区间一变大，前面所有页的块都会被算成可见，朗读就
-       从第一页开头念（2026-11-14 真机）。
-       iframe 内的 `getBoundingClientRect()` 本来就是视口坐标（当前一栏
-       0..632，屏外在负区），和这个区间同一套坐标系，不用任何换算。 */
-    const html = doc.documentElement;
-    if (!html) return null;
-    return viewportSpan(html.getBoundingClientRect().width);
+    /* 页起点和一页宽都用 foliate 自己算的量：`start` 是当前页在内容里的
+       起点像素，`viewSize` 是视口宽。不要自己去拼——按「文档元素渲染宽」
+       拼出来是整章（0..38529），前面所有页都会被算成可见，真机表现就是
+       「站在第二页点朗读，它从第一页开头念」（2026-11-14 返工两次）。 */
+    const renderer = this.view?.renderer as unknown as
+      | { start?: unknown; viewSize?: unknown }
+      | undefined;
+    const start = typeof renderer?.start === 'number' ? renderer.start : 0;
+    const size =
+      typeof renderer?.viewSize === 'number' && renderer.viewSize >= 8
+        ? renderer.viewSize
+        : doc.documentElement?.clientWidth || 0;
+    return pageSpan({ start, size, probeLeft: this.probeLeftOf(doc) });
+  }
+
+  /**
+   * 当前页左上角那个字所在元素的 `left`，只拿来判断坐标系。
+   *
+   * caret 只认 iframe 视口坐标（0..632 就是眼前这一页），所以 (2, 2) 取到的
+   * 一定是「这一页第一个字」。它的矩形贴着 0，说明块矩形是视口坐标；贴着
+   * 页起点，说明是内容坐标。取不到就给 NaN，`pageSpan` 会按内容坐标处理。
+   */
+  private probeLeftOf(doc: Document): number {
+    try {
+      const pos = doc.caretPositionFromPoint?.(2, 2) ?? null;
+      const node = pos?.offsetNode ?? null;
+      if (!node) return Number.NaN;
+      const el = node.nodeType === 1 ? (node as unknown as Element) : node.parentElement;
+      return el ? el.getBoundingClientRect().left : Number.NaN;
+    } catch {
+      return Number.NaN;
+    }
   }
 
   /** 跳到 TOC 项（href 由 foliate 解析成章节 + 锚点） */

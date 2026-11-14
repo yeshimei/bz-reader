@@ -1747,7 +1747,10 @@ export class ReaderView extends ItemView {
    * `speakPageAi` 里；系统语音原样保留，没配 Key 或用户手动切回时用。
    */
   private speakPage(): void {
-    const text = this.host.currentText();
+    /* 先取一次「这一页的段落」：拼页文本、给离线起播定位都用它，别让
+       currentBlocks() 为同一页扫三遍（一页八百字，逐字符比矩形） */
+    const pageBlocks = this.host.currentBlocks?.() ?? [];
+    const text = pageBlocks.map((b) => b.text).join(' ').trim() || this.host.currentText();
     if (!text) {
       notify(t('notice.tts.noText'));
       this.stopTts();
@@ -1765,7 +1768,7 @@ export class ReaderView extends ItemView {
       }
       /* 有离线包先播包：整章连着放，不联网、不跑模型——手机也能用 */
       if (this.offlinePack) {
-        void this.speakOffline(text).then((res) => {
+        void this.speakOffline(text, pageBlocks).then((res) => {
           if (res !== 'ok' && !this.closed) void this.speakPageAi(text);
         });
         return;
@@ -2037,6 +2040,7 @@ export class ReaderView extends ItemView {
    */
   private async speakOffline(
     pageText: string,
+    pageBlocks: Array<{ tag: string; text: string; raw: string }> = [],
   ): Promise<'ok' | 'missing' | 'stale' | 'empty'> {
     const pack = this.offlinePack;
     if (!pack) return 'missing';
@@ -2064,10 +2068,23 @@ export class ReaderView extends ItemView {
     const align = match.align;
 
     /* 当前页第一句在整章里的位置：翻到第 5 页点朗读，就该从第 5 页开始。
-       段落跨页时这一页只有后半截，起点既不能落在章首、也不能退到段落开头
-       （真机反馈：声音从整段开头念），所以连「跳过几个字」一起算出来。 */
-    const start = startPointOf(segments, pageText);
-    const startAt = start.index;
+       先按「这一页第一句」的 text + len 去整章脚本里找同一句（两边同一套
+       切分，比文本前缀可靠）；找不到才退回 `startPointOf` 的前缀匹配。
+       踩过：只用前缀匹配时，页文本一旦带了前面的段落（或整章），前缀就
+       命中章首——真机表现「站在第二页点朗读，从第一页开头念」。 */
+    const located = startPointOf(segments, pageText);
+    let startAt = located.index;
+    /* 句内跳过几个字：跨页段落只有后半截在屏幕上，从这里开始念而不是
+       退回段首（真机反馈过「声音从整段开头念」） */
+    let skip = located.skip;
+    const firstPage = buildScript(pageBlocks)[0];
+    if (firstPage) {
+      const hit = segments.findIndex((s) => s.text === firstPage.text && s.len === firstPage.len);
+      if (hit >= 0) {
+        startAt = hit;
+        skip = 0;
+      }
+    }
 
     this.stopTts();
     this.ttsMime = this.ttsFormat() === 'wav' ? 'audio/wav' : 'audio/mpeg';
@@ -2122,7 +2139,7 @@ export class ReaderView extends ItemView {
        此时偏移必须归零，否则会跳到那一句的中段。 */
     const mark = align[startAt] >= 0 ? chapter.marks[align[startAt]] : undefined;
     const chars = segments[startAt]?.text.replace(/\s+/g, '').length ?? 0;
-    const skipMs = mark && chars > 0 ? Math.round((mark.ms * start.skip) / chars) : 0;
+    const skipMs = mark && chars > 0 ? Math.round((mark.ms * skip) / chars) : 0;
     player.start(startAt, skipMs);
     return 'ok';
   }

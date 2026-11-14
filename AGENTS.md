@@ -88,7 +88,8 @@ New-Item -ItemType Junction -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules
   - 老内核（无 `CSS.highlights`）退回 foliate 的 `overlayer.highlight`（仍在 iframe 内画 SVG）；跨 realm 注册一定用 iframe 自己的 `Highlight` 构造器。
 - 坐标表仍是**两份**：`speechSpots`（页级，`currentBlocks()` 每取一次当前页就重填）与 `chapterSpots`（整章，`currentChapterBlocks()` 填一次）。`speechRange` / `speechRangeChapter` 分开取，整章序号按页级那份取就是整体错位。
 - 「这句在不在眼前」只在 iframe 视口内比（`anyRectInView`）：分栏模式下 `getClientRects()` 是当前栏的视口坐标，屏外那一栏是负数或大于宽度。跟随改成「先 `revealAnchor` 翻页、再画」，高亮挂在 Range 上跟文字走，翻完再画一定落在新页。
-- **「从这一屏开始念」的横区间是 `[0, documentElement 的渲染宽]`**（`viewportSpan`，分栏模式下 = 当前一栏 632），和 iframe 内 `getBoundingClientRect()` 同一套视口坐标，不用跟宿主矩形求交、不用减 translate。**别拿 iframe 元素的 rect 宽**：那是整章宽（实测 38577），区间一变大，前面所有页的块都算可见——真机表现是「站在第二页点朗读，它从第一页开头念」。
+- **「从这一屏开始念」的横区间只能用 foliate 自己的量**（`range-text.ts` 的 `pageSpan`）：`renderer.start`（当前页起点）+ `renderer.viewSize`（一页宽），再用 caret 在 `(2,2)` 取到的那根字所在元素的 `left` 当标尺，判断块矩形是内容坐标还是视口坐标。**别自己拼区间**——按「文档元素渲染宽」拼是整章（0..38529），按 iframe 元素 rect 宽也是整章，两种都试过，真机都是「站在第二页点朗读，从第一页开头念」。
+- 离线起播位置先按「这一页第一句」的 `text + len` 去整章脚本里找同一句，找不到才退回 `startPointOf` 的前缀匹配；页文本一旦带了前面的段落，前缀匹配会命中章首。
 - `adapter.remove` 只删单个文件，**对目录无效**；删离线包必须 `adapter.rmdir(path, true)`。踩过：点了清理、弹了提示、文件还在。
 - CosyVoice 对**纯标点**（EPUB 里常单放一个「、」当分隔）会吐 `no audio produced`，重试三次也空。切句时过滤掉没有 `[\p{L}\p{N}]` 的碎片；单句合成失败改成跳过该句而不是整章作废，时间轴里没有它，`alignMarks` 会给它 -1。
 - 正文改过之后按**文本**重新对齐（`alignMarks` 贪心窗口 32 句），不按下标硬配：改一句只影响那一句，其余照常对。
