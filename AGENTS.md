@@ -81,8 +81,13 @@ New-Item -ItemType Junction -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules
 - 包 = `bz-reader/offline/<书名>/` 下「每章一个 mp3 + 一份 `manifest.json`（逐句 `at`/`ms` 时间轴）」。IndexedDB 缓存不跟库同步，这个目录才跟；用户把目录拷进别的库，打开书就认。
 - 时间轴靠**数 mp3 帧**算（`core/audio-length.ts`），不是按码率估：逐帧精确到 26ms，整章累计不飘。算不出就整章不给包——稳定偏的高亮比没有更糟。
 - 播放走 `core/offline-player.ts`：整章一个文件 + 时间轴驱动高亮（不是逐句 blob）。所以**离线包不需要引擎**，手机不跑模型也能听本地音色——这是它最大的价值。
-- 坐标表有**两份**：`speechSpots`（页级，`currentBlocks()` 每取一次当前页就重填）与 `chapterSpots`（整章，`currentChapterBlocks()` 填一次）。整章播放走 `speechRectsChapter()` 读后者——按页级那份取会整体错位，真机表现为「念的和亮的不一致」。翻页后要 `repaintOfflineMark()` 重画一次，否则断档到下一句。
-- 高亮段内定位不到就**不画框**，别退成整块：真机上是「念第一句、亮整段」，比不亮更像坏了；唯一例外是这块本身就等于这一句（短段落）。
+- **高亮不在宿主画框（2026-11-14 重做）**：一句话就是一个 `{block, at, len}` 锚点（`core/tts-script.ts` 建脚本时算好，相对块内**原始** `textContent`），播放时按锚点直接造 Range，再注册进**书页文档自己的** `CSS.highlights`（`engine/speech-highlight.ts`）。翻页 / 缩放 / 双栏 / 竖排 / 深色全交给浏览器排版，零坐标计算。
+  - 为什么改：旧做法把 `getClientRects()` 的结果乘 scale、减 `span.x0`、加 `viewBox.left` 搬回宿主画绝对定位 div，四个量串成一条链；离线播放要边念边翻、每页重算一次，任何一环没跟上就整体偏。真机症状：**离线朗读偏几个字，实时朗读不偏**。
+  - 定位绝不能再退回「拿文本去 DOM 里搜」：`findVisibleText` / `findInRange` 的最后一级是在整块里找，同一块里的重复短语、标点差异都会命到别处。
+  - `::highlight()` 是伪元素，样式必须跟正文一起走 `buildChapterCSS`（宿主 `styles.css` 管不到 iframe）。注意**别把中文注释写进那个模板字符串**，`tests/no-hardcoded-zh` 会当成界面文案。
+  - 老内核（无 `CSS.highlights`）退回 foliate 的 `overlayer.highlight`（仍在 iframe 内画 SVG）；跨 realm 注册一定用 iframe 自己的 `Highlight` 构造器。
+- 坐标表仍是**两份**：`speechSpots`（页级，`currentBlocks()` 每取一次当前页就重填）与 `chapterSpots`（整章，`currentChapterBlocks()` 填一次）。`speechRange` / `speechRangeChapter` 分开取，整章序号按页级那份取就是整体错位。
+- 「这句在不在眼前」只在 iframe 视口内比（`anyRectInView`）：分栏模式下 `getClientRects()` 是当前栏的视口坐标，屏外那一栏是负数或大于宽度。跟随改成「先 `revealAnchor` 翻页、再画」，高亮挂在 Range 上跟文字走，翻完再画一定落在新页。
 - `adapter.remove` 只删单个文件，**对目录无效**；删离线包必须 `adapter.rmdir(path, true)`。踩过：点了清理、弹了提示、文件还在。
 - CosyVoice 对**纯标点**（EPUB 里常单放一个「、」当分隔）会吐 `no audio produced`，重试三次也空。切句时过滤掉没有 `[\p{L}\p{N}]` 的碎片；单句合成失败改成跳过该句而不是整章作废，时间轴里没有它，`alignMarks` 会给它 -1。
 - 正文改过之后按**文本**重新对齐（`alignMarks` 贪心窗口 32 句），不按下标硬配：改一句只影响那一句，其余照常对。
