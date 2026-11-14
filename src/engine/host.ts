@@ -2013,6 +2013,7 @@ export class EngineHost {
         this.speechSpots.push({ content: c, range, el });
       }
     }
+    debugEvent('tts.page', { n: out.length, first: out[0]?.text.slice(0, 24) ?? '' });
     return out;
   }
 
@@ -2234,7 +2235,18 @@ export class EngineHost {
       typeof renderer?.viewSize === 'number' && renderer.viewSize >= 8
         ? renderer.viewSize
         : doc.documentElement?.clientWidth || 0;
-    return pageSpan({ start, size, probeLeft: this.probeLeftOf(doc) });
+    const probeLeft = this.probeLeftOf(doc);
+    const span = pageSpan({ start, size, probeLeft });
+    /* 这条埋点专门为「起播位置」留的：这一页的区间怎么算出来的，三个输入
+       加两个输出都在。真机再偏一次，开调试抓这行就知道是哪一步不对。 */
+    debugEvent('tts.span', {
+      start: Math.round(start),
+      size: Math.round(size),
+      probe: Number.isFinite(probeLeft) ? Math.round(probeLeft) : -1,
+      x0: span ? Math.round(span.x0) : -1,
+      x1: span ? Math.round(span.x1) : -1,
+    });
+    return span;
   }
 
   /**
