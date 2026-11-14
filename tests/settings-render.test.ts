@@ -882,6 +882,14 @@ describe('朗读组 · 三张引擎卡', () => {
 
   /* 2026-11-14：自部署提示词只给一颗复制按钮，正文不进 DOM——
      那段字是给 AI 看的，摆在设置页就是一堵墙。 */
+  /* 2026-11-14：这一段用户要一直摊着，不再收进折叠 */
+  it('缓存与离线直接摊开，不是折叠块', () => {
+    const local = ttsHtml({ ttsEngine: 'local' });
+    expect(local).toContain('class="bzs-subh"');
+    expect(local).not.toContain('<summary>缓存与离线');
+    expect(local).toContain('data-k="ttsCacheMB"');
+  });
+
   it('自部署只有一颗复制按钮，页面上看不到提示词正文', () => {
     const local = ttsHtml({ ttsEngine: 'local' });
     expect(local).toContain('data-act="ttscopyprompt"');

@@ -1492,6 +1492,21 @@
   content: '▾ ';
 }
 
+/* 组内小标题：缓存与离线这一段直接摊开，不折叠（2026-11-14 用户要求）。
+   标题自己当分隔线，紧跟的那一行不再画上边框，免得两条线叠一起。 */
+.bzs-subh {
+  margin: 12px 0 0;
+  padding: 8px 0 2px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--t3);
+  letter-spacing: .1em;
+}
+
+.bzs-subh + .bzs-setrow {
+  border-top: 0;
+}
+
 /* 阅读页齿轮跳到设置页时，朗读组闪一下告诉人「就是这块」 */
 .bzs-setgrp.is-flash {
   animation: bzs-flash 1.3s ease-out;

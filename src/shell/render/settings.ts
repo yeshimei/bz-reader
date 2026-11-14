@@ -561,9 +561,8 @@ export function viewSettings(v: SettingsView): string {
         ],
         p.ttsFollow ? '1' : '0',
       )}</div>
-      <details class="bzs-adv">
-        <summary>${t('settings.ttsCache.title')}</summary>
-        ${range('ttsCacheMB', t('settings.ttsCache'), p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, TTS_CACHE_RANGE.step, (x) => `${x} MB`)}
+      <div class="bzs-subh">${t('settings.ttsCache.title')}</div>
+      ${range('ttsCacheMB', t('settings.ttsCache'), p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, TTS_CACHE_RANGE.step, (x) => `${x} MB`)}
         <div class="bzs-setrow"><label></label>
           <span class="bzs-mini" style="margin:0;flex:1">${t('settings.ttsCache.hint')}</span>
           <button class="bzs-btn sm" data-act="ttscacheclear">${t('settings.ttsCache.clear')}</button>
@@ -585,7 +584,6 @@ export function viewSettings(v: SettingsView): string {
           )}</button>
           <span class="bzs-mini" style="margin:0">${t('settings.ttsBook.hint')}</span>
         </div>
-      </details>
     </div>`;
 
   /* 标注组只剩能动手的三项：画笔、导出目录、带想法。「摘录链接」那一行没有
