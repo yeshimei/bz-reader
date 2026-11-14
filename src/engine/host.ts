@@ -28,8 +28,7 @@ import type {
   ShowAnnotationDetail,
 } from '../types/foliate';
 import { buildChapterCSS } from './theme';
-import { overlapsSpan, visibleSpan, type Span } from './visible-span';
-import { cropToSpan } from './range-text';
+import { cropToSpan, viewportSpan, type Span } from './range-text';
 /* 2026-11-14：句子定位改用「块序号 + 块内偏移」，高亮改用 iframe 内的
    CSS Custom Highlight。这两样都不再需要宿主坐标换算。 */
 import { anyRectInView, rangeOfAnchor, type Anchor } from '../core/tts-anchor';
@@ -2223,17 +2222,15 @@ export class EngineHost {
    * 按窗口算会把侧栏底下那半栏字也算成可见（真机偏 390px）。
    */
   private visibleSpanOf(doc: Document): Span | null {
-    const win = doc.defaultView;
-    if (!win) return null;
-    const frame = win.frameElement as HTMLElement | null;
-    if (!frame) return null;
-    const box = this.view?.getBoundingClientRect?.();
-    const host =
-      box && box.width >= 8
-        ? { left: box.left, width: box.width }
-        : { left: 0, width: frame.ownerDocument.documentElement.clientWidth };
-    if (host.width < 8) return null;
-    return visibleSpan(frame.getBoundingClientRect(), host);
+    /* 「这一屏」用文档元素的渲染宽：分栏模式下它被限成一栏（632），正好是
+       读者眼前这一页。**不能用 iframe 元素的 rect 宽**——那是整章宽
+       （实测 38577），区间一变大，前面所有页的块都会被算成可见，朗读就
+       从第一页开头念（2026-11-14 真机）。
+       iframe 内的 `getBoundingClientRect()` 本来就是视口坐标（当前一栏
+       0..632，屏外在负区），和这个区间同一套坐标系，不用任何换算。 */
+    const html = doc.documentElement;
+    if (!html) return null;
+    return viewportSpan(html.getBoundingClientRect().width);
   }
 
   /** 跳到 TOC 项（href 由 foliate 解析成章节 + 锚点） */

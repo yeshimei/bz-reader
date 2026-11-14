@@ -1,14 +1,16 @@
 /* ============================================================
  * bz-reader · 朗读用的文字 Range（engine/range-text.ts）
  *
- * 分栏模式下有两套坐标，混用就会「念的字和屏幕上的字对不上」：
+ * 这里所有矩形都在**同一个坐标系**里：iframe 视口。
  *
- *   · `getClientRects()` / 块元素：**整章布局坐标**（实测 0–38529，一章横排）；
- *   · `caretPositionFromPoint()`：只认 **iframe 视口坐标**（0–632，当前一栏）。
+ *   · iframe 内元素的 `getBoundingClientRect()` / `getClientRects()` 给的是
+ *     **视口坐标**（当前一栏 0..632），分栏时前面几页在负区；
+ *   · `window.innerWidth` 才是整章宽（实测 38577）。拿它当视口宽，整章都会
+ *     算成「这一页」——真机症状：站在第二页点朗读，它从第一页开头念。
  *
- * caret 取不到布局坐标 22113 处（那是第 36 页），所以「这一屏从哪开始」不能
- * 用 caret，只能拿块的行矩形跟可见区间比。逐字符扫一遍把起点/终点找出来，
- * 一页只做一次，几十毫秒，换来的是「从屏幕第一个字开始念」。
+ * 所以「这一屏的横区间」就是 `[0, documentElement 的渲染宽]`，不需要跟宿主
+ * 矩形求交、不需要减 translate。逐字符扫一遍把起点/终点找出来，一页只做
+ * 一次，几十毫秒，换来的是「从屏幕第一个字开始念」。
  * ============================================================ */
 
 export interface Span {
@@ -23,6 +25,18 @@ export interface Box {
   bottom: number;
 }
 
+/**
+ * 当前屏的横区间：iframe 视口里从 0 到文档元素的渲染宽。
+ *
+ * 分栏模式下文档元素被限成一栏（实测 632），这个宽度就是「眼前这一页」。
+ * **别换成 iframe 元素的 `getBoundingClientRect().width`**：那是整章宽
+ * （38577），区间一变大，前面所有页的块都「可见」，朗读就从第一页开头念。
+ */
+export function viewportSpan(htmlWidth: number): Span | null {
+  if (!(htmlWidth >= 8)) return null;
+  return { x0: 0, x1: htmlWidth };
+}
+
 /** 元素的全部内容包成 Range */
 export function contentRangeOf(el: Element): Range {
   const r = el.ownerDocument.createRange();
@@ -33,7 +47,7 @@ export function contentRangeOf(el: Element): Range {
 /**
  * 把元素裁到「这一屏」的 Range；一个可见字符都没有就返回 null。
  *
- * `span` / `height` 都是**布局坐标**下这一屏的范围（见 visible-span.ts）。
+ * `span` / `height` 都是**iframe 视口坐标**下这一屏的范围（见 `viewportSpan`）。
  */
 export function cropToSpan(el: Element, span: Span, height: number): Range | null {
   const doc = el.ownerDocument;
