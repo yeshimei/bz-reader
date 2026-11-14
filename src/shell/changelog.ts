@@ -91,36 +91,8 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
         },
       },
     ],
-    improved: [
-      {
-        domain: { zh: '朗读浮条', en: 'Floating bar' },
-        text: {
-          zh: '只留播放、上一句、下一句与「更多」，预生成、导出、朗读设置收进更多里；左边标出这段是缓存、实时还是离线。',
-          en: 'The bar keeps only play, previous, next and More; pre-build, export and reading settings live under More, and the left side shows whether this segment is cached, live or offline.',
-        },
-      },
-      {
-        domain: { zh: '预生成', en: 'Pre-building' },
-        text: {
-          zh: '整章、整本预生成换成带进度的卡片，点停止立刻收起；云端按字计费，整章预生成前先问一句。',
-          en: 'Chapter and whole-book pre-building use a progress card that closes the moment you stop; cloud speech is billed per character, so chapter pre-building asks first.',
-        },
-      },
-      {
-        domain: { zh: '设置页', en: 'Settings' },
-        text: {
-          zh: '朗读分成在线与本地两栏，缓存与离线摊开显示；本地服务能一键拉音色，还附一份自部署提示词，复制给 AI 就能装好。',
-          en: 'Read-aloud settings split into online and local columns, with cache and offline shown open; a local service fetches its voices and comes with a self-hosting prompt you can paste into an AI.',
-        },
-      },
-      {
-        domain: { zh: '界面语言', en: 'Interface' },
-        text: {
-          zh: '朗读与书库多选的文案补齐八种语言（繁中按台湾用词），不再出现占位符。',
-          en: 'Read-aloud and shelf-selection text is now translated into all eight languages, traditional Chinese in Taiwan wording, with no placeholders left.',
-        },
-      },
-    ],
+    /* 本版说明按作者定稿只留「新增」四条，这里不写优化段 */
+    improved: [],
   },
   {
     version: '1.3.1',
