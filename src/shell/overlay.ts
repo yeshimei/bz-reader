@@ -323,6 +323,7 @@ export function ttsFormHtml(): string {
         offline ? t('tts.offline.state', { chapters: String(offline.chapters), mb: String(offline.mb) }) : t('tts.offline.none')
       }</span>
       <button class="bzs-btn sm" data-act="ttsofflinereload">${t('tts.offline.reload')}</button>
+      ${offline ? `<button class="bzs-btn sm" data-act="ttsofflinedel">${t('tts.offline.del')}</button>` : ''}
     </div>
   </div>`;
 }
@@ -367,6 +368,25 @@ function overlayOfflineClear(info: string): string {
     </div>`,
     `<span class="sp"></span><button class="bzs-btn" data-act="close">${t('common.cancel')}</button>
      <button class="bzs-btn pri" data-act="ttsofflinecleardo">${t('tts.offlineClear.ok')}</button>`,
+  );
+}
+
+/**
+ * 删掉**这一本**的离线音频（2026-11-14）。
+ *
+ * 和「清理离线音频」分开：那个是整库一把清，这个是「这本书我不要了」。
+ * 只删 `bz-reader/offline/<书名>/`，正文和进度一根毫毛都不动。
+ */
+function overlayOfflineDel(info: string): string {
+  const [title, chapters, mb] = info.split('|');
+  return modal(
+    t('tts.offlineDel.title'),
+    esc(title || ''),
+    `<div style="font-size:13px;line-height:2;color:var(--t2)">
+      ${esc(t('tts.offlineDel.body', { chapters: chapters || '0', mb: mb || '0' }))}
+    </div>`,
+    `<span class="sp"></span><button class="bzs-btn" data-act="close">${t('common.cancel')}</button>
+     <button class="bzs-btn pri" data-act="ttsofflinedeldo">${t('tts.offlineDel.ok')}</button>`,
   );
 }
 
@@ -1489,6 +1509,8 @@ export function overlayHtml(): string {
       return overlayTtsClear(o.text ?? '0|0');
     case 'ttsofflineclear':
       return overlayOfflineClear(o.text ?? '0|0');
+    case 'ttsofflinedel':
+      return overlayOfflineDel(o.text ?? '||');
     case 'export':
       return overlayExport(o.bookId);
     case 'bookmap':

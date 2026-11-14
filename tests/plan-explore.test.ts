@@ -73,11 +73,12 @@ describe('对照表 · 探索中段的位置与内容', () => {
     expect(names.has('探索中')).toBe(false);
   });
 
-  it('探索行不计入已实现项：基础版 8、高级版 30、共 37 行的口径不变', () => {
-    /* 图上的合计只看已实现：高级版 30 个勾（剪藏成书 2026-11-13 转正）、\n       基础版 8 个勾。探索七行加进来之后，行数仍是 37。 */
-    expect(PLAN_TABLE.filter((r) => r.pro === 'yes')).toHaveLength(30);
-    expect(PLAN_TABLE.filter((r) => r.free === 'yes')).toHaveLength(8);
-    expect(PLAN_TABLE).toHaveLength(37);
+  it('探索行不计入已实现项：基础版 9、高级版 31、共 38 行的口径不变', () => {
+    /* 图上的合计只看已实现：高级版 31 个勾（2026-11-14 朗读下放、预生成
+       单列一行）、基础版 9 个勾。探索七行加进来之后，行数仍是 38。 */
+    expect(PLAN_TABLE.filter((r) => r.pro === 'yes')).toHaveLength(31);
+    expect(PLAN_TABLE.filter((r) => r.free === 'yes')).toHaveLength(9);
+    expect(PLAN_TABLE).toHaveLength(38);
   });
 
   it('知识库之后是剪藏成书（已转正），再往后才是探索段', () => {

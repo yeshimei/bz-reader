@@ -129,6 +129,14 @@ export interface ReaderEngine {
   currentChapterTitle?(): string;
   /** 正在念的那一句在宿主坐标里的矩形（视图层画框用）；不实现就不高亮 */
   speechRects?(indexes: readonly number[], text: string): Array<{ left: number; top: number; width: number; height: number }>;
+  /**
+   * 把某一句滚到眼前（离线整章播放跟随用，2026-11-14）。
+   *
+   * 交给分页器自己按 range 算页码（foliate-js 的 tts.js 同一套做法），
+   * 不在这里做「在不在屏上」的几何判断——分栏模式有两套坐标系，怎么比
+   * 都是错的。返回 false 表示拿不到位置，调用方别再重试。
+   */
+  revealSentence?(indexes: readonly number[], text: string): Promise<boolean>;
   clearSpeechMark?(): void;
   exportChapters(opts?: {
     onProgress?: (done: number, total: number, title: string) => void;

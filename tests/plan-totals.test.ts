@@ -13,8 +13,8 @@ import { describe, expect, it } from 'vitest';
 import { PLAN_GROUPS, PLAN_TABLE, planTotals } from '../src/data/entitlement';
 
 describe('对照表合计', () => {
-  it('基础版 8 项、高级版 30 项（剪藏成书转正）', () => {
-    expect(planTotals()).toEqual({ free: 8, pro: 30 });
+  it('基础版 9 项、高级版 31 项（朗读下放，预生成单列一行）', () => {
+    expect(planTotals()).toEqual({ free: 9, pro: 31 });
   });
 
   it('合计就是打勾的行数，不是总行数', () => {

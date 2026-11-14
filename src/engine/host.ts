@@ -28,7 +28,7 @@ import type {
   ShowAnnotationDetail,
 } from '../types/foliate';
 import { buildChapterCSS } from './theme';
-import { overlapsSpan, visibleSpan, type Span } from './visible-span';
+import { lineInSpan, overlapsSpan, visibleSpan, type Span } from './visible-span';
 import { cropToSpan, findInRange, findVisibleText } from './range-text';
 import { contentInset } from './content-inset';
 import { makeTxtBook, countWords } from './txt';
@@ -2041,6 +2041,42 @@ export class EngineHost {
   }
 
   /**
+   * 把「正在念的这一句」滚到眼前（离线整章播放跟随用，2026-11-14）。
+   *
+   * 交给分页器自己算，别自己数页。`paginator.scrollToAnchor(range)` 取
+   * range 的第一个非零矩形，按页宽折成页码再滚过去——foliate-js 自己的
+   * `tts.js` 就是这么跟着念的（它给 renderer 的那个默认高亮回调调的正是
+   * `scrollToAnchor`）。自己比「这句在不在屏上」在这套布局里没有解：
+   * 分栏模式下 `getClientRects()` 是整章布局坐标（0–38529），`innerWidth`
+   * 却是当前一栏（632），两套坐标系混着比，整章永远「在眼前」——真机
+   * 表现就是整章播完、页面一动不动。
+   *
+   * 幂等：这句已经在当前页时，分页器算出的偏移与当前一致，直接返回。
+   */
+  async revealSentence(indexes: readonly number[], text: string): Promise<boolean> {
+    const spot = indexes.length ? this.speechSpots[indexes[0]] : undefined;
+    if (!spot) return false;
+    const renderer = this.view?.renderer as unknown as
+      | { scrollToAnchor?: (anchor: Range, select?: boolean) => Promise<void> }
+      | undefined;
+    if (!renderer?.scrollToAnchor) return false;
+    let range: Range | null = null;
+    try {
+      range = findInRange(spot.range, text) ?? findInRange(spot.range, text.slice(0, 8));
+    } catch {
+      range = null;
+    }
+    if (!range) return false;
+    try {
+      /* 第二个参数 false：只滚动，不把用户的选区改成这一句 */
+      await renderer.scrollToAnchor(range, false);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * 朗读到某一句时，这一句在**宿主坐标**里的几行矩形（给阅读视图画框）。
    *
    * 不走 foliate 的 `overlayer`：分栏模式下它的坐标系跟宿主对不上，框会画到
@@ -2048,6 +2084,8 @@ export class EngineHost {
    * 换回宿主坐标，由视图层用绝对定位的 div 画——和划词工具条同一套坐标。
    *
    * 找不到精确位置（句子跨节点、引号被去掉后对不上）就退这一块，宁可多亮。
+   * 屏外的行会被裁掉（`lineInSpan`）：视图层拿「有没有框」当「这句在不在
+   * 眼前」，画到看不见的地方等于骗它。
    */
   speechRects(indexes: readonly number[], text: string): Rect[] {
     const spot = indexes.length ? this.speechSpots[indexes[0]] : undefined;
@@ -2076,6 +2114,8 @@ export class EngineHost {
     const out: Rect[] = [];
     for (const r of Array.from(range.getClientRects())) {
       if (r.width < 1 || r.height < 1) continue;
+      /* 屏外的行不画：分栏模式下这是整章布局坐标，别的页也有矩形 */
+      if (!lineInSpan(r, span)) continue;
       out.push({
         left: originX + r.left * g.scale,
         top: originY + r.top * g.scale,

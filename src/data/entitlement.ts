@@ -44,7 +44,14 @@ export type Cap =
   | 'kb' // BZ AI 知识盒（划词录入 / 笔记当依据；行名按 bz 的文案）
   | 'fullFormats' // mobi / azw3 / fb2 / cbz（PDF 2026-11-10 起单列，见 pdf）
   | 'vertical' // 竖排（双栏已于 2026-11-05 下放基础版，不再挂在这个能力上）
-  | 'tts' // 朗读
+  /**
+   * 朗读的「整章 / 整本预生成」（2026-11-14）。
+   *
+   * 朗读本体（点朗读、逐句高亮、缓存命中、听离线包）已经下放基础版：
+   * 不联网、不花服务费的动作没理由收钱。只剩「一次把整章或整本备好」——
+   * 它要跑几分钟到几小时、要占几十到几百 MB——挂在高级版。
+   */
+  | 'ttsPregen'
   | 'parallel' // 并排 / 双语
   | 'bookmap' // 全书鸟瞰
   | 'bilink' // 划线 → 双向链接
@@ -628,15 +635,15 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     es: 'Composición vertical',
     pt: 'Composição vertical',
   },
-  tts: {
-    zh: '让它念给你听，念完自动翻页',
-    'zh-TW': '讓它念給你聽，念完自動翻頁',
-    en: 'Have it read to you, turning pages on its own',
-    ja: '読み上げ、読み終えたら自動で次のページへ',
-    de: 'Vorlesen lassen, blättert selbst weiter',
-    fr: 'Se faire lire, la page tourne toute seule',
-    es: 'Que te lo lea, pasando de página solo',
-    pt: 'Deixe ler para você, virando a página sozinho',
+  ttsPregen: {
+    zh: '整章 / 整本预生成：一次备好，翻页即听，也能存成离线音频拷到手机上',
+    'zh-TW': '整章 / 整本預生成：一次備好，翻頁即聽，也能存成離線音訊拷到手機上',
+    en: 'Pre-build a whole chapter or book: ready to play as you turn pages, and saved as offline audio you can copy to your phone',
+    ja: '章・本まるごと事前生成：一度作ればすぐ再生、オフライン音声としてスマホにもコピーできる',
+    de: 'Ganzes Kapitel oder Buch vorab erzeugen: sofort abspielbar und als Offline-Audio aufs Handy kopierbar',
+    fr: 'Pré-générer un chapitre ou un livre entier : prêt à écouter en tournant les pages, et exportable en audio hors ligne sur ton téléphone',
+    es: 'Pre-genera un capítulo o un libro entero: listo para escuchar al pasar páginas y guardable como audio sin conexión para el móvil',
+    pt: 'Pré-gera um capítulo ou um livro inteiro: pronto a ouvir ao virar páginas e guardável como áudio offline para o telemóvel',
   },
   parallel: {
     /* 1.0.0：并排的是任意两本书、段落同步，不是「原文 + 译文」。 */
@@ -766,6 +773,11 @@ export const PLAN_TABLE: PlanRow[] = [
      新建 / 改名 / 排序 / 删除分类、把书归入某一类，都不拦。 */
   row('card', 'yes', 'yes'),
   row('classify', 'yes', 'yes'),
+  /* 朗读本体 2026-11-14 下放基础版：点朗读、逐句高亮、听已存好的离线包
+     都不花钱、不联网，没理由挡在付费墙后。它属于「怎么读」这一段，所以
+     排在分类管理后面；收费的只剩「一次备好一整章 / 一整本」，单独成一行
+     （ttsPregen，见下面的进阶段）。 */
+  row('tts', 'yes', 'yes'),
   /* 「更多格式」紧跟阅读能力：它决定「哪些书能打开」，和后面的加工类
      能力不是一回事。2026-11-07 按真机对照顺序上移到这里。
      2026-11-10：PDF 不再由这一行代表——它有自己的段（见下面的 pdfView…）。 */
@@ -809,7 +821,9 @@ export const PLAN_TABLE: PlanRow[] = [
   /* AI 伴读（2026-11-11）：追问、导读、补全、对话存档共用一道门禁。 */
   row('aiChat', 'no', 'yes', 'aiChat'),
   row('vertical', 'no', 'yes', 'vertical'),
-  row('tts', 'no', 'yes', 'tts'),
+  /* 「一次备好一整章 / 一整本」是重度用法：要跑几分钟到几小时、占几十到
+     几百 MB，所以留在高级版。朗读本体已经下放（见上面的 tts 行）。 */
+  row('ttsPregen', 'no', 'yes', 'ttsPregen'),
   row('parallel', 'no', 'yes', 'parallel'),
   row('bookmap', 'no', 'yes', 'bookmap'),
   /* 表尾这一步是「全书问答」取依据的那一步，不是单独一颗按钮。
@@ -905,7 +919,7 @@ export interface PlanGroup {
 export const PLAN_GROUPS: PlanGroup[] = [
   {
     key: 'read',
-    rows: ['reading', 'columns', 'marks', 'inbookSearch', 'back', 'footnote', 'card', 'classify'],
+    rows: ['reading', 'columns', 'marks', 'inbookSearch', 'back', 'footnote', 'card', 'classify', 'tts'],
   },
   {
     key: 'output',
@@ -925,7 +939,7 @@ export const PLAN_GROUPS: PlanGroup[] = [
   },
   {
     key: 'advanced',
-    rows: ['vertical', 'tts', 'parallel', 'bookmap', 'kb', 'clipEpub'],
+    rows: ['vertical', 'ttsPregen', 'parallel', 'bookmap', 'kb', 'clipEpub'],
   },
   /* 2026-11-11 新增：探索中。放最后一段，只收还没实现的功能，
      两版都不打勾，所以它不参与「被拦时高亮」那一套。剪藏成书 2026-11-13

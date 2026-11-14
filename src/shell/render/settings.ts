@@ -429,16 +429,15 @@ export function viewSettings(v: SettingsView): string {
 
   /* 朗读（2026-11-13 接 DeepSeek TTS）：这一组从「语速 + 跟随」两项涨成
      一整套听书设置。手机上也给——换成音频播放之后，手机比系统语音稳，
-     入口在头栏 / ⋮，不再按设备收起。 */
-  const ttsUnlocked = can('tts');
+     入口在头栏 / ⋮，不再按设备收起。
+     2026-11-14：朗读本体下放基础版，整组不再加锁；只有「整章 / 整本
+     预生成」那个按钮过 requireCap('ttsPregen')。 */
   const ttsMobile = isMobileShell();
   const voiceOpts: Array<[string, string]> = TTS_VOICE_IDS.map((id) => [
     id,
     t(id === 'stella' ? 'settings.ttsVoice.stella' : 'settings.ttsVoice.tide'),
   ]);
-  const tts = `<div class="bzs-setgrp${ttsUnlocked ? '' : ' is-locked'}"${
-    ttsUnlocked ? '' : ` data-act="unlock" data-mode="tts" title="${t('settings.locked')}"`
-  }>
+  const tts = `<div class="bzs-setgrp">
       <h3>${t('settings.grp.tts')}</h3>
       <div class="bzs-setrow"><label>${t('settings.ttsEngine')}</label>${seg(
         'ttsEngine',

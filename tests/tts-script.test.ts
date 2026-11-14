@@ -5,6 +5,8 @@ import {
   estimateCost,
   splitQuotes,
   splitSentences,
+  startIndexOf,
+  startPointOf,
   ttsLangSupported,
 } from '../src/core/tts-script';
 
@@ -147,5 +149,83 @@ describe('语种支持', () => {
     for (const tag of ['de', 'fr', 'es', 'pt', '', '-']) {
       expect(ttsLangSupported(tag)).toBe(false);
     }
+  });
+});
+
+
+describe('startIndexOf', () => {
+  /* 整章脚本 vs 当前页文字：整章往后连续播，但起点必须落在「这一屏第一句」。
+     离线包播的是整章 mp3，起点算错的直接后果是「声音从章首开始、高亮却在
+     当前页」——真机反馈过的那个 bug。 */
+  const segs = [
+    { text: '在这本书里，我想写现代中国某一部分社会。' },
+    { text: '照例这本书该献给她。不过，近来觉得献书也像佳话。' },
+    { text: '三十五年（一九四六年）十二月十五日' },
+  ];
+
+  it('整句出现在这一页时，从这一句开始', () => {
+    const page = '照例这本书该献给她。不过，近来觉得献书也像佳话。三十五年（一九四六年）十二月十五日';
+    expect(startIndexOf(segs, page)).toBe(1);
+  });
+
+  it('段落跨页、页首只是后半段时，退到「这一句包含页首」的那一句', () => {
+    /* 第 2 句从上一页开始，“照例”两个字留在了上一屏 */
+    const page = '这本书该献给她。不过，近来觉得献书也像佳话。';
+    expect(startIndexOf(segs, page)).toBe(1);
+  });
+
+  it('页首是短句而整页都对不上时，从这一页第一条对得上的句子开始', () => {
+    const page = '三十五年（一九四六年）十二月十五日';
+    expect(startIndexOf(segs, page)).toBe(2);
+  });
+
+  it('一句都对不上（换过排版）就从章首开始，至少能听', () => {
+    expect(startIndexOf(segs, '完全不相干的一段文字')).toBe(0);
+  });
+
+  it('页文字为空时也从章首开始', () => {
+    expect(startIndexOf(segs, '')).toBe(0);
+    expect(startIndexOf(segs, '   ')).toBe(0);
+  });
+
+  it('标点与空白差异不影响判断', () => {
+    const page = '照例这本书该献给她。 不过， 近来觉得献书也像佳话。';
+    expect(startIndexOf(segs, page)).toBe(1);
+  });
+
+  it('空脚本返回 0（不返回 -1，调用方直接拿去 start）', () => {
+    expect(startIndexOf([], '随便')).toBe(0);
+  });
+});
+
+describe('startPointOf', () => {
+  /* 起点要落到「屏幕上的第一个字」，不是一个段落的开头：段落跨页时，
+     这一页从段落中间开始，可整句音频只能从句首放。返回要跳过几个字，
+     播放器按比例换算成毫秒，把上一页那点尾巴跳过去。 */
+  const segs = [
+    { text: '序' },
+    { text: '照例这本书该献给她。' },
+    { text: '不过，近来觉得献书也像佳话。' },
+  ];
+
+  it('页首落在句中时，给出要跳过几个字', () => {
+    const page = '这本书该献给她。不过，近来觉得献书也像佳话。';
+    expect(startPointOf(segs, page)).toEqual({ index: 1, skip: 2 });
+  });
+
+  it('整句就在页首时不用跳', () => {
+    expect(startPointOf(segs, '不过，近来觉得献书也像佳话。')).toEqual({ index: 2, skip: 0 });
+  });
+
+  it('一句都对不上时从章首、不跳', () => {
+    expect(startPointOf(segs, '完全不相干的一段文字')).toEqual({ index: 0, skip: 0 });
+  });
+
+  it('页首只有两个字也能定位（极短页）', () => {
+    expect(startPointOf(segs, '献给她。')).toEqual({ index: 1, skip: 6 });
+  });
+
+  it('空页面不跳', () => {
+    expect(startPointOf(segs, '')).toEqual({ index: 0, skip: 0 });
   });
 });

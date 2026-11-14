@@ -211,17 +211,23 @@ describe('界面文案', () => {
     expect(capLabel('ai')).toBe('AI 全书问答');
   });
 
-  it('分类管理是免费区最后一行：跟着书摘图片，两栏都打勾', () => {
+  it('分类管理跟着书摘图片，朗读收尾免费区，两栏都打勾', () => {
     /* 1.0.0：书摘图片下放免费区，插在脚注浮窗与分类管理之间，所以
-       「紧跟脚注浮窗」不再成立。真正要守的是「它在免费段最末」——
-       后面一行就是付费的「更多格式」，免费项不许漏到付费段里去。 */
-    const free = PLAN_TABLE.filter((r) => r.free === 'yes');
-    const classify = free[free.length - 1];
-    expect(classify.key).toBe('classify');
-    expect(classify.name).toBe('分类管理');
-    expect(classify.pro).toBe('yes');
+       「紧跟脚注浮窗」不再成立。
+       2026-11-14：朗读下放基础版并排到免费段末尾，免费区最后一行换成它；
+       这里守两件事——分类管理仍是免费项，且免费段不许漏出没有 cap 的付费行。 */
+    const classify = PLAN_TABLE.find((r) => r.key === 'classify');
+    expect(classify?.name).toBe('分类管理');
+    expect(classify?.free).toBe('yes');
+    expect(classify?.pro).toBe('yes');
     /* 基础版行不挂 cap：它没有「被拦下」的时刻 */
-    expect(classify.cap).toBeUndefined();
+    expect(classify?.cap).toBeUndefined();
+
+    const free = PLAN_TABLE.filter((r) => r.free === 'yes');
+    const last = free[free.length - 1];
+    expect(last.key).toBe('tts');
+    expect(last.pro).toBe('yes');
+    expect(last.cap).toBeUndefined();
   });
 
   it('更多格式仍是第一个付费项，紧跟在免费区之后', () => {

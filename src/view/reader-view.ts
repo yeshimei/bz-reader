@@ -33,7 +33,7 @@ import { ClipOwnerRegistry } from './clip-owner';
 import { applyEngineMeta } from '../data/book-meta';
 import { coverPathOf, ensureCoverFromFoliate } from '../data/cover';
 import { speak, speakLang, type SpeakHandle } from '../core/speak';
-import { billedChars, buildScript, estimateCost, ttsLangSupported, type ScriptKind, type ScriptSegment } from '../core/tts-script';
+import { billedChars, buildScript, estimateCost, startPointOf, ttsLangSupported, type ScriptKind, type ScriptSegment } from '../core/tts-script';
 import type { TtsErrorCode } from '../core/tts-api';
 import { isFreeEngine, synthesizeFor, ttsCacheTag, ttsEngineReady, ttsMimeOf, type TtsRoute } from '../core/tts-engine';
 import { concatMp3, type LocalRequester } from '../core/tts-local';
@@ -1699,7 +1699,8 @@ export class ReaderView extends ItemView {
       this.stopTts();
       return;
     }
-    if (!requireCap('tts')) return;
+    /* 朗读本体 2026-11-14 下放基础版：不联网、不花服务费的动作不设门禁。
+       收费的只剩「整章 / 整本预生成」，见 prefetchChapter / prefetchBook。 */
     this.speakPage();
   }
 
@@ -1931,8 +1932,11 @@ export class ReaderView extends ItemView {
       return false;
     }
 
-    /* 当前页第一句在整章里的位置：翻到第 5 页点朗读，就该从第 5 页开始 */
-    const startAt = Math.max(0, segments.findIndex((s) => pageText.includes(s.text)));
+    /* 当前页第一句在整章里的位置：翻到第 5 页点朗读，就该从第 5 页开始。
+       段落跨页时这一页只有后半截，起点既不能落在章首、也不能退到段落开头
+       （真机反馈：声音从整段开头念），所以连「跳过几个字」一起算出来。 */
+    const start = startPointOf(segments, pageText);
+    const startAt = start.index;
 
     this.stopTts();
     this.ttsMime = this.ttsFormat() === 'wav' ? 'audio/wav' : 'audio/mpeg';
@@ -1958,6 +1962,9 @@ export class ReaderView extends ItemView {
         this.ttsSnippet = snippetOf(seg.text);
         this.showSpeechMark(this.host.speechRects?.(seg.blocks, seg.text) ?? []);
         this.renderTtsBar();
+        /* 念到屏幕外的句子：翻过去跟上。放在画框之后——先框住这一页能看到的
+           部分，再去翻页，中间不会有一帧空白 */
+        void this.followOffline();
       },
       onEnd: () => {
         /* 整章播完：默认就停。不在离线模式里自动翻章——用户是为了「离线」
@@ -1977,7 +1984,13 @@ export class ReaderView extends ItemView {
     this.syncToolState();
     this.showTtsBar();
     player.setRate(this.prefs.ttsRate);
-    player.start(startAt);
+    /* 句内偏移换算成毫秒：这一句的字数对应它自己的时长，按比例折。
+       `align[startAt]` 为 -1（这句没有音频）时播放器会顺延到下一句，
+       此时偏移必须归零，否则会跳到那一句的中段。 */
+    const mark = align[startAt] >= 0 ? chapter.marks[align[startAt]] : undefined;
+    const chars = segments[startAt]?.text.replace(/\s+/g, '').length ?? 0;
+    const skipMs = mark && chars > 0 ? Math.round((mark.ms * start.skip) / chars) : 0;
+    player.start(startAt, skipMs);
     return true;
   }
 
@@ -2140,6 +2153,8 @@ export class ReaderView extends ItemView {
       this.prefetching = false;
       return;
     }
+    /* 取消永远放行，只有「开始备好一整章」要高级版（2026-11-14 分级）。 */
+    if (!requireCap('ttsPregen')) return;
     const route = this.ttsRoute();
     if (!ttsEngineReady(route)) {
       notify(t(route.engine === 'local' ? 'notice.tts.noLocal' : 'notice.tts.noKey'));
@@ -2371,6 +2386,53 @@ export class ReaderView extends ItemView {
     this.showSpeechMark(this.host.speechRects?.(seg.blocks, seg.text) ?? []);
   }
 
+  /**
+   * 删掉这本书的离线音频（只删 `bz-reader/offline/<书名>/`）。
+   *
+   * 删之前先停朗读：音频文件正被 <audio> 读着的话，删完那一句会立刻报错。
+   */
+  async deleteOfflineAudio(): Promise<void> {
+    const pack = this.offlinePack;
+    if (!pack) {
+      notify(t('notice.tts.offlineNoPack'));
+      return;
+    }
+    this.stopTts();
+    try {
+      await deletePack(this.packFS(), pack.title);
+      this.offlinePack = null;
+      notify(t('notice.tts.offlineDeleted'));
+    } catch {
+      notify(t('notice.tts.offlineFailed'));
+    }
+  }
+
+  /**
+   * 离线整章播放时，把当前句所在的页翻到眼前（2026-11-14）。
+   *
+   * 在线朗读是一页一页念的，翻页由「念完这页」触发；离线包是整章连着放，
+   * 音频不会等人——念到下一屏时如果页面还停着，用户就只听声看不着字。
+   *
+   * 翻页交给分页器（`revealSentence` → `scrollToAnchor(range)`，foliate-js
+   * 自己的 TTS 也是这么跟的）。在宿主侧自己比矩形、调 `next()` 走过四遍
+   * 都是死路：分栏模式下块与 `getClientRects()` 是整章布局坐标，`innerWidth`
+   * 却是当前一栏，两套坐标系混着比，整章永远「在眼前」，一次都不会翻。
+   *
+   * `speechRects` 只给屏内的行返回矩形，所以「有框」就等于「已经在眼前」。
+   */
+  private async followOffline(): Promise<void> {
+    if (!this.offlinePlayer || !this.prefs.ttsFollow || this.closed) return;
+    if (this.ttsMarks.length) return;
+    const seg = this.offlineSegments?.[this.ttsIndex];
+    if (!seg) return;
+    const moved = (await this.host.revealSentence?.(seg.blocks, seg.text)) ?? false;
+    if (!moved) return;
+    /* 滚动本身是同步的，但 relocate 要等下一帧才落定：不等这一下再画框，
+       拿到的还是上一页的可见区间，框会画在旧位置上 */
+    await new Promise((r) => setTimeout(r, 100));
+    this.repaintOfflineMark();
+  }
+
   /** 把一章写进离线包（音频 + 更新清单），返回写好的章或 null */
   private async saveOfflineChapter(
     source: ChapterSource,
@@ -2445,6 +2507,8 @@ export class ReaderView extends ItemView {
       notify(t('notice.tts.prefetchCancelled'));
       return;
     }
+    /* 整本也是「预生成」，与整章同档：取消放行，开始才要高级版。 */
+    if (!requireCap('ttsPregen')) return;
     const route = this.ttsRoute();
     if (route.engine !== 'local') {
       notify(t('notice.tts.bookLocalOnly'));
@@ -2626,6 +2690,8 @@ export class ReaderView extends ItemView {
    * 直接崩；一章几十 MB，写完就释放。手机上按章管理也比一个巨型文件好用。
    */
   async exportChapterAudio(): Promise<void> {
+    /* 导出一章要把整章合成一遍，和「预生成」是同一笔账：同一个能力位。 */
+    if (!requireCap('ttsPregen')) return;
     const route = this.ttsRoute();
     if (!ttsEngineReady(route)) {
       notify(t(route.engine === 'local' ? 'notice.tts.noLocal' : 'notice.tts.noKey'));

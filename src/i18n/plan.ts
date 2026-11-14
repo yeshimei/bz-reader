@@ -47,6 +47,9 @@ export type PlanKey =
   | 'aiChat'
   | 'vertical'
   | 'tts'
+  /* 2026-11-14：朗读本体下放基础版后拆出来的行——收费的只剩「一次备好
+     一整章 / 一整本」。 */
+  | 'ttsPregen'
   | 'parallel'
   | 'bookmap'
   | 'kb'
@@ -359,7 +362,8 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     pt: 'Composição vertical: EPUB / TXT',
   },
   tts: {
-    /* 1.0.0：PDF 这版也能朗读，念完这一页会自动翻下一页接着念。 */
+    /* 1.0.0：PDF 这版也能朗读，念完这一页会自动翻下一页接着念。
+       2026-11-14：本行下放基础版，只剩「预生成」那行收费。 */
     zh: '朗读：EPUB、TXT 与 PDF，念完自动翻页',
     'zh-TW': '朗讀：EPUB、TXT 與 PDF，念完自動翻頁',
     en: 'Read aloud: EPUB, TXT and PDF, auto page-turn',
@@ -368,6 +372,16 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     fr: 'Lecture vocale : EPUB, TXT et PDF, page suivante automatique',
     es: 'Lectura en voz alta: EPUB, TXT y PDF, pasa de página sola',
     pt: 'Leitura em voz alta: EPUB, TXT e PDF, vira a página sozinha',
+  },
+  ttsPregen: {
+    zh: '整章 / 整本预生成：备好再听，可存离线音频拷到手机',
+    'zh-TW': '整章 / 整本預生成：備好再聽，可存離線音訊拷到手機',
+    en: 'Pre-build a chapter or the whole book: listen instantly, keep it as offline audio for your phone',
+    ja: '章・本まるごと事前生成：すぐ再生、オフライン音声としてスマホへ',
+    de: 'Kapitel oder ganzes Buch vorab erzeugen: sofort hören, als Offline-Audio aufs Handy',
+    fr: 'Pré-générer un chapitre ou tout le livre : écoute immédiate et audio hors ligne pour le téléphone',
+    es: 'Pre-genera un capítulo o el libro entero: escucha al instante y audio sin conexión para el móvil',
+    pt: 'Pré-gera um capítulo ou o livro inteiro: ouve já e guarda como áudio offline para o telemóvel',
   },
   parallel: {
     /* 1.0.0：并排的是任意两本书、段落同步，不是「原文 + 译文」。 */

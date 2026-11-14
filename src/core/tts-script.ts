@@ -212,6 +212,50 @@ export function buildScript(
   return out;
 }
 
+/**
+ * 当前这一页该从整章脚本的第几句开始念（2026-11-14）。
+ *
+ * 离线包播的是整章 mp3，起点只能靠文本对。`pageText` 是屏幕上这一页裁出来的
+ * 字：一个段落跨了两页时它只拿到后半截，`pageText.includes(整句)` 会全部
+ * miss，起点掉回 0 —— 声音从章首开始，高亮却在当前页，谁看都觉得坏了。
+ * 所以补一条「这一句包含页首」的判断：页首那十几个字一定落在这一句里。
+ */
+export function startIndexOf(
+  segments: readonly { text: string }[],
+  pageText: string,
+): number {
+  return startPointOf(segments, pageText).index;
+}
+
+/**
+ * 同 `startIndexOf`，另外给出「这一页从这一句的第几个字开始」（2026-11-14）。
+ *
+ * 只给句子序号是不够的：段落跨页时，这一页常常从段落中间开始，而整句音频
+ * 只能从句首放——用户听到的是上一页末尾那半句，观感就是「从整个段落的开头
+ * 念」（真机反馈）。返回的 `skip` 让播放器按比例把这几百毫秒跳过去。
+ */
+export function startPointOf(
+  segments: readonly { text: string }[],
+  pageText: string,
+): { index: number; skip: number } {
+  const squash = (s: string): string => String(s ?? '').replace(/\s+/g, '');
+  const page = squash(pageText);
+  if (!page || !segments.length) return { index: 0, skip: 0 };
+  /* 页首那十几个字一定落在某一句话里。先拿长片段找（最不容易撞车），
+     找不到再缩短——短片段满书都是，一上来就用会配错句子。 */
+  for (const n of [16, 12, 8, 6, 4, 3, 2]) {
+    const head = page.slice(0, n);
+    if (head.length < 2) continue;
+    for (let i = 0; i < segments.length; i++) {
+      const t = squash(segments[i]?.text ?? '');
+      if (!t) continue;
+      const pos = t.indexOf(head);
+      if (pos >= 0) return { index: i, skip: pos };
+    }
+  }
+  return { index: 0, skip: 0 };
+}
+
 /** 计费字符：官方口径「汉字算 2，其他算 1」 */
 export function billedChars(text: string): number {
   let n = 0;

@@ -14,6 +14,8 @@ class FakeAudio implements OfflineAudioLike {
   playbackRate = 1;
   paused = true;
   played = 0;
+  /** 真机默认给 4（HAVE_ENOUGH_DATA）；要测「还没加载完」就调成 0 */
+  readyState = 4;
   private listeners: Record<string, Array<() => void>> = {};
 
   play(): Promise<void> {
@@ -133,6 +135,63 @@ describe('起播', () => {
     r.player.next();
     await r.play();
     expect(r.loads()).toBe(1);
+  });
+
+  it('音频还没加载完时先等 metadata，别在 readyState 0 上设 currentTime', async () => {
+    /* 真机现象：从第 12 页点朗读，声音却从章首开始，高亮还在第 12 页。
+       `<audio>` 刚挂上 blob 时 readyState 是 0，此时写 currentTime 会被
+       丢掉，play() 于是从 0 秒起——等 loadedmetadata 再 seek 才对。 */
+    const audio = new FakeAudio();
+    audio.readyState = 0;
+    const r = rig({ audio });
+    r.player.start(2);
+    await r.play();
+    expect(audio.currentTime).toBe(0);
+    expect(audio.played).toBe(0);
+
+    audio.readyState = 4;
+    audio.fire('loadedmetadata');
+    expect(audio.currentTime).toBe(2);
+    expect(audio.played).toBe(1);
+    expect(r.sentences).toEqual([2]);
+  });
+
+  it('等 metadata 期间被叫停，就不要在之后偷偷播起来', async () => {
+    const audio = new FakeAudio();
+    audio.readyState = 0;
+    const r = rig({ audio });
+    r.player.start(1);
+    await r.play();
+    r.player.stop();
+    audio.readyState = 4;
+    audio.fire('loadedmetadata');
+    expect(audio.played).toBe(0);
+  });
+
+  it('带偏移起播：跳过这一句开头那几百毫秒', async () => {
+    /* 段落跨页时，这一页从段落中间开始，整句音频却只能从句首放；
+       不跳的话用户听到的是上一页末尾那几个字 */
+    const r = rig();
+    r.player.start(1, 500);
+    await r.play();
+    expect(r.audio.currentTime).toBe(1.5);
+  });
+
+  it('偏移只对这一次起播生效，翻到下一句就回到句首', async () => {
+    const r = rig();
+    r.player.start(1, 500);
+    await r.play();
+    r.player.next();
+    await r.play();
+    expect(r.audio.currentTime).toBe(2);
+  });
+
+  it('偏移超过这一句的长度时不越界，最多到这句末尾', async () => {
+    const r = rig();
+    r.player.start(0, 99999);
+    await r.play();
+    expect(r.audio.currentTime).toBeLessThan(1);
+    expect(r.audio.currentTime).toBeGreaterThan(0.9);
   });
 
   it('整章一句能播的都没有：直接收尾，不报错', async () => {

@@ -21,6 +21,8 @@ export interface OfflineAudioLike {
   currentTime: number;
   playbackRate: number;
   paused: boolean;
+  /** HAVE_NOTHING=0 … HAVE_ENOUGH_DATA=4；没实现就当成已就绪 */
+  readyState?: number;
   play(): Promise<void>;
   pause(): void;
   addEventListener(type: 'ended' | 'error' | 'timeupdate' | 'loadedmetadata', listener: () => void): void;
@@ -101,8 +103,14 @@ export class OfflinePlayer {
     return mark !== undefined && mark >= 0 && mark < this.marks.length;
   }
 
-  /** 开始播（从第 textIndex 句起；找不到有音频的句子就从第一句能听到的开始） */
-  start(textIndex = 0): void {
+  /**
+   * 开始播（从第 textIndex 句起；找不到有音频的句子就从第一句能听到的开始）。
+   *
+   * `offsetMs`：从这一句的第几毫秒开始。段落跨页时，屏幕上这一页往往从
+   * 段落中间起，整句音频只能从句首放——把多出来的那点尾巴跳掉，用户听到的
+   * 才是「屏幕上第一个字」。
+   */
+  start(textIndex = 0, offsetMs = 0): void {
     const index = this.nextAudible(textIndex, 1);
     if (index < 0) {
       this.finish();
@@ -113,7 +121,7 @@ export class OfflinePlayer {
     this.setState('loading');
     this.ensure(index).then((ok) => {
       if (!ok || !this.wantPlay) return;
-      this.playFrom(index);
+      this.playFrom(index, index === textIndex ? offsetMs : 0);
     });
   }
 
@@ -174,19 +182,37 @@ export class OfflinePlayer {
     });
   }
 
-  private playFrom(index: number): void {
+  private playFrom(index: number, offsetMs = 0): void {
     if (!this.audio) return;
+    const audio = this.audio;
     const mark = this.marks[this.align[index]];
     if (!mark) {
       this.fail(new Error('no mark for sentence'));
       return;
     }
-    this.audio.currentTime = mark.at / 1000;
-    this.audio.playbackRate = this.rate;
+    /* 跳过句首一截，但不能把自己跳没了：留 1ms，至少还在这一句里 */
+    const skip = Math.max(0, Math.min(offsetMs, Math.max(0, mark.ms - 1)));
     this.at = index;
     this.setState('playing');
     this.deps.onSentence?.(index);
-    void this.audio.play().catch((e) => this.fail(e));
+    const go = (): void => {
+      /* 等 metadata 那一拍里被叫停（stop / 换章）就不要再响 */
+      if (this.audio !== audio) return;
+      audio.currentTime = (mark.at + skip) / 1000;
+      audio.playbackRate = this.rate;
+      void audio.play().catch((e) => this.fail(e));
+    };
+    /* 元数据没到就写 currentTime，会被浏览器丢掉（真机：整章从 0 秒开始念，
+       高亮却停在第 12 页）。等 loadedmetadata 再 seek，seek 完立刻播。 */
+    if ((audio.readyState ?? 4) >= 1) {
+      go();
+      return;
+    }
+    const once = (): void => {
+      audio.removeEventListener('loadedmetadata', once);
+      go();
+    };
+    audio.addEventListener('loadedmetadata', once);
   }
 
   /**

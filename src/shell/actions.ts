@@ -130,7 +130,7 @@ import { endsSelection } from './selection-end';
 import { autoMarks } from './auto-mark';
 import { fromSidebarHit, shouldCollapseSidebar } from './sidebar-jump';
 import { shelfLabel } from './shelf-label';
-import { getShellSource, allBooks, liveBooks, shellPrefs, shellSettings } from './source';
+import { bookById, getShellSource, allBooks, liveBooks, shellPrefs, shellSettings } from './source';
 import { openSupportDialog } from './support-dialog';
 import { openClipEmptyDialog } from './clip-empty-dialog';
 import { debugSnapshot } from '../data/debug-log';
@@ -2047,6 +2047,20 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'ttsofflinereload':
       closeOverlay();
       getShellSource()?.reloadOfflineAudio?.();
+      break;
+    /* 删掉当前这本书的离线音频（和整库清理分开） */
+    case 'ttsofflinedel': {
+      const info = getShellSource()?.offlineAudioInfo?.() ?? null;
+      if (!info) break;
+      const book = bookById(getState().bookId ?? '') ?? liveBooks()[0];
+      overlay('ttsofflinedel', {
+        text: `${book?.meta.title ?? ''}|${info.chapters}|${info.mb}`,
+      });
+      break;
+    }
+    case 'ttsofflinedeldo':
+      closeOverlay();
+      getShellSource()?.deleteOfflineAudio?.();
       break;
     /* 拉本地服务的音色列表（2026-11-14）：拉不到就退回手填，别报错 */
     case 'ttslocalvoices': {

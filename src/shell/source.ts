@@ -59,6 +59,8 @@ export interface ShellSource {
   offlineAudioInfo?: () => { chapters: number; mb: number } | null;
   /** 重新扫一遍库里的离线包（用户刚把目录拷进来时点一下） */
   reloadOfflineAudio?: () => void;
+  /** 删掉当前这本书的离线音频（只删这本书的目录） */
+  deleteOfflineAudio?: () => void;
   /**
    * 打开一本书（带 cfi 落到那一页）；已有同书 tab 就复用。
    * `query` = 从搜索结果点过来时正在搜的词：落到页面上要标出来。
