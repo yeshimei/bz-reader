@@ -277,3 +277,21 @@ describe('startPointOf', () => {
     expect(startPointOf(segs, '')).toEqual({ index: 0, skip: 0 });
   });
 });
+
+describe('没有句末标点的长段', () => {
+  it('整段一个字也没有句号时，切成有上限的几句，不整段发出去', () => {
+    const src = Array.from({ length: 300 }, (_, i) => `他推开门走进第${i}个房间`).join('，');
+    const list = splitSentences(src);
+    expect(list.length).toBeGreaterThan(1);
+    expect(Math.max(...list.map((s) => s.length))).toBeLessThanOrEqual(240);
+    /* 切点落在逗号之后：念起来还是完整的短语 */
+    expect(list.every((s) => s.endsWith('，') || s.endsWith('房间') || /第\d+个房间$/.test(s))).toBe(true);
+  });
+
+  it('没有标点也没有空白时也不整段返回', () => {
+    const src = '他推开门走进屋里'.repeat(80);
+    const list = splitSentences(src);
+    expect(list.length).toBeGreaterThan(1);
+    expect(Math.max(...list.map((s) => s.length))).toBeLessThanOrEqual(240);
+  });
+});

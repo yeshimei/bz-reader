@@ -108,6 +108,64 @@ describe('合成请求', () => {
     });
   });
 
+  it('400 但不是审核：按普通错误报，不跳过这一句', async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: false,
+      status: 400,
+      text: async () => '{"error":"voice_id not found"}',
+    })) as unknown as typeof fetch;
+    await expect(
+      synthesizeSpeech({ apiKey: 'k', text: '你好', voice: 'nope', fetchImpl }),
+    ).rejects.toMatchObject({ code: 'http' });
+  });
+
+  it('音频 body 卡住时照样超时，不会永远停在 loading', async () => {
+    vi.useFakeTimers();
+    g.window = { setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout };
+    const fetchImpl = (async (_url: string, init: RequestInit) => ({
+      ok: true,
+      status: 200,
+      arrayBuffer: () =>
+        new Promise<ArrayBuffer>((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+        }),
+    })) as unknown as typeof fetch;
+
+    const p = synthesizeSpeech({ apiKey: 'k', text: '你好', voice: 'stella', fetchImpl, timeoutMs: 5000 });
+    /* 先挂断言再推进时钟：否则 reject 先于处理函数落地，Node 会报未处理拒绝 */
+    const check = expect(p).rejects.toMatchObject({ code: 'timeout' });
+    await vi.advanceTimersByTimeAsync(5000);
+    await check;
+    vi.useRealTimers();
+  });
+
+  it('读音频途中被取消：请求真的收得住（监听没有提前摘掉）', async () => {
+    const outer = new AbortController();
+    const fetchImpl = (async (_url: string, init: RequestInit) => ({
+      ok: true,
+      status: 200,
+      arrayBuffer: () =>
+        new Promise<ArrayBuffer>((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+        }),
+    })) as unknown as typeof fetch;
+
+    const p = synthesizeSpeech({
+      apiKey: 'k',
+      text: '你好',
+      voice: 'stella',
+      signal: outer.signal,
+      fetchImpl,
+      timeoutMs: 60_000,
+    });
+    const check = expect(p).rejects.toMatchObject({ code: 'aborted' });
+    /* 等到 fetch 已经拿到、开始读 body 的那一刻再取消 */
+    await Promise.resolve();
+    await Promise.resolve();
+    outer.abort();
+    await check;
+  });
+
   it('空音频按失败处理，不把 0 字节当成成功', async () => {
     const fetchImpl = vi.fn(async () => ({
       ok: true,

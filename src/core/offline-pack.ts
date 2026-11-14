@@ -92,8 +92,22 @@ export function safeName(raw: string): string {
 }
 
 /** 一本书的包目录 */
+/**
+ * 干净名字 + 短哈希。
+ *
+ * `safeName` 把 `：` `?` `|` 这些统一换成 `_`，于是两个不同书名（或两个不同
+ * 章名）清洗后常常撞成同一个：`三体2：黑暗森林` 与 `三体2?黑暗森林`。撞了就
+ * 共用一个目录 / 一个 mp3，后导的覆盖先导的。哈希只取 6 位 base36，够区分一个
+ * 书库里的几万个名字，又不至于把路径拉长。
+ */
+export function shortHash(raw: string): string {
+  let h = 5381;
+  for (let i = 0; i < raw.length; i += 1) h = ((h << 5) + h + raw.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
 export function packagePath(bookTitle: string): string {
-  return `${OFFLINE_ROOT}/${safeName(bookTitle)}`;
+  return `${OFFLINE_ROOT}/${safeName(bookTitle)}-${shortHash(bookTitle)}`;
 }
 
 /**
@@ -103,7 +117,9 @@ export function packagePath(bookTitle: string): string {
  * 不带序号前缀是因为章标题本身唯一（同一本书不会有两个「第一章」）。
  */
 export function chapterFile(title: string, format: string): string {
-  return `${safeName(title)}.${format || 'mp3'}`;
+  /* 带哈希：两个章名清洗后同名（`第1章：起` / `第1章?起`）会写进同一个文件，
+     后写的那章把前一章覆盖掉，两章清单都指向它 */
+  return `${safeName(title)}-${shortHash(title)}.${format || 'mp3'}`;
 }
 
 /**

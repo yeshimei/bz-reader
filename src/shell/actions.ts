@@ -426,7 +426,12 @@ let shelfOpenedAt = 0;
  * touchend 里 preventDefault，自己关菜单、自己开弹层——同一手势栈里聚焦
  * 输入框，键盘才会跟上来。桌面的 onClick 原样保留。
  */
-function openShelfMenu(bookIds: string[], pos: { x: number; y: number }): void {
+function openShelfMenu(
+  bookIds: string[],
+  pos: { x: number; y: number },
+  /** 是不是从批量工具条进来的：只有这时「新建分类」才算整批 */
+  batch = false,
+): void {
   const books = liveBooks();
   const used = books.map((b) => shelfOf(b));
   const names = orderShelves(getState().shelfList, used).filter((n) => n !== ALL_SHELF);
@@ -468,7 +473,7 @@ function openShelfMenu(bookIds: string[], pos: { x: number; y: number }): void {
     i
       .setTitle(shelfTapTitle(t('shelves.assign.new'), 'new', newBookId))
       .setIcon('folder')
-      .onClick(() => openShelves({ mode: 'new', bookId: newBookId })),
+      .onClick(() => openShelves({ mode: 'new', bookId: newBookId, batch })),
   );
   /* 分类管理（改名 / 排序 / 删除）不再占头栏一颗图标：从这层菜单进，
      和「新建分类…」挨着，都属于「整理分类名册」。 */
@@ -1566,7 +1571,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       }
       /* 从工具条点进来没有右键坐标：菜单贴着这颗按钮的下沿弹 */
       const box = el.getBoundingClientRect();
-      openShelfMenu(ids, { x: box.left, y: box.bottom + 4 });
+      openShelfMenu(ids, { x: box.left, y: box.bottom + 4 }, true);
       break;
     }
     case 'libselremove': {
@@ -1680,9 +1685,10 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const name = cleanShelfName(raw);
       saveShelfList([...getState().shelfList, name]);
       const bookId = d.id || '';
-      /* 从批量归类的「新建分类…」进来时，建好要把整批都放进去，
-         不是只放菜单顺带带过来的第一本。单本入口仍按原来的走。 */
-      const ids = getState().libSelect ? selectedBookIds() : bookId ? [bookId] : [];
+      /* 只有从**批量工具条**的「新建分类…」进来，建好才把整批放进去；
+         多选状态下从某本书的菜单点进来，仍只归那一本（菜单是对着它弹的）。 */
+      const picked = d.batch ? selectedBookIds() : [];
+      const ids = picked.length ? picked : bookId ? [bookId] : [];
       if (ids.length) {
         closeOverlay();
         assignShelf(ids, name);

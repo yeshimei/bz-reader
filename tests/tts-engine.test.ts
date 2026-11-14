@@ -43,18 +43,30 @@ describe('ttsCacheTag', () => {
     expect(ttsCacheTag(route(), 'stella')).toBe('stella');
   });
 
-  it('本地加 local: 前缀，和云端同名音色不串', () => {
-    expect(ttsCacheTag(route({ engine: 'local' }), 'stella')).toBe('local:mp3:stella');
+  it('本地加 local: 前缀，带地址与模型指纹，和云端同名音色不串', () => {
+    const tag = ttsCacheTag(route({ engine: 'local' }), 'stella');
+    expect(tag.startsWith('local:mp3:')).toBe(true);
+    expect(tag.endsWith(':stella')).toBe(true);
+    expect(tag).not.toBe('stella');
   });
 
-  it('兼容服务的键带模型：换模型之后音频不该复用', () => {
+  it('本地换个服务地址 / 换个模型：键跟着换，不放上一个服务的声音', () => {
+    const a = route({ engine: 'local' });
+    const otherUrl: TtsRoute = { ...a, local: { ...a.local, url: 'http://127.0.0.1:9999' } };
+    const otherModel: TtsRoute = { ...a, local: { ...a.local, model: 'cosyvoice' } };
+    expect(ttsCacheTag(a, 'stella')).not.toBe(ttsCacheTag(otherUrl, 'stella'));
+    expect(ttsCacheTag(a, 'stella')).not.toBe(ttsCacheTag(otherModel, 'stella'));
+  });
+
+  it('兼容服务的键带地址与模型：换模型、换地址之后音频都不该复用', () => {
     const r = route({
       online: { url: 'https://tts.example.com', model: 'cosyvoice-2', apiKey: 'k', format: 'mp3' },
     });
-    expect(ttsCacheTag(r, 'alice')).toBe('online:mp3:cosyvoice-2:alice');
-    expect(ttsCacheTag(r, 'alice')).not.toBe(
-      ttsCacheTag(route({ online: { ...r.online, model: 'cosyvoice-1' } }), 'alice'),
-    );
+    const tag = ttsCacheTag(r, 'alice');
+    expect(tag.startsWith('online:mp3:')).toBe(true);
+    expect(tag.endsWith(':alice')).toBe(true);
+    expect(tag).not.toBe(ttsCacheTag(route({ online: { ...r.online, model: 'cosyvoice-1' } }), 'alice'));
+    expect(tag).not.toBe(ttsCacheTag(route({ online: { ...r.online, url: 'https://tts2.example.com' } }), 'alice'));
   });
 });
 

@@ -19,7 +19,10 @@ export interface CacheMeta {
   at: number;
 }
 
-export interface CacheRow extends CacheMeta {
+/** 音频本体。和元数据**分开两个库**：列清单（写缓存前算淘汰、看占用）时
+ *  只读元数据，否则要把几百兆音频整份读进内存，手机上直接崩。 */
+export interface CacheRow {
+  key: string;
   data: ArrayBuffer;
 }
 
@@ -63,7 +66,8 @@ export function pickEvictions(
 
 const DB_NAME = 'bz-reader-tts';
 const STORE = 'audio';
-const DB_VERSION = 1;
+const META = 'meta';
+const DB_VERSION = 2;
 
 function openDb(): Promise<IDBDatabase | null> {
   return new Promise((resolve) => {
@@ -73,9 +77,14 @@ function openDb(): Promise<IDBDatabase | null> {
         return;
       }
       const req = indexedDB.open(DB_NAME, DB_VERSION);
-      req.onupgradeneeded = () => {
+      req.onupgradeneeded = (e) => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: 'key' });
+        if (!db.objectStoreNames.contains(META)) db.createObjectStore(META, { keyPath: 'key' });
+        /* v1 只有 audio 一库（元数据混在每一行里）。升到 v2 时清掉旧音频：
+           它们没有独立的元数据行，淘汰算法看不到，留着就是占着配额的死重量。
+           缓存本来就是可丢的，清空只让下一次重听再合成一遍。 */
+        if (e.oldVersion < 2) req.transaction?.objectStore(STORE).clear();
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => resolve(null);
@@ -115,9 +124,15 @@ export class TtsCache {
             resolve(null);
             return;
           }
-          /* 命中即刷新时间：LRU 看的是「最近用过」，不是「最近合成过」 */
-          row.at = Date.now();
-          store.put(row);
+          /* 命中即刷新时间：LRU 看的是「最近用过」，不是「最近合成过」。
+             只动元数据那一行，不把音频再写一遍（几十兆 × 每次命中）。 */
+          try {
+            db.transaction(META, 'readwrite')
+              .objectStore(META)
+              .put({ key, bytes: row.data.byteLength, at: Date.now() } satisfies CacheMeta);
+          } catch {
+            /* 时间戳没写上只影响淘汰顺序，不该让这次播放失败 */
+          }
           resolve(row.data);
         };
         req.onerror = () => resolve(null);
@@ -133,10 +148,15 @@ export class TtsCache {
     try {
       const all = await this.entries(db);
       const victims = pickEvictions(all, maxBytes, data.byteLength, key);
-      const tx = db.transaction(STORE, 'readwrite');
-      const store = tx.objectStore(STORE);
-      for (const k of victims) store.delete(k);
-      store.put({ key, data, bytes: data.byteLength, at: Date.now() } satisfies CacheRow);
+      const tx = db.transaction([STORE, META], 'readwrite');
+      const audio = tx.objectStore(STORE);
+      const meta = tx.objectStore(META);
+      for (const k of victims) {
+        audio.delete(k);
+        meta.delete(k);
+      }
+      audio.put({ key, data } satisfies CacheRow);
+      meta.put({ key, bytes: data.byteLength, at: Date.now() } satisfies CacheMeta);
     } catch {
       /* 写不进去只影响下次重听要不要再花钱，不影响这一次听 */
     }
@@ -146,7 +166,9 @@ export class TtsCache {
     const db = await this.ready();
     if (!db) return;
     try {
-      db.transaction(STORE, 'readwrite').objectStore(STORE).clear();
+      const tx = db.transaction([STORE, META], 'readwrite');
+      tx.objectStore(STORE).clear();
+      tx.objectStore(META).clear();
     } catch {
       /* 同上 */
     }
@@ -159,14 +181,12 @@ export class TtsCache {
     return { count: all.length, bytes: all.reduce((n, e) => n + e.bytes, 0) };
   }
 
+  /** 只读元数据那一库：音频本体不进内存（默认上限 300 MB） */
   private entries(db: IDBDatabase): Promise<CacheMeta[]> {
     return new Promise((resolve) => {
       try {
-        const req = db.transaction(STORE, 'readonly').objectStore(STORE).getAll();
-        req.onsuccess = () => {
-          const rows = (req.result ?? []) as CacheRow[];
-          resolve(rows.map((r) => ({ key: r.key, bytes: r.bytes, at: r.at })));
-        };
+        const req = db.transaction(META, 'readonly').objectStore(META).getAll();
+        req.onsuccess = () => resolve((req.result ?? []) as CacheMeta[]);
         req.onerror = () => resolve([]);
       } catch {
         resolve([]);

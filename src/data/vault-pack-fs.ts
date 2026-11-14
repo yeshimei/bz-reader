@@ -30,6 +30,8 @@ export function vaultPackFS(app: App): PackFS {
     readText: (path) => adapter.read(path),
     list: (path) => adapter.list(path),
     remove: (path) => adapter.remove(path),
+    /* 写清单要的是「一步换上去」：adapter.rename 在同一目录内覆盖目标 */
+    rename: (from, to) => adapter.rename(from, to),
     rmdir: (path, recursive = true) => adapter.rmdir(path, recursive),
   };
 }

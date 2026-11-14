@@ -14,12 +14,19 @@ import {
   packBytes,
   readChapter,
   readManifest,
+  readManifestState,
   scanPacks,
   writeChapter,
   writeManifest,
   type PackFS,
 } from '../src/data/offline-store';
-import { OFFLINE_ROOT, type OfflineBook, type OfflineChapter } from '../src/core/offline-pack';
+import {
+  OFFLINE_ROOT,
+  chapterFile,
+  packagePath,
+  type OfflineBook,
+  type OfflineChapter,
+} from '../src/core/offline-pack';
 import { buildChapter, emptyBook, upsertChapter } from '../src/core/offline-build';
 
 class MemFS implements PackFS {
@@ -69,6 +76,14 @@ class MemFS implements PackFS {
     this.files.delete(path);
   }
 
+  /** 同目录内改名；目标已存在时覆盖——写清单靠它做原子替换 */
+  async rename(from: string, to: string): Promise<void> {
+    const data = this.files.get(from);
+    if (!data) throw new Error(`ENOENT ${from}`);
+    this.files.delete(from);
+    this.files.set(to, data);
+  }
+
   /** 和 Obsidian 一样：非空目录必须显式 recursive，否则当失败 */
   async rmdir(path: string, recursive = false): Promise<void> {
     const kids = [...this.files.keys()].filter((k) => k.startsWith(`${path}/`));
@@ -102,14 +117,56 @@ async function seed(fs: MemFS, title = '围城'): Promise<{ book: OfflineBook; c
   return { book, chapter };
 }
 
-describe('路径', () => {
-  it('清单在包目录下，章音频也在同一个目录', () => {
-    expect(manifestPath('围城')).toBe(`${OFFLINE_ROOT}/围城/manifest.json`);
-    expect(chapterPath('围城', '第一章.mp3')).toBe(`${OFFLINE_ROOT}/围城/第一章.mp3`);
+describe('路径：清洗后撞名', () => {
+  it('两个书名只差一个非法字符，落在两个目录里', () => {
+    expect(packagePath('三体2：黑暗森林')).not.toBe(packagePath('三体2?黑暗森林'));
   });
 
-  it('书名里的非法字符被清掉', () => {
-    expect(manifestPath('围城/上')).toBe(`${OFFLINE_ROOT}/围城_上/manifest.json`);
+  it('两个章名只差一个非法字符，写进两个文件', () => {
+    expect(chapterFile('第1章：起', 'mp3')).not.toBe(chapterFile('第1章?起', 'mp3'));
+  });
+});
+
+describe('写清单（原子替换）', () => {
+  it('写完不留 .tmp，正本能读回来', async () => {
+    const fs = new MemFS();
+    const { book } = await seed(fs);
+    const path = manifestPath('围城');
+    expect(fs.files.has(`${path}.tmp`)).toBe(false);
+    expect(await readManifest(fs, '围城')).toEqual(book);
+  });
+
+  it('替换失败时正本一个字节都不动，.tmp 也不留', async () => {
+    const fs = new MemFS();
+    const { book } = await seed(fs);
+    const before = await readManifest(fs, '围城');
+    fs.rename = async () => {
+      throw new Error('EPERM');
+    };
+    const bigger: OfflineBook = { ...book, chapters: [...book.chapters, ...book.chapters] };
+    await expect(writeManifest(fs, bigger)).rejects.toThrow();
+    expect(await readManifest(fs, '围城')).toEqual(before);
+    expect(fs.files.has(`${manifestPath('围城')}.tmp`)).toBe(false);
+  });
+
+  it('半截 JSON 报 broken，不混成「没有清单」', async () => {
+    const fs = new MemFS();
+    await seed(fs);
+    fs.files.set(manifestPath('围城'), new TextEncoder().encode('{"title":"围城"').buffer);
+    expect((await readManifestState(fs, '围城')).state).toBe('broken');
+    expect(await readManifest(fs, '围城')).toBeNull();
+  });
+});
+
+describe('路径', () => {
+  it('清单在包目录下，章音频也在同一个目录', () => {
+    const dir = packagePath('围城');
+    expect(manifestPath('围城')).toBe(`${dir}/manifest.json`);
+    expect(chapterPath('围城', '第一章.mp3')).toBe(`${dir}/第一章.mp3`);
+  });
+
+  it('书名里的非法字符被清掉，目录名另带防撞后缀', () => {
+    expect(packagePath('围城/上').startsWith(`${OFFLINE_ROOT}/围城_上-`)).toBe(true);
   });
 });
 

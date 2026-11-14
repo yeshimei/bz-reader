@@ -57,22 +57,39 @@ export interface TtsResult {
   mime: string;
 }
 
+/** 服务地址的短指纹：地址变了就换缓存键，别把上一个服务的声音放出来 */
+function endpointTag(url: string | null | undefined): string {
+  const base = String(url ?? '')
+    .trim()
+    .replace(/\/+$/, '')
+    .toLowerCase();
+  if (!base) return 'default';
+  let h = 5381;
+  for (let i = 0; i < base.length; i += 1) h = ((h << 5) + h + base.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
 /**
  * 缓存键里的音色标签。
  *
  * 三种形状：
- *   · 本机：`local:<格式>:<音色>`，换格式（mp3→wav）之后不会拿旧字节去拼新文件；
- *   · 在线 · 官方：保持原样 `<音色>`。老用户花钱生成的缓存不能作废；
- *   · 在线 · 兼容服务：`online:<格式>:<模型>:<音色>`。音色属于模型，
- *     模型换了音频就不该复用（用户 2026-11-14 的原话）。
+ *   · 本机：`local:<格式>:<地址指纹>:<模型>:<音色>`。换格式（mp3→wav）不会拿
+ *     旧字节去拼新文件；换地址 / 换模型也不会把上一个服务的声音放出来——
+ *     音色名相同不代表是同一把嗓子。
+ *   · 在线 · 官方：保持原样 `<音色>`。地址是固定的官方地址，老用户花钱生成
+ *     的缓存不能作废（这条是唯一不随地址变形的例外）。
+ *   · 在线 · 兼容服务：`online:<格式>:<地址指纹>:<模型>:<音色>`。
  */
 export function ttsCacheTag(route: Pick<TtsRoute, 'engine' | 'online' | 'local'>, voice: string): string {
   const v = String(voice ?? '');
-  if (route.engine === 'local') return `local:${route.local.format}:${v}`;
+  if (route.engine === 'local') {
+    const model = String(route.local.model ?? '').trim();
+    return `local:${route.local.format}:${endpointTag(route.local.url)}:${model}:${v}`;
+  }
   if (route.engine === 'online') {
     if (ttsProtocolOf(route.online.url) === 'deepseek') return v;
     const model = String(route.online.model ?? '').trim();
-    return `online:${route.online.format}:${model}:${v}`;
+    return `online:${route.online.format}:${endpointTag(route.online.url)}:${model}:${v}`;
   }
   return v;
 }

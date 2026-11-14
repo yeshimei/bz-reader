@@ -185,11 +185,23 @@ describe('批量归入分类', () => {
     enter(['a', 'b']);
     (document as unknown as { querySelector: () => unknown }).querySelector = () => ({ value: '小说' });
 
-    dispatchAction('shelfcreate', el({ id: 'a' }));
+    /* 批量工具条会带上 batch：只有它才代表「整批」。普通单本菜单不带这个标记。 */
+    dispatchAction('shelfcreate', el({ id: 'a', batch: true }));
 
     expect(books[0].shelf).toBe('小说');
     expect(books[1].shelf).toBe('小说');
     expect(books[2].shelf).toBeUndefined();
+  });
+
+  it('多选状态下从某一本的菜单新建分类：只归这一本，别把整批拉进来', () => {
+    const { books } = seed();
+    enter(['a', 'b']);
+    (document as unknown as { querySelector: () => unknown }).querySelector = () => ({ value: '小说' });
+
+    dispatchAction('shelfcreate', el({ id: 'a' }));
+
+    expect(books[0].shelf).toBe('小说');
+    expect(books[1].shelf).toBeUndefined();
   });
 
   it('一次把几本都归到同一个分类，缓存也跟着走', () => {

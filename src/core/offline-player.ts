@@ -184,7 +184,9 @@ export class OfflinePlayer {
   private jump(index: number): void {
     this.at = index;
     void this.ensure(index).then((ok) => {
-      if (!ok) return;
+      /* 读盘 / 切句是异步的：这中间用户可能已经暂停或停止。和 start 一样
+         要复检 wantPlay，否则「暂停」会在读盘回来时被自己改回播放。 */
+      if (!ok || !this.wantPlay) return;
       this.playFrom(index);
     });
   }
@@ -206,9 +208,12 @@ export class OfflinePlayer {
       this.fail(new Error('no mark for sentence'));
       return;
     }
-    const bytes = this.sentenceBytes(mark) ?? this.buf;
+    /* 逐句模式下切不出这一句的区间，说明清单和音频不是同一份（同步只落了
+       半个文件、中途换过包、手工换掉其中一个）。这时若退回整章缓冲，用户听到
+       的是同一章循环几十遍；直接报错，让上层提示重新导出这一章。 */
+    const bytes = this.sliceMode ? this.sentenceBytes(mark) : this.buf;
     if (!bytes || !bytes.byteLength) {
-      this.fail(new Error('offline audio is empty'));
+      this.fail(new Error(this.sliceMode ? 'offline slices do not match audio' : 'offline audio is empty'));
       return;
     }
     this.at = index;

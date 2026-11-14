@@ -377,3 +377,48 @@ describe('读音频失败', () => {
     expect(r.player.stateName).toBe('idle');
   });
 });
+
+describe('清单和音频不是同一份（同步只落半个文件 / 中途换过包）', () => {
+  it('只有部分区间越界时也报错，不把整章当这一句反复放', async () => {
+    /* 6 字节：前两句能切、第三句越界。sliceMode 已经判成 true，
+       旧逻辑会退回整章缓冲，用户听到同一章循环几十遍 */
+    const r = rig({ data: new Uint8Array(6).buffer });
+    r.player.start(2);
+    await r.play();
+    expect(r.errors.length).toBe(1);
+    expect(r.urls).toEqual([]);
+    expect(r.player.stateName).toBe('idle');
+  });
+});
+
+describe('暂停 / 停止之后不再自己开播', () => {
+  it('读盘途中按停止，跳句的回调回来不建 audio', async () => {
+    /* 读整章要几十毫秒到几秒，这中间用户点停止；旧逻辑 jump 的回调
+       只判「读成功了」，回来照样 playFrom，停了又自己响起来 */
+    let release: (b: ArrayBuffer) => void = () => undefined;
+    const pending = new Promise<ArrayBuffer>((resolve) => {
+      release = resolve;
+    });
+    const audios: FakeAudio[] = [];
+    const player = new OfflinePlayer({
+      marks: MARKS,
+      align: [0, 1, 2],
+      loadAudio: () => pending,
+      makeAudio: () => {
+        const a = new FakeAudio();
+        audios.push(a);
+        return a;
+      },
+      makeUrl: () => 'blob:test',
+      revokeUrl: () => undefined,
+    });
+    player.start(0);
+    player.next();
+    player.stop();
+    release(DATA);
+    await flush();
+    await flush();
+    expect(audios.length).toBe(0);
+    expect(player.stateName).not.toBe('playing');
+  });
+});

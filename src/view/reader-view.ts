@@ -61,7 +61,15 @@ import { TtsPlayer } from '../core/tts-player';
 import { OfflinePlayer } from '../core/offline-player';
 import { emptyBook, buildChapter, reorderChapters, upsertChapter, type ChapterSource } from '../core/offline-build';
 import { matchChapter, type OfflineBook, type OfflineChapter } from '../core/offline-pack';
-import { deletePack, findPack, packBytes, readChapter, readManifest, writeChapter, writeManifest } from '../data/offline-store';
+import {
+  deletePack,
+  findPack,
+  packBytes,
+  readChapter,
+  readManifestState,
+  writeChapter,
+  writeManifest,
+} from '../data/offline-store';
 import { vaultPackFS } from '../data/vault-pack-fs';
 import { concatWav } from '../core/wav';
 import { TtsCache, cacheKey } from '../data/tts-cache';
@@ -457,10 +465,18 @@ export class ReaderView extends ItemView {
   private ttsRun = 0;
   /** 正在预生成本章音频（再点一次取消） */
   private prefetching = false;
+  /** 这一轮整章预生成的编号：停止时 +1，旧循环见到号对不上就收手。
+   *  只翻 `prefetching` 一个布尔值的话，旧循环的 finally 会把新任务的开关
+   *  一起关掉（停完立刻再点开始，新任务跑一半就没了） */
+  private prefetchToken = 0;
   /** 正在整本预生成（浮层按钮按第二下 = 停） */
   private prefetchingBook = false;
+  /** 同上，整本那一轮的编号 */
+  private prefetchBookToken = 0;
   /** 正在导出本章（进度卡上的「停止」据此收手） */
   private exportingChapter = false;
+  /** 导出的编号：连点两下不能变成两份并发合成 */
+  private exportToken = 0;
   /**
    * 预生成进度卡（2026-11-14 取代原来的常驻通知）。
    *
@@ -2469,9 +2485,18 @@ export class ReaderView extends ItemView {
    */
   private stopTtsTask(): void {
     const kind = this.ttsProgState?.kind;
-    if (kind === 'chapter') this.prefetching = false;
-    else if (kind === 'book') this.prefetchingBook = false;
-    else if (kind === 'export') this.exportingChapter = false;
+    /* 先换号再放开关：循环在下一个边界看到号变了就收手，它的 finally
+       也不会再把新任务的状态关掉 */
+    if (kind === 'chapter') {
+      this.prefetchToken += 1;
+      this.prefetching = false;
+    } else if (kind === 'book') {
+      this.prefetchBookToken += 1;
+      this.prefetchingBook = false;
+    } else if (kind === 'export') {
+      this.exportToken += 1;
+      this.exportingChapter = false;
+    }
     this.finishTtsProgress('cancelled');
   }
 
@@ -2687,6 +2712,7 @@ export class ReaderView extends ItemView {
 
   private async prefetchChapter(confirmRebuild = true): Promise<void> {
     if (this.prefetching) {
+      this.prefetchToken += 1;
       this.prefetching = false;
       /* 朗读条上那颗按钮也是开关：按第二下同样要立刻给出「已取消」 */
       this.finishTtsProgress('cancelled');
@@ -2726,12 +2752,15 @@ export class ReaderView extends ItemView {
       if (!picked) return;
       if (picked === 'some') segments = segments.slice(0, 20);
     }
+    const task = ++this.prefetchToken;
     this.prefetching = true;
     /* 进度卡取代原来那条 4 秒通知：这一章要跑几分钟，通知连百分比都给不了 */
     this.showTtsProgress('chapter', () => void this.prefetchChapter());
     this.paintTtsProgress({ stage: 'synth', done: 0, total: segments.length });
-    /* 用户点的是「朗读」、被请来先备音频：备完就该自己开口，别再让他点第二次 */
+    /* 用户点的是「朗读」、被请来先备音频：备完就该自己开口，别再让他点第二次。
+       但这一轮要是已经被停了（甚至又开了新的一轮），这里一个字都不能动 */
     const afterTick = (): void => {
+      if (task !== this.prefetchToken) return;
       if (!this.closed && !this.speaking) this.speakPage();
     };
     const cacheMB = this.prefs.ttsCacheMB;
@@ -2754,7 +2783,7 @@ export class ReaderView extends ItemView {
           return;
         }
         /* 卡片上的「停止」已经把终态画出来了，这里只管退出 */
-        if (!this.prefetching) return;
+        if (task !== this.prefetchToken) return;
         const key = cacheKey(this.bookId, tag, seg.text);
         /* 重备时不读缓存：否则「重新生成」跟第一次一样秒完，用户白点 */
         let buf = cache && !regen ? await cache.get(key) : null;
@@ -2793,20 +2822,25 @@ export class ReaderView extends ItemView {
             parts,
             format: this.ttsFormat(route),
           });
+          /* 停止可能就发生在写包这几百毫秒里：停了就别再改清单、别接着开念 */
+          if (task !== this.prefetchToken) return;
           if (saved) notify(t('notice.tts.offlineSaved', { name: saved.file }));
         } catch {
           /* 存包失败不影响「已经合成好、缓存命中」，只说一句 */
           notify(t('notice.tts.offlineFailed'));
         }
       }
+      if (task !== this.prefetchToken) return;
       this.finishTtsProgress('done', { done: seen, total });
       afterTick();
     } catch (e) {
+      if (task !== this.prefetchToken) return;
       this.finishTtsProgress('failed', {
         reason: t(this.ttsErrorKey((e as { code?: TtsErrorCode }).code)),
       });
     } finally {
-      this.prefetching = false;
+      /* 只关自己那一轮的开关：停完立刻再点开始，旧循环收尾不能把新任务关掉 */
+      if (task === this.prefetchToken) this.prefetching = false;
       if (spentChars) this.addTtsSpend(spentChars, estimateCost(spentChars));
     }
   }
@@ -2988,6 +3022,9 @@ export class ReaderView extends ItemView {
    */
   private async followSpeech(seg: ScriptSegment, chapter: boolean): Promise<void> {
     if (this.closed) return;
+    /* 翻页 + 等落位是异步的：这中间用户可能已经停止（甚至换了书）。
+       回来不复检的话，会替一次已经结束的朗读把高亮画回去、再跳一次页。 */
+    const run = this.ttsRun;
     const anchor = { block: seg.blocks[0] ?? -1, at: seg.at, len: seg.len };
     if (anchor.block < 0) return;
     const follow = this.prefs.ttsFollow;
@@ -2999,7 +3036,7 @@ export class ReaderView extends ItemView {
       this.ttsRevealing = false;
       /* 翻页是异步落定的：等一帧再画，拿到的才是新页 */
       if (moved) await new Promise((r) => window.setTimeout(r, 100));
-      if (this.closed) return;
+      if (this.closed || run !== this.ttsRun || !this.speaking) return;
     }
     this.paintSpeech(seg, chapter);
   }
@@ -3014,9 +3051,13 @@ export class ReaderView extends ItemView {
     const fs = this.packFS();
     const title = this.packTitle();
     /* 每次都重读清单再合并：导出本章与整本预生成可能同时在跑，
-       内存里那份可能已经旧了 */
+       内存里那份可能已经旧了。
+       **清单坏了不能当没有**：直接收编成空清单会把前面各章的记录清零，
+       磁盘上的 mp3 从此没人认领。坏清单交给上层提示重导这一章。 */
+    const found = await readManifestState(fs, title);
+    if (found.state === 'broken') throw new Error('offline manifest is broken');
     const existing =
-      (await readManifest(fs, title)) ??
+      (found.state === 'ok' ? found.book : null) ??
       emptyBook({
         title,
         bookId: this.bookId,
@@ -3070,6 +3111,7 @@ export class ReaderView extends ItemView {
    */
   async prefetchBook(): Promise<void> {
     if (this.prefetchingBook) {
+      this.prefetchBookToken += 1;
       this.prefetchingBook = false;
       /* 卡片立刻切「已取消」：否则要等当前这句合完（本地好几秒）才变，
          用户以为按了没反应 */
@@ -3114,6 +3156,7 @@ export class ReaderView extends ItemView {
       return;
     }
 
+    const task = ++this.prefetchBookToken;
     this.prefetchingBook = true;
     const cacheMB = this.prefs.ttsCacheMB;
     const cache = cacheMB > 0 ? new TtsCache() : null;
@@ -3141,7 +3184,7 @@ export class ReaderView extends ItemView {
           return;
         }
         /* 「停止」已经把终态画好了，这里只管退出 */
-        if (!this.prefetchingBook) return;
+        if (task !== this.prefetchBookToken) return;
         paint(ci);
         /* 一章的每段音频攒在这里：合成完立刻拼成这一章的离线包，
            中途停下来也已经攒下前面几章 */
@@ -3149,7 +3192,7 @@ export class ReaderView extends ItemView {
         const okTexts: string[] = [];
         let skipped = 0;
         for (const seg of scripts[ci]) {
-          if (!this.prefetchingBook || this.closed) break;
+          if (task !== this.prefetchBookToken || this.closed) break;
           const key = cacheKey(this.bookId, tag, seg.text);
           let buf = cache ? await cache.get(key) : null;
           if (!buf) {
@@ -3179,7 +3222,7 @@ export class ReaderView extends ItemView {
           this.hideTtsProgress();
           return;
         }
-        if (!this.prefetchingBook) return;
+        if (task !== this.prefetchBookToken) return;
         if (skipped) totalSkipped += skipped;
         if (this.prefs.ttsOfflineSave && parts.length) {
           /* 收尾：这一章的包在拼、在写，没有段数进度，但要说清在干什么 */
@@ -3207,6 +3250,7 @@ export class ReaderView extends ItemView {
           }
         }
       }
+      if (task !== this.prefetchBookToken) return;
       if (totalSkipped) notify(t('notice.tts.exportSkipped', { n: String(totalSkipped) }), 'info', 8000);
       this.finishTtsProgress('done', {
         done: seen,
@@ -3216,11 +3260,12 @@ export class ReaderView extends ItemView {
         packed: savedChapters,
       });
     } catch (e) {
+      if (task !== this.prefetchBookToken) return;
       this.finishTtsProgress('failed', {
         reason: t(this.ttsErrorKey((e as { code?: TtsErrorCode }).code)),
       });
     } finally {
-      this.prefetchingBook = false;
+      if (task === this.prefetchBookToken) this.prefetchingBook = false;
     }
   }
 
@@ -3273,6 +3318,14 @@ export class ReaderView extends ItemView {
   async exportChapterAudio(): Promise<void> {
     /* 导出一章要把整章合成一遍，和「预生成」是同一笔账：同一个能力位。 */
     if (!requireCap('tts')) return;
+    /* 连点两下就是两份并发合成、写同一个文件，钱花两遍。
+       第二下当「停」，和预生成那两颗按钮一致。 */
+    if (this.exportingChapter) {
+      this.exportToken += 1;
+      this.exportingChapter = false;
+      this.finishTtsProgress('cancelled');
+      return;
+    }
     if (this.ttsTaskBusy('export')) return;
     const route = this.ttsRoute();
     if (!(await this.ttsStartable(route))) return;
@@ -3285,6 +3338,7 @@ export class ReaderView extends ItemView {
     /* 导出要独占语音服务：朗读还开着的话两边抢同一个模型，每句都慢一倍 */
     this.stopTts();
     /* 整章要合几十上百句，本地也要跑几分钟：进度卡替掉原来的常驻通知 */
+    const task = ++this.exportToken;
     this.exportingChapter = true;
     this.showTtsProgress('export', () => void this.exportChapterAudio());
     this.paintTtsProgress({ stage: 'synth', done: 0, total: segments.length });
@@ -3294,11 +3348,12 @@ export class ReaderView extends ItemView {
         route,
         segments,
         (done, total) => this.paintTtsProgress({ done, total }),
-        () => !this.exportingChapter || this.closed,
+        () => task !== this.exportToken || this.closed,
       );
     } catch (e) {
       const err = e as { code?: string; status?: number; message?: string };
       console.error('[bzr-tts] export chapter failed', err);
+      if (task !== this.exportToken) return;
       this.exportingChapter = false;
       this.finishTtsProgress('failed', {
         reason: `${t(this.ttsErrorKey(err.code as TtsErrorCode))}（${err.code ?? '?'} ${
@@ -3307,8 +3362,8 @@ export class ReaderView extends ItemView {
       });
       return;
     }
-    const stopped = !this.exportingChapter || this.closed;
-    this.exportingChapter = false;
+    const stopped = task !== this.exportToken || this.closed;
+    if (task === this.exportToken) this.exportingChapter = false;
     if (this.closed) {
       this.hideTtsProgress();
       return;

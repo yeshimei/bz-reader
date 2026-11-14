@@ -60,7 +60,7 @@ describe('文件名', () => {
   });
 
   it('包路径是「根目录 / 书名」', () => {
-    expect(packagePath('围城')).toBe(`${OFFLINE_ROOT}/围城`);
+    expect(packagePath('围城').startsWith(`${OFFLINE_ROOT}/围城-`)).toBe(true);
   });
 });
 

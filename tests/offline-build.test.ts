@@ -15,7 +15,7 @@ import {
   reorderChapters,
   upsertChapter,
 } from '../src/core/offline-build';
-import { OFFLINE_VERSION } from '../src/core/offline-pack';
+import { OFFLINE_VERSION, chapterFile } from '../src/core/offline-pack';
 
 const FRAME = Uint8Array.from([0xff, 0xfb, 0x50, 0xc0]);
 
@@ -63,7 +63,7 @@ const src = (over: Record<string, unknown> = {}): {
 describe('一章打包', () => {
   it('时间轴按每段真实时长累加，每句还记下自己的字节区间', () => {
     const built = buildChapter(src())!;
-    expect(built.chapter.file).toBe('第一章.mp3');
+    expect(built.chapter.file).toBe(chapterFile('第一章', 'mp3'));
     expect(built.chapter.ms).toBe(522);
     expect(built.chapter.marks).toEqual([
       { text: '甲', at: 0, ms: 261, off: 0, bytes: 208 * 10 },
@@ -99,7 +99,7 @@ describe('一章打包', () => {
 
   it('wav 也支持，扩展名跟着换', () => {
     const built = buildChapter(src({ parts: [wav(48000)], texts: ['甲'], format: 'wav' }))!;
-    expect(built.chapter.file).toBe('第一章.wav');
+    expect(built.chapter.file).toBe(chapterFile('第一章', 'wav'));
     expect(built.chapter.marks[0].ms).toBe(1000);
     /* wav 拼完是一条 PCM 流，不给逐句区间：播放时退回整章模式 */
     expect(built.chapter.marks[0].off).toBeUndefined();
@@ -164,7 +164,7 @@ describe('清单维护', () => {
   it('音频文件不在的章被剪掉', () => {
     let book = upsertChapter(emptyBook({ title: '围城' }), one);
     book = upsertChapter(book, two);
-    const kept = pruneChapters(book, (file) => file === '第二章.mp3');
+    const kept = pruneChapters(book, (file) => file === chapterFile('第二章', 'mp3'));
     expect(kept.chapters.map((c) => c.title)).toEqual(['第二章']);
   });
 

@@ -32,6 +32,8 @@ export interface PackFS {
   readText(path: string): Promise<string>;
   list(path: string): Promise<{ folders: string[]; files: string[] }>;
   remove(path: string): Promise<void>;
+  /** 改名 / 覆盖移动。原子写清单要用：`.tmp` 写完再一步换上去 */
+  rename(from: string, to: string): Promise<void>;
   /** 删目录。`recursive` 必须为真才能删非空目录——`remove` 对目录不管用 */
   rmdir(path: string, recursive?: boolean): Promise<void>;
 }
@@ -66,15 +68,28 @@ export async function ensureDir(fs: PackFS, path: string): Promise<void> {
   }
 }
 
-/** 读一本的清单。没有 / 坏了都给 null，不抛。 */
-export async function readManifest(fs: PackFS, title: string): Promise<OfflineBook | null> {
+/** 清单的三种状态。**「没有」和「坏了」必须分开**：后者直接收编成空清单等于
+ *  把已有各章的记录清零，磁盘上的 mp3 从此没人认领（见 saveOfflineChapter）。 */
+export type ManifestState =
+  | { state: 'ok'; book: OfflineBook }
+  | { state: 'missing' }
+  | { state: 'broken' };
+
+export async function readManifestState(fs: PackFS, title: string): Promise<ManifestState> {
   const path = manifestPath(title);
   try {
-    if (!(await fs.exists(path))) return null;
-    return parseOfflineBook(await fs.readText(path));
+    if (!(await fs.exists(path))) return { state: 'missing' };
+    const book = parseOfflineBook(await fs.readText(path));
+    return book ? { state: 'ok', book } : { state: 'broken' };
   } catch {
-    return null;
+    return { state: 'broken' };
   }
+}
+
+/** 读一本的清单。没有 / 坏了都给 null，不抛。 */
+export async function readManifest(fs: PackFS, title: string): Promise<OfflineBook | null> {
+  const found = await readManifestState(fs, title);
+  return found.state === 'ok' ? found.book : null;
 }
 
 /**
@@ -85,8 +100,19 @@ export async function readManifest(fs: PackFS, title: string): Promise<OfflineBo
  */
 export async function writeManifest(fs: PackFS, book: OfflineBook): Promise<void> {
   await ensureDir(fs, packagePath(book.title));
+  const path = manifestPath(book.title);
+  const tmp = `${path}.tmp`;
   const text = serializeOfflineBook(book);
-  await fs.writeBinary(manifestPath(book.title), new TextEncoder().encode(text).buffer);
+  /* 先写 `.tmp` 再一步换上去：直接覆盖时崩在写一半、或同步正读到一半，
+     留下的是半截 JSON；而半截 JSON 会被下一次导出当成「没有清单」，
+     把已有各章的记录清零。rename 在同一个目录内是原子的。 */
+  try {
+    await fs.writeBinary(tmp, new TextEncoder().encode(text).buffer);
+    await fs.rename(tmp, path);
+  } catch (e) {
+    await fs.remove(tmp).catch(() => undefined);
+    throw e;
+  }
   const back = await readManifest(fs, book.title);
   if (!back) throw new Error('manifest write failed');
 }
@@ -133,7 +159,9 @@ export async function scanPacks(fs: PackFS): Promise<Array<{ ref: PackRef; book:
       try {
         const raw = await fs.readText(`${dir}/${OFFLINE_MANIFEST}`);
         const book = parseOfflineBook(raw);
-        if (book) out.push({ ref: { title, path: dir }, book });
+        /* ref.title 存**书名**而不是目录名：目录名带了防撞哈希，拿它反推路径
+           会算成另一个目录（删包时删不掉就是这个原因） */
+        if (book) out.push({ ref: { title: book.title || title, path: dir }, book });
       } catch {
         /* 这个目录没有清单 / 读不了：跳过，不影响别的包 */
       }

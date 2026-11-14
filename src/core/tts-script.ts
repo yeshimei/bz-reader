@@ -215,7 +215,45 @@ function splitSentenceSpans(src: string, base: Span): Array<Span & { text: strin
     from = i + 1;
   }
   push(from, end);
-  return mergeShortSpans(src, out);
+  return mergeShortSpans(src, splitLongSpans(src, out));
+}
+
+/** 单句长度上限：一段几千字、一个句末标点都没有（排版差的 TXT / 网页正文）
+ *  会整段发给服务——首句要等很久，本地模型还常常直接吐空。超过上限就按逗号、
+ *  顿号、空白这些软边界再切，实在找不到才硬切。 */
+const SENTENCE_MAX = SEGMENT_TARGET;
+const SOFT_BREAKS = ['，', '、', '；', '：', ',', ';', '：', ' '];
+
+function splitLongSpans(
+  src: string,
+  spans: Array<Span & { text: string }>,
+): Array<Span & { text: string }> {
+  const out: Array<Span & { text: string }> = [];
+  for (const s of spans) {
+    if (s.text.length <= SENTENCE_MAX) {
+      out.push(s);
+      continue;
+    }
+    const end = s.at + s.len;
+    let from = s.at;
+    while (from < end) {
+      let cut = Math.min(end, from + SENTENCE_MAX);
+      if (cut < end) {
+        /* 在最后 40 字里往回找一个软边界，切在句子中间也不至于太生硬 */
+        const tail = src.slice(Math.max(from + 1, cut - 40), cut);
+        let best = -1;
+        for (const ch of SOFT_BREAKS) best = Math.max(best, tail.lastIndexOf(ch));
+        if (best >= 0) cut = Math.max(from + 1, cut - 40 + best + 1);
+      }
+      const span = trimSpan(src, from, cut);
+      if (span) {
+        const text = speakable(src, span);
+        if (text && readable(text)) out.push({ ...span, text });
+      }
+      from = Math.max(cut, from + 1);
+    }
+  }
+  return out;
 }
 
 /**

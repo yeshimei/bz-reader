@@ -107,7 +107,9 @@ export class TtsPlayer {
   private wantPlay = false;
   /** 每次换段 / 停止 +1：旧请求回来时对不上就丢弃 */
   private token = 0;
-  private ctrl: AbortController | null = null;
+  /** 在途请求各自的 controller。**不能共用一个**：换段时 abort 掉共用那个，
+      会把刚起火的预取一起杀掉，预取永远白做（本地合成一句要几秒，正好撞上） */
+  private readonly reqCtrls = new Set<AbortController>();
   private current: Ready | null = null;
   private endedHandler: (() => void) | null = null;
   private readonly ready = new Map<number, Ready>();
@@ -184,11 +186,23 @@ export class TtsPlayer {
   stop(): void {
     this.wantPlay = false;
     this.token++;
-    this.ctrl?.abort();
-    this.ctrl = null;
+    this.abortRequests();
     this.releaseAll();
     this.skipped.clear();
     this.setState('idle');
+  }
+
+  /** 起一笔新请求，发一个只属于它的 controller */
+  private newRequest(): AbortController {
+    const c = new AbortController();
+    this.reqCtrls.add(c);
+    return c;
+  }
+
+  /** 停止 / 失败 / 销毁时才整体撤单 */
+  private abortRequests(): void {
+    for (const c of this.reqCtrls) c.abort();
+    this.reqCtrls.clear();
   }
 
   private begin(index: number): void {
@@ -204,8 +218,6 @@ export class TtsPlayer {
     this.wantPlay = true;
     this.index = index;
     this.token++;
-    this.ctrl?.abort();
-    this.ctrl = new AbortController();
     const token = this.token;
     this.releaseCurrent();
     this.prune(index);
@@ -262,7 +274,12 @@ export class TtsPlayer {
       }
       const fromCache = Boolean(buf);
       if (!buf) {
-        buf = await this.deps.synthesize(seg.text, voice, this.ctrl?.signal ?? new AbortController().signal);
+        const req = this.newRequest();
+        try {
+          buf = await this.deps.synthesize(seg.text, voice, req.signal);
+        } finally {
+          this.reqCtrls.delete(req);
+        }
         if (token !== this.token) return null;
         if (this.deps.cache && this.deps.cacheKey) {
           void this.deps.cache.put(key, buf).catch(() => undefined);
@@ -362,8 +379,7 @@ export class TtsPlayer {
     if (token !== this.token) return;
     this.wantPlay = false;
     this.token++;
-    this.ctrl?.abort();
-    this.ctrl = null;
+    this.abortRequests();
     this.releaseAll();
     this.skipped.clear();
     this.setState('idle');

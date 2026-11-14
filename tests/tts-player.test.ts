@@ -268,3 +268,51 @@ describe('预取：开声前就把后面的音频备好', () => {
     expect(onError).toHaveBeenCalledWith('rejected', expect.any(Error));
   });
 });
+
+describe('预取与换段互不干扰', () => {
+  it('开始念下一段时，正在预取的那一笔不会被取消', async () => {
+    /* 旧写法共用一个 controller：begin() 一进来就 abort，刚起火的预取全被杀，
+       本地合成一句要几秒，于是永远在现合现等 */
+    const signals: AbortSignal[] = [];
+    const audios: FakeAudio[] = [];
+    const texts: string[] = [];
+    let releasePrefetch: ((b: ArrayBuffer) => void) | undefined;
+    const player = new TtsPlayer(segments, { narration: 'stella', dialogue: 'tide' }, {
+      synthesize: (text, _voice, signal) => {
+        texts.push(text);
+        signals.push(signal);
+        /* 第二笔（预取）先挂住，模拟本地模型要几秒 */
+        if (signals.length === 2) {
+          return new Promise<ArrayBuffer>((resolve) => {
+            releasePrefetch = resolve;
+          });
+        }
+        return Promise.resolve(new Uint8Array([1, 2]).buffer);
+      },
+      makeUrl: () => 'blob:test',
+      revokeUrl: () => undefined,
+      makeAudio: (url) => {
+        const a = new FakeAudio(url);
+        audios.push(a);
+        return a;
+      },
+    });
+
+    player.start(0);
+    await flush();
+    expect(signals.length).toBeGreaterThanOrEqual(2);
+
+    audios[0].emit('ended');
+    await flush();
+
+    expect(signals[0].aborted).toBe(false);
+    expect(signals[1].aborted).toBe(false);
+
+    releasePrefetch?.(new Uint8Array([1, 2]).buffer);
+    await flush();
+
+    /* 关键：预取那一笔没有被换段顺手取消，且第二段没有重新合成一遍 */
+    expect(texts.filter((t) => t === '谁？').length).toBe(1);
+    expect(player.stateName).not.toBe('loading');
+  });
+});

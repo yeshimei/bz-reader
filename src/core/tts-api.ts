@@ -87,9 +87,13 @@ export function ttsBody(text: string, voice: TtsVoice): TtsBody {
   return { text, voice_id: voice, format: 'wav', filter_markdown: false };
 }
 
+/** 400 响应体里出现这些词才算「内容审核拒了」，其余 400（音色不存在、
+ *  参数写错）是配置问题，按普通错误报，不能当成「跳过这一句」 */
+const MODERATION_HINT = /content|sensitive|risk|policy|moderation|违规|敏感|审核/i;
+
 /** HTTP 状态码 + 响应体 → 给人看的错误分类（文案在视图层翻） */
-export function ttsErrorCode(status: number, _body: string): TtsErrorCode {
-  if (status === 400) return 'rejected';
+export function ttsErrorCode(status: number, body: string): TtsErrorCode {
+  if (status === 400) return MODERATION_HINT.test(String(body ?? '')) ? 'rejected' : 'http';
   if (status === 401 || status === 403) return 'unauthorized';
   if (status === 429) return 'rate';
   if (status === 503 || status === 504) return 'busy';
@@ -129,9 +133,11 @@ export async function synthesizeSpeech(input: SynthesizeInput): Promise<ArrayBuf
   const onAbort = (): void => ctrl.abort();
   input.signal?.addEventListener('abort', onAbort);
 
-  let res: Response;
+  /* 超时与取消必须**罩住读音频这一段**，不能只管到响应头：音频 body 下到
+     一半卡住时，旧写法已经 clearTimeout 并摘掉 abort 监听，于是永远停在
+     loading，按停止也收不回来（请求还占着 inflight，后面的预取全停）。 */
   try {
-    res = await fetchImpl(ttsEndpoint(input.baseUrl), {
+    const res = await fetchImpl(ttsEndpoint(input.baseUrl), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -140,7 +146,20 @@ export async function synthesizeSpeech(input: SynthesizeInput): Promise<ArrayBuf
       body: JSON.stringify(ttsBody(text, input.voice)),
       signal: ctrl.signal,
     });
+
+    if (!res.ok) {
+      /* 400 的响应体里往往有一句人话（审核命中 / 没有可读文本），
+         留着给界面上报错；其余状态码只需要分类。 */
+      const body = await res.text().catch(() => '');
+      throw new TtsError(ttsErrorCode(res.status, body), res.status, body.trim() || `Speech API returned ${res.status}`);
+    }
+
+    const buf = await res.arrayBuffer();
+    if (!buf.byteLength) throw new TtsError('empty', res.status, 'Speech API returned empty audio');
+    return buf;
   } catch (e) {
+    /* 自己抛的分类错误原样往上走，别被下面重判成 network */
+    if (e instanceof TtsError) throw e;
     if (input.signal?.aborted) throw new TtsError('aborted', 0, 'Cancelled');
     if (timedOut || (e as Error)?.name === 'AbortError') {
       throw new TtsError('timeout', 0, `Speech API timed out after ${Math.round(timeoutMs / 1000)}s`);
@@ -150,15 +169,4 @@ export async function synthesizeSpeech(input: SynthesizeInput): Promise<ArrayBuf
     window.clearTimeout(timer);
     input.signal?.removeEventListener('abort', onAbort);
   }
-
-  if (!res.ok) {
-    /* 400 的响应体里往往有一句人话（审核命中 / 没有可读文本），
-       留着给界面上报错；其余状态码只需要分类。 */
-    const body = await res.text().catch(() => '');
-    throw new TtsError(ttsErrorCode(res.status, body), res.status, body.trim() || `Speech API returned ${res.status}`);
-  }
-
-  const buf = await res.arrayBuffer();
-  if (!buf.byteLength) throw new TtsError('empty', res.status, 'Speech API returned empty audio');
-  return buf;
 }
