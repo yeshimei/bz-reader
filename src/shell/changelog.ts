@@ -59,6 +59,70 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '1.4.0',
+    date: '2026-11-14',
+    added: [
+      {
+        domain: { zh: '朗读', en: 'Read aloud' },
+        text: {
+          zh: 'EPUB、TXT 与 PDF 都能念。整章一段脚本，念到屏幕外自动翻页；起播是这一页的第一个字，高亮跟着文字走，翻页、缩放、双栏与深色模式都不跑偏。',
+          en: 'EPUB, TXT and PDF all read aloud. One script per chapter turns the page when the voice reaches the edge; playback starts at the first word on screen, and the highlight rides the text through page turns, zoom, two-column and dark mode.',
+        },
+      },
+      {
+        domain: { zh: '朗读方式', en: 'Engines' },
+        text: {
+          zh: '系统语音、DeepSeek 在线语音、或自己电脑上跑的 OpenAI 兼容服务（如 CosyVoice）三选一；在线也能填别家的兼容接口。',
+          en: 'Three ways to speak: the system voice, DeepSeek online, or an OpenAI-compatible service on your own machine such as CosyVoice. Online also accepts other compatible endpoints.',
+        },
+      },
+      {
+        domain: { zh: '离线听书', en: 'Offline audio' },
+        text: {
+          zh: '预生成时把每章拼成一个 mp3，连同逐句时间轴存进库里的 bz-reader/offline。拷到手机或别的库，不连网也能听，高亮照常。',
+          en: 'While pre-building, each chapter becomes one mp3 with a per-sentence timeline under bz-reader/offline in your vault. Copy it to a phone or another vault: it plays without a network, highlighting included.',
+        },
+      },
+      {
+        domain: { zh: '书库多选', en: 'Multi-select' },
+        text: {
+          zh: '书库可以多选，批量归入分类或移出书架；移出只是从书架拿走，进度、划线、书签与想法都留着。',
+          en: 'The shelf selects several books at once and moves them into a category or off the shelf in one go; removing only takes the book off the shelf — progress, highlights, bookmarks and notes stay.',
+        },
+      },
+    ],
+    improved: [
+      {
+        domain: { zh: '朗读浮条', en: 'Floating bar' },
+        text: {
+          zh: '只留播放、上一句、下一句与「更多」，预生成、导出、朗读设置收进更多里；左边标出这段是缓存、实时还是离线。',
+          en: 'The bar keeps only play, previous, next and More; pre-build, export and reading settings live under More, and the left side shows whether this segment is cached, live or offline.',
+        },
+      },
+      {
+        domain: { zh: '预生成', en: 'Pre-building' },
+        text: {
+          zh: '整章、整本预生成换成带进度的卡片，点停止立刻收起；云端按字计费，整章预生成前先问一句。',
+          en: 'Chapter and whole-book pre-building use a progress card that closes the moment you stop; cloud speech is billed per character, so chapter pre-building asks first.',
+        },
+      },
+      {
+        domain: { zh: '设置页', en: 'Settings' },
+        text: {
+          zh: '朗读分成在线与本地两栏，缓存与离线摊开显示；本地服务能一键拉音色，还附一份自部署提示词，复制给 AI 就能装好。',
+          en: 'Read-aloud settings split into online and local columns, with cache and offline shown open; a local service fetches its voices and comes with a self-hosting prompt you can paste into an AI.',
+        },
+      },
+      {
+        domain: { zh: '界面语言', en: 'Interface' },
+        text: {
+          zh: '朗读与书库多选的文案补齐八种语言（繁中按台湾用词），不再出现占位符。',
+          en: 'Read-aloud and shelf-selection text is now translated into all eight languages, traditional Chinese in Taiwan wording, with no placeholders left.',
+        },
+      },
+    ],
+  },
+  {
     version: '1.3.1',
     date: '2026-11-14',
     added: [
