@@ -1972,6 +1972,7 @@ export class ReaderView extends ItemView {
     });
     this.offlinePlayer = player;
     this.offlineChapter = chapter;
+    this.offlineSegments = segments;
     this.speaking = true;
     this.syncToolState();
     this.showTtsBar();
@@ -2303,8 +2304,10 @@ export class ReaderView extends ItemView {
   private offlinePack: { title: string; book: OfflineBook } | null = null;
   /** 正在用离线包播的播放器 */
   private offlinePlayer: OfflinePlayer | null = null;
-  /** 离线包对应的本章（play 时用） */
+  /** 离线包里与播放器对应的一章 */
   private offlineChapter: OfflineChapter | null = null;
+  /** 离线播放用的整章脚本：翻页后要按它重画当前句的高亮 */
+  private offlineSegments: ScriptSegment[] | null = null;
 
   private packFS(): ReturnType<typeof vaultPackFS> {
     return vaultPackFS(this.api.app);
@@ -2352,6 +2355,20 @@ export class ReaderView extends ItemView {
       if (info) notify(t('notice.tts.offlinePackFound', { chapters: String(info.chapters) }));
       else notify(t('notice.tts.offlineNoPack'));
     });
+  }
+
+  /**
+   * 翻页之后把「正在念的这一句」重新框一次。
+   *
+   * 离线播的是整章，人翻到新一页时当前句可能就在这页上；不重画就要等下一句
+   * 才亮，中间那段看着像「高亮坏了」。`speechSpots` 会被 `currentBlocks()`
+   * 重置成当前页，所以每次重画前先按整章重填一次。
+   */
+  private repaintOfflineMark(): void {
+    const seg = this.offlineSegments?.[this.ttsIndex];
+    if (!seg) return;
+    this.host.currentChapterBlocks?.();
+    this.showSpeechMark(this.host.speechRects?.(seg.blocks, seg.text) ?? []);
   }
 
   /** 把一章写进离线包（音频 + 更新清单），返回写好的章或 null */
@@ -2725,6 +2742,7 @@ export class ReaderView extends ItemView {
     this.offlinePlayer?.stop();
     this.offlinePlayer = null;
     this.offlineChapter = null;
+    this.offlineSegments = null;
     this.clearSpeechMark();
     this.host.clearSpeechMark?.();
     this.hideTtsBar();
@@ -3816,6 +3834,8 @@ export class ReaderView extends ItemView {
     });
     this.lastPercent = info.percent;
     if (info.cfi) this.lastCfi = info.cfi;
+    /* 离线播放时翻页：把当前句在新页上重画一次，别等下一句才亮 */
+    if (this.offlinePlayer) this.repaintOfflineMark();
     /* 「引用」页签的「只看本页」要知道眼前是第几页。翻一页就整页广播一次
        会把侧栏重绘得很勤，所以常态只静默写入；只有开关真的开着、人又正
        看着引用页签时，才广播一次让列表跟着翻。 */
