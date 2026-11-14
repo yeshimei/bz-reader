@@ -527,6 +527,7 @@ export const JA: Record<MsgKey, string> = {
   'shelves.renamed': '「{name}」に名前を変更しました',
   'shelves.deleted': '「{name}」を削除しました',
 
+
   /* ── 設定：概要バー ─────────────────────────────────────── */
   'settings.about': '概要',
   'settings.about.version': 'バージョン不明',
@@ -998,4 +999,19 @@ export const JA: Record<MsgKey, string> = {
   'clip.panel.noSidecar': 'この本の対応表が失われました。普通の本としては読めます。再生成すると復元されます。',
   'clip.panel.needBz': 'クリップブックを読むには bz をインストールして有効にしてください。',
   'clip.panel.hint': '生成後は本棚で普通の本として読めます。章を開くと既読になり、章ごとの時間もこの本に記録されます。',
+  'shelf.select': '[TODO] shelf.select',
+  'shelf.select.tip': '[TODO] shelf.select.tip',
+  'shelf.select.exit': '[TODO] shelf.select.exit',
+  'shelf.selected': '[TODO] shelf.selected {n}',
+  'shelf.selectAll': '[TODO] shelf.selectAll',
+  'shelf.selectNone': '[TODO] shelf.selectNone',
+  'shelf.batch.classify': '[TODO] shelf.batch.classify',
+  'shelf.batch.remove': '[TODO] shelf.batch.remove',
+  'shelf.batch.needPick': '[TODO] shelf.batch.needPick',
+  'shelf.batch.remove.title': '[TODO] shelf.batch.remove.title {n}',
+  'shelf.batch.remove.body': '[TODO] shelf.batch.remove.body {n}',
+  'shelf.batch.remove.do': '[TODO] shelf.batch.remove.do {n}',
+  'notice.book.archivedN': '[TODO] notice.book.archivedN {n}',
+  'shelves.assignedN': '[TODO] shelves.assignedN {n} {name}',
+  'shelves.assignedNoneN': '[TODO] shelves.assignedNoneN {n}',
 };

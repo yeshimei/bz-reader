@@ -537,6 +537,7 @@ export const EN: Record<MsgKey, string> = {
   'shelves.renamed': 'Renamed to "{name}"',
   'shelves.deleted': 'Deleted "{name}"',
 
+
   /* ── Settings: about bar ────────────────────────────────── */
   'settings.about': 'About',
   'settings.about.version': 'Unknown version',
@@ -1009,4 +1010,19 @@ export const EN: Record<MsgKey, string> = {
   'clip.panel.noSidecar': 'The chapter map for this book is gone: it still reads like a normal book, and rebuilding restores it.',
   'clip.panel.needBz': 'Install and enable bz to read the clipbook.',
   'clip.panel.hint': 'It reads like any other book; chapters marked read and per-chapter time stay in this book.',
+  'shelf.select': '[TODO] shelf.select',
+  'shelf.select.tip': '[TODO] shelf.select.tip',
+  'shelf.select.exit': '[TODO] shelf.select.exit',
+  'shelf.selected': '[TODO] shelf.selected {n}',
+  'shelf.selectAll': '[TODO] shelf.selectAll',
+  'shelf.selectNone': '[TODO] shelf.selectNone',
+  'shelf.batch.classify': '[TODO] shelf.batch.classify',
+  'shelf.batch.remove': '[TODO] shelf.batch.remove',
+  'shelf.batch.needPick': '[TODO] shelf.batch.needPick',
+  'shelf.batch.remove.title': '[TODO] shelf.batch.remove.title {n}',
+  'shelf.batch.remove.body': '[TODO] shelf.batch.remove.body {n}',
+  'shelf.batch.remove.do': '[TODO] shelf.batch.remove.do {n}',
+  'notice.book.archivedN': '[TODO] notice.book.archivedN {n}',
+  'shelves.assignedN': '[TODO] shelves.assignedN {n} {name}',
+  'shelves.assignedNoneN': '[TODO] shelves.assignedNoneN {n}',
 };

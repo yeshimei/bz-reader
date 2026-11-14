@@ -540,6 +540,23 @@ export const ZH = {
   'shelves.renamed': '已改名为「{name}」',
   'shelves.deleted': '已删除「{name}」',
 
+  /* ── 书库批量处理 ── */
+  'shelf.select': '多选',
+  'shelf.select.tip': '点一下勾选这本书',
+  'shelf.select.exit': '退出多选',
+  'shelf.selected': '已选 {n} 本',
+  'shelf.selectAll': '全选',
+  'shelf.selectNone': '取消全选',
+  'shelf.batch.classify': '归入分类…',
+  'shelf.batch.remove': '移出书架',
+  'shelf.batch.needPick': '先勾选至少一本书',
+  'shelf.batch.remove.title': '移出 {n} 本书',
+  'shelf.batch.remove.body': '这 {n} 本书会从书架移走，但数据都保留：阅读进度、划线、书签与想法。笔记库里的原文件不会被删除。以后重新导入同一份文件，会自动接上原来的进度和划线。',
+  'shelf.batch.remove.do': '移出 {n} 本',
+  'notice.book.archivedN': '已把 {n} 本书移出书架，数据都保留',
+  'shelves.assignedN': '已把 {n} 本书归入「{name}」',
+  'shelves.assignedNoneN': '已把 {n} 本书移出分类',
+
   /* ── 设置页：关于条 ──────────────────────────────────────── */
   'settings.about': '关于',
   'settings.about.version': '版本未知',

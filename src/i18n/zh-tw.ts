@@ -526,6 +526,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'shelves.renamed': '已改名為「{name}」',
   'shelves.deleted': '已刪除「{name}」',
 
+
   /* ── 設定頁：關於列 ──────────────────────────────────────── */
   'settings.about': '關於',
   'settings.about.version': '版本未知',
@@ -995,4 +996,19 @@ export const ZH_TW: Record<MsgKey, string> = {
   'clip.panel.noSidecar': '這本書的對照表遺失了：只能當普通書讀，重新生成會補回來。',
   'clip.panel.needBz': '要安裝並啟用 bz，才能讀到剪藏本。',
   'clip.panel.hint': '生成後可在書架裡像普通書一樣讀；進章標已讀、每章時長都記在這本書裡。',
+  'shelf.select': '[TODO] shelf.select',
+  'shelf.select.tip': '[TODO] shelf.select.tip',
+  'shelf.select.exit': '[TODO] shelf.select.exit',
+  'shelf.selected': '[TODO] shelf.selected {n}',
+  'shelf.selectAll': '[TODO] shelf.selectAll',
+  'shelf.selectNone': '[TODO] shelf.selectNone',
+  'shelf.batch.classify': '[TODO] shelf.batch.classify',
+  'shelf.batch.remove': '[TODO] shelf.batch.remove',
+  'shelf.batch.needPick': '[TODO] shelf.batch.needPick',
+  'shelf.batch.remove.title': '[TODO] shelf.batch.remove.title {n}',
+  'shelf.batch.remove.body': '[TODO] shelf.batch.remove.body {n}',
+  'shelf.batch.remove.do': '[TODO] shelf.batch.remove.do {n}',
+  'notice.book.archivedN': '[TODO] notice.book.archivedN {n}',
+  'shelves.assignedN': '[TODO] shelves.assignedN {n} {name}',
+  'shelves.assignedNoneN': '[TODO] shelves.assignedNoneN {n}',
 };

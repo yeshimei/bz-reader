@@ -1242,6 +1242,36 @@ function overlayRemoveBook(bookId?: string): string {
 }
 
 /**
+ * 批量移出书架的确认：按本数说话，不改单本那张框。
+ *
+ * ids 是点「移出书架」那一刻算好的「选中 ∩ 当前可见」，随弹层状态带过来：
+ * 弹层开着的时候书库还在后台刷新，这里重算一次可能和按钮上写的本数对不上。
+ * 语义与单本完全一致——只归档，数据与原文件都不删。
+ */
+function overlayRemoveBooks(ids: string[] = []): string {
+  const books = ids.map((id) => bookById(id)).filter((b): b is ReaderBook => !!b);
+  const n = books.length;
+  if (!n) {
+    return modal(
+      t('shelf.batch.remove'),
+      '',
+      `<div class="bzs-empty">${t('shelf.batch.needPick')}</div>`,
+      closeBtn(),
+    );
+  }
+  const body = `<div style="font-size:13px;line-height:2;color:var(--t2)">${esc(
+    t('shelf.batch.remove.body', { n }),
+  )}</div>`;
+  return modal(
+    t('shelf.batch.remove.title', { n }),
+    t('shelf.selected', { n }),
+    body,
+    `<span class="sp"></span><button class="bzs-btn" data-act="close">${t('common.cancel')}</button>
+     <button class="bzs-btn pri" data-act="removebooksdo">${t('shelf.batch.remove.do', { n })}</button>`,
+  );
+}
+
+/**
  * 文件失联：书还在书架上，记录与数据都在，只是文件不在登记的路径上。
  *
  * 三个出口：在库里按指纹找、手动选一个文件、移出书架（归档）。
@@ -1405,6 +1435,8 @@ export function overlayHtml(): string {
       return overlayShelves(o.mode || '', o.text || '', o.bookId);
     case 'removebook':
       return overlayRemoveBook(o.bookId);
+    case 'removebooks':
+      return overlayRemoveBooks(o.ids);
     case 'missing':
       return overlayMissing(o.bookId);
     case 'ack':

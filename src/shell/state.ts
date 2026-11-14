@@ -14,6 +14,7 @@
 
 import { HIGHLIGHT_COLORS } from '../data/notes';
 import { cleanShelfList } from '../data/shelves';
+import { bookSelectContext, leavesBookSelect } from './book-select';
 import { getShellSource } from './source';
 import { RT } from './runtime';
 
@@ -93,7 +94,7 @@ export type OverlayKind =
   | 'search' | 'typography' | 'export' | 'bookmap'
   | 'quote' | 'idea' | 'hltools' | 'ai' | 'dict' | 'poster'
   | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedir' | 'finish' | 'footnote'
-  | 'rename' | 'removebook' | 'confirmdel' | 'notedrop' | 'missing' | 'ack' | 'ptclean'
+  | 'rename' | 'removebook' | 'removebooks' | 'confirmdel' | 'notedrop' | 'missing' | 'ack' | 'ptclean'
   | 'rebuildidx'
   /* 想法全文（2026-11-09）：气泡只露一截，长想法点「展开全文」进这张
      只读弹窗。它不是浮层——带遮罩、居中，读完整篇再关。 */
@@ -192,6 +193,8 @@ export interface OverlayState {
   anchor?: { left: number; top: number; width?: number; height?: number };
   /** 书内链接（脚注浮窗的「跳到原文」用） */
   href?: string;
+  /** 批量移出书架：点按钮那一刻算好的书 id，弹层与执行都认这一份 */
+  ids?: string[];
   /**
    * 内容版本号。
    *
@@ -225,6 +228,7 @@ export function overlayKey(o?: OverlayState | null): string {
     o.href ?? '',
     o.word ?? '',
     o.chapterTitle ?? '',
+    o.ids?.join(',') ?? '',
     o.anchor ? `${o.anchor.left},${o.anchor.top}` : '',
     String(o.rev ?? 0),
   ].join('|');
@@ -264,6 +268,10 @@ export interface ShellState {
   libKw: string;
   /** 窄屏书库：搜索框展开成整行（桌面恒展开，不看这个） */
   libSearchOpen: boolean;
+  /** 书库是否处于批量选择模式（不落盘：重开插件不该还挂着一批选中的书） */
+  libSelect: boolean;
+  /** 已勾选的书 id；批量动作只认当前可见的那批，见 book-select.ts */
+  libSel: string[];
   /* 搜索（书架整页与阅读页浮层共用一份，切页不丢词） */
   searchKw: string;
   /** 搜索范围：「本书 / 全库」两档（2026-11-08 起正文已并入这两档） */
@@ -354,6 +362,8 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   libShelf: '全部',
   libKw: '',
   libSearchOpen: false,
+  libSelect: false,
+  libSel: [],
   searchKw: '',
   searchScope: 'book',
   searchMode: 'literal',
@@ -424,10 +434,26 @@ export function getState(): ShellState {
   return state;
 }
 
+/**
+ * 书库多选只在这一屏有效：筛选、分类、搜索词、排序、视图或换页一变，
+ * 眼前就不是同一批书了，选择必须作废。
+ *
+ * 收口在三个写状态的出口，而不是逐个切换按钮里调：窄屏下拉、命令面板、
+ * 输入框改词走的都不是同一条路，漏一个就会留着「已选 3 本」对着另一批书。
+ */
+function clearStaleBookSelect(before: ReturnType<typeof bookSelectContext>): void {
+  if (state.libSelect && leavesBookSelect(before, bookSelectContext(state))) {
+    state.libSelect = false;
+    state.libSel = [];
+  }
+}
+
 /** 就地改状态并广播。改完不广播 = 界面不动，这里统一收口。 */
 export function setState(patch: Partial<ShellState>): void {
   const bookChanged = 'bookId' in patch && patch.bookId !== state.bookId;
+  const before = bookSelectContext(state);
   Object.assign(state, patch);
+  clearStaleBookSelect(before);
   /* 换了书：上一本的问答记录与在途请求都属于上一本（C4）。
      不清的话，A 书的答案会挂在 B 书的侧栏里；请求回来还会往新界面里写。 */
   if (bookChanged) {
@@ -450,7 +476,9 @@ export function setState(patch: Partial<ShellState>): void {
  * 状态的，下一个真正的广播（切页、点按钮）会带着它一起生效。
  */
 export function setStateQuiet(patch: Partial<ShellState>): void {
+  const before = bookSelectContext(state);
   Object.assign(state, patch);
+  clearStaleBookSelect(before);
 }
 
 /**
@@ -465,14 +493,16 @@ export function persistShellState(): void {
 
 /** 读当前状态 → 改 → 写回。适合「先读旧值再改」的场景（筛选切换、收藏） */
 export function mutateState(fn: (s: ShellState) => void): void {
+  const before = bookSelectContext(state);
   fn(state);
+  clearStaleBookSelect(before);
   persist();
   notify();
 }
 
 function persist(): void {
   try {
-    const { overlay, libKw, noteKw, noteSelect, noteSel, searchKw, searchMode, ideaDraft, pdfPage, ...rest } = state;
+    const { overlay, libKw, noteKw, noteSelect, noteSel, libSelect, libSel, searchKw, searchMode, ideaDraft, pdfPage, ...rest } = state;
     // 浮层与输入框内容不落盘：下次打开还停在上次的弹窗上很怪
     window.localStorage.setItem(LS_KEY, JSON.stringify(rest));
   } catch {
