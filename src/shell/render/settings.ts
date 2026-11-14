@@ -517,6 +517,10 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-mini" data-role="probe-out">${s.ttsLocal.url ? '' : t('settings.ttsLocal.urlHint')}</div>
       ${voicePick('local')}
       <div class="bzs-mini">${t('settings.ttsVoice.modelHint')}</div>
+      <div class="bzs-setrow"><label>${t('settings.ttsDeploy')}</label>
+        <button class="bzs-btn sm" data-act="ttscopyprompt">${t('settings.ttsDeploy.copy')}</button>
+        <span class="bzs-mini" style="margin:0">${t('settings.ttsDeploy.hint')}</span>
+      </div>
       <details class="bzs-adv">
         <summary>${t('settings.ttsLocal.advanced')}</summary>
         <div class="bzs-setrow"><label>${t('settings.ttsLocal.model')}</label>

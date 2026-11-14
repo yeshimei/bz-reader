@@ -153,7 +153,14 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
  *  写下的字**，不是界面文案——它们不翻译、也不该随界面语言变，所以不进
  *  语言包。界面那一层（序号、金额符号、「赞助人」）都走 t()。
  */
-const EXEMPT = new Set(['src/shell/changelog.ts', 'src/data/reward.ts']);
+const EXEMPT = new Set([
+  'src/shell/changelog.ts',
+  'src/data/reward.ts',
+  /* 2026-11-14 加 `src/core/tts-deploy-prompt.ts`：那段是**给 AI 的任务书**，
+     复制到剪贴板让 AI 照着装本地语音服务，界面上一个字都不显示。它不进语言
+     包——翻译成英文反而会让本机的中文 AI 装错接口。 */
+  'src/core/tts-deploy-prompt.ts',
+]);
 
 const SRC = join(__dirname, '../src');
 

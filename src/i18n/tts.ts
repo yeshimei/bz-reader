@@ -30,6 +30,9 @@ export const TTS_ZH = {
   'settings.ttsLocal.modelHint': '多数本地服务不用填。',
   'settings.ttsProbe': '连接',
   'settings.ttsTestNow': '念一句',
+  'settings.ttsDeploy': '自部署',
+  'settings.ttsDeploy.copy': '复制提示词',
+  'settings.ttsDeploy.hint': '丢给 AI，装好会把地址和音色填回来',
   'settings.ttsLocal.key': '密钥（可留空）',
   'settings.ttsLocal.format': '音频格式',
   'settings.ttsLocal.formatHint': 'mp3 体积最小，预生成整章只能用它。',
@@ -427,6 +430,9 @@ export const TTS_ZH_TW = {
   'settings.ttsProbe': '[TODO] settings.ttsProbe',
   'settings.ttsTestNow': '[TODO] settings.ttsTestNow',
   'settings.ttsCache.title': '[TODO] settings.ttsCache.title',
+  'settings.ttsDeploy': '[TODO] settings.ttsDeploy',
+  'settings.ttsDeploy.copy': '[TODO] settings.ttsDeploy.copy',
+  'settings.ttsDeploy.hint': '[TODO] settings.ttsDeploy.hint',
 } as const;
 
 const TTS_EN_BASE = {
@@ -636,6 +642,9 @@ const TTS_EN_BASE = {
   'settings.ttsProbe': '[TODO] settings.ttsProbe',
   'settings.ttsTestNow': '[TODO] settings.ttsTestNow',
   'settings.ttsCache.title': '[TODO] settings.ttsCache.title',
+  'settings.ttsDeploy': '[TODO] settings.ttsDeploy',
+  'settings.ttsDeploy.copy': '[TODO] settings.ttsDeploy.copy',
+  'settings.ttsDeploy.hint': '[TODO] settings.ttsDeploy.hint',
 } as const;
 
 /* 开发期占位：ja / de / fr / es / pt 先复用英文；上架那版统一翻译。 */

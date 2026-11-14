@@ -35,6 +35,7 @@ import { visiblePicked } from './book-select';
 import { toggleAll, togglePick } from './note-select';
 import { notify } from '../core/notice';
 import { synthesizeFor, ttsEngineReady, ttsVoiceFor, type TtsRoute } from '../core/tts-engine';
+import { ttsDeployPrompt } from '../core/tts-deploy-prompt';
 import { clearVoiceCache, currentVoiceOf, loadVoices, setVoiceOf } from './voice-store';
 import { reconcileVoice } from '../core/tts-voices';
 import { localRequester } from '../data/tts-request';
@@ -2213,6 +2214,20 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         if (fixed !== cur) setVoiceOf(engine, fixed);
         setState({ overlay: { ...o, word: fixed } });
       });
+      break;
+    }
+    /* 自部署提示词（2026-11-14）：只复制，界面上不显示全文。
+       带上库的真实路径，AI 才能直接改 data.json 把参数填回来。 */
+    case 'ttscopyprompt': {
+      let vaultPath = '';
+      try {
+        /* 手机上是 MemoryAdapter，没有 getBasePath；拿不到就让提示词留占位 */
+        const adapter = getShellSource()?.app.vault.adapter as { getBasePath?: () => string } | undefined;
+        vaultPath = adapter?.getBasePath?.() ?? '';
+      } catch {
+        vaultPath = '';
+      }
+      void copyText(ttsDeployPrompt({ vaultPath }));
       break;
     }
     /* 本地服务的「连接」：点一下就知道地址对不对、有几个音色 */

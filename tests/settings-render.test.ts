@@ -879,4 +879,14 @@ describe('朗读组 · 三张引擎卡', () => {
     expect(local).toContain('bzs-adv');
     expect(local).toContain('data-k="ttsLocal.model"');
   });
+
+  /* 2026-11-14：自部署提示词只给一颗复制按钮，正文不进 DOM——
+     那段字是给 AI 看的，摆在设置页就是一堵墙。 */
+  it('自部署只有一颗复制按钮，页面上看不到提示词正文', () => {
+    const local = ttsHtml({ ttsEngine: 'local' });
+    expect(local).toContain('data-act="ttscopyprompt"');
+    expect(local).not.toContain('/v1/audio/speech');
+    expect(local).not.toContain('Access-Control-Allow-Origin');
+    expect(local).not.toContain('data.json');
+  });
 });
