@@ -73,7 +73,15 @@ import { moveHeaderAction } from './header-order';
 import type { ReaderPrefs } from '../data/prefs';
 import { wikilinkOf, wikilinkOfMark } from '../data/wikilink';
 import { pdfLocatorPage } from '../engine/pdf/locator';
-import { buildNotesBody, exportBookNotes, safeName } from '../data/export';
+import { buildNotesBody, ensureDir, exportBookNotes, safeName } from '../data/export';
+import {
+  aiSessionById,
+  aiSessions,
+  archiveAiSession,
+  removeAiSession,
+  sessionsMarkdown,
+} from '../data/ai-session';
+import { exportTargets } from './render/history';
 import { jumpTo, getToc } from '../view/toc-state';
 import { LIB_FILTERS, LIB_SORTS } from './render/study';
 import { copyQuoteCardImage } from './card-image';
@@ -1212,8 +1220,60 @@ function exportBookFile(bookId: string): void {
   })();
 }
 
-/* ─────────── 详情弹层需要的数据 ─────────── */
+/**
+ * 对话导出：确认之后追加进阅读笔记。
+ *
+ * 与「导出这本书」不同，这里**追加**而不是整份重写（确认层上写明了
+ * 「已有的内容不动」）：对话是随时间长出来的，重写会把用户手动整理过的
+ * 那一篇冲掉。导出完顺手标归档——原型的「导出即归档」就是这条。
+ */
+async function doAiExport(): Promise<void> {
+  const pending = getState().aiExport;
+  if (!pending) return;
+  const app = getShellSource()?.app;
+  if (!app) return;
+  const dir = String(shellSettings().exportDir ?? 'bz-reader/notes');
+  const picked = aiSessions().filter((s) => pending.ids.includes(s.id));
+  if (!picked.length) {
+    setState({ aiExport: null });
+    notify(t('shelf.ai.notice.empty'), 'info');
+    return;
+  }
+  try {
+    await ensureDir(app, dir);
+    let wrote = 0;
+    for (const target of exportTargets(picked, dir)) {
+      const group = picked.filter((s) => s.bookId === target.bookId);
+      const body = sessionsMarkdown(group);
+      if (!body) continue;
+      if (await app.vault.adapter.exists(target.path)) {
+        await app.vault.adapter.append(target.path, `\n\n${body}\n`);
+      } else {
+        await app.vault.adapter.write(target.path, `${body}\n`);
+      }
+      wrote += group.length;
+    }
+    if (!wrote) {
+      setState({ aiExport: null });
+      notify(t('shelf.ai.notice.empty'), 'info');
+      return;
+    }
+    for (const s of picked) archiveAiSession(s.id);
+    setState({ aiExport: null });
+    notify(
+      t('shelf.ai.notice.exported', {
+        n: wrote,
+        path: exportTargets(picked, dir)
+          .map((x) => x.path)
+          .join('、'),
+      }),
+    );
+  } catch (e) {
+    notify(t('shelf.ai.notice.failed', { why: (e as Error)?.message || t('common.unknownError') }), 'error');
+  }
+}
 
+/* ─────────── 详情弹层需要的数据 ─────────── */
 export function detailOf(id: string): ReaderBook | undefined {
   return liveBooks().find((b) => b.id === id);
 }
@@ -1861,6 +1921,75 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     case 'notedropdo':
       dropSelectedMarks();
+      break;
+
+    /* ── 对话（书架第三页） ──
+       筛选与排法只改界面状态；归档 / 删除落回 data/ai-session 的内存列表；
+       导出先弹确认层（原型同款），确认后把 Markdown 追加进阅读笔记。 */
+    case 'aifilter':
+      if (d.v) setState({ aiKind: d.v });
+      break;
+    case 'aigroup':
+      if (d.v === 'book' || d.v === 'time') setState({ aiGroup: d.v });
+      break;
+    case 'aiexpand': {
+      const id = d.id || '';
+      if (!id) break;
+      mutateState((s) => {
+        s.aiOpen = s.aiOpen.includes(id) ? s.aiOpen.filter((x) => x !== id) : [...s.aiOpen, id];
+      });
+      break;
+    }
+    case 'aiclearkw':
+      setState({ aiKw: '' });
+      break;
+    case 'aiarchive': {
+      const s = aiSessionById(d.id || '');
+      if (!s) {
+        notify(t('shelf.ai.notice.deleted'), 'error');
+        break;
+      }
+      if (!archiveAiSession(s.id)) break;
+      const dir = String(shellSettings().exportDir ?? 'bz-reader/notes');
+      const path = exportTargets([s], dir)[0]?.path || s.bookTitle;
+      notify(t('shelf.ai.notice.archived', { path }));
+      repaint();
+      break;
+    }
+    case 'aidelete': {
+      const id = d.id || '';
+      if (!removeAiSession(id)) break;
+      mutateState((s) => {
+        s.aiOpen = s.aiOpen.filter((x) => x !== id);
+      });
+      notify(t('shelf.ai.notice.deleted'));
+      break;
+    }
+    case 'aiexportall': {
+      const list = aiSessions();
+      if (!list.length) {
+        notify(t('shelf.ai.notice.empty'), 'info');
+        break;
+      }
+      setState({ aiExport: { title: t('shelf.ai.confirm.all'), ids: list.map((s) => s.id) } });
+      break;
+    }
+    case 'aiexportbook': {
+      const list = aiSessions().filter((s) => s.bookId === (d.id || ''));
+      if (!list.length) break;
+      setState({
+        aiExport: {
+          title: t('shelf.ai.confirm.book', { title: list[0].bookTitle }),
+          ids: list.map((s) => s.id),
+        },
+      });
+      break;
+    }
+    case 'aicancel':
+      if (getState().aiExport) setState({ aiExport: null });
+      break;
+    case 'aiexportok':
+      void doAiExport();
       break;
     /* ── 读完仪式 ──
        星星只改 class 不重绘：重绘会把用户刚输入的一句话清掉 */
@@ -3907,6 +4036,12 @@ export function dispatchInput(
   if (role === 'notekw') {
     mutateState((s) => {
       s.noteKw = value;
+    });
+    return;
+  }
+  if (role === 'aikw') {
+    mutateState((s) => {
+      s.aiKw = value;
     });
     return;
   }

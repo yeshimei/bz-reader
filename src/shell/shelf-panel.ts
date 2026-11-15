@@ -182,10 +182,10 @@ export class ShelfPanel {
     this.memoScroll();
     this.memoFocus();
 
-    const { body, counts } = buildShelfPage(state, books, compact);
+    const { body, counts, layer } = buildShelfPage(state, books, compact);
 
     root.dataset.bzaccent = shellPrefs().accent;
-    setHtml(root, studyShell(state.studyPage, body, counts));
+    setHtml(root, studyShell(state.studyPage, body, counts, layer));
 
     const scroller = root.querySelector<HTMLElement>('.bzs-stubody');
     if (scroller) {

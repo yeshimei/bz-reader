@@ -167,7 +167,8 @@ describe('页签计数不再为了一个数字拍平全库标注', () => {
 
   it('书库页的笔记数就是全库划线条数', () => {
     const page = buildShelfPage(lib, two, false);
-    expect(page.counts).toEqual({ books: 2, notes: 1 });
+    /* chats 是对话页的轮数：本轮会话是内存列表，测试里没有种子数据，所以是 0 */
+    expect(page.counts).toEqual({ books: 2, notes: 1, chats: 0 });
   });
 
   it('笔记页照样列出每一条（省的是别的页，不是这一页）', () => {

@@ -4,17 +4,19 @@ import { nextStudyPage } from '../src/shell/state';
 
 /**
  * 书架头栏定稿（docs/ui-spec.md · S1）：
- *   页签只留「书库 / 笔记」，统计与设置退到右侧图标；
+ *   页签只留「书库 / 笔记 / 对话」，统计与设置退到右侧图标；
  *   搜索与导入从浮层改成整页。
  *
  * 2026-11-08 改：子页头栏不再换形态。以前进搜索/统计/导入/设置，头栏整个
  * 换成「← 返回 + 标题」，四颗图标消失——用户的原话是「不要那种形式」。
  * 现在页签与四颗图标一直在，当前那颗就是选中态；再点一次回进来之前那页。
  *
+ * 2026-11-16 加第三页「对话」：排在笔记后面，徽记给轮数。
+ *
  * 这一组断言只认结构，不认样式：样式改了不该让测试红。
  */
 
-const counts = { books: 16, notes: 48 };
+const counts = { books: 16, notes: 48, chats: 3 };
 
 /** 取某个标记在 HTML 里的位置，用来断言顺序 */
 function at(html: string, needle: string): number {
@@ -29,11 +31,15 @@ function actsOf(html: string): string {
 }
 
 describe('书架头栏 · 页签', () => {
-  it('页签只剩书库与笔记', () => {
-    expect(STUDY_TABS.map((t) => t.value)).toEqual(['library', 'notes']);
+  it('页签是 书库 / 笔记 / 对话，对话排在笔记后面', () => {
+    expect(STUDY_TABS.map((t) => t.value)).toEqual(['library', 'notes', 'ai']);
     const html = studyShell('library', '', counts);
     expect(html).toContain('data-act="study" data-p="library"');
     expect(html).toContain('data-act="study" data-p="notes"');
+    expect(html).toContain('data-act="study" data-p="ai"');
+    /* 页签与页内标题同名，不叫「AI 对话」 */
+    expect(html).toContain('>对话<');
+    expect(html).not.toContain('AI 对话');
   });
 
   it('统计与设置不再占页签位置', () => {
@@ -43,10 +49,11 @@ describe('书架头栏 · 页签', () => {
     expect(nav).not.toContain('data-p="settings"');
   });
 
-  it('页签带计数：书库给本数，笔记给条数', () => {
+  it('页签带计数：书库给本数，笔记给条数，对话给轮数', () => {
     const html = studyShell('library', '', counts);
     expect(html).toContain('<span class="n">16</span>');
     expect(html).toContain('<span class="n">48</span>');
+    expect(html).toContain('<span class="n">3</span>');
   });
 });
 
@@ -117,6 +124,9 @@ describe('头栏入口 · 点一下去哪一页', () => {
     expect(nextStudyPage('library', 'notes', 'library')).toBe('notes');
     expect(nextStudyPage('notes', 'library', 'notes')).toBe('library');
     expect(nextStudyPage('library', 'library', 'library')).toBe('library');
+    /* 对话是页签：点自己留在自己这页，不会被当成子页送回 studyBack */
+    expect(nextStudyPage('ai', 'ai', 'library')).toBe('ai');
+    expect(nextStudyPage('library', 'ai', 'library')).toBe('ai');
   });
 
   it('子页图标点一次进去，再点一次回进来之前那页', () => {

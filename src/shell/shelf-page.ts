@@ -19,6 +19,8 @@ import { bzSnapshot } from '../data/bz-bridge';
 import { viewLibrary, type StudyCounts } from './render/study';
 import { viewSearch } from './render/search';
 import { viewNotes } from './render/notes';
+import { historyConfirmLayer, viewHistory, type AiKindFilter } from './render/history';
+import { aiSessionCount, aiSessions } from '../data/ai-session';
 import { viewStats, viewStatsLocked } from './render/stats';
 import { getStatsUi } from './stats-ui';
 import { KEY_COMMANDS, viewSettings } from './render/settings';
@@ -27,10 +29,18 @@ import { readHotkeys } from '../core/hotkeys';
 export interface ShelfPage {
   body: string;
   counts: StudyCounts;
+  /**
+   * 页面级图层（盖住整个书架的一层，比如对话页的导出确认）。
+   *
+   * 不塞进 `body` 的原因：`body` 落在可滚动的 `.bzs-stubody` 里，
+   * 遮罩用 `absolute; inset: 0` 只能盖住内容区，盖不到头栏与页签。
+   * studyShell 把它挂在 `.bzs-studio` 下，位置才对得上原型。
+   */
+  layer?: string;
 }
 
-/** 这两页的内容完全由 state + books 决定，可以安全跳过重复重绘 */
-const DEDUP_PAGES: readonly string[] = ['library', 'notes'];
+/** 这几页的内容完全由 state + books 决定，可以安全跳过重复重绘 */
+const DEDUP_PAGES: readonly string[] = ['library', 'notes', 'ai'];
 
 /**
  * 书架重绘指纹（D4）。
@@ -69,6 +79,23 @@ export function shelfRenderKey(state: ShellState, books: ReaderBook[], compact =
     state.noteSelect ? '1' : '0',
     state.noteSel.join(','),
     state.reviewIdx,
+    /* 对话页：筛选、搜索词、排法、展开了哪几张都长在这一页上。
+       漏一项就是「点了没反应」，所以连展开名单一起进指纹。 */
+    state.aiKind,
+    state.aiKw,
+    state.aiGroup,
+    state.aiOpen.join(','),
+    /* 导出确认层也是这一页的可见状态：不进指纹，点「导出本书」后整页
+       按旧指纹跳过重绘，遮罩要等下一次别的变化才出现。 */
+    state.aiExport ? `${state.aiExport.title}|${state.aiExport.ids.join(',')}` : '',
+    /* 会话本身在 data/ai-session 里，不进 state：归档 / 删除 / 种子数据变了
+       也得重画，这里按 id + 时间 + 归档时间 + 轮数压一份指纹。
+       只在对话页算：别的页看不到它，没必要每次重绘都复制一遍全部会话。 */
+    state.studyPage === 'ai'
+      ? aiSessions()
+          .map((s) => `${s.id}:${s.when}:${s.archivedAt ?? 0}:${s.turns.length}`)
+          .join(',')
+      : '',
     compact ? 'c' : 'f',
     /* 「今天 / 昨天」和每日回顾都按本地日期算：跨过零点画面就该变一次，
        所以日子也是指纹的一部分（不然它会一直停在前一天）。 */
@@ -127,7 +154,10 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
   /* 页签上的「笔记」数量只要条数，不必把每一条拍平成 MarkRow 再排序：
      以前每画一页（包括设置页）都算一次全库标注（D4）。 */
   const noteCount = books.reduce((n, b) => n + (b.notes?.highlights?.length ?? 0), 0);
-  const counts: StudyCounts = { books: books.length, notes: noteCount };
+  /* 对话页的数据在 data/ai-session 里（本轮是内存列表）：页签计数和页面
+     内容读同一份，不另算一遍，免得两个数对不上。 */
+  const sessions = state.studyPage === 'ai' ? aiSessions() : [];
+  const counts: StudyCounts = { books: books.length, notes: noteCount, chats: aiSessionCount() };
 
   switch (state.studyPage) {
     case 'search':
@@ -149,6 +179,25 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
         }),
         counts,
       };
+    /* 对话（2026-11-16）：按书 / 按时间、类型筛选、搜索、展开、归档、导出。
+       导出目录跟笔记页同一个设置：写进「笔记」的那批 .md，而不是另起一处。 */
+    case 'ai': {
+      const dir = String(shellSettings().exportDir ?? 'bz-reader/notes');
+      return {
+        body: viewHistory({
+          sessions,
+          kind: state.aiKind as AiKindFilter,
+          kw: state.aiKw,
+          group: state.aiGroup,
+          open: state.aiOpen,
+          dir,
+        }),
+        counts,
+        layer: state.aiExport
+          ? historyConfirmLayer(state.aiExport.title, state.aiExport.ids, sessions, dir)
+          : '',
+      };
+    }
     case 'stats': {
       // 统计是付费项：锁着给基础版（六个真实数字 + 强调色遮罩），点一下弹高级版
       const src = getShellSource();

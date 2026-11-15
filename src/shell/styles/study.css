@@ -2178,3 +2178,652 @@
   padding: 0 14px;
   font-size: 12px;
 }
+
+/* ═══════════ 对话（书架第三页，2026-11-16） ═══════════
+   原型：prototype/ai-history/proto.css。尺寸照抄，颜色换成插件 token：
+   底色 --surface / 分层 --bg-2 / 字 --t1..t3 / 线 --line、--line-2 / 铜 --copper。
+   三处刻意与原型不同，都是为了宿主：
+     1. 类型色里「解释」用 var(--copper)（跟着强调色），其余四色是原型定稿值；
+     2. 遮罩挂在 .bzs-studio 上（absolute），不是整屏 fixed；
+     3. 按钮保留宿主的基础高度与光标语汇，不用原型的裸按钮。 */
+
+/* 页面左右各让 12px 出来：书架正文的 32px 内边距比原型（26px）宽，
+   而 Windows 的滚动条还要吃掉 12px——卡片网格按 300px 一列算，差这 20px
+   就只能排两列（原型是 984 宽里的三列）。只在这一页外扩，别动全局内边距。
+   窄屏不给负边距：手机上正文只有 16px，再扩就贴边了。 */
+.bzs-aipage {
+  margin: 0 -12px;
+}
+
+@media (max-width: 820px) {
+  .bzs-aipage {
+    margin: 0;
+  }
+}
+
+.bzs-aihero {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.bzs-aihero h2 {
+  font: 500 25px/1.3 var(--serif);
+  letter-spacing: .02em;
+  margin: 0;
+  color: var(--t1);
+}
+
+.bzs-aihero p {
+  margin: 6px 0 0;
+  font-size: 10.5px;
+  letter-spacing: .06em;
+  color: var(--t3);
+}
+
+.bzs-aihero .bzs-aiexportall {
+  margin-left: auto;
+  padding: 7px 14px;
+  height: auto;
+  min-height: 0;
+  line-height: 1.3;
+  border: 1px solid var(--copper-line);
+  border-radius: 7px;
+  background: var(--copper-soft);
+  color: var(--copper);
+  font-size: 11.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bzs-aihero .bzs-aiexportall:hover {
+  background: var(--copper);
+  color: #fff;
+}
+
+/* ── 三条数字 ── */
+.bzs-aistats {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 15px 0 17px;
+  margin-bottom: 18px;
+}
+
+.bzs-aistat {
+  padding: 0 28px;
+  border-right: 1px solid var(--line);
+}
+
+.bzs-aistat:first-child {
+  padding-left: 2px;
+}
+
+.bzs-aistat b {
+  display: block;
+  font: 500 24px/1.15 var(--serif);
+  letter-spacing: .02em;
+  color: var(--t1);
+}
+
+.bzs-aistat span {
+  display: block;
+  margin-top: 5px;
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  color: var(--t3);
+}
+
+.bzs-aistat.wide {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 2px;
+  border-right: 0;
+}
+
+.bzs-aistat.wide .bzs-aicap {
+  margin: 0;
+  font-size: 9.5px;
+  letter-spacing: .06em;
+  color: var(--t3);
+}
+
+.bzs-aimeter {
+  width: 132px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.bzs-aimeter i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--copper);
+}
+
+/* ── 工具行 ── */
+.bzs-aitool {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.bzs-aitool .sp {
+  flex: 1;
+}
+
+.bzs-aiwell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 226px;
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.bzs-aiwell:focus-within {
+  border-color: var(--copper-line);
+}
+
+.bzs-aiwell svg {
+  color: var(--t3);
+  flex-shrink: 0;
+}
+
+.bzs-aiwell input,
+.bzs-aiwell input:focus,
+.bzs-aiwell input:focus-visible {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  background: none;
+  padding: 0;
+  font: 12px var(--ui);
+  color: var(--t1);
+}
+
+.bzs-aiwell input::placeholder {
+  color: var(--t3);
+}
+
+.bzs-aichips {
+  display: flex;
+  gap: 2px;
+}
+
+/* 原型是 11px 的小胶囊，选中才描铜边。基础 .bzs-chip 是 12px / 有底色，
+   这里整组覆盖（选择器带 .bzs-aitool 才压得过 common.css 的壳层规则）。 */
+.bzs-aitool .bzs-aichip {
+  padding: 5px 9px;
+  height: auto;
+  min-height: 0;
+  line-height: 1.2;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: none;
+  font-size: 11px;
+  color: var(--t2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bzs-aitool .bzs-aichip:hover {
+  background: var(--bg-2);
+  color: var(--t1);
+}
+
+.bzs-aitool .bzs-aichip.on {
+  border-color: var(--copper);
+  background: var(--copper-soft);
+  color: var(--copper);
+}
+
+.bzs-aiseg {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.bzs-aiseg button {
+  padding: 5px 11px;
+  height: auto;
+  min-height: 0;
+  line-height: 1.2;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 11px;
+  color: var(--t2);
+  cursor: pointer;
+}
+
+.bzs-aiseg button.on {
+  background: var(--sunken);
+  color: var(--t1);
+}
+
+/* ── 按书分组 ── */
+.bzs-aibook {
+  margin-bottom: 26px;
+}
+
+.bzs-aibhead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 11px;
+}
+
+.bzs-aispine {
+  width: 6px;
+  height: 24px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, var(--copper), color-mix(in srgb, var(--copper) 52%, #000));
+  box-shadow: 1px 0 0 rgba(255, 255, 255, .5) inset;
+  flex: none;
+}
+
+.bzs-aibhead b {
+  font: 500 16px/1.4 var(--serif);
+  letter-spacing: .04em;
+  color: var(--t1);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bzs-aiby {
+  font-size: 10.5px;
+  color: var(--t3);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bzs-aicnt {
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 9.5px;
+  color: var(--t3);
+  white-space: nowrap;
+}
+
+.bzs-aibhead .bzs-aiexp {
+  margin-left: auto;
+  padding: 3px 9px;
+  height: auto;
+  min-height: 0;
+  line-height: 1.3;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: none;
+  font-size: 10.5px;
+  color: var(--t2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bzs-aibhead .bzs-aiexp:hover {
+  border-color: var(--copper-line);
+  color: var(--copper);
+}
+
+.bzs-aigrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+/* ── 对话卡 ── */
+.bzs-dcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 15px 16px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+
+/* 卡片顶上那一小段类型色：扫一列时先看见颜色，再读字 */
+.bzs-dcard::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  top: -1px;
+  width: 26px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--k, var(--copper));
+}
+
+.bzs-dcard:hover {
+  border-color: var(--copper-line);
+  box-shadow: 0 3px 12px rgba(40, 32, 20, .07);
+  transform: translateY(-1px);
+}
+
+.bzs-dtop {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 9px;
+}
+
+.bzs-dkind {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  letter-spacing: .04em;
+  color: var(--k, var(--t2));
+}
+
+.bzs-dkind::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--k, var(--t3));
+}
+
+.bzs-dwhen {
+  font-size: 9.5px;
+  letter-spacing: .04em;
+  color: var(--t3);
+  white-space: nowrap;
+}
+
+.bzs-dn {
+  margin-left: auto;
+  font-size: 9.5px;
+  color: var(--t3);
+  white-space: nowrap;
+}
+
+.bzs-dquote {
+  margin: 0 0 10px;
+  padding: 1px 0 1px 10px;
+  border-left: 2px solid color-mix(in srgb, var(--copper) 48%, transparent);
+  font-family: var(--serif);
+  font-size: 12.5px;
+  line-height: 1.82;
+  color: var(--t2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bzs-dq {
+  margin: 0 0 5px;
+  font-size: 11.5px;
+  line-height: 1.7;
+  font-weight: 500;
+  color: var(--t1);
+  overflow-wrap: anywhere;
+}
+
+.bzs-qmark {
+  display: inline-block;
+  margin-right: 5px;
+  padding: 0 4px;
+  border: 1px solid var(--copper-line);
+  border-radius: 3px;
+  font-size: 9px;
+  line-height: 14px;
+  font-weight: 400;
+  color: var(--copper);
+  vertical-align: 1px;
+}
+
+.bzs-da {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.82;
+  color: var(--t2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bzs-dfoot {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-top: auto;
+  padding-top: 10px;
+}
+
+.bzs-dfoot button {
+  padding: 0;
+  height: auto;
+  min-height: 0;
+  line-height: 1.3;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 10.5px;
+  color: var(--t2);
+  cursor: pointer;
+}
+
+.bzs-dfoot button:hover {
+  color: var(--copper);
+}
+
+.bzs-dfoot .bzs-adone {
+  margin-left: auto;
+  order: 3;
+  font-size: 9.5px;
+  color: #4f9a63;
+}
+
+.bzs-dfoot button.x:hover {
+  color: var(--vermilion);
+}
+
+/* 展开后的完整对话：引文 → 问 → 答，与读的时候一个顺序 */
+.bzs-dcard .bzs-aconv {
+  margin-top: 10px;
+  padding: 9px 10px;
+  border-left: 2px solid var(--copper-line);
+  background: var(--bg-2);
+  border-radius: 0 7px 7px 0;
+}
+
+.bzs-dcard .bzs-aconv p {
+  margin: 0 0 6px;
+  font-size: 11px;
+  line-height: 1.75;
+  color: var(--t2);
+  overflow-wrap: anywhere;
+}
+
+.bzs-dcard .bzs-aconv p:last-child {
+  margin-bottom: 0;
+}
+
+.bzs-dcard .bzs-aconv b {
+  color: var(--t1);
+  font-weight: 500;
+}
+
+.bzs-dcard .bzs-aconv .me b {
+  color: var(--copper);
+}
+
+/* ── 按时间分组 ── */
+.bzs-athead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 11px;
+}
+
+.bzs-athead b {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  color: var(--t2);
+}
+
+.bzs-athead i {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.bzs-athead span {
+  font-size: 9.5px;
+  letter-spacing: .06em;
+  color: var(--t3);
+}
+
+/* ── 空态 ── */
+.bzs-aiempty {
+  padding: 58px 0 64px;
+  text-align: center;
+}
+
+.bzs-aiempty .bzs-aimark {
+  font: 58px/1 var(--serif);
+  color: var(--copper-line);
+}
+
+.bzs-aiempty p {
+  margin: 8px 0 16px;
+  font-size: 11.5px;
+  line-height: 1.95;
+  color: var(--t3);
+}
+
+.bzs-aiempty .bzs-aighost {
+  padding: 6px 14px;
+  height: auto;
+  min-height: 0;
+  line-height: 1.3;
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+  background: none;
+  font-size: 11px;
+  color: var(--t2);
+  cursor: pointer;
+}
+
+.bzs-aiempty .bzs-aighost:hover {
+  border-color: var(--copper-line);
+  color: var(--copper);
+}
+
+/* ── 导出确认层（页面级，盖住头栏与页签） ── */
+.bzs-aiconfirm {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: rgba(22, 18, 12, .36);
+}
+
+.bzs-aiconfirm .bzs-aibox {
+  width: 420px;
+  max-width: calc(100% - 32px);
+  padding: 20px 20px 16px;
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-radius: 13px;
+  box-shadow: 0 30px 70px rgba(22, 16, 8, .3);
+}
+
+.bzs-aiconfirm .bzs-aibox > b {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--t1);
+}
+
+.bzs-aiconfirm .bzs-aibox > p {
+  margin: 7px 0 10px;
+  font-size: 11.5px;
+  line-height: 1.8;
+  color: var(--t2);
+}
+
+.bzs-aiconfirm ul {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.bzs-aiconfirm li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  color: var(--t1);
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+.bzs-aiconfirm li:last-child {
+  border-bottom: 0;
+}
+
+.bzs-aiconfirm li span {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: var(--t3);
+  flex-shrink: 0;
+}
+
+.bzs-aiconfirm .acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.bzs-aiconfirm .acts button {
+  padding: 6px 14px;
+  height: auto;
+  min-height: 0;
+  line-height: 1.3;
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+  background: none;
+  font-size: 11.5px;
+  color: var(--t2);
+  cursor: pointer;
+}
+
+.bzs-aiconfirm .acts button.pri {
+  border-color: var(--copper);
+  background: var(--copper);
+  color: #fff;
+}
+
+/* 确认层要盖住头栏：给页面容器一个定位上下文 */
+.bzs-studio {
+  position: relative;
+}

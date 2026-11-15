@@ -13,6 +13,7 @@
  * ============================================================ */
 
 import { HIGHLIGHT_COLORS } from '../data/notes';
+import { isAiSessionKind } from '../data/ai-session';
 import { cleanShelfList } from '../data/shelves';
 import { bookSelectContext, leavesBookSelect } from './book-select';
 import { getShellSource } from './source';
@@ -24,23 +25,25 @@ import { RT } from './runtime';
 /**
  * 书架的各页。
  *
- * 只有 library / notes 占页签位置；stats / settings / search / import
+ * 只有 library / notes / ai 占页签位置；stats / settings / search / import
  * 是「子页」，从右上四颗图标进去。
  * 分成两类是因为页签栏一长就变成一排小字，扫不动。
  *
  * 2026-11-08 改：子页不再换一种头栏（原来换成「← 返回 + 标题」）。
  * 页签与四颗图标一直在，当前那颗亮着；再点一次就回 studyBack。
+ *
+ * 2026-11-16 加 `ai`：书架第三个页签「对话」，原型见 prototype/ai-history。
  */
-export type StudyPage = 'library' | 'notes' | 'stats' | 'settings' | 'search' | 'import';
+export type StudyPage = 'library' | 'notes' | 'ai' | 'stats' | 'settings' | 'search' | 'import';
 
-/** 占页签的两页 */
-export type StudyTab = 'library' | 'notes';
+/** 占页签的三页 */
+export type StudyTab = 'library' | 'notes' | 'ai';
 
 /** 子页：进来前的页记在 studyBack，再点一次那颗图标回到那儿 */
 export const STUDY_SUB_PAGES = ['stats', 'settings', 'search', 'import'] as const;
 
 export function isStudyTab(page: StudyPage): page is StudyTab {
-  return page === 'library' || page === 'notes';
+  return page === 'library' || page === 'notes' || page === 'ai';
 }
 
 /**
@@ -300,6 +303,22 @@ export interface ShellState {
   noteSelect: boolean;
   /** 已选中的标注 id（不落盘：退出插件后不该还留着上次的选择） */
   noteSel: string[];
+  /* 对话（书架第三页） */
+  /** 类型筛选：all / explain / translate / summarize / follow / book */
+  aiKind: string;
+  /** 搜索词（不落盘，同笔记页） */
+  aiKw: string;
+  /** 排法：按书 / 按时间 */
+  aiGroup: 'book' | 'time';
+  /** 展开的会话 id（不落盘：内存里的会话重开就没了，存 id 没有意义） */
+  aiOpen: string[];
+  /**
+   * 导出确认层：null = 没开。
+   *
+   * 原型里它是盖住整页的一次确认（列出会写进哪几篇笔记），
+   * 所以标题与 id 名单一起存进状态，重绘后不会丢。
+   */
+  aiExport: { title: string; ids: string[] } | null;
   /** 年度目标（本）。真实数据里没有「目标」，它只影响统计页那圈铜线 */
   goal: number;
   /* 阅读上下文 */
@@ -381,6 +400,11 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   reviewIdx: 0,
   noteSelect: false,
   noteSel: [],
+  aiKind: 'all',
+  aiKw: '',
+  aiGroup: 'book',
+  aiOpen: [],
+  aiExport: null,
   goal: 20,
   sideTab: 'toc',
   cites: [],
@@ -407,9 +431,11 @@ export function loadShellState(): ShellState {
     const raw = window.localStorage.getItem(LS_KEY);
     if (raw) {
       const d = JSON.parse(raw) as Partial<ShellState>;
-      /* 只恢复页签两页：子页是「进来干一件事」的，重开 Obsidian 还停在
+      /* 只恢复页签三页：子页是「进来干一件事」的，重开 Obsidian 还停在
          导入页会让人以为插件坏了。 */
-      if (d.studyPage === 'library' || d.studyPage === 'notes') state.studyPage = d.studyPage;
+      if (d.studyPage === 'library' || d.studyPage === 'notes' || d.studyPage === 'ai') {
+        state.studyPage = d.studyPage;
+      }
       if (d.libView === 'grid' || d.libView === 'list') state.libView = d.libView;
       /* 三个枚举按白名单收（C12）：以前 `if (d.libFilter)` 认任何真值，
          旧版本 / 手改过的 localStorage 里留一个 `libSort: "xxx"` 进来，
@@ -418,6 +444,10 @@ export function loadShellState(): ShellState {
       if (LIB_SORT_VALUES.includes(d.libSort as LibSort)) state.libSort = d.libSort as LibSort;
       if (typeof d.libShelf === 'string') state.libShelf = d.libShelf;
       if (d.sideTab && ['toc', 'bookmarks', 'highlights', 'cites', 'ai'].includes(d.sideTab)) state.sideTab = d.sideTab;
+      /* 对话页的两个枚举同样是白名单收：认不出的值会让「全部 / 按书」都不亮，
+         看起来像筛选与排法按钮一起坏了。 */
+      if (d.aiKind === 'all' || isAiSessionKind(d.aiKind)) state.aiKind = d.aiKind;
+      if (d.aiGroup === 'book' || d.aiGroup === 'time') state.aiGroup = d.aiGroup;
       if (typeof d.goal === 'number' && d.goal > 0) state.goal = Math.min(200, Math.round(d.goal));
       /* 笔色同理：认不出的色名会让「选中即划」用一条画不出来的颜色 */
       if ((HIGHLIGHT_COLORS.map((c) => c.value) as string[]).includes(String(d.pen))) {
@@ -511,7 +541,7 @@ export function mutateState(fn: (s: ShellState) => void): void {
 
 function persist(): void {
   try {
-    const { overlay, libKw, noteKw, noteSelect, noteSel, libSelect, libSel, searchKw, searchMode, ideaDraft, pdfPage, ...rest } = state;
+    const { overlay, libKw, noteKw, noteSelect, noteSel, libSelect, libSel, searchKw, searchMode, ideaDraft, pdfPage, aiKw, aiOpen, aiExport, ...rest } = state;
     // 浮层与输入框内容不落盘：下次打开还停在上次的弹窗上很怪
     window.localStorage.setItem(LS_KEY, JSON.stringify(rest));
   } catch {

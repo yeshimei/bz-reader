@@ -27,10 +27,13 @@ export interface StudyPageDef {
   icon: string;
 }
 
-/** 占页签位置的两页。统计与设置不在这里——它们退到右上图标 */
+/** 占页签位置的三页。统计与设置不在这里——它们退到右上图标 */
 export const STUDY_TABS: StudyPageDef[] = [
   { value: 'library', key: 'shelf.tab.library', icon: 'library' },
   { value: 'notes', key: 'shelf.tab.notes', icon: 'note' },
+  /* 对话（2026-11-16）：排在「笔记」后面。页签文案就是「对话」，
+     不加 AI 前缀——页内标题同名，说同一件事用同一个词。 */
+  { value: 'ai', key: 'shelf.tab.ai', icon: 'ai' },
 ];
 
 /**
@@ -46,10 +49,11 @@ export const STUDY_ACTS: StudyPageDef[] = [
   { value: 'settings', key: 'shelf.act.settings', icon: 'gear' },
 ];
 
-/** 页签上的计数徽记：书库给本数，笔记给条数，统计与设置不给 */
+/** 页签上的计数徽记：书库给本数，笔记给条数，对话给轮数，统计与设置不给 */
 export interface StudyCounts {
   books: number;
   notes: number;
+  chats: number;
 }
 
 /**
@@ -62,15 +66,28 @@ export interface StudyCounts {
  * 用户的原话是「不要那种形式」。现在不换形态：当前那颗图标亮起，
  * 再点一次回进来之前那页（判据在 state.nextStudyPage）。
  */
-export function studyShell(page: StudyPage, body: string, counts: StudyCounts): string {
+export function studyShell(page: StudyPage, body: string, counts: StudyCounts, layer = ''): string {
   return `<div class="bzs-studio"><div class="bzs-stuhead">${tabNav(page, counts)}<span class="sp"></span>${actBar(
     page,
-  )}</div><div class="bzs-stubody">${body}</div></div>`;
+  )}</div><div class="bzs-stubody">${body}</div>${layer}</div>`;
+}
+
+/**
+ * 页签计数：每页只给自己的那一个。
+ *
+ * 以前是 `p.value === 'library' ? books : notes`——加第三页时它会把笔记数
+ * 当成对话数画出来，页签上一个都不会空。按页取，未列出的页不给徽记。
+ */
+function tabCount(page: StudyPage, counts: StudyCounts): number {
+  if (page === 'library') return counts.books;
+  if (page === 'notes') return counts.notes;
+  if (page === 'ai') return counts.chats;
+  return 0;
 }
 
 function tabNav(page: StudyPage, counts: StudyCounts): string {
   const nav = STUDY_TABS.map((p) => {
-    const n = p.value === 'library' ? counts.books : counts.notes;
+    const n = tabCount(p.value, counts);
     const label = t(p.key);
     return `<button class="${page === p.value ? 'on' : ''}" data-act="study" data-p="${p.value}" title="${label}">${ico(
       p.icon,
