@@ -45,9 +45,24 @@ export interface PdfOcrState {
    * 失败了，还得知道是哪几页、能一键重来（头栏「识别」菜单里的那一项）。
    */
   failed: number[];
+  /**
+   * 上一批是怎么结束的：正常跑完 / 被用户停掉 / 还没跑过。
+   *
+   * 底部控制条靠它决定终态说什么——「认完 20 页」和「已停止 · 认完 14 页」
+   * 是两句不同的话，只靠 `running=false` 分不出来。
+   */
+  last: 'done' | 'stopped' | '';
 }
 
-export const IDLE_OCR_STATE: PdfOcrState = { running: false, page: 0, done: 0, total: 0, error: '', failed: [] };
+export const IDLE_OCR_STATE: PdfOcrState = {
+  running: false,
+  page: 0,
+  done: 0,
+  total: 0,
+  error: '',
+  failed: [],
+  last: '',
+};
 
 /** 往失败表里加一页（升序、去重） */
 export function addFailedPage(list: readonly number[], page: number): number[] {
@@ -112,6 +127,7 @@ export function ocrChanged(a: PdfOcrState, b: PdfOcrState): boolean {
     a.done !== b.done ||
     a.total !== b.total ||
     a.error !== b.error ||
+    a.last !== b.last ||
     a.failed.join(',') !== b.failed.join(',')
   );
 }
@@ -154,6 +170,8 @@ export function toOcrPage(
 ): OcrPage {
   const page: OcrPage = { engine, model, at: Date.now(), layout: parsed.layout, lines: parsed.lines };
   if (parsed.text) page.text = parsed.text;
+  /* 空白页也落盘（打 empty 标记）：不然下一批又把它排进队列，跑一次失败一次 */
+  if (!page.lines.length && !page.text?.trim()) page.empty = true;
   return page;
 }
 
@@ -227,7 +245,9 @@ export class PdfOcrRunner {
   cancel(): void {
     this.ctrl?.abort();
     this.ctrl = null;
-    this.setState({ ...this.state, running: false, page: 0 });
+    /* `last` 立刻改成 stopped：批量那条 finally 还要等当前这一页收尾，
+       条子得马上变成「已停止」，不能等几秒后才动 */
+    this.setState({ ...this.state, running: false, page: 0, last: 'stopped' });
   }
 
   /**
@@ -307,24 +327,25 @@ export class PdfOcrRunner {
    * 已认过的页跳过：用户点第二次不该为同一页再付一次钱。要重认某一页，
    * 用 `runPage`（工具栏那颗「重认本页」）。
    */
-  async runBatch(from: number, limit = OCR_BATCH): Promise<void> {
+  async runBatch(from: number, limit = OCR_BATCH): Promise<boolean> {
     const host = this.deps.host();
     const book = this.deps.book();
     if (!host || !book) {
       this.deps.notify?.(t('notice.pdf.ocrOnly'), 'info');
-      return;
+      return false;
     }
     if (this.state.running) {
       this.deps.notify?.(t('notice.pdf.ocrBusy'), 'info');
-      return;
+      return false;
     }
     const total = host.ocrStats().total || 0;
     const queue = ocrQueue(total, from, this.recognized(), limit);
     if (!queue.length) {
       this.deps.notify?.(t('notice.pdf.ocrNothing'), 'info');
-      return;
+      return false;
     }
     await this.runQueue(queue);
+    return true;
   }
 
   /**
@@ -332,21 +353,22 @@ export class PdfOcrRunner {
    *
    * 只认失败的那几页，不重扫整批：重扫等于把已经付过钱的页再付一遍。
    */
-  async retryFailed(): Promise<void> {
+  async retryFailed(): Promise<boolean> {
     if (this.state.running) {
       this.deps.notify?.(t('notice.pdf.ocrBusy'), 'info');
-      return;
+      return false;
     }
     if (!this.deps.host() || !this.deps.book()) {
       this.deps.notify?.(t('notice.pdf.ocrOnly'), 'info');
-      return;
+      return false;
     }
     const pages = [...this.state.failed];
     if (!pages.length) {
       this.deps.notify?.(t('notice.pdf.ocrRetryNothing'), 'info');
-      return;
+      return false;
     }
     await this.runQueue(pages);
+    return true;
   }
 
   /** 跑一串页：进度、取消、失败收集都在这里，runBatch 与 retryFailed 共用 */
@@ -355,7 +377,15 @@ export class PdfOcrRunner {
     if (!queue.length) return;
     this.ctrl = new AbortController();
     const ctrl = this.ctrl;
-    this.setState({ running: true, page: queue[0]!, done: 0, total: queue.length, error: '', failed: [] });
+    this.setState({
+      running: true,
+      page: queue[0]!,
+      done: 0,
+      total: queue.length,
+      error: '',
+      failed: [],
+      last: '',
+    });
     try {
       for (const page of queue) {
         if (ctrl.signal.aborted) break;
@@ -370,20 +400,17 @@ export class PdfOcrRunner {
       const failedPages = this.state.failed;
       const why = this.state.error;
       this.ctrl = null;
-      this.setState({ ...this.state, running: false, page: 0 });
-      if (ctrl.signal.aborted) this.deps.notify?.(t('notice.pdf.ocrStopped'), 'info');
-      else if (failedPages.length) {
-        /* 失败页要说清是哪几页：只说「失败了」用户既不知道范围，也没法重来 */
-        this.deps.notify?.(
-          t('notice.pdf.ocrBatchPartial', {
-            done: String(this.state.done),
-            n: String(failedPages.length),
-            pages: failedPages.join('、'),
-            why,
-          }),
-          'error',
-        );
-      } else this.deps.notify?.(t('notice.pdf.ocrBatchDone', { n: String(this.state.done) }), 'success');
+      this.setState({
+        ...this.state,
+        running: false,
+        page: 0,
+        last: ctrl.signal.aborted ? 'stopped' : 'done',
+      });
+      /* 进度与结果都交给底部控制条了：这里只留「为什么失败」这种
+         条子上放不下的详情，免得每次都弹两条说同一件事 */
+      if (!ctrl.signal.aborted && failedPages.length && why) {
+        this.deps.notify?.(t('notice.pdf.ocrBatchFailed', { why }), 'error');
+      }
     }
   }
 

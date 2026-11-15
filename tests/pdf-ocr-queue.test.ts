@@ -179,7 +179,40 @@ describe('识别编排', () => {
     await runner.runBatch(1, 5);
     expect(applied).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(notes.join('')).toContain('已停止');
+    /* 界面靠 last 说「已停止 · 认完 1 页」：只给 running=false 分不出
+       是跑完了还是被用户停掉的 */
+    expect(runner.getState().last).toBe('stopped');
+  });
+
+  it('空白页：不算失败、落盘成 empty 页，重开书也不会再排它', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okReply('{"lines":[]}'));
+    vi.stubGlobal('fetch', fetchMock);
+    const adapter = new FakeAdapter();
+    const app = { vault: { adapter } } as unknown as App;
+    const { host } = fakeHost(10);
+    const runner = new PdfOcrRunner(depsOf(host, adapter));
+    const ran = await runner.runBatch(1, 2);
+    expect(ran).toBe(true);
+    expect(runner.getState().failed).toEqual([]);
+    expect(runner.getState().last).toBe('done');
+    expect(runner.recognized().has(1)).toBe(true);
+    /* 读回来还在：不然重开书之后又会为同一张空白页付一次钱 */
+    const file = await readOcr(app, 'b1');
+    expect(file?.pages['1']?.empty).toBe(true);
+  });
+
+  it('这一批都认过了：返回 false，条子据此自己收起来', async () => {
+    const adapter = new FakeAdapter();
+    const app = { vault: { adapter } } as unknown as App;
+    await writeOcr(
+      app,
+      withOcrPage(null, 'b1', 1, toOcrPage({ lines: [{ text: '甲' }], layout: false, text: '甲' }, 'http', 'http')),
+    );
+    const { host } = fakeHost(1);
+    const runner = new PdfOcrRunner(depsOf(host, adapter));
+    await runner.load();
+    const ran = await runner.runBatch(1, 1);
+    expect(ran).toBe(false);
   });
 
   it('打开书：读盘并整本灌给引擎', async () => {
@@ -216,7 +249,7 @@ describe('失败页可见与重试', () => {
     expect(addFailedPage([], 0)).toEqual([]);
   });
 
-  it('一批里有一页失败：记下页号，通知说清是哪页', async () => {
+  it('一批里有一页失败：记下页号，条子拿得到这份名单', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(okReply())
@@ -229,7 +262,9 @@ describe('失败页可见与重试', () => {
     const runner = new PdfOcrRunner(depsOf(host, adapter, notes));
     await runner.runBatch(1, 3);
     expect(runner.getState().failed).toEqual([2]);
-    expect(notes.join('')).toContain('第 2 页');
+    expect(runner.getState().last).toBe('done');
+    /* 页号不再靠通知喊：条子直接读 failed，通知只留「为什么失败」 */
+    expect(notes.join('')).toContain('没成功');
   });
 
   it('重试只认失败的那几页，成功后就从表里摘掉', async () => {

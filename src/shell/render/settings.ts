@@ -453,6 +453,11 @@ export function viewSettings(v: SettingsView): string {
       </div>`
           : ''
       }
+      <div class="bzs-setrow"><label>${t('settings.pdfOcrProbe')}</label>
+        <button class="bzs-btn sm" data-act="ocrtest">${t('settings.pdfOcrProbe.run')}</button>
+        <span class="bzs-mini" data-role="ocrprobe-out" style="margin-left:8px"></span>
+      </div>
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfOcrProbe.hint')}</div>
       <div class="bzs-mini">${t('settings.pdfOcrHint')}</div>
     </div>`;
 

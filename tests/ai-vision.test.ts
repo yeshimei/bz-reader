@@ -77,9 +77,13 @@ describe('recognizeViaVision', () => {
     expect(got.text).toBe('整页的一段字');
   });
 
-  it('一个字都没认出来就报错，别静默返回空页', async () => {
+  /* 2026-11-15：空结果不再抛错——空白页是正常页，由编排层落一个 `empty` 页，
+     下一批就不会再为它付一次钱。这里只保证「不抛、返回空」。 */
+  it('一个字都没认出来：返回空结果，由调用方记成空白页', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse('{"lines":[]}')));
-    await expect(recognizeViaVision(config, 'x')).rejects.toThrow('没有认出文字');
+    const parsed = await recognizeViaVision(config, 'x');
+    expect(parsed.lines).toHaveLength(0);
+    expect(parsed.text).toBe('');
   });
 
   it('没填密钥时接口 401 提示检查 Key，不静默失败', async () => {
@@ -158,9 +162,10 @@ describe('外部 OCR 服务', () => {
     expect(body.options).toEqual({ 'data.format': 'dict', 'tbpu.parser': 'multi_none' });
   });
 
-  it('Umi-OCR 的 code 101 当「这页没字」，其他失败码把码带进提示', async () => {
+  it('Umi-OCR 的 code 101 返回空结果当空白页，其他失败码把码带进提示', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ code: 101, data: [] }) }));
-    await expect(recognizeViaHttp({ url: 'http://x', image: 'QUJD', mime: 'image/jpeg' })).rejects.toThrow('没有认出文字');
+    const parsed = await recognizeViaHttp({ url: 'http://x', image: 'QUJD', mime: 'image/jpeg' });
+    expect(parsed.lines).toHaveLength(0);
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({ ok: true, json: async () => ({ code: 500, data: null, msg: '模型没加载' }) }),

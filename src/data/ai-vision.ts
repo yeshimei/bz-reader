@@ -89,7 +89,8 @@ export async function recognizeViaVision(
     label: 'OCR',
   });
   const parsed = parseOcrJson(raw);
-  if (!parsed.lines.length && !parsed.text) throw new Error(t('notice.pdf.ocrEmpty'));
+  /* 空结果不在这里抛：空白页是正常页（书里常有一两页纯图），
+     由调用方落一个 `empty` 页，免得下一批又排进去重复收费。 */
   return parsed;
 }
 
@@ -205,7 +206,6 @@ export async function recognizeViaHttp(input: HttpOcrInput): Promise<ParsedOcr> 
       ? { width: input.width, height: input.height }
       : undefined;
   const parsed = parseOcrValue(unwrapOcrBody(body), ref);
-  if (!parsed.lines.length && !parsed.text) throw new Error(t('notice.pdf.ocrEmpty'));
   return parsed;
 }
 

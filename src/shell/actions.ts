@@ -37,6 +37,7 @@ import { notify } from '../core/notice';
 import { synthesizeFor, ttsEngineReady, ttsVoiceFor, type TtsRoute } from '../core/tts-engine';
 import { ttsDeployPrompt } from '../core/tts-deploy-prompt';
 import { pdfOcrDeployPrompt } from '../core/pdf-ocr-deploy-prompt';
+import { ocrProbe, probeImage } from './ocr-probe';
 import { clearVoiceCache, currentVoiceOf, loadVoices, setVoiceOf } from './voice-store';
 import { reconcileVoice } from '../core/tts-voices';
 import { localRequester } from '../data/tts-request';
@@ -2281,6 +2282,22 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         out.textContent = entry.list.length
           ? t('settings.ttsLocal.voicesOk', { n: String(entry.list.length) })
           : t('settings.ttsLocal.voicesFail');
+      });
+      break;
+    }
+    /* 识别通道的「测试连接」（2026-11-15）：发一张内置小图，确认地址、
+       密钥与返回格式都对得上，不用先去认一页才试出来。 */
+    case 'ocrtest': {
+      const out = el.closest('.bzs-setgrp')?.querySelector<HTMLElement>('[data-role="ocrprobe-out"]');
+      if (out) {
+        out.textContent = t('settings.pdfOcrProbe.testing');
+        out.style.color = '';
+      }
+      void ocrProbe(shellSettings(), async () => probeImage()).then((r) => {
+        if (!out) return;
+        out.textContent = r.message;
+        out.style.color =
+          r.level === 'ok' ? 'var(--text-success)' : r.level === 'text' ? 'var(--text-warning)' : 'var(--text-error)';
       });
       break;
     }

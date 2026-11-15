@@ -105,7 +105,16 @@ export function sanitizeOcrPage(raw: unknown): OcrPage | null {
     lines,
   };
   if (text) page.text = text;
-  return ocrPageEmpty(page) ? null : page;
+  /* 空白页是「认过、但没字」的正常结果，和「这一页的数据坏了」要分开：
+     前者留着（下一批不再排它、也不重复收费），后者返回 null 丢掉。 */
+  if (ocrPageEmpty(page)) {
+    if (src.empty === true) {
+      page.empty = true;
+      return page;
+    }
+    return null;
+  }
+  return page;
 }
 
 /** 整本：坏页丢掉，剩几页算几页；连 pages 都没有给空壳（书开着但一页没认） */

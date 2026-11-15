@@ -75,6 +75,7 @@ import { concatWav } from '../core/wav';
 import { TtsCache, cacheKey } from '../data/tts-cache';
 import { localRequester } from '../data/tts-request';
 import { ttsBarHtml, ttsBarLift, ttsSourceLabel } from './tts-bar';
+import { ocrBarAutoHide, ocrBarHtml, type OcrBarStage } from './ocr-bar';
 import { ttsProgressHtml, type TtsTaskKind, type TtsTaskState } from './tts-progress';
 import { notify, notifyNow, notifyProgress, type NoticeHandle, type ProgressHandle } from '../core/notice';
 import { localeTag, t, type MsgKey } from '../i18n';
@@ -165,7 +166,8 @@ import { addChapterSeconds, clipLanding, type ClipLanding } from '../data/clip-e
 import { carryMeasuredPages, clipStructureChanged, migrateClipKey, syncClipChapterMeta } from '../data/clip-epub/refresh';
 import { DEFAULT_CLIP_SCOPE, type ClipScope } from '../data/clip-epub/scope';
 import { getShellSource, shellPrefs, shellSettings } from '../shell/source';
-import { OCR_BATCH, PdfOcrRunner, ocrProgressText, type PdfOcrHostLike } from '../shell/pdf-ocr';
+import { OCR_BATCH, PdfOcrRunner, type PdfOcrHostLike } from '../shell/pdf-ocr';
+import { pdfOcrEngineOf } from '../data/settings';
 import { copyRegionCard } from '../shell/region-card';
 import { collectPdfBacklinks, invalidatePdfBacklinks } from '../data/pdf-backlink';
 import { epubBacklinkHits } from '../data/epub-backlink';
@@ -537,8 +539,16 @@ export class ReaderView extends ItemView {
   private readonly ocr: PdfOcrRunner;
   /** 「这本是扫描件」只提醒一次，别每次开书都弹 */
   private scannedNoticed = false;
-  /** 识别进度常驻通知：跑着的时候只改字，出结果再收（2026-11-15） */
-  private ocrNotice: ProgressHandle | null = null;
+  /** 底部识别控制条（2026-11-15）：单页、一批、整本共用这一条 */
+  private ocrBarEl: HTMLElement | null = null;
+  /** 条子现在说的话；重画时只读它，不东取西拼 */
+  private ocrBarStage: OcrBarStage | null = null;
+  /** 失败原因（长文本），只进条子的 title */
+  private ocrBarWhy = '';
+  /** 单页完成自动收：只有这一种终态该自己走开 */
+  private ocrBarTimer: number | null = null;
+  /** 上一次单页识别没成的页：条子上「重试这一页」要用 */
+  private ocrFailedPage = 0;
 
   constructor(leaf: WorkspaceLeaf, api: ReaderHostApi) {
     super(leaf);
@@ -555,10 +565,16 @@ export class ReaderView extends ItemView {
       },
       notify: (message, kind) => notify(message, kind === 'error' ? 'error' : kind === 'success' ? 'success' : 'info'),
       onProgress: (state) => {
-        /* 批量跑的时候每换一页刷一次；跑完 / 被停就收掉。
-           单页不走这里（runPage 不置 running），由 recognizePage 自己管。 */
-        if (state.running) this.showOcrProgress(ocrProgressText(state));
-        else this.hideOcrProgress();
+        /* 批量 / 整本的进度与终态都走底部控制条。
+           `last` 区分「跑完」和「被停」——只看 running=false 的话，
+           用户点了停止也会被说成「认完 14 页」。 */
+        if (state.running) {
+          this.showOcrBar({ kind: 'running', page: state.page, done: state.done, total: state.total });
+        } else if (state.last === 'stopped') {
+          this.showOcrBar({ kind: 'stopped', pages: state.done, failed: state.failed });
+        } else if (state.last === 'done') {
+          this.showOcrBar({ kind: 'batch', pages: state.done, failed: state.failed }, state.error);
+        }
       },
     });
     /* 按平台取：桌面 prefsDesktop、手机 prefsMobile，新槽空着才回落旧的全局
@@ -601,17 +617,119 @@ export class ReaderView extends ItemView {
     this.recognizePage(page);
   }
 
-  /** 进度是常驻通知：只建一条，后面只改字。反复 new 会堆满一屏 */
-  private showOcrProgress(text: string): void {
-    if (!text) return;
-    if (this.ocrNotice) this.ocrNotice.setMessage(text);
-    else this.ocrNotice = notifyProgress(text);
+  /* ── 底部识别控制条 ──
+     单页、一批、整本共用一条（2026-11-15 用户要求，替掉右上角那行通知）：
+     通知只能说一句，说不出「第几页 / 这批多少 / 还剩多少 / 能不能停」。 */
+
+  /**
+   * 亮出（或改字）底部那条。
+   *
+   * 单页完成会自己收：用户还要接着读，条子留着挡正文；
+   * 失败 / 批量结束 / 手动停都留着——它们后面还有一步（重试 / 看结果）。
+   */
+  private showOcrBar(stage: OcrBarStage, why = ''): void {
+    const root = this.rootEl;
+    if (!root) return;
+    if (!this.ocrBarEl) {
+      this.ocrBarEl = el('div', 'bzr-ocrbar-wrap');
+      this.ocrBarEl.addEventListener('click', (ev) => this.onOcrBarClick(ev));
+      root.appendChild(this.ocrBarEl);
+      /* 朗读条也在底部中间：两条同时出现时要错开，用根节点上的类做信号 */
+      root.classList.add('has-ocrbar');
+    }
+    /* 底部禁区量一次：PDF 自带的缩放 / 页码条在右下，手机上还有宿主底栏。
+       不写死数字——工具栏会换行、状态栏随插件图标数变高。
+       变量写在根节点上（不是条子自己）：朗读条是它的兄弟，
+       变量写在条子上兄弟读不到，只会拿到 fallback。 */
+    root.style.setProperty('--bzr-ocr-bottom', `${this.ocrBarBottom()}px`);
+    this.ocrBarStage = stage;
+    this.ocrBarWhy = why;
+    this.renderOcrBar();
+    /* 条子高度也量一次：朗读条要按它往上让 */
+    const h = Math.round(this.ocrBarEl.getBoundingClientRect().height || 0);
+    root.style.setProperty('--bzr-ocr-h', `${h || 40}px`);
+    if (this.ocrBarTimer !== null) {
+      window.clearTimeout(this.ocrBarTimer);
+      this.ocrBarTimer = null;
+    }
+    if (ocrBarAutoHide(stage)) {
+      this.ocrBarTimer = window.setTimeout(() => this.hideOcrBar(), 3000);
+    }
   }
 
-  /** 收掉进度：hide() 之后容器要立刻摘，否则淡出期间还压着屏幕 */
-  private hideOcrProgress(): void {
-    this.ocrNotice?.hide();
-    this.ocrNotice = null;
+  /**
+   * 识别条距视口底边多少。
+   *
+   * 取两者较大：右下角状态栏（和朗读条同一套）+ PDF 自己的工具条上沿。
+   * PDF 工具条在桌面是右下角一条，手机上会换行变高——一律量，不猜。
+   */
+  private ocrBarBottom(): number {
+    const statusH = ttsBarLift(document.querySelector<HTMLElement>('.status-bar'));
+    /* 只看当前阅读视图里的那条：多个标签页各有一本 PDF，取到别人的会量错 */
+    const bar = this.rootEl?.querySelector<HTMLElement>('.bzr-pdf-toolbar') ?? null;
+    const barTop = bar ? Math.max(0, window.innerHeight - bar.getBoundingClientRect().top) : 0;
+    return Math.round(Math.max(14 + statusH, barTop + 8));
+  }
+
+  private renderOcrBar(): void {
+    if (!this.ocrBarEl || !this.ocrBarStage) return;
+    const stats = this.ocrHost()?.ocrStats();
+    const html = ocrBarHtml({
+      stage: this.ocrBarStage,
+      recognized: stats?.done,
+      totalPages: stats?.total,
+      engine: pdfOcrEngineOf(shellSettings()),
+      why: this.ocrBarWhy,
+    });
+    /* 走 DOMParser 而不是 innerHTML：目录审核的 no-inner-html 规则不许关 */
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    this.ocrBarEl.replaceChildren(...Array.from(parsed.body.childNodes));
+    for (const slot of this.ocrBarEl.querySelectorAll<HTMLElement>('[data-icon]')) {
+      setIcon(slot, slot.dataset.icon ?? '');
+    }
+  }
+
+  private hideOcrBar(): void {
+    if (this.ocrBarTimer !== null) {
+      window.clearTimeout(this.ocrBarTimer);
+      this.ocrBarTimer = null;
+    }
+    this.ocrBarEl?.remove();
+    this.ocrBarEl = null;
+    this.ocrBarStage = null;
+    this.ocrBarWhy = '';
+    this.rootEl?.classList.remove('has-ocrbar');
+  }
+
+  private onOcrBarClick(ev: MouseEvent): void {
+    const target = (ev.target as HTMLElement | null)?.closest<HTMLElement>('[data-act]');
+    if (!target) return;
+    /* 条子浮在正文上：不拦住会一路冒到翻页那一层 */
+    ev.preventDefault();
+    ev.stopPropagation();
+    const act = target.dataset.act;
+    const stage = this.ocrBarStage;
+    if (act === 'ocrstop') {
+      this.ocr.cancel();
+    } else if (act === 'ocrclose') {
+      this.hideOcrBar();
+    } else if (act === 'ocrretry') {
+      if (stage?.kind === 'page-failed') this.recognizePage(stage.page);
+      else if (stage?.kind === 'batch') this.retryOcrFailed();
+      else if (this.ocrFailedPage) this.recognizePage(this.ocrFailedPage);
+    }
+  }
+
+  /** 条子上的「重试 N 页」：只重跑失败的那几页，不重扫整批 */
+  private retryOcrFailed(): void {
+    const failed = this.ocr.getState().failed;
+    if (!failed.length) {
+      notify(t('notice.pdf.ocrRetryNothing'), 'info');
+      return;
+    }
+    void this.ocr.retryFailed().then((ran) => {
+      if (!ran) notify(t('notice.pdf.ocrRetryNothing'), 'info');
+    });
   }
 
   /** 认指定的一页（内部的实现） */
@@ -623,27 +741,26 @@ export class ReaderView extends ItemView {
     /* 扫描页识别 2026-11-15 转正：按页计费，单独一道门。区域工具条那
        「识别」也走这里（onPdfOcr），所以只拦这一处就够。 */
     if (!requireCap('pdfOcr')) return;
+    if (this.ocr.getState().running) {
+      notify(t('notice.pdf.ocrBusy'), 'info');
+      return;
+    }
     const target = Math.max(1, Math.floor(Number(page) || 1));
-    /* 单页也要先亮一句：出图 + 请求 + 落盘要几秒，没有反馈就是「点了没反应」 */
-    this.showOcrProgress(t('notice.pdf.ocrOnePage', { page: String(target) }));
+    this.showOcrBar({ kind: 'running', page: target, done: 0, total: 1 });
     void this.ocr.runPage(target).then((ok) => {
-      this.hideOcrProgress();
       if (!ok) {
-        /* 以前这里直接 return，失败一声不响（2026-11-15 用户报「点了没反应」） */
         const why = this.ocr.getState().error;
-        notify(
-          why ? t('notice.pdf.ocrFailed', { why }) : t('notice.pdf.ocrFailedBare'),
-          'error',
-        );
+        this.ocrFailedPage = target;
+        this.showOcrBar({ kind: 'page-failed', page: target }, why);
+        /* 条上只说「没认出来」：地址写错、密钥失效、CORS 被拦这些原因
+           放不下，单独弹一条，否则用户只知道失败、不知道该改哪儿 */
+        if (why) notify(t('notice.pdf.ocrFailed', { why }), 'error');
         return;
       }
+      this.ocrFailedPage = 0;
       const ocr = this.ocrHost()?.ocrOf(target);
-      notify(
-        ocr?.layout
-          ? t('notice.pdf.ocrDone', { n: String(target) })
-          : t('notice.pdf.ocrTextOnly', { n: String(target) }),
-        ocr?.layout ? 'success' : 'info',
-      );
+      const empty = !ocr || ocr.empty === true || (!ocr.lines.length && !String(ocr.text ?? '').trim());
+      this.showOcrBar({ kind: 'page', page: target, layout: ocr?.layout === true, empty });
     });
   }
 
@@ -655,15 +772,20 @@ export class ReaderView extends ItemView {
     }
     if (!requireCap('pdfOcr')) return;
     const from = this.currentPageNumber();
-    this.showOcrProgress(
-      t('notice.pdf.ocrRunning', { page: String(from), done: '0', total: String(OCR_BATCH) }),
-    );
-    /* finally 兜底：队列为空（这一批都认过了）时 runBatch 直接返回，
-       没有 finally 的话那条「正在识别」会一直挂在屏幕上。 */
-    void this.ocr.runBatch(from).finally(() => this.hideOcrProgress());
+    this.showOcrBar({ kind: 'running', page: from, done: 0, total: OCR_BATCH });
+    /* 队列为空（这一批都认过了）时 runBatch 不进队列、不会有进度回调：
+       条子得自己收，不然永远停在「正在识别」 */
+    void this.ocr.runBatch(from).then((ran) => {
+      if (!ran) this.hideOcrBar();
+    });
   }
 
-  /** 整本：把总页数当批次上限，进度里能看见 3/270 这种数 */
+  /**
+   * 整本：把总页数当批次上限。
+   *
+   * 这一档先问一句再跑：一次点击就是几百次按页计费的请求，
+   * 和朗读的整本预生成同一个道理。
+   */
   private recognizeBook(): void {
     if (!this.host.isPdf) {
       notify(t('notice.pdf.ocrOnly'), 'info');
@@ -675,8 +797,22 @@ export class ReaderView extends ItemView {
       notify(t('notice.pdf.ocrNothing'), 'info');
       return;
     }
-    this.showOcrProgress(t('notice.pdf.ocrRunning', { page: '1', done: '0', total: String(total) }));
-    void this.ocr.runBatch(1, total).finally(() => this.hideOcrProgress());
+    const left = Math.max(0, total - this.ocr.recognized().size);
+    if (!left) {
+      notify(t('notice.pdf.ocrNothing'), 'info');
+      return;
+    }
+    void this.askModalText(
+      t('pdf.ocrScope.bookConfirmTitle'),
+      t('pdf.ocrScope.bookConfirmBody', { n: String(left) }),
+      t('pdf.ocrScope.bookConfirmOk'),
+    ).then((ok) => {
+      if (!ok) return;
+      this.showOcrBar({ kind: 'running', page: 1, done: 0, total: left });
+      void this.ocr.runBatch(1, total).then((ran) => {
+        if (!ran) this.hideOcrBar();
+      });
+    });
   }
 
   /**
@@ -717,16 +853,7 @@ export class ReaderView extends ItemView {
         item
           .setTitle(t('pdf.ocrScope.retry', { n: String(failed.length) }))
           .setIcon('rotate-ccw')
-          .onClick(() => {
-            this.showOcrProgress(
-              t('notice.pdf.ocrRunning', {
-                page: String(failed[0]!),
-                done: '0',
-                total: String(failed.length),
-              }),
-            );
-            void this.ocr.retryFailed().finally(() => this.hideOcrProgress());
-          }),
+          .onClick(() => this.retryOcrFailed()),
       );
     }
     if (ev) menu.showAtMouseEvent(ev);
@@ -944,6 +1071,7 @@ export class ReaderView extends ItemView {
   async onClose(): Promise<void> {
     /* 关掉 tab 还在跑的识别要停：它每页都要发一次请求，人已经走了 */
     this.ocr.cancel();
+    this.hideOcrBar();
     this.teardown();
     /* 反链防抖计时器：关书之后到点还会跑，算出来的东西也没地方放 */
     if (this.citesTimer !== null) window.clearTimeout(this.citesTimer);
@@ -4490,6 +4618,8 @@ export class ReaderView extends ItemView {
         /* 识别结果随书一起进来。顺序要在 start() 之前：晚一步的话，先渲染
            的那几页永远停在「拖动 = 框选」，用户得滚动一下才看见能划词。 */
         this.ocr.reset();
+        /* 换书：上一本的条子（进度 / 失败页）不能留在新书上 */
+        this.hideOcrBar();
         void this.ocr
           .load()
           .then(() => this.noticeScanned())
