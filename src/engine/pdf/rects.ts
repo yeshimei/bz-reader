@@ -102,3 +102,33 @@ export function mergeRects(
   }
   return out;
 }
+
+/** 屏幕上的一块矩形：top/bottom/left/right 都是像素 */
+export interface PdfLineBox {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+}
+
+/**
+ * 一段选区的行盒该由哪个文字块提供竖向区间。
+ *
+ * 扫描页的文字层一行一个 span，行框比 pdf.js 的词框高，相邻两行常常同时
+ * 「沾到」同一个选区行盒。按 DOM 顺序取第一个会挑中上一行，整条高亮跟着
+ * 飘一行；取竖直中心最近的那一块才稳。横向完全不相交的块不算命中。
+ */
+export function nearestHostRow<T extends PdfLineBox>(rows: readonly T[], line: PdfLineBox): T | null {
+  const mid = (line.top + line.bottom) / 2;
+  let best: T | null = null;
+  let bestGap = Number.POSITIVE_INFINITY;
+  for (const row of rows) {
+    if (row.top > mid || row.bottom < mid || row.right <= line.left || row.left >= line.right) continue;
+    const gap = Math.abs((row.top + row.bottom) / 2 - mid);
+    if (gap < bestGap) {
+      best = row;
+      bestGap = gap;
+    }
+  }
+  return best;
+}

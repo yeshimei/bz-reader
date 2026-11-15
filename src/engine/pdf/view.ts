@@ -27,7 +27,7 @@ import { PDF_BAR_ITEMS, PDF_LAYOUT_ROWS, PDF_ZOOM_MODES, zoomTargetPlan, type Pd
 import { anchoredBelowRightIn } from '../../shell/anchored-style';
 import { pageAtRow, turnPage } from './layout';
 import { pageLabelText } from './pagelabels';
-import { mergeRects, previewFrameSettled } from './rects';
+import { mergeRects, nearestHostRow, previewFrameSettled } from './rects';
 import { rangesInText } from './search';
 import { PdfThumbPanel } from './thumbs';
 import type { PdfFileAnnot } from './annots';
@@ -1971,8 +1971,9 @@ export class PdfView {
     return Array.from(range.getClientRects())
       .filter((r) => r.width > 1 && r.height > 1)
       .map((r) => {
-        const mid = (r.top + r.bottom) / 2;
-        const host = rows.find((s) => s.top <= mid && s.bottom >= mid && s.right > r.left && s.left < r.right) ?? null;
+        /* 扫描页的行框偏高，相邻两行会同时沾到这段行盒：取中心最近的那一块，
+           别按 DOM 顺序取第一个（会挑中上一行，高亮整体上飘）。 */
+        const host = nearestHostRow(rows, r);
         const top = host ? host.top : r.top;
         const height = host ? host.height : r.height;
         return {

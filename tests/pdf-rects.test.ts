@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeRects, previewFrameSettled } from '../src/engine/pdf/rects';
+import { mergeRects, nearestHostRow, previewFrameSettled } from '../src/engine/pdf/rects';
 
 /* 框选松手后那层透明预览要一直留到「划线」：正式颜色矩形出现时它才退场。
    别处加标注、或这块还没划线，都不能把预览框顺手清掉（2026-11-15 用户截图：
@@ -126,5 +126,25 @@ describe('PDF 高亮矩形合并', () => {
     const snapshot = JSON.parse(JSON.stringify(input));
     mergeRects(input);
     expect(input).toEqual(snapshot);
+  });
+});
+
+/* 扫描页的行框比普通 pdf.js 词框高，相邻两行会同时「沾到」选区的行盒。
+   按 DOM 顺序取第一个就会挑中上一行，整条高亮跟着往上飘一行。 */
+describe('选区该落在哪一行', () => {
+  const row = (top: number, bottom: number, tag: string) => ({ left: 10, right: 500, top, bottom, tag });
+  const line = { left: 100, right: 400, top: 96, bottom: 104 };
+
+  it('取竖直中心最近的那一块，而不是列表里第一个沾到的', () => {
+    expect(nearestHostRow([row(80, 110, '上一行'), row(92, 108, '本行')], line)?.tag).toBe('本行');
+  });
+
+  it('竖直不沾、水平不相交的行一律不算', () => {
+    expect(nearestHostRow([row(20, 40, '远上方'), row(200, 240, '远下方')], line)).toBeNull();
+    expect(nearestHostRow([row(90, 110, '右边')].map((r) => ({ ...r, left: 600, right: 800 })), line)).toBeNull();
+  });
+
+  it('一行都没有就返回 null，交给调用方用行盒兜底', () => {
+    expect(nearestHostRow([], line)).toBeNull();
   });
 });

@@ -407,7 +407,9 @@ export class PdfDocument {
     const rotation = rotationOf(p, extraRotation);
     const viewport = p.getViewport({ scale: cssScale, rotation });
     /* 识别过的页用自己的层：pdf.js 在这页一个字都没有，调它只会得到空壳，
-       于是「拖动 = 框选」永远不变成「拖动 = 划词」。 */
+       于是「拖动 = 框选」永远不变成「拖动 = 划词」。
+       viewport 尺寸只是兜底：文字层铺在容器里，容器与画布同铺满页框，
+       摆放一律以容器自己量到的尺寸为准（见 ocr-layer.ts）。 */
     const ocr = this.ocrOf(page);
     if (ocr?.layout) {
       paintOcrTextLayer(container, ocr, { width: viewport.width, height: viewport.height }, rotation);
