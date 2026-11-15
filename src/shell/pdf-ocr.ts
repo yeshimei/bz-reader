@@ -76,13 +76,15 @@ export function addFailedPage(list: readonly number[], page: number): number[] {
  * 这一批要认哪些页。
  *
  * 只看 `from` 往后：扫描书的用法是「读到哪儿认到哪儿」，回绕去补前面的页
- * 会让「从这页起」这个说法变得不成立。已认过的页跳过（除非调用方传空集）。
+ * 会让「从这页起」这个说法变得不成立。默认跳过已认过的页；`redo` 为真时
+ * 整批重认（已认页也排进队列），但仍受这一批的页数上限约束。
  */
 export function ocrQueue(
   total: number,
   from: number,
   existing: ReadonlySet<number>,
   limit = OCR_BATCH,
+  redo = false,
 ): number[] {
   const last = Math.max(0, Math.floor(Number(total) || 0));
   const start = Math.min(last + 1, Math.max(1, Math.floor(Number(from) || 1)));
@@ -92,10 +94,52 @@ export function ocrQueue(
   const cap = Math.max(1, Math.floor(Number.isFinite(raw) ? raw : OCR_BATCH));
   const out: number[] = [];
   for (let page = start; page <= last && out.length < cap; page += 1) {
-    if (existing.has(page)) continue;
+    if (!redo && existing.has(page)) continue;
     out.push(page);
   }
   return out;
+}
+
+/**
+ * 确认弹窗要报的那笔账：这一批覆盖哪几页、已有多少、新的多少，
+ * 以及「继续生成」「重新生成」各自会跑哪些页。
+ *
+ * 范围按真实存在的页算（书末不足 20 页时就是实际页数），两个按钮的
+ * 页号都从这里出，弹窗上写的数字和实际跑的页不会各算一套。
+ */
+export interface OcrScopeStats {
+  first: number;
+  last: number;
+  /** 这一批实际覆盖的页数 */
+  total: number;
+  existing: number;
+  fresh: number;
+  continuePages: number[];
+  redoPages: number[];
+  canContinue: boolean;
+  canRedo: boolean;
+}
+
+export function ocrScopeStats(
+  total: number,
+  from: number,
+  existing: ReadonlySet<number>,
+  limit = OCR_BATCH,
+): OcrScopeStats {
+  const pages = ocrQueue(total, from, new Set(), limit, true);
+  const continuePages = pages.filter((page) => !existing.has(page));
+  const already = pages.length - continuePages.length;
+  return {
+    first: pages[0] ?? 0,
+    last: pages[pages.length - 1] ?? 0,
+    total: pages.length,
+    existing: already,
+    fresh: continuePages.length,
+    continuePages,
+    redoPages: [...pages],
+    canContinue: continuePages.length > 0,
+    canRedo: already > 0,
+  };
 }
 
 /** 引擎该报给界面的那一句话（标题栏 / 提示都能用） */
@@ -322,24 +366,34 @@ export class PdfOcrRunner {
   }
 
   /**
-   * 从 `from` 起认一批（默认 20 页）。
-   *
-   * 已认过的页跳过：用户点第二次不该为同一页再付一次钱。要重认某一页，
-   * 用 `runPage`（工具栏那颗「重认本页」）。
+   * 从 `from` 起认一批（默认 20 页）：跳过已认页、往后补足页额。
+   * 这是命令入口原来的语义；确认卡那条路走 `runPages`（页号说一不二）。
    */
-  async runBatch(from: number, limit = OCR_BATCH): Promise<boolean> {
+  async runBatch(from: number, limit = OCR_BATCH, redo = false): Promise<boolean> {
+    const total = this.deps.host()?.ocrStats().total || 0;
+    return this.runPages(ocrQueue(total, from, this.recognized(), limit, redo));
+  }
+
+  /**
+   * 按给定页号跑一批：确认卡上报了哪几页，实际就跑哪几页。
+   *
+   * 「继续生成」给的是这批里还没认的页，「重新生成」给的是整批页号
+   * （已认页也照认、覆盖）。这里既不往后补页，也不擅自跳过已认页，
+   * 免得弹窗写「新 17 页」、后台却跑了 20 页。
+   */
+  async runPages(pages: readonly number[]): Promise<boolean> {
+    if (this.state.running) {
+      this.deps.notify?.(t('notice.pdf.ocrBusy'), 'info');
+      return false;
+    }
     const host = this.deps.host();
     const book = this.deps.book();
     if (!host || !book) {
       this.deps.notify?.(t('notice.pdf.ocrOnly'), 'info');
       return false;
     }
-    if (this.state.running) {
-      this.deps.notify?.(t('notice.pdf.ocrBusy'), 'info');
-      return false;
-    }
     const total = host.ocrStats().total || 0;
-    const queue = ocrQueue(total, from, this.recognized(), limit);
+    const queue = [...pages].filter((n) => Number.isInteger(n) && n >= 1 && n <= total);
     if (!queue.length) {
       this.deps.notify?.(t('notice.pdf.ocrNothing'), 'info');
       return false;

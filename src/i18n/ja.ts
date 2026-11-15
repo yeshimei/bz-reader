@@ -1120,4 +1120,9 @@ export const JA: Record<MsgKey, string> = {
   'settings.pdfOcrProbe.text': '[TODO] settings.pdfOcrProbe.text',
   'settings.pdfOcrProbe.empty': '[TODO] settings.pdfOcrProbe.empty',
   'settings.pdfOcrProbe.failed': '[TODO] settings.pdfOcrProbe.failed',
+  'pdf.ocrScope.scopeTitle': '[TODO] pdf.ocrScope.scopeTitle',
+  'pdf.ocrScope.scopeBody': '[TODO] pdf.ocrScope.scopeBody {first} {last} {total} {existing} {fresh}',
+  'pdf.ocrScope.scopeContinue': '[TODO] pdf.ocrScope.scopeContinue',
+  'pdf.ocrScope.scopeRedo': '[TODO] pdf.ocrScope.scopeRedo',
+  'pdf.ocrScope.scopeRedoNote': '[TODO] pdf.ocrScope.scopeRedoNote {n}',
 };

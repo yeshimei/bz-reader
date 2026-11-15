@@ -169,7 +169,7 @@ import { addChapterSeconds, clipLanding, type ClipLanding } from '../data/clip-e
 import { carryMeasuredPages, clipStructureChanged, migrateClipKey, syncClipChapterMeta } from '../data/clip-epub/refresh';
 import { DEFAULT_CLIP_SCOPE, type ClipScope } from '../data/clip-epub/scope';
 import { getShellSource, shellPrefs, shellSettings } from '../shell/source';
-import { OCR_BATCH, PdfOcrRunner, type PdfOcrHostLike } from '../shell/pdf-ocr';
+import { OCR_BATCH, PdfOcrRunner, ocrScopeStats, type OcrScopeStats, type PdfOcrHostLike } from '../shell/pdf-ocr';
 import { pdfOcrEngineOf } from '../data/settings';
 import { copyRegionCard } from '../shell/region-card';
 import { collectPdfBacklinks, invalidatePdfBacklinks } from '../data/pdf-backlink';
@@ -791,52 +791,93 @@ export class ReaderView extends ItemView {
 
   /** 从当前页起认一批：读到哪儿认到哪儿，不默认整本烧钱 */
   private recognizeBatch(): void {
-    if (!this.host.isPdf) {
-      notify(t('notice.pdf.ocrOnly'), 'info');
-      return;
-    }
-    if (!requireCap('pdfOcr')) return;
-    const from = this.currentPageNumber();
-    this.showOcrBar({ kind: 'running', page: from, done: 0, total: OCR_BATCH });
-    /* 队列为空（这一批都认过了）时 runBatch 不进队列、不会有进度回调：
-       条子得自己收，不然永远停在「正在识别」 */
-    void this.ocr.runBatch(from).then((ran) => {
-      if (!ran) this.hideOcrBar();
-    });
+    void this.recognizeScope('batch');
+  }
+
+  /** 整本：把总页数当批次上限 */
+  private recognizeBook(): void {
+    void this.recognizeScope('book');
   }
 
   /**
-   * 整本：把总页数当批次上限。
+   * 两个批量范围共用一张确认卡（2026-11-15 用户要求）。
    *
-   * 这一档先问一句再跑：一次点击就是几百次按页计费的请求，
-   * 和朗读的整本预生成同一个道理。
+   * 先报账：这批覆盖哪几页、已有多少、新的多少。再给两颗按钮——
+   * 「继续生成」只补新的，「重新生成」把整批重认（已有的覆盖、新的补上）。
+   * 按页计费，两条路都要先问一句；单页识别保持点一下就重认，不弹卡。
    */
-  private recognizeBook(): void {
+  private async recognizeScope(kind: 'batch' | 'book'): Promise<void> {
     if (!this.host.isPdf) {
       notify(t('notice.pdf.ocrOnly'), 'info');
       return;
     }
+    /* 高级版门只在这一处：菜单、命令、弹窗上的两颗按钮都从这里分发 */
     if (!requireCap('pdfOcr')) return;
+    if (this.ocr.getState().running) {
+      notify(t('notice.pdf.ocrBusy'), 'info');
+      return;
+    }
     const total = this.ocrHost()?.ocrStats().total || 0;
     if (!total) {
       notify(t('notice.pdf.ocrNothing'), 'info');
       return;
     }
-    const left = Math.max(0, total - this.ocr.recognized().size);
-    if (!left) {
+    const from = kind === 'batch' ? this.currentPageNumber() : 1;
+    const limit = kind === 'batch' ? OCR_BATCH : total;
+    const stats = ocrScopeStats(total, from, this.ocr.recognized(), limit);
+    if (!stats.total) {
       notify(t('notice.pdf.ocrNothing'), 'info');
       return;
     }
-    void this.askModalText(
-      t('pdf.ocrScope.bookConfirmTitle'),
-      t('pdf.ocrScope.bookConfirmBody', { n: String(left) }),
-      t('pdf.ocrScope.bookConfirmOk'),
-    ).then((ok) => {
-      if (!ok) return;
-      this.showOcrBar({ kind: 'running', page: 1, done: 0, total: left });
-      void this.ocr.runBatch(1, total).then((ran) => {
-        if (!ran) this.hideOcrBar();
+    const choice = await this.askOcrScope(stats);
+    if (choice === 'cancel') return;
+    const redo = choice === 'redo';
+    const pages = redo ? stats.redoPages : stats.continuePages;
+    if (!pages.length) return;
+    this.showOcrBar({ kind: 'running', page: pages[0]!, done: 0, total: pages.length });
+    /* 把弹窗算好的页号原样交给引擎（不让它再往后补页）。引擎没排上队列时
+       不会有进度回调：条子得自己收，不然永远停在「正在识别」 */
+    void this.ocr.runPages(pages).then((ran) => {
+      if (!ran) this.hideOcrBar();
+    });
+  }
+
+  /** 三颗按钮的确认卡：取消 / 继续生成 / 重新生成（后两颗按实际有没有意义显隐） */
+  private askOcrScope(stats: OcrScopeStats): Promise<'continue' | 'redo' | 'cancel'> {
+    return new Promise((resolve) => {
+      let choice: 'continue' | 'redo' | 'cancel' = 'cancel';
+      const modal = new Modal(this.app);
+      modal.titleEl.setText(t('pdf.ocrScope.scopeTitle'));
+      modal.contentEl.createEl('p', {
+        text: t('pdf.ocrScope.scopeBody', {
+          first: String(stats.first),
+          last: String(stats.last),
+          total: String(stats.total),
+          existing: String(stats.existing),
+          fresh: String(stats.fresh),
+        }),
       });
+      if (stats.canRedo) {
+        modal.contentEl.createEl('p', {
+          text: t('pdf.ocrScope.scopeRedoNote', { n: String(stats.existing) }),
+        });
+      }
+      const row = modal.contentEl.createDiv({ cls: 'modal-button-container' });
+      row.createEl('button', { text: t('notice.tts.confirmCancel') }).addEventListener('click', () => modal.close());
+      /* 有得补就把「继续生成」当主按钮：不覆盖、少花钱，误点的代价最小 */
+      const primary: 'continue' | 'redo' = stats.canContinue ? 'continue' : 'redo';
+      const addChoice = (value: 'continue' | 'redo', label: string): void => {
+        const opts: { text: string; cls?: string } = { text: label };
+        if (value === primary) opts.cls = 'mod-cta';
+        row.createEl('button', opts).addEventListener('click', () => {
+          choice = value;
+          modal.close();
+        });
+      };
+      if (stats.canContinue) addChoice('continue', t('pdf.ocrScope.scopeContinue'));
+      if (stats.canRedo) addChoice('redo', t('pdf.ocrScope.scopeRedo'));
+      modal.onClose = () => resolve(choice);
+      modal.open();
     });
   }
 

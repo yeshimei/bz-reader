@@ -453,12 +453,18 @@ export const ZH = {
   /* 头栏「识别」那一颗点开的三种范围（2026-11-15） */
   'pdf.ocrScope.page': '识别第 {n} 页',
   'pdf.ocrScope.next': '识别接下来 {n} 页',
-  'pdf.ocrScope.book': '识别整本（跳过已认）',
+  'pdf.ocrScope.book': '识别整本',
   'pdf.ocrScope.retry': '重试失败的 {n} 页',
   /* 整本这一档先问一句：一次点击就是几百次按页计费的请求 */
   'pdf.ocrScope.bookConfirmTitle': '识别整本？',
   'pdf.ocrScope.bookConfirmBody': '还有 {n} 页没认，每页一次识别请求、按页计费。认过的页会跳过。',
   'pdf.ocrScope.bookConfirmOk': '开始识别',
+  /* 批量确认卡：先报已有/新的页数，再选只补新的还是整批重认 */
+  'pdf.ocrScope.scopeTitle': '识别这批文字？',
+  'pdf.ocrScope.scopeBody': '第 {first}–{last} 页，共 {total} 页：已有 {existing} 页，新 {fresh} 页。每页一次识别请求、按页计费。',
+  'pdf.ocrScope.scopeContinue': '继续生成',
+  'pdf.ocrScope.scopeRedo': '重新生成',
+  'pdf.ocrScope.scopeRedoNote': '重新生成会覆盖已有的 {n} 页，重认后旧划线位置可能需要重划。',
   /* 底部识别控制条（2026-11-15）：取代右上角那行进度通知 */
   'pdf.ocrBar.running': '识别中 {done}/{total} · 第 {page} 页',
   'pdf.ocrBar.pageDone': '第 {n} 页可以划词了',

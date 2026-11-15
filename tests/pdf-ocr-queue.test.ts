@@ -237,6 +237,22 @@ describe('识别编排', () => {
     expect(adapter.files.has(ocrPath('b1'))).toBe(false);
     expect(bulk.at(-1)).toBeNull();
   });
+
+  it('按确认卡给出的页号跑：不往后补页，「重新生成」也不跳过已认页', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okReply());
+    vi.stubGlobal('fetch', fetchMock);
+    const adapter = new FakeAdapter();
+    const app = { vault: { adapter } } as unknown as App;
+    await writeOcr(app, withOcrPage(null, 'b1', 1, toOcrPage({ lines: [{ text: '旧', rect: { left: 0.1, top: 0.1, width: 0.2, height: 0.02 } }], layout: true, text: '' }, 'vision', 'm')));
+    const { host, applied } = fakeHost(10);
+    const runner = new PdfOcrRunner(depsOf(host, adapter));
+    await runner.load();
+    const ran = await runner.runPages([1, 2, 3]);
+    expect(ran).toBe(true);
+    /* 第 1 页已认过也照认（覆盖），而且不会补到 4、5 页去 */
+    expect(applied.map((a) => a.page)).toEqual([1, 2, 3]);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
 });
 
 describe('失败页可见与重试', () => {
