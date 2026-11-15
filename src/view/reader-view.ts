@@ -57,6 +57,7 @@ import {
   type TtsRoute,
 } from '../core/tts-engine';
 import { concatMp3, localServiceAlive, type LocalRequester } from '../core/tts-local';
+import { prefetchPlan } from '../core/tts-prefetch';
 import { TtsPlayer } from '../core/tts-player';
 import { OfflinePlayer } from '../core/offline-player';
 import { emptyBook, buildChapter, reorderChapters, upsertChapter, type ChapterSource } from '../core/offline-build';
@@ -72,10 +73,12 @@ import {
 } from '../data/offline-store';
 import { vaultPackFS } from '../data/vault-pack-fs';
 import { concatWav } from '../core/wav';
-import { TtsCache, cacheKey } from '../data/tts-cache';
+import { TtsCache, cacheKey, cachePrefix, cachedSegmentCount } from '../data/tts-cache';
 import { localRequester } from '../data/tts-request';
 import { ttsBarHtml, ttsBarLift, ttsSourceLabel } from './tts-bar';
 import { ocrBarAutoHide, ocrBarHtml, type OcrBarStage } from './ocr-bar';
+import { ttsResumeHtml } from './tts-resume';
+import { resumeAnchorOf, sameChapter, type TtsResumePoint } from '../core/tts-resume';
 import { ttsProgressHtml, type TtsTaskKind, type TtsTaskState } from './tts-progress';
 import { notify, notifyNow, notifyProgress, type NoticeHandle, type ProgressHandle } from '../core/notice';
 import { localeTag, t, type MsgKey } from '../i18n';
@@ -433,9 +436,24 @@ export class ReaderView extends ItemView {
   /* 朗读：DeepSeek 真人声走 ttsPlayer，系统语音走 voice；两条路共用一个开关。
      翻页即停，避免「翻过去了还在念上一页」 */
   private speaking = false;
+  /**
+   * 已经点了朗读、但播放器还没建好（2026-11-15）。
+   *
+   * 这段时间原来完全静默：取页块、匹配离线章、探活、切整章脚本，本地引擎还要
+   * 弹一次「要不要先备整章」。用户看不到任何变化，就会再点一次——而第二次
+   * 走的还是「开始」，两条链路叠着跑。现在它进「准备中」：浮条立刻出现、
+   * 主按钮转圈，再点一下就是取消。
+   */
+  private ttsOpening = false;
+  /** 每次开始 / 取消都 +1：准备中被取消时，飞在半路的启动流程见到号变了就收手 */
+  private ttsOpenToken = 0;
   private voice: SpeakHandle | null = null;
   private ttsPlayer: TtsPlayer | null = null;
   private ttsBarEl: HTMLElement | null = null;
+  /** 续听浮窗（2026-11-15）：和朗读条同一个位置，停下之后出现 */
+  private ttsResumeEl: HTMLElement | null = null;
+  /** 轮到这一章时，离线包对不上正文、已经回退实时合成 */
+  private ttsPackStale = false;
   /**
    * 正在念的那一句挂在哪份书页文档上（2026-11-14）。
    *
@@ -446,6 +464,13 @@ export class ReaderView extends ItemView {
   /** 这一句有没有画上（跟随用它决定要不要翻页） */
   private speechShown = false;
   private ttsIndex = 0;
+  /**
+   * 这一轮朗读用的整章脚本（2026-11-15）。
+   *
+   * 停下时要把「念到哪一句」写成续听记录，得从脚本里取回那一句的块序号与
+   * 块内偏移；播放器内部那份脚本不对外暴露，所以视图留一份引用。
+   */
+  private ttsSegments: readonly ScriptSegment[] = [];
   private ttsKind: ScriptKind = 'narration';
   private ttsSnippet = '';
   /** 「更多」展开中：浮条每次重画都按这个字段来，不读 DOM */
@@ -1072,6 +1097,12 @@ export class ReaderView extends ItemView {
     /* 关掉 tab 还在跑的识别要停：它每页都要发一次请求，人已经走了 */
     this.ocr.cancel();
     this.hideOcrBar();
+    /* 朗读也要收：先把「听到哪」写下来，再停播放器。关书是「这次先听到这」，
+       不是「不想听了」，所以下次打开还给一条继续——但这一刻不再往正在
+       销毁的视图里挂浮窗。 */
+    if (this.speaking || this.ttsOpening || this.ttsPlayer || this.offlinePlayer) {
+      this.stopTts();
+    }
     this.teardown();
     /* 反链防抖计时器：关书之后到点还会跑，算出来的东西也没地方放 */
     if (this.citesTimer !== null) window.clearTimeout(this.citesTimer);
@@ -2194,15 +2225,47 @@ export class ReaderView extends ItemView {
   }
 
   private toggleTts(): void {
-    // 停止永远放行，避免读起来之后关不掉
-    if (this.speaking) {
+    /* 「准备中」也算开着：再点一下是取消，不是又排一遍队（2026-11-15）。
+       以前这里只看 speaking，而 speaking 要等播放器建好才为 true——中间
+       那几秒里点第二下，走的还是「开始」，两条链路叠着跑，观感就是
+       「要点两次才出来」。 */
+    if (this.speaking || this.ttsOpening) {
       this.stopTts();
       return;
     }
     /* 朗读本体 2026-11-14 下放基础版：不联网、不花服务费的动作不设门禁。
        收费的只剩「整章 / 整本预生成」，见 prefetchChapter / prefetchBook。 */
     this.offlineTried.clear();
-    this.speakPage();
+    this.ttsOpening = true;
+    this.ttsPackStale = false;
+    const token = ++this.ttsOpenToken;
+    this.hideTtsResume();
+    /* 点下去就出条：后面取页块、匹配离线章、探活都要时间，等它们跑完再画，
+       中间那一段就是「点了没反应」。
+       系统语音不走这条路：它同步就开口（<10ms），而它没有播放器、条子上
+       的按钮一个都点不动——给一条死浮条比不给更糟。 */
+    if (this.ttsEngineIsNetwork()) {
+      this.showTtsBar();
+      this.syncToolState();
+    }
+    this.speakPage(token);
+  }
+
+  /**
+   * 这一页会不会走网络 / 本地服务（而不是系统语音）。
+   *
+   * 手机恒为真：手机 WebView 的系统语音不稳定，旧配置里存的 system 也会
+   * 强行换成网络语音（见 speakPage）。两处判断必须是同一个口径。
+   */
+  private ttsEngineIsNetwork(): boolean {
+    return this.prefs.ttsEngine !== 'system' || isMobileShell();
+  }
+
+  /** 准备结束（播放器建好 / 系统语音已开口）：收掉转圈，条子进入正常态 */
+  private endOpening(): void {
+    if (!this.ttsOpening) return;
+    this.ttsOpening = false;
+    this.syncToolState();
   }
 
   /**
@@ -2210,13 +2273,17 @@ export class ReaderView extends ItemView {
    *
    * 两条路：DeepSeek 真人声（默认）与系统语音。切段、音色、缓存都在
    * `speakPageAi` 里；系统语音原样保留，没配 Key 或用户手动切回时用。
+   *
+   * `token` 是这一轮「打开朗读」的编号：准备中被用户取消（stopTts 会 ++）
+   * 之后，飞在半路的启动流程看到号变了就安静退出，不把播放器建起来。
    */
-  private speakPage(): void {
+  private speakPage(token = this.ttsOpenToken, startAnchor?: PageAnchor | null): void {
     /* 先取一次「这一页的段落」：拼页文本、给离线起播定位都用它，别让
        currentBlocks() 为同一页扫三遍（一页八百字，逐字符比矩形） */
     const pageBlocks = this.host.currentBlocks?.() ?? [];
-    /* 紧跟着取，不能晚：翻页 / 重排会重填它，晚一步就是上一页的锚点 */
-    const anchor = this.host.pageAnchor?.() ?? null;
+    /* 紧跟着取，不能晚：翻页 / 重排会重填它，晚一步就是上一页的锚点。
+       「继续听」会指定一个锚点：那是脚本里的句位置，不是这一页的页首。 */
+    const anchor = startAnchor === undefined ? (this.host.pageAnchor?.() ?? null) : startAnchor;
     const text = pageBlocks.map((b) => b.text).join(' ').trim() || this.host.currentText();
     if (!text) {
       /* PDF 上没有文字：多半是扫描页或整页插图，先说清下一步——只给一句
@@ -2231,21 +2298,27 @@ export class ReaderView extends ItemView {
     /* 手机恒走网络语音：手机 WebView 的 speechSynthesis 不稳定，旧配置里
        存的 system 在这里也不再照做。本地服务同理——手机连不上电脑上那个
        127.0.0.1，具体原因在 speakPageAi 里说。 */
-    if (this.prefs.ttsEngine !== 'system' || isMobileShell()) {
+    if (this.ttsEngineIsNetwork()) {
       /* 本地引擎 + 「先备整章」开着：没有音频就不实时合，先问要不要备。
          本地一句 3–8 秒，边合边念在真机上就是一直卡（2026-11-14 拍板）。 */
       if (this.localPackFirst()) {
-        void this.speakLocalFirst(text, anchor);
+        void this.speakLocalFirst(text, anchor, false, token);
         return;
       }
       /* 有离线包先播包：整章连着放，不联网、不跑模型——手机也能用 */
       if (this.offlinePack) {
-        void this.speakOffline(text, pageBlocks, anchor).then((res) => {
-          if (res !== 'ok' && !this.closed) void this.speakPageAi(text, pageBlocks, anchor);
+        void this.speakOffline(text, pageBlocks, anchor, token).then((res) => {
+          if (this.closed || token !== this.ttsOpenToken) return;
+          if (res === 'ok') return;
+          /* 有包但对不上正文：静默换成实时合成时，声音忽然换一把嗓子，
+             用户会以为坏了。浮条上留一句「包已过期」，念完这一章才清。 */
+          this.ttsPackStale = res === 'stale';
+          this.renderTtsBar();
+          void this.speakPageAi(text, pageBlocks, anchor, token);
         });
         return;
       }
-      void this.speakPageAi(text, pageBlocks, anchor);
+      void this.speakPageAi(text, pageBlocks, anchor, token);
       return;
     }
     // 基础版包里 speak() 返回 null —— 那就是「这个环境没有朗读」
@@ -2258,10 +2331,12 @@ export class ReaderView extends ItemView {
     });
     if (!handle) {
       notify(t('notice.tts.unsupported'));
+      this.stopTts();
       return;
     }
     this.voice = handle;
     this.speaking = true;
+    this.endOpening();
     this.syncToolState();
   }
 
@@ -2274,7 +2349,8 @@ export class ReaderView extends ItemView {
   private onPageSpoken(): void {
     if (this.closed || !this.speaking) return;
     if (!this.prefs.ttsFollow) {
-      this.stopTts();
+      /* 只念本页：这是「先听到这」不是「不想听了」，留一条继续 */
+      this.stopTts({ resume: true });
       return;
     }
     /* 翻页本身会走导航队列，等它落定再取新页（否则拿到的还是上一页）。
@@ -2285,12 +2361,12 @@ export class ReaderView extends ItemView {
       .then(() => {
         if (this.closed || !this.speaking) return;
         if (this.host.pageKey === before) {
-          this.stopTts();
+          this.stopTts({ resume: true });
           return;
         }
         this.speakPage();
       })
-      .catch(() => this.stopTts());
+      .catch(() => this.stopTts({ resume: true }));
   }
 
   /**
@@ -2333,9 +2409,15 @@ export class ReaderView extends ItemView {
     text: string,
     pageBlocks: Array<{ tag: string; text: string; raw: string }> = [],
     anchor: PageAnchor | null = null,
+    token = this.ttsOpenToken,
   ): Promise<void> {
     const route = this.ttsRoute();
-    if (!(await this.ttsStartable(route))) return;
+    if (!(await this.ttsStartable(route))) {
+      this.stopTts();
+      return;
+    }
+    /* 探活 / 匹配都用掉了时间：这期间用户可能已经点了取消，或者换了本书 */
+    if (this.closed || token !== this.ttsOpenToken) return;
     const settings = shellSettings();
     /* 隐私提示只对云端讲：本地服务不出网 */
     if (route.engine !== 'local' && !settings.ttsAck) {
@@ -2347,6 +2429,7 @@ export class ReaderView extends ItemView {
        用户填的模型，我们不知道它能念什么，不该替它拦 */
     if (route.engine === 'online' && ttsOnlineIsDeepseek(route) && !ttsLangSupported(lang)) {
       notify(t('notice.tts.unsupportedLang'));
+      this.stopTts();
       return;
     }
     /* 章级脚本（2026-11-14）：高亮跟随和自动翻页都要跨页，脚本必须比一页长。
@@ -2356,6 +2439,7 @@ export class ReaderView extends ItemView {
     const segments = buildScript(blocks.length ? blocks : [{ tag: 'p', text }]);
     if (!segments.length) {
       notify(t('notice.tts.noText'));
+      this.stopTts();
       return;
     }
     /* 起播位置：先按页首锚点（块序号 + 块内偏移）对位；拿不到才退回
@@ -2372,8 +2456,9 @@ export class ReaderView extends ItemView {
         if (hit >= 0) startAt = hit;
       }
     }
-    /* 先停旧的：换页重念时不能两条音频叠在一起 */
-    this.stopTts();
+    /* 先停旧的：换页重念时不能两条音频叠在一起。
+       这里**不能**走 stopTts：那会把刚拿到的 token 作废，自己把自己取消 */
+    this.haltTts();
     const run = ++this.ttsRun;
     if (this.closed || run !== this.ttsRun) return;
 
@@ -2385,6 +2470,7 @@ export class ReaderView extends ItemView {
     if (!free) this.addTtsSpend(this.ttsChars, this.ttsCost);
     this.ttsMime = ttsMimeOf(route);
     this.ttsTotal = segments.length;
+    this.ttsSegments = segments;
     this.ttsOffline = false;
     this.ttsSourceMap.clear();
     this.ttsHeard.clear();
@@ -2442,6 +2528,7 @@ export class ReaderView extends ItemView {
     });
     this.ttsPlayer = player;
     this.speaking = true;
+    this.endOpening();
     this.syncToolState();
     this.showTtsBar();
     player.setRate(this.prefs.ttsRate);
@@ -2469,19 +2556,27 @@ export class ReaderView extends ItemView {
     pageText: string,
     anchor: PageAnchor | null = null,
     tried = false,
+    token = this.ttsOpenToken,
   ): Promise<void> {
-    const res = await this.speakOffline(pageText, [], anchor);
-    if (res === 'ok' || this.closed) return;
+    const res = await this.speakOffline(pageText, [], anchor, token);
+    if (this.closed || token !== this.ttsOpenToken) return;
+    if (res === 'ok') return;
     if (res === 'empty') {
       notify(t('notice.tts.noText'));
+      this.stopTts();
       return;
     }
     /* 走到这儿就得靠服务现合了：它不在的话，「先预生成」什么也做不成，
        只会和「连不上」叠成两条自相矛盾的提示（真机 2026-11-14 截图）。
        有包能播的情况在上面就返回了，不受这一道影响。 */
-    if (!(await this.ttsStartable(this.ttsRoute()))) return;
+    if (!(await this.ttsStartable(this.ttsRoute()))) {
+      this.stopTts();
+      return;
+    }
+    if (this.closed || token !== this.ttsOpenToken) return;
     if (tried) {
       notify(t('tts.pack.notReady'));
+      this.stopTts();
       return;
     }
     if (res === 'stale') {
@@ -2491,18 +2586,35 @@ export class ReaderView extends ItemView {
         t('tts.pack.staleBody'),
         t('tts.pack.rebuild'),
       );
-      if (!again || this.closed) return;
+      if (!again || this.closed) {
+        this.stopTts();
+        return;
+      }
+      if (token !== this.ttsOpenToken) return;
       await this.prefetchChapter(false);
-      if (this.closed) return;
-      void this.speakLocalFirst(pageText, anchor, true);
+      if (this.closed || token !== this.ttsOpenToken) return;
+      /* 预生成跑完会自己开念（prefetchChapter 的 afterTick）：那时别再来一遍 */
+      if (this.speaking) {
+        this.endOpening();
+        return;
+      }
+      void this.speakLocalFirst(pageText, anchor, true, token);
       return;
     }
     const pick = await this.askPackFirst();
-    if (!pick || this.closed) return;
+    if (!pick || this.closed) {
+      this.stopTts();
+      return;
+    }
+    if (token !== this.ttsOpenToken) return;
     if (pick === 'book') await this.prefetchBook();
     else await this.prefetchChapter(false);
-    if (this.closed) return;
-    void this.speakLocalFirst(pageText, anchor, true);
+    if (this.closed || token !== this.ttsOpenToken) return;
+    if (this.speaking) {
+      this.endOpening();
+      return;
+    }
+    void this.speakLocalFirst(pageText, anchor, true, token);
   }
 
   /** 「本地要先备好」的确认窗：整章 / 整本 / 取消 */
@@ -2549,6 +2661,7 @@ export class ReaderView extends ItemView {
     pageText: string,
     pageBlocks: Array<{ tag: string; text: string; raw: string }> = [],
     anchor: PageAnchor | null = null,
+    token = this.ttsOpenToken,
   ): Promise<'ok' | 'missing' | 'stale' | 'empty'> {
     const pack = this.offlinePack;
     if (!pack) return 'missing';
@@ -2605,7 +2718,9 @@ export class ReaderView extends ItemView {
     if (!(markStart >= 0)) return 'stale';
     if (markStart < startAt - Math.max(8, Math.round(startAt * 0.2))) return 'stale';
 
-    this.stopTts();
+    /* 停旧的但不能作废自己的 token：这里走 haltTts，不是 stopTts */
+    this.haltTts();
+    this.ttsPackStale = false;
     this.ttsMime = this.ttsFormat() === 'wav' ? 'audio/wav' : 'audio/mpeg';
     this.ttsChars = 0;
     this.ttsCost = 0;
@@ -2613,6 +2728,7 @@ export class ReaderView extends ItemView {
     this.ttsOffline = true;
     this.ttsSourceMap.clear();
     this.ttsTotal = segments.length;
+    this.ttsSegments = segments;
     this.ttsIndex = startAt;
     this.ttsKind = segments[startAt].kind;
     this.ttsSnippet = snippetOf(segments[startAt].text);
@@ -2653,6 +2769,7 @@ export class ReaderView extends ItemView {
     this.offlineChapter = chapter;
     this.offlineSegments = segments;
     this.speaking = true;
+    this.endOpening();
     this.syncToolState();
     this.showTtsBar();
     player.setRate(this.prefs.ttsRate);
@@ -2702,7 +2819,9 @@ export class ReaderView extends ItemView {
     notify(t(this.ttsErrorKey(code)));
     /* 单段被审核拒绝：播放器自己会跳过继续，这里只提示，不掐整页 */
     if (code === 'rejected') return;
-    this.stopTts();
+    /* 失败是「打断了」不是「不想听了」：留一条继续，本地服务偶发超时
+       重试一次就好，不该让用户重新找入口、再从这页第一句听起 */
+    this.stopTts({ resume: true });
   }
 
   /* ── 朗读控制条 ── */
@@ -2713,6 +2832,12 @@ export class ReaderView extends ItemView {
     if (!this.ttsBarEl) {
       this.ttsBarEl = el('div', 'bzr-ttsbar-wrap');
       this.ttsBarEl.addEventListener('click', (ev) => this.onTtsBarClick(ev));
+      /* 横向滚动只发生在条子自己身上（不冒泡），所以用 capture 接。
+         滚到最右就把右缘渐隐收掉——不然「还有内容」的暗示会一直骗人。 */
+      this.ttsBarEl.addEventListener('scroll', () => this.syncTtsBarOverflow(), {
+        passive: true,
+        capture: true,
+      });
       root.appendChild(this.ttsBarEl);
       /* 进度卡和朗读条共用底部这块地方：条子出现时卡片要往上让，
          用根节点上的类做信号，别让两处各算一套坐标 */
@@ -2734,6 +2859,7 @@ export class ReaderView extends ItemView {
    * 「还没听先报账」，云端用户会以为已经花了那么多。
    */
   private ttsSourceText(): string {
+    if (this.ttsPackStale) return t('tts.src.stale');
     const counts = { cached: 0, live: 0, offline: this.ttsOffline ? 1 : 0 };
     for (const [index, src] of this.ttsSourceMap) {
       if (!this.ttsHeard.has(index)) continue;
@@ -2742,16 +2868,34 @@ export class ReaderView extends ItemView {
     return ttsSourceLabel(counts);
   }
 
+  /**
+   * 条子上的进度：「37/214」。
+   *
+   * 准备中也给（那时 index 是「要念的第一句」），tts-bar 那边会把它换成
+   * 「合成第 37 句」。系统语音没有整章脚本，总数为 0，整块不画。
+   */
+  private ttsProgressOf(): { index: number; total: number } | undefined {
+    const total = this.ttsTotal;
+    if (!(total > 0)) return undefined;
+    return { index: Math.max(0, Math.min(total - 1, this.ttsIndex)), total };
+  }
+
   private renderTtsBar(): void {
     if (!this.ttsBarEl) return;
     const state = this.ttsCtl?.stateName;
-    /* 等音频时主按钮转圈（本地一句要合 3–8 秒，静止的暂停图标像「没点动」） */
+    const progress = this.ttsProgressOf();
+    /* 播放中每念一句都重画这条，重画会把横向滚动位置弹回最左：用户正滑到
+       右边点「导出」时被拽回开头，很恼人。存一下再放回去。 */
+    const scrolled = this.ttsBarEl.querySelector<HTMLElement>('.bzr-ttsbar')?.scrollLeft ?? 0;
+    /* 等音频时主按钮转圈（本地一句要合 3–8 秒，静止的暂停图标像「没点动」）。
+       准备中（播放器还没建好）一样转圈：这时候点一下是取消。 */
     const html = ttsBarHtml({
       paused: state === 'paused',
-      loading: state === 'loading',
+      loading: state === 'loading' || this.ttsOpening,
       source: this.ttsSourceText(),
       /* 音色按钮给哪个引擎开弹窗：本地就本地，其它（含系统语音）按在线开 */
       voiceEngine: this.prefs.ttsEngine === 'local' ? 'local' : 'online',
+      ...(progress ? { progress } : {}),
     });
     /* 走 DOMParser 而不是 innerHTML：目录审核的 no-inner-html 规则不许关，
        而这段片段本来就是 tts-bar 纯函数产出的固定模板（文案已转义）。 */
@@ -2762,12 +2906,171 @@ export class ReaderView extends ItemView {
     for (const slot of this.ttsBarEl.querySelectorAll<HTMLElement>('[data-icon]')) {
       setIcon(slot, slot.dataset.icon ?? '');
     }
+    const bar = this.ttsBarEl.querySelector<HTMLElement>('.bzr-ttsbar');
+    if (bar && scrolled > 0) bar.scrollLeft = scrolled;
+    this.syncTtsBarOverflow();
+  }
+
+  /** 条子右边还有没露出来的按钮：有就挂 is-more，右缘渐隐跟着出现 */
+  private syncTtsBarOverflow(): void {
+    const wrap = this.ttsBarEl;
+    const bar = wrap?.querySelector<HTMLElement>('.bzr-ttsbar');
+    if (!wrap || !bar) return;
+    const more = bar.scrollWidth - bar.scrollLeft - bar.clientWidth > 2;
+    wrap.classList.toggle('is-more', more);
   }
 
   private hideTtsBar(): void {
     this.ttsBarEl?.remove();
     this.ttsBarEl = null;
-    this.rootEl?.classList.remove('has-ttsbar');
+    if (!this.ttsResumeEl) this.rootEl?.classList.remove('has-ttsbar');
+  }
+
+  /* ── 续听浮窗（2026-11-15） ── */
+
+  /**
+   * 把「刚才听到哪」写进设置。
+   *
+   * 只在真的念到过的时候写：刚点开就取消，`ttsHeard` 还是空的，不该留下
+   * 一条「上次听到第 1 句」。写在停止那一刻（不是每句），一句一次磁盘写
+   * 不值得，掉电丢一句也无所谓。
+   */
+  private saveTtsResume(): TtsResumePoint | null {
+    const bookId = this.bookId;
+    if (!bookId || !this.ttsHeard.size) return null;
+    const seg = this.ttsSegments[this.ttsIndex];
+    if (!seg) return null;
+    const point: TtsResumePoint = {
+      bookId,
+      chapterTitle: this.host.currentChapterTitle?.() ?? '',
+      chapterIndex: this.host.currentChapterIndex,
+      block: seg.blocks[0] ?? 0,
+      at: seg.at,
+      len: seg.len,
+      text: seg.text,
+      index: this.ttsIndex,
+      total: this.ttsTotal,
+      updatedAt: Date.now(),
+    };
+    getShellSource()?.setSettings({ ttsResume: point });
+    return point;
+  }
+
+  /**
+   * 停下之后给一条「继续听」——三个条件都对才出现：
+   * 这本书有记录、记录就是当前这一章、上次没停在这一章最后一句。
+   *
+   * 整章念完不该弹：那时「上次」就是末尾，点继续只会从头再念一遍。
+   *
+   * `point` 是刚写进去的那一条：设置层的落盘不保证同步可见，拿返回值更稳。
+   */
+  private maybeShowTtsResume(point?: TtsResumePoint | null): void {
+    if (this.closed || this.speaking || this.ttsOpening) return;
+    const p = point ?? shellSettings().ttsResume;
+    if (!p || p.bookId !== this.bookId) return;
+    const chapter = {
+      title: this.host.currentChapterTitle?.() ?? '',
+      index: this.host.currentChapterIndex,
+    };
+    if (!sameChapter(p, chapter)) return;
+    if (p.total > 0 && p.index >= p.total - 1) return;
+    this.showTtsResume(p);
+  }
+
+  private showTtsResume(p: TtsResumePoint): void {
+    const root = this.rootEl;
+    if (!root) return;
+    this.hideTtsResume();
+    const wrap = el('div', 'bzr-ttsresume-wrap');
+    wrap.addEventListener('click', (ev) => this.onTtsResumeClick(ev));
+    setHtml(wrap, ttsResumeHtml(p));
+    /* 和朗读条同一个底部抬升：刚在那条位置看见过条子，停下来的东西接着出现在
+       原地，比在别处再冒一个浮层更容易被认出来 */
+    wrap.style.setProperty(
+      '--bzr-tts-lift',
+      `${ttsBarLift(document.querySelector<HTMLElement>('.status-bar'))}px`,
+    );
+    root.appendChild(wrap);
+    this.ttsResumeEl = wrap;
+    /* 进度卡和它们共用底部：用同一个类做让位信号 */
+    root.classList.add('has-ttsbar');
+  }
+
+  private hideTtsResume(): void {
+    this.ttsResumeEl?.remove();
+    this.ttsResumeEl = null;
+    if (!this.ttsBarEl) this.rootEl?.classList.remove('has-ttsbar');
+  }
+
+  private onTtsResumeClick(ev: MouseEvent): void {
+    const target = (ev.target as HTMLElement | null)?.closest<HTMLElement>('[data-act]');
+    if (!target) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const act = target.dataset.act;
+    if (act === 'ttsresumeclose') {
+      this.hideTtsResume();
+      return;
+    }
+    if (act === 'ttsresume') {
+      this.hideTtsResume();
+      this.resumeTts();
+    }
+  }
+
+  /**
+   * 从记录的那一句接着念。
+   *
+   * 脚本要按整章重建，位置靠锚点对位；对不上（正文改过 / 章变了）就让
+   * speakPage 自己退回这一页第一句——宁可少念一句，不可跳到别处。
+   */
+  private resumeTts(): void {
+    if (this.speaking || this.ttsOpening) return;
+    const p = shellSettings().ttsResume;
+    if (!p || p.bookId !== this.bookId) return;
+    this.offlineTried.clear();
+    this.ttsOpening = true;
+    this.ttsPackStale = false;
+    const token = ++this.ttsOpenToken;
+    this.showTtsBar();
+    this.syncToolState();
+    const blocks = this.host.currentChapterBlocks?.() ?? [];
+    const chapter = {
+      title: this.host.currentChapterTitle?.() ?? '',
+      index: this.host.currentChapterIndex,
+    };
+    const anchor = resumeAnchorOf(p, blocks, chapter);
+    this.speakPage(token, anchor);
+  }
+
+  /**
+   * 章末按「下一段」：翻到下一章第一句接着念。
+   *
+   * 走目录而不是「翻一页」：章末可能停在页中间，翻一页还在本章，会从这一页
+   * 第一句重念一遍——用户按的是「跳过」，不该听到重复的内容。
+   */
+  private async nextChapterSpeech(): Promise<void> {
+    if (this.closed) return;
+    const toc = this.host.toc?.() ?? [];
+    const idx = this.host.currentChapterIndex;
+    const next = idx >= 0 ? toc[idx + 1] : undefined;
+    if (!next) {
+      notify(t('notice.tts.chapterEnd'));
+      return;
+    }
+    this.ttsOpening = true;
+    const token = ++this.ttsOpenToken;
+    this.haltTts();
+    this.showTtsBar();
+    this.syncToolState();
+    try {
+      await this.host.goToChapter(next.label);
+    } catch {
+      this.stopTts();
+      return;
+    }
+    if (this.closed || token !== this.ttsOpenToken) return;
+    this.speakPage(token);
   }
 
   /* ── 预生成进度卡 ── */
@@ -2983,6 +3286,11 @@ export class ReaderView extends ItemView {
     ev.preventDefault();
     ev.stopPropagation();
     const act = target.dataset.act;
+    /* 准备中还没有播放器：这时主按钮 / 停止都只做一件事——取消 */
+    if (this.ttsOpening && (act === 'ttstoggle' || act === 'ttsstop')) {
+      this.stopTts();
+      return;
+    }
     const p = this.ttsCtl;
     if (!p) return;
     if (act === 'ttstoggle') {
@@ -2994,7 +3302,11 @@ export class ReaderView extends ItemView {
     } else if (act === 'ttsstop') {
       this.stopTts();
     } else if (act === 'ttsnext') {
-      p.next();
+      /* 章末那颗不是死按钮：接到下一章第一句（2026-11-15 用户要求）。
+         听书的人不知道脚本边界在哪，按了没反应第一反应是「坏了」。
+         用视图自己记的 ttsIndex：两种播放器对「第几句」的取法不一样。 */
+      if (p.total > 0 && this.ttsIndex >= p.total - 1) void this.nextChapterSpeech();
+      else p.next();
     } else if (act === 'ttsprev') {
       p.prev();
     } else if (act === 'ttsvoices') {
@@ -3123,20 +3435,58 @@ export class ReaderView extends ItemView {
    * 再点一次按钮 = 取消（当前这段合完就停）。
    */
   /**
-   * 本章是不是已经有音频了。
+   * 这一章的脚本段里已经备好几段（缓存就是进度）。
    *
-   * 和播放时同一套找章口径（`matchChapter`），阈值也一致：只凑上一两句不
-   * 算「已有」——那种包播出来是别人家的章首，该当没备过。
+   * 只读一次元数据键表，不逐段查音频：两百段就是两百次事务，手机上足够
+   * 让按钮点下去先卡一下。算不出来（没开缓存 / IndexedDB 不可用）就当 0，
+   * 退回「从头备」——统计失败不该拦住预生成。
    */
-  private hasChapterAudio(texts: string[]): boolean {
-    const pack = this.offlinePack;
-    if (!pack || !texts.length) return false;
-    const match = matchChapter(pack.book, {
-      title: this.host.currentChapterTitle?.() || '',
-      index: this.host.currentChapterIndex,
-      texts,
+  private async countCachedSegments(
+    route: TtsRoute,
+    voice: string,
+    segments: readonly ScriptSegment[],
+  ): Promise<number> {
+    if (!(this.prefs.ttsCacheMB > 0) || !segments.length) return 0;
+    try {
+      const tag = ttsCacheTag(route, voice);
+      const keys = await new TtsCache().keysWithPrefix(cachePrefix(this.bookId, tag));
+      return cachedSegmentCount(
+        keys,
+        (text) => cacheKey(this.bookId, tag, text),
+        segments.map((s) => s.text),
+      );
+    } catch {
+      return 0;
+    }
+  }
+
+  /** 「已备好一部分」的窗：继续 / 全部重做 / 取消 */
+  private askResume(cached: number, left: number, free: boolean): Promise<'continue' | 'rebuild' | null> {
+    return new Promise((resolve) => {
+      let pick: 'continue' | 'rebuild' | null = null;
+      const modal = new Modal(this.app);
+      modal.titleEl.setText(t('tts.prefetch.resumeTitle'));
+      modal.contentEl.createEl('p', {
+        text: t(free ? 'tts.prefetch.resumeBodyFree' : 'tts.prefetch.resumeBody', {
+          cached: String(cached),
+          left: String(left),
+        }),
+      });
+      const row = modal.contentEl.createDiv({ cls: 'modal-button-container' });
+      const close = (v: 'continue' | 'rebuild' | null): void => {
+        pick = v;
+        modal.close();
+      };
+      row.createEl('button', { text: t('notice.tts.confirmCancel') }).addEventListener('click', () => close(null));
+      row
+        .createEl('button', { text: t('tts.prefetch.rebuild') })
+        .addEventListener('click', () => close('rebuild'));
+      row
+        .createEl('button', { text: t('tts.prefetch.resumeGo', { left: String(left) }), cls: 'mod-cta' })
+        .addEventListener('click', () => close('continue'));
+      modal.onClose = () => resolve(pick);
+      modal.open();
     });
-    return !!match && match.matched >= Math.max(2, Math.ceil(texts.length * 0.2));
   }
 
   private async prefetchChapter(confirmRebuild = true): Promise<void> {
@@ -3151,32 +3501,54 @@ export class ReaderView extends ItemView {
     if (!requireCap('tts')) return;
     if (this.ttsTaskBusy('chapter')) return;
     const route = this.ttsRoute();
-    if (!(await this.ttsStartable(route))) return;
+    if (!(await this.ttsStartable(route))) {
+      this.stopTts();
+      return;
+    }
     let segments = buildScript(this.host.currentChapterBlocks?.() ?? []);
     if (!segments.length) {
       if (this.host.isPdf) notify(t('notice.pdf.ocrFirstForTts'));
       else notify(t('notice.tts.noText'));
+      this.stopTts();
       return;
     }
-    /* 本章已经有音频：再点一次是「重备」。以前缓存全命中时一秒闪过、一个
-       提示都没有，用户以为按钮坏了（2026-11-14）。先问一句，确认了才逐句
-       重跑——不复用缓存，否则「重新生成」还是秒完，等于没重生成。 */
-    let regen = false;
-    if (confirmRebuild && this.hasChapterAudio(segments.map((s) => s.text))) {
-      const again = await this.askModalText(
-        t('tts.pack.againTitle'),
-        t('tts.pack.againBody'),
-        t('tts.pack.againOk'),
-      );
-      if (!again || this.closed) return;
-      regen = true;
-    }
+    /* 续跑（2026-11-15 用户要求）：先数一数这章已经备好几段，再决定弹哪个窗。
+       中断、关插件、换设备都会让缓存里留下的进度不一样，所以「继续」和
+       「全部重做」必须让用户自己选——以前只有「有整章音频」时才问重备，
+       跑到一半停下的那种直接从头重跑，看起来像进度全丢了。 */
     const free = isFreeEngine(route.engine);
+    const voice = this.ttsVoice(route);
+    let regen = false;
+    /** 续跑窗已经把「继续 / 重做」和费用差异讲过，不要再叠第二个收费确认 */
+    let costTold = false;
+    if (confirmRebuild) {
+      const cached = await this.countCachedSegments(route, voice, segments);
+      if (this.closed) return;
+      const plan = prefetchPlan(cached, segments.length);
+      if (plan.mode === 'rebuild') {
+        /* 整章都有：再点一次是「重备」。以前缓存全命中时一秒闪过、一个
+           提示都没有，用户以为按钮坏了（2026-11-14）。确认了才逐句重跑。
+           重备是整章重新计费，下面那道收费确认照样要过。 */
+        const again = await this.askModalText(
+          t('tts.pack.againTitle'),
+          t('tts.pack.againBody'),
+          t('tts.pack.againOk'),
+        );
+        if (!again || this.closed) return;
+        regen = true;
+      } else if (plan.mode === 'resume') {
+        const picked = await this.askResume(plan.cached, plan.left, free);
+        if (!picked || this.closed) return;
+        regen = picked === 'rebuild';
+        costTold = true;
+      }
+    }
     const chars = segments.reduce((n, s) => n + billedChars(s.text), 0);
     /* 收费引擎**一律先问**（2026-11-14 用户要求）：在线按字计费，点一下
        可能就是几十块，别让人点完才发现。文案不写死金额——官方价格会变。
-       本地免费，但整章要跑几分钟，超过 2 万字也值得先问一句。 */
-    if (!free || chars >= 20000) {
+       本地免费，但整章要跑几分钟，超过 2 万字也值得先问一句。
+       已经有进度的那种问过「继续 / 重做」了，不再叠第二个窗。 */
+    if (!costTold && (!free || chars >= 20000)) {
       const someChars = segments.slice(0, 20).reduce((n, s) => n + s.text.length, 0);
       const picked = await this.askPrefetch(chars, someChars, free);
       if (!picked) return;
@@ -3195,7 +3567,7 @@ export class ReaderView extends ItemView {
     };
     const cacheMB = this.prefs.ttsCacheMB;
     const cache = cacheMB > 0 ? new TtsCache() : null;
-    const voice = this.ttsVoice(route);
+    /* voice 上面已经取过（续跑要按同一把嗓子数缓存键） */
     const tag = ttsCacheTag(route, voice);
     const total = segments.length;
     /** 处理过的段数（含跳过的）：进度条按它走，才会真的到 100% */
@@ -3865,7 +4237,9 @@ export class ReaderView extends ItemView {
    * 它走 `advanceForTts()`。
    */
   private userNavigate(dir: PagingDirection): Promise<void> {
-    this.stopTts();
+    /* 读者自己翻走 = 打断，不是不想听：留一条「继续听」，回来点一下接上
+       （2026-11-15 用户要求）。关掉朗读图标才是不想听，那条不留。 */
+    this.stopTts({ resume: true });
     /* 用户真的动了：从这一刻起，relocate 记下的位置才值得落盘（B14） */
     this.userTurned = true;
     debugEvent('nav', { dir });
@@ -3880,8 +4254,34 @@ export class ReaderView extends ItemView {
     return this.host.next();
   }
 
-  private stopTts(): void {
-    if (!this.speaking && !this.ttsPlayer && !this.offlinePlayer) return;
+  /**
+   * 用户 / 翻页 / 失败发起的停止：作废在飞的那一轮，并留下「听到哪」。
+   *
+   * 三件事分开：
+   *   · `ttsOpenToken` 一旦 +1，准备中被取消的启动流程会自己认得出来；
+   *   · 位置只在**真的念到过**的时候写（ttsHeard 非空），刚点开就取消的
+   *     不该留下一条「上次听到第 1 句」；
+   *   · `resume` 决定要不要把「继续听」浮窗亮出来。**主动关掉的不亮**
+   *     （用户就是不想听了），**被打断的亮**（翻页、失败、念完一页停下）——
+   *     那才是「还想接着听，只是刚才分了个神」。
+   */
+  private stopTts(opts: { resume?: boolean } = {}): void {
+    this.ttsOpenToken++;
+    this.ttsOpening = false;
+    const saved = this.saveTtsResume();
+    this.haltTts();
+    if (opts.resume) this.maybeShowTtsResume(saved);
+    else this.hideTtsResume();
+  }
+
+  /**
+   * 只清播放器与界面，**不动 token**。
+   *
+   * 换一条朗读（`speakPageAi` / `speakOffline` 开头）要走这一条：走 stopTts
+   * 会把刚拿到的 token 作废，自己把自己取消掉。
+   */
+  private haltTts(): void {
+    if (!this.speaking && !this.ttsPlayer && !this.offlinePlayer && !this.ttsOpening) return;
     this.ttsRun++;
     this.speaking = false;
     this.voice?.stop();
@@ -3894,10 +4294,16 @@ export class ReaderView extends ItemView {
     this.offlineSegments = null;
     /* 两条高亮路径一起收：CSS Highlight 在书页文档里，覆盖层图形在宿主侧 */
     this.clearSpeechMark();
-    /* 来源统计跟着这一次朗读走，下次重新开始 */
+    /* 来源统计跟着这一次朗读走，下次重新开始。
+       `ttsPackStale` 不在这里清：离线包对不上 → 回落实时合成那条路上，
+       它刚被置上就要进 speakPageAi，而那边会调 haltTts——在这儿清掉就等于
+       刚说完「包已过期」立刻又改口。它由 toggleTts 与 speakOffline 负责清。 */
     this.ttsOffline = false;
     this.ttsSourceMap.clear();
     this.ttsHeard.clear();
+    /* 进度也归零：下一次点开时「准备中」不该显示上一轮的第 37/214 句 */
+    this.ttsTotal = 0;
+    this.ttsIndex = 0;
     this.hideTtsBar();
     this.syncToolState();
   }
@@ -4613,6 +5019,10 @@ export class ReaderView extends ItemView {
          角度/排法摆好，再套全局的翻页/滚动偏好，否则全局偏好会顶着默认值
          先把「双页」冲掉。 */
       this.host.restorePdfView?.(book.pdfView);
+      /* 上次在这本书里听到一半：底部给一条「继续听」（2026-11-15）。
+         只在同一章才出现——跨章继续要跳章，那是另一件事，不混在这里做。
+         放在 mount 之后：章节名与章序都要等引擎挂好才准。 */
+      this.maybeShowTtsResume();
       if (this.host.isPdf) {
         this.host.applyPrefs(this.prefs);
         /* 识别结果随书一起进来。顺序要在 start() 之前：晚一步的话，先渲染

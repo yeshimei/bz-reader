@@ -2143,10 +2143,6 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (d.k === 'chapterLabel') src.setPrefs({ chapterLabel: !el.classList.contains('on') });
       /* 桌面点正文翻页（2026-11-12）：默认关，要用的人自己打开 */
       if (d.k === 'desktopTapTurn') src.setPrefs({ desktopTapTurn: !el.classList.contains('on') });
-      /* 朗读的两个开关（2026-11-13）：按当前 class 翻转，和上面同一套 */
-      if (d.k === 'ttsMultiVoice') src.setPrefs({ ttsMultiVoice: !el.classList.contains('on') });
-      if (d.k === 'ttsDialogueOnly') src.setPrefs({ ttsDialogueOnly: !el.classList.contains('on') });
-      if (d.k === 'ttsAiRoles') src.setPrefs({ ttsAiRoles: !el.classList.contains('on') });
       /* 预生成时顺手写离线包（2026-11-14）：默认开，关掉就只填本机缓存 */
       if (d.k === 'ttsOfflineSave') src.setPrefs({ ttsOfflineSave: !el.classList.contains('on') });
       repaint();
@@ -3290,18 +3286,6 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
       break;
     case 'ttsVoice':
       src.setPrefs({ ttsVoice: v === 'tide' ? 'tide' : 'stella' });
-      break;
-    case 'ttsNarrator':
-      src.setPrefs({ ttsNarrator: v === 'tide' ? 'tide' : 'stella' });
-      break;
-    case 'ttsDialogue':
-      src.setPrefs({ ttsDialogue: v === 'tide' ? 'tide' : 'stella' });
-      break;
-    case 'ttsMultiVoice':
-      src.setPrefs({ ttsMultiVoice: v !== '0' });
-      break;
-    case 'ttsDialogueOnly':
-      src.setPrefs({ ttsDialogueOnly: v !== '0' });
       break;
     case 'ttsCacheMB':
       src.setPrefs({ ttsCacheMB: Number(v) });

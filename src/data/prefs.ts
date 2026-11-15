@@ -127,20 +127,9 @@ export interface ReaderPrefs {
    * 免得拿旧模型的名字去请求。空 = 用服务默认（本地兼容服务常见）。
    */
   ttsVoiceOnline: string;
-  /** 旁白 / 对话两把嗓子（多角色模式） */
-  ttsNarrator: DeepseekVoice;
-  ttsDialogue: DeepseekVoice;
-  /** 旁白与对话分开念。关掉 = 整页一个声音 */
-  ttsMultiVoice: boolean;
-  /** 只念引号里的对白，跳过旁白（省一半以上的钱） */
-  ttsDialogueOnly: boolean;
-  /**
-   * 让模型认角色（2026-11-13）：每页多一次 deepseek-flash 请求，
-   * 认出「他说 / 她说」之后男声用暗潮、女声用海星。
-   * 默认关：多一次请求就多 1–3 秒等待，先让人听到正常念法再开。
-   */
-  ttsAiRoles: boolean;
-  /** 音频缓存上限（MB），0 = 不缓存 */
+  /** 旁白 / 对话两把嗓子（多角色模式）：已下线（2026-11-15 清死配置）。
+   *  设置页早就不画这几项，播放器也固定一把嗓子——留着只会让人以为
+   *  功能还在，接线接错。老数据里的值由 normalizePrefs 的白名单丢弃。 */
   ttsCacheMB: number;
   /**
    * 预生成时顺手写离线包（2026-11-14，默认开）。
@@ -253,11 +242,6 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   ttsVoiceLocal: DEFAULT_LOCAL_VOICE,
   /* 空 = 服务默认；DeepSeek 官方两把嗓子由引擎层兜底成 stella */
   ttsVoiceOnline: '',
-  ttsNarrator: 'stella',
-  ttsDialogue: 'tide',
-  ttsMultiVoice: true,
-  ttsDialogueOnly: false,
-  ttsAiRoles: false,
   ttsCacheMB: 300,
   ttsOfflineSave: true,
   ttsPackFirst: true,
@@ -488,11 +472,6 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
           : p.ttsVoice === 'stella'
             ? 'stella'
             : '',
-    ttsNarrator: voiceOf(p.ttsNarrator, DEFAULT_PREFS.ttsNarrator),
-    ttsDialogue: voiceOf(p.ttsDialogue, DEFAULT_PREFS.ttsDialogue),
-    ttsMultiVoice: p.ttsMultiVoice !== false,
-    ttsDialogueOnly: p.ttsDialogueOnly === true,
-    ttsAiRoles: p.ttsAiRoles === true,
     ttsCacheMB: Math.round(clamp(p.ttsCacheMB, TTS_CACHE_RANGE.min, TTS_CACHE_RANGE.max, DEFAULT_PREFS.ttsCacheMB)),
     /* 离线包默认开：老数据里没有这一项 → 开（这是听书的主路径） */
     ttsOfflineSave: p.ttsOfflineSave !== false,

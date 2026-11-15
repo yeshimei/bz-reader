@@ -24,6 +24,7 @@
 import { isLocale, type LanguagePref } from '../i18n';
 import { normalizeFormat } from '../core/tts-local';
 import type { LocalTtsSettings, OnlineTtsSettings } from '../core/tts-engine';
+import { normalizeTtsResume, type TtsResumePoint } from '../core/tts-resume';
 import { DEFAULT_CLIP_SCOPE, normalizeClipScope, type ClipScope } from './clip-epub/scope';
 
 export interface AiSettings {
@@ -134,6 +135,17 @@ export interface ReaderSettings {
    */
   ttsStats: { chars: number; cost: number };
   /**
+   * 上次朗读停在哪（2026-11-15）：哪本书、哪一章、第几句。
+   *
+   * 只留最近一条，不做「每本书一份」：这是「刚才听到哪」的临时位置，不是
+   * 阅读进度——真正的进度在 book.reading 里，一直都有。落在 settings 意味着
+   * 不跨设备：手机在听、电脑在看书，两边各记各的才对。
+   *
+   * 记录只在「停下来」那一刻写（停止 / 翻页打断 / 关闭阅读页），不在每句写：
+   * 一句一次 disk write 不值得，掉电丢一句也无所谓。
+   */
+  ttsResume: TtsResumePoint | null;
+  /**
    * 调试日志：把触摸、选区、翻页、跳转写进数据目录的 `debug.json`。
    *
    * 只在排查「划词时页面乱跳」这类真机问题时要打开。默认关，关着时
@@ -210,6 +222,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   aiAck: false,
   ttsAck: false,
   ttsStats: { chars: 0, cost: 0 },
+  ttsResume: null,
   debugLog: false,
   clipBook: false,
   clipScope: DEFAULT_CLIP_SCOPE,
@@ -409,6 +422,9 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
       chars: Math.max(0, Math.round(Number(s.ttsStats?.chars) || 0)),
       cost: Math.max(0, Number(s.ttsStats?.cost) || 0),
     },
+    /* 续听位置可能来自旧版本（没有这个字段）或被手改坏：校验不过就当没有，
+       不拿半条记录去跳页 */
+    ttsResume: normalizeTtsResume(s.ttsResume),
     debugLog: s.debugLog === true,
     /* 缺字段（旧版本没有它）= 关：剪藏成书要人主动开，不能靠缺省值替人选 */
     clipBook: s.clipBook === true,

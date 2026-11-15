@@ -64,6 +64,33 @@ export function pickEvictions(
   return victims;
 }
 
+/**
+ * 缓存键前缀：书 + 音色标签。一次读回全部键之后，用它挑出这一章的。
+ *
+ * 不能反过来拿 `cacheKey` 一段一段查——两百段就是两百次 IndexedDB 事务，
+ * 手机上足够让「预生成」按钮点下去先卡一下。前缀匹配只查一次。
+ */
+export function cachePrefix(bookId: string, voice: string): string {
+  return `${bookId || 'book'}|${voice}|`;
+}
+
+/**
+ * 这些段里已经备好几段。
+ *
+ * 缓存就是预生成的进度（2026-11-15 用户要求「中断后可以继续」）：数出来
+ * 才知道该不该给「继续」这个选项。重复的句子各算一段——两处都能出声，
+ * 续跑时都不必重做；正文改过的句子键会变，自然算成没备过。
+ */
+export function cachedSegmentCount(
+  keys: ReadonlySet<string>,
+  keyOf: (text: string) => string,
+  texts: readonly string[],
+): number {
+  let n = 0;
+  for (const text of texts) if (keys.has(keyOf(text))) n += 1;
+  return n;
+}
+
 const DB_NAME = 'bz-reader-tts';
 const STORE = 'audio';
 const META = 'meta';
@@ -179,6 +206,33 @@ export class TtsCache {
     if (!db) return { count: 0, bytes: 0 };
     const all = await this.entries(db);
     return { count: all.length, bytes: all.reduce((n, e) => n + e.bytes, 0) };
+  }
+
+  /**
+   * 这个前缀下已有哪些键（预生成续跑用）。
+   *
+   * 只读 META 那一库的键：音频本体一个字节都不读。拿不到就返回空集合——
+   * 统计不出来只影响「给不给继续选项」，不该让预生成开不了口。
+   */
+  async keysWithPrefix(prefix: string): Promise<Set<string>> {
+    const db = await this.ready();
+    if (!db) return new Set();
+    return new Promise((resolve) => {
+      try {
+        const req = db.transaction(META, 'readonly').objectStore(META).getAllKeys();
+        req.onsuccess = () => {
+          const out = new Set<string>();
+          for (const k of req.result ?? []) {
+            const key = String(k);
+            if (key.startsWith(prefix)) out.add(key);
+          }
+          resolve(out);
+        };
+        req.onerror = () => resolve(new Set());
+      } catch {
+        resolve(new Set());
+      }
+    });
   }
 
   /** 只读元数据那一库：音频本体不进内存（默认上限 300 MB） */

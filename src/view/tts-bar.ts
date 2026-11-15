@@ -35,6 +35,13 @@ export interface TtsBarState {
    * 系统语音没有音色可选，这时按在线服务开——总比弹一个空列表好。
    */
   voiceEngine?: 'local' | 'online';
+  /**
+   * 念到第几句（0-based）/ 共几句（2026-11-15）。
+   *
+   * 整章两百多句，浮条上不给数字，用户就只知道「在念」，不知道「还剩多少」。
+   * 这不是时间预估（那边明确不做）：数字只报位置，不猜还要几分钟。
+   */
+  progress?: { index: number; total: number };
 }
 
 /** 已经听过的音频来源统计 */
@@ -93,8 +100,19 @@ export function ttsBarHtml(s: TtsBarState): string {
     : button('ttstoggle', s.paused ? ICONS.play : ICONS.pause, playLabel, ' is-main');
   const src = String(s.source ?? '').trim();
   const engine = s.voiceEngine === 'local' ? 'local' : 'online';
+  /* 进度：等音频时报「合成第几句」（转圈要有主语），播放中报「第几句/共几句」。
+     总数是 0（系统语音 / 刚点开还不知道）就整块不画，不占位置也不报 0/0。 */
+  const total = Math.max(0, Math.round(Number(s.progress?.total) || 0));
+  const at = Math.max(0, Math.round(Number(s.progress?.index) || 0));
+  const num =
+    total > 0
+      ? s.loading
+        ? t('tts.bar.synth', { n: String(at + 1) })
+        : `${at + 1}/${total}`
+      : '';
   return `<div class="bzr-ttsbar" data-role="ttsbar">
     ${src ? `<span class="bzr-ttssrc" title="${escapeHtml(src)}">${escapeHtml(src)}</span>` : ''}
+    ${num ? `<span class="bzr-ttsnum" title="${escapeHtml(num)}">${escapeHtml(num)}</span>` : ''}
     ${button('ttsprev', ICONS.prev, t('tts.bar.prev'))}
     ${main}
     ${button('ttsnext', ICONS.next, t('tts.bar.next'))}

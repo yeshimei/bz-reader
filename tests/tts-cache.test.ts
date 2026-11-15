@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cacheKey, pickEvictions } from '../src/data/tts-cache';
+import { cacheKey, cachedSegmentCount, pickEvictions } from '../src/data/tts-cache';
 
 describe('缓存键', () => {
   it('同一段文本 + 同一音色得到同一个键（重听命中）', () => {
@@ -38,3 +38,33 @@ describe('缓存淘汰（LRU）', () => {
     expect(pickEvictions([at(1), at(2)], 100, 500)).toEqual(['k1', 'k2']);
   });
 });
+
+/* 续跑：缓存就是进度。点「预生成本章」时先数一数这章已经备好几段，
+   才知道给不给「继续」这个选项（2026-11-15 用户要求）。 */
+describe('cachedSegmentCount', () => {
+  const keyOf = (text: string): string => `k:${text}`;
+
+  it('全命中：等于段数', () => {
+    const keys = new Set([keyOf('a'), keyOf('b')]);
+    expect(cachedSegmentCount(keys, keyOf, ['a', 'b'])).toBe(2);
+  });
+
+  it('半命中：数出已备好的那些', () => {
+    const keys = new Set([keyOf('a'), keyOf('c')]);
+    expect(cachedSegmentCount(keys, keyOf, ['a', 'b'])).toBe(1);
+  });
+
+  it('一条都没有：0', () => {
+    expect(cachedSegmentCount(new Set(), keyOf, ['a', 'b'])).toBe(0);
+  });
+
+  it('重复的句子各算一段：两处都能出声，续跑时都不必重做', () => {
+    const keys = new Set([keyOf('a')]);
+    expect(cachedSegmentCount(keys, keyOf, ['a', 'a'])).toBe(2);
+  });
+
+  it('空脚本：0，不是 NaN', () => {
+    expect(cachedSegmentCount(new Set(), keyOf, [])).toBe(0);
+  });
+});
+

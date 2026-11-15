@@ -79,6 +79,32 @@ describe('ttsBarHtml', () => {
   });
 });
 
+/* 进度：整章两百多句，用户唯一能判断「还剩多少」的就是这个数字。
+   2026-11-15 用户要求：「37/214」；等音频时换成「合成第 37 句」。 */
+describe('ttsBarHtml 进度', () => {
+  it('播放中显示「第几句 / 共几句」', () => {
+    const h = ttsBarHtml({ paused: false, progress: { index: 36, total: 214 } });
+    expect(h).toContain('bzr-ttsnum');
+    expect(h).toContain('37/214');
+  });
+
+  it('等音频时换成「合成第 N 句」：转圈要有主语', () => {
+    const h = ttsBarHtml({ paused: false, loading: true, progress: { index: 36, total: 214 } });
+    expect(h).toContain('合成第 37 句');
+    expect(h).not.toContain('37/214');
+  });
+
+  it('还不知道进度（系统语音 / 刚点开）：整块不画，不留 0/0', () => {
+    expect(ttsBarHtml({ paused: false })).not.toContain('bzr-ttsnum');
+    expect(ttsBarHtml({ paused: false, progress: { index: 0, total: 0 } })).not.toContain('bzr-ttsnum');
+  });
+
+  it('进度与来源同时存在：来源在左，数字在右', () => {
+    const h = ttsBarHtml({ paused: false, source: '缓存 12', progress: { index: 3, total: 9 } });
+    expect(h.indexOf('bzr-ttssrc')).toBeLessThan(h.indexOf('bzr-ttsnum'));
+  });
+});
+
 /* 用户要知道「这段声音是存的还是刚花钱合的」 */
 describe('ttsSourceLabel', () => {
   it('离线包：只说离线，不混缓存/实时', () => {
