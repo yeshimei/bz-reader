@@ -113,7 +113,9 @@ describe('AI 浮框 · 输入行与底栏固定在浮框下沿', () => {
     expect(scrollEnd).toBeGreaterThan(-1);
     /* 追问输入行与底栏都出现在消息区之后 */
     expect(html.indexOf('data-role="aifollow"')).toBeGreaterThan(scrollEnd);
-    expect(html.indexOf('data-act="aiarchive"')).toBeGreaterThan(scrollEnd);
+    expect(html.indexOf('data-act="aifloatarchive"')).toBeGreaterThan(scrollEnd);
+    /* 不借书架的 aiarchive：那边按会话 id 归档，浮框没有 id */
+    expect(html).not.toContain('data-act="aiarchive"');
   });
 });
 

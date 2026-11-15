@@ -3294,21 +3294,21 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (!o || o.kind !== 'ai' || !o.menu) break;
       const task = d.task || '';
       if (task === 'book') {
-        /* 插入到全书问答：把原文与出处放进信箱，切到侧栏 AI 页签。
-           侧栏那边的消费由另一个分支实现，这里只保证「放进去」这一半。 */
+        /* 插入到全书问答：原文与出处直接挂进侧栏输入条的上下文，
+           由 attachAiContext 负责切到 AI 页签、开侧栏、聚焦输入框。
+           以前只往 RT.aiPendingInsert 里塞一条就完事，侧栏那边没人取。 */
         const text = (o.text || '').trim();
         if (!text) {
           notify(t('notice.sel.empty'), 'error');
           break;
         }
         const book = liveBooks().find((b) => b.id === (o.bookId || getState().bookId));
-        RT.aiPendingInsert.push({
-          kind: 'quote',
-          text,
-          meta: [book?.meta.title, o.chapterTitle].filter(Boolean).join(' · '),
-        });
         closeOverlay();
-        setState({ sideTab: 'ai' });
+        attachAiContext(
+          'quote',
+          text,
+          [book?.meta.title, o.chapterTitle].filter(Boolean).join(' · '),
+        );
         notify(t('notice.ai.inserted'));
         break;
       }
@@ -3343,8 +3343,9 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       void followAi(input?.value ?? '');
       break;
     }
-    /* 归档：把这段对话整理成 Markdown，追加到这本书的阅读笔记 */
-    case 'aiarchive':
+    /* 归档：把这段对话整理成 Markdown，追加到这本书的阅读笔记。
+       不叫 aiarchive：那是书架「对话」页按会话 id 归档的动作，同名会被它先匹配。 */
+    case 'aifloatarchive':
       void archiveAiFloat();
       break;
     /* 存档这段对话（2026-11-11）：侧栏的多轮问答落成一篇笔记。

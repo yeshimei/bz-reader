@@ -160,7 +160,7 @@ export function aiCardHtml(input: AiCardInput): string {
       <button type="button" class="bzs-af-btn" data-act="aicopy" aria-label="${esc(
         t('ai.card.copy'),
       )}" title="${esc(t('ai.card.copy'))}"><span class="bzs-tbi" data-icon="copy"></span></button>
-      <button type="button" class="bzs-af-btn" data-act="aiarchive"${
+      <button type="button" class="bzs-af-btn" data-act="aifloatarchive"${
         archived ? ' disabled' : ''
       } aria-label="${esc(t(archived ? 'ai.float.archived' : 'ai.float.archive'))}" title="${esc(
         t(archived ? 'ai.float.archived' : 'ai.float.archive'),

@@ -222,7 +222,10 @@ describe('浮框模板 · 430×420 的对话', () => {
       answer: '答案',
       archivedAt: '14:32',
     });
-    expect(html).toMatch(/data-act="aiarchive"[^>]*disabled/);
+    /* 浮框的归档与书架「对话」页的归档是两个动作：同名会让后者先匹配，
+       浮框那颗按钮拿到空 id、直接报「已删除」。名字必须分开。 */
+    expect(html).toMatch(/data-act="aifloatarchive"[^>]*disabled/);
+    expect(html).not.toContain('data-act="aiarchive"');
     expect(html).toContain('已归档 14:32');
   });
 

@@ -1683,7 +1683,7 @@ export function refreshAiFloat(): void {
   }
   /* 底栏跟着账本走：归档成功之后按钮变灰、右边写「已归档 HH:mm」 */
   const archivedAt = entry?.archivedAt ?? '';
-  const arch = document.querySelector<HTMLElement>('[data-act="aiarchive"]');
+  const arch = document.querySelector<HTMLElement>('[data-act="aifloatarchive"]');
   if (arch) {
     const label = t(archivedAt ? 'ai.float.archived' : 'ai.float.archive');
     arch.toggleAttribute('disabled', !!archivedAt);
