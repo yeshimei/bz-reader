@@ -4267,9 +4267,14 @@ export class ReaderView extends ItemView {
    */
   private stopTts(opts: { resume?: boolean } = {}): void {
     this.ttsOpenToken++;
-    this.ttsOpening = false;
     const saved = this.saveTtsResume();
+    this.ttsOpening = false;
+    /* 顺序要紧：haltTts 的守卫会看 ttsOpening，先置 false 它就把自己挡掉、
+       条子收不干净（真机：停在封面点朗读，「这一页没有可朗读的文字」弹出来了，
+       底下那条还在）。haltTts 之后补一次 hideTtsBar 兜底「准备中还没有播放器」
+       的那一档。 */
     this.haltTts();
+    this.hideTtsBar();
     if (opts.resume) this.maybeShowTtsResume(saved);
     else this.hideTtsResume();
   }
@@ -4281,7 +4286,6 @@ export class ReaderView extends ItemView {
    * 会把刚拿到的 token 作废，自己把自己取消掉。
    */
   private haltTts(): void {
-    if (!this.speaking && !this.ttsPlayer && !this.offlinePlayer && !this.ttsOpening) return;
     this.ttsRun++;
     this.speaking = false;
     this.voice?.stop();
