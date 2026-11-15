@@ -241,8 +241,14 @@ body.theme-dark .bzs-shell {
 /* Obsidian 会把视图内容包在 .view-content 里，去掉它的内边距与滚动，
    由各页面自己管滚动，否则会出现两道滚动条 */
 .workspace-leaf-content[data-type="bzs-study"] .view-content,
-.workspace-leaf-content[data-type="bzr-reader-view"] .view-content,
-.workspace-leaf-content[data-type="bz-reader-toc"] .view-content {
+.workspace-leaf-content[data-type="bzr-reader-view"] .view-content {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* 侧栏 AI 聊天态：输入卡要贴着 leaf 底边，宿主的 12px 边距与 32px 底部
+   留白会留出一圈空白。只在聊天态生效——建索引 / 其它页签仍保留宿主内边距。 */
+.workspace-leaf-content[data-type="bz-reader-toc"] .view-content.is-ai-chat {
   padding: 0;
   overflow: hidden;
 }

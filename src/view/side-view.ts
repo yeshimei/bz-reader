@@ -396,6 +396,10 @@ export class SideView extends ItemView {
     };
 
     root.dataset.bzaccent = shellPrefs().accent;
+    /* 聊天态让 leaf 去掉宿主的 12/32 内边距：输入卡要横向铺满、贴着底边。
+       其它页签仍按原样留白，不跟着一起改。 */
+    const aiChat = state.sideTab === 'ai' && aiReady(settings) && aiIndex.state === 'ready';
+    this.contentEl.toggleClass('is-ai-chat', aiChat);
     /* 切到别的页签 = 笔记选择器没有意义了：把它收掉，免得回来时浮在半空 */
     if (state.sideTab !== 'ai') {
       RT.aiNoteOpen = false;
