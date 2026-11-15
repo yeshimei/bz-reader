@@ -48,6 +48,11 @@ describe('扫描页识别', () => {
     const out = html(false, { ...DEFAULT_SETTINGS, pdfOcrEngine: 'http', pdfOcrUrl: '' });
     expect(out).toContain('data-act="ocrcopyprompt"');
   });
+
+  it('「自部署」只在外部 OCR 服务那一档出现，AI 看图时别摆一条没用的复制', () => {
+    const out = html(false, { ...DEFAULT_SETTINGS, pdfOcrEngine: 'vision' });
+    expect(out).not.toContain('data-act="ocrcopyprompt"');
+  });
 });
 
 describe('界面语言', () => {
@@ -163,7 +168,7 @@ describe('设置页渲染', () => {
   it('每个图标行标题前都挂一枚与头栏同款的图标', () => {
     const out = html();
     const slots = [...out.matchAll(/<span class="bzs-hicon" data-icon="([^"]+)"><\/span>/g)].map((m) => m[1]);
-    expect(slots).toHaveLength(15);
+    expect(slots).toHaveLength(16);
     /* 顺序跟动作表一致：第一行是目录（list），第二行是搜索 */
     expect(slots.slice(0, 3)).toEqual(['list', 'search', 'bookmark']);
     /* 图标名直接从动作表取，不在设置页另抄一份 */
@@ -172,7 +177,7 @@ describe('设置页渲染', () => {
     }
   });
 
-  it('阅读页图标列出全部十五项（含 PDF 四颗与对照书籍 / 朗读 / 鸟瞰 / 导读 / 沉浸 / 返回书架）', () => {
+  it('阅读页图标列出全部十六项（含 PDF 五颗与对照书籍 / 朗读 / 鸟瞰 / 导读 / 沉浸 / 返回书架）', () => {
     const out = html();
     for (const id of [
       'paraBook',
@@ -185,10 +190,11 @@ describe('设置页渲染', () => {
       'copy',
       'history',
       'export',
+      'ocr',
     ]) {
       expect(out, id).toContain(`data-k="${id}"`);
     }
-    expect((out.match(/data-act="headertoggle"/g) ?? []).length).toBe(15);
+    expect((out.match(/data-act="headertoggle"/g) ?? []).length).toBe(16);
   });
 
   it('PDF 单成一组：翻页 / 单双页 / 开书缩放 / 批注 / 反链 / 导出倍率 / 自动复制链接 / 别名都在里面', () => {

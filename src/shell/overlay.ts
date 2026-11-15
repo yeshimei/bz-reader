@@ -597,6 +597,9 @@ function overlayHltools(markId?: string, bookId?: string): string {
     color: mark.color ?? 'amber',
     colors: HIGHLIGHT_COLORS,
     acts: MARK_ACTS,
+    /* 框选标注没有原文（2026-11-15）：书摘 / AI / 双链 / 复制都无从下手，
+       点开只留颜色、想法、删除——和框选当下弹出的那条一致。 */
+    only: mark.cfiRange?.includes('/r=') ? ['idea', 'del'] : undefined,
     attrs: `data-id="${esc(mark.id)}" data-book="${esc(book.id)}"`,
     kbDone: { term: !!kbLinkOf(mark.kb, 'term'), passage: !!kbLinkOf(mark.kb, 'passage') },
     icon: shellPrefs().toolbarStyle === 'icon',

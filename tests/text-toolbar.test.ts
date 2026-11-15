@@ -56,23 +56,26 @@ describe('toolbarLayout · 两种排布', () => {
     expect(toolbarLayout({ marked: false, compact: true }).overflow.some((i) => i.act === 'del')).toBe(false);
   });
 
-  /* 扫描页框选：那一块没有文字，能做的第一件事就是「让这页有字」。
-     识别排在第一位，后面才是搬出去的两颗（双链 / 复制）。 */
-  it('PDF 框选：识别排第一，随后是双链与复制', () => {
-    const l = toolbarLayout({ marked: false, only: ['ocr', 'bilink', 'copy'] });
-    expect(l.visible.map((i) => t(i.key))).toEqual(['识别', '双链', '复制']);
+  /* 扫描页框选（2026-11-15 改）：矩形也能划线、写想法。
+     书摘 / AI / 双链 / 复制都要文字，框里没有 —— 一颗都不出现。
+     识别仍排第一：认完整页，之后就能像文字版一样划词。 */
+  it('PDF 框选：识别 + 想法 + 色点，没有书摘 / AI / 复制', () => {
+    const l = toolbarLayout({ marked: false, only: ['ocr', 'idea'] });
+    expect(l.visible.map((i) => i.act)).toEqual(['ocr', 'idea']);
     const html = toolbarHtml({
       marked: false,
-      /* 框选时色点是空的（不是划词，没有笔可选） */
-      colors: [],
-      only: ['ocr', 'bilink', 'copy'],
+      only: ['ocr', 'idea'],
       acts: SELECTION_ACTS,
     });
-    expect([...html.matchAll(/data-act="(sel\w+)"/g)].map((m) => m[1])).toEqual([
+    expect([...html.matchAll(/data-act="(sel(?!pen)\w*)"/g)].map((m) => m[1])).toEqual([
       'selocr',
-      'selbilink',
-      'selcopy',
+      'selidea',
     ]);
+    /* 色点要露出来：矩形的颜色就从这四个点改 */
+    expect(html).toContain('data-act="selpen"');
+    expect(html).not.toContain('data-act="selquote"');
+    expect(html).not.toContain('data-act="selai"');
+    expect(html).not.toContain('data-act="selcopy"');
   });
 
   it('普通划词条里不出现「识别」：有字的页不需要它', () => {

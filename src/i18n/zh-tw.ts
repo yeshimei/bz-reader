@@ -1058,4 +1058,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.pdfOcrDeploy': '[TODO] settings.pdfOcrDeploy',
   'settings.pdfOcrDeploy.copy': '[TODO] settings.pdfOcrDeploy.copy',
   'notice.pdf.ocrFetchHint': '[TODO] notice.pdf.ocrFetchHint',
+  'pdf.ocrScope.page': '[TODO] pdf.ocrScope.page {n}',
+  'pdf.ocrScope.next': '[TODO] pdf.ocrScope.next {n}',
+  'pdf.ocrScope.book': '[TODO] pdf.ocrScope.book',
 };

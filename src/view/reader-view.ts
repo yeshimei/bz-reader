@@ -657,6 +657,56 @@ export class ReaderView extends ItemView {
     void this.ocr.runBatch(from).finally(() => this.hideOcrProgress());
   }
 
+  /** 整本：把总页数当批次上限，进度里能看见 3/270 这种数 */
+  private recognizeBook(): void {
+    if (!this.host.isPdf) {
+      notify(t('notice.pdf.ocrOnly'), 'info');
+      return;
+    }
+    const total = this.ocrHost()?.ocrStats().total || 0;
+    if (!total) {
+      notify(t('notice.pdf.ocrNothing'), 'info');
+      return;
+    }
+    this.showOcrProgress(t('notice.pdf.ocrRunning', { page: '1', done: '0', total: String(total) }));
+    void this.ocr.runBatch(1, total).finally(() => this.hideOcrProgress());
+  }
+
+  /**
+   * 头栏那颗「识别」：点开选范围（2026-11-15 用户要求）。
+   *
+   * 三种都带「跳过已认过的页」：重认花的是钱和时间，点错一次不该重跑一遍。
+   */
+  private openOcrMenu(ev?: MouseEvent): void {
+    if (!this.host.isPdf) {
+      notify(t('notice.pdf.ocrOnly'), 'info');
+      return;
+    }
+    const page = this.currentPageNumber();
+    const menu = new Menu();
+    menu.addItem((item) =>
+      item
+        .setTitle(t('pdf.ocrScope.page', { n: String(page) }))
+        .setIcon('scan')
+        .onClick(() => this.recognizePage(page)),
+    );
+    menu.addItem((item) =>
+      item
+        .setTitle(t('pdf.ocrScope.next', { n: String(OCR_BATCH) }))
+        .setIcon('scan-line')
+        .onClick(() => this.recognizeBatch()),
+    );
+    menu.addItem((item) =>
+      item
+        .setTitle(t('pdf.ocrScope.book'))
+        .setIcon('book-open')
+        .onClick(() => this.recognizeBook()),
+    );
+    if (ev) menu.showAtMouseEvent(ev);
+    /* 命令面板 / 快捷键没有鼠标位置：贴右上角弹，和头栏那颗按钮同一侧 */
+    else menu.showAtPosition({ x: window.innerWidth - 220, y: 64 });
+  }
+
   /** 当前页号（PDF 的 pageKey 就是 `pdf:<页>`；取不到按 1） */
   private currentPageNumber(): number {
     const n = Number(String(this.host.pageKey ?? '').split(':')[1]);
@@ -1211,6 +1261,8 @@ export class ReaderView extends ItemView {
       },
       history: () => this.goBack(),
       export: () => pdfRun.export(),
+      /* 扫描页识别（2026-11-15）：头栏一颗按钮，点开选三种范围 */
+      ocr: (ev) => this.openOcrMenu(ev),
       para: () => void this.toggleParallel(),
       paraBook: (ev) => this.openParallelPicker(ev),
       tts: () => this.toggleTts(),
@@ -1709,6 +1761,7 @@ export class ReaderView extends ItemView {
       copy: () => pdfRun.copy(null),
       history: () => this.goBack(),
       export: () => pdfRun.export(),
+      ocr: () => this.openOcrMenu(),
       para: () => void this.toggleParallel(),
       paraBook: (evt?: MouseEvent) => this.openParallelPicker(evt),
       tts: () => this.toggleTts(),
@@ -3951,16 +4004,16 @@ export class ReaderView extends ItemView {
       toolbarHtml({
         marked: !!live,
         color: activeColor,
-        colors: info.region ? [] : HIGHLIGHT_COLORS,
+        colors: HIGHLIGHT_COLORS,
         /* 手机只留三颗主路径；桌面窄到放不下时，把知识库两颗收进「⋯」 */
         compact: isMobileEnv(),
         kb,
         narrow: (root.clientWidth || 0) < 520,
         acts: SELECTION_ACTS,
-        /* 框选没有文字：想法 / 书摘 / AI / 名词 / 段落 全都无从下手。
-           第一颗是「识别」——认完整页就有字了，之后随便划；
-           另两颗是「双链」「复制」，不认也能搬出去。色点收起来（框选高亮走标注那条路）。 */
-        only: info.region ? ['ocr', 'bilink', 'copy'] : undefined,
+        /* 框选没有文字（2026-11-15 改）：能做的只有「认字」和「对这块矩形划线 / 写想法」。
+           书摘 / AI / 双链 / 复制都要文字，全都不出现；色点常驻——矩形的颜色就从这里改，
+           划线与想法落盘走 `pdf/<页>/r=…` 那条定位串，渲染时直接画矩形。 */
+        only: info.region ? ['ocr', 'idea'] : undefined,
         /* 存的这本划线已经存过名词 / 段落：那两颗显示成「看名词 / 看段落」 */
         kbDone: kbDoneOf(saved?.kb),
         /* 设置里的工具条样式：文字 / 图标（默认文字） */

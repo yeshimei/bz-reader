@@ -436,9 +436,15 @@ export function viewSettings(v: SettingsView): string {
           ? `<div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfOcrFallback')}</div>`
           : ''
       }
-      <div class="bzs-setrow"><label>${t('settings.pdfOcrDeploy')}</label>
+      ${
+        /* 「自部署」只服务外部 OCR 服务那一档（2026-11-15 用户要求）：
+           走 AI 看图时这段任务书没有可装的东西，摆着只会让人以为还要装什么。 */
+        s.pdfOcrEngine === 'http'
+          ? `<div class="bzs-setrow"><label>${t('settings.pdfOcrDeploy')}</label>
         <button class="bzs-btn sm" data-act="ocrcopyprompt">${t('settings.pdfOcrDeploy.copy')}</button>
-      </div>
+      </div>`
+          : ''
+      }
       <div class="bzs-mini">${t('settings.pdfOcrHint')}</div>
     </div>`;
 

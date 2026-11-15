@@ -21,6 +21,7 @@ export type HeaderActionId =
   | 'copy'
   | 'history'
   | 'export'
+  | 'ocr'
   | 'para'
   | 'paraBook'
   | 'tts'
@@ -60,6 +61,9 @@ const SPEC: ReadonlyArray<{ id: HeaderActionId; icon: string; labelKey?: MsgKey 
   { id: 'copy', icon: 'copy' },
   { id: 'history', icon: 'undo-2' },
   { id: 'export', icon: 'download' },
+  /* 扫描页识别（2026-11-15）：点开选范围（本页 / 接下来 20 页 / 整本）。
+     与缩略图、复制、导出同一组，只在 PDF 里出现。 */
+  { id: 'ocr', icon: 'scan-text' },
   { id: 'para', icon: 'columns-2' },
   { id: 'paraBook', icon: 'book' },
   { id: 'tts', icon: 'volume-2' },
@@ -166,6 +170,16 @@ const LABELS: Partial<Record<HeaderActionId, Record<Locale, string>>> = {
     es: 'Exportar la página como imagen',
     pt: 'Exportar a página como imagem',
   },
+  ocr: {
+    zh: '识别扫描页',
+    'zh-TW': '辨識掃描頁',
+    en: 'OCR scanned pages',
+    ja: 'スキャンページを認識',
+    de: 'Scan-Seiten erkennen',
+    fr: 'Reconnaître les pages scannées',
+    es: 'Reconocer páginas escaneadas',
+    pt: 'Reconhecer páginas digitalizadas',
+  },
   para: {
     zh: '并排对照',
     'zh-TW': '並排對照',
@@ -260,7 +274,7 @@ export function userFacingActionIds(): HeaderActionId[] {
  * 「回到上一处」2026-11-10 从这里移走了：EPUB 也补上了同一条跳转历史，
  * 两边共用一颗按钮。
  */
-export const PDF_ONLY_ACTIONS: readonly HeaderActionId[] = ['thumb', 'copy', 'export'];
+export const PDF_ONLY_ACTIONS: readonly HeaderActionId[] = ['thumb', 'copy', 'export', 'ocr'];
 
 export function isPdfAction(id: HeaderActionId): boolean {
   return PDF_ONLY_ACTIONS.includes(id);

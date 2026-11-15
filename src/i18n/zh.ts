@@ -428,6 +428,10 @@ export const ZH = {
   'pdf.layout.text': '文字',
   'pdf.layout.ocr': '识别本页',
   'pdf.layout.ocrDone': '已识别 · 重认',
+  /* 头栏「识别」那一颗点开的三种范围（2026-11-15） */
+  'pdf.ocrScope.page': '识别第 {n} 页',
+  'pdf.ocrScope.next': '识别接下来 {n} 页',
+  'pdf.ocrScope.book': '识别整本（跳过已认）',
   'pdf.err.password': '这本 PDF 有密码，暂时打不开',
   'pdf.err.broken': '这本 PDF 打不开，文件可能已经损坏',
   'pdf.err.empty': '这本 PDF 没有任何页面',

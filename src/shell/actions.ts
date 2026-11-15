@@ -645,12 +645,13 @@ export function createMark(color: string, opts: { silent?: boolean } = {}): stri
  * 2026-11-10 起和「想法」共用同一条路：想法以前直接 createMark，同一段字
  * 先点过双链再点想法就会长出两条一模一样的线。
  */
-function markSelection(): string | null {
+function markSelection(allowRegion = false): string | null {
   const sel = RT.sel;
   const book = sel ? liveBooks().find((b) => b.id === sel.bookId) : undefined;
   if (!sel || !book) return null;
-  /* PDF 框选只有一块矩形、没有字：落了线侧栏也是一条空标注，不落 */
-  if (!sel.text.trim()) return null;
+  /* 框选矩形没有字（2026-11-15）：只有「想法」能落线——矩形自带 `r=` 定位串，
+     不需要原文。双链 / 存名词 / 存段落都要把这段字交给别处，空字不落。 */
+  if (!sel.text.trim() && !(allowRegion && sel.pdfRect)) return null;
   const pen = getState().pen;
   const { highlight, created } = ensureHighlight(book, {
     text: sel.text,
@@ -2535,7 +2536,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'selidea': {
       /* 和这三颗走同一条落线路（markSelection）：同位置已有线就复用，
          不叠第二条；手机上刚点色点落的那条（RT.selMarkId）直接接手。 */
-      const id = RT.selMarkId || markSelection();
+      const id = RT.selMarkId || markSelection(true);
       if (id) {
         RT.selMarkId = id;
         overlay('idea', { markId: id, bookId: RT.sel?.bookId || '', anchor: RT.sel?.anchor });

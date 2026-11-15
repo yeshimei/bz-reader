@@ -8,6 +8,7 @@ import {
   headerActive,
   headerOverflowFor,
   availableActions,
+  isPdfAction,
   userFacingActionIds,
 } from '../src/view/header-actions';
 
@@ -47,6 +48,15 @@ describe('剪藏本三颗（2026-11-13：底条改头栏 / ⋮；原文入口收
     expect(headerOverflowFor(false, null, false, false, false)).not.toContain('clipSource');
     const pdf = availableActions(false, true, false);
     expect(pdf).not.toContain('clipPanel');
+  });
+
+  /* 扫描页识别（2026-11-15）：从命令面板搬到头栏那颗按钮，点开选范围。
+     只有 PDF 有这一颗——EPUB 没有「页图」可认。 */
+  it('头栏「识别」只在 PDF 出现，并且是可排序的用户动作', () => {
+    expect(availableActions(false, true, false)).toContain('ocr');
+    expect(availableActions(false, false, false)).not.toContain('ocr');
+    expect(isPdfAction('ocr')).toBe(true);
+    expect(userFacingActionIds()).toContain('ocr');
   });
 
   it('剪藏三颗的标签走语言包，不另写一套中文字面量', () => {
