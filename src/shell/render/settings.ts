@@ -22,7 +22,7 @@ import { t, LOCALES, LOCALE_NAMES, type MsgKey } from '../../i18n';
 import { ACCENT_OPTIONS, accentLabel, FONT_FAMILIES, fontLabel, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARGIN_RANGE, TTS_CACHE_RANGE, TTS_RATE_RANGE, type ReaderPrefs } from '../../data/prefs';
 import { ttsEngineReady, type TtsEngine } from '../../core/tts-engine';
 import { HIGHLIGHT_COLORS, colorLabel } from '../../data/notes';
-import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
+import { DEFAULT_SETTINGS, ocrEngineChoices, type ReaderSettings } from '../../data/settings';
 import { can, entitlement, GROUP_ID, tierText } from '../../data/entitlement';
 import { dataDirOf } from '../../core/plugin-path';
 import { isMobileShell } from '../../core/mobile';
@@ -105,6 +105,12 @@ export const KEY_COMMANDS: Array<{ id: string; key: MsgKey; builtin?: string }> 
   { id: 'bz-reader:pdf-copy-link', key: 'key.pdfCopyLink' },
   { id: 'bz-reader:pdf-export-page', key: 'key.pdfExportPage' },
   { id: 'bz-reader:pdf-back', key: 'key.pdfBack' },
+  /* 扫描页识别与框选存图：以前漏列，用户在键位表里根本找不到这几条命令 */
+  { id: 'bz-reader:pdf-ocr-page', key: 'key.pdfOcrPage' },
+  { id: 'bz-reader:pdf-ocr-batch', key: 'key.pdfOcrBatch' },
+  { id: 'bz-reader:pdf-ocr-stop', key: 'key.pdfOcrStop' },
+  { id: 'bz-reader:pdf-ocr-clear', key: 'key.pdfOcrClear' },
+  { id: 'bz-reader:pdf-region-card', key: 'key.pdfRegionCard' },
 ];
 
 function seg(name: string, opts: Array<[string, string]>, cur: string, act = 'setpref', cls = 'bzs-seg'): string {
@@ -411,10 +417,14 @@ export function viewSettings(v: SettingsView): string {
       <h3>${t('settings.grp.pdfOcr')}</h3>
       <div class="bzs-setrow is-segrow"><label>${t('settings.pdfOcrEngine')}</label>${seg(
         'pdfOcrEngine',
-        [
-          ['deepseek', t('settings.pdfOcrEngine.deepseek')],
-          ['http', t('settings.pdfOcrEngine.http')],
-        ],
+        /* 手机上不列要连电脑 127.0.0.1 的外部 OCR 服务：连不上，列了只会
+           让人填一个永远不通的地址（本地 TTS 早就是这个口径） */
+        ocrEngineChoices(mobile).map(
+          (id): [string, string] => [
+            id,
+            t(id === 'http' ? 'settings.pdfOcrEngine.http' : 'settings.pdfOcrEngine.deepseek'),
+          ],
+        ),
         /* 显示用户点的那个，而不是「实际生效」的那个：选了外部服务却没填
            地址就弹回 DeepSeek，点上去像没反应（2026-11-15 用户指出）。
            回退只留在运行期，这里如实显示选择，下面用一句提示说清。 */

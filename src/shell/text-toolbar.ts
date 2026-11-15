@@ -112,7 +112,7 @@ export const OCR_ITEM: ToolbarItem = { act: 'ocr', key: 'tool.ocr', icon: 'scan'
  * 只按定位串里的 `/r=` 判断，普通划词与普通划线一个字不动；EPUB 上根本
  * 不会出现这个形状。
  */
-export const REGION_ACTS: readonly ToolbarAct[] = ['ocr', 'idea', 'bilink', 'del'];
+export const REGION_ACTS: readonly ToolbarAct[] = ['ocr', 'idea', 'bilink'];
 
 /** 定位串里带 `/r=` 的是框选矩形（`pdf/<页>/r=…`），不是文字划线 */
 export function isRegionLocator(cfiRange?: string | null): boolean {
@@ -153,8 +153,8 @@ export interface ToolbarLayoutInput {
    */
   narrow?: boolean;
   /**
-   * 只保留这几颗动作：PDF 框选没有文字，想法 / 书摘 / AI / 名词 / 段落
-   * 全都无从下手，只留「双链 / 复制」才是对的。
+   * 只保留这几颗动作：PDF 框选没有文字，书摘 / AI / 名词 / 段落无从下手，
+   * 只留「识别 / 想法 / 双链」；保存后的「删除」由 marked 单独追加。
    */
   only?: readonly ToolbarAct[];
 }

@@ -121,8 +121,8 @@ const LABELS: Partial<Record<HeaderActionId, Record<Locale, string>>> = {
     pt: 'Marcador (b)',
   },
   type: {
-    zh: '排版（t）',
-    'zh-TW': '排版（t）',
+    zh: '排版 / 页面设置（t）',
+    'zh-TW': '排版 / 頁面設定（t）',
     en: 'Typography (t)',
     ja: '組版（t）',
     de: 'Typografie (t)',
@@ -370,7 +370,11 @@ export function headerActionsFor(
   /* 手机上剪藏四颗不参与那 3 个名额：它们只在剪藏本里有意义，挤掉目录 / 搜索
      会让同一台机器上的普通书也少一颗。四颗全部走 ⋮（见 headerOverflowFor）。 */
   const usable = mobile ? list.filter((id) => !isClipAction(id)) : list;
-  return mobile ? usable.slice(0, 3) : usable;
+  /* 手机上 PDF 的「识别」是主功能，默认顺序却排在导出之后——前三颗永远
+     轮不到它，扫描件在手机上就只剩 ⋮ 里一条。提到最前，其余仍按用户顺序。 */
+  const prioritized: HeaderActionId[] =
+    mobile && pdf && usable.includes('ocr') ? ['ocr', ...usable.filter((id) => id !== 'ocr')] : usable;
+  return mobile ? prioritized.slice(0, 3) : prioritized;
 }
 
 /** ⋮ 里的：显式隐藏的 + 移动端被名额挤出去的（不含这台设备不提供的） */

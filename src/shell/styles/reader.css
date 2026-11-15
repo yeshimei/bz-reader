@@ -586,6 +586,17 @@ body.is-mobile .bzr-ttsresume-wrap {
   color: var(--text-error);
 }
 
+/* 失败原因：手机上没有 hover，只进 title 等于看不见。单行截断，完整版仍在 title */
+.bzr-ocrwhy {
+  min-width: 0;
+  max-width: 42%;
+  font-size: 11px;
+  color: var(--text-error);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 这次走的哪条通道：本地 / DeepSeek，排查时不用去翻设置 */
 .bzr-ocrsrc {
   flex: none;

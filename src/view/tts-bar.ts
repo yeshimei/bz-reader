@@ -42,6 +42,11 @@ export interface TtsBarState {
    * 这不是时间预估（那边明确不做）：数字只报位置，不猜还要几分钟。
    */
   progress?: { index: number; total: number };
+  /**
+   * 当前是 PDF。PDF 没有「章」结构，按章预生成与整章导出拿不到脚本，
+   * 这两颗按钮在 PDF 上不画（当前页朗读仍然可用）。
+   */
+  pdf?: boolean;
 }
 
 /** 已经听过的音频来源统计 */
@@ -119,8 +124,8 @@ export function ttsBarHtml(s: TtsBarState): string {
     ${button('ttsstop', ICONS.stop, t('tts.bar.stop'))}
     <span class="bzr-ttssep" aria-hidden="true"></span>
     ${button('ttsvoices', ICONS.voice, t('tts.bar.voice'), ' is-minor', ` data-v="${engine}"`)}
-    ${button('ttsprefetch', ICONS.prefetch, t('tts.bar.prefetch'), ' is-minor')}
-    ${button('ttsexport', ICONS.export, t('tts.bar.export'), ' is-minor')}
+    ${s.pdf ? '' : button('ttsprefetch', ICONS.prefetch, t('tts.bar.prefetch'), ' is-minor')}
+    ${s.pdf ? '' : button('ttsexport', ICONS.export, t('tts.bar.export'), ' is-minor')}
     ${button('ttstune', ICONS.tune, t('tts.bar.settings'), ' is-minor')}
   </div>`;
 }

@@ -169,7 +169,7 @@ import { addChapterSeconds, clipLanding, type ClipLanding } from '../data/clip-e
 import { carryMeasuredPages, clipStructureChanged, migrateClipKey, syncClipChapterMeta } from '../data/clip-epub/refresh';
 import { DEFAULT_CLIP_SCOPE, type ClipScope } from '../data/clip-epub/scope';
 import { getShellSource, shellPrefs, shellSettings } from '../shell/source';
-import { OCR_BATCH, PdfOcrRunner, ocrScopeStats, type OcrScopeStats, type PdfOcrHostLike } from '../shell/pdf-ocr';
+import { OCR_BATCH, PdfOcrRunner, ocrRedoNeedsConfirm, ocrScopeStats, type OcrScopeStats, type PdfOcrHostLike } from '../shell/pdf-ocr';
 import { pdfOcrEngineOf } from '../data/settings';
 import { copyRegionCard } from '../shell/region-card';
 import { collectPdfBacklinks, invalidatePdfBacklinks } from '../data/pdf-backlink';
@@ -596,7 +596,7 @@ export class ReaderView extends ItemView {
         if (state.running) {
           this.showOcrBar({ kind: 'running', page: state.page, done: state.done, total: state.total });
         } else if (state.last === 'stopped') {
-          this.showOcrBar({ kind: 'stopped', pages: state.done, failed: state.failed });
+          this.showOcrBar({ kind: 'stopped', pages: state.done, failed: state.failed }, state.error);
         } else if (state.last === 'done') {
           this.showOcrBar({ kind: 'batch', pages: state.done, failed: state.failed }, state.error);
         }
@@ -747,6 +747,8 @@ export class ReaderView extends ItemView {
 
   /** 条子上的「重试 N 页」：只重跑失败的那几页，不重扫整批 */
   private retryOcrFailed(): void {
+    /* 重试也是按页计费的识别请求，不能绕开高级版门 */
+    if (!requireCap('pdfOcr')) return;
     const failed = this.ocr.getState().failed;
     if (!failed.length) {
       notify(t('notice.pdf.ocrRetryNothing'), 'info');
@@ -757,7 +759,7 @@ export class ReaderView extends ItemView {
     });
   }
 
-  /** 认指定的一页（内部的实现） */
+  /** 认指定的一页（内部的实现）。入口散在六处，确认与能力位都收在这里 */
   private recognizePage(page = this.currentPageNumber()): void {
     if (!this.host.isPdf) {
       notify(t('notice.pdf.ocrOnly'), 'info');
@@ -771,6 +773,27 @@ export class ReaderView extends ItemView {
       return;
     }
     const target = Math.max(1, Math.floor(Number(page) || 1));
+    /* 这一页认过：再点就是覆盖 + 再发一次按页计费的请求，先问一句。
+       没认过的页照旧点一下就认，不打扰。保持同步签名，六个调用点不用改。 */
+    if (ocrRedoNeedsConfirm(this.ocr.recognized(), target)) {
+      void this.askModalText(
+        t('pdf.ocrRedo.title'),
+        t('pdf.ocrRedo.body', { n: String(target) }),
+        t('pdf.ocrRedo.ok'),
+      ).then((ok) => {
+        if (ok && !this.closed) this.doRecognizePage(target);
+      });
+      return;
+    }
+    this.doRecognizePage(target);
+  }
+
+  private doRecognizePage(target: number): void {
+    /* 等确认的这几秒里可能又开了一批 */
+    if (this.ocr.getState().running) {
+      notify(t('notice.pdf.ocrBusy'), 'info');
+      return;
+    }
     this.showOcrBar({ kind: 'running', page: target, done: 0, total: 1 });
     void this.ocr.runPage(target).then((ok) => {
       if (!ok) {
@@ -1914,7 +1937,10 @@ export class ReaderView extends ItemView {
       return;
     }
     /* 扫描页识别不属于 pdfUi：它要出图、要落盘、要等网络，pdfUi 是「视图动作」。
-       但这几条也不需要 pdfUi 在——扫描件上照样能点。 */
+       但这几条也不需要 pdfUi 在——扫描件上照样能点。
+       非 PDF 上按这几条命令安静退出（命令面板里它们本来就不该出现），
+       不再弹「只有 PDF 需要识别文字」。 */
+    if (kind.startsWith('pdf-ocr-') && !this.host.isPdf) return;
     if (kind === 'pdf-ocr-page') {
       this.recognizePage();
       return;
@@ -1924,11 +1950,20 @@ export class ReaderView extends ItemView {
       return;
     }
     if (kind === 'pdf-ocr-stop') {
-      this.ocr.cancel();
+      /* 没在跑就别动：cancel() 自己也会守一道，这里连状态都不去碰 */
+      if (this.ocr.getState().running) this.ocr.cancel();
       return;
     }
     if (kind === 'pdf-ocr-clear') {
-      void this.ocr.clear();
+      if (!requireCap('pdfOcr')) return;
+      /* 删的是整本书逐页付费认出来的成果：先问一句，别让一次误点全没了 */
+      void this.askModalText(
+        t('pdf.ocrClear.title'),
+        t('pdf.ocrClear.body'),
+        t('pdf.ocrClear.ok'),
+      ).then((ok) => {
+        if (ok && !this.closed) void this.ocr.clear();
+      });
       return;
     }
     if (kind === 'pdf-region-card') {
@@ -1948,7 +1983,9 @@ export class ReaderView extends ItemView {
         /* 一屏一页 / 连续滚动是 PDF 自己的偏好：setPaged 里一并落盘 */
         case 'pdf-paged': pdf.setPaged(!pdf.paged()); break;
         case 'pdf-thumbs': pdf.toggleThumbs(); break;
-        case 'pdf-copy-link': pdf.copyLink('page'); break;
+        /* 命令面板也展开那四项菜单：以前这里只复制「页链接」一种，
+           与头栏同名按钮点出来的东西不一样 */
+        case 'pdf-copy-link': pdf.openCopyMenu(null); break;
         case 'pdf-export-page': pdf.exportPage(); break;
         default: break;
       }
@@ -2932,6 +2969,8 @@ export class ReaderView extends ItemView {
        准备中（播放器还没建好）一样转圈：这时候点一下是取消。 */
     const html = ttsBarHtml({
       paused: state === 'paused',
+      /* PDF 没有章结构：按章预生成和整章导出在这里不画（按钮点了没反应更糟） */
+      pdf: this.host.isPdf,
       loading: state === 'loading' || this.ttsOpening,
       source: this.ttsSourceText(),
       /* 音色按钮给哪个引擎开弹窗：本地就本地，其它（含系统语音）按在线开 */
@@ -3531,6 +3570,12 @@ export class ReaderView extends ItemView {
   }
 
   private async prefetchChapter(confirmRebuild = true): Promise<void> {
+    /* PDF 没有「章」结构，按章预生成拿不到脚本；朗读条上那颗已收起，
+       这里再守一道，免得命令 / 快捷键绕过来还先弹一次收费确认。 */
+    if (this.host.isPdf) {
+      notify(t('notice.pdf.ttsNoChapter'), 'info');
+      return;
+    }
     if (this.prefetching) {
       this.prefetchToken += 1;
       this.prefetching = false;
@@ -3953,6 +3998,11 @@ export class ReaderView extends ItemView {
    * 关掉插件重开也一样。这比维护一份会被写坏的进度文件可靠。
    */
   async prefetchBook(): Promise<void> {
+    /* PDF 没有章列表，整本预生成同样拿不到脚本 */
+    if (this.host.isPdf) {
+      notify(t('notice.pdf.ttsNoChapter'), 'info');
+      return;
+    }
     if (this.prefetchingBook) {
       this.prefetchBookToken += 1;
       this.prefetchingBook = false;
@@ -4118,6 +4168,11 @@ export class ReaderView extends ItemView {
    * 写进 `bz-reader/audio/`。不写库根、不覆盖同名旧文件。
    */
   private async exportSpeech(): Promise<void> {
+    /* 同 prefetchChapter：PDF 只有当前页，没有可导出的「整章」脚本 */
+    if (this.host.isPdf) {
+      notify(t('notice.pdf.ttsNoChapter'), 'info');
+      return;
+    }
     const route = this.ttsRoute();
     if (!(await this.ttsStartable(route))) return;
     const segments = buildScript(this.host.currentBlocks?.() ?? []);

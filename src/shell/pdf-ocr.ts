@@ -142,6 +142,17 @@ export function ocrScopeStats(
   };
 }
 
+/**
+ * 这一页是不是「认过了还要再认一次」。
+ *
+ * 认过的页重认会再发一次按页计费的请求，入口又散在菜单、命令、排版面板、
+ * 区域工具条好几处，所以判定收在这里，由识别入口统一先问一句。
+ */
+export function ocrRedoNeedsConfirm(existing: ReadonlySet<number>, page: number): boolean {
+  const n = Math.floor(Number(page));
+  return Number.isFinite(n) && n >= 1 && existing.has(n);
+}
+
 /** 引擎该报给界面的那一句话（标题栏 / 提示都能用） */
 export function ocrProgressLabel(state: PdfOcrState): string {
   if (!state.running) return '';
@@ -287,6 +298,9 @@ export class PdfOcrRunner {
   }
 
   cancel(): void {
+    /* 没在跑就不动状态：命令面板里那条「停止识别」和底部条的按钮都可能
+       在空闲时被点到，以前照样置 last='stopped'，条子会弹「已停止 · 认完 0 页」 */
+    if (!this.state.running) return;
     this.ctrl?.abort();
     this.ctrl = null;
     /* `last` 立刻改成 stopped：批量那条 finally 还要等当前这一页收尾，

@@ -445,6 +445,17 @@ export function pdfOcrEngineOf(s: ReaderSettings): PdfOcrEngine {
   return 'deepseek';
 }
 
+/**
+ * 设置页能列哪些识别通道（2026-11-15）。
+ *
+ * 手机上不列「外部 OCR 服务」：它要连电脑上那个 127.0.0.1，手机连不上，
+ * 列出来只会让人填一个永远不通的地址。本地 TTS 早就是这个口径。
+ * 只管「列不列」，运行期仍由 pdfOcrEngineOf 决定实际用哪一档。
+ */
+export function ocrEngineChoices(mobile: boolean): PdfOcrEngine[] {
+  return mobile ? ['deepseek'] : ['deepseek', 'http'];
+}
+
 /** 识别通道配好了没有：DeepSeek 要地址 + 密钥 + 模型，自建服务要地址 */
 export function pdfOcrReady(s: ReaderSettings): boolean {
   if (pdfOcrEngineOf(s) === 'http') return true;

@@ -72,17 +72,22 @@ export function ocrBarHtml(input: OcrBarInput): string {
   const pct = s.kind === 'running' ? ocrBarProgress(s.done, s.total) : 100;
   const text = ocrBarText(s);
   const bad = isBad(s);
-  const title = String(input.why ?? '').trim();
+  const why = String(input.why ?? '').trim();
   const parts: string[] = [];
 
   if (s.kind === 'running' && input.engine) {
     parts.push(`<span class="bzr-ocrsrc">${escapeHtml(engineLabel(input.engine))}</span>`);
   }
   parts.push(
-    `<span class="bzr-ocrtxt${bad ? ' is-err' : ''}"${title ? ` title="${escapeHtml(title)}"` : ''}>${escapeHtml(
+    `<span class="bzr-ocrtxt${bad ? ' is-err' : ''}"${why ? ` title="${escapeHtml(why)}"` : ''}>${escapeHtml(
       text,
     )}</span>`,
   );
+  /* 失败原因以前只进 title：手机上没有 hover，等于永远看不见。
+     失败 / 手动停这两种终态把它摆成一行短字，长文本由 CSS 截断，完整版仍在 title。 */
+  if (why && (bad || s.kind === 'stopped')) {
+    parts.push(`<span class="bzr-ocrwhy" title="${escapeHtml(why)}">${escapeHtml(why)}</span>`);
+  }
   if (s.kind === 'running') {
     parts.push(
       `<span class="bzr-ocrprog" role="progressbar" aria-valuemin="0" aria-valuemax="${Math.max(
@@ -91,8 +96,8 @@ export function ocrBarHtml(input: OcrBarInput): string {
       )}" aria-valuenow="${Math.max(0, Math.floor(s.done))}"><i style="width:${pct}%"></i></span>`,
     );
   }
-  /* 批量有失败：把页号单独摆出来，用户能直接翻过去看是哪几页 */
-  if (s.kind === 'batch' && s.failed.length) {
+  /* 批量 / 手动停有失败：把页号单独摆出来，能直接翻过去看是哪几页 */
+  if ((s.kind === 'batch' || s.kind === 'stopped') && s.failed.length) {
     parts.push(`<span class="bzr-ocrpages">${escapeHtml(ocrBarPages(s.failed))}</span>`);
   }
   const stat = ocrBarStat(input);
@@ -101,7 +106,12 @@ export function ocrBarHtml(input: OcrBarInput): string {
   if (s.kind === 'running') {
     parts.push(button('ocrstop', ICONS.stop, t('pdf.ocrBar.stop')));
   } else {
-    if (s.kind === 'page-failed' || (s.kind === 'batch' && s.failed.length)) {
+    /* 手动停也可能留下失败页：以前停止态不给重试，只能回头栏菜单找 */
+    if (
+      s.kind === 'page-failed' ||
+      (s.kind === 'batch' && s.failed.length) ||
+      (s.kind === 'stopped' && s.failed.length)
+    ) {
       const n = s.kind === 'page-failed' ? 1 : s.failed.length;
       parts.push(
         button(

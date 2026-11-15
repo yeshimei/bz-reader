@@ -227,6 +227,16 @@ describe('识别编排', () => {
     expect(runner.recognized().has(2)).toBe(true);
   });
 
+  it('空闲时点「停止识别」不改状态，不会弹「已停止 · 认完 0 页」', () => {
+    const adapter = new FakeAdapter();
+    const { host } = fakeHost(10);
+    const runner = new PdfOcrRunner(depsOf(host, adapter));
+    const before = { ...runner.getState() };
+    runner.cancel();
+    expect(runner.getState()).toEqual(before);
+    expect(runner.getState().last).toBe('');
+  });
+
   it('清掉：文件删掉，引擎里的层一起撤', async () => {
     const adapter = new FakeAdapter();
     const app = { vault: { adapter } } as unknown as App;

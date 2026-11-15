@@ -2284,6 +2284,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     /* 识别通道的「测试连接」（2026-11-15）：发一张内置小图，确认地址、
        密钥与返回格式都对得上，不用先去认一页才试出来。 */
     case 'ocrtest': {
+      /* 测试发的是真实识别请求（按页计费），和正式识别同一道门 */
+      if (!requireCap('pdfOcr')) break;
       const out = el.closest('.bzs-setgrp')?.querySelector<HTMLElement>('[data-role="ocrprobe-out"]');
       if (out) {
         out.textContent = t('settings.pdfOcrProbe.testing');
