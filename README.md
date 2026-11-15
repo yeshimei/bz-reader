@@ -32,6 +32,10 @@
   <img src="docs/images/read-mobile-dark.webp" width="288" alt="阅读 · 移动端 · 暗色">
 </p>
 
+<p align="center">
+  <img src="docs/images/ai-desktop-light.webp" alt="AI：划词工具条上方的解释 / 翻译 / 总结 / 追问 / 插入到全书问答，锚定的追问浮框，右侧是全书问答">
+</p>
+
 ## 安装
 
 在社区市场安装（首次上架审核通过后可见）：
