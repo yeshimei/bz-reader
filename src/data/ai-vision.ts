@@ -178,7 +178,13 @@ export async function recognizeViaHttp(input: HttpOcrInput): Promise<ParsedOcr> 
     });
   } catch (e) {
     if (input.signal?.aborted) throw new Error('已取消');
-    throw new Error(t('notice.pdf.ocrOffline', { why: (e as Error)?.message || '网络错误' }));
+    const raw = (e as Error)?.message || '';
+    /* Chromium 只会说一句 "Failed to fetch"：可能是没开、端口不对，也可能是
+       没放行跨域。照抄给用户等于没说（2026-11-15 真机上提示里就剩个 fetch）。 */
+    const why = /failed to fetch|networkerror|load failed/i.test(raw)
+      ? t('notice.pdf.ocrFetchHint')
+      : raw || '网络错误';
+    throw new Error(t('notice.pdf.ocrOffline', { why }));
   }
   if (!res.ok) throw new Error(t('notice.pdf.ocrHttp', { status: String(res.status) }));
   let body: unknown;

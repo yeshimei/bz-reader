@@ -36,6 +36,20 @@ const html = (relicense = false, settings = DEFAULT_SETTINGS, pen = 'amber'): st
     version: '0.1.2',
   });
 
+describe('扫描页识别', () => {
+  it('识别方式如实显示用户点的那个，地址空也不悄悄弹回', () => {
+    const out = html(false, { ...DEFAULT_SETTINGS, pdfOcrEngine: 'http', pdfOcrUrl: '' });
+    /* 选中态是按钮自己的 class="on"；回退了就会挂在 vision 那颗上 */
+    expect(out).toContain('class="on" data-act="setocr" data-k="pdfOcrEngine" data-v="http"');
+    expect(out).not.toContain('class="on" data-act="setocr" data-k="pdfOcrEngine" data-v="vision"');
+  });
+
+  it('外部服务这一档带「自部署」的复制提示词按钮', () => {
+    const out = html(false, { ...DEFAULT_SETTINGS, pdfOcrEngine: 'http', pdfOcrUrl: '' });
+    expect(out).toContain('data-act="ocrcopyprompt"');
+  });
+});
+
 describe('界面语言', () => {
   it('九档都在：跟随 Obsidian + 八种语言', () => {
     const out = html();

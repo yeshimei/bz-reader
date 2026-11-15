@@ -167,6 +167,9 @@ const EXEMPT = new Set([
      复制到剪贴板让 AI 照着装本地语音服务，界面上一个字都不显示。它不进语言
      包——翻译成英文反而会让本机的中文 AI 装错接口。 */
   'src/core/tts-deploy-prompt.ts',
+  /* 2026-11-15 同理加 `src/core/pdf-ocr-deploy-prompt.ts`：扫描页识别那段的
+     自部署任务书，只复制给 AI 装 Umi-OCR，界面上不显示。 */
+  'src/core/pdf-ocr-deploy-prompt.ts',
 ]);
 
 const SRC = join(__dirname, '../src');

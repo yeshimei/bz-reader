@@ -22,7 +22,7 @@ import { t, LOCALES, LOCALE_NAMES, type MsgKey } from '../../i18n';
 import { ACCENT_OPTIONS, accentLabel, FONT_FAMILIES, fontLabel, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARGIN_RANGE, TTS_CACHE_RANGE, TTS_RATE_RANGE, type ReaderPrefs } from '../../data/prefs';
 import { ttsEngineReady, type TtsEngine } from '../../core/tts-engine';
 import { HIGHLIGHT_COLORS, colorLabel } from '../../data/notes';
-import { DEFAULT_SETTINGS, pdfOcrEngineOf, type ReaderSettings } from '../../data/settings';
+import { DEFAULT_SETTINGS, type ReaderSettings } from '../../data/settings';
 import { can, entitlement, GROUP_ID, tierText } from '../../data/entitlement';
 import { dataDirOf } from '../../core/plugin-path';
 import { isMobileShell } from '../../core/mobile';
@@ -415,16 +415,30 @@ export function viewSettings(v: SettingsView): string {
           ['vision', t('settings.pdfOcrEngine.vision')],
           ['http', t('settings.pdfOcrEngine.http')],
         ],
-        /* 显示「实际生效的那一档」：选了外部服务却没填地址时会退回 AI 看图，
-           按钮要跟着退，否则用户以为改成功了 */
-        pdfOcrEngineOf(s),
+        /* 显示用户点的那个，而不是「实际生效」的那个：以前这里走
+           pdfOcrEngineOf，选了外部服务却没填地址就弹回 AI，点上去像没反应
+           （2026-11-15 用户指出）。回退只留在运行期，这里如实显示选择，
+           下面用一句提示说清「没填地址会退回」。 */
+        s.pdfOcrEngine,
         'setocr',
         'bzs-seg bzs-seg-pdf2',
       )}</div>
-      <div class="bzs-setrow"><label>${t('settings.pdfOcrUrl')}</label><input data-role="setting" data-k="pdfOcrUrl" placeholder="http://127.0.0.1:9000/ocr" value="${esc(
-        s.pdfOcrUrl,
-      )}" style="flex:1" spellcheck="false"></div>
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfOcrUrl.hint')}</div>
+      ${
+        s.pdfOcrEngine === 'http'
+          ? `<div class="bzs-setrow"><label>${t('settings.pdfOcrUrl')}</label><input data-role="setting" data-k="pdfOcrUrl" placeholder="http://127.0.0.1:1224/api/ocr" value="${esc(
+              s.pdfOcrUrl,
+            )}" style="flex:1" spellcheck="false"></div>
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfOcrUrl.hint')}</div>`
+          : `<div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfOcrEngine.visionHint')}</div>`
+      }
+      ${
+        s.pdfOcrEngine === 'http' && !s.pdfOcrUrl.trim()
+          ? `<div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfOcrFallback')}</div>`
+          : ''
+      }
+      <div class="bzs-setrow"><label>${t('settings.pdfOcrDeploy')}</label>
+        <button class="bzs-btn sm" data-act="ocrcopyprompt">${t('settings.pdfOcrDeploy.copy')}</button>
+      </div>
       <div class="bzs-mini">${t('settings.pdfOcrHint')}</div>
     </div>`;
 

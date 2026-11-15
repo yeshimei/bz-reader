@@ -76,7 +76,7 @@ import { TtsCache, cacheKey } from '../data/tts-cache';
 import { localRequester } from '../data/tts-request';
 import { ttsBarHtml, ttsBarLift, ttsSourceLabel } from './tts-bar';
 import { ttsProgressHtml, type TtsTaskKind, type TtsTaskState } from './tts-progress';
-import { notify, notifyNow, type NoticeHandle } from '../core/notice';
+import { notify, notifyNow, notifyProgress, type NoticeHandle, type ProgressHandle } from '../core/notice';
 import { localeTag, t, type MsgKey } from '../i18n';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
@@ -165,7 +165,7 @@ import { addChapterSeconds, clipLanding, type ClipLanding } from '../data/clip-e
 import { carryMeasuredPages, clipStructureChanged, migrateClipKey, syncClipChapterMeta } from '../data/clip-epub/refresh';
 import { DEFAULT_CLIP_SCOPE, type ClipScope } from '../data/clip-epub/scope';
 import { getShellSource, shellPrefs, shellSettings } from '../shell/source';
-import { OCR_BATCH, PdfOcrRunner, type PdfOcrHostLike } from '../shell/pdf-ocr';
+import { OCR_BATCH, PdfOcrRunner, ocrProgressText, type PdfOcrHostLike } from '../shell/pdf-ocr';
 import { collectPdfBacklinks, invalidatePdfBacklinks } from '../data/pdf-backlink';
 import { epubBacklinkHits } from '../data/epub-backlink';
 import { dispatchAction, requireCap } from '../shell/actions';
@@ -535,6 +535,8 @@ export class ReaderView extends ItemView {
   private readonly ocr: PdfOcrRunner;
   /** 「这本是扫描件」只提醒一次，别每次开书都弹 */
   private scannedNoticed = false;
+  /** 识别进度常驻通知：跑着的时候只改字，出结果再收（2026-11-15） */
+  private ocrNotice: ProgressHandle | null = null;
 
   constructor(leaf: WorkspaceLeaf, api: ReaderHostApi) {
     super(leaf);
@@ -550,6 +552,12 @@ export class ReaderView extends ItemView {
         return host.ocrUi?.image(page, maxWidth) ?? Promise.resolve(null);
       },
       notify: (message, kind) => notify(message, kind === 'error' ? 'error' : kind === 'success' ? 'success' : 'info'),
+      onProgress: (state) => {
+        /* 批量跑的时候每换一页刷一次；跑完 / 被停就收掉。
+           单页不走这里（runPage 不置 running），由 recognizePage 自己管。 */
+        if (state.running) this.showOcrProgress(ocrProgressText(state));
+        else this.hideOcrProgress();
+      },
     });
     /* 按平台取：桌面 prefsDesktop、手机 prefsMobile，新槽空着才回落旧的全局
        prefs。直接读 `store.get().prefs` 会永远拿到升级前那一份——手机上调好的
@@ -591,6 +599,19 @@ export class ReaderView extends ItemView {
     this.recognizePage(page);
   }
 
+  /** 进度是常驻通知：只建一条，后面只改字。反复 new 会堆满一屏 */
+  private showOcrProgress(text: string): void {
+    if (!text) return;
+    if (this.ocrNotice) this.ocrNotice.setMessage(text);
+    else this.ocrNotice = notifyProgress(text);
+  }
+
+  /** 收掉进度：hide() 之后容器要立刻摘，否则淡出期间还压着屏幕 */
+  private hideOcrProgress(): void {
+    this.ocrNotice?.hide();
+    this.ocrNotice = null;
+  }
+
   /** 认指定的一页（内部的实现） */
   private recognizePage(page = this.currentPageNumber()): void {
     if (!this.host.isPdf) {
@@ -598,8 +619,19 @@ export class ReaderView extends ItemView {
       return;
     }
     const target = Math.max(1, Math.floor(Number(page) || 1));
+    /* 单页也要先亮一句：出图 + 请求 + 落盘要几秒，没有反馈就是「点了没反应」 */
+    this.showOcrProgress(t('notice.pdf.ocrOnePage', { page: String(target) }));
     void this.ocr.runPage(target).then((ok) => {
-      if (!ok) return;
+      this.hideOcrProgress();
+      if (!ok) {
+        /* 以前这里直接 return，失败一声不响（2026-11-15 用户报「点了没反应」） */
+        const why = this.ocr.getState().error;
+        notify(
+          why ? t('notice.pdf.ocrFailed', { why }) : t('notice.pdf.ocrFailedBare'),
+          'error',
+        );
+        return;
+      }
       const ocr = this.ocrHost()?.ocrOf(target);
       notify(
         ocr?.layout
@@ -617,8 +649,12 @@ export class ReaderView extends ItemView {
       return;
     }
     const from = this.currentPageNumber();
-    notify(t('notice.pdf.ocrStart', { n: String(OCR_BATCH) }), 'info');
-    void this.ocr.runBatch(from);
+    this.showOcrProgress(
+      t('notice.pdf.ocrRunning', { page: String(from), done: '0', total: String(OCR_BATCH) }),
+    );
+    /* finally 兜底：队列为空（这一批都认过了）时 runBatch 直接返回，
+       没有 finally 的话那条「正在识别」会一直挂在屏幕上。 */
+    void this.ocr.runBatch(from).finally(() => this.hideOcrProgress());
   }
 
   /** 当前页号（PDF 的 pageKey 就是 `pdf:<页>`；取不到按 1） */

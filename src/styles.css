@@ -1756,7 +1756,10 @@ body .view-header .clickable-icon.bzs-host-hidden {
 .bzr-pdf-toolbar {
   position: absolute;
   right: 14px;
-  bottom: 14px;
+  /* 桌面端底部有 Obsidian 的状态栏（保险库 / 工具坞那一行），阅读视图一直
+     铺到窗口最底下，14px 的浮条会被状态栏压掉半截（2026-11-15 用户截图）。
+     按状态栏高度让位；移动端这个变量是 0，下面那条再叠安全区。 */
+  bottom: calc(14px + var(--status-bar-height, 0px));
   z-index: 6;
   display: flex;
   align-items: center;

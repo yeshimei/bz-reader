@@ -164,6 +164,13 @@ describe('外部 OCR 服务', () => {
     await expect(recognizeViaHttp({ url: 'http://x', image: 'QUJD', mime: 'image/jpeg' })).rejects.toThrow('code 500');
   });
 
+  it('浏览器只说 Failed to fetch 时换成人话，不把 fetch 两个字贴给用户', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+    await expect(recognizeViaHttp({ url: 'http://x', image: 'QUJD', mime: 'image/jpeg' })).rejects.toThrow(
+      '服务没有响应',
+    );
+  });
+
   it('没填地址 / 连不上 / 非 200 / 非 JSON 都给一句人话', async () => {
     await expect(recognizeViaHttp({ url: '', image: 'x', mime: 'image/jpeg' })).rejects.toThrow('还没填 OCR 服务地址');
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));

@@ -1052,4 +1052,13 @@ export const JA: Record<MsgKey, string> = {
   'settings.pdfOcrUrl': 'OCR service address',
   'settings.pdfOcrUrl.hint': 'POST the page image here and the service returns every line with its position. Set to use it; leave empty to use AI vision.',
   'settings.pdfOcrHint': 'Scanned pages have no text layer. After recognition, search, selection, highlights, read-aloud and AI all work. Recognized page by page, never the whole book at once.',
+  'notice.pdf.ocrRunning': '[TODO] notice.pdf.ocrRunning {page} {done} {total}',
+  'notice.pdf.ocrOnePage': '[TODO] notice.pdf.ocrOnePage {page}',
+  'notice.pdf.ocrFailed': '[TODO] notice.pdf.ocrFailed {why}',
+  'notice.pdf.ocrFailedBare': '[TODO] notice.pdf.ocrFailedBare',
+  'settings.pdfOcrEngine.visionHint': '[TODO] settings.pdfOcrEngine.visionHint',
+  'settings.pdfOcrFallback': '[TODO] settings.pdfOcrFallback',
+  'settings.pdfOcrDeploy': '[TODO] settings.pdfOcrDeploy',
+  'settings.pdfOcrDeploy.copy': '[TODO] settings.pdfOcrDeploy.copy',
+  'notice.pdf.ocrFetchHint': '[TODO] notice.pdf.ocrFetchHint',
 };

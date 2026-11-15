@@ -74,6 +74,21 @@ export function ocrProgressLabel(state: PdfOcrState): string {
   return `${state.done}/${state.total}`;
 }
 
+/**
+ * 常驻进度通知那句话（2026-11-15）。
+ *
+ * 一批 20 页要跑十几秒到几分钟，中途没有任何反馈时用户只会以为「点了没反应」。
+ * 不跑就返回空串，调用方据此决定收不收这条通知。
+ */
+export function ocrProgressText(state: PdfOcrState): string {
+  if (!state.running) return '';
+  return t('notice.pdf.ocrRunning', {
+    page: String(state.page),
+    done: String(state.done),
+    total: String(state.total),
+  });
+}
+
 /** 差分引擎：识别结果攒着是要给用户看的，不是给日志看的 */
 export function ocrChanged(a: PdfOcrState, b: PdfOcrState): boolean {
   return a.running !== b.running || a.page !== b.page || a.done !== b.done || a.total !== b.total || a.error !== b.error;

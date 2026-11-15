@@ -36,6 +36,7 @@ import { toggleAll, togglePick } from './note-select';
 import { notify } from '../core/notice';
 import { synthesizeFor, ttsEngineReady, ttsVoiceFor, type TtsRoute } from '../core/tts-engine';
 import { ttsDeployPrompt } from '../core/tts-deploy-prompt';
+import { pdfOcrDeployPrompt } from '../core/pdf-ocr-deploy-prompt';
 import { clearVoiceCache, currentVoiceOf, loadVoices, setVoiceOf } from './voice-store';
 import { reconcileVoice } from '../core/tts-voices';
 import { localRequester } from '../data/tts-request';
@@ -2250,6 +2251,23 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         configDir = '';
       }
       void copyText(ttsDeployPrompt({ vaultPath, configDir }));
+      break;
+    }
+    /* 扫描页识别的自部署（2026-11-15）：同一套「复制给 AI 的任务书」。
+       有库路径才能让 AI 直接改 data.json，拿不到就留占位。 */
+    case 'ocrcopyprompt': {
+      let vaultPath = '';
+      let configDir = '';
+      try {
+        const src = getShellSource();
+        const adapter = src?.app.vault.adapter as { getBasePath?: () => string } | undefined;
+        vaultPath = adapter?.getBasePath?.() ?? '';
+        configDir = src?.app.vault.configDir ?? '';
+      } catch {
+        vaultPath = '';
+        configDir = '';
+      }
+      void copyText(pdfOcrDeployPrompt({ vaultPath, configDir }));
       break;
     }
     /* 本地服务的「连接」：点一下就知道地址对不对、有几个音色 */

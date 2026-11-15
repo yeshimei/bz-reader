@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS, type ReaderSettings } from '../src/data/settings';
 import { readOcr, writeOcr, withOcrPage, ocrPath } from '../src/data/pdf-ocr';
 import type { OcrPage } from '../src/engine/pdf/ocr';
 import {
+  ocrProgressText,
   ocrQueue,
   PdfOcrRunner,
   toOcrPage,
@@ -70,6 +71,15 @@ describe('识别队列', () => {
   it('limit 收成至少一页', () => {
     expect(ocrQueue(10, 1, new Set(), 1)).toEqual([1]);
     expect(ocrQueue(10, 1, new Set(), 0)).toEqual([1]);
+  });
+});
+
+describe('常驻进度那句', () => {
+  it('批量跑的时候带当前页与「已完/总数」，不跑就是空串', () => {
+    const running = ocrProgressText({ running: true, page: 3, done: 2, total: 20, error: '' });
+    expect(running).toContain('3');
+    expect(running).toContain('2/20');
+    expect(ocrProgressText({ running: false, page: 0, done: 0, total: 0, error: '' })).toBe('');
   });
 });
 

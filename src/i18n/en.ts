@@ -1062,4 +1062,13 @@ export const EN: Record<MsgKey, string> = {
   'notice.book.archivedN': 'Removed {n} books from the shelf; all data kept',
   'shelves.assignedN': 'Added {n} books to “{name}”',
   'shelves.assignedNoneN': 'Removed {n} books from their category',
+  'notice.pdf.ocrRunning': '[TODO] notice.pdf.ocrRunning {page} {done} {total}',
+  'notice.pdf.ocrOnePage': '[TODO] notice.pdf.ocrOnePage {page}',
+  'notice.pdf.ocrFailed': '[TODO] notice.pdf.ocrFailed {why}',
+  'notice.pdf.ocrFailedBare': '[TODO] notice.pdf.ocrFailedBare',
+  'settings.pdfOcrEngine.visionHint': '[TODO] settings.pdfOcrEngine.visionHint',
+  'settings.pdfOcrFallback': '[TODO] settings.pdfOcrFallback',
+  'settings.pdfOcrDeploy': '[TODO] settings.pdfOcrDeploy',
+  'settings.pdfOcrDeploy.copy': '[TODO] settings.pdfOcrDeploy.copy',
+  'notice.pdf.ocrFetchHint': '[TODO] notice.pdf.ocrFetchHint',
 };

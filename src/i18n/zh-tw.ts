@@ -1049,4 +1049,13 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.pdfOcrUrl': 'OCR 服務位址',
   'settings.pdfOcrUrl.hint': '把這一頁的圖 POST 過去，服務回傳每行文字與位置。填了才走這條，留空則用 AI 看圖。',
   'settings.pdfOcrHint': '掃描頁沒有文字層：辨識過之後搜尋、劃詞、劃線、朗讀和 AI 都能用。逐頁辨識，不會自動整本跑。',
+  'notice.pdf.ocrRunning': '[TODO] notice.pdf.ocrRunning {page} {done} {total}',
+  'notice.pdf.ocrOnePage': '[TODO] notice.pdf.ocrOnePage {page}',
+  'notice.pdf.ocrFailed': '[TODO] notice.pdf.ocrFailed {why}',
+  'notice.pdf.ocrFailedBare': '[TODO] notice.pdf.ocrFailedBare',
+  'settings.pdfOcrEngine.visionHint': '[TODO] settings.pdfOcrEngine.visionHint',
+  'settings.pdfOcrFallback': '[TODO] settings.pdfOcrFallback',
+  'settings.pdfOcrDeploy': '[TODO] settings.pdfOcrDeploy',
+  'settings.pdfOcrDeploy.copy': '[TODO] settings.pdfOcrDeploy.copy',
+  'notice.pdf.ocrFetchHint': '[TODO] notice.pdf.ocrFetchHint',
 };
