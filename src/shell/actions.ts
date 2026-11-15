@@ -103,6 +103,13 @@ import {
   toggleFav,
 } from './state';
 import { RT, emitNotesChanged, pushAi, resetAi } from './runtime';
+import {
+  addAiContext,
+  charCount,
+  composeAiPrompt,
+  type AiContextItem,
+} from './ai-context';
+import { aiPromptLabels } from './ai-labels';
 import { HITS_PAGE } from './search-hits';
 import { kickBodySearch, refreshBodyHits, resetBodySearch, stopBodySearch } from './search-run';
 import { currentSearchSurface, kickSemanticSearch, resetSemanticSearch } from './search-semantic';
@@ -2884,6 +2891,81 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (!requireCap('ai')) break;
       void askAi(el);
       break;
+    /* 输入条里的上下文（A 版）：四类插入 + 删除 + 笔记选择器 */
+    case 'aictxdel': {
+      const i = Number(d.i);
+      if (!Number.isInteger(i) || i < 0 || i >= RT.aiCtx.length) break;
+      RT.aiCtx = RT.aiCtx.filter((_, idx) => idx !== i);
+      repaint();
+      focusAiInput();
+      break;
+    }
+    case 'aictxbody': {
+      const text = cleanBodyText(getShellSource()?.currentText() ?? '');
+      if (!text) {
+        notify(t('side.ai.ctx.bodyEmpty'), 'info');
+        break;
+      }
+      RT.aiCtx = addAiContext(RT.aiCtx, {
+        kind: 'body',
+        text,
+        chars: charCount(text),
+        meta: currentBook()?.reading.position.chapterTitle || '',
+      });
+      repaint();
+      focusAiInput();
+      break;
+    }
+    case 'aictxnote':
+      RT.aiNoteOpen = !RT.aiNoteOpen;
+      RT.aiNoteKw = '';
+      repaint();
+      break;
+    case 'aictxnotepick': {
+      const path = String(d.path ?? '').trim();
+      const title = String(d.title ?? '').trim();
+      if (!path) break;
+      RT.aiCtx = addAiContext(RT.aiCtx, {
+        kind: 'note',
+        text: title || path.split('/').pop()?.replace(/\.md$/i, '') || path,
+        path,
+        meta: path,
+      });
+      RT.aiNoteOpen = false;
+      RT.aiNoteKw = '';
+      repaint();
+      focusAiInput();
+      break;
+    }
+    case 'aictxshot': {
+      const src = getShellSource();
+      if (!src?.captureAiShot) {
+        notify(t('side.ai.ctx.shotPdf'), 'info');
+        break;
+      }
+      const shotBook = currentBook()?.id || '';
+      RT.aiNoteOpen = false;
+      RT.aiNoteKw = '';
+      repaint();
+      void src
+        .captureAiShot()
+        .then((shot) => {
+          if (!shot) return;
+          /* 框选期间换了书：这一块不属于新书，丢掉（C4 同一条理由） */
+          if ((currentBook()?.id || '') !== shotBook) return;
+          RT.aiCtx = addAiContext(RT.aiCtx, {
+            kind: 'shot',
+            thumb: shot.thumb,
+            meta: `${shot.w} × ${shot.h}`,
+            shot: shot.geom,
+            text: shot.text,
+          });
+          repaint();
+          focusAiInput();
+        })
+        .catch(() => notify(t('side.ai.ctx.shotFail'), 'info'));
+      break;
+    }
     case 'opensrc': {
       const src = getShellSource();
       const path = d.path || '';
@@ -3677,6 +3759,50 @@ function saveIdea(markId?: string, bookId?: string): void {
 
 /* ─────────── 侧栏 AI 页签：问这本书 ─────────── */
 
+/** 当前这一屏的正文：保留段落，只收掉多余空白（喂给模型前统一口径） */
+function cleanBodyText(raw: string): string {
+  return String(raw ?? '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t\u00a0]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/** 插入上下文之后把焦点还给输入框：不打字就得不到下一句 */
+function focusAiInput(): void {
+  window.setTimeout(() => {
+    document
+      .querySelector<HTMLTextAreaElement>('.bzs-ai-composer [data-role="aiask"]')
+      ?.focus({ preventScroll: true });
+  }, 0);
+}
+
+/**
+ * 外部接入口：把一段字挂到「AI 全书问答」的输入条上（P2，2026-11-16）。
+ *
+ * 工具条以后接「插入到 AI 全书问答」时只需要调这一个函数；本轮不加按钮。
+ * 侧栏不在 AI 页签时会切过去，切完再重绘，chip 立刻可见。
+ */
+export function attachAiContext(
+  kind: 'quote' | 'body' | 'note',
+  text: string,
+  meta?: string,
+): void {
+  const clean = cleanBodyText(text);
+  if (!clean) return;
+  RT.aiCtx = addAiContext(RT.aiCtx, {
+    kind,
+    text: clean,
+    meta: meta?.trim() || undefined,
+    chars: kind === 'body' ? charCount(clean) : undefined,
+  });
+  setState({ sideTab: 'ai' });
+  getShellSource()?.openSidebar?.('ai');
+  repaint();
+  focusAiInput();
+}
+
+
 /**
  * 取证阶段的预算（毫秒）。
  *
@@ -3768,10 +3894,14 @@ async function sharedEvidenceOf(
  * 弹出来，建完原样重发这一句。
  */
 async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
-  const scopeEl = el?.closest('.bzs-aiask, .bzs-aichat') ?? null;
-  const input = scopeEl?.querySelector<HTMLInputElement>('[data-role="aiask"]') ?? null;
-  const q = (preset ?? input?.value ?? '').trim();
-  if (!q) return;
+  const scopeEl = el?.closest('.bzs-aichat, .bzs-ai-composer') ?? null;
+  const input =
+    scopeEl?.querySelector<HTMLTextAreaElement>('[data-role="aiask"]') ?? null;
+  const typed = (preset ?? input?.value ?? '').trim();
+  /* 上下文也算「有内容」：只插了正文 / 划线没打字时，发送键是亮的 */
+  const ctxItems: AiContextItem[] = RT.aiCtx.slice();
+  if (!typed && !ctxItems.length) return;
+  const q = typed || t('side.ai.ctx.only');
   const src = getShellSource();
   if (!src) return;
   const settings = shellSettings();
@@ -3788,8 +3918,8 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
   /* 第一次用：先说清楚会把什么发出去。确认之后原样重发这条提问 */
   if (!settings.aiAck) {
     RT.ackPending = { q };
-    RT.aiDraft = q;
-    if (input) input.value = q;
+    RT.aiDraft = typed;
+    if (input) input.value = typed;
     openOverlay({ kind: 'ack' });
     return;
   }
@@ -3802,8 +3932,8 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
   if (portraitState(portrait, bzEmbedder(src.app).model) !== 'ready') {
     /* 草稿要落在 RT 里：下面这次 repaint 会把输入框整个换掉，只写 element
        的 value 等于没写。 */
-    RT.aiDraft = q;
-    if (input) input.value = q;
+    RT.aiDraft = typed;
+    if (input) input.value = typed;
     RT.aiIndexOpen = true;
     notify(t('side.ai.book.none'), 'info');
     repaint();
@@ -3813,8 +3943,15 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
   /* 先把自己这条提问放进日志（界面立刻有反馈），再取历史时要把它排除——
      buildMessages 会把 text 作为最后一条 user 追加。 */
   const history = RT.aiLog.map((m) => ({ role: m.me ? ('user' as const) : ('assistant' as const), content: m.text }));
-  pushAi(true, '我', q);
+  /* 上下文拼进这一问；气泡仍显示用户原话（或「只带了上下文」） */
+  const userPrompt = ctxItems.length
+    ? composeAiPrompt(ctxItems, typed, aiPromptLabels())
+    : undefined;
+  pushAi(true, '我', q, undefined, ctxItems);
+  RT.aiCtx = [];
   RT.aiDraft = '';
+  RT.aiNoteOpen = false;
+  RT.aiNoteKw = '';
   if (input) input.value = '';
   repaint();
 
@@ -3866,6 +4003,7 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
         chapter: book.reading.position.chapterTitle,
         context: evidence.context,
         history,
+        userPrompt,
       },
       { signal: ctrl.signal },
     );
@@ -4135,6 +4273,11 @@ export function dispatchInput(
      把用户打了一半的问题抹掉。不广播，省得每次按键都重绘。 */
   if (role === 'aiask') {
     RT.aiDraft = value;
+    return;
+  }
+  /* 笔记选择器的搜索词：只留在内存里，重绘后输入框还能回填 */
+  if (role === 'ainotesearch') {
+    RT.aiNoteKw = value;
     return;
   }
 }

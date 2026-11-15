@@ -67,7 +67,7 @@ import { DEFAULT_SETTINGS } from './data/settings';
 /* 壳层 */
 import { StudyView, VIEW_TYPE_STUDY } from './shell/study-view';
 import { OverlayLayer } from './shell/overlay';
-import { dispatchAction, requireCap } from './shell/actions';
+import { attachAiContext, dispatchAction, requireCap } from './shell/actions';
 import { clampDailyGoal } from './shell/checkin';
 import {
   DEFAULT_SHELL_STATE,
@@ -181,6 +181,16 @@ export function createPlugin(cfg: PluginConfig) {
          免得刚切完就重载插件、码又从上一次存档里冒出来。 */
       if (dropped) void this.flushCfg();
       notifyShell();
+    }
+
+    /**
+     * 外部接入口：把一段字挂到侧栏「AI 全书问答」的输入条上。
+     *
+     * 工具条 / 别的脚本调它即可，不必知道 chip 与输入条长什么样。
+     * 侧栏不在 AI 页签时会自动切过去。
+     */
+    attachAiContext(kind: 'quote' | 'body' | 'note', text: string, meta?: string): void {
+      attachAiContext(kind, text, meta);
     }
 
     /**
@@ -666,6 +676,7 @@ export function createPlugin(cfg: PluginConfig) {
         settings: () => this.cfg.settings,
         setSettings: (patch) => this.setSettings(patch),
         currentText: () => this.activeReader()?.pageText() ?? '',
+        captureAiShot: () => this.activeReader()?.captureAiShot() ?? Promise.resolve(null),
         prefetchBookAudio: () => void this.activeReader()?.prefetchBook(),
         exportChapterAudio: () => void this.activeReader()?.exportChapterAudio(),
         isPrefetchingBook: () => this.activeReader()?.prefetchingBookActive ?? false,

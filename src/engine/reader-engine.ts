@@ -94,6 +94,21 @@ export interface PdfOcrUi {
   ): Promise<{ blob: Blob; rotation: number; width: number; height: number } | null>;
 }
 
+/** 侧栏 AI 截图用的当前章快照（EPUB 专属；PDF 走画布裁切） */
+export interface AiShotSource {
+  /** 当前章节的 iframe 文档：取选中文字、克隆整章 HTML 都靠它 */
+  doc: Document;
+  /** iframe 元素本身：量它在宿主里的位置（分页器会把它横向平移） */
+  frame: HTMLIFrameElement;
+  /** 一屏的 CSS 宽 / 高（不是整章宽） */
+  pageW: number;
+  pageH: number;
+  /** 整章排版宽（分页器把一章排成很多列；缩略图要把 html 撑到这么宽再左移） */
+  contentW: number;
+  /** 序列化后的整章文档：写进 sandbox iframe 当缩略图 */
+  html: string;
+}
+
 export interface ReaderEngine {
   /** PDF 走另一套渲染；视图层据此隐藏排版面板、改页码文案 */
   readonly isPdf: boolean;
@@ -142,6 +157,13 @@ export interface ReaderEngine {
   /** 当前章节序号（0 起）；剪藏本用它认「这是哪一篇」 */
   readonly currentChapterIndex: number;
   currentText(): string;
+  /**
+   * 侧栏 AI「截图」用的当前章快照（EPUB 专属）。
+   *
+   * 壳层不能直接摸 foliate 的 closed shadow DOM，所以由引擎把 iframe
+   * 与几何量交出来；PDF 不实现（它用画布裁切）。
+   */
+  aiShotSource?(): AiShotSource | null;
   /**
    * 当前屏幕上的段落（朗读切「旁白 / 对白」用）。
    *

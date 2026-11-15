@@ -63,6 +63,13 @@ export interface AiAskInput {
   context?: string;
   /** 之前的问答，按时间正序 */
   history?: AiTurn[];
+  /**
+   * 已经拼好的这一问（侧栏 A 版的【上下文】+【问题】）。
+   *
+   * 用户插了划线 / 正文 / 截图 / 笔记时，由 shell/ai-context.ts 统一拼；
+   * 有它就原样作为最后一条 user，不再套一层【问题】，避免出现两个标题。
+   */
+  userPrompt?: string;
   /** 主题书单的候选（只有 route 用）：书 + 命中的章节 + 相关度 */
   books?: RouteBook[];
 }
@@ -206,9 +213,12 @@ export function buildMessages(input: AiAskInput): AiMessage[] {
   for (const turn of (input.history ?? []).slice(-ASK_HISTORY_MAX)) {
     if (turn.content.trim()) messages.push({ role: turn.role, content: turn.content });
   }
+  const user = input.userPrompt?.trim()
+    ? input.userPrompt
+    : `【问题】\n${input.text}`;
   messages.push({
     role: 'user',
-    content: ctx ? `【依据】\n${ctx}\n\n【问题】\n${input.text}` : `【问题】\n${input.text}`,
+    content: ctx ? `【依据】\n${ctx}\n\n${user}` : user,
   });
   return messages;
 }

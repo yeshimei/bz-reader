@@ -16,6 +16,12 @@ import type { BmkRow, MarkRow } from '../domain';
 import { bmksOf, groupByChapter, marksOf } from '../domain';
 import type { SideTab } from '../state';
 import type { AiLogItem } from '../runtime';
+import {
+  canSendAi,
+  ctxChipText,
+  type AiContextItem,
+} from '../ai-context';
+import { aiPromptLabels } from '../ai-labels';
 import { isTocItemActive, type TocActiveRef } from '../toc-active';
 import type { BuildProgress } from '../../data/portrait-build';
 import type { PortraitPlan, PortraitState } from '../../data/portrait';
@@ -39,6 +45,14 @@ export interface SidebarView {
   aiReady: boolean;
   /** 输入框里没发出去的草稿：侧栏整页重建后要能原样回填 */
   aiDraft?: string;
+  /** 输入条里还没发出去的上下文（A 版四类：划线 / 正文 / 截图 / 笔记） */
+  aiCtx?: readonly AiContextItem[];
+  /** 笔记选择器开着没有 */
+  aiNoteOpen?: boolean;
+  /** 笔记选择器里的搜索词 */
+  aiNoteKw?: string;
+  /** 笔记选择器默认列出的最近修改（最多 20 篇） */
+  aiNotes?: readonly AiNoteRow[];
   /**
    * AI 页签的索引态（2026-11-07 定稿）。
    *
@@ -69,9 +83,16 @@ export interface SidebarView {
   citesOnlyPage?: boolean;
 }
 
+/** 笔记选择器的一行（数据来自库里的 Markdown 文件） */
+export interface AiNoteRow {
+  title: string;
+  path: string;
+  /** 二级说明：所在目录 */
+  desc: string;
+}
+
 /** 侧栏 AI 页签要画的那点索引状态 */
-export interface AiIndexView {
-  state: PortraitState;
+export interface AiIndexView {  state: PortraitState;
   /** 盘上的状态还没读回来：先只说一句「在读」，不摆按钮也不摆输入框 */
   loading?: boolean;
   /** 正在跑（或上次停在一半）的任务进度；null / 缺省 = 没有任务 */
@@ -511,40 +532,143 @@ function indexBody(v: SidebarView, idx: AiIndexView): string {
     </div>`;
 }
 
-/** 建好之后：对话 + 输入框。提问一律按全书回答，没有档位可选 */
+/** 截图缩略图：PDF 是 data URL；EPUB 是一份 sandbox iframe 快照 */
+function shotThumbHtml(item: AiContextItem, cls = 'bzs-ctx-thumb'): string {
+  const thumb = String(item.thumb ?? '');
+  if (/^data:image\//i.test(thumb)) {
+    return `<span class="${cls}"><img src="${esc(thumb)}" alt=""></span>`;
+  }
+  const g = item.shot;
+  if (g && g.pageW > 0 && g.pageH > 0) {
+    /* 原型 thumbHtml：先按选区放大到铺满 26×16，再把选区左上角挪到 0,0 */
+    const TW = 26;
+    const TH = 16;
+    const k = Math.max(TW / Math.max(1, g.w), TH / Math.max(1, g.h));
+    const left = -g.x * k + (TW - g.w * k) / 2;
+    const top = -g.y * k + (TH - g.h * k) / 2;
+    return `<span class="${cls}"><iframe class="bzs-shot-frame" sandbox="" scrolling="no" tabindex="-1" aria-hidden="true" style="width:${g.pageW}px;height:${g.pageH}px;transform:scale(${k});left:${left}px;top:${top}px" srcdoc="${esc(
+      thumb,
+    )}"></iframe></span>`;
+  }
+  return `<span class="${cls} is-empty"></span>`;
+}
+
+/**
+ * 输入条 / 已发气泡里的一枚上下文 chip。
+ *
+ * A 版把四类上下文压成一样高的一行小标签：截图带 26×16 缩略图，
+ * 正文只报字数，笔记露标题，划线露前十几个字。气泡里的不可删。
+ */
+function ctxChipHtml(
+  item: AiContextItem,
+  opts: { index?: number; removable?: boolean; max?: number } = {},
+): string {
+  const labels = aiPromptLabels();
+  const label = ctxChipText(item, labels, opts.max);
+  const icon =
+    item.kind === 'quote' ? '❝' : item.kind === 'body' ? '¶' : item.kind === 'note' ? '▤' : '';
+  const remove =
+    opts.removable && opts.index !== undefined
+      ? `<button class="x" data-act="aictxdel" data-i="${opts.index}" title="${t(
+          'side.ai.ctx.remove',
+        )}">×</button>`
+      : '';
+  const shot = item.kind === 'shot' ? shotThumbHtml(item) : '';
+  return `<span class="bzs-ctx-chip${item.kind === 'shot' ? ' has-shot' : ''}">${shot}${
+    icon ? `<i class="k">${icon}</i>` : ''
+  }<i class="t">${esc(label)}</i>${remove}</span>`;
+}
+
+/** 一条消息。AI 的答走 Markdown 渲染；用户那句保持纯文本，上下文仍显示成 chip */
+function aiBubbleHtml(m: AiLogItem, hint: boolean): string {
+  if (m.me) {
+    const chips = m.ctx?.length
+      ? `<div class="bzs-aictx is-sent">${m.ctx
+          .map((c) => ctxChipHtml(c, { max: c.kind === 'quote' ? 16 : 10 }))
+          .join('')}</div>`
+      : '';
+    return `<div class="bzs-aibubble me">${chips}<div class="txt">${esc(m.text)}</div></div>`;
+  }
+  /* 空对话只有一条提示：不加空态卡片、不加标题，和原型一样就是一条 AI 气泡 */
+  const body = hint
+    ? `<div class="txt">${esc(m.text)}</div>`
+    : `<div class="txt" data-ai-md>${esc(m.text)}</div>`;
+  return `<div class="bzs-aibubble ai"><span class="tag">${t(
+    'side.ai.tag.book',
+  )}</span>${body}${aiSourcesRow(m)}</div>`;
+}
+
+/** 笔记选择器：默认最近修改的 20 篇；搜索框只过滤这 20 行，不重绘 */
+function notePickerHtml(v: SidebarView): string {
+  if (!v.aiNoteOpen) return '';
+  const rows = (v.aiNotes ?? [])
+    .map(
+      (n) => `<button type="button" class="bzs-pk-row" data-act="aictxnotepick" data-path="${esc(
+        n.path,
+      )}" data-title="${esc(n.title)}">
+        <span class="ic">▤</span>
+        <span class="body"><span class="nm">${esc(n.title)}</span><span class="ds">${esc(
+          n.desc,
+        )}</span></span>
+      </button>`,
+    )
+    .join('');
+  return `<div class="bzs-picker" data-role="aipicker">
+      <div class="bzs-pk-head">
+        <b>${t('side.ai.ctx.noteTitle')}</b>
+        <input data-role="ainotesearch" placeholder="${t('side.ai.ctx.noteSearch')}" value="${esc(
+          v.aiNoteKw ?? '',
+        )}">
+      </div>
+      <div class="bzs-pk-list">${
+        rows || `<div class="bzs-pk-empty">${t('side.ai.ctx.noteEmpty')}</div>`
+      }</div>
+    </div>`;
+}
+
+/** A 版输入卡片：待发送 chips + 自动长高的 textarea + 左下三颗命令 + 右下发送 */
+function aiComposerHtml(v: SidebarView): string {
+  const items = v.aiCtx ?? [];
+  const disabled = canSendAi(v.aiDraft, items) ? '' : ' disabled';
+  return `<div class="bzs-ai-composer">
+      <div class="bzs-aictx">${items
+        .map((c, i) => ctxChipHtml(c, { removable: true, index: i }))
+        .join('')}</div>
+      <textarea data-role="aiask" rows="1" placeholder="${t('side.ai.ask.ph')}">${esc(
+        v.aiDraft ?? '',
+      )}</textarea>
+      <div class="bzs-ai-cbar">
+        <div class="bzs-ai-qacts">
+          <button class="bzs-qbtn" data-act="aictxbody" aria-label="${t('side.ai.ctx.body')}" title="${t(
+            'side.ai.ctx.body',
+          )}">${icoNative('file-text', 16)}</button>
+          <button class="bzs-qbtn" data-act="aictxshot" aria-label="${t('side.ai.ctx.shot')}" title="${t(
+            'side.ai.ctx.shot',
+          )}">${icoNative('scan', 16)}</button>
+          <button class="bzs-qbtn" data-act="aictxnote" aria-label="${t('side.ai.ctx.note')}" title="${t(
+            'side.ai.ctx.note',
+          )}">${icoNative('notebook', 16)}</button>
+        </div>
+        <button class="bzs-ai-send" data-act="aiask" aria-label="${t(
+          'side.ai.send',
+        )}" title="${t('side.ai.send')}"${disabled}>${icoNative('arrow-up', 18)}</button>
+      </div>
+      ${notePickerHtml(v)}
+    </div>`;
+}
+
+/** 建好之后：聊天消息 + 固定底栏输入卡片。提问一律按全书回答，没有档位可选 */
 function indexChat(v: SidebarView, idx: AiIndexView): string {
-  const log = v.aiLog.length
+  const log: AiLogItem[] = v.aiLog.length
     ? v.aiLog
-    : [{ me: false, tag: 'AI', text: t('side.ai.hint') }];
+    : [{ me: false, tag: t('side.ai.tag.book'), text: t('side.ai.hint') }];
   const blocks = idx.blocks && idx.blocks > 0 ? ` · ${t('pt.blockCount', { n: idx.blocks })}` : '';
   return `<div class="bzs-aichat">
-      <div class="bzs-aimeta">${t('side.ai.scope.book')}${blocks}
-        <button class="lnk" data-act="aiidxrebuild">${t('side.ai.index.rebuild')}</button>
+      <div class="bzs-aimeta"><span>${t('side.ai.scope.book')}${blocks}</span>
+        <button class="lnk" data-act="aiidxrebuild">${t('side.ai.rebuild.short')}</button>
       </div>
-      ${log
-        .map(
-          (m) =>
-            `<div class="bzs-aibubble${m.me ? ' me' : ''}"><span class="tag">${m.me ? t('side.ai.me') : esc(
-              m.tag,
-            )}</span>${
-              /* AI 的答按 Markdown 渲染（2026-11-11），用户自己那句保持纯文本 */
-              m.me
-                ? esc(m.text)
-                : `<div class="txt" data-ai-md>${esc(m.text)}</div>`
-            }${aiSourcesRow(m)}</div>`,
-        )
-        .join('')}
-      <div class="bzs-aiask">
-        <input data-role="aiask" placeholder="${t('side.ai.ask.ph')}" value="${esc(v.aiDraft ?? '')}">
-        <button class="bzs-btn sm pri" data-act="aiask">${t('side.ai.ask')}</button>
-      </div>
-      ${
-        /* 对话只活在内存里：关掉插件就没了。有内容时才给存档入口，
-           空对话点了只会得到一句「还没有可以存档的对话」。 */
-        v.aiLog.length
-          ? `<div class="bzs-aimeta"><button class="lnk" data-act="aisavelog">${t('side.ai.saveLog')}</button></div>`
-          : ''
-      }
+      <div class="bzs-aimsg">${log.map((m) => aiBubbleHtml(m, !v.aiLog.length)).join('')}</div>
+      ${aiComposerHtml(v)}
     </div>`;
 }
 
@@ -565,6 +689,7 @@ function aiBody(v: SidebarView): string {
 export function viewSidebar(v: SidebarView): string {
   const book = v.book;
   const title = book ? book.meta.title || t('side.untitled') : t('side.noBook');
+  const author = book?.meta.author ? `<span class="author">${esc(book.meta.author)}</span>` : '';
   const counts = book
     ? {
         bookmarks: (book.notes?.bookmarks ?? []).length,
@@ -619,9 +744,12 @@ export function viewSidebar(v: SidebarView): string {
     body = aiBody(v);
   }
 
+  /* 只有真正进到聊天态才切成「消息自己滚 + 输入条钉底」的布局；
+     建索引 / 选建法 / 没配服务那几屏还是普通整页滚动。 */
+  const aiChat = v.tab === 'ai' && v.aiReady && v.aiIndex?.state === 'ready';
   return `<div class="bzs-side">
     <div class="bzs-sbtabs">${tabs}</div>
-    <div class="bzs-sbhead"><b>${esc(title)}</b></div>
-    <div class="bzs-sbbody">${body}</div>
+    <div class="bzs-sbhead"><b>${esc(title)}</b>${author}</div>
+    <div class="bzs-sbbody${aiChat ? ' is-ai' : ''}">${body}</div>
   </div>`;
 }

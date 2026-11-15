@@ -502,6 +502,10 @@ export function setState(patch: Partial<ShellState>): void {
     RT.askAbort = null;
     RT.aiBookId = '';
     RT.aiLog = [];
+    /* 上下文属于上一本书：一句划线、一屏正文都带不过来 */
+    RT.aiCtx = [];
+    RT.aiNoteOpen = false;
+    RT.aiNoteKw = '';
   }
   persist();
   notify();

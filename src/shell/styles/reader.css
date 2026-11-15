@@ -31,6 +31,52 @@
   background: transparent;
 }
 
+/* ── 侧栏 AI 截图：书页框选遮罩（A 版「截图」） ──
+   遮罩挂在 body 上、用 fixed 对齐 .bzs-rpages：分页器把 iframe 平移过，
+   挂在阅读区里会跟着滚动。框外压暗用 9999px 阴影做到，不依赖 canvas。 */
+.bzs-ai-veil {
+  position: fixed;
+  z-index: 40;
+  cursor: crosshair;
+  background: rgba(24, 20, 14, .30);
+  touch-action: none;
+}
+
+.bzs-ai-veil .hint {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(18, 16, 12, .74);
+  color: #fff;
+  font-size: 11px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.bzs-ai-shotrect {
+  position: absolute;
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 0 9999px rgba(24, 20, 14, .34), 0 0 0 1px rgba(0, 0, 0, .25);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.bzs-ai-shotrect .sz {
+  position: absolute;
+  right: -1px;
+  bottom: -22px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(18, 16, 12, .82);
+  color: #fff;
+  font-size: 10px;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
 /* 卷面容器：没有悬浮栏之后不再需要上下留白 */
 .bzs-rpages {
   flex: 1;

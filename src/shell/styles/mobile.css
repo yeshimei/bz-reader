@@ -965,8 +965,7 @@
   .bzs-shell textarea,
   .bzs-shell textarea.idea,
   .bzs-well input,
-  .bzs-search-in input,
-  .bzs-aiask input {
+  .bzs-search-in input {
     font-size: 16px;
   }
 

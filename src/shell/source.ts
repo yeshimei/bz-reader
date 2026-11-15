@@ -20,6 +20,7 @@ import { normalizeSettings } from '../data/settings';
 import type { ReaderStore } from '../data/store';
 import type { StudyPage } from './state';
 import type { TextHit } from './text-search';
+import type { AiShotCapture } from './ai-context';
 
 export interface ShellSource {
   app: App;
@@ -137,6 +138,13 @@ export interface ShellSource {
    * 「刚读到的这段」。没开书 / 还没分页时返回空串，调用方要处理。
    */
   currentText: () => string;
+  /**
+   * 侧栏 AI 上下文「截图」：在书页上盖一层框选遮罩，松手返回快照。
+   *
+   * 取消 / 没开书返回 null。阅读视图负责画遮罩与取快照，壳层只把结果
+   * 变成一枚 chip——两边不互相 import。
+   */
+  captureAiShot?: () => Promise<AiShotCapture | null>;
   /**
    * 扫描页识别：认当前打开这本的某一页。
    *

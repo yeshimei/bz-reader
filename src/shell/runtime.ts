@@ -12,6 +12,7 @@ import type { AiSource } from '../data/ai-evidence';
 import type { PortraitPlan } from '../data/portrait';
 import type { SemanticHit } from '../data/book-search';
 import type { BodyHit } from './search-body';
+import type { AiContextItem } from './ai-context';
 
 export interface SelectionPayload {
   /** 整段选区在宿主坐标系里的矩形：想法 / 书摘贴着它弹，而不是跑到屏幕中间 */
@@ -35,6 +36,12 @@ export interface AiLogItem {
   text: string;
   /** 这一条答完之后附的来源（知识库笔记能点开，全书的只有章节名） */
   sources?: AiSource[];
+  /**
+   * 用户这一问带上的上下文快照（A 版气泡里也要显示那几枚 chip）。
+   *
+   * 只在 `me === true` 时有值；存的是插入时的快照，不是在提问里拼好的整段。
+   */
+  ctx?: AiContextItem[];
 }
 
 export const RT = {
@@ -162,6 +169,17 @@ export const RT = {
    * 不存草稿等于让用户白打一遍。
    */
   aiDraft: '',
+  /**
+   * 输入条里还没发出去的上下文（A 版：划线 / 正文 / 截图 / 笔记）。
+   *
+   * 侧栏是整页重建，chip 与正文一样必须存在内存里；发出去之后清空。
+   * 与 aiLog 分开：这些是「这一问的附件」，不是对话记录。
+   */
+  aiCtx: [] as AiContextItem[],
+  /** 笔记选择器开着没有（点「笔记」展开；重绘后要还开着） */
+  aiNoteOpen: false,
+  /** 笔记选择器里的搜索词：重绘不该把用户刚打的字清掉 */
+  aiNoteKw: '',
   /** 画像方案：记住上次选的（两种方案差别很大，用户通常固定用同一种） */
   portraitPlan: 'vector' as PortraitPlan,
   /**
@@ -209,8 +227,20 @@ export const RT = {
   tocCollapsed: new Set<string>(),
 };
 
-export function pushAi(me: boolean, tag: string, text: string, sources?: AiSource[]): void {
-  RT.aiLog.push({ me, tag, text, sources: sources?.length ? sources : undefined });
+export function pushAi(
+  me: boolean,
+  tag: string,
+  text: string,
+  sources?: AiSource[],
+  ctx?: AiContextItem[],
+): void {
+  RT.aiLog.push({
+    me,
+    tag,
+    text,
+    sources: sources?.length ? sources : undefined,
+    ctx: me && ctx?.length ? ctx : undefined,
+  });
   // 只留最近 20 条：侧栏气泡不是聊天记录，不需要无限长
   if (RT.aiLog.length > 20) RT.aiLog = RT.aiLog.slice(-20);
 }

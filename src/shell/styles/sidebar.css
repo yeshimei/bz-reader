@@ -25,9 +25,9 @@
 /* ── 书名行 ── */
 .bzs-sbhead {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
-  padding: 8px 14px 0;
+  padding: 9px 14px 8px;
   flex-shrink: 0;
 }
 
@@ -39,8 +39,18 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
+}
+
+.bzs-sbhead .author {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 10.5px;
+  color: var(--t3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bzs-sbhead .sp {
@@ -624,55 +634,421 @@
   color: var(--copper);
 }
 
-/* ── AI 对话 ── */
-.bzs-aichat {
+/* ── AI 对话（A 版 · 停靠输入条，2026-11-16） ──
+   整块占满页签内容区：元信息一行、消息流自己滚、输入卡片钉在底部。
+   sbbody 平时是整页滚动容器，AI 页签要换成 flex 列，否则输入条会跟着
+   消息一起滚上去。 */
+.bzs-sbbody.is-ai {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 12px 4px;
+  overflow: hidden;
+  padding: 0;
 }
 
+.bzs-aichat {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bzs-aimsg {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  scrollbar-width: thin;
+}
+
+/* 消息 · A 版：用户气泡铜底，AI 只留字与一枚铜色标签 */
 .bzs-aibubble {
-  border: 1px solid var(--line);
-  border-radius: var(--r-card);
-  padding: 12px 14px;
-  font-size: 12px;
-  line-height: 1.85;
-  color: var(--t2);
+  max-width: 90%;
+  font-size: 12.5px;
+  line-height: 1.86;
+  color: var(--t1);
 }
 
 .bzs-aibubble.me {
-  background: var(--copper-soft);
-  color: var(--t1);
   align-self: flex-end;
   max-width: 88%;
-  border-color: var(--copper-line);
+  padding: 8px 11px;
+  background: var(--copper-soft);
+  border: 1px solid var(--copper-line);
+  border-radius: 11px 11px 3px 11px;
+}
+
+.bzs-aibubble.ai {
+  align-self: stretch;
+  max-width: 100%;
 }
 
 .bzs-aibubble .tag {
-  font-size: 11px;
-  letter-spacing: 0;
-  color: var(--copper);
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+  font-size: 10.5px;
+  color: var(--copper);
+  letter-spacing: .02em;
 }
 
-.bzs-aiask {
+.bzs-aibubble .txt p {
+  margin: 0 0 .6em;
+}
+
+.bzs-aibubble .txt p:last-child {
+  margin-bottom: 0;
+}
+
+.bzs-aibubble .txt b {
+  font-weight: 600;
+  color: var(--t1);
+}
+
+/* 已发出的上下文：气泡里也压成同一行小标签，不能删。
+   气泡里不做高度封顶——四枚 chip 换三行也比一条内滚动条干净。 */
+.bzs-aictx.is-sent {
+  padding-bottom: 5px;
+  max-height: none;
+  overflow: visible;
+}
+
+/* 上下文 chips：横排，最多三行就在框内滚，不能一直把消息区顶上去 */
+.bzs-aictx {
   display: flex;
-  gap: 6px;
-  margin-top: 6px;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 1px 1px 6px;
+  max-height: 76px;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
-.bzs-aiask input {
-  flex: 1;
+.bzs-aictx:empty {
+  display: none;
+}
+
+.bzs-ctx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  height: 23px;
+  padding: 0 2px 0 6px;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: 10.5px;
+  color: var(--t2);
+}
+
+.bzs-ctx-chip .k {
+  flex: none;
+  font-size: 9.5px;
+  font-style: normal;
+  color: var(--copper);
+}
+
+.bzs-ctx-chip .t {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: normal;
+}
+
+.bzs-ctx-chip .x {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--t3);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bzs-ctx-chip .x:hover {
+  background: var(--line);
+  color: var(--t1);
+}
+
+.bzs-ctx-chip.has-shot {
+  padding-left: 3px;
+}
+
+/* 截图缩略图：26×16，内容按选区放大后用 overflow 裁掉 */
+.bzs-ctx-thumb {
+  position: relative;
+  flex: none;
+  width: 26px;
+  height: 16px;
+  overflow: hidden;
   border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--bg);
+}
+
+.bzs-ctx-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bzs-ctx-thumb.is-empty {
+  background: var(--surface-2);
+}
+
+.bzs-shot-frame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+  background: var(--bg);
+}
+
+/* ── A 版输入卡片：横向铺满、紧贴底部，给输入留更大的区域 ── */
+.bzs-ai-composer {
+  flex: none;
+  position: relative;
+  margin: 0;
+  padding: 8px 9px calc(9px + env(safe-area-inset-bottom, 0px));
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -4px 14px rgba(30, 24, 14, .07);
+}
+
+.bzs-ai-composer:focus-within {
+  border-color: var(--copper-line);
+  box-shadow: 0 -4px 16px rgba(30, 24, 14, .1);
+}
+
+.bzs-ai-composer textarea {
+  display: block;
+  width: 100%;
+  min-height: 60px;
+  max-height: 140px;
+  padding: 5px 6px 7px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--t1);
+  font: 12.5px/1.7 var(--ui);
+  resize: none;
+  outline: 0;
+  overflow-y: auto;
+  box-shadow: none;
+}
+
+.bzs-ai-composer textarea:focus {
+  border: 0;
+  box-shadow: none;
+}
+
+.bzs-ai-composer textarea::placeholder {
+  color: var(--t3);
+}
+
+.bzs-ai-cbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 1px 0 2px;
+}
+
+.bzs-ai-qacts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.bzs-qbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+  background: var(--bg);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--t2);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .14s, border-color .14s, background .14s;
+}
+
+/* Obsidian 原生图标是 24 viewBox、2 描边：16px 下和宿主自己的小按钮同档 */
+.bzs-qbtn svg,
+.bzs-ai-send svg {
+  display: block;
+  flex: none;
+}
+
+.bzs-qbtn:hover {
+  color: var(--copper);
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+}
+
+.bzs-qbtn:active {
+  transform: translateY(.5px);
+}
+
+.bzs-ai-send {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--copper);
+  color: var(--text-on-accent, #fff);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: opacity .15s, transform .12s, background .15s;
+}
+
+.bzs-ai-send:hover {
+  transform: translateY(-1px);
+}
+
+.bzs-ai-send:active {
+  transform: translateY(0);
+}
+
+.bzs-shell .bzs-ai-send[disabled],
+.bzs-shell .bzs-ai-send[disabled]:hover {
+  background: var(--surface-2);
+  color: var(--t3);
+  opacity: 1;
+  cursor: default;
+  transform: none;
+}
+
+/* ── 笔记选择器（自绘 popover，照原型 .picker；贴在输入卡上方） ── */
+.bzs-picker {
+  position: absolute;
+  left: 8px;
+  bottom: calc(100% + 8px);
+  z-index: 70;
+  width: 296px;
+  max-width: calc(100% - 16px);
+  padding: 7px;
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-radius: 12px;
+  box-shadow: 0 18px 42px rgba(30, 24, 14, .2);
+}
+
+.bzs-pk-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 3px 7px;
+}
+
+.bzs-pk-head b {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--t2);
+  white-space: nowrap;
+}
+
+.bzs-pk-head input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
   background: var(--sunken);
   color: var(--t1);
-  border-radius: var(--r-ctl);
-  padding: 8px 10px;
+  font: 11px var(--ui);
   outline: 0;
-  font-size: 12px;
+}
+
+.bzs-pk-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.bzs-pk-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  width: 100%;
+  padding: 6px 5px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bzs-pk-row:hover {
+  background: var(--copper-soft);
+}
+
+.bzs-pk-row .ic {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-size: 10px;
+  color: var(--t2);
+}
+
+.bzs-pk-row .body {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+}
+
+.bzs-pk-row .nm {
+  font-size: 11.5px;
+  color: var(--t1);
+  line-height: 1.55;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bzs-pk-row .ds {
+  font-size: 9.5px;
+  color: var(--t3);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bzs-pk-empty {
+  padding: 12px 6px;
+  font-size: 11px;
+  color: var(--t3);
+  text-align: center;
 }
 
 /* ── AI 页签 · 建索引（2026-11-07） ──
@@ -778,33 +1154,34 @@
   color: var(--copper);
 }
 
-/* 建好之后那行元信息：「按全书回答 · N 块」+ 重建入口 */
+/* 建好之后那行元信息：「按全书回答 · N 块」+ 右侧「重建」下划线小字 */
 .bzs-aimeta {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  padding: 2px 14px 7px;
+  font-size: 10.5px;
   color: var(--t3);
 }
 
-/* 存档对话（2026-11-11）：原来是 11px 的下划线小字，手机上几乎点不中，
-   也不像旁边那些按钮一样看得出来能点。改成跟元信息同一行的胶囊小按钮。 */
 .bzs-aimeta .lnk {
   margin-left: auto;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  border-radius: 999px;
+  border: 0;
+  background: none;
+  border-radius: 0;
   cursor: pointer;
-  font: 11.5px var(--ui);
-  color: var(--t2);
-  text-decoration: none;
-  padding: 4px 10px;
+  font: 10.5px var(--ui);
+  color: var(--t3);
+  padding: 2px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
   line-height: 1.4;
 }
 
 .bzs-aimeta .lnk:hover {
   color: var(--copper);
-  border-color: var(--copper);
+  border-color: transparent;
 }
 
 /* 来源：答完之后附在气泡里；能点开的是一枚小按钮，点不开的只是说明 */
@@ -812,21 +1189,21 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 5px;
+  gap: 4px;
   margin-top: 8px;
 }
 
 .bzs-aisrc .lbl {
-  font-size: 10.5px;
+  font-size: 10px;
   letter-spacing: .04em;
   color: var(--t3);
 }
 
 .bzs-aisrc-i {
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-2);
   background: none;
   color: var(--t2);
-  font: 11px var(--ui);
+  font: 10.5px var(--ui);
   border-radius: 999px;
   padding: 2px 8px;
   max-width: 100%;

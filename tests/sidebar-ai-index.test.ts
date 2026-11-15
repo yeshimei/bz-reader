@@ -116,7 +116,7 @@ describe('AI 页签 · 索引建好', () => {
   it('草稿跟着重绘走：没建索引时提示完，打好的问题还在', () => {
     /* 侧栏是整页重建（setHtml），输入框不存草稿就会被换成一个空的 */
     const html = view({ aiIndex: idx({ state: 'ready' }), aiDraft: '这本书讲了什么' });
-    expect(html).toContain('value="这本书讲了什么"');
+    expect(html).toContain('>这本书讲了什么</textarea>');
   });
 });
 

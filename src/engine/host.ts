@@ -60,6 +60,7 @@ import { needsGestureBind, pickGestureDoc, zoneFromFrameY } from './gesture-bind
 import { hasLiveSelection } from './tap-gate';
 import { debugEvent } from '../data/debug-log';
 import { isMobileShell } from '../core/mobile';
+import type { AiShotSource } from './reader-engine';
 
 /** 宿主坐标系里的矩形（左上角 + 宽高，单位 CSS px） */
 export interface Rect {
@@ -1988,6 +1989,38 @@ export class EngineHost {
       .map((b) => b.text)
       .join(' ')
       .trim();
+  }
+
+  /**
+   * 侧栏 AI「截图」用的当前章快照。
+   *
+   * foliate 的分页器是 closed shadow root，壳层拿不到里面的 iframe；这里
+   * 从 renderer 的 contents 里把 doc / frame / 整章宽一起交出去。
+   * `html` 是整章文档的序列化：缩略图把它塞进 sandbox iframe，按一屏宽
+   * 重新排版，再按「可见页在内容里的位置」左移。
+   */
+  aiShotSource(): AiShotSource | null {
+    const content = this.view?.renderer?.getContents?.()[0];
+    const doc = content?.doc;
+    if (!doc?.documentElement) return null;
+    const frame = (doc.defaultView?.frameElement as HTMLIFrameElement | null) ?? null;
+    if (!frame) return null;
+    const renderer = this.view?.renderer as unknown as {
+      size?: number;
+      viewSize?: number;
+    };
+    /* 滚动模式：renderer.size 是高度、帧宽才是页宽；分页模式反过来 */
+    const scrollFlow = this.prefs.flow === 'scroll';
+    const pageW = Math.max(
+      1,
+      scrollFlow ? frame.clientWidth : Number(renderer?.size) || frame.clientWidth || 1,
+    );
+    const pageH = Math.max(
+      1,
+      scrollFlow ? Number(renderer?.size) || frame.clientHeight : frame.clientHeight || 1,
+    );
+    const contentW = scrollFlow ? pageW : Math.max(pageW, Number(renderer?.viewSize) || pageW);
+    return { doc, frame, pageW, pageH, contentW, html: doc.documentElement.outerHTML };
   }
 
   /**

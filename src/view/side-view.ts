@@ -14,15 +14,16 @@
  *   2. toc-state.ts     目录快照，由阅读视图写入（它是唯一写入方）
  *   3. store            书与标注的真实数据
  * ============================================================ */
-import { ItemView, type WorkspaceLeaf } from 'obsidian';
+import { ItemView, type App, type WorkspaceLeaf } from 'obsidian';
 import type { FoliateTOCItem } from '../types/foliate';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { dispatchAction, dispatchInput } from '../shell/actions';
 import { renderAiMarkdown } from '../shell/ai-md';
+import { canSendAi } from '../shell/ai-context';
 import { getState, setState, subscribe, type SideTab } from '../shell/state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from '../shell/source';
 import { RT } from '../shell/runtime';
-import { viewSidebar, type AiIndexView } from '../shell/render/sidebar';
+import { viewSidebar, type AiIndexView, type AiNoteRow } from '../shell/render/sidebar';
 import { focusSelector, type FocusMemo } from '../shell/focus-memo';
 import { isTocItemActive, type TocActiveRef } from '../shell/toc-active';
 import { getToc, subscribeToc, tocPaintMode } from './toc-state';
@@ -42,6 +43,53 @@ export const VIEW_TYPE_TOC = 'bz-reader-toc';
 
 export type { SideTab };
 
+/** 笔记选择器默认列最近修改的 20 篇：300px 侧栏里再多就要靠搜了 */
+const NOTE_PICKER_LIMIT = 20;
+
+function recentNotes(app: App | undefined): AiNoteRow[] {
+  const files = app?.vault?.getMarkdownFiles?.() ?? [];
+  return files
+    .slice()
+    .sort((a, b) => (Number(b.stat?.mtime) || 0) - (Number(a.stat?.mtime) || 0))
+    .slice(0, NOTE_PICKER_LIMIT)
+    .map((f) => ({
+      title: f.basename,
+      path: f.path,
+      desc: f.parent?.path && f.parent.path !== '/' ? f.parent.path : '',
+    }));
+}
+
+/** 输入框按内容长高；上限与输入卡片的 max-height 对齐（140px） */
+function autoGrowInput(t: HTMLTextAreaElement): void {
+  t.style.height = 'auto';
+  t.style.height = `${Math.min(t.scrollHeight + 2, 140)}px`;
+}
+
+/** 发送按钮只在「有字或有上下文」时亮 */
+function syncAiSend(root: HTMLElement | null): void {
+  if (!root) return;
+  const input = root.querySelector<HTMLTextAreaElement>('[data-role="aiask"]');
+  const send = root.querySelector<HTMLButtonElement>('.bzs-ai-send');
+  if (!input || !send) return;
+  send.disabled = !canSendAi(input.value, RT.aiCtx);
+}
+
+/** 笔记选择器里的本地过滤：只动这 20 行的 hidden，不重绘整块侧栏 */
+function filterNoteRows(root: HTMLElement | null, kw: string): void {
+  if (!root) return;
+  const key = kw.trim().toLowerCase();
+  const rows = Array.from(root.querySelectorAll<HTMLElement>('.bzs-pk-row'));
+  let shown = 0;
+  for (const row of rows) {
+    const hay = `${row.dataset.title ?? ''} ${row.dataset.path ?? ''}`.toLowerCase();
+    const hit = !key || hay.includes(key);
+    row.hidden = !hit;
+    if (hit) shown += 1;
+  }
+  const empty = root.querySelector<HTMLElement>('.bzs-pk-empty');
+  if (empty) empty.hidden = shown > 0;
+}
+
 export class SideView extends ItemView {
   private root: HTMLElement | null = null;
   private unsubs: Array<() => void> = [];
@@ -54,6 +102,12 @@ export class SideView extends ItemView {
   private paintedBook = '';
   private paintedActive = '';
   private paintedActiveHref = '';
+  /** 上一次画进 DOM 的 AI 对话条数：只有真的多了一条才滚到底 */
+  private paintedAiLog = -1;
+  /** 上一帧笔记选择器开着没有：只在「刚打开」时抢焦点 */
+  private paintedNoteOpen = false;
+  /** 挂在 document 上的收口（Esc 关选择器 / 点空白关选择器） */
+  private offDoc: (() => void) | null = null;
 
   constructor(leaf: WorkspaceLeaf) {
     super(leaf);
@@ -81,6 +135,7 @@ export class SideView extends ItemView {
     /* is-side：侧栏不铺自己的底色（宿主侧栏是 secondary，铺 primary 会多一张白纸） */
     this.root = this.contentEl.createDiv({ cls: `bzs-shell is-side${isMobileShell() ? ' is-mobile' : ''}` });
     this.bind();
+    this.bindDoc();
     this.render();
     this.unsubs.push(subscribe(() => this.render()));
     this.unsubs.push(subscribeToc(() => this.onTocChange()));
@@ -92,6 +147,8 @@ export class SideView extends ItemView {
   async onClose(): Promise<void> {
     for (const off of this.unsubs) off();
     this.unsubs = [];
+    this.offDoc?.();
+    this.offDoc = null;
     this.contentEl.empty();
   }
 
@@ -126,7 +183,12 @@ export class SideView extends ItemView {
     const onEdit = (e: Event): void => {
       const t = e.target as HTMLElement;
       if (!t?.dataset?.role) return;
-      dispatchInput(t as HTMLInputElement, e);
+      dispatchInput(t as HTMLInputElement | HTMLTextAreaElement, e);
+      if (t.dataset.role === 'aiask' && t.tagName === 'TEXTAREA') {
+        autoGrowInput(t as HTMLTextAreaElement);
+        syncAiSend(this.root);
+      }
+      if (t.dataset.role === 'ainotesearch') filterNoteRows(this.root, (t as HTMLInputElement).value);
     };
     el.addEventListener('input', onEdit);
     el.addEventListener('change', onEdit);
@@ -135,7 +197,9 @@ export class SideView extends ItemView {
 
     el.addEventListener('keydown', (e) => {
       const t = e.target as HTMLElement;
-      if (e.key === 'Enter' && (t as HTMLInputElement)?.dataset?.role === 'aiask') {
+      if (e.key === 'Enter' && t?.dataset?.role === 'aiask') {
+        /* 输入法 composing 期间 Enter 是「上屏」不是「发送」；Shift+Enter 换行 */
+        if (e.isComposing || e.keyCode === 229 || e.shiftKey) return;
         e.preventDefault();
         dispatchAction('aiask', t, { repaint: () => this.render() });
         return;
@@ -163,6 +227,32 @@ export class SideView extends ItemView {
     );
   }
 
+  /** 笔记选择器：点空白或 Esc 收掉。挂在 document 上，点书页也能收 */
+  private bindDoc(): void {
+    const close = (): void => {
+      if (!RT.aiNoteOpen) return;
+      RT.aiNoteOpen = false;
+      RT.aiNoteKw = '';
+      /* 只摘掉 popover，不整页重绘：点输入框 / 发送键时焦点与这次点击都还在 */
+      this.root?.querySelector('.bzs-picker')?.remove();
+    };
+    const onDown = (e: MouseEvent): void => {
+      if (!RT.aiNoteOpen) return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest?.('.bzs-picker') || t?.closest?.('[data-act="aictxnote"]')) return;
+      close();
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') close();
+    };
+    document.addEventListener('mousedown', onDown, true);
+    document.addEventListener('keydown', onKey, true);
+    this.offDoc = () => {
+      document.removeEventListener('mousedown', onDown, true);
+      document.removeEventListener('keydown', onKey, true);
+    };
+  }
+
   private memoFocus(): void {
     const el = document.activeElement as HTMLElement | null;
     const role = el?.dataset?.role;
@@ -170,7 +260,7 @@ export class SideView extends ItemView {
       this.focusMemo = null;
       return;
     }
-    const input = el as HTMLInputElement;
+    const input = el as HTMLInputElement | HTMLTextAreaElement;
     this.focusMemo = {
       role,
       k: el.dataset.k,
@@ -183,7 +273,9 @@ export class SideView extends ItemView {
     const memo = this.focusMemo;
     this.focusMemo = null;
     if (!memo) return;
-    const el = this.root?.querySelector<HTMLInputElement>(focusSelector(memo.role, memo.k));
+    const el = this.root?.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+      focusSelector(memo.role, memo.k),
+    );
     if (!el) return;
     el.focus();
     try {
@@ -304,6 +396,12 @@ export class SideView extends ItemView {
     };
 
     root.dataset.bzaccent = shellPrefs().accent;
+    /* 切到别的页签 = 笔记选择器没有意义了：把它收掉，免得回来时浮在半空 */
+    if (state.sideTab !== 'ai') {
+      RT.aiNoteOpen = false;
+      RT.aiNoteKw = '';
+    }
+    const notesOpen = state.sideTab === 'ai' && RT.aiNoteOpen;
     setHtml(
       root,
       viewSidebar({
@@ -314,6 +412,10 @@ export class SideView extends ItemView {
         activeHref: snap?.activeHref ?? '',
         aiLog: RT.aiLog,
         aiDraft: RT.aiDraft,
+        aiCtx: RT.aiCtx,
+        aiNoteOpen: notesOpen,
+        aiNoteKw: RT.aiNoteKw,
+        aiNotes: notesOpen ? recentNotes(getShellSource()?.app) : [],
         aiReady: aiReady(settings),
         aiIndex,
         collapsed: RT.tocCollapsed,
@@ -325,15 +427,57 @@ export class SideView extends ItemView {
     );
     /* 侧栏里的 AI 答按 Markdown 渲染（2026-11-11）：模板只打标记，注入后统一换 */
     renderAiMarkdown(root);
+    this.paintAi(root);
     this.paintedItems = snap?.items ?? null;
     this.paintedBook = snap?.bookId ?? '';
     this.paintedActive = snap?.activeLabel ?? '';
     this.paintedActiveHref = snap?.activeHref ?? '';
 
     const scroller = root.querySelector<HTMLElement>('.bzs-sbbody');
-    if (scroller) scroller.scrollTop = this.scrollTops[state.sideTab] ?? 0;
+    if (scroller && state.sideTab !== 'ai') scroller.scrollTop = this.scrollTops[state.sideTab] ?? 0;
     /* 首屏目录也要落在当前章：打开一本书点目录，最该先看到的是「我读到哪」 */
     this.revealActiveRow();
     this.restoreFocus();
+  }
+
+  /**
+   * 注入之后 AI 页签的收尾：输入框长高、发送键亮灭、选择器摆位、滚到最新一条。
+   *
+   * 全是 DOM 操作，所以放在 setHtml 之后；模板只负责拼结构。
+   */
+  private paintAi(root: HTMLElement): void {
+    const state = getState();
+    if (state.sideTab !== 'ai') {
+      this.paintedAiLog = RT.aiLog.length;
+      this.paintedNoteOpen = false;
+      return;
+    }
+    const input = root.querySelector<HTMLTextAreaElement>('[data-role="aiask"]');
+    if (input) autoGrowInput(input);
+    syncAiSend(root);
+
+    const picker = root.querySelector<HTMLElement>('.bzs-picker');
+    if (picker) {
+      const search = picker.querySelector<HTMLInputElement>('[data-role="ainotesearch"]');
+      if (search) {
+        if (RT.aiNoteKw) search.value = RT.aiNoteKw;
+        filterNoteRows(root, search.value);
+        if (!this.paintedNoteOpen) {
+          window.setTimeout(() => {
+            if (!RT.aiNoteOpen) return;
+            search.focus({ preventScroll: true });
+            search.setSelectionRange(search.value.length, search.value.length);
+          }, 20);
+        }
+      }
+    }
+    this.paintedNoteOpen = RT.aiNoteOpen;
+
+    /* 只有多了一条才滚：重绘一次就抢滚动条会让往回翻的人突然掉到底 */
+    if (this.paintedAiLog !== RT.aiLog.length) {
+      const box = root.querySelector<HTMLElement>('.bzs-aimsg');
+      if (box) box.scrollTop = box.scrollHeight;
+      this.paintedAiLog = RT.aiLog.length;
+    }
   }
 }

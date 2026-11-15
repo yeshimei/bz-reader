@@ -175,6 +175,7 @@ import { copyRegionCard } from '../shell/region-card';
 import { collectPdfBacklinks, invalidatePdfBacklinks } from '../data/pdf-backlink';
 import { epubBacklinkHits } from '../data/epub-backlink';
 import { dispatchAction, requireCap } from '../shell/actions';
+import type { AiShotCapture } from '../shell/ai-context';
 
 export const VIEW_TYPE_READER = 'bzr-reader-view';
 
@@ -222,6 +223,86 @@ const COMPLETE_THRESHOLD = 0.99;
  * 链接索引每动一下都会重算一次；不比对就每次整块重绘侧栏，
  * 正在滚动 / 悬停的列表会被打断。字段全对得上才认为没变。
  */
+/**
+ * 把 blob 解成可画的图（PDF 整页图裁切用）。
+ *
+ * 一张图读完就 revoke：截图是低频动作，但也不能把 blob URL 留在内存里。
+ */
+function blobToImage(blob: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('image load failed'));
+    };
+    img.src = url;
+  });
+}
+
+/**
+ * 框选区里的文字（EPUB 截图用）。
+ *
+ * 坐标口径是 iframe 内容坐标：元素矩形在整章布局里（分页器把一章排成
+ * 很多列），不是当前屏的 0..632。逐字符测矩形，和朗读的取文口径一致；
+ * 只跑一次、只用于给模型补一句「框里是什么」。
+ */
+function textInRect(doc: Document, rect: { left: number; top: number; right: number; bottom: number }): string {
+  const body = doc.body;
+  if (!body) return '';
+  const walker = doc.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+  const probe = doc.createRange();
+  let out = '';
+  let node = walker.nextNode();
+  while (node) {
+    const text = node as Text;
+    /* 先量整块：框外那几段整块跳过，不然整章每个字都要一次 layout 读取 */
+    const host = text.parentElement;
+    const box = host?.getBoundingClientRect();
+    if (
+      box &&
+      (box.right <= rect.left || box.left >= rect.right || box.bottom <= rect.top || box.top >= rect.bottom)
+    ) {
+      node = walker.nextNode();
+      continue;
+    }
+    const data = text.data;
+    for (let i = 0; i < data.length; i += 1) {
+      probe.setStart(text, i);
+      probe.setEnd(text, i + 1);
+      const r = probe.getBoundingClientRect();
+      if (r.right <= rect.left || r.left >= rect.right || r.bottom <= rect.top || r.top >= rect.bottom) {
+        continue;
+      }
+      out += data[i];
+    }
+    node = walker.nextNode();
+  }
+  return out.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * 给序列化的书页文档补一条位移：缩略图 iframe 只有一屏大，要把当前这一屏
+ * 挪到视口里（分页模式横向、滚动模式纵向）。
+ */
+function shiftSnapshot(
+  html: string,
+  axis: 'x' | 'y' | null,
+  amount: number,
+  contentW = 0,
+): string {
+  const width = contentW > 0 ? `width:${Math.round(contentW)}px !important;` : '';
+  const shift = axis && amount > 0 ? `transform:translate${axis}(-${Math.round(amount)}px) !important;` : '';
+  if (!width && !shift) return html;
+  const css = `<style>html{${width}${shift}}</style>`;
+  return /<head[^>]*>/i.test(html) ? html.replace(/<head([^>]*)>/i, (m) => `${m}${css}`) : `${css}${html}`;
+}
+
+/** 两份反链清单是不是同一份（见上方注释） */
 function sameCites(a: ReadonlyArray<CiteRow>, b: ReadonlyArray<CiteRow>): boolean {
   if (a.length !== b.length) return false;
   return a.every((x, i) => {
@@ -335,6 +416,8 @@ export class ReaderView extends ItemView {
   private selbar: HTMLElement | null = null;
   private selbarHideTimer: number | null = null;
   private pagesEl: HTMLElement | null = null;
+  /** 正在等框选结果时，Esc / 再点一次「截图」用它取消上一次 */
+  private aiShotCancel: (() => void) | null = null;
   /** 沉浸模式左上角的章节名（非沉浸时是空串，CSS 按 :empty 收走） */
   private chapterEl: HTMLElement | null = null;
   /** 沉浸模式右下角的页码小字（关的时候是空串，CSS 按 :empty 收走） */
@@ -2280,6 +2363,232 @@ export class ReaderView extends ItemView {
   /** 当前这一屏的正文纯文本（朗读与 AI 问答共用同一条取文口径） */
   pageText(): string {
     return this.host.currentText();
+  }
+
+  /* ─────────────────── 侧栏 AI 截图 ─────────────────── */
+
+  /**
+   * 在书页上盖一层遮罩，拖出一个矩形，松手生成缩略图（A 版「截图」）。
+   *
+   * 遮罩只负责取框：EPUB 交给 host 的整章快照，PDF 裁当前页画布。
+   * Esc / 框太小都返回 null，调用方静默收场。
+   */
+  async captureAiShot(): Promise<AiShotCapture | null> {
+    this.aiShotCancel?.();
+    const pages = this.pagesEl;
+    if (!pages || !this.stage) return null;
+    const pageBox = pages.getBoundingClientRect();
+    if (!(pageBox.width > 8) || !(pageBox.height > 8)) return null;
+
+    const rect = await new Promise<{ x: number; y: number; w: number; h: number } | null>((resolve) => {
+      const veil = el('div', 'bzs-ai-veil');
+      veil.style.cssText = `position:fixed;left:${pageBox.left}px;top:${pageBox.top}px;width:${pageBox.width}px;height:${pageBox.height}px`;
+      veil.innerHTML = `<div class="bzs-ai-shotrect" hidden><span class="sz"></span></div><div class="hint">${t(
+        'side.ai.ctx.shotHint',
+      )}</div>`;
+      document.body.appendChild(veil);
+      const rectEl = veil.querySelector<HTMLElement>('.bzs-ai-shotrect');
+      const szEl = veil.querySelector<HTMLElement>('.sz');
+      let from: { x: number; y: number } | null = null;
+
+      const onKey = (e: KeyboardEvent): void => {
+        if (e.key === 'Escape') end(null);
+      };
+      const end = (out: { x: number; y: number; w: number; h: number } | null): void => {
+        document.removeEventListener('keydown', onKey, true);
+        veil.remove();
+        this.aiShotCancel = null;
+        resolve(out);
+      };
+      this.aiShotCancel = () => end(null);
+      const pos = (e: PointerEvent): { x: number; y: number } => ({
+        x: e.clientX - pageBox.left,
+        y: e.clientY - pageBox.top,
+      });
+      veil.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        from = pos(e);
+        if (!rectEl) return;
+        rectEl.hidden = false;
+        rectEl.style.cssText = `left:${from.x}px;top:${from.y}px;width:0;height:0`;
+        /* 合成事件（自动化 / 触控板）没有真实 pointer：捕获失败不该把框选打断 */
+        try {
+          veil.setPointerCapture(e.pointerId);
+        } catch {
+          /* 没有活跃指针：拖拽事件仍会照常派发到 veil 上 */
+        }
+      });
+      veil.addEventListener('pointermove', (e) => {
+        if (!from || !rectEl) return;
+        const p = pos(e);
+        const w = Math.abs(p.x - from.x);
+        const h = Math.abs(p.y - from.y);
+        const x = Math.min(p.x, from.x);
+        const y = Math.min(p.y, from.y);
+        rectEl.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
+        if (szEl) szEl.textContent = `${Math.round(w)} × ${Math.round(h)}`;
+      });
+      veil.addEventListener('pointerup', (e) => {
+        if (!from) return;
+        const p = pos(e);
+        const w = Math.abs(p.x - from.x);
+        const h = Math.abs(p.y - from.y);
+        const x = Math.min(p.x, from.x);
+        const y = Math.min(p.y, from.y);
+        from = null;
+        if (w < 24 || h < 16) {
+          if (rectEl) rectEl.hidden = true;
+          notify(t('side.ai.ctx.shotSmall'), 'info');
+          return;
+        }
+        end({ x, y, w, h });
+      });
+      document.addEventListener('keydown', onKey, true);
+    });
+
+    if (!rect) return null;
+    const sel = {
+      left: pageBox.left + rect.x,
+      top: pageBox.top + rect.y,
+      width: rect.w,
+      height: rect.h,
+    };
+    return this.host.isPdf ? await this.pdfShotAt(sel) : this.epubShotAt(sel);
+  }
+
+  /** PDF：优先裁当前页已经画好的 canvas；没有画布时退回整页位图 */
+  private async pdfShotAt(sel: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  }): Promise<AiShotCapture | null> {
+    const hit = document.elementFromPoint(sel.left + sel.width / 2, sel.top + sel.height / 2);
+    const pageEl = (hit as HTMLElement | null)?.closest<HTMLElement>('.bzr-pdf-page') ?? null;
+    if (!pageEl) return null;
+    const page = Number(pageEl.dataset.page) || 1;
+    const box = pageEl.getBoundingClientRect();
+    if (!(box.width > 0) || !(box.height > 0)) return null;
+    const nx = Math.max(0, Math.min(1, (sel.left - box.left) / box.width));
+    const ny = Math.max(0, Math.min(1, (sel.top - box.top) / box.height));
+    const nw = Math.max(0.01, Math.min(1 - nx, sel.width / box.width));
+    const nh = Math.max(0.01, Math.min(1 - ny, sel.height / box.height));
+    const outW = Math.round(sel.width);
+    const outH = Math.round(sel.height);
+
+    const canvas = pageEl.querySelector<HTMLCanvasElement>('canvas.bzr-pdf-canvas');
+    if (canvas && canvas.width > 0 && canvas.height > 0) {
+      const thumb = this.cropCanvas(canvas, nx, ny, nw, nh);
+      return thumb ? { thumb, w: outW, h: outH } : null;
+    }
+
+    const ui = this.host.ocrUi;
+    if (!ui) return null;
+    const shot = await ui.image(page, 1400);
+    if (!shot) return null;
+    try {
+      const img = await blobToImage(shot.blob);
+      const out = document.createElement('canvas');
+      const scale = Math.min(1, 480 / Math.max(1, img.naturalWidth * nw));
+      out.width = Math.max(1, Math.round(img.naturalWidth * nw * scale));
+      out.height = Math.max(1, Math.round(img.naturalHeight * nh * scale));
+      const ctx = out.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(
+        img,
+        nx * img.naturalWidth,
+        ny * img.naturalHeight,
+        nw * img.naturalWidth,
+        nh * img.naturalHeight,
+        0,
+        0,
+        out.width,
+        out.height,
+      );
+      return { thumb: out.toDataURL('image/png'), w: outW, h: outH };
+    } catch {
+      return null;
+    }
+  }
+
+  /** 从已渲染的 PDF 画布上裁一块；输出最长边限 480，缩略图不需要原分辨率 */
+  private cropCanvas(
+    canvas: HTMLCanvasElement,
+    nx: number,
+    ny: number,
+    nw: number,
+    nh: number,
+  ): string | null {
+    const sx = Math.round(nx * canvas.width);
+    const sy = Math.round(ny * canvas.height);
+    const sw = Math.max(1, Math.round(nw * canvas.width));
+    const sh = Math.max(1, Math.round(nh * canvas.height));
+    const scale = Math.min(1, 480 / Math.max(sw, sh));
+    const out = document.createElement('canvas');
+    out.width = Math.max(1, Math.round(sw * scale));
+    out.height = Math.max(1, Math.round(sh * scale));
+    const ctx = out.getContext('2d');
+    if (!ctx) return null;
+    try {
+      ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
+      return out.toDataURL('image/png');
+    } catch {
+      /* 画布被宿主主题滤镜 / 跨域图污染时 toDataURL 会抛：退回 null，不炸整条链 */
+      return null;
+    }
+  }
+
+  /** EPUB：整章文档 + 当前屏位移做成 sandbox iframe 缩略图；同时取框内文字 */
+  private epubShotAt(sel: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  }): AiShotCapture | null {
+    const src = this.host.aiShotSource?.();
+    if (!src) return null;
+    const fr = src.frame.getBoundingClientRect();
+    const pr = this.pagesEl?.getBoundingClientRect();
+    if (!pr) return null;
+    const scrollFlow = this.prefs.flow === 'scroll';
+    /* 内容坐标（整章布局）→ 当前屏的可见偏移。
+       分页器把 iframe 横向平移、外面还套了一层居中容器，`renderer.start`
+       不等于 iframe 内容的起点；直接用「这一屏的屏幕矩形 - iframe 矩形」
+       才是可见页在内容里的位置。 */
+    const shiftX = pr.left - fr.left;
+    const shiftY = pr.top - fr.top;
+    const contentLeft = sel.left - fr.left;
+    const contentTop = sel.top - fr.top;
+    const visibleX = sel.left - pr.left;
+    const visibleY = sel.top - pr.top;
+    const text = textInRect(src.doc, {
+      left: contentLeft,
+      top: contentTop,
+      right: contentLeft + sel.width,
+      bottom: contentTop + sel.height,
+    });
+    const html = shiftSnapshot(
+      src.html,
+      scrollFlow ? 'y' : 'x',
+      scrollFlow ? shiftY : shiftX,
+      scrollFlow ? 0 : src.contentW,
+    );
+    return {
+      thumb: html,
+      w: Math.round(sel.width),
+      h: Math.round(sel.height),
+      geom: {
+        x: Math.max(0, visibleX),
+        y: Math.max(0, visibleY),
+        w: Math.round(sel.width),
+        h: Math.round(sel.height),
+        start: scrollFlow ? shiftY : shiftX,
+        pageW: src.pageW,
+        pageH: src.pageH,
+        axis: scrollFlow ? 'y' : 'x',
+      },
+      text,
+    };
   }
 
   /**
