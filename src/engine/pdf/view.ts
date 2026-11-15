@@ -27,7 +27,7 @@ import { PDF_BAR_ITEMS, PDF_LAYOUT_ROWS, PDF_ZOOM_MODES, zoomTargetPlan, type Pd
 import { anchoredBelowRightIn } from '../../shell/anchored-style';
 import { pageAtRow, turnPage } from './layout';
 import { pageLabelText } from './pagelabels';
-import { mergeRects } from './rects';
+import { mergeRects, previewFrameSettled } from './rects';
 import { rangesInText } from './search';
 import { PdfThumbPanel } from './thumbs';
 import type { PdfFileAnnot } from './annots';
@@ -1352,6 +1352,12 @@ export class PdfView {
         rects: target.rect ? [target.rect] : undefined,
       });
     }
+    /* 点色点 / 想法落线后，正式颜色矩形由 paintAnnotations 画出来；同一块位置
+       的透明预览这时才退场。别处加标注、或这块还没划线，都不能顺手清掉它。 */
+    const placed = new Set(list.map((item) => String(item?.cfiRange ?? '')));
+    this.root.querySelectorAll<HTMLElement>('.bzr-pdf-frame.is-pending').forEach((node) => {
+      if (previewFrameSettled(node.dataset.locator, placed)) node.remove();
+    });
     for (const page of this.rendered) this.paintAnnotations(page);
   }
 
@@ -1709,6 +1715,8 @@ export class PdfView {
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
       /* 框选刚结束时会清一次文字选区，那次 collapsed 不能把框选弹掉的条子收掉 */
       if (this.framing || Date.now() - this.lastRegionAt < 500) return;
+      /* 选区作废（点外面 / 点别的页）：那层透明预览也该一起走，别留在页上 */
+      this.clearPendingFrames();
       this.opts.onSelect?.(null);
       return;
     }
@@ -1716,12 +1724,14 @@ export class PdfView {
     const startLayer = this.layerOf(range.startContainer);
     const endLayer = this.layerOf(range.endContainer);
     if (!startLayer || startLayer !== endLayer) {
+      this.clearPendingFrames();
       this.opts.onSelect?.(null);
       return;
     }
     const page = Number(startLayer.dataset.page);
     const text = range.toString();
     if (!page || !text.trim()) {
+      this.clearPendingFrames();
       this.opts.onSelect?.(null);
       return;
     }
@@ -1832,6 +1842,8 @@ export class PdfView {
       }
       this.framing = true;
       this.scroller.classList.add('is-framing');
+      /* 重新拖一块就换掉上一块还挂着的透明预览，别叠两层 */
+      this.clearPendingFrames();
       const box = createDiv();
       box.className = 'bzr-pdf-frame';
       start.pageEl.appendChild(box);
@@ -1867,23 +1879,38 @@ export class PdfView {
     }
     this.frameBoxEl = null;
     const rect = box?.getBoundingClientRect() ?? null;
-    box?.remove();
-    if (!rect || rect.width < 8 || rect.height < 8) return;
+    if (!rect || rect.width < 8 || rect.height < 8) {
+      box?.remove();
+      return;
+    }
     const pageBox = start.pageEl.getBoundingClientRect();
-    if (pageBox.width <= 0 || pageBox.height <= 0) return;
+    if (pageBox.width <= 0 || pageBox.height <= 0) {
+      box?.remove();
+      return;
+    }
     const norm = normalizePdfRect({
       left: (rect.left - pageBox.left) / pageBox.width,
       top: (rect.top - pageBox.top) / pageBox.height,
       width: rect.width / pageBox.width,
       height: rect.height / pageBox.height,
     });
-    if (norm.width <= 0.001 || norm.height <= 0.001) return;
+    if (norm.width <= 0.001 || norm.height <= 0.001) {
+      box?.remove();
+      return;
+    }
     this.lastRegionAt = Date.now();
     this.suppressClickUntil = Date.now() + 350;
     /* locator 存「未旋转的页面坐标」：页面转过角度之后，同一个框还应该落在
        原来那行字上，所以这里把屏幕坐标反旋回去 */
     const pageNorm = rotateNormRect(norm, -this.rotation);
     const locator = encodePdfRectLocator(start.page, pageNorm);
+    /* 松手后这层虚线 / 半透明矩形继续留在页上：用户得看得见自己框了哪一块。
+       点色点划线（或写想法）落了线，setAnnotations 会把它换成正式颜色矩形；
+       点外面 / 换页 / 缩放由 clearFrame 收掉。 */
+    if (box) {
+      box.classList.add('is-pending');
+      box.dataset.locator = locator;
+    }
     this.selectionRects.set(locator, { rot: this.rotation, rects: [norm] });
     /* PDF++ 的 rect= 用页面坐标（pt），不是比例；这里顺手换算一份 */
     const size = this.pageSize(start.page);
@@ -1911,6 +1938,11 @@ export class PdfView {
     this.frameBoxEl?.remove();
     this.frameBoxEl = null;
     this.root.querySelectorAll('.bzr-pdf-frame').forEach((node) => node.remove());
+  }
+
+  /** 只收掉松手后还挂着的那层透明预览（重新框选、选区作废时用） */
+  private clearPendingFrames(): void {
+    this.root.querySelectorAll('.bzr-pdf-frame.is-pending').forEach((node) => node.remove());
   }
 
   private layerOf(node: Node | null): HTMLElement | null {

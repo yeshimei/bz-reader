@@ -90,6 +90,9 @@ export const COMMANDS: readonly CommandSpec[] = [
   { id: 'pdf-ocr-batch', key: 'cmd.pdfOcrBatch', reader: 'pdf-ocr-batch' },
   { id: 'pdf-ocr-stop', key: 'cmd.pdfOcrStop', reader: 'pdf-ocr-stop' },
   { id: 'pdf-ocr-clear', key: 'cmd.pdfOcrClear', reader: 'pdf-ocr-clear' },
+  /* 框选区域存成图片书摘（2026-11-15）：区域工具条按用户要求只留识别 /
+     想法 / 双链，这颗不占工具条，走命令面板与自定义快捷键。 */
+  { id: 'pdf-region-card', key: 'cmd.pdfRegionCard', reader: 'pdf-region-card' },
   { id: 'pdf-back', key: 'cmd.pdfBack', reader: 'pdf-back' },
   /* 排查用：手机上开不了控制台，这是唯一能把链路计数显示出来的入口。
      会话内生效、不落盘，重启自动关。 */

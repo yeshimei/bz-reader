@@ -103,6 +103,28 @@ export const DELETE_ITEM: ToolbarItem = { act: 'del', key: 'tool.del', icon: 'tr
 export const OCR_ITEM: ToolbarItem = { act: 'ocr', key: 'tool.ocr', icon: 'scan' };
 
 /**
+ * 框选矩形（没有原文的标注）的工具条只留这几颗。
+ *
+ * 未保存的框选：识别 / 想法 / 双链；保存之后再点开，`marked` 会自动补一颗
+ * 删除。书摘 / AI / 存为名词 / 存为段落 / 复制都要原文，框里没有，一颗都
+ * 不出现——露出来就是「点了没反应」。
+ *
+ * 只按定位串里的 `/r=` 判断，普通划词与普通划线一个字不动；EPUB 上根本
+ * 不会出现这个形状。
+ */
+export const REGION_ACTS: readonly ToolbarAct[] = ['ocr', 'idea', 'bilink', 'del'];
+
+/** 定位串里带 `/r=` 的是框选矩形（`pdf/<页>/r=…`），不是文字划线 */
+export function isRegionLocator(cfiRange?: string | null): boolean {
+  return !!cfiRange && cfiRange.includes('/r=');
+}
+
+/** 工具条的 `only`：区域框收窄，其余返回 undefined（显示全部） */
+export function onlyForRegion(cfiRange?: string | null): readonly ToolbarAct[] | undefined {
+  return isRegionLocator(cfiRange) ? REGION_ACTS : undefined;
+}
+
+/**
  * 已存过知识盒的那两颗：文案换成「看名词 / 看段落」。
  *
  * 动作名不变——同一个 data-act 由动作表自己判断「存过就打开、没存过就录入」；
@@ -212,6 +234,8 @@ export const SELECTION_ACTS: ToolbarActs = {
 
 export const MARK_ACTS: ToolbarActs = {
   dot: 'hlcolor',
+  /* 已划好的框选上也要能「识别本页」：点开那块矩形，第一件事通常还是让这页有点字 */
+  ocr: 'hlocr',
   idea: 'hlidea',
   quote: 'hlquote',
   ai: 'hlai',

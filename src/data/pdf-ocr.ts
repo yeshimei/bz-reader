@@ -40,7 +40,7 @@ export interface OcrFile {
   updatedAt: number;
 }
 
-const ENGINES: ReadonlySet<string> = new Set(['vision', 'http', 'manual']);
+const ENGINES: ReadonlySet<string> = new Set(['deepseek', 'vision', 'http', 'manual']);
 
 function engineOf(value: unknown): OcrEngine {
   const s = String(value ?? '');

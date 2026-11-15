@@ -42,8 +42,28 @@ export interface AiSettings {
    */
 }
 
-/** 扫描页识别的通道（见 ReaderSettings.pdfOcrEngine） */
-export type PdfOcrEngine = 'vision' | 'http';
+/** 扫描页识别的通道（见 ReaderSettings.pdfOcr） */
+export type PdfOcrEngine = 'deepseek' | 'http';
+
+/**
+ * 扫描页识别的独立配置（2026-11-15）。
+ *
+ * 和 `ttsOnline` 一样从 AI 组独立出来：识别按页计费、走的是 OCR 专用接口，
+ * 与「AI 问答」未必同一个账号或代理。地址默认 DeepSeek 官方，密钥单独填；
+ * 老用户升级时由 normalizeSettings 从 AI 组搬一份，之后两边互不影响。
+ */
+export interface PdfOcrSettings {
+  /** `deepseek` = DeepSeek 看图（行级坐标）；`http` = 自建 OCR 服务 */
+  engine: PdfOcrEngine;
+  /** DeepSeek 看图的接口根地址（默认官方；拼 `/chat/completions`） */
+  baseUrl: string;
+  /** DeepSeek 看图的密钥（独立于 AI 组，运行期不借用 ai.apiKey） */
+  apiKey: string;
+  /** 看图模型名（默认 deepseek-flash，必须是能读图片的多模态模型） */
+  model: string;
+  /** 自建服务的地址（`http://127.0.0.1:1224/api/ocr` 这种） */
+  url: string;
+}
 
 export interface ReaderSettings {
   /** 书摘导出目录（vault 相对路径，默认 `bz-reader/notes`） */
@@ -77,16 +97,13 @@ export interface ReaderSettings {
    */
   ttsOnline: OnlineTtsSettings;
   /**
-   * 扫描页识别走哪条通道（2026-11-11）：
-   *   `vision` 用上面配好的 AI（多模态看图），不用装任何东西；
-   *   `http`   把图 POST 给用户自己的 OCR 服务（Umi-OCR / PaddleOCR 都行）。
+   * 扫描页识别（2026-11-15 从 AI 组独立）。
    *
-   * 故意**没有**「本地引擎」这一档：模型与 wasm 无法随插件三件套发布，
-   * 打包进 main.js 会把 2.6 MB 撑到十几 MB，而且 iOS 上跑不稳。
+   * 以前 `vision` 借 AI 的多模态模型、`http` 借一个自建地址，两条都挂在
+   * 别的配置上。现在自带地址 / 密钥 / 通道：识别按页计费，账号未必与
+   * AI 问答相同，运行时也不该再读 `ai.apiKey`。
    */
-  pdfOcrEngine: PdfOcrEngine;
-  /** `http` 通道的服务地址（`http://127.0.0.1:9000/ocr` 这种） */
-  pdfOcrUrl: string;
+  pdfOcr: PdfOcrSettings;
   /*
    * 这里**故意没有**「连接至 BZ AI 知识库」开关。
    *
@@ -183,8 +200,13 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     apiKey: '',
     format: 'mp3',
   },
-  pdfOcrEngine: 'vision',
-  pdfOcrUrl: '',
+  pdfOcr: {
+    engine: 'deepseek',
+    baseUrl: 'https://api.deepseek.com',
+    apiKey: '',
+    model: 'deepseek-flash',
+    url: '',
+  },
   aiAck: false,
   ttsAck: false,
   ttsStats: { chars: 0, cost: 0 },
@@ -332,6 +354,41 @@ function cleanServiceUrl(v: string): string {
   return `${local ? 'http' : 'https'}://${s}`;
 }
 
+/**
+ * 扫描页识别配置（2026-11-15）。
+ *
+ * 老版本只有两个扁平字段：`pdfOcrEngine`（`vision` / `http`）与 `pdfOcrUrl`。
+ * 升级时按「对象在不在」判断要不要搬：
+ *   · 老值 `http` 且填过地址 → 继续走自建服务；
+ *   · 老值 `vision`（或 http 但没地址）→ 改成 DeepSeek 官方 OCR，密钥从
+ *     AI 组抄一份——不抄的话升级后点识别直接「未配置」，用户以为坏了。
+ * 抄只发生一次：`pdfOcr` 对象存在之后，清空密钥不会再被搬回来。
+ */
+function normalizePdfOcr(raw: unknown, ai: AiSettings, legacy: Record<string, unknown>): PdfOcrSettings {
+  if (!raw || typeof raw !== 'object') {
+    const oldHttp = str(legacy.pdfOcrEngine) === 'http';
+    const oldUrl = cleanUrl(str(legacy.pdfOcrUrl));
+    return {
+      engine: oldHttp && oldUrl ? 'http' : 'deepseek',
+      baseUrl: DEFAULT_SETTINGS.pdfOcr.baseUrl,
+      apiKey: ai.apiKey,
+      /* 模型跟着 AI 组抄一份：那边本来就是能看图的 deepseek-flash 时最省事；
+         抄不到就退回默认，用户仍可在设置里改 */
+      model: ai.model || DEFAULT_SETTINGS.pdfOcr.model,
+      url: oldUrl,
+    };
+  }
+  const o = raw as Record<string, unknown>;
+  return {
+    engine: o.engine === 'http' ? 'http' : 'deepseek',
+    /* 清空等于「用默认官方地址」：留空串会让接口拼出一个没有主机的地址 */
+    baseUrl: cleanUrl(str(o.baseUrl)) || DEFAULT_SETTINGS.pdfOcr.baseUrl,
+    apiKey: str(o.apiKey).trim(),
+    model: str(o.model).trim() || DEFAULT_SETTINGS.pdfOcr.model,
+    url: cleanUrl(str(o.url)),
+  };
+}
+
 export function normalizeSettings(raw: unknown): ReaderSettings {
   const s = (raw ?? {}) as Partial<ReaderSettings>;
   const ai = normalizeAi(s.ai);
@@ -345,8 +402,7 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     ai,
     ttsLocal: normalizeTtsLocal(s.ttsLocal),
     ttsOnline: normalizeTtsOnline(s.ttsOnline, ai),
-    pdfOcrEngine: s.pdfOcrEngine === 'http' ? 'http' : 'vision',
-    pdfOcrUrl: cleanUrl(str(s.pdfOcrUrl)),
+    pdfOcr: normalizePdfOcr(s.pdfOcr, ai, s as unknown as Record<string, unknown>),
     aiAck: s.aiAck === true,
     ttsAck: s.ttsAck === true,
     ttsStats: {
@@ -364,14 +420,19 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
 /**
  * 识别通道的最终判定。
  *
- * `http` 但没填地址时退回 `vision`：用户切了通道却忘了填地址，跑起来直接
- * 报「还没填 OCR 服务地址」比静默不认更糟——但更糟的是他根本没配 AI，
- * 那时两边都用不了，报错要指明去哪配。这里只做「能不能选它」的判断，
- * 真正的错误留给识别那一步说。
+ * `http` 但没填地址时退回 DeepSeek 官方：用户切了通道却忘了填地址，
+ * 跑起来直接报「还没填 OCR 服务地址」比静默不认更糟。这里只做「能不能
+ * 选它」的判断，真正的错误留给识别那一步说。
  */
 export function pdfOcrEngineOf(s: ReaderSettings): PdfOcrEngine {
-  if (s.pdfOcrEngine !== 'http') return 'vision';
-  return s.pdfOcrUrl ? 'http' : 'vision';
+  if (s.pdfOcr.engine === 'http' && s.pdfOcr.url) return 'http';
+  return 'deepseek';
+}
+
+/** 识别通道配好了没有：DeepSeek 要地址 + 密钥 + 模型，自建服务要地址 */
+export function pdfOcrReady(s: ReaderSettings): boolean {
+  if (pdfOcrEngineOf(s) === 'http') return true;
+  return !!s.pdfOcr.baseUrl && !!s.pdfOcr.apiKey && !!s.pdfOcr.model;
 }
 
 /** AI 是否可用了：三样齐了才算配好，缺一样都不该把按钮点亮 */

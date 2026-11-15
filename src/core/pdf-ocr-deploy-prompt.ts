@@ -49,8 +49,8 @@ curl -s -X POST http://127.0.0.1:1224/api/ocr -H "Content-Type: application/json
 
 【回填插件设置】服务跑通后，改这个文件（先备份一份）：
 ${dataPath}
-- settings.pdfOcrEngine = "http"
-- settings.pdfOcrUrl = "http://127.0.0.1:1224/api/ocr"（端口不同就换成实际地址）
+- settings.pdfOcr.engine = "http"
+- settings.pdfOcr.url = "http://127.0.0.1:1224/api/ocr"（端口不同就换成实际地址）
 其它字段一律不要改。文件不存在或结构对不上，就别改文件，只把这两个值列给我，我自己填。
 
 【注意】不要把书稿或任何正文发到外网；不要写入密钥；完成后告诉我：地址、启动与重启命令、自检的真实输出。`;

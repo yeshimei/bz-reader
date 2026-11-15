@@ -485,10 +485,10 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'Vista general: subrayados por capítulo, resumen en una línea',
     pt: 'Visão geral: destaques por capítulo, resumo em uma linha',
   },
-  /* ── 探索中（都还没实现，两版都不打勾） ── */
+  /* ── PDF 段最后一行（2026-11-15 从「探索中」转正） ── */
   pdfOcr: {
-    zh: 'OCR 扫描件：像文字版一样选、搜、划',
-    'zh-TW': 'OCR 掃描件：像文字版一樣選、搜、劃',
+    zh: '扫描页识别：像文字版一样选、搜、划',
+    'zh-TW': '掃描頁識別：像文字版一樣選、搜、劃',
     en: 'OCR scans: select, search and highlight like text',
     ja: 'OCR スキャン：テキスト同様に選択・検索・ハイライト',
     de: 'OCR-Scans: auswählen, suchen und markieren wie Text',
@@ -496,6 +496,7 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'OCR: seleccionar, buscar y subrayar como texto',
     pt: 'OCR: selecionar, pesquisar e destacar como texto',
   },
+  /* ── 探索中（都还没实现，两版都不打勾） ── */
   pdfReflow: {
     zh: 'PDF 重排：固定版式变流式',
     'zh-TW': 'PDF 重排：固定版式變流式',

@@ -1,25 +1,25 @@
 /* ============================================================
- * bz-reader · 扫描页识别（data/ai-vision.ts）
+ * bz-reader · 外部 OCR 服务（data/ai-vision.ts）
  *
- * 两条通道，一套结果：
- *   · **vision**：把这一页的图直接发给用户已配置的多模态模型（OpenAI 兼容
- *     `/chat/completions` 的 image_url 形状），要求它回「一行一条 + 位置」的
- *     JSON。不需要下载任何模型文件，也不用在插件里塞 wasm——发布只有三件套，
- *     这是唯一能装进插件又立刻可用的识别方式。
- *   · **http**：用户自己起一个 OCR 服务（PaddleOCR / Umi-OCR / 云服务都行），
- *     填一个地址，插件把图 POST 过去。适合「量大、要准确、肯动手」的人。
+ * 扫描页识别有两条通道（2026-11-15 定稿）：
+ *   · **DeepSeek 官方 OCR**（`data/deepseek-ocr.ts`，默认）：按页计价、
+ *     自带行坐标，不借用 AI 配置；
+ *   · **外部 OCR 服务**（本文件）：用户自己起一个 PaddleOCR / Umi-OCR /
+ *     云服务都行，填一个地址，插件把图 POST 过去。
  *
  * 两条都只吐 `ParsedOcr`，后面的落盘、造文字层、划线完全不区分来源。
  *
- * 为什么不在插件内置本地 OCR 引擎：模型（十几 MB）与 wasm 无法随三件套发布，
- * 打包进 main.js 会把 2.6 MB 的包撑到十几 MB，且 iOS 上 wasm 不稳。这条路
- * 留给「用户先用 OCRmyPDF 做一份带文字层的副本」——那份文件进来就是文字版。
+ * 为什么不再内置「让聊天模型看图」那一档：它要用户配一个多模态模型、
+ * 听 prompt 的 JSON 自觉性，还会被思考模式吃掉输出额度；专门 OCR 接口
+ * 更准、更便宜、失败原因也更清楚。本地 OCR 引擎依旧不做——模型与 wasm
+ * 无法随三件套发布。
  * ============================================================ */
 
-import { aiPostChat, type AiChatOptions } from './ai';
-import type { ReaderSettings } from './settings';
+import { postChat, type ChatConfig } from './ai';
 import { parseOcrJson, parseOcrValue, type ParsedOcr } from '../engine/pdf/ocr';
 import { t } from '../i18n';
+
+/* ─────────── DeepSeek 看图（视觉 OCR） ─────────── */
 
 /**
  * 识别的硬约束。
@@ -44,13 +44,6 @@ export const VISION_PROMPT = [
   '5. 图上没有文字就返回 {"lines":[]}。',
 ].join('\n');
 
-/** 一页成图后的 dataURL（`data:image/jpeg;base64,...`） */
-export interface VisionInput {
-  image: string;
-  /** 只用于提示与日志，不参与请求 */
-  page?: number;
-}
-
 /** OpenAI 兼容的多模态消息：一段文字 + 一张图 */
 export function visionMessages(image: string): Array<{ role: string; content: unknown }> {
   return [
@@ -70,18 +63,30 @@ export function visionMessages(image: string): Array<{ role: string; content: un
 /**
  * 让视觉模型认一页。
  *
- * `maxTokens` 给 4000：一页 60 行、每行带四个坐标，约 1500–2500 token；
+ * 为什么走聊天接口而不是官方 `/tools/ocr`：2026-11-15 实测官方 OCR 对
+ * 单页图片只回「整页一个 box」（`[[149,0,999,999]]`），拿不到逐行位置，
+ * 划词做不了；聊天模型的 `image_url` 反而能按 prompt 给出每行坐标。
+ *
+ * `maxTokens` 给 8000：一页 60 行、每行带四个坐标，约 3000–5000 token；
  * 不设上限时服务商默认值（常见 512/1024）会把后半页截掉，表现是「只认出半页」。
+ * `thinking: 'disabled'` 只对 DeepSeek 官方端点生效：它的思考模式默认开启，
+ * 4000 的额度会被思考吃光、正文为空（2026-11-15 真机就是这个报错）。
  */
-export async function recognizeOnPage(
-  settings: ReaderSettings,
-  input: VisionInput,
-  opts: AiChatOptions = {},
+export async function recognizeViaVision(
+  config: ChatConfig,
+  image: string,
+  opts: {
+    signal?: AbortSignal;
+    /** 覆盖默认 180 秒：识别一页比问答慢 */
+    timeoutMs?: number;
+  } = {},
 ): Promise<ParsedOcr> {
-  const raw = await aiPostChat(settings, visionMessages(input.image), {
+  const raw = await postChat(config, visionMessages(image), {
     ...opts,
     temperature: 0.1,
-    maxTokens: 4000,
+    maxTokens: 8000,
+    thinking: 'disabled',
+    label: 'OCR',
   });
   const parsed = parseOcrJson(raw);
   if (!parsed.lines.length && !parsed.text) throw new Error(t('notice.pdf.ocrEmpty'));
@@ -204,7 +209,7 @@ export async function recognizeViaHttp(input: HttpOcrInput): Promise<ParsedOcr> 
   return parsed;
 }
 
-/* ─────────── 图 → dataURL ─────────── */
+/* ─────────── 图 → base64 ─────────── */
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
@@ -236,16 +241,15 @@ export function dataUrlOf(base64: string, mime = 'image/jpeg'): string {
   return `data:${mime || 'image/jpeg'};base64,${base64}`;
 }
 
+/** Blob → dataURL（视觉识别用；体量与分辨率由调用方在出图那一步控制） */
+export async function blobToDataUrl(blob: Blob | null | undefined): Promise<string> {
+  if (!blob) throw new Error(t('notice.pdf.ocrNoImage'));
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  return dataUrlOf(bytesToBase64(bytes), mimeOf(blob));
+}
+
 /** MIME 归一：pdf.js 出的图是 png，压缩后多半是 jpeg */
 export function mimeOf(blob: Blob | null | undefined, fallback = 'image/jpeg'): string {
   const type = String(blob?.type ?? '').split(';')[0]?.trim();
   return type && /^image\//.test(type) ? type : fallback;
-}
-
-/** Blob → dataURL（识别用；体量与分辨率由调用方在出图那一步控制） */
-export async function blobToDataUrl(blob: Blob | null | undefined): Promise<string> {
-  if (!blob) throw new Error(t('notice.pdf.ocrNoImage'));
-  const mime = mimeOf(blob);
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  return dataUrlOf(bytesToBase64(bytes), mime);
 }

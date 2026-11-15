@@ -62,6 +62,7 @@
 |  | 本页反链：笔记引了这页就画出来 | — | ✓ |
 |  | 文件自带批注：别人标的也能读 | — | ✓ |
 |  | 导出本页为图片 | — | ✓ |
+|  | 扫描页识别：像文字版一样选、搜、划 | — | ✓ |
 | **笔记与导出** | 划线存成双链：笔记里点回原文 | — | ✓ |
 |  | 引用页签：看哪些笔记引了这本书 | — | ✓ |
 |  | 导出整本摘录：每条带双链 | — | ✓ |
@@ -83,7 +84,6 @@
 | **阅读方式** | 竖排排版：EPUB / TXT | — | ✓ |
 |  | 并排对照：与另一本书同步段落 | — | ✓ |
 |  | 全书鸟瞰：各章划线数与一句话摘要 | — | ✓ |
-| **探索中** | OCR 扫描件：像文字版一样选、搜、划 | — | — |
 |  | PDF 重排：固定版式变流式 | — | — |
 |  | 漫画模式：分格、右到左、跨页 | — | — |
 |  | 整章翻译：原文译文对照 | — | — |
@@ -181,6 +181,7 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 |  | Copy page links: page / view / embed / annotation | — | ✓ |
 |  | Backlinks on this page and annotations in the file | — | ✓ |
 |  | Export a page as an image | — | ✓ |
+|  | Scanned page OCR: select, search and highlight like real text | — | ✓ |
 | **Stats & Search** | Stats panel: time, trends, rhythm, per-book detail | — | ✓ |
 |  | Reading poster: yearly recap and stats long image | — | ✓ |
 |  | Whole-library search, PDF text included | — | ✓ |
@@ -193,7 +194,6 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 |  | Read two books side by side | — | ✓ |
 |  | Book overview | — | ✓ |
 |  | Connect to the BZ AI knowledge base (requires bz) | — | ✓ |
-| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
 |  | PDF reflow: fixed layouts read as flowing text | — | — |
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
@@ -287,6 +287,7 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 |  | 複製頁連結：頁碼 / 檢視 / 嵌入 / 批註 | — | ✓ |
 |  | 本頁反鏈與檔案自帶批註 | — | ✓ |
 |  | 匯出本頁為圖片 | — | ✓ |
+|  | 掃描頁識別：像文字版一樣選、搜、劃 | — | ✓ |
 | **統計與搜尋** | 資料面板：時長、趨勢、節律、書籍明細 | — | ✓ |
 |  | 閱讀海報：年度總結與資料長圖 | — | ✓ |
 |  | 全庫搜尋：PDF 正文也搜得到 | — | ✓ |
@@ -304,7 +305,6 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 |  | 全書鳥瞰 | — | ✓ |
 |  | AI 知識盒 · [看教學](https://www.bilibili.com/video/BV1bR4s6dEjH) | — | ✓ |
 |  | 剪藏成書：把剪藏本的文章合成 EPUB，在書架裡讀 · [看教學](https://www.bilibili.com/video/BV1h3WB6XEL4) | — | ✓ |
-| **探索中** | PDF OCR+AI視覺：掃描件像文字版一樣能選能搜能劃 | — | — |
 |  | PDF 重排：固定版式也能流式讀 | — | — |
 |  | 漫畫模式：分格、右到左、跨頁 | — | — |
 |  | 整章翻譯：原文譯文對照讀 | — | — |
@@ -391,6 +391,7 @@ Obsidian を「本を読む場所」に。デスクトップ + モバイル、�
 |  | ページリンクをコピー：ページ / ビュー / 埋め込み / 注釈 | — | ✓ |
 |  | このページへの被リンクとファイル内の注釈 | — | ✓ |
 |  | このページを画像として書き出す | — | ✓ |
+|  | スキャンページ認識：スキャンした本も文字版のように選択・検索・ハイライト | — | ✓ |
 | **統計と検索** | データパネル：時間・推移・リズム・書籍別の内訳 | — | ✓ |
 |  | 読書ポスター：年間まとめとデータ長画像 | — | ✓ |
 |  | ライブラリ全体を検索：PDF 本文も対象 | — | ✓ |
@@ -401,7 +402,6 @@ Obsidian を「本を読む場所」に。デスクトップ + モバイル、�
 |  | 別の本と並べて対照 | — | ✓ |
 |  | 全体マップ | — | ✓ |
 |  | BZ AI ナレッジベースに接続（bz が必要） | — | ✓ |
-| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
 |  | PDF reflow: fixed layouts read as flowing text | — | — |
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
@@ -491,6 +491,7 @@ Solange die Prüfung läuft oder die Suche nichts findet: mit [BRAT](https://git
 |  | Seitenlinks kopieren: Seite / Ansicht / Einbettung / Anmerkung | — | ✓ |
 |  | Backlinks auf dieser Seite und Anmerkungen in der Datei | — | ✓ |
 |  | Seite als Bild exportieren | — | ✓ |
+|  | Gescannte Seiten erkennen: auswählen, suchen und markieren wie echter Text | — | ✓ |
 | **Statistik & Suche** | Statistikpanel: Zeit, Verlauf, Rhythmus, Details je Buch | — | ✓ |
 |  | Leseposter: Jahresrückblick und Daten-Langbild | — | ✓ |
 |  | Bibliothek durchsuchen, PDF-Text inklusive | — | ✓ |
@@ -501,7 +502,6 @@ Solange die Prüfung läuft oder die Suche nichts findet: mit [BRAT](https://git
 |  | Zwei Bücher nebeneinander lesen | — | ✓ |
 |  | Buchübersicht | — | ✓ |
 |  | Mit der BZ-KI-Wissensdatenbank verbinden (bz erforderlich) | — | ✓ |
-| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
 |  | PDF reflow: fixed layouts read as flowing text | — | — |
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
@@ -589,6 +589,7 @@ Pendant la validation, ou si la recherche ne donne rien : ajoutez ce dépôt ave
 |  | Copier les liens de page : page / vue / intégration / annotation | — | ✓ |
 |  | Rétroliens sur cette page et annotations du fichier | — | ✓ |
 |  | Exporter une page en image | — | ✓ |
+|  | OCR des pages scannées : sélectionner, rechercher et surligner comme du texte | — | ✓ |
 | **Statistiques & recherche** | Panneau de stats : temps, tendances, rythme, détail par livre | — | ✓ |
 |  | Affiche de lecture : bilan annuel et image longue | — | ✓ |
 |  | Recherche dans toute la bibliothèque, texte des PDF inclus | — | ✓ |
@@ -599,7 +600,6 @@ Pendant la validation, ou si la recherche ne donne rien : ajoutez ce dépôt ave
 |  | Lire deux livres côte à côte | — | ✓ |
 |  | Vue d'ensemble du livre | — | ✓ |
 |  | Se connecter à la base BZ AI (nécessite bz) | — | ✓ |
-| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
 |  | PDF reflow: fixed layouts read as flowing text | — | — |
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
@@ -687,6 +687,7 @@ Mientras la revisión esté pendiente, o si la búsqueda no lo encuentra, añade
 |  | Copiar enlaces de página: página / vista / incrustación / anotación | — | ✓ |
 |  | Retroenlaces de esta página y anotaciones del archivo | — | ✓ |
 |  | Exportar una página como imagen | — | ✓ |
+|  | OCR de páginas escaneadas: seleccionarlas, buscarlas y resaltarlas como texto | — | ✓ |
 | **Estadísticas y búsqueda** | Panel de datos: tiempo, tendencias, ritmo, detalle por libro | — | ✓ |
 |  | Póster de lectura: resumen anual e imagen larga | — | ✓ |
 |  | Búsqueda en toda la biblioteca, texto de PDF incluido | — | ✓ |
@@ -697,7 +698,6 @@ Mientras la revisión esté pendiente, o si la búsqueda no lo encuentra, añade
 |  | Leer dos libros en paralelo | — | ✓ |
 |  | Vista general del libro | — | ✓ |
 |  | Conectar con la base de conocimiento BZ AI (requiere bz) | — | ✓ |
-| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
 |  | PDF reflow: fixed layouts read as flowing text | — | — |
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
@@ -785,6 +785,7 @@ Enquanto a revisão estiver pendente, ou se a busca não encontrar, adicione est
 |  | Copiar links de página: página / vista / incorporação / anotação | — | ✓ |
 |  | Retrolinks desta página e anotações do arquivo | — | ✓ |
 |  | Exportar uma página como imagem | — | ✓ |
+|  | OCR de páginas digitalizadas: selecioná-las, pesquisá-las e destacá-las como texto | — | ✓ |
 | **Estatísticas e busca** | Painel de dados: tempo, tendências, ritmo, detalhe por livro | — | ✓ |
 |  | Pôster de leitura: resumo anual e imagem longa | — | ✓ |
 |  | Pesquisa em toda a biblioteca, texto de PDF incluído | — | ✓ |
@@ -795,7 +796,6 @@ Enquanto a revisão estiver pendente, ou se a busca não encontrar, adicione est
 |  | Ler dois livros lado a lado | — | ✓ |
 |  | Visão geral do livro | — | ✓ |
 |  | Conectar à base de conhecimento BZ AI (requer bz) | — | ✓ |
-| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
 |  | PDF reflow: fixed layouts read as flowing text | — | — |
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |

@@ -2,7 +2,7 @@
  * bz-reader · 扫描页识别的编排（shell/pdf-ocr.ts）
  *
  * 引擎只会「把一页画成图」「把识别结果铺成文字层」，中间这段归这里：
- * 出图 → 调识别（视觉模型 / 外部 OCR 服务）→ 落盘 → 灌回引擎。
+ * 出图 → 调识别（DeepSeek 官方 OCR / 外部 OCR 服务）→ 落盘 → 灌回引擎。
  *
  * 三条设计取舍：
  *  1. **按需、按批**：一次认一页，或从当前页起认 20 页。不默认整本——
@@ -14,13 +14,13 @@
  * ============================================================ */
 
 import type { App } from 'obsidian';
-import { recognizeOnPage, recognizeViaHttp, blobToDataUrl, bytesToBase64, mimeOf } from '../data/ai-vision';
+import { recognizeViaHttp, recognizeViaVision, blobToDataUrl, bytesToBase64, mimeOf } from '../data/ai-vision';
 import { readOcr, removeOcr, withOcrPage, writeOcr, type OcrFile } from '../data/pdf-ocr';
 import type { OcrPage } from '../engine/pdf/ocr';
 import { rotateNormRect } from '../engine/pdf/locator';
 import { t } from '../i18n';
 import type { ReaderSettings } from '../data/settings';
-import { pdfOcrEngineOf } from '../data/settings';
+import { pdfOcrEngineOf, pdfOcrReady } from '../data/settings';
 
 /** 一批认多少页 */
 export const OCR_BATCH = 20;
@@ -38,9 +38,24 @@ export interface PdfOcrState {
   total: number;
   /** 这一批里失败的第一条原因（界面上只显示一句） */
   error: string;
+  /**
+   * 还没认成的页（升序去重）。
+   *
+   * 记下来是为了「点得回去」：批量跑到第 7 页网络抖一下，用户不能只知道
+   * 失败了，还得知道是哪几页、能一键重来（头栏「识别」菜单里的那一项）。
+   */
+  failed: number[];
 }
 
-export const IDLE_OCR_STATE: PdfOcrState = { running: false, page: 0, done: 0, total: 0, error: '' };
+export const IDLE_OCR_STATE: PdfOcrState = { running: false, page: 0, done: 0, total: 0, error: '', failed: [] };
+
+/** 往失败表里加一页（升序、去重） */
+export function addFailedPage(list: readonly number[], page: number): number[] {
+  const n = Math.floor(Number(page));
+  if (!Number.isFinite(n) || n < 1) return [...list];
+  if (list.includes(n)) return [...list];
+  return [...list, n].sort((a, b) => a - b);
+}
 
 /**
  * 这一批要认哪些页。
@@ -91,7 +106,14 @@ export function ocrProgressText(state: PdfOcrState): string {
 
 /** 差分引擎：识别结果攒着是要给用户看的，不是给日志看的 */
 export function ocrChanged(a: PdfOcrState, b: PdfOcrState): boolean {
-  return a.running !== b.running || a.page !== b.page || a.done !== b.done || a.total !== b.total || a.error !== b.error;
+  return (
+    a.running !== b.running ||
+    a.page !== b.page ||
+    a.done !== b.done ||
+    a.total !== b.total ||
+    a.error !== b.error ||
+    a.failed.join(',') !== b.failed.join(',')
+  );
 }
 
 /**
@@ -223,6 +245,14 @@ export class PdfOcrRunner {
     }
     const settings = this.deps.settings();
     const engine = pdfOcrEngineOf(settings);
+    /* 配置没齐时先给一句「去哪填」，不要把空请求发出去再让接口报 401 */
+    if (!pdfOcrReady(settings)) {
+      const message = engine === 'http' ? t('notice.pdf.ocrNoUrl') : t('notice.pdf.ocrNoKey');
+      this.setState({ ...this.state, error: message });
+      this.deps.notify?.(message, 'info');
+      return false;
+    }
+    const signal = this.ctrl?.signal;
     try {
       const shot = await this.deps.image(page, OCR_IMAGE_WIDTH);
       if (!shot?.blob) throw new Error(t('notice.pdf.ocrNoImage'));
@@ -232,25 +262,41 @@ export class PdfOcrRunner {
         const mime = mimeOf(blob);
         const bytes = new Uint8Array(await blob.arrayBuffer());
         const parsed = await recognizeViaHttp({
-          url: settings.pdfOcrUrl,
+          url: settings.pdfOcr.url,
           image: bytesToBase64(bytes),
           mime,
           width: shot.width,
           height: shot.height,
+          signal,
         });
         ocr = unrotateOcrPage(toOcrPage(parsed, 'http', 'http'), shot.rotation);
       } else {
+        /* 看图通道：DeepSeek 的聊天接口能按 prompt 给每行坐标（官方
+           `/tools/ocr` 对单页图只回整页一个框，划词做不了）。图片转
+           dataURL 后进 `image_url`，与普通问答共用同一个请求层。 */
         const image = await blobToDataUrl(blob);
-        const parsed = await recognizeOnPage(settings, { image, page });
-        ocr = unrotateOcrPage(toOcrPage(parsed, 'vision', settings.ai.model || 'vision'), shot.rotation);
+        const parsed = await recognizeViaVision(
+          {
+            baseUrl: settings.pdfOcr.baseUrl,
+            apiKey: settings.pdfOcr.apiKey,
+            model: settings.pdfOcr.model,
+          },
+          image,
+          { signal, timeoutMs: 180_000 },
+        );
+        ocr = unrotateOcrPage(toOcrPage(parsed, 'deepseek', settings.pdfOcr.model), shot.rotation);
       }
       this.file = withOcrPage(this.file, book.id, page, ocr);
       await this.persist();
       this.deps.host()?.applyOcrPage(page, ocr);
+      /* 手动重认成功：这一页从「失败表」里摘掉，菜单上别再喊重试 */
+      if (this.state.failed.includes(page)) {
+        this.setState({ ...this.state, failed: this.state.failed.filter((n) => n !== page) });
+      }
       return true;
     } catch (err) {
       const message = (err as Error)?.message || String(err);
-      this.setState({ ...this.state, error: message });
+      this.setState({ ...this.state, error: message, failed: addFailedPage(this.state.failed, page) });
       return false;
     }
   }
@@ -278,9 +324,38 @@ export class PdfOcrRunner {
       this.deps.notify?.(t('notice.pdf.ocrNothing'), 'info');
       return;
     }
+    await this.runQueue(queue);
+  }
+
+  /**
+   * 重试上一批没认成的页（头栏「识别」菜单里那一项）。
+   *
+   * 只认失败的那几页，不重扫整批：重扫等于把已经付过钱的页再付一遍。
+   */
+  async retryFailed(): Promise<void> {
+    if (this.state.running) {
+      this.deps.notify?.(t('notice.pdf.ocrBusy'), 'info');
+      return;
+    }
+    if (!this.deps.host() || !this.deps.book()) {
+      this.deps.notify?.(t('notice.pdf.ocrOnly'), 'info');
+      return;
+    }
+    const pages = [...this.state.failed];
+    if (!pages.length) {
+      this.deps.notify?.(t('notice.pdf.ocrRetryNothing'), 'info');
+      return;
+    }
+    await this.runQueue(pages);
+  }
+
+  /** 跑一串页：进度、取消、失败收集都在这里，runBatch 与 retryFailed 共用 */
+  private async runQueue(pages: readonly number[]): Promise<void> {
+    const queue = [...pages];
+    if (!queue.length) return;
     this.ctrl = new AbortController();
     const ctrl = this.ctrl;
-    this.setState({ running: true, page: queue[0]!, done: 0, total: queue.length, error: '' });
+    this.setState({ running: true, page: queue[0]!, done: 0, total: queue.length, error: '', failed: [] });
     try {
       for (const page of queue) {
         if (ctrl.signal.aborted) break;
@@ -292,12 +367,23 @@ export class PdfOcrRunner {
         await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
       }
     } finally {
-      const failed = this.state.error;
+      const failedPages = this.state.failed;
+      const why = this.state.error;
       this.ctrl = null;
       this.setState({ ...this.state, running: false, page: 0 });
       if (ctrl.signal.aborted) this.deps.notify?.(t('notice.pdf.ocrStopped'), 'info');
-      else if (failed) this.deps.notify?.(t('notice.pdf.ocrBatchFailed', { why: failed }), 'error');
-      else this.deps.notify?.(t('notice.pdf.ocrBatchDone', { n: String(this.state.done) }), 'success');
+      else if (failedPages.length) {
+        /* 失败页要说清是哪几页：只说「失败了」用户既不知道范围，也没法重来 */
+        this.deps.notify?.(
+          t('notice.pdf.ocrBatchPartial', {
+            done: String(this.state.done),
+            n: String(failedPages.length),
+            pages: failedPages.join('、'),
+            why,
+          }),
+          'error',
+        );
+      } else this.deps.notify?.(t('notice.pdf.ocrBatchDone', { n: String(this.state.done) }), 'success');
     }
   }
 

@@ -11,15 +11,17 @@ import { PLAN_GROUP_TEXT_PACK, PLAN_TEXT_PACK, planGroupLabel, planGroupNameZh, 
  *
  * 2026-11-14：五行变六行——「本页反链」与「文件自带批注」拆开。两件事各有
  * 一个开关（prefs.pdfBacklinks / prefs.pdfAnnots），一行说两件事读着别扭。
+ * 2026-11-15：六行变七行——扫描页识别从「探索中」转正，单独挂 `pdfOcr`。
  *
  * 两条硬约束：
  *   · 组名不能只写「PDF」——格式那行里有 PDF 两个字，组名与它撞字时容易被
  *     当成那一行的一部分；组名带「阅读」二字，且没有任何一行与组名同名；
- *   · 整段共用一个拦点（打开 PDF）。基础版根本进不了 PDF，缩略图 / 导出这些
- *     按钮对他们不存在，给每行各配一个能力位只是摆样子。
+ *   · 除扫描页识别外，整段共用一个拦点（打开 PDF）。基础版根本进不了 PDF，
+ *     缩略图 / 导出这些按钮对他们不存在，给每行各配一个能力位只是摆样子；
+ *     扫描页识别按页计费，所以它自己那颗要单独拦。
  */
 
-const PDF_ROWS = ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfBacklink', 'pdfAnnots', 'pdfExport'] as const;
+const PDF_ROWS = ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfBacklink', 'pdfAnnots', 'pdfExport', 'pdfOcr'] as const;
 const CJK = /[\u4e00-\u9fff]/;
 const LATIN = ['en', 'de', 'fr', 'es', 'pt'] as const;
 
@@ -36,12 +38,12 @@ describe('对照表 · PDF 段的位置与内容', () => {
     expect(keys.indexOf('pdf')).toBe(keys.indexOf('import') + 1);
   });
 
-  it('六行按顺序、不多不少', () => {
+  it('七行按顺序、不多不少', () => {
     const g = PLAN_GROUPS.find((x) => x.key === 'pdf');
     expect(g?.rows).toEqual([...PDF_ROWS]);
   });
 
-  it('六行都是基础版没有、高级版才有', () => {
+  it('七行都是基础版没有、高级版才有', () => {
     for (const key of PDF_ROWS) {
       const r = row(key);
       expect(r, key).toBeTruthy();
@@ -50,11 +52,14 @@ describe('对照表 · PDF 段的位置与内容', () => {
     }
   });
 
-  it('整段共用一个拦点：只有第一行挂能力位', () => {
+  it('拦点只有两个：首行挂 pdf，扫描页识别挂 pdfOcr，其余不挂', () => {
     const g = PLAN_GROUPS.find((x) => x.key === 'pdf');
     const rows = (g?.rows ?? []).map((k) => row(k));
     expect(rows[0]?.cap).toBe('pdf');
-    for (const r of rows.slice(1)) expect(r?.cap, r?.key).toBeUndefined();
+    expect(row('pdfOcr')?.cap).toBe('pdfOcr');
+    for (const r of rows.slice(1).filter((x) => x?.key !== 'pdfOcr')) {
+      expect(r?.cap, r?.key).toBeUndefined();
+    }
   });
 
   it('组名叫「PDF 阅读」：只写 PDF 会和格式那行撞字', () => {
@@ -115,7 +120,7 @@ describe('对照表 · 回到上一处是基础版能力', () => {
 });
 
 describe('对照表 · PDF 段八种语言', () => {
-  it('组名与六行都填了，没有空串', () => {
+  it('组名与七行都填了，没有空串', () => {
     for (const l of LOCALES) {
       expect(String(PLAN_GROUP_TEXT_PACK.pdf[l]).trim().length, l).toBeGreaterThan(0);
       for (const key of PDF_ROWS) {

@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS, type ReaderSettings } from '../src/data/settings';
 import { readOcr, writeOcr, withOcrPage, ocrPath } from '../src/data/pdf-ocr';
 import type { OcrPage } from '../src/engine/pdf/ocr';
 import {
+  addFailedPage,
   ocrProgressText,
   ocrQueue,
   PdfOcrRunner,
@@ -17,10 +18,12 @@ import { FakeAdapter } from './helpers/fake-adapter';
 function settings(): ReaderSettings {
   return {
     ...DEFAULT_SETTINGS,
-    ai: { baseUrl: 'https://api.example.com/v1', apiKey: 'sk-test', model: 'vision-model' },
+    /* 识别默认走 DeepSeek 看图（独立配置，不借 AI 组） */
+    pdfOcr: { ...DEFAULT_SETTINGS.pdfOcr, apiKey: 'sk-ocr', model: 'deepseek-flash' },
   };
 }
 
+/* 视觉模型的返回：一行一个对象，box 是 0..1 的比例 */
 const MODEL_REPLY = '{"lines":[{"text":"第一行","box":[0.1,0.1,0.5,0.03]}]}';
 
 function fakeHost(total = 10) {
@@ -200,5 +203,64 @@ describe('识别编排', () => {
     await runner.clear();
     expect(adapter.files.has(ocrPath('b1'))).toBe(false);
     expect(bulk.at(-1)).toBeNull();
+  });
+});
+
+describe('失败页可见与重试', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('失败页升序去重，非法页号不进表', () => {
+    expect(addFailedPage([], 3)).toEqual([3]);
+    expect(addFailedPage([3], 1)).toEqual([1, 3]);
+    expect(addFailedPage([1, 3], 3)).toEqual([1, 3]);
+    expect(addFailedPage([], 0)).toEqual([]);
+  });
+
+  it('一批里有一页失败：记下页号，通知说清是哪页', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(okReply())
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockResolvedValueOnce(okReply());
+    vi.stubGlobal('fetch', fetchMock);
+    const adapter = new FakeAdapter();
+    const { host } = fakeHost(10);
+    const notes: string[] = [];
+    const runner = new PdfOcrRunner(depsOf(host, adapter, notes));
+    await runner.runBatch(1, 3);
+    expect(runner.getState().failed).toEqual([2]);
+    expect(notes.join('')).toContain('第 2 页');
+  });
+
+  it('重试只认失败的那几页，成功后就从表里摘掉', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(okReply())
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockResolvedValueOnce(okReply())
+      .mockResolvedValueOnce(okReply());
+    vi.stubGlobal('fetch', fetchMock);
+    const adapter = new FakeAdapter();
+    const { host, applied } = fakeHost(10);
+    const runner = new PdfOcrRunner(depsOf(host, adapter));
+    await runner.runBatch(1, 3);
+    expect(runner.getState().failed).toEqual([2]);
+    const before = fetchMock.mock.calls.length;
+    await runner.retryFailed();
+    expect(fetchMock.mock.calls.length).toBe(before + 1);
+    expect(applied.map((a) => a.page)).toEqual([1, 3, 2]);
+    expect(runner.getState().failed).toEqual([]);
+  });
+
+  it('没有失败页时重试只给一句提示，不发请求', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okReply());
+    vi.stubGlobal('fetch', fetchMock);
+    const adapter = new FakeAdapter();
+    const { host } = fakeHost(10);
+    const notes: string[] = [];
+    const runner = new PdfOcrRunner(depsOf(host, adapter, notes));
+    await runner.retryFailed();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(notes.join('')).toContain('没有要重试');
   });
 });

@@ -83,3 +83,42 @@ describe('在线语音设置', () => {
     expect(s.ttsOnline.model).toBe('cosyvoice-2');
   });
 });
+
+/**
+ * 扫描页识别（2026-11-15）：不再借 AI 组，自带地址 / 密钥 / 通道。
+ *
+ * 老数据只有扁平的 `pdfOcrEngine` / `pdfOcrUrl`。升级时按「pdfOcr 对象在不在」
+ * 判断要不要搬：`vision` 改成官方 OCR 并从 AI 组抄一份密钥；`http` 保留地址。
+ * 对象存在之后，用户清空密钥不会再被 AI 组填回来。
+ */
+describe('扫描页识别设置', () => {
+  it('老数据用 AI 看图：改成 DeepSeek 看图，密钥与模型从 AI 组搬一份', () => {
+    const s = normalizeSettings({ ai: { baseUrl: 'https://api.deepseek.com', apiKey: 'sk-ai', model: 'deepseek-flash' } });
+    expect(s.pdfOcr.engine).toBe('deepseek');
+    expect(s.pdfOcr.baseUrl).toBe('https://api.deepseek.com');
+    expect(s.pdfOcr.apiKey).toBe('sk-ai');
+    expect(s.pdfOcr.model).toBe('deepseek-flash');
+  });
+
+  it('老数据用外部服务：地址保留，通道仍是 http', () => {
+    const s = normalizeSettings({ pdfOcrEngine: 'http', pdfOcrUrl: 'http://127.0.0.1:1224/api/ocr' });
+    expect(s.pdfOcr.engine).toBe('http');
+    expect(s.pdfOcr.url).toBe('http://127.0.0.1:1224/api/ocr');
+  });
+
+  it('已经有独立配置：清空密钥就保持空，不再回填 AI 组', () => {
+    const s = normalizeSettings({
+      ai: { baseUrl: 'https://api.deepseek.com', apiKey: 'sk-ai', model: 'x' },
+      pdfOcr: { engine: 'deepseek', baseUrl: '', apiKey: '', url: '' },
+    });
+    expect(s.pdfOcr.apiKey).toBe('');
+    /* 地址清空 = 用回官方默认，免得拼出一个没有主机的接口地址 */
+    expect(s.pdfOcr.baseUrl).toBe('https://api.deepseek.com');
+    /* 模型清空 = 用回 deepseek-flash */
+    expect(s.pdfOcr.model).toBe('deepseek-flash');
+  });
+
+  it('通道值只认 deepseek / http，写坏了退回官方 OCR', () => {
+    expect(normalizeSettings({ pdfOcr: { engine: 'vision' } }).pdfOcr.engine).toBe('deepseek');
+  });
+});

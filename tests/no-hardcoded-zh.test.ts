@@ -68,7 +68,9 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
      2026-11-14 +3（53 → 56）：朗读分级新增「整本预生成」卖点位，
      zh / zh-TW / ja 三份（日文「本全体」「生成」同样命中正则）。原来的
      「朗读」那条改了口径，条数不变。 */
-  'src/data/entitlement.ts': 56,
+  /* 2026-11-15 +3（56 → 59）：扫描页识别转正，CAP_TEXT 加一条卖点，
+     zh / zh-TW / ja 三份（日文里的「認識」「選択」「検索」同样命中）。 */
+  'src/data/entitlement.ts': 59,
   'src/data/export.ts': 9,
   'src/data/importer.ts': 1,
   'src/data/license.ts': 16,

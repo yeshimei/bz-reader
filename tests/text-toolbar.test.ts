@@ -4,9 +4,12 @@ import {
   KB_ITEMS,
   MARK_ACTS,
   MORE_ACT,
+  REGION_ACTS,
   SELECTION_ACTS,
   TOOLBAR_ITEMS,
+  isRegionLocator,
   moreMenuOpensUp,
+  onlyForRegion,
   planToolbarHit,
   toggleMoreMenu,
   toolbarHtml,
@@ -56,31 +59,64 @@ describe('toolbarLayout · 两种排布', () => {
     expect(toolbarLayout({ marked: false, compact: true }).overflow.some((i) => i.act === 'del')).toBe(false);
   });
 
-  /* 扫描页框选（2026-11-15 改）：矩形也能划线、写想法。
-     书摘 / AI / 双链 / 复制都要文字，框里没有 —— 一颗都不出现。
+  /* 扫描页框选（2026-11-15 定稿）：矩形能划线（色点）、写想法、复制双链、认字。
+     书摘 / AI / 存为名词 / 存为段落都要原文，框里没有 —— 一颗都不出现。
      识别仍排第一：认完整页，之后就能像文字版一样划词。 */
-  it('PDF 框选：识别 + 想法 + 色点，没有书摘 / AI / 复制', () => {
-    const l = toolbarLayout({ marked: false, only: ['ocr', 'idea'] });
-    expect(l.visible.map((i) => i.act)).toEqual(['ocr', 'idea']);
-    const html = toolbarHtml({
-      marked: false,
-      only: ['ocr', 'idea'],
-      acts: SELECTION_ACTS,
-    });
+  it('PDF 框选：识别 + 想法 + 双链 + 色点，没有书摘 / AI / 名词 / 段落', () => {
+    const only = ['ocr', 'idea', 'bilink'] as const;
+    const l = toolbarLayout({ marked: false, only });
+    expect(l.visible.map((i) => i.act)).toEqual(['ocr', 'idea', 'bilink']);
+    const html = toolbarHtml({ marked: false, only, acts: SELECTION_ACTS });
     expect([...html.matchAll(/data-act="(sel(?!pen)\w*)"/g)].map((m) => m[1])).toEqual([
       'selocr',
       'selidea',
+      'selbilink',
     ]);
     /* 色点要露出来：矩形的颜色就从这四个点改 */
     expect(html).toContain('data-act="selpen"');
     expect(html).not.toContain('data-act="selquote"');
     expect(html).not.toContain('data-act="selai"');
+    expect(html).not.toContain('data-act="selterm"');
+    expect(html).not.toContain('data-act="selpassage"');
     expect(html).not.toContain('data-act="selcopy"');
+  });
+
+  /* 已划好的框选：同一套再多一颗删除。删除是 marked 才有的动作，`only`
+     里不写它就会被一起过滤掉——这条防的是「点开矩形没有删除」。 */
+  it('已划好的框选：识别 + 想法 + 双链 + 删除，别的一颗不多', () => {
+    const only = ['ocr', 'idea', 'bilink', 'del'] as const;
+    const html = toolbarHtml({ marked: true, only, acts: MARK_ACTS });
+    for (const act of ['hlocr', 'hlidea', 'copylink', 'hldel']) expect(html, act).toContain(`data-act="${act}"`);
+    for (const act of ['hlquote', 'hlai', 'hlterm', 'hlpassage', 'hlcopy']) {
+      expect(html, act).not.toContain(`data-act="${act}"`);
+    }
   });
 
   it('普通划词条里不出现「识别」：有字的页不需要它', () => {
     expect(toolbarHtml({ marked: false, acts: SELECTION_ACTS })).not.toContain('data-act="selocr"');
     expect(toolbarHtml({ marked: true, acts: MARK_ACTS })).not.toContain('data-act="selocr"');
+  });
+
+  /* 判断只认定位串里的 `/r=`（框选矩形）。普通划线不管在 EPUB 还是文字版
+     PDF 上，工具条一个字都不少——2026-11-15 用户要求「只在扫描版 PDF 上缩减」，
+     落到代码就是「只收窄区域框」，不是按书类型砍。 */
+  it('onlyForRegion：区域框收窄，普通划线返回 undefined', () => {
+    expect(onlyForRegion('pdf/3/r=0.1,0.2,0.3,0.4')).toEqual(REGION_ACTS);
+    expect(onlyForRegion('pdf/3/12-40')).toBeUndefined();
+    expect(onlyForRegion('epubcfi(/6/4)')).toBeUndefined();
+    expect(onlyForRegion('')).toBeUndefined();
+    expect(isRegionLocator('pdf/3/r=0.1,0.2,0.3,0.4')).toBe(true);
+  });
+
+  it('区域框走同一份 only：普通划线仍显示书摘 / AI / 名词 / 段落 / 复制', () => {
+    const normal = toolbarHtml({ marked: true, only: onlyForRegion('pdf/3/12-40'), acts: MARK_ACTS });
+    expect(normal).toContain('data-act="hlquote"');
+    expect(normal).toContain('data-act="hlai"');
+    const region = toolbarHtml({ marked: true, only: onlyForRegion('pdf/3/r=0.1,0.2,0.3,0.4'), acts: MARK_ACTS });
+    for (const act of ['hlocr', 'hlidea', 'copylink', 'hldel']) expect(region, act).toContain(`data-act="${act}"`);
+    for (const act of ['hlquote', 'hlai', 'hlterm', 'hlpassage', 'hlcopy']) {
+      expect(region, act).not.toContain(`data-act="${act}"`);
+    }
   });
 });
 

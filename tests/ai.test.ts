@@ -59,6 +59,59 @@ describe('AI 请求（P2-12：没有超时就会一直转圈）', () => {
     await expect(aiAsk(settings(), { task: 'explain', text: 'x' })).rejects.toThrow('AI 没有返回内容');
   });
 
+  /* 2026-11-15 用户报「扫描页识别：AI 没有返回内容」，图上明明一整页字。
+     原来四种完全不同的原因共用一句提示，用户不知道该换模型还是调参数。
+     下面五条把「拿到结果之后」这条路钉住：分段数组要认，空正文要分因。 */
+  it('兼容分段数组的正文：有的兼容层把 content 回成 [{type:"text"}]', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: [{ type: 'text', text: ' 你好' }, { type: 'text', text: '世界 ' }] } }],
+        }),
+      }),
+    );
+    await expect(aiAsk(settings(), { task: 'explain', text: 'x' })).resolves.toEqual({ text: '你好世界' });
+  });
+
+  it('空正文 + 被长度上限截断：提示指向输出上限，不是笼统一句', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ choices: [{ finish_reason: 'length', message: { content: '' } }] }),
+      }),
+    );
+    await expect(aiAsk(settings(), { task: 'explain', text: 'x' })).rejects.toThrow(/长度上限/);
+  });
+
+  it('空正文 + 只有思考过程：提示换一个能看图的模型', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          choices: [{ finish_reason: 'stop', message: { content: '', reasoning_content: '先看看这一页…' } }],
+        }),
+      }),
+    );
+    await expect(aiAsk(settings(), { task: 'explain', text: 'x' })).rejects.toThrow(/思考过程/);
+  });
+
+  it('空正文的普通情况：点明多半不支持看图，并带上当前模型名', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ choices: [{ finish_reason: 'stop', message: { content: null } }] }),
+      }),
+    );
+    const p = aiAsk(settings(), { task: 'explain', text: 'x' });
+    await expect(p).rejects.toThrow(/多模态/);
+    await expect(aiAsk(settings(), { task: 'explain', text: 'x' })).rejects.toThrow(/test-model/);
+  });
+
   it('正常返回 trim 后的文本', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse('  hello  ')));
     await expect(aiAsk(settings(), { task: 'explain', text: 'x' })).resolves.toEqual({ text: 'hello' });

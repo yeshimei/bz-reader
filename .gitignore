@@ -19,3 +19,7 @@ tmp/
 
 # 发行私钥：泄露 = 任何人能签激活码，永远不进 git
 /scripts/keys/
+
+# 对照长图的中间产物（assets/plan-compare/draw.py 生成）
+assets/plan-compare/data.cjs
+assets/plan-compare/plan.json

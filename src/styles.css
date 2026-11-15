@@ -1502,7 +1502,9 @@ body .view-header .clickable-icon.bzs-host-hidden {
   animation: bzr-pdf-pulse 1s ease-out forwards;
 }
 
-/* 框选时的橡皮筋：虚线 + 半透明底，松手后由 .bzr-pdf-annot-mark 接手 */
+/* 框选时的橡皮筋：虚线 + 半透明底。2026-11-15 起松手后这层**不删**，
+   一直留到用户点色点划线，落线后由 setAnnotations 换成正式颜色矩形，
+   否则工具条浮在那儿，用户看不见自己到底框了哪一块。 */
 .bzr-pdf-frame {
   position: absolute;
   z-index: 5;
@@ -1510,6 +1512,11 @@ body .view-header .clickable-icon.bzs-host-hidden {
   background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
   border-radius: 2px;
   pointer-events: none;
+}
+
+/* 待划线的那层比拖动中的橡皮筋描得清楚一点，扫描页上才看得出来 */
+.bzr-pdf-frame.is-pending {
+  border-width: 2px;
 }
 
 /* 框选期间禁掉文字选择，否则一次拖动会同时选中一堆字 */
@@ -1758,8 +1765,10 @@ body .view-header .clickable-icon.bzs-host-hidden {
   right: 14px;
   /* 桌面端底部有 Obsidian 的状态栏（保险库 / 工具坞那一行），阅读视图一直
      铺到窗口最底下，14px 的浮条会被状态栏压掉半截（2026-11-15 用户截图）。
-     按状态栏高度让位；移动端这个变量是 0，下面那条再叠安全区。 */
-  bottom: calc(14px + var(--status-bar-height, 0px));
+     让位量一律用 syncBottomGap 运行时量出来的 --bzr-bottom-gap：宿主并不保证
+     有 --status-bar-height，上一版按它算真机量到 0；而且状态栏被隐藏时那个
+     变量仍在，白抬一截。量不到 / 栏隐藏时变量会被摘掉，这里就是 0。 */
+  bottom: calc(14px + var(--bzr-bottom-gap, 0px));
   z-index: 6;
   display: flex;
   align-items: center;
@@ -1907,11 +1916,13 @@ body .view-header .clickable-icon.bzs-host-hidden {
 }
 
 /* 手机上工具坞/底栏会压住右下角，把缩放条抬高一点。
-   桌面端开 emulateMobile 时 env() 恒为 0，Obsidian 自己的 --safe-area-inset-bottom
-   才是真高度，两个取大的那个。 */
+   syncBottomGap 量出的 --bzr-bottom-gap 已含导航栏与安全区（取大不相加），
+   再与两套安全区变量取大兜底：桌面开 emulateMobile 时 env() 恒为 0。 */
 body.is-mobile .bzr-pdf-toolbar {
   right: 12px;
-  bottom: calc(14px + max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px)));
+  bottom: calc(
+    14px + max(var(--bzr-bottom-gap, 0px), env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px))
+  );
   /* 390px 里三件套 + 滑块排不下：换行，别横向滚 */
   flex-wrap: wrap;
   row-gap: 4px;

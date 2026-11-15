@@ -19,8 +19,8 @@ describe('扫描页识别 · 自部署提示词', () => {
 
   it('要求 AI 把地址回填进这本书的 data.json，并把引擎切到外部服务', () => {
     expect(prompt).toContain('E:/Obsidian/bz reader/.obsidian/plugins/bz-reader/data.json');
-    expect(prompt).toContain('pdfOcrUrl');
-    expect(prompt).toContain('pdfOcrEngine');
+    expect(prompt).toContain('pdfOcr.url');
+    expect(prompt).toContain('pdfOcr.engine');
   });
 
   it('拿不到库路径时用占位符，不写半截路径', () => {

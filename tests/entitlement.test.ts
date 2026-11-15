@@ -237,11 +237,13 @@ describe('界面文案', () => {
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
     expect(PLAN_TABLE[kbAt]?.name).toBe('AI 知识库：划线、想法、增量阅读存进去，提问带上笔记');
-    /* 2026-11-14：AI 段收在知识库；后面是朗读与听书、阅读方式与探索中。 */
+    /* 2026-11-14：AI 段收在知识库；后面是朗读与听书、阅读方式与探索中。
+       2026-11-15：探索段从七行减到六行（扫描页识别转正），这里跟着段长走，
+       不再写死 7。 */
     expect(PLAN_TABLE[kbAt + 1]?.key).toBe('tts');
-    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key).slice(-7)).toEqual(
-      PLAN_GROUPS.find((g) => g.key === 'explore')?.rows,
-    );
+    const explore = PLAN_GROUPS.find((g) => g.key === 'explore')?.rows ?? [];
+    expect(explore.length).toBeGreaterThan(0);
+    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key).slice(-explore.length)).toEqual(explore);
   });
 
   it('数据面板那一行写全：时长、趋势、节律、书籍明细', () => {

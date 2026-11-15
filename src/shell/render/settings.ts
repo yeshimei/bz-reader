@@ -412,34 +412,42 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow is-segrow"><label>${t('settings.pdfOcrEngine')}</label>${seg(
         'pdfOcrEngine',
         [
-          ['vision', t('settings.pdfOcrEngine.vision')],
+          ['deepseek', t('settings.pdfOcrEngine.deepseek')],
           ['http', t('settings.pdfOcrEngine.http')],
         ],
-        /* 显示用户点的那个，而不是「实际生效」的那个：以前这里走
-           pdfOcrEngineOf，选了外部服务却没填地址就弹回 AI，点上去像没反应
-           （2026-11-15 用户指出）。回退只留在运行期，这里如实显示选择，
-           下面用一句提示说清「没填地址会退回」。 */
-        s.pdfOcrEngine,
+        /* 显示用户点的那个，而不是「实际生效」的那个：选了外部服务却没填
+           地址就弹回 DeepSeek，点上去像没反应（2026-11-15 用户指出）。
+           回退只留在运行期，这里如实显示选择，下面用一句提示说清。 */
+        s.pdfOcr.engine,
         'setocr',
         'bzs-seg bzs-seg-pdf2',
       )}</div>
       ${
-        s.pdfOcrEngine === 'http'
-          ? `<div class="bzs-setrow"><label>${t('settings.pdfOcrUrl')}</label><input data-role="setting" data-k="pdfOcrUrl" placeholder="http://127.0.0.1:1224/api/ocr" value="${esc(
-              s.pdfOcrUrl,
+        s.pdfOcr.engine === 'http'
+          ? `<div class="bzs-setrow"><label>${t('settings.pdfOcrUrl')}</label><input data-role="setting" data-k="pdfOcr.url" placeholder="http://127.0.0.1:1224/api/ocr" value="${esc(
+              s.pdfOcr.url,
             )}" style="flex:1" spellcheck="false"></div>
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfOcrUrl.hint')}</div>`
-          : `<div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfOcrEngine.visionHint')}</div>`
+          : `<div class="bzs-setrow"><label>${t('settings.pdfOcrBaseUrl')}</label><input data-role="setting" data-k="pdfOcr.baseUrl" placeholder="https://api.deepseek.com" value="${esc(
+              s.pdfOcr.baseUrl,
+            )}" style="flex:1" spellcheck="false"></div>
+      <div class="bzs-setrow"><label>${t('settings.pdfOcrModel')}</label><input data-role="setting" data-k="pdfOcr.model" placeholder="deepseek-flash" value="${esc(
+              s.pdfOcr.model,
+            )}" style="flex:1" spellcheck="false"></div>
+      <div class="bzs-setrow"><label>${t('settings.pdfOcrKey')}</label><input type="password" data-role="setting" data-k="pdfOcr.apiKey" value="${esc(
+              s.pdfOcr.apiKey,
+            )}" style="flex:1" spellcheck="false"></div>
+      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfOcrKey.hint')}</div>`
       }
       ${
-        s.pdfOcrEngine === 'http' && !s.pdfOcrUrl.trim()
+        s.pdfOcr.engine === 'http' && !s.pdfOcr.url.trim()
           ? `<div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfOcrFallback')}</div>`
           : ''
       }
       ${
-        /* 「自部署」只服务外部 OCR 服务那一档（2026-11-15 用户要求）：
-           走 AI 看图时这段任务书没有可装的东西，摆着只会让人以为还要装什么。 */
-        s.pdfOcrEngine === 'http'
+        /* 「自部署」只服务外部 OCR 服务那一档：官方 OCR 没有可装的东西，
+           摆着只会让人以为还要装什么。 */
+        s.pdfOcr.engine === 'http'
           ? `<div class="bzs-setrow"><label>${t('settings.pdfOcrDeploy')}</label>
         <button class="bzs-btn sm" data-act="ocrcopyprompt">${t('settings.pdfOcrDeploy.copy')}</button>
       </div>`

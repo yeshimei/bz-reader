@@ -924,6 +924,13 @@ body.theme-dark .bzs-tb-more {
   box-shadow: 0 12px 30px rgba(40, 32, 20, .14), 0 2px 6px rgba(40, 32, 20, .06);
 }
 
+/* 确认条比工具条窄，居中的话会飘在整条工具条的中间，和刚点的那颗「删除」
+   错开一大截（2026-11-15 真机截图：确认条在左、删除在最右）。
+   删除按钮在工具条最右，确认条就右缘对齐它，眼睛不用横移。 */
+.bzs-del-panel .bzs-tb-stack {
+  align-items: flex-end;
+}
+
 .bzs-del-bar {
   display: flex;
   align-items: center;

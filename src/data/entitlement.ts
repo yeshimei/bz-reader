@@ -72,12 +72,21 @@ export type Cap =
   /**
    * PDF 整段（2026-11-10）。
    *
-   * 和别的 cap 不一样：它代表**一整段七行**，不是某颗按钮。原因是基础版
+   * 和别的 cap 不一样：它代表**一整段**，不是某颗按钮。原因是基础版
    * 根本进不了 PDF，缩略图 / 导出页图 / 反链这些动作对他们不存在，给每行
-   * 各配一个能力位只是摆样子。整段共用一个拦点（打开 PDF）——被拦时高亮
-   * 段首那一行，用户就知道「PDF 这一整块要买」。
+   * 各配一个能力位只是摆样子。除了扫描页识别（自己有 `pdfOcr`，按页计费），
+   * 整段共用一个拦点（打开 PDF）——被拦时高亮段首那一行，用户就知道
+   * 「PDF 这一整块要买」。
    */
-  | 'pdf';
+  | 'pdf'
+  /**
+   * 扫描页识别（2026-11-15 从「探索中」转正）。
+   *
+   * 与 `pdf` 分开：它按页计费（视觉模型 / 外部 OCR 都是真金白银），
+   * 用户在对照表里也该单独看见这一行。拦点只放在「识别」这三颗上，
+   * 读普通 PDF 不受影响。
+   */
+  | 'pdfOcr';
   // 'footnote' 已并入基础版（2026-11-03）：浮窗代码本来就在共享的 shell 里，
   // 留在 Cap 表里只会让设置页和对照表撒谎。
 
@@ -715,6 +724,18 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     es: 'PDF: zoom, enlaces de página, retroenlaces y exportar páginas',
     pt: 'PDF: zoom, links de página, retrolinks e exportar páginas',
   },
+  /* 扫描页识别的卖点（2026-11-15 转正）。被拦时弹层第一句就是它：
+     用户点的是「识别这页」，得立刻知道买了能拿到什么。 */
+  pdfOcr: {
+    zh: '扫描页识别：扫描件也像文字版一样选、搜、划',
+    'zh-TW': '掃描頁識別：掃描件也像文字版一樣選、搜、劃',
+    en: 'OCR for scanned pages: select, search, and highlight them like real text',
+    ja: 'スキャンページ認識：スキャンした本も文字版と同じように選択・検索・ハイライト',
+    de: 'Gescannte Seiten erkennen: auswählen, suchen und markieren wie echter Text',
+    fr: 'OCR des pages scannées : les sélectionner, les rechercher et les surligner comme du texte',
+    es: 'OCR de páginas escaneadas: seleccionarlas, buscarlas y resaltarlas como texto',
+    pt: 'OCR de páginas digitalizadas: selecioná-las, pesquisá-las e destacá-las como texto',
+  },
   clipBook: {
     zh: '剪藏成书：把 bz 剪藏本里的订阅文章合成一本 EPUB，进书架读',
     'zh-TW': '剪藏成書：把 bz 剪藏本裡的訂閱文章合成一本 EPUB，進書架讀',
@@ -802,6 +823,10 @@ export const PLAN_TABLE: PlanRow[] = [
   row('pdfBacklink', 'no', 'yes'),
   row('pdfAnnots', 'no', 'yes'),
   row('pdfExport', 'no', 'yes'),
+  /* 2026-11-15：扫描页识别从「探索中」转正。它按页计费（视觉模型 / 外部
+     OCR 都要钱），所以单独一行、单独一个能力位；拦点只放在「识别」上，
+     读普通 PDF 不受影响。 */
+  row('pdfOcr', 'no', 'yes', 'pdfOcr'),
   /* ── 笔记与导出：读完怎么存 ──
    * 双向链接整条是高级版能力（copylink 走 requireCap('bilink')）。
    * 引用页签 2026-11-12 有独立能力位，点它被拦时点亮的是它自己那一行。 */
@@ -845,10 +870,10 @@ export const PLAN_TABLE: PlanRow[] = [
   /* 1.0.0：并排的是任意两本书、段落同步，不是「原文 + 译文」。 */
   row('parallel', 'no', 'yes', 'parallel'),
   row('bookmap', 'no', 'yes', 'bookmap'),
-  /* ── 探索中（2026-11-11，2026-11-12 增至七项） ──
-   * 七项都还没实现：两版都不打勾、不挂能力位，状态由段名说。
+  /* ── 探索中（2026-11-11，2026-11-12 增至七项；2026-11-15 扫描页识别
+   * 转正，剩六项） ──
+   * 六项都还没实现：两版都不打勾、不挂能力位，状态由段名说。
    * 它们不进合计——图上的基础版与高级版项数只数打勾的行。 */
-  row('pdfOcr', 'no', 'no'),
   row('pdfReflow', 'no', 'no'),
   row('manga', 'no', 'no'),
   row('transChapter', 'no', 'no'),
@@ -864,7 +889,7 @@ export const PLAN_TABLE: PlanRow[] = [
  * `free === 'yes'` 与 `pro === 'yes'` 的行数。写死的话，下次加一行忘了改，
  * 弹层就会对外少报一项；这张表是用户决定要不要付钱的地方，数字得跟着表走。
  *
- * 「探索中」那七行两版都不打勾，所以天然不计入：不是特例，是同一条规则。
+ * 「探索中」那六行两版都不打勾，所以天然不计入：不是特例，是同一条规则。
  * 反过来说，哪天给探索中的某项打了勾，它会自动进合计——这正是想要的。
  */
 export function planTotals(): { free: number; pro: number } {
@@ -908,7 +933,7 @@ export function unlockModeFor(format: BookFormat): 'pdf' | 'fullFormats' {
  *   · AI：划词、全书问答、伴读、知识库；
  *   · 朗读与听书：朗读、三台引擎、音色、语速、导出、预生成与离线书；
  *   · 阅读方式：竖排、并排、鸟瞰；
- *   · 探索中：还没实现的七项，两版都不打勾，只作为路线图收尾。 */
+ *   · 探索中：还没实现的六项，两版都不打勾，只作为路线图收尾。 */
 export interface PlanGroup {
   key: PlanGroupKey;
   /** 这一段包含哪些行，按表里的顺序 */
@@ -926,7 +951,7 @@ export const PLAN_GROUPS: PlanGroup[] = [
   },
   {
     key: 'pdf',
-    rows: ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfBacklink', 'pdfAnnots', 'pdfExport'],
+    rows: ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfBacklink', 'pdfAnnots', 'pdfExport', 'pdfOcr'],
   },
   {
     key: 'notes',
@@ -954,6 +979,6 @@ export const PLAN_GROUPS: PlanGroup[] = [
      「被拦时高亮」那一套。 */
   {
     key: 'explore',
-    rows: ['pdfOcr', 'pdfReflow', 'manga', 'transChapter', 'review', 'eink', 'motion'],
+    rows: ['pdfReflow', 'manga', 'transChapter', 'review', 'eink', 'motion'],
   },
 ];

@@ -4,29 +4,14 @@ import {
   bytesToBase64,
   dataUrlOf,
   mimeOf,
-  recognizeOnPage,
   recognizeViaHttp,
+  recognizeViaVision,
   VISION_PROMPT,
   visionMessages,
 } from '../src/data/ai-vision';
-import type { ReaderSettings } from '../src/data/settings';
 
-function settings(patch: Partial<ReaderSettings['ai']> = {}): ReaderSettings {
-  return {
-    exportDir: 'bz-reader/notes',
-    exportComments: true,
-    importDir: 'bz-reader/books',
-    language: 'auto',
-    aiAck: false,
-    debugLog: false,
-    ai: { baseUrl: 'https://api.example.com/v1', apiKey: 'sk-test', model: 'vision-model', ...patch },
-  };
-}
-
-const okResponse = (content: string) => ({
-  ok: true,
-  json: async () => ({ choices: [{ message: { content } }] }),
-});
+/* 2026-11-15：识别默认走 DeepSeek 看图（独立配置）；外部 OCR 服务是另一条通道。
+   官方 `/tools/ocr` 实测只回整页一个框，划词做不了，所以没接。 */
 
 describe('视觉识别的请求形状', () => {
   it('一段文字 + 一张图，图走 image_url', () => {
@@ -46,41 +31,60 @@ describe('视觉识别的请求形状', () => {
   });
 });
 
-describe('recognizeOnPage', () => {
+describe('recognizeViaVision', () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  const config = { baseUrl: 'https://api.deepseek.com', apiKey: 'sk-ocr', model: 'deepseek-flash' };
+  const okResponse = (content: string) => ({
+    ok: true,
+    json: async () => ({ choices: [{ message: { content } }] }),
+  });
+
   it('模型回 JSON：解析成行与位置', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      okResponse('{"lines":[{"text":"第一行","box":[0.1,0.2,0.5,0.03]}]}'),
-    );
+    const fetchMock = vi.fn().mockResolvedValue(okResponse('{"lines":[{"text":"第一行","box":[0.1,0.2,0.5,0.03]}]}'));
     vi.stubGlobal('fetch', fetchMock);
-    const got = await recognizeOnPage(settings(), { image: 'data:image/jpeg;base64,AAA' });
+    const got = await recognizeViaVision(config, 'data:image/jpeg;base64,AAA');
     expect(got.layout).toBe(true);
     expect(got.lines[0]?.text).toBe('第一行');
     const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as {
       temperature: number;
       max_tokens: number;
+      thinking?: { type: string };
       messages: unknown[];
     };
     expect(body.temperature).toBe(0.1);
-    expect(body.max_tokens).toBe(4000);
+    /* 8000：一页 60 行带坐标约 3–5k token；4000 会被 DeepSeek 的思考吃光 */
+    expect(body.max_tokens).toBe(8000);
+    expect(body.thinking).toEqual({ type: 'disabled' });
     expect(body.messages).toHaveLength(2);
+  });
+
+  it('非 DeepSeek 端点不传 thinking：别家兼容层可能因未知字段 400', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okResponse('{"lines":[{"text":"甲","box":[0.1,0.2,0.5,0.03]}]}'));
+    vi.stubGlobal('fetch', fetchMock);
+    await recognizeViaVision(
+      { baseUrl: 'https://api.example.com/v1', apiKey: 'k', model: 'vision-model' },
+      'data:image/jpeg;base64,AAA',
+    );
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as Record<string, unknown>;
+    expect(body.thinking).toBeUndefined();
   });
 
   it('模型只回整页文字：layout=false，不假装能划词', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse('{"text":"整页的一段字"}')));
-    const got = await recognizeOnPage(settings(), { image: 'x' });
+    const got = await recognizeViaVision(config, 'x');
     expect(got.layout).toBe(false);
     expect(got.text).toBe('整页的一段字');
   });
 
   it('一个字都没认出来就报错，别静默返回空页', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(okResponse('{"lines":[]}')));
-    await expect(recognizeOnPage(settings(), { image: 'x' })).rejects.toThrow('没有认出文字');
+    await expect(recognizeViaVision(config, 'x')).rejects.toThrow('没有认出文字');
   });
 
-  it('没配置 AI 时说清去哪配', async () => {
-    await expect(recognizeOnPage(settings({ apiKey: '' }), { image: 'x' })).rejects.toThrow('还没配置 AI');
+  it('没填密钥时接口 401 提示检查 Key，不静默失败', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401 }));
+    await expect(recognizeViaVision({ ...config, apiKey: '' }, 'x')).rejects.toThrow('OCR 接口返回 401');
   });
 });
 
@@ -182,7 +186,7 @@ describe('外部 OCR 服务', () => {
   });
 });
 
-describe('图 → dataURL', () => {
+describe('图 → base64', () => {
   it('base64 与标准实现逐字节一致（含补齐位）', () => {
     expect(bytesToBase64(new Uint8Array([]))).toBe('');
     expect(bytesToBase64(new Uint8Array([77]))).toBe('TQ==');
@@ -191,15 +195,15 @@ describe('图 → dataURL', () => {
     expect(bytesToBase64(new TextEncoder().encode('hello world'))).toBe('aGVsbG8gd29ybGQ=');
   });
 
-  it('dataURL 带 mime 前缀', () => {
-    expect(dataUrlOf('QUJD')).toBe('data:image/jpeg;base64,QUJD');
-    expect(dataUrlOf('QUJD', 'image/png')).toBe('data:image/png;base64,QUJD');
-  });
-
   it('Blob 的 mime 归一到 image/，非图片退回 jpeg', () => {
     expect(mimeOf({ type: 'image/png' } as Blob)).toBe('image/png');
     expect(mimeOf({ type: '' } as Blob)).toBe('image/jpeg');
     expect(mimeOf(null)).toBe('image/jpeg');
+  });
+
+  it('dataURL 带 mime 前缀', () => {
+    expect(dataUrlOf('QUJD')).toBe('data:image/jpeg;base64,QUJD');
+    expect(dataUrlOf('QUJD', 'image/png')).toBe('data:image/png;base64,QUJD');
   });
 
   it('blobToDataUrl 转出来能直接用；没有图就抛', async () => {

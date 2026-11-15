@@ -74,8 +74,8 @@ describe('对照表 · 朗读与听书段', () => {
     expect(modes?.rows).toEqual(['vertical', 'parallel', 'bookmap']);
   });
 
-  it('合计 12 / 37，全表 44 行', () => {
-    expect(planTotals()).toEqual({ free: 12, pro: 37 });
+  it('合计 12 / 38，全表 44 行', () => {
+    expect(planTotals()).toEqual({ free: 12, pro: 38 });
     expect(PLAN_TABLE).toHaveLength(44);
   });
 

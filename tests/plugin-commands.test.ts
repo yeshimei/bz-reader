@@ -59,6 +59,7 @@ describe('命令 id', () => {
         'pdf-ocr-batch',
         'pdf-ocr-stop',
         'pdf-ocr-clear',
+        'pdf-region-card',
         'pdf-back',
       ].sort(),
     );
@@ -109,7 +110,7 @@ describe('命令分发', () => {
         'bookmark', 'bookmap', 'focus', 'fullscreen', 'guide', 'page-next', 'page-prev', 'tts', 'typography',
         'pdf-zoom-in', 'pdf-zoom-out', 'pdf-fit-width', 'pdf-fit-page', 'pdf-rotate',
         'pdf-spread', 'pdf-paged', 'pdf-thumbs', 'pdf-copy-link', 'pdf-export-page',
-        'pdf-ocr-page', 'pdf-ocr-batch', 'pdf-ocr-stop', 'pdf-ocr-clear', 'pdf-back',
+        'pdf-ocr-page', 'pdf-ocr-batch', 'pdf-ocr-stop', 'pdf-ocr-clear', 'pdf-region-card', 'pdf-back',
       ].sort(),
     );
   });

@@ -2060,7 +2060,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const src = getShellSource();
       if (!src) break;
       if (d.k === 'pdfOcrEngine') {
-        src.setSettings({ pdfOcrEngine: d.v === 'http' ? 'http' : 'vision' });
+        const cur = shellSettings().pdfOcr;
+        src.setSettings({ pdfOcr: { ...cur, engine: d.v === 'http' ? 'http' : 'deepseek' } });
         repaint();
       }
       break;
@@ -2499,6 +2500,21 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       void copyText(h.text);
       /* 复制完把浮层收掉：用户要的是这段字，不是继续停在这条线上。
          不 force：想法里可能还有没保存的字，那是另一码事（会先问一句）。 */
+      closeOverlay();
+      break;
+    }
+    case 'hlocr': {
+      /* 点开已划好的框选再点「识别」：认的是**这一页**，不是框里那块。
+         框里没有原文，页码只能从 `pdf/<页>/r=…` 定位串里取。 */
+      const book = findBookOfMark(d.id, d.book);
+      const h = book?.notes?.highlights.find((x) => x.id === d.id);
+      const page = h?.cfiRange ? pdfLocatorPage(h.cfiRange) : null;
+      if (!book || !page) {
+        notify(t('notice.locate.notReady'), 'info');
+        break;
+      }
+      getShellSource()?.recognizePage(page, book.id);
+      /* 认完这一页会重画文字层，浮层留着只会贴着已经变了的页面 */
       closeOverlay();
       break;
     }
@@ -3838,8 +3854,17 @@ export function dispatchInput(
       src.setSettings({ ai: { ...shellSettings().ai, [k.slice(3)]: value } });
       return;
     }
-    if (k === 'pdfOcrUrl') {
-      src.setSettings({ pdfOcrUrl: value });
+    if (
+      k === 'pdfOcr.url' ||
+      k === 'pdfOcr.baseUrl' ||
+      k === 'pdfOcr.apiKey' ||
+      k === 'pdfOcr.model'
+    ) {
+      const group = 'pdfOcr';
+      const field = k.slice(group.length + 1) as 'url' | 'baseUrl' | 'apiKey' | 'model';
+      const cur = shellSettings().pdfOcr;
+      if (value === String(cur[field] ?? '')) return;
+      src.setSettings({ pdfOcr: { ...cur, [field]: value } });
       return;
     }
     if (k.startsWith('ttsLocal.') || k.startsWith('ttsOnline.')) {

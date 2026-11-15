@@ -36,7 +36,14 @@ export interface OcrLine {
   confidence?: number;
 }
 
-export type OcrEngine = 'vision' | 'http' | 'manual';
+/**
+ * 谁认的。
+ *
+ * `vision` 是 2026-11-15 之前「让聊天模型看图」那一档留下的历史值：
+ * 已经落盘的识别结果还带着它，读回来不能当成损坏；新识别只写
+ * `deepseek`（官方 OCR）或 `http`（自建服务）。
+ */
+export type OcrEngine = 'deepseek' | 'http' | 'vision' | 'manual';
 
 export interface OcrPage {
   engine: OcrEngine;

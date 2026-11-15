@@ -19,7 +19,7 @@ import { recordPosition, type ReaderBook } from '../data/schema';
 import type { LinkTarget } from '../data/deeplink';
 import { parseWikilinkHref, wikilinkOf } from '../data/wikilink';
 import { pdfColorFromName, pdfDisplayLabel, pdfSubpathOf } from '../data/pdf-link';
-import { pdfLocatorPage, pdfPageLocator } from '../engine/pdf/locator';
+import { parsePdfLocator, pdfLocatorPage, pdfPageLocator, type PdfRectArea } from '../engine/pdf/locator';
 import {
   HIGHLIGHT_COLORS,
   colorCss,
@@ -106,7 +106,7 @@ import {
 import { planHeaderVisibility, roleOf } from './header-layout';
 import { pdfActionRun, type PanelAnchor } from './pdf-actions';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
-import { SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
+import { REGION_ACTS, SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
 import { hydrateToolbarIcons } from '../shell/toolbar-icons';
 import { can } from '../data/entitlement';
 import { bzEntryReady } from '../data/bz-bridge';
@@ -166,6 +166,7 @@ import { carryMeasuredPages, clipStructureChanged, migrateClipKey, syncClipChapt
 import { DEFAULT_CLIP_SCOPE, type ClipScope } from '../data/clip-epub/scope';
 import { getShellSource, shellPrefs, shellSettings } from '../shell/source';
 import { OCR_BATCH, PdfOcrRunner, ocrProgressText, type PdfOcrHostLike } from '../shell/pdf-ocr';
+import { copyRegionCard } from '../shell/region-card';
 import { collectPdfBacklinks, invalidatePdfBacklinks } from '../data/pdf-backlink';
 import { epubBacklinkHits } from '../data/epub-backlink';
 import { dispatchAction, requireCap } from '../shell/actions';
@@ -204,6 +205,7 @@ export type ReaderCommand =
   | 'pdf-ocr-batch'
   | 'pdf-ocr-stop'
   | 'pdf-ocr-clear'
+  | 'pdf-region-card'
   | 'pdf-back';
 
 /** 读到 99% 以上就算读完，不必真翻到最后一页的最后一个字 */
@@ -618,6 +620,9 @@ export class ReaderView extends ItemView {
       notify(t('notice.pdf.ocrOnly'), 'info');
       return;
     }
+    /* 扫描页识别 2026-11-15 转正：按页计费，单独一道门。区域工具条那
+       「识别」也走这里（onPdfOcr），所以只拦这一处就够。 */
+    if (!requireCap('pdfOcr')) return;
     const target = Math.max(1, Math.floor(Number(page) || 1));
     /* 单页也要先亮一句：出图 + 请求 + 落盘要几秒，没有反馈就是「点了没反应」 */
     this.showOcrProgress(t('notice.pdf.ocrOnePage', { page: String(target) }));
@@ -648,6 +653,7 @@ export class ReaderView extends ItemView {
       notify(t('notice.pdf.ocrOnly'), 'info');
       return;
     }
+    if (!requireCap('pdfOcr')) return;
     const from = this.currentPageNumber();
     this.showOcrProgress(
       t('notice.pdf.ocrRunning', { page: String(from), done: '0', total: String(OCR_BATCH) }),
@@ -663,6 +669,7 @@ export class ReaderView extends ItemView {
       notify(t('notice.pdf.ocrOnly'), 'info');
       return;
     }
+    if (!requireCap('pdfOcr')) return;
     const total = this.ocrHost()?.ocrStats().total || 0;
     if (!total) {
       notify(t('notice.pdf.ocrNothing'), 'info');
@@ -702,6 +709,26 @@ export class ReaderView extends ItemView {
         .setIcon('book-open')
         .onClick(() => this.recognizeBook()),
     );
+    /* 上一批有页没认成：菜单里多一项「重试失败的 N 页」。
+       只在这一项里露头，不往工具条上加按钮——识别失败是低频状态。 */
+    const failed = this.ocr.getState().failed;
+    if (failed.length) {
+      menu.addItem((item) =>
+        item
+          .setTitle(t('pdf.ocrScope.retry', { n: String(failed.length) }))
+          .setIcon('rotate-ccw')
+          .onClick(() => {
+            this.showOcrProgress(
+              t('notice.pdf.ocrRunning', {
+                page: String(failed[0]!),
+                done: '0',
+                total: String(failed.length),
+              }),
+            );
+            void this.ocr.retryFailed().finally(() => this.hideOcrProgress());
+          }),
+      );
+    }
     if (ev) menu.showAtMouseEvent(ev);
     /* 命令面板 / 快捷键没有鼠标位置：贴右上角弹，和头栏那颗按钮同一侧 */
     else menu.showAtPosition({ x: window.innerWidth - 220, y: 64 });
@@ -711,6 +738,63 @@ export class ReaderView extends ItemView {
   private currentPageNumber(): number {
     const n = Number(String(this.host.pageKey ?? '').split(':')[1]);
     return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
+  }
+
+  /**
+   * 命令：把当前框选的区域存成图片书摘（复制到剪贴板）。
+   *
+   * 为什么是命令、不是工具条按钮：区域工具条 2026-11-15 已按用户要求缩到
+   * 「识别 / 想法 / 双链」三颗（加删除），再塞一颗就白缩了。命令能在
+   * 「设置 · 快捷键」里绑一个顺手的键，也出现在命令面板。
+   */
+  copyRegionCardImage(): void {
+    if (!this.host.isPdf) {
+      notify(t('notice.pdf.ocrOnly'), 'info');
+      return;
+    }
+    const target = parsePdfLocator(RT.sel?.cfiRange ?? '');
+    const area = target?.rect;
+    if (!target || !area) {
+      notify(t('notice.pdf.regionCardNoRect'), 'info');
+      return;
+    }
+    const ui = this.host.ocrUi;
+    if (!ui) {
+      notify(t('notice.pdf.ocrOnly'), 'info');
+      return;
+    }
+    const quote = this.regionQuote(target.page, area);
+    void ui
+      .image(target.page, 1600)
+      .then((shot) => {
+        if (!shot) throw new Error(t('notice.pdf.ocrNoImage'));
+        return copyRegionCard({
+          image: shot.blob,
+          rect: area,
+          rotation: shot.rotation,
+          quote,
+          title: this.book?.meta.title,
+          page: target.page,
+        });
+      })
+      .then(() => notify(t('notice.pdf.regionCardCopied')))
+      .catch((e: Error) => notify(e?.message || t('notice.card.copyFailed'), 'error'));
+  }
+
+  /** 区域里的识别文字：按行中心点落在框内取，拼成一段（没识别过就是空串） */
+  private regionQuote(page: number, rect: PdfRectArea): string {
+    const lines = this.host.ocrUi?.of(page)?.lines ?? [];
+    const inside = lines.filter((line) => {
+      const r = line.rect;
+      if (!r) return false;
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      return cx >= rect.left && cx <= rect.left + rect.width && cy >= rect.top && cy <= rect.top + rect.height;
+    });
+    return inside
+      .map((line) => line.text)
+      .join(' ')
+      .trim();
   }
 
   /** 扫描件第一次开书时说明一句：不给提示，用户只会以为插件坏了 */
@@ -1647,6 +1731,10 @@ export class ReaderView extends ItemView {
       void this.ocr.clear();
       return;
     }
+    if (kind === 'pdf-region-card') {
+      this.copyRegionCardImage();
+      return;
+    }
     if (kind.startsWith('pdf-')) {
       const pdf = this.host.pdfUi;
       if (!pdf) return;
@@ -2003,7 +2091,12 @@ export class ReaderView extends ItemView {
     const anchor = this.host.pageAnchor?.() ?? null;
     const text = pageBlocks.map((b) => b.text).join(' ').trim() || this.host.currentText();
     if (!text) {
-      notify(t('notice.tts.noText'));
+      /* PDF 上没有文字：多半是扫描页或整页插图，先说清下一步——只给一句
+         「没有可朗读的文字」，用户不知道是识别还没做。
+         判据不能只看 `isScanned`：混合书（封面是图、正文有字）整本判成
+         非扫描件，但当前这一页照样没字。 */
+      if (this.host.isPdf) notify(t('notice.pdf.ocrFirstForTts'));
+      else notify(t('notice.tts.noText'));
       this.stopTts();
       return;
     }
@@ -2933,7 +3026,8 @@ export class ReaderView extends ItemView {
     if (!(await this.ttsStartable(route))) return;
     let segments = buildScript(this.host.currentChapterBlocks?.() ?? []);
     if (!segments.length) {
-      notify(t('notice.tts.noText'));
+      if (this.host.isPdf) notify(t('notice.pdf.ocrFirstForTts'));
+      else notify(t('notice.tts.noText'));
       return;
     }
     /* 本章已经有音频：再点一次是「重备」。以前缓存全命中时一秒闪过、一个
@@ -4010,10 +4104,10 @@ export class ReaderView extends ItemView {
         kb,
         narrow: (root.clientWidth || 0) < 520,
         acts: SELECTION_ACTS,
-        /* 框选没有文字（2026-11-15 改）：能做的只有「认字」和「对这块矩形划线 / 写想法」。
-           书摘 / AI / 双链 / 复制都要文字，全都不出现；色点常驻——矩形的颜色就从这里改，
-           划线与想法落盘走 `pdf/<页>/r=…` 那条定位串，渲染时直接画矩形。 */
-        only: info.region ? ['ocr', 'idea'] : undefined,
+        /* 框选没有文字（2026-11-15 定稿）：只留「划线（色点）/ 想法 / 双链 / 识别」。
+           矩形的颜色从色点改（点色点即划线，落盘走 `pdf/<页>/r=…` 定位串，渲染时
+           直接画矩形）。书摘 / AI / 存为名词 / 存为段落都要原文，一颗都不出现。 */
+        only: info.region ? REGION_ACTS : undefined,
         /* 存的这本划线已经存过名词 / 段落：那两颗显示成「看名词 / 看段落」 */
         kbDone: kbDoneOf(saved?.kb),
         /* 设置里的工具条样式：文字 / 图标（默认文字） */

@@ -12,6 +12,7 @@ import { aiReady, type ReaderSettings } from './settings';
 import { buildEnrichMessages } from './book-enrich';
 import { buildGuideMessages } from './chapter-guide';
 import { buildRouteMessages, type RouteBook } from './topic-route';
+import { debugEvent } from './debug-log';
 
 export type AiTask =
   | 'summarize'
@@ -234,12 +235,53 @@ export interface AiAskOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * 调一次 `/chat/completions` 的三件套。
+ *
+ * 抽成形状而不是直接读 `settings.ai`：扫描页识别的视觉通道有自己的
+ * 地址 / 密钥 / 模型（2026-11-15 用户要求，和朗读一样互相独立），
+ * 但它走的是同一个 OpenAI 兼容请求，不该再抄一份。
+ */
+export interface ChatConfig {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
+
 /** 调一次 /chat/completions 的通用选项。扫描页识别（视觉 OCR）也走这条路 */
 export interface AiChatOptions extends AiAskOptions {
   /** 采样温度；默认 0.3（识别这类任务调用方会给更低的） */
   temperature?: number;
   /** 输出上限；不传就交给服务商的默认值 */
   maxTokens?: number;
+  /**
+   * 思考模式开关。
+   *
+   * 2026-11-15 实测：DeepSeek 默认会先思考再回答，识别一页书时 4000 的
+   * 输出额度会被思考吃光，正文是空的、`finish_reason` 是 `length`。
+   * 只有官方端点认这个字段，别家兼容层传了可能 400，所以按域名判断。
+   */
+  thinking?: 'enabled' | 'disabled';
+  /** 覆盖默认超时（识别一页比问答慢） */
+  timeoutMs?: number;
+  /** 错误消息里的名字：`AI` / `OCR`，默认 AI */
+  label?: string;
+}
+
+/**
+ * 这个地址是不是 DeepSeek 官方端点。
+ *
+ * 只看主机名：用户可能填 `https://api.deepseek.com`、`.../v1`，也可能是
+ * 代理到别处的同域地址。别的域名一律不认，避免把 `thinking` 这种字段
+ * 发给不认识它的兼容层。
+ */
+export function isDeepSeekChat(baseUrl: string): boolean {
+  try {
+    const host = new URL(String(baseUrl ?? '')).hostname.toLowerCase();
+    return host === 'deepseek.com' || host.endsWith('.deepseek.com');
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -250,15 +292,14 @@ export interface AiChatOptions extends AiAskOptions {
  * 智谱、Gemini 兼容层都认这个形状，所以不必给「多模态」另开一条请求链路。
  * 失败抛 Error，消息给人看。
  */
-export async function aiPostChat(
-  settings: ReaderSettings,
+export async function postChat(
+  config: ChatConfig,
   messages: ReadonlyArray<{ role: string; content: unknown }>,
   opts: AiChatOptions = {},
 ): Promise<string> {
-  const { baseUrl, apiKey, model } = settings.ai;
-  if (!aiReady(settings)) {
-    throw new Error('还没配置 AI 接口：到 书架 · 设置 的「AI 助手」里填好地址、模型与密钥');
-  }
+  const { baseUrl, apiKey, model } = config;
+  const label = opts.label || 'AI';
+  const timeout = Math.max(1, Number(opts.timeoutMs) || AI_TIMEOUT_MS);
   /* 超时（P2-12）+ 外部取消：没有超时的时候，接口地址填错、代理挂掉，
      界面就一直「正在请求…」；没有取消，用户只能关掉整个弹层干等。 */
   let timedOut = false;
@@ -266,7 +307,7 @@ export async function aiPostChat(
   const timer = window.setTimeout(() => {
     timedOut = true;
     ctrl.abort();
-  }, AI_TIMEOUT_MS);
+  }, timeout);
   const onAbort = (): void => ctrl.abort();
   opts.signal?.addEventListener('abort', onAbort);
   const body: Record<string, unknown> = {
@@ -275,6 +316,8 @@ export async function aiPostChat(
     messages,
   };
   if (opts.maxTokens) body.max_tokens = opts.maxTokens;
+  /* 只有官方端点认这个字段；别家传了可能直接 400 */
+  if (opts.thinking && isDeepSeekChat(baseUrl)) body.thinking = { type: opts.thinking };
   let res: Response;
   try {
     /* 用 window.fetch 而不是 requestUrl：后者不接受 AbortSignal，超时与
@@ -292,9 +335,9 @@ export async function aiPostChat(
     if (opts.signal?.aborted) throw new Error('已取消');
     const name = (e as Error)?.name || '';
     if (timedOut || name === 'TimeoutError' || name === 'AbortError') {
-      throw new Error(`AI 接口 ${AI_TIMEOUT_MS / 1000} 秒没有响应，检查地址与网络后重试`);
+      throw new Error(`${label} 接口 ${timeout / 1000} 秒没有响应，检查地址与网络后重试`);
     }
-    throw new Error(`连不上 AI 接口：${(e as Error)?.message || '网络错误'}`);
+    throw new Error(`连不上 ${label} 接口：${(e as Error)?.message || '网络错误'}`);
   } finally {
     window.clearTimeout(timer);
     opts.signal?.removeEventListener('abort', onAbort);
@@ -307,16 +350,78 @@ export async function aiPostChat(
         : res.status === 404
           ? '（检查接口地址，一般要以 /v1 结尾）'
           : '';
-    throw new Error(`AI 接口返回 ${res.status}${hint}`);
+    throw new Error(`${label} 接口返回 ${res.status}${hint}`);
   }
   const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: unknown } }>;
+    choices?: Array<{ message?: { content?: unknown; reasoning_content?: unknown }; finish_reason?: string }>;
     error?: { message?: string };
   };
-  if (data.error?.message) throw new Error(`AI 接口报错：${data.error.message}`);
-  const content = data.choices?.[0]?.message?.content;
-  if (typeof content !== 'string' || !content.trim()) throw new Error('AI 没有返回内容');
-  return content.trim();
+  if (data.error?.message) throw new Error(`${label} 接口报错：${data.error.message}`);
+  const choice = data.choices?.[0];
+  const text = chatText(choice?.message?.content);
+  /* 识别失败时最缺的是「为什么」：模型名、结束原因、正文是什么形状。
+     只记这三样，正文与图片一个字都不进日志。 */
+  debugEvent('aichat', {
+    model,
+    finish: choice?.finish_reason ?? '',
+    shape: Array.isArray(choice?.message?.content) ? 'array' : typeof choice?.message?.content,
+    chars: text.length,
+  });
+  if (!text) throw new Error(emptyChatMessage(choice?.finish_reason, choice?.message?.reasoning_content, model, label));
+  return text;
+}
+
+/** 调一次 /chat/completions（读本插件「AI 助手」那一套配置）。 */
+export async function aiPostChat(
+  settings: ReaderSettings,
+  messages: ReadonlyArray<{ role: string; content: unknown }>,
+  opts: AiChatOptions = {},
+): Promise<string> {
+  if (!aiReady(settings)) {
+    throw new Error('还没配置 AI 接口：到 书架 · 设置 的「AI 助手」里填好地址、模型与密钥');
+  }
+  return postChat(settings.ai, messages, opts);
+}
+
+/**
+ * 从一条回复里取正文。
+ *
+ * OpenAI 自己回的是字符串，兼容层不一定：多模态那条路上有的服务回
+ * `[{type:'text',text:'…'}]` 分段。以前只认字符串，数组一律当「没有返回
+ * 内容」——识别扫描页时用户看到的是一句没有任何信息量的失败。
+ */
+export function chatText(content: unknown): string {
+  if (typeof content === 'string') return content.trim();
+  if (!Array.isArray(content)) return '';
+  let out = '';
+  for (const part of content) {
+    if (part && typeof part === 'object' && typeof (part as { text?: unknown }).text === 'string') {
+      out += (part as { text: string }).text;
+    }
+  }
+  return out.trim();
+}
+
+/**
+ * 「接口通了、正文是空的」这句话该怎么说。
+ *
+ * 四种原因对用户是四件事：换模型、调输出上限、重试、去看服务端日志。共用
+ * 一句「没有返回内容」等于什么都没说——2026-11-15 扫描页识别就卡在这。
+ */
+export function emptyChatMessage(
+  finish: string | undefined,
+  reasoning: unknown,
+  model: string,
+  label = 'AI',
+): string {
+  const head = `${label} 没有返回内容`;
+  const who = model ? `（当前模型：${model}）` : '';
+  const thought = typeof reasoning === 'string' && reasoning.trim();
+  if (finish === 'length') {
+    return `${head}：输出被长度上限截断（这一页可能行太多，或模型先思考用完了额度）${who}`;
+  }
+  if (thought) return `${head}：模型只给了思考过程、没给正文，换一个能看图的模型${who}`;
+  return `${head}：多半这个模型不支持看图，换一个多模态模型（如 deepseek-flash / gpt-4o / qwen-vl）${who}`;
 }
 
 /** 调 OpenAI 兼容的 /chat/completions。失败抛 Error，消息给人看。 */

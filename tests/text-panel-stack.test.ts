@@ -56,11 +56,11 @@ function install(books: unknown[]): void {
 }
 
 /** 一本书 + 一条划线；`comment` 有值时这条划线带着想法 */
-function marked(comment?: string): { book: ReturnType<typeof testBook>; markId: string } {
+function marked(comment?: string, cfiRange = 'cfi1'): { book: ReturnType<typeof testBook>; markId: string } {
   const book = testBook('b1', '测试书');
   const mark = addHighlight(book as never, {
     text: '划线原文一段',
-    cfiRange: 'cfi1',
+    cfiRange,
     chapterTitle: '第一章',
     color: 'green',
     comment,
@@ -173,6 +173,47 @@ describe('桌面：想法 / 书摘 / AI 的正文在上、工具条在下', () =
 
     expect(html).toContain('bzs-tb-stack');
     expect(html).toContain('class="bzs-sbtn on" data-act="hlai"');
+  });
+});
+
+/**
+ * 扫描版框选（2026-11-15 真机）：框选写想法时，想法卡下面那排又露全了。
+ *
+ * 定稿：未保存的框选 / 想法框只留「识别 · 想法 · 双链」，已保存的多一颗
+ * 删除；书摘 / AI / 存为名词 / 存为段落 / 复制都要原文，一颗都不出现。
+ * 判断只认定位串里的 `/r=`，普通划线的面板一个字不动。
+ */
+describe('框选矩形：想法框里的工具条也收窄', () => {
+  const region = 'pdf/3/r=0.1,0.2,0.3,0.4';
+
+  it('框选写想法：识别 / 想法 / 双链 / 删除，没有书摘 / AI / 名词 / 段落 / 复制', () => {
+    const { book, markId } = marked('', region);
+    install([book]);
+    const html = render('idea', markId);
+
+    for (const act of ['hlocr', 'hlidea', 'copylink', 'hldel']) expect(html, act).toContain(`data-act="${act}"`);
+    for (const act of ['hlquote', 'hlai', 'hlterm', 'hlpassage', 'hlcopy']) {
+      expect(html, act).not.toContain(`data-act="${act}"`);
+    }
+  });
+
+  it('框选打开删除确认：同样只剩那四颗，后面不会再冒书摘 / AI', () => {
+    const { book, markId } = marked('这条想法', region);
+    install([book]);
+    const html = render('confirmdel', markId, { left: 100, top: 300, width: 120, height: 20 });
+
+    expect(html).toContain('data-act="hldel"');
+    for (const act of ['hlquote', 'hlai', 'hlterm', 'hlpassage', 'hlcopy']) {
+      expect(html, act).not.toContain(`data-act="${act}"`);
+    }
+  });
+
+  it('普通划线不受影响：想法框里书摘 / AI / 复制照旧出现', () => {
+    const { book, markId } = marked('');
+    install([book]);
+    const html = render('idea', markId);
+
+    for (const act of ['hlquote', 'hlai', 'hlcopy']) expect(html, act).toContain(`data-act="${act}"`);
   });
 });
 

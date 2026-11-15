@@ -17,7 +17,14 @@ import { anchoredBelowRight, anchoredPlacement } from './anchored-style';
 import { drawerLiftFor, keyboardHeightFromCss, sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
 import { fitIdeaInput } from './idea-grow';
-import { MARK_ACTS, SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from './text-toolbar';
+import {
+  MARK_ACTS,
+  SELECTION_ACTS,
+  onlyForRegion,
+  planToolbarHit,
+  toggleMoreMenu,
+  toolbarHtml,
+} from './text-toolbar';
 import { aiCardHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, ideaFullHtml, markBubbleHtml, markDeleteBarHtml } from './reader-cards';
 import { HIGHLIGHT_COLORS } from '../data/notes';
 import { aiAsk, type AiTask } from '../data/ai';
@@ -597,9 +604,11 @@ function overlayHltools(markId?: string, bookId?: string): string {
     color: mark.color ?? 'amber',
     colors: HIGHLIGHT_COLORS,
     acts: MARK_ACTS,
-    /* 框选标注没有原文（2026-11-15）：书摘 / AI / 双链 / 复制都无从下手，
-       点开只留颜色、想法、删除——和框选当下弹出的那条一致。 */
-    only: mark.cfiRange?.includes('/r=') ? ['idea', 'del'] : undefined,
+    /* 框选标注没有原文（2026-11-15 定稿）：和框选当下那条一致——
+       划线（色点）/ 想法 / 双链 / 识别，已划好的再多一颗删除。
+       书摘 / AI / 存为名词 / 存为段落都要原文，一颗都不出现。
+       判断收在 onlyForRegion，想法框 / 书摘卡 / 删除确认共用同一条规则。 */
+    only: onlyForRegion(mark.cfiRange),
     attrs: `data-id="${esc(mark.id)}" data-book="${esc(book.id)}"`,
     kbDone: { term: !!kbLinkOf(mark.kb, 'term'), passage: !!kbLinkOf(mark.kb, 'passage') },
     icon: shellPrefs().toolbarStyle === 'icon',
@@ -804,6 +813,10 @@ function textPanel(
     acts: opts.markId ? MARK_ACTS : SELECTION_ACTS,
     active: opts.active,
     attrs,
+    /* 想法 / 书摘 / AI / 删除确认共用这一条：框选矩形没有原文，
+       书摘 / AI / 存为名词 / 存为段落 / 复制都不该出现（2026-11-15 真机：
+       框选写想法时下面那排又露全了）。普通划线不受影响。 */
+    only: onlyForRegion(marked?.cfiRange),
     kbDone: { term: !!kbLinkOf(marked?.kb, 'term'), passage: !!kbLinkOf(marked?.kb, 'passage') },
     icon: shellPrefs().toolbarStyle === 'icon',
   });

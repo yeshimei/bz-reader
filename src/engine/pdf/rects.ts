@@ -25,6 +25,17 @@ export interface PdfNormRect {
   height: number;
 }
 
+/**
+ * 一块还挂着的框选预览，是否已经被正式标注接管。
+ *
+ * 松手后那层虚线 / 半透明矩形要一直留到用户点色点划线：`setAnnotations`
+ * 每次笔记变化都会重画，只有「这块的 locator 已经落线」才让它退场；
+ * 别处加了标注、或还没划线，都得留着，否则用户看不见自己框了哪一块。
+ */
+export function previewFrameSettled(locator: string | undefined, placed: ReadonlySet<string>): boolean {
+  return !!locator && placed.has(locator);
+}
+
 export interface MergeRectsOptions {
   /** 两个矩形左右间隙多少以内算连着（比例，默认 0.012 ≈ 8px） */
   gapSlack?: number;

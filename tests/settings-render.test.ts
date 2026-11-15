@@ -38,20 +38,38 @@ const html = (relicense = false, settings = DEFAULT_SETTINGS, pen = 'amber'): st
 
 describe('扫描页识别', () => {
   it('识别方式如实显示用户点的那个，地址空也不悄悄弹回', () => {
-    const out = html(false, { ...DEFAULT_SETTINGS, pdfOcrEngine: 'http', pdfOcrUrl: '' });
-    /* 选中态是按钮自己的 class="on"；回退了就会挂在 vision 那颗上 */
+    const out = html(false, {
+      ...DEFAULT_SETTINGS,
+      pdfOcr: { ...DEFAULT_SETTINGS.pdfOcr, engine: 'http', url: '' },
+    });
+    /* 选中态是按钮自己的 class="on"；回退了就会挂在 deepseek 那颗上 */
     expect(out).toContain('class="on" data-act="setocr" data-k="pdfOcrEngine" data-v="http"');
-    expect(out).not.toContain('class="on" data-act="setocr" data-k="pdfOcrEngine" data-v="vision"');
+    expect(out).not.toContain('class="on" data-act="setocr" data-k="pdfOcrEngine" data-v="deepseek"');
   });
 
   it('外部服务这一档带「自部署」的复制提示词按钮', () => {
-    const out = html(false, { ...DEFAULT_SETTINGS, pdfOcrEngine: 'http', pdfOcrUrl: '' });
+    const out = html(false, {
+      ...DEFAULT_SETTINGS,
+      pdfOcr: { ...DEFAULT_SETTINGS.pdfOcr, engine: 'http', url: '' },
+    });
     expect(out).toContain('data-act="ocrcopyprompt"');
   });
 
-  it('「自部署」只在外部 OCR 服务那一档出现，AI 看图时别摆一条没用的复制', () => {
-    const out = html(false, { ...DEFAULT_SETTINGS, pdfOcrEngine: 'vision' });
+  it('「自部署」只在外部 OCR 服务那一档出现，官方 OCR 时别摆一条没用的复制', () => {
+    const out = html(false, { ...DEFAULT_SETTINGS, pdfOcr: { ...DEFAULT_SETTINGS.pdfOcr, engine: 'deepseek' } });
     expect(out).not.toContain('data-act="ocrcopyprompt"');
+  });
+
+  it('官方 OCR 有自己的地址与密钥两个输入框，不借用 AI 组', () => {
+    const out = html(false, {
+      ...DEFAULT_SETTINGS,
+      ai: { ...DEFAULT_SETTINGS.ai, apiKey: 'sk-ai' },
+      pdfOcr: { ...DEFAULT_SETTINGS.pdfOcr, engine: 'deepseek', apiKey: 'sk-ocr' },
+    });
+    expect(out).toContain('data-k="pdfOcr.baseUrl"');
+    expect(out).toContain('data-k="pdfOcr.model"');
+    expect(out).toContain('data-k="pdfOcr.apiKey"');
+    expect(out).toContain('sk-ocr');
   });
 });
 

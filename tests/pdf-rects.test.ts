@@ -1,5 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { mergeRects } from '../src/engine/pdf/rects';
+import { mergeRects, previewFrameSettled } from '../src/engine/pdf/rects';
+
+/* 框选松手后那层透明预览要一直留到「划线」：正式颜色矩形出现时它才退场。
+   别处加标注、或这块还没划线，都不能把预览框顺手清掉（2026-11-15 用户截图：
+   工具条在，却看不见自己刚框了哪一块）。 */
+describe('框选预览框的退场时机', () => {
+  it('这一块已经落线：预览框让位给颜色矩形', () => {
+    expect(previewFrameSettled('pdf:12/r=0.1,0.2,0.3,0.4', new Set(['pdf:12/r=0.1,0.2,0.3,0.4']))).toBe(true);
+  });
+
+  it('别的地方加了标注、或这一块还没划线：预览框继续留着', () => {
+    expect(previewFrameSettled('pdf:12/r=0.1,0.2,0.3,0.4', new Set(['pdf:13/r=0.1,0.2,0.3,0.4']))).toBe(false);
+    expect(previewFrameSettled('pdf:12/r=0.1,0.2,0.3,0.4', new Set<string>())).toBe(false);
+  });
+
+  it('没有 locator 的旧框不参与匹配', () => {
+    expect(previewFrameSettled(undefined, new Set(['']))).toBe(false);
+    expect(previewFrameSettled('', new Set(['']))).toBe(false);
+  });
+});
 
 describe('PDF 高亮矩形合并', () => {
   it('同一行相接的碎片并成一块', () => {
