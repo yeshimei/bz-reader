@@ -663,7 +663,7 @@ export const ZH = {
   'settings.pdfOcrEngine.vision': '用 AI 看图',
   'settings.pdfOcrEngine.http': '外部 OCR 服务',
   'settings.pdfOcrUrl': 'OCR 服务地址',
-  'settings.pdfOcrUrl.hint': '把这一页的图 POST 过去，服务返回每行文字与位置。填了才走这条，留空则用 AI 看图。',
+  'settings.pdfOcrUrl.hint': '把这一页的图 POST 过去，服务返回每行文字与位置。Umi-OCR 填 http://127.0.0.1:1224/api/ocr；自建服务要允许跨域（CORS）。填了才走这条，留空则用 AI 看图。',
   'settings.pdfOcrHint': '扫描页没有文字层：认过之后搜索、划词、划线、朗读和 AI 都能用。按页识别，不会自动整本跑。',
 
   /* ── 设置页：界面 ────────────────────────────────────────── */

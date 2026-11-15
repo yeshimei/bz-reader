@@ -94,15 +94,19 @@ export async function recognizeOnPage(
  * 外部服务的约定（极简，方便用 Umi-OCR / PaddleOCR 自己包一层）：
  *
  *   请求 POST <url>
- *        {"image":"<base64，不含 data: 前缀>","base64":"<同一份>","mime":"image/jpeg"}
- *        （`base64` 是为 Umi-OCR 这类只认这个字段的服务多带的，多一个字段没坏处）
+ *        {"image":"<base64，不含 data: 前缀>","base64":"<同一份>","mime":"image/jpeg",
+ *         "options":{"data.format":"dict","tbpu.parser":"multi_none"}}
+ *        （`base64` 与 `options` 都是为 Umi-OCR 带的：它只认 `base64`，
+ *         且只有 `data.format=dict` 才回每行的框；别的服务忽略未知字段）
  *   响应 200，任选其一：
+ *        {"code":100,"data":[{"text":"…","box":[[x1,y1],[x2,y2],…]}]}  ← Umi-OCR：四点 + 像素
  *        {"lines":[{"text":"…","box":[x,y,w,h]}]}      ← 0..1 或 0..1000
- *        {"data":[{"text":"…","box":[[x1,y1],[x2,y2],…]}]}  ← Umi-OCR：八个数多边形 + 像素
+ *        [[[[x1,y1],…],["文字",0.99]]]                  ← PaddleOCR 自建服务的嵌套列表
  *        {"text":"整页文字"}                            ← 只有字，不能划词
  *        [{"text":"…","bbox":[x1,y1,x2,y2]}]            ← 裸数组
  *
- * 外层套了 `data` / `result` 也认（很多服务习惯包一层）。
+ * 外层套了 `data` / `result` / `results` 也认（很多服务习惯包一层）。
+ * `code` 不是 100/101 时按失败报出来，不假装「这页没字」。
  */
 export interface HttpOcrInput {
   url: string;
@@ -130,6 +134,37 @@ function unwrapOcrBody(body: unknown): unknown {
   return body;
 }
 
+/**
+ * 请求体。
+ *
+ * `options` 是 Umi-OCR 的输出开关，别的服务会忽略未知字段：
+ *  · `data.format: dict` —— 不传时默认回**整页纯文本**，拿不到每行的框，
+ *    结果只有搜索/朗读能用，**不能划词**。这是本地通道能不能划词的分水岭。
+ *  · `tbpu.parser: multi_none` —— 不传时它会按段落合并，框变粗（一段一个框），
+ *    划词只能整段选。`multi_none` 保留原始行，正好对上我们的行级文字层。
+ */
+export function httpOcrBody(image: string, mime: string): Record<string, unknown> {
+  return {
+    image,
+    base64: image,
+    mime: mime || 'image/jpeg',
+    options: { 'data.format': 'dict', 'tbpu.parser': 'multi_none' },
+  };
+}
+
+/**
+ * Umi-OCR 的状态码：100 成功、101 图中无文字，其余是失败。
+ *
+ * 不问这一句的话，模型没加载（500）会表现成「这一页没有识别出文字」，
+ * 用户会以为是自己扫的页有问题。返回 null = 这层没有状态码，交给上层解析。
+ */
+function statusError(body: unknown): string | null {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+  const code = Number((body as Record<string, unknown>).code);
+  if (!Number.isFinite(code) || code === 100 || code === 101) return null;
+  return t('notice.pdf.ocrHttp', { status: `code ${code}` });
+}
+
 export async function recognizeViaHttp(input: HttpOcrInput): Promise<ParsedOcr> {
   const url = String(input.url ?? '').trim();
   if (!url) throw new Error(t('notice.pdf.ocrNoUrl'));
@@ -138,11 +173,7 @@ export async function recognizeViaHttp(input: HttpOcrInput): Promise<ParsedOcr> 
     res = await window.fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        image: input.image,
-        base64: input.image,
-        mime: input.mime || 'image/jpeg',
-      }),
+      body: JSON.stringify(httpOcrBody(input.image, input.mime)),
       signal: input.signal,
     });
   } catch (e) {
@@ -156,6 +187,8 @@ export async function recognizeViaHttp(input: HttpOcrInput): Promise<ParsedOcr> 
   } catch {
     throw new Error(t('notice.pdf.ocrBadJson'));
   }
+  const failed = statusError(body);
+  if (failed) throw new Error(failed);
   const ref =
     input.width && input.height && input.width > 0 && input.height > 0
       ? { width: input.width, height: input.height }

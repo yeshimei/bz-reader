@@ -219,6 +219,31 @@ describe('模型返回的 JSON 解析', () => {
     expect(got.lines[0]?.rect).toEqual({ left: 0.1, top: 0.1, width: 0.4, height: 0.02 });
   });
 
+  it('给了出图尺寸，也不能把 0..1 的比例坐标当成像素除一遍（自建服务常回比例）', () => {
+    const got = normalizeOcrLine({ text: '甲', box: [0.1, 0.2, 0.3, 0.04] }, { width: 1000, height: 2000 });
+    expect(got?.rect).toEqual({ left: 0.1, top: 0.2, width: 0.3, height: 0.04 });
+  });
+
+  it('PaddleOCR 的 [box, [文本, 分数]] 嵌套形状也收（自建 Flask 服务原样返回）', () => {
+    const got = parseOcrValue(
+      [
+        [
+          [
+            [100, 200],
+            [500, 200],
+            [500, 240],
+            [100, 240],
+          ],
+          ['第一行', 0.96],
+        ],
+      ],
+      { width: 1000, height: 2000 },
+    );
+    expect(got.layout).toBe(true);
+    expect(got.lines[0]?.text).toBe('第一行');
+    expect(got.lines[0]?.rect).toEqual({ left: 0.1, top: 0.1, width: 0.4, height: 0.02 });
+  });
+
   it('只取前四个点会把框算歪——八个数必须走多边形那条', () => {
     /* 前四个数是「左上 x,y + 右上 x,y」，按宽高收的话 width 会变成 500（像素） */
     const got = normalizeOcrLine(

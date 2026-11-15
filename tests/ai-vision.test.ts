@@ -143,6 +143,27 @@ describe('外部 OCR 服务', () => {
     expect(body.image).toBe('QUJD');
   });
 
+  it('请求体带 Umi-OCR 的带坐标输出参数，否则只回整页文本、不能划词', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ code: 100, data: [{ text: '甲', box: [[0.1, 0.1], [0.4, 0.1], [0.4, 0.13], [0.1, 0.13]] }] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await recognizeViaHttp({ url: 'http://127.0.0.1:1224/api/ocr', image: 'QUJD', mime: 'image/jpeg' });
+    const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as Record<string, unknown>;
+    expect(body.options).toEqual({ 'data.format': 'dict', 'tbpu.parser': 'multi_none' });
+  });
+
+  it('Umi-OCR 的 code 101 当「这页没字」，其他失败码把码带进提示', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ code: 101, data: [] }) }));
+    await expect(recognizeViaHttp({ url: 'http://x', image: 'QUJD', mime: 'image/jpeg' })).rejects.toThrow('没有认出文字');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ code: 500, data: null, msg: '模型没加载' }) }),
+    );
+    await expect(recognizeViaHttp({ url: 'http://x', image: 'QUJD', mime: 'image/jpeg' })).rejects.toThrow('code 500');
+  });
+
   it('没填地址 / 连不上 / 非 200 / 非 JSON 都给一句人话', async () => {
     await expect(recognizeViaHttp({ url: '', image: 'x', mime: 'image/jpeg' })).rejects.toThrow('还没填 OCR 服务地址');
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('ECONNREFUSED')));

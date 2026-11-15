@@ -121,18 +121,8 @@ function boxOf(raw: Record<string, unknown>): { nums: number[]; corners: boolean
     /* 四边形：Umi-OCR 给 `[[x1,y1],[x2,y2],[x3,y3],[x4,y4]]`（四点数组），
        PaddleOCR 给扁平八个数。两种都拍成八个数，取外包矩形。
        只取前四个数会把框算成「左上点 + 右上点当宽高」，整页歪到右上角。 */
-    if (flat.length >= 8 && flat.length % 2 === 0) {
-      const xs: number[] = [];
-      const ys: number[] = [];
-      for (let i = 0; i < flat.length; i += 2) {
-        xs.push(flat[i]!);
-        ys.push(flat[i + 1]!);
-      }
-      return {
-        nums: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)],
-        corners: true,
-      };
-    }
+    const bounds = polygonBounds(flat);
+    if (bounds) return { nums: bounds, corners: true };
     if (flat.length < 4) continue;
     return { nums: flat.slice(0, 4), corners: CORNER_KEYS.has(k) };
   }
@@ -147,13 +137,55 @@ function boxOf(raw: Record<string, unknown>): { nums: number[]; corners: boolean
 }
 
 /**
- * 坐标量纲：归一化 / 千分比 / 像素（必须给参照尺寸）。
+ * 八个数（或更多、偶数）按「点序列」收成轴对齐外包矩形 `[minX,minY,maxX,maxY]`。
+ *
+ * 不够八个点就返回 null，交给「左上 + 宽高」那条路——这正是
+ * `[x,y,w,h]` 与 `[[x1,y1],[x2,y2]…]` 唯一能区分开的地方。
+ */
+function polygonBounds(flat: readonly number[]): number[] | null {
+  if (flat.length < 8 || flat.length % 2 !== 0) return null;
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let i = 0; i < flat.length; i += 2) {
+    xs.push(flat[i]!);
+    ys.push(flat[i + 1]!);
+  }
+  return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+}
+
+/**
+ * PaddleOCR 一类自建服务把一行回成 `[box, [text, score]]` 或 `[box, text]`。
+ *
+ * 这种数组项没法套 `.text` / `.box` 的键名，单独收一条。box 可以是
+ * 四点数组、扁平八个数，也可以是 `[x,y,w,h]`。
+ */
+function pairLine(raw: readonly unknown[]): { text: string; box: { nums: number[]; corners: boolean } } | null {
+  if (raw.length < 2) return null;
+  const box = raw[0];
+  const rest = raw[1];
+  if (!Array.isArray(box)) return null;
+  const flat = flatNums(box);
+  if (!flat) return null;
+  const text = typeof rest === 'string' ? textOf(rest) : Array.isArray(rest) ? textOf(rest[0]) : '';
+  if (!text) return null;
+  const bounds = polygonBounds(flat);
+  if (bounds) return { text, box: { nums: bounds, corners: true } };
+  if (flat.length < 4) return null;
+  return { text, box: { nums: flat.slice(0, 4), corners: false } };
+}
+
+/**
+ * 坐标量纲：归一化 / 像素（必须给参照尺寸）/ 千分比。
+ *
+ * **先认归一化，再认像素**：像素坐标不可能整条框都落在 0..1 里（那是一个
+ * 亚像素的框），而 0..1 的服务很常见。反过来的话，只要调用方带了出图宽高，
+ * 比例坐标就会被再除一遍宽高，缩到 0.0006——划线整体贴到左上角。
  * 三个都认不出来就返回 null —— 宁可这行没有位置，也不按错的量纲摆。
  */
 function scaleOf(nums: readonly number[], ref?: OcrPageSize): 'normalized' | 'thousand' | 'pixels' | null {
-  if (ref && ref.width > 0 && ref.height > 0) return 'pixels';
   const max = Math.max(...nums.map((n) => Math.abs(n)));
   if (max <= 1.0001) return 'normalized';
+  if (ref && ref.width > 0 && ref.height > 0) return 'pixels';
   if (max <= THOUSAND) return 'thousand';
   return null;
 }
@@ -161,14 +193,29 @@ function scaleOf(nums: readonly number[], ref?: OcrPageSize): 'normalized' | 'th
 /**
  * 一条原始识别结果 → OcrLine。认不出位置或文字为空返回 null。
  *
+ * 两种形状都收：对象（`{text, box}`）与 PaddleOCR 的
+ * `[box, [text, score]]` 二元组。
+ *
  * `ref` 是识别时那张图的像素宽高：只有给了它，像素坐标才会被接受。
  */
 export function normalizeOcrLine(raw: unknown, ref?: OcrPageSize): OcrLine | null {
   if (!raw || typeof raw !== 'object') return null;
-  const item = raw as Record<string, unknown>;
-  const text = textOf(item.text ?? item.content ?? item.value ?? item.line ?? item.str);
-  if (!text) return null;
-  const box = boxOf(item);
+  let text = '';
+  let box: { nums: number[]; corners: boolean } | null = null;
+  let confidence: number | null = null;
+  if (Array.isArray(raw)) {
+    const pair = pairLine(raw);
+    if (!pair) return null;
+    text = pair.text;
+    box = pair.box;
+    confidence = num(Array.isArray(raw[1]) ? (raw[1] as unknown[])[1] : null);
+  } else {
+    const item = raw as Record<string, unknown>;
+    text = textOf(item.text ?? item.content ?? item.value ?? item.line ?? item.str);
+    if (!text) return null;
+    box = boxOf(item);
+    confidence = num(item.confidence ?? item.score ?? item.prob);
+  }
   if (!box) return null;
   const scale = scaleOf(box.nums, ref);
   if (!scale) return null;
@@ -196,7 +243,6 @@ export function normalizeOcrLine(raw: unknown, ref?: OcrPageSize): OcrLine | nul
   const rect = roundRect(normalizePdfRect({ left, top, width, height }));
   if (rect.width <= 0 || rect.height <= 0) return null;
 
-  const confidence = num(item.confidence ?? item.score ?? item.prob);
   const out: OcrLine = { text, rect };
   if (confidence !== null) out.confidence = Math.min(1, Math.max(0, confidence > 1 ? confidence / 100 : confidence));
   return out;
