@@ -41,6 +41,17 @@ export interface AiCardEntry {
   /** 结果正文；`busy` 时是空串，失败时是给人看的那句原因 */
   text: string;
   /**
+   * 首条用户气泡的文案（2026-11-16）。
+   *
+   * 解释 / 翻译 / 总结是任务文案（「解释这一段」…），追问是用户自己打的
+   * 第一句。它同时是归档时的「用户问」与追问历史里的第一条 user。
+   */
+  ask?: string;
+  /** 首条消息的时刻（HH:mm，画在消息区顶上）。没有 = 还没开始 */
+  at?: string;
+  /** 归档时刻（HH:mm）；有值 = 这段对话已经落进阅读笔记 */
+  archivedAt?: string;
+  /**
    * 追问轮次（2026-11-10）。
    *
    * 初次那问不进这里：它的答案就是 `text`。追问与初次共用同一个键，
@@ -50,9 +61,10 @@ export interface AiCardEntry {
 }
 
 /**
- * 卡上的三档，顺序即页签顺序。
+ * 卡片能承载的三档任务（解释 / 翻译 / 总结）。
  *
- * 与 `AiTask` 同名不是巧合：`ask` 是全书问答用的，不属于这张卡。
+ * 菜单上的「追问」是第四条路，但它没有首问、不进这个列表；
+ * `aiFloatTaskOf` 负责把 overlay.mode 收敛成四档。
  */
 export const AI_CARD_MODES: readonly AiTask[] = ['explain', 'translate', 'summarize'];
 
@@ -78,18 +90,36 @@ export function aiCardGet(key: string): AiCardEntry | undefined {
   return entries.get(key);
 }
 
-/** 请求发出去了：先记「在路上」，重画时据此画占位文案，也不会重复发 */
-export function aiCardBegin(key: string): void {
-  entries.set(key, { status: 'busy', text: '' });
+/**
+ * 请求发出去了：先记「在路上」，重画时据此画等待气泡，也不会重复发。
+ *
+ * `ask` / `at` 由调用方给：解释 / 翻译 / 总结传任务文案，追问面板传用户
+ * 刚打的那一句。归档状态在这里清掉——对话又长了一截，之前那份笔记
+ * 不再代表眼前这段。
+ */
+export function aiCardBegin(key: string, ask?: string, at?: string): void {
+  const entry: AiCardEntry = { status: 'busy', text: '' };
+  const q = String(ask ?? '').trim();
+  if (q) entry.ask = q;
+  if (at) entry.at = at;
+  entries.set(key, entry);
 }
 
 export function aiCardDone(key: string, text: string): void {
-  entries.set(key, { status: 'done', text });
+  const cur = entries.get(key);
+  entries.set(key, { ...(cur ?? {}), status: 'done', text });
 }
 
-/** 失败也是一条要留在卡上的话：原因写在正文里，「重试」就在下面 */
+/** 失败也是一条要留在卡上的话：原因写在 AI 气泡里 */
 export function aiCardFail(key: string, text: string): void {
-  entries.set(key, { status: 'error', text });
+  const cur = entries.get(key);
+  entries.set(key, { ...(cur ?? {}), status: 'error', text });
+}
+
+/** 归档成功：记下时刻。之后底栏变「已归档 HH:mm」，按钮禁用 */
+export function aiCardArchiveMark(key: string, at: string): void {
+  const cur = entries.get(key);
+  if (cur) entries.set(key, { ...cur, archivedAt: at });
 }
 
 /** 作废一条：换档把旧请求掐掉、重试前清掉失败记号，都走这里 */
@@ -116,7 +146,10 @@ export function aiCardReset(): void {
 export function aiCardFollowBegin(key: string, q: string): void {
   const cur = entries.get(key);
   const turns = [...(cur?.turns ?? []), { q: String(q ?? ''), a: '', pending: true }];
-  entries.set(key, { status: 'busy', text: cur?.text ?? '', turns });
+  const next: AiCardEntry = { ...(cur ?? {}), status: 'busy', text: cur?.text ?? '', turns };
+  /* 又追问了一轮：这段对话已经和归档时那份不一样了 */
+  delete next.archivedAt;
+  entries.set(key, next);
 }
 
 /**
@@ -161,13 +194,23 @@ export function aiCardFollowFail(key: string, q: string, text: string): void {
 /**
  * 追问要带给模型的历史。
  *
- * 先放刚才那份答案（`assistant`），再按顺序放轮次。失败的轮次跳过——
- * 没答出来的问题喂回去，模型会把它当成「说过的话」接着圆。
- * 还在路上的（`pending`）同样跳过：它没有答案，带过去只是一句孤儿提问。
+ * 先放首问（`ask`，用户说的那句）与刚才那份答案（`assistant`），再按顺序
+ * 放轮次。失败的轮次跳过——没答出来的问题喂回去，模型会把它当成
+ * 「说过的话」接着圆。还在路上的（`pending`）同样跳过：它没有答案，
+ * 带过去只是一句孤儿提问。
+ *
+ * `ask` 是 2026-11-16 加的：以前只带答案，模型不知道用户当初问的是什么，
+ * 追问「那笼子呢」会答得没有着落。老调用点不传，行为不变。
  */
-export function followHistory(text: string, turns: readonly AiFollowTurn[] = []): AiTurn[] {
+export function followHistory(
+  text: string,
+  turns: readonly AiFollowTurn[] = [],
+  ask = '',
+): AiTurn[] {
   const out: AiTurn[] = [];
+  const question = String(ask ?? '').trim();
   const first = String(text ?? '').trim();
+  if (question) out.push({ role: 'user', content: question });
   if (first) out.push({ role: 'assistant', content: first });
   for (const turn of turns ?? []) {
     if (turn?.error || turn?.pending) continue;

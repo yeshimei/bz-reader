@@ -207,6 +207,14 @@ export interface OverlayState {
   busy?: boolean;
   /** 本章导读生成失败（text 里是原因）：用错误色画，并给重试 */
   error?: boolean;
+  /**
+   * 划词 AI 的那一行五项菜单（只给 kind='ai' 用）。
+   *
+   * 菜单与浮框是同一个叠层、同一个位置的两态：`true` 时只画菜单行 +
+   * 工具条，`false` 时换成 430×420 的浮框。放进 overlay 而不是单独一个
+   * kind，是为了让「点一项 → 原地换浮框」不换外壳、不重新测锚点。
+   */
+  menu?: boolean;
 }
 
 /**
@@ -229,6 +237,7 @@ export function overlayKey(o?: OverlayState | null): string {
     o.word ?? '',
     o.chapterTitle ?? '',
     o.ids?.join(',') ?? '',
+    o.menu ? 'menu' : '',
     o.anchor ? `${o.anchor.left},${o.anchor.top}` : '',
     String(o.rev ?? 0),
   ].join('|');

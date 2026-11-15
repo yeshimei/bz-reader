@@ -535,6 +535,22 @@ export const ZH = {
   'ai.mode.translate': '翻译',
   'ai.mode.summarize': '摘要',
   'ai.mode.follow': '追问',
+  /* 划词 AI 菜单（2026-11-16）：工具条上方平摊的五项与浮框文案。
+     菜单上的第三项是「总结」，与存档标题里的「摘要」不是同一处词：
+     前者是动作名，后者是导出块的分类标签。 */
+  'ai.menu.summarize': '总结',
+  'ai.menu.book': '插入到全书问答',
+  'ai.first.explain': '解释这一段',
+  'ai.first.translate': '把这一段翻译成英文',
+  'ai.first.summarize': '用三句话总结这一段',
+  /* 浮框：输入行、空态与归档状态 */
+  'ai.float.reply': '回复…',
+  'ai.float.send': '发送',
+  'ai.float.empty': '直接问，问题会带着上面那段原文。',
+  'ai.float.archive': '归档',
+  'ai.float.archived': '已归档',
+  'ai.float.unarchived': '未归档',
+  'ai.float.archivedAt': '已归档 {time}',
   'ai.follow.busy': '正在追问…',
   'ai.follow.thinking': '正在回复…',
   'ai.card.copy': '复制',
@@ -559,6 +575,8 @@ export const ZH = {
   'notice.ai.needSetup': '还没配置 AI：到 书架 · 设置 里填好地址、模型与密钥',
   'notice.ai.logEmpty': '还没有可以存档的对话',
   'notice.ai.logSaved': '已存到 {path}',
+  'notice.ai.archived': '已归档到 {path}',
+  'notice.ai.inserted': '已插入侧栏 AI 对话',
   'notice.guide.noChapter': '这一章还没有名字，等目录加载完再试',
   'notice.enrich.done': '已补上简介与分类',
   'notice.enrich.doneDesc': '已补上简介',

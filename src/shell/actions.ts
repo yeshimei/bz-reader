@@ -142,11 +142,22 @@ import { openSupportDialog } from './support-dialog';
 import { openClipEmptyDialog } from './clip-empty-dialog';
 import { debugSnapshot } from '../data/debug-log';
 import { TAP_MENU_PRESSURE_MS } from '../core/tap';
-import { aiCardDrop, aiCardFollowBegin, aiCardFollowDone, aiCardFollowFail, aiCardGet, aiCardKey, aiModeOf, followHistory } from './ai-card';
-import { runAiForOverlay } from './overlay';
-import { aiTurnsHtml } from './reader-cards';
-import { renderAiMarkdown } from './ai-md';
-import { aiAnswerBlock, aiConversationMarkdown, appendAiIdea, type AiSaveTask } from '../data/ai-save';
+import {
+  aiCardArchiveMark,
+  aiCardBegin,
+  aiCardDone,
+  aiCardDrop,
+  aiCardFail,
+  aiCardFollowBegin,
+  aiCardFollowDone,
+  aiCardFollowFail,
+  aiCardGet,
+  aiCardKey,
+  followHistory,
+} from './ai-card';
+import { refreshAiFloat } from './overlay';
+import { aiArchiveTurns, aiFloatMessages, aiFloatTaskOf, aiTranscript, clockOf } from './ai-menu';
+import { aiConversationMarkdown } from '../data/ai-save';
 import { DEFAULT_SETTINGS, aiReady } from '../data/settings';
 import { copyGroupId } from './group';
 import { collectStats, dayKey } from '../data/stats';
@@ -245,6 +256,47 @@ function repaint(): void {
 
 function overlay(kind: OverlayKind, extra: Record<string, unknown> = {}): void {
   openOverlay({ kind, ...extra });
+}
+
+/** 划词 AI 菜单要问的那一段（划词与点划线只差 markId） */
+interface AiMenuTarget {
+  text: string;
+  bookId?: string;
+  chapterTitle?: string;
+  markId?: string;
+  anchor?: { left: number; top: number; width?: number; height?: number };
+}
+
+/**
+ * 打开 AI 的五项菜单（工具条上方那一行）。
+ *
+ * 以前点 AI 直接解释；原型第 2 稿改成先摊开五项，选完再开浮框。
+ * 菜单与浮框共用一个 `kind='ai'` 叠层，`menu` 标记是唯一区别——位置、
+ * 工具条、锚点都不动，所以「点一项」只是原地换面板。
+ *
+ * 再点一次同一段的 AI = 收起这一行（与原型 toggleMenu 一致）。
+ */
+function openAiMenu(target: AiMenuTarget): void {
+  const o = getState().overlay;
+  const text = String(target.text ?? '');
+  if (!text.trim()) {
+    notify(t('notice.sel.empty'), 'error');
+    return;
+  }
+  const markId = target.markId ?? '';
+  if (o?.kind === 'ai' && o.menu && o.text === text && (o.markId ?? '') === markId) {
+    closeOverlay();
+    return;
+  }
+  overlay('ai', {
+    text,
+    bookId: target.bookId || getState().bookId || '',
+    chapterTitle: target.chapterTitle || '',
+    markId: target.markId,
+    mode: 'explain',
+    menu: true,
+    anchor: target.anchor,
+  });
 }
 
 /** 当前朗读路由（阅读页与设置页共用同一份判定） */
@@ -554,7 +606,7 @@ function insideExportDir(path: string, dir: string): boolean {
  * 与「AI 对话存档」只有目录不同，其余规则（清洗、防越界、原子性靠追加）
  * 一字不差——两处各写一份迟早会有一边忘了防越界。
  */
-async function appendBlock(app: App, dir: string, name: string, block: string, done: string): Promise<void> {
+async function appendBlock(app: App, dir: string, name: string, block: string, done: string): Promise<string> {
   const path = `${dir}/${name}.md`;
   try {
     /* 清洗之后理论上不会越界；这条是给以后改清洗规则的人留的门闩——
@@ -564,21 +616,34 @@ async function appendBlock(app: App, dir: string, name: string, block: string, d
     const head = (await app.vault.adapter.exists(path)) ? await app.vault.adapter.read(path) : `# ${name}\n`;
     await app.vault.adapter.write(path, `${head.trimEnd()}\n\n${block}\n`);
     notify(done);
+    return path;
   } catch (e) {
     notify(t('notice.note.saveFailed', { why: (e as Error).message }));
+    return '';
   }
 }
 
 /**
- * 追加一段进导出目录里这本书的笔记（书摘「存笔记」与 AI「存为笔记」共用）。
+ * 追加一段进导出目录里这本书的笔记（书摘「存笔记」与 AI「归档」共用）。
  *
  * 路径与导出功能一致（设置里的导出目录 + 书名），用户之后手动整理也在同一处。
+ * 返回写入的路径；失败已经在 appendBlock 里报过，这里返回空串让调用方
+ * 不要翻成「已归档」。
+ *
+ * `doneKey` 只换成功那一句 toast：书摘是「已保存到…」，AI 归档要说
+ * 「已归档到…」——同一件事在两条入口上该有各自的说法。
  */
-async function appendToExport(app: App, book: ReaderBook | undefined, block: string): Promise<void> {
+async function appendToExport(
+  app: App,
+  book: ReaderBook | undefined,
+  block: string,
+  doneKey: MsgKey = 'notice.note.saved',
+): Promise<string> {
   const fallback = DEFAULT_SETTINGS.exportDir;
   const dir = safeExportDir(shellSettings().exportDir || fallback, fallback);
   const name = safeExportName(book?.meta.title || t('export.loose'));
-  await appendBlock(app, dir, name, block, t('notice.note.saved', { path: `${dir}/${name}.md` }));
+  const path = `${dir}/${name}.md`;
+  return appendBlock(app, dir, name, block, t(doneKey, { path }));
 }
 
 /** AI 对话存档：落导出目录下的「AI 对话」，与书摘笔记分开放 */
@@ -2485,7 +2550,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       quoteFromMark(d.id, d.book);
       break;
     case 'hlai': {
-      /* 点划线也能直接问 AI：以前这条工具条上根本没有 AI 这一颗，
+      /* 点划线也能问 AI：以前这条工具条上根本没有 AI 这一颗，
          想解释划线原文只能先划一遍再点。与 selai 同一个面板，只是带上了 markId。 */
       if (!requireCap('aiSel')) break;
       const book = findBookOfMark(d.id, d.book);
@@ -2494,11 +2559,11 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         notify(t('notice.mark.notFound'), 'error');
         break;
       }
-      overlay('ai', {
+      openAiMenu({
         text: h.text,
         markId: h.id,
         bookId: book.id,
-        mode: 'explain',
+        chapterTitle: h.chapterTitle || book.reading.position.chapterTitle || '',
         /* 锚点沿用工具条正贴着的那条划线，AI 卡才不会掉到屏幕角 */
         anchor: getState().overlay?.anchor,
       });
@@ -2600,8 +2665,14 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       if (RT.sel) overlay('dict', { word: RT.sel.text.slice(0, 8) });
       break;
     case 'selai':
+      /* 不再直接解释：先在工具条上方摊开五项（原型第 2 稿） */
       if (RT.sel && requireCap('aiSel'))
-        overlay('ai', { text: RT.sel.text, mode: 'explain', anchor: RT.sel.anchor });
+        openAiMenu({
+          text: RT.sel.text,
+          bookId: RT.sel.bookId,
+          chapterTitle: RT.sel.chapterTitle,
+          anchor: RT.sel.anchor,
+        });
       break;
     /* 两颗知识库按钮和 AI 问答同一道门：按钮在授权掉了之后不再渲染，
        但动作本身也该拦——data-act 是 DOM 属性，不是权限。
@@ -3006,88 +3077,65 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       notify(t('notice.ui.reset'));
       break;
 
-    /* ── AI 卡上的动作：切档 / 取消 / 复制 / 重试 / 存笔记 ── */
-    case 'aimode': {
+    /* ── AI 菜单：选一项 → 原地换成浮框 / 交给侧栏 ── */
+    case 'aimenupick': {
       const o = getState().overlay;
-      const next = d.mode;
-      if (!o || o.kind !== 'ai' || !next) break;
-      const mode = aiModeOf(next);
-      if (o.mode === mode) break;
-      /* 换一档 = 换一个问题：旧请求在 runAiForOverlay 里会被掐掉，
-         答案按 (kind|task|text) 分开记，切回来还是那一份。
-         重画由派发方负责（overlayKey 含 mode，内容键一变就会重画） */
-      RT.aiAbort?.abort();
-      setState({ overlay: { ...o, mode } });
+      if (!o || o.kind !== 'ai' || !o.menu) break;
+      const task = d.task || '';
+      if (task === 'book') {
+        /* 插入到全书问答：把原文与出处放进信箱，切到侧栏 AI 页签。
+           侧栏那边的消费由另一个分支实现，这里只保证「放进去」这一半。 */
+        const text = (o.text || '').trim();
+        if (!text) {
+          notify(t('notice.sel.empty'), 'error');
+          break;
+        }
+        const book = liveBooks().find((b) => b.id === (o.bookId || getState().bookId));
+        RT.aiPendingInsert.push({
+          kind: 'quote',
+          text,
+          meta: [book?.meta.title, o.chapterTitle].filter(Boolean).join(' · '),
+        });
+        closeOverlay();
+        setState({ sideTab: 'ai' });
+        notify(t('notice.ai.inserted'));
+        break;
+      }
+      if (task !== 'explain' && task !== 'translate' && task !== 'summarize' && task !== 'follow') break;
+      /* 点完菜单立刻收起：这一行原地换成浮框（同一个 kind、同一个锚点，
+         所以工具条不跳、位置不动）。重画会顺手把首问发出去。 */
+      setState({ overlay: { ...o, menu: false, mode: task, rev: (o.rev ?? 0) + 1 } });
       break;
     }
     case 'aicopy': {
-      const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
-      const answer = node?.textContent?.trim() || '';
-      if (answer) void copyText(answer);
-      break;
-    }
-    /* 重试：结果回填到卡里，不关卡——失败原因还留在上面 */
-    case 'airetry': {
+      /* 复制这一整段对话（问 + 答 + 追问），不是只复制最后一条答案 */
       const o = getState().overlay;
-      if (!o) break;
-      /* 问的是当前这一档，不是永远 explain：以前在翻译档点重试，回来的是一段解释 */
-      const task: AiTask = aiModeOf(o.mode);
-      const text = o.text || RT.sel?.text || '';
-      /* 先把失败记号丢掉，再让统一的请求入口重新发一次（它会写册子） */
-      aiCardDrop(aiCardKey(o.kind, task, text));
-      void runAiForOverlay();
+      if (!o || o.kind !== 'ai' || o.menu) break;
+      const mode = aiFloatTaskOf(o.mode);
+      const entry = aiCardGet(aiCardKey('ai', mode, o.text || RT.sel?.text || ''));
+      const text = aiTranscript(
+        aiFloatMessages({
+          mode,
+          ask: entry?.ask,
+          answer: entry?.text,
+          error: entry?.status === 'error' ? entry.text : '',
+          turns: entry?.turns,
+        }),
+      );
+      if (text) void copyText(text);
       break;
     }
-    /* 追问：围绕卡上这段继续问（2026-11-10） */
+    /* 追问：空面板的第一问与后续轮次共用这一个动作 */
     case 'aifollow': {
-      const card = el.closest('.bzs-ai-card');
-      const input = card?.querySelector<HTMLInputElement>('[data-role="aifollow"]');
+      const card = el.closest('.bzs-aifloat');
+      const input = card?.querySelector<HTMLTextAreaElement>('[data-role="aifollow"]');
       void followAi(input?.value ?? '');
       break;
     }
-    /* 把答案存成这条划线的想法：只追加，不覆盖用户自己写的字 */
-    case 'aitomark': {
-      const o = getState().overlay;
-      const book = currentBook();
-      const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
-      const answer = node?.textContent?.trim() || '';
-      if (!o?.markId || !book || !answer) {
-        if (!o?.markId) notify(t('notice.ai.noMark'), 'info');
-        break;
-      }
-      const h = findHighlight(book, o.markId);
-      if (!h) {
-        notify(t('notice.mark.gone'), 'info');
-        break;
-      }
-      const next = appendAiIdea(h.comment, answer);
-      /* 同一段答案再点一次：什么都不变，连提示都不弹 */
-      if (next === (h.comment ?? '')) break;
-      if (setHighlightComment(book, h.id, next)) {
-        getShellSource()?.store.touch();
-        emitNotesChanged();
-        repaint();
-        notify(t('notice.ai.savedMark'));
-      }
+    /* 归档：把这段对话整理成 Markdown，追加到这本书的阅读笔记 */
+    case 'aiarchive':
+      void archiveAiFloat();
       break;
-    }
-    /* 存为笔记：带任务、日期与出处引用，末尾留标记（2026-11-10 升级） */
-    case 'aisave': {
-      const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
-      const answer = node?.textContent?.trim() || '';
-      const app = getShellSource()?.app;
-      const book = currentBook();
-      if (!answer || !app) break;
-      const o = getState().overlay;
-      const block = aiAnswerBlock({
-        task: aiModeOf(o?.mode) as AiSaveTask,
-        quote: o?.text || RT.sel?.text || '',
-        answer,
-        day: dayKey(Date.now()),
-      });
-      if (block) void appendToExport(app, book, block);
-      break;
-    }
     /* 存档这段对话（2026-11-11）：侧栏的多轮问答落成一篇笔记。
        与「存为笔记」不同——那是卡上一条答案，这里是整场对话，关掉侧栏
        之后还能回去看当时问过什么、依据是哪几章。 */
@@ -3704,89 +3752,127 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
   repaint();
 }
 
-/* ─────────── 划词卡的追问（2026-11-10） ─────────── */
+/* ─────────── 划词浮框：追问与归档（2026-11-16 改版） ─────────── */
 
 /**
  * 一次只跑一条追问。
  *
- * 2026-11-11：原来这里是「正在追问的那句话」，渲染时靠它画占位；现在那一行
- * 已经在账本的轮次里（`pending`），这个变量只负责防重入——连点两下不该扣
- * 两次费。
+ * 这一问已经在账本的轮次里（`pending`），这个变量只负责防重入——
+ * 连点两下不该扣两次费。
  */
 let aiFollowBusy = false;
 
-/** 追问的轮次区滚到底：新的一行不该出现在可视区之外 */
-function scrollAiCardToEnd(): void {
-  const box = document.querySelector<HTMLElement>('.bzs-ai-card .ai-scroll');
-  if (box) box.scrollTop = box.scrollHeight;
-}
-
-/** 从账本把卡上的正文与轮次重画一遍，并补上 Markdown 渲染 */
-function refreshAiCard(): void {
-  const o = getState().overlay;
-  if (!o || o.kind !== 'ai') return;
-  const text = o.text || RT.sel?.text || '';
-  const key = aiCardKey('ai', aiModeOf(o.mode), text);
-  const entry = aiCardGet(key);
-  const body = document.querySelector<HTMLElement>('[data-role="aibody"]');
-  if (body && entry?.text) {
-    body.textContent = entry.text;
-    /* 刚写过纯文本：标记清掉，交给 renderAiMarkdown 重新渲染 */
-    delete body.dataset.aiRendered;
-  }
-  const turns = document.querySelector<HTMLElement>('[data-role="aiturns"]');
-  if (turns) setHtml(turns, aiTurnsHtml(entry?.turns));
-  const card = document.querySelector<HTMLElement>('.bzs-ai-card');
-  renderAiMarkdown(card);
-  scrollAiCardToEnd();
+/** 发出即清空：这句已经进账本了，留在框里会像没发出去 */
+function clearAiInput(): void {
+  const box = document.querySelector<HTMLTextAreaElement>('[data-role="aifollow"]');
+  if (!box) return;
+  box.value = '';
+  box.style.height = '';
+  const send = box.closest('.bzs-af-ask')?.querySelector<HTMLButtonElement>('.bzs-af-send');
+  if (send) send.disabled = true;
 }
 
 /**
- * 追问：围绕卡上那段原文继续问。
+ * 追问：围绕浮框里那段原文继续问。
  *
- * 不带全书依据，也不带侧栏的问答记录——这是「问这一小段」的第二问，
- * 与「问整本书」是两条链路（上下文、花费、追问方式都不同）。
+ * 两条路：
+ *   · 追问面板的第一问（还没有首答）——问题本身就是首问，答案落进正文；
+ *   · 已经有首答——按轮次追加，历史里带着首问 + 首答 + 之前几轮。
+ *
+ * 不带全书依据，也不带侧栏的问答记录——这是「问这一小段」，
+ * 与「问整本书」是两条链路。
  */
 async function followAi(question: string): Promise<void> {
   const q = String(question ?? '').trim();
   if (!q) return;
   const o = getState().overlay;
-  if (!o || o.kind !== 'ai') return;
+  if (!o || o.kind !== 'ai' || o.menu) return;
   const s = shellSettings();
   if (!aiReady(s)) return;
   const text = o.text || RT.sel?.text || '';
-  const key = aiCardKey('ai', aiModeOf(o.mode), text);
+  const mode = aiFloatTaskOf(o.mode);
+  const key = aiCardKey('ai', mode, text);
   const entry = aiCardGet(key);
-  /* 初次还没答完（或者还没发出去）：没有可追问的答案，不发 */
-  if (!entry || !entry.text) return;
-  /* 一次只跑一条追问：连点两下不该扣两次费 */
   if (aiFollowBusy) return;
 
+  /* 已经答出第一条才谈得上「追问」。失败 / 等待中的首问不算答案：
+     解释 / 翻译 / 总结这时不发；追问面板则把这一问当成新的首问。 */
+  const answered = !!entry && entry.status === 'done' && !!String(entry.text ?? '').trim();
+  const first = mode === 'follow' && !answered;
+  if (!first && !answered) return;
+
   aiFollowBusy = true;
-  /* 发出即回声：这一问立刻进轮次（带 pending），卡片上马上出现
-     「你：…」和「正在回复…」，不用等模型 */
-  aiCardFollowBegin(key, q);
-  /* 输入框当场清空：这句已经进轮次了，留在框里会像没发出去 */
-  const box = document.querySelector<HTMLInputElement>('[data-role="aifollow"]');
-  if (box) box.value = '';
-  refreshAiCard();
+  if (first) aiCardBegin(key, q, clockOf());
+  else aiCardFollowBegin(key, q);
+  clearAiInput();
+  refreshAiFloat();
   const ctrl = new AbortController();
   RT.aiAbort = ctrl;
   try {
     const res = await aiAsk(
       s,
-      { task: 'follow', text: q, context: text, history: followHistory(entry.text, entry.turns) },
+      first
+        ? { task: 'follow', text: q, context: text }
+        : {
+            task: 'follow',
+            text: q,
+            context: text,
+            /* 首问也要带上：只给答案，模型不知道用户当初问的是什么 */
+            history: followHistory(entry!.text, entry!.turns, entry!.ask),
+          },
       { signal: ctrl.signal },
     );
-    aiCardFollowDone(key, q, res.text);
+    if (first) aiCardDone(key, res.text);
+    else aiCardFollowDone(key, q, res.text);
   } catch (e) {
-    /* 被掐掉（换档 / 关卡）不留假结果；真失败把原因写进这一轮 */
-    if (!ctrl.signal.aborted) aiCardFollowFail(key, q, (e as Error)?.message || t('common.unknownError'));
+    const why = (e as Error)?.message || t('common.unknownError');
+    if (!ctrl.signal.aborted) {
+      if (first) aiCardFail(key, why);
+      else aiCardFollowFail(key, q, why);
+    } else if (first) {
+      /* 被掐掉的首问不留一条「已取消」的假对话 */
+      aiCardDrop(key);
+    }
   } finally {
     if (RT.aiAbort === ctrl) RT.aiAbort = null;
     aiFollowBusy = false;
-    refreshAiCard();
+    refreshAiFloat();
   }
+}
+
+/**
+ * 归档：把浮框里这段对话整理成 Markdown，追加到这本书的阅读笔记。
+ *
+ * 与旧的「存为笔记」不同——那是卡上一条答案，这里是整场对话：问过什么、
+ * 答了什么、追问了几轮都在。失败时 appendToExport 已经报过错误，
+ * 这里不翻成「已归档」。
+ */
+async function archiveAiFloat(): Promise<void> {
+  const o = getState().overlay;
+  if (!o || o.kind !== 'ai' || o.menu) return;
+  const text = o.text || RT.sel?.text || '';
+  const mode = aiFloatTaskOf(o.mode);
+  const key = aiCardKey('ai', mode, text);
+  const entry = aiCardGet(key);
+  /* 没有对话 / 已经归档过：按钮这时本来就是灰的，兜一层防连点 */
+  if (!entry || entry.archivedAt) return;
+  const turns = aiArchiveTurns(mode, entry);
+  if (!turns.length) {
+    notify(t('notice.ai.logEmpty'), 'info');
+    return;
+  }
+  const app = getShellSource()?.app;
+  if (!app) return;
+  const book = liveBooks().find((b) => b.id === (o.bookId || getState().bookId)) ?? currentBook();
+  const block = aiConversationMarkdown({ bookTitle: book?.meta.title, day: dayKey(Date.now()), turns });
+  if (!block) {
+    notify(t('notice.ai.logEmpty'), 'info');
+    return;
+  }
+  const path = await appendToExport(app, book, block, 'notice.ai.archived');
+  if (!path) return;
+  aiCardArchiveMark(key, clockOf());
+  refreshAiFloat();
 }
 
 /* ─────────── 输入与快捷键 ─────────── */

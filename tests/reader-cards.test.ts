@@ -79,27 +79,36 @@ describe('quoteCardHtml · 书摘', () => {
   });
 });
 
-describe('aiCardHtml · 划词 AI 卡', () => {
-  it('结果、三档页签与三个动作都在', () => {
-    const html = aiCardHtml({ ready: true, answer: '「须眉」指男子。' } as never);
-    expect(html).toContain('data-role="aibody"');
+describe('aiCardHtml · 划词 AI 浮框', () => {
+  it('顶栏、引文、消息区与底栏都在；不再有三档页签', () => {
+    const html = aiCardHtml({
+      ready: true,
+      mode: 'explain',
+      quote: '「须眉」指男子。',
+      bookTitle: '红楼梦',
+      chapter: '第一回',
+      ask: '解释这一段',
+      answer: '「须眉」指男子。',
+    });
+    expect(html).toContain('bzs-af-head');
+    expect(html).toContain('bzs-af-quote');
+    expect(html).toContain('data-role="aimsgs"');
+    expect(html).toContain('data-ai-md');
     expect(html).toContain('复制');
-    expect(html).toContain('重试');
-    expect(html).toContain('存为笔记');
-    /* 三档住在卡里（2026-11-07）：以前解释 / 翻译 / 摘要各是一条入口，
-       问同一段话要关掉卡片回工具条上重新点一次 */
-    for (const mode of ['explain', 'translate', 'summarize']) {
-      expect(html).toContain(`data-mode="${mode}"`);
-    }
+    expect(html).toContain('归档');
+    expect(html).not.toContain('data-act="aimode"');
+    expect(html).not.toContain('data-act="airetry"');
   });
 
   it('没配服务时先说明，而不是空着等', () => {
-    const html = aiCardHtml({ ready: false });
+    const html = aiCardHtml({ ready: false, mode: 'explain' });
     expect(html).toContain('还没有配置 AI 服务');
   });
 
   it('结果是用户内容，必须转义', () => {
-    expect(aiCardHtml({ ready: true, text: '<img>' })).toContain('&lt;img&gt;');
+    expect(
+      aiCardHtml({ ready: true, mode: 'explain', ask: '解释这一段', answer: '<img>' }),
+    ).toContain('&lt;img&gt;');
   });
 });
 

@@ -128,43 +128,38 @@ describe('ai-card · 渲染取自记账，不是只写在 DOM 上', () => {
     expect(overlayHtml()).toContain('连不上 AI 接口');
   });
 
-  it('还没结果时才显示正在请求', () => {
+  it('还没结果时才显示等待气泡', () => {
     install();
     open('explain');
-    expect(overlayHtml()).toContain('正在请求');
+    expect(overlayHtml()).toContain('bzs-typing');
 
     aiCardBegin(aiCardKey('ai', 'explain', TEXT));
-    expect(overlayHtml()).toContain('正在请求');
+    expect(overlayHtml()).toContain('bzs-typing');
   });
 });
 
-describe('ai-card · 三档页签', () => {
-  it('卡里有解释 / 翻译 / 摘要三颗，默认亮解释', () => {
+describe('ai-card · 菜单与浮框是同一个位置的两态', () => {
+  it('菜单打开时只有五项那一行，没有浮框', () => {
     install();
-    open('explain');
+    setState({
+      ...DEFAULT_SHELL_STATE,
+      bookId: 'b1',
+      overlay: { kind: 'ai', bookId: 'b1', text: TEXT, mode: 'explain', menu: true },
+    });
     const html = overlayHtml();
-
-    for (const mode of ['explain', 'translate', 'summarize']) {
-      expect(html).toContain(`data-act="aimode" data-mode="${mode}"`);
-    }
-    expect(html).toMatch(/class="bzs-ai-mode on"[^>]*data-mode="explain"/);
-  });
-
-  it('当前档换了，亮的那颗跟着换', () => {
-    install();
-    open('translate');
-    expect(overlayHtml()).toMatch(/class="bzs-ai-mode on"[^>]*data-mode="translate"/);
+    expect(html).toContain('bzs-aimenu');
+    expect(html).not.toContain('bzs-aifloat');
   });
 
   it('每档各自记答案：切回解释还是原来那一份', () => {
     install();
     open('explain');
     aiCardDone(aiCardKey('ai', 'explain', TEXT), '这是解释');
-    aiCardDone(aiCardKey('ai', 'summarize', TEXT), '这是摘要');
+    aiCardDone(aiCardKey('ai', 'summarize', TEXT), '这是总结');
 
     expect(overlayHtml()).toContain('这是解释');
     open('summarize');
-    expect(overlayHtml()).toContain('这是摘要');
+    expect(overlayHtml()).toContain('这是总结');
     open('explain');
     expect(overlayHtml()).toContain('这是解释');
   });

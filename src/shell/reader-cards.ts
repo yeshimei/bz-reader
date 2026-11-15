@@ -11,19 +11,25 @@
  * 想法 470/12、确认条 470/10、划线气泡 430/10。
  */
 
-import type { AiTask } from '../data/ai';
 import type { KbLink } from '../data/schema';
 import { t, type MsgKey } from '../i18n';
 import { kbLinksHtml } from './kb-links';
-import { AI_CARD_MODES, type AiFollowTurn } from './ai-card';
+import {
+  aiFloatMessages,
+  type AiBubble,
+  type AiFloatState,
+  type AiFloatTask,
+} from './ai-menu';
 import { esc } from './render/html';
+import { SEND_ICON } from './idea-sheet';
 
-/** 三档页签上的字。`ask` / `follow` / `probe` / `quiz` / `shelf` 都不进页签，只列三档 */
-const MODE_KEYS = {
+/** 浮框顶栏那枚类型标签：解释 / 翻译 / 总结 / 追问 */
+const KIND_KEYS = {
   explain: 'ai.mode.explain',
   translate: 'ai.mode.translate',
-  summarize: 'ai.mode.summarize',
-} as const satisfies Record<'explain' | 'translate' | 'summarize', MsgKey>;
+  summarize: 'ai.menu.summarize',
+  follow: 'ai.mode.follow',
+} as const satisfies Record<AiFloatTask, MsgKey>;
 
 /**
  * ① 脚注：左侧一枚「注」小印，其余全是注文。
@@ -65,103 +71,104 @@ export function quoteCardHtml(input: QuoteCardInput): string {
   </div>`;
 }
 
-export interface AiCardInput {
+export interface AiCardInput extends AiFloatState {
   /** 地址、模型、密钥是否都配好了 */
   ready: boolean;
-  /** 当前问的是哪一档（解释 / 翻译 / 摘要），缺省 = 解释 */
-  mode?: AiTask;
-  /** 划选的原文：压成两行，切档时能确认问的是哪一句 */
+  /** 划选的原文：压成两行，浮框里也能确认问的是哪一句 */
   quote?: string;
-  /** 卡上的正文：结果 / 失败原因。空 = 还没有结果 */
-  text?: string;
-  /** 请求还在路上：没有正文时据此画占位文案 */
-  busy?: boolean;
-  /** 追问轮次：重画时从账本取回，初次问答不在里面 */
-  turns?: AiFollowTurn[];
-  /** 有没有一条自己的划线可以承接「存成想法」 */
-  canMark?: boolean;
+  /** 书名与章节：顶栏那行「围城 · 第三章」 */
+  bookTitle?: string;
+  chapter?: string;
+  /** 首条消息的时刻（HH:mm）；没有消息就不画 */
+  at?: string;
+  /** 归档时刻（HH:mm）；有值 = 底栏变「已归档」 */
+  archivedAt?: string;
 }
 
 /**
- * 追问轮次：问题一行、答案一段；失败的那轮只留原因。
+ * 消息区：气泡 + 一个居中的时间戳。
  *
- * 单独导出是给"追问中"那一路用的：请求发出去之后不整卡重画（输入框在卡里，
- * 换掉会丢焦点），只把这一块 innerHTML 换掉。
+ * 单独导出是给「请求回来」那一路用的：不整框重画（输入框在浮框里，换掉
+ * 会丢焦点），只把这一块 innerHTML 换掉。
  *
- * 2026-11-11：`pending` 那一轮画成「正在回复…」。问题一发出就在轮次里
- * （见 shell/ai-card 的 aiCardFollowBegin），所以用户点完立刻能看到自己
- * 问的那句和一个占位，而不是一张纹丝不动的卡。
+ * 我方铜色实底、右上角 3px；AI 浅灰底、左上角 3px —— 圆角在 CSS。
+ * AI 的正文打 `data-ai-md`，注入后由 renderAiMarkdown 统一渲染。
  */
-export function aiTurnsHtml(turns?: AiFollowTurn[]): string {
-  return (turns ?? [])
-    .map((turn) => {
-      const q = turn.q ? `<div class="q">${esc(t('ai.follow.you'))}：${esc(turn.q)}</div>` : '';
-      const a = turn.error
-        ? `<div class="a is-bad">${esc(turn.error)}</div>`
-        : turn.pending
-          ? `<div class="a is-busy">${esc(t('ai.follow.thinking'))}</div>`
-          : `<div class="a" data-ai-md>${esc(turn.a)}</div>`;
-      return `<div class="bzs-ai-turn${turn.pending ? ' is-busy' : ''}">${q}${a}</div>`;
-    })
-    .join('');
+export function aiMessagesHtml(input: AiFloatState & { at?: string }): string {
+  const msgs = aiFloatMessages(input);
+  if (!msgs.length) {
+    return `<div class="bzs-af-empty">${esc(t('ai.float.empty'))}</div>`;
+  }
+  const bubble = (m: AiBubble): string => {
+    const cls = m.role === 'me' ? 'bzs-pm is-me' : 'bzs-pm is-ai';
+    if (m.pending) {
+      return `<div class="${cls}"><div class="tx"><span class="bzs-typing"><i></i><i></i><i></i></span></div></div>`;
+    }
+    const bad = m.error ? ' is-bad' : '';
+    const md = m.role === 'ai' && !m.error ? ' data-ai-md' : '';
+    return `<div class="${cls}${bad}"><div class="tx"${md}>${esc(m.text)}</div></div>`;
+  };
+  const time = input.at ? `<div class="bzs-af-time">${esc(input.at)}</div>` : '';
+  return `${time}${msgs.map(bubble).join('')}`;
 }
 
 /**
- * ③ AI：原文一截 + 三档页签 + 结果与三个动作。
+ * ③ AI：工具条上方的锚定浮框（430×420），微信式对话。
  *
- * 顺序是「问的是哪段 → 怎么问 → 答案」：引文只留两行，压不住下面的答案。
- * 三档就在卡里切（解释 / 翻译 / 摘要，默认解释），不再让用户先关掉卡片、
- * 回工具条上重新点一次——以前那三颗是三条入口，问同一段话要来回点。
+ * 结构照原型第 2 稿：
+ *   顶栏（类型标签 + 书名章节 + ×，38px）
+ *   引文（两行封顶，`--surface-2` 底）
+ *   消息区（可滚，气泡 + 时间戳）
+ *   输入行（textarea 34 起 + 32px 圆钮）
+ *   底栏（复制 / 归档 / 未归档或已归档 HH:mm）
  *
- * 正文取自记账（shell/ai-card），不是「有结果就写 text、没有就写正在请求」：
- * 重画之后还得画得出同一份答案，否则切档、点按钮都会把答案冲掉。
- *
- * 2026-11-10 加追问：答案下面一条输入框，问完续在轮次里。追问与三档共用
- * 同一份账，切档时整份跟着档走。
- *
- * 2026-11-11 改结构（真机反馈）：内容区单独滚，输入行与底部按钮钉在卡片下沿。
- * 以前整张卡是一个滚动容器，答案一长，输入框下面的「复制 / 重试 / 存为笔记」
- * 就被推出可视区，用户以为按钮没了。
+ * 三档页签已经撤掉：选哪一档在工具条上方的菜单里一次点定，浮框里只剩
+ * 这一场对话。底栏也不再是「存为笔记」——这段对话的去处是阅读笔记。
  */
 export function aiCardHtml(input: AiCardInput): string {
   const mode = input.mode ?? 'explain';
-  const body = !input.ready
-    ? t('ai.card.needSetup')
-    : input.text || (input.busy ? t('ai.card.busy') : '');
-  const quote = input.quote ? `<div class="quote">「${esc(input.quote)}」</div>` : '';
-  /* 没配服务时不摆页签：切了也不会有结果，三颗亮着的按钮只会误导 */
-  const modes = input.ready
-    ? `<div class="modes" role="tablist">${AI_CARD_MODES.map((m) => {
-        const on = m === mode;
-        return `<button type="button" class="bzs-ai-mode${on ? ' on' : ''}" role="tab" aria-selected="${on}" data-act="aimode" data-mode="${m}">${esc(
-          t(MODE_KEYS[m as keyof typeof MODE_KEYS]),
-        )}</button>`;
-      }).join('')}</div>`
+  const meta = [input.bookTitle, input.chapter].filter(Boolean).join(' · ');
+  const body = input.ready
+    ? aiMessagesHtml(input)
+    : `<div class="bzs-af-empty">${esc(t('ai.card.needSetup'))}</div>`;
+  const quote = input.quote
+    ? `<div class="bzs-af-quote">${esc(input.quote)}</div>`
     : '';
-  /* 追问行：没配服务不摆（点了也只会得到一句「还没配置」） */
+  /* 没配服务不摆输入行：点了也只会得到一句「还没配置」 */
   const askrow = input.ready
-    ? `<div class="askrow">
-      <input type="text" data-role="aifollow" placeholder="${esc(t('ai.follow.ph'))}">
-      <button type="button" class="bzs-btn sm pri" data-act="aifollow">${esc(t('ai.follow.send'))}</button>
+    ? `<div class="bzs-af-ask">
+      <textarea rows="1" data-role="aifollow" placeholder="${esc(t('ai.float.reply'))}"></textarea>
+      <button type="button" class="bzs-af-send" data-act="aifollow" disabled aria-label="${esc(
+        t('ai.float.send'),
+      )}" title="${esc(t('ai.float.send'))}">${SEND_ICON}</button>
     </div>`
     : '';
-  const mark = input.canMark
-    ? `<button class="bzs-btn" data-act="aitomark">${esc(t('ai.save.mark'))}</button>`
-    : '';
-  return `<div class="bzs-ai-card">
-    <div class="ai-scroll">
-      ${quote}
-      ${modes}
-      <div class="body" data-role="aibody" data-ai-md>${esc(body)}</div>
-      <div class="turns" data-role="aiturns">${aiTurnsHtml(input.turns)}</div>
+  const archivedAt = input.archivedAt ?? '';
+  const archived = !!archivedAt;
+  return `<div class="bzs-aifloat">
+    <div class="bzs-af-head">
+      <span class="bzs-af-kind">${esc(t(KIND_KEYS[mode]))}</span>
+      <span class="bzs-af-meta">${esc(meta)}</span>
+      <button type="button" class="bzs-af-x" data-act="close" title="${esc(
+        t('common.close'),
+      )}" aria-label="${esc(t('common.close'))}">×</button>
     </div>
+    ${quote}
+    <div class="bzs-af-msgs" data-role="aimsgs">${body}</div>
     ${askrow}
-    <div class="foot">
-      <button class="bzs-btn" data-act="aicopy">${esc(t('ai.card.copy'))}</button>
-      <button class="bzs-btn" data-act="airetry">${esc(t('ai.card.retry'))}</button>
-      ${mark}
+    <div class="bzs-af-foot">
+      <button type="button" class="bzs-af-btn" data-act="aicopy" aria-label="${esc(
+        t('ai.card.copy'),
+      )}" title="${esc(t('ai.card.copy'))}"><span class="bzs-tbi" data-icon="copy"></span></button>
+      <button type="button" class="bzs-af-btn" data-act="aiarchive"${
+        archived ? ' disabled' : ''
+      } aria-label="${esc(t(archived ? 'ai.float.archived' : 'ai.float.archive'))}" title="${esc(
+        t(archived ? 'ai.float.archived' : 'ai.float.archive'),
+      )}"><span class="bzs-tbi" data-icon="archive"></span></button>
       <span class="sp"></span>
-      <button class="bzs-btn pri" data-act="aisave">${esc(t('ai.card.save'))}</button>
+      <span class="bzs-af-state" data-role="aistate">${esc(
+        archived ? t('ai.float.archivedAt', { time: archivedAt }) : t('ai.float.unarchived'),
+      )}</span>
     </div>
   </div>`;
 }

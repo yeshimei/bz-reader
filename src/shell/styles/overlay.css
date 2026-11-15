@@ -106,8 +106,8 @@
   box-shadow: 0 24px 60px rgba(40, 32, 20, .26), 0 0 0 1px rgba(60, 48, 28, .08);
 }
 
-/* 装着 AI 卡的弹窗（2026-11-11）：滚动交给卡片内部的 .ai-scroll。
-   外层再滚一次，输入行与底部按钮会跟着答案一起滚出屏幕。
+/* 装着 AI 浮框的弹窗（2026-11-11）：滚动交给消息区 .bzs-af-msgs。
+   外层再滚一次，输入行与底栏会跟着答案一起滚出屏幕。
    判据是浮层自己的 `bzs-ai-panel` 类（生成时挂上，见 overlay.ts）：
    `:has()` 会触发整棵子树的选择器失效，官方审核按性能问题报。 */
 .bzs-float.bzs-ai-panel {
@@ -116,7 +116,7 @@
   flex-direction: column;
 }
 
-.bzs-float.bzs-ai-panel .bzs-ai-card {
+.bzs-float.bzs-ai-panel .bzs-aifloat {
   flex: 1 1 auto;
   min-height: 0;
 }
@@ -128,7 +128,7 @@ body.theme-dark .bzs-float.is-dialog {
 
 /* 弹窗自己有底板，里面的卡片不要再画一层：手机上 AI 卡 / 书摘卡
    贴着弹窗边缘，套两层白底会像卡中卡。 */
-.bzs-float.is-dialog .bzs-ai-card {
+.bzs-float.is-dialog .bzs-aifloat {
   width: 100%;
   background: none;
   border-radius: 0;
@@ -286,36 +286,201 @@ body.theme-dark .bzs-float.is-dialog {
   font-size: 12px;
 }
 
-/* ③ AI：原文一截 + 三档页签 + 结果与三个动作 */
-.bzs-ai-card {
-  width: min(430px, calc(100vw - 24px));
+/* ③ AI：工具条上方的五项菜单 / 430×420 锚定浮框（原型第 2 稿）
+   两个状态共用 .bzs-tb-stack 的外壳：菜单在上、工具条在下；
+   点一项就原地换成浮框，工具条不跳。颜色全部走令牌。 */
+
+/* ── 五项菜单：工具条上方 8px 平摊 ── */
+.bzs-aimenu {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 10px;
   background: var(--surface);
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: 0 16px 40px rgba(40, 32, 20, .12), 0 2px 6px rgba(40, 32, 20, .05);
-  /* 2026-11-11 真机反馈：答案一长，输入行下方的「复制 / 重试 / 存为笔记」
-     就被挤出可视区，用户以为按钮没了。改成纵向三段：
-     内容区自己滚，输入行与底部按钮永远钉在卡片下沿。 */
+  box-shadow: 0 14px 30px rgba(40, 32, 20, .16), 0 2px 6px rgba(40, 32, 20, .06),
+    0 0 0 1px var(--line);
+  white-space: nowrap;
+}
+
+body.theme-dark .bzs-aimenu {
+  box-shadow: 0 16px 34px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .09);
+}
+
+.bzs-aimenu button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 宿主给 button 定死 height: var(--input-height)（30px）；原型这一行是
+     12px/1.5 + 上下 5px = 28px，不盖掉会高 2px、整行跟着胖一圈 */
+  height: 28px;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--t2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.bzs-aimenu .lab {
+  letter-spacing: .02em;
+}
+
+.bzs-aimenu button:hover,
+.bzs-aimenu button:focus-visible {
+  background: var(--copper-soft);
+  color: var(--copper);
+}
+
+.bzs-aimenu .book {
+  color: var(--copper);
+}
+
+/* 四项一等动作与「插入到全书问答」之间的一道竖线 */
+.bzs-aimenu .bzs-aimenu-vdiv {
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  flex: none;
+  background: var(--line);
+}
+
+.bzs-aimenu .bzs-aimenu-ico {
+  display: none;
+  width: 16px;
+  height: 16px;
+}
+
+.bzs-aimenu svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* 图标模式：30×27、只露图标（与工具条同一档设置） */
+.bzs-aimenu.is-icon button {
+  width: 30px;
+  height: 27px;
+  padding: 0;
+}
+
+.bzs-aimenu.is-icon .lab {
+  display: none;
+}
+
+.bzs-aimenu.is-icon .bzs-aimenu-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 菜单与工具条之间是 8px（浮框是 10px）：只改这一列的 gap */
+.bzs-ai-menu .bzs-tb-stack {
+  gap: 8px;
+}
+
+/* 手机上是遮罩弹窗：菜单自己就是那张卡，外壳不要再套一层白底与内边距 */
+.bzs-float.is-dialog.bzs-ai-menu {
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* ── 430×420 的锚定浮框 ── */
+.bzs-aifloat {
+  /* 正常窗口就是原型量的 430；窄到放不下时按视口收，别把右缘切在屏外 */
+  width: min(430px, calc(100vw - 24px));
+  height: 420px;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 100%;
+  background: var(--surface);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 18px 40px rgba(40, 32, 20, .16), 0 4px 10px rgba(40, 32, 20, .07),
+    0 0 0 1px var(--line);
 }
 
-/* 内容区：引文 + 页签 + 答案 + 追问轮次。滚动只发生在这里 */
-.bzs-ai-card .ai-scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
+body.theme-dark .bzs-aifloat {
+  box-shadow: 0 22px 48px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 255, 255, .09);
 }
 
-/* 问的是哪一段：两行截断。它只是让切档时能确认问的是哪句话，
-   不能压过下面的答案——所以比正文小一号、颜色退一档。 */
-.bzs-ai-card .quote {
-  padding: var(--sp-3) var(--sp-4) 0;
-  font: 400 var(--fs-mini)/1.7 var(--ui);
+/* 顶栏：类型标签 + 书名章节 + × */
+.bzs-af-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 6px 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.bzs-af-kind {
+  padding: 1px 7px;
+  border: 1px solid var(--copper-line);
+  border-radius: 4px;
+  background: var(--copper-soft);
+  font-size: 10px;
+  line-height: 1.7;
+  font-weight: 500;
+  letter-spacing: .02em;
+  color: var(--copper);
+  white-space: nowrap;
+}
+
+.bzs-af-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  color: var(--t3);
+}
+
+.bzs-af-head .bzs-af-x {
+  margin-left: auto;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--t3);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.bzs-af-head .bzs-af-x:hover {
+  background: var(--surface-2);
+  color: var(--t1);
+}
+
+/* 引文：两行封顶；「」走伪元素，正文里不再重复一遍 */
+.bzs-af-quote {
+  flex: none;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--copper) 3%, var(--surface-2));
+  font-family: var(--serif);
+  font-size: 12px;
+  line-height: 1.7;
   color: var(--t2);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -323,135 +488,296 @@ body.theme-dark .bzs-float.is-dialog {
   overflow: hidden;
 }
 
-/* 三档（解释 / 翻译 / 摘要）：下划线式，和书页最贴。
-   不用分段色块——12px 的铜底压在引文下面，比答案还抢眼 */
-.bzs-ai-card .modes {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-5);
-  padding: var(--sp-3) var(--sp-4) 0;
-  border-bottom: 1px solid var(--line);
+.bzs-af-quote::before {
+  content: "「";
+  color: var(--copper);
 }
 
-.bzs-ai-mode {
-  appearance: none;
-  border: 0;
-  background: none;
-  box-shadow: none;
-  cursor: pointer;
-  position: relative;
-  padding: 0 0 var(--sp-2);
-  font: 400 var(--fs-body)/1 var(--ui);
-  color: var(--t2);
-  letter-spacing: .02em;
-  transition: color var(--dur) var(--ease);
+.bzs-af-quote::after {
+  content: "」";
+  color: var(--copper);
 }
 
-.bzs-ai-mode:hover {
-  color: var(--t1);
+/* 消息区：只在这里滚 */
+.bzs-af-msgs {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 14px 10px;
+  scrollbar-width: thin;
 }
 
-.bzs-ai-mode.on {
-  color: var(--t1);
+.bzs-af-time {
+  margin: 2px 0 12px;
+  text-align: center;
+  font-size: 9.5px;
+  letter-spacing: .08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--t3);
 }
 
-.bzs-ai-mode.on::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 1.5px;
+/* 气泡：我方铜色实底、右上角 3px；AI 浅灰底、左上角 3px。
+   底色混一点铜，和整套「墨与铜」同族，不是纯灰块。 */
+.bzs-pm {
+  max-width: 86%;
+  margin-bottom: 12px;
+}
+
+.bzs-pm:last-child {
+  margin-bottom: 0;
+}
+
+.bzs-pm .tx {
+  padding: 8px 11px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  line-height: 1.82;
+  overflow-wrap: anywhere;
+}
+
+.bzs-pm .tx p {
+  margin: 0 0 .5em;
+}
+
+.bzs-pm .tx p:last-child {
+  margin-bottom: 0;
+}
+
+.bzs-pm.is-me {
+  margin-left: auto;
+  width: fit-content;
+}
+
+.bzs-pm.is-me .tx {
   background: var(--copper);
-  border-radius: 2px;
+  /* 深色主题里 --bg 是暗色：浅铜底上自动变深色字，和原型一致 */
+  color: var(--bg);
+  border-top-right-radius: 3px;
 }
 
-.bzs-ai-card .body {
-  padding: 16px 18px;
-  font-size: 13px;
-  line-height: 1.85;
+.bzs-pm.is-ai .tx {
+  background: color-mix(in srgb, var(--copper) 3%, var(--surface-2));
   color: var(--t1);
-  white-space: pre-wrap;
-  word-break: break-word;
-  /* 自己不再滚（2026-11-11）：里面滚一层、外面 .ai-scroll 再滚一层，
-     答案一长就得先滑到底再滑一次，看着像下面的追问到不了。
-     长答案交给外层统一滚。 */
+  border-top-left-radius: 3px;
 }
 
-.bzs-ai-card .foot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 18px;
-  border-top: 1px solid var(--line);
-}
-
-.bzs-ai-card .foot .sp {
-  flex: 1;
-}
-
-.bzs-ai-card .foot .bzs-btn {
-  padding: 7px 14px;
-  font-size: 12px;
-}
-
-/* 追问（2026-11-10）：轮次垫在答案与输入行之间，用虚线隔开——
-   实线会把每一轮都画成一张独立的卡，追问就不再像同一场对话了。 */
-.bzs-ai-card .turns:not(:empty) {
-  padding: 0 18px 4px;
-}
-
-.bzs-ai-card .bzs-ai-turn {
-  padding: 10px 0;
-  border-top: 1px dashed var(--line);
-  font-size: 13px;
-  line-height: 1.8;
-}
-
-.bzs-ai-card .bzs-ai-turn .q {
-  color: var(--t2);
-  font-size: 12px;
-}
-
-.bzs-ai-card .bzs-ai-turn .a {
-  color: var(--t1);
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.bzs-ai-card .bzs-ai-turn .a.is-bad,
-.bzs-ai-card .bzs-ai-turn.is-busy .a {
+.bzs-pm.is-ai.is-bad .tx {
   color: var(--vermilion);
+  background: color-mix(in srgb, var(--vermilion) 7%, var(--surface-2));
 }
 
-.bzs-ai-card .askrow {
+/* 空面板：一句提示，光标在下面输入行 */
+.bzs-af-empty {
+  padding: 34px 12px 28px;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.95;
+  color: var(--t3);
+}
+
+/* 等待气泡：三个跳动的点（不写字，保持对话感） */
+.bzs-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 0;
+}
+
+.bzs-typing i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--t3);
+  animation: bzs-typing-blink 1.15s infinite ease-in-out;
+}
+
+.bzs-typing i:nth-child(2) {
+  animation-delay: .16s;
+}
+
+.bzs-typing i:nth-child(3) {
+  animation-delay: .32s;
+}
+
+@keyframes bzs-typing-blink {
+  0%, 70%, 100% {
+    opacity: .28;
+  }
+
+  35% {
+    opacity: 1;
+  }
+}
+
+/* 输入行：textarea 34 起，发送键与想法框同一枚（34×34 / 纸飞机） */
+.bzs-af-ask {
+  flex: none;
   display: flex;
+  align-items: flex-end;
   gap: 8px;
-  padding: 10px 18px;
+  padding: 9px 12px 10px;
   border-top: 1px solid var(--line);
 }
 
-.bzs-ai-card .askrow input {
+.bzs-af-ask textarea {
   flex: 1;
   min-width: 0;
+  min-height: 34px;
+  max-height: 76px;
   padding: 7px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  background: var(--bg);
   color: var(--t1);
-  font: 400 12.5px/1.5 var(--ui);
+  font: 12.5px/1.55 var(--ui);
+  resize: none;
+  outline: 0;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
-/* 追问中不该是「错误色」：那只是等待。上面 is-busy 与 is-bad 同一条规则
-   会把它染红，这里收回来。 */
-.bzs-ai-card .bzs-ai-turn.is-busy .a {
+.bzs-af-ask textarea:focus {
+  border-color: var(--copper-line);
+  box-shadow: 0 0 0 2px var(--copper-soft);
+}
+
+.bzs-af-ask textarea::placeholder {
+  color: var(--t3);
+}
+
+/* 发送键：和想法框那颗一模一样（34×34、圆角 10、铜底纸飞机）。
+   选择器要压过 .bzs-shell button 的清底与宿主 button 的 30px 定高。 */
+.bzs-aifloat .bzs-af-send {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--copper);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bg);
+  cursor: pointer;
+  transition: filter var(--dur) var(--ease), transform var(--dur-move) var(--ease);
+}
+
+.bzs-af-send svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+.bzs-af-send:hover {
+  filter: brightness(1.06);
+}
+
+.bzs-af-send:active {
+  transform: scale(.96);
+}
+
+.bzs-aifloat .bzs-af-send[disabled] {
+  background: var(--surface-2);
+  color: var(--t3);
+  cursor: default;
+  filter: none;
+  transform: none;
+}
+
+/* 底栏：复制 / 归档 ｜ 未归档或「已归档 HH:mm」。
+   两颗动作是图标钮（宿主图标集），不写文字——底栏只有一行高。 */
+.bzs-af-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.bzs-af-foot .sp {
+  flex: 1;
+}
+
+.bzs-af-btn {
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  /* 同上：宿主把 button 定在 30px，底栏会被撑高 6px */
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--t2);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 
-/* 卡片里的按钮：原型是 8px 圆角、白底、12.5px，
+.bzs-af-btn .bzs-tbi {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bzs-af-btn .bzs-tbi svg {
+  width: 14px;
+  height: 14px;
+}
+
+.bzs-af-btn:hover {
+  background: var(--surface);
+  color: var(--copper);
+}
+
+.bzs-af-btn:disabled {
+  color: var(--t3);
+  cursor: default;
+}
+
+.bzs-af-btn:disabled:hover {
+  background: none;
+  color: var(--t3);
+}
+
+.bzs-af-state {
+  font-size: 9.5px;
+  letter-spacing: .02em;
+  color: var(--t3);
+  white-space: nowrap;
+}
+
+/* 浮框撑满桌面叠层；手机上外壳是一张遮罩弹窗，卡片去掉自己的底与投影 */
+.bzs-float.bzs-ai-panel .bzs-aifloat {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.bzs-float.is-dialog.bzs-ai-panel .bzs-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  padding: 0;
+}
+
+.bzs-float.is-dialog .bzs-aifloat {
+  width: 100%;
+  height: min(420px, calc(72dvh - 44px));
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* 书摘卡里的按钮：原型是 8px 圆角、白底、12.5px，
    pri 是实心铜底白字——「复制引用」是这张卡唯一的主路径 */
-.bzs-quote-card .bzs-btn,
-.bzs-ai-card .bzs-btn {
+.bzs-quote-card .bzs-btn {
   border-radius: 8px;
   border-color: var(--line);
   background: var(--surface);
@@ -460,15 +786,13 @@ body.theme-dark .bzs-float.is-dialog {
   letter-spacing: 0;
 }
 
-.bzs-quote-card .bzs-btn.pri,
-.bzs-ai-card .bzs-btn.pri {
+.bzs-quote-card .bzs-btn.pri {
   background: var(--copper);
   border-color: var(--copper);
   color: #fff;
 }
 
-.bzs-quote-card .bzs-btn.pri:hover,
-.bzs-ai-card .bzs-btn.pri:hover {
+.bzs-quote-card .bzs-btn.pri:hover {
   color: #fff;
   background: var(--copper);
   border-color: var(--copper);
@@ -1262,7 +1586,7 @@ body.theme-dark .bzs-tb-more {
 
 /* ── AI ──
    旧版弹层式 AI 卡（顶部品牌条 + 引文 + 正文 + 动作）已退役：工具栏问话现在
-   是一张浮卡（见 .bzs-ai-card），这里只剩词典页脚那句来源说明还在用 ai-src。 */
+   是一张浮卡（见 .bzs-aifloat），这里只剩词典页脚那句来源说明还在用 ai-src。 */
 .bzs-ai-src {
   font-size: 11px;
   color: var(--t3);

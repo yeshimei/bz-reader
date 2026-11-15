@@ -34,8 +34,9 @@ export function ideaValue(draft: string | null | undefined, saved: string | unde
   return draft ?? saved ?? '';
 }
 
-/** 纸飞机：点一下就存，不叫「保存」也不叫「确定」 */
-const SEND_ICON =
+/** 纸飞机：点一下就存，不叫「保存」也不叫「确定」。
+    AI 浮框的发送键也用这一枚（同一件事长同一个样子）。 */
+export const SEND_ICON =
   '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-7-7 16-2-7z"/></svg>';
 
 /**

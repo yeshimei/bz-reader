@@ -25,7 +25,7 @@ import {
   toggleMoreMenu,
   toolbarHtml,
 } from './text-toolbar';
-import { aiCardHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, ideaFullHtml, markBubbleHtml, markDeleteBarHtml } from './reader-cards';
+import { aiCardHtml, aiMessagesHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, ideaFullHtml, markBubbleHtml, markDeleteBarHtml } from './reader-cards';
 import { HIGHLIGHT_COLORS } from '../data/notes';
 import { aiAsk, type AiTask } from '../data/ai';
 import type { ReaderBook } from '../data/schema';
@@ -58,7 +58,8 @@ import { renderAiMarkdown } from './ai-md';
 import { bzEmbedder, bzEntryReady } from '../data/bz-bridge';
 import { kbLinkOf } from '../data/kb-link';
 import { hydrateToolbarIcons } from './toolbar-icons';
-import { aiCardBegin, aiCardDone, aiCardDrop, aiCardFail, aiCardGet, aiCardKey, aiCardReset, aiModeOf } from './ai-card';
+import { aiCardBegin, aiCardDone, aiCardDrop, aiCardFail, aiCardGet, aiCardKey, aiCardReset } from './ai-card';
+import { aiFirstPrompt, aiFloatTaskOf, aiMenuHtml, clockOf } from './ai-menu';
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
 import { bindRangeTouch } from './range-touch';
@@ -842,11 +843,13 @@ function overlayFootnote(text?: string): string {
 }
 
 /**
- * AI 卡（S10 定稿）：只有结果与三个动作。
+ * 划词 AI（原型第 2 稿）：工具条上方五项菜单 → 同一位置换浮框。
  *
- * 没有模式切换（解释 / 翻译 / 摘要已经各自是入口，卡里再摆一排等于让用户
- * 先选一次再等一次），没有模型名标签、没有免责说明。
- * 失败时把原因留在 body 里，「重试」就在下面——不要一句话把弹层关掉。
+ * 两态共用 `textPanel` 的外壳与锚点，所以「点一项」只是换掉面板本体：
+ * 工具条不动、位置不跳，看起来就是原地长出了浮框。
+ *
+ * 浮框里是微信式对话：顶栏（类型 + 书名章节 + ×）、两行引文、气泡区、
+ * 输入行、底栏（复制 / 归档）。三档页签与「存为笔记」都已经撤掉。
  */
 function overlayAi(markId?: string, bookId?: string): string {
   /* 整段包在 if 里而不是提前 return：esbuild 会连模板一起删掉，
@@ -857,30 +860,46 @@ function overlayAi(markId?: string, bookId?: string): string {
     const ready = aiReady(s);
     const o = getState().overlay;
     const text = o?.text || RT.sel?.text || '';
-    const mode = aiModeOf(o?.mode);
-    const entry = ready ? aiCardGet(aiCardKey('ai', mode, text)) : undefined;
-    html = textPanel(
-      aiCardHtml({
-        ready,
-        mode,
-        quote: text,
-        text: entry?.text,
-        /* 没有记账 = 请求正要发出去：先画占位，别让卡片空着 */
-        busy: entry ? entry.status === 'busy' : true,
-        /* 追问轮次跟着账本走：重画之后还画得出问过的那几轮 */
-        turns: entry?.turns,
-        /* 有划线才给「存成想法」：纯选区没有可挂的地方，按钮点了也没处放 */
-        canMark: !!markId,
-      }),
-      'bzs-ai-panel',
-      {
-        active: 'ai',
-        marked: !!markId,
-        markId,
-        bookId,
-        color: markId ? markById(markId, bookId)?.mark.color : undefined,
-      },
-    );
+    const mode = aiFloatTaskOf(o?.mode);
+    const menu = !!o?.menu;
+    const entry = ready && !menu ? aiCardGet(aiCardKey('ai', mode, text)) : undefined;
+    const book = bookById(bookId || o?.bookId || getState().bookId);
+    const opts = {
+      active: 'ai',
+      marked: !!markId,
+      markId,
+      bookId,
+      color: markId ? markById(markId, bookId)?.mark.color : undefined,
+    };
+    if (menu) {
+      html = textPanel(
+        aiMenuHtml(shellPrefs().toolbarStyle === 'icon' ? 'icon' : 'text'),
+        'bzs-ai-menu',
+        opts,
+      );
+    } else {
+      html = textPanel(
+        aiCardHtml({
+          ready,
+          mode,
+          quote: text,
+          bookTitle: book?.meta.title,
+          chapter: o?.chapterTitle || RT.sel?.chapterTitle || '',
+          /* 首问文案：解释 / 翻译 / 总结是任务文案，追问是用户打的第一句 */
+          ask: entry?.ask || (ready ? aiFirstPrompt(mode) : ''),
+          answer: entry?.text,
+          /* 没有记账 = 请求正要发出去：先画等待气泡，别让浮框空着 */
+          busy: entry ? entry.status === 'busy' : mode !== 'follow',
+          error: entry?.status === 'error' ? entry.text : '',
+          /* 追问轮次跟着账本走：重画之后还画得出问过的那几轮 */
+          turns: entry?.turns,
+          at: entry?.at || (mode === 'follow' && !entry?.ask ? '' : clockOf()),
+          archivedAt: entry?.archivedAt,
+        }),
+        'bzs-ai-panel',
+        opts,
+      );
+    }
   }
   return html;
 }
@@ -1617,70 +1636,102 @@ export function overlayHtml(): string {
 }
 
 /**
- * 上一次真正发出 AI 请求的键（`kind|task|text`）。
+ * 当前浮框那一问的记账键（`ai|task|text`）。
  *
  * 以前 `paint()` 里无条件调 `runAiForOverlay()`，而**点击弹层里任何按钮
- * 都会 `paint()`**：想点「存为笔记」，正文立刻变回「正在请求…」，刚看到的
- * 答案被抹掉并重新发一次（花的是用户的钱）；点一次模式切换会在同一 tick
- * 发两条，一条写进已经被替换掉的旧节点，纯浪费（P1-08）。
- *
+ * 都会 `paint()`**：答案立刻被抹掉并重新发一次（花的是用户的钱）。
  * 现在这份记号由 `shell/ai-card` 的账本承担：**在路上的不算重发、已经有
- * 结果的直接画回去**。同一条规则顺带治好了「答案只写在 DOM 上、重画就丢」
- * ——那个症状是卡片永远停在「正在请求…」。
+ * 结果的直接画回去**。
+ *
+ * 菜单打开时没有「当前这一问」：返回空串，请求与回填都自然跳过。
  */
-
-/** 只往「当前这张卡」里写：换档之后旧请求回来，不该污染新卡 */
 function currentAiKey(): string {
   const o = getState().overlay;
-  if (!o || o.kind !== 'ai') return '';
+  if (!o || o.kind !== 'ai' || o.menu) return '';
   const text = o.text || RT.sel?.text || '';
-  return aiCardKey(o.kind, aiModeOf(o.mode), text);
+  return aiCardKey(o.kind, aiFloatTaskOf(o.mode), text);
 }
 
 /**
- * 把册子里的这一条画到**当前**的 DOM 上。
+ * 把册子里的这一段对话画到**当前**的浮框上（只换消息区与底栏）。
  *
- * 不缓存节点：请求要跑几十秒，中间任何一次重画都会把节点换掉，抓着旧节点
- * 写进去等于写在空气里（用户看到的就是「一直正在请求」）。
+ * 不整框重画：输入框在浮框里，整块换掉会丢焦点、丢用户打了一半的字。
+ * 也不缓存节点：请求要跑几十秒，中间任何一次重画都会把节点换掉。
  */
-function writeAiBody(key: string): void {
-  if (!key || currentAiKey() !== key) return;
-  const entry = aiCardGet(key);
-  /* 还在路上（正文是空的）：占位文案由渲染那一侧画，这里不要写一个空串进去 */
-  if (!entry || !entry.text) return;
-  const node = document.querySelector<HTMLElement>('[data-role="aibody"]');
-  if (!node) return;
-  node.textContent = entry.text;
-  /* 换了新文本：清掉「已渲染」标记，否则会被当成渲染过而停在纯文本 */
-  delete node.dataset.aiRendered;
-  renderAiMarkdown(node);
+export function refreshAiFloat(): void {
+  const o = getState().overlay;
+  if (!o || o.kind !== 'ai' || o.menu) return;
+  const mode = aiFloatTaskOf(o.mode);
+  const text = o.text || RT.sel?.text || '';
+  const entry = aiCardGet(aiCardKey('ai', mode, text));
+  const box = document.querySelector<HTMLElement>('[data-role="aimsgs"]');
+  if (box) {
+    setHtml(
+      box,
+      aiMessagesHtml({
+        mode,
+        ask: entry?.ask,
+        answer: entry?.text,
+        busy: entry?.status === 'busy',
+        error: entry?.status === 'error' ? entry.text : '',
+        turns: entry?.turns,
+        at: entry?.at,
+      }),
+    );
+    renderAiMarkdown(box);
+    box.scrollTop = box.scrollHeight;
+  }
+  /* 底栏跟着账本走：归档成功之后按钮变灰、右边写「已归档 HH:mm」 */
+  const archivedAt = entry?.archivedAt ?? '';
+  const arch = document.querySelector<HTMLElement>('[data-act="aiarchive"]');
+  if (arch) {
+    const label = t(archivedAt ? 'ai.float.archived' : 'ai.float.archive');
+    arch.toggleAttribute('disabled', !!archivedAt);
+    /* 只图标，不写 textContent：写一次就把里面的宿主图标抹掉了 */
+    arch.setAttribute('aria-label', label);
+    arch.setAttribute('title', label);
+  }
+  const state = document.querySelector<HTMLElement>('[data-role="aistate"]');
+  if (state) {
+    state.textContent = archivedAt
+      ? t('ai.float.archivedAt', { time: archivedAt })
+      : t('ai.float.unarchived');
+  }
 }
 
 /** 正在跑的请求：`RT.aiAbort` 给「取消请求」用，这里额外记着它是哪一档 */
 let aiInFlight: { key: string; ctrl: AbortController } | null = null;
 
-/** AI 请求：弹层打开后自己发一次，结果记进册子并回填到 [data-role="aibody"] */
+/**
+ * AI 请求：浮框打开后自己发一次，结果记进册子并回填到消息区。
+ *
+ * 菜单与追问空面板不发：菜单还没选任务，追问要等用户先打一句。
+ */
 export async function runAiForOverlay(): Promise<void> {
   const o = getState().overlay;
-  if (!o || o.kind !== 'ai') return;
-  /* 到期 / 未解锁不再发请求：弹层可能是在有码时打开的，跑完再点重试也得拦 */
+  if (!o || o.kind !== 'ai' || o.menu) return;
+  const task: AiTask = aiFloatTaskOf(o.mode);
+  if (task === 'follow') {
+    /* 追问是空面板：一条消息都不该凭空冒出来 */
+    refreshAiFloat();
+    return;
+  }
+  /* 到期 / 未解锁不再发请求：弹层可能是在有码时打开的 */
   if (!can('ai')) return;
   const s = shellSettings();
   if (!aiReady(s)) return;
   const text = o.text || RT.sel?.text || '';
-  const task: AiTask = aiModeOf(o.mode);
   const key = aiCardKey(o.kind, task, text);
 
-  /* 同一条还在路上：把占位画回去就够，绝不重复发（花的是用户的钱） */
+  /* 同一条还在路上：把等待气泡画回去就够，绝不重复发（花的是用户的钱） */
   if (aiInFlight?.key === key) {
-    writeAiBody(key);
+    refreshAiFloat();
     return;
   }
   const entry = aiCardGet(key);
-  /* 已经问过：结果 / 失败原因都还在册子上，画回去即可。失败不自动重发，
-     重发是「重试」那颗按钮的事——自动重发等于用户每点一下都扣一次费 */
+  /* 已经问过：结果 / 失败原因都还在册子上，画回去即可。失败不自动重发 */
   if (entry && entry.status !== 'busy') {
-    writeAiBody(key);
+    refreshAiFloat();
     return;
   }
   /* 换档 / 换一段：把旧请求掐掉，它的机会已经过去了 */
@@ -1691,7 +1742,7 @@ export async function runAiForOverlay(): Promise<void> {
     old.ctrl.abort();
     aiCardDrop(old.key);
   }
-  aiCardBegin(key);
+  aiCardBegin(key, aiFirstPrompt(task), clockOf());
   const ctrl = new AbortController();
   aiInFlight = { key, ctrl };
   RT.aiAbort = ctrl;
@@ -1702,23 +1753,20 @@ export async function runAiForOverlay(): Promise<void> {
       RT.aiAbort = null;
     }
     /* 只进卡片的册子，**不**写侧栏的问答记录：工具栏这条路是「问一小段」，
-       侧栏那条是「问整本书」，两边的上下文、花费、追问方式都不一样。
-       以前把自己的结果也 push 进侧栏日志，用户会看到侧栏凭空多出一条
-       没有提问的答案，捡起来接着问还会发现它根本没有书的依据。 */
+       侧栏那条是「问整本书」，两边的上下文、花费、追问方式都不一样。 */
     aiCardDone(key, res.text);
   } catch (e) {
     if (aiInFlight?.ctrl === ctrl) {
       aiInFlight = null;
       RT.aiAbort = null;
     }
-    /* 被掐掉的请求不留「已取消」这种假结果：取消按钮自己会写一条给人看的，
-       换档则连这条都不需要——旧档切回来应该重新问 */
+    /* 被掐掉的请求不留「已取消」这种假结果：换档 / 关卡都不该留 */
     if (!ctrl.signal.aborted) aiCardFail(key, (e as Error).message);
     else aiCardDrop(key);
   }
-  /* 卡已经关了 / 换了另一档：这份结果没人看，别留在册子上冒充「问过了」 */
+  /* 已经关了 / 换了另一档：这份结果没人看，别留在册子上冒充「问过了」 */
   if (currentAiKey() !== key) aiCardDrop(key);
-  writeAiBody(key);
+  refreshAiFloat();
 }
 
 /* ─────────── 容器 ─────────── */
@@ -1734,6 +1782,8 @@ export class OverlayLayer {
   private accent = '';
   /** 上一次画的是哪种弹层：同种重画不算「打开」，不抢输入焦点 */
   private lastKind = '';
+  /** 上一次 AI 叠层画的是不是菜单：菜单→浮框虽同 kind，也算一次「打开」 */
+  private lastAiMenu = false;
   /** 当前弹窗的焦点圈闭解绑：每次重画换新节点，旧的跟着旧节点作废 */
   private untrap: (() => void) | null = null;
   /** 正文命中到达时只换命中列表；搜索浮层关闭 / 重画时摘掉 */
@@ -1907,6 +1957,17 @@ export class OverlayLayer {
       const t = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
       const role = t?.dataset?.role;
       if (!role) return;
+      /* AI 浮框的输入行：按内容撑高，长到 76px 就停（原型同款）。
+         空着的时候发送键是灰的——和想法框同一套手感；这里只就地切换，
+         不重画，免得把正在打的字换掉。 */
+      if (role === 'aifollow') {
+        const box = t as HTMLTextAreaElement;
+        box.style.height = 'auto';
+        box.style.height = `${Math.min(box.scrollHeight + 2, 76)}px`;
+        const send = box.closest('.bzs-af-ask')?.querySelector<HTMLButtonElement>('.bzs-af-send');
+        if (send) send.disabled = !box.value.trim();
+        return;
+      }
       /* 想法：记下正在打的字（重绘时要放回去），并判断有没有改动。
          「有改动」比「非空」准确：打开一条已有想法、什么都不改就点别处，
          不该被问一遍；把旧想法整条删掉反而是改动，必须问。 */
@@ -1997,6 +2058,11 @@ export class OverlayLayer {
     const prev = this.lastKind;
     const opening = kind !== prev;
     this.lastKind = kind;
+    /* 菜单 → 浮框是同一个 kind 的内部切换，但对用户是一次「打开」：
+       浮框里的输入框要拿到焦点（尤其点「追问」时）。 */
+    const aiMenu = kind === 'ai' && !!o?.menu;
+    const menuClosed = prev === 'ai' && this.lastAiMenu && kind === 'ai' && !aiMenu;
+    this.lastAiMenu = aiMenu;
     /* 搜索词在输入期间是 setStateQuiet 写的（不广播、不落盘）。离开搜索浮层
        时补一次正常持久化（A-24）——不广播，避免这次关闭再触发一轮重绘。
        同时把整棵搜索 DOM 收起来：再次打开要原样还回去，不重渲染。 */
@@ -2015,7 +2081,7 @@ export class OverlayLayer {
         kickBodySearch(getState().searchKw, getState().searchScope);
       }
     }
-    this.paint(opening);
+    this.paint(opening || menuClosed);
   }
 
   /**
@@ -2253,6 +2319,13 @@ export class OverlayLayer {
     }
     if (o?.kind === 'ai') {
       void runAiForOverlay();
+      /* 打开浮框就把光标放进输入行（原型：点「追问」直接可以打字）。
+         菜单打开时没有输入行；重画时 refocus 为假，不抢用户刚放下的焦点。 */
+      if (!o.menu && refocus) {
+        this.root
+          .querySelector<HTMLTextAreaElement>('[data-role="aifollow"]')
+          ?.focus({ preventScroll: true });
+      }
     } else {
       // 离开 AI 卡就把册子清掉：下次划同一段，应该重新问一次
       aiCardReset();
