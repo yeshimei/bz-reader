@@ -30,12 +30,6 @@
   <img src="docs/images/read-desktop-light.webp" alt="阅读页：左侧目录、正文单栏、划词胶囊与脚注浮窗（左侧亮色、右侧暗色）">
 </p>
 
-<p align="center"><b>阅读侧栏 · 目录 · 书签 · 划线 · 引用 · AI 全书问答</b></p>
-
-<p align="center">
-  <img src="docs/images/sidebar-desktop-light.png" alt="阅读侧栏的五个页签并排：目录、书签、划线（按章分卷，带想法与双向链接）、引用（按章分组列出引用它的笔记）、AI 全书问答（答案附逐条依据）">
-</p>
-
 <p align="center"><b>移动端 · 书架 · 阅读</b></p>
 
 <p align="center">
@@ -84,6 +78,12 @@
 
 <p align="center">
   <img src="docs/images/stats-desktop-light.png" alt="统计页：总时长与连续天数、本周环比、每日时长柱状图与阅读节律">
+</p>
+
+<p align="center"><b>阅读侧栏 · 目录 · 书签 · 划线 · 引用 · AI 全书问答</b></p>
+
+<p align="center">
+  <img src="docs/images/sidebar-desktop-light.png" alt="阅读侧栏的五个页签并排：目录、书签、划线（按章分卷，带想法与双向链接）、引用（按章分组列出引用它的笔记）、AI 全书问答（答案附逐条依据）">
 </p>
 
 
