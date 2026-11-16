@@ -979,9 +979,9 @@
 .bzs-pk-count {
   flex: none;
   font-size: 10px;
-  color: var(--interactive-accent, var(--copper));
-  background: color-mix(in srgb, var(--interactive-accent, var(--copper)) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--interactive-accent, var(--copper)) 26%, transparent);
+  color: var(--copper);
+  background: color-mix(in srgb, var(--copper) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--copper) 26%, transparent);
   border-radius: 20px;
   padding: 3px 8px;
   white-space: nowrap;
@@ -1001,8 +1001,8 @@
   transition: border-color .18s, box-shadow .18s;
 }
 .bzs-pk-search:focus-within {
-  border-color: var(--interactive-accent, var(--copper));
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent, var(--copper)) 14%, transparent);
+  border-color: var(--copper);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--copper) 14%, transparent);
 }
 /* Obsidian 对 input 的全局样式（border / background / box-shadow / padding）
    会盖掉这里较弱的 .bzs-pk-search input，在浮层里套出第二层方框。
@@ -1077,8 +1077,8 @@
 @keyframes bzsPkRowIn { to { opacity: 1; transform: none; } }
 .bzs-pk-row:hover { background: var(--copper-soft); }
 .bzs-pk-row.is-on {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--interactive-accent, var(--copper)) 14%, transparent), transparent);
-  box-shadow: inset 2px 0 0 var(--interactive-accent, var(--copper));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--copper) 14%, transparent), transparent);
+  box-shadow: inset 2px 0 0 var(--copper);
 }
 
 .bzs-pk-ic {
@@ -1093,8 +1093,8 @@
 }
 .bzs-pk-ic svg { width: 13px; height: 13px; }
 .bzs-pk-row.is-on .bzs-pk-ic {
-  background: color-mix(in srgb, var(--interactive-accent, var(--copper)) 16%, transparent);
-  color: var(--interactive-accent, var(--copper));
+  background: color-mix(in srgb, var(--copper) 16%, transparent);
+  color: var(--copper);
 }
 
 .bzs-pk-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -1115,7 +1115,7 @@
   white-space: nowrap;
 }
 .bzs-pk-row.is-on .bzs-pk-ds {
-  color: color-mix(in srgb, var(--interactive-accent, var(--copper)) 55%, var(--t3));
+  color: color-mix(in srgb, var(--copper) 55%, var(--t3));
 }
 
 .bzs-pk-check {
@@ -1131,8 +1131,8 @@
 }
 .bzs-pk-check svg { width: 9px; height: 9px; }
 .bzs-pk-row.is-on .bzs-pk-check {
-  background: var(--interactive-accent, var(--copper));
-  border-color: var(--interactive-accent, var(--copper));
+  background: var(--copper);
+  border-color: var(--copper);
   color: var(--bg);
   transform: scale(1.05);
 }
@@ -1156,8 +1156,8 @@
   font-size: 9.5px;
   padding: 3px 6px;
   border-radius: 5px;
-  background: color-mix(in srgb, var(--interactive-accent, var(--copper)) 12%, transparent);
-  color: var(--interactive-accent, var(--copper));
+  background: color-mix(in srgb, var(--copper) 12%, transparent);
+  color: var(--copper);
 }
 .bzs-pk-tag.is-more { background: var(--surface-2); color: var(--t3); }
 .bzs-pk-insert {
@@ -1167,7 +1167,7 @@
   padding: 6px 11px;
   font: 600 10.5px var(--ui);
   color: var(--bg);
-  background: var(--interactive-accent, var(--copper));
+  background: var(--copper);
   cursor: pointer;
   transition: filter .18s, transform .18s;
 }
