@@ -99,6 +99,8 @@ export type OverlayKind =
   | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedir' | 'finish' | 'footnote'
   | 'rename' | 'removebook' | 'removebooks' | 'confirmdel' | 'notedrop' | 'missing' | 'ack' | 'ptclean'
   | 'rebuildidx'
+  /* 删掉侧栏的一条对话（2026-11-16）：`text` 是会话 id。 */
+  | 'aidel'
   /* 想法全文（2026-11-09）：气泡只露一截，长想法点「展开全文」进这张
      只读弹窗。它不是浮层——带遮罩、居中，读完整篇再关。 */
   | 'ideaall'

@@ -16,6 +16,7 @@ import type { BmkRow, MarkRow } from '../domain';
 import { bmksOf, groupByChapter, marksOf } from '../domain';
 import type { SideTab } from '../state';
 import type { AiLogItem } from '../runtime';
+import type { AiHistRow } from '../ai-chat';
 import {
   canSendAi,
   ctxChipText,
@@ -32,6 +33,7 @@ import { esc, ico, icoNative } from './html';
 /* AiLogItem 的字段口径只有一份，在 shell/runtime.ts（pushAi 往那儿写）。
    这里以前自己抄了一份，加 sources 时两份就对不上了。 */
 export type { AiLogItem } from '../runtime';
+export type { AiHistRow } from '../ai-chat';
 
 export interface SidebarView {
   book: ReaderBook | null;
@@ -53,6 +55,14 @@ export interface SidebarView {
   aiNoteKw?: string;
   /** 笔记选择器默认列出的最近修改（最多 20 篇） */
   aiNotes?: readonly AiNoteRow[];
+  /** 正在等 AI：`evidence` 检索依据、`model` 生成回答；空 = 没有在等 */
+  aiStage?: '' | 'evidence' | 'model';
+  /** 当前这条对话的会话 id（历史列表里标「当前」用） */
+  aiChatId?: string;
+  /** 历史面板开着没有 */
+  aiHistOpen?: boolean;
+  /** 历史面板里的行（新的在前） */
+  aiHist?: readonly AiHistRow[];
   /**
    * AI 页签的索引态（2026-11-07 定稿）。
    *
@@ -580,7 +590,7 @@ function ctxChipHtml(
 }
 
 /** 一条消息。AI 的答走 Markdown 渲染；用户那句保持纯文本，上下文仍显示成 chip */
-function aiBubbleHtml(m: AiLogItem, hint: boolean): string {
+function aiBubbleHtml(m: AiLogItem, hint: boolean, at = -1): string {
   if (m.me) {
     const chips = m.ctx?.length
       ? `<div class="bzs-aictx is-sent">${m.ctx
@@ -593,9 +603,17 @@ function aiBubbleHtml(m: AiLogItem, hint: boolean): string {
   const body = hint
     ? `<div class="txt">${esc(m.text)}</div>`
     : `<div class="txt" data-ai-md>${esc(m.text)}</div>`;
+  /* 每条回答自带「复制」（2026-11-16）：与划词浮框对齐。
+     空态提示那条不是回答，不给按钮。 */
+  const copy =
+    hint || at < 0
+      ? ''
+      : `<button type="button" class="bzs-ai-copy" data-act="aicopyone" data-i="${at}">${esc(
+          t('ai.card.copy'),
+        )}</button>`;
   return `<div class="bzs-aibubble ai"><span class="tag">${t(
     'side.ai.tag.book',
-  )}</span>${body}${aiSourcesRow(m)}</div>`;
+  )}</span>${body}${aiSourcesRow(m)}${copy}</div>`;
 }
 
 /** 笔记选择器：默认最近修改的 20 篇；搜索框只过滤这 20 行，不重绘 */
@@ -663,17 +681,75 @@ function aiComposerHtml(v: SidebarView): string {
     </div>`;
 }
 
+/**
+ * 正在等回答的那一条（2026-11-16）。
+ *
+ * 以前这段是空白：发出问题之后侧栏只有用户自己那句，检索 + 生成最慢
+ * 二十几秒，看着像没点动。现在先挂一条带跳动点的气泡，正文回来原地替换。
+ */
+function aiBusyBubble(v: SidebarView): string {
+  const stage = v.aiStage;
+  if (!stage) return '';
+  const label = t(stage === 'evidence' ? 'side.ai.stage.evidence' : 'side.ai.stage.model');
+  return `<div class="bzs-aibubble ai is-pending"><span class="tag">${t(
+    'side.ai.tag.book',
+  )}</span><div class="txt"><span class="bzs-typing"><i></i><i></i><i></i></span><span class="ph">${esc(
+    label,
+  )}</span></div></div>`;
+}
+
+/** 会话历史：这本书聊过的几条，点一条切过去，× 删掉 */
+function aiHistPanel(v: SidebarView): string {
+  if (!v.aiHistOpen) return '';
+  const rows = v.aiHist ?? [];
+  const body = rows.length
+    ? rows
+        .map(
+          (r) => `<div class="bzs-aihist-row${r.here ? ' is-here' : ''}">
+            <button type="button" class="t" data-act="aihistpick" data-id="${esc(r.id)}">
+              <b>${esc(r.head || t('side.ai.hist.untitled'))}</b>
+              <span>${t('side.ai.hist.meta', { n: r.n, when: r.when })}</span>
+            </button>
+            <button type="button" class="x" data-act="aihistdel" data-id="${esc(
+              r.id,
+            )}" aria-label="${t('common.delete')}" title="${t('common.delete')}">×</button>
+          </div>`,
+        )
+        .join('')
+    : `<div class="bzs-aihist-empty">${t('side.ai.hist.none')}</div>`;
+  return `<div class="bzs-aihist"><div class="hd">${t('side.ai.hist.title')}</div>${body}</div>`;
+}
+
+/** 消息区底部：复制整段 / 归档（与划词浮框同一套动作） */
+function aiChatFoot(v: SidebarView): string {
+  if (!v.aiLog.some((m) => !m.me)) return '';
+  return `<div class="bzs-aifoot">
+      <button class="lnk" data-act="aicopychat">${t('side.ai.copyChat')}</button>
+      <button class="lnk" data-act="aisavelog">${t('side.ai.archiveChat')}</button>
+    </div>`;
+}
+
 /** 建好之后：聊天消息 + 固定底栏输入卡片。提问一律按全书回答，没有档位可选 */
 function indexChat(v: SidebarView, idx: AiIndexView): string {
   const log: AiLogItem[] = v.aiLog.length
     ? v.aiLog
     : [{ me: false, tag: t('side.ai.tag.book'), text: t('side.ai.hint') }];
+  const hint = !v.aiLog.length;
   const blocks = idx.blocks && idx.blocks > 0 ? ` · ${t('pt.blockCount', { n: idx.blocks })}` : '';
   return `<div class="bzs-aichat">
       <div class="bzs-aimeta"><span>${t('side.ai.scope.book')}${blocks}</span>
-        <button class="lnk" data-act="aiidxrebuild">${t('side.ai.rebuild.short')}</button>
+        <span class="bzs-aimeta-acts">
+          <button class="lnk" data-act="aiidxrebuild">${t('side.ai.rebuild.short')}</button>
+          <button class="lnk" data-act="aihist">${t('side.ai.hist.open')}</button>
+          <button class="lnk" data-act="ainew">${t('side.ai.chat.new')}</button>
+          <button class="lnk" data-act="aiclear">${t('side.ai.chat.clear')}</button>
+        </span>
       </div>
-      <div class="bzs-aimsg">${log.map((m) => aiBubbleHtml(m, !v.aiLog.length)).join('')}</div>
+      ${aiHistPanel(v)}
+      <div class="bzs-aimsg">${log
+        .map((m, i) => aiBubbleHtml(m, hint, i))
+        .join('')}${aiBusyBubble(v)}</div>
+      ${aiChatFoot(v)}
       ${aiComposerHtml(v)}
     </div>`;
 }

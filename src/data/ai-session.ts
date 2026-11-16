@@ -32,6 +32,15 @@ export interface AiSession {
   when: number;
   /** 划的那一段；全书问答没有引文 */
   quote?: string;
+  /**
+   * 这段对话绑在哪条划线上（2026-11-16）。
+   *
+   * 有了它，再点同一条划线就知道「这一份历史是那条线的」——
+   * 否则只能靠原文去猜，同一段话划两次就串成一份。
+   */
+  markId?: string;
+  /** 同一处的定位串（EPUB 的 CFI / PDF 的 `pdf/p`）；没有划线的老记录为空 */
+  cfi?: string;
   turns: AiSessionTurn[];
   archivedAt?: number;
 }

@@ -82,10 +82,12 @@ import {
 } from '../data/ai-session';
 import {
   archiveAiSessionAndSave,
+  makeAiSessionId,
   recordAiTurn,
   removeAiSessionAndSave,
   saveAiLog,
 } from '../data/ai-log';
+import { loadAiChat, newAiChat } from './ai-chat';
 import { exportTargets } from './render/history';
 import { jumpTo, getToc } from '../view/toc-state';
 import { LIB_FILTERS, LIB_SORTS } from './render/study';
@@ -3113,16 +3115,10 @@ export function dispatchAction(
       if (!book || !src) break;
       const chapter = (d.chapter || '').trim();
       const snippet = (d.text || '').trim();
-      /* 有原文摘录就按片段落回书里（jumpIntoBook 会打开这本书并在书内搜这一段）；
-         没有就退回跳章——老画像的来源只有章名，落到章首至少还在那一章。 */
-      if (snippet) {
-        src.jumpIntoBook(book, snippet);
-        break;
-      }
-      /* 同一本书就直接跳章；另一本只打开——打开视图是异步的，
-         刚 openBook 完立刻跳章会跳到一个还没分页的引擎上。 */
-      if (chapter && src.openBookId() === book.id) src.goToChapter(chapter);
-      else src.openBook(book);
+      /* 章名一路带下去（2026-11-16）：以前只给片段，跳转就变成「整本书里
+         第一次出现这一句」，同一句对白在别的章出现时会落到错的地方。
+         没有片段的老来源只带章名，jumpIntoBook 也会落到那一章开头。 */
+      src.jumpIntoBook(book, snippet, chapter);
       break;
     }
     case 'ptopen': {
@@ -3419,9 +3415,16 @@ export function dispatchAction(
         break;
       }
       if (task !== 'explain' && task !== 'translate' && task !== 'summarize' && task !== 'follow') break;
+      /* 划词任务先把这段字落成一条划线（2026-11-16）。
+         这段对话从此绑在线上：再点回这条线，看到的是上次的问答，
+         而不是一张空白卡片；失败 / 取消也不撤线——用户点下去就是要留这段。
+         从划线工具条进来的已经带了 markId，直接复用，不叠第二条线。 */
+      const markId = o.markId || markSelection() || '';
       /* 点完菜单立刻收起：这一行原地换成浮框（同一个 kind、同一个锚点，
          所以工具条不跳、位置不动）。重画会顺手把首问发出去。 */
-      setState({ overlay: { ...o, menu: false, mode: task, rev: (o.rev ?? 0) + 1 } });
+      setState({
+        overlay: { ...o, menu: false, mode: task, markId, rev: (o.rev ?? 0) + 1 },
+      });
       break;
     }
     case 'aicopy': {
@@ -3429,7 +3432,7 @@ export function dispatchAction(
       const o = getState().overlay;
       if (!o || o.kind !== 'ai' || o.menu) break;
       const mode = aiFloatTaskOf(o.mode);
-      const entry = aiCardGet(aiCardKey('ai', mode, o.text || RT.sel?.text || ''));
+      const entry = aiCardGet(aiCardKey('ai', mode, o.text || RT.sel?.text || '', o.markId ?? ''));
       const text = aiTranscript(
         aiFloatMessages({
           mode,
@@ -3473,6 +3476,66 @@ export function dispatchAction(
       });
       if (!block) break;
       void appendAiLog(app, book, block);
+      break;
+    }
+    /* 复制这条对话（2026-11-16）：与划词浮框的「复制」同一套，只是源头
+       从卡片册子换成侧栏这一份 # RT.aiLog。 */
+    case 'aicopychat': {
+      const text = RT.aiLog
+        .filter((m) => String(m.text ?? '').trim())
+        .map((m) => `${m.me ? t('side.ai.me') : m.tag || 'AI'}：${m.text}`)
+        .join('\n\n');
+      if (!text) {
+        notify(t('notice.ai.logEmpty'), 'info');
+        break;
+      }
+      void copyText(text);
+      break;
+    }
+    case 'aicopyone': {
+      const m = RT.aiLog[Number(d.i)];
+      if (!m?.text?.trim()) break;
+      void copyText(m.text);
+      break;
+    }
+    /* 新建：清空这一页，下一问另起一条会话。旧对话还在历史里 */
+    case 'ainew':
+      newAiChat(getState().bookId || '');
+      repaint();
+      break;
+    case 'aihist':
+      RT.aiHistOpen = !RT.aiHistOpen;
+      repaint();
+      break;
+    case 'aihistpick':
+      if (!loadAiChat(d.id || '')) break;
+      repaint();
+      break;
+    /* 清除 / 删一条：都先问一遍，删掉的东西找不回来 */
+    case 'aiclear':
+    case 'aihistdel': {
+      const id = d.id || RT.aiChatId;
+      if (!id) {
+        newAiChat(getState().bookId || '');
+        repaint();
+        break;
+      }
+      openOverlay({ kind: 'aidel', text: id });
+      break;
+    }
+    case 'aidelyes': {
+      const id = getState().overlay?.text || '';
+      if (!id) break;
+      const app = getShellSource()?.app;
+      void removeAiSessionAndSave(app, id);
+      if (RT.aiChatId === id) {
+        RT.aiLog = [];
+        RT.aiChatId = '';
+      }
+      RT.aiHistOpen = false;
+      closeOverlay();
+      notify(t('notice.ai.cleared'));
+      repaint();
       break;
     }
 
@@ -4069,6 +4132,9 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
   RT.aiNoteOpen = false;
   RT.aiNoteKw = '';
   if (input) input.value = '';
+  /* 等待态（2026-11-16）：先亮「检索依据…」。这一段最慢二十几秒，
+     以前侧栏只有用户那条消息，看着像没点动。 */
+  RT.aiStage = 'evidence';
   repaint();
 
   /* 取证阶段自己带预算（C5）：向量检索 / 笔记检索不归 aiAsk 的超时管，
@@ -4092,6 +4158,7 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
     /* 取证就失败了：这一问到此为止，别把 controller 留在 RT 里装成「还在跑」 */
     if (RT.askAbort === ctrl) RT.askAbort = null;
     if (!sameBook()) return;
+    RT.aiStage = '';
     const why = timedOut
       ? t('notice.ai.evidenceTimeout')
       : t('notice.kb.failed', { message: (e as Error)?.message || t('common.unknownError') });
@@ -4104,10 +4171,14 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
   if (!sameBook()) return;
   if (!evidence) {
     if (RT.askAbort === ctrl) RT.askAbort = null;
+    RT.aiStage = '';
     pushAi(false, 'AI', t('side.ai.book.noHit'), []);
     repaint();
     return;
   }
+  /* 依据到手，接下来等模型：阶段字样换一次，让人知道还在动 */
+  RT.aiStage = 'model';
+  repaint();
 
   try {
     const res = await aiAsk(
@@ -4126,12 +4197,15 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
     /* 答案回来时已经换书：这份答案不属于当前这本，丢掉（C4） */
     if (!sameBook()) return;
     pushAi(false, `AI · ${settings.ai.model || '模型'}`, res.text, evidence.sources);
-    /* 书架「对话」页的真实记录：侧栏的每一问是一轮独立的全书问答。 */
+    /* 落盘：同一条对话里的多轮问答按会话 id 追加（2026-11-16）。
+       以前每一问都是一条独立记录，侧栏也就没东西可「读回来」。 */
+    if (!RT.aiChatId) RT.aiChatId = makeAiSessionId();
     void recordAiTurn(src.app, {
       bookId: book.id,
       bookTitle: book.meta.title,
       author: book.meta.author,
       kind: 'book',
+      group: RT.aiChatId,
       ask: q,
       answer: res.text,
     });
@@ -4140,6 +4214,7 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
     pushAi(false, 'AI', (e as Error).message || '请求失败');
   } finally {
     if (RT.askAbort === ctrl) RT.askAbort = null;
+    RT.aiStage = '';
   }
   repaint();
 }
@@ -4183,7 +4258,7 @@ async function followAi(question: string): Promise<void> {
   if (!aiReady(s)) return;
   const text = o.text || RT.sel?.text || '';
   const mode = aiFloatTaskOf(o.mode);
-  const key = aiCardKey('ai', mode, text);
+  const key = aiCardKey('ai', mode, text, o.markId ?? '');
   const entry = aiCardGet(key);
   if (aiFollowBusy) return;
 
@@ -4226,6 +4301,8 @@ async function followAi(question: string): Promise<void> {
       kind: mode,
       quote: text,
       group: key,
+      markId: o.markId,
+      cfi: RT.sel?.cfiRange,
       ask: q,
       answer: res.text,
     });
@@ -4257,7 +4334,7 @@ async function archiveAiFloat(): Promise<void> {
   if (!o || o.kind !== 'ai' || o.menu) return;
   const text = o.text || RT.sel?.text || '';
   const mode = aiFloatTaskOf(o.mode);
-  const key = aiCardKey('ai', mode, text);
+  const key = aiCardKey('ai', mode, text, o.markId ?? '');
   const entry = aiCardGet(key);
   /* 没有对话 / 已经归档过：按钮这时本来就是灰的，兜一层防连点 */
   if (!entry || entry.archivedAt) return;

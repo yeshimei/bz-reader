@@ -58,7 +58,18 @@ import { renderAiMarkdown } from './ai-md';
 import { bzEmbedder, bzEntryReady } from '../data/bz-bridge';
 import { kbLinkOf } from '../data/kb-link';
 import { hydrateToolbarIcons } from './toolbar-icons';
-import { aiCardBegin, aiCardDone, aiCardDrop, aiCardFail, aiCardGet, aiCardKey, aiCardReset } from './ai-card';
+import {
+  aiCardBegin,
+  aiCardDone,
+  aiCardDrop,
+  aiCardFail,
+  aiCardGet,
+  aiCardKey,
+  aiCardReset,
+  aiCardSeed,
+  sessionToCard,
+} from './ai-card';
+import { aiSessions } from '../data/ai-session';
 import { aiFirstPrompt, aiFloatTaskOf, aiMenuHtml, clockOf } from './ai-menu';
 import { recordAiTurn, resetAiTurnGroups } from '../data/ai-log';
 import { glyphOf } from './adapt';
@@ -880,7 +891,7 @@ function overlayAi(markId?: string, bookId?: string): string {
     const text = o?.text || RT.sel?.text || '';
     const mode = aiFloatTaskOf(o?.mode);
     const menu = !!o?.menu;
-    const entry = ready && !menu ? aiCardGet(aiCardKey('ai', mode, text)) : undefined;
+    const entry = ready && !menu ? aiCardGet(aiCardKey('ai', mode, text, o?.markId ?? '')) : undefined;
     const book = bookById(bookId || o?.bookId || getState().bookId);
     const opts = {
       active: 'ai',
@@ -1248,6 +1259,23 @@ export function overlayUnlock(mode?: string): string {  const v = entitlement();
   /* 遮罩带 `bzs-unlock-scrim`：页脚没有输入框之后，手机上的中上落位不再
      由 `has-input` 捎带，得有一枚自己的类（见 mobile.css）。 */
   return modal(t('unlock.title'), paid ? t('unlock.activated') : '', body, foot, 'wide tall unlock', 'bzs-unlock-scrim');
+}
+
+/**
+ * 删掉侧栏的一条对话（2026-11-16）。
+ *
+ * 只删 `ai-sessions.json` 里的那份问答记录：划线与用户自己的笔记不受影响。
+ * 删掉的东西找不回来，所以走二次确认，和「重建索引」同一套。
+ */
+function overlayAiDelete(): string {
+  const body = `<div class="bzs-ack"><p>${esc(t('ai.del.body'))}</p></div>`;
+  return modal(
+    t('ai.del.title'),
+    '',
+    body,
+    `<button class="bzs-btn" data-act="close">${esc(t('common.cancel'))}</button>
+     <button class="bzs-btn pri danger" data-act="aidelyes">${esc(t('ai.del.ok'))}</button>`,
+  );
 }
 
 function overlayPtClean(): string {
@@ -1642,6 +1670,8 @@ export function overlayHtml(): string {
       return overlayMissing(o.bookId);
     case 'ack':
       return overlayAck();
+    case 'aidel':
+      return overlayAiDelete();
     case 'ptclean':
       return overlayPtClean();
     case 'rebuildidx':
@@ -1667,7 +1697,7 @@ function currentAiKey(): string {
   const o = getState().overlay;
   if (!o || o.kind !== 'ai' || o.menu) return '';
   const text = o.text || RT.sel?.text || '';
-  return aiCardKey(o.kind, aiFloatTaskOf(o.mode), text);
+  return aiCardKey(o.kind, aiFloatTaskOf(o.mode), text, o.markId ?? '');
 }
 
 /**
@@ -1681,7 +1711,7 @@ export function refreshAiFloat(): void {
   if (!o || o.kind !== 'ai' || o.menu) return;
   const mode = aiFloatTaskOf(o.mode);
   const text = o.text || RT.sel?.text || '';
-  const entry = aiCardGet(aiCardKey('ai', mode, text));
+  const entry = aiCardGet(aiCardKey('ai', mode, text, o.markId ?? ''));
   const box = document.querySelector<HTMLElement>('[data-role="aimsgs"]');
   if (box) {
     setHtml(
@@ -1739,12 +1769,18 @@ export async function runAiForOverlay(): Promise<void> {
   const s = shellSettings();
   if (!aiReady(s)) return;
   const text = o.text || RT.sel?.text || '';
-  const key = aiCardKey(o.kind, task, text);
+  const key = aiCardKey(o.kind, task, text, o.markId ?? '');
 
   /* 同一条还在路上：把等待气泡画回去就够，绝不重复发（花的是用户的钱） */
   if (aiInFlight?.key === key) {
     refreshAiFloat();
     return;
+  }
+  /* 点回一条问过的划线（2026-11-16）：册子已经空了，但对话还在落盘记录里。
+     先把那条会话灌回册子——不灌就是「空卡 + 重新花一次钱」。 */
+  if (!aiCardGet(key) && o.markId) {
+    const past = aiSessions().find((s) => s.markId === o.markId && s.kind === task);
+    if (past) aiCardSeed(key, sessionToCard(past));
   }
   const entry = aiCardGet(key);
   /* 已经问过：结果 / 失败原因都还在册子上，画回去即可。失败不自动重发 */
@@ -1798,6 +1834,8 @@ export async function runAiForOverlay(): Promise<void> {
       kind: task,
       quote: text,
       group: key,
+      markId: o.markId,
+      cfi: RT.sel?.cfiRange,
       ask: aiFirstPrompt(task),
       answer,
     });

@@ -50,6 +50,79 @@ const shot: AiContextItem = {
   meta: '250 × 152',
 };
 
+/* ============================================================
+ * 侧栏问答的三件「像真正的 AI」（2026-11-16）
+ *
+ *   1. 发出问题立刻有反馈：等依据 / 等回答时挂一条带跳动点的气泡，
+ *      以前这段时间侧栏一片空白，看着像没点动；
+ *   2. 每条回答能复制，底部能复制整段 / 归档 —— 与划词浮框对齐；
+ *   3. 有历史 / 新建 / 清除三颗，重启之后还找得回上次的对话。
+ * ============================================================ */
+describe('AI 页签 · 等待态与对话操作', () => {
+  const asked = [
+    { me: true as const, tag: '我', text: '这是谁说的？' },
+    { me: false as const, tag: 'AI · 全书', text: '是汪太太说的。' },
+  ];
+
+  it('等依据时挂一条跳动点气泡，说清楚在干什么', () => {
+    const html = view({ aiLog: asked.slice(0, 1), aiStage: 'evidence' });
+    expect(html).toContain('bzs-aibubble ai is-pending');
+    expect(html).toContain('bzs-typing');
+    expect(html).toContain('正在检索依据…');
+  });
+
+  it('拿到依据后字样换成「正在生成回答」', () => {
+    const html = view({ aiLog: asked.slice(0, 1), aiStage: 'model' });
+    expect(html).toContain('正在生成回答…');
+  });
+
+  it('没有在等的时候不画等待气泡', () => {
+    const html = view({ aiLog: asked, aiStage: '' });
+    expect(html).not.toContain('is-pending');
+  });
+
+  it('每条 AI 回答下都有「复制」，并且带得住下标', () => {
+    const html = view({ aiLog: asked });
+    expect(html).toContain('data-act="aicopyone" data-i="1"');
+  });
+
+  it('有回答才有「复制整段 / 归档」，空对话不给这两颗', () => {
+    const html = view({ aiLog: asked });
+    expect(html).toContain('data-act="aicopychat"');
+    expect(html).toContain('data-act="aisavelog"');
+    /* 空对话只有一条提示，没有可复制的东西 */
+    const empty = view({ aiLog: [] });
+    expect(empty).not.toContain('data-act="aicopychat"');
+  });
+
+  it('元信息行给出历史 / 新建 / 清除', () => {
+    const html = view({ aiLog: asked });
+    for (const act of ['aihist', 'ainew', 'aiclear']) expect(html).toContain(`data-act="${act}"`);
+  });
+
+  it('历史面板列出每条对话：首问摘要、轮数、当前那条标出来', () => {
+    const html = view({
+      aiLog: asked,
+      aiChatId: 'id-2',
+      aiHistOpen: true,
+      aiHist: [
+        { id: 'id-2', head: '这是谁说的？', n: 3, when: '11-16 14:32', here: true },
+        { id: 'id-1', head: '方鸿渐是谁', n: 1, when: '11-15 09:10', here: false },
+      ],
+    });
+    expect(html).toContain('bzs-aihist');
+    expect(html).toContain('这是谁说的？');
+    expect(html).toContain('3 轮 · 11-16 14:32');
+    expect(html).toContain('is-here');
+    expect(html).toContain('data-act="aihistdel" data-id="id-1"');
+  });
+
+  it('没有别的对话时历史面板说明白，不是一片空白', () => {
+    const html = view({ aiLog: [], aiHistOpen: true, aiHist: [] });
+    expect(html).toContain('还没有别的对话');
+  });
+});
+
 describe('AI 页签 · A 版聊天结构', () => {
   it('输入框换成 textarea，保留 data-role="aiask" 钩子', () => {
     const html = view();

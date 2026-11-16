@@ -10,6 +10,7 @@ import {
   loadAiLog,
   recordAiTurn,
   removeAiSessionAndSave,
+  resetAiTurnGroups,
 } from '../src/data/ai-log';
 import { FakeAdapter } from './helpers/fake-adapter';
 
@@ -276,5 +277,91 @@ describe('ai-sessions.json · 落盘与读回', () => {
     await expect(recordAiTurn(app, base)).resolves.toBeTruthy();
     expect(aiSessions()).toHaveLength(1);
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+});
+
+/* ============================================================
+ * 对话绑到划线上（2026-11-16）
+ *
+ * 点「解释 / 总结 / 翻译 / 追问」时先给这段字落一条划线，对话记在这条
+ * 线上。再点回那条线就能把整段问答捞回来——所以「重启后还认得」这件事
+ * 靠的是 markId，不是进程里的分组映射。
+ * ============================================================ */
+describe('对话绑到划线上', () => {
+  let adapter: FakeAdapter;
+  let app: App;
+  const base = {
+    bookId: 'b1',
+    bookTitle: '围城',
+    kind: 'explain' as const,
+    ask: '这句话什么意思？',
+    answer: '意思是这样。',
+    when: 1_700_000_000_000,
+  };
+
+  beforeEach(() => {
+    seedAiSessions([]);
+    setDataDir(`tmp/ai-mark-test-${Math.random().toString(36).slice(2, 8)}`);
+    adapter = new FakeAdapter();
+    app = { vault: { adapter, configDir: '.obsidian' } } as unknown as App;
+  });
+
+  afterEach(() => {
+    seedAiSessions([]);
+    vi.restoreAllMocks();
+  });
+
+  it('markId 与 cfi 写进文件，重启读回来还在', async () => {
+    await recordAiTurn(app, { ...base, markId: 'm1', cfi: 'epubcfi(/6/4!/4)' });
+    const saved = JSON.parse(adapter.files.get(aiLogPath(app))!).sessions[0] as {
+      markId?: string;
+      cfi?: string;
+    };
+    expect(saved.markId).toBe('m1');
+    expect(saved.cfi).toBe('epubcfi(/6/4!/4)');
+
+    seedAiSessions([]);
+    await loadAiLog(app);
+    expect(aiSessions()[0].markId).toBe('m1');
+    expect(aiSessions()[0].cfi).toBe('epubcfi(/6/4!/4)');
+  });
+
+  it('重启后分组映射没了，仍按 markId 追加进同一条', async () => {
+    const group = 'ai|explain|m1|原文';
+    const first = (await recordAiTurn(app, {
+      ...base,
+      group,
+      markId: 'm1',
+      ask: '解释一下',
+      answer: '首答',
+    }))!;
+
+    /* 模拟重启：进程内的 group → id 映射被清掉 */
+    resetAiTurnGroups();
+
+    const again = (await recordAiTurn(app, {
+      ...base,
+      group,
+      markId: 'm1',
+      when: base.when + 60_000,
+      ask: '那笼子呢',
+      answer: '追问的答案',
+    }))!;
+
+    expect(again).toBe(first);
+    expect(aiSessions()).toHaveLength(1);
+    expect(aiSessions()[0].turns).toHaveLength(4);
+  });
+
+  it('两条不同的划线各记各的', async () => {
+    await recordAiTurn(app, { ...base, markId: 'm1' });
+    await recordAiTurn(app, {
+      ...base,
+      markId: 'm2',
+      when: base.when + 1000,
+      ask: '另一条线',
+      answer: '另一份答案',
+    });
+    expect(aiSessions()).toHaveLength(2);
   });
 });

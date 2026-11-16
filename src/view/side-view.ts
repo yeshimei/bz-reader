@@ -24,6 +24,7 @@ import { getState, setState, subscribe, type SideTab } from '../shell/state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from '../shell/source';
 import { RT } from '../shell/runtime';
 import { viewSidebar, type AiIndexView, type AiNoteRow } from '../shell/render/sidebar';
+import { aiChatsOf, aiHistRows, restoreAiChat } from '../shell/ai-chat';
 import { focusSelector, type FocusMemo } from '../shell/focus-memo';
 import { isTocItemActive, type TocActiveRef } from '../shell/toc-active';
 import { getToc, subscribeToc, tocPaintMode } from './toc-state';
@@ -104,6 +105,8 @@ export class SideView extends ItemView {
   private paintedActiveHref = '';
   /** 上一次画进 DOM 的 AI 对话条数：只有真的多了一条才滚到底 */
   private paintedAiLog = -1;
+  /** 上一次有没有在等 AI：等待气泡出现 / 消失时也要滚到底 */
+  private paintedAiBusy = false;
   /** 上一帧笔记选择器开着没有：只在「刚打开」时抢焦点 */
   private paintedNoteOpen = false;
   /** 挂在 document 上的收口（Esc 关选择器 / 点空白关选择器） */
@@ -406,6 +409,9 @@ export class SideView extends ItemView {
       RT.aiNoteKw = '';
     }
     const notesOpen = state.sideTab === 'ai' && RT.aiNoteOpen;
+    /* 换到这本书：把上次那条对话读回侧栏（2026-11-16）。
+       只改 RT、不在这里 repaint——这一帧正要按它画。 */
+    if (state.sideTab === 'ai') restoreAiChat(bookId);
     setHtml(
       root,
       viewSidebar({
@@ -417,6 +423,10 @@ export class SideView extends ItemView {
         aiLog: RT.aiLog,
         aiDraft: RT.aiDraft,
         aiCtx: RT.aiCtx,
+        aiStage: RT.aiStage,
+        aiChatId: RT.aiChatId,
+        aiHistOpen: RT.aiHistOpen,
+        aiHist: RT.aiHistOpen ? aiHistRows(aiChatsOf(bookId), RT.aiChatId) : [],
         aiNoteOpen: notesOpen,
         aiNoteKw: RT.aiNoteKw,
         aiNotes: notesOpen ? recentNotes(getShellSource()?.app) : [],
@@ -477,11 +487,14 @@ export class SideView extends ItemView {
     }
     this.paintedNoteOpen = RT.aiNoteOpen;
 
-    /* 只有多了一条才滚：重绘一次就抢滚动条会让往回翻的人突然掉到底 */
-    if (this.paintedAiLog !== RT.aiLog.length) {
+    /* 只有多了一条（或等待气泡出现 / 消失）才滚：重绘一次就抢滚动条
+       会让往回翻的人突然掉到底 */
+    const busy = !!RT.aiStage;
+    if (this.paintedAiLog !== RT.aiLog.length || busy !== this.paintedAiBusy) {
       const box = root.querySelector<HTMLElement>('.bzs-aimsg');
       if (box) box.scrollTop = box.scrollHeight;
       this.paintedAiLog = RT.aiLog.length;
+      this.paintedAiBusy = busy;
     }
   }
 }

@@ -14,6 +14,7 @@
  * 关掉卡片整册清空——再次打开同一段应该重新问，而不是给一份看不懂来历的旧答案。
  * ============================================================ */
 import type { AiTask, AiTurn } from '../data/ai';
+import type { AiSession } from '../data/ai-session';
 
 export type AiCardStatus = 'busy' | 'done' | 'error';
 
@@ -68,9 +69,14 @@ export interface AiCardEntry {
  */
 export const AI_CARD_MODES: readonly AiTask[] = ['explain', 'translate', 'summarize'];
 
-/** 问答的记账键。同一段文字的不同档位是不同的一份 */
-export function aiCardKey(kind: string, task: string, text: string): string {
-  return `${kind}|${task}|${text}`;
+/**
+ * 问答的记账键。同一段文字的不同档位是不同的一份。
+ *
+ * `mark` 是这个 2026-11-16 加的：对话现在绑在划线上，同一段原文如果被
+ * 划成两条线（用户可以先划一次、回头又划一次），两份历史不该共用一个键。
+ */
+export function aiCardKey(kind: string, task: string, text: string, mark = ''): string {
+  return `${kind}|${task}|${mark}|${text}`;
 }
 
 /**
@@ -120,6 +126,17 @@ export function aiCardFail(key: string, text: string): void {
 export function aiCardArchiveMark(key: string, at: string): void {
   const cur = entries.get(key);
   if (cur) entries.set(key, { ...cur, archivedAt: at });
+}
+
+/**
+ * 灌一条已经存在的结果（2026-11-16）。
+ *
+ * 用在「点回一条以前问过的划线」：册子关掉就空了，但这段对话还在
+ * `ai-sessions.json` 里。不灌回去的话，再点那条线只会看到一张空卡，
+ * 然后重新花一次钱。
+ */
+export function aiCardSeed(key: string, entry: AiCardEntry): void {
+  entries.set(key, { ...entry, turns: entry.turns ? [...entry.turns] : undefined });
 }
 
 /** 作废一条：换档把旧请求掐掉、重试前清掉失败记号，都走这里 */
@@ -202,6 +219,50 @@ export function aiCardFollowFail(key: string, q: string, text: string): void {
  * `ask` 是 2026-11-16 加的：以前只带答案，模型不知道用户当初问的是什么，
  * 追问「那笼子呢」会答得没有着落。老调用点不传，行为不变。
  */
+/**
+ * 一条落盘的会话 → 卡片上的一份结果（2026-11-16）。
+ *
+ * 顺序就是对话顺序：第一问是用户那句（`ask`），第二句是首页答案
+ * （`text`），之后每两轮一对追问。**首问的答案进 `text` 而不是 turns**，
+ * 因为卡片正文画的就是它；塞进 turns 会画成「问答对」，第一屏反而空了。
+ *
+ * 结构不完整（只有一问、答案缺失）时按缺的补：宁可少一条，也不让
+ * 卡片显示一段前后不接的话。
+ */
+export function sessionToCard(s: AiSession): AiCardEntry {
+  const turns = (s.turns ?? []).filter((x) => x && String(x.text ?? '').trim());
+  const ask = turns[0]?.me ? turns[0].text : '';
+  const head = turns.length && !turns[0].me ? 0 : 1;
+  const first = turns.length > head ? turns[head] : undefined;
+  const rest: AiFollowTurn[] = [];
+  for (let i = head + 1; i < turns.length; i += 1) {
+    const q = turns[i];
+    if (!q?.me) continue;
+    const a = turns[i + 1];
+    if (a && !a.me) {
+      rest.push({ q: q.text, a: a.text });
+      i += 1;
+    } else {
+      rest.push({ q: q.text, a: '' });
+    }
+  }
+  const entry: AiCardEntry = {
+    status: 'done',
+    text: first?.text ?? '',
+    turns: rest,
+  };
+  if (ask) entry.ask = ask;
+  if (s.when) entry.at = cardClock(s.when);
+  return entry;
+}
+
+/** 时间戳 → 卡片顶上的 HH:mm（不引 ai-menu，免得两个模块互相依赖） */
+export function cardClock(ts: number): string {
+  const d = new Date(ts);
+  const pad = (n: number): string => (n < 10 ? `0${n}` : String(n));
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function followHistory(
   text: string,
   turns: readonly AiFollowTurn[] = [],

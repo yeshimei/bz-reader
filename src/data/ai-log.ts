@@ -114,6 +114,11 @@ export function normalizeAiSession(raw: unknown): AiSession | null {
   if (author) s.author = author;
   const quote = typeof o.quote === 'string' ? o.quote.trim() : '';
   if (quote) s.quote = quote;
+  /* 2026-11-16：对话绑到划线上。老文件没有这两个字段，照读不误 */
+  const markId = typeof o.markId === 'string' ? o.markId.trim() : '';
+  if (markId) s.markId = markId;
+  const cfi = typeof o.cfi === 'string' ? o.cfi.trim() : '';
+  if (cfi) s.cfi = cfi;
   const archivedAt = Number(o.archivedAt);
   if (Number.isFinite(archivedAt) && archivedAt > 0) s.archivedAt = Math.floor(archivedAt);
   return s;
@@ -283,6 +288,16 @@ export interface RecordAiTurnInput {
    * 全书问答不传：侧栏的每一问就是一条独立记录。
    */
   group?: string;
+  /**
+   * 绑在这条划线上（2026-11-16）。
+   *
+   * 有它时，即使分组键在本进程里丢了（重启 / 换了那张卡），也能按划线
+   * 找回同一条会话继续追加：用户看到的是一段连续对话，而不是每次重启
+   * 都新开一条。
+   */
+  markId?: string;
+  /** 同一处的定位串，跟着划线一起记，回看时能落回原文 */
+  cfi?: string;
   ask: string;
   answer: string;
   /** 会话时间；追加时不改（仍是这一轮第一次问答的时间） */
@@ -306,10 +321,19 @@ export async function recordAiTurn(
 
   const when =
     Number.isFinite(input.when) && Number(input.when) > 0 ? Number(input.when) : Date.now();
+  const markId = String(input.markId ?? '').trim();
   const groupKey = input.group ? `${bookId}\u0000${input.group}` : '';
   const list = aiSessions();
   const groupedId = groupKey ? turnGroups.get(groupKey) : undefined;
   let session = groupedId ? list.find((s) => s.id === groupedId) : undefined;
+  /* 侧栏直接把会话 id 当分组键传进来：重启之后进程内的映射没了，
+     但 id 本身还在文件里，认 id 就够了 */
+  if (!session && input.group) session = list.find((s) => s.id === input.group);
+  /* 分组键不在了（重启 / 换卡）：按划线找回这条会话，别另开一条 */
+  if (!session && markId) {
+    session = list.find((s) => s.markId === markId && s.kind === input.kind && s.bookId === bookId);
+    if (session && groupKey) turnGroups.set(groupKey, session.id);
+  }
 
   if (session) {
     session.turns.push({ me: true, text: ask }, { me: false, text: answer });
@@ -329,6 +353,9 @@ export async function recordAiTurn(
     };
     const author = String(input.author ?? '').trim();
     if (author) session.author = author;
+    if (markId) session.markId = markId;
+    const cfi = String(input.cfi ?? '').trim();
+    if (cfi) session.cfi = cfi;
     if (input.kind !== 'book') {
       const quote = clipQuote(input.quote);
       if (quote) session.quote = quote;

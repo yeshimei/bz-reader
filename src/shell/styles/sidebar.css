@@ -1190,6 +1190,166 @@
   border-color: transparent;
 }
 
+/* 元信息右侧那组小字：重建 / 历史 / 新建 / 清除。
+   每条之前都靠 `margin-left:auto` 把「重建」推到右端，四颗挤在一起时
+   间距会被这条规则吃掉，所以组内清零、只让整组靠右。 */
+.bzs-aimeta-acts {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-left: auto;
+}
+
+.bzs-aimeta-acts .lnk {
+  margin-left: 0;
+}
+
+/* ── 等待回答：三个点 + 阶段字（2026-11-16） ──
+   检索依据最慢二十几秒，这段时间以前侧栏一片空白。 */
+.bzs-aibubble.is-pending .txt {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--t3);
+}
+
+.bzs-aibubble.is-pending .bzs-typing i {
+  background: var(--copper);
+}
+
+.bzs-aibubble.is-pending .ph {
+  font-size: 11.5px;
+}
+
+/* 每条回答下的「复制」：不抢正文，悬停才显色 */
+.bzs-ai-copy {
+  display: block;
+  margin: 2px 0 0 auto;
+  padding: 1px 0;
+  border: 0;
+  background: none;
+  font: 10.5px var(--ui);
+  color: var(--t3);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.bzs-ai-copy:hover {
+  color: var(--copper);
+}
+
+/* 消息区底部：复制整段 / 归档 */
+.bzs-aifoot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px 8px;
+}
+
+.bzs-aifoot .lnk {
+  padding: 1px 0;
+  border: 0;
+  background: none;
+  font: 10.5px var(--ui);
+  color: var(--t3);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.bzs-aifoot .lnk:hover {
+  color: var(--copper);
+}
+
+/* ── 会话历史（2026-11-16）：点「历史」展开，最多占四成高度 ── */
+.bzs-aihist {
+  flex: none;
+  margin: 0 12px 8px;
+  padding: 6px 4px 4px;
+  max-height: 40%;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  scrollbar-width: thin;
+}
+
+.bzs-aihist .hd {
+  padding: 0 8px 5px;
+  font-size: 10.5px;
+  color: var(--t3);
+  letter-spacing: .04em;
+}
+
+.bzs-aihist-empty {
+  padding: 6px 8px 8px;
+  font-size: 11px;
+  color: var(--t3);
+}
+
+.bzs-aihist-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 6px;
+}
+
+.bzs-aihist-row:hover {
+  background: var(--surface-2);
+}
+
+.bzs-aihist-row.is-here {
+  background: var(--copper-soft);
+}
+
+.bzs-aihist-row .t {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 8px;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bzs-aihist-row .t b {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bzs-aihist-row .t span {
+  font-size: 10px;
+  color: var(--t3);
+}
+
+.bzs-aihist-row .x {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-right: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--t3);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bzs-aihist-row .x:hover {
+  background: var(--line);
+  color: var(--t1);
+}
+
 /* 来源：答完之后附在气泡里；能点开的是一枚小按钮，点不开的只是说明 */
 .bzs-aisrc {
   display: flex;

@@ -87,7 +87,7 @@ import { createBookAi, type BookAiApi } from './data/book-ai';
 import { setShellSource, shellPrefs } from './shell/source';
 import { RT } from './shell/runtime';
 import { resetBodySearch } from './shell/search-run';
-import type { TextHit } from './shell/text-search';
+import { jumpKey, pickChapterHit, type TextHit } from './shell/text-search';
 import { portraitBuilder } from './data/portrait-build';
 import { hrefCandidates, interceptableClick, wrapOpenLinkText } from './shell/link-postprocessor';
 import { CHANGELOG_RELEASES, pickReleaseFor, planChangelog, releaseEntryCount } from './shell/changelog';
@@ -1431,22 +1431,46 @@ export function createPlugin(cfg: PluginConfig) {
      * 语义命中里没有 CFI（画像只存章节与原文），只能拿这一段的开头在书内
      * 再搜一次——定位交给已有的全文搜索，不另造一套坐标。
      */
-    async jumpIntoBook(book: ReaderBook, snippet: string): Promise<void> {
+    async jumpIntoBook(book: ReaderBook, snippet: string, chapter = ''): Promise<void> {
       await this.openBook(book);
-      const view = this.activeReader();
-      if (!view || view.currentBookId !== book.id) return;
-      const kw = String(snippet ?? '')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 24);
-      if (!kw) return;
-      try {
-        const hits = await view.searchText(kw);
-        const first = hits[0];
-        if (first?.cfi) view.jumpTo(first.cfi);
-      } catch {
-        /* 定位失败就停在书里：打开书本身已经是用户要的结果 */
+      /* 按书号直接找那个视图：刚 openBook 完 activeLeaf 可能还是旧的，
+         走 activeReader 会拿到另一本书、然后静默什么都不做。 */
+      const view =
+        this.app.workspace
+          .getLeavesOfType(VIEW_TYPE_READER)
+          .map((l) => l.view)
+          .find(
+            (v): v is ReaderView => v instanceof ReaderView && v.currentBookId === book.id,
+          ) ?? null;
+      if (!view) return;
+      const kw = jumpKey(snippet);
+      if (!kw) {
+        /* 只有章名（老来源）：落到那一章开头，至少还在那一章 */
+        if (chapter.trim()) view.goToChapter(chapter.trim());
+        return;
       }
+      let hit: TextHit | undefined;
+      try {
+        hit = pickChapterHit(await view.searchText(kw), chapter);
+      } catch {
+        hit = undefined;
+      }
+      /* 长词搜不到：多半是原文里断行 / 标点与书里不同，缩到前半句再试一次 */
+      if (!hit && Array.from(kw).length > 12) {
+        const half = Array.from(kw).slice(0, Math.ceil(Array.from(kw).length / 2)).join('');
+        try {
+          hit = pickChapterHit(await view.searchText(half), chapter);
+        } catch {
+          hit = undefined;
+        }
+      }
+      if (hit?.cfi) {
+        view.jumpTo(hit.cfi);
+        return;
+      }
+      /* 找不到：说一句，别静默停在原页（用户会以为「点了依据没反应」） */
+      if (chapter.trim()) view.goToChapter(chapter.trim());
+      notify(t('notice.jump.notFound'));
     }
 
     openTocSidebar(tab?: SideTab): void {

@@ -33,6 +33,56 @@ function flatExcerpt(e: RawTextHit['excerpt']): string {
   return '';
 }
 
+/**
+ * 依据原文 → 书内搜索用的词（2026-11-16）。
+ *
+ * 以前是「原文前 24 字」，两个后果：
+ *   · 截断常常停在半句上，句末的标点、下句开头的引号对不上，搜不到；
+ *   · 原文里带省略号 / 引号时整串都搜不到，于是「点了依据没反应」。
+ * 现在先取第一句完整的话，去掉首尾的引号与省略号，再按上限截。
+ */
+export function jumpKey(snippet: string, max = 28): string {
+  const flat = String(snippet ?? '')
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s「『“"'（(【[]+/, '')
+    .replace(/[\s」』”"'）)】\]]+$/, '')
+    .replace(/…+/g, '')
+    .trim();
+  if (!flat) return '';
+  const end = flat.search(/[。！？!?；;]/);
+  const sentence = end >= 8 ? flat.slice(0, end + 1) : flat;
+  const chars = Array.from(sentence);
+  return chars.length > max ? chars.slice(0, max).join('') : sentence;
+}
+
+function chapterKey(s: string): string {
+  return String(s ?? '')
+    .replace(/\s+/g, '')
+    .replace(/[「」『』“”"'’]/g, '')
+    .trim();
+}
+
+/**
+ * 依据跳转该落到哪一条命中。
+ *
+ * 同一句原文在整本书里常常出现好几次（尤其对白）。依据写着第几章，
+ * 却跳「书里第一次出现」，就会落到别的章——这就是「点了依据去错地方」。
+ * 章名对不上（老记录、PDF 页码改名）才退回第一条。
+ */
+export function pickChapterHit(
+  hits: readonly TextHit[],
+  chapter: string,
+): TextHit | undefined {
+  if (!hits.length) return undefined;
+  const want = chapterKey(chapter);
+  if (!want) return hits[0];
+  const hit = hits.find((h) => {
+    const label = chapterKey(h.chapterLabel);
+    return !!label && (label === want || label.includes(want) || want.includes(label));
+  });
+  return hit ?? hits[0];
+}
+
 export function toTextHits(raw: readonly RawTextHit[], max = MAX_HITS): TextHit[] {
   const out: TextHit[] = [];
   const seen = new Set<string>();

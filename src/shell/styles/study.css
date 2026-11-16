@@ -2098,18 +2098,22 @@
   background: var(--line);
 }
 
-/* ── 检索卡：输入、范围、搜法收在同一张卡里，一页里唯一的重元素 ── */
+/* ── 检索卡：输入、范围、搜法收在同一张卡里 ──
+   2026-11-16：不再做成浮在页面上的白卡。原来那两层投影（一层贴边、一层
+   44px 的大扩散）加圆角描边，读起来像「页面里又弹了一张卡」；现在整块
+   长在页面里，只留一条下边线，聚焦时那条线转铜——边界仍看得见，但不浮。 */
 .bzs-desk {
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-card);
-  background: var(--bg);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, .03), 0 20px 44px -38px rgba(0, 0, 0, .7);
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  border: 0;
+  border-bottom: 1px solid var(--line-2);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transition: border-color var(--dur) var(--ease);
 }
 
 .bzs-desk:focus-within {
-  border-color: var(--copper-line);
-  box-shadow: 0 0 0 3px var(--copper-soft), 0 20px 44px -36px rgba(0, 0, 0, .6);
+  border-bottom-color: var(--copper-line);
+  box-shadow: none;
 }
 
 .bzs-desk-in {

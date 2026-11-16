@@ -1553,6 +1553,13 @@ body.theme-dark .bzs-tb-more {
    与书架搜索页共用同一套 `.bzs-srch-*`，这里只压尺寸：标题一行、检索卡
    46px、四张示例卡一行且省掉说明行、分布 6px、命中行 5/12/5/10。
    选择器都带 `.bzs-srchpanel.is-compact`，不会影响书架整页。 */
+/* 搜索弹窗不投影（2026-11-16）：里头那张检索卡已经改成内嵌样式（见 study.css
+   的 .bzs-desk），卡片不再浮，弹窗再压一圈大阴影就变成「浮层里再浮一层」。
+   遮罩还在，层级看得清；只把阴影去掉。 */
+.bzs-modal.bzs-srchmodal {
+  box-shadow: none;
+}
+
 .bzs-modal.bzs-srchmodal .bzs-mhead {
   padding: 10px 16px;
 }
