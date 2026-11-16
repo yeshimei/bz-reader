@@ -59,6 +59,86 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '1.5.0',
+    date: '2026-11-16',
+    added: [
+      {
+        domain: { zh: '扫描页识别', en: 'Scanned-page OCR' },
+        text: {
+          zh: 'PDF 扫描页也能认字了。头栏「识别」可选本页、接下来 20 页或整本；认出来的文字直接进文字层，能划词、能搜索、能朗读，也能交给 AI。按页计费，认过的页会跳过。',
+          en: 'Scanned PDF pages can be read now. “Recognize” in the header covers this page, the next 20, or the whole book; the text lands in the text layer, so it can be selected, searched, read aloud and handed to AI. Billed per page, pages already done are skipped.',
+        },
+      },
+      {
+        domain: { zh: '识别通道', en: 'Recognition channels' },
+        text: {
+          zh: '可以用 DeepSeek 看图，也可以填自己跑的服务（OpenAI 兼容、Umi-OCR、PaddleOCR）。设置里有「连接测试」，发一张小图就能确认地址与密钥对不对。',
+          en: 'Use DeepSeek vision, or point it at a service you run yourself (OpenAI-compatible, Umi-OCR, PaddleOCR). A connection test in settings sends one small image and tells you whether the URL and key work.',
+        },
+      },
+      {
+        domain: { zh: '划词 AI', en: 'Ask about a selection' },
+        text: {
+          zh: '划一段文字弹出五项菜单，解释、翻译、总结，或者丢进全书问答继续问。浮框锚在原文旁边，可以拖动、可以定住不关。',
+          en: 'Select a passage and a five-item menu appears — explain, translate, summarize, or send it on to whole-book Q&A. The box anchors beside the text and can be dragged or pinned open.',
+        },
+      },
+      {
+        domain: { zh: '对话页', en: 'Chats' },
+        text: {
+          zh: '书架多了「对话」页，AI 问答按书或按时间翻，能搜、能归档，也能一键导出到阅读笔记。',
+          en: 'The shelf gains a Chats page: AI conversations grouped by book or by time, searchable, archivable, and exportable to your reading notes in one click.',
+        },
+      },
+      {
+        domain: { zh: '连接笔记', en: 'Link notes' },
+        text: {
+          zh: '侧栏问答可以带上笔记一起问，按目录分组、支持多选，也能全库搜。',
+          en: 'Sidebar questions can carry notes with them: grouped by folder, multi-select, and searchable across the whole vault.',
+        },
+      },
+    ],
+    improved: [
+      {
+        domain: { zh: '搜索', en: 'Search' },
+        text: {
+          zh: '书架搜索页与弹窗重做，书名、章节、划线、正文分开列；字面与按意思两种搜法各归各位，扫到哪本、找到几处都写在脸上。',
+          en: 'The shelf search page and popup are rebuilt: titles, chapters, highlights and text are listed separately, exact and by-meaning searches each have their place, and the row shows which book is being scanned and how many hits so far.',
+        },
+      },
+      {
+        domain: { zh: '朗读', en: 'Read aloud' },
+        text: {
+          zh: '浮条补上进度与「继续听」浮窗；点一下就开始，不用再点第二次。',
+          en: 'The bar now shows progress and offers a “keep listening” card; one click starts playback instead of two.',
+        },
+      },
+      {
+        domain: { zh: '划词工具条', en: 'Selection toolbar' },
+        text: {
+          zh: '鼠标移上去才展开，移走就收，不挡正文。',
+          en: 'It expands on hover and folds away when the pointer leaves, so it no longer covers the text.',
+        },
+      },
+    ],
+    fixed: [
+      {
+        domain: { zh: 'PDF 识别', en: 'PDF OCR' },
+        text: {
+          zh: '识别出来的文字按页框尺寸摆放，放大缩小后划线与文字不再错位。',
+          en: 'Recognized text is placed by the page frame, so highlights no longer drift from the words when you zoom.',
+        },
+      },
+      {
+        domain: { zh: '朗读', en: 'Read aloud' },
+        text: {
+          zh: '没有可念文字时，朗读条不会留在屏幕上收不掉。',
+          en: 'The read-aloud bar no longer stays on screen when there is nothing to read.',
+        },
+      },
+    ],
+  },
+  {
     version: '1.4.0',
     date: '2026-11-14',
     added: [
