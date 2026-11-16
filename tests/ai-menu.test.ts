@@ -150,6 +150,23 @@ describe('浮框气泡 · 解释从问答起，追问从空白起', () => {
     expect(msgs.at(-1)).toMatchObject({ role: 'ai', text: '接口 500', error: true });
   });
 
+  it('来源跟着各自的答案走，追问气泡带轮次下标（2026-11-17）', () => {
+    const head = [{ title: '第一章', bookId: 'b1', text: '红海早过了' }];
+    const tail = [{ title: '第二章', bookId: 'b1' }];
+    const msgs = aiFloatMessages({
+      mode: 'explain',
+      ask: '解释这一段',
+      answer: '首答',
+      sources: head,
+      turns: [{ q: '后来呢', a: '追问答', sources: tail }],
+    });
+    expect(msgs[1].sources).toEqual(head);
+    /* 首问 / 首答没有 turn 下标，删按钮只挂追问那一对 */
+    expect(msgs[1].turn).toBeUndefined();
+    expect(msgs[2]).toMatchObject({ role: 'me', turn: 0 });
+    expect(msgs[3]).toMatchObject({ role: 'ai', turn: 0, sources: tail });
+  });
+
   it('复制用的一整段对话带「你 / AI」前缀', () => {
     const text = aiTranscript(
       aiFloatMessages({ mode: 'explain', ask: '解释这一段', answer: '答案' }),

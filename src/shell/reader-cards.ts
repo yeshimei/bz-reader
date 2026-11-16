@@ -121,6 +121,25 @@ export interface AiCardInput extends AiFloatState {
  * 我方铜色实底、右上角 3px；AI 浅灰底、左上角 3px —— 圆角在 CSS。
  * AI 的正文打 `data-ai-md`，注入后由 renderAiMarkdown 统一渲染。
  */
+/** 来源行：能点开的开笔记 / 落回书里，点不开的只当说明（与侧栏同一套 act） */
+function floatSourcesHtml(sources: readonly { title: string; path?: string; bookId?: string; note?: string; text?: string }[]): string {
+  if (!sources.length) return '';
+  const items = sources
+    .map((s) => {
+      const label = esc(s.title);
+      const tip = esc(s.note || s.path || s.title);
+      if (s.path) {
+        return `<button type="button" class="bzs-aisrc-i" data-act="opensrc" data-path="${esc(s.path)}" title="${tip}">${label}</button>`;
+      }
+      if (s.bookId) {
+        return `<button type="button" class="bzs-aisrc-i" data-act="opensrcbook" data-book="${esc(s.bookId)}" data-chapter="${esc(s.title)}" data-text="${esc(s.text ?? '')}" title="${tip}">${label}</button>`;
+      }
+      return `<span class="bzs-aisrc-i" title="${tip}">${label}</span>`;
+    })
+    .join('');
+  return `<div class="bzs-aisrc"><span class="lbl">${esc(t('side.ai.sources'))}</span>${items}</div>`;
+}
+
 export function aiMessagesHtml(input: AiFloatState & { at?: string }): string {
   const msgs = aiFloatMessages(input);
   if (!msgs.length) {
@@ -133,7 +152,15 @@ export function aiMessagesHtml(input: AiFloatState & { at?: string }): string {
     }
     const bad = m.error ? ' is-bad' : '';
     const md = m.role === 'ai' && !m.error ? ' data-ai-md' : '';
-    return `<div class="${cls}${bad}"><div class="tx"${md}>${esc(m.text)}</div></div>`;
+    /* 来源挂在气泡里、跟着答案走：首问那份在正文气泡，追问那份在对应轮次 */
+    const src = m.role === 'ai' && !m.error ? floatSourcesHtml(m.sources ?? []) : '';
+    /* 删单轮：挂在每一轮追问的 AI 气泡上（含失败轮次——发错了同样要能删），
+       首问不带 turn 下标，所以不会被误挂上。 */
+    const drop =
+      m.role === 'ai' && m.turn !== undefined
+        ? `<button type="button" class="bzs-af-turbdrop" data-act="afdrop" data-i="${m.turn}" title="${esc(t('ai.float.dropTurn'))}">${esc(t('ai.float.dropTurn'))}</button>`
+        : '';
+    return `<div class="${cls}${bad}"><div class="tx"${md}>${esc(m.text)}</div>${src}${drop}</div>`;
   };
   const time = input.at ? `<div class="bzs-af-time">${esc(input.at)}</div>` : '';
   return `${time}${msgs.map(bubble).join('')}`;

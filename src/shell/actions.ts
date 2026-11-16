@@ -84,6 +84,7 @@ import {
 } from '../data/ai-session';
 import {
   archiveAiSessionAndSave,
+  dropAiTurnByAskAndSave,
   dropLastAiTurnAndSave,
   makeAiSessionId,
   recordAiTurn,
@@ -140,6 +141,7 @@ import {
   sourcesOfBlocks,
   sourcesOfHits,
   type AiEvidence,
+  type AiSource,
 } from '../data/ai-evidence';
 import { verifyQuotes } from '../data/ai-quote';
 import {
@@ -180,6 +182,7 @@ import {
   aiCardBegin,
   aiCardDone,
   aiCardDrop,
+  aiCardDropTurn,
   aiCardFail,
   aiCardFollowAppend,
   aiCardFollowBegin,
@@ -3028,6 +3031,32 @@ export function dispatchAction(
       void askAi(null, ask.text);
       break;
     }
+    /* 浮框删单轮（2026-11-17）：追问发错了只删那一对，不清整张卡。
+       账本与落盘一起删，下次点回这条线不会把删掉的轮次又带回来。 */
+    case 'afdrop': {
+      const o = getState().overlay;
+      if (!o || o.kind !== 'ai' || o.menu) break;
+      const i = Number(d.i);
+      const mode = aiFloatTaskOf(o.mode);
+      const key = aiCardKey('ai', mode, o.text || RT.sel?.text || '', o.markId ?? '');
+      const entry = aiCardGet(key);
+      const turn = entry?.turns?.[i];
+      if (!turn) break;
+      aiCardDropTurn(key, i);
+      /* 落盘按划线找回这条会话，按问句删那一对；找不到就算了——
+         浮框内存已经对了，不能因为落盘没找着就卡住用户。 */
+      const app = getShellSource()?.app;
+      const bookId = o.bookId || getState().bookId;
+      const found = aiSessions().find(
+        (s) =>
+          s.bookId === bookId &&
+          s.kind === mode &&
+          s.turns.some((t) => t.me && String(t.text ?? '').trim() === turn.q.trim()),
+      );
+      if (found) void dropAiTurnByAskAndSave(app, found.id, turn.q);
+      refreshAiFloat();
+      break;
+    }
     /* 输入条里的上下文（A 版）：四类插入 + 删除 + 笔记选择器 */
     case 'aictxdel': {
       const i = Number(d.i);
@@ -4576,16 +4605,21 @@ function clearAiInput(): void {
  *
  * 任何一步失败都返回空串：追问的主依据是眼前这一段，补不到也不该拦这一问。
  */
-async function followEvidenceOf(q: string, quote: string, signal?: AbortSignal): Promise<string> {
+async function followEvidenceOf(
+  q: string,
+  quote: string,
+  signal?: AbortSignal,
+): Promise<{ context: string; sources: AiSource[] }> {
+  const empty = { context: '', sources: [] as AiSource[] };
   const src = getShellSource();
   const book = currentBook();
-  if (!src || !book) return '';
+  if (!src || !book) return empty;
   try {
     const raw = await readPortraitCached(src.app, book.id);
     const embedder = bzEmbedder(src.app);
     /* 只有向量画像有原文块；压缩画像的要点不适合当「同书段落」 */
-    if (!raw || raw.plan !== 'vector') return '';
-    if (portraitState(raw, embedder.model) !== 'ready' || !embedder.ai) return '';
+    if (!raw || raw.plan !== 'vector') return empty;
+    if (portraitState(raw, embedder.model) !== 'ready' || !embedder.ai) return empty;
     /* 剧透门同样管到这里（2026-11-16）：追问的补充段落如果不受约束，
        读小说的人从追问里一样能问出后面的事——门只挡正门等于没挡。 */
     const portrait = shellSettings().aiSpoiler
@@ -4600,10 +4634,17 @@ async function followEvidenceOf(q: string, quote: string, signal?: AbortSignal):
     )}`.trim();
     const vec = await queryVector(embedder, query, signal);
     const picks = retrieveBlocks(portrait, query, vec, { limit: 3 });
-    if (!picks.length) return '';
-    return blocksEvidence(portrait, picks, FOLLOW_EVIDENCE_LIMIT);
+    if (!picks.length) return empty;
+    return {
+      context: blocksEvidence(portrait, picks, FOLLOW_EVIDENCE_LIMIT),
+      /* 来源也带回来（2026-11-17）：浮框追问的出处照样能点回书里 */
+      sources: sourcesOfBlocks(
+        portrait.bookId,
+        picks.map((p) => ({ chapter: p.block.chapter, index: p.index, text: p.block.text })),
+      ),
+    };
   } catch {
-    return '';
+    return empty;
   }
 }
 
@@ -4675,20 +4716,20 @@ async function followAi(question: string): Promise<void> {
     const res = await aiAsk(
       s,
       first
-        ? { task: 'follow', text: q, context: text, evidence }
+        ? { task: 'follow', text: q, context: text, evidence: evidence.context }
         : {
             task: 'follow',
             text: q,
             context: text,
-            evidence,
+            evidence: evidence.context,
             /* 首问也要带上：只给答案，模型不知道用户当初问的是什么 */
             history: followHistory(entry!.text, entry!.turns, entry!.ask),
           },
       { signal: ctrl.signal, onDelta: stream.onDelta },
     );
     stream.stop();
-    if (first) aiCardDone(key, res.text);
-    else aiCardFollowDone(key, q, res.text);
+    if (first) aiCardDone(key, res.text, evidence.sources);
+    else aiCardFollowDone(key, q, res.text, evidence.sources);
     /* 同一张卡的追问按 key 归进同一条会话：先问「解释一下」再追问「那笼子呢」，
        书架里看到的是一段完整对话，而不是两条各缺一半的记录。 */
     const book = liveBooks().find((b) => b.id === (o.bookId || getState().bookId)) ?? currentBook();
@@ -4703,6 +4744,7 @@ async function followAi(question: string): Promise<void> {
       cfi: RT.sel?.cfiRange,
       ask: q,
       answer: res.text,
+      sources: evidence.sources,
     });
   } catch (e) {
     stream.stop();

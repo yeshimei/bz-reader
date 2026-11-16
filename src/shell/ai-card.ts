@@ -14,6 +14,7 @@
  * 关掉卡片整册清空——再次打开同一段应该重新问，而不是给一份看不懂来历的旧答案。
  * ============================================================ */
 import type { AiTask, AiTurn } from '../data/ai';
+import type { AiSource } from '../data/ai-evidence';
 import type { AiSession } from '../data/ai-session';
 
 export type AiCardStatus = 'busy' | 'done' | 'error';
@@ -35,12 +36,16 @@ export interface AiFollowTurn {
    * 现在发出就先占一行，回来再换成答案（见 settleTurn）。
    */
   pending?: boolean;
+  /** 这一轮追问用到的依据（2026-11-17）：浮框里也给出处，可点回原文 */
+  sources?: AiSource[];
 }
 
 export interface AiCardEntry {
   status: AiCardStatus;
   /** 结果正文；`busy` 时是空串，失败时是给人看的那句原因 */
   text: string;
+  /** 首问用到的依据（2026-11-17） */
+  sources?: AiSource[];
   /**
    * 首条用户气泡的文案（2026-11-16）。
    *
@@ -132,9 +137,14 @@ export function aiCardBegin(key: string, ask?: string, at?: string): void {
   entries.set(key, entry);
 }
 
-export function aiCardDone(key: string, text: string): void {
+export function aiCardDone(key: string, text: string, sources?: readonly AiSource[]): void {
   const cur = entries.get(key);
-  entries.set(key, { ...(cur ?? {}), status: 'done', text });
+  entries.set(key, {
+    ...(cur ?? {}),
+    status: 'done',
+    text,
+    ...(sources?.length ? { sources: sources.map((s) => ({ ...s })) } : {}),
+  });
 }
 
 /**
@@ -267,10 +277,32 @@ function settleTurn(
 }
 
 /** 一轮追问拿到了答案：追加到轮次末尾，初次答案不动 */
-export function aiCardFollowDone(key: string, q: string, a: string): void {
+export function aiCardFollowDone(key: string, q: string, a: string, sources?: readonly AiSource[]): void {
   const cur = entries.get(key) ?? { status: 'done' as const, text: '' };
-  const turns = settleTurn(cur.turns, q, { q, a });
+  const next: AiFollowTurn = {
+    q,
+    a,
+    ...(sources?.length ? { sources: sources.map((s) => ({ ...s })) } : {}),
+  };
+  const turns = settleTurn(cur.turns, q, next);
   entries.set(key, { ...cur, status: 'done', turns });
+}
+
+/**
+ * 删掉第 i 轮追问（整对问答一起删，2026-11-17）。
+ *
+ * 下标与 `aiFloatMessages` 给气泡标的 `turn` 一致。删完这一轮后，后面
+ * 轮次的下标会前移——渲染是按数组现算的，不存旧下标，所以不用额外搬。
+ * 归档标记一并去掉：这段对话已经和归档时那份不一样了。
+ */
+export function aiCardDropTurn(key: string, i: number): boolean {
+  const cur = entries.get(key);
+  if (!cur?.turns || !Number.isInteger(i) || i < 0 || i >= cur.turns.length) return false;
+  const turns = cur.turns.filter((_, idx) => idx !== i);
+  const next: AiCardEntry = { ...cur, turns: turns.length ? turns : undefined };
+  delete next.archivedAt;
+  entries.set(key, next);
+  return true;
 }
 
 /** 一轮追问失败：问题与原因都留在轮次里，供「重试」和用户回看 */
@@ -314,7 +346,9 @@ export function sessionToCard(s: AiSession): AiCardEntry {
     if (!q?.me) continue;
     const a = turns[i + 1];
     if (a && !a.me) {
-      rest.push({ q: q.text, a: a.text });
+      const turn: AiFollowTurn = { q: q.text, a: a.text };
+      if (a.sources?.length) turn.sources = a.sources.map((y) => ({ ...y }));
+      rest.push(turn);
       i += 1;
     } else {
       rest.push({ q: q.text, a: '' });
@@ -325,6 +359,7 @@ export function sessionToCard(s: AiSession): AiCardEntry {
     text: first?.text ?? '',
     turns: rest,
   };
+  if (first?.sources?.length) entry.sources = first.sources.map((y) => ({ ...y }));
   if (ask) entry.ask = ask;
   if (s.when) entry.at = cardClock(s.when);
   return entry;

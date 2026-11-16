@@ -13,6 +13,7 @@
  * 全书问答必须是 `panel-right-open`：它和工具条上的 AI（sparkles）不是一件事。
  * ============================================================ */
 import type { AiFollowTurn } from './ai-card';
+import type { AiSource } from '../data/ai-evidence';
 import type { AiLogLine } from '../data/ai-save';
 import { t, type MsgKey } from '../i18n';
 import { esc } from './render/html';
@@ -164,6 +165,13 @@ export interface AiBubble {
   pending?: boolean;
   /** 这一条是失败原因：用错误色 */
   error?: boolean;
+  /** 这一轮用到的依据（2026-11-17）：浮框里也给出处，可点回原文 */
+  sources?: readonly AiSource[];
+  /**
+   * 追问轮次的下标（2026-11-17）：给「删这一轮」用。
+   * 首问 / 首答不带；只有追问的那一对带上。
+   */
+  turn?: number;
 }
 
 export interface AiFloatState {
@@ -173,6 +181,8 @@ export interface AiFloatState {
   busy?: boolean;
   error?: string;
   turns?: readonly AiFollowTurn[];
+  /** 首问的依据（2026-11-17） */
+  sources?: readonly AiSource[];
 }
 
 /**
@@ -189,18 +199,18 @@ export function aiFloatMessages(input: AiFloatState): AiBubble[] {
   const ask = String(input.ask ?? aiFirstPrompt(input.mode)).trim();
   const answer = String(input.answer ?? '').trim();
   if (ask) out.push({ role: 'me', text: ask });
-  if (answer) out.push({ role: 'ai', text: answer });
+  if (answer) out.push({ role: 'ai', text: answer, sources: input.sources });
   else if (input.error) out.push({ role: 'ai', text: input.error, error: true });
   else if (ask && input.busy) out.push({ role: 'ai', text: '', pending: true });
 
-  for (const turn of input.turns ?? []) {
+  (input.turns ?? []).forEach((turn, i) => {
     const q = String(turn?.q ?? '').trim();
     const a = String(turn?.a ?? '').trim();
-    if (q) out.push({ role: 'me', text: q });
-    if (turn?.error) out.push({ role: 'ai', text: String(turn.error), error: true });
-    else if (a) out.push({ role: 'ai', text: a });
-    else if (q) out.push({ role: 'ai', text: '', pending: true });
-  }
+    if (q) out.push({ role: 'me', text: q, turn: i });
+    if (turn?.error) out.push({ role: 'ai', text: String(turn.error), error: true, turn: i });
+    else if (a) out.push({ role: 'ai', text: a, sources: turn?.sources, turn: i });
+    else if (q) out.push({ role: 'ai', text: '', pending: true, turn: i });
+  });
   return out;
 }
 

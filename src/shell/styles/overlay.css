@@ -625,6 +625,28 @@ body.theme-dark .bzs-aifloat {
   background: color-mix(in srgb, var(--vermilion) 7%, var(--surface-2));
 }
 
+/* 浮框答案的来源行（2026-11-17）：沿用侧栏 .bzs-aisrc 的胶囊样式，
+   这里只把它往气泡里收一点。点开的 act 与侧栏同一套。 */
+.bzs-pm .bzs-aisrc {
+  margin-top: 6px;
+  padding-left: 2px;
+}
+
+/* 删单轮：跟在追问答案下面的一枚轻按钮，平时不抢眼 */
+.bzs-af-turbdrop {
+  margin-top: 5px;
+  border: none;
+  background: none;
+  padding: 1px 2px;
+  color: var(--t3);
+  font: 10px var(--ui);
+  cursor: pointer;
+}
+
+.bzs-af-turbdrop:hover {
+  color: var(--vermilion);
+}
+
 /* 空面板：一句提示，光标在下面输入行 */
 .bzs-af-empty {
   padding: 34px 12px 28px;

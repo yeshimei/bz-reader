@@ -105,6 +105,31 @@ describe('aiCardHtml · 划词 AI 浮框', () => {
     expect(html).toContain('还没有配置 AI 服务');
   });
 
+  it('来源挂在答案气泡里可点回原文，追问那一对带删轮按钮（2026-11-17）', () => {
+    const html = aiCardHtml({
+      ready: true,
+      mode: 'follow',
+      ask: '解释这一段',
+      answer: '首答',
+      sources: [{ title: '第一章', bookId: 'b1', text: '红海早过了' }],
+      turns: [
+        { q: '后来呢', a: '追问答', sources: [{ title: '第二章', bookId: 'b1' }] },
+      ],
+    });
+    /* 首答与追问各自有可点的来源按钮 */
+    expect(html).toContain('data-act="opensrcbook"');
+    expect(html.match(/data-act="opensrcbook"/g)).toHaveLength(2);
+    /* 删轮按钮只在追问那一对上，下标 0 */
+    expect(html).toContain('data-act="afdrop"');
+    expect(html).toContain('data-i="0"');
+  });
+
+  it('没有来源时不画来源行，首答不带删轮按钮', () => {
+    const html = aiCardHtml({ ready: true, mode: 'explain', ask: '解释', answer: '答' });
+    expect(html).not.toContain('data-act="opensrcbook"');
+    expect(html).not.toContain('data-act="afdrop"');
+  });
+
   it('结果是用户内容，必须转义', () => {
     expect(
       aiCardHtml({ ready: true, mode: 'explain', ask: '解释这一段', answer: '<img>' }),

@@ -26,6 +26,7 @@ import { AI_SOURCES_MAX, type AiSource } from './ai-evidence';
 import {
   archiveAiSession,
   aiSessions,
+  dropAiTurnByAsk,
   dropLastAiTurn,
   isAiSessionKind,
   removeAiSession,
@@ -463,6 +464,19 @@ export async function dropLastAiTurnAndSave(
   id: string,
 ): Promise<boolean> {
   if (!dropLastAiTurn(id)) return false;
+  await saveAiLog(app);
+  return true;
+}
+
+/**
+ * 删掉问句匹配的那一轮并落盘（浮框删单轮，2026-11-17）。
+ */
+export async function dropAiTurnByAskAndSave(
+  app: App | null | undefined,
+  id: string,
+  ask: string,
+): Promise<boolean> {
+  if (!dropAiTurnByAsk(id, ask)) return false;
   await saveAiLog(app);
   return true;
 }

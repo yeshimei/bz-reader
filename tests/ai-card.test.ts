@@ -9,13 +9,16 @@ import {
   aiCardBegin,
   aiCardDone,
   aiCardDrop,
+  aiCardDropTurn,
   aiCardFail,
   aiCardFollowAppend,
   aiCardFollowBegin,
+  aiCardFollowDone,
   aiCardGet,
   aiCardKey,
   aiCardReset,
   aiModeOf,
+  sessionToCard,
 } from '../src/shell/ai-card';
 import { makeApp, makeStore } from './helpers/plugin-harness';
 import { installDomStub } from './helpers/dom-stub';
@@ -266,5 +269,59 @@ describe('AI 卡 · 流式补字', () => {
       status: 'done',
       text: '完整答案，比流里拼的多两个字。',
     });
+  });
+});
+
+describe('ai-card · 浮框来源与删单轮（2026-11-17）', () => {
+  const key = aiCardKey('ai', 'explain', '婚姻是一座围城');
+
+  beforeEach(() => aiCardReset());
+  afterEach(() => aiCardReset());
+
+  it('首答与追问的来源各自存进账本', () => {
+    const head = [{ title: '第一章', bookId: 'b1' }];
+    const tail = [{ title: '第二章', bookId: 'b1' }];
+    aiCardBegin(key, '解释', '10:00');
+    aiCardDone(key, '首答', head);
+    aiCardFollowBegin(key, '后来呢');
+    aiCardFollowDone(key, '后来呢', '追问答', tail);
+
+    const entry = aiCardGet(key)!;
+    expect(entry.sources).toEqual(head);
+    expect(entry.turns?.[0].sources).toEqual(tail);
+  });
+
+  it('删单轮：只删指定那一对，别的轮次下标前移照常画', () => {
+    aiCardBegin(key, '解释', '10:00');
+    aiCardDone(key, '首答');
+    aiCardFollowBegin(key, '问一');
+    aiCardFollowDone(key, '问一', '答一');
+    aiCardFollowBegin(key, '问二');
+    aiCardFollowDone(key, '问二', '答二');
+
+    expect(aiCardDropTurn(key, 0)).toBe(true);
+    expect(aiCardGet(key)!.turns?.map((t) => t.q)).toEqual(['问二']);
+    /* 越界与坏下标都不动账本 */
+    expect(aiCardDropTurn(key, 5)).toBe(false);
+    expect(aiCardDropTurn(key, -1)).toBe(false);
+    expect(aiCardGet(key)!.turns).toHaveLength(1);
+  });
+
+  it('恢复落盘会话时把来源带回卡片', () => {
+    const entry = sessionToCard({
+      id: 'id-1',
+      bookId: 'b1',
+      bookTitle: '围城',
+      kind: 'explain',
+      when: 1_700_000_000_000,
+      turns: [
+        { me: true, text: '解释' },
+        { me: false, text: '首答', sources: [{ title: '第一章', bookId: 'b1' }] },
+        { me: true, text: '后来呢' },
+        { me: false, text: '追问答', sources: [{ title: '第二章', bookId: 'b1' }] },
+      ],
+    });
+    expect(entry.sources?.[0].title).toBe('第一章');
+    expect(entry.turns?.[0].sources?.[0].title).toBe('第二章');
   });
 });

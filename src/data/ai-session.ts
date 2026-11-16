@@ -148,6 +148,27 @@ export function dropLastAiTurn(id: string): boolean {
   return s.turns.length !== before;
 }
 
+/**
+ * 删掉一条会话里「问句 == ask」的那一对（2026-11-17，浮框删单轮用）。
+ *
+ * 浮框的一个键下能攒好几轮追问，`dropLastAiTurn` 只能删最后一对。这里按
+ * 问句文本从后往前找——同一句问过两遍时删最近那次，符合「删刚发的这轮」。
+ * 找不到返回 false，调用方据此不动界面。
+ */
+export function dropAiTurnByAsk(id: string, ask: string): boolean {
+  const s = list.find((x) => x.id === id);
+  const q = String(ask ?? '').trim();
+  if (!s || !q) return false;
+  for (let i = s.turns.length - 1; i >= 1; i -= 1) {
+    const cur = s.turns[i];
+    if (!cur?.me || String(cur.text ?? '').trim() !== q) continue;
+    /* i 是提问，i+1 是它的回答；两样一起删 */
+    s.turns.splice(i, 2);
+    return true;
+  }
+  return false;
+}
+
 function pad(n: number): string {
   return n < 10 ? `0${n}` : String(n);
 }

@@ -1354,4 +1354,5 @@ export const FR: Record<MsgKey, string> = {
   'side.ai.stop': '[TODO] side.ai.stop',
   'side.ai.retry': '[TODO] side.ai.retry',
   'side.ai.truncated': '[TODO] side.ai.truncated',
+  'ai.float.dropTurn': '[TODO] ai.float.dropTurn',
 };

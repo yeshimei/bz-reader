@@ -614,6 +614,7 @@ export const ZH = {
   'ai.float.clear.title': '清空这段对话？',
   'ai.float.clear.body': '会删掉这段原文积攒的问答，划线和笔记不受影响。清空后还能点回这条线重新问。',
   'ai.float.clear.ok': '清空对话',
+  'ai.float.dropTurn': '删这轮',
   'ai.float.archivedAt': '已归档 {time}',
   'ai.follow.busy': '正在追问…',
   'ai.follow.thinking': '正在回复…',
