@@ -18,23 +18,75 @@
   <p><sub><b>简体中文</b> · <a href="#english">English</a> · <a href="#繁體中文">繁體中文</a> · <a href="#日本語">日本語</a> · <a href="#deutsch">Deutsch</a> · <a href="#français">Français</a> · <a href="#español">Español</a> · <a href="#português">Português</a></sub></p>
 </div>
 
+<p align="center"><b>书架</b></p>
+
 <p align="center">
   <img src="docs/images/shelf-desktop-light.webp" alt="书架：继续阅读、筛选条、书架分组与封面墙（左侧亮色、右侧暗色）">
 </p>
+
+<p align="center"><b>阅读 · 写想法 · 笔色 · 划词工具条 · 脚注</b></p>
 
 <p align="center">
   <img src="docs/images/read-desktop-light.webp" alt="阅读页：左侧目录、正文单栏、划词胶囊与脚注浮窗（左侧亮色、右侧暗色）">
 </p>
 
+<p align="center"><b>阅读侧栏 · 目录 · 书签 · 划线 · 引用 · AI 全书问答</b></p>
+
 <p align="center">
-  <img src="docs/images/ai-desktop-light.webp" alt="AI：划词工具条上方的解释 / 翻译 / 总结 / 追问 / 插入到全书问答，锚定的追问浮框，右侧是全书问答">
+  <img src="docs/images/sidebar-desktop-light.png" alt="阅读侧栏的五个页签并排：目录、书签、划线（按章分卷，带想法与双向链接）、引用（按章分组列出引用它的笔记）、AI 全书问答（答案附逐条依据）">
 </p>
+
+<p align="center"><b>移动端 · 书架 · 阅读</b></p>
 
 <p align="center">
   <img src="docs/images/shelf-mobile-light.webp" width="288" alt="阅读 · 移动端 · 亮色">
   &nbsp;&nbsp;
   <img src="docs/images/read-mobile-dark.webp" width="288" alt="阅读 · 移动端 · 暗色">
 </p>
+
+<p align="center"><b>AI · 锚定追问 · 全书问答</b></p>
+
+<p align="center">
+  <img src="docs/images/ai-desktop-light.png" alt="AI：划词工具条上方的解释 / 翻译 / 总结 / 追问 / 插入到全书问答，锚定的追问浮框，右侧是全书问答">
+</p>
+
+<p align="center"><b>PDF · 书摘</b></p>
+
+<p align="center">
+  <img src="docs/images/pdf-desktop-light.png" alt="PDF：划线后弹出书摘浮框，四种取图方式（经典 / 缩放 / 阅读 / 胶片），可重新引用、存笔记、复制图片；侧栏按十页分段列目录">
+</p>
+
+<p align="center"><b>朗读 · 逐句高亮 · 整章 / 全书预生成</b></p>
+
+<p align="center">
+  <img src="docs/images/read-aloud-desktop-light.png" alt="朗读：正文逐句高亮跟着念，底部播放条给上一句 / 下一句、语速、导出与设置">
+</p>
+
+<p align="center"><b>笔记 · 每日回顾</b></p>
+
+<p align="center">
+  <img src="docs/images/notes-desktop-light.png" alt="笔记页：每日回顾、按笔色与关键词筛选、按书分组的划线卡与想法">
+</p>
+
+<p align="center"><b>对话 · 按书分组</b></p>
+
+<p align="center">
+  <img src="docs/images/chat-desktop-light.png" alt="对话页：本月新增 / 已归档计数、按解释 / 翻译 / 总结 / 追问筛选，按书分组的对话卡">
+</p>
+
+<p align="center"><b>搜索 · 字面 / 按意思 · 翻书进度 · 按书分组 · 章节定位</b></p>
+
+<p align="center">
+  <img src="docs/images/search-desktop-light.png" alt="搜索页：搜划线原文，字面与按意思两种找法，逐本翻书的进度与命中数，结果按书分组并标出章节位置">
+</p>
+
+<p align="center"><b>统计 · 今日概览 · 环比 · 每日时长 · 阅读节律</b></p>
+
+<p align="center">
+  <img src="docs/images/stats-desktop-light.png" alt="统计页：总时长与连续天数、本周环比、每日时长柱状图与阅读节律">
+</p>
+
+
 
 ## 安装
 
