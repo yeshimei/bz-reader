@@ -6,7 +6,11 @@
  * 两个新入口再抄一遍就会三处各长一副样子。这里只做纯字符串：
  *   · 状态句（提示 / 正在搜 / 原因 / 找到几条）；
  *   · 按书分组的命中行，行上带 data-act / data-idx，点击由各宿主自己接。
- * 样式沿用 `bzr-xs-*`：它本来就是这套跨书搜索的语汇，弹窗与搜索页共用。
+ *
+ * 2026-11-16（检索台改版）：搜索页与搜索浮层不再沿用 `bzr-xs-*` 的旧列表，
+ * 改成与字面结果同一套书卡；`semanticGroupsHtml` 仍留给命令面板，别动。
+ * 相关度是**本次结果内归一化**的四道小格：最高分 4 格、最低 1 格。
+ * 跨查询的分数不可比，不能拿绝对阈值卡档。
  * ============================================================ */
 import type { SemanticHit } from '../../data/book-search';
 import type { ReaderBook } from '../../data/schema';
@@ -90,11 +94,76 @@ export function semanticGroupsHtml(hits: readonly SemanticHit[], books: readonly
   return groups.join('');
 }
 
+/** 分布条 / 书脊的色阶：与字面结果同一公式（第 1 本最深） */
+function tone(index: number): string {
+  if (index <= 0) return 'var(--copper)';
+  if (index === 1) return 'var(--copper-2)';
+  return 'var(--copper-3)';
+}
+
+/** 相关度分档：本次结果内归一化，最高 4 格、最低 1 格 */
+function levelOf(score: number, min: number, max: number): number {
+  if (!Number.isFinite(score)) return 1;
+  if (max <= min) return 4;
+  return Math.max(1, Math.min(4, Math.round(1 + (3 * (score - min)) / (max - min))));
+}
+
+function semCardsHtml(v: SemanticView, books: readonly ReaderBook[]): string {
+  const byBook = new Map<string, Array<{ hit: SemanticHit; idx: number }>>();
+  (v.hits ?? []).forEach((hit, idx) => {
+    if (!hit) return;
+    const id = String(hit.bookId ?? '');
+    const list = byBook.get(id) ?? [];
+    list.push({ hit, idx });
+    byBook.set(id, list);
+  });
+  const scores = v.hits.map((h) => Number(h.score)).filter((n) => Number.isFinite(n));
+  const min = scores.length ? Math.min(...scores) : 0;
+  const max = scores.length ? Math.max(...scores) : 0;
+
+  const groups: string[] = [];
+  let index = 0;
+  for (const [bookId, list] of byBook) {
+    const book = books.find((b) => b.id === bookId);
+    const title = book?.meta.title || list[0]?.hit.title || t('common.untitled');
+    const author = book?.meta.author?.trim() || '';
+    const rows = list
+      .map(({ hit, idx }) => {
+        const level = levelOf(Number(hit.score), min, max);
+        const bars = [1, 2, 3, 4]
+          .map((n) => `<i class="${n <= level ? 'on' : ''}"></i>`)
+          .join('');
+        return `<div class="bzs-srch-hit bzs-srch-semrow" role="button" tabindex="0" data-act="semhittotext" data-book="${esc(
+          hit.bookId,
+        )}" data-idx="${idx}">
+          <span class="bzs-srch-sig">${bars}</span>
+          <span class="bzs-srch-tx">${esc(semanticRowText(hit.chunk))}</span>
+          <span class="bzs-srch-loc">${esc(hit.chapter ?? '')}</span>
+          <span class="bzs-srch-go">↗</span>
+        </div>`;
+      })
+      .join('');
+    groups.push(`<section class="bzs-srch-book">
+      <div class="bzs-srch-bhead">
+        <span class="bzs-srch-spine" style="--tone:${tone(index)}"></span>
+        <div class="bzs-srch-bt"><b>${esc(title)}</b>${author ? `<span>${esc(author)}</span>` : ''}</div>
+        <span class="bzs-srch-cnt">${esc(t('search.count.passages', { n: list.length }))}</span>
+        <button type="button" class="bzs-srch-open" data-act="openbook" data-id="${esc(
+          bookId,
+        )}">${esc(t('search.open'))} ↗</button>
+      </div>
+      <div class="bzs-srch-rows">${rows}</div>
+    </section>`);
+    index += 1;
+  }
+  return groups.join('');
+}
+
 /**
- * 搜索页 / 搜索浮层里的整块结果。
+ * 搜索页 / 搜索浮层里的整块语义结果。
  *
- * 状态句永远在（哪怕没有命中），不静默失败；`is-inline` 去掉弹窗那份
- * 固定高度与内边距，让它像普通结果列表一样跟着页面流。
+ * 状态句永远在（哪怕没有命中），不静默失败；有命中时统计行 + 提示 + 书卡，
+ * 与字面结果同一套语汇。书卡的 `data-act`（翻到那一段 / 打开书）由宿主接。
  */
 export function semanticResultsHtml(
   v: SemanticView,
@@ -102,7 +171,34 @@ export function semanticResultsHtml(
   surface: SearchSurface,
   hasBook: boolean,
 ): string {
-  const status = esc(semanticStatusText(v, surface, hasBook));
-  const groups = v.hits.length ? semanticGroupsHtml(v.hits, books) : '';
-  return `<div class="bzr-xs is-inline"><div class="bzr-xs-status">${status}</div><div class="bzr-xs-hits">${groups}</div></div>`;
+  if (surface === 'book' && !hasBook) {
+    return `<div class="bzs-empty">${esc(t('search.needBook'))}</div>`;
+  }
+  if (v.problem) return `<div class="bzs-srch-semstatus">${esc(v.problem)}</div>`;
+  if (!v.kw) return `<div class="bzs-srch-semstatus">${esc(t('search.semantic.hint'))}</div>`;
+  if (v.running) return `<div class="bzs-srch-semstatus">${esc(t('search.semantic.searching'))}</div>`;
+  if (!v.ran) return `<div class="bzs-srch-semstatus">${esc(t('search.semantic.hint'))}</div>`;
+  if (!v.hits.length) {
+    return `<div class="bzs-srch-miss">
+      <div class="bzs-srch-mark">“</div>
+      <h3>${esc(t('search.semantic.empty', { n: v.books }))}</h3>
+      <p>${esc(t('search.sem.hint'))}</p>
+      <div class="bzs-srch-acts">
+        <button type="button" data-act="searchclear">${esc(t('search.clear'))}</button>
+      </div>
+    </div>`;
+  }
+
+  const total = v.hits.length;
+  const cards = semCardsHtml(v, books);
+  const bookCount = new Set(v.hits.map((h) => String(h.bookId ?? ''))).size;
+  return `<div class="bzs-srch-sum">${t('search.sem.total', {
+    n: `<b>${total}</b>`,
+  })}<span class="bzs-srch-sep">·</span>${t('search.sum.books', {
+    n: `<b>${bookCount}</b>`,
+  })}<button type="button" class="bzs-srch-clr" data-act="searchclear">${esc(
+    t('search.clear'),
+  )}</button></div>
+  <div class="bzs-srch-semhint">${esc(t('search.sem.hint'))}</div>
+  ${cards}`;
 }

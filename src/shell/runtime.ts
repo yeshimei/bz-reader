@@ -64,6 +64,13 @@ export const RT = {
     hits: [] as BodyHit[],
     done: 0,
     total: 0,
+    /**
+     * 这一轮正在读哪一本（进度块第三行）。
+     *
+     * 书名由 `kickBodySearch` 先填第一本、`onProgress` 每翻完一本换成下一本；
+     * 章节名暂时拿不到（引擎一次返回整本命中），进度行只写书名。
+     */
+    scanTitle: '',
     /** 本书范围但没有当前书：界面提示先打开一本 */
     noBook: false,
     /**

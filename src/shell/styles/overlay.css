@@ -1467,15 +1467,9 @@ body.theme-dark .bzs-tb-more {
   font-size: 18px;
 }
 
-/* 正文搜索进行中：进度 + 停止 */
-.bzs-srch-prog {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 2px 10px;
-  font-size: var(--fs-mini);
-  color: var(--t3);
-}
+/* 正文搜索进度块由 study.css 的 `.bzs-srch-prog` 统一画（2026-11-16 检索台）。
+   这里原来那条 flex 行只服务旧版搜索列表，旧列表已撤，留着会把新进度块
+   的「进度条 + 正在读哪本」压成一行。 */
 
 .bzs-hit {
   display: block;
@@ -1542,6 +1536,77 @@ body.theme-dark .bzs-tb-more {
   border-radius: var(--r-card);
   font-size: 12px;
   color: var(--t2);
+}
+
+/* ── 搜索弹窗（2026-11-16 检索台 · 紧凑版） ──
+   与书架搜索页共用同一套 `.bzs-srch-*`，这里只压尺寸：标题一行、检索卡
+   46px、四张示例卡一行且省掉说明行、分布 6px、命中行 5/12/5/10。
+   选择器都带 `.bzs-srchpanel.is-compact`，不会影响书架整页。 */
+.bzs-modal.bzs-srchmodal .bzs-mhead {
+  padding: 10px 16px;
+}
+
+.bzs-modal.bzs-srchmodal .bzs-mhead b {
+  font-size: var(--fs-strong);
+}
+
+.bzs-modal.bzs-srchmodal .bzs-mbody {
+  padding: 14px 16px 16px;
+}
+
+.bzs-srchpanel.is-compact .bzs-desk-in {
+  height: 46px;
+}
+
+.bzs-srchpanel.is-compact .bzs-desk-foot {
+  padding: 7px 0 7px 30px;
+}
+
+.bzs-srchpanel.is-compact .bzs-srch-what {
+  margin-top: 24px;
+}
+
+.bzs-srchpanel.is-compact .bzs-srch-wgrid {
+  gap: 8px;
+}
+
+.bzs-srchpanel.is-compact .bzs-srch-wcard {
+  padding: 11px 11px 10px;
+}
+
+.bzs-srchpanel.is-compact .bzs-srch-wv {
+  margin: 6px 0 0;
+  font-size: var(--fs-body);
+  line-height: 1.6;
+}
+
+.bzs-srchpanel.is-compact .bzs-srch-wn {
+  display: none;
+}
+
+.bzs-srchpanel.is-compact .bzs-srch-wgo {
+  top: 9px;
+  right: 9px;
+}
+
+.bzs-srchpanel.is-compact .bzs-srch-sum {
+  margin-top: 14px;
+}
+
+.bzs-srchpanel.is-compact .bzs-srch-distbar {
+  height: 6px;
+}
+
+.bzs-srchpanel.is-compact .bzs-srch-hit {
+  padding: 5px 12px 5px 10px;
+}
+
+.bzs-srchpanel.is-compact .bzs-srch-semrow {
+  padding: 7px 12px 7px 10px;
+}
+
+.bzs-srchpanel.is-compact .bzs-srch-loc {
+  max-width: 140px;
 }
 
 /* ── 导入 ── */

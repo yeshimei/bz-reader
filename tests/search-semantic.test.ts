@@ -53,29 +53,32 @@ describe('两个入口的范围', () => {
 });
 
 describe('搜索表单里的「按意思搜」', () => {
-  it('字面模式：范围 chips 原样在，另加一枚并列的按意思入口', () => {
+  it('字面模式：范围 chips 原样在，另有并列的「字面 / 按意思」开关', () => {
     installSource();
     const html = searchFormHtml('shelf');
     expect(html).toContain('data-act="searchscope"');
     expect(html).toContain('data-act="searchmode"');
     expect(html).toContain('data-v="semantic"');
-    expect(html).toContain('按意思搜');
+    expect(html).toContain('按意思');
+    expect(html).toContain('字面');
   });
 
-  it('书内入口的文案说清楚是「这本书」', () => {
+  it('书内入口的范围默认落在这本书：chip 亮的是「本书」', () => {
     installSource();
-    expect(searchFormHtml('book')).toContain('按意思搜这本书');
+    expect(searchFormHtml('book')).toMatch(
+      /class="bzs-srch-chip on" data-act="searchscope" data-v="book"/,
+    );
   });
 
-  it('按意思模式：有搜索按钮与回车提示，不再给范围 chips', () => {
+  it('按意思模式：范围 chips 与回车提示都在，不再有单独的搜索按钮', () => {
     installSource();
     setState({ ...DEFAULT_SHELL_STATE, searchMode: 'semantic', searchKw: '知行合一' });
     const html = searchFormHtml('shelf');
-    expect(html).toContain('data-act="semrun"');
+    expect(html).not.toContain('data-act="semrun"');
+    expect(html).toContain('回车即搜');
+    expect(html).toContain('data-act="searchscope"');
     expect(html).toContain('data-v="literal"');
-    expect(html).toContain('字面搜索');
-    expect(html).not.toContain('data-act="searchscope"');
-    expect(html).toContain('按意思搜');
+    expect(html).toContain('字面');
     expect(html).toContain('描述你要找的内容');
   });
 });
@@ -128,7 +131,7 @@ describe('按意思搜的结果区', () => {
     expect(html).toContain('先打开一本书');
   });
 
-  it('书内命中用「找到 N 段」，不说「来自 N 本」', () => {
+  it('书内命中的统计行说「N 段相近的段落」，不说「来自 N 本」', () => {
     installSource();
     setState({ ...DEFAULT_SHELL_STATE, searchMode: 'semantic', searchKw: '知行合一', bookId: 'b1' });
     RT.semantic.kw = '知行合一';
@@ -140,7 +143,7 @@ describe('按意思搜的结果区', () => {
       { bookId: 'b1', title: '我的天才女友', chapter: '第一章', chunk: '一段', score: 0.9 },
     ];
     const html = searchResultsHtml('知行合一', 'book', 'book');
-    expect(html).toContain('找到 1 段');
+    expect(html).toContain('<b>1</b> 段相近的段落');
     expect(html).not.toContain('来自 1 本');
   });
 

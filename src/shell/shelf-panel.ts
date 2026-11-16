@@ -280,16 +280,16 @@ export class ShelfPanel {
     /* 键盘可达性（S-02）：书卡与列表行都有 role=button + tabindex=0，
        但以前只有 click 委托——Tab 得过去、按 Enter/Space 毫无反应。 */
     el.addEventListener('keydown', (e) => {
-      /* 按意思搜只在回车时发请求：输入法组字中的回车不算 */
+      /* 回车即搜：按意思搜只在回车时发请求（输入法组字中的回车不算）；
+         字面搜索虽然边打边出，回车也立刻收口一次正文扫描。 */
       const target = e.target as HTMLElement;
-      if (
-        target?.dataset?.role === 'searchkw' &&
-        e.key === 'Enter' &&
-        !e.isComposing &&
-        getState().searchMode === 'semantic'
-      ) {
+      if (target?.dataset?.role === 'searchkw' && e.key === 'Enter' && !e.isComposing) {
         e.preventDefault();
-        dispatchAction('semrun', target, { repaint: () => this.render() });
+        if (getState().searchMode === 'semantic') {
+          dispatchAction('semrun', target, { repaint: () => this.render() });
+        } else {
+          kickBodySearch(getState().searchKw, getState().searchScope);
+        }
         return;
       }
       if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -382,6 +382,10 @@ export class ShelfPanel {
       if (role === 'searchkw') {
         const v = (t as HTMLInputElement).value;
         setStateQuiet({ searchKw: v });
+        /* 清空 × 只在有词时出现。这里不能整页重绘（会丢输入焦点），
+           就地切 hidden——与浮层同一套处理。 */
+        const clear = this.root?.querySelector<HTMLElement>('.bzs-desk-clear');
+        if (clear) clear.hidden = !v.trim();
         /* 按意思搜不边打边搜：一次嵌入要钱，只清旧结果、等回车 */
         if (getState().searchMode === 'semantic') {
           noteSemanticInput(v);

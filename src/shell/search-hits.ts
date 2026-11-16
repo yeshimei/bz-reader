@@ -57,8 +57,26 @@ export interface SearchResult {
   total: number;
 }
 
-/** 每组先画多少条；点「显示更多」按这个数递增 */
+/** 每组先画多少条；点「显示更多」按这个数递增（旧列表接口还在用） */
 export const HITS_PAGE = 50;
+
+/**
+ * 书卡里先画几条、点一次「显示更多」再加几条（2026-11-16 搜索页改版）。
+ *
+ * 旧的 `HITS_PAGE = 50` 是给「一页 50 行」的旧列表定的；新结果按书成卡，
+ * 一张卡先摊 3 行才看得出「这本书命中几处、要不要展开」。一次加 20 行，
+ * 点两下就能把一本长书翻完，又不会一下把整页撑到几屏。
+ */
+export const CARD_ROWS = 3;
+export const CARD_MORE_STEP = 20;
+
+/** 一张书卡现在画几行：基础行数 + 用户点出来的额外行数，封顶 total */
+export function cardVisible(total: number, extra: number, base = CARD_ROWS): number {
+  const all = Math.max(0, Math.floor(Number.isFinite(total) ? total : 0));
+  const more = Math.max(0, Math.floor(Number.isFinite(extra) ? extra : 0));
+  const first = Math.max(1, Math.floor(Number.isFinite(base) ? base : CARD_ROWS));
+  return Math.min(all, first + more);
+}
 
 /**
  * 一组里先画几条。

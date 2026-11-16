@@ -2058,34 +2058,402 @@
    2026-11-08：子页不再有自己的头栏（原来那套「← 返回 + 标题」连同样式一起
    撤了）。四页和书库/笔记共用同一条头栏，当前那颗图标亮着，再点一次回去。 */
 
-/* ── 搜索整页：表单贴顶，结果往下排 ── */
+/* ── 搜索整页（2026-11-16 · 检索台） ──
+   原型 prototype/search 的结构：目录头 + 检索卡 + 结果区。
+   全部字号只用 tokens.css 的五档；这里写的是间距、边框与字号档位。 */
 .bzs-searchpage {
-  max-width: 780px;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding-bottom: 34px;
 }
 
-.bzs-searchpage .bzs-search-in {
-  height: 44px;
-  padding: 0 14px;
+/* 目录头：搜索 + 「N 本书 · M 条划线」 + 一条细线拉到右端 */
+.bzs-srch-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.bzs-srch-head h2 {
+  margin: 0;
+  font: 500 var(--fs-title)/1.25 var(--serif);
+  letter-spacing: .02em;
+  color: var(--t1);
+}
+
+.bzs-srch-head p {
+  margin: 0;
+  font-size: var(--fs-caption);
+  letter-spacing: .07em;
+  color: var(--t3);
+}
+
+.bzs-srch-rule {
+  flex: 1;
+  height: 1px;
+  align-self: center;
+  margin-top: 10px;
+  background: var(--line);
+}
+
+/* ── 检索卡：输入、范围、搜法收在同一张卡里，一页里唯一的重元素 ── */
+.bzs-desk {
+  border: 1px solid var(--line-2);
   border-radius: var(--r-card);
+  background: var(--bg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .03), 0 20px 44px -38px rgba(0, 0, 0, .7);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 
-.bzs-searchbar {
+.bzs-desk:focus-within {
+  border-color: var(--copper-line);
+  box-shadow: 0 0 0 3px var(--copper-soft), 0 20px 44px -36px rgba(0, 0, 0, .6);
+}
+
+.bzs-desk-in {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 0 15px;
+}
+
+.bzs-desk-mag {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: var(--copper);
+}
+
+.bzs-desk-mag svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* 输入框本身永远不要自己的边框 / 焦点环：外层这张卡才是边界。
+   必须写到 `.bzs-shell` 这一级——tokens.css 的 `.bzs-shell input:not([type])`
+   特异性更高，只写 `.bzs-desk input` 压不住（会冒出一圈铜色焦点环）。 */
+.bzs-shell .bzs-desk input,
+.bzs-shell .bzs-desk input:focus,
+.bzs-shell .bzs-desk input:focus-visible {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  background: none;
+  padding: 0;
+  color: var(--t1);
+  font-size: var(--fs-strong);
+  letter-spacing: .01em;
+}
+
+.bzs-desk input::placeholder {
+  color: var(--t3);
+}
+
+.bzs-desk-clear {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--t3);
+  font-size: var(--fs-strong);
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* 组件自己的 display:grid 会盖过宿主/UA 的 [hidden]，这条必须显式写 */
+.bzs-desk-clear[hidden] {
+  display: none;
+}
+
+.bzs-desk-clear:hover {
+  color: var(--t1);
+  background: var(--copper-soft);
+}
+
+.bzs-desk-foot {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: -2px 0 16px;
+  margin: 0 13px;
+  padding: 9px 0 9px 32px;
+  border-top: 1px solid var(--line);
 }
 
-.bzs-searchbar .bzs-mini {
+.bzs-srch-sp {
+  flex: 1;
+}
+
+.bzs-srch-scopes {
+  display: flex;
+  gap: 6px;
+}
+
+.bzs-srch-chip {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: none;
+  font-size: var(--fs-caption);
+  color: var(--t2);
+  cursor: pointer;
+}
+
+.bzs-srch-chip:hover {
+  border-color: var(--line-2);
+  color: var(--t1);
+}
+
+.bzs-srch-chip.on {
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+  color: var(--copper);
+}
+
+.bzs-srch-enter {
+  font-size: var(--fs-caption);
+  letter-spacing: .04em;
+  color: var(--t3);
+}
+
+.bzs-srch-enter kbd {
+  display: inline-block;
+  min-width: 14px;
+  margin-right: 4px;
+  padding: 0 3px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  font: var(--fs-caption)/1.4 var(--ui);
+  text-align: center;
+  color: var(--t3);
+}
+
+.bzs-srch-modes {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.bzs-srch-modes button {
+  padding: 3px 9px;
+  border: 0;
+  background: none;
+  font-size: var(--fs-caption);
+  color: var(--t2);
+  cursor: pointer;
+}
+
+.bzs-srch-modes button + button {
+  border-left: 1px solid var(--line);
+}
+
+.bzs-srch-modes button.on {
+  background: var(--copper-soft);
+  color: var(--copper);
+}
+
+/* ── 空态：能搜什么 ── */
+.bzs-srch-what {
+  margin-top: 34px;
+}
+
+.bzs-srch-wh {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 13px;
+}
+
+.bzs-srch-kick {
+  font-size: var(--fs-caption);
+  letter-spacing: .2em;
+  color: var(--t3);
+}
+
+/* 宿主给 button 的是固定 30px 高 + nowrap。搜索页里的小卡、行、胶囊都要
+   自己算高度——否则三行示例字会被裁进一张 30px 的卡里（真机第一版就是这样）。
+   宽度、内边距与换行仍由各自规则决定。 */
+.bzs-srch-wcard,
+.bzs-srch-rrow,
+.bzs-srch-chip,
+.bzs-srch-clr,
+.bzs-srch-open,
+.bzs-srch-more,
+.bzs-srch-stop,
+.bzs-srch-acts button,
+.bzs-srch-modes button {
+  height: auto;
+}
+
+.bzs-srch-wcard {
+  white-space: normal;
+}
+
+.bzs-srch-wgrid {
+  display: grid;
+  /* minmax(0,1fr)：中式长句没有空格，按 min-content 会让四列各自撑开、
+     整行溢出页面（真机第一版就是这样）。0 下限才能四列等宽。 */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bzs-srch-wcard {
+  /* 宿主给 button 的是 display:flex，卡片必须显式改回 block：
+     三行小字（书名 / 示例 / 说明）要竖着排。 */
+  display: block;
+  min-width: 0;
+  position: relative;
+  text-align: left;
+  padding: 14px 14px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease),
+    transform var(--dur-move) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.bzs-srch-wcard:hover {
+  border-color: var(--copper-line);
+  background: var(--bg);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px -16px rgba(0, 0, 0, .5);
+}
+
+.bzs-srch-wcard:disabled {
+  cursor: default;
+}
+
+.bzs-srch-wcard:disabled:hover {
+  border-color: var(--line);
+  background: var(--surface);
+  transform: none;
+  box-shadow: none;
+}
+
+.bzs-srch-wk {
+  display: block;
+  font-size: var(--fs-caption);
+  letter-spacing: .16em;
+  color: var(--copper);
+}
+
+.bzs-srch-wv {
+  display: block;
+  margin: 9px 0 7px;
+  font: var(--fs-strong)/1.7 var(--serif);
+  color: var(--t1);
+  overflow-wrap: anywhere;
+}
+
+.bzs-srch-wn {
+  display: block;
+  font-size: var(--fs-caption);
+  letter-spacing: .03em;
+  color: var(--t3);
+}
+
+.bzs-srch-wgo {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: var(--fs-caption);
+  color: var(--copper);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.bzs-srch-wcard:hover .bzs-srch-wgo {
+  opacity: 1;
+}
+
+/* 最近在读：只在书架空态出现，点一行 = 按书名搜一次 */
+.bzs-srch-reading {
+  margin-top: 28px;
+}
+
+.bzs-srch-rrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 7px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+
+.bzs-srch-rrow:hover {
+  border-color: var(--copper-line);
+  background: var(--bg);
+}
+
+.bzs-srch-rspine {
+  flex: none;
+  width: 2px;
+  height: 15px;
+  border-radius: 1px;
+  background: var(--copper-2);
+}
+
+.bzs-srch-rrow b {
+  font: 500 var(--fs-body)/1.4 var(--serif);
+  letter-spacing: .02em;
+  color: var(--t1);
+  white-space: nowrap;
+}
+
+.bzs-srch-rloc {
+  font-size: var(--fs-caption);
+  color: var(--t3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bzs-srch-rbar {
+  flex: 1;
+  min-width: 40px;
+  max-width: 130px;
+  height: 3px;
   margin-left: auto;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
 }
 
-/* 「按意思搜」入口与范围 chips 分开一点：它是并列的另一种搜索方式，
-   不是第三个范围档位 */
-.bzs-searchbar .bzs-chip-sem {
-  margin-left: auto;
+.bzs-srch-rbar i {
+  display: block;
+  height: 100%;
+  background: var(--copper-3);
 }
 
+.bzs-srch-rpct {
+  flex: none;
+  width: 34px;
+  text-align: right;
+  font-size: var(--fs-caption);
+  color: var(--t3);
+}
+
+/* ── 结果：统计行 / 命中分布 / 书卡 ── */
 .bzs-hits {
   padding-bottom: 10px;
   /* 结果只上下滚：某一行万一还是溢出（超长拉丁串、表格化的摘录），
@@ -2093,9 +2461,501 @@
   overflow-x: hidden;
 }
 
-.bzs-searchpage .bzs-hit {
-  font-size: 13px;
-  line-height: 1.8;
+.bzs-srch-sum {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin: 20px 0 11px;
+  font-size: var(--fs-caption);
+  letter-spacing: .02em;
+  color: var(--t3);
+}
+
+.bzs-srch-sum b {
+  font: 500 var(--fs-strong)/1 var(--serif);
+  color: var(--t1);
+}
+
+.bzs-srch-sep {
+  color: var(--line-2);
+}
+
+.bzs-srch-clr {
+  margin-left: auto;
+  align-self: center;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  background: none;
+  font-size: var(--fs-caption);
+  color: var(--t2);
+  cursor: pointer;
+}
+
+.bzs-srch-clr:hover {
+  border-color: var(--copper-line);
+  color: var(--copper);
+}
+
+.bzs-srch-dist {
+  margin: 0 0 20px;
+}
+
+.bzs-srch-distbar {
+  display: flex;
+  gap: 4px;
+  height: 7px;
+}
+
+.bzs-srch-distseg {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--tone, var(--copper));
+  transition: opacity var(--dur) var(--ease);
+}
+
+.bzs-srch-distseg:hover {
+  opacity: .76;
+}
+
+.bzs-srch-distlegend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 15px;
+  margin-top: 9px;
+}
+
+.bzs-srch-distitem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-caption);
+  letter-spacing: .02em;
+  color: var(--t3);
+}
+
+.bzs-srch-distitem em {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--tone, var(--copper));
+}
+
+.bzs-srch-distitem b {
+  font-weight: 500;
+  color: var(--t2);
+}
+
+.bzs-srch-disttotal {
+  margin-left: auto;
+  font-size: var(--fs-caption);
+  color: var(--t3);
+}
+
+/* 书卡：一本书一张，卡头一枚书脊 */
+.bzs-srch-book {
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.bzs-srch-bhead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--bg-2), transparent);
+}
+
+.bzs-srch-spine {
+  flex: none;
+  width: 4px;
+  height: 18px;
+  border-radius: 1px;
+  background: var(--tone, var(--copper));
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, .28);
+}
+
+.bzs-srch-bt {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bzs-srch-bt b {
+  font: 500 var(--fs-strong)/1.4 var(--serif);
+  letter-spacing: .03em;
+  color: var(--t1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bzs-srch-bt span {
+  font-size: var(--fs-caption);
+  color: var(--t3);
+  white-space: nowrap;
+}
+
+.bzs-srch-cnt {
+  flex: none;
+  margin-left: 2px;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-caption);
+  color: var(--t3);
+}
+
+.bzs-srch-open {
+  margin-left: auto;
+  flex: none;
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--r-ctl);
+  background: none;
+  font-size: var(--fs-caption);
+  color: var(--t2);
+  cursor: pointer;
+}
+
+.bzs-srch-open:hover {
+  border-color: var(--copper-line);
+  color: var(--copper);
+  background: var(--copper-soft);
+}
+
+.bzs-srch-rows {
+  padding: 2px 0;
+}
+
+.bzs-srch-hit {
+  position: relative;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto 12px;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 14px 6px 12px;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+
+.bzs-srch-hit:hover {
+  background: var(--copper-soft);
+}
+
+.bzs-srch-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: var(--fs-caption);
+  letter-spacing: .06em;
+  color: var(--t3);
+  white-space: nowrap;
+}
+
+.bzs-srch-tag::before {
+  content: "";
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .8;
+}
+
+.bzs-srch-hit.is-mark .bzs-srch-tag,
+.bzs-srch-hit.is-book .bzs-srch-tag {
+  color: var(--copper);
+}
+
+.bzs-srch-hit.is-idea .bzs-srch-tag {
+  color: var(--vermilion);
+}
+
+.bzs-srch-tx {
+  min-width: 0;
+  font: var(--fs-body)/1.82 var(--serif);
+  color: var(--t1);
+  overflow-wrap: anywhere;
+}
+
+.bzs-srch-tx em {
+  font-style: normal;
+  color: var(--copper);
+  background: linear-gradient(180deg, transparent 58%, var(--copper-soft) 58%);
+  border-bottom: 1px solid var(--copper-line);
+  padding: 0 1px;
+  border-radius: 1px;
+}
+
+.bzs-srch-loc {
+  justify-self: end;
+  max-width: 168px;
+  font-size: var(--fs-caption);
+  letter-spacing: .02em;
+  color: var(--t3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bzs-srch-go {
+  justify-self: end;
+  font-size: var(--fs-caption);
+  color: var(--copper);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.bzs-srch-hit:hover .bzs-srch-go,
+.bzs-srch-hit:focus-visible .bzs-srch-go {
+  opacity: 1;
+}
+
+.bzs-srch-more {
+  display: block;
+  width: 100%;
+  padding: 9px 0 10px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  font-size: var(--fs-caption);
+  letter-spacing: .04em;
+  color: var(--t3);
+  cursor: pointer;
+}
+
+.bzs-srch-more:hover {
+  color: var(--copper);
+  background: var(--copper-soft);
+}
+
+/* 扫描中：还没出结果的几行先占着位，一眼看出还在长 */
+.bzs-srch-ghost {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 9px 14px 9px 12px;
+  align-items: center;
+}
+
+.bzs-srch-ghost i {
+  display: block;
+  height: 9px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--line) 0%, var(--bg-2) 42%, var(--line) 84%);
+  background-size: 220% 100%;
+  animation: bzs-srch-shimmer 1.5s linear infinite;
+}
+
+.bzs-srch-ghost i:nth-child(2) {
+  width: 82%;
+}
+
+.bzs-srch-ghost i:nth-child(3) {
+  width: 46px;
+}
+
+@keyframes bzs-srch-shimmer {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+
+/* 正文扫描进度：铜色块，数字 + 进度条 + 正在读哪本 */
+.bzs-srch-prog {
+  margin: 18px 0 4px;
+  padding: 12px 14px 13px 16px;
+  border: 1px solid var(--copper-line);
+  border-left-width: 3px;
+  border-radius: var(--r-card);
+  background: color-mix(in srgb, var(--copper-soft) 62%, var(--bg));
+}
+
+.bzs-srch-prog-t {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: var(--fs-caption);
+  color: var(--t2);
+}
+
+.bzs-srch-prog-t b {
+  font: 500 var(--fs-strong)/1 var(--serif);
+  color: var(--copper);
+}
+
+.bzs-srch-prog-n {
+  font: 500 var(--fs-body)/1 var(--serif);
+  color: var(--t1);
+}
+
+.bzs-srch-prog-of {
+  font-size: var(--fs-caption);
+  color: var(--t3);
+}
+
+.bzs-srch-stop {
+  margin-left: auto;
+  align-self: center;
+  padding: 3px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-ctl);
+  background: none;
+  font-size: var(--fs-caption);
+  color: var(--t2);
+  cursor: pointer;
+}
+
+.bzs-srch-stop:hover {
+  border-color: var(--vermilion);
+  color: var(--vermilion);
+}
+
+.bzs-srch-progbar {
+  height: 3px;
+  margin: 10px 0 8px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.bzs-srch-progbar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--copper);
+}
+
+.bzs-srch-progsub {
+  font-size: var(--fs-caption);
+  letter-spacing: .03em;
+  color: var(--t3);
+}
+
+.bzs-srch-progsub b {
+  font-weight: 500;
+  color: var(--t2);
+}
+
+/* ── 无结果：不写「无结果」三个字收工 ── */
+.bzs-srch-miss {
+  padding: 30px 0 20px;
+  text-align: center;
+}
+
+.bzs-srch-mark {
+  /* 装饰性引号：按标题字号放大，不另立一个字号档 */
+  font: 400 calc(var(--fs-title) * 2.9)/0.8 var(--serif);
+  color: var(--copper-line);
+}
+
+.bzs-srch-miss h3 {
+  margin: 18px 0 9px;
+  font: 500 var(--fs-title)/1.45 var(--serif);
+  letter-spacing: .02em;
+  color: var(--t1);
+}
+
+.bzs-srch-miss p {
+  margin: 0 auto;
+  max-width: 390px;
+  font-size: var(--fs-mini);
+  line-height: 1.9;
+  color: var(--t2);
+}
+
+.bzs-srch-acts {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.bzs-srch-acts button {
+  padding: 7px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+  background: none;
+  font-size: var(--fs-mini);
+  color: var(--t2);
+  cursor: pointer;
+}
+
+.bzs-srch-acts button:hover {
+  border-color: var(--copper-line);
+  color: var(--copper);
+}
+
+.bzs-srch-acts button.is-pri {
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+  color: var(--copper);
+}
+
+.bzs-srch-acts button.is-pri:hover {
+  background: var(--copper);
+  border-color: var(--copper);
+  color: #fff;
+}
+
+/* ── 按意思搜：同一套书卡，行首换成四道相关度小格 ── */
+.bzs-srch-semstatus {
+  margin: 2px 0 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  font-size: var(--fs-caption);
+  line-height: 1.9;
+  color: var(--t2);
+}
+
+.bzs-srch-semhint {
+  margin: 14px 0 16px;
+  font-size: var(--fs-caption);
+  line-height: 1.9;
+  color: var(--t3);
+}
+
+.bzs-srch-semrow {
+  grid-template-columns: 46px minmax(0, 1fr) auto 12px;
+  padding: 9px 14px 9px 12px;
+}
+
+.bzs-srch-sig {
+  display: flex;
+  gap: 2.5px;
+  align-self: center;
+}
+
+.bzs-srch-sig i {
+  width: 5px;
+  height: 11px;
+  border-radius: 1px;
+  background: var(--line-2);
+  opacity: .55;
+}
+
+.bzs-srch-sig i.on {
+  background: var(--copper);
+  opacity: 1;
+}
+
+/* 没搜成的书：一行说明，不弹错误框 */
+.bzs-srch-fail {
+  margin: 8px 0 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  font-size: var(--fs-mini);
+  color: var(--t2);
 }
 
 /* ── 导入整页：库内扫描在上，本地文件在下 ── */

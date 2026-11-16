@@ -1481,3 +1481,96 @@
     padding-bottom: 4px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   搜索页（2026-11-16 · 检索台）
+   -----------------------------------------------------------
+   窄屏只做三件事：四张示例卡改 2×2、检索卡压到 48px 并让 foot 换行、
+   书卡「打开」折成 ↗、行尾章节名缩到 90px（不隐藏：章节名是命中坐标）。
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 820px) {
+  .bzs-searchpage {
+    max-width: 100%;
+  }
+
+  .bzs-desk-in {
+    height: 48px;
+  }
+
+  /* iOS 聚焦小于 16px 会自动放大整页；换成 16px 挡住这一下 */
+  .bzs-shell .bzs-desk input,
+  .bzs-shell .bzs-desk input:focus {
+    font-size: 16px;
+  }
+
+  .bzs-desk-foot {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding-left: 14px;
+  }
+
+  /* chips 一行、回车提示与模式一行 */
+  .bzs-srch-enter {
+    margin-left: auto;
+  }
+
+  .bzs-srch-wgrid,
+  .bzs-srchpanel.is-compact .bzs-srch-wgrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .bzs-srch-wv,
+  .bzs-srchpanel.is-compact .bzs-srch-wv {
+    font-size: var(--fs-body);
+  }
+
+  .bzs-srch-rloc {
+    max-width: 110px;
+  }
+
+  .bzs-srch-distbar {
+    width: 100%;
+  }
+
+  .bzs-srch-bt span {
+    display: none;
+  }
+
+  /* 卡头「打开 ↗」折成一枚图标：字太占横向空间 */
+  .bzs-srch-open {
+    padding: 3px 7px;
+    font-size: 0;
+  }
+
+  .bzs-srch-open::before {
+    content: "↗";
+    font-size: var(--fs-caption);
+  }
+
+  .bzs-srch-hit {
+    grid-template-columns: 36px minmax(0, 1fr) auto 0;
+    gap: 8px;
+  }
+
+  .bzs-srch-semrow {
+    grid-template-columns: 40px minmax(0, 1fr) auto 0;
+  }
+
+  .bzs-srch-loc {
+    max-width: 90px;
+  }
+}
+
+/* 真机触摸热区：清空键与卡头按钮抬到指尖放得下的尺寸（桌面维持原型尺度） */
+.bzs-shell.is-mobile .bzs-desk-clear {
+  width: 32px;
+  height: 32px;
+}
+
+.bzs-shell.is-mobile .bzs-srch-chip {
+  min-height: 30px;
+}
+
+.bzs-shell.is-mobile .bzs-srch-open {
+  min-height: 30px;
+}

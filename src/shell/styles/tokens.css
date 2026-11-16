@@ -111,6 +111,11 @@
   --copper: var(--interactive-accent, var(--text-accent, #7856d6));
   --copper-soft: color-mix(in srgb, var(--interactive-accent, #7856d6) 12%, transparent);
   --copper-line: color-mix(in srgb, var(--interactive-accent, #7856d6) 38%, transparent);
+  /* 强调色的两档派生（2026-11-16 搜索页）：命中分布 / 书脊的色阶。
+     第 1 本用 --copper，第 2 本 78%，第 3 本起 52% 混回底色。深色主题不另写
+     色值——同一公式在暗底上自动提亮，少一套要跟着主题维护的硬编码。 */
+  --copper-2: color-mix(in srgb, var(--copper) 78%, var(--bg));
+  --copper-3: color-mix(in srgb, var(--copper) 52%, var(--bg));
   --vermilion: var(--text-error, #c0392b);
   --shadow: 0 12px 32px var(--background-modifier-box-shadow, rgba(0, 0, 0, .16));
   --shadow-lg: 0 28px 70px var(--background-modifier-box-shadow, rgba(0, 0, 0, .24));

@@ -58,20 +58,24 @@ describe('搜索表单', () => {
     expect(searchFormHtml()).not.toContain('搜的是');
   });
 
-  it('有词才出现清空键', () => {
+  it('有词才露出清空键（没词时渲染但 hidden，输入时不重绘也能切）', () => {
     installSource();
     setState({ ...DEFAULT_SHELL_STATE, searchKw: '天才' });
-    expect(searchFormHtml()).toContain('data-act="searchclear"');
+    const withKw = searchFormHtml();
+    expect(withKw).toContain('data-act="searchclear"');
+    expect(withKw).not.toMatch(/class="bzs-desk-clear"[^>]*hidden/);
     setState({ ...DEFAULT_SHELL_STATE, searchKw: '' });
-    expect(searchFormHtml()).not.toContain('data-act="searchclear"');
+    const empty = searchFormHtml();
+    expect(empty).toContain('data-act="searchclear"');
+    expect(empty).toMatch(/class="bzs-desk-clear"[^>]*hidden/);
   });
 });
 
 describe('搜索结果', () => {
-  it('空词时提示里不再提「正文」', () => {
+  it('空词时是「能搜什么」空态，不再提「正文」入口', () => {
     installSource();
     const html = searchResultsHtml('', 'all');
-    expect(html).toContain('输入关键词');
+    expect(html).toContain('能搜什么');
     expect(html).not.toContain('搜正文');
   });
 
@@ -124,7 +128,8 @@ describe('搜索结果', () => {
     RT.body.done = 0;
     RT.body.total = 2;
     const html = searchResultsHtml('巴尔干', 'all');
-    expect(html).toContain('正在搜正文');
+    expect(html).toContain('正在翻');
+    expect(html).toContain('已找到');
     expect(html).toContain('data-act="searchstop"');
     expect(html).not.toContain('没有找到');
   });
@@ -151,28 +156,33 @@ describe('搜索结果的截断提示', () => {
     return (html.match(/data-act="hittotext"/g) ?? []).length;
   }
 
-  it('超过 50 条：先画 50 条，头写真实条数与已显示条数', () => {
+  it('超过 3 条：先画 3 条，卡头写真实条数，卡底写还剩几条', () => {
     installSource();
     setState({ ...DEFAULT_SHELL_STATE, bookId: 'b1' });
     RT.body.kw = '的';
     RT.body.hits = dense(60);
     const html = searchResultsHtml('的', 'all');
-    expect(rowsOf(html)).toBe(50);
-    expect(html).toContain('共 60 处');
-    expect(html).toContain('已显示 50 处');
+    expect(rowsOf(html)).toBe(3);
+    expect(html).toContain('<b>60</b>');
+    expect(html).toContain('处命中');
+    expect(html).toContain('还有 57 处');
     expect(html).toContain('data-act="searchmore"');
   });
 
-  it('展开之后按 50 递增，全部画完就不再给「显示更多」', () => {
+  it('展开之后按 20 递增，全部画完就不再给「显示更多」', () => {
     installSource();
     setState({ ...DEFAULT_SHELL_STATE, bookId: 'b1' });
     RT.body.kw = '的';
     RT.body.hits = dense(60);
-    RT.body.more[`的\u0001b2`] = 50;
+    RT.body.more[`的\u0001b2`] = 20;
     const html = searchResultsHtml('的', 'all');
-    expect(rowsOf(html)).toBe(60);
-    expect(html).not.toContain('data-act="searchmore"');
-    expect(html).not.toContain('已显示');
+    expect(rowsOf(html)).toBe(23);
+    expect(html).toContain('data-act="searchmore"');
+
+    RT.body.more[`的\u0001b2`] = 60;
+    const all = searchResultsHtml('的', 'all');
+    expect(rowsOf(all)).toBe(60);
+    expect(all).not.toContain('data-act="searchmore"');
   });
 
   it('没超上限时不加「已显示」这种废话', () => {

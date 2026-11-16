@@ -258,12 +258,16 @@ export function overlayRenderKey(s: {
   overlay: OverlayState | null;
   ideaConfirm: boolean;
   searchMode?: 'literal' | 'semantic';
+  searchFloatScope?: 'book' | 'all';
 }): string {
   const base = overlayKey(s.overlay);
   if (!base) return '';
-  /* 搜索浮层里「字面 / 按意思」是同一张弹层里的可见状态：不进这个键，
-     切方式时 sync 会认为内容没变，界面停在旧结果上。 */
-  const mode = s.overlay?.kind === 'search' ? `|${s.searchMode ?? 'literal'}` : '';
+  /* 搜索浮层里「字面 / 按意思」与范围都是同一张弹层里的可见状态：不进这个键，
+     切方式 / 切范围时 sync 会认为内容没变，界面停在旧结果或旧 chip 上。 */
+  const mode =
+    s.overlay?.kind === 'search'
+      ? `|${s.searchMode ?? 'literal'}|${s.searchFloatScope ?? 'book'}`
+      : '';
   return s.overlay?.kind === 'idea' && s.ideaConfirm ? `${base}|confirm${mode}` : `${base}${mode}`;
 }
 
@@ -284,10 +288,23 @@ export interface ShellState {
   libSelect: boolean;
   /** 已勾选的书 id；批量动作只认当前可见的那批，见 book-select.ts */
   libSel: string[];
-  /* 搜索（书架整页与阅读页浮层共用一份，切页不丢词） */
+  /* 搜索（书架整页与阅读页浮层共用一份词，范围各记一份） */
   searchKw: string;
-  /** 搜索范围：「本书 / 全库」两档（2026-11-08 起正文已并入这两档） */
+  /**
+   * 书架搜索页的范围：「本书 / 全库」两档（2026-11-08 起正文已并入这两档）。
+   *
+   * 2026-11-16 改版后**默认全库**：书架是找书的地方，默认只搜当前这本书
+   * 等于把「书架搜索」缩成「当前书搜索」。阅读页弹窗另有一份
+   * `searchFloatScope`，默认本书——两边各记各的，互不覆盖。
+   */
   searchScope: 'book' | 'all';
+  /**
+   * 阅读页搜索弹窗的范围，默认本书。
+   *
+   * 与 `searchScope` 分开存：在书里搜过一次全库，回到书架不该被带着走；
+   * 反过来也一样。打开弹窗时不强写，沿用用户上一次在弹窗里的选择。
+   */
+  searchFloatScope: 'book' | 'all';
   /**
    * 搜索方式：字面 / 按意思（2026-11-11）。
    *
@@ -393,7 +410,8 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   libSelect: false,
   libSel: [],
   searchKw: '',
-  searchScope: 'book',
+  searchScope: 'all',
+  searchFloatScope: 'book',
   searchMode: 'literal',
   noteFilter: 'all',
   noteKw: '',
@@ -471,6 +489,22 @@ export function loadShellState(): ShellState {
 
 export function getState(): ShellState {
   return state;
+}
+
+/**
+ * 某个搜索出口现在用的范围。
+ *
+ * 书架整页与阅读页弹窗是两份状态：`shelf` 读书架那份，`book` 读弹窗那份。
+ * 动作层、渲染层、正文扫描都从这里取，别各自判 `overlay.kind`——
+ * 判据分散后总有一处忘记，表现是「弹窗里切了本书，正文却按全库扫」。
+ */
+export function searchScopeOf(surface: 'shelf' | 'book'): 'book' | 'all' {
+  return surface === 'book' ? state.searchFloatScope : state.searchScope;
+}
+
+/** 写某一处的搜索范围；另一处原样不动。 */
+export function setSearchScope(surface: 'shelf' | 'book', scope: 'book' | 'all'): void {
+  setState(surface === 'book' ? { searchFloatScope: scope } : { searchScope: scope });
 }
 
 /**

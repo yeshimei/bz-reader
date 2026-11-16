@@ -97,7 +97,9 @@ import {
   mutateState,
   nextStudyPage,
   openOverlay,
+  searchScopeOf,
   setGoal,
+  setSearchScope,
   setState,
   setStateQuiet,
   toggleFav,
@@ -110,7 +112,7 @@ import {
   type AiContextItem,
 } from './ai-context';
 import { aiPromptLabels } from './ai-labels';
-import { HITS_PAGE } from './search-hits';
+import { CARD_MORE_STEP } from './search-hits';
 import { kickBodySearch, refreshBodyHits, resetBodySearch, stopBodySearch } from './search-run';
 import { currentSearchSurface, kickSemanticSearch, resetSemanticSearch } from './search-semantic';
 import { bzClipbookUsed, bzEmbedder, bzNotesReady, openBzClipbook, openBzPreview, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
@@ -271,6 +273,25 @@ async function pickAndRelocate(src: ShellSource, book: ReaderBook): Promise<void
 /** 统一的重绘出口：所有视图都订阅 state，改完自然会重画 */
 function repaint(): void {
   mutateState(() => undefined);
+}
+
+/**
+ * 重绘之后把光标放回搜索框（点示例卡 / 最近在读之后少点一下）。
+ *
+ * 只在真正有搜索框的出口里找：弹窗开着找 `.bzs-scrim`，否则找 `.bzs-shell`。
+ * 书架搜索页与弹窗都可能有 `[data-role="searchkw"]`，按 surface 取才不会
+ * 聚焦到弹窗背后那个输入框。
+ */
+function focusSearchInput(surface: 'shelf' | 'book'): void {
+  if (typeof document === 'undefined') return;
+  window.setTimeout(() => {
+    const root = document.querySelector<HTMLElement>(surface === 'book' ? '.bzs-scrim' : '.bzs-shell');
+    const input = root?.querySelector<HTMLInputElement>('[data-role="searchkw"]');
+    if (!input) return;
+    input.focus();
+    const len = input.value.length;
+    input.setSelectionRange(len, len);
+  }, 0);
 }
 
 function overlay(kind: OverlayKind, extra: Record<string, unknown> = {}): void {
@@ -3207,6 +3228,19 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     }
 
     /* ── 搜索 ── */
+    case 'searchfill': {
+      /* 空态示例卡 / 最近在读：点一下就把示例词填进搜索框并立刻搜。
+         切回字面搜索：示例词都是原文，按意思搜它没有意义。 */
+      const kw = String(d.kw ?? '').trim();
+      if (!kw) break;
+      const surface = currentSearchSurface();
+      setState({ searchKw: kw, searchMode: 'literal' });
+      resetSemanticSearch();
+      kickBodySearch(kw, searchScopeOf(surface));
+      repaint();
+      focusSearchInput(surface);
+      break;
+    }
     case 'searchmode': {
       const next = d.v === 'semantic' ? 'semantic' : 'literal';
       if (next === getState().searchMode) break;
@@ -3222,7 +3256,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       } else {
         resetSemanticSearch();
         /* 切回字面：词与范围都还在，照原样重开一轮正文搜索 */
-        kickBodySearch(getState().searchKw, getState().searchScope);
+        kickBodySearch(getState().searchKw, searchScopeOf(surface));
       }
       break;
     }
@@ -3253,7 +3287,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         notify(t('notice.search.needBook'), 'info');
         break;
       }
-      setState({ searchScope: d.v });
+      /* 两个出口各记各的范围：书架全库、阅读页弹窗本书，互不覆盖 */
+      setSearchScope(currentSearchSurface(), d.v);
       kickBodySearch(getState().searchKw, d.v);
       repaint();
       break;
@@ -3269,7 +3304,7 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const bookId = d.book || '';
       if (!kw || !bookId) break;
       const key = `${kw}\u0001${bookId}`;
-      RT.body.more[key] = (RT.body.more[key] ?? 0) + HITS_PAGE;
+      RT.body.more[key] = (RT.body.more[key] ?? 0) + CARD_MORE_STEP;
       refreshBodyHits();
       break;
     }

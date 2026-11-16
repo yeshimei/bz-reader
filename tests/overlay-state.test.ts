@@ -50,6 +50,15 @@ describe('overlayRenderKey', () => {
   it('没有弹层时是空串（和 overlayKey 一致）', () => {
     expect(overlayRenderKey({ overlay: null, ideaConfirm: false })).toBe('');
   });
+
+  /* 2026-11-16 搜索页改版：弹窗里切「本书 / 全库」只改 searchFloatScope，
+     overlayKey 看不出区别；不进内容键的话 chip 停在旧选项、结果却已经换了。 */
+  it('搜索浮层换范围也要换键（chip 与结果不能各说各话）', () => {
+    const o = { kind: 'search' } as const;
+    const book = overlayRenderKey({ overlay: o, ideaConfirm: false, searchFloatScope: 'book' });
+    const all = overlayRenderKey({ overlay: o, ideaConfirm: false, searchFloatScope: 'all' });
+    expect(all).not.toBe(book);
+  });
 });
 
 describe('isFloatOverlay', () => {

@@ -70,6 +70,7 @@ export function resetBodySearch(): void {
   RT.body.hits = [];
   RT.body.done = 0;
   RT.body.total = 0;
+  RT.body.scanTitle = '';
   RT.body.noBook = false;
   RT.body.more = {};
   RT.body.failed = [];
@@ -103,6 +104,7 @@ export function kickBodySearch(kw: string, scope: 'book' | 'all'): void {
   RT.body.hits = [];
   RT.body.done = 0;
   RT.body.total = 0;
+  RT.body.scanTitle = '';
   RT.body.noBook = false;
   RT.body.more = {};
   RT.body.failed = [];
@@ -138,6 +140,7 @@ export function kickBodySearch(kw: string, scope: 'book' | 'all'): void {
   /* 防抖期就标成「正在搜」：界面先给出反馈，别闪一下「没有找到」再变 */
   RT.body.running = true;
   RT.body.total = targets.length;
+  RT.body.scanTitle = targets[0]?.meta.title ?? '';
   notify();
 
   const books = targets.map((b) => ({ id: b.id, title: b.meta.title }));
@@ -193,6 +196,9 @@ async function run(seq: number, q: string, books: Array<{ id: string; title: str
       if (seq !== RT.body.seq) return;
       RT.body.done = done;
       RT.body.total = total;
+      /* 翻完一本，进度行改成下一本；最后一本翻完保留它的名字 */
+      const next = books[done];
+      if (next) RT.body.scanTitle = next.title;
       notify();
     },
   });
