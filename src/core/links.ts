@@ -49,3 +49,9 @@ export const CLIP_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1h3WB6XEL4';
  * 分成两条只会在换视频时漏改一处。
  */
 export const TTS_TUTORIAL_URL = 'https://www.bilibili.com/video/BV17psV6wEP7';
+
+/**
+ * bz Review 的教程（2026-11-17）：占位——插件本周上架，教程地址待定。
+ * 空串时按钮只弹一句「教程整理中」，不去打开不相干的视频（指错比没有更糟）。
+ */
+export const REVIEW_TUTORIAL_URL = '';

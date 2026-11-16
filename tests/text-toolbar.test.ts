@@ -30,29 +30,41 @@ const labels = (html: string): string[] =>
 const menuLabels = (html: string): string[] =>
   [...html.matchAll(/<button[^>]*class="bzs-tb-mi[^"]*"[^>]*>([^<]*)<\/button>/g)].map((m) => m[1]);
 
-describe('toolbarLayout · 两种排布', () => {
-  it('桌面：五颗全摊开，没有 ⋯', () => {
-    const l = toolbarLayout({ marked: false });
+describe('toolbarLayout · 入口门禁', () => {
+  it('没装 bz Review（review=false）时没有「复习」这一颗', () => {
+    const l = toolbarLayout({ marked: false, review: false });
+    expect(l.visible.map((i) => i.act)).not.toContain('review');
     expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI', '双链', '复制']);
+  });
+  it('装了（review=true）时「复习」紧跟书摘', () => {
+    const l = toolbarLayout({ marked: false, review: true });
+    expect(l.visible.map((i) => i.act)).toContain('review');
+  });
+});
+
+describe('toolbarLayout · 两种排布', () => {
+  it('桌面：六颗全摊开，没有 ⋯', () => {
+    const l = toolbarLayout({ marked: false });
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', '复习', 'AI', '双链', '复制']);
     expect(l.overflow).toEqual([]);
   });
 
   it('桌面 + 已有划线：删除排在最后', () => {
     const l = toolbarLayout({ marked: true });
-    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI', '双链', '复制', '删除']);
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', '复习', 'AI', '双链', '复制', '删除']);
     expect(l.visible.at(-1)).toBe(DELETE_ITEM);
   });
 
   it('手机：主路径三颗，其余收进 ⋯', () => {
     const l = toolbarLayout({ marked: false, compact: true });
-    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI']);
-    expect(l.overflow.map((i) => t(i.key))).toEqual(['双链', '复制']);
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', '复习']);
+    expect(l.overflow.map((i) => t(i.key))).toEqual(['AI', '双链', '复制']);
   });
 
   it('手机 + 已有划线：删除也收进 ⋯，不占主路径', () => {
     const l = toolbarLayout({ marked: true, compact: true });
-    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI']);
-    expect(l.overflow.map((i) => t(i.key))).toEqual(['双链', '复制', '删除']);
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', '复习']);
+    expect(l.overflow.map((i) => t(i.key))).toEqual(['AI', '双链', '复制', '删除']);
   });
 
   it('手机没有划线：⋯ 里没有删除', () => {
@@ -124,8 +136,8 @@ describe('toolbarHtml · 同一条工具条', () => {
   it('划词与点划线：按钮与顺序完全一致，只换 data-act', () => {
     const sel = toolbarHtml({ marked: false, acts: SELECTION_ACTS });
     const mark = toolbarHtml({ marked: true, acts: MARK_ACTS });
-    expect(labels(sel)).toEqual(['想法', '书摘', 'AI', '双链', '复制']);
-    expect(labels(mark).slice(0, 5)).toEqual(labels(sel));
+    expect(labels(sel)).toEqual(['想法', '书摘', '复习', 'AI', '双链', '复制']);
+    expect(labels(mark).slice(0, 6)).toEqual(labels(sel));
     expect(labels(mark).at(-1)).toBe('删除');
     expect(sel).toContain('data-act="selidea"');
     expect(mark).toContain('data-act="hlidea"');
@@ -149,7 +161,7 @@ describe('toolbarHtml · 同一条工具条', () => {
   it('手机：⋯ 常驻，菜单里是双链 / 复制 / 删除', () => {
     const html = toolbarHtml({ marked: true, compact: true, acts: MARK_ACTS });
     expect(html).toContain('data-act="more"');
-    expect(menuLabels(html)).toEqual(['双链', '复制', '删除']);
+    expect(menuLabels(html)).toEqual(['AI', '双链', '复制', '删除']);
     expect(html).toContain('data-act="copylink"');
   });
 
@@ -180,7 +192,7 @@ describe('toolbarHtml · 同一条工具条', () => {
   });
 
   it('按钮表只有一份，两端共用', () => {
-    expect(TOOLBAR_ITEMS.map((i) => i.act)).toEqual(['idea', 'quote', 'ai', 'bilink', 'copy']);
+    expect(TOOLBAR_ITEMS.map((i) => i.act)).toEqual(['idea', 'quote', 'review', 'ai', 'bilink', 'copy']);
   });
 });
 
@@ -260,19 +272,19 @@ describe('⋯ 菜单：开得开、收得起', () => {
 describe('toolbarLayout · 知识库两颗', () => {
   it('关着的时候一颗都不多（老布局原样）', () => {
     const l = toolbarLayout({ marked: false, kb: false });
-    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI', '双链', '复制']);
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', '复习', 'AI', '双链', '复制']);
     expect(l.overflow).toEqual([]);
   });
 
   it('打开时排在 AI 右边，顺序固定', () => {
     const l = toolbarLayout({ marked: true, kb: true });
-    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI', '存为名词', '存为段落', '双链', '复制', '删除']);
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', '复习', 'AI', '存为名词', '存为段落', '双链', '复制', '删除']);
     expect(l.overflow).toEqual([]);
   });
 
   it('窄窗：知识库两颗进 ⋯，主路径五颗留在胶囊上', () => {
     const l = toolbarLayout({ marked: false, kb: true, narrow: true });
-    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI', '双链', '复制']);
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', '复习', 'AI', '双链', '复制']);
     expect(l.overflow.map((i) => t(i.key))).toEqual(['存为名词', '存为段落']);
   });
 
@@ -289,8 +301,8 @@ describe('toolbarLayout · 知识库两颗', () => {
 
   it('手机：三颗主路径，知识库两颗与双链 / 复制一起进 ⋯', () => {
     const l = toolbarLayout({ marked: false, kb: true, compact: true });
-    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI']);
-    expect(l.overflow.map((i) => t(i.key))).toEqual(['存为名词', '存为段落', '双链', '复制']);
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', '复习']);
+    expect(l.overflow.map((i) => t(i.key))).toEqual(['AI', '存为名词', '存为段落', '双链', '复制']);
   });
 });
 
@@ -370,13 +382,13 @@ const iconNames = (html: string): string[] =>
 describe('toolbarHtml · 图标模式', () => {
   it('每颗主路径都有图标，且没有可见文字', () => {
     const html = toolbarHtml({ marked: true, acts: MARK_ACTS, icon: true });
-    expect(iconNames(html)).toEqual(['lightbulb', 'quote', 'sparkles', 'link-2', 'copy', 'trash-2']);
+    expect(iconNames(html)).toEqual(['lightbulb', 'quote', 'layers', 'sparkles', 'link-2', 'copy', 'trash-2']);
     expect(labels(html)).toEqual([]);
   });
 
   it('文案进 title 与 aria-label（纯图标也得说清是什么）', () => {
     const html = toolbarHtml({ marked: false, acts: SELECTION_ACTS, icon: true });
-    for (const word of ['想法', '书摘', 'AI', '双链', '复制']) {
+    for (const word of ['想法', '书摘', '复习', 'AI', '双链', '复制']) {
       expect(html, word).toContain(`title="${word}"`);
       expect(html, word).toContain(`aria-label="${word}"`);
     }
@@ -391,7 +403,7 @@ describe('toolbarHtml · 图标模式', () => {
   it('「⋯」换成横排三点图标，菜单项仍是文字', () => {
     const html = toolbarHtml({ marked: true, compact: true, acts: MARK_ACTS, icon: true });
     expect(html).toContain('data-icon="more-horizontal"');
-    expect(menuLabels(html)).toEqual(['双链', '复制', '删除']);
+    expect(menuLabels(html)).toEqual(['AI', '双链', '复制', '删除']);
   });
 
   it('动作名一个都不变（图标只是外壳）', () => {

@@ -50,6 +50,11 @@ export interface SettingsView {
    * 还没探测到，按「未连接」画状态并给教程出口，不摆假开关。
    */
   bz?: { ok: boolean; version: string; model: string; entry: boolean; notes: boolean };
+  /**
+   * bz Review 装没装（「插件」分组据此显示状态与安装引导）。
+   * 现探一次、不缓存：装完重进设置页就能看到新状态。
+   */
+  review?: { installed: boolean };
   /** 当前这本书的离线音频（烤进书库的包）：null = 还没识别到 */
   offline?: { chapters: number; mb: number } | null;
   /** 整本预生成是否正在跑（按钮据此换成「停止」） */
@@ -766,6 +771,28 @@ export function viewSettings(v: SettingsView): string {
       }
     </div>`;
 
+  /* 「插件」组（2026-11-17）：bz review 的状态与安装引导。
+     布局与 bz 组同款：一段定位介绍 + 教程链接；没装时补一句引导去市场。
+     装没装由 v.review.installed 决定（shelf-page 现探，不缓存）。 */
+  const reviewOk = !!v.review?.installed;
+  const plugins = `<div class="bzs-setgrp">
+      <h3>${t('settings.grp.plugins')}</h3>
+      <div class="bzs-bzitem">
+        <div class="bzs-setrow"><label>bz review</label>
+          <span class="bzs-kbstate${reviewOk ? ' on' : ''}"><i></i>${t(
+            reviewOk ? 'settings.plugin.review.installed' : 'settings.plugin.review.missing',
+          )}</span></div>
+        <div class="bzs-bznote">${t('settings.plugin.review.desc')}${tutBtn('reviewtut', 'settings.plugin.review.tut')}</div>
+        ${
+          reviewOk
+            ? ''
+            : `<button class="bzs-bztut" data-act="reviewinstall">${ico('video')}<span>${t(
+                'settings.plugin.review.install',
+              )}</span></button>`
+        }
+      </div>
+    </div>`;
+
   /* 激活之后这组变成「凭证」：码只读，日常不让人误改。
      但**必须留一个换码入口**——先用群里的 7 天试用，再买正式版，
      如果输入框只读又没有按钮，就变成「买了却填不进去」。
@@ -853,7 +880,7 @@ export function viewSettings(v: SettingsView): string {
      切点仍按原顺序切，不重排其余分组：窄屏叠成一列时「左列全部 → 右列全部」
      仍是界面 → 版式 → 外观 → PDF → 标注 → 数据 → 朗读 → AI → 授权。 */
   const leftCol = `${languageGrp}${layout}${look}${pdf}`;
-  const rightCol = `${marks}${data}${tts}${ai}${bz}${lic}`;
+  const rightCol = `${marks}${data}${tts}${ai}${bz}${plugins}${lic}`;
 
   return `<div class="bzs-set-page">${aboutBar(v.version || '', paid, ent.patron, ent.name)}<div class="bzs-set-grid"><div class="bzs-set-col">${leftCol}</div><div class="bzs-set-col">${rightCol}</div></div>${header}${keys}</div>`;
 }

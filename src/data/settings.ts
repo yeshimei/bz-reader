@@ -184,6 +184,12 @@ export interface ReaderSettings {
    * 今天要读的那几篇。口径见 data/clip-epub/scope.ts（saved 算没读过）。
    */
   clipScope: ClipScope;
+  /**
+   * 上次制卡用的复习方式（增强5：下次默认选中它）。
+   * 只在这台机器上记（settings 不跟库同步）：换台电脑从默认开始，合理。
+   * 'plain' 全文回忆 / 'flashcard' 抽认卡 / 'quiz' 做题。
+   */
+  reviewLastMode: 'plain' | 'flashcard' | 'quiz';
   /*
    * 这里**故意没有** license。
    *
@@ -238,6 +244,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   aiSpoiler: false,
   clipBook: false,
   clipScope: DEFAULT_CLIP_SCOPE,
+  reviewLastMode: 'flashcard',
 };
 
 function str(v: unknown, fallback = ''): string {
@@ -443,6 +450,10 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     clipBook: s.clipBook === true,
     /* 缺字段（1.3.1 之前没有）= 未读：这是用户定的默认值，不是「没选」 */
     clipScope: normalizeClipScope(s.clipScope),
+    /* 上次制卡方式：脏值/缺字段回落默认抽认卡，不让坏数据决定下次界面 */
+    reviewLastMode: s.reviewLastMode === 'plain' || s.reviewLastMode === 'flashcard' || s.reviewLastMode === 'quiz'
+      ? s.reviewLastMode
+      : DEFAULT_SETTINGS.reviewLastMode,
   };
 }
 

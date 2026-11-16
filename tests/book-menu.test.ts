@@ -10,6 +10,17 @@ import { bookMenuItems } from '../src/shell/book-menu';
 
 const plain = { done: false, fav: false };
 
+describe('bookMenuItems · 加入复习入口门禁', () => {
+  it('没装 Review 时没有「加入复习」', () => {
+    expect(bookMenuItems(plain).map((i) => i.act)).not.toContain('review');
+  });
+  it('装了 Review 时「加入复习」紧跟书籍详情', () => {
+    const acts = bookMenuItems({ ...plain, review: true }).map((i) => i.act);
+    expect(acts).toContain('review');
+    expect(acts.indexOf('review')).toBe(acts.indexOf('detail') + 1);
+  });
+});
+
 describe('bookMenuItems · 条目与顺序', () => {
   it('九条都在，顺序是 阅读 / 详情 / 补全信息 / 导出 / 收藏 / 标为读完 / 改名 / 归入分类 / 移出书架', () => {
     expect(bookMenuItems(plain).map((i) => i.title)).toEqual([

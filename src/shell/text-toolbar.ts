@@ -25,6 +25,7 @@ export type ToolbarAct =
   | 'ocr'
   | 'idea'
   | 'quote'
+  | 'review'
   | 'ai'
   | 'term'
   | 'passage'
@@ -56,6 +57,9 @@ export interface ToolbarItem {
 export const TOOLBAR_ITEMS: readonly ToolbarItem[] = [
   { act: 'idea', key: 'tool.idea', icon: 'lightbulb' },
   { act: 'quote', key: 'tool.quote', icon: 'quote' },
+  /* 加入复习（2026-11-16）：紧跟「书摘」——两者都是「把这段留下来」，
+     只是书摘留在库里、复习交给 bz Review 排期。 */
+  { act: 'review', key: 'tool.review', icon: 'layers' },
   { act: 'ai', key: 'tool.ai', icon: 'sparkles' },
   { act: 'bilink', key: 'tool.bilink', icon: 'link-2' },
   { act: 'copy', key: 'tool.copy', icon: 'copy' },
@@ -79,8 +83,9 @@ export const KB_ITEMS: readonly ToolbarItem[] = [
  * 知识盒两颗插在 AI 之后：它们都是「把这段文字加工成别的东西」，
  * 双链 / 复制这类「搬出去」的动作仍在右边。
  */
-export function toolbarItems(kb?: boolean): ToolbarItem[] {
+export function toolbarItems(kb?: boolean, review = true): ToolbarItem[] {
   let items = [...TOOLBAR_ITEMS];
+  if (!review) items = items.filter((i) => i.act !== 'review');
   if (kb) {
     const at = items.findIndex((i) => i.act === 'ai');
     items = [...items.slice(0, at + 1), ...KB_ITEMS, ...items.slice(at + 1)];
@@ -146,6 +151,11 @@ export interface ToolbarLayoutInput {
   /** AI 知识库开着：多出「存为名词 / 存为段落」两颗 */
   kb?: boolean;
   /**
+   * 装了 bz Review：才显示「加入复习」这一颗。
+   * 没装就不出现——摆一颗点了只弹「没装」的按钮没有意义。
+   */
+  review?: boolean;
+  /**
    * 窄窗口：放不下七颗时，把知识库那两颗收进「⋯」。
    *
    * 不按平台硬分：桌面窄到 400px 时七颗按钮同样会挤成一团，
@@ -177,7 +187,7 @@ export function toolbarLayout(input: ToolbarLayoutInput): ToolbarLayout {
   const marked = !!input.marked;
   const del = marked ? [DELETE_ITEM] : [];
   /* `only` 过一遍：不在这几颗里的动作连按钮都不出现，免得点了没反应 */
-  const items = toolbarItems(input.kb).filter(
+  const items = toolbarItems(input.kb, input.review !== false).filter(
     (i) => !input.only || input.only.includes(i.act),
   );
   /* 扫描页框选：把「识别」插到最左（它就是这一刻的主路径），
@@ -212,6 +222,8 @@ export interface ToolbarActs {
   ocr?: string;
   idea?: string;
   quote?: string;
+  /** 加入复习（划词时先落一条划线再加；点划线时直接加那一条） */
+  review?: string;
   ai?: string;
   term?: string;
   passage?: string;
@@ -225,6 +237,7 @@ export const SELECTION_ACTS: ToolbarActs = {
   ocr: 'selocr',
   idea: 'selidea',
   quote: 'selquote',
+  review: 'selreview',
   ai: 'selai',
   term: 'selterm',
   passage: 'selpassage',
@@ -238,6 +251,7 @@ export const MARK_ACTS: ToolbarActs = {
   ocr: 'hlocr',
   idea: 'hlidea',
   quote: 'hlquote',
+  review: 'hlreview',
   ai: 'hlai',
   term: 'hlterm',
   passage: 'hlpassage',

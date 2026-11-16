@@ -33,6 +33,8 @@ import { filterRows, toRows } from './adapt';
 import { visiblePicked } from './book-select';
 import { toggleAll, togglePick } from './note-select';
 import { togglePicked } from './note-picker';
+import { openReviewAdd, addMarkToReview, addSelectionToReview, openBookReviewAdd } from './review-add';
+import { findReviewApi } from '../data/review-bridge';
 import { notify } from '../core/notice';
 import { synthesizeFor, ttsEngineReady, ttsVoiceFor, type TtsRoute } from '../core/tts-engine';
 import { ttsDeployPrompt } from '../core/tts-deploy-prompt';
@@ -124,7 +126,7 @@ import { currentSearchSurface, kickSemanticSearch, resetSemanticSearch } from '.
 import { bzClipbookUsed, bzEmbedder, bzNotesReady, openBzClipbook, openBzPreview, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
-import { AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../core/links';
+import { AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, REVIEW_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../core/links';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
 import { forgetPortrait, setPortrait } from './portrait-cache';
@@ -1582,10 +1584,12 @@ export function dispatchAction(
       const book = liveBooks().find((b) => b.id === id);
       if (!book) break;
       const done = !!book.reading.stats.completedTime || (book.reading.position.percent || 0) >= 0.99;
+      const shellSrc = getShellSource();
       const items = bookMenuItems({
         done,
         fav: getState().favIds.includes(id),
         missing: book.fileRef.fileMissing === true,
+        review: !!shellSrc?.app && !!findReviewApi(shellSrc.app),
       });
       const menu = new Menu();
       for (const it of items) {
@@ -1597,6 +1601,8 @@ export function dispatchAction(
           if (it.act === 'open') i.onClick(() => openBookById(id));
           if (it.act === 'relocate') i.onClick(() => overlay('missing', { bookId: id }));
           if (it.act === 'detail') i.onClick(() => overlay('detail', { bookId: id }));
+          /* 加入复习：选范围 → 三选一制卡 → 交给 bz Review */
+          if (it.act === 'review') i.onClick(() => openBookReviewAdd(getShellSource()?.app, book));
           /* 补全信息（2026-11-11）：用户点了才发请求，只填空白字段 */
           if (it.act === 'enrich')
             i.onClick(() => {
@@ -1996,6 +2002,14 @@ export function dispatchAction(
       }
       overlay('notedrop');
       break;
+    /* 加入复习（2026-11-16）：挑哪些内容交给 AI，Review 只负责复习。
+       入口在侧栏「划线」页；书没打开也能用（按划线不读正文）。 */
+    case 'reviewadd': {
+      const id = d.book || getState().bookId;
+      const b = liveBooks().find((x) => x.id === id);
+      void openReviewAdd(getShellSource()?.app, b);
+      break;
+    }
     case 'notedropdo':
       dropSelectedMarks();
       break;
@@ -2766,6 +2780,17 @@ export function dispatchAction(
     case 'hlquote':
       quoteFromMark(d.id, d.book);
       break;
+    /* 工具条「复习」（点开一条已有划线）：一条划线就是一张卡，直接加，
+       不弹选章节的框。重复点会被 Review 按钥匙判重，不会排两次。 */
+    case 'hlreview': {
+      const book = findBookOfMark(d.id, d.book);
+      if (!book) {
+        notify(t('notice.mark.notFound'), 'error');
+        break;
+      }
+      void addMarkToReview(getShellSource()?.app, book, d.id);
+      break;
+    }
     case 'hlai': {
       /* 点划线也能问 AI：以前这条工具条上根本没有 AI 这一颗，
          想解释划线原文只能先划一遍再点。与 selai 同一个面板，只是带上了 markId。 */
@@ -2867,6 +2892,11 @@ export function dispatchAction(
           /* 书摘是贴选区的浮卡（不是居中弹窗），锚点必须带上 */
           anchor: RT.sel.anchor,
         });
+      break;
+    /* 工具条「复习」（划了一段还没保存）：直接把这段文字加进复习。
+       不先落一条划线——用户点的是「去复习」，不是「在书里标一笔」。 */
+    case 'selreview':
+      if (RT.sel) void addSelectionToReview(getShellSource()?.app, RT.sel);
       break;
     case 'cardtpl': {
       /* 书摘卡换版式：写进 overlay.mode，overlayKey 已经把它算进去了，
@@ -3245,6 +3275,19 @@ export function dispatchAction(
       /* 朗读组的「看教程」：讲三种引擎怎么配、预生成怎么用、离线包怎么拷。
          与对照表「朗读」行的那颗是同一支视频。 */
       window.open(TTS_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
+      break;
+    case 'reviewtut':
+      /* bz Review 教程：占位期只说一句，不打开不相干的视频。 */
+      if (!REVIEW_TUTORIAL_URL) {
+        notify(t('notice.tut.pending'), 'info');
+        break;
+      }
+      window.open(REVIEW_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
+      break;
+    case 'reviewinstall':
+      /* 引导到 Obsidian 第三方插件市场：设置 → 第三方插件。
+         用宿主命令打开设置，比外链文档更直接。 */
+      notify(t('settings.plugin.review.missing'), 'info', 8000);
       break;
     case 'ptpause':
       portraitBuilder().pause();

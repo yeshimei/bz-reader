@@ -114,6 +114,7 @@ import { REGION_ACTS, SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtm
 import { hydrateToolbarIcons } from '../shell/toolbar-icons';
 import { can } from '../data/entitlement';
 import { bzEntryReady } from '../data/bz-bridge';
+import { findReviewApi } from '../data/review-bridge';
 import { kbDoneOf } from '../data/kb-link';
 import { VIEW_TYPE_TOC } from './side-view';
 
@@ -5038,6 +5039,7 @@ export class ReaderView extends ItemView {
     /* 知识库两颗：授权在、且 bz 的录入门面在，才出现（自动识别，没有开关）。
        没装 bz 时这两颗按钮按下去只会弹一句「还没装」——不如不出现。 */
     const kb = can('ai') && bzEntryReady(this.app);
+    const reviewReady = !!findReviewApi(this.app);
     setHtml(
       bar,
       toolbarHtml({
@@ -5047,6 +5049,7 @@ export class ReaderView extends ItemView {
         /* 手机只留三颗主路径；桌面窄到放不下时，把知识库两颗收进「⋯」 */
         compact: isMobileEnv(),
         kb,
+        review: reviewReady,
         narrow: (root.clientWidth || 0) < 520,
         acts: SELECTION_ACTS,
         /* 框选没有文字（2026-11-15 定稿）：只留「划线（色点）/ 想法 / 双链 / 识别」。
