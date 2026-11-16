@@ -22,9 +22,11 @@
  * 再老的记录留在库里只会让每次启动多读几百 KB。
  * ============================================================ */
 import type { App } from 'obsidian';
+import { AI_SOURCES_MAX, type AiSource } from './ai-evidence';
 import {
   archiveAiSession,
   aiSessions,
+  dropLastAiTurn,
   isAiSessionKind,
   removeAiSession,
   seedAiSessions,
@@ -76,12 +78,46 @@ export function makeAiSessionId(when = Date.now(), rand: () => number = Math.ran
   return `id-${Math.floor(when)}-${n.toString(36).padStart(4, '0')}`;
 }
 
+/**
+ * 来源收口（2026-11-17）。
+ *
+ * 外来 JSON 里的 sources 什么都可能是：只认「有 title 的对象」，最多
+ * AI_SOURCES_MAX 条——来源是佐证，不是第二份结果列表。
+ */
+function normalizeSources(raw: unknown): AiSource[] {
+  if (!Array.isArray(raw)) return [];
+  const out: AiSource[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const o = item as Record<string, unknown>;
+    const title = typeof o.title === 'string' ? o.title.trim() : '';
+    if (!title) continue;
+    const source: AiSource = { title };
+    const path = typeof o.path === 'string' ? o.path.trim() : '';
+    if (path) source.path = path;
+    const bookId = typeof o.bookId === 'string' ? o.bookId.trim() : '';
+    if (bookId) source.bookId = bookId;
+    const note = typeof o.note === 'string' ? o.note.trim() : '';
+    if (note) source.note = note;
+    const text = typeof o.text === 'string' ? o.text.trim() : '';
+    if (text) source.text = text;
+    out.push(source);
+    if (out.length >= AI_SOURCES_MAX) break;
+  }
+  return out;
+}
+
 function normalizeTurn(raw: unknown): AiSessionTurn | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const o = raw as Record<string, unknown>;
   if (typeof o.me !== 'boolean' || typeof o.text !== 'string') return null;
   const text = o.text.trim();
-  return text ? { me: o.me, text } : null;
+  if (!text) return null;
+  const turn: AiSessionTurn = { me: o.me, text };
+  const sources = normalizeSources(o.sources);
+  if (sources.length) turn.sources = sources;
+  if (o.truncated === true) turn.truncated = true;
+  return turn;
 }
 
 /**
@@ -310,6 +346,10 @@ export interface RecordAiTurnInput {
   sessionId?: string;
   ask: string;
   answer: string;
+  /** 这一轮回答的来源（2026-11-17）：落盘后回看仍能点回原文 */
+  sources?: readonly AiSource[];
+  /** 这一轮是不是半截（流式失败 / 被停止）：回看时标出来，别当成完整答案 */
+  truncated?: boolean;
   /** 会话时间；追加时不改（仍是这一轮第一次问答的时间） */
   when?: number;
 }
@@ -332,6 +372,13 @@ export async function recordAiTurn(
   const when =
     Number.isFinite(input.when) && Number(input.when) > 0 ? Number(input.when) : Date.now();
   const markId = String(input.markId ?? '').trim();
+  const sources = normalizeSources(input.sources);
+  const turn: AiSessionTurn = {
+    me: false,
+    text: answer,
+    ...(sources.length ? { sources } : {}),
+    ...(input.truncated ? { truncated: true } : {}),
+  };
   const groupKey = input.group ? `${bookId}\u0000${input.group}` : '';
   const list = aiSessions();
   const groupedId = groupKey ? turnGroups.get(groupKey) : undefined;
@@ -347,7 +394,7 @@ export async function recordAiTurn(
   }
 
   if (session) {
-    session.turns.push({ me: true, text: ask }, { me: false, text: answer });
+    session.turns.push({ me: true, text: ask }, turn);
   } else {
     const used = new Set(list.map((s) => s.id));
     /* 调用方给了 id（侧栏先记下「这一轮叫什么」）就用它：不然下一次提问
@@ -360,10 +407,7 @@ export async function recordAiTurn(
       bookTitle: String(input.bookTitle ?? '').trim(),
       kind: input.kind,
       when: Math.floor(when),
-      turns: [
-        { me: true, text: ask },
-        { me: false, text: answer },
-      ],
+      turns: [{ me: true, text: ask }, turn],
     };
     const author = String(input.author ?? '').trim();
     if (author) session.author = author;
@@ -404,6 +448,21 @@ export async function removeAiSessionAndSave(
   id: string,
 ): Promise<boolean> {
   if (!removeAiSession(id)) return false;
+  await saveAiLog(app);
+  return true;
+}
+
+/**
+ * 删掉最后一轮并落盘（重答用，2026-11-17）。
+ *
+ * 与 remove 同一个口径：先改内存、再写盘。删完 turns 为空时这条会话
+ * 会在下次读回时被丢弃（normalizeAiSession 不收空会话）。
+ */
+export async function dropLastAiTurnAndSave(
+  app: App | null | undefined,
+  id: string,
+): Promise<boolean> {
+  if (!dropLastAiTurn(id)) return false;
   await saveAiLog(app);
   return true;
 }

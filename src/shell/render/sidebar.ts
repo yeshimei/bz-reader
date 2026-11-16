@@ -604,7 +604,7 @@ function ctxChipHtml(
 }
 
 /** 一条消息。AI 的答走 Markdown 渲染；用户那句保持纯文本，上下文仍显示成 chip */
-function aiBubbleHtml(m: AiLogItem, hint: boolean, at = -1): string {
+function aiBubbleHtml(m: AiLogItem, hint: boolean, at = -1, last = false): string {
   if (m.me) {
     const chips = m.ctx?.length
       ? `<div class="bzs-aictx is-sent">${m.ctx
@@ -625,9 +625,17 @@ function aiBubbleHtml(m: AiLogItem, hint: boolean, at = -1): string {
       : `<button type="button" class="bzs-ai-copy" data-act="aicopyone" data-i="${at}">${esc(
           t('ai.card.copy'),
         )}</button>`;
+  /* 最后一轮的答案给「重答」（2026-11-17）：模型抽风时不用把问题重打一遍。
+     等回答期间不画（这条还没答完，重答没有意义）。 */
+  const retry =
+    last && !hint && at >= 0 && !m.live
+      ? `<button type="button" class="bzs-ai-copy" data-act="airetry" data-i="${at}">${esc(
+          t('side.ai.retry'),
+        )}</button>`
+      : '';
   return `<div class="bzs-aibubble ai${m.live ? ' is-live' : ''}"><span class="tag">${t(
     'side.ai.tag.book',
-  )}</span>${body}${aiSourcesRow(m)}${aiWarnRow(m)}${copy}</div>`;
+  )}</span>${body}${aiSourcesRow(m)}${aiWarnRow(m)}${copy}${retry}</div>`;
 }
 
 /** 引文核不上时的那一行：只在真有问题时出现，正常答案下面不多一个字 */
@@ -760,7 +768,9 @@ function aiBusyBubble(v: SidebarView): string {
     'side.ai.tag.book',
   )}</span><div class="txt"><span class="bzs-typing"><i></i><i></i><i></i></span><span class="ph">${esc(
     label,
-  )}</span></div></div>`;
+  )}</span></div><button type="button" class="bzs-ai-stop" data-act="aistop" title="${esc(
+    t('side.ai.stop'),
+  )}">${esc(t('side.ai.stop'))}</button></div>`;
 }
 
 /** 会话历史：这本书聊过的几条，点一条切过去，× 删掉 */
@@ -812,7 +822,7 @@ function indexChat(v: SidebarView, idx: AiIndexView): string {
       </div>
       ${aiHistPanel(v)}
       <div class="bzs-aimsg">${log
-        .map((m, i) => aiBubbleHtml(m, hint, i))
+        .map((m, i) => aiBubbleHtml(m, hint, i, i === log.length - 1 && !v.aiStage && !m.me))
         .join('')}${aiBusyBubble(v)}</div>
       ${aiChatFoot(v)}
       ${aiComposerHtml(v)}

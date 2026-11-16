@@ -9,6 +9,7 @@
  * 内部的消息形状。适配层在这一份类型上收口，页面不用动。
  * ============================================================ */
 import { t, type MsgKey } from '../i18n';
+import type { AiSource } from './ai-evidence';
 
 /** 五种对话类型。与原型 chips 一一对应 */
 export const AI_SESSION_KINDS = ['explain', 'translate', 'summarize', 'follow', 'book'] as const;
@@ -21,6 +22,20 @@ export function isAiSessionKind(v: unknown): v is AiSessionKind {
 export interface AiSessionTurn {
   me: boolean;
   text: string;
+  /**
+   * 这一轮回答的来源（2026-11-17）。
+   *
+   * 以前只活在侧栏内存里：切回旧对话、重启 Obsidian，答案下面那排可点的
+   * 「来源」就没了，只剩一段没法核对的文字。
+   */
+  sources?: AiSource[];
+  /**
+   * 半截答案：流式中途失败 / 被用户停止。
+   *
+   * 不标出来的话，回看时会把半句话当成完整答案；标了就还在原来的位置，
+   * 只是多一行说明。
+   */
+  truncated?: boolean;
 }
 
 export interface AiSession {
@@ -62,7 +77,15 @@ export function aiKindLabel(kind: AiSessionKind): string {
 let list: AiSession[] = [];
 
 function clone(s: AiSession): AiSession {
-  return { ...s, turns: s.turns.map((x) => ({ me: x.me, text: x.text })) };
+  return {
+    ...s,
+    turns: s.turns.map((x) => ({
+      me: x.me,
+      text: x.text,
+      ...(x.sources ? { sources: x.sources.map((y) => ({ ...y })) } : {}),
+      ...(x.truncated ? { truncated: true } : {}),
+    })),
+  };
 }
 
 /** 当前全部会话（副本：调用方改不到内部列表，要改走下面三个写函数） */
@@ -103,6 +126,26 @@ export function removeAiSession(id: string): boolean {
   if (i < 0) return false;
   list.splice(i, 1);
   return true;
+}
+
+/**
+ * 删掉一条会话的最后一轮（一问一答）。
+ *
+ * 「重答」用（2026-11-17）：界面重来一次，记录里也不该留下旧的那份，
+ * 否则历史里会出现同一问连着两答，回看时分不清哪个算数。
+ * 末尾如果只剩一条提问（上次答到一半就断了），一并去掉。
+ */
+export function dropLastAiTurn(id: string): boolean {
+  const s = list.find((x) => x.id === id);
+  if (!s || !s.turns.length) return false;
+  const before = s.turns.length;
+  /* 末尾是回答就先删回答；紧挨着的提问一并去掉。
+     顺序不能反：先清提问的话，`[问, 答]` 会删掉提问、留下一条没有答案的
+     孤儿提问，重答后历史里就成了「问 / 问 / 答」。答到一半断在提问（末尾
+     是 me）也走这里——那种情况下回答本来就没落下来，只删那条提问。 */
+  if (s.turns.length && !s.turns[s.turns.length - 1]?.me) s.turns.pop();
+  while (s.turns.length && s.turns[s.turns.length - 1]?.me) s.turns.pop();
+  return s.turns.length !== before;
 }
 
 function pad(n: number): string {

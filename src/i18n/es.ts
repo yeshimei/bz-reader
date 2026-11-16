@@ -1350,4 +1350,7 @@ export const ES: Record<MsgKey, string> = {
   'review.doneNone': '[TODO] review.doneNone',
   'review.doneAllExists': '[TODO] review.doneAllExists {exists}',
   'review.doneExists2': '[TODO] review.doneExists2 {exists}',
+  'side.ai.stop': '[TODO] side.ai.stop',
+  'side.ai.retry': '[TODO] side.ai.retry',
+  'side.ai.truncated': '[TODO] side.ai.truncated',
 };

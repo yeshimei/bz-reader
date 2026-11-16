@@ -61,7 +61,12 @@ export function aiChatsOf(bookId: string): AiSession[] {
     .sort((a, b) => b.when - a.when);
 }
 
-/** 会话 → 侧栏气泡。依据（sources）没有落盘，恢复出来的回答不带来源行 */
+/**
+ * 会话 → 侧栏气泡。
+ *
+ * 2026-11-17 起依据也落盘了：恢复出来的回答下面照常有可点的来源行；
+ * 半截答案（流式中断 / 被停止）带一行说明，不冒充完整回答。
+ */
 export function sessionToLog(s: AiSession): AiLogItem[] {
   return s.turns
     .filter((x) => String(x.text ?? '').trim())
@@ -73,6 +78,8 @@ export function sessionToLog(s: AiSession): AiLogItem[] {
       /* 恢复出来的对话不知道当时用的是哪个模型，AI 那条用统一标签 */
       tag: x.me ? t('side.ai.me') : t('side.ai.tag.book'),
       text: x.text,
+      ...(x.sources?.length ? { sources: x.sources.map((y) => ({ ...y })) } : {}),
+      ...(x.truncated ? { warn: t('side.ai.truncated') } : {}),
     }));
 }
 

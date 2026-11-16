@@ -84,6 +84,7 @@ import {
 } from '../data/ai-session';
 import {
   archiveAiSessionAndSave,
+  dropLastAiTurnAndSave,
   makeAiSessionId,
   recordAiTurn,
   removeAiSessionAndSave,
@@ -3005,6 +3006,28 @@ export function dispatchAction(
       if (!requireCap('ai')) break;
       void askAi(el);
       break;
+    /* 等待时停下来（2026-11-17）：以前只有换书才会 abort，用户只能干等
+       或者切走——切走会把这一问整条打断。停下后已流出的半截保留。 */
+    case 'aistop': {
+      RT.askAbort?.abort();
+      RT.aiAbort?.abort();
+      break;
+    }
+    /* 重答最后一轮（2026-11-17）：模型抽风时不用把问题重打一遍。
+       界面与落盘一起回退——历史里不该出现同一问连着两答。 */
+    case 'airetry': {
+      if (!requireCap('ai')) break;
+      const last = RT.aiLog[RT.aiLog.length - 1];
+      const ask = RT.aiLog[RT.aiLog.length - 2];
+      if (!last || last.me || !ask?.me || !ask.text.trim()) break;
+      RT.aiLog = RT.aiLog.slice(0, -2);
+      RT.aiCtx = [];
+      RT.aiDraft = '';
+      if (RT.aiChatId) void dropLastAiTurnAndSave(getShellSource()?.app, RT.aiChatId);
+      repaint();
+      void askAi(null, ask.text);
+      break;
+    }
     /* 输入条里的上下文（A 版）：四类插入 + 删除 + 笔记选择器 */
     case 'aictxdel': {
       const i = Number(d.i);
@@ -4469,7 +4492,8 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
       pushAi(false, `AI · ${settings.ai.model || '模型'}`, res.text, evidence.sources, undefined, warn);
     }
     /* 落盘：同一条对话里的多轮问答按会话 id 追加（2026-11-16）。
-       以前每一问都是一条独立记录，侧栏也就没东西可「读回来」。 */
+       以前每一问都是一条独立记录，侧栏也就没东西可「读回来」。
+       2026-11-17 起来源一起落：切回旧对话，来源行照常可点。 */
     if (!RT.aiChatId) RT.aiChatId = makeAiSessionId();
     void recordAiTurn(src.app, {
       bookId: book.id,
@@ -4480,6 +4504,7 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
       sessionId: RT.aiChatId,
       ask: q,
       answer: res.text,
+      sources: evidence.sources,
     });
   } catch (e) {
     if (!sameBook()) return;
@@ -4489,6 +4514,7 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
     }
     const why = (e as Error).message || '请求失败';
     const live = liveBox.item;
+    const partial = String(live?.text ?? '').trim();
     if (live) {
       /* 已经流出一半：保留收到的那部分，把失败原因接在后面。
          把半条答案抹掉换成一句报错，等于用户白等了半分钟。 */
@@ -4496,6 +4522,23 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
       live.live = false;
     } else {
       pushAi(false, 'AI', why);
+    }
+    /* 半截也落一条（2026-11-17）：屏幕上留着半条答案，记录里却没有这一轮，
+       下次进来就凭空消失。标 truncated，回看时知道它没说完。 */
+    if (partial) {
+      if (!RT.aiChatId) RT.aiChatId = makeAiSessionId();
+      void recordAiTurn(src.app, {
+        bookId: book.id,
+        bookTitle: book.meta.title,
+        author: book.meta.author,
+        kind: 'book',
+        group: RT.aiChatId,
+        sessionId: RT.aiChatId,
+        ask: q,
+        answer: partial,
+        sources: live?.sources,
+        truncated: true,
+      });
     }
   } finally {
     if (RT.askAbort === ctrl) RT.askAbort = null;

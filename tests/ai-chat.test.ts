@@ -61,6 +61,27 @@ describe('会话 → 侧栏气泡', () => {
     );
     expect(log).toHaveLength(1);
   });
+
+  it('恢复的对话带来源行，半截答案带说明（2026-11-17）', () => {
+    const log = sessionToLog(
+      session({
+        turns: [
+          { me: true, text: '这是谁说的？' },
+          {
+            me: false,
+            text: '是汪太太说的。',
+            sources: [{ title: '第一章', bookId: 'b1', text: '汪太太' }],
+            truncated: true,
+          },
+        ],
+      }),
+    );
+    expect(log[1].sources?.[0].title).toBe('第一章');
+    expect(log[1].warn).toBeTruthy();
+    /* 完整答案不该凭空多一行说明 */
+    const full = sessionToLog(session());
+    expect(full[1].warn).toBeUndefined();
+  });
 });
 
 describe('历史列表', () => {

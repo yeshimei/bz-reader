@@ -7,6 +7,7 @@ import {
   AI_LOG_LIMIT,
   aiLogPath,
   archiveAiSessionAndSave,
+  dropLastAiTurnAndSave,
   loadAiLog,
   recordAiTurn,
   removeAiSessionAndSave,
@@ -194,6 +195,39 @@ describe('ai-sessions.json · 落盘与读回', () => {
     const s = disk().sessions[0] as { kind: string; quote?: string };
     expect(s.kind).toBe('book');
     expect(s.quote).toBeUndefined();
+  });
+
+  it('来源与半截标记落盘，重启读回来还在（2026-11-17）', async () => {
+    const sources = [
+      { title: '第一章 归国', bookId: 'b1', text: '红海早过了', note: '出处' },
+      { title: '第二章', path: 'books/围城.md' },
+      { title: '' }, // 没标题的坏数据，应该被丢掉
+    ];
+    await recordAiTurn(app, { ...base, kind: 'book', sources, truncated: true });
+
+    const s = disk().sessions[0] as {
+      turns: Array<{ me: boolean; text: string; sources?: unknown[]; truncated?: boolean }>;
+    };
+    const answer = s.turns[1];
+    expect(answer.sources).toHaveLength(2);
+    expect(answer.sources![0]).toMatchObject({ title: '第一章 归国', bookId: 'b1' });
+    expect(answer.truncated).toBe(true);
+    /* 用户那一轮不该带这些 */
+    expect(s.turns[0].sources).toBeUndefined();
+
+    seedAiSessions([]);
+    await loadAiLog(app);
+    const back = aiSessionById('') ?? aiSessions()[0];
+    expect(back?.turns[1].sources?.[0].title).toBe('第一章 归国');
+    expect(back?.turns[1].truncated).toBe(true);
+  });
+
+  it('重答：删掉最后一轮再落盘，下次读回不剩旧答案', async () => {
+    const id = await recordAiTurn(app, { ...base, kind: 'book' });
+    await dropLastAiTurnAndSave(app, id);
+
+    await expect(loadAiLog(app)).resolves.toEqual([]);
+    expect(aiSessions()).toEqual([]);
   });
 
   it('第 201 条：最旧的被丢掉，只剩最近 200 条', async () => {
