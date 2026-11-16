@@ -15,6 +15,14 @@ export interface TapContext {
   selbar: boolean;
   /** 当前浮层（没有就是空） */
   overlayKind?: OverlayKind | null;
+  /**
+   * 这张浮层被「定住」了（2026-11-16）。
+   *
+   * 定住的 AI 卡点书页正文不关：读的时候要点着看，一碰就消失等于
+   * 没法用。**只管书页这一块**——点界面其它地方（工具条、侧栏、页签）
+   * 走的是宿主文档那条路，那里照关（见 overlay 的 onDocPointer）。
+   */
+  pinned?: boolean;
   /** 真实移动端布局 */
   mobile: boolean;
   /**
@@ -28,6 +36,9 @@ export function tapIntent(ctx: TapContext): TapIntent {
   /* 划词条不是 overlay：它挂在阅读视图里，选区塌了要等 320ms 才收。
      不在这里拦，点正文会先翻页、条子随后才消失。 */
   if (ctx.selbar) return 'dismiss-selbar';
+  /* 定住的浮层不认点空白：这一下就是「继续读」，什么都不该发生。
+     排在关闭判断之前，否则定住等于没定。 */
+  if (ctx.pinned && isFloatOverlay(ctx.overlayKind)) return 'idle';
   /* 浮层开着时，这一下是关闭请求（写想法也是，只是它自己会先问一句），
      绝不能同时翻页——手机上一划就是掉内容。 */
   if (isFloatOverlay(ctx.overlayKind)) {

@@ -55,11 +55,16 @@ export function renderAiMarkdown(root: ParentNode | null | undefined): void {
     const md = el.textContent ?? '';
     if (!md.trim()) continue;
     el.dataset.aiRendered = '1';
-    el.textContent = '';
-    /* 渲染失败退回纯文本：读得到比好看重要，且不能把答案弄丢 */
-    void MarkdownRenderer.render(c.app, md, el, '', c.owner).catch((e: unknown) => {
-      el.textContent = md;
-      void e;
-    });
+    /* 先渲到一个看不见的容器里，渲完一次性换上去（2026-11-16）。
+       以前是「先清空、等异步回来再填」，中间那一帧气泡是空的——卡片每次
+       重画（点图钉、点卡片里的按钮、答案回来）都会闪一下白。 */
+    const holder = el.ownerDocument.createElement('div');
+    void MarkdownRenderer.render(c.app, md, holder, '', c.owner)
+      .then(() => el.replaceChildren(...Array.from(holder.childNodes)))
+      /* 渲染失败退回纯文本：读得到比好看重要，且不能把答案弄丢 */
+      .catch((e: unknown) => {
+        el.textContent = md;
+        void e;
+      });
   }
 }

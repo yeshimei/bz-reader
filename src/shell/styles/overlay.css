@@ -114,6 +114,10 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* 这张卡会被整块重画（点图钉、点卡片里的按钮、答案回来都会走一遍），
+     浮层那 0.16s 的淡入会跟着重播一次——用户看到的就是「点一下闪一下」。
+     它是一张一直开着的对话窗口，不该每次都重新「出现」。 */
+  animation: none;
 }
 
 .bzs-float.bzs-ai-panel .bzs-aifloat {
@@ -470,6 +474,59 @@ body.theme-dark .bzs-aifloat {
 .bzs-af-head .bzs-af-x:hover {
   background: var(--surface-2);
   color: var(--t1);
+}
+
+/* 图钉：定住这张卡（2026-11-16）。定住后点空白 / 点正文都不关，头栏可拖。 */
+.bzs-af-head .bzs-af-pin {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--t3);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+
+.bzs-af-head .bzs-af-pin svg {
+  width: 14px;
+  height: 14px;
+}
+
+.bzs-af-head .bzs-af-pin:hover {
+  background: var(--surface-2);
+  color: var(--t1);
+}
+
+/* 定住 = 实心铜色 + 常驻淡底，一眼看得出「这张卡不会自己走」 */
+.bzs-af-head .bzs-af-pin.is-on {
+  background: var(--copper-soft);
+  color: var(--copper);
+}
+
+/* 头栏是抓手：拖动时给抓手、拖动中给抓取，并禁用文字选择，
+   否则一按下去先选中了标题文字 */
+.bzs-af-head.is-grab {
+  cursor: grab;
+  user-select: none;
+}
+
+.bzs-aifloat.is-dragging .bzs-af-head.is-grab {
+  cursor: grabbing;
+}
+
+/* 定住的卡片才是它自己的窗口（2026-11-16）：
+   位置由模板里的内联样式写死（见 float-drag.ts 的 floatBoxStyle），
+   不从父级继承任何外边距，也不参与工具条那一列的布局。
+   层级压过工具条——它可能被拖到工具条上面去。
+   没定住时它不是窗口，跟着浮层贴着原文走：工具条一收，两张皮也不能分家。 */
+.bzs-aifloat.is-kept {
+  z-index: 3;
+  margin: 0;
 }
 
 /* 引文：两行封顶；「」走伪元素，正文里不再重复一遍 */

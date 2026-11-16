@@ -101,6 +101,9 @@ export type OverlayKind =
   | 'rebuildidx'
   /* 删掉侧栏的一条对话（2026-11-16）：`text` 是会话 id。 */
   | 'aidel'
+  /* 清空划词 AI 卡里这一段的对话（2026-11-16）：二次确认弹窗。
+     字段照抄卡片，确认后原地开回那张卡（位置与定住都保住）。 */
+  | 'aiclear'
   /* 想法全文（2026-11-09）：气泡只露一截，长想法点「展开全文」进这张
      只读弹窗。它不是浮层——带遮罩、居中，读完整篇再关。 */
   | 'ideaall'
@@ -220,6 +223,15 @@ export interface OverlayState {
    * kind，是为了让「点一项 → 原地换浮框」不换外壳、不重新测锚点。
    */
   menu?: boolean;
+  /**
+   * 定住（只给 kind='ai' 的浮框用，2026-11-16）。
+   *
+   * 定住之后头栏可以拖着走，点**书页正文**不关——那一下是继续读，
+   * 手一碰整张卡就没了等于没法边读边看。点界面其它地方（工具条、侧栏、
+   * 页签）照关，× 也随时能关：以前只剩「点外面就关」一条路，
+   * 定住又走到另一个极端——只有 × 能关，用户找不到出口。
+   */
+  pinned?: boolean;
 }
 
 /**
@@ -243,6 +255,8 @@ export function overlayKey(o?: OverlayState | null): string {
     o.chapterTitle ?? '',
     o.ids?.join(',') ?? '',
     o.menu ? 'menu' : '',
+    /* 定住只是同一张卡上多一个状态，但按钮长相要变，所以进渲染键 */
+    o.pinned ? 'pin' : '',
     o.anchor ? `${o.anchor.left},${o.anchor.top}` : '',
     String(o.rev ?? 0),
   ].join('|');
@@ -651,8 +665,8 @@ export function closeOverlay(opts?: { force?: boolean }): void {
   if (o?.kind === 'ai') {
     RT.aiAbort?.abort();
     RT.aiAbort = null;
-    /* 收起之后「这一行是悬停开的」不再成立：下一次打开重新判定 */
-    RT.aiHover = false;
+    /* 拖出来的位置只属于「这一次打开」：关掉就忘，下次还从文字旁边长出来 */
+    RT.aiFloatPos = null;
   }
   mutateState((s) => {
     s.overlay = null;

@@ -22,6 +22,16 @@ import {
 } from './ai-menu';
 import { esc } from './render/html';
 import { SEND_ICON } from './idea-sheet';
+import { isMobileEnv } from '../core/mobile';
+import { floatBoxStyle, type FloatBox } from './float-drag';
+
+/**
+ * 图钉（lucide `pin`，路径照抄）。
+ *
+ * 不用 host 的 setIcon：这颗按钮要按「定住 / 没定住」换长相，
+ * 走 setIcon 就得在每次重画后再去改一次，直接写进模板更稳。
+ */
+const PIN_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>`;
 
 /** 浮框顶栏那枚类型标签：解释 / 翻译 / 总结 / 追问 */
 const KIND_KEYS = {
@@ -85,6 +95,21 @@ export interface AiCardInput extends AiFloatState {
   archivedAt?: string;
   /** 追问输入框里还没发出去的字：重画 / 关掉再开要原样回来 */
   draft?: string;
+  /**
+   * 定住了没有（2026-11-16）。
+   *
+   * 定住 = 头栏可以拖着走，点书页正文不关（那一下是继续读）。
+   * 点界面其它地方照关，× 更是随时能关。
+   * 手机上那颗图钉不出现：那边是带遮罩的整屏弹层，没有「挪开」的意义。
+   */
+  pinned?: boolean;
+  /**
+   * 拖到哪儿了（2026-11-16）。
+   *
+   * 有值就是「被拖出来的那张卡」：位置直接写进内联样式，卡片第一次画
+   * 出来就落在这一处，不再事后挪（见 `float-drag.ts` 的 `floatBoxStyle`）。
+   */
+  pos?: FloatBox | null;
 }
 
 /**
@@ -147,10 +172,23 @@ export function aiCardHtml(input: AiCardInput): string {
     : '';
   const archivedAt = input.archivedAt ?? '';
   const archived = !!archivedAt;
-  return `<div class="bzs-aifloat">
+  const pinned = !!input.pinned;
+  /* 拖出来的卡片：位置一次性写进模板，画出来就在最终坐标（见 floatBoxStyle） */
+  const cls = `bzs-aifloat${pinned ? ' is-pinned' : ''}${input.pos ? ` is-floating${pinned ? ' is-kept' : ''}` : ''}`;
+  const style = input.pos ? ` style="${floatBoxStyle(input.pos, pinned)}"` : '';
+  /* 手机上不给图钉：那边是带遮罩的整屏弹层，拖动与「不关」都没有意义 */
+  const pin = isMobileEnv()
+    ? ''
+    : `<button type="button" class="bzs-af-pin${pinned ? ' is-on' : ''}" data-act="aipin" aria-pressed="${
+        pinned ? 'true' : 'false'
+      }" title="${esc(t(pinned ? 'ai.float.pinned' : 'ai.float.pin'))}" aria-label="${esc(
+        t(pinned ? 'ai.float.pinned' : 'ai.float.pin'),
+      )}">${PIN_ICON}</button>`;
+  return `<div class="${cls}"${style}>
     <div class="bzs-af-head">
       <span class="bzs-af-kind">${esc(t(KIND_KEYS[mode]))}</span>
       <span class="bzs-af-meta">${esc(meta)}</span>
+      ${pin}
       <button type="button" class="bzs-af-x" data-act="close" title="${esc(
         t('common.close'),
       )}" aria-label="${esc(t('common.close'))}">×</button>
@@ -159,6 +197,9 @@ export function aiCardHtml(input: AiCardInput): string {
     <div class="bzs-af-msgs" data-role="aimsgs">${body}</div>
     ${askrow}
     <div class="bzs-af-foot">
+      <button type="button" class="bzs-af-btn" data-act="aifloatclear" aria-label="${esc(
+        t('ai.float.clear'),
+      )}" title="${esc(t('ai.float.clear'))}"><span class="bzs-tbi" data-icon="trash"></span></button>
       <button type="button" class="bzs-af-btn" data-act="aicopy" aria-label="${esc(
         t('ai.card.copy'),
       )}" title="${esc(t('ai.card.copy'))}"><span class="bzs-tbi" data-icon="copy"></span></button>

@@ -48,4 +48,17 @@ describe('tapIntent', () => {
   it('划词条与浮层同时在：先收条子', () => {
     expect(tapIntent({ selbar: true, mobile: true, overlayKind: 'hltools' })).toBe('dismiss-selbar');
   });
+
+  /* 2026-11-16：AI 卡可以「定住」。定住之后点正文不该把它关掉——
+     读的时候要用手指点着看，一碰就消失等于没法用。只有 × 能关。 */
+  it('浮层定住了：点正文什么都不做，也不翻页', () => {
+    expect(tapIntent({ selbar: false, mobile: false, overlayKind: 'ai', pinned: true })).toBe('idle');
+    expect(tapIntent({ selbar: false, mobile: true, overlayKind: 'ai', pinned: true })).toBe('idle');
+  });
+
+  it('定住只挡住「点空白」：划词条仍然先收', () => {
+    expect(tapIntent({ selbar: true, mobile: false, overlayKind: 'ai', pinned: true })).toBe(
+      'dismiss-selbar',
+    );
+  });
 });

@@ -89,7 +89,7 @@ import { bindMaskDismiss } from '../core/mask-dismiss';
 import { escManager } from '../core/esc-manager';
 import { trapFocus } from '../core/ui/focus-trap';
 import { RT } from './runtime';
-import { AI_HOVER_GRACE, aiHoverOpens, aiMenuFallback, hoverCapableNow } from './ai-hover';
+import { aiFloatIdentity, dragPosition, floatBoxStyle } from './float-drag';
 import type { DispatchOpts } from './actions';
 import { rangeFill } from './range-fill';
 import { getToc } from '../view/toc-state';
@@ -829,6 +829,13 @@ function textPanel(
     markId?: string;
     bookId?: string;
     color?: string;
+    /**
+     * 不要再带一条工具条（2026-11-16）。
+     *
+     * 定住的 AI 卡已经是它自己的窗口：工具条再挂进去，不但和卡片分家，
+     * 还会挡在刚摆好的卡片下面。定住那一刻就不再画它。
+     */
+    noToolbar?: boolean;
   } = {},
 ): string {
   if (isMobileEnv()) {
@@ -855,7 +862,9 @@ function textPanel(
   /* 外壳透明，底板交给 `${cls}-body`：工具条要露在卡片外面，
      不能跟卡片共用一个底——两层白底叠起来像套了个相框。 */
   return bareFloat(
-    `<div class="bzs-tb-stack"><div class="bzs-panel-body ${cls}-body">${body}</div>${toolbar}</div>`,
+    `<div class="bzs-tb-stack"><div class="bzs-panel-body ${cls}-body">${body}</div>${
+      opts.noToolbar ? '' : toolbar
+    }</div>`,
     /* `cls` 同时挂在浮层上：样式要按「里面装的是哪张卡」分支
        （AI 卡要内部滚动），用类名比 `:has()` 便宜得多。 */
     `${cls} has-stack`,
@@ -911,6 +920,9 @@ function overlayAi(markId?: string, bookId?: string): string {
         opts,
       );
     } else {
+      /* 定住后工具条撤掉（2026-11-16）：卡片已经是独立窗口，工具条再挂着
+         既分家又挡正文。手机上那边本来就没有工具条，也一并收起。 */
+      const bare = !!o?.pinned;
       html = textPanel(
         aiCardHtml({
           ready,
@@ -930,9 +942,13 @@ function overlayAi(markId?: string, bookId?: string): string {
           archivedAt: entry?.archivedAt,
           /* 没发出去的草稿：重画、切档、关掉再开都还在 */
           draft: cardKey ? aiCardDraft(cardKey) : '',
+          pinned: !!o?.pinned,
+          /* 拖出来的位置（2026-11-16）：写进模板，卡片第一次画出来就在那一处。
+             手机上不认——那边是整屏弹层，没有「挪开」这回事。 */
+          pos: isMobileEnv() ? null : RT.aiFloatPos,
         }),
         'bzs-ai-panel',
-        opts,
+        { ...opts, noToolbar: bare },
       );
     }
   }
@@ -1281,6 +1297,26 @@ function overlayAiDelete(): string {
     body,
     `<button class="bzs-btn" data-act="close">${esc(t('common.cancel'))}</button>
      <button class="bzs-btn pri danger" data-act="aidelyes">${esc(t('ai.del.ok'))}</button>`,
+  );
+}
+
+/**
+ * 清空划词 AI 卡里这一段对话的二次确认（2026-11-16）。
+ *
+ * 左下角那枚垃圾桶点下去先弹这一层：删除是不可撤销的，不能一下就清。
+ * 文案要写清「划线不受影响」——否则用户以为清对话会把线也抹掉，
+ * 于是宁可留着满屏旧问答也不点。
+ */
+function overlayAiClear(): string {
+  const body = `<div class="bzs-ack"><p>${esc(t('ai.float.clear.body'))}</p></div>`;
+  return modal(
+    t('ai.float.clear.title'),
+    '',
+    body,
+    `<button class="bzs-btn" data-act="aifloatclearcancel">${esc(t('common.cancel'))}</button>
+     <button class="bzs-btn pri danger" data-act="aifloatclearyes">${esc(
+       t('ai.float.clear.ok'),
+     )}</button>`,
   );
 }
 
@@ -1678,6 +1714,8 @@ export function overlayHtml(): string {
       return overlayAck();
     case 'aidel':
       return overlayAiDelete();
+    case 'aiclear':
+      return overlayAiClear();
     case 'ptclean':
       return overlayPtClean();
     case 'rebuildidx':
@@ -1765,8 +1803,19 @@ export async function runAiForOverlay(): Promise<void> {
   const o = getState().overlay;
   if (!o || o.kind !== 'ai' || o.menu) return;
   const task = aiFloatTaskOf(o.mode);
+  const text = o.text || RT.sel?.text || '';
+  const key = aiCardKey(o.kind, task, text, o.markId ?? '');
+
+  /* 点回一条问过的划线（2026-11-16）：册子已经空了，但对话还在落盘记录里。
+     先把那条会话灌回册子——不灌就是「空卡 + 重新花一次钱」。
+     **这一步必须在追问那一档之前**：以前追问在这儿上面就提前返回了，
+     于是「关掉再打开」永远是一张空卡，用户以为问过的问题丢了。 */
+  if (!aiCardGet(key) && o.markId) {
+    const past = aiSessions().find((s) => s.markId === o.markId && s.kind === task);
+    if (past) aiCardSeed(key, sessionToCard(past));
+  }
+  /* 追问是空面板：恢复出来的那几轮照画，但没有新消息要发 */
   if (task === 'follow') {
-    /* 追问是空面板：一条消息都不该凭空冒出来 */
     refreshAiFloat();
     return;
   }
@@ -1774,19 +1823,11 @@ export async function runAiForOverlay(): Promise<void> {
   if (!can('ai')) return;
   const s = shellSettings();
   if (!aiReady(s)) return;
-  const text = o.text || RT.sel?.text || '';
-  const key = aiCardKey(o.kind, task, text, o.markId ?? '');
 
   /* 同一条还在路上：把等待气泡画回去就够，绝不重复发（花的是用户的钱） */
   if (aiInFlight?.key === key) {
     refreshAiFloat();
     return;
-  }
-  /* 点回一条问过的划线（2026-11-16）：册子已经空了，但对话还在落盘记录里。
-     先把那条会话灌回册子——不灌就是「空卡 + 重新花一次钱」。 */
-  if (!aiCardGet(key) && o.markId) {
-    const past = aiSessions().find((s) => s.markId === o.markId && s.kind === task);
-    if (past) aiCardSeed(key, sessionToCard(past));
   }
   const entry = aiCardGet(key);
   /* 已经问过：结果 / 失败原因都还在册子上，画回去即可。失败不自动重发 */
@@ -1896,9 +1937,16 @@ export class OverlayLayer {
    *
    * 写想法也走这条路：空着直接关，有字先亮确认条（判断在 closeOverlay 里）。
    * 唯一的例外是点浮层自己——那一下是用户在操作这张卡。
+   *
+   * 定住的 AI 卡这里照关不误（2026-11-16 作者定）：书页正文里的点按走的是
+   * iframe 那条路，根本到不了这儿（`tapIntent` 判成「继续读」），能走到
+   * 这里的是工具条 / 侧栏 / 页签这些**界面其它地方**——那一下已经是
+   * 「离开这一段」的意思。以前定住只剩右上角那颗 × 能关，用户找不到出口，
+   * 而且工具条先收了、卡还杵在那儿，看着像卡住了。
    */
   private onDocPointer = (e: PointerEvent): void => {
-    if (!dismissesOnTap(getState().overlay?.kind)) return;
+    const o = getState().overlay;
+    if (!dismissesOnTap(o?.kind)) return;
     const t = e.target as Node | null;
     if (t && this.root.contains(t)) return;
     closeOverlay();
@@ -1913,8 +1961,25 @@ export class OverlayLayer {
    */
   private esc: { unregister: () => void } | null = null;
 
-  /** 鼠标离开 AI 菜单那一块之后，收起它的宽限计时（见 bindHoverClose） */
-  private hoverCloseTimer: number | null = null;
+  /** 正在拖 AI 卡：指针起点 + 卡片按下那一刻的盒子（位置直接写 left/top） */
+  private drag: {
+    id: number;
+    x: number;
+    y: number;
+    card: HTMLElement;
+    startLeft: number;
+    startTop: number;
+    width: number;
+    height: number;
+  } | null = null;
+
+  /**
+   * 上一次画的是「哪一张 AI 卡」。
+   *
+   * 换一张卡（换一条划线 / 换一档 / 菜单↔浮框）就把拖出来的位置丢掉，
+   * 否则新卡会突然长在上一张卡被拖去的地方。定住与否不算换卡。
+   */
+  private aiPosId = '';
 
   constructor(private onAction: (act: string, el: HTMLElement, opts?: DispatchOpts) => void) {
     this.root = createDiv();
@@ -1936,6 +2001,15 @@ export class OverlayLayer {
     }
     window.addEventListener('resize', sync);
     this.disposers.push(() => window.removeEventListener('resize', sync));
+    /* 拖动的 move / up 只挂一次：卡片每次重画都换新节点，但手势本身是全局的 */
+    window.addEventListener('pointermove', this.onDragMove);
+    window.addEventListener('pointerup', this.onDragEnd);
+    window.addEventListener('pointercancel', this.onDragEnd);
+    this.disposers.push(() => {
+      window.removeEventListener('pointermove', this.onDragMove);
+      window.removeEventListener('pointerup', this.onDragEnd);
+      window.removeEventListener('pointercancel', this.onDragEnd);
+    });
     /* 宿主在键盘显隐时派发 Capacitor 的同名事件（Obsidian 自己也听）：
        --keyboard-height 随后才更新，抽屉要在这之后重新量一次。
        hide 时先直接归位，不等变量更新——视觉上跟手，变量晚到也不会回弹。 */
@@ -1967,6 +2041,9 @@ export class OverlayLayer {
           t.blur();
           return;
         }
+        /* 定住的卡也不吃 ESC：定住的意思就是「别自己走」（2026-11-16）。
+           要关就点右上角那颗 ×，或者再点一次图钉解锁。 */
+        if (getState().overlay?.pinned) return;
         /* 走关闭动作而不是直接 closeOverlay：弹层关闭要带副作用
            （建画像时暂停 + 退回「当前这一屏」）。直接关会绕过它们。 */
         this.onAction('close', this.root);
@@ -2004,42 +2081,6 @@ export class OverlayLayer {
          画过一遍了；这里再画一次就是整棵 DOM 重建两遍（外加一次封面回填）。
          只有「状态变了但内容键没体现」的变化（换笔色、勾选）才需要补一次。 */
       if (!getState().overlay || plan.act === 'rate') return;
-      if (overlayRenderKey(getState()) === before) this.paint();
-    });
-
-    /**
-     * 鼠标悬停工具条上的 AI = 摊开上面那一行（2026-11-16）。
-     *
-     * 走委托而不是逐颗挂：工具条每次重画都是新节点，逐颗挂会漏。
-     * 只认真鼠标、只「确保打开」——悬停不做 toggle，否则菜单摊开之后
-     * 工具条就在鼠标底下，pointerover 连着进来会把菜单开开关关。
-     * 没权限时静默：付费页不能被鼠标扫出来（点按那条路照旧弹）。
-     */
-    const hoverOk = hoverCapableNow();
-    const aiHitOf = (target: EventTarget | null): HTMLElement | null => {
-      const hit = (target as HTMLElement | null)?.closest<HTMLElement>('.bzs-tb [data-act]') ?? null;
-      if (!hit) return null;
-      const act = hit.dataset.act || '';
-      return act === 'selai' || act === 'hlai' ? hit : null;
-    };
-    this.root.addEventListener('pointerover', (e) => {
-      const o = getState().overlay;
-      /* 菜单已经摊开：移到同一条工具条上的**别的**按钮 = 不要这一行了。
-         这一条是作者 2026-11-16 定的口径，别改回「整条工具条都算悬停区」。 */
-      if (o?.kind === 'ai' && o.menu) {
-        const btn = (e.target as HTMLElement | null)?.closest<HTMLElement>('.bzs-tb [data-act]');
-        if (btn && !aiHitOf(btn)) this.closeAiMenu();
-        return;
-      }
-      const hit = aiHitOf(e.target);
-      if (!hit) return;
-      /* 要问的那一段：划词那条现取 RT.sel；已划线的有 data-id 才算有目标 */
-      const text = hit.dataset.act === 'selai' ? (RT.sel?.text ?? '') : (hit.dataset.id ?? '');
-      if (!aiHoverOpens({ hoverCapable: hoverOk, pointerType: (e as PointerEvent).pointerType, entitled: can('aiSel'), text })) return;
-      /* 悬停即开，不再等意图延迟：那一行本来就长在光标正上方 */
-      const before = overlayRenderKey(getState());
-      this.onAction(hit.dataset.act || '', hit, { hover: true });
-      if (!getState().overlay) return;
       if (overlayRenderKey(getState()) === before) this.paint();
     });
 
@@ -2249,47 +2290,125 @@ export class OverlayLayer {
       stack.classList.toggle('is-up', pos.side === 'above');
       stack.classList.toggle('is-down', pos.side === 'below');
     }
+    /* 拖出来的卡片不走这一套：它有自己的固定坐标（写在模板的内联样式里），
+       浮层量到的只剩工具条那一行，所以工具条会自己贴回原文旁边。 */
   }
 
   /**
-   * 收起二级菜单，工具条尽量留在原地（2026-11-16）。
+   * 把拖出来的卡片按当前视口重新夹一次（2026-11-16）。
    *
-   * 落点由 `aiMenuFallback` 决定：有划线就退回那条工具条，
-   * 否则整块关掉。这里只管「换状态」，不碰计时器。
+   * 只在窗口 / 键盘尺寸变了时用：位置是像素，视口一窄就可能跑到屏幕外，
+   * 而这张卡没有标题栏、没有滚动条，出去就再也抓不回来。纯算术，不量卡片
+   * ——量了就等于把「先画后挪」那一套又请回来。
    */
-  private closeAiMenu(): void {
-    const o = getState().overlay;
-    if (!o || o.kind !== 'ai' || !o.menu) return;
-    RT.aiHover = false;
-    const back = aiMenuFallback(o);
-    if (back) {
-      openOverlay(back);
-      return;
-    }
-    closeOverlay();
+  private settleAiFloat(): void {
+    const pos = RT.aiFloatPos;
+    const card = this.root.querySelector<HTMLElement>('.bzs-aifloat.is-kept');
+    if (!pos || !card) return;
+    const next = dragPosition(
+      { left: pos.left, top: pos.top },
+      { dx: 0, dy: 0 },
+      { width: pos.width, height: card.offsetHeight },
+      this.viewBox(),
+    );
+    RT.aiFloatPos = { left: next.left, top: next.top, width: pos.width };
+    card.setAttribute('style', floatBoxStyle(RT.aiFloatPos, true));
   }
 
-  private bindHoverClose(float: HTMLElement | null): void {
-    if (this.hoverCloseTimer !== null) {
-      window.clearTimeout(this.hoverCloseTimer);
-      this.hoverCloseTimer = null;
-    }
-    if (!float) return;
-    float.addEventListener('pointerenter', () => {
-      if (this.hoverCloseTimer === null) return;
-      window.clearTimeout(this.hoverCloseTimer);
-      this.hoverCloseTimer = null;
-    });
-    float.addEventListener('pointerleave', () => {
-      /* 只有菜单态会自己收：AI 面板（选定之后那一屏）鼠标一离开就消失的话没法读 */
-      if (!getState().overlay?.menu) return;
-      if (this.hoverCloseTimer !== null) window.clearTimeout(this.hoverCloseTimer);
-      this.hoverCloseTimer = window.setTimeout(() => {
-        this.hoverCloseTimer = null;
-        this.closeAiMenu();
-      }, AI_HOVER_GRACE);
+  /**
+   * 按住 AI 卡的头栏拖走（2026-11-16）。
+   *
+   * 只认头栏（`.bzs-af-head`），不认整张卡：卡里要选字、要滚消息区，
+   * 整块可拖会把这两样都吃掉。× 与图钉不参与拖动，它们是按钮。
+   *
+   * 只有定住的卡能拖：没定住的那张，手一松点别处就关了，拖了也没意义。
+   *
+   * **只拖卡片，不拖工具条**（作者 2026-11-16 再定）：工具条要继续贴着
+   * 原文那一行，也照旧「该关就关」，不能因为卡片定住就被带着跑。
+   *
+   * 按下去这一下就把卡片从「叠在工具条上面的一列」变成它自己的窗口：
+   * 写死 left/top（视口坐标），再让浮层重新贴一次字——卡片一走开，
+   * 浮层里只剩工具条，工具条就回到原文旁边，而不是跟着卡片一起飘。
+   * 坐标写进 `RT.aiFloatPos`（临时位置，不进 state），移动中不重画，
+   * 输入框不丢焦点。
+   */
+  /**
+   * 定住的卡就是它自己的窗口（2026-11-16）。
+   *
+   * 定住那一刻起，浮层里那一列**不再画工具条**：卡片已经是独立窗口，
+   * 工具条再挂回去，不但和卡片分家，还会挡着刚定好位置的正文。落点在
+   * 点图钉时就量好了（见 actions 的 `aipin`），这里只负责让它别再跟着
+   * 浮层走。
+   */
+  private bindAiDrag(float: HTMLElement | null): void {
+    const o = getState().overlay;
+    if (!float || o?.kind !== 'ai' || o.menu || isMobileEnv() || !o.pinned) return;
+    /* 没有锚点就没有「浮层已经落位」这件事：浮层还带着 CSS 兜底的
+       translateX(-50%)，而带 transform 的祖先就是固定定位的参照物，
+       落点会整体算错。这种卡不给拖。 */
+    if (!o.anchor) return;
+    const head = float.querySelector<HTMLElement>('.bzs-af-head');
+    const card = float.querySelector<HTMLElement>('.bzs-aifloat');
+    if (!head || !card) return;
+    head.classList.add('is-grab');
+    head.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      /* 头栏上的按钮（× / 图钉）是操作，不是抓手 */
+      if ((e.target as HTMLElement | null)?.closest('[data-act]')) return;
+      const r = card.getBoundingClientRect();
+      const box = { left: r.left, top: r.top, width: r.width };
+      RT.aiFloatPos = box;
+      card.classList.add('is-floating', 'is-kept');
+      card.setAttribute('style', floatBoxStyle(box, true));
+      /* 卡片脱离这一列之后浮层只剩工具条：重新贴一次，工具条回到原文旁边 */
+      this.placeAnchored();
+      this.drag = {
+        id: e.pointerId,
+        x: e.clientX,
+        y: e.clientY,
+        card,
+        startLeft: box.left,
+        startTop: box.top,
+        width: box.width,
+        height: r.height,
+      };
+      card.classList.add('is-dragging');
+      try {
+        head.setPointerCapture(e.pointerId);
+      } catch {
+        /* 老内核不支持捕获：照样靠 window 上的 move 跟手 */
+      }
+      e.preventDefault();
     });
   }
+
+  /**
+   * 拖动进行中的两拍。
+   *
+   * 挂在 window 上、只挂一次（构造里），不在每次重画时再挂一遍：
+   * 工具条每重画一次就多三条监听，拖几下就漏成一片。
+   */
+  private onDragMove = (e: PointerEvent): void => {
+    const d = this.drag;
+    if (!d || e.pointerId !== d.id) return;
+    const pos = dragPosition(
+      { left: d.startLeft, top: d.startTop },
+      { dx: e.clientX - d.x, dy: e.clientY - d.y },
+      { width: d.width, height: d.height },
+      this.viewBox(),
+    );
+    const box = { left: pos.left, top: pos.top, width: d.width };
+    d.card.setAttribute('style', floatBoxStyle(box, true));
+    /* 拖的过程中就记：回答回来触发重画时，模板按这一处把卡片画出来 */
+    RT.aiFloatPos = box;
+  };
+
+  private onDragEnd = (e: PointerEvent): void => {
+    const d = this.drag;
+    if (!d || e.pointerId !== d.id) return;
+    d.card.classList.remove('is-dragging');
+    this.drag = null;
+  };
 
   /** 可视区尺寸：手机上按视觉视口（键盘弹起时缩小），桌面用窗口 */
   private viewBox(): { width: number; height: number; top: number } {
@@ -2324,6 +2443,8 @@ export class OverlayLayer {
   /** 视口变化后的统一收口：锚点浮层重新贴字，贴底小卡与抽屉避让键盘 */
   private syncPosition(): void {
     this.placeAnchored();
+    /* 拖出来的卡片是像素坐标：窗口一窄就可能出屏，顺手夹回来 */
+    this.settleAiFloat();
     this.syncKeyboardVar();
     const vv = window.visualViewport;
     if (!isMobileShell() || !vv) return;
@@ -2443,6 +2564,14 @@ export class OverlayLayer {
        按钮，列表跳回顶部；在输入框里打字时点别的控件，键盘会收起。
        这两样都是「用户刚放好的位置」，记下来还回去。 */
     const keepScroll = this.root.querySelector<HTMLElement>('.bzs-mbody')?.scrollTop ?? 0;
+    /* 追问卡的消息区同理：点一下图钉就整框重画，读到一半的对话不该跳回顶部 */
+    const keepMsgs = this.root.querySelector<HTMLElement>('[data-role="aimsgs"]')?.scrollTop ?? 0;
+    /* 换了一张卡就把拖出来的位置忘掉（定住与否不算换卡） */
+    const idNow = aiFloatIdentity(getState().overlay);
+    if (idNow !== this.aiPosId) {
+      this.aiPosId = idNow;
+      RT.aiFloatPos = null;
+    }
     const keepInput = this.activeInput();
     this.untrap?.();
     this.untrap = null;
@@ -2454,6 +2583,10 @@ export class OverlayLayer {
     if (keepScroll) {
       const body = this.root.querySelector<HTMLElement>('.bzs-mbody');
       if (body) body.scrollTop = keepScroll;
+    }
+    if (keepMsgs) {
+      const msgs = this.root.querySelector<HTMLElement>('[data-role="aimsgs"]');
+      if (msgs) msgs.scrollTop = keepMsgs;
     }
     /* 弹窗的焦点圈闭（C6）：Tab / Shift+Tab 不出这张卡。浮层（排版、工具条）
        没有遮罩，圈住反而挡住正文，只给 aria-modal 的弹窗挂。 */
@@ -2468,8 +2601,8 @@ export class OverlayLayer {
     }
     /* 工具条图标：模板只留 data-icon 空壳，这里交给宿主 setIcon 画 */
     hydrateToolbarIcons(this.root);
-    /* 悬停开的那行 AI 菜单：鼠标离开这一块就收起（点开的不管） */
-    this.bindHoverClose(this.root.querySelector<HTMLElement>('.bzs-float[data-role="float"]'));
+    /* AI 卡的头栏可以拖着走（定住之后用它挪开，别挡着正文） */
+    this.bindAiDrag(this.root.querySelector<HTMLElement>('.bzs-float[data-role="float"]'));
     const o = getState().overlay;
     /* 想法输入框按内容定高（预填的多行想法不该只露三行里的两行），
        必须赶在 placeAnchored 之前：浮层高度正是它量出来的。 */

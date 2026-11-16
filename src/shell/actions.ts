@@ -180,12 +180,20 @@ import {
   aiCardFollowBegin,
   aiCardFollowDone,
   aiCardFollowFail,
+  aiCardForget,
   aiCardGet,
   aiCardKey,
   followHistory,
 } from './ai-card';
 import { refreshAiFloat } from './overlay';
-import { aiArchiveTurns, aiFloatMessages, aiFloatTaskOf, aiTranscript, clockOf } from './ai-menu';
+import {
+  aiArchiveTurns,
+  aiFloatMessages,
+  aiFloatTaskOf,
+  aiMenuFallback,
+  aiTranscript,
+  clockOf,
+} from './ai-menu';
 import { aiConversationMarkdown } from '../data/ai-save';
 import { DEFAULT_SETTINGS, aiReady } from '../data/settings';
 import { copyGroupId } from './group';
@@ -328,27 +336,23 @@ interface AiMenuTarget {
  * 反之会出大事——菜单摊开之后工具条就在鼠标底下，进去一次就 toggle 一次，
  * 菜单自己开开关关。
  */
-function openAiMenu(target: AiMenuTarget, opts: { toggle?: boolean } = {}): void {
+function openAiMenu(target: AiMenuTarget): void {
   const o = getState().overlay;
   const text = String(target.text ?? '');
   if (!text.trim()) {
     notify(t('notice.sel.empty'), 'error');
     return;
   }
-  const toggle = opts.toggle !== false;
   const markId = target.markId ?? '';
   const same = o?.kind === 'ai' && o.menu && o.text === text && (o.markId ?? '') === markId;
-  if (same && toggle) {
-    closeOverlay();
-    return;
-  }
-  /* 悬停重复进来：状态已经是这一行，不动它——重开一次会把 DOM 换掉 */
   if (same) {
-    RT.aiHover = true;
+    /* 再点一次 = 收起（2026-11-16 点击开合）。从划线进来的退回那条工具条，
+       手不用重新找位置；从选区进来的没有工具条可退，整块关掉。 */
+    const back = aiMenuFallback(o);
+    if (back) openOverlay(back);
+    else closeOverlay();
     return;
   }
-  /* 这一行是「悬停长的」还是「点出来的」，决定鼠标离开整块时收不收 */
-  RT.aiHover = !toggle;
   overlay('ai', {
     text,
     bookId: target.bookId || getState().bookId || '',
@@ -1340,16 +1344,13 @@ export interface ActionEnv {
   repaint?: () => void;
 }
 
-/** 同一个动作是「点」来的还是「鼠标悬停」来的 */
-export interface DispatchOpts {
-  /**
-   * 悬停触发。
-   *
-   * 只影响那些「悬停也该做、但不能当成点击」的动作（目前只有工具条 AI）：
-   * 悬停要确保展开、不弹解锁页、不做 toggle。
-   */
-  hover?: boolean;
-}
+/**
+ * 动作的附加信息。
+ *
+ * 2026-11-16 起没有「悬停触发」这一说了：工具条上的 AI 回到点击开合，
+ * 这里暂时不需要字段，保留类型是为了下一次加选项时不改所有调用点。
+ */
+export type DispatchOpts = Record<string, never>;
 
 /** 试听用：播一段音频，播完（或失败）就 resolve，不把 Promise 挂在那里 */
 function playWav(buf: ArrayBuffer, mime = 'audio/wav'): Promise<void> {
@@ -2754,26 +2755,22 @@ export function dispatchAction(
       break;
     case 'hlai': {
       /* 点划线也能问 AI：以前这条工具条上根本没有 AI 这一颗，
-         想解释划线原文只能先划一遍再点。与 selai 同一个面板，只是带上了 markId。
-         悬停进来时只展开、不弹解锁页（见 DispatchOpts）。 */
-      if (opts.hover ? !can('aiSel') : !requireCap('aiSel')) break;
+         想解释划线原文只能先划一遍再点。与 selai 同一个面板，只是带上了 markId。 */
+      if (!requireCap('aiSel')) break;
       const book = findBookOfMark(d.id, d.book);
       const h = book?.notes?.highlights.find((x) => x.id === d.id);
       if (!book || !h) {
-        if (!opts.hover) notify(t('notice.mark.notFound'), 'error');
+        notify(t('notice.mark.notFound'), 'error');
         break;
       }
-      openAiMenu(
-        {
-          text: h.text,
-          markId: h.id,
-          bookId: book.id,
-          chapterTitle: h.chapterTitle || book.reading.position.chapterTitle || '',
-          /* 锚点沿用工具条正贴着的那条划线，AI 卡才不会掉到屏幕角 */
-          anchor: getState().overlay?.anchor,
-        },
-        { toggle: !opts.hover },
-      );
+      openAiMenu({
+        text: h.text,
+        markId: h.id,
+        bookId: book.id,
+        chapterTitle: h.chapterTitle || book.reading.position.chapterTitle || '',
+        /* 锚点沿用工具条正贴着的那条划线，AI 卡才不会掉到屏幕角 */
+        anchor: getState().overlay?.anchor,
+      });
       break;
     }
     case 'hlcopy': {
@@ -2872,22 +2869,9 @@ export function dispatchAction(
       if (RT.sel) overlay('dict', { word: RT.sel.text.slice(0, 8) });
       break;
     case 'selai':
-      /* 不再直接解释：先在工具条上方摊开五项（原型第 2 稿） */
+      /* 不再直接解释：先在工具条上方摊开五项（原型第 2 稿）。
+         2026-11-16 起只有点击一条路（悬停开合已撤）：点一下开，再点一下关。 */
       if (!RT.sel) break;
-      /* 鼠标悬停：只确保展开。没权限时静默——鼠标扫过工具条不该蹦出付费页 */
-      if (opts.hover) {
-        if (!can('aiSel') || !RT.sel.text.trim()) break;
-        openAiMenu(
-          {
-            text: RT.sel.text,
-            bookId: RT.sel.bookId,
-            chapterTitle: RT.sel.chapterTitle,
-            anchor: RT.sel.anchor,
-          },
-          { toggle: false },
-        );
-        break;
-      }
       if (requireCap('aiSel'))
         openAiMenu({
           text: RT.sel.text,
@@ -3407,8 +3391,6 @@ export function dispatchAction(
     case 'aimenupick': {
       const o = getState().overlay;
       if (!o || o.kind !== 'ai' || !o.menu) break;
-      /* 选了一项：这一行不再是「悬停长出来的」，鼠标离开也不该把浮框收掉 */
-      RT.aiHover = false;
       const task = d.task || '';
       if (task === 'book') {
         /* 插入到全书问答：原文与出处直接挂进侧栏输入条的上下文，
@@ -3430,16 +3412,121 @@ export function dispatchAction(
         break;
       }
       if (task !== 'explain' && task !== 'translate' && task !== 'summarize' && task !== 'follow') break;
-      /* 划词任务先把这段字落成一条划线（2026-11-16）。
-         这段对话从此绑在线上：再点回这条线，看到的是上次的问答，
-         而不是一张空白卡片；失败 / 取消也不撤线——用户点下去就是要留这段。
+      /* 落线的时机按「这一下有没有问东西」分开（2026-11-16 作者定）：
+         · 解释 / 翻译 / 总结：点下去就是要这段的结果，立刻落线，和「想法」
+           同一条路；失败 / 取消也不撤线——用户点下去就是要留这段。
+         · 追问：点它只是打开输入框，还没问任何东西，这时候一条线也不该
+           冒出来；等第一句真的发出去才落（见 followAi）。
+         两种都把正文的选中收掉：蓝底一直挂着，看着像卡住了。
          从划线工具条进来的已经带了 markId，直接复用，不叠第二条线。 */
-      const markId = o.markId || markSelection() || '';
+      const wantsMark = task === 'explain' || task === 'translate' || task === 'summarize';
+      const markId = wantsMark ? o.markId || markSelection() || '' : (o.markId ?? '');
+      /* clearSelection 会连 RT.sel 一起清掉（hideSelbar），而追问要等发送时
+         才拿它补线、记录里也还要 cfi —— 先留一份再放回去。 */
+      const keepSel = RT.sel;
+      getShellSource()?.clearSelection?.();
+      RT.sel = keepSel;
+      if (markId) RT.selMarkId = markId;
       /* 点完菜单立刻收起：这一行原地换成浮框（同一个 kind、同一个锚点，
          所以工具条不跳、位置不动）。重画会顺手把首问发出去。 */
       setState({
         overlay: { ...o, menu: false, mode: task, markId, rev: (o.rev ?? 0) + 1 },
       });
+      break;
+    }
+    /* 定住（2026-11-16）：定住之后点空白 / 点正文都不关，只有右上角那颗 ×
+       能关，头栏还能拖着走。再点一次就是解锁。 */
+    case 'aipin': {
+      const o = getState().overlay;
+      if (!o || o.kind !== 'ai' || o.menu) break;
+      /* 解锁 = 回到原文旁边（2026-11-16）：拖出来的位置只属于「定住」这一档，
+         留着它会让一张没定住的卡飘在半空——既不能再拖，点一下又要关，
+         看着像卡住了。 */
+      if (o.pinned) {
+        RT.aiFloatPos = null;
+      } else {
+        /* 定住那一刻把卡片就地收成自己的窗口（2026-11-16）：
+           浮层里那一列不再画工具条，卡片的位置只能靠自己这次量到的
+           视口坐标撑住，否则一失去浮层它就跳回原文旁边、还挡着正文。
+           取「这一张卡」的容器，不是任一张卡：浮层里还可能有别的卡。 */
+        const card = el.closest?.<HTMLElement>('.bzs-aifloat');
+        const r = card?.getBoundingClientRect();
+        if (card && r && r.width > 0) {
+          RT.aiFloatPos = { left: r.left, top: r.top, width: r.width };
+        }
+      }
+      openOverlay({ ...o, pinned: !o.pinned });
+      break;
+    }
+    /* 左下角垃圾桶：先弹二次确认（2026-11-16）。把卡片字段原样带进确认层，
+       取消 / 确认之后都能开回那张卡——拖出来的位置与定住状态都还在。
+       清的是「这一段的对话」：划线与笔记不碰，落盘记录一起删，所以关掉
+       再点回来也不会把刚清掉的内容读回来。 */
+    case 'aifloatclear': {
+      const o = getState().overlay;
+      if (!o || o.kind !== 'ai' || o.menu) break;
+      openOverlay({
+        kind: 'aiclear',
+        text: o.text,
+        mode: o.mode,
+        markId: o.markId,
+        bookId: o.bookId,
+        chapterTitle: o.chapterTitle,
+        pinned: o.pinned,
+        anchor: o.anchor,
+      });
+      break;
+    }
+    case 'aifloatclearcancel': {
+      const o = getState().overlay;
+      if (!o || o.kind !== 'aiclear') {
+        closeOverlay();
+        break;
+      }
+      openOverlay({
+        kind: 'ai',
+        text: o.text,
+        mode: o.mode,
+        markId: o.markId,
+        bookId: o.bookId,
+        chapterTitle: o.chapterTitle,
+        pinned: o.pinned,
+        anchor: o.anchor,
+      });
+      break;
+    }
+    case 'aifloatclearyes': {
+      const o = getState().overlay;
+      if (!o || o.kind !== 'aiclear') break;
+      const mode = aiFloatTaskOf(o.mode);
+      const text = String(o.text ?? '');
+      const key = aiCardKey('ai', mode, text, o.markId ?? '');
+      /* 先抹内存再开回卡片：开卡时会按 markId 去恢复，晚一步刚清掉的
+         对话又会被读回来。removeAiSessionAndSave 是「同步删内存 + 异步
+         写文件」，文件由它自己的队列串行写，不会几轮互相覆盖。 */
+      aiCardForget(key);
+      for (const s of aiSessions()) {
+        /* 有划线就按「这条线 + 这一档」认；没有线的（理论上还没发过消息）
+           再按书名 + 原文首句兜一下，绝不把别的对话一起清掉。 */
+        const hit = o.markId
+          ? s.markId === o.markId && s.kind === mode
+          : !s.markId &&
+            s.kind === mode &&
+            s.bookId === (o.bookId ?? '') &&
+            s.turns.some((turn) => turn.text === text);
+        if (hit) void removeAiSessionAndSave(getShellSource()?.app, s.id);
+      }
+      openOverlay({
+        kind: 'ai',
+        text: o.text,
+        mode: o.mode,
+        markId: o.markId,
+        bookId: o.bookId,
+        chapterTitle: o.chapterTitle,
+        pinned: o.pinned,
+        anchor: o.anchor,
+      });
+      notify(t('notice.ai.cleared'));
       break;
     }
     case 'aicopy': {
@@ -4276,7 +4363,8 @@ async function followAi(question: string): Promise<void> {
   if (!aiReady(s)) return;
   const text = o.text || RT.sel?.text || '';
   const mode = aiFloatTaskOf(o.mode);
-  const key = aiCardKey('ai', mode, text, o.markId ?? '');
+  let markId = o.markId ?? '';
+  let key = aiCardKey('ai', mode, text, markId);
   const entry = aiCardGet(key);
   if (aiFollowBusy) return;
 
@@ -4285,6 +4373,23 @@ async function followAi(question: string): Promise<void> {
   const answered = !!entry && entry.status === 'done' && !!String(entry.text ?? '').trim();
   const first = mode === 'follow' && !answered;
   if (!first && !answered) return;
+
+  /* 追问这一档的线落在这里（2026-11-16 作者定）：点「追问」本身不划线，
+     真有一句话要发出去才留痕，空着点发送什么都不发生（上面已 return）。
+     落线的同时收掉正文选区——和点「解释」时一样，蓝底不该一直挂着。
+     失败也不撤线：它代表「我问过这段」，正好给人一个位置重试。 */
+  if (first && !markId) {
+    const keepSel = RT.sel;
+    markId = markSelection() || '';
+    if (markId) {
+      getShellSource()?.clearSelection?.();
+      RT.sel = keepSel;
+      RT.selMarkId = markId;
+      /* 键里带 markId：线一落，这张卡的记账键就换了，后面的轮次都认新的 */
+      setState({ overlay: { ...o, markId } });
+      key = aiCardKey('ai', mode, text, markId);
+    }
+  }
 
   aiFollowBusy = true;
   if (first) aiCardBegin(key, q, clockOf());
@@ -4319,7 +4424,7 @@ async function followAi(question: string): Promise<void> {
       kind: mode,
       quote: text,
       group: key,
-      markId: o.markId,
+      markId,
       cfi: RT.sel?.cfiRange,
       ask: q,
       answer: res.text,

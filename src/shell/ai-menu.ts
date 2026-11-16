@@ -117,6 +117,29 @@ export function aiFloatTaskOf(mode?: string | null): AiFloatTask {
   return m === 'translate' || m === 'summarize' || m === 'follow' ? m : 'explain';
 }
 
+/** 工具条 / 菜单贴着的那个点（宿主视口坐标） */
+export interface AiMenuAnchor {
+  left: number;
+  top: number;
+  width?: number;
+  height?: number;
+}
+
+/**
+ * 菜单收起来之后退回哪一层（2026-11-16）。
+ *
+ * 再点一次 AI 是开合（2026-11-16 起不再悬停展开），收起时不该把整块
+ * 抹掉：从划线进来的有 `markId`，原地退回那条工具条，手不用重新找位置；
+ * 从选区进来的没有「工具条这一层」可退——选区本身还在，重新划一下就有，
+ * 返回 null 由调用方整块关掉。
+ */
+export function aiMenuFallback(
+  o: { markId?: string; bookId?: string; anchor?: AiMenuAnchor } | null | undefined,
+): { kind: 'hltools'; markId: string; bookId?: string; anchor?: AiMenuAnchor } | null {
+  if (!o?.markId) return null;
+  return { kind: 'hltools', markId: o.markId, bookId: o.bookId, anchor: o.anchor };
+}
+
 /**
  * 首问文案。
  *

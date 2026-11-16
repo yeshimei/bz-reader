@@ -165,6 +165,18 @@ export function aiCardDrop(key: string): void {
   entries.delete(key);
 }
 
+/**
+ * 清空**这一张**卡（2026-11-16）：对话与没发出去的草稿一起丢。
+ *
+ * 落盘记录由调用方删（`removeAiSessionAndSave`），划线与笔记不在这儿动——
+ * 「清空对话」不是「取消划线」，用户清完还要能点回这条线重新问。
+ * 与 `aiCardReset()` 的区别：那个是离开浮层时整册清空，这里只清一张。
+ */
+export function aiCardForget(key: string): void {
+  entries.delete(key);
+  drafts.delete(key);
+}
+
 /** 离开 AI 卡时整册清空：下次打开重新问 */
 export function aiCardReset(): void {
   entries.clear();

@@ -111,7 +111,6 @@ import { planHeaderVisibility, roleOf } from './header-layout';
 import { pdfActionRun, type PanelAnchor } from './pdf-actions';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { REGION_ACTS, SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
-import { aiHoverOpens, hoverCapableNow, makeHoverIntent } from '../shell/ai-hover';
 import { hydrateToolbarIcons } from '../shell/toolbar-icons';
 import { can } from '../data/entitlement';
 import { bzEntryReady } from '../data/bz-bridge';
@@ -1349,9 +1348,12 @@ export class ReaderView extends ItemView {
       /* 这一下该干什么，全交给 tapIntent：划词条 > 浮层 > 翻页。
          iframe 里的点按不冒泡到宿主文档，document 级的收口收不到，
          所以「先收条子、再关浮层、最后才翻页」只能在这里兜住。 */
+      const cur = getShellState().overlay;
       const intent = tapIntent({
         selbar: !!this.selbar,
-        overlayKind: getShellState().overlay?.kind,
+        overlayKind: cur?.kind,
+        /* 定住的卡点正文不关（2026-11-16）：那一碰是继续读，不是关闭请求 */
+        pinned: !!cur?.pinned,
         mobile: isMobileShell(),
         /* 桌面点正文翻页默认关（2026-11-12），设置里打开才走下面的翻页分支 */
         desktopTurn: this.prefs.desktopTapTurn,
@@ -5111,45 +5113,6 @@ export class ReaderView extends ItemView {
       RT.selMarkId = keepMark;
     });
 
-    /* 鼠标停在 AI 上就摊开上面那一行（2026-11-16）。
-       桌面那把「点一下才出现」当成了多余的一步——菜单本来就长在光标正上方；
-       点按照旧可用，手机上完全不参与（轻点也会发 pointerenter，
-       跟着展开就成了「点一下开、再点一下关」）。 */
-    const aiAct = SELECTION_ACTS.ai || '';
-    const aiBtn = aiAct ? bar.querySelector<HTMLElement>(`[data-act="${aiAct}"]`) : null;
-    if (aiBtn && hoverCapableNow()) {
-      const intent = makeHoverIntent(() => {
-        /* 拖选期间条子会连着重建：旧条子已经不在页上了，这一次作废 */
-        if (!bar.isConnected || !RT.sel) return;
-        const r = bar.getBoundingClientRect();
-        /* 与点击同一条锚点：面板底边贴着条子底边，浮层里那枚工具条顶替它的位置 */
-        RT.sel = { ...RT.sel, anchor: { left: r.left, top: r.bottom + 4, width: r.width, height: 0 } };
-        const keepSel = RT.sel;
-        const keepMark = RT.selMarkId;
-        /* 条子要收：浮层里会再画一枚同款工具条，不收就是两条叠在一起。
-           选区载荷留一份——hideSelbar 会把 RT.sel 清掉。 */
-        this.hideSelbar();
-        RT.sel = keepSel;
-        RT.selMarkId = keepMark;
-        dispatchAction(aiAct, aiBtn, {}, { hover: true });
-      });
-      aiBtn.addEventListener('pointerenter', (ev) => {
-        if (
-          !aiHoverOpens({
-            hoverCapable: true,
-            pointerType: (ev as PointerEvent).pointerType,
-            entitled: can('aiSel'),
-            text: RT.sel?.text ?? '',
-          })
-        )
-          return;
-        intent.arm();
-      });
-      aiBtn.addEventListener('pointerleave', () => intent.cancel());
-      /* 手已经点上去了：悬停那条路作废，别在点击之后又补一次 */
-      aiBtn.addEventListener('pointerdown', () => intent.cancel());
-    }
-
     root.appendChild(bar);
 
     /* 定位：移动端贴整段选区的下方，桌面端贴上方；左右夹在可视区内，
@@ -5397,7 +5360,10 @@ export class ReaderView extends ItemView {
           /* 开始新的划词 = 离开上一段交互：浮层（工具条 / 脚注）收掉，
              再把划词条贴到新选区下方。写想法不收——选一段原文再粘进想法
              是常见操作，收掉就等于把正在写的内容丢了。 */
-          if (dismissesOnSelect(getShellState().overlay?.kind)) closeOverlay();
+          /* 定住的那张卡例外（2026-11-16）：它是「钉在屏幕上」的，重新选一段
+             字不该把它顶掉——读的时候本来就会一路选着看。 */
+          const ov = getShellState().overlay;
+          if (!ov?.pinned && dismissesOnSelect(ov?.kind)) closeOverlay();
           /* 选中不立刻落笔：移动端要留着系统选区与两端手柄，让用户先把范围
              调准，再点颜色。以前「选中即划」会在长按结束的瞬间落一条，
              想改范围就只能撤销重来。 */

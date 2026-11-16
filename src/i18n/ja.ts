@@ -1286,4 +1286,10 @@ export const JA: Record<MsgKey, string> = {
   'side.ai.ctx.noteClear': '[TODO] side.ai.ctx.noteClear',
   'side.ai.ctx.noteInsert': '[TODO] side.ai.ctx.noteInsert',
   'side.ai.ctx.noteRoot': '[TODO] side.ai.ctx.noteRoot',
+  'ai.float.pin': '[TODO] ai.float.pin',
+  'ai.float.pinned': '[TODO] ai.float.pinned',
+  'ai.float.clear': '[TODO] ai.float.clear',
+  'ai.float.clear.title': '[TODO] ai.float.clear.title',
+  'ai.float.clear.body': '[TODO] ai.float.clear.body',
+  'ai.float.clear.ok': '[TODO] ai.float.clear.ok',
 };

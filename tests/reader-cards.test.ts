@@ -110,6 +110,43 @@ describe('aiCardHtml · 划词 AI 浮框', () => {
       aiCardHtml({ ready: true, mode: 'explain', ask: '解释这一段', answer: '<img>' }),
     ).toContain('&lt;img&gt;');
   });
+
+  /* 2026-11-16 真机反馈：拖到新位置之后再点卡片，卡片会先弹回原文旁边再
+     弹回来。根子是位置「事后补」——先按原文旁边画出来、下一拍再挪走。
+     位置改到模板里之后，第一次画出来就必须在最终坐标上。 */
+  it('定住并且拖过：位置写在模板里，画出来就在那一处', () => {
+    const html = aiCardHtml({
+      ready: true,
+      mode: 'follow',
+      quote: '原文',
+      pinned: true,
+      pos: { left: 180, top: 96, width: 430 },
+    });
+    expect(html).toContain('is-floating');
+    expect(html).toContain('position:fixed');
+    expect(html).toContain('left:180px');
+    expect(html).toContain('top:96px');
+    expect(html).toMatch(/width:min\(430px/);
+  });
+
+  /* 没定住时算出来的位置只是初值，画出来就还给外层浮层：文字工具条一关，
+     卡片得跟着走。固定定位会让它留在半空——作者截图里就是这两张皮分家。 */
+  it('没定住：即使算了落点也不固定到视口', () => {
+    const html = aiCardHtml({
+      ready: true,
+      mode: 'follow',
+      quote: '原文',
+      pos: { left: 180, top: 96, width: 430 },
+    });
+    expect(html).not.toContain('position:fixed');
+    expect(html).not.toContain('is-kept');
+  });
+
+  it('没拖过就不带固定定位：卡片还贴在原文旁边', () => {
+    const html = aiCardHtml({ ready: true, mode: 'follow', quote: '原文' });
+    expect(html).not.toContain('is-floating');
+    expect(html).not.toContain('position:fixed');
+  });
 });
 
 describe('ideaConfirmHtml · 想法的二次确认', () => {

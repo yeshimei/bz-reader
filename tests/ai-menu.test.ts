@@ -5,6 +5,7 @@ import {
   aiArchiveTurns,
   aiFirstPrompt,
   aiFloatMessages,
+  aiMenuFallback,
   aiMenuHtml,
   aiTranscript,
 } from '../src/shell/ai-menu';
@@ -283,5 +284,27 @@ describe('归档轮次 · 用户问 / AI 答', () => {
     });
     expect(turns).toHaveLength(2);
     expect(aiConversationMarkdown({ day: '2026-11-16', turns: [] })).toBe('');
+  });
+});
+
+/**
+ * 再点一次 AI 把菜单收起来之后，落到哪一层（2026-11-16）。
+ *
+ * 以前悬停开的那行是自己「移走就收」，收起时直接退回划线工具条。现在
+ * 改成点击开合，收起也要落在同一个地方：手不用重新去找那条工具条。
+ */
+describe('AI 菜单收起后的落点', () => {
+  it('从划线进来的：退回那条工具条，markId 与锚点原样带着', () => {
+    const anchor = { left: 10, top: 20, width: 30, height: 0 };
+    expect(aiMenuFallback({ markId: 'm1', bookId: 'b1', anchor })).toEqual({
+      kind: 'hltools',
+      markId: 'm1',
+      bookId: 'b1',
+      anchor,
+    });
+  });
+
+  it('从选区进来的（没有划线）：没有工具条这一层可退', () => {
+    expect(aiMenuFallback({ bookId: 'b1' })).toBeNull();
   });
 });
