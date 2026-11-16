@@ -2,7 +2,7 @@
   <img src="docs/images/mark.svg" width="76" height="76" alt="">
   <h1>bz Reader</h1>
   <p><b>Mach Obsidian zu einem Ort, an dem du liest.</b><br>
-  <sub>Desktop + Mobil, mehrere Formate (inkl. PDF), mehrere Sprachen, KI-Fragen zum ganzen Buch, Wikilinks – alle Daten bleiben lokal.</sub></p>
+  <sub>Desktop + Mobil, mehrere Formate (inkl. PDF und Comics), mehrere Sprachen, KI-Rückfragen mit Anker / Fragen zum ganzen Buch / semantische Suche / Wissensdatenbank, Offline-Hörbücher, Wikilinks, Statistik – alle Daten bleiben lokal.</sub></p>
 
   <p>
     <a href="https://obsidian.md"><img src="https://img.shields.io/badge/OBSIDIAN-%E2%89%A5%201.8.7-8a6a3a?style=flat-square&logo=obsidian&logoColor=white" alt="Obsidian 1.8.7+"></a>
@@ -22,9 +22,7 @@
 
 ## Deutsch
 
-Mach aus Obsidian einen Ort zum Lesen. Desktop und Mobil, mehrere Formate (einschließlich PDF), mehrsprachige Oberfläche, KI-Fragen zum ganzen Buch, Wikilinks. Alle Daten bleiben lokal.
-
-<p align="center"><b>Regal · Kategorien · Weiterlesen · Statusfilter · Coverübersicht</b></p>
+Mach aus Obsidian einen Ort zum Lesen. Desktop + Mobil, mehrere Formate (inkl. PDF und Comics), mehrere Sprachen, KI-Rückfragen mit Anker / Fragen zum ganzen Buch / semantische Suche / Wissensdatenbank, Offline-Hörbücher, Wikilinks, Statistik – alle Daten bleiben lokal.
 
 <p align="center">
   <img src="docs/images/shelf-desktop-light.webp" alt="Regal: Weiterlesen, Filterleiste, Kategorien und Coverübersicht (links hell, rechts dunkel)">

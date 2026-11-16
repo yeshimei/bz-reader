@@ -2,7 +2,7 @@
   <img src="docs/images/mark.svg" width="76" height="76" alt="">
   <h1>bz Reader</h1>
   <p><b>把 Obsidian 變成一個能讀書的地方。</b><br>
-  <sub>桌面端 + 行動端、多格式（包括 PDF）、多語言支援、AI 全書問答、雙向連結，資料全部本地。</sub></p>
+  <sub>桌面端 + 行動端、多格式（包括 PDF、漫畫）、多語言、AI 錨定追問 / 全書問答 / 語意搜索 / 知識庫、離線聽書、雙鏈，統計，資料全部本地。</sub></p>
 
   <p>
     <a href="https://obsidian.md"><img src="https://img.shields.io/badge/OBSIDIAN-%E2%89%A5%201.8.7-8a6a3a?style=flat-square&logo=obsidian&logoColor=white" alt="Obsidian 1.8.7 以上"></a>
@@ -22,9 +22,7 @@
 
 ## 繁體中文
 
-把 Obsidian 變成一個能讀書的地方。桌面端 + 行動端、多格式（包括 PDF）、多語言支援、AI 全書問答、雙向連結，資料全部本地。
-
-<p align="center"><b>書架 · 分類 · 繼續閱讀 · 狀態篩選 · 封面牆</b></p>
+把 Obsidian 變成一個能讀書的地方。桌面端 + 行動端、多格式（包括 PDF、漫畫）、多語言、AI 錨定追問 / 全書問答 / 語意搜索 / 知識庫、離線聽書、雙鏈，統計，資料全部本地。
 
 <p align="center">
   <img src="docs/images/shelf-desktop-light.webp" alt="書架：繼續閱讀、篩選列、書架分類與封面牆（左亮右暗）">

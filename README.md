@@ -2,7 +2,7 @@
   <img src="docs/images/mark.svg" width="76" height="76" alt="">
   <h1>bz Reader</h1>
   <p><b>把 Obsidian 变成一个能读书的地方。</b><br>
-  <sub>桌面端 + 移动端、多格式（包括 PDF），多语言支持、AI 全书问答、双向链接，数据全部本地。</sub></p>
+  <sub>桌面端 + 移动端、多格式（包括 PDF，漫画），多语言、AI 锚定追问 / 全书问答 / 语义搜索 / 知识库、离线听书、双链，统计，数据全部本地。</sub></p>
 
   <p>
     <a href="https://obsidian.md"><img src="https://img.shields.io/badge/OBSIDIAN-%E2%89%A5%201.8.7-8a6a3a?style=flat-square&logo=obsidian&logoColor=white" alt="Obsidian 1.8.7+"></a>
@@ -18,8 +18,6 @@
   <p><sub><b>简体中文</b> · <a href="README.md#english">English</a> · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.pt.md">Português</a></sub></p>
 </div>
 
-
-<p align="center"><b>书架 · 分组 · 继续阅读 · 状态筛选 · 封面墙</b></p>
 
 <p align="center">
   <img src="docs/images/shelf-desktop-light.webp" alt="书架：继续阅读、筛选条、书架分组与封面墙（左侧亮色、右侧暗色）">
@@ -267,8 +265,6 @@ AI 与支持者名单之外完全离线。AI 请求走你配置的 OpenAI 兼容
 ---
 
 ## English
-
-<p align="center"><b>Shelf · Categories · Continue reading · Status filters · Cover wall</b></p>
 
 <p align="center">
   <img src="docs/images/shelf-desktop-light.webp" alt="Shelf: continue reading, filter bar, categories and cover wall (light left, dark right)">

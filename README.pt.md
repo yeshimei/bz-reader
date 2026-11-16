@@ -2,7 +2,7 @@
   <img src="docs/images/mark.svg" width="76" height="76" alt="">
   <h1>bz Reader</h1>
   <p><b>Transforme o Obsidian em um lugar para ler.</b><br>
-  <sub>Desktop + celular, vários formatos (incluindo PDF), multilíngue, IA sobre todo o livro, wikilinks; dados totalmente locais.</sub></p>
+  <sub>Desktop + celular, vários formatos (incluindo PDF e quadrinhos), multilíngue, IA: perguntas ancoradas / sobre todo o livro / busca semântica / base de conhecimento, audiolivros offline, wikilinks, estatísticas; dados totalmente locais.</sub></p>
 
   <p>
     <a href="https://obsidian.md"><img src="https://img.shields.io/badge/OBSIDIAN-%E2%89%A5%201.8.7-8a6a3a?style=flat-square&logo=obsidian&logoColor=white" alt="Obsidian 1.8.7+"></a>
@@ -22,9 +22,7 @@
 
 ## Português
 
-Transforme o Obsidian num lugar para ler. Desktop e celular, vários formatos (incluindo PDF), interface multilíngue, perguntas de IA sobre o livro inteiro, wikilinks. Todos os dados ficam locais.
-
-<p align="center"><b>Estante · Grupos · Continuar lendo · Filtros · Parede de capas</b></p>
+Transforme o Obsidian num lugar para ler. Desktop + celular, vários formatos (incluindo PDF e quadrinhos), multilíngue, IA: perguntas ancoradas / sobre todo o livro / busca semântica / base de conhecimento, audiolivros offline, wikilinks, estatísticas; dados totalmente locais.
 
 <p align="center">
   <img src="docs/images/shelf-desktop-light.webp" alt="Estante: continuar lendo, filtros, grupos e parede de capas (claro à esquerda, escuro à direita)">

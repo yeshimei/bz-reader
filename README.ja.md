@@ -2,7 +2,7 @@
   <img src="docs/images/mark.svg" width="76" height="76" alt="">
   <h1>bz Reader</h1>
   <p><b>Obsidian を読書できる場所に。</b><br>
-  <sub>デスクトップ + モバイル、複数形式（PDF を含む）、多言語、AI 全書 Q&A、双方向リンク、データはすべてローカル。</sub></p>
+  <sub>デスクトップ + モバイル、複数形式（PDF とマンガを含む）、多言語、AI アンカー追質問 / 全書 Q&A / セマンティック検索 / ナレッジベース、オフライン音声読み上げ、双方向リンク、統計、データはすべてローカル。</sub></p>
 
   <p>
     <a href="https://obsidian.md"><img src="https://img.shields.io/badge/OBSIDIAN-%E2%89%A5%201.8.7-8a6a3a?style=flat-square&logo=obsidian&logoColor=white" alt="Obsidian 1.8.7 以上"></a>
@@ -22,9 +22,7 @@
 
 ## 日本語
 
-Obsidian を「本を読む場所」に。デスクトップ + モバイル、複数フォーマット（PDF を含む）、多言語対応、AI 全書 Q&A、双方向リンク。データはすべてローカル。
-
-<p align="center"><b>書棚 · 分類 · 続きから読む · 状態フィルター · 表紙ウォール</b></p>
+Obsidian を「本を読む場所」に。デスクトップ + モバイル、複数形式（PDF とマンガを含む）、多言語、AI アンカー追質問 / 全書 Q&A / セマンティック検索 / ナレッジベース、オフライン音声読み上げ、双方向リンク、統計、データはすべてローカル。
 
 <p align="center">
   <img src="docs/images/shelf-desktop-light.webp" alt="書棚：続きから読む、フィルター、分類、表紙ウォール（左が明るいテーマ、右が暗いテーマ）">

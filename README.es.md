@@ -2,7 +2,7 @@
   <img src="docs/images/mark.svg" width="76" height="76" alt="">
   <h1>bz Reader</h1>
   <p><b>Convierte Obsidian en un lugar para leer.</b><br>
-  <sub>Escritorio + móvil, varios formatos (incluido PDF), multilingüe, IA sobre todo el libro, wikilinks; datos completamente locales.</sub></p>
+  <sub>Escritorio + móvil, varios formatos (incluidos PDF y cómics), multilingüe, IA: preguntas ancladas / sobre todo el libro / búsqueda semántica / base de conocimientos, audiolibros sin conexión, wikilinks, estadísticas; datos completamente locales.</sub></p>
 
   <p>
     <a href="https://obsidian.md"><img src="https://img.shields.io/badge/OBSIDIAN-%E2%89%A5%201.8.7-8a6a3a?style=flat-square&logo=obsidian&logoColor=white" alt="Obsidian 1.8.7+"></a>
@@ -22,9 +22,7 @@
 
 ## Español
 
-Convierte Obsidian en un lugar donde leer. Escritorio y móvil, varios formatos (incluido PDF), interfaz multilingüe, preguntas de IA sobre todo el libro, wikienlaces. Todos los datos se guardan en local.
-
-<p align="center"><b>Estantería · Grupos · Seguir leyendo · Filtros · Mural de portadas</b></p>
+Convierte Obsidian en un lugar donde leer. Escritorio + móvil, varios formatos (incluidos PDF y cómics), multilingüe, IA: preguntas ancladas / sobre todo el libro / búsqueda semántica / base de conocimientos, audiolibros sin conexión, wikilinks, estadísticas; datos completamente locales.
 
 <p align="center">
   <img src="docs/images/shelf-desktop-light.webp" alt="Estantería: seguir leyendo, filtros, grupos y mural de portadas (claro a la izquierda, oscuro a la derecha)">
