@@ -14,6 +14,7 @@
 5. **多语言只在发版流程补齐**：日常开发、修 bug、feature 分支**只写 `src/i18n/zh.ts` 的中文**——不给外语包写翻译，也不在开发期逐字推敲英文 / 繁体。中文包是 key 的类型真源，加完 key 跑一次 `node scripts/i18n-placeholders.mjs`，脚本自动给其余七包补 `[TODO]` 占位顶住门禁（只补缺失 key、不覆盖已有译文，`{占位符}`与中文逐条相同）。正式翻译、术语统一、润色统一放到上架第一段第 2 步一次做完。
    - 上架前必须跑 `node scripts/i18n-placeholders.mjs --check`，还有占位或漏 key 就停。
    - 更新日志永远只有中英两版（`changelogLang()`），任何版本都不补其余六种。
+6. **禁止悬停气泡属性（2026-11-17）**：插件生成的 DOM 一律不挂 `aria-label` / `title`，也不调用 `setTooltip()`——Obsidian 会把它们变成悬停气泡，用户看着像「莫名其妙的小弹窗」。纯图标控件的可读名字改用视觉隐藏文本：模板里写 `<span class="bzs-sr-only">名字</span>`，DOM API 用 `src/core/ui/sr-text.ts` 的 `srText()` / `withSrText()`；`aria-labelledby` 指向隐藏节点也可以用（它不触发气泡）。提交前跑 `node scripts/check-tooltip-attrs.mjs`，有违规就停。
 
 ## 提交前必过三道门
 在仓库 `D:\Obsidian\bz-reader` 跑：
