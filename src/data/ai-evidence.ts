@@ -15,6 +15,7 @@
  * 每条上千字，全塞进去既超窗口也在替用户烧钱。
  * ============================================================ */
 import { t } from '../i18n';
+import { AI_EVIDENCE_LIMIT } from './ai-budget';
 import type { BzNoteHit } from './bz-bridge';
 
 /** 来源：带 path 的打开笔记，带 bookId 的打开书；两样都没有的只当说明 */
@@ -24,8 +25,14 @@ export interface AiSource {
   path?: string;
   /** 书号：点开后落到这本书 */
   bookId?: string;
-  /** 副标题：命中片段或「第 N 块」 */
+  /** 副标题：命中片段或「第 N 块 · 摘录」 */
   note?: string;
+  /**
+   * 命中块的原文开头（书内来源用）：点开时拿它按片段落回书里。
+   *
+   * 只带前 40 字——够定位，又不至于让侧栏一条来源变成一段引文。
+   */
+  text?: string;
 }
 
 /** 一次提问的依据 */
@@ -34,8 +41,13 @@ export interface AiEvidence {
   sources: AiSource[];
 }
 
-/** 拼进上下文的字数上限：约 4k token 中文，留够回答与历史的余量 */
-export const AI_CONTEXT_LIMIT = 9000;
+/**
+ * 拼进上下文的字数上限。
+ *
+ * 与画像层、组装层共用 `AI_EVIDENCE_LIMIT` 这一个真源：以前这里是 9000，
+ * 画像层 12000、组装层 6000，最后那一刀还取末尾，检索出的最相关块正好被切。
+ */
+export const AI_CONTEXT_LIMIT = AI_EVIDENCE_LIMIT;
 
 /** 来源最多列几条：来源是佐证，不是第二份结果列表 */
 export const AI_SOURCES_MAX = 8;
@@ -81,22 +93,29 @@ export function hitsToContext(hits: readonly BzNoteHit[], limit = AI_CONTEXT_LIM
 /**
  * 全书这一档的来源。
  *
- * 命中的是「块」，但给用户看的必须是他认的东西：章名 + 第几块。
- * 带上 bookId，点一下能把书打开；没有这一条，来源就只是几行死文字。
+ * 命中的是「块」，但给用户看的必须是他认的东西：章名 + 第几块 + 一小段原文。
+ * 带上 bookId 与 `text`，点一下能打开这本书并落到那段原文附近；只有章名时
+ * 只能落到章首，厚书里还得自己翻——「第 12 块」对用户没有意义。
  */
 export function sourcesOfBlocks(
   bookId: string,
-  blocks: ReadonlyArray<{ chapter?: string; index: number }>,
+  blocks: ReadonlyArray<{ chapter?: string; index: number; text?: string }>,
   take = 5,
 ): AiSource[] {
   const out: AiSource[] = [];
   for (const b of blocks) {
     if (out.length >= take) break;
     const chapter = String(b.chapter ?? '').trim();
+    const excerpt = String(b.text ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 40);
+    const where = t('side.ai.source.block', { n: String(Number(b.index) + 1) });
     out.push({
       title: chapter || t('side.ai.source.chapter'),
       bookId: bookId || undefined,
-      note: t('side.ai.source.block', { n: String(Number(b.index) + 1) }),
+      note: excerpt ? `${where} · ${excerpt}` : where,
+      text: excerpt || undefined,
     });
   }
   return out;

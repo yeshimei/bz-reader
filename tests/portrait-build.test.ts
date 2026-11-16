@@ -87,11 +87,12 @@ describe('向量方案', () => {
       plan: 'vector',
       model: 'bge-m3',
       chunkChars: 1000,
+      overlap: 120,
       total: 3,
       blocks: [
         { chapter: '第一章', chars: 1000, vec: 'AAAA' },
-        { chapter: '第一章', chars: 1000 },
-        { chapter: '第一章', chars: 500 },
+        { chapter: '第一章', chars: 1121 },
+        { chapter: '第一章', chars: 621 },
       ],
       createdAt: 1,
       updatedAt: 1,
@@ -173,11 +174,12 @@ describe('向量方案', () => {
       plan: 'vector',
       model: 'bge-m3',
       chunkChars: 1000,
+      overlap: 120,
       total: 3,
       blocks: [
         { chapter: '第一章', chars: 1000, vec: 'AAAA' },
-        { chapter: '第一章', chars: 1000, vec: 'BBBB' },
-        { chapter: '第一章', chars: 500 },
+        { chapter: '第一章', chars: 1121, vec: 'BBBB' },
+        { chapter: '第一章', chars: 621 },
       ],
       createdAt: 1,
       updatedAt: 1,
@@ -388,7 +390,8 @@ describe('块里的原文', () => {
     await b.start(book, 'vector');
     const p = b.current()!;
     expect(p.blocks.every((x) => typeof x.text === 'string' && x.text.length > 0)).toBe(true);
-    expect(p.blocks.map((x) => x.text!.length).reduce((a, c) => a + c, 0)).toBe(2500);
+    /* 2500 字正文 + 两个块边界各复述 120 字（另加换行） */
+    expect(p.blocks.map((x) => x.text!.length).reduce((a, c) => a + c, 0)).toBe(2742);
   });
 
   it('压缩方案：不存原文（只有摘要）', async () => {

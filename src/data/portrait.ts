@@ -18,6 +18,7 @@
  * ============================================================ */
 import type { App } from 'obsidian';
 import { storageDirOf } from '../core/plugin-path';
+import { AI_EVIDENCE_LIMIT } from './ai-budget';
 import type { ReaderBook } from './schema';
 
 export type PortraitPlan = 'vector' | 'compress';
@@ -37,6 +38,17 @@ export const PORTRAIT_CHUNK_CHARS: Record<PortraitPlan, number> = {
   compress: 8000,
 };
 
+/**
+ * 相邻块复述多少字（只向量方案）。
+ *
+ * 120 字约 12%：够把跨过边界的半句话、半段论证接上，又不会让块数明显变多。
+ * 压缩方案不重叠——8000 字一块边界本来就少，重复还会多花一次请求。
+ */
+export const PORTRAIT_OVERLAP_CHARS: Record<PortraitPlan, number> = {
+  vector: 120,
+  compress: 0,
+};
+
 export const PORTRAIT_VERSION = 1;
 
 /** 画像目录（数据目录下的子目录） */
@@ -45,8 +57,49 @@ export const PORTRAIT_DIR = 'portraits';
 /** 一问带几块依据（向量方案） */
 export const PORTRAIT_TOP_K = 6;
 
-/** 压缩方案带进上下文的字数上限（够讲清全书，又不至于把长书整份塞爆） */
-export const PORTRAIT_EVIDENCE_LIMIT = 12000;
+/**
+ * 最终交给模型的块数上限。
+ *
+ * 6 块 ≈ 6000 字，是本地模型合得上口的关键：Ollama 默认 `num_ctx = 8192`，
+ * 6000 汉字约 7800 token，正好塞得下；8 块 7000 字会超过窗口，轻则截断、
+ * 重则 runner 直接 500。
+ *
+ * 章首补偿在这 6 块里做：命中的 3 章各取「最高分块 + 章首块」，
+ * 不额外追加——多带的上下文在本地模型上换不来正确答案，只会把请求拖死。
+ */
+export const PORTRAIT_PICK_LIMIT = 6;
+
+/**
+ * 依据上限：与 AI 依据预算同一个数（见 data/ai-budget）。
+ *
+ * 以前这里是 12000，合并层 9000、组装层 6000，最后一刀还是取末尾。
+ * 现在三处共用一个真源，`blocksEvidence` / `compressEvidence` 的默认值都指向它。
+ */
+export const PORTRAIT_EVIDENCE_LIMIT = AI_EVIDENCE_LIMIT;
+
+/**
+ * 检索的分数门槛。
+ *
+ * 余弦相似度对任意非零向量几乎总是正数，只过滤 `> 0` 等于没有门槛：
+ * 书里根本没讲这个话题时，它也照样凑满 6 块噪声，模型只能对着噪声硬答。
+ *
+ * 两条一起用：
+ *   · 绝对下限 0.2——连「沾边」都算不上的直接丢；
+ *   · 相对下限 = 最高分的 60%——同一次检索里明显掉队的块也丢，
+ *     避免把 top1 之外的弱相关块也塞进依据。
+ * 阈值按 bge-m3 的实测分布取；换嵌入模型如果偏严/偏松，改这两个数。
+ */
+export const PORTRAIT_MIN_SCORE = 0.2;
+export const PORTRAIT_REL_SCORE = 0.6;
+
+/**
+ * 多短的问题才补章节名。
+ *
+ * 「他为什么走」「这个实验」这种问题脱离上下文没法算向量；补上当前章名
+ * 至少能把它拉回正在读的那一段。问清楚的问题（超过这个长度）不拼——
+ * 拼了反而把查询拉向当前章，问全书主题时会偏。
+ */
+export const QUERY_EXPAND_MAX = 12;
 
 export interface ChapterText {
   title: string;
@@ -86,6 +139,13 @@ export interface PortraitFile {
   dim?: number;
   /** 建的时候用的块大小（改了口径就能看出这份文件是旧尺子切的） */
   chunkChars: number;
+  /**
+   * 切块时相邻块复述多少字（0 / 缺省 = 无重叠）。
+   *
+   * 老画像没有这一项，续跑时按 0 处理：口径不同的块不能混着续，
+   * 否则一半旧块一半新块，检索分数没法比。
+   */
+  overlap?: number;
   total: number;
   blocks: PortraitBlock[];
   /** compress：全书总述（最后那一次「合成」请求的产物；问答与详情页都用它开头） */
@@ -136,19 +196,39 @@ function splitParagraph(para: string, size: number): string[] {
  *   3. 但新章开始时，如果当前块已经过半，就收口换块：章首是天然的语义分界，
  *      粘在上一章尾巴里会让检索结果指错章。
  *
- * `chapter` 取这一块**第一段**所属的章节——后续来源列表按它显示「出自第几章」。
+ * `overlap`（可选，默认 0）：新块开头复述上一块结尾的 N 字。论证跨过块边界
+ * 时，两半至少能在其中一块里同时出现，模型不会只看到「半个论证」。
+ * 只给向量方案开（压缩方案 8000 字一块，边界本来就少，重复还会多花钱）。
+ *
+ * `chapter` 取这一块**主体**所属的章节——后续来源列表按它显示「出自第几章」。
  */
-export function chunkChapters(chapters: ChapterText[], size: number): PortraitChunk[] {
+export function chunkChapters(
+  chapters: ChapterText[],
+  size: number,
+  opts: { overlap?: number } = {},
+): PortraitChunk[] {
   const limit = Math.max(200, Math.floor(size) || PORTRAIT_CHUNK_CHARS.compress);
+  /* 重叠最多给半块：再多就变成「上一块整块搬过来」，块数会翻倍 */
+  const overlap = Math.max(0, Math.min(Math.floor(Number(opts.overlap) || 0), Math.floor(limit / 2)));
   const out: PortraitChunk[] = [];
   let buf = '';
   let bufChapter = '';
+  /**
+   * 上一块结尾，等下一个片段进来时复述。
+   *
+   * 不直接塞回 `buf`：单段超长时「120 字尾巴 + 1000 字新段」装不进一块，
+   * 先塞回去会产出一个只有 120 字的短块。允许新块比 limit 略长（约 12%），
+   * 比产出半块好。
+   */
+  let carry = '';
 
-  const flush = (): void => {
+  /** 收口；`nextChapter` = 下一块主体属于哪章（章首收口时传新章名） */
+  const flush = (nextChapter = ''): void => {
     const text = buf.trim();
     if (text) out.push({ chapter: bufChapter, text, chars: text.length });
+    carry = overlap > 0 && text.length > overlap ? text.slice(-overlap) : '';
     buf = '';
-    bufChapter = '';
+    bufChapter = nextChapter;
   };
 
   for (const chapter of chapters ?? []) {
@@ -156,13 +236,18 @@ export function chunkChapters(chapters: ChapterText[], size: number): PortraitCh
     const body = normalizeText(chapter?.text ?? '');
     if (!body) continue;
     /* 章首：块已经过半就收口，让这一章从头开始 */
-    if (buf && buf.length >= limit * 0.5) flush();
+    if (buf && buf.length >= limit * 0.5) flush(title);
     const paras = body.split(/\n+/).map((p) => p.trim()).filter(Boolean);
     for (const para of paras) {
       for (const piece of splitParagraph(para, limit)) {
-        if (buf && buf.length + piece.length + 1 > limit) flush();
-        if (!buf) bufChapter = title;
-        buf = buf ? `${buf}\n${piece}` : piece;
+        if (buf && buf.length + piece.length + 1 > limit) flush(bufChapter || title);
+        if (!buf) {
+          buf = carry ? `${carry}\n${piece}` : piece;
+          carry = '';
+          bufChapter = title;
+        } else {
+          buf = `${buf}\n${piece}`;
+        }
       }
     }
   }
@@ -264,19 +349,108 @@ export function cosine(a: ArrayLike<number>, b: ArrayLike<number>): number {
   return dot / Math.sqrt(na * nb);
 }
 
-/** 向量方案：按相似度取前 k 块（含分数，来源列表要显示出自哪一章） */
+/**
+ * 向量方案：按相似度取前 k 块（含分数，来源列表要显示出自哪一章）。
+ *
+ * 三道门，缺一道都会「界面正常、答案离谱」：
+ *   · 维度对不上 → 跳过。名字没变但换了权重时，按较短的那份算余弦会得到
+ *     一个看着像分数的错值；
+ *   · 低于绝对/相对阈值 → 丢掉。余弦对任意非零向量几乎总是正数，
+ *     只过滤 `> 0` 等于没有门槛，书里没讲过的题也会凑满 6 块噪声；
+ *   · 全被丢光 → 返回空。上层据此说「书里没有找到相关段落」，
+ *     比让模型对着噪声硬答诚实。
+ */
 export function topBlocksByVector(
   p: PortraitFile,
   query: ArrayLike<number>,
   k = PORTRAIT_TOP_K,
+  opts: { minScore?: number; relScore?: number } = {},
 ): Array<{ block: PortraitBlock; index: number; score: number }> {
   const q = query ?? [];
   if (!q.length) return [];
-  const scored = (p.blocks ?? [])
-    .map((block, index) => ({ block, index, score: cosine(decodeVector(block.vec), q) }))
-    .filter((x) => x.block.vec && x.score > 0);
+  const scored: Array<{ block: PortraitBlock; index: number; score: number }> = [];
+  (p.blocks ?? []).forEach((block, index) => {
+    const vec = decodeVector(block.vec);
+    if (!vec.length || vec.length !== q.length) return;
+    const score = cosine(vec, q);
+    if (score > 0) scored.push({ block, index, score });
+  });
   scored.sort((x, y) => y.score - x.score);
-  return scored.slice(0, Math.max(1, k));
+  const best = scored[0]?.score ?? 0;
+  const floor = Math.max(
+    opts.minScore ?? PORTRAIT_MIN_SCORE,
+    best * (opts.relScore ?? PORTRAIT_REL_SCORE),
+  );
+  return scored.filter((x) => x.score >= floor).slice(0, Math.max(1, k));
+}
+
+/**
+ * 命中块收口：每个命中的章，把它的第一块也带上。
+ *
+ * 为什么需要：纯向量检索在「问一个专名」时经常输给泛化段落。真机例子——
+ * 「方鸿渐回国坐的船叫什么名字」取前 6 块全是方鸿渐回家/吵架的段落
+ * （每块都有「方鸿渐」，相似度 0.55+），真正写着「白拉日隆子爵号」的第一章
+ * 开头只有 0.428，排不进前 6。模型看不到船名，只能答「书里没有提到」。
+ *
+ * 章首是天然的「定义句」位置：人名、船名、地名、这一章要讲什么，多半在开头。
+ * 命中的章带回一块章首，等于给检索补一层「按章结构」的上下文。
+ *
+ * 三条约束：
+ *   · 章按「最高分 + 命中块数」排序：一个章里有好几块都命中，说明整章相关，
+ *     比只有一块擦边的章更值得带回章首；
+ *   · 每章先保最高分那一块，再给章首一个名额（分数记 best 的 0.9）；
+ *   · 总额不超过 `limit`，剩下的名额按候选分数补。
+ */
+export function chapterAwarePicks(
+  p: PortraitFile,
+  candidates: ReadonlyArray<{ block: PortraitBlock; index: number; score: number }>,
+  limit = PORTRAIT_PICK_LIMIT,
+): Array<{ block: PortraitBlock; index: number; score: number }> {
+  const cap = Math.max(1, Math.floor(limit) || PORTRAIT_PICK_LIMIT);
+  if (!candidates.length) return [];
+  const blocks = p.blocks ?? [];
+  const groups = new Map<string, { best: (typeof candidates)[number]; head: number; count: number }>();
+  for (const c of candidates) {
+    const chapter = String(c.block.chapter ?? '');
+    const g = groups.get(chapter);
+    if (!g) groups.set(chapter, { best: c, head: -1, count: 1 });
+    else {
+      g.count += 1;
+      if (c.score > g.best.score) g.best = c;
+    }
+  }
+  for (const [chapter, g] of groups) {
+    for (let i = 0; i < blocks.length; i += 1) {
+      if (String(blocks[i]?.chapter ?? '') === chapter) {
+        g.head = i;
+        break;
+      }
+    }
+  }
+
+  const picked: Array<{ block: PortraitBlock; index: number; score: number }> = [];
+  const seen = new Set<number>();
+  const push = (c: { block: PortraitBlock; index: number; score: number }): void => {
+    if (seen.has(c.index) || picked.length >= cap) return;
+    seen.add(c.index);
+    picked.push(c);
+  };
+  /* 一、章排序：最高分 + 命中块数（每块加 0.01，最多算 4 块） */
+  const chapterScore = (g: { best: { score: number }; count: number }): number =>
+    g.best.score + Math.min(g.count, 4) * 0.01;
+  const order = [...groups.values()].sort((a, b) => chapterScore(b) - chapterScore(a));
+  const maxChapters = Math.max(1, Math.ceil(cap / 2));
+  /* 二、每章：最高分块 + 章首块。
+        章首分数记成与 best 相同：它跟 best 是同一章的证据，不该因为「章首」
+        这个身份排在预算末尾——8000 字一截，最后那块就先没了。 */
+  for (const g of order.slice(0, maxChapters)) {
+    push(g.best);
+    const head = blocks[g.head];
+    if (head) push({ block: head, index: g.head, score: g.best.score });
+  }
+  /* 三、剩余名额按分数补 */
+  for (const c of [...candidates].sort((a, b) => b.score - a.score)) push(c);
+  return picked.sort((a, b) => b.score - a.score);
 }
 
 /**
@@ -306,6 +480,25 @@ export function blocksEvidence(
 }
 
 /* ─────────── 问答依据 ─────────── */
+
+/**
+ * 短问题补上当前章节名再算查询向量。
+ *
+ * 「他为什么走」这种问题没有主语也没有书名，直接嵌入得到的方向几乎是随机的；
+ * 拼上章名至少把它拉回正在读的那一段。
+ *
+ * 只给**带指代词**的短问题拼。「三闾大学的校长是谁」也只有 10 个字，
+ * 但主语是专名，拼上「第一章」反而把它拉向前文——问的是后文的校长，
+ * 结果检索到第一章的风景描写。判据是「有没有他/她/它/这/那/该/此」，
+ * 不是「够不够短」。
+ */
+export function expandQuery(q: string, chapter?: string): string {
+  const text = String(q ?? '').trim();
+  const name = String(chapter ?? '').trim();
+  if (!text || !name) return text;
+  if (text.length >= QUERY_EXPAND_MAX) return text;
+  return /[他她它这那该此]/.test(text) ? `${name} ${text}` : text;
+}
 
 /**
  * 压缩方案：把整份要点拼成依据。
@@ -433,6 +626,7 @@ export function sanitizePortrait(raw: unknown, bookId: string): PortraitFile | n
     model: String(r.model ?? ''),
     dim: Number(r.dim) || undefined,
     chunkChars: Number(r.chunkChars) || PORTRAIT_CHUNK_CHARS[plan],
+    overlap: Number(r.overlap) || undefined,
     total,
     blocks,
     overview: typeof r.overview === 'string' ? r.overview : undefined,

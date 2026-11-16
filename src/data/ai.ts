@@ -9,6 +9,7 @@
  * 用户应该被带到设置页，而不是看着按钮点了没反应。
  * ============================================================ */
 import { aiReady, type ReaderSettings } from './settings';
+import { AI_EVIDENCE_LIMIT } from './ai-budget';
 import { buildEnrichMessages } from './book-enrich';
 import { buildGuideMessages } from './chapter-guide';
 import { buildRouteMessages, type RouteBook } from './topic-route';
@@ -34,10 +35,13 @@ export type AiTask =
 export const FOLLOW_QUOTE_LIMIT = 2000;
 
 /**
- * 问答带多少正文。
+ * 「当前这一屏」带多少正文。
  *
  * 6000 字约 4k token：够模型看懂这一页在讲什么，又不至于每次提问都
  * 烧掉一大截额度。epub 的一「屏」通常 800–1200 字，留了五倍余量。
+ *
+ * 注意：这是**没有检索依据**时的兜底口径（取末尾，因为用户读到哪儿哪儿重要）。
+ * 全书依据走 `AI_EVIDENCE_LIMIT`，并且取开头（检索已按相关度排好序）。
  */
 export const ASK_CONTEXT_LIMIT = 6000;
 
@@ -96,6 +100,19 @@ export function clipContext(text: string, limit = ASK_CONTEXT_LIMIT): string {
   return '…' + flat.slice(flat.length - limit);
 }
 
+/**
+ * 检索依据压缩到上限以内：**留开头**。
+ *
+ * 依据是按相关度排好序的，最相关的那块在最前；切末尾等于先把最相关的
+ * 扔掉、留下最不相关的。这与「当前屏」的 `clipContext` 是两个方向，
+ * 不能共用一个函数——以前共用，全书依据的头（含全书总述）就是这样没的。
+ */
+export function clipHead(text: string, limit = AI_EVIDENCE_LIMIT): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  if (flat.length <= limit) return flat;
+  return `${flat.slice(0, Math.max(0, limit - 1))}…`;
+}
+
 /** 摘录 / 解释 / 翻译的老口径，一字不改（回归测试锁着） */
 function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow' | 'shelf' | 'enrich' | 'guide' | 'route'>, text: string): string {
   if (task === 'summarize') {
@@ -151,7 +168,7 @@ function buildFollowMessages(input: AiAskInput): AiMessage[] {
  * 用户会去划词卡里追问。
  */
 function buildShelfMessages(input: AiAskInput): AiMessage[] {
-  const ctx = clipContext(input.context ?? '');
+  const ctx = clipHead(input.context ?? '');
   const system = ctx
     ? '你是这几本书的共读助手。依据里每一段都标了出处（书名 · 章节）。回答时要说清是哪本书的说法；依据里没有的，直接说「这几本书里没有提到」，不要用书外的知识补充。用中文，先给结论再给依据，不要寒暄。'
     : '你是这几本书的共读助手。但这次没有取到可用的依据，只能凭问题本身作答，回答前先说明这一点。用中文，简洁。';
@@ -201,7 +218,8 @@ export function buildMessages(input: AiAskInput): AiMessage[] {
 
   const book = input.title?.trim() || '这本书';
   const chapter = input.chapter?.trim();
-  const ctx = clipContext(input.context ?? '');
+  /* 依据是检索结果，已按相关度排序：留开头，别用「当前屏」的取末尾口径 */
+  const ctx = clipHead(input.context ?? '');
 
   const system = ctx
     ? `你是《${book}》的共读助手。只根据下面提供的依据回答；依据里没有的，直接说「书里没有提到」，不要用书外的知识补充。用中文，先给结论再给依据，不要寒暄。${
@@ -239,6 +257,23 @@ export interface AiResult {
 
 /** 一次 AI 请求最多等多久。接口地址填错 / 代理挂掉时，不设上限就是一直转圈。 */
 export const AI_TIMEOUT_MS = 60_000;
+
+/**
+ * 全书 / 多书问答的超时。
+ *
+ * 这两档一次要带 6–8 块原文（约 6000–8000 字）当依据。真机实测：
+ * 本地 14B（q4，12GB 显存）带 4800 字要 77 秒，带 7000 字超过 180 秒还在算——
+ * 慢模型上宁可多等，也不要把正确答案掐成一句「接口没有响应」。
+ *
+ * 这只是上限：云端模型十几秒就返回，不会等满；等不下去的人有取消按钮。
+ * 划词解释 / 翻译 / 摘要的输入很短，仍用 60 秒，不该让挂掉的接口拖五分钟。
+ */
+export const AI_ASK_TIMEOUT_MS = 300_000;
+
+/** 这个任务该等多久（纯函数，测试直接锁） */
+export function askTimeoutMs(task: AiTask): number {
+  return task === 'ask' || task === 'shelf' ? AI_ASK_TIMEOUT_MS : AI_TIMEOUT_MS;
+}
 
 export interface AiAskOptions {
   /** 外部取消（弹层里的「取消请求」）。超时与取消是两条路，提示要分开 */
@@ -441,5 +476,5 @@ export async function aiAsk(
   opts: AiAskOptions = {},
 ): Promise<AiResult> {
   const messages = buildMessages(input);
-  return { text: await aiPostChat(settings, messages, opts) };
+  return { text: await aiPostChat(settings, messages, { ...opts, timeoutMs: askTimeoutMs(input.task) }) };
 }

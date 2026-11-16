@@ -408,7 +408,7 @@ function aiSourcesRow(m: AiLogItem): string {
       if (s.bookId) {
         return `<button type="button" class="bzs-aisrc-i" data-act="opensrcbook" data-book="${esc(
           s.bookId,
-        )}" data-chapter="${esc(s.title)}" title="${tip}">${label}</button>`;
+        )}" data-chapter="${esc(s.title)}" data-text="${esc(s.text ?? '')}" title="${tip}">${label}</button>`;
       }
       return `<span class="bzs-aisrc-i" title="${tip}">${label}</span>`;
     })

@@ -130,7 +130,9 @@ import {
   type AiEvidence,
 } from '../data/ai-evidence';
 import {
+  PORTRAIT_PICK_LIMIT,
   PORTRAIT_TOP_K,
+  chapterAwarePicks,
   firstSentence,
   listPortraits,
   orphanPortraits,
@@ -139,11 +141,13 @@ import {
   blocksEvidence,
   chapterDigests,
   compressEvidence,
+  expandQuery,
   portraitState,
   readPortrait,
   topBlocksByVector,
   type PortraitPlan,
 } from '../data/portrait';
+import { readPortraitCached } from '../data/portrait-cache';
 import { chapterDigestOf, guideOf, withGuide } from '../data/chapter-guide';
 import { enrichDoneKind, enrichNeeds, enrichSample, mergeMetaPatch, parseEnrichReply } from '../data/book-enrich';
 import { kbSource } from '../data/kb-entry';
@@ -3029,6 +3033,13 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       const src = getShellSource();
       if (!book || !src) break;
       const chapter = (d.chapter || '').trim();
+      const snippet = (d.text || '').trim();
+      /* 有原文摘录就按片段落回书里（jumpIntoBook 会打开这本书并在书内搜这一段）；
+         没有就退回跳章——老画像的来源只有章名，落到章首至少还在那一章。 */
+      if (snippet) {
+        src.jumpIntoBook(book, snippet);
+        break;
+      }
       /* 同一本书就直接跳章；另一本只打开——打开视图是异步的，
          刚 openBook 完立刻跳章会跳到一个还没分页的引擎上。 */
       if (chapter && src.openBookId() === book.id) src.goToChapter(chapter);
@@ -3816,15 +3827,20 @@ const EVIDENCE_TIMEOUT_MS = 20_000;
  * 这本书自己的依据：从全书画像里取最相关的几块。
  *
  * 画像的三种状态（没建 / 建到一半 / 换了嵌入模型）在 askAi 里已经拦过，
- * 走到这里还取不到内容只剩一种可能：这本书里确实没有和问题相关的段落。
+ * 走到这里还取不到内容只剩两种可能：这本书里确实没有和问题相关的段落，
+ * 或者所有命中都低于阈值——两种都该让上层说「没找到」，不是硬答。
+ *
+ * `chapter` 只用来扩展很短的问题（见 expandQuery），不改变检索范围。
  */
 async function bookEvidenceOf(
   q: string,
   app: App | null | undefined,
   book: ReaderBook,
+  chapter?: string,
   signal?: AbortSignal,
 ): Promise<AiEvidence | null> {
-  const portrait = await readPortrait(app, book.id);
+  /* 走缓存：向量画像里存着全书原文，大书每次提问都 parse 一遍是白等 */
+  const portrait = await readPortraitCached(app, book.id);
   const embedder = bzEmbedder(app);
   if (!portrait || portraitState(portrait, embedder.model) !== 'ready') return null;
 
@@ -3832,14 +3848,18 @@ async function bookEvidenceOf(
     /* 问题也要算成向量，而且必须用 bz 的模型算：书的向量就是它算的，
        换个模型算查询向量，距离再近也没有意义。 */
     if (!embedder.ai) throw new Error(embedder.problem || t('side.ai.embedNotReady'));
-    const vec = await embedder.ai.embedQuery(q, signal);
-    const picks = topBlocksByVector(portrait, vec, PORTRAIT_TOP_K);
-    if (!picks.length) return null;
+    const vec = await embedder.ai.embedQuery(expandQuery(q, chapter), signal);
+    /* 先取三倍候选：命中的章要带回章首（专名/定义常在这一章的开头），
+       只取 6 块的话，真正写着答案的那块经常排在第 7 名之后。取 18 是为了
+       让「一个章里有好几块命中」看得出来——章排序靠的是最高分 + 命中块数。 */
+    const candidates = topBlocksByVector(portrait, vec, PORTRAIT_TOP_K * 3);
+    if (!candidates.length) return null;
+    const picks = chapterAwarePicks(portrait, candidates, PORTRAIT_PICK_LIMIT);
     return {
       context: blocksEvidence(portrait, picks),
       sources: sourcesOfBlocks(
         portrait.bookId,
-        picks.map((p) => ({ chapter: p.block.chapter, index: p.index })),
+        picks.map((p) => ({ chapter: p.block.chapter, index: p.index, text: p.block.text })),
       ),
     };
   }
@@ -3970,7 +3990,7 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
   let evidence: AiEvidence | null = null;
   try {
     evidence = mergeEvidence(
-      await bookEvidenceOf(q, src.app, book, ctrl.signal),
+      await bookEvidenceOf(q, src.app, book, book.reading.position.chapterTitle, ctrl.signal),
       await sharedEvidenceOf(q, src.app, ctrl.signal),
     );
   } catch (e) {

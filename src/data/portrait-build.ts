@@ -20,6 +20,7 @@ import { notify } from '../core/notice';
 import { t } from '../i18n';
 import {
   PORTRAIT_CHUNK_CHARS,
+  PORTRAIT_OVERLAP_CHARS,
   chunkChapters,
   compressEvidence,
   encodeVector,
@@ -196,7 +197,8 @@ export class PortraitBuilder {
       sameModel &&
       existing.plan === plan &&
       !existing.done &&
-      existing.chunkChars === PORTRAIT_CHUNK_CHARS[plan]
+      existing.chunkChars === PORTRAIT_CHUNK_CHARS[plan] &&
+      (Number(existing.overlap) || 0) === PORTRAIT_OVERLAP_CHARS[plan]
         ? existing
         : null;
     if (existing && sameModel && existing.done && existing.plan === plan && !opts.rebuild) {
@@ -218,7 +220,9 @@ export class PortraitBuilder {
         this.emit({ status: 'paused', phase: '' });
         return true;
       }
-      const chunks = chunkChapters(chapters, PORTRAIT_CHUNK_CHARS[plan]);
+      const chunks = chunkChapters(chapters, PORTRAIT_CHUNK_CHARS[plan], {
+        overlap: PORTRAIT_OVERLAP_CHARS[plan],
+      });
       if (!chunks.length) throw new Error('这本书没有可用的正文块');
 
       const blocks: PortraitBlock[] = chunks.map((c, i) => {
@@ -238,6 +242,7 @@ export class PortraitBuilder {
         plan,
         model,
         chunkChars: PORTRAIT_CHUNK_CHARS[plan],
+        overlap: PORTRAIT_OVERLAP_CHARS[plan],
         total: chunks.length,
         blocks,
         overview: resumable?.overview,
