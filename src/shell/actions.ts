@@ -1396,6 +1396,9 @@ export function dispatchAction(
          2026-11-08：头栏只有一个形态，四颗图标也当页签用——点已亮的那颗
          回进来之前的页签页（nextStudyPage），所以不再有 studyback。 */
       const clicked = (d.p as StudyPage) || 'library';
+      /* 对话页是高级版（2026-11-16）：页签在 render 里按权限隐藏，这里再拦
+         一次——data-p 是 DOM 属性，不是权限。 */
+      if (clicked === 'ai' && !requireCap('aiLog')) break;
       const st = getState();
       getShellSource()?.openStudy(nextStudyPage(st.studyPage, clicked, st.studyBack));
       break;
@@ -2014,6 +2017,9 @@ export function dispatchAction(
       setState({ aiKw: '' });
       break;
     case 'aiarchive': {
+      /* 对话留档是高级版（2026-11-16）：归档、删除、导出都挂 aiLog，
+         不是只挂侧栏那一个「存档这段对话」。 */
+      if (!requireCap('aiLog')) break;
       const s = aiSessionById(d.id || '');
       if (!s) {
         notify(t('shelf.ai.notice.deleted'), 'error');
@@ -2022,13 +2028,14 @@ export function dispatchAction(
       if (s.archivedAt) break;
       /* 先改内存再排队写盘：写盘失败时界面仍然是对的（data/ai-log 内只 warn） */
       void archiveAiSessionAndSave(getShellSource()?.app, s.id);
-      const dir = String(shellSettings().exportDir ?? 'bz-reader/notes');
-      const path = exportTargets([s], dir)[0]?.path || s.bookTitle;
-      notify(t('shelf.ai.notice.archived', { path }));
+      /* 归档只改 ai-sessions.json 的标记，不写笔记；说「已归档到某条路径」
+         是假成功（2026-11-16 修）。导出到笔记是另一颗按钮的事。 */
+      notify(t('shelf.ai.archived'));
       repaint();
       break;
     }
     case 'aidelete': {
+      if (!requireCap('aiLog')) break;
       const id = d.id || '';
       if (!aiSessionById(id)) break;
       void removeAiSessionAndSave(getShellSource()?.app, id);
@@ -2039,6 +2046,7 @@ export function dispatchAction(
       break;
     }
     case 'aiexportall': {
+      if (!requireCap('aiLog')) break;
       const list = aiSessions();
       if (!list.length) {
         notify(t('shelf.ai.notice.empty'), 'info');
@@ -2048,6 +2056,7 @@ export function dispatchAction(
       break;
     }
     case 'aiexportbook': {
+      if (!requireCap('aiLog')) break;
       const list = aiSessions().filter((s) => s.bookId === (d.id || ''));
       if (!list.length) break;
       setState({
@@ -2062,6 +2071,7 @@ export function dispatchAction(
       if (getState().aiExport) setState({ aiExport: null });
       break;
     case 'aiexportok':
+      if (!requireCap('aiLog')) break;
       void doAiExport();
       break;
     /* ── 读完仪式 ──
@@ -3556,6 +3566,7 @@ export function dispatchAction(
     /* 归档：把这段对话整理成 Markdown，追加到这本书的阅读笔记。
        不叫 aiarchive：那是书架「对话」页按会话 id 归档的动作，同名会被它先匹配。 */
     case 'aifloatarchive':
+      if (!requireCap('aiLog')) break;
       void archiveAiFloat();
       break;
     /* 存档这段对话（2026-11-11）：侧栏的多轮问答落成一篇笔记。
@@ -3581,13 +3592,12 @@ export function dispatchAction(
       void appendAiLog(app, book, block);
       break;
     }
-    /* 复制这条对话（2026-11-16）：与划词浮框的「复制」同一套，只是源头
-       从卡片册子换成侧栏这一份 # RT.aiLog。 */
+    /* 复制这条对话（2026-11-16）：与划词浮框的「复制」共用 aiTranscript，
+       不再各拼一遍「你 / AI：文本」——两处标签与空行规则漂过一次。 */
     case 'aicopychat': {
-      const text = RT.aiLog
-        .filter((m) => String(m.text ?? '').trim())
-        .map((m) => `${m.me ? t('side.ai.me') : m.tag || 'AI'}：${m.text}`)
-        .join('\n\n');
+      const text = aiTranscript(
+        RT.aiLog.map((m) => ({ role: m.me ? ('me' as const) : ('ai' as const), text: m.text })),
+      );
       if (!text) {
         notify(t('notice.ai.logEmpty'), 'info');
         break;

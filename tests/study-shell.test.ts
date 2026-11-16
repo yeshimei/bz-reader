@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { studyShell, STUDY_ACTS, STUDY_TABS } from '../src/shell/render/study';
 import { nextStudyPage } from '../src/shell/state';
+
+/* 这一组只测头栏结构；「对话」页签是高级版，统一放行才看得到它。
+   未解锁时隐藏页签的行为在 tests/ai-log-gate.test.ts 里锁。 */
+vi.mock('../src/data/entitlement', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/data/entitlement')>();
+  return { ...actual, can: () => true };
+});
 
 /**
  * 书架头栏定稿（docs/ui-spec.md · S1）：

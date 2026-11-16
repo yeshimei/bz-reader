@@ -13,6 +13,7 @@
  * 而这几颗恰好是用户切完语言第一眼看到的东西。
  * ============================================================ */
 import { t, type MsgKey } from '../../i18n';
+import { can } from '../../data/entitlement';
 import type { BookRow } from '../adapt';
 import { continueRow, shelfNames } from '../adapt';
 import { visiblePicked } from '../book-select';
@@ -86,7 +87,9 @@ function tabCount(page: StudyPage, counts: StudyCounts): number {
 }
 
 function tabNav(page: StudyPage, counts: StudyCounts): string {
-  const nav = STUDY_TABS.map((p) => {
+  /* 对话页是高级版（2026-11-16）：未解锁不列页签。点击入口在 actions 的
+     `study` 分支再拦一次——data-p 是 DOM 属性，不是权限。 */
+  const nav = STUDY_TABS.filter((p) => p.value !== 'ai' || can('aiLog')).map((p) => {
     const n = tabCount(p.value, counts);
     const label = t(p.key);
     return `<button class="${page === p.value ? 'on' : ''}" data-act="study" data-p="${p.value}" title="${label}">${ico(

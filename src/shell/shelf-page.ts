@@ -182,6 +182,9 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
     /* 对话（2026-11-16）：按书 / 按时间、类型筛选、搜索、展开、归档、导出。
        导出目录跟笔记页同一个设置：写进「笔记」的那批 .md，而不是另起一处。 */
     case 'ai': {
+      /* 授权过期 / 旧库恢复时兜底：不渲染对话内容，退回书库页。
+         页签与点击入口在 render / actions 里已各拦一次。 */
+      if (!can('aiLog')) return buildShelfPage({ ...state, studyPage: 'library' }, books, compact);
       const dir = String(shellSettings().exportDir ?? 'bz-reader/notes');
       return {
         body: viewHistory({
