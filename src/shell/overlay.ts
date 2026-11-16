@@ -47,6 +47,7 @@ import {
   dismissesOnTap,
   getState,
   markIdeaDirty,
+  openOverlay,
   overlayRenderKey,
   persistShellState,
   setStateQuiet,
@@ -61,6 +62,7 @@ import { hydrateToolbarIcons } from './toolbar-icons';
 import {
   aiCardBegin,
   aiCardDone,
+  aiCardDraft,
   aiCardDrop,
   aiCardFail,
   aiCardGet,
@@ -87,7 +89,7 @@ import { bindMaskDismiss } from '../core/mask-dismiss';
 import { escManager } from '../core/esc-manager';
 import { trapFocus } from '../core/ui/focus-trap';
 import { RT } from './runtime';
-import { AI_HOVER_GRACE, aiHoverOpens, hoverCapableNow, makeHoverIntent } from './ai-hover';
+import { AI_HOVER_GRACE, aiHoverOpens, aiMenuFallback, hoverCapableNow } from './ai-hover';
 import type { DispatchOpts } from './actions';
 import { rangeFill } from './range-fill';
 import { getToc } from '../view/toc-state';
@@ -891,7 +893,9 @@ function overlayAi(markId?: string, bookId?: string): string {
     const text = o?.text || RT.sel?.text || '';
     const mode = aiFloatTaskOf(o?.mode);
     const menu = !!o?.menu;
-    const entry = ready && !menu ? aiCardGet(aiCardKey('ai', mode, text, o?.markId ?? '')) : undefined;
+    /* 菜单态没有「这一张卡」，记账键也就没有 */
+    const cardKey = menu ? '' : aiCardKey('ai', mode, text, o?.markId ?? '');
+    const entry = ready && cardKey ? aiCardGet(cardKey) : undefined;
     const book = bookById(bookId || o?.bookId || getState().bookId);
     const opts = {
       active: 'ai',
@@ -924,6 +928,8 @@ function overlayAi(markId?: string, bookId?: string): string {
           turns: entry?.turns,
           at: entry?.at || (mode === 'follow' && !entry?.ask ? '' : clockOf()),
           archivedAt: entry?.archivedAt,
+          /* 没发出去的草稿：重画、切档、关掉再开都还在 */
+          draft: cardKey ? aiCardDraft(cardKey) : '',
         }),
         'bzs-ai-panel',
         opts,
@@ -2010,16 +2016,6 @@ export class OverlayLayer {
      * 没权限时静默：付费页不能被鼠标扫出来（点按那条路照旧弹）。
      */
     const hoverOk = hoverCapableNow();
-    let hoverBtn: HTMLElement | null = null;
-    const hoverIntent = makeHoverIntent(() => {
-      const btn = hoverBtn;
-      const act = btn?.dataset.act || '';
-      if (!btn || (act !== 'selai' && act !== 'hlai')) return;
-      const before = overlayRenderKey(getState());
-      this.onAction(act, btn, { hover: true });
-      if (!getState().overlay) return;
-      if (overlayRenderKey(getState()) === before) this.paint();
-    });
     const aiHitOf = (target: EventTarget | null): HTMLElement | null => {
       const hit = (target as HTMLElement | null)?.closest<HTMLElement>('.bzs-tb [data-act]') ?? null;
       if (!hit) return null;
@@ -2027,26 +2023,24 @@ export class OverlayLayer {
       return act === 'selai' || act === 'hlai' ? hit : null;
     };
     this.root.addEventListener('pointerover', (e) => {
-      const hit = aiHitOf(e.target);
-      if (!hit || hit === hoverBtn) return;
-      /* 这一行已经摊开了：悬停添不了任何东西，而且会把「点开的那一行」
-         错记成悬停开的（鼠标本来就停在按钮上，pointerover 必然进来一次）。 */
       const o = getState().overlay;
-      if (o?.kind === 'ai' && o.menu) return;
-      hoverBtn = hit;
-      /* 要问的那一段：划词那条现取 RT.sel；已划线的有 data-id 才算有目标 */
-      const text = hit.dataset.act === 'selai' ? (RT.sel?.text ?? '') : (hit.dataset.id ?? '');
-      if (!aiHoverOpens({ hoverCapable: hoverOk, pointerType: (e as PointerEvent).pointerType, entitled: can('aiSel'), text })) {
-        hoverIntent.cancel();
+      /* 菜单已经摊开：移到同一条工具条上的**别的**按钮 = 不要这一行了。
+         这一条是作者 2026-11-16 定的口径，别改回「整条工具条都算悬停区」。 */
+      if (o?.kind === 'ai' && o.menu) {
+        const btn = (e.target as HTMLElement | null)?.closest<HTMLElement>('.bzs-tb [data-act]');
+        if (btn && !aiHitOf(btn)) this.closeAiMenu();
         return;
       }
-      hoverIntent.arm();
-    });
-    this.root.addEventListener('pointerout', (e) => {
       const hit = aiHitOf(e.target);
-      if (!hit || hit !== hoverBtn) return;
-      hoverBtn = null;
-      hoverIntent.cancel();
+      if (!hit) return;
+      /* 要问的那一段：划词那条现取 RT.sel；已划线的有 data-id 才算有目标 */
+      const text = hit.dataset.act === 'selai' ? (RT.sel?.text ?? '') : (hit.dataset.id ?? '');
+      if (!aiHoverOpens({ hoverCapable: hoverOk, pointerType: (e as PointerEvent).pointerType, entitled: can('aiSel'), text })) return;
+      /* 悬停即开，不再等意图延迟：那一行本来就长在光标正上方 */
+      const before = overlayRenderKey(getState());
+      this.onAction(hit.dataset.act || '', hit, { hover: true });
+      if (!getState().overlay) return;
+      if (overlayRenderKey(getState()) === before) this.paint();
     });
 
     /* 追问输入框的回车（2026-11-10）：卡里的输入框是渲染出来的 HTML，
@@ -2258,12 +2252,23 @@ export class OverlayLayer {
   }
 
   /**
-   * 悬停开的 AI 菜单：鼠标离开「工具条 + 菜单」整块之后收起来。
+   * 收起二级菜单，工具条尽量留在原地（2026-11-16）。
    *
-   * 留一段宽限（AI_HOVER_GRACE）：从工具条斜着移进菜单，中间会经过
-   * 那一小段间隙，立刻收会让菜单连看都看不到。
-   * 点开的那一行不收——用户是「点完再想」，收掉就成了折磨。
+   * 落点由 `aiMenuFallback` 决定：有划线就退回那条工具条，
+   * 否则整块关掉。这里只管「换状态」，不碰计时器。
    */
+  private closeAiMenu(): void {
+    const o = getState().overlay;
+    if (!o || o.kind !== 'ai' || !o.menu) return;
+    RT.aiHover = false;
+    const back = aiMenuFallback(o);
+    if (back) {
+      openOverlay(back);
+      return;
+    }
+    closeOverlay();
+  }
+
   private bindHoverClose(float: HTMLElement | null): void {
     if (this.hoverCloseTimer !== null) {
       window.clearTimeout(this.hoverCloseTimer);
@@ -2276,11 +2281,12 @@ export class OverlayLayer {
       this.hoverCloseTimer = null;
     });
     float.addEventListener('pointerleave', () => {
-      if (!RT.aiHover || !getState().overlay?.menu) return;
+      /* 只有菜单态会自己收：AI 面板（选定之后那一屏）鼠标一离开就消失的话没法读 */
+      if (!getState().overlay?.menu) return;
       if (this.hoverCloseTimer !== null) window.clearTimeout(this.hoverCloseTimer);
       this.hoverCloseTimer = window.setTimeout(() => {
         this.hoverCloseTimer = null;
-        if (RT.aiHover && getState().overlay?.menu) this.onAction('close', this.root);
+        this.closeAiMenu();
       }, AI_HOVER_GRACE);
     });
   }

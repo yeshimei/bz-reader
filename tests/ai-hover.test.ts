@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { dispatchAction } from '../src/shell/actions';
-import { AI_HOVER_DELAY, aiHoverOpens, makeHoverIntent } from '../src/shell/ai-hover';
+import { AI_HOVER_DELAY, aiHoverOpens, aiMenuFallback, makeHoverIntent } from '../src/shell/ai-hover';
 import { DEFAULT_SHELL_STATE, getState, setState } from '../src/shell/state';
 import { RT } from '../src/shell/runtime';
 
@@ -96,6 +96,22 @@ describe('悬停意图计时', () => {
     vi.advanceTimersByTime(AI_HOVER_DELAY + 50);
     expect(ran).toHaveLength(0);
     vi.useRealTimers();
+  });
+});
+
+describe('菜单收起来之后退回哪一层', () => {
+  it('从划线进来的：退回到那条工具条，markId 与锚点原样带着', () => {
+    const anchor = { left: 10, top: 20, width: 30, height: 0 };
+    expect(aiMenuFallback({ markId: 'm1', bookId: 'b1', anchor })).toEqual({
+      kind: 'hltools',
+      markId: 'm1',
+      bookId: 'b1',
+      anchor,
+    });
+  });
+
+  it('从选区进来的（没有划线）：没有工具条可退，整块关掉', () => {
+    expect(aiMenuFallback({ bookId: 'b1' })).toBeNull();
   });
 });
 

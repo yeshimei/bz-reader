@@ -83,6 +83,8 @@ export interface AiCardInput extends AiFloatState {
   at?: string;
   /** 归档时刻（HH:mm）；有值 = 底栏变「已归档」 */
   archivedAt?: string;
+  /** 追问输入框里还没发出去的字：重画 / 关掉再开要原样回来 */
+  draft?: string;
 }
 
 /**

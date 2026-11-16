@@ -92,6 +92,27 @@ export function aiModeOf(mode?: string | null): AiTask {
 
 const entries = new Map<string, AiCardEntry>();
 
+/**
+ * 追问输入框里还没发出去的字（2026-11-16）。
+ *
+ * 以前这块只在 DOM 里：点一下卡上别的地方（任何一次重画都会换掉输入框）、
+ * 关掉卡片再打开、切个档再回来，打了一半的话就没了。
+ * 单独放一张表而不是塞进 `AiCardEntry`：草稿不代表「这一问已经问过」，
+ * 混进账本会让 `runAiForOverlay` 把它当成有结果的一份。
+ */
+const drafts = new Map<string, string>();
+
+export function aiCardDraft(key: string): string {
+  return drafts.get(key) ?? '';
+}
+
+export function aiCardSetDraft(key: string, text: string): void {
+  if (!key) return;
+  const v = String(text ?? '');
+  if (v) drafts.set(key, v);
+  else drafts.delete(key);
+}
+
 export function aiCardGet(key: string): AiCardEntry | undefined {
   return entries.get(key);
 }
@@ -147,6 +168,7 @@ export function aiCardDrop(key: string): void {
 /** 离开 AI 卡时整册清空：下次打开重新问 */
 export function aiCardReset(): void {
   entries.clear();
+  drafts.clear();
 }
 
 /* ─────────── 追问（2026-11-10） ─────────── */
