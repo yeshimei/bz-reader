@@ -2277,15 +2277,20 @@ export class OverlayLayer {
   private placeAnchored(): void {
     const o = getState().overlay;
     const anchor = o?.anchor;
-    if (!anchor) return;
     /* 排版浮层不是「贴文字」：它贴的是头栏那颗按钮，右缘对齐、按钮下方 8px。
        按同一条 anchor 传进来，但落点规则不同（见 anchoredBelowRight）。 */
     if (o?.kind === 'typography') {
-      this.placeCorner(anchor);
+      if (anchor) this.placeCorner(anchor);
       return;
     }
     const el = this.root.querySelector<HTMLElement>('.bzs-float.is-anchored');
     if (!el) return;
+    /* 没有锚点（词典、命令面板直开）：CSS 兜底位置在视口外，这里写回
+       屏幕上方那一条——以前这就是兜底值，没有锚点时浮层仍要看得见。 */
+    if (!anchor) {
+      el.setCssProps({ top: '72px' });
+      return;
+    }
     const view = this.viewBox();
     const pos = anchoredPlacement(
       anchor,

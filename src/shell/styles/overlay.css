@@ -80,9 +80,13 @@
 }
 
 /* 贴字的浮层：位置由 overlay.ts 量完尺寸后写 left/top（移动端下方、桌面端上方）。
-   这里的 top/left 只是 JS 还没落位时的兜底，不是最终位置。 */
+
+   兜底位置放到视口外（2026-11-17）：以前是 top:72px，setHtml 插进来、到
+   placeAnchored 写坐标之间会有一帧拿它去画，用户看到的就是「从屏幕上方
+   瞬移下来」。放到 -9999 之后，那一帧落在屏幕外，看不见也就没有位移感。
+   没有锚点的浮层（词典、命令面板直开）由 placeAnchored 显式写回 72。 */
 .bzs-float.is-anchored {
-  top: 72px;
+  top: -9999px;
   left: 50%;
   width: min(360px, calc(100vw - 24px));
   transform: translateX(-50%);
