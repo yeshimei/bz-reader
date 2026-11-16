@@ -1300,4 +1300,5 @@ export const DE: Record<MsgKey, string> = {
   'ai.float.clear.body': 'Die zu diesem Text gesammelten Fragen und Antworten werden gelöscht; Markierungen und Notizen sind nicht betroffen. Danach lässt sich diese Stelle erneut öffnen und fragen.',
   'ai.float.clear.ok': 'Gespräch leeren',
   'side.ai.quoteWarn': '[TODO] side.ai.quoteWarn {n}',
+  'search.sem.literal.hint': '[TODO] search.sem.literal.hint',
 };

@@ -1302,4 +1302,5 @@ export const PT: Record<MsgKey, string> = {
   'ai.float.clear.body': 'Isso exclui as perguntas e respostas acumuladas neste trecho; destaques e notas não são afetados. Depois de limpar, você pode voltar a esta conversa e perguntar de novo.',
   'ai.float.clear.ok': 'Limpar conversa',
   'side.ai.quoteWarn': '[TODO] side.ai.quoteWarn {n}',
+  'search.sem.literal.hint': '[TODO] search.sem.literal.hint',
 };

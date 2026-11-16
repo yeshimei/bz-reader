@@ -1302,4 +1302,5 @@ export const FR: Record<MsgKey, string> = {
   'ai.float.clear.body': 'Effacera les questions-réponses accumulées sur ce passage ; surlignages et notes ne sont pas affectés. Il sera possible de revenir sur ce fil pour reposer une question.',
   'ai.float.clear.ok': 'Effacer la conversation',
   'side.ai.quoteWarn': '[TODO] side.ai.quoteWarn {n}',
+  'search.sem.literal.hint': '[TODO] search.sem.literal.hint',
 };

@@ -174,7 +174,21 @@ export function semanticResultsHtml(
   if (surface === 'book' && !hasBook) {
     return `<div class="bzs-empty">${esc(t('search.needBook'))}</div>`;
   }
-  if (v.problem) return `<div class="bzs-srch-semstatus">${esc(v.problem)}</div>`;
+  /* 不能搜的时候给一条出口（2026-11-16）：以前这里只有一句原因，
+     用户看到的就是「这个词搜不了」。同一个词用字面搜索是现成的能力——
+     没画像、服务挂了、没激活，三种情况都该让人一键换条路，而不是卡死。 */
+  if (v.problem) {
+    return `<div class="bzs-srch-miss">
+      <div class="bzs-srch-mark">“</div>
+      <h3>${esc(v.problem)}</h3>
+      <p>${esc(t('search.sem.literal.hint'))}</p>
+      <div class="bzs-srch-acts">
+        <button type="button" data-act="searchmode" data-v="literal">${esc(
+          t('search.semantic.literal'),
+        )}</button>
+      </div>
+    </div>`;
+  }
   if (!v.kw) return `<div class="bzs-srch-semstatus">${esc(t('search.semantic.hint'))}</div>`;
   if (v.running) return `<div class="bzs-srch-semstatus">${esc(t('search.semantic.searching'))}</div>`;
   if (!v.ran) return `<div class="bzs-srch-semstatus">${esc(t('search.semantic.hint'))}</div>`;
@@ -184,6 +198,9 @@ export function semanticResultsHtml(
       <h3>${esc(t('search.semantic.empty', { n: v.books }))}</h3>
       <p>${esc(t('search.sem.hint'))}</p>
       <div class="bzs-srch-acts">
+        <button type="button" data-act="searchmode" data-v="literal">${esc(
+          t('search.semantic.literal'),
+        )}</button>
         <button type="button" data-act="searchclear">${esc(t('search.clear'))}</button>
       </div>
     </div>`;

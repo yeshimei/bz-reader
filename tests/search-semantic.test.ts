@@ -103,6 +103,30 @@ describe('按意思搜的结果区', () => {
     expect(html).toContain('还没有可检索的画像');
   });
 
+  /* 2026-11-16：搜不了的时候要给一条出口。同一个词换字面搜索是现成能力，
+     没建画像 / 服务挂了 / 没激活都该一键换条路，而不是卡在一句原因上。 */
+  it('搜不了时给「字面搜索」按钮，点了走同一个词', () => {
+    installSource();
+    setState({ ...DEFAULT_SHELL_STATE, searchMode: 'semantic', searchKw: '知行合一', bookId: 'b1' });
+    RT.semantic.kw = '知行合一';
+    RT.semantic.ran = true;
+    RT.semantic.problem = '嵌入服务没有响应，稍后再试';
+    const html = searchResultsHtml('知行合一', 'all', 'shelf');
+    expect(html).toContain('data-act="searchmode"');
+    expect(html).toContain('data-v="literal"');
+  });
+
+  it('按意思搜 0 条时也给这条出口（空结果不是死路）', () => {
+    installSource();
+    setState({ ...DEFAULT_SHELL_STATE, searchMode: 'semantic', searchKw: '知行合一', bookId: 'b1' });
+    RT.semantic.kw = '知行合一';
+    RT.semantic.ran = true;
+    RT.semantic.books = 3;
+    RT.semantic.hits = [];
+    const html = searchResultsHtml('知行合一', 'all', 'shelf');
+    expect(html).toContain('data-v="literal"');
+  });
+
   it('命中按书分组，行上带 data-act / 书号 / 下标', () => {
     installSource();
     setState({ ...DEFAULT_SHELL_STATE, searchMode: 'semantic', searchKw: '知行合一', bookId: 'b1' });

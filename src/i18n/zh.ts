@@ -230,6 +230,9 @@ export const ZH = {
   'search.scan.reading': '正在读《{title}》{chapter}…',
   'search.scan.ghost': '正在扫描…',
   'search.sem.hint': '不需要原词。四道小格是相关度，亮的越多越贴近。',
+  /* 按意思搜用不了时的出口（2026-11-16）：同一个词换字面搜索是现成的能力，
+     不该因为画像没建 / 服务挂了就卡在一个「搜不了」上。 */
+  'search.sem.literal.hint': '同一个词改用文字搜索：书名、章节、划线与正文都翻一遍。',
   'search.sem.total': '{n} 段相近的段落',
   'search.open': '打开',
   'search.kind.title': '书名',
