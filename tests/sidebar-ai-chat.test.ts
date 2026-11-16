@@ -241,3 +241,32 @@ describe('侧栏 · 引文告警', () => {
     expect(html).not.toContain('不该出现');
   });
 });
+
+/* ============================================================
+ * 流式补字（2026-11-16）
+ *
+ * 字是一个一个落下来的：气泡要挂 is-live，界面才知道这条还在写
+ * （光标动画挂在那个类上；直接改写的那一行 DOM 也靠它找）。
+ * ============================================================ */
+describe('侧栏 · 流式中', () => {
+  it('正在写的那条挂 is-live', () => {
+    const html = view({
+      aiLog: [
+        { me: true, tag: '我', text: '这本书讲了什么' },
+        { me: false, tag: 'AI', text: '从斯洛文尼亚开始', live: true },
+      ],
+    });
+    expect(html).toContain('is-live');
+    expect(html).toContain('从斯洛文尼亚开始');
+  });
+
+  it('收尾之后不再挂（光标要停）', () => {
+    const html = view({
+      aiLog: [
+        { me: true, tag: '我', text: '这本书讲了什么' },
+        { me: false, tag: 'AI', text: '从斯洛文尼亚开始。' },
+      ],
+    });
+    expect(html).not.toContain('is-live');
+  });
+});

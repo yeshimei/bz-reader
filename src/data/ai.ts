@@ -2,8 +2,10 @@
  * bz-reader · AI 调用层（data/ai.ts）
  *
  * 只做一件事：把 OpenAI 兼容接口的一问一答包成 `aiAsk(input)`。
- * 不做流式——结果是一次性读完的一段话，流式的实现复杂度换不来体验，
- * 「正在请求 AI…」一行字 + 一次等待就够了。
+ *
+ * 流式是**可选**的（2026-11-16 起问答走流式）：调用方给 `onDelta` 就开流，
+ * 不给就还是原来的一次性读完——识别、补元数据这类短任务不需要边出边画，
+ * 多一层状态反而容易出错。切帧在 data/ai-sse，这里只管发请求与收字。
  *
  * 无 key 不静默失败：ready() 为 false 时上层给出配置引导，
  * 用户应该被带到设置页，而不是看着按钮点了没反应。
@@ -14,6 +16,7 @@ import { buildEnrichMessages } from './book-enrich';
 import { buildGuideMessages } from './chapter-guide';
 import { buildRouteMessages, type RouteBook } from './topic-route';
 import { debugEvent } from './debug-log';
+import { drainSse } from './ai-sse';
 
 export type AiTask =
   | 'summarize'
@@ -286,6 +289,13 @@ export function askTimeoutMs(task: AiTask): number {
 export interface AiAskOptions {
   /** 外部取消（弹层里的「取消请求」）。超时与取消是两条路，提示要分开 */
   signal?: AbortSignal;
+  /**
+   * 边收边给。**给了就开流**，不给还是原来的一次读完。
+   *
+   * 回调只负责把字送出去，节流与重绘归界面：这里可能一秒来几十帧，
+   * 每帧都重画侧栏会卡。抛错会被当成请求失败，所以回调本身不要抛。
+   */
+  onDelta?: (piece: string) => void;
 }
 
 /**
@@ -338,6 +348,62 @@ export function isDeepSeekChat(baseUrl: string): boolean {
 }
 
 /**
+ * 读完一条 SSE 流，边读边把增量交出去。
+ *
+ * 返回**整条正文**（收尾后拼好的那份），调用方据此做引文校验与落库。
+ * 返回 `null` 表示「这不是一条流」：上游忽略了 `stream`，回了整份 JSON，
+ * 这一路的 body 一个字节都没读，交给下面照常解析。
+ *
+ * 字节解码要用 `TextDecoder(..., {stream: true})`：一帧可能刚好切在
+ * 汉字的三个字节中间，逐帧 `toString()` 会把字解成乱码。
+ */
+async function readChatStream(
+  res: Response,
+  onDelta: (piece: string) => void,
+  bump: () => void,
+): Promise<string | null> {
+  const type = String(res.headers.get('content-type') || '').toLowerCase();
+  /* 明确是 JSON 就不是流。没给 content-type 的当流处理——很多本地服务
+     不设这个头，按 JSON 处理会直接 fail 在 `res.json()`。 */
+  if (type.includes('json') && !type.includes('event-stream')) return null;
+
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  let text = '';
+  try {
+    for (;;) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      /* 只要连接还在吐字节就重排超时：思考型模型（deepseek 的
+         reasoning_content）会先连发几十帧「想」，正文一个字都还没有；
+         按「到字」计时会把正在正常思考的请求误杀。 */
+      bump();
+      const out = drainSse(buffer);
+      buffer = out.rest;
+      for (const piece of out.deltas) {
+        text += piece;
+        onDelta(piece);
+      }
+      if (out.done) break;
+    }
+    /* 收尾：解码器里可能还压着半个字符，末尾也可能少一个空行 */
+    const trailing = buffer + decoder.decode();
+    if (trailing.trim()) {
+      for (const piece of drainSse(`${trailing}\n\n`).deltas) {
+        text += piece;
+        onDelta(piece);
+      }
+    }
+  } finally {
+    /* 不想再读了就掐掉连接：留着会让服务端把剩下的 token 算完 */
+    void reader.cancel().catch(() => undefined);
+  }
+  return text;
+}
+
+/**
  * 调 OpenAI 兼容的 `/chat/completions`，返回第一条消息的文字。
  *
  * `messages` 的 content 由调用方决定：普通问答是字符串，视觉识别是
@@ -354,20 +420,31 @@ export async function postChat(
   const label = opts.label || 'AI';
   const timeout = Math.max(1, Number(opts.timeoutMs) || AI_TIMEOUT_MS);
   /* 超时（P2-12）+ 外部取消：没有超时的时候，接口地址填错、代理挂掉，
-     界面就一直「正在请求…」；没有取消，用户只能关掉整个弹层干等。 */
+     界面就一直「正在请求…」；没有取消，用户只能关掉整个弹层干等。
+     流式时这条计时改成**两次到字之间的最长间隔**（每来一帧就重排）：
+     整条回答可能要几分钟，但停在一个字上不动才是真卡住。 */
   let timedOut = false;
   const ctrl = new AbortController();
-  const timer = window.setTimeout(() => {
+  let timer = window.setTimeout(() => {
     timedOut = true;
     ctrl.abort();
   }, timeout);
+  const bump = (): void => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      timedOut = true;
+      ctrl.abort();
+    }, timeout);
+  };
   const onAbort = (): void => ctrl.abort();
   opts.signal?.addEventListener('abort', onAbort);
+  const streaming = typeof opts.onDelta === 'function';
   const body: Record<string, unknown> = {
     model,
     temperature: opts.temperature ?? 0.3,
     messages,
   };
+  if (streaming) body.stream = true;
   if (opts.maxTokens) body.max_tokens = opts.maxTokens;
   /* 只有官方端点认这个字段；别家传了可能直接 400 */
   if (opts.thinking && isDeepSeekChat(baseUrl)) body.thinking = { type: opts.thinking };
@@ -404,6 +481,27 @@ export async function postChat(
           ? '（检查接口地址，一般要以 /v1 结尾）'
           : '';
     throw new Error(`${label} 接口返回 ${res.status}${hint}`);
+  }
+  /* 流式：拿到 body 才走；上游忽略 stream 回了整份 JSON 时返回 null，
+     下面照常解析——不能因为「不回流」就让整次提问失败。 */
+  if (streaming && res.body) {
+    let streamed: string | null;
+    try {
+      streamed = await readChatStream(res, opts.onDelta!, bump);
+    } catch (e) {
+      if (opts.signal?.aborted) throw new Error('已取消');
+      if (timedOut) {
+        throw new Error(`${label} 接口 ${timeout / 1000} 秒没有响应，检查地址与网络后重试`);
+      }
+      throw new Error(`${label} 接口中断：${(e as Error)?.message || '网络错误'}`);
+    }
+    if (streamed !== null) {
+      if (!streamed) {
+        throw new Error(emptyChatMessage(undefined, '', model, label));
+      }
+      debugEvent('aichat', { model, finish: 'stream', shape: 'stream', chars: streamed.length });
+      return streamed;
+    }
   }
   const data = (await res.json()) as {
     choices?: Array<{ message?: { content?: unknown; reasoning_content?: unknown }; finish_reason?: string }>;

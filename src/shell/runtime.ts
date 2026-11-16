@@ -49,6 +49,14 @@ export interface AiLogItem {
    * 只在 `me === true` 时有值；存的是插入时的快照，不是在提问里拼好的整段。
    */
   ctx?: AiContextItem[];
+  /**
+   * 这一条正在流式补字（2026-11-16）。
+   *
+   * 只用来画「还在写」的标记与那颗光标：字是在 DOM 上直接改的，
+   * 不走整栏重绘——一秒几十帧重画侧栏会卡，也会把输入框里的草稿打断。
+   * 收尾时置回 false 再重绘一次，Markdown 由那一次统一渲染。
+   */
+  live?: boolean;
 }
 
 export const RT = {

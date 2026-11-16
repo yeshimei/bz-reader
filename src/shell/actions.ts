@@ -4307,6 +4307,39 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
   RT.aiStage = 'model';
   repaint();
 
+  /* 流式（2026-11-16）：本地 14B 答一问 77 秒，这 77 秒侧栏原来是一片空白。
+     现在第一个字一到就把等待气泡换成回答气泡，之后只在那一行 DOM 上补字——
+     整栏重绘一秒几十次会卡，也会把输入框里的草稿打断。收尾时重绘一次，
+     Markdown 与来源都由那一次统一渲染。 */
+  const liveBox: { item: (typeof RT.aiLog)[number] | null } = { item: null };
+  let flush = 0;
+  const paintLive = (): void => {
+    flush = 0;
+    const item = liveBox.item;
+    if (!item) return;
+    const el = document.querySelector<HTMLElement>(
+      '.bzs-shell.is-side .bzs-aibubble.ai.is-live .txt[data-ai-md]',
+    );
+    if (!el) return;
+    el.textContent = item.text;
+    const box = document.querySelector<HTMLElement>('.bzs-shell.is-side .bzs-sbbody');
+    if (box) box.scrollTop = box.scrollHeight;
+  };
+  const onDelta = (piece: string): void => {
+    const cur = liveBox.item;
+    if (!cur) {
+      RT.aiStage = '';
+      pushAi(false, `AI · ${settings.ai.model || '模型'}`, piece);
+      const fresh = RT.aiLog[RT.aiLog.length - 1] ?? null;
+      if (fresh) fresh.live = true;
+      liveBox.item = fresh;
+      repaint();
+      return;
+    }
+    cur.text += piece;
+    if (!flush) flush = window.setTimeout(paintLive, 80);
+  };
+
   try {
     const res = await aiAsk(
       settings,
@@ -4319,22 +4352,30 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
         history,
         userPrompt,
       },
-      { signal: ctrl.signal },
+      { signal: ctrl.signal, onDelta },
     );
     /* 答案回来时已经换书：这份答案不属于当前这本，丢掉（C4） */
     if (!sameBook()) return;
+    if (flush) {
+      window.clearTimeout(flush);
+      flush = 0;
+    }
     /* 引文校验（2026-11-16）：答案里带引号的句子回**这次真正发出去的依据**
        里核一遍。核不上说明模型改了字或凭记忆编了一句，这时候宁可在气泡下面
        加一行告警，也不要让用户以为那真是书里的话。 */
     const quote = verifyQuotes(res.text, evidence.context);
-    pushAi(
-      false,
-      `AI · ${settings.ai.model || '模型'}`,
-      res.text,
-      evidence.sources,
-      undefined,
-      quote.bad ? t('side.ai.quoteWarn', { n: String(quote.bad) }) : undefined,
-    );
+    const warn = quote.bad ? t('side.ai.quoteWarn', { n: String(quote.bad) }) : undefined;
+    const live = liveBox.item;
+    if (live) {
+      /* 以整条为准：流里拼出来的那段只用于过程显示 */
+      live.text = res.text;
+      live.live = false;
+      live.sources = evidence.sources.length ? evidence.sources : undefined;
+      live.warn = warn;
+    } else {
+      /* 一个字都没流出来（有的服务端不回流）：照旧一次性落一条 */
+      pushAi(false, `AI · ${settings.ai.model || '模型'}`, res.text, evidence.sources, undefined, warn);
+    }
     /* 落盘：同一条对话里的多轮问答按会话 id 追加（2026-11-16）。
        以前每一问都是一条独立记录，侧栏也就没东西可「读回来」。 */
     if (!RT.aiChatId) RT.aiChatId = makeAiSessionId();
@@ -4350,7 +4391,22 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
     });
   } catch (e) {
     if (!sameBook()) return;
-    pushAi(false, 'AI', (e as Error).message || '请求失败');
+    if (flush) {
+      window.clearTimeout(flush);
+      flush = 0;
+    }
+    const why = (e as Error).message || '请求失败';
+    const live = liveBox.item;
+    if (live) {
+      /* 已经流出一半：保留收到的那部分，把失败原因接在后面。
+         把半条答案抹掉换成一句报错，等于用户白等了半分钟。 */
+      live.text = `${live.text}
+
+（${why}）`;
+      live.live = false;
+    } else {
+      pushAi(false, 'AI', why);
+    }
   } finally {
     if (RT.askAbort === ctrl) RT.askAbort = null;
     RT.aiStage = '';

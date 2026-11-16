@@ -620,7 +620,7 @@ function aiBubbleHtml(m: AiLogItem, hint: boolean, at = -1): string {
       : `<button type="button" class="bzs-ai-copy" data-act="aicopyone" data-i="${at}">${esc(
           t('ai.card.copy'),
         )}</button>`;
-  return `<div class="bzs-aibubble ai"><span class="tag">${t(
+  return `<div class="bzs-aibubble ai${m.live ? ' is-live' : ''}"><span class="tag">${t(
     'side.ai.tag.book',
   )}</span>${body}${aiSourcesRow(m)}${aiWarnRow(m)}${copy}</div>`;
 }
