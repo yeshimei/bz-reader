@@ -25,7 +25,7 @@ node esbuild.config.mjs once
 三条全绿才能 commit；只跑 tsc 不算过门。上架前再加 `node scripts/lint-obsidian.mjs`（见「上架」一节）。
 
 ## 部署
-- 日常开发**只把产物部署到测试库**；真实库（`叫我包仔`）只在发版时跟一份，平时不碰。
+- 日常开发**只把产物部署到测试库**；真实库（`叫我包仔`）只在发版时跟一份，平时不碰。测试库是 `E:/Obsidian/bz review`（2026-11-17 起）——bz-reader 与 bz-review 同库配合测试，书和测试笔记都备在这个库里；旧测试库 `bz reader` 不再部署。
 - “部署”按目标算：日常部署 = 测试库一处；发版部署 = 三处（仓库根 + 测试库 + 真实库），缺一不算。
 - 先过三道门，在 `D:\Obsidian\bz-reader` 跑日常构建（`BZ_READER_VAULT` 显式设 `test`，只落测试库）：
 ```powershell
