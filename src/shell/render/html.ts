@@ -131,17 +131,22 @@ export function icoNative(name: string, size = 18): string {
     'list-tree':
       '<path d="M8 5h13"/><path d="M13 12h8"/><path d="M13 19h8"/><path d="M3 10a2 2 0 0 0 2 2h3"/><path d="M3 5v12a2 2 0 0 0 2 2h3"/>',
     /* 侧栏 A 版输入条的三颗命令：正文 / 截图 / 笔记，与右下发送。
-       全部用 lucide-static 的原路径，和宿主自己的图标同描边（2px）。 */
-    'file-text':
-      '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
-    scan:
-      '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/>',
-    notebook:
-      '<path d="M2 6h4"/><path d="M2 10h4"/><path d="M2 14h4"/><path d="M2 18h4"/><rect width="16" height="20" x="4" y="2" rx="2"/><path d="M16 2v20"/>',
+       全部用 lucide-static 的原路径，和宿主自己的图标同描边（2px）。
+
+       2026-11-16 换形：原来那三枚（文件 / 四角扫描框 / 线圈本）缩到 16px
+       分不出是干什么的——「文件」和「笔记」几乎一样，「扫描框」更像 OCR。
+       现在改成「三行文字 / 画框里的山 / 折角便签」，一眼对得上标签。 */
+    'align-left': '<path d="M21 6H3"/><path d="M15 12H3"/><path d="M17 18H3"/>',
+    image:
+      '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>',
+    'sticky-note':
+      '<path d="M5 3.5h14v10.5L13.5 20.5H5z"/><path d="M19 14h-5.5v6.5"/><path d="M8.6 8h6.8"/><path d="M8.6 11.6h4.6"/>',
     'arrow-up': '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
   };
   const p = paths[name] || '';
-  return `<svg class="bzs-ico-native" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+  /* data-icon 只是标记：图形语义（正文 / 截图 / 笔记…）落在名字上，
+     测试与排查都能直接查是哪一枚，不必去比一串路径。 */
+  return `<svg class="bzs-ico-native" data-icon="${name}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 }
 
 /**

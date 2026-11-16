@@ -320,19 +320,32 @@ interface AiMenuTarget {
  * 工具条、锚点都不动，所以「点一项」只是原地换面板。
  *
  * 再点一次同一段的 AI = 收起这一行（与原型 toggleMenu 一致）。
+ *
+ * `toggle: false` 给鼠标悬停用：悬停只「确保打开」，同一段再进来原样留着。
+ * 反之会出大事——菜单摊开之后工具条就在鼠标底下，进去一次就 toggle 一次，
+ * 菜单自己开开关关。
  */
-function openAiMenu(target: AiMenuTarget): void {
+function openAiMenu(target: AiMenuTarget, opts: { toggle?: boolean } = {}): void {
   const o = getState().overlay;
   const text = String(target.text ?? '');
   if (!text.trim()) {
     notify(t('notice.sel.empty'), 'error');
     return;
   }
+  const toggle = opts.toggle !== false;
   const markId = target.markId ?? '';
-  if (o?.kind === 'ai' && o.menu && o.text === text && (o.markId ?? '') === markId) {
+  const same = o?.kind === 'ai' && o.menu && o.text === text && (o.markId ?? '') === markId;
+  if (same && toggle) {
     closeOverlay();
     return;
   }
+  /* 悬停重复进来：状态已经是这一行，不动它——重开一次会把 DOM 换掉 */
+  if (same) {
+    RT.aiHover = true;
+    return;
+  }
+  /* 这一行是「悬停长的」还是「点出来的」，决定鼠标离开整块时收不收 */
+  RT.aiHover = !toggle;
   overlay('ai', {
     text,
     bookId: target.bookId || getState().bookId || '',
@@ -1324,6 +1337,17 @@ export interface ActionEnv {
   repaint?: () => void;
 }
 
+/** 同一个动作是「点」来的还是「鼠标悬停」来的 */
+export interface DispatchOpts {
+  /**
+   * 悬停触发。
+   *
+   * 只影响那些「悬停也该做、但不能当成点击」的动作（目前只有工具条 AI）：
+   * 悬停要确保展开、不弹解锁页、不做 toggle。
+   */
+  hover?: boolean;
+}
+
 /** 试听用：播一段音频，播完（或失败）就 resolve，不把 Promise 挂在那里 */
 function playWav(buf: ArrayBuffer, mime = 'audio/wav'): Promise<void> {
   return new Promise((resolve) => {
@@ -1342,7 +1366,12 @@ function playWav(buf: ArrayBuffer, mime = 'audio/wav'): Promise<void> {
   });
 }
 
-export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {}): void {
+export function dispatchAction(
+  act: string,
+  el: HTMLElement,
+  _env: ActionEnv = {},
+  opts: DispatchOpts = {},
+): void {
   const d = el.dataset;
   /**
    * 重绘出口（P2-07）。
@@ -2722,22 +2751,26 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     case 'hlai': {
       /* 点划线也能问 AI：以前这条工具条上根本没有 AI 这一颗，
-         想解释划线原文只能先划一遍再点。与 selai 同一个面板，只是带上了 markId。 */
-      if (!requireCap('aiSel')) break;
+         想解释划线原文只能先划一遍再点。与 selai 同一个面板，只是带上了 markId。
+         悬停进来时只展开、不弹解锁页（见 DispatchOpts）。 */
+      if (opts.hover ? !can('aiSel') : !requireCap('aiSel')) break;
       const book = findBookOfMark(d.id, d.book);
       const h = book?.notes?.highlights.find((x) => x.id === d.id);
       if (!book || !h) {
-        notify(t('notice.mark.notFound'), 'error');
+        if (!opts.hover) notify(t('notice.mark.notFound'), 'error');
         break;
       }
-      openAiMenu({
-        text: h.text,
-        markId: h.id,
-        bookId: book.id,
-        chapterTitle: h.chapterTitle || book.reading.position.chapterTitle || '',
-        /* 锚点沿用工具条正贴着的那条划线，AI 卡才不会掉到屏幕角 */
-        anchor: getState().overlay?.anchor,
-      });
+      openAiMenu(
+        {
+          text: h.text,
+          markId: h.id,
+          bookId: book.id,
+          chapterTitle: h.chapterTitle || book.reading.position.chapterTitle || '',
+          /* 锚点沿用工具条正贴着的那条划线，AI 卡才不会掉到屏幕角 */
+          anchor: getState().overlay?.anchor,
+        },
+        { toggle: !opts.hover },
+      );
       break;
     }
     case 'hlcopy': {
@@ -2837,7 +2870,22 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
       break;
     case 'selai':
       /* 不再直接解释：先在工具条上方摊开五项（原型第 2 稿） */
-      if (RT.sel && requireCap('aiSel'))
+      if (!RT.sel) break;
+      /* 鼠标悬停：只确保展开。没权限时静默——鼠标扫过工具条不该蹦出付费页 */
+      if (opts.hover) {
+        if (!can('aiSel') || !RT.sel.text.trim()) break;
+        openAiMenu(
+          {
+            text: RT.sel.text,
+            bookId: RT.sel.bookId,
+            chapterTitle: RT.sel.chapterTitle,
+            anchor: RT.sel.anchor,
+          },
+          { toggle: false },
+        );
+        break;
+      }
+      if (requireCap('aiSel'))
         openAiMenu({
           text: RT.sel.text,
           bookId: RT.sel.bookId,
@@ -3348,6 +3396,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     case 'aimenupick': {
       const o = getState().overlay;
       if (!o || o.kind !== 'ai' || !o.menu) break;
+      /* 选了一项：这一行不再是「悬停长出来的」，鼠标离开也不该把浮框收掉 */
+      RT.aiHover = false;
       const task = d.task || '';
       if (task === 'book') {
         /* 插入到全书问答：原文与出处直接挂进侧栏输入条的上下文，

@@ -626,7 +626,13 @@ function notePickerHtml(v: SidebarView): string {
     </div>`;
 }
 
-/** A 版输入卡片：待发送 chips + 自动长高的 textarea + 左下三颗命令 + 右下发送 */
+/**
+ * A 版输入卡片：待发送 chips + 自动长高的 textarea + 左下三颗命令 + 右下发送。
+ *
+ * 2026-11-16：三颗命令换成「三行文字 / 画框 / 折角便签」——
+ * 原来那三枚（文件 / 四角扫描框 / 线圈本）在 16px 下认不出来，
+ * 尤其「文件」和「笔记」几乎同形。
+ */
 function aiComposerHtml(v: SidebarView): string {
   const items = v.aiCtx ?? [];
   const disabled = canSendAi(v.aiDraft, items) ? '' : ' disabled';
@@ -641,13 +647,13 @@ function aiComposerHtml(v: SidebarView): string {
         <div class="bzs-ai-qacts">
           <button class="bzs-qbtn" data-act="aictxbody" aria-label="${t('side.ai.ctx.body')}" title="${t(
             'side.ai.ctx.body',
-          )}">${icoNative('file-text', 16)}</button>
+          )}">${icoNative('align-left', 16)}</button>
           <button class="bzs-qbtn" data-act="aictxshot" aria-label="${t('side.ai.ctx.shot')}" title="${t(
             'side.ai.ctx.shot',
-          )}">${icoNative('scan', 16)}</button>
+          )}">${icoNative('image', 16)}</button>
           <button class="bzs-qbtn" data-act="aictxnote" aria-label="${t('side.ai.ctx.note')}" title="${t(
             'side.ai.ctx.note',
-          )}">${icoNative('notebook', 16)}</button>
+          )}">${icoNative('sticky-note', 16)}</button>
         </div>
         <button class="bzs-ai-send" data-act="aiask" aria-label="${t(
           'side.ai.send',

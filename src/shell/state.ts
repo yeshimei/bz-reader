@@ -649,6 +649,8 @@ export function closeOverlay(opts?: { force?: boolean }): void {
   if (o?.kind === 'ai') {
     RT.aiAbort?.abort();
     RT.aiAbort = null;
+    /* 收起之后「这一行是悬停开的」不再成立：下一次打开重新判定 */
+    RT.aiHover = false;
   }
   mutateState((s) => {
     s.overlay = null;

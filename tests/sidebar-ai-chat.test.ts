@@ -107,6 +107,19 @@ describe('AI 页签 · A 版聊天结构', () => {
     expect(html).toContain('title="笔记"');
   });
 
+  it('三颗命令换成更直白的图形：段落 / 图片 / 便签', () => {
+    const html = view();
+    const bar = html.slice(html.indexOf('bzs-ai-cbar'));
+    /* 原来那三枚（文件 / 四角扫描框 / 线圈本）缩到 16px 分不出是干什么的：
+       正文要和「截图」「笔记」并排看才认得出。 */
+    expect(bar).toContain('data-icon="align-left"');
+    expect(bar).toContain('data-icon="image"');
+    expect(bar).toContain('data-icon="sticky-note"');
+    expect(bar).not.toContain('data-icon="file-text"');
+    expect(bar).not.toContain('data-icon="scan"');
+    expect(bar).not.toContain('data-icon="notebook"');
+  });
+
   it('笔记选择器默认关闭；打开后列最近笔记与搜索框', () => {
     expect(view()).not.toContain('bzs-picker');
     const html = view({

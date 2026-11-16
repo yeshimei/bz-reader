@@ -76,6 +76,8 @@ import { bindMaskDismiss } from '../core/mask-dismiss';
 import { escManager } from '../core/esc-manager';
 import { trapFocus } from '../core/ui/focus-trap';
 import { RT } from './runtime';
+import { AI_HOVER_GRACE, aiHoverOpens, hoverCapableNow, makeHoverIntent } from './ai-hover';
+import type { DispatchOpts } from './actions';
 import { rangeFill } from './range-fill';
 import { getToc } from '../view/toc-state';
 import { dispatchInput } from './actions';
@@ -1867,7 +1869,10 @@ export class OverlayLayer {
    */
   private esc: { unregister: () => void } | null = null;
 
-  constructor(private onAction: (act: string, el: HTMLElement) => void) {
+  /** 鼠标离开 AI 菜单那一块之后，收起它的宽限计时（见 bindHoverClose） */
+  private hoverCloseTimer: number | null = null;
+
+  constructor(private onAction: (act: string, el: HTMLElement, opts?: DispatchOpts) => void) {
     this.root = createDiv();
     /* `is-mobile` 让移动端的滑杆手势层生效（见 shell/range-touch.ts 与
        styles.css 的 `.bzs-range`）；桌面端不加，原生手感不变。 */
@@ -1956,6 +1961,54 @@ export class OverlayLayer {
          只有「状态变了但内容键没体现」的变化（换笔色、勾选）才需要补一次。 */
       if (!getState().overlay || plan.act === 'rate') return;
       if (overlayRenderKey(getState()) === before) this.paint();
+    });
+
+    /**
+     * 鼠标悬停工具条上的 AI = 摊开上面那一行（2026-11-16）。
+     *
+     * 走委托而不是逐颗挂：工具条每次重画都是新节点，逐颗挂会漏。
+     * 只认真鼠标、只「确保打开」——悬停不做 toggle，否则菜单摊开之后
+     * 工具条就在鼠标底下，pointerover 连着进来会把菜单开开关关。
+     * 没权限时静默：付费页不能被鼠标扫出来（点按那条路照旧弹）。
+     */
+    const hoverOk = hoverCapableNow();
+    let hoverBtn: HTMLElement | null = null;
+    const hoverIntent = makeHoverIntent(() => {
+      const btn = hoverBtn;
+      const act = btn?.dataset.act || '';
+      if (!btn || (act !== 'selai' && act !== 'hlai')) return;
+      const before = overlayRenderKey(getState());
+      this.onAction(act, btn, { hover: true });
+      if (!getState().overlay) return;
+      if (overlayRenderKey(getState()) === before) this.paint();
+    });
+    const aiHitOf = (target: EventTarget | null): HTMLElement | null => {
+      const hit = (target as HTMLElement | null)?.closest<HTMLElement>('.bzs-tb [data-act]') ?? null;
+      if (!hit) return null;
+      const act = hit.dataset.act || '';
+      return act === 'selai' || act === 'hlai' ? hit : null;
+    };
+    this.root.addEventListener('pointerover', (e) => {
+      const hit = aiHitOf(e.target);
+      if (!hit || hit === hoverBtn) return;
+      /* 这一行已经摊开了：悬停添不了任何东西，而且会把「点开的那一行」
+         错记成悬停开的（鼠标本来就停在按钮上，pointerover 必然进来一次）。 */
+      const o = getState().overlay;
+      if (o?.kind === 'ai' && o.menu) return;
+      hoverBtn = hit;
+      /* 要问的那一段：划词那条现取 RT.sel；已划线的有 data-id 才算有目标 */
+      const text = hit.dataset.act === 'selai' ? (RT.sel?.text ?? '') : (hit.dataset.id ?? '');
+      if (!aiHoverOpens({ hoverCapable: hoverOk, pointerType: (e as PointerEvent).pointerType, entitled: can('aiSel'), text })) {
+        hoverIntent.cancel();
+        return;
+      }
+      hoverIntent.arm();
+    });
+    this.root.addEventListener('pointerout', (e) => {
+      const hit = aiHitOf(e.target);
+      if (!hit || hit !== hoverBtn) return;
+      hoverBtn = null;
+      hoverIntent.cancel();
     });
 
     /* 追问输入框的回车（2026-11-10）：卡里的输入框是渲染出来的 HTML，
@@ -2155,14 +2208,43 @@ export class OverlayLayer {
     el.setCssProps({ left: `${pos.left}px`, top: `${pos.top}px`, transform: 'none' });
     /* 工具条永远贴着划线那一侧：整块落在下方时工具条在上，落在上方时工具条在下。
        两端的 HTML 默认顺序不同（桌面气泡在前、手机工具条在前），
-       所以标记落点、由 CSS 按 is-mobile 分开反转，别互相误伤。 */
-    if (el.classList.contains('bzs-hltools-panel')) {
-      const stack = el.querySelector<HTMLElement>('.bzs-tb-stack');
-      if (stack) {
-        stack.classList.toggle('is-up', pos.side === 'above');
-        stack.classList.toggle('is-down', pos.side === 'below');
-      }
+       所以标记落点、由 CSS 按 is-mobile 分开反转，别互相误伤。
+
+       AI 菜单 / 追问浮框也走这一套（2026-11-16）：上面放不下翻到下方时，
+       面板要从工具条下面展开，不能反过来把工具条压在面板和文字之间。 */
+    const stack = el.querySelector<HTMLElement>('.bzs-tb-stack');
+    if (stack) {
+      stack.classList.toggle('is-up', pos.side === 'above');
+      stack.classList.toggle('is-down', pos.side === 'below');
     }
+  }
+
+  /**
+   * 悬停开的 AI 菜单：鼠标离开「工具条 + 菜单」整块之后收起来。
+   *
+   * 留一段宽限（AI_HOVER_GRACE）：从工具条斜着移进菜单，中间会经过
+   * 那一小段间隙，立刻收会让菜单连看都看不到。
+   * 点开的那一行不收——用户是「点完再想」，收掉就成了折磨。
+   */
+  private bindHoverClose(float: HTMLElement | null): void {
+    if (this.hoverCloseTimer !== null) {
+      window.clearTimeout(this.hoverCloseTimer);
+      this.hoverCloseTimer = null;
+    }
+    if (!float) return;
+    float.addEventListener('pointerenter', () => {
+      if (this.hoverCloseTimer === null) return;
+      window.clearTimeout(this.hoverCloseTimer);
+      this.hoverCloseTimer = null;
+    });
+    float.addEventListener('pointerleave', () => {
+      if (!RT.aiHover || !getState().overlay?.menu) return;
+      if (this.hoverCloseTimer !== null) window.clearTimeout(this.hoverCloseTimer);
+      this.hoverCloseTimer = window.setTimeout(() => {
+        this.hoverCloseTimer = null;
+        if (RT.aiHover && getState().overlay?.menu) this.onAction('close', this.root);
+      }, AI_HOVER_GRACE);
+    });
   }
 
   /** 可视区尺寸：手机上按视觉视口（键盘弹起时缩小），桌面用窗口 */
@@ -2342,6 +2424,8 @@ export class OverlayLayer {
     }
     /* 工具条图标：模板只留 data-icon 空壳，这里交给宿主 setIcon 画 */
     hydrateToolbarIcons(this.root);
+    /* 悬停开的那行 AI 菜单：鼠标离开这一块就收起（点开的不管） */
+    this.bindHoverClose(this.root.querySelector<HTMLElement>('.bzs-float[data-role="float"]'));
     const o = getState().overlay;
     /* 想法输入框按内容定高（预填的多行想法不该只露三行里的两行），
        必须赶在 placeAnchored 之前：浮层高度正是它量出来的。 */

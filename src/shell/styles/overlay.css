@@ -1220,6 +1220,17 @@ body.theme-dark .bzs-tb-more {
   flex-direction: column-reverse;
 }
 
+/* AI 菜单 / 追问浮框同理（2026-11-16）：上面放不下、整块翻到划线下方时，
+   工具条贴字、AI 面板从它下面展开——和想法气泡一个朝向。
+   手机上 AI 是遮罩弹窗，根本没有这一列，所以不分端。 */
+.bzs-ai-panel .bzs-tb-stack.is-down {
+  flex-direction: column-reverse;
+}
+
+.bzs-ai-menu .bzs-tb-stack.is-down {
+  flex-direction: column-reverse;
+}
+
 /* ── 写想法：一个输入框 + 一个保存按钮，没有标题和取消 ──
    底板交给 .bzs-idea-card：这一层再铺白底和阴影，卡片就成了「卡中卡」。
    宽度也交给卡片自己，这里只负责把卡片和工具条叠成一列。 */

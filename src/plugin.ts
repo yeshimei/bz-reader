@@ -365,8 +365,8 @@ export function createPlugin(cfg: PluginConfig) {
       this.injectShellSource();
 
       // 弹层层：全局一个，挂 body，跟着壳层状态重画
-      this.overlay = new OverlayLayer((act, el) => {
-        dispatchAction(act, el, { repaint: () => notifyShell() });
+      this.overlay = new OverlayLayer((act, el, opts) => {
+        dispatchAction(act, el, { repaint: () => notifyShell() }, opts);
       });
       this.offShell = this.registerShellSync();
 

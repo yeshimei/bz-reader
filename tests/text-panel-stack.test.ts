@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { overlayHtml } from '../src/shell/overlay';
 import { DEFAULT_SHELL_STATE, setState } from '../src/shell/state';
@@ -173,6 +174,46 @@ describe('桌面：想法 / 书摘 / AI 的正文在上、工具条在下', () =
 
     expect(html).toContain('bzs-tb-stack');
     expect(html).toContain('class="bzs-sbtn on" data-act="hlai"');
+  });
+});
+
+/**
+ * AI 菜单 / 追问浮框的翻边（2026-11-16）：整块落到划线下方时，
+ * 工具条要贴字、AI 面板从它下面展开——和想法气泡同一套，不要反过来
+ * 「面板贴字、工具条压在面板下面」。
+ *
+ * 落点由 placeAnchored 判，翻转由 is-down 这一个类交给样式。
+ */
+describe('AI 落到下方：工具条在上、面板在下', () => {
+  it('默认（落在上方）：面板在前、工具条在后', () => {
+    const { book, markId } = marked();
+    install([book]);
+    const html = render('ai', markId);
+
+    expect(html.indexOf('bzs-ai-panel-body')).toBeLessThan(html.indexOf('class="bzs-tb"'));
+  });
+
+  it('菜单态同理：五项菜单在前、工具条在后', () => {
+    const { book, markId } = marked();
+    install([book]);
+    setState({
+      ...DEFAULT_SHELL_STATE,
+      bookId: 'b1',
+      overlay: { kind: 'ai', menu: true, text: '划线原文一段', bookId: 'b1', markId },
+    });
+    const html = overlayHtml();
+
+    expect(html.indexOf('bzs-aimenu')).toBeLessThan(html.indexOf('class="bzs-tb"'));
+  });
+
+  it('样式：AI 那一列认 is-down，落到下方时反转', () => {
+    const css = readFileSync(new URL('../src/shell/styles/overlay.css', import.meta.url), 'utf8');
+    const flat = css.replace(/\s+/g, ' ');
+    for (const cls of ['.bzs-ai-panel', '.bzs-ai-menu']) {
+      const at = flat.indexOf(`${cls} .bzs-tb-stack.is-down`);
+      expect(at, cls).toBeGreaterThan(-1);
+      expect(flat.slice(at, at + 80), cls).toContain('column-reverse');
+    }
   });
 });
 

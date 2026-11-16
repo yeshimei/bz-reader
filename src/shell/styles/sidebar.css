@@ -814,22 +814,26 @@
   background: var(--bg);
 }
 
-/* ── A 版输入卡片：横向铺满、紧贴底部，给输入留更大的区域 ── */
+/* ── A 版输入卡片：横向铺满、紧贴底部，给输入留更大的区域 ──
+   2026-11-16 改成嵌入式：以前它铺的是 --bg（= primary 白纸）再加描边、
+   上圆角和投影，而侧栏本身是宿主的 secondary 底——看起来就是「贴在侧栏上的
+   一张白卡」，和上面那几十行目录不是一块东西。现在不画自己的底，只留一条
+   发丝分线把它和消息流分开，输入区直接长在侧栏里。 */
 .bzs-ai-composer {
   flex: none;
   position: relative;
   margin: 0;
-  padding: 8px 9px calc(9px + env(safe-area-inset-bottom, 0px));
-  background: var(--bg);
-  border: 1px solid var(--line-2);
-  border-bottom: 0;
-  border-radius: 12px 12px 0 0;
-  box-shadow: 0 -4px 14px rgba(30, 24, 14, .07);
+  padding: 8px 12px calc(9px + env(safe-area-inset-bottom, 0px));
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  box-shadow: none;
 }
 
+/* 聚焦只提亮那条分线：嵌入式的东西不该因为焦点整块换色 */
 .bzs-ai-composer:focus-within {
-  border-color: var(--copper-line);
-  box-shadow: 0 -4px 16px rgba(30, 24, 14, .1);
+  border-top-color: var(--copper-line);
 }
 
 .bzs-ai-composer textarea {
@@ -837,7 +841,7 @@
   width: 100%;
   min-height: 60px;
   max-height: 140px;
-  padding: 5px 6px 7px;
+  padding: 5px 2px 7px;
   border: 0;
   border-radius: 0;
   background: none;
@@ -872,22 +876,25 @@
   min-width: 0;
 }
 
+/* 三颗命令：无框小图标钮。以前每颗都带描边和底色，三枚并排像三个小输入框，
+   压在输入区里反而更乱；现在只留图形，悬停才浮一块淡铜底。 */
 .bzs-qbtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
+  width: 28px;
   height: 26px;
   padding: 0;
-  border: 1px solid var(--line-2);
-  border-radius: 7px;
-  background: var(--bg);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
   font-size: 11px;
   line-height: 1.5;
-  color: var(--t2);
+  color: var(--t3);
   white-space: nowrap;
   cursor: pointer;
-  transition: color .14s, border-color .14s, background .14s;
+  transition: color .14s, background .14s;
 }
 
 /* Obsidian 原生图标是 24 viewBox、2 描边：16px 下和宿主自己的小按钮同档 */
@@ -899,7 +906,6 @@
 
 .bzs-qbtn:hover {
   color: var(--copper);
-  border-color: var(--copper-line);
   background: var(--copper-soft);
 }
 

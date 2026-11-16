@@ -111,6 +111,7 @@ import { planHeaderVisibility, roleOf } from './header-layout';
 import { pdfActionRun, type PanelAnchor } from './pdf-actions';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { REGION_ACTS, SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
+import { aiHoverOpens, hoverCapableNow, makeHoverIntent } from '../shell/ai-hover';
 import { hydrateToolbarIcons } from '../shell/toolbar-icons';
 import { can } from '../data/entitlement';
 import { bzEntryReady } from '../data/bz-bridge';
@@ -5109,6 +5110,45 @@ export class ReaderView extends ItemView {
       RT.sel = keepSel;
       RT.selMarkId = keepMark;
     });
+
+    /* 鼠标停在 AI 上就摊开上面那一行（2026-11-16）。
+       桌面那把「点一下才出现」当成了多余的一步——菜单本来就长在光标正上方；
+       点按照旧可用，手机上完全不参与（轻点也会发 pointerenter，
+       跟着展开就成了「点一下开、再点一下关」）。 */
+    const aiAct = SELECTION_ACTS.ai || '';
+    const aiBtn = aiAct ? bar.querySelector<HTMLElement>(`[data-act="${aiAct}"]`) : null;
+    if (aiBtn && hoverCapableNow()) {
+      const intent = makeHoverIntent(() => {
+        /* 拖选期间条子会连着重建：旧条子已经不在页上了，这一次作废 */
+        if (!bar.isConnected || !RT.sel) return;
+        const r = bar.getBoundingClientRect();
+        /* 与点击同一条锚点：面板底边贴着条子底边，浮层里那枚工具条顶替它的位置 */
+        RT.sel = { ...RT.sel, anchor: { left: r.left, top: r.bottom + 4, width: r.width, height: 0 } };
+        const keepSel = RT.sel;
+        const keepMark = RT.selMarkId;
+        /* 条子要收：浮层里会再画一枚同款工具条，不收就是两条叠在一起。
+           选区载荷留一份——hideSelbar 会把 RT.sel 清掉。 */
+        this.hideSelbar();
+        RT.sel = keepSel;
+        RT.selMarkId = keepMark;
+        dispatchAction(aiAct, aiBtn, {}, { hover: true });
+      });
+      aiBtn.addEventListener('pointerenter', (ev) => {
+        if (
+          !aiHoverOpens({
+            hoverCapable: true,
+            pointerType: (ev as PointerEvent).pointerType,
+            entitled: can('aiSel'),
+            text: RT.sel?.text ?? '',
+          })
+        )
+          return;
+        intent.arm();
+      });
+      aiBtn.addEventListener('pointerleave', () => intent.cancel());
+      /* 手已经点上去了：悬停那条路作废，别在点击之后又补一次 */
+      aiBtn.addEventListener('pointerdown', () => intent.cancel());
+    }
 
     root.appendChild(bar);
 
