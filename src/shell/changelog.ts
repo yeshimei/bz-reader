@@ -79,8 +79,8 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
       {
         domain: { zh: '划词 AI', en: 'Ask about a selection' },
         text: {
-          zh: '划一段文字弹出五项菜单，解释、翻译、总结，或者丢进全书问答继续问。浮框锚在原文旁边，可以拖动、可以定住不关。',
-          en: 'Select a passage and a five-item menu appears — explain, translate, summarize, or send it on to whole-book Q&A. The box anchors beside the text and can be dragged or pinned open.',
+          zh: '划一段文字弹出五项菜单：解释、翻译、总结、追问，或者丢进全书问答继续问。浮框锚在原文旁边，可以拖动、可以定住不关。',
+          en: 'Select a passage and a five-item menu appears — explain, translate, summarize, follow up, or send it on to whole-book Q&A. The box anchors beside the text and can be dragged or pinned open.',
         },
       },
       {
@@ -116,8 +116,8 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
       {
         domain: { zh: '划词工具条', en: 'Selection toolbar' },
         text: {
-          zh: '鼠标移上去才展开，移走就收，不挡正文。',
-          en: 'It expands on hover and folds away when the pointer leaves, so it no longer covers the text.',
+          zh: '点一下展开，再点收合，不挡正文。',
+          en: 'It expands on click and folds away on the next click, so it no longer covers the text.',
         },
       },
     ],

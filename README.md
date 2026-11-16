@@ -191,14 +191,15 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 |  | Reading poster: yearly recap and stats long image | — | ✓ |
 |  | Whole-library search, PDF text included | — | ✓ |
 |  | Semantic search: by meaning, in this book or the shelf | — | ✓ |
-| **AI** | Explain, translate, summarize a selection | — | ✓ |
-|  | AI Q&A over the whole book | — | ✓ |
+| **AI** | AI explain, translate, summarize and follow up: select and go | — | ✓ |
+|  | AI Q&A over the whole book: highlights, page text, screenshots and notes as evidence | — | ✓ |
+|  | AI chats are kept and can be exported to a note | — | ✓ |
 |  | AI companion: ask as you read, with a per-chapter guide | — | ✓ |
+|  | AI knowledge base: incremental reading, intake, and a loop from notes to output | — | ✓ |
 | **Advanced** | Vertical typesetting: EPUB / TXT | — | ✓ |
 |  | Read aloud: EPUB, TXT and PDF, auto page-turn | — | ✓ |
 |  | Read two books side by side | — | ✓ |
 |  | Book overview | — | ✓ |
-|  | Connect to the BZ AI knowledge base (requires bz) | — | ✓ |
 |  | PDF reflow: fixed layouts read as flowing text | — | — |
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
@@ -296,8 +297,11 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 | **統計與搜尋** | 資料面板：時長、趨勢、節律、書籍明細 | — | ✓ |
 |  | 閱讀海報：年度總結與資料長圖 | — | ✓ |
 |  | 全庫搜尋：PDF 正文也搜得到 | — | ✓ |
-| **AI** | AI 解釋、翻譯與摘要：劃詞即用 | — | ✓ |
-|  | AI 全書問答 | — | ✓ |
+| **AI** | AI 解釋、翻譯、摘要與追問：即劃即用 | — | ✓ |
+|  | AI 全書問答：劃線、正文、截圖與筆記四種依據都可加入 | — | ✓ |
+|  | AI 對話留存並匯出至筆記 | — | ✓ |
+|  | AI 伴讀：邊讀邊問，按章導讀 | — | ✓ |
+|  | AI 知識庫：增量閱讀、知識輸入、整理與輸出的閉環 · [看教學](https://www.bilibili.com/video/BV1bR4s6dEjH) | — | ✓ |
 | **朗讀與聽書** · [看教學](https://www.bilibili.com/video/BV17psV6wEP7) | 朗讀：EPUB、TXT、PDF，念完自動翻頁 | ✓ | ✓ |
 |  | 三種引擎：系統語音、線上、本機自建 | ✓ | ✓ |
 |  | 音色與試聽 | ✓ | ✓ |
@@ -308,7 +312,6 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 | **進階** | 豎排排版：EPUB / TXT | — | ✓ |
 |  | 與另一本書並排對照 | — | ✓ |
 |  | 全書鳥瞰 | — | ✓ |
-|  | AI 知識盒 · [看教學](https://www.bilibili.com/video/BV1bR4s6dEjH) | — | ✓ |
 |  | 剪藏成書：把剪藏本的文章合成 EPUB，在書架裡讀 · [看教學](https://www.bilibili.com/video/BV1h3WB6XEL4) | — | ✓ |
 |  | PDF 重排：固定版式也能流式讀 | — | — |
 |  | 漫畫模式：分格、右到左、跨頁 | — | — |
@@ -400,13 +403,15 @@ Obsidian を「本を読む場所」に。デスクトップ + モバイル、�
 | **統計と検索** | データパネル：時間・推移・リズム・書籍別の内訳 | — | ✓ |
 |  | 読書ポスター：年間まとめとデータ長画像 | — | ✓ |
 |  | ライブラリ全体を検索：PDF 本文も対象 | — | ✓ |
-| **AI** | AI 解説・翻訳・要約：選択するだけ | — | ✓ |
-|  | AI 全書 Q&A | — | ✓ |
+| **AI** | AI 解説・翻訳・要約・追加質問：選択するだけ | — | ✓ |
+|  | AI 全書 Q&A：ハイライト・本文・スクリーンショット・ノートの 4 種を根拠に追加できる | — | ✓ |
+|  | AI の会話を保存し、ノートに書き出せる | — | ✓ |
+|  | AI 伴読：読みながら質問、章ごとのガイド | — | ✓ |
+|  | AI ナレッジベース：インクリメンタルリーディング・知識の取り込み・整理と出力の循環 | — | ✓ |
 | **上級** | 縦組み：EPUB / TXT | — | ✓ |
 |  | 読み上げ：EPUB・TXT・PDF、読み終えたら自動で次のページ | — | ✓ |
 |  | 別の本と並べて対照 | — | ✓ |
 |  | 全体マップ | — | ✓ |
-|  | BZ AI ナレッジベースに接続（bz が必要） | — | ✓ |
 |  | PDF reflow: fixed layouts read as flowing text | — | — |
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
@@ -500,13 +505,15 @@ Solange die Prüfung läuft oder die Suche nichts findet: mit [BRAT](https://git
 | **Statistik & Suche** | Statistikpanel: Zeit, Verlauf, Rhythmus, Details je Buch | — | ✓ |
 |  | Leseposter: Jahresrückblick und Daten-Langbild | — | ✓ |
 |  | Bibliothek durchsuchen, PDF-Text inklusive | — | ✓ |
-| **KI** | KI: erklären, übersetzen, zusammenfassen — direkt zur Auswahl | — | ✓ |
-|  | KI: Fragen zum ganzen Buch | — | ✓ |
+| **KI** | KI: erklären, übersetzen, zusammenfassen, nachfragen — direkt zur Auswahl | — | ✓ |
+|  | KI: Fragen zum ganzen Buch — Markierungen, Seitentext, Screenshots und Notizen als Belege | — | ✓ |
+|  | KI-Gespräche bleiben erhalten und lassen sich als Notiz exportieren | — | ✓ |
+|  | KI-Begleiter: beim Lesen fragen, mit Kapitelführer | — | ✓ |
+|  | KI-Wissensbasis: inkrementelles Lesen, Wissensinput und ein Kreislauf bis zur Ausgabe | — | ✓ |
 | **Fortgeschritten** | Vertikaler Satz: EPUB / TXT | — | ✓ |
 |  | Vorlesen: EPUB, TXT und PDF, blättert automatisch weiter | — | ✓ |
 |  | Zwei Bücher nebeneinander lesen | — | ✓ |
 |  | Buchübersicht | — | ✓ |
-|  | Mit der BZ-KI-Wissensdatenbank verbinden (bz erforderlich) | — | ✓ |
 |  | PDF reflow: fixed layouts read as flowing text | — | — |
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
@@ -598,13 +605,15 @@ Pendant la validation, ou si la recherche ne donne rien : ajoutez ce dépôt ave
 | **Statistiques & recherche** | Panneau de stats : temps, tendances, rythme, détail par livre | — | ✓ |
 |  | Affiche de lecture : bilan annuel et image longue | — | ✓ |
 |  | Recherche dans toute la bibliothèque, texte des PDF inclus | — | ✓ |
-| **IA** | IA : expliquer, traduire, résumer une sélection | — | ✓ |
-|  | Questions IA sur tout le livre | — | ✓ |
+| **IA** | IA : expliquer, traduire, résumer, relancer — sur une sélection | — | ✓ |
+|  | Questions IA sur tout le livre : surlignages, texte de la page, captures et notes comme sources | — | ✓ |
+|  | Les échanges IA sont conservés et exportables vers une note | — | ✓ |
+|  | Compagnon IA : questionner en lisant, guide par chapitre | — | ✓ |
+|  | Base de connaissances IA : lecture incrémentale, entrée de connaissances et boucle jusqu’à la production | — | ✓ |
 | **Avancé** | Composition verticale : EPUB / TXT | — | ✓ |
 |  | Lecture vocale : EPUB, TXT et PDF, page suivante automatique | — | ✓ |
 |  | Lire deux livres côte à côte | — | ✓ |
 |  | Vue d'ensemble du livre | — | ✓ |
-|  | Se connecter à la base BZ AI (nécessite bz) | — | ✓ |
 |  | PDF reflow: fixed layouts read as flowing text | — | — |
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
@@ -696,13 +705,15 @@ Mientras la revisión esté pendiente, o si la búsqueda no lo encuentra, añade
 | **Estadísticas y búsqueda** | Panel de datos: tiempo, tendencias, ritmo, detalle por libro | — | ✓ |
 |  | Póster de lectura: resumen anual e imagen larga | — | ✓ |
 |  | Búsqueda en toda la biblioteca, texto de PDF incluido | — | ✓ |
-| **IA** | IA: explicar, traducir, resumir una selección | — | ✓ |
-|  | Preguntas de IA sobre todo el libro | — | ✓ |
+| **IA** | IA: explicar, traducir, resumir y repreguntar — sobre una selección | — | ✓ |
+|  | Preguntas IA sobre todo el libro: subrayados, texto de la página, capturas y notas como base | — | ✓ |
+|  | Las conversaciones de IA se guardan y se pueden exportar a una nota | — | ✓ |
+|  | Compañero IA: pregunta mientras lees, guía por capítulo | — | ✓ |
+|  | Base de conocimiento IA: lectura incremental, entrada de conocimiento y un ciclo hasta la salida | — | ✓ |
 | **Avanzado** | Composición vertical: EPUB / TXT | — | ✓ |
 |  | Lectura en voz alta: EPUB, TXT y PDF, pasa de página sola | — | ✓ |
 |  | Leer dos libros en paralelo | — | ✓ |
 |  | Vista general del libro | — | ✓ |
-|  | Conectar con la base de conocimiento BZ AI (requiere bz) | — | ✓ |
 |  | PDF reflow: fixed layouts read as flowing text | — | — |
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
@@ -794,13 +805,15 @@ Enquanto a revisão estiver pendente, ou se a busca não encontrar, adicione est
 | **Estatísticas e busca** | Painel de dados: tempo, tendências, ritmo, detalhe por livro | — | ✓ |
 |  | Pôster de leitura: resumo anual e imagem longa | — | ✓ |
 |  | Pesquisa em toda a biblioteca, texto de PDF incluído | — | ✓ |
-| **IA** | IA: explicar, traduzir, resumir uma seleção | — | ✓ |
-|  | Perguntas de IA sobre o livro inteiro | — | ✓ |
+| **IA** | IA: explicar, traduzir, resumir e perguntar de novo — numa seleção | — | ✓ |
+|  | Perguntas IA sobre o livro inteiro: destaques, texto da página, capturas e notas como base | — | ✓ |
+|  | As conversas de IA ficam guardadas e podem ser exportadas para uma nota | — | ✓ |
+|  | Companheiro IA: pergunte enquanto lê, guia por capítulo | — | ✓ |
+|  | Base de conhecimento IA: leitura incremental, entrada de conhecimento e um ciclo até a saída | — | ✓ |
 | **Avançado** | Composição vertical: EPUB / TXT | — | ✓ |
 |  | Leitura em voz alta: EPUB, TXT e PDF, vira a página sozinha | — | ✓ |
 |  | Ler dois livros lado a lado | — | ✓ |
 |  | Visão geral do livro | — | ✓ |
-|  | Conectar à base de conhecimento BZ AI (requer bz) | — | ✓ |
 |  | PDF reflow: fixed layouts read as flowing text | — | — |
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
