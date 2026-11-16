@@ -37,6 +37,9 @@ export type AiTask =
  */
 export const FOLLOW_QUOTE_LIMIT = 2000;
 
+/** 追问时同书其他段落的上限：够接上前因后果，又不至于把「问这一小段」变成「问全书」 */
+export const FOLLOW_EVIDENCE_LIMIT = 1200;
+
 /**
  * 「当前这一屏」带多少正文。
  *
@@ -68,6 +71,14 @@ export interface AiAskInput {
   chapter?: string;
   /** 当前这一屏的正文（只有 ask 用；不传就明说没有正文） */
   context?: string;
+  /**
+   * 同书其他相关段落（只有 follow 用）。
+   *
+   * 追问原来只带读者眼前那一段：问「他后来为什么变了」，模型只看得到
+   * 这一屏，只能靠猜。补一次书内检索，把前后文接上——但仍然是「问这一小段」，
+   * 不塞整本书，篇幅按 FOLLOW_EVIDENCE_LIMIT 收口。
+   */
+  evidence?: string;
   /** 之前的问答，按时间正序 */
   history?: AiTurn[];
   /**
@@ -144,15 +155,24 @@ function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow' | 'shelf' | 'enrich'
  */
 function buildFollowMessages(input: AiAskInput): AiMessage[] {
   const quote = clipContext(input.context ?? '', FOLLOW_QUOTE_LIMIT);
+  const extra = clipHead(String(input.evidence ?? '').trim(), FOLLOW_EVIDENCE_LIMIT);
   /* 2026-11-11 真机反馈：追问的回答动辄一整屏，手机上一段分析要翻两屏才看完。
      追问是「接着聊」，不是「再写一篇」——所以把长度写成硬约束，并明确
-     「读者要求展开」才放长，免得模型把简练当成不许解释。 */
+     「读者要求展开」才放长，免得模型把简练当成不许解释。
+     2026-11-16：带上同书其他段落时补一条约束——别处的说法不能安到眼前这段上。 */
   const system = quote
-    ? '你是读者的共读助手。下面这段是读者正在读的原文。回答读者关于它的问题；可以用书外的知识补充，但要说明哪些是补充。用中文，先给结论，不寒暄。回答要短：通常三到五句、100 字以内，不复述原文，不要长清单；只有读者明确要求「详细说说」时才展开。'
+    ? `你是读者的共读助手。下面这段是读者正在读的原文。回答读者关于它的问题；可以用书外的知识补充，但要说明哪些是补充。用中文，先给结论，不寒暄。回答要短：通常三到五句、100 字以内，不复述原文，不要长清单；只有读者明确要求「详细说说」时才展开。${
+        extra
+          ? '另外还给了一些同书其他段落（标了章名）：可以据此说明前因后果，引用时点明章名，不要把别处的说法安到这段原文上。'
+          : ''
+      }`
     : '你是读者的共读助手。这次没有原文，只能凭问题本身作答，回答前先说明这一点。用中文，三到五句以内，不寒暄。';
 
   const messages: AiMessage[] = [{ role: 'system', content: system }];
   if (quote) messages.push({ role: 'system', content: `【原文】\n${quote}` });
+  /* 同书其他段落（2026-11-16）：检索到的前后文，带章名。
+     与【原文】分开两段，模型才不会把别处的话当成读者眼前这一句。 */
+  if (extra) messages.push({ role: 'system', content: `【同书其他段落】\n${extra}` });
   for (const turn of (input.history ?? []).slice(-ASK_HISTORY_MAX)) {
     if (turn.content.trim()) messages.push({ role: turn.role, content: turn.content });
   }

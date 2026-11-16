@@ -93,3 +93,35 @@ describe('buildMessages · 老任务', () => {
     expect(buildMessages({ task: 'summarize', text: '很长的一段' }).at(-1)!.content).toContain('摘要');
   });
 });
+
+/* ============================================================
+ * 追问的补充依据（2026-11-16）
+ *
+ * 追问原来只带读者眼前那一段：问「他后来为什么变了」，模型只看得到这一屏。
+ * 补一次书内检索之后，前后文以【同书其他段落】单独一段进来——与【原文】
+ * 分开，模型才不会把别处的话当成眼前这一句。
+ * ============================================================ */
+describe('buildMessages · follow 带同书段落', () => {
+  const follow = { task: 'follow' as const, text: '他后来为什么变了', context: '方鸿渐站在甲板上。' };
+
+  it('有补充时单独成段，并给出「别处的说法不能安到这段上」的约束', () => {
+    const msgs = buildMessages({ ...follow, evidence: '【第三章 三闾大学】\n他后来…' });
+    expect(msgs[0]!.content).toContain('同书其他段落');
+    const extra = msgs.find((m) => m.content.startsWith('【同书其他段落】'));
+    expect(extra).toBeTruthy();
+    expect(extra!.content).toContain('三闾大学');
+    /* 原文仍然是独立的一段，不被合并 */
+    expect(msgs.some((m) => m.content.startsWith('【原文】'))).toBe(true);
+  });
+
+  it('没有补充时一个字都不多', () => {
+    const msgs = buildMessages(follow);
+    expect(msgs.some((m) => m.content.includes('同书其他段落'))).toBe(false);
+  });
+
+  it('补充超长按 1200 字截断（不许把「问这一小段」变成「问全书」）', () => {
+    const msgs = buildMessages({ ...follow, evidence: '甲'.repeat(5000) });
+    const extra = msgs.find((m) => m.content.startsWith('【同书其他段落】'))!;
+    expect(extra.content.length).toBeLessThan(1400);
+  });
+});

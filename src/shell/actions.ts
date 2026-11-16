@@ -13,7 +13,7 @@
 import { Menu } from 'obsidian';
 import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
-import { aiAsk } from '../data/ai';
+import { aiAsk, FOLLOW_EVIDENCE_LIMIT } from '../data/ai';
 import {
   DEFAULT_HIGHLIGHT_COLOR,
   addHighlight,
@@ -4435,6 +4435,36 @@ function clearAiInput(): void {
 }
 
 /**
+ * 追问时顺手取几条同书段落。
+ *
+ * 追问原来只带读者眼前那一段。问「他后来为什么变了」「这个说法和前文矛盾吗」
+ * 这类问题，答案往往在别处，模型看不到就只能猜。这里用「划线原文 + 这一问」
+ * 当查询，取三块（1200 字封顶）当补充。
+ *
+ * 任何一步失败都返回空串：追问的主依据是眼前这一段，补不到也不该拦这一问。
+ */
+async function followEvidenceOf(q: string, quote: string, signal?: AbortSignal): Promise<string> {
+  const src = getShellSource();
+  const book = currentBook();
+  if (!src || !book) return '';
+  try {
+    const portrait = await readPortraitCached(src.app, book.id);
+    const embedder = bzEmbedder(src.app);
+    /* 只有向量画像有原文块；压缩画像的要点不适合当「同书段落」 */
+    if (!portrait || portrait.plan !== 'vector') return '';
+    if (portraitState(portrait, embedder.model) !== 'ready' || !embedder.ai) return '';
+    /* 划线的原话要带上：只拿「他后来为什么变了」算向量，「他」没有指代对象 */
+    const query = `${quote.slice(0, 120)} ${q}`.trim();
+    const vec = await embedder.ai.embedQuery(query, signal);
+    const picks = retrieveBlocks(portrait, query, vec, { limit: 3 });
+    if (!picks.length) return '';
+    return blocksEvidence(portrait, picks, FOLLOW_EVIDENCE_LIMIT);
+  } catch {
+    return '';
+  }
+}
+
+/**
  * 追问：围绕浮框里那段原文继续问。
  *
  * 两条路：
@@ -4489,14 +4519,18 @@ async function followAi(question: string): Promise<void> {
   const ctrl = new AbortController();
   RT.aiAbort = ctrl;
   try {
+    /* 先补前后文（2026-11-16）：追问要能回答「后来呢」「和前文矛盾吗」，
+       只给眼前这一屏，模型只能猜。取不到就空串，不拦这一问。 */
+    const evidence = await followEvidenceOf(q, text, ctrl.signal);
     const res = await aiAsk(
       s,
       first
-        ? { task: 'follow', text: q, context: text }
+        ? { task: 'follow', text: q, context: text, evidence }
         : {
             task: 'follow',
             text: q,
             context: text,
+            evidence,
             /* 首问也要带上：只给答案，模型不知道用户当初问的是什么 */
             history: followHistory(entry!.text, entry!.turns, entry!.ask),
           },
