@@ -1290,4 +1290,5 @@ export const ZH_TW: Record<MsgKey, string> = {
   'ai.float.clear.title': '清空這段對話？',
   'ai.float.clear.body': '會刪掉這段原文累積的問答，劃線和筆記不受影響。清空後還能點回這條線重新問。',
   'ai.float.clear.ok': '清空對話',
+  'side.ai.quoteWarn': '[TODO] side.ai.quoteWarn {n}',
 };

@@ -622,7 +622,13 @@ function aiBubbleHtml(m: AiLogItem, hint: boolean, at = -1): string {
         )}</button>`;
   return `<div class="bzs-aibubble ai"><span class="tag">${t(
     'side.ai.tag.book',
-  )}</span>${body}${aiSourcesRow(m)}${copy}</div>`;
+  )}</span>${body}${aiSourcesRow(m)}${aiWarnRow(m)}${copy}</div>`;
+}
+
+/** 引文核不上时的那一行：只在真有问题时出现，正常答案下面不多一个字 */
+function aiWarnRow(m: AiLogItem): string {
+  if (m.me || !m.warn) return '';
+  return `<div class="bzs-aiwarn">${esc(m.warn)}</div>`;
 }
 
 const PK_DOC =

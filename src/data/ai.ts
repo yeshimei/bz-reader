@@ -170,7 +170,7 @@ function buildFollowMessages(input: AiAskInput): AiMessage[] {
 function buildShelfMessages(input: AiAskInput): AiMessage[] {
   const ctx = clipHead(input.context ?? '');
   const system = ctx
-    ? '你是这几本书的共读助手。依据里每一段都标了出处（书名 · 章节）。回答时要说清是哪本书的说法；依据里没有的，直接说「这几本书里没有提到」，不要用书外的知识补充。用中文，先给结论再给依据，不要寒暄。'
+    ? '你是这几本书的共读助手。依据里每一段都标了出处（书名 · 章节）。回答时要说清是哪本书的说法；依据里没有的，直接说「这几本书里没有提到」，不要用书外的知识补充。用中文，先给结论再给依据，不要寒暄。引用原文时用「」把原句括起来，并注明书名与章节；原句必须逐字复制、不超过 40 字。'
     : '你是这几本书的共读助手。但这次没有取到可用的依据，只能凭问题本身作答，回答前先说明这一点。用中文，简洁。';
   const messages: AiMessage[] = [{ role: 'system', content: system }];
   for (const turn of (input.history ?? []).slice(-ASK_HISTORY_MAX)) {
@@ -224,7 +224,7 @@ export function buildMessages(input: AiAskInput): AiMessage[] {
   const system = ctx
     ? `你是《${book}》的共读助手。只根据下面提供的依据回答；依据里没有的，直接说「书里没有提到」，不要用书外的知识补充。用中文，先给结论再给依据，不要寒暄。${
         chapter ? `当前章节：${chapter}。` : ''
-      }`
+      }引用原文时用「」把原句括起来并注明章节，原句必须从依据里逐字复制、不超过 40 字；没有原句支撑的结论，不要写成书里的观点。`
     : `你是《${book}》的共读助手。但这次没有取到可用的依据，只能凭问题本身作答，回答前先说明这一点。用中文，简洁。`;
 
   const messages: AiMessage[] = [{ role: 'system', content: system }];

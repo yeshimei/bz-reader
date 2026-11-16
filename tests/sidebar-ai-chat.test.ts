@@ -210,3 +210,34 @@ describe('AI 页签 · A 版聊天结构', () => {
     expect(html).toMatch(/<b>围城<\/b><span class="author">钱钟书<\/span>/);
   });
 });
+
+/* ============================================================
+ * 引文告警（2026-11-16）
+ *
+ * 答案里的引文回依据里核不上的时候，气泡下面要有一行说明。
+ * 正常答案不该多这个字——所以两条都锁：有 warn 才有行，没有就没有。
+ * ============================================================ */
+describe('侧栏 · 引文告警', () => {
+  const answer = (warn?: string): string =>
+    view({
+      aiLog: [
+        { me: true, tag: '我', text: '船叫什么' },
+        { me: false, tag: 'AI', text: '叫「白拉日隆子爵号」。', warn },
+      ],
+    });
+
+  it('核不上时给一行告警', () => {
+    const html = answer('有 1 处引文和依据对不上，重要结论请回原文核对。');
+    expect(html).toContain('bzs-aiwarn');
+    expect(html).toContain('1 处引文');
+  });
+
+  it('全部对得上时不出现', () => {
+    expect(answer()).not.toContain('bzs-aiwarn');
+  });
+
+  it('用户自己的消息不挂告警（warn 只属于回答）', () => {
+    const html = view({ aiLog: [{ me: true, tag: '我', text: '问', warn: '不该出现' }] });
+    expect(html).not.toContain('不该出现');
+  });
+});

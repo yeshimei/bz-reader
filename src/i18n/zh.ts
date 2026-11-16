@@ -566,6 +566,7 @@ export const ZH = {
   'side.ai.send': '发送',
   'side.ai.stage.evidence': '正在检索依据…',
   'side.ai.stage.model': '正在生成回答…',
+  'side.ai.quoteWarn': '有 {n} 处引文和依据对不上，重要结论请回原文核对。',
   'side.ai.chat.new': '新建',
   'side.ai.chat.clear': '清除',
   'side.ai.hist.open': '历史',

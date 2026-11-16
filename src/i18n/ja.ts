@@ -1293,4 +1293,5 @@ export const JA: Record<MsgKey, string> = {
   'ai.float.clear.title': 'この会話をクリアしますか？',
   'ai.float.clear.body': 'この原文にたまった質問と回答が削除されます。ハイライトとノートには影響しません。クリア後もこのスレッドに戻って再度質問できます。',
   'ai.float.clear.ok': '会話をクリア',
+  'side.ai.quoteWarn': '[TODO] side.ai.quoteWarn {n}',
 };

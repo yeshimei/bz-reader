@@ -1303,4 +1303,5 @@ export const EN: Record<MsgKey, string> = {
   'ai.float.clear.title': 'Clear this conversation?',
   'ai.float.clear.body': 'The Q&A collected for this passage is deleted; highlights and notes are untouched. You can still click the same passage and ask again.',
   'ai.float.clear.ok': 'Clear conversation',
+  'side.ai.quoteWarn': '[TODO] side.ai.quoteWarn {n}',
 };

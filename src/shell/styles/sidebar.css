@@ -1521,6 +1521,17 @@ button.bzs-aisrc-i:hover {
   border-color: var(--copper-line);
 }
 
+/* 引文告警：核不上的引文数。比来源低一档，只在真有问题时出现—— */
+/* 正常答案下面不该多一行常驻文字。 */
+.bzs-aiwarn {
+  margin-top: 6px;
+  font: 10.5px var(--ui);
+  line-height: 1.5;
+  color: var(--t3);
+  border-left: 2px solid var(--copper-line);
+  padding-left: 7px;
+}
+
 /* ── 页签图标：Obsidian 原生尺寸 ──
    18px、2 描边，和宿主自己的侧栏按钮同一档；未选中压到 .62 透明。 */
 .bzs-sbtab svg {

@@ -137,10 +137,9 @@ import {
   sourcesOfHits,
   type AiEvidence,
 } from '../data/ai-evidence';
+import { verifyQuotes } from '../data/ai-quote';
 import {
   PORTRAIT_PICK_LIMIT,
-  PORTRAIT_TOP_K,
-  chapterAwarePicks,
   firstSentence,
   listPortraits,
   orphanPortraits,
@@ -152,9 +151,9 @@ import {
   expandQuery,
   portraitState,
   readPortrait,
-  topBlocksByVector,
   type PortraitPlan,
 } from '../data/portrait';
+import { retrieveBlocks } from '../data/block-retrieval';
 import { readPortraitCached } from '../data/portrait-cache';
 import { chapterDigestOf, guideOf, withGuide } from '../data/chapter-guide';
 import { enrichDoneKind, enrichNeeds, enrichSample, mergeMetaPatch, parseEnrichReply } from '../data/book-enrich';
@@ -4120,12 +4119,12 @@ async function bookEvidenceOf(
        换个模型算查询向量，距离再近也没有意义。 */
     if (!embedder.ai) throw new Error(embedder.problem || t('side.ai.embedNotReady'));
     const vec = await embedder.ai.embedQuery(expandQuery(q, chapter), signal);
-    /* 先取三倍候选：命中的章要带回章首（专名/定义常在这一章的开头），
-       只取 6 块的话，真正写着答案的那块经常排在第 7 名之后。取 18 是为了
-       让「一个章里有好几块命中」看得出来——章排序靠的是最高分 + 命中块数。 */
-    const candidates = topBlocksByVector(portrait, vec, PORTRAIT_TOP_K * 3);
-    if (!candidates.length) return null;
-    const picks = chapterAwarePicks(portrait, candidates, PORTRAIT_PICK_LIMIT);
+    /* 两路并行：向量管「意思像不像」，字面管「这个词在不在」。
+       以前只有向量，问船名 / 年份 / 外国人名时，真正写着答案的那块
+       经常排在第 7 名之后；字面通道正是为这一类问题加的。
+       章首补偿与六块预算都在 retrieveBlocks 里收口，这里不再自己排。 */
+    const picks = retrieveBlocks(portrait, q, vec, { limit: PORTRAIT_PICK_LIMIT });
+    if (!picks.length) return null;
     return {
       context: blocksEvidence(portrait, picks),
       sources: sourcesOfBlocks(
@@ -4311,7 +4310,18 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
     );
     /* 答案回来时已经换书：这份答案不属于当前这本，丢掉（C4） */
     if (!sameBook()) return;
-    pushAi(false, `AI · ${settings.ai.model || '模型'}`, res.text, evidence.sources);
+    /* 引文校验（2026-11-16）：答案里带引号的句子回**这次真正发出去的依据**
+       里核一遍。核不上说明模型改了字或凭记忆编了一句，这时候宁可在气泡下面
+       加一行告警，也不要让用户以为那真是书里的话。 */
+    const quote = verifyQuotes(res.text, evidence.context);
+    pushAi(
+      false,
+      `AI · ${settings.ai.model || '模型'}`,
+      res.text,
+      evidence.sources,
+      undefined,
+      quote.bad ? t('side.ai.quoteWarn', { n: String(quote.bad) }) : undefined,
+    );
     /* 落盘：同一条对话里的多轮问答按会话 id 追加（2026-11-16）。
        以前每一问都是一条独立记录，侧栏也就没东西可「读回来」。 */
     if (!RT.aiChatId) RT.aiChatId = makeAiSessionId();

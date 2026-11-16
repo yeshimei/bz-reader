@@ -78,6 +78,10 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/data/importer.ts': 1,
   'src/data/license.ts': 16,
   'src/data/notes.ts': 13,
+  /* 2026-11-16 新文件：检索用的停用词表（二字组与单字各一张）。这些是**数据**，
+     不是界面文案——它们决定「哪些词不参与打分」，永远不显示给用户，
+     也不该进语言包（界面换成英文，读的还是中文书，切词口径不能跟着变）。 */
+  'src/data/text-terms.ts': 78,
   'src/data/portrait-build.ts': 8,
   'src/data/portrait.ts': 2,
   'src/data/prefs.ts': 33,

@@ -10,13 +10,18 @@
  *      两条都要挡在门外，否则界面正常、结果全错；
  *   3. 结果按书收口：同一本书最多几条，用户要的是「哪几本书讲过」。
  *
+ * 2026-11-16：从「纯向量」改成「向量 + 字面」两路融合（见 block-retrieval）。
+ * 跨书的专名（书名、外国人名、年份）是纯向量最容易糊过去的一类，
+ * 书架上问「哪本书讲过白拉日隆号」时，字面通道是唯一能捞回来的那条。
+ *
  * 与 book-ai 的分工：那边是「借给 bz 用」（bz 提问时书块当依据），
  * 这边是「自己用」——书架上的按意思搜，入口是命令面板。
  * ============================================================ */
 import type { App } from 'obsidian';
 import { bzEmbedder } from './bz-bridge';
 import { can } from './entitlement';
-import { loadPortraits, rankBlocks } from './book-ai';
+import { loadPortraits } from './book-ai';
+import { searchBooksHybrid } from './block-retrieval';
 import { PORTRAIT_TOP_K, type PortraitFile } from './portrait';
 import { t, type MsgKey } from '../i18n';
 
@@ -136,7 +141,7 @@ export async function semanticSearch(
   }
   if (!vec?.length) return { hits: [], problem: t('search.semantic.embedFail'), books: list.length };
 
-  const ranked = rankBlocks(vec, list, Math.max(1, Math.floor(topK) || PORTRAIT_TOP_K), emb.model);
+  const ranked = searchBooksHybrid(list, q, vec, emb.model, Math.max(1, Math.floor(topK) || PORTRAIT_TOP_K));
   return {
     hits: pickSemanticHits(ranked.map((h) => ({ ...h }))),
     problem: null,

@@ -37,6 +37,13 @@ export interface AiLogItem {
   /** 这一条答完之后附的来源（知识库笔记能点开，全书的只有章节名） */
   sources?: AiSource[];
   /**
+   * 引文校验的告警（2026-11-16）。
+   *
+   * 答案里带引号的句子回原文核过，核不上的条数在这里。空 = 全部对得上，
+   * 或者答案里根本没引原文——两种情况都不该给用户加一行警示。
+   */
+  warn?: string;
+  /**
    * 用户这一问带上的上下文快照（A 版气泡里也要显示那几枚 chip）。
    *
    * 只在 `me === true` 时有值；存的是插入时的快照，不是在提问里拼好的整段。
@@ -258,6 +265,7 @@ export function pushAi(
   text: string,
   sources?: AiSource[],
   ctx?: AiContextItem[],
+  warn?: string,
 ): void {
   RT.aiLog.push({
     me,
@@ -265,6 +273,7 @@ export function pushAi(
     text,
     sources: sources?.length ? sources : undefined,
     ctx: me && ctx?.length ? ctx : undefined,
+    warn: !me && warn ? warn : undefined,
   });
   // 只留最近 20 条：侧栏气泡不是聊天记录，不需要无限长
   if (RT.aiLog.length > 20) RT.aiLog = RT.aiLog.slice(-20);
