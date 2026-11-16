@@ -3560,9 +3560,11 @@ export function dispatchAction(
       break;
     /* 存档这段对话（2026-11-11）：侧栏的多轮问答落成一篇笔记。
        与「存为笔记」不同——那是卡上一条答案，这里是整场对话，关掉侧栏
-       之后还能回去看当时问过什么、依据是哪几章。 */
+       之后还能回去看当时问过什么、依据是哪几章。
+       2026-11-16：改挂 aiLog——对照表把「对话留档并导出至笔记」单独写成
+       一行之后，点它被拦时弹层要亮的是那一行，不是「AI 伴读」。 */
     case 'aisavelog': {
-      if (!requireCap('aiChat')) break;
+      if (!requireCap('aiLog')) break;
       const app = getShellSource()?.app;
       if (!app) break;
       if (!RT.aiLog.length) {

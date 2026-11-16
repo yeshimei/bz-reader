@@ -69,8 +69,11 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
      zh / zh-TW / ja 三份（日文「本全体」「生成」同样命中正则）。原来的
      「朗读」那条改了口径，条数不变。 */
   /* 2026-11-15 +3（56 → 59）：扫描页识别转正，CAP_TEXT 加一条卖点，
-     zh / zh-TW / ja 三份（日文里的「認識」「選択」「検索」同样命中）。 */
-  'src/data/entitlement.ts': 59,
+     zh / zh-TW / ja 三份（日文里的「認識」「選択」「検索」同样命中）。
+     2026-11-16 +3（59 → 62）：AI 段定稿拆出「对话留档」这个新能力位
+     （aiLog），CAP_TEXT 加一条卖点，zh / zh-TW / ja 三份（日文「会話」
+     「保存」同样命中）。同批改了口径的 aiSel / ai 两条条数不变。 */
+  'src/data/entitlement.ts': 62,
   'src/data/export.ts': 9,
   'src/data/importer.ts': 1,
   'src/data/license.ts': 16,

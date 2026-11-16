@@ -13,8 +13,8 @@ import { describe, expect, it } from 'vitest';
 import { PLAN_GROUPS, PLAN_TABLE, planTotals } from '../src/data/entitlement';
 
 describe('对照表合计', () => {
-  it('基础版 12 项、高级版 38 项（扫描页识别转正后 +1）', () => {
-    expect(planTotals()).toEqual({ free: 12, pro: 38 });
+  it('基础版 12 项、高级版 39 项（AI 段拆出「对话留档」后 +1）', () => {
+    expect(planTotals()).toEqual({ free: 12, pro: 39 });
   });
 
   it('合计就是打勾的行数，不是总行数', () => {
@@ -23,7 +23,7 @@ describe('对照表合计', () => {
     expect(t.pro).toBe(PLAN_TABLE.filter((r) => r.pro === 'yes').length);
     /* 目前有六行两版都不打勾（探索中六项） */
     expect(t.pro).toBeLessThan(PLAN_TABLE.length);
-    expect(PLAN_TABLE.length).toBe(44);
+    expect(PLAN_TABLE.length).toBe(45);
     expect(PLAN_TABLE.length - t.pro).toBe(6);
   });
 

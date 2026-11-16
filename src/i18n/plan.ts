@@ -51,9 +51,15 @@ export type PlanKey =
   | 'poster'
   | 'crossSearch'
   | 'semantic'
-  /* ── AI ── */
+  /* ── AI ──
+   * 2026-11-16 作者定稿：AI 做了一大批增强（划词五项菜单与悬停展开、
+   * 锚定追问浮框、划词会话留痕、侧栏问答历史、依据按章跳转、连接笔记
+   * 浮层、书架对话页），表里原来四行装不下，拆成五行、一行只说一件事。
+   * 「对话留档」与「伴读」以前同挤在 aiChat 一行，现在各占一行、
+   * 各挂一个能力位（aiLog / aiChat），被拦时才亮得对。 */
   | 'aiSel'
   | 'aiBook'
+  | 'aiLog'
   | 'aiChat'
   | 'kb'
   /* ── 朗读与听书 ──
@@ -339,24 +345,39 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
   },
   /* ── AI ── */
   aiSel: {
-    zh: 'AI 解释、翻译与摘要：划词即用',
-    'zh-TW': 'AI 解釋、翻譯與摘要：劃詞即用',
-    en: 'Explain, translate, summarize a selection',
-    ja: 'AI 解説・翻訳・要約：選択するだけ',
-    de: 'KI: erklären, übersetzen, zusammenfassen — direkt zur Auswahl',
-    fr: 'IA : expliquer, traduire, résumer une sélection',
-    es: 'IA: explicar, traducir, resumir una selección',
-    pt: 'IA: explicar, traduzir, resumir uma seleção',
+    zh: 'AI 解释、翻译、摘要与追问：即划即用',
+    'zh-TW': 'AI 解釋、翻譯、摘要與追問：即劃即用',
+    en: 'AI explain, translate, summarize and follow up: select and go',
+    ja: 'AI 解説・翻訳・要約・追加質問：選択するだけ',
+    de: 'KI: erklären, übersetzen, zusammenfassen, nachfragen — direkt zur Auswahl',
+    fr: 'IA : expliquer, traduire, résumer, relancer — sur une sélection',
+    es: 'IA: explicar, traducir, resumir y repreguntar — sobre una selección',
+    pt: 'IA: explicar, traduzir, resumir e perguntar de novo — numa seleção',
   },
+  /* 2026-11-16：行名从「先建索引，再问整本」改成「四种依据都可添加进去」。
+     索引仍然是内部步骤（建索引的入口没变），但卖点不是它——用户关心的是
+     能往问题里塞什么：划线、正文、截图、笔记。 */
   aiBook: {
-    zh: 'AI 全书问答：先建索引，再问整本',
-    'zh-TW': 'AI 全書問答：先建索引，再問整本',
-    en: 'AI Q&A over the whole book: index first, then ask',
-    ja: 'AI 全書 Q&A：索引を作ってから本全体に質問',
-    de: 'KI: Fragen zum ganzen Buch — erst Index, dann fragen',
-    fr: 'Questions IA sur tout le livre : index d’abord, puis questions',
-    es: 'Preguntas de IA sobre todo el libro: primero el índice, luego preguntar',
-    pt: 'Perguntas de IA sobre o livro inteiro: primeiro o índice, depois perguntar',
+    zh: 'AI 全书问答：划线、正文、截图与笔记四种依据都可添加进去',
+    'zh-TW': 'AI 全書問答：劃線、正文、截圖與筆記四種依據都可加入',
+    en: 'AI Q&A over the whole book: highlights, page text, screenshots and notes as evidence',
+    ja: 'AI 全書 Q&A：ハイライト・本文・スクリーンショット・ノートの 4 種を根拠に追加できる',
+    de: 'KI: Fragen zum ganzen Buch — Markierungen, Seitentext, Screenshots und Notizen als Belege',
+    fr: 'Questions IA sur tout le livre : surlignages, texte de la page, captures et notes comme sources',
+    es: 'Preguntas IA sobre todo el libro: subrayados, texto de la página, capturas y notas como base',
+    pt: 'Perguntas IA sobre o livro inteiro: destaques, texto da página, capturas e notas como base',
+  },
+  /* 2026-11-16 新增：对话留档 + 导出到笔记。与「伴读」分开写，
+     挂自己的能力位 aiLog。 */
+  aiLog: {
+    zh: 'AI 对话留档并导出至笔记',
+    'zh-TW': 'AI 對話留存並匯出至筆記',
+    en: 'AI chats are kept and can be exported to a note',
+    ja: 'AI の会話を保存し、ノートに書き出せる',
+    de: 'KI-Gespräche bleiben erhalten und lassen sich als Notiz exportieren',
+    fr: 'Les échanges IA sont conservés et exportables vers une note',
+    es: 'Las conversaciones de IA se guardan y se pueden exportar a una nota',
+    pt: 'As conversas de IA ficam guardadas e podem ser exportadas para uma nota',
   },
   aiChat: {
     zh: 'AI 伴读：边读边问，按章导读',
@@ -368,17 +389,18 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'Compañero IA: pregunta mientras lees, guía por capítulo',
     pt: 'Companheiro IA: pergunte enquanto lê, guia por capítulo',
   },
-  /* 2026-11-14：按作者口径，「AI 知识盒」改叫「AI 知识库」；小字说清
-     存哪三类（划线、想法、增量阅读），以及提问时会带上笔记。 */
+  /* 2026-11-14：按作者口径，「AI 知识盒」改叫「AI 知识库」。
+     2026-11-16 作者定稿：行名改成「增量阅读、知识输入、整理与输出的闭环」——
+     它讲的是这件事的完整路径，不再是三类条目的枚举。 */
   kb: {
-    zh: 'AI 知识库：划线、想法、增量阅读存进去，提问带上笔记',
-    'zh-TW': 'AI 知識庫：劃線、想法、增量閱讀存進去，提問帶上筆記',
-    en: 'AI knowledge base: highlights, notes and incremental reading go in; answers use your notes',
-    ja: 'AI ナレッジベース：ハイライト・メモ・インクリメンタルリーディングを保存、質問時にノートを参照',
-    de: 'KI-Wissensbasis: Markierungen, Notizen und inkrementelles Lesen hinein, Antworten mit deinen Notizen',
-    fr: 'Base de connaissances IA : surlignages, notes et lecture incrémentale y entrent, les réponses s’appuient dessus',
-    es: 'Base de conocimiento IA: subrayados, notas y lectura incremental entran; las respuestas usan tus notas',
-    pt: 'Base de conhecimento IA: destaques, notas e leitura incremental entram; as respostas usam suas notas',
+    zh: 'AI 知识库：增量阅读、知识输入、整理与输出的闭环',
+    'zh-TW': 'AI 知識庫：增量閱讀、知識輸入、整理與輸出的閉環',
+    en: 'AI knowledge base: incremental reading, intake, and a loop from notes to output',
+    ja: 'AI ナレッジベース：インクリメンタルリーディング・知識の取り込み・整理と出力の循環',
+    de: 'KI-Wissensbasis: inkrementelles Lesen, Wissensinput und ein Kreislauf bis zur Ausgabe',
+    fr: 'Base de connaissances IA : lecture incrémentale, entrée de connaissances et boucle jusqu’à la production',
+    es: 'Base de conocimiento IA: lectura incremental, entrada de conocimiento y un ciclo hasta la salida',
+    pt: 'Base de conhecimento IA: leitura incremental, entrada de conhecimento e um ciclo até a saída',
   },
   /* ── 朗读与听书（2026-11-14 定稿） ──
    * 五行免费：点一下就念，不花我们的钱，也不该设门；

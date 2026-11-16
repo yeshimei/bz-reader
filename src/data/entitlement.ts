@@ -65,7 +65,18 @@ export type Cap =
    * 用户刚点的那一行。
    */
   | 'cites'
-  | 'aiChat' // AI 伴读：追问 / 导读 / 补全 / 对话存档
+  | 'aiChat' // AI 伴读：追问 / 导读 / 补全
+  /**
+   * AI 对话留档并导出至笔记（2026-11-16 从 aiChat 拆出来）。
+   *
+   * 两件事以前挤在 `aiChat` 一行：「边读边问、按章导读」讲的是伴读，
+   * 「留档 + 导出到笔记」讲的是把聊过的东西留住。对照表定稿把它们写成
+   * 两行之后，共用一道门就回到 2026-11-12 引用页签那个老毛病——
+   * 点「导出到笔记」被拦，弹层点亮的是「AI 伴读」，用户看的不是自己刚点的那行。
+   *
+   * 授权判定不按能力位细分（有码全解锁），这里只负责高亮对得上。
+   */
+  | 'aiLog'
   | 'semantic' // 语义搜索：本书与全库，按意思找
   /** 剪藏成书（2026-11-13）：把剪藏本里的订阅文章合成 EPUB，进书架读 */
   | 'clipBook'
@@ -578,26 +589,28 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     pt: 'Por significado, neste livro ou na estante',
   },
   aiSel: {
-    zh: '划词 AI：解释 · 翻译 · 摘要',
-    'zh-TW': '劃詞 AI：解釋 · 翻譯 · 摘要',
-    en: 'AI on a selection: explain · translate · summarize',
-    ja: '選択範囲を AI で解説・翻訳・要約',
-    de: 'KI zur Auswahl: erklären · übersetzen · zusammenfassen',
-    fr: "IA sur une sélection : expliquer · traduire · résumer",
-    es: 'IA sobre una selección: explicar · traducir · resumir',
-    pt: 'IA sobre uma seleção: explicar · traduzir · resumir',
+    zh: '划词即用：解释 · 翻译 · 摘要 · 追问',
+    'zh-TW': '劃詞即用：解釋 · 翻譯 · 摘要 · 追問',
+    en: 'On a selection: explain · translate · summarize · follow up',
+    ja: '選択範囲で：解説 · 翻訳 · 要約 · 追加質問',
+    de: 'Zur Auswahl: erklären · übersetzen · zusammenfassen · nachfragen',
+    fr: 'Sur une sélection : expliquer · traduire · résumer · relancer',
+    es: 'Sobre una selección: explicar · traducir · resumir · repreguntar',
+    pt: 'Numa seleção: explicar · traduzir · resumir · perguntar de novo',
   },
   ai: {
-    zh: 'AI 全书问答',
-    'zh-TW': 'AI 全書問答',
-    en: 'AI Q&A over the whole book',
-    ja: 'AI 全書 Q&A',
-    de: 'KI: Fragen zum ganzen Buch',
-    fr: 'Questions IA sur tout le livre',
-    es: 'Preguntas de IA sobre todo el libro',
-    pt: 'Perguntas de IA sobre o livro inteiro',
+    /* 2026-11-16：照对照表新行名的口径，把四种依据在卖点里点出来。 */
+    zh: '划线、正文、截图与笔记都能当依据，答案遍及全书',
+    'zh-TW': '劃線、正文、截圖與筆記都能當依據，答案遍及全書',
+    en: 'Highlights, page text, screenshots and notes as evidence, answered from the whole book',
+    ja: 'ハイライト・本文・スクリーンショット・ノートを根拠に、本全体から回答',
+    de: 'Markierungen, Seitentext, Screenshots und Notizen als Belege, Antwort aus dem ganzen Buch',
+    fr: 'Surlignages, texte, captures et notes comme sources, réponse sur tout le livre',
+    es: 'Subrayados, texto, capturas y notas como base, respuesta de todo el libro',
+    pt: 'Destaques, texto, capturas e notas como base, resposta do livro inteiro',
   },
-  /* AI 伴读（2026-11-11）：追问、导读、补全、对话存档共用一道门禁。 */
+  /* AI 伴读（2026-11-11）：追问、导读、补全共用一道门禁。
+     2026-11-16：对话留档与导出拆去 aiLog，这枚只剩「边读边问」本身。 */
   aiChat: {
     zh: '边读边问，按章导读',
     'zh-TW': '邊讀邊問，按章導讀',
@@ -607,6 +620,18 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     fr: 'Demandez en lisant, guide par chapitre',
     es: 'Pregunta mientras lees, guía por capítulo',
     pt: 'Pergunte enquanto lê, guia por capítulo',
+  },
+  /* AI 对话留档（2026-11-16）：划词卡与侧栏问答都落在本地会话文件里，
+     关掉再点那条线还能接着聊，也能把整段导出进笔记。 */
+  aiLog: {
+    zh: '聊过的都留着：关掉能接着问，也能导出成笔记',
+    'zh-TW': '聊過的都留著：關掉能接著問，也能匯出成筆記',
+    en: 'Every chat is kept: pick it up later, or export it into a note',
+    ja: '会話は残る：あとから続きを聞けるし、ノートにも書き出せる',
+    de: 'Jedes Gespräch bleibt: später weiterfragen oder als Notiz exportieren',
+    fr: 'Chaque échange reste : reprenez plus tard ou exportez-le dans une note',
+    es: 'Cada conversación queda: retómala luego o expórtala a una nota',
+    pt: 'Cada conversa fica: retome depois ou exporte para uma nota',
   },
   /* 2026-11-09 删：书籍本地化向量检索不再单列，也不再有 cap——建索引被拦时
      高亮「AI 全书问答」。能力本身还在（侧栏 AI 页签），只是不再作为一项
@@ -840,9 +865,16 @@ export const PLAN_TABLE: PlanRow[] = [
   row('poster', 'no', 'yes', 'poster'),
   row('crossSearch', 'no', 'yes', 'crossSearch'),
   row('semantic', 'no', 'yes', 'semantic'),
-  /* ── AI ── */
+  /* ── AI ──
+   * 2026-11-16 作者定稿：这一轮 AI 的增强（划词五项菜单与悬停展开、锚定
+   * 追问浮框、划词会话留痕、侧栏问答历史与等待态、依据按章跳转、连接笔记
+   * 浮层、书架对话页）原来全被埋在四行旧行名下面，看不出贵在哪儿。
+   * 现在拆成五行，一行只说一件事，「对话留档」与「伴读」各挂自己的能力位。 */
   row('aiSel', 'no', 'yes', 'aiSel'),
   row('aiBook', 'no', 'yes', 'ai'),
+  /* 对话留档 2026-11-16 从 aiChat 拆出来：点「导出到笔记」被拦时，
+     弹层要亮的是这一行，不是「AI 伴读」。 */
+  row('aiLog', 'no', 'yes', 'aiLog'),
   row('aiChat', 'no', 'yes', 'aiChat'),
   /* 2026-11-09 起「向量检索」不再单列：整本索引是全书问答的前置步骤，
      建索引被拦时高亮的是「AI 全书问答」那一行（见 shell/actions.ts 的 indexCap）。
@@ -964,7 +996,9 @@ export const PLAN_GROUPS: PlanGroup[] = [
   },
   {
     key: 'ai',
-    rows: ['aiSel', 'aiBook', 'aiChat', 'kb'],
+    /* 2026-11-16：五行。对话留档排在伴读之前——它是「问完之后」的去处，
+       与上一行「问的时候带什么」顺着读下来。 */
+    rows: ['aiSel', 'aiBook', 'aiLog', 'aiChat', 'kb'],
   },
   /* 朗读拆出来单独成段（2026-11-14）：它已经不是「一种排版」了——三台引擎、
      预生成、离线书，塞在竖排和并排中间读不出结构。 */

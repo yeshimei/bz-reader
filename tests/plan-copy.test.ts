@@ -42,9 +42,10 @@ const CHANGED: ReadonlyArray<readonly [string, string]> = [
   ['poster', '阅读海报：年度总结与数据长图'],
   ['crossSearch', '全库搜索：按字面搜所有书，含 PDF'],
   ['semantic', '语义搜索：按意思找，本书或全库'],
-  ['aiSel', 'AI 解释、翻译与摘要：划词即用'],
-  ['aiBook', 'AI 全书问答：先建索引，再问整本'],
-  ['kb', 'AI 知识库：划线、想法、增量阅读存进去，提问带上笔记'],
+  ['aiSel', 'AI 解释、翻译、摘要与追问：即划即用'],
+  ['aiBook', 'AI 全书问答：划线、正文、截图与笔记四种依据都可添加进去'],
+  ['aiLog', 'AI 对话留档并导出至笔记'],
+  ['kb', 'AI 知识库：增量阅读、知识输入、整理与输出的闭环'],
   ['vertical', '竖排排版：EPUB / TXT'],
   ['tts', '朗读：EPUB、TXT、PDF，念完自动翻页'],
   ['parallel', '并排对照：与另一本书同步段落'],
@@ -108,7 +109,7 @@ describe('对照表 · 稿子与勾叉', () => {
   it('AI 段收在知识库，之后是朗读与听书、阅读方式与探索段', () => {
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
-    expect(PLAN_TABLE[kbAt]?.name).toBe('AI 知识库：划线、想法、增量阅读存进去，提问带上笔记');
+    expect(PLAN_TABLE[kbAt]?.name).toBe('AI 知识库：增量阅读、知识输入、整理与输出的闭环');
     expect(PLAN_TABLE[kbAt + 1]?.key).toBe('tts');
     const modes = PLAN_GROUPS.find((g) => g.key === 'modes');
     expect(modes?.rows).toEqual(['vertical', 'parallel', 'bookmap']);

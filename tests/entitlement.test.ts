@@ -200,14 +200,16 @@ describe('界面文案', () => {
     expect(footnote).toBeLessThan(firstPaid);
   });
 
-  it('AI 解释 / 翻译 / 摘要单独一行，紧跟在 AI 全书问答上面', () => {
+  it('AI 解释 / 翻译 / 摘要 / 追问单独一行，紧跟在 AI 全书问答上面', () => {
     const sel = PLAN_TABLE.findIndex((r) => r.cap === 'aiSel');
     const book = PLAN_TABLE.findIndex((r) => r.cap === 'ai');
     expect(sel).toBeGreaterThan(-1);
     expect(book).toBe(sel + 1);
     expect(PLAN_TABLE[sel].name).toContain('解释');
+    expect(PLAN_TABLE[sel].name).toContain('追问');
     expect(PLAN_TABLE[book].name).toContain('AI 全书问答');
-    expect(capLabel('ai')).toBe('AI 全书问答');
+    /* 2026-11-16：卖点从「AI 全书问答」这五个字换成「四种依据」那句话 */
+    expect(capLabel('ai')).toContain('依据');
   });
 
   it('分类管理是「阅读与书架」段最后一行，两栏都打勾', () => {
@@ -236,7 +238,7 @@ describe('界面文案', () => {
     expect(PLAN_TABLE.some((r) => r.name.includes('向量'))).toBe(false);
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
-    expect(PLAN_TABLE[kbAt]?.name).toBe('AI 知识库：划线、想法、增量阅读存进去，提问带上笔记');
+    expect(PLAN_TABLE[kbAt]?.name).toBe('AI 知识库：增量阅读、知识输入、整理与输出的闭环');
     /* 2026-11-14：AI 段收在知识库；后面是朗读与听书、阅读方式与探索中。
        2026-11-15：探索段从七行减到六行（扫描页识别转正），这里跟着段长走，
        不再写死 7。 */

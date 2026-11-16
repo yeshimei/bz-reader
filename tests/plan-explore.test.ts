@@ -68,10 +68,10 @@ describe('对照表 · 探索中段的位置与内容', () => {
     expect(names.has('探索中')).toBe(false);
   });
 
-  it('探索行不计入已实现项：基础版 12、高级版 38、共 44 行', () => {
-    expect(PLAN_TABLE.filter((r) => r.pro === 'yes')).toHaveLength(38);
+  it('探索行不计入已实现项：基础版 12、高级版 39、共 45 行', () => {
+    expect(PLAN_TABLE.filter((r) => r.pro === 'yes')).toHaveLength(39);
     expect(PLAN_TABLE.filter((r) => r.free === 'yes')).toHaveLength(12);
-    expect(PLAN_TABLE).toHaveLength(44);
+    expect(PLAN_TABLE).toHaveLength(45);
   });
 
   it('知识库之后是朗读与听书、阅读方式，再往后才是探索段', () => {
