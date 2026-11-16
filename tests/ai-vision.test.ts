@@ -9,6 +9,7 @@ import {
   VISION_PROMPT,
   visionMessages,
 } from '../src/data/ai-vision';
+import { t } from '../src/i18n';
 
 /* 2026-11-15：识别默认走 DeepSeek 看图（独立配置）；外部 OCR 服务是另一条通道。
    官方 `/tools/ocr` 实测只回整页一个框，划词做不了，所以没接。 */
@@ -177,6 +178,20 @@ describe('外部 OCR 服务', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
     await expect(recognizeViaHttp({ url: 'http://x', image: 'QUJD', mime: 'image/jpeg' })).rejects.toThrow(
       '服务没有响应',
+    );
+  });
+
+  /* 2026-11-16：取消与空错误以前写死中文，海外用户永远看中文。 */
+  it('取消与空错误都走界面语言', async () => {
+    const ctrl = new AbortController();
+    ctrl.abort();
+    await expect(
+      recognizeViaHttp({ url: 'http://x', image: 'QUJD', mime: 'image/jpeg', signal: ctrl.signal }),
+    ).rejects.toThrow(t('notice.pdf.ocrCanceled'));
+
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('')));
+    await expect(recognizeViaHttp({ url: 'http://x', image: 'QUJD', mime: 'image/jpeg' })).rejects.toThrow(
+      t('notice.pdf.ocrNetworkError'),
     );
   });
 

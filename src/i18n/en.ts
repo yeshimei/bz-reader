@@ -1080,6 +1080,7 @@ export const EN: Record<MsgKey, string> = {
   'settings.pdfOcrKey': 'OCR key',
   'settings.pdfOcrKey.hint': 'Recognition uses its own OCR settings and does not borrow the URL or key from the AI assistant. Get a key from the DeepSeek platform; the same one as AI Q&A works.',
   'notice.pdf.ocrCanceled': 'Canceled',
+  'notice.pdf.ocrNetworkError': 'Network error',
   'notice.pdf.ocrNetwork': 'Could not reach the OCR endpoint: {why}',
   'notice.pdf.ocrNotJson': 'The OCR endpoint did not return JSON',
   'notice.pdf.ocrApiError': 'OCR endpoint error: {why}',

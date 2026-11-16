@@ -105,8 +105,8 @@ export function aiMenuHtml(style: 'text' | 'icon'): string {
         )}" aria-hidden="true"><svg viewBox="0 0 24 24">${item.svg}</svg></span></button>`;
       })
       .join(''),
-  ).join('<span class="bzs-aimenu-vdiv" aria-hidden="true"></span>');
-  return `<div class="bzs-aimenu${style === 'icon' ? ' is-icon' : ''}" role="menu" aria-label="${esc(
+  ).join('<span class="bzs-aimenu-vdiv" data-role="aimenu-divider" aria-hidden="true"></span>');
+  return `<div class="bzs-aimenu${style === 'icon' ? ' is-icon' : ''}" data-style="${style}" role="menu" aria-label="${esc(
     t('tool.ai'),
   )}">${groups}</div>`;
 }
@@ -148,13 +148,11 @@ export function aiMenuFallback(
  * 这条空串就是渲染那一侧判「空态」的依据。
  */
 export function aiFirstPrompt(task: AiFloatTask): string {
-  const key: Partial<Record<AiFloatTask, MsgKey>> = {
-    explain: 'ai.first.explain',
-    translate: 'ai.first.translate',
-    summarize: 'ai.first.summarize',
-  };
-  const k = key[task];
-  return k ? t(k) : '';
+  /* 首问文案挂在这份菜单数据上（`promptKey`），不再另建一张映射：
+     两处各写一遍时，加一项总会漏一边。追问与全书问答没有 promptKey，
+     空串就是「空面板」的判据。 */
+  const item = AI_MENU_ITEMS.find((x) => x.task === task);
+  return item?.promptKey ? t(item.promptKey) : '';
 }
 
 /* ─────────── 浮框里的气泡 ─────────── */

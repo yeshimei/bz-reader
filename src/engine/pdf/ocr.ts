@@ -195,12 +195,19 @@ function pairLine(raw: readonly unknown[]): { text: string; box: { nums: number[
  * **先认归一化，再认像素**：像素坐标不可能整条框都落在 0..1 里（那是一个
  * 亚像素的框），而 0..1 的服务很常见。反过来的话，只要调用方带了出图宽高，
  * 比例坐标就会被再除一遍宽高，缩到 0.0006——划线整体贴到左上角。
+ *
+ * 像素与 0..1000 千分比在带参照尺寸时仍会撞车（2026-11-16）：像素坐标
+ * 不可能超出图宽高的一成多，超了就只能来自千分比服务。小于图宽的千分比
+ * 仍无法与像素区分，协议上暂按像素收；要彻底解决得让调用方显式声明单位。
  * 三个都认不出来就返回 null —— 宁可这行没有位置，也不按错的量纲摆。
  */
 function scaleOf(nums: readonly number[], ref?: OcrPageSize): 'normalized' | 'thousand' | 'pixels' | null {
   const max = Math.max(...nums.map((n) => Math.abs(n)));
   if (max <= 1.0001) return 'normalized';
-  if (ref && ref.width > 0 && ref.height > 0) return 'pixels';
+  if (ref && ref.width > 0 && ref.height > 0) {
+    if (max > Math.max(ref.width, ref.height) * 1.15 && max <= THOUSAND) return 'thousand';
+    return 'pixels';
+  }
   if (max <= THOUSAND) return 'thousand';
   return null;
 }

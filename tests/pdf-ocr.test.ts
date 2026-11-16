@@ -65,6 +65,16 @@ describe('ocr line 收口径', () => {
     expect(got?.rect.width).toBeCloseTo(1 / 3, 6);
     expect(got?.rect.height).toBeCloseTo(0.0125, 6);
   });
+
+  /* 2026-11-16：外部服务同时认 0..1000 千分比与像素。坐标明显超出图宽高
+     （像素不可能超那么多）时按千分比收，不再整页贴左上。 */
+  it('坐标超出图宽高：按千分比收，不按像素除', () => {
+    const got = normalizeOcrLine({ text: 'A', box: [950, 100, 40, 30] }, { width: 800, height: 600 });
+    expect(got?.rect.left).toBeCloseTo(0.95, 6);
+    expect(got?.rect.top).toBeCloseTo(0.1, 6);
+    expect(got?.rect.width).toBeCloseTo(0.04, 6);
+    expect(got?.rect.height).toBeCloseTo(0.03, 6);
+  });
 });
 
 describe('阅读顺序', () => {

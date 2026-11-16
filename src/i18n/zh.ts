@@ -342,6 +342,7 @@ export const ZH = {
   'notice.pdf.ocrNoUrl': '还没填 OCR 服务地址',
   'notice.pdf.ocrNoKey': '还没填 OCR 密钥：到 设置 · 扫描页识别 里填 DeepSeek 的 API Key',
   'notice.pdf.ocrCanceled': '已取消',
+  'notice.pdf.ocrNetworkError': '网络错误',
   'notice.pdf.ocrNetwork': '连不上 OCR 接口：{why}',
   'notice.pdf.ocrNotJson': 'OCR 接口返回的不是 JSON',
   'notice.pdf.ocrApiError': 'OCR 接口报错：{why}',

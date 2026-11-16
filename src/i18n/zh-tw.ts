@@ -1067,6 +1067,7 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.pdfOcrKey': 'OCR 金鑰',
   'settings.pdfOcrKey.hint': '辨識走自己這一套 OCR 設定，不借用「AI 助理」的位址與金鑰。金鑰到 DeepSeek 平台申請，可以和 AI 問答填同一把。',
   'notice.pdf.ocrCanceled': '已取消',
+  'notice.pdf.ocrNetworkError': '網路錯誤',
   'notice.pdf.ocrNetwork': '連不上 OCR 介面：{why}',
   'notice.pdf.ocrNotJson': 'OCR 介面回傳的不是 JSON',
   'notice.pdf.ocrApiError': 'OCR 介面回報錯誤：{why}',

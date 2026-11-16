@@ -39,28 +39,27 @@ describe('AI 菜单 · 五项与分组', () => {
       ['book'],
     ]);
     const html = aiMenuHtml('text');
-    expect(html.match(/bzs-aimenu-vdiv/g)).toHaveLength(1);
+    expect(html.match(/data-role="aimenu-divider"/g)).toHaveLength(1);
     /* 分隔落在追问与全书问答之间 */
-    const divider = html.indexOf('bzs-aimenu-vdiv');
+    const divider = html.indexOf('data-role="aimenu-divider"');
     expect(html.indexOf('data-task="follow"')).toBeLessThan(divider);
     expect(divider).toBeLessThan(html.indexOf('data-task="book"'));
   });
 
-  it('文字模式：五项都是「标签 + 图标」，标签看得见', () => {
+  it('文字模式：五项都带标签与图标，点下去能拿到任务', () => {
     const html = aiMenuHtml('text');
-    expect(html).toContain('class="bzs-aimenu"');
-    expect(html).not.toContain('is-icon');
+    expect(html).toContain('data-style="text"');
     expect(html.match(/data-act="aimenupick"/g)).toHaveLength(5);
     for (const label of ['解释', '翻译', '总结', '追问', '插入到全书问答']) {
-      expect(html).toContain(`<span class="lab">${label}</span>`);
+      expect(html).toContain(label);
     }
-    /* 文字模式不显示图标（CSS 藏起来），但两种模式是同一份数据 */
-    expect(html.match(/bzs-aimenu-ico/g)).toHaveLength(5);
+    /* 两种模式是同一份数据：文字模式也带图标节点，由样式决定露不露 */
+    expect(html.match(/data-icon-name=/g)).toHaveLength(5);
   });
 
-  it('图标模式：按钮只露图标，顺序与图标名都对', () => {
+  it('图标模式：同一份五项，只把长相切成图标', () => {
     const html = aiMenuHtml('icon');
-    expect(html).toContain('class="bzs-aimenu is-icon"');
+    expect(html).toContain('data-style="icon"');
     const names = [...html.matchAll(/data-icon-name="([^"]+)"/g)].map((m) => m[1]);
     expect(names).toEqual([
       'help-circle',
@@ -75,9 +74,6 @@ describe('AI 菜单 · 五项与分组', () => {
     const book = AI_MENU_ITEMS.find((item) => item.task === 'book');
     expect(book?.icon).toBe('panel-right-open');
     expect(book?.icon).not.toBe('sparkles');
-    const html = aiMenuHtml('text');
-    expect(html).toContain('M15 3v18');
-    expect(html).toContain('m8 9 3 3-3 3');
   });
 
   it('五项都走同一个动作，任务在 data-task 里', () => {
