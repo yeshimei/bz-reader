@@ -58,7 +58,9 @@ export function renderAiMarkdown(root: ParentNode | null | undefined): void {
     /* 先渲到一个看不见的容器里，渲完一次性换上去（2026-11-16）。
        以前是「先清空、等异步回来再填」，中间那一帧气泡是空的——卡片每次
        重画（点图钉、点卡片里的按钮、答案回来）都会闪一下白。 */
-    const holder = el.ownerDocument.createElement('div');
+    /* 离屏容器不挂在文档里，用 Obsidian 的 createDiv（`el.createDiv` 会直接
+       插进正文）。跨窗口插回时浏览器会自行 adopt，不影响渲染结果。 */
+    const holder = createDiv();
     void MarkdownRenderer.render(c.app, md, holder, '', c.owner)
       .then(() => el.replaceChildren(...Array.from(holder.childNodes)))
       /* 渲染失败退回纯文本：读得到比好看重要，且不能把答案弄丢 */

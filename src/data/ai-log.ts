@@ -53,7 +53,10 @@ export function aiLogPath(app?: App): string {
 
 /** 按字符截断（`Array.from` 不会把 emoji / 生僻字从中间切开），超长补省略号 */
 export function clipQuote(text: unknown, max = AI_LOG_QUOTE_MAX): string {
-  const flat = String(text ?? '')
+  /* 只认字符串与有限数字：外来 JSON 里冒出对象/数组时宁可当空，
+     也别把 `[object Object]` 当成引文写进账本 */
+  const raw = typeof text === 'string' ? text : typeof text === 'number' && Number.isFinite(text) ? String(text) : '';
+  const flat = raw
     .replace(/\s+/g, ' ')
     .trim();
   if (!flat) return '';
@@ -106,7 +109,7 @@ export function normalizeAiSession(raw: unknown): AiSession | null {
     id,
     bookId,
     bookTitle: o.bookTitle.trim(),
-    kind: o.kind as AiSessionKind,
+    kind: o.kind,
     when: Math.floor(when),
     turns,
   };

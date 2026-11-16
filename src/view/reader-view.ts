@@ -80,7 +80,7 @@ import { ocrBarAutoHide, ocrBarHtml, type OcrBarStage } from './ocr-bar';
 import { ttsResumeHtml } from './tts-resume';
 import { resumeAnchorOf, sameChapter, type TtsResumePoint } from '../core/tts-resume';
 import { ttsProgressHtml, type TtsTaskKind, type TtsTaskState } from './tts-progress';
-import { notify, notifyNow, notifyProgress, type NoticeHandle, type ProgressHandle } from '../core/notice';
+import { notify, notifyNow, type NoticeHandle } from '../core/notice';
 import { localeTag, t, type MsgKey } from '../i18n';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
@@ -940,7 +940,7 @@ export class ReaderView extends ItemView {
     const redo = choice === 'redo';
     const pages = redo ? stats.redoPages : stats.continuePages;
     if (!pages.length) return;
-    this.showOcrBar({ kind: 'running', page: pages[0]!, done: 0, total: pages.length });
+    this.showOcrBar({ kind: 'running', page: pages[0], done: 0, total: pages.length });
     /* 把弹窗算好的页号原样交给引擎（不让它再往后补页）。引擎没排上队列时
        不会有进度回调：条子得自己收，不然永远停在「正在识别」 */
     void this.ocr.runPages(pages).then((ran) => {
@@ -2386,12 +2386,11 @@ export class ReaderView extends ItemView {
     const rect = await new Promise<{ x: number; y: number; w: number; h: number } | null>((resolve) => {
       const veil = el('div', 'bzs-ai-veil');
       veil.style.cssText = `position:fixed;left:${pageBox.left}px;top:${pageBox.top}px;width:${pageBox.width}px;height:${pageBox.height}px`;
-      veil.innerHTML = `<div class="bzs-ai-shotrect" hidden><span class="sz"></span></div><div class="hint">${t(
-        'side.ai.ctx.shotHint',
-      )}</div>`;
+      const rectEl = veil.createDiv({ cls: 'bzs-ai-shotrect' });
+      rectEl.hidden = true;
+      const szEl = rectEl.createSpan({ cls: 'sz' });
+      veil.createDiv({ cls: 'hint', text: t('side.ai.ctx.shotHint') });
       document.body.appendChild(veil);
-      const rectEl = veil.querySelector<HTMLElement>('.bzs-ai-shotrect');
-      const szEl = veil.querySelector<HTMLElement>('.sz');
       let from: { x: number; y: number } | null = null;
 
       const onKey = (e: KeyboardEvent): void => {
@@ -2491,7 +2490,7 @@ export class ReaderView extends ItemView {
     if (!shot) return null;
     try {
       const img = await blobToImage(shot.blob);
-      const out = document.createElement('canvas');
+      const out = createEl('canvas');
       const scale = Math.min(1, 480 / Math.max(1, img.naturalWidth * nw));
       out.width = Math.max(1, Math.round(img.naturalWidth * nw * scale));
       out.height = Math.max(1, Math.round(img.naturalHeight * nh * scale));
@@ -2527,7 +2526,7 @@ export class ReaderView extends ItemView {
     const sw = Math.max(1, Math.round(nw * canvas.width));
     const sh = Math.max(1, Math.round(nh * canvas.height));
     const scale = Math.min(1, 480 / Math.max(sw, sh));
-    const out = document.createElement('canvas');
+    const out = createEl('canvas');
     out.width = Math.max(1, Math.round(sw * scale));
     out.height = Math.max(1, Math.round(sh * scale));
     const ctx = out.getContext('2d');

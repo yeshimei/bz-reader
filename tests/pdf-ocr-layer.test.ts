@@ -45,8 +45,7 @@ function fakeLayer(clientWidth: number, clientHeight: number, natural: number) {
     offsetWidth: number;
   };
   const spans: Span[] = [];
-  const doc = (globalThis as unknown as { document: Record<string, unknown> }).document;
-  doc.createElement = () => {
+  const makeSpan = () => {
     const span: Span = {
       className: '',
       textContent: '',
@@ -57,7 +56,17 @@ function fakeLayer(clientWidth: number, clientHeight: number, natural: number) {
     spans.push(span);
     return span;
   };
-  doc.createDocumentFragment = () => ({ appendChild: () => undefined });
+  const g = globalThis as unknown as {
+    document: Record<string, unknown>;
+    createSpan: () => Span;
+    createFragment: () => { appendChild: () => undefined };
+  };
+  /* 正实现改走 Obsidian 的 createSpan / createFragment（审核要求），
+     桩就跟着替这两个全局助手，而不是 document.createElement。 */
+  g.document.createElement = makeSpan;
+  g.createSpan = makeSpan;
+  g.createFragment = () => ({ appendChild: () => undefined });
+  g.document.createDocumentFragment = () => ({ appendChild: () => undefined });
   const container = {
     clientWidth,
     clientHeight,

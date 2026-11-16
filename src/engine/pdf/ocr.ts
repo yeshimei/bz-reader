@@ -162,8 +162,8 @@ function polygonBounds(flat: readonly number[]): number[] | null {
   const xs: number[] = [];
   const ys: number[] = [];
   for (let i = 0; i < flat.length; i += 2) {
-    xs.push(flat[i]!);
-    ys.push(flat[i + 1]!);
+    xs.push(flat[i]);
+    ys.push(flat[i + 1]);
   }
   return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
 }
@@ -275,15 +275,15 @@ const ROW_OVERLAP = 0.5;
 export function orderOcrLines(lines: readonly OcrLine[]): OcrLine[] {
   const items = lines
     .filter((line) => line && line.rect && line.text.trim())
-    .map((line) => ({ ...line, text: line.text.trim(), rect: { ...line.rect! } as PdfRectArea }))
-    .sort((x, y) => x.rect!.top - y.rect!.top || x.rect!.left - y.rect!.left);
+    .map((line) => ({ ...line, text: line.text.trim(), rect: { ...line.rect! } }))
+    .sort((x, y) => x.rect.top - y.rect.top || x.rect.left - y.rect.left);
   if (items.length <= 1) return items;
 
   const rows: OcrLine[][] = [];
   let rowTop = 0;
   let rowBottom = 0;
   for (const item of items) {
-    const rect = item.rect!;
+    const rect = item.rect;
     const bottom = rect.top + rect.height;
     if (rows.length) {
       const overlap = Math.min(bottom, rowBottom) - Math.max(rect.top, rowTop);
@@ -407,12 +407,12 @@ export function extractJson(raw: string): unknown {
 
 /** 从对象里拿行数组：`lines` / `blocks` / `items` / 裸数组都认 */
 function linesOf(value: unknown): unknown[] | null {
-  if (Array.isArray(value)) return value;
+  if (Array.isArray(value)) return value as unknown[];
   if (!value || typeof value !== 'object') return null;
   const obj = value as Record<string, unknown>;
   for (const key of ['lines', 'blocks', 'items', 'results', 'data']) {
     const hit = obj[key];
-    if (Array.isArray(hit)) return hit;
+    if (Array.isArray(hit)) return hit as unknown[];
   }
   return null;
 }

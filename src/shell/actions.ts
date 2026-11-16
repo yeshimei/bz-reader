@@ -13,13 +13,12 @@
 import { Menu } from 'obsidian';
 import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
-import { aiAsk, type AiTask } from '../data/ai';
+import { aiAsk } from '../data/ai';
 import {
   DEFAULT_HIGHLIGHT_COLOR,
   addHighlight,
   colorCss,
   ensureHighlight,
-  findHighlight,
   isHighlightColor,
   removeBookmark,
   removeHighlight,
@@ -94,7 +93,6 @@ import { jumpTo, getToc } from '../view/toc-state';
 import { LIB_FILTERS, LIB_SORTS } from './render/study';
 import { copyQuoteCardImage } from './card-image';
 import { quoteRefMarkdown } from './render/quote-card';
-import { setHtml } from '../ui/dom';
 import type { OverlayKind, StudyPage } from './state';
 import {
   bumpOverlayRev,
@@ -2558,13 +2556,14 @@ export function dispatchAction(
       const out = el.closest('.bzs-setgrp')?.querySelector<HTMLElement>('[data-role="ocrprobe-out"]');
       if (out) {
         out.textContent = t('settings.pdfOcrProbe.testing');
-        out.style.color = '';
+        out.setCssProps({ color: '' });
       }
       void ocrProbe(shellSettings(), async () => probeImage()).then((r) => {
         if (!out) return;
         out.textContent = r.message;
-        out.style.color =
-          r.level === 'ok' ? 'var(--text-success)' : r.level === 'text' ? 'var(--text-warning)' : 'var(--text-error)';
+        out.setCssProps({
+          color: r.level === 'ok' ? 'var(--text-success)' : r.level === 'text' ? 'var(--text-warning)' : 'var(--text-error)',
+        });
       });
       break;
     }
@@ -4339,7 +4338,7 @@ function clearAiInput(): void {
   const box = document.querySelector<HTMLTextAreaElement>('[data-role="aifollow"]');
   if (!box) return;
   box.value = '';
-  box.style.height = '';
+  box.setCssProps({ height: '' });
   const send = box.closest('.bzs-af-ask')?.querySelector<HTMLButtonElement>('.bzs-af-send');
   if (send) send.disabled = true;
 }

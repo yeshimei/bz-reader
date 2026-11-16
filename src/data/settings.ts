@@ -415,7 +415,7 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     ai,
     ttsLocal: normalizeTtsLocal(s.ttsLocal),
     ttsOnline: normalizeTtsOnline(s.ttsOnline, ai),
-    pdfOcr: normalizePdfOcr(s.pdfOcr, ai, s as unknown as Record<string, unknown>),
+    pdfOcr: normalizePdfOcr(s.pdfOcr, ai, s),
     aiAck: s.aiAck === true,
     ttsAck: s.ttsAck === true,
     ttsStats: {

@@ -222,16 +222,16 @@ export function bytesToBase64(bytes: Uint8Array): string {
   let out = '';
   let i = 0;
   for (; i + 2 < data.length; i += 3) {
-    const n = (data[i]! << 16) | (data[i + 1]! << 8) | data[i + 2]!;
-    out += B64[(n >> 18) & 63]! + B64[(n >> 12) & 63]! + B64[(n >> 6) & 63]! + B64[n & 63]!;
+    const n = (data[i] << 16) | (data[i + 1] << 8) | data[i + 2];
+    out += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + B64[(n >> 6) & 63] + B64[n & 63];
   }
   const rest = data.length - i;
   if (rest === 1) {
-    const n = data[i]! << 16;
-    out += B64[(n >> 18) & 63]! + B64[(n >> 12) & 63]! + '==';
+    const n = data[i] << 16;
+    out += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + '==';
   } else if (rest === 2) {
-    const n = (data[i]! << 16) | (data[i + 1]! << 8);
-    out += B64[(n >> 18) & 63]! + B64[(n >> 12) & 63]! + B64[(n >> 6) & 63]! + '=';
+    const n = (data[i] << 16) | (data[i + 1] << 8);
+    out += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + B64[(n >> 6) & 63] + '=';
   }
   return out;
 }

@@ -49,7 +49,7 @@ export interface OcrProbeShot {
 export function probeImage(): OcrProbeShot | null {
   if (typeof document === 'undefined') return null;
   try {
-    const canvas = document.createElement('canvas');
+    const canvas = createEl('canvas');
     canvas.width = 480;
     canvas.height = 140;
     const ctx = canvas.getContext('2d');

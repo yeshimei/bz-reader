@@ -42,8 +42,15 @@ export interface OcrFile {
 
 const ENGINES: ReadonlySet<string> = new Set(['deepseek', 'vision', 'http', 'manual']);
 
+/** 外来的 JSON 只认字符串与有限数字：别的类型一律当空（对象会变成 `[object Object]`） */
+function str(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return '';
+}
+
 function engineOf(value: unknown): OcrEngine {
-  const s = String(value ?? '');
+  const s = str(value);
   return (ENGINES.has(s) ? s : 'manual') as OcrEngine;
 }
 
@@ -63,7 +70,7 @@ function pageKey(raw: string): number | null {
 function sanitizeLine(raw: unknown): OcrLine | null {
   if (!raw || typeof raw !== 'object') return null;
   const item = raw as Record<string, unknown>;
-  const text = String(item.text ?? '').replace(/\s+/g, ' ').trim().slice(0, 4000);
+  const text = str(item.text).replace(/\s+/g, ' ').trim().slice(0, 4000);
   if (!text) return null;
   const src = item.rect as Record<string, unknown> | undefined;
   const rect = src
@@ -90,7 +97,7 @@ export function sanitizeOcrPage(raw: unknown): OcrPage | null {
     const line = sanitizeLine(item);
     if (line) lines.push(line);
   }
-  const text = String(src.text ?? '')
+  const text = str(src.text)
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 200_000);
@@ -99,7 +106,7 @@ export function sanitizeOcrPage(raw: unknown): OcrPage | null {
   const layout = src.layout === true && lines.length > 0 && lines.every((l) => !!l.rect);
   const page: OcrPage = {
     engine: engineOf(src.engine),
-    model: String(src.model ?? '').slice(0, 200),
+    model: str(src.model).slice(0, 200),
     at: num(src.at),
     layout,
     lines,
@@ -131,13 +138,13 @@ export function sanitizeOcrFile(raw: unknown, bookId: string): OcrFile | null {
   }
   const out: OcrFile = {
     version: OCR_VERSION,
-    bookId: String(src.bookId || bookId),
+    bookId: str(src.bookId) || bookId,
     engine: engineOf(src.engine),
-    model: String(src.model ?? '').slice(0, 200),
+    model: str(src.model).slice(0, 200),
     pages,
     updatedAt: num(src.updatedAt),
   };
-  const fp = String(src.fingerprint ?? '').trim();
+  const fp = str(src.fingerprint).trim();
   if (fp) out.fingerprint = fp.slice(0, 200);
   return out;
 }

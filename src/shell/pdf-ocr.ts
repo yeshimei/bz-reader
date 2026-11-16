@@ -447,7 +447,7 @@ export class PdfOcrRunner {
     const ctrl = this.ctrl;
     this.setState({
       running: true,
-      page: queue[0]!,
+      page: queue[0],
       done: 0,
       total: queue.length,
       error: '',

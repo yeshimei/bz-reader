@@ -149,7 +149,7 @@ export async function renderRegionCard(input: RegionCardInput): Promise<Blob> {
   const sy = Math.round(crop.top * img.naturalHeight);
   const shot = regionShotSize(sw, sh);
 
-  const canvas = document.createElement('canvas');
+  const canvas = createEl('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('canvas unsupported');
   const colors = readColors();

@@ -223,8 +223,8 @@ export class TtsCache {
         req.onsuccess = () => {
           const out = new Set<string>();
           for (const k of req.result ?? []) {
-            const key = String(k);
-            if (key.startsWith(prefix)) out.add(key);
+            /* 缓存键都是字符串；复合键（数组）不是本表的东西，跳过 */
+            if (typeof k === 'string' && k.startsWith(prefix)) out.add(k);
           }
           resolve(out);
         };

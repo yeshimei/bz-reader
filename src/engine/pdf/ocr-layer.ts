@@ -102,40 +102,36 @@ export function paintOcrTextLayer(
   container.replaceChildren();
   if (!ocr?.layout || !ocr.lines?.length) return;
   const base = ocrLayerBox(container, box);
-  const frag = document.createDocumentFragment();
+  const frag = createFragment();
+  /* 每行自己的量（位置、框高、字号）必须内联写；绝对定位、`pre`、透明字、
+     可选中这些静态规则由 `.bzr-pdf-page .textLayer span` 兜住。
+     宽度这一步**先不写**：要量自然宽，就得让 `width: max-content` 那条
+     类规则生效（内联宽度会压过它，事后再补内联框宽）。 */
+  const targets: number[] = [];
   for (const line of orderOcrLines(ocr.lines)) {
     if (!line.rect) continue;
     const p = ocrLinePlacement(line.rect, rotation, base);
-    const span = document.createElement('span');
+    const span = createSpan();
     span.className = 'bzr-ocr-line';
     span.textContent = line.text;
-    span.style.position = 'absolute';
     span.style.left = `${p.left}px`;
     span.style.top = `${p.top}px`;
-    span.style.width = `${p.width}px`;
     span.style.height = `${p.height}px`;
     span.style.fontSize = `${p.height}px`;
-    span.style.lineHeight = '1';
-    span.style.whiteSpace = 'pre';
-    span.style.transformOrigin = '0 0';
-    span.style.color = 'transparent';
-    span.style.userSelect = 'text';
+    targets.push(p.width);
     frag.appendChild(span);
   }
   container.appendChild(frag);
   /* 宽度对齐要等节点进树之后测：没挂上去的元素量不出内容宽度。
-     分两批做，一页只强制重排一次：先把所有行改成 max-content，一次性量完
-     自然宽，再逐行把框宽放回去并写 transform。量完必须放回框宽，否则
-     下次再量到的就是拉伸后的宽度。只做横向拉伸——纵向由 font-size = 框高保证。 */
+     一页只强制重排一次：一次性量完所有行的自然宽，再逐行写回框宽。
+     只做横向拉伸——纵向由 font-size = 框高保证。 */
   const spans = Array.from(container.querySelectorAll<HTMLElement>('.bzr-ocr-line'));
-  const targets = spans.map((span) => Number.parseFloat(span.style.width) || 0);
-  for (const span of spans) span.style.width = 'max-content';
   const naturals = spans.map((span) => span.getBoundingClientRect().width || span.offsetWidth || 0);
   for (let i = 0; i < spans.length; i += 1) {
-    const span = spans[i]!;
-    const target = targets[i]!;
+    const span = spans[i];
+    const target = targets[i];
     span.style.width = `${target}px`;
-    const scale = lineScaleX(naturals[i]!, target);
+    const scale = lineScaleX(naturals[i], target);
     if (Math.abs(scale - 1) > 0.01) span.style.transform = `scaleX(${scale})`;
   }
 }

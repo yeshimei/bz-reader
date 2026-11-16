@@ -1006,17 +1006,20 @@
 }
 /* Obsidian 对 input 的全局样式（border / background / box-shadow / padding）
    会盖掉这里较弱的 .bzs-pk-search input，在浮层里套出第二层方框。
-   整组重置用更高优先级写死，让输入框只剩容器那一层边框。 */
-.bzs-picker .bzs-pk-search input {
+   把 `:hover` / `:focus` 一起写进来就够了（宿主那两条也只到 0,2,1），
+   不靠 `!important`——审核对它是硬规则，升级时不会为我们破例。 */
+.bzs-picker .bzs-pk-search input,
+.bzs-picker .bzs-pk-search input:hover,
+.bzs-picker .bzs-pk-search input:focus {
   flex: 1;
   min-width: 0;
   height: 100%;
   margin: 0;
   padding: 0;
-  border: 0 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  background: transparent !important;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
   -webkit-appearance: none;
   appearance: none;
   outline: 0;

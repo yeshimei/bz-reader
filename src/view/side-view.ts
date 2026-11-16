@@ -65,8 +65,8 @@ function allNotes(app: App | undefined): AiNoteRow[] {
 
 /** 输入框按内容长高；上限与输入卡片的 max-height 对齐（140px） */
 function autoGrowInput(t: HTMLTextAreaElement): void {
-  t.style.height = 'auto';
-  t.style.height = `${Math.min(t.scrollHeight + 2, 140)}px`;
+  t.setCssProps({ height: 'auto' });
+  t.setCssProps({ height: `${Math.min(t.scrollHeight + 2, 140)}px` });
 }
 
 /** 发送按钮只在「有字或有上下文」时亮 */
@@ -82,7 +82,7 @@ function syncAiSend(root: HTMLElement | null): void {
 function paintNoteList(root: HTMLElement | null): void {
   const list = root?.querySelector<HTMLElement>('.bzs-pk-list');
   if (!list) return;
-  list.innerHTML = notePickerListHtml(RT.aiNoteAll, RT.aiNoteKw, RT.aiNotePicked);
+  setHtml(list, notePickerListHtml(RT.aiNoteAll, RT.aiNoteKw, RT.aiNotePicked));
   syncNotePicker(root);
 }
 
@@ -103,13 +103,13 @@ function syncNotePicker(root: HTMLElement | null): void {
       (x): x is string => !!x,
     );
     const tags: HTMLElement[] = names.slice(0, 2).map((name) => {
-      const el = document.createElement('span');
+      const el = createSpan();
       el.className = 'bzs-pk-tag';
       el.textContent = name;
       return el;
     });
     if (names.length > 2) {
-      const more = document.createElement('span');
+      const more = createSpan();
       more.className = 'bzs-pk-tag is-more';
       more.textContent = `+${names.length - 2}`;
       tags.push(more);

@@ -1320,6 +1320,12 @@ body .view-header .clickable-icon.bzs-host-hidden {
   transform: rotate(var(--rotate, 0deg)) scaleX(var(--scale-x, 1)) scale(var(--min-font-size-inv, 1));
 }
 
+/* 识别铺进来的行（ocr-layer.ts）：宽度先由内容撑开，量完自然宽再写内联框宽。
+   内联宽度会压过这条规则，所以顺序必须是「先量、后写」。 */
+.bzr-pdf-page .textLayer .bzr-ocr-line {
+  width: max-content;
+}
+
 /* 原生选区**不上色**（2026-11-09）。
    pdf.js 的文字层是一个词一个 `<span>`，挨着的 span 有重叠、行内还有缝：
    浏览器按 span 各自涂 0.28 的半透明蓝，叠出来的就是深一块浅一块、

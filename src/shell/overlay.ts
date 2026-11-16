@@ -47,7 +47,6 @@ import {
   dismissesOnTap,
   getState,
   markIdeaDirty,
-  openOverlay,
   overlayRenderKey,
   persistShellState,
   setStateQuiet,
@@ -2125,8 +2124,8 @@ export class OverlayLayer {
          不重画，免得把正在打的字换掉。 */
       if (role === 'aifollow') {
         const box = t as HTMLTextAreaElement;
-        box.style.height = 'auto';
-        box.style.height = `${Math.min(box.scrollHeight + 2, 76)}px`;
+        box.setCssProps({ height: 'auto' });
+        box.setCssProps({ height: `${Math.min(box.scrollHeight + 2, 76)}px` });
         const send = box.closest('.bzs-af-ask')?.querySelector<HTMLButtonElement>('.bzs-af-send');
         if (send) send.disabled = !box.value.trim();
         return;
