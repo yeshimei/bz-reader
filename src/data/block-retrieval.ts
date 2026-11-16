@@ -20,7 +20,8 @@
  * ============================================================ */
 import { bm25Rank, type Bm25DocInput } from './bm25';
 import { adaptiveCutoff, rrfFuse } from './hybrid-rank';
-import { normalizeQuery, queryTerms, quotedSpans, tokenize } from './text-terms';import {
+import { normalizeQuery, queryTerms, quotedSpans, tokenize } from './text-terms';
+import {
   PORTRAIT_PICK_LIMIT,
   PORTRAIT_TOP_K,
   chapterAwarePicks,
@@ -80,6 +81,16 @@ function bodyOf(block: PortraitBlock): string {
  */
 const MIN_MATCHED_TERMS = 2;
 
+/**
+ * 查询本身只有一个词时（「自由」「GPT-4o」），门槛降到 1。
+ *
+ * 单字/双字查询切出来就一个词，按「至少两个」筛等于把整条字面通道关掉——
+ * 而这正是纯向量最容易糊过去的一类短查询。
+ */
+function needTerms(terms: readonly string[]): number {
+  return Math.min(MIN_MATCHED_TERMS, Math.max(1, terms.length));
+}
+
 function lexicalDocs(p: PortraitFile): Bm25DocInput[] {
   return (p.blocks ?? []).map((block, index) => ({
     key: String(index),
@@ -115,7 +126,7 @@ export function lexicalPicks(
     if (!block) continue;
     const body = normalizeQuery(bodyOf(block));
     const exact = spans.some((span) => normalizeQuery(span).length >= 2 && body.includes(normalizeQuery(span)));
-    if (!exact && hit.matched < MIN_MATCHED_TERMS) continue;
+    if (!exact && hit.matched < needTerms(terms)) continue;
     out.push({ index, score: hit.score, matched: hit.matched, exact });
   }
   /* 引号命中排在纯分数前面：用户点了名的那句话，比十个擦边词更该进依据 */
@@ -241,8 +252,8 @@ export function retrieveBlocks(
   });
 
   /* 引号原话是「用户点了名」，必须进依据——哪怕向量完全不认它、
-     哪怕它排在第六名之后。Copilot 对 [[笔记]] 与 #标签 也是这么处理的：
-     过滤结果绕开 top-K，直接进上下文。挤掉的是最弱的那块（章首不挤）。 */
+     哪怕它排在第六名之后。这是 bz 自己的取舍：引用是读者手上唯一的
+     硬线索，漏掉它等于把唯一确定的东西丢了。挤掉的是最弱的那块（章首不挤）。 */
   const have = new Set(out.map((item) => item.index));
   for (const hit of lex.filter((x) => x.exact)) {
     if (have.has(hit.index)) continue;
@@ -337,7 +348,7 @@ export function searchBooksHybrid(
     .map(([key]) => key);
   const lexRank = terms.length
     ? bm25Rank(docs, terms, { tokenize })
-        .filter((hit) => hit.matched >= MIN_MATCHED_TERMS)
+        .filter((hit) => hit.matched >= needTerms(terms))
         .map((hit) => hit.key)
     : [];
 

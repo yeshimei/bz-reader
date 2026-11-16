@@ -82,9 +82,14 @@ export function bm25Rank(
   terms: readonly string[],
   opts: Bm25Options = {},
 ): Bm25Hit[] {
-  const k1 = Math.max(0, Number(opts.k1 ?? BM25_K1) || 0) || BM25_K1;
-  const b = Math.min(1, Math.max(0, Number(opts.b ?? BM25_B)));
-  const delta = Math.max(0, Number(opts.delta ?? BM25_DELTA) || 0);
+  /* NaN 也要退回默认值：Math.max(0, NaN) 仍是 NaN，会让整轮检索静默返回空 */
+  const num = (v: unknown, fallback: number): number => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
+  const k1 = Math.max(0, num(opts.k1, BM25_K1)) || BM25_K1;
+  const b = Math.min(1, Math.max(0, num(opts.b, BM25_B)));
+  const delta = Math.max(0, num(opts.delta, BM25_DELTA));
   const cut = opts.tokenize ?? tokenize;
   const query = [...new Set((terms ?? []).map((t) => String(t ?? '').trim()).filter(Boolean))];
   if (!docs.length || !query.length) return [];

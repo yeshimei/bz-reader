@@ -278,6 +278,21 @@ export interface WholeBookOptions {
 }
 
 /**
+ * 这份依据是怎么来的。
+ *
+ * 调用方要据此决定「还需不需要向量检索」：chapters / spread 都是自足的；
+ * catalog 只有目录，细节还得靠检索补——但也比报错强，嵌入服务挂了的时候
+ * 结构型问题仍然答得出来。
+ */
+export type WholeBookKind = 'chapters' | 'spread' | 'fallback' | 'catalog';
+
+export interface WholeBookEvidence {
+  context: string;
+  sources: AiSource[];
+  kind: WholeBookKind;
+}
+
+/**
  * 结构型问题的依据：目录打底，挑中的章整段读。
  *
  * 顺序是「先目录、后原文」：模型先看到自己在书的哪一段，再读原文，
@@ -301,9 +316,10 @@ export function bookSpread(p: PortraitFile | null | undefined, limit = AI_EVIDEN
   const map = bookMap(p);
   if (!map.length) return '';
   const cap = Math.max(200, Math.floor(limit));
-  /* 只有一两章的短书不必「撒」：整份预算给这一章，等于把它读完 */
-  const per =
-    map.length <= 2 ? cap : Math.max(160, Math.min(700, Math.floor((cap - 40) / map.length)));
+  /* 每章的份额按章数均分。只有一两章的短书不再单独放大——以前 `per = cap`
+     会让第一章吃掉整份预算，第二章直接被「后文省略」掉，两章的书等于只读了半本。 */
+  const each = Math.floor((cap - 40) / Math.max(1, map.length));
+  const per = map.length <= 2 ? Math.max(160, each) : Math.max(160, Math.min(700, each));
   const parts: string[] = [];
   let used = 0;
   for (const entry of map) {
@@ -324,7 +340,7 @@ export function wholeBookEvidence(
   p: PortraitFile | null | undefined,
   q: string,
   opts: WholeBookOptions = {},
-): { context: string; sources: AiSource[] } | null {
+): WholeBookEvidence | null {
   const limit = Math.max(200, Math.floor(opts.limit ?? AI_EVIDENCE_LIMIT));
   const map = bookMap(p, { lineMax: opts.lineMax });
   if (!map.length) return null;
@@ -337,6 +353,7 @@ export function wholeBookEvidence(
     const spread = bookSpread(p, limit);
     if (spread.trim()) {
       return {
+        kind: 'spread',
         context: spread,
         sources: map.slice(0, 5).map((entry) => ({
           title: entry.title,
@@ -362,6 +379,7 @@ export function wholeBookEvidence(
   let head = lines.join('\n');
 
   let sources: AiSource[];
+  let kind: WholeBookKind;
 
   if (picked.length) {
     /* 目录先吃掉它的份额，剩下的均分给挑中的章；每章至少留 600 字，
@@ -380,12 +398,14 @@ export function wholeBookEvidence(
       bookId: p?.bookId,
       note: entry.line || `共 ${entry.blocks} 段`,
     }));
+    kind = 'chapters';
   } else if (opts.fallback?.context.trim()) {
     /* 一章都不沾：目录照给（结构是真的），细节用检索结果补 */
     const rest = Math.max(200, limit - head.length - 20);
     const tail = opts.fallback.context.trim();
     head = `${head}\n【相关段落】\n${tail.length <= rest ? tail : `${tail.slice(0, rest)}\n…`}`;
     sources = opts.fallback.sources.slice();
+    kind = 'fallback';
   } else {
     /* 只有目录：回答会偏概述，但每个字都有出处 —— 比编一段情节强 */
     sources = map.slice(0, 5).map((entry) => ({
@@ -393,8 +413,9 @@ export function wholeBookEvidence(
       bookId: p?.bookId,
       note: entry.line || `共 ${entry.blocks} 段`,
     }));
+    kind = 'catalog';
   }
 
   if (head.length > limit) head = head.slice(0, limit);
-  return { context: head, sources };
+  return { context: head, sources, kind };
 }

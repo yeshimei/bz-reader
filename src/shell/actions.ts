@@ -4116,34 +4116,45 @@ async function bookEvidenceOf(
   if (!portrait || portraitState(portrait, embedder.model) !== 'ready') return null;
 
   if (portrait.plan === 'vector') {
-    /* 问题也要算成向量，而且必须用 bz 的模型算：书的向量就是它算的，
+    /* 结构型问题（全书讲什么 / 第九章写了什么 / 立场怎么变）先试地图：
+       它只用画像里的章名与原文，**不需要嵌入服务**。以前先算查询向量，
+       嵌入没配好、服务挂了，这类问题就跟着整条失败——而「这本书讲了什么」
+       恰恰是最不需要向量的那一类。挑中章 / 铺满全书时直接返回，一次
+       模型外的请求都不发；只拿到目录时再往下走去补检索。 */
+    const structural = needsMap(q);
+    const mapped = structural ? wholeBookEvidence(portrait, q) : null;
+    if (mapped && mapped.kind !== 'catalog') return mapped;
+
+    /* 普通问题要算查询向量，而且必须用 bz 的模型算：书的向量就是它算的，
        换个模型算查询向量，距离再近也没有意义。 */
-    if (!embedder.ai) throw new Error(embedder.problem || t('side.ai.embedNotReady'));
-    const vec = await embedder.ai.embedQuery(expandQuery(q, chapter), signal);
-    /* 两路并行：向量管「意思像不像」，字面管「这个词在不在」。
-       以前只有向量，问船名 / 年份 / 外国人名时，真正写着答案的那块
-       经常排在第 7 名之后；字面通道正是为这一类问题加的。
-       章首补偿与六块预算都在 retrieveBlocks 里收口，这里不再自己排。 */
-    const picks = retrieveBlocks(portrait, q, vec, { limit: PORTRAIT_PICK_LIMIT });
-    const blocks = picks.length
-      ? {
+    let blocks: AiEvidence | null = null;
+    try {
+      if (!embedder.ai) throw new Error(embedder.problem || t('side.ai.embedNotReady'));
+      const vec = await embedder.ai.embedQuery(expandQuery(q, chapter), signal);
+      /* 两路并行：向量管「意思像不像」，字面管「这个词在不在」。
+         以前只有向量，问船名 / 年份 / 外国人名时，真正写着答案的那块
+         经常排在第 7 名之后；字面通道正是为这一类问题加的。
+         章首补偿与六块预算都在 retrieveBlocks 里收口，这里不再自己排。 */
+      const picks = retrieveBlocks(portrait, q, vec, { limit: PORTRAIT_PICK_LIMIT });
+      if (picks.length) {
+        blocks = {
           context: blocksEvidence(portrait, picks),
           sources: sourcesOfBlocks(
             portrait.bookId,
             picks.map((p) => ({ chapter: p.block.chapter, index: p.index, text: p.block.text })),
           ),
-        }
-      : null;
+        };
+      }
+    } catch (e) {
+      /* 结构型问题不因为嵌入不可用而整条失败：目录版仍然答得出结构 */
+      if (!structural) throw e;
+    }
 
-    /* 结构型问题（全书讲什么 / 第九章写了什么 / 立场怎么变）六块碎片答不了：
-       它们要的是顺序和章界，不是「最像的六段」。改成目录打底、挑中的章
-       整段读——PageIndex / MindMax 那一套，只是选章不发模型调用。
-       一章都没挑中时，目录照给，细节用刚取到的检索结果兜底。 */
-    if (needsMap(q)) {
+    /* 一章都没挑中：目录照给（结构是真的），细节用刚取到的检索结果补 */
+    if (structural) {
       const whole = wholeBookEvidence(portrait, q, { fallback: blocks ?? undefined });
       if (whole) return whole;
     }
-
     return blocks;
   }
 
@@ -4400,9 +4411,7 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
     if (live) {
       /* 已经流出一半：保留收到的那部分，把失败原因接在后面。
          把半条答案抹掉换成一句报错，等于用户白等了半分钟。 */
-      live.text = `${live.text}
-
-（${why}）`;
+      live.text = `${live.text}\n\n（${why}）`;
       live.live = false;
     } else {
       pushAi(false, 'AI', why);

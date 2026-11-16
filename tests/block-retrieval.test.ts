@@ -70,6 +70,16 @@ describe('字面通道', () => {
     expect(lex[0]).toMatchObject({ index: 0, exact: true });
   });
 
+  /* 单字 / 双字查询切出来只有一个词，按「至少命中两个」筛等于把整条
+     字面通道关掉——而这正是纯向量最喜欢糊过去的一类短查询。 */
+  it('查询只有一个词时，命中一个词也认', () => {
+    const p = portraitOf([
+      { chapter: '第一章', text: '婚姻是一座围城，自由也是。', vec: V.near },
+      { chapter: '第二章', text: '量子纠缠的实验结果。', vec: V.near },
+    ]);
+    expect(lexicalPicks(p, '自由', 10).map((l) => l.index)).toEqual([0]);
+  });
+
   it('只命中一个词的擦边块不要（中文里遍地都是）', () => {
     const p = portraitOf([
       { chapter: '第一章', text: '这是一个人的时候。', vec: V.near },

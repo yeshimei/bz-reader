@@ -13,7 +13,9 @@
  *
  * 收口用 Copilot for Obsidian 的 adaptiveCutoff：先保底 floor 条，
  * 再按「最高分的 30%」划线，最后按组（书里是「章」）去重取多样。
- * 参数照抄：floor 3 / ceiling 30 / relativeThreshold 0.3 / absoluteMin 0.01。
+ * floor 3 / ceiling 30 / relativeThreshold 0.3 直接照抄；绝对门槛不能照抄——
+ * Copilot 那边是 MiniSearch 的绝对分（0.01），这里的分数是 RRF，量级只有
+ * 0.016 上下，用 0.01 会把绝大多数候选挡在门外，所以改成 0.0001（只挡 0）。
  * ============================================================ */
 
 /** RRF 的平滑常数：越小越看重头部，60 是通行值 */

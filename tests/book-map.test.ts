@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   bookMap,
+  bookSpread,
   chapterText,
   isChapterQuestion,
   isWholeBookQuestion,
@@ -226,5 +227,33 @@ describe('组装依据', () => {
 
   it('空画像返回 null，不编一份空目录', () => {
     expect(wholeBookEvidence(portraitOf([]), '这本书讲了什么')).toBeNull();
+  });
+
+  /* 「这份依据是不是自足的」要能问出来：chapters / spread 不需要再检索，
+     catalog 才需要补细节。调用方据此决定要不要算查询向量——嵌入服务
+     不可用时，结构型问题靠前者照样答得出来。 */
+  it('标出这份依据是怎么来的', () => {
+    expect(wholeBookEvidence(BOOK, '这本书讲了什么', { limit: 4000 })!.kind).toBe('spread');
+    expect(wholeBookEvidence(BOOK, '第三章主要写什么', { limit: 4000 })!.kind).toBe('chapters');
+    const filled = wholeBookEvidence(BOOK, '第二十九章讲了什么', {
+      limit: 4000,
+      fallback: { context: '【第一章】\n红海早过了。', sources: [] },
+    });
+    expect(filled!.kind).toBe('fallback');
+    const bare = wholeBookEvidence(BOOK, '第二十九章讲了什么', { limit: 4000 });
+    expect(bare!.kind).toBe('catalog');
+  });
+
+  /* 两章的书曾经只读到半本：`per = cap` 让第一章吃掉整份预算，
+     第二章直接变成「…（后文省略）」。 */
+  it('两章的书两章都要撒到，不许第一章吃掉整份预算', () => {
+    const two = portraitOf([
+      { chapter: '第一章', text: `甲${'一'.repeat(900)}` },
+      { chapter: '第二章', text: `乙${'二'.repeat(900)}` },
+    ]);
+    const spread = bookSpread(two, 1200);
+    expect(spread).toContain('【第一章】');
+    expect(spread).toContain('【第二章】');
+    expect(spread).not.toContain('后文省略');
   });
 });

@@ -168,9 +168,9 @@
 
 | 项目 | 拿来的做法 | 落到 bz 的哪一处 |
 |---|---|---|
-| Copilot for Obsidian `src/search/v3` | 中文按**二字组**切词；BM25+（k1 1.2 / b 0.75 / δ 0.5）；字段权重 title 5 / heading 2.5 / body 1；`adaptiveCutoff`（floor 3 / ceiling 30 / 相对 0.3 / 按组去重） | `data/text-terms`、`data/bm25`、`data/hybrid-rank` |
+| Copilot for Obsidian `src/search/v3` | 中文按**二字组**切词（`FullTextEngine.tokenizeMixed`）；字段权重 title 5 / heading 2.5 / body 1；`adaptiveCutoff`（floor 3 / ceiling 30 / 相对 0.3 / 绝对 0.01 / 按组去重）。**BM25 参数没有显式设置**，走的是 MiniSearch 默认值（k1 1.2 / b 0.75 / d 0.5），所以 bz 的 k1/b/δ 与它数值相同但来源是 MiniSearch 默认、不是抄它的配置；分块 `CHUNK_SIZE = 6000` 字、无重叠 | `data/text-terms`、`data/bm25`、`data/hybrid-rank` |
 | Anthropic Contextual Retrieval | 向量与 BM25 混合；两路分数不可比，按**名次**融合 | `data/hybrid-rank` 的 RRF（k = 60） |
-| PageIndex | 章级摘要当「地图」，检索先选章再读整章 | 暂未落地（见 8.4） |
+| PageIndex | 章级摘要当「地图」，检索先选章再读整章 | 见 §9.1（本轮落地） |
 | Smart Composer | 分块 1000 字、top 10、`minSimilarity` 默认 0 | 与 bz 现有画像口径一致，不改 |
 | Smart Connections | 块级向量 + 最近邻 | 核心已移到 `smart-env` 包，仓库里没有可分块细节可抄 |
 
@@ -181,6 +181,8 @@
    —— 中文里任意两个二字组都能撞上，只命中一个的块遍地都是。
 2. **名次融合**（`data/hybrid-rank`）：向量与字面各自排序，用 RRF 合成一份。
    不归一化分数，因为余弦 0–1 与 BM25 的对数分不在一个量纲上。
+   绝对门槛没有照抄 Copilot 的 0.01——那个数是 MiniSearch 的绝对分，RRF 的
+   量级只有 0.016 上下，照抄会把绝大多数候选挡在门外，所以取 0.0001 只挡 0。
 3. **自适应收口**：保底 3 块、按章去重（六块依据不会全落在同一章）、
    上限仍是六块（`PORTRAIT_PICK_LIMIT`，本地模型 8k 窗口的预算）。
 4. **邻居扩展**：前三条候选的同一章前后块以 0.85 倍分进候选池，和别的候选
@@ -242,8 +244,10 @@ bz 不另建索引——画像里每一块都带 `chapter` 与 `text`，按章�
 
 | 环节 | 做法 |
 |---|---|
-| 切帧 | `drainSse`：`
-
+| 切帧 | `drainSse`：`
+
+
+
 ` 先归一、多行 `data:`、`[DONE]`、心跳、只带 role 的空帧；坏 JSON 只丢那一帧，不炸整条回答 |
 | 解码 | `TextDecoder(stream: true)`：一帧切在汉字三字节中间时，逐帧 `toString` 会解成乱码 |
 | 超时 | 改成「两次收到字节之间的最长间隔」，每来一块就重排。**不能按「到字」计时**——DeepSeek 先连发 45 帧 `reasoning_content`，正文一个字都还没有 |
@@ -272,3 +276,12 @@ bz 不另建索引——画像里每一块都带 `chapter` 与 `text`，按章�
 - 选章不发模型调用：字面打分错了（挑错章）比多花一次请求更常见，所以序号硬匹配
   优先级最高，挑不中就不挑；
 - 剧透门仍未做（见 §8.4）。
+
+**已知限制：目录里的 `第 N 节` 不一定是第 N 章。**
+《血与蜜之地》的 nav 只给节号（17 节），真章名写在其中 11 节的正文第一行；
+剩下 6 节（`第 3 / 6 / 8 / 10 / 14 / 25 节`）开头是正文或题记，补不出名字。
+按「两个具名章之间的空节数 = 章号缺口」去反推看着可行，但这本书第一章就跨了
+两节——反推会把「第一章的后半」标成「第二章」，模型于是拿着半章原文当整章答，
+还带出处。**标错章比标不出章更糟**，所以不做反推：这几节保留 `第 N 节` 原名，
+问「第 N 章」时挑不中，退回目录 + 检索（`kind = 'catalog'`），并明说这一章
+本次没有展开。
