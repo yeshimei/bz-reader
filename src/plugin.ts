@@ -61,6 +61,7 @@ import { openShelfAsk } from './ui/shelf-ask-panel';
 import { openTopicRoute } from './ui/topic-route-panel';
 import { installAiMarkdown, uninstallAiMarkdown } from './shell/ai-md';
 import { aiAsk } from './data/ai';
+import { loadAiLog } from './data/ai-log';
 import { safeName } from './data/export';
 import { DEFAULT_SETTINGS } from './data/settings';
 
@@ -337,6 +338,10 @@ export function createPlugin(cfg: PluginConfig) {
       this.store = new ReaderStore(this.app);
       await this.store.load();
       this.repo = new BookRepo(this.store.get().books);
+      /* 书架「对话」页的真实记录（2026-11-16）：读 <数据目录>/ai-sessions.json，
+         灌进 data/ai-session 的内存列表。文件不存在 / 读坏都降级成空列表，
+         不能让一份聊天记录把书架带崩——它只是回看用的附加数据。 */
+      await loadAiLog(this.app);
       /* 剪藏本（2026-11-13）：设置开关决定书架里那本固定入口在不在。
          开过又关掉的，记录只是归档，进度与每章时长都还在。 */
       this.syncClipBookEntry();

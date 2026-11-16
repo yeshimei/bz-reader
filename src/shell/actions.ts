@@ -78,9 +78,14 @@ import {
   aiSessionById,
   aiSessions,
   archiveAiSession,
-  removeAiSession,
   sessionsMarkdown,
 } from '../data/ai-session';
+import {
+  archiveAiSessionAndSave,
+  recordAiTurn,
+  removeAiSessionAndSave,
+  saveAiLog,
+} from '../data/ai-log';
 import { exportTargets } from './render/history';
 import { jumpTo, getToc } from '../view/toc-state';
 import { LIB_FILTERS, LIB_SORTS } from './render/study';
@@ -1291,6 +1296,8 @@ async function doAiExport(): Promise<void> {
       return;
     }
     for (const s of picked) archiveAiSession(s.id);
+    /* 导出即归档：一次写完，不为每条会话各写一遍文件 */
+    await saveAiLog(app);
     setState({ aiExport: null });
     notify(
       t('shelf.ai.notice.exported', {
@@ -1981,7 +1988,9 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
         notify(t('shelf.ai.notice.deleted'), 'error');
         break;
       }
-      if (!archiveAiSession(s.id)) break;
+      if (s.archivedAt) break;
+      /* 先改内存再排队写盘：写盘失败时界面仍然是对的（data/ai-log 内只 warn） */
+      void archiveAiSessionAndSave(getShellSource()?.app, s.id);
       const dir = String(shellSettings().exportDir ?? 'bz-reader/notes');
       const path = exportTargets([s], dir)[0]?.path || s.bookTitle;
       notify(t('shelf.ai.notice.archived', { path }));
@@ -1990,7 +1999,8 @@ export function dispatchAction(act: string, el: HTMLElement, _env: ActionEnv = {
     }
     case 'aidelete': {
       const id = d.id || '';
-      if (!removeAiSession(id)) break;
+      if (!aiSessionById(id)) break;
+      void removeAiSessionAndSave(getShellSource()?.app, id);
       mutateState((s) => {
         s.aiOpen = s.aiOpen.filter((x) => x !== id);
       });
@@ -4066,6 +4076,15 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
     /* 答案回来时已经换书：这份答案不属于当前这本，丢掉（C4） */
     if (!sameBook()) return;
     pushAi(false, `AI · ${settings.ai.model || '模型'}`, res.text, evidence.sources);
+    /* 书架「对话」页的真实记录：侧栏的每一问是一轮独立的全书问答。 */
+    void recordAiTurn(src.app, {
+      bookId: book.id,
+      bookTitle: book.meta.title,
+      author: book.meta.author,
+      kind: 'book',
+      ask: q,
+      answer: res.text,
+    });
   } catch (e) {
     if (!sameBook()) return;
     pushAi(false, 'AI', (e as Error).message || '请求失败');
@@ -4147,6 +4166,19 @@ async function followAi(question: string): Promise<void> {
     );
     if (first) aiCardDone(key, res.text);
     else aiCardFollowDone(key, q, res.text);
+    /* 同一张卡的追问按 key 归进同一条会话：先问「解释一下」再追问「那笼子呢」，
+       书架里看到的是一段完整对话，而不是两条各缺一半的记录。 */
+    const book = liveBooks().find((b) => b.id === (o.bookId || getState().bookId)) ?? currentBook();
+    void recordAiTurn(getShellSource()?.app, {
+      bookId: book?.id || o.bookId || getState().bookId || '',
+      bookTitle: book?.meta.title ?? '',
+      author: book?.meta.author,
+      kind: mode,
+      quote: text,
+      group: key,
+      ask: q,
+      answer: res.text,
+    });
   } catch (e) {
     const why = (e as Error)?.message || t('common.unknownError');
     if (!ctrl.signal.aborted) {

@@ -27,7 +27,7 @@ import {
 } from './text-toolbar';
 import { aiCardHtml, aiMessagesHtml, bookmarkDeleteHtml, footnoteCardHtml, ideaConfirmHtml, ideaFullHtml, markBubbleHtml, markDeleteBarHtml } from './reader-cards';
 import { HIGHLIGHT_COLORS } from '../data/notes';
-import { aiAsk, type AiTask } from '../data/ai';
+import { aiAsk } from '../data/ai';
 import type { ReaderBook } from '../data/schema';
 import { collectStats } from '../data/stats';
 import { cn, esc, coverHtml, ico } from './render/html';
@@ -60,6 +60,7 @@ import { kbLinkOf } from '../data/kb-link';
 import { hydrateToolbarIcons } from './toolbar-icons';
 import { aiCardBegin, aiCardDone, aiCardDrop, aiCardFail, aiCardGet, aiCardKey, aiCardReset } from './ai-card';
 import { aiFirstPrompt, aiFloatTaskOf, aiMenuHtml, clockOf } from './ai-menu';
+import { recordAiTurn, resetAiTurnGroups } from '../data/ai-log';
 import { glyphOf } from './adapt';
 import { hydrateCovers } from './covers';
 import { bindRangeTouch } from './range-touch';
@@ -1725,7 +1726,7 @@ let aiInFlight: { key: string; ctrl: AbortController } | null = null;
 export async function runAiForOverlay(): Promise<void> {
   const o = getState().overlay;
   if (!o || o.kind !== 'ai' || o.menu) return;
-  const task: AiTask = aiFloatTaskOf(o.mode);
+  const task = aiFloatTaskOf(o.mode);
   if (task === 'follow') {
     /* 追问是空面板：一条消息都不该凭空冒出来 */
     refreshAiFloat();
@@ -1761,6 +1762,7 @@ export async function runAiForOverlay(): Promise<void> {
   const ctrl = new AbortController();
   aiInFlight = { key, ctrl };
   RT.aiAbort = ctrl;
+  let answer = '';
   try {
     const res = await aiAsk(s, { task, text }, { signal: ctrl.signal });
     if (aiInFlight?.ctrl === ctrl) {
@@ -1769,6 +1771,7 @@ export async function runAiForOverlay(): Promise<void> {
     }
     /* 只进卡片的册子，**不**写侧栏的问答记录：工具栏这条路是「问一小段」，
        侧栏那条是「问整本书」，两边的上下文、花费、追问方式都不一样。 */
+    answer = res.text;
     aiCardDone(key, res.text);
   } catch (e) {
     if (aiInFlight?.ctrl === ctrl) {
@@ -1780,7 +1783,23 @@ export async function runAiForOverlay(): Promise<void> {
     else aiCardDrop(key);
   }
   /* 已经关了 / 换了另一档：这份结果没人看，别留在册子上冒充「问过了」 */
-  if (currentAiKey() !== key) aiCardDrop(key);
+  if (currentAiKey() !== key) {
+    aiCardDrop(key);
+  } else if (answer) {
+    /* 落进书架「对话」页：这一段 + 这一问一答。同一张卡的追问会按 group
+       追加到这条会话，不另开一条（见 data/ai-log 的 recordAiTurn）。 */
+    const book = bookById(o.bookId || getState().bookId) ?? liveBooks()[0];
+    void recordAiTurn(getShellSource()?.app, {
+      bookId: book?.id || o.bookId || getState().bookId || '',
+      bookTitle: book?.meta.title ?? '',
+      author: book?.meta.author,
+      kind: task,
+      quote: text,
+      group: key,
+      ask: aiFirstPrompt(task),
+      answer,
+    });
+  }
   refreshAiFloat();
 }
 
@@ -2350,6 +2369,7 @@ export class OverlayLayer {
     } else {
       // 离开 AI 卡就把册子清掉：下次划同一段，应该重新问一次
       aiCardReset();
+      resetAiTurnGroups();
     }
     /* 想法浮窗：打开就把光标放进输入框，少一次点击。
        之后的重画（亮确认条）不再抢焦点——手刚离开输入框。 */
