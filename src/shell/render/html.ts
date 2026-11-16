@@ -142,6 +142,13 @@ export function icoNative(name: string, size = 18): string {
     'sticky-note':
       '<path d="M5 3.5h14v10.5L13.5 20.5H5z"/><path d="M19 14h-5.5v6.5"/><path d="M8.6 8h6.8"/><path d="M8.6 11.6h4.6"/>',
     'arrow-up': '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+    /* 每条回答右下角的两颗（2026-11-17）：复制 / 重答。
+       以前这里写的是下划线文字，两个块级按钮各自换行、竖着摞在右下角。 */
+    copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+    'rotate-ccw':
+      '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+    /* 生成中的发送键换成它：实心方块，一眼是「停」不是「发」 */
+    stop: '<rect width="14" height="14" x="5" y="5" rx="2" fill="currentColor" stroke="none"/>',
   };
   const p = paths[name] || '';
   /* data-icon 只是标记：图形语义（正文 / 截图 / 笔记…）落在名字上，

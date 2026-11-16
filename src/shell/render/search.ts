@@ -19,6 +19,7 @@
  * ============================================================ */
 import { t, type MsgKey } from '../../i18n';
 import type { ReaderBook } from '../../data/schema';
+import { can } from '../../data/entitlement';
 import { marksOf } from '../domain';
 import { highlightEscaped } from '../highlight';
 import { cardVisible, searchHits, type SearchRow } from '../search-hits';
@@ -142,18 +143,24 @@ function tone(index: number): string {
 /* ─────────── 检索卡 ─────────── */
 
 /**
- * 检索卡本体：输入行 + 范围 chips + 回车提示 + 字面/按意思。
+ * 检索卡本体：输入行 + 回车提示 + 字面/按意思。
  *
  * 整页与弹窗共用。弹窗靠 `.bzs-srchpanel.is-compact` 覆盖尺寸（见 overlay.css），
  * 这里不写第二套结构。
+ *
+ * 2026-11-17 起**不再给范围开关**：书架整页固定全库、阅读弹窗固定本书
+ * （判据在 `state.searchScopeOf`）。少一行 chips，输入行也更宽。
  */
 export function searchDeskHtml(surface: SearchSurface = 'shelf'): string {
   const { searchKw, searchMode } = getState();
-  const scope = searchScopeOf(surface);
   const semantic = searchMode === 'semantic';
-  const books = liveBooks().length;
   const ph = semantic ? t('search.semantic.ph') : t('search.ph');
   const hasKw = !!searchKw.trim();
+  /* 基础版没有全库正文搜索：正文一条都不扫，不给一句说明会被当成「搜完了」。 */
+  const locked =
+    surface === 'shelf' && !can('crossSearch')
+      ? `<span class="bzs-srch-lock">${esc(t('search.scope.allLocked'))}</span>`
+      : '';
   /* 清空键一直渲染、只切 hidden：输入时宿主只换命中列表，不重画检索卡，
      按「有词才渲染」会在整轮输入里都看不到这枚 ×（真机第一版）。 */
   const clear = `<button type="button" class="bzs-desk-clear" data-act="searchclear" title="${esc(
@@ -168,14 +175,7 @@ export function searchDeskHtml(surface: SearchSurface = 'shelf'): string {
       ${clear}
     </div>
     <div class="bzs-desk-foot">
-      <div class="bzs-srch-scopes">
-        <button type="button" class="bzs-srch-chip${scope === 'book' ? ' on' : ''}" data-act="searchscope" data-v="book">${esc(
-          t('search.scope.book'),
-        )}</button>
-        <button type="button" class="bzs-srch-chip${scope === 'all' ? ' on' : ''}" data-act="searchscope" data-v="all">${esc(
-          t('search.scope.allCount', { n: books }),
-        )}</button>
-      </div>
+      ${locked}
       <span class="bzs-srch-sp"></span>
       <span class="bzs-srch-enter"><kbd>↵</kbd>${esc(t('search.enter'))}</span>
       <div class="bzs-srch-modes">
@@ -443,14 +443,16 @@ function missHtml(kw: string, failed: boolean): string {
 /**
  * 搜索表单 + 结果（整页与弹窗共用）。
  *
- * `scope` 由调用方给：书架传 `searchScope`，弹窗传 `searchFloatScope`。
- * 这里不自己判出口——判据只有一份，在 state.ts 的 `searchScopeOf`。
+ * `scope` 保留在签名里兼容旧调用；真正的范围按出口归一（`searchScopeOf`）：
+ * 书架整页全库、阅读弹窗本书。传进来的值只影响不了结果——旧状态残留
+ * 「弹窗按全库」时真机上就出过「书内入口挂着全库正文结果」。
  */
 export function searchResultsHtml(
   kw: string,
-  scope: SearchScope,
+  _scope: SearchScope,
   surface: SearchSurface = 'shelf',
 ): string {
+  const scope = searchScopeOf(surface);
   const q = kw.trim();
   const state = getState();
   if (state.searchMode === 'semantic') {
@@ -544,7 +546,7 @@ export function searchResultsHtml(
  */
 export function viewSearch(): string {
   const { searchKw } = getState();
-  const scope = getState().searchScope;
+  const scope = searchScopeOf('shelf');
   const stats = libStats();
   return `<div class="bzs-searchpage">
     <div class="bzs-srch-head"><h2>${esc(t('shelf.act.search'))}</h2><p>${esc(

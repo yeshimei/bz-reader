@@ -419,7 +419,13 @@ function citesBody(
  *
  * 三种：库内笔记 → opensrc；全书的章 → opensrcbook（带书号与章名）；
  * 两样都没有的（例如「本章」这种兜底名）只当说明。
+ *
+ * 2026-11-17：来源写着「第 N 节」这种按顺序编的假章名，说明这本书的画像
+ * 是旧版（章名取错字段，见 engine/chapter-titles）。点它会落到错的地方，
+ * 所以直接说明白「重建一次才准」，别让用户以为跳转坏了。
  */
+const FAKE_CHAPTER = /^第\s*\d+\s*节$/;
+
 function aiSourcesRow(m: AiLogItem): string {
   if (m.me || !m.sources?.length) return '';
   const items = m.sources
@@ -437,7 +443,10 @@ function aiSourcesRow(m: AiLogItem): string {
       return `<span class="bzs-aisrc-i" title="${tip}">${label}</span>`;
     })
     .join('');
-  return `<div class="bzs-aisrc"><span class="lbl">${esc(t('side.ai.sources'))}</span>${items}</div>`;
+  const stale = m.sources.some((s) => !s.path && !!s.bookId && FAKE_CHAPTER.test(String(s.title ?? '').trim()));
+  return `<div class="bzs-aisrc"><span class="lbl">${esc(t('side.ai.sources'))}</span>${items}</div>${
+    stale ? `<div class="bzs-aisrc-old">${esc(t('side.ai.src.stale'))}</div>` : ''
+  }`;
 }
 
 /**
@@ -617,25 +626,25 @@ function aiBubbleHtml(m: AiLogItem, hint: boolean, at = -1, last = false): strin
   const body = hint
     ? `<div class="txt">${esc(m.text)}</div>`
     : `<div class="txt" data-ai-md>${esc(m.text)}</div>`;
-  /* 每条回答自带「复制」（2026-11-16）：与划词浮框对齐。
-     空态提示那条不是回答，不给按钮。 */
+  /* 每条回答自带「复制」、最后一轮多一颗「重答」（2026-11-17）：
+     两颗收进同一行图标（以前是两块下划线文字，各占一行、竖着摞在右下角）。
+     空态提示那条不是回答，不给按钮；等回答期间不画重答（这条还没答完）。 */
   const copy =
     hint || at < 0
       ? ''
-      : `<button type="button" class="bzs-ai-copy" data-act="aicopyone" data-i="${at}">${esc(
+      : `<button type="button" class="bzs-ai-act" data-act="aicopyone" data-i="${at}" title="${esc(
           t('ai.card.copy'),
-        )}</button>`;
-  /* 最后一轮的答案给「重答」（2026-11-17）：模型抽风时不用把问题重打一遍。
-     等回答期间不画（这条还没答完，重答没有意义）。 */
+        )}" aria-label="${esc(t('ai.card.copy'))}">${icoNative('copy', 13)}</button>`;
   const retry =
     last && !hint && at >= 0 && !m.live
-      ? `<button type="button" class="bzs-ai-copy" data-act="airetry" data-i="${at}">${esc(
+      ? `<button type="button" class="bzs-ai-act" data-act="airetry" data-i="${at}" title="${esc(
           t('side.ai.retry'),
-        )}</button>`
+        )}" aria-label="${esc(t('side.ai.retry'))}">${icoNative('rotate-ccw', 13)}</button>`
       : '';
+  const acts = copy || retry ? `<div class="bzs-ai-acts">${copy}${retry}</div>` : '';
   return `<div class="bzs-aibubble ai${m.live ? ' is-live' : ''}"><span class="tag">${t(
     'side.ai.tag.book',
-  )}</span>${body}${aiSourcesRow(m)}${aiWarnRow(m)}${copy}${retry}</div>`;
+  )}</span>${body}${aiSourcesRow(m)}${aiWarnRow(m)}${acts}</div>`;
 }
 
 /** 引文核不上时的那一行：只在真有问题时出现，正常答案下面不多一个字 */
@@ -727,6 +736,15 @@ function notePickerHtml(v: SidebarView): string {
 function aiComposerHtml(v: SidebarView): string {
   const items = v.aiCtx ?? [];
   const disabled = canSendAi(v.aiDraft, items) ? '' : ' disabled';
+  /* 生成中发送键就地变成停止键（2026-11-17）：气泡里那颗「停止」删掉之后，
+     等不下去的人还有一个熟悉的位置可以点，不用关侧栏或换书。 */
+  const send = v.aiStage
+    ? `<button class="bzs-ai-send is-stop" data-act="aistop" aria-label="${t(
+        'side.ai.stop',
+      )}" title="${t('side.ai.stop')}">${icoNative('stop', 22)}</button>`
+    : `<button class="bzs-ai-send" data-act="aiask" aria-label="${t(
+        'side.ai.send',
+      )}" title="${t('side.ai.send')}"${disabled}>${icoNative('arrow-up', 18)}</button>`;
   return `<div class="bzs-ai-composer">
       <div class="bzs-aictx">${items
         .map((c, i) => ctxChipHtml(c, { removable: true, index: i }))
@@ -746,9 +764,7 @@ function aiComposerHtml(v: SidebarView): string {
             'side.ai.ctx.note',
           )}">${icoNative('sticky-note', 16)}</button>
         </div>
-        <button class="bzs-ai-send" data-act="aiask" aria-label="${t(
-          'side.ai.send',
-        )}" title="${t('side.ai.send')}"${disabled}>${icoNative('arrow-up', 18)}</button>
+        ${send}
       </div>
       ${notePickerHtml(v)}
     </div>`;
@@ -759,6 +775,9 @@ function aiComposerHtml(v: SidebarView): string {
  *
  * 以前这段是空白：发出问题之后侧栏只有用户自己那句，检索 + 生成最慢
  * 二十几秒，看着像没点动。现在先挂一条带跳动点的气泡，正文回来原地替换。
+ *
+ * 2026-11-17：气泡里那颗「停止」删掉了（它把一行说明撑成两行）；
+ * 停止入口挪到发送键上，见 `aiComposerHtml`。
  */
 function aiBusyBubble(v: SidebarView): string {
   const stage = v.aiStage;
@@ -768,9 +787,7 @@ function aiBusyBubble(v: SidebarView): string {
     'side.ai.tag.book',
   )}</span><div class="txt"><span class="bzs-typing"><i></i><i></i><i></i></span><span class="ph">${esc(
     label,
-  )}</span></div><button type="button" class="bzs-ai-stop" data-act="aistop" title="${esc(
-    t('side.ai.stop'),
-  )}">${esc(t('side.ai.stop'))}</button></div>`;
+  )}</span></div></div>`;
 }
 
 /** 会话历史：这本书聊过的几条，点一条切过去，× 删掉 */

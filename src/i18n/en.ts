@@ -1369,4 +1369,6 @@ export const EN: Record<MsgKey, string> = {
   'settings.aiProbe.embedEmpty': '[TODO] settings.aiProbe.embedEmpty',
   'settings.aiProbe.failed': '[TODO] settings.aiProbe.failed',
   'shelf.empty.import': '[TODO] shelf.empty.import',
+  'search.scope.allLocked': '[TODO] search.scope.allLocked',
+  'side.ai.src.stale': '[TODO] side.ai.src.stale',
 };

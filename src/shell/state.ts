@@ -508,17 +508,26 @@ export function getState(): ShellState {
 }
 
 /**
- * 某个搜索出口现在用的范围。
+ * 某个搜索出口用的范围（2026-11-17 起固定，不再随用户切换）。
  *
- * 书架整页与阅读页弹窗是两份状态：`shelf` 读书架那份，`book` 读弹窗那份。
- * 动作层、渲染层、正文扫描都从这里取，别各自判 `overlay.kind`——
- * 判据分散后总有一处忘记，表现是「弹窗里切了本书，正文却按全库扫」。
+ * 两个入口各只有一件该干的事：
+ *   · 书架整页 → 全库（这是「找一本书 / 找库里某句话」的地方）；
+ *   · 阅读页弹窗 → 当前这一本（人在书里，切全库是另一种心思）。
+ *
+ * `state.searchScope` / `searchFloatScope` 仍然留着：它们是旧状态的落盘字段，
+ * 读回来不报错；但判据只认这里，残留值不影响搜索范围——真机上就出现过
+ * 「弹窗里还按上次的全库扫」，正文结果挂在书内入口下面。
  */
 export function searchScopeOf(surface: 'shelf' | 'book'): 'book' | 'all' {
-  return surface === 'book' ? state.searchFloatScope : state.searchScope;
+  return surface === 'book' ? 'book' : 'all';
 }
 
-/** 写某一处的搜索范围；另一处原样不动。 */
+/**
+ * 写某一处的搜索范围。
+ *
+ * 界面已经不给切换了；保留这个写口是给旧状态迁移与测试用的，
+ * 写进去也不会改变 `searchScopeOf` 的结论。
+ */
 export function setSearchScope(surface: 'shelf' | 'book', scope: 'book' | 'all'): void {
   setState(surface === 'book' ? { searchFloatScope: scope } : { searchScope: scope });
 }

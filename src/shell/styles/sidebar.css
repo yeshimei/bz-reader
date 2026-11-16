@@ -660,7 +660,13 @@
   display: flex;
   flex-direction: column;
   gap: 15px;
-  scrollbar-width: thin;
+  /* 滚动条藏起来（2026-11-17）：侧栏本来就窄，一条竖槽把正文挤掉 6px，
+     长对话里显得整块都是「槽」。滚轮 / 触控板 / 拖到边缘都照常能滚。 */
+  scrollbar-width: none;
+}
+
+.bzs-aimsg::-webkit-scrollbar {
+  display: none;
 }
 
 /* 消息 · A 版：用户气泡铜底，AI 只留字与一枚铜色标签 */
@@ -938,6 +944,12 @@
 
 .bzs-ai-send:active {
   transform: translateY(0);
+}
+
+/* 生成中：同一颗按钮换成实心方块（2026-11-17）。位置、大小、铜底都不动，
+   只是「发」变成「停」——气泡里那颗单独的「停止」已经删了。 */
+.bzs-ai-send.is-stop {
+  background: var(--copper-2);
 }
 
 .bzs-shell .bzs-ai-send[disabled],
@@ -1367,22 +1379,49 @@
 }
 
 
-/* 每条回答下的「复制」：不抢正文，悬停才显色 */
-.bzs-ai-copy {
-  display: block;
-  margin: 2px 0 0 auto;
-  padding: 1px 0;
-  border: 0;
-  background: none;
-  font: 10.5px var(--ui);
-  color: var(--t3);
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+/* 每条回答右下角的一行动作（复制 / 重答，2026-11-17）。
+   以前是两块下划线文字、各占一行、竖着摞在右下角；现在一行小图标：
+   平时低对比，悬停才亮铜色，不抢正文。 */
+.bzs-ai-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  margin-top: 4px;
 }
 
-.bzs-ai-copy:hover {
+.bzs-ai-act {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--t3);
+  opacity: .72;
+  cursor: pointer;
+  transition: color .14s, background .14s, opacity .14s;
+}
+
+.bzs-ai-act:hover,
+.bzs-ai-act:focus-visible {
   color: var(--copper);
+  background: var(--copper-soft);
+  opacity: 1;
+}
+
+.bzs-ai-act:active {
+  transform: translateY(.5px);
+}
+
+/* 触屏没有悬停：一直显色，点击区放大到 28（22 太窄，容易点空） */
+@media (hover: none) {
+  .bzs-ai-act {
+    width: 28px;
+    height: 28px;
+    opacity: 1;
+  }
 }
 
 /* 消息区底部：复制整段 / 归档 */
@@ -1541,6 +1580,17 @@ button.bzs-aisrc-i {
 button.bzs-aisrc-i:hover {
   color: var(--copper);
   border-color: var(--copper-line);
+}
+
+/* 旧索引提示（2026-11-17）：依据写着「第 N 节」这种假章名时挂在来源下面。
+   比来源再低一档，用铜色左边线——它是「说明」，不是报错。 */
+.bzs-aisrc-old {
+  margin-top: 5px;
+  font: 10.5px var(--ui);
+  line-height: 1.5;
+  color: var(--t3);
+  border-left: 2px solid var(--copper-line);
+  padding-left: 7px;
 }
 
 /* 引文告警：核不上的引文数。比来源低一档，只在真有问题时出现—— */

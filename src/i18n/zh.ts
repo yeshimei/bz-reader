@@ -156,10 +156,12 @@ export const ZH = {
   'notice.search.empty': '先输入要搜的字',
   'notice.search.needBook': '先打开一本书再搜索',
   'notice.search.failed': '正文搜索失败：{why}',
-  /* ── 搜索页：本书 / 全库 ─────────────────────────────────── */
+  /* ── 搜索页：范围固定（2026-11-17：书架全库、书内弹窗本书） ── */
   'search.scope.book': '本书',
   'search.scope.all': '全库',
   'search.scope.allCount': '全库 · {n} 本',
+  /* 基础版没有全库正文搜索：不给一句说明，用户会以为「搜完了」 */
+  'search.scope.allLocked': '全库正文搜索为高级版',
   'search.ph': '搜书名、作者、章节、划线、想法，或书里的任意一句话…',
   'search.empty': '输入关键词：书名、作者、章节名、标注，或书里的任意一句话。',
   'search.needBook': '先打开一本书，再搜「本书」。',
@@ -1107,6 +1109,8 @@ export const ZH = {
   'side.ai.book.noHit': '这本书里没有找到和问题相关的段落：换个问法，或重建一次全书依据。',
   'side.ai.sources': '依据',
   'side.ai.source.chapter': '本章',
+  /* 旧画像的章名是「第 N 节」：点依据会落到错的地方，直接说明重建才准 */
+  'side.ai.src.stale': '索引是旧版：重建一次，依据才会落到真正那一章。',
   'pt.plan.vector': 'A. 向量化检索',
   'pt.plan.compress': 'B. AI 信息压缩',
   'pt.estimate.vector': '共 {blocks} 块，约 {requests} 次嵌入请求',

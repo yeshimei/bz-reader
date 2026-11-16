@@ -53,30 +53,28 @@ describe('两个入口的范围', () => {
 });
 
 describe('搜索表单里的「按意思搜」', () => {
-  it('字面模式：范围 chips 原样在，另有并列的「字面 / 按意思」开关', () => {
+  it('字面模式：不再给范围开关，只剩并列的「字面 / 按意思」', () => {
     installSource();
     const html = searchFormHtml('shelf');
-    expect(html).toContain('data-act="searchscope"');
+    expect(html).not.toContain('data-act="searchscope"');
     expect(html).toContain('data-act="searchmode"');
     expect(html).toContain('data-v="semantic"');
     expect(html).toContain('按意思');
     expect(html).toContain('字面');
   });
 
-  it('书内入口的范围默认落在这本书：chip 亮的是「本书」', () => {
+  it('书内入口固定只搜这本书：表单里没有可点的范围', () => {
     installSource();
-    expect(searchFormHtml('book')).toMatch(
-      /class="bzs-srch-chip on" data-act="searchscope" data-v="book"/,
-    );
+    expect(searchFormHtml('book')).not.toContain('data-act="searchscope"');
   });
 
-  it('按意思模式：范围 chips 与回车提示都在，不再有单独的搜索按钮', () => {
+  it('按意思模式：回车提示还在，范围开关不回来', () => {
     installSource();
     setState({ ...DEFAULT_SHELL_STATE, searchMode: 'semantic', searchKw: '知行合一' });
     const html = searchFormHtml('shelf');
     expect(html).not.toContain('data-act="semrun"');
     expect(html).toContain('回车即搜');
-    expect(html).toContain('data-act="searchscope"');
+    expect(html).not.toContain('data-act="searchscope"');
     expect(html).toContain('data-v="literal"');
     expect(html).toContain('字面');
     expect(html).toContain('描述你要找的内容');

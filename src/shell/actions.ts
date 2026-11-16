@@ -204,7 +204,7 @@ import {
   aiTranscript,
   clockOf,
 } from './ai-menu';
-import { aiConversationMarkdown } from '../data/ai-save';
+import { aiConversationMarkdown, upsertAiLogBlock } from '../data/ai-save';
 import { DEFAULT_SETTINGS, aiReady } from '../data/settings';
 import { copyGroupId } from './group';
 import { collectStats, dayKey } from '../data/stats';
@@ -721,13 +721,33 @@ async function appendToExport(
   return appendBlock(app, dir, name, block, t(doneKey, { path }));
 }
 
-/** AI 对话存档：落导出目录下的「AI 对话」，与书摘笔记分开放 */
-async function appendAiLog(app: App, book: ReaderBook | undefined, block: string): Promise<void> {
+/**
+ * AI 对话存档：落导出目录下的「AI 对话」，与书摘笔记分开放。
+ *
+ * 2026-11-17 起是**增量写**（`upsertAiLogBlock`）：同一场对话再点归档时
+ * 原地换成最新那份，不再往文件末尾接一段一模一样的。老版本留下的重复段
+ * 只要内容完全相同，也会在这一步合并掉。
+ */
+async function appendAiLog(
+  app: App,
+  book: ReaderBook | undefined,
+  block: string,
+  chatId: string,
+): Promise<void> {
   const fallback = DEFAULT_SETTINGS.exportDir;
   const base = safeExportDir(shellSettings().exportDir || fallback, fallback);
   const dir = `${base}/${safeExportName(t('ai.log.dir'))}`;
   const name = safeExportName(book?.meta.title || t('export.loose'));
-  await appendBlock(app, dir, name, block, t('notice.ai.logSaved', { path: `${dir}/${name}.md` }));
+  const path = `${dir}/${name}.md`;
+  try {
+    if (!insideExportDir(path, dir)) throw new Error(`bad export path: ${path}`);
+    if (!(await app.vault.adapter.exists(dir))) await app.vault.adapter.mkdir(dir);
+    const head = (await app.vault.adapter.exists(path)) ? await app.vault.adapter.read(path) : `# ${name}\n`;
+    await app.vault.adapter.write(path, upsertAiLogBlock(head, block, chatId));
+    notify(t('notice.ai.logSaved', { path }));
+  } catch (e) {
+    notify(t('notice.note.saveFailed', { why: (e as Error).message }));
+  }
 }
 
 /* ─────────── 书签 / 标注 ─────────── */
@@ -3740,10 +3760,11 @@ export function dispatchAction(
       const block = aiConversationMarkdown({
         bookTitle: book?.meta.title,
         day: dayKey(Date.now()),
+        chatId: RT.aiChatId,
         turns: RT.aiLog.map((m) => ({ me: m.me, text: m.text, sources: m.sources })),
       });
       if (!block) break;
-      void appendAiLog(app, book, block);
+      void appendAiLog(app, book, block, RT.aiChatId);
       break;
     }
     /* 复制这条对话（2026-11-16）：与划词浮框的「复制」共用 aiTranscript，

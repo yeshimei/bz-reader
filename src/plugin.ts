@@ -1301,14 +1301,14 @@ export function createPlugin(cfg: PluginConfig) {
       /* 进页规则只写一处，四个入口共用：
            · 页签页 → 返回目标指向自己
            · 子页   → 返回目标停在上一个页签页
-           · 搜索   → 清空上次的词，范围按权限落到「全库 / 本书」 */
+           · 搜索   → 清空上次的词（范围已固定：书架全库、书内弹窗本书） */
       const cur = getState().studyPage;
       const patch: Partial<ShellState> = { studyPage: page };
       if (isStudyTab(page)) patch.studyBack = page;
       else if (isStudyTab(cur)) patch.studyBack = cur;
       if (page === 'search') {
         patch.searchKw = '';
-        patch.searchScope = can('crossSearch') ? 'all' : 'book';
+        patch.searchScope = 'all';
         /* 上一轮的正文结果与在跑的扫描都属于上一个词，进页先收干净 */
         resetBodySearch();
       }

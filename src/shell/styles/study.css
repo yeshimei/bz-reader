@@ -2199,6 +2199,15 @@
   flex: 1;
 }
 
+/* 检索卡脚下的范围说明（2026-11-17：范围固定，不再有开关）。
+   基础版没有全库正文搜索，这一句是唯一的提示。 */
+.bzs-srch-lock {
+  font-size: var(--fs-caption);
+  color: var(--t3);
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
 .bzs-srch-scopes {
   display: flex;
   gap: 6px;

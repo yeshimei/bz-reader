@@ -58,12 +58,6 @@ function installSource(books: Array<MakeBook | ReaderBook>): void {
 }
 
 /** 取某颗范围 chip 的 `<button>` 开标签，看它有没有 `on` */
-function chipOn(html: string, v: 'book' | 'all'): boolean {
-  const tags = [...html.matchAll(/<button[^>]*data-act="searchscope"[^>]*>/g)].map((m) => m[0]);
-  const tag = tags.find((x) => x.includes(`data-v="${v}"`));
-  return !!tag && /\bclass="[^"]*\bon\b/.test(tag);
-}
-
 function count(html: string, needle: string): number {
   return html.split(needle).length - 1;
 }
@@ -107,26 +101,40 @@ afterEach(() => {
   RT.semantic.listeners.clear();
 });
 
-describe('默认范围', () => {
+describe('固定范围', () => {
   it('状态默认：书架全库、阅读页弹窗本书', () => {
     expect(DEFAULT_SHELL_STATE.searchScope).toBe('all');
     expect(DEFAULT_SHELL_STATE.searchFloatScope).toBe('book');
   });
 
-  it('书架搜索页的「全库」chip 亮着，「本书」不亮', () => {
-    installSource(library);
-    setState({ ...DEFAULT_SHELL_STATE, bookId: 'b1' });
+  it('书架搜索页固定全库：没有范围开关，状态残留「本书」也按全库出结果', () => {
+    installSource([
+      makeBook({ id: 'b1', title: '围城', marks: [['金漆', undefined, '第一章']] }),
+      makeBook({ id: 'b2', title: '千亿个太阳', marks: [['金漆', undefined, '第二章']] }),
+    ]);
+    setState({ ...DEFAULT_SHELL_STATE, bookId: 'b1', searchScope: 'book', searchKw: '金漆' });
     const html = viewSearch();
-    expect(chipOn(html, 'all')).toBe(true);
-    expect(chipOn(html, 'book')).toBe(false);
+    expect(html).not.toContain('data-act="searchscope"');
+    expect(html).toContain('围城');
+    expect(html).toContain('千亿个太阳');
   });
 
-  it('阅读页弹窗的「本书」chip 亮着，「全库」不亮', () => {
+  it('阅读页弹窗固定本书：没有范围开关，状态残留「全库」也只出当前这本', () => {
+    installSource([
+      makeBook({ id: 'b1', title: '围城', marks: [['金漆', undefined, '第一章']] }),
+      makeBook({ id: 'b2', title: '千亿个太阳', marks: [['金漆', undefined, '第二章']] }),
+    ]);
+    setState({ ...DEFAULT_SHELL_STATE, bookId: 'b1', searchFloatScope: 'all', searchKw: '金漆' });
+    const html = overlaySearch();
+    expect(html).not.toContain('data-act="searchscope"');
+    expect(html).toContain('围城');
+    expect(html).not.toContain('千亿个太阳');
+  });
+
+  it('基础版在书架搜索页说明「全库正文搜索为高级版」', () => {
     installSource(library);
     setState({ ...DEFAULT_SHELL_STATE, bookId: 'b1' });
-    const html = overlaySearch();
-    expect(chipOn(html, 'book')).toBe(true);
-    expect(chipOn(html, 'all')).toBe(false);
+    expect(viewSearch()).toContain('全库正文搜索为高级版');
   });
 
   it('弹窗头写明当前是哪一本书', () => {

@@ -44,13 +44,14 @@ afterEach(() => {
 });
 
 describe('搜索表单', () => {
-  it('只剩「本书 / 全库」两档，不再有正文档位与搜正文按钮', () => {
+  it('不再给范围开关：书架整页固定全库，阅读弹窗固定本书', () => {
     installSource();
-    const html = searchFormHtml();
-    expect(html).toContain('本书');
-    expect(html).toContain('全库');
-    expect(html).not.toContain('正文');
-    expect(html).not.toContain('搜正文');
+    const shelf = searchFormHtml('shelf');
+    const book = searchFormHtml('book');
+    expect(shelf).not.toContain('data-act="searchscope"');
+    expect(book).not.toContain('data-act="searchscope"');
+    /* 正文档位与「搜正文」按钮早就拿掉了，别再长回来 */
+    expect(shelf).not.toContain('搜正文');
   });
 
   it('说明文案与「搜的是已建索引的内容」一起拿掉', () => {
@@ -79,10 +80,10 @@ describe('搜索结果', () => {
     expect(html).not.toContain('搜正文');
   });
 
-  it('书架页没有当前书时，「本书」明说先打开一本，而不是「没有找到」', () => {
+  it('书内入口没有当前书时，明说先打开一本，而不是「没有找到」', () => {
     installSource();
     setState({ ...DEFAULT_SHELL_STATE, bookId: null });
-    const html = searchResultsHtml('天才', 'book');
+    const html = searchResultsHtml('天才', 'book', 'book');
     expect(html).toContain('先打开一本书');
     expect(html).not.toContain('没有找到');
   });

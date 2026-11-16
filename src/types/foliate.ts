@@ -52,8 +52,16 @@ export interface FoliateMetadata {
 }
 
 export interface FoliateSection {
+  /**
+   * 这一章在书里的标识。EPUB 是 foliate 造出来的包内文件路径
+   * （`OEBPS/Text/chapter4.html`）；TXT / 剪藏本是 `txt-0` / `clip-0` 这类内部串。
+   */
   id: string;
-  href: string;
+  /**
+   * 章节文件路径。**只有 TXT / 剪藏本两个引擎自己设**——foliate 解析出来的
+   * EPUB section 从来没设过这个字段（取章名别读它，见 engine/chapter-titles）。
+   */
+  href?: string;
   linear?: string;
   size?: number;
   mediaOverlay?: unknown;

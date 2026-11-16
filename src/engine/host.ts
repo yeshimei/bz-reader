@@ -37,6 +37,7 @@ import { contentInset } from './content-inset';
 import { makeTxtBook, countWords } from './txt';
 import { decodeTxtBytes } from './encoding';
 import { findTocHref } from './toc';
+import { chapterTitles } from './chapter-titles';
 import { teardownView } from './view-teardown';
 import { unionClientRects } from './selection-rect';
 import {
@@ -2369,23 +2370,17 @@ export class EngineHost {
     const sections = book.sections ?? [];
     if (!sections.length) return [];
 
-    /* href → 章名：目录里的 label 才是读者认的名字，section 只有路径 */
-    const labelOf = new Map<string, string>();
-    const walk = (items: FoliateTOCItem[] | undefined): void => {
-      for (const it of items ?? []) {
-        const href = (it.href ?? '').split('#')[0];
-        const label = (it.label ?? '').trim();
-        if (href && label && !labelOf.has(href)) labelOf.set(href, label);
-        walk(it.subitems);
-      }
-    };
-    walk(book.toc);
+    /* 章名回目录换一次（见 engine/chapter-titles）：EPUB 的 section 只有 id，
+       TXT / 剪藏本的 id 是内部串、href 才是目录键，两个都要试。 */
+    const titles = chapterTitles(book.toc, sections, (i) => `第 ${i + 1} 节`);
 
     const out: Array<{ title: string; text: string }> = [];
     for (let i = 0; i < sections.length; i += 1) {
       if (opts.shouldStop?.()) break;
       const section = sections[i];
-      const title = labelOf.get((section.href ?? '').split('#')[0]) || `第 ${i + 1} 节`;
+      /* chapterTitles 对每一章都给了值（目录里没有才用「第 N 节」兜底），
+         这里不再重复一次兜底——多一处模板就多一处硬编码中文。 */
+      const title = titles[i];
       let text = '';
       try {
         const doc = await section.createDocument?.();

@@ -49,6 +49,7 @@ import {
   markIdeaDirty,
   overlayRenderKey,
   persistShellState,
+  searchScopeOf,
   setStateQuiet,
   setIdeaDraft,
 } from './state';
@@ -171,25 +172,19 @@ function bookmarkById(id?: string | null, bookId?: string | null) {
  * 渲染过——用户打字时屏幕毫无变化，必须再点一下「本书 / 全库」才出结果。
  * 这里把「命中计算」交给纯函数 search-hits，顺便避免整块重绘打断中文输入法。
  *
- * 2026-11-16 检索台改版：弹窗里是同一张检索卡的紧凑版（`is-compact`），
- * 范围读 `searchFloatScope`（默认本书），与书架搜索页各记各的。
- * 导出是为了让测试能直接钉住「弹窗默认本书」这条结构断言。
+ * 2026-11-17 起弹窗**只搜当前这本**，不再给范围开关：人在书里，切全库
+ * 是另一种心思（书架搜索页专门干那个）。标题里写清是哪本书。
  */
 export function overlaySearch(): string {
-  const { searchKw, searchFloatScope, bookId } = getState();
+  const { searchKw, bookId } = getState();
   const book = bookId ? liveBooks().find((b) => b.id === bookId) : undefined;
-  const sub =
-    searchFloatScope === 'book'
-      ? book
-        ? t('search.sub.book', { title: book.meta.title })
-        : t('search.scope.book')
-      : t('search.scope.allCount', { n: liveBooks().length });
+  const sub = book ? t('search.sub.book', { title: book.meta.title }) : t('search.scope.book');
   return modal(
     t('shelf.act.search'),
     sub,
     `<div class="bzs-srchpanel is-compact">${searchDeskHtml('book')}<div data-role="hitlist">${searchResultsHtml(
       searchKw,
-      searchFloatScope,
+      'book',
       'book',
     )}</div></div>`,
     '',
@@ -2119,7 +2114,7 @@ export class OverlayLayer {
         if (getState().searchMode === 'semantic') {
           this.onAction('semrun', el);
         } else {
-          kickBodySearch(getState().searchKw, getState().searchFloatScope);
+          kickBodySearch(getState().searchKw, searchScopeOf('book'));
         }
         return;
       }
@@ -2182,8 +2177,8 @@ export class OverlayLayer {
           return;
         }
         const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
-        if (list) setHtml(list, searchResultsHtml(t.value, getState().searchFloatScope, 'book'));
-        kickBodySearch(t.value, getState().searchFloatScope);
+        if (list) setHtml(list, searchResultsHtml(t.value, searchScopeOf('book'), 'book'));
+        kickBodySearch(t.value, searchScopeOf('book'));
         return;
       }
       /* 音色搜索（2026-11-14）：就地过滤行，不整页重绘——重绘会把输入框
@@ -2266,7 +2261,7 @@ export class OverlayLayer {
     if (opening && kind === 'search') {
       if (this.searchStash && !this.stashMatches()) this.searchStash = null;
       if (!this.searchStash && getState().searchMode === 'literal') {
-        kickBodySearch(getState().searchKw, getState().searchFloatScope);
+        kickBodySearch(getState().searchKw, searchScopeOf('book'));
       }
     }
     this.paint(opening || menuClosed);
@@ -2702,7 +2697,7 @@ export class OverlayLayer {
     this.unbindHitlist();
     this.hitlistCb = () => {
       const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
-      if (list) setHtml(list, searchResultsHtml(getState().searchKw, getState().searchFloatScope, 'book'));
+      if (list) setHtml(list, searchResultsHtml(getState().searchKw, searchScopeOf('book'), 'book'));
     };
     RT.body.listeners.add(this.hitlistCb);
     RT.semantic.listeners.add(this.hitlistCb);
@@ -2728,7 +2723,7 @@ export class OverlayLayer {
     this.searchScroll = this.root.querySelector<HTMLElement>('.bzs-mbody')?.scrollTop ?? 0;
     this.searchStashKey = searchQueryKey(
       getState().searchKw,
-      getState().searchFloatScope,
+      searchScopeOf('book'),
       getState().searchMode,
     );
     this.unbindHitlist();
@@ -2742,7 +2737,7 @@ export class OverlayLayer {
     return (
       !!this.searchStash &&
       this.searchStashKey ===
-        searchQueryKey(getState().searchKw, getState().searchFloatScope, getState().searchMode)
+        searchQueryKey(getState().searchKw, searchScopeOf('book'), getState().searchMode)
     );
   }
 
@@ -2774,7 +2769,7 @@ export class OverlayLayer {
        重画一次，不然用户看到的还是关闭那一刻的「正在检索…」。 */
     if (getState().searchMode === 'semantic') {
       const list = this.root.querySelector<HTMLElement>('[data-role="hitlist"]');
-      if (list) setHtml(list, searchResultsHtml(getState().searchKw, getState().searchFloatScope, 'book'));
+      if (list) setHtml(list, searchResultsHtml(getState().searchKw, searchScopeOf('book'), 'book'));
     }
     if (refocus) {
       const input = this.root.querySelector<HTMLInputElement>('[data-role="searchkw"]');

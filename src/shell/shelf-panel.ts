@@ -12,7 +12,7 @@
 import { isCompactLibrary, isMobileShell } from '../core/mobile';
 import { TAP_LONG_PRESS_MS, TAP_MENU_PRESSURE_MS, TAP_SLOP_PX } from '../core/tap';
 import { dispatchAction, dispatchInput } from './actions';
-import { getState, setState, setStateQuiet, subscribe, type StudyPage } from './state';
+import { getState, searchScopeOf, setState, setStateQuiet, subscribe, type StudyPage } from './state';
 import { getShellSource, liveBooks, shellPrefs, subscribeShellSource } from './source';
 import { studyShell } from './render/study';
 import { searchResultsHtml } from './render/search';
@@ -219,7 +219,7 @@ export class ShelfPanel {
       const root = this.root;
       if (!root) return;
       const list = root.querySelector<HTMLElement>('[data-role="hitlist"]');
-      if (list) setHtml(list, searchResultsHtml(getState().searchKw, getState().searchScope, 'shelf'));
+      if (list) setHtml(list, searchResultsHtml(getState().searchKw, searchScopeOf('shelf'), 'shelf'));
     };
     RT.body.listeners.add(this.hitlistCb);
     RT.semantic.listeners.add(this.hitlistCb);
@@ -288,7 +288,7 @@ export class ShelfPanel {
         if (getState().searchMode === 'semantic') {
           dispatchAction('semrun', target, { repaint: () => this.render() });
         } else {
-          kickBodySearch(getState().searchKw, getState().searchScope);
+          kickBodySearch(getState().searchKw, searchScopeOf('shelf'));
         }
         return;
       }
@@ -392,9 +392,9 @@ export class ShelfPanel {
           return;
         }
         const list = this.root?.querySelector<HTMLElement>('[data-role="hitlist"]');
-        if (list) setHtml(list, searchResultsHtml(v, getState().searchScope, 'shelf'));
+        if (list) setHtml(list, searchResultsHtml(v, searchScopeOf('shelf'), 'shelf'));
         /* 快结果已经画上了，正文命中随后异步追加（防抖在 search-run 里） */
-        kickBodySearch(v, getState().searchScope);
+        kickBodySearch(v, searchScopeOf('shelf'));
         return;
       }
       dispatchInput(t as HTMLInputElement, e);

@@ -123,6 +123,78 @@ describe('AI 页签 · 等待态与对话操作', () => {
   });
 });
 
+/* ============================================================
+ * 操作行与停止（2026-11-17 真机）
+ *
+ *   1. 气泡里那颗「停止」删掉——它把「正在生成回答」那一行撑成了两行；
+ *   2. 停止能力挪到发送键：生成中同一位置换成方标，点了照样能停；
+ *   3. 「复制 / 重答」原来是两个块级按钮，各自换行摞在右下角，收成一行图标。
+ * ============================================================ */
+describe('AI 页签 · 操作行与停止', () => {
+  const asked = [
+    { me: true as const, tag: '我', text: '这是谁说的？' },
+    { me: false as const, tag: 'AI · 全书', text: '是汪太太说的。' },
+  ];
+
+  it('等待气泡里不再有停止按钮（它只留「在干什么」一行）', () => {
+    const html = view({ aiLog: asked.slice(0, 1), aiStage: 'model' });
+    expect(html).toContain('正在生成回答…');
+    /* 只看等待气泡那一段：发送键上那颗停止是另一处，不算「气泡里的停止」 */
+    const at = html.indexOf('is-pending');
+    const bubble = html.slice(at, html.indexOf('bzs-ai-composer'));
+    expect(bubble).not.toContain('data-act="aistop"');
+    expect(bubble).not.toContain('bzs-ai-stop');
+  });
+
+  it('生成中发送键就地换成停止键', () => {
+    const html = view({ aiLog: asked.slice(0, 1), aiStage: 'model' });
+    const bar = html.slice(html.indexOf('bzs-ai-cbar'));
+    expect(bar).toContain('data-act="aistop"');
+    expect(bar).not.toContain('data-act="aiask"');
+    expect(bar).toContain('data-icon="stop"');
+  });
+
+  it('没在生成时发送键还是发送', () => {
+    const html = view({ aiLog: asked });
+    const bar = html.slice(html.indexOf('bzs-ai-cbar'));
+    expect(bar).toContain('data-act="aiask"');
+    expect(bar).not.toContain('data-act="aistop"');
+  });
+
+  it('复制与重答收在同一行、用原生图标，不再各占一行', () => {
+    const html = view({ aiLog: asked });
+    const at = html.indexOf('bzs-ai-acts');
+    expect(at).toBeGreaterThan(0);
+    const acts = html.slice(at, at + 700);
+    expect(acts).toContain('data-act="aicopyone"');
+    expect(acts).toContain('data-act="airetry"');
+    expect(acts).toContain('data-icon="copy"');
+    expect(acts).toContain('data-icon="rotate-ccw"');
+    /* 旧样式是块级下划线文字，两个按钮必然上下摞 */
+    expect(acts).not.toContain('bzs-ai-copy');
+  });
+});
+
+describe('AI 页签 · 旧索引提示', () => {
+  const answerWith = (title: string): string =>
+    view({
+      aiLog: [
+        { me: true, tag: '我', text: '问' },
+        { me: false, tag: 'AI', text: '答', sources: [{ title, bookId: 'b1', note: '第 319 块 · 摘录' }] },
+      ],
+    });
+
+  it('依据写着「第 16 节」这种按顺序编的假章名：说明索引是旧版', () => {
+    const html = answerWith('第 16 节');
+    expect(html).toContain('bzs-aisrc-old');
+    expect(html).toContain('索引是旧版');
+  });
+
+  it('真章名不打扰', () => {
+    expect(answerWith('第一章')).not.toContain('bzs-aisrc-old');
+  });
+});
+
 describe('AI 页签 · A 版聊天结构', () => {
   it('输入框换成 textarea，保留 data-role="aiask" 钩子', () => {
     const html = view();
