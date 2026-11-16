@@ -16,7 +16,18 @@ import { LOCALES, PACK_OF, setLocale, type Locale } from '../src/i18n';
 
 afterEach(() => setLocale('zh'));
 
-const README_LINES = readFileSync('README.md', 'utf8').split(/\r?\n/);
+/* 六种语言已拆成独立 README；英文仍留在主 README 里。功能表勾叉按语言各读各的文件。 */
+const README_FILE: Record<Locale, string> = {
+  zh: 'README.md',
+  'zh-TW': 'README.zh-TW.md',
+  en: 'README.md',
+  ja: 'README.ja.md',
+  de: 'README.de.md',
+  fr: 'README.fr.md',
+  es: 'README.es.md',
+  pt: 'README.pt.md',
+};
+const readmeLines = (l: Locale) => readFileSync(README_FILE[l], 'utf8').split(/\r?\n/);
 
 /** 各语言「链接」这个词，用来确认文案真的讲到了依赖，不只是换了句空话 */
 const LINK_WORD: Record<Locale, string> = {
@@ -100,7 +111,7 @@ describe('README · 引用页签的依赖说明', () => {
        它是解释性文字，功能表的「基础版 — / 高级版 ✓」已经说明白，
        同一件事在 README 里说两遍反而像在辩解。 */
     for (const l of LOCALES) {
-      const line = README_LINES.find((x) => x.startsWith('- **') && x.includes(FAQ_TITLE[l]));
+      const line = readmeLines(l).find((x) => x.startsWith('- **') && x.includes(FAQ_TITLE[l]));
       expect(line, l).toBeUndefined();
     }
   });
@@ -109,10 +120,11 @@ describe('README · 引用页签的依赖说明', () => {
 describe('README · 功能表把引用页签归到高级版', () => {
   it('八种语言都是「基础版 — / 高级版 ✓」，且紧排在双向链接下面', () => {
     for (const l of LOCALES) {
-      const at = README_LINES.findIndex((x) => x.startsWith('|  |') && x.includes(TABLE_CITES[l]));
+      const lines = readmeLines(l);
+      const at = lines.findIndex((x) => x.startsWith('|  |') && x.includes(TABLE_CITES[l]));
       expect(at, l).toBeGreaterThan(-1);
-      expect(README_LINES[at], l).toMatch(/\| — \| ✓ \|$/);
-      expect(README_LINES[at - 1], l).toContain(TABLE_BILINK[l]);
+      expect(lines[at], l).toMatch(/\| — \| ✓ \|$/);
+      expect(lines[at - 1], l).toContain(TABLE_BILINK[l]);
     }
   });
 });

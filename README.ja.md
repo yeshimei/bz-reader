@@ -1,10 +1,96 @@
 <div align="center">
+  <img src="docs/images/mark.svg" width="76" height="76" alt="">
+  <h1>bz Reader</h1>
+  <p><b>Obsidian を読書できる場所に。</b><br>
+  <sub>デスクトップ + モバイル、複数形式（PDF を含む）、多言語、AI 全書 Q&A、双方向リンク、データはすべてローカル。</sub></p>
+
+  <p>
+    <a href="https://obsidian.md"><img src="https://img.shields.io/badge/OBSIDIAN-%E2%89%A5%201.8.7-8a6a3a?style=flat-square&logo=obsidian&logoColor=white" alt="Obsidian 1.8.7 以上"></a>
+    <a href="https://github.com/yeshimei/bz-reader/releases/latest"><img src="https://img.shields.io/github/v/release/yeshimei/bz-reader?style=flat-square&label=%E3%83%90%E3%83%BC%E3%82%B8%E3%83%A7%E3%83%B3&labelColor=1f1f1e&color=6a6861" alt="バージョン"></a>
+    <a href="https://github.com/yeshimei/bz-reader/releases"><img src="https://img.shields.io/github/downloads/yeshimei/bz-reader/total?style=flat-square&label=%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89%E6%95%B0&labelColor=1f1f1e&color=6d8795" alt="ダウンロード数"></a>
+    <img src="https://img.shields.io/badge/%E3%83%97%E3%83%A9%E3%83%83%E3%83%88%E3%83%95%E3%82%A9%E3%83%BC%E3%83%A0-%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97%20%2B%20%E3%83%A2%E3%83%90%E3%82%A4%E3%83%AB-5f7f57?style=flat-square&labelColor=1f1f1e" alt="デスクトップ + モバイル">
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/yeshimei/bz-reader?style=flat-square&label=%E3%83%A9%E3%82%A4%E3%82%BB%E3%83%B3%E3%82%B9&labelColor=1f1f1e&color=5f7f57" alt="MIT"></a>
+    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-%E8%A6%8B%E3%81%9F%E7%9B%AE%20%2B%20%E3%82%AA%E3%83%BC%E3%83%AB%E3%82%A4%E3%83%B3%E3%83%AF%E3%83%B3-7c3aed?style=flat-square&labelColor=1f1f1e" alt="連携プラグイン bz：見た目 + オールインワン"></a>
+  </p>
+
+  <p><sub><a href="https://www.bilibili.com/video/BV1tK4E6KE1B">動画チュートリアル</a> · QQ グループ 1130883117 · <a href="README.md#support">作者を支援</a></sub></p>
+</div>
+
+<div align="center">
   <p><sub><a href="README.md">简体中文</a> · <a href="README.md#english">English</a> · <a href="README.zh-TW.md">繁體中文</a> · 日本語 · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.pt.md">Português</a></sub></p>
 </div>
 
 ## 日本語
 
 Obsidian を「本を読む場所」に。デスクトップ + モバイル、複数フォーマット（PDF を含む）、多言語対応、AI 全書 Q&A、双方向リンク。データはすべてローカル。
+
+<p align="center"><b>書棚 · 分類 · 続きから読む · 状態フィルター · 表紙ウォール</b></p>
+
+<p align="center">
+  <img src="docs/images/shelf-desktop-light.webp" alt="書棚：続きから読む、フィルター、分類、表紙ウォール（左が明るいテーマ、右が暗いテーマ）">
+</p>
+
+<p align="center"><b>読書 · メモ · 色分け · 選択ツールバー · 脚注</b></p>
+
+<p align="center">
+  <img src="docs/images/read-desktop-light.webp" alt="読書：目次、本文、選択メニュー、脚注のポップオーバー（左が明るいテーマ、右が暗いテーマ）">
+</p>
+
+<p align="center"><b>モバイル · 書棚 · 読書</b></p>
+
+<p align="center">
+  <img src="docs/images/shelf-mobile-light.webp" width="288" alt="書棚 · モバイル · 明るいテーマ">
+  &nbsp;&nbsp;
+  <img src="docs/images/read-mobile-dark.webp" width="288" alt="読書 · モバイル · 暗いテーマ">
+</p>
+
+<p align="center"><b>AI · 固定された追加質問 · 全書 Q&A</b></p>
+
+<p align="center">
+  <img src="docs/images/ai-desktop-light.png" alt="AI：選択ツールバー、固定された追加質問、右側は全書 Q&A">
+</p>
+
+<p align="center"><b>PDF · 書摘</b></p>
+
+<p align="center">
+  <img src="docs/images/pdf-desktop-light.png" alt="PDF：選択後に書摘ポップオーバー、四種の切り出し方、引用し直し・ノート保存・画像コピー">
+</p>
+
+<p align="center"><b>読み上げ · 文単位ハイライト · 章 / 全冊の事前生成</b></p>
+
+<p align="center">
+  <img src="docs/images/read-aloud-desktop-light.png" alt="読み上げ：文ごとのハイライト、前の文 / 次の文、速度、書き出し、設定">
+</p>
+
+<p align="center"><b>ノート · 毎日の見直し</b></p>
+
+<p align="center">
+  <img src="docs/images/notes-desktop-light.png" alt="ノート：毎日の見直し、色とキーワードで絞り込み、本ごとのハイライトとメモ">
+</p>
+
+<p align="center"><b>チャット · 本ごとにまとめる</b></p>
+
+<p align="center">
+  <img src="docs/images/chat-desktop-light.png" alt="チャット：今月の追加 / アーカイブ、種類で絞り込み、本ごとの会話カード">
+</p>
+
+<p align="center"><b>検索 · 字面 / 意味 · スキャン進捗 · 本ごと · 章の位置</b></p>
+
+<p align="center">
+  <img src="docs/images/search-desktop-light.png" alt="検索：字面と意味の二通り、本ごとのスキャン進捗、結果を本ごとに章位置付きで表示">
+</p>
+
+<p align="center"><b>統計 · 今日 · 前週比 · 每日の時間 · 読書リズム</b></p>
+
+<p align="center">
+  <img src="docs/images/stats-desktop-light.png" alt="統計：合計時間と連続日数、週間比較、每日の読書時間とリズム">
+</p>
+
+<p align="center"><b>読書サイドバー · 目次 · しおり · ハイライト · 引用 · AI 全書 Q&A</b></p>
+
+<p align="center">
+  <img src="docs/images/sidebar-desktop-light.png" alt="五つのタブを並べて表示：目次、しおり、ハイライト、引用、AI 全書 Q&A">
+</p>
 
 ### インストール
 

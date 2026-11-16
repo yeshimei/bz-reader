@@ -1,10 +1,96 @@
 <div align="center">
+  <img src="docs/images/mark.svg" width="76" height="76" alt="">
+  <h1>bz Reader</h1>
+  <p><b>把 Obsidian 變成一個能讀書的地方。</b><br>
+  <sub>桌面端 + 行動端、多格式（包括 PDF）、多語言支援、AI 全書問答、雙向連結，資料全部本地。</sub></p>
+
+  <p>
+    <a href="https://obsidian.md"><img src="https://img.shields.io/badge/OBSIDIAN-%E2%89%A5%201.8.7-8a6a3a?style=flat-square&logo=obsidian&logoColor=white" alt="Obsidian 1.8.7 以上"></a>
+    <a href="https://github.com/yeshimei/bz-reader/releases/latest"><img src="https://img.shields.io/github/v/release/yeshimei/bz-reader?style=flat-square&label=%E7%89%88%E6%9C%AC&labelColor=1f1f1e&color=6a6861" alt="版本"></a>
+    <a href="https://github.com/yeshimei/bz-reader/releases"><img src="https://img.shields.io/github/downloads/yeshimei/bz-reader/total?style=flat-square&label=%E4%B8%8B%E8%BC%89%E9%87%8F&labelColor=1f1f1e&color=6d8795" alt="下載量"></a>
+    <img src="https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-%E6%A1%8C%E9%9D%A2%20%2B%20%E8%A1%8C%E5%8B%95-5f7f57?style=flat-square&labelColor=1f1f1e" alt="桌面 + 行動">
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/yeshimei/bz-reader?style=flat-square&label=%E6%8E%88%E6%AC%8A&labelColor=1f1f1e&color=5f7f57" alt="MIT"></a>
+    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-%E9%A1%8F%E5%80%BC%20%2B%20%E9%9B%86%E5%A4%A7%E6%88%90-7c3aed?style=flat-square&labelColor=1f1f1e" alt="配套外掛 bz：顏值 + 集大成"></a>
+  </p>
+
+  <p><sub><a href="https://www.bilibili.com/video/BV1tK4E6KE1B">影片教學</a> · QQ 群 1130883117 · <a href="README.md#support">支持作者</a></sub></p>
+</div>
+
+<div align="center">
   <p><sub><a href="README.md">简体中文</a> · <a href="README.md#english">English</a> · 繁體中文 · <a href="README.ja.md">日本語</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.pt.md">Português</a></sub></p>
 </div>
 
 ## 繁體中文
 
 把 Obsidian 變成一個能讀書的地方。桌面端 + 行動端、多格式（包括 PDF）、多語言支援、AI 全書問答、雙向連結，資料全部本地。
+
+<p align="center"><b>書架 · 分類 · 繼續閱讀 · 狀態篩選 · 封面牆</b></p>
+
+<p align="center">
+  <img src="docs/images/shelf-desktop-light.webp" alt="書架：繼續閱讀、篩選列、書架分類與封面牆（左亮右暗）">
+</p>
+
+<p align="center"><b>閱讀 · 寫想法 · 筆色 · 劃詞工具列 · 註腳</b></p>
+
+<p align="center">
+  <img src="docs/images/read-desktop-light.webp" alt="閱讀頁：左側目錄、單欄正文、劃詞膠囊與註腳浮窗（左亮右暗）">
+</p>
+
+<p align="center"><b>行動版 · 書架 · 閱讀</b></p>
+
+<p align="center">
+  <img src="docs/images/shelf-mobile-light.webp" width="288" alt="書架 · 行動版 · 亮色">
+  &nbsp;&nbsp;
+  <img src="docs/images/read-mobile-dark.webp" width="288" alt="閱讀 · 行動版 · 暗色">
+</p>
+
+<p align="center"><b>AI · 錨定追問 · 全書問答</b></p>
+
+<p align="center">
+  <img src="docs/images/ai-desktop-light.png" alt="AI：劃詞工具列、錨定追問浮框，右側為全書問答">
+</p>
+
+<p align="center"><b>PDF · 書摘</b></p>
+
+<p align="center">
+  <img src="docs/images/pdf-desktop-light.png" alt="PDF：劃線後彈出書摘浮框，四種取圖方式與重新引用、存筆記、複製圖片">
+</p>
+
+<p align="center"><b>朗讀 · 逐句高亮 · 整章 / 整本預先生成</b></p>
+
+<p align="center">
+  <img src="docs/images/read-aloud-desktop-light.png" alt="朗讀：正文逐句高亮，底部播放列含上一句 / 下一句、語速、匯出與設定">
+</p>
+
+<p align="center"><b>筆記 · 每日回顧</b></p>
+
+<p align="center">
+  <img src="docs/images/notes-desktop-light.png" alt="筆記頁：每日回顧、筆色與關鍵詞篩選、依書分組的劃線卡與想法">
+</p>
+
+<p align="center"><b>對話 · 依書分組</b></p>
+
+<p align="center">
+  <img src="docs/images/chat-desktop-light.png" alt="對話頁：本月新增 / 已歸檔計數、方式篩選、依書分組的對話卡">
+</p>
+
+<p align="center"><b>搜尋 · 字面 / 按意思 · 翻書進度 · 依書分組 · 章節定位</b></p>
+
+<p align="center">
+  <img src="docs/images/search-desktop-light.png" alt="搜尋頁：字面與按意思兩種找法、逐本翻書進度、結果依書分組並標出章節位置">
+</p>
+
+<p align="center"><b>統計 · 今日概覽 · 環比 · 每日時長 · 閱讀節律</b></p>
+
+<p align="center">
+  <img src="docs/images/stats-desktop-light.png" alt="統計頁：總時長與連續天數、本週環比、每日時長柱狀圖與閱讀節律">
+</p>
+
+<p align="center"><b>閱讀側欄 · 目錄 · 書籤 · 劃線 · 引用 · AI 全書問答</b></p>
+
+<p align="center">
+  <img src="docs/images/sidebar-desktop-light.png" alt="閱讀側欄五個頁籤並排：目錄、書籤、劃線、引用與 AI 全書問答">
+</p>
 
 ### 安裝
 

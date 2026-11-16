@@ -1,10 +1,96 @@
 <div align="center">
+  <img src="docs/images/mark.svg" width="76" height="76" alt="">
+  <h1>bz Reader</h1>
+  <p><b>Transforme o Obsidian em um lugar para ler.</b><br>
+  <sub>Desktop + celular, vários formatos (incluindo PDF), multilíngue, IA sobre todo o livro, wikilinks; dados totalmente locais.</sub></p>
+
+  <p>
+    <a href="https://obsidian.md"><img src="https://img.shields.io/badge/OBSIDIAN-%E2%89%A5%201.8.7-8a6a3a?style=flat-square&logo=obsidian&logoColor=white" alt="Obsidian 1.8.7+"></a>
+    <a href="https://github.com/yeshimei/bz-reader/releases/latest"><img src="https://img.shields.io/github/v/release/yeshimei/bz-reader?style=flat-square&label=VERS%C3%83O&labelColor=1f1f1e&color=6a6861" alt="Versão"></a>
+    <a href="https://github.com/yeshimei/bz-reader/releases"><img src="https://img.shields.io/github/downloads/yeshimei/bz-reader/total?style=flat-square&label=DOWNLOADS&labelColor=1f1f1e&color=6d8795" alt="Downloads"></a>
+    <img src="https://img.shields.io/badge/PLATAFORMA-DESKTOP%20%2B%20CELULAR-5f7f57?style=flat-square&labelColor=1f1f1e" alt="Desktop + celular">
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/yeshimei/bz-reader?style=flat-square&label=LICEN%C3%87A&labelColor=1f1f1e&color=5f7f57" alt="MIT"></a>
+    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-BELEZA%20%2B%20TUDO%20EM%20UM-7c3aed?style=flat-square&labelColor=1f1f1e" alt="Plugin complementar bz: beleza + tudo em um"></a>
+  </p>
+
+  <p><sub><a href="https://www.bilibili.com/video/BV1tK4E6KE1B">Tutorial em vídeo</a> · Grupo QQ 1130883117 · <a href="README.md#support">Apoiar o autor</a></sub></p>
+</div>
+
+<div align="center">
   <p><sub><a href="README.md">简体中文</a> · <a href="README.md#english">English</a> · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · Português</sub></p>
 </div>
 
 ## Português
 
 Transforme o Obsidian num lugar para ler. Desktop e celular, vários formatos (incluindo PDF), interface multilíngue, perguntas de IA sobre o livro inteiro, wikilinks. Todos os dados ficam locais.
+
+<p align="center"><b>Estante · Grupos · Continuar lendo · Filtros · Parede de capas</b></p>
+
+<p align="center">
+  <img src="docs/images/shelf-desktop-light.webp" alt="Estante: continuar lendo, filtros, grupos e parede de capas (claro à esquerda, escuro à direita)">
+</p>
+
+<p align="center"><b>Leitura · Notas · Cores · Barra de seleção · Notas de rodapé</b></p>
+
+<p align="center">
+  <img src="docs/images/read-desktop-light.webp" alt="Leitura: sumário, texto, seleção e janela de nota de rodapé (claro à esquerda, escuro à direita)">
+</p>
+
+<p align="center"><b>Mobile · Estante · Leitura</b></p>
+
+<p align="center">
+  <img src="docs/images/shelf-mobile-light.webp" width="288" alt="Estante no celular, claro">
+  &nbsp;&nbsp;
+  <img src="docs/images/read-mobile-dark.webp" width="288" alt="Leitura no celular, escuro">
+</p>
+
+<p align="center"><b>IA · Pergunta ancorada · Perguntas sobre todo o livro</b></p>
+
+<p align="center">
+  <img src="docs/images/ai-desktop-light.png" alt="IA: barra de seleção, pergunta ancorada e perguntas sobre todo o livro">
+</p>
+
+<p align="center"><b>PDF · Citações</b></p>
+
+<p align="center">
+  <img src="docs/images/pdf-desktop-light.png" alt="PDF: janela de citação após selecionar, quatro formatos, recitar / salvar nota / copiar imagem">
+</p>
+
+<p align="center"><b>Leitura em voz alta · Destaque por frase · Pré-geração</b></p>
+
+<p align="center">
+  <img src="docs/images/read-aloud-desktop-light.png" alt="Leitura em voz alta: destaque frase a frase, controles de anterior / seguinte, velocidade, exportação e ajustes">
+</p>
+
+<p align="center"><b>Notas · Revisão diária</b></p>
+
+<p align="center">
+  <img src="docs/images/notes-desktop-light.png" alt="Notas: revisão diária, filtros por cor e palavra-chave, destaques agrupados por livro">
+</p>
+
+<p align="center"><b>Conversas · Por livro</b></p>
+
+<p align="center">
+  <img src="docs/images/chat-desktop-light.png" alt="Conversas: contadores de novas e arquivadas, filtros por modo, conversas agrupadas por livro">
+</p>
+
+<p align="center"><b>Busca · Literal / por significado · Progresso · Por livro · Capítulos</b></p>
+
+<p align="center">
+  <img src="docs/images/search-desktop-light.png" alt="Busca: literal e semântica, progresso por livro, resultados agrupados com localização nos capítulos">
+</p>
+
+<p align="center"><b>Estatísticas · Hoje · Comparação · Tempo diário · Ritmo</b></p>
+
+<p align="center">
+  <img src="docs/images/stats-desktop-light.png" alt="Estatísticas: tempo total e sequência, comparação semanal, barras diárias e ritmo de leitura">
+</p>
+
+<p align="center"><b>Barra lateral · Sumário · Marcadores · Destaques · Citações · IA</b></p>
+
+<p align="center">
+  <img src="docs/images/sidebar-desktop-light.png" alt="Cinco abas da barra lateral: sumário, marcadores, destaques, citações e IA sobre todo o livro">
+</p>
 
 ### Instalação
 
