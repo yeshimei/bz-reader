@@ -219,7 +219,18 @@ export interface ReaderEngine {
     onProgress?: (done: number, total: number, title: string) => void;
     shouldStop?: () => boolean;
   }): Promise<Array<{ title: string; text: string }>>;
-  search(kw: string, opts?: { shouldStop?: () => boolean }): Promise<SearchHit[]>;
+  search(
+    kw: string,
+    opts?: {
+      shouldStop?: () => boolean;
+      /** 只搜当前这一章（AI 依据「先到章、再章内找」用；PDF 忽略） */
+      chapterOnly?: boolean;
+      /** 指定章序号（与 chapterOnly 一起用，避免依赖「当前章」的刷新时序） */
+      index?: number;
+    },
+  ): Promise<SearchHit[]>;
+  /** 章名 → 章序号（AI 依据跳转要在目标章里搜，先算好序号）；找不到 -1 */
+  chapterIndexOf?(title: string): number;
   clearSearch(): void;
   /**
    * 只把词标在页面上，不再扫一遍。

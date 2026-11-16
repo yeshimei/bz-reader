@@ -96,26 +96,44 @@ export function hitsToContext(hits: readonly BzNoteHit[], limit = AI_CONTEXT_LIM
  * 命中的是「块」，但给用户看的必须是他认的东西：章名 + 第几块 + 一小段原文。
  * 带上 bookId 与 `text`，点一下能打开这本书并落到那段原文附近；只有章名时
  * 只能落到章首，厚书里还得自己翻——「第 12 块」对用户没有意义。
+ *
+ * 2026-11-17 真机（依据仍跳错）之后，`text` 与 `note` 分成两种口径：
+ *   · `text` 是**跳转用**的原文：取块主体里的一整行，保留行内空白。
+ *     引擎的搜索是文本节点原样拼接，跨行压成空格就再也搜不到。
+ *   · `note` 是**显示用**的摘要：压成一行，扫一眼认得出是哪块。
+ *
+ * 另一个真机根因：切块带 `overlap`（默认 120 字），块开头那一段是上一块
+ * 结尾的复述，属于**上一章**。拿它当跳转词，目标章里搜不到，就落到别处。
+ * 所以先跳过重叠段再取行。
  */
 export function sourcesOfBlocks(
   bookId: string,
   blocks: ReadonlyArray<{ chapter?: string; index: number; text?: string }>,
   take = 5,
+  overlap = 0,
 ): AiSource[] {
+  const skip = Math.max(0, Math.floor(Number(overlap) || 0));
   const out: AiSource[] = [];
   for (const b of blocks) {
     if (out.length >= take) break;
     const chapter = String(b.chapter ?? '').trim();
-    const excerpt = String(b.text ?? '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 40);
+    const raw = String(b.text ?? '').replace(/\r\n?/g, '\n');
+    /* 重叠段也可能比正文还长（老画像 overlap 记错），跳过头就退回原样 */
+    const body = skip > 0 && raw.length > skip ? raw.slice(skip) : raw;
+    /* 一整行才拿去搜：段落之间是换行，跨行拼出来的串在书里不存在 */
+    const lines = body
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const line = lines.find((s) => Array.from(s).length >= 6) ?? lines[0] ?? '';
+    const jump = Array.from(line).slice(0, 40).join('');
+    const show = body.replace(/\s+/g, ' ').trim().slice(0, 40);
     const where = t('side.ai.source.block', { n: String(Number(b.index) + 1) });
     out.push({
       title: chapter || t('side.ai.source.chapter'),
       bookId: bookId || undefined,
-      note: excerpt ? `${where} · ${excerpt}` : where,
-      text: excerpt || undefined,
+      note: show ? `${where} · ${show}` : where,
+      text: jump || undefined,
     });
   }
   return out;

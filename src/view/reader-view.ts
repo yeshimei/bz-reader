@@ -1944,13 +1944,24 @@ export class ReaderView extends ItemView {
     else root.style.removeProperty('--bzr-bottom-gap');
   }
 
+  /** 这本书是不是 PDF：壳层据此决定来源按「章名」还是「页码」定位 */
+  get isPdf(): boolean {
+    return this.host.isPdf;
+  }
+
   /**
    * 搜这一本的正文，返回带 CFI 的命中（新功能「书内搜索的命中定位」）。
    *
    * 以前 `host.search()` 只在深链兜底里用过，界面上没有入口：搜索浮层
    * 只能搜「已建索引」的书名/作者/标注，正文里的字搜不到。
+   *
+   * `chapterOnly`（2026-11-17）：只搜当前这一章。AI 依据跳转先用它
+   * ——「先到章、再章内找」，目标章没有就不跳，避免落到别的章。
    */
-  async searchText(kw: string): Promise<TextHit[]> {
+  async searchText(
+    kw: string,
+    opts: { chapterOnly?: boolean; index?: number } = {},
+  ): Promise<TextHit[]> {
     if (!this.mounted) await this.maybeMount();
     if (!this.mounted) return [];
     /* 每次搜索领一个号（B5）：全书搜索要逐章扫，几秒很正常。
@@ -1958,7 +1969,11 @@ export class ReaderView extends ItemView {
        把上一轮的结果画上去，轻则列表闪回旧词，重则往已销毁的视图里塞高亮。 */
     const gen = ++this.searchGen;
     const stale = (): boolean => gen !== this.searchGen || this.closed || !this.mounted;
-    const hits = await this.host.search(kw, { shouldStop: stale });
+    const hits = await this.host.search(kw, {
+      shouldStop: stale,
+      chapterOnly: opts.chapterOnly === true,
+      index: opts.index,
+    });
     if (stale()) return [];
     /* 归一放在纯函数里：命中可能带重复 CFI、空 CFI、{pre,match,post} 形状 */
     return toTextHits(hits);
@@ -2599,6 +2614,11 @@ export class ReaderView extends ItemView {
    *
    * 转一手 host：视图暴露给壳层的能力都走这一条，壳层不该知道 host 的存在。
    */
+  /** 章名 → 章序号；找不到 -1（AI 依据跳转先算好章，再章内搜） */
+  chapterIndexOf(title: string): number {
+    return this.host.chapterIndexOf?.(title) ?? -1;
+  }
+
   /** 按章名跳转（AI 来源点开用）；找不到就不动 */
   goToChapter(title: string): void {
     /* 点 AI 来源 = 用户要去那一章：停朗读、并且从现在起进度值得落盘（B14） */

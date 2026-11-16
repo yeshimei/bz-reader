@@ -558,6 +558,8 @@ export const ZH = {
   'ai.del.body': '它只会从对话记录里删掉，问答内容不再保留；你的划线和笔记不受影响。',
   'ai.del.ok': '删除',
   'notice.jump.notFound': '没有找到这句原文，已停在书里',
+  /* 依据跳转先到章、再章内找；章内没搜到就停在这一章开头 */
+  'notice.jump.chapterOnly': '已到这一章，具体位置没搜到；可以先按住这一章往下翻',
   'side.ai.ctx.quote': '划线',
   'side.ai.ctx.body': '正文',
   'side.ai.ctx.shot': '截图',

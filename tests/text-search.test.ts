@@ -97,8 +97,12 @@ describe('依据该落到哪一条命中（pickChapterHit）', () => {
     expect(pickChapterHit([hit('a', '序言'), hit('b', '序')], '序')?.cfi).toBe('b');
   });
 
-  it('章名对不上（老记录 / 目录改名）才退回第一条', () => {
-    expect(pickChapterHit([hit('a', '第一章'), hit('b', '第二章')], '第三章')?.cfi).toBe('a');
+  it('章名对不上（老记录 / 目录改名）就不跳，落到章首——不回退第一条乱跳', () => {
+    expect(pickChapterHit([hit('a', '第一章'), hit('b', '第二章')], '第三章')).toBeUndefined();
+  });
+
+  it('没有章名时才用第一条（PDF / 老来源没有章）', () => {
+    expect(pickChapterHit([hit('a', '第一章'), hit('b', '第二章')], '')?.cfi).toBe('a');
   });
 
   it('没有命中时返回 undefined', () => {

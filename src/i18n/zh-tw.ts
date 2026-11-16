@@ -1358,4 +1358,5 @@ export const ZH_TW: Record<MsgKey, string> = {
   'shelf.empty.import': '[TODO] shelf.empty.import',
   'search.scope.allLocked': '[TODO] search.scope.allLocked',
   'side.ai.src.stale': '[TODO] side.ai.src.stale',
+  'notice.jump.chapterOnly': '[TODO] notice.jump.chapterOnly',
 };

@@ -644,7 +644,9 @@ export function createPlugin(cfg: PluginConfig) {
         repo: this.repo,
         store: this.store,
         openBook: (book, cfi, query) => void this.openBook(book, cfi, query),
-        jumpIntoBook: (book, snippet) => void this.jumpIntoBook(book, snippet),
+        /* 章名必须一起传：2026-11-16 加了这个参数，适配层漏接，壳层传了
+           也到不了 jumpIntoBook——依据永远按「全书第一条」跳。 */
+        jumpIntoBook: (book, snippet, chapter) => void this.jumpIntoBook(book, snippet, chapter),
         openTarget: (target) => void this.openFromTarget(target),
         openImport: () => this.openImportPanel(),
         mountImport: (host) => this.mountImportPage(host),
@@ -1365,6 +1367,12 @@ export function createPlugin(cfg: PluginConfig) {
      *
      * 语义命中里没有 CFI（画像只存章节与原文），只能拿这一段的开头在书内
      * 再搜一次——定位交给已有的全文搜索，不另造一套坐标。
+     *
+     * 2026-11-17 真机（依据仍跳错）：改成**先到章、再章内找**。
+     * 来源的原文取自块开头，切块有 overlap 时那一段可能是上一章尾巴；
+     * 全书搜索按章名挑不中时，以前会退回「全书第一条」——点附录跳到
+     * 第九章的注释就是这么来的。现在目标章搜不到就停在章首，章永远是对的。
+     * PDF 没有「章名」这一层（来源写的是「第 N 页」），仍走原来的全书搜索。
      */
     async jumpIntoBook(book: ReaderBook, snippet: string, chapter = ''): Promise<void> {
       await this.openBook(book);
@@ -1379,14 +1387,49 @@ export function createPlugin(cfg: PluginConfig) {
           ) ?? null;
       if (!view) return;
       const kw = jumpKey(snippet);
+      const name = chapter.trim();
       if (!kw) {
         /* 只有章名（老来源）：落到那一章开头，至少还在那一章 */
-        if (chapter.trim()) view.goToChapter(chapter.trim());
+        if (name) view.goToChapter(name);
         return;
       }
+
+      /* EPUB：直接在目标章里搜（显式给章序号）。
+         不先跳章再搜——跳完 `chapterIndex` 往往还没刷新，章内搜会搜回
+         上一章（真机：点附录落到第九章的注释）。章名找不到（老记录 /
+         目录改名）才走下面的全书兜底。 */
+      if (name && !view.isPdf) {
+        const index = view.chapterIndexOf(name);
+        if (index >= 0) {
+          let hit: TextHit | undefined;
+          try {
+            hit = (await view.searchText(kw, { chapterOnly: true, index }))[0];
+            /* 长词搜不到：多半是原文里断行 / 标点与书里不同，缩到前半句再试一次 */
+            if (!hit && Array.from(kw).length > 12) {
+              const half = Array.from(kw).slice(0, Math.ceil(Array.from(kw).length / 2)).join('');
+              hit = (await view.searchText(half, { chapterOnly: true, index }))[0];
+            }
+          } catch {
+            hit = undefined;
+          }
+          if (hit?.cfi) {
+            view.jumpTo(hit.cfi);
+            return;
+          }
+          /* 本章里没这句：落到章首，章至少是对的 */
+          view.goToChapter(name);
+          notify(t('notice.jump.chapterOnly'));
+          return;
+        }
+      }
+
+      /* PDF 没有「章名」：来源写的是「第 N 页」，不能拿它去配章节标签，
+         所以给它一个空章名——pickChapterHit 会退回第一条（原来的行为，
+         再用定位串落到那一页）。EPUB 维持「目标章没有就不跳」。 */
+      const pickName = view.isPdf ? '' : name;
       let hit: TextHit | undefined;
       try {
-        hit = pickChapterHit(await view.searchText(kw), chapter);
+        hit = pickChapterHit(await view.searchText(kw), pickName);
       } catch {
         hit = undefined;
       }
@@ -1394,7 +1437,7 @@ export function createPlugin(cfg: PluginConfig) {
       if (!hit && Array.from(kw).length > 12) {
         const half = Array.from(kw).slice(0, Math.ceil(Array.from(kw).length / 2)).join('');
         try {
-          hit = pickChapterHit(await view.searchText(half), chapter);
+          hit = pickChapterHit(await view.searchText(half), pickName);
         } catch {
           hit = undefined;
         }
@@ -1404,7 +1447,7 @@ export function createPlugin(cfg: PluginConfig) {
         return;
       }
       /* 找不到：说一句，别静默停在原页（用户会以为「点了依据没反应」） */
-      if (chapter.trim()) view.goToChapter(chapter.trim());
+      if (name) view.goToChapter(name);
       notify(t('notice.jump.notFound'));
     }
 

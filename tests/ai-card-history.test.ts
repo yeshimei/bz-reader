@@ -115,9 +115,11 @@ describe('依据跳转 · 关键词与命中', () => {
     expect(pickChapterHit(hits, '第九章 围城')?.cfi).toBe('cfi9');
   });
 
-  it('章名对不上 / 没给章名：退回第一条，不能一条都不跳', () => {
+  it('章名对不上就不跳（调用方落到章首）；没给章名才退回第一条', () => {
     const hits = [hit('第一章', 'cfi1')];
-    expect(pickChapterHit(hits, '没这一章')?.cfi).toBe('cfi1');
+    /* 2026-11-17：目标章没有这句就不乱跳——以前回退第一条，真机表现为
+       「点附录跳到第九章的注释」。 */
+    expect(pickChapterHit(hits, '没这一章')).toBeUndefined();
     expect(pickChapterHit(hits, '')?.cfi).toBe('cfi1');
     expect(pickChapterHit([], '第一章')).toBeUndefined();
   });

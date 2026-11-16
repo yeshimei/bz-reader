@@ -85,6 +85,36 @@ describe('全书来源可点', () => {
     const many = Array.from({ length: 9 }, (_, i) => blk(`章${i}`, i));
     expect(sourcesOfBlocks('b1', many)).toHaveLength(5);
   });
+
+  /* 2026-11-17 真机：依据跳转仍错。三件事：
+     1. 块开头 40 字跨行时被压成空格，书里是换行 → 搜不到；
+     2. 切块有 overlap，块开头那一段其实是上一章尾巴；
+     3. 「第 N 块」是给人认位置的，显示版与跳转版要分开。 */
+  it('跳转用的原文取一整行，保留行内空白（跨行拼出来的串搜不到）', () => {
+    const src = sourcesOfBlocks('b1', [
+      { chapter: '扉页', index: 0, text: '围城\n钱锺书 著\n人民文学出版社\n2013-06-01' },
+    ]);
+    expect(src[0].text).toBe('人民文学出版社');
+    expect(src[0].note).toContain('第 1 块');
+    /* 显示版压成一行，用户扫一眼认得出是哪块 */
+    expect(src[0].note).toContain('围城 钱锺书 著');
+  });
+
+  it('跳过切块的重叠段：块开头那一段属于上一章，不能拿来定位', () => {
+    const carry = '上一章'.repeat(40); /* 正好 120 字 */
+    const src = sourcesOfBlocks(
+      'b1',
+      [{ chapter: '附录', index: 0, text: `${carry}\n记钱锺书与《围城》\n作者：杨绦` }],
+      5,
+      120,
+    );
+    expect(src[0].text).toBe('记钱锺书与《围城》');
+    expect(src[0].text).not.toContain('上一章');
+  });
+
+  it('没有 text 的老来源不给跳转词（调用方落到章首）', () => {
+    expect(sourcesOfBlocks('b1', [blk('第一章', 0)])[0].text).toBeUndefined();
+  });
 });
 
 describe('书 + 笔记：合并依据', () => {

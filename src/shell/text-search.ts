@@ -83,8 +83,12 @@ function chapterKey(s: string): string {
  * 却跳「书里第一次出现」，就会落到别的章——这就是「点了依据去错地方」。
  *
  * 精确匹配排在最前：目录里「序」与「序言」、「第一章」与「第一章 方鸿渐」
- * 同时存在时，「包含」会把「序」认成「序言」。章名完全对不上（老记录、
- * PDF 页码改名）才退回第一条。
+ * 同时存在时，「包含」会把「序」认成「序言」。
+ *
+ * 2026-11-17 真机：目标章里一条都没有时**不再退回第一条**。回退等于
+ * 「点附录、跳到第九章的注释」——用户看到的就是「依据乱跳」。返回
+ * undefined 后调用方落到那一章开头，位置不精确但章是对的。
+ * 只有**没有章名**（PDF / 老来源）时才用第一条。
  */
 export function pickChapterHit(
   hits: readonly TextHit[],
@@ -95,11 +99,10 @@ export function pickChapterHit(
   if (!want) return hits[0];
   const exact = hits.find((h) => chapterKey(h.chapterLabel) === want);
   if (exact) return exact;
-  const loose = hits.find((h) => {
+  return hits.find((h) => {
     const label = chapterKey(h.chapterLabel);
     return !!label && (label.includes(want) || want.includes(label));
   });
-  return loose ?? hits[0];
 }
 
 export function toTextHits(raw: readonly RawTextHit[], max = MAX_HITS): TextHit[] {

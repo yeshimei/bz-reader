@@ -4344,9 +4344,12 @@ async function bookEvidenceOf(
       if (picks.length) {
         blocks = {
           context: blocksEvidence(portrait, picks),
+          /* 传 overlap：块开头是上一块结尾的复述，跳转要跳过它再取原文 */
           sources: sourcesOfBlocks(
             portrait.bookId,
             picks.map((p) => ({ chapter: p.block.chapter, index: p.index, text: p.block.text })),
+            5,
+            portrait.overlap ?? 0,
           ),
         };
       }
@@ -4712,10 +4715,13 @@ async function followEvidenceOf(
     if (!picks.length) return empty;
     return {
       context: blocksEvidence(portrait, picks, FOLLOW_EVIDENCE_LIMIT),
-      /* 来源也带回来（2026-11-17）：浮框追问的出处照样能点回书里 */
+      /* 来源也带回来（2026-11-17）：浮框追问的出处照样能点回书里。
+         传 overlap：块开头那一段是上一块结尾的复述，跳转要跳过它。 */
       sources: sourcesOfBlocks(
         portrait.bookId,
         picks.map((p) => ({ chapter: p.block.chapter, index: p.index, text: p.block.text })),
+        5,
+        portrait.overlap ?? 0,
       ),
     };
   } catch {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chapterTitles } from '../src/engine/chapter-titles';
+import { chapterTitles, sectionIndexOfChapter } from '../src/engine/chapter-titles';
 
 /**
  * 画像里的章名（2026-11-17 真机：依据跳转全错）。
@@ -55,5 +55,33 @@ describe('画像章名（chapterTitles）', () => {
   it('空目录 / 空 section 列表都不抛', () => {
     expect(chapterTitles(undefined, [{ id: 'x' }], fallback)).toEqual(['section-1']);
     expect(chapterTitles(toc, [], fallback)).toEqual([]);
+  });
+});
+
+/* ============================================================
+ * 章名 → 章序号（2026-11-17）
+ *
+ * 依据跳转要在目标章里搜：先跳章再搜会踩 `chapterIndex` 还没刷新的时序
+ * （真机：点了附录，章内搜却还在第九章）。这里把章名先换序号。
+ * ============================================================ */
+describe('章名 → 章序号（sectionIndexOfChapter）', () => {
+  const toc = [
+    { label: '封面', href: 'OEBPS/Text/cover.html' },
+    { label: '第一章', href: 'OEBPS/Text/ch4.html' },
+    { label: '附录 记钱锺书与《围城》', href: 'OEBPS/Text/ch15.html' },
+  ];
+
+  it('EPUB 只有 id：算出正确序号', () => {
+    const sections = [{ id: 'OEBPS/Text/cover.html' }, { id: 'OEBPS/Text/ch4.html' }, { id: 'OEBPS/Text/ch15.html' }];
+    expect(sectionIndexOfChapter(toc, sections, '附录 记钱锺书与《围城》')).toBe(2);
+  });
+
+  it('TXT / 剪藏本只有 href：也算得出', () => {
+    expect(sectionIndexOfChapter(toc, [{ id: 'txt-0', href: 'OEBPS/Text/ch4.html' }], '第一章')).toBe(0);
+  });
+
+  it('章名不在目录里：-1（调用方走全书兜底）', () => {
+    expect(sectionIndexOfChapter(toc, [{ id: 'OEBPS/Text/ch4.html' }], '第九章')).toBe(-1);
+    expect(sectionIndexOfChapter(toc, [{ id: 'OEBPS/Text/ch4.html' }], '')).toBe(-1);
   });
 });

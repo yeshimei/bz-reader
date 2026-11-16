@@ -57,3 +57,28 @@ export function chapterTitles(
     return (id ? map.get(id) : '') || (href ? map.get(href) : '') || fallback(i);
   });
 }
+
+/**
+ * 章名 → section 序号（2026-11-17）。
+ *
+ * AI 依据跳转要「直接在目标章里搜」：先跳章再搜会踩到 `chapterIndex`
+ * 还没刷新的时序（真机表现：点了附录，章内搜却还在第九章）。
+ * 从章名算出序号，搜索时显式指定，不再看「当前在哪一章」。
+ * 同名取第一个；找不到 -1。
+ */
+export function sectionIndexOfChapter(
+  toc: readonly FoliateTOCItem[] | undefined | null,
+  sections: ReadonlyArray<ChapterSectionLike | null | undefined>,
+  title: string,
+): number {
+  const want = String(title ?? '').trim();
+  if (!want) return -1;
+  const map = tocLabelMap(toc);
+  for (let i = 0; i < sections.length; i += 1) {
+    const id = String(sections[i]?.id ?? '').split('#')[0].trim();
+    const href = String(sections[i]?.href ?? '').split('#')[0].trim();
+    const label = (id ? map.get(id) : '') || (href ? map.get(href) : '');
+    if (label === want) return i;
+  }
+  return -1;
+}

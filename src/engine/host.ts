@@ -37,7 +37,7 @@ import { contentInset } from './content-inset';
 import { makeTxtBook, countWords } from './txt';
 import { decodeTxtBytes } from './encoding';
 import { findTocHref } from './toc';
-import { chapterTitles } from './chapter-titles';
+import { chapterTitles, sectionIndexOfChapter } from './chapter-titles';
 import { teardownView } from './view-teardown';
 import { unionClientRects } from './selection-rect';
 import {
@@ -2347,6 +2347,17 @@ export class EngineHost {
   }
 
   /**
+   * 章名 → 章序号（2026-11-17，AI 依据跳转用）。
+   *
+   * 依据跳转要直接在目标章里搜：先跳章再搜会踩到 `chapterIndex` 还没
+   * 刷新的时序（真机：点了附录，章内搜却还在第九章）。先算好序号，
+   * 搜索时显式指定。找不到返回 -1。
+   */
+  chapterIndexOf(title: string): number {
+    return sectionIndexOfChapter(this.book?.toc, this.book?.sections ?? [], title);
+  }
+
+  /**
    * 逐章导出正文（全书画像用）。
    *
    * 与 `currentText()` 的分工：那个取「屏幕上这一页」，这个取**整本**——
@@ -2624,6 +2635,8 @@ export class EngineHost {
     query: string,
     opts: {
       chapterOnly?: boolean;
+      /** 指定章序号（与 chapterOnly 一起用）：AI 依据跳转先算好章，再在这里搜 */
+      index?: number;
       onHit?: (hit: SearchHit & { chapterIndex: number; chapterLabel: string }) => void;
       /**
        * 逐章检查「要不要停」（P2-05）。
@@ -2639,7 +2652,14 @@ export class EngineHost {
     const q = query.trim();
     if (!view || !q) return [];
     const out: Array<SearchHit & { chapterIndex: number; chapterLabel: string }> = [];
-    const iter = view.search(opts.chapterOnly ? { query: q, index: this.chapterIndex } : { query: q });
+    /* 章内搜时命中的章号是调用方指定的那一章，不是「当前页所在章」——
+       跳章后立刻搜，chapterIndex 往往还没刷新。 */
+    const onlyIndex = opts.chapterOnly
+      ? Number.isFinite(opts.index)
+        ? Number(opts.index)
+        : this.chapterIndex
+      : -1;
+    const iter = view.search(opts.chapterOnly ? { query: q, index: onlyIndex } : { query: q });
     let stopped = false;
     for await (const item of iter) {
       if (item === 'done') break;
@@ -2654,7 +2674,12 @@ export class EngineHost {
           opts.onHit?.(hit);
         }
       } else if (item.cfi) {
-        const hit = { cfi: item.cfi, excerpt: excerptText(item.excerpt), chapterIndex: this.chapterIndex, chapterLabel: '' };
+        const hit = {
+          cfi: item.cfi,
+          excerpt: excerptText(item.excerpt),
+          chapterIndex: onlyIndex >= 0 ? onlyIndex : this.chapterIndex,
+          chapterLabel: '',
+        };
         out.push(hit);
         opts.onHit?.(hit);
       }
