@@ -142,6 +142,8 @@ describe('未解锁：对话留档的每个入口都在门口拦', () => {
     const page = buildShelfPage(getState(), [], false);
 
     expect(page.body).toContain(t('shelf.empty.all'));
+    /* 空库给一颗能点的导入按钮，不用去猜右上角（2026-11-17） */
+    expect(page.body).toContain('data-act="import"');
     expect(page.body).not.toContain('bzs-hist');
   });
 });

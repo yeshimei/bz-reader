@@ -707,7 +707,15 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>${t('settings.ai.key')}</label><input type="password" data-role="setting" data-k="ai.apiKey" placeholder="${t('settings.ai.key.ph')}" value="${esc(s.ai.apiKey)}" style="flex:1"${aiReadonly}></div>
       ${aiUnlocked
         ? `${toggle('aiSpoiler', s.aiSpoiler === true, t('settings.ai.spoiler'))}
-           <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ai.spoiler.hint')}</div>`
+           <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ai.spoiler.hint')}</div>
+           <div class="bzs-setrow"><label>${t('settings.aiProbe')}</label>
+             <button class="bzs-btn sm" data-act="aiprobe">${t('settings.aiProbe.run')}</button>
+             <span class="bzs-mini" data-role="aiprobe-chat" style="margin-left:8px"></span>
+           </div>
+           <div class="bzs-setrow"><label></label>
+             <span class="bzs-mini" data-role="aiprobe-embed" style="margin-left:0"></span>
+           </div>
+           <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.aiProbe.hint')}</div>`
         : ''}
     </div>`;
 

@@ -168,7 +168,14 @@ export function viewLibrary(v: LibraryView): string {
      「没有匹配的书」——库里一本书都没有时，这两句话互相矛盾，
      而且满屏控件全是死的（真机图一）。 */
   if (!(v.total ?? rows.length)) {
-    return `<div class="bzs-empty">${t('shelf.empty.all')}</div>`;
+    /* 空库给一颗能点的导入按钮（2026-11-17）：以前只有一句「点右上导入」，
+       新用户对着空屏还得去猜右上角在哪。按钮和右上那条走同一个 act。 */
+    return `<div class="bzs-empty">
+      <div>${t('shelf.empty.all')}</div>
+      <button type="button" class="bzs-btn sm pri" data-act="import" style="margin-top:12px">${t(
+        'shelf.empty.import',
+      )}</button>
+    </div>`;
   }
 
   const recent = continueRow(rows);

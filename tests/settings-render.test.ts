@@ -154,10 +154,24 @@ describe('设置页渲染', () => {
     expect(out).not.toContain('触摸、选区、翻页与跳转');
   });
 
+  it('高级版：AI 组有连接测试按钮，问答与检索各留一行结果', () => {
+    entState.unlocked = true;
+    try {
+      const out = html();
+      expect(out).toContain('data-act="aiprobe"');
+      expect(out).toContain('data-role="aiprobe-chat"');
+      expect(out).toContain('data-role="aiprobe-embed"');
+    } finally {
+      entState.unlocked = false;
+    }
+  });
+
   it('基础版：AI 组整组灰化，点击弹高级功能说明', () => {
     entState.unlocked = false;
     const out = html();
     expect(out).toMatch(/class="bzs-setgrp is-locked"[^>]*data-act="unlock" data-mode="ai"/);
+    /* 基础版看不到测试按钮——能力都没解锁，测了也用不了 */
+    expect(out).not.toContain('data-act="aiprobe"');
   });
 
   it('placeholder 说人话：地址、模型、密钥三行都有', () => {

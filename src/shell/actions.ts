@@ -13,7 +13,8 @@
 import { Menu } from 'obsidian';
 import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
-import { aiAsk, FOLLOW_EVIDENCE_LIMIT } from '../data/ai';
+import { aiAsk, aiPostChat, chatText, FOLLOW_EVIDENCE_LIMIT } from '../data/ai';
+import { aiProbe, type ProbeLevel } from '../data/ai-probe';
 import {
   DEFAULT_HIGHLIGHT_COLOR,
   addHighlight,
@@ -2597,6 +2598,59 @@ export function dispatchAction(
         out.setCssProps({
           color: r.level === 'ok' ? 'var(--text-success)' : r.level === 'text' ? 'var(--text-warning)' : 'var(--text-error)',
         });
+      });
+      break;
+    }
+    /* AI 连接测试（2026-11-17）：问答与检索分开报，半通状态一眼看清。
+       两条都是真实请求、各按所选服务计费——所以放在按钮背后，不自动跑。 */
+    case 'aiprobe': {
+      if (!requireCap('ai')) break;
+      const grp = el.closest('.bzs-setgrp');
+      const outChat = grp?.querySelector<HTMLElement>('[data-role="aiprobe-chat"]');
+      const outEmbed = grp?.querySelector<HTMLElement>('[data-role="aiprobe-embed"]');
+      const s = shellSettings();
+      const embedder = bzEmbedder(getShellSource()?.app);
+      if (outChat) outChat.textContent = t('settings.aiProbe.testing');
+      if (outEmbed) outEmbed.textContent = t('settings.aiProbe.testing');
+      const paint = (node: HTMLElement | null | undefined, level: ProbeLevel, msg: string) => {
+        if (!node) return;
+        node.textContent = msg;
+        node.setCssProps({
+          color:
+            level === 'ok'
+              ? 'var(--text-success)'
+              : level === 'skip'
+                ? 'var(--text-warning)'
+                : 'var(--text-error)',
+        });
+      };
+      void aiProbe(
+        {
+          chatReady: aiReady(s),
+          chat: async () => {
+            const raw = await aiPostChat(s, [{ role: 'user', content: '只回一个字：好' }]);
+            return chatText(raw);
+          },
+          embedModel: embedder.model,
+          embed: () => {
+            if (!embedder.ai) return Promise.reject(new Error(embedder.problem || 'bz 未就绪'));
+            return embedder.ai.embedQuery('测试');
+          },
+        },
+        {
+          chatTesting: t('settings.aiProbe.testing'),
+          embedTesting: t('settings.aiProbe.testing'),
+          ok: (n) => t('settings.aiProbe.chatOk', { n }),
+          empty: t('settings.aiProbe.chatEmpty'),
+          notReady: t('settings.aiProbe.notReady'),
+          embedOk: (n) => t('settings.aiProbe.embedOk', { n }),
+          embedNoModel: t('settings.aiProbe.embedNoModel'),
+          embedEmpty: t('settings.aiProbe.embedEmpty'),
+          failed: t('settings.aiProbe.failed'),
+        },
+      ).then((r) => {
+        paint(outChat, r.chat.level, r.chat.message);
+        paint(outEmbed, r.embed.level, r.embed.message);
       });
       break;
     }
