@@ -42,8 +42,6 @@ export const ZH = {
   'cmd.stats': '书架：统计',
   'cmd.prefs': '书架：设置',
   'cmd.semantic': '书架：按意思搜全库',
-  'cmd.shelfAsk': '书架：问这几本书',
-  'cmd.route': '书架：按主题开书单',
 
   /* ── 命令：阅读器 ────────────────────────────────────────── */
   'cmd.search': '阅读：搜索（本书 / 全库）',
@@ -63,7 +61,6 @@ export const ZH = {
   'guide.retry': '重新生成',
   'cmd.guide': '阅读：本章导读',
   'cmd.tts': '阅读：朗读开关',
-  'cmd.diag': '阅读：诊断角标（排查用）',
   'cmd.pdfZoomIn': '阅读：PDF 放大',
   'cmd.pdfZoomOut': '阅读：PDF 缩小',
   'cmd.pdfFitWidth': '阅读：PDF 适合宽度',
@@ -84,8 +81,6 @@ export const ZH = {
   'notice.language.changed': '界面语言已切换，命令名需重启 Obsidian 后更新',
 
   /* ── 通知：诊断角标 ──────────────────────────────────────── */
-  'notice.diag.on': '诊断角标已打开（本次会话有效，重启自动关闭）',
-  'notice.diag.off': '诊断角标已关闭',
 
   /* ── 通知：沉浸模式 ──────────────────────────────────────── */
   'notice.immersive.exitDesktop': '已进入沉浸模式，按 ESC 退出',
@@ -240,32 +235,6 @@ export const ZH = {
   'search.miss.lead': '书名、章节、划线、想法和正文都翻过一遍。换个词试试；或者让我按意思找一次——那个不用原词。',
   'search.miss.semantic': '按意思搜「{kw}」',
   'search.sub.book': '本书 · 《{title}》',
-  'shelf.ask.title': '问这几本书',
-  'shelf.ask.pick': '选几本一起问',
-  'shelf.ask.ph': '想问这几本书什么？',
-  'shelf.ask.go': '提问',
-  'shelf.ask.hint': '勾选几本书，问一个它们各自怎么说的问题。',
-  'shelf.ask.ready': '已选 {n} 本',
-  'shelf.ask.needPick': '先勾选至少一本书',
-  'shelf.ask.noBooks': '书架上是空的',
-  'shelf.ask.noIndex': '选中的书还没有可检索的画像：先在侧栏 AI 里给它们各建一次',
-  'shelf.ask.pro': '问几本书是高级功能，激活后可用',
-  'shelf.ask.empty': '这几本书里没有找到相近的段落',
-  'shelf.ask.searching': '正在翻这几本书…',
-  'shelf.ask.thinking': '正在整理答案…',
-  'shelf.ask.done': '依据来自 {n} 本',
-  'shelf.ask.sources': '出自',
-  'route.title': '主题书单',
-  'route.ph': '想读一个什么主题？',
-  'route.go': '生成书单',
-  'route.hint': '输入主题，按书架里的画像找书与章节，再排一条阅读路线。',
-  'route.searching': '正在找相关的书…',
-  'route.thinking': '找到 {n} 本，正在排路线…',
-  'route.done': '路线基于 {n} 本',
-  'route.none': '没有命中可用的书',
-  'route.pro': '主题书单是高级功能，激活后可用',
-  'route.save': '存成笔记',
-  'route.saved': '已存到 {path}',
   'notice.sel.empty': '没有可复制的选区',
   'notice.toc.missingChapter': '这一章在目录里找不到，可能书换了版本',
 

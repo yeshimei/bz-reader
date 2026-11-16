@@ -14,7 +14,6 @@ import { aiReady, type ReaderSettings } from './settings';
 import { AI_EVIDENCE_LIMIT } from './ai-budget';
 import { buildEnrichMessages } from './book-enrich';
 import { buildGuideMessages } from './chapter-guide';
-import { buildRouteMessages, type RouteBook } from './topic-route';
 import { debugEvent } from './debug-log';
 import { drainSse } from './ai-sse';
 
@@ -24,10 +23,8 @@ export type AiTask =
   | 'translate'
   | 'ask'
   | 'follow'
-  | 'shelf'
   | 'enrich'
-  | 'guide'
-  | 'route';
+  | 'guide';
 
 /**
  * 追问时原文最多带多少字。
@@ -88,8 +85,6 @@ export interface AiAskInput {
    * 有它就原样作为最后一条 user，不再套一层【问题】，避免出现两个标题。
    */
   userPrompt?: string;
-  /** 主题书单的候选（只有 route 用）：书 + 命中的章节 + 相关度 */
-  books?: RouteBook[];
 }
 
 export interface AiMessage {
@@ -128,7 +123,7 @@ export function clipHead(text: string, limit = AI_EVIDENCE_LIMIT): string {
 }
 
 /** 摘录 / 解释 / 翻译的老口径，一字不改（回归测试锁着） */
-function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow' | 'shelf' | 'enrich' | 'guide' | 'route'>, text: string): string {
+function buildPrompt(task: Exclude<AiTask, 'ask' | 'follow' | 'enrich' | 'guide'>, text: string): string {
   if (task === 'summarize') {
     return `请把下面这段文字压缩成不超过 100 字的摘要，直接给摘要正文，不要任何开场白或前缀：\n\n${text}`;
   }
@@ -181,32 +176,6 @@ function buildFollowMessages(input: AiAskInput): AiMessage[] {
 }
 
 /**
- * 问这摞书（shelf，2026-11-10）。
- *
- * 与 ask 的差别只在依据：ask 的依据来自一本书，shelf 的依据来自几本，
- * 每条都带着【书名 · 章节】。system 里必须把「说清是哪本书说的」写死——
- * 不写的话模型会把三本书的观点揉成一段无主语的总结，用户没法核对。
- *
- * 与 ask 一样不接书外知识：依据里没有的就说没有。想聊书外的东西，
- * 用户会去划词卡里追问。
- */
-function buildShelfMessages(input: AiAskInput): AiMessage[] {
-  const ctx = clipHead(input.context ?? '');
-  const system = ctx
-    ? '你是这几本书的共读助手。依据里每一段都标了出处（书名 · 章节）。回答时要说清是哪本书的说法；依据里没有的，直接说「这几本书里没有提到」，不要用书外的知识补充。用中文，先给结论再给依据，不要寒暄。引用原文时用「」把原句括起来，并注明书名与章节；原句必须逐字复制、不超过 40 字。'
-    : '你是这几本书的共读助手。但这次没有取到可用的依据，只能凭问题本身作答，回答前先说明这一点。用中文，简洁。';
-  const messages: AiMessage[] = [{ role: 'system', content: system }];
-  for (const turn of (input.history ?? []).slice(-ASK_HISTORY_MAX)) {
-    if (turn.content.trim()) messages.push({ role: turn.role, content: turn.content });
-  }
-  messages.push({
-    role: 'user',
-    content: ctx ? `【依据】\n${ctx}\n\n【问题】\n${input.text}` : `【问题】\n${input.text}`,
-  });
-  return messages;
-}
-
-/**
  * 拼出要发给模型的 messages。
  *
  * ask 与其余三个任务的区别不只是 prompt：它带 system（角色与边界）、
@@ -233,8 +202,6 @@ export function buildMessages(input: AiAskInput): AiMessage[] {
       digest: input.context,
     });
   }
-  if (input.task === 'route') return buildRouteMessages({ topic: input.text, books: input.books ?? [] });
-  if (input.task === 'shelf') return buildShelfMessages(input);
   if (input.task !== 'ask') {
     return [{ role: 'user', content: buildPrompt(input.task, input.text) }];
   }
@@ -303,7 +270,7 @@ export const AI_ASK_TIMEOUT_MS = 300_000;
 
 /** 这个任务该等多久（纯函数，测试直接锁） */
 export function askTimeoutMs(task: AiTask): number {
-  return task === 'ask' || task === 'shelf' ? AI_ASK_TIMEOUT_MS : AI_TIMEOUT_MS;
+  return task === 'ask' ? AI_ASK_TIMEOUT_MS : AI_TIMEOUT_MS;
 }
 
 export interface AiAskOptions {

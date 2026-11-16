@@ -63,6 +63,7 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   /* 2026-11-11 新文件：开章导读的 prompt 与「这一章 / 带着三个问题」的段落名，
      只发给模型、不显示给用户，与 data/ai.ts 同一性质。 */
   'src/data/chapter-guide.ts': 7,
+<<<<<<< HEAD
   /* 2026-11-16 新文件：「加入复习」的两段 prompt（按划线挑 / 按章节挑）与
      JSON 字段说明。只发给模型、不显示给用户，与 data/ai.ts 同一性质；
      弹窗与通知的界面文案走 i18n 的 review.*。 */
@@ -71,9 +72,6 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
      只发给模型、不显示给用户，与 data/ai.ts、data/review-ai.ts 同一性质；
      界面文案（三选一选项、卡片状态、结果汇总的格式）走 i18n 与纯数据口径。 */
   'src/data/review-cards-ai.ts': 19,
-  /* 2026-11-11 新文件：主题书单的 prompt 与「阅读路线 / 来源」段落名，
-     只发给模型或写进生成的笔记，不显示为界面文案。 */
-  'src/data/topic-route.ts': 10,
   'src/data/book-scan.ts': 1,
   'src/data/deeplink.ts': 4,
   /* 2026-11-11 +2（42 → 44）：新增「划线加入复习计划」这一行能力的卖点句

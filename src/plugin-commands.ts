@@ -48,10 +48,6 @@ export const COMMANDS: readonly CommandSpec[] = [
   { id: 'prefs', key: 'cmd.prefs' },
   /* 按意思搜全库（2026-11-10）：书架侧命令，随时可跑；没建画像时面板会说明 */
   { id: 'semantic', key: 'cmd.semantic' },
-  /* 问这摞书（2026-11-10）：选几本一起问，答案带出处 */
-  { id: 'shelf-ask', key: 'cmd.shelfAsk' },
-  /* 主题书单（2026-11-11）：给主题，检索找书，模型排路线，可存成笔记 */
-  { id: 'route', key: 'cmd.route' },
   /* ── 阅读 ── */
   { id: 'search', key: 'cmd.search' },
   { id: 'sidebar', key: 'cmd.sidebar' },
@@ -94,7 +90,4 @@ export const COMMANDS: readonly CommandSpec[] = [
      想法 / 双链，这颗不占工具条，走命令面板与自定义快捷键。 */
   { id: 'pdf-region-card', key: 'cmd.pdfRegionCard', reader: 'pdf-region-card' },
   { id: 'pdf-back', key: 'cmd.pdfBack', reader: 'pdf-back' },
-  /* 排查用：手机上开不了控制台，这是唯一能把链路计数显示出来的入口。
-     会话内生效、不落盘，重启自动关。 */
-  { id: 'diag', key: 'cmd.diag' },
 ];

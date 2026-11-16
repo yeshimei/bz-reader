@@ -129,10 +129,9 @@ describe('AI 请求（P2-12：没有超时就会一直转圈）', () => {
 
   /* 真机（2026-11-16）：本地 14B 带 4800 字依据要 77 秒，带 8 块 7000 字
      超过 180 秒。全书问答必须等得久一点。 */
-  it('全书 / 多书问答等 5 分钟，划词任务仍是 60 秒', () => {
+  it('全书问答等 5 分钟，划词任务仍是 60 秒', () => {
     expect(AI_ASK_TIMEOUT_MS).toBe(300_000);
     expect(askTimeoutMs('ask')).toBe(AI_ASK_TIMEOUT_MS);
-    expect(askTimeoutMs('shelf')).toBe(AI_ASK_TIMEOUT_MS);
     expect(askTimeoutMs('explain')).toBe(AI_TIMEOUT_MS);
     expect(askTimeoutMs('summarize')).toBe(AI_TIMEOUT_MS);
   });

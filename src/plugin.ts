@@ -44,7 +44,6 @@ import type { BookFormat, ReaderBook } from './data/schema';
 import { ReaderView, VIEW_TYPE_READER, type ReaderHostApi } from './view/reader-view';
 import { SideView, VIEW_TYPE_TOC, type SideTab } from './view/side-view';
 import { pickActiveReader } from './view/active-reader';
-import { toggleProbe } from './view/debug-probe';
 import { isDeferredViewOf } from './view/leaf-reuse';
 import { setShelfSource, setShelfProActions, notifyShelf } from './view/shelf-state';
 import { mountImport } from './ui/import-panel';
@@ -57,8 +56,6 @@ import { installBlobSrcdocPatches, uninstallBlobSrcdocPatches } from './engine/b
 import { disposeCrossSearchStage, searchAcrossBooks } from './engine/cross-search';
 import { openCrossSearch } from './ui/cross-search-panel';
 import { openSemanticSearch as openSemanticPanel } from './ui/semantic-panel';
-import { openShelfAsk } from './ui/shelf-ask-panel';
-import { openTopicRoute } from './ui/topic-route-panel';
 import { installAiMarkdown, uninstallAiMarkdown } from './shell/ai-md';
 import { aiAsk } from './data/ai';
 import { loadAiLog } from './data/ai-log';
@@ -238,25 +235,9 @@ export function createPlugin(cfg: PluginConfig) {
         case 'semantic':
           this.openSemanticSearchPanel();
           break;
-        /* 问这摞书（2026-11-10）：选几本一起问，答案带出处 */
-        case 'shelf-ask':
-          this.openShelfAskPanel();
-          break;
-        /* 主题书单（2026-11-11）：给主题，检索找书，模型排路线 */
-        case 'route':
-          this.openTopicRoutePanel();
-          break;
         case 'sidebar':
           this.openTocSidebar('toc');
           break;
-        case 'diag': {
-          /* 手机上开不了控制台：这个角标是唯一能看到链路计数的地方。
-             会话内开关，重启自动关，不写进 data.json。 */
-          const on = toggleProbe();
-          this.activeReader()?.refreshProbe();
-          notify(t(on ? 'notice.diag.on' : 'notice.diag.off'), 'info');
-          break;
-        }
         default:
           break;
       }
@@ -1377,52 +1358,6 @@ export function createPlugin(cfg: PluginConfig) {
         books: this.repo.all().filter((b) => !(b.fileRef as { fileMissing?: boolean }).fileMissing),
         onJump: (book, hit) => void this.jumpIntoBook(book, hit.chunk),
       });
-    }
-
-    /**
-     * 问这摞书（2026-11-10）。
-     *
-     * 勾几本书 → 跨书检索 → 一次对话。与「问这本书」共用同一套模型配置，
-     * 差别只在依据是多本、每条带出处。
-     */
-    openShelfAskPanel(): void {
-      openShelfAsk({
-        app: this.app,
-        books: this.repo.all().filter((b) => !b.archivedAt && !(b.fileRef as { fileMissing?: boolean }).fileMissing),
-        ask: (question, evidence) =>
-          aiAsk(this.cfg.settings, { task: 'shelf', text: question, context: evidence }).then((r) => r.text),
-        onJump: (book, snippet) => void this.jumpIntoBook(book, snippet),
-      });
-    }
-
-    /**
-     * 主题书单（2026-11-11）：给一个主题，语义检索找书，模型排阅读路线。
-     */
-    openTopicRoutePanel(): void {
-      openTopicRoute({
-        app: this.app,
-        ask: (topic, books) =>
-          aiAsk(this.cfg.settings, { task: 'route', text: topic, books }).then((r) => r.text),
-        onSave: (topic, markdown) => this.saveRouteNote(topic, markdown),
-      });
-    }
-
-    /**
-     * 书单存成笔记：落导出目录下的「主题书单」，同名覆盖。
-     *
-     * 覆盖是有意的——用户点「存成笔记」是想把这一篇更新成当前这版，
-     * 不是想要一份 `主题书单 (2).md`。与导出「不覆盖别人笔记」不冲突：
-     * 这里写的只是本插件自己生成的目录。
-     */
-    async saveRouteNote(topic: string, markdown: string): Promise<string> {
-      const base = String(this.cfg.settings.exportDir ?? '').trim() || DEFAULT_SETTINGS.exportDir;
-      const dir = `${base}/主题书单`;
-      const name = safeName(String(topic ?? '').trim() || t('route.title'), t('route.title'));
-      const path = `${dir}/${name}.md`;
-      const adapter = this.app.vault.adapter;
-      if (!(await adapter.exists(dir))) await adapter.mkdir(dir);
-      await adapter.write(path, markdown);
-      return path;
     }
 
     /**
