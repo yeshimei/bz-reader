@@ -298,6 +298,13 @@ export interface RecordAiTurnInput {
   markId?: string;
   /** 同一处的定位串，跟着划线一起记，回看时能落回原文 */
   cfi?: string;
+  /**
+   * 新建这条会话时想用的 id（侧栏用）。
+   *
+   * 侧栏在提问前就把会话 id 记进内存（下一问要按它追加），如果落盘这层
+   * 另外生成一串，两串就永远对不上——重启之后每一问都会新开一条。
+   */
+  sessionId?: string;
   ask: string;
   answer: string;
   /** 会话时间；追加时不改（仍是这一轮第一次问答的时间） */
@@ -329,6 +336,7 @@ export async function recordAiTurn(
   /* 侧栏直接把会话 id 当分组键传进来：重启之后进程内的映射没了，
      但 id 本身还在文件里，认 id 就够了 */
   if (!session && input.group) session = list.find((s) => s.id === input.group);
+  if (!session && input.sessionId) session = list.find((s) => s.id === input.sessionId);
   /* 分组键不在了（重启 / 换卡）：按划线找回这条会话，别另开一条 */
   if (!session && markId) {
     session = list.find((s) => s.markId === markId && s.kind === input.kind && s.bookId === bookId);
@@ -339,7 +347,10 @@ export async function recordAiTurn(
     session.turns.push({ me: true, text: ask }, { me: false, text: answer });
   } else {
     const used = new Set(list.map((s) => s.id));
-    const id = uniqueSessionId(when, used);
+    /* 调用方给了 id（侧栏先记下「这一轮叫什么」）就用它：不然下一次提问
+       带着自己那串 id 回来，跟文件里生成的那串对不上，重启后又会新开一条。 */
+    const want = String(input.sessionId ?? '').trim();
+    const id = want && !used.has(want) ? want : uniqueSessionId(when, used);
     session = {
       id,
       bookId,

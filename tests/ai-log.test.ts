@@ -353,6 +353,34 @@ describe('对话绑到划线上', () => {
     expect(aiSessions()[0].turns).toHaveLength(4);
   });
 
+  it('侧栏给了会话 id：落盘就用它，重启后仍追加进同一条', async () => {
+    const group = 'id-1700000000000-aaaa';
+    const id = (await recordAiTurn(app, {
+      ...base,
+      kind: 'book',
+      group,
+      sessionId: group,
+      ask: '第一问',
+      answer: '第一答',
+    }))!;
+    expect(id).toBe(group);
+
+    resetAiTurnGroups();
+    const again = (await recordAiTurn(app, {
+      ...base,
+      kind: 'book',
+      group,
+      sessionId: group,
+      when: base.when + 60_000,
+      ask: '第二问',
+      answer: '第二答',
+    }))!;
+
+    expect(again).toBe(group);
+    expect(aiSessions()).toHaveLength(1);
+    expect(aiSessions()[0].turns).toHaveLength(4);
+  });
+
   it('两条不同的划线各记各的', async () => {
     await recordAiTurn(app, { ...base, markId: 'm1' });
     await recordAiTurn(app, {

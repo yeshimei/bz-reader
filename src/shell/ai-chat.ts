@@ -65,6 +65,9 @@ export function aiChatsOf(bookId: string): AiSession[] {
 export function sessionToLog(s: AiSession): AiLogItem[] {
   return s.turns
     .filter((x) => String(x.text ?? '').trim())
+    /* 与 pushAi 同一个上限（20 条）：侧栏气泡不是聊天记录，
+       一条几百轮的老会话整份塞进来只会卡住重绘 */
+    .slice(-20)
     .map((x) => ({
       me: x.me,
       /* 恢复出来的对话不知道当时用的是哪个模型，AI 那条用统一标签 */

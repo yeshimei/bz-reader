@@ -4206,6 +4206,7 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
       author: book.meta.author,
       kind: 'book',
       group: RT.aiChatId,
+      sessionId: RT.aiChatId,
       ask: q,
       answer: res.text,
     });
