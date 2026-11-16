@@ -102,6 +102,19 @@ describe('混合检索', () => {
     expect(chapters.size).toBeGreaterThan(1);
   });
 
+
+  it('引号原话一定进依据，挤掉最弱的一块', () => {
+    const blocks = Array.from({ length: 12 }, (_, i) => ({
+      chapter: `第${i + 1}章`,
+      text: `第 ${i} 段的日常叙述。`,
+      vec: V.near,
+    }));
+    blocks[11] = { chapter: '第十二章', text: '这一句是「婚姻是一座围城」的出处。', vec: V.far };
+    const picks = retrieveBlocks(portraitOf(blocks), '「婚姻是一座围城」在哪一章', V.near, { limit: 3 });
+    expect(indexes(picks)).toContain(11);
+    expect(picks).toHaveLength(3);
+  });
+
   it('六块是硬上限（预算按块算）', () => {
     const p = weiCheng();
     expect(retrieveBlocks(p, '方鸿渐', V.near, { limit: 6 }).length).toBeLessThanOrEqual(6);

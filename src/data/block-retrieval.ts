@@ -234,11 +234,42 @@ export function retrieveBlocks(
      这时补一条 why = head，分数沿用该章最高分。 */
   const picked = chapterAwarePicks(p, cut, limit);
   const meta = new Map(expanded.map((item) => [item.index, item]));
-  return picked.map((item): BlockPick => {
+  const out: BlockPick[] = picked.map((item): BlockPick => {
     const known = meta.get(item.index);
     if (known) return { ...known, score: item.score };
     return { block: item.block, index: item.index, score: item.score, cosine: 0, lexical: 0, why: 'head' };
   });
+
+  /* 引号原话是「用户点了名」，必须进依据——哪怕向量完全不认它、
+     哪怕它排在第六名之后。Copilot 对 [[笔记]] 与 #标签 也是这么处理的：
+     过滤结果绕开 top-K，直接进上下文。挤掉的是最弱的那块（章首不挤）。 */
+  const have = new Set(out.map((item) => item.index));
+  for (const hit of lex.filter((x) => x.exact)) {
+    if (have.has(hit.index)) continue;
+    if (out.length >= limit) {
+      let drop = -1;
+      for (let i = out.length - 1; i >= 0; i -= 1) {
+        if (out[i].why !== 'head') {
+          drop = i;
+          break;
+        }
+      }
+      if (drop < 0) drop = out.length - 1;
+      have.delete(out[drop].index);
+      out.splice(drop, 1);
+    }
+    const known = meta.get(hit.index);
+    out.push({
+      block: p.blocks[hit.index],
+      index: hit.index,
+      score: known?.score ?? 0,
+      cosine: known?.cosine ?? 0,
+      lexical: hit.score,
+      why: known?.why ?? 'lexical',
+    });
+    have.add(hit.index);
+  }
+  return out.sort((a, b) => b.score - a.score || a.index - b.index);
 }
 
 /* ─────────── 跨书：书架上的「按意思搜」 ─────────── */
