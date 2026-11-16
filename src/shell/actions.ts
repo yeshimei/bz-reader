@@ -154,6 +154,7 @@ import {
   type PortraitPlan,
 } from '../data/portrait';
 import { retrieveBlocks } from '../data/block-retrieval';
+import { needsMap, wholeBookEvidence } from '../data/book-map';
 import { readPortraitCached } from '../data/portrait-cache';
 import { chapterDigestOf, guideOf, withGuide } from '../data/chapter-guide';
 import { enrichDoneKind, enrichNeeds, enrichSample, mergeMetaPatch, parseEnrichReply } from '../data/book-enrich';
@@ -4124,14 +4125,26 @@ async function bookEvidenceOf(
        经常排在第 7 名之后；字面通道正是为这一类问题加的。
        章首补偿与六块预算都在 retrieveBlocks 里收口，这里不再自己排。 */
     const picks = retrieveBlocks(portrait, q, vec, { limit: PORTRAIT_PICK_LIMIT });
-    if (!picks.length) return null;
-    return {
-      context: blocksEvidence(portrait, picks),
-      sources: sourcesOfBlocks(
-        portrait.bookId,
-        picks.map((p) => ({ chapter: p.block.chapter, index: p.index, text: p.block.text })),
-      ),
-    };
+    const blocks = picks.length
+      ? {
+          context: blocksEvidence(portrait, picks),
+          sources: sourcesOfBlocks(
+            portrait.bookId,
+            picks.map((p) => ({ chapter: p.block.chapter, index: p.index, text: p.block.text })),
+          ),
+        }
+      : null;
+
+    /* 结构型问题（全书讲什么 / 第九章写了什么 / 立场怎么变）六块碎片答不了：
+       它们要的是顺序和章界，不是「最像的六段」。改成目录打底、挑中的章
+       整段读——PageIndex / MindMax 那一套，只是选章不发模型调用。
+       一章都没挑中时，目录照给，细节用刚取到的检索结果兜底。 */
+    if (needsMap(q)) {
+      const whole = wholeBookEvidence(portrait, q, { fallback: blocks ?? undefined });
+      if (whole) return whole;
+    }
+
+    return blocks;
   }
 
   /* 压缩方案不用发任何请求：依据就是建画像时存下的要点 */

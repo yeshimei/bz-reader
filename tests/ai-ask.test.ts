@@ -60,6 +60,21 @@ describe('buildMessages · ask', () => {
     expect(carried).toHaveLength(6);
     expect(carried[0]!.content).toBe('历史第4条');
   });
+
+  /* 2026-11-16：结构型问题（全书讲什么 / 第 N 章写什么）改走「目录 + 整章」
+     （data/book-map）。这时依据里是目录 + 两章原文，模型必须分清
+     「这一章本次没展开」和「书里没有」——不分开说，它会拿目录之外的
+     印象补一段，读者看不出哪句是猜的。 */
+  it('依据带全书目录时，system 补上「没展开 ≠ 没有」的口径', () => {
+    const msgs = buildMessages({ ...base, context: '【全书目录】\n- 第一章：归国\n【重点章节】\n【第一章】\n红海早过了。' });
+    expect(msgs[0]!.content).toContain('【全书目录】');
+    expect(msgs[0]!.content).toContain('没有展开');
+  });
+
+  it('普通检索依据不带这句（口径不该到处漏）', () => {
+    const msgs = buildMessages({ ...base, context: '【第一章 归国】\n红海早过了。' });
+    expect(msgs[0]!.content).not.toContain('没有展开');
+  });
 });
 
 describe('buildMessages · 老任务', () => {
