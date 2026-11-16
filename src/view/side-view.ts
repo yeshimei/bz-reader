@@ -18,12 +18,18 @@ import { ItemView, type App, type WorkspaceLeaf } from 'obsidian';
 import type { FoliateTOCItem } from '../types/foliate';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { dispatchAction, dispatchInput } from '../shell/actions';
+import { togglePicked } from '../shell/note-picker';
 import { renderAiMarkdown } from '../shell/ai-md';
 import { canSendAi } from '../shell/ai-context';
 import { getState, setState, subscribe, type SideTab } from '../shell/state';
 import { getShellSource, liveBooks, shellPrefs, shellSettings } from '../shell/source';
 import { RT } from '../shell/runtime';
-import { viewSidebar, type AiIndexView, type AiNoteRow } from '../shell/render/sidebar';
+import {
+  viewSidebar,
+  notePickerListHtml,
+  type AiIndexView,
+  type AiNoteRow,
+} from '../shell/render/sidebar';
 import { aiChatsOf, aiHistRows, restoreAiChat } from '../shell/ai-chat';
 import { focusSelector, type FocusMemo } from '../shell/focus-memo';
 import { isTocItemActive, type TocActiveRef } from '../shell/toc-active';
@@ -44,15 +50,12 @@ export const VIEW_TYPE_TOC = 'bz-reader-toc';
 
 export type { SideTab };
 
-/** 笔记选择器默认列最近修改的 20 篇：300px 侧栏里再多就要靠搜了 */
-const NOTE_PICKER_LIMIT = 20;
-
-function recentNotes(app: App | undefined): AiNoteRow[] {
+/** 笔记浮层的数据源：全库 Markdown，按最近修改排；一次取好，搜索在本地过 */
+function allNotes(app: App | undefined): AiNoteRow[] {
   const files = app?.vault?.getMarkdownFiles?.() ?? [];
   return files
     .slice()
     .sort((a, b) => (Number(b.stat?.mtime) || 0) - (Number(a.stat?.mtime) || 0))
-    .slice(0, NOTE_PICKER_LIMIT)
     .map((f) => ({
       title: f.basename,
       path: f.path,
@@ -75,20 +78,70 @@ function syncAiSend(root: HTMLElement | null): void {
   send.disabled = !canSendAi(input.value, RT.aiCtx);
 }
 
-/** 笔记选择器里的本地过滤：只动这 20 行的 hidden，不重绘整块侧栏 */
-function filterNoteRows(root: HTMLElement | null, kw: string): void {
-  if (!root) return;
-  const key = kw.trim().toLowerCase();
-  const rows = Array.from(root.querySelectorAll<HTMLElement>('.bzs-pk-row'));
-  let shown = 0;
-  for (const row of rows) {
-    const hay = `${row.dataset.title ?? ''} ${row.dataset.path ?? ''}`.toLowerCase();
-    const hit = !key || hay.includes(key);
-    row.hidden = !hit;
-    if (hit) shown += 1;
+/** 搜索词变了：只重画浮层里的列表，不重绘整块侧栏（输入框焦点和草稿都在） */
+function paintNoteList(root: HTMLElement | null): void {
+  const list = root?.querySelector<HTMLElement>('.bzs-pk-list');
+  if (!list) return;
+  list.innerHTML = notePickerListHtml(RT.aiNoteAll, RT.aiNoteKw, RT.aiNotePicked);
+  syncNotePicker(root);
+}
+
+/** 勾选态与底部已选：本地改 DOM，不整页重绘 */
+function syncNotePicker(root: HTMLElement | null): void {
+  const picker = root?.querySelector<HTMLElement>('.bzs-picker');
+  if (!picker) return;
+  picker.querySelectorAll<HTMLElement>('.bzs-pk-row').forEach((row) => {
+    const on = RT.aiNotePicked.includes(row.dataset.path ?? '');
+    row.classList.toggle('is-on', on);
+    row.setAttribute('aria-pressed', String(on));
+  });
+  const count = picker.querySelector<HTMLElement>('.bzs-pk-count');
+  if (count) count.textContent = t('side.ai.ctx.noteCount', { n: RT.aiNotePicked.length });
+  const picked = picker.querySelector<HTMLElement>('.bzs-pk-picked');
+  if (picked) {
+    const names = RT.aiNotePicked.map((p) => RT.aiNoteAll.find((n) => n.path === p)?.title).filter(
+      (x): x is string => !!x,
+    );
+    const tags: HTMLElement[] = names.slice(0, 2).map((name) => {
+      const el = document.createElement('span');
+      el.className = 'bzs-pk-tag';
+      el.textContent = name;
+      return el;
+    });
+    if (names.length > 2) {
+      const more = document.createElement('span');
+      more.className = 'bzs-pk-tag is-more';
+      more.textContent = `+${names.length - 2}`;
+      tags.push(more);
+    }
+    picked.replaceChildren(...tags);
   }
-  const empty = root.querySelector<HTMLElement>('.bzs-pk-empty');
-  if (empty) empty.hidden = shown > 0;
+  const insert = picker.querySelector<HTMLButtonElement>('.bzs-pk-insert');
+  if (insert) insert.disabled = RT.aiNotePicked.length === 0;
+}
+
+/** 浮层里的行与清空按钮只改本地状态，不整页重绘；返回 true = 这次点击已经处理掉 */
+function pickerAct(hit: HTMLElement, root: HTMLElement | null): boolean {
+  const act = hit.dataset.act;
+  if (act === 'aictxnotepick') {
+    const path = hit.dataset.path ?? '';
+    if (path) {
+      RT.aiNotePicked = togglePicked(RT.aiNotePicked, path);
+      syncNotePicker(root);
+    }
+    return true;
+  }
+  if (act === 'aictxnoteclear') {
+    RT.aiNoteKw = '';
+    const input = root?.querySelector<HTMLInputElement>('[data-role="ainotesearch"]');
+    if (input) {
+      input.value = '';
+      input.focus({ preventScroll: true });
+    }
+    paintNoteList(root);
+    return true;
+  }
+  return false;
 }
 
 export class SideView extends ItemView {
@@ -161,6 +214,7 @@ export class SideView extends ItemView {
       const hit = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
       if (!hit) return;
       e.preventDefault();
+      if (pickerAct(hit, this.root)) return;
       dispatchAction(hit.dataset.act || '', hit, { repaint: () => this.render() });
     });
 
@@ -191,7 +245,7 @@ export class SideView extends ItemView {
         autoGrowInput(t as HTMLTextAreaElement);
         syncAiSend(this.root);
       }
-      if (t.dataset.role === 'ainotesearch') filterNoteRows(this.root, (t as HTMLInputElement).value);
+      if (t.dataset.role === 'ainotesearch') paintNoteList(this.root);
     };
     el.addEventListener('input', onEdit);
     el.addEventListener('change', onEdit);
@@ -215,6 +269,7 @@ export class SideView extends ItemView {
       const hit = t.closest<HTMLElement>('[data-act]');
       if (!hit) return;
       e.preventDefault();
+      if (pickerAct(hit, this.root)) return;
       dispatchAction(hit.dataset.act || '', hit, { repaint: () => this.render() });
     });
 
@@ -236,6 +291,8 @@ export class SideView extends ItemView {
       if (!RT.aiNoteOpen) return;
       RT.aiNoteOpen = false;
       RT.aiNoteKw = '';
+      RT.aiNotePicked = [];
+      RT.aiNoteAll = [];
       /* 只摘掉 popover，不整页重绘：点输入框 / 发送键时焦点与这次点击都还在 */
       this.root?.querySelector('.bzs-picker')?.remove();
     };
@@ -407,8 +464,12 @@ export class SideView extends ItemView {
     if (state.sideTab !== 'ai') {
       RT.aiNoteOpen = false;
       RT.aiNoteKw = '';
+      RT.aiNotePicked = [];
+      RT.aiNoteAll = [];
     }
     const notesOpen = state.sideTab === 'ai' && RT.aiNoteOpen;
+    /* 浮层第一次打开时把全库笔记取一次；关掉会清空，下次再开重新取 */
+    if (notesOpen && !RT.aiNoteAll.length) RT.aiNoteAll = allNotes(getShellSource()?.app);
     /* 换到这本书：把上次那条对话读回侧栏（2026-11-16）。
        只改 RT、不在这里 repaint——这一帧正要按它画。 */
     if (state.sideTab === 'ai') restoreAiChat(bookId);
@@ -429,7 +490,8 @@ export class SideView extends ItemView {
         aiHist: RT.aiHistOpen ? aiHistRows(aiChatsOf(bookId), RT.aiChatId) : [],
         aiNoteOpen: notesOpen,
         aiNoteKw: RT.aiNoteKw,
-        aiNotes: notesOpen ? recentNotes(getShellSource()?.app) : [],
+        aiNotePicked: RT.aiNotePicked,
+        aiNotes: notesOpen ? RT.aiNoteAll : [],
         aiReady: aiReady(settings),
         aiIndex,
         collapsed: RT.tocCollapsed,
@@ -475,7 +537,7 @@ export class SideView extends ItemView {
       const search = picker.querySelector<HTMLInputElement>('[data-role="ainotesearch"]');
       if (search) {
         if (RT.aiNoteKw) search.value = RT.aiNoteKw;
-        filterNoteRows(root, search.value);
+        paintNoteList(root);
         if (!this.paintedNoteOpen) {
           window.setTimeout(() => {
             if (!RT.aiNoteOpen) return;

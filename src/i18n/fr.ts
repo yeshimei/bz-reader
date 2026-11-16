@@ -1290,4 +1290,8 @@ export const FR: Record<MsgKey, string> = {
   'ai.del.body': '[TODO] ai.del.body',
   'ai.del.ok': '[TODO] ai.del.ok',
   'notice.jump.notFound': '[TODO] notice.jump.notFound',
+  'side.ai.ctx.noteCount': '[TODO] side.ai.ctx.noteCount {n}',
+  'side.ai.ctx.noteClear': '[TODO] side.ai.ctx.noteClear',
+  'side.ai.ctx.noteInsert': '[TODO] side.ai.ctx.noteInsert',
+  'side.ai.ctx.noteRoot': '[TODO] side.ai.ctx.noteRoot',
 };

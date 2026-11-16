@@ -28,7 +28,14 @@ import type { BuildProgress } from '../../data/portrait-build';
 import type { PortraitPlan, PortraitState } from '../../data/portrait';
 import { portraitEstimate } from './portrait';
 import { kbLinksHtml } from '../kb-links';
-import { esc, ico, icoNative } from './html';
+import { esc, ico, icoNative, MAG } from './html';
+import {
+  groupNotes,
+  searchNotes,
+  NOTE_PICKER_ROWS,
+  NOTE_SEARCH_LIMIT,
+  type PickerNote,
+} from '../note-picker';
 
 /* AiLogItem 的字段口径只有一份，在 shell/runtime.ts（pushAi 往那儿写）。
    这里以前自己抄了一份，加 sources 时两份就对不上了。 */
@@ -53,7 +60,9 @@ export interface SidebarView {
   aiNoteOpen?: boolean;
   /** 笔记选择器里的搜索词 */
   aiNoteKw?: string;
-  /** 笔记选择器默认列出的最近修改（最多 20 篇） */
+  /** 浮层里勾选的路径 */
+  aiNotePicked?: readonly string[];
+  /** 笔记清单（打开时从全库取一次，搜索在这里面找） */
   aiNotes?: readonly AiNoteRow[];
   /** 正在等 AI：`evidence` 检索依据、`model` 生成回答；空 = 没有在等 */
   aiStage?: '' | 'evidence' | 'model';
@@ -616,31 +625,76 @@ function aiBubbleHtml(m: AiLogItem, hint: boolean, at = -1): string {
   )}</span>${body}${aiSourcesRow(m)}${copy}</div>`;
 }
 
-/** 笔记选择器：默认最近修改的 20 篇；搜索框只过滤这 20 行，不重绘 */
+const PK_DOC =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>';
+const PK_CHECK =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
+/**
+ * 浮层里的列表：按所在目录分组，行内仍留目录小字作兜底。
+ * 搜索在全库清单里过滤，但一次只画这些行——几千篇塞进 DOM 会卡住侧栏。
+ * 这段 HTML 与 side-view 的本地重绘共用，改样式只改这里。
+ */
+export function notePickerListHtml(
+  rows: readonly PickerNote[],
+  kw: string,
+  picked: readonly string[],
+): string {
+  const shown = searchNotes(rows, kw, kw.trim() ? NOTE_SEARCH_LIMIT : NOTE_PICKER_ROWS);
+  const groups = groupNotes(shown);
+  if (!groups.length) return `<div class="bzs-pk-empty">${t('side.ai.ctx.noteEmpty')}</div>`;
+  let k = 0;
+  return groups
+    .map((g) => {
+      const head = `<div class="bzs-pk-group">${esc(g.group || t('side.ai.ctx.noteRoot'))}</div>`;
+      const lines = g.rows
+        .map((n) => {
+          const on = picked.includes(n.path);
+          return `<button type="button" class="bzs-pk-row${on ? ' is-on' : ''}" data-act="aictxnotepick" data-path="${esc(
+            n.path,
+          )}" data-title="${esc(n.title)}" data-desc="${esc(n.desc)}" aria-pressed="${on}" style="--k:${k++}">
+            <span class="bzs-pk-ic">${PK_DOC}</span>
+            <span class="bzs-pk-body"><span class="bzs-pk-nm">${esc(
+              n.title,
+            )}</span><span class="bzs-pk-ds">${esc(n.desc)}</span></span>
+            <span class="bzs-pk-check">${PK_CHECK}</span>
+          </button>`;
+        })
+        .join('');
+      return head + lines;
+    })
+    .join('');
+}
+
+/** 笔记选择器：按目录分组 + 底部已选，点确认才把笔记带进对话 */
 function notePickerHtml(v: SidebarView): string {
   if (!v.aiNoteOpen) return '';
-  const rows = (v.aiNotes ?? [])
-    .map(
-      (n) => `<button type="button" class="bzs-pk-row" data-act="aictxnotepick" data-path="${esc(
-        n.path,
-      )}" data-title="${esc(n.title)}">
-        <span class="ic">▤</span>
-        <span class="body"><span class="nm">${esc(n.title)}</span><span class="ds">${esc(
-          n.desc,
-        )}</span></span>
-      </button>`,
-    )
-    .join('');
+  const n = v.aiNotePicked?.length ?? 0;
   return `<div class="bzs-picker" data-role="aipicker">
       <div class="bzs-pk-head">
         <b>${t('side.ai.ctx.noteTitle')}</b>
+        <span class="bzs-pk-count">${t('side.ai.ctx.noteCount', { n })}</span>
+      </div>
+      <div class="bzs-pk-search">
+        ${MAG}
         <input data-role="ainotesearch" placeholder="${t('side.ai.ctx.noteSearch')}" value="${esc(
           v.aiNoteKw ?? '',
         )}">
+        <button type="button" class="bzs-pk-clear" data-act="aictxnoteclear" aria-label="${t(
+          'side.ai.ctx.noteClear',
+        )}">×</button>
       </div>
-      <div class="bzs-pk-list">${
-        rows || `<div class="bzs-pk-empty">${t('side.ai.ctx.noteEmpty')}</div>`
-      }</div>
+      <div class="bzs-pk-list">${notePickerListHtml(
+        v.aiNotes ?? [],
+        v.aiNoteKw ?? '',
+        v.aiNotePicked ?? [],
+      )}</div>
+      <div class="bzs-pk-foot">
+        <div class="bzs-pk-picked"></div>
+        <button type="button" class="bzs-pk-insert" data-act="aictxnoteconfirm"${
+          n ? '' : ' disabled'
+        }>${t('side.ai.ctx.noteInsert')}</button>
+      </div>
     </div>`;
 }
 

@@ -199,6 +199,10 @@ export const RT = {
   aiNoteOpen: false,
   /** 笔记选择器里的搜索词：重绘不该把用户刚打的字清掉 */
   aiNoteKw: '',
+  /** 浮层里勾选的路径：点「插入对话」才真正附上，关掉浮层就作废 */
+  aiNotePicked: [] as string[],
+  /** 打开浮层时从全库取一次的清单（关掉就丢，下次重取） */
+  aiNoteAll: [] as Array<{ title: string; path: string; desc: string }>,
   /** 画像方案：记住上次选的（两种方案差别很大，用户通常固定用同一种） */
   portraitPlan: 'vector' as PortraitPlan,
   /**

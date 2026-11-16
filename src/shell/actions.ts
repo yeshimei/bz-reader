@@ -33,6 +33,7 @@ import { allMarks, filterMarks, shelfOf } from './domain';
 import { filterRows, toRows } from './adapt';
 import { visiblePicked } from './book-select';
 import { toggleAll, togglePick } from './note-select';
+import { togglePicked } from './note-picker';
 import { notify } from '../core/notice';
 import { synthesizeFor, ttsEngineReady, ttsVoiceFor, type TtsRoute } from '../core/tts-engine';
 import { ttsDeployPrompt } from '../core/tts-deploy-prompt';
@@ -3007,17 +3008,29 @@ export function dispatchAction(
       repaint();
       break;
     case 'aictxnotepick': {
+      /* 正常点击由侧栏本地吃掉，这里只当键盘/外部派发的兜底 */
       const path = String(d.path ?? '').trim();
-      const title = String(d.title ?? '').trim();
       if (!path) break;
-      RT.aiCtx = addAiContext(RT.aiCtx, {
-        kind: 'note',
-        text: title || path.split('/').pop()?.replace(/\.md$/i, '') || path,
-        path,
-        meta: path,
-      });
+      RT.aiNotePicked = togglePicked(RT.aiNotePicked, path);
+      repaint();
+      break;
+    }
+    case 'aictxnoteconfirm': {
+      if (!RT.aiNotePicked.length) break;
+      for (const path of RT.aiNotePicked) {
+        const row = RT.aiNoteAll.find((n) => n.path === path);
+        if (!row) continue;
+        RT.aiCtx = addAiContext(RT.aiCtx, {
+          kind: 'note',
+          text: row.title || path.split('/').pop()?.replace(/\.md$/i, '') || path,
+          path,
+          meta: path,
+        });
+      }
       RT.aiNoteOpen = false;
       RT.aiNoteKw = '';
+      RT.aiNotePicked = [];
+      RT.aiNoteAll = [];
       repaint();
       focusAiInput();
       break;
@@ -3031,6 +3044,8 @@ export function dispatchAction(
       const shotBook = currentBook()?.id || '';
       RT.aiNoteOpen = false;
       RT.aiNoteKw = '';
+      RT.aiNotePicked = [];
+      RT.aiNoteAll = [];
       repaint();
       void src
         .captureAiShot()
@@ -4131,6 +4146,8 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
   RT.aiDraft = '';
   RT.aiNoteOpen = false;
   RT.aiNoteKw = '';
+  RT.aiNotePicked = [];
+  RT.aiNoteAll = [];
   if (input) input.value = '';
   /* 等待态（2026-11-16）：先亮「检索依据…」。这一段最慢二十几秒，
      以前侧栏只有用户那条消息，看着像没点动。 */
