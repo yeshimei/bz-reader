@@ -4,7 +4,19 @@ import { DEFAULT_SHELL_STATE, setState } from '../src/shell/state';
 import { setShellSource, type ShellSource } from '../src/shell/source';
 import { RT, resetAi } from '../src/shell/runtime';
 import { DEFAULT_SETTINGS } from '../src/data/settings';
-import { aiCardBegin, aiCardDone, aiCardDrop, aiCardFail, aiCardGet, aiCardKey, aiCardReset, aiModeOf } from '../src/shell/ai-card';
+import {
+  aiCardAppend,
+  aiCardBegin,
+  aiCardDone,
+  aiCardDrop,
+  aiCardFail,
+  aiCardFollowAppend,
+  aiCardFollowBegin,
+  aiCardGet,
+  aiCardKey,
+  aiCardReset,
+  aiModeOf,
+} from '../src/shell/ai-card';
 import { makeApp, makeStore } from './helpers/plugin-harness';
 import { installDomStub } from './helpers/dom-stub';
 
@@ -192,5 +204,67 @@ describe('ai-card · 和侧栏全书问答互不回填', () => {
       text: '卡片里的答案',
     });
     expect(RT.aiLog).toHaveLength(0);
+  });
+});
+
+/* ============================================================
+ * 流式补字（2026-11-16）
+ *
+ * 浮框里的追问原来要等整条回答回来才动一下：本地 14B 一问 77 秒，
+ * 这 77 秒卡片只有一个等待动画。改成流式之后，账本必须「边收边长」，
+ * 而且中途不能被当成「已经答完」——`status` 还是 busy。
+ * ============================================================ */
+describe('AI 卡 · 流式补字', () => {
+  const key = aiCardKey('ai', 'follow', '方鸿渐站在甲板上。', 'm1');
+
+  beforeEach(() => aiCardReset());
+  afterEach(() => aiCardReset());
+
+  it('首答边收边长，状态仍是 busy（还在跑）', () => {
+    aiCardBegin(key, '他后来怎么了', '10:00');
+    expect(aiCardAppend(key, '他')).toBe('他');
+    expect(aiCardAppend(key, '走了')).toBe('他走了');
+    expect(aiCardGet(key)).toMatchObject({ status: 'busy', text: '他走了' });
+  });
+
+  it('首问的 ask 与时刻不被流式冲掉（归档要用）', () => {
+    aiCardBegin(key, '他后来怎么了', '10:00');
+    aiCardAppend(key, '他走了');
+    expect(aiCardGet(key)).toMatchObject({ ask: '他后来怎么了', at: '10:00' });
+  });
+
+  it('追问只长最后一轮，前几轮一个字不动', () => {
+    aiCardBegin(key, '第一问', '10:00');
+    aiCardDone(key, '第一答');
+    aiCardFollowBegin(key, '第二问');
+    expect(aiCardFollowAppend(key, '第二问', '答')).toBe('答');
+    expect(aiCardFollowAppend(key, '第二问', '案')).toBe('答案');
+
+    const entry = aiCardGet(key)!;
+    expect(entry.text).toBe('第一答');
+    expect(entry.turns).toHaveLength(1);
+    expect(entry.turns![0]).toMatchObject({ q: '第二问', a: '答案', pending: true });
+  });
+
+  it('对不上那一轮就返回 null（不往别人的答案里追加）', () => {
+    aiCardBegin(key, '第一问', '10:00');
+    aiCardDone(key, '第一答');
+    aiCardFollowBegin(key, '第二问');
+    expect(aiCardFollowAppend(key, '别的问题', '答')).toBeNull();
+  });
+
+  it('卡片已经被清掉（换档 / 关卡 / 清空对话）返回 null', () => {
+    expect(aiCardAppend(key, '字')).toBeNull();
+    expect(aiCardFollowAppend(key, '问', '字')).toBeNull();
+  });
+
+  it('收尾换成完整文本：流里拼的那份只是过程显示', () => {
+    aiCardBegin(key, '问', '10:00');
+    aiCardAppend(key, '半截');
+    aiCardDone(key, '完整答案，比流里拼的多两个字。');
+    expect(aiCardGet(key)).toMatchObject({
+      status: 'done',
+      text: '完整答案，比流里拼的多两个字。',
+    });
   });
 });

@@ -128,6 +128,7 @@ import { AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, TTS_TUTORI
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
 import { forgetPortrait, setPortrait } from './portrait-cache';
+import { spoilerNote, spoilerScope } from '../data/spoiler';
 import {
   AI_CONTEXT_LIMIT,
   AI_SOURCES_MAX,
@@ -170,11 +171,13 @@ import { openClipEmptyDialog } from './clip-empty-dialog';
 import { debugSnapshot } from '../data/debug-log';
 import { TAP_MENU_PRESSURE_MS } from '../core/tap';
 import {
+  aiCardAppend,
   aiCardArchiveMark,
   aiCardBegin,
   aiCardDone,
   aiCardDrop,
   aiCardFail,
+  aiCardFollowAppend,
   aiCardFollowBegin,
   aiCardFollowDone,
   aiCardFollowFail,
@@ -183,6 +186,7 @@ import {
   aiCardKey,
   followHistory,
 } from './ai-card';
+import { startAiStream } from './ai-stream';
 import { refreshAiFloat } from './overlay';
 import {
   aiArchiveTurns,
@@ -4111,9 +4115,22 @@ async function bookEvidenceOf(
   signal?: AbortSignal,
 ): Promise<AiEvidence | null> {
   /* 走缓存：向量画像里存着全书原文，大书每次提问都 parse 一遍是白等 */
-  const portrait = await readPortraitCached(app, book.id);
+  const raw = await readPortraitCached(app, book.id);
   const embedder = bzEmbedder(app);
-  if (!portrait || portraitState(portrait, embedder.model) !== 'ready') return null;
+  if (!raw || portraitState(raw, embedder.model) !== 'ready') return null;
+
+  /* 剧透门（2026-11-16）：读到哪答到哪。截断点按章算（见 data/spoiler），
+     章名对不上就不截——宁可整本可查，也不能因为 nav 的名字和画像对不上
+     而把用户要查的东西整本藏起来。默认关，开关在设置的 AI 组里。 */
+  const scope = shellSettings().aiSpoiler
+    ? spoilerScope(raw, book.reading?.position?.chapterTitle)
+    : null;
+  const portrait = scope?.portrait ?? raw;
+  const note = scope ? `${spoilerNote(scope)}
+` : '';
+  /* 每个 return 都过这一道：漏一个，那一类问题就绕过剧透门 */
+  const scoped = (e: AiEvidence | null): AiEvidence | null =>
+    e && note ? { ...e, context: `${note}${e.context}` } : e;
 
   if (portrait.plan === 'vector') {
     /* 结构型问题（全书讲什么 / 第九章写了什么 / 立场怎么变）先试地图：
@@ -4123,7 +4140,7 @@ async function bookEvidenceOf(
        模型外的请求都不发；只拿到目录时再往下走去补检索。 */
     const structural = needsMap(q);
     const mapped = structural ? wholeBookEvidence(portrait, q) : null;
-    if (mapped && mapped.kind !== 'catalog') return mapped;
+    if (mapped && mapped.kind !== 'catalog') return scoped(mapped);
 
     /* 普通问题要算查询向量，而且必须用 bz 的模型算：书的向量就是它算的，
        换个模型算查询向量，距离再近也没有意义。 */
@@ -4153,20 +4170,20 @@ async function bookEvidenceOf(
     /* 一章都没挑中：目录照给（结构是真的），细节用刚取到的检索结果补 */
     if (structural) {
       const whole = wholeBookEvidence(portrait, q, { fallback: blocks ?? undefined });
-      if (whole) return whole;
+      if (whole) return scoped(whole);
     }
-    return blocks;
+    return scoped(blocks);
   }
 
   /* 压缩方案不用发任何请求：依据就是建画像时存下的要点 */
   const context = compressEvidence(portrait);
   if (!context.trim()) return null;
-  return {
+  return scoped({
     context,
     sources: chapterDigests(portrait)
       .slice(0, 5)
       .map((d) => ({ title: d.chapter, bookId: portrait.bookId, note: d.line })),
-  };
+  });
 }
 
 /**
@@ -4457,11 +4474,16 @@ async function followEvidenceOf(q: string, quote: string, signal?: AbortSignal):
   const book = currentBook();
   if (!src || !book) return '';
   try {
-    const portrait = await readPortraitCached(src.app, book.id);
+    const raw = await readPortraitCached(src.app, book.id);
     const embedder = bzEmbedder(src.app);
     /* 只有向量画像有原文块；压缩画像的要点不适合当「同书段落」 */
-    if (!portrait || portrait.plan !== 'vector') return '';
-    if (portraitState(portrait, embedder.model) !== 'ready' || !embedder.ai) return '';
+    if (!raw || raw.plan !== 'vector') return '';
+    if (portraitState(raw, embedder.model) !== 'ready' || !embedder.ai) return '';
+    /* 剧透门同样管到这里（2026-11-16）：追问的补充段落如果不受约束，
+       读小说的人从追问里一样能问出后面的事——门只挡正门等于没挡。 */
+    const portrait = shellSettings().aiSpoiler
+      ? spoilerScope(raw, book.reading?.position?.chapterTitle)?.portrait ?? raw
+      : raw;
     /* 划线的原话要带上：只拿「他后来为什么变了」算向量，「他」没有指代对象 */
     const query = `${quote.slice(0, 120)} ${q}`.trim();
     const vec = await embedder.ai.embedQuery(query, signal);
@@ -4527,6 +4549,13 @@ async function followAi(question: string): Promise<void> {
   refreshAiFloat();
   const ctrl = new AbortController();
   RT.aiAbort = ctrl;
+  /* 流式（2026-11-16）：本地 14B 答一问 77 秒、云端也要几秒，这段空窗里
+     浮框只有一个等待动画。第一个字到了就把等待气泡换成文字，之后按 80ms
+     节流补字（见 shell/ai-stream：浮框的消息区是整块 innerHTML 换的，
+     markdown 渲染又是异步的，所以流式期间不挂 data-ai-md）。 */
+  const stream = startAiStream((piece) =>
+    first ? aiCardAppend(key, piece) : aiCardFollowAppend(key, q, piece),
+  );
   try {
     /* 先补前后文（2026-11-16）：追问要能回答「后来呢」「和前文矛盾吗」，
        只给眼前这一屏，模型只能猜。取不到就空串，不拦这一问。 */
@@ -4543,8 +4572,9 @@ async function followAi(question: string): Promise<void> {
             /* 首问也要带上：只给答案，模型不知道用户当初问的是什么 */
             history: followHistory(entry!.text, entry!.turns, entry!.ask),
           },
-      { signal: ctrl.signal },
+      { signal: ctrl.signal, onDelta: stream.onDelta },
     );
+    stream.stop();
     if (first) aiCardDone(key, res.text);
     else aiCardFollowDone(key, q, res.text);
     /* 同一张卡的追问按 key 归进同一条会话：先问「解释一下」再追问「那笼子呢」，
@@ -4563,12 +4593,21 @@ async function followAi(question: string): Promise<void> {
       answer: res.text,
     });
   } catch (e) {
+    stream.stop();
     const why = (e as Error)?.message || t('common.unknownError');
+    /* 已经流出一半：保留收到的那部分，把原因接在后面——抹掉半条答案
+       等于用户白等半分钟（与侧栏同一口径）。 */
+    const half = stream.text();
+    const keep = half.trim()
+      ? (a: string) => (first ? aiCardDone(key, a) : aiCardFollowDone(key, q, a))
+      : null;
     if (!ctrl.signal.aborted) {
-      if (first) aiCardFail(key, why);
+      if (keep) keep(`${half}\n\n（${why}）`);
+      else if (first) aiCardFail(key, why);
       else aiCardFollowFail(key, q, why);
-    } else if (first) {
-      /* 被掐掉的首问不留一条「已取消」的假对话 */
+    } else if (first && !keep) {
+      /* 被掐掉的首问、一个字都没等到：不留一条「已取消」的假对话。
+         已经流出字的就不算假对话，保留半截让人接着问。 */
       aiCardDrop(key);
     }
   } finally {

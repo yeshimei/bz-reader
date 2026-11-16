@@ -59,6 +59,7 @@ import { bzEmbedder, bzEntryReady } from '../data/bz-bridge';
 import { kbLinkOf } from '../data/kb-link';
 import { hydrateToolbarIcons } from './toolbar-icons';
 import {
+  aiCardAppend,
   aiCardBegin,
   aiCardDone,
   aiCardDraft,
@@ -70,6 +71,7 @@ import {
   aiCardSeed,
   sessionToCard,
 } from './ai-card';
+import { startAiStream } from './ai-stream';
 import { aiSessions } from '../data/ai-session';
 import { aiFirstPrompt, aiFloatTaskOf, aiMenuHtml, clockOf } from './ai-menu';
 import { recordAiTurn, resetAiTurnGroups } from '../data/ai-log';
@@ -1846,9 +1848,17 @@ export async function runAiForOverlay(): Promise<void> {
   const ctrl = new AbortController();
   aiInFlight = { key, ctrl };
   RT.aiAbort = ctrl;
+  /* 流式（2026-11-16）：与追问同一条路（见 shell/ai-stream）。解释 / 翻译 /
+     总结也走它——同一个浮框里三种任务，等待时的空窗一样长。 */
+  const stream = startAiStream((piece) => aiCardAppend(key, piece));
   let answer = '';
   try {
-    const res = await aiAsk(s, { task, text }, { signal: ctrl.signal });
+    const res = await aiAsk(
+      s,
+      { task, text },
+      { signal: ctrl.signal, onDelta: stream.onDelta },
+    );
+    stream.stop();
     if (aiInFlight?.ctrl === ctrl) {
       aiInFlight = null;
       RT.aiAbort = null;
@@ -1858,13 +1868,23 @@ export async function runAiForOverlay(): Promise<void> {
     answer = res.text;
     aiCardDone(key, res.text);
   } catch (e) {
+    stream.stop();
     if (aiInFlight?.ctrl === ctrl) {
       aiInFlight = null;
       RT.aiAbort = null;
     }
-    /* 被掐掉的请求不留「已取消」这种假结果：换档 / 关卡都不该留 */
-    if (!ctrl.signal.aborted) aiCardFail(key, (e as Error).message);
-    else aiCardDrop(key);
+    const why = (e as Error).message;
+    /* 已经流出一半：保留收到的部分再接原因。一个字都没等到才换成
+       一句报错；被掐掉的空请求不留「已取消」这种假结果。 */
+    const half = stream.text();
+    if (half.trim()) {
+      aiCardDone(key, `${half}\n\n（${why}）`);
+      answer = '';
+    } else if (!ctrl.signal.aborted) {
+      aiCardFail(key, why);
+    } else {
+      aiCardDrop(key);
+    }
   }
   /* 已经关了 / 换了另一档：这份结果没人看，别留在册子上冒充「问过了」 */
   if (currentAiKey() !== key) {

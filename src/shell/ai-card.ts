@@ -137,6 +137,21 @@ export function aiCardDone(key: string, text: string): void {
   entries.set(key, { ...(cur ?? {}), status: 'done', text });
 }
 
+/**
+ * 流式中：首条答案边收边长（2026-11-16）。
+ *
+ * 只改 `text`，不动 `status`——还在跑就是 `busy`，底栏与「别重复发」的
+ * 判断都靠它。返回追加后的全文；条目已经被清掉（换档 / 关卡 / 清空对话）
+ * 时返回 `null`，流式那层据此停止绘制。
+ */
+export function aiCardAppend(key: string, piece: string): string | null {
+  const cur = entries.get(key);
+  if (!cur) return null;
+  const text = `${cur.text}${piece}`;
+  entries.set(key, { ...cur, text });
+  return text;
+}
+
 /** 失败也是一条要留在卡上的话：原因写在 AI 气泡里 */
 export function aiCardFail(key: string, text: string): void {
   const cur = entries.get(key);
@@ -201,6 +216,31 @@ export function aiCardFollowBegin(key: string, q: string): void {
   /* 又追问了一轮：这段对话已经和归档时那份不一样了 */
   delete next.archivedAt;
   entries.set(key, next);
+}
+
+/**
+ * 流式中：最后一轮追问边收边长（2026-11-16）。
+ *
+ * 保留 `pending`：这一轮确实还没答完（重画时的等待动画、`settleTurn` 的
+ * 配对都还靠它）。`aiFloatMessages` 里 `a` 非空就先画文字，所以边收边看
+ * 得到字，收尾时 `aiCardFollowDone` 再把 `pending` 摘掉。
+ *
+ * 返回追加后的全文；卡片或那一轮不在了返回 `null`。
+ */
+export function aiCardFollowAppend(key: string, q: string, piece: string): string | null {
+  const cur = entries.get(key);
+  if (!cur) return null;
+  const turns = [...(cur.turns ?? [])];
+  for (let i = turns.length - 1; i >= 0; i -= 1) {
+    const turn = turns[i];
+    if (turn.pending && turn.q === q) {
+      const a = `${turn.a}${piece}`;
+      turns[i] = { ...turn, a };
+      entries.set(key, { ...cur, turns });
+      return a;
+    }
+  }
+  return null;
 }
 
 /**

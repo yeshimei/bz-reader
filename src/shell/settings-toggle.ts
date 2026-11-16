@@ -11,6 +11,8 @@ export interface ToggleState {
   debugLog: boolean;
   /** 剪藏本（bz 组）：书架多一本跟着剪藏更新的书，内容实时读 bz 剪藏本，默认关 */
   clipBook: boolean;
+  /** 剧透门（AI 组）：全书问答只答到当前阅读位置，默认关 */
+  aiSpoiler: boolean;
   /* 曾经这里还有 aiKnowledge：2026-11-07 改成自动识别，开关撤掉，
      判断在 data/bz-bridge（bz 在不在）。2026-11-13 抽进 bz 组后
      仍然没有它——知识盒那一行只报状态。 */
@@ -25,6 +27,8 @@ export function flipSetting(current: ToggleState, key: string): Partial<ToggleSt
       return { debugLog: !current.debugLog };
     case 'clipBook':
       return { clipBook: !current.clipBook };
+    case 'aiSpoiler':
+      return { aiSpoiler: !current.aiSpoiler };
     default:
       return null;
   }

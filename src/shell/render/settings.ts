@@ -700,6 +700,10 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>${t('settings.ai.baseUrl')}</label><input data-role="setting" data-k="ai.baseUrl" placeholder="${t('settings.ai.baseUrl.ph')}" value="${esc(s.ai.baseUrl)}" style="flex:1"${aiReadonly}></div>
       <div class="bzs-setrow"><label>${t('settings.ai.model')}</label><input data-role="setting" data-k="ai.model" placeholder="${t('settings.ai.model.ph')}" value="${esc(s.ai.model)}" style="flex:1"${aiReadonly}></div>
       <div class="bzs-setrow"><label>${t('settings.ai.key')}</label><input type="password" data-role="setting" data-k="ai.apiKey" placeholder="${t('settings.ai.key.ph')}" value="${esc(s.ai.apiKey)}" style="flex:1"${aiReadonly}></div>
+      ${aiUnlocked
+        ? `${toggle('aiSpoiler', s.aiSpoiler === true, t('settings.ai.spoiler'))}
+           <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ai.spoiler.hint')}</div>`
+        : ''}
     </div>`;
 
   /* bz 组（2026-11-13）：两项外部能力从 AI 组里抽出来单独成组。

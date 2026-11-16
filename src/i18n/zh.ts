@@ -992,6 +992,9 @@ export const ZH = {
   'settings.ai.model.ph': '填写你的账号可用的模型名',
   'settings.ai.key': '密钥',
   'settings.ai.key.ph': '填写 API 密钥',
+  'settings.ai.spoiler': '只答到当前章节',
+  'settings.ai.spoiler.hint':
+    '开启后问全书只检索读到的地方，问到后面的事会答「还没读到」。读小说时建议开；读非虚构建议关——前后章节要互相印证才答得准。',
   /* ── 设置页：授权 ────────────────────────────────────────── */
   'settings.lic.status': '状态',
   'settings.lic.code': '激活码',

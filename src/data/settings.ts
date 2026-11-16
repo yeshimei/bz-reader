@@ -166,6 +166,17 @@ export interface ReaderSettings {
    */
   clipBook: boolean;
   /**
+   * 剧透门（2026-11-16）：全书问答只答到当前阅读位置。
+   *
+   * 默认**关**。开着的时候，「问全书」只拿到读到的那部分，问到后面的事
+   * 一律答「还没读到」。小说读者需要它（整本可查等于把结局摊在桌上），
+   * 非虚构读者反过来需要整本（前后章节互相印证），而后者才是问答的主力。
+   *
+   * 截断点按章算，见 data/spoiler：章名对不上就**不截**——宁可多答，
+   * 也不能因为目录与画像的名字不一致而一个字都搜不到。
+   */
+  aiSpoiler: boolean;
+  /**
    * 剪藏成书的「汇总范围」（2026-11-14）：这本书收哪些文章。
    *
    * 三档：全部 / 未读 / 今日+未读，默认**未读**——这是一本「活书」，
@@ -224,6 +235,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   ttsStats: { chars: 0, cost: 0 },
   ttsResume: null,
   debugLog: false,
+  aiSpoiler: false,
   clipBook: false,
   clipScope: DEFAULT_CLIP_SCOPE,
 };
@@ -426,6 +438,7 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
        不拿半条记录去跳页 */
     ttsResume: normalizeTtsResume(s.ttsResume),
     debugLog: s.debugLog === true,
+    aiSpoiler: s.aiSpoiler === true,
     /* 缺字段（旧版本没有它）= 关：剪藏成书要人主动开，不能靠缺省值替人选 */
     clipBook: s.clipBook === true,
     /* 缺字段（1.3.1 之前没有）= 未读：这是用户定的默认值，不是「没选」 */

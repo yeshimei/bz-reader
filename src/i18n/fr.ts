@@ -1303,4 +1303,6 @@ export const FR: Record<MsgKey, string> = {
   'ai.float.clear.ok': 'Effacer la conversation',
   'side.ai.quoteWarn': '[TODO] side.ai.quoteWarn {n}',
   'search.sem.literal.hint': '[TODO] search.sem.literal.hint',
+  'settings.ai.spoiler': '[TODO] settings.ai.spoiler',
+  'settings.ai.spoiler.hint': '[TODO] settings.ai.spoiler.hint',
 };

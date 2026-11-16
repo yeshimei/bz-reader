@@ -1292,4 +1292,6 @@ export const ZH_TW: Record<MsgKey, string> = {
   'ai.float.clear.ok': '清空對話',
   'side.ai.quoteWarn': '[TODO] side.ai.quoteWarn {n}',
   'search.sem.literal.hint': '[TODO] search.sem.literal.hint',
+  'settings.ai.spoiler': '[TODO] settings.ai.spoiler',
+  'settings.ai.spoiler.hint': '[TODO] settings.ai.spoiler.hint',
 };
