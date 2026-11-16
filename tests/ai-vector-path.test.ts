@@ -160,6 +160,29 @@ describe('查询扩展：只给带指代词的短问题补章节名', () => {
   it('没有章节名时原样返回', () => {
     expect(expandQuery('他为什么走')).toBe('他为什么走');
   });
+
+  /* 2026-11-17：「后来呢」「结局」没有指代词，但同样缺对象。
+     以前四个字直接算向量，方向接近随机。 */
+  it('时序追问也补章节名', () => {
+    expect(expandQuery('后来呢', '第三章')).toBe('第三章 后来呢');
+    expect(expandQuery('结局如何', '第三章')).toBe('第三章 结局如何');
+  });
+
+  it('给了上一轮问句时，时序追问带上一轮的实词', () => {
+    const out = expandQuery('后来呢', '第三章', '方鸿渐为什么离开三闾大学');
+    expect(out).toContain('方鸿渐为什么离开三闾大学');
+    expect(out).toContain('后来呢');
+  });
+
+  it('上一轮问句只带前 30 字，不整段搬过来', () => {
+    const prev = '甲'.repeat(80);
+    const out = expandQuery('后来呢', '第三章', prev);
+    expect(out).toBe(`${'甲'.repeat(30)} 后来呢`);
+  });
+
+  it('不是时序追问时，上一轮问句不参与', () => {
+    expect(expandQuery('三闾大学的校长是谁？', '第一章', '方鸿渐为什么离开')).toBe('三闾大学的校长是谁？');
+  });
 });
 
 describe('切块：向量方案相邻块重叠', () => {

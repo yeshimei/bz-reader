@@ -199,22 +199,46 @@ export function pickChapters(map: readonly MapEntry[], query: string, limit = CH
  * 整章原文：按块顺序拼，不重排、不摘要。
  *
  * 这是与「六块碎片」最关键的区别——论证是顺着走的，抽掉中间三块，
- * 结论就成了断章取义。超预算时截断并留痕，让模型知道自己没读全。
+ * 结论就成了断章取义。
+ *
+ * 超预算时**头尾各留**（2026-11-17）：论证型章节的结论与回扣几乎都压在
+ * 最后几段，只留开头等于把最该读的那段切掉。中段省略处写明省略了多少字，
+ * 模型才知道自己没读全。单块就超预算时退回「只给开头」——没有尾巴可留。
  */
 export function chapterText(p: PortraitFile | null | undefined, chapter: string, budget = 3000): string {
   const key = String(chapter ?? '').trim();
   const cap = Math.max(0, Math.floor(budget));
   if (!p || !key || !cap) return '';
-  const parts: string[] = [];
-  let used = 0;
+  const bodies: string[] = [];
   for (const block of p.blocks ?? []) {
     if ((String(block.chapter ?? '').trim() || '正文') !== key) continue;
     const body = bodyOf(block);
-    if (!body) continue;
-    if (used >= cap) {
-      parts.push('…');
-      break;
-    }
+    if (body) bodies.push(body);
+  }
+  if (!bodies.length) return '';
+  const total = bodies.reduce((n, b) => n + b.length + 1, 0);
+  if (total <= cap) return bodies.join('\n');
+
+  /* 预算小到装不下「头 + 省略标记 + 尾」时，分头尾只会两头都读不完整，
+     退回只给开头。真实调用里一章至少 600 字，这条只在极窄预算下生效。 */
+  if (cap < 60) return takeHead(bodies, cap).text;
+
+  /* 65 / 25 是给「中段省略」那行留一成，别让标记自己把预算吃掉 */
+  const head = takeHead(bodies, Math.max(1, Math.floor(cap * 0.65)));
+  const tail = takeTail(bodies, Math.max(1, Math.floor(cap * 0.25)));
+  /* 头尾撞在同一块：这一章只有一块，或预算小到连两块都装不下 */
+  if (tail.start <= head.end) return head.text;
+  const omitted = Math.max(0, total - head.text.length - tail.text.length);
+  return `${head.text}\n…（中段省略约 ${omitted} 字）…\n${tail.text}`;
+}
+
+/** 从头拼到预算上限，返回文本与最后落到的块序号 */
+function takeHead(bodies: readonly string[], cap: number): { text: string; end: number } {
+  const parts: string[] = [];
+  let used = 0;
+  for (let i = 0; i < bodies.length; i += 1) {
+    if (used >= cap) return { text: parts.join('\n'), end: i - 1 };
+    const body = bodies[i];
     const room = cap - used;
     if (body.length <= room) {
       parts.push(body);
@@ -222,9 +246,28 @@ export function chapterText(p: PortraitFile | null | undefined, chapter: string,
       continue;
     }
     parts.push(`${body.slice(0, room)}…`);
-    break;
+    return { text: parts.join('\n'), end: i };
   }
-  return parts.join('\n');
+  return { text: parts.join('\n'), end: bodies.length - 1 };
+}
+
+/** 从尾往前拼到预算上限，返回文本与最前落到的块序号 */
+function takeTail(bodies: readonly string[], cap: number): { text: string; start: number } {
+  const parts: string[] = [];
+  let used = 0;
+  for (let i = bodies.length - 1; i >= 0; i -= 1) {
+    if (used >= cap) return { text: parts.reverse().join('\n'), start: i + 1 };
+    const body = bodies[i];
+    const room = cap - used;
+    if (body.length <= room) {
+      parts.push(body);
+      used += body.length + 1;
+      continue;
+    }
+    parts.push(body.slice(body.length - room));
+    return { text: parts.reverse().join('\n'), start: i };
+  }
+  return { text: parts.reverse().join('\n'), start: 0 };
 }
 
 /**
@@ -239,11 +282,23 @@ const WHOLE_FACET =
   /讲(了|的)?(些)?(什么|啥)|说什么|写了什么|主题|主旨|中心思想|脉络|主线|结构|框架|概要|概括|大纲|走向|整体|全局|贯穿|演变|变化|转变|发展脉络|总结|梳理|分几(个)?(部分|阶段|章)|几章/;
 /** 不带「全书」也明确在问结构的说法 */
 const WHOLE_STRONG = /脉络|主线|中心思想|主旨|全书结构|整体结构|章节安排|通篇|整体上|总体上|贯穿全文|全书概括/;
+/**
+ * 不带「全书」、但问的是一条**贯穿性的线**（2026-11-17）。
+ *
+ * 「作者的态度是怎么变的」「这几个人什么关系」都不提整本，可它们要的
+ * 是跨章的走向——六块碎片拼不出演变。三种句形（态度/立场怎么变、
+ * 什么关系、前后有什么不同）几乎不会出现在「某一句叫什么」这类定位
+ * 问题上，所以不加「全书」二字也敢放行。
+ *
+ * 反例：「这本书的船叫什么」有「这本书」但问的是某一句，不命中这里。
+ */
+const WHOLE_ARC =
+  /(态度|立场|观点|看法|形象|性格|写法|笔调|语气)[^。！？?]{0,12}(变|转变|变化|发展|不同|差别|对比|走向)|(什么|怎样|如何|怎么)[^。！？?]{0,8}(关系|变化|不同|区别)|(关系|前后|前半|后半|早期|晚期|开头|结尾)[^。！？?]{0,10}(如何|怎么|怎样|什么|对比|不同|变化)/;
 
 export function isWholeBookQuestion(q: string): boolean {
   const text = String(q ?? '').trim();
   if (!text) return false;
-  if (WHOLE_STRONG.test(text)) return true;
+  if (WHOLE_STRONG.test(text) || WHOLE_ARC.test(text)) return true;
   return WHOLE_OBJECT.test(text) && WHOLE_FACET.test(text);
 }
 

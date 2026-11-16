@@ -101,6 +101,14 @@ export const PORTRAIT_REL_SCORE = 0.6;
  */
 export const QUERY_EXPAND_MAX = 12;
 
+/**
+ * 时序追问（后来呢 / 结局如何）从上一轮带多少字过来。
+ *
+ * 30 字够装下上一轮问句的主语与动作，又不至于把整个问题（可能带引号原文）
+ * 搬过来——查询越长，向量越像「两句话的平均」，反而模糊。
+ */
+export const QUERY_PRIOR_MAX = 30;
+
 export interface ChapterText {
   title: string;
   text: string;
@@ -487,17 +495,36 @@ export function blocksEvidence(
  * 「他为什么走」这种问题没有主语也没有书名，直接嵌入得到的方向几乎是随机的；
  * 拼上章名至少把它拉回正在读的那一段。
  *
- * 只给**带指代词**的短问题拼。「三闾大学的校长是谁」也只有 10 个字，
+ * 只给**带指代 / 带时序**的短问题拼。「三闾大学的校长是谁」也只有 10 个字，
  * 但主语是专名，拼上「第一章」反而把它拉向前文——问的是后文的校长，
- * 结果检索到第一章的风景描写。判据是「有没有他/她/它/这/那/该/此」，
- * 不是「够不够短」。
+ * 结果检索到第一章的风景描写。判据是「有没有他/她/它/这/那/该/此」和
+ * 「是不是在接着上文问」，不是「够不够短」。
+ *
+ * 2026-11-17 补两类：
+ *   · 「后来呢」「结局」「前面说的」——没有指代词，但同样缺对象，以前直接
+ *     拿四个字算向量，方向接近随机；
+ *   · 给了 `prior`（上一轮问句）时，时序追问优先带上一轮的实词——「后来」
+ *     接的是谁，只有上一轮知道；章名只能说明「在哪一章」。
  */
-export function expandQuery(q: string, chapter?: string): string {
+/** 指代词：没有它，短问题就没有主语 */
+const ANAPHORA_RE = /[他她它这那该此]/;
+/** 时序与回指：没有主语，但「后来 / 结局 / 上文」都指着上一轮那件事 */
+const TEMPORAL_RE = /后来|结局|结尾|最后|前面|刚才|上文|前述|接下来|接着|后面|开头|然后/;
+
+export function expandQuery(q: string, chapter?: string, prior?: string): string {
   const text = String(q ?? '').trim();
+  if (!text) return text;
   const name = String(chapter ?? '').trim();
-  if (!text || !name) return text;
-  if (text.length >= QUERY_EXPAND_MAX) return text;
-  return /[他她它这那该此]/.test(text) ? `${name} ${text}` : text;
+  const prev = String(prior ?? '').replace(/\s+/g, ' ').trim();
+  const short = Array.from(text).length < QUERY_EXPAND_MAX;
+  const temporal = TEMPORAL_RE.test(text);
+
+  if (short && temporal && prev) {
+    const carry = Array.from(prev).slice(0, QUERY_PRIOR_MAX).join('');
+    return `${carry} ${text}`;
+  }
+  if (!name || !short) return text;
+  return ANAPHORA_RE.test(text) || temporal ? `${name} ${text}` : text;
 }
 
 /**

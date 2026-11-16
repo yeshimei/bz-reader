@@ -123,7 +123,7 @@ import { aiPromptLabels } from './ai-labels';
 import { CARD_MORE_STEP } from './search-hits';
 import { kickBodySearch, refreshBodyHits, resetBodySearch, stopBodySearch } from './search-run';
 import { currentSearchSurface, kickSemanticSearch, resetSemanticSearch } from './search-semantic';
-import { bzClipbookUsed, bzEmbedder, bzNotesReady, openBzClipbook, openBzPreview, probeBz, openBzEntry, type BzEntryKind } from '../data/bz-bridge';
+import { bzClipbookUsed, bzEmbedder, bzNotesReady, openBzClipbook, openBzPreview, probeBz, openBzEntry, type BzEntryKind, type BzEmbedder } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
 import { AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, REVIEW_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../core/links';
@@ -159,6 +159,7 @@ import {
 import { retrieveBlocks } from '../data/block-retrieval';
 import { needsMap, wholeBookEvidence } from '../data/book-map';
 import { readPortraitCached } from '../data/portrait-cache';
+import { queryVecCache } from '../data/query-vec-cache';
 import { chapterDigestOf, guideOf, withGuide } from '../data/chapter-guide';
 import { enrichDoneKind, enrichNeeds, enrichSample, mergeMetaPatch, parseEnrichReply } from '../data/book-enrich';
 import { kbSource } from '../data/kb-entry';
@@ -4142,6 +4143,21 @@ export function attachAiContext(
 const EVIDENCE_TIMEOUT_MS = 20_000;
 
 /**
+ * 查一次查询向量：先看缓存，没命中才真算（2026-11-17）。
+ *
+ * 同一句话问两遍、措辞微调后重问，都不该再走一次嵌入——本地服务要几百
+ * 毫秒，云端按字计费。缓存键带模型名，换了嵌入模型旧向量不会串用。
+ */
+async function queryVector(embedder: BzEmbedder, text: string, signal?: AbortSignal): Promise<number[]> {
+  const hit = queryVecCache.get(embedder.model, text);
+  if (hit) return hit;
+  if (!embedder.ai) throw new Error(embedder.problem || t('side.ai.embedNotReady'));
+  const vec = await embedder.ai.embedQuery(text, signal);
+  if (vec?.length) queryVecCache.set(embedder.model, text, vec);
+  return vec;
+}
+
+/**
  * 这本书自己的依据：从全书画像里取最相关的几块。
  *
  * 画像的三种状态（没建 / 建到一半 / 换了嵌入模型）在 askAi 里已经拦过，
@@ -4156,6 +4172,8 @@ async function bookEvidenceOf(
   book: ReaderBook,
   chapter?: string,
   signal?: AbortSignal,
+  /** 上一轮的问题：时序追问（「后来呢」）靠它补回对象 */
+  prior?: string,
 ): Promise<AiEvidence | null> {
   /* 走缓存：向量画像里存着全书原文，大书每次提问都 parse 一遍是白等 */
   const raw = await readPortraitCached(app, book.id);
@@ -4190,7 +4208,7 @@ async function bookEvidenceOf(
     let blocks: AiEvidence | null = null;
     try {
       if (!embedder.ai) throw new Error(embedder.problem || t('side.ai.embedNotReady'));
-      const vec = await embedder.ai.embedQuery(expandQuery(q, chapter), signal);
+      const vec = await queryVector(embedder, expandQuery(q, chapter, prior), signal);
       /* 两路并行：向量管「意思像不像」，字面管「这个词在不在」。
          以前只有向量，问船名 / 年份 / 外国人名时，真正写着答案的那块
          经常排在第 7 名之后；字面通道正是为这一类问题加的。
@@ -4347,9 +4365,12 @@ async function askAi(el: HTMLElement | null, preset?: string): Promise<void> {
   }, EVIDENCE_TIMEOUT_MS);
 
   let evidence: AiEvidence | null = null;
+  /* 上一轮问句：时序追问（「后来呢」「结局」）没有主语，检索时靠它把对象补回来。
+     取侧栏里最后一条「我」的消息——刚刚推出的这条还没进 aiLog。 */
+  const priorAsk = [...RT.aiLog].reverse().find((m) => m.me)?.text ?? '';
   try {
     evidence = mergeEvidence(
-      await bookEvidenceOf(q, src.app, book, book.reading.position.chapterTitle, ctrl.signal),
+      await bookEvidenceOf(q, src.app, book, book.reading.position.chapterTitle, ctrl.signal, priorAsk),
       await sharedEvidenceOf(q, src.app, ctrl.signal),
     );
   } catch (e) {
@@ -4527,9 +4548,14 @@ async function followEvidenceOf(q: string, quote: string, signal?: AbortSignal):
     const portrait = shellSettings().aiSpoiler
       ? spoilerScope(raw, book.reading?.position?.chapterTitle)?.portrait ?? raw
       : raw;
-    /* 划线的原话要带上：只拿「他后来为什么变了」算向量，「他」没有指代对象 */
-    const query = `${quote.slice(0, 120)} ${q}`.trim();
-    const vec = await embedder.ai.embedQuery(query, signal);
+    /* 划线的原话要带上：只拿「他后来为什么变了」算向量，「他」没有指代对象。
+       问题本身先过 expandQuery——「后来呢」「结局」这类短问光靠划线原文
+       补不出时态，补上当前章名至少把检索圈在正在读的这一章。 */
+    const query = `${quote.slice(0, 120)} ${expandQuery(
+      q,
+      book.reading?.position?.chapterTitle,
+    )}`.trim();
+    const vec = await queryVector(embedder, query, signal);
     const picks = retrieveBlocks(portrait, query, vec, { limit: 3 });
     if (!picks.length) return '';
     return blocksEvidence(portrait, picks, FOLLOW_EVIDENCE_LIMIT);

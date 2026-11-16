@@ -159,6 +159,27 @@ describe('整章读', () => {
     expect(text.endsWith('…')).toBe(true);
   });
 
+  /* 2026-11-17：论证型章节的结论几乎总在末尾。只留开头等于把最该读的
+     那段切掉，所以超预算时改成头尾各留，中段省略处留痕。 */
+  it('多块超预算时头尾各留，结论不会被切掉', () => {
+    const long = portraitOf([
+      { chapter: '第一章', text: `开头甲${'一'.repeat(46)}` },
+      { chapter: '第一章', text: `中段乙${'二'.repeat(46)}` },
+      { chapter: '第一章', text: `中段丙${'三'.repeat(46)}` },
+      { chapter: '第一章', text: `${'四'.repeat(46)}结论丁` },
+    ]);
+    const text = chapterText(long, '第一章', 120);
+    expect(text).toContain('开头甲');
+    expect(text).toContain('结论丁');
+    expect(text).toContain('中段省略');
+  });
+
+  it('预算够时不加省略标记', () => {
+    const text = chapterText(BOOK, '第一章 归国', 500);
+    expect(text).not.toContain('省略');
+    expect(text.startsWith('红海早过了')).toBe(true);
+  });
+
   it('没有原文时退回要点（压缩画像）', () => {
     const compress = portraitOf([], {
       plan: 'compress',
@@ -173,6 +194,21 @@ describe('问题是不是在问结构', () => {
     expect(isWholeBookQuestion('这本书讲了什么')).toBe(true);
     expect(isWholeBookQuestion('全书的脉络是怎样的')).toBe(true);
     expect(isWholeBookQuestion('作者在全书的立场有什么变化')).toBe(true);
+  });
+
+  /* 2026-11-17：这三句都不带「全书」二字，但问的都是一条贯穿性的线。
+     以前只有词表命中才走地图，它们全掉进六块碎片，答不出演变。 */
+  it('不带「全书」也认得出贯穿性的问题', () => {
+    expect(isWholeBookQuestion('作者的态度是怎么变的')).toBe(true);
+    expect(isWholeBookQuestion('这几个人什么关系')).toBe(true);
+    expect(isWholeBookQuestion('前后有什么不同')).toBe(true);
+    expect(isWholeBookQuestion('他和苏小姐是什么关系')).toBe(true);
+  });
+
+  it('定位型问题仍然不进地图', () => {
+    expect(isWholeBookQuestion('这本书的船叫什么')).toBe(false);
+    expect(isWholeBookQuestion('方鸿渐回国坐的船叫什么名字')).toBe(false);
+    expect(isWholeBookQuestion('第九章里那个法国人叫什么')).toBe(false);
   });
 
   it('单章类', () => {
