@@ -41,13 +41,13 @@ describe('标注多选（笔记页）', () => {
   });
 
   /* 2026-11-08：笔记头换成圆形语汇，「选择」是动作而不是筛选值，
-     所以做成圆形图标钮（勾选列表），文字交给 aria-label / title。 */
+     所以做成圆形图标钮（勾选列表），名字交给视觉隐藏文本（不挂 aria-label/title）。 */
   it('「选择」是圆形图标钮，不再是一颗文字按钮', () => {
     const h = html();
-    const tag = h.match(/<button[^>]*data-act="notesel"[^>]*>/)?.[0] ?? '';
-    expect(tag).toContain('bzs-round');
-    expect(tag).toContain('aria-label');
-    expect(h).not.toContain('>选择<');
+    const btn = h.match(/<button[^>]*data-act="notesel"[^>]*>[\s\S]*?<\/button>/)?.[0] ?? '';
+    expect(btn).toContain('bzs-round');
+    expect(btn).toContain('<span class="bzs-sr-only">选择</span>');
+    expect(btn.replace(/<span class="bzs-sr-only">[\s\S]*?<\/span>/g, '')).not.toContain('选择');
   });
 
   /* 图标名写错时 ico() 会吐一个空 <svg>，按钮就变成一颗空圆——

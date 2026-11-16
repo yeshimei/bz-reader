@@ -283,8 +283,8 @@ function linksHtml(): string {
   return items
     .map(
       (l) =>
-        `<button class="bzs-chgn-link" type="button" data-act="${l.act}" ` +
-        `title="${esc(l.label)}" aria-label="${esc(l.label)}">${l.icon}</button>`,
+        `<button class="bzs-chgn-link" type="button" data-act="${l.act}">` +
+        `<span class="bzs-sr-only">${esc(l.label)}</span>${l.icon}</button>`,
     )
     .join('');
 }
@@ -305,8 +305,8 @@ function supportBtnHtml(names: readonly RewardName[] = currentPatrons()): string
   const badge =
     n > 0 ? `<span class="bzs-chgn-count" aria-hidden="true">+${n > 99 ? '99+' : n}</span>` : '';
   return (
-    `<button class="bzs-chgn-support" type="button" data-role="chgnsupport" ` +
-    `title="${esc(label)}" aria-label="${esc(label)}">${HEART_SVG}<span>${esc(c.support)}</span>${badge}</button>`
+    `<button class="bzs-chgn-support" type="button" data-role="chgnsupport">` +
+    `<span class="bzs-sr-only">${esc(label)}</span>${HEART_SVG}<span>${esc(c.support)}</span>${badge}</button>`
   );
 }
 
@@ -322,8 +322,7 @@ function syncSupportBadges(root: HTMLElement): void {
   const n = currentPatrons().length;
   const label = c.supportTitle(n);
   root.querySelectorAll<HTMLElement>('[data-role="chgnsupport"]').forEach((btn) => {
-    btn.title = label;
-    btn.setAttribute('aria-label', label);
+    btn.appendChild(Object.assign(document.createElement('span'), { className: 'bzs-sr-only', textContent: label }));
     const old = btn.querySelector('.bzs-chgn-count');
     if (n > 0) {
       const text = `+${n > 99 ? '99+' : n}`;
@@ -392,13 +391,13 @@ export function changelogNoteHtml(
     '</div>' +
     '</main>' +
     `<footer class="bzs-chgn-ft">${linksHtml()}${supportBtnHtml(names)}</footer>` +
-    `<button class="bzs-chgn-close" type="button" aria-label="${c.close}" title="${c.close}">${CLOSE_SVG}</button>` +
+    `<button class="bzs-chgn-close" type="button"><span class="bzs-sr-only">${c.close}</span>${CLOSE_SVG}</button>` +
     '</div>';
 
   const mobile =
     '<div class="bzs-chgn-m">' +
     `<div class="bzs-chgn-mbar"><div class="bzs-chgn-mtitle">${CLOCK_SVG}${c.title}</div>` +
-    `<button class="bzs-chgn-close" type="button" aria-label="${c.close}" title="${c.close}">${CLOSE_SVG}</button>` +
+    `<button class="bzs-chgn-close" type="button"><span class="bzs-sr-only">${c.close}</span>${CLOSE_SVG}</button>` +
     '</div>' +
     `<div class="bzs-chgn-mpage">${list.map((r, i) => mobReleaseHtml(r, i === 0)).join('')}</div>` +
     `<div class="bzs-chgn-mtools">${linksHtml()}${supportBtnHtml(names)}</div>` +

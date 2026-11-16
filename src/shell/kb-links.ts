@@ -21,7 +21,7 @@ export function kbLinksHtml(list?: KbLink[]): string {
     const kind = t(k.kind === 'term' ? 'kb.kind.term' : 'kb.kind.passage');
     return `<button type="button" class="bzs-kblink${k.kind === 'passage' ? ' is-passage' : ''}" data-act="kbopen" data-path="${esc(
       k.path,
-    )}" title="${esc(name)}"><span class="k">${esc(kind)}</span>${esc(name)}</button>`;
+    )}"><span class="bzs-sr-only">${esc(name)}</span><span class="k">${esc(kind)}</span>${esc(name)}</button>`;
   });
   return `<div class="bzs-kblinks">${items.join('')}</div>`;
 }

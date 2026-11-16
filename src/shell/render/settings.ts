@@ -147,12 +147,12 @@ function range(
 }
 
 function toggle(k: string, on: boolean, label: string): string {
-  return `<div class="bzs-setrow"><label>${label}</label><button class="bzs-switch${on ? ' on' : ''}" data-act="toggle" data-k="${k}" aria-label="${label}"></button></div>`;
+  return `<div class="bzs-setrow"><label>${label}</label><button class="bzs-switch${on ? ' on' : ''}" data-act="toggle" data-k="${k}"><span class="bzs-sr-only">${label}</span></button></div>`;
 }
 
 /** 阅读偏好（prefs）上的开关：和上面 shell 设置那类 toggle 分开走 */
 function prefToggle(k: string, on: boolean, label: string): string {
-  return `<div class="bzs-setrow"><label>${label}</label><button class="bzs-switch${on ? ' on' : ''}" data-act="preftoggle" data-k="${k}" aria-label="${label}"></button></div>`;
+  return `<div class="bzs-setrow"><label>${label}</label><button class="bzs-switch${on ? ' on' : ''}" data-act="preftoggle" data-k="${k}"><span class="bzs-sr-only">${label}</span></button></div>`;
 }
 
 /**
@@ -175,34 +175,33 @@ function aboutBar(version: string, paid: boolean, patron: boolean, name?: string
      昵称来自我们签的码，照样转义——签名保证来源，不保证字符安全。 */
   const paidLabel = patron ? (name ? esc(name) : t('settings.about.patron')) : t('settings.about.paid');
   const label = paid ? paidLabel : t('settings.about.base');
-  /* 读屏读「赞助人 · 面包」：只念名字等于没说身份。悬停提示说清这枚标记。
-     基础版不挂 role/title——没买的人不该被打上身份。 */
+  /* 读屏读「赞助人 · 面包」：只念名字等于没说身份。身份说明改用视觉隐藏文本，
+     不挂 aria-label / title——那两个会变悬停气泡。基础版不挂——没买的人不该被打上身份。 */
   const hint = patron ? t('settings.about.patron') : t('settings.about.paid');
-  const aria = patron && name ? `${hint} · ${esc(name)}` : hint;
   const seal = paid ? ico('seal', 'bzs-badge-seal') : '';
-  const attrs = paid ? ` role="img" aria-label="${aria}" title="${hint}"` : '';
-  const badge = `<span class="bzs-about-badge${paid ? '' : ' is-base'}${paid && patron ? ' is-patron' : ''}"${attrs}>${seal}${label}</span>`;
+  const sr = paid ? `<span class="bzs-sr-only">${hint}</span>` : '';
+  const badge = `<span class="bzs-about-badge${paid ? '' : ' is-base'}${paid && patron ? ' is-patron' : ''}">${seal}${sr}${label}</span>`;
   return `<div class="bzs-setgrp wide bzs-about">
       <h3>${t('settings.about')}</h3>
       <span class="bzs-about-meta"><span class="bzs-about-ver">${ver}</span>${badge}</span>
       <span class="sp"></span>
-      <button class="bzs-about-link" data-act="aboutgithub" title="${t('settings.about.repo')}">
+      <button class="bzs-about-link" data-act="aboutgithub"><span class="bzs-sr-only">${t('settings.about.repo')}</span>
         ${githubIcon(15)}<b>GitHub</b>
       </button>
       <span class="dot"></span>
-      <button class="bzs-about-link" data-act="aboutvideo" title="${t('settings.about.videoTip')}">
+      <button class="bzs-about-link" data-act="aboutvideo"><span class="bzs-sr-only">${t('settings.about.videoTip')}</span>
         ${ico('video')}<b>${t('settings.about.video')}</b>
       </button>
       <span class="dot"></span>
-      <button class="bzs-about-link" data-act="copygroup" title="${t('settings.about.groupTip')}">
+      <button class="bzs-about-link" data-act="copygroup"><span class="bzs-sr-only">${t('settings.about.groupTip')}</span>
         ${ico('group')}<b>${t('settings.about.group')}</b><i>${esc(GROUP_ID)}</i>
       </button>
       <span class="dot"></span>
-      <button class="bzs-about-link" data-act="support" title="${t('settings.about.supportTip')}">
+      <button class="bzs-about-link" data-act="support"><span class="bzs-sr-only">${t('settings.about.supportTip')}</span>
         ${ico('heart')}<b>${t('settings.about.support')}</b>
       </button>
       <span class="dot"></span>
-      <button class="bzs-about-link" data-act="changelog" title="${t('settings.about.changelogTip')}">
+      <button class="bzs-about-link" data-act="changelog"><span class="bzs-sr-only">${t('settings.about.changelogTip')}</span>
         ${ico('history')}<b>${t('settings.about.changelog')}</b>
       </button>
     </div>`;
@@ -354,8 +353,8 @@ export function viewSettings(v: SettingsView): string {
     'bzs-seg bzs-seg-wrap bzs-seg-pdf3',
   );
   const pdf = `<div class="bzs-setgrp bzs-setgrp-pdf${pdfUnlocked ? '' : ' is-locked'}"${
-    pdfUnlocked ? '' : ` data-act="unlock" data-mode="pdf" title="${t('settings.locked')}"`
-  }>
+    pdfUnlocked ? '' : ` data-act="unlock" data-mode="pdf"`
+  }><span class="bzs-sr-only">${t('settings.locked')}</span>
       <h3>${t('settings.grp.pdf')}</h3>
       <div class="bzs-setrow is-segrow"><label>${t('pdf.layout.flow')}</label>${seg(
         'pdfFlow',
@@ -388,20 +387,20 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfZoom.hint')}</div>
       <div class="bzs-setrow"><label>${t('settings.pdfAnnots')}</label><button class="bzs-switch${
         p.pdfAnnots ? ' on' : ''
-      }" data-act="setpref" data-k="pdfAnnots" data-v="${p.pdfAnnots ? '0' : '1'}" aria-label="${t(
+      }" data-act="setpref" data-k="pdfAnnots" data-v="${p.pdfAnnots ? '0' : '1'}"><span class="bzs-sr-only">${t(
         'settings.pdfAnnots',
-      )}"></button></div>
+      )}</span></button></div>
       <div class="bzs-setrow"><label>${t('settings.pdfBacklinks')}</label><button class="bzs-switch${
         p.pdfBacklinks ? ' on' : ''
-      }" data-act="setpref" data-k="pdfBacklinks" data-v="${p.pdfBacklinks ? '0' : '1'}" aria-label="${t(
+      }" data-act="setpref" data-k="pdfBacklinks" data-v="${p.pdfBacklinks ? '0' : '1'}"><span class="bzs-sr-only">${t(
         'settings.pdfBacklinks',
-      )}"></button></div>
+      )}</span></button></div>
       <div class="bzs-setrow is-segrow"><label>${t('settings.pdfExportScale')}</label>${exportScaleBtns}</div>
       <div class="bzs-setrow"><label>${t('settings.pdfAutoLink')}</label><button class="bzs-switch${
         p.pdfAutoLink ? ' on' : ''
-      }" data-act="setpref" data-k="pdfAutoLink" data-v="${p.pdfAutoLink ? '0' : '1'}" aria-label="${t(
+      }" data-act="setpref" data-k="pdfAutoLink" data-v="${p.pdfAutoLink ? '0' : '1'}"><span class="bzs-sr-only">${t(
         'settings.pdfAutoLink',
-      )}"></button></div>
+      )}</span></button></div>
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfAutoLink.hint')}</div>
       <div class="bzs-setrow is-segrow"><label>${t('settings.pdfLinkLabel')}</label>${seg(
         'pdfLinkLabel',
@@ -498,9 +497,9 @@ export function viewSettings(v: SettingsView): string {
         <button class="bzs-btn sm" data-act="headermove" data-k="${id}" data-v="1" ${
           i === headerOrder.length - 1 ? 'disabled' : ''
         }>↓</button>
-        <button class="bzs-switch${hidden ? '' : ' on'}" data-act="headertoggle" data-k="${id}" aria-label="${esc(
+        <button class="bzs-switch${hidden ? '' : ' on'}" data-act="headertoggle" data-k="${id}"><span class="bzs-sr-only">${esc(
           spec.label,
-        )}"></button>
+        )}</span></button>
       </div>`;
     })
     .join('');
@@ -530,7 +529,7 @@ export function viewSettings(v: SettingsView): string {
     desc: string,
     state: string,
     ok: boolean,
-  ): string => `<button class="bzs-engcard${p.ttsEngine === id ? ' on' : ''}" data-act="ttsengine" data-v="${id}" title="${esc(desc)}">
+  ): string => `<button class="bzs-engcard${p.ttsEngine === id ? ' on' : ''}" data-act="ttsengine" data-v="${id}"><span class="bzs-sr-only">${esc(desc)}</span>
       <span class="bzs-engicon">${ico(icon)}</span>
       <span class="bzs-engtx"><b>${name}</b></span>
       <span class="bzs-engst"><span class="dot${ok ? ' ok' : ''}"></span>${state}</span>
@@ -547,9 +546,9 @@ export function viewSettings(v: SettingsView): string {
     /* 「音色属于模型」这句进 title：它只在换完模型之后才用得上，常驻一行
        等于每屏都在讲一句大多数人当次不看的话（2026-11-14 版面瘦身）。 */
     return `<div class="bzs-setrow"><label>${t('settings.ttsVoice')}</label>
-      <button class="bzs-voicepick" data-act="ttsvoices" data-v="${engine}" title="${esc(
+      <button class="bzs-voicepick" data-act="ttsvoices" data-v="${engine}"><span class="bzs-sr-only">${esc(
         t('settings.ttsVoice.modelHint'),
-      )}">
+      )}</span>
         <span class="who">${esc(voiceName(cur))}</span>
         <span class="code">${esc(cur)}</span>
         ${ico('chevron-right')}
@@ -665,10 +664,10 @@ export function viewSettings(v: SettingsView): string {
           <button class="bzs-btn sm" data-act="ttsofflinereload">${t('settings.ttsOffline.reload')}</button>
           ${v.offline ? `<button class="bzs-btn sm" data-act="ttsofflinedel">${t('settings.ttsOffline.clear')}</button>` : ''}
         </div>
-        <div class="bzs-setrow"><label title="${esc(t('settings.ttsBook.hint'))}">${t('settings.ttsBook')}</label>
-          <button class="bzs-btn sm${v.prefetchingBook ? ' pri' : ''}" data-act="ttsprefetchbook" title="${esc(
+        <div class="bzs-setrow"><label><span class="bzs-sr-only">${esc(t('settings.ttsBook.hint'))}</span>${t('settings.ttsBook')}</label>
+          <button class="bzs-btn sm${v.prefetchingBook ? ' pri' : ''}" data-act="ttsprefetchbook"><span class="bzs-sr-only">${esc(
             t('settings.ttsBook.hint'),
-          )}">${t(v.prefetchingBook ? 'settings.ttsBook.stop' : 'settings.ttsBook.start')}</button>
+          )}</span>${t(v.prefetchingBook ? 'settings.ttsBook.stop' : 'settings.ttsBook.start')}</button>
         </div>
         ${prefToggle('ttsPackFirst', p.ttsPackFirst, t('settings.ttsPackFirst'))}
     </div>`;
@@ -684,7 +683,7 @@ export function viewSettings(v: SettingsView): string {
       ).join('')}</div></div>
       <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pen.hint')}</div>
       <div class="bzs-setrow"><label>${t('settings.exportDir')}</label>
-        <button class="bzs-pickdir" data-act="pickexportdir" title="${t('settings.pickFromList')}">
+        <button class="bzs-pickdir" data-act="pickexportdir"><span class="bzs-sr-only">${t('settings.pickFromList')}</span>
           <span>${esc(s.exportDir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>
         </button></div>
       ${toggle('exportComments', s.exportComments, t('settings.exportComments'))}
@@ -699,8 +698,8 @@ export function viewSettings(v: SettingsView): string {
      对用户来说就是没连上——所以门禁看 model，不看 bz 在不在。 */
   const kbLinked = !!v.bz?.model;
   const ai = `<div class="bzs-setgrp${aiUnlocked ? '' : ' is-locked'}"${
-    aiUnlocked ? '' : ` data-act="unlock" data-mode="ai" title="${t('settings.locked')}"`
-  }>
+    aiUnlocked ? '' : ` data-act="unlock" data-mode="ai"`
+  }><span class="bzs-sr-only">${t('settings.locked')}</span>
       <h3>${t('settings.grp.ai')}</h3>
       <div class="bzs-setrow"><label>${t('settings.ai.baseUrl')}</label><input data-role="setting" data-k="ai.baseUrl" placeholder="${t('settings.ai.baseUrl.ph')}" value="${esc(s.ai.baseUrl)}" style="flex:1"${aiReadonly}></div>
       <div class="bzs-setrow"><label>${t('settings.ai.model')}</label><input data-role="setting" data-k="ai.model" placeholder="${t('settings.ai.model.ph')}" value="${esc(s.ai.model)}" style="flex:1"${aiReadonly}></div>
@@ -749,9 +748,9 @@ export function viewSettings(v: SettingsView): string {
           ? clipUnlocked
             ? toggle('clipBook', clipOn, t('settings.bz.clip'))
             : `<div class="bzs-setrow"><label>${t('settings.bz.clip')}</label>
-                <button class="bzs-switch" data-act="unlock" data-mode="clipBook" title="${t(
+                <button class="bzs-switch" data-act="unlock" data-mode="clipBook"><span class="bzs-sr-only">${t(
                   'settings.locked',
-                )}" aria-label="${t('settings.bz.clip')}"></button></div>`
+                )}</span><span class="bzs-sr-only">${t('settings.bz.clip')}</span></button></div>`
           : `<div class="bzs-setrow"><label>${t('settings.bz.clip')}</label></div>`
       }
       ${clipScopeSeg}
@@ -841,16 +840,16 @@ export function viewSettings(v: SettingsView): string {
   const data = `<div class="bzs-setgrp">
       <h3>${t('settings.grp.data')}</h3>
       <div class="bzs-setrow"><label>${t('settings.importDir')}</label>
-        <button class="bzs-pickdir" data-act="pickimportdir" title="${t('settings.pickFolder')}">
+        <button class="bzs-pickdir" data-act="pickimportdir"><span class="bzs-sr-only">${t('settings.pickFolder')}</span>
           <span>${esc(importDir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>
         </button></div>
       <div class="bzs-setrow"><label>${t('settings.dataDir')}</label>
-        <button class="bzs-pickdir" data-act="pickdatadir" title="${t('settings.pickFromList')}">
+        <button class="bzs-pickdir" data-act="pickdatadir"><span class="bzs-sr-only">${t('settings.pickFromList')}</span>
           <span>${esc(dir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>
         </button></div>
       <div class="bzs-setrow"><label>${t('settings.backupRestore')}</label>
-        <button class="bzs-btn sm" data-act="backup" title="${t('settings.backup.tip')}">${t('settings.backup')}</button>
-        <button class="bzs-btn sm" data-act="restore" title="${t('settings.restore.tip')}">${t('settings.restore')}</button></div>
+        <button class="bzs-btn sm" data-act="backup"><span class="bzs-sr-only">${t('settings.backup.tip')}</span>${t('settings.backup')}</button>
+        <button class="bzs-btn sm" data-act="restore"><span class="bzs-sr-only">${t('settings.restore.tip')}</span>${t('settings.restore')}</button></div>
       <div class="bzs-mini" style="margin-top:2px;line-height:1.9">
         ${t('settings.data.hint')}
       </div>
@@ -866,7 +865,7 @@ export function viewSettings(v: SettingsView): string {
   const keyRows = v.hotkeys
     .map((k) => {
       const bound = k.keys.length ? k.keys.join(' / ') : k.builtin || t('settings.key.unset');
-      return `<button class="bzs-keyrow" data-act="hotkey" data-k="${esc(k.id)}" title="${t('settings.key.tip')}">
+      return `<button class="bzs-keyrow" data-act="hotkey" data-k="${esc(k.id)}"><span class="bzs-sr-only">${t('settings.key.tip')}</span>
         <span>${esc(k.label)}</span><kbd class="${k.keys.length ? '' : 'soft'}">${esc(bound)}</kbd>
       </button>`;
     })

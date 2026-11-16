@@ -56,6 +56,6 @@ export function cardTemplateChipsHtml(current?: string): string {
   const now = normalizeCardTemplate(current);
   return `<div class="bzs-tpls">${CARD_TEMPLATES.map(
     (t) =>
-      `<button class="bzs-chip${t.id === now ? ' on' : ''}" data-act="cardtpl" data-v="${t.id}" title="${esc(t.hint)}">${t.label}</button>`,
+      `<button class="bzs-chip${t.id === now ? ' on' : ''}" data-act="cardtpl" data-v="${t.id}"><span class="bzs-sr-only">${esc(t.hint)}</span>${t.label}</button>`,
   ).join('')}</div>`;
 }

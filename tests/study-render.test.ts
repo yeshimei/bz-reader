@@ -140,14 +140,16 @@ describe('窄屏筛选栏', () => {
      一律用正圆图标钮；文字只留给分类/排序这种「选一个值」的胶囊。 */
   it('动作钮是圆形图标钮：搜索与视图都不再往圆里塞文字', () => {
     const out = mobile();
-    const search = out.match(/<button[^>]*data-act="libsearchtoggle"[^>]*>/)?.[0] ?? '';
-    const view = out.match(/<button[^>]*data-act="libview"[^>]*>/)?.[0] ?? '';
+    const search = out.match(/<button[^>]*data-act="libsearchtoggle"[\s\S]*?<\/button>/)?.[0] ?? '';
+    const view = out.match(/<button[^>]*data-act="libview"[\s\S]*?<\/button>/)?.[0] ?? '';
     expect(search).toContain('bzs-round');
     expect(view).toContain('bzs-round');
-    expect(search).toContain('aria-label');
-    expect(view).toContain('aria-label');
-    expect(out).not.toContain('>列表<');
-    expect(out).not.toContain('>封面墙<');
+    expect(search).toContain('bzs-sr-only');
+    expect(view).toContain('bzs-sr-only');
+    expect(out).not.toContain('aria-label=');
+    const visible = out.replace(/<span class="bzs-sr-only">[\s\S]*?<\/span>/g, '');
+    expect(visible).not.toContain('>列表<');
+    expect(visible).not.toContain('>封面墙<');
   });
 
   /* 图标名写错时 ico() 会吐一个空 <svg>，圆钮看起来就是一颗空圆 */

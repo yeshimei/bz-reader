@@ -371,13 +371,13 @@ describe('toolbarHtml · 存过之后变「看」', () => {
 });
 
 /**
- * 图标模式：一颗按钮只剩一枚宿主自带图标，文字挪进 title / aria-label。
+ * 图标模式：一颗按钮只剩一枚宿主自带图标，文字挪进视觉隐藏文本。
  *
  * 图标只换「长什么样」，不换 data-act、不换顺序——两端仍是同一条工具条。
  * 「⋯」菜单里的项保持文字：菜单里空间够，文字比图标好认。
  */
 const iconNames = (html: string): string[] =>
-  [...html.matchAll(/<button[^>]*class="bzs-sbtn[^"]*"[^>]*>\s*<span[^>]*data-icon="([^"]+)"/g)].map((m) => m[1]);
+  [...html.matchAll(/<button[^>]*class="bzs-sbtn[^"]*"[^>]*>\s*(?:<span class="bzs-sr-only">[\s\S]*?<\/span>\s*)?<span[^>]*data-icon="([^"]+)"/g)].map((m) => m[1]);
 
 describe('toolbarHtml · 图标模式', () => {
   it('每颗主路径都有图标，且没有可见文字', () => {
@@ -386,12 +386,13 @@ describe('toolbarHtml · 图标模式', () => {
     expect(labels(html)).toEqual([]);
   });
 
-  it('文案进 title 与 aria-label（纯图标也得说清是什么）', () => {
+  it('文案进视觉隐藏文本（纯图标也得说清是什么，但不能冒悬停气泡）', () => {
     const html = toolbarHtml({ marked: false, acts: SELECTION_ACTS, icon: true });
     for (const word of ['想法', '书摘', '复习', 'AI', '双链', '复制']) {
-      expect(html, word).toContain(`title="${word}"`);
-      expect(html, word).toContain(`aria-label="${word}"`);
+      expect(html, word).toContain(`<span class="bzs-sr-only">${word}</span>`);
     }
+    expect(html).not.toContain('aria-label=');
+    expect(html).not.toContain(' title=');
   });
 
   it('知识库两颗也有自己的图标', () => {

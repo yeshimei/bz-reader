@@ -77,7 +77,7 @@ export class PdfThumbPanel {
     close.type = 'button';
     close.className = 'bzr-pdf-thumbs-close';
     close.textContent = '×';
-    close.setAttribute('aria-label', this.opts.closeLabel);
+    close.appendChild(Object.assign(document.createElement('span'), { className: 'bzs-sr-only', textContent: this.opts.closeLabel }));
     close.addEventListener('click', (ev) => {
       ev.stopPropagation();
       this.opts.onClose();

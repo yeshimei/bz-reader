@@ -79,14 +79,14 @@ export function ocrBarHtml(input: OcrBarInput): string {
     parts.push(`<span class="bzr-ocrsrc">${escapeHtml(engineLabel(input.engine))}</span>`);
   }
   parts.push(
-    `<span class="bzr-ocrtxt${bad ? ' is-err' : ''}"${why ? ` title="${escapeHtml(why)}"` : ''}>${escapeHtml(
+    `<span class="bzr-ocrtxt${bad ? ' is-err' : ''}"${why ? `` : ''}><span class="bzs-sr-only">${escapeHtml(why)}</span>${escapeHtml(
       text,
     )}</span>`,
   );
   /* 失败原因以前只进 title：手机上没有 hover，等于永远看不见。
      失败 / 手动停这两种终态把它摆成一行短字，长文本由 CSS 截断，完整版仍在 title。 */
   if (why && (bad || s.kind === 'stopped')) {
-    parts.push(`<span class="bzr-ocrwhy" title="${escapeHtml(why)}">${escapeHtml(why)}</span>`);
+    parts.push(`<span class="bzr-ocrwhy"><span class="bzs-sr-only">${escapeHtml(why)}</span>${escapeHtml(why)}</span>`);
   }
   if (s.kind === 'running') {
     parts.push(
@@ -183,7 +183,7 @@ function engineLabel(engine: 'http' | 'deepseek'): string {
 
 function button(act: string, icon: string, label: string): string {
   const safe = escapeHtml(label);
-  return `<button type="button" class="bzr-ocrbtn" data-act="${act}" title="${safe}" aria-label="${safe}"><span class="bzr-ocricon" data-icon="${icon}"></span></button>`;
+  return `<button type="button" class="bzr-ocrbtn" data-act="${act}"><span class="bzs-sr-only">${safe}</span><span class="bzr-ocricon" data-icon="${icon}"></span></button>`;
 }
 
 function escapeHtml(s: string): string {

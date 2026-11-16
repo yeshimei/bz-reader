@@ -67,23 +67,23 @@ describe('划线列表', () => {
 });
 
 describe('页签 · 纯图标', () => {
-  /* 定稿：页签不写字，四颗图标等分居中，名字靠 title / aria-label。
+  /* 定稿：页签不写字，四颗图标等分居中，名字靠视觉隐藏文本。
      文字+图标并排在 300px 的侧栏里要占掉一半宽度，图标反而变小。 */
   it('只画图标，不画文字标签', () => {
-    const html = view();
-    expect(html).toContain('data-tab="toc"');
-    expect(html).not.toContain('>目录<');
-    expect(html).not.toContain('>书签<');
+    const visible = view().replace(/<span class="bzs-sr-only">[\s\S]*?<\/span>/g, '');
+    expect(visible).toContain('data-tab="toc"');
+    expect(visible).not.toContain('>目录<');
+    expect(visible).not.toContain('>书签<');
   });
 
   it('图标用 Obsidian 原生那套（bzs-ico-native）', () => {
     expect(view()).toContain('bzs-ico-native');
   });
 
-  it('名字仍然留在 title / aria-label 上', () => {
+  it('名字留在视觉隐藏文本上，不挂悬停气泡', () => {
     const html = view();
-    expect(html).toContain('title="目录"');
-    expect(html).toContain('aria-label="目录"');
+    expect(html).toContain('<span class="bzs-sr-only">目录</span>');
+    expect(html).not.toContain('aria-label=');
   });
 });
 
@@ -267,9 +267,9 @@ describe('目录计数与剪藏本状态', () => {
     expect(groupRow).toContain('<span class="n">2</span>');
   });
 
-  it('目录行带完整标题（悬浮可看全）与阅读状态', () => {
+  it('目录行带完整标题（读屏可读全）与阅读状态', () => {
     const html = view({ toc: grouped });
-    expect(html).toContain('title="派早报：Apple 公布 Swift Student Challenge 安排、微软发布 Auto SR 等"');
+    expect(html).toContain('<span class="bzs-sr-only">派早报：Apple 公布 Swift Student Challenge 安排、微软发布 Auto SR 等</span>');
     expect(html).toContain('data-state="read"');
     expect(html).toContain('data-state="unread"');
   });

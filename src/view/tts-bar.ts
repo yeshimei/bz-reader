@@ -99,9 +99,9 @@ export function ttsBarLift(statusBar?: HTMLElement | null): number {
 export function ttsBarHtml(s: TtsBarState): string {
   const playLabel = s.paused ? t('tts.bar.resume') : t('tts.bar.pause');
   const main = s.loading
-    ? `<button class="bzr-ttsbtn is-main is-loading" data-act="ttstoggle" title="${escapeHtml(
+    ? `<button class="bzr-ttsbtn is-main is-loading" data-act="ttstoggle" aria-busy="true"><span class="bzs-sr-only">${escapeHtml(
         t('tts.bar.loading'),
-      )}" aria-label="${escapeHtml(t('tts.bar.loading'))}" aria-busy="true"><span class="bzr-ttsspin"></span></button>`
+      )}</span><span class="bzr-ttsspin"></span></button>`
     : button('ttstoggle', s.paused ? ICONS.play : ICONS.pause, playLabel, ' is-main');
   const src = String(s.source ?? '').trim();
   const engine = s.voiceEngine === 'local' ? 'local' : 'online';
@@ -116,8 +116,8 @@ export function ttsBarHtml(s: TtsBarState): string {
         : `${at + 1}/${total}`
       : '';
   return `<div class="bzr-ttsbar" data-role="ttsbar">
-    ${src ? `<span class="bzr-ttssrc" title="${escapeHtml(src)}">${escapeHtml(src)}</span>` : ''}
-    ${num ? `<span class="bzr-ttsnum" title="${escapeHtml(num)}">${escapeHtml(num)}</span>` : ''}
+    ${src ? `<span class="bzr-ttssrc"><span class="bzs-sr-only">${escapeHtml(src)}</span>${escapeHtml(src)}</span>` : ''}
+    ${num ? `<span class="bzr-ttsnum"><span class="bzs-sr-only">${escapeHtml(num)}</span>${escapeHtml(num)}</span>` : ''}
     ${button('ttsprev', ICONS.prev, t('tts.bar.prev'))}
     ${main}
     ${button('ttsnext', ICONS.next, t('tts.bar.next'))}
@@ -132,7 +132,7 @@ export function ttsBarHtml(s: TtsBarState): string {
 
 function button(act: string, icon: string, label: string, extra = '', attrs = ''): string {
   const safe = escapeHtml(label);
-  return `<button class="bzr-ttsbtn${extra}" data-act="${act}"${attrs} title="${safe}" aria-label="${safe}"><span class="bzr-ttsicon" data-icon="${icon}"></span></button>`;
+  return `<button class="bzr-ttsbtn${extra}" data-act="${act}"${attrs}><span class="bzs-sr-only">${safe}</span><span class="bzr-ttsicon" data-icon="${icon}"></span></button>`;
 }
 
 function escapeHtml(s: string): string {

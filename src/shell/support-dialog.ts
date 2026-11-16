@@ -108,7 +108,7 @@ export function supportDialogHtml(
   const close = t('support.close');
   return (
     '<div class="bzs-sup">' +
-    `<button class="bzs-sup-close" type="button" data-role="supclose" aria-label="${esc(close)}" title="${esc(close)}">${CLOSE_SVG}</button>` +
+    `<button class="bzs-sup-close" type="button" data-role="supclose"><span class="bzs-sr-only">${esc(close)}</span>${CLOSE_SVG}</button>` +
     '<header class="bzs-sup-hd">' +
     `<div class="bzs-sup-kicker">${esc(t('support.title'))}</div>` +
     `<p class="bzs-sup-lead">${esc(t('support.lead'))}</p>` +

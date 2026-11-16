@@ -387,7 +387,7 @@ export function historyConfirmLayer(
   if (!picked.length) return '';
   const targets = exportTargets(picked, dir);
   return `<div class="bzs-aiconfirm">
-    <div class="bzs-aibox" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+    <div class="bzs-aibox" role="dialog" aria-modal="true"><span class="bzs-sr-only">${esc(title)}</span>
       <b>${esc(title)}</b>
       <p>${t('shelf.ai.confirm.sub', { n: picked.length })}</p>
       <ul>${targets

@@ -22,9 +22,9 @@ export interface ShelfActionLabels {
 /** 一枚动作钮：图标 + 悬停提示 + 读屏标签，尺寸与间距交给 .bzs-shelfrow */
 function actBtn(cls: string, act: string, name: string, label: string, icon: string, extra = ''): string {
   const klass = cls ? `bzs-cbtn ${cls}` : 'bzs-cbtn';
-  return `<button class="${klass}" data-act="${act}"${extra} data-name="${esc(name)}" title="${esc(
+  return `<button class="${klass}" data-act="${act}"${extra} data-name="${esc(name)}"><span class="bzs-sr-only">${esc(
     label,
-  )}" aria-label="${esc(label)}">${ico(icon)}</button>`;
+  )}</span>${ico(icon)}</button>`;
 }
 
 export function shelfActionsHtml(name: string, labels: ShelfActionLabels): string {

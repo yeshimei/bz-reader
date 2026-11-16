@@ -31,7 +31,7 @@ export interface NotesView {
 export function noteCardHtml(m: MarkRow, showLoc = true, picked = false, select = false): string {
   const check = select
     ? `<button class="bzs-npick${picked ? ' on' : ''}" data-act="notepick" data-id="${esc(m.id)}"
-        aria-pressed="${picked}" title="${picked ? t('notes.unpick') : t('notes.pick')}">${picked ? '✓' : ''}</button>`
+        aria-pressed="${picked}"><span class="bzs-sr-only">${picked ? t('notes.unpick') : t('notes.pick')}</span>${picked ? '✓' : ''}</button>`
     : '';
   return `<div class="bzs-ncard${select ? ' pick' : ''}${picked ? ' on' : ''}" style="--c:${m.css}">
     ${check}
@@ -138,9 +138,9 @@ export function viewNotes(v: NotesView): string {
         n: shown.length,
         ideas: v.marks.filter((m) => m.comment).length,
       })}</span>
-      ${select ? '' : `<button class="bzs-round" data-act="notesel" aria-label="${t('notes.select')}" title="${t(
+      ${select ? '' : `<button class="bzs-round" data-act="notesel"><span class="bzs-sr-only">${t('notes.select')}</span><span class="bzs-sr-only">${t(
         'notes.select',
-      )}">${ico('listchecks')}</button>`}
+      )}</span>${ico('listchecks')}</button>`}
       <button class="bzs-btn sm pri" data-act="export">${t('notes.export')}</button>
     </div>
     ${selBar}

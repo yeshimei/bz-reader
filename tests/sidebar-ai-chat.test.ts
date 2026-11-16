@@ -236,9 +236,12 @@ describe('AI 页签 · A 版聊天结构', () => {
   });
 
   it('只有空白时发送禁用；有上下文或打了字就亮', () => {
-    expect(view({ aiDraft: '   ' })).toContain('bzs-ai-send" data-act="aiask" aria-label="发送" title="发送" disabled');
-    expect(view({ aiDraft: '问' })).not.toContain('title="发送" disabled');
-    expect(view({ aiCtx: [quote] })).not.toContain('title="发送" disabled');
+    const empty = view({ aiDraft: '   ' });
+    expect(empty).toContain('bzs-ai-send" data-act="aiask" disabled');
+    expect(empty).toContain('<span class="bzs-sr-only">发送</span>');
+    expect(view({ aiDraft: '问' })).toContain('bzs-ai-send" data-act="aiask"');
+    expect(view({ aiDraft: '问' })).not.toContain('data-act="aiask" disabled');
+    expect(view({ aiCtx: [quote] })).not.toContain('data-act="aiask" disabled');
   });
 
   it('三颗命令与发送都用 Obsidian 原生图标，而不是文字 / ↑ 字符', () => {
@@ -247,9 +250,9 @@ describe('AI 页签 · A 版聊天结构', () => {
     expect(bar.match(/data-act="aictx(?:body|shot|note)"/g)?.length).toBe(3);
     expect(bar.match(/class="bzs-ico-native"/g)?.length).toBe(4);
     expect(html).not.toContain('>↑</button>');
-    expect(html).toContain('title="正文"');
-    expect(html).toContain('title="截图"');
-    expect(html).toContain('title="笔记"');
+    expect(html).toContain('<span class="bzs-sr-only">正文</span>');
+    expect(html).toContain('<span class="bzs-sr-only">截图</span>');
+    expect(html).toContain('<span class="bzs-sr-only">笔记</span>');
   });
 
   it('三颗命令换成更直白的图形：段落 / 图片 / 便签', () => {

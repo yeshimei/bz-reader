@@ -79,18 +79,19 @@ describe('朗读组 · 三段排版', () => {
 describe('朗读组 · 文案瘦身', () => {
   it('五句解释性小字不再占版面', () => {
     const grp = ttsGroup(out(LOCAL));
-    /* 只看可见文字：`>…` 是正文，`title="…"` 是悬停提示，后者留着不占版面 */
-    expect(grp).not.toMatch(/>\s*音色属于模型/);
-    expect(grp).not.toMatch(/>\s*同一段再听直接播放/);
-    expect(grp).not.toMatch(/>\s*只对本地语音，免费但慢/);
-    expect(grp).not.toMatch(/>\s*多数本地服务不用填/);
-    expect(grp).not.toMatch(/>\s*丢给 AI/);
+    /* 只看可见文字：剥掉 .bzs-sr-only 后 `>…` 才是肉眼正文 */
+    const visible = grp.replace(/<span class="bzs-sr-only">[\s\S]*?<\/span>/g, '');
+    expect(visible).not.toMatch(/>\s*音色属于模型/);
+    expect(visible).not.toMatch(/>\s*同一段再听直接播放/);
+    expect(visible).not.toMatch(/>\s*只对本地语音，免费但慢/);
+    expect(visible).not.toMatch(/>\s*多数本地服务不用填/);
+    expect(visible).not.toMatch(/>\s*丢给 AI/);
   });
 
-  it('还有用的两句改成悬停提示，不占一行', () => {
+  it('还有用的两句改成视觉隐藏文本，不占一行', () => {
     const grp = ttsGroup(out(LOCAL));
-    expect(grp).toContain('title="音色属于模型');
-    expect(grp).toContain('title="只对本地语音');
+    expect(grp).toContain('<span class="bzs-sr-only">音色属于模型');
+    expect(grp).toContain('<span class="bzs-sr-only">只对本地语音');
   });
 });
 

@@ -7,7 +7,21 @@
  *   ① 壳 ② 原子 ③ 书架（桌面/移动） ④ 阅读（桌面/移动）
  *   ⑤ 三块面板 ⑥ 导入 ⑦ 错误页
  *
- * 原型里的四条视觉规则（改动时别破）：
+ * 视觉隐藏的可访问文本：读屏读得到、肉眼不见，也不触发 Obsidian 悬停气泡。
+ * 插件不挂 aria-label / title 当名字，纯图标控件改用这个类承载文本。 */
+.bzs-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 原型里的四条视觉规则（改动时别破）：
  *   1. 表面只有三层：#101014 底 / #16161C 卡片 / #1E1E26 浮层，
  *      层级靠「亮一档 + 1px 边框」，不靠阴影堆深度。
  *   2. 强调色只做一件事：当前进度、当前章节、主按钮、焦点环。

@@ -134,9 +134,7 @@ export function ttsProgressHtml(s: TtsTaskState): string {
     : button('progstop', t('tts.prog.stop'), long ? ' is-main' : '');
   const retry = s.stage === 'failed' ? button('progretry', t('tts.prog.retry'), '') : '';
   const close = terminal
-    ? `<button class="bzr-ttsprog-x" data-act="progclose" title="${esc(t('tts.prog.close'))}" aria-label="${esc(
-        t('tts.prog.close'),
-      )}"><span data-icon="x"></span></button>`
+    ? `<button class="bzr-ttsprog-x" data-act="progclose"><span class="bzs-sr-only">${esc(t('tts.prog.close'))}</span><span data-icon="x"></span></button>`
     : '';
 
   return `<div class="bzr-ttsprog is-${s.stage}${long ? ' is-stalled' : ''}" data-role="ttsprog" data-stage="${
@@ -158,7 +156,7 @@ export function ttsProgressHtml(s: TtsTaskState): string {
 
 function button(act: string, label: string, extra = ''): string {
   const safe = esc(label);
-  return `<button class="bzr-ttsprog-btn${extra}" data-act="${act}" title="${safe}" aria-label="${safe}">${safe}</button>`;
+  return `<button class="bzr-ttsprog-btn${extra}" data-act="${act}"><span class="bzs-sr-only">${safe}</span>${safe}</button>`;
 }
 
 function esc(s: string): string {

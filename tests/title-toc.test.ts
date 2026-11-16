@@ -21,15 +21,23 @@ afterEach(() => {
 });
 
 describe('头栏书名标记的加与摘', () => {
-  it('加上之后是可点的按钮语义', () => {
+  it('加上之后是可点的按钮语义，名字进视觉隐藏文本', () => {
     const el = document.createElement('div');
     markTitleToc(el, '打开目录', '围城 · 打开目录');
     expect(el.classList.contains(TITLE_TOC_CLASS)).toBe(true);
     expect(el.getAttribute('role')).toBe('button');
     expect(el.getAttribute('tabindex')).toBe('0');
-    expect(el.getAttribute('aria-label')).toBe('打开目录');
-    expect(el.getAttribute('title')).toBe('围城 · 打开目录');
+    expect(el.children.some((c) => c.textContent === '打开目录')).toBe(true);
+    expect(el.getAttribute('aria-label')).toBeNull();
+    expect(el.getAttribute('title')).toBeNull();
     expect(isTitleToc(el)).toBe(true);
+  });
+
+  it('重复标记不会堆叠隐藏文本', () => {
+    const el = document.createElement('div');
+    markTitleToc(el, '打开目录', '围城 · 打开目录');
+    markTitleToc(el, '打开目录', '围城 · 打开目录');
+    expect(el.children.filter((c) => c.textContent === '打开目录')).toHaveLength(1);
   });
 
   it('摘掉之后元素回到宿主的样子，属性一个不留', () => {
@@ -40,9 +48,10 @@ describe('头栏书名标记的加与摘', () => {
     expect(el.getAttribute('role')).toBeNull();
     expect(el.getAttribute('tabindex')).toBeNull();
     expect(el.getAttribute('aria-label')).toBeNull();
+    expect(el.getAttribute('title')).toBeNull();
     expect(el.getAttribute(TITLE_TOC_ATTR)).toBeNull();
+    expect(el.children.some((c) => c.textContent === '打开目录')).toBe(false);
     expect(isTitleToc(el)).toBe(false);
-    expect(el.getAttribute('title')).toBe('围城');
   });
 
   it('没有书名要还原时，title 也一起删掉，不留一句无主文案', () => {

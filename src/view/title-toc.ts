@@ -16,6 +16,9 @@ export const TITLE_TOC_CLASS = 'bzr-title-toc';
 /** 标记属性：元素上有没有这套语义，看它 */
 export const TITLE_TOC_ATTR = 'data-bzr-toc';
 
+/** 本模块塞进去的视觉隐藏文本节点，摘标记时一并清掉（幂等的前提） */
+const SR_CLASS = 'bzs-sr-only bzr-title-toc-sr';
+
 /** 这个头栏元素是不是已经绑过（换书不重复叠监听） */
 export function isTitleToc(el: HTMLElement): boolean {
   return el.getAttribute(TITLE_TOC_ATTR) === '1';
@@ -27,25 +30,30 @@ export function isTitleToc(el: HTMLElement): boolean {
  * @param title 鼠标悬停的完整文案（书名 · 打开目录）
  */
 export function markTitleToc(el: HTMLElement, label: string, title: string): void {
+  if (isTitleToc(el)) return;
   el.classList.add(TITLE_TOC_CLASS);
   el.setAttribute('role', 'button');
   el.setAttribute('tabindex', '0');
-  el.setAttribute('aria-label', label);
-  el.setAttribute('title', title);
+  /* Obsidian 把 aria-label / title 变成悬停气泡；可读名字改用视觉隐藏文本。
+     label 与 title 取其一——两者都塞读屏会连读两遍。 */
+  const span = document.createElement('span');
+  SR_CLASS.split(' ').forEach((c) => span.classList.add(c));
+  span.textContent = label || title;
+  el.appendChild(span);
   el.setAttribute(TITLE_TOC_ATTR, '1');
 }
 
 /**
- * 摘掉整套标记，把元素还给宿主。
- *
- * `restoreTitle` 是还原后的悬停文案（书架那边的书名），传空串就删掉 title。
+ * 摘掉整套标记，把元素还给宿主（含本模块塞进去的隐藏文本，幂等）。
+ * `restoreTitle` 保留参数以兼容调用方：宿主书名本来就是可见文本，无需再补隐藏节点。
  */
-export function clearTitleToc(el: HTMLElement, restoreTitle = ''): void {
+export function clearTitleToc(el: HTMLElement, _restoreTitle = ''): void {
   el.classList.remove(TITLE_TOC_CLASS);
   el.removeAttribute('role');
   el.removeAttribute('tabindex');
   el.removeAttribute('aria-label');
+  el.removeAttribute('title');
   el.removeAttribute(TITLE_TOC_ATTR);
-  if (restoreTitle) el.setAttribute('title', restoreTitle);
-  else el.removeAttribute('title');
+  /* 直接遍历子节点：桩环境里 querySelectorAll 返回空，真机上也能摘干净。 */
+  [...el.children].filter((n) => (n as HTMLElement).classList?.contains('bzr-title-toc-sr')).forEach((n) => n.remove());
 }

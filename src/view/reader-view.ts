@@ -1706,7 +1706,7 @@ export class ReaderView extends ItemView {
       const btn = createDiv();
       btn.className = 'clickable-icon view-action bzr-action';
       btn.dataset.bzrAction = item.id;
-      btn.setAttribute('aria-label', item.label);
+      btn.appendChild(Object.assign(document.createElement('span'), { className: 'bzs-sr-only', textContent: item.label }));
       btn.setAttribute('aria-label-position', 'top');
       setIcon(btn, item.icon);
       btn.addEventListener('click', (ev) => {
@@ -2149,7 +2149,6 @@ export class ReaderView extends ItemView {
       const loading = (this.ttsPlayer ?? this.offlinePlayer)?.stateName === 'loading';
       ttsEl.classList.toggle('is-loading', loading);
       ttsEl.setAttribute('aria-busy', loading ? 'true' : 'false');
-      ttsEl.setAttribute('aria-label', loading ? t('tts.preparing') : headerActionSpec('tts').label);
     }
   }
 
@@ -6433,9 +6432,6 @@ export class ReaderView extends ItemView {
       ch.state === 'saved' ? t('clip.state.saved') : ch.state === 'read' ? t('clip.state.read') : t('clip.state.unread');
     const text = [ch.sourceName, stateText].filter(Boolean).join(' · ');
     if (node.textContent !== text) node.textContent = text;
-    const sec = this.book?.reading.chapterSeconds?.[ch.key] || 0;
-    const mins = Math.floor(sec / 60);
-    node.setAttribute('aria-label', mins > 0 ? t('clip.chapter.minutes', { m: mins }) : text);
   }
 
   /** 头栏 / ⋮ 里那四颗被点中 */

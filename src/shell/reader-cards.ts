@@ -129,12 +129,12 @@ function floatSourcesHtml(sources: readonly { title: string; path?: string; book
       const label = esc(s.title);
       const tip = esc(s.note || s.path || s.title);
       if (s.path) {
-        return `<button type="button" class="bzs-aisrc-i" data-act="opensrc" data-path="${esc(s.path)}" title="${tip}">${label}</button>`;
+        return `<button type="button" class="bzs-aisrc-i" data-act="opensrc" data-path="${esc(s.path)}"><span class="bzs-sr-only">${tip}</span>${label}</button>`;
       }
       if (s.bookId) {
-        return `<button type="button" class="bzs-aisrc-i" data-act="opensrcbook" data-book="${esc(s.bookId)}" data-chapter="${esc(s.title)}" data-text="${esc(s.text ?? '')}" title="${tip}">${label}</button>`;
+        return `<button type="button" class="bzs-aisrc-i" data-act="opensrcbook" data-book="${esc(s.bookId)}" data-chapter="${esc(s.title)}" data-text="${esc(s.text ?? '')}"><span class="bzs-sr-only">${tip}</span>${label}</button>`;
       }
-      return `<span class="bzs-aisrc-i" title="${tip}">${label}</span>`;
+      return `<span class="bzs-aisrc-i"><span class="bzs-sr-only">${tip}</span>${label}</span>`;
     })
     .join('');
   return `<div class="bzs-aisrc"><span class="lbl">${esc(t('side.ai.sources'))}</span>${items}</div>`;
@@ -158,7 +158,7 @@ export function aiMessagesHtml(input: AiFloatState & { at?: string }): string {
        首问不带 turn 下标，所以不会被误挂上。 */
     const drop =
       m.role === 'ai' && m.turn !== undefined
-        ? `<button type="button" class="bzs-af-turbdrop" data-act="afdrop" data-i="${m.turn}" title="${esc(t('ai.float.dropTurn'))}">${esc(t('ai.float.dropTurn'))}</button>`
+        ? `<button type="button" class="bzs-af-turbdrop" data-act="afdrop" data-i="${m.turn}"><span class="bzs-sr-only">${esc(t('ai.float.dropTurn'))}</span>${esc(t('ai.float.dropTurn'))}</button>`
         : '';
     return `<div class="${cls}${bad}"><div class="tx"${md}>${esc(m.text)}</div>${src}${drop}</div>`;
   };
@@ -192,9 +192,9 @@ export function aiCardHtml(input: AiCardInput): string {
   const askrow = input.ready
     ? `<div class="bzs-af-ask">
       <textarea rows="1" data-role="aifollow" placeholder="${esc(t('ai.float.reply'))}"></textarea>
-      <button type="button" class="bzs-af-send" data-act="aifollow" disabled aria-label="${esc(
+      <button type="button" class="bzs-af-send" data-act="aifollow" disabled><span class="bzs-sr-only">${esc(
         t('ai.float.send'),
-      )}" title="${esc(t('ai.float.send'))}">${SEND_ICON}</button>
+      )}</span><span class="bzs-sr-only">${esc(t('ai.float.send'))}</span>${SEND_ICON}</button>
     </div>`
     : '';
   const archivedAt = input.archivedAt ?? '';
@@ -208,33 +208,29 @@ export function aiCardHtml(input: AiCardInput): string {
     ? ''
     : `<button type="button" class="bzs-af-pin${pinned ? ' is-on' : ''}" data-act="aipin" aria-pressed="${
         pinned ? 'true' : 'false'
-      }" title="${esc(t(pinned ? 'ai.float.pinned' : 'ai.float.pin'))}" aria-label="${esc(
-        t(pinned ? 'ai.float.pinned' : 'ai.float.pin'),
-      )}">${PIN_ICON}</button>`;
+      }"><span class="bzs-sr-only">${esc(t(pinned ? 'ai.float.pinned' : 'ai.float.pin'))}</span>${PIN_ICON}</button>`;
   return `<div class="${cls}"${style}>
     <div class="bzs-af-head">
       <span class="bzs-af-kind">${esc(t(KIND_KEYS[mode]))}</span>
       <span class="bzs-af-meta">${esc(meta)}</span>
       ${pin}
-      <button type="button" class="bzs-af-x" data-act="close" title="${esc(
+      <button type="button" class="bzs-af-x" data-act="close"><span class="bzs-sr-only">${esc(
         t('common.close'),
-      )}" aria-label="${esc(t('common.close'))}">×</button>
+      )}</span>×</button>
     </div>
     ${quote}
     <div class="bzs-af-msgs" data-role="aimsgs">${body}</div>
     ${askrow}
     <div class="bzs-af-foot">
-      <button type="button" class="bzs-af-btn" data-act="aifloatclear" aria-label="${esc(
+      <button type="button" class="bzs-af-btn" data-act="aifloatclear"><span class="bzs-sr-only">${esc(
         t('ai.float.clear'),
-      )}" title="${esc(t('ai.float.clear'))}"><span class="bzs-tbi" data-icon="trash"></span></button>
-      <button type="button" class="bzs-af-btn" data-act="aicopy" aria-label="${esc(
+      )}</span><span class="bzs-tbi" data-icon="trash"></span></button>
+      <button type="button" class="bzs-af-btn" data-act="aicopy"><span class="bzs-sr-only">${esc(
         t('ai.card.copy'),
-      )}" title="${esc(t('ai.card.copy'))}"><span class="bzs-tbi" data-icon="copy"></span></button>
+      )}</span><span class="bzs-tbi" data-icon="copy"></span></button>
       <button type="button" class="bzs-af-btn" data-act="aifloatarchive"${
         archived ? ' disabled' : ''
-      } aria-label="${esc(t(archived ? 'ai.float.archived' : 'ai.float.archive'))}" title="${esc(
-        t(archived ? 'ai.float.archived' : 'ai.float.archive'),
-      )}"><span class="bzs-tbi" data-icon="archive"></span></button>
+      }><span class="bzs-sr-only">${esc(t(archived ? 'ai.float.archived' : 'ai.float.archive'))}</span><span class="bzs-tbi" data-icon="archive"></span></button>
       <span class="sp"></span>
       <span class="bzs-af-state" data-role="aistate">${esc(
         archived ? t('ai.float.archivedAt', { time: archivedAt }) : t('ai.float.unarchived'),

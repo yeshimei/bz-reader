@@ -92,7 +92,7 @@ function tabNav(page: StudyPage, counts: StudyCounts): string {
   const nav = STUDY_TABS.filter((p) => p.value !== 'ai' || can('aiLog')).map((p) => {
     const n = tabCount(p.value, counts);
     const label = t(p.key);
-    return `<button class="${page === p.value ? 'on' : ''}" data-act="study" data-p="${p.value}" title="${label}">${ico(
+    return `<button class="${page === p.value ? 'on' : ''}" data-act="study" data-p="${p.value}"><span class="bzs-sr-only">${label}</span>${ico(
       p.icon,
     )}<span>${label}</span>${n ? `<span class="n">${n}</span>` : ''}</button>`;
   }).join('');
@@ -114,7 +114,7 @@ function actBar(page: StudyPage): string {
   return `<div class="bzs-stuacts">${STUDY_ACTS.map((a) => {
     const label = t(a.key);
     const on = page === a.value;
-    return `<button class="bzs-cbtn${on ? ' on' : ''}" data-act="study" data-p="${a.value}" title="${label}" aria-label="${label}" aria-pressed="${on}">${ico(
+    return `<button class="bzs-cbtn${on ? ' on' : ''}" data-act="study" data-p="${a.value}" aria-pressed="${on}"><span class="bzs-sr-only">${label}</span>${ico(
       a.icon,
     )}</button>`;
   }).join('')}</div>`;
@@ -190,7 +190,7 @@ export function viewLibrary(v: LibraryView): string {
   const pickedSet = new Set(picked);
   const selectBtn = select
     ? ''
-    : `<button class="bzs-round" data-act="libsel" aria-label="${t('shelf.select')}" title="${t('shelf.select')}">${ico('listchecks')}</button>`;
+    : `<button class="bzs-round" data-act="libsel"><span class="bzs-sr-only">${t('shelf.select')}</span>${ico('listchecks')}</button>`;
   const selBar = select
     ? `<div class="bzs-libselbar">
         <span class="bzs-mini">${t('shelf.selected', { n: picked.length })}</span>
@@ -245,15 +245,15 @@ export function viewLibrary(v: LibraryView): string {
           <button class="bzs-chip" data-act="libsearchtoggle">${t('shelf.collapse')}</button>
         </div>`
       : `<div class="bzs-filters is-mb">
-          <button class="bzs-round${state.libKw ? ' on' : ''}" data-act="libsearchtoggle" aria-label="${t(
+          <button class="bzs-round${state.libKw ? ' on' : ''}" data-act="libsearchtoggle"><span class="bzs-sr-only">${t(
             'shelf.act.search',
-          )}" title="${t('shelf.act.search')}">${ico('search')}</button>
+          )}</span><span class="bzs-sr-only">${t('shelf.act.search')}</span>${ico('search')}</button>
           <button class="bzs-chip" data-act="libfiltermenu">${filterLabel}${ico('chevron')}</button>
-          <button class="bzs-chip bzs-sort" data-act="libsortmenu" aria-label="${t('shelf.sort')}">${sortLabel}${ico(
+          <button class="bzs-chip bzs-sort" data-act="libsortmenu"><span class="bzs-sr-only">${t('shelf.sort')}</span>${sortLabel}${ico(
             'chevron',
           )}</button>
           <span class="sp"></span>
-          <button class="bzs-round" data-act="libview" data-v="${toView}" aria-label="${toViewLabel}" title="${toViewLabel}">${ico(
+          <button class="bzs-round" data-act="libview" data-v="${toView}"><span class="bzs-sr-only">${toViewLabel}</span>${ico(
             toView,
           )}</button>
           ${selectBtn}
@@ -291,7 +291,7 @@ export function viewLibrary(v: LibraryView): string {
         /* 卡片上不再钉三颗按钮：点一下开书；文件失联时点它进「重新定位」，
            右键（手机长按）出菜单，详情与其它动作都在里面。 */
         (b) => `<div class="bzs-bkcard${b.status === 'done' ? ' is-done' : ''}${b.missing ? ' is-missing' : ''}${b.clip ? ' is-clip' : ''}${select && pickedSet.has(b.id) ? ' is-picked' : ''}" data-act="${select ? 'libselpick' : 'openbook'}" data-id="${esc(b.id)}"
-          data-bookmenu="${esc(b.id)}" role="button" tabindex="0" title="${cardTitle(b)}">
+          data-bookmenu="${esc(b.id)}" role="button" tabindex="0"><span class="bzs-sr-only">${cardTitle(b)}</span>
         ${pickBox(b)}
         ${
           b.missing
@@ -317,7 +317,7 @@ export function viewLibrary(v: LibraryView): string {
   } else {
     body = `<div class="bzs-list">${shown
       .map(
-        (b) => `<div class="bzs-bkrow2${b.missing ? ' is-missing' : ''}${b.clip ? ' is-clip' : ''}${select && pickedSet.has(b.id) ? ' is-picked' : ''}" data-act="${select ? 'libselpick' : 'openbook'}" data-id="${esc(b.id)}" data-bookmenu="${esc(b.id)}" role="button" tabindex="0" title="${cardTitle(b)}">
+        (b) => `<div class="bzs-bkrow2${b.missing ? ' is-missing' : ''}${b.clip ? ' is-clip' : ''}${select && pickedSet.has(b.id) ? ' is-picked' : ''}" data-act="${select ? 'libselpick' : 'openbook'}" data-id="${esc(b.id)}" data-bookmenu="${esc(b.id)}" role="button" tabindex="0"><span class="bzs-sr-only">${cardTitle(b)}</span>
         ${pickBox(b)}
         ${coverHtml(b)}
         <div class="bi"><b>${esc(b.title)}</b><div class="sub">${esc(b.author)} · ${esc(b.shelf)} · ${b.clip ? t('clip.badge') : b.format}${b.missing ? ` · <span class="miss">${t('shelf.missing')}</span>` : ''}</div></div>

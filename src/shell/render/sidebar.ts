@@ -210,9 +210,9 @@ function tocBody(
          长章节名被截在最难认的位置。层级靠缩进（.d1）表达就够了。
          高亮比对用原始 label，显示用剥过序号的。 */
       const tw = kids
-        ? `<span class="tw" data-act="toctoggle" data-href="${esc(it.href)}" title="${
+        ? `<span class="tw" data-act="toctoggle" data-href="${esc(it.href)}"><span class="bzs-sr-only">${
             isCollapsed ? t('side.expand') : t('side.collapse')
-          }">${ico('chevron')}</span>`
+          }</span>${ico('chevron')}</span>`
         : foldable
           ? `<span class="tw is-empty"></span>`
           : '';
@@ -222,9 +222,9 @@ function tocBody(
       const num = kids && it.count != null ? `<span class="n">${it.count}</span>` : '';
       rows.push(`<div class="bzs-chaprow${depth ? ' d1' : ''}${on ? ' on' : ''}${
         isCollapsed ? ' is-collapsed' : ''
-      }" data-act="jumpch" data-href="${esc(it.href)}" data-label="${esc(it.label)}"${state} title="${esc(
+      }" data-act="jumpch" data-href="${esc(it.href)}" data-label="${esc(it.label)}"${state} role="button" tabindex="0"${draggable ? ' draggable="true"' : ''}><span class="bzs-sr-only">${esc(
         it.label,
-      )}" role="button" tabindex="0"${draggable ? ' draggable="true"' : ''}>
+      )}</span>
         ${tw}
         <span class="t">${esc(stripTocLabel(it.label))}</span>
         ${num}
@@ -248,7 +248,7 @@ function bookmarksBody(rows: BmkRow[]): string {
     .map(
       (k) => `<div class="bzs-mkrow" data-act="jumpbmk" data-id="${esc(k.id)}" role="button" tabindex="0">
         <div class="hd"><span class="tt">${esc(k.label)}</span><span class="pc">${k.percent}%</span>
-        <button class="x" data-act="delbmk" data-id="${esc(k.id)}" title="${t('side.delete')}">${ico('x')}</button></div>
+        <button class="x" data-act="delbmk" data-id="${esc(k.id)}"><span class="bzs-sr-only">${t('side.delete')}</span>${ico('x')}</button></div>
         <em>${esc(k.chapterTitle)}</em>
       </div>`,
     )
@@ -274,7 +274,7 @@ function highlightsBody(rows: MarkRow[], bookId: string): string {
               <span class="tx"><i class="dot" style="background:${m.css}"></i>${esc(m.text)}</span>
               ${m.comment ? `<span class="cm"><b>${t('side.ideaTag')}</b><span class="cmm">${esc(m.comment)}</span></span>` : ''}
               ${kbLinksHtml(m.kb)}
-              <button class="x" data-act="delmark" data-id="${esc(m.id)}" title="${t('side.delete')}">${ico('x')}</button>
+              <button class="x" data-act="delmark" data-id="${esc(m.id)}"><span class="bzs-sr-only">${t('side.delete')}</span>${ico('x')}</button>
             </div>`,
           )
           .join('')}
@@ -325,11 +325,11 @@ function citeRowHtml(row: CiteRowView, page: number): string {
         (row.chapter ? ` data-chapter="${esc(row.chapter)}"` : '') +
         (row.text ? ` data-text="${esc(row.text)}"` : '') +
         (typeof row.pct === 'number' ? ` data-pct="${row.pct}"` : '');
-  return `<div class="bzs-cite" data-act="citejump" ${jump} role="button" tabindex="0" title="${esc(path)}">
+  return `<div class="bzs-cite" data-act="citejump" ${jump} role="button" tabindex="0"><span class="bzs-sr-only">${esc(path)}</span>
     ${dot}<span class="nm">${esc(name)}</span>${label ? `<span class="tx">${esc(label)}</span>` : ''}
-    <button class="x" data-act="citeopen" data-path="${esc(path)}" title="${t(
+    <button class="x" data-act="citeopen" data-path="${esc(path)}"><span class="bzs-sr-only">${t(
       'side.cites.open',
-    )}">${icoNative('external-link', 13)}</button>
+    )}</span>${icoNative('external-link', 13)}</button>
   </div>`;
 }
 
@@ -383,9 +383,9 @@ function citesBody(
   const canFilter = activePage > 0;
   const shown = onlyPage && canFilter ? rows.filter((r) => r.page === activePage) : rows;
   const toggle = canFilter
-    ? `<button type="button" class="bzs-citeonly${onlyPage ? ' on' : ''}" data-act="citeonly" title="${t(
+    ? `<button type="button" class="bzs-citeonly${onlyPage ? ' on' : ''}" data-act="citeonly"><span class="bzs-sr-only">${t(
         'side.cites.onlyPage',
-      )}">${t('side.cites.onlyPage')}</button>`
+      )}</span>${t('side.cites.onlyPage')}</button>`
     : '';
   if (!shown.length) {
     return `<div class="bzs-citehead">${toggle}</div><div class="bzs-empty">${t('side.cites.noneHere')}</div>`;
@@ -433,14 +433,14 @@ function aiSourcesRow(m: AiLogItem): string {
       const label = esc(s.title);
       const tip = esc(s.note || s.path || s.title);
       if (s.path) {
-        return `<button type="button" class="bzs-aisrc-i" data-act="opensrc" data-path="${esc(s.path)}" title="${tip}">${label}</button>`;
+        return `<button type="button" class="bzs-aisrc-i" data-act="opensrc" data-path="${esc(s.path)}"><span class="bzs-sr-only">${tip}</span>${label}</button>`;
       }
       if (s.bookId) {
         return `<button type="button" class="bzs-aisrc-i" data-act="opensrcbook" data-book="${esc(
           s.bookId,
-        )}" data-chapter="${esc(s.title)}" data-text="${esc(s.text ?? '')}" title="${tip}">${label}</button>`;
+        )}" data-chapter="${esc(s.title)}" data-text="${esc(s.text ?? '')}"><span class="bzs-sr-only">${tip}</span>${label}</button>`;
       }
-      return `<span class="bzs-aisrc-i" title="${tip}">${label}</span>`;
+      return `<span class="bzs-aisrc-i"><span class="bzs-sr-only">${tip}</span>${label}</span>`;
     })
     .join('');
   const stale = m.sources.some((s) => !s.path && !!s.bookId && FAKE_CHAPTER.test(String(s.title ?? '').trim()));
@@ -602,9 +602,9 @@ function ctxChipHtml(
     item.kind === 'quote' ? '❝' : item.kind === 'body' ? '¶' : item.kind === 'note' ? '▤' : '';
   const remove =
     opts.removable && opts.index !== undefined
-      ? `<button class="x" data-act="aictxdel" data-i="${opts.index}" title="${t(
+      ? `<button class="x" data-act="aictxdel" data-i="${opts.index}"><span class="bzs-sr-only">${t(
           'side.ai.ctx.remove',
-        )}">×</button>`
+        )}</span>×</button>`
       : '';
   const shot = item.kind === 'shot' ? shotThumbHtml(item) : '';
   return `<span class="bzs-ctx-chip${item.kind === 'shot' ? ' has-shot' : ''}">${shot}${
@@ -632,14 +632,14 @@ function aiBubbleHtml(m: AiLogItem, hint: boolean, at = -1, last = false): strin
   const copy =
     hint || at < 0
       ? ''
-      : `<button type="button" class="bzs-ai-act" data-act="aicopyone" data-i="${at}" title="${esc(
+      : `<button type="button" class="bzs-ai-act" data-act="aicopyone" data-i="${at}"><span class="bzs-sr-only">${esc(
           t('ai.card.copy'),
-        )}" aria-label="${esc(t('ai.card.copy'))}">${icoNative('copy', 13)}</button>`;
+        )}</span>${icoNative('copy', 13)}</button>`;
   const retry =
     last && !hint && at >= 0 && !m.live
-      ? `<button type="button" class="bzs-ai-act" data-act="airetry" data-i="${at}" title="${esc(
+      ? `<button type="button" class="bzs-ai-act" data-act="airetry" data-i="${at}"><span class="bzs-sr-only">${esc(
           t('side.ai.retry'),
-        )}" aria-label="${esc(t('side.ai.retry'))}">${icoNative('rotate-ccw', 13)}</button>`
+        )}</span>${icoNative('rotate-ccw', 13)}</button>`
       : '';
   const acts = copy || retry ? `<div class="bzs-ai-acts">${copy}${retry}</div>` : '';
   return `<div class="bzs-aibubble ai${m.live ? ' is-live' : ''}"><span class="tag">${t(
@@ -708,9 +708,9 @@ function notePickerHtml(v: SidebarView): string {
         <input data-role="ainotesearch" placeholder="${t('side.ai.ctx.noteSearch')}" value="${esc(
           v.aiNoteKw ?? '',
         )}">
-        <button type="button" class="bzs-pk-clear" data-act="aictxnoteclear" aria-label="${t(
+        <button type="button" class="bzs-pk-clear" data-act="aictxnoteclear"><span class="bzs-sr-only">${t(
           'side.ai.ctx.noteClear',
-        )}">×</button>
+        )}</span>×</button>
       </div>
       <div class="bzs-pk-list">${notePickerListHtml(
         v.aiNotes ?? [],
@@ -739,12 +739,12 @@ function aiComposerHtml(v: SidebarView): string {
   /* 生成中发送键就地变成停止键（2026-11-17）：气泡里那颗「停止」删掉之后，
      等不下去的人还有一个熟悉的位置可以点，不用关侧栏或换书。 */
   const send = v.aiStage
-    ? `<button class="bzs-ai-send is-stop" data-act="aistop" aria-label="${t(
+    ? `<button class="bzs-ai-send is-stop" data-act="aistop"><span class="bzs-sr-only">${t(
         'side.ai.stop',
-      )}" title="${t('side.ai.stop')}">${icoNative('stop', 22)}</button>`
-    : `<button class="bzs-ai-send" data-act="aiask" aria-label="${t(
+      )}</span>${icoNative('stop', 22)}</button>`
+    : `<button class="bzs-ai-send" data-act="aiask"${disabled}><span class="bzs-sr-only">${t(
         'side.ai.send',
-      )}" title="${t('side.ai.send')}"${disabled}>${icoNative('arrow-up', 18)}</button>`;
+      )}</span>${icoNative('arrow-up', 18)}</button>`;
   return `<div class="bzs-ai-composer">
       <div class="bzs-aictx">${items
         .map((c, i) => ctxChipHtml(c, { removable: true, index: i }))
@@ -754,15 +754,11 @@ function aiComposerHtml(v: SidebarView): string {
       )}</textarea>
       <div class="bzs-ai-cbar">
         <div class="bzs-ai-qacts">
-          <button class="bzs-qbtn" data-act="aictxbody" aria-label="${t('side.ai.ctx.body')}" title="${t(
+          <button class="bzs-qbtn" data-act="aictxbody"><span class="bzs-sr-only">${t(
             'side.ai.ctx.body',
-          )}">${icoNative('align-left', 16)}</button>
-          <button class="bzs-qbtn" data-act="aictxshot" aria-label="${t('side.ai.ctx.shot')}" title="${t(
-            'side.ai.ctx.shot',
-          )}">${icoNative('image', 16)}</button>
-          <button class="bzs-qbtn" data-act="aictxnote" aria-label="${t('side.ai.ctx.note')}" title="${t(
-            'side.ai.ctx.note',
-          )}">${icoNative('sticky-note', 16)}</button>
+          )}</span>${icoNative('align-left', 16)}</button>
+          <button class="bzs-qbtn" data-act="aictxshot"><span class="bzs-sr-only">${t('side.ai.ctx.shot')}</span>${icoNative('image', 16)}</button>
+          <button class="bzs-qbtn" data-act="aictxnote"><span class="bzs-sr-only">${t('side.ai.ctx.note')}</span>${icoNative('sticky-note', 16)}</button>
         </div>
         ${send}
       </div>
@@ -804,7 +800,7 @@ function aiHistPanel(v: SidebarView): string {
             </button>
             <button type="button" class="x" data-act="aihistdel" data-id="${esc(
               r.id,
-            )}" aria-label="${t('common.delete')}" title="${t('common.delete')}">×</button>
+            )}"><span class="bzs-sr-only">${t('common.delete')}</span>×</button>
           </div>`,
         )
         .join('')
@@ -888,7 +884,7 @@ export function viewSidebar(v: SidebarView): string {
       /* 三位数会把页签挤歪：超过 99 只报「99+」，准确数在各自的页里还能数 */
       const badge = n > 99 ? '99+' : String(n);
       const label = t(tab.key);
-      return `<button class="bzs-sbtab${v.tab === tab.value ? ' on' : ''}" data-act="sbtab" data-tab="${tab.value}" title="${label}" aria-label="${label}">${icoNative(
+      return `<button class="bzs-sbtab${v.tab === tab.value ? ' on' : ''}" data-act="sbtab" data-tab="${tab.value}"><span class="bzs-sr-only">${label}</span>${icoNative(
         tab.icon,
       )}${n ? `<span class="n">${badge}</span>` : ''}</button>`;
     })

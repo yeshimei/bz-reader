@@ -99,7 +99,7 @@ export function aiMenuHtml(style: 'text' | 'icon'): string {
         const cls = item.task === 'book' ? ' class="book"' : '';
         return `<button type="button"${cls} data-act="aimenupick" data-task="${esc(
           item.task,
-        )}" aria-label="${esc(label)}" title="${esc(label)}"><span class="lab">${esc(
+        )}"><span class="bzs-sr-only">${esc(label)}</span><span class="lab">${esc(
           label,
         )}</span><span class="bzs-aimenu-ico" data-icon-name="${esc(
           item.icon,
@@ -107,9 +107,9 @@ export function aiMenuHtml(style: 'text' | 'icon'): string {
       })
       .join(''),
   ).join('<span class="bzs-aimenu-vdiv" data-role="aimenu-divider" aria-hidden="true"></span>');
-  return `<div class="bzs-aimenu${style === 'icon' ? ' is-icon' : ''}" data-style="${style}" role="menu" aria-label="${esc(
+  return `<div class="bzs-aimenu${style === 'icon' ? ' is-icon' : ''}" data-style="${style}" role="menu"><span class="bzs-sr-only">${esc(
     t('tool.ai'),
-  )}">${groups}</div>`;
+  )}</span>${groups}</div>`;
 }
 
 /** 浮框这一档：不认识 / 缺省的 mode 一律按解释 */

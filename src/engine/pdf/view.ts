@@ -574,7 +574,7 @@ export class PdfView {
       const btn = createEl('button');
       btn.type = 'button';
       btn.textContent = label;
-      btn.title = title;
+      if (title) btn.appendChild(Object.assign(document.createElement('span'), { className: 'bzs-sr-only', textContent: title }));
       btn.addEventListener('click', (ev) => {
         ev.stopPropagation();
         run();
@@ -613,7 +613,6 @@ export class PdfView {
           range.max = String(this.numPages);
           range.step = '1';
           range.value = '1';
-          range.setAttribute('aria-label', t('pdf.zoom.jump'));
           range.addEventListener('input', () => {
             this.syncRangeFill();
             this.goToPage(Number(range.value), false);
@@ -2260,7 +2259,7 @@ export class PdfView {
       const hot = createDiv();
       hot.className = 'bzr-pdf-linkhot';
       hot.dataset.target = String(link.page);
-      hot.title = `跳到第 ${link.page} 页`;
+      hot.appendChild(Object.assign(document.createElement('span'), { className: 'bzs-sr-only', textContent: `跳到第 ${link.page} 页` }));
       hot.style.left = `${link.rect.left * 100}%`;
       hot.style.top = `${link.rect.top * 100}%`;
       hot.style.width = `${link.rect.width * 100}%`;

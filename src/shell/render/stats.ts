@@ -154,7 +154,7 @@ function chartHtml(a: FullStats): string {
   const chartMax = Math.max(goalSec, ...ser.items.map((i) => i.sec), 1);
   const goalTop = 20 + Math.round((1 - goalSec / chartMax) * 140);
   const bars = ser.items.map((i) =>
-    `<div class="col" title="${esc(i.label)} · ${esc(clock(i.sec))}"><span class="v">${i.sec ? clock(i.sec) : DASH}</span>` +
+    `<div class="col"><span class="bzs-sr-only">${esc(i.label)} · ${esc(clock(i.sec))}</span><span class="v">${i.sec ? clock(i.sec) : DASH}</span>` +
     `<span class="bar" style="height:${Math.round((i.sec / chartMax) * 100)}%"></span>` +
     `<span class="k">${esc(i.label)}</span></div>`,
   ).join('');
@@ -184,7 +184,7 @@ function heatHtml(a: FullStats): string {
   for (let i = HEAT_DAYS - 1; i >= 0; i--) {
     const k = dayKey(base - i * MS_DAY);
     const sec = a.fullEff[k] || 0;
-    cells.push(`<i class="l${statsHeatLevel(sec)}" title="${esc(k)} · ${esc(clock(sec))}"></i>`);
+    cells.push(`<i class="l${statsHeatLevel(sec)}"><span class="bzs-sr-only">${esc(k)} · ${esc(clock(sec))}</span></i>`);
   }
   const active = Object.values(a.fullEff).filter((v) => v > 0).length;
   const legend = ['var(--surface-2)', 'var(--copper-soft)',

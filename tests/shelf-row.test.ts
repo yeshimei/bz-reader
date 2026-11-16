@@ -23,15 +23,16 @@ describe('shelfActionsHtml', () => {
   it('四个动作都只画图标，按钮里没有可读文字', () => {
     const html = shelfActionsHtml('小说', labels);
     expect(html.match(/<svg/g)).toHaveLength(4);
-    expect(visibleText(html)).toBe('');
+    expect(visibleText(html.replace(/<span class="bzs-sr-only">[\s\S]*?<\/span>/g, ''))).toBe('');
   });
 
-  it('文字挪进 title 与 aria-label：悬停看得见，读屏听得懂', () => {
+  it('文字进视觉隐藏文本：读屏听得懂，不冒悬停气泡', () => {
     const html = shelfActionsHtml('小说', labels);
     for (const word of ['上移', '下移', '改名', '删除']) {
-      expect(html).toContain(`title="${word}"`);
-      expect(html).toContain(`aria-label="${word}"`);
+      expect(html).toContain(`<span class="bzs-sr-only">${word}</span>`);
     }
+    expect(html).not.toContain('aria-label=');
+    expect(html).not.toContain(' title=');
   });
 
   it('四个动作的点击标识不变，行内按钮仍靠它们找得到目标分类', () => {

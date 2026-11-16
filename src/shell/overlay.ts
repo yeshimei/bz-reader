@@ -120,15 +120,15 @@ function modal(title: string, sub: string, body: string, foot = '', cls = '', ma
   const scrim = scrimClasses(mask, withInput, drawer, center);
   /* role / aria-modal（C6）：读屏要能听出「这是一张弹窗、焦点该留在这里」，
      宿主自己的 Modal 有这套，壳层弹窗以前是裸 div。焦点圈闭在 paint() 里挂。 */
-  return `<div class="${scrim}" data-role="scrim"><div class="bzs-modal ${cls}" role="dialog" aria-modal="true" aria-label="${esc(
+  return `<div class="${scrim}" data-role="scrim"><div class="bzs-modal ${cls}" role="dialog" aria-modal="true"><span class="bzs-sr-only">${esc(
     title,
-  )}">
+  )}</span>
     ${
       /* 抽屉把手：一条小横杠，暗示这卡片从底部升起。桌面上不显示（CSS）。 */
       drawer ? '<span class="bzs-sheet-grip" aria-hidden="true"></span>' : ''
     }
     <div class="bzs-mhead"><b>${esc(title)}</b><span class="n">${sub}</span><span class="sp"></span>
-      <button class="x" data-act="close" title="${t('common.close')}">${ico('x')}</button></div>
+      <button class="x" data-act="close"><span class="bzs-sr-only">${t('common.close')}</span>${ico('x')}</button></div>
     <div class="bzs-mbody">${body}</div>
     ${foot ? `<div class="bzs-mfoot">${foot}</div>` : ''}
   </div></div>`;
@@ -800,9 +800,9 @@ function textDialog(inner: string): string {
   /* 手机上的文字面板也是「压住正文、焦点该留在里面」的弹窗（C6）。
      aria-label 不能省：只写 role="dialog" 时读屏只会念「对话框」，
      听不出打开的是想法、书摘还是 AI。 */
-  return `<div class="bzs-scrim bzs-text-scrim" data-role="scrim" role="dialog" aria-modal="true" aria-label="${esc(
+  return `<div class="bzs-scrim bzs-text-scrim" data-role="scrim" role="dialog" aria-modal="true"><span class="bzs-sr-only">${esc(
     t('common.dialog'),
-  )}">${inner}</div>`;
+  )}</span>${inner}</div>`;
 }
 
 /**
@@ -1052,7 +1052,7 @@ function overlayFinish(bookId?: string): string {
   const stars = [1, 2, 3, 4, 5]
     .map(
       (i) =>
-        `<button class="bzs-star${rated >= i ? ' on' : ''}" data-act="rate" data-v="${i}" aria-label="${i} 星">${ico(
+        `<button class="bzs-star${rated >= i ? ' on' : ''}" data-act="rate" data-v="${i}"><span class="bzs-sr-only">${i} 星</span>${ico(
           'star',
         )}</button>`,
     )
@@ -1779,8 +1779,8 @@ export function refreshAiFloat(): void {
     const label = t(archivedAt ? 'ai.float.archived' : 'ai.float.archive');
     arch.toggleAttribute('disabled', !!archivedAt);
     /* 只图标，不写 textContent：写一次就把里面的宿主图标抹掉了 */
-    arch.setAttribute('aria-label', label);
-    arch.setAttribute('title', label);
+    arch.appendChild(Object.assign(document.createElement('span'), { className: 'bzs-sr-only', textContent: label }));
+    arch.appendChild(Object.assign(document.createElement('span'), { className: 'bzs-sr-only', textContent: label }));
   }
   const state = document.querySelector<HTMLElement>('[data-role="aistate"]');
   if (state) {

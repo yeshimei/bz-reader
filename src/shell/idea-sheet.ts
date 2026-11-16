@@ -54,7 +54,7 @@ export function ideaSheetBodyHtml(input: IdeaSheetInput): string {
     )}</textarea>
     <button class="send" data-act="ideasave" data-id="${esc(input.markId)}" data-book="${esc(
       input.bookId,
-    )}" aria-label="保存想法" title="保存">${SEND_ICON}</button>
+    )}"><span class="bzs-sr-only">保存想法</span><span class="bzs-sr-only">保存</span>${SEND_ICON}</button>
   </div></div>`;
 }
 

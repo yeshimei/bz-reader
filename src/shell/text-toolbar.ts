@@ -372,9 +372,9 @@ export function toolbarHtml(input: ToolbarHtmlInput): string {
       (c) =>
         `<button type="button" class="bzs-pendot${c.value === input.color ? ' on' : ''}" data-act="${esc(
           acts.dot,
-        )}" data-v="${esc(c.value)}"${attrs} style="background:${esc(c.css)}" aria-label="${esc(
+        )}" data-v="${esc(c.value)}"${attrs} style="background:${esc(c.css)}"><span class="bzs-sr-only">${esc(
           colorLabel(c.value),
-        )}" title="${esc(colorLabel(c.value))}"></button>`,
+        )}</span></button>`,
     )
     .join('');
 
@@ -394,9 +394,9 @@ export function toolbarHtml(input: ToolbarHtmlInput): string {
       .join(' ');
     const label = labelOf(item);
     if (input.icon) {
-      return `<button type="button" class="${cls}" data-act="${esc(actOf(item.act))}" aria-label="${esc(
+      return `<button type="button" class="${cls}" data-act="${esc(actOf(item.act))}"${attrs}><span class="bzs-sr-only">${esc(
         label,
-      )}" title="${esc(label)}"${attrs}><span class="bzs-tbi" data-icon="${esc(item.icon)}"></span></button>`;
+      )}</span><span class="bzs-tbi" data-icon="${esc(item.icon)}"></span></button>`;
     }
     return `<button type="button" class="${cls}" data-act="${esc(actOf(item.act))}"${attrs}>${esc(label)}</button>`;
   };
@@ -407,7 +407,7 @@ export function toolbarHtml(input: ToolbarHtmlInput): string {
       ? `<span class="bzs-tbi" data-icon="more-horizontal"></span>`
       : '⋯';
     parts.push(
-      `<button type="button" class="bzs-sbtn more" data-act="${MORE_ACT}" aria-label="${t('tool.more')}" aria-haspopup="menu" aria-expanded="false">${more}</button>`,
+      `<button type="button" class="bzs-sbtn more" data-act="${MORE_ACT}" aria-haspopup="menu" aria-expanded="false"><span class="bzs-sr-only">${t('tool.more')}</span>${more}</button>`,
       `<div class="bzs-tb-more" role="menu">${overflow
         .map(
           /* 菜单项保持文字：菜单里空间够，图标反而要多想一下 */
@@ -419,7 +419,7 @@ export function toolbarHtml(input: ToolbarHtmlInput): string {
         .join('')}</div>`,
     );
   }
-  return `<div class="bzs-tb${input.icon ? ' is-icon' : ''}" role="toolbar" aria-label="${t('tool.aria')}">${parts.join(
+  return `<div class="bzs-tb${input.icon ? ' is-icon' : ''}" role="toolbar"><span class="bzs-sr-only">${t('tool.aria')}</span>${parts.join(
     '',
   )}</div>`;
 }

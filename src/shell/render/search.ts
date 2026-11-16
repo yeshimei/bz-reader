@@ -163,9 +163,9 @@ export function searchDeskHtml(surface: SearchSurface = 'shelf'): string {
       : '';
   /* 清空键一直渲染、只切 hidden：输入时宿主只换命中列表，不重画检索卡，
      按「有词才渲染」会在整轮输入里都看不到这枚 ×（真机第一版）。 */
-  const clear = `<button type="button" class="bzs-desk-clear" data-act="searchclear" title="${esc(
+  const clear = `<button type="button" class="bzs-desk-clear" data-act="searchclear"${hasKw ? '' : ' hidden'}><span class="bzs-sr-only">${esc(
     t('search.clear'),
-  )}" aria-label="${esc(t('search.clear'))}"${hasKw ? '' : ' hidden'}>×</button>`;
+  )}</span>×</button>`;
   return `<div class="bzs-desk">
     <div class="bzs-desk-in">
       <span class="bzs-desk-mag">${ico('search')}</span>

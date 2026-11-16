@@ -781,13 +781,14 @@ describe('赞助人徽章', () => {
     entState.patron = false;
   });
 
-  it('徽章带悬停说明与读屏文字', () => {
+  it('徽章带读屏文字，不挂悬停气泡', () => {
     entState.unlocked = true;
     entState.patron = true;
     entState.name = '面包';
     const g = aboutGroup(html());
-    expect(g).toContain('title="赞助人"');
-    expect(g).toContain('aria-label="赞助人 · 面包"');
+    expect(g).toContain('<span class="bzs-sr-only">赞助人</span>');
+    expect(g).toContain('面包');
+    expect(g).not.toContain('title="赞助人"');
     entState.name = '';
     entState.patron = false;
     entState.unlocked = false;
