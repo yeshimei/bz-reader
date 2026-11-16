@@ -1004,16 +1004,28 @@
   border-color: var(--interactive-accent, var(--copper));
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent, var(--copper)) 14%, transparent);
 }
-.bzs-pk-search input {
+/* Obsidian 对 input 的全局样式（border / background / box-shadow / padding）
+   会盖掉这里较弱的 .bzs-pk-search input，在浮层里套出第二层方框。
+   整组重置用更高优先级写死，让输入框只剩容器那一层边框。 */
+.bzs-picker .bzs-pk-search input {
   flex: 1;
   min-width: 0;
-  border: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  -webkit-appearance: none;
+  appearance: none;
   outline: 0;
-  background: transparent;
   color: var(--t1);
   font: 11px var(--ui);
 }
-.bzs-pk-search input::placeholder { color: var(--t3); }
+.bzs-picker .bzs-pk-search input::placeholder { color: var(--t3); }
+/* 空输入时不露 ×，布局不跳 */
+.bzs-picker .bzs-pk-search input:placeholder-shown + .bzs-pk-clear { visibility: hidden; }
 .bzs-pk-clear {
   flex: none;
   border: 0;
