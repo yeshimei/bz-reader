@@ -1779,8 +1779,8 @@ export function refreshAiFloat(): void {
     const label = t(archivedAt ? 'ai.float.archived' : 'ai.float.archive');
     arch.toggleAttribute('disabled', !!archivedAt);
     /* 只图标，不写 textContent：写一次就把里面的宿主图标抹掉了 */
-    arch.appendChild(Object.assign(document.createElement('span'), { className: 'bzs-sr-only', textContent: label }));
-    arch.appendChild(Object.assign(document.createElement('span'), { className: 'bzs-sr-only', textContent: label }));
+    arch.appendChild(Object.assign(createSpan(), { className: 'bzs-sr-only', textContent: label }));
+    arch.appendChild(Object.assign(createSpan(), { className: 'bzs-sr-only', textContent: label }));
   }
   const state = document.querySelector<HTMLElement>('[data-role="aistate"]');
   if (state) {

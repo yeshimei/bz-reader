@@ -74,7 +74,7 @@ export async function resolveScope(scope: Scope, deps: ScopeDeps): Promise<CardS
     }
     for (const [, list] of byChapter) {
       const ids = parsePickedIds(
-        await ask(buildMarkPickPrompt(bookTitle, list[0]!.chapterTitle ?? '', list.map((m) => ({ id: m.id, text: m.text, comment: m.comment })))),
+        await ask(buildMarkPickPrompt(bookTitle, list[0].chapterTitle ?? '', list.map((m) => ({ id: m.id, text: m.text, comment: m.comment })))),
         list.map((m) => m.id),
       );
       const keep = new Set(ids === null ? list.map((m) => m.id) : ids);

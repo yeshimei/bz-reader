@@ -111,16 +111,16 @@ function fmt(n: number): string {
 
 /** 章节行：标题 + 副标题（条数 / 字数） */
 function chapterRow(title: string, sub: string): HTMLElement {
-  const row = document.createElement('div');
+  const row = createDiv();
   row.className = 'setting-item';
-  const info = document.createElement('div');
+  const info = createDiv();
   info.className = 'setting-item-info';
-  const name = document.createElement('div');
+  const name = createDiv();
   name.className = 'setting-item-name';
   name.textContent = title;
   info.appendChild(name);
   if (sub) {
-    const desc = document.createElement('div');
+    const desc = createDiv();
     desc.className = 'setting-item-description';
     desc.textContent = sub;
     info.appendChild(desc);
@@ -131,9 +131,9 @@ function chapterRow(title: string, sub: string): HTMLElement {
 
 /** 勾选框放进 setting-item 的右侧控件区 */
 function withCheckbox(row: HTMLElement, checked: boolean, onChange: (next: boolean) => void): HTMLElement {
-  const ctl = document.createElement('div');
+  const ctl = createDiv();
   ctl.className = 'setting-item-control';
-  const box = document.createElement('input');
+  const box = createEl('input');
   box.type = 'checkbox';
   box.checked = checked;
   box.addEventListener('change', () => onChange(box.checked));
@@ -213,21 +213,20 @@ class ReviewAddFlow {
   private renderHead(el: HTMLElement): void {
     const title = this.book.meta.title || t('common.untitled');
     const sub = el.createEl('p');
-    sub.style.margin = '0 0 8px';
-    sub.style.color = 'var(--text-muted)';
+    sub.setCssProps({ margin: '0 0 8px', color: 'var(--text-muted)' });
     sub.textContent = title;
 
     const tabs = el.createDiv();
-    tabs.style.display = 'flex';
-    tabs.style.gap = '4px';
-    tabs.style.margin = '0 0 10px';
+    tabs.setCssProps({ display: 'flex', gap: '4px', margin: '0 0 10px' });
     const mk = (key: 'marks' | 'chapters', label: string): void => {
       const b = tabs.createEl('button', { text: label });
-      b.style.padding = '4px 12px';
-      b.style.borderRadius = '6px';
-      b.style.border = '1px solid var(--background-modifier-border)';
-      b.style.background = this.tab === key ? 'var(--interactive-accent)' : 'transparent';
-      b.style.color = this.tab === key ? 'var(--text-on-accent)' : 'var(--text-normal)';
+      b.setCssProps({
+        padding: '4px 12px',
+        borderRadius: '6px',
+        border: '1px solid var(--background-modifier-border)',
+        background: this.tab === key ? 'var(--interactive-accent)' : 'transparent',
+        color: this.tab === key ? 'var(--text-on-accent)' : 'var(--text-normal)',
+      });
       b.addEventListener('click', () => {
         if (this.tab === key) return;
         this.tab = key;
@@ -239,9 +238,7 @@ class ReviewAddFlow {
     mk('chapters', t('review.tab.chapters'));
 
     const lead = el.createEl('p');
-    lead.style.margin = '0 0 8px';
-    lead.style.fontSize = '0.9em';
-    lead.style.color = 'var(--text-muted)';
+    lead.setCssProps({ margin: '0 0 8px', fontSize: '0.9em', color: 'var(--text-muted)' });
     lead.textContent = this.tab === 'marks' ? t('review.marksLead') : t('review.chaptersLead');
   }
 
@@ -255,15 +252,13 @@ class ReviewAddFlow {
 
     if (!this.groups.length) {
       const p = el.createEl('p', { text: t('review.emptyBook') });
-      p.style.color = 'var(--text-muted)';
+      p.setCssProps({ color: 'var(--text-muted)' });
       this.renderFooter(el);
       return;
     }
 
     const list = el.createDiv();
-    list.style.maxHeight = '46vh';
-    list.style.overflowY = 'auto';
-    list.style.margin = '0 0 8px';
+    list.setCssProps({ maxHeight: '46vh', overflowY: 'auto', margin: '0 0 8px' });
     for (const g of this.groups) {
       const key = `${g.index}\u0001${g.title}`;
       const row = chapterRow(g.title || t('common.untitled'), t('review.chapterRow', { n: fmt(g.count), chars: fmt(g.chars) }));
@@ -289,26 +284,24 @@ class ReviewAddFlow {
   private renderChapterPick(el: HTMLElement): void {
     if (this.loading) {
       const p = el.createEl('p', { text: t('review.loading') });
-      p.style.color = 'var(--text-muted)';
+      p.setCssProps({ color: 'var(--text-muted)' });
       return;
     }
     if (this.loadError || !this.chapters) {
       const p = el.createEl('p', { text: t('review.loadFailed') });
-      p.style.color = 'var(--text-error)';
+      p.setCssProps({ color: 'var(--text-error)' });
       this.renderFooter(el);
       return;
     }
     if (!this.chapters.length) {
       const p = el.createEl('p', { text: t('review.loadFailed') });
-      p.style.color = 'var(--text-error)';
+      p.setCssProps({ color: 'var(--text-error)' });
       this.renderFooter(el);
       return;
     }
 
     const list = el.createDiv();
-    list.style.maxHeight = '46vh';
-    list.style.overflowY = 'auto';
-    list.style.margin = '0 0 8px';
+    list.setCssProps({ maxHeight: '46vh', overflowY: 'auto', margin: '0 0 8px' });
     for (const c of this.chapters) {
       const row = chapterRow(c.title || t('common.untitled'), '');
       withCheckbox(row, this.chapPicked.has(c.index), (on) => {
@@ -319,7 +312,7 @@ class ReviewAddFlow {
       list.appendChild(row);
     }
 
-    const all = this.chapters!.map((c) => c.index);
+    const all = this.chapters.map((c) => c.index);
     this.renderSelectBar(el, all.length > 0 && all.every((i) => this.chapPicked.has(i)), () => {
       const every = all.every((i) => this.chapPicked.has(i));
       this.chapPicked = new Set(every ? [] : all);
@@ -333,17 +326,14 @@ class ReviewAddFlow {
   /** 全选 / 全不选（按钮文字跟着当前状态走） */
   private renderSelectBar(el: HTMLElement, every: boolean, toggle: () => void): void {
     const bar = el.createDiv();
-    bar.style.display = 'flex';
-    bar.style.gap = '8px';
-    bar.style.margin = '0 0 8px';
+    bar.setCssProps({ display: 'flex', gap: '8px', margin: '0 0 8px' });
     const b = bar.createEl('button', { text: every ? t('review.selectNone') : t('review.selectAll') });
     b.addEventListener('click', toggle);
   }
 
   private renderSummary(el: HTMLElement, text: string): void {
     const p = el.createEl('p', { text });
-    p.style.margin = '0 0 10px';
-    p.style.fontWeight = '600';
+    p.setCssProps({ margin: '0 0 10px', fontWeight: '600' });
   }
 
   /** 底部按钮：取消 / 下一步 */
@@ -458,7 +448,7 @@ class ReviewAddFlow {
     try {
       const list = Array.from(this.chapPicked).sort((a, b) => a - b);
       for (let i = 0; i < list.length; i += 1) {
-        const body = await this.chapterBody(list[i]!);
+        const body = await this.chapterBody(list[i]);
         chars += Array.from(body).length;
         progress.setMessage(t('review.loading') + ` ${i + 1}/${list.length}`);
       }
@@ -482,10 +472,10 @@ class ReviewAddFlow {
     const mode = this.tab === 'marks' ? t('review.tab.marks') : t('review.tab.chapters');
 
     const box = el.createDiv();
-    box.style.margin = '0 0 12px';
+    box.setCssProps({ margin: '0 0 12px' });
     const line = (text: string, cls = ''): void => {
       const p = box.createEl('p', { text });
-      p.style.margin = '0 0 6px';
+      p.setCssProps({ margin: '0 0 6px' });
       if (cls) p.className = cls;
     };
     line(t('review.confirmMode', { mode }));
@@ -509,7 +499,7 @@ class ReviewAddFlow {
     input.type = 'number';
     input.min = '0';
     input.value = String(this.limit);
-    input.style.width = '72px';
+    input.setCssProps({ width: '72px' });
     input.addEventListener('input', () => {
       this.limit = Math.max(0, Math.round(Number(input.value) || 0));
     });
@@ -518,17 +508,14 @@ class ReviewAddFlow {
     /* 字数警告：先算清楚，再让人点「开始」 */
     if (chars > AI_BLOCK_CHARS) {
       const warn = el.createEl('p', { text: t('review.blockChars', { chars: fmt(chars), limit: fmt(AI_BLOCK_CHARS) }) });
-      warn.style.color = 'var(--text-error)';
-      warn.style.fontWeight = '600';
+      warn.setCssProps({ color: 'var(--text-error)', fontWeight: '600' });
     } else if (chars > AI_WARN_CHARS) {
       const warn = el.createEl('p', { text: t('review.warnChars', { chars: fmt(chars) }) });
-      warn.style.color = 'var(--text-warning, var(--text-error))';
-      warn.style.fontWeight = '600';
+      warn.setCssProps({ color: 'var(--text-warning, var(--text-error))', fontWeight: '600' });
     }
 
     const note = el.createEl('p', { text: t('review.confirmNote') });
-    note.style.color = 'var(--text-muted)';
-    note.style.fontSize = '0.9em';
+    note.setCssProps({ color: 'var(--text-muted)', fontSize: '0.9em' });
 
     const row = el.createDiv({ cls: 'modal-button-container' });
     const back = row.createEl('button', { text: t('review.back') });

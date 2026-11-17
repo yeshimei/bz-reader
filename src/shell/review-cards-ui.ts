@@ -85,7 +85,7 @@ class CardsFlow {
     this.modal.titleEl.setText(t('review.mode.title'));
     this.modal.onClose = () => this.modal.contentEl.empty();
     /* 额度与现状是只读查询，失败就按「不标记」处理，不该拦住制卡。 */
-    this.loadStatus();
+    void this.loadStatus();
     this.render();
     this.modal.open();
   }
@@ -114,29 +114,30 @@ class CardsFlow {
 
   private renderMode(el: HTMLElement): void {
     const lead = el.createEl('p', { text: t('review.make.lead') });
-    lead.style.color = 'var(--text-muted)';
-    lead.style.margin = '0 0 10px';
+    lead.setCssProps({ color: 'var(--text-muted)', margin: '0 0 10px' });
 
     const list = el.createDiv();
-    list.style.display = 'flex';
-    list.style.flexDirection = 'column';
-    list.style.gap = '6px';
+    list.setCssProps({ display: 'flex', flexDirection: 'column', gap: '6px' });
     for (const m of MODES) {
       const card = list.createDiv();
       card.className = 'bzs-review-mode';
       const on = this.mode === m;
-      card.style.cssText =
-        'border:1px solid var(--background-modifier-border);border-radius:8px;padding:8px 10px;cursor:pointer;' +
-        (on ? 'background:var(--interactive-accent);color:var(--text-on-accent);' : '');
+      card.setCssProps({
+        border: '1px solid var(--background-modifier-border)',
+        borderRadius: '8px',
+        padding: '8px 10px',
+        cursor: 'pointer',
+        ...(on ? { background: 'var(--interactive-accent)', color: 'var(--text-on-accent)' } : {}),
+      });
       const head = card.createDiv();
-      head.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;';
-      head.createSpan({ text: modeName(m) }).style.fontWeight = '600';
+      head.setCssProps({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' });
+      head.createSpan({ text: modeName(m) }).setCssProps({ fontWeight: '600' });
       const chars = estimateSendChars(m, this.sources);
       head.createSpan({
         text: chars ? t('review.mode.estChars', { chars: fmt(chars) }) : t('review.mode.noAI'),
-      }).style.fontSize = '0.85em';
+      }).setCssProps({ fontSize: '0.85em' });
       const desc = card.createDiv({ text: modeDesc(m) });
-      desc.style.cssText = 'font-size:0.9em;margin-top:2px;opacity:0.85;';
+      desc.setCssProps({ fontSize: '0.9em', marginTop: '2px', opacity: '0.85' });
       card.addEventListener('click', () => {
         if (this.mode === m) return;
         this.mode = m;
@@ -185,17 +186,16 @@ class CardsFlow {
 
   private renderEdit(el: HTMLElement): void {
     const lead = el.createEl('p', { text: t('review.make.lead') });
-    lead.style.color = 'var(--text-muted)';
-    lead.style.margin = '0 0 8px';
+    lead.setCssProps({ color: 'var(--text-muted)', margin: '0 0 8px' });
 
     const list = el.createDiv();
-    list.style.cssText = 'max-height:52vh;overflow-y:auto;margin-bottom:10px;';
+    list.setCssProps({ maxHeight: '52vh', overflowY: 'auto', marginBottom: '10px' });
     this.drafts.forEach((d, i) => list.appendChild(this.renderCard(d, i)));
 
     /* 批量做题：全部补齐 / 全部重新生成 */
     if (this.drafts.length > 1 && this.mode === 'quiz') {
       const bar = el.createDiv();
-      bar.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;';
+      bar.setCssProps({ display: 'flex', gap: '8px', marginBottom: '8px' });
       bar.createEl('button', { text: t('review.make.fillAll') }).addEventListener('click', () => void this.fillAll());
       bar.createEl('button', { text: t('review.make.regenAll') }).addEventListener('click', () => void this.regenAll());
     }
@@ -215,17 +215,17 @@ class CardsFlow {
   private renderCard(d: DraftCard, i: number): HTMLElement {
     const box = el_div();
     box.className = 'bzs-review-card';
-    box.style.cssText = 'border:1px solid var(--background-modifier-border);border-radius:8px;padding:8px 10px;margin-bottom:8px;';
+    box.setCssProps({ border: '1px solid var(--background-modifier-border)', borderRadius: '8px', padding: '8px 10px', marginBottom: '8px' });
 
     const head = box.createDiv();
-    head.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;';
-    head.createSpan({ text: `${i + 1}. ${d.chapterTitle || d.bookTitle}` }).style.fontWeight = '600';
+    head.setCssProps({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '6px' });
+    head.createSpan({ text: `${i + 1}. ${d.chapterTitle || d.bookTitle}` }).setCssProps({ fontWeight: '600' });
     const state = this.states[i] ?? 'new';
     const tag = head.createSpan({ text: stateLabel(state) });
-    tag.style.cssText = 'font-size:0.8em;padding:1px 6px;border-radius:10px;' + stateStyle(state);
+    tag.setCssProps({ fontSize: '0.8em', padding: '1px 6px', borderRadius: '10px', ...stateStyle(state) });
 
     const src = box.createEl('p', { text: d.text });
-    src.style.cssText = 'font-size:0.85em;color:var(--text-muted);margin:0 0 6px;';
+    src.setCssProps({ fontSize: '0.85em', color: 'var(--text-muted)', margin: '0 0 6px' });
 
     if (d.mode === 'plain') {
       /* 全文回忆：题面就是原文，无需编辑 */
@@ -237,10 +237,10 @@ class CardsFlow {
       input.type = 'text';
       input.value = d.front;
       input.placeholder = t('review.make.front');
-      input.style.cssText = 'width:100%;margin-bottom:4px;';
+      input.setCssProps({ width: '100%', marginBottom: '4px' });
       input.addEventListener('input', () => { d.front = input.value; });
-      const back = box.createEl('div', { text: `${t('review.make.back')}：${d.back}` });
-      back.style.cssText = 'font-size:0.85em;color:var(--text-muted);margin-bottom:6px;';
+      const back = box.createDiv({ text: `${t('review.make.back')}：${d.back}` });
+      back.setCssProps({ fontSize: '0.85em', color: 'var(--text-muted)', marginBottom: '6px' });
       box.createEl('button', { text: t('review.make.regenerate') }).addEventListener('click', () => void this.regenOne(i));
       return box;
     }
@@ -249,13 +249,13 @@ class CardsFlow {
     const qs = box.createDiv();
     if (!d.questions.length) {
       const empty = qs.createEl('p', { text: t('review.make.emptyQuiz') });
-      empty.style.cssText = 'font-size:0.85em;color:var(--text-error);';
+      empty.setCssProps({ fontSize: '0.85em', color: 'var(--text-error)' });
     }
     d.questions.forEach((q, qi) => {
       qs.appendChild(this.renderQuestion(d, qi, q));
     });
     const bar = box.createDiv();
-    bar.style.cssText = 'display:flex;gap:6px;margin-top:4px;';
+    bar.setCssProps({ display: 'flex', gap: '6px', marginTop: '4px' });
     bar.createEl('button', { text: t('review.make.addQuestion') }).addEventListener('click', () => void this.fillOne(i));
     bar.createEl('button', { text: t('review.make.regenerate') }).addEventListener('click', () => void this.regenOne(i));
     return box;
@@ -263,14 +263,14 @@ class CardsFlow {
 
   private renderQuestion(d: DraftCard, qi: number, q: DraftQuestion): HTMLElement {
     const row = el_div();
-    row.style.cssText = 'border-top:1px solid var(--background-modifier-border);padding:6px 0;';
+    row.setCssProps({ borderTop: '1px solid var(--background-modifier-border)', padding: '6px 0' });
     const input = row.createEl('input');
     input.type = 'text';
     input.value = q.q;
-    input.style.cssText = 'width:100%;margin-bottom:4px;';
+    input.setCssProps({ width: '100%', marginBottom: '4px' });
     input.addEventListener('input', () => { q.q = input.value; });
-    const opt = row.createEl('div', { text: q.options.map((o, oi) => `${q.correct.includes(oi) ? '✓' : '○'}${o}`).join('   ') });
-    opt.style.cssText = 'font-size:0.8em;color:var(--text-muted);margin-bottom:4px;';
+    const opt = row.createDiv({ text: q.options.map((o, oi) => `${q.correct.includes(oi) ? '✓' : '○'}${o}`).join('   ') });
+    opt.setCssProps({ fontSize: '0.8em', color: 'var(--text-muted)', marginBottom: '4px' });
     const del = row.createEl('button', { text: t('review.make.delQuestion'), cls: 'mod-warning' });
     del.addEventListener('click', () => {
       d.questions.splice(qi, 1);
@@ -374,7 +374,7 @@ class CardsFlow {
 /* ── 小工具 ── */
 
 function el_div(): HTMLElement {
-  return document.createElement('div');
+  return createDiv();
 }
 function fmt(n: number): string {
   return Number(n || 0).toLocaleString('en-US');
@@ -382,8 +382,8 @@ function fmt(n: number): string {
 function stateLabel(s: string): string {
   return s === 'exists' ? t('review.state.exists') : s === 'over' ? t('review.state.over') : t('review.state.new');
 }
-function stateStyle(s: string): string {
-  if (s === 'exists') return 'background:var(--background-modifier-hover);color:var(--text-muted);';
-  if (s === 'over') return 'background:var(--text-error);color:var(--text-on-accent);';
-  return 'background:var(--interactive-accent);color:var(--text-on-accent);';
+function stateStyle(s: string): Record<string, string> {
+  if (s === 'exists') return { background: 'var(--background-modifier-hover)', color: 'var(--text-muted)' };
+  if (s === 'over') return { background: 'var(--text-error)', color: 'var(--text-on-accent)' };
+  return { background: 'var(--interactive-accent)', color: 'var(--text-on-accent)' };
 }

@@ -36,7 +36,7 @@ export function markTitleToc(el: HTMLElement, label: string, title: string): voi
   el.setAttribute('tabindex', '0');
   /* Obsidian 把 aria-label / title 变成悬停气泡；可读名字改用视觉隐藏文本。
      label 与 title 取其一——两者都塞读屏会连读两遍。 */
-  const span = document.createElement('span');
+  const span = createSpan();
   SR_CLASS.split(' ').forEach((c) => span.classList.add(c));
   span.textContent = label || title;
   el.appendChild(span);

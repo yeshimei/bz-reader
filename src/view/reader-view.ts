@@ -1706,7 +1706,7 @@ export class ReaderView extends ItemView {
       const btn = createDiv();
       btn.className = 'clickable-icon view-action bzr-action';
       btn.dataset.bzrAction = item.id;
-      btn.appendChild(Object.assign(document.createElement('span'), { className: 'bzs-sr-only', textContent: item.label }));
+      btn.appendChild(Object.assign(createSpan(), { className: 'bzs-sr-only', textContent: item.label }));
       btn.setAttribute('aria-label-position', 'top');
       setIcon(btn, item.icon);
       btn.addEventListener('click', (ev) => {

@@ -150,7 +150,7 @@ export async function runReviewAdd(deps: RunDeps, plan: RunPlan, hooks: RunHooks
     for (const batch of batches) {
       done += 1;
       hooks.onProgress?.(done, total);
-      const chapterTitle = plan.chapters.find((c) => c.marks.includes(batch[0]!))?.title ?? '';
+      const chapterTitle = plan.chapters.find((c) => c.marks.includes(batch[0]))?.title ?? '';
       try {
         const reply = await ask(buildMarkPickPrompt(bookTitle, chapterTitle, batch.map((m) => ({ id: m.id, text: m.text, comment: m.comment }))));
         const ids = parsePickedIds(reply, batch.map((m) => m.id));

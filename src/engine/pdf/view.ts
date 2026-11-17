@@ -574,7 +574,7 @@ export class PdfView {
       const btn = createEl('button');
       btn.type = 'button';
       btn.textContent = label;
-      if (title) btn.appendChild(Object.assign(document.createElement('span'), { className: 'bzs-sr-only', textContent: title }));
+      if (title) btn.appendChild(Object.assign(createSpan(), { className: 'bzs-sr-only', textContent: title }));
       btn.addEventListener('click', (ev) => {
         ev.stopPropagation();
         run();
@@ -2259,7 +2259,7 @@ export class PdfView {
       const hot = createDiv();
       hot.className = 'bzr-pdf-linkhot';
       hot.dataset.target = String(link.page);
-      hot.appendChild(Object.assign(document.createElement('span'), { className: 'bzs-sr-only', textContent: `跳到第 ${link.page} 页` }));
+      hot.appendChild(Object.assign(createSpan(), { className: 'bzs-sr-only', textContent: `跳到第 ${link.page} 页` }));
       hot.style.left = `${link.rect.left * 100}%`;
       hot.style.top = `${link.rect.top * 100}%`;
       hot.style.width = `${link.rect.width * 100}%`;

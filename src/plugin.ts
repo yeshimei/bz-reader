@@ -57,10 +57,7 @@ import { disposeCrossSearchStage, searchAcrossBooks } from './engine/cross-searc
 import { openCrossSearch } from './ui/cross-search-panel';
 import { openSemanticSearch as openSemanticPanel } from './ui/semantic-panel';
 import { installAiMarkdown, uninstallAiMarkdown } from './shell/ai-md';
-import { aiAsk } from './data/ai';
 import { loadAiLog } from './data/ai-log';
-import { safeName } from './data/export';
-import { DEFAULT_SETTINGS } from './data/settings';
 
 /* 壳层 */
 import { StudyView, VIEW_TYPE_STUDY } from './shell/study-view';

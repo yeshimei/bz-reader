@@ -148,23 +148,31 @@ export function parseChapterCards(reply: string, body = ''): PickedCard[] {
   } catch {
     return [];
   }
-  const raw = (parsed as { cards?: unknown })?.cards;
+  if (!parsed || typeof parsed !== 'object') return [];
+  const raw = (parsed as { cards?: unknown }).cards;
   if (!Array.isArray(raw)) return [];
   /* 比对前把空白全去掉：模型返回的句子常带多余空格或换行，按字面比会误杀。
      存下来的 text 仍然保留正常排版（只把连续空白压成一个空格）。 */
-  const flat = (s: unknown): string => String(s ?? '').replace(/\s+/g, '');
+  const asText = (v: unknown): string => {
+    if (typeof v === 'string') return v;
+    if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+    return '';
+  };
+  const flat = (s: unknown): string => asText(s).replace(/\s+/g, '');
   const source = flat(body);
   const seen = new Set<string>();
   const out: PickedCard[] = [];
   for (const item of raw) {
-    const t = String((item as { text?: unknown })?.text ?? '').replace(/\s+/g, ' ').trim();
-    const q = String((item as { q?: unknown })?.q ?? '').trim();
+    if (!item || typeof item !== 'object') continue;
+    const it = item as Record<string, unknown>;
+    const t = asText(it.text).replace(/\s+/g, ' ').trim();
+    const q = asText(it.q).trim();
     if (!t || !q) continue;
     /* 原文校验：给了正文就必须能在正文里找到（去掉空白后比对，容错换行与空格） */
     if (source && !source.includes(flat(t))) continue;
     if (seen.has(flat(t))) continue;
     seen.add(flat(t));
-    const a = String((item as { a?: unknown })?.a ?? '').trim();
+    const a = asText(it.a).trim();
     out.push({ text: t, q, a });
   }
   return out;

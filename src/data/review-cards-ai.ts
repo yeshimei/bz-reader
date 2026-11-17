@@ -57,8 +57,15 @@ export function buildQuizPrompt(bookTitle: string, chapterTitle: string, text: s
   ].join('\n');
 }
 
+/** 只把模型真正写成字符串（或数字）的字段转出来，其余一律当空 */
+function asText(v: unknown): string {
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+  return '';
+}
+
 /** 容错取第一个 {...} 之间的 JSON */
-function extractJson(reply: string): unknown | null {
+function extractJson(reply: string): unknown {
   const text = String(reply ?? '');
   const first = text.indexOf('{');
   const last = text.lastIndexOf('}');
@@ -72,8 +79,9 @@ function extractJson(reply: string): unknown | null {
 
 /** 解析抽认卡的正面提醒；取不到返回 null */
 export function parseFlashcard(reply: string): string | null {
-  const obj = extractJson(reply) as { front?: unknown } | null;
-  const front = String((obj as { front?: unknown } | null)?.front ?? '').trim();
+  const obj = extractJson(reply);
+  if (!obj || typeof obj !== 'object') return null;
+  const front = asText((obj as { front?: unknown }).front).trim();
   return front || null;
 }
 
@@ -87,18 +95,21 @@ export interface ParsedQuestion {
 
 /** 解析做题回复：过滤缺字段、选项不足、下标越界、重复的题 */
 export function parseQuizQuestions(reply: string): ParsedQuestion[] {
-  const obj = extractJson(reply) as { questions?: unknown } | null;
-  const raw = (obj as { questions?: unknown } | null)?.questions;
+  const obj = extractJson(reply);
+  if (!obj || typeof obj !== 'object') return [];
+  const raw = (obj as { questions?: unknown }).questions;
   if (!Array.isArray(raw)) return [];
   const out: ParsedQuestion[] = [];
   const seen = new Set<string>();
   for (const item of raw) {
-    const q = String((item as { q?: unknown })?.q ?? '').trim();
-    const options = Array.isArray((item as { options?: unknown })?.options)
-      ? ((item as { options: unknown[] }).options.map((o) => String(o ?? '').trim()).filter(Boolean))
-      : [];
-    const correct = Array.isArray((item as { correct?: unknown })?.correct)
-      ? ((item as { correct: unknown[] }).correct.map((c) => Number(c)).filter((n) => Number.isInteger(n)))
+    if (!item || typeof item !== 'object') continue;
+    const it = item as Record<string, unknown>;
+    const q = asText(it.q).trim();
+    const options = Array.isArray(it.options) ? it.options.map((o) => asText(o).trim()).filter(Boolean) : [];
+    const correct = Array.isArray(it.correct)
+      ? it.correct
+          .map((c) => (typeof c === 'number' ? c : typeof c === 'string' ? Number(c) : NaN))
+          .filter((n) => Number.isInteger(n))
       : [];
     if (!q || options.length < 2 || !correct.length) continue;
     if (correct.some((i) => i < 0 || i >= options.length)) continue;
@@ -106,7 +117,7 @@ export function parseQuizQuestions(reply: string): ParsedQuestion[] {
     if (seen.has(key)) continue;
     seen.add(key);
     const parsed: ParsedQuestion = { q, options, correct: [...new Set(correct)].sort((a, b) => a - b) };
-    const explain = String((item as { explain?: unknown })?.explain ?? '').trim();
+    const explain = asText(it.explain).trim();
     if (explain) parsed.explain = explain;
     out.push(parsed);
   }
@@ -126,7 +137,7 @@ export async function generateDrafts(
   ask: (prompt: string) => Promise<string>,
 ): Promise<DraftCard[]> {
   const out: DraftCard[] = [];
-  for (const s of Array.isArray(sources) ? sources : []) {
+  for (const s of sources ?? []) {
     if (mode === 'plain') {
       const d = makeDraft('plain', s);
       if (d) out.push(d);

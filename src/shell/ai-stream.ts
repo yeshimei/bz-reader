@@ -21,14 +21,14 @@ const PAINT_MS = 80;
 
 export interface AiStream {
   /** 交给 `aiAsk` 的 `onDelta` */
-  onDelta(piece: string): void;
+  onDelta: (piece: string) => void;
   /** 收尾：清掉还没落地的节流（重绘由调用方负责） */
-  stop(): void;
+  stop: () => void;
   /**
    * 到现在为止收到的全文。失败时调用方据此判断「有没有流出半截」：
    * 有就接上原因保留，没有才换成一句报错。
    */
-  text(): string;
+  text: () => string;
 }
 
 /**
@@ -67,7 +67,7 @@ export function startAiStream(
   };
 
   return {
-    onDelta(piece: string): void {
+    onDelta: (piece: string): void => {
       if (gone) return;
       const full = append(piece);
       if (full === null) {
@@ -84,12 +84,10 @@ export function startAiStream(
       }
       if (!timer) timer = window.setTimeout(paint, PAINT_MS);
     },
-    stop(): void {
+    stop: (): void => {
       if (timer) window.clearTimeout(timer);
       timer = 0;
     },
-    text(): string {
-      return text;
-    },
+    text: (): string => text,
   };
 }

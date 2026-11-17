@@ -322,7 +322,7 @@ function syncSupportBadges(root: HTMLElement): void {
   const n = currentPatrons().length;
   const label = c.supportTitle(n);
   root.querySelectorAll<HTMLElement>('[data-role="chgnsupport"]').forEach((btn) => {
-    btn.appendChild(Object.assign(document.createElement('span'), { className: 'bzs-sr-only', textContent: label }));
+    btn.appendChild(Object.assign(createSpan(), { className: 'bzs-sr-only', textContent: label }));
     const old = btn.querySelector('.bzs-chgn-count');
     if (n > 0) {
       const text = `+${n > 99 ? '99+' : n}`;

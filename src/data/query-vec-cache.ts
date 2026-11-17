@@ -47,9 +47,9 @@ export function createQueryVecCache(max = QUERY_VEC_CACHE_MAX): QueryVecCache {
       map.delete(key);
       map.set(key, [...vec]);
       while (map.size > cap) {
-        const oldest = map.keys().next().value;
-        if (oldest === undefined) break;
-        map.delete(oldest);
+        const it = map.keys().next();
+        if (it.done) break;
+        map.delete(it.value);
       }
     },
     clear() {
