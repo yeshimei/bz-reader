@@ -3,7 +3,7 @@
   "name": "bz Reader",
   "version": "1.5.0",
   "minAppVersion": "1.8.7",
-  "description": "Turn your vault into a reading app: desktop + mobile, multiple formats (including PDF and comics), multilingual, AI anchored follow-ups / whole-book Q&A / semantic search / knowledge base, offline audiobooks, backlinks, reading stats — everything kept locally.",
+  "description": "Turn your vault into a reading app: desktop + mobile, multiple formats (including PDF and comics), multilingual, AI follow-ups / whole-book Q&A / semantic search / knowledge base, offline audiobooks, backlinks, reading stats — all kept locally.",
   "author": "叫我包仔",
   "authorUrl": "https://github.com/yeshimei",
   "isDesktopOnly": false

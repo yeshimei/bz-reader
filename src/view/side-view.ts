@@ -255,8 +255,10 @@ export class SideView extends ItemView {
     el.addEventListener('keydown', (e) => {
       const t = e.target as HTMLElement;
       if (e.key === 'Enter' && t?.dataset?.role === 'aiask') {
-        /* 输入法 composing 期间 Enter 是「上屏」不是「发送」；Shift+Enter 换行 */
-        if (e.isComposing || e.keyCode === 229 || e.shiftKey) return;
+        /* 输入法 composing 期间 Enter 是「上屏」不是「发送」；Shift+Enter 换行。
+           旧写法还看 keyCode === 229 兜底，但 keyCode 已废弃；Electron/Chromium
+           在 composing 期间 isComposing 恒为真，这一个判断就够。 */
+        if (e.isComposing || e.shiftKey) return;
         e.preventDefault();
         dispatchAction('aiask', t, { repaint: () => this.render() });
         return;
