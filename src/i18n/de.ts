@@ -1368,4 +1368,6 @@ export const DE: Record<MsgKey, string> = {
   'search.scope.allLocked': 'Textsuche im gesamten Regal ist eine Pro-Funktion',
   'side.ai.src.stale': 'Dieser Index ist von einer älteren Version — neu aufbauen, damit Belege im richtigen Kapitel landen.',
   'notice.jump.chapterOnly': 'Kapitel erreicht, aber nicht die genaue Stelle; scrolle von hier nach unten',
+  'notice.enrich.onlyLang': '[TODO] notice.enrich.onlyLang',
+  'notice.enrich.shelf': '[TODO] notice.enrich.shelf {name}',
 };

@@ -66,6 +66,8 @@ export interface AiAskInput {
   author?: string;
   /** 当前章节名 */
   chapter?: string;
+  /** 补元数据时：现有书架分类名册，归类优先复用其中的名字 */
+  shelfNames?: readonly string[];
   /** 当前这一屏的正文（只有 ask 用；不传就明说没有正文） */
   context?: string;
   /**
@@ -191,6 +193,7 @@ export function buildMessages(input: AiAskInput): AiMessage[] {
       title: input.title ?? '',
       author: input.author,
       sample: input.context,
+      shelfNames: input.shelfNames,
     });
   }
   if (input.task === 'guide') {

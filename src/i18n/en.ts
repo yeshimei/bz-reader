@@ -1372,4 +1372,6 @@ export const EN: Record<MsgKey, string> = {
   'search.scope.allLocked': 'Whole-library text search is a Pro feature',
   'side.ai.src.stale': 'This index is from an older version — rebuild it so citations land in the right chapter.',
   'notice.jump.chapterOnly': 'Reached the chapter but not the exact spot; scroll down from here',
+  'notice.enrich.onlyLang': '[TODO] notice.enrich.onlyLang',
+  'notice.enrich.shelf': '[TODO] notice.enrich.shelf {name}',
 };

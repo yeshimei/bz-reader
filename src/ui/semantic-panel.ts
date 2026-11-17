@@ -19,10 +19,13 @@ import { semanticGroupsHtml, semanticStatusText, type SemanticView } from '../sh
 import { uiModal } from '../core/ui/modal';
 import { t } from '../i18n';
 import { ACCENT_VAR, shellAccentColor } from '../shell/theme-accent';
+import type { ReaderSettings } from '../data/settings';
 
 export interface SemanticSearchDeps {
   app: App;
   books: ReaderBook[];
+  /** AI 助手设置：有配好就先让模型理解意图再检索 */
+  settings: ReaderSettings;
   /** 点一条命中：打开那本书并尽量落到这一段 */
   onJump: (book: ReaderBook, hit: SemanticHit) => void;
 }
@@ -59,7 +62,7 @@ export function openSemanticSearch(deps: SemanticSearchDeps): void {
     status.textContent = t('search.semantic.searching');
 
     try {
-      const res = await semanticSearch(deps.app, q);
+      const res = await semanticSearch(deps.app, q, undefined, undefined, undefined, deps.settings);
       if (my !== seq) return;
       currentHits = res.hits;
       const view: SemanticView = {

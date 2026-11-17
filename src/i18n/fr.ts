@@ -1370,4 +1370,6 @@ export const FR: Record<MsgKey, string> = {
   'search.scope.allLocked': 'La recherche plein texte de toute la bibliothèque est une fonction Pro',
   'side.ai.src.stale': 'Cet index date d’une ancienne version — reconstruisez-le pour que les sources tombent dans le bon chapitre.',
   'notice.jump.chapterOnly': 'Chapitre atteint, mais pas l’emplacement exact ; faites défiler depuis ici',
+  'notice.enrich.onlyLang': '[TODO] notice.enrich.onlyLang',
+  'notice.enrich.shelf': '[TODO] notice.enrich.shelf {name}',
 };

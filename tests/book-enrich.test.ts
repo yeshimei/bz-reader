@@ -8,6 +8,7 @@ import {
   enrichSample,
   mergeMetaPatch,
   parseEnrichReply,
+  pickEnrichShelf,
 } from '../src/data/book-enrich';
 
 /**
@@ -75,6 +76,54 @@ describe('parseEnrichReply', () => {
   it('简介过长时截断（书架详情放不下一整段）', () => {
     const p = parseEnrichReply(`简介：${'长'.repeat(400)}`);
     expect(p.description!.length).toBeLessThanOrEqual(201);
+  });
+
+  /* 2026-11-17：AI 补全顺便给书写一个书架分类。labels 用「归类」与标签区分，
+     别把「分类」也当书架分类——那个词在标签行里早就是 subjects 的别名。 */
+  it('解析「归类」行成 shelf，与标签各归各', () => {
+    const p = parseEnrichReply('简介：一本小说\n标签：小说, 成长\n语言：zh\n归类：文学');
+    expect(p.subjects).toEqual(['小说', '成长']);
+    expect(p.shelf).toBe('文学');
+  });
+
+  it('AI 把书架分类写成「分类」而不是「归类」时不污染标签', () => {
+    const p = parseEnrichReply('简介：一本小说\n标签：小说\n分类：文学');
+    /* 「分类」是标签的别名，这一行会成为标签；归类行缺席时 shelf 不写 */
+    expect(p.shelf).toBeUndefined();
+  });
+});
+
+describe('pickEnrichShelf', () => {
+  const existing = ['文学', '科学', '历史'];
+
+  it('AI 给的名字规整后命中现有分类 → 复用现有的写法', () => {
+    expect(pickEnrichShelf(' 文学 ', existing)).toBe('文学');
+    expect(pickEnrichShelf('文 学', existing)).toBe('文学');
+  });
+
+  it('现有分类都不合适 → 用 AI 起的新名字', () => {
+    expect(pickEnrichShelf('纪实文学', existing)).toBe('纪实文学');
+  });
+
+  it('空名字不归类', () => {
+    expect(pickEnrichShelf('', existing)).toBe('');
+    expect(pickEnrichShelf('   ', existing)).toBe('');
+  });
+
+  it('撞上保留名「全部 / 未分类」不写（它们是筛选格，不是分类）', () => {
+    expect(pickEnrichShelf('全部', existing)).toBe('');
+    expect(pickEnrichShelf('未分类', existing)).toBe('');
+  });
+});
+
+describe('buildEnrichMessages 带现有分类名册', () => {
+  it('把名册交给模型，并要求优先复用、没有再新建', () => {
+    const msgs = buildEnrichMessages({ title: '一本书', shelfNames: ['文学', '科学'] });
+    const system = msgs[0].content;
+    expect(system).toContain('文学');
+    expect(system).toContain('科学');
+    expect(system).toContain('归类');
+    expect(system).toContain('现有分类');
   });
 });
 
@@ -170,6 +219,16 @@ describe('enrichDoneKind', () => {
 
   it('什么都没写', () => {
     expect(enrichDoneKind({})).toBe('none');
+  });
+
+  /* 回归（2026-11-17）：只补到「语言」时，以前落到 else 被报成
+     「已补上简介与分类」——可简介和分类一个字都没动，用户看着像误报。 */
+  it('只补到语言也算补了，但说「语言」那一档，不报简介与分类', () => {
+    expect(enrichDoneKind({ language: 'zh' })).toBe('lang');
+  });
+
+  it('简介 + 语言：仍是「简介」档，不因多一行语言改口', () => {
+    expect(enrichDoneKind({ description: '一段', language: 'zh' })).toBe('desc');
   });
 });
 

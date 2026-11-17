@@ -56,8 +56,10 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/data/backup.ts': 4,
   /* 2026-11-11 新文件：补元数据的 prompt 与解析标签（'简介' / '标签' / '语言'
      是模型输出里的字段名，解析器必须认得这几个字；它们不显示给用户，
-     与 data/ai.ts 里的 prompt 同一性质）。 */
-  'src/data/book-enrich.ts': 10,
+     与 data/ai.ts 里的 prompt 同一性质）。
+     2026-11-17 +5（10 → 15）：归类 prompt 的「归类」标签、两句挑分类的规则、
+     保留名判断，都只发给模型 / 解析用，界面那句走 i18n 的 notice.enrich.shelf。 */
+  'src/data/book-enrich.ts': 15,
   /* 2026-11-11 新文件：扫描页识别的 prompt（要模型按「一行一条 + 0..1 坐标」
      回 JSON）与两条模型侧指令。只发给模型、不显示给用户，与 data/ai.ts 同一
      性质；界面那几句（认没认出、失败原因）走的是 i18n 的 notice.pdf.ocr*。 */
@@ -202,6 +204,10 @@ const EXEMPT = new Set([
   /* 2026-11-15 同理加 `src/core/pdf-ocr-deploy-prompt.ts`：扫描页识别那段的
      自部署任务书，只复制给 AI 装 Umi-OCR，界面上不显示。 */
   'src/core/pdf-ocr-deploy-prompt.ts',
+  /* 2026-11-17 加 `src/data/search-intent.ts`：按意思搜的意图改写 system
+     prompt，发给模型把口语压成检索词，界面上一个字都不显示。它不进语言
+     包——翻译成七种外语只会让检索词跟着界面语言漂移，检索反而更不准。 */
+  'src/data/search-intent.ts',
 ]);
 
 const SRC = join(__dirname, '../src');

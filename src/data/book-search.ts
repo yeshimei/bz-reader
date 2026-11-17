@@ -24,6 +24,10 @@ import { loadPortraits } from './book-ai';
 import { searchBooksHybrid } from './block-retrieval';
 import { PORTRAIT_TOP_K, type PortraitFile } from './portrait';
 import { t, type MsgKey } from '../i18n';
+import { aiPostChat, type AiMessage } from './ai';
+import { refineQuery } from './search-intent';
+import type { ReaderSettings } from './settings';
+import { aiReady } from './settings';
 
 export interface SemanticHit {
   bookId: string;
@@ -116,10 +120,27 @@ export async function semanticSearch(
    * 入口换成自己的，否则用户点「生成书单」却被告知「按意思搜是高级功能」。
    */
   proKey: MsgKey = 'search.semantic.pro',
+  /**
+   * 意图改写用的 AI 设置（本插件「AI 助手」那一套）。
+   *
+   * 可选：没传 / 没配好就跳过改写，原话直接算向量——多一次 chat 调用是
+   * 增强，不是「按意思搜」的前置条件。向量仍由 bz 算，两个 AI 不混用。
+   */
+  settings?: ReaderSettings | null,
 ): Promise<SemanticResult> {
   const q = String(query ?? '').trim();
   if (!q) return { hits: [], problem: null, books: 0 };
   if (!can('ai')) return { hits: [], problem: t(proKey), books: 0 };
+
+  /* 先把口语压成检索词：向量走改写后的（意图更准），字面通道仍走原话 q
+     （专名、年份、引文不丢）。失败静默退回原话，见 refineQuery。 */
+  let intentQ = q;
+  if (settings && aiReady(settings)) {
+    intentQ = await refineQuery(
+      (messages: AiMessage[]) => aiPostChat(settings, messages, { timeoutMs: 20_000 }),
+      q,
+    );
+  }
 
   const emb = bzEmbedder(app);
   if (!emb.ai) return { hits: [], problem: emb.problem, books: 0 };
@@ -134,7 +155,7 @@ export async function semanticSearch(
 
   let vec: number[];
   try {
-    vec = await emb.ai.embedQuery(q);
+    vec = await emb.ai.embedQuery(intentQ);
   } catch {
     /* 嵌入服务挂了：这不是「没找到」，要说清楚是服务的问题 */
     return { hits: [], problem: t('search.semantic.embedFail'), books: list.length };

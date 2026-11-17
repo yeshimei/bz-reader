@@ -1369,4 +1369,6 @@ export const ES: Record<MsgKey, string> = {
   'search.scope.allLocked': 'La búsqueda de texto en toda la biblioteca es de la versión Pro',
   'side.ai.src.stale': 'Este índice es de una versión anterior: reconstrúyelo para que las fuentes caigan en el capítulo correcto.',
   'notice.jump.chapterOnly': 'Llegaste al capítulo, pero no a la posición exacta; sigue desplazándote desde aquí',
+  'notice.enrich.onlyLang': '[TODO] notice.enrich.onlyLang',
+  'notice.enrich.shelf': '[TODO] notice.enrich.shelf {name}',
 };

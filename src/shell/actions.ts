@@ -12,7 +12,7 @@
  * ============================================================ */
 import { Menu } from 'obsidian';
 import type { App } from 'obsidian';
-import type { ReaderBook } from '../data/schema';
+import type { BookMeta, ReaderBook } from '../data/schema';
 import { aiAsk, aiPostChat, chatText, FOLLOW_EVIDENCE_LIMIT } from '../data/ai';
 import { aiProbe, type ProbeLevel } from '../data/ai-probe';
 import {
@@ -165,7 +165,7 @@ import { needsMap, wholeBookEvidence } from '../data/book-map';
 import { readPortraitCached } from '../data/portrait-cache';
 import { queryVecCache } from '../data/query-vec-cache';
 import { chapterDigestOf, guideOf, withGuide } from '../data/chapter-guide';
-import { enrichDoneKind, enrichNeeds, enrichSample, mergeMetaPatch, parseEnrichReply } from '../data/book-enrich';
+import { enrichDoneKind, enrichNeeds, enrichSample, mergeMetaPatch, parseEnrichReply, pickEnrichShelf } from '../data/book-enrich';
 import { kbSource } from '../data/kb-entry';
 import { kbLinkOf } from '../data/kb-link';
 import { endsSelection } from './selection-end';
@@ -1072,7 +1072,11 @@ export async function enrichBookMeta(bookId: string): Promise<void> {
     return;
   }
   const need = enrichNeeds(book.meta);
-  if (!need.description && !need.subjects) {
+  /* 「归类」也值一次请求：书挂在未分类（book.shelf 空）时，哪怕简介标签都齐，
+     也要让模型顺手挑一个书架分类。判断只看 book.shelf 原值——不能用 shelfOf，
+     它会回退到 meta.subjects，把有标签但挂在未分类的书误判成「已归类」。 */
+  const needShelf = !String(book.shelf ?? '').trim();
+  if (!need.description && !need.subjects && !needShelf) {
     notify(t('notice.enrich.none'), 'info');
     return;
   }
@@ -1081,38 +1085,71 @@ export async function enrichBookMeta(bookId: string): Promise<void> {
   notify(t('notice.enrich.busy', { title: book.meta.title }), 'info');
   try {
     const portrait = await readPortrait(src.app, book.id);
+    const shelfNames = shelfNamePool();
     const res = await aiAsk(settings, {
       task: 'enrich',
       text: '',
       title: book.meta.title,
       author: book.meta.author,
       context: enrichSample(portrait),
+      shelfNames,
     });
-    const next = mergeMetaPatch(book.meta, parseEnrichReply(res.text));
-    /* 「有没有写出东西」看 next 本身，不看文案的种类：模型偶尔只回了语言那一行，
-       那也是模型给的信息，该落盘。kind 只决定说哪句话。 */
-    if (!Object.keys(next).length) {
+    const parsed = parseEnrichReply(res.text);
+    const next = mergeMetaPatch(book.meta, parsed);
+    /* 模型给的归类名：优先复用现有分类，没有合适的就用新名字；保留名/空不写。
+       已归类的书不碰——手写过的分类不许被 AI 覆盖。 */
+    const wantShelf = needShelf ? pickEnrichShelf(parsed.shelf ?? '', shelfNames) : '';
+    /* 一样都没落盘：模型这回啥也没给，说清楚，别谎报成功 */
+    if (!Object.keys(next).length && !wantShelf) {
       notify(t('notice.enrich.none'), 'info');
       return;
     }
-    const kind = enrichDoneKind(next);
-    Object.assign(book.meta, next);
-    book.updatedAt = Date.now();
+
+    if (Object.keys(next).length) {
+      Object.assign(book.meta, next);
+      book.updatedAt = Date.now();
+    }
+    if (wantShelf) {
+      src.setShelf(book.id, wantShelf);
+      mutateState((s) => {
+        s.shelves[book.id] = wantShelf;
+      });
+      /* 新起的名字写进名册，下次重绘这一格还在 */
+      if (!shelfNames.includes(wantShelf)) {
+        saveShelfList([...getState().shelfList, wantShelf]);
+      }
+    }
     src.store.touch();
     repaint();
-    notify(
-      kind === 'desc'
-        ? t('notice.enrich.doneDesc')
-        : kind === 'tags'
-          ? t('notice.enrich.doneTags')
-          /* 两样都补了，或只补到语言那一行：都是「补上了一些信息」 */
-          : t('notice.enrich.done'),
-    );
+    notify(enrichDoneMessage(next, wantShelf));
   } catch {
     notify(t('notice.enrich.fail'), 'error');
   } finally {
     enrichRunning.delete(bookId);
   }
+}
+
+/**
+ * 补全结果那句话：补了什么说什么，归入书架时也带上类名。
+ *
+ * 只补到语言那一行时以前报「已补上简介与分类」——书架详情不看 language，
+ * 用户看着就是「提示说补了、其实没变」（2026-11-17 真机反馈）。
+ */
+function enrichDoneMessage(metaPatch: Partial<BookMeta>, shelf: string): string {
+  const kind = enrichDoneKind(metaPatch);
+  const what =
+    kind === 'desc'
+      ? t('notice.enrich.doneDesc')
+      : kind === 'tags'
+        ? t('notice.enrich.doneTags')
+        : kind === 'lang'
+          ? t('notice.enrich.onlyLang')
+          : kind === 'both'
+            ? t('notice.enrich.done')
+            : '';
+  const where = shelf ? t('notice.enrich.shelf', { name: shelf }) : '';
+  if (!what) return where || t('notice.enrich.none');
+  return where ? `${what}；${where}` : what;
 }
 
 /**

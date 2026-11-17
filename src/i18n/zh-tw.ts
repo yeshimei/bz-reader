@@ -1359,4 +1359,6 @@ export const ZH_TW: Record<MsgKey, string> = {
   'search.scope.allLocked': '全庫正文搜尋為高級版',
   'side.ai.src.stale': '索引是舊版：重建一次，依據才會落到真正那一章。',
   'notice.jump.chapterOnly': '已到這一章，具體位置沒搜到；可以先按住這一章往下翻',
+  'notice.enrich.onlyLang': '[TODO] notice.enrich.onlyLang',
+  'notice.enrich.shelf': '[TODO] notice.enrich.shelf {name}',
 };

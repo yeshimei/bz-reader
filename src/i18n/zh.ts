@@ -661,6 +661,8 @@ export const ZH = {
   'notice.enrich.done': '已补上简介与分类',
   'notice.enrich.doneDesc': '已补上简介',
   'notice.enrich.doneTags': '已补上分类',
+  'notice.enrich.onlyLang': '只识别到语言，简介和分类这次没补上',
+  'notice.enrich.shelf': '已归入「{name}」',
   'notice.enrich.busy': '正在补全《{title}》的信息…',
   'notice.enrich.none': '这本书的信息已经齐了，没有可补的',
   'notice.enrich.fail': 'AI 没有返回可用的信息，稍后再试',

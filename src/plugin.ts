@@ -1355,6 +1355,7 @@ export function createPlugin(cfg: PluginConfig) {
       openSemanticPanel({
         app: this.app,
         books: this.repo.all().filter((b) => !(b.fileRef as { fileMissing?: boolean }).fileMissing),
+        settings: this.cfg.settings,
         onJump: (book, hit) => void this.jumpIntoBook(book, hit.chunk),
       });
     }

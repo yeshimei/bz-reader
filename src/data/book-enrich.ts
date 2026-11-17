@@ -17,11 +17,14 @@
 import type { BookMeta } from './schema';
 import type { PortraitFile } from './portrait';
 import type { AiMessage } from './ai';
+import { ALL_SHELF, NO_SHELF, cleanShelfList, cleanShelfName } from './shelves';
 
 export interface EnrichPatch {
   description?: string;
   subjects?: string[];
   language?: string;
+  /** 书架分类（归类名，见 shelves.ts）；与 subjects 标签是两回事 */
+  shelf?: string;
 }
 
 /** 简介最多留多少字：书架详情与 bz 那边都用同一段，太长只会被截断 */
@@ -68,7 +71,31 @@ export function parseEnrichReply(text: string): EnrichPatch {
   const lang = /^(zh|en|ja|de|fr|es|pt)/i.exec(langRaw);
   if (lang) out.language = lang[1].toLowerCase();
 
+  /* 书架分类用「归类」标签，与 subjects 的「分类」别名分开——两个概念：
+     「标签」是书的内容标签（meta.subjects），「归类」是书架的格子（book.shelf）。 */
+  const shelf = lineValue(src, ['归类', '书架分类', 'Shelf']);
+  if (shelf) out.shelf = shelf;
+
   return out;
+}
+
+/**
+ * 把模型给的归类名定成真正要写进 book.shelf 的值。
+ *
+ * 优先复用现有分类（规整后同名，连空格都按 shelves 的口径压过），没有合适
+ * 的才用新名字；空名与保留名「全部 / 未分类」都不写——它是筛选格不是分类。
+ * 返回空串 = 这次不归类。
+ */
+export function pickEnrichShelf(raw: string, existing: readonly string[]): string {
+  const name = cleanShelfName(raw);
+  if (!name || name === ALL_SHELF || name === NO_SHELF) return '';
+  /* 比较时抹掉所有空白：模型偶尔在词间多插一个空格（「文 学」），
+     那也算同一个分类。复用时返回名册里原来的写法，不改写用户的格子。 */
+  const squash = (s: string) => cleanShelfName(s).replace(/\s+/g, '');
+  for (const cur of existing ?? []) {
+    if (squash(cur) === squash(name)) return cleanShelfName(cur);
+  }
+  return name;
 }
 
 /**
@@ -120,14 +147,18 @@ export function enrichNeeds(meta: BookMeta): EnrichNeed {
 }
 
 /** 这次到底补上了什么：决定说哪句话（以前不管补到什么都弹「简介与分类」） */
-export type EnrichDone = 'both' | 'desc' | 'tags' | 'none';
+export type EnrichDone = 'both' | 'desc' | 'tags' | 'lang' | 'none';
 
 export function enrichDoneKind(patch: Partial<BookMeta>): EnrichDone {
   const desc = !!(patch.description ?? '').trim();
   const tags = Array.isArray(patch.subjects) && patch.subjects.length > 0;
+  const lang = !!(patch.language ?? '').trim();
   if (desc && tags) return 'both';
   if (desc) return 'desc';
   if (tags) return 'tags';
+  /* 只补到语言也要说清楚：以前落进 none，被调用方当成「两样都补了」报出去，
+     用户看到「已补上简介与分类」却一个字没变（2026-11-17 真机反馈）。 */
+  if (lang) return 'lang';
   return 'none';
 }
 
@@ -168,13 +199,20 @@ export function buildEnrichMessages(input: {
   title: string;
   author?: string;
   sample?: string;
+  /** 现有书架分类名册：归类时优先复用其中的名字，没有合适的再新建 */
+  shelfNames?: readonly string[];
 }): AiMessage[] {
   const title = String(input.title ?? '').trim();
   const author = String(input.author ?? '').trim();
   const sample = String(input.sample ?? '').trim();
+  const names = cleanShelfList(input.shelfNames ?? []);
+  const shelfRule = names.length
+    ? `「归类」那一行只给一个书架分类名：优先从这些现有分类里挑最贴切的一个——${names.join('、')}；确实都不合适才另起一个新名字（不超过 8 字）。`
+    : '「归类」那一行只给一个书架分类名（不超过 8 字）；它是书架的格子，不是内容标签。';
   const system =
     '你是图书馆员。根据给出的书名、作者与片段，为这本书写一段简介（不超过 120 字）与几个分类标签（不超过 4 个）。' +
-    '严格按下面三行输出，不要任何解释或其他文字：\n简介：……\n标签：标签1, 标签2\n语言：zh';
+    shelfRule +
+    '严格按下面四行输出，不要任何解释或其他文字：\n简介：……\n标签：标签1, 标签2\n语言：zh\n归类：文学';
   const user = [
     `【书名】${title}`,
     author ? `【作者】${author}` : '',

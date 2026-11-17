@@ -1362,4 +1362,6 @@ export const JA: Record<MsgKey, string> = {
   'search.scope.allLocked': '全庫本文検索は上位版の機能です',
   'side.ai.src.stale': 'このインデックスは旧版です。再構築すると、根拠が本当の章に届きます。',
   'notice.jump.chapterOnly': '章には着きましたが、正確な位置は見つかりませんでした。この章から下へスクロールしてください',
+  'notice.enrich.onlyLang': '[TODO] notice.enrich.onlyLang',
+  'notice.enrich.shelf': '[TODO] notice.enrich.shelf {name}',
 };

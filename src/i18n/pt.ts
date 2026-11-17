@@ -1370,4 +1370,6 @@ export const PT: Record<MsgKey, string> = {
   'search.scope.allLocked': 'Busca de texto em toda a estante é do plano Pro',
   'side.ai.src.stale': 'Este índice é de uma versão antiga — reconstrua para as fontes caírem no capítulo certo.',
   'notice.jump.chapterOnly': 'Chegou ao capítulo, mas não ao ponto exato; role daqui para baixo',
+  'notice.enrich.onlyLang': '[TODO] notice.enrich.onlyLang',
+  'notice.enrich.shelf': '[TODO] notice.enrich.shelf {name}',
 };

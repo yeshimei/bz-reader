@@ -124,7 +124,7 @@ export function kickSemanticSearch(kw: string, surface: SearchSurface): void {
   const bookIds = scope === 'book' ? [state.bookId as string] : undefined;
   void (async () => {
     try {
-      const res = await semanticSearch(src.app, q, undefined, bookIds);
+      const res = await semanticSearch(src.app, q, undefined, bookIds, undefined, src.settings());
       if (seq !== s.seq) return;
       s.running = false;
       s.hits = res.hits;
