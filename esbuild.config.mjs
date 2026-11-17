@@ -73,7 +73,7 @@ const BUILD_TAG = process.env.BZ_BUILD_TAG || MANIFEST.version;
    不被加壳前缀），放在 mobile.css 之前，让手机的覆盖层仍然最后生效。
    support.css 排在 changelog.css 之后：两者各自只碰自己的 .bzs-sup-* /
    .bzs-chgn-* 类，顺序只为读起来顺。 */
-const SHELL_STYLES = ["tokens.css", "common.css", "study.css", "sidebar.css", "reader.css", "overlay.css", "changelog.css", "support.css", "mobile.css"];
+const SHELL_STYLES = ["tokens.css", "common.css", "study.css", "sidebar.css", "reader.css", "overlay.css", "changelog.css", "changelog-roadmap.css", "support.css", "mobile.css"];
 
 /**
  * 给壳层样式加作用域前缀。

@@ -35,6 +35,8 @@ export interface L10nText {
 export interface ChangelogEntry {
   domain: L10nText;
   text: L10nText;
+  /** 对应 GitHub issue；有值时正文尾部挂 #N 链接（来自在线配置） */
+  issue?: number;
 }
 
 /** 一个版本的日志块 */

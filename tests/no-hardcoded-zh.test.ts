@@ -158,7 +158,10 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   /* 2026-11-10 19 → 21：页脚照 bz 收成「三个纯图标 + 支持作者胶囊」，
      删掉「知道了」与「问题反馈」，补上群号提示（模板头尾各一处中文）、
      「视频教程」与「支持作者」。这一整组仍是中英两版框架文案，理由同上。 */
-  'src/shell/changelog-note.ts': 21,
+  /* 2026-11-18 21 → 43：路线图 / 统计卡 / 确认弹窗的框架文案，和日志一样
+     只有中英两版（走 changelogLang 的 COPY），不进八语言 t()——否则界面会
+     出现「日文按钮 + 中文条目」的半翻状态。 */
+  'src/shell/changelog-note.ts': 43,
   'src/shell/domain.ts': 14,
   'src/shell/idea-sheet.ts': 2,
   'src/shell/overlay.ts': 179,
@@ -196,6 +199,9 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
  */
 const EXEMPT = new Set([
   'src/shell/changelog.ts',
+  /* 2026-11-18 加 bzr-data：内置兜底配置里的中文（路线图演示项标题、
+     主题名）是随包发布的文案数据，和 changelog.ts 同性质，不走 t()。 */
+  'src/data/bzr-data.ts',
   'src/data/reward.ts',
   /* 2026-11-14 加 `src/core/tts-deploy-prompt.ts`：那段是**给 AI 的任务书**，
      复制到剪贴板让 AI 照着装本地语音服务，界面上一个字都不显示。它不进语言

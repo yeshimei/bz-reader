@@ -23,11 +23,20 @@ import { setHtml } from '../ui/dom';
 import { esc, githubIcon } from './render/html';
 import { GROUP_ID, REPO_URL } from '../data/entitlement';
 import { currentPatrons, onPatronsChange, refreshPatrons } from '../data/patrons';
+import {
+  currentBzrData,
+  onBzrDataChange,
+  refreshBzrData,
+  safeFeedbackUrl,
+  type BzrData,
+  type RoadmapFeedback,
+} from '../data/bzr-data';
 import type { RewardName } from '../data/reward';
 import { copyGroupId } from './group';
 import { openSupportDialog } from './support-dialog';
 import { ACCENT_VAR, shellAccentColor } from './theme-accent';
 import {
+  compareVersions,
   normalizeVersion,
   releaseEntryCount,
   type ChangelogEntry,
@@ -64,6 +73,35 @@ interface ChangelogCopy {
   support: string;
   /** 页脚右侧那枚「支持作者」的人话（读屏与悬停都念这句） */
   supportTitle: (n: number) => string;
+  /** 路线图入口 / 面板标题 */
+  roadmap: string;
+  /** 路线图入口副标题：主题数与条目数 */
+  roadmapCount: (themes: number, items: number) => string;
+  /** 统计卡：高级用户 / 赞助人 */
+  proUsers: string;
+  patrons: string;
+  /** 二次确认弹窗 */
+  buyTitle: string;
+  buyDesc: string;
+  supportTitle2: string;
+  supportDesc: string;
+  cancel: string;
+  confirmBuy: string;
+  confirmSupport: string;
+  /** 用户反馈路径 */
+  feedback: string;
+  githubIssue: string;
+  qqGroup: string;
+  copied: string;
+  /** 路线图状态与来源 */
+  statePlan: string;
+  stateDoing: string;
+  stateDone: string;
+  srcBuiltin: string;
+  srcGithub: string;
+  roadmapFoot: string;
+  emptyRoadmap: string;
+  closeRoadmap: string;
 }
 
 const COPY: Record<'zh' | 'en', ChangelogCopy> = {
@@ -88,6 +126,29 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     /* 页脚右侧那枚：只有图标 + 人数，读屏念的是这一句。
        与 bz 同一个位置、同一个口径（人数取名单长度，不在别处再存一份）。 */
     supportTitle: (n: number) => `支持作者（已有 ${n} 位）`,
+    roadmap: '路线图 Roadmap',
+    roadmapCount: (themes: number, items: number) => `${themes} 主题 · ${items} 项`,
+    proUsers: '高级用户',
+    patrons: '赞助人',
+    buyTitle: '升级高级版',
+    buyDesc: '是否购买 BZ Reader 高级版激活码？解锁全部高级功能。',
+    supportTitle2: '支持作者',
+    supportDesc: '是否前往支持作者页面？你的赞助会帮助 BZ Reader 持续更新。',
+    cancel: '取消',
+    confirmBuy: '去购买',
+    confirmSupport: '去支持',
+    feedback: '用户反馈',
+    githubIssue: 'GitHub issue',
+    qqGroup: 'QQ 交流群',
+    copied: '已复制群号',
+    statePlan: '计划中',
+    stateDoing: '进行中',
+    stateDone: '已完成',
+    srcBuiltin: '内置',
+    srcGithub: 'GitHub',
+    roadmapFoot: '内置项随版本发布 · GitHub 项与反馈链接在线获取（本地缓存 6 小时）',
+    emptyRoadmap: '路线图暂无条目',
+    closeRoadmap: '关闭路线图',
   },
   en: {
     added: 'New',
@@ -108,6 +169,29 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     video: 'Video tutorial',
     support: 'Support the author',
     supportTitle: (n: number) => `Support the author (${n} backers so far)`,
+    roadmap: 'Roadmap',
+    roadmapCount: (themes: number, items: number) => `${themes} themes · ${items} items`,
+    proUsers: 'Pro users',
+    patrons: 'Patrons',
+    buyTitle: 'Upgrade to Pro',
+    buyDesc: 'Buy a BZ Reader Pro activation code to unlock all premium features?',
+    supportTitle2: 'Support the author',
+    supportDesc: 'Open the support page? Your sponsorship keeps BZ Reader growing.',
+    cancel: 'Cancel',
+    confirmBuy: 'Buy now',
+    confirmSupport: 'Support',
+    feedback: 'Feedback',
+    githubIssue: 'GitHub issue',
+    qqGroup: 'QQ group',
+    copied: 'Group number copied',
+    statePlan: 'Planned',
+    stateDoing: 'In progress',
+    stateDone: 'Done',
+    srcBuiltin: 'Built-in',
+    srcGithub: 'GitHub',
+    roadmapFoot: 'Built-in items ship with releases · GitHub items and links fetched online (6h local cache)',
+    emptyRoadmap: 'No roadmap items yet',
+    closeRoadmap: 'Close roadmap',
   },
 } as const;
 
@@ -175,7 +259,141 @@ export function activeIndex(releases: readonly ChangelogRelease[], version = '')
   return at < 0 ? 0 : at;
 }
 
+/* ── 路线图 / 统计 / 反馈路径 零件 ──────────── */
+
+const RM_ICON =
+  '<svg class="bzs-chgn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+  'stroke-linecap="round" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"/><circle cx="18" cy="19" r="2"/></svg>';
+const EXT_ICON =
+  '<svg class="bzs-chgn-ext" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" ' +
+  'aria-hidden="true"><path d="M4.5 2.5h5v5M9.5 2.5 5 7"/><path d="M8 8.5v1h-6v-6h1"/></svg>';
+const SEARCH_ICON =
+  '<svg class="bzs-chgn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+  'aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+const GH_ICON =
+  '<svg class="bzs-chgn-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+  '<path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34' +
+  '-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83' +
+  '.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64' +
+  ' 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.8c.85 0 1.71.11 2.51.34 1.91-1.29 2.75-1.02 2.75-1.02' +
+  '.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74' +
+  'c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>';
+const QQ_ICON =
+  '<svg class="bzs-chgn-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+  '<path d="M12 2C6.5 2 2 6 2 11c0 2.6 1.2 4.9 3.1 6.5L4 21l3.6-1.2c1.4.5 2.9.8 4.4.8 5.5 0 10-4 10-9S17.5 2 12 2Z"/></svg>';
+
+/** 统计卡：数字来自在线配置；没拿到数据时显示占位（不显示假数字） */
+function statsHtml(data: BzrData | null): string {
+  const c = copy();
+  const pro = data ? data.stats.pro.toLocaleString() : '—';
+  const patrons = data ? data.stats.patrons.toLocaleString() : '—';
+  return (
+    '<div class="bzs-chgn-stats">' +
+    `<button class="bzs-chgn-stat" type="button" data-stat="pro"><b>${esc(pro)}</b>` +
+    `<span>${esc(c.proUsers)}</span><i>›</i></button>` +
+    `<button class="bzs-chgn-stat sponsor" type="button" data-stat="patrons"><b>${esc(patrons)}</b>` +
+    `<span>${esc(c.patrons)}</span><i>›</i></button></div>`
+  );
+}
+
+/** 用户反馈路径：GitHub issue 在前，QQ 群在后（复制群号，短链实测 404） */
+function feedbackPathHtml(): string {
+  const c = copy();
+  return (
+    '<div class="bzs-chgn-fbpath">' +
+    `<span>${esc(c.feedback)}</span>` +
+    `<a class="bzs-chgn-gh" href="${esc(REPO_URL)}/issues" target="_blank" rel="noopener">${GH_ICON}${esc(c.githubIssue)}</a>` +
+    `<button class="bzs-chgn-qq" type="button" data-copy-qq>${QQ_ICON}${esc(c.qqGroup)}</button>` +
+    `<small data-copy-hint></small></div>`
+  );
+}
+
+function roadmapToolsHtml(): string {
+  const c = copy();
+  return (
+    '<div class="bzs-chgn-rmtools">' +
+    `<label class="bzs-chgn-rmsearch">${SEARCH_ICON}<input type="text" data-rm-search placeholder="${esc(c.roadmap)}…"></label>` +
+    '<div class="bzs-chgn-rmfilters">' +
+    `<button type="button" data-f="all" class="on">${esc(c.feedback)}</button>` +
+    `<button type="button" data-f="doing">${esc(c.stateDoing)}</button>` +
+    `<button type="button" data-f="plan">${esc(c.statePlan)}</button>` +
+    `<button type="button" data-f="done">${esc(c.stateDone)}</button></div></div>`
+  );
+}
+
+/** 一条反馈链接：issue 类用仓库地址拼，其余用白名单校验后的 href；不合法就不给 href */
+function feedbackLinkHtml(fb: RoadmapFeedback): string {
+  let href: string | null = '';
+  if (fb.kind === 'issue') href = REPO_URL + '/issues/' + String(fb.n ?? '');
+  else href = safeFeedbackUrl(fb.href);
+  const cls = 'bzs-chgn-fb ' + esc(fb.kind);
+  if (!href) return '<span class="' + cls + '">' + esc(fb.label) + '</span>';
+  return '<a class="' + cls + '" href="' + esc(href) + '" target="_blank" rel="noopener">' + EXT_ICON + esc(fb.label) + '</a>';
+}
+
+/** 两级路线图：主题（按 order）→ 条目（按状态排：进行中 → 计划中 → 已完成） */
+function roadmapRowsHtml(data: BzrData | null, filter = 'all', query = ''): string {
+  const c = copy();
+  const themes = (data?.roadmap ?? []).slice().sort((a, b) => a.order - b.order);
+  const stateRank: Record<string, number> = { doing: 0, plan: 1, done: 2 };
+  const q = query.trim().toLowerCase();
+  const blocks = themes
+    .map((t) => ({
+      ...t,
+      items: t.items
+        .filter((i) => (filter === 'all' || i.state === filter) && (!q || i.title.toLowerCase().includes(q)))
+        .sort((a, b) => (stateRank[a.state] ?? 9) - (stateRank[b.state] ?? 9)),
+    }))
+    .filter((t) => t.items.length);
+  if (!blocks.length) return `<div class="bzs-chgn-rmempty">${esc(c.emptyRoadmap)}</div>`;
+  return blocks
+    .map((t, ti) => {
+      const done = t.items.filter((i) => i.state === 'done').length;
+      const pct = Math.round((done / t.items.length) * 100);
+      const rows = t.items
+        .map(
+          (it) =>
+            '<div class="bzs-chgn-rmitem">' +
+            `<i class="bzs-chgn-dot ${esc(it.state)}"></i><div>` +
+            `<div class="bzs-chgn-rmtitle">${esc(it.title)}</div>` +
+            '<div class="bzs-chgn-rmmeta">' +
+            `<span class="bzs-chgn-src ${esc(it.src)}">${esc(it.src === 'builtin' ? c.srcBuiltin : c.srcGithub)}</span>` +
+            `<span>${esc(it.state === 'plan' ? c.statePlan : it.state === 'doing' ? c.stateDoing : c.stateDone)}</span>` +
+            feedbackLinkHtml(it.fb) +
+            '</div></div></div>',
+        )
+        .join('');
+      return (
+        `<section class="bzs-chgn-rmtheme${ti > 1 ? ' fold' : ''}">` +
+        `<div class="bzs-chgn-rmthemehd" data-rm-theme><span class="bzs-chgn-chev">▾</span>` +
+        `<i class="bzs-chgn-bar" style="background:${esc(t.color)}"></i><b>${esc(t.theme)}</b>` +
+        `<span class="bzs-chgn-prog"><span class="bzs-chgn-track"><i style="width:${pct}%"></i></span>` +
+        `<small>${done}/${t.items.length}</small></span></div>` +
+        `<div class="bzs-chgn-rmitems">${rows}</div></section>`
+      );
+    })
+    .join('');
+}
+
+/** 路线图面板：反馈路径 + 工具条 + 两级内容（桌面侧栏 / 手机全屏共用） */
+function roadmapPanelHtml(data: BzrData | null): string {
+  const c = copy();
+  const themes = data?.roadmap.length ?? 0;
+  const items = data?.roadmap.reduce((n, t) => n + t.items.length, 0) ?? 0;
+  return (
+    feedbackPathHtml() + roadmapToolsHtml() +
+    `<div class="bzs-chgn-rmlist" data-rm-list>${roadmapRowsHtml(data)}</div>` +
+    `<div class="bzs-chgn-rmfoot">${esc(c.roadmapFoot)} · ${esc(c.roadmapCount(themes, items))}</div>`
+  );
+}
+
 /* ── 正文零件 ─────────────────────────────── */
+
+/** 条目尾部的 #N 链接：issue 来自在线配置；点开新标签跳 GitHub */
+function issueLinkHtml(n?: number): string {
+  if (typeof n !== 'number' || !Number.isInteger(n) || n <= 0) return '';
+  return `<a class="bzs-chgn-issue" href="${esc(REPO_URL)}/issues/${n}" target="_blank" rel="noopener">#${n} ↗</a>`;
+}
 
 function rowsHtml(list: readonly ChangelogEntry[]): string {
   return list
@@ -183,7 +401,7 @@ function rowsHtml(list: readonly ChangelogEntry[]): string {
       (e) =>
         '<div class="bzs-chgn-row">' +
         `<span class="bzs-chgn-k">${esc(pick(e.domain))}</span>` +
-        `<span class="bzs-chgn-t">${esc(pick(e.text))}</span>` +
+        `<span class="bzs-chgn-t">${esc(pick(e.text))}${issueLinkHtml(e.issue)}</span>` +
         '</div>',
     )
     .join('');
@@ -238,7 +456,7 @@ function mobBlocksHtml(release: ChangelogRelease): string {
           (e) =>
             '<div class="bzs-chgn-mit">' +
             `<span class="bzs-chgn-mdom">${esc(pick(e.domain))}</span>` +
-            `<span class="bzs-chgn-mtxt">${esc(pick(e.text))}</span>` +
+            `<span class="bzs-chgn-mtxt">${esc(pick(e.text))}${issueLinkHtml(e.issue)}</span>` +
             '</div>',
         )
         .join('') +
@@ -364,17 +582,48 @@ function railHtml(list: readonly ChangelogRelease[], active: number): string {
   );
 }
 
+/** 正文顶部的统计卡 + 路线图入口（桌面 / 手机共用） */
+function topStripHtml(data: BzrData | null): string {
+  const c = copy();
+  const themes = data?.roadmap.length ?? 0;
+  const items = data?.roadmap.reduce((n, t) => n + t.items.length, 0) ?? 0;
+  return (
+    statsHtml(data) +
+    `<button class="bzs-chgn-rmentry" type="button" data-open-rm>${RM_ICON}` +
+    `<b>${esc(c.roadmap)}</b><span>${esc(c.roadmapCount(themes, items))}</span><i>›</i></button>`
+  );
+}
+
+/** 二次确认弹窗（购买 / 支持）：文案固定，跳转地址在点击时从在线数据读 */
+function confirmDialogHtml(): string {
+  const c = copy();
+  return (
+    '<div class="bzs-chgn-confirm" data-confirm hidden>' +
+    '<div class="bzs-chgn-confirm-box" role="dialog" aria-modal="true">' +
+    '<div class="bzs-chgn-confirm-icon" data-confirm-icon></div>' +
+    '<h3 data-confirm-title></h3><p data-confirm-desc></p>' +
+    '<div class="bzs-chgn-confirm-acts">' +
+    `<button type="button" data-confirm-cancel>${esc(c.cancel)}</button>` +
+    `<button type="button" data-confirm-ok class="primary"></button></div></div></div>`
+  );
+}
+
 /**
  * 弹窗内容（桌面 + 手机两套标记，CSS 媒体查询切换）。
  * `expectVersion` 找不到时落在最新一版——手动从设置页打开就走这条。
+ * `data` 为在线配置（可注入测试）；不传时读当前在线数据（可能只有内置兜底）。
  */
 export function changelogNoteHtml(
   releases: readonly ChangelogRelease[],
   expectVersion = '',
   names: readonly RewardName[] = currentPatrons(),
+  data: BzrData | null = viewData(),
 ): string {
   const c = copy();
-  const list = usable(releases);
+  /* 在线日志优先：data.changelog 有的版本用在线的（带 issue 字段），
+     没有的沿用内置 releases（离线兜底 / 在线还没收录的版本）。 */
+  const merged = mergeReleases(releases, data?.changelog ?? []);
+  const list = usable(merged);
   if (!list.length) return '';
   const at = activeIndex(list, expectVersion);
   const head = list[at];
@@ -384,12 +633,19 @@ export function changelogNoteHtml(
     railHtml(list, at) +
     '<main class="bzs-chgn-pane">' +
     `<div class="bzs-chgn-hd">${headHtml(head, at === 0)}</div>` +
+    `<div class="bzs-chgn-topbar">${topStripHtml(data)}</div>` +
     '<div class="bzs-chgn-wrap">' +
     '<div class="bzs-chgn-fade-top"></div>' +
     `<div class="bzs-chgn-body">${groupsHtml(head)}</div>` +
     '<div class="bzs-chgn-fade-bot"></div>' +
     '</div>' +
     '</main>' +
+    /* 右侧路线图抽屉（不是大弹窗，被弹窗 overflow 裁不到） */
+    `<aside class="bzs-chgn-drawer" data-rm-drawer>` +
+    `<div class="bzs-chgn-drawerhd"><b>${esc(c.roadmap)}</b>` +
+    `<button class="bzs-chgn-rmclose" type="button" data-rm-close><span class="bzs-sr-only">${esc(c.closeRoadmap)}</span>${CLOSE_SVG}</button></div>` +
+    roadmapPanelHtml(data) +
+    '</aside>' +
     `<footer class="bzs-chgn-ft">${linksHtml()}${supportBtnHtml(names)}</footer>` +
     `<button class="bzs-chgn-close" type="button"><span class="bzs-sr-only">${c.close}</span>${CLOSE_SVG}</button>` +
     '</div>';
@@ -399,11 +655,72 @@ export function changelogNoteHtml(
     `<div class="bzs-chgn-mbar"><div class="bzs-chgn-mtitle">${CLOCK_SVG}${c.title}</div>` +
     `<button class="bzs-chgn-close" type="button"><span class="bzs-sr-only">${c.close}</span>${CLOSE_SVG}</button>` +
     '</div>' +
+    `<div class="bzs-chgn-mtop">${topStripHtml(data)}</div>` +
     `<div class="bzs-chgn-mpage">${list.map((r, i) => mobReleaseHtml(r, i === 0)).join('')}</div>` +
+    /* 手机全屏路线图：从右侧滑满整窗，带返回 */
+    `<div class="bzs-chgn-mrm" data-mrm>` +
+    `<div class="bzs-chgn-mrmbar"><button type="button" data-mrm-back>‹</button><b>${esc(c.roadmap)}</b></div>` +
+    roadmapPanelHtml(data) +
+    '</div>' +
     `<div class="bzs-chgn-mtools">${linksHtml()}${supportBtnHtml(names)}</div>` +
     '</div>';
 
-  return desktop + mobile;
+  return desktop + mobile + confirmDialogHtml();
+}
+
+/** 测试注入：换掉渲染用的在线数据（传 null 恢复） */
+let testData: BzrData | null = null;
+export function setChangelogDataForTests(d: BzrData | null): void {
+  testData = d;
+}
+function viewData(): BzrData | null {
+  return testData ?? currentBzrData();
+}
+
+/**
+ * 内置日志 + 在线日志合并：在线有的版本整块替换内置的（它带 issue 字段、
+ * 文案也是最新的），在线没有的版本保留内置。全部按新→旧排。
+ */
+function mergeReleases(
+  builtin: readonly ChangelogRelease[],
+  online: readonly ChangelogRelease[],
+): ChangelogRelease[] {
+  if (!online.length) return [...builtin];
+  const map = new Map<string, ChangelogRelease>();
+  for (const r of builtin) map.set(normalizeVersion(r.version), r);
+  for (const r of online) {
+    const v = normalizeVersion(r.version);
+    if (v) map.set(v, r);
+  }
+  return [...map.values()].sort((a, b) => compareVersions(b.version, a.version));
+}
+
+/** 路线图搜索框的当前值（按面板容器找），没有就是空串 */
+function currentQuery(box: HTMLElement | null): string {
+  return box?.querySelector<HTMLInputElement>('[data-rm-search]')?.value ?? '';
+}
+
+/* 二次确认弹窗：文案和图标固定，跳转地址在点击时从在线数据读 */
+let confirmTarget = '';
+function openConfirm(kind: 'buy' | 'support'): void {
+  const popup = document.querySelector<HTMLElement>('.bzs-chgn-confirm');
+  if (!popup) return;
+  const c = copy();
+  const d = viewData();
+  const isBuy = kind === 'buy';
+  confirmTarget = safeFeedbackUrl(isBuy ? (d?.links.buy ?? '') : (d?.links.support ?? '')) ?? '';
+  setHtml(popup.querySelector<HTMLElement>('[data-confirm-icon]')!, isBuy ? '★' : '♥');
+  const title = popup.querySelector<HTMLElement>('[data-confirm-title]');
+  const desc = popup.querySelector<HTMLElement>('[data-confirm-desc]');
+  const ok = popup.querySelector<HTMLElement>('[data-confirm-ok]');
+  if (title) title.textContent = isBuy ? c.buyTitle : c.supportTitle2;
+  if (desc) desc.textContent = isBuy ? c.buyDesc : c.supportDesc;
+  if (ok) ok.textContent = isBuy ? c.confirmBuy : c.confirmSupport;
+  popup.removeAttribute('hidden');
+}
+function closeConfirm(): void {
+  document.querySelector<HTMLElement>('.bzs-chgn-confirm')?.setAttribute('hidden', '');
+  confirmTarget = '';
 }
 
 export interface ChangelogNoteHandle {
@@ -428,9 +745,10 @@ let liveNote: ChangelogNoteHandle | null = null;
 export function openChangelogNote(
   releases: readonly ChangelogRelease[],
   expectVersion = '',
+  data?: BzrData | null,
 ): ChangelogNoteHandle {
-  const list = usable(releases);
-  const html = changelogNoteHtml(list, expectVersion);
+  const list = usable(mergeReleases(releases, data?.changelog ?? viewData()?.changelog ?? []));
+  const html = changelogNoteHtml(list, expectVersion, currentPatrons(), data);
   if (!html) return { close: () => undefined };
 
   liveNote?.close();
@@ -439,8 +757,9 @@ export function openChangelogNote(
   let bodyEl: HTMLElement | null = null;
   let fadeTop: HTMLElement | null = null;
   let fadeBot: HTMLElement | null = null;
-  /* 名单订阅要在 onClose 里退：这个弹窗可以反复开关，不退就会一次多挂一个 */
+  /* 订阅要在 onClose 里退：这个弹窗可以反复开关，不退就会一次多挂一个 */
   let offSupport: () => void = () => undefined;
+  let offData: () => void = () => undefined;
 
   /* 上下渐隐：真有溢出才提示，到头/到底就撤——别拿假的「还有内容」骗人。
      声明成函数声明，供 onClose 引用（调用时 popup 一定已存在）。 */
@@ -459,6 +778,7 @@ export function openChangelogNote(
       window.removeEventListener('resize', syncFade);
       bodyEl?.removeEventListener('scroll', syncFade);
       offSupport();
+      offData();
     },
   });
   modal.mask.classList.add('bzs-chgn-mask');
@@ -478,6 +798,20 @@ export function openChangelogNote(
   offSupport = onPatronsChange(() => syncSupportBadges(popup));
   void refreshPatrons();
 
+  /* 在线配置：打开时后台校验一次；拉到了就**原地换**统计卡与路线图，
+     不重开弹窗（用户不会看到闪一下）。数据层有 60 秒节流与 6 小时缓存。 */
+  const syncData = (d: BzrData): void => {
+    const stats = popup.querySelector<HTMLElement>('.bzs-chgn-topbar');
+    const mstats = popup.querySelector<HTMLElement>('.bzs-chgn-mtop');
+    if (stats) setHtml(stats, topStripHtml(d));
+    if (mstats) setHtml(mstats, topStripHtml(d));
+    popup.querySelectorAll<HTMLElement>('[data-rm-list]').forEach((el) => {
+      setHtml(el, roadmapRowsHtml(d));
+    });
+  };
+  offData = onBzrDataChange(syncData);
+  void refreshBzrData();
+
   /* 切版本：只换头部与正文两处，不重建整个弹窗（页脚的链接与关闭钮不用重绑） */
   const select = (i: number): void => {
     const release = list[i];
@@ -496,33 +830,92 @@ export function openChangelogNote(
     if (typeof window !== 'undefined') window.requestAnimationFrame(syncFade);
   };
 
-  /* 一处事件委托管三件事：切版本 / 关闭 / 支持作者 / 三个入口。
+  /* 一处事件委托管全部：切版本 / 关闭 / 支持作者 / 路线图 / 确认弹窗。
      两类端（桌面 + 手机）的标记都在同一棵 DOM 里，绑一次全管上。 */
   popup.addEventListener('click', (e) => {
     const target = e.target as HTMLElement | null;
     if (!target?.closest) return;
+
     const version = target.closest<HTMLElement>('.bzs-chgn-v');
-    if (version) {
-      select(Number(version.dataset.i) || 0);
+    if (version) { select(Number(version.dataset.i) || 0); return; }
+
+    /* 统计卡 → 二次确认弹窗（购买 / 支持）。地址在点击时才从在线数据读，
+       不写死在 DOM 里（远端换了链接也不用重开弹窗）。 */
+    const stat = target.closest<HTMLElement>('[data-stat]');
+    if (stat) { openConfirm(stat.dataset.stat === 'pro' ? 'buy' : 'support'); return; }
+
+    /* 路线图入口：桌面开右侧边栏，手机开全屏（各管各的标记） */
+    if (target.closest('[data-open-rm]')) {
+      const rail = popup.querySelector<HTMLElement>('.bzs-chgn');
+      const mob = popup.querySelector<HTMLElement>('.bzs-chgn-mrm');
+      if (target.closest('.bzs-chgn-mtop')) mob?.classList.add('on');
+      else rail?.classList.add('rm-open');
       return;
     }
-    if (target.closest('.bzs-chgn-close')) {
-      modal.close();
+    if (target.closest('[data-rm-close]')) {
+      popup.querySelector<HTMLElement>('.bzs-chgn')?.classList.remove('rm-open');
       return;
     }
+    if (target.closest('[data-mrm-back]')) {
+      popup.querySelector<HTMLElement>('.bzs-chgn-mrm')?.classList.remove('on');
+      return;
+    }
+
+    /* 路线图筛选 / 主题折叠：只换列表区，不重排整窗 */
+    const fbtn = target.closest<HTMLElement>('[data-f]');
+    if (fbtn) {
+      const box = fbtn.closest<HTMLElement>('.bzs-chgn-rmtools')?.parentElement;
+      if (box) {
+        box.querySelectorAll<HTMLElement>('[data-f]').forEach((x) => x.classList.remove('on'));
+        fbtn.classList.add('on');
+        const list = box.querySelector<HTMLElement>('[data-rm-list]');
+        const d = viewData();
+        if (list) setHtml(list, roadmapRowsHtml(d, fbtn.dataset.f || 'all', currentQuery(box)));
+      }
+      return;
+    }
+    const themeHd = target.closest<HTMLElement>('[data-rm-theme]');
+    if (themeHd) { themeHd.parentElement?.classList.toggle('fold'); return; }
+
+    /* 用户反馈路径：QQ 群复制群号（短链实测 404） */
+    if (target.closest('[data-copy-qq]')) {
+      void copyGroupId();
+      const hint = target.closest('.bzs-chgn-fbpath')?.querySelector<HTMLElement>('[data-copy-hint]');
+      if (hint) {
+        hint.textContent = copy().copied;
+        window.setTimeout(() => { hint.textContent = ''; }, 1600);
+      }
+      return;
+    }
+
+    /* 确认弹窗：取消 / 确认 / 点遮罩都收起；确认才打开在线地址 */
+    if (target.closest('[data-confirm-cancel]')) { closeConfirm(); return; }
+    if (target.closest('[data-confirm-ok]')) {
+      const url = confirmTarget;
+      closeConfirm();
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (target.classList.contains('bzs-chgn-confirm')) { closeConfirm(); return; }
+
+    if (target.closest('.bzs-chgn-close')) { modal.close(); return; }
     /* 支持作者（2026-11-10）：先收日志窗再开赞赏窗——两层遮罩叠着，
        关掉上面那层下面还在，看着像关不掉。这里不弹提醒，点了就是点了。 */
-    if (target.closest('[data-role="chgnsupport"]')) {
-      modal.close();
-      openSupportDialog();
-      return;
-    }
+    if (target.closest('[data-role="chgnsupport"]')) { modal.close(); openSupportDialog(); return; }
     const act = target.closest<HTMLElement>('[data-act]')?.dataset.act;
     if (act === 'chgnrepo') window.open(REPO_URL, '_blank', 'noopener,noreferrer');
     else if (act === 'chgnvideo') window.open(VIDEO_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
-    /* 交流群不开链接：qm.qq.com 短链实测 404，只有群号不变，所以走复制
-       （与设置页关于条那颗 `copygroup` 说同一句话，见 shell/group.ts）。 */
     else if (act === 'chgnqq') void copyGroupId();
+  });
+
+  /* 路线图搜索：输入时过滤列表（移动端 / 桌面各一份） */
+  popup.addEventListener('input', (e) => {
+    const input = e.target as HTMLInputElement | null;
+    if (!input?.matches('[data-rm-search]')) return;
+    const box = input.closest<HTMLElement>('.bzs-chgn-rmtools')?.parentElement;
+    const list = box?.querySelector<HTMLElement>('[data-rm-list]');
+    const fbtn = box?.querySelector<HTMLElement>('[data-f].on');
+    if (box && list) setHtml(list, roadmapRowsHtml(viewData(), fbtn?.dataset.f || 'all', input.value));
   });
 
   body?.addEventListener('scroll', syncFade, { passive: true });

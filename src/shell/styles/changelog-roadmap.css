@@ -1,0 +1,157 @@
+/* ==========================================================
+   更新日志 · 路线图 / 统计卡 / 反馈路径 / 确认弹窗
+   ----------------------------------------------------------
+   挂在同一棵弹窗 DOM 上（shell/changelog-note.ts），颜色沿用 --chg-*。
+   选择器一律 .bzs- 开头：构建时壳层样式会加 .bzs-shell 前缀，只有 .bzs-
+   开头的原样保留（见 esbuild.config.mjs 的 scopeShellStyles）。
+
+   桌面：路线图是右侧边栏（不是大弹窗），点入口把正文挤窄；
+   手机：路线图是全屏容器，点入口从右侧滑满，带返回。
+   ========================================================== */
+
+/* ── 正文顶部：统计卡 + 路线图入口 ── */
+.bzs-chgn-topbar,
+.bzs-chgn-mtop{flex:none;padding:12px 30px 2px}
+.bzs-chgn-mtop{padding:8px 20px 2px}
+.bzs-chgn-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 8px}
+.bzs-chgn-stat{
+  display:flex;align-items:center;gap:9px;width:100%;height:44px;padding:0 12px;
+  border:1px solid var(--chg-line-soft);border-radius:9px;background:var(--soft,var(--chg-panel));
+  text-align:left;transition:background .14s,border-color .14s;
+}
+.bzs-chgn-stat:hover{background:var(--chg-accent-soft);border-color:color-mix(in srgb,var(--chg-accent) 35%,transparent)}
+.bzs-chgn-stat b{font-family:var(--chg-mono);font-size:17px;font-weight:700;letter-spacing:-.02em;color:var(--chg-accent)}
+.bzs-chgn-stat.sponsor b{color:#a9763f}
+.bzs-chgn-stat span{font-size:10.5px;color:var(--chg-ink-2)}
+.bzs-chgn-stat i{margin-left:auto;font-style:normal;color:var(--chg-ink-3);font-size:14px}
+
+.bzs-chgn-rmentry{
+  display:flex;align-items:center;gap:9px;width:100%;height:40px;padding:0 12px;
+  border:1px solid var(--chg-line-soft);border-radius:8px;background:var(--chg-panel);
+  color:var(--chg-ink-2);text-align:left;transition:background .14s,border-color .14s;
+}
+.bzs-chgn-rmentry:hover{background:var(--chg-accent-soft);border-color:color-mix(in srgb,var(--chg-accent) 35%,transparent)}
+.bzs-chgn-rmentry svg{width:16px;height:16px;color:var(--chg-accent);flex:none}
+.bzs-chgn-rmentry b{font-size:12px;font-weight:600}
+.bzs-chgn-rmentry:hover b{color:var(--chg-accent)}
+.bzs-chgn-rmentry span{font-size:10.5px;color:var(--chg-ink-3)}
+.bzs-chgn-rmentry i{margin-left:auto;font-style:normal;color:var(--chg-accent);font-size:14px}
+
+/* 条目尾部的 #N 链接 */
+.bzs-chgn-issue{
+  margin-left:6px;font-family:var(--chg-mono);font-size:10.5px;font-weight:700;
+  color:var(--chg-accent);text-decoration:none;white-space:nowrap;
+}
+.bzs-chgn-issue:hover{text-decoration:underline}
+
+/* ── 桌面右侧路线图边栏 ── */
+.bzs-chgn-drawer{
+  grid-column:3;grid-row:1 / span 2;display:none;min-width:0;
+  flex-direction:column;overflow:hidden;border-left:1px solid var(--chg-line-soft);background:var(--soft,var(--chg-panel));
+}
+.bzs-chgn.rm-open{grid-template-columns:214px 1fr 340px}
+.bzs-chgn.rm-open .bzs-chgn-drawer{display:flex}
+.bzs-chgn-drawerhd{
+  flex:none;display:flex;align-items:center;justify-content:space-between;
+  padding:14px 14px 10px;border-bottom:1px solid var(--chg-line-soft);min-width:340px;
+}
+.bzs-chgn-drawerhd b{font-size:12px}
+.bzs-chgn-rmclose{display:grid;place-items:center;width:26px;height:26px;border-radius:7px;color:var(--chg-ink-3)}
+.bzs-chgn-rmclose:hover{background:color-mix(in srgb,var(--chg-ink) 6%,transparent);color:var(--chg-ink)}
+
+/* ── 用户反馈路径（GitHub issue → QQ 群） ── */
+.bzs-chgn-fbpath{
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap;flex:none;
+  padding:8px 11px;border-bottom:1px solid var(--chg-line-soft);background:var(--chg-panel);
+}
+.bzs-chgn-fbpath>span{font-size:10px;font-weight:600;letter-spacing:.06em;color:var(--chg-ink-3)}
+.bzs-chgn-gh,
+.bzs-chgn-qq{
+  display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;
+  font-size:10px;font-weight:600;text-decoration:none;white-space:nowrap;
+}
+.bzs-chgn-gh{color:var(--chg-accent);background:var(--chg-accent-soft)}
+.bzs-chgn-qq{color:#1477a8;background:rgba(30,160,220,.13)}
+.bzs-chgn-fbpath small{font-size:9px;color:var(--chg-ink-3);margin-left:auto}
+.bzs-chgn-svg{width:12px;height:12px;flex:none}
+.bzs-chgn-ext{width:9px;height:9px;flex:none}
+
+/* ── 路线图工具条：搜索 + 状态筛选 ── */
+.bzs-chgn-rmtools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:none;padding:8px 10px;border-bottom:1px solid var(--chg-line-soft)}
+.bzs-chgn-rmsearch{display:flex;align-items:center;gap:6px;flex:1;min-width:100px;padding:4px 7px;border:1px solid var(--chg-line);border-radius:7px}
+.bzs-chgn-rmsearch input{border:0;outline:0;width:100%;font:inherit;font-size:10.5px;color:var(--chg-ink);background:transparent}
+.bzs-chgn-rmsearch input::placeholder{color:var(--chg-ink-3)}
+.bzs-chgn-rmfilters{display:flex;gap:3px;padding:2px;background:var(--soft,var(--chg-panel));border-radius:7px}
+.bzs-chgn-rmfilters button{padding:4px 7px;border-radius:5px;font-size:9.5px;color:var(--chg-ink-3);white-space:nowrap}
+.bzs-chgn-rmfilters button.on{background:var(--chg-panel);color:var(--chg-accent);box-shadow:0 1px 3px rgba(0,0,0,.1);font-weight:600}
+
+/* ── 路线图两级：主题 → 条目 ── */
+.bzs-chgn-rmlist{flex:1;min-height:0;overflow-y:auto;padding:4px 12px 16px;scrollbar-width:none;min-width:340px}
+.bzs-chgn-rmlist::-webkit-scrollbar{display:none}
+.bzs-chgn-rmtheme+.bzs-chgn-rmtheme{border-top:1px solid var(--chg-line-soft)}
+.bzs-chgn-rmthemehd{display:flex;align-items:center;gap:8px;padding:11px 4px;cursor:pointer;user-select:none}
+.bzs-chgn-rmthemehd:hover{background:var(--chg-accent-soft)}
+.bzs-chgn-chev{font-size:9px;color:var(--chg-ink-3);transition:transform .16s}
+.bzs-chgn-rmtheme.fold .bzs-chgn-chev{transform:rotate(-90deg)}
+.bzs-chgn-bar{width:3px;height:11px;border-radius:2px;flex:none}
+.bzs-chgn-rmthemehd b{font-size:11px;font-weight:600}
+.bzs-chgn-prog{margin-left:auto;display:flex;align-items:center;gap:5px}
+.bzs-chgn-track{width:34px;height:3px;border-radius:2px;background:var(--chg-line);overflow:hidden;display:block}
+.bzs-chgn-track i{display:block;height:100%;background:var(--green,#1a7f37)}
+.bzs-chgn-prog small{font-family:var(--chg-mono);font-size:9px;color:var(--chg-ink-3)}
+.bzs-chgn-rmitems{padding:0 4px 8px 16px}
+.bzs-chgn-rmtheme.fold .bzs-chgn-rmitems{display:none}
+.bzs-chgn-rmitem{display:grid;grid-template-columns:9px 1fr;gap:9px;padding:8px 0;border-top:1px solid var(--chg-line-soft)}
+.bzs-chgn-rmitem:first-child{border-top:0}
+.bzs-chgn-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex:none}
+.bzs-chgn-dot.plan{background:var(--chg-panel);box-shadow:inset 0 0 0 1.5px var(--chg-ink-3)}
+.bzs-chgn-dot.doing{background:var(--amber,#b26a00);box-shadow:0 0 0 3px rgba(178,106,0,.13)}
+.bzs-chgn-dot.done{background:var(--green,#1a7f37);box-shadow:0 0 0 3px color-mix(in srgb,var(--green,#1a7f37) 14%,transparent)}
+.bzs-chgn-rmtitle{font-size:11.5px;line-height:1.5}
+.bzs-chgn-rmmeta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px;font-size:9.5px;color:var(--chg-ink-3)}
+.bzs-chgn-src{padding:1px 6px;border-radius:4px;font-weight:600}
+.bzs-chgn-src.builtin{background:color-mix(in srgb,var(--chg-ink-3) 12%,transparent);color:var(--chg-ink-2)}
+.bzs-chgn-src.github{background:var(--chg-accent-soft);color:var(--chg-accent)}
+.bzs-chgn-fb{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:4px;font-weight:600;font-size:9.5px;text-decoration:none;white-space:nowrap}
+.bzs-chgn-fb.issue{background:var(--chg-accent-soft);color:var(--chg-accent)}
+.bzs-chgn-fb.bili{background:rgba(251,114,153,.13);color:#d62f6c}
+.bzs-chgn-fb.qq{background:rgba(30,160,220,.13);color:#1477a8}
+.bzs-chgn-fb.afdian{background:rgba(255,140,60,.14);color:#c2661a}
+.bzs-chgn-rmempty{padding:26px 0;text-align:center;font-size:11px;color:var(--chg-ink-3)}
+.bzs-chgn-rmfoot{flex:none;padding:8px 12px;border-top:1px solid var(--chg-line-soft);font-size:9px;color:var(--chg-ink-3)}
+
+/* ── 手机全屏路线图 ── */
+.bzs-chgn-mrm{
+  position:absolute;inset:0;z-index:6;display:none;flex-direction:column;
+  background:var(--chg-panel);
+}
+.bzs-chgn-mrm.on{display:flex}
+.bzs-chgn-mrmbar{flex:none;display:flex;align-items:center;gap:8px;height:47px;padding:0 12px;border-bottom:1px solid var(--chg-line-soft)}
+.bzs-chgn-mrmbar button{width:26px;font-size:18px;color:var(--chg-accent)}
+.bzs-chgn-mrmbar b{font-size:14px}
+.bzs-chgn-mrm .bzs-chgn-rmlist{min-width:0}
+.bzs-chgn-mrm .bzs-chgn-fbpath,
+.bzs-chgn-mrm .bzs-chgn-rmtools{min-width:0}
+.bzs-chgn-mrm .bzs-chgn-rmthemehd{padding:12px 4px}
+.bzs-chgn-mrm .bzs-chgn-rmitems{padding-left:16px}
+.bzs-chgn-mrm .bzs-chgn-rmfoot{min-width:0}
+
+/* ── 二次确认弹窗（购买 / 支持） ── */
+.bzs-chgn-confirm{position:fixed;inset:0;z-index:300;display:grid;place-items:center;background:rgba(0,0,0,.5)}
+.bzs-chgn-confirm[hidden]{display:none}
+.bzs-chgn-confirm-box{width:min(340px,86vw);padding:22px;border-radius:14px;background:var(--chg-panel);box-shadow:0 24px 70px rgba(0,0,0,.4);text-align:center}
+.bzs-chgn-confirm-icon{width:44px;height:44px;margin:0 auto 12px;border-radius:12px;display:grid;place-items:center;background:var(--chg-accent-soft);color:var(--chg-accent);font-size:22px}
+.bzs-chgn-confirm-box h3{margin:0 0 8px;font-size:15px}
+.bzs-chgn-confirm-box p{margin:0 0 18px;font-size:11.5px;line-height:1.6;color:var(--chg-ink-2)}
+.bzs-chgn-confirm-acts{display:flex;gap:8px}
+.bzs-chgn-confirm-acts button{flex:1;height:36px;border:1px solid var(--chg-line);border-radius:8px;font-size:12px;font-weight:600;color:var(--chg-ink-2)}
+.bzs-chgn-confirm-acts button.primary{color:#fff;background:var(--chg-accent);border-color:var(--chg-accent)}
+
+/* 窄窗口：边栏改成浮层，避免把正文挤成一条 */
+@media (max-width: 900px) {
+  .bzs-chgn.rm-open{grid-template-columns:190px 1fr}
+  .bzs-chgn.rm-open .bzs-chgn-drawer{
+    position:absolute;top:0;right:0;bottom:0;width:min(360px,92vw);z-index:5;
+    box-shadow:-12px 0 30px rgba(0,0,0,.18);
+  }
+}
