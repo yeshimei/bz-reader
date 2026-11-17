@@ -107,7 +107,7 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/data/text-terms.ts': 78,
   'src/data/portrait-build.ts': 8,
   'src/data/portrait.ts': 2,
-  'src/data/prefs.ts': 33,
+  'src/data/prefs.ts': 36,
   /* 两个保留名「全部」「未分类」既是分类条上的一格，也是筛选与存储里的值。
      它们不走 t()：改名会把已存进 localStorage 的 libShelf 全部对不上。
      真正的多语言标签要等这两个值改成不依赖语言之后再补。 */

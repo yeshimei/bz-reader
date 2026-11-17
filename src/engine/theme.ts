@@ -48,6 +48,26 @@ export function resolveTheme(): ResolvedTheme {
 }
 
 /**
+ * 宿主当前的正文字体栈。
+ *
+ * 书页在 iframe 里，宿主的 --font-text 跨不进去，所以「跟随 Obsidian」
+ * 这一档必须在生成样式时把值读出来写死。读不到时返回空串——调用方据此
+ * 不写 font-family，退回书自带字体，好过写一条无效的声明。
+ */
+export function hostFontFamily(): string {
+  try {
+    const style = getComputedStyle(document.body);
+    const raw = style.getPropertyValue('--font-text').trim();
+    const stack = raw && !/\bvar\(/.test(raw) ? raw : (style.fontFamily || '').trim();
+    /* 这串要拼进 CSS：滤掉能改写结构的字符。残缺字体名最多显示不出字，
+       放行分号花括号却能让一本书改掉整个阅读器的样式。 */
+    return stack.replace(/[;{}<>\\:]/g, '').replace(/url\s*\(/gi, '').trim().slice(0, 500);
+  } catch {
+    return '';
+  }
+}
+
+/**
  * 强调色 → 实际颜色。auto 读宿主的 --interactive-accent；
  * 自持档位按明暗取两档，暗底上不压暗色（那等于没画）。
  */
@@ -75,7 +95,11 @@ export function accentColor(accent: AccentName, dark: boolean): string {
 export function buildChapterCSS(prefs: ReaderPrefs): string {
   const theme = resolveTheme();
   const accent = accentColor(prefs.accent, theme.dark);
-  const family = FONT_FAMILIES.find((f) => f.value === prefs.fontFamily)?.css || '';
+  /* obsidian 档在宿主侧是 --font-text，但书页 iframe 读不到宿主变量：
+     生成样式时把当前字体栈读出来写死，换主题时 refreshTheme 会重新生成。 */
+  const family = prefs.fontFamily === 'obsidian'
+    ? hostFontFamily()
+    : FONT_FAMILIES.find((f) => f.value === prefs.fontFamily)?.css || '';
   const familyDecl = family ? `font-family: ${family} !important;` : '';
   const imgFilter = theme.dark ? 'filter: invert(1) hue-rotate(180deg);' : '';
   // 竖排写在 html 上，body 继承。foliate 引擎在每次章节装载时读 body 的

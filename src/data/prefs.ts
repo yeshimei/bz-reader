@@ -27,7 +27,7 @@ import type { TtsEngine } from '../core/tts-engine';
  */
 /** 强调色：默认跟随宿主 accent，其余几档是自持色（明暗各一档） */
 export type AccentName = 'auto' | 'copper' | 'vermilion' | 'indigo' | 'moss' | 'ink' | 'plum' | 'celadon';
-export type FontFamilyName = 'book' | 'serif' | 'sans';
+export type FontFamilyName = 'obsidian' | 'book' | 'serif' | 'sans';
 export type TextAlign = 'left' | 'justify';
 /** 竖排（writing-mode: vertical-rl）是东亚长文阅读的一等需求，不是装饰 */
 export type LayoutMode = 'horizontal' | 'vertical';
@@ -283,8 +283,14 @@ function voiceOf(raw: unknown, fallback: DeepseekVoice): DeepseekVoice {
   return raw === 'stella' || raw === 'tide' ? raw : fallback;
 }
 
-/** 字体选项：值 → 注入 iframe 的 font-family；book = 不覆盖，跟随书自带 */
+/**
+ * 字体选项：值 → 注入 iframe 的 font-family。
+ * obsidian 档宿主侧用 --font-text；书页在 iframe 里读不到宿主变量，
+ * 由 engine/theme.ts 的 hostFontFamily() 把当前字体栈读出来写死进去。
+ * book = 不覆盖，跟随书自带。
+ */
 export const FONT_FAMILIES: Array<{ value: FontFamilyName; css: string }> = [
+  { value: 'obsidian', css: 'var(--font-text, inherit)' },
   { value: 'book', css: '' },
   { value: 'serif', css: '"Songti SC", "SimSun", "Noto Serif CJK SC", serif' },
   { value: 'sans', css: '"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif' },
@@ -319,6 +325,16 @@ export const ACCENT_OPTIONS: Array<{ value: AccentName; css: string; dark: strin
  * 日语仍用明朝体／ゴシック体（人家的书写习惯）。
  */
 const FONT_LABELS: Record<FontFamilyName, Record<Locale, string>> = {
+  obsidian: {
+    zh: '跟随 Obsidian',
+    'zh-TW': '跟隨 Obsidian',
+    en: 'Follow Obsidian',
+    ja: 'Obsidian に合わせる',
+    de: 'Obsidian folgen',
+    fr: 'Suivre Obsidian',
+    es: 'Seguir Obsidian',
+    pt: 'Seguir Obsidian',
+  },
   book: {
     zh: '跟随书籍',
     'zh-TW': '跟隨書籍',

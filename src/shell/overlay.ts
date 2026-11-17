@@ -97,6 +97,7 @@ import { bindMaskDismiss } from '../core/mask-dismiss';
 import { escManager } from '../core/esc-manager';
 import { trapFocus } from '../core/ui/focus-trap';
 import { RT } from './runtime';
+import { FONT_FAMILIES, fontLabel } from '../data/prefs';
 import { aiFloatIdentity, dragPosition, floatBoxStyle } from './float-drag';
 import type { DispatchOpts } from './actions';
 import { rangeFill } from './range-fill';
@@ -238,11 +239,7 @@ export function typographyFormHtml(mobile = isMobileShell()): string {
     ${rng('margin', '页边距', p.margin, 8, 120, 4, '')}
     <div class="bzs-setrow"><label>字体</label>${seg(
       'fontFamily',
-      [
-        ['book', '跟随书籍'],
-        ['serif', '宋体'],
-        ['sans', '黑体'],
-      ],
+      FONT_FAMILIES.map((f) => [f.value, fontLabel(f.value)] as [string, string]),
       p.fontFamily,
     )}</div>
     <div class="bzs-setrow"><label>对齐</label>${seg(
