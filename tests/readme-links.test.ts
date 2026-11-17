@@ -16,12 +16,24 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { AI_TUTORIAL_URL, CLIP_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../src/core/links';
+import {
+  AI_CHAT_TUTORIAL_URL,
+  AI_TUTORIAL_URL,
+  CLIP_TUTORIAL_URL,
+  TTS_TUTORIAL_URL,
+  VIDEO_TUTORIAL_URL,
+} from '../src/core/links';
 
 const VIDEO_LINK = /https:\/\/www\.bilibili\.com\/video\/[A-Za-z0-9]+/g;
 
 /** 插件里登记过的全部教程视频 */
-const KNOWN = new Set([VIDEO_TUTORIAL_URL, AI_TUTORIAL_URL, CLIP_TUTORIAL_URL, TTS_TUTORIAL_URL]);
+const KNOWN = new Set([
+  VIDEO_TUTORIAL_URL,
+  AI_TUTORIAL_URL,
+  AI_CHAT_TUTORIAL_URL,
+  CLIP_TUTORIAL_URL,
+  TTS_TUTORIAL_URL,
+]);
 
 describe('README · 视频教程地址', () => {
   it('顶部推荐视频仍是 VIDEO_TUTORIAL_URL', () => {

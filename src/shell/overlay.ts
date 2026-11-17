@@ -12,7 +12,12 @@
 import { isIosEnv, isMobileEnv, isMobileShell } from '../core/mobile';
 import { t } from '../i18n';
 import { planGroupLabel, planLabel, type PlanKey } from '../i18n/plan';
-import { AI_TUTORIAL_URL, CLIP_TUTORIAL_URL, TTS_TUTORIAL_URL } from '../core/links';
+import {
+  AI_CHAT_TUTORIAL_URL,
+  AI_TUTORIAL_URL,
+  CLIP_TUTORIAL_URL,
+  TTS_TUTORIAL_URL,
+} from '../core/links';
 import { anchoredBelowRight, anchoredPlacement } from './anchored-style';
 import { drawerLiftFor, keyboardHeightFromCss, sheetLift } from './keyboard-inset';
 import { ideaSheetBodyHtml, ideaValue } from './idea-sheet';
@@ -1190,6 +1195,10 @@ const PLAN_VIDEO: Partial<Record<PlanKey, string>> = {
  */
 const PLAN_GROUP_VIDEO: Partial<Record<PlanGroup['key'], string>> = {
   voice: TTS_TUTORIAL_URL,
+  /* AI 这一支（2026-11-17）：讲自己的接口地址 / 模型 / 密钥怎么填、划词与
+     全书问答怎么用。与下面「AI 知识库」那一行的 AI_TUTORIAL_URL 不是同一条
+     ——那条只讲索引怎么建，挂到整段标题上会把两件事说成一件事。 */
+  ai: AI_CHAT_TUTORIAL_URL,
 };
 
 /* 导出给测试：这一屏是免费用户最常看到的，按钮与群号值得单独钉住 */
