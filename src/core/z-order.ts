@@ -52,6 +52,25 @@ export function allocZ(): number {
   return allocZBlock(1);
 }
 
+/**
+ * 取一档**严格高于**给定元素现有层级的号。
+ *
+ * 用于「自己的层级是别人给的、又必须盖住那一层」：如更新日志的二次确认弹窗
+ * 挂 body，主窗遮罩是 allocZ() 发的号，写死一个常数就会被压在主窗下面。
+ * 传进来的元素读不到数字（auto / 空串 / 没写）时忽略，退化成普通发号。
+ */
+export function allocZAbove(...els: (HTMLElement | undefined | null)[]): number {
+  let top = 0;
+  for (const el of els) {
+    const raw = el?.style?.zIndex;
+    const z = Number(raw);
+    if (raw !== '' && Number.isFinite(z) && z > top) top = z;
+  }
+  const next = allocZ();
+  /* 正常情况 next 已经比 top 高；外部带着更大静态档时才用 top+1 兜一次 */
+  return next > top ? next : top + 1;
+}
+
 /** topifyZ(els...)：显示时抬顶。按传入顺序发号（遮罩在前、本体在后，保持成对上下关系） */
 export function topifyZ(...els: (HTMLElement | undefined | null)[]): void {
   const live = els.filter((el): el is HTMLElement => !!el);

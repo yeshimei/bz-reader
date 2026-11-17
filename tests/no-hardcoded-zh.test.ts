@@ -161,8 +161,13 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   /* 2026-11-18 21 → 43：路线图 / 统计卡 / 确认弹窗的框架文案，和日志一样
      只有中英两版（走 changelogLang 的 COPY），不进八语言 t()——否则界面会
      出现「日文按钮 + 中文条目」的半翻状态。
-     同日 43 → 44：路线图状态筛选的「全部」。 */
-  'src/shell/changelog-note.ts': 44,
+     同日 43 → 44：路线图状态筛选的「全部」。
+     2026-11-18 44 → 57：打赏统计卡「打赏」(+1)，及侧栏页签「路线图 / 功能建议 /
+     问题反馈」、两态「待办 / 已完成」、提交/完成日期、五个来源名 (+12)。
+     同属更新日志框架文案，走 changelogLang 的 COPY，不进八语言 t()。
+     同日 57 → 58：入口行的条数单位「条」。
+     2026-11-18 58 → 59：反馈第三态「否决」（作者看过不做），仍走 changelogLang 的 COPY。 */
+  'src/shell/changelog-note.ts': 59,
   'src/shell/domain.ts': 14,
   'src/shell/idea-sheet.ts': 2,
   'src/shell/overlay.ts': 179,

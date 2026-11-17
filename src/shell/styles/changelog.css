@@ -33,10 +33,12 @@
 }
 
 /* ── 弹窗外壳 ──
-   盖掉 .bzr-overlay-popup 的默认尺寸：那个是给 400px 窄弹窗定的。 */
+   盖掉 .bzr-overlay-popup 的默认尺寸：那个是给 400px 窄弹窗定的。
+   2026-11-18：720×560 太窄——顶部那条工具条（三颗统计 + 三个入口）会被折成
+   两行，正文也挤；放大到 1040×720，工具条一行放得下。 */
 .bzs-chgn-dialog {
-  width: min(720px, calc(100vw - 32px));
-  height: min(560px, calc(100vh - 32px));
+  width: min(1040px, calc(100vw - 32px));
+  height: min(720px, calc(100vh - 32px));
   max-width: none;
   max-height: none;
   padding: 0;

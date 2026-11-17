@@ -17,7 +17,9 @@
  * 关于条里的「更新日志」（随时回看，不记账）。
  * ============================================================ */
 import { uiModal } from '../core/ui/modal';
-import { VIDEO_TUTORIAL_URL } from '../core/links';
+import { escManager } from '../core/esc-manager';
+import { allocZAbove } from '../core/z-order';
+import { VIDEO_TUTORIAL_URL, openExternalUrl } from '../core/links';
 import { changelogLang } from '../i18n';
 import { setHtml } from '../ui/dom';
 import { esc, githubIcon } from './render/html';
@@ -29,9 +31,11 @@ import {
   refreshBzrData,
   safeFeedbackUrl,
   type BzrData,
+  type BzrFeedback,
+  type FeedbackSource,
   type RoadmapFeedback,
 } from '../data/bzr-data';
-import type { RewardName } from '../data/reward';
+import { SPONSOR_URL, type RewardName } from '../data/reward';
 import { copyGroupId } from './group';
 import { openSupportDialog } from './support-dialog';
 import { ACCENT_VAR, shellAccentColor } from './theme-accent';
@@ -73,11 +77,8 @@ interface ChangelogCopy {
   support: string;
   /** 页脚右侧那枚「支持作者」的人话（读屏与悬停都念这句） */
   supportTitle: (n: number) => string;
-  /** 路线图入口 / 面板标题 */
-  roadmap: string;
-  /** 路线图入口副标题：主题数与条目数 */
-  roadmapCount: (themes: number, items: number) => string;
-  /** 统计卡：高级用户 / 赞助人 */
+  /** 统计：打赏 / 高级用户 / 赞助人 */
+  reward: string;
   proUsers: string;
   patrons: string;
   /** 二次确认弹窗 */
@@ -88,22 +89,33 @@ interface ChangelogCopy {
   cancel: string;
   confirmBuy: string;
   confirmSupport: string;
-  /** 用户反馈路径 */
-  feedback: string;
   /** 路线图状态筛选的「全部」 */
   all: string;
-  githubIssue: string;
-  qqGroup: string;
-  copied: string;
   /** 路线图状态与来源 */
   statePlan: string;
   stateDoing: string;
   stateDone: string;
   srcBuiltin: string;
   srcGithub: string;
-  roadmapFoot: string;
   emptyRoadmap: string;
-  closeRoadmap: string;
+  /** 正文顶部三个入口：路线图 / 功能建议 / 问题反馈 */
+  roadmapTab: string;
+  fbBug: string;
+  fbFeature: string;
+  fbTodo: string;
+  fbDone: string;
+  /** 作者否决（不做）——第三态，不是「已完成」 */
+  fbRejected: string;
+  fbEmpty: string;
+  fbSubmitted: string;
+  fbDoneAt: string;
+  fbSrcGithub: string;
+  fbSrcQqGroup: string;
+  fbSrcQqChannel: string;
+  fbSrcQqFriend: string;
+  fbSrcBili: string;
+  /** 入口行 / 标题里的条数，如「3 条」 */
+  fbCount: (n: number) => string;
 }
 
 const COPY: Record<'zh' | 'en', ChangelogCopy> = {
@@ -128,8 +140,7 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     /* 页脚右侧那枚：只有图标 + 人数，读屏念的是这一句。
        与 bz 同一个位置、同一个口径（人数取名单长度，不在别处再存一份）。 */
     supportTitle: (n: number) => `支持作者（已有 ${n} 位）`,
-    roadmap: '路线图 Roadmap',
-    roadmapCount: (themes: number, items: number) => `${themes} 主题 · ${items} 项`,
+    reward: '打赏',
     proUsers: '高级用户',
     patrons: '赞助人',
     buyTitle: '升级高级版',
@@ -139,19 +150,28 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     cancel: '取消',
     confirmBuy: '去购买',
     confirmSupport: '去支持',
-    feedback: '用户反馈',
     all: '全部',
-    githubIssue: 'GitHub issue',
-    qqGroup: 'QQ 交流群',
-    copied: '已复制群号',
     statePlan: '计划中',
     stateDoing: '进行中',
     stateDone: '已完成',
     srcBuiltin: '内置',
     srcGithub: 'GitHub',
-    roadmapFoot: '内置项随版本发布 · GitHub 项与反馈链接在线获取（本地缓存 6 小时）',
     emptyRoadmap: '路线图暂无条目',
-    closeRoadmap: '关闭路线图',
+    roadmapTab: '路线图',
+    fbBug: '问题反馈',
+    fbFeature: '功能建议',
+    fbTodo: '待办',
+    fbDone: '已完成',
+    fbRejected: '否决',
+    fbEmpty: '暂无',
+    fbSubmitted: '提交',
+    fbDoneAt: '完成',
+    fbSrcGithub: 'GitHub issue',
+    fbSrcQqGroup: 'QQ 交流群',
+    fbSrcQqChannel: 'QQ 频道',
+    fbSrcQqFriend: 'QQ 好友',
+    fbSrcBili: 'B 站私信',
+    fbCount: (n) => `${n} 条`,
   },
   en: {
     added: 'New',
@@ -172,8 +192,7 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     video: 'Video tutorial',
     support: 'Support the author',
     supportTitle: (n: number) => `Support the author (${n} backers so far)`,
-    roadmap: 'Roadmap',
-    roadmapCount: (themes: number, items: number) => `${themes} themes · ${items} items`,
+    reward: 'Tips',
     proUsers: 'Pro users',
     patrons: 'Patrons',
     buyTitle: 'Upgrade to Pro',
@@ -183,19 +202,28 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     cancel: 'Cancel',
     confirmBuy: 'Buy now',
     confirmSupport: 'Support',
-    feedback: 'Feedback',
     all: 'All',
-    githubIssue: 'GitHub issue',
-    qqGroup: 'QQ group',
-    copied: 'Group number copied',
     statePlan: 'Planned',
     stateDoing: 'In progress',
     stateDone: 'Done',
     srcBuiltin: 'Built-in',
     srcGithub: 'GitHub',
-    roadmapFoot: 'Built-in items ship with releases · GitHub items and links fetched online (6h local cache)',
     emptyRoadmap: 'No roadmap items yet',
-    closeRoadmap: 'Close roadmap',
+    roadmapTab: 'Roadmap',
+    fbBug: 'Bugs',
+    fbFeature: 'Features',
+    fbTodo: 'To do',
+    fbDone: 'Done',
+    fbRejected: 'Rejected',
+    fbEmpty: 'None',
+    fbSubmitted: 'Filed',
+    fbDoneAt: 'Done',
+    fbSrcGithub: 'GitHub issue',
+    fbSrcQqGroup: 'QQ group',
+    fbSrcQqChannel: 'QQ channel',
+    fbSrcQqFriend: 'QQ friend',
+    fbSrcBili: 'Bilibili DM',
+    fbCount: (n) => `${n} item${n === 1 ? '' : 's'}`,
   },
 } as const;
 
@@ -271,56 +299,37 @@ const RM_ICON =
 const EXT_ICON =
   '<svg class="bzs-chgn-ext" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" ' +
   'aria-hidden="true"><path d="M4.5 2.5h5v5M9.5 2.5 5 7"/><path d="M8 8.5v1h-6v-6h1"/></svg>';
-const SEARCH_ICON =
-  '<svg class="bzs-chgn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
-  'aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
-const GH_ICON =
-  '<svg class="bzs-chgn-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
-  '<path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34' +
-  '-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.89 1.52 2.34 1.08 2.91.83' +
-  '.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64' +
-  ' 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.8c.85 0 1.71.11 2.51.34 1.91-1.29 2.75-1.02 2.75-1.02' +
-  '.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74' +
-  'c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>';
-const QQ_ICON =
-  '<svg class="bzs-chgn-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
-  '<path d="M12 2C6.5 2 2 6 2 11c0 2.6 1.2 4.9 3.1 6.5L4 21l3.6-1.2c1.4.5 2.9.8 4.4.8 5.5 0 10-4 10-9S17.5 2 12 2Z"/></svg>';
 
-/** 统计卡：数字来自在线配置；没拿到数据时显示占位（不显示假数字） */
+/* 三颗统计的图标：打赏=爱心、高级用户=星、赞助人=盾，右侧统一一个小箭头 */
+const STAT_ICON_HEART =
+  '<svg class="bzs-chgn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7Z"/></svg>';
+const STAT_ICON_STAR =
+  '<svg class="bzs-chgn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M12 3l2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.4l6-.8Z"/></svg>';
+const STAT_ICON_SHIELD =
+  '<svg class="bzs-chgn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6Z"/><path d="m9 12 2 2 4-4"/></svg>';
+
+/**
+ * 统计：三颗图标卡（数字来自在线配置；没拿到数据时显示占位，不显示假数字）。
+ * 外壳带描边 + 悬停反馈 + 右侧小箭头，让人一眼看出是能点的。
+ */
 function statsHtml(data: BzrData | null): string {
   const c = copy();
+  const reward = data ? data.stats.reward.toLocaleString() : '—';
   const pro = data ? data.stats.pro.toLocaleString() : '—';
   const patrons = data ? data.stats.patrons.toLocaleString() : '—';
+  const chev = '<i class="bzs-chgn-mini-chev" aria-hidden="true">›</i>';
   return (
-    '<div class="bzs-chgn-stats">' +
-    `<button class="bzs-chgn-stat" type="button" data-stat="pro"><b>${esc(pro)}</b>` +
-    `<span>${esc(c.proUsers)}</span><i>›</i></button>` +
-    `<button class="bzs-chgn-stat sponsor" type="button" data-stat="patrons"><b>${esc(patrons)}</b>` +
-    `<span>${esc(c.patrons)}</span><i>›</i></button></div>`
-  );
-}
-
-/** 用户反馈路径：GitHub issue 在前，QQ 群在后（复制群号，短链实测 404） */
-function feedbackPathHtml(): string {
-  const c = copy();
-  return (
-    '<div class="bzs-chgn-fbpath">' +
-    `<span>${esc(c.feedback)}</span>` +
-    `<a class="bzs-chgn-gh" href="${esc(REPO_URL)}/issues" target="_blank" rel="noopener">${GH_ICON}${esc(c.githubIssue)}</a>` +
-    `<button class="bzs-chgn-qq" type="button" data-copy-qq>${QQ_ICON}${esc(c.qqGroup)}</button>` +
-    `<small data-copy-hint></small></div>`
-  );
-}
-
-function roadmapToolsHtml(): string {
-  const c = copy();
-  return (
-    '<div class="bzs-chgn-rmtools">' +
-    '<div class="bzs-chgn-rmfilters">' +
-    `<button type="button" data-f="all" class="on">${esc(c.all)}</button>` +
-    `<button type="button" data-f="doing">${esc(c.stateDoing)}</button>` +
-    `<button type="button" data-f="plan">${esc(c.statePlan)}</button>` +
-    `<button type="button" data-f="done">${esc(c.stateDone)}</button></div></div>`
+    '<div class="bzs-chgn-mini">' +
+    `<button class="bzs-chgn-mini-stat reward" type="button" data-stat="reward">${STAT_ICON_HEART}<b>${esc(reward)}</b><span>${esc(c.reward)}</span>${chev}</button>` +
+    `<button class="bzs-chgn-mini-stat" type="button" data-stat="pro">${STAT_ICON_STAR}<b>${esc(pro)}</b><span>${esc(c.proUsers)}</span>${chev}</button>` +
+    `<button class="bzs-chgn-mini-stat sponsor" type="button" data-stat="patrons">${STAT_ICON_SHIELD}<b>${esc(patrons)}</b><span>${esc(c.patrons)}</span>${chev}</button>` +
+    '</div>'
   );
 }
 
@@ -335,17 +344,14 @@ function feedbackLinkHtml(fb: RoadmapFeedback): string {
 }
 
 /** 两级路线图：主题（按 order）→ 条目（按状态排：进行中 → 计划中 → 已完成） */
-function roadmapRowsHtml(data: BzrData | null, filter = 'all', query = ''): string {
+function roadmapRowsHtml(data: BzrData | null): string {
   const c = copy();
   const themes = (data?.roadmap ?? []).slice().sort((a, b) => a.order - b.order);
   const stateRank: Record<string, number> = { doing: 0, plan: 1, done: 2 };
-  const q = query.trim().toLowerCase();
   const blocks = themes
     .map((t) => ({
       ...t,
-      items: t.items
-        .filter((i) => (filter === 'all' || i.state === filter) && (!q || i.title.toLowerCase().includes(q)))
-        .sort((a, b) => (stateRank[a.state] ?? 9) - (stateRank[b.state] ?? 9)),
+      items: t.items.slice().sort((a, b) => (stateRank[a.state] ?? 9) - (stateRank[b.state] ?? 9)),
     }))
     .filter((t) => t.items.length);
   if (!blocks.length) return `<div class="bzs-chgn-rmempty">${esc(c.emptyRoadmap)}</div>`;
@@ -357,13 +363,15 @@ function roadmapRowsHtml(data: BzrData | null, filter = 'all', query = ''): stri
         .map(
           (it) =>
             '<div class="bzs-chgn-rmitem">' +
-            `<i class="bzs-chgn-dot ${esc(it.state)}"></i><div>` +
+            '<div class="bzs-chgn-rmhd">' +
+            `<i class="bzs-chgn-dot ${esc(it.state)}"></i>` +
             `<div class="bzs-chgn-rmtitle">${esc(it.title)}</div>` +
+            '</div>' +
             '<div class="bzs-chgn-rmmeta">' +
             `<span class="bzs-chgn-src ${esc(it.src)}">${esc(it.src === 'builtin' ? c.srcBuiltin : c.srcGithub)}</span>` +
             `<span>${esc(it.state === 'plan' ? c.statePlan : it.state === 'doing' ? c.stateDoing : c.stateDone)}</span>` +
             feedbackLinkHtml(it.fb) +
-            '</div></div></div>',
+            '</div></div>',
         )
         .join('');
       return (
@@ -378,11 +386,80 @@ function roadmapRowsHtml(data: BzrData | null, filter = 'all', query = ''): stri
     .join('');
 }
 
-/** 路线图面板：反馈路径 + 工具条 + 两级内容（桌面侧栏 / 手机全屏共用） */
+/** 路线图面板：两级内容（桌面 / 手机的正文内视图共用）；2026-11-18 去掉状态筛选栏 */
 function roadmapPanelHtml(data: BzrData | null): string {
+  return `<div class="bzs-chgn-rmlist" data-rm-list>${roadmapRowsHtml(data)}</div>`;
+}
+
+function feedbackSourceLabel(s: FeedbackSource): string {
+  const c = copy();
+  const map: Record<FeedbackSource, string> = {
+    'github-issue': c.fbSrcGithub,
+    'qq-group': c.fbSrcQqGroup,
+    'qq-channel': c.fbSrcQqChannel,
+    'qq-friend': c.fbSrcQqFriend,
+    'bili-dm': c.fbSrcBili,
+  };
+  return map[s];
+}
+
+/** 一条反馈：状态点 + 标题 / 摘要 / 描述 + 来源与日期（三态：待办 / 已完成 / 否决） */
+function feedbackItemHtml(it: BzrFeedback): string {
+  const c = copy();
+  const rejectedAt = it.rejectedAt ?? '';
+  const state: 'rejected' | 'done' | 'todo' = rejectedAt ? 'rejected' : it.doneAt ? 'done' : 'todo';
+  const endAt = rejectedAt || it.doneAt;
+  const dates = endAt
+    ? `${c.fbSubmitted} ${fmtDate(it.submittedAt)} → ${state === 'rejected' ? c.fbRejected : c.fbDoneAt} ${fmtDate(endAt)}`
+    : `${c.fbSubmitted} ${fmtDate(it.submittedAt)}`;
+  const label = state === 'rejected' ? c.fbRejected : state === 'done' ? c.fbDone : c.fbTodo;
+  const src = feedbackSourceLabel(it.source);
+  const srcHtml = it.href
+    ? `<a class="bzs-chgn-fbsrc ${esc(it.source)}" href="${esc(it.href)}" target="_blank" rel="noopener">${EXT_ICON}${esc(src)}</a>`
+    : `<span class="bzs-chgn-fbsrc ${esc(it.source)}">${esc(src)}</span>`;
+  /* 卡片视图（2026-11-18 作者选双列网格）：状态点与标题同一行用 flex 居中，
+     点不再靠 margin-top 目测——那样必然和标题基线对不齐。 */
   return (
-    feedbackPathHtml() + roadmapToolsHtml() +
-    `<div class="bzs-chgn-rmlist" data-rm-list>${roadmapRowsHtml(data)}</div>`
+    `<div class="bzs-chgn-fbit ${state}">` +
+    '<div class="bzs-chgn-fbhd">' +
+    `<i class="bzs-chgn-fbdot ${state}"></i>` +
+    `<div class="bzs-chgn-fbtitle">${esc(it.title)}</div>` +
+    '</div>' +
+    (it.desc ? `<div class="bzs-chgn-fbdesc">${esc(it.desc)}</div>` : '') +
+    '<div class="bzs-chgn-fbmeta">' +
+    srcHtml +
+    `<span>${dates}</span>` +
+    `<span class="bzs-chgn-fbstate ${state}">${esc(label)}</span>` +
+    '</div></div>'
+  );
+}
+
+function feedbackRowsHtml(data: BzrData | null, key: 'bug' | 'feature'): string {
+  const c = copy();
+  const g = (data?.feedback ?? []).find((x) => x.key === key);
+  const items = g?.items ?? [];
+  if (!items.length) return `<div class="bzs-chgn-fbempty">${esc(c.fbEmpty)}</div>`;
+  return items.map(feedbackItemHtml).join('');
+}
+
+/** 正文顶部三个入口上的角标计数：路线图 / 功能建议 / 问题反馈 */
+function rmTabCounts(data: BzrData | null): Record<'roadmap' | 'feature' | 'bug', number> {
+  const groups = data?.feedback ?? [];
+  return {
+    roadmap: (data?.roadmap ?? []).reduce((n, t) => n + t.items.length, 0),
+    feature: groups.find((g) => g.key === 'feature')?.items.length ?? 0,
+    bug: groups.find((g) => g.key === 'bug')?.items.length ?? 0,
+  };
+}
+
+/** 正文内的三块视图：路线图 / 功能建议 / 问题反馈，与日志互相切换 */
+function viewsHtml(data: BzrData | null): string {
+  return (
+    '<div class="bzs-chgn-views" data-views>' +
+    `<div class="bzs-chgn-view" data-view-page="roadmap">${roadmapPanelHtml(data)}</div>` +
+    `<div class="bzs-chgn-view" data-view-page="feature"><div class="bzs-chgn-fblist" data-fb-list="feature">${feedbackRowsHtml(data, 'feature')}</div></div>` +
+    `<div class="bzs-chgn-view" data-view-page="bug"><div class="bzs-chgn-fblist" data-fb-list="bug">${feedbackRowsHtml(data, 'bug')}</div></div>` +
+    '</div>'
   );
 }
 
@@ -581,15 +658,21 @@ function railHtml(list: readonly ChangelogRelease[], active: number): string {
   );
 }
 
-/** 正文顶部的统计卡 + 路线图入口（桌面 / 手机共用） */
+/** 正文顶部一条轻工具条：左边统计，右边路线图 / 功能建议 / 问题反馈 三个入口 */
 function topStripHtml(data: BzrData | null): string {
   const c = copy();
-  const themes = data?.roadmap.length ?? 0;
-  const items = data?.roadmap.reduce((n, t) => n + t.items.length, 0) ?? 0;
+  const n = rmTabCounts(data);
+  const pill = (key: 'roadmap' | 'feature' | 'bug', label: string): string =>
+    `<button class="bzs-chgn-toolbtn bzs-chgn-rm-${key}" type="button" data-view-btn="${key}" aria-pressed="false">` +
+    `${RM_ICON}<b>${esc(label)}</b><span class="bzs-chgn-tooln">${n[key]}</span></button>`;
   return (
+    '<div class="bzs-chgn-toolbar">' +
     statsHtml(data) +
-    `<button class="bzs-chgn-rmentry" type="button" data-open-rm>${RM_ICON}` +
-    `<b>${esc(c.roadmap)}</b><span>${esc(c.roadmapCount(themes, items))}</span><i>›</i></button>`
+    '<div class="bzs-chgn-tools">' +
+    pill('roadmap', c.roadmapTab) +
+    pill('feature', c.fbFeature) +
+    pill('bug', c.fbBug) +
+    '</div></div>'
   );
 }
 
@@ -597,6 +680,7 @@ function topStripHtml(data: BzrData | null): string {
 function confirmDialogHtml(): string {
   const c = copy();
   return (
+    /* 自带 --cc-* 令牌：这层挂 body，不在 .bzs-chgn 内，取不到 --chg-* */
     '<div class="bzs-chgn-confirm" data-confirm hidden>' +
     '<div class="bzs-chgn-confirm-box" role="dialog" aria-modal="true">' +
     '<div class="bzs-chgn-confirm-icon" data-confirm-icon></div>' +
@@ -628,7 +712,7 @@ export function changelogNoteHtml(
   const head = list[at];
 
   const desktop =
-    '<div class="bzs-chgn" data-role="chgn">' +
+    '<div class="bzs-chgn" data-role="chgn" data-view="log">' +
     railHtml(list, at) +
     '<main class="bzs-chgn-pane">' +
     `<div class="bzs-chgn-hd">${headHtml(head, at === 0)}</div>` +
@@ -638,33 +722,26 @@ export function changelogNoteHtml(
     `<div class="bzs-chgn-body">${groupsHtml(head)}</div>` +
     '<div class="bzs-chgn-fade-bot"></div>' +
     '</div>' +
+    viewsHtml(data) +
     '</main>' +
-    /* 右侧路线图抽屉（不是大弹窗，被弹窗 overflow 裁不到） */
-    `<aside class="bzs-chgn-drawer" data-rm-drawer>` +
-    `<div class="bzs-chgn-drawerhd"><b>${esc(c.roadmap)}</b>` +
-    `<button class="bzs-chgn-rmclose" type="button" data-rm-close><span class="bzs-sr-only">${esc(c.closeRoadmap)}</span>${CLOSE_SVG}</button></div>` +
-    roadmapPanelHtml(data) +
-    '</aside>' +
     `<footer class="bzs-chgn-ft">${linksHtml()}${supportBtnHtml(names)}</footer>` +
     `<button class="bzs-chgn-close" type="button"><span class="bzs-sr-only">${c.close}</span>${CLOSE_SVG}</button>` +
     '</div>';
 
   const mobile =
-    '<div class="bzs-chgn-m">' +
+    '<div class="bzs-chgn-m" data-view="log">' +
     `<div class="bzs-chgn-mbar"><div class="bzs-chgn-mtitle">${CLOCK_SVG}${c.title}</div>` +
     `<button class="bzs-chgn-close" type="button"><span class="bzs-sr-only">${c.close}</span>${CLOSE_SVG}</button>` +
     '</div>' +
     `<div class="bzs-chgn-mtop">${topStripHtml(data)}</div>` +
     `<div class="bzs-chgn-mpage">${list.map((r, i) => mobReleaseHtml(r, i === 0)).join('')}</div>` +
-    /* 手机全屏路线图：从右侧滑满整窗，带返回 */
-    `<div class="bzs-chgn-mrm" data-mrm>` +
-    `<div class="bzs-chgn-mrmbar"><button type="button" data-mrm-back>‹</button><b>${esc(c.roadmap)}</b></div>` +
-    roadmapPanelHtml(data) +
-    '</div>' +
+    viewsHtml(data) +
     `<div class="bzs-chgn-mtools">${linksHtml()}${supportBtnHtml(names)}</div>` +
     '</div>';
 
-  return desktop + mobile + confirmDialogHtml();
+  /* 确认弹窗不在这里：它在 openChangelogNote 里挂到 body（脱离带 transform /
+     overflow:hidden 的 dialog，否则被裁切、且取不到 --chg-* 变量）。 */
+  return desktop + mobile;
 }
 
 /** 测试注入：换掉渲染用的在线数据（传 null 恢复） */
@@ -694,31 +771,75 @@ function mergeReleases(
   return [...map.values()].sort((a, b) => compareVersions(b.version, a.version));
 }
 
-/** 路线图搜索框的当前值（按面板容器找），没有就是空串 */
-function currentQuery(box: HTMLElement | null): string {
-  return box?.querySelector<HTMLInputElement>('[data-rm-search]')?.value ?? '';
+/* 二次确认弹窗：挂 body，元素与 ESC 层都由 openChangelogNote 建/拆。
+   它不在主窗的事件委托里（那个委托挂在 .bzs-chgn-dialog 上），所以点击必须
+   在自己身上接一份——2026-11-18 真机：取消 / 点遮罩 / 去购买全都没反应。 */
+let confirmEl: HTMLElement | null = null;
+let confirmEsc: { unregister: () => void } | null = null;
+/* 跳转地址在点击时从在线数据读，不写死在 DOM 里 */
+let confirmTarget = '';
+
+function mountConfirmDialog(accent: string): void {
+  const host = document.createElement('div');
+  host.innerHTML = confirmDialogHtml();
+  const el = host.firstElementChild as HTMLElement | null;
+  if (!el) return;
+  if (accent) el.style.setProperty('--cc-accent', accent);
+
+  el.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement | null;
+    if (!target?.closest) return;
+    if (target.closest('[data-confirm-cancel]')) { closeConfirm(); return; }
+    if (target.closest('[data-confirm-ok]')) {
+      const url = confirmTarget;
+      closeConfirm();
+      openExternalUrl(url);
+      return;
+    }
+    /* 这一层自己就是遮罩：点到它本体（不是卡片里的内容）才算点遮罩 */
+    if (target === el) closeConfirm();
+  });
+
+  confirmEl = el;
+  confirmEsc = escManager.register('bzr-chgn-confirm', {
+    isVisible: () => !!el.isConnected && !el.hasAttribute('hidden'),
+    close: () => closeConfirm(),
+  });
+  document.body.appendChild(el);
 }
 
-/* 二次确认弹窗：文案和图标固定，跳转地址在点击时从在线数据读 */
-let confirmTarget = '';
+function unmountConfirmDialog(): void {
+  confirmEsc?.unregister();
+  confirmEsc = null;
+  confirmEl?.remove();
+  confirmEl = null;
+  confirmTarget = '';
+}
+
 function openConfirm(kind: 'buy' | 'support'): void {
-  const popup = document.querySelector<HTMLElement>('.bzs-chgn-confirm');
-  if (!popup) return;
+  const el = confirmEl;
+  if (!el) return;
   const c = copy();
   const d = viewData();
   const isBuy = kind === 'buy';
-  confirmTarget = safeFeedbackUrl(isBuy ? (d?.links.buy ?? '') : (d?.links.support ?? '')) ?? '';
-  setHtml(popup.querySelector<HTMLElement>('[data-confirm-icon]')!, isBuy ? '★' : '♥');
-  const title = popup.querySelector<HTMLElement>('[data-confirm-title]');
-  const desc = popup.querySelector<HTMLElement>('[data-confirm-desc]');
-  const ok = popup.querySelector<HTMLElement>('[data-confirm-ok]');
+  /* 兜底一定给得出地址：数据里 links 缺失 / 没白名单时退回店铺主页，
+     绝不出现「点了没反应」——那一类最伤信任（2026-11-18 真机）。 */
+  confirmTarget = safeFeedbackUrl(isBuy ? (d?.links.buy ?? '') : (d?.links.support ?? '')) || SPONSOR_URL;
+  setHtml(el.querySelector<HTMLElement>('[data-confirm-icon]')!, isBuy ? '★' : '♥');
+  const title = el.querySelector<HTMLElement>('[data-confirm-title]');
+  const desc = el.querySelector<HTMLElement>('[data-confirm-desc]');
+  const ok = el.querySelector<HTMLElement>('[data-confirm-ok]');
   if (title) title.textContent = isBuy ? c.buyTitle : c.supportTitle2;
   if (desc) desc.textContent = isBuy ? c.buyDesc : c.supportDesc;
   if (ok) ok.textContent = isBuy ? c.confirmBuy : c.confirmSupport;
-  popup.removeAttribute('hidden');
+  /* 层级当场取新号，并且必须高过主窗遮罩：主窗的 z 是 allocZ() 发的
+     （计数从 100000 起），写死常数会被自己的主窗压住（2026-11-18 真机）。 */
+  el.style.zIndex = String(allocZAbove(document.querySelector<HTMLElement>('.bzs-chgn-mask')));
+  el.removeAttribute('hidden');
 }
+
 function closeConfirm(): void {
-  document.querySelector<HTMLElement>('.bzs-chgn-confirm')?.setAttribute('hidden', '');
+  confirmEl?.setAttribute('hidden', '');
   confirmTarget = '';
 }
 
@@ -778,13 +899,21 @@ export function openChangelogNote(
       bodyEl?.removeEventListener('scroll', syncFade);
       offSupport();
       offData();
+      /* 确认弹窗挂 body，关窗时连 ESC 层一起收走，不留孤儿节点 */
+      unmountConfirmDialog();
     },
   });
   modal.mask.classList.add('bzs-chgn-mask');
   /* 跟随设置页选的那一档强调色（弹窗不在 .bzs-shell 里，带不过来） */
   const accent = shellAccentColor();
-  if (accent) modal.popup.style.setProperty(ACCENT_VAR, accent);
+  if (accent) {
+    modal.popup.style.setProperty(ACCENT_VAR, accent);
+  }
   const popup = modal.popup;
+  /* 确认弹窗挂 body：脱离 dialog 的 transform / overflow:hidden，不被裁切、
+     也不吃宿主对 .bzs-chgn 子元素的样式；自带 --cc-* 颜色变量。
+     它自带点击与 ESC（见 mountConfirmDialog）——主窗那份委托收不到它。 */
+  mountConfirmDialog(accent);
 
   const hd = popup.querySelector<HTMLElement>('.bzs-chgn-hd');
   bodyEl = popup.querySelector<HTMLElement>('.bzs-chgn-body');
@@ -807,9 +936,29 @@ export function openChangelogNote(
     popup.querySelectorAll<HTMLElement>('[data-rm-list]').forEach((el) => {
       setHtml(el, roadmapRowsHtml(d));
     });
+    popup.querySelectorAll<HTMLElement>('[data-fb-list]').forEach((el) => {
+      const key = el.dataset.fbList === 'bug' ? 'bug' : 'feature';
+      setHtml(el, feedbackRowsHtml(d, key));
+    });
+    const counts = rmTabCounts(d);
+    popup.querySelectorAll<HTMLElement>('[data-view-btn]').forEach((b) => {
+      const n = b.querySelector<HTMLElement>('.bzs-chgn-tooln');
+      const key = b.dataset.viewBtn as 'roadmap' | 'feature' | 'bug' | undefined;
+      if (n && key) n.textContent = String(counts[key]);
+    });
   };
   offData = onBzrDataChange(syncData);
   void refreshBzrData();
+
+  /* 正文视图：log / roadmap / feature / bug，只换正文区，不动头部与页脚 */
+  const setView = (scope: HTMLElement, key: string): void => {
+    scope.dataset.view = key;
+    scope.querySelectorAll<HTMLElement>('[data-view-btn]').forEach((b) => {
+      const on = key !== 'log' && b.dataset.viewBtn === key;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  };
 
   /* 切版本：只换头部与正文两处，不重建整个弹窗（页脚的链接与关闭钮不用重绑） */
   const select = (i: number): void => {
@@ -826,6 +975,9 @@ export function openChangelogNote(
       if (on) el.setAttribute('aria-current', 'true');
       else el.removeAttribute('aria-current');
     });
+    /* 点版本列表 = 回日志，并清掉入口高亮 */
+    const pane = popup.querySelector<HTMLElement>('.bzs-chgn');
+    if (pane) setView(pane, 'log');
     if (typeof window !== 'undefined') window.requestAnimationFrame(syncFade);
   };
 
@@ -841,85 +993,39 @@ export function openChangelogNote(
     /* 统计卡 → 二次确认弹窗（购买 / 支持）。地址在点击时才从在线数据读，
        不写死在 DOM 里（远端换了链接也不用重开弹窗）。 */
     const stat = target.closest<HTMLElement>('[data-stat]');
-    if (stat) { openConfirm(stat.dataset.stat === 'pro' ? 'buy' : 'support'); return; }
-
-    /* 路线图入口：桌面开右侧边栏，手机开全屏（各管各的标记）。
-       桌面侧栏是「往右延伸」——给弹窗加 rm-wide 加宽，不挤正文。 */
-    if (target.closest('[data-open-rm]')) {
-      const rail = popup.querySelector<HTMLElement>('.bzs-chgn');
-      const mob = popup.querySelector<HTMLElement>('.bzs-chgn-mrm');
-      if (target.closest('.bzs-chgn-mtop')) mob?.classList.add('on');
-      else {
-        rail?.classList.add('rm-open');
-        popup.classList.add('rm-wide');
-      }
-      return;
-    }
-    if (target.closest('[data-rm-close]')) {
-      popup.querySelector<HTMLElement>('.bzs-chgn')?.classList.remove('rm-open');
-      popup.classList.remove('rm-wide');
-      return;
-    }
-    if (target.closest('[data-mrm-back]')) {
-      popup.querySelector<HTMLElement>('.bzs-chgn-mrm')?.classList.remove('on');
+    if (stat) {
+      const kind = stat.dataset.stat;
+      /* 点「打赏」直接开支持作者弹窗——**不关更新日志**，那一层挂在它上面；
+         关了反而只剩一层，用户也说「打赏弹窗要显示在日志上面」。 */
+      if (kind === 'reward') openSupportDialog();
+      else openConfirm(kind === 'pro' ? 'buy' : 'support');
       return;
     }
 
-    /* 路线图筛选 / 主题折叠：只换列表区，不重排整窗 */
-    const fbtn = target.closest<HTMLElement>('[data-f]');
-    if (fbtn) {
-      const box = fbtn.closest<HTMLElement>('.bzs-chgn-rmtools')?.parentElement;
-      if (box) {
-        box.querySelectorAll<HTMLElement>('[data-f]').forEach((x) => x.classList.remove('on'));
-        fbtn.classList.add('on');
-        const list = box.querySelector<HTMLElement>('[data-rm-list]');
-        const d = viewData();
-        if (list) setHtml(list, roadmapRowsHtml(d, fbtn.dataset.f || 'all', currentQuery(box)));
+    /* 顶部三个入口：在正文区直接切视图（路线图 / 功能建议 / 问题反馈）。
+       再点一次当前入口就回日志；点左侧版本列表也会回日志（见 select）。 */
+    const viewBtn = target.closest<HTMLElement>('[data-view-btn]');
+    if (viewBtn) {
+      const scope = viewBtn.closest<HTMLElement>('.bzs-chgn, .bzs-chgn-m');
+      if (scope) {
+        const key = viewBtn.dataset.viewBtn || 'roadmap';
+        setView(scope, scope.dataset.view === key ? 'log' : key);
       }
       return;
     }
+
+    /* 主题折叠：只换这一个主题的展开态，不重排整窗 */
     const themeHd = target.closest<HTMLElement>('[data-rm-theme]');
     if (themeHd) { themeHd.parentElement?.classList.toggle('fold'); return; }
-
-    /* 用户反馈路径：QQ 群复制群号（短链实测 404） */
-    if (target.closest('[data-copy-qq]')) {
-      void copyGroupId();
-      const hint = target.closest('.bzs-chgn-fbpath')?.querySelector<HTMLElement>('[data-copy-hint]');
-      if (hint) {
-        hint.textContent = copy().copied;
-        window.setTimeout(() => { hint.textContent = ''; }, 1600);
-      }
-      return;
-    }
-
-    /* 确认弹窗：取消 / 确认 / 点遮罩都收起；确认才打开在线地址 */
-    if (target.closest('[data-confirm-cancel]')) { closeConfirm(); return; }
-    if (target.closest('[data-confirm-ok]')) {
-      const url = confirmTarget;
-      closeConfirm();
-      if (url) window.open(url, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    if (target.classList.contains('bzs-chgn-confirm')) { closeConfirm(); return; }
 
     if (target.closest('.bzs-chgn-close')) { modal.close(); return; }
     /* 支持作者（2026-11-10）：先收日志窗再开赞赏窗——两层遮罩叠着，
        关掉上面那层下面还在，看着像关不掉。这里不弹提醒，点了就是点了。 */
-    if (target.closest('[data-role="chgnsupport"]')) { modal.close(); openSupportDialog(); return; }
+    if (target.closest('[data-role="chgnsupport"]')) { openSupportDialog(); return; }
     const act = target.closest<HTMLElement>('[data-act]')?.dataset.act;
     if (act === 'chgnrepo') window.open(REPO_URL, '_blank', 'noopener,noreferrer');
     else if (act === 'chgnvideo') window.open(VIDEO_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
     else if (act === 'chgnqq') void copyGroupId();
-  });
-
-  /* 路线图搜索：输入时过滤列表（移动端 / 桌面各一份） */
-  popup.addEventListener('input', (e) => {
-    const input = e.target as HTMLInputElement | null;
-    if (!input?.matches('[data-rm-search]')) return;
-    const box = input.closest<HTMLElement>('.bzs-chgn-rmtools')?.parentElement;
-    const list = box?.querySelector<HTMLElement>('[data-rm-list]');
-    const fbtn = box?.querySelector<HTMLElement>('[data-f].on');
-    if (box && list) setHtml(list, roadmapRowsHtml(viewData(), fbtn?.dataset.f || 'all', input.value));
   });
 
   body?.addEventListener('scroll', syncFade, { passive: true });

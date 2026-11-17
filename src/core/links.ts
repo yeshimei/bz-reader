@@ -71,3 +71,27 @@ export const PDF_TUTORIAL_URL = '';
  * 「看教程」指向它。
  */
 export const AI_CHAT_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1BNsz6zEBx';
+
+/**
+ * 用系统浏览器打开外链。
+ *
+ * 桌面端优先走 Electron 的 `shell.openExternal`：Obsidian 对 `window.open`
+ * 的拦截在个别版本 / 配置下会被吞掉，点了像没反应（2026-11-18 真机：
+ * 「去购买」点了不弹浏览器）。非桌面端 / 取不到 electron 时退回 `window.open`。
+ */
+export function openExternalUrl(url: string): void {
+  if (!url) return;
+  try {
+    const req = (window as unknown as { require?: (m: string) => unknown }).require;
+    const electron = req?.('electron') as
+      | { shell?: { openExternal?: (u: string) => Promise<void> | void } }
+      | undefined;
+    if (electron?.shell?.openExternal) {
+      void electron.shell.openExternal(url);
+      return;
+    }
+  } catch {
+    /* 移动端 / 拿不到 electron：走下面的兜底 */
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
+}

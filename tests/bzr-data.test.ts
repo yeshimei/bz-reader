@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   BZR_CACHE_KEY,
+  BZR_CACHE_VERSION,
   _resetBzrDataForTests,
   _setBzrHttpForTests,
   currentBzrData,
@@ -45,7 +46,7 @@ const GOOD = {
       { title: '多轮追问', state: 'doing', src: 'builtin', fb: { kind: 'issue', n: 12, label: '#12' } },
     ] },
   ],
-  stats: { pro: 1286, patrons: 328 },
+  stats: { reward: 456, pro: 1286, patrons: 328 },
   links: {
     support: 'https://afdian.net/a/yeshimei',
     buy: 'https://afdian.net/a/yeshimei?plan=pro',
@@ -89,15 +90,23 @@ describe('解析 · 一份远端 JSON 能变成什么', () => {
     ] }));
     expect(d!.roadmap).toHaveLength(1);
     expect(d!.roadmap[0]!.items).toHaveLength(1);
-    expect(parseBzrData(doc({ roadmap: [{ theme: 'x', items: [{ title: '' }] }] }))).toBeNull();
+    /* 路线图坏光只是「没有路线图」，不该把整份日志一起作废 */
+    expect(parseBzrData(doc({ roadmap: [{ theme: 'x', items: [{ title: '' }] }] }))!.roadmap).toEqual([]);
+  });
+
+  it('路线图可以是空的（作者把演示数据删了），日志与链接照旧可用', () => {
+    const d = parseBzrData(doc({ roadmap: [] }));
+    expect(d).not.toBeNull();
+    expect(d!.roadmap).toEqual([]);
+    expect(d!.changelog).toHaveLength(1);
   });
 
   it('数字统计：非数字 / 负数 / 离谱值丢掉退回 0；统计全坏也不连累日志', () => {
-    const d = parseBzrData(doc({ stats: { pro: -1, patrons: '328' } }));
+    const d = parseBzrData(doc({ stats: { reward: 1, pro: -1, patrons: '328' } }));
     expect(d!.stats.pro).toBe(0);
     expect(d!.stats.patrons).toBe(0);
     /* 统计只是附加信息，坏掉不能让整份日志与路线图一起消失 */
-    expect(parseBzrData(doc({ stats: { pro: null } }))!.stats.pro).toBe(0);
+    expect(parseBzrData(doc({ stats: { reward: null, pro: null } }))!.stats.pro).toBe(0);
   });
 
   it('更新日志条目缺中英任一语言 → 丢那条；整版全坏 → null', () => {
@@ -110,10 +119,60 @@ describe('解析 · 一份远端 JSON 能变成什么', () => {
   });
 });
 
+describe('用户反馈：两组、两态、坏条目', () => {
+  const withFeedback = (feedback: unknown) => parseBzrData(doc({ feedback }));
+
+  it('两组固定存在，按提交日期倒序，doneAt 保留', () => {
+    const d = withFeedback([
+      { key: 'feature', items: [
+        { id: 'a', source: 'github-issue', summary: 's1', title: 't1', desc: 'd1', href: 'https://github.com/yeshimei/bz-reader/issues/3', submittedAt: '2026-11-10', doneAt: '' },
+        { id: 'b', source: 'bili-dm', summary: 's2', title: 't2', desc: '', href: '', submittedAt: '2026-11-18', doneAt: '2026-11-19' },
+      ] },
+      { key: 'bug', items: [] },
+    ])!;
+    expect(d.feedback!.map((g) => g.key)).toEqual(['bug', 'feature']);
+    const feat = d.feedback!.find((g) => g.key === 'feature')!;
+    expect(feat.items.map((i) => i.id)).toEqual(['b', 'a']);
+    expect(feat.items[0]!.doneAt).toBe('2026-11-19');
+    expect(feat.items[1]!.href).toContain('github.com');
+  });
+
+  it('否决态：rejectedAt 保留，非法日期当没否决', () => {
+    const d = withFeedback([{ key: 'feature', items: [
+      { id: 'r1', source: 'github-issue', summary: 's', title: 't', desc: '', href: '', submittedAt: '2026-11-18', doneAt: '', rejectedAt: '2026-11-18' },
+      { id: 'r2', source: 'qq-group', summary: 's', title: 't', desc: '', href: '', submittedAt: '2026-11-18', doneAt: '', rejectedAt: '下周' },
+    ] }]);
+    const items = d!.feedback!.find((g) => g.key === 'feature')!.items;
+    expect(items.find((i) => i.id === 'r1')!.rejectedAt).toBe('2026-11-18');
+    expect(items.find((i) => i.id === 'r2')!.rejectedAt).toBe('');
+  });
+
+  it('没有 feedback 块 → 两个空组（老 JSON 仍合法）', () => {
+    const d = parseBzrData(doc())!;
+    expect(d.feedback).toHaveLength(2);
+    expect(d.feedback!.every((g) => g.items.length === 0)).toBe(true);
+  });
+
+  it('坏条目逐条丢掉；坏 href 置空而不是丢整条', () => {
+    const d = withFeedback([{ key: 'bug', items: [
+      { source: 'qq-group', summary: 's', title: 't', submittedAt: '2026-11-18' },
+      { id: 'x', source: 'weibo', summary: 's', title: 't', submittedAt: '2026-11-18' },
+      { id: 'y', source: 'qq-friend', summary: 's', title: 't', submittedAt: '2026/11/18' },
+      { id: 'z', source: 'qq-channel', summary: '', title: 't', submittedAt: '2026-11-18' },
+      { id: 'ok', source: 'qq-group', summary: 's', title: 't', submittedAt: '2026-11-18', href: 'https://evil.example.com/' },
+    ] }])!;
+    const bug = d.feedback!.find((g) => g.key === 'bug')!;
+    expect(bug.items.map((i) => i.id)).toEqual(['ok']);
+    expect(bug.items[0]!.href).toBe('');
+  });
+});
+
 describe('链接白名单：远端不可信', () => {
   it('合法域名放行，未知域名 / javascript: 拒绝', () => {
     expect(safeFeedbackUrl('https://github.com/yeshimei/bz-reader/issues/3')).toContain('github.com');
     expect(safeFeedbackUrl('https://afdian.net/a/x')).toContain('afdian.net');
+    /* 链动小铺是高级版 / 赞助人的购买页：不白名单 → 整份在线数据作废 */
+    expect(safeFeedbackUrl('https://wzyp.cn/shop/IFCEI5I3')).toContain('wzyp.cn');
     expect(safeFeedbackUrl('https://evil.example.com/phish')).toBeNull();
     expect(safeFeedbackUrl('javascript:alert(1)')).toBeNull();
     expect(safeFeedbackUrl('http://github.com.evil.com/')).toBeNull();
@@ -132,7 +191,9 @@ describe('缓存与拉取', () => {
     const d = currentBzrData();
     /* 日志的兜底由 shell/changelog 的内置数据负责，这里保证链接与结构不空 */
     expect(d.roadmap.length).toBeGreaterThan(0);
-    expect(d.links.buy).toContain('afdian.net');
+    /* 2026-11-18 起内置兜底也指向链动小铺的商品页，不再用爱发电 */
+    expect(d.links.buy).toContain('wzyp.cn/shop/IFCEI5I3');
+    expect(d.links.support).toContain('wzyp.cn/shop/IFCEI5I3');
   });
 
   it('拉取成功 → 覆盖内存并写缓存；第二个源胜出也能用', async () => {
@@ -151,10 +212,10 @@ describe('缓存与拉取', () => {
   });
 
   it('缓存里的坏字段不影响好条目；坏缓存整份作废退回内置', () => {
-    g.localStorage!.setItem(BZR_CACHE_KEY, JSON.stringify({ v: 1, at: Date.now(), data: GOOD }));
+    g.localStorage!.setItem(BZR_CACHE_KEY, JSON.stringify({ v: BZR_CACHE_VERSION, at: Date.now(), data: GOOD }));
     expect(currentBzrData().stats.pro).toBe(1286);
-    // v 不对 → 忽略
-    g.localStorage!.setItem(BZR_CACHE_KEY, JSON.stringify({ v: 99, at: Date.now(), data: GOOD }));
+    // v 不对 → 忽略（升版本就是为了让旧缓存当场作废）
+    g.localStorage!.setItem(BZR_CACHE_KEY, JSON.stringify({ v: BZR_CACHE_VERSION + 1, at: Date.now(), data: GOOD }));
     _resetBzrDataForTests();
     expect(currentBzrData().stats.pro).not.toBe(1286);
   });

@@ -15,6 +15,7 @@
  * 不合法的地址不渲染成可点链接（渲染层只用 safeFeedbackUrl 的结果）。
  * ============================================================ */
 import { requestUrl } from 'obsidian';
+import { SPONSOR_URL } from './reward';
 
 /* ── 类型 ─────────────────────────────────────────────────── */
 
@@ -64,7 +65,39 @@ export interface RoadmapTheme {
   items: RoadmapItem[];
 }
 
+/** 反馈来源：五条渠道，一一对应 skill 的判源口径 */
+export type FeedbackSource =
+  | 'github-issue'
+  | 'qq-group'
+  | 'qq-channel'
+  | 'qq-friend'
+  | 'bili-dm';
+
+/** 一条用户反馈；三态：待办（两个日期都空）/ 已完成（doneAt）/ 否决（rejectedAt） */
+export interface BzrFeedback {
+  id: string;
+  source: FeedbackSource;
+  summary: string;
+  title: string;
+  desc: string;
+  /** 可空；渲染前必须过 safeFeedbackUrl */
+  href: string;
+  submittedAt: string;
+  /** 空串 = 未完成；YYYY-MM-DD = 已完成 */
+  doneAt: string;
+  /** 空串 / 缺省 = 未否决；YYYY-MM-DD = 作者已否决（不做）。手写夹具可以不填 */
+  rejectedAt?: string;
+}
+
+/** 固定两组：bug（问题反馈）/ feature（功能建议） */
+export interface BzrFeedbackGroup {
+  key: 'bug' | 'feature';
+  items: BzrFeedback[];
+}
+
 export interface BzrStats {
+  /** 打赏次数 */
+  reward: number;
   pro: number;
   patrons: number;
 }
@@ -81,6 +114,8 @@ export interface BzrData {
   updatedAt: string;
   changelog: BzrChangelogRelease[];
   roadmap: RoadmapTheme[];
+  /** 用户反馈两组；老数据 / 老缓存可能没有，读时按空组兜底 */
+  feedback?: BzrFeedbackGroup[];
   stats: BzrStats;
   links: BzrLinks;
 }
@@ -96,7 +131,10 @@ export const BZR_CACHE_KEY = 'bz-reader:data:v1';
 export const BZR_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 export const BZR_REFRESH_GAP_MS = 60 * 1000;
 const FETCH_TIMEOUT_MS = 4000;
-const CACHE_VERSION = 1;
+/* 2026-11-18 升到 2：数据语义变了（roadmap 清空、links 换店铺、stats 落真实值），
+   旧缓存里的 456 / 1286 / 328 和假路线图必须立刻作废，不能等 6 小时。
+   导出给测试用：写缓存那几个用例要按当前版本号拼 doc，别再手写 1。 */
+export const BZR_CACHE_VERSION = 2;
 const MAX_ITEMS = 200;
 const MAX_TEXT = 400;
 
@@ -104,6 +142,9 @@ const MAX_TEXT = 400;
 const FEEDBACK_HOSTS = new Set([
   'github.com', 'www.github.com',
   'afdian.net', 'www.afdian.net',
+  /* 链动小铺：高级版 / 赞助人的购买页（2026-11-18 起 links.buy / links.support 都指这里）。
+     漏了这个域名 → 两条链接解析为空 → 整份在线数据判定无效，回退内置数据。 */
+  'wzyp.cn', 'www.wzyp.cn',
   'bilibili.com', 'www.bilibili.com',
   'qm.qq.com',
 ]);
@@ -164,6 +205,58 @@ function feedback(raw: unknown): RoadmapFeedback | null {
   if (o.kind !== 'issue' && typeof o.href === 'string') href = safeFeedbackUrl(o.href) ?? '';
   return { kind: o.kind, label: clean(o.label, 40), href, ...(n ? { n } : {}) };
 }
+
+const FEEDBACK_SOURCES = new Set<FeedbackSource>([
+  'github-issue', 'qq-group', 'qq-channel', 'qq-friend', 'bili-dm',
+]);
+const FEEDBACK_KEYS = ['bug', 'feature'] as const;
+
+/** 一条反馈：逐字段校验，坏条目丢掉（不因一条坏丢整组） */
+function feedbackEntry(raw: unknown): BzrFeedback | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.id !== 'string' || !clean(o.id, 60)) return null;
+  if (typeof o.source !== 'string' || !FEEDBACK_SOURCES.has(o.source as FeedbackSource)) return null;
+  if (typeof o.summary !== 'string' || !clean(o.summary)) return null;
+  if (typeof o.title !== 'string' || !clean(o.title)) return null;
+  const submittedAt = typeof o.submittedAt === 'string' && isIsoDate(o.submittedAt) ? o.submittedAt : '';
+  if (!submittedAt) return null;
+  const doneAt = typeof o.doneAt === 'string' && isIsoDate(o.doneAt) ? o.doneAt : '';
+  const rejectedAt = typeof o.rejectedAt === 'string' && isIsoDate(o.rejectedAt) ? o.rejectedAt : '';
+  return {
+    id: clean(o.id, 60),
+    source: o.source as FeedbackSource,
+    summary: clean(o.summary, 80),
+    title: clean(o.title, MAX_TEXT),
+    desc: typeof o.desc === 'string' ? clean(o.desc, MAX_TEXT) : '',
+    href: typeof o.href === 'string' ? (safeFeedbackUrl(o.href) ?? '') : '',
+    submittedAt,
+    doneAt,
+    rejectedAt,
+  };
+}
+
+/** 固定两组，缺的补空；每组按提交日期倒序 */
+function feedbackGroups(raw: unknown): BzrFeedbackGroup[] {
+  const out: BzrFeedbackGroup[] = FEEDBACK_KEYS.map((key) => ({ key, items: [] }));
+  if (!Array.isArray(raw)) return out;
+  for (const g of raw) {
+    if (!g || typeof g !== 'object') continue;
+    const o = g as Record<string, unknown>;
+    if (o.key !== 'bug' && o.key !== 'feature') continue;
+    const target = out.find((x) => x.key === o.key);
+    if (!target) continue;
+    const itemsIn = Array.isArray(o.items) ? o.items : [];
+    for (const it of itemsIn) {
+      if (target.items.length >= MAX_ITEMS) break;
+      const v = feedbackEntry(it);
+      if (v) target.items.push(v);
+    }
+  }
+  for (const g of out) g.items.sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
+  return out;
+}
+
 function roadmapItem(raw: unknown): RoadmapItem | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
@@ -250,7 +343,8 @@ export function parseBzrData(raw: unknown): BzrData | null {
     support: safeFeedbackUrl(typeof li.support === 'string' ? li.support : '') ?? '',
     buy: safeFeedbackUrl(typeof li.buy === 'string' ? li.buy : '') ?? '',
   };
-  if (!changelog.length || !roadmap.length || !links.support || !links.buy) return null;
+  /* 路线图允许为空（作者会清掉演示数据）：只要日志与跳转地址还在，这份数据就可用 */
+  if (!changelog.length || !links.support || !links.buy) return null;
 
   const st = o.stats && typeof o.stats === 'object' ? o.stats as Record<string, unknown> : {};
   return {
@@ -258,7 +352,8 @@ export function parseBzrData(raw: unknown): BzrData | null {
     updatedAt: typeof o.updatedAt === 'string' && isIsoDate(o.updatedAt) ? o.updatedAt : '',
     changelog,
     roadmap,
-    stats: { pro: nonneg(st.pro), patrons: nonneg(st.patrons) },
+    feedback: feedbackGroups(o.feedback),
+    stats: { reward: nonneg(st.reward), pro: nonneg(st.pro), patrons: nonneg(st.patrons) },
     links,
   };
 }
@@ -275,10 +370,14 @@ const BUILTIN: BzrData = {
         fb: { kind: 'issue', n: 1, label: '#1', href: '' } },
     ] },
   ],
-  stats: { pro: 0, patrons: 0 },
+  feedback: [
+    { key: 'bug', items: [] },
+    { key: 'feature', items: [] },
+  ],
+  stats: { reward: 0, pro: 0, patrons: 0 },
   links: {
-    support: 'https://afdian.net/a/yeshimei',
-    buy: 'https://afdian.net/a/yeshimei',
+    support: SPONSOR_URL,
+    buy: SPONSOR_URL,
   },
 };
 
@@ -319,7 +418,7 @@ function readCache(): { data: BzrData; at: number } | null {
     const raw = window.localStorage.getItem(BZR_CACHE_KEY);
     if (!raw) return null;
     const doc = JSON.parse(raw) as Partial<CacheDoc> | null;
-    if (!doc || doc.v !== CACHE_VERSION || !doc.data) return null;
+    if (!doc || doc.v !== BZR_CACHE_VERSION || !doc.data) return null;
     const data = parseBzrData(doc.data);
     if (!data) return null;
     const at = typeof doc.at === 'number' && Number.isFinite(doc.at) ? doc.at : 0;
@@ -330,7 +429,7 @@ function readCache(): { data: BzrData; at: number } | null {
 }
 function writeCache(data: BzrData, at: number): void {
   try {
-    window.localStorage.setItem(BZR_CACHE_KEY, JSON.stringify({ v: CACHE_VERSION, at, data } satisfies CacheDoc));
+    window.localStorage.setItem(BZR_CACHE_KEY, JSON.stringify({ v: BZR_CACHE_VERSION, at, data } satisfies CacheDoc));
   } catch {
     /* 隐私模式 / 配额满：内存里还有，写不进去不算错 */
   }
