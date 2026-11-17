@@ -53,6 +53,7 @@ New-Item -ItemType Junction -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules
 - 目录与分支主题一致：`bz-reader-wt-<主题>` 对 `feat/…` / `fix/…`；建完先跑 tsc + vitest 对基线。
 - 合并用 `git merge --ff-only`；master 前进过先 `rebase master` 并重跑三道门；合并前工作区干净。
 - 收尾：`rmdir` 摘 junction → `git worktree remove` → `git branch -d`，不要 `Remove-Item -Recurse`。
+- **合并之后必须清除 worktree（硬性，2026-11-17）**：合回 master 的同一步就把收尾做完，不许把已合并的 worktree 留在 `D:\Obsidian` 里——目录越攒越多，还会让人误判「改动没进主分支」。收完用 `git worktree list` 复核。**没合并的分支一个都不许删**；注意 `git branch --merged` 会把「分支指针恰好是 master 祖先、但工作区有未提交改动」的 worktree 也算成已合并，删之前先看 `git status`。
 - 纯文档（`README.md` / `AGENTS.md`）可直接在主仓提交；不同时改别的 worktree 正在改的文件。
 
 ## 测试
