@@ -167,6 +167,68 @@ describe('用户反馈：两组、两态、坏条目', () => {
   });
 });
 
+describe('用户反馈 v2：五态、分钟日期、提交链接', () => {
+  const withFeedback = (feedback: unknown) => parseBzrData(doc({ feedback }));
+
+  it('五态 state 字段逐值保留', () => {
+    const states = ['accepted', 'rejected', 'invalid', 'done', 'doing'];
+    const items = states.map((s, i) => ({
+      id: `s${i}`, source: 'bili-dm', summary: 's', title: 't', desc: '',
+      href: '', state: s, submittedAt: '2026-11-15 23:09', doneAt: '', rejectedAt: '',
+    }));
+    const d = withFeedback([{ key: 'feature', items }])!;
+    expect(d.feedback!.find((g) => g.key === 'feature')!.items.map((i) => i.state))
+      .toEqual(states);
+  });
+
+  it('日期精确到分钟：submittedAt / doneAt / commitDate 都保留 HH:mm', () => {
+    const d = withFeedback([{ key: 'bug', items: [{
+      id: 'm1', source: 'bili-dm', summary: 's', title: 't', desc: '', href: '',
+      state: 'done', submittedAt: '2026-11-15 23:55', doneAt: '2026-11-16 00:45',
+      rejectedAt: '', commitRepo: 'bz', commitId: '972855ed', commitDate: '2026-11-16 00:45',
+    }] }])!;
+    const it = d.feedback!.find((g) => g.key === 'bug')!.items[0]!;
+    expect(it.submittedAt).toBe('2026-11-15 23:55');
+    expect(it.doneAt).toBe('2026-11-16 00:45');
+    expect(it.commitDate).toBe('2026-11-16 00:45');
+    expect(it.commitId).toBe('972855ed');
+    expect(it.commitRepo).toBe('bz');
+  });
+
+  it('旧数据兼容：纯日期、无 state → 按 doneAt/rejectedAt 推导', () => {
+    const d = withFeedback([{ key: 'feature', items: [
+      { id: 'o1', source: 'github-issue', summary: 's', title: 't', desc: '', href: '', submittedAt: '2026-11-10', doneAt: '' },
+      { id: 'o2', source: 'github-issue', summary: 's', title: 't', desc: '', href: '', submittedAt: '2026-11-11', doneAt: '2026-11-12', rejectedAt: '' },
+      { id: 'o3', source: 'github-issue', summary: 's', title: 't', desc: '', href: '', submittedAt: '2026-11-09', doneAt: '', rejectedAt: '2026-11-09' },
+    ] }])!;
+    const items = d.feedback!.find((g) => g.key === 'feature')!.items;
+    expect(items.find((i) => i.id === 'o1')!.state).toBe('accepted');
+    expect(items.find((i) => i.id === 'o2')!.state).toBe('done');
+    expect(items.find((i) => i.id === 'o3')!.state).toBe('rejected');
+    expect(items.find((i) => i.id === 'o1')!.submittedAt).toBe('2026-11-10');
+  });
+
+  it('state 优先于日期：冲突时以 state 为准', () => {
+    const d = withFeedback([{ key: 'bug', items: [{
+      id: 'x', source: 'bili-dm', summary: 's', title: 't', desc: '', href: '',
+      state: 'invalid', submittedAt: '2026-11-15 23:09', doneAt: '2026-11-16 00:45', rejectedAt: '',
+    }] }])!;
+    expect(d.feedback!.find((g) => g.key === 'bug')!.items[0]!.state).toBe('invalid');
+  });
+
+  it('非法 commitId 过滤；非法 state 退回 accepted', () => {
+    const d = withFeedback([{ key: 'bug', items: [
+      { id: 'c1', source: 'bili-dm', summary: 's', title: 't', desc: '', href: '',
+        state: 'done', submittedAt: '2026-11-15 23:09', commitId: 'javascript:alert(1)', commitRepo: 'bz' },
+      { id: 'c2', source: 'bili-dm', summary: 's', title: 't', desc: '', href: '',
+        state: 'whatever', submittedAt: '2026-11-15 23:10' },
+    ] }])!;
+    const items = d.feedback!.find((g) => g.key === 'bug')!.items;
+    expect(items.find((i) => i.id === 'c1')!.commitId).toBe('');
+    expect(items.find((i) => i.id === 'c2')!.state).toBe('accepted');
+  });
+});
+
 describe('链接白名单：远端不可信', () => {
   it('合法域名放行，未知域名 / javascript: 拒绝', () => {
     expect(safeFeedbackUrl('https://github.com/yeshimei/bz-reader/issues/3')).toContain('github.com');

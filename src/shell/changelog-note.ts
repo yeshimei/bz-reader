@@ -27,12 +27,14 @@ import { GROUP_ID, REPO_URL } from '../data/entitlement';
 import { currentPatrons, onPatronsChange, refreshPatrons } from '../data/patrons';
 import {
   currentBzrData,
+  feedbackCommitUrl,
   onBzrDataChange,
   refreshBzrData,
   safeFeedbackUrl,
   type BzrData,
   type BzrFeedback,
   type FeedbackSource,
+  type FeedbackState,
   type RoadmapFeedback,
 } from '../data/bzr-data';
 import { SPONSOR_URL, type RewardName } from '../data/reward';
@@ -106,6 +108,12 @@ interface ChangelogCopy {
   fbDone: string;
   /** 作者否决（不做）——第三态，不是「已完成」 */
   fbRejected: string;
+  /** 五态：采纳 / 进行中 / 不成立 */
+  fbAccepted: string;
+  fbDoing: string;
+  fbInvalid: string;
+  /** 卡片里那行「作者回复」的标签 */
+  fbReply: string;
   fbEmpty: string;
   fbSubmitted: string;
   fbDoneAt: string;
@@ -163,6 +171,10 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     fbTodo: '待办',
     fbDone: '已完成',
     fbRejected: '否决',
+    fbAccepted: '采纳',
+    fbDoing: '进行中',
+    fbInvalid: '不成立',
+    fbReply: '作者回复',
     fbEmpty: '暂无',
     fbSubmitted: '提交',
     fbDoneAt: '完成',
@@ -215,6 +227,10 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     fbTodo: 'To do',
     fbDone: 'Done',
     fbRejected: 'Rejected',
+    fbAccepted: 'Accepted',
+    fbDoing: 'In progress',
+    fbInvalid: 'Not an issue',
+    fbReply: 'Author reply',
     fbEmpty: 'None',
     fbSubmitted: 'Filed',
     fbDoneAt: 'Done',
@@ -403,22 +419,34 @@ function feedbackSourceLabel(s: FeedbackSource): string {
   return map[s];
 }
 
-/** 一条反馈：状态点 + 标题 / 摘要 / 描述 + 来源与日期（三态：待办 / 已完成 / 否决） */
+/** 五态推导：显式 state 优先，老数据 / 手写夹具按日期推导 */
+function feedbackStateOf(it: BzrFeedback): FeedbackState {
+  const s = it.state;
+  if (s === 'accepted' || s === 'rejected' || s === 'invalid' || s === 'done' || s === 'doing') return s;
+  return it.rejectedAt ? 'rejected' : it.doneAt ? 'done' : 'accepted';
+}
+
+/** 一条反馈：状态点 + 标题 / 描述 / 作者回复 + 来源 / 提交 / 日期（五态） */
 function feedbackItemHtml(it: BzrFeedback): string {
   const c = copy();
-  const rejectedAt = it.rejectedAt ?? '';
-  const state: 'rejected' | 'done' | 'todo' = rejectedAt ? 'rejected' : it.doneAt ? 'done' : 'todo';
-  const endAt = rejectedAt || it.doneAt;
+  const state = feedbackStateOf(it);
+  const endAt = it.rejectedAt || it.doneAt;
   const dates = endAt
     ? `${c.fbSubmitted} ${fmtDate(it.submittedAt)} → ${state === 'rejected' ? c.fbRejected : c.fbDoneAt} ${fmtDate(endAt)}`
     : `${c.fbSubmitted} ${fmtDate(it.submittedAt)}`;
-  const label = state === 'rejected' ? c.fbRejected : state === 'done' ? c.fbDone : c.fbTodo;
+  const label = state === 'rejected' ? c.fbRejected
+    : state === 'done' ? c.fbDone
+    : state === 'doing' ? c.fbDoing
+    : state === 'invalid' ? c.fbInvalid
+    : c.fbAccepted;
   const src = feedbackSourceLabel(it.source);
   const srcHtml = it.href
     ? `<a class="bzs-chgn-fbsrc ${esc(it.source)}" href="${esc(it.href)}" target="_blank" rel="noopener">${EXT_ICON}${esc(src)}</a>`
     : `<span class="bzs-chgn-fbsrc ${esc(it.source)}">${esc(src)}</span>`;
-  /* 卡片视图（2026-11-18 作者选双列网格）：状态点与标题同一行用 flex 居中，
-     点不再靠 margin-top 目测——那样必然和标题基线对不齐。 */
+  const commitUrl = feedbackCommitUrl(it);
+  const commitHtml = commitUrl
+    ? `<a class="bzs-chgn-fbcommit" href="${esc(commitUrl)}" target="_blank" rel="noopener">${esc(it.commitId ?? '')} ↗</a>`
+    : '';
   return (
     `<div class="bzs-chgn-fbit ${state}">` +
     '<div class="bzs-chgn-fbhd">' +
@@ -426,8 +454,10 @@ function feedbackItemHtml(it: BzrFeedback): string {
     `<div class="bzs-chgn-fbtitle">${esc(it.title)}</div>` +
     '</div>' +
     (it.desc ? `<div class="bzs-chgn-fbdesc">${esc(it.desc)}</div>` : '') +
+    (it.reply ? `<div class="bzs-chgn-fbreply">${esc(c.fbReply)}：${esc(it.reply)}</div>` : '') +
     '<div class="bzs-chgn-fbmeta">' +
     srcHtml +
+    commitHtml +
     `<span>${dates}</span>` +
     `<span class="bzs-chgn-fbstate ${state}">${esc(label)}</span>` +
     '</div></div>'

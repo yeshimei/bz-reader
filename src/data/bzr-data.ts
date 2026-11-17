@@ -73,7 +73,10 @@ export type FeedbackSource =
   | 'qq-friend'
   | 'bili-dm';
 
-/** 一条用户反馈；三态：待办（两个日期都空）/ 已完成（doneAt）/ 否决（rejectedAt） */
+/** 反馈五态：采纳 / 否决 / 不成立 / 已完成 / 进行中 */
+export type FeedbackState = 'accepted' | 'rejected' | 'invalid' | 'done' | 'doing';
+
+/** 一条用户反馈；state 优先，日期只作展示（老数据无 state 时按日期推导） */
 export interface BzrFeedback {
   id: string;
   source: FeedbackSource;
@@ -82,11 +85,22 @@ export interface BzrFeedback {
   desc: string;
   /** 可空；渲染前必须过 safeFeedbackUrl */
   href: string;
+  /** 作者（用户本人）在聊天里对这条的回复，逐句原话，可空 */
+  reply?: string;
+  /** 五态；老数据 / 手写夹具可能没有，渲染时按日期推导 */
+  state?: FeedbackState;
+  /** YYYY-MM-DD 或 YYYY-MM-DD HH:mm */
   submittedAt: string;
-  /** 空串 = 未完成；YYYY-MM-DD = 已完成 */
+  /** 空串 = 未完成；YYYY-MM-DD[ HH:mm] = 已完成 */
   doneAt: string;
-  /** 空串 / 缺省 = 未否决；YYYY-MM-DD = 作者已否决（不做）。手写夹具可以不填 */
+  /** 空串 / 缺省 = 未否决；YYYY-MM-DD[ HH:mm] = 作者已否决 */
   rejectedAt?: string;
+  /** 实现所在仓库：bz / bz-reader；空 = 未进 Git 历史 */
+  commitRepo?: string;
+  /** 8 位十六进制短 id；空 = 没提交 */
+  commitId?: string;
+  /** 提交日期 YYYY-MM-DD HH:mm；空 = 没提交 */
+  commitDate?: string;
 }
 
 /** 固定两组：bug（问题反馈）/ feature（功能建议） */
@@ -133,8 +147,10 @@ export const BZR_REFRESH_GAP_MS = 60 * 1000;
 const FETCH_TIMEOUT_MS = 4000;
 /* 2026-11-18 升到 2：数据语义变了（roadmap 清空、links 换店铺、stats 落真实值），
    旧缓存里的 456 / 1286 / 328 和假路线图必须立刻作废，不能等 6 小时。
+   同日升到 3：反馈条目换成五态 + 分钟日期 + 作者回复 + Git 提交链接，老缓存缺这些字段
+   会导致新界面全空，必须立刻作废。
    导出给测试用：写缓存那几个用例要按当前版本号拼 doc，别再手写 1。 */
-export const BZR_CACHE_VERSION = 2;
+export const BZR_CACHE_VERSION = 3;
 const MAX_ITEMS = 200;
 const MAX_TEXT = 400;
 
@@ -173,6 +189,14 @@ function clean(s: string, max = MAX_TEXT): string {
 function isIsoDate(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(s);
 }
+/** 反馈日期：老数据 YYYY-MM-DD，新数据精确到分钟 YYYY-MM-DD HH:mm */
+function isFeedbackDate(s: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2}))?$/.exec(s);
+  if (!m) return false;
+  const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+  if (y < 2000 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31) return false;
+  return m[4] === undefined || (Number(m[4]) <= 23 && Number(m[5]) <= 59);
+}
 function l10n(raw: unknown): BzrL10n | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
@@ -209,7 +233,33 @@ function feedback(raw: unknown): RoadmapFeedback | null {
 const FEEDBACK_SOURCES = new Set<FeedbackSource>([
   'github-issue', 'qq-group', 'qq-channel', 'qq-friend', 'bili-dm',
 ]);
+const FEEDBACK_STATES = new Set<FeedbackState>([
+  'accepted', 'rejected', 'invalid', 'done', 'doing',
+]);
 const FEEDBACK_KEYS = ['bug', 'feature'] as const;
+
+/** state 显式值优先；老数据没 state 时按 doneAt / rejectedAt 推导 */
+function feedbackState(o: Record<string, unknown>, doneAt: string, rejectedAt: string): FeedbackState {
+  if (typeof o.state === 'string' && FEEDBACK_STATES.has(o.state as FeedbackState)) {
+    return o.state as FeedbackState;
+  }
+  return rejectedAt ? 'rejected' : doneAt ? 'done' : 'accepted';
+}
+/** 8 位十六进制短 id 才算合法，其余（javascript: 等）一律置空 */
+function cleanCommitId(raw: unknown): string {
+  const s = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  return /^[0-9a-f]{8}$/.test(s) ? s : '';
+}
+function cleanCommitRepo(raw: unknown): string {
+  return raw === 'bz' || raw === 'bz-reader' ? raw : '';
+}
+
+/** 短 id 拼 GitHub commit 链接；repo 只认两个已知仓库，绝不拼进外部 host */
+export function feedbackCommitUrl(it: BzrFeedback): string {
+  const repo = cleanCommitRepo(it.commitRepo);
+  const id = cleanCommitId(it.commitId);
+  return repo && id ? `https://github.com/yeshimei/${repo}/commit/${id}` : '';
+}
 
 /** 一条反馈：逐字段校验，坏条目丢掉（不因一条坏丢整组） */
 function feedbackEntry(raw: unknown): BzrFeedback | null {
@@ -219,10 +269,10 @@ function feedbackEntry(raw: unknown): BzrFeedback | null {
   if (typeof o.source !== 'string' || !FEEDBACK_SOURCES.has(o.source as FeedbackSource)) return null;
   if (typeof o.summary !== 'string' || !clean(o.summary)) return null;
   if (typeof o.title !== 'string' || !clean(o.title)) return null;
-  const submittedAt = typeof o.submittedAt === 'string' && isIsoDate(o.submittedAt) ? o.submittedAt : '';
+  const submittedAt = typeof o.submittedAt === 'string' && isFeedbackDate(o.submittedAt) ? o.submittedAt : '';
   if (!submittedAt) return null;
-  const doneAt = typeof o.doneAt === 'string' && isIsoDate(o.doneAt) ? o.doneAt : '';
-  const rejectedAt = typeof o.rejectedAt === 'string' && isIsoDate(o.rejectedAt) ? o.rejectedAt : '';
+  const doneAt = typeof o.doneAt === 'string' && isFeedbackDate(o.doneAt) ? o.doneAt : '';
+  const rejectedAt = typeof o.rejectedAt === 'string' && isFeedbackDate(o.rejectedAt) ? o.rejectedAt : '';
   return {
     id: clean(o.id, 60),
     source: o.source as FeedbackSource,
@@ -230,9 +280,14 @@ function feedbackEntry(raw: unknown): BzrFeedback | null {
     title: clean(o.title, MAX_TEXT),
     desc: typeof o.desc === 'string' ? clean(o.desc, MAX_TEXT) : '',
     href: typeof o.href === 'string' ? (safeFeedbackUrl(o.href) ?? '') : '',
+    reply: typeof o.reply === 'string' ? clean(o.reply, MAX_TEXT) : '',
+    state: feedbackState(o, doneAt, rejectedAt),
     submittedAt,
     doneAt,
     rejectedAt,
+    commitRepo: cleanCommitRepo(o.commitRepo),
+    commitId: cleanCommitId(o.commitId),
+    commitDate: typeof o.commitDate === 'string' && isFeedbackDate(o.commitDate) ? o.commitDate : '',
   };
 }
 

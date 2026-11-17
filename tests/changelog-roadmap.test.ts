@@ -118,7 +118,7 @@ describe('正文：统计卡 + 路线图入口 + 条目 #N', () => {
     expect(s).toContain('EPUB 导入卡住');
     expect(s).toContain('图片放大');
     expect(s).not.toContain('希望图片放大');
-    expect(s).toContain('待办');
+    expect(s).toContain('采纳');
     expect(s).toContain('已完成');
     expect(s).toContain('2026.11.10');
     expect(s).toContain('2026.11.15');
@@ -132,7 +132,7 @@ describe('正文：统计卡 + 路线图入口 + 条目 #N', () => {
   });
 });
 
-describe('反馈三态：待办 / 已完成 / 否决', () => {
+describe('反馈状态：采纳 / 已完成 / 否决（老数据兼容）', () => {
   const THREE: BzrData = {
     ...DATA,
     roadmap: [],
@@ -151,8 +151,8 @@ describe('反馈三态：待办 / 已完成 / 否决', () => {
     expect(s).toContain('bzs-chgn-fbdot rejected');
     expect(s).toContain('bzs-chgn-fbstate rejected">否决<');
     expect(s).toContain('→ 否决 2026.11.18');
-    /* 另外两条仍是原来的两态，没被带跑 */
-    expect(s).toContain('bzs-chgn-fbstate todo">待办<');
+    /* 另外两条老数据没 state，推导为采纳 / 已完成，没被带跑 */
+    expect(s).toContain('bzs-chgn-fbstate accepted">采纳<');
     expect(s).toContain('bzs-chgn-fbstate done">已完成<');
   });
 
@@ -192,5 +192,57 @@ describe('打开与关闭', () => {
     const note = openChangelogNote(CHANGELOG_RELEASES, '1.5.2', DATA);
     note.close();
     expect(() => note.close()).not.toThrow();
+  });
+});
+
+describe('反馈 v2：五态、作者回复、Git 提交链接', () => {
+  const FIVE: BzrData = {
+    ...DATA,
+    roadmap: [],
+    feedback: [
+      { key: 'feature', items: [
+        { id: 'a', source: 'bili-dm', summary: 's', title: '采纳的', desc: '', href: '',
+          state: 'accepted', submittedAt: '2026-11-15 23:09', doneAt: '', reply: '好的，后续我会跟进的' },
+        { id: 'b', source: 'bili-dm', summary: 's', title: '进行中的', desc: '', href: '',
+          state: 'doing', submittedAt: '2026-11-15 23:10', doneAt: '' },
+        { id: 'c', source: 'bili-dm', summary: 's', title: '不成立的', desc: '', href: '',
+          state: 'invalid', submittedAt: '2026-11-15 23:11', doneAt: '' },
+        { id: 'd', source: 'bili-dm', summary: 's', title: '已完成的', desc: '', href: '',
+          state: 'done', submittedAt: '2026-11-15 23:12', doneAt: '2026-11-16 00:45',
+          commitRepo: 'bz', commitId: '972855ed', commitDate: '2026-11-16 00:45' },
+        { id: 'e', source: 'bili-dm', summary: 's', title: '否决的', desc: '', href: '',
+          state: 'rejected', submittedAt: '2026-11-15 23:13', doneAt: '', rejectedAt: '2026-11-16 00:50' },
+      ] },
+      { key: 'bug', items: [] },
+    ],
+  };
+  const fiveHtml = () => changelogNoteHtml(CHANGELOG_RELEASES, '1.5.2', NAMES, FIVE);
+
+  it('五态文案与色点都渲染', () => {
+    const s = fiveHtml();
+    for (const [cls, label] of [
+      ['accepted', '采纳'], ['doing', '进行中'], ['invalid', '不成立'], ['done', '已完成'], ['rejected', '否决'],
+    ]) {
+      expect(s).toContain(`bzs-chgn-fbdot ${cls}`);
+      expect(s).toContain(`bzs-chgn-fbstate ${cls}">${label}<`);
+    }
+  });
+
+  it('作者回复渲染出来，带标签', () => {
+    const s = fiveHtml();
+    expect(s).toContain('bzs-chgn-fbreply');
+    expect(s).toContain('好的，后续我会跟进的');
+  });
+
+  it('提交 ID 是可点链接，指向 GitHub 对应仓库，新标签页打开', () => {
+    const s = fiveHtml();
+    expect(s).toContain('href="https://github.com/yeshimei/bz/commit/972855ed"');
+    expect(s).toContain('target="_blank" rel="noopener"');
+  });
+
+  it('分钟日期显示到时分', () => {
+    const s = fiveHtml();
+    expect(s).toContain('2026.11.15 23:09');
+    expect(s).toContain('2026.11.16 00:45');
   });
 });
