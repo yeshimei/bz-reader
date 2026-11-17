@@ -160,8 +160,9 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
      「视频教程」与「支持作者」。这一整组仍是中英两版框架文案，理由同上。 */
   /* 2026-11-18 21 → 43：路线图 / 统计卡 / 确认弹窗的框架文案，和日志一样
      只有中英两版（走 changelogLang 的 COPY），不进八语言 t()——否则界面会
-     出现「日文按钮 + 中文条目」的半翻状态。 */
-  'src/shell/changelog-note.ts': 43,
+     出现「日文按钮 + 中文条目」的半翻状态。
+     同日 43 → 44：路线图状态筛选的「全部」。 */
+  'src/shell/changelog-note.ts': 44,
   'src/shell/domain.ts': 14,
   'src/shell/idea-sheet.ts': 2,
   'src/shell/overlay.ts': 179,

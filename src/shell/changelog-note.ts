@@ -90,6 +90,8 @@ interface ChangelogCopy {
   confirmSupport: string;
   /** 用户反馈路径 */
   feedback: string;
+  /** 路线图状态筛选的「全部」 */
+  all: string;
   githubIssue: string;
   qqGroup: string;
   copied: string;
@@ -138,6 +140,7 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     confirmBuy: '去购买',
     confirmSupport: '去支持',
     feedback: '用户反馈',
+    all: '全部',
     githubIssue: 'GitHub issue',
     qqGroup: 'QQ 交流群',
     copied: '已复制群号',
@@ -181,6 +184,7 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     confirmBuy: 'Buy now',
     confirmSupport: 'Support',
     feedback: 'Feedback',
+    all: 'All',
     githubIssue: 'GitHub issue',
     qqGroup: 'QQ group',
     copied: 'Group number copied',
@@ -312,9 +316,8 @@ function roadmapToolsHtml(): string {
   const c = copy();
   return (
     '<div class="bzs-chgn-rmtools">' +
-    `<label class="bzs-chgn-rmsearch">${SEARCH_ICON}<input type="text" data-rm-search placeholder="${esc(c.roadmap)}…"></label>` +
     '<div class="bzs-chgn-rmfilters">' +
-    `<button type="button" data-f="all" class="on">${esc(c.feedback)}</button>` +
+    `<button type="button" data-f="all" class="on">${esc(c.all)}</button>` +
     `<button type="button" data-f="doing">${esc(c.stateDoing)}</button>` +
     `<button type="button" data-f="plan">${esc(c.statePlan)}</button>` +
     `<button type="button" data-f="done">${esc(c.stateDone)}</button></div></div>`
@@ -377,13 +380,9 @@ function roadmapRowsHtml(data: BzrData | null, filter = 'all', query = ''): stri
 
 /** 路线图面板：反馈路径 + 工具条 + 两级内容（桌面侧栏 / 手机全屏共用） */
 function roadmapPanelHtml(data: BzrData | null): string {
-  const c = copy();
-  const themes = data?.roadmap.length ?? 0;
-  const items = data?.roadmap.reduce((n, t) => n + t.items.length, 0) ?? 0;
   return (
     feedbackPathHtml() + roadmapToolsHtml() +
-    `<div class="bzs-chgn-rmlist" data-rm-list>${roadmapRowsHtml(data)}</div>` +
-    `<div class="bzs-chgn-rmfoot">${esc(c.roadmapFoot)} · ${esc(c.roadmapCount(themes, items))}</div>`
+    `<div class="bzs-chgn-rmlist" data-rm-list>${roadmapRowsHtml(data)}</div>`
   );
 }
 
@@ -844,16 +843,21 @@ export function openChangelogNote(
     const stat = target.closest<HTMLElement>('[data-stat]');
     if (stat) { openConfirm(stat.dataset.stat === 'pro' ? 'buy' : 'support'); return; }
 
-    /* 路线图入口：桌面开右侧边栏，手机开全屏（各管各的标记） */
+    /* 路线图入口：桌面开右侧边栏，手机开全屏（各管各的标记）。
+       桌面侧栏是「往右延伸」——给弹窗加 rm-wide 加宽，不挤正文。 */
     if (target.closest('[data-open-rm]')) {
       const rail = popup.querySelector<HTMLElement>('.bzs-chgn');
       const mob = popup.querySelector<HTMLElement>('.bzs-chgn-mrm');
       if (target.closest('.bzs-chgn-mtop')) mob?.classList.add('on');
-      else rail?.classList.add('rm-open');
+      else {
+        rail?.classList.add('rm-open');
+        popup.classList.add('rm-wide');
+      }
       return;
     }
     if (target.closest('[data-rm-close]')) {
       popup.querySelector<HTMLElement>('.bzs-chgn')?.classList.remove('rm-open');
+      popup.classList.remove('rm-wide');
       return;
     }
     if (target.closest('[data-mrm-back]')) {
