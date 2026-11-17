@@ -1948,3 +1948,68 @@ body.is-mobile .bzr-pdf-toolbar {
   row-gap: 4px;
   max-width: calc(100% - 24px);
 }
+
+/* ── 图片放大查看器 ──
+   盖在阅读区上的一层；背景读宿主令牌，随主题走。触摸手势在 JS 里算，
+   这里只管「图居中、缩放后能拖、按钮够大、不被底栏压住」。 */
+.bzr-imgview {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--background-primary) 94%, transparent);
+  touch-action: none;
+}
+.bzr-imgview-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transform-origin: center center;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.bzr-imgview-label {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-mini);
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--background-secondary) 88%, transparent);
+  pointer-events: none;
+}
+.bzr-imgview-bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(12px + max(var(--bzr-bottom-gap, 0px), env(safe-area-inset-bottom, 0px)));
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: var(--r-pill);
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  box-shadow: 0 4px 18px rgb(0 0 0 / 18%);
+  max-width: calc(100% - 24px);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.bzr-imgview-btn {
+  min-width: 44px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--interactive-normal);
+  color: var(--text-normal);
+  cursor: pointer;
+  font-size: var(--fs-body);
+}
+.bzr-imgview-btn:hover { background: var(--interactive-hover); }
+.bzr-imgview-btn.is-close { color: var(--text-error, var(--text-muted)); }

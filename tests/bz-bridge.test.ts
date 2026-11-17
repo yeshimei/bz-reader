@@ -5,7 +5,7 @@
  * 变成一句用户能照着做的人话，而不是控制台里一条红字。
  */
 import { describe, expect, it, vi } from 'vitest';
-import { aiBridgeProblem, bzPreviewReady, entryBridgeProblem, openBzEntry, openBzPreview, probeBz } from '../src/data/bz-bridge';
+import { aiBridgeProblem, bzImageReady, bzPreviewReady, entryBridgeProblem, openBzEntry, openBzImageNote, openBzPreview, probeBz } from '../src/data/bz-bridge';
 
 const term = vi.fn();
 const passage = vi.fn();
@@ -204,6 +204,39 @@ describe('打开知识盒预览', () => {
     });
     const a = app({ knowledge: { ...knowledge, openPreview: preview } });
     expect(openBzPreview(a, '文献/心流.md')).toBe(false);
+  });
+});
+
+describe('存为图版', () => {
+  it('老版本 bz 没有图版门面：按钮判为不可用，不抛', () => {
+    expect(bzImageReady(app({ knowledge }))).toBe(false);
+  });
+
+  it('没装 bz：图版不可用', () => {
+    expect(bzImageReady({ plugins: { plugins: {}, manifests: {} } } as never)).toBe(false);
+  });
+
+  it('门面有图版：可用，并把 data URL 原样递进去', () => {
+    const image = vi.fn();
+    expect(bzImageReady(app({ knowledge: { ...knowledge, openImageNote: image } }))).toBe(true);
+    const p = probeBz(app({ knowledge: { ...knowledge, openImageNote: image } }));
+    expect(openBzImageNote(p, 'data:image/png;base64,AA')).toEqual({ ok: true });
+    expect(image).toHaveBeenCalledWith({ images: ['data:image/png;base64,AA'] });
+  });
+
+  it('门面缺图版：给「更新 bz」的人话，不抛', () => {
+    const p = probeBz(app({ knowledge }));
+    const r = openBzImageNote(p, 'data:image/png;base64,AA');
+    expect(r.ok).toBe(false);
+    expect(r.message).toContain('更新');
+  });
+
+  it('bz 内部同步抛错：吞掉并给人话', () => {
+    const image = vi.fn(() => {
+      throw new Error('boom');
+    });
+    const p = probeBz(app({ knowledge: { ...knowledge, openImageNote: image } }));
+    expect(openBzImageNote(p, 'x').ok).toBe(false);
   });
 });
 

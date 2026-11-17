@@ -2501,6 +2501,8 @@ export function dispatchAction(
       if (d.k === 'chapterLabel') src.setPrefs({ chapterLabel: !el.classList.contains('on') });
       /* 桌面点正文翻页（2026-11-12）：默认关，要用的人自己打开 */
       if (d.k === 'desktopTapTurn') src.setPrefs({ desktopTapTurn: !el.classList.contains('on') });
+      /* 点书里的图片放大查看（2026-11-17）：默认关，要用的人自己开 */
+      if (d.k === 'imageZoom') src.setPrefs({ imageZoom: !el.classList.contains('on') });
       /* 预生成时顺手写离线包（2026-11-14）：默认开，关掉就只填本机缓存 */
       if (d.k === 'ttsOfflineSave') src.setPrefs({ ttsOfflineSave: !el.classList.contains('on') });
       repaint();

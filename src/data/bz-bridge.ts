@@ -52,6 +52,16 @@ export interface BzKnowledgeFacade {
    * 打开那篇笔记，不能因为缺这一项整块不可用。
    */
   openPreview?: (path: string) => void | Promise<void>;
+  /**
+   * 把图片（data URL）送进 bz 的「图版」录入（AI 读图生成文献笔记）。
+   *
+   * 可选：只有暴露了这一项的 bz 版本才支持；老版本按钮不出现。
+   * onCreated 有回调时 bz 不自动打开新笔记，正好不打断阅读。
+   */
+  openImageNote?: (opts: {
+    images: string[];
+    onCreated?: (notePath: string) => void;
+  }) => void;
 }
 
 export interface BzAiFacade {
@@ -431,4 +441,35 @@ export function openBzEntry(
     folderReady = true;
   }
   return { ok: true, message: folderReady ? undefined : t('bz.noFolder') };
+}
+
+/**
+ * 当前 bz 支不支持「存为图版」。图版按钮的显隐就看这个：门面缺这一项
+ * （老版本 bz）就不显示，而不是显示一个点了没反应的按钮。
+ */
+export function bzImageReady(app: App | null | undefined): boolean {
+  return typeof probeBz(app).knowledge?.openImageNote === 'function';
+}
+
+/**
+ * 把一张图（data URL）送进 bz 的图版录入。
+ *
+ * 走的是知识库那条门面：没装 / 没启用 / 版本老不支持图版，都给出人话，
+ * 不抛错。图在 bz 里只在内存，确认写入才落盘（bz 侧的契约）。
+ */
+export function openBzImageNote(probe: BzProbe, dataUrl: string): { ok: boolean; message?: string } {
+  const problem = entryBridgeProblem(probe);
+  if (problem || !probe.knowledge) {
+    return { ok: false, message: problem ?? t('bz.outdated', { version: probe.version || '—' }) };
+  }
+  const fn = probe.knowledge.openImageNote;
+  if (typeof fn !== 'function') {
+    return { ok: false, message: t('image.plate.outdated') };
+  }
+  try {
+    fn({ images: [dataUrl] });
+  } catch (e) {
+    return { ok: false, message: (e as Error)?.message || t('bz.callFailed') };
+  }
+  return { ok: true };
 }

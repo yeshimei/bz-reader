@@ -112,7 +112,7 @@ describe('设置页 bz 组 · AI 知识盒', () => {
   it('永远没有开关：连上与否是自动识别', () => {
     expect(bzGroup(html(LINKED))).not.toContain('data-k="aiKnowledge"');
     expect(bzGroup(html())).not.toContain('data-k="aiKnowledge"');
-    expect(bzGroup(html(LINKED))).toContain('<b>AI 知识盒</b>');
+    expect(bzGroup(html(LINKED))).toContain('<b>AI 知识库</b>');
   });
 
   it('连上写「已连接」，没装写「未连接」', () => {

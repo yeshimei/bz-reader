@@ -114,8 +114,8 @@ describe('正文口径', () => {
     expect(normalizePrefs({ lineHeight: 1.98 }).lineHeight).toBe(2);
   });
 
-  it('字体档名：跟随书籍 / 宋体 / 黑体（走集中表，随界面语言取）', () => {
-    expect(FONT_FAMILIES.map((f) => fontLabel(f.value))).toEqual(['跟随书籍', '宋体', '黑体']);
+  it('字体档名：跟随 Obsidian / 跟随书籍 / 宋体 / 黑体（走集中表，随界面语言取）', () => {
+    expect(FONT_FAMILIES.map((f) => fontLabel(f.value))).toEqual(['跟随 Obsidian', '跟随书籍', '宋体', '黑体']);
   });
 });
 

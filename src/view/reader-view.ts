@@ -113,10 +113,11 @@ import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { REGION_ACTS, SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
 import { hydrateToolbarIcons } from '../shell/toolbar-icons';
 import { can } from '../data/entitlement';
-import { bzEntryReady } from '../data/bz-bridge';
+import { bzEntryReady, openBzImageNote, probeBz } from '../data/bz-bridge';
 import { findReviewApi } from '../data/review-bridge';
 import { kbDoneOf } from '../data/kb-link';
 import { VIEW_TYPE_TOC } from './side-view';
+import { ImageViewerOverlay, closeImageViewer } from './image-viewer-overlay';
 
 /* 注意：本类为了给 Obsidian 存 view 状态，重写了 getState()。
    所以在类内部直接写 getState() 拿到的是**视图自己的** {bookId}，
@@ -1242,6 +1243,8 @@ export class ReaderView extends ItemView {
   }
 
   async onClose(): Promise<void> {
+    /* 图片查看器盖在本视图上，关 tab 必须一起收，别留个孤儿浮层 */
+    closeImageViewer();
     /* 关掉 tab 还在跑的识别要停：它每页都要发一次请求，人已经走了 */
     this.ocr.cancel();
     this.hideOcrBar();
@@ -5359,6 +5362,16 @@ export class ReaderView extends ItemView {
            所有「点了没反应」都是静默的。 */
         onStall: (what) => notify(t('notice.load.stalled', { what }), 'info'),
         onTap: (zone, info) => this.tapHandler(zone, info),
+        /* 点书里的图片放大（开关 prefs.imageZoom 默认关）。图版按钮只在
+           bz 知识库连上时给——和划词那两颗同一判据。 */
+        onImageTap: (info) => {
+          if (!this.prefs.imageZoom) return;
+          closeImageViewer();
+          const bzPlate = can('ai') && bzEntryReady(this.api.app);
+          new ImageViewerOverlay(this.containerEl, info.src, info.images, {
+            onPlate: bzPlate ? (src) => void this.saveImageAsPlate(src) : undefined,
+          });
+        },
         /* 两指同时轻按 = 沉浸/还原。手势判定在引擎侧（只有它拿得到 iframe
            里的触摸序列），这里只接结果。 */
         onTwoFingerTap: () => this.toggleImmersive(),
@@ -5668,6 +5681,33 @@ export class ReaderView extends ItemView {
       if (note) lines.push('>', `> **${t('side.ideaTag')}** ${note}`);
     }
     this.writeClipboard(lines.join('\n'));
+  }
+
+  /** 把放大的这张图送进 bz 的图版录入（AI 读图生成文献笔记） */
+  private saveImageAsPlate(src: string): void {
+    /* 图多半是书页内联的 data URL；blob: 地址要先转成 data URL，
+       bz 那头只认 data URL（走它自己的图片校验与上限）。 */
+    const send = (dataUrl: string): void => {
+      const r = openBzImageNote(probeBz(this.api.app), dataUrl);
+      if (!r.ok && r.message) notify(r.message, 'error');
+    };
+    if (src.startsWith('data:')) {
+      send(src);
+      return;
+    }
+    void fetch(src)
+      .then((resp) => resp.blob())
+      .then(
+        (blob) =>
+          new Promise<string>((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(String(fr.result));
+            fr.onerror = () => reject(new Error('read failed'));
+            fr.readAsDataURL(blob);
+          }),
+      )
+      .then(send)
+      .catch(() => notify(t('image.plate.failed'), 'error'));
   }
 
   private writeClipboard(text: string): void {

@@ -59,6 +59,7 @@ import { accumulateEdgeTurn, scrollEdgeOf } from './scroll-edge';
 import { isReplayTap, touchTapVerdict, type TapGesture, type TapMark } from './tap-replay';
 import { needsGestureBind, pickGestureDoc, zoneFromFrameY } from './gesture-binding';
 import { hasLiveSelection } from './tap-gate';
+import { imageHitOf } from './image-tap';
 import { debugEvent } from '../data/debug-log';
 import { isMobileShell } from '../core/mobile';
 import type { AiShotSource } from './reader-engine';
@@ -197,6 +198,11 @@ export interface MountOptions {
   onSelect?: (info: SelectionInfo | null) => void;
   /** 点中一条已画好的标注 */
   onAnnotTap?: (info: { cfiRange: string; anchor: Rect }) => void;
+  /**
+   * 点中书里的图片（开关 prefs.imageZoom 打开时）。
+   * 给了才拦下这一下、不翻页；没给就照旧翻页。
+   */
+  onImageTap?: (info: { src: string; kind: 'img' | 'svg'; images: string[] }) => void;
   /** 点到脚注引用（给了才弹预览；没给就退回 foliate 的「直接跳过去」） */
   onFootnote?: (info: FootnoteInfo | null) => void;
   /** 某次翻页 / 跳章卡住没有结果。上层据此给一句人话，别让人对着旧页面以为没点到 */
@@ -1170,6 +1176,17 @@ export class EngineHost {
         debugEvent('blocked', { why: 'selection', src: source });
         return;
       }
+      /* 点图放大排在链接之前：EPUB 常把图套在 <a href> 里（点图跳原文），
+         先判链接就把图吃掉了。开关关时 imageHitOf 直接返回 null，零影响。 */
+      const image = imageHitOf(target, this.prefs.imageZoom === true);
+      if (image) {
+        if (this.opts.onImageTap) {
+          this.opts.onImageTap({ ...image, images: this.collectImageSrcs() });
+          this.probe.blocked += 1;
+          debugEvent('blocked', { why: 'image', src: source });
+          return;
+        }
+      }
       const node = target as HTMLElement | null;
       if (node?.closest?.('a[href], [data-bzr-skip-tap]')) {
         this.probe.blocked += 1;
@@ -1727,6 +1744,38 @@ export class EngineHost {
 
   /** 已经 destroy 过：之后的异步回调（搜索、标注、导航）一律不再碰视图 */
   private destroyed = false;
+
+  /**
+   * 当前这一章里所有可放大的图片地址（供查看器前后翻）。
+   *
+   * 翻页会把一章切进多个 iframe，getContents 拿到的是全章内容，不是当前页；
+   * 这里按文档顺序收集，查看器用 src 相等定位当前那张。跨 realm 不用
+   * instanceof，只读 getAttribute；去重保序。
+   */
+  collectImageSrcs(): string[] {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    try {
+      const contents = this.view?.renderer?.getContents?.() ?? [];
+      for (const c of contents) {
+        const doc = c?.doc;
+        if (!doc?.querySelectorAll) continue;
+        const nodes = doc.querySelectorAll('img[src], image[href], image[xlink\\:href]');
+        for (const n of Array.from(nodes)) {
+          const src = String(
+            n.getAttribute('src') || n.getAttribute('href') || n.getAttribute('xlink:href') || '',
+          ).trim();
+          if (src && !seen.has(src)) {
+            seen.add(src);
+            out.push(src);
+          }
+        }
+      }
+    } catch {
+      /* 换章空窗读不到内容：返回已收着的，查看器按数组长度决定是否给翻页键 */
+    }
+    return out;
+  }
 
   /**
    * 宿主换主题（明暗 / 社区主题）时重注入章节样式。

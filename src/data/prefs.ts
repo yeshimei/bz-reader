@@ -166,6 +166,11 @@ export interface ReaderPrefs {
    * 手机端不读这一项——那里点按就是唯一的翻页手势。
    */
   desktopTapTurn: boolean;
+  /**
+   * 点书里的图片放大查看（2026-11-17）。默认**关**：点图放大是主动需求，
+   * 默认开会和「点图翻页 / 点链接」抢手势。要看图自己开。
+   */
+  imageZoom: boolean;
   /** 划词工具条：文字 / 图标（见 ToolbarStyle） */
   toolbarStyle: ToolbarStyle;
   /**
@@ -249,6 +254,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   pageLabel: 'book',
   chapterLabel: true,
   desktopTapTurn: false,
+  imageZoom: false,
   toolbarStyle: 'text',
   headerOrder: [],
   headerHidden: [],
@@ -501,6 +507,7 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     chapterLabel: p.chapterLabel !== false,
     /* 桌面点按翻页：只认显式 true——新默认是关，老数据里没有这一项自然也是关 */
     desktopTapTurn: p.desktopTapTurn === true,
+    imageZoom: p.imageZoom === true,
     toolbarStyle: p.toolbarStyle === 'icon' ? 'icon' : 'text',
     headerOrder: headerIds(p.headerOrder),
     headerHidden: headerIds(p.headerHidden),
