@@ -78,7 +78,8 @@ const LINKED: SettingsView['bz'] = {
 describe('设置页 bz 组 · 剪藏本', () => {
   it('装了 bz：出开关，挂在 clipBook 上', () => {
     const g = bzGroup(html(LINKED));
-    expect(g).toContain('<label>剪藏本</label>');
+    /* 2026-11-17：能力卡里名称是卡头那枚 <b>，不再是设置行的 label */
+    expect(g).toContain('<b>剪藏本</b>');
     expect(g).toContain('data-k="clipBook"');
   });
 
@@ -91,7 +92,7 @@ describe('设置页 bz 组 · 剪藏本', () => {
 
   it('没装 bz：开关整颗不出现，描述照旧在', () => {
     const g = bzGroup(html());
-    expect(g).toContain('<label>剪藏本</label>');
+    expect(g).toContain('<b>剪藏本</b>');
     expect(g).not.toContain('data-k="clipBook"');
     expect(g).toContain(CLIP_HINT);
   });
@@ -111,7 +112,7 @@ describe('设置页 bz 组 · AI 知识盒', () => {
   it('永远没有开关：连上与否是自动识别', () => {
     expect(bzGroup(html(LINKED))).not.toContain('data-k="aiKnowledge"');
     expect(bzGroup(html())).not.toContain('data-k="aiKnowledge"');
-    expect(bzGroup(html(LINKED))).toContain('<label>AI 知识盒</label>');
+    expect(bzGroup(html(LINKED))).toContain('<b>AI 知识盒</b>');
   });
 
   it('连上写「已连接」，没装写「未连接」', () => {

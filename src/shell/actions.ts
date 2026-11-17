@@ -14,7 +14,7 @@ import { Menu } from 'obsidian';
 import type { App } from 'obsidian';
 import type { BookMeta, ReaderBook } from '../data/schema';
 import { aiAsk, aiPostChat, chatText, FOLLOW_EVIDENCE_LIMIT } from '../data/ai';
-import { aiProbe, type ProbeLevel } from '../data/ai-probe';
+import { aiProbe } from '../data/ai-probe';
 import {
   DEFAULT_HIGHLIGHT_COLOR,
   addHighlight,
@@ -129,7 +129,7 @@ import { currentSearchSurface, kickSemanticSearch, resetSemanticSearch } from '.
 import { bzClipbookUsed, bzEmbedder, bzNotesReady, openBzClipbook, openBzPreview, probeBz, openBzEntry, type BzEntryKind, type BzEmbedder } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
-import { AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, REVIEW_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../core/links';
+import { AI_CHAT_TUTORIAL_URL, AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, PDF_TUTORIAL_URL, REVIEW_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../core/links';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
 import { forgetPortrait, setPortrait } from './portrait-cache';
@@ -2658,29 +2658,15 @@ export function dispatchAction(
       });
       break;
     }
-    /* AI 连接测试（2026-11-17）：问答与检索分开报，半通状态一眼看清。
-       两条都是真实请求、各按所选服务计费——所以放在按钮背后，不自动跑。 */
+    /* AI 连接测试（2026-11-17）：只探问答。真实请求、按所选服务计费——
+       所以放在按钮背后，不自动跑。嵌入那条 2026-11-17 连行带请求一起删了，
+       设置页不再有「检索」那一行。 */
     case 'aiprobe': {
       if (!requireCap('ai')) break;
       const grp = el.closest('.bzs-setgrp');
       const outChat = grp?.querySelector<HTMLElement>('[data-role="aiprobe-chat"]');
-      const outEmbed = grp?.querySelector<HTMLElement>('[data-role="aiprobe-embed"]');
       const s = shellSettings();
-      const embedder = bzEmbedder(getShellSource()?.app);
       if (outChat) outChat.textContent = t('settings.aiProbe.testing');
-      if (outEmbed) outEmbed.textContent = t('settings.aiProbe.testing');
-      const paint = (node: HTMLElement | null | undefined, level: ProbeLevel, msg: string) => {
-        if (!node) return;
-        node.textContent = msg;
-        node.setCssProps({
-          color:
-            level === 'ok'
-              ? 'var(--text-success)'
-              : level === 'skip'
-                ? 'var(--text-warning)'
-                : 'var(--text-error)',
-        });
-      };
       void aiProbe(
         {
           chatReady: aiReady(s),
@@ -2688,26 +2674,25 @@ export function dispatchAction(
             const raw = await aiPostChat(s, [{ role: 'user', content: '只回一个字：好' }]);
             return chatText(raw);
           },
-          embedModel: embedder.model,
-          embed: () => {
-            if (!embedder.ai) return Promise.reject(new Error(embedder.problem || 'bz 未就绪'));
-            return embedder.ai.embedQuery('测试');
-          },
         },
         {
-          chatTesting: t('settings.aiProbe.testing'),
-          embedTesting: t('settings.aiProbe.testing'),
+          testing: t('settings.aiProbe.testing'),
           ok: (n) => t('settings.aiProbe.chatOk', { n }),
           empty: t('settings.aiProbe.chatEmpty'),
           notReady: t('settings.aiProbe.notReady'),
-          embedOk: (n) => t('settings.aiProbe.embedOk', { n }),
-          embedNoModel: t('settings.aiProbe.embedNoModel'),
-          embedEmpty: t('settings.aiProbe.embedEmpty'),
           failed: t('settings.aiProbe.failed'),
         },
       ).then((r) => {
-        paint(outChat, r.chat.level, r.chat.message);
-        paint(outEmbed, r.embed.level, r.embed.message);
+        if (!outChat) return;
+        outChat.textContent = r.message;
+        outChat.setCssProps({
+          color:
+            r.level === 'ok'
+              ? 'var(--text-success)'
+              : r.level === 'skip'
+                ? 'var(--text-warning)'
+                : 'var(--text-error)',
+        });
       });
       break;
     }
@@ -3448,6 +3433,31 @@ export function dispatchAction(
       }
       window.open(REVIEW_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
       break;
+    case 'pdftut':
+      /* PDF 组教程（2026-11-17）：地址还没定，空串就说一句。 */
+      if (!PDF_TUTORIAL_URL) {
+        notify(t('notice.tut.pending'), 'info');
+        break;
+      }
+      window.open(PDF_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
+      break;
+    case 'aichattut':
+      /* AI 助手组教程（2026-11-17）：讲自己的地址 / 模型 / 密钥怎么填，
+         不是侧栏那条讲索引怎么建的视频。 */
+      if (!AI_CHAT_TUTORIAL_URL) {
+        notify(t('notice.tut.pending'), 'info');
+        break;
+      }
+      window.open(AI_CHAT_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
+      break;
+    case 'setjump': {
+      /* 页内索引（2026-11-17）：滚到对应分组。
+         只在本次设置页容器里找，别去全文档捞——同一时间可能有两个书架视图。 */
+      const page = el.closest('.bzs-set-page');
+      const target = page?.querySelector<HTMLElement>(`#bz-set-${el.dataset.k || ''}`);
+      target?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      break;
+    }
     case 'reviewinstall':
       /* 引导到 Obsidian 第三方插件市场：设置 → 第三方插件。
          用宿主命令打开设置，比外链文档更直接。 */

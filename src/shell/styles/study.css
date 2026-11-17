@@ -1202,6 +1202,36 @@
   container-name: bzs-set;
 }
 
+/* 页内索引（2026-11-17）：组一多，滚起来就找不着北。
+   一排小胶囊，点一下滚到那一组；不占高度、不做成第二个页签。
+   与两列摊平后的顺序逐项对应（见 render/settings 的 NAV）。 */
+.bzs-setnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.bzs-setnav-i {
+  appearance: none;
+  border: 1px solid transparent;
+  background: none;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-caption);
+  color: var(--t3);
+  letter-spacing: .03em;
+  height: auto;
+  box-shadow: none;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+
+.bzs-setnav-i:hover {
+  color: var(--copper);
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
+}
+
 .bzs-set-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1273,18 +1303,8 @@
   grid-column: 1 / -1;
 }
 
-/* 「阅读页图标」挪到页尾通栏后每行宽了近一倍：标签吃掉多余宽度，↑ ↓ 与
-   开关一起贴右，读法与下面快捷键组的「文字在左、键位在右」一致。窄屏也
-   适用——手机上 label 会折行，右侧三颗控件仍然齐平。 */
-.bzs-setgrp-header .bzs-setrow label {
-  flex: 1 1 auto;
-  max-width: none;
-  /* 标题前挂一枚与头栏同款的图标（2026-11-11）：阅读页右上角只画图标、
-     不写字，这里按名字找的人得靠形状把两处对上。 */
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
+/* 「阅读页图标」的行样式在 .bzs-icrows / .bzs-icrow 里（2026-11-17 改双列），
+   这里只剩通栏标记 .bzs-setgrp-header 本身。 */
 
 /* 空壳图标：先占住 16px，hydrateIcons 补画之后不会把整行顶跳 */
 .bzs-hicon {
@@ -1331,6 +1351,46 @@
   gap: 10px;
 }
 
+/* ── 阅读页图标：16 行改双列（2026-11-17） ─────────────────────
+   单列一屏放不下 16 行，用户翻到一半就忘了上面那颗是第几个。
+   两列按 300px 下限自动排：宽窗两列、手机一列，行高与原来一致。 */
+.bzs-icrows {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 0 26px;
+  margin-top: 6px;
+}
+
+.bzs-icrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-caption);
+}
+
+.bzs-icrow label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  color: var(--t2);
+  letter-spacing: .05em;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 双列后每行窄了一半：↑ ↓ 收成小方块，留位置给图标名 */
+.bzs-icrow .bzs-btn.sm {
+  padding: 2px 6px;
+  min-height: 0;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
 .bzs-setgrp .hint {
   font-size: 11px;
   color: var(--t3);
@@ -1345,21 +1405,26 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+  /* 2026-11-17 对齐原型：组标题下面一条细线，卡片贴着它站住 */
   margin: 6px 0 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
 }
 
 .bzs-engcard {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   /* 卡里是「图标 + 名字 + 状态」三行，不能跟着按钮那套固定高度走：
      触屏主题给 button 的 44px 会把状态行压在边框上（2026-11-14 手机截图）。 */
   height: auto;
   padding: 8px 10px;
   text-align: left;
+  font-size: 12px;
   border: 1px solid var(--line);
-  border-radius: var(--r-card);
+  /* 8px 跟着原型走：三张并排时圆角再大就显圆胖（2026-11-17） */
+  border-radius: 8px;
   background: var(--sunken);
   color: var(--t1);
   cursor: pointer;
@@ -1399,18 +1464,21 @@
 
 .bzs-engtx b {
   display: block;
-  font-weight: 500;
-  font-size: 12.5px;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* 状态行：原型里就绪是整行变铜色（点同色、实心），未就绪只有半透明的点。
+   2026-11-17 才从「只染点」改成整行——一行小字里那个 5px 的差别看不出来。 */
 .bzs-engst {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--t3);
 }
 
@@ -1418,11 +1486,16 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--t3);
+  background: currentColor;
+  opacity: 0.5;
 }
 
-.bzs-engst .dot.ok {
-  background: var(--copper);
+.bzs-engst.ok {
+  color: var(--copper);
+}
+
+.bzs-engst.ok .dot {
+  opacity: 1;
 }
 
 /* 手机上也保持三张并排（2026-11-14）：390px 下每张约 100px，名字四个字
@@ -1517,19 +1590,72 @@
   content: '▾ ';
 }
 
-/* 组内小标题：缓存与离线这一段直接摊开，不折叠（2026-11-14 用户要求）。
-   标题自己当分隔线，紧跟的那一行不再画上边框，免得两条线叠一起。 */
+/* ── 组内分区（2026-11-17） ─────────────────────────────────
+   6 行以上的大组按用途切成小块。小块自己是一层浅底：卡片（--surface）
+   里再嵌一层（--sunken），「这几行是一件事」不用靠读。
+   标题前一枚铜色小横杠，比再加一层边框轻，也比一条通栏细线更像分块。
+
+   规矩：行数少的组不切——分区本身也是视觉噪音。 */
+.bzs-sub {
+  margin-top: 10px;
+  padding: 1px 12px 7px;
+  border-radius: 8px;
+  background: var(--sunken);
+}
+
+.bzs-sub + .bzs-sub {
+  margin-top: 8px;
+}
+
 .bzs-subh {
-  margin: 12px 0 0;
-  padding: 8px 0 2px;
-  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 0 5px;
   font-size: 11px;
   color: var(--t3);
   letter-spacing: .1em;
 }
 
-.bzs-subh + .bzs-setrow {
+.bzs-subh::before {
+  content: "";
+  width: 11px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: var(--copper);
+  opacity: .65;
+  flex: none;
+}
+
+/* 紧跟标题的那一行不再画上边框，免得两条线叠一起 */
+.bzs-subh + .bzs-setrow,
+.bzs-subh + .bzs-mini {
   border-top: 0;
+}
+
+/* 分区里的小字：贴着上一行，别多出一段留白 */
+.bzs-subnote {
+  padding: 2px 0 6px;
+  line-height: 1.8;
+}
+
+/* 实时的坏消息（例如选了外部 OCR 却没填地址）：铜色一行，不占一整条设置 */
+.bzs-warn {
+  color: var(--copper);
+  padding: 2px 0 6px;
+  line-height: 1.8;
+}
+
+/* 锁定只包住要解锁的块：PDF 的「扫描页识别」不在付费门里，
+   不能被整卡上锁一起灰掉（2026-11-17 合并时定下）。 */
+.bzs-sub.is-locked {
+  opacity: .55;
+  filter: grayscale(1);
+  cursor: pointer;
+}
+
+.bzs-sub.is-locked:hover {
+  opacity: .7;
 }
 
 /* 阅读页齿轮跳到设置页时，朗读组闪一下告诉人「就是这块」 */
@@ -1778,6 +1904,26 @@
   flex-shrink: 0;
 }
 
+/* 档位多的行（语言 9 档、强调色 8 档）：标签独占一行、控件吃满整宽。
+   两列各 ~420px 时，一个 86px 的标签会把八档挤成一字一行的豆腐块。 */
+.bzs-setrow.is-stack {
+  flex-wrap: wrap;
+  row-gap: 7px;
+  padding: 9px 0;
+}
+
+.bzs-setrow.is-stack > label {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  color: var(--t3);
+  font-size: 11px;
+}
+
+.bzs-setrow.is-stack > .bzs-seg {
+  flex: 1 1 100%;
+}
+
 .bzs-setrow input[type="range"] {
   flex: 1;
   accent-color: var(--copper);
@@ -1791,20 +1937,100 @@
   flex: 1;
 }
 
-/* AI 组「连接至 BZ AI 知识库」的状态：只有连没连上两种。
-   未连接退到 --t3（读的时候不该抢）；连上换成 --t2 并点一颗铜色实心点。
-   不引第二种语义色（绿）：整页只有强调色一套，成功色会跟「观看视频教程」
-   抢注意力，而那个按钮才是这一行唯一要人动手的东西。 */
-.bzs-kbstate {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--t3);
-  letter-spacing: .04em;
+/* 教程按钮紧贴说明文字：吃一条 .bzs-setrow 的分隔线会把一句话拆成两条设置 */
+/* ── 能力卡（2026-11-17）：bz 两项 + 插件一项 ─────────────────
+   每项一张卡：图标 + 名称 + 状态徽章 + 一句话 + 动作。
+   以前是「一行标签 + 一段灰字」，状态挤在设置行右端，窄栏会被顶出卡片
+   （「还没装 bz review…」真机就是这么溢出的）。
+   开关放第三列：它管的是整张卡的取舍，贴着标题比贴着底部好找。 */
+.bzs-cap {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  transition: border-color var(--dur) var(--ease);
 }
 
-.bzs-kbstate i {
+.bzs-cap:hover {
+  border-color: var(--line-2);
+}
+
+.bzs-cap + .bzs-cap {
+  margin-top: 10px;
+}
+
+/* 开着的卡边框换成铜线：扫一眼就知道哪几项在生效 */
+.bzs-cap.is-on {
+  border-color: var(--copper-line);
+}
+
+.bzs-capico {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--copper-soft);
+  color: var(--copper);
+  flex: none;
+}
+
+.bzs-capico svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* 没接上的项图标退成中性：铜色是「正在生效」的信号，别乱发 */
+.bzs-capico.is-muted {
+  background: var(--sunken);
+  color: var(--t3);
+}
+
+.bzs-capmain {
+  min-width: 0;
+}
+
+.bzs-cap-t {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.bzs-cap-t b {
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+.bzs-cap p {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--t2);
+}
+
+/* 状态徽章：只有「已开启 / 已连接 / 已安装」才点铜点；
+   未装是中性线框，别把「没有」画得和「有」一样显眼。 */
+.bzs-capchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 18px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  color: var(--t3);
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+.bzs-capchip i {
   width: 5px;
   height: 5px;
   border-radius: 50%;
@@ -1812,45 +2038,58 @@
   opacity: .5;
 }
 
-.bzs-kbstate.on {
-  color: var(--t2);
+.bzs-capchip.is-on {
+  color: var(--copper);
+  border-color: var(--copper-line);
+  background: var(--copper-soft);
 }
 
-.bzs-kbstate.on i {
-  background: var(--copper);
+.bzs-capchip.is-on i {
   opacity: 1;
 }
 
-/* 教程按钮紧贴说明文字：吃一条 .bzs-setrow 的分隔线会把一句话拆成两条设置 */
-/* ── bz 组（2026-11-13）：剪藏本 + AI 知识盒 ──
-   两项从 AI 组里抽出来单独成组。剪藏本是开关（装了 bz 才画），
-   AI 知识盒自动连接、只报状态；每项末尾挂一颗自己的教程链接。
-
-   链接做成文字而不是按钮：这一组里唯一的主动作是那颗开关，
-   再做两颗按钮会把「要不要开」稀释成三件平级的事。 */
-.bzs-bzitem + .bzs-bzitem {
-  /* 一项的说明与下一项的标签之间要留一道呼吸，否则两段说明会连成一片 */
+/* 范围内的三档：标签占一行、控件吃满，卡片半宽时也不挤 */
+.bzs-capfield {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   margin-top: 10px;
 }
 
-.bzs-bznote {
-  /* 紧贴上面那一行（-2）：它讲的是这一项开了会怎样，不是又一条设置 */
-  margin: -2px 0 12px;
-  padding-right: 4px;
-  font-size: var(--fs-caption);
-  line-height: 1.8;
+.bzs-capfield > span {
+  font-size: 11px;
   color: var(--t3);
+  letter-spacing: .05em;
+}
+
+.bzs-capfield .bzs-seg {
+  flex: 1 1 100%;
+}
+
+.bzs-capfoot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+/* 卖点标签：卡片位置有限，只放词不放句子 */
+.bzs-captags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 9px;
+}
+
+.bzs-tag {
+  padding: 1px 7px;
+  border-radius: var(--r-chip);
+  background: var(--sunken);
+  font-size: 11px;
+  color: var(--t2);
   letter-spacing: .02em;
-}
-
-/* 组里最后一项不留底部空隙；有安装引导时它是 last-child，这里的清零不生效 */
-.bzs-bzitem:last-child .bzs-bznote {
-  margin-bottom: 0;
-}
-
-/* 知识盒没有开关，状态跟着开关那根轴线走——两行一个贴左一个贴右会显脏 */
-.bzs-bzitem .bzs-kbstate {
-  margin-left: auto;
 }
 
 .bzs-bztut {
@@ -1887,16 +2126,16 @@
   border-bottom-color: currentColor;
 }
 
-/* 没装 bz 时的那一句：它说的是整组的状态，不是第三项设置，
-   所以用一道发丝线跟上面两项断开 */
-.bzs-bzguide {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-}
-
-.bzs-bzguide .bzs-bznote {
-  margin: 0;
+/* 卡片底下的一句状态话（没装 bz / 怎么装 / 装完在哪）：虚线框，
+   和卡片不是同一层——它讲的是整组的前提，不是第三项设置。 */
+.bzs-capnote {
+  margin-top: 12px;
+  padding: 9px 11px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--t3);
 }
 
 /* 分段选择器 */
@@ -1990,14 +2229,16 @@
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur) var(--ease), transform var(--dur-move) var(--ease);
 }
 
+/* 开态换成实心铜轨 + 底色圆点（2026-11-17）：浅铜底配铜点，
+   在小尺寸下几乎看不出开没开，用户得盯着看两秒。 */
 .bzs-switch.on {
-  background: var(--copper-soft);
-  border-color: var(--copper-line);
+  background: var(--copper);
+  border-color: var(--copper);
 }
 
 .bzs-switch.on::after {
   left: 18px;
-  background: var(--copper);
+  background: var(--bg);
 }
 
 /* 快捷键表 */

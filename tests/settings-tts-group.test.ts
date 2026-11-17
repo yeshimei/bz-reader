@@ -88,10 +88,11 @@ describe('朗读组 · 文案瘦身', () => {
     expect(visible).not.toMatch(/>\s*丢给 AI/);
   });
 
-  it('还有用的两句改成视觉隐藏文本，不占一行', () => {
+  it('还有用的那句改成视觉隐藏文本，不占一行', () => {
     const grp = ttsGroup(out(LOCAL));
     expect(grp).toContain('<span class="bzs-sr-only">音色属于模型');
-    expect(grp).toContain('<span class="bzs-sr-only">只对本地语音');
+    /* 2026-11-17：整本预生成那一行撤掉了，它挂的那句读屏提示也跟着走 */
+    expect(grp).not.toContain('只对本地语音');
   });
 });
 
@@ -105,14 +106,16 @@ describe('朗读组 · 缓存与离线', () => {
     expect(slider).toContain('data-act="ttscacheclear"');
   });
 
-  it('整本预生成紧跟离线音频，说的是一件事', () => {
+  /* 2026-11-17：设置页不再摆「整本预生成」——浮条上已经有那颗按钮，
+     设置里再来一个入口只是第二个开关。缓存与离线这一段现在到「优先用
+     离线包」为止。 */
+  it('整本预生成已撤掉，这一段以「优先用离线包」收尾', () => {
     const grp = ttsGroup(out(LOCAL));
     const offline = grp.indexOf('data-act="ttsofflinereload"');
-    const book = grp.indexOf('data-act="ttsprefetchbook"');
     const packFirst = grp.indexOf('data-k="ttsPackFirst"');
 
     expect(offline).toBeGreaterThan(-1);
-    expect(book).toBeGreaterThan(offline);
-    expect(packFirst).toBeGreaterThan(book);
+    expect(packFirst).toBeGreaterThan(offline);
+    expect(grp).not.toContain('data-act="ttsprefetchbook"');
   });
 });

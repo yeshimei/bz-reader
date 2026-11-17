@@ -2,14 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { aiProbe, type AiProbeLabels } from '../src/data/ai-probe';
 
 const labels: AiProbeLabels = {
-  chatTesting: '测试中',
-  embedTesting: '测试中',
+  testing: '测试中',
   ok: (n) => `问答好：${n}`,
   empty: '问答空',
   notReady: '问答没配',
-  embedOk: (n) => `检索好：${n}`,
-  embedNoModel: '检索没配',
-  embedEmpty: '检索空',
   failed: '失败',
 };
 
@@ -17,54 +13,50 @@ function deps(patch: Partial<Parameters<typeof aiProbe>[0]> = {}): Parameters<ty
   return {
     chatReady: true,
     chat: async () => '好',
-    embedModel: 'bge-small',
-    embed: async () => [0.1, 0.2],
     ...patch,
   };
 }
 
 describe('aiProbe · 设置页连接测试', () => {
-  it('两路都通：各报各的结果', async () => {
+  it('连上：把回的字带进结论', async () => {
     const r = await aiProbe(deps(), labels);
-    expect(r.chat).toMatchObject({ level: 'ok' });
-    expect(r.chat.message).toContain('问答好');
-    expect(r.embed).toMatchObject({ level: 'ok' });
-    expect(r.embed.message).toContain('bge-small');
+    expect(r.level).toBe('ok');
+    expect(r.message).toContain('问答好');
   });
 
-  it('chat 没配好：直接报没配，不发请求', async () => {
+  it('没配好：直接报没配，不发请求', async () => {
     const chat = vi.fn(async () => '好');
     const r = await aiProbe(deps({ chatReady: false, chat }), labels);
-    expect(r.chat.level).toBe('skip');
+    expect(r.level).toBe('skip');
+    expect(r.message).toBe(labels.notReady);
     expect(chat).not.toHaveBeenCalled();
-    /* 不影响 embed */
-    expect(r.embed.level).toBe('ok');
   });
 
-  it('chat 抛错不连累 embed', async () => {
+  it('抛错：判失败并带上原因', async () => {
     const r = await aiProbe(
-      deps({ chat: async () => { throw new Error('404'); } }),
+      deps({
+        chat: async () => {
+          throw new Error('404');
+        },
+      }),
       labels,
     );
-    expect(r.chat.level).toBe('fail');
-    expect(r.chat.message).toContain('404');
-    expect(r.embed.level).toBe('ok');
+    expect(r.level).toBe('fail');
+    expect(r.message).toContain('404');
   });
 
-  it('chat 连上但回空、embed 回空向量：两样都判失败', async () => {
-    const r = await aiProbe(
-      deps({ chat: async () => '   ', embed: async () => [] }),
-      labels,
-    );
-    expect(r.chat.message).toBe(labels.empty);
-    expect(r.embed.message).toBe(labels.embedEmpty);
+  it('连上但回空：判失败', async () => {
+    const r = await aiProbe(deps({ chat: async () => '   ' }), labels);
+    expect(r.level).toBe('fail');
+    expect(r.message).toBe(labels.empty);
   });
 
-  it('没选嵌入模型：检索报没配，不请求', async () => {
-    const embed = vi.fn(async () => [1]);
-    const r = await aiProbe(deps({ embedModel: '', embed }), labels);
-    expect(r.embed.level).toBe('skip');
-    expect(r.embed.message).toBe(labels.embedNoModel);
-    expect(embed).not.toHaveBeenCalled();
+  /* 2026-11-17：设置页删掉「检索」那一行，探测也只留问答——
+     不能再偷偷发一次嵌入请求（真实计费，且结果无处可显示）。 */
+  it('只发一次问答请求，不再顺带探测嵌入', async () => {
+    const chat = vi.fn(async () => '好');
+    const r = await aiProbe(deps({ chat }), labels);
+    expect(chat).toHaveBeenCalledTimes(1);
+    expect(r).toEqual({ level: 'ok', message: labels.ok('好') });
   });
 });

@@ -154,15 +154,30 @@ describe('设置页渲染', () => {
     expect(out).not.toContain('触摸、选区、翻页与跳转');
   });
 
-  it('高级版：AI 组有连接测试按钮，问答与检索各留一行结果', () => {
+  /* 2026-11-17：原来问答、检索各留一行结果，检索那行只会在没装 bz 时
+     报一句「建不了索引」——用户看不懂也帮不上忙，整行删掉，探测只留问答。 */
+  it('高级版：AI 组有连接测试按钮，只报问答一行结果', () => {
     entState.unlocked = true;
     try {
       const out = html();
       expect(out).toContain('data-act="aiprobe"');
       expect(out).toContain('data-role="aiprobe-chat"');
-      expect(out).toContain('data-role="aiprobe-embed"');
+      expect(out).not.toContain('data-role="aiprobe-embed"');
+      expect(out).not.toContain('<label>检索</label>');
     } finally {
       entState.unlocked = false;
+    }
+  });
+
+  /* 2026-11-17：三张引擎卡的图标名曾写成 cloud / server / monitor，
+     自绘图标表里没有这三枚，于是渲染出三个 16px 空壳——真机上就是标题
+     上方一块空白。断言「卡里的 svg 必须有形状」，再犯就红。 */
+  it('朗读三张引擎卡都画得出图标，不留空壳', () => {
+    const out = html();
+    const cards = out.split('class="bzs-engcard').slice(1);
+    expect(cards).toHaveLength(3);
+    for (const card of cards) {
+      expect(card).toMatch(/bzs-engicon"><svg[^>]*>\s*<(path|rect|circle)/);
     }
   });
 
@@ -255,8 +270,13 @@ describe('设置页渲染', () => {
     entState.unlocked = false;
     const out = html();
     /* 2026-11-10：PDF 在对照表里单独成段，锁标指向那一小段（mode 'pdf'），
-       不再借用「更多格式」那一行。 */
-    expect(out).toMatch(/class="bzs-setgrp[^"]*is-locked"[^>]*data-act="unlock" data-mode="pdf"/);
+       不再借用「更多格式」那一行。
+       2026-11-17：扫描页识别并进 PDF 后，锁只挂在「阅读」「导出与链接」
+       两块上——扫描页识别不在付费门里，整卡上锁会把它一起关掉。 */
+    expect((out.match(/class="bzs-sub is-locked"[^>]*data-act="unlock" data-mode="pdf"/g) ?? []).length).toBe(2);
+    expect(out).not.toMatch(/class="bzs-setgrp[^"]*is-locked"[^>]*data-mode="pdf"/);
+    /* 扫描页识别的输入框照旧可用（基础版也能认扫描页） */
+    expect(out).toMatch(/data-k="pdfOcr\.apiKey"/);
     entState.unlocked = false;
   });
 
@@ -580,17 +600,17 @@ describe('设置页 · 两列各自成流', () => {
     expect((out.match(/class="bzs-set-col"/g) ?? []).length).toBe(2);
   });
 
-  it('左列四组：界面、版式、外观、PDF', () => {
+  it('左列六组：界面、版式、外观、标注、数据、PDF', () => {
     const [left] = splitCols(html());
-    for (const h of ['界面', '版式', '外观', 'PDF']) expect(left, h).toContain(`<h3>${h}</h3>`);
-    for (const h of ['阅读页图标', '标注', '数据', '朗读', 'AI 助手', '授权'])
+    for (const h of ['界面', '版式', '外观', '标注', '数据', 'PDF']) expect(left, h).toContain(`<h3>${h}</h3>`);
+    for (const h of ['阅读页图标', '朗读', 'AI 助手', 'bz', '插件', '授权'])
       expect(left, h).not.toContain(`<h3>${h}</h3>`);
   });
 
-  it('右列五组：标注、数据、朗读、AI 助手、授权', () => {
+  it('右列五组：朗读、AI 助手、bz、插件、授权', () => {
     const [, right] = splitCols(html());
-    for (const h of ['标注', '数据', '朗读', 'AI 助手', '授权']) expect(right, h).toContain(`<h3>${h}</h3>`);
-    for (const h of ['界面', '版式', '外观', 'PDF', '阅读页图标'])
+    for (const h of ['朗读', 'AI 助手', 'bz', '插件', '授权']) expect(right, h).toContain(`<h3>${h}</h3>`);
+    for (const h of ['界面', '版式', '外观', '标注', '数据', 'PDF', '阅读页图标'])
       expect(right, h).not.toContain(`<h3>${h}</h3>`);
   });
 
@@ -612,7 +632,7 @@ describe('设置页 · 两列各自成流', () => {
      所以它在序号里往后走了一格，其余顺序不动。
 bz 组 2026-11-13 从 AI 组里抽出来，紧跟在 AI 之后、授权之前。
 扫描页识别 2026-11-11 紧跟 PDF：它是 PDF 的一个子话题（同一组控件口径）。 */
-  it('摊平后的组分顺序：朗读排在 AI 之上', () => {
+  it('摊平后的组分顺序：左边本机设置、右边接服务', () => {
     const out = html();
     const order = [...out.matchAll(/<h3>(.*?)<\/h3>/g)].map((m) => m[1]);
     expect(order).toEqual([
@@ -620,10 +640,9 @@ bz 组 2026-11-13 从 AI 组里抽出来，紧跟在 AI 之后、授权之前。
       '界面',
       '版式',
       '外观',
-      'PDF',
-      '扫描页识别',
       '标注',
       '数据',
+      'PDF',
       '朗读',
       'AI 助手',
       'bz',
@@ -632,6 +651,8 @@ bz 组 2026-11-13 从 AI 组里抽出来，紧跟在 AI 之后、授权之前。
       '阅读页图标',
       '快捷键',
     ]);
+    /* 扫描页识别并进 PDF 之后不再单独成组（2026-11-17） */
+    expect(order).not.toContain('扫描页识别');
   });
 });
 
@@ -879,8 +900,10 @@ describe('划线颜色 · 与划词条同一份', () => {
     expect(selectedPen(html(false, DEFAULT_SETTINGS, 'vermilion'))).toHaveLength(1);
   });
 
-  it('说明写清楚"点色点会记住"，不是一句孤零零的默认值', () => {
-    expect(html()).toContain('点划词条上的色点就会记在这里');
+  /* 2026-11-17 用户定稿：设置页不再成段解释，色点自己够说明。
+     语言包里的词条留着（八包 key 集合必须一致），这里只钉界面不再渲染。 */
+  it('不再渲染那句解释，色点自己说明', () => {
+    expect(html()).not.toContain('点划词条上的色点就会记在这里');
   });
 });
 
@@ -956,5 +979,114 @@ describe('朗读组 · 三张引擎卡', () => {
     expect(local).not.toContain('/v1/audio/speech');
     expect(local).not.toContain('Access-Control-Allow-Origin');
     expect(local).not.toContain('data.json');
+  });
+
+  /* 2026-11-17：设置页不再摆「整本预生成」。浮条上已经有那颗按钮，
+     设置里再来一个入口只是第二个开关，还多一行说明。 */
+  it('不再有「整本预生成」那一行', () => {
+    const local = ttsHtml({ ttsEngine: 'local' });
+    expect(local).not.toContain('data-act="ttsprefetchbook"');
+    expect(local).not.toContain('<label>整本预生成</label>');
+  });
+});
+
+/**
+ * 2026-11-17 全页重排：页内索引、组内分区、能力卡、教程位、文案撤除。
+ *
+ * 这一批是用户对着原型逐条定的，改回旧样子要连测试一起改。
+ */
+describe('设置页 · 2026-11-17 重排', () => {
+  const out = (): string => html();
+  /** 截出某一组（从它的 h3 或组标题行到下一个 h3） */
+  function groupOf(src: string, title: string): string {
+    const start = src.indexOf(`>${title}</h3>`);
+    expect(start, title).toBeGreaterThan(-1);
+    const next = src.indexOf('<h3>', start + 1);
+    return src.slice(start, next < 0 ? undefined : next);
+  }
+
+  it('顶部页内索引：13 个组各一颗，落点 id 都在', () => {
+    const src = out();
+    const jumps = [...src.matchAll(/data-act="setjump" data-k="([a-z]+)"/g)].map((m) => m[1]);
+    expect(jumps).toEqual(['ui', 'layout', 'look', 'marks', 'data', 'pdf', 'tts', 'ai', 'bz', 'plugins', 'lic', 'header', 'keys']);
+    for (const id of jumps) expect(src, id).toContain(`id="bz-set-${id}"`);
+  });
+
+  it('大组切成小分区，行数少的组保持平铺', () => {
+    const src = out();
+    const subs = (title: string): number => (groupOf(src, title).match(/class="bzs-sub[ "]/g) ?? []).length;
+    expect(subs('版式'), '版式').toBe(2); // 文字 / 页面
+    expect(subs('数据'), '数据').toBe(3); // 目录 / 备份与恢复 / 排查
+    expect(subs('PDF'), 'PDF').toBe(3); // 阅读 / 导出与链接 / 扫描页识别
+    expect(subs('朗读'), '朗读').toBe(3); // 连接 / 播放 / 缓存与离线
+    expect(subs('AI 助手'), 'AI 助手').toBe(2); // 连接 / 问答
+    expect(subs('标注'), '标注').toBe(0);
+    expect(subs('外观'), '外观').toBe(0);
+    expect(subs('授权'), '授权').toBe(0);
+  });
+
+  it('扫描页识别并进 PDF：识别方式与密钥都在 PDF 组里', () => {
+    const pdf = groupOf(out(), 'PDF');
+    for (const k of ['pdfOcrEngine', 'pdfOcr.apiKey', 'pdfOcrProbe']) {
+      expect(pdf, k).toContain(k === 'pdfOcrProbe' ? 'data-act="ocrtest"' : `data-k="${k}"`);
+    }
+  });
+
+  it('PDF 与 AI 的标题右侧各有一颗「看教程」', () => {
+    const src = out();
+    expect(groupOf(src, 'PDF')).toContain('data-act="pdftut"');
+    expect(groupOf(src, 'AI 助手')).toContain('data-act="aichattut"');
+    expect(groupOf(src, '朗读')).toContain('data-act="ttstut"');
+  });
+
+  it('说明文字不再成段出现（用户圈掉的十处）', () => {
+    const src = out();
+    for (const line of [
+      '识别走自己这一套 OCR 配置',
+      '发一张内置小测试图',
+      '扫描页没有文字层',
+      '分别测问答与检索',
+      '开启后问全书只检索读到的地方',
+      '只对重新打开的书生效',
+      '划完字自动把链接放进剪贴板',
+      '写进笔记的链接后面那截字',
+      '把这一页的图 POST 过去',
+      '点划词条上的色点',
+    ]) {
+      expect(src, line).not.toContain(line);
+    }
+  });
+
+  it('OCR 密钥改名为「密钥」', () => {
+    const src = out();
+    expect(src).not.toContain('OCR 密钥');
+    expect(src).toContain('data-k="pdfOcr.apiKey"');
+  });
+
+  it('OCR 回退提示还在，只是一行小字', () => {
+    const src = html(false, {
+      ...DEFAULT_SETTINGS,
+      pdfOcr: { ...DEFAULT_SETTINGS.pdfOcr, engine: 'http', url: '' },
+    });
+    expect(src).toContain('还没填服务地址');
+  });
+
+  it('bz 与插件用能力卡：三项各一张', () => {
+    const src = out();
+    expect((src.match(/class="bzs-cap[ "]/g) ?? []).length).toBe(3);
+    expect(src).toContain('bzs-capchip');
+    /* 状态徽章是词，不是句子：长句挪去卡片底下的虚线块 */
+    expect(groupOf(src, '插件')).toContain('bzs-capnote');
+  });
+
+  it('阅读页图标 16 行改双列容器', () => {
+    const src = out();
+    expect(src).toContain('class="bzs-icrows"');
+    expect((src.match(/class="bzs-icrow"/g) ?? []).length).toBe(16);
+  });
+
+  it('语言与强调色这两行标签独占一行（9 档 / 8 档）', () => {
+    const src = out();
+    expect((src.match(/class="bzs-setrow is-stack"/g) ?? []).length).toBe(2);
   });
 });

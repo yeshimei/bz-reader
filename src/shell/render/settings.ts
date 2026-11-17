@@ -6,6 +6,15 @@
  * 理由：这些选项全都服务于「怎么读」，用户调它们的时候正看着书，
  * 不该被拽到一个和阅读无关的系统面板里。
  *
+ * 2026-11-17 全页重排：
+ *   · 行数多的大组按用途切内部小分区（.bzs-sub），一组不再是一堵墙；
+ *   · bz / 插件这类「接上什么能力」的项改用能力卡（.bzs-cap）：图标 +
+ *     名称 + 状态 + 一句话 + 动作，装没装、开没开一眼可见；
+ *   · 说明文字不再成段出现（用户定稿）：能进 placeholder 的进 placeholder，
+ *     状态进徽章，教程收进卡片底部，只有「现在会出什么岔子」这类实时提示
+ *     还留一行小字；
+ *   · 顶部加页内索引（.bzs-setnav）：组一多，滚起来就找不着北。
+ *
  * 写入分两条线：
  *   prefs    → 版式与正文纸色（改完立刻重排版面）
  *   settings → 导出目录、AI 服务（改完不影响当前页面）
@@ -44,7 +53,7 @@ export interface SettingsView {
   /** 插件版本（manifest.json），「关于」条显示它 */
   version?: string;
   /**
-   * BZ AI 知识库现状：AI 组里「连接至 BZ AI 知识库」那行按它显示。
+   * BZ AI 知识库现状：bz 组里「AI 知识盒」那张卡按它显示。
    *
    * 只读展示、不给开关——2026-11-07 起是自动识别（data/bz-bridge）。缺省 =
    * 还没探测到，按「未连接」画状态并给教程出口，不摆假开关。
@@ -57,8 +66,6 @@ export interface SettingsView {
   review?: { installed: boolean };
   /** 当前这本书的离线音频（烤进书库的包）：null = 还没识别到 */
   offline?: { chapters: number; mb: number } | null;
-  /** 整本预生成是否正在跑（按钮据此换成「停止」） */
-  prefetchingBook?: boolean;
   /**
    * 是不是手机形态（缺省 `isMobileShell()`——含桌面验收用的 force-mobile）。
    *
@@ -118,6 +125,28 @@ export const KEY_COMMANDS: Array<{ id: string; key: MsgKey; builtin?: string }> 
   { id: 'bz-reader:pdf-region-card', key: 'key.pdfRegionCard' },
 ];
 
+/**
+ * 页内索引的条目：与两列摊平后的顺序逐项对应。
+ *
+ * 顺序就是窄屏叠成一列时的阅读顺序，也是索引条从左到右的顺序——
+ * 两处不同步会让人在索引里点到一个跟预期差一屏的位置。
+ */
+const NAV: Array<[string, MsgKey]> = [
+  ['ui', 'settings.grp.ui'],
+  ['layout', 'settings.grp.layout'],
+  ['look', 'settings.grp.look'],
+  ['marks', 'settings.grp.marks'],
+  ['data', 'settings.grp.data'],
+  ['pdf', 'settings.grp.pdf'],
+  ['tts', 'settings.grp.tts'],
+  ['ai', 'settings.grp.ai'],
+  ['bz', 'settings.grp.bz'],
+  ['plugins', 'settings.grp.plugins'],
+  ['lic', 'settings.grp.lic'],
+  ['header', 'settings.grp.header'],
+  ['keys', 'settings.grp.keys'],
+];
+
 function seg(name: string, opts: Array<[string, string]>, cur: string, act = 'setpref', cls = 'bzs-seg'): string {
   return segHtml(
     opts.map(([v, k]) => ({ v, k })),
@@ -156,15 +185,45 @@ function prefToggle(k: string, on: boolean, label: string): string {
 }
 
 /**
+ * 一张设置卡（组）。
+ *
+ * `id` 是页内索引的落点，固定 `bz-set-<id>`；`tut` 给了就在标题那一行右侧
+ * 挂一颗「看教程」（PDF / 朗读 / AI 三组）。
+ *
+ * 标题保持纯文本：别把按钮塞进 <h3>，按 `<h3>` 认组的地方（分组断言、
+ * 窄屏摊平顺序）会把按钮字一起读成组名。
+ */
+function grp(
+  id: string,
+  title: string,
+  body: string,
+  opts: { tut?: string; wide?: boolean; cls?: string; attr?: string } = {},
+): string {
+  const head = opts.tut
+    ? `<div class="bzs-setgrp-head"><h3>${title}</h3>${opts.tut}</div>`
+    : `<h3>${title}</h3>`;
+  const cls = ['bzs-setgrp', opts.wide ? 'wide' : '', opts.cls || ''].filter(Boolean).join(' ');
+  return `<div class="${cls}" id="bz-set-${id}"${opts.attr || ''}>${head}${body}</div>`;
+}
+
+/**
+ * 组内分区（2026-11-17）。
+ *
+ * 只在 6 行以上的组里用：行数少时分区本身就是噪音。一块浅底小面板 +
+ * 一枚铜色小横杠的标题，把「这一堆在讲什么」直接写出来。
+ * `cls` 给 PDF 的锁定态用（`is-locked` 只包住要解锁的两块）。
+ */
+function sub(title: string, body: string, cls = '', attr = ''): string {
+  return `<div class="bzs-sub${cls ? ` ${cls}` : ''}"${attr}>${title ? `<div class="bzs-subh">${title}</div>` : ''}${body}</div>`;
+}
+
+/**
  * 设置页顶部那条「关于」（横跨两栏）。
  *
  * 版本号与授权徽章紧跟「关于」后面：「我这是哪一版」「我买没买」是同一类
- * 问题，不该让人先翻到页尾的授权组再回来。四个出口都是「离开设置页去别处」
+ * 问题，不该让人先翻到页尾的授权组再回来。五个出口都是「离开设置页去别处」
  * 的入口，不是设置项——这也是它横跨两栏的理由：它是整页的题头，不是两列
  * 里的又一个方框。
- *
- * 视频教程占一格：没装 bz 的人先看一期整体介绍，所以它和 GitHub、
- * 交流群一样是常驻出口，不做成「做好了再放上来」。
  */
 function aboutBar(version: string, paid: boolean, patron: boolean, name?: string): string {
   const ver = version ? `v${esc(version)}` : t('settings.about.version');
@@ -215,33 +274,45 @@ export function viewSettings(v: SettingsView): string {
   const ent = entitlement();
   const paid = ent.tier === 'paid';
 
+  /* 教程链接：组标题右侧与能力卡底部共用同一颗（铜色小字 + 播放图标）。
+     2026-11-14 提到朗读组之前——朗读组在页面上出现得更早，定义留在后面
+     会「使用前未声明」。 */
+  const tutBtn = (act: string, key: MsgKey): string =>
+    `<button class="bzs-bztut" data-act="${act}">${ico('video')}<span>${t(key)}</span></button>`;
+
   /* 界面语言：放最前，因为它是「其他设置长什么样」的前提。
      auto = 跟随 Obsidian；手动选了之后不再看宿主——用户特意选中文，
      换台英文 Obsidian 不该把界面翻回去。
 
-     九档（auto + 八种）在单行里放不下，用 `bzs-seg-wrap` 折行——强调色那组
-     也是八档、也走这个 class，宽度行为已经验过。语言名一律用**自称**
-     （Deutsch / 日本語），这几条不走 t()：只会德语的人在中文界面里
-     也得找得到 "Deutsch"。
+     九档（auto + 八种）在单行里放不下：2026-11-17 起标签独占一行、
+     选择器吃满整宽（.bzs-setrow.is-stack），窄列也不会把一个字挤成两行。
+     语言名一律用**自称**（Deutsch / 日本語），这几条不走 t()：只会德语的
+     人在中文界面里也得找得到 "Deutsch"。
 
      组内没有说明行：2026-11-05 去掉，选择器本身就是全部交互。 */
   const languageOpts: Array<[string, string]> = [
     ['auto', t('settings.language.auto')],
     ...LOCALES.map((l) => [l, LOCALE_NAMES[l]] as [string, string]),
   ];
-  const languageGrp = `<div class="bzs-setgrp">
-      <h3>${t('settings.grp.ui')}</h3>
-      <div class="bzs-setrow"><label>${t('settings.language')}</label><div class="bzs-seg bzs-seg-wrap">${languageOpts
-        .map(
-          (o) =>
-            `<button class="${String(s.language) === o[0] ? 'on' : ''}" data-act="setlang" data-k="language" data-v="${o[0]}">${o[1]}</button>`,
-        )
-        .join('')}</div></div>
-    </div>`;
+  const languageGrp = grp(
+    'ui',
+    t('settings.grp.ui'),
+    `<div class="bzs-setrow is-stack"><label>${t('settings.language')}</label><div class="bzs-seg bzs-seg-wrap">${languageOpts
+      .map(
+        (o) =>
+          `<button class="${String(s.language) === o[0] ? 'on' : ''}" data-act="setlang" data-k="language" data-v="${o[0]}">${o[1]}</button>`,
+      )
+      .join('')}</div></div>`,
+  );
 
-  const layout = `<div class="bzs-setgrp">
-      <h3>${t('settings.grp.layout')}</h3>
-      <div class="bzs-setrow"><label>${t('settings.font')}</label>${seg(
+  /* 版式分两块：文字（字号 / 行高 / 边距 / 对齐）与页面（方向 / 分栏 / 翻页）。
+     八行摊成一堵墙的时候，找「分栏」得从头扫到尾。 */
+  const layoutGrp = grp(
+    'layout',
+    t('settings.grp.layout'),
+    sub(
+      t('settings.sub.text'),
+      `<div class="bzs-setrow"><label>${t('settings.font')}</label>${seg(
         'fontFamily',
         FONT_FAMILIES.map((f) => [f.value, fontLabel(f.value)] as [string, string]),
         p.fontFamily,
@@ -256,15 +327,18 @@ export function viewSettings(v: SettingsView): string {
           ['left', t('settings.align.left')],
         ],
         p.align,
-      )}</div>
-      <div class="bzs-setrow"><label>${t('settings.direction')}</label>${seg(
-        'layout',
-        [
-          ['horizontal', t('settings.direction.h')],
-          ['vertical', t('settings.direction.v')],
-        ],
-        p.layout,
-      )}</div>
+      )}</div>`,
+    ) +
+      sub(
+        t('settings.sub.page'),
+        `<div class="bzs-setrow"><label>${t('settings.direction')}</label>${seg(
+          'layout',
+          [
+            ['horizontal', t('settings.direction.h')],
+            ['vertical', t('settings.direction.v')],
+          ],
+          p.layout,
+        )}</div>
       ${
         /* 手机竖屏恒为单栏（引擎的容器方向规则写死 1），这一行给了也白给 */
         mobile
@@ -281,15 +355,14 @@ export function viewSettings(v: SettingsView): string {
       ${
         /* 桌面点正文翻页：默认关（正文点下去是选字 / 点链接，不是翻页）。
            只有桌面有这一项——手机那儿点按就是唯一的翻页手势，没有开关可关。 */
-        mobile
-          ? ''
-          : `${prefToggle('desktopTapTurn', p.desktopTapTurn === true, t('settings.desktopTapTurn'))}
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.desktopTapTurn.hint')}</div>`
-      }
-    </div>`;
+        mobile ? '' : prefToggle('desktopTapTurn', p.desktopTapTurn === true, t('settings.desktopTapTurn'))
+      }`,
+      ),
+  );
 
   /* 外观只剩强调色一项：底色与文字跟随 Obsidian，不再有皮肤可挑。
-     第一档是「跟随 Obsidian」，用户换主题或切明暗时它自己跟着变。 */
+     第一档是「跟随 Obsidian」，用户换主题或切明暗时它自己跟着变。
+     八档同样独占一行（见 .bzs-setrow.is-stack）。 */
   const accentBtns = ACCENT_OPTIONS.map(
     (a) =>
       `<button class="${p.accent === a.value ? 'on' : ''}" data-act="setpref" data-k="accent" data-v="${a.value}"><span class="dot" style="background:${
@@ -317,9 +390,10 @@ export function viewSettings(v: SettingsView): string {
     ],
     p.pageLabel,
   );
-  const look = `<div class="bzs-setgrp">
-      <h3>${t('settings.grp.look')}</h3>
-      <div class="bzs-setrow"><label>${t('settings.accent')}</label><div class="bzs-seg bzs-seg-wrap">${accentBtns}</div></div>
+  const lookGrp = grp(
+    'look',
+    t('settings.grp.look'),
+    `<div class="bzs-setrow is-stack"><label>${t('settings.accent')}</label><div class="bzs-seg bzs-seg-wrap">${accentBtns}</div></div>
       <div class="bzs-setrow"><label>${t('settings.toolbarStyle')}</label>${toolbarStyleBtns}</div>
       <div class="bzs-setrow"><label>${t('settings.pageLabel')}</label>${pageLabelBtns}</div>
       ${prefToggle('chapterLabel', p.chapterLabel !== false, t('settings.chapterLabel'))}
@@ -331,15 +405,74 @@ export function viewSettings(v: SettingsView): string {
           ['jump', t('settings.footnote.jump')],
         ],
         p.footnote,
-      )}</div>
-    </div>`;
+      )}</div>`,
+  );
 
-  /* PDF 单独一组：自动复制链接 / 链接别名原来混在「外观」里，跟强调色、
-     工具条样式摆在一起，找的人不会想到去那里翻。PDF 整本都属高级版，
-     基础版照朗读 / AI 的口径整组灰掉，点一下弹高级功能说明。
+  /* 标注组只剩能动手的三项：画笔、导出目录、带想法。「摘录链接」那一行没有
+     任何控件，讲的双链能力在复制书摘时本来就有，2026-11-05 整行去掉。
+     笔色五档走 bzs-seg-wrap：与语言、强调色同一套格子下限，窄窗不会叠字。
+     2026-11-17：说明行去掉（用户定稿），色点本身就是「上次用的那个」。 */
+  const marksGrp = grp(
+    'marks',
+    t('settings.grp.marks'),
+    `<div class="bzs-setrow"><label>${t('settings.pen')}</label><div class="bzs-seg bzs-seg-wrap">${HIGHLIGHT_COLORS.map(
+      (c) =>
+        `<button class="${v.pen === c.value ? 'on' : ''}" data-act="setpen" data-v="${c.value}"><span class="dot" style="background:${c.css}"></span>${colorLabel(c.value)}</button>`,
+    ).join('')}</div></div>
+      <div class="bzs-setrow"><label>${t('settings.exportDir')}</label>
+        <button class="bzs-pickdir" data-act="pickexportdir"><span class="bzs-sr-only">${t('settings.pickFromList')}</span>
+          <span>${esc(s.exportDir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>
+        </button></div>
+      ${toggle('exportComments', s.exportComments, t('settings.exportComments'))}`,
+  );
+
+  /* 数据组分三块：目录 / 备份与恢复 / 排查。
+     目录一律只给选择器，不给输入框：vault 路径有口径（分隔符、首尾斜杠、
+     大小写），手打死角很多，错了还不报错——文件会写进别处。
+     备份说明紧跟在备份按钮下面（它说的是备份，不该挂在调试开关的脚下）；
+     调试那一项只留一句「只在排查问题时打开」。 */
+  const dir = dataDirOf();
+  const importDir = s.importDir || DEFAULT_SETTINGS.importDir;
+  const dataGrp = grp(
+    'data',
+    t('settings.grp.data'),
+    sub(
+      t('settings.sub.dirs'),
+      `<div class="bzs-setrow"><label>${t('settings.importDir')}</label>
+        <button class="bzs-pickdir" data-act="pickimportdir"><span class="bzs-sr-only">${t('settings.pickFolder')}</span>
+          <span>${esc(importDir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>
+        </button></div>
+      <div class="bzs-setrow"><label>${t('settings.dataDir')}</label>
+        <button class="bzs-pickdir" data-act="pickdatadir"><span class="bzs-sr-only">${t('settings.pickFromList')}</span>
+          <span>${esc(dir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>
+        </button></div>`,
+    ) +
+      sub(
+        t('settings.backupRestore'),
+        `<div class="bzs-setrow"><label>${t('settings.backupRestore')}</label>
+          <button class="bzs-btn sm" data-act="backup"><span class="bzs-sr-only">${t('settings.backup.tip')}</span>${t('settings.backup')}</button>
+          <button class="bzs-btn sm" data-act="restore"><span class="bzs-sr-only">${t('settings.restore.tip')}</span>${t('settings.restore')}</button></div>
+        <div class="bzs-mini bzs-subnote">${t('settings.data.hint')}</div>`,
+      ) +
+      sub(
+        t('settings.sub.debug'),
+        `${toggle('debugLog', s.debugLog, t('settings.debugLog'))}
+        <div class="bzs-mini bzs-subnote">${t('settings.debugLog.hint')}
+          <button class="bzs-btn sm" data-act="debugcopy">${t('settings.debugLog.copy')}</button>
+        </div>`,
+      ),
+  );
+
+  /* PDF 单独一组：翻页 / 单双页 / 缩放 / 批注 / 反链 / 导出倍率 / 自动复制 /
+     链接别名，2026-11-17 起扫描页识别也并进来（它是 PDF 的一个子话题）。
+     PDF 整本都属高级版：锁定只包住「阅读」与「导出与链接」两块，**扫描页
+     识别照旧可点**——它本来就不在付费门里，整卡上锁会把它一起关掉。
      2026-11-10：PDF 在对照表里单独成段，锁标指向那一小段（cap 'pdf'），
      不再借用「更多格式」那一行。 */
   const pdfUnlocked = can('pdf');
+  const pdfLock = pdfUnlocked ? '' : 'is-locked';
+  const pdfLockAttr = pdfUnlocked ? '' : ' data-act="unlock" data-mode="pdf"';
+  const pdfLockSr = pdfUnlocked ? '' : `<span class="bzs-sr-only">${t('settings.locked')}</span>`;
   /* 本组三套分段控件一律带 bzs-seg-wrap，并按档数挂 pdf4 / pdf3：
      手机上设置卡片只有 ~300px，flex 平分会把四档挤成「3 个一行 + 最后一个
      被拉成整条」；桌面右列 ~340px 时 auto-fit 也只算得出 3 列，四档会变 3+1。
@@ -352,11 +485,12 @@ export function viewSettings(v: SettingsView): string {
     'setpref',
     'bzs-seg bzs-seg-wrap bzs-seg-pdf3',
   );
-  const pdf = `<div class="bzs-setgrp bzs-setgrp-pdf${pdfUnlocked ? '' : ' is-locked'}"${
-    pdfUnlocked ? '' : ` data-act="unlock" data-mode="pdf"`
-  }><span class="bzs-sr-only">${t('settings.locked')}</span>
-      <h3>${t('settings.grp.pdf')}</h3>
-      <div class="bzs-setrow is-segrow"><label>${t('pdf.layout.flow')}</label>${seg(
+  const pdfGrp = grp(
+    'pdf',
+    t('settings.grp.pdf'),
+    sub(
+      t('settings.sub.pdfRead'),
+      `${pdfLockSr}<div class="bzs-setrow is-segrow"><label>${t('pdf.layout.flow')}</label>${seg(
         'pdfFlow',
         [
           ['scroll', t('pdf.layout.scroll')],
@@ -384,7 +518,6 @@ export function viewSettings(v: SettingsView): string {
         'setpref',
         'bzs-seg bzs-seg-wrap bzs-seg-pdf4',
       )}</div>
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfZoom.hint')}</div>
       <div class="bzs-setrow"><label>${t('settings.pdfAnnots')}</label><button class="bzs-switch${
         p.pdfAnnots ? ' on' : ''
       }" data-act="setpref" data-k="pdfAnnots" data-v="${p.pdfAnnots ? '0' : '1'}"><span class="bzs-sr-only">${t(
@@ -394,14 +527,18 @@ export function viewSettings(v: SettingsView): string {
         p.pdfBacklinks ? ' on' : ''
       }" data-act="setpref" data-k="pdfBacklinks" data-v="${p.pdfBacklinks ? '0' : '1'}"><span class="bzs-sr-only">${t(
         'settings.pdfBacklinks',
-      )}</span></button></div>
-      <div class="bzs-setrow is-segrow"><label>${t('settings.pdfExportScale')}</label>${exportScaleBtns}</div>
+      )}</span></button></div>`,
+      pdfLock,
+      pdfLockAttr,
+    ) +
+      sub(
+        t('settings.sub.pdfExport'),
+        `${pdfLockSr}<div class="bzs-setrow is-segrow"><label>${t('settings.pdfExportScale')}</label>${exportScaleBtns}</div>
       <div class="bzs-setrow"><label>${t('settings.pdfAutoLink')}</label><button class="bzs-switch${
         p.pdfAutoLink ? ' on' : ''
       }" data-act="setpref" data-k="pdfAutoLink" data-v="${p.pdfAutoLink ? '0' : '1'}"><span class="bzs-sr-only">${t(
         'settings.pdfAutoLink',
       )}</span></button></div>
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfAutoLink.hint')}</div>
       <div class="bzs-setrow is-segrow"><label>${t('settings.pdfLinkLabel')}</label>${seg(
         'pdfLinkLabel',
         /* 只列三档：📖（emoji）档从面板收起（2026-11-10），面板更干净；
@@ -414,34 +551,43 @@ export function viewSettings(v: SettingsView): string {
         p.pdfLinkLabel,
         'setpref',
         'bzs-seg bzs-seg-wrap bzs-seg-pdf3',
-      )}</div>
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfLinkLabel.hint')}</div>
-    </div>
-    <div class="bzs-setgrp">
-      <h3>${t('settings.grp.pdfOcr')}</h3>
-      <div class="bzs-setrow is-segrow"><label>${t('settings.pdfOcrEngine')}</label>${seg(
-        'pdfOcrEngine',
-        /* 手机上不列要连电脑 127.0.0.1 的外部 OCR 服务：连不上，列了只会
-           让人填一个永远不通的地址（本地 TTS 早就是这个口径） */
-        ocrEngineChoices(mobile).map(
-          (id): [string, string] => [
-            id,
-            t(id === 'http' ? 'settings.pdfOcrEngine.http' : 'settings.pdfOcrEngine.deepseek'),
-          ],
-        ),
-        /* 显示用户点的那个，而不是「实际生效」的那个：选了外部服务却没填
-           地址就弹回 DeepSeek，点上去像没反应（2026-11-15 用户指出）。
-           回退只留在运行期，这里如实显示选择，下面用一句提示说清。 */
-        s.pdfOcr.engine,
-        'setocr',
-        'bzs-seg bzs-seg-pdf2',
-      )}</div>
+      )}</div>`,
+        pdfLock,
+        pdfLockAttr,
+      ) +
+      sub(
+        t('settings.grp.pdfOcr'),
+        `<div class="bzs-setrow is-segrow"><label>${t('settings.pdfOcrEngine')}</label>${seg(
+          'pdfOcrEngine',
+          /* 手机上不列要连电脑 127.0.0.1 的外部 OCR 服务：连不上，列了只会
+             让人填一个永远不通的地址（本地 TTS 早就是这个口径） */
+          ocrEngineChoices(mobile).map(
+            (id): [string, string] => [
+              id,
+              t(id === 'http' ? 'settings.pdfOcrEngine.http' : 'settings.pdfOcrEngine.deepseek'),
+            ],
+          ),
+          /* 显示用户点的那个，而不是「实际生效」的那个：选了外部服务却没填
+             地址就弹回 DeepSeek，点上去像没反应（2026-11-15 用户指出）。
+             回退只留在运行期，这里如实显示选择，下面用一句提示说清。 */
+          s.pdfOcr.engine,
+          'setocr',
+          'bzs-seg bzs-seg-pdf2',
+        )}</div>
+      ${
+        /* 回退不是装饰而是实时状态：只留一行小字，别占一整行设置。 */
+        s.pdfOcr.engine === 'http' && !s.pdfOcr.url.trim()
+          ? `<div class="bzs-mini bzs-warn">${t('settings.pdfOcrFallback')}</div>`
+          : ''
+      }
       ${
         s.pdfOcr.engine === 'http'
           ? `<div class="bzs-setrow"><label>${t('settings.pdfOcrUrl')}</label><input data-role="setting" data-k="pdfOcr.url" placeholder="http://127.0.0.1:1224/api/ocr" value="${esc(
               s.pdfOcr.url,
             )}" style="flex:1" spellcheck="false"></div>
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfOcrUrl.hint')}</div>`
+      <div class="bzs-setrow"><label>${t('settings.pdfOcrDeploy')}</label>
+        <button class="bzs-btn sm" data-act="ocrcopyprompt">${t('settings.pdfOcrDeploy.copy')}</button>
+      </div>`
           : `<div class="bzs-setrow"><label>${t('settings.pdfOcrBaseUrl')}</label><input data-role="setting" data-k="pdfOcr.baseUrl" placeholder="https://api.deepseek.com" value="${esc(
               s.pdfOcr.baseUrl,
             )}" style="flex:1" spellcheck="false"></div>
@@ -450,35 +596,21 @@ export function viewSettings(v: SettingsView): string {
             )}" style="flex:1" spellcheck="false"></div>
       <div class="bzs-setrow"><label>${t('settings.pdfOcrKey')}</label><input type="password" data-role="setting" data-k="pdfOcr.apiKey" value="${esc(
               s.pdfOcr.apiKey,
-            )}" style="flex:1" spellcheck="false"></div>
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfOcrKey.hint')}</div>`
-      }
-      ${
-        s.pdfOcr.engine === 'http' && !s.pdfOcr.url.trim()
-          ? `<div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfOcrFallback')}</div>`
-          : ''
-      }
-      ${
-        /* 「自部署」只服务外部 OCR 服务那一档：官方 OCR 没有可装的东西，
-           摆着只会让人以为还要装什么。 */
-        s.pdfOcr.engine === 'http'
-          ? `<div class="bzs-setrow"><label>${t('settings.pdfOcrDeploy')}</label>
-        <button class="bzs-btn sm" data-act="ocrcopyprompt">${t('settings.pdfOcrDeploy.copy')}</button>
-      </div>`
-          : ''
+            )}" style="flex:1" spellcheck="false"></div>`
       }
       <div class="bzs-setrow"><label>${t('settings.pdfOcrProbe')}</label>
         <button class="bzs-btn sm" data-act="ocrtest">${t('settings.pdfOcrProbe.run')}</button>
         <span class="bzs-mini" data-role="ocrprobe-out" style="margin-left:8px"></span>
-      </div>
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pdfOcrProbe.hint')}</div>
-      <div class="bzs-mini">${t('settings.pdfOcrHint')}</div>
-    </div>`;
+      </div>`,
+      ),
+    { tut: tutBtn('pdftut', 'settings.bz.tut'), cls: 'bzs-setgrp-pdf' },
+  );
 
   /* 阅读页右上角图标：可排序、可收起。收起的进 ⋮；移动端最多露 3 颗。
      手机上不提供的那几项（并排 / 对照书籍 / 朗读）不列出来——
      列出来的话，用户能把它们拖进前三颗，头栏就多一颗点不动的按钮。
-     PDF 那三颗照旧列出：它们在桌面 PDF 里还有用。 */
+     PDF 那几颗照旧列出：它们在桌面 PDF 里还有用。
+     2026-11-17：16 行改双列收纳（.bzs-icrows），整组高度砍半。 */
   const listed = userFacingActionIds().filter((id) => !(mobile && isMobileHiddenAction(id)));
   const headerOrder: string[] = (p.headerOrder.length ? p.headerOrder : userFacingActionIds().slice())
     .filter((id) => listed.includes(id as HeaderActionId));
@@ -491,7 +623,7 @@ export function viewSettings(v: SettingsView): string {
       /* 标题前补一枚与头栏同款的图标：阅读页右上角只画图标、不写字，
          这里按名字找的人得靠形状把两处对上。图标先留空壳，页面挂上之后
          由 hydrateIcons 交给宿主的 setIcon 画（本插件不自绘近似图形）。 */
-      return `<div class="bzs-setrow">
+      return `<div class="bzs-icrow">
         <label><span class="bzs-hicon" data-icon="${esc(spec.icon)}"></span>${esc(spec.label)}</label>
         <button class="bzs-btn sm" data-act="headermove" data-k="${id}" data-v="-1" ${i === 0 ? 'disabled' : ''}>↑</button>
         <button class="bzs-btn sm" data-act="headermove" data-k="${id}" data-v="1" ${
@@ -503,21 +635,19 @@ export function viewSettings(v: SettingsView): string {
       </div>`;
     })
     .join('');
-  const header = `<div class="bzs-setgrp wide bzs-setgrp-header">
-      <h3>${t('settings.grp.header')}</h3>
-      <div class="bzs-mini" style="margin:0 0 8px">${t('settings.header.hint')}</div>
-      ${headerRows}
-    </div>`;
+  const headerGrp = grp(
+    'header',
+    t('settings.grp.header'),
+    `<div class="bzs-mini bzs-subnote">${t('settings.header.hint')}</div>
+      <div class="bzs-icrows">${headerRows}</div>`,
+    { wide: true, cls: 'bzs-setgrp-header' },
+  );
 
   /* 朗读（2026-11-14 二轮重做）：三张引擎卡，选中哪张只展开那张的字段。
      以前三档 seg 把所有字段堆在一起，换引擎要在一屏里找哪几行属于自己；
      现在「用哪个」和「怎么配」分成两步，一眼能看出当前在哪台引擎上。
-     手机上也给本地：允许填局域网地址，连同一 Wi-Fi 的电脑。 */
-  /* 教程链接：bz 组与朗读组共用同一颗（铜色小字 + 播放图标，悬停显下划线）。
-     2026-11-14 提到朗读组之前——朗读组在页面上出现得更早，定义留在后面
-     会「使用前未声明」。 */
-  const tutBtn = (act: string, key: MsgKey): string =>
-    `<button class="bzs-bztut" data-act="${act}">${ico('video')}<span>${t(key)}</span></button>`;
+     2026-11-17：连接 / 播放 / 缓存与离线切成三块小面板，不再是一堵墙；
+     去掉「整本预生成」那一行（浮条上已经有那颗按钮，这里是第二个入口）。 */
   const ttsState = (id: TtsEngine): boolean =>
     ttsEngineReady({ engine: id, online: s.ttsOnline, local: s.ttsLocal });
   /* 卡上只留「名字 + 状态」：说明文字塞进三张小卡会把字挤成一片
@@ -532,7 +662,7 @@ export function viewSettings(v: SettingsView): string {
   ): string => `<button class="bzs-engcard${p.ttsEngine === id ? ' on' : ''}" data-act="ttsengine" data-v="${id}"><span class="bzs-sr-only">${esc(desc)}</span>
       <span class="bzs-engicon">${ico(icon)}</span>
       <span class="bzs-engtx"><b>${name}</b></span>
-      <span class="bzs-engst"><span class="dot${ok ? ' ok' : ''}"></span>${state}</span>
+      <span class="bzs-engst${ok ? ' ok' : ''}"><span class="dot"></span>${state}</span>
     </button>`;
   /* DeepSeek 的两把嗓子有中文名；其它服务的音色名就是服务里的 id，原样显示 */
   const voiceName = (v: string): string =>
@@ -554,9 +684,10 @@ export function viewSettings(v: SettingsView): string {
         ${ico('chevron-right')}
       </button></div>`;
   };
-  const tts = `<div class="bzs-setgrp" id="bz-set-tts">
-      <div class="bzs-setgrp-head"><h3>${t('settings.grp.tts')}</h3>${tutBtn('ttstut', 'settings.bz.tut')}</div>
-      <div class="bzs-engines">
+  const ttsGrp = grp(
+    'tts',
+    t('settings.grp.tts'),
+    `<div class="bzs-engines">
         ${engCard(
           'online',
           'cloud',
@@ -582,26 +713,26 @@ export function viewSettings(v: SettingsView): string {
           true,
         )}
       </div>
-      ${isMobileShell() ? `<div class="bzs-mini">${t('settings.ttsEngine.mobileHint')}</div>` : ''}
-      ${p.ttsEngine === 'system' ? '' : `<div class="bzs-subh">${t('settings.ttsSub.conn')}</div>`}
+      ${isMobileShell() ? `<div class="bzs-mini bzs-subnote">${t('settings.ttsEngine.mobileHint')}</div>` : ''}
       ${
-        p.ttsEngine === 'online'
-          ? `<div class="bzs-setrow"><label>${t('settings.ttsOnline.url')}</label>
+        p.ttsEngine === 'system'
+          ? ''
+          : sub(
+              t('settings.ttsSub.conn'),
+              `${
+                p.ttsEngine === 'online'
+                  ? `<div class="bzs-setrow"><label>${t('settings.ttsOnline.url')}</label>
         <input data-role="setting" data-k="ttsOnline.url" value="${esc(s.ttsOnline.url)}" style="flex:1"></div>
-      ${s.ttsOnline.url ? '' : `<div class="bzs-mini">${t('settings.ttsOnline.urlHint')}</div>`}
+      ${s.ttsOnline.url ? '' : `<div class="bzs-mini bzs-subnote">${t('settings.ttsOnline.urlHint')}</div>`}
       <div class="bzs-setrow"><label>${t('settings.ttsOnline.model')}</label>
         <input data-role="setting" data-k="ttsOnline.model" value="${esc(s.ttsOnline.model)}" style="flex:1"></div>
       <div class="bzs-setrow"><label>${t('settings.ttsOnline.key')}</label>
         <input type="password" data-role="setting" data-k="ttsOnline.apiKey" value="${esc(s.ttsOnline.apiKey)}" style="flex:1"></div>
       ${voicePick('online')}`
-          : ''
-      }
-      ${
-        p.ttsEngine === 'local'
-          ? `<div class="bzs-setrow"><label>${t('settings.ttsLocal.url')}</label>
+                  : `<div class="bzs-setrow"><label>${t('settings.ttsLocal.url')}</label>
         <input data-role="setting" data-k="ttsLocal.url" value="${esc(s.ttsLocal.url)}" style="flex:1">
         <button class="bzs-btn sm" data-act="ttsprobe">${t('settings.ttsProbe')}</button></div>
-      <div class="bzs-mini" data-role="probe-out">${s.ttsLocal.url ? '' : t('settings.ttsLocal.urlHint')}</div>
+      <div class="bzs-mini bzs-subnote" data-role="probe-out">${s.ttsLocal.url ? '' : t('settings.ttsLocal.urlHint')}</div>
       <div class="bzs-setrow"><label>${t('settings.ttsLocal.model')}</label>
         <input data-role="setting" data-k="ttsLocal.model" value="${esc(s.ttsLocal.model)}" style="flex:1"></div>
       <div class="bzs-setrow"><label>${t('settings.ttsLocal.key')}</label>
@@ -619,15 +750,13 @@ export function viewSettings(v: SettingsView): string {
       <div class="bzs-setrow"><label>${t('settings.ttsDeploy')}</label>
         <button class="bzs-btn sm" data-act="ttscopyprompt">${t('settings.ttsDeploy.copy')}</button>
       </div>`
-          : ''
+              }`,
+            )
       }
-      ${
-        p.ttsEngine === 'system'
-          ? `<div class="bzs-mini">${t('settings.ttsEngine.systemHint')}</div>`
-          : ''
-      }
-      <div class="bzs-subh">${t('settings.ttsSub.play')}</div>
-      <div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
+      ${p.ttsEngine === 'system' ? `<div class="bzs-mini bzs-subnote">${t('settings.ttsEngine.systemHint')}</div>` : ''}
+      ${sub(
+        t('settings.ttsSub.play'),
+        `<div class="bzs-setrow"><label>${t('settings.ttsTest')}</label>
         <button class="bzs-btn sm pri" data-act="ttstest">${t('settings.ttsTestNow')}</button>
         <span class="bzs-mini" data-role="ttstest-out"></span>
         <span class="bzs-mini" style="margin:0 0 0 auto">${
@@ -642,18 +771,20 @@ export function viewSettings(v: SettingsView): string {
           ['0', t('settings.ttsFollow.off')],
         ],
         p.ttsFollow ? '1' : '0',
-      )}</div>
-      <div class="bzs-subh">${t('settings.ttsCache.title')}</div>
-      ${range(
-        'ttsCacheMB',
-        t('settings.ttsCache'),
-        p.ttsCacheMB,
-        TTS_CACHE_RANGE.min,
-        TTS_CACHE_RANGE.max,
-        TTS_CACHE_RANGE.step,
-        (x) => `${x} MB`,
-        `<button class="bzs-btn sm" data-act="ttscacheclear">${t('settings.ttsCache.clear')}</button>`,
+      )}</div>`,
       )}
+      ${sub(
+          t('settings.ttsCache.title'),
+          `${range(
+            'ttsCacheMB',
+            t('settings.ttsCache'),
+            p.ttsCacheMB,
+            TTS_CACHE_RANGE.min,
+            TTS_CACHE_RANGE.max,
+            TTS_CACHE_RANGE.step,
+            (x) => `${x} MB`,
+            `<button class="bzs-btn sm" data-act="ttscacheclear">${t('settings.ttsCache.clear')}</button>`,
+          )}
         ${prefToggle('ttsOfflineSave', p.ttsOfflineSave, t('settings.ttsOffline.save'))}
         <div class="bzs-setrow"><label>${t('settings.ttsOffline.title')}</label>
           <span class="bzs-mini" style="margin:0;flex:1">${
@@ -664,65 +795,58 @@ export function viewSettings(v: SettingsView): string {
           <button class="bzs-btn sm" data-act="ttsofflinereload">${t('settings.ttsOffline.reload')}</button>
           ${v.offline ? `<button class="bzs-btn sm" data-act="ttsofflinedel">${t('settings.ttsOffline.clear')}</button>` : ''}
         </div>
-        <div class="bzs-setrow"><label><span class="bzs-sr-only">${esc(t('settings.ttsBook.hint'))}</span>${t('settings.ttsBook')}</label>
-          <button class="bzs-btn sm${v.prefetchingBook ? ' pri' : ''}" data-act="ttsprefetchbook"><span class="bzs-sr-only">${esc(
-            t('settings.ttsBook.hint'),
-          )}</span>${t(v.prefetchingBook ? 'settings.ttsBook.stop' : 'settings.ttsBook.start')}</button>
-        </div>
-        ${prefToggle('ttsPackFirst', p.ttsPackFirst, t('settings.ttsPackFirst'))}
-    </div>`;
+        ${prefToggle('ttsPackFirst', p.ttsPackFirst, t('settings.ttsPackFirst'))}`,
+      )}`,
+    { tut: tutBtn('ttstut', 'settings.bz.tut') },
+  );
 
-  /* 标注组只剩能动手的三项：画笔、导出目录、带想法。「摘录链接」那一行没有
-     任何控件，讲的双链能力在复制书摘时本来就有，2026-11-05 整行去掉。
-     笔色五档走 bzs-seg-wrap：与语言、强调色同一套格子下限，窄窗不会叠字。 */
-  const marks = `<div class="bzs-setgrp">
-      <h3>${t('settings.grp.marks')}</h3>
-      <div class="bzs-setrow"><label>${t('settings.pen')}</label><div class="bzs-seg bzs-seg-wrap">${HIGHLIGHT_COLORS.map(
-        (c) =>
-          `<button class="${v.pen === c.value ? 'on' : ''}" data-act="setpen" data-v="${c.value}"><span class="dot" style="background:${c.css}"></span>${colorLabel(c.value)}</button>`,
-      ).join('')}</div></div>
-      <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.pen.hint')}</div>
-      <div class="bzs-setrow"><label>${t('settings.exportDir')}</label>
-        <button class="bzs-pickdir" data-act="pickexportdir"><span class="bzs-sr-only">${t('settings.pickFromList')}</span>
-          <span>${esc(s.exportDir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>
-        </button></div>
-      ${toggle('exportComments', s.exportComments, t('settings.exportComments'))}
-    </div>`;
-
-  /* 入口平权：AI 组始终出现。基础版整组灰掉、点一下就弹高级功能说明——
+  /* AI 组：入口平权。基础版整组灰掉、点一下就弹高级功能说明——
      只读输入框既不说明为什么不能改，也点不出任何出口。
-     2026-11-11 同日回摆：不提供服务商选择，只留地址 / 模型 / 密钥三个自由输入框。 */
+     2026-11-11 同日回摆：不提供服务商选择，只留地址 / 模型 / 密钥三个自由输入框。
+     2026-11-17：连接 / 问答分两块；测试结果只留问答一行（检索那行只会
+     报「bz 没装、建不了索引」，看不懂也帮不上忙，连探测一起删了）。 */
   const aiUnlocked = can('ai');
   const aiReadonly = aiUnlocked ? '' : ' readonly';
   /* 「连上了」= bz 在且有嵌入模型。bz 装着但没选模型，索引照样建不了，
      对用户来说就是没连上——所以门禁看 model，不看 bz 在不在。 */
   const kbLinked = !!v.bz?.model;
-  const ai = `<div class="bzs-setgrp${aiUnlocked ? '' : ' is-locked'}"${
-    aiUnlocked ? '' : ` data-act="unlock" data-mode="ai"`
-  }><span class="bzs-sr-only">${t('settings.locked')}</span>
-      <h3>${t('settings.grp.ai')}</h3>
-      <div class="bzs-setrow"><label>${t('settings.ai.baseUrl')}</label><input data-role="setting" data-k="ai.baseUrl" placeholder="${t('settings.ai.baseUrl.ph')}" value="${esc(s.ai.baseUrl)}" style="flex:1"${aiReadonly}></div>
+  const aiGrp = grp(
+    'ai',
+    t('settings.grp.ai'),
+    `${aiUnlocked ? '' : `<span class="bzs-sr-only">${t('settings.locked')}</span>`}` +
+      sub(
+        t('settings.ttsSub.conn'),
+        `<div class="bzs-setrow"><label>${t('settings.ai.baseUrl')}</label><input data-role="setting" data-k="ai.baseUrl" placeholder="${t('settings.ai.baseUrl.ph')}" value="${esc(s.ai.baseUrl)}" style="flex:1"${aiReadonly}></div>
       <div class="bzs-setrow"><label>${t('settings.ai.model')}</label><input data-role="setting" data-k="ai.model" placeholder="${t('settings.ai.model.ph')}" value="${esc(s.ai.model)}" style="flex:1"${aiReadonly}></div>
-      <div class="bzs-setrow"><label>${t('settings.ai.key')}</label><input type="password" data-role="setting" data-k="ai.apiKey" placeholder="${t('settings.ai.key.ph')}" value="${esc(s.ai.apiKey)}" style="flex:1"${aiReadonly}></div>
-      ${aiUnlocked
-        ? `${toggle('aiSpoiler', s.aiSpoiler === true, t('settings.ai.spoiler'))}
-           <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.ai.spoiler.hint')}</div>
-           <div class="bzs-setrow"><label>${t('settings.aiProbe')}</label>
+      <div class="bzs-setrow"><label>${t('settings.ai.key')}</label><input type="password" data-role="setting" data-k="ai.apiKey" placeholder="${t('settings.ai.key.ph')}" value="${esc(s.ai.apiKey)}" style="flex:1"${aiReadonly}></div>`,
+      ) +
+      sub(
+        t('settings.sub.aiChat'),
+        `${
+          aiUnlocked
+            ? `${toggle('aiSpoiler', s.aiSpoiler === true, t('settings.ai.spoiler'))}
+           <div class="bzs-setrow"><label>${t('settings.sub.aiChat')}</label>
+             <span class="bzs-mini" style="flex:1" data-role="aiprobe-chat"></span>
              <button class="bzs-btn sm" data-act="aiprobe">${t('settings.aiProbe.run')}</button>
-             <span class="bzs-mini" data-role="aiprobe-chat" style="margin-left:8px"></span>
-           </div>
-           <div class="bzs-setrow"><label></label>
-             <span class="bzs-mini" data-role="aiprobe-embed" style="margin-left:0"></span>
-           </div>
-           <div class="bzs-mini" style="margin:-4px 0 8px">${t('settings.aiProbe.hint')}</div>`
-        : ''}
-    </div>`;
+           </div>`
+            : ''
+        }`,
+      ),
+    {
+      tut: tutBtn('aichattut', 'settings.bz.tut'),
+      /* 基础版整组锁：AI 全是付费配置，连输入也不行 */
+      cls: aiUnlocked ? '' : 'is-locked',
+      attr: aiUnlocked ? '' : ' data-act="unlock" data-mode="ai"',
+    },
+  );
 
-  /* bz 组（2026-11-13）：两项外部能力从 AI 组里抽出来单独成组。
-        · 剪藏本——要人主动打开，所以是开关；装了 bz 才画开关，没装只留说明。
-          摆一颗点不动的灰开关，人会以为是自己点坏了。
-        · AI 知识盒——检测到 bz 就自动连（data/bz-bridge 逐项降级），没有
-          「关掉」这个动作，所以永远只报连没连上，不给开关。
+  /* 能力卡（2026-11-17）：bz 两项与插件一项。原来是一行标签 + 一段灰字，
+     状态和说明挤在同一行里（真机上「还没装 bz review…」会顶出卡片）。
+     现在每项一张卡：图标 + 名称 + 状态徽章 + 一句话 + 动作，装没装、
+     开没开、下一步点哪里都在同一块里。
+     · 剪藏本——要人主动打开，所以是开关；装了 bz 才画开关，没装就只留卡片。
+     · AI 知识盒——检测到 bz 就自动连（data/bz-bridge 逐项降级），没有
+       「关掉」这个动作，所以永远只报连没连上，不给开关。
      两项各有自己的教程：剪藏本讲成书，知识盒讲索引怎么建，共一颗就会指错。 */
   const bzOk = !!v.bz?.ok;
   /* 剪藏成书是高级版能力（2026-11-14 补的门禁）。基础版用户在设置里看到的
@@ -730,8 +854,10 @@ export function viewSettings(v: SettingsView): string {
      范围内三选只在解锁后画：没解锁时选了也不会生效，摆出来等于骗人。 */
   const clipUnlocked = can('clipBook');
   const clipOn = clipUnlocked && s.clipBook === true;
+  const chip = (txt: string, on = false): string =>
+    `<span class="bzs-capchip${on ? ' is-on' : ''}"><i></i>${txt}</span>`;
   const clipScopeSeg = clipUnlocked
-    ? `<div class="bzs-setrow"><label>${t('settings.bz.clip.scope')}</label>${seg(
+    ? `<div class="bzs-capfield"><span>${t('settings.bz.clip.scope')}</span>${seg(
         'clipScope',
         [
           ['all', t('settings.bz.clip.scope.all')],
@@ -742,63 +868,79 @@ export function viewSettings(v: SettingsView): string {
         'setscope',
       )}</div>`
     : '';
-  const bzClip = `<div class="bzs-bzitem">
-      ${
-        bzOk
-          ? clipUnlocked
-            ? toggle('clipBook', clipOn, t('settings.bz.clip'))
-            : `<div class="bzs-setrow"><label>${t('settings.bz.clip')}</label>
-                <button class="bzs-switch" data-act="unlock" data-mode="clipBook"><span class="bzs-sr-only">${t(
-                  'settings.locked',
-                )}</span><span class="bzs-sr-only">${t('settings.bz.clip')}</span></button></div>`
-          : `<div class="bzs-setrow"><label>${t('settings.bz.clip')}</label></div>`
-      }
-      ${clipScopeSeg}
-      <div class="bzs-bznote">${t('settings.bz.clip.hint')}${tutBtn('cliptut', 'settings.bz.tut')}</div>
+  const clipSwitch = !bzOk
+    ? ''
+    : clipUnlocked
+      ? `<button class="bzs-switch${clipOn ? ' on' : ''}" data-act="toggle" data-k="clipBook"><span class="bzs-sr-only">${t(
+          'settings.bz.clip',
+        )}</span></button>`
+      : `<button class="bzs-switch" data-act="unlock" data-mode="clipBook"><span class="bzs-sr-only">${t(
+          'settings.locked',
+        )}</span><span class="bzs-sr-only">${t('settings.bz.clip')}</span></button>`;
+  const clipCard = `<div class="bzs-cap${clipOn ? ' is-on' : ''}">
+      <span class="bzs-capico${bzOk ? '' : ' is-muted'}">${ico('shelf')}</span>
+      <div class="bzs-capmain">
+        <div class="bzs-cap-t"><b>${t('settings.bz.clip')}</b>${
+          !bzOk ? '' : clipUnlocked ? (clipOn ? chip(t('settings.cap.on'), true) : '') : chip(t('settings.about.paid'))
+        }</div>
+        <p>${t('settings.bz.clip.hint')}</p>
+        ${clipScopeSeg}
+        <div class="bzs-capfoot">${tutBtn('cliptut', 'settings.bz.tut')}</div>
+      </div>
+      ${clipSwitch}
     </div>`;
-  const bzKb = `<div class="bzs-bzitem">
-      <div class="bzs-setrow"><label>${t('settings.bz.kb')}</label>
-        <span class="bzs-kbstate${kbLinked ? ' on' : ''}"><i></i>${
-          kbLinked ? t('settings.ai.kb.on') : t('settings.ai.kb.off')
-        }</span></div>
-      <div class="bzs-bznote">${t('settings.ai.kb.hint')}${tutBtn('aitutorial', 'settings.bz.tut')}</div>
+  const kbCard = `<div class="bzs-cap${kbLinked ? ' is-on' : ''}">
+      <span class="bzs-capico${kbLinked ? '' : ' is-muted'}">${ico('ai')}</span>
+      <div class="bzs-capmain">
+        <div class="bzs-cap-t"><b>${t('settings.bz.kb')}</b>${chip(
+          kbLinked ? t('settings.ai.kb.on') : t('settings.ai.kb.off'),
+          kbLinked,
+        )}</div>
+        <p>${t('settings.ai.kb.hint')}</p>
+        <div class="bzs-capfoot">${tutBtn('aitutorial', 'settings.bz.tut')}</div>
+      </div>
     </div>`;
   /* 没装 bz 时补一句「为什么现在不能用」+ 安装教程（第 2P）。
      装了就整块不渲染：装完这一节没有第二次用途。 */
-  const bz = `<div class="bzs-setgrp">
-      <h3>${t('settings.grp.bz')}</h3>
-      ${bzClip}${bzKb}
-      ${
-        bzOk
-          ? ''
-          : `<div class="bzs-bzguide"><div class="bzs-bznote">${t('settings.bz.missing')}${tutBtn(
-              'bzinstall',
-              'settings.bz.install',
-            )}</div></div>`
-      }
-    </div>`;
+  const bzGrp = grp(
+    'bz',
+    t('settings.grp.bz'),
+    `${clipCard}${kbCard}${
+      bzOk
+        ? ''
+        : `<div class="bzs-capnote">${t('settings.bz.missing')}${tutBtn('bzinstall', 'settings.bz.install')}</div>`
+    }`,
+  );
 
   /* 「插件」组（2026-11-17）：bz review 的状态与安装引导。
-     布局与 bz 组同款：一段定位介绍 + 教程链接；没装时补一句引导去市场。
-     装没装由 v.review.installed 决定（shelf-page 现探，不缓存）。 */
+     布局与 bz 组同一套能力卡：定位一句话 + 三条卖点 + 安装 / 教程。
+     装没装由 v.review.installed 决定（shelf-page 现探，不缓存）。
+     说明原来挤在状态位里，窄栏会顶出卡片——现在状态只写「未安装 / 已安装」，
+     安装指引单独一行。 */
   const reviewOk = !!v.review?.installed;
-  const plugins = `<div class="bzs-setgrp">
-      <h3>${t('settings.grp.plugins')}</h3>
-      <div class="bzs-bzitem">
-        <div class="bzs-setrow"><label>bz review</label>
-          <span class="bzs-kbstate${reviewOk ? ' on' : ''}"><i></i>${t(
-            reviewOk ? 'settings.plugin.review.installed' : 'settings.plugin.review.missing',
-          )}</span></div>
-        <div class="bzs-bznote">${t('settings.plugin.review.desc')}${tutBtn('reviewtut', 'settings.plugin.review.tut')}</div>
-        ${
+  const pluginsGrp = grp(
+    'plugins',
+    t('settings.grp.plugins'),
+    `<div class="bzs-cap${reviewOk ? ' is-on' : ''}">
+      <span class="bzs-capico${reviewOk ? '' : ' is-muted'}">${ico('listchecks')}</span>
+      <div class="bzs-capmain">
+        <div class="bzs-cap-t"><b>bz review</b>${chip(
+          reviewOk ? t('settings.plugin.review.installed') : t('settings.cap.missing'),
+          reviewOk,
+        )}</div>
+        <p>${t('settings.plugin.review.desc')}</p>
+        <div class="bzs-captags"><span class="bzs-tag">${t('settings.plugin.tag.cards')}</span><span class="bzs-tag">${t(
+          'settings.plugin.tag.srs',
+        )}</span><span class="bzs-tag">${t('settings.plugin.tag.less')}</span></div>
+        <div class="bzs-capfoot">${
           reviewOk
             ? ''
-            : `<button class="bzs-bztut" data-act="reviewinstall">${ico('video')}<span>${t(
-                'settings.plugin.review.install',
-              )}</span></button>`
-        }
+            : `<button class="bzs-btn sm pri" data-act="reviewinstall">${t('settings.plugin.review.install')}</button>`
+        }${tutBtn('reviewtut', 'settings.plugin.review.tut')}</div>
       </div>
-    </div>`;
+    </div>
+    ${reviewOk ? '' : `<div class="bzs-capnote">${t('settings.plugin.review.missing')}</div>`}`,
+  );
 
   /* 激活之后这组变成「凭证」：码只读，日常不让人误改。
      但**必须留一个换码入口**——先用群里的 7 天试用，再买正式版，
@@ -810,9 +952,10 @@ export function viewSettings(v: SettingsView): string {
   const licStatus = paid && ent.patron
     ? `<span class="bzs-mini bzs-licstat" style="flex:1">${ico('seal', 'bzs-lic-seal')}${esc(tierText(ent))}</span>`
     : `<span class="bzs-mini" style="flex:1">${esc(tierText(ent))}</span>`;
-  const lic = `<div class="bzs-setgrp">
-      <h3>${t('settings.grp.lic')}</h3>
-      <div class="bzs-setrow"><label>${t('settings.lic.status')}</label>${licStatus}</div>
+  const licGrp = grp(
+    'lic',
+    t('settings.grp.lic'),
+    `<div class="bzs-setrow"><label>${t('settings.lic.status')}</label>${licStatus}</div>
       <div class="bzs-setrow"><label>${t('settings.lic.code')}</label>
         <input data-role="license" placeholder="BZR2.… 或 BZR1.…" value="${esc(ent.license)}" spellcheck="false" style="flex:1"${
           paid && !editingLicense ? ' readonly' : ''
@@ -828,37 +971,8 @@ export function viewSettings(v: SettingsView): string {
           : `<div class="bzs-setrow"><label>${t('settings.lic.paid')}</label>
         <span class="bzs-mini" style="flex:1">${t('settings.lic.benefits')}</span>
         <button class="bzs-btn sm" data-act="unlock">${t('settings.lic.compare')}</button></div>`
-      }
-    </div>`;
-
-  const dir = dataDirOf();
-  /* 目录一律只给选择器，不给输入框：vault 路径有口径（分隔符、首尾斜杠、
-     大小写），手打死角很多，错了还不报错——文件会写进别处。 */
-  const importDir = s.importDir || DEFAULT_SETTINGS.importDir;
-  /* 备份说明紧跟「备份与恢复」那一行（2026-11-09）：它说的是备份，不该挂在
-     下一项调试开关的脚下。调试那一项只留一句「只在排查问题时打开」。 */
-  const data = `<div class="bzs-setgrp">
-      <h3>${t('settings.grp.data')}</h3>
-      <div class="bzs-setrow"><label>${t('settings.importDir')}</label>
-        <button class="bzs-pickdir" data-act="pickimportdir"><span class="bzs-sr-only">${t('settings.pickFolder')}</span>
-          <span>${esc(importDir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>
-        </button></div>
-      <div class="bzs-setrow"><label>${t('settings.dataDir')}</label>
-        <button class="bzs-pickdir" data-act="pickdatadir"><span class="bzs-sr-only">${t('settings.pickFromList')}</span>
-          <span>${esc(dir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>
-        </button></div>
-      <div class="bzs-setrow"><label>${t('settings.backupRestore')}</label>
-        <button class="bzs-btn sm" data-act="backup"><span class="bzs-sr-only">${t('settings.backup.tip')}</span>${t('settings.backup')}</button>
-        <button class="bzs-btn sm" data-act="restore"><span class="bzs-sr-only">${t('settings.restore.tip')}</span>${t('settings.restore')}</button></div>
-      <div class="bzs-mini" style="margin-top:2px;line-height:1.9">
-        ${t('settings.data.hint')}
-      </div>
-      ${toggle('debugLog', s.debugLog, t('settings.debugLog'))}
-      <div class="bzs-mini" style="margin-top:2px;line-height:1.9">
-        ${t('settings.debugLog.hint')}
-        <button class="bzs-btn sm" data-act="debugcopy">${t('settings.debugLog.copy')}</button>
-      </div>
-    </div>`;
+      }`,
+  );
 
   /* 快捷键不是我们自己的一张表，而是宿主里那些命令的当前绑定：
      点一行 → 打开 Obsidian 的快捷键设置并搜这条命令，改完回来这里就是新的。 */
@@ -872,22 +986,22 @@ export function viewSettings(v: SettingsView): string {
     .join('');
 
   /* 手机没有物理键盘、也没有那一页设置，整组收起。 */
-  const keys = mobile
+  const keysGrp = mobile
     ? ''
-    : `<div class="bzs-setgrp wide">
-      <h3>${t('settings.grp.keys')}</h3>
-      <div class="bzs-keys">${keyRows}</div>
-    </div>`;
+    : grp('keys', t('settings.grp.keys'), `<div class="bzs-keys">${keyRows}</div>`, { wide: true });
+
+  const nav = `<div class="bzs-setnav">${NAV.map(
+    ([id, key]) => `<button class="bzs-setnav-i" data-act="setjump" data-k="${id}">${t(key)}</button>`,
+  ).join('')}</div>`;
 
   /* 两列各自成流（布局说明见 study.css 的 .bzs-set-page）。
-     2026-11-11 两轮调整：
-       ① 原来左列只有界面 + 版式，右列七组，下半页左边整条空白；
-       ② 朗读组按用户要求挪到**右列、AI 之上**，左列只留界面 / 版式 / 外观 / PDF。
+     2026-11-17 按「本机怎么显示 / 接什么服务」重排：
+       左列 = 界面 · 版式 · 外观 · 标注 · 数据 · PDF（含扫描页识别）
+       右列 = 朗读 · AI 助手 · bz · 插件 · 授权
+     这样两列高度接近（以前左三组、右七组，下半页左边整条空白），
+     窄屏叠成一列时顺序也仍然通顺。 */
+  const leftCol = `${languageGrp}${layoutGrp}${lookGrp}${marksGrp}${dataGrp}${pdfGrp}`;
+  const rightCol = `${ttsGrp}${aiGrp}${bzGrp}${pluginsGrp}${licGrp}`;
 
-     切点仍按原顺序切，不重排其余分组：窄屏叠成一列时「左列全部 → 右列全部」
-     仍是界面 → 版式 → 外观 → PDF → 标注 → 数据 → 朗读 → AI → 授权。 */
-  const leftCol = `${languageGrp}${layout}${look}${pdf}`;
-  const rightCol = `${marks}${data}${tts}${ai}${bz}${plugins}${lic}`;
-
-  return `<div class="bzs-set-page">${aboutBar(v.version || '', paid, ent.patron, ent.name)}<div class="bzs-set-grid"><div class="bzs-set-col">${leftCol}</div><div class="bzs-set-col">${rightCol}</div></div>${header}${keys}</div>`;
+  return `<div class="bzs-set-page">${aboutBar(v.version || '', paid, ent.patron, ent.name)}${nav}<div class="bzs-set-grid"><div class="bzs-set-col">${leftCol}</div><div class="bzs-set-col">${rightCol}</div></div>${headerGrp}${keysGrp}</div>`;
 }

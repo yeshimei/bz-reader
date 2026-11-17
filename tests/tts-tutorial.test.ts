@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  AI_CHAT_TUTORIAL_URL,
   AI_TUTORIAL_URL,
   CLIP_TUTORIAL_URL,
   TTS_TUTORIAL_URL,
@@ -114,9 +115,18 @@ describe('朗读教程 · 高级版对照表', () => {
 });
 
 describe('朗读教程 · 地址登记', () => {
-  it('四条教程视频各指各的，换一期不会顺带改掉另一处', () => {
-    const all = [VIDEO_TUTORIAL_URL, AI_TUTORIAL_URL, CLIP_TUTORIAL_URL, TTS_TUTORIAL_URL];
+  it('五条教程视频各指各的，换一期不会顺带改掉另一处', () => {
+    const all = [
+      VIDEO_TUTORIAL_URL,
+      AI_TUTORIAL_URL,
+      AI_CHAT_TUTORIAL_URL,
+      CLIP_TUTORIAL_URL,
+      TTS_TUTORIAL_URL,
+    ];
     expect(new Set(all).size).toBe(all.length);
     expect(TTS_TUTORIAL_URL).toMatch(/^https:\/\/www\.bilibili\.com\/video\/[A-Za-z0-9]+$/);
+    /* AI 组那颗「看教程」2026-11-17 由作者给定地址：空串会让按钮退化成
+       「教程整理中」，所以这条断言就守「别又被清空」。 */
+    expect(AI_CHAT_TUTORIAL_URL).toMatch(/^https:\/\/www\.bilibili\.com\/video\/[A-Za-z0-9]+$/);
   });
 });

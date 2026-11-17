@@ -241,10 +241,11 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
           bz: bzSnapshot(getShellSource()?.app),
           /* bz Review 装没装：现探，装完重进设置页就能看到新状态。 */
           review: { installed: !!getShellSource()?.app && !!findReviewApi(getShellSource()!.app) },
-          /* 离线音频与整本预生成的状态（2026-11-14 从朗读浮层搬过来）：
-             浮层没了，这两项得在设置页仍看得见。 */
+          /* 离线音频的状态（2026-11-14 从朗读浮层搬过来）：浮层没了，
+             这一项得在设置页仍看得见。
+             整本预生成 2026-11-17 从设置页撤掉：浮条上已有那颗按钮，设置里
+             再摆一个入口只是第二个开关。 */
           offline: getShellSource()?.offlineAudioInfo?.() ?? null,
-          prefetchingBook: getShellSource()?.isPrefetchingBook?.() ?? false,
         }),
         counts,
       };

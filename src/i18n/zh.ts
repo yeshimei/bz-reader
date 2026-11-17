@@ -626,9 +626,6 @@ export const ZH = {
   'settings.aiProbe.chatOk': '问答正常（回了一个字：{n}）',
   'settings.aiProbe.chatEmpty': '问答连上了，但没返回内容：检查模型名与输出上限',
   'settings.aiProbe.notReady': '问答没配置好：地址、模型或密钥还缺',
-  'settings.aiProbe.embedOk': '检索正常（嵌入模型：{n}）',
-  'settings.aiProbe.embedNoModel': '检索没连上：bz 未装或没选嵌入模型，建不了索引',
-  'settings.aiProbe.embedEmpty': '嵌入接口连上了，但返回空向量',
   'settings.aiProbe.failed': '测试没通过',
   'ai.float.archivedAt': '已归档 {time}',
   'ai.follow.busy': '正在追问…',
@@ -878,6 +875,18 @@ export const ZH = {
   'settings.grp.pdf': 'PDF',
   'settings.grp.bz': 'bz',
   'settings.grp.plugins': '插件',
+
+  /* ── 设置页：组内分区标题（2026-11-17） ─────────────────────
+     只给 6 行以上的大组用；行数少的组不切，切了反而是噪音。
+     朗读那两个（连接 / 播放）复用 tts 包里的 ttsSub，不在这里重抄。 */
+  'settings.sub.text': '文字',
+  'settings.sub.page': '页面',
+  'settings.sub.pdfRead': '阅读',
+  'settings.sub.pdfExport': '导出与链接',
+  'settings.sub.dirs': '目录',
+  'settings.sub.debug': '排查',
+  'settings.sub.aiChat': '问答',
+
   'settings.pdfZoom': '开书缩放',
   'settings.pdfZoom.auto': '自动',
   'settings.pdfZoom.width': '适合宽度',
@@ -897,7 +906,7 @@ export const ZH = {
   'settings.pdfOcrEngine.visionHint': '「用 AI 看图」要求 AI 能读图片（qwen-vl、gpt-4o、glm-4v 这类多模态模型）；纯文本模型会直接返回空，识别不出东西。',
   'settings.pdfOcrBaseUrl': '服务地址',
   'settings.pdfOcrModel': '模型',
-  'settings.pdfOcrKey': 'OCR 密钥',
+  'settings.pdfOcrKey': '密钥',
   'settings.pdfOcrKey.hint': '识别走自己这一套 OCR 配置，不借用「AI 助手」的地址与密钥。密钥到 DeepSeek 平台申请，可以和 AI 问答填同一个。',
   'settings.pdfOcrUrl': 'OCR 服务地址',
   'settings.pdfOcrUrl.hint': '把这一页的图 POST 过去，服务返回每行文字与位置。Umi-OCR 填 http://127.0.0.1:1224/api/ocr；自建服务要允许跨域（CORS）。',
@@ -1077,11 +1086,18 @@ export const ZH = {
   'settings.bz.missing': '没检测到 bz，装上并启用之后这两项才会生效。',
   'settings.bz.install': '怎么装 bz',
   'settings.bz.tut': '看教程',
-  'settings.plugin.review.desc': 'bz review 把制卡、整卡交给 AI，把时间和精力放回阅读与复习。配合动态抗遗忘算法，少复习、记得牢。本周内上架，约两周迭代到正式版。',
+  'settings.plugin.review.desc': '把制卡、整卡交给 AI，把时间和精力放回阅读与复习。配合动态抗遗忘算法，少复习、记得牢。',
   'settings.plugin.review.installed': '已安装',
-  'settings.plugin.review.missing': '还没装 bz review。到第三方插件市场搜索安装后，工具栏和书右键就会出现「加入复习」。',
+  'settings.plugin.review.missing': '还没装 bz review。到第三方插件市场搜索安装后，工具栏和书右键就会出现「加入复习」。本周内上架，约两周迭代到正式版。',
   'settings.plugin.review.install': '去插件市场',
   'settings.plugin.review.tut': '看教程',
+  /* 能力卡上的三条卖点（2026-11-17）：卡片位置有限，只能是词，不是句子 */
+  'settings.plugin.tag.cards': 'AI 制卡',
+  'settings.plugin.tag.srs': '抗遗忘',
+  'settings.plugin.tag.less': '少复习',
+  /* 能力卡状态徽章：bz / 插件两张卡共用，别各写一套 */
+  'settings.cap.on': '已开启',
+  'settings.cap.missing': '未安装',
   'clip.empty.title': '剪藏本还是空的',
   'clip.empty.body': '剪藏成书是用剪藏本里的文章合成的。现在剪藏本里一篇文章都没有，打开书架那本也会是空的。',
   'clip.empty.hint': '先去配几个订阅源，或者看一眼教程。',

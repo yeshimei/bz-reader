@@ -81,6 +81,13 @@ export function ico(name: string, cls = ''): string {
        会糊成一个墨点，围在它旁边的又是 11px 的字，所以这里只留最省细节的形状。 */
     seal:
       '<circle cx="12" cy="12" r="10.2"/><circle cx="12" cy="12" r="6.9" stroke-width="1.1" opacity=".6"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/>',
+    /* 朗读三张引擎卡（2026-11-17）：云 / 机架 / 显示器。
+       名字写错在这里不会报错，只会渲染出一个 16px 的空壳——真机上表现为
+       卡片标题上方一块空白（tests/settings-render 盯着这条）。 */
+    cloud: '<path d="M6.5 18a5.5 5.5 0 0 1 .6-11 7 7 0 0 1 13.2 2.2A4 4 0 0 1 19 18z"/>',
+    server:
+      '<rect x="3" y="4" width="18" height="6.5" rx="2"/><rect x="3" y="13.5" width="18" height="6.5" rx="2"/><path d="M7 7.2h.01M7 16.7h.01"/>',
+    monitor: '<rect x="2.5" y="4" width="19" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/>',
   };
   const p = paths[name] || '';
   return `<svg${cls ? ` class="${cls}"` : ''} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;

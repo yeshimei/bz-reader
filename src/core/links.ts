@@ -55,3 +55,19 @@ export const TTS_TUTORIAL_URL = 'https://www.bilibili.com/video/BV17psV6wEP7';
  * 空串时按钮只弹一句「教程整理中」，不去打开不相干的视频（指错比没有更糟）。
  */
 export const REVIEW_TUTORIAL_URL = '';
+
+/**
+ * PDF 组的教程（2026-11-17）：占位，等专门讲 PDF 那期。
+ * 空串时按钮只弹一句「教程整理中」。**不要**拿推荐向总览顶上——
+ * 那条讲的是整体介绍，点进去找不到翻页 / 批注 / 扫描页识别怎么配。
+ */
+export const PDF_TUTORIAL_URL = '';
+
+/**
+ * AI 助手的教程（2026-11-17）：与 AI_TUTORIAL_URL 不是同一条——
+ * 那条讲的是知识库索引怎么建，这一条讲自己的接口地址 / 模型 / 密钥怎么填。
+ *
+ * 地址 2026-11-17 由作者给定（BV1BNsz6zEBx），设置页 AI 组标题右侧那颗
+ * 「看教程」指向它。
+ */
+export const AI_CHAT_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1BNsz6zEBx';
