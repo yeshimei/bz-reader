@@ -1384,4 +1384,6 @@ export const ZH_TW: Record<MsgKey, string> = {
   'image.plate.outdated': '[TODO] image.plate.outdated',
   'image.copy.failed': '[TODO] image.copy.failed',
   'image.plate.failed': '[TODO] image.plate.failed',
+  'image.reset': '[TODO] image.reset',
+  'image.copy.link': '[TODO] image.copy.link',
 };

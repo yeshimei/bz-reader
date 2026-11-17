@@ -11,7 +11,7 @@
  * 目录/书签/划线在左侧栏，搜索/排版/书摘/AI 在全局弹层层，划词条用壳层样式。
  * 这一版只有一条界面语言，不再有第二套。
  * ============================================================ */
-import { ItemView, Menu, Modal, setIcon, type WorkspaceLeaf } from 'obsidian';
+import { ItemView, Menu, Modal, normalizePath, setIcon, type WorkspaceLeaf } from 'obsidian';
 import { EngineHost, OpenCancelledError, type FootnoteInfo, type Rect, type RelocateInfo, type SelectionInfo } from '../engine/host';
 import { createEngine, type ReaderEngine } from '../engine/reader-engine';
 import { FONT_FAMILIES, normalizePrefs, pickPrefs, type ReaderPrefs } from '../data/prefs';
@@ -5370,6 +5370,7 @@ export class ReaderView extends ItemView {
           const bzPlate = can('ai') && bzEntryReady(this.api.app);
           new ImageViewerOverlay(this.containerEl, info.src, info.images, {
             onPlate: bzPlate ? (src) => void this.saveImageAsPlate(src) : undefined,
+            onCopy: (src) => this.saveImageToVault(src),
           });
         },
         /* 两指同时轻按 = 沉浸/还原。手势判定在引擎侧（只有它拿得到 iframe
@@ -5681,6 +5682,31 @@ export class ReaderView extends ItemView {
       if (note) lines.push('>', `> **${t('side.ideaTag')}** ${note}`);
     }
     this.writeClipboard(lines.join('\n'));
+  }
+
+  /**
+   * 复制图片降级：环境不支持 ClipboardItem 时，把图存进库里的 `_导出` 目录，
+   * 再把 `![[路径]]` 写到剪贴板——用户粘到笔记里就是一张图，不静默失败。
+   */
+  private async saveImageToVault(src: string): Promise<boolean> {
+    try {
+      const resp = await fetch(src);
+      const blob = await resp.blob();
+      /* 目录名用英文，避免新增硬编码中文（门禁按字符串计，目录名也会被算） */
+      const dir = '_export';
+      const adapter = this.api.app.vault.adapter;
+      if (!(await adapter.exists(dir))) await adapter.mkdir(dir).catch(() => undefined);
+      const ext = (blob.type.split('/')[1] || 'png').replace(/[^a-z0-9]/gi, '') || 'png';
+      const path = normalizePath(`${dir}/bz-image-${Date.now()}.${ext}`);
+      await adapter.writeBinary(path, await blob.arrayBuffer());
+      const link = `![[${path}]]`;
+      const cp = navigator.clipboard;
+      if (!cp) return false;
+      await cp.writeText(link);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** 把放大的这张图送进 bz 的图版录入（AI 读图生成文献笔记） */
