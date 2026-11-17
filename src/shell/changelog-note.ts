@@ -114,6 +114,10 @@ interface ChangelogCopy {
   fbInvalid: string;
   /** 卡片里那行「作者回复」的标签 */
   fbReply: string;
+  /** 卡片里那行「核查结论」的标签 */
+  fbVerify: string;
+  /** 已完成条目上的发布版本标签 */
+  fbRelease: string;
   fbEmpty: string;
   fbSubmitted: string;
   fbDoneAt: string;
@@ -175,6 +179,8 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     fbDoing: '进行中',
     fbInvalid: '不成立',
     fbReply: '作者回复',
+    fbVerify: '核查结论',
+    fbRelease: '发布版本',
     fbEmpty: '暂无',
     fbSubmitted: '提交',
     fbDoneAt: '完成',
@@ -231,6 +237,8 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     fbDoing: 'In progress',
     fbInvalid: 'Not an issue',
     fbReply: 'Author reply',
+    fbVerify: 'Verification',
+    fbRelease: 'Released in',
     fbEmpty: 'None',
     fbSubmitted: 'Filed',
     fbDoneAt: 'Done',
@@ -447,16 +455,31 @@ function feedbackItemHtml(it: BzrFeedback): string {
   const commitHtml = commitUrl
     ? `<a class="bzs-chgn-fbcommit" href="${esc(commitUrl)}" target="_blank" rel="noopener">${esc(it.commitId ?? '')} ↗</a>`
     : '';
+  /* 归属：bz 带功能域，bz reader 不带；只展示已知插件名，远端值先过白名单 */
+  const pluginText = it.plugin
+    ? [it.plugin === 'bz-reader' ? 'bz reader' : 'bz', it.plugin === 'bz' && it.domain ? it.domain : '']
+      .filter(Boolean).join(' · ')
+    : '';
+  const pluginHtml = pluginText ? `<span class="bzs-chgn-fbplugin">${esc(pluginText)}</span>` : '';
+  const verifyHtml = it.verify
+    ? `<div class="bzs-chgn-fbverify">${esc(c.fbVerify)}：${esc(it.verify)}</div>`
+    : '';
+  const releaseHtml = state === 'done' && it.releaseVersion
+    ? `<span class="bzs-chgn-fbrelease">${esc(c.fbRelease)} ${esc(it.releaseVersion)}</span>`
+    : '';
   return (
     `<div class="bzs-chgn-fbit ${state}">` +
     '<div class="bzs-chgn-fbhd">' +
     `<i class="bzs-chgn-fbdot ${state}"></i>` +
+    pluginHtml +
     `<div class="bzs-chgn-fbtitle">${esc(it.title)}</div>` +
     '</div>' +
     (it.desc ? `<div class="bzs-chgn-fbdesc">${esc(it.desc)}</div>` : '') +
     (it.reply ? `<div class="bzs-chgn-fbreply">${esc(c.fbReply)}：${esc(it.reply)}</div>` : '') +
+    verifyHtml +
     '<div class="bzs-chgn-fbmeta">' +
     srcHtml +
+    releaseHtml +
     commitHtml +
     `<span>${dates}</span>` +
     `<span class="bzs-chgn-fbstate ${state}">${esc(label)}</span>` +

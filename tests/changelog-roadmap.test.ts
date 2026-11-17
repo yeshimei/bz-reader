@@ -246,3 +246,43 @@ describe('反馈 v2：五态、作者回复、Git 提交链接', () => {
     expect(s).toContain('2026.11.16 00:45');
   });
 });
+
+describe('反馈 v3：插件归属、核查结论、发布版本', () => {
+  const D: BzrData = {
+    ...DATA,
+    roadmap: [],
+    feedback: [
+      { key: 'bug', items: [
+        { id: 'v1', source: 'bili-dm', plugin: 'bz', domain: '日记本',
+          summary: 's', title: '归属测试标题', desc: '描述文本', href: '',
+          reply: '作者原话', replyDigest: 'DIGEST-ONLY-TEXT', verify: '核查结论文本',
+          state: 'done', submittedAt: '2026-11-15 23:55', doneAt: '2026-11-16 00:45',
+          releaseVersion: '1.44.5' },
+      ] },
+      { key: 'feature', items: [] },
+    ],
+  };
+  const html = () => changelogNoteHtml(CHANGELOG_RELEASES, '1.5.2', NAMES, D);
+
+  it('插件归属与功能域显示在标题旁', () => {
+    const s = html();
+    expect(s).toContain('bzs-chgn-fbplugin');
+    expect(s).toContain('bz · 日记本');
+  });
+
+  it('核查结论以小字显示', () => {
+    const s = html();
+    expect(s).toContain('bzs-chgn-fbverify');
+    expect(s).toContain('核查结论文本');
+  });
+
+  it('发布版本显示在已完成条目上', () => {
+    const s = html();
+    expect(s).toContain('bzs-chgn-fbrelease');
+    expect(s).toContain('1.44.5');
+  });
+
+  it('作者回复摘要只给 QQ 帖子用，不进界面', () => {
+    expect(html()).not.toContain('DIGEST-ONLY-TEXT');
+  });
+});
