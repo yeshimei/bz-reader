@@ -59,6 +59,35 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '1.5.2',
+    date: '2026-11-17',
+    improved: [
+      {
+        domain: { zh: '设置页', en: 'Settings' },
+        text: {
+          zh: '长分组切出小标题（文字 / 页面 / 阅读 / 导出与链接 / 目录 / 排查），图标改双列排、引擎卡补上图标，一屏之内更好找。',
+          en: 'Long sections are split into subheadings (Text / Page / Reading / Export & links / Folders / Troubleshooting), icons laid out two per row and engine cards given icons, so everything is easier to find at a glance.',
+        },
+      },
+      {
+        domain: { zh: '按意思搜', en: 'Search by meaning' },
+        text: {
+          zh: '搜之前先用 AI 把你那句口语压成检索词，去掉「哪本书」「讲过」这类问句壳，向量更准；字面通道仍用原话，书名、年份、引文不丢。AI 没配好或临时失败就按原话搜，不影响正常使用。',
+          en: 'Before searching, AI compresses your spoken question into tight keywords, stripping filler like “which book” or “talked about” for a more accurate vector. The literal channel still uses your original words, so titles, years and quotes survive. If AI is unset or briefly fails, it searches your raw query as before.',
+        },
+      },
+    ],
+    fixed: [
+      {
+        domain: { zh: '补全信息', en: 'Book info' },
+        text: {
+          zh: '只识别到语言时如实说「简介和分类这次没补上」，不再弹「已补上简介与分类」却一个字没变。',
+          en: 'When only the language is detected, it now honestly says “description and categories weren’t filled in this time” instead of claiming both were added with nothing changed.',
+        },
+      },
+    ],
+  },
+  {
     version: '1.5.1',
     date: '2026-11-17',
     added: [
