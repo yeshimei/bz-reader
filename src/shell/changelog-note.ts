@@ -487,10 +487,14 @@ function feedbackItemHtml(it: BzrFeedback): string {
   );
 }
 
+/** 反馈按插件隔离：bz reader 只显示自己的条目；老数据没 plugin 字段视为通用 */
+const OWN_PLUGIN = 'bz-reader';
+const isOwnFeedback = (it: BzrFeedback): boolean => !it.plugin || it.plugin === OWN_PLUGIN;
+
 function feedbackRowsHtml(data: BzrData | null, key: 'bug' | 'feature'): string {
   const c = copy();
   const g = (data?.feedback ?? []).find((x) => x.key === key);
-  const items = g?.items ?? [];
+  const items = (g?.items ?? []).filter(isOwnFeedback);
   if (!items.length) return `<div class="bzs-chgn-fbempty">${esc(c.fbEmpty)}</div>`;
   return items.map(feedbackItemHtml).join('');
 }
@@ -500,8 +504,8 @@ function rmTabCounts(data: BzrData | null): Record<'roadmap' | 'feature' | 'bug'
   const groups = data?.feedback ?? [];
   return {
     roadmap: (data?.roadmap ?? []).reduce((n, t) => n + t.items.length, 0),
-    feature: groups.find((g) => g.key === 'feature')?.items.length ?? 0,
-    bug: groups.find((g) => g.key === 'bug')?.items.length ?? 0,
+    feature: (groups.find((g) => g.key === 'feature')?.items ?? []).filter(isOwnFeedback).length,
+    bug: (groups.find((g) => g.key === 'bug')?.items ?? []).filter(isOwnFeedback).length,
   };
 }
 
@@ -1006,6 +1010,17 @@ export function openChangelogNote(
   /* 正文视图：log / roadmap / feature / bug，只换正文区，不动头部与页脚 */
   const setView = (scope: HTMLElement, key: string): void => {
     scope.dataset.view = key;
+    /* 显式切显示：点 tab 后反馈列表替换日志正文，不叠加在正文下面。
+       CSS 已经写了同样的规则，这里再钉一层，避免被别的样式覆盖。 */
+    scope.querySelectorAll<HTMLElement>('.bzs-chgn-wrap, .bzs-chgn-mpage').forEach((el) => {
+      el.style.display = key === 'log' ? '' : 'none';
+    });
+    scope.querySelectorAll<HTMLElement>('.bzs-chgn-views').forEach((el) => {
+      el.style.display = key === 'log' ? 'none' : 'flex';
+    });
+    scope.querySelectorAll<HTMLElement>('.bzs-chgn-view').forEach((el) => {
+      el.style.display = el.dataset.viewPage === key ? 'flex' : 'none';
+    });
     scope.querySelectorAll<HTMLElement>('[data-view-btn]').forEach((b) => {
       const on = key !== 'log' && b.dataset.viewBtn === key;
       b.classList.toggle('on', on);

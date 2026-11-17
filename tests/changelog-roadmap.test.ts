@@ -247,13 +247,38 @@ describe('反馈 v2：五态、作者回复、Git 提交链接', () => {
   });
 });
 
+describe('反馈按插件隔离：bz-reader 只显示自己的', () => {
+  const MIXED: BzrData = {
+    ...DATA,
+    roadmap: [],
+    feedback: [
+      { key: 'bug', items: [
+        { id: 'r1', plugin: 'bz-reader', source: 'github-issue', summary: 's', title: '只属于 Reader 的反馈', desc: '', href: '', submittedAt: '2026-11-15' },
+        { id: 'b1', plugin: 'bz', source: 'bili-dm', summary: 's', title: '只属于 BZ 的反馈', desc: '', href: '', submittedAt: '2026-11-15' },
+      ] },
+      { key: 'feature', items: [] },
+    ],
+  };
+  const html = () => changelogNoteHtml(CHANGELOG_RELEASES, '1.5.2', NAMES, MIXED);
+
+  it('列表只渲染 bz-reader 条目', () => {
+    const s = html();
+    expect(s).toContain('只属于 Reader 的反馈');
+    expect(s).not.toContain('只属于 BZ 的反馈');
+  });
+
+  it('入口角标只数 bz-reader 条目', () => {
+    expect(html()).toContain('>1</span></button>');
+  });
+});
+
 describe('反馈 v3：插件归属、核查结论、发布版本', () => {
   const D: BzrData = {
     ...DATA,
     roadmap: [],
     feedback: [
       { key: 'bug', items: [
-        { id: 'v1', source: 'bili-dm', plugin: 'bz', domain: '日记本',
+        { id: 'v1', source: 'bili-dm', plugin: 'bz-reader', domain: '日记本',
           summary: 's', title: '归属测试标题', desc: '描述文本', href: '',
           reply: '作者原话', replyDigest: 'DIGEST-ONLY-TEXT', verify: '核查结论文本',
           state: 'done', submittedAt: '2026-11-15 23:55', doneAt: '2026-11-16 00:45',
@@ -264,10 +289,11 @@ describe('反馈 v3：插件归属、核查结论、发布版本', () => {
   };
   const html = () => changelogNoteHtml(CHANGELOG_RELEASES, '1.5.2', NAMES, D);
 
-  it('插件归属与功能域显示在标题旁', () => {
+  it('bz reader 条目显示插件徽标但不带功能域', () => {
     const s = html();
     expect(s).toContain('bzs-chgn-fbplugin');
-    expect(s).toContain('bz · 日记本');
+    expect(s).toContain('bz reader');
+    expect(s).not.toContain('bz · 日记本');
   });
 
   it('核查结论以小字显示', () => {
