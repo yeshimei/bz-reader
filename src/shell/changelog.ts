@@ -59,7 +59,7 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
-    version: '1.5.0',
+    version: '1.5.1',
     date: '2026-11-17',
     added: [
       {
@@ -95,13 +95,6 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
         text: {
           zh: '侧栏问答可以带上笔记一起问，按目录分组、支持多选，也能全库搜。',
           en: 'Sidebar questions can carry notes with them: grouped by folder, multi-select, and searchable across the whole vault.',
-        },
-      },
-      {
-        domain: { zh: '加入复习', en: 'Add to review' },
-        text: {
-          zh: '划好的句子或整章重点交给 AI，挑出值得长期记的，按全文回忆、抽认卡、做题三种方式制卡；装好 bz review 插件后直接进它的复习队列。',
-          en: 'Picked highlights or a whole chapter go to AI, which chooses what is worth keeping and makes cards in three modes — recall, flashcards or quiz; with the bz review plugin installed the cards land straight in its review queue.',
         },
       },
     ],
