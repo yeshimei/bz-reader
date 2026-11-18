@@ -73,6 +73,19 @@ describe('解析 · 一份远端 JSON 能变成什么', () => {
     expect(d!.links.buy).toContain('afdian.net');
   });
 
+  /* 2026-11-18：条目尾部要能挂「QQ 频道 ↗」，链接来自在线配置的 `qq` 字段。
+     解析层原来只认 `issue`，填了 `qq` 也会被静默丢掉——这条就是那道闸。 */
+  it('日志条目的 qq 帖子链接：白名单内的保留，乱域名丢掉', () => {
+    const withQq = (qq: unknown) => parseBzrData(doc({ changelog: [{ version: '1.5.2', added: [
+      { domain: { zh: '多分类', en: 'Shelves' }, text: { zh: '一本书多个分类', en: 'Many shelves' }, qq },
+    ] }] }))!.changelog[0]!.added![0]!;
+    expect(withQq('https://pd.qq.com/s/Nciiuwi316').qq).toBe('https://pd.qq.com/s/Nciiuwi316');
+    /* 不在白名单 / 不是字符串 / 空串 → 不渲染链接，条目本身照留 */
+    expect(withQq('https://evil.example.com/s/x').qq).toBeUndefined();
+    expect(withQq(123).qq).toBeUndefined();
+    expect(withQq('').qq).toBeUndefined();
+  });
+
   it('顶层不对（不是对象 / 缺字段 / JSON 坏）→ null', () => {
     expect(parseBzrData('not json')).toBeNull();
     expect(parseBzrData('null')).toBeNull();

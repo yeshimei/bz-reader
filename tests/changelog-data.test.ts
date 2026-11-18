@@ -26,6 +26,8 @@ const manifest = JSON.parse(readFileSync(join(__dirname, '..', 'manifest.json'),
 interface NoteEntry {
   domain: string;
   text: string;
+  /** 行尾附的来源链接（`[QQ 频道 ↗](https://pd.qq.com/…)`），没有就空着 */
+  link?: string;
 }
 
 type NoteGroups = Record<'added' | 'improved' | 'fixed', NoteEntry[]>;
@@ -35,6 +37,10 @@ type NoteGroups = Record<'added' | 'improved' | 'fixed', NoteEntry[]>;
  *
  * 只认 `- **标签** ：说明` 这一种写法（全角或半角冒号都收）——模板以外的
  * 排版解析不了就让它解析成空，再由逐条对账把问题暴露出来。
+ *
+ * 行尾允许跟一条来源链接（`… 说明。[QQ 频道 ↗](https://pd.qq.com/…)`）：
+ * 它是给 Release 页用的，不算进正文——正文必须与内置日志逐字相同，链接单独
+ * 与条目上的 `qq` 字段对账（见下面的「来源链接」断言）。
  */
 function parseNoteLog(version: string): NoteGroups {
   const path = join(__dirname, '..', 'docs', `note-v${version}.md`);
@@ -55,7 +61,11 @@ function parseNoteLog(version: string): NoteGroups {
       continue;
     }
     const item = /^-\s+\*\*(.+?)\*\*\s*[：:]\s*(.+?)\s*$/.exec(line);
-    if (item && cur) groups[cur].push({ domain: item[1].trim(), text: item[2].trim() });
+    if (!item || !cur) continue;
+    const raw = item[2];
+    const link = /\s*\[[^\]]*\]\((https?:\/\/[^)\s]+)\)\s*$/.exec(raw);
+    const text = (link ? raw.slice(0, link.index) : raw).trim();
+    groups[cur].push({ domain: item[1].trim(), text, ...(link ? { link: link[1] } : {}) });
   }
   return groups;
 }
@@ -63,6 +73,11 @@ function parseNoteLog(version: string): NoteGroups {
 /** 取内置日志里的中文半边，形状与 note 对齐 */
 function packEntries(list: readonly ChangelogEntry[] | undefined): NoteEntry[] {
   return (list ?? []).map((e) => ({ domain: e.domain.zh, text: e.text.zh }));
+}
+
+/** note 条目去掉来源链接，只留正文（正文才与内置日志逐字对比） */
+function stripLinks(list: NoteEntry[]): NoteEntry[] {
+  return list.map(({ domain, text }) => ({ domain, text }));
 }
 
 describe('内置更新日志对账（发版门禁）', () => {
@@ -101,8 +116,29 @@ describe('内置更新日志对账（发版门禁）', () => {
   it('最新一块与 docs/note-v<版本>.md 逐条一致（note 改稿必须回灌）', () => {
     const rel = CHANGELOG_RELEASES[0]!;
     const note = parseNoteLog(rel.version);
-    expect(packEntries(rel.added), '「新增」与 note 不一致').toEqual(note.added);
-    expect(packEntries(rel.improved), '「优化」与 note 不一致').toEqual(note.improved);
-    expect(packEntries(rel.fixed), '「修复」与 note 不一致').toEqual(note.fixed);
+    expect(packEntries(rel.added), '「新增」与 note 不一致').toEqual(stripLinks(note.added));
+    expect(packEntries(rel.improved), '「优化」与 note 不一致').toEqual(stripLinks(note.improved));
+    expect(packEntries(rel.fixed), '「修复」与 note 不一致').toEqual(stripLinks(note.fixed));
+  });
+
+  /* 2026-11-18：更新日志条目可以挂一条反馈出处（QQ 频道帖子）。
+     链接只出现在行尾，弹窗与 Release 页指向同一个帖子——两边填的不一样，
+     用户点进去看到的是别人那条反馈。 */
+  it('note 行尾的来源链接与内置日志的 qq 字段一一对应', () => {
+    const rel = CHANGELOG_RELEASES[0]!;
+    const note = parseNoteLog(rel.version);
+    for (const g of ['added', 'improved', 'fixed'] as const) {
+      const logEntries = rel[g] ?? [];
+      note[g].forEach((n, i) => {
+        const e = logEntries[i];
+        if (!e) return;
+        const where = `${g} 第 ${i + 1} 条（${n.domain}）`;
+        if (e.qq) {
+          expect(n.link, `${where}：note 缺来源链接`).toBe(e.qq);
+        } else {
+          expect(n.link, `${where}：内置日志没有 qq，note 不该带链接`).toBeUndefined();
+        }
+      });
+    }
   });
 });

@@ -231,6 +231,10 @@ function changelogEntry(raw: unknown): BzrChangelogEntry | null {
   if (typeof o.issue === 'number' && Number.isInteger(o.issue) && o.issue > 0 && o.issue < 1_000_000) {
     out.issue = o.issue;
   }
+  /* QQ 频道帖子：过白名单才留（渲染层还会再过一次，这里先挡住乱填的域名，
+     免得下游拿到一个「有值但点不开」的字段）。 */
+  const qq = typeof o.qq === 'string' ? safeFeedbackUrl(o.qq) : null;
+  if (qq) out.qq = qq;
   return out;
 }
 function feedback(raw: unknown): RoadmapFeedback | null {
