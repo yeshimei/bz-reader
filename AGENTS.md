@@ -131,7 +131,7 @@ curl.exe -sL https://gitee.com/ntbl/bz-reader/releases/download/<版本>/manifes
 ```
 两边 `version` 都要等于 `manifest.version`。
 14. **三张统计推云端**（打赏 / 高级用户 / 赞助人）：在 `D:\Obsidian\skills\bz-reader-feedback-roadmap\scripts` 跑 `stats-set.mjs --reward auto --patrons auto --push`（高级用户要给链动小铺后台销量和，读不到就留旧值、别写 0）；脚本从 `scripts/` 里 `git add` 会失败，回 bz 主仓手动提交并双推 GitHub / 码云。口径见该 skill 的 `references/stats.md`；
-15. **两处公告**：先用同一张发布图发频道「公告」（Markdown 长贴 + 本地图片占位符），再发「bz 插件交流群」——**@全体成员 + 回车空一行 + 粘图 + 发送**，图上写明插件名与版本号；出图版式与文案模板见 skill `bz-reader-release` 第 5 节，卡片模板在 `skills/bz-reader-release/assets/release-card.html`。
+15. **两处公告**：**先把更新日志发到频道「公告」**（Markdown 长贴 + 本地图片占位符，带发布图），**再把那条帖子分享到「bz 插件交流群」**——@全体成员 + 摘要 + 频道帖子短链（QQ 自动渲染成「腾讯频道」卡片），群里不再另发图片。出图版式与文案模板见 skill `bz-reader-release` 第 5 节，卡片模板在 `skills/bz-reader-release/assets/release-card.html`。
 
 镜像放在最后：等 Release 与三处部署都完成再推国内通道，别让码云先于正本上线。目录那边若报 Error 要改，涨补丁号重发，**不挪已经发出去的 tag**。
 
