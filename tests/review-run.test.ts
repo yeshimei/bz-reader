@@ -69,6 +69,18 @@ describe('runReviewAdd：按划线挑', () => {
     expect(res.added).toBe(1);
     expect(got[0].key).toBe('reader:b1:h1');
     expect(got[0].text).toBe('甲');
+    expect(got[0].backlink).toBe('obsidian://bz-reader?book=b1&t=%E7%94%B2&c=%E7%AC%AC%E4%B8%80%E7%AB%A0');
+  });
+
+  it('推卡的 backlink 只带前 20 字原文，不把整段塞进链接', async () => {
+    const { api, got } = fakeApi();
+    const long = '甲'.repeat(80);
+    await runReviewAdd(
+      { book, api, ask: async () => '{"keep":["h1"]}', chapterText: async () => '' },
+      { mode: 'marks', chapters: [{ index: 0, title: '第一章', marks: [mark('h1', long)] }], limit: 0 },
+    );
+    const t = decodeURIComponent(got[0].backlink.split('&t=')[1].split('&')[0]);
+    expect(t).toBe('甲'.repeat(20));
   });
 
   it('模型没按 JSON 回时保底全留，不丢用户勾的内容', async () => {
@@ -138,6 +150,8 @@ describe('runReviewAdd：按章节挑', () => {
     expect(got[0].qa).toEqual({ q: '船开到哪了？', a: '印度洋' });
     expect(got[0].key.startsWith('reader:b1:ai:')).toBe(true);
     expect(got[0].chapterTitle).toBe('第一章');
+    expect(got[0].backlink).toContain('obsidian://bz-reader?book=b1');
+    expect(got[0].backlink).toContain('c=%E7%AC%AC%E4%B8%80%E7%AB%A0');
   });
 
   it('正文为空的章节跳过并计数，不算失败', async () => {

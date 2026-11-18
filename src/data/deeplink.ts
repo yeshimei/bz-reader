@@ -24,29 +24,11 @@ import type { Bookmark, Highlight, ReaderBook } from './schema';
 import { kbLinkMarkdown } from './kb-link';
 import { t } from '../i18n';
 
-/** 协议名：注册在 plugin.registerObsidianProtocolHandler('bz-reader', …) */
-export const PROTOCOL = 'bz-reader';
+import { snippet, protocolUrl, type LinkTarget } from './deeplink-core';
 
-export interface LinkTarget {
-  bookId: string;
-  /** EPUB CFI（首选定位于此） */
-  cfi?: string;
-  /** 原文前若干字，CFI 失效时用来搜 */
-  text?: string;
-  /** 章节标题，给降级搜索限定范围，也用来写链接文字 */
-  chapter?: string;
-  /** 章节内百分比 0..1，最后兜底 */
-  pct?: number;
-}
-
-/** CFI 里塞全文会撑爆链接，20 字足够在章节里唯一定位一次 */
-const SNIPPET = 20;
-
-/* 双链（data/wikilink.ts）也用这一份：两处各写一套清洗规则，
-   迟早会在「换行怎么压、方括号清不清」上走散。 */
-export function snippet(text: string): string {
-  return text.replace(/\s+/g, ' ').trim().slice(0, SNIPPET);
-}
+/* 协议拼装与解析在 deeplink-core.ts（纯函数、不 import obsidian），
+   这里原样 re-export——既有调用方的 import 路径与行为都不变。 */
+export { PROTOCOL, snippet, protocolUrl, parseProtocolParams, type LinkTarget } from './deeplink-core';
 
 export function targetOfMark(book: ReaderBook, h: Highlight): LinkTarget {
   return {
@@ -64,44 +46,6 @@ export function targetOfBookmark(book: ReaderBook, b: Bookmark): LinkTarget {
     text: b.label,
     chapter: b.chapterTitle?.trim() || undefined,
     pct: b.percent,
-  };
-}
-
-function enc(v: string | number | undefined): string | null {
-  if (v === undefined || v === null || v === '') return null;
-  return encodeURIComponent(String(v));
-}
-
-/** 生成 `obsidian://bz-reader?book=…&cfi=…&t=…&c=…&p=…` */
-export function protocolUrl(t: LinkTarget): string {
-  const q: string[] = [];
-  const push = (k: string, v: string | number | undefined): void => {
-    const e = enc(v);
-    if (e) q.push(`${k}=${e}`);
-  };
-  push('book', t.bookId);
-  push('cfi', t.cfi);
-  push('t', t.text);
-  push('c', t.chapter);
-  push('p', t.pct);
-  return `obsidian://${PROTOCOL}?${q.join('&')}`;
-}
-
-/**
- * 解析协议参数。Obsidian 传进来的值已经 decode 过，这里不要再 decode 一次，
- * 否则原文里的 `%` 会被二次解释成乱码。
- */
-export function parseProtocolParams(p: Record<string, string> | null | undefined): LinkTarget | null {
-  if (!p) return null;
-  const bookId = p.book;
-  if (!bookId) return null;
-  const pct = p.p === undefined ? undefined : Number(p.p);
-  return {
-    bookId,
-    cfi: p.cfi || undefined,
-    text: p.t || undefined,
-    chapter: p.c || undefined,
-    pct: Number.isFinite(pct) ? pct : undefined,
   };
 }
 

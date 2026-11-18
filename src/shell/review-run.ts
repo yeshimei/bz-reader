@@ -23,6 +23,7 @@ import {
   type ReviewCardPayload,
 } from '../data/review-bridge';
 import { buildChapterCardPrompt, buildMarkPickPrompt, parseChapterCards, parsePickedIds } from '../data/review-ai';
+import { protocolUrl, snippet } from '../data/deeplink-core';
 
 /** 一章（执行时只需要序号、标题、和这一章的划线） */
 export interface RunChapter {
@@ -120,6 +121,13 @@ function markToPayload(book: ReaderBook, m: MarkLite): ReviewCardPayload {
     key: markCardKey(book.id, m.id),
     bookTitle: book.meta.title || '',
     text: m.text,
+    /* 带一条跳回书里的链接：Review 侧「回到原文」按钮靠它才能显示。
+       协议只支持按原文片段定位到那一句，不还原高亮色——别在文案里说成高亮定位。 */
+    backlink: protocolUrl({
+      bookId: book.id,
+      text: snippet(m.text),
+      chapter: m.chapterTitle || undefined,
+    }),
   };
   if (m.chapterTitle) payload.chapterTitle = m.chapterTitle;
   if (m.comment) payload.comment = m.comment;
@@ -193,6 +201,12 @@ export async function runReviewAdd(deps: RunDeps, plan: RunPlan, hooks: RunHooks
               bookTitle,
               text: p.text,
               qa: { q: p.q, a: p.a || p.text },
+              /* 章节卡没有划线 id，靠前 20 字 + 章节名跳回那一句 */
+              backlink: protocolUrl({
+                bookId: book.id,
+                text: snippet(p.text),
+                chapter: job.chapter.title || undefined,
+              }),
             };
             if (job.chapter.title) payload.chapterTitle = job.chapter.title;
             cards.push(payload);
