@@ -70,44 +70,6 @@ New-Item -ItemType Junction -Path D:\Obsidian\bz-reader-wt-<主题>\node_modules
   - 调试入口：往 `<数据目录>/debug-open.json` 写 `{"command":"open"|"continue"|"book","bookId":"…"}`，下次启动执行一次后自删。
 - 已知坑：iframe 分页被整体平移导致坐标偏差；点击用 `screenX/screenY`，不要用带平移量的 `clientX/clientY`；选区 rect 先过 `frameGeom()` 换回宿主坐标，别直接拿 `getClientRects()`。
 
-## 本地 TTS（2026-11-14 实测）
-- 插件**只是客户端**，不内置模型：认 OpenAI 兼容的 `/v1/audio/speech`（`input` / `voice` / `response_format`），音色列表 `GET /v1/audio/voices`。
-- 必须走 `requestUrl`，不能 fetch：本地服务不会给 `app://obsidian.md` 放行跨域头，桌面端直接 fetch 会被浏览器拦掉。代价是**没有 AbortSignal**，「取消」只能做到「不等了」。
-- 缓存键带引擎前缀 `local:<格式>:<音色>`；云端老缓存保持原样（`stella`，那是花过钱生成的，不能作废）。
-- 整本预生成只对本地开放（云端一笔几十块，不该被一次点击误触）；进度靠常驻 Notice，点停止要**立刻** `hide()`，否则要等当前那句合完才消失。
-- 手机端不列本地：它要连电脑上那个 `127.0.0.1`。
-- 模型选型：`CosyVoice2-0.5B` **没有预置音色**（`list_available_spks()` 返回空，只能 zero-shot + 参考音频）；要 `中文女 / 中文男 / 粤语女 / 英文女…` 这七个预置音色用 `CosyVoice-300M-SFT`。
-- 速度参考（RTX 4070 + 300M-SFT + fp16）：单句约 3 秒；《围城》整本 10649 句约 9 小时，整章（约 200 句）约 10 分钟。别把「整本预生成」说成几分钟的事。
-- 体积：同一页 wav 2156 KB、mp3 364 KB。**整章 wav 约 290 MB，只有 mp3 才装得下**，所以本地默认 mp3。
-
-## 离线听书包（2026-11-14 实测）
-- 包 = `bz-reader/offline/<书名>/` 下「每章一个 mp3 + 一份 `manifest.json`（逐句 `at`/`ms` 时间轴）」。IndexedDB 缓存不跟库同步，这个目录才跟；用户把目录拷进别的库，打开书就认。
-- 时间轴靠**数 mp3 帧**算（`core/audio-length.ts`），不是按码率估：逐帧精确到 26ms，整章累计不飘。算不出就整章不给包——稳定偏的高亮比没有更糟。
-- 播放走 `core/offline-player.ts`：整章一个文件 + 时间轴驱动高亮（不是逐句 blob）。所以**离线包不需要引擎**，手机不跑模型也能听本地音色——这是它最大的价值。
-- **高亮不在宿主画框（2026-11-14 重做）**：一句话就是一个 `{block, at, len}` 锚点（`core/tts-script.ts` 建脚本时算好，相对块内**原始** `textContent`），播放时按锚点直接造 Range，再注册进**书页文档自己的** `CSS.highlights`（`engine/speech-highlight.ts`）。翻页 / 缩放 / 双栏 / 竖排 / 深色全交给浏览器排版，零坐标计算。
-  - 为什么改：旧做法把 `getClientRects()` 的结果乘 scale、减 `span.x0`、加 `viewBox.left` 搬回宿主画绝对定位 div，四个量串成一条链；离线播放要边念边翻、每页重算一次，任何一环没跟上就整体偏。真机症状：**离线朗读偏几个字，实时朗读不偏**。
-  - 定位绝不能再退回「拿文本去 DOM 里搜」：`findVisibleText` / `findInRange` 的最后一级是在整块里找，同一块里的重复短语、标点差异都会命到别处。
-  - `::highlight()` 是伪元素，样式必须跟正文一起走 `buildChapterCSS`（宿主 `styles.css` 管不到 iframe）。注意**别把中文注释写进那个模板字符串**，`tests/no-hardcoded-zh` 会当成界面文案。
-  - 老内核（无 `CSS.highlights`）退回 foliate 的 `overlayer.highlight`（仍在 iframe 内画 SVG）；跨 realm 注册一定用 iframe 自己的 `Highlight` 构造器。
-- 坐标表仍是**两份**：`speechSpots`（页级，`currentBlocks()` 每取一次当前页就重填）与 `chapterSpots`（整章，`currentChapterBlocks()` 填一次）。`speechRange` / `speechRangeChapter` 分开取，整章序号按页级那份取就是整体错位。
-- 「这句在不在眼前」只在 iframe 视口内比（`anyRectInView`）：分栏模式下 `getClientRects()` 是当前栏的视口坐标，屏外那一栏是负数或大于宽度。跟随改成「先 `revealAnchor` 翻页、再画」，高亮挂在 Range 上跟文字走，翻完再画一定落在新页。
-- **「从这一屏开始念」的横区间只能用 foliate 自己的量**（`range-text.ts` 的 `pageSpan`）：`renderer.start`（当前页起点）+ `renderer.viewSize`（一页宽），再用 caret 在 `(2,2)` 取到的那根字所在元素的 `left` 当标尺，判断块矩形是内容坐标还是视口坐标。**别自己拼区间**——按「文档元素渲染宽」拼是整章（0..38529），按 iframe 元素 rect 宽也是整章，两种都试过，真机都是「站在第二页点朗读，从第一页开头念」。
-- 离线起播位置先按「这一页第一句」的 `text + len` 去整章脚本里找同一句，找不到才退回 `startPointOf` 的前缀匹配；页文本一旦带了前面的段落，前缀匹配会命中章首。
-- `adapter.remove` 只删单个文件，**对目录无效**；删离线包必须 `adapter.rmdir(path, true)`。踩过：点了清理、弹了提示、文件还在。
-- CosyVoice 对**纯标点**（EPUB 里常单放一个「、」当分隔）会吐 `no audio produced`，重试三次也空。切句时过滤掉没有 `[\p{L}\p{N}]` 的碎片；单句合成失败改成跳过该句而不是整章作废，时间轴里没有它，`alignMarks` 会给它 -1。
-- 正文改过之后按**文本**重新对齐（`alignMarks` 贪心窗口 32 句），不按下标硬配：改一句只影响那一句，其余照常对。
-- 整章导出要独占服务：`exportChapterAudio` 开头 `stopTts()`，否则两边抢模型，每句慢一倍。
-
-## 朗读交互（2026-11-14）
-- **三条路共用章级脚本**：在线、本地、离线都从 `currentChapterBlocks()` 建 script，起播位置按「这一页第一句」的 `text + len` 去整章脚本里找（`startPointOf` 的前缀匹配只当兜底）。按页建脚本的话，翻页就把脚本切断，跟随只能「念完这页再翻」。
-- **跟随共用一个方法**（`followSpeech(seg, chapter)`）：先 `speechInView` 判在不在眼前，不在就 `revealAnchor` 翻过去，落定再 `paintSpeech`。读者手动翻页后 **8 秒内不跟随**（`ttsManualTurnAt`），否则「往回看注释被拽回去」。
-- 程序自己翻页时置 `ttsRevealing`，翻页回调里见到它就不记「手动翻页」——否则朗读会把自己刚翻的位置当成用户意图，跟随直接停掉。
-- **浮条一排平铺 8 颗，不折叠**（2026-11-15 现状；此前「4 颗 + 更多」已作废，用户明确要求全部摊开）：上一段 / 暂停 / 停止 / 下一段 / 音色 / 预生成 / 导出 / 设置。窄窗口整条左右滑，右边还有按钮时挂 `is-more` 给右缘渐隐。左边是来源徽标（`缓存 12 · 实时 3` / `离线` / `实时 · 包已过期`），**只统计已经念到的段**（`ttsHeard`）——预取会提前合成后面几段，算进去就成了「还没听先报账」。徽标右边是进度 `37/214`，等音频时换成「合成第 37 句」。
-- **点朗读瞬间进「准备中」**（`ttsOpening`）：浮条立刻出现、主按钮转圈，准备期间再点就是取消（`ttsOpenToken` 作废在飞的启动）。以前要等播放器建好才置 `speaking`，中间几秒全静默，用户会以为没点动、再点一次，两条链路叠着跑——这就是「要点两次才出来」。
-- **翻页即停朗读是刻意的**（防「声音在上一页、人已在新页」），不要改成不停。停下的同时写一条续听位置（`settings.ttsResume`），底部浮窗给「继续听 / 关闭」：翻页打断、失败、念完一页停下都算「被打断」，给浮窗；点图标关掉算「不想听了」，不给。
-- 预生成可续跑：点按钮先扫缓存数出「已备好 n 段」，再决定弹免费/收费确认、续跑三选（继续 / 全部重做）、还是重备确认。缓存就是进度，不另存游标。
-- 在线引擎点「预生成本章」**一律先弹确认**（`!free || chars >= 20000`）：按字计费，文案不写死金额，官方价格会变。
-
 ## 发激活码
 - 私钥和已发码都在 `scripts/keys/`（整目录 gitignore）。**永远不要**提交、贴进 `docs/`、`README` 或 issue。
 - 台账 `scripts/keys/issued/ledger.json`，`nextSeq` 是下一个可用序号；码文件 `scripts/keys/issued/afdian-batch-XX.txt`，一行一枚；号段表 `docs/license-ledger.md`。
@@ -169,6 +131,10 @@ curl.exe -sL https://gitee.com/ntbl/bz-reader/releases/download/<版本>/manifes
 镜像放在最后：等 Release 与三处部署都完成再推国内通道，别让码云先于正本上线。目录那边若报 Error 要改，涨补丁号重发，**不挪已经发出去的 tag**。
 
 目录规则约束（人工上架前自查）：仓库根有 `README.md` / `LICENSE` / `manifest.json`；`manifest.json` 的 `description` **不能出现 “Obsidian”**（目录规则：上下文已蕴含，重复即 Error）；Release 附三件套；`README` 披露「完整功能需付费」与网络访问。
+
+## 用户反馈流程
+- 用户发截图 / 聊天 / 反馈清单 → 出待审核清单（12 字段、bz / bz-reader 归属判定）→ 用户点哪些做 → 修代码 + 真机测试 → 合并 → 五步闭环（更新日志 / QQ 频道 / 对应平台回复）→ 一段话收尾。**先改代码合并、再走闭环；发帖和回复免确认。**
+- 完整执行步骤、字段模板、插件归属判定、QQ 群 @ 回复流程一律看 `D:\Obsidian\skills\bz-reader-feedback-roadmap\references\feedback-workflow.md`，本文件不展开。
 
 ## 不要做
 - 不提交 `.scratch*` 临时脚本、`dist/`、库里的调试日志。
