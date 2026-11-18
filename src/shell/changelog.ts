@@ -37,6 +37,8 @@ export interface ChangelogEntry {
   text: L10nText;
   /** 对应 GitHub issue；有值时正文尾部挂 #N 链接（来自在线配置） */
   issue?: number;
+  /** 对应 QQ 频道帖子；有值时正文尾部挂「QQ 频道 ↗」链接（走 safeFeedbackUrl 白名单） */
+  qq?: string;
 }
 
 /** 一个版本的日志块 */
@@ -70,6 +72,7 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
           zh: '一本书可以同时归进好几个分类：分类菜单里每一格都能点，点一下加进去、再点一次移出来。原来的主分类仍按第一格写回，旧数据照常显示，不用重新整理。',
           en: 'A book can now sit in several shelves at once: every row in the shelf menu toggles on click. The first shelf is still written back as the primary one, so existing shelves keep working untouched.',
         },
+        qq: 'https://pd.qq.com/s/Nciiuwi316',
       },
       {
         domain: { zh: '点图放大', en: 'Image zoom' },
@@ -77,6 +80,7 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
           zh: '书里的图片点一下就放大看：滚轮缩放、按住拖动，可以复制、保存，装了 bz 还能顺手存成图版。设置里默认关，要用自己打开。',
           en: 'Tap an image inside a book to open it full screen: scroll to zoom, drag to pan, copy or save it, and hand it to bz as a plate. Off by default, turn it on in settings.',
         },
+        qq: 'https://pd.qq.com/s/Nhp7bum2pu',
       },
       {
         domain: { zh: '导出书摘', en: 'Export' },

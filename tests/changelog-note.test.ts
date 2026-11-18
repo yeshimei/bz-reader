@@ -126,3 +126,42 @@ describe('打开更新日志', () => {
     }
   });
 });
+
+describe('更新日志 · QQ 频道帖子链接', () => {
+  const QQ_URL = 'https://pd.qq.com/s/Nciiuwi316';
+  const release = (qq: string | undefined) => [
+    {
+      version: '9.9.9',
+      date: '2026-11-18',
+      added: [
+        {
+          domain: { zh: '测试', en: 'Test' },
+          text: { zh: '一条日志', en: 'An entry' },
+          qq,
+        },
+      ],
+    },
+  ];
+  const html = (qq: string | undefined) => changelogNoteHtml(release(qq), '9.9.9', NAMES);
+
+  it('合法 QQ 帖子渲染成可点链接，带 bzs-chgn-qq 样式类', () => {
+    const s = html(QQ_URL);
+    expect(s).toContain('bzs-chgn-qq');
+    expect(s).toContain(`href="${QQ_URL}"`);
+    expect(s).toContain('QQ 频道');
+  });
+
+  it('非法域名不渲染成可点链接（白名单兜底）', () => {
+    const s = html('https://evil.example.com/s/1');
+    expect(s).not.toContain('bzs-chgn-qq');
+    expect(s).not.toContain('evil.example.com');
+  });
+
+  it('没有 qq 字段时条目尾部不出现 QQ 链接', () => {
+    expect(html(undefined)).not.toContain('bzs-chgn-qq');
+  });
+
+  it('桌面与移动端各渲染一份链接', () => {
+    expect([...html(QQ_URL).matchAll(/bzs-chgn-qq/g)]).toHaveLength(2);
+  });
+});

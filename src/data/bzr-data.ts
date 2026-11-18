@@ -29,6 +29,8 @@ export interface BzrChangelogEntry {
   text: BzrL10n;
   /** 对应的 GitHub issue；有值时日志正文尾部挂一个 #N 链接 */
   issue?: number;
+  /** 对应的 QQ 频道帖子；有值时挂「QQ 频道 ↗」（渲染前过 safeFeedbackUrl） */
+  qq?: string;
 }
 
 export interface BzrChangelogRelease {
@@ -172,7 +174,7 @@ const FEEDBACK_HOSTS = new Set([
      漏了这个域名 → 两条链接解析为空 → 整份在线数据判定无效，回退内置数据。 */
   'wzyp.cn', 'www.wzyp.cn',
   'bilibili.com', 'www.bilibili.com',
-  'qm.qq.com',
+  'qm.qq.com', 'pd.qq.com',
 ]);
 
 export type BzrHttp = (url: string, timeoutMs: number) => Promise<string | null>;

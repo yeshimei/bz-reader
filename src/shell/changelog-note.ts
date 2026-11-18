@@ -530,13 +530,20 @@ function issueLinkHtml(n?: number): string {
   return `<a class="bzs-chgn-issue" href="${esc(REPO_URL)}/issues/${n}" target="_blank" rel="noopener">#${n} ↗</a>`;
 }
 
+/** 条目尾部的 QQ 频道帖子链接：白名单校验通过才渲染成可点链接 */
+function qqLinkHtml(raw?: string): string {
+  const href = safeFeedbackUrl(raw ?? '');
+  if (!href) return '';
+  return `<a class="bzs-chgn-qq" href="${esc(href)}" target="_blank" rel="noopener">QQ 频道 ↗</a>`;
+}
+
 function rowsHtml(list: readonly ChangelogEntry[]): string {
   return list
     .map(
       (e) =>
         '<div class="bzs-chgn-row">' +
         `<span class="bzs-chgn-k">${esc(pick(e.domain))}</span>` +
-        `<span class="bzs-chgn-t">${esc(pick(e.text))}${issueLinkHtml(e.issue)}</span>` +
+        `<span class="bzs-chgn-t">${esc(pick(e.text))}${issueLinkHtml(e.issue)}${qqLinkHtml(e.qq)}</span>` +
         '</div>',
     )
     .join('');
@@ -591,7 +598,7 @@ function mobBlocksHtml(release: ChangelogRelease): string {
           (e) =>
             '<div class="bzs-chgn-mit">' +
             `<span class="bzs-chgn-mdom">${esc(pick(e.domain))}</span>` +
-            `<span class="bzs-chgn-mtxt">${esc(pick(e.text))}${issueLinkHtml(e.issue)}</span>` +
+            `<span class="bzs-chgn-mtxt">${esc(pick(e.text))}${issueLinkHtml(e.issue)}${qqLinkHtml(e.qq)}</span>` +
             '</div>',
         )
         .join('') +
