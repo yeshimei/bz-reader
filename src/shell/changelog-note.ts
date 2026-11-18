@@ -463,9 +463,6 @@ function feedbackItemHtml(it: BzrFeedback): string {
       .filter(Boolean).join(' · ')
     : '';
   const pluginHtml = pluginText ? `<span class="bzs-chgn-fbplugin">${esc(pluginText)}</span>` : '';
-  const verifyHtml = it.verify
-    ? `<div class="bzs-chgn-fbverify">${esc(c.fbVerify)}${esc(it.verify)}</div>`
-    : '';
   const releaseHtml = state === 'done' && it.releaseVersion
     ? `<span class="bzs-chgn-fbrelease">${esc(c.fbRelease)} ${esc(it.releaseVersion)}</span>`
     : '';
@@ -478,7 +475,6 @@ function feedbackItemHtml(it: BzrFeedback): string {
     '</div>' +
     (it.desc ? `<div class="bzs-chgn-fbdesc">${esc(it.desc)}</div>` : '') +
     (it.reply ? `<div class="bzs-chgn-fbreply">${esc(c.fbReply)}${esc(it.reply)}</div>` : '') +
-    verifyHtml +
     '<div class="bzs-chgn-fbmeta">' +
     srcHtml +
     releaseHtml +

@@ -272,7 +272,7 @@ describe('反馈按插件隔离：bz-reader 只显示自己的', () => {
   });
 });
 
-describe('反馈 v3：插件归属、核查结论、发布版本', () => {
+describe('反馈 v3：插件归属、发布版本（核查结论已去掉）', () => {
   const D: BzrData = {
     ...DATA,
     roadmap: [],
@@ -296,10 +296,10 @@ describe('反馈 v3：插件归属、核查结论、发布版本', () => {
     expect(s).not.toContain('bz · 日记本');
   });
 
-  it('核查结论以小字显示', () => {
+  it('不显示核查结论（2026-11-19 作者要求去掉）', () => {
     const s = html();
-    expect(s).toContain('bzs-chgn-fbverify');
-    expect(s).toContain('核查结论文本');
+    expect(s).not.toContain('bzs-chgn-fbverify');
+    expect(s).not.toContain('核查结论文本');
   });
 
   it('发布版本显示在已完成条目上', () => {
