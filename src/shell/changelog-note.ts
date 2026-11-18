@@ -178,8 +178,10 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     fbAccepted: '采纳',
     fbDoing: '进行中',
     fbInvalid: '不成立',
-    fbReply: '作者回复',
-    fbVerify: '核查结论',
+    /* 冒号跟着标签走：中文用全角、英文用半角，硬拼 `：` 会让英文界面
+       读成「Author reply：…」 */
+    fbReply: '作者回复：',
+    fbVerify: '核查结论：',
     fbRelease: '发布版本',
     fbEmpty: '暂无',
     fbSubmitted: '提交',
@@ -236,8 +238,8 @@ const COPY: Record<'zh' | 'en', ChangelogCopy> = {
     fbAccepted: 'Accepted',
     fbDoing: 'In progress',
     fbInvalid: 'Not an issue',
-    fbReply: 'Author reply',
-    fbVerify: 'Verification',
+    fbReply: 'Author reply: ',
+    fbVerify: 'Verification: ',
     fbRelease: 'Released in',
     fbEmpty: 'None',
     fbSubmitted: 'Filed',
@@ -462,7 +464,7 @@ function feedbackItemHtml(it: BzrFeedback): string {
     : '';
   const pluginHtml = pluginText ? `<span class="bzs-chgn-fbplugin">${esc(pluginText)}</span>` : '';
   const verifyHtml = it.verify
-    ? `<div class="bzs-chgn-fbverify">${esc(c.fbVerify)}：${esc(it.verify)}</div>`
+    ? `<div class="bzs-chgn-fbverify">${esc(c.fbVerify)}${esc(it.verify)}</div>`
     : '';
   const releaseHtml = state === 'done' && it.releaseVersion
     ? `<span class="bzs-chgn-fbrelease">${esc(c.fbRelease)} ${esc(it.releaseVersion)}</span>`
@@ -475,7 +477,7 @@ function feedbackItemHtml(it: BzrFeedback): string {
     `<div class="bzs-chgn-fbtitle">${esc(it.title)}</div>` +
     '</div>' +
     (it.desc ? `<div class="bzs-chgn-fbdesc">${esc(it.desc)}</div>` : '') +
-    (it.reply ? `<div class="bzs-chgn-fbreply">${esc(c.fbReply)}：${esc(it.reply)}</div>` : '') +
+    (it.reply ? `<div class="bzs-chgn-fbreply">${esc(c.fbReply)}${esc(it.reply)}</div>` : '') +
     verifyHtml +
     '<div class="bzs-chgn-fbmeta">' +
     srcHtml +

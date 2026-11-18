@@ -66,7 +66,13 @@ export function toggleShelf(
   return bookShelves(book).includes(clean) ? removeShelf(book, clean) : addShelf(book, clean);
 }
 
-/** 分类改名：书里所有命中旧名的归属都换成新名，保序去重 */
+/**
+ * 分类改名：书里所有命中旧名的归属都换成新名，保序去重。
+ *
+ * `to` 是空串时等同「删掉这一格」——删分类就走这条路（actions 里的
+ * reshapeShelfCache）。空名绝不能留在归属数组里：`shelvesOf` 会把它当成
+ * 一个真实分类，书就从「未分类」和所有分类里一起消失（2026-11-18 的坑）。
+ */
 export function renameInBook(
   book: { shelf?: string; shelves?: readonly string[] },
   from: string,
@@ -74,9 +80,30 @@ export function renameInBook(
 ): string[] {
   const oldName = cleanShelfName(from);
   const newName = cleanShelfName(to);
-  const list = bookShelves(book).map((x) => (x === oldName ? newName : x));
+  const out: string[] = [];
   const seen = new Set<string>();
-  return list.filter((x) => (seen.has(x) ? false : (seen.add(x), true)));
+  for (const item of bookShelves(book)) {
+    const name = item === oldName ? newName : item;
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    out.push(name);
+  }
+  return out;
+}
+
+/**
+ * 某个分类下面有几本（菜单「名字 + 本数」用）。
+ *
+ * 「未分类」不在归属数组里——它表示「数组为空」，所以必须单独数：
+ * 按 `list.includes(name)` 数会让那一格恒为 0。
+ */
+export function countInShelf(
+  lists: readonly (readonly string[])[],
+  name: string,
+  noShelf: string,
+): number {
+  if (name === noShelf) return lists.filter((list) => list.length === 0).length;
+  return lists.filter((list) => list.includes(name)).length;
 }
 
 /** 删分类：从书的所有归属里剔除该名 */

@@ -63,11 +63,69 @@ export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
     version: '1.5.3',
     date: '2026-11-18',
+    added: [
+      {
+        domain: { zh: '多分类', en: 'Multiple shelves' },
+        text: {
+          zh: '一本书可以同时归进好几个分类：分类菜单里每一格都能点，点一下加进去、再点一次移出来。原来的主分类仍按第一格写回，旧数据照常显示，不用重新整理。',
+          en: 'A book can now sit in several shelves at once: every row in the shelf menu toggles on click. The first shelf is still written back as the primary one, so existing shelves keep working untouched.',
+        },
+      },
+      {
+        domain: { zh: '点图放大', en: 'Image zoom' },
+        text: {
+          zh: '书里的图片点一下就放大看：滚轮缩放、按住拖动，可以复制、保存，装了 bz 还能顺手存成图版。设置里默认关，要用自己打开。',
+          en: 'Tap an image inside a book to open it full screen: scroll to zoom, drag to pan, copy or save it, and hand it to bz as a plate. Off by default, turn it on in settings.',
+        },
+      },
+      {
+        domain: { zh: '导出书摘', en: 'Export' },
+        text: {
+          zh: '导出的笔记最后多了一节「阅读记录」——首次打开、最近阅读、累计时长、读完日期、每章花了多久，以及每次会话读到了哪一章、百分之多少。换库或迁移时，读书时间一起带走。',
+          en: 'Exported notes now end with a Reading record section: first open, last read, total time, finish date, per-chapter time, and where each session stopped. Reading history survives a vault move.',
+        },
+      },
+      {
+        domain: { zh: '导出书摘', en: 'Export' },
+        text: {
+          zh: '每条划线下面现在写着它是什么时候划下来的，不再只用来排章节顺序。',
+          en: 'Each highlight in the export now carries the moment it was made, instead of that timestamp only deciding the order inside a chapter.',
+        },
+      },
+      {
+        domain: { zh: '彻底删除', en: 'Delete permanently' },
+        text: {
+          zh: '移出书架的弹层里新增「彻底删除」，输入书名确认后，这本书的记录与阅读数据一起清掉。书籍源文件和已经导出的书摘笔记不动，但笔记里指向它的双链会断。',
+          en: 'The remove-from-shelf dialog gained Delete permanently: type the book title to confirm and its records and reading data go with it. Source files and exported notes stay put, though backlinks pointing at it will break.',
+        },
+      },
+      {
+        domain: { zh: '阅读统计', en: 'Reading stats' },
+        text: {
+          zh: '阅读会话开始记中断次数（离开再回来算一次，一直挂着不算），随会话保存，也会写进导出的阅读记录。',
+          en: 'Sessions now count interruptions (leaving and coming back counts once, staying away does not add up), saved with the session and included in the exported reading record.',
+        },
+      },
+      {
+        domain: { zh: '字体', en: 'Fonts' },
+        text: {
+          zh: '字体档里多了一档「跟随 Obsidian」：书页直接用宿主主题的字体栈，换主题或改字号不用再单独调一遍。',
+          en: 'Font settings gained a Follow Obsidian option: pages use the host theme font stack, so switching themes or font size needs no second pass here.',
+        },
+      },
+      {
+        domain: { zh: '更新日志', en: 'Changelog' },
+        text: {
+          zh: '插件里的更新日志重新做了一版：正文可在「更新 / 路线图 / 反馈」之间切换，反馈条目写着来自哪个群、核查结论和发布版本；手机上切 tab 就把正文换掉。',
+          en: 'The in-app changelog got a new layout: switch between release notes, roadmap and feedback in place, and each report shows which channel it came from, the verification verdict and the version it shipped in.',
+        },
+      },
+    ],
     fixed: [
       {
         domain: { zh: '加入复习', en: 'Send to Review' },
         text: {
-          zh: '推给 Review 的划线卡现在带上一条跳回书里的链接，复习时能直接定位到那一句；老卡片也能靠卡片钥匙兜底跳转。',
+          zh: '推给 Review 的划线卡现在带上一条跳回书里的链接，复习时能直接定位到那一句。',
           en: 'Highlights sent to Review now carry a link back to the book, so the exact passage opens during review.',
         },
       },

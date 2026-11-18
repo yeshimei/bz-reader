@@ -1493,45 +1493,47 @@ function overlayShelves(mode: string, name: string, bookId?: string): string {
  */
 function overlayRemoveBook(bookId?: string): string {
   const b = bookById(bookId);
-  if (!b) return modal('移出书架', '', '<div class="bzs-empty">这本书已不在书库。</div>', closeBtn());
-  const marks = marksOf(b).length;
-  const body = `<div style="font-size:13px;line-height:2;color:var(--t2)">
-      《${esc(b.meta.title || '未命名')}》会从书架移走，但<b>数据都保留</b>：阅读进度、${marks} 条划线、书签与想法。<br>
-      笔记库里的原文件 <code>${esc(b.fileRef.vaultPath)}</code> <b>不会</b>被删除。<br>
-      以后重新导入同一份文件，会自动接上原来的进度和划线。
-    </div>`;
+  const gone = `<div class="bzs-empty">${esc(t('book.gone'))}</div>`;
+  if (!b) return modal(t('shelf.remove.title'), '', gone, closeBtn());
+  const title = b.meta.title || t('common.untitled');
+  const body = `<div style="font-size:13px;line-height:2;color:var(--t2)">${esc(
+    t('shelf.remove.body', { title, marks: String(marksOf(b).length), path: b.fileRef.vaultPath }),
+  )}</div>`;
   return modal(
-    '移出书架',
-    esc(b.meta.title || '未命名'),
+    t('shelf.remove.title'),
+    esc(title),
     body,
-    `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
-     <button class="bzs-btn" data-act="purgebook" data-id="${b.id}">彻底删除…</button>
-     <button class="bzs-btn pri" data-act="removebookdo" data-id="${b.id}">移出书架</button>`,
+    `<span class="sp"></span><button class="bzs-btn" data-act="close">${esc(t('common.cancel'))}</button>
+     <button class="bzs-btn" data-act="purgebook" data-id="${b.id}">${esc(t('shelf.remove.purge'))}</button>
+     <button class="bzs-btn pri" data-act="removebookdo" data-id="${b.id}">${esc(t('shelf.remove.do'))}</button>`,
   );
 }
 
 /**
  * 彻底删除确认（2026-11-18）：连书记录和它名下的进度/划线/书签/想法/会话
  * 一起删，不碰笔记库里的书籍源文件与已导出的笔记。不可恢复，输入书名确认。
+ *
+ * 文案全部走语言包：这张弹层是危险动作的最后一道门，八种语言里读到的
+ * 必须是同一句「不可恢复」，不能只有中文用户看懂。
  */
 function overlayPurgeBook(bookId?: string): string {
   const b = bookById(bookId);
-  if (!b) return modal('彻底删除', '', '<div class="bzs-empty">这本书已不在书库。</div>', closeBtn());
-  const title = b.meta.title || '未命名';
+  const gone = `<div class="bzs-empty">${esc(t('book.gone'))}</div>`;
+  if (!b) return modal(t('purge.title'), '', gone, closeBtn());
+  const title = b.meta.title || t('common.untitled');
   const body = `<div style="font-size:13px;line-height:2;color:var(--t2)">
-      <b style="color:var(--err)">此操作不可恢复。</b>《${esc(title)}》的记录与全部数据（阅读进度、划线、书签、想法、阅读时间）都会被永久删除，
-      「曾经在书架」的痕迹也一并清除。<br>
-      笔记库里的原文件 <code>${esc(b.fileRef.vaultPath)}</code> 和已导出的书摘笔记<b>不会</b>被删除。<br>
-      删除后笔记里指向这本书的双链将无法再点回原文。确认请输入书名 <code>${esc(title)}</code>：
+      <b style="color:var(--err)">${esc(t('purge.warn'))}</b>${esc(
+    t('purge.body', { title, path: b.fileRef.vaultPath }),
+  )}
     </div>
     <div class="bzs-setgrp flat"><div class="bzs-setrow">
-      <input data-role="purge" placeholder="输入书名确认" spellcheck="false" style="flex:1"></div></div>`;
+      <input data-role="purge" placeholder="${esc(t('purge.placeholder'))}" spellcheck="false" style="flex:1"></div></div>`;
   return modal(
-    '彻底删除',
+    t('purge.title'),
     esc(title),
     body,
-    `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
-     <button class="bzs-btn" style="color:var(--err)" data-act="purgedel" data-id="${b.id}">永久删除</button>`,
+    `<span class="sp"></span><button class="bzs-btn" data-act="close">${esc(t('common.cancel'))}</button>
+     <button class="bzs-btn" style="color:var(--err)" data-act="purgedel" data-id="${b.id}">${esc(t('purge.do'))}</button>`,
   );
 }
 

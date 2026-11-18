@@ -3,6 +3,7 @@ import {
   addShelf,
   bookInShelf,
   bookShelves,
+  countInShelf,
   dropFromBook,
   primaryShelf,
   removeShelf,
@@ -70,6 +71,30 @@ describe('改名与删除', () => {
 
   it('删分类：从归属里剔除，其余不动', () => {
     expect(dropFromBook({ shelves: ['想看', '科幻', '经典'] }, '科幻')).toEqual(['想看', '经典']);
+  });
+
+  /**
+   * 删分类的第二条路：菜单上的「删除」是改名成空串（actions 的
+   * reshapeShelfCache(name, '')）。空名绝不能留在归属数组里——留着的话
+   * shelvesOf 会说「有归属」，那本书就从「未分类」和所有分类里一起消失。
+   */
+  it('改名成空串等于剔掉这一格，不留空名', () => {
+    expect(renameInBook({ shelves: ['科幻'] }, '科幻', '')).toEqual([]);
+    expect(renameInBook({ shelves: ['想看', '科幻'] }, '科幻', '')).toEqual(['想看']);
+  });
+});
+
+describe('分类菜单的本数', () => {
+  const noShelf = '未分类';
+
+  it('普通分类数命中它的书', () => {
+    expect(countInShelf([['想看', '科幻'], ['科幻'], []], '科幻', noShelf)).toBe(2);
+  });
+
+  /** 「未分类」不是归属数组里的一个名字，是「数组为空」。按名字数会恒为 0。 */
+  it('未分类数的是没有归属的书', () => {
+    expect(countInShelf([['想看'], [], ['科幻']], noShelf, noShelf)).toBe(1);
+    expect(countInShelf([[], []], noShelf, noShelf)).toBe(2);
   });
 });
 

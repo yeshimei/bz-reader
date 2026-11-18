@@ -31,7 +31,6 @@ import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
 import { BookRepo, BASE_FORMATS, PRO_FORMATS, formatOf, planRelocations, scanVault } from './data/book-repo';
 import { fillBookMetas, readFingerprint } from './data/book-scan';
-import { bookShelves, primaryShelf } from './data/book-shelves';
 import { MAX_FINGERPRINT_BYTES } from './data/fingerprint';
 import { ReaderStore, verifyCopiedJson } from './data/store';
 import { backupFileName, buildBackup, parseBackup, replaceWithBackup } from './data/backup';

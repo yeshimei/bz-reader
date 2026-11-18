@@ -761,6 +761,19 @@ export function setGoal(books: number, opts: { silent?: boolean } = {}): void {
  * 调用点：onload、syncVault 之后、迁移数据目录之后、一键恢复之后。
  * 不调用的话，同步进来的 `favorite: true` 在界面上永远不显示星标。
  */
+/**
+ * 把「可能是任意值」的分类字段收成字符串数组。
+ *
+ * 业务数据来自磁盘上的 JSON，类型上写着 `readonly string[]` 也不代表真跑不偏；
+ * 这里逐个检查，遇到不是数组就返回 undefined，交给调用点回退单值 shelf。
+ */
+function stringListOf(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: string[] = [];
+  for (const item of value as unknown[]) if (typeof item === 'string') out.push(item);
+  return out;
+}
+
 export function hydrateLibrary(
   books: ReadonlyArray<{ id: string; favorite?: boolean; shelf?: string; shelves?: readonly string[] }>,
   goal?: number,
@@ -775,7 +788,8 @@ export function hydrateLibrary(
     if (typeof b.shelf === 'string') shelves[b.id] = b.shelf;
     /* 多分类：有 shelves 就用它（含空数组=明确未分类），否则回退单值 shelf。
        两者都没有时不写条目——让 shelvesOf 走 subjects 兜底，与 shelfOf 一致。 */
-    if (Array.isArray(b.shelves)) bookShelves[b.id] = [...b.shelves];
+    const many = stringListOf(b.shelves);
+    if (many !== undefined) bookShelves[b.id] = many;
     else if (typeof b.shelf === 'string') bookShelves[b.id] = b.shelf ? [b.shelf] : [];
   }
   state.shelves = shelves;

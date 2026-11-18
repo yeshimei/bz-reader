@@ -30,7 +30,7 @@ import {
   toggleBookmark,
 } from '../data/notes';
 import { allMarks, filterMarks, shelfOf, shelvesOf } from './domain';
-import { addShelf as addBookShelf, dropFromBook, renameInBook, toggleShelf } from '../data/book-shelves';
+import { addShelf as addBookShelf, countInShelf, dropFromBook, renameInBook, toggleShelf } from '../data/book-shelves';
 import { filterRows, toRows } from './adapt';
 import { visiblePicked } from './book-select';
 import { toggleAll, togglePick } from './note-select';
@@ -594,7 +594,8 @@ function openShelfMenu(
 
   const menu = new Menu();
   for (const n of names) {
-    const count = used.filter((list) => list.includes(n)).length;
+    /* 「未分类」是「数组为空」，不在归属里，得单独数（见 countInShelf） */
+    const count = countInShelf(used, n, NO_SHELF);
     menu.addItem((i) => {
       /* 名字后面跟本数：挑分类时最想知道的是「这一类现在有几本」。
          系统格子（全部 / 未分类）走语言包，用户起的名字原样显示。 */
@@ -1755,8 +1756,11 @@ export function dispatchAction(
       const src = getShellSource();
       const book = liveBooks().find((b) => b.id === id);
       if (!src || !book) break;
-      const typed = (document.querySelector<HTMLInputElement>('[data-role="purge"]')?.value ?? '').trim();
-      if (typed !== (book.meta.title || '未命名')) {
+      /* 输入框只在确认弹层里找：全库同名 input 不止一个（改名、搜索都用
+         data-role），document 上取会抓到别人家的框。 */
+      const box = el.closest('.bzs-modal') ?? document;
+      const typed = (box.querySelector<HTMLInputElement>('[data-role="purge"]')?.value ?? '').trim();
+      if (typed !== (book.meta.title || t('common.untitled'))) {
         notify(t('notice.purge.mismatch'), 'error');
         break;
       }

@@ -219,10 +219,8 @@ export class ImageViewerOverlay {
     for (const act of acts) {
       const btn = createEl('button');
       btn.className = `bzr-imgview-btn is-${act}`;
-      btn.appendChild(Object.assign(createSpan(), {
-        className: 'bzs-sr-only',
-        textContent: this.labelOf(act),
-      }));
+      /* 按钮本来就带可见文字，可读名字不需要 sr-only：挂上去也会被下一行
+         textContent 覆盖掉，留着只是死代码。 */
       btn.textContent = this.labelOf(act);
       btn.addEventListener('click', (ev) => {
         ev.stopPropagation();
