@@ -98,6 +98,7 @@ node scripts/issue-license.mjs --plan lifetime --id BZR-AF-2026-0021
 - 推完 master 就交棒：**没听到「预览审核通过」不许打 tag、不许发 Release、不许部署真实库、不许镜像码云**。作者要跑扫描和提交，得先让仓库上有这版代码。
 - 第二段一旦开始就必须走完（Release → 三处部署 → 镜像 → 校验），不要停在中间。
 - **review 有两种，别混**：① 代码自审——agent 用 `code-review` skill 把上一个已发布 tag 到本版的提交过一遍 Standards（编码规范）/ Spec（需求符合度）两面，属于第一段、推 master 前主动做，问题提交前就地修；② 社区目录预览扫描——作者手动跑 `scripts/community-review.mjs`，agent 不主动跑、不当待办催。详见 skill `bz-reader-release`。
+- **发版 × 反馈联动（第二段全部完成之后才做）**：更新日志条目尾部带反馈出处链接（QQ 频道帖子 `qq` / GitHub issue `issue`）；发完版把本版反馈的 QQ 帖子改「已完成」（`qq-publish.mjs --move`）、关掉随版发布的 GitHub issue。列候选给用户过目后再回写，没走完发版不许提前改状态。详见 skill `bz-reader-release` 第 1.6 节。
 
 每次上架前必须跑官方 lint：
 ```powershell
