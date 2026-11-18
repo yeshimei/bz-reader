@@ -92,11 +92,12 @@ node scripts/issue-license.mjs --plan lifetime --id BZR-AF-2026-0021
 ## 上架
 分两段，**中间必须停住等作者说「预览审核通过」**。2026-11-13 起，社区目录的预览扫描、正式提交、催审核由作者本人手动做，agent 不跑。
 
-**第一段（agent 做）**：lint 0/0 → 补齐多语言 → 三道门 → 版本号与 note·changelog 对账 → 提交并推送 master → **停**
+**第一段（agent 做）**：lint 0/0 → 补齐多语言 → 三道门 → 版本号与 note·changelog 对账 → 代码自审 → 提交并推送 master → **停**
 **第二段（作者说通过之后）**：production 构建 → 打 tag → 发 Release（三件套）→ 确认转正 → 部署三处 → `push-gitee` 镜像码云（顺带 `push-quark` 更新网盘）→ 校验两通道下载到的 `manifest.json` 版本
 
 - 推完 master 就交棒：**没听到「预览审核通过」不许打 tag、不许发 Release、不许部署真实库、不许镜像码云**。作者要跑扫描和提交，得先让仓库上有这版代码。
 - 第二段一旦开始就必须走完（Release → 三处部署 → 镜像 → 校验），不要停在中间。
+- **review 有两种，别混**：① 代码自审——agent 用 `code-review` skill 把上一个已发布 tag 到本版的提交过一遍 Standards（编码规范）/ Spec（需求符合度）两面，属于第一段、推 master 前主动做，问题提交前就地修；② 社区目录预览扫描——作者手动跑 `scripts/community-review.mjs`，agent 不主动跑、不当待办催。详见 skill `bz-reader-release`。
 
 每次上架前必须跑官方 lint：
 ```powershell
@@ -112,16 +113,17 @@ node scripts/lint-obsidian.mjs
 2. **补齐本版多语言**：先跑 `node scripts/i18n-placeholders.mjs --check` 列出待补条目，把开发期留下的 `[TODO]` 占位在 `src/i18n/` 里七种外语全部换成正式翻译；补完再跑一次 `--check`，必须为空才继续。自查四条——key 集合与 `zh.ts` 一致、无空串、`{占位符}`与中文逐条相同、拉丁语系包无汉字且 `zh-TW` 无简体字（跑 `vitest run tests/i18n-packs.test.ts` 就是这套）；
 3. 三道门（tsc / vitest / esbuild）；
 4. `manifest.json` 的 `version`、`versions.json` 同步（README 徽章由 shields 实时取 GitHub，不用再手动刷图）；`docs/note-v<版本>.md` 与 `src/shell/changelog.ts` 的本版块逐条同口径（`tests/changelog-data.test.ts` 对账）；
-5. 提交并推送 master；
-6. **停**，把版本号与 GitHub 上的 sha 报给作者，等他说预览审核通过。
+5. **代码自审**：用 `code-review` skill 把上一个已发布 tag 到本版的提交过一遍 Standards / Spec 两面，问题提交前就地修掉并重跑三道门（别和社区目录扫描混）；
+6. 提交并推送 master；
+7. **停**，把版本号与 GitHub 上的 sha 报给作者，等他说预览审核通过。
 
 ### 第二段：通过之后才发
-7. `node esbuild.config.mjs production`（落仓库根三件套：`main.js` / `manifest.json` / `styles.css`）。这一步必须在打 tag 之前，仓库根的三件套常常还是上一版；
-8. 打 tag 并推送——**tag 与 `manifest.version` 逐字相同，不带 `v`**；
-9. `gh release create <版本> --title <版本> --notes-file docs/note-v<版本>.md main.js manifest.json styles.css`（`--title` 必须与版本逐字相同：社区目录会检查 Release name 是否匹配 `manifest.version`），随后 `gh release view <版本>` 确认已转正、不再是 draft；
-10. 发版部署：`BZ_READER_VAULT=all node esbuild.config.mjs production` 落三处（仓库根 + 测试库 + 真实库），核对三处 `main.js` 字节数一致；
-11. `node scripts/push-gitee.mjs`：镜像到码云（代码 + tag + Release 页 + 三件套），跑完顺带 `push-quark --product=reader` 更新网盘；
-12. 校验两通道：
+8. `node esbuild.config.mjs production`（落仓库根三件套：`main.js` / `manifest.json` / `styles.css`）。这一步必须在打 tag 之前，仓库根的三件套常常还是上一版；
+9. 打 tag 并推送——**tag 与 `manifest.version` 逐字相同，不带 `v`**；
+10. `gh release create <版本> --title <版本> --notes-file docs/note-v<版本>.md main.js manifest.json styles.css`（`--title` 必须与版本逐字相同：社区目录会检查 Release name 是否匹配 `manifest.version`），随后 `gh release view <版本>` 确认已转正、不再是 draft；
+11. 发版部署：`BZ_READER_VAULT=all node esbuild.config.mjs production` 落三处（仓库根 + 测试库 + 真实库），核对三处 `main.js` 字节数一致；
+12. `node scripts/push-gitee.mjs`：镜像到码云（代码 + tag + Release 页 + 三件套），跑完顺带 `push-quark --product=reader` 更新网盘；
+13. 校验两通道：
 ```powershell
 curl.exe -sL https://github.com/yeshimei/bz-reader/releases/latest/download/manifest.json
 curl.exe -sL https://gitee.com/ntbl/bz-reader/releases/download/<版本>/manifest.json
