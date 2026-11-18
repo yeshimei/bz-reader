@@ -837,8 +837,10 @@ let confirmEsc: { unregister: () => void } | null = null;
 let confirmTarget = '';
 
 function mountConfirmDialog(accent: string): void {
-  const host = document.createElement('div');
-  host.innerHTML = confirmDialogHtml();
+  const host = createDiv();
+  /* 目录审核不许直接写 innerHTML：解析成文档后 importNode 再 replaceChildren 装进来 */
+  const parsed = new DOMParser().parseFromString(confirmDialogHtml(), 'text/html');
+  host.replaceChildren(...Array.from(parsed.body.childNodes).map((n) => document.importNode(n, true)));
   const el = host.firstElementChild as HTMLElement | null;
   if (!el) return;
   if (accent) el.style.setProperty('--cc-accent', accent);

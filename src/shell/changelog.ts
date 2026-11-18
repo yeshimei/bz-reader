@@ -61,6 +61,19 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '1.5.3',
+    date: '2026-11-18',
+    fixed: [
+      {
+        domain: { zh: '加入复习', en: 'Send to Review' },
+        text: {
+          zh: '推给 Review 的划线卡现在带上一条跳回书里的链接，复习时能直接定位到那一句；老卡片也能靠卡片钥匙兜底跳转。',
+          en: 'Highlights sent to Review now carry a link back to the book, so the exact passage opens during review.',
+        },
+      },
+    ],
+  },
+  {
     version: '1.5.2',
     date: '2026-11-17',
     improved: [

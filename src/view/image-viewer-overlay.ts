@@ -31,8 +31,8 @@ export interface ViewerCallbacks {
   onCopy?: (src: string) => Promise<boolean>;
 }
 
-/** 当前浮层实例（同时只开一个） */
-let active: ImageViewerOverlay | null = null;
+/** 当前浮层实例（同时只开一个）；只存 close 句柄，避免把 this 别名到模块变量 */
+let active: { close: () => void } | null = null;
 
 /** 关闭当前图片查看器（切书/翻页/退出阅读视图时由 reader-view 调） */
 export function closeImageViewer(): void {
@@ -52,6 +52,8 @@ export class ImageViewerOverlay {
   private sources: string[];
   private callbacks: ViewerCallbacks;
   private escOff: () => void;
+  /** 供模块级 active 持有的 close 句柄：箭头函数捕获 this，不做 this 别名 */
+  private readonly handle: { close: () => void };
   private closed = false;
 
   /** 手势临时量 */
@@ -70,15 +72,15 @@ export class ImageViewerOverlay {
     this.state = { index, total: this.sources.length, zoom: 1, panX: 0, panY: 0 };
     this.callbacks = callbacks;
 
-    this.root = document.createElement('div');
+    this.root = createDiv();
     this.root.className = 'bzr-imgview';
-    this.img = document.createElement('img');
+    this.img = createEl('img');
     this.img.className = 'bzr-imgview-img';
     this.img.src = src;
     this.img.alt = '';
-    this.label = document.createElement('div');
+    this.label = createDiv();
     this.label.className = 'bzr-imgview-label';
-    this.bar = document.createElement('div');
+    this.bar = createDiv();
     this.bar.className = 'bzr-imgview-bar';
     this.root.appendChild(this.img);
     this.root.appendChild(this.label);
@@ -92,7 +94,8 @@ export class ImageViewerOverlay {
       close: () => this.close(),
     });
     this.escOff = () => esc.unregister();
-    active = this;
+    this.handle = { close: () => this.close() };
+    active = this.handle;
   }
 
   private bind(): void {
@@ -214,9 +217,9 @@ export class ImageViewerOverlay {
     this.bar.replaceChildren();
     const acts = viewerActions(s, { bzPlate: !!this.callbacks.onPlate });
     for (const act of acts) {
-      const btn = document.createElement('button');
+      const btn = createEl('button');
       btn.className = `bzr-imgview-btn is-${act}`;
-      btn.appendChild(Object.assign(document.createElement('span'), {
+      btn.appendChild(Object.assign(createSpan(), {
         className: 'bzs-sr-only',
         textContent: this.labelOf(act),
       }));
@@ -276,7 +279,7 @@ export class ImageViewerOverlay {
       }
       return;
     }
-    void fetch(src)
+    void window.fetch(src)
       .then((r) => r.blob())
       .then((blob) => cp.write([new ClipboardItem({ [blob.type || 'image/png']: blob })]))
       .then(() => notify(t('image.copied'), 'info'))
@@ -292,7 +295,7 @@ export class ImageViewerOverlay {
   }
 
   private save(src: string): void {
-    const a = document.createElement('a');
+    const a = createEl('a');
     a.href = src;
     a.download = `bz-image-${Date.now()}.png`;
     document.body.appendChild(a);
@@ -308,6 +311,6 @@ export class ImageViewerOverlay {
     window.removeEventListener('mousemove', this.onMouseMove);
     window.removeEventListener('mouseup', this.onMouseUp);
     this.root.remove();
-    if (active === this) active = null;
+    if (active === this.handle) active = null;
   }
 }

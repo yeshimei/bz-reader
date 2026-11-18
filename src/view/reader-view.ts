@@ -5690,7 +5690,7 @@ export class ReaderView extends ItemView {
    */
   private async saveImageToVault(src: string): Promise<boolean> {
     try {
-      const resp = await fetch(src);
+      const resp = await window.fetch(src);
       const blob = await resp.blob();
       /* 目录名用英文，避免新增硬编码中文（门禁按字符串计，目录名也会被算） */
       const dir = '_export';
@@ -5721,13 +5721,13 @@ export class ReaderView extends ItemView {
       send(src);
       return;
     }
-    void fetch(src)
+    void window.fetch(src)
       .then((resp) => resp.blob())
       .then(
         (blob) =>
           new Promise<string>((resolve, reject) => {
             const fr = new FileReader();
-            fr.onload = () => resolve(String(fr.result));
+            fr.onload = () => resolve(typeof fr.result === 'string' ? fr.result : '');
             fr.onerror = () => reject(new Error('read failed'));
             fr.readAsDataURL(blob);
           }),

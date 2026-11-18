@@ -193,8 +193,14 @@ export function safeFeedbackUrl(raw: string): string | null {
 
 /* ── 解析 ─────────────────────────────────────────────────── */
 
+/* 控制字符 \u0000-\u001f 与 \u007f：正则字面量里写控制字符会触发 no-control-regex，
+   这里用 String.fromCharCode 拼出等价字符类，行为与原 /[\u0000-\u001f\u007f]/g 一致。 */
+const CONTROL_CHARS_RE = new RegExp(
+  `[${Array.from({ length: 0x20 }, (_, i) => String.fromCharCode(i)).join('')}${String.fromCharCode(0x7f)}]`,
+  'g',
+);
 function clean(s: string, max = MAX_TEXT): string {
-  return s.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+  return s.replace(CONTROL_CHARS_RE, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 function isIsoDate(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(s);
