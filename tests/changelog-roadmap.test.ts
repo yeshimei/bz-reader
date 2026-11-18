@@ -247,7 +247,7 @@ describe('反馈 v2：五态、作者回复、Git 提交链接', () => {
   });
 });
 
-describe('反馈按插件隔离：bz-reader 只显示自己的', () => {
+describe('反馈显示所有插件的条目（2026-11-19 去掉插件隔离）', () => {
   const MIXED: BzrData = {
     ...DATA,
     roadmap: [],
@@ -261,14 +261,14 @@ describe('反馈按插件隔离：bz-reader 只显示自己的', () => {
   };
   const html = () => changelogNoteHtml(CHANGELOG_RELEASES, '1.5.2', NAMES, MIXED);
 
-  it('列表只渲染 bz-reader 条目', () => {
+  it('列表渲染 bz-reader 与 bz 的条目', () => {
     const s = html();
     expect(s).toContain('只属于 Reader 的反馈');
-    expect(s).not.toContain('只属于 BZ 的反馈');
+    expect(s).toContain('只属于 BZ 的反馈');
   });
 
-  it('入口角标只数 bz-reader 条目', () => {
-    expect(html()).toContain('>1</span></button>');
+  it('入口角标数全部条目', () => {
+    expect(html()).toContain('>2</span></button>');
   });
 });
 

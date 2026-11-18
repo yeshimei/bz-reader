@@ -485,14 +485,11 @@ function feedbackItemHtml(it: BzrFeedback): string {
   );
 }
 
-/** 反馈按插件隔离：bz reader 只显示自己的条目；老数据没 plugin 字段视为通用 */
-const OWN_PLUGIN = 'bz-reader';
-const isOwnFeedback = (it: BzrFeedback): boolean => !it.plugin || it.plugin === OWN_PLUGIN;
-
+/** 反馈显示所有插件的条目（2026-11-19 作者要求去掉插件隔离）；卡片上仍标出各自归属 */
 function feedbackRowsHtml(data: BzrData | null, key: 'bug' | 'feature'): string {
   const c = copy();
   const g = (data?.feedback ?? []).find((x) => x.key === key);
-  const items = (g?.items ?? []).filter(isOwnFeedback);
+  const items = g?.items ?? [];
   if (!items.length) return `<div class="bzs-chgn-fbempty">${esc(c.fbEmpty)}</div>`;
   return items.map(feedbackItemHtml).join('');
 }
@@ -502,8 +499,8 @@ function rmTabCounts(data: BzrData | null): Record<'roadmap' | 'feature' | 'bug'
   const groups = data?.feedback ?? [];
   return {
     roadmap: (data?.roadmap ?? []).reduce((n, t) => n + t.items.length, 0),
-    feature: (groups.find((g) => g.key === 'feature')?.items ?? []).filter(isOwnFeedback).length,
-    bug: (groups.find((g) => g.key === 'bug')?.items ?? []).filter(isOwnFeedback).length,
+    feature: (groups.find((g) => g.key === 'feature')?.items ?? []).length,
+    bug: (groups.find((g) => g.key === 'bug')?.items ?? []).length,
   };
 }
 
