@@ -53,6 +53,61 @@ function stamp(ts: number): string {
   return `${ymd(ts)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/** 秒数 → 「1 小时 2 分」/「62 分」/「45 秒」；0 返回空串 */
+export function durationText(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds || 0));
+  if (!s) return '';
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h && m) return `${h} 小时 ${m} 分`;
+  if (h) return `${h} 小时`;
+  if (m) return `${m} 分`;
+  return `${s} 秒`;
+}
+
+/**
+ * 阅读记录块（2026-11-18）。
+ *
+ * 把 read 追踪数据写进导出的 Markdown，让书摘在换库/迁移时把「什么时候读的、
+ * 读了多久、每章花多久」一起带走。只写真实存在的数据：首读/末读/累计时长/
+ * 会话数/每章时长/各次会话。一条数据都没有就返回空串（不写空小节）。
+ */
+export function buildReadingRecord(book: ReaderBook): string {
+  const st = book.reading.stats;
+  const sessions = book.reading.sessions ?? [];
+  const chapterSeconds = book.reading.chapterSeconds;
+  const lines: string[] = [];
+
+  if (st.startReadTime) lines.push(`- 首次打开：${ymd(st.startReadTime)}`);
+  if (st.lastReadTime) lines.push(`- 最近阅读：${ymd(st.lastReadTime)}`);
+  const total = durationText(st.totalReadTime);
+  if (total) lines.push(`- 累计时长：${total}`);
+  if (st.completedTime) lines.push(`- 读完：${ymd(st.completedTime)}`);
+  if (sessions.length) lines.push(`- 阅读会话：${sessions.length} 次`);
+
+  if (chapterSeconds && Object.keys(chapterSeconds).length) {
+    lines.push('- 每章时长：');
+    for (const [name, sec] of Object.entries(chapterSeconds)) {
+      const dur = durationText(sec);
+      if (dur) lines.push(`  - ${oneLine(name)}：${dur}`);
+    }
+  }
+
+  if (sessions.length) {
+    lines.push('- 会话明细：');
+    sessions.forEach((s, i) => {
+      const dur = durationText(s.durationSeconds);
+      const pct = typeof s.percent === 'number' ? ` · 读到 ${Math.round(s.percent * 100)}%` : '';
+      const chapter = s.chapterTitle ? ` · ${oneLine(s.chapterTitle)}` : '';
+      const interrupt = s.interruptions ? ` · 中断 ${s.interruptions} 次` : '';
+      lines.push(`  - ${i + 1}. ${stamp(s.start)}${chapter}${pct}${interrupt} · ${dur || '—'}`);
+    });
+  }
+
+  if (!lines.length) return '';
+  return ['## 阅读记录', '', ...lines, ''].join('\n');
+}
+
 /**
  * YAML 双引号值。
  *
@@ -194,6 +249,11 @@ export function buildNotesBody(book: ReaderBook, settings: ReaderSettings): stri
         color: it.color,
       });
       lines.push(`> ${link || it.text}`);
+      /* 划线创建时间（2026-11-18）：数据里本来就有 createdAt，以前只拿来
+         给同章排序。写进导出，换库后仍知道这条是哪天划的。 */
+      if (it.createdAt) {
+        lines.push(`> ↳ ${stamp(it.createdAt)}`);
+      }
       if (settings.exportComments && it.comment) {
         lines.push('');
         lines.push(ideaLine(it.comment));
@@ -234,6 +294,10 @@ export function buildNotesBody(book: ReaderBook, settings: ReaderSettings): stri
     lines.push('_这本书还没有划线或书签。_');
     lines.push('');
   }
+
+  /* 阅读记录放最后：前面的摘录/书签才是主体，追踪数据是附注。 */
+  const record = buildReadingRecord(book);
+  if (record) lines.push(record);
 
   return lines.join('\n');
 }

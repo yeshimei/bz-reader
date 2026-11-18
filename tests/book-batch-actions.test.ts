@@ -52,6 +52,14 @@ function seed(): Seeded {
       if (b) b.shelf = name;
       store.touch();
     },
+    setBookShelves: (id: string, names: string[]) => {
+      const b = byId(id) as { shelf?: string; shelves?: string[] } | undefined;
+      if (b) {
+        b.shelves = [...names];
+        b.shelf = names[0] ?? '';
+      }
+      store.touch();
+    },
     setShelfList: () => undefined,
   } as unknown as ShellSource);
   hydrateLibrary(books as never, 20, ['工具书']);

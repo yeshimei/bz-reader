@@ -48,10 +48,29 @@ export function accrueTick(input: {
   return Math.min(span, cap, MAX_SPAN_MS);
 }
 
+/**
+ * 一次会话里的中断次数（2026-11-18）。
+ *
+ * 口径：距上次活动 >= idle 视为「离开」，连续离开只算一次中断（从活跃转离开
+ * 的那一刻记一次，回来再离开才算第二次）。用状态机避免整段离开每拍都累加。
+ */
+export function nextInterruptState(input: {
+  lastActive: number;
+  now: number;
+  wasIdle: boolean;
+  idleMs?: number;
+}): { idle: boolean; countDelta: number } {
+  const idle = input.idleMs ?? IDLE_MS;
+  const isIdle = input.now - input.lastActive >= idle;
+  return { idle: isIdle, countDelta: isIdle && !input.wasIdle ? 1 : 0 };
+}
+
 export interface SessionResult {
   start: number;
   end: number;
   durationSeconds: number;
+  /** 会话内中断次数（离开再回来）；0 = 一口气读完。老调用方可省略 */
+  interruptions?: number;
 }
 
 /**
@@ -66,6 +85,7 @@ export function attachChapter(
   where: { chapterIndex?: number; chapterTitle?: string },
 ): ReadingSession {
   const out: ReadingSession = { ...session };
+  if (typeof session.interruptions === 'number') out.interruptions = session.interruptions;
   if (typeof where.chapterIndex === 'number') out.chapterIndex = where.chapterIndex;
   const title = where.chapterTitle?.trim();
   if (title) out.chapterTitle = title;
@@ -80,6 +100,9 @@ export class ActivityTracker {
   private timer: number | null = null;
   private lastPercent = 0;
   private running = false;
+  /** 会话中断次数（离开再回来累加） */
+  private interruptions = 0;
+  private wasIdle = false;
   /**
    * 每一拍「有效阅读秒数」的去处（剪藏本按章计时用）。
    *
@@ -97,6 +120,12 @@ export class ActivityTracker {
     const gained = accrueTick({ now, lastTickAt: this.lastTickAt, lastActive: this.lastActive });
     this.lastTickAt = now;
     this.accumulated += gained;
+    /* 中断只在会话真的开始积累过之后才记：刚打开还没读就走开不算中断 */
+    if (this.accumulated > 0) {
+      const st = nextInterruptState({ lastActive: this.lastActive, now, wasIdle: this.wasIdle });
+      this.interruptions += st.countDelta;
+      this.wasIdle = st.idle;
+    }
     if (gained > 0) this.sink?.(gained / 1000);
     return gained;
   }
@@ -115,6 +144,8 @@ export class ActivityTracker {
     this.lastTickAt = this.sessionStart;
     this.accumulated = 0;
     this.lastPercent = percent;
+    this.interruptions = 0;
+    this.wasIdle = false;
     this.running = true;
     this.timer = window.setInterval(() => this.tick(), TICK_MS);
     return previous;
@@ -160,6 +191,7 @@ export class ActivityTracker {
       start: this.sessionStart,
       end: now,
       durationSeconds: Math.round(this.accumulated / 1000),
+      interruptions: this.interruptions,
     };
   }
 

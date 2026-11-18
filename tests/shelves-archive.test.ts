@@ -58,6 +58,10 @@ function seed(): Seeded {
     setShelf: (id: string, name: string) => {
       byId(id).shelf = name;
     },
+    setBookShelves: (id: string, names: string[]) => {
+      byId(id).shelves = [...names];
+      byId(id).shelf = names[0] ?? '';
+    },
     setShelfList: (list: string[]) => {
       (store.data as { shelves?: string[] }).shelves = list;
     },

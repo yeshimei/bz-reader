@@ -12,8 +12,9 @@ import type { App } from 'obsidian';
 import type { ReaderBook } from '../data/schema';
 import { orderShelves } from '../data/shelves';
 import { getState, isFav } from './state';
-import { shelfOf } from './domain';
+import { shelfOf, shelvesOf } from './domain';
 import { isClipBookRecord } from '../data/clip-book-entry';
+import { ALL_SHELF, NO_SHELF } from '../data/shelves';
 
 export type BookStatus = 'reading' | 'done' | 'new';
 
@@ -31,6 +32,8 @@ export interface BookRow {
   lastText: string;
   lastTs: number;
   shelf: string;
+  /** 完整分类归属（多分类）；主分类 shelf 恒等于 shelves[0] 或「未分类」 */
+  shelves: string[];
   format: string;
   /** 有封面文件就出图，否则用色块 + 竖排书名 */
   coverUrl: string | null;
@@ -116,6 +119,7 @@ export function toRow(app: App, b: ReaderBook): BookRow {
   const noteCount = b.notes.highlights.length;
   /* 分组走 domain.shelfOf（P3-12）：英文 subjects 不再混进中文筛选条 */
   const shelf = shelfOf(b);
+  const shelves = shelvesOf(b);
 
   return {
     id: b.id,
@@ -130,6 +134,7 @@ export function toRow(app: App, b: ReaderBook): BookRow {
     lastText: fmtDate(b.reading.stats.lastReadTime),
     lastTs: b.reading.stats.lastReadTime || 0,
     shelf,
+    shelves,
     format: (b.fileRef.format || 'epub').toUpperCase(),
     coverUrl: resourceUrl(app, b.meta.coverPath),
     bg: `linear-gradient(150deg,${c1},${c2})`,
@@ -155,18 +160,28 @@ export function toRows(app: App, books: ReaderBook[]): BookRow[] {
  * 现在顺序由 `data/shelves` 的名单说了算，书自带的分类接在后面，「未分类」收尾。
  */
 export function shelfNames(rows: BookRow[], saved: readonly string[] = []): string[] {
-  return orderShelves(
-    saved,
-    rows.map((r) => r.shelf),
-  );
+  /* 多分类：所有书的全部归属都进分类条；没归类的那几本贡献一个「未分类」。 */
+  const used: string[] = [];
+  for (const r of rows) {
+    const list = r.shelves ?? [];
+    if (list.length) used.push(...list);
+    else used.push(r.shelf || NO_SHELF);
+  }
+  return orderShelves(saved, used);
 }
 
 /** 书库筛选 + 排序：与原型 libBooks() 一致的语义 */
 export function filterRows(rows: BookRow[], s = getState()): BookRow[] {
   let arr = [...rows];
   const k = s.libKw.trim().toLowerCase();
-  if (k) arr = arr.filter((b) => (b.title + b.author + b.shelf).toLowerCase().includes(k));
-  if (s.libShelf !== '全部') arr = arr.filter((b) => b.shelf === s.libShelf);
+  if (k) arr = arr.filter((b) => (b.title + b.author + (b.shelves ?? []).join(' ')).toLowerCase().includes(k));
+  /* 多分类：命中任一归属即显示；「未分类」= 没有任何归属 */
+  if (s.libShelf !== ALL_SHELF) {
+    arr = arr.filter((b) => {
+      const list = b.shelves ?? (b.shelf ? [b.shelf] : []);
+      return s.libShelf === NO_SHELF ? list.length === 0 : list.includes(s.libShelf);
+    });
+  }
   if (s.libFilter === 'reading') arr = arr.filter((b) => b.status === 'reading');
   if (s.libFilter === 'done') arr = arr.filter((b) => b.status === 'done');
   if (s.libFilter === 'new') arr = arr.filter((b) => b.status === 'new');

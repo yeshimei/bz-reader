@@ -130,6 +130,8 @@ export const ZH = {
   'notice.rename.empty': '书名不能为空',
   'notice.rename.done': '书名已改',
   'notice.book.archived': '已把《{title}》移出书架，数据都保留',
+  'notice.purge.mismatch': '输入的书名不一致，未删除',
+  'notice.purge.done': '《{title}》及其全部记录已彻底删除',
   'notice.book.revived': '已恢复 {n} 本，进度和划线都接上了',
   'notice.missing.found': '找到了：{path}',
   'notice.missing.notFound': '库里没找到同一份文件，可以手动选一个',

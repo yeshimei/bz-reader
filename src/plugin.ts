@@ -31,6 +31,7 @@ import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
 import { BookRepo, BASE_FORMATS, PRO_FORMATS, formatOf, planRelocations, scanVault } from './data/book-repo';
 import { fillBookMetas, readFingerprint } from './data/book-scan';
+import { bookShelves, primaryShelf } from './data/book-shelves';
 import { MAX_FINGERPRINT_BYTES } from './data/fingerprint';
 import { ReaderStore, verifyCopiedJson } from './data/store';
 import { backupFileName, buildBackup, parseBackup, replaceWithBackup } from './data/backup';
@@ -691,6 +692,13 @@ export function createPlugin(cfg: PluginConfig) {
              shelfOf() 会退回 EPUB 自带的分类名——用户点了「移出分类」，
              书却还挂在原来那一类下面。 */
           b.shelf = name;
+        }),
+        setBookShelves: (id, names) => this.patchBook(id, (b) => {
+          /* 多分类：写完整归属数组，主分类取第一格并同步回 shelf。
+             空数组要落盘（= 明确未分类），不能 delete 退回 subjects。 */
+          const list = [...names];
+          b.shelves = list;
+          b.shelf = list[0] ?? '';
         }),
         setShelfList: (list) => {
           this.store.get().shelves = [...list];

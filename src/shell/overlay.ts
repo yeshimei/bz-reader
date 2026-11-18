@@ -1505,7 +1505,33 @@ function overlayRemoveBook(bookId?: string): string {
     esc(b.meta.title || '未命名'),
     body,
     `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
+     <button class="bzs-btn" data-act="purgebook" data-id="${b.id}">彻底删除…</button>
      <button class="bzs-btn pri" data-act="removebookdo" data-id="${b.id}">移出书架</button>`,
+  );
+}
+
+/**
+ * 彻底删除确认（2026-11-18）：连书记录和它名下的进度/划线/书签/想法/会话
+ * 一起删，不碰笔记库里的书籍源文件与已导出的笔记。不可恢复，输入书名确认。
+ */
+function overlayPurgeBook(bookId?: string): string {
+  const b = bookById(bookId);
+  if (!b) return modal('彻底删除', '', '<div class="bzs-empty">这本书已不在书库。</div>', closeBtn());
+  const title = b.meta.title || '未命名';
+  const body = `<div style="font-size:13px;line-height:2;color:var(--t2)">
+      <b style="color:var(--err)">此操作不可恢复。</b>《${esc(title)}》的记录与全部数据（阅读进度、划线、书签、想法、阅读时间）都会被永久删除，
+      「曾经在书架」的痕迹也一并清除。<br>
+      笔记库里的原文件 <code>${esc(b.fileRef.vaultPath)}</code> 和已导出的书摘笔记<b>不会</b>被删除。<br>
+      删除后笔记里指向这本书的双链将无法再点回原文。确认请输入书名 <code>${esc(title)}</code>：
+    </div>
+    <div class="bzs-setgrp flat"><div class="bzs-setrow">
+      <input data-role="purge" placeholder="输入书名确认" spellcheck="false" style="flex:1"></div></div>`;
+  return modal(
+    '彻底删除',
+    esc(title),
+    body,
+    `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
+     <button class="bzs-btn" style="color:var(--err)" data-act="purgedel" data-id="${b.id}">永久删除</button>`,
   );
 }
 
@@ -1711,6 +1737,8 @@ export function overlayHtml(): string {
       return overlayShelves(o.mode || '', o.text || '', o.bookId);
     case 'removebook':
       return overlayRemoveBook(o.bookId);
+    case 'purgebook':
+      return overlayPurgeBook(o.bookId);
     case 'removebooks':
       return overlayRemoveBooks(o.ids);
     case 'missing':

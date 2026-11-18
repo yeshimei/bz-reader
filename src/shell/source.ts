@@ -165,6 +165,11 @@ export interface ShellSource {
    */
   setShelf: (id: string, name: string) => void;
   /**
+   * 写一本书的完整分类归属（2026-11-18 多分类）。空数组 = 未分类。
+   * 主分类（shelf）由实现取第一格同步写入。
+   */
+  setBookShelves: (id: string, names: string[]) => void;
+  /**
    * 写分类名单（顺序即书架上的顺序）。
    *
    * 名单不能从书上反推——空分类在书上什么痕迹都没有，反推的下场就是

@@ -97,7 +97,11 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
      （aiLog），CAP_TEXT 加一条卖点，zh / zh-TW / ja 三份（日文「会話」
      「保存」同样命中）。同批改了口径的 aiSel / ai 两条条数不变。 */
   'src/data/entitlement.ts': 62,
-  'src/data/export.ts': 9,
+  /* 2026-11-18 9 → 25：导出新增「阅读记录」块（首读/末读/累计时长/读完/
+     会话数/每章时长/会话明细）与每条划线的创建时间行，都是写进书摘笔记的
+     内容文案（同 export.ts 既有的「## 书签」「条划线」口径），随笔记一起走、
+     不进八语言 t()。 */
+  'src/data/export.ts': 25,
   'src/data/importer.ts': 1,
   'src/data/license.ts': 16,
   'src/data/notes.ts': 13,

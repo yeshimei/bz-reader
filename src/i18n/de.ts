@@ -1395,4 +1395,6 @@ export const DE: Record<MsgKey, string> = {
   'image.plate.failed': '[TODO] image.plate.failed',
   'image.reset': '[TODO] image.reset',
   'image.copy.link': '[TODO] image.copy.link',
+  'notice.purge.mismatch': '[TODO] notice.purge.mismatch',
+  'notice.purge.done': '[TODO] notice.purge.done {title}',
 };

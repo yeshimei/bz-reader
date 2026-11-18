@@ -98,6 +98,8 @@ export type OverlayKind =
   | 'quote' | 'idea' | 'hltools' | 'ai' | 'dict' | 'poster'
   | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedir' | 'finish' | 'footnote'
   | 'rename' | 'removebook' | 'removebooks' | 'confirmdel' | 'notedrop' | 'missing' | 'ack' | 'ptclean'
+  /* 彻底删除（2026-11-18）：连书记录和所有数据一起删，输入书名确认防误触 */
+  | 'purgebook'
   | 'rebuildidx'
   /* 删掉侧栏的一条对话（2026-11-16）：`text` 是会话 id。 */
   | 'aidel'
@@ -401,7 +403,10 @@ export interface ShellState {
   relicense: boolean;
   /* 真实数据里没有、但书库需要 */
   favIds: string[];
+  /** 书号 → 主分类（兼容旧代码；恒等于 bookShelves[id][0]） */
   shelves: Record<string, string>;
+  /** 书号 → 完整分类归属（2026-11-18 多分类） */
+  bookShelves: Record<string, string[]>;
   /**
    * 用户自建的分类名单（顺序即书架上的顺序）。
    *
@@ -453,6 +458,7 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   relicense: false,
   favIds: [],
   shelves: {},
+  bookShelves: {},
   shelfList: [],
 };
 
@@ -756,16 +762,24 @@ export function setGoal(books: number, opts: { silent?: boolean } = {}): void {
  * 不调用的话，同步进来的 `favorite: true` 在界面上永远不显示星标。
  */
 export function hydrateLibrary(
-  books: ReadonlyArray<{ id: string; favorite?: boolean; shelf?: string }>,
+  books: ReadonlyArray<{ id: string; favorite?: boolean; shelf?: string; shelves?: readonly string[] }>,
   goal?: number,
   shelfList?: readonly string[],
 ): void {
   state.favIds = books.filter((b) => b.favorite === true).map((b) => b.id);
   const shelves: Record<string, string> = {};
+  const bookShelves: Record<string, string[]> = {};
   /* 空串也要进索引：它代表「明确未分类」，与「压根没归属」不是一回事
      （见 domain.shelfOf）。 */
-  for (const b of books) if (typeof b.shelf === 'string') shelves[b.id] = b.shelf;
+  for (const b of books) {
+    if (typeof b.shelf === 'string') shelves[b.id] = b.shelf;
+    /* 多分类：有 shelves 就用它（含空数组=明确未分类），否则回退单值 shelf。
+       两者都没有时不写条目——让 shelvesOf 走 subjects 兜底，与 shelfOf 一致。 */
+    if (Array.isArray(b.shelves)) bookShelves[b.id] = [...b.shelves];
+    else if (typeof b.shelf === 'string') bookShelves[b.id] = b.shelf ? [b.shelf] : [];
+  }
   state.shelves = shelves;
+  state.bookShelves = bookShelves;
   /* 分类名单只在传了值时才覆盖：有不少调用点只关心收藏与目标，
      传 undefined 意味着「名单没变」，不是「名单清空」。 */
   if (shelfList) state.shelfList = cleanShelfList(shelfList);

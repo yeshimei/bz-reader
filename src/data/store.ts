@@ -206,6 +206,10 @@ export function sanitizeDataDetailed(v: unknown): SanitizeResult | null {
          （字段不存在、回落到 EPUB 自带的 subjects）是两件事。以前这里只收
          真值，于是「移出分类 / 删掉这一类」读一次盘就自己弹回旧分类名。 */
       ...(typeof b.shelf === 'string' ? { shelf: b.shelf } : {}),
+      /* 多分类归属：重建时漏掉它，读盘一次就把用户选的第二、第三个分类全丢。 */
+      ...(Array.isArray(b.shelves)
+        ? { shelves: b.shelves.filter((x): x is string => typeof x === 'string') }
+        : {}),
       /* 归档是「移出书架、数据全留」。重建时漏掉 archivedAt，读盘一次
          归档书就会自己回到书架——用户会以为移除没生效。 */
       ...(num(b.archivedAt) !== undefined && num(b.archivedAt)! > 0 ? { archivedAt: num(b.archivedAt)! } : {}),

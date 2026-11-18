@@ -161,6 +161,11 @@ export interface ReadingSession {
    */
   chapterIndex?: number;
   chapterTitle?: string;
+  /**
+   * 会话内中断次数（2026-11-18）：离开超过 1 分钟再回来算一次。
+   * 老会话没有这个字段，读侧当 0（一口气读完）处理。
+   */
+  interruptions?: number;
 }
 
 export interface Highlight {
@@ -279,6 +284,13 @@ export interface ReaderBook {
    * 以前分组也存在 localStorage，换设备后整排书退回「未分类」。
    */
   shelf?: string;
+  /**
+   * 完整分类归属（2026-11-18）：一本书可以同时归到几个分类，不用标签系统。
+   *
+   * `shelf` 保留为「主分类」= shelves[0]，供只读 shelfOf 的旧代码与统计用；
+   * 写入时两份一起更新（见 data/book-shelves.ts）。空数组 = 未分类。
+   */
+  shelves?: string[];
   /**
    * 移出书架的时间（软删除）。有值 = 不在书架上显示，但**数据一条不删**：
    * 进度、划线、书签、想法、阅读会话都还在，重新导入同一份文件时清掉这个

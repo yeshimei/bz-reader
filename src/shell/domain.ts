@@ -213,3 +213,19 @@ export function shelfOf(book: ReaderBook): string {
   if (sub && /[\u4e00-\u9fff]/.test(sub)) return sub;
   return NO_SHELF;
 }
+
+/**
+ * 一本书的完整分类归属（2026-11-18 多分类）。
+ *
+ * 优先读业务数据缓存里的完整数组；hydrateLibrary 之前（缓存未建）回退到
+ * 主分类或书自带的 subjects。返回空数组表示「未分类」。
+ */
+export function shelvesOf(book: ReaderBook): string[] {
+  const full = getState().bookShelves[book.id];
+  if (full !== undefined) return full;
+  const own = getState().shelves[book.id];
+  if (own !== undefined) return own ? [own] : [];
+  const sub = book.meta.subjects?.[0]?.trim();
+  if (sub && /[\u4e00-\u9fff]/.test(sub)) return [sub];
+  return [];
+}

@@ -80,6 +80,9 @@ function installSource(book: ReaderBook, shelfList: string[] = []): void {
       ai: { baseUrl: 'https://api.test/v1', apiKey: 'sk-test', model: 'test-model' },
     }),
     setShelf: (id: string, name: string) => void mocks.shelves.push([id, name]),
+    setBookShelves: (id: string, names: string[]) => {
+      if (names[0]) mocks.shelves.push([id, names[0]]);
+    },
     setShelfList: (list: string[]) => void mocks.shelfLists.push(list),
   } as unknown as ShellSource);
 }
