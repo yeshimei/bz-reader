@@ -1173,8 +1173,8 @@ function enrichDoneMessage(metaPatch: Partial<BookMeta>, shelf: string): string 
  * 桌面侧栏常驻是正常形态；这本书没打开 / 这一跳没有落点时不收——
  * 用户还在原地找，收起来等于多按一次。
  */
-function collapseSidebarAfterJump(el: HTMLElement, jumped: boolean): void {
-  if (!shouldCollapseSidebar({ mobile: isMobileShell(), fromSidebar: fromSidebarHit(el), jumped })) return;
+function collapseSidebarAfterJump(fromSidebar: boolean, jumped: boolean): void {
+  if (!shouldCollapseSidebar({ mobile: isMobileShell(), fromSidebar, jumped })) return;
   getShellSource()?.closeSidebar?.();
 }
 
@@ -2840,9 +2840,12 @@ export function dispatchAction(
 
     /* ── 侧栏：目录 / 书签 / 划线 ── */
     case 'jumpch': {
+      /* 先判来源再跳转：jumpTo 会触发侧栏重绘，el 那时已脱离 DOM，
+         fromSidebarHit 的 closest 就判不出来了（真机复现的「跳得动却不收」）。 */
+      const fromSide = fromSidebarHit(el);
       if (d.href) {
         closeOverlay();
-        collapseSidebarAfterJump(el, jumpTo(d.href));
+        collapseSidebarAfterJump(fromSide, jumpTo(d.href));
         break;
       }
       /* 全书鸟瞰只拿得到章节名（S-05）：在目录快照里按名字找一条 href。
@@ -2855,7 +2858,7 @@ export function dispatchAction(
         : undefined;
       if (hit?.href) {
         closeOverlay();
-        collapseSidebarAfterJump(el, jumpTo(hit.href));
+        collapseSidebarAfterJump(fromSide, jumpTo(hit.href));
       } else {
         notify(t('notice.toc.missingChapter'), 'info');
       }
@@ -2874,9 +2877,10 @@ export function dispatchAction(
       const book = currentBook();
       const k = (book?.notes?.bookmarks ?? []).find((x) => x.id === d.id);
       if (book && k) {
+        const fromSide = fromSidebarHit(el);
         closeOverlay();
         getShellSource()?.openBook(book, k.cfi || undefined);
-        collapseSidebarAfterJump(el, true);
+        collapseSidebarAfterJump(fromSide, true);
       }
       break;
     }
@@ -2917,9 +2921,11 @@ export function dispatchAction(
     case 'hlcolor':
       changeMarkColor(d.id, d.v, d.book);
       break;
-    case 'hljump':
-      collapseSidebarAfterJump(el, jumpToMark(d.id, d.book));
+    case 'hljump': {
+      const fromSide = fromSidebarHit(el);
+      collapseSidebarAfterJump(fromSide, jumpToMark(d.id, d.book));
       break;
+    }
     case 'hlidea':
       // 浮窗要贴着原来那条划线展开，锚点沿用标注卡的位置
       overlay('idea', { markId: d.id, bookId: d.book || getState().bookId || '', anchor: getState().overlay?.anchor });
@@ -3315,6 +3321,7 @@ export function dispatchAction(
       const cfi = String(d.cfi ?? '').trim();
       const text = String(d.text ?? '').trim();
       if (page < 1 && !cfi && !text) break;
+      const fromSide = fromSidebarHit(el);
       closeOverlay();
       if (page >= 1) {
         getShellSource()?.openBook(book, `pdf/${page}`);
@@ -3328,7 +3335,7 @@ export function dispatchAction(
           pct: Number.isFinite(pct) ? pct : undefined,
         });
       }
-      collapseSidebarAfterJump(el, true);
+      collapseSidebarAfterJump(fromSide, true);
       break;
     }
     case 'citeonly': {
@@ -3357,10 +3364,13 @@ export function dispatchAction(
       if (!book || !src) break;
       const chapter = (d.chapter || '').trim();
       const snippet = (d.text || '').trim();
+      /* 先判来源再跳（同 jumpch）：jumpIntoBook 会重绘侧栏，el 那时已脱离 DOM */
+      const fromSide = fromSidebarHit(el);
       /* 章名一路带下去（2026-11-16）：以前只给片段，跳转就变成「整本书里
          第一次出现这一句」，同一句对白在别的章出现时会落到错的地方。
          没有片段的老来源只带章名，jumpIntoBook 也会落到那一章开头。 */
       src.jumpIntoBook(book, snippet, chapter);
+      collapseSidebarAfterJump(fromSide, true);
       break;
     }
     case 'ptopen': {

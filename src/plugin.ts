@@ -63,6 +63,7 @@ import { loadAiLog } from './data/ai-log';
 import { StudyView, VIEW_TYPE_STUDY } from './shell/study-view';
 import { OverlayLayer } from './shell/overlay';
 import { attachAiContext, dispatchAction, requireCap } from './shell/actions';
+import { findCollapsibleAncestor } from './shell/drawer-collapse';
 import { clampDailyGoal } from './shell/checkin';
 import {
   DEFAULT_SHELL_STATE,
@@ -1489,16 +1490,24 @@ export function createPlugin(cfg: PluginConfig) {
     /**
      * 收掉目录侧栏（手机上从侧栏跳转完之后自动收抽屉）。
      *
-     * 桌面不会被调：那边侧栏常驻是正常形态。
+     * 从 leaf 自己的 parent 链找到它所在的可收容器直接收——移动端是
+     * WorkspaceMobileDrawer，桌面是 WorkspaceSidedock，两者都有
+     * `collapsed` + `collapse()`。这样天然知道 leaf 在哪一侧，不再靠
+     * `closest('.mod-right-split')` 猜左右：那套猜测在移动端抽屉 DOM 上
+     * 不可靠，正是「点目录跳得动、侧栏却关不掉」的根因（真机复现）。
+     * 找不到容器时回退到 left/rightSplit 兜底。
      *
-     * 按 leaf 的 DOM 位置判断左右，而不是 `leaf.parent === leftSplit`：
-     * 手机上抽屉里的 leaf 父级是内部 split，跟 leftSplit 不是同一个对象；
-     * 而 `mod-left-split` / `mod-right-split` 两个类在两端都是稳定的。
-     * 侧栏被拖到右边时只收左边等于没反应——用户点了目录，抽屉还在。
+     * 桌面通常不会被调（侧栏常驻是正常形态），但走同一套逻辑也正确。
      */
     closeTocSidebar(): void {
       const ws = this.app.workspace;
       const leaf = ws.getLeavesOfType(VIEW_TYPE_TOC)[0];
+      const panel = findCollapsibleAncestor(leaf);
+      if (panel) {
+        panel.collapse();
+        return;
+      }
+      /* 兜底：parent 链异常时仍按老办法收一次，别让抽屉留在那 */
       const el = (leaf?.view as unknown as { containerEl?: HTMLElement } | undefined)?.containerEl;
       const onRight = !!el?.closest?.('.mod-right-split');
       if (onRight) ws.rightSplit?.collapse?.();
