@@ -387,7 +387,7 @@ function roadmapRowsHtml(data: BzrData | null): string {
     .filter((t) => t.items.length);
   if (!blocks.length) return `<div class="bzs-chgn-rmempty">${esc(c.emptyRoadmap)}</div>`;
   return blocks
-    .map((t, ti) => {
+    .map((t) => {
       const done = t.items.filter((i) => i.state === 'done').length;
       const pct = Math.round((done / t.items.length) * 100);
       const rows = t.items
@@ -406,8 +406,9 @@ function roadmapRowsHtml(data: BzrData | null): string {
         )
         .join('');
       return (
-        `<section class="bzs-chgn-rmtheme${ti > 1 ? ' fold' : ''}">` +
-        `<div class="bzs-chgn-rmthemehd" data-rm-theme><span class="bzs-chgn-chev">▾</span>` +
+        /* 2026-11-19 作者要求普通平铺、不折叠：分组恒展开，条目全量显示。 */
+        `<section class="bzs-chgn-rmtheme">` +
+        `<div class="bzs-chgn-rmthemehd">` +
         `<i class="bzs-chgn-bar" style="background:${esc(t.color)}"></i><b>${esc(t.theme)}</b>` +
         `<span class="bzs-chgn-prog"><span class="bzs-chgn-track"><i style="width:${pct}%"></i></span>` +
         `<small>${done}/${t.items.length}</small></span></div>` +
@@ -1090,10 +1091,6 @@ export function openChangelogNote(
       }
       return;
     }
-
-    /* 主题折叠：只换这一个主题的展开态，不重排整窗 */
-    const themeHd = target.closest<HTMLElement>('[data-rm-theme]');
-    if (themeHd) { themeHd.parentElement?.classList.toggle('fold'); return; }
 
     if (target.closest('.bzs-chgn-close')) { modal.close(); return; }
     /* 支持作者（2026-11-10）：先收日志窗再开赞赏窗——两层遮罩叠着，

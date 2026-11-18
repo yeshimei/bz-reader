@@ -165,21 +165,19 @@
 .bzs-chgn-fbempty{grid-column:1/-1;padding:26px 0;text-align:center;font-size:11px;color:var(--chg-ink-3)}
 
 /* ── 路线图两级：主题是卡片，条目在里面（2026-11-18 作者选定）──
-   主题标题行做成卡片头（浅底 + 分隔线），条目在卡内逐行排；
-   折叠还在头部那一下点击上。 */
+   主题标题行做成卡片头（浅底 + 分隔线），条目在卡内逐行排。
+   2026-11-19 作者要求普通平铺、不折叠：分组恒展开，长分组按内容自然撑高，
+   溢出交给外层 .bzs-chgn-rmlist 滚动，不再被 flex 压扁裁掉条目。 */
 .bzs-chgn-rmlist{
   flex:1;min-height:0;overflow-y:auto;scrollbar-width:none;min-width:0;
   display:flex;flex-direction:column;gap:10px;padding:10px 16px 20px;
 }
 .bzs-chgn-rmlist::-webkit-scrollbar{display:none}
-.bzs-chgn-rmtheme{border:1px solid var(--chg-line-soft);border-radius:11px;overflow:hidden;background:var(--chg-panel)}
+.bzs-chgn-rmtheme{flex:none;border:1px solid var(--chg-line-soft);border-radius:11px;overflow:hidden;background:var(--chg-panel)}
 .bzs-chgn-rmthemehd{
-  display:flex;align-items:center;gap:8px;padding:9px 11px;cursor:pointer;user-select:none;
+  display:flex;align-items:center;gap:8px;padding:9px 11px;user-select:none;
   background:color-mix(in srgb,var(--chg-ink-3) 6%,transparent);
 }
-.bzs-chgn-rmthemehd:hover{background:var(--chg-accent-soft)}
-.bzs-chgn-chev{font-size:9px;color:var(--chg-ink-3);transition:transform .16s}
-.bzs-chgn-rmtheme.fold .bzs-chgn-chev{transform:rotate(-90deg)}
 .bzs-chgn-bar{width:3px;height:12px;border-radius:2px;flex:none}
 .bzs-chgn-rmthemehd b{font-size:12.5px;font-weight:600}
 .bzs-chgn-prog{margin-left:auto;display:flex;align-items:center;gap:5px}
@@ -187,7 +185,6 @@
 .bzs-chgn-track i{display:block;height:100%;background:var(--green,#1a7f37)}
 .bzs-chgn-prog small{font-family:var(--chg-mono);font-size:9px;color:var(--chg-ink-3)}
 .bzs-chgn-rmitems{padding:4px}
-.bzs-chgn-rmtheme.fold .bzs-chgn-rmitems{display:none}
 .bzs-chgn-rmitem{display:flex;flex-direction:column;padding:7px;border-radius:7px;transition:background .14s}
 .bzs-chgn-rmitem:hover{background:color-mix(in srgb,var(--chg-ink-3) 7%,transparent)}
 /* 状态点与标题同一个 flex 行、垂直居中（同反馈卡：不再用 margin-top 目测） */
