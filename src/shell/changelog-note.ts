@@ -341,14 +341,19 @@ const STAT_ICON_SHIELD =
   '<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6Z"/><path d="m9 12 2 2 4-4"/></svg>';
 
 /**
- * 统计：三颗图标卡（数字来自在线配置；没拿到数据时显示占位，不显示假数字）。
+ * 统计：三颗图标卡。
+ * 数字固定写死、不读在线 stats（2026-11-19 用户要求）：随版本发版冻结，
+ * 每次发版由发版流程更新这三个常量。当前 = v1.5.3 这组。
  * 外壳带描边 + 悬停反馈 + 右侧小箭头，让人一眼看出是能点的。
  */
-function statsHtml(data: BzrData | null): string {
+const PIN_REWARD = 6;
+const PIN_PRO = 47;
+const PIN_PATRONS = 8;
+function statsHtml(_data: BzrData | null): string {
   const c = copy();
-  const reward = data ? data.stats.reward.toLocaleString() : '—';
-  const pro = data ? data.stats.pro.toLocaleString() : '—';
-  const patrons = data ? data.stats.patrons.toLocaleString() : '—';
+  const reward = PIN_REWARD.toLocaleString();
+  const pro = PIN_PRO.toLocaleString();
+  const patrons = PIN_PATRONS.toLocaleString();
   const chev = '<i class="bzs-chgn-mini-chev" aria-hidden="true">›</i>';
   return (
     '<div class="bzs-chgn-mini">' +

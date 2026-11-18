@@ -37,7 +37,7 @@ describe('统计卡', () => {
     expect([...html.matchAll(/data-stat="reward"/g)]).toHaveLength(2);
     const first = html.indexOf('data-stat="reward"');
     expect(first).toBeLessThan(html.indexOf('data-stat="pro"'));
-    expect(html).toContain('456');
+    expect(html).toContain('6'); // 固定值 PIN_REWARD（随版本发版更新），不读在线 stats
   });
 });
 
