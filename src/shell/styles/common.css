@@ -489,3 +489,114 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* ── 加入复习：三选一与题面确认 ──
+   这两个界面挂在 Obsidian 原生 Modal 里，不在 .bzs-shell 下，
+   所以类名一律自带 bzs- 命名空间，构建时不会被套上壳层前缀。 */
+.bzs-review-mode-lead {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+.bzs-review-mode-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.bzs-review-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  min-height: 72px;
+  padding: 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.bzs-review-mode:hover { border-color: var(--interactive-accent); }
+.bzs-review-mode.is-on {
+  border-color: var(--interactive-accent);
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.bzs-review-mode-name { font-size: 1em; font-weight: 600; }
+.bzs-review-mode-chars { font-size: 0.82em; opacity: 0.82; }
+.bzs-review-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+.bzs-review-actions button { min-width: 88px; }
+
+.bzs-review-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.bzs-review-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  padding: 12px;
+}
+.bzs-review-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.bzs-review-card-title { font-weight: 600; line-height: 1.4; min-width: 0; }
+.bzs-review-card-state {
+  flex: none;
+  font-size: 0.78em;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.bzs-review-card-source {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+  font-size: 0.88em;
+  line-height: 1.6;
+}
+.bzs-review-card-field { display: flex; flex-direction: column; gap: 6px; }
+.bzs-review-card-label { font-size: 0.8em; color: var(--text-muted); }
+.bzs-review-input { width: 100%; box-sizing: border-box; }
+.bzs-review-card-back {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: 0.88em;
+  line-height: 1.6;
+}
+.bzs-review-card-back .bzs-review-card-label { display: block; margin-bottom: 4px; }
+.bzs-review-bulk,
+.bzs-review-mini-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.bzs-review-q-list { display: flex; flex-direction: column; gap: 8px; }
+.bzs-review-q {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+.bzs-review-q-opts { font-size: 0.82em; color: var(--text-muted); line-height: 1.6; }
+.bzs-review-card-empty { margin: 0; font-size: 0.85em; color: var(--text-error); }
+.bzs-review-mini-btn { min-height: 28px; padding: 4px 10px; font-size: 0.85em; }
+
+@media (max-width: 640px) {
+  .bzs-review-mode-list { grid-template-columns: 1fr; }
+  .bzs-review-mode { min-height: auto; padding: 12px 14px; }
+  .bzs-review-card-list { max-height: none; }
+  .bzs-review-actions { flex-direction: column-reverse; }
+  .bzs-review-actions button { width: 100%; min-height: 40px; }
+  .bzs-review-input { font-size: 16px; }
+}
+

@@ -4,6 +4,8 @@ import {
   makeDraft,
   markCardStates,
   mergeDraftQuestions,
+  modeOptionParts,
+  confirmCardView,
   summaryParts,
   toCardPayload,
   type CardState,
@@ -235,6 +237,42 @@ describe('ReviewMode 子集', () => {
   it('三选一只有 plain/flashcard/quiz，不含 fill-in / context', () => {
     const modes: ReviewMode[] = ['plain', 'flashcard', 'quiz'];
     expect(modes).toEqual(['plain', 'flashcard', 'quiz']);
+  });
+});
+
+describe('modeOptionParts：三选一只留标题与发送字数', () => {
+  it('全文回忆没有第二行，也不显示「不用 AI」', () => {
+    expect(modeOptionParts('plain', 0)).toEqual({ titleKey: 'review.mode.plain' });
+  });
+
+  it('抽认卡/做题标题在上、字数在下，不带描述 key', () => {
+    expect(modeOptionParts('flashcard', 99)).toEqual({
+      titleKey: 'review.mode.flashcard',
+      hintKey: 'review.mode.estChars',
+      hintParams: { chars: '99' },
+    });
+    expect(modeOptionParts('quiz', 1200)).toEqual({
+      titleKey: 'review.mode.quiz',
+      hintKey: 'review.mode.estChars',
+      hintParams: { chars: '1,200' },
+    });
+  });
+});
+
+describe('confirmCardView：确认页不重复显示原文', () => {
+  it('抽认卡只在背面显示一次原文', () => {
+    const d = makeDraft('flashcard', { ...SRC, key: 'k', front: '提醒' })!;
+    expect(confirmCardView(d)).toEqual({ showSource: false, showBack: true });
+  });
+
+  it('全文回忆的题面就是原文，仍要显示', () => {
+    const d = makeDraft('plain', { ...SRC, key: 'k' })!;
+    expect(confirmCardView(d)).toEqual({ showSource: true, showBack: false });
+  });
+
+  it('做题只列题目，不显示背面原文', () => {
+    const d = makeDraft('quiz', { ...SRC, key: 'k', questions: [{ q: '题', options: ['A', 'B'], correct: [0] }] })!;
+    expect(confirmCardView(d)).toEqual({ showSource: false, showBack: false });
   });
 });
 

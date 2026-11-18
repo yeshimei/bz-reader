@@ -113,6 +113,43 @@ export function estimateSendChars(mode: ReviewMode, sources: readonly Pick<CardS
   return (sources ?? []).reduce((n, s) => n + sourceChars(s), 0);
 }
 
+/**
+ * 三选一每一项的文案结构：标题在上、发送字数在下。
+ *
+ * 全文回忆不调 AI，没有第二行——也别再写「不用 AI」这种占位说明；
+ * 另外两项只留字数提示，删掉原来那些啰嗦的描述。这里只给 i18n key，
+ * 中文交给界面层的 t()，本文件保持零中文。
+ */
+export function modeOptionParts(mode: ReviewMode, chars: number): {
+  titleKey: string;
+  hintKey?: string;
+  hintParams?: Record<string, string>;
+} {
+  const titleKey = mode === 'plain'
+    ? 'review.mode.plain'
+    : mode === 'flashcard'
+      ? 'review.mode.flashcard'
+      : 'review.mode.quiz';
+  if (mode === 'plain') return { titleKey };
+  return {
+    titleKey,
+    hintKey: 'review.mode.estChars',
+    hintParams: { chars: Number(chars || 0).toLocaleString('en-US') },
+  };
+}
+
+/**
+ * 确认题面页每种方式要显示哪些段落。
+ *
+ * 抽认卡的原文已经在「背面原文」里出现，别再在题面上方重复贴一遍；
+ * 全文回忆的题面本身就是原文，必须留。
+ */
+export function confirmCardView(d: Pick<DraftCard, 'mode'>): { showSource: boolean; showBack: boolean } {
+  if (d.mode === 'plain') return { showSource: true, showBack: false };
+  if (d.mode === 'flashcard') return { showSource: false, showBack: true };
+  return { showSource: false, showBack: false };
+}
+
 /** 按题面去重追加（做题的补题 / 删题 / 重生成） */
 export function mergeDraftQuestions(
   have: readonly DraftQuestion[],

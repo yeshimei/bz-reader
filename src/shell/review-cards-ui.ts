@@ -16,9 +16,11 @@ import { notify, notifyProgress } from '../core/notice';
 import type { ReaderSettings } from '../data/settings';
 import { aiPostChat } from '../data/ai';
 import {
+  confirmCardView,
   estimateSendChars,
   markCardStates,
   mergeDraftQuestions,
+  modeOptionParts,
   toCardPayload,
   summaryParts,
   type CardSource,
@@ -35,15 +37,6 @@ import {
 import { getShellSource, shellSettings } from './source';
 
 const MODES: readonly ReviewMode[] = ['plain', 'flashcard', 'quiz'];
-
-function modeName(m: ReviewMode): string {
-  return t(m === 'plain' ? 'review.mode.plain' : m === 'flashcard' ? 'review.mode.flashcard' : 'review.mode.quiz');
-}
-function modeDesc(m: ReviewMode): string {
-  return t(
-    m === 'plain' ? 'review.mode.plain.desc' : m === 'flashcard' ? 'review.mode.flashcard.desc' : 'review.mode.quiz.desc',
-  );
-}
 
 /** 打开三选一制卡界面。sources 为待制卡的原文（一条就是一张卡）。 */
 export function openCardsFlow(app: App | undefined, sources: CardSource[]): void {
@@ -82,7 +75,6 @@ class CardsFlow {
   }
 
   open(): void {
-    this.modal.titleEl.setText(t('review.mode.title'));
     this.modal.onClose = () => this.modal.contentEl.empty();
     /* 额度与现状是只读查询，失败就按「不标记」处理，不该拦住制卡。 */
     void this.loadStatus();
@@ -105,6 +97,8 @@ class CardsFlow {
 
   private render(): void {
     const el = this.modal.contentEl;
+    /* 标题跟着步骤走：第二步别再顶着「选一种复习方式」，那是上一步的事。 */
+    this.modal.titleEl.setText(t(this.step === 'mode' ? 'review.mode.title' : 'review.make.title'));
     el.empty();
     if (this.step === 'mode') this.renderMode(el);
     else this.renderEdit(el);
@@ -114,30 +108,18 @@ class CardsFlow {
 
   private renderMode(el: HTMLElement): void {
     const lead = el.createEl('p', { text: t('review.make.lead') });
-    lead.setCssProps({ color: 'var(--text-muted)', margin: '0 0 10px' });
+    lead.className = 'bzs-review-mode-lead';
 
-    const list = el.createDiv();
-    list.setCssProps({ display: 'flex', flexDirection: 'column', gap: '6px' });
+    const list = el.createDiv({ cls: 'bzs-review-mode-list' });
     for (const m of MODES) {
-      const card = list.createDiv();
-      card.className = 'bzs-review-mode';
-      const on = this.mode === m;
-      card.setCssProps({
-        border: '1px solid var(--background-modifier-border)',
-        borderRadius: '8px',
-        padding: '8px 10px',
-        cursor: 'pointer',
-        ...(on ? { background: 'var(--interactive-accent)', color: 'var(--text-on-accent)' } : {}),
-      });
-      const head = card.createDiv();
-      head.setCssProps({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' });
-      head.createSpan({ text: modeName(m) }).setCssProps({ fontWeight: '600' });
-      const chars = estimateSendChars(m, this.sources);
-      head.createSpan({
-        text: chars ? t('review.mode.estChars', { chars: fmt(chars) }) : t('review.mode.noAI'),
-      }).setCssProps({ fontSize: '0.85em' });
-      const desc = card.createDiv({ text: modeDesc(m) });
-      desc.setCssProps({ fontSize: '0.9em', marginTop: '2px', opacity: '0.85' });
+      const card = list.createDiv({ cls: 'bzs-review-mode' });
+      /* 标题在上、发送字数在下；全文回忆只有标题，不再写「不用 AI」。 */
+      const parts = modeOptionParts(m, estimateSendChars(m, this.sources));
+      card.createDiv({ cls: 'bzs-review-mode-name', text: t(parts.titleKey as never) });
+      if (parts.hintKey) {
+        card.createDiv({ cls: 'bzs-review-mode-chars', text: t(parts.hintKey as never, parts.hintParams) });
+      }
+      if (this.mode === m) card.addClass('is-on');
       card.addEventListener('click', () => {
         if (this.mode === m) return;
         this.mode = m;
@@ -146,7 +128,7 @@ class CardsFlow {
       });
     }
 
-    const row = el.createDiv({ cls: 'modal-button-container' });
+    const row = el.createDiv({ cls: 'bzs-review-actions' });
     const cancel = row.createEl('button', { text: t('common.cancel') });
     cancel.addEventListener('click', () => this.modal.close());
     const next = row.createEl('button', { text: t('review.next'), cls: 'mod-cta' });
@@ -186,21 +168,19 @@ class CardsFlow {
 
   private renderEdit(el: HTMLElement): void {
     const lead = el.createEl('p', { text: t('review.make.lead') });
-    lead.setCssProps({ color: 'var(--text-muted)', margin: '0 0 8px' });
+    lead.className = 'bzs-review-mode-lead';
 
-    const list = el.createDiv();
-    list.setCssProps({ maxHeight: '52vh', overflowY: 'auto', marginBottom: '10px' });
+    const list = el.createDiv({ cls: 'bzs-review-card-list' });
     this.drafts.forEach((d, i) => list.appendChild(this.renderCard(d, i)));
 
     /* 批量做题：全部补齐 / 全部重新生成 */
     if (this.drafts.length > 1 && this.mode === 'quiz') {
-      const bar = el.createDiv();
-      bar.setCssProps({ display: 'flex', gap: '8px', marginBottom: '8px' });
+      const bar = el.createDiv({ cls: 'bzs-review-bulk' });
       bar.createEl('button', { text: t('review.make.fillAll') }).addEventListener('click', () => void this.fillAll());
       bar.createEl('button', { text: t('review.make.regenAll') }).addEventListener('click', () => void this.regenAll());
     }
 
-    const row = el.createDiv({ cls: 'modal-button-container' });
+    const row = el.createDiv({ cls: 'bzs-review-actions' });
     const back = row.createEl('button', { text: t('review.back') });
     back.addEventListener('click', () => {
       this.step = 'mode';
@@ -215,63 +195,65 @@ class CardsFlow {
   private renderCard(d: DraftCard, i: number): HTMLElement {
     const box = el_div();
     box.className = 'bzs-review-card';
-    box.setCssProps({ border: '1px solid var(--background-modifier-border)', borderRadius: '8px', padding: '8px 10px', marginBottom: '8px' });
 
-    const head = box.createDiv();
-    head.setCssProps({ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '6px' });
-    head.createSpan({ text: `${i + 1}. ${d.chapterTitle || d.bookTitle}` }).setCssProps({ fontWeight: '600' });
+    const head = box.createDiv({ cls: 'bzs-review-card-head' });
+    head.createSpan({ cls: 'bzs-review-card-title', text: `${i + 1}. ${d.chapterTitle || d.bookTitle}` });
     const state = this.states[i] ?? 'new';
-    const tag = head.createSpan({ text: stateLabel(state) });
-    tag.setCssProps({ fontSize: '0.8em', padding: '1px 6px', borderRadius: '10px', ...stateStyle(state) });
+    const tag = head.createSpan({ cls: 'bzs-review-card-state', text: stateLabel(state) });
+    tag.setCssProps(stateStyle(state));
 
-    const src = box.createEl('p', { text: d.text });
-    src.setCssProps({ fontSize: '0.85em', color: 'var(--text-muted)', margin: '0 0 6px' });
-
-    if (d.mode === 'plain') {
-      /* 全文回忆：题面就是原文，无需编辑 */
-      return box;
+    const view = confirmCardView(d);
+    if (view.showSource) {
+      /* 全文回忆的题面就是原文；其余方式别在这里再贴一遍。 */
+      const src = box.createEl('p', { cls: 'bzs-review-card-source', text: d.text });
+      void src;
     }
 
     if (d.mode === 'flashcard') {
-      const input = box.createEl('input');
+      const field = box.createDiv({ cls: 'bzs-review-card-field' });
+      field.createSpan({ cls: 'bzs-review-card-label', text: t('review.make.front') });
+      const input = field.createEl('input', { cls: 'bzs-review-input' });
       input.type = 'text';
       input.value = d.front;
       input.placeholder = t('review.make.front');
-      input.setCssProps({ width: '100%', marginBottom: '4px' });
       input.addEventListener('input', () => { d.front = input.value; });
-      const back = box.createDiv({ text: `${t('review.make.back')}：${d.back}` });
-      back.setCssProps({ fontSize: '0.85em', color: 'var(--text-muted)', marginBottom: '6px' });
-      box.createEl('button', { text: t('review.make.regenerate') }).addEventListener('click', () => void this.regenOne(i));
+      if (view.showBack) {
+        const back = box.createDiv({ cls: 'bzs-review-card-back' });
+        back.createSpan({ cls: 'bzs-review-card-label', text: t('review.make.back') });
+        back.createDiv({ text: d.back });
+      }
+      box.createEl('button', { cls: 'bzs-review-mini-btn', text: t('review.make.regenerate') })
+        .addEventListener('click', () => void this.regenOne(i));
       return box;
     }
 
-    /* quiz：逐题列出，可删、可改题干、可补齐 */
-    const qs = box.createDiv();
-    if (!d.questions.length) {
-      const empty = qs.createEl('p', { text: t('review.make.emptyQuiz') });
-      empty.setCssProps({ fontSize: '0.85em', color: 'var(--text-error)' });
+    if (d.mode === 'quiz') {
+      const qs = box.createDiv({ cls: 'bzs-review-q-list' });
+      if (!d.questions.length) {
+        qs.createEl('p', { cls: 'bzs-review-card-empty', text: t('review.make.emptyQuiz') });
+      }
+      d.questions.forEach((q, qi) => qs.appendChild(this.renderQuestion(d, qi, q)));
+      const bar = box.createDiv({ cls: 'bzs-review-mini-row' });
+      bar.createEl('button', { cls: 'bzs-review-mini-btn', text: t('review.make.addQuestion') })
+        .addEventListener('click', () => void this.fillOne(i));
+      bar.createEl('button', { cls: 'bzs-review-mini-btn', text: t('review.make.regenerate') })
+        .addEventListener('click', () => void this.regenOne(i));
+      return box;
     }
-    d.questions.forEach((q, qi) => {
-      qs.appendChild(this.renderQuestion(d, qi, q));
-    });
-    const bar = box.createDiv();
-    bar.setCssProps({ display: 'flex', gap: '6px', marginTop: '4px' });
-    bar.createEl('button', { text: t('review.make.addQuestion') }).addEventListener('click', () => void this.fillOne(i));
-    bar.createEl('button', { text: t('review.make.regenerate') }).addEventListener('click', () => void this.regenOne(i));
+
     return box;
   }
 
   private renderQuestion(d: DraftCard, qi: number, q: DraftQuestion): HTMLElement {
     const row = el_div();
-    row.setCssProps({ borderTop: '1px solid var(--background-modifier-border)', padding: '6px 0' });
-    const input = row.createEl('input');
+    row.className = 'bzs-review-q';
+    const input = row.createEl('input', { cls: 'bzs-review-input' });
     input.type = 'text';
     input.value = q.q;
-    input.setCssProps({ width: '100%', marginBottom: '4px' });
     input.addEventListener('input', () => { q.q = input.value; });
-    const opt = row.createDiv({ text: q.options.map((o, oi) => `${q.correct.includes(oi) ? '✓' : '○'}${o}`).join('   ') });
-    opt.setCssProps({ fontSize: '0.8em', color: 'var(--text-muted)', marginBottom: '4px' });
-    const del = row.createEl('button', { text: t('review.make.delQuestion'), cls: 'mod-warning' });
+    const opt = row.createDiv({ cls: 'bzs-review-q-opts', text: q.options.map((o, oi) => `${q.correct.includes(oi) ? '✓' : '○'}${o}`).join('   ') });
+    void opt;
+    const del = row.createEl('button', { cls: 'mod-warning bzs-review-mini-btn', text: t('review.make.delQuestion') });
     del.addEventListener('click', () => {
       d.questions.splice(qi, 1);
       this.render();
@@ -375,9 +357,6 @@ class CardsFlow {
 
 function el_div(): HTMLElement {
   return createDiv();
-}
-function fmt(n: number): string {
-  return Number(n || 0).toLocaleString('en-US');
 }
 function stateLabel(s: string): string {
   return s === 'exists' ? t('review.state.exists') : s === 'over' ? t('review.state.over') : t('review.state.new');
