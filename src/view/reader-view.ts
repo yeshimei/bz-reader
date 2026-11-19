@@ -111,7 +111,7 @@ import { planHeaderVisibility, roleOf } from './header-layout';
 import { pdfActionRun, type PanelAnchor } from './pdf-actions';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { REGION_ACTS, SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
-import { markReviewPlanned, refreshBookReviewMarks } from '../shell/review-marks';
+import { markReviewNextDate, markReviewPlanned, refreshBookReviewMarks, reviewDueState } from '../shell/review-marks';
 import { hydrateToolbarIcons } from '../shell/toolbar-icons';
 import { can } from '../data/entitlement';
 import { bzEntryReady, openBzImageNote, probeBz } from '../data/bz-bridge';
@@ -5090,8 +5090,14 @@ export class ReaderView extends ItemView {
         only: info.region ? REGION_ACTS : undefined,
         /* 存的这本划线已经存过名词 / 段落：那两颗显示成「看名词 / 看段落」 */
         kbDone: kbDoneOf(saved?.kb),
-        /* 这条划线已经在复习计划里：按钮改叫「已在复习」（开书时已批量查过） */
+        /* 已经在计划里的划线：按钮按下次复习日期显示「去复习 / 已排期」 */
         reviewPlanned: reviewReady && !!live && markReviewPlanned(book?.id, live),
+        reviewDue: reviewReady && !!live && markReviewPlanned(book?.id, live)
+          ? reviewDueState(markReviewNextDate(book?.id, live)).due
+          : null,
+        reviewDays: reviewReady && !!live && markReviewPlanned(book?.id, live)
+          ? reviewDueState(markReviewNextDate(book?.id, live)).days
+          : null,
         /* 设置里的工具条样式：文字 / 图标（默认文字） */
         icon: shellPrefs().toolbarStyle === 'icon',
       }),

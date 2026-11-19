@@ -114,8 +114,6 @@ class CardsFlow {
   private regenIndex = -1;
   /** 单卡补题（保留已有题目，只在末尾转圈） */
   private fillIndex = -1;
-  /** 勾了「以后不再问」 */
-  private rememberMode = false;
   /** 被手改过的卡：重新生成前要确认 */
   private touched = new Set<number>();
   /** 等用户确认「覆盖手改内容」的卡 */
@@ -140,22 +138,25 @@ class CardsFlow {
     this.step = init.load ? 'loading' : 'mode';
     const last = settings.reviewLastMode;
     this.mode = last === 'plain' || last === 'flashcard' || last === 'quiz' ? last : 'flashcard';
-    /* 上次勾过「不再出现这一屏」：直接落到确认题面，生成过程由它自己的加载态显示。
-       异步来源（AI 挑重点）必须先过加载页，不在这里跳步。 */
-    if (settings.reviewAskMode === false && !this.loader) this.step = 'edit';
     this.modal = new Modal(app);
   }
 
-  open(): void {
+  async open(): Promise<void> {
     this.modal.onClose = () => {
       this.closed = true;
       this.cancelled = true;
       this.abort?.abort();
       this.modal.contentEl.empty();
     };
-    /* 跳过三选一：第一帧就得是加载态，不能先闪一下空列表 */
+    /* 「不再问」这个习惯如今住在 Review 的设置里；reader 这边只负责把老值迁过去 */
+    await this.migrateAskMode();
+    const preset = await this.presetMode();
+    if (preset && !this.loader) this.step = 'edit';
+
+    /* 跳过三选一：第一帧就得是进度条，不能先闪一下空列表 */
     const auto = this.step === 'edit';
     if (auto) {
+      this.mode = preset ?? this.mode;
       this.generating = true;
       this.busy = true;
     }
@@ -163,13 +164,29 @@ class CardsFlow {
     this.modal.open();
     /* 预热「借来的 AI 配置」：点下一步时才读盘会多一顿；这里顺手读一次。 */
     void aiReadyShared(this.settings, this.app);
-    if (this.loader) void this.loadSources();
+    if (this.loader) void this.loadSources(preset);
     else void this.refreshStatus();
     if (auto) void this.beginGeneration(true);
   }
 
+  /** 老版本的 reader 勾选值：搬到 Review 的「新卡默认方式」，然后停用这个字段 */
+  private async migrateAskMode(): Promise<void> {
+    if (this.settings.reviewAskMode !== false) return;
+    await this.api.setDefaultCardMethod?.(this.mode).catch(() => undefined);
+    this.settings.reviewAskMode = true;
+    getShellSource()?.setSettings({ reviewAskMode: true });
+  }
+
+  /** Review 设置了具体默认方式就不弹三选一；cloze/context 在 reader 侧按抽认卡出题 */
+  private async presetMode(): Promise<ReviewMode | null> {
+    const raw = await this.api.defaultCardMethod?.().catch(() => null);
+    if (raw === 'plain' || raw === 'flashcard' || raw === 'quiz') return raw;
+    if (raw === 'cloze' || raw === 'context') return 'flashcard';
+    return null;
+  }
+
   /** 异步来源：AI 挑重点 / 读章节挑句子。结果回来前页面停在下拉加载态。 */
-  private async loadSources(): Promise<void> {
+  private async loadSources(preset?: ReviewMode | null): Promise<void> {
     let list: CardSource[] = [];
     try {
       list = await this.loader!();
@@ -185,6 +202,14 @@ class CardsFlow {
     this.sources = (list ?? []).filter((s) => String(s?.text ?? '').trim());
     this.step = 'mode';
     await this.refreshStatus();
+    if (preset && this.step === 'mode' && this.sources.length) {
+      this.mode = preset;
+      this.step = 'edit';
+      this.generating = true;
+      this.busy = true;
+      this.render();
+      void this.beginGeneration(true);
+    }
   }
 
   /** 查「哪些已经在计划里」+ 额度，并把已存在的从候选里剔掉 */
@@ -226,9 +251,8 @@ class CardsFlow {
     if (this.step === 'loading') this.renderScopeLoading(el);
     else if (this.step === 'mode') this.renderMode(el);
     else if (this.step === 'edit') {
-      /* 主仓的整屏生成态：确认题面那一帧先画进度，生成完再画草稿 */
-      if (this.generating) this.renderLoading(el);
-      else this.renderEdit(el);
+      /* 出题进度直接长在确认题面里，不再单开一整屏 loading（2026-11-20） */
+      this.renderEdit(el);
     } else this.renderEmpty(el);
   }
 
@@ -271,31 +295,13 @@ class CardsFlow {
       });
     }
 
-    /* 「不再出现这一屏」：勾上就记住方式 + 下次直接出题。这里也是唯一的入口，
-       回头路在设置页「加入复习先选方式」。 */
-    const remember = el.createEl('label', { cls: 'bzs-review-remember' });
-    const box = remember.createEl('input');
-    box.type = 'checkbox';
-    box.checked = this.rememberMode;
-    box.addEventListener('change', () => {
-      this.rememberMode = box.checked;
-    });
-    const text = remember.createDiv({ cls: 'bzs-review-remember-text' });
-    text.createEl('b', { text: t('review.make.remember') });
-    text.createEl('small', { text: t('review.make.remember.hint') });
-
+    /* 「不再出现这一屏」已搬到 Review 设置页；这里只记本次选了哪种，供下次预填 */
     const row = el.createDiv({ cls: 'bzs-review-actions' });
     const cancel = row.createEl('button', { text: t('common.cancel') });
     cancel.addEventListener('click', () => this.modal.close());
     const next = row.createEl('button', { text: t('review.next'), cls: 'mod-cta' });
     next.disabled = this.busy;
-    next.addEventListener('click', () => {
-      if (this.rememberMode) {
-        getShellSource()?.setSettings({ reviewAskMode: false, reviewLastMode: this.mode });
-        this.settings.reviewAskMode = false;
-      }
-      void this.beginGeneration();
-    });
+    next.addEventListener('click', () => void this.beginGeneration());
   }
 
   /* ── 没有可加入的内容（全在计划里 / AI 挑空 / 出错） ── */
@@ -358,21 +364,6 @@ class CardsFlow {
     this.render();
   }
 
-  private renderLoading(el: HTMLElement): void {
-    const box = el.createDiv({ cls: 'bzs-review-loading' });
-    box.createDiv({ cls: 'bzs-review-spinner' });
-    const text = box.createDiv({ cls: 'bzs-review-loading-text' });
-    this.loadingLabel = text.createEl('b');
-    text.createEl('small', { text: t('review.make.lead') });
-    this.paintLoading();
-
-    const row = el.createDiv({ cls: 'bzs-review-actions' });
-    const back = row.createEl('button', { text: t('review.back') });
-    back.disabled = true;
-    const confirm = row.createEl('button', { text: t('review.confirmAdd', { n: '0' }), cls: 'mod-cta' });
-    confirm.disabled = true;
-  }
-
   private paintLoading(): void {
     this.loadingLabel?.setText(
       t('review.make.generating', { done: String(this.genDone), total: String(this.sources.length) }),
@@ -384,6 +375,16 @@ class CardsFlow {
   private renderEdit(el: HTMLElement): void {
     const lead = el.createEl('p', { text: t('review.make.lead') });
     lead.className = 'bzs-review-lead';
+
+    /* 出题进度贴在确认题面顶部：一屏之内从「正在出题」长成题面，不再另起一屏 */
+    if (this.generating) {
+      const bar = el.createDiv({ cls: 'bzs-review-genbar' });
+      bar.createDiv({ cls: 'bzs-review-spinner' });
+      this.loadingLabel = bar.createSpan();
+      this.paintLoading();
+    } else {
+      this.loadingLabel = null;
+    }
 
     const list = el.createDiv({ cls: 'bzs-review-card-list' });
     const scrollTop = this.lastScrollTop;

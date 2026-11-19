@@ -26,6 +26,7 @@ export const ZH = {
   'common.untitled': '未命名',
   'common.close': '关闭',
   'common.cancel': '取消',
+  'common.undo': '撤销',
   'common.delete': '删除',
   'common.unknownError': '未知错误',
   'fault.details': '详情',
@@ -678,8 +679,14 @@ export const ZH = {
   'notice.enrich.fail': 'AI 没有返回可用的信息，稍后再试',
   'tool.quote': '书摘',
   'tool.review': '复习',
-  /* 这条划线已经在复习计划里：工具条换个说法，免得用户以为还能再加一次 */
+  /* 这条划线已经在复习计划里：按到期状态显示，点它去 Review，不再重复加入 */
   'tool.reviewPlanned': '已在复习',
+  'tool.reviewGo': '去复习',
+  'tool.reviewOverdue': '去复习·逾期',
+  'tool.reviewScheduled': '已排期',
+  'tool.reviewDays': '{n} 天',
+  'notice.reviewMarkAdded': '已给这段文字补上划线（复习卡不受影响）',
+  'notice.reviewMarkUndone': '已撤销补线',
   'tool.ai': 'AI',
   'tool.bilink': '双链',
   'tool.ocr': '识别',

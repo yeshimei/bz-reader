@@ -433,17 +433,36 @@ describe('toolbarHtml · 图标模式', () => {
  * 动作名不变——点进去仍是同一个入口，Review 见到钥匙已存在会跳过。
  */
 describe('toolbarHtml · 划线已在复习', () => {
-  it('文案从「复习」变「已在复习」，动作仍是 hlreview', () => {
+  it('无排期日期时显示「已排期」，动作仍是 hlreview', () => {
     const html = toolbarHtml({ marked: true, acts: MARK_ACTS, reviewPlanned: true });
-    expect(html).toContain('已在复习');
+    expect(html).toContain('已排期');
     expect(html).toContain('data-act="hlreview"');
     expect(html).not.toMatch(/data-act="hlreview"[^>]*>复习</);
   });
 
-  it('图标模式换成对勾，读屏名字仍是「已在复习」', () => {
-    const html = toolbarHtml({ marked: true, acts: MARK_ACTS, reviewPlanned: true, icon: true });
-    expect(html).toContain('data-icon="check"');
-    expect(html).toContain('已在复习');
+  it('今天到期显示「去复习」，逾期加红点', () => {
+    const today = toolbarHtml({ marked: true, acts: MARK_ACTS, reviewPlanned: true, reviewDue: 'today' });
+    expect(today).toContain('去复习</button>');
+    const overdue = toolbarHtml({ marked: true, acts: MARK_ACTS, reviewPlanned: true, reviewDue: 'overdue' });
+    expect(overdue).toContain('去复习·逾期');
+    expect(overdue).toContain('is-overdue');
+  });
+
+  it('未到期显示剩余天数', () => {
+    const html = toolbarHtml({ marked: true, acts: MARK_ACTS, reviewPlanned: true, reviewDue: 'future', reviewDays: 3 });
+    expect(html).toContain('已排期 3 天');
+  });
+
+  it('图标模式换成日历对勾，读屏名字随状态走', () => {
+    const html = toolbarHtml({
+      marked: true,
+      acts: MARK_ACTS,
+      reviewPlanned: true,
+      reviewDue: 'today',
+      icon: true,
+    });
+    expect(html).toContain('data-icon="calendar-check"');
+    expect(html).toContain('去复习');
   });
 
   it('没标记时还是「复习」，不加 is-planned', () => {

@@ -59,10 +59,15 @@ export interface ReviewApi {
   version?: number;
   addCards(cards: ReviewCardPayload[]): Promise<ReviewAddSummary>;
   hasNote?(path: string): Promise<boolean>;
-  statusOf?(paths: string[]): Promise<Array<{ path: string; planned: boolean }>>;
+  statusOf?(paths: string[]): Promise<Array<{ path: string; planned: boolean; nextReviewDate?: string | null }>>;
   quota?(): Promise<ReviewQuota>;
   /** v3 起支持：把 bz-review 主界面嵌入外部宿主（书架「复习」页） */
   embedInto?(host: HTMLElement, actionsHost: HTMLElement, onClose: () => void): () => void;
+  /** v4：reader 老勾选值迁移 + 读 review 的「新卡默认方式」 */
+  setDefaultCardMethod?(mode: string): Promise<void>;
+  defaultCardMethod?(): Promise<string | null>;
+  /** v4：打开独立复习页并定位到某张卡 */
+  focusCard?(key: string): Promise<void>;
 }
 
 /**

@@ -12,7 +12,7 @@
  * 界面全部走 Obsidian 原生 Modal 与 setting-item，不另造一套视觉——
  * 这个弹窗只在挑内容时出现，用户不该在这里学一套新操作。
  * ============================================================ */
-import { Modal, type App } from 'obsidian';
+import { Modal, Notice, type App } from 'obsidian';
 import { t } from '../i18n';
 import { notify, notifyProgress } from '../core/notice';
 import type { ReaderSettings } from '../data/settings';
@@ -37,7 +37,7 @@ import {
 import { openAiGuide } from './ai-guide';
 import { marksOf } from './domain';
 import { getShellSource, liveBooks, shellSettings } from './source';
-import { DEFAULT_HIGHLIGHT_COLOR, ensureHighlight } from '../data/notes';
+import { DEFAULT_HIGHLIGHT_COLOR, ensureHighlight, removeHighlight } from '../data/notes';
 import { mutateState } from './state';
 import { emitNotesChanged } from './runtime';
 import { setMarkReviewPlanned } from './review-marks';
@@ -147,8 +147,28 @@ export async function addSelectionToReview(
        不先划线、只在这时补，取消弹窗就不会在书里留痕。 */
     onAdded: () => {
       const id = ensureSelectionMark(book, sel);
-      if (id) setMarkReviewPlanned(book.id, id);
+      if (!id) return;
+      setMarkReviewPlanned(book.id, id);
+      notifyWithUndo(t('notice.reviewMarkAdded'), () => {
+        removeHighlight(book, id);
+        setMarkReviewPlanned(book.id, id, false);
+        getShellSource()?.store.touch();
+        mutateState(() => undefined);
+        emitNotesChanged();
+        notify(t('notice.reviewMarkUndone'), 'info');
+      });
     },
+  });
+}
+
+/** 带「撤销」按钮的通知：只撤刚补的划线，不碰已经进计划的复习卡 */
+function notifyWithUndo(text: string, undo: () => void): void {
+  const n = new Notice(text, 6000);
+  const btn = n.noticeEl.createEl('button', { text: t('common.undo') });
+  btn.addClass('mod-small');
+  btn.addEventListener('click', () => {
+    undo();
+    n.hide();
   });
 }
 

@@ -1607,4 +1607,11 @@ export const ES: Record<MsgKey, string> = {
   'review.aiGuide.noShell': '[TODO] review.aiGuide.noShell',
   'settings.ai.share': '[TODO] settings.ai.share',
   'settings.ai.shareDesc': '[TODO] settings.ai.shareDesc',
+  'tool.reviewGo': '[TODO] tool.reviewGo',
+  'tool.reviewOverdue': '[TODO] tool.reviewOverdue',
+  'tool.reviewScheduled': '[TODO] tool.reviewScheduled',
+  'common.undo': '[TODO] common.undo',
+  'tool.reviewDays': '[TODO] tool.reviewDays {n}',
+  'notice.reviewMarkAdded': '[TODO] notice.reviewMarkAdded',
+  'notice.reviewMarkUndone': '[TODO] notice.reviewMarkUndone',
 };

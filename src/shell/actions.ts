@@ -44,7 +44,8 @@ import { visiblePicked } from './book-select';
 import { toggleAll, togglePick } from './note-select';
 import { togglePicked } from './note-picker';
 import { openReviewAdd, addMarkToReview, addSelectionToReview, openBookReviewAdd } from './review-add';
-import { findReviewApi, reviewEmbedReady } from '../data/review-bridge';
+import { findReviewApi, markCardKey, reviewEmbedReady } from '../data/review-bridge';
+import { markReviewPlanned } from './review-marks';
 import { notify } from '../core/notice';
 import { synthesizeFor, ttsEngineReady, ttsVoiceFor, type TtsRoute } from '../core/tts-engine';
 import { ttsDeployPrompt } from '../core/tts-deploy-prompt';
@@ -3087,12 +3088,19 @@ export function dispatchAction(
     case 'hlquote':
       quoteFromMark(d.id, d.book);
       break;
-    /* 工具条「复习」（点开一条已有划线）：一条划线就是一张卡，直接加，
-       不弹选章节的框。重复点会被 Review 按钥匙判重，不会排两次。 */
+    /* 工具条「复习」：没加入就制卡；已加入则跳去 Review 的那张卡，绝不重复加入 */
     case 'hlreview': {
       const book = findBookOfMark(d.id, d.book);
-      if (!book) {
+      const markId = d.id;
+      if (!book || !markId) {
         notify(t('notice.mark.notFound'), 'error');
+        break;
+      }
+      if (markReviewPlanned(book.id, markId)) {
+        const app = getShellSource()?.app;
+        const api = app ? findReviewApi(app) : null;
+        if (api?.focusCard) void api.focusCard(markCardKey(book.id, markId)).catch(() => notify(t('review.needPlugin'), 'info'));
+        else notify(t('review.needPlugin'), 'info');
         break;
       }
       void addMarkToReview(getShellSource()?.app, book, d.id);

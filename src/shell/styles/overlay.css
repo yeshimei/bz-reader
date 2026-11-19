@@ -2037,6 +2037,8 @@ body.theme-dark .bzs-pendot.on {
   color: var(--copper);
   background: var(--copper-soft);
 }
+/* 逾期：这颗状态按钮加一枚红点，不用悬停气泡解释 */
+.bzs-sbtn.is-overdue::after { content: ''; width: 6px; height: 6px; margin-left: 5px; border-radius: 50%; background: var(--text-error, #d95757); display: inline-block; }
 
 /* ==========================================================
    壳层补充：原型里没有、真实插件必需的三样

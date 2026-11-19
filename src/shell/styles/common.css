@@ -794,6 +794,8 @@
 .bzs-review-loading-text { display: flex; flex-direction: column; gap: 4px; }
 .bzs-review-loading-text b { font-size: 0.95em; font-weight: 600; color: var(--text-normal); }
 .bzs-review-loading-text small { font-size: 0.82em; color: var(--text-muted); }
+/* 出题进度贴在确认题面顶部，不再另起一整屏 */
+.bzs-review-genbar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin: 0 0 12px; border: 1px solid var(--background-modifier-border); border-radius: 8px; background: var(--background-secondary-alt); font-size: 0.9em; color: var(--text-muted); }
 .bzs-review-card-loading {
   display: flex;
   align-items: center;

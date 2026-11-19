@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   forgetReviewMarks,
+  markReviewNextDate,
   markReviewPlanned,
+  reviewDueState,
   setMarkReviewPlanned,
 } from '../src/shell/review-marks';
 
@@ -42,5 +44,30 @@ describe('划线复习状态缓存', () => {
     setMarkReviewPlanned('b1', 'h1');
     setMarkReviewPlanned('b1', 'h1', false);
     expect(markReviewPlanned('b1', 'h1')).toBe(false);
+  });
+
+  it('缓存下次复习日期', () => {
+    setMarkReviewPlanned('b1', 'h1', true, '2026-11-23T09:00:00.000Z');
+    expect(markReviewNextDate('b1', 'h1')).toBe('2026-11-23T09:00:00.000Z');
+  });
+});
+
+describe('reviewDueState', () => {
+  const now = new Date(2026, 10, 20, 15, 0, 0).getTime();
+
+  it('没有排期时没有状态', () => {
+    expect(reviewDueState(null, now)).toEqual({ due: null, days: null });
+  });
+
+  it('今天到期显示去复习', () => {
+    expect(reviewDueState(new Date(2026, 10, 20, 9, 0, 0).toISOString(), now)).toEqual({ due: 'today', days: 0 });
+  });
+
+  it('过期显示逾期天数', () => {
+    expect(reviewDueState(new Date(2026, 10, 17, 9, 0, 0).toISOString(), now)).toEqual({ due: 'overdue', days: 3 });
+  });
+
+  it('未到期显示剩余天数', () => {
+    expect(reviewDueState(new Date(2026, 10, 23, 9, 0, 0).toISOString(), now)).toEqual({ due: 'future', days: 3 });
   });
 });
