@@ -555,17 +555,17 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     pt: 'Um ano de leitura numa imagem',
   },
   stats: {
-    /* 1.0.0：行名从「阅读统计、打卡与目标」改成「数据面板」，卖点句也跟着
-       改口径——这一块是概览、对比、趋势、节律、热力、目标、书籍明细、口径
-       对照八块，只提打卡与目标会让人以为就这么点。 */
-    zh: '时长、趋势、节律与每本书的明细，都在数据面板里',
-    'zh-TW': '時長、趨勢、節律與每本書的明細，都在資料面板裡',
-    en: 'Time, trends, rhythm and per-book detail, all in the stats panel',
-    ja: '時間・推移・リズム・書籍ごとの内訳をデータパネルに',
-    de: 'Zeit, Verlauf, Rhythmus und Details je Buch im Statistikpanel',
-    fr: 'Temps, tendances, rythme et détail par livre dans le panneau de stats',
-    es: 'Tiempo, tendencias, ritmo y detalle por libro en el panel de datos',
-    pt: 'Tempo, tendências, ritmo e detalhe por livro no painel de dados',
+    /* 1.0.0：行名从「阅读统计、打卡与目标」改成「数据面板」；
+       2026-11-20 统计页扩成概览 / 时间 / 书 / 笔记 / 成就 / 数据六页签，
+       卖点句跟着换成真正在卖的东西——字数速度、24 小时节律、年热力、预计读完与徽章。 */
+    zh: '字数速度、24 小时节律、年度热力、预计读完与 18 枚成就',
+    'zh-TW': '字數速度、24 小時節律、年度熱力、預計讀完與 18 枚成就',
+    en: 'Reading pace, 24-hour rhythm, yearly heatmap, finish dates, 18 badges',
+    ja: '読了速度、24時間リズム、年間ヒートマップ、完了予定と18の実績',
+    de: 'Lesetempo, 24-Stunden-Rhythmus, Jahres-Heatmap, Fertigstellung und 18 Abzeichen',
+    fr: 'Vitesse de lecture, rythme sur 24 h, heatmap annuelle, dates de fin et 18 badges',
+    es: 'Ritmo de lectura, ritmo por hora, mapa anual, fechas de fin y 18 insignias',
+    pt: 'Velocidade de leitura, ritmo por hora, mapa anual, previsão e 18 conquistas',
   },
   crossSearch: {
     zh: '在所有书里搜索，PDF 正文也算',

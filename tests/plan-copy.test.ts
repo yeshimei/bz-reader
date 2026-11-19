@@ -38,7 +38,7 @@ const CHANGED: ReadonlyArray<readonly [string, string]> = [
   ['pdfAnnots', '文件自带批注：别人标的也能读'],
   ['bilink', '划线存成双链：笔记里点回原文'],
   ['export', '导出整本摘录：每条带双链'],
-  ['stats', '数据面板：时长、趋势、节律、书籍明细'],
+  ['stats', '统计回顾：字数速度、节律热力、分类与成就'],
   ['poster', '阅读海报：年度总结与数据长图'],
   ['crossSearch', '全库搜索：按字面搜所有书，含 PDF'],
   ['semantic', '语义搜索：按意思找，本书或全库'],

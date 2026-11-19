@@ -304,14 +304,15 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
   },
   /* ── 数据与搜索 ── */
   stats: {
-    zh: '数据面板：时长、趋势、节律、书籍明细',
-    'zh-TW': '資料面板：時長、趨勢、節律、書籍明細',
-    en: 'Stats panel: time, trends, rhythm, per-book detail',
-    ja: 'データパネル：時間・推移・リズム・書籍別の内訳',
-    de: 'Statistikpanel: Zeit, Verlauf, Rhythmus, Details je Buch',
-    fr: 'Panneau de stats : temps, tendances, rythme, détail par livre',
-    es: 'Panel de datos: tiempo, tendencias, ritmo, detalle por libro',
-    pt: 'Painel de dados: tempo, tendências, ritmo, detalhe por livro',
+    /* 2026-11-20：统计页扩成六页签的年度回顾，行名跟着从「明细」升到「回顾」 */
+    zh: '统计回顾：字数速度、节律热力、分类与成就',
+    'zh-TW': '統計回顧：字數速度、節律熱力、分類與成就',
+    en: 'Stats recap: pace, rhythm heatmap, per-book ETA, badges',
+    ja: '統計レビュー：読了速度、時間帯、分類と実績',
+    de: 'Statistik: Lesetempo, Rhythmus, Kategorien und Abzeichen',
+    fr: 'Statistiques : vitesse, rythme, catégories et badges',
+    es: 'Estadísticas: ritmo, tendencias, categorías e insignias',
+    pt: 'Estatísticas: velocidade, ritmo, categorias e conquistas',
   },
   poster: {
     zh: '阅读海报：年度总结与数据长图',

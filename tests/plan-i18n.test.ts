@@ -39,7 +39,7 @@ describe('对照表行名 · 八种语言', () => {
   it('切换界面语言，行名跟着变；切回中文恢复', () => {
     expect(planLabel('aiBook')).toBe('AI 全书问答：划线、正文、截图与笔记四种依据都可添加进去');
     expect(planNameZh('classify')).toBe('分类管理：自建分类归书');
-    expect(planNameZh('stats')).toBe('数据面板：时长、趋势、节律、书籍明细');
+    expect(planNameZh('stats')).toBe('统计回顾：字数速度、节律热力、分类与成就');
     setLocale('en');
     expect(locale()).toBe('en');
     expect(planLabel('aiBook')).toBe(
