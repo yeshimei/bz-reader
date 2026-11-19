@@ -29,6 +29,19 @@ export interface ScopeChapter {
 
 export type Scope = 'marks' | 'marksKey' | 'chaptersKey';
 
+/**
+ * 按章节模式：从全书章节里挑出用户勾选的那些，保持原书顺序。
+ *
+ * 反馈 2026-11-20：「按章节」要先列出这本书所有章节让用户选，选完才调 AI——
+ * 以前是直接把全书正文丢给模型，既不省 token 也不由用户做主。
+ */
+export function pickedChapters(
+  chapters: readonly ScopeChapter[],
+  picked: ReadonlySet<number>,
+): ScopeChapter[] {
+  return (chapters ?? []).filter((c) => picked.has(c.index));
+}
+
 export interface ScopeDeps {
   bookId: string;
   bookTitle: string;

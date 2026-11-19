@@ -71,14 +71,19 @@ export function openCardsFlow(app: App | undefined, sources: CardSource[], hooks
  * 弹窗 → 飘一条「正在读章节」→ 再开一个弹窗，三步三块界面。现在这一步
  * 直接进第二屏，页内显示加载态，AI 回来后原地变成三选一。
  */
-export function openCardsFlowLoading(app: App | undefined, load: () => Promise<CardSource[]>): void {
+export function openCardsFlowLoading(
+  app: App | undefined,
+  load: () => Promise<CardSource[]>,
+  /** 加载态文案 key：划线重点读的是划线，不是整本书，文案要分清（反馈 2026-11-20） */
+  loadingKey: 'review.loadingScope' | 'review.loadingScopeMarks' = 'review.loadingScope',
+): void {
   if (!app) return;
   const api = findReviewApi(app);
   if (!api) {
     notify(t('review.needPlugin'), 'info');
     return;
   }
-  new CardsFlow(app, api, shellSettings(), { sources: [], load }).open();
+  new CardsFlow(app, api, shellSettings(), { sources: [], load, loadingKey }).open();
 }
 
 /** 第二屏的四个状态：等 AI 挑内容 / 选方式 / 改题面 / 没内容可加 */
@@ -88,6 +93,8 @@ interface CardsFlowInit {
   sources: CardSource[];
   /** 异步来源（AI 挑重点）：给了就先进加载态，回来再进三选一 */
   load?: () => Promise<CardSource[]>;
+  /** 加载态文案 key：划线重点 vs 按章节重点分开 */
+  loadingKey?: 'review.loadingScope' | 'review.loadingScopeMarks';
   /** 加入成功后的联动（文字工具栏用来补划线） */
   hooks?: CardsFlowHooks;
 }
@@ -98,6 +105,7 @@ class CardsFlow {
   private settings: ReaderSettings;
   private sources: CardSource[];
   private loader?: () => Promise<CardSource[]>;
+  private loadingKey: 'review.loadingScope' | 'review.loadingScopeMarks';
   private modal: Modal;
   private hooks: CardsFlowHooks;
 
@@ -114,6 +122,8 @@ class CardsFlow {
   private regenIndex = -1;
   /** 单卡补题（保留已有题目，只在末尾转圈） */
   private fillIndex = -1;
+  /** 三选一屏勾了「以后都用这个方式」：下一步时把当前方式写进 Review 的「新卡默认方式」 */
+  private rememberMode = false;
   /** 被手改过的卡：重新生成前要确认 */
   private touched = new Set<number>();
   /** 等用户确认「覆盖手改内容」的卡 */
@@ -134,6 +144,7 @@ class CardsFlow {
     this.settings = settings;
     this.sources = init.sources;
     this.loader = init.load;
+    this.loadingKey = init.loadingKey ?? 'review.loadingScope';
     this.hooks = init.hooks ?? {};
     this.step = init.load ? 'loading' : 'mode';
     const last = settings.reviewLastMode;
@@ -261,7 +272,7 @@ class CardsFlow {
   private renderScopeLoading(el: HTMLElement): void {
     const lead = el.createEl('p', { cls: 'bzs-review-lead', text: t('review.processing.lead') });
     void lead;
-    el.createDiv({ cls: 'bzs-review-loading', text: t('review.loadingScope') });
+    el.createDiv({ cls: 'bzs-review-loading', text: t(this.loadingKey) });
     const row = el.createDiv({ cls: 'bzs-review-actions' });
     row.createEl('button', { text: t('common.cancel') }).addEventListener('click', () => this.modal.close());
   }
@@ -295,7 +306,17 @@ class CardsFlow {
       });
     }
 
-    /* 「不再出现这一屏」已搬到 Review 设置页；这里只记本次选了哪种，供下次预填 */
+    /* 勾了「以后都用这个方式」= 把当前方式写进 Review 的「新卡默认方式」，
+       下次 presetMode() 读到具体方式就跳过这一屏（反馈 2026-11-20）。 */
+    const remember = el.createEl('label', { cls: 'bzs-review-remember' });
+    const rememberBox = remember.createEl('input');
+    rememberBox.type = 'checkbox';
+    rememberBox.checked = this.rememberMode;
+    rememberBox.addEventListener('change', () => { this.rememberMode = rememberBox.checked; });
+    const rememberText = remember.createDiv({ cls: 'bzs-review-remember-text' });
+    rememberText.createEl('b', { text: t('review.make.remember') });
+    rememberText.createEl('small', { text: t('review.make.remember.hint') });
+
     const row = el.createDiv({ cls: 'bzs-review-actions' });
     const cancel = row.createEl('button', { text: t('common.cancel') });
     cancel.addEventListener('click', () => this.modal.close());
@@ -318,6 +339,11 @@ class CardsFlow {
   /* AI 入口先确认「自己配了或对方配了」：没配就别让人干等，给个能点的引导。 */
   private async beginGeneration(autoStart = false): Promise<void> {
     if (this.busy && !autoStart) return;
+    /* 勾了「以后都用这个方式」：把当前方式写进 Review 的「新卡默认方式」，
+       下次 presetMode() 读到具体值就跳过三选一屏（反馈 2026-11-20）。 */
+    if (this.rememberMode && !autoStart) {
+      await this.api.setDefaultCardMethod?.(this.mode).catch(() => undefined);
+    }
     if (this.mode !== 'plain' && !(await aiReadyShared(this.settings, this.app))) {
       openAiGuide();
       return;
@@ -613,14 +639,15 @@ class CardsFlow {
     this.fillIndex = i;
     this.captureScroll();
     this.render();
-    /* 补一道：让 AI 出三道，按题面去重后追加，已有的不重复 */
+    /* 补一道就是一道：prompt 明确要求一道，结果也只取第一道新题追加。
+       旧版让 AI 出三道再全量合并，点一次补三道，用户以为按钮坏了（反馈 2026-11-20）。 */
     const fresh = await generateDrafts('quiz', [
       { key: d.key, bookTitle: d.bookTitle, chapterTitle: d.chapterTitle, text: d.text },
-    ], this.ask());
+    ], this.ask(), 1);
     this.busy = false;
     this.fillIndex = -1;
     if (this.closed) return;
-    d.questions = mergeDraftQuestions(d.questions, fresh[0]?.questions ?? []);
+    d.questions = mergeDraftQuestions(d.questions, (fresh[0]?.questions ?? []).slice(0, 1));
     this.render();
   }
 

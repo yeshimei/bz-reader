@@ -1617,4 +1617,5 @@ export const EN: Record<MsgKey, string> = {
   'tool.reviewDays': '[TODO] tool.reviewDays {n}',
   'notice.reviewMarkAdded': '[TODO] notice.reviewMarkAdded',
   'notice.reviewMarkUndone': '[TODO] notice.reviewMarkUndone',
+  'review.loadingScopeMarks': '[TODO] review.loadingScopeMarks',
 };

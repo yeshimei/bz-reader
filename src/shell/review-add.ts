@@ -12,7 +12,7 @@
  * 界面全部走 Obsidian 原生 Modal 与 setting-item，不另造一套视觉——
  * 这个弹窗只在挑内容时出现，用户不该在这里学一套新操作。
  * ============================================================ */
-import { Modal, Notice, type App } from 'obsidian';
+import { Modal, type App } from 'obsidian';
 import { t } from '../i18n';
 import { notify, notifyProgress } from '../core/notice';
 import type { ReaderSettings } from '../data/settings';
@@ -37,13 +37,13 @@ import {
 import { openAiGuide } from './ai-guide';
 import { marksOf } from './domain';
 import { getShellSource, liveBooks, shellSettings } from './source';
-import { DEFAULT_HIGHLIGHT_COLOR, ensureHighlight, removeHighlight } from '../data/notes';
+import { DEFAULT_HIGHLIGHT_COLOR, ensureHighlight } from '../data/notes';
 import { mutateState } from './state';
 import { emitNotesChanged } from './runtime';
 import { setMarkReviewPlanned } from './review-marks';
 import { runReviewAdd, type RunChapter } from './review-run';
 import { openCardsFlow, openCardsFlowLoading } from './review-cards-ui';
-import { resolveScope, type Scope, type ScopeChapter, type ScopeMark } from './review-scope';
+import { pickedChapters, resolveScope, type Scope, type ScopeChapter, type ScopeMark } from './review-scope';
 
 /** 侧栏「划线」页那颗按钮的入口 */
 export async function openReviewAdd(app: App | undefined, book: ReaderBook | undefined): Promise<void> {
@@ -144,31 +144,15 @@ export async function addSelectionToReview(
   }], {
     /* 确认加入后把这段文字顺手划上：用户点的是「加入复习」，
        但回头看原文时也该能找到是哪一段（2026-11-19）。
-       不先划线、只在这时补，取消弹窗就不会在书里留痕。 */
+       不先划线、只在这时补，取消弹窗就不会在书里留痕。
+       2026-11-20：补完划线立刻清掉正文里的选区高亮（否则选区一直亮着挡正文），
+       也不再弹那条带撤销按钮的通知——「已加入 N 条复习」本身就是回执。 */
     onAdded: () => {
       const id = ensureSelectionMark(book, sel);
       if (!id) return;
       setMarkReviewPlanned(book.id, id);
-      notifyWithUndo(t('notice.reviewMarkAdded'), () => {
-        removeHighlight(book, id);
-        setMarkReviewPlanned(book.id, id, false);
-        getShellSource()?.store.touch();
-        mutateState(() => undefined);
-        emitNotesChanged();
-        notify(t('notice.reviewMarkUndone'), 'info');
-      });
+      getShellSource()?.clearSelection();
     },
-  });
-}
-
-/** 带「撤销」按钮的通知：只撤刚补的划线，不碰已经进计划的复习卡 */
-function notifyWithUndo(text: string, undo: () => void): void {
-  const n = new Notice(text, 6000);
-  const btn = n.noticeEl.createEl('button', { text: t('common.undo') });
-  btn.addClass('mod-small');
-  btn.addEventListener('click', () => {
-    undo();
-    n.hide();
   });
 }
 
@@ -720,6 +704,10 @@ class BookScopeFlow {
   private plannedMarkCount = 0;
   /** 状态查过没有：没查完就别把「全加过」当成事实去禁用选项 */
   private statusDone = false;
+  /** 按章节：第一屏选完后的中间步——列全书章节让用户勾选（反馈 2026-11-20） */
+  private stage: 'scope' | 'chapters' = 'scope';
+  private chapters: ScopeChapter[] | null = null;
+  private chapPicked = new Set<number>();
 
   constructor(app: App, book: ReaderBook, settings: ReaderSettings) {
     this.app = app;
@@ -775,11 +763,66 @@ class BookScopeFlow {
     return Math.max(0, this.markCount - this.plannedMarkCount);
   }
 
-  /** 第一屏的三张卡片。**行间不加分隔线**：卡片本身就是边界 */
+  /** 当前该画哪一屏：按章节选中后先画章节勾选屏 */
   private render(): void {
-    const el = this.modal.contentEl;
-    el.empty();
+    if (this.stage === 'chapters') {
+      this.renderChapterPick(this.modal.contentEl);
+      return;
+    }
+    this.renderScopePick(this.modal.contentEl);
+  }
 
+  /** 按章节的中间屏：列出这本书的全部章节，勾完才让 AI 读正文挑重点 */
+  private renderChapterPick(el: HTMLElement): void {
+    el.empty();
+    this.modal.titleEl.setText(t('review.tab.chapters'));
+    el.createEl('p', { cls: 'bzs-review-lead', text: t('review.chaptersLead') });
+
+    if (this.busy || !this.chapters) {
+      el.createDiv({ cls: 'bzs-review-loading', text: t('review.loading') });
+      return;
+    }
+    if (!this.chapters.length) {
+      el.createEl('p', { cls: 'bzs-review-lead', text: t('review.loadFailed') });
+    } else {
+      const list = el.createDiv();
+      list.setCssProps({ maxHeight: '46vh', overflowY: 'auto', margin: '0 0 8px' });
+      for (const c of this.chapters) {
+        const row = chapterRow(c.title || t('common.untitled'), '');
+        withCheckbox(row, this.chapPicked.has(c.index), (on) => {
+          if (on) this.chapPicked.add(c.index);
+          else this.chapPicked.delete(c.index);
+          this.render();
+        });
+        list.appendChild(row);
+      }
+      const all = this.chapters.map((c) => c.index);
+      const every = all.length > 0 && all.every((i) => this.chapPicked.has(i));
+      const bar = el.createDiv();
+      bar.setCssProps({ display: 'flex', gap: '8px', margin: '0 0 8px' });
+      bar.createEl('button', { text: every ? t('review.selectNone') : t('review.selectAll') })
+        .addEventListener('click', () => {
+          this.chapPicked = new Set(every ? [] : all);
+          this.render();
+        });
+      const summary = el.createEl('p', { text: t('review.pickedChapters', { chapters: String(this.chapPicked.size), chars: '—' }) });
+      summary.setCssProps({ margin: '0 0 10px', fontWeight: '600' });
+    }
+
+    const row = el.createDiv({ cls: 'bzs-review-actions' });
+    const back = row.createEl('button', { text: t('review.back') });
+    back.addEventListener('click', () => {
+      this.stage = 'scope';
+      this.modal.titleEl.setText(t('review.scope.title'));
+      this.render();
+    });
+    const next = row.createEl('button', { text: t('review.next'), cls: 'mod-cta' });
+    next.disabled = this.busy || !this.chapPicked.size;
+    next.addEventListener('click', () => void this.runChapters());
+  }
+
+  /** 第一屏的三张卡片。**行间不加分隔线**：卡片本身就是边界 */
+  private renderScopePick(el: HTMLElement): void {
     const newMarks = this.newMarkCount();
     /* 没查完之前不把「全加过」当结论：先按可用处理，查完会重画一次 */
     const marksUsable = this.statusDone ? newMarks > 0 : true;
@@ -915,17 +958,57 @@ class BookScopeFlow {
       return;
     }
 
+    /* 按章节：先列全书章节给用户勾，选完才让 AI 读正文挑重点（反馈 2026-11-20）。
+       划线重点没有「列目录」这一步——它读的就是已有的划线。 */
+    if (scope === 'chaptersKey') {
+      this.busy = true;
+      this.stage = 'chapters';
+      this.chapters = null;
+      this.chapPicked = new Set();
+      this.render();
+      this.chapters = await this.loadChapters();
+      this.busy = false;
+      this.render();
+      return;
+    }
+
+    this.openMarksKeyLoading(marks);
+  }
+
+  /** 划线重点：直接翻到第二屏加载态，文案按「读划线」写 */
+  private openMarksKeyLoading(marks: ScopeMark[]): void {
     this.modal.close();
-    openCardsFlowLoading(this.app, async () => {
-      const chapters = scope === 'chaptersKey' ? await this.loadChapters() : [];
-      return resolveScope(scope, {
+    openCardsFlowLoading(
+      this.app,
+      () => resolveScope('marksKey', {
         bookId: this.book.id,
         bookTitle: this.book.meta.title || '',
         marks,
-        chapters,
+        chapters: [],
+        ask: (p) => aiPostChat(this.settings, [{ role: 'user', content: p }], {}),
+        chapterText: async () => '',
+      }),
+      'review.loadingScopeMarks',
+    );
+  }
+
+  /** 章节勾选屏点「下一步」：只把勾中的章节交给 AI，不再全书通读 */
+  private async runChapters(): Promise<void> {
+    if (this.busy || !this.chapters || !this.chapPicked.size) return;
+    const picked = pickedChapters(this.chapters, this.chapPicked);
+    const marks = this.rawMarks();
+    this.modal.close();
+    openCardsFlowLoading(
+      this.app,
+      () => resolveScope('chaptersKey', {
+        bookId: this.book.id,
+        bookTitle: this.book.meta.title || '',
+        marks,
+        chapters: picked,
         ask: (p) => aiPostChat(this.settings, [{ role: 'user', content: p }], {}),
         chapterText: (i) => this.chapterBody(i),
-      });
-    });
+      }),
+      'review.loadingScope',
+    );
   }
 }

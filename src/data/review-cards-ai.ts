@@ -135,6 +135,8 @@ export async function generateDrafts(
   mode: ReviewMode,
   sources: readonly CardSource[],
   ask: (prompt: string) => Promise<string>,
+  /** 做题时让模型出几道；补一道题传 1，首次制卡/批量用默认 3 */
+  min = 3,
 ): Promise<DraftCard[]> {
   const out: DraftCard[] = [];
   for (const s of sources ?? []) {
@@ -148,7 +150,7 @@ export async function generateDrafts(
       reply = await ask(
         mode === 'flashcard'
           ? buildFlashcardPrompt(s.bookTitle, s.chapterTitle ?? '', s.text)
-          : buildQuizPrompt(s.bookTitle, s.chapterTitle ?? '', s.text),
+          : buildQuizPrompt(s.bookTitle, s.chapterTitle ?? '', s.text, min),
       );
     } catch {
       reply = '';

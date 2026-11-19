@@ -122,6 +122,12 @@ describe('AI prompt 与解析（题面要在确认前生成）', () => {
     expect(p).toContain('至少');
     expect(p).toContain('3');
   });
+  it('做题 prompt 可指定只出一道（补一道题就是一道）', () => {
+    const p = buildQuizPrompt(SRC.bookTitle, SRC.chapterTitle, SRC.text, 1);
+    expect(p).toContain('出1道');
+    expect(p).toContain('至少 1 道');
+    expect(p).not.toContain('出3道');
+  });
   it('解析抽认卡：宽容代码块，取 front', () => {
     expect(parseFlashcard('```json\n{"front":"婚姻像什么？"}\n```')).toBe('婚姻像什么？');
     expect(parseFlashcard('乱七八糟')).toBeNull();
@@ -195,6 +201,17 @@ describe('generateDrafts：把一组内容按方式变成待确认卡片', () =>
     const ask = async () => JSON.stringify({ questions: [{ q: '题', options: ['A', 'B'], correct: [0] }] });
     const drafts = await generateDrafts('quiz', sources, ask);
     expect(drafts[0]!.questions).toHaveLength(1);
+  });
+
+  it('补一道题时传 min=1，prompt 只要求一道（不会一次补三道）', async () => {
+    const prompts: string[] = [];
+    const ask = async (p: string) => {
+      prompts.push(p);
+      return JSON.stringify({ questions: [{ q: '题', options: ['A', 'B'], correct: [0] }] });
+    };
+    await generateDrafts('quiz', [sources[0]!], ask, 1);
+    expect(prompts[0]).toContain('出1道');
+    expect(prompts[0]).not.toContain('出3道');
   });
 
   it('一条失败不影响其他（catch 后保底）', async () => {

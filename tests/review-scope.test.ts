@@ -4,7 +4,7 @@
  * ask 与 chapterText 注入，纯逻辑可测。
  */
 import { describe, expect, it } from 'vitest';
-import { resolveScope, type ScopeMark, type ScopeChapter } from '../src/shell/review-scope';
+import { pickedChapters, resolveScope, type ScopeMark, type ScopeChapter } from '../src/shell/review-scope';
 
 const MARKS: ScopeMark[] = [
   { id: 'm1', chapterIndex: 0, chapterTitle: '一', text: '婚姻像城', comment: '' },
@@ -72,5 +72,17 @@ describe('resolveScope：内容来源 → 待制卡的原文', () => {
     });
     expect(out).toHaveLength(1);
     expect(out[0]!.chapterTitle).toBe('二');
+  });
+});
+
+describe('pickedChapters：按章节先列全章、让用户勾选后再交给 AI', () => {
+  it('只返回勾选的章节，保持原书顺序', () => {
+    const all: ScopeChapter[] = [
+      { index: 0, title: '一' }, { index: 1, title: '二' }, { index: 2, title: '三' },
+    ];
+    expect(pickedChapters(all, new Set([2, 0]))).toEqual([all[0], all[2]]);
+  });
+  it('没勾任何章 → 空数组，AI 不会被白调', () => {
+    expect(pickedChapters(CHAPTERS, new Set())).toEqual([]);
   });
 });
