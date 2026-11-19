@@ -428,3 +428,28 @@ describe('toolbarHtml · 图标模式', () => {
   });
 });
 
+/**
+ * 已在复习（2026-11-19）：划线进了复习计划之后，工具条那颗按钮换个说法。
+ * 动作名不变——点进去仍是同一个入口，Review 见到钥匙已存在会跳过。
+ */
+describe('toolbarHtml · 划线已在复习', () => {
+  it('文案从「复习」变「已在复习」，动作仍是 hlreview', () => {
+    const html = toolbarHtml({ marked: true, acts: MARK_ACTS, reviewPlanned: true });
+    expect(html).toContain('已在复习');
+    expect(html).toContain('data-act="hlreview"');
+    expect(html).not.toMatch(/data-act="hlreview"[^>]*>复习</);
+  });
+
+  it('图标模式换成对勾，读屏名字仍是「已在复习」', () => {
+    const html = toolbarHtml({ marked: true, acts: MARK_ACTS, reviewPlanned: true, icon: true });
+    expect(html).toContain('data-icon="check"');
+    expect(html).toContain('已在复习');
+  });
+
+  it('没标记时还是「复习」，不加 is-planned', () => {
+    const html = toolbarHtml({ marked: true, acts: MARK_ACTS });
+    expect(html).toContain('>复习</button>');
+    expect(html).not.toContain('is-planned');
+  });
+});
+

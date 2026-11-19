@@ -13,6 +13,8 @@ export interface ToggleState {
   clipBook: boolean;
   /** 书架内显示复习（界面组）：装了支持嵌入的 Review 才显示，默认关 */
   embedReview: boolean;
+  /** 加入复习先选方式（界面组）：装了 Review 才显示，默认开 */
+  reviewAskMode: boolean;
   /** 剧透门（AI 组）：全书问答只答到当前阅读位置，默认关 */
   aiSpoiler: boolean;
   /* 曾经这里还有 aiKnowledge：2026-11-07 改成自动识别，开关撤掉，
@@ -31,6 +33,8 @@ export function flipSetting(current: ToggleState, key: string): Partial<ToggleSt
       return { clipBook: !current.clipBook };
     case 'embedReview':
       return { embedReview: !current.embedReview };
+    case 'reviewAskMode':
+      return { reviewAskMode: !current.reviewAskMode };
     case 'aiSpoiler':
       return { aiSpoiler: !current.aiSpoiler };
     default:

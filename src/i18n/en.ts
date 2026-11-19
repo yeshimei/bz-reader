@@ -1440,4 +1440,13 @@ export const EN: Record<MsgKey, string> = {
   'shelf.tab.review': '[TODO] shelf.tab.review',
   'settings.embedReview': '[TODO] settings.embedReview',
   'settings.embedReview.hint': '[TODO] settings.embedReview.hint',
+  'tool.reviewPlanned': '[TODO] tool.reviewPlanned',
+  'settings.reviewAskMode': '[TODO] settings.reviewAskMode',
+  'settings.reviewAskMode.hint': '[TODO] settings.reviewAskMode.hint',
+  'review.make.remember': '[TODO] review.make.remember',
+  'review.make.remember.hint': '[TODO] review.make.remember.hint',
+  'review.make.regenLoading': '[TODO] review.make.regenLoading',
+  'review.make.backEditable': '[TODO] review.make.backEditable',
+  'review.make.regenOverwrite': '[TODO] review.make.regenOverwrite',
+  'review.make.regenContinue': '[TODO] review.make.regenContinue',
 };
