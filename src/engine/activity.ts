@@ -71,7 +71,19 @@ export interface SessionResult {
   durationSeconds: number;
   /** 会话内中断次数（离开再回来）；0 = 一口气读完。老调用方可省略 */
   interruptions?: number;
+  /** 会话内有效交互次数（翻页 / 滚动 / 点按，去连击） */
+  turns?: number;
+  /** 会话内听书秒数（durationSeconds 的子集） */
+  ttsSeconds?: number;
 }
+
+/**
+ * 两次交互算两次的最小间隔。
+ *
+ * 滚动阅读时 scroll 事件一秒能来几十个，全记的话「交互次数」就退化成
+ * 「滚了多少像素」，跟阅读投入没关系。1.5 秒内的连击只算一次。
+ */
+const TURN_GAP_MS = 1_500;
 
 /**
  * 给结算好的会话补上「结束时在哪一章」。
@@ -103,6 +115,15 @@ export class ActivityTracker {
   /** 会话中断次数（离开再回来累加） */
   private interruptions = 0;
   private wasIdle = false;
+  /** 会话内有效交互次数（去连击） */
+  private turns = 0;
+  private lastTurnAt = 0;
+  /** 会话内听书累计（毫秒）与本次播放起点（0 = 没在放） */
+  private ttsAccum = 0;
+  private ttsSince = 0;
+  /** 按章计时（普通 EPUB）：当前章 key 与未结账秒数 */
+  private chapterKey = '';
+  private chapterAcc = 0;
   /**
    * 每一拍「有效阅读秒数」的去处（剪藏本按章计时用）。
    *
@@ -126,7 +147,10 @@ export class ActivityTracker {
       this.interruptions += st.countDelta;
       this.wasIdle = st.idle;
     }
-    if (gained > 0) this.sink?.(gained / 1000);
+    if (gained > 0) {
+      this.sink?.(gained / 1000);
+      if (this.chapterKey) this.chapterAcc += gained / 1000;
+    }
     return gained;
   }
 
@@ -146,6 +170,10 @@ export class ActivityTracker {
     this.lastPercent = percent;
     this.interruptions = 0;
     this.wasIdle = false;
+    this.turns = 0;
+    this.lastTurnAt = 0;
+    this.ttsAccum = 0;
+    this.ttsSince = 0;
     this.running = true;
     this.timer = window.setInterval(() => this.tick(), TICK_MS);
     return previous;
@@ -154,8 +182,55 @@ export class ActivityTracker {
   /** 用户有动作（翻页 / 滚动 / 点击）。只在会话进行中有效。 */
   touch(percent?: number): void {
     if (!this.running) return;
-    this.lastActive = Date.now();
+    const now = Date.now();
+    this.lastActive = now;
+    if (!this.lastTurnAt || now - this.lastTurnAt >= TURN_GAP_MS) {
+      this.turns += 1;
+      this.lastTurnAt = now;
+    }
     if (typeof percent === 'number') this.lastPercent = percent;
+  }
+
+  /**
+   * 听书开始 / 继续（在线播放器进入 playing、系统语音开念）。
+   *
+   * 与阅读计时**并行**：边听边看时两边都算，`ttsSeconds` 只是「其中有多少
+   * 时间在听」，不是另一份时长账。
+   */
+  ttsPlay(now = Date.now()): void {
+    if (!this.running || this.ttsSince) return;
+    this.ttsSince = now;
+  }
+
+  /** 听书暂停 / 停止。重复调用无害。 */
+  ttsPause(now = Date.now()): void {
+    if (!this.ttsSince) return;
+    this.ttsAccum += Math.max(0, now - this.ttsSince);
+    this.ttsSince = 0;
+  }
+
+  /** 当前会话已听秒数（含正在播放的这一段） */
+  get ttsSeconds(): number {
+    const live = this.ttsSince ? Math.max(0, Date.now() - this.ttsSince) : 0;
+    return Math.round((this.ttsAccum + live) / 1000);
+  }
+
+  /**
+   * 按章计时（普通 EPUB 用；剪藏本走自己的 sink，不走这一套）。
+   *
+   * 与会话计时同源：每一拍的有效秒数顺手加到当前章上。切章前调用方必须先
+   * takeChapter() 结账，否则上一章最后一段会算到下一章。
+   */
+  setChapterKey(key: string): void {
+    this.chapterKey = String(key || '');
+  }
+
+  takeChapter(): { key: string; seconds: number } | null {
+    if (!this.chapterKey) return null;
+    const seconds = Math.round(this.chapterAcc);
+    this.chapterAcc = 0;
+    if (seconds <= 0) return null;
+    return { key: this.chapterKey, seconds };
   }
 
   private tick(): void {
@@ -186,13 +261,19 @@ export class ActivityTracker {
     const now = Date.now();
     // 收尾补最后一段：距上次活动仍在 IDLE 内就把「上次 tick 到现在」算上
     this.accrue(now);
+    this.ttsPause(now);
     if (this.accumulated < MIN_SESSION_MS) return null;
-    return {
+    const out: SessionResult = {
       start: this.sessionStart,
       end: now,
       durationSeconds: Math.round(this.accumulated / 1000),
       interruptions: this.interruptions,
     };
+    /* 老会话没有这两个字段：只在真的有值时写，别给数据里添一堆 0 */
+    if (this.turns > 0) out.turns = this.turns;
+    const tts = Math.round(this.ttsAccum / 1000);
+    if (tts > 0) out.ttsSeconds = tts;
+    return out;
   }
 
   get isRunning(): boolean {

@@ -192,3 +192,111 @@ describe('统计页 · 文案键', () => {
     }
   });
 });
+
+/**
+ * 强化版（2026-11-19）：六个子页签，所有内容一次渲染完、只切显示。
+ * 这样切页签不重算，三条出口（页面 / 报告 / 海报）也永远同一份模型。
+ */
+describe('统计页 · 六个子页签', () => {
+  it('页签完整，默认开在概览，其余是隐藏态而不是没渲染', () => {
+    const h = viewStats(view());
+    for (const tab of ['overview', 'time', 'books', 'notes', 'achv', 'data']) {
+      expect(h).toContain(`data-act="statstab" data-v="${tab}"`);
+      expect(h).toContain(`data-pane="${tab}"`);
+    }
+    expect(h).toContain('class="tabpane" data-pane="overview"');
+    expect(h).toContain('class="tabpane off" data-pane="time"');
+    expect(h).toContain('class="on" data-act="statstab" data-v="overview"');
+  });
+
+  it('切页签只换 on / off，不减少内容', () => {
+    const overview = viewStats(view(), ui({ tab: 'overview' }));
+    const books = viewStats(view(), ui({ tab: 'books' }));
+    expect(books).toContain('class="on" data-act="statstab" data-v="books"');
+    expect(books).toContain('class="tabpane off" data-pane="overview"');
+    /* 概览里的六联 KPI 与书籍明细都还在（只是其中一个被隐藏） */
+    expect(overview).toContain('class="kpis"');
+    expect(books).toContain('class="kpis"');
+  });
+
+  it('五个范围档位都在，未知值回落全部记录', () => {
+    const h = viewStats(view(), ui({ range: 'month' }));
+    for (const r of ['all', 'today', 'week', 'month', 'year']) {
+      expect(h).toContain(`data-act="statsrange" data-v="${r}"`);
+    }
+    expect(h).toContain('class="on" data-act="statsrange" data-v="month"');
+  });
+});
+
+describe('统计页 · 强化版新卡片', () => {
+  it('概览：时间账本、阅读量、速度、坚持、本周小结', () => {
+    const h = viewStats(view());
+    expect(h).toContain('时间账本');
+    expect(h).toContain('阅读量');
+    expect(h).toContain('阅读速度');
+    expect(h).toContain('坚持');
+    expect(h).toContain('本周小结');
+    expect(h).toContain('在库未读');
+    expect(h).toContain('历史最长连续');
+    expect(h).toContain('近 14 天');
+  });
+
+  it('时间：24 小时铺满、星期七行、月度十二格', () => {
+    const h = viewStats(view(), ui({ tab: 'time' }));
+    expect((h.match(/class="hc"/g) ?? []).length).toBe(24);
+    expect(h).toContain('24 小时');
+    expect(h).toContain('星期');
+    expect(h).toContain('月度投入');
+  });
+
+  it('书：分类 / 格式 / 分档 / 预计读完 / 久未打开', () => {
+    const h = viewStats(view(), ui({ tab: 'books' }));
+    expect(h).toContain('分类分布');
+    expect(h).toContain('格式分布');
+    expect(h).toContain('进度分档');
+    expect(h).toContain('预计读完');
+    expect(h).toContain('久未打开');
+    expect(h).toContain('字数');
+    expect(h).toContain('预计');
+  });
+
+  it('笔记：四类标注、月度、最多、评分', () => {
+    const h = viewStats(view(), ui({ tab: 'notes' }));
+    expect(h).toContain('标注产出');
+    expect(h).toContain('划线');
+    expect(h).toContain('想法');
+    expect(h).toContain('书签');
+    expect(h).toContain('知识盒');
+    expect(h).toContain('评分');
+  });
+
+  it('成就：徽章有解锁态与进度', () => {
+    const h = viewStats(view(), ui({ tab: 'achv' }));
+    expect(h).toContain('成就');
+    expect((h.match(/class="bdg/g) ?? []).length).toBeGreaterThanOrEqual(10);
+    expect(h).toContain('已解锁');
+    expect(h).toContain('连续 7 天');
+  });
+
+  it('热力格可点开当天明细，再点同一天收起', () => {
+    const closed = viewStats(view());
+    expect(closed).toContain('data-act="statsday"');
+    const open = viewStats(view(), ui({ day: '2026-11-05' }));
+    expect(open).toContain('class="daybox"');
+    expect(open).toContain('2026-11-05');
+    expect(open).toContain('当天合计');
+    expect(open).toContain('data-act="statsday" data-v="2026-11-05"');
+  });
+
+  it('锁态：页签与新增卡片全进模糊层，头部不泄漏新数字', () => {
+    const h = viewStatsLocked(view());
+    const maskAt = h.indexOf('bzs-lockstat-mask');
+    /* 锁态不摆页签：基础版连「有哪些板块」都不给看 */
+    expect(h).not.toContain('data-act="statstab"');
+    expect(h.indexOf('时间账本')).toBeGreaterThan(h.indexOf('bzs-lockstat-body'));
+    expect(h.indexOf('时间账本')).toBeLessThan(maskAt);
+    /* 头部只有六联 KPI：新卡片都在模糊层里 */
+    expect(h.indexOf('阅读速度')).toBeGreaterThan(h.indexOf('bzs-lockstat-body'));
+    expect(h.indexOf('阅读速度')).toBeLessThan(maskAt);
+  });
+});

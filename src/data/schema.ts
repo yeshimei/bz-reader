@@ -36,11 +36,15 @@ export type BookFormat = 'epub' | 'txt' | 'mobi' | 'azw3' | 'fb2' | 'cbz' | 'pdf
  * 2026-11-06（schemaVersion 3）：`fileRef.fingerprint` 开始真的写入。
  * 外部消费者忽略未知键即可；老数据没有它，读侧不受影响。
  *
+ * 2026-11-19（schemaVersion 4）：`sessions[]` 增加 turns / mode / device /
+ * ttsSeconds（统计页强化）。**只加可选字段，不改结构**，老数据与 bz 侧都
+ * 按「没有就是不知道」处理，所以只是推一版版本号给外部消费者看。
+ *
  * `version` 是「这份 JSON 能不能读」的版本；`schemaVersion` 是给**外部消费者**
  * （bz 书库）判断字段代际用的。两者分开：以后只加字段不改结构时，只推
  * schemaVersion，读侧不用动。
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export interface BookMeta {
   title: string;
@@ -166,6 +170,21 @@ export interface ReadingSession {
    * 老会话没有这个字段，读侧当 0（一口气读完）处理。
    */
   interruptions?: number;
+  /**
+   * 会话内「有效交互」次数（2026-11-19）：翻页 / 滚动 / 点按，去掉 1.5 秒
+   * 内的连击。统计页据此算「每次交互读多久」，也用来区分「一页看很久」和
+   * 「一直在翻」。老会话没有这个字段，读侧当 0。
+   */
+  turns?: number;
+  /** 阅读模式（2026-11-19）：翻页 / 滚动。老会话缺省，不计入模式分布 */
+  mode?: 'paged' | 'scroll';
+  /** 阅读设备（2026-11-19）：桌面 / 移动。老会话缺省，不计入设备分布 */
+  device?: 'desktop' | 'mobile';
+  /**
+   * 会话内听书秒数（2026-11-19）：朗读播放的真实时长，是 durationSeconds
+   * 的**子集**（边听边看时两边都算）。统计页单列「听」时长，不和「读」混。
+   */
+  ttsSeconds?: number;
 }
 
 export interface Highlight {

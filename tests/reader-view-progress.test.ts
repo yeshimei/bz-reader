@@ -16,7 +16,12 @@ interface Reading {
 function wire(): {
   view: ReturnType<typeof makeReaderView>['view'];
   book: Record<string, unknown>;
-  tracker: { touch: ReturnType<typeof vi.fn> };
+  tracker: {
+    touch: ReturnType<typeof vi.fn>;
+    settle: ReturnType<typeof vi.fn>;
+    takeChapter: ReturnType<typeof vi.fn>;
+    setChapterKey: ReturnType<typeof vi.fn>;
+  };
   relocate: (info: RelocateInfo) => void;
 } {
   const app = makeApp();
@@ -24,7 +29,13 @@ function wire(): {
   const book = testBook('b1');
   book.updatedAt = 111;
   (view as unknown as { book: unknown }).book = book;
-  const tracker = { touch: vi.fn() };
+  /* 换章会走按章计时结账：桩只保留被断言的两个，其余给空实现 */
+  const tracker = {
+    touch: vi.fn(),
+    settle: vi.fn(),
+    takeChapter: vi.fn(() => null),
+    setChapterKey: vi.fn(),
+  };
   (view as unknown as { tracker: unknown }).tracker = tracker;
   const relocate = (info: RelocateInfo): void => {
     (view as unknown as { saveRelocate(i: RelocateInfo): void }).saveRelocate(info);

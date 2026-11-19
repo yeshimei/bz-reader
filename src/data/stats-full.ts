@@ -18,7 +18,14 @@ import { clampDailyGoal } from './goal';
 
 const DAY = 86_400_000;
 
-export type StatsRange = 'all' | 'today';
+/**
+ * 统计页的时间范围。
+ *
+ * `week` / `month` / `year` 是 2026-11-19 加的三个「近 N 天」口径：只收窄
+ * 时长与字数这类**按天可切**的指标，连续、读完、峰值、周月对比仍看全量
+ * （见 analyzeFull 的注释）。`today` 语义不变，仍是「今天一天」。
+ */
+export type StatsRange = 'all' | 'today' | 'week' | 'month' | 'year';
 export type BookStatus = 'done' | 'longIdle' | 'idle' | 'reading' | 'posOnly' | 'unstarted';
 
 export interface FullStatsInput {
@@ -133,6 +140,19 @@ function dayStartOfKey(k: string): number {
   return new Date(`${k}T00:00:00`).getTime();
 }
 
+/**
+ * 范围的起点（毫秒）。`all` 返回 -Infinity，其余按「近 N 天」算：
+ * today 0 天、week 6 天、month 29 天、year 364 天——含今天正好 N 天。
+ */
+export function rangeStart(now: number, range: StatsRange): number {
+  if (range === 'all') return -Infinity;
+  const back = range === 'today' ? 0 : range === 'week' ? 6 : range === 'month' ? 29 : 364;
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - back);
+  return d.getTime();
+}
+
 function weekStart(ts: number): number {
   const d = new Date(ts);
   d.setHours(0, 0, 0, 0);
@@ -164,7 +184,7 @@ export function statsHeatLevel(sec: number): number {
  */
 export function analyzeFull(input: FullStatsInput): FullStats {
   const { books: rawBooks, now, range } = input;
-  const from = range === 'today' ? startOfDay(now) : -Infinity;
+  const from = rangeStart(now, range);
   const checkins = input.checkins || {};
   const fullEff: Record<string, number> = {};
   const fullWall: Record<string, number> = {};
@@ -202,7 +222,8 @@ export function analyzeFull(input: FullStatsInput): FullStats {
     const sessions = reading.sessions ?? [];
     const position = reading.position ?? { percent: 0 };
     const percent = Number(position.percent) || 0;
-    const last = Number(bstats.lastReadTime) || 0;
+    const lastStat = Number(bstats.lastReadTime) || 0;
+    let last = lastStat;
     let eff = 0;
     /** 全量有效时长：perPct 的分子。不能跟着 range 收窄（见 :perPct） */
     let effAll = 0;
@@ -219,6 +240,9 @@ export function analyzeFull(input: FullStatsInput): FullStats {
       first = first ? Math.min(first, s.start) : s.start;
       const e = Math.max(0, Math.round(s.durationSeconds || 0));
       const w = Math.max(0, Math.round(((s.end || s.start) - s.start) / 1000));
+      /* 老数据 / 手改数据可能没写 stats.lastReadTime：用最后一节会话的结束时间兜底，
+         否则「沉没」列和搁置榜会整列变成不知道。 */
+      if (!lastStat) last = Math.max(last, Number(s.end) || s.start);
       if (w - e > 1) wallGreater += 1;
       const prev = sessions[i - 1];
       if (prev && typeof s.percent === 'number' && typeof prev.percent === 'number' && s.percent < prev.percent - 1e-9) {
@@ -356,7 +380,8 @@ export interface Series { unit: 'day' | 'week'; items: SeriesItem[] }
 /** 趋势序列：≤14 天按天，再多合并成不超过 14 组 */
 export function statsSeries(a: FullStats): Series {
   const keys: string[] = [];
-  const start = a.range === 'all' ? a.first : startOfDay(a.now);
+  /* 近 N 天从范围起点画；起点比首次阅读还早时用首次阅读，别在前面空一堆 0 */
+  const start = a.range === 'all' ? a.first : Math.max(a.first, rangeStart(a.now, a.range));
   const end = startOfDay(a.now);
   for (let t = start; t <= end && keys.length < 400; t += DAY) keys.push(dayKey(t));
   if (!keys.length) keys.push(a.todayK);

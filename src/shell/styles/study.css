@@ -1118,7 +1118,8 @@
 .bzs-statspage .kpis { display: grid; grid-template-columns: repeat(6, 1fr); border: 1px solid var(--line); border-radius: var(--r-card); background: var(--surface); overflow: hidden; }
 .bzs-statspage .kpi { padding: 14px 12px; border-right: 1px solid var(--line); min-width: 0; }
 .bzs-statspage .kpi:last-child { border-right: 0; }
-.bzs-statspage .kpi b { display: block; font: 400 23px/1.3 var(--serif); color: var(--copper); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 累计时长到四位数（上千小时后）在窄窗口会撑破格子，按宽度收一点字号 */
+.bzs-statspage .kpi b { display: block; font: 400 clamp(17px, 1.9vw, 23px)/1.3 var(--serif); color: var(--copper); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bzs-statspage .kpi span { display: block; font-size: var(--fs-caption); color: var(--t2); margin-top: 3px; white-space: nowrap; }
 
 .bzs-statspage .cmp { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; }
@@ -1137,7 +1138,8 @@
 .bzs-statspage .axis { display: flex; justify-content: space-between; font-size: var(--fs-caption); color: var(--t3); margin-top: 26px; }
 
 .bzs-statspage .hbars { display: flex; flex-direction: column; gap: 9px; }
-.bzs-statspage .hb { display: grid; grid-template-columns: 82px 1fr 92px; align-items: center; gap: 10px; font-size: var(--fs-mini); }
+/* 第三列按内容宽度走：分类 / 格式的「时长 · 本数」比纯时长长，固定 92px 会挤成两行 */
+.bzs-statspage .hb { display: grid; grid-template-columns: 84px minmax(36px, 1fr) auto; align-items: center; gap: 10px; font-size: var(--fs-mini); }
 .bzs-statspage .hb .lab { color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bzs-statspage .hb .track { height: 7px; background: var(--surface-2); border-radius: var(--r-chip); overflow: hidden; }
 .bzs-statspage .hb .fill { display: block; height: 100%; background: var(--copper); opacity: .82; border-radius: var(--r-chip); }
@@ -1157,12 +1159,16 @@
 .bzs-statspage .goal-wrap { display: flex; align-items: center; gap: 20px; }
 .bzs-statspage .goal-wrap svg { flex: none; }
 .bzs-statspage .goal-txt { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.bzs-statspage .goal-txt .row { display: flex; align-items: baseline; gap: 8px; }
-.bzs-statspage .goal-txt .row b { font: 400 var(--fs-title, 18px) var(--serif); color: var(--copper); }
-.bzs-statspage .goal-txt .row span { font-size: var(--fs-mini); color: var(--t2); }
+.bzs-statspage .goal-txt .row { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.bzs-statspage .goal-txt .row b { font: 400 var(--fs-title, 18px) var(--serif); color: var(--copper); flex: none; }
+/* 书名可能很长：一行截断，别在圆环右边竖着排成「百 年 孤 独」 */
+.bzs-statspage .goal-txt .row span { font-size: var(--fs-mini); color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .bzs-statspage .goal-txt .mini { font-size: var(--fs-caption); color: var(--t3); }
+.bzs-statspage .goal-txt .mini.ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .bzs-statspage .scroll { overflow-x: auto; }
+/* 书籍明细从 8 列长到 10 列（字数 / 预计）：给足宽度，让横向滚动条去解决 */
+.bzs-statspage table.books { min-width: 940px; }
 .bzs-statspage table { width: 100%; border-collapse: collapse; font-size: var(--fs-mini); min-width: 700px; }
 .bzs-statspage th { text-align: left; font-weight: 500; color: var(--t3); font-size: var(--fs-caption); padding: 0 10px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .bzs-statspage td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); color: var(--t2); vertical-align: middle; }
@@ -1177,7 +1183,8 @@
 .bzs-statspage .tag.warn { border-color: var(--copper-line); color: var(--copper); }
 
 .bzs-statspage .audit-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-.bzs-statspage table.audit { min-width: 560px; }
+/* 五列在窄卡片里刚好放得下：别用 min-width 把「差异」列顶出卡片 */
+.bzs-statspage table.audit { min-width: 0; }
 .bzs-statspage table.audit td.hi { background: var(--copper-soft); color: var(--t1); }
 .bzs-statspage table.audit tfoot td { border-top: 1px solid var(--line-2); border-bottom: 0; color: var(--t1); font-weight: 600; }
 .bzs-statspage .preview { margin-top: 16px; padding: 14px; border: 1px solid var(--copper-line); border-radius: var(--r-card); background: var(--sunken); }
@@ -1212,9 +1219,90 @@
 .bzs-lockstat-tags { font-size: var(--fs-caption); color: var(--t2); letter-spacing: .06em; white-space: nowrap; }
 .bzs-lockstat-card .bzs-btn { padding: 7px 28px; }
 
+/* ── 强化版：子页签与新增卡片（2026-11-19） ───────────────── */
+.bzs-statspage .tabnav { display: flex; flex-wrap: wrap; gap: 2px; margin: 0 0 16px; border-bottom: 1px solid var(--line); }
+.bzs-statspage .tabnav button {
+  appearance: none; border: 0; border-bottom: 2px solid transparent; background: none;
+  color: var(--t3); font-size: var(--fs-mini); padding: 8px 14px 7px; margin-bottom: -1px;
+  letter-spacing: .04em; height: auto; box-shadow: none;
+}
+.bzs-statspage .tabnav button:hover { color: var(--t1); }
+.bzs-statspage .tabnav button.on { color: var(--copper); border-bottom-color: var(--copper); font-weight: 600; }
+.bzs-statspage .tabpane.off { display: none; }
+
+.bzs-statspage .ledger { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; }
+.bzs-statspage .lg { background: var(--surface); padding: 13px 14px; min-width: 0; }
+.bzs-statspage .lg span { display: block; font-size: var(--fs-caption); color: var(--t3); white-space: nowrap; }
+.bzs-statspage .lg b { display: block; font: 400 21px/1.5 var(--serif); color: var(--copper); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 四格数字条：卡片可能只有半幅宽，按可用宽度自动落成 2 列，别把「16.3 万」截成「16…」 */
+.bzs-statspage .mini4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(102px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-ctl); overflow: hidden; }
+.bzs-statspage .m4 { background: var(--surface); padding: 10px 12px; min-width: 0; }
+.bzs-statspage .m4 b { display: block; font: 400 18px/1.4 var(--serif); color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bzs-statspage .m4 span { display: block; font-size: var(--fs-caption); color: var(--t3); white-space: nowrap; }
+
+.bzs-statspage .tip { font-size: var(--fs-caption); color: var(--t3); margin-top: 10px; line-height: 1.6; }
+.bzs-statspage .quote { font: 400 var(--fs-strong)/1.9 var(--serif); color: var(--t1); letter-spacing: .01em; }
+
+.bzs-statspage .rows { display: flex; flex-direction: column; }
+.bzs-statspage .rows .r { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.bzs-statspage .rows .r:last-child { border-bottom: 0; }
+.bzs-statspage .rows .r span { font-size: var(--fs-mini); color: var(--t3); white-space: nowrap; }
+.bzs-statspage .rows .r span.ell { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.bzs-statspage .rows .r b { font: 400 15px/1.4 var(--serif); color: var(--t1); text-align: right; white-space: nowrap; }
+
+/* 预计读完：书名占一行，预计另起一行，避免两列互相挤 */
+.bzs-statspage .etalist { display: flex; flex-direction: column; }
+.bzs-statspage .et { display: flex; flex-direction: column; gap: 2px; padding: 7px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.bzs-statspage .et:last-child { border-bottom: 0; }
+.bzs-statspage .et .t { font-size: var(--fs-mini); color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bzs-statspage .et .m { font-size: var(--fs-caption); color: var(--t3); }
+
+.bzs-statspage .spark { display: flex; align-items: flex-end; gap: 3px; height: 48px; margin-top: 14px; }
+.bzs-statspage .spark i { flex: 1; min-height: 2px; background: linear-gradient(180deg, var(--copper), var(--copper-soft)); border-radius: var(--r-book) var(--r-book) 0 0; }
+.bzs-statspage .spark i.off { background: var(--surface-2); opacity: .55; }
+.bzs-statspage .spark-k { display: flex; justify-content: space-between; font-size: var(--fs-caption); color: var(--t3); margin-top: 4px; }
+
+.bzs-statspage .h24 { display: grid; grid-template-columns: repeat(24, 1fr); align-items: end; gap: 3px; height: 112px; padding-top: 8px; }
+.bzs-statspage .hc { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; min-width: 0; }
+.bzs-statspage .hc i { display: block; width: 100%; min-height: 1px; background: linear-gradient(180deg, var(--copper), var(--copper-soft)); border-radius: var(--r-book) var(--r-book) 0 0; }
+.bzs-statspage .hc i.off { background: var(--surface-2); }
+.bzs-statspage .hc .hl { font-size: 9px; color: var(--t3); margin-top: 4px; height: 12px; line-height: 12px; }
+
+.bzs-statspage .chart.months { height: 128px; margin-bottom: 24px; }
+.bzs-statspage .chart.months .col .bar { max-width: 32px; }
+/* 柱子按「去掉顶部数字后的高度」算百分比，否则数值标签会把柱子顶出卡片 */
+.bzs-statspage .chart .col { padding-top: 18px; }
+.bzs-statspage .chart .col .bar { max-height: calc(100% - 18px); }
+
+.bzs-statspage .heat i { cursor: pointer; }
+.bzs-statspage .heat i.on { outline: 2px solid var(--copper); outline-offset: 1px; }
+
+.bzs-statspage .daybox { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-card); background: var(--sunken); }
+.bzs-statspage .daybox .ph2 { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.bzs-statspage .daybox .ph2 b { font: 400 var(--fs-strong) var(--serif); color: var(--t1); }
+.bzs-statspage .daybox .ph2 .note { font-size: var(--fs-caption); color: var(--t3); }
+
+.bzs-statspage .badges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.bzs-statspage .bdg { position: relative; padding: 14px 14px 12px; border: 1px solid var(--line); border-radius: var(--r-card); background: var(--sunken); min-width: 0; opacity: .62; }
+.bzs-statspage .bdg.on { opacity: 1; border-color: var(--copper-line); background: var(--surface); }
+.bzs-statspage .bdg .seal { display: block; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line-2); margin-bottom: 8px; }
+.bzs-statspage .bdg.on .seal { border-color: var(--copper); background: var(--copper-soft); }
+.bzs-statspage .bdg b { display: block; font: 400 15px/1.4 var(--serif); color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bzs-statspage .bdg .pv { display: block; font-size: var(--fs-caption); color: var(--t3); margin: 2px 0 8px; }
+.bzs-statspage .bdg .ptrack { display: block; height: 4px; background: var(--surface-2); border-radius: var(--r-chip); overflow: hidden; }
+.bzs-statspage .bdg .ptrack i { display: block; height: 100%; background: var(--copper); border-radius: var(--r-chip); }
+
 @media (max-width: 860px) {
   .bzs-statspage .grid2 { grid-template-columns: 1fr; }
   .bzs-statspage .kpis, .bzs-statspage .quality { grid-template-columns: repeat(3, 1fr); }
+  .bzs-statspage .ledger { grid-template-columns: repeat(2, 1fr); }
+  .bzs-statspage .ledger .lg:last-child { grid-column: span 2; }
+  .bzs-statspage .mini4 { grid-template-columns: repeat(2, 1fr); }
+  .bzs-statspage .badges { grid-template-columns: repeat(2, 1fr); }
+  .bzs-statspage .h24 { gap: 2px; }
+  .bzs-statspage .tabnav { flex-wrap: nowrap; overflow-x: auto; }
+  .bzs-statspage .tabnav button { flex: none; }
   .bzs-statspage .kpi:nth-child(3), .bzs-statspage .q:nth-child(3) { border-right: 0; }
   .bzs-statspage .kpi:nth-child(-n+3) { border-bottom: 1px solid var(--line); }
   .bzs-statspage .insights { grid-template-columns: repeat(2, 1fr); }

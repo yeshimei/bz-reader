@@ -219,7 +219,7 @@ import { copyGroupId } from './group';
 import { collectStats, dayKey } from '../data/stats';
 import { statsModelOf, statsReportOf, type StatsView } from './render/stats';
 import { downloadStatsPoster } from './stats-poster';
-import { getStatsUi, setStatsUi } from './stats-ui';
+import { getStatsUi, setStatsUi, type StatsTab } from './stats-ui';
 import { withSignal } from '../core/with-signal';
 
 /** 当前上下文里的书：优先状态里记住的那本，否则取书库第一本 */
@@ -1585,8 +1585,21 @@ export function dispatchAction(
     }
     /* ── 统计页：范围 / 口径 / 重算预演 / 报告出口 ──
        重算只在 stats-ui 的内存里生效，checkins 一行都不写回 store。 */
-    case 'statsrange':
-      setStatsUi({ range: d.v === 'today' ? 'today' : 'all', preview: false });
+    case 'statsrange': {
+      /* 五个档位：全量 / 今天 / 近 7 天 / 近 30 天 / 近一年。
+         未知值回落全量（手改 DOM 或旧按钮残留都不该让页面空白）。 */
+      const r = d.v === 'today' || d.v === 'week' || d.v === 'month' || d.v === 'year' ? d.v : 'all';
+      setStatsUi({ range: r, preview: false });
+      rerender();
+      break;
+    }
+    case 'statstab':
+      setStatsUi({ tab: (d.v || 'overview') as StatsTab });
+      rerender();
+      break;
+    case 'statsday':
+      /* 再点同一天就收起（热力格只当开关用，不做多选） */
+      setStatsUi({ day: getStatsUi().day === d.v ? '' : d.v });
       rerender();
       break;
     case 'statsaudit':
