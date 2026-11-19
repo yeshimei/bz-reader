@@ -1265,6 +1265,12 @@
 .bzs-aiplan {
   display: flex;
   flex-direction: column;
+  /* 卡片本身是 <button>：UA 默认 white-space:nowrap + align-items:center，
+     会让 40+ 字的缺服务提示不折行、撑出卡片并居中溢出（实测左溢出到 x=-36）。
+     这里显式覆盖：让三块各自占满卡片宽度、长文案折行、高度随内容撑开。 */
+  align-items: stretch;
+  white-space: normal;
+  height: auto;
   text-align: left;
   padding: 13px 15px;
   border: 1px solid var(--line);
