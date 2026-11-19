@@ -5,7 +5,8 @@
  * 跟随宿主明暗主题。没有外部依赖，也不往库里写文件——点一下就下载。
  * ============================================================ */
 import { t, type MsgKey, type MsgParams } from '../i18n';
-import { HOUR_KEYS, clock, dayLabel, shortTime, statsSeries, type FullStats } from '../data/stats-full';
+import { HOUR_KEYS, clock, dayLabel, shortTime, statsSeries } from '../data/stats-full';
+import type { RichStats } from '../data/stats-rich';
 
 /** 周报上「节律」四档的文案键：顺序与 HOUR_KEYS 一致，只是换成了周报措辞 */
 const POSTER_HOUR_KEYS: readonly MsgKey[] = [
@@ -32,8 +33,14 @@ const LIGHT: Palette = {
   line: '#e2e3e7', cu: '#8a6a34', soft: 'rgba(138,106,52,.14)',
 };
 
+/** 字数额：海报上不印一串精确到个位的数字，上万就折成「万」 */
+function wan(n: number): string {
+  const v = Math.max(0, Math.round(n));
+  return v >= 10_000 ? T('stats.f.words.wan', { n: (v / 10_000).toFixed(1) }) : String(v);
+}
+
 /** 画一张周报，返回 PNG data URL（测试里可以直接检查前缀） */
-export function drawStatsPoster(a: FullStats): string {
+export function drawStatsPoster(a: RichStats): string {
   const ser = statsSeries(a);
   const W = 800;
   const H = 1040;
@@ -100,6 +107,12 @@ export function drawStatsPoster(a: FullStats): string {
     x.fillText(it[1], px, 326);
     label(it[0], px, 348, C.t3);
   });
+  /* 强化版多一行：读字数 / 速度 / 徽章。三样都是「能拿去跟人聊」的数字 */
+  label(
+    `${T('stats.f.poster.words')} ${wan(a.totalWords)} · ${T('stats.f.poster.speed')} ${a.speed || '—'} · ` +
+    `${T('stats.f.poster.badges')} ${a.achv.filter((x) => x.got).length}/${a.achv.length}`,
+    56, 366, C.t2,
+  );
   line(378);
 
   label(T('stats.f.poster.daily'), 56, 410, C.t2);
@@ -166,7 +179,7 @@ export function drawStatsPoster(a: FullStats): string {
 }
 
 /** 触发浏览器下载，文件名带当天日期 */
-export function downloadStatsPoster(a: FullStats): void {
+export function downloadStatsPoster(a: RichStats): void {
   const url = drawStatsPoster(a);
   if (!url) return;
   const el = createEl('a');

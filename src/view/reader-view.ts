@@ -2748,6 +2748,8 @@ export class ReaderView extends ItemView {
     }
     this.voice = handle;
     this.speaking = true;
+    /* 听书时长单列：与阅读计时并行，pause 在 haltTts 统一收 */
+    this.tracker.ttsPlay();
     this.endOpening();
     this.syncToolState();
   }
@@ -2932,7 +2934,10 @@ export class ReaderView extends ItemView {
       bufferAhead: free ? Number.POSITIVE_INFINITY : 3,
       onEnd: () => this.onPageSpoken(),
       onError: (code, err) => this.onTtsError(code, err),
-      onState: () => {
+      onState: (st) => {
+        /* 缓冲期（loading）不算听：统计里只记真的在出声的时长 */
+        if (st === 'playing') this.tracker.ttsPlay();
+        else this.tracker.ttsPause();
         this.renderTtsBar();
         /* 头栏那颗朗读图标也要跟着转圈：用户点的是它，不能只有浮条有反馈 */
         this.syncToolState();
@@ -3172,7 +3177,9 @@ export class ReaderView extends ItemView {
         notify(t('notice.tts.offlineBroken'));
         this.stopTts();
       },
-      onState: () => {
+      onState: (st) => {
+        if (st === 'playing') this.tracker.ttsPlay();
+        else this.tracker.ttsPause();
         this.renderTtsBar();
         this.syncToolState();
       },
@@ -4718,6 +4725,8 @@ export class ReaderView extends ItemView {
   private haltTts(): void {
     this.ttsRun++;
     this.speaking = false;
+    /* 所有停止路径都从这里过：听书计时的收尾也放这一处，别漏 */
+    this.tracker.ttsPause();
     this.voice?.stop();
     this.voice = null;
     this.ttsPlayer?.stop();
@@ -5530,6 +5539,7 @@ export class ReaderView extends ItemView {
         book.reading.sessions.push({
           ...attachChapter(carried, book.reading.position),
           percent: book.reading.position.percent,
+          ...this.sessionTag(),
         });
         book.reading.stats.totalReadTime += carried.durationSeconds;
         book.reading.stats.lastReadTime = Date.now();
@@ -5537,6 +5547,11 @@ export class ReaderView extends ItemView {
       /* 打卡按增量记：新会话从 0 起算，每 60 秒（以及每次翻页）把差额写进当天 */
       this.lastCheckinElapsed = 0;
       this.startCheckinTimer();
+      /* 普通 EPUB 的按章计时从「上次读到的那一章」起算 */
+      if (!this.clipHandle) {
+        const at = book.reading.position.chapterIndex;
+        this.tracker.setChapterKey(typeof at === 'number' ? `ch:${at}` : '');
+      }
       if (!book.reading.stats.startReadTime) book.reading.stats.startReadTime = Date.now();
       this.api.store.touch();
       this.refreshAnnotations();
@@ -5976,6 +5991,8 @@ export class ReaderView extends ItemView {
     if (chapterChanged) this.syncHeaderTitle();
     /* 剪藏本：换章就切计时目标、未读的顺手标已读（只在这本书里有 handle） */
     if (chapterChanged) this.onClipChapter(info.chapterHref || '', info.chapterIndex);
+    /* 普通 EPUB：换章时把上一章的秒数结账（剪藏本有自己的 sink，跳过） */
+    if (chapterChanged && !this.clipHandle) this.flushChapterSeconds(info.chapterIndex ?? -1);
     this.renderProbe();
     /* 每翻一页都可能换到「有书签 / 没书签」的页：图标亮不亮得跟着走 */
     this.syncToolState();
@@ -6397,6 +6414,42 @@ export class ReaderView extends ItemView {
     await reportClipSeconds(this.api.app, batch);
   }
 
+  /**
+   * 会话附带的「怎么读、在哪儿读」标记。
+   *
+   * 统计页的「模式 / 设备」分布靠它；老会话没有这两个字段，读侧按「不知道」
+   * 处理，所以这里只在新建会话时写，不改历史数据。
+   */
+  private sessionTag(): { mode: 'paged' | 'scroll'; device: 'desktop' | 'mobile' } {
+    const flow = this.book?.fileRef?.format === 'pdf' ? this.prefs.pdfFlow : this.prefs.flow;
+    return {
+      mode: flow === 'scroll' ? 'scroll' : 'paged',
+      device: isMobileEnv() ? 'mobile' : 'desktop',
+    };
+  }
+
+  /**
+   * 普通 EPUB 的按章计时结账（剪藏本有自己的 sink，不走这里）。
+   *
+   * `nextIndex >= 0` 表示切到新章：先收上一章，再把表拨到新章；
+   * `-1` 表示关书：只收不拨。
+   */
+  private flushChapterSeconds(nextIndex: number): void {
+    if (this.clipHandle) return;
+    const book = this.book;
+    if (!book) {
+      this.tracker.setChapterKey('');
+      return;
+    }
+    this.tracker.settle();
+    const tick = this.tracker.takeChapter();
+    if (tick) {
+      book.reading.chapterSeconds = addChapterSeconds(book.reading.chapterSeconds || {}, tick.key, tick.seconds);
+      this.api.store.touch();
+    }
+    this.tracker.setChapterKey(nextIndex >= 0 ? `ch:${nextIndex}` : '');
+  }
+
   private teardownClip(): void {
     this.stopClipWatch();
     this.flushClipSeconds();
@@ -6610,12 +6663,15 @@ export class ReaderView extends ItemView {
     const book = this.book;
     if (book) {
       const session = this.tracker.end();
+      /* 普通 EPUB：把最后一章的尾巴结掉（结算完 takeChapter 不会拿到 0） */
+      if (!this.clipHandle) this.flushChapterSeconds(-1);
       /* 剪藏本：会话最后一拍已经进了章节时钟，这里结账并清池 */
       this.teardownClip();
       if (session) {
         book.reading.sessions.push({
           ...attachChapter(session, book.reading.position),
           percent: book.reading.position.percent,
+          ...this.sessionTag(),
         });
         book.reading.stats.totalReadTime += session.durationSeconds;
         book.reading.stats.lastReadTime = Date.now();

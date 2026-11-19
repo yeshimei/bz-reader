@@ -73,10 +73,10 @@
   <img src="docs/images/search-desktop-light.png" alt="搜索页：搜划线原文，字面与按意思两种找法，逐本翻书的进度与命中数，结果按书分组并标出章节位置">
 </p>
 
-<p align="center"><b>统计 · 今日概览 · 环比 · 每日时长 · 阅读节律</b></p>
+<p align="center"><b>统计 · 概览 / 时间 / 书 / 笔记 / 成就 · 字数速度 · 24 小时节律 · 分类与预计读完 · 徽章</b></p>
 
 <p align="center">
-  <img src="docs/images/stats-desktop-light.png" alt="统计页：总时长与连续天数、本周环比、每日时长柱状图与阅读节律">
+  <img src="docs/images/stats-desktop-light.png" alt="统计页：六个子页签，总时长与连续天数、阅读量估算与速度、24 小时与星期分布、年度热力图、分类与格式分布、预计读完、标注产出与成就徽章">
 </p>
 
 <p align="center"><b>阅读侧栏 · 目录 · 书签 · 划线 · 引用 · AI 全书问答</b></p>
