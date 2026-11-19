@@ -13,7 +13,15 @@
 import { Menu } from 'obsidian';
 import type { App } from 'obsidian';
 import type { BookMeta, ReaderBook } from '../data/schema';
-import { aiAsk, aiPostChat, chatText, FOLLOW_EVIDENCE_LIMIT } from '../data/ai';
+import { aiAsk, aiPostChat, chatText, postChat, FOLLOW_EVIDENCE_LIMIT } from '../data/ai';
+import { applyAiSettingPath } from '../data/ai-setting-path';
+import { fetchProviderModels } from '../core/ai-models';
+import {
+  DEFAULT_AI_PROVIDER,
+  getProviderDescriptor,
+  isNoAuthProvider,
+  resolveAiConfig,
+} from '../data/ai-providers';
 import { aiProbe } from '../data/ai-probe';
 import {
   DEFAULT_HIGHLIGHT_COLOR,
@@ -2747,6 +2755,121 @@ export function dispatchAction(
       });
       break;
     }
+    /* 每家密钥行的「测试」（2026-11-19 移植）：按该行所属服务商解析配置，
+       不受当前下拉选中影响。状态长在按钮上——转圈 / 绿✓ / 红✕，不弹通知。 */
+    case 'aiprovtest': {
+      if (!requireCap('ai')) break;
+      const pid = String(el.dataset.k || '');
+      const btn = el as HTMLButtonElement;
+      const s = shellSettings();
+      const c = resolveAiConfig(s.ai, pid);
+      const ready = !!c.endpoint && !!c.model && (!!c.apiKey || isNoAuthProvider(c.id));
+      btn.disabled = true;
+      btn.textContent = t('settings.ai.testing');
+      void aiProbe(
+        {
+          chatReady: ready,
+          chat: async () => {
+            const raw = await postChat(
+              {
+                baseUrl: c.endpoint,
+                apiKey: c.apiKey,
+                model: c.model,
+                protocol: c.protocol,
+                thinkingBody: c.thinkingBody,
+                maxTokens: Math.min(c.maxTokens, 512),
+              },
+              [{ role: 'user', content: '只回一个字：好' }],
+              { timeoutMs: 15000 },
+            );
+            return chatText(raw);
+          },
+        },
+        {
+          testing: t('settings.ai.testing'),
+          ok: () => t('settings.ai.testOk'),
+          empty: t('settings.aiProbe.chatEmpty'),
+          notReady: t('settings.aiProbe.notReady'),
+          failed: t('settings.aiProbe.failed'),
+        },
+      ).then((r) => {
+        const ok = r.level === 'ok';
+        /* 符号 + 文字一起给，可读名字就是文字本身；不挂 title / aria-label（悬停气泡） */
+        btn.textContent = ok ? `✓ ${t('settings.ai.testOk')}` : `✕ ${t('settings.ai.testFail')}`;
+        btn.className = `bzs-btn sm${ok ? ' is-ok' : ' is-fail'}`;
+        window.setTimeout(() => {
+          btn.textContent = t('settings.ai.test');
+          btn.className = 'bzs-btn sm';
+          btn.disabled = false;
+        }, 2500);
+      });
+      break;
+    }
+
+    /* 模型名的「获取模型名」（2026-11-19 移植）：按当前服务商拉 /models
+       （Ollama 读 /api/tags），成功后就地列一个可搜索的选择器，点选即回填。 */
+    case 'aifetchmodels': {
+      if (!requireCap('ai')) break;
+      const btn = el as HTMLButtonElement;
+      const row = btn.closest<HTMLElement>('.bzs-setrow');
+      const pid = String(shellSettings().ai.provider || DEFAULT_AI_PROVIDER);
+      const desc = getProviderDescriptor(pid);
+      btn.disabled = true;
+      btn.textContent = t('settings.ai.fetching');
+      void fetchProviderModels(pid, shellSettings().ai)
+        .then((models) => {
+          if (shellSettings().ai.provider !== pid) {
+            notify(t('settings.ai.providerSwitched'));
+            return;
+          }
+          if (!models.length) {
+            notify(t('settings.ai.modelsEmpty'));
+            return;
+          }
+          if (!row || typeof row.after !== 'function') return;
+          row.parentElement?.querySelector('.bzs-modelpick')?.remove();
+          const box = createDiv({ cls: 'bzs-modelpick' });
+          box.createDiv({
+            cls: 'bzs-modelpick-h',
+            text: `${t('settings.ai.pickModel')} · ${desc.label}`,
+          });
+          const q = box.createEl('input', {
+            cls: 'bzs-modelpick-q',
+            attr: { type: 'search', placeholder: t('settings.ai.modelSearch') },
+          });
+          const list = box.createDiv({ cls: 'bzs-modelpick-list' });
+          for (const m of models.slice(0, 300)) {
+            const item = list.createEl('button', {
+              cls: 'bzs-modelpick-i',
+              text: m.id,
+              attr: { type: 'button', 'data-id': m.id },
+            });
+            item.addEventListener('click', () => {
+              const k = pid === 'custom' ? 'ai.model' : `ai.modelOverrides.${pid}`;
+              const next = applyAiSettingPath(shellSettings().ai, k, m.id);
+              if (next) getShellSource()?.setSettings({ ai: next });
+              box.remove();
+              notify(t('settings.ai.modelPicked', { id: m.id }));
+              repaint();
+            });
+          }
+          q.addEventListener('input', () => {
+            const kw = q.value.trim().toLowerCase();
+            for (const raw of Array.from(list.children)) {
+              const item = raw as HTMLElement;
+              item.style.display = (item.dataset.id || '').toLowerCase().includes(kw) ? '' : 'none';
+            }
+          });
+          row.after(box);
+        })
+        .catch((e: unknown) => notify(e instanceof Error ? e.message : String(e), 'error'))
+        .finally(() => {
+          btn.disabled = false;
+          btn.textContent = t('settings.ai.fetchModels');
+        });
+      break;
+    }
+
     case 'ttsvoicesretry': {
       const o = getState().overlay;
       if (o?.kind !== 'ttsvoices') break;
@@ -5063,10 +5186,13 @@ export function dispatchInput(
        移动端软键盘会在同步 IO 的间隙收起，表现成「打一个字就失焦」。
        松手（change）或输入法上屏（compositionend）才收口。 */
     if (dragging) return;
-    /* 目录类设置已经没有输入框了（只走文件夹选择器），这里只剩 AI 三个字段
-       与扫描页识别的服务地址 */
-    if (k === 'ai.baseUrl' || k === 'ai.model' || k === 'ai.apiKey') {
-      src.setSettings({ ai: { ...shellSettings().ai, [k.slice(3)]: value } });
+    /* AI 组（注册表移植后）：custom 的旧三件套 + 各家按 id 分表的覆盖值。
+       切服务商 / 协议会改变这一组显示哪些行，落盘后要重绘。 */
+    if (k.startsWith('ai.')) {
+      const next = applyAiSettingPath(shellSettings().ai, k, value);
+      if (!next) return;
+      src.setSettings({ ai: next });
+      if (k === 'ai.provider' || k === 'ai.customProtocol') repaint();
       return;
     }
     if (

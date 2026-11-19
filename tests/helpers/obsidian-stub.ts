@@ -54,6 +54,11 @@ export const requestUrl = async (): Promise<{ status: number; text: string; json
   json: {},
 });
 
+/** Dom helper（obsidian 导出）：测试里不真的建 DOM，只要 import 不报错即可 */
+export function createDiv(): any {
+  return { createEl: () => createDiv(), remove: () => undefined, after: () => undefined };
+}
+
 /**
  * 下面几个类只为了让「插件主体 / 阅读视图」能在 node 里被 import 与 new。
  *

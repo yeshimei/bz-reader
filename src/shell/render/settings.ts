@@ -32,6 +32,13 @@ import { ACCENT_OPTIONS, accentLabel, FONT_FAMILIES, fontLabel, FONT_SIZE_RANGE,
 import { ttsEngineReady, type TtsEngine } from '../../core/tts-engine';
 import { HIGHLIGHT_COLORS, colorLabel } from '../../data/notes';
 import { DEFAULT_SETTINGS, ocrEngineChoices, type ReaderSettings } from '../../data/settings';
+import {
+  AI_PROVIDER_REGISTRY,
+  DEFAULT_AI_PROVIDER,
+  getProviderDescriptor,
+  resolveAiConfig,
+  thinkingLevelsOf,
+} from '../../data/ai-providers';
 import { can, entitlement, GROUP_ID, tierText } from '../../data/entitlement';
 import { dataDirOf } from '../../core/plugin-path';
 import { isMobileShell } from '../../core/mobile';
@@ -803,23 +810,82 @@ export function viewSettings(v: SettingsView): string {
 
   /* AI 组：入口平权。基础版整组灰掉、点一下就弹高级功能说明——
      只读输入框既不说明为什么不能改，也点不出任何出口。
-     2026-11-11 同日回摆：不提供服务商选择，只留地址 / 模型 / 密钥三个自由输入框。
-     2026-11-17：连接 / 问答分两块；测试结果只留问答一行（检索那行只会
-     报「bz 没装、建不了索引」，看不懂也帮不上忙，连探测一起删了）。 */
+     2026-11-19：从 bz 主仓移植 18 家服务商注册表；接入 / 模型配置 / 问答
+     三块分区，密钥与覆盖值按服务商分存，切服务商互不污染。 */
   const aiUnlocked = can('ai');
   const aiReadonly = aiUnlocked ? '' : ' readonly';
+  const aiDisabled = aiUnlocked ? '' : ' disabled';
   /* 「连上了」= bz 在且有嵌入模型。bz 装着但没选模型，索引照样建不了，
      对用户来说就是没连上——所以门禁看 model，不看 bz 在不在。 */
   const kbLinked = !!v.bz?.model;
+  const pid = s.ai.provider || DEFAULT_AI_PROVIDER;
+  const desc = getProviderDescriptor(pid);
+  const eff = resolveAiConfig(s.ai);
+  const custom = pid === 'custom';
+  const keyK = custom ? 'ai.apiKey' : `ai.apiKeys.${pid}`;
+  const modelK = custom ? 'ai.model' : `ai.modelOverrides.${pid}`;
+  const keyValue = custom ? s.ai.apiKey : s.ai.apiKeys?.[pid] || '';
+  const modelValue = custom ? s.ai.model : s.ai.modelOverrides?.[pid] || '';
+  const levels = thinkingLevelsOf(pid);
+  const thinkingValue = s.ai.thinkingOverrides?.[pid] || 'auto';
   const aiGrp = grp(
     'ai',
     t('settings.grp.ai'),
     `${aiUnlocked ? '' : `<span class="bzs-sr-only">${t('settings.locked')}</span>`}` +
       sub(
         t('settings.ttsSub.conn'),
-        `<div class="bzs-setrow"><label>${t('settings.ai.baseUrl')}</label><input data-role="setting" data-k="ai.baseUrl" placeholder="${t('settings.ai.baseUrl.ph')}" value="${esc(s.ai.baseUrl)}" style="flex:1"${aiReadonly}></div>
-      <div class="bzs-setrow"><label>${t('settings.ai.model')}</label><input data-role="setting" data-k="ai.model" placeholder="${t('settings.ai.model.ph')}" value="${esc(s.ai.model)}" style="flex:1"${aiReadonly}></div>
-      <div class="bzs-setrow"><label>${t('settings.ai.key')}</label><input type="password" data-role="setting" data-k="ai.apiKey" placeholder="${t('settings.ai.key.ph')}" value="${esc(s.ai.apiKey)}" style="flex:1"${aiReadonly}></div>`,
+        `<div class="bzs-setrow"><label>${t('settings.ai.provider')}</label>
+          <select data-role="setting" data-k="ai.provider" style="flex:1"${aiDisabled}>
+            ${AI_PROVIDER_REGISTRY.map((p) => `<option value="${p.id}"${p.id === pid ? ' selected' : ''}>${esc(p.label)}</option>`).join('')}
+          </select></div>
+      ${
+        custom
+          ? `<div class="bzs-setrow"><label>${t('settings.ai.customEndpoint')}</label>
+               <input data-role="setting" data-k="ai.baseUrl" placeholder="https://api.example.com/v1" value="${esc(
+                 s.ai.baseUrl,
+               )}" style="flex:1"${aiReadonly}></div>
+             <div class="bzs-setrow"><label>${t('settings.ai.customProtocol')}</label>
+               <select data-role="setting" data-k="ai.customProtocol" style="flex:1"${aiDisabled}>
+                 <option value="openai"${s.ai.customProtocol !== 'anthropic' ? ' selected' : ''}>${t(
+                   'settings.ai.customProtocol.openai',
+                 )}</option>
+                 <option value="anthropic"${s.ai.customProtocol === 'anthropic' ? ' selected' : ''}>${t(
+                   'settings.ai.customProtocol.anthropic',
+                 )}</option>
+               </select></div>`
+          : ''
+      }
+      <div class="bzs-setrow"><label>${esc(desc.apiKeyLabel)}</label>
+        <input type="password" data-role="setting" data-k="${keyK}" placeholder="${t(
+          'settings.ai.key.ph',
+        )}" value="${esc(keyValue)}" style="flex:1"${aiReadonly}>
+        <button class="bzs-btn sm" data-act="aiprovtest" data-k="${pid}"${aiDisabled}>${t('settings.ai.test')}</button></div>
+      ${desc.apiKeyDesc ? `<div class="bzs-mini">${esc(desc.apiKeyDesc)}</div>` : ''}`,
+      ) +
+      sub(
+        t('settings.ai.modelGroup'),
+        `<div class="bzs-setrow"><label>${t('settings.ai.modelName')}</label>
+          <input data-role="setting" data-k="${modelK}" placeholder="${esc(
+            desc.model || t('settings.ai.model.ph'),
+          )}" value="${esc(modelValue)}" style="flex:1"${aiReadonly}>
+          <button class="bzs-btn sm" data-act="aifetchmodels"${aiDisabled}>${t('settings.ai.fetchModels')}</button></div>
+        <div class="bzs-setrow"><label>${t('settings.ai.maxTokens')}</label>
+          <input type="number" min="0" data-role="setting" data-k="ai.maxTokensOverrides.${pid}" placeholder="${String(
+            eff.maxTokens,
+          )}" value="${esc(String(s.ai.maxTokensOverrides?.[pid] ?? ''))}" style="flex:1"${aiReadonly}></div>
+        ${
+          levels.length
+            ? `<div class="bzs-setrow"><label>${t('settings.ai.thinking')}</label>
+                 <select data-role="setting" data-k="ai.thinkingOverrides.${pid}" style="flex:1"${aiDisabled}>
+                   ${levels
+                     .map(
+                       (l) =>
+                         `<option value="${l.value}"${l.value === thinkingValue ? ' selected' : ''}>${esc(l.label)}</option>`,
+                     )
+                     .join('')}
+                 </select></div>`
+            : ''
+        }`,
       ) +
       sub(
         t('settings.sub.aiChat'),

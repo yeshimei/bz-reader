@@ -3941,3 +3941,45 @@
 .bzs-studio {
   position: relative;
 }
+
+/* AI 服务商测试按钮的瞬时状态（2026-11-19：不弹通知，绿✓ / 红✕） */
+.bzs-btn.is-ok {
+  color: var(--text-success);
+}
+
+.bzs-btn.is-fail {
+  color: var(--text-error);
+}
+
+/* 「获取模型名」就地弹出的选择器：可搜索、可点选，用现有 .bzs- 命名空间 */
+.bzs-modelpick {
+  margin: 6px 0 10px;
+  padding: 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+}
+
+.bzs-modelpick-h {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.bzs-modelpick-q {
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.bzs-modelpick-list {
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.bzs-modelpick-i {
+  font-size: 12px;
+  padding: 3px 7px;
+}

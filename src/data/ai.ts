@@ -15,7 +15,8 @@ import { AI_EVIDENCE_LIMIT } from './ai-budget';
 import { buildEnrichMessages } from './book-enrich';
 import { buildGuideMessages } from './chapter-guide';
 import { debugEvent } from './debug-log';
-import { drainSse } from './ai-sse';
+import { buildChatRequest, chatTextOf, drainChatSse } from './ai-protocol';
+import { resolveAiConfig, type AIProtocol } from './ai-providers';
 
 export type AiTask =
   | 'summarize'
@@ -299,6 +300,12 @@ export interface ChatConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+  /** 请求协议（缺省 openai）；anthropic 走 /messages 与 x-api-key */
+  protocol?: AIProtocol;
+  /** 注册表按思考档位解析出的请求体片段（面板独裁，调用方不再另算） */
+  thinkingBody?: Record<string, unknown> | null;
+  /** 注册表按「覆盖 > 模型档 > 默认值」解析出的 max_tokens */
+  maxTokens?: number;
 }
 
 /** 调一次 /chat/completions 的通用选项。扫描页识别（视觉 OCR）也走这条路 */
@@ -351,6 +358,7 @@ async function readChatStream(
   res: Response,
   onDelta: (piece: string) => void,
   bump: () => void,
+  protocol: AIProtocol,
 ): Promise<string | null> {
   const type = String(res.headers.get('content-type') || '').toLowerCase();
   /* 明确是 JSON 就不是流。没给 content-type 的当流处理——很多本地服务
@@ -370,8 +378,9 @@ async function readChatStream(
          reasoning_content）会先连发几十帧「想」，正文一个字都还没有；
          按「到字」计时会把正在正常思考的请求误杀。 */
       bump();
-      const out = drainSse(buffer);
+      const out = drainChatSse(protocol, buffer);
       buffer = out.rest;
+      if (out.error) throw new Error(out.error);
       for (const piece of out.deltas) {
         text += piece;
         onDelta(piece);
@@ -381,7 +390,9 @@ async function readChatStream(
     /* 收尾：解码器里可能还压着半个字符，末尾也可能少一个空行 */
     const trailing = buffer + decoder.decode();
     if (trailing.trim()) {
-      for (const piece of drainSse(`${trailing}\n\n`).deltas) {
+      const tail = drainChatSse(protocol, `${trailing}\n\n`);
+      if (tail.error) throw new Error(tail.error);
+      for (const piece of tail.deltas) {
         text += piece;
         onDelta(piece);
       }
@@ -429,26 +440,24 @@ export async function postChat(
   const onAbort = (): void => ctrl.abort();
   opts.signal?.addEventListener('abort', onAbort);
   const streaming = typeof opts.onDelta === 'function';
-  const body: Record<string, unknown> = {
-    model,
-    temperature: opts.temperature ?? 0.3,
+  const protocol = config.protocol ?? 'openai';
+  /* 面板档位优先；OCR 等老调用点直给 opts.thinking 时只对 DeepSeek 官方端点生效
+     （兼容层传它可能被 400 拒绝）。 */
+  const thinkingBody =
+    config.thinkingBody ?? (opts.thinking && isDeepSeekChat(baseUrl) ? { thinking: { type: opts.thinking } } : null);
+  const req = buildChatRequest(
+    { endpoint: baseUrl, apiKey, model, protocol, thinkingBody, maxTokens: config.maxTokens },
     messages,
-  };
-  if (streaming) body.stream = true;
-  if (opts.maxTokens) body.max_tokens = opts.maxTokens;
-  /* 只有官方端点认这个字段；别家传了可能直接 400 */
-  if (opts.thinking && isDeepSeekChat(baseUrl)) body.thinking = { type: opts.thinking };
+    { stream: streaming, temperature: opts.temperature, maxTokens: opts.maxTokens ?? config.maxTokens },
+  );
   let res: Response;
   try {
     /* 用 window.fetch 而不是 requestUrl：后者不接受 AbortSignal，超时与
        「取消请求」都会失效；这个端点由用户自己配置，不需要 Obsidian 代发 CORS。 */
-    res = await window.fetch(`${baseUrl}/chat/completions`, {
+    res = await window.fetch(req.url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
+      headers: req.headers,
+      body: JSON.stringify(req.body),
       signal: ctrl.signal,
     });
   } catch (e) {
@@ -477,7 +486,7 @@ export async function postChat(
   if (streaming && res.body) {
     let streamed: string | null;
     try {
-      streamed = await readChatStream(res, opts.onDelta!, bump);
+      streamed = await readChatStream(res, opts.onDelta!, bump, protocol);
     } catch (e) {
       if (opts.signal?.aborted) throw new Error('已取消');
       if (timedOut) {
@@ -499,7 +508,7 @@ export async function postChat(
   };
   if (data.error?.message) throw new Error(`${label} 接口报错：${data.error.message}`);
   const choice = data.choices?.[0];
-  const text = chatText(choice?.message?.content);
+  const text = chatTextOf(protocol, data);
   /* 识别失败时最缺的是「为什么」：模型名、结束原因、正文是什么形状。
      只记这三样，正文与图片一个字都不进日志。 */
   debugEvent('aichat', {
@@ -521,7 +530,21 @@ export async function aiPostChat(
   if (!aiReady(settings)) {
     throw new Error('还没配置 AI 接口：到 书架 · 设置 的「AI 助手」里填好地址、模型与密钥');
   }
-  return postChat(settings.ai, messages, opts);
+  /* 注册表单一事实源：服务商决定端点 / 密钥 / 协议 / 上限 / 思考档位。
+     OCR 那条独立通道直接调 postChat，不经过这里。 */
+  const c = resolveAiConfig(settings.ai);
+  return postChat(
+    {
+      baseUrl: c.endpoint,
+      apiKey: c.apiKey,
+      model: c.model,
+      protocol: c.protocol,
+      maxTokens: c.maxTokens,
+      thinkingBody: c.thinkingBody,
+    },
+    messages,
+    opts,
+  );
 }
 
 /**

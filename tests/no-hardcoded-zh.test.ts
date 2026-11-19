@@ -213,6 +213,11 @@ const EXEMPT = new Set([
      主题名）是随包发布的文案数据，和 changelog.ts 同性质，不走 t()。 */
   'src/data/bzr-data.ts',
   'src/data/reward.ts',
+  /* 2026-11-19 加 `src/data/ai-providers.ts`：18 家服务商的展示名、密钥行标题
+     与说明是注册表**数据**（端点 / 默认模型 / token 档同表，从 bz 主仓移植），
+     不随界面语言变——与 reward.ts 的昵称同理。真正显示在设置页的散装文案都走
+     t()，数据层的错误文案也走 t()（见 ai-models / ai-protocol）。 */
+  'src/data/ai-providers.ts',
   /* 2026-11-14 加 `src/core/tts-deploy-prompt.ts`：那段是**给 AI 的任务书**，
      复制到剪贴板让 AI 照着装本地语音服务，界面上一个字都不显示。它不进语言
      包——翻译成英文反而会让本机的中文 AI 装错接口。 */

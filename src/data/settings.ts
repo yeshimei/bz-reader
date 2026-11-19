@@ -15,10 +15,10 @@
  * 空字符串，一律夹回可用范围——一个地址少个 https:// 的代价是
  * 「AI 按钮点了没反应」，而用户不会想到去看设置。
  *
- * 2026-11-11 同日回摆：AI 配置还原成「地址 / 模型 / 密钥」三个自由输入框，
- * 不提供服务商选择。前一版按服务商存的结构（provider / keys[provider] /
- * models[provider]）在 normalizeSettings 里一次性搬回三件套——老 data.json
- * 升级后地址、密钥、模型都还在，不会因为换回自由输入而丢配置。
+ * 2026-11-19：AI 配置从「地址 / 模型 / 密钥」三件套扩成服务商注册表
+ * （18 家 + per-provider 覆盖表）。老三件套原样落到「自定义」通道的
+ * baseUrl / apiKey / model 三个槽位，2026-11-11 那版分服务商结构的
+ * keys / models 搬进 apiKeys / modelOverrides 表——升级后一个值都不丢。
  * ============================================================ */
 
 import { isLocale, type LanguagePref } from '../i18n';
@@ -26,13 +26,32 @@ import { normalizeFormat } from '../core/tts-local';
 import type { LocalTtsSettings, OnlineTtsSettings } from '../core/tts-engine';
 import { normalizeTtsResume, type TtsResumePoint } from '../core/tts-resume';
 import { DEFAULT_CLIP_SCOPE, normalizeClipScope, type ClipScope } from './clip-epub/scope';
+import {
+  AI_PROVIDER_REGISTRY,
+  DEFAULT_AI_PROVIDER,
+  isNoAuthProvider,
+  resolveAiConfig,
+} from './ai-providers';
 
 export interface AiSettings {
-  /** OpenAI 兼容根地址，不带结尾斜杠，例如 https://api.openai.com/v1 */
+  /** 当前服务商（注册表 id）。2026-11-19 从「不提供服务商选择」回摆为注册表驱动 */
+  provider: string;
+  /** 自定义通道的接口根地址，不带结尾斜杠。旧三件套原样保留在这里（零迁移） */
   baseUrl: string;
+  /** 自定义通道密钥（旧三件套的 apiKey 槽位） */
   apiKey: string;
-  /** 对话模型（压缩方案、提问、摘录） */
+  /** 自定义通道模型名（旧三件套的 model 槽位） */
   model: string;
+  /** 各服务商密钥（键 = 注册表 id；custom 读上面的 apiKey） */
+  apiKeys: Record<string, string>;
+  /** 自定义通道的请求协议：openai / anthropic */
+  customProtocol: string;
+  /** 每服务商模型覆盖（键 = 注册表 id） */
+  modelOverrides: Record<string, string>;
+  /** 每服务商最大输出 token 覆盖（键 = 注册表 id） */
+  maxTokensOverrides: Record<string, number>;
+  /** 每服务商思考档位（键 = 注册表 id） */
+  thinkingOverrides: Record<string, string>;
   /*
    * 这里**故意没有**嵌入模型。
    *
@@ -208,9 +227,15 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   importDir: 'bz-reader/books',
   language: 'auto',
   ai: {
+    provider: DEFAULT_AI_PROVIDER,
     baseUrl: '',
     apiKey: '',
     model: '',
+    apiKeys: {},
+    customProtocol: 'openai',
+    modelOverrides: {},
+    maxTokensOverrides: {},
+    thinkingOverrides: {},
   },
   /* 地址预填好：装机最常见的两种服务各给一条，用户照着改比从空框开始容易
      （2026-11-14 用户要求）。格式默认 mp3：本地一章 wav 要 290 MB，
@@ -274,51 +299,70 @@ function cleanUrl(v: string): string {
   return /^https?:\/\//i.test(s) ? s : `https://${s}`;
 }
 
-/**
- * 2026-11-11 分服务商结构里写死的地址与默认模型，只用来搬旧数据。
- * 新配置本身不再认服务商，这张表也不会被设置页读取。
- */
-const LEGACY_AI_PROVIDERS: Record<string, { endpoint: string; model: string }> = {
-  deepseek: { endpoint: 'https://api.deepseek.com', model: 'deepseek-v4-flash' },
-  'zhipu-plan': { endpoint: 'https://open.bigmodel.cn/api/coding/paas/v4', model: 'glm-5.3-flash' },
-  ollama: { endpoint: 'http://localhost:11434/v1', model: 'llama3.1' },
-};
+const AI_PROVIDER_IDS = new Set(AI_PROVIDER_REGISTRY.map((p) => p.id));
 
-/** 从按服务商分存的对象里取一项；非字符串、空串都当没填 */
-function providerValue(raw: unknown, id: string): string {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return '';
-  const v = (raw as Record<string, unknown>)[id];
-  return typeof v === 'string' ? v.trim() : '';
+/** 字符串映射：只收非空字符串值，去掉首尾空白 */
+function stringMap(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v === 'string' && v.trim()) out[k] = v.trim();
+  }
+  return out;
+}
+
+/** 数字映射：只收正数（0 / 负数 / 非数都不是有效覆盖） */
+function numberMap(raw: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof v !== 'number' && typeof v !== 'string') continue;
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0) out[k] = n;
+  }
+  return out;
 }
 
 /**
- * AI 设置收口（含两次结构变更的搬家）。
+ * AI 设置收口（含三次结构变更的搬家，铁律：用户填过的值一个都不丢）。
  *
- * 判据是「有没有 provider 字段」：没有 = 旧版三件套（baseUrl / apiKey / model），
- * 有 = 2026-11-11 的分服务商结构。后者把当时选中的那一家搬回三件套：
- *   · custom（以及认不出的 id）用旧 baseUrl 与 keys.custom / models.custom；
- *   · 三家预设用当时写死的地址与默认模型，模型没填过就补默认值——不补的话
- *     升级后 aiReady 会突然变 false，用户以为配置丢了。
+ * 判据是「有没有 provider 字段」：
+ *   · 没有 = 旧版三件套（baseUrl / apiKey / model），填过就落到「自定义」通道，
+ *     三个值原样保留；
+ *   · 有 = 注册表结构，2026-11-11 那版的 keys / models 并进新的 override 表
+ *     （新表优先），custom 的旧值回到三件套槽位。非法 id 回落缺省服务商，
+ *     但已填的密钥不动。
  */
 function normalizeAi(raw: unknown): AiSettings {
   const ai = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  const provider = str(ai.provider).trim();
-  if (!provider) {
-    return {
-      baseUrl: cleanUrl(str(ai.baseUrl)),
-      apiKey: str(ai.apiKey).trim(),
-      model: str(ai.model).trim(),
-    };
+  const oldProvider = str(ai.provider).trim();
+  const hadProvider = !!oldProvider;
+  const provider = hadProvider && AI_PROVIDER_IDS.has(oldProvider) ? oldProvider : DEFAULT_AI_PROVIDER;
+
+  const legacyKeys = stringMap(ai.keys);
+  const legacyModels = stringMap(ai.models);
+  const apiKeys = { ...legacyKeys, ...stringMap(ai.apiKeys) };
+  const modelOverrides = { ...legacyModels, ...stringMap(ai.modelOverrides) };
+
+  let apiKey = str(ai.apiKey).trim();
+  let model = str(ai.model).trim();
+  if (hadProvider) {
+    apiKey = legacyKeys.custom || apiKey;
+    model = legacyModels.custom || model;
   }
-  const preset = LEGACY_AI_PROVIDERS[provider];
-  const customOnly = !preset;
+  const baseUrl = cleanUrl(str(ai.baseUrl));
+  const finalProvider = !hadProvider && (baseUrl || apiKey || model) ? 'custom' : provider;
+
   return {
-    baseUrl: preset ? preset.endpoint : cleanUrl(str(ai.baseUrl)),
-    apiKey: providerValue(ai.keys, provider) || (customOnly ? providerValue(ai.keys, 'custom') : ''),
-    model:
-      providerValue(ai.models, provider) ||
-      preset?.model ||
-      (customOnly ? providerValue(ai.models, 'custom') : ''),
+    provider: finalProvider,
+    baseUrl,
+    apiKey,
+    model,
+    apiKeys,
+    customProtocol: str(ai.customProtocol).toLowerCase() === 'anthropic' ? 'anthropic' : 'openai',
+    modelOverrides,
+    maxTokensOverrides: numberMap(ai.maxTokensOverrides),
+    thinkingOverrides: stringMap(ai.thinkingOverrides),
   };
 }
 
@@ -486,9 +530,13 @@ export function pdfOcrReady(s: ReaderSettings): boolean {
   return !!s.pdfOcr.baseUrl && !!s.pdfOcr.apiKey && !!s.pdfOcr.model;
 }
 
-/** AI 是否可用了：三样齐了才算配好，缺一样都不该把按钮点亮 */
+/**
+ * AI 是否可用了：按当前服务商解析出的地址 / 模型 / 密钥齐了才算配好。
+ * 本地服务（Ollama / LM Studio）免鉴权，空密钥放行；其余缺一样都不点亮按钮。
+ */
 export function aiReady(s: ReaderSettings): boolean {
-  return !!s.ai.baseUrl && !!s.ai.apiKey && !!s.ai.model;
+  const c = resolveAiConfig(s.ai);
+  return !!c.endpoint && !!c.model && (!!c.apiKey || isNoAuthProvider(c.id));
 }
 
 /* 建索引要不要「嵌入配好了」这个判断？不用了：嵌入由第二大脑提供，

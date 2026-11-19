@@ -185,13 +185,15 @@ describe('设置页渲染', () => {
     entState.unlocked = false;
     const out = html();
     expect(out).toMatch(/class="bzs-setgrp is-locked"[^>]*data-act="unlock" data-mode="ai"/);
-    /* 基础版看不到测试按钮——能力都没解锁，测了也用不了 */
+    /* 基础版整组禁用：下拉与密钥框都不可改，问答测试按钮不出现 */
+    expect(out).toMatch(/data-k="ai\.provider"[^>]*disabled/);
+    expect(out).toMatch(/data-k="ai\.apiKeys\.deepseek"[^>]*readonly/);
     expect(out).not.toContain('data-act="aiprobe"');
   });
 
-  it('placeholder 说人话：地址、模型、密钥三行都有', () => {
-    const out = html();
-    expect(out).toContain('placeholder="填写接口地址，以 https:// 开头"');
+  it('placeholder 说人话：自定义地址、模型名、密钥都有', () => {
+    const out = html(false, { ...DEFAULT_SETTINGS, ai: { ...DEFAULT_SETTINGS.ai, provider: 'custom' } });
+    expect(out).toContain('placeholder="https://api.example.com/v1"');
     expect(out).toContain('placeholder="填写你的账号可用的模型名"');
     expect(out).toContain('placeholder="填写 API 密钥"');
   });
@@ -354,13 +356,15 @@ describe('设置页渲染', () => {
   /* 入口平权：基础版也看得见 AI 组。但没解锁时配置只能看不能改——
      让基础版改一个用不了的配置只会制造「我填了为什么不行」的困惑。
      AI 组里不放「查看功能对照」这类提示：要解锁去授权组，别在配置区塞推销。 */
-  it('基础版：AI 组仍在，三个输入框只读、没有服务商按钮', () => {
+  it('基础版：AI 组仍在，服务商与各输入框只读 / 禁用', () => {
     entState.unlocked = false;
-    const out = html();
+    const out = html(false, { ...DEFAULT_SETTINGS, ai: { ...DEFAULT_SETTINGS.ai, provider: 'custom' } });
     expect(out).toContain('<h3>AI 助手</h3>');
+    expect(out).toMatch(/data-k="ai\.provider"[^>]*disabled/);
     for (const k of ['ai.baseUrl', 'ai.model', 'ai.apiKey']) {
       expect(out, k).toMatch(new RegExp(`data-k="${k.replace('.', '\\.')}"[^>]*readonly`));
     }
+    expect(out).toContain('data-act="aifetchmodels" disabled');
     expect(out).not.toContain('data-act="setai"');
     expect(out).not.toContain('data-act="aimodels"');
   });
@@ -398,39 +402,43 @@ describe('设置页渲染', () => {
 });
 
 /**
- * AI 组（2026-11-11 同日回摆：地址 / 模型 / 密钥三个自由输入框）。
+ * AI 组（2026-11-19 从 bz 主仓移植服务商注册表）。
  *
- * 这里钉三件事：不提供服务商按钮、不提供「获取模型」、三个输入框按
- * 地址 → 模型 → 密钥排列，值来自设置里的三个字段。
+ * 这里钉三件事：服务商下拉 + 当前家密钥 / 测试连接 + 模型配置（含获取
+ * 模型名 / 最大输出 / 思考档位）都按当前服务商渲染；各家的覆盖值取自
+ * 对应槽位，不串行。
  */
-describe('AI 组：三个自由输入框', () => {
-  it('只有地址、模型、密钥三行，没有服务商按钮与「获取模型」', () => {
+describe('AI 组：服务商注册表', () => {
+  it('服务商下拉 + 当前家密钥 + 测试连接 + 获取模型名 + token + 思考档位', () => {
     const out = html();
-    for (const k of ['ai.baseUrl', 'ai.model', 'ai.apiKey']) {
-      expect(out, k).toContain(`data-k="${k}"`);
-    }
-    expect(out).not.toContain('data-act="setai"');
-    expect(out).not.toContain('data-act="aimodels"');
+    expect(out).toContain('data-k="ai.provider"');
+    expect(out).toContain('data-k="ai.apiKeys.deepseek"');
+    expect(out).toContain('data-act="aiprovtest"');
+    expect(out).toContain('data-act="aifetchmodels"');
+    expect(out).toContain('data-k="ai.maxTokensOverrides.deepseek"');
+    expect(out).toContain('data-k="ai.thinkingOverrides.deepseek"');
     expect(out).not.toContain('data-k="ai.key"');
-    expect(out).not.toContain('data-k="ai.provider"');
   });
 
-  it('三行按地址、模型、密钥排列', () => {
+  it('接入行排在模型配置行之前', () => {
     const out = html();
-    const at = (k: string): number => out.indexOf(`data-k="${k}"`);
-    expect(at('ai.baseUrl')).toBeGreaterThan(-1);
-    expect(at('ai.model')).toBeGreaterThan(at('ai.baseUrl'));
-    expect(at('ai.apiKey')).toBeGreaterThan(at('ai.model'));
+    expect(out.indexOf('data-k="ai.provider"')).toBeLessThan(out.indexOf('data-act="aifetchmodels"'));
   });
 
-  it('输入框的值来自设置里的三个字段', () => {
+  it('密钥与覆盖值来自设置里对应家的槽位', () => {
     const out = html(false, {
       ...DEFAULT_SETTINGS,
-      ai: { baseUrl: 'https://api.x/v1', model: 'chat-x', apiKey: 'sk-1' },
+      ai: {
+        ...DEFAULT_SETTINGS.ai,
+        provider: 'openai',
+        apiKeys: { openai: 'sk-1' },
+        modelOverrides: { openai: 'chat-x' },
+        maxTokensOverrides: { openai: 4096 },
+      },
     });
-    expect(out).toContain('value="https://api.x/v1"');
-    expect(out).toContain('value="chat-x"');
     expect(out).toContain('value="sk-1"');
+    expect(out).toContain('value="chat-x"');
+    expect(out).toContain('value="4096"');
   });
 });
 
@@ -1019,7 +1027,7 @@ describe('设置页 · 2026-11-17 重排', () => {
     expect(subs('数据'), '数据').toBe(3); // 目录 / 备份与恢复 / 排查
     expect(subs('PDF'), 'PDF').toBe(3); // 阅读 / 导出与链接 / 扫描页识别
     expect(subs('朗读'), '朗读').toBe(3); // 连接 / 播放 / 缓存与离线
-    expect(subs('AI 助手'), 'AI 助手').toBe(2); // 连接 / 问答
+    expect(subs('AI 助手'), 'AI 助手').toBe(3); // 连接 / 模型配置 / 问答
     expect(subs('标注'), '标注').toBe(0);
     expect(subs('外观'), '外观').toBe(0);
     expect(subs('授权'), '授权').toBe(0);
