@@ -1576,4 +1576,13 @@ export const DE: Record<MsgKey, string> = {
   'stats.f.th.words': '[TODO] stats.f.th.words',
   'stats.f.th.eta': '[TODO] stats.f.th.eta',
   'stats.f.goal.top': '[TODO] stats.f.goal.top',
+  'tool.reviewPlanned': '[TODO] tool.reviewPlanned',
+  'settings.reviewAskMode': '[TODO] settings.reviewAskMode',
+  'settings.reviewAskMode.hint': '[TODO] settings.reviewAskMode.hint',
+  'review.make.remember': '[TODO] review.make.remember',
+  'review.make.remember.hint': '[TODO] review.make.remember.hint',
+  'review.make.regenLoading': '[TODO] review.make.regenLoading',
+  'review.make.regenOverwrite': '[TODO] review.make.regenOverwrite',
+  'review.make.regenContinue': '[TODO] review.make.regenContinue',
+  'review.make.backEditable': '[TODO] review.make.backEditable',
 };

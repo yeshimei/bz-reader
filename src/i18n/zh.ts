@@ -678,6 +678,8 @@ export const ZH = {
   'notice.enrich.fail': 'AI 没有返回可用的信息，稍后再试',
   'tool.quote': '书摘',
   'tool.review': '复习',
+  /* 这条划线已经在复习计划里：工具条换个说法，免得用户以为还能再加一次 */
+  'tool.reviewPlanned': '已在复习',
   'tool.ai': 'AI',
   'tool.bilink': '双链',
   'tool.ocr': '识别',
@@ -944,6 +946,8 @@ export const ZH = {
   /* 界面组：只在装了支持嵌入的 Review 时显示的开关 */
   'settings.embedReview': '书架内显示复习',
   'settings.embedReview.hint': '把 bz Review 的复习界面放进书架，页签栏和书库、笔记、对话排在一起。',
+  'settings.reviewAskMode': '加入复习先选方式',
+  'settings.reviewAskMode.hint': '关掉后点「加入复习」直接进确认题面并当场出题，用上次选的那个方式；想改方式再打开这里。',
 
   /* ── 设置页：版式 ────────────────────────────────────────── */
   'settings.font': '字体',
@@ -1623,6 +1627,12 @@ export const ZH = {
   'review.make.fillAll': '全部补齐三道',
   'review.make.fillOne': '补齐这道题',
   'review.make.generating': '正在出题（{done}/{total}）',
+  'review.make.remember': '以后都用这个方式，不再出现这一屏',
+  'review.make.remember.hint': '想改回来，去设置里把「加入复习先选方式」打开。',
+  'review.make.regenLoading': '正在重新生成这一张…',
+  'review.make.regenOverwrite': '重新生成会覆盖你改过的题面，继续吗？',
+  'review.make.regenContinue': '继续生成',
+  'review.make.backEditable': '可修改',
   'review.make.emptyQuiz': '没出到题，点「补一道题」或「重新生成」',
   'review.state.new': '新增',
   'review.state.exists': '已在计划',

@@ -35,7 +35,11 @@ import {
   type ReviewApi,
 } from '../data/review-bridge';
 import { marksOf } from './domain';
-import { liveBooks, shellSettings } from './source';
+import { getShellSource, liveBooks, shellSettings } from './source';
+import { DEFAULT_HIGHLIGHT_COLOR, ensureHighlight } from '../data/notes';
+import { mutateState } from './state';
+import { emitNotesChanged } from './runtime';
+import { setMarkReviewPlanned } from './review-marks';
 import { runReviewAdd, type RunChapter } from './review-run';
 import { openCardsFlow } from './review-cards-ui';
 import { resolveScope, type Scope, type ScopeChapter, type ScopeMark } from './review-scope';
@@ -79,7 +83,10 @@ export async function addMarkToReview(app: App | undefined, book: ReaderBook | u
     chapterTitle: h.chapterTitle,
     text: h.text,
     comment: h.comment,
-  }]);
+  }], {
+    /* 入库成功后工具条那颗按钮直接改叫「已在复习」，不必等下次开书重查 */
+    onAdded: () => setMarkReviewPlanned(book.id, h.id),
+  });
 }
 
 /**
@@ -90,7 +97,14 @@ export async function addMarkToReview(app: App | undefined, book: ReaderBook | u
  */
 export async function addSelectionToReview(
   app: App | undefined,
-  sel: { text: string; bookId: string; chapterTitle?: string } | null | undefined,
+  sel: {
+    text: string;
+    bookId: string;
+    chapterTitle?: string;
+    /** 选区定位串：入库成功后据此补一条划线（PDF 是 `pdf/<页>/…`，EPUB 是 CFI 范围） */
+    cfiRange?: string;
+    chapterIndex?: number;
+  } | null | undefined,
 ): Promise<void> {
   if (!app || !sel || !String(sel.text ?? '').trim()) return;
   const book = liveBooks().find((b) => b.id === sel.bookId);
@@ -101,7 +115,37 @@ export async function addSelectionToReview(
     bookTitle: book.meta.title || '',
     chapterTitle: title || undefined,
     text: String(sel.text).trim(),
-  }]);
+  }], {
+    /* 确认加入后把这段文字顺手划上：用户点的是「加入复习」，
+       但回头看原文时也该能找到是哪一段（2026-11-19）。
+       不先划线、只在这时补，取消弹窗就不会在书里留痕。 */
+    onAdded: () => {
+      const id = ensureSelectionMark(book, sel);
+      if (id) setMarkReviewPlanned(book.id, id);
+    },
+  });
+}
+
+/** 给划选的文字补一条划线（同位置已有就复用，不叠第二条、不改用户颜色） */
+function ensureSelectionMark(
+  book: ReaderBook,
+  sel: { text: string; cfiRange?: string; chapterTitle?: string; chapterIndex?: number },
+): string {
+  const text = String(sel.text ?? '').trim();
+  if (!text || !sel.cfiRange) return '';
+  const { highlight, created } = ensureHighlight(book, {
+    text,
+    cfiRange: sel.cfiRange,
+    chapterTitle: sel.chapterTitle,
+    chapterIndex: sel.chapterIndex,
+    color: DEFAULT_HIGHLIGHT_COLOR,
+  });
+  if (created) {
+    getShellSource()?.store.touch();
+    mutateState(() => undefined);
+    emitNotesChanged();
+  }
+  return highlight.id;
 }
 
 /** 千分位：字数与条数都要给人看，3,240 比 3240 好读 */

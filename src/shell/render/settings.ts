@@ -319,6 +319,14 @@ export function viewSettings(v: SettingsView): string {
           ? toggle('embedReview', s.embedReview === true, t('settings.embedReview')) +
             `<div class="bzs-setrow"><small class="bzs-mini">${t('settings.embedReview.hint')}</small></div>`
           : ''
+      }
+      ${
+        /* 「加入复习先选方式」：装了 Review 才画。这里是那一屏被勾掉之后唯一的
+           回头路，所以即使默认关也必须在设置里看得见。 */
+        v.review?.installed
+          ? toggle('reviewAskMode', s.reviewAskMode !== false, t('settings.reviewAskMode')) +
+            `<div class="bzs-setrow"><small class="bzs-mini">${t('settings.reviewAskMode.hint')}</small></div>`
+          : ''
       }`,
   );
 

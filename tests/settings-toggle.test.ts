@@ -11,6 +11,11 @@ describe('flipSetting', () => {
     expect(flipSetting({ exportComments: false }, 'nope')).toBeNull();
   });
 
+  it('「加入复习先选方式」也能翻：勾掉之后靠它恢复', () => {
+    expect(flipSetting({ reviewAskMode: true }, 'reviewAskMode')).toEqual({ reviewAskMode: false });
+    expect(flipSetting({ reviewAskMode: false }, 'reviewAskMode')).toEqual({ reviewAskMode: true });
+  });
+
   it('不修改入参', () => {
     const s = { exportComments: false };
     flipSetting(s, 'exportComments');

@@ -523,6 +523,24 @@
 }
 .bzs-review-mode-name { font-size: 1em; font-weight: 600; }
 .bzs-review-mode-chars { font-size: 0.82em; opacity: 0.82; }
+
+/* 「以后都用这个方式，不再出现这一屏」——勾掉之后回头路在设置页 */
+.bzs-review-remember {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  background: var(--background-secondary);
+  cursor: pointer;
+}
+.bzs-review-remember input { margin: 2px 0 0; flex: none; }
+.bzs-review-remember-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bzs-review-remember-text b { font-size: 0.92em; font-weight: 600; color: var(--text-normal); }
+.bzs-review-remember-text small { font-size: 0.8em; color: var(--text-muted); line-height: 1.5; }
+
 .bzs-review-actions {
   display: flex;
   justify-content: flex-end;
@@ -564,9 +582,32 @@
   font-size: 0.88em;
   line-height: 1.6;
 }
+.bzs-review-card-body { display: flex; flex-direction: column; gap: 8px; }
 .bzs-review-card-field { display: flex; flex-direction: column; gap: 6px; }
 .bzs-review-card-label { font-size: 0.8em; color: var(--text-muted); }
+.bzs-review-card-editable {
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  font-size: 0.9em;
+  color: var(--text-faint);
+}
 .bzs-review-input { width: 100%; box-sizing: border-box; }
+.bzs-review-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 64px;
+  resize: vertical;
+  font-size: 0.92em;
+  line-height: 1.6;
+  color: var(--text-normal);
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.bzs-review-textarea:focus { outline: none; border-color: var(--interactive-accent); }
 .bzs-review-card-back {
   margin-top: 10px;
   padding: 10px;
@@ -576,20 +617,173 @@
   font-size: 0.88em;
   line-height: 1.6;
 }
-.bzs-review-card-back .bzs-review-card-label { display: block; margin-bottom: 4px; }
+.bzs-review-card-back .bzs-review-card-label { display: block; margin-bottom: 6px; }
 .bzs-review-bulk,
 .bzs-review-mini-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.bzs-review-q-list { display: flex; flex-direction: column; gap: 8px; }
+/* 卡片底部的工具行：跟上面正文（背面原文 / 题目）之间留出气口，
+   以前「重新生成」紧贴着背面文本，看着像背面的一部分。 */
+.bzs-review-card-body > .bzs-review-mini-row,
+.bzs-review-card-body > .bzs-review-regen-confirm { margin-top: 4px; padding-top: 8px; }
+.bzs-review-q-list { display: flex; flex-direction: column; gap: 10px; }
 .bzs-review-q {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-top: 8px;
-  border-top: 1px solid var(--background-modifier-border);
+  padding: 8px 10px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  background: var(--background-secondary);
 }
-.bzs-review-q-opts { font-size: 0.82em; color: var(--text-muted); line-height: 1.6; }
+.bzs-review-q-head { display: flex; align-items: center; gap: 8px; }
+.bzs-review-q-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 6px;
+  font-size: 0.74em;
+  font-weight: 700;
+  color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+}
+.bzs-review-q-del {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 0.85em;
+  box-shadow: none;
+}
+.bzs-review-q-del:hover { background: var(--background-modifier-hover); color: var(--text-error); }
+.bzs-review-q-text {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 0.94em;
+  font-weight: 500;
+  color: var(--text-normal);
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 7px;
+  padding: 6px 8px;
+}
+.bzs-review-q-text:focus { outline: none; border-color: var(--interactive-accent); }
+/* 选项竖排：原来挤成一行「✓A ○B ○C」，读题要来回数 */
+.bzs-review-q-opts { display: flex; flex-direction: column; gap: 4px; }
+.bzs-review-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: var(--background-primary);
+  font-size: 0.86em;
+  line-height: 1.5;
+  color: var(--text-normal);
+}
+.bzs-review-opt-k {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--background-modifier-border);
+  font-size: 0.76em;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.bzs-review-opt-t { min-width: 0; }
+.bzs-review-opt-mark { margin-left: auto; flex: none; color: var(--interactive-accent); font-weight: 700; }
+.bzs-review-opt.is-correct {
+  border-color: color-mix(in srgb, var(--interactive-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+}
+.bzs-review-opt.is-correct .bzs-review-opt-k {
+  border-color: transparent;
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
 .bzs-review-card-empty { margin: 0; font-size: 0.85em; color: var(--text-error); }
 .bzs-review-mini-btn { min-height: 28px; padding: 4px 10px; font-size: 0.85em; }
+
+/* 重新生成会覆盖手改内容：先问一句，不用再弹一层 Modal */
+.bzs-review-regen-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+  font-size: 0.85em;
+  color: var(--text-muted);
+}
+.bzs-review-regen-confirm .bzs-review-mini-btn { margin-left: auto; }
+
+/* ── 加载态：整屏出题 / 单卡重生成 ── */
+.bzs-review-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 46px 8px 44px;
+  text-align: center;
+}
+.bzs-review-spinner {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--interactive-accent) 26%, transparent);
+  border-top-color: var(--interactive-accent);
+  animation: bzs-spin 0.8s linear infinite;
+}
+.bzs-review-loading-text { display: flex; flex-direction: column; gap: 4px; }
+.bzs-review-loading-text b { font-size: 0.95em; font-weight: 600; color: var(--text-normal); }
+.bzs-review-loading-text small { font-size: 0.82em; color: var(--text-muted); }
+.bzs-review-card-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 4px;
+  font-size: 0.86em;
+  color: var(--text-muted);
+}
+.bzs-review-skeleton { display: flex; flex-direction: column; gap: 7px; }
+.bzs-review-skeleton > span {
+  display: block;
+  height: 10px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--background-secondary) 25%,
+    var(--background-modifier-border) 37%,
+    var(--background-secondary) 63%
+  );
+  background-size: 400% 100%;
+  animation: bzs-review-shimmer 1.4s ease infinite;
+}
+.bzs-review-skeleton > span:nth-child(2) { width: 72%; }
+.bzs-review-skeleton > span:nth-child(3) { width: 86%; }
+@keyframes bzs-review-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
 
 @media (max-width: 640px) {
   .bzs-review-mode-list { grid-template-columns: 1fr; }
@@ -597,6 +791,9 @@
   .bzs-review-card-list { max-height: none; }
   .bzs-review-actions { flex-direction: column-reverse; }
   .bzs-review-actions button { width: 100%; min-height: 40px; }
-  .bzs-review-input { font-size: 16px; }
+  .bzs-review-input,
+  .bzs-review-q-text,
+  .bzs-review-textarea { font-size: 16px; }
+  .bzs-review-opt { font-size: 0.9em; }
 }
 

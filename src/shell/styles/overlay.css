@@ -2032,6 +2032,12 @@ body.theme-dark .bzs-pendot.on {
   background: var(--copper-soft);
 }
 
+/* 已在复习：这颗按钮说的是状态，不再是「再加一次」的动作 */
+.bzs-sbtn.is-planned {
+  color: var(--copper);
+  background: var(--copper-soft);
+}
+
 /* ==========================================================
    壳层补充：原型里没有、真实插件必需的三样
    1. 全屏弹层容器（挂 body，不再挂在某个视图里）

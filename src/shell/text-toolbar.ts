@@ -338,6 +338,13 @@ export interface ToolbarHtmlInput extends ToolbarLayoutInput {
    * 只影响文案，`data-act` 不变——动作表自己会判断「存过就打开」。
    */
   kbDone?: Partial<Record<'term' | 'passage', boolean>>;
+  /**
+   * 这条划线已经在复习计划里：那颗按钮从「复习」变「已在复习」。
+   *
+   * 只影响文案与图标，`data-act` 不变——点进去仍是同一个入口，
+   * Review 见到钥匙已存在会跳过（幂等），用户不会因为换了名字就找不到。
+   */
+  reviewPlanned?: boolean;
 }
 
 /* 转义只有一份：render/html.ts 的 esc（D8）。这里原先自己抄了一份，
@@ -379,6 +386,7 @@ export function toolbarHtml(input: ToolbarHtmlInput): string {
     .join('');
 
   const labelOf = (item: ToolbarItem): string => {
+    if (item.act === 'review' && input.reviewPlanned) return t('tool.reviewPlanned');
     const viewKey = KB_VIEW_KEYS[item.act];
     return t(viewKey && input.kbDone?.[item.act as 'term' | 'passage'] ? viewKey : item.key);
   };
@@ -387,16 +395,18 @@ export function toolbarHtml(input: ToolbarHtmlInput): string {
     const cls = [
       'bzs-sbtn',
       item.act === 'idea' ? 'pri' : '',
+      item.act === 'review' && input.reviewPlanned ? 'is-planned' : '',
       item.danger ? 'danger' : '',
       active === item.act ? 'on' : '',
     ]
       .filter(Boolean)
       .join(' ');
     const label = labelOf(item);
+    const icon = item.act === 'review' && input.reviewPlanned ? 'check' : item.icon;
     if (input.icon) {
       return `<button type="button" class="${cls}" data-act="${esc(actOf(item.act))}"${attrs}><span class="bzs-sr-only">${esc(
         label,
-      )}</span><span class="bzs-tbi" data-icon="${esc(item.icon)}"></span></button>`;
+      )}</span><span class="bzs-tbi" data-icon="${esc(icon)}"></span></button>`;
     }
     return `<button type="button" class="${cls}" data-act="${esc(actOf(item.act))}"${attrs}>${esc(label)}</button>`;
   };

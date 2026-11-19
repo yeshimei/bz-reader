@@ -217,6 +217,15 @@ export interface ReaderSettings {
    * 'plain' 全文回忆 / 'flashcard' 抽认卡 / 'quiz' 做题。
    */
   reviewLastMode: 'plain' | 'flashcard' | 'quiz';
+  /**
+   * 加入复习时先问「用哪种方式」（2026-11-19）。
+   *
+   * 默认 **true**：第一次制卡仍要过三选一那一屏。用户在那一屏勾了
+   * 「以后都用这个方式，不再出现这一屏」之后置 false，下次点「加入复习」
+   * 直接进确认题面并当场出题；想改回来去设置里重新打开。
+   * 与 reviewLastMode 一样只在这台机器上记。
+   */
+  reviewAskMode: boolean;
   /*
    * 这里**故意没有** license。
    *
@@ -279,6 +288,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   embedReview: false,
   clipScope: DEFAULT_CLIP_SCOPE,
   reviewLastMode: 'flashcard',
+  reviewAskMode: true,
 };
 
 function str(v: unknown, fallback = ''): string {
@@ -509,6 +519,8 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     reviewLastMode: s.reviewLastMode === 'plain' || s.reviewLastMode === 'flashcard' || s.reviewLastMode === 'quiz'
       ? s.reviewLastMode
       : DEFAULT_SETTINGS.reviewLastMode,
+    /* 缺字段（1.3.x 及之前）= 还是每次先问方式；只有明确写 false 才跳过那一屏 */
+    reviewAskMode: s.reviewAskMode !== false,
   };
 }
 

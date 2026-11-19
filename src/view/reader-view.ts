@@ -111,6 +111,7 @@ import { planHeaderVisibility, roleOf } from './header-layout';
 import { pdfActionRun, type PanelAnchor } from './pdf-actions';
 import { faultHtml, loadingHtml, type FaultDiagLine } from './reader-fault';
 import { REGION_ACTS, SELECTION_ACTS, planToolbarHit, toggleMoreMenu, toolbarHtml } from '../shell/text-toolbar';
+import { markReviewPlanned, refreshBookReviewMarks } from '../shell/review-marks';
 import { hydrateToolbarIcons } from '../shell/toolbar-icons';
 import { can } from '../data/entitlement';
 import { bzEntryReady, openBzImageNote, probeBz } from '../data/bz-bridge';
@@ -5089,6 +5090,8 @@ export class ReaderView extends ItemView {
         only: info.region ? REGION_ACTS : undefined,
         /* 存的这本划线已经存过名词 / 段落：那两颗显示成「看名词 / 看段落」 */
         kbDone: kbDoneOf(saved?.kb),
+        /* 这条划线已经在复习计划里：按钮改叫「已在复习」（开书时已批量查过） */
+        reviewPlanned: reviewReady && !!live && markReviewPlanned(book?.id, live),
         /* 设置里的工具条样式：文字 / 图标（默认文字） */
         icon: shellPrefs().toolbarStyle === 'icon',
       }),
@@ -5555,6 +5558,11 @@ export class ReaderView extends ItemView {
       if (!book.reading.stats.startReadTime) book.reading.stats.startReadTime = Date.now();
       this.api.store.touch();
       this.refreshAnnotations();
+      /* 划线工具有一颗「复习 / 已在复习」：开书时一趟问完这本书的所有划线，
+         之后工具条同步渲染就有答案；查到变化时补一次，别等下次开书。 */
+      void refreshBookReviewMarks(this.app, book).then((changed) => {
+        if (changed && !this.closed) this.syncToolState();
+      });
       this.mounted = true;
     } catch (e) {
       this.mounting = false;
