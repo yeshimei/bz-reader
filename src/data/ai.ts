@@ -10,13 +10,14 @@
  * 无 key 不静默失败：ready() 为 false 时上层给出配置引导，
  * 用户应该被带到设置页，而不是看着按钮点了没反应。
  * ============================================================ */
-import { aiReady, type ReaderSettings } from './settings';
+import type { ReaderSettings } from './settings';
 import { AI_EVIDENCE_LIMIT } from './ai-budget';
 import { buildEnrichMessages } from './book-enrich';
 import { buildGuideMessages } from './chapter-guide';
 import { debugEvent } from './debug-log';
 import { buildChatRequest, chatTextOf, drainChatSse } from './ai-protocol';
-import { resolveAiConfig, type AIProtocol } from './ai-providers';
+import { aiReadyOf, resolveAiConfig, type AIProtocol } from './ai-providers';
+import { ensureSharedAi } from './ai-share';
 
 export type AiTask =
   | 'summarize'
@@ -527,12 +528,18 @@ export async function aiPostChat(
   messages: ReadonlyArray<{ role: string; content: unknown }>,
   opts: AiChatOptions = {},
 ): Promise<string> {
-  if (!aiReady(settings)) {
+  /* 共享 AI 配置（2026-11-19）：自己没配、开关开着，就借用 bz Review 那份。
+     这里是唯一出口，所有 AI 功能（问答 / 挑重点 / 制卡）都自动拿到它。 */
+  let ai = settings.ai;
+  if (!aiReadyOf(ai) && settings.aiShare !== false) {
+    ai = (await ensureSharedAi()) ?? ai;
+  }
+  if (!aiReadyOf(ai)) {
     throw new Error('还没配置 AI 接口：到 书架 · 设置 的「AI 助手」里填好地址、模型与密钥');
   }
   /* 注册表单一事实源：服务商决定端点 / 密钥 / 协议 / 上限 / 思考档位。
      OCR 那条独立通道直接调 postChat，不经过这里。 */
-  const c = resolveAiConfig(settings.ai);
+  const c = resolveAiConfig(ai);
   return postChat(
     {
       baseUrl: c.endpoint,

@@ -416,3 +416,15 @@ export function resolveAiConfig(s: AiSettingsLike, providerId?: string): Resolve
     thinkingBody: thinkingBodyFor(desc.id, s.thinkingOverrides?.[desc.id]),
   };
 }
+
+/**
+ * 「这套 AI 配置能真的发请求吗」——地址 / 模型齐，密钥有（本地服务免鉴权）。
+ *
+ * 2026-11-19 从 settings.aiReady 抽成纯判据：跨插件共享要先判定**借来的**
+ * 配置可不可用，传入的必须是那一份而不是当前设置。
+ */
+export function aiReadyOf(s: AiSettingsLike | null | undefined): boolean {
+  if (!s) return false;
+  const c = resolveAiConfig(s);
+  return !!c.endpoint && !!c.model && (!!c.apiKey || isNoAuthProvider(c.id));
+}

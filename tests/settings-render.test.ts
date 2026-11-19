@@ -1027,7 +1027,7 @@ describe('设置页 · 2026-11-17 重排', () => {
     expect(subs('数据'), '数据').toBe(3); // 目录 / 备份与恢复 / 排查
     expect(subs('PDF'), 'PDF').toBe(3); // 阅读 / 导出与链接 / 扫描页识别
     expect(subs('朗读'), '朗读').toBe(3); // 连接 / 播放 / 缓存与离线
-    expect(subs('AI 助手'), 'AI 助手').toBe(3); // 连接 / 模型配置 / 问答
+    expect(subs('AI 助手'), 'AI 助手').toBe(4); // 连接 / 模型配置 / 共享 / 问答
     expect(subs('标注'), '标注').toBe(0);
     expect(subs('外观'), '外观').toBe(0);
     expect(subs('授权'), '授权').toBe(0);

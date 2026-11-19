@@ -6,6 +6,7 @@ import {
   mergeDraftQuestions,
   modeOptionParts,
   confirmCardView,
+  dropPlanned,
   summaryParts,
   toCardPayload,
   type CardState,
@@ -273,6 +274,28 @@ describe('confirmCardView：确认页不重复显示原文', () => {
   it('做题只列题目，不显示背面原文', () => {
     const d = makeDraft('quiz', { ...SRC, key: 'k', questions: [{ q: '题', options: ['A', 'B'], correct: [0] }] })!;
     expect(confirmCardView(d)).toEqual({ showSource: false, showBack: false });
+  });
+});
+
+describe('dropPlanned：已在计划里的不再打一次', () => {
+  const A: CardSource = { key: 'k-a', bookTitle: '围城', text: '甲' };
+  const B: CardSource = { key: 'k-b', bookTitle: '围城', text: '乙' };
+  const C: CardSource = { key: 'k-c', bookTitle: '围城', text: '丙' };
+
+  it('剔掉已存在的，其余保持原顺序', () => {
+    const r = dropPlanned([A, B, C], new Set(['k-b']));
+    expect(r.kept.map((x) => x.key)).toEqual(['k-a', 'k-c']);
+    expect(r.skipped).toBe(1);
+  });
+
+  it('全都在计划里：一条不剩，skipped 照实计数', () => {
+    const r = dropPlanned([A, B], new Set(['k-a', 'k-b']));
+    expect(r.kept).toHaveLength(0);
+    expect(r.skipped).toBe(2);
+  });
+
+  it('空输入不炸', () => {
+    expect(dropPlanned([], new Set(['x']))).toEqual({ kept: [], skipped: 0 });
   });
 });
 

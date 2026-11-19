@@ -26,12 +26,13 @@ import { normalizeFormat } from '../core/tts-local';
 import type { LocalTtsSettings, OnlineTtsSettings } from '../core/tts-engine';
 import { normalizeTtsResume, type TtsResumePoint } from '../core/tts-resume';
 import { DEFAULT_CLIP_SCOPE, normalizeClipScope, type ClipScope } from './clip-epub/scope';
+import type { App } from 'obsidian';
 import {
   AI_PROVIDER_REGISTRY,
   DEFAULT_AI_PROVIDER,
-  isNoAuthProvider,
-  resolveAiConfig,
+  aiReadyOf,
 } from './ai-providers';
+import { ensureSharedAi, sharedAi } from './ai-share';
 
 export interface AiSettings {
   /** 当前服务商（注册表 id）。2026-11-19 从「不提供服务商选择」回摆为注册表驱动 */
@@ -139,6 +140,14 @@ export interface ReaderSettings {
    * 再讲一遍是应该的，那个人没看过。
    */
   aiAck: boolean;
+  /**
+   * 共享 AI 配置（2026-11-19）：自己没配 AI 时，借用 bz Review 里填好的那一份。
+   *
+   * 默认**开**：两个插件用的是同一批服务商，用户多半只在一边填过；再让他在
+   * 两边各填一遍密钥，纯属重复劳动。开着只是「允许借」，借来的配置只活在
+   * 内存里，不写回本插件、也不改 Review 的设置。关掉即各用各的。
+   */
+  aiShare: boolean;
   /**
    * 「朗读会把正文发给语音服务」那条说明是否已经提示过。
    *
@@ -279,6 +288,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     url: '',
   },
   aiAck: false,
+  /* 默认共享：新手往往只在一边填过 AI，另一边不该让他再填一遍 */
+  aiShare: true,
   ttsAck: false,
   ttsStats: { chars: 0, cost: 0 },
   ttsResume: null,
@@ -499,6 +510,9 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     ttsOnline: normalizeTtsOnline(s.ttsOnline, ai),
     pdfOcr: normalizePdfOcr(s.pdfOcr, ai, s),
     aiAck: s.aiAck === true,
+    /* 缺省开：老版本没有这个字段，升级后按「允许共享」处理——只在对方
+       确实配好时才会生效，不会凭空多出一次网络请求 */
+    aiShare: s.aiShare !== false,
     ttsAck: s.ttsAck === true,
     ttsStats: {
       chars: Math.max(0, Math.round(Number(s.ttsStats?.chars) || 0)),
@@ -554,12 +568,22 @@ export function pdfOcrReady(s: ReaderSettings): boolean {
 }
 
 /**
- * AI 是否可用了：按当前服务商解析出的地址 / 模型 / 密钥齐了才算配好。
+ * AI 是否可用了：自己配好了，或者（开着共享时）另一边配好了。
+ *
  * 本地服务（Ollama / LM Studio）免鉴权，空密钥放行；其余缺一样都不点亮按钮。
+ * 这里读的是内存缓存，入口要现读请用 aiReadyShared——否则用户刚在 Review
+ * 里填完密钥，这边最多要等 5 秒才认。
  */
 export function aiReady(s: ReaderSettings): boolean {
-  const c = resolveAiConfig(s.ai);
-  return !!c.endpoint && !!c.model && (!!c.apiKey || isNoAuthProvider(c.id));
+  if (aiReadyOf(s.ai)) return true;
+  return s.aiShare !== false && aiReadyOf(sharedAi());
+}
+
+/** AI 就绪（异步版）：先刷一次「借来的配置」再判，入口处用它 */
+export async function aiReadyShared(s: ReaderSettings, app?: App | null): Promise<boolean> {
+  if (aiReadyOf(s.ai)) return true;
+  if (s.aiShare === false) return false;
+  return aiReadyOf(await ensureSharedAi(app));
 }
 
 /* 建索引要不要「嵌入配好了」这个判断？不用了：嵌入由第二大脑提供，

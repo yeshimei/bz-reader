@@ -489,21 +489,23 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── 加入复习：三选一与题面确认 ──
-   这两个界面挂在 Obsidian 原生 Modal 里，不在 .bzs-shell 下，
-   所以类名一律自带 bzs- 命名空间，构建时不会被套上壳层前缀。 */
-.bzs-review-mode-lead {
+/* ── 加入复习：两张「三选一」共用同一套卡片 ──
+   第一屏选内容（书右键）：划线每条 / 划线重点 / 按章节重点
+   第二屏选方式（所有入口）：全文回忆 / 抽认卡 / 做题
+   两个界面都挂在 Obsidian 原生 Modal 里，不在 .bzs-shell 下，所以类名
+   一律自带 bzs- 命名空间；选项卡只有一套样式，别再各画一版。 */
+.bzs-review-lead {
   margin: 0 0 12px;
   color: var(--text-muted);
   font-size: 0.9em;
   line-height: 1.5;
 }
-.bzs-review-mode-list {
+.bzs-review-choice-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
-.bzs-review-mode {
+.bzs-review-choice {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -515,8 +517,8 @@
   border-radius: 10px;
   cursor: pointer;
 }
-.bzs-review-mode:hover { border-color: var(--interactive-accent); }
-.bzs-review-mode.is-on {
+.bzs-review-choice:hover { border-color: var(--interactive-accent); }
+.bzs-review-choice.is-on {
   border-color: var(--interactive-accent);
   background: var(--interactive-accent);
   color: var(--text-on-accent);
@@ -541,6 +543,43 @@
 .bzs-review-remember-text b { font-size: 0.92em; font-weight: 600; color: var(--text-normal); }
 .bzs-review-remember-text small { font-size: 0.8em; color: var(--text-muted); line-height: 1.5; }
 
+/* 不可选（例如这一类内容已经在计划里）：压暗并去掉手型，但仍看得见说明 */
+.bzs-review-choice.is-off { opacity: 0.45; cursor: default; }
+.bzs-review-choice.is-off:hover { border-color: var(--background-modifier-border); }
+.bzs-review-choice-name { font-size: 1em; font-weight: 600; }
+.bzs-review-choice-sub { font-size: 0.82em; opacity: 0.82; }
+
+/* 第二屏在等 AI 挑内容的那一段：只占一行，不抖布局 */
+.bzs-review-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 4px;
+  color: var(--text-muted);
+  font-size: 0.92em;
+}
+.bzs-review-loading::before {
+  content: '';
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--background-modifier-border);
+  border-top-color: var(--interactive-accent);
+  animation: bzs-review-spin 0.8s linear infinite;
+}
+@keyframes bzs-review-spin {
+  to { transform: rotate(360deg); }
+}
+.bzs-review-note {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: 0.85em;
+  line-height: 1.5;
+}
 .bzs-review-actions {
   display: flex;
   justify-content: flex-end;
@@ -786,8 +825,8 @@
 }
 
 @media (max-width: 640px) {
-  .bzs-review-mode-list { grid-template-columns: 1fr; }
-  .bzs-review-mode { min-height: auto; padding: 12px 14px; }
+  .bzs-review-choice-list { grid-template-columns: 1fr; }
+  .bzs-review-choice { min-height: auto; padding: 12px 14px; }
   .bzs-review-card-list { max-height: none; }
   .bzs-review-actions { flex-direction: column-reverse; }
   .bzs-review-actions button { width: 100%; min-height: 40px; }
@@ -796,4 +835,9 @@
   .bzs-review-textarea { font-size: 16px; }
   .bzs-review-opt { font-size: 0.9em; }
 }
+
+/* AI 未配置的引导窗（shell/ai-guide.ts）：与剪藏本空库提醒同族版式 */
+.bzs-aiguide-lead { margin: 0 0 8px; line-height: 1.6; }
+.bzs-aiguide-hint { margin: 0 0 14px; color: var(--text-muted); font-size: 0.9em; line-height: 1.6; }
+.bzs-aiguide-acts { display: flex; justify-content: flex-end; gap: 8px; }
 

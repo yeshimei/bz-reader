@@ -191,6 +191,29 @@ export function markCardStates(
   });
 }
 
+/**
+ * 把已经在复习计划里的内容剔掉（2026-11-19 用户口径：已加过的划线不再打一次）。
+ *
+ * Review 侧本来就会按钥匙去重，但界面还让人勾、还让 AI 为它出题——白等一次
+ * 模型、白花一次钱，最后只得到一句「本来就在」。所以入口处先剔，剔掉几条
+ * 也照实告诉用户，别让人以为漏了。
+ */
+export function dropPlanned(
+  sources: readonly CardSource[],
+  planned: ReadonlySet<string>,
+): { kept: CardSource[]; skipped: number } {
+  const kept: CardSource[] = [];
+  let skipped = 0;
+  for (const s of sources ?? []) {
+    if (planned.has(s.key)) {
+      skipped += 1;
+      continue;
+    }
+    kept.push(s);
+  }
+  return { kept, skipped };
+}
+
 /** 批量入库结果的计数口径（跨 reader/review 通用） */
 export interface ResultCounts {
   added: number;

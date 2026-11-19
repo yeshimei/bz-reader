@@ -905,6 +905,13 @@ export function viewSettings(v: SettingsView): string {
             : ''
         }`,
       ) +
+      /* 共享 AI 配置（2026-11-19）：两个插件共用一套密钥，用户只在一边填过时
+         不该逼他在另一边再抄一遍。借来的配置只活在内存里，不写回本插件。 */
+      sub(
+        t('settings.ai.share'),
+        `${toggle('aiShare', s.aiShare !== false, t('settings.ai.share'))}
+        <div class="bzs-mini">${esc(t('settings.ai.shareDesc'))}</div>`,
+      ) +
       sub(
         t('settings.sub.aiChat'),
         `${

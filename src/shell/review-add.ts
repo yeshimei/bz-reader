@@ -16,7 +16,7 @@ import { Modal, type App } from 'obsidian';
 import { t } from '../i18n';
 import { notify, notifyProgress } from '../core/notice';
 import type { ReaderSettings } from '../data/settings';
-import { aiReady } from '../data/settings';
+import { aiReadyShared } from '../data/settings';
 import type { ReaderBook } from '../data/schema';
 import { aiPostChat } from '../data/ai';
 import { makeBook } from '../engine/foliate';
@@ -34,6 +34,7 @@ import {
   type MarkLite,
   type ReviewApi,
 } from '../data/review-bridge';
+import { openAiGuide } from './ai-guide';
 import { marksOf } from './domain';
 import { getShellSource, liveBooks, shellSettings } from './source';
 import { DEFAULT_HIGHLIGHT_COLOR, ensureHighlight } from '../data/notes';
@@ -41,7 +42,7 @@ import { mutateState } from './state';
 import { emitNotesChanged } from './runtime';
 import { setMarkReviewPlanned } from './review-marks';
 import { runReviewAdd, type RunChapter } from './review-run';
-import { openCardsFlow } from './review-cards-ui';
+import { openCardsFlow, openCardsFlowLoading } from './review-cards-ui';
 import { resolveScope, type Scope, type ScopeChapter, type ScopeMark } from './review-scope';
 
 /** 侧栏「划线」页那颗按钮的入口 */
@@ -57,11 +58,22 @@ export async function openReviewAdd(app: App | undefined, book: ReaderBook | und
     return;
   }
   const settings = shellSettings();
-  if (!aiReady(settings)) {
-    notify(t('review.needAI'), 'info');
+  if (!(await aiReadyShared(settings, app))) {
+    openAiGuide();
     return;
   }
   new ReviewAddFlow(app, book, api, settings).open();
+}
+
+/** 这条钥匙是不是已经在复习计划里（查询失败当「不在」，照常往下走） */
+async function alreadyPlanned(api: ReviewApi, key: string): Promise<boolean> {
+  if (!api.statusOf) return false;
+  try {
+    const rows = await api.statusOf([key]);
+    return rows.some((r) => r.path === key && r.planned);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -69,6 +81,8 @@ export async function openReviewAdd(app: App | undefined, book: ReaderBook | und
  *
  * 一条划线就是一张卡，没有「挑哪些章节」的问题。重复点不会排两次——
  * 钥匙由 `reader:<书>:<划线>` 决定，Review 那边见到已存在就跳过。
+ * 2026-11-19 起入口处就先问一句：已经在计划里的，不再开界面、也不再
+ * 让 AI 白出一遍题。
  */
 export async function addMarkToReview(app: App | undefined, book: ReaderBook | undefined, markId: string | undefined): Promise<void> {
   if (!app || !book) return;
@@ -77,8 +91,14 @@ export async function addMarkToReview(app: App | undefined, book: ReaderBook | u
     notify(t('notice.mark.notFound'), 'error');
     return;
   }
+  const key = markCardKey(book.id, h.id);
+  const api = findReviewApi(app);
+  if (api && (await alreadyPlanned(api, key))) {
+    notify(t('review.alreadyPlanned'), 'info');
+    return;
+  }
   openCardsFlow(app, [{
-    key: markCardKey(book.id, h.id),
+    key,
     bookTitle: book.meta.title || '',
     chapterTitle: h.chapterTitle,
     text: h.text,
@@ -110,8 +130,14 @@ export async function addSelectionToReview(
   const book = liveBooks().find((b) => b.id === sel.bookId);
   if (!book) return;
   const title = sel.chapterTitle || '';
+  const key = aiCardKey(book.id, title, sel.text);
+  const api = findReviewApi(app);
+  if (api && (await alreadyPlanned(api, key))) {
+    notify(t('review.alreadyPlanned'), 'info');
+    return;
+  }
   openCardsFlow(app, [{
-    key: aiCardKey(book.id, title, sel.text),
+    key,
     bookTitle: book.meta.title || '',
     chapterTitle: title || undefined,
     text: String(sel.text).trim(),
@@ -641,30 +667,39 @@ class ReviewAddFlow {
  * 书右键「加入复习」：范围选择 → 解析原文 → 三选一制卡
  * ============================================================ */
 
-/** 书右键菜单那颗「加入复习」的入口 */
-export function openBookReviewAdd(app: App | undefined, book: ReaderBook | undefined): void {
+/**
+ * 书右键菜单那颗「加入复习」的入口。
+ *
+ * 2026-11-19 起不再在门口拦「没配 AI」：第一屏里「每条一张」根本不调 AI，
+ * 先拦掉等于把一个不用 AI 的功能也锁死。要 AI 的那两项点了再引导。
+ */
+export async function openBookReviewAdd(app: App | undefined, book: ReaderBook | undefined): Promise<void> {
   if (!app || !book) return;
   if (!findReviewApi(app)) {
     notify(t('review.needPlugin'), 'info');
     return;
   }
-  const settings = shellSettings();
-  if (!aiReady(settings)) {
-    notify(t('review.needAI'), 'info');
-    return;
-  }
-  new BookScopeFlow(app, book, settings).open();
+  new BookScopeFlow(app, book, shellSettings()).open();
 }
 
-/** 选范围的小弹窗（划线每条 / 划线重点 / 章节重点） */
+/**
+ * 第一屏：选要加入的内容（三张卡片，与第二屏同一套视觉）。
+ *
+ * 打开时先问一次「哪些划线已经在计划里」——两件事都靠它：
+ *   · 卡片副行照实写「共 N 条，其中 M 条已在计划里」；
+ *   · 划线全加过时，「每条一张 / 划线重点」两项整块置灰，别让人白点。
+ */
 class BookScopeFlow {
   private app: App;
   private book: ReaderBook;
   private settings: ReaderSettings;
   private modal: Modal;
   private scope: Scope = 'marks';
-  private chapters: ScopeChapter[] = [];
   private busy = false;
+  private markCount = 0;
+  private plannedMarkCount = 0;
+  /** 状态查过没有：没查完就别把「全加过」当成事实去禁用选项 */
+  private statusDone = false;
 
   constructor(app: App, book: ReaderBook, settings: ReaderSettings) {
     this.app = app;
@@ -678,32 +713,104 @@ class BookScopeFlow {
     this.modal.onClose = () => this.modal.contentEl.empty();
     this.render();
     this.modal.open();
+    /* 先查「哪些加过」：查完会重画一次卡片副行与可用状态 */
+    void this.loadStatus();
   }
 
+  /** 这本书的全部划线（带章节信息），各入口共用一份口径 */
+  private rawMarks(): ScopeMark[] {
+    return marksOf(this.book).map((m) => ({
+      id: m.id, chapterIndex: m.chapterIndex, chapterTitle: m.chapterTitle, text: m.text, comment: m.comment,
+    }));
+  }
+
+  /**
+   * 查「哪些划线已经在计划里」。
+   *
+   * 只查划线（第一屏能确定的就是它们）；「按章节」挑的是正文句子，钥匙要等
+   * AI 挑完才算得出来，那一步由第二屏统一过滤。
+   */
+  private async loadStatus(): Promise<void> {
+    const list = this.rawMarks();
+    this.markCount = list.length;
+    try {
+      const api = findReviewApi(this.app);
+      if (api?.statusOf && list.length) {
+        const keys = list.map((m) => markCardKey(this.book.id, m.id));
+        const rows = await api.statusOf(keys);
+        const planned = new Set(rows.filter((r) => r.planned).map((r) => r.path));
+        this.plannedMarkCount = keys.filter((k) => planned.has(k)).length;
+      }
+    } catch {
+      /* 查询失败：按「都没加过」处理，Review 侧后面还会按钥匙去重 */
+    }
+    this.statusDone = true;
+    /* 划线全加过时，默认落到「按章节」——正文里还有没加过的内容 */
+    if (this.scope === 'marks' && this.newMarkCount() === 0) this.scope = 'chaptersKey';
+    this.render();
+  }
+
+  /** 还有多少条划线没加过 */
+  private newMarkCount(): number {
+    return Math.max(0, this.markCount - this.plannedMarkCount);
+  }
+
+  /** 第一屏的三张卡片。**行间不加分隔线**：卡片本身就是边界 */
   private render(): void {
     const el = this.modal.contentEl;
     el.empty();
-    const opts: Array<{ key: Scope; label: string }> = [
-      { key: 'marks', label: t('review.scope.marks') },
-      { key: 'marksKey', label: t('review.scope.marksKey') },
-      { key: 'chaptersKey', label: t('review.scope.chaptersKey') },
+
+    const newMarks = this.newMarkCount();
+    /* 没查完之前不把「全加过」当结论：先按可用处理，查完会重画一次 */
+    const marksUsable = this.statusDone ? newMarks > 0 : true;
+    const opts: Array<{ key: Scope; label: string; sub: string; usable: boolean }> = [
+      {
+        key: 'marks',
+        label: t('review.scope.marks'),
+        sub: this.markCount === 0
+          ? t('review.scope.marksEmpty')
+          : this.plannedMarkCount > 0
+            ? t('review.scope.marksSubPlanned', { n: String(this.markCount), planned: String(this.plannedMarkCount) })
+            : t('review.scope.marksSub', { n: String(this.markCount) }),
+        usable: marksUsable,
+      },
+      {
+        key: 'marksKey',
+        label: t('review.scope.marksKey'),
+        sub: t('review.scope.marksKeySub', { n: String(newMarks) }),
+        usable: marksUsable,
+      },
+      {
+        key: 'chaptersKey',
+        label: t('review.scope.chaptersKey'),
+        sub: t('review.scope.chaptersKeySub'),
+        usable: true,
+      },
     ];
+
+    const list = el.createDiv({ cls: 'bzs-review-choice-list' });
     for (const o of opts) {
-      const row = el.createDiv({ cls: 'setting-item' });
-      const info = row.createDiv({ cls: 'setting-item-info' });
-      info.createDiv({ cls: 'setting-item-name', text: o.label });
-      const ctl = row.createDiv({ cls: 'setting-item-control' });
-      const radio = ctl.createEl('input');
-      radio.type = 'radio';
-      radio.name = 'review-scope';
-      radio.checked = this.scope === o.key;
-      radio.addEventListener('change', () => { if (radio.checked) this.scope = o.key; });
+      const card = list.createDiv({ cls: 'bzs-review-choice' });
+      card.createDiv({ cls: 'bzs-review-choice-name', text: o.label });
+      card.createDiv({ cls: 'bzs-review-choice-sub', text: o.sub });
+      if (this.scope === o.key && o.usable) card.addClass('is-on');
+      if (!o.usable) {
+        card.addClass('is-off');
+        continue;
+      }
+      card.addEventListener('click', () => {
+        if (this.scope === o.key) return;
+        this.scope = o.key;
+        this.render();
+      });
     }
-    const row = el.createDiv({ cls: 'modal-button-container' });
+
+    const row = el.createDiv({ cls: 'bzs-review-actions' });
     const cancel = row.createEl('button', { text: t('common.cancel') });
     cancel.addEventListener('click', () => this.modal.close());
     const next = row.createEl('button', { text: t('review.next'), cls: 'mod-cta' });
-    next.disabled = this.busy;
+    const selected = opts.find((o) => o.key === this.scope);
+    next.disabled = this.busy || !selected?.usable;
     next.addEventListener('click', () => void this.run());
   }
 
@@ -757,35 +864,48 @@ class BookScopeFlow {
     }
   }
 
+  /**
+   * 点「下一步」。
+   *
+   *   · 每条一张：不调 AI，直接算出候选交第二屏（那边会再剔一次已在计划里的）；
+   *   · 两个「重点」：先确认 AI 可用，再**立刻翻到第二屏**，在那里显示
+   *     「正在读章节 / 正在挑重点」，AI 回来后原地变成三选一。
+   */
   private async run(): Promise<void> {
     if (this.busy) return;
-    this.busy = true;
-    this.render();
-    const progress = notifyProgress(t('review.loading'));
-    try {
-      if (this.scope === 'chaptersKey' && !this.chapters.length) this.chapters = await this.loadChapters();
-      const marks: ScopeMark[] = marksOf(this.book).map((m) => ({
-        id: m.id, chapterIndex: m.chapterIndex, chapterTitle: m.chapterTitle, text: m.text, comment: m.comment,
-      }));
-      const sources = await resolveScope(this.scope, {
+    const marks = this.rawMarks();
+    const scope = this.scope;
+
+    if (scope !== 'marks' && !(await aiReadyShared(this.settings, this.app))) {
+      openAiGuide();
+      return;
+    }
+
+    if (scope === 'marks') {
+      const sources = await resolveScope('marks', {
         bookId: this.book.id,
         bookTitle: this.book.meta.title || '',
         marks,
-        chapters: this.chapters,
+        chapters: [],
+        ask: async () => '',
+        chapterText: async () => '',
+      });
+      this.modal.close();
+      openCardsFlow(this.app, sources);
+      return;
+    }
+
+    this.modal.close();
+    openCardsFlowLoading(this.app, async () => {
+      const chapters = scope === 'chaptersKey' ? await this.loadChapters() : [];
+      return resolveScope(scope, {
+        bookId: this.book.id,
+        bookTitle: this.book.meta.title || '',
+        marks,
+        chapters,
         ask: (p) => aiPostChat(this.settings, [{ role: 'user', content: p }], {}),
         chapterText: (i) => this.chapterBody(i),
       });
-      this.modal.close();
-      if (!sources.length) {
-        notify(t('review.doneEmpty'), 'info');
-        return;
-      }
-      openCardsFlow(this.app, sources);
-    } catch {
-      notify(t('review.addFailed', { why: t('common.unknownError') }), 'error');
-    } finally {
-      progress.hide();
-      this.busy = false;
-    }
+    });
   }
 }

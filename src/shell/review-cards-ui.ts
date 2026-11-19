@@ -20,10 +20,11 @@
 import { Modal, type App } from 'obsidian';
 import { t } from '../i18n';
 import { notify } from '../core/notice';
-import type { ReaderSettings } from '../data/settings';
+import { aiReadyShared, type ReaderSettings } from '../data/settings';
 import { aiPostChat } from '../data/ai';
 import {
   confirmCardView,
+  dropPlanned,
   estimateSendChars,
   markCardStates,
   mergeDraftQuestions,
@@ -42,6 +43,7 @@ import {
   type ReviewApi,
   type ReviewQuota,
 } from '../data/review-bridge';
+import { openAiGuide } from './ai-guide';
 import { getShellSource, shellSettings } from './source';
 
 const MODES: readonly ReviewMode[] = ['plain', 'flashcard', 'quiz'];
@@ -53,13 +55,41 @@ export interface CardsFlowHooks {
 
 /** 打开三选一制卡界面。sources 为待制卡的原文（一条就是一张卡）。 */
 export function openCardsFlow(app: App | undefined, sources: CardSource[], hooks: CardsFlowHooks = {}): void {
-  if (!app || !sources.length) return;
+  if (!app || sources.length === 0) return;
   const api = findReviewApi(app);
   if (!api) {
     notify(t('review.needPlugin'), 'info');
     return;
   }
-  new CardsFlow(app, api, sources, shellSettings(), hooks).open();
+  new CardsFlow(app, api, shellSettings(), { sources, hooks }).open();
+}
+
+/**
+ * 「先翻页、后加载」的第二屏（2026-11-19 用户口径）。
+ *
+ * 书右键选「划线（重点）/ 按章节（重点）」时要先让 AI 挑内容：以前是
+ * 弹窗 → 飘一条「正在读章节」→ 再开一个弹窗，三步三块界面。现在这一步
+ * 直接进第二屏，页内显示加载态，AI 回来后原地变成三选一。
+ */
+export function openCardsFlowLoading(app: App | undefined, load: () => Promise<CardSource[]>): void {
+  if (!app) return;
+  const api = findReviewApi(app);
+  if (!api) {
+    notify(t('review.needPlugin'), 'info');
+    return;
+  }
+  new CardsFlow(app, api, shellSettings(), { sources: [], load }).open();
+}
+
+/** 第二屏的四个状态：等 AI 挑内容 / 选方式 / 改题面 / 没内容可加 */
+type Step = 'loading' | 'mode' | 'edit' | 'empty';
+
+interface CardsFlowInit {
+  sources: CardSource[];
+  /** 异步来源（AI 挑重点）：给了就先进加载态，回来再进三选一 */
+  load?: () => Promise<CardSource[]>;
+  /** 加入成功后的联动（文字工具栏用来补划线） */
+  hooks?: CardsFlowHooks;
 }
 
 class CardsFlow {
@@ -67,10 +97,11 @@ class CardsFlow {
   private api: ReviewApi;
   private settings: ReaderSettings;
   private sources: CardSource[];
+  private loader?: () => Promise<CardSource[]>;
   private modal: Modal;
   private hooks: CardsFlowHooks;
 
-  private step: 'mode' | 'edit' = 'mode';
+  private step: Step;
   private mode: ReviewMode;
   private drafts: DraftCard[] = [];
   private states: string[] = [];
@@ -93,28 +124,35 @@ class CardsFlow {
   private closed = false;
   private existing = new Set<string>();
   private quota: ReviewQuota = { used: 0, limit: 0, remaining: Infinity, full: false };
+  /** 已在计划里、这次被剔掉的条数（照实告诉用户，别让人以为漏了） */
+  private skipped = 0;
+  private errorText = '';
+  /** 用户关过窗：AI 结果回来一律丢弃，不写盘也不弹提示 */
+  private cancelled = false;
 
-  constructor(app: App, api: ReviewApi, sources: CardSource[], settings: ReaderSettings, hooks: CardsFlowHooks = {}) {
+  constructor(app: App, api: ReviewApi, settings: ReaderSettings, init: CardsFlowInit) {
     this.app = app;
     this.api = api;
     this.settings = settings;
-    this.sources = sources;
-    this.hooks = hooks;
+    this.sources = init.sources;
+    this.loader = init.load;
+    this.hooks = init.hooks ?? {};
+    this.step = init.load ? 'loading' : 'mode';
     const last = settings.reviewLastMode;
     this.mode = last === 'plain' || last === 'flashcard' || last === 'quiz' ? last : 'flashcard';
-    /* 上次勾过「不再出现这一屏」：直接落到确认题面，生成过程由它自己的加载态显示 */
-    if (settings.reviewAskMode === false) this.step = 'edit';
+    /* 上次勾过「不再出现这一屏」：直接落到确认题面，生成过程由它自己的加载态显示。
+       异步来源（AI 挑重点）必须先过加载页，不在这里跳步。 */
+    if (settings.reviewAskMode === false && !this.loader) this.step = 'edit';
     this.modal = new Modal(app);
   }
 
   open(): void {
     this.modal.onClose = () => {
       this.closed = true;
+      this.cancelled = true;
       this.abort?.abort();
       this.modal.contentEl.empty();
     };
-    /* 额度与现状是只读查询，失败就按「不标记」处理，不该拦住制卡。 */
-    void this.loadStatus();
     /* 跳过三选一：第一帧就得是加载态，不能先闪一下空列表 */
     const auto = this.step === 'edit';
     if (auto) {
@@ -123,10 +161,34 @@ class CardsFlow {
     }
     this.render();
     this.modal.open();
-    if (auto) void this.generate(true);
+    /* 预热「借来的 AI 配置」：点下一步时才读盘会多一顿；这里顺手读一次。 */
+    void aiReadyShared(this.settings, this.app);
+    if (this.loader) void this.loadSources();
+    else void this.refreshStatus();
+    if (auto) void this.beginGeneration(true);
   }
 
-  private async loadStatus(): Promise<void> {
+  /** 异步来源：AI 挑重点 / 读章节挑句子。结果回来前页面停在下拉加载态。 */
+  private async loadSources(): Promise<void> {
+    let list: CardSource[] = [];
+    try {
+      list = await this.loader!();
+    } catch {
+      if (this.cancelled) return;
+      this.errorText = t('review.addFailed', { why: t('common.unknownError') });
+      this.step = 'empty';
+      this.render();
+      return;
+    }
+    /* 用户已经关窗：不写盘、不弹「已加入」，安安静静结束 */
+    if (this.cancelled) return;
+    this.sources = (list ?? []).filter((s) => String(s?.text ?? '').trim());
+    this.step = 'mode';
+    await this.refreshStatus();
+  }
+
+  /** 查「哪些已经在计划里」+ 额度，并把已存在的从候选里剔掉 */
+  private async refreshStatus(): Promise<void> {
     try {
       if (this.api.statusOf) {
         const rows = await this.api.statusOf(this.sources.map((s) => s.key));
@@ -134,36 +196,71 @@ class CardsFlow {
       }
       if (this.api.quota) this.quota = await this.api.quota();
     } catch {
-      /* 查询失败：清空状态标记，照常制卡 */
+      /* 查询失败：清空状态标记，照常制卡（Review 侧还会再按钥匙去重一次） */
     }
-    if (this.step === 'edit' && !this.generating) this.render();
+    if (this.cancelled) return;
+    /* 已经在改题面了就别再改候选——那一步的草稿是按旧 sources 生成的 */
+    if (this.step === 'edit') {
+      if (!this.generating) this.render();
+      return;
+    }
+    const { kept, skipped } = dropPlanned(this.sources, this.existing);
+    this.sources = kept;
+    this.skipped = skipped;
+    this.step = this.sources.length ? 'mode' : 'empty';
+    this.render();
   }
 
   private render(): void {
     const el = this.modal.contentEl;
     /* 标题跟着步骤走：第二步别再顶着「选一种复习方式」，那是上一步的事。 */
-    this.modal.titleEl.setText(t(this.step === 'mode' ? 'review.mode.title' : 'review.make.title'));
+    const titleKey =
+      this.step === 'edit'
+        ? 'review.make.title'
+        : this.step === 'empty'
+          ? 'review.empty.title'
+          : 'review.mode.title';
+    this.modal.titleEl.setText(t(titleKey));
     this.loadingLabel = null;
     el.empty();
-    if (this.step === 'mode') this.renderMode(el);
-    else if (this.generating) this.renderLoading(el);
-    else this.renderEdit(el);
+    if (this.step === 'loading') this.renderScopeLoading(el);
+    else if (this.step === 'mode') this.renderMode(el);
+    else if (this.step === 'edit') {
+      /* 主仓的整屏生成态：确认题面那一帧先画进度，生成完再画草稿 */
+      if (this.generating) this.renderLoading(el);
+      else this.renderEdit(el);
+    } else this.renderEmpty(el);
+  }
+
+  /* ── 等待 AI 挑内容的一段（AI 挑重点 / 按章节挑句子） ── */
+
+  private renderScopeLoading(el: HTMLElement): void {
+    const lead = el.createEl('p', { cls: 'bzs-review-lead', text: t('review.processing.lead') });
+    void lead;
+    el.createDiv({ cls: 'bzs-review-loading', text: t('review.loadingScope') });
+    const row = el.createDiv({ cls: 'bzs-review-actions' });
+    row.createEl('button', { text: t('common.cancel') }).addEventListener('click', () => this.modal.close());
   }
 
   /* ── 第一步：三选一 ── */
 
   private renderMode(el: HTMLElement): void {
-    const lead = el.createEl('p', { text: t('review.make.lead') });
-    lead.className = 'bzs-review-mode-lead';
+    const lead = el.createEl('p', { cls: 'bzs-review-lead', text: t('review.mode.lead') });
+    void lead;
 
-    const list = el.createDiv({ cls: 'bzs-review-mode-list' });
+    /* 有被剔掉的就照实说：不然用户会以为那几条「没加进去」 */
+    if (this.skipped > 0) {
+      el.createDiv({ cls: 'bzs-review-note', text: t('review.scope.existing', { n: String(this.skipped) }) });
+    }
+
+    const list = el.createDiv({ cls: 'bzs-review-choice-list' });
     for (const m of MODES) {
-      const card = list.createDiv({ cls: 'bzs-review-mode' });
+      const card = list.createDiv({ cls: 'bzs-review-choice' });
       /* 标题在上、发送字数在下；全文回忆只有标题，不再写「不用 AI」。 */
       const parts = modeOptionParts(m, estimateSendChars(m, this.sources));
-      card.createDiv({ cls: 'bzs-review-mode-name', text: t(parts.titleKey as never) });
+      card.createDiv({ cls: 'bzs-review-choice-name', text: t(parts.titleKey as never) });
       if (parts.hintKey) {
-        card.createDiv({ cls: 'bzs-review-mode-chars', text: t(parts.hintKey as never, parts.hintParams) });
+        card.createDiv({ cls: 'bzs-review-choice-sub', text: t(parts.hintKey as never, parts.hintParams) });
       }
       if (this.mode === m) card.addClass('is-on');
       card.addEventListener('click', () => {
@@ -197,8 +294,29 @@ class CardsFlow {
         getShellSource()?.setSettings({ reviewAskMode: false, reviewLastMode: this.mode });
         this.settings.reviewAskMode = false;
       }
-      void this.generate();
+      void this.beginGeneration();
     });
+  }
+
+  /* ── 没有可加入的内容（全在计划里 / AI 挑空 / 出错） ── */
+
+  private renderEmpty(el: HTMLElement): void {
+    const text = this.errorText || (this.skipped > 0
+      ? t('review.planned.desc', { n: String(this.skipped) })
+      : t('review.scope.none'));
+    el.createEl('p', { cls: 'bzs-review-lead', text });
+    const row = el.createDiv({ cls: 'bzs-review-actions' });
+    row.createEl('button', { cls: 'mod-cta', text: t('common.close') }).addEventListener('click', () => this.modal.close());
+  }
+
+  /* AI 入口先确认「自己配了或对方配了」：没配就别让人干等，给个能点的引导。 */
+  private async beginGeneration(autoStart = false): Promise<void> {
+    if (this.busy && !autoStart) return;
+    if (this.mode !== 'plain' && !(await aiReadyShared(this.settings, this.app))) {
+      openAiGuide();
+      return;
+    }
+    await this.generate(autoStart);
   }
 
   /* ── 生成题面（整屏加载） ── */
@@ -265,7 +383,7 @@ class CardsFlow {
 
   private renderEdit(el: HTMLElement): void {
     const lead = el.createEl('p', { text: t('review.make.lead') });
-    lead.className = 'bzs-review-mode-lead';
+    lead.className = 'bzs-review-lead';
 
     const list = el.createDiv({ cls: 'bzs-review-card-list' });
     const scrollTop = this.lastScrollTop;
@@ -554,10 +672,18 @@ class CardsFlow {
 
   private async submit(): Promise<void> {
     if (this.busy) return;
+    /* 双重保险：候选在打开时已剔过一遍，这里再按计划筛一次——万一有人
+       在两步之间从别的入口把同一条加进去了，也不该再打一次 */
+    const fresh = this.drafts.filter((d) => !this.existing.has(d.key));
+    if (!fresh.length) {
+      notify(t('review.doneAllExists', { exists: String(this.drafts.length) }), 'info');
+      this.modal.close();
+      return;
+    }
     this.busy = true;
     this.captureScroll();
     this.render();
-    const payloads = this.drafts.map(toCardPayload);
+    const payloads = fresh.map(toCardPayload);
     try {
       const res = await this.api.addCards(payloads);
       const parts = summaryParts({

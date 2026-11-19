@@ -1708,7 +1708,7 @@ export function dispatchAction(
           if (it.act === 'relocate') i.onClick(() => overlay('missing', { bookId: id }));
           if (it.act === 'detail') i.onClick(() => overlay('detail', { bookId: id }));
           /* 加入复习：选范围 → 三选一制卡 → 交给 bz Review */
-          if (it.act === 'review') i.onClick(() => openBookReviewAdd(getShellSource()?.app, book));
+          if (it.act === 'review') i.onClick(() => void openBookReviewAdd(getShellSource()?.app, book));
           /* 补全信息（2026-11-11）：用户点了才发请求，只填空白字段 */
           if (it.act === 'enrich')
             i.onClick(() => {
