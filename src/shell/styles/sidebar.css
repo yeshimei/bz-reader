@@ -1202,20 +1202,25 @@
 .bzs-aiidx {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   padding: 14px 2px;
+  /* 红字提示的警示底：从 --vermilion 派生，与 overlay / study 里既有警示底同思路。
+     定义在容器上只写一次，别把色值硬编码散落到卡片里。 */
+  --lack-bg: color-mix(in srgb, var(--vermilion) 8%, var(--surface-2));
 }
 
 .bzs-aiidx .lead {
   font-size: 12px;
-  line-height: 1.85;
+  line-height: 1.8;
   color: var(--t2);
+  margin-bottom: 14px;
 }
 
 .bzs-aiidx .acts {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 18px;
 }
 
 .bzs-aiidx .acts .bzs-btn {
@@ -1255,13 +1260,13 @@
   transition: width 0.2s var(--ease);
 }
 
-/* 两种建法：卡片本身就是按钮，块数与请求数写在下面（决定花多少钱的就是它） */
+/* 两种建法：卡片本身就是按钮，块数与请求数写在下面（决定花多少钱的就是它）
+   标题 / 估算 / 缺服务红字各占一块，靠各自 margin 拉开，不再靠 flex gap 硬挤。 */
 .bzs-aiplan {
   display: flex;
   flex-direction: column;
-  gap: 4px;
   text-align: left;
-  padding: 10px 12px;
+  padding: 13px 15px;
   border: 1px solid var(--line);
   border-radius: var(--r-ctl);
   background: none;
@@ -1270,21 +1275,32 @@
 }
 
 .bzs-aiplan b {
-  font-size: 12px;
+  display: block;
+  font-size: 13px;
   font-weight: 500;
+  line-height: 1.6;
   color: var(--t1);
 }
 
 .bzs-aiplan .est {
-  font-size: 11px;
+  display: block;
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.7;
   color: var(--t3);
 }
 
 .bzs-aiplan .lack {
-  font-size: 11px;
+  display: block;
+  margin-top: 10px;
+  padding: 9px 11px;
+  border-left: 3px solid var(--vermilion);
+  border-radius: 0 6px 6px 0;
+  background: var(--lack-bg);
+  font-size: 11.5px;
   font-style: normal;
+  line-height: 1.75;
   color: var(--vermilion);
-  line-height: 1.7;
 }
 
 .bzs-aiplan.on {
