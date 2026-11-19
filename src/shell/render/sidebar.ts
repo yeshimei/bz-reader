@@ -255,16 +255,13 @@ function bookmarksBody(rows: BmkRow[]): string {
     .join('')}</div>`;
 }
 
-function highlightsBody(rows: MarkRow[], bookId: string): string {
-  /* 「加入复习」放在最上面：它是这一页唯一的「往外送」动作，
-     其余都是「看 / 跳回去 / 删」。空划线时也留着——按章节挑不需要先划线。 */
-  const head = `<div class="bzs-hlacts">
-    <button class="bzs-btn sm" data-act="reviewadd" data-book="${esc(bookId)}">${t('review.add')}</button>
-  </div>`;
+function highlightsBody(rows: MarkRow[]): string {
+  /* 这一页只有「看 / 跳回去 / 删」。2026-11-20 起「加入复习」入口不再放这儿
+     （改从文字工具栏 / 书右键进入），侧栏划线条目回归纯记号列表。 */
   if (!rows.length) {
-    return head + `<div class="bzs-empty">${t('side.highlights.empty')}<br>${t('side.highlights.emptyHint')}</div>`;
+    return `<div class="bzs-empty">${t('side.highlights.empty')}<br>${t('side.highlights.emptyHint')}</div>`;
   }
-  return head + groupByChapter(rows)
+  return groupByChapter(rows)
     .map(
       (g) => `<div class="bzs-hlgroup">
         <div class="bzs-hlg-h"><span>${esc(g.title)}</span><span class="n">${g.items.length}</span><span class="ln"></span></div>
@@ -907,7 +904,7 @@ export function viewSidebar(v: SidebarView): string {
   } else if (v.tab === 'bookmarks') {
     body = bookmarksBody(bmksOf(book));
   } else if (v.tab === 'highlights') {
-    body = highlightsBody(marksOf(book), book.id);
+    body = highlightsBody(marksOf(book));
   } else if (v.tab === 'cites') {
     body = citesBody(v.cites ?? [], v.activePage ?? 0, v.citesOnlyPage === true);
   } else {

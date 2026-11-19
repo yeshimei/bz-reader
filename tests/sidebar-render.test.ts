@@ -61,6 +61,14 @@ describe('划线列表', () => {
     expect(html).not.toContain('data-act="hlcard"');
   });
 
+  /* 2026-11-20 真机反馈：侧栏划线页顶部那颗「加入复习」入口撤掉，
+     复习改从文字工具栏 / 书右键进入。划线页只留「看 / 跳回去 / 删」。 */
+  it('划线页顶部不再有「加入复习」入口', () => {
+    const html = view({ tab: 'highlights' });
+    expect(html).not.toContain('data-act="reviewadd"');
+    expect(html).not.toContain('bzs-hlacts');
+  });
+
   it('仍保留行内的删除按钮（带二次确认由 actions 负责）', () => {
     expect(view({ tab: 'highlights' })).toContain('data-act="delmark"');
   });
