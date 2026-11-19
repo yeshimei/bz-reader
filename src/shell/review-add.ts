@@ -823,6 +823,9 @@ class BookScopeFlow {
 
   /** 第一屏的三张卡片。**行间不加分隔线**：卡片本身就是边界 */
   private renderScopePick(el: HTMLElement): void {
+    /* 查「已在计划里的划线」是异步的，查完会再画一次；不清就会叠出两屏卡片。
+       2026-11-20 真机走查撞到：一屏两套「加入划线」，点哪套都容易点错。 */
+    el.empty();
     const newMarks = this.newMarkCount();
     /* 没查完之前不把「全加过」当结论：先按可用处理，查完会重画一次 */
     const marksUsable = this.statusDone ? newMarks > 0 : true;
