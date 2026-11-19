@@ -16,7 +16,7 @@ import { allMarks } from './domain';
 import type { ShellState } from './state';
 import { getShellSource, shellPrefs, shellSettings } from './source';
 import { bzSnapshot } from '../data/bz-bridge';
-import { findReviewApi } from '../data/review-bridge';
+import { findReviewApi, reviewEmbedReady } from '../data/review-bridge';
 import { viewLibrary, type StudyCounts } from './render/study';
 import { viewSearch } from './render/search';
 import { viewNotes } from './render/notes';
@@ -30,6 +30,8 @@ import { readHotkeys } from '../core/hotkeys';
 export interface ShelfPage {
   body: string;
   counts: StudyCounts;
+  /** 复习页签是否可见（开关开 + 装了支持嵌入的 Review），由 studyShell 决定是否列出 */
+  reviewTab: boolean;
   /**
    * 页面级图层（盖住整个书架的一层，比如对话页的导出确认）。
    *
@@ -40,8 +42,20 @@ export interface ShelfPage {
   layer?: string;
 }
 
+/**
+ * 复习页签是否可用：开关开了，且装了支持嵌入的 Review。
+ *
+ * 设置页显示开关、书架列页签、点击拦截、离开页回退都认这一份，
+ * 避免「开关在但页签点不动」这类自相矛盾的界面。
+ * 现探不缓存：拆装 Review 后重进书架就能看到变化。
+ */
+export function reviewTabVisible(): boolean {
+  const app = getShellSource()?.app;
+  return shellSettings().embedReview === true && reviewEmbedReady(app ? findReviewApi(app) : null);
+}
+
 /** 这几页的内容完全由 state + books 决定，可以安全跳过重复重绘 */
-const DEDUP_PAGES: readonly string[] = ['library', 'notes', 'ai'];
+const DEDUP_PAGES: readonly string[] = ['library', 'notes', 'ai', 'review'];
 
 /**
  * 书架重绘指纹（D4）。
@@ -60,6 +74,10 @@ const DEDUP_PAGES: readonly string[] = ['library', 'notes', 'ai'];
  */
 export function shelfRenderKey(state: ShellState, books: ReaderBook[], compact = false): string {
   if (!DEDUP_PAGES.includes(state.studyPage)) return '';
+  /* 复习页的正文是 Review 嵌进来的 DOM，跟本库的书单毫无关系：指纹只认
+     页名与版式。绝不能把 books / 收藏缓存拍进来——书单或收藏一变就整页
+     重绘，Review 挂进来的节点会被 setHtml 冲掉。 */
+  if (state.studyPage === 'review') return `review\u0001${compact ? 'c' : 'f'}`;
   const s = [
     state.studyPage,
     state.libFilter,
@@ -152,6 +170,8 @@ export function shelfRenderKey(state: ShellState, books: ReaderBook[], compact =
  */
 export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: boolean): ShelfPage {
   const app = getShellSource()?.app;
+  /* 复习页签现探一次，作为新参数交给 studyShell；渲染函数保持纯函数可测。 */
+  const reviewTab = reviewTabVisible();
   /* 页签上的「笔记」数量只要条数，不必把每一条拍平成 MarkRow 再排序：
      以前每画一页（包括设置页）都算一次全库标注（D4）。 */
   const noteCount = books.reduce((n, b) => n + (b.notes?.highlights?.length ?? 0), 0);
@@ -163,11 +183,15 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
   switch (state.studyPage) {
     case 'search':
       /* 整页搜索：表单与结果都在这里出，输入时由 ShelfPanel 就地换命中列表 */
-      return { body: viewSearch(), counts };
+      return { body: viewSearch(), counts, reviewTab };
     case 'import':
       /* 导入页是命令式的（扫描、勾选、写入都是行为），这里只给挂载点，
          ShelfPanel 画完这一页后把 mountImport 挂进来。 */
-      return { body: '<div class="bzs-import-host" data-role="importhost"></div>', counts };
+      return { body: '<div class="bzs-import-host" data-role="importhost"></div>', counts, reviewTab };
+    /* 复习（2026-11-19）：正文只是一块空宿主，内容由 Review 侧门面挂进来。
+       data-role 名称是跨侧契约（reviewhost / reviewacts），别改。 */
+    case 'review':
+      return { body: '<div class="bzs-review-host" data-role="reviewhost"></div>', counts, reviewTab };
     case 'notes':
       return {
         body: viewNotes({
@@ -179,6 +203,7 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
           picked: state.noteSel,
         }),
         counts,
+        reviewTab,
       };
     /* 对话（2026-11-16）：按书 / 按时间、类型筛选、搜索、展开、归档、导出。
        导出目录跟笔记页同一个设置：写进「笔记」的那批 .md，而不是另起一处。 */
@@ -197,6 +222,7 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
           dir,
         }),
         counts,
+        reviewTab,
         layer: state.aiExport
           ? historyConfirmLayer(state.aiExport.title, state.aiExport.ids, sessions, dir)
           : '',
@@ -220,6 +246,7 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
       return {
         body: can('stats') ? viewStats(statsView, ui) : viewStatsLocked(statsView, ui),
         counts,
+        reviewTab,
       };
     }
     case 'settings':
@@ -240,7 +267,12 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
              重进设置页看到的就是新状态，不缓存。 */
           bz: bzSnapshot(getShellSource()?.app),
           /* bz Review 装没装：现探，装完重进设置页就能看到新状态。 */
-          review: { installed: !!getShellSource()?.app && !!findReviewApi(getShellSource()!.app) },
+          /* installed = 装了；embed = 装了且支持嵌入（v3+）。设置页只在
+             embed 为真时画「书架内显示复习」开关。 */
+          review: {
+            installed: !!app && !!findReviewApi(app),
+            embed: reviewEmbedReady(app ? findReviewApi(app) : null),
+          },
           /* 离线音频的状态（2026-11-14 从朗读浮层搬过来）：浮层没了，
              这一项得在设置页仍看得见。
              整本预生成 2026-11-17 从设置页撤掉：浮条上已有那颗按钮，设置里
@@ -248,6 +280,7 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
           offline: getShellSource()?.offlineAudioInfo?.() ?? null,
         }),
         counts,
+        reviewTab,
       };
     default: {
       /* 行映射（配色 / 日期文案 / 封面地址）只在书库页做：别的页用不上，
@@ -262,6 +295,7 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
           compact,
         }),
         counts,
+        reviewTab,
       };
     }
   }

@@ -19,7 +19,8 @@ import { searchResultsHtml } from './render/search';
 import { RT } from './runtime';
 import { kickBodySearch } from './search-run';
 import { noteSemanticInput } from './search-semantic';
-import { buildShelfPage, shelfRenderKey } from './shelf-page';
+import { buildShelfPage, reviewTabVisible, shelfRenderKey } from './shelf-page';
+import { findReviewApi } from '../data/review-bridge';
 import { hydrateCovers } from './covers';
 import { hydrateIcons } from './toolbar-icons';
 import { focusSelector, type FocusMemo } from './focus-memo';
@@ -39,6 +40,8 @@ export class ShelfPanel {
   private lastPage: StudyPage | null = null;
   /** 导入页的拆卸函数：换页或离开时调用，别把监听留在 DOM 上 */
   private teardownImport: (() => void) | null = null;
+  /** 复习页的拆卸函数：Review 的 embedInto 返回值，换页 / 离开时调用（幂等） */
+  private teardownReview: (() => void) | null = null;
   /** 更新日志只在第一次画到书库页时问一次（判重与记账在插件侧） */
   private changelogAsked = false;
   /** 上一次用的筛选行形态；只在跨过阈值时重绘，避免 resize 抖动 */
@@ -153,6 +156,13 @@ export class ShelfPanel {
 
     const state = getState();
 
+    /* 复习页签可能因为关开关 / Review 被禁用或卸载而消失：还停在复习页时
+       自动退回书库，别把用户留在一个没入口、没内容的空页上。 */
+    if (state.studyPage === 'review' && !reviewTabVisible()) {
+      setState({ studyPage: 'library' });
+      return;
+    }
+
     /* 导入页不参与重绘：扫描结果、勾选、筛选框内容都活在它自己的 DOM 里，
        业务数据一变（store.touch）就整页重建会把勾了一半的清单清空。
        真正的离开（换页）由 lastPage 判断。 */
@@ -182,10 +192,12 @@ export class ShelfPanel {
     this.memoScroll();
     this.memoFocus();
 
-    const { body, counts, layer } = buildShelfPage(state, books, compact);
+    const { body, counts, layer, reviewTab } = buildShelfPage(state, books, compact);
 
     root.dataset.bzaccent = shellPrefs().accent;
-    setHtml(root, studyShell(state.studyPage, body, counts, layer));
+    /* reviewTab 是新增的第 5 个参数：页签是否列出由 shelf-page 现探算好，
+       studyShell 保持纯函数（只认参数，不读设置、不探插件）。 */
+    setHtml(root, studyShell(state.studyPage, body, counts, layer, reviewTab));
 
     const scroller = root.querySelector<HTMLElement>('.bzs-stubody');
     if (scroller) {
@@ -225,19 +237,35 @@ export class ShelfPanel {
     RT.semantic.listeners.add(this.hitlistCb);
   }
 
-  /** 子页里需要真实 DOM 的那几个（目前只有导入）挂进来 */
+  /** 子页里需要真实 DOM 的那几个（导入、复习）挂进来 */
   private mountSubPage(page: StudyPage): void {
+    /* render 每次 setHtml 都整页覆盖：旧 popup / 监听先拆再挂。
+       Review 侧 mountInto 是幂等「挪动不重建」，重复挂不会长出第二份 UI。 */
     this.teardownSubPage();
-    if (page !== 'import') return;
-    const host = this.root?.querySelector<HTMLElement>('[data-role="importhost"]');
-    const src = getShellSource();
-    if (!host || !src) return;
-    this.teardownImport = src.mountImport(host);
+    if (page === 'import') {
+      const host = this.root?.querySelector<HTMLElement>('[data-role="importhost"]');
+      const src = getShellSource();
+      if (!host || !src) return;
+      this.teardownImport = src.mountImport(host);
+      return;
+    }
+    if (page === 'review') {
+      const host = this.root?.querySelector<HTMLElement>('[data-role="reviewhost"]');
+      const acts = this.root?.querySelector<HTMLElement>('[data-role="reviewacts"]');
+      const app = getShellSource()?.app;
+      const api = app ? findReviewApi(app) : null;
+      if (!host || !acts || typeof api?.embedInto !== 'function') return;
+      /* onClose 走统一状态出口：Review 里点关闭就回书库。
+         cleanup 存成字段，离开复习页 / 销毁面板时调用（幂等）。 */
+      this.teardownReview = api.embedInto(host, acts, () => setState({ studyPage: 'library' }));
+    }
   }
 
   private teardownSubPage(): void {
     this.teardownImport?.();
     this.teardownImport = null;
+    this.teardownReview?.();
+    this.teardownReview = null;
   }
 
   /**

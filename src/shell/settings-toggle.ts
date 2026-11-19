@@ -11,6 +11,8 @@ export interface ToggleState {
   debugLog: boolean;
   /** 剪藏本（bz 组）：书架多一本跟着剪藏更新的书，内容实时读 bz 剪藏本，默认关 */
   clipBook: boolean;
+  /** 书架内显示复习（界面组）：装了支持嵌入的 Review 才显示，默认关 */
+  embedReview: boolean;
   /** 剧透门（AI 组）：全书问答只答到当前阅读位置，默认关 */
   aiSpoiler: boolean;
   /* 曾经这里还有 aiKnowledge：2026-11-07 改成自动识别，开关撤掉，
@@ -27,6 +29,8 @@ export function flipSetting(current: ToggleState, key: string): Partial<ToggleSt
       return { debugLog: !current.debugLog };
     case 'clipBook':
       return { clipBook: !current.clipBook };
+    case 'embedReview':
+      return { embedReview: !current.embedReview };
     case 'aiSpoiler':
       return { aiSpoiler: !current.aiSpoiler };
     default:

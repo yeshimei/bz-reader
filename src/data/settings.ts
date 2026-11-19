@@ -185,6 +185,14 @@ export interface ReaderSettings {
    */
   clipBook: boolean;
   /**
+   * 书架内显示复习页签（2026-11-19）：把 bz-review 主界面嵌进书架。
+   *
+   * 默认**关**，且开关只在检测到支持嵌入的 Review（v3+）时才出现在设置页。
+   * 值照常存：拆了 Review 再装回来，上次的选择还在；关掉时若正停在复习页，
+   * 会自动退回书库（见 actions 的 toggle 分支）。
+   */
+  embedReview: boolean;
+  /**
    * 剧透门（2026-11-16）：全书问答只答到当前阅读位置。
    *
    * 默认**关**。开着的时候，「问全书」只拿到读到的那部分，问到后面的事
@@ -268,6 +276,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
   debugLog: false,
   aiSpoiler: false,
   clipBook: false,
+  embedReview: false,
   clipScope: DEFAULT_CLIP_SCOPE,
   reviewLastMode: 'flashcard',
 };
@@ -492,6 +501,8 @@ export function normalizeSettings(raw: unknown): ReaderSettings {
     aiSpoiler: s.aiSpoiler === true,
     /* 缺字段（旧版本没有它）= 关：剪藏成书要人主动开，不能靠缺省值替人选 */
     clipBook: s.clipBook === true,
+    /* 缺字段 / 手改坏的值一律当关：和 clipBook 同口径，嵌入复习也要人主动开 */
+    embedReview: s.embedReview === true,
     /* 缺字段（1.3.1 之前没有）= 未读：这是用户定的默认值，不是「没选」 */
     clipScope: normalizeClipScope(s.clipScope),
     /* 上次制卡方式：脏值/缺字段回落默认抽认卡，不让坏数据决定下次界面 */

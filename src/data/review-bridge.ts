@@ -61,6 +61,19 @@ export interface ReviewApi {
   hasNote?(path: string): Promise<boolean>;
   statusOf?(paths: string[]): Promise<Array<{ path: string; planned: boolean }>>;
   quota?(): Promise<ReviewQuota>;
+  /** v3 起支持：把 bz-review 主界面嵌入外部宿主（书架「复习」页） */
+  embedInto?(host: HTMLElement, actionsHost: HTMLElement, onClose: () => void): () => void;
+}
+
+/**
+ * 「装了且支持嵌入」的判据：版本 >= 3 且门面真的带 embedInto。
+ *
+ * 三处共用同一个判断——设置开关显不显示、书架页签列不列、点击放不放行。
+ * 少一处就会出「开关在但页签点不动」这种自相矛盾的界面。
+ * `version` 缺省按 0 算：老版本没写版本号，不能因为带了个同名方法就放行。
+ */
+export function reviewEmbedReady(api: ReviewApi | null): boolean {
+  return !!api && (api.version ?? 0) >= 3 && typeof api.embedInto === 'function';
 }
 
 /**

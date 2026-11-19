@@ -25,7 +25,7 @@ import { RT } from './runtime';
 /**
  * 书架的各页。
  *
- * 只有 library / notes / ai 占页签位置；stats / settings / search / import
+ * library / notes / ai / review 占页签位置；stats / settings / search / import
  * 是「子页」，从右上四颗图标进去。
  * 分成两类是因为页签栏一长就变成一排小字，扫不动。
  *
@@ -33,17 +33,19 @@ import { RT } from './runtime';
  * 页签与四颗图标一直在，当前那颗亮着；再点一次就回 studyBack。
  *
  * 2026-11-16 加 `ai`：书架第三个页签「对话」，原型见 prototype/ai-history。
+ * 2026-11-19 加 `review`：第四个页签「复习」，把 bz-review 主界面嵌进书架；
+ *   仅当设置开关开且检测到支持嵌入的 Review 时才列出（见 render/study）。
  */
-export type StudyPage = 'library' | 'notes' | 'ai' | 'stats' | 'settings' | 'search' | 'import';
+export type StudyPage = 'library' | 'notes' | 'ai' | 'review' | 'stats' | 'settings' | 'search' | 'import';
 
-/** 占页签的三页 */
-export type StudyTab = 'library' | 'notes' | 'ai';
+/** 占页签的四页（复习页是否可见另由开关与 Review 版本决定） */
+export type StudyTab = 'library' | 'notes' | 'ai' | 'review';
 
 /** 子页：进来前的页记在 studyBack，再点一次那颗图标回到那儿 */
 export const STUDY_SUB_PAGES = ['stats', 'settings', 'search', 'import'] as const;
 
 export function isStudyTab(page: StudyPage): page is StudyTab {
-  return page === 'library' || page === 'notes' || page === 'ai';
+  return page === 'library' || page === 'notes' || page === 'ai' || page === 'review';
 }
 
 /**
@@ -471,9 +473,16 @@ export function loadShellState(): ShellState {
     const raw = window.localStorage.getItem(LS_KEY);
     if (raw) {
       const d = JSON.parse(raw) as Partial<ShellState>;
-      /* 只恢复页签三页：子页是「进来干一件事」的，重开 Obsidian 还停在
+      /* 只恢复页签页：子页是「进来干一件事」的，重开 Obsidian 还停在
          导入页会让人以为插件坏了。 */
-      if (d.studyPage === 'library' || d.studyPage === 'notes' || d.studyPage === 'ai') {
+      /* 复习页一并恢复：它是页签不是子页；开关/Review 是否还在由打开时的
+         拦截负责（见 actions 的 study 分支），关开关会自动退回书库。 */
+      if (
+        d.studyPage === 'library' ||
+        d.studyPage === 'notes' ||
+        d.studyPage === 'ai' ||
+        d.studyPage === 'review'
+      ) {
         state.studyPage = d.studyPage;
       }
       if (d.libView === 'grid' || d.libView === 'list') state.libView = d.libView;

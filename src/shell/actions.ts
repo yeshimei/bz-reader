@@ -44,7 +44,7 @@ import { visiblePicked } from './book-select';
 import { toggleAll, togglePick } from './note-select';
 import { togglePicked } from './note-picker';
 import { openReviewAdd, addMarkToReview, addSelectionToReview, openBookReviewAdd } from './review-add';
-import { findReviewApi } from '../data/review-bridge';
+import { findReviewApi, reviewEmbedReady } from '../data/review-bridge';
 import { notify } from '../core/notice';
 import { synthesizeFor, ttsEngineReady, ttsVoiceFor, type TtsRoute } from '../core/tts-engine';
 import { ttsDeployPrompt } from '../core/tts-deploy-prompt';
@@ -1491,6 +1491,13 @@ export function dispatchAction(
       /* 对话页是高级版（2026-11-16）：页签在 render 里按权限隐藏，这里再拦
          一次——data-p 是 DOM 属性，不是权限。 */
       if (clicked === 'ai' && !requireCap('aiLog')) break;
+      /* 复习页签：开关没开、或 Review 装了但不支持嵌入（< v3）时拦住。
+         页签在 render 里已按同一判据隐藏，这里再拦一次——data-p 是 DOM
+         属性，命令面板 / 协议能直接递一个 review 进来。 */
+      if (clicked === 'review') {
+        const app = getShellSource()?.app;
+        if (!shellSettings().embedReview || !reviewEmbedReady(app ? findReviewApi(app) : null)) break;
+      }
       const st = getState();
       getShellSource()?.openStudy(nextStudyPage(st.studyPage, clicked, st.studyBack));
       break;
@@ -2524,6 +2531,12 @@ export function dispatchAction(
       if (!src) break;
       const patch = flipSetting(shellSettings(), d.k ?? '');
       if (!patch) break;
+      /* 关掉「书架内显示复习」且正停在复习页：先退回书库再落盘。
+         顺序要紧——否则 setSettings 触发的那次重绘会先画出「开关已关、
+         却仍停在复习页」的中间态，Review 侧也可能被通知挂载。 */
+      if (d.k === 'embedReview' && patch.embedReview === false && getState().studyPage === 'review') {
+        setState({ studyPage: 'library' });
+      }
       /* 剪藏成书是高级版能力（2026-11-14）：未解锁时点开关只弹解锁层，
          **不落盘**——否则设置里显示「已开」、书架里却没有书，用户会当成坏掉。
          requireCap 自己会弹层并高亮对照表里「剪藏成书」那一行。 */

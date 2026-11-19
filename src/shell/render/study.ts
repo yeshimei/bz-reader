@@ -1,8 +1,8 @@
 /* ============================================================
  * bz-reader · 书架外壳与书库页（shell/render/study.ts）
  *
- * 书架是一个中心 ItemView，内部六页。这个文件只管两件事：
- *   1. 外壳：两页签 + 右上四颗图标（只此一种形态）+ 页面容器
+ * 书架是一个中心 ItemView，内部八页。这个文件只管两件事：
+ *   1. 外壳：页签（书库/笔记/对话/复习）+ 右上四颗图标 + 页面容器
  *   2. 书库页：继续阅读 / 筛选 / 封面墙 / 列表
  *
  * 原型是写死的封面墙，这里全部走真实数据；真实数据缺的字段
@@ -28,14 +28,33 @@ export interface StudyPageDef {
   icon: string;
 }
 
-/** 占页签位置的三页。统计与设置不在这里——它们退到右上图标 */
+/** 占页签位置的四页。统计与设置不在这里——它们退到右上图标 */
 export const STUDY_TABS: StudyPageDef[] = [
   { value: 'library', key: 'shelf.tab.library', icon: 'library' },
   { value: 'notes', key: 'shelf.tab.notes', icon: 'note' },
   /* 对话（2026-11-16）：排在「笔记」后面。页签文案就是「对话」，
      不加 AI 前缀——页内标题同名，说同一件事用同一个词。 */
   { value: 'ai', key: 'shelf.tab.ai', icon: 'ai' },
+  /* 复习（2026-11-19）：第四个页签，排在「对话」后面。是否真的列出由
+     visibleStudyTabs 按开关 + Review 嵌入能力决定，这里只定义它的长相。 */
+  { value: 'review', key: 'shelf.tab.review', icon: 'review' },
 ];
+
+/**
+ * 当前该列哪些页签（纯函数，便于单测）。
+ *
+ * 两个条件各管一段：对话看授权，复习看「开关开 + 装了支持嵌入的 Review」。
+ * 判据由上层算成一个布尔传进来，渲染本身不读设置、不探插件——否则测试
+ * 得把整条数据源都 stub 出来。data-p 是 DOM 属性不是权限，actions 里还会
+ * 对这两页各拦一次。
+ */
+export function visibleStudyTabs(reviewTab: boolean): StudyPageDef[] {
+  return STUDY_TABS.filter((p) => {
+    if (p.value === 'ai') return can('aiLog');
+    if (p.value === 'review') return reviewTab;
+    return true;
+  });
+}
 
 /**
  * 右上四颗。顺序即定稿：搜索、统计、导入、设置。
@@ -67,10 +86,17 @@ export interface StudyCounts {
  * 用户的原话是「不要那种形式」。现在不换形态：当前那颗图标亮起，
  * 再点一次回进来之前那页（判据在 state.nextStudyPage）。
  */
-export function studyShell(page: StudyPage, body: string, counts: StudyCounts, layer = ''): string {
-  return `<div class="bzs-studio"><div class="bzs-stuhead">${tabNav(page, counts)}<span class="sp"></span>${actBar(
+export function studyShell(page: StudyPage, body: string, counts: StudyCounts, layer = '', reviewTab = false): string {
+  /* 复习页的 body 不能带书库那套 padding / overflow：嵌入面板自己按宿主
+     撑满（position:absolute; inset:0），多一层内边距会把它挤小，滚动条也会
+     叠成两层。is-embed 让 study.css 把这部分收掉。 */
+  const bodyCls = page === 'review' ? 'bzs-stubody is-embed' : 'bzs-stubody';
+  /* 复习页另给头栏一个 is-review：手机上四个页签 + Review 四颗图标一行放不下，
+     窄屏按这个类换两行（见 study.css 的移动端块）。桌面端不加任何规则。 */
+  const headCls = page === 'review' ? 'bzs-stuhead is-review' : 'bzs-stuhead';
+  return `<div class="bzs-studio"><div class="${headCls}">${tabNav(page, counts, reviewTab)}<span class="sp"></span>${actBar(
     page,
-  )}</div><div class="bzs-stubody">${body}</div>${layer}</div>`;
+  )}</div><div class="${bodyCls}">${body}</div>${layer}</div>`;
 }
 
 /**
@@ -86,10 +112,10 @@ function tabCount(page: StudyPage, counts: StudyCounts): number {
   return 0;
 }
 
-function tabNav(page: StudyPage, counts: StudyCounts): string {
-  /* 对话页是高级版（2026-11-16）：未解锁不列页签。点击入口在 actions 的
-     `study` 分支再拦一次——data-p 是 DOM 属性，不是权限。 */
-  const nav = STUDY_TABS.filter((p) => p.value !== 'ai' || can('aiLog')).map((p) => {
+function tabNav(page: StudyPage, counts: StudyCounts, reviewTab: boolean): string {
+  /* 页签名单由 visibleStudyTabs 算好：对话看授权、复习看开关 + Review 能力。
+     点击入口在 actions 的 `study` 分支再各拦一次——data-p 是 DOM 属性，不是权限。 */
+  const nav = visibleStudyTabs(reviewTab).map((p) => {
     const n = tabCount(p.value, counts);
     const label = t(p.key);
     return `<button class="${page === p.value ? 'on' : ''}" data-act="study" data-p="${p.value}"><span class="bzs-sr-only">${label}</span>${ico(
@@ -110,7 +136,10 @@ function tabNav(page: StudyPage, counts: StudyCounts): string {
  * 塞进头栏会让人以为它和搜索/统计同级。入口改到书卡菜单「归入分类…」
  * 的下一层，头栏保持定稿的四颗。
  */
-function actBar(page: StudyPage): string {
+export function actBar(page: StudyPage): string {
+  /* 复习页右侧那四颗属于 Review：Reader 不画自己的图标，只留一个空容器，
+     由 Review 侧门面把自己的图标塞进来并绑定（见 shelf-panel 的挂载）。 */
+  if (page === 'review') return '<div class="bzs-review-acts" data-role="reviewacts"></div>';
   return `<div class="bzs-stuacts">${STUDY_ACTS.map((a) => {
     const label = t(a.key);
     const on = page === a.value;

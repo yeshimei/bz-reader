@@ -68,9 +68,10 @@ export interface SettingsView {
   bz?: { ok: boolean; version: string; model: string; entry: boolean; notes: boolean };
   /**
    * bz Review 装没装（「插件」分组据此显示状态与安装引导）。
+   * `embed` = 装了且支持嵌入（v3+）：「界面」组的复习开关只在此时显示。
    * 现探一次、不缓存：装完重进设置页就能看到新状态。
    */
-  review?: { installed: boolean };
+  review?: { installed: boolean; embed: boolean };
   /** 当前这本书的离线音频（烤进书库的包）：null = 还没识别到 */
   offline?: { chapters: number; mb: number } | null;
   /**
@@ -309,7 +310,16 @@ export function viewSettings(v: SettingsView): string {
         (o) =>
           `<button class="${String(s.language) === o[0] ? 'on' : ''}" data-act="setlang" data-k="language" data-v="${o[0]}">${o[1]}</button>`,
       )
-      .join('')}</div></div>`,
+      .join('')}</div></div>
+      ${
+        /* 嵌入复习开关：只在装了支持嵌入的 Review 时才画，没装就整行不出现。
+           按本仓惯例用三元拼串，不走别的条件机制；说明文字是普通 small 行，
+           不是悬停气泡。 */
+        v.review?.embed
+          ? toggle('embedReview', s.embedReview === true, t('settings.embedReview')) +
+            `<div class="bzs-setrow"><small class="bzs-mini">${t('settings.embedReview.hint')}</small></div>`
+          : ''
+      }`,
   );
 
   /* 版式分两块：文字（字号 / 行高 / 边距 / 对齐）与页面（方向 / 分栏 / 翻页）。

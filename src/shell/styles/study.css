@@ -139,6 +139,48 @@
   padding: 22px 32px 44px;
 }
 
+/* 复习页（2026-11-19）：正文是 Review 嵌进来的面板，自己按宿主撑满。
+   书库那套 padding / 滚动会把它挤小，还叠出第二层滚动条，这里收掉。
+   两条规则都带 .is-embed，特异性高于 mobile.css 里的窄屏 padding，
+   所以手机上也不会把内边距塞回来（真机布局仍要验证）。 */
+.bzs-stubody.is-embed {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Review 主界面的宿主：撑满内容区。positioned 之后 Review 那边
+   position:absolute; inset:0 的面板才会相对它铺开，而不是盖住头栏。 */
+.bzs-review-host {
+  position: relative;
+  height: 100%;
+}
+
+/* Review 塞进来的四颗图标只负责横排；别用 Reader 的 .bzs-cbtn 画法盖掉它。 */
+.bzs-review-acts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-bottom: 9px;
+}
+
+/* 复习页 · 手机：四个页签加 Review 四颗图标一行放不下（390 宽里实测溢出 124px，
+   后两颗被挤出视口）。窄屏改两行：页签一行、图标一行右对齐，功能一个不少。
+   桌面端不命中这条媒体查询，头栏仍是一行。 */
+@media (max-width: 768px) {
+  .bzs-stuhead.is-review {
+    flex-wrap: wrap;
+    row-gap: 0;
+    padding-bottom: 0;
+  }
+  .bzs-stuhead.is-review .sp {
+    display: none;
+  }
+  .bzs-stuhead.is-review .bzs-review-acts {
+    margin-left: auto;
+    padding-bottom: 6px;
+  }
+}
+
 /* ═══════════ 书库 ═══════════ */
 
 /* 继续阅读：独立成卡，右下角一枚铜环做装饰 */

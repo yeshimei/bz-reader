@@ -1437,4 +1437,7 @@ export const EN: Record<MsgKey, string> = {
   'notice.ai.models404': '[TODO] notice.ai.models404 {name}',
   'notice.ai.unknownError': '[TODO] notice.ai.unknownError',
   'settings.ai.modelGroup': '[TODO] settings.ai.modelGroup',
+  'shelf.tab.review': '[TODO] shelf.tab.review',
+  'settings.embedReview': '[TODO] settings.embedReview',
+  'settings.embedReview.hint': '[TODO] settings.embedReview.hint',
 };

@@ -38,8 +38,8 @@ function actsOf(html: string): string {
 }
 
 describe('书架头栏 · 页签', () => {
-  it('页签是 书库 / 笔记 / 对话，对话排在笔记后面', () => {
-    expect(STUDY_TABS.map((t) => t.value)).toEqual(['library', 'notes', 'ai']);
+  it('页签是 书库 / 笔记 / 对话 / 复习，复习排在对话后面', () => {
+    expect(STUDY_TABS.map((t) => t.value)).toEqual(['library', 'notes', 'ai', 'review']);
     const html = studyShell('library', '', counts);
     expect(html).toContain('data-act="study" data-p="library"');
     expect(html).toContain('data-act="study" data-p="notes"');

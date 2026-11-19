@@ -693,6 +693,8 @@ export const ZH = {
   'shelf.tab.notes': '笔记',
   /* 第三个页签：页签与页内标题同名，不叫「AI 对话」 */
   'shelf.tab.ai': '对话',
+  /* 第四个页签：装了支持嵌入的 Review 且开关打开时才出现 */
+  'shelf.tab.review': '复习',
   'shelf.act.search': '搜索',
   'shelf.act.stats': '统计',
   'shelf.act.import': '导入书籍',
@@ -939,6 +941,9 @@ export const ZH = {
   /* ── 设置页：界面 ────────────────────────────────────────── */
   'settings.language': '语言',
   'settings.language.auto': '跟随 Obsidian',
+  /* 界面组：只在装了支持嵌入的 Review 时显示的开关 */
+  'settings.embedReview': '书架内显示复习',
+  'settings.embedReview.hint': '把 bz Review 的复习界面放进书架，页签栏和书库、笔记、对话排在一起。',
 
   /* ── 设置页：版式 ────────────────────────────────────────── */
   'settings.font': '字体',
