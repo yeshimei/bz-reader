@@ -121,7 +121,7 @@
 | **笔记与导出** | 划线存成双链：笔记里点回原文 | — | ✓ |
 |  | 引用页签：看哪些笔记引了这本书 | — | ✓ |
 |  | 导出整本摘录：每条带双链 | — | ✓ |
-| **数据与搜索** | 数据面板：时长、趋势、节律、书籍明细 | — | ✓ |
+| **数据与搜索** | 统计回顾：字数速度、节律热力、分类与成就 | — | ✓ |
 |  | 阅读海报：年度总结与数据长图 | — | ✓ |
 |  | 全库搜索：按字面搜所有书，含 PDF | — | ✓ |
 |  | 语义搜索：按意思找，本书或全库 | — | ✓ |
@@ -364,7 +364,7 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 |  | Backlinks on this page and annotations in the file | — | ✓ |
 |  | Export a page as an image | — | ✓ |
 |  | Scanned page OCR: select, search and highlight like real text | — | ✓ |
-| **Stats & Search** | Stats panel: time, trends, rhythm, per-book detail | — | ✓ |
+| **Stats & Search** | Stats recap: pace, rhythm heatmap, per-book ETA, badges | — | ✓ |
 |  | Reading poster: yearly recap and stats long image | — | ✓ |
 |  | Whole-library search, PDF text included | — | ✓ |
 |  | Semantic search: by meaning, in this book or the shelf | — | ✓ |

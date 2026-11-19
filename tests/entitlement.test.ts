@@ -248,12 +248,13 @@ describe('界面文案', () => {
     expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key).slice(-explore.length)).toEqual(explore);
   });
 
-  it('数据面板那一行写全：时长、趋势、节律、书籍明细', () => {
+  it('统计那一行写全：字数速度、节律热力、分类与成就', () => {
     const stats = PLAN_TABLE.find((r) => r.cap === 'stats');
-    expect(stats?.name).toBe('数据面板：时长、趋势、节律、书籍明细');
-    /* 被锁时弹层显示的那句卖点，指的还是同一个「数据面板」，别退回
-       「阅读统计」这种说法——用户点的是数据面板，弹层得说同一件事。 */
-    expect(capLabel('stats')).toContain('数据面板');
+    expect(stats?.name).toBe('统计回顾：字数速度、节律热力、分类与成就');
+    /* 被锁时弹层显示的那句卖点，得说现在真正在卖的东西——
+       六页签、24 小时节律、年度热力、预计读完与徽章，别退回「时长趋势」。 */
+    expect(capLabel('stats')).toContain('24 小时节律');
+    expect(capLabel('stats')).toContain('18 枚成就');
   });
 
   it('书摘图片下放基础版：两栏都能用，不挂能力位', () => {
