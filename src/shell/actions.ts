@@ -3097,6 +3097,10 @@ export function dispatchAction(
         break;
       }
       if (markReviewPlanned(book.id, markId)) {
+        /* 跳去 Review 前先关掉文字工具框（2026-11-20）：这条浮层贴着划线弹出，
+           跳走后那条线已不在眼前，留一张悬空工具框像撕不掉的便签。与 hlcopy /
+           hlocr 同一口径——动作带用户离开这条线，浮层就该收。 */
+        closeOverlay();
         const app = getShellSource()?.app;
         const api = app ? findReviewApi(app) : null;
         if (api?.focusCard) void api.focusCard(markCardKey(book.id, markId)).catch(() => notify(t('review.needPlugin'), 'info'));

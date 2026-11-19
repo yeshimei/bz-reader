@@ -79,6 +79,7 @@ import {
   type StudyPage,
 } from './shell/state';
 import { createBookAi, type BookAiApi } from './data/book-ai';
+import { findReviewApi, reviewEmbedReady } from './data/review-bridge';
 import { setShellSource, shellPrefs } from './shell/source';
 import { RT } from './shell/runtime';
 import { resetBodySearch } from './shell/search-run';
@@ -155,6 +156,24 @@ export function createPlugin(cfg: PluginConfig) {
     private closed = false;
     private overlay: OverlayLayer | null = null;
     private offShell: (() => void) | null = null;
+
+    /**
+     * 给 bz Review 用的反向门面（2026-11-20）：让 Review 的「打开复习」命令
+     * 借道 Reader 的复习页签，而不是再开一张带左侧栏的原生页。
+     *
+     * 与 Review 暴露给 Reader 的 reviewApi 对称：挂在插件实例上，Review 用
+     * `app.plugins.plugins['bz-reader'].readerApi` 探测，拿不到就按「老版本
+     * Reader」回退到自己的原生页，不会抛错。判定与 Reader 自己画复习页签用
+     * 的是同一套（embedReview 开关 + reviewEmbedReady），不会出现「页签没开
+     * 却让命令跳过去」的自相矛盾。
+     */
+    readonly readerApi = {
+      /** Reader 是否把复习设成了书架内嵌页（且 Review 支持嵌入） */
+      reviewEmbedded: (): boolean =>
+        this.cfg.settings.embedReview === true && reviewEmbedReady(findReviewApi(this.app)),
+      /** 亮出 Reader 书架并切到复习页签（命令借道时用） */
+      openReviewTab: (): void => this.openStudy('review'),
+    };
 
     private formats(): BookFormat[] {
       // 入口平权：导入列表始终列出全部格式。打开未解锁的 mobi / azw3 时
