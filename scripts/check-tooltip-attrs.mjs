@@ -30,6 +30,9 @@ export function findTooltipAttrs(code) {
     // 前面不是点号/连字符，且等号后紧跟引号：只认 HTML 属性写法，
     // 避免误伤 book.title = 'x' 和 data-title="..." 这类数据字段。
     { re: /(?<![\w-])(?:aria-label|title)=["'`]/, why: 'HTML tooltip attr' },
+    // DOM 元素的 .title = value（如 mark.title = annot.contents）。
+    // 只认常见元素变量名，避免误伤 book.meta.title / prev.title 等数据字段。
+    { re: /\b(?:el|node|mark|btn|button|div|span|input|element|anchor|img|label|titleEl)\.title\s*=/, why: 'DOM .title assignment' },
   ];
   lines.forEach((line, idx) => {
     const trimmed = line.trim();

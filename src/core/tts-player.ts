@@ -152,19 +152,26 @@ export class TtsPlayer {
   }
 
   pause(): void {
-    if (this.state !== 'playing' || !this.current) return;
-    this.current.audio.pause();
+    if (this.state !== 'playing' && this.state !== 'loading') return;
+    if (this.current) this.current.audio.pause();
     this.wantPlay = false;
+    /* 作废在途合成：它回来时见到旧代次会自行丢弃，不会又把声音放出来 */
+    this.token++;
     this.setState('paused');
   }
 
   resume(): void {
-    if (this.state === 'paused' && this.current) {
-      this.wantPlay = true;
-      this.setState('playing');
-      void this.current.audio.play().catch((e) => this.fail('audio', e, this.token));
-      /* 暂停期间没有新请求，这里把缓冲补回去 */
-      this.fill();
+    if (this.state === 'paused') {
+      if (this.current) {
+        this.wantPlay = true;
+        this.setState('playing');
+        void this.current.audio.play().catch((e) => this.fail('audio', e, this.token));
+        /* 暂停期间没有新请求，这里把缓冲补回去 */
+        this.fill();
+        return;
+      }
+      /* 加载期被暂停，合成还没落地：重新 begin，别卡在 paused */
+      this.begin(this.index);
       return;
     }
     if (this.state === 'idle') this.begin(this.index);

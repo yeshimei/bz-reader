@@ -96,4 +96,34 @@ describe('postChat · 流式', () => {
     const body = JSON.parse(String((fetchMock.mock.calls[0]![1] as RequestInit).body)) as Record<string, unknown>;
     expect(body.stream).toBeUndefined();
   });
+
+  it('流式读途中取消请求：信号传到 fetch controller，立刻以「已取消」收尾', async () => {
+    const fetchMock = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      const signal = init.signal;
+      const body = new ReadableStream<Uint8Array>({
+        start(ctrl) {
+          /* 只给一帧、不 close 也不发 [DONE]：让流真的停在「还在等下一个字」上，
+             否则 sseText 自带 [DONE]，abort 之前就读完了，测不到读流途中取消 */
+          ctrl.enqueue(enc.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: '甲' } }] })}\n\n`));
+          /* 真 fetch 在 abort 时会让 body 读取报错，这里照着模拟 */
+          signal?.addEventListener('abort', () => {
+            ctrl.error(new DOMException('Aborted', 'AbortError'));
+          });
+        },
+      });
+      return Promise.resolve({ ok: true, headers: { get: () => 'text/event-stream' }, body });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const got: string[] = [];
+    const external = new AbortController();
+    const pending = postChat(config, [{ role: 'user', content: '问' }], {
+      onDelta: (p) => got.push(p),
+      signal: external.signal,
+    });
+    await vi.waitFor(() => expect(got).toContain('甲'));
+    external.abort();
+    await expect(pending).rejects.toThrow(/已取消/);
+    expect((fetchMock.mock.calls[0]![1] as RequestInit).signal?.aborted).toBe(true);
+  });
 });

@@ -21,4 +21,9 @@ describe('禁止悬停气泡属性', () => {
     const clean = `el.appendChild(srText('关闭')); span.className = 'bzrv-sr-only';`;
     expect(findTooltipAttrs(clean)).toEqual([]);
   });
+
+  it('抓到 DOM 元素的 .title = 赋值（门禁原来漏检这种写法）', () => {
+    const src = `if (annot.contents) mark.title = annot.contents.slice(0, 300);`;
+    expect(findTooltipAttrs(src).length).toBeGreaterThan(0);
+  });
 });

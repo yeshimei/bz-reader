@@ -316,3 +316,26 @@ describe('预取与换段互不干扰', () => {
     expect(player.stateName).not.toBe('loading');
   });
 });
+
+describe('加载期暂停（整库 review 修复）', () => {
+  it('loading 中按暂停：合成回来后不开播，停在 paused', async () => {
+    const { player, audios } = setup();
+    player.start();
+    expect(player.stateName).toBe('loading');
+    player.pause();
+    await flush();
+    expect(player.stateName).toBe('paused');
+    expect(audios.some((a) => !a.paused)).toBe(false);
+  });
+
+  it('loading 中暂停后再继续：能重新起播', async () => {
+    const { player, audios } = setup();
+    player.start();
+    player.pause();
+    await flush();
+    player.resume();
+    await flush();
+    expect(player.stateName).toBe('playing');
+    expect(audios.some((a) => !a.paused)).toBe(true);
+  });
+});

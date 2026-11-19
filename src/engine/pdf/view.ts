@@ -40,6 +40,7 @@ import {
   rotateNormRect,
 } from './locator';
 import { beginTwoFinger, endTwoFinger, moveTwoFinger, type FingerPoint, type TwoFingerTapState } from './two-finger-tap';
+import { resetFailedPages } from './retry-failed';
 
 export interface PdfViewCallbacks {
   onRelocate?: (info: RelocateInfo) => void;
@@ -1067,7 +1068,8 @@ export class PdfView {
         mark.style.width = `${rect.width * 100}%`;
         mark.style.height = `${rect.height * 100}%`;
         if (annot.color) mark.style.setProperty('--bzr-fa-color', annot.color);
-        if (annot.contents) mark.title = annot.contents.slice(0, 300);
+        /* 批注正文由 showAnnotTip 自绘浮层呈现；这些框 pointer-events:none，
+           挂 title 既弹不出来又违反禁悬停气泡规则——不挂。 */
         el.appendChild(mark);
       }
     });
@@ -1491,6 +1493,15 @@ export class PdfView {
     const before = anchor ? this.scroller.scrollTop - anchor.offsetTop : 0;
     this.scale = clamp(next, 0.2, 8);
     this.scaleGen += 1;
+    /* 换视角让旧失败结论作废：不清的话 enqueue 会永久跳过失败页——
+       旋转后空壳页没画布也没提示，缩放后旧错误提示一直挂着。 */
+    for (const page of resetFailedPages(this.failed)) {
+      const el = this.pageEls[page - 1];
+      if (el) {
+        el.classList.remove('is-failed');
+        el.replaceChildren();
+      }
+    }
     this.clearFrame();
     void refit;
     for (const page of [...this.rendered]) this.release(page);

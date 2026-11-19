@@ -422,3 +422,57 @@ describe('暂停 / 停止之后不再自己开播', () => {
     expect(player.stateName).not.toBe('playing');
   });
 });
+
+describe('加载期暂停与快速换句（整库 review 修复）', () => {
+  it('loading 中按暂停：读盘回来不播放，停在 paused', async () => {
+    const r = rig();
+    r.player.start(0);
+    expect(r.player.stateName).toBe('loading');
+    r.player.pause();
+    await r.play();
+    expect(r.player.stateName).toBe('paused');
+    expect(r.audios.filter((a) => !a.paused)).toHaveLength(0);
+    expect(r.sentences).toEqual([]);
+  });
+
+  it('loading 中暂停后再继续：能重新起播', async () => {
+    const r = rig();
+    r.player.start(1);
+    r.player.pause();
+    await r.play();
+    r.player.resume();
+    await r.play();
+    expect(r.player.stateName).toBe('playing');
+    expect(r.sentences.length).toBeGreaterThan(0);
+  });
+
+  it('两次起播乱序返回：先回来的旧请求不能盖掉新句', async () => {
+    const releases: Array<(b: ArrayBuffer) => void> = [];
+    const audios: FakeAudio[] = [];
+    const sentences: number[] = [];
+    const player = new OfflinePlayer({
+      marks: MARKS,
+      align: [0, 1, 2],
+      loadAudio: () =>
+        new Promise<ArrayBuffer>((resolve) => {
+          releases.push(resolve);
+        }),
+      makeAudio: () => {
+        const a = new FakeAudio();
+        audios.push(a);
+        return a;
+      },
+      makeUrl: () => 'blob:test',
+      onSentence: (i) => sentences.push(i),
+    });
+    player.start(0);
+    player.start(2);
+    /* 先放新句（start(2)）的读盘回来，再放旧句（start(0)）——旧回调必须作废 */
+    releases[1]!(DATA);
+    await flush();
+    releases[0]!(DATA);
+    await flush();
+    expect(sentences).toEqual([2]);
+    expect(audios).toHaveLength(1);
+  });
+});

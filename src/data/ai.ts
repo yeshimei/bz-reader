@@ -451,75 +451,82 @@ export async function postChat(
     messages,
     { stream: streaming, temperature: opts.temperature, maxTokens: opts.maxTokens ?? config.maxTokens },
   );
-  let res: Response;
+  /* 取消监听与超时计时要覆盖**整次问答**（含流式读取）：早先在 fetch 的
+     finally 里就摘掉，导致流式阶段「取消请求」再也传不到 controller，
+     只能等服务端自然结束或到字超时才停——与「取消要能立刻停」矛盾，
+     还留一个空转的 timer。 */
   try {
-    /* 用 window.fetch 而不是 requestUrl：后者不接受 AbortSignal，超时与
-       「取消请求」都会失效；这个端点由用户自己配置，不需要 Obsidian 代发 CORS。 */
-    res = await window.fetch(req.url, {
-      method: 'POST',
-      headers: req.headers,
-      body: JSON.stringify(req.body),
-      signal: ctrl.signal,
-    });
-  } catch (e) {
-    if (opts.signal?.aborted) throw new Error('已取消');
-    const name = (e as Error)?.name || '';
-    if (timedOut || name === 'TimeoutError' || name === 'AbortError') {
-      throw new Error(`${label} 接口 ${timeout / 1000} 秒没有响应，检查地址与网络后重试`);
+    let res: Response;
+    try {
+      /* 用 window.fetch 而不是 requestUrl：后者不接受 AbortSignal，超时与
+         「取消请求」都会失效；这个端点由用户自己配置，不需要 Obsidian 代发 CORS。 */
+      res = await window.fetch(req.url, {
+        method: 'POST',
+        headers: req.headers,
+        body: JSON.stringify(req.body),
+        signal: ctrl.signal,
+      });
+    } catch (e) {
+      if (opts.signal?.aborted) throw new Error('已取消');
+      const name = (e as Error)?.name || '';
+      if (timedOut || name === 'TimeoutError' || name === 'AbortError') {
+        throw new Error(`${label} 接口 ${timeout / 1000} 秒没有响应，检查地址与网络后重试`);
+      }
+      throw new Error(`连不上 ${label} 接口：${(e as Error)?.message || '网络错误'}`);
     }
-    throw new Error(`连不上 ${label} 接口：${(e as Error)?.message || '网络错误'}`);
+    if (!res.ok) {
+      // 401/403 多半是 Key；404 多半是 baseUrl 少了 /v1 或多了路径——都直接告诉用户
+      const hint =
+        res.status === 401 || res.status === 403
+          ? '（检查 API Key）'
+          : res.status === 404
+            ? '（检查接口地址，一般要以 /v1 结尾）'
+            : '';
+      throw new Error(`${label} 接口返回 ${res.status}${hint}`);
+    }
+    /* 流式：拿到 body 才走；上游忽略 stream 回了整份 JSON 时返回 null，
+       下面照常解析——不能因为「不回流」就让整次提问失败。 */
+    if (streaming && res.body) {
+      let streamed: string | null;
+      try {
+        streamed = await readChatStream(res, opts.onDelta!, bump, protocol);
+      } catch (e) {
+        if (opts.signal?.aborted) throw new Error('已取消');
+        if (timedOut) {
+          throw new Error(`${label} 接口 ${timeout / 1000} 秒没有响应，检查地址与网络后重试`);
+        }
+        throw new Error(`${label} 接口中断：${(e as Error)?.message || '网络错误'}`);
+      }
+      if (streamed !== null) {
+        if (!streamed) {
+          throw new Error(emptyChatMessage(undefined, '', model, label));
+        }
+        debugEvent('aichat', { model, finish: 'stream', shape: 'stream', chars: streamed.length });
+        return streamed;
+      }
+    }
+    const data = (await res.json()) as {
+      choices?: Array<{ message?: { content?: unknown; reasoning_content?: unknown }; finish_reason?: string }>;
+      error?: { message?: string };
+    };
+    if (data.error?.message) throw new Error(`${label} 接口报错：${data.error.message}`);
+    const choice = data.choices?.[0];
+    const text = chatTextOf(protocol, data);
+    /* 识别失败时最缺的是「为什么」：模型名、结束原因、正文是什么形状。
+       只记这三样，正文与图片一个字都不进日志。 */
+    debugEvent('aichat', {
+      model,
+      finish: choice?.finish_reason ?? '',
+      shape: Array.isArray(choice?.message?.content) ? 'array' : typeof choice?.message?.content,
+      chars: text.length,
+    });
+    if (!text)
+      throw new Error(emptyChatMessage(choice?.finish_reason, choice?.message?.reasoning_content, model, label));
+    return text;
   } finally {
     window.clearTimeout(timer);
     opts.signal?.removeEventListener('abort', onAbort);
   }
-  if (!res.ok) {
-    // 401/403 多半是 Key；404 多半是 baseUrl 少了 /v1 或多了路径——都直接告诉用户
-    const hint =
-      res.status === 401 || res.status === 403
-        ? '（检查 API Key）'
-        : res.status === 404
-          ? '（检查接口地址，一般要以 /v1 结尾）'
-          : '';
-    throw new Error(`${label} 接口返回 ${res.status}${hint}`);
-  }
-  /* 流式：拿到 body 才走；上游忽略 stream 回了整份 JSON 时返回 null，
-     下面照常解析——不能因为「不回流」就让整次提问失败。 */
-  if (streaming && res.body) {
-    let streamed: string | null;
-    try {
-      streamed = await readChatStream(res, opts.onDelta!, bump, protocol);
-    } catch (e) {
-      if (opts.signal?.aborted) throw new Error('已取消');
-      if (timedOut) {
-        throw new Error(`${label} 接口 ${timeout / 1000} 秒没有响应，检查地址与网络后重试`);
-      }
-      throw new Error(`${label} 接口中断：${(e as Error)?.message || '网络错误'}`);
-    }
-    if (streamed !== null) {
-      if (!streamed) {
-        throw new Error(emptyChatMessage(undefined, '', model, label));
-      }
-      debugEvent('aichat', { model, finish: 'stream', shape: 'stream', chars: streamed.length });
-      return streamed;
-    }
-  }
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: unknown; reasoning_content?: unknown }; finish_reason?: string }>;
-    error?: { message?: string };
-  };
-  if (data.error?.message) throw new Error(`${label} 接口报错：${data.error.message}`);
-  const choice = data.choices?.[0];
-  const text = chatTextOf(protocol, data);
-  /* 识别失败时最缺的是「为什么」：模型名、结束原因、正文是什么形状。
-     只记这三样，正文与图片一个字都不进日志。 */
-  debugEvent('aichat', {
-    model,
-    finish: choice?.finish_reason ?? '',
-    shape: Array.isArray(choice?.message?.content) ? 'array' : typeof choice?.message?.content,
-    chars: text.length,
-  });
-  if (!text) throw new Error(emptyChatMessage(choice?.finish_reason, choice?.message?.reasoning_content, model, label));
-  return text;
 }
 
 /** 调一次 /chat/completions（读本插件「AI 助手」那一套配置）。 */

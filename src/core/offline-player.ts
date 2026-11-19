@@ -75,6 +75,8 @@ export class OfflinePlayer {
   private sliceMode: boolean | null = null;
   private state: OfflineState = 'idle';
   private wantPlay = false;
+  /** 单调递增的请求代次：异步读盘回来时比对，作废过期的起播 / 换句 */
+  private token = 0;
   private rate = 1;
   /** 当前正文句子序号；-1 表示还没开始 */
   private at = -1;
@@ -125,25 +127,41 @@ export class OfflinePlayer {
     }
     this.wantPlay = true;
     this.at = index;
+    const token = ++this.token;
+    /* 换句先收掉旧 audio：加载期 audio 为空，暂停 / 继续才不会误判成
+       「已经播着，直接恢复」而放出上一句。 */
+    this.release();
     this.setState('loading');
     void this.ensure(index).then((ok) => {
-      if (!ok || !this.wantPlay) return;
+      if (!ok || token !== this.token) return;
+      /* 加载期间用户按了暂停：别让读盘回来自己开播 */
+      if (!this.wantPlay) {
+        this.setState('paused');
+        return;
+      }
       this.playFrom(index, index === textIndex ? offsetMs : 0);
     });
   }
 
   pause(): void {
-    if (this.state !== 'playing' || !this.audio) return;
-    this.audio.pause();
+    if (this.state !== 'playing' && this.state !== 'loading') return;
+    if (this.audio) this.audio.pause();
     this.wantPlay = false;
+    /* 作废在途读盘：否则它回来时又把自己改成播放 */
+    this.token++;
     this.setState('paused');
   }
 
   resume(): void {
-    if (this.state === 'paused' && this.audio) {
-      this.wantPlay = true;
-      this.setState('playing');
-      void this.audio.play().catch((e) => this.fail(e));
+    if (this.state === 'paused') {
+      if (this.audio) {
+        this.wantPlay = true;
+        this.setState('playing');
+        void this.audio.play().catch((e) => this.fail(e));
+        return;
+      }
+      /* 加载期被暂停，audio 还没建好：重新起播，不能卡在 paused */
+      this.start(this.at >= 0 ? this.at : 0);
       return;
     }
     if (this.state === 'idle' && this.at >= 0) this.start(this.at);
@@ -172,6 +190,7 @@ export class OfflinePlayer {
 
   stop(): void {
     this.wantPlay = false;
+    this.token++;
     this.release();
     this.setState('idle');
   }
@@ -183,10 +202,15 @@ export class OfflinePlayer {
 
   private jump(index: number): void {
     this.at = index;
+    const token = ++this.token;
+    this.release();
     void this.ensure(index).then((ok) => {
-      /* 读盘 / 切句是异步的：这中间用户可能已经暂停或停止。和 start 一样
-         要复检 wantPlay，否则「暂停」会在读盘回来时被自己改回播放。 */
-      if (!ok || !this.wantPlay) return;
+      /* 读盘 / 切句是异步的：代次不符（又点了下一句）或用户已暂停，都别开播 */
+      if (!ok || token !== this.token) return;
+      if (!this.wantPlay) {
+        this.setState('paused');
+        return;
+      }
       this.playFrom(index);
     });
   }
@@ -307,6 +331,7 @@ export class OfflinePlayer {
 
   private fail(error: unknown): void {
     this.wantPlay = false;
+    this.token++;
     this.release();
     this.setState('idle');
     this.deps.onError?.(error);
@@ -314,6 +339,7 @@ export class OfflinePlayer {
 
   private finish(): void {
     this.wantPlay = false;
+    this.token++;
     this.release();
     this.setState('idle');
     this.deps.onEnd?.();
