@@ -209,11 +209,19 @@ function chapterRow(title: string, sub: string): HTMLElement {
  * 控件区按内容、勾选框 16px。
  */
 function pinRowLayout(row: HTMLElement): HTMLElement {
-  row.setCssProps({ display: 'flex', alignItems: 'center', gap: '8px' });
+  /* 移动端 Obsidian 会把 .setting-item 改成竖排（标题在上、控件在下），
+     这里显式改回横排：标题占满左半边、勾选框靠右。 */
+  row.setCssProps({
+    display: 'flex',
+    'flex-direction': 'row',
+    alignItems: 'center',
+    'justify-content': 'space-between',
+    gap: '12px',
+  });
   row.querySelector<HTMLElement>('.setting-item-info')
     ?.setCssProps({ flex: '1 1 auto', 'min-width': '0' });
   row.querySelector<HTMLElement>('.setting-item-control')
-    ?.setCssProps({ flex: '0 0 auto', width: 'auto' });
+    ?.setCssProps({ flex: '0 0 auto', width: 'auto', 'margin-left': 'auto' });
   row.querySelector<HTMLElement>('input')
     ?.setCssProps({ width: '16px', height: '16px', flex: '0 0 auto' });
   return row;
@@ -824,7 +832,7 @@ class BookScopeFlow {
       return;
     }
     /* 回到第一屏：撤掉按章节那屏的半屏与纵向 flex，恢复自适应高度 */
-    this.modal.modalEl.setCssProps({ 'max-height': '' });
+    this.modal.modalEl.setCssProps({ 'max-height': '', height: '' });
     this.modal.contentEl.setCssProps({
       display: '',
       'flex-direction': '',
@@ -840,7 +848,8 @@ class BookScopeFlow {
     this.modal.titleEl.setText(t('review.tab.chapters'));
     /* 半屏高、头尾固定、章节列表自己滚（2026-11-21）。
        弹窗挂 body，壳层 CSS 会被构建加 .bzs-shell 前缀匹配不到，所以走内联。 */
-    this.modal.modalEl.setCssProps({ 'max-height': '50vh' });
+    /* 至少半屏（手机取六成）：章节列表吃掉中间全部剩余空间 */
+    this.modal.modalEl.setCssProps({ 'max-height': '60vh', height: '60vh' });
     el.setCssProps({
       display: 'flex',
       'flex-direction': 'column',
@@ -858,12 +867,10 @@ class BookScopeFlow {
       el.createEl('p', { cls: 'bzs-review-lead', text: t('review.loadFailed') });
     } else {
       const list = el.createDiv();
-      /* 只给「空间不够时」的高度上限，不主动撑满：章节少时窗口跟着收，
-         不再留一大块空白。 */
+      /* 吃掉面板中段的全部剩余高度——章节多时这里是主要阅读区 */
       list.setCssProps({
-        flex: '0 1 auto',
+        flex: '1 1 auto',
         'min-height': '0',
-        'max-height': '28vh',
         'overflow-y': 'auto',
         margin: '0 0 8px',
       });
@@ -879,15 +886,24 @@ class BookScopeFlow {
       }
       const all = this.chapters.map((c) => c.index);
       const every = all.length > 0 && all.every((i) => this.chapPicked.has(i));
+      /* 全选与「已选 N 章」并一行：省下的高度全部给章节列表 */
       const bar = el.createDiv();
-      bar.setCssProps({ display: 'flex', gap: '8px', margin: '0 0 8px', flex: 'none' });
+      bar.setCssProps({
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        margin: '0 0 8px',
+        flex: 'none',
+      });
       bar.createEl('button', { text: every ? t('review.selectNone') : t('review.selectAll') })
         .addEventListener('click', () => {
           this.chapPicked = new Set(every ? [] : all);
           this.render();
         });
-      const summary = el.createEl('p', { text: t('review.pickedChapters', { chapters: String(this.chapPicked.size), chars: '—' }) });
-      summary.setCssProps({ margin: '0 0 10px', fontWeight: '600', flex: 'none' });
+      const summary = bar.createEl('span', {
+        text: t('review.pickedChapters', { chapters: String(this.chapPicked.size), chars: '—' }),
+      });
+      summary.setCssProps({ fontWeight: '600' });
     }
 
     const row = el.createDiv({ cls: 'bzs-review-actions' });
