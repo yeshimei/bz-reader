@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>「复习挑内容」搬进 Review · 真机验证（2026-11-21）</title>
+<style>
+:root{
+  --ink:#1d1c1a; --sub:#5f5b53; --line:#e3ddd2; --bg:#faf7f2;
+  --card:#fffdf9; --accent:#8a6a2f; --ok:#2f7a52; --warn:#a8621f;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:880px;margin:0 auto;padding:48px 24px 80px}
+h1{font-size:26px;line-height:1.4;margin:0 0 6px;letter-spacing:.2px}
+.meta{color:var(--sub);font-size:13.5px;border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:28px}
+.meta b{color:var(--ink);font-weight:600}
+h2{font-size:18px;margin:44px 0 10px;padding-left:12px;border-left:4px solid var(--accent)}
+h3{font-size:15px;margin:26px 0 6px}
+p{margin:8px 0}
+ul{margin:8px 0 0 18px;padding:0}
+li{margin:5px 0}
+figure{margin:16px 0 6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;box-shadow:0 2px 10px rgba(60,48,30,.05)}
+figure img{width:100%;display:block;border-radius:8px}
+figcaption{color:var(--sub);font-size:12.5px;padding:8px 4px 2px}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:1px 9px;border-radius:999px;margin-left:6px}
+.ok{color:var(--ok);background:rgba(47,122,82,.1)}
+.pend{color:var(--warn);background:rgba(168,98,31,.12)}
+.note{background:#f3ece0;border:1px solid #e5d8c3;border-radius:10px;padding:12px 14px;font-size:13.5px;color:#544c3f;margin:14px 0}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;background:var(--card)}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#f4efe6;font-weight:600;white-space:nowrap}
+code{background:#f1ece3;padding:1px 5px;border-radius:4px;font-size:12.5px}
+.footer{margin-top:56px;color:var(--sub);font-size:12.5px;border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>「复习挑内容」搬进 Review · 真机验证报告</h1>
+  <p class="meta">
+    2026-11-21 · 测试库 <b>E:\Obsidian\bz review</b> · 桌面 1024×800 / 移动端 390×844@3x（<code>app.emulateMobile(true)</code>）<br>
+    构建：两仓 master 合并后重建（review 6:40:36、reader 6:40:40，只落测试库）<br>
+    门禁：reader <b>tsc 通过 · 359 文件 / 4039 断言全绿</b>；review <b>tsc 通过 · 657 断言绿 · lint-css 0 error / 0 warning</b>
+  </p>
+
+  <div class="note">
+    关于 AI：这轮用真实 DeepSeek（reader 共享配置，<code>deepseek-flash</code>）验证链路，没有另起假服务。挑内容第一次等了 75 秒没回来、第二次重跑成功——模型首包慢，不是代码失败。
+  </div>
+
+  <h2>0. 改动边界</h2>
+  <p>复习的一切归 <b>bz-review</b>，Reader 只剩两个「内容供货」接口：</p>
+  <ul>
+    <li>bz-review 新增 <code>source-pick.ts</code>（挑范围纯逻辑）、<code>source-pick-ui.ts</code>（选范围窗口）、<code>reader-source.ts</code>（探测 Reader 接口）；门面契约升到 <b>v6</b>；新增命令 <code>review-add-reader</code>；面板空态加「从阅读器加入复习」。</li>
+    <li>bz-reader 删除 <code>ReviewAddFlow</code> / <code>BookScopeFlow</code> / <code>review-scope.ts</code> / <code>review-run.ts</code>（<b>-1698 行</b>），<code>review-add.ts</code> 只剩薄入口：找到 Review 门面、把书 id 递过去。</li>
+    <li>Reader 新接口：<code>readerApi.reviewCatalog(bookId?)</code>（列书 / 划线 / 章节目录）、<code>readerApi.reviewChapterText(bookId, index)</code>（读正文）。</li>
+  </ul>
+
+  <h2>1. 命令入口：选书 → 勾章 → 确认页 <span class="tag ok">通过</span></h2>
+  <p>命令面板跑「从阅读器加入复习」，先列书（带划线条数），选书后勾章节，再在确认页看清方式 / 范围 / 字数。</p>
+  <figure><img src="images/review-source-pick-2026-11-21/01-review-cmd-books.png" alt="选书"><figcaption>选书：4 本书，剪藏本 0 条 / 围城 12 条 / 我的天才女友 2 条 / 当AI构建自身 1 条</figcaption></figure>
+  <figure><img src="images/review-source-pick-2026-11-21/02-pick-marks.png" alt="勾章节"><figcaption>按划线勾章节：序 2 条 · 261 字；第一章 10 条 · 1,003 字</figcaption></figure>
+  <figure><img src="images/review-source-pick-2026-11-21/03-pick-ticked.png" alt="已勾选"><figcaption>勾选后统计实时变化：已选 1 章 · 10 条划线 · 1,003 字</figcaption></figure>
+  <figure><img src="images/review-source-pick-2026-11-21/04-confirm.png" alt="确认页"><figcaption>确认页：方式 / 范围 / 字数三段，底部「返回」「开始」</figcaption></figure>
+
+  <h2>2. AI 挑内容 → 选方式 → 入库 <span class="tag ok">通过</span></h2>
+  <p>点「开始」先让 AI 从 10 条划线里挑重点，挑完原地出现四张方式卡；选「全文回忆」后入库。</p>
+  <figure><img src="images/review-source-pick-2026-11-21/05-wiz-pick.png" alt="选方式"><figcaption>AI 挑完后原地出现「选一种复习方式」，并提示「其中 2 条已经在复习计划里，已跳过」</figcaption></figure>
+  <figure><img src="images/review-source-pick-2026-11-21/06-wiz-confirm.png" alt="等待期"><figcaption>等待期：只有进度条，不闪旧内容（确认题面那一帧恰落在加载态，入库结果见第 5 项）</figcaption></figure>
+
+  <h2>3. 去重：已在计划里的不再重复 <span class="tag ok">通过</span></h2>
+  <p>第二次跑同一批，AI 挑出 3 条全部命中已有计划，窗口直接说「这 3 条都已经在复习计划里」并只留「关闭」。</p>
+  <figure><img src="images/review-source-pick-2026-11-21/07-added.png" alt="去重"><figcaption>去重后的空态</figcaption></figure>
+
+  <h2>4. 书右键入口 <span class="tag ok">通过</span></h2>
+  <p>右键书卡 → 菜单「加入复习」→ 直接打开 Review 的勾选页，书名和划线已经在里面，不用再选书。</p>
+  <figure><img src="images/review-source-pick-2026-11-21/10-shelf.png" alt="书架菜单"><figcaption>书架右键菜单：阅读 / 书籍详情 / <b>加入复习</b> / 补全信息 / 导出 / 收藏…</figcaption></figure>
+  <figure><img src="images/review-source-pick-2026-11-21/11-bookmenu-flow.png" alt="书右键进勾选页"><figcaption>点「加入复习」后直接进《我的天才女友》勾选页</figcaption></figure>
+
+  <h2>5. 复习列表复核 <span class="tag ok">通过</span></h2>
+  <p>验收时「复习」页签的已逾期列表里已经有围城第一章那几张划线卡，排期也正常。</p>
+  <figure><img src="images/review-source-pick-2026-11-21/13-review-tab.png" alt="复习列表"><figcaption>已逾期 18 / 今天到期 0 / 未来 13，入库的划线卡在其中</figcaption></figure>
+
+  <h2>6. 移动端形态 <span class="tag ok">通过</span></h2>
+  <p>390 宽下选书、勾章、确认三屏都单列排布，底部按钮并排可点。</p>
+  <figure><img src="images/review-source-pick-2026-11-21/20-m-books.png" alt="移动端选书"><figcaption>移动端 · 选书</figcaption></figure>
+  <figure><img src="images/review-source-pick-2026-11-21/21-m-pick.png" alt="移动端勾选"><figcaption>移动端 · 勾章节</figcaption></figure>
+  <figure><img src="images/review-source-pick-2026-11-21/22-m-confirm.png" alt="移动端确认"><figcaption>移动端 · 确认页</figcaption></figure>
+
+  <h2>7. Reader 侧栏入口 <span class="tag pend">待确认</span></h2>
+  <p>代码上侧栏按钮和书右键共用同一函数（<code>openReviewAdd</code> → <code>openReaderFlow({ bookId })</code>），单测 <code>tests/review-add-thin.test.ts</code> 已断言；真机这次只走通「书右键」，侧栏那颗按钮要在阅读界面里点，CDP 没能稳定进阅读态（点书卡只停在书架），<b>没有截到独立证据</b>。</p>
+
+  <h2>已知问题</h2>
+  <table>
+    <tr><th>问题</th><th>说明</th></tr>
+    <tr><td>3 个 jsdom 测试文件起不来</td><td><code>settings-split</code> / <code>settings-page</code> / <code>review-dialogs</code> 报 <code>Cannot find module 'is-potential-custom-element-name'</code>。根因是共享 pnpm store 里多个包目录被清空；本轮补了 6 个包仍继续报下一个缺包，需要在该仓跑一次完整 <code>pnpm install</code>。不影响产物运行，只影响这三个用例。</td></tr>
+    <tr><td>AI 首包慢</td><td>第一次「开始」后 75 秒仍是加载态，重跑一次成功；属模型侧延迟。</td></tr>
+    <tr><td>侧栏入口缺截图</td><td>见第 7 项，建议下一轮真机手动补一张。</td></tr>
+  </table>
+
+  <h2>结论</h2>
+  <ul>
+    <li>两条硬边界已落地：<b>复习相关逻辑 / 样式 / 弹窗全部在 bz-review</b>；Reader 只剩两个供货接口和三个薄入口。</li>
+    <li>命令入口、书右键入口、移动端形态通过真机验证；入库与去重在复习列表里复核通过。</li>
+    <li>代码已合并回两仓 master，worktree 已按约定清除（先摘 <code>node_modules</code> junction，再 <code>worktree remove</code> → <code>prune</code> → <code>branch -d</code>）。</li>
+  </ul>
+
+  <p class="footer">bz-review · bz-reader · 2026-11-21 · 截图位于 <code>docs/images/review-source-pick-2026-11-21/</code></p>
+</div>
+</body>
+</html>
