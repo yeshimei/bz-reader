@@ -1083,8 +1083,8 @@ describe('设置页 · 2026-11-17 重排', () => {
     const src = out();
     expect((src.match(/class="bzs-cap[ "]/g) ?? []).length).toBe(3);
     expect(src).toContain('bzs-capchip');
-    /* 状态徽章是词，不是句子：长句挪去卡片底下的虚线块 */
-    expect(groupOf(src, '插件')).toContain('bzs-capnote');
+    /* 状态徽章是词，不是句子：长句单独一行（渲染成卡片里的 <p>） */
+    expect(groupOf(src, '插件')).toMatch(/<p>[^<]+<\/p>/);
   });
 
   it('阅读页图标 16 行改双列容器', () => {
