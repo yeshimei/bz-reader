@@ -280,6 +280,10 @@ export class ShelfPanel {
     const root = this.root;
     if (!root || !target) return true;
     try {
+      /* Review 面板以嵌入模式挂在本壳层里（.bzs-review-host），它自己的
+         data-act 会冒泡到这里的委托：那类点击归 Review 自己处理，否则在
+         Review 设置页点一次「更新日志」，Reader 也会跟着弹自己的日志。 */
+      if ((target as HTMLElement).closest?.('.bzs-review-host, .bzrv-panel-frame')) return true;
       return !root.contains(target as Node);
     } catch {
       return true;
