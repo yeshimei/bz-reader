@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>统一制卡流程 · 真机验证报告（2026-11-21）</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #fff; --ink: #1f2329; --muted: #646a73;
+    --line: #e5e6eb; --accent: #2b6cb0; --ok: #1a7f37; --okbg: #eaf6ee;
+    --warn: #9a6700; --warnbg: #fff8e5; --code: #f2f3f5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.7 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 32px 20px 80px; }
+  header h1 { font-size: 26px; margin: 0 0 14px; }
+  .meta { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 20px; margin-bottom: 24px; }
+  .meta div { padding: 2px 0; color: var(--muted); }
+  .meta b { color: var(--ink); }
+  .note { background: var(--warnbg); border-left: 4px solid var(--warn);
+    padding: 10px 16px; border-radius: 6px; color: #6b5200; margin-bottom: 28px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 22px 24px; margin-bottom: 20px; }
+  section h2 { font-size: 19px; margin: 0 0 16px; padding-bottom: 12px;
+    border-bottom: 1px solid var(--line); }
+  .num { display: inline-block; background: var(--accent); color: #fff; font-size: 14px;
+    width: 26px; height: 26px; line-height: 26px; text-align: center; border-radius: 50%;
+    margin-right: 8px; }
+  .field { margin: 10px 0; }
+  .field .lbl { display: inline-block; font-weight: 600; color: var(--muted);
+    min-width: 76px; vertical-align: top; }
+  .field .val { display: inline-block; width: calc(100% - 84px); vertical-align: top; }
+  .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px; margin: 14px 0; }
+  .shot { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fafbfc; }
+  .shot img { width: 100%; height: auto; display: block; cursor: zoom-in; }
+  .shot .cap { font-size: 13px; color: var(--muted); padding: 8px 10px; border-top: 1px solid var(--line); }
+  .verdict { display: inline-block; background: var(--okbg); color: var(--ok);
+    font-weight: 600; padding: 4px 12px; border-radius: 20px; }
+  .verdict.limit { background: var(--warnbg); color: var(--warn); }
+  code { background: var(--code); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  ol li, ul li { margin: 6px 0; }
+  .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85);
+    z-index: 99; align-items: center; justify-content: center; padding: 24px; }
+  .lightbox.show { display: flex; }
+  .lightbox img { max-width: 100%; max-height: 100%; border-radius: 6px; }
+  .lightbox .close { position: absolute; top: 18px; right: 26px; color: #fff;
+    font-size: 34px; cursor: pointer; line-height: 1; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 30px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>统一制卡流程 · 真机验证报告（2026-11-21）</h1>
+    <div class="meta">
+      <div><b>测试库</b>：<code>E:\Obsidian\bz review</code>（bz-reader 与 bz-review 同库配合测试）</div>
+      <div><b>设备</b>：桌面 1024×800 / 移动端 390×844@3x（Obsidian 移动端模拟 <code>app.emulateMobile(true)</code>）</div>
+      <div><b>构建</b>：bz-reader 1.5.3、bz-review 1.0.0 均为本次 master 源码构建</div>
+      <div><b>门禁</b>：tsc 通过；vitest 361 文件 / 4072 断言全绿；esbuild 构建成功并同步测试库</div>
+    </div>
+    <div class="note">关于 AI：本轮用本地假 AI（<code>127.0.0.1:8799</code>，OpenAI 兼容 + 流式，故意延迟 1.8 秒）代替真实模型，避免消耗额度；界面、加载态、解析与入库都是真代码，只有生成内容来自假服务。截图均为真机实际截图，可点击放大。</div>
+  </header>
+
+  <section>
+    <h2><span class="num">1</span>挖空并入统一制卡弹窗</h2>
+    <div class="field"><span class="lbl">问题描述</span><span class="val">制卡方式只有「全文回忆 / 抽认卡 / 做题」，挖空只能去另一套旧界面。</span></div>
+    <div class="field"><span class="lbl">一句话说明</span><span class="val">「选一种复习方式」多了第四张卡「挖空」；选完 AI 先出挖空稿，确认页可以直接手工挖。</span></div>
+    <div class="shots">
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/04-cards-pick2.png" alt="桌面四张方式卡"><div class="cap">桌面 · 四张方式卡</div></div>
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/06-cloze-drag.png" alt="桌面拖选挖空"><div class="cap">桌面 · 拖选第二处，两个空位带编号</div></div>
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/07-cloze-preview.png" alt="桌面挖空预览"><div class="cap">桌面 · 复习态预览（空位藏起，只留下划线）</div></div>
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/23-m-cards-pick.png" alt="移动端四张方式卡"><div class="cap">移动端 · 四张卡 2×2</div></div>
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/27-m-chips3.png" alt="移动端词块选择器"><div class="cap">移动端 · 大号词块选择器</div></div>
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/29-m-chip-off2.png" alt="移动端取消单词"><div class="cap">移动端 · 点「关系」只取消这个词，其余空位保留，原本合并的空被拆成 2 处</div></div>
+    </div>
+    <div class="field"><span class="lbl">测试结论</span><span class="val"><span class="verdict">通过</span> 桌面拖选、移动端点词两套输入方式并存，互不干扰。</span></div>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span>加载时不再闪上一轮内容</h2>
+    <div class="field"><span class="lbl">问题描述</span><span class="val">全文回忆 → 返回 → 抽认卡，加载中会先显示上一轮的原文，出题完成才消失；做题同样。</span></div>
+    <div class="field"><span class="lbl">一句话说明</span><span class="val">换方式或重出题时先清空旧草稿，加载中只显示进度条，出完一次性长出来。</span></div>
+    <div class="shots">
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/31-loading-2.png" alt="加载中无旧题面"><div class="cap">加载中（正在出题 0/1，没有任何旧题面）</div></div>
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/32-flashcard-2.png" alt="出题完成"><div class="cap">1.8 秒后出题完成，才出现卡片与「确认加入（1 张）」</div></div>
+    </div>
+    <div class="field"><span class="lbl">测试结论</span><span class="val"><span class="verdict">通过</span></span></div>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span>补一道题后自动滚到底</h2>
+    <div class="field"><span class="lbl">问题描述</span><span class="val">补题加载完，列表停在原处，新题在下面看不见。</span></div>
+    <div class="field"><span class="lbl">一句话说明</span><span class="val">补题完成后把列表滚到新补的那道题。</span></div>
+    <div class="shots">
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/35-fill-2.png" alt="补题后滚到底"><div class="cap">点「补一道题」后，列表自动滚到第 4 题，补出来的题完整可见</div></div>
+    </div>
+    <div class="field"><span class="lbl">测试结论</span><span class="val"><span class="verdict">通过</span></span></div>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span>弹窗点遮罩不关闭</h2>
+    <div class="field"><span class="lbl">问题描述</span><span class="val">选要加入的内容 / 选一种复习方式 / 确认题面 / 按章节，点遮罩都不该关。</span></div>
+    <div class="field"><span class="lbl">一句话说明</span><span class="val">制卡流程的遮罩与 ESC 都不响应，只认右上角 ✕ 与底部按钮。</span></div>
+    <div class="shots">
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/08-mask-click.png" alt="点遮罩不关闭"><div class="cap">对遮罩派发点击后弹窗仍在（截图即点击后的状态）</div></div>
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/18-scope-dialog.png" alt="阅读器选择范围弹窗"><div class="cap">阅读器的「选要加入的内容」保持原样（Obsidian 原生 Modal）</div></div>
+    </div>
+    <div class="field"><span class="lbl">测试结论</span><span class="val"><span class="verdict">通过</span> 新流程显式拦截；阅读器旧弹窗维持原有行为，未改动。</span></div>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span>按章节面板占六成屏、章节行左右对齐</h2>
+    <div class="field"><span class="lbl">问题描述</span><span class="val">显示章节正文的滚动区太小（整个面板连四分之一都不到），标题与勾选框竖着挤成一团，底部「下一步」还被推出去，体验很差。</span></div>
+    <div class="field"><span class="lbl">一句话说明</span><span class="val">面板固定占六成屏，说明 / 全选条 / 统计 / 底部按钮固定，中间章节列表吃满整块空间；标题左对齐、勾选框右对齐，一行摆平。</span></div>
+    <div class="shots">
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/46-d-chapters-final2.png" alt="桌面按章节最终版"><div class="cap">桌面 · 面板占六成屏、头尾固定、行内左右对齐</div></div>
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/45-m-chapters8.png" alt="移动端按章节最终版"><div class="cap">移动端 · 六成屏高 + 固定头尾 + 中间列表吃满 + 标题左勾选右</div></div>
+    </div>
+    <div class="field"><span class="lbl">测试结论</span><span class="val"><span class="verdict">通过</span> 壳层 CSS 会被构建加 <code>.bzs-shell</code> 前缀，弹窗挂在 body 上，已改内联样式；真机发现章节行被拉成空输入框、面板不到四分之一屏，已一并修掉（见代码审查第 6 条）。</span></div>
+  </section>
+
+  <section>
+    <h2><span class="num">6</span>文件树右键「加入复习」</h2>
+    <div class="field"><span class="lbl">问题描述</span><span class="val">Obsidian 文件树没有这个命令。</span></div>
+    <div class="field"><span class="lbl">一句话说明</span><span class="val">文件树右键 <code>.md</code> 与文件夹会出现「加入复习」，其它类型不出现；文件夹递归加里面的笔记。</span></div>
+    <div class="shots">
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/11-file-menu3.png" alt="文件树右键加入复习"><div class="cap">文件树右键菜单里的「加入复习」</div></div>
+    </div>
+    <div class="field"><span class="lbl">测试结论</span><span class="val"><span class="verdict limit">通过 · 附已知限制</span> 对「已在计划」的条目没做灰态（菜单同步构建，异步查询来不及），点了按已存在处理、不重复加入。</span></div>
+  </section>
+
+  <section>
+    <h2><span class="num">7</span>只留一套制卡界面</h2>
+    <div class="field"><span class="lbl">问题描述</span><span class="val">Reader 一套卡片网格、Review 一套列表弹窗，后者选完直接进计划、不给看题面。</span></div>
+    <div class="field"><span class="lbl">一句话说明</span><span class="val">制卡流程整体搬进 bz-review，笔记右键、重新生成、阅读器划线都走同一个弹窗；旧列表界面已删除。</span></div>
+    <div class="shots">
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/04-cards-pick2.png" alt="笔记右键同一弹窗"><div class="cap">笔记选中文字 → 右键加入复习 → 同一个四选一弹窗</div></div>
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/34-quiz-3.png" alt="重新生成做题卡"><div class="cap">「重新生成 AI 内容」→ 同款四选一 + 确认页（做题卡示例）</div></div>
+    </div>
+    <div class="field"><span class="lbl">测试结论</span><span class="val"><span class="verdict">通过</span> 旧 <code>pickCardMethod</code> 列表弹窗代码已整段删除（<code>src/review/card-flow.ts</code> 只留重新生成确认面板）。</span></div>
+  </section>
+
+  <section>
+    <h2>移动端挖空：为什么不是「点正文里的字」</h2>
+    <p>第一版是点正文里的字，字小、密集，手指会点偏，还会把已经挖好的空位误还原。改成：</p>
+    <ul>
+      <li><b>正文只读</b>：只展示空位，不接收点击；</li>
+      <li><b>下方词块</b>：按词（可切「按字」）给独立胶囊按钮，约 34px 高、6px 间距；</li>
+      <li><b>点一下挖，再点一下只取消这个词</b>：合并过的空位会被精确切开，相邻词自动并成一个空；</li>
+      <li>正文与词块各自保留滚动位置，点词重画不会跳回顶部。</li>
+    </ul>
+    <div class="shots">
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/27-m-chips3.png" alt="点词挖空"><div class="cap">点词挖空</div></div>
+      <div class="shot"><img src="images/review-card-flow-2026-11-21/29-m-chip-off2.png" alt="只取消关系"><div class="cap">只取消「关系」，其余空位与编号保持</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>代码审查（本次改动）</h2>
+    <p>审查后修掉的问题：</p>
+    <ol>
+      <li><b>方式卡是 div</b>：Tab 走不到、回车选不了 → 改成真 <code>&lt;button&gt;</code>，视觉不变。</li>
+      <li><b>卡片被裁</b>：按钮 <code>width:100%</code> 叠加 padding 挤出容器 → 弹窗内统一 <code>box-sizing: border-box</code>。</li>
+      <li><b>按章节布局不生效</b>：壳层 CSS 被编译成 <code>.bzs-shell .modal…</code>，匹配不到挂在 body 的弹窗 → 改为内联样式。</li>
+      <li><b>setCssProps 驼峰多词属性无效</b>：<code>maxHeight</code> / <code>flexDirection</code> 等实际不生效 → 全部改成 kebab-case。</li>
+      <li><b>无用参数</b>：<code>renderQuestion</code> 的 <code>cardIndex</code> 删除。</li>
+      <li><b>章节行被拉成空输入框 / 面板不到四分之一屏</b>（两轮真机截图发现）：<code>pinRowLayout()</code> 钉死横向 flex、标题左、勾选框右、checkbox 固定 16px；面板固定 60vh，列表 <code>flex:1 1 auto</code> 吃满中段，全选与统计合并一行。</li>
+    </ol>
+    <p>回归：bz-review 656 项测试全绿、tsc 通过；bz-reader 全量 4072 项测试全绿、tsc 通过；两侧产物均构建通过。</p>
+  </section>
+
+  <section>
+    <h2>已知限制</h2>
+    <ol>
+      <li>本轮用本地假 AI，未接真实模型；真实模型的出题质量不在此报告范围。</li>
+      <li>移动端分词依赖 <code>Intl.Segmenter</code>，人名可能被拆成单字（如「方鸿渐」），可切「按字」或按词逐个点，功能不受影响。</li>
+      <li>文件树「已在计划」灰态未做（原因见第 6 项）。</li>
+      <li>移动端模拟下同一本《围城》只解析出「封面」一节，桌面端正常列出 6 节；疑与移动端模拟的 EPUB 解析有关，待真机再确认（不影响本项布局验证）。</li>
+    </ol>
+  </section>
+
+  <footer>统一制卡流程真机验证 · 2026-11-21 · 共 15 张截图</footer>
+</div>
+
+<div class="lightbox" id="lb"><span class="close" id="lbc">×</span><img id="lbi" src="" alt=""></div>
+<script>
+  const lb = document.getElementById('lb'), lbi = document.getElementById('lbi');
+  document.querySelectorAll('.shot img').forEach(img => img.addEventListener('click', () => {
+    lbi.src = img.src; lb.classList.add('show');
+  }));
+  lb.addEventListener('click', e => { if (e.target === lb || e.target.id === 'lbc') lb.classList.remove('show'); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') lb.classList.remove('show'); });
+</script>
+</body>
+</html>

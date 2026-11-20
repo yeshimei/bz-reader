@@ -10,6 +10,7 @@
    4. 列出你不确认、需要我回答的问题；**每个问题末尾都要附上你推荐的选择**（写成「建议：…」），这样我可以只说「都按你的来」，不必逐条回答；
    5. 每次都在 worktree 里改代码，改完只部署到测试库；没有我的明确指令，不得合并到主分支。
    等我确认后再改动代码。
+   所有事情做完后，必须逐项跑真机验证并截图，把每项的描述和完整截图写进一份 Markdown 报告发给我点开查看。
 4. **再走 TDD**：先写 `tests/<模块>.test.ts` 让它红，再改实现让它绿；修 bug 先写复现断言并永久保留，测试与实现同一提交；纯样式（CSS）例外，提交信息写「无逻辑变更，走真机冒烟」并说明冒烟了什么。
 5. **多语言只在发版流程补齐**：日常开发、修 bug、feature 分支**只写 `src/i18n/zh.ts` 的中文**——不给外语包写翻译，也不在开发期逐字推敲英文 / 繁体。中文包是 key 的类型真源，加完 key 跑一次 `node scripts/i18n-placeholders.mjs`，脚本自动给其余七包补 `[TODO]` 占位顶住门禁（只补缺失 key、不覆盖已有译文，`{占位符}`与中文逐条相同）。正式翻译、术语统一、润色统一放到上架第一段第 2 步一次做完。
    - 上架前必须跑 `node scripts/i18n-placeholders.mjs --check`，还有占位或漏 key 就停。
@@ -42,7 +43,7 @@ node esbuild.config.mjs production
 - `BZ_READER_VAULT` 指**插件目录**，不是库根；`all` = 测试库 + 真实库，也可填 `test` / `main`（缺省 `test`），或用 `;` 分隔多个完整路径。
 - 只部署已合并到 master 的产物；worktree 内构建把 `BZ_READER_VAULT` 指向不存在的目录，只验产物。
 - 验收：日常只查测试库 `main.js` 时间戳是本次构建、重载生效；发版再查仓库根与两个库 `main.js` 字节数一致。
-- 部署 ≠ 发版；tag / Release 走 `bz-reader-release`（bz 主仓才走 `bz-release`）。
+- 部署 ≠ 发版；tag / Release 走 `bz-release` skill 的分支 B（bz reader）；bz 主仓走同一 skill 的分支 A。
 
 ## 改动流程
 - 功能、修复在仓库外 worktree 做：
@@ -97,8 +98,8 @@ node scripts/issue-license.mjs --plan lifetime --id BZR-AF-2026-0021
 
 - 推完 master 就交棒：**没听到「预览审核通过」不许打 tag、不许发 Release、不许部署真实库、不许镜像码云**。作者要跑扫描和提交，得先让仓库上有这版代码。
 - 第二段一旦开始就必须走完（Release → 三处部署 → 镜像 → 校验），不要停在中间。
-- **review 有两种，别混**：① 代码自审——agent 用 `code-review` skill 把上一个已发布 tag 到本版的提交过一遍 Standards（编码规范）/ Spec（需求符合度）两面，属于第一段、推 master 前主动做，问题提交前就地修；② 社区目录预览扫描——作者手动跑 `scripts/community-review.mjs`，agent 不主动跑、不当待办催。详见 skill `bz-reader-release`。
-- **发版 × 反馈联动（第二段全部完成之后才做）**：更新日志条目尾部带反馈出处链接（QQ 频道帖子 `qq` / GitHub issue `issue`）；发完版把本版反馈的 QQ 帖子改「已完成」（`qq-publish.mjs --move`）、关掉随版发布的 GitHub issue。列候选给用户过目后再回写，没走完发版不许提前改状态。详见 skill `bz-reader-release` 第 1.6 节。
+- **review 有两种，别混**：① 代码自审——agent 用 `code-review` skill 把上一个已发布 tag 到本版的提交过一遍 Standards（编码规范）/ Spec（需求符合度）两面，属于第一段、推 master 前主动做，问题提交前就地修；② 社区目录预览扫描——作者手动跑 `scripts/community-review.mjs`，agent 不主动跑、不当待办催。详见 skill `bz-release` 分支 B。
+- **发版 × 反馈联动（第二段全部完成之后才做）**：更新日志条目尾部带反馈出处链接（QQ 频道帖子 `qq` / GitHub issue `issue`）；发完版把本版反馈的 QQ 帖子改「已完成」（`qq-publish.mjs --move`）、关掉随版发布的 GitHub issue。列候选给用户过目后再回写，没走完发版不许提前改状态。详见 skill `bz-release`「发版 × 反馈联动」公共节。
 
 每次上架前必须跑官方 lint：
 ```powershell
@@ -131,7 +132,7 @@ curl.exe -sL https://gitee.com/ntbl/bz-reader/releases/download/<版本>/manifes
 ```
 两边 `version` 都要等于 `manifest.version`。
 14. **三张统计推云端**（打赏 / 高级用户 / 赞助人）：在 `D:\Obsidian\skills\bz-reader-feedback-roadmap\scripts` 跑 `stats-set.mjs --reward auto --patrons auto --push`（高级用户要给链动小铺后台销量和，读不到就留旧值、别写 0）；脚本从 `scripts/` 里 `git add` 会失败，回 bz 主仓手动提交并双推 GitHub / 码云。口径见该 skill 的 `references/stats.md`；
-15. **两处公告**：**先把更新日志发到频道「公告」**（Markdown 长贴 + 本地图片占位符，带发布图），**再把那条帖子分享到「bz 插件交流群」**——@全体成员 + 摘要 + 频道帖子短链（QQ 自动渲染成「腾讯频道」卡片），群里不再另发图片。出图版式与文案模板见 skill `bz-reader-release` 第 5 节，卡片模板在 `skills/bz-reader-release/assets/release-card.html`。
+15. **两处公告**：**先把更新日志发到频道「公告」**（Markdown 长贴 + 本地图片占位符，带发布图），**再把那条帖子分享到「bz 插件交流群」**——@全体成员 + 摘要 + 频道帖子短链（QQ 自动渲染成「腾讯频道」卡片），群里不再另发图片。出图版式与文案模板见 skill `bz-release` 的「公告」公共节，卡片模板在 `skills/bz-release/assets/release-card.html`。
 
 镜像放在最后：等 Release 与三处部署都完成再推国内通道，别让码云先于正本上线。目录那边若报 Error 要改，涨补丁号重发，**不挪已经发出去的 tag**。
 

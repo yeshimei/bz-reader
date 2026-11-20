@@ -140,7 +140,7 @@
 | **阅读方式** | 竖排排版：EPUB / TXT | — | ✓ |
 |  | 并排对照：与另一本书同步段落 | — | ✓ |
 |  | 全书鸟瞰：各章划线数与一句话摘要 | — | ✓ |
-|  | PDF 重排：固定版式变流式 | — | — |
+| **探索中** | PDF 重排：固定版式变流式 | — | — |
 |  | 漫画模式：分格、右到左、跨页 | — | — |
 |  | 整章翻译：原文译文对照 | — | — |
 |  | 复习：全文回顾，AI 抽认卡与出题 | — | — |
@@ -358,6 +358,7 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 |  | Highlights as wikilinks: click back from your notes | — | ✓ |
 |  | Citations tab: see which notes cite this book | — | ✓ |
 |  | Export every excerpt, each with a wikilink | — | ✓ |
+|  | Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf | — | ✓ |
 | **PDF Reading** | Open a PDF: zoom, rotate, one or two pages, scroll; view remembered per book | — | ✓ |
 |  | Page thumbnails: find a page in a long book | — | ✓ |
 |  | Copy page links: page / view / embed / annotation | — | ✓ |
@@ -377,13 +378,12 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 |  | Read aloud: EPUB, TXT and PDF, auto page-turn | — | ✓ |
 |  | Read two books side by side | — | ✓ |
 |  | Book overview | — | ✓ |
-|  | PDF reflow: fixed layouts read as flowing text | — | — |
+| **Explorations** | PDF reflow: fixed layouts read as flowing text | — | — |
 |  | Manga mode: panels, right-to-left, spreads | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
 |  | Review: reread in full, with AI flashcards and quizzes | — | — |
 |  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
 |  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
-|  | Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf | — | — |
 
 ### Interface languages
 
