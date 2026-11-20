@@ -953,8 +953,6 @@ export const ZH = {
   /* 界面组：只在装了支持嵌入的 Review 时显示的开关 */
   'settings.embedReview': '书架内显示复习',
   'settings.embedReview.hint': '把 bz Review 的复习界面放进书架，页签栏和书库、笔记、对话排在一起。',
-  'settings.reviewAskMode': '加入复习先选方式',
-  'settings.reviewAskMode.hint': '关掉后点「加入复习」直接进确认题面并当场出题，用上次选的那个方式；想改方式再打开这里。',
 
   /* ── 设置页：版式 ────────────────────────────────────────── */
   'settings.font': '字体',

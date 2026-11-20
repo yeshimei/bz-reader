@@ -43,7 +43,7 @@ import { filterRows, toRows } from './adapt';
 import { visiblePicked } from './book-select';
 import { toggleAll, togglePick } from './note-select';
 import { togglePicked } from './note-picker';
-import { openReviewAdd, addMarkToReview, addSelectionToReview, openBookReviewAdd } from './review-add';
+import { addMarkToReview, addSelectionToReview, openBookReviewAdd } from './review-add';
 import { findReviewApi, markCardKey, reviewEmbedReady } from '../data/review-bridge';
 import { markReviewPlanned } from './review-marks';
 import { notify } from '../core/notice';
@@ -2143,14 +2143,6 @@ export function dispatchAction(
       }
       overlay('notedrop');
       break;
-    /* 加入复习（2026-11-16）：挑哪些内容交给 AI，Review 只负责复习。
-       入口在侧栏「划线」页；书没打开也能用（按划线不读正文）。 */
-    case 'reviewadd': {
-      const id = d.book || getState().bookId;
-      const b = liveBooks().find((x) => x.id === id);
-      void openReviewAdd(getShellSource()?.app, b);
-      break;
-    }
     case 'notedropdo':
       dropSelectedMarks();
       break;
