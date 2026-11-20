@@ -494,20 +494,28 @@ class CardsFlow {
         const label = back.createSpan({ cls: 'bzs-review-card-label' });
         label.setText(t('review.make.back'));
         label.createSpan({ cls: 'bzs-review-card-editable', text: t('review.make.backEditable') });
-        /* 背面原文可改：AI 偶尔会把原文裁短，用户自己补一句比重新生成省事 */
-        const area = back.createEl('textarea', { cls: 'bzs-review-textarea' });
-        area.value = d.back;
-        area.rows = Math.min(8, Math.max(2, Math.ceil(d.back.length / 42)));
-        area.addEventListener('input', () => {
-          d.back = area.value;
-          this.touched.add(i);
-        });
+        /* 正文只读（2026-11-20）：这一屏只让用户改标题；原文是复习的依据，
+           要换内容走下面的「重新生成」，不在这里给人改坏的机会。 */
+        back.createDiv({ cls: 'bzs-review-card-backtext', text: d.back });
       }
       this.renderCardTools(body, i);
       return box;
     }
 
     if (d.mode === 'quiz') {
+      /* 做题卡也有标题（2026-11-20）：AI 出题时顺带生成，用户在这里改；
+         改完随卡入库，复习列表显示的就是这句，不再是第一题题干。 */
+      const field = body.createDiv({ cls: 'bzs-review-card-field' });
+      field.createSpan({ cls: 'bzs-review-card-label', text: t('review.make.front') });
+      const input = field.createEl('input', { cls: 'bzs-review-input' });
+      input.type = 'text';
+      input.value = d.title;
+      input.placeholder = t('review.make.front');
+      input.addEventListener('input', () => {
+        d.title = input.value;
+        this.touched.add(i);
+      });
+
       const qs = body.createDiv({ cls: 'bzs-review-q-list' });
       if (!d.questions.length && this.fillIndex !== i) {
         qs.createEl('p', { cls: 'bzs-review-card-empty', text: t('review.make.emptyQuiz') });
@@ -627,6 +635,8 @@ class CardsFlow {
       d.front = nd.front;
       d.back = nd.back;
       d.questions = nd.questions;
+      /* 整张重新生成才换标题；「补一道题」只动题库，手改的标题留着。 */
+      d.title = nd.title;
       this.touched.delete(i);
     }
     this.render();
@@ -686,6 +696,7 @@ class CardsFlow {
     if (this.closed) return;
     this.drafts.forEach((d, i) => {
       d.questions = fresh[i]?.questions ?? [];
+      d.title = fresh[i]?.title ?? d.title;
     });
     this.touched.clear();
     this.render();
@@ -755,3 +766,4 @@ function stateStyle(s: string): Record<string, string> {
 function optionKey(i: number): string {
   return i < 26 ? String.fromCharCode(65 + i) : String(i + 1);
 }
+

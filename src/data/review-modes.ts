@@ -46,10 +46,12 @@ export interface DraftCard {
   text: string;
   /** 做题的题目列表 */
   questions: DraftQuestion[];
+  /** 做题卡的标题：AI 生成、用户可在确认题面那屏改，随卡入库供复习列表显示 */
+  title: string;
 }
 
 /** 造一张卡。空原文不造。 */
-export function makeDraft(mode: ReviewMode, s: CardSource & { front?: string; questions?: DraftQuestion[] }): DraftCard | null {
+export function makeDraft(mode: ReviewMode, s: CardSource & { front?: string; questions?: DraftQuestion[]; title?: string }): DraftCard | null {
   const text = String(s.text ?? '').trim();
   if (!text) return null;
   const d: DraftCard = {
@@ -60,6 +62,7 @@ export function makeDraft(mode: ReviewMode, s: CardSource & { front?: string; qu
     front: '',
     back: '',
     questions: [],
+    title: '',
   };
   if (s.chapterTitle) d.chapterTitle = s.chapterTitle;
   if (s.comment) d.comment = s.comment;
@@ -68,7 +71,10 @@ export function makeDraft(mode: ReviewMode, s: CardSource & { front?: string; qu
     d.front = String(s.front ?? '').trim();
     d.back = text;
   }
-  if (mode === 'quiz') d.questions = Array.isArray(s.questions) ? s.questions : [];
+  if (mode === 'quiz') {
+    d.questions = Array.isArray(s.questions) ? s.questions : [];
+    d.title = String(s.title ?? '').trim();
+  }
   return d;
 }
 
@@ -86,6 +92,7 @@ export function toCardPayload(d: DraftCard): {
   mode: ReviewMode;
   qa?: { q: string; a: string };
   questions?: DraftQuestion[];
+  displayTitle?: string;
 } {
   const p: {
     key: string;
@@ -95,10 +102,14 @@ export function toCardPayload(d: DraftCard): {
     mode: ReviewMode;
     qa?: { q: string; a: string };
     questions?: DraftQuestion[];
+    displayTitle?: string;
   } = { key: d.key, bookTitle: d.bookTitle, text: d.text, mode: d.mode };
   if (d.chapterTitle) p.chapterTitle = d.chapterTitle;
   if (d.mode === 'flashcard' && d.front) p.qa = { q: d.front, a: d.text };
   if (d.mode === 'quiz' && d.questions.length) p.questions = d.questions;
+  /* 做题卡标题随卡入库，复习列表据此显示用户改过的标题；空则不传，
+     Review 那边会回退到第一题题干。 */
+  if (d.mode === 'quiz' && d.title.trim()) p.displayTitle = d.title.trim();
   return p;
 }
 

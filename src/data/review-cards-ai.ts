@@ -48,9 +48,11 @@ export function buildQuizPrompt(bookTitle: string, chapterTitle: string, text: s
     '3. correct 是正确答案在 options 里的下标（从 0 开始）；',
     '4. explain 一句话说明为什么，可引用原文；',
     '5. 不要出「这段出自哪本书」这类靠元信息就能猜的题。',
+    '6. 再给这批题起一句标题，写在 title 字段：不超过 30 字，能一眼认出考的是哪句话；'
+      + '不要照抄原文，不要出现书名、章节名这类元信息。',
     '',
     '只输出一个 JSON 对象，不要解释、不要代码块：',
-    '{"questions": [{"q": "题干", "options": ["选项A", "选项B"], "correct": [0], "explain": "解析"}]}',
+    '{"title": "这批题的标题", "questions": [{"q": "题干", "options": ["选项A", "选项B"], "correct": [0], "explain": "解析"}]}',
     '',
     '内容：',
     String(text ?? ''),
@@ -83,6 +85,14 @@ export function parseFlashcard(reply: string): string | null {
   if (!obj || typeof obj !== 'object') return null;
   const front = asText((obj as { front?: unknown }).front).trim();
   return front || null;
+}
+
+/** 解析做题卡的标题；取不到返回 null（调用方回退到第一题题干） */
+export function parseQuizTitle(reply: string): string | null {
+  const obj = extractJson(reply);
+  if (!obj || typeof obj !== 'object') return null;
+  const title = asText((obj as { title?: unknown }).title).trim();
+  return title || null;
 }
 
 /** 一道解析后的题 */
@@ -161,7 +171,12 @@ export async function generateDrafts(
       if (d) out.push(d);
     } else {
       const questions = parseQuizQuestions(reply);
-      const d = makeDraft('quiz', { ...s, questions });
+      /* 标题保底三级：AI 给的 → 第一题题干 → 原文前 40 字。做题卡的题目在
+         独立题库，复习列表只能靠这个标题认出是谁，绝不能空着。 */
+      const title = parseQuizTitle(reply)
+        || String(questions[0]?.q ?? '').trim()
+        || String(s.text ?? '').replace(/\s+/g, ' ').trim().slice(0, 40);
+      const d = makeDraft('quiz', { ...s, questions, title });
       if (d) out.push(d);
     }
   }

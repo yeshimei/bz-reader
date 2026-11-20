@@ -33,6 +33,8 @@ export interface ReviewCardPayload {
   mode?: ReviewMode;
   /** 做题卡已经出好的题（Review v2 起落到题库，不再二次生成） */
   questions?: Array<{ q: string; options: string[]; correct: number[]; explain?: string }>;
+  /** 做题卡标题（AI 生成、用户可改）：复习列表据此显示；老版本 Review 收不到就回退题干 */
+  displayTitle?: string;
 }
 
 /** 三选一方式（与 Review 的 CardMode 子集对齐：全文回忆/抽认卡/做题） */

@@ -17,6 +17,7 @@ import {
 import {
   parseFlashcard,
   parseQuizQuestions,
+  parseQuizTitle,
   buildFlashcardPrompt,
   buildQuizPrompt,
   generateDrafts,
@@ -122,6 +123,15 @@ describe('AI prompt 与解析（题面要在确认前生成）', () => {
     expect(p).toContain('至少');
     expect(p).toContain('3');
   });
+  it('做题 prompt 让 AI 顺带给一句标题', () => {
+    const p = buildQuizPrompt(SRC.bookTitle, SRC.chapterTitle, SRC.text);
+    expect(p).toContain('title');
+    expect(p).toContain('标题');
+  });
+  it('解析做题标题：宽容代码块，取不到返回 null', () => {
+    expect(parseQuizTitle('```json\n{"title":"婚姻的隐喻","questions":[]}\n```')).toBe('婚姻的隐喻');
+    expect(parseQuizTitle('乱七八糟')).toBeNull();
+  });
   it('做题 prompt 可指定只出一道（补一道题就是一道）', () => {
     const p = buildQuizPrompt(SRC.bookTitle, SRC.chapterTitle, SRC.text, 1);
     expect(p).toContain('出1道');
@@ -203,6 +213,21 @@ describe('generateDrafts：把一组内容按方式变成待确认卡片', () =>
     expect(drafts[0]!.questions).toHaveLength(1);
   });
 
+  it('做题：AI 给的标题落到待确认卡上', async () => {
+    const ask = async () => JSON.stringify({
+      title: '婚姻的隐喻',
+      questions: [{ q: '题', options: ['A', 'B'], correct: [0] }],
+    });
+    const drafts = await generateDrafts('quiz', sources, ask);
+    expect(drafts[0]!.title).toBe('婚姻的隐喻');
+  });
+
+  it('做题：AI 没给标题时回退第一题题干，绝不空着', async () => {
+    const ask = async () => JSON.stringify({ questions: [{ q: '第一题题干', options: ['A', 'B'], correct: [0] }] });
+    const drafts = await generateDrafts('quiz', sources, ask);
+    expect(drafts[0]!.title).toBe('第一题题干');
+  });
+
   it('补一道题时传 min=1，prompt 只要求一道（不会一次补三道）', async () => {
     const prompts: string[] = [];
     const ask = async (p: string) => {
@@ -248,6 +273,12 @@ describe('toCardPayload：确认后转成 Review 入库格式', () => {
     expect(p.mode).toBe('quiz');
     expect(p.questions).toHaveLength(1);
     expect(p.key).toBe('k');
+  });
+  it('做题把用户改过的标题带过去，复习列表就显示它', () => {
+    const q = { q: '第一题题干', options: ['A', 'B'], correct: [0] };
+    const d = makeDraft('quiz', { ...SRC, key: 'k', questions: [q], title: '用户改过的标题' })!;
+    const p = toCardPayload(d);
+    expect((p as { displayTitle?: string }).displayTitle).toBe('用户改过的标题');
   });
 });
 

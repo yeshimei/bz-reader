@@ -657,6 +657,8 @@
   line-height: 1.6;
 }
 .bzs-review-card-back .bzs-review-card-label { display: block; margin-bottom: 6px; }
+/* 正文只读（2026-11-20）：整段照原文换行，但不再是可输入的框 */
+.bzs-review-card-backtext { white-space: pre-wrap; overflow-wrap: anywhere; }
 .bzs-review-bulk,
 .bzs-review-mini-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 /* 卡片底部的工具行：跟上面正文（背面原文 / 题目）之间留出气口，

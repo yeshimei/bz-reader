@@ -73,8 +73,9 @@ const BASELINE: Record<string, number> = {  'src/core/app.ts': 1,
   'src/data/review-ai.ts': 24,
   /* 2026-11-17 新文件：三选一制卡的抽认卡/做题 prompt 与 JSON 字段说明。
      只发给模型、不显示给用户，与 data/ai.ts、data/review-ai.ts 同一性质；
-     界面文案（三选一选项、卡片状态、结果汇总的格式）走 i18n 与纯数据口径。 */
-  'src/data/review-cards-ai.ts': 19,
+     界面文案（三选一选项、卡片状态、结果汇总的格式）走 i18n 与纯数据口径。
+     2026-11-20 +2（19 → 21）：做题 prompt 多要一句 title（要求说明 + JSON 示例）。 */
+  'src/data/review-cards-ai.ts': 21,
   'src/data/book-scan.ts': 1,
   'src/data/deeplink.ts': 4,
   /* 2026-11-11 +2（42 → 44）：新增「划线加入复习计划」这一行能力的卖点句
