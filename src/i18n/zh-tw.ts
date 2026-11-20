@@ -1607,4 +1607,5 @@ export const ZH_TW: Record<MsgKey, string> = {
   'notice.reviewMarkAdded': '[TODO] notice.reviewMarkAdded',
   'notice.reviewMarkUndone': '[TODO] notice.reviewMarkUndone',
   'review.loadingScopeMarks': '[TODO] review.loadingScopeMarks',
+  'review.cardsNeedUpdate': '[TODO] review.cardsNeedUpdate',
 };

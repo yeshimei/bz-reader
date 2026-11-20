@@ -11,7 +11,7 @@
  * ============================================================ */
 import { buildChapterCardPrompt, buildMarkPickPrompt, parseChapterCards, parsePickedIds } from '../data/review-ai';
 import { aiCardKey, markCardKey } from '../data/review-bridge';
-import type { CardSource } from '../data/review-modes';
+import type { CardFlowSource } from '../data/review-bridge';
 
 export interface ScopeMark {
   id: string;
@@ -52,7 +52,7 @@ export interface ScopeDeps {
 }
 
 /** 划线 → CardSource（钥匙带划线 id，稳定判重） */
-function markSource(bookId: string, bookTitle: string, m: ScopeMark): CardSource {
+function markSource(bookId: string, bookTitle: string, m: ScopeMark): CardFlowSource {
   return {
     key: markCardKey(bookId, m.id),
     bookTitle: m.bookTitle || bookTitle,
@@ -68,9 +68,9 @@ function markSource(bookId: string, bookTitle: string, m: ScopeMark): CardSource
  * AI 出错的口径沿用现有「加入复习」：挑重点解析不出来就保底全留；正文挑句
  * 子按章逐批处理，空正文跳过、原文校验不过的句子丢掉。
  */
-export async function resolveScope(scope: Scope, deps: ScopeDeps): Promise<CardSource[]> {
+export async function resolveScope(scope: Scope, deps: ScopeDeps): Promise<CardFlowSource[]> {
   const { bookId, bookTitle, marks, chapters, ask, chapterText } = deps;
-  const out: CardSource[] = [];
+  const out: CardFlowSource[] = [];
 
   if (scope === 'marks') {
     for (const m of marks) out.push(markSource(bookId, bookTitle, m));

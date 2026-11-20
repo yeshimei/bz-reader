@@ -1603,6 +1603,7 @@ export const ZH = {
   'review.warnChars': '这次要发 {chars} 字给 AI，按你的接口大概要花一块多钱。确认再点「开始」。',
   'review.blockChars': '一次发 {chars} 字太多了（上限 {limit} 字）。少勾几章再试。',
   'review.needPlugin': '还没装 bz Review 插件。装上之后，这里挑好的内容会直接进它的复习队列。',
+  'review.cardsNeedUpdate': '制卡界面已经搬到 bz Review：把 bz Review 升级到最新版再试。',
   'review.needAI': '还没配 AI 接口。到「书架 · 设置 · AI 助手」里填好地址、模型和密钥再来。',
   'review.emptyBook': '这本书还没有划线。切到「按章节」可以只凭正文让 AI 挑。',
   'review.loading': '正在读这本书的章节…',

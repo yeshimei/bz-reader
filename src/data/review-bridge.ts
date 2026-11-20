@@ -56,6 +56,25 @@ export interface ReviewQuota {
   full: boolean;
 }
 
+/** 统一制卡流程的来源（Review 契约 v5）：一条内容做一张卡 */
+export interface CardFlowSource {
+  key: string;
+  text: string;
+  bookTitle: string;
+  chapterTitle?: string;
+  comment?: string;
+}
+
+/** 统一制卡流程的入参（Review 契约 v5） */
+export interface CardFlowOptions {
+  /** 直接给内容：选方式 → 出题面 → 确认 → 入库 */
+  sources?: CardFlowSource[];
+  /** 先加载后制卡（AI 挑重点）：加载态也在同一个窗口里 */
+  load?: () => Promise<CardFlowSource[]>;
+  loadingText?: string;
+  onAdded?: (res: ReviewAddSummary) => void;
+}
+
 /** Review 暴露在插件实例上的门面 */
 export interface ReviewApi {
   version?: number;
@@ -70,6 +89,18 @@ export interface ReviewApi {
   defaultCardMethod?(): Promise<string | null>;
   /** v4：打开独立复习页并定位到某张卡 */
   focusCard?(key: string): Promise<void>;
+  /** v5：统一制卡流程（选方式 → 出题面 → 确认 → 入库） */
+  openCardFlow?(opts: CardFlowOptions): void;
+}
+
+/**
+ * 「制卡流程可用」的判据：契约 >= v5 且门面带 openCardFlow。
+ *
+ * 只有版本号够还不够——老版本号写错一格就会放行一个不存在的方法，
+ * 用户点下去只得到一句红字。两道都过才算可用。
+ */
+export function reviewCardFlowReady(api: ReviewApi | null): boolean {
+  return !!api && (api.version ?? 0) >= 5 && typeof api.openCardFlow === 'function';
 }
 
 /**
