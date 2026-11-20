@@ -845,3 +845,16 @@
 .bzs-aiguide-hint { margin: 0 0 14px; color: var(--text-muted); font-size: 0.9em; line-height: 1.6; }
 .bzs-aiguide-acts { display: flex; justify-content: flex-end; gap: 8px; }
 
+
+/* ===== 「按章节」弹窗：半屏高、头尾固定、章节列表自己滚（2026-11-21） =====
+   章节多的书原来整窗撑满视口，底部「下一步」被推出去。现在整窗最高半屏，
+   头部（书名/页签/说明）、全选条、统计与底部按钮都不滚，只有中间列表滚。 */
+.modal.bzs-scope-narrow { max-height: 50vh; }
+.modal.bzs-scope-narrow .modal-content.bzs-scope-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.bzs-scope-pane { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+.bzs-scope-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0 0 8px; }

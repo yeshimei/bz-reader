@@ -275,12 +275,25 @@ class ReviewAddFlow {
 
   private render(): void {
     const el = this.modal.contentEl;
+    this.syncLayout();
     el.empty();
     if (this.step === 'confirm') {
       this.renderConfirm(el);
       return;
     }
     this.renderPick(el);
+  }
+
+  /**
+   * 「按章节」这一屏换成半屏高、头尾固定、只有章节列表滚（2026-11-21）。
+   *
+   * 章节多的书原来会把整窗撑到视口那么高，底部的「下一步」被推出去，
+   * 用户得先把列表滚到底才点得到。别的屏不动，保持原来的自适应高度。
+   */
+  private syncLayout(): void {
+    const narrow = this.step === 'pick' && this.tab === 'chapters';
+    this.modal.modalEl.classList.toggle('bzs-scope-narrow', narrow);
+    this.modal.contentEl.classList.toggle('bzs-scope-body', narrow);
   }
 
   /** 顶部：书名 + 两个 tab */
@@ -317,12 +330,16 @@ class ReviewAddFlow {
   }
 
   private renderPick(el: HTMLElement): void {
-    this.renderHead(el);
-
     if (this.tab === 'chapters') {
-      this.renderChapterPick(el);
+      /* 章节这一屏装在纵向 flex 里：头、全选条、统计、底部按钮都不滚，
+         只有中间列表滚（配合 syncLayout 的半屏高度）。 */
+      const pane = el.createDiv({ cls: 'bzs-scope-pane' });
+      this.renderHead(pane);
+      this.renderChapterPick(pane);
       return;
     }
+
+    this.renderHead(el);
 
     if (!this.groups.length) {
       const p = el.createEl('p', { text: t('review.emptyBook') });
@@ -374,8 +391,7 @@ class ReviewAddFlow {
       return;
     }
 
-    const list = el.createDiv();
-    list.setCssProps({ maxHeight: '46vh', overflowY: 'auto', margin: '0 0 8px' });
+    const list = el.createDiv({ cls: 'bzs-scope-list' });
     for (const c of this.chapters) {
       const row = chapterRow(c.title || t('common.untitled'), '');
       withCheckbox(row, this.chapPicked.has(c.index), (on) => {
