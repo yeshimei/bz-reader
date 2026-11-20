@@ -1280,6 +1280,8 @@ export const PT: Record<MsgKey, string> = {
   'settings.plugin.review.installed': 'Instalado',
   'settings.plugin.review.missing': 'O bz review ainda não está instalado. Procure e instale na lista de plugins da comunidade; então «Adicionar à revisão» aparece na barra de ferramentas e no menu do livro.',
   'settings.plugin.review.install': 'Abrir plugins',
+  'settings.plugin.review.download': 'Baixar',
+  'settings.plugin.review.mirror': 'Espelho (Gitee)',
   'settings.plugin.review.tut': 'Ver tutorial',
   'review.add': 'Adicionar à revisão',
   'review.title': 'Adicionar à revisão',

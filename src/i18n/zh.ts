@@ -1162,8 +1162,10 @@ export const ZH = {
   'settings.bz.tut': '看教程',
   'settings.plugin.review.desc': '把制卡、整卡交给 AI，把时间和精力放回阅读与复习。配合动态抗遗忘算法，少复习、记得牢。',
   'settings.plugin.review.installed': '已安装',
-  'settings.plugin.review.missing': '还没装 bz review。到第三方插件市场搜索安装后，工具栏和书右键就会出现「加入复习」。本周内上架，约两周迭代到正式版。',
+  'settings.plugin.review.missing': '还没装 bz review。点「下载安装」拿到压缩包，解压到库的插件目录即可；工具栏和书右键会出现「加入复习」。连不上可走备用下载。',
   'settings.plugin.review.install': '去插件市场',
+  'settings.plugin.review.download': '下载安装',
+  'settings.plugin.review.mirror': '备用下载（码云）',
   'settings.plugin.review.tut': '看教程',
   /* 能力卡上的三条卖点（2026-11-17）：卡片位置有限，只能是词，不是句子 */
   'settings.plugin.tag.cards': 'AI 制卡',

@@ -139,7 +139,7 @@ import { currentSearchSurface, kickSemanticSearch, resetSemanticSearch } from '.
 import { bzClipbookUsed, bzEmbedder, bzNotesReady, openBzClipbook, openBzPreview, probeBz, openBzEntry, type BzEntryKind, type BzEmbedder } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
-import { AI_CHAT_TUTORIAL_URL, AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, PDF_TUTORIAL_URL, REVIEW_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL } from '../core/links';
+import { AI_CHAT_TUTORIAL_URL, AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, PDF_TUTORIAL_URL, REVIEW_DOWNLOAD_URL, REVIEW_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL, openExternalUrl } from '../core/links';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
 import { forgetPortrait, setPortrait } from './portrait-cache';
@@ -3681,9 +3681,10 @@ export function dispatchAction(
       break;
     }
     case 'reviewinstall':
-      /* 引导到 Obsidian 第三方插件市场：设置 → 第三方插件。
-         用宿主命令打开设置，比外链文档更直接。 */
-      notify(t('settings.plugin.review.missing'), 'info', 8000);
+    case 'reviewdownload':
+      /* 直接下载 bz Review：GitHub Release 取最新版压缩包，
+          GitHub 连不上时用设置面板里那条码云备份链接。 */
+      openExternalUrl(REVIEW_DOWNLOAD_URL);
       break;
     case 'ptpause':
       portraitBuilder().pause();

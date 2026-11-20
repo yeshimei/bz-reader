@@ -1282,6 +1282,8 @@ export const EN: Record<MsgKey, string> = {
   'settings.plugin.review.installed': 'Installed',
   'settings.plugin.review.missing': 'bz review isn\'t installed yet. Find and install it in the community plugins list, and \'Add to review\' will appear in the toolbar and the book context menu.',
   'settings.plugin.review.install': 'Open community plugins',
+  'settings.plugin.review.download': 'Download',
+  'settings.plugin.review.mirror': 'Mirror (Gitee)',
   'settings.plugin.review.tut': 'Watch tutorial',
   'review.add': 'Add to review',
   'review.title': 'Add to review',

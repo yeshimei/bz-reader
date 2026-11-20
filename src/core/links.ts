@@ -57,6 +57,16 @@ export const TTS_TUTORIAL_URL = 'https://www.bilibili.com/video/BV17psV6wEP7';
 export const REVIEW_TUTORIAL_URL = '';
 
 /**
+ * bz Review 的下载地址（2026-11-20）：从 GitHub Release 取最新版压缩包，
+ * 码云作备份路线（GitHub 连不上时兜底）。两条都指向 latest，版本随发布自动跟进。
+ * 压缩包内含 bz-review/ 一层，解压到 .obsidian/plugins/ 即可。
+ */
+export const REVIEW_DOWNLOAD_URL =
+  'https://github.com/yeshimei/bz-review/releases/latest/download/bz-review.zip';
+export const REVIEW_DOWNLOAD_MIRROR =
+  'https://gitee.com/ntbl/bz-review/releases/latest/download/bz-review.zip';
+
+/**
  * PDF 组的教程（2026-11-17）：占位，等专门讲 PDF 那期。
  * 空串时按钮只弹一句「教程整理中」。**不要**拿推荐向总览顶上——
  * 那条讲的是整体介绍，点进去找不到翻页 / 批注 / 扫描页识别怎么配。

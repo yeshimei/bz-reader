@@ -1279,6 +1279,8 @@ export const ES: Record<MsgKey, string> = {
   'settings.plugin.review.installed': 'Instalado',
   'settings.plugin.review.missing': 'bz review aún no está instalado. Búscalo e instálalo en la lista de complementos de la comunidad; entonces «Añadir al repaso» aparecerá en la barra de herramientas y en el menú del libro.',
   'settings.plugin.review.install': 'Abrir complementos',
+  'settings.plugin.review.download': 'Descargar',
+  'settings.plugin.review.mirror': 'Espejo (Gitee)',
   'settings.plugin.review.tut': 'Ver tutorial',
   'review.add': 'Añadir al repaso',
   'review.title': 'Añadir al repaso',

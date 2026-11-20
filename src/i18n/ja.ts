@@ -1272,6 +1272,8 @@ export const JA: Record<MsgKey, string> = {
   'settings.plugin.review.installed': 'インストール済み',
   'settings.plugin.review.missing': 'bz review はまだインストールされていません。コミュニティプラグインで検索してインストールすると、ツールバーと本の右クリックに「復習に追加」が現れます。',
   'settings.plugin.review.install': 'プラグイン一覧へ',
+  'settings.plugin.review.download': 'ダウンロード',
+  'settings.plugin.review.mirror': 'ミラー（Gitee）',
   'settings.plugin.review.tut': 'チュートリアルを見る',
   'review.add': '復習に追加',
   'review.title': '復習に追加',

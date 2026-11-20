@@ -1278,6 +1278,8 @@ export const DE: Record<MsgKey, string> = {
   'settings.plugin.review.installed': 'Installiert',
   'settings.plugin.review.missing': 'bz review ist noch nicht installiert. Suche und installiere es in der Community-Plug-in-Liste, dann erscheint „Zur Wiederholung hinzufügen“ in der Werkzeugleiste und im Buch-Kontextmenü.',
   'settings.plugin.review.install': 'Zu den Community-Plug-ins',
+  'settings.plugin.review.download': 'Herunterladen',
+  'settings.plugin.review.mirror': 'Spiegel (Gitee)',
   'settings.plugin.review.tut': 'Tutorial ansehen',
   'review.add': 'Zur Wiederholung hinzufügen',
   'review.title': 'Zur Wiederholung hinzufügen',

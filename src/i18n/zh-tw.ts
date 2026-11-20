@@ -1269,6 +1269,8 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.plugin.review.installed': '已安裝',
   'settings.plugin.review.missing': '還沒裝 bz review。到第三方外掛市場搜尋安裝後，工具列和書右鍵就會出現「加入複習」。',
   'settings.plugin.review.install': '去外掛市場',
+  'settings.plugin.review.download': '下載安裝',
+  'settings.plugin.review.mirror': '備用下載（碼雲）',
   'settings.plugin.review.tut': '看教學',
   'review.add': '加入複習',
   'review.title': '加入複習',
