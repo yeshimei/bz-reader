@@ -91,6 +91,23 @@ export interface ReviewApi {
   focusCard?(key: string): Promise<void>;
   /** v5：统一制卡流程（选方式 → 出题面 → 确认 → 入库） */
   openCardFlow?(opts: CardFlowOptions): void;
+  /**
+   * v6（2026-11-21）：打开 Review 自己的「从阅读器挑内容」统一窗口。
+   *
+   * 挑范围、AI 挑重点、字数与每章上限、确认页、样式、弹窗全在 Review 那边；
+   * Reader 只传一本书的 id（从侧栏 / 书右键进来时），其余什么都不管。
+   */
+  openReaderFlow?(opts?: { bookId?: string }): void;
+}
+
+/**
+ * 「从阅读器挑内容」可用判据：契约 >= v6 且门面带 openReaderFlow。
+ *
+ * 老 Review 只有 v5 的 openCardFlow：那套流程还在 Reader 里，但按 2026-11-21
+ * 的原则已经删掉了——所以这里不退回旧流程，直接提示用户升级 Review。
+ */
+export function reviewReaderFlowReady(api: ReviewApi | null): boolean {
+  return !!api && (api.version ?? 0) >= 6 && typeof api.openReaderFlow === 'function';
 }
 
 /**

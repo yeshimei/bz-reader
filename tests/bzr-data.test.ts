@@ -43,7 +43,7 @@ const GOOD = {
   ],
   roadmap: [
     { theme: 'AI 能力', color: '#2f9e6e', order: 1, items: [
-      { title: '多轮追问', state: 'doing', src: 'builtin', fb: { kind: 'issue', n: 12, label: '#12' } },
+      { title: '多轮追问', plugin: 'reader', state: 'doing', src: 'builtin', fb: { kind: 'issue', n: 12, label: '#12' } },
     ] },
   ],
   stats: { reward: 456, pro: 1286, patrons: 328 },
@@ -95,9 +95,9 @@ describe('解析 · 一份远端 JSON 能变成什么', () => {
   it('坏条目丢条目，好条目留着；整份全坏 = null', () => {
     const d = parseBzrData(doc({ roadmap: [
       { theme: '好主题', color: '#fff', order: 1, items: [
-        { title: '好条目', state: 'doing', src: 'builtin', fb: { kind: 'issue', n: 1, label: '#1' } },
-        { title: '', state: 'doing', src: 'builtin', fb: {} },
-        { title: '坏状态', state: 'wat', src: 'builtin', fb: {} },
+        { title: '好条目', plugin: 'reader', state: 'doing', src: 'builtin', fb: { kind: 'issue', n: 1, label: '#1' } },
+        { title: '', plugin: 'reader', state: 'doing', src: 'builtin', fb: {} },
+        { title: '坏状态', plugin: 'reader', state: 'wat', src: 'builtin', fb: {} },
       ] },
       { theme: '', items: [] },
     ] }));
@@ -284,7 +284,7 @@ describe('链接白名单：远端不可信', () => {
 
   it('反馈链接不在白名单 → 解析时就不渲染成可点（fb.href 为空）', () => {
     const d = parseBzrData(doc({ roadmap: [{ theme: 't', color: '#fff', order: 1, items: [
-      { title: 'x', state: 'plan', src: 'builtin', fb: { kind: 'bili', label: 'B站', href: 'https://evil.example.com/' } },
+      { title: 'x', plugin: 'reader', state: 'plan', src: 'builtin', fb: { kind: 'bili', label: 'B站', href: 'https://evil.example.com/' } },
     ] }] }));
     expect(d!.roadmap[0]!.items[0]!.fb.href).toBe('');
   });

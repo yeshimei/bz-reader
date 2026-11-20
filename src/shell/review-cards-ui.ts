@@ -57,21 +57,3 @@ export function openCardsFlow(
     onAdded: (res) => hooks.onAdded?.(res),
   });
 }
-
-/**
- * 先加载、后选方式：AI 挑重点这一屏也住在 Review 里，
- * Reader 只交一个 loader，不再自己弹第二个窗口。
- */
-export function openCardsFlowLoading(
-  app: App | undefined,
-  load: () => Promise<CardFlowSource[]>,
-  loadingKey: 'review.loadingScope' | 'review.loadingScopeMarks' = 'review.loadingScope',
-): void {
-  if (!app) return;
-  const api = flowApi(app);
-  if (!api?.openCardFlow) return;
-  api.openCardFlow({
-    load,
-    loadingText: t(loadingKey),
-  });
-}

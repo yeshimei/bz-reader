@@ -41,6 +41,8 @@ import { collectDataDirCandidates, pickDataDir } from './core/data-dir-pick';
 import { normalizePrefs, pickPrefs, type ReaderPrefs } from './data/prefs';
 import { normalizeSettings, type ReaderSettings } from './data/settings';
 import type { BookFormat, ReaderBook } from './data/schema';
+import { makeBook } from './engine/foliate';
+import type { FoliateBook } from './types/foliate';
 import { ReaderView, VIEW_TYPE_READER, type ReaderHostApi } from './view/reader-view';
 import { SideView, VIEW_TYPE_TOC, type SideTab } from './view/side-view';
 import { pickActiveReader } from './view/active-reader';
@@ -156,6 +158,8 @@ export function createPlugin(cfg: PluginConfig) {
     private closed = false;
     private overlay: OverlayLayer | null = null;
     private offShell: (() => void) | null = null;
+    /** Review 读正文用的 EPUB 实例缓存（最多两本，最近用的那本不会被挤掉） */
+    private reviewBooks = new Map<string, Promise<FoliateBook | null>>();
 
     /**
      * 给 bz Review 用的反向门面（2026-11-20）：让 Review 的「打开复习」命令
@@ -173,7 +177,132 @@ export function createPlugin(cfg: PluginConfig) {
         this.cfg.settings.embedReview === true && reviewEmbedReady(findReviewApi(this.app)),
       /** 亮出 Reader 书架并切到复习页签（命令借道时用） */
       openReviewTab: (): void => this.openStudy('review'),
+      /**
+       * 契约 v6（2026-11-21）：复习的一切逻辑搬到 Review 后，Reader 只剩
+       * 两个「内容供货」接口。这里只列事实——有哪些书、每本书有哪些划线、
+       * 章节目录长什么样；要不要复习、怎么挑、出几道，全由 Review 决定。
+       *
+       * 不带 bookId：书清单（书库里有、没归档的书 + 划线条数）。
+       * 带 bookId：那本书的划线 + 章节目录（划线的章节归属以 Reader 记的为准）。
+       */
+      reviewCatalog: async (bookId?: string) => {
+        const id = String(bookId ?? '').trim();
+        if (!id) {
+          return {
+            books: this.repo.all()
+              .filter((b) => !b.archivedAt)
+              .map((b) => ({
+                id: b.id,
+                title: b.meta.title || '',
+                author: b.meta.author || '',
+                markCount: (b.notes?.highlights ?? []).length,
+              })),
+          };
+        }
+        const book = this.repo.byId(id);
+        if (!book) return { books: [] };
+        return {
+          books: [],
+          book: {
+            id: book.id,
+            title: book.meta.title || '',
+            author: book.meta.author || '',
+            marks: (book.notes?.highlights ?? []).map((h) => ({
+              id: h.id,
+              chapterIndex: Number.isFinite(h.chapterIndex) ? Number(h.chapterIndex) : 0,
+              chapterTitle: String(h.chapterTitle || ''),
+              text: String(h.text || ''),
+              comment: String(h.comment || ''),
+            })),
+            chapters: await this.reviewChaptersOf(book),
+          },
+        };
+      },
+      /**
+       * 读某一章正文（0 起的 section 下标）。读到空串 = 书打不开 / 章节不存在，
+       * Review 那边会按「这一章读不到」处理，不在这里抛错。
+       */
+      reviewChapterText: async (bookId: string, index: number): Promise<string> => {
+        const book = this.repo.byId(String(bookId ?? '').trim());
+        if (!book) return '';
+        const fb = await this.reviewFoliateOf(book);
+        const sec = fb?.sections?.[Math.round(Number(index))];
+        if (!sec?.createDocument) return '';
+        try {
+          const doc = await sec.createDocument();
+          const text = String(doc?.body?.textContent ?? '')
+            .replace(/\r/g, '')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+          sec.unload?.();
+          return text;
+        } catch {
+          return '';
+        }
+      },
     };
+
+    /* ───────────── Review 供货：EPUB 解析 ───────────── */
+
+    /** 解析一本书的 EPUB；同一本书复用实例（Review 会连读多章，反复解压很贵） */
+    private reviewFoliateOf(book: ReaderBook): Promise<FoliateBook | null> {
+      const hit = this.reviewBooks.get(book.id);
+      if (hit) {
+        /* 命中挪到队尾：两本上限按「最近用过」淘汰，正在读的这本不能被挤掉 */
+        this.reviewBooks.delete(book.id);
+        this.reviewBooks.set(book.id, hit);
+        return hit;
+      }
+      const p = (async (): Promise<FoliateBook | null> => {
+        const path = book.fileRef?.vaultPath;
+        if (!path) return null;
+        try {
+          const buf = await this.app.vault.adapter.readBinary(path);
+          const name = path.split('/').pop() || 'book.epub';
+          return await makeBook(new File([buf], name));
+        } catch {
+          return null;
+        }
+      })();
+      this.reviewBooks.set(book.id, p);
+      /* 打不开的书不留在缓存里：下次可能文件已经补回来 */
+      void p.then((fb) => {
+        if (!fb && this.reviewBooks.get(book.id) === p) this.reviewBooks.delete(book.id);
+      });
+      while (this.reviewBooks.size > 2) {
+        const oldest = this.reviewBooks.keys().next().value as string | undefined;
+        if (oldest === undefined) break;
+        this.reviewBooks.delete(oldest);
+      }
+      return p;
+    }
+
+    /** 章节目录：section 顺序为准，标题从目录反查（与阅读时左栏用的是同一套口径） */
+    private async reviewChaptersOf(book: ReaderBook): Promise<Array<{ index: number; title: string }>> {
+      const fb = await this.reviewFoliateOf(book);
+      if (!fb) return [];
+      const sections = fb.sections ?? [];
+      const toc = fb.toc ?? [];
+      const byIndex = new Map<number, string>();
+      const walk = (items: typeof toc): void => {
+        for (const it of items) {
+          const href = String(it.href || '');
+          let index = -1;
+          try {
+            const r = fb.resolveHref?.(href);
+            if (r && Number.isFinite(r.index)) index = r.index;
+          } catch {
+            index = -1;
+          }
+          if (index >= 0 && !byIndex.has(index) && String(it.label || '').trim()) {
+            byIndex.set(index, String(it.label).trim());
+          }
+          if (it.subitems?.length) walk(it.subitems);
+        }
+      };
+      walk(toc);
+      return sections.map((_, i) => ({ index: i, title: byIndex.get(i) || `第 ${i + 1} 章` }));
+    }
 
     private formats(): BookFormat[] {
       // 入口平权：导入列表始终列出全部格式。打开未解锁的 mobi / azw3 时
