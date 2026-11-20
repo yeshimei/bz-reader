@@ -292,8 +292,27 @@ class ReviewAddFlow {
    */
   private syncLayout(): void {
     const narrow = this.step === 'pick' && this.tab === 'chapters';
-    this.modal.modalEl.classList.toggle('bzs-scope-narrow', narrow);
-    this.modal.contentEl.classList.toggle('bzs-scope-body', narrow);
+    /* 弹窗挂在 body 上，壳层样式会被构建加 .bzs-shell 前缀（匹配不到），
+       所以这里用内联样式，与这个文件其它弹窗同一口径。 */
+    if (narrow) {
+      this.modal.modalEl.setCssProps({
+        'max-height': '50vh',
+      });
+      this.modal.contentEl.setCssProps({
+        display: 'flex',
+        'flex-direction': 'column',
+        'min-height': '0',
+        overflow: 'hidden',
+      });
+    } else {
+      this.modal.modalEl.setCssProps({ 'max-height': '' });
+      this.modal.contentEl.setCssProps({
+        display: '',
+        'flex-direction': '',
+        'min-height': '',
+        overflow: '',
+      });
+    }
   }
 
   /** 顶部：书名 + 两个 tab */
@@ -334,6 +353,7 @@ class ReviewAddFlow {
       /* 章节这一屏装在纵向 flex 里：头、全选条、统计、底部按钮都不滚，
          只有中间列表滚（配合 syncLayout 的半屏高度）。 */
       const pane = el.createDiv({ cls: 'bzs-scope-pane' });
+      pane.setCssProps({ display: 'flex', 'flex-direction': 'column', 'min-height': '0', flex: '1 1 auto' });
       this.renderHead(pane);
       this.renderChapterPick(pane);
       return;
@@ -349,7 +369,7 @@ class ReviewAddFlow {
     }
 
     const list = el.createDiv();
-    list.setCssProps({ maxHeight: '46vh', overflowY: 'auto', margin: '0 0 8px' });
+    list.setCssProps({ flex: '1 1 auto', 'min-height': '0', 'overflow-y': 'auto', margin: '0 0 8px' });
     for (const g of this.groups) {
       const key = `${g.index}\u0001${g.title}`;
       const row = chapterRow(g.title || t('common.untitled'), t('review.chapterRow', { n: fmt(g.count), chars: fmt(g.chars) }));
@@ -392,6 +412,7 @@ class ReviewAddFlow {
     }
 
     const list = el.createDiv({ cls: 'bzs-scope-list' });
+    list.setCssProps({ flex: '1 1 auto', 'min-height': '0', 'overflow-y': 'auto', margin: '0 0 8px' });
     for (const c of this.chapters) {
       const row = chapterRow(c.title || t('common.untitled'), '');
       withCheckbox(row, this.chapPicked.has(c.index), (on) => {
@@ -785,6 +806,14 @@ class BookScopeFlow {
       this.renderChapterPick(this.modal.contentEl);
       return;
     }
+    /* 回到第一屏：撤掉按章节那屏的半屏与纵向 flex，恢复自适应高度 */
+    this.modal.modalEl.setCssProps({ 'max-height': '' });
+    this.modal.contentEl.setCssProps({
+      display: '',
+      'flex-direction': '',
+      'min-height': '',
+      overflow: '',
+    });
     this.renderScopePick(this.modal.contentEl);
   }
 
@@ -792,7 +821,17 @@ class BookScopeFlow {
   private renderChapterPick(el: HTMLElement): void {
     el.empty();
     this.modal.titleEl.setText(t('review.tab.chapters'));
-    el.createEl('p', { cls: 'bzs-review-lead', text: t('review.chaptersLead') });
+    /* 半屏高、头尾固定、章节列表自己滚（2026-11-21）。
+       弹窗挂 body，壳层 CSS 会被构建加 .bzs-shell 前缀匹配不到，所以走内联。 */
+    this.modal.modalEl.setCssProps({ 'max-height': '50vh' });
+    el.setCssProps({
+      display: 'flex',
+      'flex-direction': 'column',
+      'min-height': '0',
+      overflow: 'hidden',
+    });
+    el.createEl('p', { cls: 'bzs-review-lead', text: t('review.chaptersLead') })
+      .setCssProps({ flex: 'none' });
 
     if (this.busy || !this.chapters) {
       el.createDiv({ cls: 'bzs-review-loading', text: t('review.loading') });
@@ -802,7 +841,7 @@ class BookScopeFlow {
       el.createEl('p', { cls: 'bzs-review-lead', text: t('review.loadFailed') });
     } else {
       const list = el.createDiv();
-      list.setCssProps({ maxHeight: '46vh', overflowY: 'auto', margin: '0 0 8px' });
+      list.setCssProps({ flex: '1 1 auto', 'min-height': '0', 'overflow-y': 'auto', margin: '0 0 8px' });
       for (const c of this.chapters) {
         const row = chapterRow(c.title || t('common.untitled'), '');
         withCheckbox(row, this.chapPicked.has(c.index), (on) => {
@@ -815,17 +854,18 @@ class BookScopeFlow {
       const all = this.chapters.map((c) => c.index);
       const every = all.length > 0 && all.every((i) => this.chapPicked.has(i));
       const bar = el.createDiv();
-      bar.setCssProps({ display: 'flex', gap: '8px', margin: '0 0 8px' });
+      bar.setCssProps({ display: 'flex', gap: '8px', margin: '0 0 8px', flex: 'none' });
       bar.createEl('button', { text: every ? t('review.selectNone') : t('review.selectAll') })
         .addEventListener('click', () => {
           this.chapPicked = new Set(every ? [] : all);
           this.render();
         });
       const summary = el.createEl('p', { text: t('review.pickedChapters', { chapters: String(this.chapPicked.size), chars: '—' }) });
-      summary.setCssProps({ margin: '0 0 10px', fontWeight: '600' });
+      summary.setCssProps({ margin: '0 0 10px', fontWeight: '600', flex: 'none' });
     }
 
     const row = el.createDiv({ cls: 'bzs-review-actions' });
+    row.setCssProps({ flex: 'none', 'margin-top': 'auto' });
     const back = row.createEl('button', { text: t('review.back') });
     back.addEventListener('click', () => {
       this.stage = 'scope';
