@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>「加入复习」统一成一条流程 · 真机验证（2026-11-21）</title>
+<style>
+:root{
+  --ink:#1d1c1a; --sub:#5f5b53; --line:#e3ddd2; --bg:#faf7f2;
+  --card:#fffdf9; --accent:#8a6a2f; --ok:#2f7a52; --warn:#a8621f;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:880px;margin:0 auto;padding:48px 24px 80px}
+h1{font-size:26px;line-height:1.4;margin:0 0 6px;letter-spacing:.2px}
+.meta{color:var(--sub);font-size:13.5px;border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:28px}
+.meta b{color:var(--ink);font-weight:600}
+h2{font-size:18px;margin:44px 0 10px;padding-left:12px;border-left:4px solid var(--accent)}
+h3{font-size:15px;margin:26px 0 6px}
+p{margin:8px 0}
+ul{margin:8px 0 0 18px;padding:0}
+li{margin:5px 0}
+figure{margin:16px 0 6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;box-shadow:0 2px 10px rgba(60,48,30,.05)}
+figure img{width:100%;display:block;border-radius:8px}
+figcaption{color:var(--sub);font-size:12.5px;padding:8px 4px 2px}
+.tag{display:inline-block;font-size:12px;font-weight:600;padding:1px 9px;border-radius:999px;margin-left:6px}
+.ok{color:var(--ok);background:rgba(47,122,82,.1)}
+.pend{color:var(--warn);background:rgba(168,98,31,.12)}
+.note{background:#f3ece0;border:1px solid #e5d8c3;border-radius:10px;padding:12px 14px;font-size:13.5px;color:#544c3f;margin:14px 0}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px;background:var(--card)}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:#f4efe6;font-weight:600;white-space:nowrap}
+code{background:#f1ece3;padding:1px 5px;border-radius:4px;font-size:12.5px}
+.footer{margin-top:56px;color:var(--sub);font-size:12.5px;border-top:1px solid var(--line);padding-top:16px}
+pre{background:#f6f1e7;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px;overflow:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>「加入复习」统一成一条流程 · 真机验证报告</h1>
+  <p class="meta">
+    2026-11-21 · 测试库 <b>E:\Obsidian\bz review</b> · 桌面 1280×860 / 移动端 390×844@3x（CDP <code>mobile:true</code>）<br>
+    构建：两仓 master 合并后重建，只落测试库；真实库未碰<br>
+    门禁：review <b>tsc 通过 · 75 文件 / 700 断言全绿 · lint-css 0 error / 0 warning</b>；reader <b>tsc 通过 · 359 文件 / 4037 通过 + 17 跳过</b>
+  </p>
+
+  <div class="note">
+    用户原话是「它们的流程都不一样，各自调用各自的面板，非常的奇怪」。改完之后只有<b>一个</b>分流点：<code>review/add-flow.ts</code> 的 <code>openAddToReviewFlow</code>。下面每一条都是真机点的，不是看代码推的。
+  </div>
+
+  <h2>0. 改动边界</h2>
+  <ul>
+    <li><b>bz-review</b>：新增 <code>add-flow.ts</code>（唯一入口与分流）、<code>add-flow-model.ts</code>（纯逻辑：整篇钥匙 / 正文构造 / 截断 / 文件夹候选 / 静默判定 / 结果话术）、<code>card-text.ts</code>（喂给模型的正文口径）；<code>index.ts</code> 四个命令入口、<code>main.ts</code> 文件树右键与门面、<code>ui.ts</code> 空态、<code>watch.ts</code> 监听全部改走同一条流程。</li>
+    <li><b>bz-reader</b>：删掉已经没人读的 <code>reviewAskMode</code> / <code>reviewLastMode</code>（含 8 个语言包 key）与 <code>reviewadd</code> 死分支、<code>openReviewAdd</code> 死入口。</li>
+    <li><b>不动的</b>：<code>D:\Obsidian\bz</code> 主插件那套「加入复习计划」是另一个插件、另一份数据，按要求完全没碰。</li>
+  </ul>
+
+  <h2>1. 命令入口：把当前笔记加入复习 <span class="tag ok">通过</span></h2>
+  <p>以前命令直接 <code>addItem</code> 写库，没有面板、没有 AI、没有方式选择。现在先弹四选一，再确认题面，确认后才写计划。</p>
+  <figure><img src="images/add-flow-unify-2026-11-21/02-pick-modes.png" alt="四选一"><figcaption>「选一种复习方式」：全文回忆 / 抽认卡 / 做题 / 挖空，预计发送 363 字</figcaption></figure>
+  <figure><img src="images/add-flow-unify-2026-11-21/03-confirm-plain.png" alt="确认题面"><figcaption>确认题面：整篇正文进卡（frontmatter 已去掉），底部「确认加入（1 张）」</figcaption></figure>
+
+  <h2>2. 重复加入：不再重复弹窗 <span class="tag ok">通过</span></h2>
+  <p>第一次改完真机就踩到了：笔记统一成整篇卡后，排期表里存的是 <code>note:&lt;path&gt;</code>，而入口查重只问真实路径，第二次点命令还会再弹一次选方式。现在两种钥匙都问。</p>
+  <figure><img src="images/add-flow-unify-2026-11-21/08-repeat-command.png" alt="重复提示"><figcaption>同一篇再点命令，只提示「1 篇本来就在复习计划里，没有可加入的内容」</figcaption></figure>
+<pre>CDP 直接查排期表：
+note:addflow-folder/甲.md  planned=true
+note:addflow-folder/乙.md  planned=true
+note:addflow-test.md      planned=true</pre>
+
+  <h2>3. 文件树右键 · 单篇 <span class="tag ok">通过</span></h2>
+  <p>右键 <code>围城 · 读书笔记.md</code> → 菜单「加入复习」→ 同一条四选一。菜单项由 CDP 断言确认（14 项），合成右键不会驻留菜单，所以截图是点完之后的制卡窗。</p>
+  <figure><img src="images/add-flow-unify-2026-11-21/17-filemenu-single-wizard.png" alt="单篇右键"><figcaption>单篇右键进流程：预计发送 363 字</figcaption></figure>
+
+  <h2>4. 文件树右键 · 文件夹 <span class="tag ok">通过</span></h2>
+  <p>以前文件夹是一次性递归写库，用户连哪几篇进去了都不知道。现在先勾选，再进同一条流程。</p>
+  <figure><img src="images/add-flow-unify-2026-11-21/13-folder-pick.png" alt="文件夹勾选"><figcaption>勾选面板：2 篇，已选 2 / 2，按钮「加入 2 篇」</figcaption></figure>
+  <figure><img src="images/add-flow-unify-2026-11-21/14-folder-wizard.png" alt="文件夹选方式"><figcaption>勾完直接进四选一</figcaption></figure>
+  <figure><img src="images/add-flow-unify-2026-11-21/15-folder-confirm.png" alt="两卡确认"><figcaption>两张一起确认：「确认加入（2 张）」</figcaption></figure>
+
+  <h2>5. 面板空态 <span class="tag ok">通过</span></h2>
+  <p>空态以前只有三颗按钮，笔记类入口是断的。现在补上第四颗「把当前笔记加入复习」，点它同样走四选一。</p>
+  <figure><img src="images/add-flow-unify-2026-11-21/23-empty-state.png" alt="空态"><figcaption>「复习还是空的」+ 四颗按钮（看视频教程 / 从 Anki 导入 / 从阅读器加入复习 / 把当前笔记加入复习）</figcaption></figure>
+  <figure><img src="images/add-flow-unify-2026-11-21/24-empty-wizard.png" alt="空态进流程"><figcaption>点「把当前笔记加入复习」→ 四选一</figcaption></figure>
+  <div class="note">这一屏需要清空计划才能看到。验证前备份了 <code>bz review/review.json</code>，截完已恢复并核对了条数。</div>
+
+  <h2>6. 监听新建笔记 <span class="tag ok">通过</span></h2>
+  <p>以前监听器直接写库，只发一条通知。现在新建笔记会弹同一条流程；如果设置里选了「不用每次询问」，就直接入库不再弹。</p>
+  <figure><img src="images/add-flow-unify-2026-11-21/18-watch-wizard.png" alt="监听弹窗"><figcaption>新建 <code>addflow-watch/监听甲.md</code> 后自动弹出四选一（27 字）</figcaption></figure>
+  <figure><img src="images/add-flow-unify-2026-11-21/19-watch-silent.png" alt="免询问静默"><figcaption>「新卡默认方式」设成「全文回忆」后新建「监听乙」：不弹窗，只给「已加入 1 篇」，排期表里 <code>note:addflow-watch/监听乙.md</code> 已 planned</figcaption></figure>
+  <div class="note">制卡窗里那句「以后都用这个方式，不再出现这一屏」勾上后写的就是设置里的「新卡默认方式」（<code>reviewCardDefaultMethod</code>），没有另加开关。</div>
+
+  <h2>7. 阅读器书右键 <span class="tag ok">通过</span></h2>
+  <p>书卡右键「加入复习」→ Review 的「选要加入的内容」→ 按划线 / 按章节 → 下一步。</p>
+  <figure><img src="images/add-flow-unify-2026-11-21/22-book-pick.png" alt="书右键选范围"><figcaption>选范围窗：《围城》、按划线、序 2 条 261 字、第一章 10 条 1,003 字、已选 0 章</figcaption></figure>
+
+  <h2>8. 移动端 <span class="tag ok">通过</span></h2>
+  <p>390×844@3x 下同一条流程的选方式屏，2×2 网格不挤、按钮不折行。</p>
+  <figure><img src="images/add-flow-unify-2026-11-21/30-m-wizard.png" alt="移动端选方式"><figcaption>移动端 · 选一种复习方式</figcaption></figure>
+
+  <h2>9. 顺手清掉的死配置与死代码</h2>
+  <p>这些是用户没点到、调研时找出来的：</p>
+  <table>
+    <tr><th>位置</th><th>问题</th><th>处理</th></tr>
+    <tr><td>review「新笔记加入提醒」<code>reviewAutoAddNotice</code></td><td>自动加入改走流程后不再有读取方</td><td>删除设置项与字段</td></tr>
+    <tr><td>review <code>app.addCurrentToReview</code></td><td>第二套「直接写库」的方法，留着就是后门</td><td>删除</td></tr>
+    <tr><td>reader「加入复习先选方式 / 上次用的方式」</td><td>流程搬走后无人读取，开关还挂在设置页</td><td>删除（含 8 语言包与测试）</td></tr>
+    <tr><td>reader <code>actions.ts</code> 的 <code>reviewadd</code> 分支</td><td>侧栏入口撤掉后没有派发点</td><td>删除</td></tr>
+    <tr><td>reader <code>openReviewAdd</code></td><td>同上，死入口</td><td>删除</td></tr>
+    <tr><td>五个入口的提示口径</td><td>说法不一，有的静默有的报异常</td><td>统一走 <code>addSummaryText</code></td></tr>
+    <tr><td>整篇笔记的正文</td><td>frontmatter 进卡、整篇几千字全塞提示词</td><td>frontmatter 不进卡；模型只看前 1500 字</td></tr>
+    <tr><td>AI 出题失败兜底</td><td>整篇笔记会把全文当问句面</td><td>兜底问句截断到 60 字</td></tr>
+  </table>
+
+  <h2>10. 风险与遗留 <span class="tag pend">说明</span></h2>
+  <ol>
+    <li><b>笔记条目从「引用路径」变成「正文快照」</b>：老条目不动，新加入的是卡片（<code>note:&lt;path&gt;</code>）。想升级老条目要先移出再重加，本轮没做自动迁移。</li>
+    <li><b>批量逐篇出题慢</b>：文件夹 / 监听批量是「同一个方式 + 一次确认」，几十篇会串行生成。</li>
+    <li><b>静默入库没有界面</b>：设了「不用每次询问」后直接写卡，AI 内容由后台队列补；想改题面得回列表里重新生成。</li>
+    <li><b>bz 主插件未统一</b>：它和 bz-review 是两份数据，按用户要求没动。</li>
+    <li><b>3 个 jsdom 测试文件起不来</b>：环境既有问题（共享 pnpm store 缺包），主仓同样红，与本轮无关。</li>
+  </ol>
+
+  <h2>11. 复现路径</h2>
+  <ul>
+    <li>命令：命令面板 → <code>Review: 把当前笔记加入复习</code></li>
+    <li>文件树：右键笔记 / 文件夹 → 「加入复习」（文件夹是「加入复习（文件夹）」）</li>
+    <li>空态：复习面板为空时的第四颗按钮</li>
+    <li>监听：设置里勾一个监听文件夹 → 往里新建 md</li>
+    <li>免询问：设置 → 复习 → 「新卡默认方式」改成非「每次问我」</li>
+    <li>阅读器：书架 → 书卡右键 → 「加入复习」</li>
+  </ul>
+
+  <h2>12. 提交</h2>
+  <table>
+    <tr><th>仓</th><th>提交</th><th>内容</th></tr>
+    <tr><td>bz-review</td><td><code>4cf68d4</code></td><td>所有入口统一成一条流程（21 文件）</td></tr>
+    <tr><td>bz-review</td><td><code>a46c63e</code></td><td>合并回 master</td></tr>
+    <tr><td>bz-review</td><td><code>fef7517</code></td><td>重复查重认两种钥匙（真机发现后补）</td></tr>
+    <tr><td>bz-reader</td><td><code>7445c1e</code></td><td>删死开关与死入口</td></tr>
+    <tr><td>bz-reader</td><td><code>575765a</code></td><td>合并回 master</td></tr>
+  </table>
+
+  <p class="footer">
+    测试库只部署了构建产物；<code>addflow-test.md</code>、<code>addflow-folder/</code>、<code>addflow-watch/</code> 与对应排期条目已清理干净（review.json / review-quiz.json / review-meta.json / review-trash.json 均无 <code>addflow</code> 残留）。<br>
+    截图：<code>docs/images/add-flow-unify-2026-11-21/</code>（15 张）。
+  </p>
+</div>
+</body>
+</html>
