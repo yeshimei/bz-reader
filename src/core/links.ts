@@ -57,14 +57,14 @@ export const TTS_TUTORIAL_URL = 'https://www.bilibili.com/video/BV17psV6wEP7';
 export const REVIEW_TUTORIAL_URL = '';
 
 /**
- * bz Review 的下载地址（2026-11-20）：从 GitHub Release 取最新版压缩包，
+ * bz Review 的下载地址（2026-11-20）：从 GitHub Release 页面直接下载三件套，
  * 码云作备份路线（GitHub 连不上时兜底）。两条都指向 latest，版本随发布自动跟进。
- * 压缩包内含 bz-review/ 一层，解压到 .obsidian/plugins/ 即可。
+ * Release 页里下 main.js / manifest.json / styles.css 三个文件放进插件目录。
  */
 export const REVIEW_DOWNLOAD_URL =
-  'https://github.com/yeshimei/bz-review/releases/latest/download/bz-review.zip';
+  'https://github.com/yeshimei/bz-review/releases/latest';
 export const REVIEW_DOWNLOAD_MIRROR =
-  'https://gitee.com/ntbl/bz-review/releases/latest/download/bz-review.zip';
+  'https://gitee.com/ntbl/bz-review/releases/latest';
 
 /**
  * PDF 组的教程（2026-11-17）：占位，等专门讲 PDF 那期。
