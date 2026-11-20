@@ -26,6 +26,8 @@ export interface StudyPageDef {
   key: MsgKey;
   /** 页签前的线描图标（ico() 的名字）。文字之外给一层形状记忆，扫一眼就能定位 */
   icon: string;
+  /** 三点菜单里的一行说明（Review 的更多菜单同款「标题 + 一句话」） */
+  subKey?: MsgKey;
 }
 
 /** 占页签位置的四页。统计与设置不在这里——它们退到右上图标 */
@@ -63,11 +65,34 @@ export function visibleStudyTabs(reviewTab: boolean): StudyPageDef[] {
  * 实际上它们是低频的设置类入口，占着页签位置反而让高频的两页变小。
  */
 export const STUDY_ACTS: StudyPageDef[] = [
-  { value: 'search', key: 'shelf.act.search', icon: 'search' },
-  { value: 'stats', key: 'shelf.act.stats', icon: 'chart' },
-  { value: 'import', key: 'shelf.act.import', icon: 'import' },
-  { value: 'settings', key: 'shelf.act.settings', icon: 'gear' },
+  { value: 'search', key: 'shelf.act.search', icon: 'search', subKey: 'shelf.more.search' },
+  { value: 'stats', key: 'shelf.act.stats', icon: 'chart', subKey: 'shelf.more.stats' },
+  { value: 'import', key: 'shelf.act.import', icon: 'import', subKey: 'shelf.more.import' },
+  { value: 'settings', key: 'shelf.act.settings', icon: 'gear', subKey: 'shelf.more.settings' },
 ];
+
+/**
+ * 手机端书架的三点菜单（2026-11-20）：四颗图标在窄屏收进这里，只留 ⋮。
+ * 形态照抄 Review 的 .bzrv-more-menu（分组 + 图标 + 标题 + 一句话说明），
+ * 开合同一套规矩：默认 hidden，点 more 开合，点外部 / ESC / 重绘都收起。
+ * 菜单项复用 data-act="study" + data-p，切页逻辑与头栏图标一字不差——
+ * 手机端它是这四页唯一的入口，另写一套动作迟早出现「一边能点一边不能点」。
+ */
+export function studyMoreMenuHtml(page: StudyPage): string {
+  return `<div class="bzs-more-menu" hidden>
+  <div class="bzs-more-group">${t('shelf.more.group')}</div>
+${STUDY_ACTS.map((a) => {
+    const label = t(a.key);
+    const on = page === a.value;
+    return `  <button type="button" class="bzs-more-item${on ? ' is-on' : ''}" data-act="study" data-p="${a.value}">${ico(
+      a.icon,
+      'bzs-more-item-ic',
+    )}<span class="bzs-more-item-txt"><span class="bzs-more-item-title">${label}</span><span class="bzs-more-item-sub">${
+      a.subKey ? t(a.subKey) : ''
+    }</span></span></button>`;
+  }).join('\n')}
+</div>`;
+}
 
 /** 页签上的计数徽记：书库给本数，笔记给条数，对话给轮数，统计与设置不给 */
 export interface StudyCounts {
@@ -135,6 +160,9 @@ function tabNav(page: StudyPage, counts: StudyCounts, reviewTab: boolean): strin
  * 同一天里这里曾短暂挂过第五颗「分类」，随后撤掉：分类管理不是一页，
  * 塞进头栏会让人以为它和搜索/统计同级。入口改到书卡菜单「归入分类…」
  * 的下一层，头栏保持定稿的四颗。
+ *
+ * 2026-11-20 二轮：手机上这四颗全收进 ⋮（同 Review 的更多菜单形态），
+ * 桌面仍平铺，菜单在两种形态里都渲染、由 CSS 决定谁可见。
  */
 export function actBar(page: StudyPage): string {
   /* 复习页右侧那四颗属于 Review：Reader 不画自己的图标，只留一个空容器，
@@ -146,7 +174,9 @@ export function actBar(page: StudyPage): string {
     return `<button class="bzs-cbtn${on ? ' on' : ''}" data-act="study" data-p="${a.value}" aria-pressed="${on}"><span class="bzs-sr-only">${label}</span>${ico(
       a.icon,
     )}</button>`;
-  }).join('')}</div>`;
+  }).join('')}<button class="bzs-cbtn bzs-more-btn" data-act="more"><span class="bzs-sr-only">${t('tool.more')}</span>${ico(
+    'more',
+  )}</button>${studyMoreMenuHtml(page)}</div>`;
 }
 
 /* ─────────── 书库 ─────────── */

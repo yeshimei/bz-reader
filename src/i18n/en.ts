@@ -1619,4 +1619,9 @@ export const EN: Record<MsgKey, string> = {
   'notice.reviewMarkUndone': '[TODO] notice.reviewMarkUndone',
   'review.loadingScopeMarks': '[TODO] review.loadingScopeMarks',
   'review.cardsNeedUpdate': '[TODO] review.cardsNeedUpdate',
+  'shelf.more.search': '[TODO] shelf.more.search',
+  'shelf.more.stats': '[TODO] shelf.more.stats',
+  'shelf.more.import': '[TODO] shelf.more.import',
+  'shelf.more.settings': '[TODO] shelf.more.settings',
+  'shelf.more.group': '[TODO] shelf.more.group',
 };

@@ -100,6 +100,7 @@
 }
 
 .bzs-stuacts {
+  position: relative;
   display: flex;
   align-items: center;
   /* 定稿原型 gap 4：四颗图标挨得近才像一组工具，散开就成四个独立按钮 */
@@ -132,6 +133,80 @@
   background: none;
   border-color: transparent;
 }
+
+/* ── 三点菜单（2026-11-20）──
+   形态与 Review 的 .bzrv-more-menu 对齐：桌面不画 ⋮，窄屏 / 触屏只留 ⋮，
+   四颗入口从「书架入口」组进。菜单挂在同一条动作栏里、默认 hidden。 */
+.bzs-stuacts > .bzs-more-btn { display: none; }
+.bzs-more-btn.is-open { color: var(--copper); background: var(--copper-soft); }
+.bzs-more-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  width: 196px;
+  padding: 7px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-float);
+  animation: bzs-more-pop .16s ease-out;
+}
+.bzs-more-menu[hidden] { display: none; }
+@keyframes bzs-more-pop {
+  from { opacity: 0; transform: translateY(-6px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+.bzs-more-group {
+  font-size: var(--fs-caption);
+  color: var(--t3);
+  font-weight: 600;
+  padding: 7px 10px 5px;
+  letter-spacing: .04em;
+}
+.bzs-more-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  height: auto;
+  box-shadow: none;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: var(--r-ctl);
+  background: none;
+  color: var(--t1);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--ui);
+  letter-spacing: 0;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.bzs-more-item:hover { background: var(--surface-2); }
+.bzs-more-item.is-on { background: var(--copper-soft); }
+.bzs-more-item.is-on .bzs-more-item-title { color: var(--copper); }
+.bzs-more-item-ic {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  color: var(--t2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.bzs-more-item.is-on .bzs-more-item-ic { color: var(--copper); }
+.bzs-more-item-ic svg { width: 17px; height: 17px; }
+.bzs-more-item-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.bzs-more-item-title { font-size: var(--fs-body); color: var(--t1); }
+.bzs-more-item-sub { font-size: var(--fs-caption); color: var(--t3); }
+
+@media (max-width: 768px) {
+  .bzs-stuacts > .bzs-cbtn[data-act="study"] { display: none; }
+  .bzs-stuacts > .bzs-more-btn { display: grid; }
+}
+.bzs-shell.is-mobile .bzs-stuacts > .bzs-cbtn[data-act="study"] { display: none; }
+.bzs-shell.is-mobile .bzs-stuacts > .bzs-more-btn { display: grid; }
 
 .bzs-stubody {
   flex: 1;

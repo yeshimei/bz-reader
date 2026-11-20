@@ -67,6 +67,9 @@ export function ico(name: string, cls = ''): string {
     /* 多选：三行勾选列表。原来那枚「方框里一个勾」更像「确定 / 全选」，
        用户看不懂是进多选模式。 */
     listchecks: '<path d="M13 5h8M13 12h8M13 19h8"/><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/>',
+    /* 书架三点菜单（2026-11-20）：与 Review 的更多菜单同形，手机上四颗图标
+       全收进它。圆点走 fill，1.5 描边的空心圆在 18px 下会糊成一串小圈。 */
+    more: '<circle cx="12" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.5" fill="currentColor" stroke="none"/>',
     sparkle: '<path d="M12 3.5l1.9 5.4 5.4 1.9-5.4 1.9L12 18.1l-1.9-5.4L4.7 10.8l5.4-1.9z"/>',
     flame: '<path d="M12 22a6 6 0 006-6c0-4.2-3.2-6.2-4.2-9.2C11.8 8.4 11 10 11 10s-1-1.2-1.2-3C8.4 8.6 6 11 6 16a6 6 0 006 6z"/>',
     /* 关于条的三枚：视频教程 / 交流群 / 更新日志。播放三角是实心的——

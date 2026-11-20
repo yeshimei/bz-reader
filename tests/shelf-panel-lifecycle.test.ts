@@ -18,6 +18,7 @@ vi.mock('../src/shell/actions', () => ({
     spy.acts.push(act);
   },
   dispatchInput: () => undefined,
+  closeStudyMoreMenu: () => undefined,
 }));
 
 /** 只实现 ShelfPanel 真正用到的那几个成员；事件监听记下来由测试手动触发 */

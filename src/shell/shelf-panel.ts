@@ -11,7 +11,8 @@
  * ============================================================ */
 import { isCompactLibrary, isMobileShell } from '../core/mobile';
 import { TAP_LONG_PRESS_MS, TAP_MENU_PRESSURE_MS, TAP_SLOP_PX } from '../core/tap';
-import { dispatchAction, dispatchInput } from './actions';
+import { closeStudyMoreMenu, dispatchAction, dispatchInput } from './actions';
+import { registerPanelEsc, unregisterPanelEsc } from '../core/esc-manager';
 import { getState, searchScopeOf, setState, setStateQuiet, subscribe, type StudyPage } from './state';
 import { getShellSource, liveBooks, shellPrefs, subscribeShellSource } from './source';
 import { studyShell } from './render/study';
@@ -52,6 +53,8 @@ export class ShelfPanel {
   private lastKey = '';
   /** 移动端滑块的触摸接管（桌面返回空函数，见 shell/range-touch.ts） */
   private rangeTouchOff: (() => void) | null = null;
+  /** 三点菜单的「点外面收起」监听（与 Review 的更多菜单同一口径） */
+  private moreOutsideBound = false;
 
   /** @param host 挂载点，ItemView 传 contentEl */
   constructor(private host: HTMLElement) {}
@@ -93,6 +96,12 @@ export class ShelfPanel {
     this.unsubscribe = null;
     this.offSource?.();
     this.offSource = null;
+    if (this.moreOutsideBound) {
+      document.removeEventListener('click', this.onDocClickCloseMore, true);
+      this.moreOutsideBound = false;
+    }
+    unregisterPanelEsc('bzr-shelf-more-menu');
+    closeStudyMoreMenu();
     this.rangeTouchOff?.();
     this.rangeTouchOff = null;
     if (this.hitlistCb) {
@@ -290,8 +299,24 @@ export class ShelfPanel {
     }
   }
 
+  /** 点三点菜单以外的任何地方都收起；按钮与菜单自身交给 more 分支处理 */
+  private onDocClickCloseMore = (e: MouseEvent): void => {
+    const t = e.target;
+    if (t instanceof Element && (t.closest('.bzs-more-menu') || t.closest('.bzs-more-btn'))) return;
+    closeStudyMoreMenu();
+  };
+
   private bind(): void {
     const el = this.host;
+    /* 与 Review 的更多菜单同款：菜单开着时 ESC 只收菜单，不关整页/弹层。
+       这一层后注册，ESC 管理器从后往前判，优先级高于外层壳层。 */
+    registerPanelEsc('bzr-shelf-more-menu', () => !!document.querySelector('.bzs-more-menu:not([hidden])'), () => {
+      closeStudyMoreMenu();
+    });
+    if (!this.moreOutsideBound) {
+      this.moreOutsideBound = true;
+      document.addEventListener('click', this.onDocClickCloseMore, true);
+    }
     el.addEventListener('click', (e) => {
       /* 长按菜单之后浏览器还会补发一次 click（P3-17）：不拦的话，
          菜单刚弹出来，紧接着又打开了「书籍详情」弹层把它盖住。 */

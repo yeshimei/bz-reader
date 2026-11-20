@@ -708,6 +708,12 @@ export const ZH = {
   'shelf.act.stats': '统计',
   'shelf.act.import': '导入书籍',
   'shelf.act.settings': '设置',
+  /* 手机三点菜单里的一行说明：与 Review 的更多菜单同款「标题 + 一句话」 */
+  'shelf.more.group': '书架入口',
+  'shelf.more.search': '全书与笔记搜索',
+  'shelf.more.stats': '阅读统计与目标',
+  'shelf.more.import': '把书加进书架',
+  'shelf.more.settings': '偏好与授权',
 
   /* ── 书库页 ──────────────────────────────────────────────── */
   'shelf.filter.all': '全部',

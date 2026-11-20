@@ -1461,6 +1461,19 @@ function playWav(buf: ArrayBuffer, mime = 'audio/wav'): Promise<void> {
   });
 }
 
+/**
+ * 收起书架上所有打开的三点菜单（幂等）。
+ * 与 Review 的 closeMoreMenu 同一口径：重绘 / 切页 / ESC / 点外部统一走这里，
+ * 菜单节点被重绘换掉后 is-open 的残留也一并复位。
+ */
+export function closeStudyMoreMenu(): void {
+  if (typeof document === 'undefined') return;
+  document.querySelectorAll<HTMLElement>('.bzs-more-menu:not([hidden])').forEach((m) => {
+    m.hidden = true;
+  });
+  document.querySelectorAll<HTMLElement>('.bzs-more-btn.is-open').forEach((b) => b.removeClass('is-open'));
+}
+
 export function dispatchAction(
   act: string,
   el: HTMLElement,
@@ -1482,6 +1495,18 @@ export function dispatchAction(
   const rerender = (): void => repaint();
 
   switch (act) {
+    /* ── 手机三点菜单：一次只开一个，菜单项本身走下面的 study 分支 ── */
+    case 'more': {
+      const menu = el.parentElement?.querySelector<HTMLElement>('.bzs-more-menu');
+      if (!menu) break;
+      const willOpen = menu.hidden;
+      closeStudyMoreMenu();
+      if (willOpen) {
+        menu.hidden = false;
+        el.addClass('is-open');
+      }
+      break;
+    }
     /* ── 承载 ── */
     case 'study': {
       /* 进页的统一规则（返回目标、搜索范围）在 plugin.openStudy 里，

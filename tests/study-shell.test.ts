@@ -32,9 +32,9 @@ function at(html: string, needle: string): number {
   return i;
 }
 
-/** 头栏右侧动作区那一段 HTML（页签之后） */
+/** 头栏右侧常驻四颗那一段 HTML（不含三点菜单，菜单在 more 按钮之后） */
 function actsOf(html: string): string {
-  return html.slice(at(html, 'bzs-stuacts'));
+  return html.slice(at(html, 'bzs-stuacts'), at(html, 'bzs-more-btn'));
 }
 
 describe('书架头栏 · 页签', () => {
@@ -89,8 +89,36 @@ describe('书架头栏 · 右侧四颗', () => {
   it('头栏只有四颗：没有分类管理那颗第五图标', () => {
     const html = studyShell('library', '', counts);
     expect(html).not.toContain('data-act="shelfmanage"');
-    const acts = actsOf(html);
-    expect((acts.match(/data-act="study"/g) ?? []).length).toBe(4);
+    expect((actsOf(html).match(/data-act="study"/g) ?? []).length).toBe(4);
+  });
+});
+
+describe('书架头栏 · 三点菜单（对齐 Review 形态）', () => {
+  it('手机上四点图标全收进 more 下拉：菜单默认隐藏，四项顺序与头栏一致', () => {
+    const html = studyShell('library', '', counts);
+    expect(html).toContain('class="bzs-more-menu" hidden');
+    const menu = html.slice(at(html, 'bzs-more-menu'));
+    const got = [...menu.matchAll(/data-p="([^"]+)"/g)].map((m) => m[1]);
+    expect(got).toEqual(['search', 'stats', 'import', 'settings']);
+  });
+
+  it('more 按钮有视觉隐藏可读名，整段菜单不挂悬停气泡属性', () => {
+    const html = studyShell('library', '', counts);
+    expect(html).toMatch(/bzs-more-btn[^>]*data-act="more"/);
+    expect(html).toContain('<span class="bzs-sr-only">更多</span>');
+    expect(html).not.toMatch(/aria-label|setTooltip|\btitle\s*=/);
+  });
+
+  it('菜单项沿用头栏高亮口径：当前子页那项带 is-on', () => {
+    for (const p of ['search', 'stats', 'import', 'settings'] as const) {
+      const html = studyShell(p, '', counts);
+      const menu = html.slice(at(html, 'bzs-more-menu'));
+      expect(menu, p).toContain(`class="bzs-more-item is-on" data-act="study" data-p="${p}"`);
+    }
+  });
+
+  it('复习页由 Review 自己画图标，Reader 不再多画一颗三点', () => {
+    expect(studyShell('review', '', counts, '', true)).not.toContain('data-act="more"');
   });
 });
 
