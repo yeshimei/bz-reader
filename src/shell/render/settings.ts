@@ -28,7 +28,6 @@
  *     用户在某一个档位上看到中文。集中表用 `Record<Locale, string>` 锁八种齐。
  * ============================================================ */
 import { t, LOCALES, LOCALE_NAMES, type MsgKey } from '../../i18n';
-import { REVIEW_DOWNLOAD_MIRROR } from '../../core/links';
 import { ACCENT_OPTIONS, accentLabel, FONT_FAMILIES, fontLabel, FONT_SIZE_RANGE, LINE_HEIGHT_RANGE, MARGIN_RANGE, TTS_CACHE_RANGE, TTS_RATE_RANGE, type ReaderPrefs } from '../../data/prefs';
 import { ttsEngineReady, type TtsEngine } from '../../core/tts-engine';
 import { HIGHLIGHT_COLORS, colorLabel } from '../../data/notes';
@@ -1024,12 +1023,7 @@ export function viewSettings(v: SettingsView): string {
             : `<button class="bzs-btn sm pri" data-act="reviewdownload">${t('settings.plugin.review.download')}</button>`
         }${tutBtn('reviewtut', 'settings.plugin.review.tut')}</div>
       </div>
-    </div>
-    ${
-      reviewOk
-        ? ''
-        : `<div class="bzs-capnote">${t('settings.plugin.review.missing')}<a href="${REVIEW_DOWNLOAD_MIRROR}" target="_blank" rel="noopener noreferrer">${t('settings.plugin.review.mirror')}</a></div>`
-    }`,
+    </div>`,
   );
 
   /* 激活之后这组变成「凭证」：码只读，日常不让人误改。

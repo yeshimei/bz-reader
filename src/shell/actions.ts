@@ -139,7 +139,7 @@ import { currentSearchSurface, kickSemanticSearch, resetSemanticSearch } from '.
 import { bzClipbookUsed, bzEmbedder, bzNotesReady, openBzClipbook, openBzPreview, probeBz, openBzEntry, type BzEntryKind, type BzEmbedder } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
-import { AI_CHAT_TUTORIAL_URL, AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, PDF_TUTORIAL_URL, REVIEW_DOWNLOAD_URL, REVIEW_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL, openExternalUrl } from '../core/links';
+import { AI_CHAT_TUTORIAL_URL, AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, PDF_TUTORIAL_URL, REVIEW_DOWNLOAD_URL, REVIEW_DOWNLOAD_MIRROR, REVIEW_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL, openExternalUrl, openDownloadWithFallback } from '../core/links';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
 import { forgetPortrait, setPortrait } from './portrait-cache';
@@ -3682,9 +3682,8 @@ export function dispatchAction(
     }
     case 'reviewinstall':
     case 'reviewdownload':
-      /* 直接下载 bz Review：GitHub Release 取最新版压缩包，
-          GitHub 连不上时用设置面板里那条码云备份链接。 */
-      openExternalUrl(REVIEW_DOWNLOAD_URL);
+      /* 直接下载 bz Review：GitHub 主线路，连不通自动切码云（内置兜底，不打扰用户） */
+      void openDownloadWithFallback(REVIEW_DOWNLOAD_URL, REVIEW_DOWNLOAD_MIRROR);
       break;
     case 'ptpause':
       portraitBuilder().pause();

@@ -9,6 +9,7 @@
  * 地址放这里而不是任一侧，是因为渲染层不能反向依赖动作层（会绕成
  * 环）——两边都只认这里的常量。
  * ============================================================ */
+import { requestUrl } from 'obsidian';
 
 /**
  * 设置页关于条与 README 顶部共用的推荐向视频。
@@ -104,4 +105,33 @@ export function openExternalUrl(url: string): void {
     /* 移动端 / 拿不到 electron：走下面的兜底 */
   }
   window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+/**
+ * 打开下载页：GitHub 主线路，连不通自动切码云备份（2026-11-20）。
+ *
+ * 国内 GitHub 裸网常连不上，但把两条线都摆给用户会让人迷惑「该点哪个」。
+ * 这里先用一个短超时的 requestUrl 探测 GitHub Release 通不通：通就开 GitHub，
+ * 不通（超时 / 报错 / 非 2xx）静默切码云。整个过程对用户就是「点一下就开浏览器」。
+ * 探测用 requestUrl（走宿主网络栈、免 CORS），requestUrl 无中止能力，用 race 兜超时。
+ */
+export async function openDownloadWithFallback(primary: string, mirror: string): Promise<void> {
+  const timeoutMs = 5000;
+  let ok = false;
+  try {
+    const probe = requestUrl({ url: primary, method: 'HEAD', throw: false });
+    let timer: number | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = window.setTimeout(() => reject(new Error('probe timeout')), timeoutMs);
+    });
+    try {
+      const res = await Promise.race([probe, timeout]);
+      ok = Number(res.status) >= 200 && Number(res.status) < 400;
+    } finally {
+      if (timer !== undefined) window.clearTimeout(timer);
+    }
+  } catch {
+    ok = false;
+  }
+  openExternalUrl(ok ? primary : mirror);
 }
