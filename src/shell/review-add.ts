@@ -203,6 +203,22 @@ function chapterRow(title: string, sub: string): HTMLElement {
   return row;
 }
 
+/**
+ * 章节行放进纵向 flex 容器后，Obsidian 的 `.setting-item-control` 会被拉满整行
+ * （勾选框变成一根横条、标题被挤成两个字宽）。这里把三段宽度钉死：信息区占满、
+ * 控件区按内容、勾选框 16px。
+ */
+function pinRowLayout(row: HTMLElement): HTMLElement {
+  row.setCssProps({ display: 'flex', alignItems: 'center', gap: '8px' });
+  row.querySelector<HTMLElement>('.setting-item-info')
+    ?.setCssProps({ flex: '1 1 auto', 'min-width': '0' });
+  row.querySelector<HTMLElement>('.setting-item-control')
+    ?.setCssProps({ flex: '0 0 auto', width: 'auto' });
+  row.querySelector<HTMLElement>('input')
+    ?.setCssProps({ width: '16px', height: '16px', flex: '0 0 auto' });
+  return row;
+}
+
 /** 勾选框放进 setting-item 的右侧控件区 */
 function withCheckbox(row: HTMLElement, checked: boolean, onChange: (next: boolean) => void): HTMLElement {
   const ctl = createDiv();
@@ -420,6 +436,7 @@ class ReviewAddFlow {
         else this.chapPicked.delete(c.index);
         this.render();
       });
+      pinRowLayout(row);
       list.appendChild(row);
     }
 
@@ -841,7 +858,15 @@ class BookScopeFlow {
       el.createEl('p', { cls: 'bzs-review-lead', text: t('review.loadFailed') });
     } else {
       const list = el.createDiv();
-      list.setCssProps({ flex: '1 1 auto', 'min-height': '0', 'overflow-y': 'auto', margin: '0 0 8px' });
+      /* 只给「空间不够时」的高度上限，不主动撑满：章节少时窗口跟着收，
+         不再留一大块空白。 */
+      list.setCssProps({
+        flex: '0 1 auto',
+        'min-height': '0',
+        'max-height': '28vh',
+        'overflow-y': 'auto',
+        margin: '0 0 8px',
+      });
       for (const c of this.chapters) {
         const row = chapterRow(c.title || t('common.untitled'), '');
         withCheckbox(row, this.chapPicked.has(c.index), (on) => {
@@ -849,6 +874,7 @@ class BookScopeFlow {
           else this.chapPicked.delete(c.index);
           this.render();
         });
+        pinRowLayout(row);
         list.appendChild(row);
       }
       const all = this.chapters.map((c) => c.index);
@@ -865,7 +891,7 @@ class BookScopeFlow {
     }
 
     const row = el.createDiv({ cls: 'bzs-review-actions' });
-    row.setCssProps({ flex: 'none', 'margin-top': 'auto' });
+    row.setCssProps({ flex: 'none' });
     const back = row.createEl('button', { text: t('review.back') });
     back.addEventListener('click', () => {
       this.stage = 'scope';
