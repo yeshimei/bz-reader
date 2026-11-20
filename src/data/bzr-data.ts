@@ -57,6 +57,8 @@ export interface RoadmapItem {
   title: string;
   state: RoadmapState;
   src: 'builtin' | 'github';
+  /** 本条属于哪个插件；解析时只收 reader（与 bz 丢掉 reader 同口径） */
+  plugin?: 'reader';
   fb: RoadmapFeedback;
 }
 
@@ -347,6 +349,9 @@ function roadmapItem(raw: unknown): RoadmapItem | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
   if (typeof o.title !== 'string' || !clean(o.title)) return null;
+  /* 路线图是三个插件共用的数据源：只收 plugin === 'reader'。
+     bz 主插件丢掉 reader，Review 只收 review；Reader 也只看自己的。 */
+  if (o.plugin !== 'reader') return null;
   if (o.state !== 'plan' && o.state !== 'doing' && o.state !== 'done') return null;
   if (o.src !== 'builtin' && o.src !== 'github') return null;
   const fb = feedback(o.fb);
@@ -452,7 +457,7 @@ const BUILTIN: BzrData = {
   changelog: [],
   roadmap: [
     { theme: '路线图', color: '#7856d6', order: 1, items: [
-      { title: '路线图数据已更新，请联网查看', state: 'plan', src: 'builtin',
+      { title: '路线图数据已更新，请联网查看', state: 'plan', src: 'builtin', plugin: 'reader',
         fb: { kind: 'issue', n: 1, label: '#1', href: '' } },
     ] },
   ],
