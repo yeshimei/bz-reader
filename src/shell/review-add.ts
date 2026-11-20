@@ -25,15 +25,9 @@ import { mutateState } from './state';
 import { emitNotesChanged } from './runtime';
 import { setMarkReviewPlanned } from './review-marks';
 
-/** 侧栏「划线」页那颗按钮的入口（批量：挑哪些划线 / 章节） */
-export async function openReviewAdd(app: App | undefined, book: ReaderBook | undefined): Promise<void> {
-  if (!app) return;
-  if (!book) {
-    notify(t('side.empty'), 'info');
-    return;
-  }
-  openReaderFlow(app, book);
-}
+/* 侧栏那颗「加入复习」按钮已于 2026-11-20 撤掉，对应的 openReviewAdd 入口
+   与 actions.ts 的 reviewadd 分支在 2026-11-21 一并删除——留着一个没人派发的
+   动作只会让人以为还有第二条入口。书内入口只剩下面三个。 */
 
 /** 书右键「加入复习」的入口（同样是批量，归 Review 的窗口管） */
 export async function openBookReviewAdd(app: App | undefined, book: ReaderBook | undefined): Promise<void> {

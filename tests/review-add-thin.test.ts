@@ -61,3 +61,18 @@ describe('reviewReaderFlowReady：契约 v6 + 方法存在', () => {
     expect(reviewReaderFlowReady(null)).toBe(false);
   });
 });
+
+describe('加入复习 · Reader 侧死配置与死入口不回头', () => {
+  const SETTINGS = readFileSync(new URL('../src/data/settings.ts', import.meta.url), 'utf8');
+  const ACTIONS = readFileSync(new URL('../src/shell/actions.ts', import.meta.url), 'utf8');
+
+  it('「加入复习先选方式 / 上次用的方式」已删（现在只有 Review 的「新卡默认方式」）', () => {
+    expect(SETTINGS).not.toContain('reviewAskMode');
+    expect(SETTINGS).not.toContain('reviewLastMode');
+  });
+
+  it('侧栏的 reviewadd 动作与 openReviewAdd 入口已删，没人派发就别留', () => {
+    expect(ACTIONS).not.toContain("case 'reviewadd'");
+    expect(ACTIONS).not.toContain('openReviewAdd');
+  });
+});

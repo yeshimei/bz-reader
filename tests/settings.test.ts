@@ -92,24 +92,10 @@ describe('在线语音设置', () => {
  * 对象存在之后，用户清空密钥不会再被 AI 组填回来。
  */
 /**
- * 加入复习先选方式（2026-11-19）：默认开。老数据没有这个字段时必须当成「开」，
- * 否则升级后老用户会突然跳过三选一、不知道被谁记住了。
+ * 「加入复习先选方式」这个开关已删（2026-11-21）：制卡流程整体搬进 bz Review
+ * 之后，Reader 里没有任何代码读它；「要不要问我」现在是 Review 设置里的
+ * 「新卡默认方式」，Reader 不再保留一份同义开关。
  */
-describe('加入复习先选方式', () => {
-  it('默认开：新装第一次仍然先选方式', () => {
-    expect(DEFAULT_SETTINGS.reviewAskMode).toBe(true);
-    expect(normalizeSettings({}).reviewAskMode).toBe(true);
-  });
-
-  it('老数据缺字段 = 开，不是关', () => {
-    expect(normalizeSettings({ reviewLastMode: 'quiz' }).reviewAskMode).toBe(true);
-  });
-
-  it('明确写 false 才跳过那一屏', () => {
-    expect(normalizeSettings({ reviewAskMode: false }).reviewAskMode).toBe(false);
-  });
-});
-
 describe('扫描页识别设置', () => {
   it('老数据用 AI 看图：改成 DeepSeek 看图，密钥与模型从 AI 组搬一份', () => {
     const s = normalizeSettings({ ai: { baseUrl: 'https://api.deepseek.com', apiKey: 'sk-ai', model: 'deepseek-flash' } });

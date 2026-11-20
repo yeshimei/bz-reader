@@ -1583,8 +1583,6 @@ export const EN: Record<MsgKey, string> = {
   'stats.f.th.eta': '[TODO] stats.f.th.eta',
   'stats.f.goal.top': '[TODO] stats.f.goal.top',
   'tool.reviewPlanned': '[TODO] tool.reviewPlanned',
-  'settings.reviewAskMode': '[TODO] settings.reviewAskMode',
-  'settings.reviewAskMode.hint': '[TODO] settings.reviewAskMode.hint',
   'review.make.remember': '[TODO] review.make.remember',
   'review.make.remember.hint': '[TODO] review.make.remember.hint',
   'review.make.regenLoading': '[TODO] review.make.regenLoading',
