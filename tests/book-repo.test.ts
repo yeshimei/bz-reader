@@ -96,6 +96,60 @@ describe('BookRepo 按内容指纹去重（同一份文件只登记一次）', (
     expect(second.created).toBe(true);
     expect(repo.all()).toHaveLength(2);
   });
+
+  /* v1→v2 升级（2026-11-21）：用户反馈「不同版本应算不同的书」。
+     以前同路径命中就把新指纹写回旧记录、进度划线原样接过去——如果用户
+     把同名的书换成另一版，旧进度就串到新书上。v2 全书指纹让换版本能被
+     认出，这里让 ensure 同路径不同指纹时另起一本、旧的归档。 */
+  describe('同路径不同指纹 = 换了版本', () => {
+    it('同路径、指纹不同：旧书归档，新建一条，进度各自独立', () => {
+      const repo = new BookRepo([]);
+      const old = repo.ensure('书/a.epub', 'epub', 100, 'v2-oldhash-100').book;
+      old.reading.position.percent = 0.7;
+      const fresh = repo.ensure('书/a.epub', 'epub', 200, 'v2-newhash-200');
+      expect(fresh.created).toBe(true);
+      expect(fresh.book.id).not.toBe(old.id);
+      expect(old.archivedAt).toBeTypeOf('number');
+      expect(fresh.book.reading.position.percent).toBe(0);
+      expect(repo.all()).toHaveLength(2);
+      expect(repo.recent().map((b) => b.id)).toEqual([fresh.book.id]);
+    });
+
+    it('同路径、指纹相同：仍复用同一条，不归档', () => {
+      const repo = new BookRepo([]);
+      const first = repo.ensure('书/a.epub', 'epub', 100, 'v2-same-100').book;
+      const again = repo.ensure('书/a.epub', 'epub', 120, 'v2-same-100');
+      expect(again.created).toBe(false);
+      expect(again.book.id).toBe(first.id);
+      expect(first.archivedAt).toBeUndefined();
+    });
+
+    it('旧记录没指纹（老数据）时按路径补上，不误判成换版本', () => {
+      const repo = new BookRepo([]);
+      const old = repo.ensure('书/a.epub', 'epub', 100).book;
+      const again = repo.ensure('书/a.epub', 'epub', 100, 'v2-newhash-100');
+      expect(again.created).toBe(false);
+      expect(again.book.id).toBe(old.id);
+      expect(old.fileRef.fingerprint).toBe('v2-newhash-100');
+      expect(old.archivedAt).toBeUndefined();
+    });
+
+    it('换版本后新书用新指纹，按新指纹能查到、旧指纹查不到活书', () => {
+      const repo = new BookRepo([]);
+      const old = repo.ensure('书/a.epub', 'epub', 100, 'v2-old-100').book;
+      const fresh = repo.ensure('书/a.epub', 'epub', 200, 'v2-new-200').book;
+      expect(repo.byFingerprint('v2-new-200')?.id).toBe(fresh.id);
+      expect(repo.byFingerprint('v2-old-100')?.archivedAt).toBeTypeOf('number');
+      expect(old.archivedAt).toBeTypeOf('number');
+    });
+
+    it('换版本后按路径查到的是在架新书，不是归档旧书', () => {
+      const repo = new BookRepo([]);
+      repo.ensure('书/a.epub', 'epub', 100, 'v2-old-100');
+      const fresh = repo.ensure('书/a.epub', 'epub', 200, 'v2-new-200').book;
+      expect(repo.byPath('书/a.epub')?.id).toBe(fresh.id);
+    });
+  });
 });
 
 describe('剪藏本（虚拟书）不参与失联判定', () => {

@@ -9,7 +9,7 @@ import type { App } from 'obsidian';
 import { notify } from '../core/notice';
 import { t } from '../i18n';
 import type { BookRepo } from './book-repo';
-import { MAX_FINGERPRINT_BYTES, fingerprintOf } from './fingerprint';
+import { fingerprintOf } from './fingerprint';
 
 export const IMPORT_FOLDER = 'bz-reader/books';
 
@@ -61,13 +61,12 @@ export interface ImportResult {
   reused: boolean;
   /** 文件字节数（写盘前从内存里拿，不用再 stat 一次） */
   size: number;
-  /** 内容指纹；大文件（>64MB）或空文件为 null，此时退回按路径去重 */
+  /** 内容指纹；空文件为 null，此时退回按路径去重 */
   fingerprint: string | null;
 }
 
-function fingerprintOfBuffer(buf: ArrayBuffer): string | null {
-  if (buf.byteLength > MAX_FINGERPRINT_BYTES) return null;
-  return fingerprintOf(new Uint8Array(buf));
+async function fingerprintOfBuffer(buf: ArrayBuffer): Promise<string | null> {
+  return await fingerprintOf(new Uint8Array(buf));
 }
 
 /**
@@ -104,7 +103,7 @@ export async function importDetailed(
     }
     try {
       const buf = await file.arrayBuffer();
-      const fingerprint = fingerprintOfBuffer(buf);
+      const fingerprint = await fingerprintOfBuffer(buf);
       if (fingerprint && repo) {
         const hit = repo.byFingerprint(fingerprint);
         /* 记录指向的文件还在：直接复用，把「重复导入」挡在写盘之前 */

@@ -101,7 +101,11 @@ export class BookRepo {
   }
 
   byPath(path: string): ReaderBook | undefined {
-    return this.books.find((b) => b.fileRef.vaultPath === path);
+    /* 同路径换版本后，数组里会有一条归档旧书 + 一条在架新书。优先取在架的，
+       否则点击书内链接会打开旧版。只有整条路径上只剩归档书时才回退到它——
+       「重新导入这本书 → revive 复活」仍靠这个回退路径工作。 */
+    const hits = this.books.filter((b) => b.fileRef.vaultPath === path);
+    return hits.find((b) => typeof b.archivedAt !== 'number') ?? hits[0];
   }
 
   /** 按内容指纹查书：同一份文件在书架上最多一条记录 */
@@ -119,12 +123,20 @@ export class BookRepo {
   ensure(path: string, format: BookFormat, size = 0, fingerprint?: string): EnsureResult {
     const exist = this.byPath(path);
     if (exist) {
-      exist.fileRef.size = size || exist.fileRef.size;
-      /* 同一路径换了内容（用户换了一个版本的文件）：指纹跟着路径走 */
-      if (fingerprint && exist.fileRef.fingerprint !== fingerprint) exist.fileRef.fingerprint = fingerprint;
-      /* 归档过的书又被导回来：清掉归档标记，进度划线原样接上 */
-      const revived = this.revive(exist);
-      return { book: exist, created: false, ...(revived ? { revived: true } : {}) };
+      /* 同路径、两边都有指纹、指纹不同 = 用户把这本书换成了另一个版本。
+         v1 时代直接把新指纹写回旧记录、进度划线原样接过去，等于把旧进度
+         串到新书上——用户宝贵的数据不能这么赌。v2 改为：旧书归档（数据
+         全留、能从归档找回），新书另起一本从零开始。
+         只有一边没指纹（老数据/读失败）时仍按路径复用并补上指纹。 */
+      if (fingerprint && exist.fileRef.fingerprint && exist.fileRef.fingerprint !== fingerprint) {
+        this.archive(exist);
+      } else {
+        exist.fileRef.size = size || exist.fileRef.size;
+        if (fingerprint && !exist.fileRef.fingerprint) exist.fileRef.fingerprint = fingerprint;
+        /* 归档过的书又被导回来：清掉归档标记，进度划线原样接上 */
+        const revived = this.revive(exist);
+        return { book: exist, created: false, ...(revived ? { revived: true } : {}) };
+      }
     }
     if (fingerprint) {
       const same = this.byFingerprint(fingerprint);

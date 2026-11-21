@@ -154,22 +154,25 @@ describe('导入时读取书目（作者不再等第一次打开）', () => {
 });
 
 /**
- * 升级前的书没有指纹。不补算的话，用户重新导入同一本书照样新建一条，
- * 等于去重没生效。补算只读记录上那条路径，文件没了/太大就跳过。
+ * v1→v2 升级（2026-11-21）：老书没有指纹、或还是 v1 头尾指纹的，都要
+ * 按整本书重算成 v2。只读记录上那条路径，文件没了跳过、保留旧值。
  */
-describe('给老记录补算内容指纹', () => {
-  it('只补没有指纹的，已有的原样保留', async () => {
+describe('给老记录升级内容指纹（v1 → v2）', () => {
+  it('v1 和缺失指纹的都重算成 v2，文件没了保留旧值', async () => {
     const adapter = new FakeAdapter();
     adapter.files.set('a.epub', 'aaa');
     adapter.files.set('b.epub', 'bbb');
-    const books = [bookOf('a', 'a.epub'), bookOf('b', 'b.epub')];
+    const books = [bookOf('a', 'a.epub'), bookOf('b', 'b.epub'), bookOf('gone', 'gone.epub')];
     books[0]!.fileRef.fingerprint = 'v1-keep';
+    books[2]!.fileRef.fingerprint = 'v1-stale';
 
     const n = await backfillFingerprints(makeApp(adapter), books);
 
-    expect(n).toBe(1);
-    expect(books[0]!.fileRef.fingerprint).toBe('v1-keep');
-    expect(books[1]!.fileRef.fingerprint).toBe(fingerprintOf(new TextEncoder().encode('bbb')));
+    expect(n).toBe(2);
+    expect(books[0]!.fileRef.fingerprint).toBe(await fingerprintOf(new TextEncoder().encode('aaa')));
+    expect(books[1]!.fileRef.fingerprint).toBe(await fingerprintOf(new TextEncoder().encode('bbb')));
+    /* 文件没了：保留旧 v1 指纹，下次再试 */
+    expect(books[2]!.fileRef.fingerprint).toBe('v1-stale');
   });
 
   it('文件已经没了：跳过，不抛错，不写假指纹', async () => {
@@ -180,11 +183,12 @@ describe('给老记录补算内容指纹', () => {
     expect(books[0]!.fileRef.fingerprint).toBeUndefined();
   });
 
-  it('已经都有指纹：一次文件都不读', async () => {
+  it('已经都是 v2：一次文件都不读', async () => {
     const adapter = new FakeAdapter();
     const readBinary = vi.spyOn(adapter, 'readBinary');
+    adapter.files.set('a.epub', 'aaa');
     const books = [bookOf('a', 'a.epub')];
-    books[0]!.fileRef.fingerprint = 'v1-x';
+    books[0]!.fileRef.fingerprint = await fingerprintOf(new TextEncoder().encode('aaa'));
 
     expect(await backfillFingerprints(makeApp(adapter), books)).toBe(0);
     expect(readBinary).not.toHaveBeenCalled();

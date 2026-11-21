@@ -79,7 +79,7 @@ describe('导入前按指纹查重', () => {
     const repo = new BookRepo([]);
     const content = new Uint8Array([1, 2, 3, 4]);
     await adapter.writeBinary('Books/原书.epub', content.buffer);
-    repo.ensure('Books/原书.epub', 'epub', content.length, fingerprintOf(content) ?? undefined);
+    repo.ensure('Books/原书.epub', 'epub', content.length, (await fingerprintOf(content)) ?? undefined);
 
     const results = await importDetailed(app, [new File([content], '原书.epub')], ['epub'], 'Books', repo);
 
@@ -95,7 +95,7 @@ describe('导入前按指纹查重', () => {
     const app = makeApp(adapter);
     const repo = new BookRepo([]);
     const content = new Uint8Array([9, 9, 9]);
-    const fp = fingerprintOf(content);
+    const fp = await fingerprintOf(content);
     repo.ensure('Books/丢了.epub', 'epub', content.length, fp ?? undefined);
 
     const results = await importDetailed(app, [new File([content], '丢了.epub')], ['epub'], 'Books', repo);
@@ -114,7 +114,7 @@ describe('导入前按指纹查重', () => {
     const results = await importDetailed(app, [new File([content], 'a.epub')], ['epub'], 'Books');
 
     expect(results[0]!.written).toBe(true);
-    expect(results[0]!.fingerprint).toBe(fingerprintOf(content));
+    expect(results[0]!.fingerprint).toBe(await fingerprintOf(content));
   });
 
   it('同一批里两个同内容文件：第二个不再写盘', async () => {
@@ -122,7 +122,7 @@ describe('导入前按指纹查重', () => {
     const app = makeApp(adapter);
     const repo = new BookRepo([]);
     const content = new Uint8Array([7, 7, 7]);
-    const fp = fingerprintOf(content) ?? undefined;
+    const fp = (await fingerprintOf(content)) ?? undefined;
 
     const first = await importDetailed(app, [new File([content], 'a.epub')], ['epub'], 'Books', repo);
     repo.ensure(first[0]!.path, 'epub', content.length, fp);

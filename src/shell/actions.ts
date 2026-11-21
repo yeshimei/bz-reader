@@ -73,7 +73,7 @@ import { hostLanguageCode, isLocale, locale, resolveLocale, setLocale, t, type L
 import { bookMenuItems } from './book-menu';
 import { bookNeedsRelocate, scanVault } from '../data/book-repo';
 import { readFingerprint } from '../data/book-scan';
-import { MAX_FINGERPRINT_BYTES, fingerprintOf } from '../data/fingerprint';
+import { fingerprintOf } from '../data/fingerprint';
 import { importFolderOf, uniquePath } from '../data/importer';
 import type { ShellSource } from './source';
 import { flipSetting } from './settings-toggle';
@@ -281,7 +281,7 @@ async function pickAndRelocate(src: ShellSource, book: ReaderBook): Promise<void
   if (!picked) return;
 
   const buf = await picked.arrayBuffer();
-  const fp = buf.byteLength > MAX_FINGERPRINT_BYTES ? null : fingerprintOf(new Uint8Array(buf));
+  const fp = await fingerprintOf(new Uint8Array(buf));
   const known = book.fileRef.fingerprint;
   if (!fp) {
     notify(t('notice.missing.tooBig'));

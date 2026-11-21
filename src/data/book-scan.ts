@@ -18,7 +18,7 @@ import type { App } from 'obsidian';
 import { makeBook } from '../engine/foliate';
 import { applyEngineMeta, engineMetaFromBook, type EngineMeta } from './book-meta';
 import { formatOf, titleFromPath } from './book-repo';
-import { MAX_FINGERPRINT_BYTES, fingerprintOf } from './fingerprint';
+import { fingerprintOf, needsFingerprintUpgrade } from './fingerprint';
 import type { ReaderBook } from './schema';
 
 /** 与封面同一口径：超过这个大小不整本读进来，书目退回文件名 */
@@ -29,16 +29,14 @@ const PARALLEL = 3;
 /**
  * 读一本文件的**内容指纹**（登记进书架前查重用）。
  *
- * 和读书目一样，只能整份读：Obsidian 的 adapter 没有分段读接口。
- * 超过 `MAX_FINGERPRINT_BYTES` 直接放弃——手机内存比「多一层去重」重要，
- * 这类书退回按路径去重。读失败同样返回 null，绝不挡导入流程。
+ * v2 取消大小上限：整本书 SHA-256，桌面手机同一套算法（实测 82MB 约
+ * 60ms，原生 crypto.subtle 异步不挡主线程）。读失败返回 null，绝不挡
+ * 导入流程。`size` 仅为兼容旧调用签名保留，算法不再用它做上限判断。
  */
-export async function readFingerprint(app: App, path: string, size = 0): Promise<string | null> {
-  if (size > MAX_FINGERPRINT_BYTES) return null;
+export async function readFingerprint(app: App, path: string, _size = 0): Promise<string | null> {
   try {
     const buf = await app.vault.adapter.readBinary(path);
-    if (buf.byteLength > MAX_FINGERPRINT_BYTES) return null;
-    return fingerprintOf(new Uint8Array(buf));
+    return await fingerprintOf(new Uint8Array(buf));
   } catch {
     return null;
   }
@@ -133,33 +131,36 @@ export async function fillBookMetas(app: App, books: ReaderBook[], concurrency =
 }
 
 /**
- * 给升级前的老记录补算指纹（幂等，导入前调一次）。
+ * 把老记录的 v1 指纹 / 缺失指纹升级成 v2（幂等，启动与导入时各调一次）。
  *
- * 指纹查重只对「有指纹的记录」有效。老记录没有这个字段，不补的话，用户
- * 重新导入同一本书照样会新建一条——等于去重没生效。这里按记录上的路径
- * 读文件补算，不扫全库；读不到（文件已删）/超大（手机内存）就跳过，
- * 下次再试，绝不挡导入。
+ * v1 只哈希头尾各 64KB，用户换版本（同路径覆盖成另一版）认不出，进度与
+ * 划线会被错误接过去——这是用户宝贵的数据，不能赌。这里按记录路径整本
+ * 重算 SHA-256，**成功才替换**，读不到（文件已删/剪藏虚拟书）保留旧值
+ * 下次再试，绝不挡导入。归档书直接跳过——换版本后它与在架新书同路径，
+ * 重算会把两本指纹算成一样、导致进度串线。
+ *
+ * 串行逐本处理、一次只读一本，内存峰值可控（大书也不再因上限跳过）。
+ * 返回真正改动几条，由调用方决定何时一次性 `store.touch()` 写盘。
+ * `concurrency` 仅为兼容旧签名保留，v2 起固定串行。
  */
-export async function backfillFingerprints(app: App, books: ReaderBook[], concurrency = 2): Promise<number> {
-  const pending = books.filter((b) => !b.fileRef.fingerprint);
+export async function upgradeFingerprints(app: App, books: ReaderBook[], _concurrency = 2): Promise<number> {
+  /* 归档书必须跳过：换版本后归档旧书与在架新书指向同一路径（文件已经是新
+     版本内容），若给归档旧书也重算，它的指纹会变成和新书一样——以后按指纹
+     查重/重新导入 revive 就会把旧书的进度划线串回新书。归档书的指纹代表它
+     自己那版内容，留着 v1 原值更安全。 */
+  const pending = books.filter(
+    (b) => typeof b.archivedAt !== 'number' && needsFingerprintUpgrade(b.fileRef.fingerprint),
+  );
   if (!pending.length) return 0;
   let changed = 0;
-  let next = 0;
-  const worker = async (): Promise<void> => {
-    for (;;) {
-      const i = next++;
-      if (i >= pending.length) return;
-      const book = pending[i];
-      if (!book) continue;
-      const size = book.fileRef.size ?? 0;
-      if (size > MAX_FINGERPRINT_BYTES) continue;
-      const fp = await readFingerprint(app, book.fileRef.vaultPath, size);
-      if (!fp) continue;
-      book.fileRef.fingerprint = fp;
-      changed += 1;
-    }
-  };
-  const workers = Math.min(Math.max(1, concurrency), pending.length);
-  await Promise.all(Array.from({ length: workers }, () => worker()));
+  for (const book of pending) {
+    const fp = await readFingerprint(app, book.fileRef.vaultPath, book.fileRef.size ?? 0);
+    if (!fp) continue;
+    book.fileRef.fingerprint = fp;
+    changed += 1;
+  }
   return changed;
 }
+
+/** 旧名兼容：导入面板三处仍叫 backfillFingerprints，语义已升级为 v1→v2 */
+export const backfillFingerprints = upgradeFingerprints;

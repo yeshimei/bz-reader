@@ -30,8 +30,7 @@ import { isMobileEnv, isMobileShell } from './core/mobile';
 import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
 import { BookRepo, BASE_FORMATS, PRO_FORMATS, formatOf, planRelocations, scanVault } from './data/book-repo';
-import { fillBookMetas, readFingerprint } from './data/book-scan';
-import { MAX_FINGERPRINT_BYTES } from './data/fingerprint';
+import { fillBookMetas, readFingerprint, upgradeFingerprints } from './data/book-scan';
 import { ReaderStore, verifyCopiedJson } from './data/store';
 import { backupFileName, buildBackup, parseBackup, replaceWithBackup } from './data/backup';
 import { pickJsonFile } from './core/file-pick';
@@ -670,6 +669,9 @@ export function createPlugin(cfg: PluginConfig) {
       this.app.workspace.onLayoutReady(() => {
         /* 启动那一次核对：插件停用期间被删/被移走的书，书架要能看见 */
         this.maybeReconcile();
+        /* v1→v2 指纹后台升级：启动就逐本重算全书 SHA-256，不挡界面。
+           失败保留旧值，下次启动/同步/导入面板再试。 */
+        void this.upgradeFingerprintsInBackground();
         void this.autoOpenIfRequested();
       });
     }
@@ -1844,7 +1846,27 @@ export function createPlugin(cfg: PluginConfig) {
       notifyShell();
     }
 
+    /**
+     * v1→v2 指纹后台升级（2026-11-21）：逐本重算全书 SHA-256，成功才替换，
+     * 失败保留旧值下次再试。一次升级完统一写盘，不每本写。启动、手动同步、
+     * 打开导入面板三处都会调，幂等——已是 v2 的书不会再算。
+     */
+    private async upgradeFingerprintsInBackground(): Promise<void> {
+      try {
+        const upgraded = await upgradeFingerprints(this.app, this.repo.all());
+        if (upgraded) {
+          this.store.touch();
+          notifyShelf();
+        }
+      } catch (e) {
+        /* 升级是后台增强，失败绝不能挡启动/同步。 */
+        console.warn('[bz-reader] fingerprint upgrade failed:', e);
+      }
+    }
+
     private async syncShelf(): Promise<void> {
+      /* v1→v2 指纹升级：与下面的「补新书」分开——只读已有记录，不改书架结构 */
+      await this.upgradeFingerprintsInBackground();
       /* 扫描用「这个包能认的全部格式」，而不是「当前已解锁的格式」。
          否则一旦没解锁，mobi 书会直接从书架上消失——用户会以为书被插件删了。
          真正的门控放在 openBook：看得见、点得开提示，比凭空少几本书好得多。 */
@@ -1869,8 +1891,8 @@ export function createPlugin(cfg: PluginConfig) {
         if (known?.archivedAt) continue;
         /* 已经登记过、也有指纹：不用再读文件 */
         if (known?.fileRef.fingerprint) continue;
-        /* 大文件不为指纹整份读进内存（手机上限）；退回按路径去重 */
-        const fp = f.size > MAX_FINGERPRINT_BYTES ? null : await readFingerprint(this.app, f.path, f.size);
+        /* v2 全书指纹，无大小上限；读失败才退回按路径去重 */
+        const fp = await readFingerprint(this.app, f.path, f.size);
         const { book, created, pathChanged } = this.repo.ensure(f.path, fmt, f.size, fp ?? undefined);
         /* 指纹命中的是另一条路径上的旧记录（文件改名/移动后重新扫到）：把记录挪过来。
            旧路径还在时不动——同一内容的另一份副本不应该让记录每次扫描来回跳。 */
