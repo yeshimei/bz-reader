@@ -174,8 +174,8 @@ export function reviewInstallState(app: App | undefined): ReviewInstallState {
   const enabled = holder?.enabledPlugins;
   if (Array.isArray(enabled)) {
     if (enabled.includes(REVIEW_PLUGIN_ID)) return 'disabled';
-  } else if (enabled && typeof (enabled as Set<string>).has === 'function') {
-    if ((enabled as Set<string>).has(REVIEW_PLUGIN_ID)) return 'disabled';
+  } else if (enabled && typeof enabled.has === 'function') {
+    if (enabled.has(REVIEW_PLUGIN_ID)) return 'disabled';
   }
   return 'missing';
 }

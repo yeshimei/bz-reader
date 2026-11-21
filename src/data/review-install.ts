@@ -176,7 +176,7 @@ export async function enableInstalledReview(app: App): Promise<boolean> {
   try {
     return await run();
   } catch {
-    await new Promise<void>((resolve) => setTimeout(resolve, 500));
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 500));
     try {
       return await run();
     } catch {
