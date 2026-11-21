@@ -63,7 +63,8 @@ describe('统计页 · 整页结构', () => {
 
   it('趋势 / 节律 / 热力 / 目标 / 书籍都在，热力固定 140 格', () => {
     const h = viewStats(view());
-    expect(h).toContain('class="chart"');
+    /* 趋势图：断言行尾的日期轴（起止两个 YYYY-MM-DD），不断言样式类名 */
+    expect(h).toMatch(/<span>\d{4}-\d{2}-\d{2}<\/span>/);
     expect(h).toContain('目标 20 分');
     expect(h).toContain('阅读节律');
     expect(h).toContain('单次会话');

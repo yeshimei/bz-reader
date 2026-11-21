@@ -11,6 +11,7 @@
  * ============================================================ */
 import type { StatsRange } from '../data/stats-full';
 
+export type { StatsRange };
 export type StatsAudit = 'wall' | 'checkin';
 export type StatsTab = 'overview' | 'time' | 'books' | 'notes' | 'achv' | 'data';
 
@@ -25,8 +26,9 @@ export interface StatsUiState {
   day: string;
 }
 
-const RANGES: readonly StatsRange[] = ['all', 'today', 'week', 'month', 'year'];
-const TABS: readonly StatsTab[] = ['overview', 'time', 'books', 'notes', 'achv', 'data'];
+/** 范围与页签的**唯一**清单：页面按钮、读盘白名单、测试都从这里取 */
+export const STATS_RANGES: readonly StatsRange[] = ['all', 'today', 'week', 'month', 'year'];
+export const STATS_TABS: readonly StatsTab[] = ['overview', 'time', 'books', 'notes', 'achv', 'data'];
 
 export function defaultStatsUi(): StatsUiState {
   return { range: 'all', audit: 'checkin', preview: false, recalced: false, tab: 'overview', day: '' };
@@ -40,9 +42,9 @@ export function getStatsUi(): StatsUiState {
 
 export function setStatsUi(patch: Partial<StatsUiState>): StatsUiState {
   const next = { ...current, ...patch };
-  if (!RANGES.includes(next.range)) next.range = 'all';
+  if (!STATS_RANGES.includes(next.range)) next.range = 'all';
   if (next.audit !== 'wall' && next.audit !== 'checkin') next.audit = 'checkin';
-  if (!TABS.includes(next.tab)) next.tab = 'overview';
+  if (!STATS_TABS.includes(next.tab)) next.tab = 'overview';
   next.day = typeof next.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(next.day) ? next.day : '';
   current = next;
   return current;

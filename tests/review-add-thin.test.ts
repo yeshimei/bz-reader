@@ -10,6 +10,8 @@ import { reviewReaderFlowReady, type ReviewApi } from '../src/data/review-bridge
  */
 const SRC = readFileSync(new URL('../src/shell/review-add.ts', import.meta.url), 'utf8');
 const PLUGIN = readFileSync(new URL('../src/plugin.ts', import.meta.url), 'utf8');
+/** 取门面 + 弹提示这一层 2026-11-21 抽成了共用函数（review-add 与制卡入口共用） */
+const REQUIRE = readFileSync(new URL('../src/shell/review-require.ts', import.meta.url), 'utf8');
 
 describe('加入复习 · Reader 侧薄入口', () => {
   it('侧栏 / 书右键入口只把书 id 递给 Review', () => {
@@ -21,9 +23,11 @@ describe('加入复习 · Reader 侧薄入口', () => {
   });
 
   it('没装 / 老版本只说一句话，不退回旧流程', () => {
-    expect(SRC).toContain("t('review.needPlugin')");
-    expect(SRC).toContain("t('review.cardsNeedUpdate')");
-    expect(SRC).toContain('reviewReaderFlowReady(api)');
+    expect(SRC).toContain("requireReviewFlow(app, 'reader')");
+    /* 两句提示与「契约够不够」的判据在共用层，两处入口同一口径 */
+    expect(REQUIRE).toContain("t('review.needPlugin')");
+    expect(REQUIRE).toContain("t('review.cardsNeedUpdate')");
+    expect(REQUIRE).toContain('reviewReaderFlowReady(api)');
   });
 
   it('工具条单条 / 划选仍走统一制卡窗口', () => {

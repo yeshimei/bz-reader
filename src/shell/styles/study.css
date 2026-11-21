@@ -688,6 +688,13 @@
   background: color-mix(in srgb, var(--interactive-accent) 12%, var(--glass));
 }
 
+/* 已归档（换版本后的旧书）：中性灰，读得出来但不抢眼 */
+.bzs-bkcard .flag.is-archived {
+  color: var(--t2);
+  border-color: color-mix(in srgb, var(--t2) 35%, transparent);
+  background: color-mix(in srgb, var(--t2) 10%, var(--glass));
+}
+
 .bzs-bkcard.is-missing .bzs-cov {
   filter: grayscale(.55);
   opacity: .55;

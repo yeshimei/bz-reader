@@ -12,7 +12,11 @@
  *
  * 「移出书架」不再是危险项：它现在只归档，进度/划线/书签/想法全留，
  * 重新导入同一份文件就复活——不可逆的只有「清理归档」那种入口。
+ *
+ * 2026-11-21 起新加的归档项走 `t()`（这个文件的老条目仍是硬编码中文，
+ * 整组统一翻译留到以后一次性收；新条目不再往上加中文）。
  */
+import { t } from '../i18n';
 
 export type BookMenuAction =
   | 'open'
@@ -25,6 +29,7 @@ export type BookMenuAction =
   | 'rename'
   | 'shelf'
   | 'relocate'
+  | 'restore'
   | 'remove';
 
 export interface BookMenuItem {
@@ -47,9 +52,21 @@ export interface BookMenuInput {
   missing?: boolean;
   /** 装了 bz Review 才显示「加入复习」（没装就不摆一个点了没反应的项） */
   review?: boolean;
+  /** 归档书（换版本后的旧书 / 移出书架）：菜单只留恢复、详情、导出与删除 */
+  archived?: boolean;
 }
 
 export function bookMenuItems(input: BookMenuInput): BookMenuItem[] {
+  /* 归档书不在书架上，菜单只留「怎么把它弄回来 / 看它是什么 / 导出」。
+     阅读状态、收藏、归类都还在数据里，恢复回书架后一切照旧。 */
+  if (input.archived) {
+    return [
+      { act: 'restore', title: t('shelf.archived.restore'), icon: 'rotate-ccw' },
+      { act: 'detail', title: '书籍详情', icon: 'info' },
+      { act: 'export', title: '导出这本书', icon: 'download' },
+      { act: 'remove', title: t('shelf.archived.purge'), icon: 'trash', sepBefore: true, danger: true },
+    ];
+  }
   return [
     { act: 'open', title: '阅读', icon: 'book-open', disabled: !!input.missing },
     /* 文件失联时最该先做的是找文件：放在「阅读」下面，不用翻到菜单底部 */

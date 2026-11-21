@@ -78,14 +78,15 @@ describe('复习页签：只在开关开且 Review 支持嵌入时列出', () =>
   it('关（false）时不列 review 页签', () => {
     expect(visibleStudyTabs(false).map((p) => p.value)).not.toContain('review');
     const html = studyShell('library', '', counts, '', false);
-    expect(html).not.toContain('data-p="review"');
+    expect(html).not.toContain('>复习<');
   });
 
   it('开（true）时列在最后，且页签文案是「复习」', () => {
     expect(visibleStudyTabs(true).map((p) => p.value)).toEqual(['library', 'notes', 'ai', 'review']);
     const html = studyShell('library', '', counts, '', true);
-    expect(html).toContain('data-p="review"');
     expect(html).toContain('>复习<');
+    /* 位置断言用文案本身：复习排在对话后面（不断言 data-p 这类实现属性） */
+    expect(html.indexOf('>复习<')).toBeGreaterThan(html.indexOf('>对话<'));
   });
 });
 

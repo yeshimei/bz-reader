@@ -63,9 +63,9 @@ describe('正文：统计卡 + 路线图入口 + 条目 #N', () => {
     const s = html();
     expect([...s.matchAll(/data-stat="pro"/g)]).toHaveLength(2);
     expect([...s.matchAll(/data-stat="patrons"/g)]).toHaveLength(2);
-    // 固定值随版本发版更新（当前 v1.5.3 这组），不读在线 stats
-    expect(s).toContain('47'); // 高级用户 PIN_PRO
-    expect(s).toContain('8'); // 赞助人 PIN_PATRONS
+    // 固定值随版本发版更新（当前 v1.6.0 这组），不读在线 stats
+    expect(s).toContain('55'); // 高级用户 PIN_PRO
+    expect(s).toContain('10'); // 赞助人 PIN_PATRONS
   });
 
   it('三个入口（路线图 / 功能建议 / 问题反馈）两端各一份，带条数角标', () => {

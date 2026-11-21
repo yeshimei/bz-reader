@@ -46,6 +46,8 @@ export interface BookRow {
   missing: boolean;
   /** 剪藏本（虚拟书，2026-11-13）：书卡上显示「剪藏成书」而不是格式 */
   clip: boolean;
+  /** 归档（换版本后的旧书 / 用户移出书架）：只在「已归档」筛选里出现 */
+  archived: boolean;
   /** 剪藏本：上次打开时收进的文章数 / 源数（封面与副标题用；没打开过就没有） */
   clipArticleCount?: number;
   clipSourceCount?: number;
@@ -144,6 +146,7 @@ export function toRow(app: App, b: ReaderBook): BookRow {
     noteCount,
     missing: b.fileRef.fileMissing === true,
     clip: isClipBookRecord(b),
+    archived: typeof b.archivedAt === 'number',
     clipArticleCount: isClipBookRecord(b) ? b.meta.clipArticleCount : undefined,
     clipSourceCount: isClipBookRecord(b) ? b.meta.clipSourceCount : undefined,
   };
@@ -186,6 +189,8 @@ export function filterRows(rows: BookRow[], s = getState()): BookRow[] {
   if (s.libFilter === 'done') arr = arr.filter((b) => b.status === 'done');
   if (s.libFilter === 'new') arr = arr.filter((b) => b.status === 'new');
   if (s.libFilter === 'fav') arr = arr.filter((b) => b.fav);
+  /* 「已归档」的源书单由调用方换成归档书（liveBooks 里没有它们），
+     这里不再按阅读状态二次过滤，否则归档书会按进度被筛掉。 */
 
   if (s.libSort === 'title') arr.sort((a, b) => a.title.localeCompare(b.title, 'zh'));
   else if (s.libSort === 'progress') arr.sort((a, b) => b.percent - a.percent);

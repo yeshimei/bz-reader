@@ -18,13 +18,14 @@
  * 供 AI 调用层与设置页共用；上限取「面板覆盖 > 模型官方档 > 注册表默认」。
  * ============================================================ */
 import { resolveModelLimits } from '../core/model-limits';
+import type { MsgKey } from '../i18n';
 
 /** 思考档位一项：面板档位 → 请求体片段（body = null 表示不注入任何思考参数） */
 export interface AIThinkingLevel {
   /** 档位值（存 settings.ai.thinkingOverrides） */
   value: string;
-  /** 设置面板展示名 */
-  label: string;
+  /** 设置面板展示名（i18n key） */
+  labelKey: MsgKey;
   /** 该档位注入的请求体键值；null = 不注入 */
   body: Record<string, unknown> | null;
 }
@@ -40,8 +41,8 @@ export type AIProtocol = 'openai' | 'anthropic';
 export interface AIProviderDescriptor {
   /** 注册表键（settings.ai.provider 取值） */
   id: string;
-  /** 设置页下拉展示名 */
-  label: string;
+  /** 设置页下拉展示名（i18n key） */
+  labelKey: MsgKey;
   /** 请求协议（缺省 = openai） */
   protocol?: AIProtocol;
   /** 默认 API endpoint */
@@ -52,10 +53,10 @@ export interface AIProviderDescriptor {
   defaultMaxTokens: number;
   /** 该通道官方最大输出硬护栏；缺省 = 无官方上限可依（本地 / 聚合网关） */
   maxOutputCap?: number;
-  /** 设置页密钥行标题 */
-  apiKeyLabel: string;
-  /** 密钥行说明 */
-  apiKeyDesc?: string;
+  /** 设置页密钥行标题（i18n key） */
+  apiKeyLabelKey: MsgKey;
+  /** 密钥行说明（i18n key） */
+  apiKeyDescKey?: MsgKey;
   /** 思考档位表（缺省 = 不注入任何思考参数） */
   thinking?: AIThinkingSpec;
 }
@@ -80,12 +81,12 @@ export const DEFAULT_AI_PROVIDER = 'deepseek';
 const SAFE_DEFAULT_MAX_TOKENS = 32768;
 
 /* 存档 / 注入共用的档位动词表（逐家档位表由此取项） */
-const THINK_AUTO: AIThinkingLevel = { value: 'auto', label: '跟随模型默认', body: null };
-const THINK_OFF: AIThinkingLevel = { value: 'off', label: '关闭（省 token）', body: null };
-const THINK_LOW: AIThinkingLevel = { value: 'low', label: '低', body: null };
-const THINK_MEDIUM: AIThinkingLevel = { value: 'medium', label: '中', body: null };
-const THINK_HIGH: AIThinkingLevel = { value: 'high', label: '高', body: null };
-const THINK_MAX: AIThinkingLevel = { value: 'max', label: '最高', body: null };
+const THINK_AUTO: AIThinkingLevel = { value: 'auto', labelKey: 'ai.think.auto', body: null };
+const THINK_OFF: AIThinkingLevel = { value: 'off', labelKey: 'ai.think.off', body: null };
+const THINK_LOW: AIThinkingLevel = { value: 'low', labelKey: 'ai.think.low', body: null };
+const THINK_MEDIUM: AIThinkingLevel = { value: 'medium', labelKey: 'ai.think.medium', body: null };
+const THINK_HIGH: AIThinkingLevel = { value: 'high', labelKey: 'ai.think.high', body: null };
+const THINK_MAX: AIThinkingLevel = { value: 'max', labelKey: 'ai.think.max', body: null };
 
 /**
  * 在册提供商（18 家）。端点与默认模型取自 models.dev（MIT），
@@ -94,13 +95,15 @@ const THINK_MAX: AIThinkingLevel = { value: 'max', label: '最高', body: null }
 export const AI_PROVIDER_REGISTRY: AIProviderDescriptor[] = [
   {
     id: 'deepseek',
-    label: 'DeepSeek',
+    labelKey: 'ai.p.deepseek.label',
     endpoint: 'https://api.deepseek.com',
-    model: '',
+    /* 默认模型必须给：reader 不像 bz 有调用方兜底，`aiReadyOf` 要求 model 非空，
+       留空会让「只填密钥」的默认服务商判成未配置，AI 功能整组不可用。 */
+    model: 'deepseek-chat',
     defaultMaxTokens: 393216,
     maxOutputCap: 393216,
-    apiKeyLabel: 'DeepSeek 密钥',
-    apiKeyDesc: 'DeepSeek 官方的接口密钥',
+    apiKeyLabelKey: 'ai.p.deepseek.keyLabel',
+    apiKeyDescKey: 'ai.p.deepseek.keyDesc',
     thinking: {
       levels: [
         THINK_AUTO,
@@ -114,13 +117,13 @@ export const AI_PROVIDER_REGISTRY: AIProviderDescriptor[] = [
   {
     // Coding 套餐额度只在 coding 专用端点生效；走标准 paas/v4 会报余额不足
     id: 'zhipu-plan',
-    label: '智谱 Plan',
+    labelKey: 'ai.p.zhipu-plan.label',
     endpoint: 'https://open.bigmodel.cn/api/coding/paas/v4',
     model: 'glm-5.3-flash',
     defaultMaxTokens: 131072,
     maxOutputCap: 131072,
-    apiKeyLabel: '智谱 Plan 密钥',
-    apiKeyDesc: '智谱 Coding 套餐的接口密钥',
+    apiKeyLabelKey: 'ai.p.zhipu-plan.keyLabel',
+    apiKeyDescKey: 'ai.p.zhipu-plan.keyDesc',
     // glm-5.3 系强制思考（发 disabled 无效），故只给强度档
     thinking: {
       levels: [
@@ -133,13 +136,13 @@ export const AI_PROVIDER_REGISTRY: AIProviderDescriptor[] = [
   },
   {
     id: 'ollama',
-    label: 'Ollama（本地）',
+    labelKey: 'ai.p.ollama.label',
     endpoint: 'http://localhost:11434/v1',
     model: 'llama3.1',
     defaultMaxTokens: 8192,
     // 有意不设 maxOutputCap：本地模型上限因所装模型而异、无官方档位可依
-    apiKeyLabel: 'Ollama 密钥',
-    apiKeyDesc: '本地服务无需密钥',
+    apiKeyLabelKey: 'ai.p.ollama.keyLabel',
+    apiKeyDescKey: 'ai.p.ollama.keyDesc',
     thinking: {
       levels: [
         THINK_AUTO,
@@ -154,161 +157,161 @@ export const AI_PROVIDER_REGISTRY: AIProviderDescriptor[] = [
   // ==================== 国内常用 ====================
   {
     id: 'zhipu',
-    label: '智谱 GLM',
+    labelKey: 'ai.p.zhipu.label',
     endpoint: 'https://open.bigmodel.cn/api/paas/v4',
     model: 'glm-5.3-flash',
     defaultMaxTokens: 131072,
     maxOutputCap: 131072,
-    apiKeyLabel: '智谱 GLM 密钥',
-    apiKeyDesc: '智谱开放平台的接口密钥',
+    apiKeyLabelKey: 'ai.p.zhipu.keyLabel',
+    apiKeyDescKey: 'ai.p.zhipu.keyDesc',
   },
   {
     id: 'qwen',
-    label: '通义千问',
+    labelKey: 'ai.p.qwen.label',
     endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     model: 'qwen3.8-flash',
     defaultMaxTokens: 131072,
     maxOutputCap: 131072,
-    apiKeyLabel: '通义千问密钥',
-    apiKeyDesc: '阿里云百炼的接口密钥',
+    apiKeyLabelKey: 'ai.p.qwen.keyLabel',
+    apiKeyDescKey: 'ai.p.qwen.keyDesc',
   },
   {
     id: 'kimi',
-    label: 'Kimi',
+    labelKey: 'ai.p.kimi.label',
     endpoint: 'https://api.moonshot.cn/v1',
     model: 'kimi-k3',
     defaultMaxTokens: SAFE_DEFAULT_MAX_TOKENS,
     maxOutputCap: 1048576,
-    apiKeyLabel: 'Kimi 密钥',
-    apiKeyDesc: '月之暗面开放平台的接口密钥',
+    apiKeyLabelKey: 'ai.p.kimi.keyLabel',
+    apiKeyDescKey: 'ai.p.kimi.keyDesc',
   },
   {
     id: 'siliconflow',
-    label: '硅基流动',
+    labelKey: 'ai.p.siliconflow.label',
     endpoint: 'https://api.siliconflow.cn/v1',
     model: 'zai-org/GLM-5.3-Flash',
     // 聚合式服务：模型名带厂商前缀，选模型时照抄完整 id
     defaultMaxTokens: 131072,
     maxOutputCap: 131072,
-    apiKeyLabel: '硅基流动密钥',
-    apiKeyDesc: '硅基流动的接口密钥',
+    apiKeyLabelKey: 'ai.p.siliconflow.keyLabel',
+    apiKeyDescKey: 'ai.p.siliconflow.keyDesc',
   },
   {
     id: 'volcengine',
-    label: '火山方舟',
+    labelKey: 'ai.p.volcengine.label',
     endpoint: 'https://ark.cn-beijing.volces.com/api/v3',
     model: 'doubao-seed-2-1-pro-260628',
     defaultMaxTokens: SAFE_DEFAULT_MAX_TOKENS,
     maxOutputCap: 256000,
-    apiKeyLabel: '火山方舟密钥',
-    apiKeyDesc: '火山引擎方舟的接口密钥',
+    apiKeyLabelKey: 'ai.p.volcengine.keyLabel',
+    apiKeyDescKey: 'ai.p.volcengine.keyDesc',
   },
   {
     id: 'stepfun',
-    label: '阶跃星辰',
+    labelKey: 'ai.p.stepfun.label',
     endpoint: 'https://api.stepfun.com/v1',
     model: 'step-3.7-flash',
     defaultMaxTokens: SAFE_DEFAULT_MAX_TOKENS,
     maxOutputCap: 256000,
-    apiKeyLabel: '阶跃星辰密钥',
-    apiKeyDesc: '阶跃星辰开放平台的接口密钥',
+    apiKeyLabelKey: 'ai.p.stepfun.keyLabel',
+    apiKeyDescKey: 'ai.p.stepfun.keyDesc',
   },
 
   // ==================== 海外常用 ====================
   {
     id: 'openai',
-    label: 'OpenAI',
+    labelKey: 'ai.p.openai.label',
     endpoint: 'https://api.openai.com/v1',
     model: 'gpt-6-luna',
     defaultMaxTokens: 128000,
     maxOutputCap: 128000,
-    apiKeyLabel: 'OpenAI 密钥',
-    apiKeyDesc: 'OpenAI 官方平台的接口密钥',
+    apiKeyLabelKey: 'ai.p.openai.keyLabel',
+    apiKeyDescKey: 'ai.p.openai.keyDesc',
   },
   {
     // 唯一走 Anthropic Messages 协议的常驻通道
     id: 'anthropic',
-    label: 'Claude（Anthropic）',
+    labelKey: 'ai.p.anthropic.label',
     protocol: 'anthropic',
     endpoint: 'https://api.anthropic.com/v1',
     model: 'claude-haiku-5-5',
     defaultMaxTokens: 128000,
     maxOutputCap: 128000,
-    apiKeyLabel: 'Claude 密钥',
-    apiKeyDesc: 'Anthropic 官方平台的接口密钥',
+    apiKeyLabelKey: 'ai.p.anthropic.keyLabel',
+    apiKeyDescKey: 'ai.p.anthropic.keyDesc',
   },
   {
     id: 'google',
-    label: 'Google Gemini',
+    labelKey: 'ai.p.google.label',
     endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai',
     model: 'gemini-3.8-flash',
     defaultMaxTokens: 65536,
     maxOutputCap: 65536,
-    apiKeyLabel: 'Gemini 密钥',
-    apiKeyDesc: 'Google AI Studio 的接口密钥',
+    apiKeyLabelKey: 'ai.p.google.keyLabel',
+    apiKeyDescKey: 'ai.p.google.keyDesc',
   },
   {
     id: 'xai',
-    label: 'xAI Grok',
+    labelKey: 'ai.p.xai.label',
     endpoint: 'https://api.x.ai/v1',
     model: 'grok-4.7',
     defaultMaxTokens: SAFE_DEFAULT_MAX_TOKENS,
     maxOutputCap: 500000,
-    apiKeyLabel: 'xAI 密钥',
-    apiKeyDesc: 'xAI 控制台的接口密钥',
+    apiKeyLabelKey: 'ai.p.xai.keyLabel',
+    apiKeyDescKey: 'ai.p.xai.keyDesc',
   },
   {
     id: 'mistral',
-    label: 'Mistral',
+    labelKey: 'ai.p.mistral.label',
     endpoint: 'https://api.mistral.ai/v1',
     model: 'mistral-large-4',
     defaultMaxTokens: SAFE_DEFAULT_MAX_TOKENS,
     maxOutputCap: 262144,
-    apiKeyLabel: 'Mistral 密钥',
-    apiKeyDesc: 'Mistral 控制台的接口密钥',
+    apiKeyLabelKey: 'ai.p.mistral.keyLabel',
+    apiKeyDescKey: 'ai.p.mistral.keyDesc',
   },
   {
     id: 'groq',
-    label: 'Groq',
+    labelKey: 'ai.p.groq.label',
     endpoint: 'https://api.groq.com/openai/v1',
     model: 'qwen/qwen3.8-27b',
     defaultMaxTokens: 16384,
     maxOutputCap: 16384,
-    apiKeyLabel: 'Groq 密钥',
-    apiKeyDesc: 'Groq 控制台的接口密钥',
+    apiKeyLabelKey: 'ai.p.groq.keyLabel',
+    apiKeyDescKey: 'ai.p.groq.keyDesc',
   },
   {
     id: 'openrouter',
-    label: 'OpenRouter',
+    labelKey: 'ai.p.openrouter.label',
     endpoint: 'https://openrouter.ai/api/v1',
     // 聚合网关：模型名必须由用户自己选（「获取模型名」拉全量列表）
     model: '',
     defaultMaxTokens: 8192,
     // 模型任意，上限是模型属性，无法用单一常量围栏
-    apiKeyLabel: 'OpenRouter 密钥',
-    apiKeyDesc: 'OpenRouter 开放平台的密钥',
+    apiKeyLabelKey: 'ai.p.openrouter.keyLabel',
+    apiKeyDescKey: 'ai.p.openrouter.keyDesc',
   },
 
   // ==================== 本地 / 兜底 ====================
   {
     id: 'lmstudio',
-    label: 'LM Studio（本地）',
+    labelKey: 'ai.p.lmstudio.label',
     endpoint: 'http://127.0.0.1:1234/v1',
     model: '',
     defaultMaxTokens: 8192,
-    apiKeyLabel: 'LM Studio 密钥',
-    apiKeyDesc: '本地服务无需密钥',
+    apiKeyLabelKey: 'ai.p.lmstudio.keyLabel',
+    apiKeyDescKey: 'ai.p.lmstudio.keyDesc',
   },
   {
     id: 'custom',
-    label: '自定义（OpenAI 兼容）',
+    labelKey: 'ai.p.custom.label',
     // 协议由 resolveAiConfig 按 settings.ai.customProtocol 动态解析（这里只作缺省）
     protocol: 'openai',
     endpoint: '',
     model: '',
     defaultMaxTokens: 8192,
-    apiKeyLabel: '自定义 API 密钥',
-    apiKeyDesc: '在服务官网获取后填入这里',
+    apiKeyLabelKey: 'ai.p.custom.keyLabel',
+    apiKeyDescKey: 'ai.p.custom.keyDesc',
     // 不设 thinking：不认识的服务商冒进发思考参数有 400 风险
   },
 ];
@@ -365,7 +368,6 @@ export function protocolOf(desc: AIProviderDescriptor, s: AiSettingsLike): AIPro
 /** 解析出的请求参数（供调用层与设置页共用） */
 export interface ResolvedAiConfig {
   id: string;
-  label: string;
   protocol: AIProtocol;
   /** 去掉尾部斜杠的接口根地址 */
   endpoint: string;
@@ -407,7 +409,6 @@ export function resolveAiConfig(s: AiSettingsLike, providerId?: string): Resolve
 
   return {
     id: desc.id,
-    label: desc.label,
     protocol: protocolOf(desc, s),
     endpoint,
     apiKey,

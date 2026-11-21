@@ -188,6 +188,9 @@ export const LIB_FILTERS: Array<[ShellState['libFilter'], MsgKey]> = [
   ['done', 'shelf.filter.done'],
   ['new', 'shelf.filter.new'],
   ['fav', 'shelf.filter.fav'],
+  /* 归档（2026-11-21）：换版本后旧书归档在库里，界面上要有个地方看得到、
+     恢复得回来——否则旧版的划线摘录等于凭空消失。 */
+  ['archived', 'shelf.filter.archived'],
 ];
 
 /** 排序的三档：桌面平铺成三颗 chip，窄屏收进下拉（actions 的 libsortmenu 读同一张表） */
@@ -353,15 +356,17 @@ export function viewLibrary(v: LibraryView): string {
           data-bookmenu="${esc(b.id)}" role="button" tabindex="0"><span class="bzs-sr-only">${cardTitle(b)}</span>
         ${pickBox(b)}
         ${
-          b.missing
-            ? `<span class="flag is-missing">${t('shelf.missing')}</span>`
-            : b.clip
-              ? `<span class="flag is-clip">${t('clip.badge')}</span>`
-              : b.status === 'done'
-                ? `<span class="flag">${t('shelf.badge.done')}</span>`
-                : b.fav
-                  ? `<span class="flag">${t('shelf.filter.fav')}</span>`
-                  : ''
+          b.archived
+            ? `<span class="flag is-archived">${t('shelf.filter.archived')}</span>`
+            : b.missing
+              ? `<span class="flag is-missing">${t('shelf.missing')}</span>`
+              : b.clip
+                ? `<span class="flag is-clip">${t('clip.badge')}</span>`
+                : b.status === 'done'
+                  ? `<span class="flag">${t('shelf.badge.done')}</span>`
+                  : b.fav
+                    ? `<span class="flag">${t('shelf.filter.fav')}</span>`
+                    : ''
         }
         ${coverHtml(b)}
         <div class="bi">

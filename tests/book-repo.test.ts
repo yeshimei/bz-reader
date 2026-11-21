@@ -134,6 +134,26 @@ describe('BookRepo 按内容指纹去重（同一份文件只登记一次）', (
       expect(old.archivedAt).toBeUndefined();
     });
 
+    it('归档书能手动恢复：清掉归档标记，进度与划线原样接回', () => {
+      const repo = new BookRepo([]);
+      const old = repo.ensure('书/a.epub', 'epub', 100, 'v2-old').book;
+      old.reading.position.percent = 0.7;
+      repo.ensure('书/a.epub', 'epub', 200, 'v2-new');
+      expect(old.archivedAt).toBeTypeOf('number');
+
+      expect(repo.restore(old)).toBe(true);
+      expect(old.archivedAt).toBeUndefined();
+      expect(old.reading.position.percent).toBe(0.7);
+      expect(repo.all().filter((b) => !b.archivedAt).map((b) => b.id)).toContain(old.id);
+    });
+
+    it('恢复一本没归档的书：返回 false，什么都不改', () => {
+      const repo = new BookRepo([]);
+      const b = repo.ensure('书/a.epub', 'epub', 100, 'v2-a').book;
+      expect(repo.restore(b)).toBe(false);
+      expect(b.archivedAt).toBeUndefined();
+    });
+
     it('换版本后新书用新指纹，按新指纹能查到、旧指纹查不到活书', () => {
       const repo = new BookRepo([]);
       const old = repo.ensure('书/a.epub', 'epub', 100, 'v2-old-100').book;

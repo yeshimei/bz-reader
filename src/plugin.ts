@@ -30,7 +30,7 @@ import { isMobileEnv, isMobileShell } from './core/mobile';
 import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
 import { BookRepo, BASE_FORMATS, PRO_FORMATS, formatOf, planRelocations, scanVault } from './data/book-repo';
-import { fillBookMetas, readFingerprint, upgradeFingerprints } from './data/book-scan';
+import { fillBookMetas, readFingerprint, needsFingerprintRecheck, upgradeFingerprints } from './data/book-scan';
 import { ReaderStore, verifyCopiedJson } from './data/store';
 import { backupFileName, buildBackup, parseBackup, replaceWithBackup } from './data/backup';
 import { pickJsonFile } from './core/file-pick';
@@ -1889,8 +1889,9 @@ export function createPlugin(cfg: PluginConfig) {
         const known = this.repo.byPath(f.path);
         /* 归档书不因为「文件还在」就自己回架：回架只能由用户导入/加入触发 */
         if (known?.archivedAt) continue;
-        /* 已经登记过、也有指纹：不用再读文件 */
-        if (known?.fileRef.fingerprint) continue;
+        /* 有指纹且文件大小没变：不用再读文件。大小变了说明用户把这本书换成
+           了新版本，必须重算指纹——ensure() 会归档旧书、新书另起，进度不串。 */
+        if (known && !needsFingerprintRecheck(known.fileRef, f.size)) continue;
         /* v2 全书指纹，无大小上限；读失败才退回按路径去重 */
         const fp = await readFingerprint(this.app, f.path, f.size);
         const { book, created, pathChanged } = this.repo.ensure(f.path, fmt, f.size, fp ?? undefined);

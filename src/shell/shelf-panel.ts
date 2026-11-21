@@ -14,7 +14,7 @@ import { TAP_LONG_PRESS_MS, TAP_MENU_PRESSURE_MS, TAP_SLOP_PX } from '../core/ta
 import { closeStudyMoreMenu, dispatchAction, dispatchInput } from './actions';
 import { registerPanelEsc, unregisterPanelEsc } from '../core/esc-manager';
 import { getState, searchScopeOf, setState, setStateQuiet, subscribe, type StudyPage } from './state';
-import { getShellSource, liveBooks, shellPrefs, subscribeShellSource } from './source';
+import { archivedBooks, getShellSource, liveBooks, shellPrefs, subscribeShellSource } from './source';
 import { studyShell } from './render/study';
 import { searchResultsHtml } from './render/search';
 import { RT } from './runtime';
@@ -185,7 +185,9 @@ export class ShelfPanel {
       getShellSource()?.maybeShowChangelog();
     }
 
-    const books = liveBooks();
+    /* 「已归档」筛选看归档书，其余筛选看在架书。归档书不在 liveBooks 里，
+       不换源的话这一页永远是空的。 */
+    const books = state.libFilter === 'archived' ? archivedBooks() : liveBooks();
     const compact = this.wantCompact();
     this.compact = compact;
 

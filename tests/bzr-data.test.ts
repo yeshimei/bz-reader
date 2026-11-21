@@ -324,3 +324,43 @@ describe('缓存与拉取', () => {
     expect(currentBzrData().stats.pro).not.toBe(1286);
   });
 });
+
+/* 路线图是三个插件共用的数据源（2026-11-21 修）：Reader 只收 plugin=reader，
+   与 bz 丢掉 reader、Review 只收 review 同口径。以前不过滤，别的插件的条目
+   会混进 Reader 的路线图。 */
+describe('路线图只收本插件条目', () => {
+  const withRoadmap = (plugins: string[]) => ({
+    version: 1,
+    updatedAt: '2026-11-21',
+    /* parseBzrData 要求日志与跳转地址在（路线图可以空），补两样最小合法值 */
+    changelog: [
+      { version: '1.5.2', date: '2026-11-17', improved: [
+        { domain: { zh: '设置页', en: 'Settings' }, text: { zh: '分组', en: 'Groups' } },
+      ] },
+    ],
+    links: { support: 'https://afdian.net/a/yeshimei', buy: 'https://afdian.net/a/yeshimei?plan=pro' },
+    roadmap: [{
+      theme: '界面',
+      color: '#123456',
+      order: 1,
+      items: plugins.map((p, i) => ({
+        title: `条目${i}`,
+        state: 'doing',
+        src: 'github',
+        plugin: p,
+        fb: { kind: 'issue', n: i + 1, label: `来源${i}` },
+      })),
+    }],
+  });
+
+  it('plugin 不是 reader 的一律丢弃，reader 的留着', () => {
+    const d = parseBzrData(withRoadmap(['reader', 'bz', 'review', '']));
+    expect(d?.roadmap).toHaveLength(1);
+    expect(d?.roadmap[0]?.items.map((i) => i.title)).toEqual(['条目0']);
+  });
+
+  it('一组里全是别的插件：整组不显示（空主题不留壳）', () => {
+    const d = parseBzrData(withRoadmap(['bz', 'review']));
+    expect(d?.roadmap ?? []).toHaveLength(0);
+  });
+});

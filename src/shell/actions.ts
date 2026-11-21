@@ -139,7 +139,7 @@ import { currentSearchSurface, kickSemanticSearch, resetSemanticSearch } from '.
 import { bzClipbookUsed, bzEmbedder, bzNotesReady, openBzClipbook, openBzPreview, probeBz, openBzEntry, type BzEntryKind, type BzEmbedder } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
-import { AI_CHAT_TUTORIAL_URL, AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, PDF_TUTORIAL_URL, REVIEW_DOWNLOAD_URL, REVIEW_DOWNLOAD_MIRROR, REVIEW_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL, openExternalUrl, openDownloadWithFallback } from '../core/links';
+import { AI_CHAT_TUTORIAL_URL, AI_TUTORIAL_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, PDF_TUTORIAL_URL, REVIEW_DOWNLOAD_URL, REVIEW_DOWNLOAD_MIRROR, REVIEW_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL, openDownloadWithFallback } from '../core/links';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
 import { forgetPortrait, setPortrait } from './portrait-cache';
@@ -215,7 +215,8 @@ import {
   clockOf,
 } from './ai-menu';
 import { aiConversationMarkdown, upsertAiLogBlock } from '../data/ai-save';
-import { DEFAULT_SETTINGS, aiReady } from '../data/settings';
+import { DEFAULT_SETTINGS, aiReady, aiReadyShared } from '../data/settings';
+import { openAiGuide } from './ai-guide';
 import { copyGroupId } from './group';
 import { collectStats, dayKey } from '../data/stats';
 import { statsModelOf, statsReportOf, type StatsView } from './render/stats';
@@ -1034,8 +1035,12 @@ async function openGuide(force = false): Promise<void> {
   }
 
   const settings = shellSettings();
-  if (!aiReady(settings)) {
-    notify(t('notice.ai.needSetup'), 'info');
+  /* 先看内存缓存，再刷一次「借来的配置」：用户可能刚在 bz Review 里填完
+     密钥，不现读一次这边最多要等 5 秒才认（aiReadyShared 就是为这个留的）。 */
+  if (!aiReady(settings) && !(await aiReadyShared(settings, getShellSource()?.app))) {
+    /* 不能只弹一句灰字：用户看完还是不知道去哪儿填。引导窗带「去设置」出口，
+       点一下直接落到设置页的 AI 助手组（2026-11-19 用户口径）。 */
+    openAiGuide();
     setState({ overlay: null });
     return;
   }
@@ -1089,8 +1094,8 @@ export async function enrichBookMeta(bookId: string): Promise<void> {
   const book = src ? liveBooks().find((b) => b.id === bookId) : undefined;
   if (!src || !book) return;
   const settings = shellSettings();
-  if (!aiReady(settings)) {
-    notify(t('notice.ai.needSetup'), 'info');
+  if (!aiReady(settings) && !(await aiReadyShared(settings, getShellSource()?.app))) {
+    openAiGuide();
     return;
   }
   const need = enrichNeeds(book.meta);
@@ -1713,8 +1718,10 @@ export function dispatchAction(
        顺带把「改名」「移除书库」这两个真正需要入口的动作放进去。 */
     case 'bookmenu': {
       const id = d.id || '';
-      const book = liveBooks().find((b) => b.id === id);
+      /* 归档书不在 liveBooks 里：菜单要能对它们打开（恢复回书架）。 */
+      const book = bookById(id);
       if (!book) break;
+      const archived = typeof book.archivedAt === 'number';
       const done = !!book.reading.stats.completedTime || (book.reading.position.percent || 0) >= 0.99;
       const shellSrc = getShellSource();
       const items = bookMenuItems({
@@ -1722,6 +1729,7 @@ export function dispatchAction(
         fav: getState().favIds.includes(id),
         missing: book.fileRef.fileMissing === true,
         review: !!shellSrc?.app && !!findReviewApi(shellSrc.app),
+        archived,
       });
       const menu = new Menu();
       for (const it of items) {
@@ -1759,6 +1767,17 @@ export function dispatchAction(
               openShelfMenu([id], { x: Number(d.x) || 0, y: Number(d.y) || 0 }),
             );
           if (it.act === 'remove') i.onClick(() => overlay('removebook', { bookId: id }));
+          /* 归档书恢复回书架：数据全在，清掉归档标记即可，进度划线原样接回 */
+          if (it.act === 'restore')
+            i.onClick(() => {
+              const src = getShellSource();
+              if (!src || !src.repo.restore(book)) return;
+              src.store.touch();
+              hydrateLibrary(src.repo.all(), getState().goal, getState().shelfList);
+              setState({ libFilter: 'all' });
+              rerender();
+              notify(t('notice.book.revived', { n: 1 }));
+            });
         });
       }
       menu.showAtPosition({ x: Number(d.x) || 0, y: Number(d.y) || 0 });
@@ -2875,7 +2894,7 @@ export function dispatchAction(
           const box = createDiv({ cls: 'bzs-modelpick' });
           box.createDiv({
             cls: 'bzs-modelpick-h',
-            text: `${t('settings.ai.pickModel')} · ${desc.label}`,
+            text: `${t('settings.ai.pickModel')} · ${t(desc.labelKey)}`,
           });
           const q = box.createEl('input', {
             cls: 'bzs-modelpick-q',
@@ -3047,7 +3066,8 @@ export function dispatchAction(
         const fromSide = fromSidebarHit(el);
         closeOverlay();
         getShellSource()?.openBook(book, k.cfi || undefined);
-        collapseSidebarAfterJump(fromSide, true);
+        /* 文件丢了时 openBook 打不开：没有落点就不收侧栏，用户还要接着找书 */
+        collapseSidebarAfterJump(fromSide, !book.fileRef.fileMissing);
       }
       break;
     }
@@ -3513,7 +3533,8 @@ export function dispatchAction(
           pct: Number.isFinite(pct) ? pct : undefined,
         });
       }
-      collapseSidebarAfterJump(fromSide, true);
+      /* 书文件丢了 = 没落点：留着侧栏，别让用户以为跳成功了 */
+      collapseSidebarAfterJump(fromSide, !book.fileRef.fileMissing);
       break;
     }
     case 'citeonly': {
@@ -3548,7 +3569,7 @@ export function dispatchAction(
          第一次出现这一句」，同一句对白在别的章出现时会落到错的地方。
          没有片段的老来源只带章名，jumpIntoBook 也会落到那一章开头。 */
       src.jumpIntoBook(book, snippet, chapter);
-      collapseSidebarAfterJump(fromSide, true);
+      collapseSidebarAfterJump(fromSide, !book.fileRef.fileMissing);
       break;
     }
     case 'ptopen': {

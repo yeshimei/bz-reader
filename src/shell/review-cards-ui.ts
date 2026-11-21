@@ -15,14 +15,11 @@
  * 悄悄退回 Reader 自己那套——那正是这次要拆掉的第二套界面。
  * ============================================================ */
 import type { App } from 'obsidian';
-import { t } from '../i18n';
-import { notify } from '../core/notice';
 import {
-  findReviewApi,
-  reviewCardFlowReady,
   type CardFlowSource,
   type ReviewAddSummary,
 } from '../data/review-bridge';
+import { requireReviewFlow } from './review-require';
 
 /** 加入成功后要补做的事（例如给划选的文字补一条划线）。 */
 export interface CardsFlowHooks {
@@ -30,17 +27,7 @@ export interface CardsFlowHooks {
 }
 
 function flowApi(app: App | undefined) {
-  if (!app) return null;
-  const api = findReviewApi(app);
-  if (!api) {
-    notify(t('review.needPlugin'), 'info');
-    return null;
-  }
-  if (!reviewCardFlowReady(api)) {
-    notify(t('review.cardsNeedUpdate'), 'info');
-    return null;
-  }
-  return api;
+  return requireReviewFlow(app, 'card');
 }
 
 /** 打开统一制卡流程。sources 里一条就是一张待确认的卡。 */

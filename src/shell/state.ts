@@ -87,11 +87,11 @@ export interface CiteRow {
 }
 
 export type LibView = 'grid' | 'list';
-export type LibFilter = 'all' | 'reading' | 'done' | 'new' | 'fav';
+export type LibFilter = 'all' | 'reading' | 'done' | 'new' | 'fav' | 'archived';
 export type LibSort = 'recent' | 'title' | 'progress';
 
 /** 读盘白名单：值不在里面就退回默认，别把界面拖进一个画不出来的状态 */
-const LIB_FILTER_VALUES: readonly LibFilter[] = ['all', 'reading', 'done', 'new', 'fav'];
+const LIB_FILTER_VALUES: readonly LibFilter[] = ['all', 'reading', 'done', 'new', 'fav', 'archived'];
 const LIB_SORT_VALUES: readonly LibSort[] = ['recent', 'title', 'progress'];
 
 /** 浮层：同一时刻只开一个 */

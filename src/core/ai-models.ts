@@ -171,7 +171,7 @@ export async function fetchProviderModels(
         ? ''
         : String(settings.apiKeys?.[desc.id] ?? '').trim();
   if (!key && !isNoAuthProvider(desc.id)) {
-    throw new Error(t('notice.ai.noKey', { name: desc.label, label: desc.apiKeyLabel }));
+    throw new Error(t('notice.ai.noKey', { name: t(desc.labelKey), label: t(desc.apiKeyLabelKey) }));
   }
 
   const url = desc.id === 'ollama' ? `${endpoint}/api/tags` : `${endpoint}/models`;
@@ -184,10 +184,10 @@ export async function fetchProviderModels(
   }
   const timeoutMs = desc.id === 'ollama' ? OLLAMA_TIMEOUT_MS : MODELS_TIMEOUT_MS;
 
-  const data = await fetchModelsJson(url, headers, timeoutMs, desc.label, deps);
+  const data = await fetchModelsJson(url, headers, timeoutMs, t(desc.labelKey), deps);
   const ids = parseModelList(desc, data);
   const seen = new Set<string>();
   return ids
     .filter((m) => (seen.has(m) ? false : (seen.add(m), true)))
-    .map((m) => ({ id: m, detail: desc.label }));
+    .map((m) => ({ id: m, detail: t(desc.labelKey) }));
 }

@@ -343,12 +343,12 @@ const STAT_ICON_SHIELD =
 /**
  * 统计：三颗图标卡。
  * 数字固定写死、不读在线 stats（2026-11-19 用户要求）：随版本发版冻结，
- * 每次发版由发版流程更新这三个常量。当前 = v1.5.3 这组。
+ * 每次发版由发版流程更新这三个常量。当前 = v1.6.0 这组。
  * 外壳带描边 + 悬停反馈 + 右侧小箭头，让人一眼看出是能点的。
  */
 const PIN_REWARD = 6;
-const PIN_PRO = 47;
-const PIN_PATRONS = 8;
+const PIN_PRO = 55;
+const PIN_PATRONS = 10;
 function statsHtml(_data: BzrData | null): string {
   const c = copy();
   const reward = PIN_REWARD.toLocaleString();

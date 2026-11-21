@@ -171,6 +171,11 @@ export class BookRepo {
     return true;
   }
 
+  /** 用户手动把归档书放回书架：清掉归档标记，进度/划线/书签原样接回 */
+  restore(book: ReaderBook): boolean {
+    return this.revive(book);
+  }
+
   /**
    * 移出书架（软删除）：只打一个归档时间，记录与数据全留。
    *

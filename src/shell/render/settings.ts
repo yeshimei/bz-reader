@@ -847,7 +847,7 @@ export function viewSettings(v: SettingsView): string {
         t('settings.ttsSub.conn'),
         `<div class="bzs-setrow"><label>${t('settings.ai.provider')}</label>
           <select data-role="setting" data-k="ai.provider" style="flex:1"${aiDisabled}>
-            ${AI_PROVIDER_REGISTRY.map((p) => `<option value="${p.id}"${p.id === pid ? ' selected' : ''}>${esc(p.label)}</option>`).join('')}
+            ${AI_PROVIDER_REGISTRY.map((p) => `<option value="${p.id}"${p.id === pid ? ' selected' : ''}>${esc(t(p.labelKey))}</option>`).join('')}
           </select></div>
       ${
         custom
@@ -866,12 +866,12 @@ export function viewSettings(v: SettingsView): string {
                </select></div>`
           : ''
       }
-      <div class="bzs-setrow"><label>${esc(desc.apiKeyLabel)}</label>
+      <div class="bzs-setrow"><label>${esc(t(desc.apiKeyLabelKey))}</label>
         <input type="password" data-role="setting" data-k="${keyK}" placeholder="${t(
           'settings.ai.key.ph',
         )}" value="${esc(keyValue)}" style="flex:1"${aiReadonly}>
         <button class="bzs-btn sm" data-act="aiprovtest" data-k="${pid}"${aiDisabled}>${t('settings.ai.test')}</button></div>
-      ${desc.apiKeyDesc ? `<div class="bzs-mini">${esc(desc.apiKeyDesc)}</div>` : ''}`,
+      ${desc.apiKeyDescKey ? `<div class="bzs-mini">${esc(t(desc.apiKeyDescKey))}</div>` : ''}`,
       ) +
       sub(
         t('settings.ai.modelGroup'),
@@ -891,7 +891,7 @@ export function viewSettings(v: SettingsView): string {
                    ${levels
                      .map(
                        (l) =>
-                         `<option value="${l.value}"${l.value === thinkingValue ? ' selected' : ''}>${esc(l.label)}</option>`,
+                         `<option value="${l.value}"${l.value === thinkingValue ? ' selected' : ''}>${esc(t(l.labelKey))}</option>`,
                      )
                      .join('')}
                  </select></div>`

@@ -17,8 +17,9 @@ import type { App } from 'obsidian';
 import { t } from '../i18n';
 import { notify } from '../core/notice';
 import type { ReaderBook } from '../data/schema';
-import { aiCardKey, findReviewApi, markCardKey, reviewReaderFlowReady, type ReviewApi } from '../data/review-bridge';
+import { aiCardKey, findReviewApi, markCardKey, type ReviewApi } from '../data/review-bridge';
 import { openCardsFlow } from './review-cards-ui';
+import { requireReviewFlow } from './review-require';
 import { getShellSource, liveBooks } from './source';
 import { DEFAULT_HIGHLIGHT_COLOR, ensureHighlight } from '../data/notes';
 import { mutateState } from './state';
@@ -43,15 +44,8 @@ export async function openBookReviewAdd(app: App | undefined, book: ReaderBook |
  * 在真的要挑的时候自己引导。
  */
 function openReaderFlow(app: App, book: ReaderBook): void {
-  const api = findReviewApi(app);
-  if (!api) {
-    notify(t('review.needPlugin'), 'info');
-    return;
-  }
-  if (!reviewReaderFlowReady(api)) {
-    notify(t('review.cardsNeedUpdate'), 'info');
-    return;
-  }
+  const api = requireReviewFlow(app, 'reader');
+  if (!api) return;
   api.openReaderFlow?.({ bookId: book.id });
 }
 

@@ -113,7 +113,9 @@ describe('请求参数解析 resolveAiConfig', () => {
     expect(c.id).toBe('deepseek');
     expect(c.endpoint).toBe('https://api.deepseek.com');
     expect(c.apiKey).toBe('sk-ds');
-    expect(c.model).toBe('');
+    /* 默认模型必须有值：reader 不像 bz 有调用方兜底，留空会让只填密钥的
+       默认服务商被判「未配置」，AI 整组不可用（2026-11-21 修）。 */
+    expect(c.model).toBe('deepseek-chat');
     expect(c.maxTokens).toBe(393216);
     expect(c.protocol).toBe('openai');
   });

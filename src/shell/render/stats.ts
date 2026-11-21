@@ -38,8 +38,16 @@ import {
   type RichStats,
 } from '../../data/stats-rich';
 import { esc } from './html';
+import { fmtWan } from '../stats-format';
 import { segHtml } from './seg';
-import { defaultStatsUi, type StatsTab, type StatsUiState } from '../stats-ui';
+import {
+  defaultStatsUi,
+  STATS_RANGES,
+  STATS_TABS,
+  type StatsRange,
+  type StatsTab,
+  type StatsUiState,
+} from '../stats-ui';
 
 const MS_DAY = 86_400_000;
 const HEAT_DAYS = 140;
@@ -115,12 +123,8 @@ function model(v: StatsView, ui: StatsUiState): RichStats {
   return a;
 }
 
-/* ── 数字格式：只在这里定一次，页面 / 报告 / 海报共用 ── */
-function wan(n: number): string {
-  const v = Math.max(0, Math.round(n));
-  if (v >= 10_000) return T('stats.f.words.wan', { n: (v / 10_000).toFixed(1) });
-  return String(v);
-}
+/* ── 数字格式：页面 / 报告 / 海报共用 stats-format 那一份 ── */
+const wan = fmtWan;
 
 function dateOf(ms: number): string {
   if (!ms) return DASH;
@@ -128,15 +132,25 @@ function dateOf(ms: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/* ── 页签 ── */
-const TABS: { v: StatsTab; k: MsgKey }[] = [
-  { v: 'overview', k: 'stats.f.tab.overview' },
-  { v: 'time', k: 'stats.f.tab.time' },
-  { v: 'books', k: 'stats.f.tab.books' },
-  { v: 'notes', k: 'stats.f.tab.notes' },
-  { v: 'achv', k: 'stats.f.tab.achv' },
-  { v: 'data', k: 'stats.f.tab.data' },
-];
+/* ── 范围：清单同样在 stats-ui，这里只配文案键 ── */
+const RANGE_KEYS: Record<StatsRange, MsgKey> = {
+  all: 'stats.f.range.all',
+  today: 'stats.f.range.today',
+  week: 'stats.f.range.week',
+  month: 'stats.f.range.month',
+  year: 'stats.f.range.year',
+};
+
+/* ── 页签：清单在 stats-ui（唯一来源），这里只配文案键 ── */
+const TAB_KEYS: Record<StatsTab, MsgKey> = {
+  overview: 'stats.f.tab.overview',
+  time: 'stats.f.tab.time',
+  books: 'stats.f.tab.books',
+  notes: 'stats.f.tab.notes',
+  achv: 'stats.f.tab.achv',
+  data: 'stats.f.tab.data',
+};
+const TABS: { v: StatsTab; k: MsgKey }[] = STATS_TABS.map((v) => ({ v, k: TAB_KEYS[v] }));
 
 function tabBar(ui: StatsUiState): string {
   return '<div class="tabnav">' + TABS.map((x) =>
@@ -713,13 +727,10 @@ function dataHtml(a: RichStats, ui: StatsUiState): string {
 function headHtml(a: RichStats, ui: StatsUiState, locked: boolean): string {
   const ph = `<div class="ph"><h2>${esc(T('stats.f.title'))}</h2>` +
     `<span class="meta">${esc(T('stats.f.meta', { books: a.books.length, sessions: a.allCount, time: shortTime(a.now) }))}</span>` +
-    '<span class="spacer"></span>' + seg('statsrange', ui.range, [
-      { v: 'all', k: T('stats.f.range.all') },
-      { v: 'today', k: T('stats.f.range.today') },
-      { v: 'week', k: T('stats.f.range.week') },
-      { v: 'month', k: T('stats.f.range.month') },
-      { v: 'year', k: T('stats.f.range.year') },
-    ]) + '</div>';
+    '<span class="spacer"></span>' + seg('statsrange', ui.range, STATS_RANGES.map((v) => ({
+      v,
+      k: T(RANGE_KEYS[v]),
+    }))) + '</div>';
   return ph + (locked ? '' : tabBar(ui)) + kpiHtml(a);
 }
 

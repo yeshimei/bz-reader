@@ -154,6 +154,18 @@ export async function upgradeFingerprints(app: App, books: ReaderBook[], _concur
   if (!pending.length) return 0;
   let changed = 0;
   for (const book of pending) {
+    /* 文件大小与记录不符 = 升级前用户已经把书换成了新版本：此刻按新文件
+       重算并写回旧记录，正好把新内容套上旧书的进度与划线。跳过这本，
+       留给扫描同步里的 ensure() 走「归档旧书、新书另起」。
+       大小读不到（stat 失败 / 虚拟书）按原样升级，不因取不到大小挡升级。 */
+    if (book.fileRef.size) {
+      try {
+        const st = await app.vault.adapter.stat(book.fileRef.vaultPath);
+        if (st?.size && st.size !== book.fileRef.size) continue;
+      } catch {
+        /* 取不到大小：保持原行为 */
+      }
+    }
     const fp = await readFingerprint(app, book.fileRef.vaultPath, book.fileRef.size ?? 0);
     if (!fp) continue;
     book.fileRef.fingerprint = fp;
@@ -164,3 +176,23 @@ export async function upgradeFingerprints(app: App, books: ReaderBook[], _concur
 
 /** 旧名兼容：导入面板三处仍叫 backfillFingerprints，语义已升级为 v1→v2 */
 export const backfillFingerprints = upgradeFingerprints;
+
+/**
+ * 已有指纹的记录要不要重算指纹（扫描同步时用）。
+ *
+ * 以前有指纹就直接跳过——「同路径把书换成新版本」永远发现不了，归档逻辑
+ * 等于没接线。现在按文件大小判断：大小变了 = 内容很可能换了，必须重算并
+ * 交给 `ensure()` 决定归档旧书、新书另起；大小没变就不读文件，避免每次
+ * 启动都整本哈希。没有指纹的记录照旧要读（首次登记 / 老数据）。
+ *
+ * 大小未知（0）时保守跳过：读不到大小的场景（虚拟剪藏书 / 适配器异常）
+ * 每轮都重算会把启动拖垮，且无法判断是否真的换了版本。
+ */
+export function needsFingerprintRecheck(
+  ref: { fingerprint?: string; size?: number } | undefined,
+  fileSize: number,
+): boolean {
+  if (!ref?.fingerprint) return true;
+  if (!fileSize || !ref.size) return false;
+  return fileSize !== ref.size;
+}

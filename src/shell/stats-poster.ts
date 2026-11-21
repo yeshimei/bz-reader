@@ -6,6 +6,7 @@
  * ============================================================ */
 import { t, type MsgKey, type MsgParams } from '../i18n';
 import { HOUR_KEYS, clock, dayLabel, shortTime, statsSeries } from '../data/stats-full';
+import { fmtWan } from './stats-format';
 import type { RichStats } from '../data/stats-rich';
 
 /** 周报上「节律」四档的文案键：顺序与 HOUR_KEYS 一致，只是换成了周报措辞 */
@@ -34,10 +35,7 @@ const LIGHT: Palette = {
 };
 
 /** 字数额：海报上不印一串精确到个位的数字，上万就折成「万」 */
-function wan(n: number): string {
-  const v = Math.max(0, Math.round(n));
-  return v >= 10_000 ? T('stats.f.words.wan', { n: (v / 10_000).toFixed(1) }) : String(v);
-}
+const wan = fmtWan;
 
 /** 画一张周报，返回 PNG data URL（测试里可以直接检查前缀） */
 export function drawStatsPoster(a: RichStats): string {

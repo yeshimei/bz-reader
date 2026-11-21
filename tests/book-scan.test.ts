@@ -8,7 +8,7 @@ import { FakeAdapter } from './helpers/fake-adapter';
 const { makeBookMock } = vi.hoisted(() => ({ makeBookMock: vi.fn() }));
 vi.mock('../src/engine/foliate', () => ({ makeBook: makeBookMock }));
 
-import { fillBookMeta, fillBookMetas, backfillFingerprints, readBookMeta } from '../src/data/book-scan';
+import { fillBookMeta, fillBookMetas, backfillFingerprints, needsFingerprintRecheck, readBookMeta } from '../src/data/book-scan';
 import { fingerprintOf } from '../src/data/fingerprint';
 
 function makeApp(adapter: FakeAdapter): App {
@@ -192,5 +192,34 @@ describe('给老记录升级内容指纹（v1 → v2）', () => {
 
     expect(await backfillFingerprints(makeApp(adapter), books)).toBe(0);
     expect(readBinary).not.toHaveBeenCalled();
+  });
+
+  /* 升级前用户已经覆盖了文件：按新文件重算写回旧记录 = 把新内容套上旧书。
+     这种情况必须跳过，交给扫描同步里的 ensure() 归档旧书。 */
+  it('文件大小和记录不符：跳过升级，保留旧指纹', async () => {
+    const adapter = new FakeAdapter();
+    adapter.files.set('a.epub', 'newer-content'); // 13 字节
+    const b = bookOf('a', 'a.epub', 5);
+    b.fileRef.fingerprint = 'v1-old';
+
+    expect(await backfillFingerprints(makeApp(adapter), [b])).toBe(0);
+    expect(b.fileRef.fingerprint).toBe('v1-old');
+  });
+});
+
+/**
+ * 扫描同步：有指纹但文件大小变了，必须重算指纹。
+ * 不重算的话「同路径换成新版本」永远发现不了，归档逻辑等于没接线。
+ */
+describe('扫描时判断要不要重算指纹', () => {
+  it('没指纹要读；大小没变不读；大小变了要读', () => {
+    expect(needsFingerprintRecheck(undefined, 100)).toBe(true);
+    expect(needsFingerprintRecheck({ fingerprint: 'v2-x', size: 100 }, 100)).toBe(false);
+    expect(needsFingerprintRecheck({ fingerprint: 'v2-x', size: 100 }, 120)).toBe(true);
+  });
+
+  it('大小未知（0）时保守跳过，不每次启动整本哈希', () => {
+    expect(needsFingerprintRecheck({ fingerprint: 'v2-x', size: 0 }, 120)).toBe(false);
+    expect(needsFingerprintRecheck({ fingerprint: 'v2-x', size: 120 }, 0)).toBe(false);
   });
 });

@@ -277,6 +277,14 @@ export function liveBooks(): ReaderBook[] {
   return allBooks().filter((b) => !b.archivedAt);
 }
 
+/**
+ * 归档书：换版本后的旧书与「移出书架」的书都留在这里，数据一点没丢。
+ * 书架「已归档」筛选读它，用户能看见旧版划线摘录，也能一键恢复回书架。
+ */
+export function archivedBooks(): ReaderBook[] {
+  return allBooks().filter((b) => typeof b.archivedAt === 'number');
+}
+
 export function bookById(id: string): ReaderBook | undefined {
   return source?.repo.byId(id);
 }
