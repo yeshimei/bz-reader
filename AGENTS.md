@@ -102,7 +102,7 @@ node scripts/issue-license.mjs --plan lifetime --id BZR-AF-2026-0021
 
 - 推完 master 就交棒：**没听到「预览审核通过」不许打 tag、不许发 Release、不许部署真实库、不许镜像码云**。作者要跑扫描和提交，得先让仓库上有这版代码。
 - 第二段一旦开始就必须走完（Release → 三处部署 → 镜像 → 校验），不要停在中间。
-- **review 有两种，别混**：① 代码自审——agent 用 `code-review` skill 把上一个已发布 tag 到本版的提交过一遍 Standards（编码规范）/ Spec（需求符合度）两面，属于第一段、推 master 前主动做，问题提交前就地修；② 社区目录预览扫描——作者手动跑 `scripts/community-review.mjs`，agent 不主动跑、不当待办催。详见 skill `bz-release` 分支 B。
+- **review 有两种，别混**：① 代码自审——agent 用 `code-review` skill 把上一个已发布 tag 到本版的提交过一遍 Standards（编码规范）/ Spec（需求符合度）两面，属于第一段、推 master 前主动做，问题提交前就地修；② 社区目录预览扫描 / 正式提交 / 催审核——**全部由作者本人在网页上手动做，agent 绝不操作**（不跑脚本、不开浏览器、不当待办催）。仓库里原先那个自动化脚本（2026-11-21 作者要求删除）已经不在，别再装回来。
 - **发版 × 反馈联动（第二段全部完成之后才做）**：更新日志条目尾部带反馈出处链接（QQ 频道帖子 `qq` / GitHub issue `issue`）；发完版把本版反馈的 QQ 帖子改「已完成」（`qq-publish.mjs --move`）、关掉随版发布的 GitHub issue。列候选给用户过目后再回写，没走完发版不许提前改状态。详见 skill `bz-release`「发版 × 反馈联动」公共节。
 
 每次上架前必须跑官方 lint：
@@ -112,7 +112,7 @@ node scripts/lint-obsidian.mjs
 - 必须 **0 error / 0 warning**；退出码非 0 就停。
 - 依赖装在仓库外 `%LOCALAPPDATA%\bz-reader-lint`，首次自动安装，不碰项目 `node_modules`。
 - 脚本自己生成、跑完删掉 `eslint.config.mjs`；不要把配置文件提交进仓库。
-- 唯一豁免 `@typescript-eslint/no-deprecated`：`caretRangeFromPoint` 与 `Workspace.activeLeaf` 在 minAppVersion 1.7.2 下没有等价替代。
+- 唯一豁免 `@typescript-eslint/no-deprecated`：`caretRangeFromPoint` 与 `Workspace.activeLeaf` 在 minAppVersion 1.8.7 下没有等价替代。
 
 ### 第一段：做到推 master
 1. `node scripts/lint-obsidian.mjs` → 0/0（TypeScript 与 CSS 两道都在这条命令里）；
