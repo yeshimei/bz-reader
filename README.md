@@ -10,7 +10,12 @@
     <a href="https://github.com/yeshimei/bz-reader/releases"><img src="https://img.shields.io/github/downloads/yeshimei/bz-reader/total?style=flat-square&label=DOWNLOADS&labelColor=1f1f1e&color=6d8795" alt="下载量"></a>
     <img src="https://img.shields.io/badge/PLATFORM-DESKTOP%20%2B%20MOBILE-5f7f57?style=flat-square&labelColor=1f1f1e" alt="桌面 + 移动">
     <a href="LICENSE"><img src="https://img.shields.io/github/license/yeshimei/bz-reader?style=flat-square&label=LICENSE&labelColor=1f1f1e&color=5f7f57" alt="MIT"></a>
-    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-%E9%A2%9C%E5%80%BC%20%2B%20%E9%9B%86%E5%A4%A7%E6%88%90-7c3aed?style=flat-square&labelColor=1f1f1e" alt="配套插件 bz：颜值 + 集大成"></a>
+  </p>
+
+  <p>
+    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-%E9%A2%9C%E5%80%BC%20%2B%20%E9%9B%86%E5%A4%A7%E6%88%90-7c3aed?style=flat-square&labelColor=1f1f1e" alt="BZ：颜值 + 集大成"></a>
+    <a href="https://github.com/yeshimei/bz-reader"><img src="https://img.shields.io/badge/BZ%20READER-%E5%A4%9A%E6%A0%BC%E5%BC%8F%E9%98%85%E8%AF%BB%E5%99%A8-8a6a3a?style=flat-square&labelColor=1f1f1e" alt="BZ Reader：多格式阅读器"></a>
+    <a href="https://github.com/yeshimei/bz-review"><img src="https://img.shields.io/badge/BZ%20REVIEW-%E5%A4%8D%E4%B9%A0-5f7f57?style=flat-square&labelColor=1f1f1e" alt="BZ Review：复习"></a>
   </p>
 
   <p><sub><a href="https://www.bilibili.com/video/BV1tK4E6KE1B">视频教程</a> · QQ 群 1130883117 · <a href="#support">支持作者</a></sub></p>
@@ -244,7 +249,8 @@ AI 与支持者名单之外完全离线。AI 请求走你配置的 OpenAI 兼容
 
 ## 插件推荐
 
-- [bz](https://github.com/yeshimei/bz) —— 日记、备忘、读书观影、游戏、剪藏、番茄钟，复习、安全加密，ai知识库，工具坞，还有一只桌宠猫
+- [bz](https://github.com/yeshimei/bz) —— 日记、备忘，收藏，归物、读书观影、游戏、剪藏、番茄钟，复习、安全加密（密码本+保险库），ai知识库（知识盒+第二大脑），工具坞，还有一只桌宠猫
+- [bz Review](https://github.com/yeshimei/bz-review) —— bz review 把制卡、整卡交给 AI，让你专注阅读与复习。内置 FSRS 间隔重复算法，依据记忆稳定性动态排期，并按你的复习记录自适应拟合参数。用更少的复习次数，记得更牢。
 
 <a name="support" id="support"></a>
 
@@ -494,7 +500,8 @@ Only the AI features and the supporter list in **Support the author** go online;
 
 ### Recommended plugins
 
-- [bz](https://github.com/yeshimei/bz) — Diary, memos, books and films, games, web clippings, pomodoro, review, secure encryption, AI knowledge base, tool dock, and a desktop pet cat.
+- [bz](https://github.com/yeshimei/bz) — Diary, memos, collections, belongings, books and films, games, web clippings, pomodoro, review, secure encryption (password book + vault), AI knowledge base (knowledge boxes + second brain), tool dock, and a desktop pet cat.
+- [bz Review](https://github.com/yeshimei/bz-review) — Turns notes and highlights into review cards with AI, then schedules them with FSRS-7 spaced repetition. Focus on reading and reviewing; memory stability drives the schedule, and the parameters fit your own history.
 
 ### License
 
