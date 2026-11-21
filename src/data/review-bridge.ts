@@ -145,6 +145,41 @@ export function findReviewApi(app: App): ReviewApi | null {
   return api;
 }
 
+/**
+ * Review 的安装状态（2026-11-21）：设置页据此画「未安装 / 已安装未启用 /
+ * 已启用」，三处入口据此决定「跳设置页装」还是「提示更新」。
+ *
+ * 判据分三层，缺一不可：
+ *   · 门面就绪 → 已启用（只有它才代表真的能用）；
+ *   · 宿主 manifest 表 / 启用名单里有 → 已安装未启用（用户装了但关了，
+ *     或加载失败正在重启）；
+ *   · 都没有 → 未安装。
+ *
+ * 只读宿主内部对象，不改任何东西——探测本身不能触发加载。
+ */
+export type ReviewInstallState = 'enabled' | 'disabled' | 'missing';
+
+export function reviewInstallState(app: App | undefined): ReviewInstallState {
+  if (!app) return 'missing';
+  if (findReviewApi(app)) return 'enabled';
+  const holder = (
+    app as unknown as {
+      plugins?: {
+        manifests?: Record<string, unknown>;
+        enabledPlugins?: Set<string> | string[];
+      };
+    }
+  )?.plugins;
+  if (holder?.manifests?.[REVIEW_PLUGIN_ID]) return 'disabled';
+  const enabled = holder?.enabledPlugins;
+  if (Array.isArray(enabled)) {
+    if (enabled.includes(REVIEW_PLUGIN_ID)) return 'disabled';
+  } else if (enabled && typeof (enabled as Set<string>).has === 'function') {
+    if ((enabled as Set<string>).has(REVIEW_PLUGIN_ID)) return 'disabled';
+  }
+  return 'missing';
+}
+
 /* ─────────── 钥匙 ─────────── */
 
 /** 划线卡的钥匙：`reader:<bookId>:<highlightId>`（与 Review 的约定一致） */

@@ -5081,7 +5081,6 @@ export class ReaderView extends ItemView {
         /* 手机只留三颗主路径；桌面窄到放不下时，把知识库两颗收进「⋯」 */
         compact: isMobileEnv(),
         kb,
-        review: reviewReady,
         narrow: (root.clientWidth || 0) < 520,
         acts: SELECTION_ACTS,
         /* 框选没有文字（2026-11-15 定稿）：只留「划线（色点）/ 想法 / 双链 / 识别」。

@@ -16,7 +16,7 @@ import { allMarks } from './domain';
 import type { ShellState } from './state';
 import { getShellSource, shellPrefs, shellSettings } from './source';
 import { bzSnapshot } from '../data/bz-bridge';
-import { findReviewApi, reviewEmbedReady } from '../data/review-bridge';
+import { findReviewApi, reviewEmbedReady, reviewInstallState } from '../data/review-bridge';
 import { viewLibrary, type StudyCounts } from './render/study';
 import { viewSearch } from './render/search';
 import { viewNotes } from './render/notes';
@@ -266,11 +266,11 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
           /* 「连接至 BZ AI 知识库」那一行是自动识别的，这里现探一次：切换 bz 后
              重进设置页看到的就是新状态，不缓存。 */
           bz: bzSnapshot(getShellSource()?.app),
-          /* bz Review 装没装：现探，装完重进设置页就能看到新状态。 */
-          /* installed = 装了；embed = 装了且支持嵌入（v3+）。设置页只在
-             embed 为真时画「书架内显示复习」开关。 */
+          /* bz Review 的三态：现探，装完 / 启用后重进设置页就能看到新状态。 */
+          /* state = 未安装 / 已安装未启用 / 已启用；embed = 已启用且支持嵌入（v3+），
+             设置页只在 embed 为真时画「书架内显示复习」开关。 */
           review: {
-            installed: !!app && !!findReviewApi(app),
+            state: reviewInstallState(app),
             embed: reviewEmbedReady(app ? findReviewApi(app) : null),
           },
           /* 离线音频的状态（2026-11-14 从朗读浮层搬过来）：浮层没了，

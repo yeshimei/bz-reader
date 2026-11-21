@@ -67,11 +67,12 @@ export interface SettingsView {
    */
   bz?: { ok: boolean; version: string; model: string; entry: boolean; notes: boolean };
   /**
-   * bz Review 装没装（「插件」分组据此显示状态与安装引导）。
-   * `embed` = 装了且支持嵌入（v3+）：「界面」组的复习开关只在此时显示。
+   * bz Review 的安装状态（「插件」分组据此显示状态与安装引导）。
+   * 三态：未安装 / 已安装未启用 / 已启用。`embed` = 装了且支持嵌入（v3+）：
+   * 「界面」组的复习开关只在此时显示。
    * 现探一次、不缓存：装完重进设置页就能看到新状态。
    */
-  review?: { installed: boolean; embed: boolean };
+  review?: { state: 'enabled' | 'disabled' | 'missing'; embed: boolean };
   /** 当前这本书的离线音频（烤进书库的包）：null = 还没识别到 */
   offline?: { chapters: number; mb: number } | null;
   /**
@@ -999,31 +1000,43 @@ export function viewSettings(v: SettingsView): string {
 
   /* 「插件」组（2026-11-17）：bz review 的状态与安装引导。
      布局与 bz 组同一套能力卡：定位一句话 + 三条卖点 + 安装 / 教程。
-     装没装由 v.review.installed 决定（shelf-page 现探，不缓存）。
-     说明原来挤在状态位里，窄栏会顶出卡片——现在状态只写「未安装 / 已安装」，
-     安装指引单独一行。 */
-  const reviewOk = !!v.review?.installed;
+     2026-11-21 起三态：未安装 / 已安装未启用 / 已启用（shelf-page 现探）。
+     · 未安装 →「安装」一下在后台下载三件套并启用；
+     · 已安装未启用 →「启用」不再重复下载；
+     · 已启用 → 不给按钮，只留教程。
+     状态只写词，安装指引单独一行（窄栏不会顶出卡片）。 */
+  const reviewState: 'enabled' | 'disabled' | 'missing' = v.review?.state ?? 'missing';
+  const reviewOk = reviewState === 'enabled';
+  const reviewBadge = reviewOk
+    ? chip(t('settings.plugin.review.enabled'), true)
+    : reviewState === 'disabled'
+      ? chip(t('settings.plugin.review.disabled'))
+      : chip(t('settings.cap.missing'));
+  const reviewNote =
+    reviewState === 'missing'
+      ? `<div class="bzs-capnote">${t('settings.plugin.review.missing')}</div>`
+      : reviewState === 'disabled'
+        ? `<div class="bzs-capnote">${t('settings.plugin.review.disabledHint')}</div>`
+        : '';
+  const reviewAction = reviewOk
+    ? ''
+    : reviewState === 'disabled'
+      ? `<button class="bzs-btn sm pri" data-act="reviewenable">${t('settings.plugin.review.enable')}</button>`
+      : `<button class="bzs-btn sm pri" data-act="reviewinstall">${t('settings.plugin.review.install')}</button>`;
   const pluginsGrp = grp(
     'plugins',
     t('settings.grp.plugins'),
     `<div class="bzs-cap${reviewOk ? ' is-on' : ''}">
       <span class="bzs-capico${reviewOk ? '' : ' is-muted'}">${ico('listchecks')}</span>
       <div class="bzs-capmain">
-        <div class="bzs-cap-t"><b>bz review</b>${chip(
-          reviewOk ? t('settings.plugin.review.installed') : t('settings.cap.missing'),
-          reviewOk,
-        )}</div>
+        <div class="bzs-cap-t"><b>bz review</b>${reviewBadge}</div>
         <p>${t('settings.plugin.review.desc')}</p>
         <div class="bzs-captags"><span class="bzs-tag">${t('settings.plugin.tag.cards')}</span><span class="bzs-tag">${t(
           'settings.plugin.tag.srs',
         )}</span><span class="bzs-tag">${t('settings.plugin.tag.less')}</span></div>
-        <div class="bzs-capfoot">${
-          reviewOk
-            ? ''
-            : `<button class="bzs-btn sm pri" data-act="reviewdownload">${t('settings.plugin.review.download')}</button>`
-        }${tutBtn('reviewtut', 'settings.plugin.review.tut')}</div>
+        <div class="bzs-capfoot">${reviewAction}${tutBtn('reviewtut', 'settings.plugin.review.tut')}</div>
       </div>
-    </div>`,
+    </div>${reviewNote}`,
   );
 
   /* 激活之后这组变成「凭证」：码只读，日常不让人误改。

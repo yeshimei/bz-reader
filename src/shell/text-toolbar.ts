@@ -82,10 +82,12 @@ export const KB_ITEMS: readonly ToolbarItem[] = [
  *
  * 知识盒两颗插在 AI 之后：它们都是「把这段文字加工成别的东西」，
  * 双链 / 复制这类「搬出去」的动作仍在右边。
+ *
+ * 2026-11-21：「复习」不再随装了没装隐藏——没装 / 没启用也照样出现，
+ * 点了由入口层引导去设置页安装。工具条不再需要一个 `review` 开关。
  */
-export function toolbarItems(kb?: boolean, review = true): ToolbarItem[] {
+export function toolbarItems(kb?: boolean): ToolbarItem[] {
   let items = [...TOOLBAR_ITEMS];
-  if (!review) items = items.filter((i) => i.act !== 'review');
   if (kb) {
     const at = items.findIndex((i) => i.act === 'ai');
     items = [...items.slice(0, at + 1), ...KB_ITEMS, ...items.slice(at + 1)];
@@ -151,8 +153,8 @@ export interface ToolbarLayoutInput {
   /** AI 知识库开着：多出「存为名词 / 存为段落」两颗 */
   kb?: boolean;
   /**
-   * 装了 bz Review：才显示「加入复习」这一颗。
-   * 没装就不出现——摆一颗点了只弹「没装」的按钮没有意义。
+   * 已废弃（2026-11-21）：「复习」改成常显，装没装都不再影响排布。
+   * 字段保留只为老调用点不报错；新代码不要再传。
    */
   review?: boolean;
   /**
@@ -187,7 +189,7 @@ export function toolbarLayout(input: ToolbarLayoutInput): ToolbarLayout {
   const marked = !!input.marked;
   const del = marked ? [DELETE_ITEM] : [];
   /* `only` 过一遍：不在这几颗里的动作连按钮都不出现，免得点了没反应 */
-  const items = toolbarItems(input.kb, input.review !== false).filter(
+  const items = toolbarItems(input.kb).filter(
     (i) => !input.only || input.only.includes(i.act),
   );
   /* 扫描页框选：把「识别」插到最左（它就是这一刻的主路径），

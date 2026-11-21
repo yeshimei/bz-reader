@@ -27,6 +27,7 @@ import { hydrateIcons } from './toolbar-icons';
 import { focusSelector, type FocusMemo } from './focus-memo';
 import { bindRangeTouch } from './range-touch';
 import { setHtml } from '../ui/dom';
+import { applySettingsFocus, takeSettingsFocus } from './settings-focus';
 
 export class ShelfPanel {
   private root: HTMLElement | null = null;
@@ -225,6 +226,12 @@ export class ShelfPanel {
     hydrateIcons(root);
     // 封面是异步的：先出的是色块，真封面到了就地换图（不重绘，否则滚动位置会跳）
     hydrateCovers(getShellSource()?.app, books, root);
+    /* 「加入复习」没装时把用户送到设置页的插件组：滚过去并闪一下。
+       放在整页挂好之后——提前查 DOM 只会查到空。 */
+    if (state.studyPage === 'settings') {
+      const focus = takeSettingsFocus();
+      if (focus) applySettingsFocus(focus);
+    }
   }
 
   /**

@@ -11,24 +11,29 @@ import { t } from '../i18n';
 import {
   findReviewApi,
   reviewCardFlowReady,
+  reviewInstallState,
   reviewReaderFlowReady,
   type ReviewApi,
 } from '../data/review-bridge';
+import { openReviewSettings } from './review-settings';
 
 /** 要用的流程：card = 统一制卡界面，reader = 从阅读器挑内容 */
 export type ReviewFlowKind = 'card' | 'reader';
 
 /**
- * 拿门面；没装 / 版本太老就弹一句人话并返回 null。
+ * 拿门面；没装 / 没启用 / 版本太老就弹一句人话并返回 null。
  *
- * 没装与版本太老是两种提示：前者让人去装，后者让人去更新——合成一句
- * 用户不知道该做哪件事。
+ * 2026-11-21 起「没装」不再是一句干巴巴的提示：同时打开设置页的插件组，
+ * 用户点两下就能装好或启用。三种提示分开说——没装让人去装、装了没启用
+ * 让人去开、版本太老让人去更新，合成一句用户不知道该做哪件事。
  */
 export function requireReviewFlow(app: App | undefined, kind: ReviewFlowKind): ReviewApi | null {
   if (!app) return null;
   const api = findReviewApi(app);
   if (!api) {
-    notify(t('review.needPlugin'), 'info');
+    const missing = reviewInstallState(app) === 'missing';
+    notify(t(missing ? 'review.notInstalled' : 'review.notEnabled'), 'info');
+    openReviewSettings();
     return null;
   }
   const ready = kind === 'reader' ? reviewReaderFlowReady(api) : reviewCardFlowReady(api);

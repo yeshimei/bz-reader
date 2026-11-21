@@ -62,7 +62,6 @@ import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { aiReady } from '../data/settings';
 import { renderAiMarkdown } from './ai-md';
 import { bzEmbedder, bzEntryReady } from '../data/bz-bridge';
-import { findReviewApi } from '../data/review-bridge';
 import { kbLinkOf } from '../data/kb-link';
 import { hydrateToolbarIcons } from './toolbar-icons';
 import {
@@ -631,7 +630,6 @@ function overlayHltools(markId?: string, bookId?: string): string {
     marked: true,
     compact: isMobileEnv(),
     kb: can('ai') && bzEntryReady(getShellSource()?.app),
-    review: !!getShellSource()?.app && !!findReviewApi(getShellSource()!.app),
     narrow: window.innerWidth < 520,
     color: mark.color ?? 'amber',
     colors: HIGHLIGHT_COLORS,
@@ -848,7 +846,6 @@ function textPanel(
     color: opts.color,
     colors: HIGHLIGHT_COLORS,
     kb: can('ai') && bzEntryReady(getShellSource()?.app),
-    review: !!getShellSource()?.app && !!findReviewApi(getShellSource()!.app),
     narrow: window.innerWidth < 520,
     acts: opts.markId ? MARK_ACTS : SELECTION_ACTS,
     active: opts.active,

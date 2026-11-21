@@ -30,13 +30,16 @@ const labels = (html: string): string[] =>
 const menuLabels = (html: string): string[] =>
   [...html.matchAll(/<button[^>]*class="bzs-tb-mi[^"]*"[^>]*>([^<]*)<\/button>/g)].map((m) => m[1]);
 
-describe('toolbarLayout · 入口门禁', () => {
-  it('没装 bz Review（review=false）时没有「复习」这一颗', () => {
+describe('toolbarLayout · 复习入口常显', () => {
+  /* 2026-11-21：没装 / 没启用 bz Review 时「复习」也保留。
+     点了不弹一句「还没装」就完事，而是打开设置页的插件组引导安装——
+     藏起来的话，用户根本不知道还有这个能力。 */
+  it('没装 bz Review（review=false）时「复习」仍在，紧跟书摘', () => {
     const l = toolbarLayout({ marked: false, review: false });
-    expect(l.visible.map((i) => i.act)).not.toContain('review');
-    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', 'AI', '双链', '复制']);
+    expect(l.visible.map((i) => i.act)).toContain('review');
+    expect(l.visible.map((i) => t(i.key))).toEqual(['想法', '书摘', '复习', 'AI', '双链', '复制']);
   });
-  it('装了（review=true）时「复习」紧跟书摘', () => {
+  it('装了（review=true）时位置不变', () => {
     const l = toolbarLayout({ marked: false, review: true });
     expect(l.visible.map((i) => i.act)).toContain('review');
   });

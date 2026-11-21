@@ -50,7 +50,7 @@ export interface BookMenuInput {
   fav: boolean;
   /** 源文件丢了：只禁「阅读」，另给一条重新定位 */
   missing?: boolean;
-  /** 装了 bz Review 才显示「加入复习」（没装就不摆一个点了没反应的项） */
+  /** 已废弃（2026-11-21）：「加入复习」改成常显，字段只为兼容旧调用 */
   review?: boolean;
   /** 归档书（换版本后的旧书 / 移出书架）：菜单只留恢复、详情、导出与删除 */
   archived?: boolean;
@@ -75,8 +75,9 @@ export function bookMenuItems(input: BookMenuInput): BookMenuItem[] {
       : []),
     { act: 'detail', title: '书籍详情', icon: 'info' },
     /* 加入复习：把书里的划线/章节做成复习卡，交给 bz Review。
-       没装 Review 就不显示——摆一个点了只弹「没装」的项，不如不放。 */
-    ...(input.review ? [{ act: 'review' as const, title: '加入复习', icon: 'layers' }] : []),
+       2026-11-21 起没装 / 没启用也保留——点了打开设置页的插件组，
+       用户能直接在那儿装好启用，不必先知道有这个插件。 */
+    { act: 'review', title: '加入复习', icon: 'layers' },
     /* 2026-11-11：补全信息紧跟详情——两者都回答「这本书是什么」。
        只填空白字段，用户改过的一律不动。 */
     { act: 'enrich', title: '补全信息（AI）', icon: 'sparkles' },

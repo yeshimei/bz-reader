@@ -10,22 +10,29 @@ import { bookMenuItems } from '../src/shell/book-menu';
 
 const plain = { done: false, fav: false };
 
-describe('bookMenuItems · 加入复习入口门禁', () => {
-  it('没装 Review 时没有「加入复习」', () => {
-    expect(bookMenuItems(plain).map((i) => i.act)).not.toContain('review');
+describe('bookMenuItems · 加入复习入口常显', () => {
+  /* 2026-11-21：没装 / 没启用 bz Review 时也保留这一条。
+     点了会打开设置页的插件组引导安装，而不是摆一个点了没反应的项。 */
+  it('没装 Review 时「加入复习」仍在', () => {
+    expect(bookMenuItems(plain).map((i) => i.act)).toContain('review');
   });
-  it('装了 Review 时「加入复习」紧跟书籍详情', () => {
+  it('「加入复习」紧跟书籍详情', () => {
     const acts = bookMenuItems({ ...plain, review: true }).map((i) => i.act);
     expect(acts).toContain('review');
     expect(acts.indexOf('review')).toBe(acts.indexOf('detail') + 1);
   });
+  it('归档书菜单不摆「加入复习」：归档书没有可挑的内容', () => {
+    const acts = bookMenuItems({ ...plain, archived: true }).map((i) => i.act);
+    expect(acts).not.toContain('review');
+  });
 });
 
 describe('bookMenuItems · 条目与顺序', () => {
-  it('九条都在，顺序是 阅读 / 详情 / 补全信息 / 导出 / 收藏 / 标为读完 / 改名 / 归入分类 / 移出书架', () => {
+  it('十条都在，顺序是 阅读 / 详情 / 加入复习 / 补全信息 / 导出 / 收藏 / 标为读完 / 改名 / 归入分类 / 移出书架', () => {
     expect(bookMenuItems(plain).map((i) => i.title)).toEqual([
       '阅读',
       '书籍详情',
+      '加入复习',
       '补全信息（AI）',
       '导出这本书',
       '收藏',
@@ -36,13 +43,15 @@ describe('bookMenuItems · 条目与顺序', () => {
     ]);
   });
 
-  /* 导出紧跟在「书籍详情」后面：它和详情一样是「看这本书产出什么」，
+  /* 导出紧跟在「补全信息」后面：它和详情一样是「看这本书产出什么」，
      不该沉到底部管理组，也不该插进收藏/读完这种状态开关中间。
-     2026-11-11 补全信息插在详情与导出之间：它补的是详情页那几个空字段。 */
-  it('导出排在详情之后、收藏之前，且不带分隔线', () => {
+     2026-11-11 补全信息插在详情与导出之间：它补的是详情页那几个空字段。
+     2026-11-21 加入复习插在详情与补全之间（紧跟着「这本书是什么」）。 */
+  it('导出排在补全信息之后、收藏之前，且不带分隔线', () => {
     const list = bookMenuItems(plain);
     const acts = list.map((i) => i.act);
-    expect(acts.indexOf('enrich')).toBe(acts.indexOf('detail') + 1);
+    expect(acts.indexOf('review')).toBe(acts.indexOf('detail') + 1);
+    expect(acts.indexOf('enrich')).toBe(acts.indexOf('review') + 1);
     expect(acts.indexOf('export')).toBe(acts.indexOf('enrich') + 1);
     expect(acts.indexOf('export')).toBeLessThan(acts.indexOf('fav'));
     expect(list.find((i) => i.act === 'export')?.sepBefore).toBeFalsy();
@@ -75,6 +84,7 @@ describe('bookMenuItems · 条目与顺序', () => {
     expect(icons).toEqual([
       'book-open',
       'info',
+      'layers',
       'sparkles',
       'download',
       'star',
@@ -118,7 +128,7 @@ describe('bookMenuItems · 文件丢失', () => {
     const list = bookMenuItems({ ...plain, missing: true });
     expect(list.find((i) => i.act === 'relocate')?.title).toBe('重新定位文件…');
     expect(list.filter((i) => i.disabled).map((i) => i.act)).toEqual(['open']);
-    expect(list).toHaveLength(10);
+    expect(list).toHaveLength(11);
   });
 
   /* 书文件丢了，摘录和书签还在本机：导出不该跟着禁用 */

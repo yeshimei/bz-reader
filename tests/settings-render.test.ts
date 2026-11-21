@@ -1098,3 +1098,46 @@ describe('设置页 · 2026-11-17 重排', () => {
     expect((src.match(/class="bzs-setrow is-stack"/g) ?? []).length).toBe(2);
   });
 });
+
+/**
+ * 「插件」组三态（2026-11-21）：未安装 / 已安装未启用 / 已启用。
+ *
+ * 以前只有「装了没装」两种：装了就没按钮，没装就给一个跳浏览器下载的按钮。
+ * 现在安装与启用都在卡片里完成，三种状态各自给对应的动作。
+ */
+describe('设置页 · 插件组三态', () => {
+  const reviewHtml = (state: 'enabled' | 'disabled' | 'missing', embed = false): string =>
+    viewSettings({
+      prefs: DEFAULT_PREFS,
+      settings: DEFAULT_SETTINGS,
+      pen: 'amber',
+      hotkeys: [],
+      version: '1.0.0',
+      review: { state, embed },
+    });
+
+  it('未安装：徽章「未安装」+「安装」按钮', () => {
+    const src = reviewHtml('missing');
+    expect(src).toContain('未安装');
+    expect(src).toContain('data-act="reviewinstall"');
+    expect(src).not.toContain('data-act="reviewenable"');
+  });
+
+  it('已安装未启用：徽章写明未启用 +「启用」按钮，不再给安装', () => {
+    const src = reviewHtml('disabled');
+    expect(src).toContain('已安装 · 未启用');
+    expect(src).toContain('data-act="reviewenable"');
+    expect(src).not.toContain('data-act="reviewinstall"');
+  });
+
+  it('已启用：徽章「已启用」，两颗按钮都不出现', () => {
+    const src = reviewHtml('enabled', true);
+    expect(src).toContain('已启用');
+    expect(src).not.toContain('data-act="reviewinstall"');
+    expect(src).not.toContain('data-act="reviewenable"');
+  });
+
+  it('缺省（没探测）按未安装画，不白屏', () => {
+    expect(html()).toContain('data-act="reviewinstall"');
+  });
+});

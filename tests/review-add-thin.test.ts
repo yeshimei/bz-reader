@@ -24,8 +24,10 @@ describe('加入复习 · Reader 侧薄入口', () => {
 
   it('没装 / 老版本只说一句话，不退回旧流程', () => {
     expect(SRC).toContain("requireReviewFlow(app, 'reader')");
-    /* 两句提示与「契约够不够」的判据在共用层，两处入口同一口径 */
-    expect(REQUIRE).toContain("t('review.needPlugin')");
+    /* 三句提示与「契约够不够」的判据在共用层，两处入口同一口径；
+       没装 / 没启用还要把用户送到设置页插件组（2026-11-21）。 */
+    expect(REQUIRE).toContain("t(missing ? 'review.notInstalled' : 'review.notEnabled')");
+    expect(REQUIRE).toContain('openReviewSettings()');
     expect(REQUIRE).toContain("t('review.cardsNeedUpdate')");
     expect(REQUIRE).toContain('reviewReaderFlowReady(api)');
   });

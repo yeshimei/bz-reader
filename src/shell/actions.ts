@@ -44,9 +44,11 @@ import { visiblePicked } from './book-select';
 import { toggleAll, togglePick } from './note-select';
 import { togglePicked } from './note-picker';
 import { addMarkToReview, addSelectionToReview, openBookReviewAdd } from './review-add';
+import { openReviewSettings } from './review-settings';
 import { findReviewApi, markCardKey, reviewEmbedReady } from '../data/review-bridge';
+import { enableInstalledReview, installReview, type ReviewInstallError } from '../data/review-install';
 import { markReviewPlanned } from './review-marks';
-import { notify } from '../core/notice';
+import { notify, notifyProgress } from '../core/notice';
 import { synthesizeFor, ttsEngineReady, ttsVoiceFor, type TtsRoute } from '../core/tts-engine';
 import { ttsDeployPrompt } from '../core/tts-deploy-prompt';
 import { pdfOcrDeployPrompt } from '../core/pdf-ocr-deploy-prompt';
@@ -538,6 +540,13 @@ const SHELF_ERR_KEY: Record<string, MsgKey> = {
   empty: 'shelves.err.empty',
   dup: 'shelves.err.dup',
   reserved: 'shelves.err.reserved',
+};
+
+/** bz review 装不上时，把错误码翻成人话（网络 / 写盘 / 启用各一句） */
+const REVIEW_INSTALL_ERROR_KEY: Record<ReviewInstallError, MsgKey> = {
+  network: 'settings.plugin.review.fail.network',
+  write: 'settings.plugin.review.fail.write',
+  enable: 'settings.plugin.review.fail.enable',
 };
 
 /**
@@ -1723,12 +1732,10 @@ export function dispatchAction(
       if (!book) break;
       const archived = typeof book.archivedAt === 'number';
       const done = !!book.reading.stats.completedTime || (book.reading.position.percent || 0) >= 0.99;
-      const shellSrc = getShellSource();
       const items = bookMenuItems({
         done,
         fav: getState().favIds.includes(id),
         missing: book.fileRef.fileMissing === true,
-        review: !!shellSrc?.app && !!findReviewApi(shellSrc.app),
         archived,
       });
       const menu = new Menu();
@@ -3140,8 +3147,14 @@ export function dispatchAction(
         closeOverlay();
         const app = getShellSource()?.app;
         const api = app ? findReviewApi(app) : null;
-        if (api?.focusCard) void api.focusCard(markCardKey(book.id, markId)).catch(() => notify(t('review.needPlugin'), 'info'));
-        else notify(t('review.needPlugin'), 'info');
+        if (api?.focusCard) {
+          void api.focusCard(markCardKey(book.id, markId)).catch(() => notify(t('review.needPlugin'), 'info'));
+        } else {
+          /* 缓存说「已在复习」、门面却没了（会话里禁用 / 加载失败）：
+             别只弹一句，直接送去设置页插件组。 */
+          notify(t('review.notEnabled'), 'info');
+          openReviewSettings();
+        }
         break;
       }
       void addMarkToReview(getShellSource()?.app, book, d.id);
@@ -3718,9 +3731,39 @@ export function dispatchAction(
       target?.scrollIntoView({ block: 'start', behavior: 'smooth' });
       break;
     }
-    case 'reviewinstall':
+    case 'reviewinstall': {
+      /* 一键安装（2026-11-21）：后台下载三件套 → 写插件目录 → 启用。
+         下载在国内可能十几秒，用常驻通知挂着，别让用户以为没点上。
+         失败时打开下载页兜底（用户至少还有手动那条路）。 */
+      const src = getShellSource();
+      if (!src?.app) break;
+      const progress = notifyProgress(t('settings.plugin.review.installing'));
+      void installReview(src.app).then((res) => {
+        progress.hide();
+        if (res.ok) {
+          notify(t('settings.plugin.review.installDone'));
+          rerender();
+          return;
+        }
+        notify(t('settings.plugin.review.installFailed', { why: t(REVIEW_INSTALL_ERROR_KEY[res.error]) }), 'error');
+        void openDownloadWithFallback(REVIEW_DOWNLOAD_URL, REVIEW_DOWNLOAD_MIRROR);
+      });
+      break;
+    }
+    case 'reviewenable': {
+      /* 已经装好、只是没启用：不再下载，直接让宿主加载并写进启用名单 */
+      const src = getShellSource();
+      if (!src?.app) break;
+      void enableInstalledReview(src.app).then((ok) => {
+        if (ok) {
+          notify(t('settings.plugin.review.enabledDone'));
+          rerender();
+        } else notify(t('settings.plugin.review.enableFailed'), 'error');
+      });
+      break;
+    }
     case 'reviewdownload':
-      /* 直接下载 bz Review：GitHub 主线路，连不通自动切码云（内置兜底，不打扰用户） */
+      /* 手动兜底：打开 release 页，用户自己下三件套 */
       void openDownloadWithFallback(REVIEW_DOWNLOAD_URL, REVIEW_DOWNLOAD_MIRROR);
       break;
     case 'ptpause':

@@ -14,6 +14,7 @@ import {
   markChapterGroups,
   pickedMarkStats,
   pickedMarks,
+  reviewInstallState,
 } from '../src/data/review-bridge';
 
 function mark(id: string, chapterIndex: number, chapterTitle: string, text: string, comment = ''): any {
@@ -36,6 +37,35 @@ describe('findReviewApi：探测 Review 装没装', () => {
     const api = { version: 1, addCards: async () => ({ added: 1, exists: 0, notFound: 0 }) };
     const app = { plugins: { plugins: { 'bz-review': { reviewApi: api } } } } as any;
     expect(findReviewApi(app)).toBe(api);
+  });
+});
+
+describe('reviewInstallState：未安装 / 已安装未启用 / 已启用', () => {
+  const api = { version: 6, addCards: async () => ({ added: 1, exists: 0, notFound: 0 }) };
+
+  it('门面就绪 = 已启用', () => {
+    const app = {
+      plugins: { plugins: { 'bz-review': { reviewApi: api } }, manifests: {}, enabledPlugins: new Set() },
+    } as any;
+    expect(reviewInstallState(app)).toBe('enabled');
+  });
+
+  it('插件目录里有清单、但没加载 = 已安装未启用', () => {
+    const app = {
+      plugins: { plugins: {}, manifests: { 'bz-review': { id: 'bz-review' } }, enabledPlugins: new Set() },
+    } as any;
+    expect(reviewInstallState(app)).toBe('disabled');
+  });
+
+  it('启用名单里有、但没加载起来（加载失败 / 正重启）= 已安装未启用', () => {
+    const app = { plugins: { plugins: {}, manifests: {}, enabledPlugins: new Set(['bz-review']) } } as any;
+    expect(reviewInstallState(app)).toBe('disabled');
+  });
+
+  it('宿主里什么都没有 = 未安装', () => {
+    expect(reviewInstallState({ plugins: {} } as any)).toBe('missing');
+    expect(reviewInstallState({} as any)).toBe('missing');
+    expect(reviewInstallState(undefined)).toBe('missing');
   });
 });
 
