@@ -30,21 +30,22 @@ function row(key: string) {
 }
 
 describe('对照表 · 朗读与听书段', () => {
-  it('独立成段，夹在 AI 与阅读方式之间，七行顺序固定', () => {
+  it('独立成段，夹在 AI 与路线图之间，七行顺序固定', () => {
     expect(PLAN_GROUPS.map((g) => g.key)).toEqual([
       'read',
+      'layout',
       'import',
       'pdf',
       'notes',
+      'review',
       'data',
       'ai',
       'voice',
-      'modes',
-      'explore',
+      'roadmap',
     ]);
     const g = PLAN_GROUPS.find((x) => x.key === 'voice');
     expect(g?.rows).toEqual([...FREE_ROWS, ...PAID_ROWS]);
-    expect(planGroupNameZh('voice')).toBe('朗读与听书');
+    expect(planGroupNameZh('voice')).toBe('听书');
   });
 
   it('朗读本体下放基础版：四行两版都打勾，也不挂能力位', () => {
@@ -69,14 +70,14 @@ describe('对照表 · 朗读与听书段', () => {
     }
   });
 
-  it('阅读方式段只剩三行，不再重复收朗读', () => {
-    const modes = PLAN_GROUPS.find((g) => g.key === 'modes');
-    expect(modes?.rows).toEqual(['vertical', 'parallel', 'bookmap']);
+  it('排版段收四行：单双栏、竖排、并排与鸟瞰，不再重复收朗读', () => {
+    const layout = PLAN_GROUPS.find((g) => g.key === 'layout');
+    expect(layout?.rows).toEqual(['columns', 'vertical', 'parallel', 'bookmap']);
   });
 
-  it('合计 12 / 39，全表 45 行', () => {
-    expect(planTotals()).toEqual({ free: 12, pro: 39 });
-    expect(PLAN_TABLE).toHaveLength(45);
+  it('合计 18 / 44，全表 49 行', () => {
+    expect(planTotals()).toEqual({ free: 18, pro: 44 });
+    expect(PLAN_TABLE).toHaveLength(49);
   });
 
   it('导出本章音频不上表：功能照旧，只是不列在对比里', () => {

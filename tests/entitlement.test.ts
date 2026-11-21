@@ -175,11 +175,13 @@ describe('发行信息', () => {
 
 describe('界面文案', () => {
   it('全书鸟瞰不再混英文（Book Map 只在代码里当标识）', () => {
-    expect(capLabel('bookmap')).not.toMatch(/Book\s*Map/i);
-    expect(capLabel('bookmap')).toContain('全书鸟瞰');
-    const row = PLAN_TABLE.find((r) => r.cap === 'bookmap');
+    /* 2026-11-21 下放基础版后不再有 cap：行名本身要写中文，两栏都打勾。 */
+    const row = PLAN_TABLE.find((r) => r.key === 'bookmap');
     expect(row?.name).not.toMatch(/Book\s*Map/i);
     expect(row?.name).toContain('全书鸟瞰');
+    expect(row?.free).toBe('yes');
+    expect(row?.pro).toBe('yes');
+    expect(row?.cap).toBeUndefined();
   });
 
   it('功能名只用短名，不带括号补充说明', () => {
@@ -226,26 +228,27 @@ describe('界面文案', () => {
     expect(classify?.cap).toBeUndefined();
   });
 
-  it('更多格式仍是第一个付费项，紧跟在免费区之后', () => {
-    /* 1.0.0 免费区补了「引用页签」，写死 footnote + 2 会跟着错位；
-       这里按「第一行不是两栏都打勾」定位，加多少免费行都不会误判。 */
-    const firstPaid = PLAN_TABLE.find((r) => r.free === 'no');
-    expect(firstPaid?.key).toBe('formats');
-    expect(firstPaid?.cap).toBe('fullFormats');
+  it('更多格式仍是「导入」段首行，挂自己的格式能力位', () => {
+    /* 2026-11-21 重排后「排版」段里已有付费行（竖排 / 并排），
+       全表第一个付费项不再是 formats；这里改成校验它自己的位置与能力位。 */
+    const formats = PLAN_TABLE.find((r) => r.key === 'formats');
+    expect(formats?.name).toContain('Kindle');
+    expect(formats?.cap).toBe('fullFormats');
+    const imp = PLAN_GROUPS.find((g) => g.key === 'import');
+    expect(imp?.rows[0]).toBe('formats');
   });
 
-  it('对照表不再单列向量检索，知识库后面是朗读与听书，再往后是探索中段', () => {
+  it('对照表不再单列向量检索，知识库后面是听书，再往后是路线图段', () => {
     expect(PLAN_TABLE.some((r) => r.name.includes('向量'))).toBe(false);
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
     expect(PLAN_TABLE[kbAt]?.name).toBe('AI 知识库：增量阅读、知识输入、整理与输出的闭环');
-    /* 2026-11-14：AI 段收在知识库；后面是朗读与听书、阅读方式与探索中。
-       2026-11-15：探索段从七行减到六行（扫描页识别转正），这里跟着段长走，
-       不再写死 7。 */
+    /* 2026-11-21：AI 段收在知识库；后面是听书，再往后是路线图。
+       段长跟着表走，不再写死数字。 */
     expect(PLAN_TABLE[kbAt + 1]?.key).toBe('tts');
-    const explore = PLAN_GROUPS.find((g) => g.key === 'explore')?.rows ?? [];
-    expect(explore.length).toBeGreaterThan(0);
-    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key).slice(-explore.length)).toEqual(explore);
+    const roadmap = PLAN_GROUPS.find((g) => g.key === 'roadmap')?.rows ?? [];
+    expect(roadmap.length).toBeGreaterThan(0);
+    expect(PLAN_TABLE.slice(kbAt + 1).map((r) => r.key).slice(-roadmap.length)).toEqual(roadmap);
   });
 
   it('统计那一行写全：字数速度、节律热力、分类与成就', () => {

@@ -92,7 +92,7 @@ describe('朗读教程 · 设置页', () => {
 });
 
 describe('朗读教程 · 高级版对照表', () => {
-  it('挂在「朗读与听书」那一段的标题后面，不落到某一行', () => {
+  it('挂在「听书」那一段的标题后面，不落到某一行', () => {
     const html = overlayUnlock('');
     const groupRows = [...html.matchAll(/<div class="bzs-plan-row is-group">([\s\S]*?)<\/div>/g)].map(
       (m) => m[1],
@@ -100,7 +100,7 @@ describe('朗读教程 · 高级版对照表', () => {
     const hit = groupRows.filter((r) => r.includes(TTS_TUTORIAL_URL));
 
     expect(hit, '组标题上有一颗').toHaveLength(1);
-    expect(hit[0]).toContain('朗读与听书');
+    expect(hit[0]).toContain('听书');
 
     /* 全表只挂这一处：同一支视频同时挂在行尾和组标题，用户会以为讲两件事 */
     const all = [...html.matchAll(/<div class="bzs-plan-row[^"]*">([\s\S]*?)<\/div>/g)].map((m) => m[1]);

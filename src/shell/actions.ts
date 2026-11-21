@@ -1592,7 +1592,7 @@ export function dispatchAction(
       focusTtsSettings();
       break;
     case 'bookmap':
-      if (!requireCap('bookmap')) break;
+      /* 2026-11-21：全书鸟瞰下放基础版，不再设门。 */
       overlay('bookmap');
       break;
     /* 本章导读（2026-11-11）：命令与「重新生成」都走同一个函数 */

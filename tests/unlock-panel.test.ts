@@ -123,7 +123,7 @@ describe('解锁弹层 · 商品图那版版式', () => {
   it('表头排在表格上面，滚到表尾也知道哪列是哪版', () => {
     const html = overlayUnlock();
     const head = html.indexOf('bzs-plan-head');
-    const first = html.indexOf('阅读与书架');
+    const first = html.indexOf('阅读');
     expect(head).toBeGreaterThan(-1);
     expect(first).toBeGreaterThan(-1);
     expect(head).toBeLessThan(first);

@@ -12,27 +12,32 @@
  * 中文是基准：`PLAN_TABLE[].name` 直接取 `planNameZh(key)`，
  * 界面渲染取 `planLabel(key)`，两处不会各写一份中文。
  *
- * 2026-11-14 重排（作者定稿）：
- *   · 分组从七段改成九段，每段只讲一类事——阅读与书架 / 打开与导入 /
- *     PDF 阅读 / 笔记与导出 / 数据与搜索 / AI / 朗读与听书 / 阅读方式 /
- *     探索中（朗读这一段同日从「阅读方式」里拆出来单独成段）；
- *   · 新增「本页反链」，与「文件自带批注」拆开（两件事、两个开关）；
- *   · 「AI 知识盒」按作者口径改叫「AI 知识库」，小字说清存什么；
- *   · 一批行名补上说明（全书鸟瞰、AI 全书问答、分类管理、并排对照）。
+ * 2026-11-21 重排（作者定稿）：
+ *   · 分组从九段改成十段，段名压到 2–4 字——阅读 / 排版 / 导入 / PDF 阅读 /
+ *     笔记 / 复习 / 数据 / AI / 听书 / 路线图；
+ *   · 「排版」独立成段：单双栏、竖排、并排、全书鸟瞰收在一起；
+ *   · 「复习」从路线图转正并独立成段，新增页签、按划线挑、按章生成、
+ *     已在复习四行；
+ *   · 全书鸟瞰下放基础版；
+ *   · 行名保持原文，不再压缩或换词。
  * ============================================================ */
 import { locale, type Locale } from './index';
 
 export type PlanKey =
-  /* ── 阅读与书架（免费） ── */
+  /* ── 阅读（免费） ── */
   | 'reading'
-  | 'columns'
   | 'marks'
   | 'card'
   | 'inbookSearch'
   | 'back'
   | 'footnote'
   | 'classify'
-  /* ── 打开与导入 ── */
+  /* ── 排版 ── */
+  | 'columns'
+  | 'vertical'
+  | 'parallel'
+  | 'bookmap'
+  /* ── 导入 ── */
   | 'formats'
   | 'clipEpub'
   /* ── PDF 阅读 ── */
@@ -42,11 +47,20 @@ export type PlanKey =
   | 'pdfBacklink'
   | 'pdfAnnots'
   | 'pdfExport'
-  /* ── 笔记与导出 ── */
+  | 'pdfOcr'
+  /* ── 笔记 ── */
   | 'bilink'
   | 'cites'
   | 'export'
-  /* ── 数据与搜索 ── */
+  /* ── 复习（2026-11-21 独立成段） ──
+   * 「复习」本身已上线，从路线图搬来这里；另外四行是这次新拆的入口：
+   * 页签、按划线挑、按章生成、已在复习状态。 */
+  | 'review'
+  | 'reviewTab'
+  | 'reviewMarks'
+  | 'reviewChapter'
+  | 'reviewPlanned'
+  /* ── 数据 ── */
   | 'stats'
   | 'poster'
   | 'crossSearch'
@@ -62,7 +76,7 @@ export type PlanKey =
   | 'aiLog'
   | 'aiChat'
   | 'kb'
-  /* ── 朗读与听书 ──
+  /* ── 听书 ──
    * 2026-11-14 定稿：朗读本体下放基础版，收费的只剩「备材料」与「带走」。 */
   | 'tts'
   | 'ttsEngine'
@@ -71,16 +85,10 @@ export type PlanKey =
   | 'ttsChapter'
   | 'ttsWhole'
   | 'ttsOffline'
-  /* ── 阅读方式 ── */
-  | 'vertical'
-  | 'parallel'
-  | 'bookmap'
-  /* ── 探索中 ── */
-  | 'pdfOcr'
+  /* ── 路线图 ── */
   | 'pdfReflow'
   | 'manga'
   | 'transChapter'
-  | 'review'
   | 'eink'
   | 'motion';
 
@@ -91,14 +99,15 @@ export type PlanKey =
  */
 export type PlanGroupKey =
   | 'read'
+  | 'layout'
   | 'import'
   | 'pdf'
   | 'notes'
+  | 'review'
   | 'data'
   | 'ai'
   | 'voice'
-  | 'modes'
-  | 'explore';
+  | 'roadmap';
 
 const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
   reading: {
@@ -519,7 +528,7 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'OCR: seleccionar, buscar y subrayar como texto',
     pt: 'OCR: selecionar, pesquisar e destacar como texto',
   },
-  /* ── 探索中（都还没实现，两版都不打勾） ── */
+  /* ── 路线图（都还没实现，两版都不打勾） ── */
   pdfReflow: {
     zh: 'PDF 重排：固定版式变流式',
     'zh-TW': 'PDF 重排：固定版式變流式',
@@ -580,6 +589,49 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'Animación: cambios de página y capítulo, se puede desactivar',
     pt: 'Animação: trocas de página e capítulo, pode ser desligada',
   },
+  /* ── 复习段新增四行（2026-11-21） ──
+   * 原来「复习」只有路线图里一条总述。功能上线后拆成入口、两种挑法、
+   * 已在复习状态四件事，一行只说一件事。 */
+  reviewTab: {
+    zh: '复习页签：挑内容、制卡、复习都在一起',
+    'zh-TW': '複習頁籤：挑內容、製卡、複習都在一起',
+    en: 'Review tab: pick, make cards and review in one place',
+    ja: '復習タブ：選ぶ・カード作成・復習を 1 か所に',
+    de: 'Wiederholen-Tab: auswählen, Karten erstellen und wiederholen an einem Ort',
+    fr: 'Onglet Révision : choisir, créer des cartes et réviser au même endroit',
+    es: 'Pestaña Repaso: elegir, crear tarjetas y repasar en un solo lugar',
+    pt: 'Aba Revisão: escolher, criar cartões e revisar num só lugar',
+  },
+  reviewMarks: {
+    zh: '划线挑重点：整本书的划线交给 AI 挑',
+    'zh-TW': '劃線挑重點：整本書的劃線交給 AI 挑',
+    en: 'Pick from highlights: hand the book’s highlights to AI',
+    ja: 'ハイライトから選ぶ：本のハイライトを AI に渡す',
+    de: 'Aus Markierungen wählen: die Markierungen des Buchs an die KI geben',
+    fr: 'Choisir parmi les surlignages : confier ceux du livre à l’IA',
+    es: 'Elegir entre subrayados: pasar los del libro a la IA',
+    pt: 'Escolher entre destaques: entregar os do livro à IA',
+  },
+  reviewChapter: {
+    zh: '按章生成卡片：AI 读正文挑重点',
+    'zh-TW': '按章產生卡片：AI 讀正文挑重點',
+    en: 'Cards by chapter: AI reads the text and picks key points',
+    ja: '章ごとにカード生成：AI が本文を読んで要点を選ぶ',
+    de: 'Karten je Kapitel: Die KI liest den Text und wählt Kernpunkte',
+    fr: 'Cartes par chapitre : l’IA lit le texte et choisit les points clés',
+    es: 'Tarjetas por capítulo: la IA lee el texto y elige lo clave',
+    pt: 'Cartões por capítulo: a IA lê o texto e escolhe os pontos-chave',
+  },
+  reviewPlanned: {
+    zh: '已在复习：划线标出，不重复排',
+    'zh-TW': '已在複習：劃線標出，不重複排',
+    en: 'Already in review: marked on the highlight, never queued twice',
+    ja: '復習済み：ハイライトに表示、二重登録なし',
+    de: 'Schon in Wiederholung: an der Markierung sichtbar, nie doppelt',
+    fr: 'Déjà en révision : signalé sur le surlignage, jamais deux fois',
+    es: 'Ya en repaso: marcado en el subrayado, sin duplicar',
+    pt: 'Já em revisão: marcado no destaque, sem duplicar',
+  },
 };
 
 /** 对照表行名 → 当前界面语言的说法 */
@@ -593,30 +645,40 @@ export function planNameZh(key: PlanKey): string {
 }
 
 /* ─────────── 分组标题 ───────────
- * 2026-11-14 按作者口径重切：每段只回答一个问题——基础版够不够、书怎么
- * 进来、PDF 怎么读、读完怎么存、怎么看数据、AI 能做什么、还有哪些读法、
- * 以后会做什么。组名同样是界面文案，走同一套八语言约束，
- * 别写回 `data/entitlement.ts`——那里有硬编码中文门禁。 */
+ * 2026-11-21 按作者口径重切：段名压到 2–4 字，每段只回答一个问题——
+ * 怎么读、字怎么放、书怎么进来、PDF 怎么读、读完怎么存、怎么复习、
+ * 怎么看数据、AI 能做什么、怎么听、以后会做什么。组名同样是界面文案，
+ * 走同一套八语言约束，别写回 `data/entitlement.ts`——那里有硬编码中文门禁。 */
 const PLAN_GROUP_TEXT: Record<PlanGroupKey, Record<Locale, string>> = {
   read: {
-    zh: '阅读与书架',
-    'zh-TW': '閱讀與書架',
-    en: 'Reading & Shelf',
-    ja: '読書と本棚',
-    de: 'Lesen & Regal',
-    fr: 'Lecture & bibliothèque',
-    es: 'Lectura y estantería',
-    pt: 'Leitura e estante',
+    zh: '阅读',
+    'zh-TW': '閱讀',
+    en: 'Reading',
+    ja: '読書',
+    de: 'Lesen',
+    fr: 'Lecture',
+    es: 'Lectura',
+    pt: 'Leitura',
+  },
+  layout: {
+    zh: '排版',
+    'zh-TW': '排版',
+    en: 'Layout',
+    ja: 'レイアウト',
+    de: 'Layout',
+    fr: 'Mise en page',
+    es: 'Diseño',
+    pt: 'Diagramação',
   },
   import: {
-    zh: '打开与导入',
-    'zh-TW': '開啟與匯入',
-    en: 'Open & Import',
-    ja: '開く・取り込む',
-    de: 'Öffnen & Importieren',
-    fr: 'Ouvrir & importer',
-    es: 'Abrir e importar',
-    pt: 'Abrir e importar',
+    zh: '导入',
+    'zh-TW': '匯入',
+    en: 'Import',
+    ja: '取り込み',
+    de: 'Import',
+    fr: 'Importer',
+    es: 'Importar',
+    pt: 'Importar',
   },
   /* **不能只写「PDF」**：格式那行里有 PDF 两个字，组名与它撞字时容易被
      当成那一行的一部分；组名带「阅读」二字，且没有任何一行与组名同名。 */
@@ -630,6 +692,9 @@ const PLAN_GROUP_TEXT: Record<PlanGroupKey, Record<Locale, string>> = {
     es: 'Lectura de PDF',
     pt: 'Leitura de PDF',
   },
+  /* 段名不能只写「笔记」：PDF 段里有一行「本页反链：笔记引了这页就画出来」，
+     组名与行名撞字会被当成那一行的一部分（渲染定位也会错位）。
+     2026-11-21 用「笔记与导出」压到 5 字，仍是全表最长的一个段名。 */
   notes: {
     zh: '笔记与导出',
     'zh-TW': '筆記與匯出',
@@ -640,15 +705,26 @@ const PLAN_GROUP_TEXT: Record<PlanGroupKey, Record<Locale, string>> = {
     es: 'Notas y exportación',
     pt: 'Notas e exportação',
   },
+  /* 复习（2026-11-21）：从路线图转正后独立成段，五项都不设门。 */
+  review: {
+    zh: '复习',
+    'zh-TW': '複習',
+    en: 'Review',
+    ja: '復習',
+    de: 'Wiederholen',
+    fr: 'Révision',
+    es: 'Repaso',
+    pt: 'Revisão',
+  },
   data: {
-    zh: '数据与搜索',
-    'zh-TW': '資料與搜尋',
-    en: 'Data & Search',
-    ja: 'データと検索',
-    de: 'Daten & Suche',
-    fr: 'Données & recherche',
-    es: 'Datos y búsqueda',
-    pt: 'Dados e busca',
+    zh: '数据',
+    'zh-TW': '資料',
+    en: 'Data',
+    ja: 'データ',
+    de: 'Daten',
+    fr: 'Données',
+    es: 'Datos',
+    pt: 'Dados',
   },
   ai: {
     /* 段标题只留「AI」：一屏里要一眼看出结构，标题越短越好。 */
@@ -661,37 +737,26 @@ const PLAN_GROUP_TEXT: Record<PlanGroupKey, Record<Locale, string>> = {
     es: 'IA',
     pt: 'IA',
   },
-  /* 朗读与听书（2026-11-14）：不叫「TTS」，那是行内话；用户要的是
-     「能听」，组名说人话。 */
+  /* 听书（2026-11-14）：不叫「TTS」，那是行内话；用户要的是「能听」。 */
   voice: {
-    zh: '朗读与听书',
-    'zh-TW': '朗讀與聽書',
-    en: 'Read Aloud & Listening',
-    ja: '読み上げと聴書',
-    de: 'Vorlesen & Hören',
-    fr: 'Lecture vocale & écoute',
-    es: 'Voz alta y escucha',
-    pt: 'Leitura em voz alta e escuta',
+    zh: '听书',
+    'zh-TW': '聽書',
+    en: 'Listening',
+    ja: '聴書',
+    de: 'Hören',
+    fr: 'Écoute',
+    es: 'Escucha',
+    pt: 'Escuta',
   },
-  modes: {
-    zh: '阅读方式',
-    'zh-TW': '閱讀方式',
-    en: 'Reading Modes',
-    ja: '読み方',
-    de: 'Lesarten',
-    fr: 'Façons de lire',
-    es: 'Formas de leer',
-    pt: 'Formas de ler',
-  },
-  explore: {
-    zh: '探索中',
-    'zh-TW': '探索中',
-    en: 'Explorations',
-    ja: '探索中',
-    de: 'In Erkundung',
-    fr: 'En exploration',
-    es: 'En exploración',
-    pt: 'Em exploração',
+  roadmap: {
+    zh: '路线图',
+    'zh-TW': '路線圖',
+    en: 'Roadmap',
+    ja: 'ロードマップ',
+    de: 'Roadmap',
+    fr: 'Feuille de route',
+    es: 'Hoja de ruta',
+    pt: 'Roteiro',
   },
 };
 

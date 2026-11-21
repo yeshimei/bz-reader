@@ -106,28 +106,29 @@ describe('对照表 · 稿子与勾叉', () => {
     }
   });
 
-  it('AI 段收在知识库，之后是朗读与听书、阅读方式与探索段', () => {
+  it('AI 段收在知识库，之后是听书、排版与路线图段', () => {
     const kbAt = PLAN_TABLE.findIndex((r) => r.key === 'kb');
     expect(kbAt).toBeGreaterThan(-1);
     expect(PLAN_TABLE[kbAt]?.name).toBe('AI 知识库：增量阅读、知识输入、整理与输出的闭环');
     expect(PLAN_TABLE[kbAt + 1]?.key).toBe('tts');
-    const modes = PLAN_GROUPS.find((g) => g.key === 'modes');
-    expect(modes?.rows).toEqual(['vertical', 'parallel', 'bookmap']);
+    const layout = PLAN_GROUPS.find((g) => g.key === 'layout');
+    expect(layout?.rows).toEqual(['columns', 'vertical', 'parallel', 'bookmap']);
   });
 });
 
-describe('对照表 · 九段分组', () => {
-  it('九段顺序固定', () => {
+describe('对照表 · 十段分组', () => {
+  it('十段顺序固定', () => {
     expect(PLAN_GROUPS.map((g) => g.key)).toEqual([
       'read',
+      'layout',
       'import',
       'pdf',
       'notes',
+      'review',
       'data',
       'ai',
       'voice',
-      'modes',
-      'explore',
+      'roadmap',
     ]);
   });
 });

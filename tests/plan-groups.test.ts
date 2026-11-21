@@ -61,12 +61,12 @@ describe('对照表分组 · 八种语言', () => {
   });
 
   it('切换界面语言，组名跟着变；切回中文恢复', () => {
-    expect(planGroupLabel('read')).toBe('阅读与书架');
-    expect(planGroupNameZh('modes')).toBe('阅读方式');
+    expect(planGroupLabel('read')).toBe('阅读');
+    expect(planGroupNameZh('layout')).toBe('排版');
     setLocale('en');
-    expect(planGroupLabel('read')).toBe('Reading & Shelf');
-    expect(planGroupLabel('data')).toBe('Data & Search');
+    expect(planGroupLabel('read')).toBe('Reading');
+    expect(planGroupLabel('data')).toBe('Data');
     setLocale('zh');
-    expect(planGroupLabel('modes')).toBe('阅读方式');
+    expect(planGroupLabel('layout')).toBe('排版');
   });
 });

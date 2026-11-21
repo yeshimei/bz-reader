@@ -54,7 +54,8 @@ export type Cap =
   /** 朗读 · 整本预生成（2026-11-14）。与整章分开，弹层才能高亮对那一行 */
   | 'ttsBook'
   | 'parallel' // 并排 / 双语
-  | 'bookmap' // 全书鸟瞰
+  /* 全书鸟瞰 2026-11-21 下放基础版：它只读画像做一张总览，不产生额外成本，
+     留在 Cap 表里会让「基础版点不开鸟瞰」和对照表上那个勾对不上。 */
   | 'bilink' // 划线 → 双向链接
   /**
    * 引用页签（2026-11-12 从 bilink 拆出来）。
@@ -705,16 +706,6 @@ const CAP_TEXT: Record<Cap, Record<Locale, string>> = {
     es: 'Dos libros en paralelo, los párrafos avanzan juntos',
     pt: 'Dois livros lado a lado, os parágrafos acompanham',
   },
-  bookmap: {
-    zh: '全书鸟瞰',
-    'zh-TW': '全書鳥瞰',
-    en: 'Book overview',
-    ja: '全体マップ',
-    de: 'Buchübersicht',
-    fr: 'Vue d’ensemble du livre',
-    es: 'Vista general del libro',
-    pt: 'Visão geral do livro',
-  },
   bilink: {
     zh: '把划线存成双链，笔记里点得回来',
     'zh-TW': '把劃線存成雙鏈，筆記裡點得回來',
@@ -817,13 +808,13 @@ function row(key: PlanKey, free: PlanCell, pro: PlanCell, cap?: Cap): PlanRow {
 }
 
 export const PLAN_TABLE: PlanRow[] = [
-  /* ── 阅读与书架：基础版八行，顺序按「打开 → 排版 → 标注 → 成图 → 找 → 回 → 注 → 书架」 ── */
+  /* ── 阅读：基础版七行，顺序按「打开 → 标注 → 成图 → 找 → 回 → 注 → 分类」 ──
+   * 2026-11-21 重排：单栏 / 双栏挪去「排版」段——它和竖排、并排是同一类事，
+   * 留在阅读段里会让人以为「阅读基础能力」，其实只是排版的一种。 */
   row('reading', 'yes', 'yes'),
-  /* 分栏 2026-11-05 下放基础版：单独一行，免得用户以为双栏还要买 */
-  row('columns', 'yes', 'yes'),
-  row('marks', 'yes', 'yes'),
   /* 2026-11-09 书摘图片下放基础版（1.0.0 定稿），紧跟划线：它属于「读的
      时候就想要」的东西，排在付费段里会让人以为要买。 */
+  row('marks', 'yes', 'yes'),
   row('card', 'yes', 'yes'),
   row('inbookSearch', 'yes', 'yes'),
   /* 2026-11-10 新增：跳转历史。PDF 早就有这条栈，EPUB 这次补上同一条，
@@ -833,12 +824,21 @@ export const PLAN_TABLE: PlanRow[] = [
   /* 2026-11-09 新增：分类管理（免费）——新建 / 改名 / 排序 / 删除分类、
      把书归入某一类，都不拦。 */
   row('classify', 'yes', 'yes'),
-  /* ── 打开与导入：书从哪儿来 ──
+  /* ── 排版：一屏里怎么放字 ──
+   * 2026-11-21 单独成段：单双栏（免费）、竖排、并排、鸟瞰原来散在「阅读」与
+   * 「阅读方式」两段。全书鸟瞰同日下放基础版：它只读画像做一张总览，
+   * 不产生额外成本，挂在高级版里与「只增不减」的承诺也说不通。 */
+  row('columns', 'yes', 'yes'),
+  row('vertical', 'no', 'yes', 'vertical'),
+  /* 1.0.0：并排的是任意两本书、段落同步，不是「原文 + 译文」。 */
+  row('parallel', 'no', 'yes', 'parallel'),
+  row('bookmap', 'yes', 'yes'),
+  /* ── 导入：书从哪儿来 ──
    * 2026-11-10：PDF 不再由 formats 代表——它有自己的段（见下面的 pdfView…）。
    * 剪藏成书 2026-11-13 从「探索中」转正，与 formats 同类：都是「书怎么进来」。 */
   row('formats', 'no', 'yes', 'fullFormats'),
   row('clipEpub', 'no', 'yes', 'clipBook'),
-  /* ── PDF 段：怎么读 → 怎么拿出来 ──
+  /* ── PDF 阅读：怎么读 → 怎么拿出来 ──
    * 只有段首那行挂 cap：整段共用一个拦点（打开 PDF）。给每行各配一个能力位
    * 是摆样子——基础版根本进不了 PDF，那些能力位在运行期永远不会被抛出。 */
   row('pdfView', 'no', 'yes', 'pdf'),
@@ -853,13 +853,22 @@ export const PLAN_TABLE: PlanRow[] = [
      OCR 都要钱），所以单独一行、单独一个能力位；拦点只放在「识别」上，
      读普通 PDF 不受影响。 */
   row('pdfOcr', 'no', 'yes', 'pdfOcr'),
-  /* ── 笔记与导出：读完怎么存 ──
+  /* ── 笔记：读完怎么存回笔记库 ──
    * 双向链接整条是高级版能力（copylink 走 requireCap('bilink')）。
    * 引用页签 2026-11-12 有独立能力位，点它被拦时点亮的是它自己那一行。 */
   row('bilink', 'no', 'yes', 'bilink'),
   row('cites', 'no', 'yes', 'cites'),
   row('export', 'no', 'yes', 'export'),
-  /* ── 数据与搜索 ── */
+  /* ── 复习（2026-11-21 独立成段） ──
+   * Reader 负责「挑内容」，复习本身由 bz Review 承接：页签嵌入、按划线挑、
+   * 按章生成卡片、已在复习状态。五件事都不设门——复习入口全在基础版，
+   * 装不装 Review 由用户决定，这里不额外收一道钱。 */
+  row('review', 'yes', 'yes'),
+  row('reviewTab', 'yes', 'yes'),
+  row('reviewMarks', 'yes', 'yes'),
+  row('reviewChapter', 'yes', 'yes'),
+  row('reviewPlanned', 'yes', 'yes'),
+  /* ── 数据：回看读了多少、找回某句话 ── */
   row('stats', 'no', 'yes', 'stats'),
   /* 2026-11-10 新增：阅读海报（poster 能力位一直有拦点，表里却一直没有行）。 */
   row('poster', 'no', 'yes', 'poster'),
@@ -880,7 +889,7 @@ export const PLAN_TABLE: PlanRow[] = [
      建索引被拦时高亮的是「AI 全书问答」那一行（见 shell/actions.ts 的 indexCap）。
      2026-11-14：行名按作者口径从「AI 知识盒」改成「AI 知识库」。 */
   row('kb', 'no', 'yes', 'kb'),
-  /* ── 朗读与听书（2026-11-14 从「阅读方式」里拆出来，单独成段） ──
+  /* ── 听书（2026-11-14 从「阅读方式」里拆出来，单独成段） ──
    * 分档口径一句话：**免费听一页，收费听整本**。
    * 前四行两版都打勾——点一下就念、三种引擎、音色与试听、语速与高亮跟随：
    * 它们都不花我们的钱（用的是用户自己的 key 或自己的机器），把用户挡在
@@ -898,19 +907,13 @@ export const PLAN_TABLE: PlanRow[] = [
   /* 离线听书没有自己的按钮：它是整本预生成的产物，被拦时整本那一行已经亮着，
      再给它一个能力位只是摆样子。 */
   row('ttsOffline', 'no', 'yes'),
-  /* ── 阅读方式 ── */
-  row('vertical', 'no', 'yes', 'vertical'),
-  /* 1.0.0：并排的是任意两本书、段落同步，不是「原文 + 译文」。 */
-  row('parallel', 'no', 'yes', 'parallel'),
-  row('bookmap', 'no', 'yes', 'bookmap'),
-  /* ── 探索中（2026-11-11，2026-11-12 增至七项；2026-11-15 扫描页识别
-   * 转正，剩六项） ──
-   * 六项都还没实现：两版都不打勾、不挂能力位，状态由段名说。
-   * 它们不进合计——图上的基础版与高级版项数只数打勾的行。 */
+  /* ── 路线图（2026-11-11 起叫「探索中」，2026-11-21 改叫「路线图」） ──
+   * 五项都还没实现：两版都不打勾、不挂能力位，状态由段名说。
+   * 它们不进合计——图上的基础版与高级版项数只数打勾的行。
+   * 「复习」2026-11-21 已上线，搬去上面的「复习」段，不再留在这里。 */
   row('pdfReflow', 'no', 'no'),
   row('manga', 'no', 'no'),
   row('transChapter', 'no', 'no'),
-  row('review', 'no', 'no'),
   row('eink', 'no', 'no'),
   row('motion', 'no', 'no'),
 ];
@@ -918,12 +921,12 @@ export const PLAN_TABLE: PlanRow[] = [
 /**
  * 对照表底部的合计：各档打勾的项数。
  *
- * 商品图上写的「8 项 / 31 项」不是手工维护的数字——它就是这张表里
+ * 商品图上写的「18 项 / 44 项」不是手工维护的数字——它就是这张表里
  * `free === 'yes'` 与 `pro === 'yes'` 的行数。写死的话，下次加一行忘了改，
  * 弹层就会对外少报一项；这张表是用户决定要不要付钱的地方，数字得跟着表走。
  *
- * 「探索中」那六行两版都不打勾，所以天然不计入：不是特例，是同一条规则。
- * 反过来说，哪天给探索中的某项打了勾，它会自动进合计——这正是想要的。
+ * 「路线图」那五行两版都不打勾，所以天然不计入：不是特例，是同一条规则。
+ * 反过来说，哪天给路线图里的某项打了勾，它会自动进合计——这正是想要的。
  */
 export function planTotals(): { free: number; pro: number } {
   return {
@@ -946,9 +949,9 @@ export function unlockModeFor(format: BookFormat): 'pdf' | 'fullFormats' {
   return format === 'pdf' ? 'pdf' : 'fullFormats';
 }
 
-/* ─────────── 对照表的分组（2026-11-14 重切） ───────────
- * 45 行一长串看不出结构：用户从上滚到下，只记得「很多功能」，分不清哪几行
- * 是一类。这里把同一批行按使用场景切成九段，渲染时插组标题——**行本身、
+/* ─────────── 对照表的分组（2026-11-21 重切） ───────────
+ * 49 行一长串看不出结构：用户从上滚到下，只记得「很多功能」，分不清哪几行
+ * 是一类。这里把同一批行按使用场景切成十段，渲染时插组标题——**行本身、
  * 勾叉、顺序都没变**，所以被拦时的高亮与滚动位置照旧。
  *
  * 两条约束：
@@ -957,16 +960,17 @@ export function unlockModeFor(format: BookFormat): 'pdf' | 'fullFormats' {
  *   2. 组名不写在这个文件里——`data/` 有硬编码中文门禁，组名在
  *      `i18n/plan.ts` 的 PLAN_GROUP_TEXT，渲染走 planGroupLabel()。
  *
- * 切法每段只回答一个问题：
- *   · 阅读与书架：基础版够不够用（八行全打勾）；
- *   · 打开与导入：书从哪儿来（更多格式 + 剪藏成书）；
+ * 切法每段只回答一个问题，段名压到 2–4 字：
+ *   · 阅读：基础版够不够用（七行全打勾）；
+ *   · 排版：字怎么放（单双栏免费，竖排 / 并排 / 鸟瞰）；
+ *   · 导入：书从哪儿来（更多格式 + 剪藏成书）；
  *   · PDF 阅读：PDF 怎么读、怎么拿出来；
- *   · 笔记与导出：读完怎么存回笔记库；
- *   · 数据与搜索：回看读了多少、找回某句话；
+ *   · 笔记：读完怎么存回笔记库；
+ *   · 复习：挑内容、制卡、复习（2026-11-21 独立，五项全免费）；
+ *   · 数据：回看读了多少、找回某句话；
  *   · AI：划词、全书问答、伴读、知识库；
- *   · 朗读与听书：朗读、三台引擎、音色、语速、导出、预生成与离线书；
- *   · 阅读方式：竖排、并排、鸟瞰；
- *   · 探索中：还没实现的六项，两版都不打勾，只作为路线图收尾。 */
+ *   · 听书：朗读、三台引擎、音色、语速、预生成与离线书；
+ *   · 路线图：还没实现的五项，两版都不打勾，只作为收尾。 */
 export interface PlanGroup {
   key: PlanGroupKey;
   /** 这一段包含哪些行，按表里的顺序 */
@@ -976,7 +980,11 @@ export interface PlanGroup {
 export const PLAN_GROUPS: PlanGroup[] = [
   {
     key: 'read',
-    rows: ['reading', 'columns', 'marks', 'card', 'inbookSearch', 'back', 'footnote', 'classify'],
+    rows: ['reading', 'marks', 'card', 'inbookSearch', 'back', 'footnote', 'classify'],
+  },
+  {
+    key: 'layout',
+    rows: ['columns', 'vertical', 'parallel', 'bookmap'],
   },
   {
     key: 'import',
@@ -991,6 +999,10 @@ export const PLAN_GROUPS: PlanGroup[] = [
     rows: ['bilink', 'cites', 'export'],
   },
   {
+    key: 'review',
+    rows: ['review', 'reviewTab', 'reviewMarks', 'reviewChapter', 'reviewPlanned'],
+  },
+  {
     key: 'data',
     rows: ['stats', 'poster', 'crossSearch', 'semantic'],
   },
@@ -1000,20 +1012,14 @@ export const PLAN_GROUPS: PlanGroup[] = [
        与上一行「问的时候带什么」顺着读下来。 */
     rows: ['aiSel', 'aiBook', 'aiLog', 'aiChat', 'kb'],
   },
-  /* 朗读拆出来单独成段（2026-11-14）：它已经不是「一种排版」了——三台引擎、
-     预生成、离线书，塞在竖排和并排中间读不出结构。 */
   {
     key: 'voice',
     rows: ['tts', 'ttsEngine', 'ttsVoice', 'ttsRate', 'ttsChapter', 'ttsWhole', 'ttsOffline'],
   },
-  {
-    key: 'modes',
-    rows: ['vertical', 'parallel', 'bookmap'],
-  },
-  /* 探索中放最后一段，只收还没实现的功能，两版都不打勾，也不参与
+  /* 路线图放最后一段，只收还没实现的路线项，两版都不打勾，也不参与
      「被拦时高亮」那一套。 */
   {
-    key: 'explore',
-    rows: ['pdfReflow', 'manga', 'transChapter', 'review', 'eink', 'motion'],
+    key: 'roadmap',
+    rows: ['pdfReflow', 'manga', 'transChapter', 'eink', 'motion'],
   },
 ];

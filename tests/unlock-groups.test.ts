@@ -63,14 +63,17 @@ describe('解锁弹层 · 分组', () => {
 
   it('每一行都落在自己那段的标题之后、下一段标题之前', () => {
     const html = overlayUnlock();
+    /* 组标题可能和某一行撞字（例如「复习」也出现在「复习：全文回顾…」里），
+       用 indexOf(组名) 找段边界会指到错误的位置。这里直接取组行的真实下标。 */
+    const marks = [...html.matchAll(groupRow)].map((m) => m.index ?? -1);
+    expect(marks).toHaveLength(PLAN_GROUPS.length);
     for (let i = 0; i < PLAN_GROUPS.length; i += 1) {
       const g = PLAN_GROUPS[i];
-      const start = html.indexOf(planGroupNameZh(g.key));
-      const next = PLAN_GROUPS[i + 1];
-      const end = next ? html.indexOf(planGroupNameZh(next.key)) : html.length;
+      const start = marks[i];
+      const end = i + 1 < marks.length ? marks[i + 1] : html.length;
       expect(start, g.key).toBeGreaterThan(-1);
       for (const key of g.rows) {
-        const at = html.indexOf(planNameZh(key));
+        const at = html.indexOf(planNameZh(key), start);
         expect(at, `${g.key} / ${key}`).toBeGreaterThan(start);
         expect(at, `${g.key} / ${key}`).toBeLessThan(end);
       }
@@ -103,8 +106,8 @@ describe('解锁弹层 · 分组', () => {
   it('换到英文界面，组标题也跟着换', () => {
     setLocale('en');
     const html = overlayUnlock();
-    expect(html).toContain('Reading &amp; Shelf');
-    expect(html).toContain('Reading Modes');
-    expect(html).not.toContain('阅读与书架');
+    expect(html).toContain('Reading');
+    expect(html).toContain('Layout');
+    expect(html).not.toContain('阅读');
   });
 });
