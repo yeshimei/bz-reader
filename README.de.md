@@ -10,7 +10,11 @@
     <a href="https://github.com/yeshimei/bz-reader/releases"><img src="https://img.shields.io/github/downloads/yeshimei/bz-reader/total?style=flat-square&label=DOWNLOADS&labelColor=1f1f1e&color=6d8795" alt="Downloads"></a>
     <img src="https://img.shields.io/badge/PLATTFORM-DESKTOP%20%2B%20MOBIL-5f7f57?style=flat-square&labelColor=1f1f1e" alt="Desktop + Mobil">
     <a href="LICENSE"><img src="https://img.shields.io/github/license/yeshimei/bz-reader?style=flat-square&label=LIZENZ&labelColor=1f1f1e&color=5f7f57" alt="MIT"></a>
-    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-DESIGN%20%2B%20ALLES%20IN%20EINEM-7c3aed?style=flat-square&labelColor=1f1f1e" alt="Begleitplugin bz: Design + alles in einem"></a>
+  </p>
+
+  <p>
+    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-DESIGN%20%2B%20ALLES%20IN%20EINEM-7c3aed?style=flat-square&labelColor=1f1f1e" alt="BZ: Design + alles in einem"></a>
+    <a href="https://github.com/yeshimei/bz-review"><img src="https://img.shields.io/badge/BZ%20REVIEW-WIEDERHOLUNG-5f7f57?style=flat-square&labelColor=1f1f1e" alt="BZ Review: Wiederholung"></a>
   </p>
 
   <p><sub><a href="https://www.bilibili.com/video/BV1tK4E6KE1B">Video-Tutorial</a> · QQ-Gruppe 1130883117 · <a href="README.md#support">Autor unterstützen</a></sub></p>
@@ -241,7 +245,8 @@ Nur die KI-Funktionen und die Unterstützerliste in „Den Autor unterstützen�
 
 ### Empfohlene Plugins
 
-- [bz](https://github.com/yeshimei/bz) — Tagebuch, Notizen, Bücher und Filme, Spiele, Web-Clips, Pomodoro, Wiederholung, sichere Verschlüsselung, KI-Wissensbasis, Tool-Dock und eine Desktop-Katze.
+- [bz](https://github.com/yeshimei/bz) — Tagebuch, Notizen, Sammlungen, Besitztümer, Bücher und Filme, Spiele, Web-Clips, Pomodoro, Wiederholung, sichere Verschlüsselung (Passwortbuch + Tresor), KI-Wissensbasis (Wissensboxen + zweites Gehirn), Tool-Dock und eine Desktop-Katze.
+- [bz Review](https://github.com/yeshimei/bz-review) — bz review lässt die KI Karten erstellen und ordnen, damit du dich aufs Lesen und Wiederholen konzentrierst. FSRS plant die Wiederholungen nach Gedächtnisstabilität und passt die Parameter an deine eigene Historie an – weniger Wiederholungen, besser im Gedächtnis.
 
 ### Lizenz
 

@@ -10,7 +10,11 @@
     <a href="https://github.com/yeshimei/bz-reader/releases"><img src="https://img.shields.io/github/downloads/yeshimei/bz-reader/total?style=flat-square&label=%E4%B8%8B%E8%BC%89%E9%87%8F&labelColor=1f1f1e&color=6d8795" alt="下載量"></a>
     <img src="https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-%E6%A1%8C%E9%9D%A2%20%2B%20%E8%A1%8C%E5%8B%95-5f7f57?style=flat-square&labelColor=1f1f1e" alt="桌面 + 行動">
     <a href="LICENSE"><img src="https://img.shields.io/github/license/yeshimei/bz-reader?style=flat-square&label=%E6%8E%88%E6%AC%8A&labelColor=1f1f1e&color=5f7f57" alt="MIT"></a>
-    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-%E9%A1%8F%E5%80%BC%20%2B%20%E9%9B%86%E5%A4%A7%E6%88%90-7c3aed?style=flat-square&labelColor=1f1f1e" alt="配套外掛 bz：顏值 + 集大成"></a>
+  </p>
+
+  <p>
+    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-%E9%A1%8F%E5%80%BC%20%2B%20%E9%9B%86%E5%A4%A7%E6%88%90-7c3aed?style=flat-square&labelColor=1f1f1e" alt="BZ：顏值 + 集大成"></a>
+    <a href="https://github.com/yeshimei/bz-review"><img src="https://img.shields.io/badge/BZ%20REVIEW-%E8%A4%87%E7%BF%92-5f7f57?style=flat-square&labelColor=1f1f1e" alt="BZ Review：複習"></a>
   </p>
 
   <p><sub><a href="https://www.bilibili.com/video/BV1tK4E6KE1B">影片教學</a> · QQ 群 1130883117 · <a href="README.md#support">支持作者</a></sub></p>
@@ -247,7 +251,8 @@
 
 ### 外掛推薦
 
-- [bz](https://github.com/yeshimei/bz) —— 日記、備忘、讀書觀影、遊戲、剪藏、番茄鐘，複習、安全加密，AI 知識庫，工具塢，還有一隻桌寵貓
+- [bz](https://github.com/yeshimei/bz) — 日記、備忘，收藏，歸物、讀書觀影、遊戲、剪藏、番茄鐘，複習、安全加密（密碼本+保險庫），AI 知識庫（知識盒+第二大腦），工具塢，還有一隻桌寵貓
+- [bz Review](https://github.com/yeshimei/bz-review) — bz review 把製卡、整卡交給 AI，讓你專注閱讀與複習。內建 FSRS 間隔重複演算法，依記憶穩定性動態排期，並按你的複習記錄自適應擬合參數。用更少的複習次數，記得更牢。
 
 ### 授權
 

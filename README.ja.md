@@ -10,7 +10,11 @@
     <a href="https://github.com/yeshimei/bz-reader/releases"><img src="https://img.shields.io/github/downloads/yeshimei/bz-reader/total?style=flat-square&label=%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89%E6%95%B0&labelColor=1f1f1e&color=6d8795" alt="ダウンロード数"></a>
     <img src="https://img.shields.io/badge/%E3%83%97%E3%83%A9%E3%83%83%E3%83%88%E3%83%95%E3%82%A9%E3%83%BC%E3%83%A0-%E3%83%87%E3%82%B9%E3%82%AF%E3%83%88%E3%83%83%E3%83%97%20%2B%20%E3%83%A2%E3%83%90%E3%82%A4%E3%83%AB-5f7f57?style=flat-square&labelColor=1f1f1e" alt="デスクトップ + モバイル">
     <a href="LICENSE"><img src="https://img.shields.io/github/license/yeshimei/bz-reader?style=flat-square&label=%E3%83%A9%E3%82%A4%E3%82%BB%E3%83%B3%E3%82%B9&labelColor=1f1f1e&color=5f7f57" alt="MIT"></a>
-    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-%E8%A6%8B%E3%81%9F%E7%9B%AE%20%2B%20%E3%82%AA%E3%83%BC%E3%83%AB%E3%82%A4%E3%83%B3%E3%83%AF%E3%83%B3-7c3aed?style=flat-square&labelColor=1f1f1e" alt="連携プラグイン bz：見た目 + オールインワン"></a>
+  </p>
+
+  <p>
+    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-%E8%A6%8B%E3%81%9F%E7%9B%AE%20%2B%20%E3%82%AA%E3%83%BC%E3%83%AB%E3%82%A4%E3%83%B3%E3%83%AF%E3%83%B3-7c3aed?style=flat-square&labelColor=1f1f1e" alt="BZ：見た目 + オールインワン"></a>
+    <a href="https://github.com/yeshimei/bz-review"><img src="https://img.shields.io/badge/BZ%20REVIEW-%E5%BE%A9%E7%BF%92-5f7f57?style=flat-square&labelColor=1f1f1e" alt="BZ Review：復習"></a>
   </p>
 
   <p><sub><a href="https://www.bilibili.com/video/BV1tK4E6KE1B">動画チュートリアル</a> · QQ グループ 1130883117 · <a href="README.md#support">作者を支援</a></sub></p>
@@ -243,7 +247,8 @@ Obsidian を「本を読む場所」に。デスクトップ + モバイル、�
 
 ### おすすめプラグイン
 
-- [bz](https://github.com/yeshimei/bz) — 日記、メモ、読書や映画の記録、ゲーム、クリップ、ポモドーロ、復習、安全な暗号化、AI ナレッジベース、ツールドック、デスクトップペットの猫。
+- [bz](https://github.com/yeshimei/bz) — 日記、メモ、コレクション、持ち物、読書や映画の記録、ゲーム、クリップ、ポモドーロ、復習、安全な暗号化（パスワード帳＋金庫）、AI ナレッジベース（知識ボックス＋セカンドブレイン）、ツールドック、デスクトップペットの猫。
+- [bz Review](https://github.com/yeshimei/bz-review) — bz review はカード作成・整理を AI に任せ、読書と復習に集中できるようにします。FSRS が記憶の安定性に基づいて復習を計画し、自分の復習履歴に合わせてパラメータを自動調整します。少ない回数で、より長く覚えられます。
 
 ### ライセンス
 

@@ -10,7 +10,11 @@
     <a href="https://github.com/yeshimei/bz-reader/releases"><img src="https://img.shields.io/github/downloads/yeshimei/bz-reader/total?style=flat-square&label=DOWNLOADS&labelColor=1f1f1e&color=6d8795" alt="Downloads"></a>
     <img src="https://img.shields.io/badge/PLATAFORMA-DESKTOP%20%2B%20CELULAR-5f7f57?style=flat-square&labelColor=1f1f1e" alt="Desktop + celular">
     <a href="LICENSE"><img src="https://img.shields.io/github/license/yeshimei/bz-reader?style=flat-square&label=LICEN%C3%87A&labelColor=1f1f1e&color=5f7f57" alt="MIT"></a>
-    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-BELEZA%20%2B%20TUDO%20EM%20UM-7c3aed?style=flat-square&labelColor=1f1f1e" alt="Plugin complementar bz: beleza + tudo em um"></a>
+  </p>
+
+  <p>
+    <a href="https://github.com/yeshimei/bz"><img src="https://img.shields.io/badge/BZ-BELEZA%20%2B%20TUDO%20EM%20UM-7c3aed?style=flat-square&labelColor=1f1f1e" alt="BZ: beleza + tudo em um"></a>
+    <a href="https://github.com/yeshimei/bz-review"><img src="https://img.shields.io/badge/BZ%20REVIEW-REVIS%C3%83O-5f7f57?style=flat-square&labelColor=1f1f1e" alt="BZ Review: revisão"></a>
   </p>
 
   <p><sub><a href="https://www.bilibili.com/video/BV1tK4E6KE1B">Tutorial em vídeo</a> · Grupo QQ 1130883117 · <a href="README.md#support">Apoiar o autor</a></sub></p>
@@ -241,7 +245,8 @@ Só os recursos de IA e a lista de apoiadores em «Apoiar o autor» acessam a re
 
 ### Plugins recomendados
 
-- [bz](https://github.com/yeshimei/bz) — Diário, notas, livros e filmes, jogos, recortes da web, pomodoro, revisão, criptografia segura, base de conhecimento com IA, dock de ferramentas e um gato de estimação na área de trabalho.
+- [bz](https://github.com/yeshimei/bz) — Diário, notas, coleções, pertences, livros e filmes, jogos, recortes da web, pomodoro, revisão, criptografia segura (livro de senhas + cofre), base de conhecimento com IA (caixas de conhecimento + segundo cérebro), dock de ferramentas e um gato de estimação na área de trabalho.
+- [bz Review](https://github.com/yeshimei/bz-review) — bz review deixa a criação e organização dos cartões com a IA, para você focar em ler e revisar. O FSRS agenda as revisões pela estabilidade da memória e ajusta os parâmetros ao seu histórico: menos revisões, memória mais duradoura.
 
 ### Licença
 
