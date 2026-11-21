@@ -160,7 +160,7 @@
 .bzs-chgn-fbstate.doing{background:rgba(217,138,31,.16);color:#b16f10}
 .bzs-chgn-fbstate.invalid{background:color-mix(in srgb,var(--chg-ink-3) 14%,transparent);color:var(--chg-ink-2)}
 /* Git 提交短 id：等宽字 + 强调色，和可点来源徽标同排 */
-.bzs-chgn-fbcommit{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;text-decoration:none;color:var(--chg-accent);font-weight:600}
+.bzs-chgn-fbcommit{font-family:var(--font-monospace,SFMono-Regular,Menlo,Consolas,monospace);text-decoration:none;color:var(--chg-accent);font-weight:600}
 .bzs-chgn-fbcommit:hover{text-decoration:underline}
 .bzs-chgn-fbempty{grid-column:1/-1;padding:26px 0;text-align:center;font-size:11px;color:var(--chg-ink-3)}
 

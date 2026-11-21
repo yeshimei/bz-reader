@@ -16,6 +16,10 @@
    - 上架前必须跑 `node scripts/i18n-placeholders.mjs --check`，还有占位或漏 key 就停。
    - 更新日志永远只有中英两版（`changelogLang()`），任何版本都不补其余六种。
 6. **禁止悬停气泡属性（2026-11-17）**：插件生成的 DOM 一律不挂 `aria-label` / `title`，也不调用 `setTooltip()`——Obsidian 会把它们变成悬停气泡，用户看着像「莫名其妙的小弹窗」。纯图标控件的可读名字改用视觉隐藏文本：模板里写 `<span class="bzs-sr-only">名字</span>`，DOM API 用 `src/core/ui/sr-text.ts` 的 `srText()` / `withSrText()`；`aria-labelledby` 指向隐藏节点也可以用（它不触发气泡）。提交前跑 `node scripts/check-tooltip-attrs.mjs`，有违规就停。
+7. **社区目录扫描的三条硬约束（2026-11-21，作者预审核被拦后补）**：目录会额外跑 `@typescript-eslint/no-deprecated`、多余断言检查和 CSS 特性检查，本地 `lint-obsidian.mjs` 是关着 no-deprecated 的，所以这三类**本地不报、目录必报**。提交前自己按下面查一遍：
+   - **不写多余的类型断言**（`no-unnecessary-type-assertion`）：推断出来的类型已经是目标类型就别 `as`。例：`map.keys().next().value` 本身就是 `string | undefined`，直接读并判 `undefined`，不要再 `as string | undefined`。目录把这条报成 Warning。
+   - **不用 `querySelectorAll`**：Obsidian 的 DOM 类型把它标成弃用（推荐 `findAll`）。主 realm 用 `el.findAll(selector)`；**跨 realm 的 iframe 文档**（书页内容、renderer 的 `doc`）拿不到 Obsidian 挂在原型上的扩展，改用标准的 `getElementsByTagName('img')` / `('image')` 分别取再合并，并写注释说明为什么不用 findAll。
+   - **CSS 不写 `ui-monospace` 这类「扩展系统字体」关键字**：目录的 CSS 检查把它判成 `extended-system-fonts`，按旧版 Obsidian 报「不支持」。等宽字体一律写 `var(--font-monospace, SFMono-Regular, Menlo, Consolas, monospace)`，不要直接列 `ui-monospace`。
 
 ## 提交前必过三道门
 在仓库 `D:\Obsidian\bz-reader` 跑：

@@ -269,7 +269,8 @@ export function createPlugin(cfg: PluginConfig) {
         if (!fb && this.reviewBooks.get(book.id) === p) this.reviewBooks.delete(book.id);
       });
       while (this.reviewBooks.size > 2) {
-        const oldest = this.reviewBooks.keys().next().value as string | undefined;
+        /* 取最早那本；Array.from 保证推断是 string[]，[0] 是 string | undefined */
+        const oldest = Array.from(this.reviewBooks.keys())[0];
         if (oldest === undefined) break;
         this.reviewBooks.delete(oldest);
       }
