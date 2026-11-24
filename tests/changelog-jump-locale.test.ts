@@ -3,7 +3,7 @@
  *
  * 统计卡「去购买 / 去支持」走二次确认，确认后跳 confirmTarget：
  *   · 购买（pro 卡）→ purchaseUrlFor(lang)：简中取 buyCn、非简中取 buyIntl，
- *     远程优先、内置兜底，和解锁弹层两颗购买按钮同一套机制；
+ *     远程优先、内置兜底，和解锁弹层那颗「去购买」同一套机制；
  *   · 打赏（patrons 卡）→ links.support 老字段，兜底国内赞助店；
  *     两档语言都用同一个 support（打赏渠道目前只有国内一条）。
  *

@@ -72,7 +72,7 @@ import {
   shelfNameError,
   shelfOfName,
 } from '../data/shelves';
-import { hostLanguageCode, isLocale, locale, resolveLocale, setLocale, t, type LanguagePref, type MsgKey } from '../i18n';
+import { hostLanguageCode, isChineseUI, isLocale, locale, resolveLocale, setLocale, t, type LanguagePref, type MsgKey } from '../i18n';
 import { bookMenuItems } from './book-menu';
 import { bookNeedsRelocate, scanVault } from '../data/book-repo';
 import { readFingerprint } from '../data/book-scan';
@@ -2365,12 +2365,12 @@ export function dispatchAction(
     case 'unlock':
       overlay('unlock', { mode: d.mode || '' });
       break;
-    /* 两颗购买按钮都读远程名单：作者在 bzr-data.json 换支付渠道后，
-       用户联网拉到新数据就跳新店。按钮语义固定（国内 / 海外），不按界面
-       语言自动跳——语言不等于国籍，让用户自己选。 */
+    /* 一颗「去购买」按界面语言分流：简体中文跳国内店，其余语言跳海外店。
+       地址读远程名单：作者在远程换渠道后，用户联网拉到新数据就跳新店。 */
     case 'buy':
-      window.open(purchaseUrlFor(true, currentBzrData()), '_blank');
+      window.open(purchaseUrlFor(isChineseUI(), currentBzrData()), '_blank');
       break;
+    /* 老兼容：界面不再渲染这颗按钮，留着给命中旧 DOM 的调用兜底。 */
     case 'buy-intl':
       window.open(purchaseUrlFor(false, currentBzrData()), '_blank');
       break;
