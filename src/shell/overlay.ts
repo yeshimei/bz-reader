@@ -1278,8 +1278,7 @@ export function overlayUnlock(mode?: string): string {  const v = entitlement();
     ? `<span class="sp"></span>${groupButtonHtml()}`
     : `<div class="bzs-unlock-foot">
         <div class="bzs-unlock-buy">
-          <button class="bzs-btn pri" data-act="buy">${t('unlock.buy.cn')}</button>
-          <button class="bzs-btn" data-act="buy-intl">${t('unlock.buy.intl')}</button>
+          <button class="bzs-btn pri" data-act="buy">${t('unlock.buy')}</button>
           ${groupButtonHtml()}
         </div>
       </div>`;

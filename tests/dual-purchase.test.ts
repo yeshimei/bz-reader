@@ -1,11 +1,11 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * 双商店购买入口。
+ * 购买入口按界面语言分流（2026-11-24 起）。
  *
- * 解锁弹层页脚给两颗按钮：中国大陆 → 国内店，其他地区 → Creem 海外店。
- * 不按界面语言自动跳——语言不等于国籍，让用户自己选，不会跳错。
- * 国内那颗保留 data-act="buy"，老调用与老测试继续有效；海外那颗是 buy-intl。
+ * 解锁弹层页脚只一颗「去购买」：简体中文跳国内店，其余语言（含繁体）跳
+ * 海外 Creem。不再让人手选地区；远程 bzr-data 换渠道后自动跟随。
+ * 国内老按钮 data-act="buy" 保留语义，老调用继续有效。
  */
 
 vi.mock('../src/core/notice', () => ({
@@ -34,10 +34,9 @@ import { PURCHASE_URL, PURCHASE_URL_INTL } from '../src/data/entitlement';
 import { setLocale } from '../src/i18n';
 import { overlayUnlock } from '../src/shell/overlay';
 import { dispatchAction } from '../src/shell/actions';
-import { DEFAULT_SHELL_STATE, setState, getState } from '../src/shell/state';
+import { DEFAULT_SHELL_STATE, setState } from '../src/shell/state';
 import { _resetBzrDataForTests, _setBzrHttpForTests, refreshBzrData } from '../src/data/bzr-data';
 
-/* 远程链接测试要动 bzr-data 的全局单例；其余用例不碰它，统一在段前 reset */
 beforeEach(() => _resetBzrDataForTests());
 afterAll(() => {
   _setBzrHttpForTests(null);
@@ -50,7 +49,7 @@ afterEach(() => {
   setState({ ...DEFAULT_SHELL_STATE });
 });
 
-describe('双商店购买入口 · 常量', () => {
+describe('购买分流 · 常量', () => {
   it('国内店仍是原来的链动小铺，没被换掉', () => {
     expect(PURCHASE_URL).toBe('https://wzyp.cn/shop/IFCEI5I3');
   });
@@ -59,46 +58,48 @@ describe('双商店购买入口 · 常量', () => {
     expect(PURCHASE_URL_INTL).toBe('https://www.creem.io/stores/baizai');
   });
 
-  it('两个地址不同：不能两颗按钮跳同一个店', () => {
+  it('两个地址不同：简中和非简中不能跳同一个店', () => {
     expect(PURCHASE_URL_INTL).not.toBe(PURCHASE_URL);
   });
 });
 
-describe('双商店购买入口 · 解锁弹层', () => {
-  it('页脚有两颗购买按钮：buy 与 buy-intl 并存', () => {
+describe('购买分流 · 解锁弹层', () => {
+  it('页脚只有一颗购买按钮，不再有地区选择', () => {
     const html = overlayUnlock();
     expect(html).toContain('data-act="buy"');
-    expect(html).toContain('data-act="buy-intl"');
+    expect(html).not.toContain('data-act="buy-intl"');
   });
 
-  it('中文界面按钮写「中国大陆」与「其他地区」', () => {
+  it('中文界面按钮写「去购买」，不出现地区字样', () => {
     const html = overlayUnlock();
-    expect(html).toContain('中国大陆');
-    expect(html).toContain('其他地区');
-  });
-
-  it('换到英文界面两颗按钮仍在，且不残留中文', () => {
-    /* 按项目规矩：日常只写 zh.ts，外语包发版时统一翻译。
-       这里只钉住「按钮跟着语言走、不留中文」，正式英文文案到发版补。 */
-    setLocale('en');
-    const html = overlayUnlock();
-    expect(html).toContain('data-act="buy"');
-    expect(html).toContain('data-act="buy-intl"');
+    expect(html).toContain('去购买');
     expect(html).not.toContain('中国大陆');
     expect(html).not.toContain('其他地区');
   });
 
-  it('两颗按钮都在页脚，不散进正文对照表', () => {
+  it('换语言按钮跟着翻、且只剩一颗，不残留中文', () => {
+    for (const lang of ['en', 'ja', 'de', 'fr', 'es', 'pt', 'zh-TW'] as const) {
+      setLocale(lang);
+      const html = overlayUnlock();
+      expect(html.match(/data-act="buy"/g) ?? []).toHaveLength(1);
+      expect(html).not.toContain('data-act="buy-intl"');
+      expect(html).not.toContain('中国大陆');
+      expect(html).not.toContain('其他地区');
+      expect(html).not.toContain('去购买');
+    }
+  });
+
+  it('按钮在页脚，不散进正文对照表', () => {
     const html = overlayUnlock();
     const footAt = html.indexOf('<div class="bzs-mfoot">');
     expect(footAt).toBeGreaterThan(-1);
-    expect(html.slice(0, footAt)).not.toContain('data-act="buy-intl"');
-    expect(html.slice(footAt)).toContain('data-act="buy-intl"');
+    expect(html.slice(0, footAt)).not.toContain('data-act="buy"');
+    expect(html.slice(footAt)).toContain('data-act="buy"');
   });
 });
 
-describe('双商店购买入口 · 点击跳转', () => {
-  it('国内按钮开国内店', () => {
+describe('购买分流 · 点击跳转', () => {
+  it('简体中文点「去购买」跳国内店', () => {
     const opened: string[] = [];
     vi.stubGlobal('window', { open: (u: string) => void opened.push(u) });
     setState({ ...DEFAULT_SHELL_STATE, overlay: { kind: 'unlock', mode: '' } });
@@ -106,25 +107,26 @@ describe('双商店购买入口 · 点击跳转', () => {
     expect(opened).toEqual([PURCHASE_URL]);
   });
 
-  it('海外按钮开 Creem 店', () => {
-    const opened: string[] = [];
-    vi.stubGlobal('window', { open: (u: string) => void opened.push(u) });
-    setState({ ...DEFAULT_SHELL_STATE, overlay: { kind: 'unlock', mode: '' } });
-    dispatchAction('buy-intl', { dataset: { act: 'buy-intl' } } as unknown as HTMLElement);
-    expect(opened).toEqual([PURCHASE_URL_INTL]);
-  });
-
-  it('两颗按钮各跳各的，不串台', () => {
+  it('英文界面点「去购买」跳海外店', () => {
+    setLocale('en');
     const opened: string[] = [];
     vi.stubGlobal('window', { open: (u: string) => void opened.push(u) });
     setState({ ...DEFAULT_SHELL_STATE, overlay: { kind: 'unlock', mode: '' } });
     dispatchAction('buy', { dataset: { act: 'buy' } } as unknown as HTMLElement);
-    dispatchAction('buy-intl', { dataset: { act: 'buy-intl' } } as unknown as HTMLElement);
-    expect(opened).toEqual([PURCHASE_URL, PURCHASE_URL_INTL]);
+    expect(opened).toEqual([PURCHASE_URL_INTL]);
+  });
+
+  it('繁体界面也算非简体，跳海外店', () => {
+    setLocale('zh-TW');
+    const opened: string[] = [];
+    vi.stubGlobal('window', { open: (u: string) => void opened.push(u) });
+    setState({ ...DEFAULT_SHELL_STATE, overlay: { kind: 'unlock', mode: '' } });
+    dispatchAction('buy', { dataset: { act: 'buy' } } as unknown as HTMLElement);
+    expect(opened).toEqual([PURCHASE_URL_INTL]);
   });
 });
 
-describe('双商店购买入口 · 远程换链接自动跟随', () => {
+describe('购买分流 · 远程换链接自动跟随', () => {
   const remoteDoc = JSON.stringify({
     version: 1, updatedAt: '2026-11-23',
     changelog: [{ version: '1.6.0', date: '2026-11-23', added: [
@@ -137,15 +139,25 @@ describe('双商店购买入口 · 远程换链接自动跟随', () => {
     },
   });
 
-  it('远程给了新 buyCn / buyIntl，点按钮跳新地址而不是内置兜底', async () => {
+  it('远程给了新 buyCn，简中点按钮跳新国内地址', async () => {
     _setBzrHttpForTests(() => remoteDoc);
     await refreshBzrData({ force: true });
     const opened: string[] = [];
     vi.stubGlobal('window', { open: (u: string) => void opened.push(u) });
     setState({ ...DEFAULT_SHELL_STATE, overlay: { kind: 'unlock', mode: '' } });
     dispatchAction('buy', { dataset: { act: 'buy' } } as unknown as HTMLElement);
-    dispatchAction('buy-intl', { dataset: { act: 'buy-intl' } } as unknown as HTMLElement);
-    expect(opened).toEqual(['https://new-cn.example.com/pay', 'https://new-intl.example.com/pay']);
+    expect(opened).toEqual(['https://new-cn.example.com/pay']);
+  });
+
+  it('远程给了新 buyIntl，英文点按钮跳新海外地址', async () => {
+    _setBzrHttpForTests(() => remoteDoc);
+    await refreshBzrData({ force: true });
+    setLocale('en');
+    const opened: string[] = [];
+    vi.stubGlobal('window', { open: (u: string) => void opened.push(u) });
+    setState({ ...DEFAULT_SHELL_STATE, overlay: { kind: 'unlock', mode: '' } });
+    dispatchAction('buy', { dataset: { act: 'buy' } } as unknown as HTMLElement);
+    expect(opened).toEqual(['https://new-intl.example.com/pay']);
   });
 
   it('点击本身不联网：refresh 之后不再发请求', async () => {
@@ -156,7 +168,6 @@ describe('双商店购买入口 · 远程换链接自动跟随', () => {
     vi.stubGlobal('window', { open: () => undefined });
     setState({ ...DEFAULT_SHELL_STATE, overlay: { kind: 'unlock', mode: '' } });
     dispatchAction('buy', { dataset: { act: 'buy' } } as unknown as HTMLElement);
-    dispatchAction('buy-intl', { dataset: { act: 'buy-intl' } } as unknown as HTMLElement);
     expect(calls).toBe(afterRefresh);
   });
 });
