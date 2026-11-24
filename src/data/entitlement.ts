@@ -1068,8 +1068,8 @@ export function capLabel(cap: Cap): string {
 export const PURCHASE_URL = 'https://wzyp.cn/shop/IFCEI5I3';
 /**
  * 海外购买地址：Creem 商店（2026-11-23 起）。
- * 解锁弹层给两颗按钮，中国大陆走 PURCHASE_URL、其他地区走这里，
- * 让用户自己选——界面语言不等于国籍，自动跳反而会跳错。
+ * 解锁弹层只一颗「去购买」：简体中文走 PURCHASE_URL，其余语言走这里。
+ * 按界面语言机械分流，不再让用户手选地区。
  */
 export const PURCHASE_URL_INTL = 'https://www.creem.io/stores/baizai';
 /** 交流群群号：UI 直接显示、点击复制。短链（qm.qq.com/q/…）实测 404，不再用。 */

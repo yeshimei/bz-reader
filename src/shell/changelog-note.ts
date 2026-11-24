@@ -906,7 +906,7 @@ function unmountConfirmDialog(): void {
  * 更新日志「统计卡 → 二次确认」的跳转目标（纯函数，便于测试）。
  *
  * 购买（pro 卡）按界面语言取 buyCn / buyIntl，远程优先、内置兜底——和解锁
- * 弹层两颗购买按钮同一套机制，作者在远程换渠道这边自动跟着换。
+ * 弹层那颗「去购买」同一套机制，作者在远程换渠道这边自动跟着换。
  * 打赏（patrons 卡）走 support 老字段（解析时已过独立校验），兜底国内赞助店。
  */
 export function resolveConfirmTarget(kind: 'buy' | 'support', d: BzrData | null): string {
