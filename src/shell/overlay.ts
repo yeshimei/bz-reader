@@ -1414,47 +1414,61 @@ function overlayEditMeta(bookId?: string): string {
         : t('editmeta.cover.none');
   const badge = (edited: boolean | undefined): string =>
     edited ? `<span class="bzs-metabadge">${t('editmeta.edited')}</span>` : '';
-  const body = `<div class="bzs-setgrp flat bzs-metagrp">
-      <div class="bzs-setrow"><label>${t('editmeta.name')}${badge(b.meta.titleEdited)}</label>
-        <input data-role="metatitle" value="${esc(b.meta.title || '')}" spellcheck="false" style="flex:1"></div>
-      <div class="bzs-setrow"><label>${t('editmeta.author')}${badge(b.meta.authorEdited)}</label>
-        <input data-role="metaauthor" value="${esc(b.meta.author || '')}" spellcheck="false" style="flex:1"></div>
-      <div class="bzs-setrow is-stack"><label>${t('editmeta.description')}${badge(b.meta.descriptionEdited)}</label>
-        <textarea data-role="metadesc" rows="4" spellcheck="false">${esc(b.meta.description || '')}</textarea></div>
-      <div class="bzs-setrow is-stack"><label>${t('editmeta.cover')} <span class="bzs-mini">${esc(
-        sourceText,
-      )}</span></label>
-        <div class="bzs-metacover">
-          ${coverHtml({
+  /* 上传/还原封面会重绘这张弹层：用草稿回填，别把用户改了一半的字冲掉 */
+  const draft = getState().overlay?.draft;
+  const titleValue = draft?.title ?? b.meta.title ?? '';
+  const authorValue = draft?.author ?? b.meta.author ?? '';
+  const descValue = draft?.description ?? b.meta.description ?? '';
+  const body = `<div class="bzs-meta2">
+      <div class="bzs-meta2-side">
+        ${coverHtml(
+          {
             coverUrl: null,
             bg: 'linear-gradient(150deg, var(--background-secondary), var(--background-primary))',
             fg: 'var(--text-muted)',
             glyph: glyphOf(b.meta.title || '无题'),
             title: b.meta.title || '',
             id: b.id,
-          }, 'is-metacover')}
-          <div class="bzs-metaacts">
-            <button class="bzs-btn" data-act="coverpick" data-id="${b.id}">${t('editmeta.cover.upload')}</button>
-            ${
-              source === 'custom'
-                ? `<button class="bzs-btn" data-act="coverclear" data-id="${b.id}">${t(
-                    'editmeta.cover.restore',
-                  )}</button>`
-                : ''
-            }
-          </div>
-          <!-- 常驻的文件输入：按钮只负责 click，选完由 change 处理。
-               常驻的好处是桌面/手机都能用同一套；自动化验证也能直接把
-               文件塞进 input.files，不依赖系统文件对话框。 -->
-          <input class="bzs-fileinput" data-role="coverfile" type="file" accept="image/*">
-        </div></div>
-      <div class="bzs-mini bzs-metanote">${t('editmeta.hint')}</div>
+          },
+          'is-meta2cov',
+        )}
+        <div class="bzs-meta2-covacts">
+          <button class="bzs-btn" data-act="coverpick" data-id="${b.id}">${t('editmeta.cover.upload')}</button>
+          ${
+            source === 'custom'
+              ? `<button class="bzs-btn" data-act="coverclear" data-id="${b.id}">${t(
+                  'editmeta.cover.restore',
+                )}</button>`
+              : ''
+          }
+        </div>
+        <div class="bzs-meta2-covsrc">${esc(sourceText)}</div>
+        <!-- 常驻的文件输入：按钮只负责 click，选完由 change 处理。
+             常驻的好处是桌面/手机都能用同一套；自动化验证也能直接把
+             文件塞进 input.files，不依赖系统文件对话框。 -->
+        <input class="bzs-fileinput" data-role="coverfile" type="file" accept="image/*">
+      </div>
+      <div class="bzs-meta2-fields">
+        <div class="bzs-meta2-f"><label>${t('editmeta.name')}${badge(b.meta.titleEdited)}</label>
+          <input type="text" class="bzs-meta2-title" data-role="metatitle" value="${esc(
+            titleValue,
+          )}" spellcheck="false"></div>
+        <div class="bzs-meta2-f"><label>${t('editmeta.author')}${badge(b.meta.authorEdited)}</label>
+          <input type="text" data-role="metaauthor" value="${esc(authorValue)}" spellcheck="false"></div>
+        <div class="bzs-meta2-f"><label>${t('editmeta.description')}${badge(
+          b.meta.descriptionEdited,
+        )}</label>
+          <textarea data-role="metadesc" rows="4" spellcheck="false">${esc(descValue)}</textarea></div>
+        <p class="bzs-meta2-hint">${t('editmeta.hint')}</p>
+      </div>
     </div>`;
   return modal(
     t('editmeta.title'),
     esc(b.fileRef.format.toUpperCase()),
     body,
-    `<button class="bzs-btn" data-act="metarestore" data-id="${b.id}">${t('editmeta.restore')}</button>
+    `<button class="bzs-meta2-reset" data-act="metarestore" data-id="${b.id}">${t(
+      'editmeta.restore',
+    )}</button>
      <span class="sp"></span><button class="bzs-btn" data-act="close">${t('common.cancel')}</button>
      <button class="bzs-btn pri" data-act="metasave" data-id="${b.id}">${t('common.save')}</button>`,
     'wide',
@@ -2757,9 +2771,21 @@ export class OverlayLayer {
        之后的重画（亮确认条）不再抢焦点——手刚离开输入框。 */
     if (o?.kind === 'idea' && refocus) this.root.querySelector<HTMLTextAreaElement>('[data-role="idea"]')?.focus();
     if (o?.kind === 'editmeta') {
-      const input = this.root.querySelector<HTMLInputElement>('[data-role="metatitle"]');
-      input?.focus();
-      input?.select();
+      /* 打开时先把内容滚到顶：窄屏打开前焦点/布局换挡会把封面滚出视野，
+         用户第一眼该看到的是书，不是半张封面。重绘（上传封面）不回顶，
+         否则用户刚滚到简介又被弹回去。 */
+      if (refocus) {
+        const body = this.root.querySelector<HTMLElement>('.bzs-mbody');
+        if (body) body.scrollTop = 0;
+      }
+      /* 桌面把光标放进书名（选中整段，改名最常用）；窄屏不自动聚焦——
+         一聚焦就弹键盘并把封面滚出视野。判据用视口宽度而不是 Platform：
+         桌面模拟移动布局时后者仍是 false。 */
+      if (window.innerWidth >= 720) {
+        const input = this.root.querySelector<HTMLInputElement>('[data-role="metatitle"]');
+        input?.focus({ preventScroll: true });
+        input?.select();
+      }
       bindCoverInput(this.root);
     }
     /* 分类：打开这一页就把光标放进输入框，少点一下（2026-11-09）。

@@ -328,6 +328,25 @@ function repaint(): void {
   mutateState(() => undefined);
 }
 
+/** 编辑弹层里三个输入框的现值（重绘前存草稿用，避免冲掉没保存的字） */
+function readMetaDraft(): { title: string; author: string; description: string } {
+  const read = (role: string): string =>
+    document.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-role="${role}"]`)?.value ?? '';
+  return { title: read('metatitle'), author: read('metaauthor'), description: read('metadesc') };
+}
+
+/**
+ * 重绘「编辑书籍信息」弹层，同时把输入框里的现值带进草稿。
+ *
+ * 上传/还原封面都会重绘整张弹层；不存草稿的话，用户刚改了一半的书名、
+ * 作者、简介会被打回原值。草稿只在这次弹层里有效，保存/关闭即丢。
+ */
+function bumpEditMetaRev(): void {
+  const o = getState().overlay;
+  if (o?.kind !== 'editmeta') return;
+  setState({ overlay: { ...o, draft: readMetaDraft(), rev: (o.rev ?? 0) + 1 } });
+}
+
 /**
  * 处理用户选中的封面图：压缩 → 落盘 → 写成自定义封面并立刻重绘。
  *
@@ -352,7 +371,7 @@ export async function applyCoverFile(id: string, file: File): Promise<void> {
   book.meta.coverPath = path;
   book.updatedAt = Date.now();
   src.store.touch();
-  bumpOverlayRev();
+  bumpEditMetaRev();
   repaint();
   notify(t('notice.cover.saved'));
 }
@@ -1910,7 +1929,7 @@ export function dispatchAction(
         delete book.meta.coverPath;
         book.updatedAt = Date.now();
         src.store.touch();
-        bumpOverlayRev();
+        bumpEditMetaRev();
         rerender();
         notify(t('notice.cover.restored'));
       })();

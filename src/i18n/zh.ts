@@ -155,7 +155,7 @@ export const ZH = {
   'editmeta.hint': '改过的字段会保留，打开书时不会被原书信息覆盖；只改书架与详情上的显示，不动书文件、进度、划线与书签。',
   'notice.editmeta.empty': '书名不能为空',
   'notice.editmeta.saved': '书籍信息已保存',
-  'notice.editmeta.unchanged': '没有改动',
+  'notice.editmeta.unchanged': '没有新的文字改动（封面已单独保存）',
   'notice.editmeta.restored': '已还原默认信息，下次打开这本书会重新读取原书信息',
   'notice.cover.saved': '封面已替换',
   'notice.cover.restored': '已还原原版封面',

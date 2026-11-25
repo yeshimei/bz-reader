@@ -223,6 +223,13 @@ export interface OverlayState {
   /** 本章导读生成失败（text 里是原因）：用错误色画，并给重试 */
   error?: boolean;
   /**
+   * 编辑书籍信息的未保存草稿（只给 kind='editmeta' 用）。
+   *
+   * 上传/还原封面会触发整张弹层重绘；不把输入框里的现值带过来，
+   * 用户刚改了一半的书名 / 作者 / 简介就会被冲掉。保存或关弹层即丢弃。
+   */
+  draft?: { title: string; author: string; description: string };
+  /**
    * 划词 AI 的那一行五项菜单（只给 kind='ai' 用）。
    *
    * 菜单与浮框是同一个叠层、同一个位置的两态：`true` 时只画菜单行 +
