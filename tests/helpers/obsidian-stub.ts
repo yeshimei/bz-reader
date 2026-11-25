@@ -317,6 +317,21 @@ export function setIcon(): void {
   /* noop */
 }
 
+/** 原生 Modal 替身：文件右键移除确认弹窗 import 期要继承 */
+export class Modal {
+  contentEl: StubEl = stubEl();
+  constructor(readonly app: unknown = undefined) {}
+  open(): void {
+    /* noop */
+  }
+  close(): void {
+    /* noop */
+  }
+  onClose(): void {
+    /* noop */
+  }
+}
+
 /** core/folder-pick 的 import 期依赖 */
 export class FuzzySuggestModal {
   constructor(readonly app: unknown = undefined) {}

@@ -30,7 +30,8 @@ import { isMobileEnv, isMobileShell } from './core/mobile';
 import { closeAllModals } from './core/ui/modal';
 import { notify } from './core/notice';
 import { BookRepo, BASE_FORMATS, PRO_FORMATS, formatOf, planRelocations, scanVault } from './data/book-repo';
-import { fillBookMetas, readFingerprint, needsFingerprintRecheck, upgradeFingerprints } from './data/book-scan';
+import { backfillFingerprints, fillBookMetas, readFingerprint, needsFingerprintRecheck, upgradeFingerprints } from './data/book-scan';
+import { registerShelfFileMenu } from './ui/shelf-file-menu';
 import { ReaderStore, verifyCopiedJson } from './data/store';
 import { backupFileName, buildBackup, parseBackup, replaceWithBackup } from './data/backup';
 import { pickJsonFile } from './core/file-pick';
@@ -688,6 +689,21 @@ export function createPlugin(cfg: PluginConfig) {
         }),
       );
       /* 新建文件先不自动收录（改了用户的书架构成会吓人）；导入页负责登记 */
+
+      /* 文件浏览器右键：库里的书直接加入 / 移除书架，不用先开导入页。
+         移除会弹原生确认框（原生样式跟右键菜单一套，数据只归档不删）。 */
+      this.register(
+        registerShelfFileMenu({
+          app: this.app,
+          vaultPaths: () => this.app.vault.getFiles().map((f) => f.path),
+          onShelf: (path) => {
+            const b = this.repo.byPath(path);
+            return !!b && typeof b.archivedAt !== 'number';
+          },
+          addPaths: (paths) => this.addPathsToShelf(paths),
+          removePaths: (paths) => this.removePathsFromShelf(paths),
+        }),
+      );
 
       this.app.workspace.onLayoutReady(() => {
         /* 启动那一次核对：插件停用期间被删/被移走的书，书架要能看见 */
@@ -2017,6 +2033,62 @@ export function createPlugin(cfg: PluginConfig) {
         /* 升级是后台增强，失败绝不能挡启动/同步。 */
         console.warn('[bz-reader] fingerprint upgrade failed:', e);
       }
+    }
+
+    /**
+     * 文件右键菜单选中的路径 → 登记进书架。
+     *
+     * 与导入页同一条路：先补老记录的指纹（不然查重对升级前的数据无效），
+     * 逐本算指纹查重、确认后补书目，落盘再广播。归档书在这里复活（进度划线
+     * 接回），同内容的副本只留一条记录。
+     */
+    private async addPathsToShelf(paths: string[]): Promise<void> {
+      await backfillFingerprints(this.app, this.repo.all());
+      const created: ReaderBook[] = [];
+      let revived = 0;
+      let skipped = 0;
+      try {
+        for (const path of paths) {
+          const fmt = formatOf(path);
+          if (!fmt) continue;
+          const file = this.app.vault.getAbstractFileByPath(path);
+          const size = file ? (file as { stat?: { size?: number } }).stat?.size ?? 0 : 0;
+          const fp = await readFingerprint(this.app, path, size);
+          const res = this.repo.ensure(path, fmt, size, fp ?? undefined);
+          if (res.pathChanged && !this.app.vault.getAbstractFileByPath(res.book.fileRef.vaultPath)) {
+            this.repo.relocate(res.book, path);
+          }
+          if (res.created) created.push(res.book);
+          else if (res.revived) revived += 1;
+          else skipped += 1;
+        }
+        await fillBookMetas(this.app, created);
+        this.store.touch();
+        await this.store.flush();
+      } catch (e) {
+        notify(t('notice.import.failed', { why: (e as Error)?.message || t('common.unknownError') }), 'error');
+        return;
+      }
+      notifyShelf();
+      notifyShell();
+      if (created.length) notify(t('notice.import.done', { n: created.length }), 'success');
+      if (revived) notify(t('notice.book.revived', { n: revived }), 'success');
+      if (skipped) notify(t('notice.import.skipped', { n: skipped }), 'info');
+    }
+
+    /** 文件右键菜单选中的路径 → 移出书架（归档，数据全留，重新加入可复活） */
+    private removePathsFromShelf(paths: string[]): void {
+      const books: ReaderBook[] = [];
+      for (const path of paths) {
+        const b = this.repo.byPath(path);
+        if (b && typeof b.archivedAt !== 'number') books.push(b);
+      }
+      if (!books.length) return;
+      for (const b of books) this.repo.archive(b);
+      this.store.touch();
+      notifyShelf();
+      notifyShell();
+      notify(t('notice.book.archivedN', { n: books.length }));
     }
 
     private async syncShelf(): Promise<void> {

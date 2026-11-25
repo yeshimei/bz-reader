@@ -1844,4 +1844,12 @@ export const PT: Record<MsgKey, string> = {
   'settings.markSort': '[TODO] settings.markSort',
   'settings.markSort.time': '[TODO] settings.markSort.time',
   'settings.markSort.text': '[TODO] settings.markSort.text',
+  'filemenu.add': '[TODO] filemenu.add',
+  'filemenu.addN': '[TODO] filemenu.addN {n}',
+  'filemenu.remove': '[TODO] filemenu.remove',
+  'filemenu.removeN': '[TODO] filemenu.removeN {n}',
+  'filemenu.confirmTitle': '[TODO] filemenu.confirmTitle',
+  'filemenu.confirmOne': '[TODO] filemenu.confirmOne',
+  'filemenu.confirmMany': '[TODO] filemenu.confirmMany {n}',
+  'filemenu.confirmDo': '[TODO] filemenu.confirmDo',
 };
