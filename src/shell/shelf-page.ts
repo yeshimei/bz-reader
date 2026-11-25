@@ -286,10 +286,15 @@ export function buildShelfPage(state: ShellState, books: ReaderBook[], compact: 
       /* 行映射（配色 / 日期文案 / 封面地址）只在书库页做：别的页用不上，
          每画一页都算一遍是白烧 CPU（D4）。 */
       const rows = app ? toRows(app, books) : [];
+      /* 「是不是空库」按库里的书算，不按当前筛选源算（2026-11-25）：
+         「已归档」筛选下 books 只有归档书，归档为空时整页会被判成空库，
+         筛选栏一起收走，用户再点不回「全部」（真机 27 本在架却显示空）。 */
+      const all = getShellSource()?.repo.all() ?? books;
       return {
         body: viewLibrary({
           rows: filterRows(rows, state),
-          total: books.length,
+          total: all.length,
+          archived: all.filter((b) => typeof b.archivedAt === 'number').length,
           state,
           libraryKey: state.libShelf + state.libFilter + state.libView,
           compact,

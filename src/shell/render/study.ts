@@ -203,12 +203,19 @@ export const LIB_SORTS: Array<[ShellState['libSort'], MsgKey]> = [
 export interface LibraryView {
   rows: BookRow[];
   /**
-   * 库里一共有几本（过滤前）。
+   * 库里一共有几本（**含已归档**，过滤前）。
    *
    * 「一本都没导入」和「筛选后没匹配」是两种状态：前者要收起整条
    * 搜索/分类栏（没有东西可筛），后者要留着让用户改条件。
+   *
+   * 必须传含归档的总数（2026-11-25）：以前传的是当前筛选源的本数，
+   * 「已归档」筛选下它就是归档书数——归档里一本都没有时整页降级成
+   * 空库那屏，筛选栏一起收走，用户再也点不回「全部」（真机：27 本
+   * 在架、书库显示空）。归档的本数只能决定提示文案，不能决定空不空。
    */
   total?: number;
+  /** 库里已归档（移出书架）的本数，只在空态里用来给一颗回去的按钮 */
+  archived?: number;
   state: ShellState;
   /** 书库在加载真实封面时会重排，给一个稳定的 key 让滚动位置不丢 */
   libraryKey: string;
@@ -224,12 +231,17 @@ export interface LibraryView {
 export function viewLibrary(v: LibraryView): string {
   const { rows, state } = v;
   const compact = v.compact === true;
+  const archived = v.archived ?? 0;
+  /* 兜底不含归档：旧调用方只给 rows 时，按「架上这几本就是全部」算，
+     至少不会把有书的库判成空库。 */
+  const total = v.total ?? rows.length + archived;
+  const onShelf = Math.max(0, total - archived);
 
   /* 空库：整页只留一句空态。
      以前把搜索框、五个分类 chip、书架名一起画出来，下面再补一句
      「没有匹配的书」——库里一本书都没有时，这两句话互相矛盾，
      而且满屏控件全是死的（真机图一）。 */
-  if (!(v.total ?? rows.length)) {
+  if (!total) {
     /* 空库给一颗能点的导入按钮（2026-11-17）：以前只有一句「点右上导入」，
        新用户对着空屏还得去猜右上角在哪。按钮和右上那条走同一个 act。 */
     return `<div class="bzs-empty">
@@ -346,7 +358,26 @@ export function viewLibrary(v: LibraryView): string {
 
   let body: string;
   if (!shown.length) {
-    body = `<div class="bzs-empty">${t('shelf.empty.none')}</div>`;
+    /* 空的三种原因分开说（2026-11-25）：库里一本书都没有、书全在归档里、
+       只是这一筛没匹配。前两种要各给一颗能走回去的按钮——空态不是终点。 */
+    if (state.libFilter === 'archived' && archived === 0) {
+      body = `<div class="bzs-empty">
+        <div>${t('shelf.empty.archived')}</div>
+        <button type="button" class="bzs-btn sm" data-act="libfilter" data-v="all" style="margin-top:12px">${t(
+          'shelf.empty.backAll',
+        )}</button>
+      </div>`;
+    } else if (onShelf === 0 && archived > 0) {
+      body = `<div class="bzs-empty">
+        <div>${t('shelf.empty.onShelf')}</div>
+        <button type="button" class="bzs-btn sm" data-act="libfilter" data-v="archived" style="margin-top:12px">${t(
+          'shelf.empty.viewArchived',
+          { n: archived },
+        )}</button>
+      </div>`;
+    } else {
+      body = `<div class="bzs-empty">${t('shelf.empty.none')}</div>`;
+    }
   } else if (state.libView === 'grid') {
     body = `<div class="bzs-grid">${shown
       .map(

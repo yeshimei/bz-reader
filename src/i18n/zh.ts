@@ -745,6 +745,11 @@ export const ZH = {
   'shelf.empty.all': '书库还是空的。点右上「导入」放一本 epub 进来，或把书直接拖进笔记库。',
   'shelf.empty.import': '导入第一本书',
   'shelf.empty.none': '没有匹配的书。换个关键词，或点右上「导入」放一本进来。',
+  /* 空态三分类（2026-11-25）：归档相关的两种空要能自己走回去 */
+  'shelf.empty.archived': '归档里没有书。',
+  'shelf.empty.backAll': '回到全部书',
+  'shelf.empty.onShelf': '书架上的书都归档了，数据都还在。',
+  'shelf.empty.viewArchived': '查看已归档 · {n} 本',
   'shelf.continue': '继续阅读',
   'shelf.lastChapter': '上次读到 {chapter}',
   'shelf.lastPercent': '上次读到 {percent}%',

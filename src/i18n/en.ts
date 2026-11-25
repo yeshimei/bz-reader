@@ -1816,4 +1816,8 @@ export const EN: Record<MsgKey, string> = {
   'settings.plugin.review.market': 'Get from marketplace',
   'settings.plugin.review.github': 'Get from GitHub',
   'settings.keepAwake': 'Keep the screen awake while reading',
+  'shelf.empty.archived': '[TODO] shelf.empty.archived',
+  'shelf.empty.backAll': '[TODO] shelf.empty.backAll',
+  'shelf.empty.onShelf': '[TODO] shelf.empty.onShelf',
+  'shelf.empty.viewArchived': '[TODO] shelf.empty.viewArchived {n}',
 };

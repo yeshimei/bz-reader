@@ -1803,4 +1803,8 @@ export const ZH_TW: Record<MsgKey, string> = {
   'settings.plugin.review.market': '去市集下載',
   'settings.plugin.review.github': '去 GitHub 下載',
   'settings.keepAwake': '閱讀時螢幕常亮',
+  'shelf.empty.archived': '[TODO] shelf.empty.archived',
+  'shelf.empty.backAll': '[TODO] shelf.empty.backAll',
+  'shelf.empty.onShelf': '[TODO] shelf.empty.onShelf',
+  'shelf.empty.viewArchived': '[TODO] shelf.empty.viewArchived {n}',
 };

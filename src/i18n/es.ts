@@ -1813,4 +1813,8 @@ export const ES: Record<MsgKey, string> = {
   'settings.plugin.review.market': 'Obtener del mercado',
   'settings.plugin.review.github': 'Obtener de GitHub',
   'settings.keepAwake': 'Mantener la pantalla encendida al leer',
+  'shelf.empty.archived': '[TODO] shelf.empty.archived',
+  'shelf.empty.backAll': '[TODO] shelf.empty.backAll',
+  'shelf.empty.onShelf': '[TODO] shelf.empty.onShelf',
+  'shelf.empty.viewArchived': '[TODO] shelf.empty.viewArchived {n}',
 };

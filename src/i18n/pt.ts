@@ -1814,4 +1814,8 @@ export const PT: Record<MsgKey, string> = {
   'settings.plugin.review.market': 'Obter da loja',
   'settings.plugin.review.github': 'Obter do GitHub',
   'settings.keepAwake': 'Manter a tela ligada durante a leitura',
+  'shelf.empty.archived': '[TODO] shelf.empty.archived',
+  'shelf.empty.backAll': '[TODO] shelf.empty.backAll',
+  'shelf.empty.onShelf': '[TODO] shelf.empty.onShelf',
+  'shelf.empty.viewArchived': '[TODO] shelf.empty.viewArchived {n}',
 };

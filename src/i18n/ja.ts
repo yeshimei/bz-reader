@@ -1806,4 +1806,8 @@ export const JA: Record<MsgKey, string> = {
   'settings.plugin.review.market': 'マーケットから入手',
   'settings.plugin.review.github': 'GitHub から入手',
   'settings.keepAwake': '読書中は画面をスリープさせない',
+  'shelf.empty.archived': '[TODO] shelf.empty.archived',
+  'shelf.empty.backAll': '[TODO] shelf.empty.backAll',
+  'shelf.empty.onShelf': '[TODO] shelf.empty.onShelf',
+  'shelf.empty.viewArchived': '[TODO] shelf.empty.viewArchived {n}',
 };
