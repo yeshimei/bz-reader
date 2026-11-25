@@ -207,6 +207,10 @@ export function applyEngineMeta(book: ReaderBook, m: EngineMeta): boolean {
   }
 
   for (const key of TEXT_FIELDS) {
+    /* 作者与简介允许用户手改（2026-11-25 编辑书籍信息）：改过之后，
+       打开书读到原书的旧值也不再覆盖，否则「改完重开就变回原样」。 */
+    if (key === 'author' && book.meta.authorEdited) continue;
+    if (key === 'description' && book.meta.descriptionEdited) continue;
     const next = m[key]?.trim();
     if (next && book.meta[key] !== next) {
       book.meta[key] = next;

@@ -54,6 +54,22 @@ export interface BookMeta {
    * bz 侧读到不认识的键会忽略，不影响数据同构。
    */
   titleEdited?: boolean;
+  /**
+   * 用户在「编辑书籍信息」里手改过作者 / 简介（2026-11-25）。
+   *
+   * 与 titleEdited 同一个用途：打开书时引擎读到的元数据不再覆盖这两项，
+   * 否则「改完 → 重开 → 变回原书的」。
+   */
+  authorEdited?: boolean;
+  descriptionEdited?: boolean;
+  /**
+   * 封面是用户上传替换的（2026-11-25）。
+   *
+   * 为真时 `coverPath` 指向 `<数据目录>/covers/custom-<id>.<ext>`，书架与详情
+   * 直接用它；点「还原原版封面」清掉这个标记，回到书里解出来的那张
+   * （TXT 这类没有原封面的回到占位色块）。
+   */
+  coverEdited?: boolean;
   author?: string;
   publisher?: string;
   language?: string;

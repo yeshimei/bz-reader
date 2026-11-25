@@ -82,6 +82,7 @@ import { aiSessions } from '../data/ai-session';
 import { aiFirstPrompt, aiFloatTaskOf, aiMenuHtml, clockOf } from './ai-menu';
 import { recordAiTurn, resetAiTurnGroups } from '../data/ai-log';
 import { glyphOf } from './adapt';
+import { coverSourceOf } from '../data/book-edit';
 import { hydrateCovers } from './covers';
 import { bindRangeTouch } from './range-touch';
 import { PLAN_GROUPS, PLAN_TABLE, can, entitlement, planTotals, type Cap, type PlanCell, type PlanGroup } from '../data/entitlement';
@@ -102,6 +103,7 @@ import type { DispatchOpts } from './actions';
 import { rangeFill } from './range-fill';
 import { getToc } from '../view/toc-state';
 import { dispatchInput } from './actions';
+import { applyCoverFile } from './actions';
 import { groupButtonHtml } from './group';
 import { chapterDigests } from '../data/portrait';
 import { cachedPortrait, ensurePortrait } from './portrait-cache';
@@ -141,6 +143,24 @@ function modal(title: string, sub: string, body: string, foot = '', cls = '', ma
 
 function closeBtn(): string {
   return `<span class="sp"></span><button class="bzs-btn pri" data-act="close">知道了</button>`;
+}
+
+/**
+ * 编辑书籍信息弹层里那个常驻文件输入的 change 绑定。
+ *
+ * 渲染后绑一次（dataset.bound 防重复）：用户点「上传替换封面」只是点它，
+ * 选完真正处理的是這裡。与输入框解耦，自动化也能直接把 File 塞进
+ * input.files 再派发 change，不必经过系统文件对话框。
+ */
+function bindCoverInput(root: ParentNode): void {
+  const input = root.querySelector<HTMLInputElement>('[data-role="coverfile"]');
+  if (!input || input.dataset.bound === '1') return;
+  input.dataset.bound = '1';
+  input.addEventListener('change', () => {
+    const file = input.files?.[0];
+    const bookId = String(getState().overlay?.bookId ?? '');
+    if (file && bookId) void applyCoverFile(bookId, file);
+  });
 }
 
 function bookById(id?: string | null): ReaderBook | undefined {
@@ -1108,6 +1128,7 @@ function overlayDetail(bookId?: string): string {
             ? `<button class="bzs-btn pri" data-act="missing" data-id="${b.id}">重新定位文件…</button>`
             : `<button class="bzs-btn pri" data-act="openbook" data-id="${b.id}">开始阅读 ›</button>`
         }
+        <button class="bzs-btn" data-act="editmeta" data-id="${b.id}">${t('editmeta.title')}</button>
         <button class="bzs-btn" data-act="fav" data-id="${b.id}">${ico('star')} ${
           getState().favIds.includes(b.id) ? '已收藏' : '收藏'
         }</button>
@@ -1375,26 +1396,68 @@ function overlayAck(): string {
  * 得知道最坏结果是什么。
  */
 /**
- * 改名：只改书架上显示的名字。
+ * 编辑书籍信息（2026-11-25，取代原来的「改名」）。
  *
- * 不去重命名笔记库里的文件——那会影响用户自己的 wiki 链接与备份，
- * 而且同一个文件可能在别处被引用。改名只落在 bz 的元数据里。
+ * 一处改书名、作者、简介，外加封面上传替换 / 还原原版。改过的字段打「已自定义」
+ * 小标；「还原默认信息」把书名退回文件名、作者与简介清空，打开书时引擎会重新
+ * 读原书信息。不动书文件、进度、划线、书签。
  */
-function overlayRename(bookId?: string): string {
+function overlayEditMeta(bookId?: string): string {
   const b = bookById(bookId);
-  if (!b) return modal('改名', '', '<div class="bzs-empty">这本书已不在书库。</div>', closeBtn());
-  const body = `<div class="bzs-setgrp flat">
-      <div class="bzs-setrow"><label>书名</label>
-        <input data-role="rename" value="${esc(b.meta.title || '')}" spellcheck="false" style="flex:1"></div>
-      <div class="bzs-mini" style="margin-top:10px;line-height:1.9">只改书架上显示的名字，笔记库里的文件名不动，
-        进度、划线、书签也都不会丢。</div>
+  if (!b) return modal(t('editmeta.title'), '', '<div class="bzs-empty">这本书已不在书库。</div>', closeBtn());
+  const source = coverSourceOf(b);
+  const sourceText =
+    source === 'custom'
+      ? t('editmeta.cover.custom')
+      : source === 'builtin'
+        ? t('editmeta.cover.builtin')
+        : t('editmeta.cover.none');
+  const badge = (edited: boolean | undefined): string =>
+    edited ? `<span class="bzs-metabadge">${t('editmeta.edited')}</span>` : '';
+  const body = `<div class="bzs-setgrp flat bzs-metagrp">
+      <div class="bzs-setrow"><label>${t('editmeta.name')}${badge(b.meta.titleEdited)}</label>
+        <input data-role="metatitle" value="${esc(b.meta.title || '')}" spellcheck="false" style="flex:1"></div>
+      <div class="bzs-setrow"><label>${t('editmeta.author')}${badge(b.meta.authorEdited)}</label>
+        <input data-role="metaauthor" value="${esc(b.meta.author || '')}" spellcheck="false" style="flex:1"></div>
+      <div class="bzs-setrow is-stack"><label>${t('editmeta.description')}${badge(b.meta.descriptionEdited)}</label>
+        <textarea data-role="metadesc" rows="4" spellcheck="false">${esc(b.meta.description || '')}</textarea></div>
+      <div class="bzs-setrow is-stack"><label>${t('editmeta.cover')} <span class="bzs-mini">${esc(
+        sourceText,
+      )}</span></label>
+        <div class="bzs-metacover">
+          ${coverHtml({
+            coverUrl: null,
+            bg: 'linear-gradient(150deg, var(--background-secondary), var(--background-primary))',
+            fg: 'var(--text-muted)',
+            glyph: glyphOf(b.meta.title || '无题'),
+            title: b.meta.title || '',
+            id: b.id,
+          }, 'is-metacover')}
+          <div class="bzs-metaacts">
+            <button class="bzs-btn" data-act="coverpick" data-id="${b.id}">${t('editmeta.cover.upload')}</button>
+            ${
+              source === 'custom'
+                ? `<button class="bzs-btn" data-act="coverclear" data-id="${b.id}">${t(
+                    'editmeta.cover.restore',
+                  )}</button>`
+                : ''
+            }
+          </div>
+          <!-- 常驻的文件输入：按钮只负责 click，选完由 change 处理。
+               常驻的好处是桌面/手机都能用同一套；自动化验证也能直接把
+               文件塞进 input.files，不依赖系统文件对话框。 -->
+          <input class="bzs-fileinput" data-role="coverfile" type="file" accept="image/*">
+        </div></div>
+      <div class="bzs-mini bzs-metanote">${t('editmeta.hint')}</div>
     </div>`;
   return modal(
-    '改名',
+    t('editmeta.title'),
     esc(b.fileRef.format.toUpperCase()),
     body,
-    `<span class="sp"></span><button class="bzs-btn" data-act="close">取消</button>
-     <button class="bzs-btn pri" data-act="renamesave" data-id="${b.id}">保存</button>`,
+    `<button class="bzs-btn" data-act="metarestore" data-id="${b.id}">${t('editmeta.restore')}</button>
+     <span class="sp"></span><button class="bzs-btn" data-act="close">${t('common.cancel')}</button>
+     <button class="bzs-btn pri" data-act="metasave" data-id="${b.id}">${t('common.save')}</button>`,
+    'wide',
   );
 }
 
@@ -1733,8 +1796,8 @@ export function overlayHtml(): string {
       return overlayUnlock(o.mode);
     case 'movedir':
       return overlayMoveDir(o.mode || 'data', o.text || '');
-    case 'rename':
-      return overlayRename(o.bookId);
+    case 'editmeta':
+      return overlayEditMeta(o.bookId);
     case 'shelves':
       return overlayShelves(o.mode || '', o.text || '', o.bookId);
     case 'removebook':
@@ -2693,10 +2756,11 @@ export class OverlayLayer {
     /* 想法浮窗：打开就把光标放进输入框，少一次点击。
        之后的重画（亮确认条）不再抢焦点——手刚离开输入框。 */
     if (o?.kind === 'idea' && refocus) this.root.querySelector<HTMLTextAreaElement>('[data-role="idea"]')?.focus();
-    if (o?.kind === 'rename') {
-      const input = this.root.querySelector<HTMLInputElement>('[data-role="rename"]');
+    if (o?.kind === 'editmeta') {
+      const input = this.root.querySelector<HTMLInputElement>('[data-role="metatitle"]');
       input?.focus();
       input?.select();
+      bindCoverInput(this.root);
     }
     /* 分类：打开这一页就把光标放进输入框，少点一下（2026-11-09）。
        名单形态落在新建框；改名落在那一行并选中原名（多半整段换掉）。

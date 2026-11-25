@@ -39,6 +39,10 @@ import {
 } from '../data/notes';
 import { allMarks, filterMarks, shelfOf, shelvesOf } from './domain';
 import { addShelf as addBookShelf, countInShelf, dropFromBook, renameInBook, toggleShelf } from '../data/book-shelves';
+/* 编辑书籍信息（2026-11-25）：书名 / 作者 / 简介 / 封面上传与还原 */
+import { applyMetaEdit, restoreMetaDefaults } from '../data/book-edit';
+import { prepareCoverImage } from './cover-edit';
+import { removeCustomCover, writeCustomCover } from '../data/cover';
 import { filterRows, toRows } from './adapt';
 import { visiblePicked } from './book-select';
 import { toggleAll, togglePick } from './note-select';
@@ -322,6 +326,35 @@ async function pickAndRelocate(src: ShellSource, book: ReaderBook): Promise<void
 /** 统一的重绘出口：所有视图都订阅 state，改完自然会重画 */
 function repaint(): void {
   mutateState(() => undefined);
+}
+
+/**
+ * 处理用户选中的封面图：压缩 → 落盘 → 写成自定义封面并立刻重绘。
+ *
+ * 独立成函数（不放 dispatchAction 里）：文件输入的 change 是异步的，
+ * 用户选完可能已经把弹层关了，所以每次都按 id 重新取书，不闭包旧对象。
+ */
+export async function applyCoverFile(id: string, file: File): Promise<void> {
+  const prepared = await prepareCoverImage(file);
+  if (!prepared) {
+    notify(t('notice.cover.unreadable'), 'error');
+    return;
+  }
+  const src = getShellSource();
+  const book = liveBooks().find((b) => b.id === id);
+  if (!src || !book) return;
+  const path = await writeCustomCover(src.app, book, prepared.buf, prepared.ext);
+  if (!path) {
+    notify(t('notice.cover.failed'), 'error');
+    return;
+  }
+  book.meta.coverEdited = true;
+  book.meta.coverPath = path;
+  book.updatedAt = Date.now();
+  src.store.touch();
+  bumpOverlayRev();
+  repaint();
+  notify(t('notice.cover.saved'));
 }
 
 /**
@@ -1781,7 +1814,7 @@ export function dispatchAction(
               rerender();
             });
           if (it.act === 'done') i.onClick(() => toggleDone(id));
-          if (it.act === 'rename') i.onClick(() => overlay('rename', { bookId: id }));
+          if (it.act === 'editmeta') i.onClick(() => overlay('editmeta', { bookId: id }));
           /* 归入分类：点它开下一层菜单，位置沿用这次右键的坐标 */
           if (it.act === 'shelf')
             i.onClick(() =>
@@ -1815,26 +1848,72 @@ export function dispatchAction(
       }
       break;
     }
-    case 'rename':
-      if (d.id) overlay('rename', { bookId: d.id });
+    case 'editmeta':
+      if (d.id) overlay('editmeta', { bookId: d.id });
       break;
-    case 'renamesave': {
+    case 'metasave': {
       const book = liveBooks().find((b) => b.id === (d.id || ''));
-      const input = document.querySelector<HTMLInputElement>('[data-role="rename"]');
-      const next = (input?.value ?? '').trim();
       if (!book) break;
-      if (!next) {
-        notify(t('notice.rename.empty'), 'error');
+      const read = (role: string): string =>
+        document.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[data-role="${role}"]`)?.value ?? '';
+      const title = read('metatitle').trim();
+      if (!title) {
+        notify(t('notice.editmeta.empty'), 'error');
         break;
       }
-      book.meta.title = next;
-      /* 打过这个标记，打开书时引擎不再用文件里的书名覆盖（data/book-meta.ts） */
-      book.meta.titleEdited = true;
-      book.updatedAt = Date.now();
-      getShellSource()?.store.touch();
+      const changed = applyMetaEdit(book, {
+        title,
+        author: read('metaauthor'),
+        description: read('metadesc'),
+      });
+      if (changed) {
+        book.updatedAt = Date.now();
+        getShellSource()?.store.touch();
+      }
       closeOverlay();
       rerender();
-      notify(t('notice.rename.done'));
+      notify(changed ? t('notice.editmeta.saved') : t('notice.editmeta.unchanged'));
+      break;
+    }
+    case 'metarestore': {
+      /* 整本还原默认信息：书名回文件名、作者与简介清空，三个「已自定义」标记
+         一起清掉。不动封面（封面有自己的「还原原版封面」）。 */
+      const book = liveBooks().find((b) => b.id === (d.id || ''));
+      if (!book) break;
+      restoreMetaDefaults(book);
+      getShellSource()?.store.touch();
+      bumpOverlayRev();
+      rerender();
+      notify(t('notice.editmeta.restored'));
+      break;
+    }
+    case 'coverpick': {
+      /* 点常驻的文件输入；选完由弹层绑定好的 change 处理（见 overlay 的
+         bindCoverInput），桌面和手机都走系统自己的选图面板（手机是相册）。 */
+      const input = document.querySelector<HTMLInputElement>('[data-role="coverfile"]');
+      if (!input) break;
+      input.value = '';
+      input.click();
+      break;
+    }
+    case 'coverclear': {
+      /* 还原原版封面：删掉上传的图、清标记与路径，回到书里解出来的那张
+         （TXT 这类没有原封面的回到占位色块）。 */
+      const id = d.id || '';
+      if (!id) break;
+      void (async () => {
+        const src = getShellSource();
+        const book = liveBooks().find((b) => b.id === id);
+        if (!src || !book) return;
+        await removeCustomCover(src.app, book);
+        delete book.meta.coverEdited;
+        delete book.meta.coverPath;
+        book.updatedAt = Date.now();
+        src.store.touch();
+        bumpOverlayRev();
+        rerender();
+        notify(t('notice.cover.restored'));
+      })();
       break;
     }
     case 'removebook':

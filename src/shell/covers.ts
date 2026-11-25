@@ -40,11 +40,14 @@ export function hydrateCovers(app: App | null | undefined, books: ReaderBook[], 
       if (!url || !node.isConnected) return;
       /* 回填 meta.coverPath：数据文件不只给插件自己看（bz 书库也在读），
          没有这一条，外部只能看到一片色块。只在值真的变了时 touch，
-         免得每次开书架都写一次盘。 */
-      const path = coverPathOf(book.id);
-      if (path && book.meta.coverPath !== path) {
-        book.meta.coverPath = path;
-        getShellSource()?.store.touch();
+         免得每次开书架都写一次盘。用户上传替换的封面（coverEdited）不回填
+         ——那条路径是用户选的，不能被原书封面缓存盖掉。 */
+      if (book.meta.coverEdited !== true) {
+        const path = coverPathOf(book.id);
+        if (path && book.meta.coverPath !== path) {
+          book.meta.coverPath = path;
+          getShellSource()?.store.touch();
+        }
       }
       node.dataset.cover = '1';
       /* dataset.title 是浏览器**解码后**的原始书名（写入时虽然 esc 过，读回来

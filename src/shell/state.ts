@@ -100,6 +100,9 @@ export type OverlayKind =
   | 'quote' | 'idea' | 'hltools' | 'ai' | 'dict' | 'poster'
   | 'setgoal' | 'reset' | 'detail' | 'unlock' | 'movedir' | 'finish' | 'footnote'
   | 'rename' | 'removebook' | 'removebooks' | 'confirmdel' | 'notedrop' | 'missing' | 'ack' | 'ptclean'
+  /* 编辑书籍信息（2026-11-25）：书名 / 作者 / 简介 / 封面上传与还原。
+     取代原来只改书名的「改名」弹层。 */
+  | 'editmeta'
   /* 彻底删除（2026-11-18）：连书记录和所有数据一起删，输入书名确认防误触 */
   | 'purgebook'
   | 'rebuildidx'

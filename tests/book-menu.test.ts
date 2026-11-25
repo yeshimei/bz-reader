@@ -28,7 +28,7 @@ describe('bookMenuItems · 加入复习入口常显', () => {
 });
 
 describe('bookMenuItems · 条目与顺序', () => {
-  it('十条都在，顺序是 阅读 / 详情 / 加入复习 / 补全信息 / 导出 / 收藏 / 标为读完 / 改名 / 归入分类 / 移出书架', () => {
+  it('十条都在，顺序是 阅读 / 详情 / 加入复习 / 补全信息 / 导出 / 收藏 / 标为读完 / 编辑信息 / 归入分类 / 移出书架', () => {
     expect(bookMenuItems(plain).map((i) => i.title)).toEqual([
       '阅读',
       '书籍详情',
@@ -37,7 +37,7 @@ describe('bookMenuItems · 条目与顺序', () => {
       '导出这本书',
       '收藏',
       '标为读完',
-      '改名',
+      '编辑信息',
       '归入分类…',
       '移出书架',
     ]);
@@ -59,20 +59,20 @@ describe('bookMenuItems · 条目与顺序', () => {
 
   /* 归类是「整理书架」的动作，和改名同一组：它不该插到阅读/收藏这些
      高频项中间，也不该和「移出书架」混在一起（那道线是「要动书架」的分界）。 */
-  it('归入分类与改名同组，分隔线位置不变', () => {
+  it('归入分类与编辑信息同组，分隔线位置不变', () => {
     const seps = bookMenuItems(plain).filter((i) => i.sepBefore).map((i) => i.act);
-    expect(seps).toEqual(['rename', 'remove']);
+    expect(seps).toEqual(['editmeta', 'remove']);
   });
 
-  it('归入分类排在改名之后、移出书架之前', () => {
+  it('归入分类排在编辑信息之后、移出书架之前', () => {
     const acts = bookMenuItems(plain).map((i) => i.act);
-    expect(acts.indexOf('shelf')).toBe(acts.indexOf('rename') + 1);
+    expect(acts.indexOf('shelf')).toBe(acts.indexOf('editmeta') + 1);
     expect(acts.indexOf('shelf')).toBe(acts.indexOf('remove') - 1);
   });
 
-  it('改名与移出书架前各有一道分隔线', () => {
+  it('编辑信息与移出书架前各有一道分隔线', () => {
     const seps = bookMenuItems(plain).filter((i) => i.sepBefore);
-    expect(seps.map((i) => i.title)).toEqual(['改名', '移出书架']);
+    expect(seps.map((i) => i.title)).toEqual(['编辑信息', '移出书架']);
   });
 
   it('移出书架不是危险项：它只归档，数据全留、可复活', () => {

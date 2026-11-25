@@ -3052,3 +3052,49 @@ textarea.idea:focus {
 .bzs-vrow[hidden] {
   display: none;
 }
+
+/* ── 编辑书籍信息（2026-11-25） ───────────────────────────────
+   一处改书名 / 作者 / 简介，外加封面预览与「上传替换 / 还原原版」。 */
+.bzs-metagrp .bzs-setrow.is-stack > label {
+  margin-bottom: 6px;
+}
+
+.bzs-metabadge {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border: 1px solid color-mix(in srgb, var(--copper) 42%, transparent);
+  border-radius: 999px;
+  color: var(--copper);
+  font-size: 10.5px;
+  font-weight: 400;
+  vertical-align: 1px;
+}
+
+.bzs-metacover {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.bzs-modal .bzs-cov.is-metacover {
+  width: 88px;
+  height: 126px;
+  flex: 0 0 auto;
+}
+
+.bzs-metaacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bzs-metanote {
+  margin-top: 10px;
+  line-height: 1.9;
+}
+
+/* 常驻的选图输入：只由「上传替换封面」按钮触发，界面上不显示 */
+.bzs-fileinput {
+  display: none;
+}
+

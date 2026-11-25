@@ -242,11 +242,97 @@ export async function ensureCoverFromFoliate(
   }
 }
 
+/** 用户上传替换的封面在内存里的键（与 `id-size` 那套原书缓存分开） */
+function customKeyOf(book: ReaderBook): string {
+  return `custom:${book.id}`;
+}
+
+/** 文件扩展名 → MIME（自定义封面从这里读回来时用） */
+function mimeOfExt(ext: string): string {
+  switch (String(ext || '').toLowerCase()) {
+    case 'png':
+      return 'image/png';
+    case 'webp':
+      return 'image/webp';
+    case 'gif':
+      return 'image/gif';
+    case 'avif':
+      return 'image/avif';
+    case 'svg':
+      return 'image/svg+xml';
+    default:
+      return 'image/jpeg';
+  }
+}
+
+/**
+ * 用户上传替换封面（2026-11-25）：写进 `<数据目录>/covers/custom-<id>.<ext>`。
+ *
+ * 同一个 id 只留一张：换扩展名时先把旧的 custom-* 删掉，否则 `covers/` 会
+ * 越攒越多张「同一本书的历史封面」。返回落盘的 vault 相对路径，失败返回 null。
+ */
+export async function writeCustomCover(
+  app: App,
+  book: ReaderBook,
+  buf: ArrayBuffer,
+  ext: string,
+): Promise<string | null> {
+  const id = String(book.id ?? '').replace(/[^\w-]/g, '_').slice(0, 64) || 'book';
+  const dir = coversDir(app);
+  try {
+    if (!(await app.vault.adapter.exists(dir))) await app.vault.adapter.mkdir(dir);
+    await removeCustomCover(app, book);
+    const path = `${dir}/custom-${id}.${String(ext || 'jpg').replace(/[^a-z0-9]/gi, '')}`;
+    await app.vault.adapter.writeBinary(path, buf);
+    MEM.set(customKeyOf(book), blobUrl(buf, mimeOfExt(ext)));
+    return path;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 删掉这本书上传过的封面文件，并清掉内存里那张图。
+ *
+ * 不碰 `meta`：清不解标记由调用方（还原按钮）决定，这里只负责文件。
+ * 删不掉也不报错——meta 里的标记清了，下次就不会再读这个文件。
+ */
+export async function removeCustomCover(app: App, book: ReaderBook): Promise<void> {
+  const id = String(book.id ?? '').replace(/[^\w-]/g, '_').slice(0, 64) || 'book';
+  MEM.delete(customKeyOf(book));
+  const dir = coversDir(app);
+  try {
+    if (!(await app.vault.adapter.exists(dir))) return;
+    const listing = await app.vault.adapter.list(dir);
+    for (const file of listing.files) {
+      const name = file.split('/').pop() ?? '';
+      if (name.startsWith(`custom-${id}.`)) await app.vault.adapter.remove(file).catch(() => undefined);
+    }
+  } catch {
+    /* 列目录/删文件失败只影响磁盘残留，不影响功能 */
+  }
+}
+
 /**
  * 取封面 URL（objectURL）。拿不到就返回 null，调用方继续用哈希色块兜底——
  * 封面是锦上添花，不能因为一本破书让整面书架停下来。
  */
 export async function coverUrl(app: App, book: ReaderBook): Promise<string | null> {
+  /* 用户上传替换的封面优先（2026-11-25）：TXT 也能有自定义封面，
+     所以这条必须排在「txt 直接返回 null」之前。 */
+  if (book.meta.coverEdited === true && book.meta.coverPath) {
+    const key = customKeyOf(book);
+    const cached = MEM.get(key);
+    if (cached) return cached;
+    try {
+      const buf = await app.vault.adapter.readBinary(book.meta.coverPath);
+      const url = blobUrl(buf, mimeOfExt(book.meta.coverPath.split('.').pop() ?? ''));
+      MEM.set(key, url);
+      return url;
+    } catch {
+      return null;
+    }
+  }
   if (book.fileRef.format === 'txt') return null;
   const cached = MEM.get(keyOf(book));
   if (cached) return cached;

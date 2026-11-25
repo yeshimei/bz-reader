@@ -27,6 +27,7 @@ export type BookMenuAction =
   | 'fav'
   | 'done'
   | 'rename'
+  | 'editmeta'
   | 'shelf'
   | 'relocate'
   | 'restore'
@@ -88,7 +89,7 @@ export function bookMenuItems(input: BookMenuInput): BookMenuItem[] {
     /* 两个方向用两枚图标：check 是「完成」，refresh 是「回到未读完」。
        共用一枚 check 的话，「标为在读」看起来像又要把它标成读完。 */
     { act: 'done', title: input.done ? '标为在读' : '标为读完', icon: input.done ? 'refresh' : 'check' },
-    { act: 'rename', title: '改名', icon: 'pencil', sepBefore: true },
+    { act: 'editmeta', title: '编辑信息', icon: 'pencil', sepBefore: true },
     /* 归类与改名同属「整理这本书」：都改的是书怎么摆，不碰它的内容。
        放进同一组、不另起分隔线——分隔线留给「要动书架本身」的动作。 */
     { act: 'shelf', title: '归入分类…', icon: 'folder' },

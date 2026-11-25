@@ -66,6 +66,14 @@ export class CoverMemory {
     for (const url of this.urls.values()) this.revoke(url);
     this.urls.clear();
   }
+
+  /** 单条丢弃（还原原版封面时清掉自定义那张，别让内存里还留着旧图） */
+  delete(id: string): void {
+    const url = this.urls.get(id);
+    if (url === undefined) return;
+    this.urls.delete(id);
+    this.revoke(url);
+  }
 }
 
 export interface CoverFailureMark {
