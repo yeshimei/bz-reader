@@ -58,7 +58,7 @@ import {
   setStateQuiet,
   setIdeaDraft,
 } from './state';
-import { getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
+import { allBooks, getShellSource, liveBooks, shellPrefs, shellSettings } from './source';
 import { aiReady } from '../data/settings';
 import { renderAiMarkdown } from './ai-md';
 import { bzEmbedder, bzEntryReady } from '../data/bz-bridge';
@@ -163,8 +163,15 @@ function bindCoverInput(root: ParentNode): void {
   });
 }
 
+/**
+ * 弹层里按 id 找书：**含归档记录**。
+ *
+ * 归档书的右键菜单有「书籍详情 / 导出这本书 / 彻底删除」，三条都从这里
+ * 查书。以前只在 liveBooks 里找，归档书一打开弹层就是「这本书已不在书库」，
+ * 删除那步更是连输入书名的框都出不来。
+ */
 function bookById(id?: string | null): ReaderBook | undefined {
-  const books = liveBooks();
+  const books = allBooks();
   return id ? books.find((b) => b.id === id) : undefined;
 }
 

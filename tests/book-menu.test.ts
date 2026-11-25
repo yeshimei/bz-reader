@@ -115,6 +115,30 @@ describe('bookMenuItems · 状态互换', () => {
   });
 });
 
+describe('bookMenuItems · 归档书', () => {
+  /* 2026-11-25：归档书的删除项直接进「彻底删除」确认框。
+     以前这项叫「移除记录」，点开弹的却是「移出书架」——对一本已经在归档里
+     的书是一层空转页；而且那个弹层只在在架书里找记录，打开就显示
+     「这本书已不在书库」，彻底删除根本走不到。 */
+  it('删除项是「彻底删除…」，直接对这本书发起彻底删除', () => {
+    const item = bookMenuItems({ ...plain, archived: true }).find((i) => i.act === 'purge');
+    expect(item?.title).toBe('彻底删除…');
+    expect(item?.danger).toBe(true);
+    expect(item?.sepBefore).toBe(true);
+  });
+
+  it('归档书菜单不再摆「移出书架 / 移除记录」那一项', () => {
+    const acts = bookMenuItems({ ...plain, archived: true }).map((i) => i.act);
+    expect(acts).not.toContain('remove');
+  });
+
+  it('恢复到书架仍在第一位：删除是最后手段', () => {
+    const acts = bookMenuItems({ ...plain, archived: true }).map((i) => i.act);
+    expect(acts[0]).toBe('restore');
+    expect(acts[acts.length - 1]).toBe('purge');
+  });
+});
+
 describe('bookMenuItems · 文件丢失', () => {
   it('「阅读」禁用但仍在菜单里', () => {
     const list = bookMenuItems({ ...plain, missing: true });

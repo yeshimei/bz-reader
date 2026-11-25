@@ -1671,7 +1671,6 @@ export const ZH_TW: Record<MsgKey, string> = {
   'ai.think.high': '高',
   'ai.think.max': '最高',
   'shelf.archived.restore': '恢復到書架',
-  'shelf.archived.purge': '移除記錄',
   'settings.plugin.review.enabled': '已啟用',
   'settings.plugin.review.disabled': '已安裝 · 未啟用',
   'settings.plugin.review.disabledHint': '已經裝好了，只是還沒啟用。點「啟用」就能用。',

@@ -1674,7 +1674,6 @@ export const JA: Record<MsgKey, string> = {
   'ai.think.high': '高',
   'ai.think.max': '最高',
   'shelf.archived.restore': '本棚に戻す',
-  'shelf.archived.purge': '記録を削除',
   'settings.plugin.review.enabled': '有効',
   'settings.plugin.review.disabled': 'インストール済み · 無効',
   'settings.plugin.review.disabledHint': 'インストールは済んでいますが、まだ有効になっていません。「有効化」を押してください。',

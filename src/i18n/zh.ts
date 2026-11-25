@@ -760,7 +760,6 @@ export const ZH = {
   'shelf.filter.fav': '收藏',
   'shelf.filter.archived': '已归档',
   'shelf.archived.restore': '恢复到书架',
-  'shelf.archived.purge': '移除记录',
   'shelf.sort.recent': '最近阅读',
   'shelf.sort.title': '书名',
   'shelf.sort.progress': '进度',

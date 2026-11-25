@@ -1429,7 +1429,8 @@ function exportMarkdown(bookId?: string): string {
  * 不弹预览、不复制剪贴板——一次点击就是落一份笔记。
  */
 function exportBookFile(bookId: string): void {
-  const book = liveBooks().find((b) => b.id === bookId);
+  /* 归档书的右键菜单也有「导出这本书」：摘录存在本机，归档不影响导出 */
+  const book = bookById(bookId);
   if (!book) {
     notify(t('notice.export.needBook'));
     return;
@@ -1840,6 +1841,8 @@ export function dispatchAction(
               openShelfMenu([id], { x: Number(d.x) || 0, y: Number(d.y) || 0 }),
             );
           if (it.act === 'remove') i.onClick(() => overlay('removebook', { bookId: id }));
+          /* 归档书走这一条：跳过「移出书架」，直接进彻底删除确认框 */
+          if (it.act === 'purge') i.onClick(() => overlay('purgebook', { bookId: id }));
           /* 归档书恢复回书架：数据全在，清掉归档标记即可，进度划线原样接回 */
           if (it.act === 'restore')
             i.onClick(() => {
@@ -1943,10 +1946,12 @@ export function dispatchAction(
       break;
     case 'purgedel': {
       /* 彻底删除（2026-11-18）：连记录带数据一起删，输入书名确认防误触。
-         不碰书籍源文件、不碰已导出的书摘笔记；笔记里的双链会因此断掉。 */
+         不碰书籍源文件、不碰已导出的书摘笔记；笔记里的双链会因此断掉。
+         2026-11-25：查找范围扩到含归档记录——归档书的菜单入口就是这一条，
+         只在 liveBooks 里找会让确认后静默不删。 */
       const id = d.id || '';
       const src = getShellSource();
-      const book = liveBooks().find((b) => b.id === id);
+      const book = bookById(id);
       if (!src || !book) break;
       /* 输入框只在确认弹层里找：全库同名 input 不止一个（改名、搜索都用
          data-role），document 上取会抓到别人家的框。 */

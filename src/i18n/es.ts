@@ -1681,7 +1681,6 @@ export const ES: Record<MsgKey, string> = {
   'ai.think.high': 'Alto',
   'ai.think.max': 'Máximo',
   'shelf.archived.restore': 'Volver a la estantería',
-  'shelf.archived.purge': 'Eliminar el registro',
   'settings.plugin.review.enabled': 'Activado',
   'settings.plugin.review.disabled': 'Instalado · no activado',
   'settings.plugin.review.disabledHint': 'Ya está instalado, solo falta activarlo. Pulsa «Activar».',

@@ -41,6 +41,24 @@ function installSource(opts: {
   } as unknown as ShellSource);
 }
 
+describe('彻底删除 · 归档书（fix/archive-purge）', () => {
+  /* 归档书不在书架列表里，但它的详情 / 导出 / 彻底删除都从归档视图发起。
+     弹层查书必须能看到归档记录，否则一打开就是「这本书已不在书库」。 */
+  it('归档书能打开彻底删除弹层，不显示「这本书已不在书库」', async () => {
+    const { overlayHtml } = await import('../src/shell/overlay');
+    const archived = testBook('a', '旧版推理');
+    archived.archivedAt = Date.now();
+    installSource({ books: [archived] });
+    setState({ ...DEFAULT_SHELL_STATE, overlay: { kind: 'purgebook', bookId: 'a' } });
+
+    const html = overlayHtml();
+
+    expect(html).toContain('永久删除');
+    expect(html).toContain('旧版推理');
+    expect(html).not.toContain('这本书已不在书库');
+  });
+});
+
 describe('正文命中跳转（fix/search-body）', () => {
   it('按 data-book 找到那本书并带 cfi 打开，不再只认当前书', () => {
     const opened: Array<[string, string | undefined]> = [];

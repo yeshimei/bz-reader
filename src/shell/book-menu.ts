@@ -31,7 +31,8 @@ export type BookMenuAction =
   | 'shelf'
   | 'relocate'
   | 'restore'
-  | 'remove';
+  | 'remove'
+  | 'purge';
 
 export interface BookMenuItem {
   act: BookMenuAction;
@@ -59,13 +60,17 @@ export interface BookMenuInput {
 
 export function bookMenuItems(input: BookMenuInput): BookMenuItem[] {
   /* 归档书不在书架上，菜单只留「怎么把它弄回来 / 看它是什么 / 导出」。
-     阅读状态、收藏、归类都还在数据里，恢复回书架后一切照旧。 */
+     阅读状态、收藏、归类都还在数据里，恢复回书架后一切照旧。
+
+     删除项直接开「彻底删除」确认框（2026-11-25）：归档书本来就不在书架上，
+     再弹一次「移出书架」是空转；用户对归档记录说「移除」时想要的也是
+     清掉这条记录，而不是再归档一次。 */
   if (input.archived) {
     return [
       { act: 'restore', title: t('shelf.archived.restore'), icon: 'rotate-ccw' },
       { act: 'detail', title: '书籍详情', icon: 'info' },
       { act: 'export', title: '导出这本书', icon: 'download' },
-      { act: 'remove', title: t('shelf.archived.purge'), icon: 'trash', sepBefore: true, danger: true },
+      { act: 'purge', title: t('shelf.remove.purge'), icon: 'trash', sepBefore: true, danger: true },
     ];
   }
   return [
