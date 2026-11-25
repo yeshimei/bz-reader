@@ -3530,6 +3530,13 @@
   border-top: 0;
   background: none;
 }
+/* 移动端整页：Obsidian 的底部导航栏是浮在内容上的（约 52px），
+   `padding: 0` 会让「加入书架」正好躲在它后面——按钮看得见却点不到。
+   这里让出导航栏 + 安全区，再留 8px 呼吸。优先级 0,3,1，压得住上面那条。 */
+.bzr-imp.is-page.is-mobile .bzr-imp-f {
+  padding: 12px 18px
+    calc(var(--mobile-navbar-height, 52px) + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)) + 8px);
+}
 
 .bzr-imp.is-page .bzr-imp-filter {
   height: 34px;
