@@ -921,6 +921,75 @@
   flex: none;
 }
 
+/* 「已在书架」折叠条：已加入的书不进主列表，收在列表下方，默认收起。
+   收起时只有一行，展开后自己滚动（限高，不把主列表挤没）。 */
+.bzr-imp-shelf {
+  flex: none;
+  border: 1px solid var(--bzr-border);
+  border-radius: var(--r-ctl);
+  background: var(--bzr-surface-1);
+  overflow: hidden;
+}
+.bzr-imp-shelfhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 13px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--bzr-text-2);
+  text-align: left;
+  cursor: pointer;
+}
+.bzr-imp-shelfhead:hover {
+  background: var(--bzr-surface-hover);
+}
+.bzr-imp-shelfchev {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--bzr-text-3);
+  transition: transform var(--bzr-dur-fast) var(--bzr-ease-out);
+}
+.bzr-imp-shelfchev .svg-icon {
+  width: 12px;
+  height: 12px;
+}
+.bzr-imp-shelf.is-open .bzr-imp-shelfchev {
+  transform: rotate(90deg);
+}
+.bzr-imp-shelfcount {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--bzr-text-3);
+  font-variant-numeric: tabular-nums;
+}
+.bzr-imp-shelfbody {
+  max-height: 176px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid var(--bzr-border);
+  scrollbar-width: none;
+}
+.bzr-imp-shelfbody::-webkit-scrollbar {
+  width: 0;
+}
+.bzr-imp-shelfbody .bzr-imp-row {
+  cursor: default;
+}
+.bzr-imp-shelfbody .bzr-imp-row:hover {
+  background: transparent;
+}
+.bzr-imp-shelfbody .bzr-imp-t .n {
+  color: var(--bzr-text-2);
+}
+
 /* 移动端导入：单列表 + 贴底按钮，少一层切换 */
 .bzr-overlay-popup.bzr-import-popup.is-mobile {
   width: 100vw;
@@ -1002,6 +1071,17 @@
   height: 40px;
   border-radius: var(--r-card);
   font-size: 15px;
+}
+/* 折叠条在触屏上按手指尺寸放：头部抬到 ~40px，展开体收窄一档免得挤掉主列表 */
+.bzr-imp.is-mobile .bzr-imp-shelf {
+  border-radius: var(--r-card);
+}
+.bzr-imp.is-mobile .bzr-imp-shelfhead {
+  padding: 11px 12px;
+  font-size: 13.5px;
+}
+.bzr-imp.is-mobile .bzr-imp-shelfbody {
+  max-height: 144px;
 }
 
 /* ═══════════ 窄窗口兜底：桌面被压到 760 以下时，书架掉成四列 ═══════════ */

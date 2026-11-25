@@ -12,12 +12,16 @@
  * 页面体由 shelf-page 给出一个空容器，这里往里挂；离开页面时调用
  * 返回的 teardown，不留下监听和 DOM。
  *
+ * 列表分两段（2026-11-25）：主列表只放**还没加入书架**的书，已经在架上的
+ * 收进下方「已在书架」折叠条，默认收起——它们以前和待加入的书混在一起，
+ * 一屏十本待加入的被架上的书顶到中间去。主列表也改成默认一台不勾。
+ *
  * 勾选框是自绘的方框（.bzr-cb），真 input 压成 0×0 留在 label 里——
  * 原生 checkbox 一上一下两套外观，和这套界面放一起就是「另一个软件的控件」。
  * ============================================================ */
-import { Platform, type App } from 'obsidian';
+import { Platform, setIcon, type App } from 'obsidian';
 import type { BookFormat, ReaderBook } from '../data/schema';
-import { BOOK_FORMATS_LABEL, formatOf, scanVault, titleFromPath } from '../data/book-repo';
+import { BOOK_FORMATS_LABEL, formatOf, scanVault } from '../data/book-repo';
 import type { BookRepo } from '../data/book-repo';
 import { importFolderOf, pickAndImport } from '../data/importer';
 import { backfillFingerprints, fillBookMetas, readFingerprint } from '../data/book-scan';
@@ -26,6 +30,16 @@ import type { ReaderStore } from '../data/store';
 import { notify } from '../core/notice';
 import { t } from '../i18n';
 import { clear, el } from './dom';
+import {
+  buildRows,
+  checkedFresh,
+  everyFreshChecked,
+  shelfCountLabel,
+  shelfMatches,
+  splitRows,
+  type ImportRow,
+  type ImportSections,
+} from './import-rows';
 
 export interface ImportDeps {
   app: App;
@@ -38,22 +52,14 @@ export interface ImportDeps {
   onExit?: () => void;
 }
 
-interface Row {
-  path: string;
-  format: BookFormat;
-  size: number;
-  title: string;
-  inShelf: boolean;
-  checked: boolean;
-  node?: HTMLElement;
-  box?: HTMLElement;
-}
-
 function sizeLabel(bytes: number): string {
   if (!bytes) return '';
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
+
+/** 主列表与折叠区共用一句「没匹配」，提成常量：同一句话别写两遍 */
+const NO_MATCH = '没有匹配项';
 
 /**
  * 把导入页挂进 `host`，返回拆卸函数。
@@ -80,6 +86,12 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
 
   const hint = el('div', 'bzr-imp-hint', '');
   const listWrap = el('div', 'bzr-imp-list');
+  /**
+   * 已在书架的书：列表下方的折叠条，默认收起。
+   * 以前它们留在主列表里、每行一个「已在书架」徽标，一屏能看到十本，
+   * 真正要加的书被挤到中间去；收起来以后主列表只剩待加入的书。
+   */
+  const shelfBox = el('div', 'bzr-imp-shelf');
 
   const grabBtn = el('button', 'bzr-btn', '选择本地文件…');
   grabBtn.type = 'button';
@@ -97,6 +109,7 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
     tools,
     hint,
     listWrap,
+    shelfBox,
     el('div', 'bzr-imp-sec', '从本地文件导入'),
     grab,
   );
@@ -104,7 +117,9 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
   host.appendChild(root);
 
   let keyword = '';
-  let rows: Row[] = [];
+  let rows: ImportRow[] = [];
+  /** 折叠条是展开还是收起：筛选命中已加入的书时会被自动拉开一次 */
+  let shelfOpen = false;
   /** 解析书目/写盘期间锁住入口：重复点会把同一本书 ensure 两遍、并发解 zip */
   let busy = false;
 
@@ -150,35 +165,20 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
 
   function load(): void {
     const found = scanVault(app, formats);
-    rows = found.map((f) => {
-      const rec = repo.byPath(f.path);
-      /* 归档书虽然文件还在，但对书架来说等于没加入：显示成可勾选，
-         勾了会走复活（进度划线接上），不该显示「已在书架」 */
-      const onShelf = !!rec && !rec.archivedAt;
-      return {
-        path: f.path,
-        format: f.format,
-        size: f.size,
-        title: titleFromPath(f.path),
-        inShelf: onShelf,
-        checked: !onShelf,
-      };
+    rows = buildRows(found, (path) => {
+      const rec = repo.byPath(path);
+      /* 归档书虽然文件还在，但对书架来说等于没加入：留在主列表里可勾选，
+         勾了会走复活（进度划线接上），不该进「已在书架」折叠区 */
+      return !!rec && !rec.archivedAt;
     });
   }
 
-  function visible(): Row[] {
-    if (!keyword) return rows;
-    const k = keyword.toLowerCase();
-    return rows.filter((r) => r.title.toLowerCase().includes(k) || r.path.toLowerCase().includes(k));
-  }
-
-  function buildRow(row: Row): HTMLElement {
-    const item = el('label', 'bzr-imp-row' + (row.inShelf ? ' is-in' : ''));
-    const box = el('span', 'bzr-cb' + (row.inShelf ? ' is-dis' : row.checked ? ' is-on' : ''));
+  function buildRow(row: ImportRow): HTMLElement {
+    const item = el('label', 'bzr-imp-row');
+    const box = el('span', 'bzr-cb' + (row.checked ? ' is-on' : ''));
     const native = el('input', 'bzr-cb-native');
     native.type = 'checkbox';
     native.checked = row.checked;
-    native.disabled = row.inShelf;
     native.tabIndex = -1;
     native.addEventListener('change', () => {
       row.checked = native.checked;
@@ -187,55 +187,101 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
     });
 
     const text = el('span', 'bzr-imp-t');
-    const name = el('span', 'n', row.title);
-    if (row.inShelf) name.appendChild(el('span', 'bzr-badge', '已在书架'));
-    text.append(name, el('span', 'p', row.path));
+    text.append(el('span', 'n', row.title), el('span', 'p', row.path));
 
     item.append(box, native, text, el('span', 'bzr-imp-m', sizeLabel(row.size)));
-    row.node = item;
-    row.box = box;
     return item;
   }
 
+  /** 折叠区里的行：只用来查，不带勾选框，也没有「已在书架」徽标（组标题已经说了） */
+  function buildShelfRow(row: ImportRow): HTMLElement {
+    const item = el('div', 'bzr-imp-row is-in');
+    const text = el('span', 'bzr-imp-t');
+    text.append(el('span', 'n', row.title), el('span', 'p', row.path));
+    item.append(text, el('span', 'bzr-imp-m', sizeLabel(row.size)));
+    return item;
+  }
+
+  function renderShelf(sec: ImportSections): void {
+    clear(shelfBox);
+    if (!sec.shelfTotal) {
+      shelfBox.style.display = 'none';
+      shelfOpen = false;
+      return;
+    }
+    shelfBox.style.display = '';
+    shelfBox.classList.toggle('is-open', shelfOpen);
+
+    const head = el('button', 'bzr-imp-shelfhead');
+    head.type = 'button';
+    /* chevron 只是「这儿能展开」的记号，名字旁边的文字已经说了；
+       挂 aria-hidden，不挂 aria-label —— 后者会变成悬停气泡 */
+    const chev = el('span', 'bzr-imp-shelfchev');
+    chev.setAttribute('aria-hidden', 'true');
+    setIcon(chev, 'chevron-right');
+    head.append(
+      chev,
+      el('span', undefined, '已在书架'),
+      el('span', 'bzr-imp-shelfcount', shelfCountLabel(sec, keyword)),
+    );
+    head.addEventListener('click', () => {
+      shelfOpen = !shelfOpen;
+      render();
+    });
+    shelfBox.appendChild(head);
+
+    if (!shelfOpen) return;
+    const body = el('div', 'bzr-imp-shelfbody');
+    if (!sec.onShelf.length) body.appendChild(el('div', 'bzr-imp-empty', NO_MATCH));
+    else for (const row of sec.onShelf) body.appendChild(buildShelfRow(row));
+    shelfBox.appendChild(body);
+  }
+
   function render(): void {
-    const vis = visible();
-    const fresh = rows.filter((r) => !r.inShelf).length;
+    const sec = splitRows(rows, keyword);
     hint.textContent = rows.length
-      ? `共 ${rows.length} 本，其中 ${fresh} 本还没加入书架。文件留在原地，不会复制。`
+      ? `共 ${rows.length} 本，其中 ${sec.freshTotal} 本还没加入书架。文件留在原地，不会复制。`
       : `笔记库里没有找到 ${BOOK_FORMATS_LABEL(formats)} 文件。可以从下面选本地文件。`;
-    selectAll.style.display = fresh ? '' : 'none';
+    selectAll.style.display = sec.freshTotal ? '' : 'none';
 
     clear(listWrap);
-    if (!vis.length) {
-      listWrap.appendChild(el('div', 'bzr-imp-empty', rows.length ? '没有匹配项' : '库里的书都已经在书架上了'));
+    if (!sec.fresh.length) {
+      listWrap.appendChild(
+        el('div', 'bzr-imp-empty', keyword ? NO_MATCH : '库里的书都已经在书架上了'),
+      );
     } else {
-      for (const row of vis) listWrap.appendChild(buildRow(row));
+      for (const row of sec.fresh) listWrap.appendChild(buildRow(row));
     }
+    renderShelf(sec);
     syncConfirm();
   }
 
   function syncConfirm(): void {
-    const n = visible().filter((r) => r.checked && !r.inShelf).length;
+    const n = checkedFresh(rows, keyword).length;
     confirmBtn.disabled = n === 0;
     confirmBtn.textContent = n ? `加入书架（${n}）` : '加入书架';
   }
 
   filterInput.addEventListener('input', () => {
+    const wasEmpty = !keyword;
     keyword = filterInput.value.trim();
+    /* 一开筛就命中已加入的书：把折叠区拉开一次。不拉的话用户看着
+       「没有匹配项」会以为书丢了；之后收不收由用户自己点。 */
+    if (wasEmpty && keyword && shelfMatches(rows, keyword)) shelfOpen = true;
     render();
   });
 
   selectAll.addEventListener('click', () => {
     /* 只对屏幕上看得见的行生效：以前遍历全部 rows，筛出 3 本却把 42 本一起选了 */
-    const vis = visible().filter((r) => !r.inShelf);
-    const target = !vis.every((r) => r.checked);
+    const vis = splitRows(rows, keyword).fresh;
+    const target = !everyFreshChecked(rows, keyword);
     for (const r of vis) r.checked = target;
     render();
   });
 
   confirmBtn.addEventListener('click', () => {
     /* 同理：加入的只能是用户眼前勾中的那些 */
-    const picked = visible().filter((r) => r.checked && !r.inShelf);
+    const picked = checkedFresh(rows, keyword);
     if (!picked.length || busy) return;
     busy = true;
     confirmBtn.disabled = true;
