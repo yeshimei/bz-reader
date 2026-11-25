@@ -226,7 +226,9 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
     );
     head.addEventListener('click', () => {
       shelfOpen = !shelfOpen;
-      render();
+      /* 只重画折叠条本身：走整页 render() 会把主列表重建一遍，
+         用户滚在列表中间点开「已在书架」，滚动位置会跳回顶部 */
+      renderShelf(splitRows(rows, keyword));
     });
     shelfBox.appendChild(head);
 

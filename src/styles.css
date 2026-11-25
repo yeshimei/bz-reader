@@ -971,7 +971,9 @@
   font-variant-numeric: tabular-nums;
 }
 .bzr-imp-shelfbody {
-  max-height: 176px;
+  /* 窗口压矮时跟着收：写死 176 会在小窗口里把下方「从本地文件导入」
+     挤出可视区——bodyBox 是 overflow hidden，裁掉就再也滚不出来 */
+  max-height: min(176px, 32vh);
   overflow-y: auto;
   overscroll-behavior: contain;
   border-top: 1px solid var(--bzr-border);
@@ -1081,7 +1083,7 @@
   font-size: 13.5px;
 }
 .bzr-imp.is-mobile .bzr-imp-shelfbody {
-  max-height: 144px;
+  max-height: min(144px, 28vh);
 }
 
 /* ═══════════ 窄窗口兜底：桌面被压到 760 以下时，书架掉成四列 ═══════════ */
