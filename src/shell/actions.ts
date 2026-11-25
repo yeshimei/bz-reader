@@ -53,6 +53,8 @@ import { REVIEW_PLUGIN_ID, findReviewApi, markCardKey, reviewEmbedReady } from '
 import { enableInstalledPlugin } from '../data/plugin-enable';
 import { markReviewPlanned } from './review-marks';
 import { openPluginMarket, watchPluginAppear } from '../core/plugin-market';
+import { openExternalUrl } from '../core/links';
+import { dismissUpdateBanner } from './update-banner';
 import { notify } from '../core/notice';
 import { synthesizeFor, ttsEngineReady, ttsVoiceFor, type TtsRoute } from '../core/tts-engine';
 import { ttsDeployPrompt } from '../core/tts-deploy-prompt';
@@ -3971,6 +3973,26 @@ export function dispatchAction(
       const page = el.closest('.bzs-set-page');
       const target = page?.querySelector<HTMLElement>(`#bz-set-${el.dataset.k || ''}`);
       target?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      break;
+    }
+    /* ── 更新提示条的三颗按钮（2026-11-26）──
+       与设置页「bz review」卡走同一个出口：市场负责装，GitHub 是搜不到时的
+       备胎，忽略只记本地状态。这里没有第四种「自动更新」——插件不碰自己的
+       文件（移动端 / 受管环境 / 社区市场里都是雷）。 */
+    case 'updstore': {
+      const src = getShellSource();
+      if (!src?.app) break;
+      /* 搜索词用清单里的显示名（bz Reader）：市场按名字搜，按 id 搜不到 */
+      openPluginMarket(src.app, 'bz Reader');
+      break;
+    }
+    case 'updgithub': {
+      openExternalUrl(`${REPO_URL}/releases/latest`);
+      break;
+    }
+    case 'updignore': {
+      dismissUpdateBanner();
+      rerender();
       break;
     }
     case 'reviewmarket': {

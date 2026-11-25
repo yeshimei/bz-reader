@@ -1851,4 +1851,5 @@ export const ES: Record<MsgKey, string> = {
   'filemenu.confirmOne': '[TODO] filemenu.confirmOne',
   'filemenu.confirmMany': '[TODO] filemenu.confirmMany {n}',
   'filemenu.confirmDo': '[TODO] filemenu.confirmDo',
+  'update.banner': '[TODO] update.banner {latest}',
 };

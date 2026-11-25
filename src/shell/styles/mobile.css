@@ -1607,3 +1607,28 @@
 .bzs-shell.is-mobile .bzs-srch-open {
   min-height: 30px;
 }
+
+/* ── 更新提示条（2026-11-26）──
+   细条里的按钮不跟 S-03 的 44px 档走：一颗按钮把整条撑到 60px，
+   首屏就少一本书。34px 够点，条子还是一条。
+   这段必须在 mobile.css（构建顺序最后），否则会被上面 .bzs-btn.sm 的
+   min-height: 44px 盖掉。 */
+@media (max-width: 820px) {
+  .bzs-shell .bzs-updbar {
+    padding: 7px 16px;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+
+  /* 390px 宽放不下「文字 + 三颗按钮」一行：按钮整行铺到第二行，
+     正好三颗并排，不压书封。 */
+  .bzs-shell .bzs-updbar-acts {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .bzs-shell .bzs-updbar .bzs-btn {
+    height: 34px;
+    min-height: 34px;
+  }
+}

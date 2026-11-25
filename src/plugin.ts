@@ -92,8 +92,7 @@ import { portraitBuilder } from './data/portrait-build';
 import { hrefCandidates, interceptableClick, wrapOpenLinkText } from './shell/link-postprocessor';
 import { CHANGELOG_RELEASES, pickReleaseFor, planChangelog, releaseEntryCount } from './shell/changelog';
 import { openChangelogNote } from './shell/changelog-note';
-import { openUpdateNote } from './shell/update-note';
-import { ensureLatestVersion, hasUpdate, readUpdateState, shouldNotify, writeUpdateState } from './data/plugin-update';
+import { ensureLatestVersion } from './data/plugin-update';
 
 export interface PluginConfig {
   /** 高级版构建为 true。基础版为 false，且高级模块根本不在包里。 */
@@ -1484,21 +1483,22 @@ export function createPlugin(cfg: PluginConfig) {
     }
 
     /**
-     * 检查线上有没有新版本（2026-11-22）。
+     * 检查线上有没有新版本（2026-11-22；2026-11-26 改成提示条）。
      *
-     * 三条口径：默认自动查（没有开关）、24 小时最多一次、每个新版本只弹一次。
+     * 三条口径：默认自动查（没有开关）、24 小时最多一次、每个新版本只提示一次。
      * 失败静默：离线 / 被墙 / 清单坏了，一个字都不说，下次启动再试。
      *
-     * 延迟 4 秒再查：不跟首帧、更新日志、停用名单抢网络和注意力。查到更新
-     * 日志弹窗正开着就**让路**——两层弹窗叠在一起，用户只会觉得关不掉；
-     * 此时不写 notified，下次启动再弹。
+     * 延迟 4 秒再查：不跟首帧、更新日志、停用名单抢网络和注意力。
+     *
+     * 这里**不弹任何东西**：拿到版本、同步给授权判定、重绘一次就结束。
+     * 书架渲染时按本地状态自己决定要不要画提示条（shell/update-banner），
+     * 用户正在读书时不会被打断；回到书架才看见。
      */
     private async checkUpdateInBackground(): Promise<void> {
-      const state = readUpdateState();
       /* 不再看 24 小时节流：`ensureLatestVersion` 自己会决定要不要请求，
-         拿到版本后由 `notified` 保证「每个新版本只弹一次」。这里若再加一道
-         `shouldCheck`，试用码用户启动时那次 refresh 刚写热缓存，更新提醒会
-         被误判成「刚查过」而永远不弹。 */
+         拿到版本后由 `notified` 保证「每个新版本只提示一次」。这里若再加一道
+         `shouldCheck`，试用码用户启动时那次 refresh 刚写热缓存，更新提示会
+         被误判成「刚查过」而永远不出现。 */
       await new Promise<void>((done) => window.setTimeout(done, 4_000));
       if (this.closed) return;
       /* 与试用码判定共用同一次请求（24 小时内复用缓存） */
@@ -1507,20 +1507,9 @@ export function createPlugin(cfg: PluginConfig) {
       /* 启动早期网络未必就绪，revalidateLicense 那次可能没拿到；这里拿到后
          同步给授权判定，并重绘一次让「需要联网」的试用状态及时恢复。 */
       setLatestVersion(latest);
-      /* 试用码的状态行可能从「需要联网」变成「已激活」：重绘一次，
-         用户不用关掉设置页再打开。 */
+      /* 试用码的状态行可能从「需要联网」变成「已激活」，书架也可能要长出
+         更新提示条：重绘一次，用户不用关掉页面再打开。 */
       notifyShell();
-      const current = String(this.manifest?.version || '');
-      const checkedAt = Date.now();
-      if (!hasUpdate(current, latest)) {
-        writeUpdateState({ checkedAt, notified: state.notified, latest });
-        return;
-      }
-      if (!shouldNotify(state, latest)) return;
-      if (document.querySelector('.bzs-chgn-mask')) return;
-      /* 先记账再弹：弹窗期间崩溃也不会下次启动再骚扰一遍 */
-      writeUpdateState({ checkedAt, notified: latest, latest });
-      openUpdateNote(current, latest);
     }
 
     /**

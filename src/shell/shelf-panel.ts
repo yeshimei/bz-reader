@@ -21,6 +21,7 @@ import { RT } from './runtime';
 import { kickBodySearch } from './search-run';
 import { noteSemanticInput } from './search-semantic';
 import { buildShelfPage, reviewTabVisible, shelfRenderKey } from './shelf-page';
+import { liveUpdateBanner, updateBannerHtml } from './update-banner';
 import { findReviewApi } from '../data/review-bridge';
 import { hydrateCovers } from './covers';
 import { hydrateIcons } from './toolbar-icons';
@@ -193,8 +194,13 @@ export class ShelfPanel {
     this.compact = compact;
 
     /* 内容指纹一样就不重画（D4）：状态每写一次都广播，浮层开关、侧栏页签、
-       阅读器翻页都会走到这里，而画面一个字都不会变。 */
-    const key = shelfRenderKey(state, books, compact);
+       阅读器翻页都会走到这里，而画面一个字都不会变。
+       更新提示条的有无也算指纹：点「忽略这一版」后 notified 变了，
+       不把它算进来就会按旧指纹跳过重绘，条子一直挂着。 */
+    const banner = liveUpdateBanner();
+    const notice = banner ? updateBannerHtml(banner.current, banner.latest) : '';
+    const baseKey = shelfRenderKey(state, books, compact);
+    const key = baseKey ? `${baseKey}\u0001${notice ? '1' : '0'}` : '';
     if (key && key === this.lastKey) return;
     this.lastKey = key;
 
@@ -207,9 +213,10 @@ export class ShelfPanel {
     const { body, counts, layer, reviewTab } = buildShelfPage(state, books, compact);
 
     root.dataset.bzaccent = shellPrefs().accent;
-    /* reviewTab 是新增的第 5 个参数：页签是否列出由 shelf-page 现探算好，
-       studyShell 保持纯函数（只认参数，不读设置、不探插件）。 */
-    setHtml(root, studyShell(state.studyPage, body, counts, layer, reviewTab));
+    /* reviewTab 是第 5 个参数：页签是否列出由 shelf-page 现探算好，
+       studyShell 保持纯函数（只认参数，不读设置、不探插件）。
+       第 6 个是更新提示条，没有更新时是空串——壳层不自己判断。 */
+    setHtml(root, studyShell(state.studyPage, body, counts, layer, reviewTab, notice));
 
     const scroller = root.querySelector<HTMLElement>('.bzs-stubody');
     if (scroller) {

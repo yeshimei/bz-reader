@@ -111,7 +111,14 @@ export interface StudyCounts {
  * 用户的原话是「不要那种形式」。现在不换形态：当前那颗图标亮起，
  * 再点一次回进来之前那页（判据在 state.nextStudyPage）。
  */
-export function studyShell(page: StudyPage, body: string, counts: StudyCounts, layer = '', reviewTab = false): string {
+export function studyShell(
+  page: StudyPage,
+  body: string,
+  counts: StudyCounts,
+  layer = '',
+  reviewTab = false,
+  notice = '',
+): string {
   /* 复习页的 body 不能带书库那套 padding / overflow：嵌入面板自己按宿主
      撑满（position:absolute; inset:0），多一层内边距会把它挤小，滚动条也会
      叠成两层。is-embed 让 study.css 把这部分收掉。 */
@@ -121,7 +128,7 @@ export function studyShell(page: StudyPage, body: string, counts: StudyCounts, l
   const headCls = page === 'review' ? 'bzs-stuhead is-review' : 'bzs-stuhead';
   return `<div class="bzs-studio"><div class="${headCls}">${tabNav(page, counts, reviewTab)}<span class="sp"></span>${actBar(
     page,
-  )}</div><div class="${bodyCls}">${body}</div>${layer}</div>`;
+  )}</div>${notice}<div class="${bodyCls}">${body}</div>${layer}</div>`;
 }
 
 /**

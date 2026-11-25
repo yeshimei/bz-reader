@@ -1,93 +1,78 @@
 /* ==========================================================
-   更新提醒弹窗（shell/update-note.ts）
+   更新提示条（shell/update-banner.ts）
 
-   弹窗挂在 body 上，**不在 .bzs-shell 里**，吃不到壳层那套 --t1 / --copper；
-   这里在 .bzs-upd-dialog 上立一组 --upd-* 局部令牌，直接读宿主主题变量，
-   换主题、切明暗都跟着走。
+   2026-11-26：从「全屏遮罩 + 居中弹窗」换成头栏下面一条细提示。
+   遮罩会按停正在翻页 / 整理书架的人，而更新本来就不该按停用户。
+
+   条子长在 `.bzs-studio` 里、头栏与正文之间，是 flex 的一行，不遮不浮：
+   高度只占一条按钮，其余版面照原样往下推。
+
+   颜色照旧读宿主变量：条子的淡底是强调色混主背景，换主题、切明暗都跟着走。
    选择器一律 .bzs- 开头：壳层样式构建时会被加 .bzs-shell 前缀，只有
    .bzs- 开头的选择器原样保留（见 esbuild.config.mjs 的 scopeShellStyles）。
    ========================================================== */
 
-.bzs-upd-dialog {
-  --upd-accent: var(--bzs-accent, var(--interactive-accent, var(--text-accent, #7856d6)));
+.bzs-updbar {
+  --upd-accent: var(--interactive-accent, var(--text-accent, #7856d6));
   --upd-ink: var(--text-normal, #1f1f23);
   --upd-ink-2: var(--text-muted, #5a5a63);
-  --upd-line: var(--background-modifier-border, rgba(0, 0, 0, 0.1));
-  --upd-hover: var(--background-modifier-hover, rgba(0, 0, 0, 0.05));
-}
 
-.bzs-upd-dialog .bzr-dialog-head {
-  padding: 18px 20px 0;
-}
-
-.bzs-upd-dialog .bzr-dialog-title {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 32px;
+  font-size: var(--fs-mini, 12px);
   color: var(--upd-ink);
-  font-size: 15px;
-  font-weight: 600;
+  background: color-mix(in srgb, var(--upd-accent) 9%, var(--bg));
+  border-bottom: 1px solid color-mix(in srgb, var(--upd-accent) 26%, transparent);
 }
 
-.bzs-upd-dialog .bzr-dialog-body {
-  padding: 14px 20px 18px;
-}
-
-.bzs-upd {
-  color: var(--upd-ink);
-}
-
-.bzs-upd-ver {
+.bzs-updbar-txt {
   display: flex;
   align-items: baseline;
-  gap: 10px;
-  margin: 0 0 8px;
-}
-
-.bzs-upd-ver b {
-  font-size: 26px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  line-height: 1.1;
-}
-
-.bzs-upd-ver span {
-  color: var(--upd-ink-2);
-  font-size: 12px;
-}
-
-.bzs-upd-note {
-  margin: 0 0 18px;
-  color: var(--upd-ink-2);
-  font-size: 13px;
-  line-height: 1.65;
-}
-
-.bzs-upd-acts {
-  display: flex;
-  justify-content: flex-end;
   gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
-.bzs-upd-btn {
-  appearance: none;
-  border: 1px solid var(--upd-line);
-  border-radius: 8px;
+.bzs-updbar-txt b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.bzs-updbar-now {
+  color: var(--upd-ink-2);
+  font-size: var(--fs-caption, 11px);
+  font-variant-numeric: tabular-nums;
+}
+
+.bzs-updbar-acts {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* 条子里的按钮比正文里的矮一档：它是一条提示，不是一屏表单。
+   宿主给 button 的 height（--input-height）在这里放开，否则 30px 起跳。 */
+.bzs-updbar .bzs-btn {
+  height: 26px;
+  min-height: 0;
+  padding: 0 11px;
+  letter-spacing: 0;
+  font-size: var(--fs-mini, 12px);
+}
+
+/* 第三颗是「不想现在更新」，不该和前两颗一样重：去掉边框，退成文字按钮 */
+.bzs-updbar .bzs-btn.bzs-updbar-ignore {
+  border-color: transparent;
+  color: var(--upd-ink-2);
+  padding: 0 8px;
+}
+
+.bzs-updbar .bzs-btn.bzs-updbar-ignore:hover {
   background: transparent;
   color: var(--upd-ink);
-  font: inherit;
-  font-size: 13px;
-  padding: 6px 16px;
-  cursor: pointer;
-}
-
-.bzs-upd-btn:hover {
-  background: var(--upd-hover);
-}
-
-.bzs-upd-btn.pri {
-  border-color: var(--upd-accent);
-  background: var(--upd-accent);
-  color: var(--text-on-accent, #fff);
-}
-
-.bzs-upd-btn.pri:hover {
-  filter: brightness(1.05);
 }
