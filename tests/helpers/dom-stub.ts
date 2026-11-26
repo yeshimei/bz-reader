@@ -37,14 +37,41 @@ type FakeEl = {
   querySelectorAll(): FakeEl[];
   contains(): boolean;
   focus(): void;
+  /** 最近的祖先（只认 .class 与 tag）：宿主设置交接找 .modal-container 用 */
+  closest(selector: string): FakeEl | null;
+  /** Obsidian 的 Element.find：桩里深度查第一个命中的后代 */
+  find(selector: string): FakeEl | null;
+  /** 是否真的挂在 body 下：宿主 Modal 有没有离场靠它判断 */
+  readonly isConnected: boolean;
+  /** 最小点击：只触发 addEventListener('click') 登记的处理器 */
+  click(): void;
   addEventListener(): void;
   removeEventListener(): void;
   getBoundingClientRect(): { left: number; top: number; width: number; height: number };
 };
 
+/** closest 只支持 .class / tag 两种写法；测试桩不追求选择器完整 */
+function matchesFake(el: FakeEl, selector: string): boolean {
+  if (!selector) return false;
+  if (selector.startsWith('.')) return el.classList.contains(selector.slice(1));
+  return el.tagName === selector.toUpperCase();
+}
+
+/** 深度查第一个命中（find 的实现；匹配规则同 closest） */
+function findFake(root: FakeEl, selector: string): FakeEl | null {
+  for (const child of root.children) {
+    if (matchesFake(child, selector)) return child;
+    const deep = findFake(child, selector);
+    if (deep) return deep;
+  }
+  return null;
+}
+
 function makeEl(tagName = 'div'): FakeEl {
   const classes = new Set<string>();
   const attrs = new Map<string, string>();
+  /** 事件表：只为 click 服务（宿主设置交接会点 Modal 的关闭钮） */
+  const listeners: Record<string, Array<(...a: unknown[]) => void>> = {};
   const style = new Proxy(
     {
       setProperty(k: string, v: string): void {
@@ -124,8 +151,34 @@ function makeEl(tagName = 'div'): FakeEl {
     querySelectorAll: () => [],
     contains: () => false,
     focus: () => undefined,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
+    closest: (selector) => {
+      let cur: FakeEl | null = el;
+      while (cur) {
+        if (matchesFake(cur, selector)) return cur;
+        cur = cur.parent;
+      }
+      return null;
+    },
+    get isConnected() {
+      /* 桩没有 document 树引用：父链顶端是 body 就算挂在文档里 */
+      let cur: FakeEl = el;
+      while (cur.parent) cur = cur.parent;
+      return cur.tagName === 'BODY';
+    },
+    find: (selector) => findFake(el, selector),
+    click: () => {
+      for (const fn of listeners.click ?? []) fn();
+    },
+    addEventListener: (...args: unknown[]) => {
+      const [type, fn] = args as [string, unknown];
+      if (typeof fn !== 'function') return;
+      (listeners[type] ??= []).push(fn as (...a: unknown[]) => void);
+    },
+    removeEventListener: (...args: unknown[]) => {
+      const [type, fn] = args as [string, unknown];
+      if (!listeners[type]) return;
+      listeners[type] = listeners[type].filter((f) => f !== fn);
+    },
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 0, height: 0 }),
   };
   return el;

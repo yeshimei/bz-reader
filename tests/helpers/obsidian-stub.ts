@@ -211,6 +211,90 @@ export class Plugin {
   registerObsidianProtocolHandler(_action: string, _handler: unknown): void {
     /* noop */
   }
+
+  addSettingTab(_tab: unknown): void {
+    /* noop */
+  }
+}
+
+/** 宿主为 null 时的兜底容器：构造期拿不到 document 时也不炸（真实 display 只在 Obsidian 里跑） */
+function bareContainer(): any {
+  return {
+    __settings: [] as unknown[],
+    empty: () => undefined,
+    createEl: () => bareContainer(),
+    querySelector: () => null,
+    querySelectorAll: () => [],
+  };
+}
+
+/** 设置行里的按钮（mock Setting 记下文案 / 强调 / 点击处理，测试直接调 handler） */
+export class StubButton {
+  text = '';
+  cta = false;
+  clickHandler: (() => void) | null = null;
+
+  setButtonText(v: string): this {
+    this.text = v;
+    return this;
+  }
+
+  setCta(): this {
+    this.cta = true;
+    return this;
+  }
+
+  onClick(fn: () => void): this {
+    this.clickHandler = fn;
+    return this;
+  }
+}
+
+/** Setting 的最小链式替身：行为只记在对象上，不建真实 DOM */
+export class Setting {
+  name = '';
+  desc = '';
+  readonly controls: StubButton[] = [];
+
+  constructor(containerEl: any) {
+    const list = (containerEl.__settings ??= []) as unknown[];
+    list.push(this);
+  }
+
+  setName(v: string): this {
+    this.name = v;
+    return this;
+  }
+
+  setDesc(v: string): this {
+    this.desc = v;
+    return this;
+  }
+
+  addButton(cb: (btn: StubButton) => void): this {
+    const btn = new StubButton();
+    cb(btn);
+    this.controls.push(btn);
+    return this;
+  }
+}
+
+/** PluginSettingTab 的最小替身：containerEl 有 document 就用真桩节点，没有就给裸容器 */
+export class PluginSettingTab {
+  app: unknown;
+  plugin: unknown;
+  containerEl: any;
+
+  constructor(app: unknown, plugin: unknown) {
+    this.app = app;
+    this.plugin = plugin;
+    const doc = (globalThis as { document?: { createElement(tag: string): unknown } }).document;
+    this.containerEl = doc ? doc.createElement('div') : bareContainer();
+  }
+
+  display(): void {
+    /* noop */
+  }
 }
 
 /** actions/reader-view 只 `new Menu()` + 链式调用；不给真实菜单 */

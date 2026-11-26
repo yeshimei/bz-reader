@@ -887,6 +887,12 @@ export const ZH = {
   'shelves.assignedN': '已把 {n} 本书归入「{name}」',
   'shelves.assignedNoneN': '已把 {n} 本书移出分类',
 
+  /* ── 原生设置页门牌（2026-11-26）─────────────────────────────
+     Obsidian 自带设置里的 bz Reader 页只有一行按钮，点了进书架设置页。
+     点之前先收宿主设置 Modal，否则移动端焦点被它攥着、设置页输入框全失效。 */
+  'settings.tab.open': '打开设置面板',
+  'settings.tab.openDesc': '点下面的按钮，在书架设置页里打开——全部设置（阅读、标注、AI、授权、数据）都集中在那里',
+
   /* ── 设置页：关于条 ──────────────────────────────────────── */
   'settings.about': '关于',
   'settings.about.version': '版本未知',

@@ -80,6 +80,7 @@ import {
   type ShellState,
   type StudyPage,
 } from './shell/state';
+import { BzReaderSettingTab } from './shell/settings-tab';
 import { createBookAi, type BookAiApi } from './data/book-ai';
 import { findReviewApi, reviewEmbedReady } from './data/review-bridge';
 import { setShellSource, shellPrefs } from './shell/source';
@@ -620,6 +621,10 @@ export function createPlugin(cfg: PluginConfig) {
       });
 
       this.addRibbonIcon('library', t('ribbon.shelf'), () => this.openStudy());
+
+      /* 原生设置页只留一个门牌（shell/settings-tab.ts）：用户在「设置 → 第三方插件」
+         里也能找到本插件。真正的设置全在书架设置页，这层不重复一份。 */
+      this.addSettingTab(new BzReaderSettingTab(this.app, this));
 
       /* ── 命令 ──
        * 键盘上能做的动作这里都注册一份：用户在 Obsidian 的「快捷键」里

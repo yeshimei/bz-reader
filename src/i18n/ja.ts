@@ -1832,4 +1832,6 @@ export const JA: Record<MsgKey, string> = {
   'notice.cover.restored': '[TODO] notice.cover.restored',
   'notice.cover.failed': '[TODO] notice.cover.failed',
   'notice.cover.unreadable': '[TODO] notice.cover.unreadable',
+  'settings.tab.open': '[TODO] settings.tab.open',
+  'settings.tab.openDesc': '[TODO] settings.tab.openDesc',
 };
