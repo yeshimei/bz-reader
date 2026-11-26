@@ -26,7 +26,7 @@ interface HostSettingCloser {
 
 /** 关闭装着当前设置页的宿主 Modal；返回该容器（不是 Modal 形态则 null） */
 export function closeHostSettings(app: unknown, containerEl: HTMLElement): HTMLElement | null {
-  const host = containerEl.closest('.modal-container') as HTMLElement | null;
+  const host = containerEl.closest<HTMLElement>('.modal-container');
   if (!host) {
     // 非 Modal 形态（或已被挪出）：退回宿主内部单例，拿不到就算了，不影响后续开页面
     (app as HostSettingCloser | null)?.setting?.close?.();

@@ -205,11 +205,11 @@ export function mountImport(host: HTMLElement, deps: ImportDeps): () => void {
   function renderShelf(sec: ImportSections): void {
     clear(shelfBox);
     if (!sec.shelfTotal) {
-      shelfBox.style.display = 'none';
+      shelfBox.setCssProps({ display: 'none' });
       shelfOpen = false;
       return;
     }
-    shelfBox.style.display = '';
+    shelfBox.setCssProps({ display: '' });
     shelfBox.classList.toggle('is-open', shelfOpen);
 
     const head = el('button', 'bzr-imp-shelfhead');

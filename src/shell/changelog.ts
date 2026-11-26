@@ -69,6 +69,75 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '1.7.1',
+    date: '2026-11-26',
+    added: [
+      {
+        domain: { zh: '编辑书籍信息', en: 'Edit book details' },
+        text: {
+          zh: '书名、作者和简介都能改，封面可上传替换，也能还原原版。',
+          en: 'Title, author and description are editable; upload a new cover or restore the original anytime.',
+        },
+      },
+      {
+        domain: { zh: '划线排序', en: 'Highlight order' },
+        text: {
+          zh: '侧栏划线多了一档按原文排，默认仍按添加时间。',
+          en: 'Highlights in the sidebar can now sort by book position, with addition time still the default.',
+        },
+        qq: 'https://pd.qq.com/s/Nfwv9yibo1',
+      },
+      {
+        domain: { zh: '右键加书架', en: 'Right-click to shelve' },
+        text: {
+          zh: '文件浏览器里右键点书，直接加入或移出书架。',
+          en: 'Right-click a file in the file explorer to add it to or remove it from the shelf.',
+        },
+      },
+    ],
+    improved: [
+      {
+        domain: { zh: '更新提示', en: 'Update notice' },
+        text: {
+          zh: '新版本提示改成书架顶部一条细条，补上市场、GitHub 和忽略三个出口。',
+          en: 'Update notices are now a slim banner atop the shelf, with marketplace, GitHub and skip actions.',
+        },
+      },
+      {
+        domain: { zh: '导入折叠条', en: 'Import fold' },
+        text: {
+          zh: '导入页已加入的书收进底部折叠条，主列表默认只列没加的。',
+          en: 'Books already on the shelf fold away at the bottom of the import page; the main list shows only new ones.',
+        },
+      },
+      {
+        domain: { zh: '归档书删除', en: 'Delete archived' },
+        text: {
+          zh: '已归档的书可以直接彻底删除，不再弹空的「移出书架」。',
+          en: 'Archived books can be deleted outright instead of showing an empty “remove from shelf” prompt.',
+        },
+      },
+      {
+        domain: { zh: '设置门牌', en: 'Settings entry' },
+        text: {
+          zh: 'Obsidian 设置页加了 bz reader 入口，点一下进书架设置页。',
+          en: 'The Obsidian settings page now has a bz reader entry that opens the shelf settings directly.',
+        },
+      },
+    ],
+    fixed: [
+      {
+        domain: { zh: '书架空态', en: 'Empty shelf' },
+        text: {
+          zh: '空态不再吞掉筛选栏，「已归档」也回得去了。',
+          en: 'An empty shelf no longer hides the filter bar, and “Archived” is reachable again.',
+        },
+        qq: 'https://pd.qq.com/s/N1etlo45j5',
+      },
+
+    ],
+  },
+  {
     version: '1.7.0',
     date: '2026-11-24',
     added: [

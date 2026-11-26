@@ -18,6 +18,9 @@ export interface SettingsEntryHost {
   openStudy(page: 'settings'): void;
 }
 
+/* 声明式设置 API（getSettingDefinitions）自 Obsidian 1.13.0 起才有，本插件
+   minAppVersion 仍是 1.8.7，用它会让设置页在宿主老版本上开不起来；display()
+   是 1.8.7 上唯一可用的入口。该规则的豁免统一登记在 lint-obsidian.mjs。 */
 export class BzReaderSettingTab extends PluginSettingTab {
   private readonly host: Plugin & SettingsEntryHost;
 
