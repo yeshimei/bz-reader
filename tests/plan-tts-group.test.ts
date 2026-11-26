@@ -4,10 +4,10 @@ import { LOCALES, setLocale } from '../src/i18n';
 import { PLAN_GROUP_TEXT_PACK, PLAN_TEXT_PACK, planGroupNameZh } from '../src/i18n/plan';
 
 /**
- * 对照表 · 朗读与听书段（2026-11-14 定稿）。
+ * 对照表 · 朗读与听书段（2026-11-14 定稿；2026-11-26 补续听与缓存）。
  *
  * 分档口径一句话：**免费听一页，收费听整本**。
- *   · 点一下就念、三种引擎、音色试听、语速与高亮跟随 → 两版都打勾；
+ *   · 点一下就念、三种引擎、音色试听、语速与高亮跟随、续听、缓存 → 两版都打勾；
  *   · 整章预生成、整本预生成、离线听书 → 只有高级版。
  *
  * 两张门：整章预生成挂 `tts`，整本预生成挂 `ttsBook`。离线听书没有自己的
@@ -18,8 +18,8 @@ import { PLAN_GROUP_TEXT_PACK, PLAN_TEXT_PACK, planGroupNameZh } from '../src/i1
 const CJK = /[\u4e00-\u9fff]/;
 const LATIN = ['en', 'de', 'fr', 'es', 'pt'] as const;
 
-/** 四行免费：朗读本体往下都是「点一下就有」的东西 */
-const FREE_ROWS = ['tts', 'ttsEngine', 'ttsVoice', 'ttsRate'] as const;
+/** 六行免费：朗读本体往下都是「点一下就有」的东西 */
+const FREE_ROWS = ['tts', 'ttsEngine', 'ttsVoice', 'ttsRate', 'ttsResume', 'ttsCache'] as const;
 /** 三行付费：都要先花时间备材料，或者把文件带走 */
 const PAID_ROWS = ['ttsChapter', 'ttsWhole', 'ttsOffline'] as const;
 
@@ -30,8 +30,9 @@ function row(key: string) {
 }
 
 describe('对照表 · 朗读与听书段', () => {
-  it('独立成段，夹在 AI 与路线图之间，七行顺序固定', () => {
+  it('独立成段，夹在 AI 与路线图之间，九行顺序固定', () => {
     expect(PLAN_GROUPS.map((g) => g.key)).toEqual([
+      'shelf',
       'read',
       'layout',
       'import',
@@ -39,6 +40,7 @@ describe('对照表 · 朗读与听书段', () => {
       'manga',
       'notes',
       'review',
+      'stats',
       'data',
       'ai',
       'voice',
@@ -76,9 +78,9 @@ describe('对照表 · 朗读与听书段', () => {
     expect(layout?.rows).toEqual(['columns', 'vertical', 'parallel', 'bookmap']);
   });
 
-  it('合计 23 / 55，全表 59 行', () => {
-    expect(planTotals()).toEqual({ free: 23, pro: 55 });
-    expect(PLAN_TABLE).toHaveLength(59);
+  it('合计 34 / 69，全表 73 行', () => {
+    expect(planTotals()).toEqual({ free: 34, pro: 69 });
+    expect(PLAN_TABLE).toHaveLength(73);
   });
 
   it('导出本章音频不上表：功能照旧，只是不列在对比里', () => {

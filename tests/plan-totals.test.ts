@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 /**
- * 对照表底部的合计（商品图上那两个数：23 项 / 55 项）。
+ * 对照表底部的合计（商品图上那两个数：34 项 / 69 项）。
  *
  * 这两个数不是手工维护的文案，而是「表里打勾的行数」。写死的话，下次
  * 加一行忘了改，弹层就会对外少报一项——这张表是用户决定要不要付钱的
@@ -13,8 +13,8 @@ import { describe, expect, it } from 'vitest';
 import { PLAN_GROUPS, PLAN_TABLE, planTotals } from '../src/data/entitlement';
 
 describe('对照表合计', () => {
-  it('基础版 23 项、高级版 55 项（四行下放 + 追问单独成行）', () => {
-    expect(planTotals()).toEqual({ free: 23, pro: 55 });
+  it('基础版 34 项、高级版 69 项（2026-11-26 新增 14 行）', () => {
+    expect(planTotals()).toEqual({ free: 34, pro: 69 });
   });
 
   it('合计就是打勾的行数，不是总行数', () => {
@@ -23,7 +23,7 @@ describe('对照表合计', () => {
     expect(t.pro).toBe(PLAN_TABLE.filter((r) => r.pro === 'yes').length);
     /* 目前有四行两版都不打勾（路线图四项） */
     expect(t.pro).toBeLessThan(PLAN_TABLE.length);
-    expect(PLAN_TABLE.length).toBe(59);
+    expect(PLAN_TABLE.length).toBe(73);
     expect(PLAN_TABLE.length - t.pro).toBe(4);
   });
 

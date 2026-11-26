@@ -126,9 +126,10 @@ describe('对照表 · 稿子与勾叉', () => {
   });
 });
 
-describe('对照表 · 十一段分组', () => {
-  it('十一段顺序固定', () => {
+describe('对照表 · 十三段分组', () => {
+  it('十三段顺序固定', () => {
     expect(PLAN_GROUPS.map((g) => g.key)).toEqual([
+      'shelf',
       'read',
       'layout',
       'import',
@@ -136,6 +137,7 @@ describe('对照表 · 十一段分组', () => {
       'manga',
       'notes',
       'review',
+      'stats',
       'data',
       'ai',
       'voice',

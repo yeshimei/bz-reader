@@ -690,8 +690,14 @@ export function viewSettings(v: SettingsView): string {
     }" data-act="setpref" data-k="manga.${field}" data-v="${on ? '0' : '1'}"><span class="bzs-sr-only">${t(
       key,
     )}</span></button></div>`;
+  /* 教程按钮只在中文界面出现；没有按钮时别留一个空的组头容器，
+     与 grp() 的处理保持一致。 */
+  const mangaTut = tutBtn('mangatut', 'settings.bz.tut');
+  const mangaHead = mangaTut
+    ? `<div class="bzs-setgrp-head"><h3>${t('settings.grp.manga')}</h3>${mangaTut}</div>`
+    : `<h3>${t('settings.grp.manga')}</h3>`;
   const manga = `<div class="bzs-setgrp${mangaLock ? ` ${mangaLock}` : ''}"${mangaLockAttr}>${mangaLockSr}
-      <h3>${t('settings.grp.manga')}</h3>
+      ${mangaHead}
       <div class="bzs-setrow is-segrow"><label>${t('settings.manga.direction')}</label>${seg(
         'manga.direction',
         [

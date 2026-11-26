@@ -1101,6 +1101,12 @@ function row(key: PlanKey, free: PlanCell, pro: PlanCell, cap?: Cap): PlanRow {
 }
 
 export const PLAN_TABLE: PlanRow[] = [
+  /* ── 书架（2026-11-26 新增段）──
+   * 书怎么管，与「打开一本书之后能做什么」分开。三件都免费：它们是
+   * 书架的基础整理，收费只会让人觉得「我的书被扣住了」。 */
+  row('shelfEdit', 'yes', 'yes'),
+  row('archive', 'yes', 'yes'),
+  row('multiShelf', 'yes', 'yes'),
   /* ── 阅读：基础版七行，顺序按「打开 → 标注 → 成图 → 找 → 回 → 注 → 分类」 ──
    * 2026-11-21 重排：单栏 / 双栏挪去「排版」段——它和竖排、并排是同一类事，
    * 留在阅读段里会让人以为「阅读基础能力」，其实只是排版的一种。 */
@@ -1112,6 +1118,11 @@ export const PLAN_TABLE: PlanRow[] = [
      时候就想要」的东西，排在付费段里会让人以为要买。 */
   row('marks', 'yes', 'yes'),
   row('card', 'yes', 'yes'),
+  /* 2026-11-26：书摘卡的四种版式、插图查看器、沉浸模式都已在真机上跑过，
+     三件都是体验细节，不产生成本，两版都打勾。 */
+  row('cardTemplates', 'yes', 'yes'),
+  row('imageViewer', 'yes', 'yes'),
+  row('immersive', 'yes', 'yes'),
   row('inbookSearch', 'yes', 'yes'),
   /* 2026-11-10 新增：跳转历史。PDF 早就有这条栈，EPUB 这次补上同一条，
      所以它是两栏都打勾的免费项——两个引擎共用一颗按钮。 */
@@ -1149,6 +1160,9 @@ export const PLAN_TABLE: PlanRow[] = [
   row('pdfBacklink', 'no', 'yes'),
   row('pdfAnnots', 'no', 'yes'),
   row('pdfExport', 'no', 'yes'),
+  /* 框选成图 2026-11-26：基础设施早就在（region-card.ts），只是没上表。
+     不另挂能力位——基础版根本进不了 PDF，整段共用首行那道门。 */
+  row('pdfRegion', 'no', 'yes'),
   /* 2026-11-15：扫描页识别从「探索中」转正。它按页计费（视觉模型 / 外部
      OCR 都要钱），所以单独一行、单独一个能力位；拦点只放在「识别」上，
      读普通 PDF 不受影响。 */
@@ -1176,6 +1190,9 @@ export const PLAN_TABLE: PlanRow[] = [
   /* 导出整本摘录 2026-11-22 下放基础版。但「从双链点回原书」仍由 bilink
      管着（openFromTarget 带定位参数时拦）：导出免费，跳回原文付费。 */
   row('export', 'yes', 'yes'),
+  /* 导出模板 2026-11-26：四档 + 自定义多行。导出本身免费，模板是
+     「拿得漂亮」的那一面，不另收费；上表是为了让用户看见基础版也能改。 */
+  row('exportTemplates', 'yes', 'yes'),
   /* ── 复习（2026-11-21 独立成段） ──
    * Reader 负责「挑内容」，复习本身由 bz Review 承接：页签嵌入、按划线挑、
    * 按章生成卡片、已在复习状态。五件事都不设门——复习入口全在基础版，
@@ -1185,12 +1202,21 @@ export const PLAN_TABLE: PlanRow[] = [
   row('reviewMarks', 'yes', 'yes'),
   row('reviewChapter', 'yes', 'yes'),
   row('reviewPlanned', 'yes', 'yes'),
-  /* ── 数据：回看读了多少、找回某句话 ── */
+  /* ── 统计（2026-11-26 从数据段拆出来）：回看读了多少 ──
+   * 只有段首挂 cap：整页共用一道门（shelf-page 的 stats 锁态）。
+   * 打卡与周报都是页内动作，不另挂能力位——两行只负责说清买了多什么。 */
   row('stats', 'no', 'yes', 'stats'),
+  row('checkin', 'no', 'yes'),
   /* 2026-11-10 新增：阅读海报（poster 能力位一直有拦点，表里却一直没有行）。 */
   row('poster', 'no', 'yes', 'poster'),
+  /* 周报长图 2026-11-26：与年度海报共用一个出口（poster 浮层 / 统计页下载），
+     不另挂能力位，避免点一次亮两行。 */
+  row('weeklyPoster', 'no', 'yes'),
+  /* ── 数据：找回某句话、把数据带走 ── */
   row('crossSearch', 'no', 'yes', 'crossSearch'),
   row('semantic', 'no', 'yes', 'semantic'),
+  /* 备份与恢复 2026-11-26：免费。数据永远能拿走，这条不做付费点。 */
+  row('backup', 'yes', 'yes'),
   /* ── AI ──
    * 2026-11-16 作者定稿：这一轮 AI 的增强（划词五项菜单与悬停展开、锚定
    * 追问浮框、划词会话留痕、侧栏问答历史与等待态、依据按章跳转、连接笔记
@@ -1206,6 +1232,9 @@ export const PLAN_TABLE: PlanRow[] = [
      弹层要亮的是这一行，不是「AI 伴读」。 */
   row('aiLog', 'no', 'yes', 'aiLog'),
   row('aiChat', 'no', 'yes', 'aiChat'),
+  /* 2026-11-26：补书目信息按作者口径下放基础版。它走用户自己的 Key，
+     只补简介与分类两个空字段；不再挂 aiChat 那道门。 */
+  row('aiMeta', 'yes', 'yes'),
   /* 2026-11-09 起「向量检索」不再单列：整本索引是全书问答的前置步骤，
      建索引被拦时高亮的是「AI 全书问答」那一行（见 shell/actions.ts 的 indexCap）。
      2026-11-14：行名按作者口径从「AI 知识盒」改成「AI 知识库」。 */
@@ -1223,6 +1252,9 @@ export const PLAN_TABLE: PlanRow[] = [
   row('ttsEngine', 'yes', 'yes'),
   row('ttsVoice', 'yes', 'yes'),
   row('ttsRate', 'yes', 'yes'),
+  /* 2026-11-26：续听与音频缓存属于朗读本体，两版都打勾。 */
+  row('ttsResume', 'yes', 'yes'),
+  row('ttsCache', 'yes', 'yes'),
   row('ttsChapter', 'no', 'yes', 'tts'),
   row('ttsWhole', 'no', 'yes', 'ttsBook'),
   /* 离线听书没有自己的按钮：它是整本预生成的产物，被拦时整本那一行已经亮着，
@@ -1242,7 +1274,7 @@ export const PLAN_TABLE: PlanRow[] = [
 /**
  * 对照表底部的合计：各档打勾的项数。
  *
- * 商品图上写的「18 项 / 44 项」不是手工维护的数字——它就是这张表里
+ * 商品图上写的「34 项 / 69 项」不是手工维护的数字——它就是这张表里
  * `free === 'yes'` 与 `pro === 'yes'` 的行数。写死的话，下次加一行忘了改，
  * 弹层就会对外少报一项；这张表是用户决定要不要付钱的地方，数字得跟着表走。
  *
@@ -1270,9 +1302,9 @@ export function unlockModeFor(format: BookFormat): 'pdf' | 'fullFormats' {
   return format === 'pdf' ? 'pdf' : 'fullFormats';
 }
 
-/* ─────────── 对照表的分组（2026-11-21 重切） ───────────
- * 49 行一长串看不出结构：用户从上滚到下，只记得「很多功能」，分不清哪几行
- * 是一类。这里把同一批行按使用场景切成十段，渲染时插组标题——**行本身、
+/* ─────────── 对照表的分组（2026-11-26 再切） ───────────
+ * 73 行一长串看不出结构：用户从上滚到下，只记得「很多功能」，分不清哪几行
+ * 是一类。这里把同一批行按使用场景切成十三段，渲染时插组标题——**行本身、
  * 勾叉、顺序都没变**，所以被拦时的高亮与滚动位置照旧。
  *
  * 两条约束：
@@ -1282,16 +1314,18 @@ export function unlockModeFor(format: BookFormat): 'pdf' | 'fullFormats' {
  *      `i18n/plan.ts` 的 PLAN_GROUP_TEXT，渲染走 planGroupLabel()。
  *
  * 切法每段只回答一个问题，段名压到 2–4 字：
- *   · 阅读：基础版够不够用（七行全打勾）；
+ *   · 书架：书怎么管（信息与封面、归档、多分类，2026-11-26 独立）；
+ *   · 阅读：基础版够不够用；
  *   · 排版：字怎么放（单双栏免费，竖排 / 并排 / 鸟瞰）；
  *   · 导入：书从哪儿来（更多格式 + 剪藏成书）；
  *   · PDF 阅读：PDF 怎么读、怎么拿出来；
  *   · 漫画：CBZ 怎么打开、怎么翻、怎么逐格看（2026-11-22 独立成段，九行）；
  *   · 笔记：读完怎么存回笔记库；
  *   · 复习：挑内容、制卡、复习（2026-11-21 独立，五项全免费）；
- *   · 数据：回看读了多少、找回某句话；
- *   · AI：划词、全书问答、伴读、知识库；
- *   · 听书：朗读、三台引擎、音色、语速、预生成与离线书；
+ *   · 统计：读了多少（回顾、打卡、海报、周报，2026-11-26 从数据拆出）；
+ *   · 数据：找回某句话、把数据带走；
+ *   · AI：划词、全书问答、伴读、补书目、知识库；
+ *   · 听书：朗读、三台引擎、音色、语速、续听、缓存、预生成与离线书；
  *   · 路线图：还没实现的四项，两版都不打勾，只作为收尾。 */
 export interface PlanGroup {
   key: PlanGroupKey;
@@ -1300,9 +1334,26 @@ export interface PlanGroup {
 }
 
 export const PLAN_GROUPS: PlanGroup[] = [
+  /* 书架（2026-11-26 独立成段）：书怎么管，放在「阅读」之前。 */
+  {
+    key: 'shelf',
+    rows: ['shelfEdit', 'archive', 'multiShelf'],
+  },
   {
     key: 'read',
-    rows: ['reading', 'keepAwake', 'marks', 'card', 'inbookSearch', 'back', 'footnote', 'classify'],
+    rows: [
+      'reading',
+      'keepAwake',
+      'marks',
+      'card',
+      'cardTemplates',
+      'imageViewer',
+      'immersive',
+      'inbookSearch',
+      'back',
+      'footnote',
+      'classify',
+    ],
   },
   {
     key: 'layout',
@@ -1314,7 +1365,7 @@ export const PLAN_GROUPS: PlanGroup[] = [
   },
   {
     key: 'pdf',
-    rows: ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfBacklink', 'pdfAnnots', 'pdfExport', 'pdfOcr'],
+    rows: ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfBacklink', 'pdfAnnots', 'pdfExport', 'pdfRegion', 'pdfOcr'],
   },
   /* 漫画（2026-11-22）：从「排版」里拆出来单独一段，排在 PDF 之后——
      两者都是「按格式的阅读段」，紧挨着读下来顺。 */
@@ -1334,26 +1385,42 @@ export const PLAN_GROUPS: PlanGroup[] = [
   },
   {
     key: 'notes',
-    rows: ['bilink', 'cites', 'export'],
+    rows: ['bilink', 'cites', 'export', 'exportTemplates'],
   },
   {
     key: 'review',
     rows: ['review', 'reviewTab', 'reviewMarks', 'reviewChapter', 'reviewPlanned'],
   },
+  /* 统计（2026-11-26 从数据段拆出）：回顾与检索分开，各自四/三行。 */
+  {
+    key: 'stats',
+    rows: ['stats', 'checkin', 'poster', 'weeklyPoster'],
+  },
   {
     key: 'data',
-    rows: ['stats', 'poster', 'crossSearch', 'semantic'],
+    rows: ['crossSearch', 'semantic', 'backup'],
   },
   {
     key: 'ai',
     /* 2026-11-16：五行。对话留档排在伴读之前——它是「问完之后」的去处，
        与上一行「问的时候带什么」顺着读下来。
-       2026-11-22：追问从划词那一行拆出来，六行。 */
-    rows: ['aiSel', 'aiFollow', 'aiBook', 'aiLog', 'aiChat', 'kb'],
+       2026-11-22：追问从划词那一行拆出来，六行。
+       2026-11-26：补书目信息下放基础版，七行。 */
+    rows: ['aiSel', 'aiFollow', 'aiBook', 'aiLog', 'aiChat', 'aiMeta', 'kb'],
   },
   {
     key: 'voice',
-    rows: ['tts', 'ttsEngine', 'ttsVoice', 'ttsRate', 'ttsChapter', 'ttsWhole', 'ttsOffline'],
+    rows: [
+      'tts',
+      'ttsEngine',
+      'ttsVoice',
+      'ttsRate',
+      'ttsResume',
+      'ttsCache',
+      'ttsChapter',
+      'ttsWhole',
+      'ttsOffline',
+    ],
   },
   /* 路线图放最后一段，只收还没实现的路线项，两版都不打勾，也不参与
      「被拦时高亮」那一套。 */

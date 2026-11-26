@@ -16,6 +16,7 @@ import {
   AI_CHAT_TUTORIAL_URL,
   AI_TUTORIAL_URL,
   CLIP_TUTORIAL_URL,
+  MANGA_TUTORIAL_URL,
   TTS_TUTORIAL_URL,
 } from '../core/links';
 import { anchoredBelowRight, anchoredPlacement } from './anchored-style';
@@ -1220,6 +1221,9 @@ const PLAN_VIDEO: Partial<Record<PlanKey, string>> = {
  */
 const PLAN_GROUP_VIDEO: Partial<Record<PlanGroup['key'], string>> = {
   voice: TTS_TUTORIAL_URL,
+  /* 漫画（2026-11-26）：整段一起讲——CBZ 怎么打开、右到左、跨页拆合、逐格。
+     挂段标题，不落到某一行。 */
+  manga: MANGA_TUTORIAL_URL,
   /* AI 这一支（2026-11-17）：讲自己的接口地址 / 模型 / 密钥怎么填、划词与
      全书问答怎么用。与下面「AI 知识库」那一行的 AI_TUTORIAL_URL 不是同一条
      ——那条只讲索引怎么建，挂到整段标题上会把两件事说成一件事。 */

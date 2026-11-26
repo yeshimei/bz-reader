@@ -12,6 +12,7 @@ import { PLAN_GROUP_TEXT_PACK, PLAN_TEXT_PACK, planGroupLabel, planGroupNameZh, 
  * 2026-11-14：五行变六行——「本页反链」与「文件自带批注」拆开。两件事各有
  * 一个开关（prefs.pdfBacklinks / prefs.pdfAnnots），一行说两件事读着别扭。
  * 2026-11-15：六行变七行——扫描页识别从「探索中」转正，单独挂 `pdfOcr`。
+ * 2026-11-26：七行变八行——框选成图补进表，夹在导出页图与 OCR 之间。
  *
  * 两条硬约束：
  *   · 组名不能只写「PDF」——格式那行里有 PDF 两个字，组名与它撞字时容易被
@@ -21,7 +22,16 @@ import { PLAN_GROUP_TEXT_PACK, PLAN_TEXT_PACK, planGroupLabel, planGroupNameZh, 
  *     扫描页识别按页计费，所以它自己那颗要单独拦。
  */
 
-const PDF_ROWS = ['pdfView', 'pdfThumbs', 'pdfLink', 'pdfBacklink', 'pdfAnnots', 'pdfExport', 'pdfOcr'] as const;
+const PDF_ROWS = [
+  'pdfView',
+  'pdfThumbs',
+  'pdfLink',
+  'pdfBacklink',
+  'pdfAnnots',
+  'pdfExport',
+  'pdfRegion',
+  'pdfOcr',
+] as const;
 const CJK = /[\u4e00-\u9fff]/;
 const LATIN = ['en', 'de', 'fr', 'es', 'pt'] as const;
 
@@ -38,12 +48,12 @@ describe('对照表 · PDF 段的位置与内容', () => {
     expect(keys.indexOf('pdf')).toBe(keys.indexOf('import') + 1);
   });
 
-  it('七行按顺序、不多不少', () => {
+  it('八行按顺序、不多不少', () => {
     const g = PLAN_GROUPS.find((x) => x.key === 'pdf');
     expect(g?.rows).toEqual([...PDF_ROWS]);
   });
 
-  it('七行都是基础版没有、高级版才有', () => {
+  it('八行都是基础版没有、高级版才有', () => {
     for (const key of PDF_ROWS) {
       const r = row(key);
       expect(r, key).toBeTruthy();

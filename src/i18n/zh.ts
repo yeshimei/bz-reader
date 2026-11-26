@@ -1259,7 +1259,7 @@ export const ZH = {
   'settings.lic.update': '下载新版',
   'settings.lic.activate': '激活',
   'settings.lic.paid': '高级版',
-  'settings.lic.benefits': '导出、统计、全库搜索、AI 与多格式等',
+  'settings.lic.benefits': '更多格式、PDF 与漫画、统计、AI 与听书等',
   'settings.lic.compare': '查看功能对照',
 
   /* ── 解锁弹层：功能对照表 ─────────────────────────────── */
@@ -1875,7 +1875,7 @@ export const ZH = {
   'review.loadingScopeMarks': '正在读划线，挑要加入的重点…',
   'review.mode.lead': '选定方式后会先出一遍题面，确认之后才进复习计划。',
   'review.aiGuide.title': 'AI 还没配置',
-  'review.aiGuide.body': '加入复习里的「重点」和「出题」都要用 AI，现在还调不了模型。',
+  'review.aiGuide.body': 'AI 功能要先连上模型，现在还调不了。',
   'review.aiGuide.hint': '到「设置 · AI 助手」里填好服务商、模型与密钥就能用了；如果 bz Review 里已经配过，把「共享 AI 配置」打开也能直接用。',
   'review.aiGuide.go': '去设置 AI',
   'review.aiGuide.later': '稍后再说',

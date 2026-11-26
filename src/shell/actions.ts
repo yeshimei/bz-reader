@@ -157,7 +157,7 @@ import { currentSearchSurface, kickSemanticSearch, resetSemanticSearch } from '.
 import { BZ_PLUGIN_ID, bzClipbookUsed, bzEmbedder, bzNotesReady, openBzClipbook, openBzPreview, probeBz, openBzEntry, type BzEntryKind, type BzEmbedder } from '../data/bz-bridge';
 import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { SHELF_TAP_ATTR, SHELF_TAP_BOOK_ATTR, bindShelfTap } from './shelf-tap';
-import { AI_CHAT_TUTORIAL_URL, AI_TUTORIAL_URL, BZ_DOWNLOAD_MIRROR, BZ_DOWNLOAD_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, PDF_TUTORIAL_URL, REVIEW_DOWNLOAD_URL, REVIEW_DOWNLOAD_MIRROR, REVIEW_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL, openDownloadWithFallback } from '../core/links';
+import { AI_CHAT_TUTORIAL_URL, AI_TUTORIAL_URL, BZ_DOWNLOAD_MIRROR, BZ_DOWNLOAD_URL, BZ_INSTALL_TUTORIAL_URL, CLIP_TUTORIAL_URL, MANGA_TUTORIAL_URL, PDF_TUTORIAL_URL, REVIEW_DOWNLOAD_URL, REVIEW_DOWNLOAD_MIRROR, REVIEW_TUTORIAL_URL, TTS_TUTORIAL_URL, VIDEO_TUTORIAL_URL, openDownloadWithFallback } from '../core/links';
 import { portraitBlock, type PortraitBlockReason } from '../data/portrait-gate';
 import { portraitBuilder, type PortraitBuildDeps } from '../data/portrait-build';
 import { forgetPortrait, setPortrait } from './portrait-cache';
@@ -1822,10 +1822,12 @@ export function dispatchAction(
           if (it.act === 'detail') i.onClick(() => overlay('detail', { bookId: id }));
           /* 加入复习：选范围 → 三选一制卡 → 交给 bz Review */
           if (it.act === 'review') i.onClick(() => void openBookReviewAdd(getShellSource()?.app, book));
-          /* 补全信息（2026-11-11）：用户点了才发请求，只填空白字段 */
+          /* 补全信息（2026-11-11）：用户点了才发请求，只填空白字段。
+             2026-11-26 作者定稿下放基础版：不再过 aiChat 那道门，改用
+             用户自己的 Key；AI 未配置时 enrichBookMeta 自己提示。 */
           if (it.act === 'enrich')
             i.onClick(() => {
-              if (requireCap('aiChat')) void enrichBookMeta(id);
+              void enrichBookMeta(id);
             });
           /* 导出整本摘录 2026-11-22 下放基础版：不再弹对照表。 */
           if (it.act === 'export') i.onClick(() => exportBookFile(id));
@@ -3941,6 +3943,11 @@ export function dispatchAction(
       /* 朗读组的「看教程」：讲三种引擎怎么配、预生成怎么用、离线包怎么拷。
          与对照表「朗读」行的那颗是同一支视频。 */
       window.open(TTS_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
+      break;
+    case 'mangatut':
+      /* 漫画组教程（2026-11-26）：作者新发的一期，讲 CBZ 打开、右到左、
+         跨页拆合与逐格。与对照表「漫画」段的标题共用同一条。 */
+      window.open(MANGA_TUTORIAL_URL, '_blank', 'noopener,noreferrer');
       break;
     case 'reviewtut':
       /* bz Review 教程：占位期只说一句，不打开不相干的视频。 */

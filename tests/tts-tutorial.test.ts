@@ -3,6 +3,7 @@ import {
   AI_CHAT_TUTORIAL_URL,
   AI_TUTORIAL_URL,
   CLIP_TUTORIAL_URL,
+  MANGA_TUTORIAL_URL,
   TTS_TUTORIAL_URL,
   VIDEO_TUTORIAL_URL,
 } from '../src/core/links';
@@ -115,13 +116,14 @@ describe('朗读教程 · 高级版对照表', () => {
 });
 
 describe('朗读教程 · 地址登记', () => {
-  it('五条教程视频各指各的，换一期不会顺带改掉另一处', () => {
+  it('六条教程视频各指各的，换一期不会顺带改掉另一处', () => {
     const all = [
       VIDEO_TUTORIAL_URL,
       AI_TUTORIAL_URL,
       AI_CHAT_TUTORIAL_URL,
       CLIP_TUTORIAL_URL,
       TTS_TUTORIAL_URL,
+      MANGA_TUTORIAL_URL,
     ];
     expect(new Set(all).size).toBe(all.length);
     expect(TTS_TUTORIAL_URL).toMatch(/^https:\/\/www\.bilibili\.com\/video\/[A-Za-z0-9]+$/);

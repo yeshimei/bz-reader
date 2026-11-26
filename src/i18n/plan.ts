@@ -20,15 +20,28 @@
  *     已在复习四行；
  *   · 全书鸟瞰下放基础版；
  *   · 行名保持原文，不再压缩或换词。
+ *
+ * 2026-11-26：新增「书架」与「统计」两段（共十三段），补 14 行；
+ * 日德法西葡的 keepAwake / aiFollow / 漫画九行同时写成正式翻译，
+ * 不再留英文占位。
  * ============================================================ */
 import { locale, type Locale } from './index';
 
 export type PlanKey =
+  /* ── 书架（2026-11-26 新增段） ──
+   * 书怎么管：信息与封面、归档、多分类。三件都免费，单独成段是为了
+   * 不再把它们塞进「阅读」——那一段回答的是「打开一本书之后能做什么」。 */
+  | 'shelfEdit'
+  | 'archive'
+  | 'multiShelf'
   /* ── 阅读（免费） ── */
   | 'reading'
   | 'keepAwake'
   | 'marks'
   | 'card'
+  | 'cardTemplates'
+  | 'imageViewer'
+  | 'immersive'
   | 'inbookSearch'
   | 'back'
   | 'footnote'
@@ -48,11 +61,17 @@ export type PlanKey =
   | 'pdfBacklink'
   | 'pdfAnnots'
   | 'pdfExport'
+  /* 框选成图（2026-11-26）：与「导出整页」不是一回事——它把页内一块
+     裁下来配引文，做成能直接贴进笔记的卡片。 */
+  | 'pdfRegion'
   | 'pdfOcr'
   /* ── 笔记 ── */
   | 'bilink'
   | 'cites'
   | 'export'
+  /* 导出模板（2026-11-26）：四档 + 自定义多行。导出本身仍免费，
+     这一行只说明「拿得漂亮」的那一面。 */
+  | 'exportTemplates'
   /* ── 复习（2026-11-21 独立成段） ──
    * 「复习」本身已上线，从路线图搬来这里；另外四行是这次新拆的入口：
    * 页签、按划线挑、按章生成、已在复习状态。 */
@@ -61,11 +80,17 @@ export type PlanKey =
   | 'reviewMarks'
   | 'reviewChapter'
   | 'reviewPlanned'
-  /* ── 数据 ── */
+  /* ── 统计（2026-11-26 从数据段拆出来） ──
+   * 「读了多少」和「书怎么找」是两件事：前者是回顾，后者是检索与备份。
+   * 拆开后统计段四行、数据段三行，各自的拦点与卖点也更好对上。 */
   | 'stats'
+  | 'checkin'
   | 'poster'
+  | 'weeklyPoster'
+  /* ── 数据 ── */
   | 'crossSearch'
   | 'semantic'
+  | 'backup'
   /* ── AI ──
    * 2026-11-16 作者定稿：AI 做了一大批增强（划词五项菜单与悬停展开、
    * 锚定追问浮框、划词会话留痕、侧栏问答历史、依据按章跳转、连接笔记
@@ -78,6 +103,8 @@ export type PlanKey =
   | 'aiBook'
   | 'aiLog'
   | 'aiChat'
+  /* 补书目信息（2026-11-26）：按作者口径是基础版，不挂门禁。 */
+  | 'aiMeta'
   | 'kb'
   /* ── 听书 ──
    * 2026-11-14 定稿：朗读本体下放基础版，收费的只剩「备材料」与「带走」。 */
@@ -85,6 +112,9 @@ export type PlanKey =
   | 'ttsEngine'
   | 'ttsVoice'
   | 'ttsRate'
+  /* 续听与缓存（2026-11-26）：朗读本体的一部分，两行都免费。 */
+  | 'ttsResume'
+  | 'ttsCache'
   | 'ttsChapter'
   | 'ttsWhole'
   | 'ttsOffline'
@@ -113,6 +143,8 @@ export type PlanKey =
  * 读起来像同一个东西。归属关系在 `data/entitlement.ts` 的 PLAN_GROUPS。
  */
 export type PlanGroupKey =
+  /* 书架（2026-11-26）：书怎么管，放在「阅读」之前。 */
+  | 'shelf'
   | 'read'
   | 'layout'
   | 'import'
@@ -120,6 +152,8 @@ export type PlanGroupKey =
   | 'manga'
   | 'notes'
   | 'review'
+  /* 统计（2026-11-26）：从 data 拆出来，回顾与检索分开。 */
+  | 'stats'
   | 'data'
   | 'ai'
   | 'voice'
@@ -142,11 +176,11 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     zh: '阅读时屏幕常亮',
     'zh-TW': '閱讀時螢幕常亮',
     en: 'Keep the screen awake while reading',
-    ja: 'Keep the screen awake while reading',
-    de: 'Keep the screen awake while reading',
-    fr: 'Keep the screen awake while reading',
-    es: 'Keep the screen awake while reading',
-    pt: 'Keep the screen awake while reading',
+    ja: '読書中は画面を消さない',
+    de: 'Bildschirm beim Lesen anlassen',
+    fr: 'Garder l’écran allumé pendant la lecture',
+    es: 'Mantener la pantalla encendida al leer',
+    pt: 'Manter a tela ligada durante a leitura',
   },
   columns: {
     zh: '单栏 / 双栏排版',
@@ -398,11 +432,11 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     'zh-TW': 'AI 追問：就這段接著問',
     en: 'AI follow-up: keep asking about this passage',
     /* 日德法西葡按仓库规矩先留英文占位，上架前统一翻 */
-    ja: 'AI follow-up: keep asking about this passage',
-    de: 'AI follow-up: keep asking about this passage',
-    fr: 'AI follow-up: keep asking about this passage',
-    es: 'AI follow-up: keep asking about this passage',
-    pt: 'AI follow-up: keep asking about this passage',
+    ja: 'AI に追加質問：この一節について続けて聞く',
+    de: 'KI-Nachfrage: zu dieser Stelle weiterfragen',
+    fr: 'Question IA complémentaire : continuer sur ce passage',
+    es: 'Pregunta IA de seguimiento: seguir sobre este pasaje',
+    pt: 'Pergunta de IA: continuar sobre este trecho',
   },
   /* 2026-11-16：行名从「先建索引，再问整本」改成「四种依据都可添加进去」。
      索引仍然是内部步骤（建索引的入口没变），但卖点不是它——用户关心的是
@@ -587,91 +621,91 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     zh: 'CBZ / 文件夹打开即读',
     'zh-TW': 'CBZ / 資料夾開啟即讀',
     en: 'CBZ and folders, open and read',
-    ja: 'CBZ and folders, open and read',
-    de: 'CBZ and folders, open and read',
-    fr: 'CBZ and folders, open and read',
-    es: 'CBZ and folders, open and read',
-    pt: 'CBZ and folders, open and read',
+    ja: 'CBZ / フォルダをそのまま開いて読める',
+    de: 'CBZ und Ordner direkt öffnen und lesen',
+    fr: 'CBZ et dossiers, ouvrir et lire directement',
+    es: 'CBZ y carpetas, abrir y leer directamente',
+    pt: 'CBZ e pastas, abrir e ler direto',
   },
   mangaInfo: {
     zh: 'ComicInfo 方向自动跟随',
     'zh-TW': 'ComicInfo 方向自動跟隨',
     en: 'Follows the reading direction in ComicInfo',
-    ja: 'Follows the reading direction in ComicInfo',
-    de: 'Follows the reading direction in ComicInfo',
-    fr: 'Follows the reading direction in ComicInfo',
-    es: 'Follows the reading direction in ComicInfo',
-    pt: 'Follows the reading direction in ComicInfo',
+    ja: 'ComicInfo の読み方向に自動で従う',
+    de: 'Liest die Leserichtung aus ComicInfo automatisch',
+    fr: 'Suit automatiquement le sens de lecture de ComicInfo',
+    es: 'Sigue automáticamente la dirección de lectura de ComicInfo',
+    pt: 'Segue automaticamente a direção de leitura do ComicInfo',
   },
   mangaDir: {
     zh: '右到左 / 左到右',
     'zh-TW': '右到左 / 左到右',
     en: 'Right-to-left / left-to-right',
-    ja: 'Right-to-left / left-to-right',
-    de: 'Right-to-left / left-to-right',
-    fr: 'Right-to-left / left-to-right',
-    es: 'Right-to-left / left-to-right',
-    pt: 'Right-to-left / left-to-right',
+    ja: '右から左 / 左から右',
+    de: 'Rechts nach links / links nach rechts',
+    fr: 'Droite à gauche / gauche à droite',
+    es: 'Derecha a izquierda / izquierda a derecha',
+    pt: 'Direita para esquerda / esquerda para direita',
   },
   mangaSpread: {
     zh: '单页 / 双页，跨页自动拆合',
     'zh-TW': '單頁 / 雙頁，跨頁自動拆合',
     en: 'Single / double page, spreads split and rejoined',
-    ja: 'Single / double page, spreads split and rejoined',
-    de: 'Single / double page, spreads split and rejoined',
-    fr: 'Single / double page, spreads split and rejoined',
-    es: 'Single / double page, spreads split and rejoined',
-    pt: 'Single / double page, spreads split and rejoined',
+    ja: '単ページ / 見開き、見開きの自動分割・結合',
+    de: 'Einzel- / Doppelseite, Doppelseiten automatisch teilen und zusammenfügen',
+    fr: 'Page simple / double, doubles pages découpées et réunies automatiquement',
+    es: 'Página simple / doble, dobles páginas divididas y unidas automáticamente',
+    pt: 'Página simples / dupla, páginas duplas divididas e reunidas automaticamente',
   },
   mangaFlow: {
     zh: '一屏一页 / 连续 / 条漫',
     'zh-TW': '一屏一頁 / 連續 / 條漫',
     en: 'One page / continuous / long strip',
-    ja: 'One page / continuous / long strip',
-    de: 'One page / continuous / long strip',
-    fr: 'One page / continuous / long strip',
-    es: 'One page / continuous / long strip',
-    pt: 'One page / continuous / long strip',
+    ja: '1 画面 1 ページ / 連続 / 縦スクロール',
+    de: 'Eine Seite pro Bildschirm / fortlaufend / Webtoon-Streifen',
+    fr: 'Une page par écran / continu / bande verticale',
+    es: 'Una página por pantalla / continuo / tira vertical',
+    pt: 'Uma página por tela / contínuo / tira vertical',
   },
   mangaPanels: {
     zh: '逐格读：自动分格、防剧透',
     'zh-TW': '逐格讀：自動分格、防劇透',
     en: 'Panel by panel: auto panels, spoiler-free',
-    ja: 'Panel by panel: auto panels, spoiler-free',
-    de: 'Panel by panel: auto panels, spoiler-free',
-    fr: 'Panel by panel: auto panels, spoiler-free',
-    es: 'Panel by panel: auto panels, spoiler-free',
-    pt: 'Panel by panel: auto panels, spoiler-free',
+    ja: 'コマごとに読む：自動コマ分割・ネタバレ防止',
+    de: 'Panel für Panel: automatische Panels, spoilerfrei',
+    fr: 'Case par case : découpage auto, sans spoiler',
+    es: 'Viñeta a viñeta: división automática, sin spoilers',
+    pt: 'Quadro a quadro: divisão automática, sem spoilers',
   },
   mangaFit: {
     zh: '六档适配 + 缩放拖动',
     'zh-TW': '六檔適配 + 縮放拖動',
     en: 'Six fit modes, zoom and pan',
-    ja: 'Six fit modes, zoom and pan',
-    de: 'Six fit modes, zoom and pan',
-    fr: 'Six fit modes, zoom and pan',
-    es: 'Six fit modes, zoom and pan',
-    pt: 'Six fit modes, zoom and pan',
+    ja: '6 段階のフィット + ズームと移動',
+    de: 'Sechs Anpassungsmodi, Zoom und Verschieben',
+    fr: 'Six modes d’ajustement, zoom et déplacement',
+    es: 'Seis modos de ajuste, zoom y arrastre',
+    pt: 'Seis modos de ajuste, zoom e arrastar',
   },
   mangaTone: {
     zh: '裁白边、一键调色',
     'zh-TW': '裁白邊、一鍵調色',
     en: 'Trim margins, one-tap tone fix',
-    ja: 'Trim margins, one-tap tone fix',
-    de: 'Trim margins, one-tap tone fix',
-    fr: 'Trim margins, one-tap tone fix',
-    es: 'Trim margins, one-tap tone fix',
-    pt: 'Trim margins, one-tap tone fix',
+    ja: '白余白の切り取り、ワンタップ調色',
+    de: 'Ränder beschneiden, Farbton mit einem Tipp',
+    fr: 'Rogner les marges, correction des tons en un geste',
+    es: 'Recortar márgenes, ajuste de tono en un toque',
+    pt: 'Cortar margens, ajuste de tom com um toque',
   },
   mangaThumbs: {
     zh: '页缩略图、读到哪记住',
     'zh-TW': '頁縮圖、讀到哪記住',
     en: 'Page thumbnails, resume where you left',
-    ja: 'Page thumbnails, resume where you left',
-    de: 'Page thumbnails, resume where you left',
-    fr: 'Page thumbnails, resume where you left',
-    es: 'Page thumbnails, resume where you left',
-    pt: 'Page thumbnails, resume where you left',
+    ja: 'ページサムネイル、読んだ位置を記憶',
+    de: 'Seitenminiaturen, Leseposition merken',
+    fr: 'Miniatures, reprise là où vous étiez',
+    es: 'Miniaturas, retoma donde lo dejaste',
+    pt: 'Miniaturas, retomar onde parou',
   },
   transChapter: {
     zh: '整章翻译：原文译文对照',
@@ -756,6 +790,150 @@ const PLAN_TEXT: Record<PlanKey, Record<Locale, string>> = {
     es: 'Ya en repaso: marcado en el subrayado, sin duplicar',
     pt: 'Já em revisão: marcado no destaque, sem duplicar',
   },
+
+  /* ── 2026-11-26 新增 14 行 ──
+   * 作者逐条挑的「已经能用、但表里没写」的能力。八种语言一次写实，
+   * 不留英文占位；行名同样守「窄屏一行放得下」与「不带括号」两条。 */
+  shelfEdit: {
+    zh: '书籍信息与封面：可改可还原',
+    'zh-TW': '書籍資訊與封面：可改可還原',
+    en: 'Book info and cover: edit, replace, restore',
+    ja: '書誌情報と表紙：編集・差し替え・復元',
+    de: 'Buchinfo & Cover: ändern, ersetzen, zurücksetzen',
+    fr: 'Infos & couverture : modifier, remplacer, restaurer',
+    es: 'Información y portada: editar, cambiar, restaurar',
+    pt: 'Informações e capa: editar, trocar, restaurar',
+  },
+  archive: {
+    zh: '归档：移出书架，数据全留',
+    'zh-TW': '歸檔：移出書架，資料全留',
+    en: 'Archive: off the shelf, data kept',
+    ja: 'アーカイブ：本棚から外してもデータは残る',
+    de: 'Archiv: vom Regal nehmen, Daten bleiben',
+    fr: 'Archives : retirer du rayon, données conservées',
+    es: 'Archivo: fuera del estante, datos intactos',
+    pt: 'Arquivar: fora da estante, dados mantidos',
+  },
+  multiShelf: {
+    zh: '多分类：一本书归多个分类',
+    'zh-TW': '多分類：一本書歸多個分類',
+    en: 'Multiple shelves: one book, many categories',
+    ja: '複数カテゴリ：1 冊を複数の棚へ',
+    de: 'Mehrere Kategorien: ein Buch, viele Regale',
+    fr: 'Plusieurs catégories : un livre, plusieurs rayons',
+    es: 'Varias categorías: un libro, varios estantes',
+    pt: 'Várias categorias: um livro, várias estantes',
+  },
+  cardTemplates: {
+    zh: '书摘卡四版式：经典、信笺、夜读、胶片',
+    'zh-TW': '書摘卡四版式：經典、信箋、夜讀、膠片',
+    en: 'Four quote-card styles: classic, letter, night, film',
+    ja: '引用カード 4 種：クラシック・便箋・夜読・フィルム',
+    de: 'Vier Zitatkarten-Stile: klassisch, Brief, Nacht, Film',
+    fr: 'Quatre styles de carte citation : classique, lettre, nuit, film',
+    es: 'Cuatro estilos de tarjeta: clásico, carta, noche, film',
+    pt: 'Quatro estilos de cartão: clássico, carta, noite, filme',
+  },
+  imageViewer: {
+    zh: '插图查看：缩放、拖动、翻页',
+    'zh-TW': '插圖檢視：縮放、拖動、翻頁',
+    en: 'Image viewer: zoom, pan, flip',
+    ja: '画像ビューア：ズーム・移動・めくり',
+    de: 'Bildbetrachter: zoomen, verschieben, blättern',
+    fr: 'Visionneuse d’images : zoom, déplacement, navigation',
+    es: 'Visor de imágenes: zoom, arrastrar, pasar',
+    pt: 'Visualizador de imagens: zoom, arrastar, passar',
+  },
+  immersive: {
+    zh: '沉浸模式：藏起上下栏',
+    'zh-TW': '沉浸模式：藏起上下欄',
+    en: 'Immersive mode: hide the top and bottom bars',
+    ja: '没入モード：上下のバーを隠す',
+    de: 'Fokusmodus: obere und untere Leiste ausblenden',
+    fr: 'Mode immersif : masquer les barres haut et bas',
+    es: 'Modo inmersivo: ocultar las barras superior e inferior',
+    pt: 'Modo imersivo: ocultar as barras superior e inferior',
+  },
+  pdfRegion: {
+    zh: '框选成图：框一块做成书摘卡',
+    'zh-TW': '框選成圖：框一塊做成書摘卡',
+    en: 'Region card: frame an area as a quote card',
+    ja: '範囲を画像に：囲んだ範囲を引用カードへ',
+    de: 'Bereich als Bild: Auswahl als Zitatkarte',
+    fr: 'Zone en image : encadrer une zone en carte citation',
+    es: 'Zona a imagen: enmarcar un área como tarjeta',
+    pt: 'Região em imagem: enquadrar uma área como cartão',
+  },
+  exportTemplates: {
+    zh: '导出模板：四档 + 自定义多行',
+    'zh-TW': '匯出模板：四檔 + 自訂多行',
+    en: 'Export templates: four presets + custom multiline',
+    ja: '書き出しテンプレート：4 種 + カスタム複数行',
+    de: 'Exportvorlagen: vier Presets + eigene Mehrzeiler',
+    fr: 'Modèles d’export : quatre préréglages + multiligne',
+    es: 'Plantillas de exportación: cuatro ajustes + multilínea',
+    pt: 'Modelos de exportação: quatro predefinições + multilinha',
+  },
+  checkin: {
+    zh: '每日目标与连续打卡',
+    'zh-TW': '每日目標與連續打卡',
+    en: 'Daily goal and streak',
+    ja: '1 日の目標と連続記録',
+    de: 'Tagesziel und Serie',
+    fr: 'Objectif quotidien et série',
+    es: 'Objetivo diario y racha',
+    pt: 'Meta diária e sequência',
+  },
+  weeklyPoster: {
+    zh: '周报长图：一周数据一张图',
+    'zh-TW': '週報長圖：一週資料一張圖',
+    en: 'Weekly poster: one week in one image',
+    ja: '週報画像：1 週間を 1 枚に',
+    de: 'Wochenposter: eine Woche auf einem Bild',
+    fr: 'Affiche hebdo : une semaine en une image',
+    es: 'Póster semanal: una semana en una imagen',
+    pt: 'Pôster semanal: uma semana numa imagem',
+  },
+  backup: {
+    zh: '备份与恢复：整份数据带走',
+    'zh-TW': '備份與還原：整份資料帶走',
+    en: 'Backup and restore: take all your data',
+    ja: 'バックアップと復元：データを丸ごと持ち出せる',
+    de: 'Sichern und wiederherstellen: alle Daten mitnehmen',
+    fr: 'Sauvegarde et restauration : emporter toutes vos données',
+    es: 'Copia y restauración: llévate todos tus datos',
+    pt: 'Backup e restauração: leve todos os seus dados',
+  },
+  aiMeta: {
+    zh: 'AI 补书目信息：简介、分类自动填',
+    'zh-TW': 'AI 補書目資訊：簡介、分類自動填',
+    en: 'AI book details: description and categories filled in',
+    ja: 'AI 書誌補完：あらすじと分類を自動入力',
+    de: 'KI-Buchinfos: Beschreibung und Kategorien automatisch',
+    fr: 'Infos de livre par IA : description et catégories remplies',
+    es: 'Datos del libro con IA: descripción y categorías',
+    pt: 'Informações do livro com IA: descrição e categorias',
+  },
+  ttsResume: {
+    zh: '朗读续听：关掉再开接着听',
+    'zh-TW': '朗讀續聽：關掉再開接著聽',
+    en: 'Resume listening: pick up where you stopped',
+    ja: '読み上げ再開：閉じても続きから',
+    de: 'Hörpause fortsetzen: weiter, wo du aufgehört hast',
+    fr: 'Reprendre l’écoute : là où vous vous êtes arrêté',
+    es: 'Reanudar la escucha: sigue donde lo dejaste',
+    pt: 'Retomar a escuta: continue de onde parou',
+  },
+  ttsCache: {
+    zh: '音频缓存：重听不重复合成',
+    'zh-TW': '音訊快取：重聽不重複合成',
+    en: 'Audio cache: replay without re-synthesizing',
+    ja: '音声キャッシュ：聞き直しで再合成しない',
+    de: 'Audio-Cache: erneut hören ohne neu zu erzeugen',
+    fr: 'Cache audio : réécouter sans resynthétiser',
+    es: 'Caché de audio: repetir sin volver a sintetizar',
+    pt: 'Cache de áudio: ouvir de novo sem sintetizar',
+  },
 };
 
 /** 对照表行名 → 当前界面语言的说法 */
@@ -774,6 +952,17 @@ export function planNameZh(key: PlanKey): string {
  * 怎么看数据、AI 能做什么、怎么听、以后会做什么。组名同样是界面文案，
  * 走同一套八语言约束，别写回 `data/entitlement.ts`——那里有硬编码中文门禁。 */
 const PLAN_GROUP_TEXT: Record<PlanGroupKey, Record<Locale, string>> = {
+  /* 书架（2026-11-26）：段名两字，回答「书怎么管」，与「阅读」分开。 */
+  shelf: {
+    zh: '书架',
+    'zh-TW': '書架',
+    en: 'Shelf',
+    ja: '本棚',
+    de: 'Regal',
+    fr: 'Rayon',
+    es: 'Estante',
+    pt: 'Estante',
+  },
   read: {
     zh: '阅读',
     'zh-TW': '閱讀',
@@ -851,6 +1040,17 @@ const PLAN_GROUP_TEXT: Record<PlanGroupKey, Record<Locale, string>> = {
     fr: 'Révision',
     es: 'Repaso',
     pt: 'Revisão',
+  },
+  /* 统计（2026-11-26）：从「数据」拆出来，回答「读了多少」。 */
+  stats: {
+    zh: '统计',
+    'zh-TW': '統計',
+    en: 'Stats',
+    ja: '統計',
+    de: 'Statistik',
+    fr: 'Statistiques',
+    es: 'Estadísticas',
+    pt: 'Estatísticas',
   },
   data: {
     zh: '数据',

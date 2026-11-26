@@ -58,9 +58,9 @@ describe('对照表 · 追问单独成行', () => {
     expect(r?.cap).toBe('aiAsk');
   });
 
-  it('紧跟「AI 解释、翻译、摘要」下面，AI 段六行', () => {
+  it('紧跟「AI 解释、翻译、摘要」下面，AI 段七行', () => {
     const ai = PLAN_GROUPS.find((g) => g.key === 'ai');
-    expect(ai?.rows).toEqual(['aiSel', 'aiFollow', 'aiBook', 'aiLog', 'aiChat', 'kb']);
+    expect(ai?.rows).toEqual(['aiSel', 'aiFollow', 'aiBook', 'aiLog', 'aiChat', 'aiMeta', 'kb']);
     const at = PLAN_TABLE.findIndex((r) => r.key === 'aiFollow');
     expect(at).toBeGreaterThan(0);
     expect(PLAN_TABLE[at - 1]?.key).toBe('aiSel');
@@ -75,8 +75,8 @@ describe('对照表 · 追问单独成行', () => {
 });
 
 describe('对照表 · 合计与行数', () => {
-  it('基础版 23 项、高级版 55 项，全表 58 行', () => {
-    expect(planTotals()).toEqual({ free: 23, pro: 55 });
-    expect(PLAN_TABLE.length).toBe(59);
+  it('基础版 34 项、高级版 69 项，全表 73 行', () => {
+    expect(planTotals()).toEqual({ free: 34, pro: 69 });
+    expect(PLAN_TABLE.length).toBe(73);
   });
 });

@@ -105,10 +105,16 @@
 
 | 类别 | 功能 | 基础版 | 高级版 |
 |---|:---|:---:|:---:|
+| **书架** | 书籍信息与封面：可改可还原 | ✓ | ✓ |
+|  | 归档：移出书架，数据全留 | ✓ | ✓ |
+|  | 多分类：一本书归多个分类 | ✓ | ✓ |
 | **阅读** | EPUB / TXT 打开即读 | ✓ | ✓ |
 |  | 阅读时屏幕常亮 | ✓ | ✓ |
 |  | 目录、书签、四色划线、想法 | ✓ | ✓ |
 |  | 划线做成书摘图片 | ✓ | ✓ |
+|  | 书摘卡四版式：经典、信笺、夜读、胶片 | ✓ | ✓ |
+|  | 插图查看：缩放、拖动、翻页 | ✓ | ✓ |
+|  | 沉浸模式：藏起上下栏 | ✓ | ✓ |
 |  | 书内搜索 | ✓ | ✓ |
 |  | 跳转历史：一键回到上一处 | ✓ | ✓ |
 |  | 脚注浮窗：小注不用离页 | ✓ | ✓ |
@@ -125,8 +131,9 @@
 |  | 本页反链：笔记引了这页就画出来 | — | ✓ |
 |  | 文件自带批注：别人标的也能读 | — | ✓ |
 |  | 导出本页为图片 | — | ✓ |
+|  | 框选成图：框一块做成书摘卡 | — | ✓ |
 |  | 扫描页识别：像文字版一样选、搜、划 | — | ✓ |
-| **漫画** | CBZ / 文件夹打开即读 | — | ✓ |
+| **漫画** · [看教程](https://www.bilibili.com/video/BV1Cb1cz3Ebh) | CBZ / 文件夹打开即读 | — | ✓ |
 |  | ComicInfo 方向自动跟随 | — | ✓ |
 |  | 右到左 / 左到右 | — | ✓ |
 |  | 单页 / 双页，跨页自动拆合 | — | ✓ |
@@ -138,25 +145,32 @@
 | **笔记与导出** | 划线存成双链：笔记里点回原文 | — | ✓ |
 |  | 引用页签：看哪些笔记引了这本书 | — | ✓ |
 |  | 导出整本摘录：每条带双链 | ✓ | ✓ |
+|  | 导出模板：四档 + 自定义多行 | ✓ | ✓ |
 | **复习** | 复习：全文回顾，AI 抽认卡与出题 | ✓ | ✓ |
 |  | 复习页签：挑内容、制卡、复习都在一起 | ✓ | ✓ |
 |  | 划线挑重点：整本书的划线交给 AI 挑 | ✓ | ✓ |
 |  | 按章生成卡片：AI 读正文挑重点 | ✓ | ✓ |
 |  | 已在复习：划线标出，不重复排 | ✓ | ✓ |
-| **数据** | 统计回顾：字数速度、节律热力、分类与成就 | — | ✓ |
+| **统计** | 统计回顾：字数速度、节律热力、分类与成就 | — | ✓ |
+|  | 每日目标与连续打卡 | — | ✓ |
 |  | 阅读海报：年度总结与数据长图 | — | ✓ |
-|  | 全库搜索：按字面搜所有书，含 PDF | — | ✓ |
+|  | 周报长图：一周数据一张图 | — | ✓ |
+| **数据** | 全库搜索：按字面搜所有书，含 PDF | — | ✓ |
 |  | 语义搜索：按意思找，本书或全库 | — | ✓ |
+|  | 备份与恢复：整份数据带走 | ✓ | ✓ |
 | **AI** · [看教程](https://www.bilibili.com/video/BV1BNsz6zEBx) | AI 解释、翻译、摘要：即划即用 | ✓ | ✓ |
 |  | AI 追问：就这段接着问 | — | ✓ |
 |  | AI 全书问答：划线、正文、截图与笔记四种依据都可添加进去 | — | ✓ |
 |  | AI 对话留档并导出至笔记 | — | ✓ |
 |  | AI 伴读：边读边问，按章导读 | — | ✓ |
+|  | AI 补书目信息：简介、分类自动填 | ✓ | ✓ |
 |  | AI 知识库：增量阅读、知识输入、整理与输出的闭环 · [看教程](https://www.bilibili.com/video/BV1bR4s6dEjH) | — | ✓ |
 | **听书** · [看教程](https://www.bilibili.com/video/BV17psV6wEP7) | 朗读：EPUB、TXT、PDF，念完自动翻页 | ✓ | ✓ |
 |  | 三种引擎：系统语音、在线、本地自建 | ✓ | ✓ |
 |  | 音色与试听 | ✓ | ✓ |
 |  | 语速与高亮跟随 | ✓ | ✓ |
+|  | 朗读续听：关掉再开接着听 | ✓ | ✓ |
+|  | 音频缓存：重听不重复合成 | ✓ | ✓ |
 |  | 整章预生成 | — | ✓ |
 |  | 整本预生成 | — | ✓ |
 |  | 离线听书：mp3 拷进手机照样听 | — | ✓ |
@@ -319,25 +333,34 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 
 | Group | Feature | Free | Pro |
 |---|:---|:---:|:---:|
-| **Reading & Shelf** | EPUB / TXT, open and read | ✓ | ✓ |
-|  | One or two columns | ✓ | ✓ |
+| **Shelf** | Book info and cover: edit, replace, restore | ✓ | ✓ |
+|  | Archive: off the shelf, data kept | ✓ | ✓ |
+|  | Multiple shelves: one book, many categories | ✓ | ✓ |
+| **Reading** | EPUB / TXT, open and read | ✓ | ✓ |
+|  | Keep the screen awake while reading | ✓ | ✓ |
 |  | Contents, bookmarks, four-color highlights, notes | ✓ | ✓ |
-|  | In-book search | ✓ | ✓ |
-|  | Back to your previous spot: one tap after any jump | ✓ | ✓ |
-|  | Footnotes in a popover: no need to leave the page | ✓ | ✓ |
 |  | Highlights as quote card images | ✓ | ✓ |
-|  | Shelf categories | ✓ | ✓ |
-| **Formats & Export** | Kindle family (MOBI / AZW3), FB2, CBZ comics, PDF | — | ✓ |
-|  | Highlights as wikilinks: click back from your notes | — | ✓ |
-|  | Citations tab: see which notes cite this book | — | ✓ |
-|  | Export every excerpt, each with a wikilink | ✓ | ✓ |
-|  | Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf | ✓ | ✓ |
-| **PDF Reading** | Open a PDF: zoom, rotate, one or two pages, scroll; view remembered per book | — | ✓ |
+|  | Four quote-card styles: classic, letter, night, film | ✓ | ✓ |
+|  | Image viewer: zoom, pan, flip | ✓ | ✓ |
+|  | Immersive mode: hide the top and bottom bars | ✓ | ✓ |
+|  | In-book search | ✓ | ✓ |
+|  | Jump history: one tap back to where you were | ✓ | ✓ |
+|  | Footnotes in a popover: no need to leave the page | ✓ | ✓ |
+|  | Shelf categories: make your own and file books | ✓ | ✓ |
+| **Layout** | One or two columns | ✓ | ✓ |
+|  | Vertical typesetting: EPUB / TXT | — | ✓ |
+|  | Side by side: two books, paragraphs in step | ✓ | ✓ |
+|  | Book overview: highlights per chapter, one-line summary | ✓ | ✓ |
+| **Import** | Kindle family (MOBI / AZW3), FB2, CBZ comics, PDF | — | ✓ |
+|  | Clipbook to EPUB: bind clipped articles into one EPUB | ✓ | ✓ |
+| **PDF Reading** | Read PDFs: zoom, rotate, one or two pages, scroll | — | ✓ |
 |  | Page thumbnails: find a page in a long book | — | ✓ |
-|  | Copy page links: page / view / embed / annotation | — | ✓ |
-|  | Backlinks on this page and annotations in the file | — | ✓ |
+|  | Copy page links: page, view, embed, annotation | — | ✓ |
+|  | Page backlinks: notes citing this page show up on it | — | ✓ |
+|  | Annotations in the file: read what others marked | — | ✓ |
 |  | Export a page as an image | — | ✓ |
-|  | Scanned page OCR: select, search and highlight like real text | — | ✓ |
+|  | Region card: frame an area as a quote card | — | ✓ |
+|  | OCR scans: select, search and highlight like text | — | ✓ |
 | **Manga** | CBZ and folders, open and read | — | ✓ |
 |  | Follows the reading direction in ComicInfo | — | ✓ |
 |  | Right-to-left / left-to-right | — | ✓ |
@@ -347,25 +370,42 @@ While the review is pending, or if search doesn't find it, install with [BRAT](h
 |  | Six fit modes, zoom and pan | — | ✓ |
 |  | Trim margins, one-tap tone fix | — | ✓ |
 |  | Page thumbnails, resume where you left | — | ✓ |
-| **Stats & Search** | Stats recap: pace, rhythm heatmap, per-book ETA, badges | — | ✓ |
+| **Notes & Export** | Highlights as wikilinks: click back from your notes | — | ✓ |
+|  | Citations tab: see which notes cite this book | — | ✓ |
+|  | Export every excerpt, each with a wikilink | ✓ | ✓ |
+|  | Export templates: four presets + custom multiline | ✓ | ✓ |
+| **Review** | Review: reread in full, with AI flashcards and quizzes | ✓ | ✓ |
+|  | Review tab: pick, make cards and review in one place | ✓ | ✓ |
+|  | Pick from highlights: hand the book’s highlights to AI | ✓ | ✓ |
+|  | Cards by chapter: AI reads the text and picks key points | ✓ | ✓ |
+|  | Already in review: marked on the highlight, never queued twice | ✓ | ✓ |
+| **Stats** | Stats recap: pace, rhythm heatmap, per-book ETA, badges | — | ✓ |
+|  | Daily goal and streak | — | ✓ |
 |  | Reading poster: yearly recap and stats long image | — | ✓ |
-|  | Whole-library search, PDF text included | — | ✓ |
-|  | Semantic search: by meaning, in this book or the shelf | — | ✓ |
+|  | Weekly poster: one week in one image | — | ✓ |
+| **Data** | Whole-library search: literal match, PDF text included | — | ✓ |
+|  | Semantic search: by meaning, this book or the shelf | — | ✓ |
+|  | Backup and restore: take all your data | ✓ | ✓ |
 | **AI** | AI explain, translate and summarize: select and go | ✓ | ✓ |
 |  | AI follow-up: keep asking about this passage | — | ✓ |
 |  | AI Q&A over the whole book: highlights, page text, screenshots and notes as evidence | — | ✓ |
 |  | AI chats are kept and can be exported to a note | — | ✓ |
-|  | AI companion: ask as you read, with a per-chapter guide | — | ✓ |
+|  | AI companion: ask as you read, per-chapter guide | — | ✓ |
+|  | AI book details: description and categories filled in | ✓ | ✓ |
 |  | AI knowledge base: incremental reading, intake, and a loop from notes to output | — | ✓ |
-| **Advanced** | Vertical typesetting: EPUB / TXT | — | ✓ |
-|  | Read aloud: EPUB, TXT and PDF, auto page-turn | — | ✓ |
-|  | Read two books side by side | ✓ | ✓ |
-|  | Book overview | — | ✓ |
-| **Explorations** | PDF reflow: fixed layouts read as flowing text | — | — |
+| **Listening** | Read aloud: EPUB, TXT and PDF, turns the page on its own | ✓ | ✓ |
+|  | Three engines: system voice, online, self-hosted | ✓ | ✓ |
+|  | Voices and preview | ✓ | ✓ |
+|  | Speed and highlight follow | ✓ | ✓ |
+|  | Resume listening: pick up where you stopped | ✓ | ✓ |
+|  | Audio cache: replay without re-synthesizing | ✓ | ✓ |
+|  | Pre-build the chapter | — | ✓ |
+|  | Pre-build the whole book | — | ✓ |
+|  | Offline audio: copy the mp3s to your phone and keep listening | — | ✓ |
+| **Roadmap** | PDF reflow: fixed layouts read as flowing text | — | — |
 |  | Chapter translation: source and translation side by side | — | — |
-|  | Review: reread in full, with AI flashcards and quizzes | — | — |
-|  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
-|  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
+|  | E Ink: crisper black and white, no page-turn flashing | — | — |
+|  | Interface motion: page turns and chapter changes, can be off | — | — |
 
 ### Interface languages
 
@@ -502,47 +542,79 @@ Released under the [MIT](LICENSE) license. The rendering engine is [foliate-js](
 
 | 類別 | 功能 | 基礎版 | 高級版 |
 |---|:---|:---:|:---:|
-| **閱讀與書架** | EPUB / TXT 開啟即讀 | ✓ | ✓ |
-|  | 單欄 / 雙欄 | ✓ | ✓ |
+| **書架** | 書籍資訊與封面：可改可還原 | ✓ | ✓ |
+|  | 歸檔：移出書架，資料全留 | ✓ | ✓ |
+|  | 多分類：一本書歸多個分類 | ✓ | ✓ |
+| **閱讀** | EPUB / TXT 開啟即讀 | ✓ | ✓ |
+|  | 閱讀時螢幕常亮 | ✓ | ✓ |
 |  | 目錄、書籤、四色劃線、想法 | ✓ | ✓ |
-|  | 書內搜尋 | ✓ | ✓ |
-|  | 回到上一處：跳走之後一鍵回來 | ✓ | ✓ |
-|  | 腳註浮窗：小註不用離頁 | ✓ | ✓ |
 |  | 劃線做成書摘圖片 | ✓ | ✓ |
-|  | 分類管理 | ✓ | ✓ |
-| **格式與匯出** | Kindle 系（MOBI / AZW3）、FB2、CBZ 漫畫、PDF | — | ✓ |
-|  | 劃線存成雙鏈：筆記裡點回原文 | — | ✓ |
-|  | 引用頁籤：看哪些筆記引用了本書 | — | ✓ |
-|  | 匯出整本摘錄：每條帶雙鏈 | — | ✓ |
-| **PDF 閱讀** | 開啟 PDF：縮放、旋轉、單雙頁、捲動，每本記住視角 | — | ✓ |
+|  | 書摘卡四版式：經典、信箋、夜讀、膠片 | ✓ | ✓ |
+|  | 插圖檢視：縮放、拖動、翻頁 | ✓ | ✓ |
+|  | 沉浸模式：藏起上下欄 | ✓ | ✓ |
+|  | 書內搜尋 | ✓ | ✓ |
+|  | 跳轉歷史：一鍵回到上一處 | ✓ | ✓ |
+|  | 腳註浮窗：小註不用離頁 | ✓ | ✓ |
+|  | 分類管理：自建分類歸書 | ✓ | ✓ |
+| **排版** | 單欄 / 雙欄排版 | ✓ | ✓ |
+|  | 豎排排版：EPUB / TXT | — | ✓ |
+|  | 並排對照：與另一本書同步段落 | ✓ | ✓ |
+|  | 全書鳥瞰：各章劃線數與一句話摘要 | ✓ | ✓ |
+| **匯入** | Kindle 系（MOBI / AZW3）、FB2、CBZ 漫畫、PDF | — | ✓ |
+|  | 剪藏成書：剪藏本合成一本 EPUB · [看教學](https://www.bilibili.com/video/BV1h3WB6XEL4) | ✓ | ✓ |
+| **PDF 閱讀** | PDF 閱讀：縮放、旋轉、單雙頁、捲動 | — | ✓ |
 |  | 頁縮圖：幾百頁也能一屏找 | — | ✓ |
-|  | 複製頁連結：頁碼 / 檢視 / 嵌入 / 批註 | — | ✓ |
-|  | 本頁反鏈與檔案自帶批註 | — | ✓ |
+|  | 複製頁連結：頁碼、檢視、嵌入、批註 | — | ✓ |
+|  | 本頁反鏈：筆記引了這頁就畫出來 | — | ✓ |
+|  | 檔案自帶批註：別人標的也能讀 | — | ✓ |
 |  | 匯出本頁為圖片 | — | ✓ |
-| **統計與搜尋** | 資料面板：時長、趨勢、節律、書籍明細 | — | ✓ |
+|  | 框選成圖：框一塊做成書摘卡 | — | ✓ |
+|  | 掃描頁識別：像文字版一樣選、搜、劃 | — | ✓ |
+| **漫畫** · [看教學](https://www.bilibili.com/video/BV1Cb1cz3Ebh) | CBZ / 資料夾開啟即讀 | — | ✓ |
+|  | ComicInfo 方向自動跟隨 | — | ✓ |
+|  | 右到左 / 左到右 | — | ✓ |
+|  | 單頁 / 雙頁，跨頁自動拆合 | — | ✓ |
+|  | 一屏一頁 / 連續 / 條漫 | — | ✓ |
+|  | 逐格讀：自動分格、防劇透 | — | ✓ |
+|  | 六檔適配 + 縮放拖動 | — | ✓ |
+|  | 裁白邊、一鍵調色 | — | ✓ |
+|  | 頁縮圖、讀到哪記住 | — | ✓ |
+| **筆記與匯出** | 劃線存成雙鏈：筆記裡點回原文 | — | ✓ |
+|  | 引用頁籤：看哪些筆記引用了本書 | — | ✓ |
+|  | 匯出整本摘錄：每條帶雙鏈 | ✓ | ✓ |
+|  | 匯出模板：四檔 + 自訂多行 | ✓ | ✓ |
+| **複習** | 複習：全文回顧，AI 抽認卡與出題 | ✓ | ✓ |
+|  | 複習頁籤：挑內容、製卡、複習都在一起 | ✓ | ✓ |
+|  | 劃線挑重點：整本書的劃線交給 AI 挑 | ✓ | ✓ |
+|  | 按章產生卡片：AI 讀正文挑重點 | ✓ | ✓ |
+|  | 已在複習：劃線標出，不重複排 | ✓ | ✓ |
+| **統計** | 統計回顧：字數速度、節律熱力、分類與成就 | — | ✓ |
+|  | 每日目標與連續打卡 | — | ✓ |
 |  | 閱讀海報：年度總結與資料長圖 | — | ✓ |
-|  | 全庫搜尋：PDF 正文也搜得到 | — | ✓ |
-| **AI** | AI 解釋、翻譯與摘要：劃詞即用 | — | ✓ |
-|  | AI 全書問答 | — | ✓ |
-| **朗讀與聽書** · [看教學](https://www.bilibili.com/video/BV17psV6wEP7) | 朗讀：EPUB、TXT、PDF，念完自動翻頁 | ✓ | ✓ |
+|  | 週報長圖：一週資料一張圖 | — | ✓ |
+| **資料** | 全庫搜尋：按字面搜所有書，含 PDF | — | ✓ |
+|  | 語意搜尋：按意思找，本書或全庫 | — | ✓ |
+|  | 備份與還原：整份資料帶走 | ✓ | ✓ |
+| **AI** | AI 解釋、翻譯、摘要：即劃即用 | ✓ | ✓ |
+|  | AI 追問：就這段接著問 | — | ✓ |
+|  | AI 全書問答：劃線、正文、截圖與筆記四種依據都可加入 | — | ✓ |
+|  | AI 對話留存並匯出至筆記 | — | ✓ |
+|  | AI 伴讀：邊讀邊問，按章導讀 | — | ✓ |
+|  | AI 補書目資訊：簡介、分類自動填 | ✓ | ✓ |
+|  | AI 知識庫：增量閱讀、知識輸入、整理與輸出的閉環 · [看教學](https://www.bilibili.com/video/BV1bR4s6dEjH) | — | ✓ |
+| **聽書** · [看教學](https://www.bilibili.com/video/BV17psV6wEP7) | 朗讀：EPUB、TXT、PDF，念完自動翻頁 | ✓ | ✓ |
 |  | 三種引擎：系統語音、線上、本機自建 | ✓ | ✓ |
 |  | 音色與試聽 | ✓ | ✓ |
 |  | 語速與高亮跟隨 | ✓ | ✓ |
+|  | 朗讀續聽：關掉再開接著聽 | ✓ | ✓ |
+|  | 音訊快取：重聽不重複合成 | ✓ | ✓ |
 |  | 整章預先產生 | — | ✓ |
 |  | 整本預先產生 | — | ✓ |
 |  | 離線聽書：mp3 拷進手機照樣聽 | — | ✓ |
-| **進階** | 豎排排版：EPUB / TXT | — | ✓ |
-|  | 與另一本書並排對照 | — | ✓ |
-|  | 全書鳥瞰 | — | ✓ |
-|  | AI 知識盒 · [看教學](https://www.bilibili.com/video/BV1bR4s6dEjH) | — | ✓ |
-|  | 剪藏成書：把剪藏本的文章合成 EPUB，在書架裡讀 · [看教學](https://www.bilibili.com/video/BV1h3WB6XEL4) | — | ✓ |
-|  | 漫畫模式：分格、右到左、跨頁 | — | ✓ |
-| **探索中** | PDF OCR+AI視覺：掃描件像文字版一樣能選能搜能劃 | — | — |
-|  | PDF 重排：固定版式也能流式讀 | — | — |
-|  | 整章翻譯：原文譯文對照讀 | — | — |
-|  | 複習：全文回顧，AI 生成抽認卡與題目 | — | — |
-|  | 墨水屏優化：黑白更清、翻頁不閃 | — | — |
-|  | 介面動效：翻頁、切章與書架過渡，可隨時關 | — | — |
+| **路線圖** | PDF 重排：固定版式變流式 | — | — |
+|  | 整章翻譯：原文譯文對照 | — | — |
+|  | 墨水屏：黑白更清、翻頁不閃 | — | — |
+|  | 介面動效：翻頁與切章過渡，可關 | — | — |
 
 ### 介面語言
 
@@ -606,41 +678,79 @@ Obsidian を「本を読む場所」に。デスクトップ + モバイル、�
 
 | 区分 | 機能 | ベーシック版 | プロ版 |
 |---|:---|:---:|:---:|
-| **読書と本棚** | EPUB / TXT をすぐ読める | ✓ | ✓ |
-|  | 1 段 / 2 段組 | ✓ | ✓ |
+| **本棚** | 書誌情報と表紙：編集・差し替え・復元 | ✓ | ✓ |
+|  | アーカイブ：本棚から外してもデータは残る | ✓ | ✓ |
+|  | 複数カテゴリ：1 冊を複数の棚へ | ✓ | ✓ |
+| **読書** | EPUB / TXT をすぐ読める | ✓ | ✓ |
+|  | 読書中は画面を消さない | ✓ | ✓ |
 |  | 目次・ブックマーク・4 色ハイライトとメモ | ✓ | ✓ |
-|  | 本文内検索 | ✓ | ✓ |
-|  | 前の位置に戻る：移動したあとワンタップで戻れる | ✓ | ✓ |
-|  | 脚注ポップアップ：ページを離れずに読める | ✓ | ✓ |
 |  | 引用カード画像 | ✓ | ✓ |
-|  | カテゴリ管理 | ✓ | ✓ |
-| **形式と書き出し** | Kindle 系（MOBI / AZW3）、FB2、CBZ コミック、PDF | — | ✓ |
-|  | ハイライトを双方向リンクに：ノートから原文へ | — | ✓ |
-|  | 引用タブ：この本を引用したノート | — | ✓ |
-|  | 抜粋をまとめて書き出し、各項目に双方向リンク | — | ✓ |
-| **PDF を読む** | PDF を開く：ズーム・回転・見開き・スクロール、本ごとに表示を記憶 | — | ✓ |
+|  | 引用カード 4 種：クラシック・便箋・夜読・フィルム | ✓ | ✓ |
+|  | 画像ビューア：ズーム・移動・めくり | ✓ | ✓ |
+|  | 没入モード：上下のバーを隠す | ✓ | ✓ |
+|  | 本文内検索 | ✓ | ✓ |
+|  | 移動履歴：ワンタップで前の位置へ | ✓ | ✓ |
+|  | 脚注ポップアップ：ページを離れずに読める | ✓ | ✓ |
+|  | カテゴリ管理：自分で作って本を振り分け | ✓ | ✓ |
+| **レイアウト** | 1 段 / 2 段組 | ✓ | ✓ |
+|  | 縦組み：EPUB / TXT | — | ✓ |
+|  | 並べて対照：別の本と段落を同期 | ✓ | ✓ |
+|  | 全体マップ：章ごとのハイライト数と一行要約 | ✓ | ✓ |
+| **取り込み** | Kindle 系（MOBI / AZW3）、FB2、CBZ コミック、PDF | — | ✓ |
+|  | クリップブックを EPUB に：クリップ記事を 1 冊にまとめる | ✓ | ✓ |
+| **PDF を読む** | PDF を読む：ズーム・回転・見開き・スクロール | — | ✓ |
 |  | ページサムネイル：長い本でも一画面で探せる | — | ✓ |
-|  | ページリンクをコピー：ページ / ビュー / 埋め込み / 注釈 | — | ✓ |
-|  | このページへの被リンクとファイル内の注釈 | — | ✓ |
+|  | ページリンクをコピー：ページ・ビュー・埋め込み・注釈 | — | ✓ |
+|  | このページへの被リンク：引用したノートを頁上に表示 | — | ✓ |
+|  | ファイル内の注釈：他の人が引いた線も読める | — | ✓ |
 |  | このページを画像として書き出す | — | ✓ |
-| **統計と検索** | データパネル：時間・推移・リズム・書籍別の内訳 | — | ✓ |
+|  | 範囲を画像に：囲んだ範囲を引用カードへ | — | ✓ |
+|  | OCR スキャン：テキスト同様に選択・検索・ハイライト | — | ✓ |
+| **マンガ** | CBZ / フォルダをそのまま開いて読める | — | ✓ |
+|  | ComicInfo の読み方向に自動で従う | — | ✓ |
+|  | 右から左 / 左から右 | — | ✓ |
+|  | 単ページ / 見開き、見開きの自動分割・結合 | — | ✓ |
+|  | 1 画面 1 ページ / 連続 / 縦スクロール | — | ✓ |
+|  | コマごとに読む：自動コマ分割・ネタバレ防止 | — | ✓ |
+|  | 6 段階のフィット + ズームと移動 | — | ✓ |
+|  | 白余白の切り取り、ワンタップ調色 | — | ✓ |
+|  | ページサムネイル、読んだ位置を記憶 | — | ✓ |
+| **ノートと書き出し** | ハイライトを双方向リンクに：ノートから原文へ | — | ✓ |
+|  | 引用タブ：この本を引用したノート | — | ✓ |
+|  | 抜粋をまとめて書き出し、各項目に双方向リンク | ✓ | ✓ |
+|  | 書き出しテンプレート：4 種 + カスタム複数行 | ✓ | ✓ |
+| **復習** | 復習：全文を振り返り、AI がカードと問題を作成 | ✓ | ✓ |
+|  | 復習タブ：選ぶ・カード作成・復習を 1 か所に | ✓ | ✓ |
+|  | ハイライトから選ぶ：本のハイライトを AI に渡す | ✓ | ✓ |
+|  | 章ごとにカード生成：AI が本文を読んで要点を選ぶ | ✓ | ✓ |
+|  | 復習済み：ハイライトに表示、二重登録なし | ✓ | ✓ |
+| **統計** | 統計レビュー：読了速度、時間帯、分類と実績 | — | ✓ |
+|  | 1 日の目標と連続記録 | — | ✓ |
 |  | 読書ポスター：年間まとめとデータ長画像 | — | ✓ |
-|  | ライブラリ全体を検索：PDF 本文も対象 | — | ✓ |
-| **AI** | AI 解説・翻訳・要約：選択するだけ | — | ✓ |
-|  | AI 全書 Q&A | — | ✓ |
-| **上級** | 縦組み：EPUB / TXT | — | ✓ |
-|  | 読み上げ：EPUB・TXT・PDF、読み終えたら自動で次のページ | — | ✓ |
-|  | 別の本と並べて対照 | — | ✓ |
-|  | 全体マップ | — | ✓ |
-|  | BZ AI ナレッジベースに接続（bz が必要） | — | ✓ |
-|  | マンガモード：コマ割り・右から左・見開き | — | ✓ |
-| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
-|  | PDF reflow: fixed layouts read as flowing text | — | — |
-|  | Chapter translation: source and translation side by side | — | — |
-|  | Review: reread in full, with AI flashcards and quizzes | — | — |
-|  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
-|  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
-|  | Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf | — | — |
+|  | 週報画像：1 週間を 1 枚に | — | ✓ |
+| **データ** | ライブラリ全体を検索：文字どおり全冊、PDF 本文も対象 | — | ✓ |
+|  | セマンティック検索：意味で探す、本書でも本棚でも | — | ✓ |
+|  | バックアップと復元：データを丸ごと持ち出せる | ✓ | ✓ |
+| **AI** | AI 解説・翻訳・要約：選択するだけ | ✓ | ✓ |
+|  | AI に追加質問：この一節について続けて聞く | — | ✓ |
+|  | AI 全書 Q&A：ハイライト・本文・スクリーンショット・ノートの 4 種を根拠に追加できる | — | ✓ |
+|  | AI の会話を保存し、ノートに書き出せる | — | ✓ |
+|  | AI 伴読：読みながら質問、章ごとのガイド | — | ✓ |
+|  | AI 書誌補完：あらすじと分類を自動入力 | ✓ | ✓ |
+|  | AI ナレッジベース：インクリメンタルリーディング・知識の取り込み・整理と出力の循環 | — | ✓ |
+| **聴書** | 読み上げ：EPUB・TXT・PDF、読み終えたら自動で次ページ | ✓ | ✓ |
+|  | 3 つのエンジン：OS の音声・オンライン・自前サーバー | ✓ | ✓ |
+|  | 声の選択と試聴 | ✓ | ✓ |
+|  | 速度とハイライト追従 | ✓ | ✓ |
+|  | 読み上げ再開：閉じても続きから | ✓ | ✓ |
+|  | 音声キャッシュ：聞き直しで再合成しない | ✓ | ✓ |
+|  | 章をまとめて先に生成 | — | ✓ |
+|  | 本全体を先に生成 | — | ✓ |
+|  | オフライン再生：mp3 をスマホにコピーしても聴ける | — | ✓ |
+| **ロードマップ** | PDF リフロー：固定レイアウトを流し組みに | — | — |
+|  | 章まるごと翻訳：原文と訳文を並べて | — | — |
+|  | E Ink：コントラスト向上、ページ切替でちらつかない | — | — |
+|  | UI アニメーション：ページ・章の切替演出、オフにもできる | — | — |
 
 「一部」＝テキストの引用カードはベーシック版で利用可、画像として書き出すにはプロ版が必要です。
 
@@ -706,41 +816,79 @@ Solange die Prüfung läuft oder die Suche nichts findet: mit [BRAT](https://git
 
 | Bereich | Funktion | Basis | Pro |
 |---|:---|:---:|:---:|
-| **Lesen & Regal** | EPUB / TXT sofort lesbar | ✓ | ✓ |
-|  | Eine oder zwei Spalten | ✓ | ✓ |
+| **Regal** | Buchinfo & Cover: ändern, ersetzen, zurücksetzen | ✓ | ✓ |
+|  | Archiv: vom Regal nehmen, Daten bleiben | ✓ | ✓ |
+|  | Mehrere Kategorien: ein Buch, viele Regale | ✓ | ✓ |
+| **Lesen** | EPUB / TXT sofort lesbar | ✓ | ✓ |
+|  | Bildschirm beim Lesen anlassen | ✓ | ✓ |
 |  | Inhalt, Lesezeichen, vier Markierungsfarben und Notizen | ✓ | ✓ |
-|  | Suche im Buch | ✓ | ✓ |
-|  | Zur vorherigen Stelle zurück – nach jedem Sprung ein Klick | ✓ | ✓ |
-|  | Fußnoten im Pop-up – ohne die Seite zu verlassen | ✓ | ✓ |
 |  | Zitatkarten als Bild | ✓ | ✓ |
-|  | Regal-Kategorien | ✓ | ✓ |
-| **Formate & Export** | Kindle-Familie (MOBI / AZW3), FB2, CBZ-Comics, PDF | — | ✓ |
-|  | Markierungen als Wikilinks: aus der Notiz zur Stelle | — | ✓ |
-|  | Zitate-Tab: welche Notizen dieses Buch zitieren | — | ✓ |
-|  | Alle Exzerpte exportieren, jeweils mit Wikilink | — | ✓ |
-| **PDF lesen** | PDF öffnen: zoomen, drehen, Einzel- / Doppelseite, Scrollen; Ansicht pro Buch | — | ✓ |
+|  | Vier Zitatkarten-Stile: klassisch, Brief, Nacht, Film | ✓ | ✓ |
+|  | Bildbetrachter: zoomen, verschieben, blättern | ✓ | ✓ |
+|  | Fokusmodus: obere und untere Leiste ausblenden | ✓ | ✓ |
+|  | Suche im Buch | ✓ | ✓ |
+|  | Sprungverlauf – ein Klick zurück zur letzten Stelle | ✓ | ✓ |
+|  | Fußnoten im Pop-up – ohne die Seite zu verlassen | ✓ | ✓ |
+|  | Regal-Kategorien: eigene anlegen und Bücher einsortieren | ✓ | ✓ |
+| **Layout** | Eine oder zwei Spalten | ✓ | ✓ |
+|  | Vertikaler Satz: EPUB / TXT | — | ✓ |
+|  | Nebeneinander: zwei Bücher, Absätze laufen mit | ✓ | ✓ |
+|  | Buchübersicht: Markierungen je Kapitel, Ein-Satz-Zusammenfassung | ✓ | ✓ |
+| **Import** | Kindle-Familie (MOBI / AZW3), FB2, CBZ-Comics, PDF | — | ✓ |
+|  | Clipbook als EPUB: geclippte Artikel in ein EPUB binden | ✓ | ✓ |
+| **PDF lesen** | PDF lesen: zoomen, drehen, Einzel- / Doppelseite, Scrollen | — | ✓ |
 |  | Seitenminiaturen: auch in langen Büchern schnell finden | — | ✓ |
-|  | Seitenlinks kopieren: Seite / Ansicht / Einbettung / Anmerkung | — | ✓ |
-|  | Backlinks auf dieser Seite und Anmerkungen in der Datei | — | ✓ |
+|  | Seitenlinks kopieren: Seite, Ansicht, Einbettung, Anmerkung | — | ✓ |
+|  | Backlinks auf der Seite: Notizen, die sie zitieren, erscheinen darauf | — | ✓ |
+|  | Anmerkungen in der Datei: lesen, was andere markiert haben | — | ✓ |
 |  | Seite als Bild exportieren | — | ✓ |
-| **Statistik & Suche** | Statistikpanel: Zeit, Verlauf, Rhythmus, Details je Buch | — | ✓ |
+|  | Bereich als Bild: Auswahl als Zitatkarte | — | ✓ |
+|  | OCR-Scans: auswählen, suchen und markieren wie Text | — | ✓ |
+| **Manga** | CBZ und Ordner direkt öffnen und lesen | — | ✓ |
+|  | Liest die Leserichtung aus ComicInfo automatisch | — | ✓ |
+|  | Rechts nach links / links nach rechts | — | ✓ |
+|  | Einzel- / Doppelseite, Doppelseiten automatisch teilen und zusammenfügen | — | ✓ |
+|  | Eine Seite pro Bildschirm / fortlaufend / Webtoon-Streifen | — | ✓ |
+|  | Panel für Panel: automatische Panels, spoilerfrei | — | ✓ |
+|  | Sechs Anpassungsmodi, Zoom und Verschieben | — | ✓ |
+|  | Ränder beschneiden, Farbton mit einem Tipp | — | ✓ |
+|  | Seitenminiaturen, Leseposition merken | — | ✓ |
+| **Notizen & Export** | Markierungen als Wikilinks: aus der Notiz zur Stelle | — | ✓ |
+|  | Zitate-Tab: welche Notizen dieses Buch zitieren | — | ✓ |
+|  | Alle Exzerpte exportieren, jeweils mit Wikilink | ✓ | ✓ |
+|  | Exportvorlagen: vier Presets + eigene Mehrzeiler | ✓ | ✓ |
+| **Wiederholen** | Wiederholen: den ganzen Text Revue passieren, KI-Karten und Fragen | ✓ | ✓ |
+|  | Wiederholen-Tab: auswählen, Karten erstellen und wiederholen an einem Ort | ✓ | ✓ |
+|  | Aus Markierungen wählen: die Markierungen des Buchs an die KI geben | ✓ | ✓ |
+|  | Karten je Kapitel: Die KI liest den Text und wählt Kernpunkte | ✓ | ✓ |
+|  | Schon in Wiederholung: an der Markierung sichtbar, nie doppelt | ✓ | ✓ |
+| **Statistik** | Statistik: Lesetempo, Rhythmus, Kategorien und Abzeichen | — | ✓ |
+|  | Tagesziel und Serie | — | ✓ |
 |  | Leseposter: Jahresrückblick und Daten-Langbild | — | ✓ |
-|  | Bibliothek durchsuchen, PDF-Text inklusive | — | ✓ |
-| **KI** | KI: erklären, übersetzen, zusammenfassen — direkt zur Auswahl | — | ✓ |
-|  | KI: Fragen zum ganzen Buch | — | ✓ |
-| **Fortgeschritten** | Vertikaler Satz: EPUB / TXT | — | ✓ |
-|  | Vorlesen: EPUB, TXT und PDF, blättert automatisch weiter | — | ✓ |
-|  | Zwei Bücher nebeneinander lesen | — | ✓ |
-|  | Buchübersicht | — | ✓ |
-|  | Mit der BZ-KI-Wissensdatenbank verbinden (bz erforderlich) | — | ✓ |
-|  | Manga-Modus: Panels, rechts nach links, Doppelseiten | — | ✓ |
-| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
-|  | PDF reflow: fixed layouts read as flowing text | — | — |
-|  | Chapter translation: source and translation side by side | — | — |
-|  | Review: reread in full, with AI flashcards and quizzes | — | — |
-|  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
-|  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
-|  | Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf | — | — |
+|  | Wochenposter: eine Woche auf einem Bild | — | ✓ |
+| **Daten** | Bibliothek durchsuchen: wörtlich in allen Büchern, PDF-Text inklusive | — | ✓ |
+|  | Semantische Suche: nach Bedeutung, im Buch oder Regal | — | ✓ |
+|  | Sichern und wiederherstellen: alle Daten mitnehmen | ✓ | ✓ |
+| **KI** | KI: erklären, übersetzen, zusammenfassen — direkt zur Auswahl | ✓ | ✓ |
+|  | KI-Nachfrage: zu dieser Stelle weiterfragen | — | ✓ |
+|  | KI: Fragen zum ganzen Buch — Markierungen, Seitentext, Screenshots und Notizen als Belege | — | ✓ |
+|  | KI-Gespräche bleiben erhalten und lassen sich als Notiz exportieren | — | ✓ |
+|  | KI-Begleiter: beim Lesen fragen, Kapitelführer | — | ✓ |
+|  | KI-Buchinfos: Beschreibung und Kategorien automatisch | ✓ | ✓ |
+|  | KI-Wissensbasis: inkrementelles Lesen, Wissensinput und ein Kreislauf bis zur Ausgabe | — | ✓ |
+| **Hören** | Vorlesen: EPUB, TXT und PDF, blättert selbst weiter | ✓ | ✓ |
+|  | Drei Stimmen: System, online, selbst gehostet | ✓ | ✓ |
+|  | Stimmen und Probehören | ✓ | ✓ |
+|  | Tempo und mitlaufende Hervorhebung | ✓ | ✓ |
+|  | Hörpause fortsetzen: weiter, wo du aufgehört hast | ✓ | ✓ |
+|  | Audio-Cache: erneut hören ohne neu zu erzeugen | ✓ | ✓ |
+|  | Kapitel vorab erzeugen | — | ✓ |
+|  | Ganzes Buch vorab erzeugen | — | ✓ |
+|  | Offline hören: MP3s aufs Handy kopieren und weiterhören | — | ✓ |
+| **Roadmap** | PDF-Reflow: feste Layouts als fließender Text | — | — |
+|  | Kapitelübersetzung: Original und Übersetzung nebeneinander | — | — |
+|  | E Ink: klareres Schwarzweiß, kein Flackern beim Blättern | — | — |
+|  | Oberflächen-Animation: Blättern und Kapitelwechsel, abschaltbar | — | — |
 
 ### Oberflächensprachen
 
@@ -804,41 +952,79 @@ Pendant la validation, ou si la recherche ne donne rien : ajoutez ce dépôt ave
 
 | Catégorie | Fonction | Base | Pro |
 |---|:---|:---:|:---:|
-| **Lecture & bibliothèque** | EPUB / TXT prêts à lire | ✓ | ✓ |
-|  | Une ou deux colonnes | ✓ | ✓ |
+| **Rayon** | Infos & couverture : modifier, remplacer, restaurer | ✓ | ✓ |
+|  | Archives : retirer du rayon, données conservées | ✓ | ✓ |
+|  | Plusieurs catégories : un livre, plusieurs rayons | ✓ | ✓ |
+| **Lecture** | EPUB / TXT prêts à lire | ✓ | ✓ |
+|  | Garder l’écran allumé pendant la lecture | ✓ | ✓ |
 |  | Sommaire, signets, quatre couleurs de surlignage et notes | ✓ | ✓ |
-|  | Recherche dans le livre | ✓ | ✓ |
-|  | Revenir à votre position précédente : un clic après un saut | ✓ | ✓ |
-|  | Notes de bas de page en bulle : sans quitter la page | ✓ | ✓ |
 |  | Images de cartes de citation | ✓ | ✓ |
-|  | Gestion des catégories | ✓ | ✓ |
-| **Formats & export** | Famille Kindle (MOBI / AZW3), FB2, BD en CBZ, PDF | — | ✓ |
-|  | Surlignages en wikiliens : revenir au texte depuis la note | — | ✓ |
-|  | Onglet Citations : quelles notes citent ce livre | — | ✓ |
-|  | Exporter tous les extraits, chacun avec un wikilien | — | ✓ |
-| **Lecture PDF** | Ouvrir un PDF : zoom, rotation, page simple ou double, défilement ; vue mémorisée par livre | — | ✓ |
+|  | Quatre styles de carte citation : classique, lettre, nuit, film | ✓ | ✓ |
+|  | Visionneuse d’images : zoom, déplacement, navigation | ✓ | ✓ |
+|  | Mode immersif : masquer les barres haut et bas | ✓ | ✓ |
+|  | Recherche dans le livre | ✓ | ✓ |
+|  | Historique : un clic pour revenir à votre position | ✓ | ✓ |
+|  | Notes de bas de page en bulle : sans quitter la page | ✓ | ✓ |
+|  | Catégories : créez les vôtres et rangez vos livres | ✓ | ✓ |
+| **Mise en page** | Une ou deux colonnes | ✓ | ✓ |
+|  | Composition verticale : EPUB / TXT | — | ✓ |
+|  | Côte à côte : deux livres, paragraphes synchronisés | ✓ | ✓ |
+|  | Vue d’ensemble : surlignages par chapitre, résumé en une ligne | ✓ | ✓ |
+| **Importer** | Famille Kindle (MOBI / AZW3), FB2, BD en CBZ, PDF | — | ✓ |
+|  | Le cahier de clips en EPUB : relier les articles clippés en un EPUB | ✓ | ✓ |
+| **Lecture PDF** | Lire un PDF : zoom, rotation, page simple ou double, défilement | — | ✓ |
 |  | Miniatures : retrouver une page dans un long livre | — | ✓ |
-|  | Copier les liens de page : page / vue / intégration / annotation | — | ✓ |
-|  | Rétroliens sur cette page et annotations du fichier | — | ✓ |
+|  | Copier les liens de page : page, vue, intégration, annotation | — | ✓ |
+|  | Rétroliens de page : les notes qui citent cette page s’affichent dessus | — | ✓ |
+|  | Annotations du fichier : lire ce que d’autres ont marqué | — | ✓ |
 |  | Exporter une page en image | — | ✓ |
-| **Statistiques & recherche** | Panneau de stats : temps, tendances, rythme, détail par livre | — | ✓ |
+|  | Zone en image : encadrer une zone en carte citation | — | ✓ |
+|  | OCR : sélectionner, chercher et surligner comme du texte | — | ✓ |
+| **Manga** | CBZ et dossiers, ouvrir et lire directement | — | ✓ |
+|  | Suit automatiquement le sens de lecture de ComicInfo | — | ✓ |
+|  | Droite à gauche / gauche à droite | — | ✓ |
+|  | Page simple / double, doubles pages découpées et réunies automatiquement | — | ✓ |
+|  | Une page par écran / continu / bande verticale | — | ✓ |
+|  | Case par case : découpage auto, sans spoiler | — | ✓ |
+|  | Six modes d’ajustement, zoom et déplacement | — | ✓ |
+|  | Rogner les marges, correction des tons en un geste | — | ✓ |
+|  | Miniatures, reprise là où vous étiez | — | ✓ |
+| **Notes & export** | Surlignages en wikiliens : revenir au texte depuis la note | — | ✓ |
+|  | Onglet Citations : quelles notes citent ce livre | — | ✓ |
+|  | Exporter tous les extraits, chacun avec un wikilien | ✓ | ✓ |
+|  | Modèles d’export : quatre préréglages + multiligne | ✓ | ✓ |
+| **Révision** | Révision : relire en entier, cartes et questions par l’IA | ✓ | ✓ |
+|  | Onglet Révision : choisir, créer des cartes et réviser au même endroit | ✓ | ✓ |
+|  | Choisir parmi les surlignages : confier ceux du livre à l’IA | ✓ | ✓ |
+|  | Cartes par chapitre : l’IA lit le texte et choisit les points clés | ✓ | ✓ |
+|  | Déjà en révision : signalé sur le surlignage, jamais deux fois | ✓ | ✓ |
+| **Statistiques** | Statistiques : vitesse, rythme, catégories et badges | — | ✓ |
+|  | Objectif quotidien et série | — | ✓ |
 |  | Affiche de lecture : bilan annuel et image longue | — | ✓ |
-|  | Recherche dans toute la bibliothèque, texte des PDF inclus | — | ✓ |
-| **IA** | IA : expliquer, traduire, résumer une sélection | — | ✓ |
-|  | Questions IA sur tout le livre | — | ✓ |
-| **Avancé** | Composition verticale : EPUB / TXT | — | ✓ |
-|  | Lecture vocale : EPUB, TXT et PDF, page suivante automatique | — | ✓ |
-|  | Lire deux livres côte à côte | — | ✓ |
-|  | Vue d'ensemble du livre | — | ✓ |
-|  | Se connecter à la base BZ AI (nécessite bz) | — | ✓ |
-|  | Mode manga : cases, droite à gauche, doubles pages | — | ✓ |
-| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
-|  | PDF reflow: fixed layouts read as flowing text | — | — |
-|  | Chapter translation: source and translation side by side | — | — |
-|  | Review: reread in full, with AI flashcards and quizzes | — | — |
-|  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
-|  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
-|  | Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf | — | — |
+|  | Affiche hebdo : une semaine en une image | — | ✓ |
+| **Données** | Recherche dans toute la bibliothèque, texte des PDF inclus | — | ✓ |
+|  | Recherche sémantique : par le sens, ce livre ou le rayon | — | ✓ |
+|  | Sauvegarde et restauration : emporter toutes vos données | ✓ | ✓ |
+| **IA** | IA : expliquer, traduire, résumer — sur une sélection | ✓ | ✓ |
+|  | Question IA complémentaire : continuer sur ce passage | — | ✓ |
+|  | Questions IA sur tout le livre : surlignages, texte de la page, captures et notes comme sources | — | ✓ |
+|  | Les échanges IA sont conservés et exportables vers une note | — | ✓ |
+|  | Compagnon IA : demandez en lisant, guide par chapitre | — | ✓ |
+|  | Infos de livre par IA : description et catégories remplies | ✓ | ✓ |
+|  | Base de connaissances IA : lecture incrémentale, entrée de connaissances et boucle jusqu’à la production | — | ✓ |
+| **Écoute** | Lecture vocale : EPUB, TXT et PDF, tourne la page toute seule | ✓ | ✓ |
+|  | Trois moteurs : voix système, en ligne, auto-hébergé | ✓ | ✓ |
+|  | Voix et écoute | ✓ | ✓ |
+|  | Vitesse et surlignage qui suit | ✓ | ✓ |
+|  | Reprendre l’écoute : là où vous vous êtes arrêté | ✓ | ✓ |
+|  | Cache audio : réécouter sans resynthétiser | ✓ | ✓ |
+|  | Pré-générer le chapitre | — | ✓ |
+|  | Pré-générer tout le livre | — | ✓ |
+|  | Écoute hors ligne : copiez les mp3 sur le téléphone | — | ✓ |
+| **Feuille de route** | Reflow PDF : les mises en page fixes deviennent du texte fluide | — | — |
+|  | Traduction de chapitre : original et traduction côte à côte | — | — |
+|  | E Ink : noir et blanc plus net, pas de clignotement en tournant | — | — |
+|  | Animations : changements de page et de chapitre, désactivables | — | — |
 
 ### Langues de l'interface
 
@@ -902,41 +1088,79 @@ Mientras la revisión esté pendiente, o si la búsqueda no lo encuentra, añade
 
 | Categoría | Función | Base | Pro |
 |---|:---|:---:|:---:|
-| **Lectura y estantería** | EPUB / TXT listos para leer | ✓ | ✓ |
-|  | Una o dos columnas | ✓ | ✓ |
+| **Estante** | Información y portada: editar, cambiar, restaurar | ✓ | ✓ |
+|  | Archivo: fuera del estante, datos intactos | ✓ | ✓ |
+|  | Varias categorías: un libro, varios estantes | ✓ | ✓ |
+| **Lectura** | EPUB / TXT listos para leer | ✓ | ✓ |
+|  | Mantener la pantalla encendida al leer | ✓ | ✓ |
 |  | Índice, marcadores, cuatro colores de subrayado y notas | ✓ | ✓ |
-|  | Búsqueda dentro del libro | ✓ | ✓ |
-|  | Volver a la posición anterior: un toque tras cualquier salto | ✓ | ✓ |
-|  | Notas al pie en ventana: sin salir de la página | ✓ | ✓ |
 |  | Imágenes de tarjetas de cita | ✓ | ✓ |
-|  | Gestión de categorías | ✓ | ✓ |
-| **Formatos y exportación** | Familia Kindle (MOBI / AZW3), FB2, cómics en CBZ, PDF | — | ✓ |
-|  | Subrayados como wikienlaces: volver al texto desde la nota | — | ✓ |
-|  | Pestaña Citas: qué notas citan este libro | — | ✓ |
-|  | Exportar todos los extractos, cada uno con un wikienlace | — | ✓ |
-| **Lectura de PDF** | Abrir un PDF: zoom, rotación, una o dos páginas, desplazamiento; vista por libro | — | ✓ |
+|  | Cuatro estilos de tarjeta: clásico, carta, noche, film | ✓ | ✓ |
+|  | Visor de imágenes: zoom, arrastrar, pasar | ✓ | ✓ |
+|  | Modo inmersivo: ocultar las barras superior e inferior | ✓ | ✓ |
+|  | Búsqueda dentro del libro | ✓ | ✓ |
+|  | Historial: un toque para volver a donde estaba | ✓ | ✓ |
+|  | Notas al pie en ventana: sin salir de la página | ✓ | ✓ |
+|  | Categorías: crea las tuyas y ordena tus libros | ✓ | ✓ |
+| **Diseño** | Una o dos columnas | ✓ | ✓ |
+|  | Composición vertical: EPUB / TXT | — | ✓ |
+|  | En paralelo: dos libros, párrafos sincronizados | ✓ | ✓ |
+|  | Vista general: subrayados por capítulo, resumen en una línea | ✓ | ✓ |
+| **Importar** | Familia Kindle (MOBI / AZW3), FB2, cómics en CBZ, PDF | — | ✓ |
+|  | Clipbook a EPUB: encuaderna los artículos recortados en un EPUB | ✓ | ✓ |
+| **Lectura de PDF** | Leer un PDF: zoom, rotación, una o dos páginas, desplazamiento | — | ✓ |
 |  | Miniaturas: encontrar una página en un libro largo | — | ✓ |
-|  | Copiar enlaces de página: página / vista / incrustación / anotación | — | ✓ |
-|  | Retroenlaces de esta página y anotaciones del archivo | — | ✓ |
+|  | Copiar enlaces de página: página, vista, incrustación, anotación | — | ✓ |
+|  | Retroenlaces: las notas que citan esta página se muestran en ella | — | ✓ |
+|  | Anotaciones del archivo: leer lo que otros marcaron | — | ✓ |
 |  | Exportar una página como imagen | — | ✓ |
-| **Estadísticas y búsqueda** | Panel de datos: tiempo, tendencias, ritmo, detalle por libro | — | ✓ |
+|  | Zona a imagen: enmarcar un área como tarjeta | — | ✓ |
+|  | OCR: seleccionar, buscar y subrayar como texto | — | ✓ |
+| **Manga** | CBZ y carpetas, abrir y leer directamente | — | ✓ |
+|  | Sigue automáticamente la dirección de lectura de ComicInfo | — | ✓ |
+|  | Derecha a izquierda / izquierda a derecha | — | ✓ |
+|  | Página simple / doble, dobles páginas divididas y unidas automáticamente | — | ✓ |
+|  | Una página por pantalla / continuo / tira vertical | — | ✓ |
+|  | Viñeta a viñeta: división automática, sin spoilers | — | ✓ |
+|  | Seis modos de ajuste, zoom y arrastre | — | ✓ |
+|  | Recortar márgenes, ajuste de tono en un toque | — | ✓ |
+|  | Miniaturas, retoma donde lo dejaste | — | ✓ |
+| **Notas y exportación** | Subrayados como wikienlaces: volver al texto desde la nota | — | ✓ |
+|  | Pestaña Citas: qué notas citan este libro | — | ✓ |
+|  | Exportar todos los extractos, cada uno con un wikienlace | ✓ | ✓ |
+|  | Plantillas de exportación: cuatro ajustes + multilínea | ✓ | ✓ |
+| **Repaso** | Repaso: releer completo, tarjetas y preguntas con IA | ✓ | ✓ |
+|  | Pestaña Repaso: elegir, crear tarjetas y repasar en un solo lugar | ✓ | ✓ |
+|  | Elegir entre subrayados: pasar los del libro a la IA | ✓ | ✓ |
+|  | Tarjetas por capítulo: la IA lee el texto y elige lo clave | ✓ | ✓ |
+|  | Ya en repaso: marcado en el subrayado, sin duplicar | ✓ | ✓ |
+| **Estadísticas** | Estadísticas: ritmo, tendencias, categorías e insignias | — | ✓ |
+|  | Objetivo diario y racha | — | ✓ |
 |  | Póster de lectura: resumen anual e imagen larga | — | ✓ |
-|  | Búsqueda en toda la biblioteca, texto de PDF incluido | — | ✓ |
-| **IA** | IA: explicar, traducir, resumir una selección | — | ✓ |
-|  | Preguntas de IA sobre todo el libro | — | ✓ |
-| **Avanzado** | Composición vertical: EPUB / TXT | — | ✓ |
-|  | Lectura en voz alta: EPUB, TXT y PDF, pasa de página sola | — | ✓ |
-|  | Leer dos libros en paralelo | — | ✓ |
-|  | Vista general del libro | — | ✓ |
-|  | Conectar con la base de conocimiento BZ AI (requiere bz) | — | ✓ |
-|  | Modo manga: viñetas, derecha a izquierda, dobles páginas | — | ✓ |
-| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
-|  | PDF reflow: fixed layouts read as flowing text | — | — |
-|  | Chapter translation: source and translation side by side | — | — |
-|  | Review: reread in full, with AI flashcards and quizzes | — | — |
-|  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
-|  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
-|  | Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf | — | — |
+|  | Póster semanal: una semana en una imagen | — | ✓ |
+| **Datos** | Búsqueda en toda la biblioteca, texto de PDF incluido | — | ✓ |
+|  | Búsqueda semántica: por significado, este libro o el estante | — | ✓ |
+|  | Copia y restauración: llévate todos tus datos | ✓ | ✓ |
+| **IA** | IA: explicar, traducir y resumir — sobre una selección | ✓ | ✓ |
+|  | Pregunta IA de seguimiento: seguir sobre este pasaje | — | ✓ |
+|  | Preguntas IA sobre todo el libro: subrayados, texto de la página, capturas y notas como base | — | ✓ |
+|  | Las conversaciones de IA se guardan y se pueden exportar a una nota | — | ✓ |
+|  | Compañero IA: pregunta mientras lees, guía por capítulo | — | ✓ |
+|  | Datos del libro con IA: descripción y categorías | ✓ | ✓ |
+|  | Base de conocimiento IA: lectura incremental, entrada de conocimiento y un ciclo hasta la salida | — | ✓ |
+| **Escucha** | Lectura en voz alta: EPUB, TXT y PDF, pasa de página sola | ✓ | ✓ |
+|  | Tres motores: voz del sistema, en línea, propio | ✓ | ✓ |
+|  | Voces y prueba | ✓ | ✓ |
+|  | Velocidad y resaltado que sigue | ✓ | ✓ |
+|  | Reanudar la escucha: sigue donde lo dejaste | ✓ | ✓ |
+|  | Caché de audio: repetir sin volver a sintetizar | ✓ | ✓ |
+|  | Pregenerar el capítulo | — | ✓ |
+|  | Pregenerar el libro entero | — | ✓ |
+|  | Escucha sin conexión: copia los mp3 al móvil | — | ✓ |
+| **Hoja de ruta** | Reflujo de PDF: los diseños fijos pasan a texto fluido | — | — |
+|  | Traducción de capítulo: original y traducción en paralelo | — | — |
+|  | E Ink: blanco y negro más nítido, sin parpadeo al pasar página | — | — |
+|  | Animación: cambios de página y capítulo, se puede desactivar | — | — |
 
 ### Idiomas de la interfaz
 
@@ -1000,41 +1224,79 @@ Enquanto a revisão estiver pendente, ou se a busca não encontrar, adicione est
 
 | Categoria | Recurso | Base | Pro |
 |---|:---|:---:|:---:|
-| **Leitura e estante** | EPUB / TXT prontos para ler | ✓ | ✓ |
-|  | Uma ou duas colunas | ✓ | ✓ |
+| **Estante** | Informações e capa: editar, trocar, restaurar | ✓ | ✓ |
+|  | Arquivar: fora da estante, dados mantidos | ✓ | ✓ |
+|  | Várias categorias: um livro, várias estantes | ✓ | ✓ |
+| **Leitura** | EPUB / TXT prontos para ler | ✓ | ✓ |
+|  | Manter a tela ligada durante a leitura | ✓ | ✓ |
 |  | Sumário, marcadores, quatro cores de destaque e notas | ✓ | ✓ |
-|  | Pesquisa dentro do livro | ✓ | ✓ |
-|  | Voltar à posição anterior: um toque depois de qualquer salto | ✓ | ✓ |
-|  | Notas de rodapé em pop-up: sem sair da página | ✓ | ✓ |
 |  | Imagens de cartões de citação | ✓ | ✓ |
-|  | Gestão de categorias | ✓ | ✓ |
-| **Formatos e exportação** | Família Kindle (MOBI / AZW3), FB2, quadrinhos em CBZ, PDF | — | ✓ |
-|  | Destaques como wikilinks: voltar ao texto pela nota | — | ✓ |
-|  | Aba Citações: quais notas citam este livro | — | ✓ |
-|  | Exportar todos os excertos, cada um com um wikilink | — | ✓ |
-| **Leitura de PDF** | Abrir um PDF: zoom, rotação, uma ou duas páginas, rolagem; vista por livro | — | ✓ |
+|  | Quatro estilos de cartão: clássico, carta, noite, filme | ✓ | ✓ |
+|  | Visualizador de imagens: zoom, arrastar, passar | ✓ | ✓ |
+|  | Modo imersivo: ocultar as barras superior e inferior | ✓ | ✓ |
+|  | Pesquisa dentro do livro | ✓ | ✓ |
+|  | Histórico: um toque de volta ao ponto anterior | ✓ | ✓ |
+|  | Notas de rodapé em pop-up: sem sair da página | ✓ | ✓ |
+|  | Categorias: crie as suas e organize os livros | ✓ | ✓ |
+| **Diagramação** | Uma ou duas colunas | ✓ | ✓ |
+|  | Composição vertical: EPUB / TXT | — | ✓ |
+|  | Lado a lado: dois livros, parágrafos sincronizados | ✓ | ✓ |
+|  | Visão geral: destaques por capítulo, resumo em uma linha | ✓ | ✓ |
+| **Importar** | Família Kindle (MOBI / AZW3), FB2, quadrinhos em CBZ, PDF | — | ✓ |
+|  | Clipbook em EPUB: encaderne os artigos recortados num EPUB | ✓ | ✓ |
+| **Leitura de PDF** | Ler um PDF: zoom, rotação, uma ou duas páginas, rolagem | — | ✓ |
 |  | Miniaturas: achar uma página num livro longo | — | ✓ |
-|  | Copiar links de página: página / vista / incorporação / anotação | — | ✓ |
-|  | Retrolinks desta página e anotações do arquivo | — | ✓ |
+|  | Copiar links de página: página, vista, incorporação, anotação | — | ✓ |
+|  | Retrolinks: as notas que citam esta página aparecem nela | — | ✓ |
+|  | Anotações do arquivo: ler o que outros marcaram | — | ✓ |
 |  | Exportar uma página como imagem | — | ✓ |
-| **Estatísticas e busca** | Painel de dados: tempo, tendências, ritmo, detalhe por livro | — | ✓ |
+|  | Região em imagem: enquadrar uma área como cartão | — | ✓ |
+|  | OCR: selecionar, pesquisar e destacar como texto | — | ✓ |
+| **Mangá** | CBZ e pastas, abrir e ler direto | — | ✓ |
+|  | Segue automaticamente a direção de leitura do ComicInfo | — | ✓ |
+|  | Direita para esquerda / esquerda para direita | — | ✓ |
+|  | Página simples / dupla, páginas duplas divididas e reunidas automaticamente | — | ✓ |
+|  | Uma página por tela / contínuo / tira vertical | — | ✓ |
+|  | Quadro a quadro: divisão automática, sem spoilers | — | ✓ |
+|  | Seis modos de ajuste, zoom e arrastar | — | ✓ |
+|  | Cortar margens, ajuste de tom com um toque | — | ✓ |
+|  | Miniaturas, retomar onde parou | — | ✓ |
+| **Notas e exportação** | Destaques como wikilinks: voltar ao texto pela nota | — | ✓ |
+|  | Aba Citações: quais notas citam este livro | — | ✓ |
+|  | Exportar todos os excertos, cada um com um wikilink | ✓ | ✓ |
+|  | Modelos de exportação: quatro predefinições + multilinha | ✓ | ✓ |
+| **Revisão** | Revisão: reler inteiro, cartões e questões com IA | ✓ | ✓ |
+|  | Aba Revisão: escolher, criar cartões e revisar num só lugar | ✓ | ✓ |
+|  | Escolher entre destaques: entregar os do livro à IA | ✓ | ✓ |
+|  | Cartões por capítulo: a IA lê o texto e escolhe os pontos-chave | ✓ | ✓ |
+|  | Já em revisão: marcado no destaque, sem duplicar | ✓ | ✓ |
+| **Estatísticas** | Estatísticas: velocidade, ritmo, categorias e conquistas | — | ✓ |
+|  | Meta diária e sequência | — | ✓ |
 |  | Pôster de leitura: resumo anual e imagem longa | — | ✓ |
-|  | Pesquisa em toda a biblioteca, texto de PDF incluído | — | ✓ |
-| **IA** | IA: explicar, traduzir, resumir uma seleção | — | ✓ |
-|  | Perguntas de IA sobre o livro inteiro | — | ✓ |
-| **Avançado** | Composição vertical: EPUB / TXT | — | ✓ |
-|  | Leitura em voz alta: EPUB, TXT e PDF, vira a página sozinha | — | ✓ |
-|  | Ler dois livros lado a lado | — | ✓ |
-|  | Visão geral do livro | — | ✓ |
-|  | Conectar à base de conhecimento BZ AI (requer bz) | — | ✓ |
-|  | Modo mangá: quadros, direita para esquerda, páginas duplas | — | ✓ |
-| **Explorations** | PDF OCR + AI vision: scanned pages work like text — select, search, highlight | — | — |
-|  | PDF reflow: fixed layouts read as flowing text | — | — |
-|  | Chapter translation: source and translation side by side | — | — |
-|  | Review: reread in full, with AI flashcards and quizzes | — | — |
-|  | E Ink optimization: crisper black and white, no page-turn flashing | — | — |
-|  | Interface motion: page turns, chapter changes and shelf transitions, can be turned off | — | — |
-|  | Clipbook to EPUB: bind clipped articles into one EPUB and read it on the shelf | — | — |
+|  | Pôster semanal: uma semana numa imagem | — | ✓ |
+| **Dados** | Pesquisa em toda a biblioteca, texto de PDF incluído | — | ✓ |
+|  | Busca semântica: por significado, neste livro ou na estante | — | ✓ |
+|  | Backup e restauração: leve todos os seus dados | ✓ | ✓ |
+| **IA** | IA: explicar, traduzir e resumir — numa seleção | ✓ | ✓ |
+|  | Pergunta de IA: continuar sobre este trecho | — | ✓ |
+|  | Perguntas IA sobre o livro inteiro: destaques, texto da página, capturas e notas como base | — | ✓ |
+|  | As conversas de IA ficam guardadas e podem ser exportadas para uma nota | — | ✓ |
+|  | Companheiro IA: pergunte enquanto lê, guia por capítulo | — | ✓ |
+|  | Informações do livro com IA: descrição e categorias | ✓ | ✓ |
+|  | Base de conhecimento IA: leitura incremental, entrada de conhecimento e um ciclo até a saída | — | ✓ |
+| **Escuta** | Leitura em voz alta: EPUB, TXT e PDF, vira a página sozinha | ✓ | ✓ |
+|  | Três motores: voz do sistema, online, próprio | ✓ | ✓ |
+|  | Vozes e teste | ✓ | ✓ |
+|  | Velocidade e destaque que acompanha | ✓ | ✓ |
+|  | Retomar a escuta: continue de onde parou | ✓ | ✓ |
+|  | Cache de áudio: ouvir de novo sem sintetizar | ✓ | ✓ |
+|  | Pré-gerar o capítulo | — | ✓ |
+|  | Pré-gerar o livro inteiro | — | ✓ |
+|  | Escuta offline: copie os mp3 para o celular | — | ✓ |
+| **Roteiro** | Reflow de PDF: layouts fixos viram texto fluido | — | — |
+|  | Tradução de capítulo: original e tradução lado a lado | — | — |
+|  | E Ink: preto e branco mais nítido, sem piscar ao virar | — | — |
+|  | Animação: trocas de página e capítulo, pode ser desligada | — | — |
 
 ### Idiomas da interface
 

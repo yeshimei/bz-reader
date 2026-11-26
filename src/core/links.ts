@@ -57,6 +57,16 @@ export const CLIP_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1h3WB6XEL4';
 export const TTS_TUTORIAL_URL = 'https://www.bilibili.com/video/BV17psV6wEP7';
 
 /**
+ * 漫画模式的教程（2026-11-26）：作者新发的一期（86 秒），讲 CBZ 怎么打开、
+ * 右到左怎么翻、跨页怎么拆合、逐格怎么读。
+ *
+ * 两个入口共用这一条——设置页漫画组标题右侧的「看教程」，以及高级版
+ * 对照表「漫画」那一段标题后面的「看教程」。与听书同一套：整段一起讲，
+ * 不落到某一行。
+ */
+export const MANGA_TUTORIAL_URL = 'https://www.bilibili.com/video/BV1Cb1cz3Ebh';
+
+/**
  * bz Review 的教程（2026-11-17）：占位——插件本周上架，教程地址待定。
  * 空串时按钮只弹一句「教程整理中」，不去打开不相干的视频（指错比没有更糟）。
  */

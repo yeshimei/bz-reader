@@ -12,7 +12,7 @@ import { PLAN_GROUP_TEXT_PACK, PLAN_TEXT_PACK, planGroupLabel, planGroupNameZh, 
  * 写进表里是为了让「高级版能力只增不减」有落点，但不能假装已经能用：
  *   · 四行两版都不打勾（free / pro 都是 no），也不挂能力位；
  *   · 段名「路线图」说明状态，行里不再加「开发中」小字；
- *   · 不进合计——图上基础版 18 项、高级版 45 项。
+ *   · 不进合计——图上基础版 34 项、高级版 69 项。
  *
  * 「复习」2026-11-21、「漫画」2026-11-22 已上线，各自搬去正式段，这里不再列。
  */
@@ -60,10 +60,10 @@ describe('对照表 · 路线图段的位置与内容', () => {
     expect(names.has('路线图')).toBe(false);
   });
 
-  it('路线行不计入已实现项：基础版 23、高级版 55、共 59 行', () => {
-    expect(PLAN_TABLE.filter((r) => r.pro === 'yes')).toHaveLength(55);
-    expect(PLAN_TABLE.filter((r) => r.free === 'yes')).toHaveLength(23);
-    expect(PLAN_TABLE).toHaveLength(59);
+  it('路线行不计入已实现项：基础版 34、高级版 69、共 73 行', () => {
+    expect(PLAN_TABLE.filter((r) => r.pro === 'yes')).toHaveLength(69);
+    expect(PLAN_TABLE.filter((r) => r.free === 'yes')).toHaveLength(34);
+    expect(PLAN_TABLE).toHaveLength(73);
   });
 
   it('知识库之后是听书段，再往后才是路线图', () => {
@@ -74,6 +74,8 @@ describe('对照表 · 路线图段的位置与内容', () => {
       'ttsEngine',
       'ttsVoice',
       'ttsRate',
+      'ttsResume',
+      'ttsCache',
       'ttsChapter',
       'ttsWhole',
       'ttsOffline',
