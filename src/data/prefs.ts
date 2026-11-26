@@ -1,8 +1,9 @@
 /* ============================================================
  * bz-reader · 阅读偏好（data/prefs.ts）
  *
- * 全局一份，不按书分（用户调字号不是为了这一本书调的）。
- * 存进 ReaderData.prefs，跟书架同一份 JSON。
+ * 一份「怎么读」的偏好：不按书分（用户调字号不是为了这一本书调的），
+ * 但按平台分两套（`prefsDesktop` / `prefsMobile`，见 pickPrefs）。
+ * 存进 ReaderData，跟书架同一份 JSON。
  *
  * 所有取值都夹在范围内再落盘：滑块拖出来的值、手改坏的 JSON、
  * 旧版本留下的字段，一律经过 normalizePrefs 才进系统——
@@ -16,6 +17,7 @@ import type { PdfZoomMode } from '../engine/pdf/fit';
 import type { MangaPrefs } from '../engine/manga/settings';
 import { DEFAULT_MANGA_PREFS, normalizeMangaPrefs } from '../engine/manga/settings';
 import type { PdfLinkLabelMode } from './pdf-link';
+import type { MarkSort } from './mark-order';
 import type { DeepseekVoice } from '../core/tts-api';
 import type { TtsEngine } from '../core/tts-engine';
 
@@ -173,6 +175,14 @@ export interface ReaderPrefs {
    * 默认开会和「点图翻页 / 点链接」抢手势。要看图自己开。
    */
   imageZoom: boolean;
+  /**
+   * 侧栏「划线」列表怎么排（2026-11-26）。
+   *
+   * 默认 `time` 按添加时间——等于升级前的行为，老用户看不出变化；
+   * `text` 按书中原文位置，同章里跟着书里出现的先后走。群友反馈
+   * 后者才不乱，但直接改默认会让老用户不习惯，所以给成设置项。
+   */
+  markSort: MarkSort;
   /** 划词工具条：文字 / 图标（见 ToolbarStyle） */
   toolbarStyle: ToolbarStyle;
   /**
@@ -265,6 +275,7 @@ export const DEFAULT_PREFS: ReaderPrefs = {
   chapterLabel: true,
   desktopTapTurn: false,
   imageZoom: false,
+  markSort: 'time',
   toolbarStyle: 'text',
   headerOrder: [],
   headerHidden: [],
@@ -520,6 +531,8 @@ export function normalizePrefs(raw: unknown): ReaderPrefs {
     /* 桌面点按翻页：只认显式 true——新默认是关，老数据里没有这一项自然也是关 */
     desktopTapTurn: p.desktopTapTurn === true,
     imageZoom: p.imageZoom === true,
+    /* 划线排序：只认 text，其余（含老数据没有这一项）按时间 */
+    markSort: p.markSort === 'text' ? 'text' : 'time',
     toolbarStyle: p.toolbarStyle === 'icon' ? 'icon' : 'text',
     headerOrder: headerIds(p.headerOrder),
     headerHidden: headerIds(p.headerHidden),

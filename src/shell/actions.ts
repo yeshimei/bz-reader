@@ -4654,6 +4654,11 @@ function setPref(k: string | undefined, v: string | undefined, opts: { silent?: 
     case 'accent':
       src.setPrefs({ accent: v as ReaderPrefs['accent'] });
       break;
+    case 'markSort':
+      /* 划线列表按时间 / 按原文（2026-11-26）：窗口外的值回「按时间」，
+         与 normalizePrefs 同一口径。setPref 末尾统一重绘，侧栏立刻换序。 */
+      src.setPrefs({ markSort: v === 'text' ? 'text' : 'time' });
+      break;
     case 'toolbarStyle':
       /* 工具条文字 / 图标：跟库走的阅读偏好，改完立刻重绘（正开着的浮层也会换） */
       src.setPrefs({ toolbarStyle: v === 'icon' ? 'icon' : 'text' });

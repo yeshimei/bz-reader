@@ -246,6 +246,28 @@ describe('桌面点击翻页', () => {
 });
 
 /**
+ * 划线排序（2026-11-26）。
+ *
+ * 默认「按时间」= 升级前的行为，老用户看不出变化；切「按原文」才按书里
+ * 出现的先后排。两档都是枚举，脏值一律回默认，别让手改的 data-v 把列表
+ * 排成空。
+ */
+describe('划线排序', () => {
+  it('默认按时间，老数据（没有这一项）也是按时间', () => {
+    expect(DEFAULT_PREFS.markSort).toBe('time');
+    expect(normalizePrefs({}).markSort).toBe('time');
+    expect(normalizePrefs({ fontSize: 20 }).markSort).toBe('time');
+  });
+
+  it('只认 time / text，其它值退回按时间', () => {
+    expect(normalizePrefs({ markSort: 'time' }).markSort).toBe('time');
+    expect(normalizePrefs({ markSort: 'text' }).markSort).toBe('text');
+    expect(normalizePrefs({ markSort: 'newest' } as unknown as Record<string, unknown>).markSort).toBe('time');
+    expect(normalizePrefs({ markSort: 1 } as unknown as Record<string, unknown>).markSort).toBe('time');
+  });
+});
+
+/**
  * 在线语音改名（2026-11-14）：引擎从 `deepseek` 变成 `online`。
  *
  * 老数据必须原样可用：引擎名归一、选过的嗓子搬进新字段，不能升级之后

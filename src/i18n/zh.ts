@@ -1157,6 +1157,9 @@ export const ZH = {
   /* ── 设置页：标注 ────────────────────────────────────────── */
   'settings.pen': '划线颜色',
   'settings.pen.hint': '点划词条上的色点就会记在这里，下次划词、双链、存知识盒都用这个颜色。',
+  'settings.markSort': '划线排序',
+  'settings.markSort.time': '按时间',
+  'settings.markSort.text': '按原文',
   'settings.exportDir': '导出目录',
   'settings.pickFromList': '从文件夹清单里选',
   'settings.pick': '选择…',

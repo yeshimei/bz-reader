@@ -480,6 +480,14 @@ export function viewSettings(v: SettingsView): string {
       (c) =>
         `<button class="${v.pen === c.value ? 'on' : ''}" data-act="setpen" data-v="${c.value}"><span class="dot" style="background:${c.css}"></span>${colorLabel(c.value)}</button>`,
     ).join('')}</div></div>
+      <div class="bzs-setrow"><label>${t('settings.markSort')}</label>${seg(
+        'markSort',
+        [
+          ['time', t('settings.markSort.time')],
+          ['text', t('settings.markSort.text')],
+        ],
+        p.markSort,
+      )}</div>
       <div class="bzs-setrow"><label>${t('settings.exportDir')}</label>
         <button class="bzs-pickdir" data-act="pickexportdir"><span class="bzs-sr-only">${t('settings.pickFromList')}</span>
           <span>${esc(s.exportDir)}/</span>${ico('folder') || ''}<i>${t('settings.pick')}</i>

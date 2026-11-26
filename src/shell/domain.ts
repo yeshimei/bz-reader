@@ -9,6 +9,7 @@
  * ============================================================ */
 import type { Bookmark, Highlight, KbLink, ReaderBook } from '../data/schema';
 import { HIGHLIGHT_COLORS, colorCss, colorLabel } from '../data/notes';
+import { compareMarkText, type MarkSort } from '../data/mark-order';
 import { NO_SHELF } from '../data/shelves';
 import { getState } from './state';
 
@@ -72,14 +73,21 @@ export function markRow(book: ReaderBook, h: Highlight): MarkRow {
   };
 }
 
-/** 一本书的标注，按章节再按时间排好 */
-export function marksOf(book: ReaderBook): MarkRow[] {
+/**
+ * 一本书的标注，按章节再按章内先后排好。
+ *
+ * 章内那一步有两档（2026-11-26）：默认按添加时间（升级前的行为），
+ * 用户切「按原文」时改按书里出现的位置——同章里先划后划不再打乱
+ * 原文顺序。
+ */
+export function marksOf(book: ReaderBook, sort: MarkSort = 'time'): MarkRow[] {
   const list = book.notes?.highlights ?? [];
   return [...list]
     .sort((a, b) => {
       const ca = a.chapterIndex ?? 0;
       const cb = b.chapterIndex ?? 0;
       if (ca !== cb) return ca - cb;
+      if (sort === 'text') return compareMarkText(a, b);
       return (a.createdAt || 0) - (b.createdAt || 0);
     })
     .map((h) => markRow(book, h));

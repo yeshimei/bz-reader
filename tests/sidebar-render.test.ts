@@ -72,6 +72,66 @@ describe('划线列表', () => {
   it('仍保留行内的删除按钮（带二次确认由 actions 负责）', () => {
     expect(view({ tab: 'highlights' })).toContain('data-act="delmark"');
   });
+
+  /**
+   * 分类排序两档（2026-11-26）。
+   *
+   * 群友反馈：同章里后划的排到了先划的前面，看着乱。设置里给了两档：
+   * 默认按时间（等于升级前的行为），切「按原文」按书里谁在前。
+   *
+   * 构造刻意让两边相反：先划的那条在原文靠后，后划的那条在原文靠前。
+   */
+  function reversedBook(): ReaderBook {
+    const b = book();
+    b.notes.highlights = [
+      {
+        id: 'm-back',
+        text: '原文靠后的那句',
+        cfiRange: 'epubcfi(/6/4!/4/2/2,/1:400,/1:412)',
+        chapterIndex: 0,
+        chapterTitle: '第一回',
+        color: 'amber',
+        createdAt: 1_000,
+      },
+      {
+        id: 'm-front',
+        text: '原文靠前的那句',
+        cfiRange: 'epubcfi(/6/4!/4/2/2,/1:0,/1:12)',
+        chapterIndex: 0,
+        chapterTitle: '第一回',
+        color: 'amber',
+        createdAt: 2_000,
+      },
+    ];
+    return b;
+  }
+
+  it('默认按添加时间排，升级前后顺序不变', () => {
+    const html = view({ tab: 'highlights' }, reversedBook());
+    expect(html.indexOf('原文靠后的那句')).toBeLessThan(html.indexOf('原文靠前的那句'));
+  });
+
+  it('切到按原文后，同章内按书里位置排', () => {
+    const html = view({ tab: 'highlights', markSort: 'text' }, reversedBook());
+    expect(html.indexOf('原文靠前的那句')).toBeLessThan(html.indexOf('原文靠后的那句'));
+  });
+
+  it('两档都不改章节分组的先后', () => {
+    const b = reversedBook();
+    b.notes.highlights.push({
+      id: 'm-ch2',
+      text: '第二章的那句',
+      cfiRange: 'epubcfi(/6/6!/4/2/2,/1:0,/1:12)',
+      chapterIndex: 1,
+      chapterTitle: '第二回',
+      color: 'amber',
+      createdAt: 500,
+    });
+    for (const markSort of ['time', 'text'] as const) {
+      const html = view({ tab: 'highlights', markSort }, b);
+      expect(html.indexOf('第一回')).toBeLessThan(html.indexOf('第二回'));
+    }
+  });
 });
 
 describe('页签 · 纯图标', () => {

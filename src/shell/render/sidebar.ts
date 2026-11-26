@@ -14,6 +14,7 @@ import type { ReaderBook } from '../../data/schema';
 import type { FoliateTOCItem } from '../../types/foliate';
 import type { BmkRow, MarkRow } from '../domain';
 import { bmksOf, groupByChapter, marksOf } from '../domain';
+import type { MarkSort } from '../../data/mark-order';
 import type { SideTab } from '../state';
 import type { AiLogItem } from '../runtime';
 import type { AiHistRow } from '../ai-chat';
@@ -100,6 +101,11 @@ export interface SidebarView {
   activePage?: number;
   /** 「只看本页」开关是否打开 */
   citesOnlyPage?: boolean;
+  /**
+   * 划线列表怎么排（2026-11-26）：缺省按时间，老调用方行为不变。
+   * 两档都保留按章节分组，只换组内条目的先后。
+   */
+  markSort?: MarkSort;
 }
 
 /** 笔记选择器的一行（数据来自库里的 Markdown 文件） */
@@ -906,7 +912,7 @@ export function viewSidebar(v: SidebarView): string {
   } else if (v.tab === 'bookmarks') {
     body = bookmarksBody(bmksOf(book));
   } else if (v.tab === 'highlights') {
-    body = highlightsBody(marksOf(book));
+    body = highlightsBody(marksOf(book, v.markSort ?? 'time'));
   } else if (v.tab === 'cites') {
     body = citesBody(v.cites ?? [], v.activePage ?? 0, v.citesOnlyPage === true);
   } else {

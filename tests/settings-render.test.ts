@@ -1288,3 +1288,31 @@ describe('设置页 · 插件组三态', () => {
     }
   });
 });
+
+/**
+ * 划线排序（2026-11-26）。
+ *
+ * 群友反馈标注列表按添加时间排很乱；设置里加两档，默认「按时间」
+ * 等于升级前的行为。这一项住在阅读偏好里，桌面 / 手机各存一份。
+ */
+describe('划线排序设置项', () => {
+  const render = (markSort: 'time' | 'text'): string =>
+    viewSettings({
+      prefs: { ...DEFAULT_PREFS, markSort },
+      settings: DEFAULT_SETTINGS,
+      pen: 'amber',
+      hotkeys: [],
+      version: '1.0.0',
+    });
+
+  it('标注组里两档都在，走 prefs 的 setpref 通道', () => {
+    const out = render('time');
+    expect(out).toContain('data-act="setpref" data-k="markSort" data-v="time"');
+    expect(out).toContain('data-act="setpref" data-k="markSort" data-v="text"');
+  });
+
+  it('选中态跟着偏好走', () => {
+    expect(render('time')).toContain('class="on" data-act="setpref" data-k="markSort" data-v="time"');
+    expect(render('text')).toContain('class="on" data-act="setpref" data-k="markSort" data-v="text"');
+  });
+});

@@ -1834,4 +1834,7 @@ export const JA: Record<MsgKey, string> = {
   'notice.cover.unreadable': '[TODO] notice.cover.unreadable',
   'settings.tab.open': '[TODO] settings.tab.open',
   'settings.tab.openDesc': '[TODO] settings.tab.openDesc',
+  'settings.markSort': '[TODO] settings.markSort',
+  'settings.markSort.time': '[TODO] settings.markSort.time',
+  'settings.markSort.text': '[TODO] settings.markSort.text',
 };

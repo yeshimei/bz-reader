@@ -501,6 +501,8 @@ export class SideView extends ItemView {
         activePage: state.pdfPage,
         citesOnlyPage: RT.citesOnlyPage,
         tocDraggable: book?.fileRef.format === 'pdf',
+        /* 划线排序跟着这台设备的阅读偏好走（桌面 / 手机各一份） */
+        markSort: shellPrefs().markSort,
       }),
     );
     /* 侧栏里的 AI 答按 Markdown 渲染（2026-11-11）：模板只打标记，注入后统一换 */
