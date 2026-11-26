@@ -1763,17 +1763,16 @@ export class EngineHost {
       const contents = this.view?.renderer?.getContents?.() ?? [];
       for (const c of contents) {
         const doc = c?.doc;
-        if (!doc?.getElementsByTagName) continue;
-        /* 不用 querySelectorAll：社区目录扫描把它标成弃用（建议 findAll）。
-           但这里的 doc 是**跨 realm 的 iframe 文档**，Obsidian 挂在原型上的
-           findAll 不保证存在；getElementsByTagName 是标准方法，跨 realm 稳。
-           img 与 SVG image 各取一轮：同一章里两者混排极少见，顺序只影响
-           查看器前后翻的次序，不影响按 src 定位当前这张。 */
-        const nodes = [
-          ...Array.from(doc.getElementsByTagName('img')),
-          ...Array.from(doc.getElementsByTagName('image')),
-        ];
-        for (const n of nodes) {
+        if (!doc?.createTreeWalker) continue;
+        /* 不用 querySelectorAll / getElementsByTagName：社区目录扫描把两者都标弃用。
+           这里的 doc 是**跨 realm 的 iframe 文档**，Obsidian 挂在原型上的 findAll
+           不保证存在；createTreeWalker 是标准 DOM 方法、跨 realm 稳且不弃用。
+           按 nodeName 过滤 IMG 与 SVG image，顺序只影响查看器前后翻的次序，
+           不影响按 src 定位当前这张。 */
+        const walker = doc.createTreeWalker(doc, NodeFilter.SHOW_ELEMENT);
+        while (walker.nextNode()) {
+          const n = walker.currentNode as Element;
+          if (n.nodeName !== 'IMG' && n.nodeName !== 'image') continue;
           const src = String(
             n.getAttribute('src') || n.getAttribute('href') || n.getAttribute('xlink:href') || '',
           ).trim();

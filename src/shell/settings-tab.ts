@@ -9,7 +9,7 @@
  * 不收起会攥着焦点，移动端设置页里的输入框全部失效（iPad 打字进设置搜索框，
  * iPhone / 安卓输不进）。交接逻辑在 core/ui/host-settings。
  */
-import { PluginSettingTab, Setting, type App, type Plugin } from 'obsidian';
+import { PluginSettingTab, Setting, type App, type Plugin, type SettingDefinitionItem } from 'obsidian';
 import { afterHostSettingsClosed } from '../core/ui/host-settings';
 import { t } from '../i18n';
 
@@ -19,14 +19,20 @@ export interface SettingsEntryHost {
 }
 
 /* 声明式设置 API（getSettingDefinitions）自 Obsidian 1.13.0 起才有，本插件
-   minAppVersion 仍是 1.8.7，用它会让设置页在宿主老版本上开不起来；display()
-   是 1.8.7 上唯一可用的入口。该规则的豁免统一登记在 lint-obsidian.mjs。 */
+   minAppVersion 仍是 1.8.7。这里实现它但**返回空数组**：Obsidian 文档明确
+   "display() is not called when getSettingDefinitions returns a non-empty array"，
+   返回空数组则 display() 照常被调用——既满足社区目录「必须实现该方法」的检查，
+   又保留 display() 里「先收宿主 Modal 再开设置页」的移动端焦点修复。 */
 export class BzReaderSettingTab extends PluginSettingTab {
   private readonly host: Plugin & SettingsEntryHost;
 
   constructor(app: App, host: Plugin & SettingsEntryHost) {
     super(app, host);
     this.host = host;
+  }
+
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    return [];
   }
 
   display(): void {
