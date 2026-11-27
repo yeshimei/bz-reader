@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { safeFraction, shouldMarkComplete } from '../src/engine/progress-fraction';
+import { safeFraction, shouldMarkComplete, shouldPromptFinish } from '../src/engine/progress-fraction';
 
 /*
  * 真机回归（2026-11-13）：剪藏本每翻一章都弹「读完一本书」。
@@ -39,5 +39,28 @@ describe('shouldMarkComplete · 活书不结书', () => {
     expect(shouldMarkComplete({ percent: 0.995, live: false, completed: false })).toBe(true);
     expect(shouldMarkComplete({ percent: 0.9, live: false, completed: false })).toBe(false);
     expect(shouldMarkComplete({ percent: 1, live: false, completed: true })).toBe(false);
+  });
+});
+
+/*
+ * 2026-11-27 用户拍板：滑到最后一页不再自动算读完，要「再往后翻一次」才弹
+ * 结束界面，确认后才算读完。所以判定从「进度到 99%」改成「翻不动了」。
+ */
+describe('shouldPromptFinish · 末页再翻才弹结束界面', () => {
+  it('往后再翻、但已经翻不动（末页）→ 弹', () => {
+    expect(shouldPromptFinish({ dir: 'next', moved: false, live: false })).toBe(true);
+  });
+
+  it('真的翻动了（还有下一页 / 下一章）→ 不弹', () => {
+    expect(shouldPromptFinish({ dir: 'next', moved: true, live: false })).toBe(false);
+  });
+
+  it('往前翻不动（书首）→ 不弹', () => {
+    expect(shouldPromptFinish({ dir: 'prev', moved: false, live: false })).toBe(false);
+    expect(shouldPromptFinish({ dir: 'prev', moved: true, live: false })).toBe(false);
+  });
+
+  it('剪藏本是持续更新的流：到底也不弹', () => {
+    expect(shouldPromptFinish({ dir: 'next', moved: false, live: true })).toBe(false);
   });
 });

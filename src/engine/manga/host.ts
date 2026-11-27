@@ -225,8 +225,8 @@ export class MangaEngineHost implements ReaderEngine {
     if (saved.page !== undefined) this.view.goToPage(saved.page, saved.panel ?? -1);
   }
 
-  private async turn(dir: 'prev' | 'next'): Promise<void> {
-    void this.view?.turn(dir === 'next' ? 1 : -1);
+  private async turn(dir: 'prev' | 'next'): Promise<boolean> {
+    return this.view?.turn(dir === 'next' ? 1 : -1) ?? false;
   }
 
   async start(cfi?: string, fraction = 0): Promise<void> {
@@ -238,8 +238,8 @@ export class MangaEngineHost implements ReaderEngine {
     this.phase = 'ready';
   }
 
-  async next(): Promise<void> { await this.turn('next'); }
-  async prev(): Promise<void> { await this.turn('prev'); }
+  async next(): Promise<boolean> { return this.turn('next'); }
+  async prev(): Promise<boolean> { return this.turn('prev'); }
   async goToPercent(fraction: number): Promise<void> { this.view?.goToPercent(fraction); }
 
   async goToCfi(cfi: string): Promise<boolean> {

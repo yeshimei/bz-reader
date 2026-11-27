@@ -27,9 +27,10 @@ import {
   findHighlight,
   toggleBookmark,
 } from '../data/notes';
+import { beginReadthrough } from '../data/reading-log';
 import { ActivityTracker, attachChapter } from '../engine/activity';
 import { createWakeLock, type WakeLockController } from '../core/wake-lock';
-import { shouldMarkComplete } from '../engine/progress-fraction';
+import { shouldPromptFinish } from '../engine/progress-fraction';
 import { ClipOwnerRegistry } from './clip-owner';
 import { applyEngineMeta } from '../data/book-meta';
 import { coverPathOf, ensureCoverFromFoliate } from '../data/cover';
@@ -87,6 +88,7 @@ import { isMobileEnv, isMobileShell } from '../core/mobile';
 import { envSummary, probeBlobIframe } from '../core/diagnose';
 import { probeEnabled } from './debug-probe';
 import { el, setHtml } from '../ui/dom';
+import { closeJumpBar, openJumpBar } from './jump-bar';
 import { pageLabelText, type PageLabelInput } from './page-label';
 import { headTitleBox, headerTitleText, HEAD_TITLE_GAP } from './header-title';
 import { chromeLabelMode } from './chrome-labels';
@@ -212,8 +214,7 @@ export type ReaderCommand =
   | 'pdf-region-card'
   | 'pdf-back';
 
-/** 读到 99% 以上就算读完，不必真翻到最后一页的最后一个字 */
-const COMPLETE_THRESHOLD = 0.99;
+/** 读完不再按进度阈值判：末页再翻一次才弹结束界面（2026-11-27 用户拍板） */
 
 /**
  * 两份反链清单是不是同一份。
@@ -1264,6 +1265,9 @@ export class ReaderView extends ItemView {
   async onClose(): Promise<void> {
     /* 关书放掉屏幕锁：不然 Obsidian 关了 tab 屏幕还亮着 */
     void this.wakeLock.disable();
+    /* 跳转浮层挂在阅读器根节点上：根节点销毁后它也会没，但指针事件监听
+       还挂在 window 上，必须显式收一次 */
+    closeJumpBar();
     /* 图片查看器盖在本视图上，关 tab 必须一起收，别留个孤儿浮层 */
     closeImageViewer();
     /* 关掉 tab 还在跑的识别要停：它每页都要发一次请求，人已经走了 */
@@ -1344,6 +1348,14 @@ export class ReaderView extends ItemView {
        点击穿透（pointer-events:none），底部那片仍然按「点正文 = 下一页」翻。 */
     const chapter = el('div', 'bzs-chapter');
     const pageNo = el('div', 'bzs-pageno');
+    /* 点页码 → 跳到百分比（2026-11-27）。重排格式没有可靠页码，百分比是唯一
+       能跨字号、跨设备对得上的位置；PDF / 漫画不走这里（页码浮条本来就能拖）。
+       空文本时（页码关掉 / 滚动模式）CSS 的 :empty 把点击也让出去。 */
+    pageNo.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      this.openJump();
+    });
     /* 剪藏本不再有底条（2026-11-13）：四个动作进了宿主头栏 / ⋮，
        「来源 · 已读」进了左侧状态栏。以前这里是一条 flex 尾行，
        占掉一行高度，还要为宿主状态栏 / 移动导航条让位（桌面 35px、手机 84px）。 */
@@ -2203,6 +2215,17 @@ export class ReaderView extends ItemView {
   onPaneMenu(menu: Menu, source: string): void {
     super.onPaneMenu?.(menu, source);
     menu.addSeparator();
+    /* 跳到百分比（2026-11-27）：手机上右下角页码默认不显示，⋮ 是唯一稳定的
+       入口；PDF / 漫画不给——它们有真实页码，右下角浮条本来就能拖。 */
+    if (!this.host.isPdf && !this.host.isManga) {
+      menu.addItem((i) =>
+        i
+          .setTitle(t('menu.jump'))
+          .setIcon('move-vertical')
+          .onClick(() => this.openJump()),
+      );
+      menu.addSeparator();
+    }
     /* 十项图标与这里一一对应，标签也只该有一份真源：头栏那颗图标的
        tooltip 是 `headerActionSpec().label`，菜单里如果另写一套中文字面量，
        就会出现「界面语言是德语、⋮ 里还是中文」——而这排菜单恰好是手机端
@@ -4715,22 +4738,45 @@ export class ReaderView extends ItemView {
    * 朗读自己的「念完一页自动续读」**不能**走这里（那会把朗读掐死），
    * 它走 `advanceForTts()`。
    */
-  private userNavigate(dir: PagingDirection): Promise<void> {
+  private async userNavigate(dir: PagingDirection): Promise<void> {
     /* 读者自己翻走 = 打断，不是不想听：留一条「继续听」，回来点一下接上
        （2026-11-15 用户要求）。关掉朗读图标才是不想听，那条不留。 */
     this.stopTts({ resume: true });
     /* 用户真的动了：从这一刻起，relocate 记下的位置才值得落盘（B14） */
     this.userTurned = true;
     debugEvent('nav', { dir });
-    const p = dir === 'prev' ? this.host.prev() : this.host.next();
-    return p.then(() => this.tracker.touch());
+    /* 引擎回「有没有真的移动」：false 就是到了全书首 / 尾（void = 判不出来，
+       当已经移动）。末页再往后翻 → 弹结束界面（读完改成确认制，2026-11-27）。 */
+    const ret = dir === 'prev' ? await this.host.prev() : await this.host.next();
+    this.tracker.touch();
+    /* 注意：`ret === false` 才是「翻不动了」；void 当已移动，不能弹 */
+    if (
+      this.book &&
+      shouldPromptFinish({ dir, moved: ret !== false, live: this.book.meta.clipBook === true })
+    ) {
+      this.promptFinish();
+    }
+  }
+
+  /**
+   * 弹「读完了」结束界面。
+   *
+   * 首读与重读用同一张卡：首读要打分 + 读后感，重读只是给这一轮盖个结束时间
+   * （已打过分时星星和读后感预填旧值）。已经开着就不重复开——站在末页连点
+   * 两下不该叠出两个弹层。
+   */
+  private promptFinish(): void {
+    const book = this.book;
+    if (!book) return;
+    if (getShellState().overlay?.kind === 'finish') return;
+    setShellState({ overlay: { kind: 'finish', bookId: book.id } });
   }
 
   /** TTS 自动续读：不停朗读，只翻页。书末 next() 不前进由调用方判 */
-  private advanceForTts(): Promise<void> {
+  private async advanceForTts(): Promise<void> {
     /* 人在听书，翻页也是他的意图：这几页的进度要落盘 */
     this.userTurned = true;
-    return this.host.next();
+    await this.host.next();
   }
 
   /**
@@ -4886,6 +4932,27 @@ export class ReaderView extends ItemView {
     if (!bar) return;
     /* 放最后：状态栏最右是宿主留给「常驻信息」的位置，别插到别人的插件项前面 */
     this.statusPageEl = bar.createDiv({ cls: 'status-bar-item bzr-status-page' });
+    /* 状态栏里的页码也能点：桌面非沉浸时这是唯一的页码位置（2026-11-27） */
+    this.statusPageEl.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      this.openJump();
+    });
+  }
+
+  /**
+   * 打开「跳到百分比」浮层。
+   *
+   * 只给重排格式：PDF / 漫画有真实页码，右下角浮条本来就能拖到位。跳转本身
+   * 走引擎的 goToPercent——分页与滚动两种排版都认。
+   */
+  private openJump(): void {
+    const host = this.rootEl;
+    if (!host || this.host.isPdf || this.host.isManga) return;
+    openJumpBar({
+      host,
+      percent: this.lastPct,
+      onJump: (f) => void this.host.goToPercent(f),
+    });
   }
 
   /** 宿主状态栏现在可见吗（用户可能在设置里把它关掉） */
@@ -5593,6 +5660,9 @@ export class ReaderView extends ItemView {
       if (query) this.host.highlightQuery?.(query, pending);
       /* 书本来没开着、从划线 / 书签点过来的：落点同样要闪一下 */
       if (pending) void this.host.pulseAt(pending);
+      /* 重读轮次（2026-11-27）：上一轮已读完就开新一轮，没读完继续算同一轮。
+         先于 tracker.begin——它内部结算上一段会话时也可能写时间戳。 */
+      beginReadthrough(book.reading);
       /* 重试挂载时上一段会话还没结算：begin() 会把它收掉并返回，
          这里必须写回书里，否则统计里凭空少一段（P3-22）。 */
       const carried = this.tracker.begin(book.reading.position.percent);
@@ -6031,21 +6101,8 @@ export class ReaderView extends ItemView {
     if (typeof info.chapterIndex === 'number') this.lastChapterIndex = info.chapterIndex;
     book.reading.stats.lastReadTime = Date.now();
     if (!book.reading.stats.startReadTime) book.reading.stats.startReadTime = Date.now();
-    if (
-      shouldMarkComplete({
-        percent: info.percent,
-        live: book.meta.clipBook === true,
-        completed: !!book.reading.stats.completedTime,
-        threshold: COMPLETE_THRESHOLD,
-      })
-    ) {
-      book.reading.stats.completedTime = Date.now();
-      /* 读完那一刻弹一张卡。已经打过分的重读不再打扰——
-         判断放在这里而不是弹层里，是因为弹层不该知道「为什么弹」。 */
-      if (!book.reading.stats.rating) {
-        setShellState({ overlay: { kind: 'finish', bookId: book.id } });
-      }
-    }
+    /* 读完判定不在这里做了（2026-11-27）：滑到最后一页只是「到末页」，
+       不等于读完。要末页再往后翻一次、弹结束界面确认，见 userNavigate。 */
     /* 进度不再写 `book.updatedAt`（A-15）：跨设备合并按 updatedAt 取整本，
        翻一页就刷新它会让另一台设备刚写的标注整份丢掉。标注改的是
        `notesUpdatedAt`（data/notes.ts），两条时间线互不覆盖。 */

@@ -2304,3 +2304,87 @@ body.is-mobile .bzr-pdf-toolbar {
   object-fit: cover;
 }
 
+
+/* ── 书架搜索的范围（2026-11-27） ──
+   全库 / 某个分类 / 指定几本。按钮跟检索卡底部一排小字同级，面板里头
+   用勾选网格，书多了一屏放不下就在面板内部滚。 */
+.bzs-desk-range {
+  margin-right: 8px;
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--t2);
+  font-size: var(--fs-caption);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bzs-desk-range:hover {
+  border-color: var(--copper);
+  color: var(--copper);
+}
+
+.bzs-desk-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 2px 12px;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-2);
+  max-height: 34vh;
+  overflow-y: auto;
+}
+
+.bzs-desk-pickrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 3px 0;
+  /* 这是个 button：把宿主按钮的底、边、内边距全收掉，只留一排可点的行 */
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 13px;
+  text-align: left;
+  color: var(--t2);
+  cursor: pointer;
+  height: auto;
+}
+
+.bzs-desk-pickrow:hover {
+  color: var(--t1);
+}
+
+/* 宿主把原生 checkbox 的 appearance / 边框全重置掉了（看不见），
+   所以勾选框自绘：一个 14px 方框 + 选中时的对勾 */
+.bzs-desk-pickbox {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--bg-1);
+}
+
+.bzs-desk-pickrow.is-on .bzs-desk-pickbox {
+  background: var(--copper);
+  border-color: var(--copper);
+}
+
+.bzs-desk-pickbox svg {
+  width: 10px;
+  height: 10px;
+}
+
+.bzs-desk-pickt {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

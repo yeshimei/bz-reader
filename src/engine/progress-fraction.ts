@@ -44,3 +44,26 @@ export function shouldMarkComplete(input: {
   const threshold = input.threshold ?? 0.99;
   return Number.isFinite(input.percent) && input.percent >= threshold;
 }
+
+/**
+ * 这次翻页该不该弹「读完了」的结束界面（2026-11-27 用户拍板改成确认制）。
+ *
+ * 以前按进度判：到 99% 自动写读完时间 + 弹卡。问题是「滑到最后一页」不等于
+ * 「读完了」——有人会滑到底看一下封底、或者只是翻到书末找附录，读完的账就
+ * 提前记上了，还会弹一张不想看的书评卡。
+ *
+ * 现在的口径：**在末页还继续往后翻**（`moved` 为 false）才算读到尽头。
+ * 往前翻不动（书首）不弹；剪藏本是持续更新的流，永远不弹。
+ *
+ * 已读完的书重读时同样走这条：闭合的是「这一轮」，不是把自己再标一遍。
+ */
+export function shouldPromptFinish(input: {
+  /** 这次导航有没有真的移动位置 */
+  moved: boolean;
+  dir: 'prev' | 'next';
+  /** 活书（剪藏本） */
+  live: boolean;
+}): boolean {
+  if (input.live) return false;
+  return input.dir === 'next' && !input.moved;
+}

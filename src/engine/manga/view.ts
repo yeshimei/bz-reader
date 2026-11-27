@@ -673,22 +673,26 @@ export class MangaView {
 
   /* ─────────────── 导航 ─────────────── */
 
-  turn(dir: 1 | -1): void {
+  /** 翻一屏；返回 false = 已经到第一屏 / 最后一屏（读完确认制用这个信号） */
+  turn(dir: 1 | -1): boolean {
     /* 右到左时「下一屏」在左边，但内部的屏序永远按阅读顺序递增 */
     if (this.prefs.panels && this.panelRects.length && dir === 1 && this.panel < this.panelSeq.length - 1) {
       this.panel += 1;
       this.paintPanel();
       this.emitRelocate();
-      return;
+      return true;
     }
     if (this.prefs.panels && this.panelRects.length && dir === -1 && this.panel > 0) {
       this.panel -= 1;
       this.paintPanel();
       this.emitRelocate();
-      return;
+      return true;
     }
     const next = turnScreen(this.screen, this.screens.length, dir);
-    if (next === this.screen) { this.emitRelocate(); return; }
+    if (next === this.screen) {
+      this.emitRelocate();
+      return false;
+    }
     this.screen = next;
     this.panel = -1;
     this.panelRects = [];
@@ -698,9 +702,10 @@ export class MangaView {
       this.scrollToCurrent();
       this.loadVisible();
       this.emitRelocate();
-      return;
+      return true;
     }
     void this.render();
+    return true;
   }
 
   goToPage(page: number, panel = -1): void {

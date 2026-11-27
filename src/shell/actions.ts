@@ -37,6 +37,8 @@ import {
   setHighlightKb,
   toggleBookmark,
 } from '../data/notes';
+import { finishReadthrough, cancelFinishReadthrough } from '../data/reading-log';
+import { ALL_BOOKS_SCOPE, shelvesInBooks, type CrossSearchScope } from '../ui/cross-search-scope';
 import { allMarks, filterMarks, shelfOf, shelvesOf } from './domain';
 import { addShelf as addBookShelf, countInShelf, dropFromBook, renameInBook, toggleShelf } from '../data/book-shelves';
 /* 编辑书籍信息（2026-11-25）：书名 / 作者 / 简介 / 封面上传与还原 */
@@ -2416,11 +2418,17 @@ export function dispatchAction(
       const ta = box?.querySelector('textarea');
       book.reading.stats.rating = stars || undefined;
       book.reading.stats.review = (ta as HTMLTextAreaElement | null)?.value.trim() || undefined;
+      /* 读完时间在这一刻才落（2026-11-27 确认制）：翻到末页不算，用户点
+         「保存」才算。重读时 completedTime 保留第一次读完的时间——那是
+         「第一次读完」的纪念；每一轮各自的起止在 readthroughs 里。 */
+      if (!book.reading.stats.completedTime) book.reading.stats.completedTime = Date.now();
+      finishReadthrough(book.reading);
       book.updatedAt = Date.now();
       getShellSource()?.store.touch();
       notify(stars ? t('notice.rating.stars', { stars }) : t('notice.rating.done'));
       break;
     }
+    /* 跳过 = 这一轮没读完：不写读完时间、不闭合轮次。下次翻到末页再问。 */
     case 'finishskip':
       closeOverlay();
       break;
@@ -4156,6 +4164,51 @@ export function dispatchAction(
       bumpOverlayRev();
       repaint();
       break;
+    /* ── 搜索范围（2026-11-27）──
+       全库范围里再收窄：某个分类 / 指定几本。只作用于书架整页搜索。 */
+    case 'searchrange': {
+      const books = liveBooks();
+      const cur = getState().searchRange;
+      const menu = new Menu();
+      menu.addItem((i) =>
+        i
+          .setTitle(t('search.range.all', { n: books.length }))
+          .setChecked(cur.kind === 'all')
+          .onClick(() => applySearchRange(ALL_BOOKS_SCOPE)),
+      );
+      for (const s of shelvesInBooks(books, shelvesOf)) {
+        menu.addItem((i) =>
+          i
+            .setTitle(s)
+            .setChecked(cur.kind === 'shelf' && cur.shelf === s)
+            .onClick(() => applySearchRange({ kind: 'shelf', shelf: s })),
+        );
+      }
+      menu.addSeparator();
+      menu.addItem((i) =>
+        i
+          .setTitle(t('search.range.pick'))
+          .setChecked(cur.kind === 'books')
+          .onClick(() => {
+            setState({ searchRangePick: !getState().searchRangePick });
+            repaint();
+          }),
+      );
+      const box = el.getBoundingClientRect();
+      menu.showAtPosition({ x: box.left, y: box.bottom + 4 });
+      break;
+    }
+    /* 勾一本书：立即生效（不必再点确定），列表保持展开方便连勾 */
+    case 'searchrangepick': {
+      const id = d.id || '';
+      if (!id) break;
+      const cur = getState().searchRange;
+      const picked = new Set(cur.kind === 'books' ? cur.ids : []);
+      if (picked.has(id)) picked.delete(id);
+      else picked.add(id);
+      applySearchRange(picked.size ? { kind: 'books', ids: [...picked] } : ALL_BOOKS_SCOPE);
+      break;
+    }
     case 'searchmore': {
       /* 展开一组：只重画命中列表，搜索框与光标不动 */
       const kw = getState().searchKw.trim();
@@ -4575,17 +4628,33 @@ function toggleDone(id?: string): void {
   /* 读完与否只看 `completedTime`，**一行 percent 都不碰**（P2-06）。
      以前「标为读完」把 percent 写成 1、「取消读完」写成 0.95：一本只读了
      37% 的书被标读完再取消，打开就从 95% 处开始——用户会以为书被翻乱了。
-     读到 99% 自动完成那条路在 reader-view.saveRelocate 里，它会写
-     completedTime，所以这里只看它也是自洽的。 */
+     进度与读完是两件事：末页再翻弹结束界面（2026-11-27 确认制）只写时间，
+     这里也一样。 */
   if (book.reading.stats.completedTime) {
     book.reading.stats.completedTime = undefined;
+    /* 重读时间线同步退回「在读」：只撤最后一轮，历史轮次不动 */
+    cancelFinishReadthrough(book.reading);
     notify(t('notice.status.reading'));
   } else {
     book.reading.stats.completedTime = Date.now();
+    finishReadthrough(book.reading);
     notify(t('notice.status.done'));
   }
   book.updatedAt = Date.now();
   src.store.touch();
+  repaint();
+}
+
+/**
+ * 应用书架搜索的范围（2026-11-27）。
+ *
+ * 范围变了要重开一轮正文搜索——词没变也得重搜，因为书的集合变了。
+ * 词是空的就只更新按钮文案，不必空扫。
+ */
+function applySearchRange(next: CrossSearchScope): void {
+  setState({ searchRange: next });
+  const kw = getState().searchKw.trim();
+  if (kw && getState().searchMode === 'literal') kickBodySearch(kw, 'all');
   repaint();
 }
 

@@ -377,20 +377,25 @@ export class PdfView {
     this.emitRelocate();
   }
 
-  next(): void {
+  /** 翻一屏；false = 已经到最后一页（读完确认制用）。连续滚动判不出来，返回 void */
+  next(): boolean | void {
     /* 一屏一页 / 双页并排时不能 scrollBy 半屏：那样会停在两页中间，
        而且双页模式一屏两页，按页跳会漏掉右页。统一按「屏」跳。 */
     if (this.paged || this.spread) {
-      this.goToPage(turnPage(this.current, this.numPages, 1, this.spread), true);
-      return;
+      const to = turnPage(this.current, this.numPages, 1, this.spread);
+      const moved = to !== this.current;
+      this.goToPage(to, true);
+      return moved;
     }
     this.scroller.scrollBy({ top: Math.max(120, this.scroller.clientHeight * 0.92), behavior: 'smooth' });
   }
 
-  prev(): void {
+  prev(): boolean | void {
     if (this.paged || this.spread) {
-      this.goToPage(turnPage(this.current, this.numPages, -1, this.spread), true);
-      return;
+      const to = turnPage(this.current, this.numPages, -1, this.spread);
+      const moved = to !== this.current;
+      this.goToPage(to, true);
+      return moved;
     }
     this.scroller.scrollBy({ top: -Math.max(120, this.scroller.clientHeight * 0.92), behavior: 'smooth' });
   }

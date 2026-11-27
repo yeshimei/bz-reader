@@ -17,6 +17,8 @@ import { getState } from './state';
 import { getShellSource, liveBooks } from './source';
 import { RT } from './runtime';
 import { mergeBodyHits, planBodyBooks, runBodySearch } from './search-body';
+import { filterBooksByScope, type CrossSearchScope } from '../ui/cross-search-scope';
+import { shelvesOf } from './domain';
 
 /** 打字停下多久才开始扫正文：太短会边打边解包，太长像卡住 */
 const DEBOUNCE_MS = 320;
@@ -31,8 +33,16 @@ export function searchQueryKey(
   kw: string,
   scope: 'book' | 'all',
   mode: 'literal' | 'semantic' = 'literal',
+  range?: CrossSearchScope,
 ): string {
-  return `${kw.trim()}\u0001${scope}\u0001${mode}`;
+  return `${kw.trim()}\u0001${scope}\u0001${mode}\u0001${rangeKey(range)}`;
+}
+
+/** 范围指纹：范围变了要重开一轮，缓存也不能复用 */
+export function rangeKey(range?: CrossSearchScope): string {
+  if (!range || range.kind === 'all') return 'all';
+  if (range.kind === 'shelf') return `shelf:${range.shelf}`;
+  return `books:${[...range.ids].sort().join(',')}`;
 }
 
 let timer: number | null = null;
@@ -131,7 +141,10 @@ export function kickBodySearch(kw: string, scope: 'book' | 'all'): void {
     return;
   }
 
-  const targets = planBodyBooks(liveBooks(), scope, state.bookId);
+  /* 先按分类 / 指定书收窄，再决定本书还是全库：两个范围是叠加关系
+     （全库 ∩ 分类，或本书 ∩ 指定），先收窄不会让「本书」搜到别的书。 */
+  const ranged = filterBooksByScope(liveBooks(), state.searchRange, shelvesOf);
+  const targets = planBodyBooks(ranged, scope, state.bookId);
   if (!targets.length) {
     notify();
     return;

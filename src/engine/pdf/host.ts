@@ -292,12 +292,12 @@ export class PdfEngineHost implements ReaderEngine {
     };
   }
 
-  async next(): Promise<void> {
-    this.view?.next();
+  async next(): Promise<boolean | void> {
+    return this.view?.next();
   }
 
-  async prev(): Promise<void> {
-    this.view?.prev();
+  async prev(): Promise<boolean | void> {
+    return this.view?.prev();
   }
 
   async goToPercent(fraction: number): Promise<void> {

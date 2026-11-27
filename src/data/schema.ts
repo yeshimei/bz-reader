@@ -276,6 +276,16 @@ export interface ReadingBlock {
   stats: ReadingStats;
   sessions: ReadingSession[];
   /**
+   * 重读轮次（2026-11-27）：每一轮从哪天开始、哪天读完。
+   *
+   * `stats.startReadTime` / `completedTime` 只有一对单值，重读一次就把上一次
+   * 覆盖掉。用户要看「这本书我读过几遍、每次什么时候读完」，就得单独攒一张表。
+   * 由 data/reading-log.ts 维护：打开书开一轮、确认读完盖结束时间。
+   * 老数据没有这个字段，第一次打开时按上面两个单值补一条历史。
+   * bz 侧读到不认识的键会忽略，不影响数据同构。
+   */
+  readthroughs?: { start: number; end?: number }[];
+  /**
    * 剪藏本：每章累计阅读秒数（键 = 文章 key，2026-11-13）。
    *
    * 键用文章标识而不是章节序号：剪藏本会随数据增删，序号会变，标识不会。

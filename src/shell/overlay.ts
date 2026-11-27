@@ -39,6 +39,7 @@ import { collectStats } from '../data/stats';
 import { cn, esc, coverHtml, ico } from './render/html';
 import { setHtml } from '../ui/dom';
 import { bmksOf, allMarks, fmtMinutes, fmtWhen, marksOf, shelfOf } from './domain';
+import { readthroughRows } from '../data/reading-log';
 import { ALL_SHELF, NO_SHELF, orderShelves } from '../data/shelves';
 import { noteCardHtml } from './render/notes';
 import { shelfActionsHtml, shelfFocusRole } from './render/shelf-row';
@@ -1079,6 +1080,10 @@ function overlayFinish(bookId?: string): string {
   const st = b.reading.stats;
   const rated = st.rating ?? 0;
   const minutes = Math.max(1, Math.round((st.totalReadTime || 0) / 60));
+  /* 2026-11-27：读完改成确认制，重读也会走到这张卡。第二遍之后不再叫
+     「读完了」——那是第一次的事；这一张是给这一轮盖个戳。 */
+  const again = !!st.completedTime;
+  const round = b.reading.readthroughs?.length || 1;
   const stars = [1, 2, 3, 4, 5]
     .map(
       (i) =>
@@ -1089,21 +1094,35 @@ function overlayFinish(bookId?: string): string {
     .join('');
 
   const body = `<div class="bzs-finish">
-      <div class="kick">读 完 了</div>
+      <div class="kick">${again ? '再 读 完 了' : '读 完 了'}</div>
       <h3>${esc(b.meta.title)}</h3>
-      <div class="sub">${esc(b.meta.author || '佚名')} · 累计 ${minutes} 分钟</div>
+      <div class="sub">${esc(b.meta.author || '佚名')} · 累计 ${minutes} 分钟${
+        again ? ` · 第 ${round} 轮` : ''
+      }</div>
       <div class="bzs-stars" data-role="stars">${stars}</div>
-      <textarea data-role="review" rows="3" placeholder="一句话：这本书给你留下了什么">${esc(st.review ?? '')}</textarea>
-      <div class="bzs-mini">保存后会写进这本书的元数据，并在导出时带上。</div>
+      <textarea data-role="review" rows="5" placeholder="读后感：这本书给你留下了什么（可换行）">${esc(
+        st.review ?? '',
+      )}</textarea>
+      <div class="bzs-mini">${
+        again ? '保存后记下这一轮的读完时间；跳过则这一轮不算读完。' : '保存后写进这本书的元数据，并在导出时带上。'
+      }</div>
     </div>`;
 
   return modal(
-    '读完一本书',
+    again ? '这一轮读完了' : '读完一本书',
     '记一笔',
     body,
-    `<button class="bzs-btn" data-act="finishskip">跳过</button>
-     <button class="bzs-btn pri" data-act="finishsave" data-id="${b.id}">保存</button>`,
+    `<button class="bzs-btn" data-act="finishskip">${again ? '还没读完' : '跳过'}</button>
+     <button class="bzs-btn pri" data-act="finishsave" data-id="${b.id}">${again ? '记下这一轮' : '保存'}</button>`,
   );
+}
+
+/** 重读时间线用的时间戳：要精确到分钟，`fmtWhen` 那种「今天/昨天」不够读 */
+function fmtStamp(ts: number): string {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  const p = (n: number): string => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 function overlayDetail(bookId?: string): string {
@@ -1112,6 +1131,7 @@ function overlayDetail(bookId?: string): string {
   const marks = marksOf(b);
   const bks = bmksOf(b);
   const percent = Math.round((b.reading.position.percent || 0) * 100);
+  const rounds = readthroughRows(b.reading);
   const missing = b.fileRef.fileMissing === true;
   if (cachedPortrait(b.id) === undefined) {
     void ensurePortrait(getShellSource()?.app, b.id, () => bumpOverlayRev());
@@ -1153,6 +1173,22 @@ function overlayDetail(bookId?: string): string {
       <div class="bzs-kv"><b>累计时长</b><span>${fmtMinutes(b.reading.stats.totalReadTime || 0)}</span></div>
       <div class="bzs-kv"><b>划线 / 书签</b><span>${marks.length} 条 / ${bks.length} 枚</span></div>
       <div class="bzs-kv"><b>上次打开</b><span>${fmtWhen(b.reading.stats.lastReadTime)}</span></div>
+      ${
+        /* 重读时间线（2026-11-27）：每一次从哪天开始、哪天读完。以前只有
+           一组 startReadTime / completedTime，重读一次就把上一次盖掉了。 */
+        rounds.length
+          ? `<div class="bzs-sect-h"><b>阅读记录</b><span class="ln"></span></div>
+             <div class="bzs-rt-list">${rounds
+               .map(
+                 (r, i) => `<div class="bzs-rt-row">
+                   <span class="k">第 ${rounds.length - i} 轮</span>
+                   <span class="when">${fmtStamp(r.start)} → ${r.end ? fmtStamp(r.end) : '在读'}</span>
+                   <span class="dur">${r.seconds ? fmtMinutes(r.seconds) : ''}</span>
+                 </div>`,
+               )
+               .join('')}</div>`
+          : ''
+      }
       <div class="bzs-kv"><b>${esc(t('detail.portrait'))}</b><span>${esc(
         portraitStatusLine(cachedPortrait(b.id) ?? null, bzEmbedder(getShellSource()?.app).model),
       )}</span></div>

@@ -15,6 +15,7 @@
 import { HIGHLIGHT_COLORS } from '../data/notes';
 import { isAiSessionKind } from '../data/ai-session';
 import { cleanShelfList } from '../data/shelves';
+import type { CrossSearchScope } from '../ui/cross-search-scope';
 import { bookSelectContext, leavesBookSelect } from './book-select';
 import { getShellSource } from './source';
 import { RT } from './runtime';
@@ -336,6 +337,16 @@ export interface ShellState {
    */
   searchFloatScope: 'book' | 'all';
   /**
+   * 书架搜索的范围（2026-11-27）：全部 / 某个分类 / 指定几本。
+   *
+   * 与 `searchScope` 不是一回事：那个是「本书 / 全库」两档，决定要不要扫正文；
+   * 这个是在「全库」里再收窄——用户经常知道自己要找的书在哪个分类里。
+   * 落盘：上次选的分类下次还在，不用每次重选。
+   */
+  searchRange: CrossSearchScope;
+  /** 范围 · 「选择要搜的书」的勾选列表是否展开（不落盘：一次性的挑选动作） */
+  searchRangePick: boolean;
+  /**
    * 搜索方式：字面 / 按意思（2026-11-11）。
    *
    * 两种方式并列，不是替换：切到按意思不会改动搜索词与范围，切回来还能接着搜。
@@ -445,6 +456,8 @@ export const DEFAULT_SHELL_STATE: ShellState = {
   searchKw: '',
   searchScope: 'all',
   searchFloatScope: 'book',
+  searchRange: { kind: 'all' },
+  searchRangePick: false,
   searchMode: 'literal',
   noteFilter: 'all',
   noteKw: '',
@@ -518,6 +531,17 @@ export function loadShellState(): ShellState {
       }
       if (Array.isArray(d.favIds)) state.favIds = d.favIds.filter((x) => typeof x === 'string');
       if (d.shelves && typeof d.shelves === 'object') state.shelves = d.shelves;
+      /* 搜索范围：只认三种合法形状，分类名与书 id 都必须是字符串；
+         认不出就退回「全部」——比带着一个不存在的分类搜空气好 */
+      if (d.searchRange && typeof d.searchRange === 'object') {
+        const r = d.searchRange as { kind?: unknown; shelf?: unknown; ids?: unknown };
+        if (r.kind === 'shelf' && typeof r.shelf === 'string') {
+          state.searchRange = { kind: 'shelf', shelf: r.shelf };
+        } else if (r.kind === 'books' && Array.isArray(r.ids)) {
+          const ids = r.ids.filter((x): x is string => typeof x === 'string');
+          state.searchRange = { kind: 'books', ids };
+        }
+      }
       /* 分类名单是业务数据的缓存：这里读到的只是一份离线快照，
          启动后 hydrateLibrary 会用 data.shelves 覆盖它。 */
       if (Array.isArray(d.shelfList)) state.shelfList = cleanShelfList(d.shelfList.map(String));
@@ -629,7 +653,7 @@ export function mutateState(fn: (s: ShellState) => void): void {
 
 function persist(): void {
   try {
-    const { overlay, libKw, noteKw, noteSelect, noteSel, libSelect, libSel, searchKw, searchMode, ideaDraft, pdfPage, aiKw, aiOpen, aiExport, ...rest } = state;
+    const { overlay, libKw, noteKw, noteSelect, noteSel, libSelect, libSel, searchKw, searchMode, searchRangePick, ideaDraft, pdfPage, aiKw, aiOpen, aiExport, ...rest } = state;
     // 浮层与输入框内容不落盘：下次打开还停在上次的弹窗上很怪
     window.localStorage.setItem(LS_KEY, JSON.stringify(rest));
   } catch {

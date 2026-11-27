@@ -845,3 +845,36 @@
 .bzs-aiguide-hint { margin: 0 0 14px; color: var(--text-muted); font-size: 0.9em; line-height: 1.6; }
 .bzs-aiguide-acts { display: flex; justify-content: flex-end; gap: 8px; }
 
+
+/* ── 阅读记录（重读时间线，2026-11-27） ──
+   书籍详情里按轮列出「开始 → 读完」，最新的一轮在最上面。 */
+.bzs-rt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bzs-rt-row {
+  /* 网格而不是 flex：时间串在窄弹层里被 flex 压成逐字竖排（真机 2026-11-27），
+     1fr 的网格列会正常换行，不会一个字一行 */
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.bzs-rt-row .k {
+  color: var(--copper);
+  white-space: nowrap;
+}
+
+.bzs-rt-row .when {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.bzs-rt-row .dur {
+  white-space: nowrap;
+}

@@ -1994,17 +1994,19 @@ export class EngineHost {
     return next;
   }
 
-  async next(): Promise<void> {
+  /** 翻到下一页；返回是否真的移动了（false = 已是全书最后一页） */
+  async next(): Promise<boolean> {
     debugEvent('hostTurn', { dir: 'next' });
-    await this.enqueue(() => this.turnOnce('next'));
+    return this.enqueue(() => this.turnOnce('next'));
   }
 
-  async prev(): Promise<void> {
+  /** 翻回上一页；返回是否真的移动了（false = 已是全书第一页） */
+  async prev(): Promise<boolean> {
     debugEvent('hostTurn', { dir: 'prev' });
-    await this.enqueue(() => this.turnOnce('prev'));
+    return this.enqueue(() => this.turnOnce('prev'));
   }
 
-  private async turnOnce(dir: 'next' | 'prev'): Promise<void> {
+  private async turnOnce(dir: 'next' | 'prev'): Promise<boolean> {
     const before = this.pageKey;
     const cfiBefore = this.lastRelocateCfi;
     const seqBefore = this.relocateSeq;
@@ -2023,18 +2025,23 @@ export class EngineHost {
     /* 超时/异常时，底层这次 next() 可能还在推进。此时再叠加一次跨章 goTo，
        两条导航并发，结果就是「点一下跳过整章」。只对「真的完成了但没动」
        的情况走章末兜底。 */
-    if (result !== 'ok') return;
-    if (this.lastRelocateCfi !== cfiBefore || this.pageKey !== before) return;
+    /* 位置先判：分页器超时但它其实挪过去了的情况真机上见过（3 秒上限卡在
+       长章换页上），按 result 直接判「没动」会让用户以为点了没反应。 */
+    if (this.lastRelocateCfi !== cfiBefore || this.pageKey !== before) return true;
+    if (result !== 'ok') return false;
     /* 章末/章首：分页器把「下一页」判成 false，页面一动不动，用户看到的就是
        「点了没反应」。这里显式翻到相邻章。 */
     const count = this.book?.sections.length ?? 0;
     const idx = dir === 'next' ? this.chapterIndex + 1 : this.chapterIndex - 1;
-    if (idx < 0 || idx >= count) return;
+    /* 全书首尾：真的翻不动了。调用方据此弹「读完了」（见 progress-fraction）。
+       以前这里静默 return，外面拿不到「到头了」这个信号。 */
+    if (idx < 0 || idx >= count) return false;
     await this.navigate(
       () => this.view?.goTo(idx),
       dir === 'next' ? '翻到下一章' : '翻回上一章',
       TURN_TIMEOUT,
     );
+    return true;
   }
 
   /**

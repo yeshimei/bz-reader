@@ -171,8 +171,15 @@ export interface ReaderEngine {
    * 只能按章节落。PDF 引擎不实现。
    */
   startSection?(index: number): Promise<void>;
-  next(): Promise<void>;
-  prev(): Promise<void>;
+  /**
+   * 翻到下一页 / 上一页。
+   *
+   * 返回 false = **明确翻不动了**（全书最后一页 / 第一页），读完确认制靠这个
+   * 信号弹结束界面（2026-11-27）。返回 void = 这个引擎判不出来（PDF 的连续
+   * 滚动模式滚到底没有事件），调用方当「已移动」处理，不弹。
+   */
+  next(): Promise<boolean | void>;
+  prev(): Promise<boolean | void>;
   goToPercent(fraction: number): Promise<void>;
   goToCfi(cfi: string): Promise<boolean>;
   goToHref(href: string): Promise<void>;

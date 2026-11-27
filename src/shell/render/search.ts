@@ -161,6 +161,48 @@ export function searchDeskHtml(surface: SearchSurface = 'shelf'): string {
     surface === 'shelf' && !can('crossSearch')
       ? `<span class="bzs-srch-lock">${esc(t('search.scope.allLocked'))}</span>`
       : '';
+  /* 范围（2026-11-27）：全库太宽，用户常知道自己要找的书在哪个分类里。
+     只给书架整页——阅读页弹窗固定「本书」，再收窄没有意义。 */
+  const rangeScope = getState().searchRange;
+  const rangeLabel =
+    rangeScope.kind === 'shelf'
+      ? rangeScope.shelf
+      : rangeScope.kind === 'books'
+        ? rangeScope.ids.length
+          ? t('search.range.picked', { n: rangeScope.ids.length })
+          : t('search.range.none')
+        : t('search.range.all', { n: liveBooks().length });
+  const rangeBtn =
+    surface === 'shelf'
+      ? `<button type="button" class="bzs-desk-range" data-act="searchrange">${esc(
+          t('search.range', { label: rangeLabel }),
+        )}</button>`
+      : '';
+  /* 勾选列表：点「选择要搜的书」就地展开，不弹第二层窗户——
+     弹层会盖住搜索框，勾完还得回来重新点输入框。 */
+  const pickOpen = surface === 'shelf' && getState().searchRangePick;
+  const pickedIds = new Set(rangeScope.kind === 'books' ? rangeScope.ids : []);
+  const shelfBooks = liveBooks();
+  const pickList = pickOpen
+    ? `<div class="bzs-desk-pick">${
+        shelfBooks.length
+          ? shelfBooks
+              .map(
+                (b) =>
+                  `<button type="button" class="bzs-desk-pickrow${
+                    pickedIds.has(b.id) ? ' is-on' : ''
+                  }" data-act="searchrangepick" data-id="${esc(
+                    b.id,
+                  )}"><span class="bzs-desk-pickbox">${
+                    pickedIds.has(b.id) ? ico('check') : ''
+                  }</span><span class="bzs-desk-pickt">${esc(
+                    b.meta.title || t('common.untitled'),
+                  )}</span></button>`,
+              )
+              .join('')
+          : `<div class="bzs-empty">${esc(t('search.range.none'))}</div>`
+      }</div>`
+    : '';
   /* 清空键一直渲染、只切 hidden：输入时宿主只换命中列表，不重画检索卡，
      按「有词才渲染」会在整轮输入里都看不到这枚 ×（真机第一版）。 */
   const clear = `<button type="button" class="bzs-desk-clear" data-act="searchclear"${hasKw ? '' : ' hidden'}><span class="bzs-sr-only">${esc(
@@ -175,6 +217,7 @@ export function searchDeskHtml(surface: SearchSurface = 'shelf'): string {
       ${clear}
     </div>
     <div class="bzs-desk-foot">
+      ${rangeBtn}
       ${locked}
       <span class="bzs-srch-sp"></span>
       <span class="bzs-srch-enter"><kbd>↵</kbd>${esc(t('search.enter'))}</span>
@@ -187,6 +230,7 @@ export function searchDeskHtml(surface: SearchSurface = 'shelf'): string {
         )}</button>
       </div>
     </div>
+    ${pickList}
   </div>`;
 }
 
