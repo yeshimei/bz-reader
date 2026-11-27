@@ -131,8 +131,14 @@ export function buildChapterCSS(prefs: ReaderPrefs): string {
 
   /* 标题始终横跨整页：双栏时它原来只在左栏里居中，整页看上去偏左一大截。
     字距在最后一个字后面也会留一份，居中时整体看着偏左半个字距，用等量的
-    首行缩进抵回来，标题长一点短一点都还是正的。 */
-const h1Span = prefs.columns === 2 ? 'column-span: all !important;' : '';
+    首行缩进抵回来，标题长一点短一点都还是正的。
+
+    2026-11-27 真机反馈：手机上加这条会让 h1 横跨分页器横向溢出的**所有列**
+    （几十万像素宽），于是每一列都被标题占掉 321px、正文只剩 186px——表现
+    就是「上方一大片空白，一页只排几行」。手机竖屏分页器实际只有一栏
+    （portrait 强制单栏），column-span 在这里没有好处，只有副作用，所以
+    手机上不加；桌面双栏的容器真的有两栏，保留原行为。 */
+const h1Span = prefs.columns === 2 && !mobile ? 'column-span: all !important;' : '';
 /* 朗读高亮（`speechHighlightCss`）必须跟正文样式一起注入书页文档：
    `::highlight()` 是伪元素，宿主 styles.css 管不到 iframe 里。
    注意别把中文注释写进下面这个模板字符串——那是字符串内容，
