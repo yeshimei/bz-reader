@@ -90,15 +90,7 @@ import { el, setHtml } from '../ui/dom';
 import { pageLabelText, type PageLabelInput } from './page-label';
 import { headTitleBox, headerTitleText, HEAD_TITLE_GAP } from './header-title';
 import { chromeLabelMode } from './chrome-labels';
-
-/**
- * 移动端顶部安全区的下限（px）。
- *
- * 刘海屏 / 挖孔屏上 Obsidian 给的 --safe-area-inset-top 有时是 0（老安卓
- * WebView 不报），两角小字就会压进状态栏。真机实测至少要 44px 才让得开。
- * 具体算术在 ./safe-top，那里还挡住异常大的安全区变量（2026-11-27）。
- */
-import { SAFE_TOP_MIN, safeTopFor } from './safe-top';
+import { safeTopFor } from './safe-top';
 import { setToc, clearToc, getToc, patchToc } from './toc-state';
 import {
   availableActions,
@@ -4864,14 +4856,13 @@ export class ReaderView extends ItemView {
    */
   private measureSafeTop(): number {
     if (!isMobileEnv()) return 0;
-    let inset = SAFE_TOP_MIN;
+    /* 原值直接交出去：下限、上限、负顶边都由 safeTopFor 一处裁，
+       免得两层各自 Math.max 把异常值放大一次。 */
+    let inset = NaN;
     try {
-      const v = parseFloat(getComputedStyle(document.body).getPropertyValue('--safe-area-inset-top'));
-      /* 合法性由 safeTopFor 统一裁：这里只把读到的原值交出去，
-         免得「异常大」在两层各自 Math.max 之后又被放大一次。 */
-      if (Number.isFinite(v) && v > 0) inset = v;
+      inset = parseFloat(getComputedStyle(document.body).getPropertyValue('--safe-area-inset-top'));
     } catch {
-      /* 读不到就用下限 */
+      /* 读不到就留 NaN，交由 safeTopFor 按最小安全区兜底 */
     }
     const rootTop = this.rootEl?.getBoundingClientRect().top ?? 0;
     return safeTopFor(inset, rootTop);

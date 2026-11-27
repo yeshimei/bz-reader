@@ -23,6 +23,7 @@ export function safeTopFor(insetPx: number, rootTopPx: number): number {
   const raw = Number.isFinite(insetPx) && insetPx > 0 ? insetPx : SAFE_TOP_MIN;
   const inset = raw > SAFE_TOP_MAX ? SAFE_TOP_MIN : Math.max(raw, SAFE_TOP_MIN);
   const rootTop = Number.isFinite(rootTopPx) ? rootTopPx : 0;
+  /* need 天然 ≤ inset（rootTop 已按 0 兜底），不用再截一次 */
   const need = inset - Math.max(0, rootTop);
-  return Math.round(Math.min(inset, Math.max(0, need)));
+  return Math.round(Math.max(0, need));
 }

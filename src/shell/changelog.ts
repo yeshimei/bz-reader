@@ -69,6 +69,19 @@ export interface ChangelogRelease {
  */
 export const CHANGELOG_RELEASES: readonly ChangelogRelease[] = [
   {
+    version: '1.7.2',
+    date: '2026-11-27',
+    improved: [
+      {
+        domain: { zh: '手机留白', en: 'Mobile top gap' },
+        text: {
+          zh: '部分书打开时上方不再空出一大片，正文从顶部开始排。',
+          en: 'Some books no longer open with a large gap at the top; text starts right at the top.',
+        },
+      },
+    ],
+  },
+  {
     version: '1.7.1',
     date: '2026-11-26',
     added: [
