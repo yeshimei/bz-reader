@@ -13,7 +13,8 @@
     "test": "vitest run",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
     "lint:obsidian": "node scripts/lint-obsidian.mjs",
-    "verify": "npm run typecheck && npm test && npm run lint:obsidian"
+    "verify": "npm run typecheck && npm test && npm run lint:obsidian",
+    "gen:revoked": "node scripts/gen-revoked-builtin.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.4",

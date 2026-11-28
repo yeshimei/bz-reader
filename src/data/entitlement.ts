@@ -40,7 +40,7 @@ import {
   type LicensePayload,
 } from './license';
 import { ensureLatestVersion } from './plugin-update';
-import { checkRevoked, clearRevoked, revokedCode } from './revoked';
+import { builtinRevokedHit, checkRevoked, clearRevoked, revokedCode } from './revoked';
 import { noteSeen, seedClock, trustedNow, clockSeenAt } from './trusted-clock';
 import type { BookFormat } from './schema';
 
@@ -513,8 +513,10 @@ export function entitlement(now = Date.now()): EntitlementView {
         ? 'unknown'
         : 'none';
   /* 停用名单命中：签名仍然是真的，只是作者叫停了这枚码。与过期同一档处理——
-     保留码、只降级，解封后下次启动自动恢复，用户不用翻邮件重新找码。 */
-  const revoked = !!e.license && revokedCode() === e.license;
+     保留码、只降级，解封后下次启动自动恢复，用户不用翻邮件重新找码。
+     第二层是**内置名单**（随包发布的快照）：断网、清 localStorage、屏蔽
+     两个域名都绕不过它。设备联网拿到不早于它的线上名单后自动让位。 */
+  const revoked = !!e.license && (revokedCode() === e.license || builtinRevokedHit(e.license));
   const paid =
     verified &&
     !!payload &&

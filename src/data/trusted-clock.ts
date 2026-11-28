@@ -66,7 +66,13 @@ const PERSIST_GAP_MS = 60 * 1000;
 function activeStorage(): ClockStorage | null {
   if (storage) return storage;
   try {
-    const ls = (globalThis as { localStorage?: ClockStorage }).localStorage;
+    /* 用 window 而不是 globalThis：Obsidian 上架扫描要求（弹窗窗口兼容）。
+       `typeof` 守卫让 Node 下的纯函数测试仍然能跑（没有 window 就只走内存）。 */
+    const w =
+      typeof window !== 'undefined'
+        ? (window as unknown as { localStorage?: ClockStorage })
+        : null;
+    const ls = w?.localStorage;
     return ls && typeof ls.getItem === 'function' ? ls : null;
   } catch {
     return null;
@@ -206,7 +212,7 @@ export function noteServerTime(serverNow: number, localNow: number): void {
 export function noteServerDateHeader(headers: unknown, localNow = Date.now()): void {
   if (!headers || typeof headers !== 'object') return;
   let raw = '';
-  for (const key of Object.keys(headers as Record<string, unknown>)) {
+  for (const key of Object.keys(headers)) {
     if (key.toLowerCase() !== 'date') continue;
     const v = (headers as Record<string, unknown>)[key];
     if (typeof v === 'string' && v.trim()) raw = v.trim();

@@ -140,7 +140,11 @@ export async function fetchLatestVersion(
 
 /** 24 小时节流：没查过、或距上次成功查到已经满 24 小时 */
 export function shouldCheck(state: UpdateState, now: number): boolean {
-  return !state.checkedAt || now - state.checkedAt >= UPDATE_CHECK_GAP_MS;
+  /* `since < 0` = 记录时刻在未来（系统时间被调到过未来 / 手改过 checkedAt）：
+     当成「已过期」重查，不能让它把更新检查永久冻住。 */
+  if (!state.checkedAt) return true;
+  const since = now - state.checkedAt;
+  return since < 0 || since >= UPDATE_CHECK_GAP_MS;
 }
 
 /** 线上比当前新才算有更新；本机版本更高（自测构建）不提示 */
@@ -214,7 +218,10 @@ let latestInflight: Promise<string | null> | null = null;
 export function ensureLatestVersion(now = Date.now()): Promise<string | null> {
   if (latestInflight) return latestInflight;
   const state = readUpdateState();
-  if (state.latest && now - state.checkedAt < UPDATE_CHECK_GAP_MS) {
+  /* 缓存有效期同样要防「未来时间」：since < 0 时缓存视为失效，重拉。
+     否则 checkedAt 被顶到未来后，线上版本永远用旧缓存，试用码的版本门失效。 */
+  const since = now - state.checkedAt;
+  if (state.latest && since >= 0 && since < UPDATE_CHECK_GAP_MS) {
     return Promise.resolve(state.latest);
   }
   latestInflight = (async () => {

@@ -24,6 +24,7 @@
 import { requestUrl } from 'obsidian';
 import { locale } from '../i18n';
 import { parseLicense, verifySignedBytes } from './license';
+import { BUILTIN_REVOKED_IDS, BUILTIN_REVOKED_UPDATED_AT } from './revoked-builtin';
 import { noteServerDateHeader } from './trusted-clock';
 
 const GITHUB_RAW = 'https://raw.githubusercontent.com/yeshimei/bz-reader/master/docs/revoked.json';
@@ -256,6 +257,28 @@ export async function revokedHit(code: string, doc: RevokedDoc): Promise<boolean
   return doc.hashes.includes(await codeHash(code));
 }
 
+/**
+ * 内置名单（随包发布的那份快照）是否命中。**同步**，给每帧判定用。
+ *
+ * 闸门：设备已经拿到过不早于内置版本的线上名单（`revokedSeenAt() >=
+ * BUILTIN_REVOKED_UPDATED_AT`）时直接返回 false，以联网结果为准。
+ * 这是解封的唯一出口——内置名单只能加不能减，没有这道闸门，被解封的
+ * 用户会被旧版本永久锁死。
+ *
+ * 只认码号：老码（BZR1）没有 id，摘要要异步算，交给联网名单那条路。
+ * 2026-11-22 之后签发的码都带 id，这一层覆盖的是绝大多数情况。
+ */
+export function builtinRevokedHit(code: string): boolean {
+  const clean = code.trim();
+  if (!clean) return false;
+  if (!BUILTIN_REVOKED_UPDATED_AT) return false;
+  if (revokedSeenAt() >= BUILTIN_REVOKED_UPDATED_AT) return false;
+  const payload = parseLicense(clean)?.payload;
+  const id = typeof payload?.id === 'string' ? payload.id.trim().toUpperCase() : '';
+  if (!id) return false;
+  return BUILTIN_REVOKED_IDS.includes(id);
+}
+
 /* ── 拉取 ─────────────────────────────────────────────────── */
 
 /** `?t=` 破缓存：两个域名各自会缓存一份，旧名单会把已封的码救活 */
@@ -288,53 +311,35 @@ async function requestText(url: string, timeoutMs: number): Promise<string | nul
 let http: RevokedHttp = requestText;
 
 /**
- * 两源并发，谁先回一份**合法**名单就用谁（2026-11-23 加速）。
+ * 两个源并发，**都拿回来再挑**（2026-11-28 改回等齐）。
  *
- * 作者保证两个 CDN 的名单内容一致，所以不再等齐、也不比新旧——先回且
- * 验签通过的那份立刻生效，用户不必等慢的那个站。
+ * 2026-11-23 曾为了加速改成「谁先回用谁」，代价是：只要本地没封过码，
+ * 先回的那份旧名单就会被采信——作者只推了一边、或两个 CDN 有同步延迟时，
+ * 已封的码会被判 clear，而且 checkedAt 被写成当下，24 小时内不会再查。
  *
- * 「合法」仍卡两道，和速度无关，不能省：
- *   · 验签不过 → 当没拉到，继续等另一份（防代理 / 公共 WiFi 塞假名单）；
- *   · `updatedAt` 比本地见过的还旧 → 当没拉到（防旧名单把已封的码救活）。
- * 两份都不合法才返回 null（→ unknown，放行）。
+ * 名单正确性比这几百毫秒重要：两份都验签通过后取 `updatedAt` 最大的那份。
+ * 超时仍是单个请求的 timeoutMs，最坏等一个超时，不会叠加。
+ *
+ * 「合法」仍卡两道，和速度无关：
+ *   · 验签不过 → 当没拉到（防代理 / 公共 WiFi 塞假名单）；
+ *   · `updatedAt` 比本地见过的还旧、且本地已记着某枚码被封 → 当没拉到
+ *     （防旧名单把已封的码救活；本地没封过时不拒，否则作者回滚名单会卡住激活）。
  */
 async function pull(timeoutMs: number): Promise<RevokedDoc | null> {
+  const texts = await Promise.all(
+    revokedOrder().map((u) => http(bust(u), timeoutMs).catch(() => null)),
+  );
   const seen = revokedSeenAt();
-
-  return await new Promise<RevokedDoc | null>((resolve) => {
-    let settled = false;
-    let left = revokedOrder().length;
-
-    const finish = (doc: RevokedDoc | null): void => {
-      if (settled) return;
-      settled = true;
-      resolve(doc);
-    };
-    /* 这一份不合法：等另一份；两份都用不上才 unknown */
-    const drop = (): void => {
-      left -= 1;
-      if (left <= 0) finish(null);
-    };
-
-    for (const url of revokedOrder()) {
-      void http(bust(url), timeoutMs)
-        .then(async (text) => {
-          if (settled) return;
-          if (text == null) return drop();
-          const doc = parseRevoked(text);
-          if (!doc) return drop();
-          /* 只有在「本地已经记着某枚码被停用」时才拒绝更旧的名单（防旧名单
-             把已封的码救活）。作者回滚 / 重建名单时 updatedAt 会变小，本地没
-             命中还照旧拒收的话，首次激活会永久卡在「需要联网」。 */
-          if (doc.updatedAt < seen && revokedCode()) return drop();
-          if (!(await verifyRevoked(doc))) return drop();
-          finish(doc);
-        })
-        .catch(() => {
-          if (!settled) drop();
-        });
-    }
-  });
+  let best: RevokedDoc | null = null;
+  for (const text of texts) {
+    if (text == null) continue;
+    const doc = parseRevoked(text);
+    if (!doc) continue;
+    if (doc.updatedAt < seen && revokedCode()) continue;
+    if (!(await verifyRevoked(doc))) continue;
+    if (!best || doc.updatedAt > best.updatedAt) best = doc;
+  }
+  return best;
 }
 
 /* ── 对外 ─────────────────────────────────────────────────── */
@@ -399,7 +404,11 @@ export async function refreshRevoked(
   const now = Date.now();
   /* 已命中时缩短到 10 分钟：作者解封后用户不必等满 24 小时（重启即恢复） */
   const gap = revokedCode() ? Math.min(REVOKED_CHECK_GAP_MS, 10 * 60_000) : REVOKED_CHECK_GAP_MS;
-  if (!opts.force && now - revokedCheckedAt() < gap) return 'skipped';
+  /* `since < 0` = 本地记的核对时刻比现在还晚（用户把系统时间调到过未来、
+     或手改了 checkedAt）。这时**不能**当成「刚查过」——否则一次未来时间就把
+     撤销名单永久冻住，被封的码永远不会再核对。负数一律重查。 */
+  const since = now - revokedCheckedAt();
+  if (!opts.force && since >= 0 && since < gap) return 'skipped';
 
   inflight = (async () => {
     try {

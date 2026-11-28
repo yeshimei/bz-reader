@@ -157,14 +157,14 @@ describe('拉取顺序（语言优先）', () => {
   });
 });
 
-describe.runIf(hasKey)('并发先到先用', () => {
+describe.runIf(hasKey)('两源等齐取最新', () => {
   let CODE = '';
   beforeAll(() => {
     CODE = issue({ v: 2, id: 'BZR-AF-2026-0021', name: '包仔', plan: 'lifetime' });
   });
   afterEach(() => setLocale('zh'));
 
-  it('快的那份先用：后到的更新名单不覆盖先到的结果', async () => {
+  it('后到的更新名单覆盖先回的旧名单（正确性优先于速度）', async () => {
     setLocale('en'); // GitHub 先发、先回
     const calls: string[] = [];
     _setRevokedHttpForTests(async (url) => {
@@ -174,18 +174,23 @@ describe.runIf(hasKey)('并发先到先用', () => {
         ? signed(['BZR-AF-2026-0021'], [], 1_900_000_000_000)
         : signed([], [], 1_800_000_000_000);
     });
-    expect(await checkRevoked(CODE)).toBe('clear');
-    expect(revokedCode()).toBe('');
+    /* 先回的那份不含这枚码：先回者胜会判 clear，等齐取最新会判 hit */
+    expect(await checkRevoked(CODE)).toBe('hit');
+    expect(revokedCode()).toBe(CODE);
     expect(calls).toHaveLength(2);
   });
 
-  it('简中先发码云：码云先回就用码云那份', async () => {
+  it('简中先发码云：两份都在，取版本更新的那份', async () => {
     setLocale('zh');
     const calls: string[] = [];
     _setRevokedHttpForTests(async (url) => {
       calls.push(url);
       await new Promise((r) => setTimeout(r, url.includes('gitee') ? 40 : 300));
-      return signed(url.includes('gitee') ? ['BZR-AF-2026-0021'] : [], [], 1_800_000_000_000);
+      return signed(
+        url.includes('gitee') ? ['BZR-AF-2026-0021'] : [],
+        [],
+        url.includes('gitee') ? 1_900_000_000_000 : 1_800_000_000_000,
+      );
     });
     expect(await checkRevoked(CODE)).toBe('hit');
     expect(calls[0]).toContain('gitee.com');
@@ -201,7 +206,7 @@ describe.runIf(hasKey)('并发先到先用', () => {
     expect(await checkRevoked(CODE)).toBe('hit');
   });
 
-  it('先到的旧名单不能把已封的码放出来：丢掉，等另一份', async () => {
+  it('先到的旧名单不能把已封的码放出来', async () => {
     markRevoked(CODE, 1_900_000_000_000);
     setLocale('zh');
     _setRevokedHttpForTests(async (url) => {
@@ -410,5 +415,52 @@ describe.runIf(hasKey)('后台刷新与持久化', () => {
     expect(revokedCode()).toBe('');
     // 版本号不清：解封后也不能拿旧名单回放
     expect(revokedSeenAt()).toBe(1_800_000_000_000);
+  });
+});
+
+/* ------------------------------------------------------------
+ * 两条绕过路径的回归（2026-11-28 审计）
+ *
+ *   1. 旧名单先回 → 已封码被判 clear。加速改成「先回者胜」之后，
+ *      只有「本地已经封过某枚码」才拒绝旧名单；本地干净时旧名单照收。
+ *   2. checkedAt 被顶到未来 → 24 小时节流永远成立，一次都不再拉名单。
+ *      `now - checkedAt` 是负数，恒小于 gap。
+ * ---------------------------------------------------------- */
+describe.runIf(hasKey)('旧名单与未来时间（2026-11-28 审计回归）', () => {
+  const ID = 'BZR-AF-2026-0383';
+  let CODE = '';
+  beforeAll(() => {
+    CODE = issue({ v: 2, id: ID, plan: 'lifetime' });
+  });
+
+  it('旧名单先回、新名单后回：以新的为准，不能采信先回的旧名单', async () => {
+    const oldList = signed([], [], 1_000);
+    const newList = signed([ID], [], 2_000);
+    setHttp(async (url) => {
+      // 一个源还没同步（旧名单），立刻回；另一个源已同步（新名单），慢一点
+      if (url.includes('gitee')) return oldList;
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      return newList;
+    });
+
+    expect(await checkRevoked(CODE)).toBe('hit');
+    expect(revokedCode()).toBe(CODE);
+  });
+
+  it('本地核对时刻在未来：不能当成「刚查过」，照常拉一次', async () => {
+    storage.setItem(
+      REVOKED_STATE_KEY,
+      JSON.stringify({ code: '', at: 0, checkedAt: Date.now() + 400 * 86_400_000 }),
+    );
+    _resetRevokedForTests();
+
+    let calls = 0;
+    setHttp(() => {
+      calls += 1;
+      return signed([], [], 1_800_000_000_000);
+    });
+
+    expect(await refreshRevoked(CODE)).toBe('clear');
+    expect(calls).toBe(2);
   });
 });
