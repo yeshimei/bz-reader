@@ -41,6 +41,7 @@ import {
 } from './license';
 import { ensureLatestVersion } from './plugin-update';
 import { checkRevoked, clearRevoked, revokedCode } from './revoked';
+import { noteSeen, seedClock, trustedNow, clockSeenAt } from './trusted-clock';
 import type { BookFormat } from './schema';
 
 /** 高级能力。只有能判断的地方才列进来，别造没人问的开关。 */
@@ -432,6 +433,9 @@ function load(): Ent {
     if (raw) applyEnt(d, raw);
   }
   cache = d;
+  /* 高水位双写：entitlement 里的 lastSeenTs 是老字段，localStorage 那份
+     是删插件目录重装后的兜底。两边取更晚的，任删一处都不至于回到「没记录」。 */
+  seedClock(d.lastSeenTs);
   return d;
 }
 
@@ -468,7 +472,10 @@ export function recordActivity(now = Date.now()): void {
     // 回拨超过 7 天，或反复三次：试用作废（仍可用已激活的码）
     if (back > 7 * 86_400_000 || e.clockAnomaly >= 3) e.trialVoid = true;
   }
-  if (now > e.lastSeenTs) e.lastSeenTs = now;
+  /* 高水位双写：localStorage 一份、entitlement.lastSeenTs 一份。
+     到期判定用 trustedNow()，所以把系统时间往回拨不会让过期码复活。 */
+  noteSeen(now);
+  e.lastSeenTs = Math.max(e.lastSeenTs, now, clockSeenAt());
 
   const key = todayKey(new Date(now));
   if (!e.activeDays.includes(key)) {
@@ -488,11 +495,14 @@ export function entitlement(now = Date.now()): EntitlementView {
   const payload = payloadOf(e.license);
   const exp = payload?.exp ?? 0;
   const verified = verifyState === 'ok';
+  /* 到期判定用可信时间，不用系统时钟：把时间往回拨，这里仍是上次见过的
+     最晚时刻，过期码不会重新变成有效。`now` 参数保留给测试注入。 */
+  const trusted = trustedNow(now);
   /* 试用码要求当前必须是最新版（2026-11-22）：最新版是联网拿的，
      拿不到（离线 / 两个源都不通）也锁——否则拔网就能让落后版本继续用。
      只有验过的码才判；插件版本未知（开发构建 / 纯函数测试）时不判。 */
   const trial = isTrialCode(payload);
-  const trialLeft = trial ? trialDaysLeft(exp, now) : 0;
+  const trialLeft = trial ? trialDaysLeft(exp, trusted) : 0;
   const outdated =
     verified && trial && !!pluginVersion && !!latestVersion && compareVersions(pluginVersion, latestVersion) < 0;
   const trialBlock: EntitlementView['trialBlock'] = !trial
@@ -509,7 +519,7 @@ export function entitlement(now = Date.now()): EntitlementView {
     verified &&
     !!payload &&
     e.checkedTs > 0 &&
-    (exp === 0 || exp > now) &&
+    (exp === 0 || exp > trusted) &&
     !revoked &&
     trialBlock === 'none';
 
@@ -565,7 +575,7 @@ export function can(_cap: Cap): boolean {
 export function setLicense(code: string): void {
   const e = load();
   e.license = code.trim();
-  e.checkedTs = e.license ? Date.now() : 0;
+  e.checkedTs = e.license ? trustedNow() : 0;
   payloadCache.delete(e.license);
   /* activateLicense 只在验签通过后调这里，所以此刻结论就是 ok */
   verifyState = 'ok';
@@ -589,7 +599,7 @@ function tierReasonNow(): string {
     /* 验签没过、解不开：码本身不可信。老码 BZR1 没有 id 但有 plan，别误判 */
     if (v.verify !== 'ok') return 'invalid';
   }
-  if (v.exp && Date.now() > v.exp) return 'expired';
+  if (v.exp && trustedNow() > v.exp) return 'expired';
   return 'ok';
 }
 
@@ -667,7 +677,9 @@ export function noteActivateFail(fail: string): void {
 export async function activateLicense(
   code: string,
 ): Promise<{ ok: boolean; message: string; revoked?: boolean }> {
-  const res = await verifyLicense(code);
+  /* 激活也走可信时间：先把系统时间调回到期日之前再贴码，
+     高水位会让他过不了「到期」这一关；联网时还会用服务器时间把锚点顶正。 */
+  const res = await verifyLicense(code, trustedNow());
   if (!res.ok) {
     /* 只记分类给探针看：格式不对让他检查粘贴，其余都算「码不认」 */
     noteActivateFail(res.reason === 'expired' ? 'expired' : res.reason === 'format' ? 'format' : 'invalid');
@@ -739,7 +751,7 @@ export async function revalidateLicense(): Promise<{ changed: boolean; reason?: 
     refreshFacts();
     return { changed: false };
   }
-  const res = await verifyLicense(e.license);
+  const res = await verifyLicense(e.license, trustedNow());
   if (res.ok) {
     /* 试用码要联网确认最新版。等这一次：`can()` 首帧就要正确结论，
        先放行再锁会闪一下；永久码不走这里，启动不受影响。 */
@@ -802,7 +814,7 @@ export function tierText(v: EntitlementView = entitlement()): string {
   }
   /* 试用码要先于「基础版」判断：码还在、只是过期或不是最新版，说「基础版」
      会让用户以为码丢了。过期排在最前面——时间到了比版本更根本。 */
-  if (v.trial && v.exp && v.exp <= Date.now()) {
+  if (v.trial && v.exp && v.exp <= trustedNow()) {
     return t('tier.trialExpired', { date: new Date(v.exp).toLocaleDateString() });
   }
   if (v.trialBlock === 'outdated') {

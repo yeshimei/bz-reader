@@ -166,8 +166,12 @@ function trialHead(payload: LicensePayload, exp: number, now: number): string {
  * **只管签名与到期**：试用码「必须是最新版」的判定要联网拿线上版本，
  * 放在 data/entitlement 里做（那里才知道当前插件版本与最新版缓存）。
  * 这样验码本身保持纯离线，网络失败不会影响一枚真码的签名结论。
+ *
+ * `now` 由调用方传 `trustedNow()`：到期判定不能直接读系统时钟，
+ * 否则把时间往回拨就能让过期码一直「还没到」。默认值只给纯函数测试
+ * 与不关心时钟的调用方留一条退路。
  */
-export async function verifyLicense(code: string): Promise<LicenseCheck> {
+export async function verifyLicense(code: string, now: number = Date.now()): Promise<LicenseCheck> {
   if (!code.trim()) return { ok: false, reason: 'empty', message: t('license.empty') };
   if (!PUBKEY_SPKI_B64) {
     return { ok: false, reason: 'no-pubkey', message: t('license.noPubkey') };
@@ -189,7 +193,6 @@ export async function verifyLicense(code: string): Promise<LicenseCheck> {
       new Uint8Array(parsed.payloadBytes).buffer,
     );
     if (!ok) return { ok: false, reason: 'invalid', message: t('license.invalid') };
-    const now = Date.now();
     const exp = parsed.payload.exp ?? 0;
     if (exp && now > exp) {
       return { ok: false, reason: 'expired', message: t('license.expired', { date: dateText(exp) }) };
@@ -214,10 +217,9 @@ export async function verifyLicense(code: string): Promise<LicenseCheck> {
 }
 
 /** 设置页的授权状态行（不再单独判过期——状态由 entitlement 统一算） */
-export function licenseSummary(code: string): string {
+export function licenseSummary(code: string, now: number = Date.now()): string {
   const parsed = parseLicense(code);
   if (!parsed) return '';
-  const now = Date.now();
   const payload = parsed.payload;
   const exp = payload.exp ?? 0;
   if (exp && now > exp) return t('license.summaryExpired', { date: dateText(exp) });
